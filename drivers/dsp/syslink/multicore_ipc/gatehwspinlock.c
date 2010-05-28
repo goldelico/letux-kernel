@@ -101,9 +101,12 @@ static struct gatehwspinlock_module_object *gatehwspinlock_module =
  */
 void gatehwspinlock_get_config(struct gatehwspinlock_config *config)
 {
+	int *key = 0;
+
 	if (WARN_ON(config == NULL))
 		goto exit;
 
+	key = gate_enter_system();
 	if (atomic_cmpmask_and_lt(&(gatehwspinlock_module->ref_count),
 				GATEHWSPINLOCK_MAKE_MAGICSTAMP(0),
 				GATEHWSPINLOCK_MAKE_MAGICSTAMP(1)) == true)
@@ -112,6 +115,7 @@ void gatehwspinlock_get_config(struct gatehwspinlock_config *config)
 	else
 		memcpy(config, &gatehwspinlock_module->cfg,
 					sizeof(struct gatehwspinlock_config));
+	gate_leave_system(key);
 
 exit:
 	return;
@@ -242,12 +246,13 @@ void gatehwspinlock_params_init(struct gatehwspinlock_params *params)
 				GATEHWSPINLOCK_MAKE_MAGICSTAMP(0),
 				GATEHWSPINLOCK_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
-
 	if (WARN_ON(params == NULL))
 		goto exit;
 
+	gate_leave_system(key);
 	memcpy(params, &(gatehwspinlock_module->def_inst_params),
 				sizeof(struct gatehwspinlock_params));
+	return;
 
 exit:
 	gate_leave_system(key);
@@ -267,24 +272,28 @@ void *gatehwspinlock_create(enum igatempsupport_local_protect local_protect,
 	struct gatehwspinlock_object *obj = NULL;
 	s32 retval = 0;
 
-	BUG_ON(params == NULL);
 	if (atomic_cmpmask_and_lt(&(gatehwspinlock_module->ref_count),
 					GATEHWSPINLOCK_MAKE_MAGICSTAMP(0),
 				GATEHWSPINLOCK_MAKE_MAGICSTAMP(1)) == true) {
 		retval = -ENODEV;
 		goto exit;
 	}
-
+	if (WARN_ON(params == NULL)) {
+		retval = -EINVAL;
+		goto exit;
+	}
 	if (WARN_ON(params->shared_addr == NULL)) {
 		retval = -EINVAL;
 		goto exit;
 	}
 
-	obj = kmalloc(sizeof(struct gatehwspinlock_object), GFP_KERNEL);
+	obj = kzalloc(sizeof(struct gatehwspinlock_object), GFP_KERNEL);
 	if (obj == NULL) {
 		retval = -ENOMEM;
 		goto exit;
 	}
+
+	IGATEPROVIDER_OBJECTINITIALIZER(obj, gatehwspinlock);
 
 	/* Create the local gate */
 	obj->local_gate = gatemp_create_local(local_protect);
@@ -316,30 +325,28 @@ int gatehwspinlock_delete(void **gphandle)
 	struct gatehwspinlock_object *obj = NULL;
 	s32 retval;
 
-	BUG_ON(gphandle == NULL);
-	BUG_ON(*gphandle == NULL);
 	if (atomic_cmpmask_and_lt(&(gatehwspinlock_module->ref_count),
 				GATEHWSPINLOCK_MAKE_MAGICSTAMP(0),
 				GATEHWSPINLOCK_MAKE_MAGICSTAMP(1)) == true) {
 		retval = -ENODEV;
 		goto exit;
 	}
-
-	obj = (struct gatehwspinlock_object *)(*gphandle);
-	if (unlikely(obj == NULL)) {
+	if (WARN_ON(gphandle == NULL)) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(*gphandle == NULL)) {
 		retval = -EINVAL;
 		goto exit;
 	}
 
-	retval = gatemp_delete(&obj->local_gate);
+	obj = (struct gatehwspinlock_object *)(*gphandle);
 
-	if (unlikely(retval < 0)) {
-		retval = GATEHWSPINLOCK_E_FAIL;
-		goto exit;
-	}
+	/* No need to delete the local gate, as it is gatemp module wide
+	 * local mutex. */
 
 	kfree(obj);
-	*gphandle = 0;
+	*gphandle = NULL;
 
 	return 0;
 
@@ -363,21 +370,30 @@ int *gatehwspinlock_enter(void *gphandle)
 	VOLATILE u32 *base_addr = (VOLATILE u32 *)
 					gatehwspinlock_module->base_addr;
 
-	BUG_ON(gphandle == NULL);
 	if (WARN_ON(atomic_cmpmask_and_lt(&(gatehwspinlock_module->ref_count),
 				GATEHWSPINLOCK_MAKE_MAGICSTAMP(0),
 				GATEHWSPINLOCK_MAKE_MAGICSTAMP(1)) == true)) {
 		retval = -ENODEV;
 		goto exit;
 	}
+	if (WARN_ON(gphandle == NULL)) {
+		retval = -EINVAL;
+		goto exit;
+	}
 
 	obj = (struct gatehwspinlock_object *)gphandle;
 
 	/* Enter local gate */
-	key = igateprovider_enter(obj->local_gate);
+	/* Enter local gate */
+	if (obj->local_gate != NULL) {
+		retval = mutex_lock_interruptible(
+					(struct mutex *)obj->local_gate);
+		if (retval)
+			goto exit;
+	}
 
-	/* If the gate object has already been entered, return the
-							nested value */
+	/* If the gate object has already been entered, return the nested
+	 * value */
 	obj->nested++;
 	if (obj->nested > 1)
 		return key;
@@ -388,10 +404,11 @@ int *gatehwspinlock_enter(void *gphandle)
 			break;
 	}
 
-	return key;
-
 exit:
-	return 0;
+	if (retval < 0)
+		printk(KERN_ERR "gatehwspinlock_enter failed! status = 0x%x",
+			retval);
+	return key;
 }
 EXPORT_SYMBOL(gatehwspinlock_enter);
 
@@ -405,24 +422,31 @@ void gatehwspinlock_leave(void *gphandle, int *key)
 	struct gatehwspinlock_object *obj = NULL;
 	VOLATILE u32 *base_addr = (VOLATILE u32 *)
 					gatehwspinlock_module->base_addr;
+	s32 retval = 0;
 
 	if (WARN_ON(atomic_cmpmask_and_lt(&(gatehwspinlock_module->ref_count),
 				GATEHWSPINLOCK_MAKE_MAGICSTAMP(0),
-				GATEHWSPINLOCK_MAKE_MAGICSTAMP(1)) == true))
+				GATEHWSPINLOCK_MAKE_MAGICSTAMP(1)) == true)) {
+		retval = -ENODEV;
 		goto exit;
-
-	BUG_ON(gphandle == NULL);
+	}
+	if (WARN_ON(gphandle == NULL)) {
+		retval = -EINVAL;
+		goto exit;
+	}
 
 	obj = (struct gatehwspinlock_object *)gphandle;
-
 	obj->nested--;
-
 	/* Leave the spinlock if the leave() is not nested */
 	if (obj->nested == 0)
 		base_addr[obj->lock_num] = 0;
+	/* Leave local gate */
+	mutex_unlock(obj->local_gate);
 
-	igateprovider_leave(obj->local_gate, key);
 exit:
+	if (retval < 0)
+		printk(KERN_ERR "gatehwspinlock_leave failed! status = 0x%x",
+			retval);
 	return;
 }
 EXPORT_SYMBOL(gatehwspinlock_leave);
@@ -441,10 +465,7 @@ u32 gatehwspinlock_get_resource_id(void *handle)
 		retval = -ENODEV;
 		goto exit;
 	}
-
-	BUG_ON(handle == NULL);
-
-	if (handle == NULL) {
+	if (WARN_ON(handle == NULL)) {
 		retval = -EINVAL;
 		goto exit;
 	}
@@ -452,17 +473,21 @@ u32 gatehwspinlock_get_resource_id(void *handle)
 	obj = (struct gatehwspinlock_object *)handle;
 
 	return obj->lock_num;
+
 exit:
-	printk(KERN_ERR "gatehwspinlock_delete failed status: %x\n", retval);
+	printk(KERN_ERR "gatehwspinlock_get_resource_id failed status: %x\n",
+		retval);
 	return (u32)-1;
 }
+EXPORT_SYMBOL(gatehwspinlock_get_resource_id);
+
 /*
  * ======== gatehwspinlock_shared_memreq ========
  *  Purpose:
  *  This will give the amount of shared memory required
  *  for creation of each instance
  */
-u32 gatehwspinlock_shared_mem_req(const struct igatempsupport_params *params)
+u32 gatehwspinlock_shared_mem_req(const struct gatehwspinlock_params *params)
 {
 	return 0;
 }

@@ -21,27 +21,27 @@
 
 /* Utilities headers */
 #include <gatepeterson.h>
+#include <gatehwspinlock.h>
 /* Enable once ported - GateMPSupportNull may not be needed
 #include <_GateMPSupportNull.h>
 #include <GateMPSupportNull.h>
-#include <gatehwspinlock.h>
 */
 
-#if 0 /* Enable when SpinLock is available */
-#define gatemp_remote_system_proxy_params_init	gate_hwspinlock_params_init
+#if 1 /* Enable when SpinLock is available */
+#define gatemp_remote_system_proxy_params_init	gatehwspinlock_params_init
 #define gatemp_remote_custom1_proxy_params_init	gatepeterson_params_init
 #define gatemp_remote_custom2_proxy_params_init	gatepeterson_params_init
-#define gatemp_remote_system_proxy_create	gate_hwspinlock_create
+#define gatemp_remote_system_proxy_create	gatehwspinlock_create
 #define gatemp_remote_custom1_proxy_create	gatepeterson_create
 #define gatemp_remote_custom2_proxy_create	gatepeterson_create
-#define gatemp_remote_system_proxy_delete	gate_hwspinlock_delete
+#define gatemp_remote_system_proxy_delete	gatehwspinlock_delete
 #define gatemp_remote_custom1_proxy_delete	gatepeterson_delete
 #define gatemp_remote_custom2_proxy_delete	gatepeterson_delete
-#define gatemp_remote_system_proxy_params	struct gate_hwspinlock_params
+#define gatemp_remote_system_proxy_params	struct gatehwspinlock_params
 #define gatemp_remote_custom1_proxy_params	struct gatepeterson_params
 #define gatemp_remote_custom2_proxy_params	struct gatepeterson_params
 #define gatemp_remote_system_proxy_shared_mem_req	\
-						gate_hwspinlock_shared_mem_req
+						gatehwspinlock_shared_mem_req
 #define gatemp_remote_custom1_proxy_shared_mem_req	\
 						gatepeterson_shared_mem_req
 #define gatemp_remote_custom2_proxy_shared_mem_req	\
@@ -58,7 +58,7 @@
 #define gatemp_remote_system_proxy_handle	void *
 #define gatemp_remote_custom1_proxy_handle	void *
 #define gatemp_remote_custom2_proxy_handle	void *
-#define gatemp_remote_system_proxy_open_by_addr	gate_hwspinlock_open_by_addr
+#define gatemp_remote_system_proxy_open_by_addr	gatehwspinlock_open_by_addr
 #define gatemp_remote_custom1_proxy_open_by_addr	\
 						gatepeterson_open_by_addr
 #define gatemp_remote_custom2_proxy_open_by_addr	\

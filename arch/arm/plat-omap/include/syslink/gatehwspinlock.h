@@ -147,7 +147,7 @@ int *gatehwspinlock_enter(void *handle);
 void gatehwspinlock_leave(void *handle, int *key);
 
 /* Function to return the shared memory requirement for a single instance */
-u32 gatehwspinlock_shared_mem_req(const struct igatempsupport_params *params);
+u32 gatehwspinlock_shared_mem_req(const struct gatehwspinlock_params *params);
 
 /* Function to return the number of instances configured in the module. */
 u32 gatehwspinlock_get_num_instances(void);

@@ -30,9 +30,7 @@
 #include <platform.h>
 #include <gatemp.h>
 #include <gatepeterson.h>
-#if 0
-#include <gatehwspinlock.h>*/
-#endif
+#include <gatehwspinlock.h>
 #include <sharedregion.h>
 #include <listmp.h>
 #include <_listmp.h>
@@ -183,10 +181,8 @@ struct platform_config {
 	struct gatepeterson_config		gatepeterson_config;
 	/* gatepeterson_config parameter */
 
-#if 0
 	struct gatehwspinlock_config		gatehwspinlock_config;
 	/* gatehwspinlock parameter */
-#endif
 
 	struct sharedregion_config		sharedregion_config;
 	/* sharedregion_config parameter */
@@ -503,10 +499,8 @@ platform_get_config(struct platform_config *config)
 	/* get the gatepeterson default config */
 	gatepeterson_get_config(&config->gatepeterson_config);
 
-#if 0
 	/* get the gatehwspinlock default config */
 	gatehwspinlock_get_config(&config->gatehwspinlock_config);
-#endif
 
 	/* get the sharedregion default config */
 	sharedregion_get_config(&config->sharedregion_config);
@@ -555,6 +549,7 @@ platform_get_config(struct platform_config *config)
 	/*  get the ringiotransportshm default config */
 	ringiotransportshm_get_config(&config->ringiotransportshm_config);
 #endif
+
 exit:
 	if (status < 0)
 		printk(KERN_ERR "platform_get_config failed! status = 0x%x\n",
@@ -588,7 +583,8 @@ platform_override_config(struct platform_config *config)
 	strcpy(config->multiproc_config.name_list[2], "SysM3");
 	strcpy(config->multiproc_config.name_list[3], "MPU");
 
-	/* Override the gatepeterson default config */
+	/* Override the gate,p default config */
+	config->gatemp_config.num_resources = 64;
 
 	/* Override the Sharedregion default config */
 	config->sharedregion_config.cache_line_size = 128;
@@ -617,7 +613,6 @@ platform_override_config(struct platform_config *config)
 
 	/* Override the FrameQ default config */
 
-
 exit:
 	if (status < 0)
 		printk(KERN_ERR "platform_override_config failed! status "
@@ -636,9 +631,7 @@ platform_setup(void)
 	int status = PLATFORM_S_SUCCESS;
 	struct platform_config _config;
 	struct platform_config *config;
-#if 0
 	struct platform_mem_map_info m_info;
-#endif
 
 	platform_get_config(&_config);
 	config = &_config;
@@ -758,10 +751,9 @@ platform_setup(void)
 		}
 	}
 
-#if 0
 	/* Initialize GateHWSpinlock */
 	if (status >= 0) {
-		m_info.src  = 0x480CA800;
+		m_info.src  = 0x4A0F6000;
 		m_info.size = 0x1000;
 		m_info.is_cached = false;
 		status = platform_mem_map(&m_info);
@@ -769,20 +761,20 @@ platform_setup(void)
 			printk(KERN_ERR "platform_setup : platform_mem_map "
 				"failed [0x%x]\n", status);
 		} else {
-			config->gatehwspinlock_config.num_locks = 32;
-			config->gatehwspinlock_config.base_addr = m_info.dst;
+			config->gatehwspinlock_config.num_locks = 64;
+			config->gatehwspinlock_config.base_addr = \
+							m_info.dst + 0x800;
 			status = gatehwspinlock_setup(&config->
 							gatehwspinlock_config);
 			if (status < 0) {
 				printk(KERN_ERR "platform_setup : "
-				"gatehwspinlock_setup failed [0x%x]\n",
-				status);
+					"gatehwspinlock_setup failed [0x%x]\n",
+					status);
 			} else
 				platform_module->gatehwspinlock_init_flag =
 									true;
 		}
 	}
-#endif
 
 	/* Initialize MessageQ */
 	if (status >= 0) {
@@ -982,9 +974,7 @@ int
 platform_destroy(void)
 {
 	int status = PLATFORM_S_SUCCESS;
-#if 0
 	struct platform_mem_unmap_info u_info;
-#endif
 
 	/* Finalize Platform module*/
 	if (platform_module->platform_init_flag == true) {
@@ -1155,7 +1145,6 @@ platform_destroy(void)
 		}
 	}
 
-#if 0
 	/* Finalize GateHWSpinlock module */
 	if (platform_module->gatehwspinlock_init_flag == true) {
 		status = gatehwspinlock_destroy();
@@ -1167,7 +1156,7 @@ platform_destroy(void)
 			platform_module->gatehwspinlock_init_flag = false;
 		}
 
-		u_info.addr = 0x480CA800;
+		u_info.addr = 0x4A0F6000;
 		u_info.size = 0x1000;
 		u_info.is_cached = false;
 		status = platform_mem_unmap(&u_info);
@@ -1175,7 +1164,6 @@ platform_destroy(void)
 			printk(KERN_ERR "platform_destroy : platform_mem_unmap"
 						" failed [0x%x]\n", status);
 	}
-#endif
 
 	/* Finalize GateMP module */
 	if (platform_module->gatemp_init_flag == true) {
@@ -1265,7 +1253,6 @@ platform_destroy(void)
 			platform_module->platform_mem_init_flag = false;
 		}
 	}
-
 
 	if (status >= 0)
 		memset(platform_objects,
