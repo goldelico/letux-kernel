@@ -1,8 +1,14 @@
 /*
- * Generic panel support
+ * Toppoly TD028TTEC1 panel support
  *
  * Copyright (C) 2008 Nokia Corporation
  * Author: Tomi Valkeinen <tomi.valkeinen@nokia.com>
+ *
+ * Ported and adapted from Neo 1973 U-Boot by H. Nikolaus Schaller <hns@goldelico.com>
+ *
+ * Neo 1973 code (jbt6k74.c):
+ * Copyright (C) 2006-2007 by OpenMoko, Inc.
+ * Author: Harald Welte <laforge@openmoko.org>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -67,8 +73,7 @@ static int jbt_spi_xfer(int wordnum, int bitlen, u_int16_t *dout)
 	u_int16_t tmpdout = 0;
 	int   i, j;
 	
-	printk("jbt_spi_xfer: dout %08X wordnum %u bitlen %d\n",
-		   *(uint *)dout, wordnum, bitlen);
+//	printk("jbt_spi_xfer: dout %08X wordnum %u bitlen %d\n", *(uint *)dout, wordnum, bitlen);
 	
 	SPI_CS(0);
 	
@@ -144,7 +149,7 @@ int jbt_reg_init(void)
 	int failed=0;
 	int r;
 	
-	printk("jbt_reg_init()\n");
+//	printk("jbt_reg_init()\n");
 	
 	SPI_CS(1);	// unselect
 	SPI_SCL(1);	// inactive
@@ -172,7 +177,7 @@ int jbt_reg_init(void)
 			int bit=i&1;
 			SPI_SDA(bit);	// write bit
 			SPI_DELAY();
-#if 1
+#if 0
 			printk("bit: %d out: %d in: %d (%d)\n", bit, gpio_get_value(GPIO_DOUT), gpio_get_value(GPIO_DIN), SPI_READ());
 #endif
 			if(SPI_READ() != bit)	// did not read back correctly
@@ -185,7 +190,7 @@ int jbt_reg_init(void)
 		}
 #endif
 	
-	printk("did jbt_reg_init()\n");
+//	printk("did jbt_reg_init()\n");
 	return 0;
 }
 
@@ -246,7 +251,7 @@ static int td028ttec1_panel_probe(struct omap_dss_device *dssdev)
 {
 	int rc;
 	
-	printk("td028ttec1_panel_probe()\n");
+//	printk("td028ttec1_panel_probe()\n");
 	dssdev->panel.config = OMAP_DSS_LCD_TFT | OMAP_DSS_LCD_ONOFF | OMAP_DSS_LCD_IPC | OMAP_DSS_LCD_IVS | OMAP_DSS_LCD_IHS;
 	dssdev->panel.acb = 0x28;
 	dssdev->panel.timings = td028ttec1_panel_timings;
@@ -259,24 +264,29 @@ static int td028ttec1_panel_probe(struct omap_dss_device *dssdev)
 
 static void td028ttec1_panel_remove(struct omap_dss_device *dssdev)
 {
+//	printk("td028ttec1_panel_remove()\n");
 	// disable GPIOs?
 }
 
 static int td028ttec1_panel_suspend(struct omap_dss_device *dssdev)
-{
+{ // normal_to_sleep()
 	int rc;
 	
+//	printk("td028ttec1_panel_suspend()\n");
 	rc = jbt_reg_write_nodata(jbt, JBT_REG_DISPLAY_OFF);
 	rc |= jbt_reg_write16(jbt, JBT_REG_OUTPUT_CONTROL, 0x8002);
 	rc |= jbt_reg_write_nodata(jbt, JBT_REG_SLEEP_IN);
+	
+	// turn off backlight
 	
 	return rc ? -EIO : 0;
 }
 
 static int td028ttec1_panel_resume(struct omap_dss_device *dssdev)
-{
+{ // sleep_to_normal()
 	int rc;
 	
+//	printk("td028ttec1_panel_resume()\n");
 	/* RGB I/F on, RAM write off, QVGA through, SIGCON enable */
 	rc = jbt_reg_write(jbt, JBT_REG_DISPLAY_MODE, 0x80);
 	
@@ -346,29 +356,25 @@ static int td028ttec1_panel_resume(struct omap_dss_device *dssdev)
 	rc |= jbt_reg_write16(jbt, JBT_REG_HCLOCK_QVGA, 0x00ff);
 #endif
 	
+	jbt_reg_write_nodata(jbt, JBT_REG_DISPLAY_ON);
+	
+	// turn on backlight
+	
 	return rc ? -EIO : 0;
 }
 
 static int td028ttec1_panel_enable(struct omap_dss_device *dssdev)
 {
-	int r = 0;
+	int rc = 0;
 	
+//	printk("td028ttec1_panel_enable()\n");
 	if (dssdev->platform_enable)
-		r = dssdev->platform_enable(dssdev);	// enable e.g. power, backlight
-	
-	td028ttec1_panel_resume(dssdev);
-	
-	jbt_reg_write_nodata(jbt, JBT_REG_DISPLAY_ON);
-	
-	return r;
-}
+		rc = dssdev->platform_enable(dssdev);	// enable e.g. power, backlight
 
-static void td028ttec1_panel_disable(struct omap_dss_device *dssdev)
-{
-	int rc;
-	
-	if (dssdev->platform_disable)
-		dssdev->platform_disable(dssdev);
+	if(rc)
+		return rc;
+
+	// 1. standby_to_sleep()
 	
 	/* three times command zero */
 	rc = jbt_reg_write_nodata(jbt, 0x00);
@@ -381,7 +387,27 @@ static void td028ttec1_panel_disable(struct omap_dss_device *dssdev)
 	/* deep standby out */
 	rc |= jbt_reg_write(jbt, JBT_REG_POWER_ON_OFF, 0x17);
 	
-	jbt_reg_write_nodata(jbt, JBT_REG_DISPLAY_OFF);
+	// 2. sleep_to_normal()
+	
+	td028ttec1_panel_resume(dssdev);
+	
+	return rc ? -EIO : 0;
+}
+
+static void td028ttec1_panel_disable(struct omap_dss_device *dssdev)
+{
+	
+//	printk("td028ttec1_panel_disable()\n");
+	if (dssdev->platform_disable)
+		dssdev->platform_disable(dssdev);
+	
+	// 1. normal_to_sleep()
+	
+	td028ttec1_panel_suspend(dssdev);
+
+	// 2. sleep_to_standby()
+	
+	jbt_reg_write(jbt, JBT_REG_POWER_ON_OFF, 0x00);
 }
 
 static struct omap_dss_driver td028ttec1_driver = {
