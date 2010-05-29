@@ -12,7 +12,11 @@
  */
 
 #include <linux/err.h>
+#include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/device.h>
+#include <linux/file.h>
+#include <linux/poll.h>
 #include <linux/interrupt.h>
 #include <linux/ioport.h>
 #include <linux/clk.h>
@@ -23,6 +27,18 @@
 #include <plat/iommu.h>
 
 #include "iopgtable.h"
+
+
+#define for_each_iotlb_cr(obj, n, __i, cr)				\
+	for (__i = 0;							\
+	     (__i < (n)) && (cr = __iotlb_read_cr((obj), __i), true);	\
+	     __i++)
+#define OMAP_IOMMU_NAME "omap-iommu"
+
+static atomic_t		num_of_iommus;
+static struct class	*omap_iommu_class;
+static dev_t		omap_iommu_dev;
+
 
 /* accommodate the difference between omap1 and omap2/3 */
 static const struct iommu_functions *arch_iommu;
@@ -170,7 +186,6 @@ static void iotlb_lock_get(struct iommu *obj, struct iotlb_lock *l)
 
 	l->base = MMU_LOCK_BASE(val);
 	l->vict = MMU_LOCK_VICT(val);
-
 }
 
 static void iotlb_lock_set(struct iommu *obj, struct iotlb_lock *l)
@@ -872,6 +887,85 @@ void iommu_put(struct iommu *obj)
 }
 EXPORT_SYMBOL_GPL(iommu_put);
 
+struct omap_iommu_dev {
+	struct device *dev;
+	struct cdev cdev;
+	atomic_t count;
+	int state;
+	int minor;
+};
+
+static int omap_iommu_open(struct inode *inode, struct file *filp)
+{
+	int ret = 0;
+	struct iommu *obj;
+
+	obj = container_of(inode->i_cdev, struct iommu, cdev);
+	if (!obj->dev)
+		return -EINVAL;
+
+	filp->private_data = obj;
+	iommu_get(obj->name);
+
+	return ret;
+}
+
+static int omap_iommu_release(struct inode *inode, struct file *filp)
+{
+	struct iommu *obj;
+	obj = container_of(inode->i_cdev, struct iommu, cdev);
+	if (!obj->dev)
+		return -EINVAL;
+	iommu_put(obj);
+	return 0;
+}
+
+static int omap_iommu_ioctl(struct inode *inode, struct file *filp,
+				unsigned int cmd, unsigned long args)
+
+{
+	struct iommu *obj;
+	int ret = 0;
+
+	obj = filp->private_data;
+	if (!obj)
+		return -EINVAL;
+
+	if (_IOC_TYPE(cmd) != IOMMU_IOC_MAGIC)
+		return -ENOTTY;
+
+	switch (cmd) {
+	case IOMMU_IOCSETTLBENT:
+	{
+		struct iotlb_entry e;
+		int size;
+		if (!capable(CAP_SYS_ADMIN))
+			return -EPERM;
+		size = copy_from_user(&e, (void __user *)args,
+					sizeof(struct iotlb_entry));
+		if (size) {
+			ret = -EINVAL;
+			goto err_user_buf;
+		}
+		load_iotlb_entry(obj, &e);
+		break;
+	}
+	default:
+		return -ENOTTY;
+	}
+err_user_buf:
+	return ret;
+}
+
+
+static const struct file_operations omap_iommu_fops = {
+	.owner		=	THIS_MODULE,
+	.open		=	omap_iommu_open,
+	.release	=	omap_iommu_release,
+	.ioctl		=	omap_iommu_ioctl,
+};
+
+
 /*
  *	OMAP Device MMU(IOMMU) detection
  */
@@ -883,6 +977,9 @@ static int __devinit omap_iommu_probe(struct platform_device *pdev)
 	struct iommu *obj;
 	struct resource *res;
 	struct iommu_platform_data *pdata = pdev->dev.platform_data;
+	int major, minor;
+	struct device *tmpdev;
+	int ret = 0;
 
 	if (pdev->num_resources != 2)
 		return -EINVAL;
@@ -948,8 +1045,42 @@ static int __devinit omap_iommu_probe(struct platform_device *pdev)
 	BUG_ON(!IS_ALIGNED((unsigned long)obj->iopgd, IOPGD_TABLE_SIZE));
 
 	dev_info(&pdev->dev, "%s registered\n", obj->name);
+
+	major = MAJOR(omap_iommu_dev);
+	minor = atomic_read(&num_of_iommus);
+	atomic_inc(&num_of_iommus);
+
+	obj->minor = minor;
+
+	cdev_init(&obj->cdev, &omap_iommu_fops);
+	obj->cdev.owner = THIS_MODULE;
+	ret = cdev_add(&obj->cdev, MKDEV(major, minor), 1);
+	if (ret) {
+		dev_err(&pdev->dev, "%s: cdev_add failed: %d\n", __func__, ret);
+		goto err_cdev;
+	}
+
+	tmpdev = device_create(omap_iommu_class, NULL,
+				MKDEV(major, minor),
+				NULL,
+				OMAP_IOMMU_NAME "%d", minor);
+	if (IS_ERR(tmpdev)) {
+		ret = PTR_ERR(tmpdev);
+		pr_err("%s: device_create failed: %d\n", __func__, ret);
+		goto clean_cdev;
+	}
+
+	pr_info("%s initialized %s, major: %d, base-minor: %d\n",
+			OMAP_IOMMU_NAME,
+			pdata->name,
+			MAJOR(omap_iommu_dev),
+			minor);
+
 	return 0;
 
+clean_cdev:
+	cdev_del(&obj->cdev);
+err_cdev:
 err_pgd:
 	free_irq(irq, obj);
 err_irq:
@@ -967,6 +1098,10 @@ static int __devexit omap_iommu_remove(struct platform_device *pdev)
 	int irq;
 	struct resource *res;
 	struct iommu *obj = platform_get_drvdata(pdev);
+	int major = MAJOR(omap_iommu_dev);
+
+	device_destroy(omap_iommu_class, MKDEV(major, obj->minor));
+	cdev_del(&obj->cdev);
 
 	platform_set_drvdata(pdev, NULL);
 
@@ -998,11 +1133,13 @@ static void iopte_cachep_ctor(void *iopte)
 	clean_dcache_area(iopte, IOPTE_TABLE_SIZE);
 }
 
+
 static int __init omap_iommu_init(void)
 {
 	struct kmem_cache *p;
 	const unsigned long flags = SLAB_HWCACHE_ALIGN;
 	size_t align = 1 << 10; /* L2 pagetable alignement */
+	int ret, num;
 
 	p = kmem_cache_create("iopte_cache", IOPTE_TABLE_SIZE, align, flags,
 			      iopte_cachep_ctor);
@@ -1010,7 +1147,28 @@ static int __init omap_iommu_init(void)
 		return -ENOMEM;
 	iopte_cachep = p;
 
+	num = iommu_get_plat_data_size();
+	ret = alloc_chrdev_region(&omap_iommu_dev, 0, num, OMAP_IOMMU_NAME);
+
+	if (ret) {
+		pr_err("%s: alloc_chrdev_region failed: %d\n", __func__, ret);
+		goto out;
+	}
+
+	omap_iommu_class = class_create(THIS_MODULE, OMAP_IOMMU_NAME);
+	if (IS_ERR(omap_iommu_class)) {
+		ret = PTR_ERR(omap_iommu_class);
+		pr_err("%s: class_create failed: %d\n", __func__, ret);
+		goto unreg_region;
+	}
+	atomic_set(&num_of_iommus, 0);
+
 	return platform_driver_register(&omap_iommu_driver);
+
+unreg_region:
+	unregister_chrdev_region(omap_iommu_dev, num);
+out:
+	return ret;
 }
 module_init(omap_iommu_init);
 

@@ -13,6 +13,9 @@
 #ifndef __MACH_IOMMU_H
 #define __MACH_IOMMU_H
 
+#include <linux/device.h>
+#include <linux/cdev.h>
+
 struct iotlb_entry {
 	u32 da;
 	u32 pa;
@@ -50,6 +53,8 @@ struct iommu {
 	int (*isr)(struct iommu *obj);
 
 	void *ctx; /* iommu context: registres saved area */
+	struct cdev cdev;
+	int minor;
 };
 
 struct cr_regs {
@@ -104,6 +109,11 @@ struct iommu_platform_data {
 	const char *clk_name;
 	const int nr_tlb_entries;
 };
+
+#define IOMMU_IOC_MAGIC		'I'
+
+#define IOMMU_IOCSETTLBENT	_IO(IOMMU_IOC_MAGIC, 0)
+
 
 #if defined(CONFIG_ARCH_OMAP1)
 #error "iommu for this processor not implemented yet"
@@ -167,4 +177,5 @@ extern int foreach_iommu_device(void *data,
 extern ssize_t iommu_dump_ctx(struct iommu *obj, char *buf, ssize_t len);
 extern size_t dump_tlb_entries(struct iommu *obj, char *buf, ssize_t len);
 
+extern int iommu_get_plat_data_size(void);
 #endif /* __MACH_IOMMU_H */

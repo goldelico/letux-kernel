@@ -88,6 +88,16 @@ static struct platform_device *omap4_iommu_pdev[NR_OMAP4_IOMMU_DEVICES];
 
 static struct platform_device **omap_iommu_pdev;
 
+int iommu_get_plat_data_size()
+{
+	return num_iommu_devices;
+}
+
+struct iommu_device *iommu_get_device_data(void)
+{
+	return devices;
+}
+
 static int __init omap_iommu_init(void)
 {
 	int i, err;
