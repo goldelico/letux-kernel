@@ -244,16 +244,20 @@ static struct omap_dss_device beagle_dvi_device = {
 
 static int beagle_enable_lcd(struct omap_dss_device *dssdev)
 {
-	gpio_set_value(170, 0);	// DVI off
-//	gpio_set_value(145, 1);
 	printk("beagle_enable_lcd()\n");
 	// whatever we need, e.g. enable power
+	gpio_set_value(170, 0);	// DVI off
+	gpio_set_value(145, 1);	// enable backlight
+	gpio_set_value(79, 0);	// disable green power led
 	return 0;
 }
 
 static void beagle_disable_lcd(struct omap_dss_device *dssdev)
 {
-//	gpio_set_value(145, 0);
+	printk("beagle_disable_lcd()\n");
+	// whatever we need, e.g. disable power
+	gpio_set_value(145, 0);	// shut down backlight
+	gpio_set_value(79, 1);	// show green power led
 }
 
 static struct omap_dss_device beagle_lcd_device = {
@@ -414,12 +418,13 @@ static int beagle_twl_gpio_setup(struct device *dev,
 	/* TWL4030_GPIO_MAX + 1 == ledB, PMU_STAT (out, active low LED) */
 	gpio_leds[2].gpio = gpio + TWL4030_GPIO_MAX + 1;
 
-#if 1	// for Openmoko Beagle Hybrid - should have been done by u-boot
+#if 1	// for Openmoko Beagle Hybrid - should have been done by u-boot - but is not reliable
 	omap_mux_init_gpio(158, OMAP_PIN_OUTPUT);
 	omap_mux_init_gpio(159, OMAP_PIN_INPUT);	// neither PUP nor PDN
 	omap_mux_init_gpio(161, OMAP_PIN_OUTPUT);
 	omap_mux_init_gpio(162, OMAP_PIN_OUTPUT);
 	omap_mux_init_gpio(145, OMAP_PIN_OUTPUT);	// backlight
+	omap_mux_init_gpio(145, OMAP_PIN_INPUT);	// ext ant sensor (GPS) - neither PUP nor PDN
 #endif
 		
 	return 0;
