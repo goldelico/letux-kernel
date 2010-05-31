@@ -594,6 +594,9 @@ void __init twl4030_mmc_init(struct twl4030_hsmmc_info *controllers)
 				&omap_wifi_status_register;
 			mmc->slots[0].card_detect = &omap_wifi_status;
 		}
+#elif defined(CONFIG_TIWLAN_SDIO)
+		if (c->mmc == CONFIG_TIWLAN_MMC_CONTROLLER)
+			mmc->name = "TIWLAN_SDIO";
 #endif
 		mmc->slots[0].name = twl->name;
 		mmc->nr_slots = 1;
@@ -684,6 +687,9 @@ void __init twl4030_mmc_init(struct twl4030_hsmmc_info *controllers)
 			/* off-chip level shifting, or none */
 			mmc->slots[0].set_power = twl_mmc23_set_power;
 			mmc->slots[0].set_sleep = twl_mmc23_set_sleep;
+#ifdef CONFIG_MMC_EMBEDDED_SDIO
+			mmc->slots[0].ocr_mask  = MMC_VDD_165_195;
+#endif
 			break;
 		case 4:
 		case 5:

@@ -204,6 +204,12 @@ static struct twl4030_hsmmc_info mmc[] __initdata = {
 		.nonremovable	= true,
 		.power_saving	= true,
 	},
+	{
+		.mmc		= 3,
+		.wires		= 4,
+		.gpio_wp	= -EINVAL,
+		.gpio_cd	= -EINVAL,
+	},
 	{}      /* Terminator */
 };
 
@@ -212,6 +218,15 @@ static int zoom_twl_gpio_setup(struct device *dev,
 {
 	/* gpio + 0 is "mmc0_cd" (input/IRQ) */
 	mmc[0].gpio_cd = gpio + 0;
+
+#ifdef CONFIG_MMC_EMBEDDED_SDIO
+	/* The controller that is connected to the 128x device
+	 * should have the card detect gpio disabled. This is
+	 * achieved by initializing it with a negative value
+	 */
+	mmc[CONFIG_TIWLAN_MMC_CONTROLLER - 1].gpio_cd = -EINVAL;
+#endif
+
 	twl4030_mmc_init(mmc);
 
 	/* link regulators to MMC adapters ... we "know" the
