@@ -34,6 +34,8 @@
 #include <linux/i2c/twl.h>
 #include <linux/i2c/tsc2007.h>
 
+#include <linux/i2c/bmp085.h>
+
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -633,6 +635,46 @@ struct tsc2007_platform_data tsc2007_info = {
 
 #endif
 
+
+#ifdef CONFIG_BMP085
+
+#define BMP085_EOC_IRQ_GPIO		113	/* BMP085 end of conversion GPIO */
+
+static int __init bmp085_init(void)
+{
+	printk("bmp085_init()\n");
+	omap_mux_init_gpio(BMP085_EOC_IRQ_GPIO, OMAP_PIN_INPUT_PULLUP);
+	if (gpio_request(BMP085_EOC_IRQ_GPIO, "bmp085_eoc_irq")) {
+		printk(KERN_ERR "Failed to request GPIO %d for "
+			   "BMP085 EOC IRQ\n", BMP085_EOC_IRQ_GPIO);
+		return  -ENODEV;
+	}
+	
+	if (gpio_direction_input(BMP085_EOC_IRQ_GPIO)) {
+		printk(KERN_WARNING "GPIO#%d cannot be configured as "
+			   "input\n", BMP085_EOC_IRQ_GPIO);
+		return -ENXIO;
+	}
+//	gpio_export(TS_PENIRQ_GPIO, 0);
+	omap_set_gpio_debounce(BMP085_EOC_IRQ_GPIO, 1);
+	omap_set_gpio_debounce_time(BMP085_EOC_IRQ_GPIO, 0xa);
+	set_irq_type(OMAP_GPIO_IRQ(BMP085_EOC_IRQ_GPIO), IRQ_TYPE_EDGE_FALLING);
+	return 0;
+}
+
+static void bmp085_exit(void)
+{
+	gpio_free(BMP085_EOC_IRQ_GPIO);
+}
+
+struct bmp085_platform_data bmp085_info = {
+	.init_platform_hw	= bmp085_init,
+	.exit_platform_hw	= bmp085_exit,
+};
+
+#endif
+
+
 #if defined(CONFIG_EEPROM_AT24) || defined(CONFIG_EEPROM_AT24_MODULE)
 #include <linux/i2c/at24.h>
 
@@ -679,7 +721,7 @@ static struct i2c_board_info __initdata beagle_i2c2_boardinfo[] = {
 	I2C_BOARD_INFO("bmp085", 0x77),
 	.type		= "bmp085",
 	.platform_data	= &bmp085_info,
-	.irq		=  -EINVAL,
+	.irq		=  OMAP_GPIO_IRQ(BMP085_EOC_IRQ_GPIO),
 },
 #endif
 #ifdef CONFIG_LIS302
