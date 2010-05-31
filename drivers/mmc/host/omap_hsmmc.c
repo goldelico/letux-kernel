@@ -1378,7 +1378,6 @@ static void omap_hsmmc_status_notify_cb(int card_present, void *dev_id)
 	if (carddetect) {
 		mmc_detect_change(host->mmc, (HZ * 200) / 1000);
 	} else {
-		omap_hsmmc_reset_controller_fsm(host, SRD);
 		mmc_detect_change(host->mmc, (HZ * 50) / 1000);
 	}
 }
