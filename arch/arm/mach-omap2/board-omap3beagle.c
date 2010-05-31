@@ -24,6 +24,7 @@
 #include <linux/irq.h>
 #include <linux/input.h>
 #include <linux/gpio_keys.h>
+#include <linux/backlight.h>
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
@@ -319,6 +320,31 @@ static struct platform_device beagle_dss_device = {
 		.platform_data = &beagle_dss_data,
 	},
 };
+
+static void beagle_set_bl_intensity(int intensity)
+{
+	// control PWM_10
+	// use 500 Hz pulse and intensity 0..255
+}
+
+static struct generic_bl_info beagle_bl_platform_data = {
+	.name			= "bklight",
+	.max_intensity		= 255,
+	.default_intensity	= 200,
+	.limit_mask		= 0,
+	.set_bl_intensity	= beagle_set_bl_intensity,
+	.kick_battery		= NULL,
+};
+
+static struct platform_device beagle_bklight_device = {
+	.name		= "generic-bl",
+	.id			= -1,
+	.dev		= {
+		.parent		= &beagle_dss_device.dev,
+		.platform_data	= &beagle_bl_platform_data,
+	},
+};
+
 
 static struct regulator_consumer_supply beagle_vdac_supply = {
 	.supply		= "vdda_dac",
@@ -795,6 +821,7 @@ static struct platform_device *omap3_beagle_devices[] __initdata = {
 	&leds_gpio,
 	&keys_gpio,
 	&beagle_dss_device,
+	&beagle_bklight_device,
 };
 
 static void __init omap3beagle_flash_init(void)
@@ -901,6 +928,7 @@ static void __init omap3_beagle_init(void)
 	gpio_direction_input(137);
 	gpio_export(137, 0);	// no direction change
 	
+//	omap_mux_init_signal("gpio138", OMAP_PIN_INPUT);	// gpio 138 - with no pullup/pull-down
 	gpio_request(138, "EXT_ANT");
 	gpio_direction_input(138);
 	gpio_export(138, 0);	// no direction change
