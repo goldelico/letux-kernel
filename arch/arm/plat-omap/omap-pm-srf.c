@@ -222,17 +222,6 @@ void omap_pm_dsp_set_min_opp(struct device *dev, unsigned long f)
 
 	opp_id = get_opp_id(dsp_opps + MAX_VDD1_OPP, f);
 
-	if (cpu_is_omap3630()) {
-		/*
-		 * check if OPP requested is 520 or above if yes set
-		 * max opp to 4
-		 */
-		if (opp_id >= VDD1_OPP2)
-			omap_pm_vdd1_set_max_opp(dev, MAX_VDD1_OPP - 1);
-		else if (opp_id < VDD1_OPP2)
-			omap_pm_vdd1_set_max_opp(dev, 0);
-	}
-
 	/*
 	 * For now pass a dummy_dev struct for SRF to identify the caller.
 	 * Maybe its good to have DSP pass this as an argument
@@ -411,11 +400,11 @@ u8 omap_pm_get_max_vdd1_opp()
 		switch (omap_rev_id()) {
 		case OMAP_3630:
 		default:
-			return VDD1_OPP5;
-		case OMAP_3630_800:
 			return VDD1_OPP4;
+		case OMAP_3630_800:
+			return VDD1_OPP3;
 		case OMAP_3630_1000:
-			return VDD1_OPP5;
+			return VDD1_OPP4;
 		}
 	} else {
 		if (omap_rev() < OMAP3430_REV_ES3_1)
