@@ -31,6 +31,7 @@ struct omap_opp {
 	unsigned long rate;
 	u8 opp_id;
 	u16 vsel;
+	u16 sr_adjust_vsel;
 };
 
 extern struct omap_opp *mpu_opps;
