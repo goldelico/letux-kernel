@@ -93,7 +93,7 @@ config MACH_OMAP3_PANDORA
 
 config WIFI_CONTROL_FUNC
         bool "Enable WiFi control function abstraction"
-	depends on MACH_OMAP_ZOOM2 || MACH_SHOLES || MACH_OMAP_4430SDP
+	depends on MACH_OMAP_ZOOM2 || MACH_SHOLES || MACH_OMAP_4430SDP || MACH_OMAP_ZOOM3
         help
           Enables Power/Reset/Carddetect function abstraction
 
