@@ -118,7 +118,7 @@ static char *usb_functions_all[] = {
 	"acm",
 #endif
 #ifdef CONFIG_USB_ANDROID_RNDIS
-	"rndis"
+	"rndis",
 #endif
 };
 
@@ -155,10 +155,30 @@ static struct platform_device androidusb_device = {
 	},
 };
 
+#ifdef CONFIG_USB_ANDROID_RNDIS
+static struct usb_ether_platform_data rndis_pdata = {
+	/* ethaddr is filled by board_serialno_setup */
+	.vendorID       = OMAP_VENDOR_ID,
+	.vendorDescr    = "TI",
+	};
+
+static struct platform_device rndis_device = {
+	.name   = "rndis",
+	.id     = -1,
+	.dev    = {
+		.platform_data = &rndis_pdata,
+	},
+};
+#endif
+
 static void usb_gadget_init(void)
 {
 	unsigned int val[4];
 	unsigned int reg;
+#ifdef CONFIG_USB_ANDROID_RNDIS
+	int i;
+	char *src;
+#endif
 	reg = DIE_ID_REG_BASE + DIE_ID_REG_OFFSET;
 
 	if (cpu_is_omap44xx()) {
@@ -174,6 +194,20 @@ static void usb_gadget_init(void)
 	}
 
 	snprintf(device_serial, MAX_USB_SERIAL_NUM, "%08X%08X%08X%08X", val[3], val[2], val[1], val[0]);
+
+#ifdef CONFIG_USB_ANDROID_RNDIS
+	/* create a fake MAC address from our serial number.
+	 * first byte is 0x02 to signify locally administered.
+	 */
+	rndis_pdata.ethaddr[0] = 0x02;
+	src = device_serial;
+	for (i = 0; *src; i++) {
+		/* XOR the USB serial across the remaining bytes */
+		rndis_pdata.ethaddr[i % (ETH_ALEN - 1) + 1] ^= *src++;
+	}
+
+	platform_device_register(&rndis_device);
+#endif
 
 	platform_device_register(&androidusb_device);
 }
