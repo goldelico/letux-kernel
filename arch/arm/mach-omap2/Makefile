@@ -135,6 +135,7 @@ obj-$(CONFIG_MACH_OMAP_ZOOM3)		+= board-zoom3.o \
 					   board-zoom2-camera.o \
 					   board-zoom-panel.o \
 					   mmc-twl4030.o \
+					   board-zoom2-wifi.o \
 					   board-zoom-debugboard.o \
 					   board-connectivity.o
 obj-$(CONFIG_MACH_OMAP_3630SDP)		+= board-3630sdp.o \
