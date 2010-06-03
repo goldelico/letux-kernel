@@ -119,8 +119,23 @@ unsigned get_last_off_on_transaction_id(struct device *dev)
 	struct omap_device *odev = to_omap_device(pdev);
 	struct powerdomain *pwrdm;
 
+	/*
+	 * REVISIT complete hwmod implementation is not yet done for OMAP3
+	 * So we are using basic clockframework for OMAP3
+	 * for OMAP4 we continue using hwmod framework
+	 */
 	if (odev) {
-		pwrdm = omap_device_get_pwrdm(odev);
+		if (cpu_is_omap44xx())
+			pwrdm = omap_device_get_pwrdm(odev);
+		else {
+			if (!strcmp(pdev->name, "omapdss"))
+				pwrdm = pwrdm_lookup("dss_pwrdm");
+			else if (!strcmp(pdev->name, "musb_hdrc"))
+				pwrdm = pwrdm_lookup("core_pwrdm");
+			else
+				return 0;
+		}
+
 		if (pwrdm)
 			return pwrdm->state_counter[0];
 	}
