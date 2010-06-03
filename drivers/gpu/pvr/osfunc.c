@@ -2518,6 +2518,14 @@ IMG_VOID OSFlushMemAreas(IMG_VOID)
 }
 #endif
 
+#if defined(__arm__)
+void per_cpu_cache_flush_arm(void *arg)
+{
+    PVR_UNREFERENCED_PARAMETER(arg);
+    flush_cache_all();
+}
+#endif
+
 #if defined(SUPPORT_CPU_CACHED_BUFFERS) || defined(SUPPORT_CACHEFLUSH_ON_ALLOC)
 
 #if defined(__i386__)
@@ -2525,13 +2533,6 @@ static void per_cpu_cache_flush(void *arg)
 {
     PVR_UNREFERENCED_PARAMETER(arg);
     wbinvd();
-}
-#endif
-
-#if defined(__arm__)
-static void per_cpu_cache_flush_arm(void *arg)
-{
-    flush_cache_all();
 }
 #endif
 

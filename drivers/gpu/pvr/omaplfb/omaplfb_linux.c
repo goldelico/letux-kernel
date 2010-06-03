@@ -69,6 +69,14 @@
 
 MODULE_SUPPORTED_DEVICE(DEVNAME);
 
+#if defined(__arm__)
+static void per_cpu_cache_flush_arm(void *arg)
+{
+    PVR_UNREFERENCED_PARAMETER(arg);
+    flush_cache_all();
+}
+#endif
+
 /*
  * Kernel malloc
  * in: ui32ByteSize
@@ -89,14 +97,15 @@ void *OMAPLFBAllocKernelMem(unsigned long ui32ByteSize)
 		return 0;
 
 #if defined(CONFIG_OUTER_CACHE)  /* Kernel config option */
-	/* TODO: Workaround for cache silicon issue, must be removed when solved */
-	flush_cache_all();
 	ui32PageOffset = (IMG_UINT32) p & (HOST_PAGESIZE - 1);
 	ui32PageCount = HOST_PAGEALIGN(ui32ByteSize + ui32PageOffset) / HOST_PAGESIZE;
 
 	pvPageAlignedCPUVAddr = (IMG_VOID *)((IMG_UINT8 *)p - ui32PageOffset);
 	pvPageAlignedCPUPAddr = (IMG_VOID*) __pa(pvPageAlignedCPUVAddr);
 
+#if defined(__arm__)
+      on_each_cpu(per_cpu_cache_flush_arm, NULL, 1);
+#endif
 	outer_cache.flush_range((unsigned long) pvPageAlignedCPUPAddr, (unsigned long) ((pvPageAlignedCPUPAddr + HOST_PAGESIZE*ui32PageCount) - 1));
 #endif
 	return p;

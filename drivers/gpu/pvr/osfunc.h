@@ -94,6 +94,10 @@ IMG_VOID OSFlushOuterCache(IMG_VOID *p, IMG_UINT32 ui32ByteSize, MEM_ALLOC_TYPE 
 IMG_VOID OSFlushMemAreas(IMG_VOID);
 #endif
 
+#if defined(__arm__)
+void per_cpu_cache_flush_arm(void *arg);
+#endif
+
 #if defined(SUPPORT_CPU_CACHED_BUFFERS) || defined(SUPPORT_CACHEFLUSH_ON_ALLOC)
 IMG_VOID OSFlushCPUCacheKM(IMG_VOID);
 IMG_VOID OSFlushCPUCacheRangeKM(IMG_VOID *pvRangeAddrStart,

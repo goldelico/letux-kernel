@@ -373,7 +373,9 @@ _KMallocWrapper(IMG_UINT32 ui32ByteSize, IMG_CHAR *pszFileName, IMG_UINT32 ui32L
     IMG_VOID *pvRet;
     pvRet = kmalloc(ui32ByteSize, GFP_KERNEL);
 #if defined(CONFIG_OUTER_CACHE)  /* Kernel config option */
-    flush_cache_all();
+#if defined(__arm__)
+      on_each_cpu(per_cpu_cache_flush_arm, NULL, 1);
+#endif
 
     if(pvRet)
 	OSFlushOuterCache(pvRet, ui32ByteSize, MEM_ALLOC_TYPE_KMALLOC);
@@ -581,7 +583,11 @@ _VMallocWrapper(IMG_UINT32 ui32Bytes,
     pvRet = __vmalloc(ui32Bytes, GFP_KERNEL | __GFP_HIGHMEM, PGProtFlags);
     
 #if defined(CONFIG_OUTER_CACHE)  /* Kernel config option */
-	flush_cache_all();
+
+#if defined(__arm__)
+    on_each_cpu(per_cpu_cache_flush_arm, NULL, 1);
+#endif
+
     if(pvRet)
 	OSFlushOuterCache(pvRet, ui32Bytes, MEM_ALLOC_TYPE_VMALLOC);
 
@@ -751,9 +757,9 @@ _IORemapWrapper(IMG_CPU_PHYADDR BasePAddr,
             return NULL;
     }
 #if defined(CONFIG_OUTER_CACHE)  /* Kernel config option */
-	flush_cache_all();
-
-/* Is this really needed? Doesn't hurt */
+#if defined(__arm__)
+      on_each_cpu(per_cpu_cache_flush_arm, NULL, 1);
+#endif
 	OSFlushOuterCache((IMG_VOID *) BasePAddr.uiAddr, ui32Bytes, MEM_ALLOC_TYPE_IOREMAP);
 #endif
     
@@ -1021,9 +1027,12 @@ NewAllocPagesLinuxMemArea(IMG_UINT32 ui32Bytes, IMG_UINT32 ui32AreaFlags)
             goto failed_alloc_pages;
         }
 #if defined(CONFIG_OUTER_CACHE)  /* Kernel config option */
-	else
-		/* OSAllocMem above would've made a flush_cache_all */
-		OSFlushOuterCache(pvPageList[i], 0, MEM_ALLOC_TYPE_ALLOC_PAGES);
+	else {
+#if defined(__arm__)
+          on_each_cpu(per_cpu_cache_flush_arm, NULL, 1);
+#endif
+          OSFlushOuterCache(pvPageList[i], 0, MEM_ALLOC_TYPE_ALLOC_PAGES);
+        }
 #endif
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,15))
     	
@@ -1191,7 +1200,9 @@ _KMemCacheAllocWrapper(LinuxKMemCache *psCache,
     pvRet = kmem_cache_alloc(psCache, Flags);
 
 #if defined(CONFIG_OUTER_CACHE)  /* Kernel config option */
-    flush_cache_all();
+#if defined(__arm__)
+    on_each_cpu(per_cpu_cache_flush_arm, NULL, 1);
+#endif
 
     if(pvRet)
 	OSFlushOuterCache(pvRet, kmem_cache_size(psCache), MEM_ALLOC_TYPE_KMEM_CACHE);
