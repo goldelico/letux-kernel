@@ -103,7 +103,7 @@ static void __init usb_musb_pm_init(void)
 
 #define MAX_USB_SERIAL_NUM		33
 #define OMAP_VENDOR_ID  		0x0451
-#define OMAP_PRODUCT_ID 		0xffff
+#define OMAP_PRODUCT_ID 		0xfffe
 
 static char device_serial[MAX_USB_SERIAL_NUM];
 
