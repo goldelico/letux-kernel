@@ -21,96 +21,49 @@
 #include <linux/module.h>
 
 
-/* Utilities & Osal headers */
-/*#include <Gate.h>
-#include <GateMutex.h>
-#include <Memory.h>*/
 
 /* SysLink device specific headers */
 #include "../procmgr/proc4430/proc4430.h"
 
 /* Module level headers */
 #include <multiproc.h>
-#include <sysmgr.h>
-#include <_sysmgr.h>
-#include <sysmemmgr.h>
 #include <platform.h>
+#include <gatemp.h>
 #include <gatepeterson.h>
+#if 0
+#include <gatehwspinlock.h>*/
+#endif
 #include <sharedregion.h>
 #include <listmp.h>
+#include <_listmp.h>
+#include <heap.h>
+#include <heapbufmp.h>
+#include <heapmemmp.h>
 #include <messageq.h>
-#include <messageq_transportshm.h>
+#include <transportshm.h>
 #include <notify.h>
-/*#include <NotifyDriver.h>*/
+#include <ipc.h>
+
 #include <notify_ducatidriver.h>
 #include <nameserver.h>
 #include <nameserver_remote.h>
 #include <nameserver_remotenotify.h>
 #include <procmgr.h>
-#include <heap.h>
-#include <heapbuf.h>
 
 #include <platform_mem.h>
 
+
+/** ============================================================================
+ *  Macros.
+ *  ============================================================================
+ */
+#define RESETVECTOR_SYMBOL          "_Ipc_ResetVector"
 
 /** ============================================================================
  *  Application specific configuration, please change these value according to
  *  your application's need.
  *  ============================================================================
  */
-/* App defines */
-
-/* SYSM3 Heap */
-#define SYSM3HEAPID				0
-#define SYSM3HEAPNAME			"SysMgrHeap0"
-
-/* APPM3 Heap */
-#define APPM3HEAPID				1
-#define APPM3HEAPNAME			"SysMgrHeap1"
-
-
-/*!
- *  @brief  Interrupt ID of physical interrupt handled by the Notify driver to
- *		  receive events.
- */
-#define BASE_DUCATI2ARM_INTID		26
-
-/*!
- *  @brief  Interrupt ID of physical interrupt handled by the Notify driver to
- *		  send events.
- */
-#define BASE_ARM2DUCATI_INTID		50
-
-/*!
- *  @brief Maximum events supported by Notify component
- */
-#define NOTIFY_MAX_EVENTS		32
-
-/*!
- *  @brief Number of event reserved i.e. can not be used by application
- */
-#define NOTIFY_NUMRESERVEDEVENTS	0
-
-/*!
- *  @brief Wait for this much poll count when sending event
- */
-#define NOTIFY_SENDEVENTPOLLCOUNT	0xfffff
-
-/*!
- *  @brief Align buffer in Heap
- */
-#define HEAPBUF_ALIGN			128
-
-/*!
- *  @brief Number of blocks in the heap
- */
-#define HEAPBUF_NUMBLOCKS		16
-
-/*!
- *  @brief Size of each blocks in heap
- */
-#define HEAPBUF_BLOCKSIZE		256
-
 /*! @brief Start of IPC shared memory */
 #define SHAREDMEMORY_PHY_BASEADDR	CONFIG_DUCATI_BASEIMAGE_PHYS_ADDR
 #define SHAREDMEMORY_PHY_BASESIZE	0x00100000
@@ -147,115 +100,11 @@
 #define SHAREDMEMORY_SWDMM_SLV_VRT_BASEADDR	0x81300000
 #define SHAREDMEMORY_SWDMM_SLV_VRT_BASESIZE	0x00C00000
 
-/*!
- *  @brief  Size of the shared memory heap, this heap is used for providing
- * shared memory to drivers/instances. Should not be used for any other purpose.
- */
-#define SMHEAP_SIZE			SHAREDMEMORY_PHY_BASESIZE
-
-/*!
- *  @brief  Shared region index for Shared memory heap.
- */
-#define SMHEAP_SRINDEX		0
-
-/*!
- *  @brief  Shared region index for Shared memory heap for SysM3.
- */
-#define SMHEAP_SRINDEX_SYSM3	0
-
-/*!
- *  @brief  Shared region index for Shared memory heap for AppM3.
- */
-#define SMHEAP_SRINDEX_APPM3	1
-
-/*!
- *  @brief  Shared region index for Shared memory SW DMM section.
- */
-#define SMHEAP_SRINDEX_SWDMM	2
-
-/*!
- *  @brief  Shared region index for SysM3 boot load page
- */
-#define BOOTLOADPAGE_SRINDEX	1
-
-
-/*!
- *  @brief Event no used by sysmemmgr
- */
-#define PLATFORM_SYSMEMMGR_EVENTNO	31
-
-
-/** ============================================================================
- * Command Id used by bootloadpage logic to transfer info
- *  ============================================================================
- */
-/*!
- *  @brief Command ID for notify driver.
- */
-#define PLATFORM_CMD_NOTIFYDRIVER	SYSMGR_CMD_SHAREDREGION_ENTRY_END
-
-/*!
- *  @brief Command ID for GatePeterson used by nameserverremotenotify.
- */
-#define PLATFORM_CMD_GPNSRN		(PLATFORM_CMD_NOTIFYDRIVER + 1)
-
-/*!
- *  @brief Command ID for nameserverremotenotify.
- */
-#define PLATFORM_CMD_NSRN		(PLATFORM_CMD_NOTIFYDRIVER + 2)
-
-/*!
- *  @brief Command ID for GatePeterson used by HeapBuf.
- */
-#define PLATFORM_CMD_GPHEAPBUF		(PLATFORM_CMD_NOTIFYDRIVER + 3)
-
-/*!
- *  @brief Command ID for HeapBuf.
- */
-#define PLATFORM_CMD_HEAPBUF		(PLATFORM_CMD_NOTIFYDRIVER + 4)
-
-/*!
- *  @brief Command ID for GatePeterson used by MessageQTransportShm.
- */
-#define PLATFORM_CMD_GPMQT		(PLATFORM_CMD_NOTIFYDRIVER + 5)
-
-/*!
- *  @brief Command ID for MessageQTransportShm.
- */
-#define PLATFORM_CMD_MQT		(PLATFORM_CMD_NOTIFYDRIVER + 6)
-
-
-/** ============================================================================
- * Handles used by platform logic
- *  ============================================================================
- */
-void *platform_notifydrv_handle;
-
-/* Handles for SysM3 */
-void *platform_nsrn_gate_handle_sysm3;
-void *platform_nsrn_handle_sysm3;
-void *platform_notifydrv_handle_sysm3;
-void *platform_heap_gate_handle_sysm3;
-void *platform_heap_handle_sysm3;
-void *platform_mqt_gate_handle_sysm3;
-void *platform_transport_shm_handle_sysm3;
-void *platform_messageq_sysm3;
-
-/* Handles for AppM3 */
-void *platform_nsrn_gate_handle_appm3;
-void *platform_nsrn_handle_appm3;
-void *platform_notifydrv_handle_appm3;
-void *platform_heap_gate_handle_appm3;
-void *platform_heap_handle_appm3;
-void *platform_mqt_gate_handle_appm3;
-void *platform_transport_shm_handle_appm3;
-void *platform_messageq_appm3;
-
-
 /** ============================================================================
  *  Struct & Enums.
  *  ============================================================================
  */
+
 /* Struct for reading platform specific gate peterson configuration values */
 struct platform_gaterpeterson_params {
 	u32 shared_mem_addr;	/* Shared memory address */
@@ -284,10 +133,96 @@ struct platform_heapbuf_params {
 	u32 block_size;
 };
 
-struct platform_messageq_transportshm_params {
+struct platform_transportshm_params {
 	u32 shared_mem_addr;	/* Shared memory address */
 	u32 shared_mem_size;	/* Shared memory size */
 	u32 notify_event_no;	/* Notify Event number */
+};
+
+/** ============================================================================
+ *  Application specific configuration, please change these value according to
+ *  your application's need.
+ *  ============================================================================
+ */
+/*
+ * Structure defining config parameters for overall System.
+ */
+struct platform_config {
+	struct multiproc_config			multiproc_config;
+	/* multiproc_config parameter */
+
+	struct gatemp_config			gatemp_config;
+	/* gatemp_config parameter */
+
+	struct gatepeterson_config		gatepeterson_config;
+	/* gatepeterson_config parameter */
+
+#if 0
+	struct gatehwspinlock_config		gatehwspinlock_config;
+	/* gatehwspinlock parameter */
+#endif
+
+	struct sharedregion_config		sharedregion_config;
+	/* sharedregion_config parameter */
+
+	struct messageq_config			messageq_config;
+	/* messageq_config parameter */
+
+	struct notify_config			notify_config;
+	/* notify config parameter */
+
+	struct proc_mgr_config			proc_mgr_config;
+	/* processor manager config parameter */
+
+	struct heapbufmp_config			heapbufmp_config;
+	/* heapbufmp_config parameter */
+
+	struct heapmemmp_config			heapmemmp_config;
+	/* heapmemmp_config parameter */
+#if 0
+
+	struct heapmultibuf_config		heapmultibuf_config;
+	/* heapmultibuf_config parameter */
+#endif
+	struct listmp_config			listmp_config;
+	/* listmp_config parameter */
+
+	struct transportshm_config		transportshm_config;
+	/* transportshm_config parameter */
+#if 0
+	struct ringio_config			ringio_config;
+	/* ringio_config parameter */
+
+	struct ringiotransportshm_config	ringiotransportshm_config;
+	/* ringiotransportshm_config parameter */
+#endif
+	struct notify_ducatidrv_config		notify_ducatidrv_config;
+	/* notify_ducatidrv_config parameter */
+
+	struct nameserver_remotenotify_config	nameserver_remotenotify_config;
+	/* nameserver_remotenotify_config parameter */
+#if 0
+	struct clientnotifymgr_config		clinotifymgr_config_params;
+	/* clientnotifymgr_config parameter */
+
+	struct frameqbufmgr_config		frameqbufmgr_config_params;
+	/* frameqbufmgr_config parameter */
+
+	struct frameq_config			frameq_config_params;
+	/* frameq_config parameter */
+#endif
+};
+
+
+/* struct embedded into slave binary */
+struct platform_slave_config {
+	u32 cache_line_size;
+	u32 br_offset;
+	u32 sr0_memory_setup;
+	u32 setup_messageq;
+	u32 setup_notify;
+	u32 proc_sync;
+	u32 num_srs;
 };
 
 struct platform_proc_config_params {
@@ -300,6 +235,115 @@ struct platform_proc_config_params {
 	u32 use_nameserver;
 };
 
+/* shared region configuration */
+struct platform_slave_sr_config {
+	u32 entry_base;
+	u32 entry_len;
+	u32 owner_proc_id;
+	u32 id;
+	u32 create_heap;
+	u32 cache_line_size;
+};
+
+/* Shared region configuration information for host side. */
+struct platform_host_sr_config {
+	u16 ref_count;
+};
+
+/* structure for platform instance */
+struct platform_object {
+	void				*pm_handle;
+	/* handle to the proc_mgr instance used */
+	void				*phandle;
+	/* handle to the processor instance used */
+	struct platform_slave_config	slave_config;
+	/* slave embedded config */
+	struct platform_slave_sr_config	*slave_sr_config;
+	/* shared region details from slave */
+};
+
+
+/* structure for platform instance */
+struct platform_module_state {
+	bool multiproc_init_flag;
+	/* multiproc initialize flag */
+	bool gatemp_init_flag;
+	/* gatemp initialize flag */
+	bool gatepeterson_init_flag;
+	/* gatepeterson initialize flag */
+	bool gatehwspinlock_init_flag;
+	/* gatehwspinlock initialize flag */
+	bool sharedregion_init_flag;
+	/* sharedregion initialize flag */
+	bool listmp_init_flag;
+	/* listmp initialize flag */
+	bool messageq_init_flag;
+	/* messageq initialize flag */
+	bool ringio_init_flag;
+	/* ringio initialize flag */
+	bool notify_init_flag;
+	/* notify initialize flag */
+	bool proc_mgr_init_flag;
+	/* processor manager initialize flag */
+	bool heapbufmp_init_flag;
+	/* heapbufmp initialize flag */
+	bool heapmemmp_init_flag;
+	/* heapmemmp initialize flag */
+	bool heapmultibuf_init_flag;
+	/* heapbufmp initialize flag */
+	bool nameserver_init_flag;
+	/* nameserver initialize flag */
+	bool transportshm_init_flag;
+	/* transportshm initialize flag */
+	bool ringiotransportshm_init_flag;
+	/* ringiotransportshm initialize flag */
+	bool notify_ducatidrv_init_flag;
+	/* notify_ducatidrv initialize flag */
+	bool nameserver_remotenotify_init_flag;
+	/* nameserverremotenotify initialize flag */
+	bool clientnotifymgr_init_flag;
+	/* clientnotifymgr initialize flag */
+	bool frameqbufmgr_init_flag;
+	/* frameqbufmgr initialize flag */
+	bool frameq_init_flag;
+	/* frameq initialize flag */
+	bool platform_init_flag;
+	/* flag to indicate platform initialization status */
+};
+
+
+/* =============================================================================
+ * GLOBALS
+ * =============================================================================
+ */
+static struct platform_object platform_objects[MULTIPROC_MAXPROCESSORS];
+static struct platform_module_state platform_module_state;
+static struct platform_module_state *platform_module = &platform_module_state;
+static u16 platform_num_srs_unmapped;
+static struct platform_host_sr_config *platform_host_sr_config;
+
+/* ============================================================================
+ *  Forward declarations of internal functions.
+ * ============================================================================
+ */
+static int _platform_setup(void);
+static int _platform_destroy(void);
+
+/* function to read slave memory */
+static int
+_platform_read_slave_memory(u16 proc_id,
+			    u32 addr,
+			    void *value,
+			    u32 *num_bytes);
+
+/* function to write slave memory */
+static int
+_platform_write_slave_memory(u16 proc_id,
+			     u32 addr,
+			     void *value,
+			     u32 *num_bytes);
+
+
 /** ============================================================================
  *  Macros and types
  *  ============================================================================
@@ -308,16 +352,6 @@ struct platform_proc_config_params {
  *  @brief  Number of slave memory entries for OMAP4430.
  */
 #define NUM_MEM_ENTRIES			3
-
-/*!
- *  @brief  Number of slave memory entries for OMAP4430 SYSM3.
- */
-#define NUM_MEM_ENTRIES_SYSM3		1
-
-/*!
- *  @brief  Number of slave memory entries for OMAP4430 APPM3.
- */
-#define NUM_MEM_ENTRIES_APPM3		1
 
 /*!
  *  @brief  Position of reset vector memory region in the memEntries array.
@@ -371,66 +405,9 @@ static struct proc4430_mem_entry mem_entries[NUM_MEM_ENTRIES] = {
 	}
 };
 
-void *procmgr_handle;
-void *procmgr_proc_handle;
-void *platform_sm_heap_virt_addr_sysm3;
-void *platform_sm_heap_virt_addr_appm3;
-
-/*!
- *  @brief  Handle to the ProcMgr instance used.
- */
-void *procmgr_handle;
-
-/*!
- *  @brief  Handle to the Processor instance used.
- */
-void *procmgr_proc_handle;
-
-/*!
- *  @brief  Handle to the SysM3 ProcMgr instance used.
- */
-void *procmgr_handle_sysm3;
-
-/*!
- *  @brief  Handle to the AppM3 ProcMgr instance used.
- */
-void *procmgr_handle_appm3;
 
 
-/*!
- *  @brief  Handle to the SysM3 Processor instance used.
- */
-void *procmgr_proc_handle_sysm3;
 
-/*!
- *  @brief  Handle to the AppM3 Processor instance used.
- */
-void *procmgr_proc_handle_appm3;
-
-/*!
- *  @brief  File ID of the file loaded.
- */
-u32 procmgr_file_id;
-
-/*!
- *  @brief  Shared memory heap virtual address.
- */
-void *platform_sm_heap_virt_addr;
-
-/*!
- *  @brief  Shared memory heap physical address.
- */
-void *platform_sm_heap_phys_addr;
-
-/*!
- *  @brief  Scalability info
- */
-struct sysmgr_proc_config pc_params;
-
-/*!
- *  @brief  SW DMM virtual address.
- */
-void *platform_sw_dmm_virt_addr;
 
 /* =============================================================================
  * APIS
@@ -438,206 +415,861 @@ void *platform_sw_dmm_virt_addr;
  */
 
 /*
+ * ======== platform_get_config =======
+ *  function to get the default values for confiurations.
+ */
+void
+platform_get_config(struct platform_config *config)
+{
+	int status = PLATFORM_S_SUCCESS;
+
+	BUG_ON(config == NULL);
+	if (config == NULL) {
+		status = -EINVAL;
+		goto exit;
+	}
+
+	/* get the gatepeterson default config */
+	multiproc_get_config(&config->multiproc_config);
+
+	/* get the gatemp default config */
+	gatemp_get_config(&config->gatemp_config);
+
+	/* get the gatepeterson default config */
+	gatepeterson_get_config(&config->gatepeterson_config);
+
+#if 0
+	/* get the gatehwspinlock default config */
+	gatehwspinlock_get_config(&config->gatehwspinlock_config);
+#endif
+
+	/* get the sharedregion default config */
+	sharedregion_get_config(&config->sharedregion_config);
+
+	/* get the messageq default config */
+	messageq_get_config(&config->messageq_config);
+
+	/* get the notify default config */
+	notify_get_config(&config->notify_config);
+
+	/* get the procmgr default config */
+	proc_mgr_get_config(&config->proc_mgr_config);
+
+	/* get the heapbufmpfault config */
+	heapbufmp_get_config(&config->heapbufmp_config);
+
+	/* get the heapmemmpfault config */
+	heapmemmp_get_config(&config->heapmemmp_config);
+#if 0
+	/* get the heapmultibuf default config */
+	heapmultibuf_get_config(&config->heapmultibuf_config
+#endif
+	/* get the listmp default config */
+	listmp_get_config(&config->listmp_config);
+
+	/* get the transportshm default config */
+	transportshm_get_config(&config->transportshm_config);
+	/* get the notifyshmdriver default config */
+	notify_ducatidrv_get_config(&config->notify_ducatidrv_config);
+
+	/* get the nameserver_remotenotify default config */
+	nameserver_remotenotify_get_config(&config->
+				nameserver_remotenotify_config);
+#if 0
+	/* get the clientnotifymgr default config */
+	clientnotifymgr_get_config(&config->clinotifymgr_config_params);
+
+	/*  get the frameqbufmgr default config */
+	frameqbufmgr_get_config(&config->frameqbufmgr_config_params);
+	/*  get the frameq default config */
+	frameq_get_config(&config->frameqcfg_params);
+
+	/*  get the ringio default config */
+	ringio_get_config(&config->ringio_config);
+
+	/*  get the ringiotransportshm default config */
+	ringiotransportshm_get_config(&config->ringiotransportshm_config);
+#endif
+exit:
+	if (status < 0)
+		printk(KERN_ERR "platform_get_config failed! status = 0x%x\n",
+								status);
+	return;
+}
+
+
+/*
+ * ======== platform_override_config ======
+ * Function to override the default configuration values.
+ *
+ */
+int
+platform_override_config(struct platform_config *config)
+{
+	int status = PLATFORM_S_SUCCESS;
+
+	BUG_ON(config == NULL);
+
+	if (config == NULL) {
+		status = -EINVAL;
+		goto exit;
+	}
+
+	/* Override the multiproc_config default config */
+	config->multiproc_config.num_processors = 4;
+	config->multiproc_config.id = 0;
+	strcpy(config->multiproc_config.name_list[0], "MPU");
+	strcpy(config->multiproc_config.name_list[1], "Tesla");
+	strcpy(config->multiproc_config.name_list[2], "SysM3");
+	strcpy(config->multiproc_config.name_list[3], "AppM3");
+
+	/* Override the gatepeterson default config */
+
+	/* Override the Sharedregion default config */
+	config->sharedregion_config.cache_line_size = 128;
+
+	/* Override the LISTMP default config */
+
+	/* Override the MESSAGEQ default config */
+
+	/* Override the NOTIFY default config */
+
+	/* Override the PROCMGR default config */
+
+	/* Override the HeapBuf default config */
+
+	/* Override the LISTMPSHAREDMEMORY default config */
+
+	/* Override the MESSAGEQTRANSPORTSHM default config */
+
+	/* Override the NOTIFYSHMDRIVER default config */
+
+	/* Override the NAMESERVERREMOTENOTIFY default config */
+
+	/* Override the  ClientNotifyMgr default config */
+	/* Override the  FrameQBufMgr default config */
+
+	/* Override the FrameQ default config */
+
+
+exit:
+	if (status < 0)
+		printk(KERN_ERR "platform_override_config failed! status "
+				"= 0x%x\n", status);
+	return status;
+}
+
+/*
+ * ======= platform_setup ========
+ *       function to setup platform.
+ *              TBD: logic would change completely in the final system.
+ */
+int
+platform_setup(void)
+{
+	int status = PLATFORM_S_SUCCESS;
+	struct platform_config _config;
+	struct platform_config *config;
+#if 0
+	struct platform_mem_map_info m_info;
+#endif
+
+	platform_get_config(&_config);
+	config = &_config;
+
+	platform_override_config(config);
+
+	status = multiproc_setup(&(config->multiproc_config));
+	if (status < 0) {
+		printk(KERN_ERR "platform_setup : multiproc_setup "
+			"failed [0x%x]\n", status);
+	} else {
+		printk(KERN_ERR "platform_setup : status [0x%x]\n", status);
+		platform_module->multiproc_init_flag = true;
+	}
+
+	/* Initialize ProcMgr */
+	if (status >= 0) {
+		status = proc_mgr_setup(&(config->proc_mgr_config));
+		if (status < 0) {
+			printk(KERN_ERR "platform_setup : proc_mgr_setup "
+				"failed [0x%x]\n", status);
+		} else {
+			printk(KERN_ERR "proc_mgr_setup : status [0x%x]\n",
+				status);
+			platform_module->proc_mgr_init_flag = true;
+		}
+	}
+
+	/* Initialize SharedRegion */
+	if (status >= 0) {
+		status = sharedregion_setup(&config->sharedregion_config);
+		if (status < 0) {
+			printk(KERN_ERR "platform_setup : sharedregion_setup "
+				"failed [0x%x]\n", status);
+		} else {
+			printk(KERN_ERR "sharedregion_setup : status [0x%x]\n",
+				status);
+			platform_module->sharedregion_init_flag = true;
+		}
+	}
+
+	/* Initialize Notify DucatiDriver */
+	if (status >= 0) {
+		status = notify_ducatidrv_setup(&config->
+						notify_ducatidrv_config);
+		if (status < 0) {
+			printk(KERN_ERR "platform_setup : "
+				"notify_ducatidrv_setup failed [0x%x]\n",
+				status);
+		} else {
+			printk(KERN_ERR "notify_ducatidrv_setup : "
+				"status [0x%x]\n", status);
+			platform_module->notify_ducatidrv_init_flag = true;
+		}
+	}
+
+	/* Initialize Notify */
+	if (status >= 0) {
+		status = notify_setup(&config->notify_config);
+		if (status < 0) {
+			printk(KERN_ERR "platform_setup : notify_setup "
+				"failed [0x%x]\n", status);
+		} else {
+			printk(KERN_ERR "notify_setup : status [0x%x]\n",
+				status);
+			platform_module->notify_init_flag = true;
+		}
+	}
+
+	/* Initialize NameServer */
+	if (status >= 0) {
+		status = nameserver_setup();
+		if (status < 0) {
+			printk(KERN_ERR "platform_setup : nameserver_setup "
+				"failed [0x%x]\n", status);
+		} else {
+			printk(KERN_ERR "nameserver_setup : status [0x%x]\n",
+				status);
+			platform_module->nameserver_init_flag = true;
+		}
+	}
+
+	/* Initialize GateMP */
+	if (status >= 0) {
+		status = gatemp_setup(&config->gatemp_config);
+		if (status < 0) {
+			printk(KERN_ERR "platform_setup : gatemp_setup "
+				"failed [0x%x]\n", status);
+		} else {
+			printk(KERN_ERR "gatemp_setup : status [0x%x]\n",
+				status);
+			platform_module->gatemp_init_flag = true;
+		}
+	}
+
+	/* Initialize GatePeterson */
+	if (status >= 0) {
+		status = gatepeterson_setup(&config->gatepeterson_config);
+		if (status < 0) {
+			printk(KERN_ERR "platform_setup : gatepeterson_setup "
+				"failed [0x%x]\n", status);
+		} else {
+			printk(KERN_ERR "gatepeterson_setup : status [0x%x]\n",
+				status);
+			platform_module->gatepeterson_init_flag = true;
+		}
+	}
+
+#if 0
+	/* Initialize GateHWSpinlock */
+	if (status >= 0) {
+		m_info.src  = 0x480CA800;
+		m_info.size = 0x1000;
+		m_info.is_cached = false;
+		status = platform_mem_map(&m_info);
+		if (status < 0) {
+			printk(KERN_ERR "platform_setup : platform_mem_map "
+				"failed [0x%x]\n", status);
+		} else {
+			config->gatehwspinlock_config.num_locks = 32;
+			config->gatehwspinlock_config.base_addr = m_info.dst;
+			status = gatehwspinlock_setup(&config->
+							gatehwspinlock_config);
+			if (status < 0) {
+				printk(KERN_ERR "platform_setup : "
+				"gatehwspinlock_setup failed [0x%x]\n",
+				status);
+			} else
+				platform_module->gatehwspinlock_init_flag =
+									true;
+		}
+	}
+#endif
+
+	/* Initialize MessageQ */
+	if (status >= 0) {
+		status = messageq_setup(&config->messageq_config);
+		if (status < 0) {
+			printk(KERN_ERR "platform_setup : messageq_setup "
+				"failed [0x%x]\n", status);
+		} else {
+			printk(KERN_ERR "messageq_setup : status [0x%x]\n",
+				status);
+			platform_module->messageq_init_flag = true;
+		}
+	}
+#if 0
+	/* Initialize RingIO */
+	if (status >= 0) {
+		status = ringio_setup(&config->ringio_config);
+		if (status < 0) {
+			printk(KERN_ERR "platform_setup : ringio_setup "
+				"failed [0x%x]\n", status);
+		} else {
+			printk(KERN_ERR "ringio_setup : status [0x%x]\n",
+				status);
+			platform_module->ringio_init_flag = true;
+		}
+	}
+
+	/* Initialize RingIOTransportShm */
+	if (status >= 0) {
+		status = ringiotransportshm_setup(&config->
+						ringiotransportshm_config);
+		if (status < 0) {
+			printk(KERN_ERR "platform_setup : "
+				"ringiotransportshm_setup "
+				"failed [0x%x]\n", status);
+		} else {
+			printk(KERN_ERR "ringiotransportshm_setup : status "
+				"[0x%x]\n", status);
+			platform_module->ringiotransportshm_init_flag = true;
+		}
+	}
+#endif
+	/* Initialize HeapBufMP */
+	if (status >= 0) {
+		status = heapbufmp_setup(&config->heapbufmp_config);
+		if (status < 0) {
+			printk(KERN_ERR "platform_setup : heapbufmp_setup "
+				"failed [0x%x]\n", status);
+		} else {
+			printk(KERN_ERR "heapbufmp_setup : status [0x%x]\n",
+				status);
+			platform_module->heapbufmp_init_flag = true;
+		}
+	}
+
+	/* Initialize HeapMemMP */
+	if (status >= 0) {
+		status = heapmemmp_setup(&config->heapmemmp_config);
+		if (status < 0) {
+			printk(KERN_ERR "platform_setup : heapmemmp_setup "
+				"failed [0x%x]\n", status);
+		} else {
+			printk(KERN_ERR "heapmemmp_setup : status [0x%x]\n",
+				status);
+			platform_module->heapmemmp_init_flag = true;
+		}
+	}
+#if 0
+	/* Initialize HeapMultiBuf */
+	if (status >= 0) {
+		status = heapmultibuf_setup(&config->heapmultibuf_config);
+		if (status < 0) {
+			printk(KERN_ERR "platform_setup : heapmultibuf_setup "
+				"failed [0x%x]\n", status);
+		} else {
+			printk(KERN_ERR "heapmultibuf_setup : status [0x%x]\n",
+				status);
+			platform_module->heapmultibuf_init_flag = true;
+		}
+	}
+#endif
+	/* Initialize ListMP */
+	if (status >= 0) {
+		status = listmp_setup(
+				&config->listmp_config);
+		if (status < 0) {
+			printk(KERN_ERR "platform_setup : "
+				"listmp_setup failed [0x%x]\n",
+				status);
+		} else {
+			printk(KERN_ERR "listmp_setup : "
+				"status [0x%x]\n", status);
+			platform_module->listmp_init_flag = true;
+		}
+	}
+
+	/* Initialize TransportShm */
+	if (status >= 0) {
+		status = transportshm_setup(
+				 &config->transportshm_config);
+		if (status < 0) {
+			printk(KERN_ERR "platform_setup : "
+				"transportshm_setup failed [0x%x]\n",
+				status);
+		} else {
+			printk(KERN_ERR "transportshm_setup : "
+				"status [0x%x]\n", status);
+			platform_module->transportshm_init_flag = true;
+		}
+	}
+
+	/* Initialize NameServerRemoteNotify */
+	if (status >= 0) {
+		status = nameserver_remotenotify_setup(
+				 &config->nameserver_remotenotify_config);
+		if (status < 0) {
+			printk(KERN_ERR "platform_setup : "
+				"nameserver_remotenotify_setup failed "
+				"[0x%x]\n", status);
+		} else {
+			printk(KERN_ERR "nameserver_remotenotify_setup : "
+				"status [0x%x]\n", status);
+			platform_module->nameserver_remotenotify_init_flag =
+									true;
+		}
+	}
+#if 0
+	/* Get the ClientNotifyMgr default config */
+	if (status >= 0) {
+		status = ClientNotifyMgr_setup(&config->cliNotifyMgrCfgParams);
+		if (status < 0)
+			GT_setFailureReason(curTrace,
+					 GT_4CLASS,
+					 "Platform_setup",
+					 status,
+					 "ClientNotifyMgr_setup failed!");
+		else
+			Platform_module->clientNotifyMgrInitFlag = true;
+	}
+
+	/* Get the FrameQBufMgr default config */
+	if (status >= 0) {
+		status = FrameQBufMgr_setup(&config->frameQBufMgrCfgParams);
+		if (status < 0)
+			GT_setFailureReason(curTrace,
+					 GT_4CLASS,
+					 "Platform_setup",
+					 status,
+					 "FrameQBufMgr_setup failed!");
+		else
+			Platform_module->frameQBufMgrInitFlag = true;
+	}
+	/* Get the FrameQ default config */
+	if (status >= 0) {
+		status = FrameQ_setup(&config->frameQCfgParams);
+		if (status < 0)
+			GT_setFailureReason(curTrace,
+				 GT_4CLASS,
+				 "Platform_setup",
+				 status,
+				 "FrameQ_setup failed!");
+	else
+		Platform_module->frameQInitFlag = true;
+	}
+#endif
+
+	/* Initialize Platform */
+	if (status >= 0) {
+		status = _platform_setup();
+		if (status < 0) {
+			printk(KERN_ERR "platform_setup : _platform_setup "
+				"failed [0x%x]\n", status);
+		} else {
+			printk(KERN_ERR "_platform_setup : status [0x%x]\n",
+				status);
+			platform_module->platform_init_flag = true;
+		}
+
+	}
+
+	return status;
+}
+
+
+/*
+ * =========== platform_destroy ==========
+ *  Function to destroy the System.
+ */
+int
+platform_destroy(void)
+{
+	int status = PLATFORM_S_SUCCESS;
+#if 0
+	struct platform_mem_unmap_info u_info;
+#endif
+
+	/* Finalize Platform module*/
+	if (platform_module->platform_init_flag == true) {
+		status = _platform_destroy();
+		if (status < 0) {
+			printk(KERN_ERR "platform_destroy : _platform_destroy "
+				"failed [0x%x]\n", status);
+		} else {
+			platform_module->platform_init_flag = false;
+		}
+	}
+#if 0
+	/* Finalize Frame module */
+	if (Platform_module->frameQInitFlag == true) {
+		status = FrameQ_destroy();
+		if (status < 0)
+			GT_setFailureReason(curTrace,
+					 GT_4CLASS,
+					 "Platform_destroy",
+					 status,
+					 "FrameQ_destroy failed!");
+		else
+			Platform_module->frameQInitFlag = false;
+	}
+
+	/* Finalize FrameQBufMgr module */
+	if (Platform_module->frameQBufMgrInitFlag == true) {
+		status = FrameQBufMgr_destroy();
+		if (status < 0)
+			GT_setFailureReason(curTrace,
+					 GT_4CLASS,
+					 "Platform_destroy",
+					 status,
+					 "FrameQBufMgr_destroy failed!");
+		else
+			Platform_module->frameQBufMgrInitFlag = false;
+	}
+
+	/* Finalize ClientNotifyMgr module */
+	if (Platform_module->clientNotifyMgrInitFlag == true) {
+		status = ClientNotifyMgr_destroy();
+		if (status < 0)
+			GT_setFailureReason(curTrace,
+					 GT_4CLASS,
+					 "Platform_destroy",
+					 status,
+					 "ClientNotifyMgr_destroy failed!");
+		else
+			Platform_module->clientNotifyMgrInitFlag = false;
+	}
+#endif
+	/* Finalize NameServerRemoteNotify module */
+	if (platform_module->nameserver_remotenotify_init_flag == true) {
+		status = nameserver_remotenotify_destroy();
+		if (status < 0) {
+			printk(KERN_ERR "platform_destroy : "
+				"nameserver_remotenotify_destroy "
+				"failed [0x%x]\n", status);
+		} else {
+			platform_module->nameserver_remotenotify_init_flag \
+				= false;
+		}
+	}
+
+	/* Finalize TransportShm module */
+	if (platform_module->transportshm_init_flag == true) {
+		status = transportshm_destroy();
+		if (status < 0) {
+			printk(KERN_ERR "platform_destroy : "
+				"transportshm_destroy failed "
+				"[0x%x]\n", status);
+		} else {
+			platform_module->transportshm_init_flag = \
+				false;
+		}
+	}
+
+	/* Finalize ListMP module */
+	if (platform_module->listmp_init_flag == true) {
+		status = listmp_destroy();
+		if (status < 0) {
+			printk(KERN_ERR "platform_destroy : "
+				"listmp_destroy failed [0x%x]\n",
+				status);
+		} else {
+			platform_module->listmp_init_flag = \
+				false;
+		}
+	}
+#if 0
+	/* Finalize HeapMultiBuf module */
+	if (platform_module->heapmultibuf_init_flag == true) {
+		status = heapmultibuf_destroy();
+		if (status < 0) {
+			printk(KERN_ERR "platform_destroy : "
+				"heapmultibuf_destroy "
+				"failed [0x%x]\n", status);
+		} else {
+			platform_module->heapmultibuf_init_flag = false;
+		}
+	}
+#endif
+	/* Finalize HeapBufMP module */
+	if (platform_module->heapbufmp_init_flag == true) {
+		status = heapbufmp_destroy();
+		if (status < 0) {
+			printk(KERN_ERR "platform_destroy : heapbufmp_destroy "
+				"failed [0x%x]\n", status);
+		} else {
+			platform_module->heapbufmp_init_flag = false;
+		}
+	}
+
+	/* Finalize HeapMemMP module */
+	if (platform_module->heapmemmp_init_flag == true) {
+		status = heapmemmp_destroy();
+		if (status < 0) {
+			printk(KERN_ERR "platform_destroy : heapmemmp_destroy "
+				"failed [0x%x]\n", status);
+		} else {
+			platform_module->heapmemmp_init_flag = false;
+		}
+	}
+
+	/* Finalize MessageQ module */
+	if (platform_module->messageq_init_flag == true) {
+		status = messageq_destroy();
+		if (status < 0) {
+			printk(KERN_ERR "platform_destroy : messageq_destroy "
+				"failed [0x%x]\n", status);
+		} else {
+			platform_module->messageq_init_flag = false;
+		}
+	}
+#if 0
+	/* Finalize RingIO module */
+	if (platform_module->ringio_init_flag == true) {
+		status = ringio_destroy();
+		if (status < 0) {
+			printk(KERN_ERR "platform_destroy : ringio_destroy "
+				"failed [0x%x]\n", status);
+		} else {
+			platform_module->ringio_init_flag = false;
+		}
+	}
+
+
+	/* Finalize RingIOTransportShm module */
+	if (platform_module->ringiotransportshm_init_flag == true) {
+		status = ringiotransportshm_destroy();
+		if (status < 0) {
+			printk(KERN_ERR "platform_destroy : "
+					"ringiotransportshm_destroy "
+					"failed [0x%x]\n", status);
+		} else {
+			platform_module->ringiotransportshm_init_flag = false;
+		}
+	}
+#endif
+	/* Finalize GatePeterson module */
+	if (platform_module->gatepeterson_init_flag == true) {
+		status = gatepeterson_destroy();
+		if (status < 0) {
+			printk(KERN_ERR "platform_destroy : "
+				"gatepeterson_destroy failed [0x%x]\n", status);
+		} else {
+			platform_module->gatepeterson_init_flag = false;
+		}
+	}
+
+#if 0
+	/* Finalize GateHWSpinlock module */
+	if (platform_module->gatehwspinlock_init_flag == true) {
+		status = gatehwspinlock_destroy();
+		if (status < 0) {
+			printk(KERN_ERR "platform_destroy : "
+				"gatehwspinlock_destroy failed "
+				"[0x%x]\n", status);
+		} else {
+			platform_module->gatehwspinlock_init_flag = false;
+		}
+
+		u_info.addr = 0x480CA800;
+		u_info.size = 0x1000;
+		u_info.is_cached = false;
+		status = platform_mem_unmap(&u_info);
+		if (status < 0)
+			printk(KERN_ERR "platform_destroy : platform_mem_unmap"
+						" failed [0x%x]\n", status);
+	}
+#endif
+
+	/* Finalize GateMP module */
+	if (platform_module->gatemp_init_flag == true) {
+		status = gatemp_destroy();
+		if (status < 0) {
+			printk(KERN_ERR "platform_destroy : "
+				"gatemp_destroy failed [0x%x]\n", status);
+		} else {
+			platform_module->gatemp_init_flag = false;
+		}
+	}
+
+	/* Finalize NameServer module */
+	if (platform_module->nameserver_init_flag == true) {
+		status = nameserver_destroy();
+		if (status < 0) {
+			printk(KERN_ERR "platform_destroy : nameserver_destroy "
+				"failed [0x%x]\n", status);
+		} else {
+			platform_module->nameserver_init_flag = false;
+		}
+	}
+
+	/* Finalize Notify Ducati Driver module */
+	if (platform_module->notify_ducatidrv_init_flag == true) {
+		status = notify_ducatidrv_destroy();
+		if (status < 0) {
+			printk(KERN_ERR "platform_destroy : "
+				"notify_ducatidrv_destroy failed [0x%x]\n",
+				status);
+		} else {
+			platform_module->notify_ducatidrv_init_flag = false;
+		}
+	}
+
+	/* Finalize Notify module */
+	if (platform_module->notify_init_flag == true) {
+		status = notify_destroy();
+		if (status < 0) {
+			printk(KERN_ERR "platform_destroy : platform_destroy "
+				"failed [0x%x]\n", status);
+		} else {
+			platform_module->notify_init_flag = false;
+		}
+	}
+
+	/* Finalize SharedRegion module */
+	if (platform_module->sharedregion_init_flag == true) {
+		status = sharedregion_destroy();
+		if (status < 0) {
+			printk(KERN_ERR "platform_destroy : "
+				"sharedregion_destroy failed [0x%x]\n", status);
+		} else {
+			platform_module->sharedregion_init_flag = false;
+		}
+	}
+
+	/* Finalize ProcMgr module */
+	if (platform_module->proc_mgr_init_flag == true) {
+		status = proc_mgr_destroy();
+		if (status < 0) {
+			printk(KERN_ERR "platform_destroy : proc_mgr_destroy "
+				"failed [0x%x]\n", status);
+		} else {
+			platform_module->proc_mgr_init_flag = false;
+		}
+	}
+
+	/* Finalize MultiProc module */
+	if (platform_module->multiproc_init_flag == true) {
+		status = multiproc_destroy();
+		if (status < 0) {
+			printk(KERN_ERR "platform_destroy : multiproc_destroy "
+				"failed [0x%x]\n", status);
+		} else {
+			platform_module->multiproc_init_flag = false;
+		}
+	}
+
+
+
+	if (status >= 0)
+		memset(platform_objects,
+			0,
+			(sizeof(struct platform_object) *
+				multiproc_get_num_processors()));
+
+	return status;
+}
+
+/*
  * ======== platform_setup ========
  *  Purpose:
  *  TBD: logic would change completely in the final system.
  */
-s32 platform_setup(struct sysmgr_config *config)
+s32 _platform_setup(void)
 {
 
 	s32 status = 0;
 	struct proc4430_config proc_config;
 	struct proc_mgr_params params;
 	struct proc4430_params proc_params;
-	struct proc_mgr_attach_params attach_params;
 	u16 proc_id;
-	struct sysmemmgr_config sysmemmgr_cfg;
-	struct platform_mem_map_info info;
-
-	if (WARN_ON(config == NULL)) {
-		/*! @retval SYSMGR_E_INVALIDARG Argument of type
-		 *  (GatePeterson_Config *) passed is null*/
-		status = -EINVAL;
-		goto invalid_config_fail;
-	}
-
-	/* Map the static region */
-	info.src = SHAREDMEMORY_PHY_BASEADDR;
-	info.size = SHAREDMEMORY_PHY_BASESIZE;
-	info.is_cached = false;
-	status = platform_mem_map(&info);
-	if (status < 0)
-		goto mem_map_fail;
-
-	/* Get default config for System memory manager */
-	sysmemmgr_get_config(&sysmemmgr_cfg);
-	/* Initialize the System memory manager */
-	sysmemmgr_cfg.static_mem_size = SHAREDMEMORY_PHY_BASESIZE;
-	sysmemmgr_cfg.static_phys_base_addr = SHAREDMEMORY_PHY_BASEADDR;
-	sysmemmgr_cfg.static_virt_base_addr = info.dst;
-	sysmemmgr_cfg.event_no = PLATFORM_SYSMEMMGR_EVENTNO;
-	status = sysmemmgr_setup(&sysmemmgr_cfg);
-	if (status < 0)
-		goto sysmemmgr_setup_fail;
-
-	/* The heap for SysM3 and AppM3 are allocated at once */
-	platform_sm_heap_virt_addr = sysmemmgr_alloc(SMHEAP_SIZE,
-					sysmemmgr_allocflag_physical);
-	if (platform_sm_heap_virt_addr == NULL)
-		goto sysmemmgr_alloc_fail;
-
-	platform_sm_heap_virt_addr_sysm3 = platform_sm_heap_virt_addr;
-	/* The AppM3 shared area is after SysM3 heap + boot load page */
-	platform_sm_heap_virt_addr_appm3 = (platform_sm_heap_virt_addr_sysm3 +
-					SHAREDMEMORY_PHY_BASESIZE_SYSM3 +
-					BOOTLOADPAGE_SLV_VRT_BASESIZE_SYSM3);
-
-
-	/* Create the shared region entry for the SysM3 heap */
-	sharedregion_add(SMHEAP_SRINDEX_SYSM3,
-			platform_sm_heap_virt_addr_sysm3,
-			SHAREDMEMORY_PHY_BASESIZE_SYSM3);
-	/* Zero out the shared memory for SysM3 */
-	memset((void *) platform_sm_heap_virt_addr_sysm3,
-			0,
-			SHAREDMEMORY_PHY_BASESIZE_SYSM3);
-
-	/* Create the shared region entry for the AppM3 heap */
-	sharedregion_add(SMHEAP_SRINDEX_APPM3,
-			platform_sm_heap_virt_addr_appm3,
-			SHAREDMEMORY_PHY_BASESIZE_APPM3);
-	/* Zero out the shared memory for AppM3 */
-	memset((void *) platform_sm_heap_virt_addr_appm3,
-			0,
-			SHAREDMEMORY_PHY_BASESIZE_APPM3);
-
-	/* Map the static region */
-	info.src = SHAREDMEMORY_SWDMM_PHY_BASEADDR;
-	info.size = SHAREDMEMORY_SWDMM_PHY_BASESIZE;
-	info.is_cached = false;
-	status = platform_mem_map(&info);
-	if (status < 0)
-		goto mem_map_fail;
-	platform_sw_dmm_virt_addr = (void *) info.dst;
-	/* Create the shared region entry for the SW DMM heap */
-	sharedregion_add(SMHEAP_SRINDEX_SWDMM,
-			platform_sw_dmm_virt_addr,
-			info.size);
+	struct platform_object *handle;
+	void *proc_mgr_handle;
+	void *proc_mgr_proc_handle;
 
 	proc4430_get_config(&proc_config);
 	status = proc4430_setup(&proc_config);
 	if (status < 0)
-		goto proc_setup_fail;
+		goto exit;
 
 
 	/* Get MultiProc ID by name. */
 	proc_id = multiproc_get_id("SysM3");
+	handle = &platform_objects[proc_id];
 
 	/* Create an instance of the Processor object for OMAP4430 */
 	proc4430_params_init(NULL, &proc_params);
 	proc_params.num_mem_entries = NUM_MEM_ENTRIES;
 	proc_params.mem_entries = mem_entries;
 	proc_params.reset_vector_mem_entry = RESET_VECTOR_ENTRY_ID;
-	procmgr_proc_handle = proc4430_create(proc_id, &proc_params);
-	if (procmgr_proc_handle == NULL) {
-		status = SYSMGR_E_FAIL;
+	proc_mgr_proc_handle = proc4430_create(proc_id, &proc_params);
+	if (proc_mgr_proc_handle == NULL) {
+		status = PLATFORM_E_FAIL;
 		goto proc_create_fail;
 	}
 
 	/* Initialize parameters */
 	proc_mgr_params_init(NULL, &params);
-	params.proc_handle = procmgr_proc_handle;
-	procmgr_handle = proc_mgr_create(proc_id, &params);
-	if (procmgr_handle == NULL) {
-		status = SYSMGR_E_FAIL;
+	params.proc_handle = proc_mgr_proc_handle;
+	proc_mgr_handle = proc_mgr_create(proc_id, &params);
+	if (proc_mgr_handle == NULL) {
+		status = PLATFORM_E_FAIL;
 		goto proc_mgr_create_fail;
 	}
 
-	proc_mgr_get_attach_params(NULL, &attach_params);
-	/* Default params will be used if NULL is passed. */
-	status = proc_mgr_attach(procmgr_handle, &attach_params);
-	if (status < 0) {
-		status = SYSMGR_E_FAIL;
-		goto proc_mgr_attach_fail;
-	}
-
-
 	/* SysM3 and AppM3 use the same handle */
-	procmgr_handle_sysm3 = procmgr_handle;
-	procmgr_proc_handle_sysm3 = procmgr_proc_handle;
+	handle->phandle = proc_mgr_proc_handle;
+	handle->pm_handle = proc_mgr_handle;
 
-	procmgr_handle = NULL;
-	procmgr_proc_handle = NULL;
+	proc_mgr_handle = NULL;
+	proc_mgr_proc_handle = NULL;
 
 
 
 	/* Get MultiProc ID by name. */
 	proc_id = multiproc_get_id("AppM3");
+	handle = &platform_objects[proc_id];
 
 	/* Create an instance of the Processor object for OMAP4430 */
 	proc4430_params_init(NULL, &proc_params);
 	proc_params.num_mem_entries = NUM_MEM_ENTRIES;
 	proc_params.mem_entries = mem_entries;
 	proc_params.reset_vector_mem_entry = RESET_VECTOR_ENTRY_ID;
-	procmgr_proc_handle = proc4430_create(proc_id, &proc_params);
-	if (procmgr_proc_handle == NULL) {
-		status = SYSMGR_E_FAIL;
+	proc_mgr_proc_handle = proc4430_create(proc_id, &proc_params);
+	if (proc_mgr_proc_handle == NULL) {
+		status = PLATFORM_E_FAIL;
 		goto proc_create_fail;
 	}
 
 	/* Initialize parameters */
 	proc_mgr_params_init(NULL, &params);
-	params.proc_handle = procmgr_proc_handle;
-	procmgr_handle = proc_mgr_create(proc_id, &params);
-	if (procmgr_handle == NULL) {
-		status = SYSMGR_E_FAIL;
+	params.proc_handle = proc_mgr_proc_handle;
+	proc_mgr_handle = proc_mgr_create(proc_id, &params);
+	if (proc_mgr_handle == NULL) {
+		status = PLATFORM_E_FAIL;
 		goto proc_mgr_create_fail;
 	}
 
-	proc_mgr_get_attach_params(NULL, &attach_params);
-	/* Default params will be used if NULL is passed. */
-	status = proc_mgr_attach(procmgr_handle, &attach_params);
-	if (status < 0) {
-		status = SYSMGR_E_FAIL;
-		goto proc_mgr_attach_fail;
-	}
+	handle->phandle = proc_mgr_proc_handle;
+	handle->pm_handle = proc_mgr_handle;
 
-	procmgr_handle_appm3 = procmgr_handle;
-	procmgr_proc_handle_appm3 = procmgr_proc_handle;
-	goto exit;
-
-proc_mgr_attach_fail:
-	printk(KERN_ERR "platform_setup: proc_mgr_attach failed [0x%x]"
-		" for processor [0x%x]\n", status, proc_id);
-	goto exit;
-
-proc_mgr_create_fail:
-	printk(KERN_ERR "platform_setup: proc_mgr_create failed [0x%x]",
-		status);
-	goto exit;
+	return status;
 proc_create_fail:
-	printk(KERN_ERR "platform_setup: proc4430_create failed [0x%x]",
-		status);
-	goto exit;
-proc_setup_fail:
-	printk(KERN_ERR "platform_setup: proc4430_setup failed [0x%x]",
-		status);
-	goto exit;
-sysmemmgr_alloc_fail:
-	printk(KERN_ERR "platform_setup: sysmemmgr_alloc failed [0x%x]",
-		status);
-	goto exit;
-sysmemmgr_setup_fail:
-	printk(KERN_ERR "platform_setup: sysmemmgr_setup failed [0x%x]",
-		status);
-	goto exit;
-mem_map_fail:
-	printk(KERN_ERR "platform_setup: platform_mem_map failed [0x%x]",
-		status);
-	goto exit;
-invalid_config_fail:
-	printk(KERN_ERR "platform_setup: Argument of type (sysmgr_get_config *)"
-		" passed is null [0x%x]", status);
+proc_mgr_create_fail:
+	/* Clean up created objects */
+	_platform_destroy();
 exit:
 	return status;
 }
@@ -648,64 +1280,29 @@ exit:
  *  Purpose:
  *  Function to finalize the platform.
  */
-s32 platform_destroy(void)
+s32 _platform_destroy(void)
 {
 	s32 status = 0;
-	struct platform_mem_unmap_info u_info;
-	/* Delete the Processor instances */
+	struct platform_object *handle;
+	int i;
 
-	if (procmgr_handle_appm3 != NULL) {
-		status = proc_mgr_detach(procmgr_handle_appm3);
-		WARN_ON(status < 0);
-	}
+	for (i = 0; i < MULTIPROC_MAXPROCESSORS; i++) {
+		handle = &platform_objects[i];
 
-	if (procmgr_proc_handle_appm3 != NULL) {
-		status = proc4430_delete(&procmgr_proc_handle_appm3);
-		WARN_ON(status < 0);
-	}
+		/* Delete the Processor instances */
+		if (handle->phandle != NULL) {
+			status = proc4430_delete(&handle->phandle);
+			WARN_ON(status < 0);
+		}
 
-	if (procmgr_handle_appm3 != NULL) {
-		status = proc_mgr_delete(&procmgr_handle_appm3);
-		WARN_ON(status < 0);
-	}
-
-	if (procmgr_handle_sysm3 != NULL) {
-		status = proc_mgr_detach(procmgr_handle_sysm3);
-		WARN_ON(status < 0);
-	}
-
-	if (procmgr_proc_handle_sysm3 != NULL) {
-		status = proc4430_delete(&procmgr_proc_handle_sysm3);
-		WARN_ON(status < 0);
-	}
-
-	if (procmgr_handle_sysm3 != NULL) {
-		status = proc_mgr_delete(&procmgr_handle_sysm3);
-		WARN_ON(status < 0);
+		if (handle->pm_handle != NULL) {
+			status = proc_mgr_delete(&handle->pm_handle);
+			WARN_ON(status < 0);
+		}
 	}
 
 	status = proc4430_destroy();
 	WARN_ON(status < 0);
-
-
-	sharedregion_remove(SMHEAP_SRINDEX_APPM3);
-	sharedregion_remove(SMHEAP_SRINDEX_SYSM3);
-
-	sysmemmgr_free(platform_sm_heap_virt_addr, SMHEAP_SIZE,
-					sysmemmgr_allocflag_physical);
-
-	status = sysmemmgr_destroy();
-	WARN_ON(status < 0);
-
-	if (platform_sm_heap_virt_addr != NULL) {
-		u_info.addr = (u32) platform_sm_heap_virt_addr;
-		platform_mem_unmap(&u_info);
-	}
-
-	if (platform_sw_dmm_virt_addr != NULL) {
-		u_info.addr = (u32) platform_sw_dmm_virt_addr;
-		platform_mem_unmap(&u_info);
-	}
 
 	return status;
 }
@@ -716,132 +1313,182 @@ s32 platform_destroy(void)
  *  Purpose:
  *  Function called by proc_mgr when slave is in loaded state.
  */
-void platform_load_callback(void *arg)
+int platform_load_callback(u16 proc_id, void *arg)
 {
-	s32 status = 0;
-	u16 proc_id = (u32) arg;
-	u16 local_id = MULTIPROC_INVALIDID;
-	struct sharedregion_info info;
-	u32 boot_load_page;
-	u32 sh_addr_base;
-	u32 nwrite;
-	int index;
+	int status = PLATFORM_S_SUCCESS;
+	struct platform_object *handle;
+	u32 start;
+	u32 num_bytes;
+	struct sharedregion_entry entry;
+	u32 m_addr;
+	struct proc_mgr_addr_info ai;
+	struct ipc_params ipc_params;
+	int i;
+	u32 file_id;
+	void *pm_handle;
 
-	printk(KERN_ERR "platform_load_callback\n");
+	handle = &platform_objects[multiproc_self()];
 
-	/* Get the written entry */
-	local_id = multiproc_get_id(NULL);
+	pm_handle = handle->pm_handle;
+	file_id = proc_mgr_get_loaded_file_id(pm_handle);
 
-	if (proc_id == multiproc_get_id("SysM3"))
-		index = SMHEAP_SRINDEX_SYSM3;
-	else if (proc_id == multiproc_get_id("AppM3"))
-		index = SMHEAP_SRINDEX_APPM3;
-	else {
-		status = SYSMGR_E_FAIL;
-		goto proc_invalid_id;
-	}
-	/* Add the  to sharedregion */
-	switch (index) {
-	case SMHEAP_SRINDEX_SYSM3: /* For SysM3 */
-		/* Get the boot load page address */
-		boot_load_page = BOOTLOADPAGE_SLV_VRT_BASEADDR_SYSM3;
-		status = proc_mgr_translate_addr(procmgr_handle_sysm3,
-					(void *) &sh_addr_base,
-					PROC_MGR_ADDRTYPE_MASTERKNLVIRT,
-					(void *) boot_load_page,
-					PROC_MGR_ADDRTYPE_SLAVEVIRT);
-		if (status < 0)
-			break;
-		/* Zero out the boot load page */
-		memset((void *) sh_addr_base,
-				0,
-				BOOTLOADPAGE_SLV_VRT_BASESIZE_SYSM3);
-		break;
-
-	case SMHEAP_SRINDEX_APPM3: /* For AppM3 */
-		/* Get the boot load page address */
-		boot_load_page = BOOTLOADPAGE_SLV_VRT_BASEADDR_APPM3;
-		status = proc_mgr_translate_addr(procmgr_handle_appm3,
-					(void *) &sh_addr_base,
-					PROC_MGR_ADDRTYPE_MASTERKNLVIRT,
-					(void *) boot_load_page,
-					PROC_MGR_ADDRTYPE_SLAVEVIRT);
-		if (status < 0)
-			break;
-
-		/* Zero out the boot load page */
-		memset((void *) sh_addr_base,
-				0,
-				BOOTLOADPAGE_SLV_VRT_BASESIZE_APPM3);
-		break;
+	/* read the symbol from slave binary */
+	status = proc_mgr_get_symbol_address(pm_handle,
+					     file_id,
+					     RESETVECTOR_SYMBOL,
+					     &start);
+	if (status < 0) {
+		status = PLATFORM_E_FAIL;
+		goto exit;
 	}
 
-	if (status < 0)
-		goto proc_mgr_translate_addr_fail;
+	/* Read the slave config */
+	num_bytes = sizeof(struct platform_slave_config);
+	status = _platform_read_slave_memory(proc_id,
+					start,
+					&handle->slave_config,
+					&num_bytes);
+	if (status < 0) {
+		status = PLATFORM_E_FAIL;
+		goto exit;
+	}
 
-	/* Set the boot load page address */
-	sysmgr_set_boot_load_page(proc_id, sh_addr_base);
+	if (platform_host_sr_config == NULL)
+		platform_host_sr_config = kmalloc(sizeof(struct
+				platform_host_sr_config) * handle->
+					slave_config.num_srs, GFP_KERNEL);
 
-	/* Write the boot table (containing both regions) to */
-	/* the current processor */
+	if (platform_host_sr_config == NULL) {
+		status = -ENOMEM;
+		goto alloced_host_sr_config_exit;
+	}
 
-	/* For SysM3 */
-	sharedregion_get_table_info(SMHEAP_SRINDEX_SYSM3,
-				local_id,
-				&info);
-	platform_sm_heap_virt_addr_sysm3 = sysmemmgr_translate(
-				platform_sm_heap_virt_addr_sysm3,
-				sysmemmgr_xltflag_kvirt2phys);
-	info.base = (void *) SHAREDMEMORY_SLV_VRT_BASEADDR_SYSM3;
-	nwrite = sysmgr_put_object_config(proc_id,
-				(void *) &info,
-				SYSMGR_CMD_SHAREDREGION_ENTRY_START +
-					SMHEAP_SRINDEX_SYSM3,
-				sizeof(struct sharedregion_info));
-	WARN_ON(nwrite != sizeof(struct sharedregion_info));
+	if (handle->slave_config.num_srs > 0) {
+		num_bytes = handle->slave_config.num_srs * sizeof(struct
+						platform_slave_sr_config);
+		handle->slave_sr_config = kmalloc(num_bytes, GFP_KERNEL);
+		if (handle->slave_sr_config == NULL) {
+			status = -ENOMEM;
+			goto exit;
+		} else {
+			status = _platform_read_slave_memory(
+					proc_id,
+					start + sizeof(struct
+						platform_slave_config),
+					handle->slave_sr_config,
+					&num_bytes);
+			if (status < 0) {
+				status = PLATFORM_E_FAIL;
+				goto alloced_slave_sr_config_exit;
+			}
+		}
+	}
 
-	/* For AppM3 */
-	sharedregion_get_table_info(SMHEAP_SRINDEX_APPM3,
-				local_id,
-				&info);
-	platform_sm_heap_virt_addr_appm3 = sysmemmgr_translate(
-				platform_sm_heap_virt_addr_appm3,
-				sysmemmgr_xltflag_kvirt2phys);
-	info.base = (void *) SHAREDMEMORY_SLV_VRT_BASEADDR_APPM3;
+	if (status >= 0) {
+		ipc_params.setup_messageq = handle->slave_config.
+								setup_messageq;
+		ipc_params.setup_notify   = handle->slave_config.setup_notify;
+		ipc_params.proc_sync      = handle->slave_config.proc_sync;
+		status = ipc_create(proc_id, &ipc_params);
+		if (status < 0) {
+			status = PLATFORM_E_FAIL;
+			goto alloced_slave_sr_config_exit;
+		}
+	}
 
-	/* Write info into the boot load page */
-	nwrite = sysmgr_put_object_config(proc_id,
-				(void *) &info,
-				SYSMGR_CMD_SHAREDREGION_ENTRY_START +
-					SMHEAP_SRINDEX_APPM3,
-				sizeof(struct sharedregion_info));
-	WARN_ON(nwrite != sizeof(struct sharedregion_info));
+	/* Setup the shared memory for region with owner == host */
+	for (i = 0; i < handle->slave_config.num_srs; i++) {
+		status = sharedregion_get_entry(i, &entry);
+		if (status < 0) {
+			status = PLATFORM_E_FAIL;
+			goto alloced_slave_sr_config_exit;
+		}
+		BUG_ON(!((entry.is_valid == false)
+			|| ((entry.is_valid == true)
+				&& (entry.len == (handle->
+					slave_sr_config[i].entry_len)))));
 
-	/* For SW DMM region */
-	sharedregion_get_table_info(SMHEAP_SRINDEX_SWDMM,
-				local_id,
-				&info);
-	info.base = (void *) SHAREDMEMORY_SWDMM_SLV_VRT_BASEADDR;
+		platform_host_sr_config[i].ref_count++;
 
-	/* Write info into the boot load page */
-	nwrite = sysmgr_put_object_config(proc_id,
-				(void *) &info,
-				SYSMGR_CMD_SHAREDREGION_ENTRY_START +
-					SMHEAP_SRINDEX_SWDMM,
-				sizeof(struct sharedregion_info));
-	WARN_ON(nwrite != sizeof(struct sharedregion_info));
-	goto exit;
+		/* Add the entry only if previously not added */
+		if (entry.is_valid == false) {
 
-proc_mgr_translate_addr_fail:
-	printk(KERN_ERR "platform_load_callback: proc_mgr_translate_addr failed"
-			" [0x%x] for proc_id [0x%x]\n",
-			 status, proc_id);
-	goto exit;
-proc_invalid_id:
-	printk(KERN_ERR "platform_load_callback failed invalid proc_id [0x%x]\n",
-			proc_id);
+			/* Translate the slave address to master */
+			status = proc_mgr_translate_addr(
+				pm_handle,
+				(void **)&m_addr,
+				PROC_MGR_ADDRTYPE_MASTERPHYS,
+				(void *)handle->slave_sr_config[i].entry_base,
+				PROC_MGR_ADDRTYPE_SLAVEVIRT);
+			if (status < 0) {
+				status = PLATFORM_E_FAIL;
+				goto alloced_slave_sr_config_exit;
+			}
+
+			ai.addr[PROC_MGR_ADDRTYPE_MASTERPHYS] = m_addr;
+			ai.addr[PROC_MGR_ADDRTYPE_SLAVEVIRT]  =
+				handle->slave_sr_config[i].entry_base;
+			ai.size = handle->slave_sr_config[i].entry_len;
+			ai.is_cached = false;
+			status = proc_mgr_map(pm_handle,
+					(PROC_MGR_MAPTYPE_SLAVE
+					| PROC_MGR_MAPTYPE_VIRT),
+					&ai,
+					PROC_MGR_ADDRTYPE_MASTERPHYS);
+			if (status < 0) {
+				status = PLATFORM_E_FAIL;
+				goto alloced_slave_sr_config_exit;
+			}
+
+			memset((u32 *)ai.addr[PROC_MGR_ADDRTYPE_MASTERKNLVIRT],
+				0, handle->slave_sr_config[i].entry_len);
+			memset(&entry, 0, sizeof(struct sharedregion_entry));
+			entry.base = (void *)ai.
+					addr[PROC_MGR_ADDRTYPE_MASTERKNLVIRT];
+			entry.len = handle->slave_sr_config[i].entry_len;
+			entry.owner_proc_id = handle->slave_sr_config[i].
+							owner_proc_id;
+			entry.is_valid = true;
+			entry.cache_line_size = handle->slave_sr_config[i].
+							cache_line_size;
+			entry.create_heap = handle->slave_sr_config[i].
+								create_heap;
+			sharedregion_set_entry(handle->
+						slave_sr_config[i].id, &entry);
+		}
+	}
+
+	/* Read sr0_memory_setup */
+	num_bytes = sizeof(struct platform_slave_config);
+	handle->slave_config.sr0_memory_setup = 1;
+	status = _platform_write_slave_memory(proc_id,
+					      start,
+					      &handle->slave_config,
+					      &num_bytes);
+	if (status < 0) {
+		status = PLATFORM_E_FAIL;
+		goto alloced_slave_sr_config_exit;
+	}
+
+	status = ipc_start();
+	if (status < 0) {
+		status = PLATFORM_E_FAIL;
+		goto alloced_slave_sr_config_exit;
+	}
+
+	return 0;
+
+alloced_slave_sr_config_exit:
+	kfree(handle->slave_sr_config);
+
+alloced_host_sr_config_exit:
+	kfree(platform_host_sr_config);
 exit:
-	return;
+	if (status < 0)
+		printk(KERN_ERR "platform_load_callback failed, status [0x%x]\n",
+			status);
+
+	return status;
 }
 EXPORT_SYMBOL(platform_load_callback);
 
@@ -852,412 +1499,19 @@ EXPORT_SYMBOL(platform_load_callback);
  *  Function called by proc_mgr when slave is in started state.
  *  FIXME: logic would change completely in the final system.
  */
-void platform_start_callback(void *arg)
+int platform_start_callback(u16 proc_id, void *arg)
 {
-	s32 status = 0;
-	u16 local_id = MULTIPROC_INVALIDID;
-	u16 proc_id = (u32) arg;
-	u32 nread = 0;
-	u32 i = 0;
-	u32 cmd_id;
-	u32 sh_addr;
-	int index;
+	int status = PLATFORM_S_SUCCESS;
 
-	struct notify_ducatidrv_params notify_shm_params;
-	struct gatepeterson_params gate_params;
-	struct nameserver_remotenotify_params nsr_params;
-	struct heapbuf_params heap_params;
-	struct messageq_transportshm_params msgqt_params;
-	struct sharedregion_config sr_config;
-	struct sharedregion_info info;
-
-	struct platform_notify_ducatidrv_params pnds_params;
-	struct platform_heapbuf_params phb_params;
-	struct platform_gaterpeterson_params pgp_params;
-	struct platform_nameserver_remotenotify_params pnsrn_params;
-	struct platform_messageq_transportshm_params pmqt_params;
-	/*u32 proc_ids[2];*/
-
-	printk(KERN_ERR "platform_start_callback\n");
-	if (proc_id == multiproc_get_id("SysM3"))
-		index = SMHEAP_SRINDEX_SYSM3;
-	else if (proc_id == multiproc_get_id("AppM3"))
-		index = SMHEAP_SRINDEX_APPM3;
-	else {
-		status = SYSMGR_E_FAIL;
-		goto proc_invalid_id;
-	}
-	/* Wait for slave to write the scalability info */
-	sysmgr_wait_for_scalability_info(proc_id);
-	/* Read the scalability info */
 	do {
-		nread = sysmgr_get_object_config(proc_id, (void *) &pc_params,
-				SYSMGR_CMD_SCALABILITY,
-				sizeof(struct sysmgr_proc_config));
-	} while (nread != sizeof(struct sysmgr_proc_config));
+		status = ipc_attach(proc_id);
+	} while (status < 0);
 
-	if (status >= 0) {
-		local_id = multiproc_get_id(NULL);
-		status = multiproc_set_local_id(local_id);
-		if (status < 0) {
-			status = SYSMGR_E_FAIL;
-			goto multiproc_fail;
-		}
-	}
+	if (status < 0)
+		printk(KERN_ERR "platform_load_callback failed, status [0x%x]\n",
+			status);
 
-	/* TODO: add condition: proc_id == multiproc_get_id("SysM3") */
-	if (pc_params.use_notify) {
-		do {
-			nread = sysmgr_get_object_config(proc_id,
-					(void *) &pnds_params,
-					PLATFORM_CMD_NOTIFYDRIVER,
-					sizeof(struct \
-					platform_notify_ducatidrv_params));
-		} while (nread != \
-			sizeof(struct platform_notify_ducatidrv_params));
-
-		sh_addr = (u32)sharedregion_get_ptr((u32 *)
-						pnds_params.shared_mem_addr);
-		if (sh_addr == (u32)NULL) {
-			status = SYSMGR_E_FAIL;
-			goto sharedregion_getptr_fail;
-		}
-		notify_ducatidrv_params_init(NULL, &notify_shm_params);
-		notify_shm_params.shared_addr = sh_addr;
-		notify_shm_params.shared_addr_size = \
-						pnds_params.shared_mem_size;
-		notify_shm_params.num_events = NOTIFY_MAX_EVENTS;
-		notify_shm_params.num_reserved_events = \
-						NOTIFY_NUMRESERVEDEVENTS;
-		notify_shm_params.send_event_poll_count = \
-						NOTIFY_SENDEVENTPOLLCOUNT;
-		notify_shm_params.recv_int_id = BASE_DUCATI2ARM_INTID;
-		notify_shm_params.send_int_id = BASE_ARM2DUCATI_INTID;
-		notify_shm_params.remote_proc_id = proc_id;
-		if (platform_notifydrv_handle == NULL) {
-			/* Create instance of Notify Ducati Driver */
-			platform_notifydrv_handle = notify_ducatidrv_create(
-							"NOTIFYDRIVER_DUCATI",
-							&notify_shm_params);
-			if (platform_notifydrv_handle == NULL) {
-				status = SYSMGR_E_FAIL;
-				goto notify_ducatidrv_create_fail;
-			}
-		}
-
-		/* The notify is created only once and used for Sys and App */
-		if (index == SMHEAP_SRINDEX_APPM3)
-			platform_notifydrv_handle_appm3 =
-						platform_notifydrv_handle;
-		else
-			platform_notifydrv_handle_sysm3 =
-						platform_notifydrv_handle;
-	}
-	if (pc_params.use_nameserver) {
-		do {
-			nread = sysmgr_get_object_config(proc_id,
-					(void *) &pgp_params,
-					PLATFORM_CMD_GPNSRN,
-					sizeof(struct \
-						platform_gaterpeterson_params));
-		} while (nread != sizeof(struct platform_gaterpeterson_params));
-		sh_addr = (u32)sharedregion_get_ptr((u32 *)
-						pgp_params.shared_mem_addr);
-		if (sh_addr == (u32)NULL) {
-			status = SYSMGR_E_FAIL;
-			goto sharedregion_getptr_fail;
-		}
-		gatepeterson_params_init(NULL, &gate_params);
-		gate_params.shared_addr = (void *) sh_addr;
-		gate_params.shared_addr_size = pgp_params.shared_mem_size;
-		do {
-			if (index == SMHEAP_SRINDEX_APPM3)
-				status = gatepeterson_open(
-					&platform_nsrn_gate_handle_appm3,
-					&gate_params);
-			else
-				status = gatepeterson_open(
-					&platform_nsrn_gate_handle_sysm3,
-					&gate_params);
-		} while (status == -ENXIO);
-
-		if (status < 0) {
-			status = SYSMGR_E_FAIL;
-			goto gatepeterson_open_fail;
-		}
-
-		do {
-			nread = sysmgr_get_object_config(proc_id,
-					(void *) &pnsrn_params,
-					PLATFORM_CMD_NSRN,
-					sizeof(struct \
-				platform_nameserver_remotenotify_params));
-		} while (nread != \
-			sizeof(struct
-				platform_nameserver_remotenotify_params));
-		sh_addr = (u32) sharedregion_get_ptr((u32 *)
-						pnsrn_params.shared_mem_addr);
-		if (sh_addr == (u32)NULL) {
-			status = SYSMGR_E_FAIL;
-			goto sharedregion_getptr_fail;
-		}
-		/*
-		 *  Create the NameServerRemote implementation that is used to
-		 *  communicate with the remote processor. It uses some shared
-		 *  memory and the Notify module.
-		 *
-		 *  Note that this implementation uses Notify to communicate, so
-		 *  interrupts need to be enabled.
-		 */
-		nameserver_remotenotify_params_init(NULL, &nsr_params);
-		nsr_params.notify_driver = platform_notifydrv_handle;
-					/* Both are using same notify */
-		nsr_params.notify_event_no = pnsrn_params.notify_event_no;
-		nsr_params.shared_addr = (void *) sh_addr;
-		nsr_params.shared_addr_size = pnsrn_params.shared_mem_size;
-		if (index == SMHEAP_SRINDEX_APPM3) {
-			nsr_params.gate =
-				(void *) platform_nsrn_gate_handle_appm3;
-			platform_nsrn_handle_appm3 =
-					nameserver_remotenotify_create(
-								proc_id,
-								&nsr_params);
-			if (platform_nsrn_handle_appm3 == NULL) {
-				status = SYSMGR_E_FAIL;
-				goto nameserver_remotenotify_create_fail;
-			}
-		} else {
-			nsr_params.gate =
-				(void *) platform_nsrn_gate_handle_sysm3;
-			platform_nsrn_handle_sysm3 =
-					nameserver_remotenotify_create(
-								proc_id,
-								&nsr_params);
-			if (platform_nsrn_handle_sysm3 == NULL) {
-				status = SYSMGR_E_FAIL;
-				goto nameserver_remotenotify_create_fail;
-			}
-		}
-	}
-	if (pc_params.use_heapbuf) {
-		do {
-			nread = sysmgr_get_object_config(proc_id,
-					(void *) &pgp_params,
-					PLATFORM_CMD_GPHEAPBUF,
-					sizeof(struct \
-						platform_gaterpeterson_params));
-		} while (nread != sizeof(struct
-					platform_gaterpeterson_params));
-		sh_addr = (u32) sharedregion_get_ptr((u32 *)
-						pgp_params.shared_mem_addr);
-		if (sh_addr == (u32)NULL) {
-			status = SYSMGR_E_FAIL;
-			goto sharedregion_getptr_fail;
-		}
-		gatepeterson_params_init(NULL, &gate_params);
-		gate_params.shared_addr = (void *) sh_addr;
-		gate_params.shared_addr_size = pgp_params.shared_mem_size;
-		do {
-			if (index == SMHEAP_SRINDEX_APPM3)
-				status = gatepeterson_open(
-					&platform_heap_gate_handle_appm3,
-					&gate_params);
-			else
-				status = gatepeterson_open(
-					&platform_heap_gate_handle_sysm3,
-					&gate_params);
-		} while (status == -ENXIO);
-		if (status < 0) {
-			status = SYSMGR_E_FAIL;
-			goto gatepeterson_open_fail;
-		}
-
-		do {
-			nread = sysmgr_get_object_config(proc_id,
-					(void *) &phb_params,
-					PLATFORM_CMD_HEAPBUF,
-					sizeof(struct platform_heapbuf_params));
-		} while (nread != sizeof(struct platform_heapbuf_params));
-		/* Create the heap. */
-		sh_addr = (u32) sharedregion_get_ptr((u32 *)
-						phb_params.shared_mem_addr);
-		if (sh_addr == (u32)NULL) {
-			status = SYSMGR_E_FAIL;
-			goto sharedregion_getptr_fail;
-		}
-		heapbuf_params_init(NULL, &heap_params);
-		heap_params.shared_addr = (void *) sh_addr;
-		heap_params.align = HEAPBUF_ALIGN;
-		heap_params.num_blocks = phb_params.num_blocks;
-		heap_params.block_size = phb_params.block_size;
-		sh_addr = (u32) sharedregion_get_ptr((u32 *)
-						phb_params.shared_buf_size);
-		if (sh_addr == (u32)NULL) {
-			status = SYSMGR_E_FAIL;
-			goto sharedregion_getptr_fail;
-		}
-		heap_params.shared_buf_size = phb_params.shared_buf_size;
-		heap_params.shared_buf = (void *) sh_addr;
-		if (index == SMHEAP_SRINDEX_APPM3) {
-			heap_params.name = APPM3HEAPNAME;
-			heap_params.gate = platform_heap_gate_handle_appm3;
-		} else {
-			heap_params.name = SYSM3HEAPNAME;
-			heap_params.gate = platform_heap_gate_handle_sysm3;
-		}
-		heap_params.shared_addr_size = phb_params.shared_mem_size;
-		do {
-			if (index == SMHEAP_SRINDEX_APPM3)
-				status = heapbuf_open(
-						&platform_heap_handle_appm3,
-						&heap_params);
-			else
-				status = heapbuf_open(
-						&platform_heap_handle_sysm3,
-						&heap_params);
-		} while (status == -ENXIO);
-		if (status < 0) {
-			status = SYSMGR_E_FAIL;
-			goto heapbuf_open_fail;
-		}
-	}
-	if (pc_params.use_messageq) {
-		do {
-			nread = sysmgr_get_object_config(proc_id, &pgp_params,
-					PLATFORM_CMD_GPMQT,
-					sizeof(struct \
-						platform_gaterpeterson_params));
-		} while (nread != sizeof(struct platform_gaterpeterson_params));
-		sh_addr = (u32) sharedregion_get_ptr((u32 *)
-						pgp_params.shared_mem_addr);
-		if (sh_addr == (u32)NULL) {
-			status = SYSMGR_E_FAIL;
-			goto sharedregion_getptr_fail;
-		}
-		gatepeterson_params_init(NULL, &gate_params);
-		gate_params.shared_addr = (void *) sh_addr;
-		gate_params.shared_addr_size = pgp_params.shared_mem_size;
-		do {
-			if (index == SMHEAP_SRINDEX_APPM3)
-				status = gatepeterson_open(
-					&platform_mqt_gate_handle_appm3,
-					&gate_params);
-			else
-				status = gatepeterson_open(
-					&platform_mqt_gate_handle_sysm3,
-					&gate_params);
-		} while (status == -ENXIO);
-
-		if (status < 0) {
-			status = SYSMGR_E_FAIL;
-			goto gatepeterson_open_fail;
-		}
-
-		do {
-			nread = sysmgr_get_object_config(proc_id,
-					(void *) &pmqt_params,
-						PLATFORM_CMD_MQT,
-					sizeof(struct \
-					platform_messageq_transportshm_params));
-		} while (nread != sizeof(
-				struct platform_messageq_transportshm_params));
-		/* Register this heap with platform_messageq */
-		if (index == SMHEAP_SRINDEX_APPM3)
-			messageq_register_heap(platform_heap_handle_appm3,
-						APPM3HEAPID);
-		else
-			messageq_register_heap(platform_heap_handle_sysm3,
-						SYSM3HEAPID);
-		sh_addr = (u32) sharedregion_get_ptr((u32 *)
-						pmqt_params.shared_mem_addr);
-		if (sh_addr == (u32)NULL) {
-			status = SYSMGR_E_FAIL;
-			goto sharedregion_getptr_fail;
-		}
-		messageq_transportshm_params_init(NULL, &msgqt_params);
-		msgqt_params.shared_addr = (void *) sh_addr;
-		msgqt_params.notify_event_no = pmqt_params.notify_event_no;
-		msgqt_params.notify_driver = platform_notifydrv_handle;
-		msgqt_params.shared_addr_size = pmqt_params.shared_mem_size;
-		if (index == SMHEAP_SRINDEX_APPM3) {
-			msgqt_params.gate = platform_mqt_gate_handle_appm3;
-			platform_transport_shm_handle_appm3 =
-						messageq_transportshm_create(
-								proc_id,
-								&msgqt_params);
-			if (platform_transport_shm_handle_appm3 == NULL) {
-				status = SYSMGR_E_FAIL;
-				goto messageq_transportshm_create_fail;
-			}
-		} else {
-			msgqt_params.gate = platform_mqt_gate_handle_sysm3;
-			platform_transport_shm_handle_sysm3 =
-						messageq_transportshm_create(
-								proc_id,
-								&msgqt_params);
-			if (platform_transport_shm_handle_sysm3 == NULL) {
-				status = SYSMGR_E_FAIL;
-				goto messageq_transportshm_create_fail;
-			}
-
-		}
-	}
-
-	if (status >= 0) {
-		/* Wait for slave to complete the setup */
-		sysmgr_wait_for_slave_setup(proc_id);
-
-		/* Now get the Shared region entries that may have been created
-		 * by Slave, but actual physical memory is not assigned to
-		 * those entries, only virtual DSP memory exists.
-		 */
-		sharedregion_get_config(&sr_config);
-		for (i = 0; i < sr_config.max_regions; i++) {
-			cmd_id = SYSMGR_CMD_SHAREDREGION_ENTRY_START + i;
-			nread = sysmgr_get_object_config(proc_id,
-					(void *) &info, cmd_id,
-					sizeof(struct sharedregion_info));
-			if (nread == sizeof(struct sharedregion_info)) {
-				/* FIXME: Do the DMM and convert the entry into
-				 * kernel virtual address and put it in the
-				 * shared region for host */
-			}
-		}
-	}
-	goto exit;
-
-messageq_transportshm_create_fail:
-	printk(KERN_ERR "platform_start_callback: "
-		"messageq_transportshm_create failed status[0x%x]", status);
-	goto exit;
-heapbuf_open_fail:
-	printk(KERN_ERR "platform_start_callback: gatepeterson_open "
-		"failed status[0x%x]", status);
-	goto exit;
-nameserver_remotenotify_create_fail:
-	printk(KERN_ERR "platform_start_callback: "
-		"nameserver_remotenotify_create failed status[0x%x]", status);
-	goto exit;
-gatepeterson_open_fail:
-	printk(KERN_ERR "platform_start_callback: gatepeterson_open "
-		"failed status[0x%x]", status);
-	goto exit;
-notify_ducatidrv_create_fail:
-	printk(KERN_ERR "platform_start_callback: notify_ducatidrv_create "
-		"failed status[0x%x]", status);
-	goto exit;
-sharedregion_getptr_fail:
-	printk(KERN_ERR "platform_start_callback: sharedregion_get_ptr failed"
-		" status[0x%x]", status);
-	goto exit;
-multiproc_fail:
-	printk(KERN_ERR "platform_start_callback: multiproc_set_local_id failed"
-		" status[0x%x]", status);
-proc_invalid_id:
-	printk(KERN_ERR "platform_load_callback failed invalid"
-			" proc_id [0x%x]\n", proc_id);
-exit:
-	return;
+	return status;
 }
 EXPORT_SYMBOL(platform_start_callback);
 /* FIXME: since application has to call this API for now */
@@ -1269,151 +1523,257 @@ EXPORT_SYMBOL(platform_start_callback);
  *  Function called by proc_mgr when slave is in stopped state.
  *  FIXME: logic would change completely in the final system.
  */
-void platform_stop_callback(void *arg)
+int platform_stop_callback(u16 proc_id, void *arg)
 {
-	s32 status = 0;
-	u16 proc_id = (u32) arg;
-	int index = 0;
-	u32 nread = 0;
+	int status = PLATFORM_S_SUCCESS;
+	u32 i;
+	u32 m_addr;
+	struct proc_mgr_addr_info ai;
+	struct platform_object *handle;
+	void *pm_handle;
 
-	if (proc_id == multiproc_get_id("SysM3"))
-		index = SMHEAP_SRINDEX_SYSM3;
-	else if (proc_id == multiproc_get_id("AppM3"))
-		index = SMHEAP_SRINDEX_APPM3;
-	else {
-		status = SYSMGR_E_FAIL;
-		goto proc_invalid_id;
-	}
+	handle = (struct platform_object *)&platform_objects[proc_id];
+	pm_handle = handle->pm_handle;
 
-	/* Read the scalability info */
-	do {
-		nread = sysmgr_get_object_config(proc_id, (void *) &pc_params,
-				SYSMGR_CMD_SCALABILITY,
-				sizeof(struct sysmgr_proc_config));
-	} while (nread != sizeof(struct sysmgr_proc_config));
+	/* delete the System manager instance here */
+	for (i = 0;
+		((handle->slave_sr_config != NULL) &&
+			(i < handle->slave_config.num_srs));
+		i++) {
+			platform_host_sr_config[i].ref_count--;
+			if (platform_host_sr_config[i].ref_count == 0) {
+				platform_num_srs_unmapped++;
 
-	if (pc_params.use_messageq) {
-		/* Finalize drivers */
-		if (index == SMHEAP_SRINDEX_APPM3)
-			status = gatepeterson_close(
-					&platform_mqt_gate_handle_appm3);
-		else
-			status = gatepeterson_close(
-					&platform_mqt_gate_handle_sysm3);
-		if (status < 0) {
-			printk(KERN_ERR "platform_stop_callback : mqt "
-				"gatepeterson_close failed [0x%x]", status);
-		}
-
-		if (index == SMHEAP_SRINDEX_APPM3)
-			status = messageq_transportshm_delete(
-					&platform_transport_shm_handle_appm3);
-		else
-			status = messageq_transportshm_delete(
-					&platform_transport_shm_handle_sysm3);
-		if (status < 0) {
-			printk(KERN_ERR "platform_stop_callback : "
-				"messageq_transportshm_delete failed [0x%x]",
-				status);
+			/* Translate the slave address to master */
+			status = proc_mgr_translate_addr(pm_handle,
+				(void **)&m_addr,
+				PROC_MGR_ADDRTYPE_MASTERPHYS,
+				(void *)handle->slave_sr_config[i].entry_base,
+				PROC_MGR_ADDRTYPE_SLAVEVIRT);
+			if (status < 0) {
+				status = PLATFORM_E_FAIL;
+				continue;
+			}
+			ai.addr[PROC_MGR_ADDRTYPE_MASTERPHYS] = m_addr;
+			ai.addr[PROC_MGR_ADDRTYPE_SLAVEVIRT] =
+					handle->slave_sr_config[i].entry_base;
+			ai.size = handle->slave_sr_config[i].entry_len;
+			ai.is_cached = false;
+			status = proc_mgr_unmap(pm_handle,
+					(PROC_MGR_MAPTYPE_SLAVE
+					| PROC_MGR_MAPTYPE_VIRT),
+					&ai,
+					PROC_MGR_ADDRTYPE_MASTERPHYS);
 		}
 	}
 
-	if (pc_params.use_nameserver) {
-		if (index == SMHEAP_SRINDEX_APPM3)
-			status = gatepeterson_close(
-					&platform_nsrn_gate_handle_appm3);
-		else
-			status = gatepeterson_close(
-					&platform_nsrn_gate_handle_sysm3);
-		if (status < 0) {
-			printk(KERN_ERR "platform_stop_callback : nsrn"
-				"gatepeterson_close failed [0x%x]", status);
+	if (platform_num_srs_unmapped == handle->slave_config.num_srs) {
+		if (handle->slave_sr_config != NULL) {
+			kfree(handle->slave_sr_config);
+			handle->slave_sr_config = NULL;
 		}
-
-		if (index == SMHEAP_SRINDEX_APPM3)
-			status = nameserver_remotenotify_delete(
-					&platform_nsrn_handle_appm3);
-		else
-			status = nameserver_remotenotify_delete(
-						&platform_nsrn_handle_sysm3);
-		if (status < 0) {
-			printk(KERN_ERR "platform_stop_callback : "
-				"nameserver_remotenotify_delete failed [0x%x]",
-				status);
+		if (platform_host_sr_config != NULL) {
+			kfree(platform_host_sr_config);
+			platform_host_sr_config = NULL;
+			platform_num_srs_unmapped = 0;
 		}
 	}
 
-	if (pc_params.use_heapbuf) {
-		if (index == SMHEAP_SRINDEX_APPM3)
-			status = messageq_unregister_heap(APPM3HEAPID);
-		else
-			status = messageq_unregister_heap(SYSM3HEAPID);
-		if (status < 0) {
-			printk(KERN_ERR "platform_stop_callback : "
-				"messageq_unregister_heap failed [0x%x]",
-				status);
-		}
+	ipc_detach(proc_id);
 
-		if (index == SMHEAP_SRINDEX_APPM3)
-			status = heapbuf_close(platform_heap_handle_appm3);
-		else
-			status = heapbuf_close(platform_heap_handle_sysm3);
-		if (status < 0) {
-			printk(KERN_ERR "platform_stop_callback : "
-				"heapbuf_close failed [0x%x]", status);
-		}
-		if (index == SMHEAP_SRINDEX_APPM3)
-			status = gatepeterson_close(
-					&platform_heap_gate_handle_appm3);
-		else
-			status = gatepeterson_close(
-					&platform_heap_gate_handle_sysm3);
-		if (status < 0) {
-			printk(KERN_ERR "platform_stop_callback : heap"
-				"gatepeterson_close failed [0x%x]", status);
-		}
+	ipc_stop();
 
-	}
-
-	if (pc_params.use_notify) {
-		if (index == SMHEAP_SRINDEX_APPM3)
-			platform_notifydrv_handle_appm3 = NULL;
-		else
-			platform_notifydrv_handle_sysm3 = NULL;
-
-		if (platform_notifydrv_handle_sysm3 == NULL &&
-				platform_notifydrv_handle_appm3 == NULL) {
-			status = notify_ducatidrv_delete(
-					(struct notify_driver_object **)
-					&platform_notifydrv_handle);
-			platform_notifydrv_handle = NULL;
-		}
-		if (status < 0) {
-			printk(KERN_ERR "platform_stop_callback : "
-				"notify_ducatidrv_delete failed [0x%x]",
-				status);
-		}
-	}
-
-	status = sharedregion_remove(SMHEAP_SRINDEX_APPM3);
-	if (status < 0) {
-		printk(KERN_ERR "platform_stop_callback : "
-			"sharedregion_remove failed [0x%x]", status);
-	}
-
-	status = sharedregion_remove(SMHEAP_SRINDEX_SYSM3);
-	if (status < 0) {
-		printk(KERN_ERR "platform_stop_callback : "
-			"sharedregion_remove failed [0x%x]", status);
-	}
-
-	goto exit;
-
-proc_invalid_id:
-	printk(KERN_ERR "platform_load_callback failed invalid"
-			" proc_id [0x%x]\n", proc_id);
-exit:
-	return;
+	return status;
 }
 EXPORT_SYMBOL(platform_stop_callback);
-/* FIXME: since application has to call this API for now */
+
+/*  ============================================================================
+ *  Internal functions
+ *  ============================================================================
+ */
+/* Function to read slave memory */
+int
+_platform_read_slave_memory(u16 proc_id,
+			    u32 addr,
+			    void *value,
+			    u32 *num_bytes)
+{
+	int status = 0;
+	bool done = false;
+	struct platform_object *handle;
+	struct proc_mgr_addr_info a_info;
+	u32 m_addr;
+	void *pm_handle;
+
+	handle = (struct platform_object *)&platform_objects[proc_id];
+	BUG_ON(handle == NULL);
+	if (handle == NULL) {
+		status = -EINVAL;
+		goto exit;
+	}
+
+	pm_handle = handle->pm_handle;
+	BUG_ON(pm_handle == NULL);
+	if (pm_handle == NULL) {
+		status = -EINVAL;
+		goto exit;
+	}
+
+	/* Translate the slave address to master address */
+	status = proc_mgr_translate_addr(pm_handle,
+					(void **)&m_addr,
+					PROC_MGR_ADDRTYPE_MASTERPHYS,
+					(void *)addr,
+					PROC_MGR_ADDRTYPE_SLAVEVIRT);
+
+	if (status >= 0) {
+		status = proc_mgr_translate_addr(pm_handle,
+						(void **)&m_addr,
+						PROC_MGR_ADDRTYPE_MASTERKNLVIRT,
+						(void *)m_addr,
+						PROC_MGR_ADDRTYPE_MASTERPHYS);
+		if (status >= 0) {
+			memcpy(value, &m_addr, *num_bytes);
+			done = true;
+		} else {
+			status = PLATFORM_E_FAIL;
+			goto exit;
+		}
+	}
+
+	if (done == false) {
+		/* Map the address */
+		a_info.addr[PROC_MGR_ADDRTYPE_MASTERPHYS] = m_addr;
+		a_info.addr[PROC_MGR_ADDRTYPE_SLAVEVIRT] = addr;
+		a_info.size = *num_bytes;
+		a_info.is_cached = false;
+		status = proc_mgr_map(pm_handle,
+				     (PROC_MGR_MAPTYPE_VIRT
+				     | PROC_MGR_MAPTYPE_SLAVE),
+				     &a_info,
+				     PROC_MGR_ADDRTYPE_MASTERPHYS);
+		if (status < 0) {
+			status = PLATFORM_E_FAIL;
+			goto exit;
+		}
+	}
+
+	if (done == false) {
+		status = proc_mgr_read(pm_handle,
+				       addr,
+				       num_bytes,
+				       value);
+		if (status < 0) {
+			status = PLATFORM_E_FAIL;
+			goto exit;
+		}
+	}
+
+	if (done == false) {
+		/* Map the address */
+		status = proc_mgr_unmap(pm_handle,
+				       (PROC_MGR_MAPTYPE_VIRT
+				       | PROC_MGR_MAPTYPE_SLAVE),
+				       &a_info,
+				       PROC_MGR_ADDRTYPE_MASTERPHYS);
+		if (status < 0) {
+			status = PLATFORM_E_FAIL;
+			goto exit;
+		}
+	}
+exit:
+	return status;
+}
+
+
+/* Function to write slave memory */
+int
+_platform_write_slave_memory(u16 proc_id,
+			     u32 addr,
+			     void *value,
+			     u32 *num_bytes)
+{
+	int status = 0;
+	bool done = false;
+	struct platform_object *handle;
+	struct proc_mgr_addr_info a_info;
+	u32 m_addr;
+	void *pm_handle = NULL;
+
+	handle = (struct platform_object *)&platform_objects[proc_id];
+	BUG_ON(handle == NULL);
+	if (handle == NULL) {
+		status = -EINVAL;
+		goto exit;
+	}
+
+	pm_handle = handle->pm_handle;
+	BUG_ON(pm_handle == NULL);
+	if (pm_handle == NULL) {
+		status = -EINVAL;
+		goto exit;
+	}
+
+	/* Translate the slave address to master address */
+	status = proc_mgr_translate_addr(pm_handle,
+					(void **)&m_addr,
+					PROC_MGR_ADDRTYPE_MASTERPHYS,
+					(void *)addr,
+					PROC_MGR_ADDRTYPE_SLAVEVIRT);
+
+	if (status < 0) {
+		status = proc_mgr_translate_addr(pm_handle,
+					(void **)&m_addr,
+					PROC_MGR_ADDRTYPE_MASTERKNLVIRT,
+					(void *)m_addr,
+					PROC_MGR_ADDRTYPE_MASTERPHYS);
+		if (status >= 0) {
+			memcpy(&m_addr, value, *num_bytes);
+			done = true;
+		}
+	}
+
+	if (done == false) {
+		/* Map the address */
+		a_info.addr[PROC_MGR_ADDRTYPE_MASTERPHYS] = m_addr;
+		a_info.addr[PROC_MGR_ADDRTYPE_SLAVEVIRT] = addr;
+		a_info.size = *num_bytes;
+		a_info.is_cached = false;
+		status = proc_mgr_map(pm_handle,
+				     (PROC_MGR_MAPTYPE_VIRT
+				     | PROC_MGR_MAPTYPE_SLAVE),
+				     &a_info,
+				     PROC_MGR_ADDRTYPE_MASTERPHYS);
+		if (status < 0) {
+			status = PLATFORM_E_FAIL;
+			goto exit;
+		}
+	}
+
+	if (done == false) {
+		status = proc_mgr_write(pm_handle,
+					addr,
+					num_bytes,
+					value);
+		if (status < 0) {
+			status = PLATFORM_E_FAIL;
+			goto exit;
+		}
+	}
+
+	if (done == false) {
+		/* Map the address */
+		status = proc_mgr_map(pm_handle,
+				     (PROC_MGR_MAPTYPE_VIRT
+				     | PROC_MGR_MAPTYPE_SLAVE),
+				     &a_info,
+				     PROC_MGR_ADDRTYPE_MASTERPHYS);
+		if (status < 0) {
+			status = PLATFORM_E_FAIL;
+			goto exit;
+		}
+	}
+
+exit:
+	return status;
+}

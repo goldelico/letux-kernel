@@ -18,28 +18,27 @@
 #ifndef _PLATFORM_H_
 #define _PLATFORM_H_
 
-/* Module headers */
-#include <sysmgr.h>
+#define PLATFORM_S_SUCCESS       0
+#define PLATFORM_E_FAIL         -1
+#define PLATFORM_E_INVALIDARG   -2
 
 /* =============================================================================
  * APIs
  * =============================================================================
  */
 /* Function to setup the platform */
-s32 platform_setup(struct sysmgr_config *config);
+s32 platform_setup(void);
 
 /* Function to destroy the platform */
 s32 platform_destroy(void);
 
 /* Function called when slave is loaded with executable */
-void platform_load_callback(void *arg);
+int platform_load_callback(u16 proc_id, void *arg);
 
 /* Function called when slave is in started state*/
-void platform_start_callback(void *arg);
+int platform_start_callback(u16 proc_id, void *arg);
 
 /* Function called when slave is stopped state */
-void platform_stop_callback(void *arg);
-
-s32 platform_override_config(struct sysmgr_config *config);
+int platform_stop_callback(u16 proc_id, void *arg);
 
 #endif /* ifndef _PLATFORM_H_ */
