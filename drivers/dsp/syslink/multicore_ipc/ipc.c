@@ -277,7 +277,7 @@ int ipc_attach(u16 remote_proc_id)
 		if (ipc_module->proc_entry[remote_proc_id].slave) {
 			notify_mem_req = notify_shared_mem_req(remote_proc_id,
 				ipc_module->ipc_shared_addr);
-			notify_shared_addr = heap_alloc(
+			notify_shared_addr = sl_heap_alloc(
 					sharedregion_get_heap(0),
 					notify_mem_req,
 					sharedregion_get_cache_line_size(0));
@@ -327,7 +327,8 @@ int ipc_attach(u16 remote_proc_id)
 	/* Must come after gatemp_start because depends on default GateMP */
 	if (status >= 0 && ipc->entry.setup_notify) {
 		if (ipc_module->proc_entry[remote_proc_id].slave) {
-			nsrn_shared_addr = heap_alloc(sharedregion_get_heap(0),
+			nsrn_shared_addr = sl_heap_alloc(
+					sharedregion_get_heap(0),
 					nameserver_remotenotify_shared_mem_req(
 									NULL),
 					sharedregion_get_cache_line_size(0));
@@ -378,7 +379,8 @@ int ipc_attach(u16 remote_proc_id)
 	/* Must come after gatemp_start because depends on default GateMP */
 	if (status >= 0 && ipc->entry.setup_messageq) {
 		if (ipc_module->proc_entry[remote_proc_id].slave) {
-			msgq_shared_addr = heap_alloc(sharedregion_get_heap(0),
+			msgq_shared_addr = sl_heap_alloc
+					(sharedregion_get_heap(0),
 					messageq_shared_mem_req(ipc_module->
 							ipc_shared_addr),
 					sharedregion_get_cache_line_size(0));
@@ -517,7 +519,7 @@ int ipc_detach(u16 remote_proc_id)
 				if (msgq_shared_addr != NULL) {
 					/* free the memory back to sharedregion
 								0 heap */
-					heap_free(sharedregion_get_heap(0),
+					sl_heap_free(sharedregion_get_heap(0),
 						msgq_shared_addr,
 						messageq_shared_mem_req(
 							msgq_shared_addr));
@@ -553,7 +555,7 @@ int ipc_detach(u16 remote_proc_id)
 				if (nsrn_shared_addr != NULL)
 					/* free the memory back to
 							SharedRegion 0 heap */
-					heap_free(sharedregion_get_heap(0),
+					sl_heap_free(sharedregion_get_heap(0),
 						nsrn_shared_addr,
 						nsrn_mem_req);
 
@@ -585,7 +587,7 @@ int ipc_detach(u16 remote_proc_id)
 				if (notify_shared_addr != NULL) {
 					/* free the memory back to
 							SharedRegion 0 heap */
-					heap_free(sharedregion_get_heap(0),
+					sl_heap_free(sharedregion_get_heap(0),
 						notify_shared_addr,
 						notify_shared_mem_req(
 							remote_proc_id,
@@ -1052,7 +1054,7 @@ int ipc_write_config(u16 remote_proc_id, u32 tag, void *cfg, u32 size)
 	}
 
 	/* Allocate memory from the shared heap (System Heap) */
-	entry = heap_alloc(sharedregion_get_heap(0),
+	entry = sl_heap_alloc(sharedregion_get_heap(0),
 				size + sizeof(struct ipc_config_entry),
 				cache_line_size);
 

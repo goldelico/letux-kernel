@@ -717,7 +717,7 @@ int heapbufmp_delete(void **handle_ptr)
 		if ((region_heap != NULL) &&
 			(obj->params.shared_addr == NULL) &&
 			(obj->attrs != NULL)) {
-			heap_free(region_heap, obj->attrs, obj->alloc_size);
+			sl_heap_free(region_heap, obj->attrs, obj->alloc_size);
 		}
 
 		kfree(obj);
@@ -1478,7 +1478,7 @@ int heapbufmp_post_init(struct heapbufmp_object *handle)
 			goto error;
 		}
 
-		obj->attrs = heap_alloc(region_heap, obj->alloc_size,
+		obj->attrs = sl_heap_alloc(region_heap, obj->alloc_size,
 						min_align);
 		if (obj->attrs == NULL) {
 			retval = -ENOMEM;

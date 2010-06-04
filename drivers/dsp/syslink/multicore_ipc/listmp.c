@@ -1355,7 +1355,7 @@ static int _listmp_create(struct listmp_object **handle_ptr,
 			obj->alloc_size = listmp_shared_mem_req(&sparams);
 
 			/* HeapMemMP will do the alignment * */
-			obj->attrs = heap_alloc(
+			obj->attrs = sl_heap_alloc(
 					sharedregion_get_heap(obj->region_id),
 					obj->alloc_size,
 					0);
@@ -1452,7 +1452,7 @@ error:
 			}
 			if (params->shared_addr == NULL) {
 				if (obj->attrs != NULL) {
-					heap_free(sharedregion_get_heap(
+					sl_heap_free(sharedregion_get_heap(
 							obj->region_id),
 							(void *)obj->attrs,
 							obj->alloc_size);
