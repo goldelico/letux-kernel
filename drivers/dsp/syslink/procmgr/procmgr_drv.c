@@ -98,11 +98,11 @@ static struct platform_driver procmgr_driver = {
 		.owner = THIS_MODULE,
 		.name = PROCMGR_NAME,
 	},
-	.probe 		= proc_mgr_probe,
-	.remove 	= __devexit_p(proc_mgr_remove),
-	.shutdown 	= NULL,
-	.suspend 	= NULL,
-	.resume 	= NULL,
+	.probe		= proc_mgr_probe,
+	.remove		= __devexit_p(proc_mgr_remove),
+	.shutdown	= NULL,
+	.suspend	= NULL,
+	.resume		= NULL,
 };
 
 /*
@@ -668,7 +668,7 @@ static int __devinit proc_mgr_probe(struct platform_device *pdev)
 	retval = cdev_add(&procmgr_device->cdev, dev, 1);
 
 	if (retval) {
-		printk(KERN_ERR "Failed to add the syslink procmgr device \n");
+		printk(KERN_ERR "Failed to add the syslink procmgr device\n");
 		goto exit;
 	}
 
@@ -676,7 +676,7 @@ static int __devinit proc_mgr_probe(struct platform_device *pdev)
 	proc_mgr_class = class_create(THIS_MODULE, "syslink-procmgr");
 
 	if (IS_ERR(proc_mgr_class)) {
-		printk(KERN_ERR "Error creating bridge class \n");
+		printk(KERN_ERR "Error creating bridge class\n");
 		goto exit;
 	}
 	device_create(proc_mgr_class, NULL, MKDEV(driver_major, driver_minor),
