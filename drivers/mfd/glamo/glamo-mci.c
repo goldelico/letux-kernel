@@ -1021,3 +1021,4 @@ module_exit(glamo_mci_exit);
 MODULE_DESCRIPTION("Glamo MMC/SD Card Interface driver");
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Andy Green <andy@openmoko.com>");
+MODULE_ALIAS("platform:glamo-mci");

@@ -980,3 +980,4 @@ module_exit(glamofb_cleanup);
 MODULE_AUTHOR("Harald Welte <laforge@openmoko.org>");
 MODULE_DESCRIPTION("Smedia Glamo 336x/337x framebuffer driver");
 MODULE_LICENSE("GPL");
+MODULE_ALIAS("platform:glamo-fb");
