@@ -507,13 +507,13 @@ int nameserver_remotenotify_get(void *rhandle, const char *instance_name,
 	*value_len = obj->msg[offset]->value_len;
 
 	obj->msg[offset]->request_status = false;
-	obj->msg[offset]->request = 0;
-	obj->msg[offset]->response = 0;
 	retval = 0;
 
 inval_len_error:
 notify_error:
 request_error:
+	obj->msg[offset]->request = 0;
+	obj->msg[offset]->response = 0;
 	gatemp_leave(obj->gatemp, key);
 exit:
 	/* un-block so that subsequent requests can be honored */
