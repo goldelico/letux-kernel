@@ -25,103 +25,119 @@
 #include <syslink/host_os.h>
 
 /* Module headers */
+#include <ipc_ioctl.h>
 #include <syslink/notify.h>
 #include <syslink/notify_ducatidriver.h>
 #include <syslink/notifydefs.h>
 
 
-/* Base command ID for Notify */
-#define NOTIFYCMDBASE			(0xE0)
-
-/* Base command ID for Notify */
-#define NOTIFY_BASE_CMD			(0x170)
+enum CMD_NOTIFY {
+	NOTIFY_GETCONFIG = NOTIFY_BASE_CMD,
+	NOTIFY_SETUP,
+	NOTIFY_DESTROY,
+	NOTIFY_REGISTEREVENT,
+	NOTIFY_UNREGISTEREVENT,
+	NOTIFY_SENDEVENT,
+	NOTIFY_DISABLE,
+	NOTIFY_RESTORE,
+	NOTIFY_DISABLEEVENT,
+	NOTIFY_ENABLEEVENT,
+	NOTIFY_ATTACH,
+	NOTIFY_DETACH,
+	NOTIFY_THREADATTACH,
+	NOTIFY_THREADDETACH,
+	NOTIFY_ISREGISTERED,
+	NOTIFY_SHAREDMEMREQ,
+	NOTIFY_REGISTEREVENTSINGLE,
+	NOTIFY_UNREGISTEREVENTSINGLE
+};
 
 /* Command for notify_get_config */
-#define CMD_NOTIFY_GETCONFIG		_IOWR(NOTIFYCMDBASE,		\
-					NOTIFY_BASE_CMD + 1u,		\
+#define CMD_NOTIFY_GETCONFIG		_IOWR(IPC_IOC_MAGIC,		\
+					NOTIFY_GETCONFIG,		\
 					struct notify_cmd_args_get_config)
 
 /* Command for notify_setup */
-#define CMD_NOTIFY_SETUP		_IOWR(NOTIFYCMDBASE,		\
-					NOTIFY_BASE_CMD + 2u,		\
+#define CMD_NOTIFY_SETUP		_IOWR(IPC_IOC_MAGIC,		\
+					NOTIFY_SETUP,			\
 					struct notify_cmd_args_setup)
 
 /* Command for notify_destroy */
-#define CMD_NOTIFY_DESTROY		_IOWR(NOTIFYCMDBASE,		\
-					NOTIFY_BASE_CMD + 3u,		\
+#define CMD_NOTIFY_DESTROY		_IOWR(IPC_IOC_MAGIC,		\
+					NOTIFY_DESTROY,			\
 					struct notify_cmd_args_destroy)
 
 /* Command for notify_register_event */
-#define CMD_NOTIFY_REGISTEREVENT	_IOWR(NOTIFYCMDBASE,		\
-					NOTIFY_BASE_CMD + 4u,		\
+#define CMD_NOTIFY_REGISTEREVENT	_IOWR(IPC_IOC_MAGIC,		\
+					NOTIFY_REGISTEREVENT,		\
 					struct notify_cmd_args_register_event)
 
 /* Command for notify_unregister_event */
-#define CMD_NOTIFY_UNREGISTEREVENT	_IOWR(NOTIFYCMDBASE,		\
-					NOTIFY_BASE_CMD + 5u,		\
+#define CMD_NOTIFY_UNREGISTEREVENT	_IOWR(IPC_IOC_MAGIC,		\
+					NOTIFY_UNREGISTEREVENT,		\
 					struct notify_cmd_args_unregister_event)
 
 /* Command for notify_send_event */
-#define CMD_NOTIFY_SENDEVENT		_IOWR(NOTIFYCMDBASE,		\
-					NOTIFY_BASE_CMD + 6u,		\
+#define CMD_NOTIFY_SENDEVENT		_IOWR(IPC_IOC_MAGIC,		\
+					NOTIFY_SENDEVENT,		\
 					struct notify_cmd_args_send_event)
 /* Command for notify_disable */
-#define CMD_NOTIFY_DISABLE		_IOWR(NOTIFYCMDBASE,		\
-					NOTIFY_BASE_CMD + 7u,		\
+#define CMD_NOTIFY_DISABLE		_IOWR(IPC_IOC_MAGIC,		\
+					NOTIFY_DISABLE,		\
 					struct notify_cmd_args_disable)
 
 /* Command for notify_restore */
-#define CMD_NOTIFY_RESTORE		_IOWR(NOTIFYCMDBASE,		\
-					NOTIFY_BASE_CMD + 8u,		\
+#define CMD_NOTIFY_RESTORE		_IOWR(IPC_IOC_MAGIC,		\
+					NOTIFY_RESTORE,		\
 					struct notify_cmd_args_restore)
 
 /* Command for notify_disable_event */
-#define CMD_NOTIFY_DISABLEEVENT		_IOWR(NOTIFYCMDBASE,		\
-					NOTIFY_BASE_CMD + 9u,		\
+#define CMD_NOTIFY_DISABLEEVENT		_IOWR(IPC_IOC_MAGIC,		\
+					NOTIFY_DISABLEEVENT,		\
 					struct notify_cmd_args_disable_event)
 
 /* Command for notify_enable_event */
-#define CMD_NOTIFY_ENABLEEVENT		_IOWR(NOTIFYCMDBASE,		\
-					NOTIFY_BASE_CMD + 10u,		\
+#define CMD_NOTIFY_ENABLEEVENT		_IOWR(IPC_IOC_MAGIC,		\
+					NOTIFY_ENABLEEVENT,		\
 					struct notify_cmd_args_enable_event)
 
 /* Command for notify_attach */
-#define CMD_NOTIFY_ATTACH		_IOWR(NOTIFYCMDBASE,		\
-					NOTIFY_BASE_CMD + 11u,		\
+#define CMD_NOTIFY_ATTACH		_IOWR(IPC_IOC_MAGIC,		\
+					NOTIFY_ATTACH,			\
 					struct notify_cmd_args_attach)
 
 /* Command for notify_detach */
-#define CMD_NOTIFY_DETACH		_IOWR(NOTIFYCMDBASE,		\
-					NOTIFY_BASE_CMD + 12u,		\
+#define CMD_NOTIFY_DETACH		_IOWR(IPC_IOC_MAGIC,		\
+					NOTIFY_DETACH,			\
 					struct notify_cmd_args_detach)
 
 /* Command for notify_thread_attach */
-#define CMD_NOTIFY_THREADATTACH		_IOWR(NOTIFYCMDBASE,		\
-					NOTIFY_BASE_CMD + 13u,		\
+#define CMD_NOTIFY_THREADATTACH		_IOWR(IPC_IOC_MAGIC,		\
+					NOTIFY_THREADATTACH,		\
 					struct notify_cmd_args)
 
 /* Command for notify_thread_detach */
-#define CMD_NOTIFY_THREADDETACH		_IOWR(NOTIFYCMDBASE,		\
-					NOTIFY_BASE_CMD + 14u,		\
+#define CMD_NOTIFY_THREADDETACH		_IOWR(IPC_IOC_MAGIC,		\
+					NOTIFY_THREADDETACH,		\
 					struct notify_cmd_args)
 
 /* Command for notify_is_registered */
-#define CMD_NOTIFY_ISREGISTERED		_IOWR(NOTIFYCMDBASE,		\
-					NOTIFY_BASE_CMD + 15u,		\
+#define CMD_NOTIFY_ISREGISTERED		_IOWR(IPC_IOC_MAGIC,		\
+					NOTIFY_ISREGISTERED,		\
 					struct notify_cmd_args_is_registered)
 
 /* Command for notify_shared_mem_req */
-#define CMD_NOTIFY_SHAREDMEMREQ		_IOWR(NOTIFYCMDBASE,		\
-					NOTIFY_BASE_CMD + 16u,		\
+#define CMD_NOTIFY_SHAREDMEMREQ		_IOWR(IPC_IOC_MAGIC,		\
+					NOTIFY_SHAREDMEMREQ,		\
 					struct notify_cmd_args_shared_mem_req)
 /* Command for notify_register_event_single */
-#define CMD_NOTIFY_REGISTEREVENTSINGLE	_IOWR(NOTIFYCMDBASE,		\
-					NOTIFY_BASE_CMD + 17u,		\
+#define CMD_NOTIFY_REGISTEREVENTSINGLE	_IOWR(IPC_IOC_MAGIC,		\
+					NOTIFY_REGISTEREVENTSINGLE,	\
 					struct notify_cmd_args_register_event)
 
 /* Command for notify_unregister_event_single */
-#define CMD_NOTIFY_UNREGISTEREVENTSINGLE	_IOWR(NOTIFYCMDBASE,	\
-					NOTIFY_BASE_CMD + 18u,		\
+#define CMD_NOTIFY_UNREGISTEREVENTSINGLE	_IOWR(IPC_IOC_MAGIC,	\
+					NOTIFY_UNREGISTEREVENTSINGLE,	\
 					struct notify_cmd_args_unregister_event)
 
 

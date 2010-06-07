@@ -30,6 +30,7 @@
 
 
 #include <syslink/platform_mem.h>
+#include <syslink/drv_notify.h>
 #include <syslink/notify_driver.h>
 #include <syslink/notify.h>
 #include <syslink/notify_ioctl.h>
@@ -39,23 +40,6 @@
  *  Macros and types
  *  ============================================================================
  */
-#define IPCNOTIFY_NAME "ipcnotify"
-
-static char *driver_name = IPCNOTIFY_NAME;
-
-static s32 driver_major;
-
-static s32 driver_minor;
-
-struct ipcnotify_dev {
-	struct cdev cdev;
-};
-
-static struct ipcnotify_dev *ipcnotify_device;
-
-static struct class *ipcnotify_class;
-
-
 /* Maximum number of user supported. */
 #define MAX_PROCESSES 32
 
@@ -111,37 +95,12 @@ struct notify_drv_module_object notifydrv_state = {
 	.single_event_cbck_list = NULL*/
 };
 
-/*Major number of driver.*/
-int major = 232;
-
-/* open the Notify driver object..*/
-static int notify_drv_open(struct inode *inode, struct file *filp);
-
-/* close the Notify driver object..*/
-static int notify_drv_close(struct inode *inode, struct file *filp);
-
-/* read function for of Notify driver.*/
-static int notify_drv_read(struct file *filp, char *dst, size_t size,
-				loff_t *offset);
-
-/* Linux driver function to map memory regions to user space. */
-static int notify_drv_mmap(struct file *filp, struct vm_area_struct *vma);
-
-/* ioctl function for of Linux Notify driver.*/
-static int notify_drv_ioctl(struct inode *inode, struct file *filp, u32 cmd,
-						unsigned long args);
 
 /* Attach a process to notify user support framework. */
 static int notify_drv_attach(u32 pid);
 
 /* Detach a process from notify user support framework. */
 static int notify_drv_detach(u32 pid);
-
-/* Module initialization function for Linux driver.*/
-static int __init notify_drv_initialize_module(void);
-
-/* Module finalization function for Linux driver.*/
-static void __exit notify_drv_finalize_module(void);
 
 /* This function implements the callback registered with IPS. Here to pass
  * event no. back to user function (so that it can do another level of
@@ -154,40 +113,12 @@ static int _notify_drv_add_buf_by_pid(u16 proc_id, u16 line_id, u32 pid,
 			u32 event_id, u32 data, notify_fn_notify_cbck cb_fxn,
 			void *param);
 
-static void _notify_drv_setup(void);
 
-static void _notify_drv_destroy(void);
-
-
-/* Function to invoke the APIs through ioctl.*/
-static const struct file_operations driver_ops = {
-	.open = notify_drv_open,
-	.ioctl = notify_drv_ioctl,
-	.release = notify_drv_close,
-	.read = notify_drv_read,
-	.mmap = notify_drv_mmap,
-};
-
-/*
- * Linux specific function to open the driver.
- */
-static int notify_drv_open(struct inode *inode, struct file *filp)
-{
-	return 0;
-}
-
-/*
- * close the driver
- */
-static int notify_drv_close(struct inode *inode, struct file *filp)
-{
-	return 0;
-}
 
 /*
  * read data from the driver
  */
-static int notify_drv_read(struct file *filp, char *dst, size_t size,
+int notify_drv_read(struct file *filp, char *dst, size_t size,
 		loff_t *offset)
 {
 
@@ -252,7 +183,7 @@ func_end:
 	return ret_val;
 }
 
-static int notify_drv_mmap(struct file *filp, struct vm_area_struct *vma)
+int notify_drv_mmap(struct file *filp, struct vm_area_struct *vma)
 {
 	vma->vm_page_prot = pgprot_dmacoherent(vma->vm_page_prot);
 
@@ -263,7 +194,7 @@ static int notify_drv_mmap(struct file *filp, struct vm_area_struct *vma)
 }
 
 /* ioctl function for of Linux Notify driver. */
-static int notify_drv_ioctl(struct inode *inode, struct file *filp, u32 cmd,
+int notify_drv_ioctl(struct inode *inode, struct file *filp, u32 cmd,
 					unsigned long args)
 {
 	int status = NOTIFY_S_SUCCESS;
@@ -803,7 +734,7 @@ func_end:
 }
 
 /* Module setup function.*/
-static void _notify_drv_setup(void)
+void _notify_drv_setup(void)
 {
 	int i;
 
@@ -822,7 +753,7 @@ static void _notify_drv_setup(void)
 }
 
 /* Module destroy function.*/
-static void _notify_drv_destroy(void)
+void _notify_drv_destroy(void)
 {
 	int i;
 	struct notify_drv_event_packet *packet;
@@ -995,84 +926,3 @@ static int notify_drv_detach(u32 pid)
 func_end:
 	return status;
 }
-
-/* Module initialization function for Notify driver.*/
-static int __init notify_drv_initialize_module(void)
-{
-	int result = 0;
-	dev_t dev;
-
-	if (driver_major) {
-		dev = MKDEV(driver_major, driver_minor);
-		result = register_chrdev_region(dev, 1, driver_name);
-	} else {
-		result = alloc_chrdev_region(&dev, driver_minor, 1,
-				driver_name);
-		driver_major = MAJOR(dev);
-	}
-
-	ipcnotify_device = kmalloc(sizeof(struct ipcnotify_dev), GFP_KERNEL);
-	if (!ipcnotify_device) {
-		result = -ENOMEM;
-		unregister_chrdev_region(dev, 1);
-		goto func_end;
-	}
-	memset(ipcnotify_device, 0, sizeof(struct ipcnotify_dev));
-	cdev_init(&ipcnotify_device->cdev, &driver_ops);
-	ipcnotify_device->cdev.owner = THIS_MODULE;
-	ipcnotify_device->cdev.ops = &driver_ops;
-
-	result = cdev_add(&ipcnotify_device->cdev, dev, 1);
-
-	if (result) {
-		printk(KERN_ERR "Failed to add the syslink ipcnotify device\n");
-		goto func_end;
-	}
-
-	/* udev support */
-	ipcnotify_class = class_create(THIS_MODULE, "syslink-ipcnotify");
-
-	if (IS_ERR(ipcnotify_class)) {
-		printk(KERN_ERR "Error creating ipcnotify class\n");
-		goto func_end;
-	}
-	device_create(ipcnotify_class, NULL, MKDEV(driver_major, driver_minor),
-			NULL, IPCNOTIFY_NAME);
-
-	/* Setup the notify_drv module */
-	_notify_drv_setup();
-
-func_end:
-	return result;
-}
-
-/* Module finalization function for Notify driver.*/
-static void __exit notify_drv_finalize_module(void)
-{
-	dev_t dev_no;
-
-	/* Destroy the notify_drv module */
-	_notify_drv_destroy();
-
-	dev_no = MKDEV(driver_major, driver_minor);
-	if (ipcnotify_device) {
-		cdev_del(&ipcnotify_device->cdev);
-		kfree(ipcnotify_device);
-	}
-	unregister_chrdev_region(dev_no, 1);
-	if (ipcnotify_class) {
-		/* remove the device from sysfs */
-		device_destroy(ipcnotify_class, MKDEV(driver_major,
-						driver_minor));
-		class_destroy(ipcnotify_class);
-	}
-
-	return;
-}
-
-
-/* Macro calls that indicate initialization and finalization functions
- * to the kernel. */
-module_init(notify_drv_initialize_module);
-module_exit(notify_drv_finalize_module);
-MODULE_LICENSE("GPL v2");

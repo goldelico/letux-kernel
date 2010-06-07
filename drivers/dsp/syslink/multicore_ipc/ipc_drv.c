@@ -15,9 +15,7 @@
  *  PURPOSE.
  */
 
-/*#ifdef MODULE*/
 #include <linux/module.h>
-/*#endif*/
 #include <linux/device.h>
 #include <linux/init.h>
 #include <linux/types.h>
@@ -28,6 +26,7 @@
 #include <linux/uaccess.h>
 
 #include <ipc_ioctl.h>
+#include <drv_notify.h>
 #include <nameserver.h>
 
 #define IPC_NAME		"syslink_ipc"
@@ -56,7 +55,7 @@ module_param(ipc_minor, int, 0);	/* Driver's minor number */
 MODULE_PARM_DESC(ipc_minor, "Minor device number, default = 0 (auto)");
 
 MODULE_AUTHOR("Texas Instruments");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL v2");
 
 /*
  * ======== ipc_open ========
@@ -114,29 +113,35 @@ exit:
 }
 
 const struct file_operations ipc_fops = {
-open: ipc_open,
-release : ipc_release,
-ioctl : ipc_ioctl,
+	.open = ipc_open,
+	.release = ipc_release,
+	.ioctl = ipc_ioctl,
+	.read = notify_drv_read,
+	.mmap = notify_drv_mmap,
 };
 
 /*
- * ======== ipc_modules_Init ========
+ * ======== ipc_modules_init ========
  *  IPC Initialization routine. will initialize various
  *  sub components (modules) of IPC.
  */
 static int ipc_modules_init(void)
 {
+	/* Setup the notify_drv module */
+	_notify_drv_setup();
+
 	return 0;
 }
 
 /*
- * ======== ipc_modules_Init ========
+ * ======== ipc_modules_exit ========
  *  IPC cleanup routine. will cleanup of various
  *  sub components (modules) of IPC.
  */
 static void ipc_modules_exit(void)
 {
-
+	/* Destroy the notify_drv module */
+	_notify_drv_destroy();
 }
 
 /*
@@ -151,15 +156,9 @@ static int __init ipc_init(void)
 	dev_t dev ;
 	s32 retval = 0;
 
-	/*  2.6 device model */
-	if (ipc_major) {
-		dev = MKDEV(ipc_major, ipc_minor);
-		retval = register_chrdev_region(dev, IPC_DEVICES, ipc_name);
-	} else {
-		retval = alloc_chrdev_region(&dev, ipc_minor, IPC_DEVICES,
-								ipc_name);
-		ipc_major = MAJOR(dev);
-	}
+	retval = alloc_chrdev_region(&dev, ipc_minor, IPC_DEVICES,
+							ipc_name);
+	ipc_major = MAJOR(dev);
 
 	if (retval < 0) {
 		printk(KERN_ERR "ipc_init: can't get major %x\n", ipc_major);
@@ -181,7 +180,6 @@ static int __init ipc_init(void)
 		goto unreg_exit;
 
 	}
-	/* TO DO : NEED TO LOOK IN TO THIS */
 	ipc_class = class_create(THIS_MODULE, "syslink_ipc");
 	if (IS_ERR(ipc_class)) {
 		printk(KERN_ERR "ipc_init: error creating ipc class\n");
@@ -212,7 +210,7 @@ exit:
 }
 
 /*
- * ======== ipc_init ========
+ * ======== ipc_exit ========
  *  This function is invoked during unlinking of ipc
  *  module from the kernel. ipc resources are
  *  freed in this function.

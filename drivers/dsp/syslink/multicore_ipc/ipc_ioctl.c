@@ -29,6 +29,7 @@
 #include <sysipc_ioctl.h>
 /*#include <sysmemmgr_ioctl.h>*/
 #include <heapmemmp_ioctl.h>
+#include <drv_notify.h>
 
 /*
  *  This will route the ioctl commands to proper modules
@@ -59,6 +60,8 @@ int ipc_ioc_router(u32 cmd, ulong arg)
 		retval = sysmemmgr_ioctl(NULL, NULL, cmd, arg);*/
 	else if (ioc_nr >= HEAPMEMMP_BASE_CMD && ioc_nr <= HEAPMEMMP_END_CMD)
 		retval = heapmemmp_ioctl(NULL, NULL, cmd, arg);
+	else if (ioc_nr >= NOTIFY_BASE_CMD && ioc_nr <= NOTIFY_END_CMD)
+		retval = notify_drv_ioctl(NULL, NULL, cmd, arg);
 	else
 		retval = -ENOTTY;
 

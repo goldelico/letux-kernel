@@ -322,3 +322,4 @@ exit:
 }
 EXPORT_SYMBOL(platform_mem_translate);
 
+MODULE_LICENSE("GPL v2");
