@@ -32,28 +32,20 @@ config  SYSLINK_DUCATI_PM
         help
            Ducati Power Management Implementation
 
-config MPU_BRIDGE_NOTIFY
-	tristate "OMAP Notify Module"
-	default y
-	select OMAP_MBOX_FWK
-	select OMAP_REMOTE_PROC
-	help
-          Notify Module
-
-
-config  NOTIFY_DUCATI  
-	tristate "OMAP Notify Ducati Module"
-	depends on MPU_BRIDGE_NOTIFY && SYSLINK_PROC4430
-	default y
-	help
- 	   Notify Ducati Module 
+config MPU_SYSLINK_PLATFORM
+        tristate "Syslink Platform Module"
+        default y
+        help
+          Syslink Platform Module
 
 config MPU_SYSLINK_IPC
         tristate "Syslink IPC Module"
-        depends on MPU_BRIDGE_NOTIFY && NOTIFY_DUCATI
+        depends on SYSLINK_PROC4430
         default y
+        select OMAP_MBOX_FWK
+        select OMAP_REMOTE_PROC
         help
-          Syslink IPC Module
+          Syslink IPC Module (includes Notify)
 
 config SYSLINK_USE_SYSMGR
         bool "Enable SYS MGR setup"

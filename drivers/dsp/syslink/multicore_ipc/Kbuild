@@ -4,10 +4,18 @@ listmp.o listmp_ioctl.o sharedregion.o sharedregion_ioctl.o \
 gate.o gatepeterson.o gatehwspinlock.o gatemp.o gatemp_ioctl.o \
 heap.o heapmemmp.o heapmemmp_ioctl.o heapbufmp.o heapbufmp_ioctl.o \
 messageq.o messageq_ioctl.o transportshm.o transportshm_setup.o \
-platform_mem.o platform.o ipc.o sysipc_ioctl.o ipc_ioctl.o ipc_drv.o
+platform.o ipc.o sysipc_ioctl.o ipc_ioctl.o ipc_drv.o \
+../omap_notify/notify_driver.o ../omap_notify/notify.o \
+../omap_notify/drv_notify.o ../omap_notify/plat/omap4_notify_setup.o \
+../notify_ducatidriver/notify_ducati.o
+
+libsyslink_platform = platform_mem.o
 
 obj-$(CONFIG_MPU_SYSLINK_IPC)        += syslink_ipc.o
 syslink_ipc-objs = $(libservices) $(libsyslink_ipc)
+
+obj-$(CONFIG_MPU_SYSLINK_PLATFORM)        += syslink_platform.o
+syslink_platform-objs = $(libservices) $(libsyslink_platform)
 
 ccflags-y += -Wno-strict-prototypes
 
