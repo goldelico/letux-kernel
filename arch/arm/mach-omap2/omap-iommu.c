@@ -92,6 +92,7 @@ int iommu_get_plat_data_size()
 {
 	return num_iommu_devices;
 }
+EXPORT_SYMBOL(iommu_get_plat_data_size);
 
 struct iommu_device *iommu_get_device_data(void)
 {

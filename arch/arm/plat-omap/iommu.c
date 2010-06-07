@@ -1148,6 +1148,9 @@ static void __exit omap_iommu_exit(void)
 	kmem_cache_destroy(iopte_cachep);
 
 	platform_driver_unregister(&omap_iommu_driver);
+
+	if (omap_iommu_class)
+		class_destroy(omap_iommu_class);
 }
 module_exit(omap_iommu_exit);
 
