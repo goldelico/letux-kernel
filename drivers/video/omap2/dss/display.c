@@ -403,7 +403,10 @@ static int default_wait_vsync(struct omap_dss_device *dssdev)
 		else
 			irq = DISPC_IRQ_FRAMEDONE2;
 	else
-		irq = DISPC_IRQ_VSYNC;
+		if (!strcmp(dssdev->name, "lcd"))
+			irq = DISPC_IRQ_VSYNC;
+		else
+			irq = DISPC_IRQ_VSYNC2;
 
 	return omap_dispc_wait_for_irq_interruptible_timeout(irq, timeout);
 }
