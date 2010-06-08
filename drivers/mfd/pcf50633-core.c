@@ -218,24 +218,30 @@ static struct attribute_group pcf_attr_group = {
 };
 
 #ifdef CONFIG_PM
-static int pcf50633_suspend(struct i2c_client *client, pm_message_t state)
+
+static int pcf50633_suspend(struct device *dev)
 {
-	struct pcf50633 *pcf;
-	pcf = i2c_get_clientdata(client);
+	struct pcf50633 *pcf = dev_get_drvdata(dev);
 
 	return pcf50633_irq_suspend(pcf);
 }
 
-static int pcf50633_resume(struct i2c_client *client)
+static int pcf50633_resume(struct device *dev)
 {
-	struct pcf50633 *pcf;
-	pcf = i2c_get_clientdata(client);
+	struct pcf50633 *pcf = dev_get_drvdata(dev);
 
 	return pcf50633_irq_resume(pcf);
 }
+
+static const struct dev_pm_ops pcf50633_pm_ops = {
+	.suspend = pcf50633_suspend,
+	.resume = pcf50633_resume,
+};
+
+#define PCF50633_PM_OPS (&pcf50633_pm_ops)
+
 #else
-#define pcf50633_suspend NULL
-#define pcf50633_resume NULL
+#define PC50633_PM_OPS NULL
 #endif
 
 #define PCF50633_CELL(_name) \
@@ -351,12 +357,11 @@ static struct i2c_device_id pcf50633_id_table[] = {
 static struct i2c_driver pcf50633_driver = {
 	.driver = {
 		.name	= "pcf50633",
+		.pm		= PCF50633_PM_OPS,
 	},
 	.id_table = pcf50633_id_table,
 	.probe = pcf50633_probe,
 	.remove = __devexit_p(pcf50633_remove),
-	.suspend = pcf50633_suspend,
-	.resume	= pcf50633_resume,
 };
 
 static int __init pcf50633_init(void)
