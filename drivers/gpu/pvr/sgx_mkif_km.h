@@ -1,26 +1,26 @@
 /**********************************************************************
  *
  * Copyright(c) 2008 Imagination Technologies Ltd. All rights reserved.
- * 
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
  * version 2, as published by the Free Software Foundation.
- * 
- * This program is distributed in the hope it will be useful but, except 
- * as otherwise stated in writing, without any warranty; without even the 
- * implied warranty of merchantability or fitness for a particular purpose. 
+ *
+ * This program is distributed in the hope it will be useful but, except
+ * as otherwise stated in writing, without any warranty; without even the
+ * implied warranty of merchantability or fitness for a particular purpose.
  * See the GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License along with
  * this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- * 
+ *
  * The full GNU General Public License is included in this distribution in
  * the file called "COPYING".
  *
  * Contact Information:
  * Imagination Technologies Ltd. <gpl-support@imgtec.com>
- * Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK 
+ * Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK
  *
  ******************************************************************************/
 
@@ -41,32 +41,32 @@
 	#else
 		#define SGX_REG_BANK_BASE_INDEX		(2)
 		#define	SGX_REG_BANK_MASTER_INDEX	(1)
-	#endif 
+	#endif
 	#define SGX_MP_CORE_SELECT(x,i) 	(x + ((i + SGX_REG_BANK_BASE_INDEX) * SGX_REG_BANK_SIZE))
 	#define SGX_MP_MASTER_SELECT(x) 	(x + (SGX_REG_BANK_MASTER_INDEX * SGX_REG_BANK_SIZE))
 #else
 	#define SGX_MP_CORE_SELECT(x,i) 	(x)
-#endif 
+#endif
 
 
 typedef struct _SGXMKIF_COMMAND_
 {
-	IMG_UINT32				ui32ServiceAddress;		
-	IMG_UINT32				ui32CacheControl;		
-	IMG_UINT32				ui32Data[2];			
+	IMG_UINT32				ui32ServiceAddress;
+	IMG_UINT32				ui32CacheControl;
+	IMG_UINT32				ui32Data[2];
 } SGXMKIF_COMMAND;
 
 
 typedef struct _PVRSRV_SGX_KERNEL_CCB_
 {
-	SGXMKIF_COMMAND		asCommands[256];		
+	SGXMKIF_COMMAND		asCommands[256];
 } PVRSRV_SGX_KERNEL_CCB;
 
 
 typedef struct _PVRSRV_SGX_CCB_CTL_
 {
-	IMG_UINT32				ui32WriteOffset;		
-	IMG_UINT32				ui32ReadOffset;			
+	IMG_UINT32				ui32WriteOffset;
+	IMG_UINT32				ui32ReadOffset;
 } PVRSRV_SGX_CCB_CTL;
 
 
@@ -77,27 +77,27 @@ typedef struct _SGXMKIF_HOST_CTL_
 	IMG_UINT32				ui32Continue;
 #endif
 
-	volatile IMG_UINT32		ui32InitStatus;				
-	volatile IMG_UINT32		ui32PowerStatus;			
-	volatile IMG_UINT32		ui32CleanupStatus;			
+	volatile IMG_UINT32		ui32InitStatus;
+	volatile IMG_UINT32		ui32PowerStatus;
+	volatile IMG_UINT32		ui32CleanupStatus;
 #if defined(SUPPORT_HW_RECOVERY)
-	IMG_UINT32				ui32uKernelDetectedLockups;	
-	IMG_UINT32				ui32HostDetectedLockups;	
-	IMG_UINT32				ui32HWRecoverySampleRate;	
-#endif 
-	IMG_UINT32				ui32uKernelTimerClock;		
-	IMG_UINT32				ui32ActivePowManSampleRate;	
-	IMG_UINT32				ui32InterruptFlags; 		
-	IMG_UINT32				ui32InterruptClearFlags; 	
+	IMG_UINT32				ui32uKernelDetectedLockups;
+	IMG_UINT32				ui32HostDetectedLockups;
+	IMG_UINT32				ui32HWRecoverySampleRate;
+#endif
+	IMG_UINT32				ui32uKernelTimerClock;
+	IMG_UINT32				ui32ActivePowManSampleRate;
+	IMG_UINT32				ui32InterruptFlags;
+	IMG_UINT32				ui32InterruptClearFlags;
 
 
-	IMG_UINT32				ui32NumActivePowerEvents;	
+	IMG_UINT32				ui32NumActivePowerEvents;
 
 #if defined(SUPPORT_SGX_HWPERF)
-	IMG_UINT32			ui32HWPerfFlags;		
+	IMG_UINT32			ui32HWPerfFlags;
 #endif
 
-	
+
 	IMG_UINT32			ui32TimeWraps;
 } SGXMKIF_HOST_CTL;
 
@@ -105,17 +105,17 @@ typedef struct _SGXMKIF_HOST_CTL_
 typedef struct _SGXMKIF_CMDTA_SHARED_
 {
 	IMG_UINT32			ui32CtrlFlags;
-	
+
 	IMG_UINT32			ui32NumTAStatusVals;
 	IMG_UINT32			ui32Num3DStatusVals;
 
-	
+
 	IMG_UINT32			ui32TATQSyncWriteOpsPendingVal;
 	IMG_DEV_VIRTADDR	sTATQSyncWriteOpsCompleteDevVAddr;
 	IMG_UINT32			ui32TATQSyncReadOpsPendingVal;
 	IMG_DEV_VIRTADDR	sTATQSyncReadOpsCompleteDevVAddr;
 
-	
+
 	IMG_UINT32			ui323DTQSyncWriteOpsPendingVal;
 	IMG_DEV_VIRTADDR	s3DTQSyncWriteOpsCompleteDevVAddr;
 	IMG_UINT32			ui323DTQSyncReadOpsPendingVal;
@@ -123,7 +123,7 @@ typedef struct _SGXMKIF_CMDTA_SHARED_
 
 
 #if defined(SUPPORT_SGX_GENERALISED_SYNCOBJECTS)
-	
+
 	IMG_UINT32					ui32NumTASrcSyncs;
 	PVRSRV_DEVICE_SYNC_OBJECT	asTASrcSyncs[SGX_MAX_TA_SRC_SYNCS];
 	IMG_UINT32					ui32NumTADstSyncs;
@@ -131,12 +131,12 @@ typedef struct _SGXMKIF_CMDTA_SHARED_
 	IMG_UINT32					ui32Num3DSrcSyncs;
 	PVRSRV_DEVICE_SYNC_OBJECT	as3DSrcSyncs[SGX_MAX_3D_SRC_SYNCS];
 #else
-	
+
 	IMG_UINT32			ui32NumSrcSyncs;
 	PVRSRV_DEVICE_SYNC_OBJECT	asSrcSyncs[SGX_MAX_SRC_SYNCS];
 #endif
 
-	
+
 	PVRSRV_DEVICE_SYNC_OBJECT	sTA3DDependency;
 
 	CTL_STATUS			sCtlTAStatusInfo[SGX_MAX_TA_STATUS_VALS];
@@ -157,29 +157,29 @@ typedef struct _SGXMKIF_CMDTA_SHARED_
 
 typedef struct _SGXMKIF_TRANSFERCMD_SHARED_
 {
-	
-	
+
+
 	IMG_UINT32		ui32SrcReadOpPendingVal;
 	IMG_DEV_VIRTADDR	sSrcReadOpsCompleteDevAddr;
-	
+
 	IMG_UINT32		ui32SrcWriteOpPendingVal;
 	IMG_DEV_VIRTADDR	sSrcWriteOpsCompleteDevAddr;
 
-	
-	
+
+
 	IMG_UINT32		ui32DstReadOpPendingVal;
 	IMG_DEV_VIRTADDR	sDstReadOpsCompleteDevAddr;
-	
+
 	IMG_UINT32		ui32DstWriteOpPendingVal;
 	IMG_DEV_VIRTADDR	sDstWriteOpsCompleteDevAddr;
 
-	
+
 	IMG_UINT32		ui32TASyncWriteOpsPendingVal;
 	IMG_DEV_VIRTADDR	sTASyncWriteOpsCompleteDevVAddr;
 	IMG_UINT32		ui32TASyncReadOpsPendingVal;
 	IMG_DEV_VIRTADDR	sTASyncReadOpsCompleteDevVAddr;
 
-	
+
 	IMG_UINT32		ui323DSyncWriteOpsPendingVal;
 	IMG_DEV_VIRTADDR	s3DSyncWriteOpsCompleteDevVAddr;
 	IMG_UINT32		ui323DSyncReadOpsPendingVal;
@@ -192,50 +192,50 @@ typedef struct _SGXMKIF_TRANSFERCMD_SHARED_
 
 #if defined(SGX_FEATURE_2D_HARDWARE)
 typedef struct _SGXMKIF_2DCMD_SHARED_ {
-	
+
 	IMG_UINT32			ui32NumSrcSync;
 	PVRSRV_DEVICE_SYNC_OBJECT	sSrcSyncData[SGX_MAX_2D_SRC_SYNC_OPS];
 
-	
+
 	PVRSRV_DEVICE_SYNC_OBJECT	sDstSyncData;
 
-	
+
 	PVRSRV_DEVICE_SYNC_OBJECT	sTASyncData;
 
-	
+
 	PVRSRV_DEVICE_SYNC_OBJECT	s3DSyncData;
 } SGXMKIF_2DCMD_SHARED, *PSGXMKIF_2DCMD_SHARED;
-#endif 
+#endif
 
 
 typedef struct _SGXMKIF_HWDEVICE_SYNC_LIST_
 {
 	IMG_DEV_VIRTADDR	sAccessDevAddr;
 	IMG_UINT32			ui32NumSyncObjects;
-	
+
 	PVRSRV_DEVICE_SYNC_OBJECT	asSyncData[1];
 } SGXMKIF_HWDEVICE_SYNC_LIST, *PSGXMKIF_HWDEVICE_SYNC_LIST;
 
 
-#define PVRSRV_USSE_EDM_INIT_COMPLETE			(1UL << 0)	
+#define PVRSRV_USSE_EDM_INIT_COMPLETE			(1UL << 0)
 
-#define PVRSRV_USSE_EDM_POWMAN_IDLE_COMPLETE				(1UL << 2)	
-#define PVRSRV_USSE_EDM_POWMAN_POWEROFF_COMPLETE			(1UL << 3)	
-#define PVRSRV_USSE_EDM_POWMAN_POWEROFF_RESTART_IMMEDIATE	(1UL << 4)	
-#define PVRSRV_USSE_EDM_POWMAN_NO_WORK						(1UL << 5)	
+#define PVRSRV_USSE_EDM_POWMAN_IDLE_COMPLETE				(1UL << 2)
+#define PVRSRV_USSE_EDM_POWMAN_POWEROFF_COMPLETE			(1UL << 3)
+#define PVRSRV_USSE_EDM_POWMAN_POWEROFF_RESTART_IMMEDIATE	(1UL << 4)
+#define PVRSRV_USSE_EDM_POWMAN_NO_WORK						(1UL << 5)
 
-#define PVRSRV_USSE_EDM_INTERRUPT_HWR			(1UL << 0)	
-#define PVRSRV_USSE_EDM_INTERRUPT_ACTIVE_POWER	(1UL << 1)	
+#define PVRSRV_USSE_EDM_INTERRUPT_HWR			(1UL << 0)
+#define PVRSRV_USSE_EDM_INTERRUPT_ACTIVE_POWER	(1UL << 1)
 
-#define PVRSRV_USSE_EDM_CLEANUPCMD_COMPLETE 	(1UL << 0)	
+#define PVRSRV_USSE_EDM_CLEANUPCMD_COMPLETE 	(1UL << 0)
 
 #define PVRSRV_USSE_MISCINFO_READY		0x1UL
-#define PVRSRV_USSE_MISCINFO_GET_STRUCT_SIZES	0x2UL	
+#define PVRSRV_USSE_MISCINFO_GET_STRUCT_SIZES	0x2UL
 #if defined(SUPPORT_SGX_EDM_MEMORY_DEBUG)
-#define PVRSRV_USSE_MISCINFO_MEMREAD			0x4UL	
+#define PVRSRV_USSE_MISCINFO_MEMREAD			0x4UL
 
 #if !defined(SGX_FEATURE_MULTIPLE_MEM_CONTEXTS)
-#define PVRSRV_USSE_MISCINFO_MEMREAD_FAIL		0x1UL << 31;	
+#define PVRSRV_USSE_MISCINFO_MEMREAD_FAIL		0x1UL << 31
 #endif
 #endif
 
@@ -287,8 +287,8 @@ typedef struct _SGX_MISCINFO_STRUCT_SIZES_
 #if defined(SUPPORT_SGX_EDM_MEMORY_DEBUG)
 typedef struct _PVRSRV_SGX_MISCINFO_MEMREAD
 {
-	IMG_DEV_VIRTADDR	sDevVAddr;		
-	IMG_DEV_PHYADDR		sPDDevPAddr;	
+	IMG_DEV_VIRTADDR	sDevVAddr;
+	IMG_DEV_PHYADDR		sPDDevPAddr;
 } PVRSRV_SGX_MISCINFO_MEMREAD;
 #endif
 
@@ -296,17 +296,17 @@ typedef struct _PVRSRV_SGX_MISCINFO_INFO
 {
 	IMG_UINT32						ui32MiscInfoFlags;
 	PVRSRV_SGX_MISCINFO_FEATURES	sSGXFeatures;
-	SGX_MISCINFO_STRUCT_SIZES		sSGXStructSizes;	
+	SGX_MISCINFO_STRUCT_SIZES		sSGXStructSizes;
 #if defined(SUPPORT_SGX_EDM_MEMORY_DEBUG)
-	PVRSRV_SGX_MISCINFO_MEMREAD		sSGXMemReadData;	
+	PVRSRV_SGX_MISCINFO_MEMREAD		sSGXMemReadData;
 #endif
 } PVRSRV_SGX_MISCINFO_INFO;
 
 #ifdef PVRSRV_USSE_EDM_STATUS_DEBUG
 #define SGXMK_TRACE_BUFFER_SIZE 512
-#endif 
+#endif
 
-#define SGXMKIF_HWPERF_CB_SIZE					0x100	
+#define SGXMKIF_HWPERF_CB_SIZE					0x100
 
 #if defined(SUPPORT_SGX_HWPERF)
 typedef struct _SGXMKIF_HWPERF_CB_ENTRY_
@@ -327,8 +327,8 @@ typedef struct _SGXMKIF_HWPERF_CB_
 	IMG_UINT32				ui32OrdinalMK_EXECUTION;
 	SGXMKIF_HWPERF_CB_ENTRY psHWPerfCBData[SGXMKIF_HWPERF_CB_SIZE];
 } SGXMKIF_HWPERF_CB;
-#endif 
+#endif
 
 
-#endif 
+#endif
 

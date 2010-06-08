@@ -1,26 +1,26 @@
 /**********************************************************************
  *
  * Copyright(c) 2008 Imagination Technologies Ltd. All rights reserved.
- * 
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
  * version 2, as published by the Free Software Foundation.
- * 
- * This program is distributed in the hope it will be useful but, except 
- * as otherwise stated in writing, without any warranty; without even the 
- * implied warranty of merchantability or fitness for a particular purpose. 
+ *
+ * This program is distributed in the hope it will be useful but, except
+ * as otherwise stated in writing, without any warranty; without even the
+ * implied warranty of merchantability or fitness for a particular purpose.
  * See the GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License along with
  * this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- * 
+ *
  * The full GNU General Public License is included in this distribution in
  * the file called "COPYING".
  *
  * Contact Information:
  * Imagination Technologies Ltd. <gpl-support@imgtec.com>
- * Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK 
+ * Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK
  *
  ******************************************************************************/
 
@@ -39,6 +39,9 @@
 #if defined(SUPPORT_DRI_DRM)
 #include <drm/drmP.h>
 #include "pvr_drm.h"
+#if defined(PVR_SECURE_DRM_AUTH_EXPORT)
+#include "env_perproc.h"
+#endif
 #endif
 
 #if defined(SUPPORT_VGX)
@@ -72,9 +75,9 @@ static void ProcSeqShowBridgeStats(struct seq_file *sfile,void* el);
 static void* ProcSeqOff2ElementBridgeStats(struct seq_file * sfile, loff_t off);
 static void ProcSeqStartstopBridgeStats(struct seq_file *sfile,IMG_BOOL start);
 
-#else 
+#else
 static off_t printLinuxBridgeStats(IMG_CHAR * buffer, size_t size, off_t off);
-#endif 
+#endif
 
 #endif
 
@@ -82,7 +85,7 @@ extern PVRSRV_LINUX_MUTEX gPVRSRVLock;
 
 #if defined(SUPPORT_MEMINFO_IDS)
 static IMG_UINT64 ui64Stamp;
-#endif 
+#endif
 
 PVRSRV_ERROR
 LinuxBridgeInit(IMG_VOID)
@@ -92,7 +95,7 @@ LinuxBridgeInit(IMG_VOID)
 		IMG_INT iStatus;
 #ifdef PVR_PROC_USE_SEQ_FILE
 		g_ProcBridgeStats = CreateProcReadEntrySeq(
-												  "bridge_stats", 
+												  "bridge_stats",
 												  NULL,
 												  ProcSeqNextBridgeStats,
 												  ProcSeqShowBridgeStats,
@@ -100,10 +103,10 @@ LinuxBridgeInit(IMG_VOID)
 												  ProcSeqStartstopBridgeStats
 						  						 );
 		iStatus = !g_ProcBridgeStats ? -1 : 0;
-#else  
+#else
 		iStatus = CreateProcReadEntry("bridge_stats", printLinuxBridgeStats);
-#endif 
-		
+#endif
+
 		if(iStatus!=0)
 		{
 			return PVRSRV_ERROR_OUT_OF_MEMORY;
@@ -129,9 +132,9 @@ LinuxBridgeDeInit(IMG_VOID)
 
 #ifdef PVR_PROC_USE_SEQ_FILE
 
-static void ProcSeqStartstopBridgeStats(struct seq_file *sfile,IMG_BOOL start) 
+static void ProcSeqStartstopBridgeStats(struct seq_file *sfile,IMG_BOOL start)
 {
-	if(start) 
+	if(start)
 	{
 		LinuxLockMutex(&gPVRSRVLock);
 	}
@@ -144,7 +147,7 @@ static void ProcSeqStartstopBridgeStats(struct seq_file *sfile,IMG_BOOL start)
 
 static void* ProcSeqOff2ElementBridgeStats(struct seq_file *sfile, loff_t off)
 {
-	if(!off) 
+	if(!off)
 	{
 		return PVR_PROC_SEQ_START_TOKEN;
 	}
@@ -168,7 +171,7 @@ static void ProcSeqShowBridgeStats(struct seq_file *sfile,void* el)
 {
 	PVRSRV_BRIDGE_DISPATCH_TABLE_ENTRY *psEntry = (	PVRSRV_BRIDGE_DISPATCH_TABLE_ENTRY*)el;
 
-	if(el == PVR_PROC_SEQ_START_TOKEN) 
+	if(el == PVR_PROC_SEQ_START_TOKEN)
 	{
 		seq_printf(sfile,
 						  "Total ioctl call count = %lu\n"
@@ -198,7 +201,7 @@ static void ProcSeqShowBridgeStats(struct seq_file *sfile,void* el)
 				   psEntry->ui32CopyToUserTotalBytes);
 }
 
-#else 
+#else
 
 static off_t
 printLinuxBridgeStats(IMG_CHAR * buffer, size_t count, off_t off)
@@ -259,8 +262,8 @@ unlock_and_return:
 	LinuxUnLockMutex(&gPVRSRVLock);
 	return Ret;
 }
-#endif 
-#endif 
+#endif
+#endif
 
 
 
@@ -303,8 +306,8 @@ PVRSRV_BridgeDispatchKM(struct file *pFile, IMG_UINT unref__ ioctlCmd, IMG_UINT3
 
 		goto unlock_and_return;
 	}
-	
-	
+
+
 	if(OSCopyFromUser(IMG_NULL,
 					  psBridgePackageKM,
 					  psBridgePackageUM,
@@ -431,15 +434,15 @@ PVRSRV_BridgeDispatchKM(struct file *pFile, IMG_UINT unref__ ioctlCmd, IMG_UINT3
 			IMG_UINT32               ui32PID;
 			PVRSRV_PER_PROCESS_DATA *psPerProc;
 			PVRSRV_ERROR eError;
-			
+
 			ui32PID = OSGetCurrentProcessIDKM();
-		
+
 			PVRSRVTrace("PVRSRV_BRIDGE_SERVICES_TEST_COPYDATA %d", ui32PID);
-			
+
 			psPerProc = PVRSRVPerProcessData(ui32PID);
-						
+
 			eError = CopyDataTest(psBridgePackageKM->pvParamIn, psBridgePackageKM->pvParamOut, psPerProc);
-			
+
 			*(PVRSRV_ERROR*)psBridgePackageKM->pvParamOut = eError;
 			err = 0;
 			goto unlock_and_return;
@@ -460,7 +463,7 @@ PVRSRV_BridgeDispatchKM(struct file *pFile, IMG_UINT unref__ ioctlCmd, IMG_UINT3
 
 	}
 #endif
-	
+
 	if(cmd != PVRSRV_BRIDGE_CONNECT_SERVICES)
 	{
 		PVRSRV_ERROR eError;
@@ -486,7 +489,7 @@ PVRSRV_BridgeDispatchKM(struct file *pFile, IMG_UINT unref__ ioctlCmd, IMG_UINT3
 	}
 	else
 	{
-		
+
 		psPerProc = PVRSRVPerProcessData(ui32PID);
 		if(psPerProc == IMG_NULL)
 		{
@@ -546,7 +549,57 @@ PVRSRV_BridgeDispatchKM(struct file *pFile, IMG_UINT unref__ ioctlCmd, IMG_UINT3
 			break;
 		}
 	}
-#endif 
+#endif
+#if defined(SUPPORT_DRI_DRM) && defined(PVR_SECURE_DRM_AUTH_EXPORT)
+	switch(cmd)
+	{
+		case PVRSRV_BRIDGE_MAP_DEV_MEMORY:
+		case PVRSRV_BRIDGE_MAP_DEVICECLASS_MEMORY:
+		{
+			PVRSRV_FILE_PRIVATE_DATA *psPrivateData;
+			int authenticated = pFile->authenticated;
+			PVRSRV_ENV_PER_PROCESS_DATA *psEnvPerProc;
+
+			if (authenticated)
+			{
+				break;
+			}
+
+
+			psEnvPerProc = (PVRSRV_ENV_PER_PROCESS_DATA *)PVRSRVProcessPrivateData(psPerProc);
+			if (psEnvPerProc == IMG_NULL)
+			{
+				PVR_DPF((PVR_DBG_ERROR, "%s: Process private data not allocated", __FUNCTION__));
+				err = -EFAULT;
+				goto unlock_and_return;
+			}
+
+			list_for_each_entry(psPrivateData, &psEnvPerProc->sDRMAuthListHead, sDRMAuthListItem)
+			{
+				struct drm_file *psDRMFile = psPrivateData->psDRMFile;
+
+				if (pFile->master == psDRMFile->master)
+				{
+					authenticated |= psDRMFile->authenticated;
+					if (authenticated)
+					{
+						break;
+					}
+				}
+			}
+
+			if (!authenticated)
+			{
+				PVR_DPF((PVR_DBG_ERROR, "%s: Not authenticated for mapping device or device class memory", __FUNCTION__));
+				err = -EPERM;
+				goto unlock_and_return;
+			}
+			break;
+		}
+		default:
+			break;
+	}
+#endif
 
 	err = BridgedDispatchKM(psPerProc, psBridgePackageKM);
 	if(err != PVRSRV_OK)
@@ -567,7 +620,7 @@ PVRSRV_BridgeDispatchKM(struct file *pFile, IMG_UINT unref__ ioctlCmd, IMG_UINT3
 #endif
 			break;
 		}
-#endif 
+#endif
 
 #if defined(SUPPORT_MEMINFO_IDS)
 		case PVRSRV_BRIDGE_MAP_DEV_MEMORY:
@@ -586,7 +639,7 @@ PVRSRV_BridgeDispatchKM(struct file *pFile, IMG_UINT unref__ ioctlCmd, IMG_UINT3
 			psDeviceClassMemoryOUT->sClientMemInfo.ui64Stamp = ++ui64Stamp;
 			break;
 		}
-#endif 
+#endif
 
 		default:
 			break;

@@ -1,26 +1,26 @@
 /**********************************************************************
  *
  * Copyright(c) 2008 Imagination Technologies Ltd. All rights reserved.
- * 
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
  * version 2, as published by the Free Software Foundation.
- * 
- * This program is distributed in the hope it will be useful but, except 
- * as otherwise stated in writing, without any warranty; without even the 
- * implied warranty of merchantability or fitness for a particular purpose. 
+ *
+ * This program is distributed in the hope it will be useful but, except
+ * as otherwise stated in writing, without any warranty; without even the
+ * implied warranty of merchantability or fitness for a particular purpose.
  * See the GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License along with
  * this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- * 
+ *
  * The full GNU General Public License is included in this distribution in
  * the file called "COPYING".
  *
  * Contact Information:
  * Imagination Technologies Ltd. <gpl-support@imgtec.com>
- * Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK 
+ * Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK
  *
  ******************************************************************************/
 
@@ -33,24 +33,24 @@
 
 #if defined(__cplusplus)
 extern "C"{
-#endif	
-	
+#endif
+
 typedef struct _BM_HEAP_ BM_HEAP;
 
 struct _BM_MAPPING_
 {
 	enum
 	{
-		hm_wrapped = 1,		
-		hm_wrapped_scatter,	
-		hm_wrapped_virtaddr, 
-		hm_wrapped_scatter_virtaddr, 
-		hm_env,				
-		hm_contiguous		
+		hm_wrapped = 1,
+		hm_wrapped_scatter,
+		hm_wrapped_virtaddr,
+		hm_wrapped_scatter_virtaddr,
+		hm_env,
+		hm_contiguous
 	} eCpuMemoryOrigin;
 
-	BM_HEAP				*pBMHeap;	
-	RA_ARENA			*pArena;	
+	BM_HEAP				*pBMHeap;
+	RA_ARENA			*pArena;
 
 	IMG_CPU_VIRTADDR	CpuVAddr;
 	IMG_CPU_PHYADDR		CpuPAddr;
@@ -70,6 +70,7 @@ typedef struct _BM_BUF_
 
 	BM_MAPPING			*pMapping;
 	IMG_UINT32			ui32RefCount;
+	IMG_UINT32			ui32ExportCount;
 } BM_BUF;
 
 struct _BM_HEAP_
@@ -81,7 +82,7 @@ struct _BM_HEAP_
 	RA_ARENA				*pVMArena;
 	DEV_ARENA_DESCRIPTOR	sDevArena;
 	MMU_HEAP				*pMMUHeap;
-	
+
 	struct _BM_HEAP_ 		*psNext;
 	struct _BM_HEAP_ 		**ppsThis;
 };
@@ -90,23 +91,23 @@ struct _BM_CONTEXT_
 {
 	MMU_CONTEXT	*psMMUContext;
 
-	
+
 	 BM_HEAP *psBMHeap;
-	 
-	
+
+
 	 BM_HEAP *psBMSharedHeap;
 
 	PVRSRV_DEVICE_NODE *psDeviceNode;
 
-	
+
 	HASH_TABLE *pBufferHash;
 
-	
+
 	IMG_HANDLE hResItem;
 
 	IMG_UINT32 ui32RefCount;
 
-	
+
 
 	struct _BM_CONTEXT_ *psNext;
 	struct _BM_CONTEXT_ **ppsThis;
@@ -116,7 +117,7 @@ struct _BM_CONTEXT_
 
 typedef IMG_VOID *BM_HANDLE;
 
-#define BP_POOL_MASK         0x7 
+#define BP_POOL_MASK         0x7
 
 #define BP_CONTIGUOUS			(1 << 3)
 #define BP_PARAMBUFFER			(1 << 4)
@@ -135,15 +136,15 @@ BM_DestroyContext (IMG_HANDLE hBMContext,
 					IMG_BOOL *pbCreated);
 
 
-IMG_HANDLE 
+IMG_HANDLE
 BM_CreateHeap (IMG_HANDLE hBMContext,
 				DEVICE_MEMORY_HEAP_INFO *psDevMemHeapInfo);
 
-IMG_VOID 
+IMG_VOID
 BM_DestroyHeap (IMG_HANDLE hDevMemHeap);
 
 
-IMG_BOOL 
+IMG_BOOL
 BM_Reinitialise (PVRSRV_DEVICE_NODE *psDeviceNode);
 
 IMG_BOOL
@@ -165,7 +166,7 @@ BM_Wrap (	IMG_HANDLE hDevMemHeap,
 			BM_HANDLE *phBuf);
 
 IMG_VOID
-BM_Free (BM_HANDLE hBuf, 
+BM_Free (BM_HANDLE hBuf,
 		IMG_UINT32 ui32Flags);
 
 
@@ -191,7 +192,7 @@ IMG_VOID BM_GetPhysPageAddr(PVRSRV_KERNEL_MEM_INFO *psMemInfo,
 								IMG_DEV_VIRTADDR sDevVPageAddr,
 								IMG_DEV_PHYADDR *psDevPAddr);
 
-PVRSRV_ERROR BM_GetHeapInfo(IMG_HANDLE hDevMemHeap, 
+PVRSRV_ERROR BM_GetHeapInfo(IMG_HANDLE hDevMemHeap,
 							PVRSRV_HEAP_INFO *psHeapInfo);
 
 MMU_CONTEXT* BM_GetMMUContext(IMG_HANDLE hDevMemHeap);
@@ -204,6 +205,10 @@ PVRSRV_DEVICE_NODE* BM_GetDeviceNode(IMG_HANDLE hDevMemContext);
 
 
 IMG_HANDLE BM_GetMappingHandle(PVRSRV_KERNEL_MEM_INFO *psMemInfo);
+
+IMG_VOID BM_Export(BM_HANDLE hBuf);
+
+IMG_VOID BM_FreeExport(BM_HANDLE hBuf, IMG_UINT32 ui32Flags);
 
 #if defined(__cplusplus)
 }

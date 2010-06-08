@@ -31,7 +31,11 @@
 
 #include <linux/version.h>
 #include <linux/clk.h>
+#if defined(PVR_LINUX_USING_WORKQUEUES)
+#include <linux/mutex.h>
+#else
 #include <linux/spinlock.h>
+#endif
 #include <asm/atomic.h>
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,26))
@@ -90,14 +94,17 @@ typedef struct _SYS_SPECIFIC_DATA_TAG_
 	IMG_UINT32	ui32SrcClockDiv;
 #if defined(__linux__)
 	IMG_BOOL	bSysClocksOneTimeInit;
-	IMG_BOOL	bConstraintNotificationsEnabled;
 	atomic_t	sSGXClocksEnabled;
+#if defined(PVR_LINUX_USING_WORKQUEUES)
+	struct mutex	sPowerLock;
+#else
+	IMG_BOOL	bConstraintNotificationsEnabled;
 	spinlock_t	sPowerLock;
 	atomic_t	sPowerLockCPU;
 	spinlock_t	sNotifyLock;
 	atomic_t	sNotifyLockCPU;
 	IMG_BOOL	bCallVDD2PostFunc;
-
+#endif
 	struct clk	*psCORE_CK;
 	struct clk	*psSGX_FCK;
 	struct clk	*psSGX_ICK;

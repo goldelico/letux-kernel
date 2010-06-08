@@ -25,6 +25,9 @@
  ******************************************************************************/
 
 #if defined(__linux__)
+#if defined(PVR_LINUX_USING_WORKQUEUES)
+#include "sysutils_linux_wqueue_compat.c"
+#else
 #include "sysutils_linux.c"
 #endif
-
+#endif

@@ -27,7 +27,12 @@
 #if !defined(__SYSINFO_H__)
 #define __SYSINFO_H__
 
+#if defined(PVR_LINUX_USING_WORKQUEUES)
+#define MAX_HW_TIME_US				(1000000)
+#else
 #define MAX_HW_TIME_US				(500000)
+#endif
+
 #define WAIT_TRY_COUNT				(10000)
 
 #define SYS_DEVICE_COUNT 3
