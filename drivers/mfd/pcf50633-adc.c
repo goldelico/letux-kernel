@@ -51,11 +51,6 @@ struct pcf50633_adc {
 	struct mutex queue_mutex;
 };
 
-static inline struct pcf50633_adc *__to_adc(struct pcf50633 *pcf)
-{
-	return platform_get_drvdata(pcf->adc_pdev);
-}
-
 static void adc_setup(struct pcf50633 *pcf, int channel, int avg)
 {
 	channel &= PCF50633_ADCC1_ADCMUX_MASK;
@@ -71,7 +66,7 @@ static void adc_setup(struct pcf50633 *pcf, int channel, int avg)
 
 static void trigger_next_adc_job_if_any(struct pcf50633 *pcf)
 {
-	struct pcf50633_adc *adc = __to_adc(pcf);
+	struct pcf50633_adc *adc = pcf->adc;
 	int head;
 
 	head = adc->queue_head;
@@ -85,7 +80,7 @@ static void trigger_next_adc_job_if_any(struct pcf50633 *pcf)
 static int
 adc_enqueue_request(struct pcf50633 *pcf, struct pcf50633_adc_request *req)
 {
-	struct pcf50633_adc *adc = __to_adc(pcf);
+	struct pcf50633_adc *adc = pcf->adc;
 	int head, tail;
 
 	mutex_lock(&adc->queue_mutex);
@@ -201,19 +196,22 @@ static void pcf50633_adc_irq(int irq, void *data)
 
 static int __devinit pcf50633_adc_probe(struct platform_device *pdev)
 {
+	struct pcf50633 *pcf = dev_to_pcf50633(pdev->dev.parent);
 	struct pcf50633_adc *adc;
 
 	adc = kzalloc(sizeof(*adc), GFP_KERNEL);
 	if (!adc)
 		return -ENOMEM;
 
-	adc->pcf = dev_to_pcf50633(pdev->dev.parent);
+	adc->pcf = pcf;
 	platform_set_drvdata(pdev, adc);
 
 	pcf50633_register_irq(adc->pcf, PCF50633_IRQ_ADCRDY,
 					pcf50633_adc_irq, adc);
 
 	mutex_init(&adc->queue_mutex);
+
+	pcf->adc = adc;
 
 	return 0;
 }
@@ -222,6 +220,8 @@ static int __devexit pcf50633_adc_remove(struct platform_device *pdev)
 {
 	struct pcf50633_adc *adc = platform_get_drvdata(pdev);
 	int i, head;
+
+	adc->pcf->adc = NULL;
 
 	pcf50633_free_irq(adc->pcf, PCF50633_IRQ_ADCRDY);
 

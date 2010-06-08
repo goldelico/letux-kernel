@@ -23,6 +23,8 @@
 #include <linux/i2c.h>
 #include <linux/slab.h>
 
+#include <linux/mfd/core.h>
+
 #include <linux/mfd/pcf50633/core.h>
 
 int pcf50633_irq_init(struct pcf50633 *pcf, int irq);
@@ -215,55 +217,70 @@ static struct attribute_group pcf_attr_group = {
 	.attrs	= pcf_sysfs_entries,
 };
 
-static void
-pcf50633_client_dev_register(struct pcf50633 *pcf, const char *name,
-							struct platform_device **pdev)
-{
-	int ret;
-
-	*pdev = platform_device_alloc(name, -1);
-	if (!*pdev) {
-		dev_err(pcf->dev, "Falied to allocate %s\n", name);
-		return;
-	}
-
-	(*pdev)->dev.parent = pcf->dev;
-
-	ret = platform_device_add(*pdev);
-	if (ret) {
-		dev_err(pcf->dev, "Failed to register %s: %d\n", name, ret);
-		platform_device_put(*pdev);
-		*pdev = NULL;
-	}
-}
-
 #ifdef CONFIG_PM
-static int pcf50633_suspend(struct i2c_client *client, pm_message_t state)
+
+static int pcf50633_suspend(struct device *dev)
 {
-	struct pcf50633 *pcf;
-	pcf = i2c_get_clientdata(client);
+	struct pcf50633 *pcf = dev_get_drvdata(dev);
 
 	return pcf50633_irq_suspend(pcf);
 }
 
-static int pcf50633_resume(struct i2c_client *client)
+static int pcf50633_resume(struct device *dev)
 {
-	struct pcf50633 *pcf;
-	pcf = i2c_get_clientdata(client);
+	struct pcf50633 *pcf = dev_get_drvdata(dev);
 
 	return pcf50633_irq_resume(pcf);
 }
+
+static const struct dev_pm_ops pcf50633_pm_ops = {
+	.suspend = pcf50633_suspend,
+	.resume = pcf50633_resume,
+};
+
+#define PCF50633_PM_OPS (&pcf50633_pm_ops)
+
 #else
-#define pcf50633_suspend NULL
-#define pcf50633_resume NULL
+#define PC50633_PM_OPS NULL
 #endif
+
+#define PCF50633_CELL(_name) \
+	{ \
+		.name = _name, \
+	} \
+
+#define PCF50633_CELL_ID(_name, _id) \
+	{ \
+		.name = _name, \
+		.id = _id, \
+	} \
+
+static struct mfd_cell pcf50633_cells[] = {
+	PCF50633_CELL("pcf50633-input"),
+	PCF50633_CELL("pcf50633-rtc"),
+	PCF50633_CELL("pcf50633-mbc"),
+	PCF50633_CELL("pcf50633-adc"),
+	PCF50633_CELL("pcf50633-backlight"),
+	PCF50633_CELL("pcf50633-gpio"),
+	PCF50633_CELL_ID("pcf50633-regltr", 0),
+	PCF50633_CELL_ID("pcf50633-regltr", 1),
+	PCF50633_CELL_ID("pcf50633-regltr", 2),
+	PCF50633_CELL_ID("pcf50633-regltr", 3),
+	PCF50633_CELL_ID("pcf50633-regltr", 4),
+	PCF50633_CELL_ID("pcf50633-regltr", 5),
+	PCF50633_CELL_ID("pcf50633-regltr", 6),
+	PCF50633_CELL_ID("pcf50633-regltr", 7),
+	PCF50633_CELL_ID("pcf50633-regltr", 8),
+	PCF50633_CELL_ID("pcf50633-regltr", 9),
+	PCF50633_CELL_ID("pcf50633-regltr", 10),
+};
 
 static int __devinit pcf50633_probe(struct i2c_client *client,
 				const struct i2c_device_id *ids)
 {
 	struct pcf50633 *pcf;
 	struct pcf50633_platform_data *pdata = client->dev.platform_data;
-	int i, ret;
+	int ret;
 	int version, variant;
 
 	if (!client->irq) {
@@ -296,35 +313,11 @@ static int __devinit pcf50633_probe(struct i2c_client *client,
 
 	pcf50633_irq_init(pcf, client->irq);
 
-	/* Create sub devices */
-	pcf50633_client_dev_register(pcf, "pcf50633-input",
-						&pcf->input_pdev);
-	pcf50633_client_dev_register(pcf, "pcf50633-rtc",
-						&pcf->rtc_pdev);
-	pcf50633_client_dev_register(pcf, "pcf50633-mbc",
-						&pcf->mbc_pdev);
-	pcf50633_client_dev_register(pcf, "pcf50633-adc",
-						&pcf->adc_pdev);
-	pcf50633_client_dev_register(pcf, "pcf50633-backlight",
-						&pcf->bl_pdev);
-	pcf50633_client_dev_register(pcf, "pcf50633-gpio",
-						&pcf->gpio_pdev);
-
-	for (i = 0; i < PCF50633_NUM_REGULATORS; i++) {
-		struct platform_device *pdev;
-
-		pdev = platform_device_alloc("pcf50633-regltr", i);
-		if (!pdev) {
-			dev_err(pcf->dev, "Cannot create regulator %d\n", i);
-			continue;
-		}
-
-		pdev->dev.parent = pcf->dev;
-		platform_device_add_data(pdev, &pdata->reg_init_data[i],
-					sizeof(pdata->reg_init_data[i]));
-		pcf->regulator_pdev[i] = pdev;
-
-		platform_device_add(pdev);
+	ret = mfd_add_devices(pcf->dev, 0, pcf50633_cells,
+			ARRAY_SIZE(pcf50633_cells), NULL, 0);
+	if (ret) {
+		dev_err(pcf->dev, "Failed to add mfd cells.\n");
+		goto err_free;
 	}
 
 	ret = sysfs_create_group(&client->dev.kobj, &pcf_attr_group);
@@ -346,18 +339,10 @@ err_free:
 static int __devexit pcf50633_remove(struct i2c_client *client)
 {
 	struct pcf50633 *pcf = i2c_get_clientdata(client);
-	int i;
 
 	pcf50633_irq_free(pcf);
 
-	platform_device_unregister(pcf->gpio_pdev);
-	platform_device_unregister(pcf->input_pdev);
-	platform_device_unregister(pcf->rtc_pdev);
-	platform_device_unregister(pcf->mbc_pdev);
-	platform_device_unregister(pcf->adc_pdev);
-
-	for (i = 0; i < PCF50633_NUM_REGULATORS; i++)
-		platform_device_unregister(pcf->regulator_pdev[i]);
+	mfd_remove_devices(pcf->dev);
 
 	kfree(pcf);
 
@@ -372,12 +357,11 @@ static struct i2c_device_id pcf50633_id_table[] = {
 static struct i2c_driver pcf50633_driver = {
 	.driver = {
 		.name	= "pcf50633",
+		.pm		= PCF50633_PM_OPS,
 	},
 	.id_table = pcf50633_id_table,
 	.probe = pcf50633_probe,
 	.remove = __devexit_p(pcf50633_remove),
-	.suspend = pcf50633_suspend,
-	.resume	= pcf50633_resume,
 };
 
 static int __init pcf50633_init(void)
