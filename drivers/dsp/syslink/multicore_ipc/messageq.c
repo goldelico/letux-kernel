@@ -1074,6 +1074,11 @@ int messageq_put(u32 queue_id, messageq_msg msg)
 		/* It is a local MessageQ */
 		obj = (struct messageq_object *)
 				(messageq_module->queues[(u16)(queue_id)]);
+		/* Check for MessageQ Validity. */
+		if (obj == NULL) {
+			status = MESSAGEQ_E_INVALIDMSG;
+			goto exit;
+		}
 		status = mutex_lock_interruptible(messageq_module->gate_handle);
 		if (status < 0)
 			goto exit;
