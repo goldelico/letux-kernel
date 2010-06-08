@@ -1694,48 +1694,22 @@ static void dsi_complexio_timings(enum dsi lcd_ix)
 			tclk_prepare, ddr2ns(lcd_ix, tclk_prepare));
 
 	/* program timings */
-	if (!cpu_is_omap44xx()) {
-		r = dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG0);
-		r = FLD_MOD(r, ths_prepare, 31, 24);
-		r = FLD_MOD(r, ths_prepare_ths_zero, 23, 16);
-		r = FLD_MOD(r, ths_trail, 15, 8);
-		r = FLD_MOD(r, ths_exit, 7, 0);
-		dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG0, r);
+	r = dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG0);
+	r = FLD_MOD(r, ths_prepare, 31, 24);
+	r = FLD_MOD(r, ths_prepare_ths_zero, 23, 16);
+	r = FLD_MOD(r, ths_trail, 15, 8);
+	r = FLD_MOD(r, ths_exit, 7, 0);
+	dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG0, r);
 
-		r = dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG1);
-		r = FLD_MOD(r, tlpx_half, 22, 16);
-		r = FLD_MOD(r, tclk_trail, 15, 8);
-		r = FLD_MOD(r, tclk_zero, 7, 0);
-		dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG1, r);
+	r = dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG1);
+	r = FLD_MOD(r, tlpx_half, 22, 16);
+	r = FLD_MOD(r, tclk_trail, 15, 8);
+	r = FLD_MOD(r, tclk_zero, 7, 0);
+	dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG1, r);
 
-		r = dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG2);
-		r = FLD_MOD(r, tclk_prepare, 7, 0);
-		dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG2, r);
-	} else {
-		/*Timing Configurations
-		 Configure the DSI PHY timing parameters*/
-		val = ((9<<24)|
-			(20<<16)|
-			(6<<8)|
-			(15<<0));
-		dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG0, val);
-
-		val = dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG1);
-		val = val & ~(0x007FFFFF);
-		val = ((2<<29)|
-			(0<<27)|
-			(2<<24)|
-			(3<<16)|
-			(6<<8)|
-			(26<<0));
-		dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG1, val);
-
-		val = dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG2);
-		/* this is required to preserve the reset data */
-		val = val & ~(0x000000FF);
-		val = val | (7 << 0);
-		dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG2, val);
-	}
+	r = dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG2);
+	r = FLD_MOD(r, tclk_prepare, 7, 0);
+	dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG2, r);
 }
 
 
