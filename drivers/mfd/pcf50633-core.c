@@ -241,7 +241,7 @@ static const struct dev_pm_ops pcf50633_pm_ops = {
 #define PCF50633_PM_OPS (&pcf50633_pm_ops)
 
 #else
-#define PC50633_PM_OPS NULL
+#define PCF50633_PM_OPS NULL
 #endif
 
 #define PCF50633_CELL(_name) \
