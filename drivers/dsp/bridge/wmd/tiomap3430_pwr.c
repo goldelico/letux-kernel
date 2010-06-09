@@ -72,6 +72,8 @@ DSP_STATUS handle_constraints_set(struct WMD_DEV_CONTEXT *pDevContext,
 		omap_dspbridge_dev->dev.platform_data;
 
 	pConstraintVal = *(((u32 *)pArgs) + 1);
+	pConstraintVal = pConstraintVal * 1000;
+
 	/* Read the target value requested by DSP  */
 	DBG_Trace(DBG_LEVEL7, "handle_constraints_set:"
 		"opp requested = 0x%x\n", pConstraintVal);

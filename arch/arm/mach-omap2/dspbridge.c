@@ -84,8 +84,8 @@ static int get_opp_table(struct dspbridge_platform_data *pdata)
 		dsp_sort[j + 1] = temp;
 	}
 
-	pdata->mpu_min_speed = dsp_sort[1].rate / 1000;
-	pdata->mpu_max_speed = dsp_sort[opp_count].rate / 1000;
+	pdata->mpu_min_speed = dsp_sort[1].rate;
+	pdata->mpu_max_speed = dsp_sort[opp_count].rate;
 
 	/* need an initial terminator */
 	pdata->dsp_freq_table = kzalloc(
