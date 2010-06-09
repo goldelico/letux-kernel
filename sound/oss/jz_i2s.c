@@ -41,9 +41,9 @@
 #define DMA_ID_I2S_TX	DMA_ID_AIC_TX
 #define DMA_ID_I2S_RX	DMA_ID_AIC_RX
 #define NR_I2S		2
-#define JZCODEC_RW_BUFFER_SIZE       5
+#define JZCODEC_RW_BUFFER_SIZE       2 
 #define JZCODEC_RW_BUFFER_TOTAL      3
-
+#define SOUND_MIXER_NRDEVICES 2
 typedef struct hpvol_shift_s
 {
 	int hpvol;
@@ -86,7 +86,7 @@ void (*clear_codec_direct_mode)(void) = NULL;
 
 static int		jz_audio_rate;
 static int		jz_audio_format;
-static int		jz_audio_volume;
+static int		jz_audio_volume=50;
 static int		jz_audio_channels;
 static int		jz_audio_b;               /* bits expand multiple */
 static int              jz_audio_fragments;       /* unused fragment amount */
@@ -112,15 +112,17 @@ static irqreturn_t jz_i2s_replay_dma_irq(int irqnr, void *ref);
 static irqreturn_t jz_i2s_record_dma_irq(int irqnr, void *ref);
 static void (*replay_filler)(signed long src_start, int count, int id);
 static int (*record_filler)(unsigned long dst_start, int count, int id);
-#if defined(CONFIG_I2S_ICODEC)
+//#if defined(CONFIG_I2S_ICODEC)
 static void write_mute_to_dma_buffer(signed long l_sample, signed long r_sample);
-#endif
+//#endif
 static struct file_operations jz_i2s_audio_fops;
 
 static DECLARE_WAIT_QUEUE_HEAD (rx_wait_queue);
 static DECLARE_WAIT_QUEUE_HEAD (tx_wait_queue);
 static DECLARE_WAIT_QUEUE_HEAD (drain_wait_queue);
 static DECLARE_WAIT_QUEUE_HEAD (pop_wait_queue);
+
+static volatile int pop_wait_event;
 
 struct jz_i2s_controller_info
 {
@@ -217,6 +219,7 @@ static left_right_sample_t save_last_samples[64];
 
 static inline int get_buffer_id(struct buffer_queue_s *q)
 {
+ 
 	int r;
 	unsigned long flags;
 	int i;
@@ -237,6 +240,7 @@ static inline int get_buffer_id(struct buffer_queue_s *q)
 
 static inline void put_buffer_id(struct buffer_queue_s *q, int id)
 {
+ 
 	unsigned long flags;
 	
 	spin_lock_irqsave(&q->lock, flags);
@@ -247,6 +251,7 @@ static inline void put_buffer_id(struct buffer_queue_s *q, int id)
 
 static inline int elements_in_queue(struct buffer_queue_s *q)
 {
+ 
 	int r;
 	unsigned long flags;
 
@@ -259,6 +264,7 @@ static inline int elements_in_queue(struct buffer_queue_s *q)
 
 static inline void audio_start_dma(int chan, void *dev_id, unsigned long phyaddr,int count, int mode)
 {
+ 
 	unsigned long flags;
 	struct jz_i2s_controller_info * controller = (struct jz_i2s_controller_info *) dev_id;
 	
@@ -281,6 +287,7 @@ static inline void audio_start_dma(int chan, void *dev_id, unsigned long phyaddr
 
 static irqreturn_t jz_i2s_record_dma_irq (int irq, void *dev_id)
 {
+ 
 	int id1, id2;
 	unsigned long flags;
 	struct jz_i2s_controller_info * controller = (struct jz_i2s_controller_info *) dev_id;
@@ -323,6 +330,7 @@ static irqreturn_t jz_i2s_record_dma_irq (int irq, void *dev_id)
 
 static irqreturn_t jz_i2s_replay_dma_irq (int irq, void *dev_id)
 {
+ 
 	int id;
 	unsigned long flags;
 	struct jz_i2s_controller_info * controller = (struct jz_i2s_controller_info *) dev_id;
@@ -399,6 +407,7 @@ static void jz_i2s_initHw(int set)
 
 static int Init_In_Out_queue(int fragstotal,int fragsize)
 {
+ 
 	int i;
 
 	/* recording */
@@ -494,6 +503,7 @@ mem_failed_in:
 
 static int Free_In_Out_queue(int fragstotal,int fragsize)
 {
+ 
 	int i;
 	/* playing */
 	if(out_dma_buf != NULL) {
@@ -571,11 +581,13 @@ static int Free_In_Out_queue(int fragstotal,int fragsize)
 
 static void jz_i2s_full_reset(struct jz_i2s_controller_info *controller)
 {
+ 
 	jz_i2s_initHw(0);
 }
 
 static int jz_audio_set_speed(int dev, int rate)
 {
+ 
     /* 8000, 11025, 16000, 22050, 24000, 32000, 44100, 48000, 99999999 ? */
 	jz_audio_speed = rate;
 	if (rate > 48000)
@@ -593,6 +605,7 @@ static int jz_audio_set_speed(int dev, int rate)
 
 static int record_fill_1x8_u(unsigned long dst_start, int count, int id)
 {
+ 
 	int cnt = 0;
 	unsigned long data;
 	volatile unsigned long *s = (unsigned long*)(*(in_dma_buf + id));
@@ -612,6 +625,7 @@ static int record_fill_1x8_u(unsigned long dst_start, int count, int id)
 
 static int record_fill_2x8_u(unsigned long dst_start, int count, int id)
 {
+ 
 	int cnt = 0;
 	unsigned long d1, d2;
 	volatile unsigned long *s = (unsigned long*)(*(in_dma_buf + id));
@@ -632,6 +646,7 @@ static int record_fill_2x8_u(unsigned long dst_start, int count, int id)
 
 static int record_fill_1x16_s(unsigned long dst_start, int count, int id)
 {
+ 
     int cnt = 0;
     unsigned long d1;
     unsigned long *s = (unsigned long*)(*(in_dma_buf + id));
@@ -651,6 +666,7 @@ static int record_fill_1x16_s(unsigned long dst_start, int count, int id)
 
 static int record_fill_2x16_s(unsigned long dst_start, int count, int id)
 {
+ 
     int cnt = 0;
     unsigned long d1, d2;
     unsigned long *s = (unsigned long*)(*(in_dma_buf + id));
@@ -673,6 +689,7 @@ static int record_fill_2x16_s(unsigned long dst_start, int count, int id)
 
 static void replay_fill_1x8_u(unsigned long src_start, int count, int id)
 {
+ 
 	int cnt = 0;
 	unsigned char data;
 	unsigned long ddata;
@@ -700,6 +717,7 @@ static void replay_fill_1x8_u(unsigned long src_start, int count, int id)
 
 static void replay_fill_2x8_u(unsigned long src_start, int count, int id)
 {
+ 
 	int cnt = 0;
 	unsigned char d1;
 	unsigned long dd1;
@@ -726,6 +744,7 @@ static void replay_fill_2x8_u(unsigned long src_start, int count, int id)
 
 static void replay_fill_1x16_s(signed long src_start, int count, int id)
 {
+ 
 	int cnt = 0;
 	signed short d1;
 	signed long l1;
@@ -752,6 +771,7 @@ static void replay_fill_1x16_s(signed long src_start, int count, int id)
 
 static void replay_fill_2x16_s(signed long src_start, int count, int id)
 {
+ 
 	int cnt = 0;
 	signed short d1;
 	signed long l1;
@@ -799,11 +819,13 @@ static void replay_fill_2x16_s(signed long src_start, int count, int id)
 
 static unsigned int jz_audio_set_format(int dev, unsigned int fmt)
 {
+ 
 	switch (fmt) {
-	case AFMT_U8:
+	case AFMT_U8:break;
 	case AFMT_S16_LE:
-		jz_audio_format = fmt;
-		jz_update_filler(jz_audio_format,jz_audio_channels);
+		     jz_audio_format = fmt;
+		     jz_update_filler(jz_audio_format,jz_audio_channels);
+                     break;
 	case AFMT_QUERY:
 		break;
 	}
@@ -814,6 +836,7 @@ static unsigned int jz_audio_set_format(int dev, unsigned int fmt)
 
 static short jz_audio_set_channels(int dev, short channels)
 {
+ 
 	switch (channels) {
 	case 1:
 		if(set_codec_some_func)
@@ -834,6 +857,7 @@ static short jz_audio_set_channels(int dev, short channels)
 
 static void init_codec(void)
 {
+ 
 	/* inititalize internal I2S codec */
 	if(init_codec_pin)
 		init_codec_pin();
@@ -846,6 +870,7 @@ static void init_codec(void)
 
 static void jz_audio_reset(void)
 {
+ 
 	__i2s_disable_replay();
 	__i2s_disable_receive_dma();
 	__i2s_disable_record();
@@ -856,7 +881,7 @@ static void jz_audio_reset(void)
 static int jz_audio_release(struct inode *inode, struct file *file);
 static int jz_audio_open(struct inode *inode, struct file *file);
 static int jz_audio_ioctl(struct inode *inode, struct file *file,unsigned int cmd, unsigned long arg);
-static unsigned int jz_audio_poll(struct file *file,struct poll_table_struct *wait);
+static ssize_t jz_audio_poll(struct file *file,struct poll_table_struct *wait);
 static ssize_t jz_audio_write(struct file *file, const char *buffer,size_t count, loff_t *ppos);
 static ssize_t jz_audio_read(struct file *file, char *buffer,size_t count, loff_t *ppos);
 
@@ -874,6 +899,7 @@ static struct file_operations jz_i2s_audio_fops =
 
 static int jz_i2s_open_mixdev(struct inode *inode, struct file *file)
 {
+ 
 	int i;
 	int minor = MINOR(inode->i_rdev);
 	struct jz_i2s_controller_info *controller = i2s_controller;
@@ -911,6 +937,7 @@ static struct file_operations jz_i2s_mixer_fops =
 
 static int i2s_mixer_ioctl(struct i2s_codec *codec, unsigned int cmd, unsigned long arg)
 {
+ 
 	int ret;
 	long val = 0;
 	switch (cmd) {
@@ -1038,6 +1065,7 @@ static int i2s_mixer_ioctl(struct i2s_codec *codec, unsigned int cmd, unsigned l
 
 int i2s_probe_codec(struct i2s_codec *codec)
 {
+ 
 	/* generic OSS to I2S wrapper */
 	codec->mixer_ioctl = i2s_mixer_ioctl;
 	return 1;
@@ -1047,6 +1075,7 @@ int i2s_probe_codec(struct i2s_codec *codec)
 /* I2S codec initialisation. */
 static int __init jz_i2s_codec_init(struct jz_i2s_controller_info *controller)
 {
+ 
 	int num_i2s = 0;
 	struct i2s_codec *codec;
     
@@ -1073,7 +1102,7 @@ static int __init jz_i2s_codec_init(struct jz_i2s_controller_info *controller)
 static void jz_update_filler(int format, int channels)
 {
 #define TYPE(fmt,ch) (((fmt)<<2) | ((ch)&3))
-	
+ 	
 	switch (TYPE(format, channels)) 
 	{
 
@@ -1107,11 +1136,13 @@ static void jz_update_filler(int format, int channels)
 extern struct proc_dir_entry *proc_jz_root;
 int i2s_read_proc (char *page, char **start, off_t off, int count, int *eof, void *data)
 {
+ 
 	return 0;
 }
 
 static int jz_i2s_init_proc(struct jz_i2s_controller_info *controller)
 {
+ 
 	if (!create_proc_read_entry ("i2s", 0, proc_jz_root, i2s_read_proc, controller->i2s_codec[0]))
 		return -EIO;
 	return 0;
@@ -1119,11 +1150,13 @@ static int jz_i2s_init_proc(struct jz_i2s_controller_info *controller)
 
 static void jz_i2s_cleanup_proc(struct jz_i2s_controller_info *controller)
 {
+ 
 }
 #endif
 
 static void __init attach_jz_i2s(struct jz_i2s_controller_info *controller)
 {
+ 
 	char *name;
 	int adev; /* No of Audio device. */
   
@@ -1154,6 +1187,7 @@ static void __init attach_jz_i2s(struct jz_i2s_controller_info *controller)
 		printk(KERN_ERR "%s: can't allocate tmp buffers.\n", controller->name);
 		goto tmp2_failed;
 	}
+
 	if ((controller->dma1 = jz_request_dma(DMA_ID_I2S_TX, "audio dac", jz_i2s_replay_dma_irq, IRQF_DISABLED, controller)) < 0) {
 		printk(KERN_ERR "%s: can't reqeust DMA DAC channel.\n", name);
 		goto dma1_failed;
@@ -1174,9 +1208,9 @@ static void __init attach_jz_i2s(struct jz_i2s_controller_info *controller)
 dma2_failed:
 	jz_free_dma(controller->dma1);
 dma1_failed:
-	free_pages((unsigned long)controller->tmp2, 8);
-tmp2_failed:
 	free_pages((unsigned long)controller->tmp1, 8);
+tmp2_failed:
+	free_pages((unsigned long)controller->tmp2, 8);
 tmp1_failed:
 
 #ifdef CONFIG_PROC_FS
@@ -1192,6 +1226,7 @@ audio_failed:
 
 static int __init probe_jz_i2s(struct jz_i2s_controller_info **controller)
 {
+ 
 	if ((*controller = kmalloc(sizeof(struct jz_i2s_controller_info),
 				   GFP_KERNEL)) == NULL) {
 		printk(KERN_ERR "Jz I2S Controller: out of memory.\n");
@@ -1200,11 +1235,15 @@ static int __init probe_jz_i2s(struct jz_i2s_controller_info **controller)
 	(*controller)->name = "Jz I2S controller";
 	(*controller)->opened1 = 0;
 	(*controller)->opened2 = 0;
-	init_waitqueue_head(&(*controller)->adc_wait);
-	init_waitqueue_head(&(*controller)->dac_wait);
+	
+	init_waitqueue_head(&(*controller)->dac_wait); // RV order moved
+        init_waitqueue_head(&(*controller)->adc_wait); // RV order moved
+
 	spin_lock_init(&(*controller)->lock);
-	init_waitqueue_head(&rx_wait_queue);
-	init_waitqueue_head(&tx_wait_queue);
+
+	init_waitqueue_head(&tx_wait_queue); // RV order moved
+        init_waitqueue_head(&rx_wait_queue); // RV order moved
+
 	init_waitqueue_head(&pop_wait_queue);
 	init_waitqueue_head(&drain_wait_queue);
 
@@ -1213,6 +1252,7 @@ static int __init probe_jz_i2s(struct jz_i2s_controller_info **controller)
 
 static void __exit unload_jz_i2s(struct jz_i2s_controller_info *controller)
 {
+ 
 	int adev = controller->dev_audio;
 
 	jz_i2s_full_reset(controller);
@@ -1239,6 +1279,7 @@ static void __exit unload_jz_i2s(struct jz_i2s_controller_info *controller)
 #ifdef CONFIG_PM
 static int jz_i2s_suspend(struct jz_i2s_controller_info *controller, int state)
 {       	
+ 
 	if(i2s_suspend_codec)
 		i2s_suspend_codec(controller->opened1,controller->opened2);
 	printk("Aic and codec are suspended!\n");
@@ -1247,6 +1288,7 @@ static int jz_i2s_suspend(struct jz_i2s_controller_info *controller, int state)
 
 static int jz_i2s_resume(struct jz_i2s_controller_info *controller)
 {
+ 
 	if(i2s_resume_codec)
 		i2s_resume_codec();
 
@@ -1325,6 +1367,7 @@ static int jz_i2s_resume(struct jz_i2s_controller_info *controller)
 
 static int jz_i2s_pm_callback(struct pm_dev *pm_dev, pm_request_t req, void *data)
 {
+ 
 	int ret;
 	struct jz_i2s_controller_info *controller = pm_dev->data;
 
@@ -1348,6 +1391,7 @@ static int jz_i2s_pm_callback(struct pm_dev *pm_dev, pm_request_t req, void *dat
 
 static int __init init_jz_i2s(void)
 {
+ 
 	int errno;
 
 	abnormal_data_count = 0;
@@ -1391,6 +1435,7 @@ static int __init init_jz_i2s(void)
 
 static void __exit cleanup_jz_i2s(void)
 {
+ 
 #ifdef CONFIG_PM
 	/* pm_unregister(i2s_controller->pm); */
 #endif
@@ -1407,7 +1452,8 @@ module_exit(cleanup_jz_i2s);
 #if defined(CONFIG_SOC_JZ4730)
 static int drain_adc(struct jz_i2s_controller_info *ctrl, int nonblock)
 {
-	DECLARE_WAITQUEUE(wait, current);
+ 
+	//DECLARE_WAITQUEUE(wait, current);
 	unsigned long flags;
 	int count,con;
 	
@@ -1418,30 +1464,31 @@ static int drain_adc(struct jz_i2s_controller_info *ctrl, int nonblock)
 		sleep_on(&drain_wait_queue);
 		drain_flag = 0;
 	} else {
-		add_wait_queue(&ctrl->adc_wait, &wait);
+		//add_wait_queue(&ctrl->adc_wait, &wait);
 		for (con = 0; con < 1000; con ++) {
 			udelay(1);
-			set_current_state(TASK_INTERRUPTIBLE);
+			//set_current_state(TASK_INTERRUPTIBLE);
 			spin_lock_irqsave(&ctrl->lock, flags);
 			count = get_dma_residue(ctrl->dma2);
 			spin_unlock_irqrestore(&ctrl->lock, flags);
 			if (count <= 0)
 				break;
 			if (nonblock) {
-				remove_wait_queue(&ctrl->adc_wait, &wait);
-				current->state = TASK_RUNNING;
+				//remove_wait_queue(&ctrl->adc_wait, &wait);
+				//current->state = TASK_RUNNING;
 				return -EBUSY;
 			}
 		}
-		remove_wait_queue(&ctrl->adc_wait, &wait);
-		current->state = TASK_RUNNING;
+		//remove_wait_queue(&ctrl->adc_wait, &wait);
+		//current->state = TASK_RUNNING;
 	}
 	return 0;
 }
 
 static int drain_dac(struct jz_i2s_controller_info *ctrl, int nonblock)
 {
-	DECLARE_WAITQUEUE(wait, current);
+ 
+	//DECLARE_WAITQUEUE(wait, current);
 	unsigned long flags;
 	int count;
 	
@@ -1450,12 +1497,12 @@ static int drain_dac(struct jz_i2s_controller_info *ctrl, int nonblock)
 			return -EBUSY;
 		
 		drain_flag = 1;
-		sleep_on(&drain_wait_queue);
+		//sleep_on(&drain_wait_queue);
 		drain_flag = 0;
 	} else {
-		add_wait_queue(&(ctrl->dac_wait), &wait);
+		//add_wait_queue(&(ctrl->dac_wait), &wait);
 		for (;;) {
-			set_current_state(TASK_INTERRUPTIBLE);
+			//set_current_state(TASK_INTERRUPTIBLE);
 			if(elements_in_queue(&out_full_queue) <= 0) {
 				spin_lock_irqsave(&ctrl->lock, flags);
 				count = get_dma_residue(ctrl->dma1);
@@ -1464,13 +1511,13 @@ static int drain_dac(struct jz_i2s_controller_info *ctrl, int nonblock)
 					break;
 			}
 			if (nonblock) {
-				remove_wait_queue(&ctrl->dac_wait, &wait);
-				current->state = TASK_RUNNING;
+				//remove_wait_queue(&ctrl->dac_wait, &wait);
+				//current->state = TASK_RUNNING;
 				return -EBUSY;
 			}
 		}
-		remove_wait_queue(&ctrl->dac_wait, &wait);
-		current->state = TASK_RUNNING;
+		//remove_wait_queue(&ctrl->dac_wait, &wait);
+		//current->state = TASK_RUNNING;
 	}
 	
 	return 0;
@@ -1481,6 +1528,7 @@ static int drain_dac(struct jz_i2s_controller_info *ctrl, int nonblock)
 #define MAXDELAY 50000
 static int drain_dac(struct jz_i2s_controller_info *ctrl, int nonblock)
 {
+ 
 	unsigned long flags;
 	int count,ele,i=0;
 	
@@ -1522,6 +1570,7 @@ static int drain_dac(struct jz_i2s_controller_info *ctrl, int nonblock)
 
 static int drain_adc(struct jz_i2s_controller_info *ctrl, int nonblock)
 {
+ 
 	unsigned long flags;
 	int count,i=0;
 	
@@ -1547,7 +1596,7 @@ static int drain_adc(struct jz_i2s_controller_info *ctrl, int nonblock)
 	return 0;
 }
 #endif
-
+#if 0
 static int jz_audio_release(struct inode *inode, struct file *file)
 {
 	unsigned long flags;
@@ -1617,9 +1666,252 @@ static int jz_audio_release(struct inode *inode, struct file *file)
 	}
 	return 0;
 }
+#endif
+
+static int jz_audio_release(struct inode *inode, struct file *file)
+{
+	 
+	unsigned long flags;
+	unsigned int dacflag;
+	unsigned int timeout = 0xfff;
+#if defined(CONFIG_I2S_DLV)
+	unsigned long tfl;
+#endif
+	struct jz_i2s_controller_info *controller = (struct jz_i2s_controller_info *) file->private_data;
+#if defined(CONFIG_I2S_DLV)
+	jz_codec_config = 0;
+#endif
+	if (controller == NULL)
+		return -ENODEV;
+
+	pop_dma_flag = 0;
+	pop_wait_event = 0;
+	
+	if (controller->opened1 == 1 && controller->opened2 == 1) {
+		controller->opened1 = 0; 
+		__i2s_enable_transmit_dma();
+		__i2s_enable_replay();
+		drain_dac(controller, file->f_flags & O_NONBLOCK);
+#if defined(CONFIG_I2S_DLV)
+#if 0
+		/* wait for fifo empty */
+		write_codec_file_bit(1, 1, 5);//DAC_MUTE->1
+		gain_down_start = jiffies;
+
+		wait_event(pop_wait_queue, pop_wait_event);
+		pop_wait_event = 0;
+#endif
+		//sleep_on(&pop_wait_queue);
+		//gain_down_end = jiffies;
+		/*while (1) {
+			tfl = REG_AIC_SR & 0x00003f00;
+			if (tfl == 0) {
+				udelay(500);
+				break;
+			}
+			mdelay(2);
+			}*/	
+		mdelay(100);
+#endif
+		disable_dma(controller->dma1);
+		set_dma_count(controller->dma1, 0);
+		__i2s_disable_transmit_dma();
+		__i2s_disable_replay();
+		
+		spin_lock_irqsave(&controller->ioctllock, flags);
+		controller->total_bytes = 0;
+		controller->count = 0;
+		controller->finish = 0;
+		jz_audio_dma_tran_count = 0;
+		controller->blocks = 0;
+		controller->nextOut = 0;
+		spin_unlock_irqrestore(&controller->ioctllock, flags);
+
+		controller->opened2 = 0;
+		first_record_call = 1;
+		__i2s_enable_receive_dma();
+		__i2s_enable_record();
+		drain_adc(controller, file->f_flags & O_NONBLOCK);
+		disable_dma(controller->dma2);
+		set_dma_count(controller->dma2, 0);
+		__i2s_disable_receive_dma();
+		__i2s_disable_record();
+		spin_lock_irqsave(&controller->ioctllock, flags);
+		controller->total_bytes = 0;
+		jz_audio_dma_tran_count = 0;
+		controller->count = 0;
+		controller->finish = 0;
+		controller->blocks = 0;
+		controller->nextIn = 0;
+		spin_unlock_irqrestore(&controller->ioctllock, flags);
+#if defined(CONFIG_I2S_DLV)
+		write_codec_file_bit(5, 1, 6);//SB_OUT->1
+		ramp_down_start = jiffies;
+		wait_event(pop_wait_queue, pop_wait_event);
+		pop_wait_event = 0;
+
+//		sleep_on(&pop_wait_queue);
+		//ramp_down_end = jiffies;
+		if (use_mic_line_flag == USE_LINEIN) {
+			unset_record_line_input_audio_with_audio_data_replay();
+			//printk("3 use_mic_line_flag=%d\n",use_mic_line_flag);
+		}
+		if (use_mic_line_flag == USE_MIC) {
+			unset_record_mic_input_audio_with_audio_data_replay();
+			//printk("4 use_mic_line_flag=%d\n",use_mic_line_flag);
+		}
+
+#if 0
+		unset_record_playing_audio_mixed_with_mic_input_audio();
+#endif
+#endif
+		__i2s_disable();
+		if(turn_off_codec)
+			turn_off_codec();
+		abnormal_data_count = 0;
+	} else if (controller->opened1 == 1) {
+		//controller->opened1 = 0; 
+		__i2s_enable_transmit_dma();
+		__i2s_enable_replay();
+		drain_dac(controller, file->f_flags & O_NONBLOCK);
+		/* add some mute to anti-pop */
+#if defined(CONFIG_I2S_DLV)
+#if 0
+		write_codec_file_bit(1, 1, 5);//DAC_MUTE->1
+		gain_down_start = jiffies;
+		wait_event(pop_wait_queue, pop_wait_event);
+		pop_wait_event = 0;
+#endif
+		if (!jz_dlv_vol_mute) {
+			dacflag = read_codec_file(1);
+			printk("##dacflag===%x\n",dacflag);
+			if (!(dacflag & 0x20)) {
+				 
+				write_codec_file_bit(1, 1, 5);//DAC_MUTE->1
+				gain_down_start = jiffies;
+				wait_event(pop_wait_queue, pop_wait_event);
+				pop_wait_event = 0;
+			}
+//			sleep_on(&pop_wait_queue);
+		}else
+			mdelay(280);
+		 
+
+
+//		sleep_on(&pop_wait_queue);
+		//gain_down_end = jiffies;
+#if 1
+		while (1) {
+			timeout --;
+			printk("REG_AIC_SR==%x\n",REG_AIC_SR);
+			tfl = REG_AIC_SR & 0x00003f00;
+			if (tfl == 0) {
+				break;
+				udelay(500);
+			} else if (!timeout){
+				printk("ZZZZZZZZZZZZZZ\n");
+				break;
+			}
+			mdelay(2);
+		}
+#endif
+#endif
+		 
+
+		disable_dma(controller->dma1);
+		set_dma_count(controller->dma1, 0);
+		__i2s_disable_transmit_dma();
+		__i2s_disable_replay();
+
+		__aic_flush_fifo();
+  
+		spin_lock_irqsave(&controller->ioctllock, flags);
+		controller->total_bytes = 0;
+		controller->count = 0;
+		controller->finish = 0;
+		jz_audio_dma_tran_count = 0;
+		controller->blocks = 0;
+		controller->nextOut = 0;
+		spin_unlock_irqrestore(&controller->ioctllock, flags);
+#if defined(CONFIG_I2S_DLV)
+		write_codec_file_bit(5, 1, 6);//SB_OUT->1
+		ramp_down_start = jiffies;
+		wait_event(pop_wait_queue, pop_wait_event);
+		pop_wait_event = 0;
+
+//		sleep_on(&pop_wait_queue);
+		//ramp_down_end = jiffies;
+		unset_audio_data_replay();
+#endif
+		__i2s_disable();
+	} else if (controller->opened2 == 1) {
+		controller->opened2 = 0;
+		first_record_call = 1;
+		__i2s_enable_receive_dma();
+		__i2s_enable_record();
+		drain_adc(controller, file->f_flags & O_NONBLOCK);
+		disable_dma(controller->dma2);
+		set_dma_count(controller->dma2, 0);
+		__i2s_disable_receive_dma();
+		__i2s_disable_record();
+		spin_lock_irqsave(&controller->ioctllock, flags);
+		controller->total_bytes = 0;
+		jz_audio_dma_tran_count = 0;
+		controller->count = 0;
+		controller->finish = 0;
+		controller->blocks = 0;
+		controller->nextIn = 0;
+		spin_unlock_irqrestore(&controller->ioctllock, flags);
+#if defined(CONFIG_I2S_DLV)
+#if 0
+		/* unset Record MIC input audio with direct playback */
+		unset_record_mic_input_audio_with_direct_playback();
+#endif
+#if 1
+		/* unset Record MIC input audio without playback */
+		unset_record_mic_input_audio_without_playback();
+#endif
+#if 0
+		/* tested */
+		/* unset Record LINE input audio without playback */
+		unset_record_line_input_audio_without_playback();
+#endif
+#endif
+		__i2s_disable();
+		abnormal_data_count = 0;
+	}
+	 
+
+#if defined(CONFIG_I2S_DLV)
+	write_codec_file(9, 0xff);
+	write_codec_file(8, 0x3f);
+/*	__cpm_stop_idct();
+	__cpm_stop_db();
+	__cpm_stop_me();
+	__cpm_stop_mc();
+	__cpm_stop_ipu();*/
+#endif
+	
+	if (controller->opened1 == 1 && controller->opened2 == 1) {
+		controller->opened1 = 0;
+		controller->opened2 = 0;
+		//print_pop_duration();
+		//__dmac_disable_module(0);
+	} else if ( controller->opened1 == 1  ) {
+		controller->opened1 = 0;
+		//print_pop_duration();
+	} else if ( controller->opened2 == 1  ) {
+		controller->opened2 = 0;
+	}
+	printk("end release** %s* %s*%d\n",__FILE__,__FUNCTION__,__LINE__);
+
+	return 0;
+}
+
 
 static int jz_audio_open(struct inode *inode, struct file *file)
 {
+ 
 	int i;
 	struct jz_i2s_controller_info *controller = i2s_controller;
 	
@@ -1704,8 +1996,9 @@ static int jz_audio_open(struct inode *inode, struct file *file)
 static int jz_audio_ioctl(struct inode *inode, struct file *file,
 unsigned int cmd, unsigned long arg)
 {
+ 
 	int val,fullc,busyc,unfinish,newfragstotal,newfragsize;
-	unsigned int flags;
+	unsigned long flags;
 	struct jz_i2s_controller_info *controller = (struct jz_i2s_controller_info *) file->private_data;
 	count_info cinfo;
 	audio_buf_info abinfo;
@@ -1714,8 +2007,10 @@ unsigned int cmd, unsigned long arg)
 	val = 0;
 	switch (cmd) {
 	case OSS_GETVERSION:
+ 
 		return put_user(SOUND_VERSION, (int *)arg);
 	case SNDCTL_DSP_RESET:
+ 
 #if 0
 		jz_audio_reset();
 		__i2s_disable_replay();
@@ -1725,10 +2020,12 @@ unsigned int cmd, unsigned long arg)
 #endif
 		return 0;
 	case SNDCTL_DSP_SYNC:
+ 
 		if (file->f_mode & FMODE_WRITE)
 			return drain_dac(controller, file->f_flags & O_NONBLOCK);
 		return 0;
 	case SNDCTL_DSP_SPEED:
+ 
 		/* set smaple rate */
 		if (get_user(val, (int *)arg))
 			return -EFAULT;
@@ -1737,6 +2034,7 @@ unsigned int cmd, unsigned long arg)
 		
 		return put_user(val, (int *)arg);
 	case SNDCTL_DSP_STEREO:
+ 
 		/* set stereo or mono channel */
 		if (get_user(val, (int *)arg))
 		    return -EFAULT;
@@ -1744,12 +2042,15 @@ unsigned int cmd, unsigned long arg)
 	    
 		return 0;
 	case SNDCTL_DSP_GETBLKSIZE:
+ 
 		//return put_user(jz_audio_fragsize / jz_audio_b, (int *)arg);
 		return put_user(jz_audio_fragsize, (int *)arg);
 	case SNDCTL_DSP_GETFMTS:
+ 
 		/* Returns a mask of supported sample format*/
 		return put_user(AFMT_U8 | AFMT_S16_LE, (int *)arg);
 	case SNDCTL_DSP_SETFMT:
+ 
 		/* Select sample format */
 		if (get_user(val, (int *)arg))
 			return -EFAULT;
@@ -1764,17 +2065,21 @@ unsigned int cmd, unsigned long arg)
 
 		return put_user(val, (int *)arg);
 	case SNDCTL_DSP_CHANNELS:
+ 
 		if (get_user(val, (int *)arg))
 			return -EFAULT;
 		jz_audio_set_channels(controller->dev_audio, val);
 		
 		return put_user(val, (int *)arg);
 	case SNDCTL_DSP_POST:
+ 
 		/* FIXME: the same as RESET ?? */
 		return 0;
 	case SNDCTL_DSP_SUBDIVIDE:
+ 
 		return 0;
 	case SNDCTL_DSP_SETFRAGMENT:
+ 
 		get_user(val, (long *) arg);
 		newfragsize = 1 << (val & 0xFFFF);
 		if (newfragsize < 4 * PAGE_SIZE)
@@ -1799,13 +2104,17 @@ unsigned int cmd, unsigned long arg)
 
 		return 0;
 	case SNDCTL_DSP_GETCAPS:
+ 
 		return put_user(DSP_CAP_REALTIME|DSP_CAP_BATCH, (int *)arg);
 	case SNDCTL_DSP_NONBLOCK:
+ 
 		file->f_flags |= O_NONBLOCK;
 		return 0;
 	case SNDCTL_DSP_SETDUPLEX:
+ 
 		return -EINVAL;
 	case SNDCTL_DSP_GETOSPACE:
+ 
 	{
 		int i, bytes = 0;
 		if (!(file->f_mode & FMODE_WRITE))
@@ -1829,6 +2138,7 @@ unsigned int cmd, unsigned long arg)
 		return copy_to_user((void *)arg, &abinfo, sizeof(abinfo)) ? -EFAULT : 0;
 	}
 	case SNDCTL_DSP_GETISPACE:
+ 
 	{
 		int i, bytes = 0;
 		if (!(file->f_mode & FMODE_READ))
@@ -1845,6 +2155,7 @@ unsigned int cmd, unsigned long arg)
 		return copy_to_user((void *)arg, &abinfo, sizeof(abinfo)) ? -EFAULT : 0;
 	}
 	case SNDCTL_DSP_GETTRIGGER:
+ 
 		val = 0;
 		if (file->f_mode & FMODE_READ && in_dma_buf)
 			val |= PCM_ENABLE_INPUT;
@@ -1853,10 +2164,12 @@ unsigned int cmd, unsigned long arg)
 
 		return put_user(val, (int *)arg);	
 	case SNDCTL_DSP_SETTRIGGER:
+ 
 		if (get_user(val, (int *)arg))
 			return -EFAULT;
 		return 0;
 	case SNDCTL_DSP_GETIPTR:
+ 
 		if (!(file->f_mode & FMODE_READ))
 			return -EINVAL;
 
@@ -1869,6 +2182,7 @@ unsigned int cmd, unsigned long arg)
 
 		return copy_to_user((void *)arg, &cinfo, sizeof(cinfo));		
 	case SNDCTL_DSP_GETOPTR:
+ 
 		if (!(file->f_mode & FMODE_WRITE))
 			return -EINVAL;
 
@@ -1881,6 +2195,7 @@ unsigned int cmd, unsigned long arg)
 		
 		return copy_to_user((void *) arg, &cinfo, sizeof(cinfo));
 	case SNDCTL_DSP_GETODELAY:
+ 
 		if (!(file->f_mode & FMODE_WRITE))
 			return -EINVAL;
 		
@@ -1901,10 +2216,13 @@ unsigned int cmd, unsigned long arg)
 	    
 		return put_user(unfinish, (int *) arg);
 	case SOUND_PCM_READ_RATE:
+ 
 		return put_user(jz_audio_rate, (int *)arg);
 	case SOUND_PCM_READ_CHANNELS:
+ 
 		return put_user(jz_audio_channels, (int *)arg);
 	case SOUND_PCM_READ_BITS:
+ 
 		return put_user((jz_audio_format & (AFMT_S8 | AFMT_U8)) ? 8 : 16, (int *)arg);
 	case SNDCTL_DSP_MAPINBUF:
 	case SNDCTL_DSP_MAPOUTBUF:
@@ -1917,11 +2235,15 @@ unsigned int cmd, unsigned long arg)
 }
 
 
-static unsigned int jz_audio_poll(struct file *file,struct poll_table_struct *wait)
+static ssize_t jz_audio_poll(struct file *file,struct poll_table_struct *wait)
 {
+ 
 	struct jz_i2s_controller_info *controller = (struct jz_i2s_controller_info *) file->private_data;
-	unsigned long flags;
-	unsigned int mask = 0;
+ 
+	int flags;
+ 
+	int mask = 0;
+ 
 
 	if (file->f_mode & FMODE_WRITE) {
 		if (elements_in_queue(&out_empty_queue) > 0)
@@ -1946,15 +2268,16 @@ static unsigned int jz_audio_poll(struct file *file,struct poll_table_struct *wa
 			mask |= POLLIN | POLLRDNORM;
 	}
 	spin_unlock_irqrestore(&controller->lock, flags);
-
+         
 	return mask;
 }
 
 static ssize_t jz_audio_read(struct file *file, char *buffer, size_t count, loff_t *ppos)
 {
+ 
 	struct jz_i2s_controller_info *controller = (struct jz_i2s_controller_info *) file->private_data;
 	int id, ret = 0, left_count, copy_count, cnt = 0;
-	unsigned long flags;
+	long flags;
 
 	if (count < 0)
 		return -EINVAL;
@@ -1991,7 +2314,8 @@ static ssize_t jz_audio_read(struct file *file, char *buffer, size_t count, loff
 	}
 
 	while (left_count > 0) {
-	audio_read_back_second:
+	 
+        audio_read_back_second:
 		if (elements_in_queue(&in_full_queue) <= 0) {
 			if (file->f_flags & O_NONBLOCK)
 				return ret ? ret : -EAGAIN;
@@ -2041,15 +2365,20 @@ static ssize_t jz_audio_read(struct file *file, char *buffer, size_t count, loff
 		left_count -= cnt;
 		spin_unlock(&controller->lock);
 	}
-	return ret;
+         
+ 	return ret;
 }
 
 static ssize_t jz_audio_write(struct file *file, const char *buffer, size_t count, loff_t *ppos)
 {
+         
+        // count = count;
 	int id, ret = 0, left_count, copy_count = 0;
-	unsigned int flags;
+         
+	unsigned long flags;
+         
 	struct jz_i2s_controller_info *controller = (struct jz_i2s_controller_info *) file->private_data;
-	
+	 
 	if (count <= 0)
 		return -EINVAL;
 	
@@ -2063,64 +2392,116 @@ static ssize_t jz_audio_write(struct file *file, const char *buffer, size_t coun
 	controller->nextOut = 0;
 	spin_unlock_irqrestore(&controller->ioctllock, flags);
 	if (jz_audio_channels == 2)
-		copy_count = jz_audio_fragsize / jz_audio_b;
-	else if(jz_audio_channels == 1)
-		copy_count = jz_audio_fragsize / 4;
-	left_count = count;
+		{
+                copy_count = jz_audio_fragsize / jz_audio_b;
+                left_count = count/jz_audio_b;
+                }
+        else 
+                {
+                copy_count = jz_audio_fragsize / 4;
+                left_count = count;
+                }
+                  
+//if(jz_audio_channels == 1)
+		
 	if (copy_from_user(controller->tmp1, buffer, count)) {
 		printk("copy_from_user failed:%d",ret);
 		return ret ? ret : -EFAULT;
 	}
-
-	while (left_count > 0) {
+         
+	while (left_count > 0)
+        {
 	audio_write_back:
 		if (file->f_flags & O_NONBLOCK)
 			udelay(2);
-		if (elements_in_queue(&out_empty_queue) == 0) {
+		if (elements_in_queue(&out_empty_queue) == 0) 
+                   {
 			if (file->f_flags & O_NONBLOCK)
+                           {
+                            
 				return ret;
+                            
+                           } 
 			else
-				sleep_on(&tx_wait_queue);
-		}
+			{	
+                         
+                        sleep_on(&tx_wait_queue);
+                         
+                        }
+		    }
 		/* the end fragment size in this write */
 		if (ret + copy_count > count)
 			copy_count = count - ret;
-		if ((id = get_buffer_id(&out_empty_queue)) >= 0) {
-			replay_filler((signed long)controller->tmp1 + ret, copy_count, id);
-			if(*(out_dma_buf_data_count + id) > 0) {
-				put_buffer_id(&out_full_queue, id);
+		if ((id = get_buffer_id(&out_empty_queue)) >= 0)
+                    {
+			{
+                         
+                        // replay_filler((signed long)controller->tmp1 + ret, copy_count, id);
+			replay_fill_2x16_s((signed long)controller->tmp1 + ret, copy_count, id);
+                          
+                        }
+                         
+	
+                        if(*(out_dma_buf_data_count + id) > 0) 
+                                {
+				 
+                                put_buffer_id(&out_full_queue, id);
+                                 
 				dma_cache_wback_inv(*(out_dma_buf + id), *(out_dma_buf_data_count + id));
-			} else
-				put_buffer_id(&out_empty_queue, id);
-		} else
-			goto audio_write_back;
-		
-		left_count = left_count - copy_count;
+                                 
+		                } 
+                                else
+			        {
+                                 	
+                                put_buffer_id(&out_empty_queue, id);
+                                 
+                                }
+		     }
+                     else
+		     {
+                       	
+                     goto audio_write_back;
+                      
+                     }		        
+		  
+                left_count = left_count - copy_count;
 		ret += copy_count;
 
 		spin_lock_irqsave(&controller->ioctllock, flags);
-		controller->nextOut += ret;
+		  
+                controller->nextOut += ret;
+                  
 		spin_unlock_irqrestore(&controller->ioctllock, flags);
-
-		if (elements_in_queue(&out_busy_queue) == 0) {
-			if ((id=get_buffer_id(&out_full_queue)) >= 0) {
-				put_buffer_id(&out_busy_queue, id);                
-				if(*(out_dma_buf_data_count + id) > 0) {		
+                  
+		if (elements_in_queue(&out_busy_queue) == 0) 
+                               {  
+			        if ((id=get_buffer_id(&out_full_queue)) >= 0)
+                                    {
+                                      
+				    put_buffer_id(&out_busy_queue, id);
+                                      
+				    if(*(out_dma_buf_data_count + id) > 0)
+                                        { 	
 					audio_start_dma(controller->dma1,
 							file->private_data,
 							*(out_dma_pbuf + id),
 							*(out_dma_buf_data_count + id),
 							DMA_MODE_WRITE);
 					last_dma_buffer_id = id;
-				}
-			}
-		}
-	}
-
+                                         
+				        }  
+			             }  
+		                }  
+	}  
+        {
+          
 	return ret;
+          
+        }
+  
 }
 
-#if defined(CONFIG_I2S_ICODEC)
+//#if defined(CONFIG_I2S_ICODEC)
 static void write_mute_to_dma_buffer(signed long l_sample, signed long r_sample)
 {
 	int i,step_len;
@@ -2253,4 +2634,4 @@ static void write_mute_to_dma_buffer(signed long l_sample, signed long r_sample)
 		break;
 	}
 }
-#endif
+//#endif

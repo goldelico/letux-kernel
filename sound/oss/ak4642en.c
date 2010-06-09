@@ -54,8 +54,10 @@ extern void (*i2s_resume_codec)(void);
 extern void (*i2s_suspend_codec)(int wr,int rd);
 extern void (*set_replay_hp_or_speaker)(void);
 
-#define I2S_PDN  68
-#define JACK_PLUG_PIN  83
+//#define I2S_PDN  68
+#define I2S_PDN 69 
+//#define JACK_PLUG_PIN  83
+#define JACK_PLUG_PIN  25
 #define JACK_PLUG_IRQ  (IRQ_GPIO_0 + JACK_PLUG_PIN)
 
 static int jack_plug_level, old_level;
@@ -80,6 +82,9 @@ void set_ak4642en_mic(int val);
 void resume_ak4642en(void);
 void suspend_ak4642en(int wr,int rd);
 
+static u16 i2s_codec_read(u8 reg);
+static void i2s_codec_write(u8 reg, u16 data);
+
 static void write_reg(u8 reg, u8 val)
 {
 	i2c_open();
@@ -88,7 +93,7 @@ static void write_reg(u8 reg, u8 val)
 	i2c_close();
 }
 
-#if 0
+#if 1
 static u8 read_reg(u8 reg)
 {
 	u8 val;
@@ -116,7 +121,10 @@ static void i2s_codec_write(u8 reg, u16 data)
 void set_ak4642en_gpio_pin(void)
 {
 	//set AIC pin to I2S slave mode,only GPIO70,71,77,78
-	__gpio_as_output(68);
+	    //set AIC pin to I2S slave mode,only GPIO70,71,77,78
+    __gpio_as_output(24);		//wjx
+    __gpio_clear_pin(24);   //wjx disenable the speaker out amplifier
+        __gpio_as_output(68);
 	__gpio_clear_pin(68);
 	__gpio_as_output(69);
 	__gpio_clear_pin(69);
@@ -185,9 +193,16 @@ void set_ak4642en_replay(void)
 	if(old_level == jack_plug_level)
 		return;
 	old_level = jack_plug_level;
+    //@vanpro Skytone
+    //switch headphone or speaker out
+    if (jack_plug_level)
+        __gpio_set_pin(24);
+    else
+        __gpio_clear_pin(24);
+
 	if(spk_hp == 1) 
 	{
-		if(jack_plug_level == 1) 
+		if(jack_plug_level == 0) 
 		{
 			//now HeadPhone output,so clear SPK
 			i2s_codec_write(0x02, 0x0020);
@@ -205,7 +220,7 @@ void set_ak4642en_replay(void)
 		}
 	}
 	spk_hp = 1;
-	if(jack_plug_level == 1) 
+	if(jack_plug_level == 0) 
 	{
 		//for HeadPhone output
 		i2s_codec_write(0x00, 0x0060); //
@@ -222,6 +237,7 @@ void set_ak4642en_replay(void)
 	} 
 	else 
 	{
+#if 0
 		//for Speaker output
 		i2s_codec_write(0x00, 0x0040);
 		i2s_codec_write(0x02, 0x0020);
@@ -236,13 +252,31 @@ void set_ak4642en_replay(void)
 		i2s_codec_write(0x07, 0x002d); //5-10
 		i2s_codec_write(0x09, 0x0091);
 		i2s_codec_write(0x0c, 0x0091);
-		//HP volume output value
+        //HP volume output value
+     
+        i2s_codec_write(0x0a, codec_volume);//5-10
+        i2s_codec_write(0x0d, codec_volume);//5-10
+	
+        i2s_codec_write(0x00, 0x0074);
+        i2s_codec_write(0x02, 0x00a0);	
 
-		i2s_codec_write(0x0a, codec_volume);//5-10
-		i2s_codec_write(0x0d, codec_volume);//5-10
+#endif
+	//@vanpro Skytone
+	//we use Line output instead of Speaker output.
+        //for Line output
+        i2s_codec_write(0x05, 0x0027);
+        i2s_codec_write(0x02, 0x0010);
 
-		i2s_codec_write(0x00, 0x0074);
-		i2s_codec_write(0x02, 0x00a0);	
+        i2s_codec_write(0x09, 0x0091);
+        i2s_codec_write(0x0c, 0x0091);
+        //printk("codec_volume=%d\n",codec_volume);
+//        i2s_codec_write(0x0a, 0x0028);//5-10	//wjx not need to set volume here
+//        i2s_codec_write(0x0d, 0x0028);//5-10
+
+        i2s_codec_write(0x03, 0x0040);//5-10
+        i2s_codec_write(0x00, 0x006c);
+
+        i2s_codec_write(0x03, 0x0000);//5-10
 	}
 }
 
@@ -272,6 +306,7 @@ void clear_ak4642en_replay(void)
 	if(jack_plug_level == 1) 
 	{
 		//for HeadPhone output
+                __gpio_clear_pin(24);	//wjx disenable the speaker
 		i2s_codec_write(0x01, 0x0039); // for close pop noise
 		mdelay(300);
 		i2s_codec_write(0x01, 0x0009); //PLL on I2S 
@@ -563,6 +598,9 @@ void set_ak4642en_volume(int val)
         	codec_volume = 4;
 	else if ( val > 90 && val <= 100 )
         	codec_volume = 2;
+        val=100-val;
+	if(val>100||val<0) val=0;
+	codec_volume=2*val+(val/2)+2;
 
         i2s_codec_write(0x0a, codec_volume);
         i2s_codec_write(0x0d, codec_volume);
@@ -703,9 +741,9 @@ static void __exit cleanup_ak4642en(void)
 	i2s_codec_write(0x01, 0x0008);//master,PLL disable
 	//free_irq(JACK_PLUG_IRQ, i2s_controller);
 	__gpio_clear_pin(I2S_PDN);
-	udelay(2);
+	udelay(20);
 	REG_SCC1_CR(SCC1_BASE) &= 0 << 31;
-	udelay(2); 
+	udelay(20); 
 }
 
 module_init(init_ak4642en);
