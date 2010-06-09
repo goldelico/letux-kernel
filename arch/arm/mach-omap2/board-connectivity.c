@@ -16,22 +16,31 @@
 #include <linux/err.h>
 #include <mach/gpio.h>
 
-#if defined(CONFIG_MACH_OMAP_FST_OMAP3_127x)\
-	|| defined(CONFIG_MACH_OMAP_FST_OMAP3_128x)
-#include <mach/board-zoom2.h>
-#include <mach/mcspi.h>
-#include <mach/board.h>
-#include <mach/common.h>
-#include <mach/gpmc.h>
-#include <mach/mux.h>
-#else
 #include "mux.h"
-#endif
-
 #include <asm/io.h>
 #include <asm/delay.h>
 
 #include "board-connectivity.h"
+
+#if defined(CONFIG_MACH_OMAP_ZOOM3)\
+	|| defined(CONFIG_MACH_OMAP_ZOOM2)
+#ifdef CONFIG_MACH_OMAP_FST_WL127x
+#define CONFIG_MACH_OMAP_FST_OMAP3_127x
+#warning zoom2 or zoom3 with wl127x
+#else
+#define CONFIG_MACH_OMAP_FST_OMAP3_128x
+#warning  zoom2 or zoom3 with wl128x
+#endif
+
+#elif defined(CONFIG_MACH_OMAP_4430SDP)
+#ifdef CONFIG_MACH_OMAP_FST_WL127x
+#define CONFIG_MACH_OMAP_FST_OMAP4_127x
+#warning omap4 sdp with wl127x
+#else
+#define CONFIG_MACH_OMAP_FST_OMAP4_128x
+#warning omap4 sdp with wl128x
+#endif
+#endif
 
 /* GPIOS need to be in order of BT, FM and GPS;
  * provide -1 is if EN GPIO not applicable for a core */
@@ -39,6 +48,7 @@
 #define BT_EN_GPIO 109
 #define FM_EN_GPIO 161
 #define GPS_EN_GPIO -1
+#define McBSP3_BT_GPIO 164
 #elif defined(CONFIG_MACH_OMAP_FST_OMAP4_128x)\
 	|| defined(CONFIG_MACH_OMAP_FST_OMAP4_127x)
 #define BT_EN_GPIO 55
@@ -79,7 +89,7 @@ static void config_mux_mcbsp3(void)
 {
 	/*Mux setting for GPIO164 McBSP3 */
 #ifdef CONFIG_MACH_OMAP_FST_OMAP3_127x
-	omap_cfg_reg(H19_34XX_GPIO164_OUT);
+	omap_mux_init_gpio(McBSP3_BT_GPIO, OMAP_PIN_OUTPUT);
 #endif
 	return;
 }

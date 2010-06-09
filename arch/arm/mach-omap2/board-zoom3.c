@@ -25,6 +25,9 @@
 #include "sdram-hynix-h8mbx00u0mer-0em.h"
 #include "omap3-opp.h"
 
+/* Added for FlexST */
+#include "board-connectivity.h"
+
 static void __init omap_zoom_map_io(void)
 {
 	omap2_set_globals_343x();
@@ -110,6 +113,7 @@ static void __init omap_zoom_init(void)
 	zoom_peripherals_init();
 	zoom_flash_init(zoom_flash_partitions, ZOOM_NAND_CS);
 	zoom_debugboard_init();
+	conn_add_plat_device(); /* Added for FlexST */
 }
 
 MACHINE_START(OMAP_ZOOM3, "OMAP Zoom3 board")
