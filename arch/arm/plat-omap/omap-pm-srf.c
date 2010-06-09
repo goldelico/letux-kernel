@@ -212,14 +212,6 @@ void omap_pm_dsp_set_min_opp(struct device *dev, unsigned long f)
 
 	pr_debug("OMAP PM: DSP requests minimum VDD1 OPP to be %d\n", opp_id);
 
-	/*
-	 * for 3630, if DSP request for 400 MHz than give 520MHz
-	 * as per recommendation. We don't want to run ARM
-	 * at 1 G when dsp load is only 400 MHz.
-	 */
-	if (f == S400M/1000 && cpu_is_omap3630())
-		f = S520M/1000;
-
 	opp_id = get_opp_id(dsp_opps + MAX_VDD1_OPP, f);
 
 	/*
