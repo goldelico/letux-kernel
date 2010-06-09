@@ -123,9 +123,65 @@ static void __init board_gpio_setup(void)
 #endif
 }
 
+void overwrite_root_name(char *root_name)
+{
+	extern int jz_kbd_get_col(int col);
+	/* check GPIOs if there is a boot key pressed and override boot arguments
+	 F1:				boot from first SD partition (/dev/mmcblk0p1, ext3)
+	 F2:				boot from second SD partition (/dev/mmcblk0p2, ext3)
+	 F3:				boot minifs from internal partition (/dev/mtdblock3, jffs2)
+	 F4:				boot from internal partition (/dev/mtdblock4, yaffs2)
+	 Fn:				boot from second SD partition (/dev/mmcblk0p2, ext3) (kernel was booted from SD on Fn+Ctrl+LeftShift)
+	 none:				boot from internal partition (/dev/mtdblock4, yaffs2)
+	 
+	 Notes:
+		- the first condition in this list is taken, i.e. Fn+F4 means F4 mode
+		- there may be shadow keys (like F5) if Fn-Ctrl-LShift are pressed
+		- pressed keys return a 0 bit
+		- this check is done some seconds after starting the kernel
+
+	 */
+#if 0
+	{
+		int i;
+		for(i=0; i <= 16; i++) {
+			if(jz_kbd_get_col(i) != 0xff)
+				printk(KERN_INFO "col %d: %02x\n", i, jz_kbd_get_col(i));
+		}
+	}
+#endif
+	if ((jz_kbd_get_col(16) & 0x40) == 0)	// F1
+		strcpy(root_name, "/dev/mmcblk0p1");
+	else if ((jz_kbd_get_col(13) & 0x40) == 0)	// F2
+		strcpy(root_name, "/dev/mmcblk0p2");
+	else if ((jz_kbd_get_col(3) & 0x02) == 0)	// F3
+		strcpy(root_name, "/dev/mtdblock3");
+	else if ((jz_kbd_get_col(3) & 0x08) == 0)	// F4
+		strcpy(root_name, "/dev/mtdblock4");
+/*
+ else if ((jz_kbd_get_col(0) & 0x80) == 0)	// F5
+ strcpy(root_name, "/dev/mtdblock4");
+ else if ((jz_kbd_get_col(6) & 0x08) == 0)	// F6
+ strcpy(root_name, "/dev/mtdblock4");
+ else if ((jz_kbd_get_col(7) & 0x02) == 0)	// F7
+ strcpy(root_name, "/dev/mtdblock4");
+ else if ((jz_kbd_get_col(6) & 0x40) == 0)	// F8
+ strcpy(root_name, "/dev/mtdblock4");
+ else if ((jz_kbd_get_col(9) & 0x40) == 0)	// F9
+ strcpy(root_name, "/dev/mtdblock4");
+ else if ((jz_kbd_get_col(12) & 0x80) == 0)	// F10
+ strcpy(root_name, "/dev/mtdblock4");
+ */
+	else if ((jz_kbd_get_col(16) & 0x80) == 0)	// Fn
+		strcpy(root_name, "/dev/mmcblk0p2");
+	else	// neither
+		strcpy (root_name, "/dev/mtdblock4");
+	printk(KERN_INFO "Root file system overwritten as: %s\n", root_name);
+}
+
 void minipc_bl_set_intensity(int intensity)
 {
-	printk(KERN_INFO "MiniPC BL, set intensity to %d\n", intensity);
+//	printk(KERN_INFO "MiniPC BL, set intensity to %d\n", intensity);
 	__pwm_set_duty(0, intensity);
 }
 

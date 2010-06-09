@@ -104,6 +104,15 @@ struct jz_kbd {
 
 static struct jz_kbd g_jz_kbd;
 
+int jz_kbd_get_col(int col)
+{ // provide key status of given column
+	if(col < 0 || col >= KB_COLS)
+		return 0;
+	return s0[col];
+}
+
+EXPORT_SYMBOL(jz_kbd_get_col);
+
 static inline void jz_scan_kbd(unsigned short *s)
 {
 	int i;

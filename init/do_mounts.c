@@ -438,6 +438,13 @@ void __init prepare_namespace(void)
 
 	md_run_setup();
 
+#if CONFIG_JZ4730_MINIPC
+	{
+		extern void overwrite_root_name(char *root_name);
+		overwrite_root_name(saved_root_name);
+	}
+#endif
+
 	if (saved_root_name[0]) {
 		root_device_name = saved_root_name;
 		if (!strncmp(root_device_name, "mtd", 3) ||

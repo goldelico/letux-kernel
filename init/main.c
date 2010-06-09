@@ -416,11 +416,14 @@ static void __init setup_command_line(char *command_line)
 {
 	saved_command_line = alloc_bootmem(strlen (boot_command_line)+1);
 	static_command_line = alloc_bootmem(strlen (command_line)+1);
-//	strcpy (saved_command_line, boot_command_line);
-//	strcpy (static_command_line, command_line);
+#if CONFIG_JZ4730_MINIPC
 	// make this kernel independent from u-boot parameters
 	strcpy (saved_command_line, "mem=128M console=tty1 root=/dev/mmcblk0p2 rw noatime");
 	strcpy (static_command_line, saved_command_line);
+#else
+	strcpy (saved_command_line, boot_command_line);
+	strcpy (static_command_line, command_line);
+#endif
 }
 
 /*
