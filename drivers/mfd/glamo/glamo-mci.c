@@ -54,7 +54,6 @@ struct glamo_mci_host {
 
 	struct timer_list disable_timer;
 
-	struct work_struct irq_work;
 	struct work_struct read_work;
 
 	unsigned clk_enabled:1;
@@ -256,17 +255,15 @@ mmc_request *mrq)
 	mmc_request_done(host->mmc, mrq);
 }
 
-
-static void glamo_mci_irq_worker(struct work_struct *work)
+static irqreturn_t glamo_mci_irq(int irq, void *data)
 {
-	struct glamo_mci_host *host = container_of(work, struct glamo_mci_host,
-						    irq_work);
+	struct glamo_mci_host *host = data;
 	struct mmc_request *mrq;
 	struct mmc_command *cmd;
 	uint16_t status;
 
 	if (!host->mrq || !host->mrq->cmd)
-		return;
+		return IRQ_HANDLED;
 
 	mrq = host->mrq;
 	cmd = mrq->cmd;
@@ -306,6 +303,8 @@ static void glamo_mci_irq_worker(struct work_struct *work)
 done:
 	host->mrq = NULL;
 	glamo_mci_request_done(host, cmd->mrq);
+
+	return IRQ_HANDLED;
 }
 
 static void glamo_mci_read_worker(struct work_struct *work)
@@ -368,14 +367,6 @@ static void glamo_mci_read_worker(struct work_struct *work)
 done:
 	host->mrq = NULL;
 	glamo_mci_request_done(host, cmd->mrq);
-}
-
-static irqreturn_t glamo_mci_irq(int irq, void *devid)
-{
-	struct glamo_mci_host *host = (struct glamo_mci_host *)devid;
-	schedule_work(&host->irq_work);
-
-	return IRQ_HANDLED;
 }
 
 static void glamo_mci_send_command(struct glamo_mci_host *host,
@@ -792,7 +783,6 @@ static int glamo_mci_probe(struct platform_device *pdev)
 	host->core = core;
 	host->irq = platform_get_irq(pdev, 0);
 
-	INIT_WORK(&host->irq_work, glamo_mci_irq_worker);
 	INIT_WORK(&host->read_work, glamo_mci_read_worker);
 
 	host->regulator = regulator_get(pdev->dev.parent, "SD_3V3");
@@ -856,7 +846,7 @@ static int glamo_mci_probe(struct platform_device *pdev)
 		goto probe_free_mem_region_data;
 	}
 
-	ret = request_irq(host->irq, glamo_mci_irq, IRQF_SHARED,
+	ret = request_threaded_irq(host->irq, NULL, glamo_mci_irq, IRQF_SHARED,
 			   pdev->name, host);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to register irq.\n");
@@ -959,7 +949,7 @@ static int glamo_mci_suspend(struct device *dev)
 	struct glamo_mci_host *host = mmc_priv(mmc);
 	int ret;
 
-	cancel_work_sync(&host->irq_work);
+	disable_irq(host->irq);
 
 	ret = mmc_suspend_host(mmc, PMSG_SUSPEND);
 
@@ -978,6 +968,8 @@ static int glamo_mci_resume(struct device *dev)
     mdelay(10);
 
 	ret = mmc_resume_host(host->mmc);
+
+	enable_irq(host->irq);
 
 	return 0;
 }
