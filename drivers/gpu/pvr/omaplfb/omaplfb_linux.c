@@ -69,12 +69,14 @@
 
 MODULE_SUPPORTED_DEVICE(DEVNAME);
 
+#if defined(CONFIG_OUTER_CACHE)  /* Kernel config option */
 #if defined(__arm__)
 static void per_cpu_cache_flush_arm(void *arg)
 {
     PVR_UNREFERENCED_PARAMETER(arg);
     flush_cache_all();
 }
+#endif
 #endif
 
 /*
