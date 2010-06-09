@@ -84,12 +84,12 @@ DSP_STATUS handle_constraints_set(struct WMD_DEV_CONTEXT *pDevContext,
 		 */
 		if (pConstraintVal < min_dsp_freq) {
 			pr_debug("dspbridge req freq %u set min freq to %lu\n",
-					pConstraintVal, min_dsp_freq);
+					pConstraintVal * 1000, min_dsp_freq);
 			(*pdata->dsp_set_min_opp)(&omap_dspbridge_dev->dev,
 							 min_dsp_freq);
 		} else
 			(*pdata->dsp_set_min_opp)(&omap_dspbridge_dev->dev,
-							 pConstraintVal);
+							 pConstraintVal * 1000);
 	}
 #endif /* #ifdef CONFIG_BRIDGE_DVFS */
 	return DSP_SOK;
