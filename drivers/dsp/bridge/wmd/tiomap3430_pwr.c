@@ -283,7 +283,7 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 		spin_lock_bh(&lock);
 		HW_PWR_IVA2StateGet(pDevContext->prmbase, HW_PWR_DOMAIN_DSP,
 				&pwrState);
-		if (pwrState != HW_PWR_STATE_OFF) {
+		if (pwrState != targetPwrState) {
 			pr_err("%s: message received while DSP trying to"
 				" sleep\n", __func__);
 			status = DSP_EFAIL;
