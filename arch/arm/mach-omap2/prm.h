@@ -125,6 +125,7 @@
 #define PM_EVGENOFFTIM					0x00dc
 #define PM_PWSTCTRL					0x00e0
 #define PM_PWSTST					0x00e4
+#define PM_PREPWSTST					0x00e8
 
 /* Omap2 specific registers */
 #define OMAP24XX_PM_WKEN2				0x00a4

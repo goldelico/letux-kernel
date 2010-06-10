@@ -55,6 +55,10 @@ static struct pwrdm_dep per_usbhost_wkdeps[] = {
 		.pwrdm_name = "wkup_pwrdm",
 		.omap_chip = OMAP_CHIP_INIT(CHIP_IS_OMAP3430)
 	},
+	{
+		.pwrdm_name = "core_pwrdm",
+		.omap_chip = OMAP_CHIP_INIT(CHIP_IS_OMAP3430)
+	},
 	{ NULL },
 };
 

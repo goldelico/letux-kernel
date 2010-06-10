@@ -96,6 +96,10 @@ static struct powerdomain *mpu_pwrdm, *neon_pwrdm;
 static struct powerdomain *core_pwrdm, *per_pwrdm;
 static struct powerdomain *wkup_pwrdm;
 
+#define PER_WAKEUP_ERRATA_i582 (1 << 0)
+static u16 pm34xx_errata;
+#define IS_PM34XX_ERRATA(id) (pm34xx_errata & (id))
+
 static struct prm_setup_times_vc prm_setup_times_default = {
 	.clksetup = 0xff,
 	.voltsetup_time1 = 0xfff,
@@ -413,6 +417,7 @@ void omap_sram_idle(void)
 	int mpu_prev_state, core_prev_state, per_prev_state;
 	int mpu_logic_state, mpu_mem_state, core_logic_state, core_mem_state;
 	u32 sdrc_pwr = 0;
+	int per_state_modified = 0;
 
 	if (!_omap_sram_idle)
 		return;
@@ -468,13 +473,38 @@ void omap_sram_idle(void)
 	core_mem_state = pwrdm_read_next_mem_pwrst(core_pwrdm, 0) |
 				pwrdm_read_next_mem_pwrst(core_pwrdm, 1);
 
-	if (per_next_state < PWRDM_POWER_ON) {
-		omap_uart_prepare_idle(2, per_next_state);
-		omap2_gpio_prepare_for_idle(per_next_state);
+	if (IS_PM34XX_ERRATA(PER_WAKEUP_ERRATA_i582)) {
+
 		if (per_next_state == PWRDM_POWER_OFF)
-			omap3_per_save_context();
-	} else
-		omap_uart_prepare_idle(2, per_next_state);
+			if (core_next_state != PWRDM_POWER_OFF)
+				per_next_state = PWRDM_POWER_RET;
+
+		if (per_next_state < PWRDM_POWER_ON) {
+			omap_uart_prepare_idle(2, per_next_state);
+			omap2_gpio_prepare_for_idle(per_next_state);
+
+			pwrdm_set_next_pwrst(per_pwrdm, per_next_state);
+			if (per_next_state == PWRDM_POWER_OFF) {
+				pwrdm_add_sleepdep(mpu_pwrdm, per_pwrdm);
+				omap3_per_save_context();
+			}
+		}
+
+	} else {
+		if (per_next_state < PWRDM_POWER_ON) {
+			omap_uart_prepare_idle(2, per_next_state);
+			omap2_gpio_prepare_for_idle(per_next_state);
+			if (per_next_state == PWRDM_POWER_OFF) {
+				if (core_next_state == PWRDM_POWER_ON) {
+					per_next_state = PWRDM_POWER_RET;
+					pwrdm_set_next_pwrst(per_pwrdm,
+								per_next_state);
+					per_state_modified = 1;
+				} else
+					omap3_per_save_context();
+			}
+		}
+	}
 
 #ifndef CONFIG_OMAP_SMARTREFLEX_CLASS1P5
 	/* Disable smartreflex before entering WFI */
@@ -550,6 +580,22 @@ void omap_sram_idle(void)
 	 * transitions
 	 */
 	omap3_intc_autoidle(0);
+
+	if (IS_PM34XX_ERRATA(PER_WAKEUP_ERRATA_i582)) {
+		u32 coreprev_state = prm_read_mod_reg(CORE_MOD, PM_PREPWSTST);
+		u32 perprev_state =  prm_read_mod_reg(OMAP3430_PER_MOD,
+				PM_PREPWSTST);
+		if ((coreprev_state == PWRDM_POWER_ON) && \
+		    (perprev_state == PWRDM_POWER_OFF)) {
+				pr_err("Entering the corner case...WA2\n");
+				/*
+				 * We dont seem to have a real recovery
+				 * other than reset
+				 */
+				BUG();
+				/* let wdt Reset the device???????? - eoww */
+		}
+	}
 
 	/*
 	* On EMU/HS devices ROM code restores a SRDC value
@@ -667,6 +713,16 @@ void omap_sram_idle(void)
 		}
 		omap2_gpio_resume_after_idle();
 		omap_uart_resume_idle(2);
+
+		if (IS_PM34XX_ERRATA(PER_WAKEUP_ERRATA_i582)) {
+			if (per_next_state == PWRDM_POWER_OFF) {
+				pwrdm_set_next_pwrst(per_pwrdm,
+							PWRDM_POWER_RET);
+				pwrdm_del_sleepdep(mpu_pwrdm, per_pwrdm);
+			}
+		} else if (per_state_modified)
+				pwrdm_set_next_pwrst(per_pwrdm,
+							PWRDM_POWER_OFF);
 	} else
 		omap_uart_resume_idle(2);
 
@@ -1185,6 +1241,10 @@ void omap3_pm_off_mode_enable(int enable)
 		/* Do not change mpu power state */
 		if (!strcmp(pwrst->pwrdm->name, "mpu_pwrdm"))
 			continue;
+		if (IS_PM34XX_ERRATA(PER_WAKEUP_ERRATA_i582))
+			if ((state == PWRDM_POWER_OFF) &&
+			    (!strcmp("per_pwrdm", pwrst->pwrdm->name)))
+				continue;
 
 		set_pwrdm_state(pwrst->pwrdm, state);
 	}
@@ -1578,12 +1638,22 @@ static struct notifier_block prcm_panic_notifier = {
 	.priority	= INT_MAX,
 };
 
+static void pm_errata_configure(void)
+{
+	if (cpu_is_omap343x() || (cpu_is_omap3630() &&
+			(omap_rev() <= OMAP3630_REV_ES1_1))) {
+		pm34xx_errata |= PER_WAKEUP_ERRATA_i582;
+	}
+}
+
 int __init omap3_pm_init(void)
 {
 	struct power_state *pwrst, *tmp;
 	int ret;
 
 	printk(KERN_ERR "Power Management for TI OMAP3.\n");
+
+	pm_errata_configure();
 
 	/* XXX prcm_setup_regs needs to be before enabling hw
 	 * supervised mode for powerdomains */
@@ -1635,6 +1705,12 @@ int __init omap3_pm_init(void)
 	 * http://marc.info/?l=linux-omap&m=121852150710062&w=2
 	*/
 	pwrdm_add_wkdep(per_pwrdm, core_pwrdm);
+
+	if (IS_PM34XX_ERRATA(PER_WAKEUP_ERRATA_i582)) {
+		/* Allow per to wakeup the system */
+		if (cpu_is_omap34xx())
+			pwrdm_add_wkdep(per_pwrdm, wkup_pwrdm);
+	}
 	/*
 	 * A part of the fix for errata 1.158.
 	 * GPIO pad spurious transition (glitch/spike) upon wakeup
@@ -1660,6 +1736,7 @@ int __init omap3_pm_init(void)
 		local_irq_enable();
 		local_fiq_enable();
 	}
+
 
 	omap3_save_scratchpad_contents();
 	register_reboot_notifier(&prcm_notifier);
