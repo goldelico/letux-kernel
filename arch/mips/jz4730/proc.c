@@ -22,6 +22,16 @@
 #include <asm/uaccess.h>
 #include <asm/jzsoc.h>
 
+#if CONFIG_JZ4730_MINIPC
+
+#define NETWORKLED_IO 9  //wjx network eth0 led 2008.1.29
+#define BATTERY_IO 17  //wjx check the battery capacity 2007.12.10
+#define CAPSLOCKLED_IO 27   //wjx 2008.3.31
+#define NUMLOCKLED_IO  86
+#define INTERNAL_WIFI_IO 95 //wey 2008.5.28
+
+#endif
+
 struct proc_dir_entry *proc_jz_root;
 
 /*
@@ -240,6 +250,129 @@ static int jz_pwm_proc_init(void)
 	return 0;
 }
 
+#if CONFIG_JZ4730_MINIPC
+
+/* wjx 2007.12.10 battery status */
+static int battery_read_proc (char *page, char **start, off_t off,
+							  int count, int *eof, void *data)
+{
+	int len = 0;
+	
+	__gpio_as_input(BATTERY_IO);
+	
+	if (__gpio_get_pin(BATTERY_IO) == 1)
+		{
+			len += sprintf (page+len, "1\n");		
+		}
+	else
+		{
+			len += sprintf (page+len, "0\n");						
+		}
+	return len;
+}
+
+static int eth0_write_proc(struct file *file, const char *buffer, unsigned long count, void *data)
+{
+	printk("eth0_write_proc\n");
+	unsigned long val = simple_strtoul(buffer, 0, 10);
+	
+	if (val)
+		{
+			__gpio_as_output(NETWORKLED_IO);
+			__gpio_clear_pin(NETWORKLED_IO);  //wjx 2007.12.13 up eth0 led
+		}
+	else
+		{
+			__gpio_as_output(NETWORKLED_IO);
+			__gpio_set_pin(NETWORKLED_IO);		//wjx 2007.12.13 down eth0 led
+		}
+	return count;
+}
+
+//wjx 2008.3.31
+static int capslock_write_proc(struct file *file, const char *buffer, unsigned long count, void *data)
+{
+	unsigned long val = simple_strtoul(buffer, 0, 10);
+	
+	if (val)
+		{
+			__gpio_as_output(CAPSLOCKLED_IO);
+			__gpio_clear_pin(CAPSLOCKLED_IO);  //wjx 2007.12.13 up eth0 led
+		}
+	else
+		{
+			__gpio_as_output(CAPSLOCKLED_IO);
+			__gpio_set_pin(CAPSLOCKLED_IO);		//wjx 2007.12.13 down eth0 led
+		}
+	return count;
+}
+
+static int numlock_write_proc(struct file *file, const char *buffer, unsigned long count, void *data)
+{
+	unsigned long val = simple_strtoul(buffer, 0, 10);
+	
+	if (val)
+		{
+			__gpio_as_output(NUMLOCKLED_IO);
+			__gpio_clear_pin(NUMLOCKLED_IO);  //wjx 2007.12.13 up eth0 led
+		}
+	else
+		{
+			__gpio_as_output(NUMLOCKLED_IO);
+			__gpio_set_pin(NUMLOCKLED_IO);		//wjx 2007.12.13 down eth0 led
+		}
+	return count;
+}
+
+static int lcd_write_proc(struct file *file, const char *buffer, unsigned long count, void *data)
+{
+	extern  void minipc_bl_set_intensity(int n);
+	unsigned long val = simple_strtoul(buffer, 0, 10);
+	if (val <= 300)
+		{
+			minipc_bl_set_intensity(val);  //set the lcd backlight		
+		}
+	return count;
+}
+
+/* wjx test read mcu i2c */
+static int mcu_read_proc (char *page, char **start, off_t off,
+						  int count, int *eof, void *data)
+{
+	int len = 0;
+	int nr;
+	unsigned char battery_status = 0;
+	
+	i2c_open();
+	nr = i2c_read(0x50>>1, &battery_status, 0xdb, 1);	   // battery adc
+	i2c_close();
+	
+	len += sprintf (page+len, "nr: %d\n", nr);
+	len += sprintf(page+len, "status: %u\n", battery_status);  
+	
+	return len;
+}
+
+/*control the internal wifi's power. wey 2008.5.28*/
+static int iwifi_write_proc (struct file *file, const char *buffer, unsigned long count, void *data)
+{
+	unsigned long val = simple_strtoul(buffer, 0, 10);
+	
+	if (val)
+		{
+			__gpio_as_output(INTERNAL_WIFI_IO);
+			__gpio_set_pin(INTERNAL_WIFI_IO);  
+		}
+	else
+		{
+			__gpio_as_output(INTERNAL_WIFI_IO);
+			__gpio_clear_pin(INTERNAL_WIFI_IO);		
+		}
+	return count; 
+}
+
+#endif
+
 /*
  * /proc/jz/xxx entry
  *
@@ -283,6 +416,78 @@ static int __init jz_proc_init(void)
 		entry->data = NULL;
 	}
 
+#if CONFIG_JZ4730_MINIPC
+	/* wjx 2007.12.10 battery   */	
+	entry = create_proc_entry("battery", 0644, proc_jz_root);
+	if (entry) {
+		__gpio_as_input(BATTERY_IO);
+		entry->read_proc = battery_read_proc;
+		entry->write_proc = NULL;		
+		entry->data = NULL;
+	}	
+	
+	/* wjx 2007.12.10 eth0 network led   */
+	entry = create_proc_entry("eth0_led", 0644, proc_jz_root);
+	if (entry) {
+		__gpio_as_output(NETWORKLED_IO);
+		__gpio_set_pin(NETWORKLED_IO);	
+		entry->read_proc = NULL;		
+		entry->write_proc = eth0_write_proc;
+		entry->data = NULL;
+	}		
+
+	/* wjx 2008.3.31 capslock led   */
+	entry = create_proc_entry("capslock_led", 0644, proc_jz_root);
+	if (entry) {
+		__gpio_as_output(CAPSLOCKLED_IO);
+		__gpio_set_pin(CAPSLOCKLED_IO);	
+		/*edwin for test*/
+		__gpio_as_output(95);
+		__gpio_set_pin(95);
+		/**/
+		entry->read_proc = NULL;		
+		entry->write_proc = capslock_write_proc;
+		entry->data = NULL;
+	}		
+
+	/* wjx 2008.3.31 numlock led   */
+	entry = create_proc_entry("numlock_led", 0644, proc_jz_root);
+	if (entry) {
+		__gpio_as_output(NUMLOCKLED_IO);
+		__gpio_set_pin(NUMLOCKLED_IO);		
+		entry->read_proc = NULL;		
+		entry->write_proc = numlock_write_proc;
+		entry->data = NULL;
+	}		
+
+	/* wjx 2007.12.14 lcd backlight   */
+	
+	entry = create_proc_entry("backlight", 0644, proc_jz_root);
+	if (entry) {	
+		entry->write_proc = lcd_write_proc;
+		entry->read_proc = NULL;		
+		entry->data = NULL;
+	}			
+	/* wjx 2008.1.29 mcu read battery status   */
+	
+	entry = create_proc_entry("battery-level", 0644, proc_jz_root);
+	if (entry) {	
+		entry->write_proc = NULL;
+		entry->read_proc = mcu_read_proc;		
+		entry->data = NULL;
+	}			
+		
+	/*wey 2008.5.28 control the internal wifi*/
+	entry = create_proc_entry("wifi-power", 0644, proc_jz_root);
+	if (entry) {
+		__gpio_as_output(INTERNAL_WIFI_IO);
+		__gpio_clear_pin(INTERNAL_WIFI_IO);//by default turn off its power.wey 2008.5.28
+		entry->read_proc =  NULL;
+		entry->write_proc = iwifi_write_proc;		
+		entry->data = NULL;
+	}
+#endif
+	
 	/* PWM */
 	jz_pwm_proc_init();
 
