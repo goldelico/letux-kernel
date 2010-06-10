@@ -13,12 +13,27 @@
 #include <asm/io.h>
 #include <linux/wifi_tiwlan.h>
 
-#define ZOOM2_WIFI_PMENA_GPIO	101
-#define ZOOM2_WIFI_IRQ_GPIO	162
+#include "board-zoom2-wifi.h"
+#include "mux.h"
 
 static int zoom2_wifi_cd;		/* WIFI virtual 'card detect' status */
 static void (*wifi_status_cb)(int card_present, void *dev_id);
 static void *wifi_status_cb_devid;
+
+void config_wlan_mux(void)
+{
+	/* WLAN PW_EN and IRQ */
+	omap_mux_init_gpio(ZOOM2_WIFI_PMENA_GPIO, OMAP_PIN_OUTPUT);
+	omap_mux_init_gpio(ZOOM2_WIFI_IRQ_GPIO, OMAP_PIN_INPUT);
+
+	/* MMC3 */
+	omap_mux_init_signal("etk_clk.sdmmc3_clk", OMAP_PIN_INPUT_PULLUP);
+	omap_mux_init_signal("mcspi1_cs1.sdmmc3_cmd", OMAP_PIN_INPUT_PULLUP);
+	omap_mux_init_signal("etk_d4.sdmmc3_dat0", OMAP_PIN_INPUT_PULLUP);
+	omap_mux_init_signal("etk_d5.sdmmc3_dat1", OMAP_PIN_INPUT_PULLUP);
+	omap_mux_init_signal("etk_d6.sdmmc3_dat2", OMAP_PIN_INPUT_PULLUP);
+	omap_mux_init_signal("etk_d3.sdmmc3_dat3", OMAP_PIN_INPUT_PULLUP);
+}
 
 int omap_wifi_status_register(void (*callback)(int card_present,
 						void *dev_id), void *dev_id)

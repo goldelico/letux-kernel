@@ -28,6 +28,8 @@
 /* Added for FlexST */
 #include "board-connectivity.h"
 
+#include "board-zoom2-wifi.h"
+
 static void __init omap_zoom_map_io(void)
 {
 	omap2_set_globals_343x();
@@ -112,6 +114,9 @@ static void __init omap_zoom_init(void)
 	omap3_mux_init(board_mux, OMAP_PACKAGE_CBP);
 	zoom_peripherals_init();
 	zoom_flash_init(zoom_flash_partitions, ZOOM_NAND_CS);
+#ifdef CONFIG_TIWLAN_SDIO
+	config_wlan_mux();
+#endif
 	zoom_debugboard_init();
 	conn_add_plat_device(); /* Added for FlexST */
 }
