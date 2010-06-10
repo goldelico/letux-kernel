@@ -578,43 +578,6 @@ static int glamo_mci_prepare_pio(struct glamo_mci_host *host,
 	return 0;
 }
 
-static int glamo_mci_irq_poll(struct glamo_mci_host *host,
-				struct mmc_command *cmd)
-{
-	int timeout = 1000000;
-	uint16_t status;
-	/*
-	 * if the glamo INT# line isn't wired (*cough* it can happen)
-	 * I'm afraid we have to spin on the IRQ status bit and "be
-	 * our own INT# line"
-	 */
-	/*
-	 * we have faith we will get an "interrupt"...
-	 * but something insane like suspend problems can mean
-	 * we spin here forever, so we timeout after a LONG time
-	 */
-	do {
-		status = glamo_reg_read(host, GLAMO_REG_IRQ_STATUS);
-	} while ((--timeout) && !(status & GLAMO_IRQ_MMC));
-
-	if (timeout <= 0) {
-		if (cmd->data->error)
-			cmd->data->error = -ETIMEDOUT;
-		dev_err(&host->pdev->dev, "Payload timeout\n");
-		return -ETIMEDOUT;
-	}
-	/* ack this interrupt source */
-	writew(GLAMO_IRQ_MMC, host->core->base +
-		   GLAMO_REG_IRQ_CLEAR);
-
-	/* yay we are an interrupt controller! -- call the ISR
-	 * it will stop clock to card
-	 */
-	glamo_mci_irq(host->irq, host);
-
-	return 0;
-}
-
 static void glamo_mci_send_request(struct mmc_host *mmc,
 					struct mmc_request *mrq)
 {
@@ -643,12 +606,6 @@ static void glamo_mci_send_request(struct mmc_host *mmc,
 	 */
 	if (!cmd->data || cmd->error)
 		goto done;
-
-
-	if (!host->core->irq_works) {
-		if (glamo_mci_irq_poll(host, mrq->cmd))
-			goto done;
-	}
 
 	/*
 	 * Otherwise can can use the interrupt as async completion --
