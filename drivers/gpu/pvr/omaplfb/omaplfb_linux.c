@@ -234,9 +234,13 @@ void OMAPLFBWaitForSync(OMAPLFB_DEVINFO *psDevInfo)
 	struct omap_dss_device *display = fb2display(framebuffer);
 	if (display)
 	{
-		if(display->sync)
+#ifndef CONFIG_FB_OMAP2_FORCE_AUTO_UPDATE
+		if (display->sync) {
 			display->sync(display);
-		else if (display->wait_vsync)
+			return;
+		}
+#endif
+		if (display->wait_vsync)
 			display->wait_vsync(display);
 	}
 }
