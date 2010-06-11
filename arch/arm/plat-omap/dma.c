@@ -267,6 +267,12 @@ void omap_set_dma_transfer_params(int lch, int data_type, int elem_count,
 	l |= data_type;
 	dma_write(l, CSDP(lch));
 
+	/* Enable SRC and DEST pack and burst by default */
+	omap_set_dma_src_data_pack(lch, 1);
+	omap_set_dma_src_burst_mode(lch, OMAP_DMA_DATA_BURST_16);
+	omap_set_dma_dest_data_pack(lch, 1);
+	omap_set_dma_dest_burst_mode(lch, OMAP_DMA_DATA_BURST_16);
+
 	if (cpu_class_is_omap1()) {
 		u16 ccr;
 
