@@ -1685,9 +1685,19 @@ static int abe_voice_hw_params(struct snd_pcm_substream *substream,
 	format.f = 8000;
 	format.samp_format = MONO_MSB;
 	abe_connect_serial_port(VX_DL_PORT, &format, MCBSP2_RX);
+	/* Enable downlink port */
+	abe_enable_data_transfer(VX_DL_PORT);
+	if (!priv->mcpdm_dl_enable++)
+		abe_enable_data_transfer(PDM_DL_PORT);
+
 	format.f = 8000;
 	format.samp_format = MONO_RSHIFTED_16;
 	abe_connect_serial_port(VX_UL_PORT, &format, MCBSP2_TX);
+	/* Enable uplink port */
+	abe_enable_data_transfer(VX_UL_PORT);
+	if (!priv->mcpdm_ul_enable++)
+		abe_enable_data_transfer(PDM_UL_PORT);
+
 #else
 	if (!substream->stream) {
 		abe_connect_cbpr_dmareq_port(VX_DL_PORT, &format, ABE_CBPR1_IDX, &dma_sink);
