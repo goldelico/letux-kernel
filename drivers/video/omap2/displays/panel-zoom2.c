@@ -63,7 +63,7 @@ static struct omap_video_timings zoom2_panel_timings = {
 	.hbp            = 4,
 	.vfp            = 3,
 	.vsw            = 1,
-	.vbp            = 4,
+	.vbp            = 7,
 };
 
 static int zoom2_panel_probe(struct omap_dss_device *dssdev)
