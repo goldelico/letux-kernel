@@ -37,6 +37,12 @@
 
 #ifdef CONFIG_JZ4730_MINIPC
 
+#define CAPSLOCKLED 27		//wjx 2007.12.10
+#define NUMLOCKLED  86
+
+static int capslock_flag = 0;	// wjx
+static int numlock_flag = 0;
+
 #define KB_ROWS         8
 #define KB_COLS         17
 
@@ -46,7 +52,6 @@ static unsigned short col[KB_COLS] = {96, 97, 98, 99, 100, 101, 102, 103, 104, 1
 static unsigned short row[KB_ROWS] = {0, 1, 2, 3, 4, 5, 6, 7};
 static unsigned short s0[KB_COLS];
 static unsigned short s1[KB_COLS] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-// static unsigned short precol, prerow;
 
 static unsigned int jz_kbd_keycode[KB_COLS][KB_ROWS] = {
 /* 0*/ {KEY_PAUSE, 0, 0, 0, 0, 0, KEY_LEFTCTRL, KEY_F5,},
@@ -104,6 +109,10 @@ struct jz_kbd {
 
 static struct jz_kbd g_jz_kbd;
 
+// NOTE: a better (but slower) interface would be to pass in a keycode and search the keycode table for the col/row to check
+// i.e. jz_kbd_get_key_status(KEY_FN)
+// we could speed up by building a reverse mapping table on the first call
+
 int jz_kbd_get_col(int col)
 { // provide key status of given column
 	if(col < 0 || col >= KB_COLS)
@@ -116,7 +125,7 @@ EXPORT_SYMBOL(jz_kbd_get_col);
 static inline void jz_scan_kbd(unsigned short *s)
 {
 	int i;
-	int row_cnt, col_cnt;
+	int row_cnt;
 
 	if (!s)
 		return;
@@ -125,8 +134,8 @@ static inline void jz_scan_kbd(unsigned short *s)
 #if 0
 		for (row_cnt=0; row_cnt<KB_ROWS; row_cnt++)
 			__gpio_as_input(row[row_cnt]);
-		for (col_cnt=0; col_cnt<KB_COLS; col_cnt++) {
-			__gpio_as_input(col[col_cnt]);
+		for (row_cnt=0; row_cnt<KB_COLS; row_cnt++) {	// uses row_cnt variable for columns
+			__gpio_as_input(col[row_cnt]);
 		}
 #endif
 //		udelay(1000);
@@ -142,10 +151,117 @@ static inline void jz_scan_kbd(unsigned short *s)
 	}
 }
 
+static void jz_kbd_send_key(int scancode, int key_down_flag)
+{
+	if((jz_kbd_get_col(16) & (1<<7)) == 0) { // Fn Key is simultaneously pressed
+		switch (scancode)
+		{ // translate
+			case KEY_F1:
+				scancode = KEY_F11;
+				break;
+			case KEY_F2:
+				scancode = KEY_F12;
+				break;
+			case KEY_F10:
+				scancode = KEY_SCROLLLOCK;
+				break;
+			case KEY_UP:
+				scancode = KEY_PAGEUP;
+				break;
+			case KEY_DOWN:
+				scancode = KEY_PAGEDOWN;
+				break;
+			case KEY_LEFT:
+				scancode = KEY_HOME;
+				break;
+			case KEY_RIGHT:
+				scancode = KEY_END;
+				break;
+		}
+	}
+	if(numlock_flag) { // numlock active
+		switch (scancode)
+		{ // translate
+			case KEY_7:                     
+			  	scancode = KEY_KP7;        
+				break;
+			case KEY_8:                     
+			  	scancode = KEY_KP8;        
+				break;
+			case KEY_9:                     
+			  	scancode = KEY_KP9;                               
+				break;
+			case KEY_0:
+				scancode = KEY_KPASTERISK;
+				break;
+			case KEY_U:
+				scancode = KEY_KP4; 
+				break;
+			case KEY_I:
+				scancode = KEY_KP5;
+				break;
+			case KEY_O:
+				scancode = KEY_KP6;
+				break;
+			case KEY_P:
+				scancode = KEY_KPMINUS;
+				break;				
+			case KEY_J:
+				scancode = KEY_KP1;
+				break;
+			case KEY_K:
+				scancode = KEY_KP2;
+				break;
+			case KEY_L:
+				scancode = KEY_KP3;
+				break;
+			case KEY_SEMICOLON:
+				scancode = KEY_KPPLUS;
+				break;
+			case KEY_M:
+				scancode = KEY_KP0;
+				break;
+			case KEY_DOT:
+				scancode = KEY_KPDOT;
+				break;
+			case KEY_SLASH:
+				scancode = KEY_KPSLASH;
+				break;
+		}
+	}
+	if(key_down_flag)
+		{ // decode special key press
+			switch(scancode) {
+				case KEY_F20:	// zzz key - should change backlight
+					return;
+				// add more keys, e.g. volume control here
+				case KEY_CAPSLOCK:
+					capslock_flag = !capslock_flag;	// toggle flag
+#ifdef CONFIG_JZ4730_MINIPC
+					if (capslock_flag)
+						__gpio_clear_pin (CAPSLOCKLED);
+					else
+						__gpio_set_pin (CAPSLOCKLED);
+#endif
+					break;
+				case KEY_NUMLOCK:
+					numlock_flag = !numlock_flag;	// toggle flag
+#ifdef CONFIG_JZ4730_MINIPC
+					if (numlock_flag)
+						__gpio_clear_pin (NUMLOCKLED);
+					else
+						__gpio_set_pin (NUMLOCKLED);
+#endif
+					break;
+			}
+	}
+	input_report_key(g_jz_kbd.input, scancode, key_down_flag);
+	input_sync(g_jz_kbd.input);
+}
+
 static void jz_kbd_scankeyboard(struct jz_kbd *kbd_data)
 {
-	unsigned int row_cnt, col_cnt, i, r;
-	unsigned long flags;
+	unsigned int row_cnt, col_cnt, r;
 	unsigned int num_pressed;
 
 	if (kbd_data->suspended)
@@ -172,6 +288,8 @@ static void jz_kbd_scankeyboard(struct jz_kbd *kbd_data)
 	 		for (row_cnt=0; row_cnt<KB_ROWS; row_cnt++) {
 	 			r = 1 << row_cnt;
 	 			if ((s0[col_cnt]&r) != (s1[col_cnt]&r)) {
+					jz_kbd_send_key(jz_kbd_keycode[col_cnt][row_cnt], (s0[col_cnt]&r) == 0);
+#if 0
 	 				if (s0[col_cnt]&r) {
 	 					input_report_key(g_jz_kbd.input, jz_kbd_keycode[col_cnt][row_cnt], 0);
 	 					input_sync(g_jz_kbd.input);
@@ -184,8 +302,9 @@ static void jz_kbd_scankeyboard(struct jz_kbd *kbd_data)
 #ifdef DEBUG
 	 					printk(KERN_ERR "pressed col %d row %d = code %d\n", col_cnt, row_cnt, jz_kbd_keycode[col_cnt][row_cnt]);
 #endif
-	}
-	}
+					}
+#endif
+				}
 			}
 	 		s1[col_cnt] = s0[col_cnt];
 		}
@@ -202,6 +321,7 @@ static void jz_kbd_scankeyboard(struct jz_kbd *kbd_data)
 static void jz_kbd_timer_callback(unsigned long data)
 {
 	jz_kbd_scankeyboard(&g_jz_kbd);
+	// here we can make LEDs blink
 	mod_timer(&g_jz_kbd.timer, jiffies + SCAN_INTERVAL);
 }
 
@@ -231,7 +351,7 @@ static int jz_kbd_resume(struct platform_device *dev)
 static int __devinit jz_kbd_probe(struct platform_device *dev)
 {
 	struct input_dev *input_dev;
-	int i, error, col_cnt, row_cnt;
+	int error, col_cnt, row_cnt;
 
 #ifdef DEBUG
 	printk(KERN_ERR "jz_keypad: probe() called\n");
