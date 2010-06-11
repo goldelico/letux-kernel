@@ -1619,27 +1619,6 @@ static int abe_voice_startup(struct snd_pcm_substream *substream,
 
 		abe_set_router_configuration(UPROUTE, UPROUTE_CONFIG_AMIC,
 			(abe_router_t *)abe_router_ul_table_preset[UPROUTE_CONFIG_AMIC]);
-#ifdef CONFIG_SND_OMAP_VOICE_TEST
-		/* Sidetone disable */
-		abe_write_mixer(MIXSDT, MUTE_GAIN, RAMP_0MS, MIX_SDT_INPUT_UP_MIXER);
-		abe_write_mixer(MIXSDT, MUTE_GAIN, RAMP_0MS, MIX_SDT_INPUT_DL1_MIXER);
-
-		/* echo ref. disable */
-		abe_write_mixer(MIXECHO, MUTE_GAIN, RAMP_0MS, GAIN_LEFT_OFFSET);
-		abe_write_mixer(MIXECHO, MUTE_GAIN, RAMP_0MS, GAIN_RIGHT_OFFSET);
-
-		/* Vx_UL linked with AMIC */
-		abe_write_mixer(MIXAUDUL, MUTE_GAIN, RAMP_0MS, MIX_AUDUL_INPUT_MM_DL);
-		abe_write_mixer(MIXAUDUL, MUTE_GAIN, RAMP_0MS, MIX_AUDUL_INPUT_TONES);
-		abe_write_mixer(MIXAUDUL, GAIN_M6dB, RAMP_0MS, MIX_AUDUL_INPUT_UPLINK);
-		abe_write_mixer(MIXAUDUL, MUTE_GAIN, RAMP_0MS, MIX_AUDUL_INPUT_VX_DL);
-
-		/* Voice Record disable */
-		abe_write_mixer(MIXVXREC, MUTE_GAIN, RAMP_0MS, MIX_VXREC_INPUT_TONES);
-		abe_write_mixer(MIXVXREC, MUTE_GAIN, RAMP_0MS, MIX_VXREC_INPUT_VX_DL);
-		abe_write_mixer(MIXVXREC, MUTE_GAIN, RAMP_0MS, MIX_VXREC_INPUT_MM_DL);
-		abe_write_mixer(MIXVXREC, MUTE_GAIN, RAMP_0MS, MIX_VXREC_INPUT_VX_UL);
-#else
 		abe_write_gain(GAINS_DL1, GAIN_M6dB,  RAMP_0MS, GAIN_LEFT_OFFSET);
 		abe_write_gain(GAINS_DL1, GAIN_M6dB,  RAMP_0MS, GAIN_RIGHT_OFFSET);
 		abe_write_gain(GAINS_DL2, GAIN_M6dB,  RAMP_0MS, GAIN_LEFT_OFFSET);
@@ -1650,7 +1629,6 @@ static int abe_voice_startup(struct snd_pcm_substream *substream,
 
 		abe_write_gain(GAINS_SPLIT, GAIN_M6dB, RAMP_0MS, GAIN_LEFT_OFFSET);
 		abe_write_gain(GAINS_SPLIT, GAIN_M6dB, RAMP_0MS, GAIN_RIGHT_OFFSET);
-#endif
 	}
 	return 0;
 }
