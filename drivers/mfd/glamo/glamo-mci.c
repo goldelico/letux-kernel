@@ -52,8 +52,6 @@ struct glamo_mci_host {
 
 	unsigned char request_counter;
 
-	struct timer_list disable_timer;
-
 	struct work_struct read_work;
 
 	unsigned clk_enabled:1;
@@ -156,22 +154,18 @@ static void glamo_mci_reset(struct glamo_mci_host *host)
 
 }
 
-static void glamo_mci_clock_disable(struct glamo_mci_host *host)
+static int glamo_mci_clock_disable(struct mmc_host *mmc, int lazy)
 {
-    glamo_engine_suspend(host->core, GLAMO_ENGINE_MMC);
+	struct glamo_mci_host *host = mmc_priv(mmc);
+	glamo_engine_suspend(host->core, GLAMO_ENGINE_MMC);
+	return 0;
 }
 
-static void glamo_mci_clock_enable(struct glamo_mci_host *host)
+static int glamo_mci_clock_enable(struct mmc_host *mmc)
 {
-	del_timer_sync(&host->disable_timer);
-
-    glamo_engine_enable(host->core, GLAMO_ENGINE_MMC);
-}
-
-static void glamo_mci_disable_timer(unsigned long data)
-{
-	struct glamo_mci_host *host = (struct glamo_mci_host *)data;
-	glamo_mci_clock_disable(host);
+	struct glamo_mci_host *host = mmc_priv(mmc);
+	glamo_engine_enable(host->core, GLAMO_ENGINE_MMC);
+	return 0;
 }
 
 
@@ -220,13 +214,9 @@ static int glamo_mci_set_card_clock(struct glamo_mci_host *host, int freq)
 {
 	int real_rate = 0;
 
-	if (freq) {
-		glamo_mci_clock_enable(host);
+	if (freq)
 		real_rate = glamo_engine_reclock(host->core, GLAMO_ENGINE_MMC,
-						freq);
-	} else {
-		glamo_mci_clock_disable(host);
-	}
+						 freq);
 
 	return real_rate;
 }
@@ -251,7 +241,6 @@ static int glamo_mci_wait_idle(struct glamo_mci_host *host,
 static void glamo_mci_request_done(struct glamo_mci_host *host, struct
 mmc_request *mrq)
 {
-	mod_timer(&host->disable_timer, jiffies + HZ / 16);
 	mmc_request_done(host->mmc, mrq);
 }
 
@@ -584,7 +573,6 @@ static void glamo_mci_send_request(struct mmc_host *mmc,
 	struct glamo_mci_host *host = mmc_priv(mmc);
 	struct mmc_command *cmd = mrq->cmd;
 
-	glamo_mci_clock_enable(host);
 	host->request_counter++;
 	if (cmd->data) {
 		if (glamo_mci_prepare_pio(host, cmd->data)) {
@@ -643,8 +631,6 @@ static void glamo_mci_set_power_mode(struct glamo_mci_host *host,
 		break;
 	case MMC_POWER_OFF:
 	default:
-		glamo_engine_disable(host->core, GLAMO_ENGINE_MMC);
-
 		ret = regulator_disable(host->regulator);
 		if (ret)
 			dev_warn(&host->pdev->dev,
@@ -663,6 +649,8 @@ static void glamo_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	int sd_drive;
 	int ret;
 
+	mmc_host_enable(mmc);
+
 	/* Set power */
 	glamo_mci_set_power_mode(host, ios->power_mode);
 
@@ -674,6 +662,7 @@ static void glamo_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		else
 			host->vdd = ios->vdd;
 	}
+
 	rate = glamo_mci_set_card_clock(host, ios->clock);
 
 	if ((ios->power_mode == MMC_POWER_ON) ||
@@ -698,6 +687,11 @@ static void glamo_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	glamo_reg_set_bit_mask(host, GLAMO_REG_MMC_BASIC,
 				GLAMO_BASIC_MMC_EN_4BIT_DATA | 0xb0,
 						   bus_width | sd_drive << 6);
+
+	if (host->power_mode == MMC_POWER_OFF)
+		mmc_host_disable(host->mmc);
+	else
+		mmc_host_lazy_disable(host->mmc);
 }
 
 
@@ -710,6 +704,8 @@ static int glamo_mci_get_ro(struct mmc_host *mmc)
 }
 
 static struct mmc_host_ops glamo_mci_ops = {
+	.enable		= glamo_mci_clock_enable,
+	.disable	= glamo_mci_clock_disable,
 	.request	= glamo_mci_send_request,
 	.set_ios	= glamo_mci_set_ios,
 	.get_ro		= glamo_mci_get_ro,
@@ -839,12 +835,12 @@ static int glamo_mci_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, mmc);
 
-	glamo_engine_enable(host->core, GLAMO_ENGINE_MMC);
-	glamo_mci_reset(host);
-	glamo_engine_disable(host->core, GLAMO_ENGINE_MMC);
+	mmc->caps |= MMC_CAP_DISABLE;
+	mmc_set_disable_delay(mmc, 1000 / 16);
 
-	setup_timer(&host->disable_timer, glamo_mci_disable_timer,
-				(unsigned long)host);
+	mmc_host_enable(mmc);
+	glamo_mci_reset(host);
+	mmc_host_lazy_disable(mmc);
 
 	ret = mmc_add_host(mmc);
 	if (ret) {
@@ -881,7 +877,10 @@ static int glamo_mci_remove(struct platform_device *pdev)
 
 	free_irq(host->irq, host);
 
+	mmc_host_enable(mmc);
 	mmc_remove_host(mmc);
+	mmc_host_disable(mmc);
+
 	iounmap(host->mmio_base);
 	iounmap(host->data_base);
 	release_mem_region(host->mmio_mem->start,
@@ -892,8 +891,6 @@ static int glamo_mci_remove(struct platform_device *pdev)
 	regulator_put(host->regulator);
 
 	mmc_free_host(mmc);
-
-	glamo_engine_disable(host->core, GLAMO_ENGINE_MMC);
 	return 0;
 }
 
@@ -908,7 +905,9 @@ static int glamo_mci_suspend(struct device *dev)
 
 	disable_irq(host->irq);
 
+	mmc_host_enable(mmc);
 	ret = mmc_suspend_host(mmc, PMSG_SUSPEND);
+	mmc_host_disable(mmc);
 
 	return ret;
 }
@@ -919,16 +918,17 @@ static int glamo_mci_resume(struct device *dev)
 	struct glamo_mci_host *host = mmc_priv(mmc);
 	int ret;
 
-
+	mmc_host_enable(mmc);
 	glamo_mci_reset(host);
-	glamo_engine_enable(host->core, GLAMO_ENGINE_MMC);
-    mdelay(10);
+	mdelay(10);
 
 	ret = mmc_resume_host(host->mmc);
 
 	enable_irq(host->irq);
 
-	return 0;
+	mmc_host_lazy_disable(host->mmc);
+
+	return ret;
 }
 
 static struct dev_pm_ops glamo_mci_pm_ops = {
