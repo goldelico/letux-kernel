@@ -26,6 +26,7 @@ TAGS
 vmlinux*
 !vmlinux.lds.S
 !vmlinux.lds.h
+uImage
 System.map
 Module.symvers
 !.gitignore
