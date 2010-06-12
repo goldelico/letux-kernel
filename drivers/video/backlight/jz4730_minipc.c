@@ -36,12 +36,19 @@ static int minipc_bl_send_intensity(struct backlight_device *bd)
 	if (bd->props.power != FB_BLANK_UNBLANK)
 		intensity = 0;
 	if (bd->props.fb_blank != FB_BLANK_UNBLANK)
-		intensity = 0;
+		intensity = 7;	// dim down but keep visible to distinguish from machine shutdown
 	if (minipc_bl_flags & MINIPC_BL_SUSPENDED)
 		intensity = 0;
 	if (minipc_bl_flags & MINIPC_BL_BATTLOW)
 		intensity &= bl_machinfo->limit_mask;
-
+#if 0
+	printk("MiniPC Backlight Driver set intensity %d\n", intensity);
+	printk("  bright %d\n", bd->props.brightness);
+	printk("  power %x\n", bd->props.power);
+	printk("  blank %x\n", bd->props.fb_blank);
+	printk("  flags %x\n", minipc_bl_flags);
+#endif
+	
 	bl_machinfo->set_bl_intensity(intensity);
 
 	minipc_bl_intensity = intensity;
@@ -55,6 +62,7 @@ static int minipc_bl_suspend(struct platform_device *pdev, pm_message_t state)
 	struct backlight_device *bd = platform_get_drvdata(pdev);
 
 	minipc_bl_flags |= MINIPC_BL_SUSPENDED;
+//	printk("MiniPC Backlight Driver suspend\n");
 	backlight_update_status(bd);
 
 	return 0;
@@ -65,9 +73,10 @@ static int minipc_bl_resume(struct platform_device *pdev)
 	struct backlight_device *bd = platform_get_drvdata(pdev);
 
 	minipc_bl_flags &= ~MINIPC_BL_SUSPENDED;
+//	printk("MiniPC Backlight Driver resume\n");
 	backlight_update_status(bd);
 
-        return 0;
+	return 0;
 }
 #else
 
