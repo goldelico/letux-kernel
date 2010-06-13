@@ -29,7 +29,7 @@
  */
 
 const char *yaffs_ecc_c_version =
-    "$Id: yaffs_ecc.c,v 1.10 2007-12-13 15:35:17 wookey Exp $";
+    "$Id: yaffs_ecc.c,v 1.2 2008-07-17 23:07:00 lhhuang Exp $";
 
 #include "yportenv.h"
 
@@ -73,17 +73,6 @@ static const unsigned char column_parity_table[] = {
 /* Count the bits in an unsigned char or a U32 */
 
 static int yaffs_CountBits(unsigned char x)
-{
-	int r = 0;
-	while (x) {
-		if (x & 1)
-			r++;
-		x >>= 1;
-	}
-	return r;
-}
-
-static int yaffs_CountBits32(unsigned x)
 {
 	int r = 0;
 	while (x) {
@@ -246,6 +235,132 @@ int yaffs_ECCCorrect(unsigned char *data, unsigned char *read_ecc,
 
 }
 
+#if defined(CONFIG_YAFFS_ECC_RS)
+#ifdef __KERNEL__ 
+#include <linux/rslib.h>
+struct rs_control *rs_decoder;
+#else
+#include "ssfdc_rs_ecc.h"
+void *rs_init_user;
+#endif
+
+/* Transfer 16 bytes to 26 5-bit symbols */
+void Data2Sym(const unsigned char *in, unsigned char *out)
+{
+	int i, j, shift;
+
+        for (i = 0; i < 26; i++){
+		j = (5 * i) >> 3;
+		shift = (5 * i) & 0x7;
+		if (shift > 3)
+			out[i] = ((in[j] >> shift) | (in[j+1] << (8 - shift))) & 0x1f;
+		else
+			out[i] = (in[j] >> shift) & 0x1f;
+	}
+	out[25] &= 0x7; /* the last symbol has only 3 bits */ 
+}
+
+/* Transfer 26 5-bit symbols to 16 bytes*/
+void Sym2Data(unsigned char *in, unsigned char *out)
+{
+	int i, j,n;
+	unsigned long long ullin = 0,ullout = 0;
+	
+	n = 0;
+	for(j = 0;j < 26 / 8;j++)
+	{
+		ullin = *((unsigned long long *)in + j);
+	    ullout = 0;
+	    for (i = 0; i < 8; i++){
+			ullout |= (((ullin >> (i * 8)) & 0x1f) << (i * 5));
+		}
+		memcpy((out + n),(unsigned char *)&ullout,5);
+		n += 5;
+	}
+	out[15] = ((in[24] & 0x1f)| ((in[25] & 0x3) << 5));
+}
+
+
+/*
+ * It does reed solomon ECC calcs on 16 bytes of oob data
+ */
+void yaffs_ECCCalculateOther(const unsigned char *data, unsigned nBytes,
+			     yaffs_ECCOther * eccOther)
+{
+	unsigned short *par = (unsigned short *)&eccOther->lineParity;
+	unsigned char data5[26];
+
+
+	Data2Sym(data, data5);
+	memset(par, 0, 8);
+
+#ifdef __KERNEL__ 
+        /* Encode 26 symbols in data5. Store parities of 4 symbols in 
+         * buffer par whose size is 8 bytes(2 bytes per symbol) */
+	encode_rs8 (rs_decoder, data5, 26, par, 0);
+#else
+        /* init reed solomon ECC for nand oob area
+	 * Symbolsize is 5 (bits)
+	 * Primitive polynomial is x^5+x^2+1
+	 * first consecutive root is 0
+	 * primitive element to generate roots = 1
+	 * generator polynomial degree (number of roots) = 4
+         * pad = (1<<Symbolsize-1) - nroot - 26 = 1
+	 */
+	rs_init_user = (void *) init_rs_int (5, 0x25, 1, 1, 4, 1);
+	encode_rs(rs_init_user, data5, par);
+	free_rs_int(rs_init_user);
+#endif
+}
+
+#ifdef __KERNEL__ 
+/*
+ * It does reed solomon ECC correction on 16 bytes of oob data
+ */
+int yaffs_ECCCorrectOther(unsigned char *data, unsigned nBytes,
+			  yaffs_ECCOther * read_ecc,
+			  const yaffs_ECCOther * test_ecc)
+{
+	unsigned short *par = (unsigned short *)&read_ecc->lineParity;
+	unsigned char data5[26];
+	int numerr;
+
+	Data2Sym(data, data5);
+
+	/* Decode 26 symbols in data5. */
+	numerr = decode_rs8 (rs_decoder, data5, par, 26, NULL, 0, NULL, 0, NULL);
+
+	if (numerr == 0)
+		return 0;
+	else if (numerr > 0 && numerr < 3)
+	{
+		Sym2Data(data5,data); 
+		return 1;
+	}
+	else
+		return -1;
+}
+#else
+int yaffs_ECCCorrectOther(unsigned char *data, unsigned nBytes,
+			  yaffs_ECCOther * read_ecc,
+			  const yaffs_ECCOther * test_ecc)
+{
+	return 0;
+}
+#endif
+
+#else
+
+static int yaffs_CountBits32(unsigned x)
+{
+	int r = 0;
+	while (x) {
+		if (x & 1)
+			r++;
+		x >>= 1;
+	}
+	return r;
+}
 
 /*
  * ECCxxxOther does ECC calcs on arbitrary n bytes of data
@@ -328,4 +443,4 @@ int yaffs_ECCCorrectOther(unsigned char *data, unsigned nBytes,
 	return -1;
 
 }
-
+#endif /* YAFFS_ECC_RS */

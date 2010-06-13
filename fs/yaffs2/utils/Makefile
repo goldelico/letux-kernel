@@ -13,20 +13,39 @@
 # published by the Free Software Foundation.
 
 ## Change or override  KERNELDIR to your kernel
-
 #KERNELDIR = /usr/src/kernel-headers-2.4.18
+#CFLAGS =   -I$(KERNELDIR)/include -I.. -O2 -Wall -DCONFIG_YAFFS_UTIL
 
-CFLAGS =   -I/usr/include -I.. -O2 -Wall -DCONFIG_YAFFS_UTIL
+include ../../../.config
+
+CFLAGS =   -I../../../include -I.. -O2 -Wall -DCONFIG_YAFFS_UTIL
 CFLAGS+=   -Wshadow -Wpointer-arith -Wwrite-strings -Wstrict-prototypes -Wmissing-declarations
 CFLAGS+=   -Wmissing-prototypes -Wredundant-decls -Wnested-externs -Winline
 
+ifeq ($(CONFIG_YAFFS_ECC_RS), y)
+CFLAGS+= -DCONFIG_YAFFS_ECC_RS
+endif
+
+ifeq ($(CONFIG_YAFFS_ECC_HAMMING), y)
+CFLAGS+= -DCONFIG_YAFFS_ECC_HAMMING
+endif
+
+ifeq ($(CONFIG_MTD_HW_BCH_ECC), y)
+CFLAGS+= -DCONFIG_MTD_HW_BCH_ECC
+endif
+
+
 ## Change if you are using a cross-compiler
-MAKETOOLS = 
+MAKETOOLS = #mipsel-linux-
 
 CC=$(MAKETOOLS)gcc
 
 COMMONLINKS = yaffs_ecc.c
 COMMONOBJS = $(COMMONLINKS:.c=.o)
+
+ifeq ($(CONFIG_YAFFS_ECC_RS), y)
+COMMONOBJS += ssfdc_rs_ecc.o
+endif
 
 MKYAFFSSOURCES = mkyaffsimage.c
 MKYAFFSIMAGEOBJS = $(MKYAFFSSOURCES:.c=.o)

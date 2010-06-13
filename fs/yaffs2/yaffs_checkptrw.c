@@ -12,11 +12,11 @@
  */
 
 const char *yaffs_checkptrw_c_version =
-    "$Id: yaffs_checkptrw.c,v 1.17 2008-08-12 22:51:57 charles Exp $";
+    "$Id: yaffs_checkptrw.c,v 1.1.1.1 2008-03-28 04:29:21 jlwei Exp $";
 
 
 #include "yaffs_checkptrw.h"
-#include "yaffs_getblockinfo.h"
+
 
 static int yaffs_CheckpointSpaceOk(yaffs_Device *dev)
 {
@@ -30,6 +30,7 @@ static int yaffs_CheckpointSpaceOk(yaffs_Device *dev)
 	
 	return (blocksAvailable <= 0) ? 0 : 1;
 }
+
 
 
 static int yaffs_CheckpointErase(yaffs_Device *dev)
@@ -142,7 +143,7 @@ int yaffs_CheckpointOpen(yaffs_Device *dev, int forWriting)
 		return 0;
 			
 	if(!dev->checkpointBuffer)
-		dev->checkpointBuffer = YMALLOC_DMA(dev->totalBytesPerChunk);
+		dev->checkpointBuffer = YMALLOC_DMA(dev->nDataBytesPerChunk);
 	if(!dev->checkpointBuffer)
 		return 0;
 
@@ -152,8 +153,6 @@ int yaffs_CheckpointOpen(yaffs_Device *dev, int forWriting)
 	dev->checkpointOpenForWrite = forWriting;
 	
 	dev->checkpointByteCount = 0;
-	dev->checkpointSum = 0;
-	dev->checkpointXor = 0;
 	dev->checkpointCurrentBlock = -1;
 	dev->checkpointCurrentChunk = -1;
 	dev->checkpointNextBlock = dev->internalStartBlock;
@@ -178,14 +177,6 @@ int yaffs_CheckpointOpen(yaffs_Device *dev, int forWriting)
 			dev->checkpointBlockList[i] = -1;
 	}
 	
-	return 1;
-}
-
-int yaffs_GetCheckpointSum(yaffs_Device *dev, __u32 *sum)
-{
-	__u32 compositeSum;
-	compositeSum =  (dev->checkpointSum << 8) | (dev->checkpointXor & 0xFF);
-	*sum = compositeSum;
 	return 1;
 }
 
@@ -253,17 +244,11 @@ int yaffs_CheckpointWrite(yaffs_Device *dev,const void *data, int nBytes)
 	if(!dev->checkpointBuffer)
 		return 0;
 
-	if(!dev->checkpointOpenForWrite)
-		return -1;
-
 	while(i < nBytes && ok) {
 		
 
 		
 		 dev->checkpointBuffer[dev->checkpointByteOffset] = *dataBytes ;
-		dev->checkpointSum += *dataBytes;
-		dev->checkpointXor ^= *dataBytes;
-
 		dev->checkpointByteOffset++;
 		i++;
 		dataBytes++;
@@ -294,9 +279,6 @@ int yaffs_CheckpointRead(yaffs_Device *dev, void *data, int nBytes)
 	if(!dev->checkpointBuffer)
 		return 0;
 
-	if(dev->checkpointOpenForWrite)
-		return -1;
-
 	while(i < nBytes && ok) {
 	
 	
@@ -324,7 +306,6 @@ int yaffs_CheckpointRead(yaffs_Device *dev, void *data, int nBytes)
 							      &tags);
 						      
 				if(tags.chunkId != (dev->checkpointPageSequence + 1) ||
-				   tags.eccResult > YAFFS_ECC_RESULT_FIXED ||
 				   tags.sequenceNumber != YAFFS_SEQUENCE_CHECKPOINT_DATA)
 				   ok = 0;
 
@@ -339,8 +320,6 @@ int yaffs_CheckpointRead(yaffs_Device *dev, void *data, int nBytes)
 		
 		if(ok){
 			*dataBytes = dev->checkpointBuffer[dev->checkpointByteOffset];
-			dev->checkpointSum += *dataBytes;
-			dev->checkpointXor ^= *dataBytes;
 			dev->checkpointByteOffset++;
 			i++;
 			dataBytes++;

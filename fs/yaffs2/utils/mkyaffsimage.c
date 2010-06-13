@@ -1,22 +1,25 @@
 /*
- * YAFFS: Yet Another Flash File System. A NAND-flash specific file system.
+ * YAFFS: Yet another FFS. A NAND-flash specific file system.
  *
- * Copyright (C) 2002-2007 Aleph One Ltd.
+ * makeyaffsimage.c 
+ *
+ * Makes a YAFFS file system image that can be used to load up a file system.
+ *
+ * Copyright (C) 2002 Aleph One Ltd.
  *   for Toby Churchill Ltd and Brightstar Engineering
  *
  * Created by Charles Manning <charles@aleph1.co.uk>
- * Nick Bane modifications flagged NCB
- * Endian handling patches by James Ng
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
- */
-
-/*
- * makeyaffsimage.c 
  *
- * Makes a YAFFS file system image that can be used to load up a file system.
+ *
+ * Nick Bane modifications flagged NCB
+ *
+ * Endian handling patches by James Ng.
+ * 
+ *
  */
  
 #include <stdlib.h>
@@ -33,7 +36,7 @@
 
 #define MAX_OBJECTS 10000
 
-const char * mkyaffsimage_c_version = "$Id: mkyaffsimage.c,v 1.7 2003/07/16 03:00:48 charles Exp $";
+const char * mkyaffsimage_c_version = "$Id: mkyaffsimage.c,v 1.1.1.1 2008-03-28 04:29:21 jlwei Exp $";
 
 
 typedef struct

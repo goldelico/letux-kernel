@@ -14,7 +14,6 @@
 #include "yaffs_guts.h"
 #include "yaffs_tagscompat.h"
 #include "yaffs_ecc.h"
-#include "yaffs_getblockinfo.h"
 
 static void yaffs_HandleReadDataError(yaffs_Device * dev, int chunkInNAND);
 #ifdef NOTYET
@@ -46,7 +45,7 @@ static const char yaffs_countBitsTable[256] = {
 	4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8
 };
 
-int yaffs_CountBits(__u8 x)
+static int yaffs_CountBits(__u8 x)
 {
 	int retVal;
 	retVal = yaffs_countBitsTable[x];
@@ -253,9 +252,6 @@ static int yaffs_ReadChunkFromNAND(struct yaffs_DeviceStruct *dev,
 		/* Must allocate enough memory for spare+2*sizeof(int) */
 		/* for ecc results from device. */
 		struct yaffs_NANDSpare nspare;
-		
-		memset(&nspare,0,sizeof(nspare));
-		
 		retVal =
 		    dev->readChunkFromNAND(dev, chunkInNAND, data,
 					   (yaffs_Spare *) & nspare);
@@ -340,7 +336,7 @@ static void yaffs_HandleReadDataError(yaffs_Device * dev, int chunkInNAND)
 	int blockInNAND = chunkInNAND / dev->nChunksPerBlock;
 
 	/* Mark the block for retirement */
-	yaffs_GetBlockInfo(dev, blockInNAND + dev->blockOffset)->needsRetiring = 1;
+	yaffs_GetBlockInfo(dev, blockInNAND)->needsRetiring = 1;
 	T(YAFFS_TRACE_ERROR | YAFFS_TRACE_BAD_BLOCKS,
 	  (TSTR("**>>Block %d marked for retirement" TENDSTR), blockInNAND));
 
@@ -418,16 +414,7 @@ int yaffs_TagsCompatabilityWriteChunkWithTagsToNAND(yaffs_Device * dev,
 	} else {
 		tags.objectId = eTags->objectId;
 		tags.chunkId = eTags->chunkId;
-
-		tags.byteCountLSB = eTags->byteCount & 0x3ff;
-		
-		if(dev->nDataBytesPerChunk >= 1024){
-			tags.byteCountMSB = (eTags->byteCount >> 10) & 3;
-		} else {
-			tags.byteCountMSB = 3;
-		}
-		
-
+		tags.byteCount = eTags->byteCount;
 		tags.serialNumber = eTags->serialNumber;
 
 		if (!dev->useNANDECC && data) {
@@ -448,10 +435,10 @@ int yaffs_TagsCompatabilityReadChunkWithTagsFromNAND(yaffs_Device * dev,
 
 	yaffs_Spare spare;
 	yaffs_Tags tags;
-	yaffs_ECCResult eccResult = YAFFS_ECC_RESULT_UNKNOWN;
+	yaffs_ECCResult eccResult;
 
 	static yaffs_Spare spareFF;
-	static int init = 0;
+	static int init;
 
 	if (!init) {
 		memset(&spareFF, 0xFF, sizeof(spareFF));
@@ -479,11 +466,7 @@ int yaffs_TagsCompatabilityReadChunkWithTagsFromNAND(yaffs_Device * dev,
 
 				eTags->objectId = tags.objectId;
 				eTags->chunkId = tags.chunkId;
-				eTags->byteCount = tags.byteCountLSB;
-
-				if(dev->nDataBytesPerChunk >= 1024)
-					eTags->byteCount |= (((unsigned) tags.byteCountMSB) << 10);
-
+				eTags->byteCount = tags.byteCount;
 				eTags->serialNumber = tags.serialNumber;
 			}
 		}
@@ -514,9 +497,9 @@ int yaffs_TagsCompatabilityMarkNANDBlockBad(struct yaffs_DeviceStruct *dev,
 }
 
 int yaffs_TagsCompatabilityQueryNANDBlock(struct yaffs_DeviceStruct *dev,
-					  int blockNo,
-					  yaffs_BlockState *state,
-					  __u32 *sequenceNumber)
+					  int blockNo, yaffs_BlockState *
+					  state,
+					  int *sequenceNumber)
 {
 
 	yaffs_Spare spare0, spare1;

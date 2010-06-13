@@ -32,6 +32,10 @@ typedef struct {
 	unsigned lineParityPrime;
 } yaffs_ECCOther;
 
+#if defined(CONFIG_YAFFS_ECC_RS)
+extern struct rs_control *rs_decoder;
+#endif
+
 void yaffs_ECCCalculate(const unsigned char *data, unsigned char *ecc);
 int yaffs_ECCCorrect(unsigned char *data, unsigned char *read_ecc,
 		     const unsigned char *test_ecc);
