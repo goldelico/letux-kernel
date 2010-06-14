@@ -607,8 +607,10 @@ static int twl6030_bci_battery_get_property(struct power_supply *psy,
 		if ((status & CONTROLLER_CTRL1_EN_CHARGER)) {
 			if ((status & CONTROLLER_CTRL1_SEL_CHARGER))
 				val->intval = POWER_SUPPLY_TYPE_MAINS;
-			else
+			else if(usb_connected)
 				val->intval = POWER_SUPPLY_TYPE_USB;
+			else
+				val->intval = 0;
 		} else
 			val->intval = 0;
 		break;
