@@ -306,8 +306,8 @@ int hdmi_core_ddc_edid(u8 *pEDID)
 	}
 
 	i = 0;
-	while (FLD_GET(hdmi_read_reg(ins, sts), 4, 4) == 1
-			| FLD_GET(hdmi_read_reg(ins, sts), 2, 2) == 0) {
+	while ((FLD_GET(hdmi_read_reg(ins, sts), 4, 4) == 1) \
+			| (FLD_GET(hdmi_read_reg(ins, sts), 2, 2) == 0)) {
 		if (FLD_GET(hdmi_read_reg(ins,
 			sts), 2, 2) == 0) {
 			/* FIFO not empty */
