@@ -346,79 +346,6 @@ static void sr_add_margin_steps(struct omap_sr *sr)
 	}
 
 }
-static void sr_set_efuse_nvalues(struct omap_sr *sr)
-{
-	if (sr->srid == SR1) {
-		if (cpu_is_omap3630()) {
-			sr->senn_mod = sr->senp_mod = 0x1;
-
-			sr->opp4_nvalue = sr1_opp[4] =
-			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP4_VDD1);
-			if (sr->opp4_nvalue != 0x0)
-				printk("SR1:Fused Nvalues for VDD1OPP4 %x\n",
-							sr->opp4_nvalue);
-			sr->opp5_nvalue = sr->opp4_nvalue;
-
-			sr->opp3_nvalue = sr1_opp[3] =
-			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP3_VDD1);
-			sr->opp2_nvalue = sr1_opp[2] =
-			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP2_VDD1);
-			sr->opp1_nvalue = sr1_opp[1] =
-			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP1_VDD1);
-
-			if (sr_margin_steps || sr_margin_steps_1g)
-				sr_add_margin_steps(sr);
-		} else {
-			sr->senn_mod = (omap_ctrl_readl(OMAP343X_CONTROL_FUSE_SR) &
-						OMAP343X_SR1_SENNENABLE_MASK) >>
-						OMAP343X_SR1_SENNENABLE_SHIFT;
-			sr->senp_mod = (omap_ctrl_readl(OMAP343X_CONTROL_FUSE_SR) &
-						OMAP343X_SR1_SENPENABLE_MASK) >>
-						OMAP343X_SR1_SENPENABLE_SHIFT;
-
-			sr->opp5_nvalue = omap_ctrl_readl(
-						OMAP343X_CONTROL_FUSE_OPP5_VDD1);
-			sr->opp4_nvalue = omap_ctrl_readl(
-						OMAP343X_CONTROL_FUSE_OPP4_VDD1);
-			sr->opp3_nvalue = omap_ctrl_readl(
-						OMAP343X_CONTROL_FUSE_OPP3_VDD1);
-			sr->opp2_nvalue = omap_ctrl_readl(
-						OMAP343X_CONTROL_FUSE_OPP2_VDD1);
-			sr->opp1_nvalue = omap_ctrl_readl(
-						OMAP343X_CONTROL_FUSE_OPP1_VDD1);
-			if (sr->opp5_nvalue) {
-				sr->opp6_nvalue = calculate_opp_nvalue(sr->opp5_nvalue,
-				227, 379);
-			}
-		}
-	} else if (sr->srid == SR2) {
-		if (cpu_is_omap3630()) {
-			sr->senn_mod = sr->senp_mod = 0x1;
-			sr->opp1_nvalue =
-			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP1_VDD2);
-			if (sr->opp1_nvalue != 0)
-				printk("SR2:Fused Nvalues for VDD2OPP1 %d\n",
-							sr->opp1_nvalue);
-			sr->opp2_nvalue =
-			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP2_VDD2);
-		} else {
-			sr->senn_mod = (omap_ctrl_readl(OMAP343X_CONTROL_FUSE_SR) &
-					OMAP343X_SR2_SENNENABLE_MASK) >>
-					OMAP343X_SR2_SENNENABLE_SHIFT;
-
-			sr->senp_mod = (omap_ctrl_readl(OMAP343X_CONTROL_FUSE_SR) &
-					OMAP343X_SR2_SENPENABLE_MASK) >>
-					OMAP343X_SR2_SENPENABLE_SHIFT;
-
-			sr->opp3_nvalue = omap_ctrl_readl(
-					OMAP343X_CONTROL_FUSE_OPP3_VDD2);
-			sr->opp2_nvalue = omap_ctrl_readl(
-					OMAP343X_CONTROL_FUSE_OPP2_VDD2);
-			sr->opp1_nvalue = omap_ctrl_readl(
-					OMAP343X_CONTROL_FUSE_OPP1_VDD2);
-		}
-	}
-}
 
 /* Hard coded nvalues for testing purposes, may cause device to hang! */
 static void sr_set_testing_nvalues(struct omap_sr *sr)
@@ -482,6 +409,105 @@ static void sr_set_testing_nvalues(struct omap_sr *sr)
 
 	}
 
+}
+static void sr_set_efuse_nvalues(struct omap_sr *sr)
+{
+	if (sr->srid == SR1) {
+		if (cpu_is_omap3630()) {
+			sr->senn_mod = sr->senp_mod = 0x1;
+
+			sr->opp4_nvalue = sr1_opp[4] =
+			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP4_VDD1);
+			if (sr->opp4_nvalue != 0x0) {
+				printk("SR1:Fused Nvalues for VDD1OPP4 %x\n",
+							sr->opp4_nvalue);
+			} else {
+				/* use test nvalues */
+				sr_set_testing_nvalues(sr);
+				return;
+			}
+			sr->opp5_nvalue = sr->opp4_nvalue;
+
+			sr->opp3_nvalue = sr1_opp[3] =
+			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP3_VDD1);
+			sr->opp2_nvalue = sr1_opp[2] =
+			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP2_VDD1);
+			sr->opp1_nvalue = sr1_opp[1] =
+			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP1_VDD1);
+
+			if (sr_margin_steps || sr_margin_steps_1g)
+				sr_add_margin_steps(sr);
+		} else {
+			sr->senn_mod = (omap_ctrl_readl(OMAP343X_CONTROL_FUSE_SR) &
+						OMAP343X_SR1_SENNENABLE_MASK) >>
+						OMAP343X_SR1_SENNENABLE_SHIFT;
+			sr->senp_mod = (omap_ctrl_readl(OMAP343X_CONTROL_FUSE_SR) &
+						OMAP343X_SR1_SENPENABLE_MASK) >>
+						OMAP343X_SR1_SENPENABLE_SHIFT;
+
+			sr->opp5_nvalue = omap_ctrl_readl(
+						OMAP343X_CONTROL_FUSE_OPP5_VDD1);
+			if (sr->opp5_nvalue != 0x0) {
+				printk("SR1:Fused Nvalues for VDD1OPP5 %x\n",
+							sr->opp5_nvalue);
+			} else {
+				/* use test nvalues */
+				sr_set_testing_nvalues(sr);
+				return;
+			}
+			sr->opp4_nvalue = omap_ctrl_readl(
+						OMAP343X_CONTROL_FUSE_OPP4_VDD1);
+			sr->opp3_nvalue = omap_ctrl_readl(
+						OMAP343X_CONTROL_FUSE_OPP3_VDD1);
+			sr->opp2_nvalue = omap_ctrl_readl(
+						OMAP343X_CONTROL_FUSE_OPP2_VDD1);
+			sr->opp1_nvalue = omap_ctrl_readl(
+						OMAP343X_CONTROL_FUSE_OPP1_VDD1);
+			if (sr->opp5_nvalue) {
+				sr->opp6_nvalue = calculate_opp_nvalue(sr->opp5_nvalue,
+				227, 379);
+			}
+		}
+	} else if (sr->srid == SR2) {
+		if (cpu_is_omap3630()) {
+			sr->senn_mod = sr->senp_mod = 0x1;
+			sr->opp1_nvalue =
+			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP1_VDD2);
+			if (sr->opp1_nvalue != 0) {
+				printk("SR2:Fused Nvalues for VDD2OPP1 %d\n",
+							sr->opp1_nvalue);
+			} else {
+				/* use test nvalues */
+				sr_set_testing_nvalues(sr);
+				return;
+			}
+			sr->opp2_nvalue =
+			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP2_VDD2);
+		} else {
+			sr->senn_mod = (omap_ctrl_readl(OMAP343X_CONTROL_FUSE_SR) &
+					OMAP343X_SR2_SENNENABLE_MASK) >>
+					OMAP343X_SR2_SENNENABLE_SHIFT;
+
+			sr->senp_mod = (omap_ctrl_readl(OMAP343X_CONTROL_FUSE_SR) &
+					OMAP343X_SR2_SENPENABLE_MASK) >>
+					OMAP343X_SR2_SENPENABLE_SHIFT;
+
+			sr->opp3_nvalue = omap_ctrl_readl(
+					OMAP343X_CONTROL_FUSE_OPP3_VDD2);
+			sr->opp2_nvalue = omap_ctrl_readl(
+					OMAP343X_CONTROL_FUSE_OPP2_VDD2);
+			if (sr->opp2_nvalue != 0x0) {
+				printk("SR1:Fused Nvalues for VDD2OPP2 %x\n",
+							sr->opp2_nvalue);
+			} else {
+				/* use test nvalues */
+				sr_set_testing_nvalues(sr);
+				return;
+			}
+			sr->opp1_nvalue = omap_ctrl_readl(
+					OMAP343X_CONTROL_FUSE_OPP1_VDD2);
+		}
+	}
 }
 
 static void sr_set_nvalues(struct omap_sr *sr)
