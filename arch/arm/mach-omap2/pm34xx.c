@@ -581,22 +581,6 @@ void omap_sram_idle(void)
 	 */
 	omap3_intc_autoidle(0);
 
-	if (IS_PM34XX_ERRATA(PER_WAKEUP_ERRATA_i582)) {
-		u32 coreprev_state = prm_read_mod_reg(CORE_MOD, PM_PREPWSTST);
-		u32 perprev_state =  prm_read_mod_reg(OMAP3430_PER_MOD,
-				PM_PREPWSTST);
-		if ((coreprev_state == PWRDM_POWER_ON) && \
-		    (perprev_state == PWRDM_POWER_OFF)) {
-				pr_err("Entering the corner case...WA2\n");
-				/*
-				 * We dont seem to have a real recovery
-				 * other than reset
-				 */
-				BUG();
-				/* let wdt Reset the device???????? - eoww */
-		}
-	}
-
 	/*
 	* On EMU/HS devices ROM code restores a SRDC value
 	* from scratchpad which has automatic self refresh on timeout
@@ -633,6 +617,23 @@ void omap_sram_idle(void)
 			 PWRDM_POWER_OFF)) ||
 			(mpu_prev_state == PWRDM_POWER_OFF))
 		restore_table_entry();
+
+	if (IS_PM34XX_ERRATA(PER_WAKEUP_ERRATA_i582)) {
+		u32 coreprev_state = prm_read_mod_reg(CORE_MOD, PM_PREPWSTST);
+		u32 perprev_state =  prm_read_mod_reg(OMAP3430_PER_MOD,
+				PM_PREPWSTST);
+		if ((coreprev_state == PWRDM_POWER_ON) && \
+		    (perprev_state == PWRDM_POWER_OFF)) {
+				pr_err("Entering the corner case...WA2\n");
+				/*
+				 * We dont seem to have a real recovery
+				 * other than reset
+				 */
+				BUG();
+				/* let wdt Reset the device???????? - eoww */
+		}
+	}
+
 
 	/* CORE */
 	if (core_next_state < PWRDM_POWER_ON) {
