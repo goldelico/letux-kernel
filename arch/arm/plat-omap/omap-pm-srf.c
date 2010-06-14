@@ -171,8 +171,6 @@ void omap_pm_set_max_sdma_lat(struct device *dev, long t)
 	}
 }
 
-static struct device dummy_dsp_dev;
-
 /*
  * DSP Bridge-specific constraints
  */
@@ -189,7 +187,6 @@ const struct omap_opp *omap_pm_dsp_get_opp_table(void)
 }
 EXPORT_SYMBOL(omap_pm_dsp_get_opp_table);
 
-static struct device dummy_vdd1_dev;
 void omap_pm_vdd1_set_max_opp(struct device *dev, u8 opp_id)
 {
 	pr_debug("OMAP PM: requests constraint for max OPP ID\n");
@@ -201,6 +198,7 @@ void omap_pm_vdd1_set_max_opp(struct device *dev, u8 opp_id)
 }
 EXPORT_SYMBOL(omap_pm_vdd1_set_max_opp);
 
+static bool vdd1_max_opp;
 void omap_pm_dsp_set_min_opp(struct device *dev, unsigned long f)
 {
 	u8 opp_id;
@@ -211,6 +209,29 @@ void omap_pm_dsp_set_min_opp(struct device *dev, unsigned long f)
 	};
 
 	pr_debug("OMAP PM: DSP requests minimum VDD1 OPP to be %d\n", opp_id);
+
+	if (cpu_is_omap3630()) {
+		/*
+		 * check if OPP requested is 65Mz or greater if yes set
+		 * max opp constraint to OPP4, Which limits scaling of VDD1
+		 * OPP to 1G only. 1.3G will be allowed when DSP load dies
+		 * down to 65MHz.
+		 */
+		if ((f > S65M) && !vdd1_max_opp) {
+			vdd1_max_opp = 1;
+			omap_pm_vdd1_set_max_opp(dev, VDD1_OPP4);
+		} else if ((f < S260M) && vdd1_max_opp) {
+			omap_pm_vdd1_set_max_opp(dev, 0);
+			vdd1_max_opp = 0;
+		}
+
+		/*
+		 * DSP table has 65MHz as OPP5, give OPP1-260MHz when DSP request
+		 * 65MHz-OPP1
+		 */
+		if (f == S65M)
+			f = S260M;
+	}
 
 	opp_id = get_opp_id(dsp_opps + MAX_VDD1_OPP, f);
 

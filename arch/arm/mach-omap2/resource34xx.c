@@ -157,8 +157,15 @@ unsigned short get_opp_id(struct omap_opp *opp_freq_table,
 	struct omap_opp *prcm_config;
 	prcm_config = opp_freq_table;
 
-	if (prcm_config->rate <= freq)
+	/*
+	 * If the highest OPP has lower freq compared to other OPP's
+	 * in the table, than the logic fails here.
+	 * Fixing it with proper check ..
+	 */
+	if (prcm_config->rate == freq)
 		return prcm_config->opp_id; /* Return the Highest OPP */
+	else
+		prcm_config--;
 	for (; prcm_config->rate; prcm_config--)
 		if (prcm_config->rate < freq)
 			return (prcm_config+1)->opp_id;
