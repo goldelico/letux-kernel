@@ -30,6 +30,7 @@
 #include <procmgr.h>
 #include "../procmgr_drvdefs.h"
 #include "proc4430.h"
+#include "../../ipu_pm/ipu_pm.h"
 #include "dmm4430.h"
 #include <syslink/multiproc.h>
 #include <syslink/ducatienabler.h>
@@ -795,6 +796,20 @@ int proc4430_control(void *handle, int cmd, void *arg)
 	int retval = 0;
 
 	/*FIXME: Remove handle,etc if not used */
+
+#ifdef CONFIG_SYSLINK_DUCATI_PM
+	/* For purpose testing */
+	switch (cmd) {
+	case PM_SUSPEND:
+	case PM_RESUME:
+		retval = ipu_pm_notifications(cmd);
+		break;
+	default:
+		printk(KERN_ERR "Invalid notification\n");
+	}
+	if (retval != PM_SUCCESS)
+		printk(KERN_ERR "Error in notifications\n");
+#endif
 
 	if (atomic_cmpmask_and_lt(&proc4430_state.ref_count,
 					OMAP4430PROC_MAKE_MAGICSTAMP(0),
