@@ -44,8 +44,6 @@
 #include "mmc-twl4030.h"
 #include <linux/delay.h>
 
-static int ts_gpio;
-
 /* Added for FlexST */
 #include "board-connectivity.h"
 
