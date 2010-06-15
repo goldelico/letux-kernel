@@ -114,6 +114,7 @@ struct ipc_config {
 struct ipc_params {
 	bool setup_messageq;
 	bool setup_notify;
+	bool setup_ipu_pm;
 	bool slave;
 	enum ipc_proc_sync proc_sync;
 };

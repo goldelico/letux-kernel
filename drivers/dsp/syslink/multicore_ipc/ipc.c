@@ -42,6 +42,8 @@
 #include <nameserver.h>
 #include <nameserver_remotenotify.h>
 
+/* Ipu Power Management Header (ipu_pm) */
+#include "../ipu_pm/ipu_pm.h"
 /* =============================================================================
  * Macros
  * =============================================================================
@@ -68,6 +70,7 @@ struct ipc_reserved {
 	u32		*notify_sr_ptr;
 	u32		*nsrn_sr_ptr;
 	u32		*transport_sr_ptr;
+	u32		*ipu_pm_sr_ptr;
 	u32		*config_list_head;
 };
 
@@ -104,6 +107,7 @@ struct ipc_entry {
 	u16	remote_proc_id; /* the remote processor id   */
 	bool	setup_notify; /* whether to setup Notify   */
 	bool	setup_messageq; /* whether to setup messageq */
+	bool	setup_ipu_pm; /* whether to setup ipu_pm */
 };
 
 /* Ipc instance structure. */
@@ -214,6 +218,7 @@ int ipc_attach(u16 remote_proc_id)
 	void *notify_shared_addr;
 	void *msgq_shared_addr;
 	void *nsrn_shared_addr;
+	void *ipu_pm_shared_addr;
 	u32 notify_mem_req;
 	VOLATILE struct ipc_reserved *slave;
 	struct ipc_proc_entry *ipc;
@@ -324,6 +329,57 @@ int ipc_attach(u16 remote_proc_id)
 		}
 	}
 
+	/* Must come before Notify because depends on default Notify */
+	if (status >= 0 && ipc->entry.setup_notify && ipc->entry.setup_ipu_pm) {
+		if (ipc_module->proc_entry[remote_proc_id].slave) {
+			ipu_pm_shared_addr = sl_heap_alloc
+					(sharedregion_get_heap(0),
+					ipu_pm_mem_req(NULL),
+					sharedregion_get_cache_line_size(0));
+
+			slave->ipu_pm_sr_ptr =
+				sharedregion_get_srptr(ipu_pm_shared_addr, 0);
+			if (slave->ipu_pm_sr_ptr ==
+					SHAREDREGION_INVALIDSRPTR) {
+				status = IPC_E_FAIL;
+				printk(KERN_ERR "ipc_attach : "
+					"sharedregion_get_srptr "
+					"failed [0x%x]\n", status);
+			} else {
+				printk(KERN_ERR
+					"sharedregion_get_srptr : "
+					"status [0x%x]\n", status);
+			}
+		} else {
+			ipu_pm_shared_addr =
+				sharedregion_get_ptr(slave->ipu_pm_sr_ptr);
+			if (ipu_pm_shared_addr == NULL) {
+				status = IPC_E_FAIL;
+				printk(KERN_ERR "ipc_attach : "
+					"sharedregion_get_ptr "
+					"failed [0x%x]\n", status);
+			} else {
+				printk(KERN_ERR
+					"sharedregion_get_ptr : "
+					"status [0x%x]\n", status);
+			}
+		}
+
+		if (status >= 0) {
+			/* create the nameserver_remotenotify instances */
+			status = ipu_pm_attach(remote_proc_id,
+							ipu_pm_shared_addr);
+
+			if (status < 0)
+				printk(KERN_ERR "ipc_attach : "
+					"ipu_pm_attach "
+					"failed [0x%x]\n", status);
+			else
+				printk(KERN_ERR
+					"ipu_pm_attach : "
+					"status [0x%x]\n", status);
+		}
+	}
 	/* Must come after gatemp_start because depends on default GateMP */
 	if (status >= 0 && ipc->entry.setup_notify) {
 		if (ipc_module->proc_entry[remote_proc_id].slave) {
@@ -469,6 +525,7 @@ int ipc_detach(u16 remote_proc_id)
 	u32 reserved_size = ipc_reserved_size_per_proc();
 #endif
 	bool cache_enabled = sharedregion_is_cache_enabled(0);
+	void *ipu_pm_shared_addr;
 	void *notify_shared_addr;
 	void *nsrn_shared_addr;
 	void *msgq_shared_addr;
@@ -562,6 +619,38 @@ int ipc_detach(u16 remote_proc_id)
 				/* set the pointer for NSRN instance back
 								to invalid */
 				slave->nsrn_sr_ptr =
+						SHAREDREGION_INVALIDSRPTR;
+			}
+		}
+
+		if (ipc->entry.setup_notify && ipc->entry.setup_ipu_pm) {
+			/* call ipu_pm_detach for remote processor */
+			status = ipu_pm_detach(remote_proc_id);
+			if (status < 0)
+				printk(KERN_ERR "ipc_detach : "
+					"ipu_pm_detach "
+					"failed [0x%x]\n", status);
+			else
+				printk(KERN_ERR
+					"ipu_pm_detach : "
+					"status [0x%x]\n", status);
+
+			/* free the memory if slave processor */
+			if (ipc_module->proc_entry[remote_proc_id].slave) {
+				/* get the pointer to NSRN instance */
+				ipu_pm_shared_addr = sharedregion_get_ptr(
+							slave->ipu_pm_sr_ptr);
+
+				if (ipu_pm_shared_addr != NULL)
+					/* free the memory back to
+							SharedRegion 0 heap */
+					sl_heap_free(sharedregion_get_heap(1),
+						ipu_pm_shared_addr,
+						ipu_pm_mem_req(NULL));
+
+				/* set the pointer for NSRN instance back
+								to invalid */
+				slave->ipu_pm_sr_ptr =
 						SHAREDREGION_INVALIDSRPTR;
 			}
 		}
@@ -1449,6 +1538,8 @@ int ipc_create(u16 remote_proc_id, struct ipc_params *params)
 							params->setup_messageq;
 	ipc_module->proc_entry[remote_proc_id].entry.setup_notify =
 							params->setup_notify;
+	ipc_module->proc_entry[remote_proc_id].entry.setup_ipu_pm =
+							params->setup_ipu_pm;
 	ipc_module->proc_entry[remote_proc_id].entry.remote_proc_id =
 							remote_proc_id;
 
