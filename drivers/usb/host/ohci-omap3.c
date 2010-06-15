@@ -702,6 +702,7 @@ static int omap_ohci_bus_resume(struct usb_hcd *hcd)
 static void omap_ohci_shutdown(struct usb_hcd *hcd)
 {
 	struct ohci_omap_clock_defs *ohci_clocks;
+	u32 uhh_sysconfig;
 	ohci_clocks = (struct ohci_omap_clock_defs *)
 			(((char *)hcd_to_ohci(hcd)) + sizeof(struct ohci_hcd));
 
@@ -711,6 +712,17 @@ static void omap_ohci_shutdown(struct usb_hcd *hcd)
 		clk_enable(ohci_clocks->usbtll_fck_clk);
 		clk_enable(ohci_clocks->usbhost1_48m_fck_clk);
 		clk_enable(ohci_clocks->usbhost2_120m_fck_clk);
+
+		/* Need to set back to NoStandby,Noidle
+		 * FIXME: Maybe SmartIdle, SmartStandby will also work
+		 */
+		uhh_sysconfig = omap_readl(OMAP_UHH_SYSCONFIG);
+		uhh_sysconfig &= ~(3 << OMAP_UHH_SYSCONFIG_MIDLEMODE_SHIFT);
+		uhh_sysconfig &= ~(3 << OMAP_UHH_SYSCONFIG_SIDLEMODE_SHIFT);
+		uhh_sysconfig |= (1 << OMAP_UHH_SYSCONFIG_MIDLEMODE_SHIFT);
+		uhh_sysconfig |= (1 << OMAP_UHH_SYSCONFIG_SIDLEMODE_SHIFT);
+		omap_writel(uhh_sysconfig, OMAP_UHH_SYSCONFIG);
+
 		ohci_clocks->suspended = 0;
 	}
 	ohci_shutdown(hcd);
@@ -775,6 +787,7 @@ static int ohci_hcd_omap_drv_remove(struct platform_device *dev)
 {
 	struct usb_hcd		*hcd = platform_get_drvdata(dev);
 	struct ohci_omap_clock_defs *ohci_clocks;
+	u32 uhh_sysconfig;
 	ohci_clocks = (struct ohci_omap_clock_defs *)
 			(((char *)hcd_to_ohci(hcd)) + sizeof(struct ohci_hcd));
 	if (ohci_clocks->suspended) {
@@ -783,6 +796,17 @@ static int ohci_hcd_omap_drv_remove(struct platform_device *dev)
 		clk_enable(ohci_clocks->usbtll_fck_clk);
 		clk_enable(ohci_clocks->usbhost1_48m_fck_clk);
 		clk_enable(ohci_clocks->usbhost2_120m_fck_clk);
+
+		/* Need to set back to NoStandby,Noidle
+		 * FIXME: Maybe SmartIdle, SmartStandby will also work
+		 */
+		uhh_sysconfig = omap_readl(OMAP_UHH_SYSCONFIG);
+		uhh_sysconfig &= ~(3 << OMAP_UHH_SYSCONFIG_MIDLEMODE_SHIFT);
+		uhh_sysconfig &= ~(3 << OMAP_UHH_SYSCONFIG_SIDLEMODE_SHIFT);
+		uhh_sysconfig |= (1 << OMAP_UHH_SYSCONFIG_MIDLEMODE_SHIFT);
+		uhh_sysconfig |= (1 << OMAP_UHH_SYSCONFIG_SIDLEMODE_SHIFT);
+		omap_writel(uhh_sysconfig, OMAP_UHH_SYSCONFIG);
+
 		ohci_clocks->suspended = 0;
 	}
 	usb_hcd_omap_remove(hcd, dev);
