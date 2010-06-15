@@ -22,6 +22,7 @@
 #include <linux/jiffies.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
+#include <linux/spinlock.h>
 
 #include <asm/io.h>
 #include <asm/mach-types.h>
@@ -37,6 +38,8 @@
 
 extern int usb_disabled(void);
 extern int ocpi_enable(void);
+
+spinlock_t     lock;
 
 /* Define USBHOST clocks for clock management */
 struct ohci_omap_clock_defs {
@@ -116,6 +119,7 @@ static int usb_hcd_omap_probe(const struct hc_driver *driver,
 {
 	int retval;
 	int i;
+	unsigned long flags;
 	u32 uhh_hostconfig_value;
 	u8 ohci_port_enable_mask = 0;
 	struct usb_hcd *hcd = 0;
@@ -134,6 +138,7 @@ static int usb_hcd_omap_probe(const struct hc_driver *driver,
 		return -ENODEV;
 	}
 
+	spin_lock_init(&lock);
 	hcd = usb_create_hcd(driver, &pdev->dev, pdev->dev.bus_id);
 	if (!hcd) {
 		retval = -ENOMEM;
@@ -198,6 +203,7 @@ static int usb_hcd_omap_probe(const struct hc_driver *driver,
 		return PTR_ERR(ohci_clocks->usbtll_ick_clk);
 	}
 
+	spin_lock_irqsave(&lock, flags);
 	clk_enable(ohci_clocks->usbtll_ick_clk);
 
 	ohci_clocks->suspended = 0;
@@ -216,6 +222,8 @@ static int usb_hcd_omap_probe(const struct hc_driver *driver,
 	/* Wait for TLL reset to complete */
 	while (!(omap_readl(OMAP_USBTLL_SYSSTATUS) &
 			(1 << OMAP_USBTLL_SYSSTATUS_RESETDONE_SHIFT)));
+
+	spin_unlock_irqrestore(&lock, flags);
 
 	/* smart idle mode */
 	omap_writel((1 << OMAP_USBTLL_SYSCONFIG_ENAWAKEUP_SHIFT) |
@@ -441,6 +449,7 @@ err0:
 static inline void
 usb_hcd_omap_remove(struct usb_hcd *hcd, struct platform_device *pdev)
 {
+	unsigned long flags;
 	struct ohci_omap_clock_defs *ohci_clocks;
 	struct ohci_hcd		*ohci = hcd_to_ohci (hcd);
 
@@ -455,6 +464,8 @@ usb_hcd_omap_remove(struct usb_hcd *hcd, struct platform_device *pdev)
 	iounmap(hcd->regs);
 	//release_mem_region(hcd->rsrc_start, hcd->rsrc_len);
 
+	spin_lock_irqsave(&lock, flags);
+
 	/* Reset OMAP modules for insmod/rmmod to work */
 	omap_writel((1 << 1), OMAP_UHH_SYSCONFIG);
 	while (!(omap_readl(OMAP_UHH_SYSSTATUS) & (1 << 0)));
@@ -466,6 +477,8 @@ usb_hcd_omap_remove(struct usb_hcd *hcd, struct platform_device *pdev)
 	omap_writel((1<<1), OMAP_USBTLL_SYSCONFIG);
 	while (!(omap_readl(OMAP_USBTLL_SYSSTATUS) & (1<<0)));
 	pr_debug("TLL RESET DONE");
+
+	spin_unlock_irqrestore(&lock, flags);
 
 	if (ohci_clocks->usbtll_fck_clk != NULL) {
 		clk_disable(ohci_clocks->usbtll_fck_clk);
