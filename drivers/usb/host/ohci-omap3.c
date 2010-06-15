@@ -219,6 +219,9 @@ static int usb_hcd_omap_probe(const struct hc_driver *driver,
 	/* perform TLL soft reset, and wait until reset is complete */
 	omap_writel(1 << OMAP_USBTLL_SYSCONFIG_SOFTRESET_SHIFT,
 				OMAP_USBTLL_SYSCONFIG);
+
+	omap_readl(OMAP_USBTLL_SYSCONFIG);
+
 	/* Wait for TLL reset to complete */
 	while (!(omap_readl(OMAP_USBTLL_SYSSTATUS) &
 			(1 << OMAP_USBTLL_SYSSTATUS_RESETDONE_SHIFT)));
