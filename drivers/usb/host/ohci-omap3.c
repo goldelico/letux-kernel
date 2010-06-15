@@ -454,7 +454,6 @@ usb_hcd_omap_remove(struct usb_hcd *hcd, struct platform_device *pdev)
 	}
 	iounmap(hcd->regs);
 	//release_mem_region(hcd->rsrc_start, hcd->rsrc_len);
-	usb_put_hcd(hcd);
 
 	/* Reset OMAP modules for insmod/rmmod to work */
 	omap_writel((1 << 1), OMAP_UHH_SYSCONFIG);
@@ -497,6 +496,8 @@ usb_hcd_omap_remove(struct usb_hcd *hcd, struct platform_device *pdev)
 		clk_put(ohci_clocks->usbtll_ick_clk);
 		ohci_clocks->usbtll_ick_clk = NULL;
 	}
+
+	usb_put_hcd(hcd);
 }
 /*-------------------------------------------------------------------------*/
 
