@@ -834,7 +834,6 @@ static int ohci_hcd_omap_drv_remove(struct platform_device *dev)
 		 */
 		usbtll_sysconfig = omap_readl(OMAP_USBTLL_SYSCONFIG);
 		usbtll_sysconfig &= ~(3 << OMAP_TLL_SYSCONFIG_SIDLEMODE_SHIFT);
-		usbtll_sysconfig |= (1 << OMAP_TLL_SYSCONFIG_SIDLEMODE_SHIFT);
 		omap_writel(usbtll_sysconfig, OMAP_USBTLL_SYSCONFIG);
 
 		uhh_sysconfig = omap_readl(OMAP_UHH_SYSCONFIG);
