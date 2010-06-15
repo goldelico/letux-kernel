@@ -25,6 +25,8 @@
 /* SysLink device specific headers */
 #include "../procmgr/proc4430/proc4430.h"
 
+/* Ipu Power Management Header (ipu_pm) */
+#include "../ipu_pm/ipu_pm.h"
 /* Module level headers */
 #include <multiproc.h>
 #include <platform.h>
@@ -195,6 +197,8 @@ struct platform_config {
 
 	struct notify_config			notify_config;
 	/* notify config parameter */
+	struct ipu_pm_config			ipu_pm_config;
+	/* ipu_pm config parameter */
 
 	struct proc_mgr_config			proc_mgr_config;
 	/* processor manager config parameter */
@@ -246,6 +250,7 @@ struct platform_slave_config {
 	u32 sr0_memory_setup;
 	u32 setup_messageq;
 	u32 setup_notify;
+	u32 setup_ipu_pm;
 	u32 proc_sync;
 	u32 num_srs;
 };
@@ -308,6 +313,8 @@ struct platform_module_state {
 	/* ringio initialize flag */
 	bool notify_init_flag;
 	/* notify initialize flag */
+	bool ipu_pm_init_flag;
+	/* ipu_pm initialize flag */
 	bool proc_mgr_init_flag;
 	/* processor manager initialize flag */
 	bool heapbufmp_init_flag;
@@ -513,6 +520,8 @@ platform_get_config(struct platform_config *config)
 
 	/* get the notify default config */
 	notify_get_config(&config->notify_config);
+	/* get the ipu_pm default config */
+	ipu_pm_get_config(&config->ipu_pm_config);
 
 	/* get the procmgr default config */
 	proc_mgr_get_config(&config->proc_mgr_config);
@@ -715,6 +724,18 @@ platform_setup(void)
 		}
 	}
 
+	/* Initialize ipu_pm */
+	if (status >= 0) {
+		status = ipu_pm_setup(&config->ipu_pm_config);
+		if (status < 0) {
+			printk(KERN_ERR "platform_setup : ipu_pm_setup "
+				"failed [0x%x]\n", status);
+		} else {
+			printk(KERN_ERR "ipu_pm_setup : status [0x%x]\n",
+				status);
+			platform_module->ipu_pm_init_flag = true;
+		}
+	}
 	/* Initialize NameServer */
 	if (status >= 0) {
 		status = nameserver_setup();
@@ -1189,6 +1210,16 @@ platform_destroy(void)
 			platform_module->nameserver_init_flag = false;
 		}
 	}
+	/* Finalize ipu_pm module */
+	if (platform_module->ipu_pm_init_flag == true) {
+		status = ipu_pm_destroy();
+		if (status < 0) {
+			printk(KERN_ERR "platform_destroy : ipu_pm_destroy "
+				"failed [0x%x]\n", status);
+		} else {
+			platform_module->ipu_pm_init_flag = false;
+		}
+	}
 
 	/* Finalize Notify Ducati Driver module */
 	if (platform_module->notify_ducatidrv_init_flag == true) {
@@ -1466,6 +1497,7 @@ int platform_load_callback(u16 proc_id, void *arg)
 	if (status >= 0) {
 		ipc_params.setup_messageq = handle->slave_config.setup_messageq;
 		ipc_params.setup_notify = handle->slave_config.setup_notify;
+		ipc_params.setup_ipu_pm = handle->slave_config.setup_ipu_pm;
 		ipc_params.proc_sync = handle->slave_config.proc_sync;
 		status = ipc_create(proc_id, &ipc_params);
 		if (status < 0) {
