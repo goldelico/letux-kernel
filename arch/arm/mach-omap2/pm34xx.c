@@ -287,7 +287,8 @@ static int prcm_clear_mod_irqs(s16 module, u8 regs)
 		fclk = cm_read_mod_reg(module, fclk_off);
 		while (wkst) {
 			clken = wkst;
-			cm_set_mod_reg_bits(clken, module, iclk_off);
+			if (module != OMAP3430ES2_USBHOST_MOD)
+				cm_set_mod_reg_bits(clken, module, iclk_off);
 			/*
 			 * For USBHOST, we don't know whether HOST1 or
 			 * HOST2 woke us up, so enable both f-clocks
@@ -299,8 +300,10 @@ static int prcm_clear_mod_irqs(s16 module, u8 regs)
 			wkst = prm_read_mod_reg(module, wkst_off);
 			c++;
 		}
-		cm_write_mod_reg(iclk, module, iclk_off);
-		cm_write_mod_reg(fclk, module, fclk_off);
+		if (module != OMAP3430ES2_USBHOST_MOD) {
+			cm_write_mod_reg(iclk, module, iclk_off);
+			cm_write_mod_reg(fclk, module, fclk_off);
+		}
 	}
 	return c;
 }
