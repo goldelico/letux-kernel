@@ -168,6 +168,7 @@ static int glamo_mci_clock_enable(struct mmc_host *mmc)
 }
 
 
+#ifndef GLAMO_MCI_WORKER
 static void do_pio_read(struct glamo_mci_host *host, struct mmc_data *data)
 {
 	struct sg_mapping_iter miter;
@@ -189,6 +190,7 @@ static void do_pio_read(struct glamo_mci_host *host, struct mmc_data *data)
 	dev_dbg(&host->pdev->dev, "pio_read(): "
 			"complete (no more data).\n");
 }
+#endif
 
 static void do_pio_write(struct glamo_mci_host *host, struct mmc_data *data)
 {
@@ -256,11 +258,6 @@ static irqreturn_t glamo_mci_irq(int irq, void *data)
 	mrq = host->mrq;
 	cmd = mrq->cmd;
 
-#if 0
-	if (cmd->data->flags & MMC_DATA_READ)
-		return IRQ_HANDLED;
-#endif
-
 	status = glamo_reg_read(host, GLAMO_REG_MMC_RB_STAT1);
 	dev_dbg(&host->pdev->dev, "status = 0x%04x\n", status);
 
@@ -282,9 +279,11 @@ static irqreturn_t glamo_mci_irq(int irq, void *data)
 	if (mrq->stop)
 		glamo_mci_send_command(host, mrq->stop);
 
-#if 1
 	if (cmd->data->flags & MMC_DATA_READ)
+#ifndef GLAMO_MCI_WORKER
 		do_pio_read(host, cmd->data);
+#else
+		flush_workqueue(host->workqueue);
 #endif
 
 	if (mrq->stop)
@@ -297,6 +296,7 @@ done:
 	return IRQ_HANDLED;
 }
 
+#ifdef GLAMO_MCI_WORKER
 static void glamo_mci_read_worker(struct work_struct *work)
 {
 	struct glamo_mci_host *host = container_of(work, struct glamo_mci_host,
@@ -314,7 +314,13 @@ static void glamo_mci_read_worker(struct work_struct *work)
 	cmd = host->mrq->cmd;
 	sg = cmd->data->sg;
 	do {
-		/* TODO: How to get rid of that? */
+		/*
+		 * TODO: How to get rid of that?
+		 * Maybe just drop it... In fact, it is already handled in
+		 * the IRQ handler, maybe we should only check cmd->error.
+		 * But the question is: what happens between the moment
+		 * the error occurs, and the moment the IRQ handler handles it?
+		 */
 		status = glamo_reg_read(host, GLAMO_REG_MMC_RB_STAT1);
 
 		if (status & (GLAMO_STAT1_MMC_RTOUT | GLAMO_STAT1_MMC_DTOUT))
@@ -324,7 +330,7 @@ static void glamo_mci_read_worker(struct work_struct *work)
 		if (cmd->error) {
 			dev_info(&host->pdev->dev, "Error after cmd: 0x%x\n",
 				status);
-			goto done;
+			return;
 		}
 
 		blocks_ready = glamo_reg_read(host, GLAMO_REG_MMC_RB_BLKCNT);
@@ -345,24 +351,8 @@ static void glamo_mci_read_worker(struct work_struct *work)
 
 	} while (sg);
 	cmd->data->bytes_xfered = data_read;
-
-	/* TODO: Delete everything from now on, and let the IRQ handler do it? */
-
-	do {
-		status = glamo_reg_read(host, GLAMO_REG_MMC_RB_STAT1);
-	} while (!(status & GLAMO_STAT1_MMC_IDLE));
-
-	if (host->mrq->stop)
-		glamo_mci_send_command(host, host->mrq->stop);
-
-	/* TODO: Replace by glamo_mci_wait_idle? */
-	do {
-		status = glamo_reg_read(host, GLAMO_REG_MMC_RB_STAT1);
-	} while (!(status & GLAMO_STAT1_MMC_IDLE));
-done:
-	host->mrq = NULL;
-	glamo_mci_request_done(host, cmd->mrq);
 }
+#endif
 
 static void glamo_mci_send_command(struct glamo_mci_host *host,
 				   struct mmc_command *cmd)
@@ -544,7 +534,7 @@ static void glamo_mci_send_command(struct glamo_mci_host *host,
 		}
 	}
 
-#if 0
+#ifdef GLAMO_MCI_WORKER
 	/* We'll only get an interrupt when all data has been transfered.
 	   By starting to copy data when it's avaiable we can increase
 	   throughput by up to 30%. */
@@ -740,8 +730,10 @@ static int glamo_mci_probe(struct platform_device *pdev)
 	host->core = core;
 	host->irq = platform_get_irq(pdev, 0);
 
+#ifdef GLAMO_MCI_WORKER
 	INIT_WORK(&host->read_work, glamo_mci_read_worker);
 	host->workqueue = create_singlethread_workqueue("glamo-mci-read");
+#endif
 
 	host->regulator = regulator_get(pdev->dev.parent, "SD_3V3");
 	if (IS_ERR(host->regulator)) {
@@ -872,7 +864,9 @@ probe_free_mem_region_mmio:
 probe_regulator_put:
 	regulator_put(host->regulator);
 probe_free_host:
+#ifdef GLAMO_MCI_WORKER
 	destroy_workqueue(host->workqueue);
+#endif
 	mmc_free_host(mmc);
 probe_out:
 	return ret;
@@ -883,8 +877,10 @@ static int glamo_mci_remove(struct platform_device *pdev)
 	struct mmc_host	*mmc = platform_get_drvdata(pdev);
 	struct glamo_mci_host *host = mmc_priv(mmc);
 
+#ifdef GLAMO_MCI_WORKER
 	flush_workqueue(host->workqueue);
 	destroy_workqueue(host->workqueue);
+#endif
 
 	mmc_host_enable(mmc);
 	mmc_remove_host(mmc);
