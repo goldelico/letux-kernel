@@ -878,11 +878,12 @@ static int glamo_mci_remove(struct platform_device *pdev)
 	struct mmc_host	*mmc = platform_get_drvdata(pdev);
 	struct glamo_mci_host *host = mmc_priv(mmc);
 
-	free_irq(host->irq, host);
-
 	mmc_host_enable(mmc);
 	mmc_remove_host(mmc);
 	mmc_host_disable(mmc);
+
+	synchronize_irq(host->irq);
+	free_irq(host->irq, host);
 
 	iounmap(host->mmio_base);
 	iounmap(host->data_base);
