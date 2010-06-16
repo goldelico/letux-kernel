@@ -793,7 +793,7 @@ static int glamo_run_script(struct glamo_core *glamo,
 static const struct glamo_script glamo_init_script[] = {
 	{ GLAMO_REG_CLOCK_HOST,		0x1000 },
 	{ GLAMO_SCRIPT_WAIT,		     2 },
-	{ GLAMO_REG_CLOCK_MEMORY, 	0x1000 },
+	{ GLAMO_REG_CLOCK_MEMORY,	0x1000 },
 	{ GLAMO_REG_CLOCK_MEMORY,	0x2000 },
 	{ GLAMO_REG_CLOCK_LCD,		0x1000 },
 	{ GLAMO_REG_CLOCK_MMC,		0x1000 },
@@ -1247,7 +1247,7 @@ static int glamo_resume(struct device *dev)
 	return 0;
 }
 
-static struct dev_pm_ops glamo_pm_ops = {
+static const struct dev_pm_ops glamo_pm_ops = {
 	.suspend    = glamo_suspend,
 	.resume     = glamo_resume,
 	.poweroff   = glamo_suspend,

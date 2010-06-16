@@ -58,9 +58,9 @@ struct glamo_mci_host {
 };
 
 static void glamo_mci_send_request(struct mmc_host *mmc,
-				    struct mmc_request *mrq);
+				   struct mmc_request *mrq);
 static void glamo_mci_send_command(struct glamo_mci_host *host,
-				    struct mmc_command *cmd);
+				   struct mmc_command *cmd);
 
 /*
  * Max SD clock rate
@@ -119,14 +119,14 @@ static inline void glamo_reg_write(struct glamo_mci_host *glamo,
 }
 
 static inline uint16_t glamo_reg_read(struct glamo_mci_host *glamo,
-				   uint16_t reg)
+				      uint16_t reg)
 {
 	return readw(glamo->mmio_base + reg);
 }
 
 static void glamo_reg_set_bit_mask(struct glamo_mci_host *glamo,
-				uint16_t reg, uint16_t mask,
-				uint16_t val)
+				   uint16_t reg, uint16_t mask,
+				   uint16_t val)
 {
 	uint16_t tmp;
 
@@ -222,7 +222,7 @@ static int glamo_mci_set_card_clock(struct glamo_mci_host *host, int freq)
 }
 
 static int glamo_mci_wait_idle(struct glamo_mci_host *host,
-				unsigned long timeout)
+			       unsigned long timeout)
 {
 	uint16_t status;
 	do {
@@ -238,8 +238,8 @@ static int glamo_mci_wait_idle(struct glamo_mci_host *host,
 	return 0;
 }
 
-static void glamo_mci_request_done(struct glamo_mci_host *host, struct
-mmc_request *mrq)
+static void glamo_mci_request_done(struct glamo_mci_host *host,
+				   struct mmc_request *mrq)
 {
 	mmc_request_done(host->mmc, mrq);
 }
@@ -359,7 +359,7 @@ done:
 }
 
 static void glamo_mci_send_command(struct glamo_mci_host *host,
-				  struct mmc_command *cmd)
+				   struct mmc_command *cmd)
 {
 	uint8_t u8a[6];
 	uint16_t fire = 0;
@@ -509,14 +509,13 @@ static void glamo_mci_send_command(struct glamo_mci_host *host,
 		status = glamo_reg_read(host, GLAMO_REG_MMC_RB_STAT1);
 	while (((((status >> 15) & 1) != (host->request_counter & 1)) ||
 		(!(status & (GLAMO_STAT1_MMC_RB_RRDY |
-				 GLAMO_STAT1_MMC_RTOUT |
-				 GLAMO_STAT1_MMC_DTOUT |
-				 GLAMO_STAT1_MMC_BWERR |
-				 GLAMO_STAT1_MMC_BRERR)))) && (timeout--));
+			     GLAMO_STAT1_MMC_RTOUT |
+			     GLAMO_STAT1_MMC_DTOUT |
+			     GLAMO_STAT1_MMC_BWERR |
+			     GLAMO_STAT1_MMC_BRERR)))) && (timeout--));
 
-	if ((status & (GLAMO_STAT1_MMC_RTOUT |
-				   GLAMO_STAT1_MMC_DTOUT)) ||
-		(timeout == 0)) {
+	if ((status & (GLAMO_STAT1_MMC_RTOUT | GLAMO_STAT1_MMC_DTOUT)) ||
+	    (timeout == 0)) {
 		cmd->error = -ETIMEDOUT;
 	} else if (status & (GLAMO_STAT1_MMC_BWERR | GLAMO_STAT1_MMC_BRERR)) {
 		cmd->error = -EILSEQ;
@@ -568,7 +567,7 @@ static int glamo_mci_prepare_pio(struct glamo_mci_host *host,
 }
 
 static void glamo_mci_send_request(struct mmc_host *mmc,
-					struct mmc_request *mrq)
+				   struct mmc_request *mrq)
 {
 	struct glamo_mci_host *host = mmc_priv(mmc);
 	struct mmc_command *cmd = mrq->cmd;
@@ -610,7 +609,7 @@ done:
 }
 
 static void glamo_mci_set_power_mode(struct glamo_mci_host *host,
-				unsigned char power_mode)
+				     unsigned char power_mode)
 {
 	int ret;
 
@@ -754,8 +753,8 @@ static int glamo_mci_probe(struct platform_device *pdev)
 	}
 
 	host->mmio_mem = request_mem_region(host->mmio_mem->start,
-						resource_size(host->mmio_mem),
-						pdev->name);
+					    resource_size(host->mmio_mem),
+					    pdev->name);
 
 	if (!host->mmio_mem) {
 		dev_err(&pdev->dev, "failed to request io memory region.\n");
@@ -764,7 +763,7 @@ static int glamo_mci_probe(struct platform_device *pdev)
 	}
 
 	host->mmio_base = ioremap(host->mmio_mem->start,
-				      resource_size(host->mmio_mem));
+				  resource_size(host->mmio_mem));
 	if (!host->mmio_base) {
 		dev_err(&pdev->dev, "failed to ioremap() io memory region.\n");
 		ret = -EINVAL;
@@ -782,8 +781,8 @@ static int glamo_mci_probe(struct platform_device *pdev)
 	}
 
 	host->data_mem = request_mem_region(host->data_mem->start,
-						resource_size(host->data_mem),
-						pdev->name);
+					    resource_size(host->data_mem),
+					    pdev->name);
 
 	if (!host->data_mem) {
 		dev_err(&pdev->dev, "failed to request io memory region.\n");
@@ -791,7 +790,7 @@ static int glamo_mci_probe(struct platform_device *pdev)
 		goto probe_iounmap_mmio;
 	}
 	host->data_base = ioremap(host->data_mem->start,
-				      resource_size(host->data_mem));
+				  resource_size(host->data_mem));
 
 	if (host->data_base == 0) {
 		dev_err(&pdev->dev, "failed to ioremap() io memory region.\n");
@@ -800,7 +799,7 @@ static int glamo_mci_probe(struct platform_device *pdev)
 	}
 
 	ret = request_threaded_irq(host->irq, NULL, glamo_mci_irq, IRQF_SHARED,
-			   pdev->name, host);
+				   pdev->name, host);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to register irq.\n");
 		goto probe_iounmap_data;
@@ -859,12 +858,12 @@ probe_iounmap_data:
 	iounmap(host->data_base);
 probe_free_mem_region_data:
 	release_mem_region(host->data_mem->start,
-				resource_size(host->data_mem));
+			   resource_size(host->data_mem));
 probe_iounmap_mmio:
 	iounmap(host->mmio_base);
 probe_free_mem_region_mmio:
 	release_mem_region(host->mmio_mem->start,
-				resource_size(host->mmio_mem));
+			   resource_size(host->mmio_mem));
 probe_regulator_put:
 	regulator_put(host->regulator);
 probe_free_host:
@@ -936,11 +935,11 @@ static int glamo_mci_resume(struct device *dev)
 	return ret;
 }
 
-static struct dev_pm_ops glamo_mci_pm_ops = {
+static const struct dev_pm_ops glamo_mci_pm_ops = {
 	.suspend    = glamo_mci_suspend,
 	.resume     = glamo_mci_resume,
-    .freeze     = glamo_mci_suspend,
-    .thaw       = glamo_mci_resume,
+	.freeze     = glamo_mci_suspend,
+	.thaw       = glamo_mci_resume,
 };
 #define GLAMO_MCI_PM_OPS (&glamo_mci_pm_ops)
 
