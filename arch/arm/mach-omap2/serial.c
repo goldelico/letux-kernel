@@ -205,12 +205,7 @@ static inline void omap_uart_enable_clocks(struct omap_uart_state *uart)
 	if (uart->clocked)
 		return;
 
-	if (cpu_is_omap44xx()) {
-		omap_device_enable(uart->pdev);
-	} else {
-		clk_enable(uart->ick);
-		clk_enable(uart->fck);
-	}
+	omap_device_enable(uart->pdev);
 
 	uart->clocked = 1;
 	omap_uart_restore_context(uart);
@@ -226,12 +221,7 @@ static inline void omap_uart_disable_clocks(struct omap_uart_state *uart)
 	omap_uart_save_context(uart);
 	uart->clocked = 0;
 
-	if (cpu_is_omap44xx()) {
-		omap_device_idle(uart->pdev);
-	} else {
-		clk_disable(uart->ick);
-		clk_disable(uart->fck);
-	}
+	omap_device_idle(uart->pdev);
 }
 
 static void omap_uart_enable_wakeup(struct omap_uart_state *uart)

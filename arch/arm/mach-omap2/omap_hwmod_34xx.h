@@ -866,6 +866,7 @@ static struct omap_hwmod omap34xx_uart1 = {
 	.clkdev_con_id	= "uart1_fck",
 	.prcm		= {
 		.omap2 = {
+			.module_offs = CORE_MOD,
 			.prcm_reg_id = 1,
 			.module_bit = OMAP3430_EN_UART1_SHIFT,
 		},
@@ -901,6 +902,7 @@ static struct omap_hwmod omap34xx_uart2 = {
 	.clkdev_con_id	= "uart2_fck",
 	.prcm		= {
 		.omap2 = {
+			.module_offs = CORE_MOD,
 			.prcm_reg_id = 1,
 			.module_bit = OMAP3430_EN_UART2_SHIFT,
 		},
@@ -936,6 +938,7 @@ static struct omap_hwmod omap34xx_uart3 = {
 	.clkdev_con_id	= "uart3_fck",
 	.prcm		= {
 		.omap2 = {
+			.module_offs = OMAP3430_PER_MOD,
 			.prcm_reg_id = 1,
 			.module_bit = OMAP3430_EN_UART3_SHIFT,
 		},

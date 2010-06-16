@@ -516,8 +516,15 @@ static int _enable_clocks(struct omap_hwmod *oh)
 		for (i = 0, os = *oh->slaves; i < oh->slaves_cnt; i++, os++) {
 			struct clk *c = os->_clk;
 
-			if (c && !IS_ERR(c) && (os->flags & OCPIF_SWSUP_IDLE))
-				clk_enable(c);
+			/* REVISIT LATER */
+			if (cpu_is_omap44xx()) {
+				if (c && !IS_ERR(c) &&
+					(os->flags & OCPIF_SWSUP_IDLE))
+					clk_enable(c);
+			} else {
+				if (c && !IS_ERR(c))
+					clk_enable(c);
+			}
 		}
 	}
 
@@ -559,8 +566,15 @@ static int _disable_clocks(struct omap_hwmod *oh)
 		for (i = 0, os = *oh->slaves; i < oh->slaves_cnt; i++, os++) {
 			struct clk *c = os->_clk;
 
-			if (c && !IS_ERR(c) && (os->flags & OCPIF_SWSUP_IDLE))
-				clk_disable(c);
+			/* REVISIT LATER */
+			if (cpu_is_omap44xx()) {
+				if (c && !IS_ERR(c) &&
+					(os->flags & OCPIF_SWSUP_IDLE))
+					clk_disable(c);
+			} else {
+				if (c && !IS_ERR(c))
+					clk_disable(c);
+			}
 		}
 	}
 
@@ -935,6 +949,9 @@ static int _enable(struct omap_hwmod *oh)
 	_enable_clocks(oh);
 
 	r = _wait_target_ready(oh);
+	/* REVISIT LATER */
+	if (!cpu_is_omap44xx())
+		r = 0;
 	if (!r) {
 		oh->_state = _HWMOD_STATE_ENABLED;
 
@@ -1052,11 +1069,15 @@ static int _setup(struct omap_hwmod *oh)
 			if (!c || IS_ERR(c))
 				continue;
 
-			if (os->flags & OCPIF_SWSUP_IDLE) {
-				/* XXX omap_iclk_deny_idle(c); */
+			if (cpu_is_omap44xx()) {
+				if (os->flags & OCPIF_SWSUP_IDLE) {
+					/* XXX omap_iclk_deny_idle(c); */
+				} else {
+					/* XXX omap_iclk_allow_idle(c); */
+					 clk_enable(c);
+				}
 			} else {
-				/* XXX omap_iclk_allow_idle(c); */
-				clk_enable(c);
+				/* REVISIT LATER */
 			}
 		}
 	}

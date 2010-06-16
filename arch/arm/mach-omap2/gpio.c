@@ -278,6 +278,7 @@ void omap_set_gpio_debounce(int gpio, int enable)
 		goto done;
 
 	if (cpu_is_omap34xx()) {
+		bank->dbck_enable_mask = val;
 		if (enable)
 			clk_enable(bank->dbck);
 		else
@@ -944,12 +945,19 @@ static int workaround_enabled;
 void omap2_gpio_prepare_for_idle(int power_state)
 {
 	int i, c = 0;
+	int min = 0;
+
+	if (cpu_is_omap34xx())
+		min = 1;
 
 	/* Remove triggering for all non-wakeup GPIOs.  Otherwise spurious
 	 * IRQs will be generated.  See OMAP2420 Errata item 1.101. */
-	for (i = 0; i < gpio_bank_count; i++) {
+	for (i = min; i < gpio_bank_count; i++) {
 		struct gpio_bank *bank = &gpio_bank[i];
 		u32 l1, l2;
+
+		if (cpu_is_omap34xx() && bank->dbck_enable_mask)
+			clk_disable(bank->dbck);
 
 		if (!(bank->enabled_non_wakeup_gpios))
 			continue;
@@ -994,15 +1002,23 @@ void omap2_gpio_prepare_for_idle(int power_state)
 void omap2_gpio_resume_after_idle(void)
 {
 	int i;
+	int min = 0;
 
-	if (!workaround_enabled)
-		return;
-	for (i = 0; i < gpio_bank_count; i++) {
+	if (cpu_is_omap34xx())
+		min = 1;
+	for (i = min; i < gpio_bank_count; i++) {
 		struct gpio_bank *bank = &gpio_bank[i];
 		u32 l, gen, gen0, gen1;
 
+		if (cpu_is_omap34xx() && bank->dbck_enable_mask)
+			clk_enable(bank->dbck);
+
+		if (!workaround_enabled)
+			continue;
+
 		if (!(bank->enabled_non_wakeup_gpios))
 			continue;
+
 		if (cpu_is_omap24xx() || cpu_is_omap34xx()) {
 			__raw_writel(bank->saved_fallingdetect,
 					bank->base +

@@ -240,6 +240,7 @@ struct gpio_bank {
 	int (*device_enable)(struct platform_device *pdev);
 	int (*device_shutdown) (struct platform_device *pdev);
 	int (*device_idle)(struct platform_device *pdev);
+	u32 dbck_enable_mask;
 #endif
 };
 
