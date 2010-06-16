@@ -840,16 +840,19 @@ static int glamo_mci_probe(struct platform_device *pdev)
 
 	mmc_host_enable(mmc);
 	glamo_mci_reset(host);
-	mmc_host_lazy_disable(mmc);
 
 	ret = mmc_add_host(mmc);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to add mmc host.\n");
-		goto probe_freeirq;
+		goto probe_mmc_host_disable;
 	}
+
+	mmc_host_lazy_disable(mmc);
 
 	return 0;
 
+probe_mmc_host_disable:
+	mmc_host_disable(mmc);
 probe_freeirq:
 	free_irq(host->irq, host);
 probe_iounmap_data:
@@ -891,6 +894,7 @@ static int glamo_mci_remove(struct platform_device *pdev)
 	regulator_put(host->regulator);
 
 	mmc_free_host(mmc);
+
 	return 0;
 }
 
