@@ -62,11 +62,14 @@ static ssize_t sr_steps_show(struct kobject *kobj, struct kobj_attribute *attr,
 /* sysfs interface to control steps added for 1G OPP */
 static struct kobj_attribute sr_margin_steps_1g_attr =
 	__ATTR(sr_steps_1g, 0644, sr_steps_show, sr_steps_store);
+static struct kobj_attribute sr_margin_steps_1p3_attr =
+	__ATTR(sr_steps_1p3, 0644, sr_steps_show, sr_steps_store);
 
 /* sysfs interface to control steps added for OPP's less than 1G */
 static struct kobj_attribute sr_margin_steps_attr =
 	__ATTR(sr_steps, 0644, sr_steps_show, sr_steps_store);
 
+static unsigned long sr_margin_steps_1p3 = 62500;
 /* Default steps added for 1G volt is 5 in uV */
 static unsigned long sr_margin_steps_1g = 62500;
 /* Default steps added for less than 1G OPP's is 3 in uV*/
@@ -327,20 +330,18 @@ static void sr_add_margin_steps(struct omap_sr *sr)
 
 	/*
 	 * Add 5 steps for 1g and 3 steps for other OPP's by default
-	 * REVISIT: Make it configurable through sysfs dynamically
 	 */
 	for (i = 1; i <= 3; i++)
 		sr1_opp_margin[i] = sr_margin_steps;
 
 	sr1_opp_margin[4] = sr_margin_steps_1g;
+	sr1_opp_margin[5] = sr_margin_steps_1p3;
 
 	for (i = 1; i <= MAX_VDD1_OPP; i++) {
-		printk(KERN_INFO "sr1_opp_margin[%d]=%ld\n", i,
+		pr_info("sr1_opp_margin[%d]=%ld\n", i,
 					sr1_opp_margin[i]);
-		mpu_opps[i].sr_vsr_step_vsel = 0x0;
-		mpu_opps[i].sr_adjust_vsel = 0x0;
 	}
-	printk(KERN_INFO "steps added, volt will be"
+	pr_info("steps added, volt will be"
 				"recaliberated automatically\n");
 
 }
@@ -406,28 +407,75 @@ static void sr_set_testing_nvalues(struct omap_sr *sr)
 }
 static void sr_set_efuse_nvalues(struct omap_sr *sr)
 {
+	u32 senn_adj = 3.0*12.5;
+	u32 senp_adj = 2.6*12.5;
+
 	if (sr->srid == SR1) {
 		if (cpu_is_omap3630()) {
 			sr->senn_mod = sr->senp_mod = 0x1;
 
+			sr->opp5_nvalue = sr1_opp[5] =
+			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP5_VDD1);
+			/* Add 2 step margin on n-target for 1.3g */
+			sr->opp5_nvalue = calculate_opp_nvalue(sr->opp5_nvalue,
+						senn_adj*2, senp_adj*2);
+			if (sr->opp5_nvalue != 0x0) {
+				pr_info("SR1:Fused Nvalues for VDD1OPP5 %x\n",
+							sr->opp5_nvalue);
+			} else {
+				/* use test nvalues */
+				pr_info(KERN_INFO "SR: using test nvalues\n");
+				sr_set_testing_nvalues(sr);
+				return;
+			}
+
 			sr->opp4_nvalue = sr1_opp[4] =
 			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP4_VDD1);
+
 			if (sr->opp4_nvalue != 0x0) {
-				printk("SR1:Fused Nvalues for VDD1OPP4 %x\n",
+				pr_info("SR1:Fused Nvalues for VDD1OPP4 %x\n",
 							sr->opp4_nvalue);
 			} else {
+				pr_info(KERN_INFO "SR: using test nvalues\n");
 				/* use test nvalues */
 				sr_set_testing_nvalues(sr);
 				return;
 			}
-			sr->opp5_nvalue = sr->opp4_nvalue;
 
 			sr->opp3_nvalue = sr1_opp[3] =
 			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP3_VDD1);
+			if (sr->opp3_nvalue != 0x0) {
+				pr_info("SR1:Fused Nvalues for VDD1OPP3 %x\n",
+							sr->opp3_nvalue);
+			} else {
+				pr_info(KERN_INFO "SR: using test nvalues\n");
+				/* use test nvalues */
+				sr_set_testing_nvalues(sr);
+				return;
+			}
 			sr->opp2_nvalue = sr1_opp[2] =
 			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP2_VDD1);
+			if (sr->opp2_nvalue != 0x0) {
+				pr_info("SR1:Fused Nvalues for VDD1OPP2 %x\n",
+							sr->opp2_nvalue);
+			} else {
+				pr_info(KERN_INFO "SR: using test nvalues\n");
+				/* use test nvalues */
+				sr_set_testing_nvalues(sr);
+				return;
+			}
+
 			sr->opp1_nvalue = sr1_opp[1] =
 			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP1_VDD1);
+			if (sr->opp1_nvalue != 0x0) {
+				pr_info("SR1:Fused Nvalues for VDD1OPP1 %x\n",
+							sr->opp1_nvalue);
+			} else {
+				pr_info(KERN_INFO "SR: using test nvalues\n");
+				/* use test nvalues */
+				sr_set_testing_nvalues(sr);
+				return;
+			}
 
 			if (sr_margin_steps || sr_margin_steps_1g)
 				sr_add_margin_steps(sr);
@@ -442,7 +490,7 @@ static void sr_set_efuse_nvalues(struct omap_sr *sr)
 			sr->opp5_nvalue = omap_ctrl_readl(
 						OMAP343X_CONTROL_FUSE_OPP5_VDD1);
 			if (sr->opp5_nvalue != 0x0) {
-				printk("SR1:Fused Nvalues for VDD1OPP5 %x\n",
+				pr_info("SR1:Fused Nvalues for VDD1OPP5 %x\n",
 							sr->opp5_nvalue);
 			} else {
 				/* use test nvalues */
@@ -468,7 +516,7 @@ static void sr_set_efuse_nvalues(struct omap_sr *sr)
 			sr->opp1_nvalue =
 			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP1_VDD2);
 			if (sr->opp1_nvalue != 0) {
-				printk("SR2:Fused Nvalues for VDD2OPP1 %d\n",
+				pr_info("SR2:Fused Nvalues for VDD2OPP1 %d\n",
 							sr->opp1_nvalue);
 			} else {
 				/* use test nvalues */
@@ -491,7 +539,7 @@ static void sr_set_efuse_nvalues(struct omap_sr *sr)
 			sr->opp2_nvalue = omap_ctrl_readl(
 					OMAP343X_CONTROL_FUSE_OPP2_VDD2);
 			if (sr->opp2_nvalue != 0x0) {
-				printk("SR1:Fused Nvalues for VDD2OPP2 %x\n",
+				pr_info("SR1:Fused Nvalues for VDD2OPP2 %x\n",
 							sr->opp2_nvalue);
 			} else {
 				/* use test nvalues */
@@ -1420,6 +1468,8 @@ static ssize_t sr_steps_store(struct kobject *kobj,
 		sr_margin_steps_1g = 12500 * value;
 	else if (attr == &sr_margin_steps_attr)
 		sr_margin_steps = 12500 * value;
+	else if (attr == &sr_margin_steps_1p3_attr)
+		sr_margin_steps_1p3 = 12500 * value;
 	else
 		return -EINVAL;
 
@@ -1435,6 +1485,8 @@ static ssize_t sr_steps_show(struct kobject *kobj, struct kobj_attribute *attr,
 		return sprintf(buf, "%lu\n", sr_margin_steps_1g);
 	else if (attr == &sr_margin_steps_attr)
 		return sprintf(buf, "%lu\n", sr_margin_steps);
+	else if (attr == &sr_margin_steps_1p3_attr)
+		return sprintf(buf, "%lu\n", sr_margin_steps_1p3);
 	else
 		return -EINVAL;
 }
@@ -1624,6 +1676,9 @@ static int __init omap3_sr_init(void)
 
 	pr_info("SmartReflex driver initialized\n");
 
+	ret = sysfs_create_file(power_kobj, &sr_margin_steps_1p3_attr.attr);
+	if (ret)
+		pr_err("sysfs_create_file failed: %d\n", ret);
 	ret = sysfs_create_file(power_kobj, &sr_margin_steps_1g_attr.attr);
 	if (ret)
 		pr_err("sysfs_create_file failed: %d\n", ret);

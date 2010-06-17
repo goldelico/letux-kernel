@@ -392,7 +392,7 @@ u8 omap_pm_get_max_vdd1_opp()
 		switch (omap_rev_id()) {
 		case OMAP_3630:
 		default:
-			return VDD1_OPP4;
+			return VDD1_OPP5;
 		case OMAP_3630_800:
 			return VDD1_OPP3;
 		case OMAP_3630_1000:

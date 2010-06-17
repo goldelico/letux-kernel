@@ -5,35 +5,39 @@
 
 static struct omap_opp omap3630_mpu_rate_table[] = {
 	{0, 0, 0},
-	/*OPP1 (OPP50) - 0.97V*/
-	{S300M, VDD1_OPP1, 0x1d, 0x0, 0x0},
-	/*OPP2 (OPP100) - 1.14V*/
-	{S600M, VDD1_OPP2, 0x2b, 0x0, 0x0},
-	/*OPP3 (OPP130) - 1.27V*/
-	{S800M, VDD1_OPP3, 0x35, 0x0, 0x0},
-	/*OPP4 (OPP-1G) - 1.33V*/
-	{S1000M, VDD1_OPP4, 0x3a, 0x0, 0x0},
+	/*OPP1 (OPP50) - 1.0V*/
+	{S300M, VDD1_OPP1, 0x20, 0x0, 0x0},
+	/*OPP2 (OPP100) - 1.1625V*/
+	{S600M, VDD1_OPP2, 0x2d, 0x0, 0x0},
+	/*OPP3 (OPP130) - 1.3V*/
+	{S800M, VDD1_OPP3, 0x38, 0x0, 0x0},
+	/*OPP4 (OPP-1G) - 1.35V*/
+	{S1000M, VDD1_OPP4, 0x3c, 0x0, 0x0},
+	/*OPP5 (OPP-1.3G) - 1.35V*/
+	{S1200M, VDD1_OPP5, 0x3c, 0x0, 0x0},
 
 };
 
 static struct omap_opp omap3630_l3_rate_table[] = {
 	{0, 0, 0},
-	/*OPP1 (OPP50) - 0.93V*/
-	{S100M, VDD2_OPP1, 0x1b, 0x0, 0x0},
-	/*OPP2 (OPP100) - 1.1375V*/
-	{S200M, VDD2_OPP2, 0x2b, 0x0, 0x0},
+	/*OPP1 (OPP50) - 0.97V*/
+	{S100M, VDD2_OPP1, 0x1e, 0x0, 0x0},
+	/*OPP2 (OPP100) - 1.1625V*/
+	{S200M, VDD2_OPP2, 0x2d, 0x0, 0x0},
 };
 
 static struct omap_opp omap3630_dsp_rate_table[] = {
 	{0, 0, 0},
-	/*OPP1 (OPP50) - 0.97V*/
-	{S260M, VDD1_OPP1, 0x1d, 0x0, 0x0},
-	/*OPP2 (OPP100) - 1.14V*/
-	{S520M, VDD1_OPP2, 0x2b, 0x0, 0x0},
-	/*OPP3 (OPP130) - 1.27V*/
-	{S660M, VDD1_OPP3, 0x35, 0x0, 0x0},
-	/*OPP4 (OPP-1G) - 1.33V*/
-	{S800M, VDD1_OPP4, 0x3a, 0x0, 0x0},
+	/*OPP1 (OPP50) - 1.0V*/
+	{S260M, VDD1_OPP1, 0x20, 0x0, 0x0},
+	/*OPP2 (OPP100) - 1.1625V*/
+	{S520M, VDD1_OPP2, 0x2d, 0x0, 0x0},
+	/*OPP3 (OPP130) - 1.3V*/
+	{S660M, VDD1_OPP3, 0x38, 0x0, 0x0},
+	/*OPP4 (OPP-1G) - 1.35V*/
+	{S800M, VDD1_OPP4, 0x3c, 0x0, 0x0},
+	/*OPP5 (OPP-1.3G) - 1.35V*/
+	{S65M, VDD1_OPP5, 0x3c, 0x0, 0x0},
 };
 
 static struct omap_opp omap3_mpu_rate_table[] = {
