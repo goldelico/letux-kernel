@@ -24,6 +24,7 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/device.h>
+#include <linux/delay.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -98,6 +99,36 @@ static int omap_abe_dai_startup(struct snd_pcm_substream *substream,
 
 	if (!mcpdm_priv->requested++)
 		err = omap_mcpdm_request();
+
+	return err;
+}
+
+static int omap_abe_dai_trigger(struct snd_pcm_substream *substream, int cmd,
+				  struct snd_soc_dai *dai)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;
+	struct omap_mcpdm_data *mcpdm_priv = cpu_dai->private_data;
+	int stream = substream->stream;
+	int err = 0;
+
+	switch (cmd) {
+	case SNDRV_PCM_TRIGGER_START:
+	case SNDRV_PCM_TRIGGER_RESUME:
+	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+	if (substream->stream) {
+		if (!mcpdm_priv->active[stream]++)
+			omap_mcpdm_start(stream);
+	}
+		break;
+
+	case SNDRV_PCM_TRIGGER_STOP:
+	case SNDRV_PCM_TRIGGER_SUSPEND:
+	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+		break;
+	default:
+		err = -EINVAL;
+	}
 
 	return err;
 }
@@ -184,7 +215,14 @@ static int omap_abe_dai_hw_params(struct snd_pcm_substream *substream,
 	else
 		err = omap_mcpdm_capture_open(&mcpdm_links[stream]);
 
-	omap_mcpdm_start(stream);
+	if (!substream->stream) {
+		if (!mcpdm_priv->active[stream]++) {
+			msleep(250);
+			omap_mcpdm_start(stream);
+		}
+		/* Increment by 2 because 2 calls of HW free */
+		mcpdm_priv->active[stream]++;
+	}
 
 	return err;
 }
@@ -199,12 +237,17 @@ static int omap_abe_dai_hw_free(struct snd_pcm_substream *substream,
 	int stream = substream->stream;
 	int err;
 
-	if (stream == SNDRV_PCM_STREAM_PLAYBACK)
-		err = omap_mcpdm_playback_close(&mcpdm_links[stream]);
-	else
-		err = omap_mcpdm_capture_close(&mcpdm_links[stream]);
-
-	omap_mcpdm_stop(stream);
+	if (mcpdm_priv->active[stream] == 1) {
+		if (stream == SNDRV_PCM_STREAM_PLAYBACK)
+			err = omap_mcpdm_playback_close(&mcpdm_links[stream]);
+		else
+			err = omap_mcpdm_capture_close(&mcpdm_links[stream]);
+		msleep(250);
+		omap_mcpdm_stop(stream);
+		mcpdm_priv->active[stream] = 0;
+	} else if (mcpdm_priv->active[stream] != 0) {
+		mcpdm_priv->active[stream]--;
+	}
 
 	return err;
 }
@@ -212,6 +255,7 @@ static int omap_abe_dai_hw_free(struct snd_pcm_substream *substream,
 static struct snd_soc_dai_ops omap_abe_dai_ops = {
 	.startup	= omap_abe_dai_startup,
 	.shutdown	= omap_abe_dai_shutdown,
+	.trigger        = omap_abe_dai_trigger,
 	.hw_params	= omap_abe_dai_hw_params,
 	.hw_free	= omap_abe_dai_hw_free,
 };
@@ -219,6 +263,7 @@ static struct snd_soc_dai_ops omap_abe_dai_ops = {
 static struct snd_soc_dai_ops omap_abe_vx_dai_ops = {
 	.startup        = omap_abe_dai_startup,
 	.shutdown       = omap_abe_dai_shutdown,
+	.trigger        = omap_abe_dai_trigger,
 	.hw_params      = omap_abe_dai_hw_params,
 	.hw_free        = omap_abe_dai_hw_free,
 };

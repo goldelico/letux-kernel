@@ -44,6 +44,36 @@ static struct snd_soc_dai_link sdp4430_dai[];
 static struct snd_soc_card snd_soc_sdp4430;
 static int twl6040_power_mode;
 
+static int sdp4430_hw_params(struct snd_pcm_substream *substream,
+	struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *codec_dai = rtd->dai->codec_dai;
+	int clk_id, freq;
+	int ret;
+
+	if (twl6040_power_mode) {
+		clk_id = TWL6040_SYSCLK_SEL_HPPLL;
+		freq = 38400000;
+	} else {
+		clk_id = TWL6040_SYSCLK_SEL_LPPLL;
+		freq = 32768;
+	}
+
+	/* set the codec mclk */
+	ret = snd_soc_dai_set_sysclk(codec_dai, clk_id, freq,
+				SND_SOC_CLOCK_IN);
+	if (ret) {
+		printk(KERN_ERR "can't set codec system clock\n");
+		return ret;
+	}
+	return 0;
+}
+
+static struct snd_soc_ops sdp4430_ops = {
+	.hw_params = sdp4430_hw_params,
+};
+
 
 static int sdp4430_get_power_mode(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
@@ -180,30 +210,35 @@ static struct snd_soc_dai_link sdp4430_dai[] = {
 		.cpu_dai = &omap_abe_dai[OMAP_ABE_MM_DAI],
 		.codec_dai = &abe_dai[0],
 		.init = sdp4430_twl6040_init,
+		.ops = &sdp4430_ops,
 	},
 	{
 		.name = "abe-twl6040",
 		.stream_name = "Tones DL",
 		.cpu_dai = &omap_abe_dai[OMAP_ABE_TONES_DL_DAI],
 		.codec_dai = &abe_dai[1],
+		.ops = &sdp4430_ops,
 	},
 	{
 		.name = "abe-twl6040",
 		.stream_name = "Voice",
 		.cpu_dai = &omap_abe_dai[OMAP_ABE_VOICE_DAI],
 		.codec_dai = &abe_dai[2],
+		.ops = &sdp4430_ops,
 	},
 	{
 		.name = "abe-twl6040",
 		.stream_name = "Digital Uplink",
 		.cpu_dai = &omap_abe_dai[OMAP_ABE_DIG_UPLINK_DAI],
 		.codec_dai = &abe_dai[3],
+		.ops = &sdp4430_ops,
 	},
 	{
 		.name = "abe-twl6040",
 		.stream_name = "Vibrator",
 		.cpu_dai = &omap_abe_dai[OMAP_ABE_VIB_DAI],
 		.codec_dai = &abe_dai[4],
+		.ops = &sdp4430_ops,
 	},
 #ifdef CONFIG_SND_OMAP_SOC_HDMI
 	{

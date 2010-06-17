@@ -372,18 +372,19 @@ static int soc_codec_close(struct snd_pcm_substream *substream)
 		platform->pcm_ops->close(substream);
 	cpu_dai->runtime = NULL;
 
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		/* start delayed pop wq here for playback streams */
-		codec_dai->pop_wait = 1;
-		schedule_delayed_work(&card->delayed_work,
-			msecs_to_jiffies(pmdown_time));
-	} else {
-		/* capture streams can be powered down now */
-		snd_soc_dapm_stream_event(codec,
-			codec_dai->capture.stream_name,
-			SND_SOC_DAPM_STREAM_STOP);
+	if (!codec->active) {
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+			/* start delayed pop wq here for playback streams */
+			codec_dai->pop_wait = 1;
+			schedule_delayed_work(&card->delayed_work,
+				msecs_to_jiffies(pmdown_time));
+		} else {
+			/* capture streams can be powered down now */
+			snd_soc_dapm_stream_event(codec,
+				codec_dai->capture.stream_name,
+				SND_SOC_DAPM_STREAM_STOP);
+		}
 	}
-
 	mutex_unlock(&pcm_mutex);
 	return 0;
 }
@@ -555,8 +556,8 @@ static int soc_pcm_hw_free(struct snd_pcm_substream *substream)
 	mutex_lock(&pcm_mutex);
 
 	/* apply codec digital mute */
-	if (!codec->active)
-		snd_soc_dai_digital_mute(codec_dai, 1);
+	/* Codec to take of no active stream */
+	snd_soc_dai_digital_mute(codec_dai, 1);
 
 	/* free any machine hw params */
 	if (machine->ops && machine->ops->hw_free)

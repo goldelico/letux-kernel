@@ -890,7 +890,7 @@ void abe_disable_data_transfer(abe_port_id id)
 	/* disable DMA requests */
 	abe_disable_dma_request(id);
 	/* disable ATC transfers */
-	abe_disable_atc(id);
+	abe_init_atc(id);
 	abe_clean_temporary_buffers(id);
 }
 

@@ -34,28 +34,6 @@
 void abe_hw_configuration()
 {
 	abe_uint32 atc_reg;
-	abe_port_protocol_t *protocol;
-	abe_data_format_t format;
-
-	/* initializes the ABE ATC descriptor in DMEM - MCPDM_UL */
-	protocol = &(abe_port[PDM_UL_PORT].protocol);
-	format = abe_port[PDM_UL_PORT].format;
-	abe_init_atc(PDM_UL_PORT);
-	abe_init_io_tasks(PDM_UL_PORT, &format, protocol);
-
-	/* initializes the ABE ATC descriptor in DMEM - MCPDM_DL */
-	protocol = &(abe_port[PDM_DL_PORT].protocol);
-	format = abe_port[PDM_DL_PORT].format;
-	abe_init_atc(PDM_DL_PORT);
-	abe_init_io_tasks(PDM_DL_PORT, &format, protocol);
-
-	/* one DMIC port enabled = all DMICs enabled, since there is
-	* single DMIC path for all DMICs
-	*/
-	protocol = &(abe_port[DMIC_PORT].protocol);
-	format = abe_port[DMIC_PORT].format;
-	abe_init_atc(DMIC_PORT);
-	abe_init_io_tasks(DMIC_PORT, &format, protocol);
 
 	/* enables the DMAreq from AESS  AESS_DMAENABLE_SET = 255 */
 	atc_reg = 0xFF;
