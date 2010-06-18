@@ -995,7 +995,6 @@ static int __devinit glamo_probe(struct platform_device *pdev)
 	set_irq_type(glamo->irq, IRQ_TYPE_EDGE_FALLING);
 	set_irq_data(glamo->irq, glamo);
 	set_irq_chained_handler(glamo->irq, glamo_irq_demux_handler);
-	glamo->irq_works = 1;
 
 	ret = mfd_add_devices(&pdev->dev, pdev->id, glamo_cells,
 				ARRAY_SIZE(glamo_cells), mem, glamo->irq_base);
