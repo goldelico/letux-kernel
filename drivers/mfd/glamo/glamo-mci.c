@@ -680,7 +680,7 @@ static void glamo_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		sd_drive = 3;
 
 	glamo_reg_set_bit_mask(host, GLAMO_REG_MMC_BASIC,
-				GLAMO_BASIC_MMC_EN_4BIT_DATA | 0xb0,
+				GLAMO_BASIC_MMC_EN_4BIT_DATA | 0xc0,
 						   bus_width | sd_drive << 6);
 
 	if (host->power_mode == MMC_POWER_OFF)

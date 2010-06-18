@@ -743,14 +743,14 @@ EXPORT_SYMBOL_GPL(glamo_engine_reclock);
  * allows reversion to 2.6.24 settings
 */
 static const uint16_t reg_0x200[] = {
-0xe03, /* 0 waits on Async BB R & W, Use PLL 2 for mem bus */
-0xef0, /* 3 waits on Async BB R & W, Use PLL 1 for mem bus */
-0xea0, /* 2 waits on Async BB R & W, Use PLL 1 for mem bus */
-0xe50, /* 1 waits on Async BB R & W, Use PLL 1 for mem bus */
-0xe00, /* 0 waits on Async BB R & W, Use PLL 1 for mem bus */
-0xef3, /* 3 waits on Async BB R & W, Use PLL 2 for mem bus */
-0xea3, /* 2 waits on Async BB R & W, Use PLL 2 for mem bus */
-0xe53, /* 1 waits on Async BB R & W, Use PLL 2 for mem bus */
+	0xe03, /* 0 waits on Async BB R & W, Use PLL 2 for mem bus */
+	0xef0, /* 3 waits on Async BB R & W, Use PLL 1 for mem bus */
+	0xea0, /* 2 waits on Async BB R & W, Use PLL 1 for mem bus */
+	0xe50, /* 1 waits on Async BB R & W, Use PLL 1 for mem bus */
+	0xe00, /* 0 waits on Async BB R & W, Use PLL 1 for mem bus */
+	0xef3, /* 3 waits on Async BB R & W, Use PLL 2 for mem bus */
+	0xea3, /* 2 waits on Async BB R & W, Use PLL 2 for mem bus */
+	0xe53, /* 1 waits on Async BB R & W, Use PLL 2 for mem bus */
 };
 
 static int glamo_run_script(struct glamo_core *glamo,
@@ -779,7 +779,7 @@ static int glamo_run_script(struct glamo_core *glamo,
 			break;
 		case 0x200:
 			__reg_write(glamo, line->reg,
-					reg_0x200[slow_memory & 0x8]);
+					reg_0x200[slow_memory & 0x7]);
 			break;
 		default:
 			__reg_write(glamo, line->reg, line->val);
