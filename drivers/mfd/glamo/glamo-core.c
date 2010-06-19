@@ -743,14 +743,14 @@ EXPORT_SYMBOL_GPL(glamo_engine_reclock);
  * allows reversion to 2.6.24 settings
 */
 static const uint16_t reg_0x200[] = {
-0xe03, /* 0 waits on Async BB R & W, Use PLL 2 for mem bus */
-0xef0, /* 3 waits on Async BB R & W, Use PLL 1 for mem bus */
-0xea0, /* 2 waits on Async BB R & W, Use PLL 1 for mem bus */
-0xe50, /* 1 waits on Async BB R & W, Use PLL 1 for mem bus */
-0xe00, /* 0 waits on Async BB R & W, Use PLL 1 for mem bus */
-0xef3, /* 3 waits on Async BB R & W, Use PLL 2 for mem bus */
-0xea3, /* 2 waits on Async BB R & W, Use PLL 2 for mem bus */
-0xe53, /* 1 waits on Async BB R & W, Use PLL 2 for mem bus */
+	0xe03, /* 0 waits on Async BB R & W, Use PLL 2 for mem bus */
+	0xef0, /* 3 waits on Async BB R & W, Use PLL 1 for mem bus */
+	0xea0, /* 2 waits on Async BB R & W, Use PLL 1 for mem bus */
+	0xe50, /* 1 waits on Async BB R & W, Use PLL 1 for mem bus */
+	0xe00, /* 0 waits on Async BB R & W, Use PLL 1 for mem bus */
+	0xef3, /* 3 waits on Async BB R & W, Use PLL 2 for mem bus */
+	0xea3, /* 2 waits on Async BB R & W, Use PLL 2 for mem bus */
+	0xe53, /* 1 waits on Async BB R & W, Use PLL 2 for mem bus */
 };
 
 static int glamo_run_script(struct glamo_core *glamo,
@@ -779,7 +779,7 @@ static int glamo_run_script(struct glamo_core *glamo,
 			break;
 		case 0x200:
 			__reg_write(glamo, line->reg,
-					reg_0x200[slow_memory & 0x8]);
+					reg_0x200[slow_memory & 0x7]);
 			break;
 		default:
 			__reg_write(glamo, line->reg, line->val);
@@ -793,7 +793,7 @@ static int glamo_run_script(struct glamo_core *glamo,
 static const struct glamo_script glamo_init_script[] = {
 	{ GLAMO_REG_CLOCK_HOST,		0x1000 },
 	{ GLAMO_SCRIPT_WAIT,		     2 },
-	{ GLAMO_REG_CLOCK_MEMORY, 	0x1000 },
+	{ GLAMO_REG_CLOCK_MEMORY,	0x1000 },
 	{ GLAMO_REG_CLOCK_MEMORY,	0x2000 },
 	{ GLAMO_REG_CLOCK_LCD,		0x1000 },
 	{ GLAMO_REG_CLOCK_MMC,		0x1000 },
@@ -995,7 +995,6 @@ static int __devinit glamo_probe(struct platform_device *pdev)
 	set_irq_type(glamo->irq, IRQ_TYPE_EDGE_FALLING);
 	set_irq_data(glamo->irq, glamo);
 	set_irq_chained_handler(glamo->irq, glamo_irq_demux_handler);
-	glamo->irq_works = 1;
 
 	ret = mfd_add_devices(&pdev->dev, pdev->id, glamo_cells,
 				ARRAY_SIZE(glamo_cells), mem, glamo->irq_base);
@@ -1247,7 +1246,7 @@ static int glamo_resume(struct device *dev)
 	return 0;
 }
 
-static struct dev_pm_ops glamo_pm_ops = {
+static const struct dev_pm_ops glamo_pm_ops = {
 	.suspend    = glamo_suspend,
 	.resume     = glamo_resume,
 	.poweroff   = glamo_suspend,

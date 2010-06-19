@@ -943,7 +943,7 @@ static int glamofb_resume(struct device *dev)
 	return 0;
 }
 
-static struct dev_pm_ops glamofb_pm_ops = {
+static const struct dev_pm_ops glamofb_pm_ops = {
 	.suspend = glamofb_suspend,
 	.resume = glamofb_resume,
 };
