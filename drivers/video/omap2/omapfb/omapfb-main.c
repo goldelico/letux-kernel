@@ -1033,8 +1033,11 @@ int omapfb_apply_changes(struct fb_info *fbi, int init)
 			}
 		} else {
 			/*sv it comes here for vid1 on fb */
-			DBG("its vid pipeline so sclaing is enabled, still we will not scale for output size,just maintain the input size");
 			int rotation = (var->rotate + ofbi->rotation[i]) % 4;
+			DBG("its vid pipeline so sclaing is enabled, still \
+				we will not scale for output size,just \
+				maintain the input size");
+
 			if(rotation == FB_ROTATE_CW ||
 					rotation == FB_ROTATE_CCW){
 				outw = var->yres;
@@ -1453,11 +1456,13 @@ static int omapfb_alloc_fbmem(struct fb_info *fbi, unsigned long size,
 	struct omapfb_info *ofbi = FB2OFB(fbi);
 	struct omapfb2_device *fbdev = ofbi->fbdev;
 	struct omapfb2_mem_region *rg;
-	void __iomem *vaddr;
+	void __iomem *vaddr = NULL;
 	int r;
+#ifdef CONFIG_TILER_OMAP
 	u16 h = 0, w = 0;
 	unsigned long pstride;
 	size_t psize;
+#endif
 
 
 	rg = &ofbi->region;
@@ -1576,9 +1581,10 @@ static int omapfb_alloc_fbmem_display(struct fb_info *fbi, unsigned long size,
 			//size = max(omap_vrfb_min_phys_size(w, h, bytespp),
 				//	omap_vrfb_min_phys_size(h, w, bytespp));
 
+			int oldw = w, oldh = h;
+
 			DBG("adjusting fb mem size for VRFB, %u -> %lu\n",
 					w * h * bytespp, size);
-			int oldw = w, oldh = h;
 			/* Because we change the resolution of the 0 degree
 			 * view, we need to alloc max(w, h) for height */
 			h = max(w, h);
@@ -1861,8 +1867,6 @@ void suspend(struct early_suspend *h)
 	struct suspend_info *info = container_of(h, struct suspend_info,
 						early_suspend);
 	struct fb_info *fbi = info->fbi;
-	struct omapfb_info *ofbi = FB2OFB(fbi);
-	struct omapfb2_device *fbdev = ofbi->fbdev;
 	struct omap_dss_device *display = fb2display(fbi);
 
 	if (!cpu_is_omap44xx() && display->suspend)
@@ -1877,8 +1881,6 @@ void resume(struct early_suspend *h)
 	struct suspend_info *info = container_of(h, struct suspend_info,
 						early_suspend);
 	struct fb_info *fbi = info->fbi;
-	struct omapfb_info *ofbi = FB2OFB(fbi);
-	struct omapfb2_device *fbdev = ofbi->fbdev;
 	struct omap_dss_device *display = fb2display(fbi);
 
 	/* TODO: Fix PM later */
@@ -2272,7 +2274,7 @@ static int omapfb_parse_def_modes(struct omapfb2_device *fbdev)
 
 	str = kmalloc(strlen(def_mode) + 1, GFP_KERNEL);
 	if (!str) {
-		dev_err(&fbdev->dev, "unable to allocate memory for a string\n");
+		dev_err(fbdev->dev, "unable to allocate memory for a string\n");
 		r = -EINVAL;
 		goto err0;
 	}

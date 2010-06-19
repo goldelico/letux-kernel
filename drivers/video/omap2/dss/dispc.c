@@ -2273,11 +2273,7 @@ static int _dispc_setup_plane(enum omap_plane plane,
 		enum omap_dss_rotation_type rotation_type,
 		u8 rotation, int mirror,
 		u8 global_alpha, enum omap_channel channel,
-		u8 pre_alpha_mult
-#ifdef CONFIG_ARCH_OMAP4
-		, u32 puv_addr
-#endif
-		)
+		u8 pre_alpha_mult, u32 puv_addr)
 {
 
 #ifdef CONFIG_ARCH_OMAP4
@@ -2297,9 +2293,8 @@ static int _dispc_setup_plane(enum omap_plane plane,
 
 	u8 orientation = 0;
 	struct tiler_view_orient orient;
-	unsigned long r, mir_x = 0, mir_y = 0;
-	unsigned long tiler_width, tiler_height;
-	void __iomem *reg = NULL;
+	unsigned long mir_x = 0, mir_y = 0;
+	unsigned long tiler_width = 0, tiler_height = 0;
 
 	if (paddr == 0)
 		return -EINVAL;
@@ -2456,69 +2451,76 @@ static int _dispc_setup_plane(enum omap_plane plane,
 	/* Fields are independent but interleaved in memory. */
 	if (fieldmode)
 		field_offset = 1;
-#ifdef CONFIG_ARCH_OMAP4 /*TODO: OMAP4: check ?! */
-	pix_inc = 0x1;
-	offset0 = 0x0;
-	offset1 = 0x0;
-	/* check if tiler address; else set row_inc = 1*/
-	if ((paddr >= 0x60000000) && (paddr <= 0x7fffffff)) {
-		calc_tiler_row_rotation(rotation, width, frame_height,
-						color_mode, &row_inc);
-		orientation = calc_tiler_orientation(rotation, (u8)mirror);
-		/* get rotated top-left coordinate
-				(if rotation is applied before mirroring) */
-		memset(&orient, 0, sizeof(orient));
-		tiler_rotate_view(&orient, rotation * 90);
+	if (cpu_is_omap44xx()) {
+		pix_inc = 0x1;
+		offset0 = 0x0;
+		offset1 = 0x0;
 
-		if (mirror) {
-			/* Horizontal mirroring */
-			if (rotation == 1 || rotation == 3)
-				mir_x = 1;
-			else
-				mir_y = 1;
-		} else {
-			mir_x = 0;
-			mir_y = 0;
-		}
-		orient.x_invert ^= mir_x;
-		orient.y_invert ^= mir_y;
+		/* check if tiler address; else set row_inc = 1*/
+		if ((paddr >= 0x60000000) && (paddr <= 0x7fffffff)) {
+			calc_tiler_row_rotation(rotation, width, frame_height,
+					color_mode, &row_inc);
+			orientation = calc_tiler_orientation(rotation,
+							(u8)mirror);
+			/* get rotated top-left coordinate
+			(if rotation is applied before mirroring) */
+			memset(&orient, 0, sizeof(orient));
+			tiler_rotate_view(&orient, rotation * 90);
 
-		if (orient.rotate_90 & 1) {
-			tiler_height = width;
-			tiler_width = height;
-		} else {
-			tiler_height = height;
-			tiler_width = width;
-		}
+			if (mirror) {
+				/* Horizontal mirroring */
+				if (rotation == 1 || rotation == 3)
+					mir_x = 1;
+				else
+					mir_y = 1;
+			} else {
+				mir_x = 0;
+				mir_y = 0;
+			}
+			orient.x_invert ^= mir_x;
+			orient.y_invert ^= mir_y;
 
-		paddr = tiler_reorient_topleft(tiler_get_natural_addr(paddr),
-				orient, tiler_width, tiler_height);
+			if (orient.rotate_90 & 1) {
+				tiler_height = width;
+				tiler_width = height;
+			} else {
+				tiler_height = height;
+				tiler_width = width;
+			}
 
-		if (puv_addr)
-			puv_addr = tiler_reorient_topleft(
-					tiler_get_natural_addr(puv_addr),
-					orient, tiler_width/2, tiler_height/2);
-			DSSDBG(
-				"rotated addresses: 0x%0x, 0x%0x\n",
-						paddr, puv_addr);
+			paddr = tiler_reorient_topleft(
+					tiler_get_natural_addr((void *) paddr),
+					orient, tiler_width, tiler_height);
+
+
+			if (puv_addr)
+				puv_addr = tiler_reorient_topleft(
+					tiler_get_natural_addr(
+					(void *) puv_addr), orient,
+					tiler_width/2, tiler_height/2);
+
+			DSSDBG("rotated addresses: 0x%0x, 0x%0x\n",
+					paddr, puv_addr);
+
 			/* set BURSTTYPE if rotation is non-zero */
 			REG_FLD_MOD(dispc_reg_att[plane], 0x1, 29, 29);
 
-	} else
-		row_inc = 0x1;
+		} else {
+			row_inc = 0x1;
+		}
+	} else {
+		if (rotation_type == OMAP_DSS_ROT_DMA)
+			calc_dma_rotation_offset(rotation, mirror,
+				screen_width, width, frame_height, color_mode,
+				fieldmode, field_offset,
+				&offset0, &offset1, &row_inc, &pix_inc);
+		else
+			calc_vrfb_rotation_offset(rotation, mirror,
+				screen_width, width, frame_height, color_mode,
+				fieldmode, field_offset,
+				&offset0, &offset1, &row_inc, &pix_inc);
+	}
 
-#else
-	if (rotation_type == OMAP_DSS_ROT_DMA)
-		calc_dma_rotation_offset(rotation, mirror,
-				screen_width, width, frame_height, color_mode,
-				fieldmode, field_offset,
-				&offset0, &offset1, &row_inc, &pix_inc);
-	else
-		calc_vrfb_rotation_offset(rotation, mirror,
-				screen_width, width, frame_height, color_mode,
-				fieldmode, field_offset,
-				&offset0, &offset1, &row_inc, &pix_inc);
-#endif
 	DSSDBG("offset0 %u, offset1 %u, row_inc %d, pix_inc %d\n",
 			offset0, offset1, row_inc, pix_inc);
 
@@ -4279,11 +4281,7 @@ int dispc_setup_plane(enum omap_plane plane,
 		       enum omap_dss_rotation_type rotation_type,
 		       u8 rotation, bool mirror, u8 global_alpha,
 		       enum omap_channel channel,
-		       u8 pre_alpha_mult
-#ifdef CONFIG_ARCH_OMAP4
-			, u32 puv_addr
-#endif
-		)
+		       u8 pre_alpha_mult, u32 puv_addr)
 {
 	int r = 0;
 
@@ -4306,11 +4304,7 @@ int dispc_setup_plane(enum omap_plane plane,
 			   rotation_type,
 			   rotation, mirror,
 			   global_alpha, channel,
-			   pre_alpha_mult
-#ifdef CONFIG_ARCH_OMAP4
-				, puv_addr
-#endif
-			);
+			   pre_alpha_mult, puv_addr);
 
 	enable_clocks(0);
 

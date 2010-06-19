@@ -458,8 +458,9 @@ struct overlay_cache_data {
 
 	bool manual_update;
 
-#ifdef CONFIG_ARCH_OMAP4
 	u32 p_uv_addr; /* relevant for NV12 format only */
+
+#ifdef CONFIG_ARCH_OMAP4
 	enum omap_overlay_zorder zorder;
 #endif
 };
@@ -867,6 +868,9 @@ static int configure_overlay(enum omap_plane plane)
 		}
 	}
 
+	if (!cpu_is_omap44xx())
+		c->p_uv_addr = (u32) NULL;
+
 	r = dispc_setup_plane(plane,
 			paddr,
 			c->screen_width,
@@ -879,11 +883,8 @@ static int configure_overlay(enum omap_plane plane)
 			c->rotation,
 			c->mirror,
 			c->global_alpha, c->channel,
-			c->pre_alpha_mult
-#ifdef CONFIG_ARCH_OMAP4
-			, c->p_uv_addr
-#endif
-			);
+			c->pre_alpha_mult,
+			c->p_uv_addr);
 
 	if (r) {
 		/* this shouldn't happen */

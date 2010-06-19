@@ -47,8 +47,8 @@
 #define DSI_BASE		0x4804FC00
 #else
 #define DSI_BASE		0x58004000
-#define DSI2_BASE		0x58005000
 #endif
+#define DSI2_BASE		0x58005000
 
 struct dsi_reg { u16 idx; };
 struct dss_reg { u16 idx; };
@@ -109,12 +109,11 @@ struct dss_reg { u16 idx; };
 #define DSI_DSIPHY_CFG2			DSI_REG(0x200 + 0x0008)
 #define DSI_DSIPHY_CFG5			DSI_REG(0x200 + 0x0014)
 
-#ifdef CONFIG_ARCH_OMAP4
 #define DSI_DSIPHY_CFG12		DSI_REG(0x200 + 0x0030)
 #define DSI_DSIPHY_CFG14		DSI_REG(0x200 + 0x0038)
 #define DSI_DSIPHY_CFG8			DSI_REG(0x200 + 0x0020)
 #define DSI_DSIPHY_CFG9			DSI_REG(0x200 + 0x0024)
-#endif
+
 /* DSI_PLL_CTRL_SCP */
 
 #define DSI_PLL_CONTROL			DSI_REG(0x300 + 0x0000)
@@ -211,7 +210,7 @@ struct dss_reg { u16 idx; };
 #define DSI_DT_RX_SHORT_READ_1		0x21
 #define DSI_DT_RX_SHORT_READ_2		0x22
 
-#if CONFIG_ARCH_OMAP4
+#ifdef CONFIG_ARCH_OMAP4
 #define FINT_MAX 2100000
 #define FINT_MIN 750000
 #define REGN 8
@@ -351,18 +350,6 @@ static inline u32 dss_read_reg(const struct dss_reg idx)
 {
 	return __raw_readl(dss_base + idx.idx);
 }
-
-static void modify_dss_register(const struct dss_reg idx, u32 clearmask,
-                                                u32 setmask)
-{
-	unsigned int val;
-		val = dss_read_reg(idx);
-		val &= ~(clearmask);
-		val |= (setmask);
-		dss_write_reg(idx,val);
-
-}
-
 
 void dsi_save_context(void)
 {
@@ -1653,9 +1640,8 @@ static void dsi_complexio_timings(enum dsi lcd_ix)
 	u32 ths_prepare, ths_prepare_ths_zero, ths_trail, ths_exit;
 	u32 tlpx_half, tclk_trail, tclk_zero;
 	u32 tclk_prepare;
-	unsigned int val;
-	/* calculate timings */
 
+	/* calculate timings */
 	/* 1 * DDR_CLK = 2 * UI */
 
 	/* min 40ns + 4*UI	max 85ns + 6*UI */
@@ -3729,9 +3715,11 @@ static int dsi_configure_dispc_clocks(struct omap_dss_device *dssdev)
 
 static int dsi_display_init_dsi(struct omap_dss_device *dssdev)
 {
-	int r, l = 0;
+	int r;
 	enum dsi lcd_ix;
 	struct dsi_struct *p_dsi;
+	int l = 0;
+
 	lcd_ix = (dssdev->channel == OMAP_DSS_CHANNEL_LCD) ? dsi1 : dsi2;
 	p_dsi = (lcd_ix == dsi1) ? &dsi_1 : &dsi_2;
 
@@ -3775,26 +3763,26 @@ static int dsi_display_init_dsi(struct omap_dss_device *dssdev)
 	dsi_if_enable(lcd_ix, 1);
 	dsi_force_tx_stop_mode_io(lcd_ix);
 
-#ifdef CONFIG_ARCH_OMAP4
-	/* magic OMAP4 registers */
-	dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG12, 0x58);
+	if (cpu_is_omap44xx()) {
+		/* magic OMAP4 registers */
+		dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG12, 0x58);
 
-	l = dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG14);
-	l = FLD_MOD(l, 1, 31, 31);
-	l = FLD_MOD(l, 0x54, 30, 23);
-	l = FLD_MOD(l, 1, 19, 19);
-	l = FLD_MOD(l, 1, 18, 18);
-	l = FLD_MOD(l, 7, 17, 14);
-	l = FLD_MOD(l, 1, 11, 11);
-	dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG14, l);
+		l = dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG14);
+		l = FLD_MOD(l, 1, 31, 31);
+		l = FLD_MOD(l, 0x54, 30, 23);
+		l = FLD_MOD(l, 1, 19, 19);
+		l = FLD_MOD(l, 1, 18, 18);
+		l = FLD_MOD(l, 7, 17, 14);
+		l = FLD_MOD(l, 1, 11, 11);
+		dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG14, l);
 
-	l = dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG8);
-	l = FLD_MOD(l, 1, 11, 11);
-	l = FLD_MOD(l, 0x10, 10, 6);
-	l = FLD_MOD(l, 1, 5, 5);
-	l = FLD_MOD(l, 0xE, 3, 0);
-	dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG8, l);
-#endif
+		l = dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG8);
+		l = FLD_MOD(l, 1, 11, 11);
+		l = FLD_MOD(l, 0x10, 10, 6);
+		l = FLD_MOD(l, 1, 5, 5);
+		l = FLD_MOD(l, 0xE, 3, 0);
+		dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG8, l);
+	}
 
 	/* Around 100ms delay for TAAL to stabilize*/
 	/* :TODO: is this needed for OMAP3? */
@@ -4541,17 +4529,17 @@ int dsi2_init(struct platform_device *pdev)
 	dsi_2.update_mode = OMAP_DSS_UPDATE_DISABLED;
 	dsi_2.user_update_mode = OMAP_DSS_UPDATE_DISABLED;
 
-#ifdef CONFIG_ARCH_OMAP4
-	dsi_2.base = ioremap(DSI2_BASE, 2000);
-	if (!dsi_2.base) {
-		DSSERR("can't ioremap DSI\n");
-		r = -ENOMEM;
-		goto err1;
-	}
+	if (cpu_is_omap44xx()) {
+		dsi_2.base = ioremap(DSI2_BASE, 2000);
+		if (!dsi_2.base) {
+			DSSERR("can't ioremap DSI\n");
+			r = -ENOMEM;
+			goto err1;
+		}
 
-	r = request_irq(INT_44XX_DSS_DSI2_IRQ, dsi2_irq_handler,
+		r = request_irq(INT_44XX_DSS_DSI2_IRQ, dsi2_irq_handler,
 			0, "OMAP DSI2", (void *)0);
-#endif
+	}
 
 	enable_clocks(1);
 
@@ -4564,12 +4552,9 @@ int dsi2_init(struct platform_device *pdev)
 	wake_up_process(dsi_2.thread);
 
 	return 0;
-#ifdef CONFIG_ARCH_OMAP4
-err2:
-	iounmap(dsi_2.base);
 err1:
 	kthread_stop(dsi_2.thread);
-#endif
+
 err0:
 	return r;
 }

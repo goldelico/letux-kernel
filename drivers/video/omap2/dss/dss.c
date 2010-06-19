@@ -570,10 +570,8 @@ void dss_configure_venc(bool enable)
 
 int dss_init(bool skip_init)
 {
-	int r, ret;
+	int r;
 	u32 rev;
-	u32 val;
-	u32 mmcdata2;
 
 	dss_base = dss.base = ioremap(DSS_BASE, DSS_SZ_REGS);
 
@@ -671,8 +669,8 @@ void test(void)
 {
 	u32 b, c;
 	/*a = ioremap(0x58000000, 0x60);*/
-	b = ioremap(0x4A009100, 0x30);
-	c = ioremap(0x4a307100, 0x10);
+	b = (u32) ioremap(0x4A009100, 0x30);
+	c = (u32) ioremap(0x4a307100, 0x10);
 
 	if (!b)
 		return;

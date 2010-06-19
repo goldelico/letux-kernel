@@ -132,6 +132,7 @@ static u32 video3_numbuffers = 3;
 static u32 video1_bufsize = OMAP_VOUT_MAX_BUF_SIZE;
 static u32 video2_bufsize = OMAP_VOUT_MAX_BUF_SIZE;
 static u32 video3_bufsize = OMAP_VOUT_MAX_BUF_SIZE;
+
 static u32 vid1_static_vrfb_alloc;
 static u32 vid2_static_vrfb_alloc;
 static int debug;
@@ -586,13 +587,10 @@ static void omap_vout_free_buffers(struct omap_vout_device *vout)
 	int i, numbuffers;
 
 	/* Allocate memory for the buffers */
-#ifdef CONFIG_ARCH_OMAP4
 	if (OMAP_VIDEO3 == vout->vid) {
 		numbuffers = video3_numbuffers;
 		vout->buffer_size = video3_bufsize;
-	} else
-#endif
-	{
+	} else	{
 		numbuffers = (vout->vid)	? video2_numbuffers
 						: video1_numbuffers;
 		vout->buffer_size = (vout->vid)	? video2_bufsize
@@ -768,8 +766,10 @@ static int omap_vout_tiler_buffer_setup(struct omap_vout_device *vout,
 /* Free tiler buffers */
 static void omap_vout_free_tiler_buffers(struct omap_vout_device *vout)
 {
+#ifdef CONFIG_TILER_OMAP
 	omap_vout_tiler_buffer_free(vout, vout->buffer_allocated, 0);
 	vout->buffer_allocated = 0;
+#endif
 }
 
 /* Convert V4L2 rotation to DSS rotation
