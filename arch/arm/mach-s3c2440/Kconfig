@@ -102,6 +102,7 @@ config MACH_NEO1973_GTA02
 	select S3C_DEV_USB_HOST
 	select S3C_DEV_NAND
 	select FIQ
+	select S3C24XX_GPIO_EXTRA64
 	help
 	   Say Y here if you are using the Openmoko GTA02 / Freerunner GSM Phone
 
