@@ -46,7 +46,7 @@
 #define OMAP2_SRAM_PUB_VA	(OMAP2_SRAM_VA + 0x800)
 #define OMAP3_SRAM_PA           0x40200000
 #define OMAP3_SRAM_VA           0xfe400000
-#define OMAP3_SRAM_PUB_PA       0x40208000
+#define OMAP3_SRAM_PUB_PA       (OMAP3_SRAM_PA + 0x8000)
 #define OMAP3_SRAM_PUB_VA       (OMAP3_SRAM_VA + 0x8000)
 #define OMAP4_SRAM_PA		0x40300000
 #define OMAP4_SRAM_VA		0xfe400000
@@ -134,12 +134,17 @@ void __init omap_detect_sram(void)
 	if (cpu_class_is_omap2()) {
 		if (is_sram_locked()) {
 			if (cpu_is_omap34xx()) {
-				omap_sram_base = OMAP3_SRAM_PUB_VA;
-				omap_sram_start = OMAP3_SRAM_PUB_PA;
 				if ((omap_type() == OMAP2_DEVICE_TYPE_EMU) ||
 				    (omap_type() == OMAP2_DEVICE_TYPE_SEC)) {
-					omap_sram_size = 0x7000; /* 28K */
+					/* 4K For Public SRAM
+					 * 60K For Secure SRAM
+					 */
+					omap_sram_base = OMAP3_SRAM_VA + 0xF000;
+					omap_sram_start = OMAP3_SRAM_PA + 0xF000;
+					omap_sram_size = 0x1000;
 				} else {
+					omap_sram_base = OMAP3_SRAM_PUB_VA;
+					omap_sram_start = OMAP3_SRAM_PUB_PA;
 					omap_sram_size = 0x8000; /* 32K */
 				}
 			} else if (cpu_is_omap44xx()) {
@@ -187,6 +192,11 @@ void __init omap_detect_sram(void)
 			omap_sram_size = 0x4000;
 		}
 	}
+
+	printk(KERN_INFO "omap_sam_base (VA) == 0x%lx\n", omap_sram_base);
+	printk(KERN_INFO "omap_sram_start (PA) == 0x%lx\n", omap_sram_start);
+	printk(KERN_INFO "omap_sram_size (SIZE) == 0x%lx\n", omap_sram_size);
+
 	reserved = omapfb_reserve_sram(omap_sram_start, omap_sram_base,
 				       omap_sram_size,
 				       omap_sram_start + SRAM_BOOTLOADER_SZ,
@@ -198,7 +208,6 @@ void __init omap_detect_sram(void)
 			omap_sram_start + SRAM_BOOTLOADER_SZ,
 			omap_sram_size - SRAM_BOOTLOADER_SZ);
 	omap_sram_size -= reserved;
-
 	omap_sram_ceil = omap_sram_base + omap_sram_size;
 }
 
