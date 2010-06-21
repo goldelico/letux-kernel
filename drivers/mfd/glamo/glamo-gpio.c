@@ -43,7 +43,7 @@ struct glamo_gpio {
 	uint16_t saved_regs[GLAMO_NR_GPIO_REGS];
 };
 
-#define REG_OF_GPIO(gpio)   (GLAMO_REG_GPIO(gpio >> 2))
+#define REG_OF_GPIO(gpio)	(GLAMO_REG_GPIO(gpio >> 2))
 #define NUM_OF_GPIO(gpio)	(gpio & 0x3)
 #define DIRECTION_BIT(gpio)	(1 << (NUM_OF_GPIO(gpio) + 0))
 #define OUTPUT_BIT(gpio)	(1 << (NUM_OF_GPIO(gpio) + 4))
@@ -111,7 +111,7 @@ static void glamo_gpio_free(struct gpio_chip *chip, unsigned offset)
 }
 
 static int glamo_gpio_direction_output(struct gpio_chip *chip, unsigned offset,
-						int value)
+				       int value)
 {
 	struct glamo_core *glamo = chip_to_glamo(chip);
 	unsigned int reg = REG_OF_GPIO(offset);
@@ -119,7 +119,7 @@ static int glamo_gpio_direction_output(struct gpio_chip *chip, unsigned offset,
 
 	spin_lock(&glamo->lock);
 	tmp = readw(glamo->base + reg);
-    tmp &= ~DIRECTION_BIT(offset);
+	tmp &= ~DIRECTION_BIT(offset);
 
 	if (value)
 		tmp |= OUTPUT_BIT(offset);
@@ -160,7 +160,7 @@ static const struct __devinit gpio_chip glamo_gpio_chip = {
 	.base				= -1,
 	.ngpio				= GLAMO_NR_GPIO,
 	.can_sleep			= 0,
-	.owner             = THIS_MODULE,
+	.owner				= THIS_MODULE,
 };
 
 static int __devinit glamo_gpio_probe(struct platform_device *pdev)
