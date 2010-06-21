@@ -590,19 +590,6 @@ void musb_g_tx(struct musb *musb, u8 epnum)
  * Context: controller locked, IRQs blocked, endpoint selected
  */
 
-/*
- * Enable DMA Mode 1 RX for g_file_storage and android usb_mass_storage. This
- * will increase thpt performance by around 30% for mass-storage use cases.
- * Check run-time for the type of gadget driver loaded and enable Mode 1 RX if
- * its g_file_storage or android usb_mass_storage driver.
- */
-
-static int use_dma_mode1_rx(struct musb *musb)
-{
-	return !strcmp(musb->gadget_driver->driver.name, "g_file_storage") ||
-	!strcmp(musb->gadget_driver->driver.name, "android_usb");
-}
-
 static void rxstate(struct musb *musb, struct musb_request *req)
 {
 	const u8		epnum = req->epnum;
@@ -657,10 +644,12 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 		len = musb_readw(epio, MUSB_RXCOUNT);
 
 		/*
-		 * Enable Mode 1 for RX transfers only for mass-storage case
+		 * Enable Mode 1 for RX transfers only for mass-storage
+		 * use-case, based on short_not_ok flag which is set only
+		 * from file_storage and f_mass_storage drivers
 		 */
 
-		if (use_dma_mode1_rx(musb) && len == musb_ep->packet_sz)
+		if (request->short_not_ok && len == musb_ep->packet_sz)
 			use_mode_1 = 1;
 		else
 			use_mode_1 = 0;
