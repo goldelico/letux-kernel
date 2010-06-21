@@ -351,7 +351,7 @@ static struct musb_hdrc_platform_data musb_plat = {
 	.power		= 50,			/* up to 100 mA */
 #ifdef CONFIG_ARCH_OMAP3
 	.context_loss_counter = get_last_off_on_transaction_id,
-	.set_vdd1_opp	= omap_pm_set_min_mpu_freq,
+	.set_vdd1_opp	= NULL,
 #elif defined(CONFIG_ARCH_OMAP4)	/* REVISIT later for OMAP4 */
 	.context_loss_counter = NULL,
 #endif
