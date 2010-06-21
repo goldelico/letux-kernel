@@ -195,7 +195,7 @@ static int dpi_set_mode(struct omap_dss_device *dssdev)
 		dispc_set_lcd_timings(OMAP_DSS_CHANNEL_LCD2, t);
 	else
 		dispc_set_lcd_timings(OMAP_DSS_CHANNEL_LCD, t);
-#ifdef CONFIG_OMAP2_DSS_USE_DSI_PLL
+#ifdef CONFIG_ARCH_OMAP4
 err2:
 	dss_select_clk_source_dsi(lcd_channel_ix, false, false);
 err1:
