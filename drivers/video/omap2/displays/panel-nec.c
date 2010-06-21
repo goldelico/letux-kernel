@@ -55,7 +55,7 @@ static struct omap_video_timings nec_panel_timings = {
 	.hbp            = 4,
 	.vfp            = 3,
 	.vsw            = 1,
-	.vbp            = 4,
+	.vbp            = 7,
 };
 
 static void nec_get_resolution(struct omap_dss_device *dssdev,
