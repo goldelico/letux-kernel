@@ -2005,7 +2005,8 @@ static int omapfb_fb_init(struct omapfb2_device *fbdev, struct fb_info *fbi)
 	r = fb_alloc_cmap(&fbi->cmap, 256, 0);
 	if (r)
 		dev_err(fbdev->dev, "unable to allocate color map memory\n");
-#ifdef CONFIG_HAS_EARLYSUSPEND
+/* #ifdef CONFIG_HAS_EARLYSUSPEND */
+#if 0
 	suspend_info.fbi = fbi;
 	register_early_suspend(&suspend_info.early_suspend);
 #endif
