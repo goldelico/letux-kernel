@@ -184,6 +184,7 @@
 #define OMAP2_RM_RSTST					0x0058
 #define OMAP2_PM_PWSTCTRL				0x00e0
 #define OMAP2_PM_PWSTST					0x00e4
+#define OMAP2_PM_PREPWSTST				0x00e8
 
 #define PM_WKEN						0x00a0
 #define PM_WKEN1					PM_WKEN

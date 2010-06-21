@@ -64,6 +64,10 @@ static int regset_save_on_suspend;
 #define OMAP343X_TABLE_VALUE_OFFSET	   0x30
 #define OMAP343X_CONTROL_REG_VALUE_OFFSET  0x32
 
+#define PER_WAKEUP_ERRATA_i582 (1 << 0)
+static u16 pm34xx_errata;
+#define IS_PM34XX_ERRATA(id) (pm34xx_errata & (id))
+
 u32 enable_off_mode;
 u32 sleep_while_idle;
 u32 wakeup_timer_seconds;
@@ -418,20 +422,40 @@ void omap_sram_idle(void)
 	/* PER */
 	per_next_state = pwrdm_read_next_pwrst(per_pwrdm);
 	core_next_state = pwrdm_read_next_pwrst(core_pwrdm);
-	if (per_next_state < PWRDM_POWER_ON) {
-		omap_uart_prepare_idle(2);
+	if (IS_PM34XX_ERRATA(PER_WAKEUP_ERRATA_i582)) {
+
+		if (per_next_state == PWRDM_POWER_OFF)
+			if (core_next_state != PWRDM_POWER_OFF)
+				per_next_state = PWRDM_POWER_RET;
+
+		if (per_next_state < PWRDM_POWER_ON) {
+			omap_uart_prepare_idle(2);
+			omap2_gpio_prepare_for_idle(per_next_state);
+
+			pwrdm_set_next_pwrst(per_pwrdm, per_next_state);
+			if (per_next_state == PWRDM_POWER_OFF) {
+				pwrdm_add_sleepdep(mpu_pwrdm, per_pwrdm);
+				omap3_per_save_context();
+			}
+		}
+
+	} else {
+		if (per_next_state < PWRDM_POWER_ON) {
+			omap_uart_prepare_idle(2);
 		omap2_gpio_prepare_for_idle(per_next_state);
 		if (per_next_state == PWRDM_POWER_OFF) {
 			if (core_next_state == PWRDM_POWER_ON) {
 				per_next_state = PWRDM_POWER_RET;
-				pwrdm_set_next_pwrst(per_pwrdm, per_next_state);
+				pwrdm_set_next_pwrst(per_pwrdm,
+						per_next_state);
 				per_state_modified = 1;
 			} else
 				omap3_per_save_context();
 		}
 	}
+}
 
-	if (pwrdm_read_pwrst(cam_pwrdm) == PWRDM_POWER_ON)
+if (pwrdm_read_pwrst(cam_pwrdm) == PWRDM_POWER_ON)
 		omap2_clkdm_deny_idle(mpu_pwrdm->pwrdm_clkdms[0]);
 
 	/*
@@ -495,15 +519,32 @@ void omap_sram_idle(void)
 	    core_next_state == PWRDM_POWER_OFF)
 		sdrc_write_reg(sdrc_pwr, SDRC_POWER);
 
-	/* Restore table entry modified during MMU restoration */
-	if (pwrdm_read_prev_pwrst(mpu_pwrdm) == PWRDM_POWER_OFF)
-		restore_table_entry();
+		/* Restore table entry modified during MMU restoration */
+if (pwrdm_read_prev_pwrst(mpu_pwrdm) == PWRDM_POWER_OFF)
+	restore_table_entry();
 
-	/* CORE */
-	if (core_next_state < PWRDM_POWER_ON) {
-		core_prev_state = pwrdm_read_prev_pwrst(core_pwrdm);
-		if (core_prev_state == PWRDM_POWER_OFF) {
-			omap3_core_restore_context();
+	if (IS_PM34XX_ERRATA(PER_WAKEUP_ERRATA_i582)) {
+		u32 coreprev_state = prm_read_mod_reg(CORE_MOD,
+				OMAP2_PM_PREPWSTST);
+		u32 perprev_state =  prm_read_mod_reg(OMAP3430_PER_MOD,
+				OMAP2_PM_PREPWSTST);
+		if ((coreprev_state == PWRDM_POWER_ON) && \
+				(perprev_state == PWRDM_POWER_OFF)) {
+			pr_err("Entering the corner case...WA2\n");
+			/*
+			 * We dont seem to have a real recovery
+			 * other than reset
+       */
+			BUG();
+			/* let wdt Reset the device???????? - eoww */
+		}
+	}
+
+/* CORE */
+if (core_next_state < PWRDM_POWER_ON) {
+	core_prev_state = pwrdm_read_prev_pwrst(core_pwrdm);
+	if (core_prev_state == PWRDM_POWER_OFF) {
+		omap3_core_restore_context();
 			omap3_prcm_restore_context();
 			omap3_sram_restore_context();
 			omap2_sms_restore_context();
@@ -552,14 +593,22 @@ void omap_sram_idle(void)
 		}
 		omap2_gpio_resume_after_idle();
 		omap_uart_resume_idle(2);
-		if (per_state_modified)
-			pwrdm_set_next_pwrst(per_pwrdm, PWRDM_POWER_OFF);
+
+		if (IS_PM34XX_ERRATA(PER_WAKEUP_ERRATA_i582)) {
+			if (per_next_state == PWRDM_POWER_OFF) {
+				pwrdm_set_next_pwrst(per_pwrdm,
+						PWRDM_POWER_RET);
+				pwrdm_del_sleepdep(mpu_pwrdm, per_pwrdm);
+			}
+		} else if (per_state_modified)
+			pwrdm_set_next_pwrst(per_pwrdm,
+					PWRDM_POWER_OFF);
 	}
 
-	/* Disable IO-PAD and IO-CHAIN wakeup */
-	if (core_next_state < PWRDM_POWER_ON) {
-		prm_clear_mod_reg_bits(OMAP3430_EN_IO, WKUP_MOD, PM_WKEN);
-		omap3_disable_io_chain();
+/* Disable IO-PAD and IO-CHAIN wakeup */
+if (core_next_state < PWRDM_POWER_ON) {
+	prm_clear_mod_reg_bits(OMAP3430_EN_IO, WKUP_MOD, PM_WKEN);
+	omap3_disable_io_chain();
 	}
 
 
@@ -1042,6 +1091,11 @@ void omap3_pm_off_mode_enable(int enable)
 #endif
 	list_for_each_entry(pwrst, &pwrst_list, node) {
 		pwrst->next_state = state;
+
+		if (IS_PM34XX_ERRATA(PER_WAKEUP_ERRATA_i582))
+			if ((state == PWRDM_POWER_OFF) &&
+			(!strcmp("per_pwrdm", pwrst->pwrdm->name)))
+				continue;
 		set_pwrdm_state(pwrst->pwrdm, state);
 	}
 }
@@ -1182,6 +1236,14 @@ static struct notifier_block prcm_panic_notifier = {
 	.priority	= INT_MAX,
 };
 
+static void pm_errata_configure(void)
+{
+	if (cpu_is_omap343x() || (cpu_is_omap3630() &&
+				(omap_rev() <= OMAP3630_REV_ES1_1))) {
+		pm34xx_errata |= PER_WAKEUP_ERRATA_i582;
+	}
+}
+
 static int __init omap3_pm_init(void)
 {
 	struct power_state *pwrst, *tmp;
@@ -1239,14 +1301,20 @@ static int __init omap3_pm_init(void)
 	 * IO-pad wakeup.  Otherwise it will unnecessarily waste power
 	 * waking up PER with every CORE wakeup - see
 	 * http://marc.info/?l=linux-omap&m=121852150710062&w=2
-	*/
+   */
 	pwrdm_add_wkdep(per_pwrdm, core_pwrdm);
+
+	if (IS_PM34XX_ERRATA(PER_WAKEUP_ERRATA_i582)) {
+		/* Allow per to wakeup the system */
+		if (cpu_is_omap34xx())
+			pwrdm_add_wkdep(per_pwrdm, wkup_pwrdm);
+	}
 	/*
 	 * A part of the fix for errata 1.158.
 	 * GPIO pad spurious transition (glitch/spike) upon wakeup
 	 * from SYSTEM OFF mode. The remaining fix is in:
 	 * omap3_gpio_save_context, omap3_gpio_restore_context.
-	 */
+   */
 	if (omap_rev() <= OMAP3430_REV_ES3_1)
 		pwrdm_add_wkdep(per_pwrdm, wkup_pwrdm);
 
