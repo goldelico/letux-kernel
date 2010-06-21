@@ -30,7 +30,6 @@ enum glamo_engine_state {
 struct glamo_core {
 	int irq;
 	int irq_base;
-	int irq_works; /* 0 means PCB does not support Glamo IRQ */
 	struct resource *mem;
 	void __iomem *base;
 	struct platform_device *pdev;
