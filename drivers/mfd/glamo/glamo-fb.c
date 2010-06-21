@@ -241,7 +241,7 @@ static void reg_set_bit_mask(struct glamofb_handle *glamo,
 #define GLAMO_LCD_HV_RETR_DISP_START_MASK 0x03FF
 #define GLAMO_LCD_HV_RETR_DISP_END_MASK 0x03FF
 
-/* the caller has to enxure lock_cmd is held and we are in cmd mode */
+/* the caller has to ensure lock_cmd is held and we are in cmd mode */
 static void __rotate_lcd(struct glamofb_handle *glamo, __u32 rotation)
 {
 	int glamo_rot;
@@ -895,7 +895,10 @@ static int glamofb_remove(struct platform_device *pdev)
 	struct glamofb_handle *glamofb = platform_get_drvdata(pdev);
 
 	platform_set_drvdata(pdev, NULL);
+	iounmap(glamofb->fb->screen_base);
 	iounmap(glamofb->base);
+	release_mem_region(glamofb->fb_res->start,
+				resource_size(glamofb->fb_res));
 	release_mem_region(glamofb->reg->start, resource_size(glamofb->reg));
 
 	framebuffer_release(glamofb->fb);
