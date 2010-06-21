@@ -125,4 +125,7 @@ struct uart_omap_port {
 	unsigned long		port_activity;
 };
 
+void omap_uart_mdr1_errataset(int uart_no, u8 mdr1_val,
+		u8 fcr_val);
+
 #endif /* __OMAP_SERIAL_H__ */
