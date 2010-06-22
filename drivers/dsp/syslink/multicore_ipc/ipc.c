@@ -1512,6 +1512,19 @@ int ipc_destroy(void)
 
 	if (ipc_module->ref_count == 0) {
 		gate_leave_system(key);
+		if (unlikely(atomic_cmpmask_and_lt(
+					&(ipc_module->start_ref_count),
+					IPC_MAKE_MAGICSTAMP(0),
+					IPC_MAKE_MAGICSTAMP(1)) == false)) {
+			/*
+			 * ipc_start was called, but ipc_stop never happened.
+			 * Need to call ipc_stop here.
+			 */
+			/* Set the count to 1 so only need to call stop once. */
+			atomic_set(&ipc_module->start_ref_count,
+					IPC_MAKE_MAGICSTAMP(1));
+			ipc_stop();
+		}
 		status = platform_destroy();
 		if (status < 0) {
 			status = IPC_E_FAIL;

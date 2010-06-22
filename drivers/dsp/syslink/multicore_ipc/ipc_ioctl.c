@@ -85,7 +85,7 @@ int ipc_ioc_router(u32 cmd, ulong arg, struct file *filp, bool user)
 	else if (ioc_nr >= MESSAGEQ_BASE_CMD && ioc_nr <= MESSAGEQ_END_CMD)
 		retval = messageq_ioctl(NULL, filp, cmd, arg, user);
 	else if (ioc_nr >= IPC_BASE_CMD && ioc_nr <= IPC_END_CMD)
-		retval = sysipc_ioctl(NULL, filp, cmd, arg);
+		retval = sysipc_ioctl(NULL, filp, cmd, arg, user);
 /*	else if (ioc_nr >= SYSMEMMGR_BASE_CMD && ioc_nr <= SYSMEMMGR_END_CMD)
 		retval = sysmemmgr_ioctl(NULL, NULL, cmd, arg);*/
 	else if (ioc_nr >= HEAPMEMMP_BASE_CMD && ioc_nr <= HEAPMEMMP_END_CMD)

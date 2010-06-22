@@ -113,6 +113,6 @@ struct sysipc_cmd_args {
  */
 /* ioctl interface function for sysmgr */
 int sysipc_ioctl(struct inode *inode, struct file *filp,
-				unsigned int cmd, unsigned long args);
+			unsigned int cmd, unsigned long args, bool user);
 
 #endif /* _SYSIPC_IOCTL_H_ */
