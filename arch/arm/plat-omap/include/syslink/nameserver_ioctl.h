@@ -256,6 +256,6 @@ struct nameserver_cmd_args {
  *  This ioctl interface for nameserver module
  */
 int nameserver_ioctl(struct inode *inode, struct file *filp,
-			unsigned int cmd, unsigned long args);
+			unsigned int cmd, unsigned long args, bool user);
 
 #endif	/* _NAMESERVER_IOCTL_H_ */
