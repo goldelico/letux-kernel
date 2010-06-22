@@ -1319,8 +1319,13 @@ void abe_write_equalizer(abe_equ_id id, abe_equ_t *param)
 		eq_offset = C_APS_DL2_R_coeffs1_ADDR;
 		break;
 	}
+
 	length = param->equ_length;
-	src = (param->coef).type1;
+	src = (abe_uint32 *)((param->coef).type1);
+
+	eq_offset <<=2;	/* translate in bytes */
+	length <<=2;	/* translate in bytes */
+
 	abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_CMEM, eq_offset, src, length);
 }
 
