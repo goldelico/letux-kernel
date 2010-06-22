@@ -70,7 +70,7 @@ int ipc_ioc_router(u32 cmd, ulong arg, struct file *filp, bool user)
 	u32 ioc_nr = _IOC_NR(cmd);
 
 	if (ioc_nr >= MULTIPROC_BASE_CMD && ioc_nr <= MULTIPROC_END_CMD)
-		retval = multiproc_ioctl(NULL, filp, cmd, arg);
+		retval = multiproc_ioctl(NULL, filp, cmd, arg, user);
 	else if (ioc_nr >= NAMESERVER_BASE_CMD && ioc_nr <= NAMESERVER_END_CMD)
 		retval = nameserver_ioctl(NULL, filp, cmd, arg);
 	else if (ioc_nr >= HEAPBUFMP_BASE_CMD && ioc_nr <= HEAPBUFMP_END_CMD)

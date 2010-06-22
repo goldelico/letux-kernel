@@ -89,6 +89,6 @@ struct multiproc_cmd_args {
  *  This ioctl interface for multiproc module
  */
 int multiproc_ioctl(struct inode *inode, struct file *filp,
-			unsigned int cmd, unsigned long args);
+			unsigned int cmd, unsigned long args, bool user);
 
 #endif	/* _MULTIPROC_IOCTL_H_ */
