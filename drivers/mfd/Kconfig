@@ -398,7 +398,14 @@ config LPC_SCH
 	help
 	  LPC bridge function of the Intel SCH provides support for
 	  System Management Bus and General Purpose I/O.
-source "drivers/mfd/glamo/Kconfig"
+
+config MFD_GLAMO
+	bool "Smedia Glamo 336x/337x support"
+	select MFD_CORE
+	help
+	  This enables the core driver for the Smedia Glamo 336x/337x
+	  multi-function device.  It includes irq_chip demultiplex as
+	  well as clock / power management and GPIO support.
 
 endmenu
 

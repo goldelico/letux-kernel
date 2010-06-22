@@ -32,6 +32,8 @@
 #include <linux/spinlock.h>
 #include <linux/io.h>
 #include <linux/mfd/glamo.h>
+#include <linux/mfd/glamo-core.h>
+#include <linux/mfd/glamo-regs.h>
 
 #include <asm/div64.h>
 
@@ -40,9 +42,6 @@
 #endif
 
 #include <linux/glamofb.h>
-
-#include "glamo-regs.h"
-#include "glamo-core.h"
 
 static void glamofb_program_mode(struct glamofb_handle *glamo);
 

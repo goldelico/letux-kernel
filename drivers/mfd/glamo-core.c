@@ -36,13 +36,12 @@
 #include <linux/spinlock.h>
 #include <linux/mfd/core.h>
 #include <linux/mfd/glamo.h>
+#include <linux/mfd/glamo-regs.h>
+#include <linux/mfd/glamo-core.h>
 #include <linux/io.h>
 #include <linux/slab.h>
 
 #include <linux/pm.h>
-
-#include "glamo-regs.h"
-#include "glamo-core.h"
 
 #define GLAMO_MEM_REFRESH_COUNT 0x100
 

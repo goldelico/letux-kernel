@@ -26,9 +26,8 @@
 #include <linux/regulator/consumer.h>
 #include <linux/err.h>
 #include <linux/mfd/glamo.h>
-
-#include "glamo-core.h"
-#include "glamo-regs.h"
+#include <linux/mfd/glamo-core.h>
+#include <linux/mfd/glamo-regs.h>
 
 struct glamo_mci_host {
 	struct glamo_mmc_platform_data *pdata;

@@ -28,9 +28,8 @@
 
 #include <linux/gpio.h>
 #include <linux/mfd/glamo.h>
-
-#include "glamo-core.h"
-#include "glamo-regs.h"
+#include <linux/mfd/glamo-core.h>
+#include <linux/mfd/glamo-regs.h>
 
 #define GLAMO_NR_GPIO 21
 #define GLAMO_NR_GPIO_REGS DIV_ROUND_UP(GLAMO_NR_GPIO, 4)

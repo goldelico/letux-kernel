@@ -353,6 +353,17 @@ config MMC_S3C_PIODMA
 
 endchoice
 
+config MMC_GLAMO
+	tristate "Glamo S3C SD/MMC Card Interface support"
+	depends on MFD_GLAMO && MMC && REGULATOR
+	select CRC7
+	help
+	  This selects a driver for the MCI interface found in
+	  the S-Media GLAMO chip, as used in Openmoko
+	  neo1973 GTA-02.
+
+	  If unsure, say N.
+
 config MMC_SDRICOH_CS
 	tristate "MMC/SD driver for Ricoh Bay1Controllers (EXPERIMENTAL)"
 	depends on EXPERIMENTAL && PCI && PCMCIA
