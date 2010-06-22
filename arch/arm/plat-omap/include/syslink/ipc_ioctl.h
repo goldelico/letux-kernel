@@ -87,6 +87,27 @@ enum ipc_command_ranges {
 				NOTIFY_CMD_NOS - 1)
 };
 
-int ipc_ioc_router(u32 cmd, ulong arg);
+struct resource_info {
+	struct list_head res; /* Pointer to res entry */
+	unsigned int cmd; /* command */
+	void *data; /* Some private data */
+};
+
+/* Process Context */
+struct ipc_process_context {
+	/* List of Resources */
+	struct list_head resources;
+	spinlock_t res_lock;
+
+	struct ipc_device *dev;
+};
+
+void add_pr_res(struct ipc_process_context *pr_ctxt, unsigned int cmd,
+		void *data);
+
+void remove_pr_res(struct ipc_process_context *pr_ctxt,
+			struct resource_info *info);
+
+int ipc_ioc_router(u32 cmd, ulong arg, struct file *filp, bool user);
 
 #endif /* _IPC_IOCTL_H */

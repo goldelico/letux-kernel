@@ -34,6 +34,8 @@
 #define IPC_MINOR		0
 #define IPC_DEVICES		1
 
+#define ipc_release_resource(x, y, z) (ipc_ioc_router(x, y, z, false))
+
 struct ipc_device {
 	struct cdev cdev;
 };
@@ -66,9 +68,19 @@ int ipc_open(struct inode *inode, struct file *filp)
 {
 	s32 retval = 0;
 	struct ipc_device *dev;
+	struct ipc_process_context *pr_ctxt = NULL;
 
-	dev = container_of(inode->i_cdev, struct ipc_device, cdev);
-	filp->private_data = dev;
+	pr_ctxt = kzalloc(sizeof(struct ipc_process_context), GFP_KERNEL);
+	if (!pr_ctxt)
+		retval = -ENOMEM;
+	else {
+		INIT_LIST_HEAD(&pr_ctxt->resources);
+		spin_lock_init(&pr_ctxt->res_lock);
+		dev = container_of(inode->i_cdev, struct ipc_device,
+					cdev);
+		pr_ctxt->dev = dev;
+		filp->private_data = pr_ctxt;
+	}
 	return retval;
 }
 
@@ -79,7 +91,28 @@ int ipc_open(struct inode *inode, struct file *filp)
  */
 int ipc_release(struct inode *inode, struct file *filp)
 {
-	return 0;
+	s32 retval = 0;
+	struct ipc_process_context *pr_ctxt;
+	struct resource_info *info = NULL, *temp = NULL;
+
+	if (!filp->private_data) {
+		retval = -EIO;
+		goto err;
+	}
+
+	pr_ctxt = filp->private_data;
+
+	list_for_each_entry_safe(info, temp, &pr_ctxt->resources, res) {
+		retval = ipc_release_resource(info->cmd, (ulong)info->data,
+					filp);
+	}
+
+	list_del(&pr_ctxt->resources);
+	kfree(pr_ctxt);
+
+	filp->private_data = NULL;
+err:
+	return retval;
 }
 
 /*
@@ -105,7 +138,7 @@ int ipc_ioctl(struct inode *ip, struct file *filp, u32 cmd, ulong arg)
 		goto exit;
 	}
 
-	retval = ipc_ioc_router(cmd, (ulong)argp);
+	retval = ipc_ioc_router(cmd, (ulong)argp, filp, true);
 	return retval;
 
 exit:
