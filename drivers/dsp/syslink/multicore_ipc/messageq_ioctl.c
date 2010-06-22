@@ -30,6 +30,68 @@
 #include <messageq_ioctl.h>
 #include <sharedregion.h>
 
+static struct resource_info *find_messageq_resource(
+					struct ipc_process_context *pr_ctxt,
+					unsigned int cmd,
+					struct messageq_cmd_args *cargs)
+{
+	struct resource_info *info = NULL;
+	bool found = false;
+
+	spin_lock(&pr_ctxt->res_lock);
+
+	list_for_each_entry(info, &pr_ctxt->resources, res) {
+		struct messageq_cmd_args *args =
+					(struct messageq_cmd_args *)info->data;
+		void *handle = NULL;
+		void *t_handle = NULL;
+		if (cargs != NULL && args != NULL) {
+			handle = args->args.delete_messageq.messageq_handle;
+			t_handle = cargs->args.delete_messageq.messageq_handle;
+		}
+		if (info->cmd == cmd) {
+			switch (cmd) {
+			case CMD_MESSAGEQ_DELETE:
+			{
+				if (t_handle == handle)
+					found = true;
+				break;
+			}
+			case CMD_MESSAGEQ_CLOSE:
+			{
+				u16 q_id = args->args.close.queue_id;
+				u16 temp = cargs->args.close.queue_id;
+				if (temp == q_id)
+					found = true;
+				break;
+			}
+			case CMD_MESSAGEQ_DESTROY:
+			{
+				found = true;
+				break;
+			}
+			case CMD_MESSAGEQ_UNREGISTERHEAP:
+			{
+				u16 h_id = args->args.unregister_heap.heap_id;
+				u16 temp = cargs->args.unregister_heap.heap_id;
+				if (temp == h_id)
+					found = true;
+				break;
+			}
+			}
+			if (found == true)
+				break;
+		}
+	}
+
+	spin_unlock(&pr_ctxt->res_lock);
+
+	if (found == false)
+		info = NULL;
+
+	return info;
+}
+
 /*
  * ======== messageq_ioctl_put ========
  *  Purpose:
@@ -442,124 +504,190 @@ exit:
  *  ioctl interface function for messageq module
  */
 int messageq_ioctl(struct inode *inode, struct file *filp,
-				unsigned int cmd, unsigned long args)
+				unsigned int cmd, unsigned long args, bool user)
 {
-	int os_status = 0;
+	int status = 0;
 	struct messageq_cmd_args __user *uarg =
 				(struct messageq_cmd_args __user *)args;
 	struct messageq_cmd_args cargs;
 	unsigned long size;
+	struct ipc_process_context *pr_ctxt =
+			(struct ipc_process_context *)filp->private_data;
 
-	if (_IOC_DIR(cmd) & _IOC_READ)
-		os_status = !access_ok(VERIFY_WRITE, uarg, _IOC_SIZE(cmd));
-	else if (_IOC_DIR(cmd) & _IOC_WRITE)
-		os_status = !access_ok(VERIFY_READ, uarg, _IOC_SIZE(cmd));
-	if (os_status) {
-		os_status = -EFAULT;
-		goto exit;
-	}
+	if (user == true) {
+		if (_IOC_DIR(cmd) & _IOC_READ)
+			status = !access_ok(VERIFY_WRITE, uarg, _IOC_SIZE(cmd));
+		else if (_IOC_DIR(cmd) & _IOC_WRITE)
+			status = !access_ok(VERIFY_READ, uarg, _IOC_SIZE(cmd));
+		if (status) {
+			status = -EFAULT;
+			goto exit;
+		}
 
-	/* Copy the full args from user-side */
-	size = copy_from_user(&cargs, uarg, sizeof(struct messageq_cmd_args));
-	if (size) {
-		os_status = -EFAULT;
-		goto exit;
+		/* Copy the full args from user-side */
+		size = copy_from_user(&cargs, uarg,
+					sizeof(struct messageq_cmd_args));
+		if (size) {
+			status = -EFAULT;
+			goto exit;
+		}
+	} else {
+		if (args != 0)
+			memcpy(&cargs, (void *)args,
+				sizeof(struct messageq_cmd_args));
 	}
 
 	switch (cmd) {
 	case CMD_MESSAGEQ_PUT:
-		os_status = messageq_ioctl_put(&cargs);
+		status = messageq_ioctl_put(&cargs);
 		break;
 
 	case CMD_MESSAGEQ_GET:
-		os_status = messageq_ioctl_get(&cargs);
+		status = messageq_ioctl_get(&cargs);
 		break;
 
 	case CMD_MESSAGEQ_COUNT:
-		os_status = messageq_ioctl_count(&cargs);
+		status = messageq_ioctl_count(&cargs);
 		break;
 
 	case CMD_MESSAGEQ_ALLOC:
-		os_status = messageq_ioctl_alloc(&cargs);
+		status = messageq_ioctl_alloc(&cargs);
 		break;
 
 	case CMD_MESSAGEQ_FREE:
-		os_status = messageq_ioctl_free(&cargs);
+		status = messageq_ioctl_free(&cargs);
 		break;
 
 	case CMD_MESSAGEQ_PARAMS_INIT:
-		os_status = messageq_ioctl_params_init(&cargs);
+		status = messageq_ioctl_params_init(&cargs);
 		break;
 
 	case CMD_MESSAGEQ_CREATE:
-		os_status = messageq_ioctl_create(&cargs);
+		status = messageq_ioctl_create(&cargs);
+		if (status >= 0 && cargs.api_status >= 0) {
+			struct messageq_cmd_args *temp = kmalloc(
+					sizeof(struct messageq_cmd_args),
+					GFP_KERNEL);
+			temp->args.delete_messageq.messageq_handle =
+					cargs.args.create.messageq_handle;
+			add_pr_res(pr_ctxt, CMD_MESSAGEQ_DELETE, (void *)temp);
+		}
 		break;
 
 	case CMD_MESSAGEQ_DELETE:
-		os_status = messageq_ioctl_delete(&cargs);
+	{
+		struct resource_info *info = NULL;
+		info = find_messageq_resource(pr_ctxt,
+						CMD_MESSAGEQ_DELETE,
+						&cargs);
+		status = messageq_ioctl_delete(&cargs);
+		remove_pr_res(pr_ctxt, info);
 		break;
+	}
 
 	case CMD_MESSAGEQ_OPEN:
-		os_status = messageq_ioctl_open(&cargs);
+		status = messageq_ioctl_open(&cargs);
+		if (status >= 0 && cargs.api_status >= 0) {
+			struct messageq_cmd_args *temp = kmalloc(
+					sizeof(struct messageq_cmd_args),
+					GFP_KERNEL);
+			temp->args.close.queue_id = cargs.args.open.queue_id;
+			add_pr_res(pr_ctxt, CMD_MESSAGEQ_CLOSE, (void *)temp);
+		}
 		break;
 
 	case CMD_MESSAGEQ_CLOSE:
-		os_status = messageq_ioctl_close(&cargs);
+	{
+		struct resource_info *info = NULL;
+		info = find_messageq_resource(pr_ctxt,
+						CMD_MESSAGEQ_CLOSE,
+						&cargs);
+		status = messageq_ioctl_close(&cargs);
+		remove_pr_res(pr_ctxt, info);
 		break;
+	}
 
 	case CMD_MESSAGEQ_GETCONFIG:
-		os_status = messageq_ioctl_get_config(&cargs);
+		status = messageq_ioctl_get_config(&cargs);
 		break;
 
 	case CMD_MESSAGEQ_SETUP:
-		os_status = messageq_ioctl_setup(&cargs);
+		status = messageq_ioctl_setup(&cargs);
+		if (status >= 0)
+			add_pr_res(pr_ctxt, CMD_MESSAGEQ_DESTROY, NULL);
 		break;
 
 	case CMD_MESSAGEQ_DESTROY:
-		os_status = messageq_ioctl_destroy(&cargs);
+	{
+		struct resource_info *info = NULL;
+		info = find_messageq_resource(pr_ctxt,
+						CMD_MESSAGEQ_DESTROY,
+						&cargs);
+		status = messageq_ioctl_destroy(&cargs);
+		remove_pr_res(pr_ctxt, info);
 		break;
+	}
 
 	case CMD_MESSAGEQ_REGISTERHEAP:
-		os_status = messageq_ioctl_register_heap(&cargs);
+		status = messageq_ioctl_register_heap(&cargs);
+		if (cargs.api_status >= 0) {
+			struct messageq_cmd_args *temp = kmalloc(
+					sizeof(struct messageq_cmd_args),
+					GFP_KERNEL);
+			temp->args.unregister_heap.heap_id =
+					cargs.args.register_heap.heap_id;
+			add_pr_res(pr_ctxt, CMD_MESSAGEQ_UNREGISTERHEAP,
+					(void *)temp);
+		}
 		break;
 
 	case CMD_MESSAGEQ_UNREGISTERHEAP:
-		os_status = messageq_ioctl_unregister_heap(&cargs);
+	{
+		struct resource_info *info = NULL;
+		info = find_messageq_resource(pr_ctxt,
+						CMD_MESSAGEQ_UNREGISTERHEAP,
+						&cargs);
+		status = messageq_ioctl_unregister_heap(&cargs);
+		remove_pr_res(pr_ctxt, info);
 		break;
+	}
 
 	case CMD_MESSAGEQ_ATTACH:
-		os_status = messageq_ioctl_attach(&cargs);
+		status = messageq_ioctl_attach(&cargs);
 		break;
 
 	case CMD_MESSAGEQ_DETACH:
-		os_status = messageq_ioctl_detach(&cargs);
+		status = messageq_ioctl_detach(&cargs);
 		break;
 
 	case CMD_MESSAGEQ_SHAREDMEMREQ:
-		os_status = messageq_ioctl_shared_mem_req(&cargs);
+		status = messageq_ioctl_shared_mem_req(&cargs);
 		break;
 
 	default:
 		WARN_ON(cmd);
-		os_status = -ENOTTY;
+		status = -ENOTTY;
 		break;
 	}
 
 	if ((cargs.api_status == -ERESTARTSYS) || (cargs.api_status == -EINTR))
-		os_status = -ERESTARTSYS;
+		status = -ERESTARTSYS;
 
-	if (os_status < 0)
+	if (status < 0)
 		goto exit;
 
-	/* Copy the full args to the user-side. */
-	size = copy_to_user(uarg, &cargs, sizeof(struct messageq_cmd_args));
-	if (size) {
-		os_status = -EFAULT;
-		goto exit;
+	if (user == true) {
+		/* Copy the full args to the user-side. */
+		size = copy_to_user(uarg, &cargs,
+					sizeof(struct messageq_cmd_args));
+		if (size) {
+			status = -EFAULT;
+			goto exit;
+		}
 	}
-	return os_status;
+	return status;
 
 exit:
-	printk(KERN_ERR "messageq_ioctl failed: status = 0x%x\n", os_status);
-	return os_status;
+	printk(KERN_ERR "messageq_ioctl failed: status = 0x%x\n", status);
+	return status;
 }

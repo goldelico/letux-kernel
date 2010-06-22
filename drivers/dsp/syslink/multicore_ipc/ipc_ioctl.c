@@ -83,7 +83,7 @@ int ipc_ioc_router(u32 cmd, ulong arg, struct file *filp, bool user)
 	else if (ioc_nr >= LISTMP_BASE_CMD && ioc_nr <= LISTMP_END_CMD)
 		retval = listmp_ioctl(NULL, filp, cmd, arg, user);
 	else if (ioc_nr >= MESSAGEQ_BASE_CMD && ioc_nr <= MESSAGEQ_END_CMD)
-		retval = messageq_ioctl(NULL, filp, cmd, arg);
+		retval = messageq_ioctl(NULL, filp, cmd, arg, user);
 	else if (ioc_nr >= IPC_BASE_CMD && ioc_nr <= IPC_END_CMD)
 		retval = sysipc_ioctl(NULL, filp, cmd, arg);
 /*	else if (ioc_nr >= SYSMEMMGR_BASE_CMD && ioc_nr <= SYSMEMMGR_END_CMD)

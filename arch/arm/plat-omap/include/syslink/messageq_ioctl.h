@@ -250,6 +250,6 @@ struct messageq_cmd_args {
  *  ioctl interface function for messageq
  */
 int messageq_ioctl(struct inode *inode, struct file *filp,
-				unsigned int cmd, unsigned long args);
+			unsigned int cmd, unsigned long args, bool user);
 
 #endif /* _MESSAGEQ_IOCTL_H_ */
