@@ -80,6 +80,10 @@ static int __init proc4430_drv_initializeModule(void);
 static void  __exit proc4430_drv_finalizeModule(void);
 
 
+/* Process Context */
+struct proc4430_process_context {
+	u32 setup_count;
+};
 
 /** ============================================================================
  *  Globals
@@ -98,12 +102,37 @@ static const struct file_operations proc_4430_fops = {
 
 static int proc4430_drv_open(struct inode *inode, struct file *filp)
 {
-	return 0;
+	s32 retval = 0;
+	struct proc4430_process_context *pr_ctxt = NULL;
+
+	pr_ctxt = kzalloc(sizeof(struct proc4430_process_context), GFP_KERNEL);
+	if (!pr_ctxt)
+		retval = -ENOMEM;
+
+	filp->private_data = pr_ctxt;
+	return retval;
 }
 
 static int proc4430_drv_release(struct inode *inode, struct file *filp)
 {
-	return 0;
+	s32 retval = 0;
+	struct proc4430_process_context *pr_ctxt;
+
+	if (!filp->private_data) {
+		retval = -EIO;
+		goto err;
+	}
+
+	pr_ctxt = filp->private_data;
+	while (pr_ctxt->setup_count-- > 0) {
+		/* Destroy has not been called.  Call destroy now. */
+		proc4430_destroy();
+	}
+	kfree(pr_ctxt);
+
+	filp->private_data = NULL;
+err:
+	return retval;
 }
 
 
@@ -117,6 +146,8 @@ static int proc4430_drv_ioctl(struct inode *inode, struct file *filp,
 	int retval = 0;
 	struct proc_mgr_cmd_args *cmd_args = (struct proc_mgr_cmd_args *)args;
 	struct proc_mgr_cmd_args command_args;
+	struct proc4430_process_context *pr_ctxt =
+		(struct proc4430_process_context *)filp->private_data;
 
 	switch (cmd) {
 	case CMD_PROC4430_GETCONFIG:
@@ -151,12 +182,14 @@ static int proc4430_drv_ioctl(struct inode *inode, struct file *filp,
 		if (WARN_ON(retval < 0))
 			goto func_exit;
 		proc4430_setup(&cfg);
+		pr_ctxt->setup_count++;
 	}
 	break;
 
 	case CMD_PROC4430_DESTROY:
 	{
 		proc4430_destroy();
+		pr_ctxt->setup_count--;
 	}
 	break;
 
