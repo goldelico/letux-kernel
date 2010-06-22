@@ -227,6 +227,6 @@ struct heapbufmp_cmd_args{
  *  This ioctl interface for heapbuf module
  */
 int heapbufmp_ioctl(struct inode *pinode, struct file *filp,
-			unsigned int cmd, unsigned long  args);
+			unsigned int cmd, unsigned long  args, bool user);
 
 #endif /* _HEAPBUFMP_IOCTL_ */

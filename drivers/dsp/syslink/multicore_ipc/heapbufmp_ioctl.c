@@ -26,6 +26,51 @@
 #include <heapbufmp.h>
 #include <heapbufmp_ioctl.h>
 
+
+static struct resource_info *find_heapbufmp_resource(
+					struct ipc_process_context *pr_ctxt,
+					unsigned int cmd,
+					struct heapbufmp_cmd_args *cargs)
+{
+	struct resource_info *info = NULL;
+	bool found = false;
+
+	spin_lock(&pr_ctxt->res_lock);
+
+	list_for_each_entry(info, &pr_ctxt->resources, res) {
+		struct heapbufmp_cmd_args *args =
+					(struct heapbufmp_cmd_args *)info->data;
+		if (info->cmd == cmd) {
+			switch (cmd) {
+			case CMD_HEAPBUFMP_DELETE:
+			{
+				void *handle =
+					args->args.delete.handle;
+				void *temp =
+					cargs->args.delete.handle;
+				if (temp == handle)
+					found = true;
+				break;
+			}
+			case CMD_HEAPBUFMP_DESTROY:
+			{
+				found = true;
+				break;
+			}
+			}
+			if (found == true)
+				break;
+		}
+	}
+
+	spin_unlock(&pr_ctxt->res_lock);
+
+	if (found == false)
+		info = NULL;
+
+	return info;
+}
+
 /*
  * ======== heapbufmp_ioctl_alloc ========
  *  Purpose:
@@ -355,30 +400,37 @@ static int heapbufmp_ioctl_get_extended_stats(struct heapbufmp_cmd_args *cargs)
  *  This ioctl interface for heapbuf module
  */
 int heapbufmp_ioctl(struct inode *pinode, struct file *filp,
-			unsigned int cmd, unsigned long  args)
+			unsigned int cmd, unsigned long  args, bool user)
 {
 	s32 status = 0;
 	s32 size = 0;
 	struct heapbufmp_cmd_args __user *uarg =
 				(struct heapbufmp_cmd_args __user *)args;
 	struct heapbufmp_cmd_args cargs;
+	struct ipc_process_context *pr_ctxt =
+			(struct ipc_process_context *)filp->private_data;
 
-	if (_IOC_DIR(cmd) & _IOC_READ)
-		status = !access_ok(VERIFY_WRITE, uarg, _IOC_SIZE(cmd));
-	else if (_IOC_DIR(cmd) & _IOC_WRITE)
-		status = !access_ok(VERIFY_READ, uarg, _IOC_SIZE(cmd));
+	if (user == true) {
+		if (_IOC_DIR(cmd) & _IOC_READ)
+			status = !access_ok(VERIFY_WRITE, uarg, _IOC_SIZE(cmd));
+		else if (_IOC_DIR(cmd) & _IOC_WRITE)
+			status = !access_ok(VERIFY_READ, uarg, _IOC_SIZE(cmd));
 
-	if (status) {
-		status = -EFAULT;
-		goto exit;
-	}
-
-	/* Copy the full args from user-side */
-	size = copy_from_user(&cargs, uarg,
+		if (status) {
+			status = -EFAULT;
+			goto exit;
+		}
+		/* Copy the full args from user-side */
+		size = copy_from_user(&cargs, uarg,
 					sizeof(struct heapbufmp_cmd_args));
-	if (size) {
-		status = -EFAULT;
-		goto exit;
+		if (size) {
+			status = -EFAULT;
+			goto exit;
+		}
+	} else {
+		if (args != 0)
+			memcpy(&cargs, (void *)args,
+				sizeof(struct heapbufmp_cmd_args));
 	}
 
 	switch (cmd) {
@@ -396,11 +448,25 @@ int heapbufmp_ioctl(struct inode *pinode, struct file *filp,
 
 	case CMD_HEAPBUFMP_CREATE:
 		status = heapbufmp_ioctl_create(&cargs);
+		if (status >= 0) {
+			struct heapbufmp_cmd_args *temp =
+				kmalloc(sizeof(struct heapbufmp_cmd_args),
+						GFP_KERNEL);
+			temp->args.delete.handle = cargs.args.create.handle;
+			add_pr_res(pr_ctxt, CMD_HEAPBUFMP_DELETE, temp);
+		}
 		break;
 
 	case CMD_HEAPBUFMP_DELETE:
+	{
+		struct resource_info *info = NULL;
+		info = find_heapbufmp_resource(pr_ctxt,
+						CMD_HEAPBUFMP_DELETE,
+						&cargs);
 		status  = heapbufmp_ioctl_delete(&cargs);
+		remove_pr_res(pr_ctxt, info);
 		break;
+	}
 
 	case CMD_HEAPBUFMP_OPEN:
 		status  = heapbufmp_ioctl_open(&cargs);
@@ -424,11 +490,20 @@ int heapbufmp_ioctl(struct inode *pinode, struct file *filp,
 
 	case CMD_HEAPBUFMP_SETUP:
 		status = heapbufmp_ioctl_setup(&cargs);
+		if (status >= 0)
+			add_pr_res(pr_ctxt, CMD_HEAPBUFMP_DESTROY, NULL);
 		break;
 
 	case CMD_HEAPBUFMP_DESTROY:
+	{
+		struct resource_info *info = NULL;
+		info = find_heapbufmp_resource(pr_ctxt,
+						CMD_HEAPBUFMP_DESTROY,
+						&cargs);
 		status = heapbufmp_ioctl_destroy(&cargs);
+		remove_pr_res(pr_ctxt, info);
 		break;
+	}
 
 	case CMD_HEAPBUFMP_GETSTATS:
 		status = heapbufmp_ioctl_get_stats(&cargs);
@@ -444,12 +519,14 @@ int heapbufmp_ioctl(struct inode *pinode, struct file *filp,
 		break;
 	}
 
-	/* Copy the full args to the user-side. */
-	size = copy_to_user(uarg, &cargs,
+	if (user == true) {
+		/* Copy the full args to the user-side. */
+		size = copy_to_user(uarg, &cargs,
 				sizeof(struct heapbufmp_cmd_args));
-	if (size) {
-		status = -EFAULT;
-		goto exit;
+		if (size) {
+			status = -EFAULT;
+			goto exit;
+		}
 	}
 
 exit:
