@@ -105,12 +105,25 @@ static struct platform_driver procmgr_driver = {
 	.resume		= NULL,
 };
 
+/* Process Context */
+struct procmgr_process_context {
+	u32 setup_count;
+};
+
 /*
 * brief  Linux specific function to open the driver.
  */
 static int proc_mgr_drv_open(struct inode *inode, struct file *filp)
 {
-	return 0;
+	s32 retval = 0;
+	struct procmgr_process_context *pr_ctxt = NULL;
+
+	pr_ctxt = kzalloc(sizeof(struct procmgr_process_context), GFP_KERNEL);
+	if (!pr_ctxt)
+		retval = -ENOMEM;
+
+	filp->private_data = pr_ctxt;
+	return retval;
 }
 
 /*
@@ -118,7 +131,26 @@ static int proc_mgr_drv_open(struct inode *inode, struct file *filp)
  */
 static int proc_mgr_drv_release(struct inode *inode, struct file *filp)
 {
-	return 0;
+	s32 retval = 0;
+	struct procmgr_process_context *pr_ctxt;
+
+	if (!filp->private_data) {
+		retval = -EIO;
+		goto err;
+	}
+
+	pr_ctxt = filp->private_data;
+	while (pr_ctxt->setup_count-- > 0) {
+		/* Destroy has not been called.  Call destroy now. */
+		printk(KERN_ERR "proc_mgr_drv_release: "
+			"proc_mgr_destroy %d\n", pr_ctxt->setup_count);
+		proc_mgr_destroy();
+	}
+	kfree(pr_ctxt);
+
+	filp->private_data = NULL;
+err:
+	return retval;
 }
 
 /*
@@ -130,6 +162,8 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 	int retval = 0;
 	struct proc_mgr_cmd_args *cmd_args = (struct proc_mgr_cmd_args *)args;
 	struct proc_mgr_cmd_args command_args;
+	struct procmgr_process_context *pr_ctxt =
+		(struct procmgr_process_context *)filp->private_data;
 
 	switch (cmd) {
 	case CMD_PROCMGR_GETCONFIG:
@@ -168,13 +202,16 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 		if (WARN_ON(retval != 0))
 			goto func_exit;
 
-		 retval = proc_mgr_setup(&cfg);
+		retval = proc_mgr_setup(&cfg);
+		if (retval >= 0)
+			pr_ctxt->setup_count++;
 	}
 	break;
 
 	case CMD_PROCMGR_DESTROY:
 	{
 		retval = proc_mgr_destroy();
+		pr_ctxt->setup_count--;
 		WARN_ON(retval < 0);
 	}
 	break;
