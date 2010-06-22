@@ -238,6 +238,6 @@ struct heapmemmp_cmd_args{
  *  This ioctl interface for heapmem module
  */
 int heapmemmp_ioctl(struct inode *pinode, struct file *filp,
-			unsigned int cmd, unsigned long  args);
+			unsigned int cmd, unsigned long  args, bool user);
 
 #endif /* _HEAPMEMMP_IOCTL_ */
