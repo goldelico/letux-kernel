@@ -33,7 +33,7 @@ int notify_drv_mmap(struct file *filp, struct vm_area_struct *vma);
 
 /* ioctl function for of Linux Notify driver.*/
 int notify_drv_ioctl(struct inode *inode, struct file *filp, u32 cmd,
-						unsigned long args);
+						unsigned long args, bool user);
 
 void _notify_drv_setup(void);
 

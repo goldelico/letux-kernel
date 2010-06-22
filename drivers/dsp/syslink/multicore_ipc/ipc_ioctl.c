@@ -91,7 +91,7 @@ int ipc_ioc_router(u32 cmd, ulong arg, struct file *filp, bool user)
 	else if (ioc_nr >= HEAPMEMMP_BASE_CMD && ioc_nr <= HEAPMEMMP_END_CMD)
 		retval = heapmemmp_ioctl(NULL, filp, cmd, arg, user);
 	else if (ioc_nr >= NOTIFY_BASE_CMD && ioc_nr <= NOTIFY_END_CMD)
-		retval = notify_drv_ioctl(NULL, filp, cmd, arg);
+		retval = notify_drv_ioctl(NULL, filp, cmd, arg, user);
 	else
 		retval = -ENOTTY;
 

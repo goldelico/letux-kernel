@@ -30,6 +30,7 @@
 
 
 #include <syslink/platform_mem.h>
+#include <syslink/ipc_ioctl.h>
 #include <syslink/drv_notify.h>
 #include <syslink/notify_driver.h>
 #include <syslink/notify.h>
@@ -100,7 +101,7 @@ struct notify_drv_module_object notifydrv_state = {
 static int notify_drv_attach(u32 pid);
 
 /* Detach a process from notify user support framework. */
-static int notify_drv_detach(u32 pid);
+static int notify_drv_detach(u32 pid, bool force);
 
 /* This function implements the callback registered with IPS. Here to pass
  * event no. back to user function (so that it can do another level of
@@ -114,6 +115,39 @@ static int _notify_drv_add_buf_by_pid(u16 proc_id, u16 line_id, u32 pid,
 			void *param);
 
 
+static struct resource_info *find_notify_drv_resource(
+					struct ipc_process_context *pr_ctxt,
+					unsigned int cmd,
+					void *args)
+{
+	struct resource_info *info = NULL;
+	bool found = false;
+
+	spin_lock(&pr_ctxt->res_lock);
+
+	list_for_each_entry(info, &pr_ctxt->resources, res) {
+		if (info->cmd == cmd) {
+			switch (cmd) {
+			case CMD_NOTIFY_DESTROY:
+				found = true;
+				break;
+			case CMD_NOTIFY_THREADDETACH:
+				if ((u32)args == *(u32 *)info->data)
+					found = true;
+				break;
+			}
+		}
+		if (found == true)
+			break;
+	}
+
+	spin_unlock(&pr_ctxt->res_lock);
+
+	if (found == false)
+		info = NULL;
+
+	return info;
+}
 
 /*
  * read data from the driver
@@ -195,13 +229,15 @@ int notify_drv_mmap(struct file *filp, struct vm_area_struct *vma)
 
 /* ioctl function for of Linux Notify driver. */
 int notify_drv_ioctl(struct inode *inode, struct file *filp, u32 cmd,
-					unsigned long args)
+					unsigned long args, bool user)
 {
 	int status = NOTIFY_S_SUCCESS;
 	int os_status = 0;
 	unsigned long size;
 	struct notify_cmd_args *cmd_args = (struct notify_cmd_args *)args;
 	struct notify_cmd_args common_args;
+	struct ipc_process_context *pr_ctxt =
+		(struct ipc_process_context *)filp->private_data;
 
 	switch (cmd) {
 	case CMD_NOTIFY_GETCONFIG:
@@ -232,15 +268,22 @@ int notify_drv_ioctl(struct inode *inode, struct file *filp, u32 cmd,
 			goto func_end;
 		}
 		status = notify_setup(&cfg);
+		if (status >= 0)
+			add_pr_res(pr_ctxt, CMD_NOTIFY_DESTROY, NULL);
 	}
 	break;
 
 	case CMD_NOTIFY_DESTROY:
 	{
+		struct resource_info *info = NULL;
 		/* copy_from_user is not needed for Notify_getConfig, since the
 		 * user's config is not used.
 		 */
+		info = find_notify_drv_resource(pr_ctxt,
+						CMD_NOTIFY_DESTROY,
+						NULL);
 		status = notify_destroy();
+		remove_pr_res(pr_ctxt, info);
 	}
 	break;
 
@@ -523,13 +566,32 @@ int notify_drv_ioctl(struct inode *inode, struct file *filp, u32 cmd,
 	{
 		u32 pid = *((u32 *)args);
 		status = notify_drv_attach(pid);
+		if (status < 0)
+			printk(KERN_ERR "NOTIFY_ATTACH FAILED\n");
+		else {
+			u32 *data = kmalloc(sizeof(u32), GFP_KERNEL);
+			*data = pid;
+			add_pr_res(pr_ctxt, CMD_NOTIFY_THREADDETACH,
+								(void *)data);
+		}
 	}
 	break;
 
 	case CMD_NOTIFY_THREADDETACH:
 	{
+		struct resource_info *info = NULL;
 		u32 pid = *((u32 *)args);
-		status = notify_drv_detach(pid);
+		info = find_notify_drv_resource(pr_ctxt,
+						CMD_NOTIFY_THREADDETACH,
+						(void *)pid);
+		if (user == true)
+			status = notify_drv_detach(pid, false);
+		else
+			status = notify_drv_detach(pid, true);
+		if (status < 0)
+			printk(KERN_ERR "NOTIFY_DETACH FAILED\n");
+		else
+			remove_pr_res(pr_ctxt, info);
 	}
 	break;
 
@@ -630,10 +692,13 @@ int notify_drv_ioctl(struct inode *inode, struct file *filp, u32 cmd,
 func_end:
 	/* Set the status and copy the common args to user-side. */
 	common_args.api_status = status;
-	size = copy_to_user((void *) cmd_args, (const void *) &common_args,
-				sizeof(struct notify_cmd_args));
-	if (size < 0)
-		os_status = -EFAULT;
+	if (user == true) {
+		size = copy_to_user((void *) cmd_args,
+					(const void *) &common_args,
+					sizeof(struct notify_cmd_args));
+		if (size < 0)
+			os_status = -EFAULT;
+	}
 	return os_status;
 }
 
@@ -871,22 +936,25 @@ exit:
 
 
 /* Detach a process from notify user support framework. */
-static int notify_drv_detach(u32 pid)
+static int notify_drv_detach(u32 pid, bool force)
 {
 	s32 status = NOTIFY_S_SUCCESS;
 	bool flag = false;
 	u32 i;
-	struct semaphore *sem_handle;
-	struct semaphore *ter_sem_handle;
+	struct semaphore *sem_handle = NULL;
+	struct semaphore *ter_sem_handle = NULL;
 
 	if (WARN_ON(notifydrv_state.is_setup == false)) {
 		status = NOTIFY_E_FAIL;
 		goto func_end;
 	}
 
-	/* Send the termination packet to notify thread */
-	status = _notify_drv_add_buf_by_pid(0, 0, pid, (u32)-1, (u32)0, NULL,
-						NULL);
+	/* Send termination packet only if this is not a forced detach */
+	if (force == false) {
+		/* Send the termination packet to notify thread */
+		status = _notify_drv_add_buf_by_pid(0, 0, pid, (u32)-1, (u32)0,
+							NULL, NULL);
+	}
 
 	WARN_ON(mutex_lock_interruptible(notifydrv_state.gate_handle));
 	for (i = 0; i < MAX_PROCESSES; i++) {
