@@ -184,6 +184,6 @@ struct sharedregion_cmd_args {
  *  This ioctl interface for sharedregion module
  */
 int sharedregion_ioctl(struct inode *inode, struct file *filp,
-			unsigned int cmd, unsigned long args);
+			unsigned int cmd, unsigned long args, bool user);
 
 #endif /* _SHAREDREGION_IOCTL_H */

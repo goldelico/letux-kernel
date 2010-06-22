@@ -21,11 +21,55 @@
 #include <linux/types.h>
 #include <linux/bug.h>
 #include <linux/fs.h>
+#include <linux/mm.h>
+#include <linux/slab.h>
 
 #include <multiproc.h>
 #include <sharedregion.h>
 #include <sharedregion_ioctl.h>
 #include <platform_mem.h>
+
+static struct resource_info *find_sharedregion_resource(
+					struct ipc_process_context *pr_ctxt,
+					unsigned int cmd,
+					struct sharedregion_cmd_args *cargs)
+{
+	struct resource_info *info = NULL;
+	bool found = false;
+
+	spin_lock(&pr_ctxt->res_lock);
+
+	list_for_each_entry(info, &pr_ctxt->resources, res) {
+		struct sharedregion_cmd_args *args =
+				(struct sharedregion_cmd_args *)info->data;
+		if (info->cmd == cmd) {
+			switch (cmd) {
+			case CMD_SHAREDREGION_CLEARENTRY:
+			{
+				u16 id = args->args.clear_entry.id;
+				u16 temp = cargs->args.clear_entry.id;
+				if (temp == id)
+					found = true;
+				break;
+			}
+			case CMD_SHAREDREGION_DESTROY:
+			{
+				found = true;
+				break;
+			}
+			}
+			if (found == true)
+				break;
+		}
+	}
+
+	spin_unlock(&pr_ctxt->res_lock);
+
+	if (found == false)
+		info = NULL;
+
+	return info;
+}
 
 /* This ioctl interface to sharedregion_get_config function */
 static int sharedregion_ioctl_get_config(struct sharedregion_cmd_args *cargs)
@@ -378,102 +422,136 @@ exit:
 
 /* This ioctl interface for sharedregion module */
 int sharedregion_ioctl(struct inode *inode, struct file *filp,
-			unsigned int cmd, unsigned long args)
+			unsigned int cmd, unsigned long args, bool user)
 {
-	s32 os_status = 0;
+	s32 status = 0;
 	s32 size = 0;
 	struct sharedregion_cmd_args __user *uarg =
 				(struct sharedregion_cmd_args __user *)args;
 	struct sharedregion_cmd_args cargs;
+	struct ipc_process_context *pr_ctxt =
+			(struct ipc_process_context *)filp->private_data;
 
-	if (_IOC_DIR(cmd) & _IOC_READ)
-		os_status = !access_ok(VERIFY_WRITE, uarg, _IOC_SIZE(cmd));
-	else if (_IOC_DIR(cmd) & _IOC_WRITE)
-		os_status = !access_ok(VERIFY_READ, uarg, _IOC_SIZE(cmd));
+	if (user == true) {
+		if (_IOC_DIR(cmd) & _IOC_READ)
+			status = !access_ok(VERIFY_WRITE, uarg, _IOC_SIZE(cmd));
+		else if (_IOC_DIR(cmd) & _IOC_WRITE)
+			status = !access_ok(VERIFY_READ, uarg, _IOC_SIZE(cmd));
 
-	if (os_status) {
-		os_status = -EFAULT;
-		goto exit;
-	}
+		if (status) {
+			status = -EFAULT;
+			goto exit;
+		}
 
-	/* Copy the full args from user-side */
-	size = copy_from_user(&cargs, uarg,
+		/* Copy the full args from user-side */
+		size = copy_from_user(&cargs, uarg,
 					sizeof(struct sharedregion_cmd_args));
-	if (size) {
-		os_status = -EFAULT;
-		goto exit;
+		if (size) {
+			status = -EFAULT;
+			goto exit;
+		}
+	} else {
+		if (args != 0)
+			memcpy(&cargs, (void *)args,
+				sizeof(struct sharedregion_cmd_args));
 	}
 
 	switch (cmd) {
 	case CMD_SHAREDREGION_GETCONFIG:
-		os_status = sharedregion_ioctl_get_config(&cargs);
+		status = sharedregion_ioctl_get_config(&cargs);
 		break;
 
 	case CMD_SHAREDREGION_SETUP:
-		os_status = sharedregion_ioctl_setup(&cargs);
+		status = sharedregion_ioctl_setup(&cargs);
+		if (status >= 0)
+			add_pr_res(pr_ctxt, CMD_SHAREDREGION_DESTROY, NULL);
 		break;
 
 	case CMD_SHAREDREGION_DESTROY:
-		os_status = sharedregion_ioctl_destroy(&cargs);
+	{
+		struct resource_info *info = NULL;
+		info = find_sharedregion_resource(pr_ctxt,
+						CMD_SHAREDREGION_DESTROY,
+						&cargs);
+		status = sharedregion_ioctl_destroy(&cargs);
+		remove_pr_res(pr_ctxt, info);
 		break;
+	}
 
 	case CMD_SHAREDREGION_START:
-		os_status = sharedregion_ioctl_start(&cargs);
+		status = sharedregion_ioctl_start(&cargs);
 		break;
 
 	case CMD_SHAREDREGION_STOP:
-		os_status = sharedregion_ioctl_stop(&cargs);
+		status = sharedregion_ioctl_stop(&cargs);
 		break;
 
 	case CMD_SHAREDREGION_ATTACH:
-		os_status = sharedregion_ioctl_attach(&cargs);
+		status = sharedregion_ioctl_attach(&cargs);
 		break;
 
 	case CMD_SHAREDREGION_DETACH:
-		os_status = sharedregion_ioctl_detach(&cargs);
+		status = sharedregion_ioctl_detach(&cargs);
 		break;
 
 	case CMD_SHAREDREGION_GETHEAP:
-		os_status = sharedregion_ioctl_get_heap(&cargs);
+		status = sharedregion_ioctl_get_heap(&cargs);
 		break;
 
 	case CMD_SHAREDREGION_CLEARENTRY:
-		os_status = sharedregion_ioctl_clear_entry(&cargs);
+	{
+		struct resource_info *info = NULL;
+		info = find_sharedregion_resource(pr_ctxt,
+						CMD_SHAREDREGION_CLEARENTRY,
+						&cargs);
+		status = sharedregion_ioctl_clear_entry(&cargs);
+		remove_pr_res(pr_ctxt, info);
 		break;
+	}
 
 	case CMD_SHAREDREGION_SETENTRY:
-		os_status = sharedregion_ioctl_set_entry(&cargs);
+		status = sharedregion_ioctl_set_entry(&cargs);
+		if (status >= 0) {
+			struct sharedregion_cmd_args *temp =
+				kmalloc(sizeof(struct sharedregion_cmd_args),
+					GFP_KERNEL);
+			temp->args.clear_entry.id = cargs.args.set_entry.id;
+			add_pr_res(pr_ctxt, CMD_SHAREDREGION_CLEARENTRY, temp);
+		}
 		break;
 
 	case CMD_SHAREDREGION_RESERVEMEMORY:
-		os_status = sharedregion_ioctl_reserve_memory(&cargs);
+		status = sharedregion_ioctl_reserve_memory(&cargs);
 		break;
 
 	case CMD_SHAREDREGION_CLEARRESERVEDMEMORY:
-		os_status = sharedregion_ioctl_clear_reserved_memory(&cargs);
+		status = sharedregion_ioctl_clear_reserved_memory(&cargs);
 		break;
 
 	case CMD_SHAREDREGION_GETREGIONINFO:
-		os_status = sharedregion_ioctl_get_region_info(&cargs);
+		status = sharedregion_ioctl_get_region_info(&cargs);
 		break;
 
 	default:
 		WARN_ON(cmd);
-		os_status = -ENOTTY;
+		status = -ENOTTY;
 		break;
 	}
 
-	/* Copy the full args to the user-side. */
-	size = copy_to_user(uarg, &cargs, sizeof(struct sharedregion_cmd_args));
-	if (size) {
-		os_status = -EFAULT;
-		goto exit;
+	if (user == true) {
+		/* Copy the full args to the user-side. */
+		size = copy_to_user(uarg, &cargs,
+					sizeof(struct sharedregion_cmd_args));
+		if (size) {
+			status = -EFAULT;
+			goto exit;
+		}
 	}
 
 exit:
-	if (os_status < 0) {
+	if (status < 0) {
 		printk(KERN_ERR "sharedregion_ioctl failed! status = 0x%x",
-			os_status);
+			status);
 	}
-	return os_status;
+	return status;
 }

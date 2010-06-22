@@ -77,7 +77,7 @@ int ipc_ioc_router(u32 cmd, ulong arg, struct file *filp, bool user)
 		retval = heapbufmp_ioctl(NULL, filp, cmd, arg, user);
 	else if (ioc_nr >= SHAREDREGION_BASE_CMD &&
 					ioc_nr <= SHAREDREGION_END_CMD)
-		retval = sharedregion_ioctl(NULL, filp, cmd, arg);
+		retval = sharedregion_ioctl(NULL, filp, cmd, arg, user);
 	else if (ioc_nr >= GATEMP_BASE_CMD && ioc_nr <= GATEMP_END_CMD)
 		retval = gatemp_ioctl(NULL, filp, cmd, arg);
 	else if (ioc_nr >= LISTMP_BASE_CMD && ioc_nr <= LISTMP_END_CMD)
