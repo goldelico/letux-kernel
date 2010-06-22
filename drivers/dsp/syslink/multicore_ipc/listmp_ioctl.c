@@ -31,6 +31,52 @@
 #include <listmp_ioctl.h>
 #include <sharedregion.h>
 
+static struct resource_info *find_listmp_resource(
+					struct ipc_process_context *pr_ctxt,
+					unsigned int cmd,
+					struct listmp_cmd_args *cargs)
+{
+	struct resource_info *info = NULL;
+	bool found = false;
+
+	spin_lock(&pr_ctxt->res_lock);
+
+	list_for_each_entry(info, &pr_ctxt->resources, res) {
+		struct listmp_cmd_args *args =
+					(struct listmp_cmd_args *)info->data;
+		void *handle = NULL;
+		void *thandle = NULL;
+		if (cargs != NULL && args != NULL) {
+			handle = args->args.delete_instance.listmp_handle;
+			thandle = cargs->args.delete_instance.listmp_handle;
+		}
+		if (info->cmd == cmd) {
+			switch (cmd) {
+			case CMD_LISTMP_DELETE:
+			{
+				if (thandle == handle)
+					found = true;
+				break;
+			}
+			case CMD_LISTMP_DESTROY:
+			{
+				found = true;
+				break;
+			}
+			}
+			if (found == true)
+				break;
+		}
+	}
+
+	spin_unlock(&pr_ctxt->res_lock);
+
+	if (found == false)
+		info = NULL;
+
+	return info;
+}
+
 /* ioctl interface to listmp_get_config function */
 static inline int listmp_ioctl_get_config(struct listmp_cmd_args *cargs)
 {
@@ -440,124 +486,158 @@ exit:
 
 /* ioctl interface function for listmp module */
 int listmp_ioctl(struct inode *inode, struct file *filp,
-				unsigned int cmd, unsigned long args)
+				unsigned int cmd, unsigned long args, bool user)
 {
-	int os_status = 0;
+	int status = 0;
 	struct listmp_cmd_args __user *uarg =
 			(struct listmp_cmd_args __user *)args;
 	struct listmp_cmd_args cargs;
 	unsigned long size;
+	struct ipc_process_context *pr_ctxt =
+			(struct ipc_process_context *)filp->private_data;
 
-	if (_IOC_DIR(cmd) & _IOC_READ)
-		os_status = !access_ok(VERIFY_WRITE, uarg, _IOC_SIZE(cmd));
-	else if (_IOC_DIR(cmd) & _IOC_WRITE)
-		os_status = !access_ok(VERIFY_READ, uarg, _IOC_SIZE(cmd));
-	if (os_status) {
-		os_status = -EFAULT;
-		goto exit;
-	}
+	if (user == true) {
+		if (_IOC_DIR(cmd) & _IOC_READ)
+			status = !access_ok(VERIFY_WRITE, uarg, _IOC_SIZE(cmd));
+		else if (_IOC_DIR(cmd) & _IOC_WRITE)
+			status = !access_ok(VERIFY_READ, uarg, _IOC_SIZE(cmd));
+		if (status) {
+			status = -EFAULT;
+			goto exit;
+		}
 
-	/* Copy the full args from user-side */
-	size = copy_from_user(&cargs, uarg, sizeof(struct listmp_cmd_args));
-	if (size) {
-		os_status = -EFAULT;
-		goto exit;
+		/* Copy the full args from user-side */
+		size = copy_from_user(&cargs, uarg,
+					sizeof(struct listmp_cmd_args));
+		if (size) {
+			status = -EFAULT;
+			goto exit;
+		}
+	} else {
+		if (args != 0)
+			memcpy(&cargs, (void *)args,
+				sizeof(struct listmp_cmd_args));
 	}
 
 	switch (cmd) {
 	case CMD_LISTMP_GETCONFIG:
-		os_status = listmp_ioctl_get_config(&cargs);
+		status = listmp_ioctl_get_config(&cargs);
 		break;
 
 	case CMD_LISTMP_SETUP:
-		os_status = listmp_ioctl_setup(&cargs);
+		status = listmp_ioctl_setup(&cargs);
+		if (status >= 0)
+			add_pr_res(pr_ctxt, CMD_LISTMP_DESTROY, NULL);
 		break;
 
 	case CMD_LISTMP_DESTROY:
-		os_status = listmp_ioctl_destroy(&cargs);
+	{
+		struct resource_info *info = NULL;
+		info = find_listmp_resource(pr_ctxt, CMD_LISTMP_DESTROY,
+							&cargs);
+		status = listmp_ioctl_destroy(&cargs);
+		remove_pr_res(pr_ctxt, info);
 		break;
+	}
 
 	case CMD_LISTMP_PARAMS_INIT:
-		os_status = listmp_ioctl_params_init(&cargs);
+		status = listmp_ioctl_params_init(&cargs);
 		break;
 
 	case CMD_LISTMP_CREATE:
-		os_status = listmp_ioctl_create(&cargs);
+		status = listmp_ioctl_create(&cargs);
+		if (status >= 0) {
+			struct listmp_cmd_args *temp = kmalloc(
+					sizeof(struct listmp_cmd_args),
+					GFP_KERNEL);
+			temp->args.delete_instance.listmp_handle =
+						cargs.args.create.listmp_handle;
+			add_pr_res(pr_ctxt, CMD_LISTMP_DELETE, (void *)temp);
+		}
 		break;
 
 	case CMD_LISTMP_DELETE:
-		os_status = listmp_ioctl_delete(&cargs);
+	{
+		struct resource_info *info = NULL;
+		info = find_listmp_resource(pr_ctxt, CMD_LISTMP_DELETE,
+							&cargs);
+		status = listmp_ioctl_delete(&cargs);
+		remove_pr_res(pr_ctxt, info);
 		break;
+	}
 
 	case CMD_LISTMP_OPEN:
-		os_status = listmp_ioctl_open(&cargs);
+		status = listmp_ioctl_open(&cargs);
 		break;
 
 	case CMD_LISTMP_CLOSE:
-		os_status = listmp_ioctl_close(&cargs);
+		status = listmp_ioctl_close(&cargs);
 		break;
 
 	case CMD_LISTMP_ISEMPTY:
-		os_status = listmp_ioctl_isempty(&cargs);
+		status = listmp_ioctl_isempty(&cargs);
 		break;
 
 	case CMD_LISTMP_GETHEAD:
-		os_status = listmp_ioctl_get_head(&cargs);
+		status = listmp_ioctl_get_head(&cargs);
 		break;
 
 	case CMD_LISTMP_GETTAIL:
-		os_status = listmp_ioctl_get_tail(&cargs);
+		status = listmp_ioctl_get_tail(&cargs);
 		break;
 
 	case CMD_LISTMP_PUTHEAD:
-		os_status = listmp_ioctl_put_head(&cargs);
+		status = listmp_ioctl_put_head(&cargs);
 		break;
 
 	case CMD_LISTMP_PUTTAIL:
-		os_status = listmp_ioctl_put_tail(&cargs);
+		status = listmp_ioctl_put_tail(&cargs);
 		break;
 
 	case CMD_LISTMP_INSERT:
-		os_status = listmp_ioctl_insert(&cargs);
+		status = listmp_ioctl_insert(&cargs);
 		break;
 
 	case CMD_LISTMP_REMOVE:
-		os_status = listmp_ioctl_remove(&cargs);
+		status = listmp_ioctl_remove(&cargs);
 		break;
 
 	case CMD_LISTMP_NEXT:
-		os_status = listmp_ioctl_next(&cargs);
+		status = listmp_ioctl_next(&cargs);
 		break;
 
 	case CMD_LISTMP_PREV:
-		os_status = listmp_ioctl_prev(&cargs);
+		status = listmp_ioctl_prev(&cargs);
 		break;
 
 	case CMD_LISTMP_SHAREDMEMREQ:
-		os_status = listmp_ioctl_shared_mem_req(&cargs);
+		status = listmp_ioctl_shared_mem_req(&cargs);
 		break;
 
 	case CMD_LISTMP_OPENBYADDR:
-		os_status = listmp_ioctl_open_by_addr(&cargs);
+		status = listmp_ioctl_open_by_addr(&cargs);
 		break;
 
 	default:
 		WARN_ON(cmd);
-		os_status = -ENOTTY;
+		status = -ENOTTY;
 		break;
 	}
-	if (os_status < 0)
+	if (status < 0)
 		goto exit;
 
-	/* Copy the full args to the user-side. */
-	size = copy_to_user(uarg, &cargs, sizeof(struct listmp_cmd_args));
-	if (size) {
-		os_status = -EFAULT;
-		goto exit;
+	if (user == true) {
+		/* Copy the full args to the user-side. */
+		size = copy_to_user(uarg, &cargs,
+					sizeof(struct listmp_cmd_args));
+		if (size) {
+			status = -EFAULT;
+			goto exit;
+		}
 	}
-	return os_status;
+	return status;
 
 exit:
-	printk(KERN_ERR "listmp_ioctl failed: status = 0x%x\n", os_status);
-	return os_status;
+	printk(KERN_ERR "listmp_ioctl failed: status = 0x%x\n", status);
+	return status;
 }

@@ -263,6 +263,6 @@ struct listmp_cmd_args {
  */
 /* ioctl interface function for listmp */
 int listmp_ioctl(struct inode *inode, struct file *filp,
-				unsigned int cmd, unsigned long args);
+			unsigned int cmd, unsigned long args, bool user);
 
 #endif /* _LISTMP_IOCTL_H_ */
