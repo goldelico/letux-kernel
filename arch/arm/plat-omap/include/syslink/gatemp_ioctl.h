@@ -172,6 +172,6 @@ struct gatemp_cmd_args {
  * ioctl interface function for gatemp
  */
 int gatemp_ioctl(struct inode *inode, struct file *filp,
-				unsigned int cmd, unsigned long args);
+			unsigned int cmd, unsigned long args, bool user);
 
 #endif /* _GATEMP_IOCTL_H_ */
