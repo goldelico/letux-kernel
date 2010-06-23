@@ -17,15 +17,6 @@ struct glamo_fb_platform_data {
     struct glamo_core *core;
 };
 
-int glamofb_cmd_mode(struct glamofb_handle *gfb, int on);
-int glamofb_cmd_write(struct glamofb_handle *gfb, u_int16_t val);
-
-#ifdef CONFIG_MFD_GLAMO
-void glamo_lcm_reset(struct platform_device *pdev, int level);
-#else
-#define glamo_lcm_reset(...) do {} while (0)
-#endif
-
 #endif
 
 #define GLAMOFB_ENGINE_ENABLE _IOW('F', 0x1, __u32)

@@ -261,6 +261,66 @@ static void __rotate_lcd(struct glamofb_handle *glamo, uint32_t rotation)
 				 GLAMO_LCD_MODE1_ROTATE_EN : 0);
 }
 
+static inline int glamofb_cmdq_empty(struct glamofb_handle *gfb)
+{
+	/* DGCMdQempty -- 1 == command queue is empty */
+	return reg_read(gfb, GLAMO_REG_LCD_STATUS1) & (1 << 15);
+}
+
+/* call holding gfb->lock_cmd  when locking, until you unlock */
+static int glamofb_cmd_mode(struct glamofb_handle *gfb, int on)
+{
+	int timeout = 2000000;
+
+	dev_dbg(gfb->dev, "glamofb_cmd_mode(gfb=%p, on=%d)\n", gfb, on);
+	if (on) {
+		dev_dbg(gfb->dev, "%s: waiting for cmdq empty: ",
+			__func__);
+		while (!glamofb_cmdq_empty(gfb) && (timeout--))
+			cpu_relax();
+		if (timeout < 0) {
+			printk(KERN_ERR "glamofb cmd_queue never got empty\n");
+			return -EIO;
+		}
+		dev_dbg(gfb->dev, "empty!\n");
+
+		/* display the entire frame then switch to command */
+		reg_write(gfb, GLAMO_REG_LCD_COMMAND1,
+			  GLAMO_LCD_CMD_TYPE_DISP |
+			  GLAMO_LCD_CMD_DATA_FIRE_VSYNC);
+
+		/* wait until lcd idle */
+		dev_dbg(gfb->dev, "waiting for lcd idle: ");
+		timeout = 2000000;
+		while (!(reg_read(gfb, GLAMO_REG_LCD_STATUS2) & (1 << 12)) &&
+		      (timeout--))
+			cpu_relax();
+		if (timeout < 0) {
+			printk(KERN_ERR"*************"
+				       "glamofb lcd never idle"
+				       "*************\n");
+			return -EIO;
+		}
+
+		mdelay(100);
+
+		dev_dbg(gfb->dev, "cmd mode entered\n");
+
+	} else {
+		/* RGB interface needs vsync/hsync */
+		if (reg_read(gfb, GLAMO_REG_LCD_MODE3) & GLAMO_LCD_MODE3_RGB)
+			reg_write(gfb, GLAMO_REG_LCD_COMMAND1,
+				  GLAMO_LCD_CMD_TYPE_DISP |
+				  GLAMO_LCD_CMD_DATA_DISP_SYNC);
+
+		reg_write(gfb, GLAMO_REG_LCD_COMMAND1,
+			  GLAMO_LCD_CMD_TYPE_DISP |
+			  GLAMO_LCD_CMD_DATA_DISP_FIRE);
+	}
+
+	return 0;
+}
+
 static void glamofb_program_mode(struct glamofb_handle *gfb)
 {
 	unsigned int sync, bp, disp, fp, total;
@@ -611,88 +671,6 @@ static int glamofb_cursor(struct fb_info *info, struct fb_cursor *cursor)
 	return 0;
 }
 #endif
-
-static inline int glamofb_cmdq_empty(struct glamofb_handle *gfb)
-{
-	/* DGCMdQempty -- 1 == command queue is empty */
-	return reg_read(gfb, GLAMO_REG_LCD_STATUS1) & (1 << 15);
-}
-
-/* call holding gfb->lock_cmd  when locking, until you unlock */
-int glamofb_cmd_mode(struct glamofb_handle *gfb, int on)
-{
-	int timeout = 2000000;
-
-	dev_dbg(gfb->dev, "glamofb_cmd_mode(gfb=%p, on=%d)\n", gfb, on);
-	if (on) {
-		dev_dbg(gfb->dev, "%s: waiting for cmdq empty: ",
-			__func__);
-		while (!glamofb_cmdq_empty(gfb) && (timeout--))
-			cpu_relax();
-		if (timeout < 0) {
-			printk(KERN_ERR "glamofb cmd_queue never got empty\n");
-			return -EIO;
-		}
-		dev_dbg(gfb->dev, "empty!\n");
-
-		/* display the entire frame then switch to command */
-		reg_write(gfb, GLAMO_REG_LCD_COMMAND1,
-			  GLAMO_LCD_CMD_TYPE_DISP |
-			  GLAMO_LCD_CMD_DATA_FIRE_VSYNC);
-
-		/* wait until lcd idle */
-		dev_dbg(gfb->dev, "waiting for lcd idle: ");
-		timeout = 2000000;
-		while (!(reg_read(gfb, GLAMO_REG_LCD_STATUS2) & (1 << 12)) &&
-		      (timeout--))
-			cpu_relax();
-		if (timeout < 0) {
-			printk(KERN_ERR"*************"
-				       "glamofb lcd never idle"
-				       "*************\n");
-			return -EIO;
-		}
-
-		mdelay(100);
-
-		dev_dbg(gfb->dev, "cmd mode entered\n");
-
-	} else {
-		/* RGB interface needs vsync/hsync */
-		if (reg_read(gfb, GLAMO_REG_LCD_MODE3) & GLAMO_LCD_MODE3_RGB)
-			reg_write(gfb, GLAMO_REG_LCD_COMMAND1,
-				  GLAMO_LCD_CMD_TYPE_DISP |
-				  GLAMO_LCD_CMD_DATA_DISP_SYNC);
-
-		reg_write(gfb, GLAMO_REG_LCD_COMMAND1,
-			  GLAMO_LCD_CMD_TYPE_DISP |
-			  GLAMO_LCD_CMD_DATA_DISP_FIRE);
-	}
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(glamofb_cmd_mode);
-
-int glamofb_cmd_write(struct glamofb_handle *gfb, uint16_t val)
-{
-	int timeout = 200000;
-
-	dev_dbg(gfb->dev, "%s: waiting for cmdq empty\n", __func__);
-	while ((!glamofb_cmdq_empty(gfb)) && (timeout--))
-		yield();
-	if (timeout < 0) {
-		printk(KERN_ERR"*************"
-				"glamofb cmd_queue never got empty"
-				"*************\n");
-		return 1;
-	}
-	dev_dbg(gfb->dev, "idle, writing 0x%04x\n", val);
-
-	reg_write(gfb, GLAMO_REG_LCD_COMMAND1, val);
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(glamofb_cmd_write);
 
 static struct fb_ops glamofb_ops = {
 	.owner		= THIS_MODULE,
