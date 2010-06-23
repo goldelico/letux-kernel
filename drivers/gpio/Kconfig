@@ -74,7 +74,7 @@ config GPIO_GLAMO
 	tristate "Glamo GPIO support"
 	depends on MFD_GLAMO
 	help
-	  Enable a bitbanging SPI adapter driver for the Smedia Glamo.
+	  Say yes here to support GPIO functionality of the Smedia Glamo.
 
 config GPIO_IT8761E
 	tristate "IT8761E GPIO support"
