@@ -43,24 +43,28 @@
 
 #include <linux/glamofb.h>
 
-static void glamofb_program_mode(struct glamofb_handle *glamo);
-
 struct glamofb_handle {
 	struct glamo_core *core;
 	struct fb_info *fb;
 	struct device *dev;
+
 	struct resource *reg;
 	struct resource *fb_res;
-	char __iomem *base;
+	void __iomem *base;
+	void __iomem *cursor_addr;
+
 	struct glamo_fb_platform_data *mach_info;
-	char __iomem *cursor_addr;
+
 	int cursor_on;
-	u_int32_t pseudo_pal[16];
-	spinlock_t lock_cmd;
 	int blank_mode;
 	int mode_set; /* 0 if the current display mode hasn't been set on the glamo */
 	int output_enabled; /* 0 if the video output is disabled */
+
+	spinlock_t lock_cmd;
+	uint32_t pseudo_pal[16];
 };
+
+static void glamofb_program_mode(struct glamofb_handle *glamo);
 
 static void glamo_output_enable(struct glamofb_handle *gfb)
 {
@@ -91,19 +95,18 @@ static void glamo_output_disable(struct glamofb_handle *gfb)
 }
 
 
-static inline int reg_read(struct glamofb_handle *glamo,
-			   u_int16_t reg)
+static inline int reg_read(struct glamofb_handle *glamo, uint16_t reg)
 {
 	return readw(glamo->base + reg);
 }
 
-static inline void reg_write(struct glamofb_handle *glamo,
-			 uint16_t reg, uint16_t val)
+static inline void reg_write(struct glamofb_handle *glamo, uint16_t reg,
+	uint16_t val)
 {
 	writew(val, glamo->base + reg);
 }
 
-static struct glamo_script glamo_regs[] = {
+static const struct glamo_script glamo_regs[] = {
 	{ GLAMO_REG_LCD_MODE1, 0x0020 },
 	/* no display rotation, no hardware cursor, no dither, no gamma,
 	 * no retrace flip, vsync low-active, hsync low active,
@@ -131,12 +134,12 @@ static struct glamo_script glamo_regs[] = {
 };
 
 static int glamofb_run_script(struct glamofb_handle *glamo,
-				struct glamo_script *script, int len)
+	const struct glamo_script *script, size_t len)
 {
-	int i;
+	size_t i;
 
 	for (i = 0; i < len; i++) {
-		struct glamo_script *line = &script[i];
+		const struct glamo_script *line = &script[i];
 
 		if (line->reg == 0xffff)
 			return 0;
@@ -150,7 +153,7 @@ static int glamofb_run_script(struct glamofb_handle *glamo,
 }
 
 static int glamofb_check_var(struct fb_var_screeninfo *var,
-				 struct fb_info *info)
+	struct fb_info *info)
 {
 	struct glamofb_handle *glamo = info->par;
 
@@ -199,19 +202,16 @@ static int glamofb_check_var(struct fb_var_screeninfo *var,
 	case 32:
 	default:
 		/* The Smedia Glamo doesn't support anything but 16bit color */
-		printk(KERN_ERR
-			"Smedia driver does not [yet?] support 24/32bpp\n");
 		return -EINVAL;
 	}
 
 	return 0;
 }
 
-static void reg_set_bit_mask(struct glamofb_handle *glamo,
-				uint16_t reg, uint16_t mask,
-				uint16_t val)
+static void reg_set_bit_mask(struct glamofb_handle *glamo, uint16_t reg,
+	uint16_t mask, uint16_t val)
 {
-	u_int16_t tmp;
+	uint16_t tmp;
 
 	val &= mask;
 
@@ -231,9 +231,9 @@ static void reg_set_bit_mask(struct glamofb_handle *glamo,
 #define GLAMO_LCD_HV_RETR_DISP_END_MASK 0x03FF
 
 /* the caller has to ensure lock_cmd is held and we are in cmd mode */
-static void __rotate_lcd(struct glamofb_handle *glamo, __u32 rotation)
+static void __rotate_lcd(struct glamofb_handle *glamo, uint32_t rotation)
 {
-	int glamo_rot;
+	uint32_t glamo_rot;
 
 	switch (rotation) {
 	case FB_ROTATE_CW:
@@ -263,7 +263,7 @@ static void __rotate_lcd(struct glamofb_handle *glamo, __u32 rotation)
 
 static void glamofb_program_mode(struct glamofb_handle *gfb)
 {
-	int sync, bp, disp, fp, total;
+	unsigned int sync, bp, disp, fp, total;
 	unsigned long flags;
 	struct glamo_core *gcore = gfb->core;
 	struct fb_var_screeninfo *var = &gfb->fb->var;
@@ -340,15 +340,8 @@ out_unlock:
 	spin_unlock_irqrestore(&gfb->lock_cmd, flags);
 }
 
-
-static int glamofb_pan_display(struct fb_var_screeninfo *var,
-		struct fb_info *info)
-{
-	return 0;
-}
-
 static struct fb_videomode *glamofb_find_mode(struct fb_info *info,
-						struct fb_var_screeninfo *var)
+	struct fb_var_screeninfo *var)
 {
 	struct glamofb_handle *glamo = info->par;
 	struct glamo_fb_platform_data *pdata = glamo->mach_info;
@@ -429,16 +422,15 @@ static int glamofb_blank(int blank_mode, struct fb_info *info)
 }
 
 static inline unsigned int chan_to_field(unsigned int chan,
-					 struct fb_bitfield *bf)
+	struct fb_bitfield *bf)
 {
 	chan &= 0xffff;
 	chan >>= 16 - bf->length;
 	return chan << bf->offset;
 }
 
-static int glamofb_setcolreg(unsigned regno,
-				unsigned red, unsigned green, unsigned blue,
-				unsigned transp, struct fb_info *info)
+static int glamofb_setcolreg(unsigned regno, unsigned red, unsigned green,
+	unsigned blue, unsigned transp, struct fb_info *info)
 {
 	struct glamofb_handle *glamo = info->par;
 	unsigned int val;
@@ -466,7 +458,7 @@ static int glamofb_setcolreg(unsigned regno,
 }
 
 static int glamofb_ioctl(struct fb_info *info, unsigned int cmd,
-				unsigned long arg)
+	unsigned long arg)
 {
 	struct glamofb_handle *gfb = (struct glamofb_handle *)info->par;
 	struct glamo_core *gcore = gfb->core;
@@ -492,8 +484,8 @@ static int glamofb_ioctl(struct fb_info *info, unsigned int cmd,
 
 
 #ifdef CONFIG_MFD_GLAMO_HWACCEL
-static inline void glamofb_vsync_wait(struct glamofb_handle *glamo,
-		int line, int size, int range)
+static inline void glamofb_vsync_wait(struct glamofb_handle *glamo, int line,
+	int size, int range)
 {
 	int count[2];
 
@@ -681,8 +673,7 @@ int glamofb_cmd_mode(struct glamofb_handle *gfb, int on)
 }
 EXPORT_SYMBOL_GPL(glamofb_cmd_mode);
 
-
-int glamofb_cmd_write(struct glamofb_handle *gfb, u_int16_t val)
+int glamofb_cmd_write(struct glamofb_handle *gfb, uint16_t val)
 {
 	int timeout = 200000;
 
@@ -706,7 +697,6 @@ EXPORT_SYMBOL_GPL(glamofb_cmd_write);
 static struct fb_ops glamofb_ops = {
 	.owner		= THIS_MODULE,
 	.fb_check_var	= glamofb_check_var,
-	.fb_pan_display	= glamofb_pan_display,
 	.fb_set_par	= glamofb_set_par,
 	.fb_blank	= glamofb_blank,
 	.fb_setcolreg	= glamofb_setcolreg,
@@ -730,7 +720,7 @@ static int glamofb_init_regs(struct glamofb_handle *glamo)
 	return 0;
 }
 
-static int __init glamofb_probe(struct platform_device *pdev)
+static int __devinit glamofb_probe(struct platform_device *pdev)
 {
 	int rc = -EIO;
 	struct fb_info *fbinfo;
@@ -799,8 +789,8 @@ static int __init glamofb_probe(struct platform_device *pdev)
 		goto out_release_fb;
 	}
 
-	fbinfo->fix.smem_start = (unsigned long) glamofb->fb_res->start;
-	fbinfo->fix.smem_len = (__u32) resource_size(glamofb->fb_res);
+	fbinfo->fix.smem_start = (unsigned long)glamofb->fb_res->start;
+	fbinfo->fix.smem_len = (__u32)resource_size(glamofb->fb_res);
 
 	fbinfo->screen_base = ioremap(glamofb->fb_res->start,
 					   resource_size(glamofb->fb_res));
@@ -879,17 +869,18 @@ out_free:
 	return rc;
 }
 
-static int glamofb_remove(struct platform_device *pdev)
+static int __devexit glamofb_remove(struct platform_device *pdev)
 {
 	struct glamofb_handle *glamofb = platform_get_drvdata(pdev);
 
-	platform_set_drvdata(pdev, NULL);
 	iounmap(glamofb->fb->screen_base);
 	iounmap(glamofb->base);
+
 	release_mem_region(glamofb->fb_res->start,
 				resource_size(glamofb->fb_res));
 	release_mem_region(glamofb->reg->start, resource_size(glamofb->reg));
 
+	platform_set_drvdata(pdev, NULL);
 	framebuffer_release(glamofb->fb);
 
 	return 0;
@@ -948,7 +939,7 @@ static const struct dev_pm_ops glamofb_pm_ops = {
 
 static struct platform_driver glamofb_driver = {
 	.probe		= glamofb_probe,
-	.remove		= glamofb_remove,
+	.remove		= __devexit_p(glamofb_remove),
 	.driver		= {
 		.name	= "glamo-fb",
 		.owner	= THIS_MODULE,
@@ -956,17 +947,16 @@ static struct platform_driver glamofb_driver = {
 	},
 };
 
-static int __devinit glamofb_init(void)
+static int __init glamofb_init(void)
 {
 	return platform_driver_register(&glamofb_driver);
 }
+module_init(glamofb_init);
 
 static void __exit glamofb_cleanup(void)
 {
 	platform_driver_unregister(&glamofb_driver);
 }
-
-module_init(glamofb_init);
 module_exit(glamofb_cleanup);
 
 MODULE_AUTHOR("Harald Welte <laforge@openmoko.org>");
