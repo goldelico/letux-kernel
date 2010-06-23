@@ -17,20 +17,19 @@
 #define GLAMO_FB_SIZE	(GLAMO_INTERNAL_RAM_SIZE - GLAMO_MMC_BUFFER_SIZE)
 
 enum glamo_pll {
-    GLAMO_PLL1,
-    GLAMO_PLL2,
+	GLAMO_PLL1,
+	GLAMO_PLL2,
 };
 
 enum glamo_engine_state {
-    GLAMO_ENGINE_DISABLED,
-    GLAMO_ENGINE_SUSPENDED,
-    GLAMO_ENGINE_ENABLED,
+	GLAMO_ENGINE_DISABLED,
+	GLAMO_ENGINE_SUSPENDED,
+	GLAMO_ENGINE_ENABLED,
 };
 
 struct glamo_core {
 	int irq;
 	int irq_base;
-	int irq_works; /* 0 means PCB does not support Glamo IRQ */
 	struct resource *mem;
 	void __iomem *base;
 	struct platform_device *pdev;

@@ -32,6 +32,8 @@
 #include <linux/spinlock.h>
 #include <linux/io.h>
 #include <linux/mfd/glamo.h>
+#include <linux/mfd/glamo-core.h>
+#include <linux/mfd/glamo-regs.h>
 
 #include <asm/div64.h>
 
@@ -40,9 +42,6 @@
 #endif
 
 #include <linux/glamofb.h>
-
-#include "glamo-regs.h"
-#include "glamo-core.h"
 
 static void glamofb_program_mode(struct glamofb_handle *glamo);
 
@@ -135,7 +134,7 @@ static struct glamo_script glamo_regs[] = {
 	   * 01 00 0 100 0 000 01 0 0 */
 	/* The following values assume 640*480@16bpp */
 	{ GLAMO_REG_LCD_A_BASE1, 0x0000 }, /* display A base address 15:0 */
-	{ GLAMO_REG_LCD_A_BASE2, 0x0000 }, /* display A base address 22:16 */
+	{ GLAMO_REG_LCD_A_BASE2, 0x4000 }, /* display A base address 22:16 */
 	{ GLAMO_REG_LCD_CURSOR_BASE1, 0xC000 }, /* cursor base address 15:0 */
 	{ GLAMO_REG_LCD_CURSOR_BASE2, 0x0012 }, /* cursor base address 22:16 */
 	{ GLAMO_REG_LCD_COMMAND2, 0x0000 }, /* display page A */
@@ -241,7 +240,7 @@ static void reg_set_bit_mask(struct glamofb_handle *glamo,
 #define GLAMO_LCD_HV_RETR_DISP_START_MASK 0x03FF
 #define GLAMO_LCD_HV_RETR_DISP_END_MASK 0x03FF
 
-/* the caller has to enxure lock_cmd is held and we are in cmd mode */
+/* the caller has to ensure lock_cmd is held and we are in cmd mode */
 static void __rotate_lcd(struct glamofb_handle *glamo, __u32 rotation)
 {
 	int glamo_rot;
@@ -895,7 +894,10 @@ static int glamofb_remove(struct platform_device *pdev)
 	struct glamofb_handle *glamofb = platform_get_drvdata(pdev);
 
 	platform_set_drvdata(pdev, NULL);
+	iounmap(glamofb->fb->screen_base);
 	iounmap(glamofb->base);
+	release_mem_region(glamofb->fb_res->start,
+				resource_size(glamofb->fb_res));
 	release_mem_region(glamofb->reg->start, resource_size(glamofb->reg));
 
 	framebuffer_release(glamofb->fb);

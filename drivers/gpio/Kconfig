@@ -70,6 +70,12 @@ config GPIO_MAX730X
 
 comment "Memory mapped GPIO expanders:"
 
+config GPIO_GLAMO
+	tristate "Glamo GPIO support"
+	depends on MFD_GLAMO
+	help
+	  Say yes here to support GPIO functionality of the Smedia Glamo.
+
 config GPIO_IT8761E
 	tristate "IT8761E GPIO support"
 	depends on GPIOLIB
