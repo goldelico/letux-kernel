@@ -91,25 +91,15 @@ static void glamo_output_disable(struct glamofb_handle *gfb)
 }
 
 
-static int reg_read(struct glamofb_handle *glamo,
+static inline int reg_read(struct glamofb_handle *glamo,
 			   u_int16_t reg)
 {
-	int i = 0;
-
-	for (i = 0; i != 2; i++)
-		nop();
-
 	return readw(glamo->base + reg);
 }
 
-static void reg_write(struct glamofb_handle *glamo,
+static inline void reg_write(struct glamofb_handle *glamo,
 			 uint16_t reg, uint16_t val)
 {
-	int i = 0;
-
-	for (i = 0; i != 2; i++)
-		nop();
-
 	writew(val, glamo->base + reg);
 }
 
