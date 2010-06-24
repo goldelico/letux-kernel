@@ -984,6 +984,7 @@ static int do_write(struct fsg_dev *fsg)
 			 * the bulk-out maxpacket size */
 			bh->outreq->length = bh->bulk_out_intended_length =
 					amount;
+			bh->outreq->short_not_ok = 1;
 			start_transfer(fsg, fsg->bulk_out, bh->outreq,
 					&bh->outreq_busy, &bh->state);
 			fsg->next_buffhd_to_fill = bh->next;
@@ -1535,6 +1536,7 @@ static int throw_away_data(struct fsg_dev *fsg)
 			 * the bulk-out maxpacket size */
 			bh->outreq->length = bh->bulk_out_intended_length =
 					amount;
+			bh->outreq->short_not_ok = 1;
 			start_transfer(fsg, fsg->bulk_out, bh->outreq,
 					&bh->outreq_busy, &bh->state);
 			fsg->next_buffhd_to_fill = bh->next;
@@ -2082,6 +2084,7 @@ static int get_next_command(struct fsg_dev *fsg)
 
 	/* Queue a request to read a Bulk-only CBW */
 	set_bulk_out_req_length(fsg, bh, USB_BULK_CB_WRAP_LEN);
+		bh->outreq->short_not_ok = 1;
 	start_transfer(fsg, fsg->bulk_out, bh->outreq,
 			&bh->outreq_busy, &bh->state);
 
