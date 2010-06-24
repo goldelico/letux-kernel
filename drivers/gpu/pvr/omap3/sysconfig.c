@@ -64,7 +64,7 @@ IMG_UINT32 PVRSRV_BridgeDispatchKM(IMG_UINT32	Ioctl,
 								   IMG_UINT32	OutBufLen,
 								   IMG_UINT32	*pdwBytesTransferred);
 
-#if defined(DEBUG_PVR) && defined(DUMP_OMAP34xx_CLOCKS) && defined(__linux__)
+#if defined(DEBUG) && defined(DUMP_OMAP34xx_CLOCKS) && defined(__linux__)
 
 #pragma GCC diagnostic ignored "-Wstrict-prototypes"
 #include <mach/clock.h>

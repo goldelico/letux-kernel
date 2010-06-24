@@ -109,7 +109,7 @@ typedef struct _SYS_SPECIFIC_DATA_TAG_
 	struct clk	*psSGX_FCK;
 	struct clk	*psSGX_ICK;
 	struct clk	*psMPU_CK;
-#if defined(DEBUG_PVR) || defined(TIMING)
+#if defined(DEBUG) || defined(TIMING)
 	struct clk	*psGPT11_FCK;
 	struct clk	*psGPT11_ICK;
 #endif
