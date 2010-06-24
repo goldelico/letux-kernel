@@ -69,12 +69,18 @@
 #define MSR_SAVE_FLAGS		UART_MSR_ANY_DELTA
 
 struct omap_uart_port_info {
-	bool			dma_enabled;	/* To specify DMA Mode */
-	unsigned int		uartclk;	/* UART clock rate */
+	unsigned long		reserved1;	/* Reserved 1 */
 	void __iomem		*membase;	/* ioremap cookie or NULL */
 	resource_size_t		mapbase;	/* resource base */
+	unsigned int		reserved2;	/* Reserved 2 */
 	unsigned long		irqflags;	/* request_irq flags */
+	unsigned int		uartclk;	/* UART clock rate */
+	void			*reserved3;	/* Reserved 3 */
+	unsigned char		regshift;	/* register shift */
+	unsigned char		reserved4;	/* Reserved 4 */
+	unsigned char		reserved5;	/* Reserved 5 */
 	upf_t			flags;		/* UPF_* flags */
+	bool			dma_enabled;	/* To specify DMA Mode */
 };
 
 struct uart_omap_dma {

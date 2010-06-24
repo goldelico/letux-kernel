@@ -1257,7 +1257,7 @@ static int serial_omap_probe(struct platform_device *pdev)
 	up->port.iotype = UPIO_MEM;
 	up->port.irq = irq->start;
 
-	up->port.regshift = 2;
+	up->port.regshift = omap_up_info->regshift;
 	up->port.fifosize = 64;
 	up->port.ops = &serial_omap_pops;
 	up->port.line = pdev->id;

@@ -15,6 +15,7 @@
 #include <linux/interrupt.h>
 
 #include <plat/gpmc.h>
+#include <plat/dma.h>
 
 #define ZOOM_SMSC911X_CS	7
 #define ZOOM_SMSC911X_GPIO	158
@@ -96,13 +97,23 @@ static struct plat_serial8250_port serial_platform_data[] = {
 
 static struct resource omap_quart_resources[] = {
 	{
-		.start          = ZOOM2_QUART_PHYS,
-		.end            = ZOOM2_QUART_PHYS + (0x16 << 1),
-		.flags          = IORESOURCE_MEM,
+		.start		= ZOOM2_QUART_PHYS,
+		.end		= ZOOM2_QUART_PHYS + (0x16 << 1),
+		.flags		= IORESOURCE_MEM,
 	}, {
 		/* QUART IRQ - 102*/
-		.start          = OMAP_GPIO_IRQ(102),
-		.flags          = IORESOURCE_IRQ,
+		.start		= OMAP_GPIO_IRQ(102),
+		.flags		= IORESOURCE_IRQ,
+	}, {
+		.name		= "quart_dma_rx",
+		.start		= OMAP24XX_DMA_NO_DEVICE,
+		.end		= OMAP24XX_DMA_NO_DEVICE,
+		.flags 		= IORESOURCE_DMA,
+	}, {
+		.name		= "quart_dma_tx",
+		.start		= OMAP24XX_DMA_NO_DEVICE,
+		.end		= OMAP24XX_DMA_NO_DEVICE,
+		.flags		= IORESOURCE_DMA,
 	}
 };
 
@@ -137,6 +148,12 @@ static inline void __init zoom_init_quaduart(void)
 		return;
 	}
 	gpio_direction_input(quart_gpio);
+
+	/* Once initialized, set the membase address with the ioremap
+	 * value.
+	 */
+	serial_platform_data[0].membase = \
+				ioremap(ZOOM2_QUART_PHYS, 0x16 << 1);
 }
 
 static inline int omap_zoom_debugboard_detect(void)

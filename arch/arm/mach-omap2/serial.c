@@ -707,6 +707,7 @@ void __init omap_serial_init_port(int port)
 		omap_up.membase = oh->_rt_va;
 		omap_up.irqflags = IRQF_SHARED;
 		omap_up.flags = UPF_BOOT_AUTOCONF | UPF_SHARE_IRQ;
+		omap_up.regshift = 2;
 
 		pdata = &omap_up;
 		pdata_size = sizeof(struct omap_uart_port_info);
