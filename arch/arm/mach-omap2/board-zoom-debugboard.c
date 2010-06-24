@@ -105,12 +105,12 @@ static struct resource omap_quart_resources[] = {
 		.start		= OMAP_GPIO_IRQ(102),
 		.flags		= IORESOURCE_IRQ,
 	}, {
-		.name		= "quart_dma_rx",
+		.name		= "rx",
 		.start		= OMAP24XX_DMA_NO_DEVICE,
 		.end		= OMAP24XX_DMA_NO_DEVICE,
 		.flags 		= IORESOURCE_DMA,
 	}, {
-		.name		= "quart_dma_tx",
+		.name		= "tx",
 		.start		= OMAP24XX_DMA_NO_DEVICE,
 		.end		= OMAP24XX_DMA_NO_DEVICE,
 		.flags		= IORESOURCE_DMA,
