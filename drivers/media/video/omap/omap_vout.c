@@ -44,6 +44,10 @@
 #include <linux/dma-mapping.h>
 #include <linux/irq.h>
 
+#ifndef CONFIG_ARCH_OMAP4
+#include <linux/omap_resizer.h>
+#endif
+
 #include <media/videobuf-dma-sg.h>
 #include <media/v4l2-dev.h>
 #include <media/v4l2-ioctl.h>
@@ -104,7 +108,34 @@ MODULE_LICENSE("GPL");
 int cacheable_buffers;
 int flushable_buffers;
 
+#ifndef CONFIG_ARCH_OMAP4
+/* ISP resizer related code*/
+struct rsz_params isp_rsz_params;
 static int vrfb_configured;
+
+static u16 omap_vout_rsz_filter_4_tap_high_quality[] = {
+	0x0000, 0x0100, 0x0000, 0x0000,
+	0x03FA, 0x00F6, 0x0010, 0x0000,
+	0x03F9, 0x00DB, 0x002C, 0x0000,
+	0x03FB, 0x00B3, 0x0053, 0x03FF,
+	0x03FD, 0x0082, 0x0084, 0x03FD,
+	0x03FF, 0x0053, 0x00B3, 0x03FB,
+	0x0000, 0x002C, 0x00DB, 0x03F9,
+	0x0000, 0x0010, 0x00F6, 0x03FA
+};
+
+static u16 omap_vout_rsz_filter_7_tap_high_quality[] = {
+	0x0004, 0x0023, 0x005A, 0x0058,
+	0x0023, 0x0004, 0x0000, 0x0000,
+	0x0002, 0x0018, 0x004d, 0x0060,
+	0x0031, 0x0008, 0x0000, 0x0000,
+	0x0001, 0x000f, 0x003f, 0x0062,
+	0x003f, 0x000f, 0x0001, 0x0000,
+	0x0000, 0x0008, 0x0031, 0x0060,
+	0x004d, 0x0018, 0x0002, 0x0000
+};
+#endif
+/* End ISP resizer*/
 
 static struct videobuf_queue_ops video_vbq_ops;
 
@@ -301,6 +332,93 @@ static int omap_vout_allocate_vrfb_buffers(struct omap_vout_device *vout,
 	}
 	return 0;
 }
+
+/* This function wakes up the application once
+ * the DMA transfer to VRFB space is completed by the
+ * ISP resizer block
+ */
+void omap_vout_isp_rsz_dma_tx_callback(void *arg)
+{
+	struct omap_vout_device *vout;
+	vout = (struct omap_vout_device *) arg;
+
+	vout->vrfb_dma_tx.tx_status = 1;
+	wake_up_interruptible(&vout->vrfb_dma_tx.wait);
+}
+
+/* This function configures and initializes the ISP resizer*/
+static int init_isp_rsz(struct omap_vout_device *vout)
+{
+	int k = 0, num_video_buffers = 0;
+	int ret = 0;
+
+	/* get the ISP resizer resource and configure it*/
+	if (vout->use_isp_rsz_for_downscale) {
+		if (vout->rsz_configured == 0) {
+			ret = rsz_get_resource();
+			if (ret) {
+				printk(KERN_ERR "<%s>: <%s> failed to get ISP "
+						"resizer resource = %d\n",
+				       __FILE__, __func__, ret);
+				vout->use_isp_rsz_for_downscale = 0;
+				return ret;
+			}
+
+			isp_rsz_params.in_hsize = vout->pix.width;
+			isp_rsz_params.in_vsize = vout->pix.height;
+			isp_rsz_params.out_hsize = vout->win.w.width;
+			isp_rsz_params.out_vsize = vout->win.w.height;
+
+			isp_rsz_params.in_pitch = isp_rsz_params.in_hsize * 2;
+			isp_rsz_params.inptyp = RSZ_INTYPE_YCBCR422_16BIT;
+			isp_rsz_params.vert_starting_pixel = 0;
+			isp_rsz_params.horz_starting_pixel = 0;
+
+			/* We are going to do downsampling, 0.75x*/
+			isp_rsz_params.cbilin = 0;
+			isp_rsz_params.out_pitch = isp_rsz_params.out_hsize * 2;
+			isp_rsz_params.hstph = 0;
+			isp_rsz_params.vstph = 0;
+			isp_rsz_params.yenh_params.type = 0;
+			isp_rsz_params.yenh_params.gain = 0;
+			isp_rsz_params.yenh_params.slop = 0;
+			isp_rsz_params.yenh_params.core = 0;
+
+			if (vout->pix.pixelformat == V4L2_PIX_FMT_YUYV)
+				isp_rsz_params.pix_fmt = RSZ_PIX_FMT_YUYV;
+			if (vout->pix.pixelformat == V4L2_PIX_FMT_UYVY)
+				isp_rsz_params.pix_fmt = RSZ_PIX_FMT_UYVY;
+
+			/* As we are downsizing, we put */
+			for (k = 0; k < 32; k++)
+				isp_rsz_params.tap4filt_coeffs[k] =
+				omap_vout_rsz_filter_4_tap_high_quality[k];
+			for (k = 0; k < 32; k++)
+				isp_rsz_params.tap7filt_coeffs[k] =
+				omap_vout_rsz_filter_7_tap_high_quality[k];
+
+			num_video_buffers = (vout->vid == OMAP_VIDEO1) ?
+			video1_numbuffers : video2_numbuffers;
+
+			ret = rsz_configure(&isp_rsz_params,
+					  omap_vout_isp_rsz_dma_tx_callback,
+					  num_video_buffers,
+					  (void *)vout);
+			printk(KERN_ERR "<%s>: rsz_configure = %d\n",
+			       __func__, ret);
+			if (ret) {
+				printk(KERN_ERR "<%s> failed to configure "
+						"ISP_resizer = %d\n",
+				       __func__, ret);
+				vout->use_isp_rsz_for_downscale = 0;
+				return ret;
+			}
+			vout->rsz_configured = 1;
+		}
+	}
+
+	return ret;
+}
 #endif
 
 /* Try format */
@@ -449,7 +567,15 @@ static inline int rotate_90_or_270(const struct omap_vout_device *vout)
 /* Return true if rotation is enabled */
 static inline int rotation_enabled(const struct omap_vout_device *vout)
 {
-	return vout->rotation || vout->mirror;
+	/* rotation needs to be enabled by default for OMAP3 in order
+	 * to use VRFB. ISP resizer also requires VRFB to be used for all
+	 * rotation angles including 0 degree. for OMAP3 this function needs
+	 * to return true even for 0 degree rotation
+	 */
+	if (cpu_is_omap34xx())
+		return 1;
+	else
+		return vout->rotation || vout->mirror;
 }
 
 /* Reverse the rotation degree if mirroring is enabled */
@@ -522,6 +648,7 @@ static int omap_vout_vrfb_buffer_setup(struct omap_vout_device *vout,
 {
 	int i;
 	bool yuv_mode;
+	s32 width, height;
 
 	/* Allocate the VRFB buffers only if the buffers are not
 	 * allocated during init time.
@@ -541,9 +668,16 @@ static int omap_vout_vrfb_buffer_setup(struct omap_vout_device *vout,
  corrected for future
 */
 	for (i = 0; i < *count; i++) {
-		omap_vrfb_setup(&vout->vrfb_context[i],
+		if (vout->use_isp_rsz_for_downscale) {
+			width = vout->win.w.width;
+			height = vout->win.w.height;
+		} else {
+			width = vout->pix.width;
+			height = vout->pix.height;
+		}
+			omap_vrfb_setup(&vout->vrfb_context[i],
 				vout->smsshado_phy_addr[i],
-				vout->pix.width, vout->pix.height,
+				width, height,
 				vout->bpp, yuv_mode,
 				vout->rotation);
 	}
@@ -693,6 +827,7 @@ static int omap_vout_calculate_offset(struct omap_vout_device *vout, int idx)
 	enum dss_rotation rotation;
 	int vr_ps = 1, ps = 2;
 #ifndef CONFIG_ARCH_OMAP4
+	struct v4l2_window *win = &(vout->win);
 	int offset = 0, temp_ps = 2;
 	bool mirroring = vout->mirror;
 #endif
@@ -704,6 +839,13 @@ static int omap_vout_calculate_offset(struct omap_vout_device *vout, int idx)
 #ifdef CONFIG_ARCH_OMAP4
 	int *cropped_uv_offset = vout->cropped_uv_offset + idx;
 	unsigned long addr = 0, uv_addr = 0;
+#endif
+
+#ifndef CONFIG_ARCH_OMAP4
+	if (vout->use_isp_rsz_for_downscale) {
+		crop->height = win->w.height;
+		crop->width = win->w.width;
+	}
 #endif
 
 	ovid = &vout->vid_info;
@@ -738,8 +880,19 @@ static int omap_vout_calculate_offset(struct omap_vout_device *vout, int idx)
 	vout->vr_ps = vr_ps;
 	if (rotation_enabled(vout)) {
 		line_length = MAX_PIXELS_PER_LINE;
+#ifndef CONFIG_ARCH_OMAP4
+		if (vout->use_isp_rsz_for_downscale) {
+			ctop = crop->top;
+			cleft = crop->left;
+		} else {
+			ctop = (pix->height - crop->height) - crop->top;
+			cleft = (pix->width - crop->width) - crop->left;
+		}
+#else
 		ctop = (pix->height - crop->height) - crop->top;
 		cleft = (pix->width - crop->width) - crop->left;
+#endif
+
 	} else {
 		line_length = pix->width;
 	}
@@ -883,6 +1036,9 @@ int omapvid_setup_overlay(struct omap_vout_device *vout,
 	enum dss_rotation rotation;
 	bool mirror;
 	int cropheight, cropwidth, pixheight, pixwidth;
+#ifndef CONFIG_ARCH_OMAP4
+	s32 new_crop_width, new_crop_height, new_pix_width, new_pix_height;
+#endif
 	struct omap_overlay_info info;
 
 	if ((ovl->caps & OMAP_DSS_OVL_CAP_SCALE) == 0 &&
@@ -908,9 +1064,38 @@ int omapvid_setup_overlay(struct omap_vout_device *vout,
 	rotation = vout->rotation;
 	mirror = vout->mirror;
 
+#ifndef CONFIG_ARCH_OMAP4
+	/* For 720p set the width and height for ISP resizer downscaling*/
+	if (vout->use_isp_rsz_for_downscale) {
+		new_crop_width = vout->win.w.width;
+		new_crop_height = vout->win.w.height;
+		new_pix_width = vout->win.w.width;
+		new_pix_height = vout->win.w.height;
+
+	} else {
+		new_crop_width = vout->crop.width;
+		new_crop_height = vout->crop.height;
+		new_pix_width = vout->pix.width;
+		new_pix_height = vout->pix.height;
+	}
+#endif
+
 	/* Setup the input plane parameters according to
 	 * rotation value selected.
 	 */
+#ifndef CONFIG_ARCH_OMAP4
+	if (rotate_90_or_270(vout)) {
+		cropheight = new_crop_width;
+		cropwidth = new_crop_height;
+		pixheight = new_pix_width;
+		pixwidth = new_pix_height;
+	} else {
+		cropheight = new_crop_height;
+		cropwidth = new_crop_width;
+		pixheight = new_pix_height;
+		pixwidth = new_pix_width;
+	}
+#else
 	if (rotate_90_or_270(vout)) {
 		cropheight = vout->crop.width;
 		cropwidth = vout->crop.height;
@@ -922,7 +1107,7 @@ int omapvid_setup_overlay(struct omap_vout_device *vout,
 		pixheight = vout->pix.height;
 		pixwidth = vout->pix.width;
 	}
-
+#endif
 	ovl->get_overlay_info(ovl, &info);
 	if (addr)
 		info.paddr = addr;
@@ -1257,6 +1442,9 @@ static int omap_vout_buffer_prepare(struct videobuf_queue *q,
 	u32 elem_count = 0, frame_count = 0, pixsize = 2;
 	enum dss_rotation rotation;
 	struct vid_vrfb_dma *tx;
+	int ret = 0;
+
+	rotation = calc_rotation(vout);
 #endif
 	if (VIDEOBUF_NEEDS_INIT == vb->state) {
 		vb->width = vout->pix.width;
@@ -1294,65 +1482,88 @@ static int omap_vout_buffer_prepare(struct videobuf_queue *q,
 		dmabuf->bus_addr + vout->buffer_size);
 	}
 
-	if (!rotation_enabled(vout)) {
-		vout->queued_buf_addr[vb->i] = (u8 *) dmabuf->bus_addr;
-		return 0;
-	}
+	if (vout->use_isp_rsz_for_downscale) {
+		/*Start resizing*/
+		ret = rsz_begin(vb->i, vb->i,
+				MAX_PIXELS_PER_LINE *\
+				vout->bpp * vout->vrfb_bpp,
+				(u32)vout->vrfb_context[vb->i].\
+				paddr[rotation],
+				vout->buf_phy_addr[vb->i],
+				vout->buffer_size);
+
+		if (ret) {
+			printk(KERN_ERR "<%s> ISP Resizer Failed to resize "
+					"the buffer"
+					" = %d\n", __func__, ret);
+			return ret;
+		}
+
+	} else if (!rotation_enabled(vout)) {
+
+			vout->queued_buf_addr[vb->i] = (u8 *) dmabuf->bus_addr;
+			return 0;
+	} else {
 #ifndef CONFIG_TILER_OMAP
-	/* If rotation is enabled, copy input buffer into VRFB
-	 * memory space using DMA. We are copying input buffer
-	 * into VRFB memory space of desired angle and DSS will
-	 * read image VRFB memory for 0 degree angle
-	 */
-	pixsize = vout->bpp * vout->vrfb_bpp;
-	/*
-	 * DMA transfer in double index mode
-	 */
+		/* If rotation is enabled, copy input buffer into VRFB
+		 * memory space using DMA. We are copying input buffer
+		 * into VRFB memory space of desired angle and DSS will
+		 * read image VRFB memory for 0 degree angle
+		 */
+		pixsize = vout->bpp * vout->vrfb_bpp;
+		/*
+		 * DMA transfer in double index mode
+		 */
 
-	/* Frame index */
-	dest_frame_index = ((MAX_PIXELS_PER_LINE * pixsize) -
-			(vout->pix.width * vout->bpp)) + 1;
+		/* Frame index */
+		dest_frame_index = ((MAX_PIXELS_PER_LINE * pixsize) -
+				(vout->pix.width * vout->bpp)) + 1;
 
-	/* Source and destination parameters */
-	src_element_index = 0;
-	src_frame_index = 0;
-	dest_element_index = 1;
-	/* Number of elements per frame */
-	elem_count = vout->pix.width * vout->bpp;
-	frame_count = vout->pix.height;
-	tx = &vout->vrfb_dma_tx;
-	tx->tx_status = 0;
-	omap_set_dma_transfer_params(tx->dma_ch, OMAP_DMA_DATA_TYPE_S32,
-			(elem_count / 4), frame_count, OMAP_DMA_SYNC_ELEMENT,
-			tx->dev_id, 0x0);
-	/* src_port required only for OMAP1 */
-	omap_set_dma_src_params(tx->dma_ch, 0, OMAP_DMA_AMODE_POST_INC,
-			dmabuf->bus_addr, src_element_index, src_frame_index);
-	/*set dma source burst mode for VRFB */
-	omap_set_dma_src_burst_mode(tx->dma_ch, OMAP_DMA_DATA_BURST_16);
-	rotation = calc_rotation(vout);
+		/* Source and destination parameters */
+		src_element_index = 0;
+		src_frame_index = 0;
+		dest_element_index = 1;
+		/* Number of elements per frame */
+		elem_count = vout->pix.width * vout->bpp;
+		frame_count = vout->pix.height;
+		tx = &vout->vrfb_dma_tx;
+		tx->tx_status = 0;
+		omap_set_dma_transfer_params(tx->dma_ch, OMAP_DMA_DATA_TYPE_S32,
+					     (elem_count / 4), frame_count,
+					     OMAP_DMA_SYNC_ELEMENT,
+					     tx->dev_id, 0x0);
+		/* src_port required only for OMAP1 */
+		omap_set_dma_src_params(tx->dma_ch, 0, OMAP_DMA_AMODE_POST_INC,
+					dmabuf->bus_addr, src_element_index,
+					src_frame_index);
+		/*set dma source burst mode for VRFB */
+		omap_set_dma_src_burst_mode(tx->dma_ch, OMAP_DMA_DATA_BURST_16);
 
-	/* dest_port required only for OMAP1 */
-	omap_set_dma_dest_params(tx->dma_ch, 0, OMAP_DMA_AMODE_DOUBLE_IDX,
-			vout->vrfb_context[vb->i].paddr[rotation],
-			dest_element_index, dest_frame_index);
-	/*set dma dest burst mode for VRFB */
-	omap_set_dma_dest_burst_mode(tx->dma_ch, OMAP_DMA_DATA_BURST_16);
-	omap_dma_set_global_params(DMA_DEFAULT_ARB_RATE, 0x20, 0);
+		/* dest_port required only for OMAP1 */
+		omap_set_dma_dest_params(tx->dma_ch, 0,
+					 OMAP_DMA_AMODE_DOUBLE_IDX,
+					 vout->vrfb_context[vb->i].\
+					 paddr[rotation], dest_element_index,
+					 dest_frame_index);
+		/*set dma dest burst mode for VRFB */
+		omap_set_dma_dest_burst_mode(tx->dma_ch,
+					     OMAP_DMA_DATA_BURST_16);
+		omap_dma_set_global_params(DMA_DEFAULT_ARB_RATE, 0x20, 0);
 
-	omap_start_dma(tx->dma_ch);
-	interruptible_sleep_on_timeout(&tx->wait, VRFB_TX_TIMEOUT);
+		omap_start_dma(tx->dma_ch);
+		interruptible_sleep_on_timeout(&tx->wait, VRFB_TX_TIMEOUT);
 
-	if (tx->tx_status == 0) {
-		omap_stop_dma(tx->dma_ch);
-		return -EINVAL;
+		if (tx->tx_status == 0) {
+			omap_stop_dma(tx->dma_ch);
+			return -EINVAL;
+		}
 	}
-	/* Store buffers physical address into an array. Addresses
-	 * from this array will be used to configure DSS */
+		/* Store buffers physical address into an array. Addresses
+		 * from this array will be used to configure DSS */
 	vout->queued_buf_addr[vb->i] = (u8 *)
-				vout->vrfb_context[vb->i].paddr[0];
+		vout->vrfb_context[vb->i].paddr[0];
 #endif
-#else /* TILER to be used */
+#else 	/* TILER to be used */
 
 	/* Here, we need to use the physical addresses given by Tiler:
 	*/
@@ -1587,7 +1798,18 @@ static int omap_vout_release(struct file *file)
 	if (r)
 		printk(KERN_WARNING VOUT_NAME "Unable to apply changes\n");
 
+#ifndef CONFIG_ARCH_OMAP4
+	/* Release the ISP resizer resource if not already done so*/
+	if (vout->use_isp_rsz_for_downscale) {
+		if (vout->rsz_configured == 1) {
+			rsz_put_resource();
+			vout->rsz_configured = 0;
+			vout->use_isp_rsz_for_downscale = 0;
+		}
+	}
+
 	vrfb_configured = 0;
+#endif
 
 	/* Free all buffers */
 #ifndef TILER_ALLOCATE_V4L2
@@ -1745,6 +1967,12 @@ static int vidioc_s_fmt_vid_out(struct file *file, void *fh,
 
 	mutex_lock(&vout->lock);
 
+#ifndef CONFIG_ARCH_OMAP4
+	/*check for 720p format*/
+	if (vout->pix.height * vout->pix.width == VID_MAX_WIDTH * 720)
+		vout->use_isp_rsz_for_downscale = 1;
+#endif
+
 	ovid = &vout->vid_info;
 	ovl = ovid->overlays[0];
 
@@ -1844,6 +2072,15 @@ static int vidioc_s_fmt_vid_overlay(struct file *file, void *fh,
 	ovid = &vout->vid_info;
 	ovl = ovid->overlays[0];
 
+#ifndef CONFIG_ARCH_OMAP4
+	if (vout->use_isp_rsz_for_downscale) {
+		/* align the output width to 16 bytes
+		 * ISP resizer requires the output width to be
+		 * aligned to 16 bytes.
+		 */
+		win->w.width = ((win->w.width + 0x0f) & ~0x0f);
+	}
+#endif
 	err = omap_vout_new_window(&vout->crop, &vout->win, &vout->fbuf, win);
 	if (err) {
 		mutex_unlock(&vout->lock);
@@ -1971,8 +2208,14 @@ static int vidioc_s_crop(struct file *file, void *fh,
 	}
 
 	if (crop->type == V4L2_BUF_TYPE_VIDEO_OUTPUT) {
+		/* omap_vout_new_corp sets the use_isp_rsz_for_downscale
+		 * flag based on whether there is a need for scaling beyond
+		 * 4x. ISP resizer is used for downscaling beyond 1/4x as DSS
+		 * doesn't support it.
+		 */
 		err = omap_vout_new_crop(&vout->pix, &vout->crop, &vout->win,
-			&vout->fbuf, &crop->c);
+					 &vout->fbuf, &crop->c,
+					 &vout->use_isp_rsz_for_downscale);
 		mutex_unlock(&vout->lock);
 		return err;
 	} else {
@@ -2157,6 +2400,13 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 	cacheable_buffers = (req->reserved[0] == 1) ? 1 : 0;
 	flushable_buffers = (req->reserved[1] == 1) ? 1 : 0;
 
+#ifndef CONFIG_ARCH_OMAP4
+	/*check for 720p format*/
+	if (vout->pix.height * vout->pix.width == VID_MAX_WIDTH * 720)
+		vout->use_isp_rsz_for_downscale = 1;
+
+	vout->rsz_configured = 0;
+#endif
 	/* If buffers are already allocated free them */
 	if (q->bufs[0] && (V4L2_MEMORY_MMAP == q->bufs[0]->memory)) {
 		if (vout->mmap_count) {
@@ -2249,10 +2499,8 @@ static int vidioc_qbuf(struct file *file, void *fh,
 {
 	struct omap_vout_device *vout = fh;
 	struct videobuf_queue *q = &vout->vbq;
-	int ret = 0;
-#ifndef CONFIG_ARCH_OMAP4
 	unsigned int count;
-#endif
+	int ret = 0;
 
 	v4l2_dbg(1, debug, &vout->vid_dev->v4l2_dev,
 		"entered qbuf: buffer address: %x \n", (unsigned int) buffer);
@@ -2277,6 +2525,11 @@ static int vidioc_qbuf(struct file *file, void *fh,
 				"DMA Channel not allocated for Rotation\n");
 		return -EINVAL;
 	}
+
+	/* initialize the ISP resizer*/
+	ret = init_isp_rsz(vout);
+	if (ret)
+		return ret;
 
 	/* setup the vrfb so that the first frames are also setup
 	* correctly in the vrfb
@@ -2350,6 +2603,13 @@ static int vidioc_streamon(struct file *file, void *fh,
 		mutex_unlock(&vout->lock);
 		return -EIO;
 	}
+
+#ifndef CONFIG_ARCH_OMAP4
+	/*check for 720p format*/
+	if (vout->pix.height * vout->pix.width == VID_MAX_WIDTH * 720)
+		vout->use_isp_rsz_for_downscale = 1;
+#endif
+
 	/* Get the next frame from the buffer queue */
 	vout->next_frm = vout->cur_frm = list_entry(vout->dma_queue.next,
 				struct videobuf_buffer, queue);
@@ -2462,7 +2722,21 @@ static int vidioc_streamoff(struct file *file, void *fh,
 		return r;
 	}
 	INIT_LIST_HEAD(&vout->dma_queue);
+
+#ifndef CONFIG_ARCH_OMAP4
+	/*release resizer now */
+	if (vout->use_isp_rsz_for_downscale) {
+		if (vout->rsz_configured == 1) {
+			rsz_put_resource();
+			printk(KERN_ERR "<%s> rsz_put_resource\n",
+			       __func__);
+			vout->rsz_configured = 0;
+			vout->use_isp_rsz_for_downscale = 0;
+		}
+	}
+
 	vrfb_configured = 0;
+#endif
 	videobuf_streamoff(&vout->vbq);
 	videobuf_queue_cancel(&vout->vbq);
 	return 0;
@@ -2652,6 +2926,7 @@ static int __init omap_vout_setup_video_data(struct omap_vout_device *vout)
 	vout->control[2].value = 0;
 	vout->vrfb_bpp = 2;
 	vout->linked = 0;
+	vout->use_isp_rsz_for_downscale = 0;
 
 	control[1].id = V4L2_CID_BG_COLOR;
 	control[1].value = 0;
@@ -2695,7 +2970,7 @@ static int __init omap_vout_setup_video_bufs(struct platform_device *pdev,
 	int i, j, r = 0;
 	unsigned numbuffers;
 	int image_width, image_height;
-	int static_vrfb_allocation = 0, vrfb_num_bufs = 4;
+	int static_vrfb_allocation = 0, vrfb_num_bufs = OMAP_VOUT_MAX_BUFFERS;
 #endif
 	vout = vid_dev->vouts[vid_num];
 	vfd = vout->vfd;
