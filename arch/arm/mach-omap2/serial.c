@@ -446,7 +446,8 @@ static void omap_uart_idle_init(struct omap_uart_state *uart)
 	uart->timeout = DEFAULT_TIMEOUT;
 	setup_timer(&uart->timer, omap_uart_idle_timer,
 		    (unsigned long) uart);
-	mod_timer(&uart->timer, jiffies + uart->timeout);
+	if (uart->timeout)
+		mod_timer(&uart->timer, jiffies + uart->timeout);
 	omap_uart_smart_idle_enable(uart, 0);
 
 	if (cpu_is_omap34xx()) {
@@ -587,6 +588,7 @@ static unsigned int serial_in_override(struct uart_port *up, int offset)
 		if (!(lsr & UART_LSR_DR))
 			return -EPERM;
 	}
+
 	return __serial_read_reg(up, offset);
 }
 #endif
@@ -702,6 +704,11 @@ void __init omap_serial_init_port(int port)
 		name = DRIVER_NAME;
 
 		omap_up.dma_enabled = uart->dma_enabled;
+
+		/* ENABLE DMA MODE UART2 */
+		if (uart->num == 1)
+			omap_up.dma_enabled = true;
+
 		omap_up.uartclk = OMAP24XX_BASE_BAUD * 16;
 		omap_up.mapbase = oh->slaves[0]->addr->pa_start;
 		omap_up.membase = oh->_rt_va;
