@@ -37,6 +37,9 @@ struct glamo_core {
 	enum glamo_engine_state engine_state[__NUM_GLAMO_ENGINES];
 	spinlock_t lock;
 	uint16_t saved_irq_mask;
+#ifdef CONFIG_DEBUG_FS
+	struct dentry *debugfs_dir;
+#endif
 };
 
 struct glamo_script {

@@ -40,6 +40,9 @@
 #include <linux/mfd/glamo-core.h>
 #include <linux/io.h>
 #include <linux/slab.h>
+#include <linux/debugfs.h>
+#include <linux/seq_file.h>
+#include <asm/uaccess.h>
 
 #include <linux/pm.h>
 
@@ -317,58 +320,99 @@ static void glamo_irq_demux_handler(unsigned int irq, struct irq_desc *desc)
 }
 
 /*
-sysfs
+debugfs
 */
 
-static ssize_t regs_write(struct device *dev, struct device_attribute *attr,
-				const char *buf, size_t count)
+#ifdef CONFIG_DEBUG_FS
+static ssize_t debugfs_regs_write(struct file *file,
+				  const char __user *user_buf,
+				  size_t count, loff_t *ppos)
 {
-	struct glamo_core *glamo = dev_get_drvdata(dev);
+	struct glamo_core *glamo = ((struct seq_file *)file->private_data)->private;
+	char buf[14];
 	unsigned int reg;
 	unsigned int val;
+	int buf_size;
 
-	sscanf(buf, "%u %u", &reg, &val);
-	printk(KERN_INFO"reg 0x%02x <-- 0x%04x\n",
-		reg, val);
+	buf_size = min(count, sizeof(buf) - 1);
+	if (copy_from_user(buf, user_buf, buf_size))
+		return -EFAULT;
+	if (sscanf(buf, "%x %x", &reg, &val) != 2)
+		return -EFAULT;
+
+	dev_info(&glamo->pdev->dev, "reg %#02x <-- %#04x\n", reg, val);
 
 	glamo_reg_write(glamo, reg, val);
 
 	return count;
 }
 
-static ssize_t regs_read(struct device *dev, struct device_attribute *attr,
-			char *buf)
+static int glamo_show_regs(struct seq_file *s, void *pos)
 {
-	struct glamo_core *glamo = dev_get_drvdata(dev);
+	struct glamo_core *glamo = s->private;
 	int i, n;
-	char *end = buf;
 	const struct reg_range *rr = reg_range;
 
 	spin_lock(&glamo->lock);
-
 	for (i = 0; i < ARRAY_SIZE(reg_range); ++i, ++rr) {
 		if (!rr->dump)
 			continue;
-		end += sprintf(end, "\n%s\n", rr->name);
+		seq_printf(s, "\n%s\n", rr->name);
 		for (n = rr->start; n < rr->start + rr->count; n += 2) {
 			if ((n & 15) == 0)
-				end += sprintf(end, "\n%04X:  ", n);
-			end += sprintf(end, "%04x ", __reg_read(glamo, n));
+				seq_printf(s, "\n%04X:  ", n);
+			seq_printf(s, "%04x ", __reg_read(glamo, n));
 		}
-		end += sprintf(end, "\n");
+		seq_printf(s, "\n");
 	}
 	spin_unlock(&glamo->lock);
 
-	return end - buf;
+	return 0;
 }
 
-static DEVICE_ATTR(regs, 0644, regs_read, regs_write);
+static int debugfs_open_file(struct inode *inode, struct file *file)
+{
+	return single_open(file, glamo_show_regs, inode->i_private);
+}
+
+static const struct file_operations debugfs_regs_ops = {
+	.open = debugfs_open_file,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.write = debugfs_regs_write,
+	.release	= single_release,
+};
 
 struct glamo_engine_reg_set {
 	uint16_t reg;
 	uint16_t mask_suspended;
 	uint16_t mask_enabled;
 };
+
+static void glamo_init_debugfs(struct glamo_core *glamo)
+{
+	glamo->debugfs_dir = debugfs_create_dir("glamo3362", NULL);
+	if (glamo->debugfs_dir)
+		debugfs_create_file("regs", S_IRUGO | S_IWUSR, glamo->debugfs_dir,
+				    glamo, &debugfs_regs_ops);
+	else
+		dev_warn(&glamo->pdev->dev, "Failed to set up debugfs.\n");
+}
+
+static void glamo_exit_debugfs(struct glamo_core *glamo)
+{
+	if (glamo->debugfs_dir)
+		debugfs_remove_recursive(glamo->debugfs_dir);
+}
+#else
+static void glamo_init_debugfs(struct glamo_core *glamo)
+{
+}
+
+static void glamo_exit_debugfs(struct glamo_core *glamo)
+{
+}
+#endif
 
 struct glamo_engine_desc {
 	const char *name;
@@ -935,12 +979,8 @@ static int __devinit glamo_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, glamo);
 
-	/* sysfs */
-	ret = device_create_file(&pdev->dev, &dev_attr_regs);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Failed to create sysfs file\n");
-		goto err_iounmap;
-	}
+	/* debugfs */
+	glamo_init_debugfs(glamo);
 
 	/* init the chip with canned register set */
 	glamo_run_script(glamo, glamo_init_script,
@@ -1008,6 +1048,8 @@ static int __devexit glamo_remove(struct platform_device *pdev)
 	struct glamo_core *glamo = platform_get_drvdata(pdev);
 	int irq;
 	int irq_base = glamo->irq_base;
+
+	glamo_exit_debugfs(glamo);
 
 	mfd_remove_devices(&pdev->dev);
 
