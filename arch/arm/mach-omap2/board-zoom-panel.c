@@ -38,6 +38,7 @@
 
 #define SIL9022_RESET_GPIO 		97
 
+extern unsigned get_last_off_on_transaction_id(struct device *dev);
 static int zoom_panel_enable_lcd(struct omap_dss_device *dssdev);
 static void zoom_panel_disable_lcd(struct omap_dss_device *dssdev);
 /*--------------------------------------------------------------------------*/
@@ -138,6 +139,7 @@ static struct omap_dss_device *zoom_dss_devices[] = {
 };
 
 static struct omap_dss_board_info zoom_dss_data = {
+	.get_last_off_on_transaction_id = get_last_off_on_transaction_id,
 	.num_devices = ARRAY_SIZE(zoom_dss_devices),
 	.devices = zoom_dss_devices,
 	.default_device = &zoom_lcd_device,
