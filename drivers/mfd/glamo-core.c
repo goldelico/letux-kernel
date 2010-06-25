@@ -901,13 +901,16 @@ static int __devinit glamo_supported(struct glamo_core *glamo)
 
 static int __devinit glamo_probe(struct platform_device *pdev)
 {
-	int ret = 0, irq, irq_base;
+	int ret = 0, n, irq, irq_base;
 	struct glamo_core *glamo;
 	struct resource *mem;
 
 	glamo = kmalloc(GFP_KERNEL, sizeof(*glamo));
 	if (!glamo)
 		return -ENOMEM;
+
+	for (n = 0; n < __NUM_GLAMO_ENGINES; n++)
+		glamo->engine_state[n] = GLAMO_ENGINE_DISABLED;
 
 	spin_lock_init(&glamo->lock);
 
