@@ -1,10 +1,10 @@
 # =====================================================================
-# L27.3 Eclair Hand-off
+# L27.4 Eclair Hand-off
 # =====================================================================
 
 Author: Leed Aguilar
-Date: May 24th 2010
-Target Release: L27.3
+Date: June 17th 2010
+Target Release: L27.4
 
 # =====================================================================
 # Configuration Settings
@@ -13,22 +13,22 @@ Target Release: L27.3
 [KERNEL]
 Repo   : git://git.omapzoom.org/kernel/omap.git
 Branch : p-android-omap-2.6.32
-Tag    : android-2.6.32-2.1-omap4.3
+Commit : android-2.6.32-2.1-omap4.4
 Config : android_4430_defconfig
 
 [U-BOOT]
-Repo    : git://git.omapzoom.org/repo/u-boot.git
-Branch  : omap4_dev
-Tag     : L24.6
-Commit  : 626aee14ccf5b5e49189ab2a4e256c58d5a4572f
-Config  : omap4430sdp_config
+Repo   : git://git.omapzoom.org/repo/u-boot.git
+Branch : omap4_dev
+Tag    : L24.7
+Commit : 626aee14ccf5b5e49189ab2a4e256c58d5a4572f
+Config : omap4430sdp_config
 
 [X-LOADER]
-Repo    : git://git.omapzoom.org/repo/x-loader.git
-Branch  : omap4_dev
-Tag     : L24.6-p1
-Commit  : cb4501270a23cd80e9cde9c7db1c6bf72a89d9c3
-Config  : omap4430sdp_config
+Repo   : git://git.omapzoom.org/repo/x-loader.git
+Branch : omap4_dev
+Tag    : L24.7
+Commit : 132029560a1f00cd0d43253d00ff92f00e13780b
+Config : omap4430sdp_config
 
 OS: Linux 2.6.32
 Platform: SDP4430/Blaze OMAP4430 ES1.0 board
@@ -43,7 +43,7 @@ Kernel:
 git clone git://git.omapzoom.org/kernel/omap.git
 cd omap/
 git checkout --track -b p-android-omap-2.6.32 origin/p-android-omap-2.6.32
-git checkout android-2.6.32-2.1-omap4.3
+git checkout android-2.6.32-2.1-omap4.4
 make ARCH=arm CROSS_COMPILE=arm-none-linux-gnueabi- android_4430_defconfig
 make ARCH=arm CROSS_COMPILE=arm-none-linux-gnueabi- uImage
 Output: uImage
@@ -52,8 +52,7 @@ u-boot:
 -------
 git clone  git://git.omapzoom.org/repo/u-boot.git
 cd u-boot/
-git checkout --track -b omap4_dev origin/omap4_dev
-git checkout L24.6
+git checkout L24.7
 make ARCH=arm CROSS_COMPILE=arm-none-linux-gnueabi- omap4430sdp_config
 make ARCH=arm CROSS_COMPILE=arm-none-linux-gnueabi-
 Output: u-boot.bin
@@ -62,8 +61,7 @@ x-loader:
 ---------
 git clone git://git.omapzoom.org/repo/x-loader.git
 cd x-loader/
-git checkout --track -b omap4_dev origin/omap4_dev
-git checkout L24.6-p1
+git checkout L24.7
 make ARCH=arm CROSS_COMPILE=arm-none-linux-gnueabi- omap4430sdp_config
 make ARCH=arm CROSS_COMPILE=arm-none-linux-gnueabi-
 make ARCH=arm CROSS_COMPILE=arm-none-linux-gnueabi- ift
@@ -73,9 +71,9 @@ Output: MLO
 # Known issues / Important Notes
 # =====================================================================
 
-* Console Change to ttyO: Sample bootargs for mmc boot:
-setenv bootargs 'console=ttyO2,115200n8 root=/dev/mmcblk0p2 rw rootdelay=2 init=/init omapfb.vram="0:4M"'
-setenv bootcmd 'mmcinit;fatload mmc 0 0x80000000 uImage;bootm 80000000'
+* Console Change to ttyO: Sample bootargs for MMC boot:
+setenv bootargs 'console=ttyO2,115200n8 mem=463M root=/dev/mmcblk0p2 rw rootdelay=2 init=/init omapfb.vram="0:4M"'
+setenv bootcmd 'mmcinit 0;fatload mmc 0 0x80000000 uImage;bootm 80000000'
 run bootcmd
 
 * This Release is intended to be used for Android Eclair 2.1:
@@ -97,25 +95,52 @@ http://omappedia.org/wiki/Android_Getting_Started#Building_Android
 
 [HIGHLIGHTS]
 
-- HWMOD initial support
-- SGX540 Kernel driver support
-- HDMI Audio support
-- Linux Kernel 2.6.32.9
-- Android common Kernel (14607 change)
-- OMAP3/OMAP4 coexistence support
-- eMMC flashing procedure
-- MCPDM Independent channel activation support
-- ABE Migration to ABE FW6.22
-- New Connectivity board-conn file for FM and Bluetooth
-- Initial support for pico DLP for OMAP4
-- Initial support for MIPI HSI and SSI for OMAP platforms
-- MCBSP DMA support
-- L24.6 Core drivers support
-- MUSB OTG optimizations and fixes
-	* Rx/Tx DMA/PIO transfer optimizations
-	* Improving throughput using the constraints framework
-	* Context save and restore support
-- Multiple bug fixes for TILER/DSS/SYSLINK/PM framework
+[SGX]
+
+- Use wait_vsync if FB auto-update is enabled
+- Rebase to ED11 DDK 1.5.15.3070
+- Protecting flush_cache_all
+- Support for Per cpu cache flush
+- Enabling MISR to run as a workqueue.
+
+[SYSLINK]
+
+- SYSLINK: IPC: rename heap functions to avoid name collision
+- YSLINK: IPC: Message transport add protection to transport
+- SYSLINK: IPC: messageq transport check the listmp handle
+- SYSLINK: PROCMGR: Put SYS_M3 in reset before MMU unmap
+- SYSLINK: Make Syslink Loadable Modules Makefiles
+- SYSLINK: IPC: Make Syslink Loadable Modules
+- SYSLINK: iommu-disable twl
+- iommu-add functionality to get TLB miss interrupt
+- iommu-update irq mask to be specific about twl and tlb
+- iommu: add TLB preservation support
+- iommu support for OMAP4
+- mailbox: convert block api to kfifo
+- mailbox: mailbox lock defined correctly as spinlock
+
+
+[DSS]
+
+- OMAP4: HDMI: added sysfs controls for reading & modifying EDID
+- OMAP4 HDMI: Handle no valid data on EDID read
+- DSS2: KlocWork and cosmetic fixes for DSS2
+- V4L2: Added frame-synchronized crop support to TI DSS v4l2 driver.
+- DSS2: Fix tearing at 60fps, add dsi_te_sync bootargs
+
+[AUDIO]
+
+- ASoC: improve quality of audio/speech playback and capture
+
+[CORE DRIVERS and PM]
+
+- MUSB: use RX dma mode0 for non mass-storage gadgets
+- MUSB: Enable the maximum supported burst mode for dma
+- MUSB: Fix: Enable DMA mode1 RX only for mass-storage gadget
+- OMAP4: PM: Reset Register bits correction
+- omap_hsmmc: improve interrupt synchronisation
+- MUSB: Add platform data for RNDIS USB ethernet driver
+
 
 [ADB SUPPORT]
 
@@ -131,24 +156,72 @@ To make ADB working on a linux PC you need to do the following:
 # cat /root/.android/adb_usb.ini
   0x0451
 
-[GFX Highlights]
-
-- DDK rebased to IMG version 1.5.15.2927
-- Update to use the unified omaplfb driver. The original directory
-  structure from Google is mostly retained. Only minor changes have
-  been made to facilitate co-existence of OMAP3 and OMAP4 based
-  drivers in the same codebase.
-- Add platform device registration for SGX driver and omaplfb driver
-- Enabling SGX driver in defconfig
-
-
 # =====================================================================
- Changelist
+# Gerrit IDs List and Change stats
 # =====================================================================
 
-Merge branch 'omap3-2.6.32' (509)
-Merge branch 'google-common/android-2.6.32' (698)
+Ic4de3541: USB: MUSB: use RX dma mode0 for non mass-storage gadgets
+Ifc0e1963: OMAP4: PM: Reset Register bits correction
+Ifaeccdb8: HACK: musb set_vdd1_opp func pointer set to NULL
+If525b8c3: REVISIT: Display: disable early suspend handler
+I6496c76c: Revert "USB: gadget: f_mass_storage: Flush writes after ..
+I3efab744: Revert "DSS: use correct flag for DSI PLL clk source"
+I7eee1223: USB: MUSB: Enable the maximum supported burst mode for dma
+I96a4e4f0: USB: MUSB: Enable DMA mode1 RX only for mass-storage gadget
+Ia34f93d4: omap_hsmmc: improve interrupt synchronisation
+Ia6cfccb7: OMAP4: HDMI: added sysfs controls for reading EDID
+If47caf8e: OMAP4 HDMI: Handle no valid data on EDID read.
+I13e106d3: drivers: misc: gps ST driver compilation kw fixes
+I5266375a: TILER: Extend and move SiTA div points
+Ia2b0833a: OMAP4 DSS2: picoDLP: Fix go bit handling and debug messages.
+Iafa108af: ASoC: To improve quality of audio/speech playback and capture
+Ic2c0a133: drivers: misc: gps ST driver compilation kw fixes
+I4084fa6c: DSS: use correct flag for DSI PLL clk source
+Ifc919516: SGX: Added missing flag to omap4 Makefile
+Ibec011ad: OMAP4: DSS2: Fix the color inversion issue seen on ...
+Ib5030585: DSS2: KlocWork and cosmetic fixes for DSS2
+I1429f567: V4L2: Added frame-synchronized crop support to TI DSS v4l2
+I040d146c: OMAP4: DSS2: Fix the color inversion issue seen on secondary
+I15aca6b5: OMAP4: remove unused variable from 4430 board file
+Ib8edbee1: HDMI: set parentheses around comparison in an OR operand
+I11f71a6c: WLAN: OMAP4: compile wifi board file under 4430SDP flag
+I39665f57: SGX: Added support for debug build
+I3c9d789f: SGX: Make overlay flipping technique common for OMAP3/4
+Iadd78387: SGX: Use wait_vsync if FB auto-update is enabled
+I0c0ebc75: SGX: Rebase to ED11 DDK 1.5.15.3070
+I27099cc3: OMAP4: SGX: Protecting flush_cache_all
+If65112a2: OMAP4: DSS2: Fix compile error for dsi_calc_clock_rates
+If6d1dd1b: SGX: Per cpu cache flush
+Iaf6f1921: OMAP3: SGX: Enable SGX in android_zoom3_defconfig
+I48906f80: USB: MUSB: Add platform data for RNDIS USB ethernet driver
+Icce2a3cd: OMAP4: DSS2: Correct wait_vsync for pico DLP.
+I820103e0: OMAP4: DSS: Fix DSI_PHY_CONFIG setup.
+I1f6da8de: omap: Enable GPMC clock in gpmc_init
+I72c08244: DSS2: Fix tearing at 60fps, add dsi_te_sync bootarg
+I5084a941: SYSLINK: IPC: rename heap functions to avoid name collision
+I59fc1ebc: SYSLINK: IPC: Message transport add protection to transport
+I67b567e4: SYSLINK: IPC: messageq transport check the listmp handle
+I1a8a6c9a: SYSLINK: PROCMGR: Put SYS_M3 in reset before MMU unmap
+Ib150a8cc: SYSLINK: Make Syslink Loadable Modules Makefiles
+Ic8724915: SYSLINK: IPC: Make Syslink Loadable Modules
+Ia7d2d882: SYSLINK: iommu-disable twl
+Id6e85f1d: omap: iommu-add functionality to get TLB miss interrupt
+I90db16d0: omap: iommu-update irq mask to be specific about twl and tlb
+I9ee12653: OMAP: iommu: add TLB preservation support
+I1ae2c9a6: OMAP: iommu support for OMAP4
+Iefb4e936: OMAP: iommu: renamed omap3-iommu to omap-iommu
+I46d4e856: SGX: Enabling MISR to run as a workqueue.
+I6dd0b9c4: REVISIT: OMAP3: Fix Reboot on suspend path on .32 kernel
+I69fe02b1: DSS2: Set manager2 to secondary LCD whether or not pico DLP
+I39b8ed9e: USB: MUSB: fix enumeration on windows host
+Ifb607bc8: USB: MUSB: fix enumeration on windows host
+Ic4ff153a: OMAP: mailbox - convert block api to kfifo
+I2d2a9ce9: OMAP: mailbox - mailbox lock defined correctly as spinlock
 
-1379 files changed, 110976 insertions(+), 108336 deletions(-)
 
-# =====================================================================
+To obtains the Kernel Change stats from previous release run:
+$ git diff --stat android-2.6.32-2.1-omap4.3
+
+159 files changed, 11818 insertions(+), 3711 deletions(-)
+
+# ======================================================================
