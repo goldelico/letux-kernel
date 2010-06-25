@@ -828,8 +828,8 @@ static const struct glamo_script glamo_init_script[] = {
 	 * b7..b4 = 0 = no wait states on read or write
 	 * b0 = 1 select PLL2 for Host interface, b1 = enable it
 	 */
-	{ GLAMO_REG_HOSTBUS(0),		0x0e03 /* this is replaced by script parser */ },
-	{ GLAMO_REG_HOSTBUS(1),		0x07ff }, /* TODO: Disable all */
+	{ GLAMO_REG_HOSTBUS(1),		0x0e03 /* this is replaced by script parser */ },
+	{ GLAMO_REG_HOSTBUS(2),		0x07ff }, /* TODO: Disable all */
 	{ GLAMO_REG_HOSTBUS(10),	0x0000 },
 	{ GLAMO_REG_HOSTBUS(11),	0x4000 },
 	{ GLAMO_REG_HOSTBUS(12),	0xf00e },
