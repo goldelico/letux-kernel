@@ -1163,7 +1163,7 @@ static int glamo_suspend(struct device *dev)
 
 	/* take down each engine before we kill mem and pll */
 	for (n = 0; n < __NUM_GLAMO_ENGINES; n++) {
-		if (glamo->engine_state != GLAMO_ENGINE_DISABLED)
+		if (glamo->engine_state[n] != GLAMO_ENGINE_DISABLED)
 			__glamo_engine_disable(glamo, n);
 	}
 
