@@ -175,40 +175,6 @@ static inline void __reg_clear_bit(struct glamo_core *glamo,
 	__reg_write(glamo, reg, tmp);
 }
 
-static void __reg_write_batch(struct glamo_core *glamo, uint16_t reg,
-				uint16_t count, uint16_t *values)
-{
-	uint16_t end;
-	for (end = reg + count * 2; reg < end; reg += 2, ++values)
-		__reg_write(glamo, reg, *values);
-}
-
-static void __reg_read_batch(struct glamo_core *glamo, uint16_t reg,
-				uint16_t count, uint16_t *values)
-{
-	uint16_t end;
-	for (end = reg + count * 2; reg < end; reg += 2, ++values)
-		*values = __reg_read(glamo, reg);
-}
-
-void glamo_reg_write_batch(struct glamo_core *glamo, uint16_t reg,
-				uint16_t count, uint16_t *values)
-{
-	spin_lock(&glamo->lock);
-	__reg_write_batch(glamo, reg, count, values);
-	spin_unlock(&glamo->lock);
-}
-EXPORT_SYMBOL(glamo_reg_write_batch);
-
-void glamo_reg_read_batch(struct glamo_core *glamo, uint16_t reg,
-				uint16_t count, uint16_t *values)
-{
-	spin_lock(&glamo->lock);
-	__reg_read_batch(glamo, reg, count, values);
-	spin_unlock(&glamo->lock);
-}
-EXPORT_SYMBOL(glamo_reg_read_batch);
-
 /***********************************************************************
  * resources of sibling devices
  ***********************************************************************/
