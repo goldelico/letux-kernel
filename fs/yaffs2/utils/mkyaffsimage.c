@@ -36,7 +36,7 @@
 
 #define MAX_OBJECTS 10000
 
-const char * mkyaffsimage_c_version = "$Id: mkyaffsimage.c,v 1.1.1.1 2008-03-28 04:29:21 jlwei Exp $";
+const char * mkyaffsimage_c_version = "$Id: mkyaffsimage.c,v 1.1.1.1 2008/03/28 04:29:21 jlwei Exp $";
 
 
 typedef struct

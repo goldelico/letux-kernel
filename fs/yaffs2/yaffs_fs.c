@@ -32,7 +32,7 @@
  */
 
 const char *yaffs_fs_c_version =
-    "$Id: yaffs_fs.c,v 1.2 2008-07-17 23:59:16 lhhuang Exp $";
+    "$Id: yaffs_fs.c,v 1.1.1.1 2008/03/28 04:29:21 jlwei Exp $";
 extern const char *yaffs_guts_c_version;
 
 #include <linux/version.h>
@@ -89,11 +89,6 @@ unsigned yaffs_traceMask = YAFFS_TRACE_ALWAYS |
 #include <linux/mtd/mtd.h>
 #include "yaffs_mtdif.h"
 #include "yaffs_mtdif2.h"
-
-#if defined(CONFIG_YAFFS_ECC_RS)
-#include <linux/rslib.h>
-#include "yaffs_ecc.h"
-#endif
 
 /*#define T(x) printk x */
 
@@ -204,8 +199,6 @@ static struct address_space_operations yaffs_file_address_operations = {
 	.commit_write = yaffs_commit_write,
 };
 
-// Modified by James +
-/*
 static struct file_operations yaffs_file_operations = {
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,18))
 	.read = do_sync_read,
@@ -224,50 +217,6 @@ static struct file_operations yaffs_file_operations = {
 #endif
 
 };
-*/
-
-//++++++++++
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,22))
-static struct file_operations yaffs_file_operations = {
-	.read = do_sync_read,
-	.write = do_sync_write,
-	.aio_read = generic_file_aio_read,
-	.aio_write = generic_file_aio_write,
-	.mmap = generic_file_mmap,
-	.flush = yaffs_file_flush,
-	.fsync = yaffs_sync_object,
-	.splice_read = generic_file_splice_read,
-	.splice_write = generic_file_splice_write,
-};
-
-#elif (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,18))
-
-static struct file_operations yaffs_file_operations = {
-	.read = do_sync_read,
-	.write = do_sync_write,
-	.aio_read = generic_file_aio_read,
-	.aio_write = generic_file_aio_write,
-	.mmap = generic_file_mmap,
-	.flush = yaffs_file_flush,
-	.fsync = yaffs_sync_object,
-	.sendfile = generic_file_sendfile,
-};
-
-#else
-
-static struct file_operations yaffs_file_operations = {
-	.read = generic_file_read,
-	.write = generic_file_write,
-	.mmap = generic_file_mmap,
-	.flush = yaffs_file_flush,
-	.fsync = yaffs_sync_object,
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,5,0))
-	.sendfile = generic_file_sendfile,
-#endif
-};
-#endif
-//++++++++++
-// Modified by James -
 
 static struct inode_operations yaffs_file_inode_operations = {
 	.setattr = yaffs_setattr,
@@ -1663,7 +1612,7 @@ static struct super_block *yaffs_internal_read_super(int yaffsVersion,
 #endif
 	T(YAFFS_TRACE_OS, (" oobsize %d\n", mtd->oobsize));
 	T(YAFFS_TRACE_OS, (" erasesize %d\n", mtd->erasesize));
-	T(YAFFS_TRACE_OS, (" size %lld\n", mtd->size));
+	T(YAFFS_TRACE_OS, (" size %d\n", mtd->size));
 	
 #ifdef CONFIG_YAFFS_AUTO_YAFFS2
 
@@ -1773,6 +1722,10 @@ static struct super_block *yaffs_internal_read_super(int yaffsVersion,
 	dev->name = mtd->name;
 
 	/* Set up the memory size parameters.... */
+
+	nBlocks = mtd->size / (YAFFS_CHUNKS_PER_BLOCK * YAFFS_BYTES_PER_CHUNK);
+	dev->startBlock = 0;
+	dev->endBlock = nBlocks - 1;
 	dev->nChunksPerBlock = YAFFS_CHUNKS_PER_BLOCK;
 	dev->nDataBytesPerChunk = YAFFS_BYTES_PER_CHUNK;
 	dev->nReservedBlocks = 5;
@@ -1780,7 +1733,6 @@ static struct super_block *yaffs_internal_read_super(int yaffsVersion,
 
 	/* ... and the functions. */
 	if (yaffsVersion == 2) {
-		int block_shift;
 		dev->writeChunkWithTagsToNAND =
 		    nandmtd2_WriteChunkWithTagsToNAND;
 		dev->readChunkWithTagsFromNAND =
@@ -1796,16 +1748,12 @@ static struct super_block *yaffs_internal_read_super(int yaffsVersion,
 		dev->nDataBytesPerChunk = mtd->oobblock;
 		dev->nChunksPerBlock = mtd->erasesize / mtd->oobblock;
 #endif
-		block_shift =  ffs(mtd->erasesize) - 1;
-//		nBlocks = mtd->size / mtd->erasesize;
-		nBlocks = mtd->size >> block_shift;
+		nBlocks = mtd->size / mtd->erasesize;
+
 		dev->nCheckpointReservedBlocks = CONFIG_YAFFS_CHECKPOINT_RESERVED_BLOCKS;
 		dev->startBlock = 0;
 		dev->endBlock = nBlocks - 1;
 	} else {
-		nBlocks = mtd->size / (YAFFS_CHUNKS_PER_BLOCK * YAFFS_BYTES_PER_CHUNK);
-		dev->startBlock = 0;
-		dev->endBlock = nBlocks - 1;
 		dev->writeChunkToNAND = nandmtd_WriteChunkToNAND;
 		dev->readChunkFromNAND = nandmtd_ReadChunkFromNAND;
 		dev->isYaffs2 = 0;
@@ -1864,7 +1812,6 @@ static struct super_block *yaffs_internal_read_super(int yaffsVersion,
 		iput(inode);
 		return NULL;
 	}
-
 	sb->s_root = root;
 	T(YAFFS_TRACE_OS, ("yaffs_read_super: done\n"));
 	return sb;
@@ -1875,7 +1822,6 @@ static struct super_block *yaffs_internal_read_super(int yaffsVersion,
 static int yaffs_internal_read_super_mtd(struct super_block *sb, void *data,
 					 int silent)
 {
-	printk("$$$$$$$$_$$$$$$$$$$$$ Got U!! yaffs_internal_read_super_mtd\n");
 	return yaffs_internal_read_super(1, sb, data, silent) ? 0 : -EINVAL;
 }
 
@@ -1924,7 +1870,6 @@ static DECLARE_FSTYPE(yaffs_fs_type, "yaffs", yaffs_read_super,
 static int yaffs2_internal_read_super_mtd(struct super_block *sb, void *data,
 					  int silent)
 {
-	printk("@@@@@@@@@@@_@@@@@@@@@@ Got U!! yaffs2_internal_read_super_mtd\n");
 	return yaffs_internal_read_super(2, sb, data, silent) ? 0 : -EINVAL;
 }
 
@@ -2225,16 +2170,6 @@ static int __init init_yaffs_fs(void)
 		}
 	}
 
-#if defined(CONFIG_YAFFS_ECC_RS)
-        /* init reed solomon ECC for nand oob area
-	 * Symbolsize is 5 (bits)
-	 * Primitive polynomial is x^5+x^2+1
-	 * first consecutive root is 0
-	 * primitive element to generate roots = 1
-	 * generator polynomial degree (number of roots) = 4
-	 */
-	rs_decoder = init_rs (5, 0x25, 1, 1, 4);
-#endif
 	return error;
 }
 
@@ -2258,9 +2193,6 @@ static void __exit exit_yaffs_fs(void)
 		fsinst++;
 	}
 
-#if defined(CONFIG_YAFFS_ECC_RS)
-	free_rs(rs_decoder);
-#endif
 }
 
 module_init(init_yaffs_fs)

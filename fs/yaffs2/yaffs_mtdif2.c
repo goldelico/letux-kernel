@@ -14,7 +14,7 @@
 /* mtd interface for YAFFS2 */
 
 const char *yaffs_mtdif2_c_version =
-    "$Id: yaffs_mtdif2.c,v 1.1.1.1 2008-03-28 04:29:21 jlwei Exp $";
+    "$Id: yaffs_mtdif2.c,v 1.1.1.1 2008/03/28 04:29:21 jlwei Exp $";
 
 #include "yportenv.h"
 #include "yaffs_mtdif2.h"
@@ -171,7 +171,9 @@ int nandmtd2_WriteChunkWithTagsToNAND(yaffs_Device * dev, int chunkInNAND,
 	size_t dummy;
 #endif
 	int retval = 0;
-	loff_mtd_t addr = ((loff_mtd_t) chunkInNAND) * dev->nDataBytesPerChunk;
+
+	loff_t addr = ((loff_t) chunkInNAND) * dev->nDataBytesPerChunk;
+
 	yaffs_PackedTags2 pt;
 
 	T(YAFFS_TRACE_MTD,
@@ -186,6 +188,7 @@ int nandmtd2_WriteChunkWithTagsToNAND(yaffs_Device * dev, int chunkInNAND,
 		BUG(); /* both tags and data should always be present */
 
 	if (data) {
+		int i;
      		nandmtd2_pt2buf(dev, &pt, 0);         //modify
 		ops.mode = MTD_OOB_AUTO;
 		ops.ooblen = sizeof(pt);
@@ -240,9 +243,11 @@ int nandmtd2_ReadChunkWithTagsFromNAND(yaffs_Device * dev, int chunkInNAND,
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,17))
 	struct mtd_oob_ops ops;
 #endif
-	size_mtd_t dummy;
+	size_t dummy;
 	int retval = 0;
-	loff_mtd_t addr = ((loff_mtd_t) chunkInNAND) * dev->nDataBytesPerChunk;
+
+	loff_t addr = ((loff_t) chunkInNAND) * dev->nDataBytesPerChunk;
+
 	yaffs_PackedTags2 pt;
 
 	T(YAFFS_TRACE_MTD,
@@ -314,7 +319,7 @@ int nandmtd2_MarkNANDBlockBad(struct yaffs_DeviceStruct *dev, int blockNo)
 
 	retval =
 	    mtd->block_markbad(mtd,
-			       (u64)blockNo * dev->nChunksPerBlock *
+			       blockNo * dev->nChunksPerBlock *
 			       dev->nDataBytesPerChunk);
 
 	if (retval == 0)
@@ -335,7 +340,7 @@ int nandmtd2_QueryNANDBlock(struct yaffs_DeviceStruct *dev, int blockNo,
 
 	retval =
 	    mtd->block_isbad(mtd,
-			     (u64)blockNo * dev->nChunksPerBlock *
+			     blockNo * dev->nChunksPerBlock *
 			     dev->nDataBytesPerChunk);
 	if (retval) {
 		T(YAFFS_TRACE_MTD, (TSTR("block is bad" TENDSTR)));

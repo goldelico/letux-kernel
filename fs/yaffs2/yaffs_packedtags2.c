@@ -94,7 +94,7 @@ void yaffs_PackTags2(yaffs_PackedTags2 * pt, const yaffs_ExtendedTags * t)
 //	yaffs_DumpPackedTags2(pt);
 //	yaffs_DumpTags2(t);
 
-#if !defined(YAFFS_IGNORE_TAGS_ECC) && !defined(CONFIG_MTD_HW_BCH_ECC)
+#ifndef YAFFS_IGNORE_TAGS_ECC
 	{
 		yaffs_ECCCalculateOther((unsigned char *)&pt->t,
 					sizeof(yaffs_PackedTags2TagsPart),
@@ -105,11 +105,14 @@ void yaffs_PackTags2(yaffs_PackedTags2 * pt, const yaffs_ExtendedTags * t)
 
 void yaffs_UnpackTags2(yaffs_ExtendedTags * t, yaffs_PackedTags2 * pt)
 {
+
+	memset(t, 0, sizeof(yaffs_ExtendedTags));
+
 	yaffs_InitialiseTags(t);
 
 	if (pt->t.sequenceNumber != 0xFFFFFFFF) {
 		/* Page is in use */
-#if defined(YAFFS_IGNORE_TAGS_ECC) || defined(CONFIG_MTD_HW_BCH_ECC)
+#ifdef YAFFS_IGNORE_TAGS_ECC
 		{
 			t->eccResult = YAFFS_ECC_RESULT_NO_ERROR;
 		}
@@ -117,18 +120,15 @@ void yaffs_UnpackTags2(yaffs_ExtendedTags * t, yaffs_PackedTags2 * pt)
 		{
 			yaffs_ECCOther ecc;
 			int result;
-#if defined(CONFIG_YAFFS_ECC_HAMMING)
 			yaffs_ECCCalculateOther((unsigned char *)&pt->t,
 						sizeof
 						(yaffs_PackedTags2TagsPart),
 						&ecc);
-#endif
 			result =
 			    yaffs_ECCCorrectOther((unsigned char *)&pt->t,
 						  sizeof
 						  (yaffs_PackedTags2TagsPart),
 						  &pt->ecc, &ecc);
-
 			switch(result){
 				case 0: 
 					t->eccResult = YAFFS_ECC_RESULT_NO_ERROR; 

@@ -61,35 +61,6 @@ config YAFFS_YAFFS2
 
 	  If unsure, say Y.
 
-if      SOC_JZ4730 || SOC_JZ4740
-
-choice
-	prompt "ECC type for oob area"
-	depends on YAFFS_YAFFS2
-	default CONFIG_YAFFS_ECC_RS
-	help
-	  There are 16 bytes for yaffs2 information in oob which should be checked
-          using some type of ECC.
-
-config YAFFS_ECC_RS
-	bool "Use soft reed solomon ECC for oob area"
-	select REED_SOLOMON
-	select REED_SOLOMON_ENC8
-	select REED_SOLOMON_DEC8
-	help
-	  The reed solomon ECC could correct 2 5-bit symbols for 16 bytes in oob.
-          It should be selected for MLC nand.
-
-config YAFFS_ECC_HAMMING
-	bool "Use hamming ECC for oob area"
-	help
-	  The hamming ECC could only correct 1 bit for 16 bytes in oob, but it's
-          a bit faster than reed solomon ECC. It should be selected for SLC nand.
-
-endchoice
-
-endif
-
 config YAFFS_AUTO_YAFFS2
 	bool "Autoselect yaffs2 format"
 	depends on YAFFS_YAFFS2

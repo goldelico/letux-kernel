@@ -55,16 +55,14 @@
 
 unsigned yaffs_traceMask=0;
 
-#define MAX_OBJECTS 100000
-#define MAX_CHUNKSIZE 8192
-#define MAX_SPARESIZE 256
+#define MAX_OBJECTS 10000
 
+#define chunkSize 2048
+#define spareSize 64
 #define PT2_BYTES 25
 
-const char * mkyaffsimage_c_version = "$Id: mkyaffs2image.c,v 1.1.1.1 2008-10-29 14:29:21 lhhuang Exp $";
+const char * mkyaffsimage_c_version = "$Id: mkyaffs2image.c,v 1.1.1.1 2008/03/28 04:29:21 jlwei Exp $";
 
-static int	chunkSize = 2048;
-static int	spareSize = 64;
 static int	layout_no;
 
 static struct nand_oobinfo oob_layout[] = {
@@ -86,53 +84,14 @@ static struct nand_oobinfo oob_layout[] = {
          * the list when they made their way in kernel's MTD. The structure
          * is simply copied from kernel's drivers/mtd/nand/nand_base.c as-is.
          */
-        /* For 2KB pagesize NAND devices */
         {
         	.useecc = MTD_NANDECC_AUTOPLACE,
-        	.eccbytes = 36,
+        	.eccbytes = 24,
         	.eccpos = {
-			28, 29, 30, 31,
-			32, 33, 34, 35, 36, 37, 38, 39, 
-			40, 41, 42, 43, 44, 45, 46, 47, 
-			48, 49, 50, 51, 52, 53, 54, 55, 
-			56, 57, 58, 59, 60, 61, 62, 63},
-		.oobfree = {{2, 26}}
-        },
-        /* For 4KB pagesize NAND devices */
-        {
-        	.useecc = MTD_NANDECC_AUTOPLACE,
-		.eccbytes = 72,
-		.eccpos = {
-			28, 29, 30, 31,	32, 33, 34, 35,
-			36, 37, 38, 39, 40, 41, 42, 43,
-			44, 45, 46, 47, 48, 49, 50, 51,
-			52, 53, 54, 55, 56, 57, 58, 59,
-			60, 61, 62, 63, 64, 65, 66, 67,
-			68, 69, 70, 71, 72, 73, 74, 75,
-			76, 77, 78, 79, 80, 81, 82, 83,
-			84, 85, 86, 87, 88, 89, 90, 91,
-			92, 93, 94, 95,	96, 97, 98, 99},
-		.oobfree = {
-			{2, 26},
-			{100, 28}}
-        },
-        /* For 4KB pagesize with 2 planes NAND devices */
-        {
-        	.useecc = MTD_NANDECC_AUTOPLACE,
-		.eccbytes = 72,
-		.eccpos = {
-			28, 29, 30, 31,	32, 33, 34, 35,
-			36, 37, 38, 39, 40, 41, 42, 43,
-			44, 45, 46, 47, 48, 49, 50, 51,
-			52, 53, 54, 55, 56, 57, 58, 59,
-			60, 61, 62, 63, 64, 65, 66, 67,
-			68, 69, 70, 71, 72, 73, 74, 75,
-			76, 77, 78, 79, 80, 81, 82, 83,
-			84, 85, 86, 87, 88, 89, 90, 91,
-			92, 93, 94, 95,	96, 97, 98, 99},
-		.oobfree = {
-			{2, 26},
-			{100, 28}}
+	        	40, 41, 42, 43, 44, 45, 46, 47,
+	        	48, 49, 50, 51, 52, 53, 54, 55,
+	        	56, 57, 58, 59, 60, 61, 62, 63},
+        	.oobfree = { {2, 38} }
         },
         /* End-of-list marker */
         {
@@ -159,10 +118,6 @@ static int outFile;
 static int error;
 
 static int convert_endian = 0;
-
-void nandmtd2_pt2buf(unsigned char *buf, yaffs_PackedTags2 *pt);
-void usage(void);
-void process_file(char *file_name);
 
 static int obj_compare(const void *a, const void * b)
 {
@@ -305,7 +260,7 @@ static int write_chunk(__u8 *data, __u32 objId, __u32 chunkId, __u32 nBytes)
 {
 	yaffs_ExtendedTags t;
 	yaffs_PackedTags2 pt;
-	unsigned char	spare_buf[MAX_SPARESIZE];
+	unsigned char	spare_buf[spareSize];
 
 
 	error = write(outFile,data,chunkSize);
@@ -336,7 +291,7 @@ static int write_chunk(__u8 *data, __u32 objId, __u32 chunkId, __u32 nBytes)
 
 	yaffs_PackTags2(&pt,&t);
 
-        memset(spare_buf, 0xff, spareSize);
+        memset(spare_buf, 0xff, sizeof(spare_buf));
         
         if (layout_no == 0) {
                 memcpy(spare_buf, &pt, sizeof(yaffs_PackedTags2));
@@ -344,11 +299,6 @@ static int write_chunk(__u8 *data, __u32 objId, __u32 chunkId, __u32 nBytes)
                 nandmtd2_pt2buf(spare_buf, &pt);
         }	
 
-#ifdef CONFIG_MTD_HW_BCH_ECC
-	/* When programming using usb boot, the data in oob after eccpos should be
-	   0xff to make programming check easy. And eccpos = 24 when using BCH. */
-	memset(spare_buf + 24, 0xff, spareSize - 24);
-#endif
 	return write(outFile,spare_buf,spareSize);
 }
 
@@ -423,12 +373,12 @@ static void object_header_little_to_big_endian(yaffs_ObjectHeader* oh)
 
 static int write_object_header(int objId, yaffs_ObjectType t, struct stat *s, int parent, const char *name, int equivalentObj, const char * alias)
 {
-	__u8 bytes[MAX_CHUNKSIZE];
+	__u8 bytes[chunkSize];
 	
 	
 	yaffs_ObjectHeader *oh = (yaffs_ObjectHeader *)bytes;
 	
-	memset(bytes,0xff,chunkSize);
+	memset(bytes,0xff,sizeof(bytes));
 	
 	oh->type = t;
 
@@ -552,19 +502,19 @@ static int process_directory(int parent, const char *path)
 							if(error >= 0)
 							{
 								int h;
-								__u8 bytes[MAX_CHUNKSIZE];
+								__u8 bytes[chunkSize];
 								int nBytes;
 								int chunk = 0;
 								
 								h = open(full_name,O_RDONLY);
 								if(h >= 0)
 								{
-									memset(bytes,0xff,chunkSize);
-									while((nBytes = read(h,bytes,chunkSize)) > 0)
+									memset(bytes,0xff,sizeof(bytes));
+									while((nBytes = read(h,bytes,sizeof(bytes))) > 0)
 									{
 										chunk++;
 										write_chunk(bytes,newObj,chunk,nBytes);
-										memset(bytes,0xff,chunkSize);
+										memset(bytes,0xff,sizeof(bytes));
 									}
 									if(nBytes < 0) 
 									   error = nBytes;
@@ -628,66 +578,13 @@ static int process_directory(int parent, const char *path)
 
 }
 
-void process_file(char *file_name)
-{
-	printf("file, ");
-	
-	int h;
-	__u8 bytes[MAX_CHUNKSIZE];
-	int nBytes;
-	int chunk = 0;
-	
-	h = open(file_name,O_RDONLY);
-	if(h >= 0)
-	{
-		memset(bytes,0xff,chunkSize);
-		while((nBytes = read(h,bytes,chunkSize)) > 0)
-		{
-			chunk++;
-			write_chunk(bytes,0,chunk,nBytes);
-			memset(bytes,0xff,chunkSize);
-		}
-		if(nBytes < 0) {
-			printf("error occured!\n");
-		}
-		printf("%d data chunks written\n",chunk);
-		close(h);
-	}
-	else
-	{
-		perror("Error opening file");
-	}
-}
-
-
 void usage(void)
 {
-        /* ECC for oob should conform with CONFIG_YAFFS_ECC_XX when building linux kernel, but ecc 
-	   for oob isn't required when using BCH ECC, as oob will be corrected together with data 
-	   when using BCH ECC. */
-#if defined(CONFIG_YAFFS_ECC_RS)
-	printf("Reed-solomn ECC will be used for checking 16 bytes for yaffs2 information in oob area.\n"
-	       "so, CONFIG_YAFFS_ECC_RS should be selected when building linux kernel.\n");
-#elif defined(CONFIG_YAFFS_ECC_HAMMING)
-	printf("Hamming ECC will be used for checking 16 bytes for yaffs2 information in oob area.\n"
-	       "so, CONFIG_YAFFS_ECC_HAMMING should be selected when building linux kernel.\n");
-#endif
-
-	printf("usage: mkyaffs2image layout# source image_file [convert]\n");
-	printf("\n"
-	       "	layout#     NAND OOB layout:\n"
-	       "                    0 - nand_oob_raw, no used, \n"
-               "                    1 - nand_oob_64, for 2KB pagesize, \n"
-               "                    2 - nand_oob_128, for 2KB pagesize using multiple planes or 4KB pagesize,\n"
-	       "                    3 - nand_oob_256, for 4KB pagesize using multiple planes\n");
-	printf("	source      the directory tree or file to be converted\n");
-	printf("	image_file  the output file to hold the image\n");
-	printf("	'convert'   make a big-endian img on a little-endian machine. BROKEN !\n");
-	printf("\n Example:\n"
-	       "        mkyaffs2image 1 /nfsroot/root26 root26.yaffs2 \n"
-	       "        mkyaffs2image 1 uImage uImage.oob \n"
-);
-
+	printf("usage: mkyaffs2image layout# dir image_file [convert]\n");
+	printf("	layout#    NAND OOB layout # (0 - raw, 1 - nand_oob_64)\n");
+	printf("	dir        the directory tree to be converted\n");
+	printf("	image_file the output file to hold the image\n");
+	printf("	'convert'  make a big-endian img on a little-endian machine. BROKEN !\n");
 	exit(1);
 }
 
@@ -701,26 +598,6 @@ int main(int argc, char *argv[])
 	if ((argc < 4) || (sscanf(argv[1], "%u", &layout_no) != 1))
 	{
 	        usage();
-	}
-
-	switch (layout_no) {
-	case 0:
-		printf("Warning: it isn't used by JZSOC!\n");
-		break;
-	case 1:
-		chunkSize = 2048;
-		spareSize = 64;
-		break;
-	case 2:
-		chunkSize = 4096;
-		spareSize = 128;
-		break;
-	case 3:
-		chunkSize = 8192;
-		spareSize = 256;
-		break;
-	default:
-		usage();
 	}
 
 	i = 0;
@@ -746,10 +623,10 @@ int main(int argc, char *argv[])
 	
 	if(!S_ISDIR(stats.st_mode))
 	{
-		printf(" %s is not a directory. For a file, just pad oob to data area.\n",argv[2]);
-//		exit(1);
+		printf(" %s is not a directory\n",argv[2]);
+		exit(1);
 	}
-
+	
 	outFile = open(argv[3],O_CREAT | O_TRUNC | O_WRONLY, S_IREAD | S_IWRITE);
 	
 	
@@ -758,15 +635,7 @@ int main(int argc, char *argv[])
 		printf("Could not open output file %s\n",argv[3]);
 		exit(1);
 	}
-
-        /* for a file, just pad oob to data area */
-	if(S_ISREG(stats.st_mode))
-	{
-		process_file(argv[2]);
-		close(outFile);
-		exit(0);
-	}
-
+	
 	printf("Processing directory %s into image file %s\n",argv[2],argv[3]);
 	error =  write_object_header(1, YAFFS_OBJECT_TYPE_DIRECTORY, &stats, 1,"", -1, NULL);
 
