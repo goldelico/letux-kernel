@@ -280,6 +280,38 @@ static ssize_t manager_alpha_blending_enabled_store(
 	return size;
 }
 
+static ssize_t manager_gamma_show(
+		struct omap_overlay_manager *mgr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", mgr->info.gamma);
+}
+
+static ssize_t manager_gamma_store(
+		struct omap_overlay_manager *mgr,
+		const char *buf, size_t size)
+{
+	struct omap_overlay_manager_info info;
+	int gamma_value;
+	int r;
+
+	if (sscanf(buf, "%d", &gamma_value) != 1)
+		return -EINVAL;
+
+	mgr->get_manager_info(mgr, &info);
+
+	info.gamma = gamma_value;
+
+	r = mgr->set_manager_info(mgr, &info);
+	if (r)
+		return r;
+
+	r = mgr->apply(mgr);
+	if (r)
+		return r;
+
+	return size;
+}
+
 struct manager_attribute {
 	struct attribute attr;
 	ssize_t (*show)(struct omap_overlay_manager *, char *);
@@ -305,7 +337,9 @@ static MANAGER_ATTR(trans_key_enabled, S_IRUGO|S_IWUSR,
 static MANAGER_ATTR(alpha_blending_enabled, S_IRUGO|S_IWUSR,
 		manager_alpha_blending_enabled_show,
 		manager_alpha_blending_enabled_store);
-
+static MANAGER_ATTR(gamma, S_IRUGO|S_IWUSR,
+		manager_gamma_show,
+		manager_gamma_store);
 
 static struct attribute *manager_sysfs_attrs[] = {
 	&manager_attr_name.attr,
@@ -315,6 +349,7 @@ static struct attribute *manager_sysfs_attrs[] = {
 	&manager_attr_trans_key_value.attr,
 	&manager_attr_trans_key_enabled.attr,
 	&manager_attr_alpha_blending_enabled.attr,
+	&manager_attr_gamma.attr,
 	NULL
 };
 
@@ -442,6 +477,7 @@ struct manager_cache_data {
 
 	enum omap_dss_trans_key_type trans_key_type;
 	u32 trans_key;
+	u8 gamma;
 	bool trans_enabled;
 
 	bool alpha_enabled;
@@ -880,6 +916,7 @@ static void configure_manager(enum omap_channel channel)
 	dispc_set_trans_key(channel, c->trans_key_type, c->trans_key);
 	dispc_enable_trans_key(channel, c->trans_enabled);
 	dispc_enable_alpha_blending(channel, c->alpha_enabled);
+	dispc_enable_gamma(channel, c->gamma);
 }
 
 /* configure_dispc() tries to write values from cache to shadow registers.
@@ -1297,6 +1334,7 @@ static int omap_dss_mgr_apply(struct omap_overlay_manager *mgr)
 		mc->trans_key = mgr->info.trans_key;
 		mc->trans_enabled = mgr->info.trans_enabled;
 		mc->alpha_enabled = mgr->info.alpha_enabled;
+		mc->gamma = mgr->info.gamma;
 
 		mc->manual_upd_display =
 			dssdev->caps & OMAP_DSS_DISPLAY_CAP_MANUAL_UPDATE;

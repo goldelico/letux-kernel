@@ -398,6 +398,7 @@ struct omap_overlay_manager_info {
 	bool trans_enabled;
 
 	bool alpha_enabled;
+	u8 gamma;
 };
 
 struct omap_overlay_manager {

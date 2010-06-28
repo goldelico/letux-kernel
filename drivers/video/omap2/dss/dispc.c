@@ -38,6 +38,7 @@
 #include <plat/display.h>
 
 #include "dss.h"
+#include "gammatable.h"
 #include <mach/tiler.h>
 
 #ifndef CONFIG_ARCH_OMAP4
@@ -2988,6 +2989,36 @@ bool dispc_trans_key_enabled(enum omap_channel ch)
 	return enabled;
 }
 
+int dispc_enable_gamma(enum omap_channel ch, u8 gamma)
+{
+#ifdef CONFIG_ARCH_OMAP4
+	u32 i, temp, channel;
+	static int enabled;
+
+	channel = ch == OMAP_DSS_CHANNEL_LCD ? 0 :
+		 ch == OMAP_DSS_CHANNEL_LCD2 ? 1 : 2;
+
+	enable_clocks(1);
+
+	if (gamma > NO_OF_GAMMA_TABLES)
+		return -EINVAL;
+
+	if (gamma) {
+		u8 *tablePtr = gammaTablePtr[gamma - 1];
+
+		for (i = 0; i < GAMMA_TBL_SZ; i++) {
+			temp =  tablePtr[i];
+			temp =  (i<<24)|(temp|(temp<<8)|(temp<<16));
+			dispc_write_reg(DISPC_GAMMA_TABLE(channel), temp);
+		}
+	}
+	enabled = enabled & ~(1 << channel) | (gamma ? (1 << channel) : 0);
+	REG_FLD_MOD(DISPC_CONFIG, (enabled & 1), 3, 3);
+	REG_FLD_MOD(DISPC_CONFIG, !!(enabled & 6), 9, 9);
+
+	return 0;
+#endif
+}
 
 void dispc_set_tft_data_lines(enum omap_channel channel, u8 data_lines)
 {
