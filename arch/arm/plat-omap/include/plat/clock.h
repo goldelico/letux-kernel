@@ -182,6 +182,7 @@ extern void clk_enable_init_clocks(void);
 #ifdef CONFIG_CPU_FREQ
 extern void clk_init_cpufreq_table(struct cpufreq_frequency_table **table);
 #endif
+extern struct clk *omap_clk_get_by_name(const char *name);
 
 extern const struct clkops clkops_null;
 
