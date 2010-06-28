@@ -19,7 +19,7 @@
 /* Standard header files */
 #include <linux/types.h>
 #include <linux/module.h>
-
+#include <linux/delay.h>
 
 
 /* SysLink device specific headers */
@@ -91,6 +91,38 @@
 /*! @brief Start of Boot load page for AppM3 */
 #define BOOTLOADPAGE_SLV_VRT_BASEADDR_APPM3	0xA00A9000
 #define BOOTLOADPAGE_SLV_VRT_BASESIZE_APPM3	0x00001000
+
+/*! @brief Start of Code memory for SysM3 */
+#define SHAREDMEMORY_SLV_VRT_CODE0_BASEADDR	0x00000000
+#define SHAREDMEMORY_SLV_VRT_CODE0_BASESIZE	0x00200000
+
+/*! @brief Start of Code section for SysM3 */
+#define SHAREDMEMORY_PHY_CODE0_BASEADDR		0x9D000000
+#define SHAREDMEMORY_PHY_CODE0_BASESIZE		0x00200000
+
+/*! @brief Start of Code memory for SysM3 */
+#define SHAREDMEMORY_SLV_VRT_CODE1_BASEADDR	0x00800000
+#define SHAREDMEMORY_SLV_VRT_CODE1_BASESIZE	0x00200000
+
+/*! @brief Start of Code section for SysM3 */
+#define SHAREDMEMORY_PHY_CODE1_BASEADDR		0x9D800000
+#define SHAREDMEMORY_PHY_CODE1_BASESIZE		0x00200000
+
+/*! @brief Start of Const section for SysM3 */
+#define SHAREDMEMORY_PHY_CONST0_BASEADDR	0x9E000000
+#define SHAREDMEMORY_PHY_CONST0_BASESIZE	0x00100000
+
+/*! @brief Start of Const section for SysM3 */
+#define SHAREDMEMORY_SLV_VRT_CONST0_BASEADDR	0x80000000
+#define SHAREDMEMORY_SLV_VRT_CONST0_BASESIZE	0x00100000
+
+/*! @brief Start of Const section for AppM3 */
+#define SHAREDMEMORY_PHY_CONST1_BASEADDR	0x9E100000
+#define SHAREDMEMORY_PHY_CONST1_BASESIZE	0x00100000
+
+/*! @brief Start of Const section for AppM3 */
+#define SHAREDMEMORY_SLV_VRT_CONST1_BASEADDR	0x80100000
+#define SHAREDMEMORY_SLV_VRT_CONST1_BASESIZE	0x00100000
 
 /*! @brief Start of SW DMM shared memory */
 #define SHAREDMEMORY_SWDMM_PHY_BASEADDR (SHAREDMEMORY_PHY_BASEADDR + 0x2400000)
@@ -311,6 +343,8 @@ struct platform_module_state {
 	/* frameq initialize flag */
 	bool platform_init_flag;
 	/* flag to indicate platform initialization status */
+	bool platform_mem_init_flag;
+	/* Platform memory manager initialize flag */
 };
 
 
@@ -353,7 +387,7 @@ _platform_write_slave_memory(u16 proc_id,
 /*!
  *  @brief  Number of slave memory entries for OMAP4430.
  */
-#define NUM_MEM_ENTRIES			3
+#define NUM_MEM_ENTRIES			6
 
 /*!
  *  @brief  Position of reset vector memory region in the memEntries array.
@@ -369,6 +403,30 @@ _platform_write_slave_memory(u16 proc_id,
  *  @brief  Array of memory entries for OMAP4430
  */
 static struct proc4430_mem_entry mem_entries[NUM_MEM_ENTRIES] = {
+	{
+		"DUCATI_CODE_SYSM3",	/* NAME	 : Name of the memory region */
+		SHAREDMEMORY_PHY_CODE0_BASEADDR,
+		/* PHYSADDR	 : Physical address */
+		SHAREDMEMORY_SLV_VRT_CODE0_BASEADDR,
+		/* SLAVEVIRTADDR  : Slave virtual address */
+		(u32) -1u,
+		/* MASTERVIRTADDR : Master virtual address (if known) */
+		SHAREDMEMORY_SLV_VRT_CODE0_BASESIZE,
+		/* SIZE		 : Size of the memory region */
+		true,		/* SHARE : Shared access memory? */
+	},
+	{
+		"DUCATI_CODE_APPM3",	/* NAME	 : Name of the memory region */
+		SHAREDMEMORY_PHY_CODE1_BASEADDR,
+		/* PHYSADDR : Physical address */
+		SHAREDMEMORY_SLV_VRT_CODE1_BASEADDR,
+		/* SLAVEVIRTADDR  : Slave virtual address */
+		(u32) -1u,
+		/* MASTERVIRTADDR : Master virtual address (if known) */
+		SHAREDMEMORY_SLV_VRT_CODE1_BASESIZE,
+		/* SIZE		 : Size of the memory region */
+		true,		/* SHARE : Shared access memory? */
+	},
 	{
 		"DUCATI_SHM_SYSM3",	/* NAME	 : Name of the memory region */
 		SHAREDMEMORY_PHY_BASEADDR_SYSM3,
@@ -394,17 +452,30 @@ static struct proc4430_mem_entry mem_entries[NUM_MEM_ENTRIES] = {
 		true,		/* SHARE : Shared access memory? */
 	},
 	{
-		"DUCATI_SHM_SWDMM",	/* NAME	 : Name of the memory region */
-		SHAREDMEMORY_SWDMM_PHY_BASEADDR,
+		"DUCATI_CONST_SYSM3",	/* NAME	 : Name of the memory region */
+		SHAREDMEMORY_PHY_CONST0_BASEADDR,
 		/* PHYSADDR	     : Physical address */
-		SHAREDMEMORY_SWDMM_SLV_VRT_BASEADDR,
+		SHAREDMEMORY_SLV_VRT_CONST0_BASEADDR,
 		/* SLAVEVIRTADDR  : Slave virtual address */
 		(u32) -1u,
 		/* MASTERVIRTADDR : Master virtual address (if known) */
-		SHAREDMEMORY_SWDMM_SLV_VRT_BASESIZE,
+		SHAREDMEMORY_SLV_VRT_CONST0_BASESIZE,
+		/* SIZE		: Size of the memory region */
+		true,		/* SHARE : Shared access memory? */
+	},
+	{
+		"DUCATI_CONST_APPM3",	/* NAME	 : Name of the memory region */
+		SHAREDMEMORY_PHY_CONST1_BASEADDR,
+		/* PHYSADDR	     : Physical address */
+		SHAREDMEMORY_SLV_VRT_CONST1_BASEADDR,
+		/* SLAVEVIRTADDR  : Slave virtual address */
+		(u32) -1u,
+		/* MASTERVIRTADDR : Master virtual address (if known) */
+		SHAREDMEMORY_SLV_VRT_CONST1_BASESIZE,
 		/* SIZE		: Size of the memory region */
 		true,		/* SHARE : Shared access memory? */
 	}
+
 };
 
 
@@ -519,11 +590,11 @@ platform_override_config(struct platform_config *config)
 
 	/* Override the multiproc_config default config */
 	config->multiproc_config.num_processors = 4;
-	config->multiproc_config.id = 0;
-	strcpy(config->multiproc_config.name_list[0], "MPU");
-	strcpy(config->multiproc_config.name_list[1], "Tesla");
+	config->multiproc_config.id = 3;
+	strcpy(config->multiproc_config.name_list[0], "Tesla");
+	strcpy(config->multiproc_config.name_list[1], "AppM3");
 	strcpy(config->multiproc_config.name_list[2], "SysM3");
-	strcpy(config->multiproc_config.name_list[3], "AppM3");
+	strcpy(config->multiproc_config.name_list[3], "MPU");
 
 	/* Override the gatepeterson default config */
 
@@ -578,6 +649,17 @@ platform_setup(void)
 
 	platform_get_config(&_config);
 	config = &_config;
+
+	/* Initialize PlatformMem */
+	status = platform_mem_setup();
+	if (status < 0) {
+		printk(KERN_ERR "platform_setup : platform_mem_setup "
+			"failed [0x%x]\n", status);
+	} else {
+		printk(KERN_ERR "platform_mem_setup : status [0x%x]\n" ,
+			status);
+		platform_module->platform_mem_init_flag = true;
+	}
 
 	platform_override_config(config);
 
@@ -874,6 +956,13 @@ platform_setup(void)
 	}
 #endif
 
+	if (status >= 0) {
+		memset(platform_objects, 0,
+			(sizeof(struct platform_object) * \
+				multiproc_get_num_processors()));
+	}
+
+
 	/* Initialize Platform */
 	if (status >= 0) {
 		status = _platform_setup();
@@ -1133,7 +1222,7 @@ platform_destroy(void)
 	if (platform_module->notify_init_flag == true) {
 		status = notify_destroy();
 		if (status < 0) {
-			printk(KERN_ERR "platform_destroy : platform_destroy "
+			printk(KERN_ERR "platform_destroy : notify_destroy "
 				"failed [0x%x]\n", status);
 		} else {
 			platform_module->notify_init_flag = false;
@@ -1211,11 +1300,11 @@ s32 _platform_setup(void)
 	void *proc_mgr_handle;
 	void *proc_mgr_proc_handle;
 
+	/* Create the SysM3 ProcMgr object */
 	proc4430_get_config(&proc_config);
 	status = proc4430_setup(&proc_config);
 	if (status < 0)
 		goto exit;
-
 
 	/* Get MultiProc ID by name. */
 	proc_id = multiproc_get_id("SysM3");
@@ -1223,6 +1312,7 @@ s32 _platform_setup(void)
 
 	/* Create an instance of the Processor object for OMAP4430 */
 	proc4430_params_init(NULL, &proc_params);
+	/* TODO: SysLink-38 has these in individual Proc Objects */
 	proc_params.num_mem_entries = NUM_MEM_ENTRIES;
 	proc_params.mem_entries = mem_entries;
 	proc_params.reset_vector_mem_entry = RESET_VECTOR_ENTRY_ID;
@@ -1249,7 +1339,7 @@ s32 _platform_setup(void)
 	proc_mgr_proc_handle = NULL;
 
 
-
+	/* Create the AppM3 ProcMgr object */
 	/* Get MultiProc ID by name. */
 	proc_id = multiproc_get_id("AppM3");
 	handle = &platform_objects[proc_id];
@@ -1277,7 +1367,11 @@ s32 _platform_setup(void)
 	handle->phandle = proc_mgr_proc_handle;
 	handle->pm_handle = proc_mgr_handle;
 
+	/* TODO: See if we need to do proc_mgr_attach on both SysM3 & AppM3
+	 * to set the memory maps before hand. Or fix ProcMgr_open &
+	 * ProcMgr_attach from the userspace */
 	return status;
+
 proc_create_fail:
 proc_mgr_create_fail:
 	/* Clean up created objects */
@@ -1332,17 +1426,17 @@ int platform_load_callback(u16 proc_id, void *arg)
 	u32 start;
 	u32 num_bytes;
 	struct sharedregion_entry entry;
-	struct proc_mgr_addr_info ai;
+	u32 m_addr = 0;
+	/*struct proc_mgr_addr_info ai;*/
 	struct ipc_params ipc_params;
 	int i;
 	void *pm_handle;
 
-	handle = &platform_objects[multiproc_self()];
+	handle = &platform_objects[proc_id];
 	pm_handle = handle->pm_handle;
 
 	/* TODO: hack */
 	start = (u32)arg;	/* start address passed in as argument */
-
 
 	/* Read the slave config */
 	num_bytes = sizeof(struct platform_slave_config);
@@ -1387,10 +1481,9 @@ int platform_load_callback(u16 proc_id, void *arg)
 	}
 
 	if (status >= 0) {
-		ipc_params.setup_messageq = handle->slave_config.
-								setup_messageq;
-		ipc_params.setup_notify   = handle->slave_config.setup_notify;
-		ipc_params.proc_sync      = handle->slave_config.proc_sync;
+		ipc_params.setup_messageq = handle->slave_config.setup_messageq;
+		ipc_params.setup_notify = handle->slave_config.setup_notify;
+		ipc_params.proc_sync = handle->slave_config.proc_sync;
 		status = ipc_create(proc_id, &ipc_params);
 		if (status < 0) {
 			status = PLATFORM_E_FAIL;
@@ -1399,6 +1492,7 @@ int platform_load_callback(u16 proc_id, void *arg)
 	}
 
 	/* Setup the shared memory for region with owner == host */
+	/* TODO: May need to replace proc_mgr_map with platform_mem_map */
 	for (i = 0; i < handle->slave_config.num_srs; i++) {
 		status = sharedregion_get_entry(i, &entry);
 		if (status < 0) {
@@ -1414,10 +1508,24 @@ int platform_load_callback(u16 proc_id, void *arg)
 
 		/* Add the entry only if previously not added */
 		if (entry.is_valid == false) {
-
 			/* Translate the slave address to master */
-			/* TODO: backwards compatibility with old procmgr */
-			status = proc_mgr_map(pm_handle,
+
+			/* This SharedRegion is already pre-mapped. So, no need
+			 * to do a new mapping. Just need to translate to get
+			 * the master virtual address */
+			status = proc_mgr_translate_addr(pm_handle,
+				(void **)&m_addr,
+				PROC_MGR_ADDRTYPE_MASTERKNLVIRT,
+				(void *)handle->slave_sr_config[i].entry_base,
+				PROC_MGR_ADDRTYPE_SLAVEVIRT);
+			if (status < 0) {
+				status = PLATFORM_E_FAIL;
+				goto alloced_slave_sr_config_exit;
+			}
+
+			/* TODO: compatibility with new procmgr */
+			/* No need to map this to Slave. Slave is pre-mapped */
+			/*status = proc_mgr_map(pm_handle,
 				handle->slave_sr_config[i].entry_base,
 				handle->slave_sr_config[i].entry_len,
 				&ai.addr[PROC_MGR_ADDRTYPE_MASTERKNLVIRT],
@@ -1429,10 +1537,13 @@ int platform_load_callback(u16 proc_id, void *arg)
 			}
 
 			memset((u32 *)ai.addr[PROC_MGR_ADDRTYPE_MASTERKNLVIRT],
-				0, handle->slave_sr_config[i].entry_len);
+				0, handle->slave_sr_config[i].entry_len); */
+			memset((u32 *)m_addr, 0,
+				handle->slave_sr_config[i].entry_len);
 			memset(&entry, 0, sizeof(struct sharedregion_entry));
-			entry.base = (void *)ai.
-					addr[PROC_MGR_ADDRTYPE_MASTERKNLVIRT];
+			/*entry.base = (void *)ai.
+					addr[PROC_MGR_ADDRTYPE_MASTERKNLVIRT];*/
+			entry.base = (void *) m_addr;
 			entry.len = handle->slave_sr_config[i].entry_len;
 			entry.owner_proc_id = handle->slave_sr_config[i].
 							owner_proc_id;
@@ -1441,8 +1552,8 @@ int platform_load_callback(u16 proc_id, void *arg)
 							cache_line_size;
 			entry.create_heap = handle->slave_sr_config[i].
 								create_heap;
-			sharedregion_set_entry(handle->
-						slave_sr_config[i].id, &entry);
+			_sharedregion_set_entry(handle->slave_sr_config[i].id,
+						&entry);
 		}
 	}
 
@@ -1450,9 +1561,9 @@ int platform_load_callback(u16 proc_id, void *arg)
 	num_bytes = sizeof(struct platform_slave_config);
 	handle->slave_config.sr0_memory_setup = 1;
 	status = _platform_write_slave_memory(proc_id,
-					      start,
-					      &handle->slave_config,
-					      &num_bytes);
+						start,
+						&handle->slave_config,
+						&num_bytes);
 	if (status < 0) {
 		status = PLATFORM_E_FAIL;
 		goto alloced_slave_sr_config_exit;
@@ -1493,6 +1604,7 @@ int platform_start_callback(u16 proc_id, void *arg)
 
 	do {
 		status = ipc_attach(proc_id);
+		msleep(1);
 	} while (status < 0);
 
 	if (status < 0)
@@ -1534,7 +1646,7 @@ int platform_stop_callback(u16 proc_id, void *arg)
 			status = proc_mgr_translate_addr(pm_handle,
 				(void **)&m_addr,
 				PROC_MGR_ADDRTYPE_MASTERKNLVIRT,
-				(void *)m_addr,
+				(void *)handle->slave_sr_config[i].entry_base,
 				PROC_MGR_ADDRTYPE_SLAVEVIRT);
 			if (status < 0) {
 				status = PLATFORM_E_FAIL;
@@ -1543,8 +1655,8 @@ int platform_stop_callback(u16 proc_id, void *arg)
 
 			status = proc_mgr_unmap(pm_handle, m_addr);
 		}
-
 	}
+
 	if (platform_num_srs_unmapped == handle->slave_config.num_srs) {
 		if (handle->slave_sr_config != NULL) {
 			kfree(handle->slave_sr_config);
@@ -1603,13 +1715,23 @@ _platform_read_slave_memory(u16 proc_id,
 					(void *)addr,
 					PROC_MGR_ADDRTYPE_SLAVEVIRT);
 	if (status >= 0) {
-		memcpy(value, &m_addr, *num_bytes);
+		memcpy(value, (void *) m_addr, *num_bytes);
 		done = true;
+		printk(KERN_ERR "_platform_read_slave_memory successful! "
+			"status = 0x%x, proc_id = %d, addr = 0x%x, "
+			"m_addr = 0x%x, size = 0x%x", status, proc_id, addr,
+			m_addr, *num_bytes);
 	} else {
+		printk(KERN_ERR "_platform_read_slave_memory failed! "
+			"status = 0x%x, proc_id = %d, addr = 0x%x, "
+			"m_addr = 0x%x, size = 0x%x", status, proc_id, addr,
+			m_addr, *num_bytes);
 		status = PLATFORM_E_FAIL;
 		goto exit;
 	}
 
+	/* This code path is not validated for OMAP4, as it does not comply
+	 * with the latest ProcMgr */
 	if (done == false) {
 		/* Map the address */
 		/* TODO: backwards compatibility with old procmgr */
@@ -1627,9 +1749,9 @@ _platform_read_slave_memory(u16 proc_id,
 
 	if (done == false) {
 		status = proc_mgr_read(pm_handle,
-				       addr,
-				       num_bytes,
-				       value);
+					addr,
+					num_bytes,
+					value);
 		if (status < 0) {
 			status = PLATFORM_E_FAIL;
 			goto exit;
@@ -1651,11 +1773,8 @@ exit:
 
 
 /* Function to write slave memory */
-int
-_platform_write_slave_memory(u16 proc_id,
-			     u32 addr,
-			     void *value,
-			     u32 *num_bytes)
+int _platform_write_slave_memory(u16 proc_id, u32 addr, void *value,
+					u32 *num_bytes)
 {
 	int status = 0;
 	bool done = false;
@@ -1685,13 +1804,23 @@ _platform_write_slave_memory(u16 proc_id,
 					(void *)addr,
 					PROC_MGR_ADDRTYPE_SLAVEVIRT);
 	if (status >= 0) {
-		memcpy(value, &m_addr, *num_bytes);
+		memcpy((void *) m_addr, value, *num_bytes);
 		done = true;
+		printk(KERN_ERR "_platform_write_slave_memory successful! "
+			"status = 0x%x, proc_id = %d, addr = 0x%x, "
+			"m_addr = 0x%x, size = 0x%x", status, proc_id, addr,
+			m_addr, *num_bytes);
 	} else {
+		printk(KERN_ERR "_platform_write_slave_memory failed! "
+			"status = 0x%x, proc_id = %d, addr = 0x%x, "
+			"m_addr = 0x%x, size = 0x%x", status, proc_id, addr,
+			m_addr, *num_bytes);
 		status = PLATFORM_E_FAIL;
 		goto exit;
 	}
 
+	/* This code path is not validated for OMAP4, as it does not comply
+	 * with the latest ProcMgr */
 	if (done == false) {
 		/* Map the address */
 		/* TODO: backwards compatibility with old procmgr */
