@@ -30,10 +30,10 @@
 #include <ipc_ioctl.h>
 #include <nameserver.h>
 
-#define IPC_NAME  		"syslink_ipc"
+#define IPC_NAME		"syslink_ipc"
 #define IPC_MAJOR		0
 #define IPC_MINOR		0
-#define IPC_DEVICES 		1
+#define IPC_DEVICES		1
 
 struct ipc_device {
 	struct cdev cdev;
@@ -162,14 +162,14 @@ static int __init ipc_init(void)
 	}
 
 	if (retval < 0) {
-		printk(KERN_ERR "ipc_init: can't get major %x \n", ipc_major);
+		printk(KERN_ERR "ipc_init: can't get major %x\n", ipc_major);
 		goto exit;
 	}
 
 	ipc_device = kmalloc(sizeof(struct ipc_device), GFP_KERNEL);
 	if (!ipc_device) {
 		printk(KERN_ERR "ipc_init: memory allocation failed for "
-			"ipc_device \n");
+			"ipc_device\n");
 		retval = -ENOMEM;
 		goto unreg_exit;
 	}
@@ -177,14 +177,14 @@ static int __init ipc_init(void)
 	memset(ipc_device, 0, sizeof(struct ipc_device));
 	retval = ipc_modules_init();
 	if (retval) {
-		printk(KERN_ERR "ipc_init: ipc initialization failed \n");
+		printk(KERN_ERR "ipc_init: ipc initialization failed\n");
 		goto unreg_exit;
 
 	}
 	/* TO DO : NEED TO LOOK IN TO THIS */
 	ipc_class = class_create(THIS_MODULE, "syslink_ipc");
 	if (IS_ERR(ipc_class)) {
-		printk(KERN_ERR "ipc_init: error creating ipc class \n");
+		printk(KERN_ERR "ipc_init: error creating ipc class\n");
 		retval = PTR_ERR(ipc_class);
 		goto unreg_exit;
 	}
@@ -195,7 +195,7 @@ static int __init ipc_init(void)
 	ipc_device->cdev.owner = THIS_MODULE;
 	retval = cdev_add(&ipc_device->cdev, dev, IPC_DEVICES);
 	if (retval) {
-		printk(KERN_ERR "ipc_init: failed to add the ipc device \n");
+		printk(KERN_ERR "ipc_init: failed to add the ipc device\n");
 		goto class_exit;
 	}
 	return retval;

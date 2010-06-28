@@ -21,21 +21,17 @@
 #include <ipc_ioctl.h>
 #include <multiproc_ioctl.h>
 #include <nameserver_ioctl.h>
-#include <heapbuf_ioctl.h>
+#include <heapbufmp_ioctl.h>
 #include <sharedregion_ioctl.h>
-#include <gatepeterson_ioctl.h>
-#include <listmp_sharedmemory_ioctl.h>
+#include <gatemp_ioctl.h>
+#include <listmp_ioctl.h>
 #include <messageq_ioctl.h>
-#include <messageq_transportshm_ioctl.h>
-#include <nameserver_remotenotify_ioctl.h>
-#include <sysmgr_ioctl.h>
-#include <sysmemmgr_ioctl.h>
+#include <sysipc_ioctl.h>
+/*#include <sysmemmgr_ioctl.h>*/
+#include <heapmemmp_ioctl.h>
 
 /*
- * ======== ipc_ioctl_router ========
- *  Purpose:
- *  This will route the ioctl commands to proper
- *  modules
+ *  This will route the ioctl commands to proper modules
  */
 int ipc_ioc_router(u32 cmd, ulong arg)
 {
@@ -44,35 +40,25 @@ int ipc_ioc_router(u32 cmd, ulong arg)
 
 	if (ioc_nr >= MULTIPROC_BASE_CMD && ioc_nr <= MULTIPROC_END_CMD)
 		retval = multiproc_ioctl(NULL, NULL, cmd, arg);
-	else if (ioc_nr >= NAMESERVER_BASE_CMD &&
-					ioc_nr <= NAMESERVER_END_CMD)
+	else if (ioc_nr >= NAMESERVER_BASE_CMD && ioc_nr <= NAMESERVER_END_CMD)
 		retval = nameserver_ioctl(NULL, NULL, cmd, arg);
-	else if (ioc_nr >= HEAPBUF_BASE_CMD && ioc_nr <= HEAPBUF_END_CMD)
-		retval = heapbuf_ioctl(NULL, NULL, cmd, arg);
+	else if (ioc_nr >= HEAPBUFMP_BASE_CMD && ioc_nr <= HEAPBUFMP_END_CMD)
+		retval = heapbufmp_ioctl(NULL, NULL, cmd, arg);
 	else if (ioc_nr >= SHAREDREGION_BASE_CMD &&
 					ioc_nr <= SHAREDREGION_END_CMD)
 		retval = sharedregion_ioctl(NULL, NULL, cmd, arg);
-	else if (ioc_nr >= GATEPETERSON_BASE_CMD &&
-					ioc_nr <= GATEPETERSON_END_CMD)
-		retval = gatepeterson_ioctl(NULL, NULL, cmd, arg);
-	else if (ioc_nr >= LISTMP_SHAREDMEMORY_BASE_CMD &&
-					ioc_nr <= LISTMP_SHAREDMEMORY_END_CMD)
-		retval = listmp_sharedmemory_ioctl(NULL, NULL, cmd, arg);
-	else if (ioc_nr >= MESSAGEQ_BASE_CMD &&
-					ioc_nr <= MESSAGEQ_END_CMD)
+	else if (ioc_nr >= GATEMP_BASE_CMD && ioc_nr <= GATEMP_END_CMD)
+		retval = gatemp_ioctl(NULL, NULL, cmd, arg);
+	else if (ioc_nr >= LISTMP_BASE_CMD && ioc_nr <= LISTMP_END_CMD)
+		retval = listmp_ioctl(NULL, NULL, cmd, arg);
+	else if (ioc_nr >= MESSAGEQ_BASE_CMD && ioc_nr <= MESSAGEQ_END_CMD)
 		retval = messageq_ioctl(NULL, NULL, cmd, arg);
-	else if (ioc_nr >= MESSAGEQ_TRANSPORTSHM_BASE_CMD &&
-					ioc_nr <= MESSAGEQ_TRANSPORTSHM_END_CMD)
-		retval = messageq_transportshm_ioctl(NULL, NULL, cmd, arg);
-	else if (ioc_nr >= NAMESERVERREMOTENOTIFY_BASE_CMD &&
-				ioc_nr <= NAMESERVERREMOTENOTIFY_END_CMD)
-		retval = nameserver_remotenotify_ioctl(NULL, NULL, cmd, arg);
-	else if (ioc_nr >= SYSMGR_BASE_CMD &&
-				ioc_nr <= SYSMGR_END_CMD)
-		retval = sysmgr_ioctl(NULL, NULL, cmd, arg);
-	else if (ioc_nr >= SYSMEMMGR_BASE_CMD &&
-				ioc_nr <= SYSMEMMGR_END_CMD)
-		retval = sysmemmgr_ioctl(NULL, NULL, cmd, arg);
+	else if (ioc_nr >= IPC_BASE_CMD && ioc_nr <= IPC_END_CMD)
+		retval = sysipc_ioctl(NULL, NULL, cmd, arg);
+/*	else if (ioc_nr >= SYSMEMMGR_BASE_CMD && ioc_nr <= SYSMEMMGR_END_CMD)
+		retval = sysmemmgr_ioctl(NULL, NULL, cmd, arg);*/
+	else if (ioc_nr >= HEAPMEMMP_BASE_CMD && ioc_nr <= HEAPMEMMP_END_CMD)
+		retval = heapmemmp_ioctl(NULL, NULL, cmd, arg);
 	else
 		retval = -ENOTTY;
 
