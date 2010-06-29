@@ -111,22 +111,27 @@ static inline int proc44x_appm3_start(struct omap_rproc *rproc)
 static inline int proc44x_sysm3_stop(struct omap_rproc *rproc)
 {
 	struct device *dev = rproc->dev;
+	u32 reg;
 
-	dev_info(dev, "assert RST1\n");
-	prm_write_mod_reg(RM_M3_AST_RST1_MASK, OMAP4430_PRM_CORE_MOD,
+	reg = prm_read_mod_reg(OMAP4430_PRM_CORE_MOD,
+					OMAP4_RM_DUCATI_RSTCTRL_OFFSET);
+
+	dev_info(dev, "assert RST1 reg = 0x%x\n", reg);
+	prm_write_mod_reg((reg | RM_M3_AST_RST1_MASK), OMAP4430_PRM_CORE_MOD,
 				OMAP4_RM_DUCATI_RSTCTRL_OFFSET);
-	/* Disable the M3 clock */
-	cm_write_mod_reg(M3_CLKTRCTRL_SW_SLEEP, OMAP4430_CM2_CORE_MOD,
-					OMAP4_CM_DUCATI_CLKSTCTRL_OFFSET);
 	return 0;
 }
 
 static inline int proc44x_appm3_stop(struct omap_rproc *rproc)
 {
 	struct device *dev = rproc->dev;
+	u32 reg;
 
-	dev_info(dev, "assert RST2\n");
-	prm_write_mod_reg(RM_M3_AST_RST2_MASK, OMAP4430_PRM_CORE_MOD,
+	reg = prm_read_mod_reg(OMAP4430_PRM_CORE_MOD,
+					OMAP4_RM_DUCATI_RSTCTRL_OFFSET);
+
+	dev_info(dev, "assert RST2 reg = 0x%x\n", reg);
+	prm_write_mod_reg((reg | RM_M3_AST_RST2_MASK), OMAP4430_PRM_CORE_MOD,
 				OMAP4_RM_DUCATI_RSTCTRL_OFFSET);
 	return 0;
 }
