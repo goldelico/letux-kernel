@@ -45,6 +45,12 @@
 #define M3_CLKTRCTRL_SW_SLEEP			0x1
 #define M3_CLKACTIVITY_MPU_M3_CLK		0x100
 
+#define OMAP4_CM_DUCATI_DUCATI_CLKCTRL_OFFSET	0x0220
+#define OMAP4_CM_DUCATI_CLKSTCTRL_OFFSET	0x0200
+#define OMAP4_RM_DUCATI_RSTCTRL_OFFSET		0x0210
+#define OMAP4_RM_DUCATI_RSTST_OFFSET		0x0214
+#define OMAP4430_CM2_CORE_MOD_1			0x4700
+
 static inline int proc44x_sysm3_start(struct omap_rproc *rproc)
 {
 	u32 reg;
@@ -52,14 +58,14 @@ static inline int proc44x_sysm3_start(struct omap_rproc *rproc)
 	struct device *dev = rproc->dev;
 
 	/* Module is managed automatically by HW */
-	cm_write_mod_reg(M3_CLK_MOD_MODE_HW_AUTO, OMAP4430_CM2_CORE_MOD,
+	cm_write_mod_reg(M3_CLK_MOD_MODE_HW_AUTO, OMAP4430_CM2_CORE_MOD_1,
 					OMAP4_CM_DUCATI_DUCATI_CLKCTRL_OFFSET);
 
 	/* Enable the M3 clock */
-	cm_write_mod_reg(M3_CLKTRCTRL_SW_WKUP, OMAP4430_CM2_CORE_MOD,
+	cm_write_mod_reg(M3_CLKTRCTRL_SW_WKUP, OMAP4430_CM2_CORE_MOD_1,
 					OMAP4_CM_DUCATI_CLKSTCTRL_OFFSET);
 	do {
-		reg = cm_read_mod_reg(OMAP4430_CM2_CORE_MOD,
+		reg = cm_read_mod_reg(OMAP4430_CM2_CORE_MOD_1,
 					OMAP4_CM_DUCATI_CLKSTCTRL_OFFSET);
 		if (reg & M3_CLKACTIVITY_MPU_M3_CLK) {
 			dev_info(dev, "M3 clock enabled:"
@@ -119,6 +125,7 @@ static inline int proc44x_sysm3_stop(struct omap_rproc *rproc)
 	dev_info(dev, "assert RST1 reg = 0x%x\n", reg);
 	prm_write_mod_reg((reg | RM_M3_AST_RST1_MASK), OMAP4430_PRM_CORE_MOD,
 				OMAP4_RM_DUCATI_RSTCTRL_OFFSET);
+
 	return 0;
 }
 
