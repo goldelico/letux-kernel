@@ -235,7 +235,7 @@ int __init musb_platform_init(struct musb *musb, void *board_data)
 		 */
 		l |= ENABLEWAKEUP;	/* Enable wakeup */
 		l &= ~NOSTDBY;		/* remove possible nostdby */
-		l |= FORCESTDBY;	/* enable force standby */
+		l |= SMARTSTDBY;	/* enable smart standby */
 		l &= ~AUTOIDLE;		/* disable auto idle */
 		l &= ~NOIDLE;		/* remove possible noidle */
 		l |= FORCEIDLE;		/* enable force idle */
@@ -253,7 +253,6 @@ int __init musb_platform_init(struct musb *musb, void *board_data)
 	 */
 	if (!cpu_is_omap3430()) {
 		l |= AUTOIDLE;		/* enable auto idle */
-		l |= SMARTIDLE;		/* enable smart idle */
 	}
 
 	omap_writel(l, OTG_SYSCONFIG);
