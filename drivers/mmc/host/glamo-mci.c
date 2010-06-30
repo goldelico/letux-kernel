@@ -930,9 +930,9 @@ static int glamo_mci_resume(struct device *dev)
 	glamo_mci_reset(host);
 	mdelay(10);
 
-	ret = mmc_resume_host(host->mmc);
-
 	enable_irq(host->irq);
+
+	ret = mmc_resume_host(host->mmc);
 
 	mmc_host_lazy_disable(host->mmc);
 
