@@ -812,6 +812,10 @@ static int glamo_mci_probe(struct platform_device *pdev)
 	mmc->caps	= MMC_CAP_4_BIT_DATA |
 			    MMC_CAP_MMC_HIGHSPEED |
 			    MMC_CAP_SD_HIGHSPEED;
+
+	if (host->pdata->nonremovable)
+		mmc->caps |= MMC_CAP_NONREMOVABLE;
+
 	mmc->f_min	= host->clk_rate / 256;
 	mmc->f_max	= sd_max_clk;
 
