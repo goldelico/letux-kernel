@@ -27,6 +27,7 @@ obj-$(CONFIG_C2PORT)		+= c2port/
 
 obj-y				+= eeprom/
 obj-y				+= cb710/
+obj-$(CONFIG_SENSORS_BH1780)	+= bh1780gli.o
 obj-$(CONFIG_WL127X_RFKILL)	+= wl127x-rfkill.o
 obj-$(CONFIG_APANIC)		+= apanic.o
 obj-$(CONFIG_SENSORS_AKM8973)	+= akm8973.o
