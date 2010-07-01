@@ -852,6 +852,9 @@ static struct i2c_board_info __initdata sdp4430_i2c_3_boardinfo[] = {
 		I2C_BOARD_INFO("tm12xx_ts_secondary", 0x4b),
 		.platform_data = &tm12xx_platform_data[1],
 	},
+	{
+		I2C_BOARD_INFO("tmp105", 0x48),
+	},
 };
 
 static int __init omap4_i2c_init(void)
@@ -861,10 +864,15 @@ static int __init omap4_i2c_init(void)
 				ARRAY_SIZE(sdp4430_i2c_boardinfo));
 	omap_register_i2c_bus(2, 400, sdp4430_i2c_2_boardinfo,
 				ARRAY_SIZE(sdp4430_i2c_2_boardinfo));
-#if 0 /* Clash of the ducati camera sensor */
+
+/* There is a Clash of the ducati camera sensor
+ * however, Enable i2c.3 if we want Temperature sensor.
+ */
+#ifdef CONFIG_SENSORS_LM75
 	omap_register_i2c_bus(3, 400, sdp4430_i2c_3_boardinfo,
 				ARRAY_SIZE(sdp4430_i2c_3_boardinfo));
 #endif
+
 	omap_register_i2c_bus(4, 400, 0, 0);
 
 	return 0;
