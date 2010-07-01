@@ -267,9 +267,14 @@
 
 #define TWL4030_DAI_HIFI		0
 #define TWL4030_DAI_VOICE		1
+#define TWL4030_DAI_CLOCK		2
 
-extern struct snd_soc_dai twl4030_dai[2];
+extern struct snd_soc_dai twl4030_dai[];
 extern struct snd_soc_codec_device soc_codec_dev_twl4030;
+
+extern int twl4030_set_rate(struct snd_soc_codec *, struct snd_pcm_hw_params *);
+extern int twl4030_get_clock_divisor(struct snd_soc_codec *,
+				     struct snd_pcm_hw_params *);
 
 struct twl4030_setup_data {
 	unsigned int ramp_delay_value;
