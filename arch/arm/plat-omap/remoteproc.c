@@ -274,12 +274,12 @@ static int omap_rproc_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifndef CONFIG_PM
+//#ifndef CONFIG_PM
 #define omap_rproc_suspend		NULL
 #define omap_rproc_resume		NULL
 #define omap_rproc_runtime_suspend	NULL
 #define omap_rproc_runtime_resume	NULL
-#endif
+//#endif
 
 
 const static struct dev_pm_ops omap_rproc_dev_pm_ops = {
