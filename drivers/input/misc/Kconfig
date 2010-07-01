@@ -341,6 +341,14 @@ config INPUT_HALLEFFECT_BU52014HV
 
 	  If unsure, say N.
 
+config INPUT_SFH7741
+	tristate "SFH7741 Proximity sensor"
+	help
+	  Say Y here if you want to use proximity sensor sfh7741.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called sfh7741.
+
 config INPUT_PROXIMITY_SFH7743
 	tristate "SFH7743 Proximity"
 	default n
