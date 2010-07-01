@@ -21,6 +21,7 @@
 #include <linux/usb/otg.h>
 #include <linux/input.h>
 #include <linux/input/matrix_keypad.h>
+#include <linux/input/sfh7741.h>
 
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
@@ -48,6 +49,27 @@
 #include "board-connectivity.h"
 
 #define OMAP4_KBDOCP_BASE               0x4A31C000
+
+#define OMAP4_SFH7741_SENSOR_OUTPUT_GPIO	184
+#define OMAP4_SFH7741_ENABLE_GPIO		188
+static void omap_prox_activate(int state);
+static int omap_prox_read(void);
+
+static struct sfh7741_platform_data omap_sfh7741_data = {
+		.irq = OMAP_GPIO_IRQ(OMAP4_SFH7741_SENSOR_OUTPUT_GPIO),
+		.prox_enable = 1,
+		.activate_func = omap_prox_activate,
+		.read_prox = omap_prox_read,
+};
+
+static struct platform_device sdp4430_proximity_device = {
+	.name		= "sfh7741",
+	.id		= 1,
+	.dev		= {
+		.platform_data = &omap_sfh7741_data,
+	},
+};
+
 
 static int omap_keymap[] = {
 	KEY(0, 0, KEY_E),
@@ -455,6 +477,7 @@ static struct regulator_consumer_supply sdp4430_vdda_dac_supply = {
 static struct platform_device *sdp4430_devices[] __initdata = {
 	&sdp4430_dss_device,
 	&omap_kp_device,
+	&sdp4430_proximity_device,
 };
 
 static __attribute__ ((unused)) struct
@@ -917,6 +940,58 @@ void wlan_1283_config(void)
 }
 #endif
 
+
+static void omap_prox_activate(int state)
+{
+	gpio_set_value(OMAP4_SFH7741_ENABLE_GPIO , state);
+}
+
+static int omap_prox_read(void)
+{
+	int proximity;
+	proximity = gpio_get_value(OMAP4_SFH7741_SENSOR_OUTPUT_GPIO);
+	return proximity;
+}
+
+static void omap_sfh7741prox_init(void)
+{
+	int  error;
+
+	error = gpio_request(OMAP4_SFH7741_SENSOR_OUTPUT_GPIO, "sfh7741");
+	if (error < 0) {
+		pr_err("%s: GPIO configuration failed: GPIO %d, error %d\n"
+			, __func__, OMAP4_SFH7741_SENSOR_OUTPUT_GPIO, error);
+		return ;
+	}
+
+	error = gpio_direction_input(OMAP4_SFH7741_SENSOR_OUTPUT_GPIO);
+	if (error < 0) {
+		pr_err("Proximity GPIO input configuration failed\n");
+		goto fail1;
+	}
+
+	error = gpio_request(OMAP4_SFH7741_ENABLE_GPIO, "sfh7741");
+	if (error < 0) {
+		pr_err("failed to request GPIO %d, error %d\n",
+			OMAP4_SFH7741_ENABLE_GPIO, error);
+		goto fail1;
+	}
+
+	error = gpio_direction_output(OMAP4_SFH7741_ENABLE_GPIO , 1);
+	if (error < 0) {
+		pr_err("%s: GPIO configuration failed: GPIO %d,\
+			error %d\n", __func__, OMAP4_SFH7741_ENABLE_GPIO, error);
+		goto fail3;
+	}
+	return;
+
+fail3:
+	gpio_free(OMAP4_SFH7741_ENABLE_GPIO);
+fail1:
+	gpio_free(OMAP4_SFH7741_SENSOR_OUTPUT_GPIO);
+}
+
+
 static void __init omap_4430sdp_init(void)
 {
 	omap4_i2c_init();
@@ -939,6 +1014,7 @@ static void __init omap_4430sdp_init(void)
 	/* Added for FlexST */
 	conn_config_gpios();
 	sdp4430_display_init();
+	omap_sfh7741prox_init();
 }
 
 static void __init omap_4430sdp_map_io(void)
