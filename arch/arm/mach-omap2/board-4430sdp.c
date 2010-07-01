@@ -855,6 +855,9 @@ static struct i2c_board_info __initdata sdp4430_i2c_3_boardinfo[] = {
 	{
 		I2C_BOARD_INFO("tmp105", 0x48),
 	},
+	{
+		I2C_BOARD_INFO("bh1780", 0x29),
+	},
 };
 
 static int __init omap4_i2c_init(void)
@@ -867,8 +870,9 @@ static int __init omap4_i2c_init(void)
 
 /* There is a Clash of the ducati camera sensor
  * however, Enable i2c.3 if we want Temperature sensor.
+ * or ambient light sensor.
  */
-#ifdef CONFIG_SENSORS_LM75
+#if defined(CONFIG_SENSORS_LM75) || defined(CONFIG_SENSORS_BH1780)
 	omap_register_i2c_bus(3, 400, sdp4430_i2c_3_boardinfo,
 				ARRAY_SIZE(sdp4430_i2c_3_boardinfo));
 #endif
