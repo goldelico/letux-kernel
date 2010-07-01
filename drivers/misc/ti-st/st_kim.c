@@ -282,6 +282,9 @@ static long download_firmware(void)
 	register unsigned char *ptr = NULL;
 	register unsigned char *action_ptr = NULL;
 	unsigned char bts_scr_name[30] = { 0 };	/* 30 char long bts scr name? */
+	int wr_room_space;
+	int cmd_size;
+	unsigned long timeout;
 
 	ST_KIM_VER("%s", __func__);
 
@@ -325,8 +328,34 @@ static long download_firmware(void)
 				    rate command in firmware");
 				break;
 			}
+			/* Make sure we have enough free space in uart
+			 * tx buffer to write current firmware command
+			 */
+			cmd_size = ((struct bts_action *)ptr)->size;
+			timeout = jiffies + msecs_to_jiffies(CMD_WR_TIME);
+			do {
+				wr_room_space = st_get_uart_wr_room();
+				if(wr_room_space < 0) {
+					ST_KIM_ERR("Unable to get free "
+					"space info from uart tx buffer");
+					release_firmware(kim_gdata->fw_entry);
+					return wr_room_space;
+				}
+			}while((wr_room_space < cmd_size) &&
+				time_before(jiffies, timeout));
 
-			INIT_COMPLETION(kim_gdata->kim_rcvd);
+			/* Timeout happened ? */
+			if (time_after_eq(jiffies, timeout)) {
+				ST_KIM_ERR("Timeout while waiting for free "
+					"free space in uart tx buffer");
+				release_firmware(kim_gdata->fw_entry);
+				return ST_ERR_FAILURE;
+			}
+
+			/* Free space found in uart buffer, call st_int_write
+			 * to send current firmware command to the uart tx
+			 * buffer.
+			 */
 			err = st_int_write(((struct bts_action_send *)
 					    action_ptr)->data,
 					   ((struct bts_action *)ptr)->size);
@@ -334,6 +363,18 @@ static long download_firmware(void)
 				release_firmware(kim_gdata->fw_entry);
 				return ST_ERR_FAILURE;
 			}
+			/* Check number of bytes written to the uart tx buffer
+			 * and requested command write size
+			 */
+			if (err != cmd_size) {
+				ST_KIM_ERR("Number of bytes written to uart "
+					"tx buffer are not matching with "
+					"requested cmd write size");
+				release_firmware(kim_gdata->fw_entry);
+				return ST_ERR_FAILURE;
+			}
+			break;
+		case ACTION_WAIT_EVENT:  /* wait */
 			if (!wait_for_completion_timeout
 			    (&kim_gdata->kim_rcvd,
 			     msecs_to_jiffies(CMD_RESP_TIME))) {
@@ -343,6 +384,7 @@ static long download_firmware(void)
 				release_firmware(kim_gdata->fw_entry);
 				return ST_ERR_FAILURE;
 			}
+			INIT_COMPLETION(kim_gdata->kim_rcvd);
 			break;
 		case ACTION_DELAY:	/* sleep */
 			ST_KIM_DBG("sleep command in scr");

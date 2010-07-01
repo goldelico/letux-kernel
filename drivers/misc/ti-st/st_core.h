@@ -77,6 +77,13 @@ int st_int_write(const unsigned char *, int);
  * via the write function ptr of protocol struct
  */
 long st_write(struct sk_buff *);
+
+/* wrapper function to tty->ops->write_room.
+ * It returns number of free space available in
+ * uart tx buffer.
+ */
+int st_get_uart_wr_room(void);
+
 /* function to be called from ST-LL
  */
 void st_ll_send_frame(enum proto_type, struct sk_buff *);
