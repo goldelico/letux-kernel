@@ -2190,10 +2190,9 @@ PVRSRV_ERROR OSReleasePhysPageAddr(IMG_HANDLE hOSWrapMem)
                 struct page *psPage = psInfo->ppsPages[i];
 
 
-                if (!PageReserved(psPage));
-                {
-                    SetPageDirty(psPage);
-                }
+		if (!PageReserved(psPage))
+			SetPageDirty(psPage);
+
                 page_cache_release(psPage);
             }
             break;
