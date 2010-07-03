@@ -53,7 +53,7 @@
 #define OMAP4_SRAM_PUB_PA	(OMAP4_SRAM_PA + 0x4000)
 #define OMAP4_SRAM_PUB_VA	(OMAP4_SRAM_VA + 0x4000)
 
-#if defined(CONFIG_ARCH_OMAP24XX) || defined(CONFIG_ARCH_OMAP34XX)
+#if defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3) || defined(CONFIG_ARCH_OMAP4)
 #define SRAM_BOOTLOADER_SZ	0x00
 #else
 #define SRAM_BOOTLOADER_SZ	0x80
@@ -93,16 +93,7 @@ extern unsigned long omapfb_reserve_sram(unsigned long sram_pstart,
  */
 static int is_sram_locked(void)
 {
-	int type = 0;
-
-	if (cpu_is_omap44xx())
-		/* Not yet supported */
-		return 0;
-
-	if (cpu_is_omap242x())
-		type = omap_rev() & OMAP2_DEVICETYPE_MASK;
-
-	if (type == GP_DEVICE) {
+	if (omap_type() == OMAP2_DEVICE_TYPE_GP) {
 		/* RAMFW: R/W access to all initiators for all qualifier sets */
 		if (cpu_is_omap242x()) {
 			__raw_writel(0xFF, OMAP24XX_VA_REQINFOPERM0); /* all q-vects */
@@ -148,9 +139,18 @@ void __init omap_detect_sram(void)
 					omap_sram_size = 0x8000; /* 32K */
 				}
 			} else if (cpu_is_omap44xx()) {
-				omap_sram_base = OMAP4_SRAM_PUB_VA;
-				omap_sram_start = OMAP4_SRAM_PUB_PA;
-				omap_sram_size = 0xa000; /* 40K */
+				if ((omap_type() == OMAP2_DEVICE_TYPE_EMU) ||
+				    (omap_type() == OMAP2_DEVICE_TYPE_SEC)) {
+					/* 40K For Public SRAM */
+					omap_sram_base = OMAP4_SRAM_PUB_VA;
+					omap_sram_start = OMAP4_SRAM_PUB_PA;
+					omap_sram_size = 0xA000;
+				} else {
+					/* 56 KB SRAM on GP device */
+					omap_sram_base = OMAP4_SRAM_VA;
+					omap_sram_start = OMAP4_SRAM_PA;
+					omap_sram_size = 0xE000;
+				}
 			} else {
 				omap_sram_base = OMAP2_SRAM_PUB_VA;
 				omap_sram_start = OMAP2_SRAM_PUB_PA;
