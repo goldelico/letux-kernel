@@ -110,19 +110,19 @@ static int sd_post_power_clock = 1000000;
 module_param(sd_post_power_clock, int, 0644);
 
 
-static inline void glamo_reg_write(struct glamo_mci_host *glamo,
+static inline void glamomci_reg_write(struct glamo_mci_host *glamo,
 				uint16_t reg, uint16_t val)
 {
 	writew(val, glamo->mmio_base + reg);
 }
 
-static inline uint16_t glamo_reg_read(struct glamo_mci_host *glamo,
+static inline uint16_t glamomci_reg_read(struct glamo_mci_host *glamo,
 				      uint16_t reg)
 {
 	return readw(glamo->mmio_base + reg);
 }
 
-static void glamo_reg_set_bit_mask(struct glamo_mci_host *glamo,
+static void glamomci_reg_set_bit_mask(struct glamo_mci_host *glamo,
 				   uint16_t reg, uint16_t mask,
 				   uint16_t val)
 {
@@ -130,24 +130,24 @@ static void glamo_reg_set_bit_mask(struct glamo_mci_host *glamo,
 
 	val &= mask;
 
-	tmp = glamo_reg_read(glamo, reg);
+	tmp = glamomci_reg_read(glamo, reg);
 	tmp &= ~mask;
 	tmp |= val;
-	glamo_reg_write(glamo, reg, tmp);
+	glamomci_reg_write(glamo, reg, tmp);
 }
 
 static void glamo_mci_reset(struct glamo_mci_host *host)
 {
 	glamo_engine_reset(host->core, GLAMO_ENGINE_MMC);
 
-	glamo_reg_write(host, GLAMO_REG_MMC_WDATADS1,
+	glamomci_reg_write(host, GLAMO_REG_MMC_WDATADS1,
 			(uint16_t)(host->data_mem->start));
-	glamo_reg_write(host, GLAMO_REG_MMC_WDATADS2,
+	glamomci_reg_write(host, GLAMO_REG_MMC_WDATADS2,
 			(uint16_t)(host->data_mem->start >> 16));
 
-	glamo_reg_write(host, GLAMO_REG_MMC_RDATADS1,
+	glamomci_reg_write(host, GLAMO_REG_MMC_RDATADS1,
 			(uint16_t)(host->data_mem->start));
-	glamo_reg_write(host, GLAMO_REG_MMC_RDATADS2,
+	glamomci_reg_write(host, GLAMO_REG_MMC_RDATADS2,
 			(uint16_t)(host->data_mem->start >> 16));
 
 }
@@ -226,7 +226,7 @@ static int glamo_mci_wait_idle(struct glamo_mci_host *host,
 {
 	uint16_t status;
 	do {
-		status = glamo_reg_read(host, GLAMO_REG_MMC_RB_STAT1);
+		status = glamomci_reg_read(host, GLAMO_REG_MMC_RB_STAT1);
 	} while (!(status & GLAMO_STAT1_MMC_IDLE) &&
 		  time_is_after_jiffies(timeout));
 
@@ -257,7 +257,7 @@ static irqreturn_t glamo_mci_irq(int irq, void *data)
 	mrq = host->mrq;
 	cmd = mrq->cmd;
 
-	status = glamo_reg_read(host, GLAMO_REG_MMC_RB_STAT1);
+	status = glamomci_reg_read(host, GLAMO_REG_MMC_RB_STAT1);
 	dev_dbg(&host->pdev->dev, "status = 0x%04x\n", status);
 
 	/* we ignore a data timeout report if we are also told the data came */
@@ -320,7 +320,7 @@ static void glamo_mci_read_worker(struct work_struct *work)
 		 * But the question is: what happens between the moment
 		 * the error occurs, and the moment the IRQ handler handles it?
 		 */
-		status = glamo_reg_read(host, GLAMO_REG_MMC_RB_STAT1);
+		status = glamomci_reg_read(host, GLAMO_REG_MMC_RB_STAT1);
 
 		if (status & (GLAMO_STAT1_MMC_RTOUT | GLAMO_STAT1_MMC_DTOUT))
 			cmd->error = -ETIMEDOUT;
@@ -332,7 +332,7 @@ static void glamo_mci_read_worker(struct work_struct *work)
 			return;
 		}
 
-		blocks_ready = glamo_reg_read(host, GLAMO_REG_MMC_RB_BLKCNT);
+		blocks_ready = glamomci_reg_read(host, GLAMO_REG_MMC_RB_BLKCNT);
 		data_ready = blocks_ready * cmd->data->blksz;
 
 		if (data_ready == data_read)
@@ -364,7 +364,7 @@ static void glamo_mci_send_command(struct glamo_mci_host *host,
 	int triggers_int = 1;
 
 	/* if we can't do it, reject as busy */
-	if (!(glamo_reg_read(host, GLAMO_REG_MMC_RB_STAT1) &
+	if (!(glamomci_reg_read(host, GLAMO_REG_MMC_RB_STAT1) &
 		 GLAMO_STAT1_MMC_IDLE)) {
 		cmd->error = -EBUSY;
 		return;
@@ -379,9 +379,9 @@ static void glamo_mci_send_command(struct glamo_mci_host *host,
 	u8a[5] = (crc7(0, u8a, 5) << 1) | 0x01;
 
 	/* issue the wire-order array including CRC in register order */
-	glamo_reg_write(host, GLAMO_REG_MMC_CMD_REG1, ((u8a[4] << 8) | u8a[5]));
-	glamo_reg_write(host, GLAMO_REG_MMC_CMD_REG2, ((u8a[2] << 8) | u8a[3]));
-	glamo_reg_write(host, GLAMO_REG_MMC_CMD_REG3, ((u8a[0] << 8) | u8a[1]));
+	glamomci_reg_write(host, GLAMO_REG_MMC_CMD_REG1, ((u8a[4] << 8) | u8a[5]));
+	glamomci_reg_write(host, GLAMO_REG_MMC_CMD_REG2, ((u8a[2] << 8) | u8a[3]));
+	glamomci_reg_write(host, GLAMO_REG_MMC_CMD_REG3, ((u8a[0] << 8) | u8a[1]));
 
 	/* command index toggle */
 	fire |= (host->request_counter & 1) << 12;
@@ -478,10 +478,10 @@ static void glamo_mci_send_command(struct glamo_mci_host *host,
 		host->mrq = cmd->mrq;
 
 	/* always largest timeout */
-	glamo_reg_write(host, GLAMO_REG_MMC_TIMEOUT, 0xfff);
+	glamomci_reg_write(host, GLAMO_REG_MMC_TIMEOUT, 0xfff);
 
 	/* Generate interrupt on txfer */
-	glamo_reg_set_bit_mask(host, GLAMO_REG_MMC_BASIC, 0xff36,
+	glamomci_reg_set_bit_mask(host, GLAMO_REG_MMC_BASIC, 0xff36,
 			0x0800 |
 			GLAMO_BASIC_MMC_NO_CLK_RD_WAIT |
 			GLAMO_BASIC_MMC_EN_COMPL_INT |
@@ -490,7 +490,7 @@ static void glamo_mci_send_command(struct glamo_mci_host *host,
 
 	/* send the command out on the wire */
 	/* dev_info(&host->pdev->dev, "Using FIRE %04X\n", fire); */
-	glamo_reg_write(host, GLAMO_REG_MMC_CMD_FIRE, fire);
+	glamomci_reg_write(host, GLAMO_REG_MMC_CMD_FIRE, fire);
 
 	/* we are deselecting card?  because it isn't going to ack then... */
 	if ((cmd->opcode == 7) && (cmd->arg == 0))
@@ -501,7 +501,7 @@ static void glamo_mci_send_command(struct glamo_mci_host *host,
 	 * -- we don't get interrupts unless there is a bulk rx
 	 */
 	do
-		status = glamo_reg_read(host, GLAMO_REG_MMC_RB_STAT1);
+		status = glamomci_reg_read(host, GLAMO_REG_MMC_RB_STAT1);
 	while (((((status >> 15) & 1) != (host->request_counter & 1)) ||
 		(!(status & (GLAMO_STAT1_MMC_RB_RRDY |
 			     GLAMO_STAT1_MMC_RTOUT |
@@ -547,8 +547,8 @@ static int glamo_mci_prepare_pio(struct glamo_mci_host *host,
 				 struct mmc_data *data)
 {
 	/* set up the block info */
-	glamo_reg_write(host, GLAMO_REG_MMC_DATBLKLEN, data->blksz);
-	glamo_reg_write(host, GLAMO_REG_MMC_DATBLKCNT, data->blocks);
+	glamomci_reg_write(host, GLAMO_REG_MMC_DATBLKLEN, data->blksz);
+	glamomci_reg_write(host, GLAMO_REG_MMC_DATBLKCNT, data->blocks);
 
 	data->bytes_xfered = 0;
 
@@ -678,7 +678,7 @@ static void glamo_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	if (sd_drive > 3)
 		sd_drive = 3;
 
-	glamo_reg_set_bit_mask(host, GLAMO_REG_MMC_BASIC,
+	glamomci_reg_set_bit_mask(host, GLAMO_REG_MMC_BASIC,
 				GLAMO_BASIC_MMC_EN_4BIT_DATA | 0xc0,
 						   bus_width | sd_drive << 6);
 
@@ -812,6 +812,10 @@ static int glamo_mci_probe(struct platform_device *pdev)
 	mmc->caps	= MMC_CAP_4_BIT_DATA |
 			    MMC_CAP_MMC_HIGHSPEED |
 			    MMC_CAP_SD_HIGHSPEED;
+
+	if (host->pdata->nonremovable)
+		mmc->caps |= MMC_CAP_NONREMOVABLE;
+
 	mmc->f_min	= host->clk_rate / 256;
 	mmc->f_max	= sd_max_clk;
 
@@ -930,9 +934,9 @@ static int glamo_mci_resume(struct device *dev)
 	glamo_mci_reset(host);
 	mdelay(10);
 
-	ret = mmc_resume_host(host->mmc);
-
 	enable_irq(host->irq);
+
+	ret = mmc_resume_host(host->mmc);
 
 	mmc_host_lazy_disable(host->mmc);
 

@@ -95,12 +95,12 @@ static void glamo_output_disable(struct glamofb_handle *gfb)
 }
 
 
-static inline int reg_read(struct glamofb_handle *glamo, uint16_t reg)
+static inline int glamofb_reg_read(struct glamofb_handle *glamo, uint16_t reg)
 {
 	return readw(glamo->base + reg);
 }
 
-static inline void reg_write(struct glamofb_handle *glamo, uint16_t reg,
+static inline void glamofb_reg_write(struct glamofb_handle *glamo, uint16_t reg,
 	uint16_t val)
 {
 	writew(val, glamo->base + reg);
@@ -146,7 +146,7 @@ static int glamofb_run_script(struct glamofb_handle *glamo,
 		else if (line->reg == 0xfffe)
 			msleep(line->val);
 		else
-			reg_write(glamo, script[i].reg, script[i].val);
+			glamofb_reg_write(glamo, script[i].reg, script[i].val);
 	}
 
 	return 0;
@@ -166,7 +166,7 @@ static int glamofb_check_var(struct fb_var_screeninfo *var,
 	/* FIXME: set rgb positions */
 	switch (var->bits_per_pixel) {
 	case 16:
-		switch (reg_read(glamo, GLAMO_REG_LCD_MODE3) & 0xc000) {
+		switch (glamofb_reg_read(glamo, GLAMO_REG_LCD_MODE3) & 0xc000) {
 		case GLAMO_LCD_SRC_RGB565:
 			var->red.offset		= 11;
 			var->green.offset	= 5;
@@ -208,17 +208,17 @@ static int glamofb_check_var(struct fb_var_screeninfo *var,
 	return 0;
 }
 
-static void reg_set_bit_mask(struct glamofb_handle *glamo, uint16_t reg,
+static void glamofb_reg_set_bit_mask(struct glamofb_handle *glamo, uint16_t reg,
 	uint16_t mask, uint16_t val)
 {
 	uint16_t tmp;
 
 	val &= mask;
 
-	tmp = reg_read(glamo, reg);
+	tmp = glamofb_reg_read(glamo, reg);
 	tmp &= ~mask;
 	tmp |= val;
-	reg_write(glamo, reg, tmp);
+	glamofb_reg_write(glamo, reg, tmp);
 }
 
 #define GLAMO_LCD_WIDTH_MASK 0x03FF
@@ -250,11 +250,11 @@ static void __rotate_lcd(struct glamofb_handle *glamo, uint32_t rotation)
 		break;
 	}
 
-	reg_set_bit_mask(glamo,
+	glamofb_reg_set_bit_mask(glamo,
 			 GLAMO_REG_LCD_WIDTH,
 			 GLAMO_LCD_ROT_MODE_MASK,
 			 glamo_rot);
-	reg_set_bit_mask(glamo,
+	glamofb_reg_set_bit_mask(glamo,
 			 GLAMO_REG_LCD_MODE1,
 			 GLAMO_LCD_MODE1_ROTATE_EN,
 			 (glamo_rot != GLAMO_LCD_ROT_MODE_0) ?
@@ -264,7 +264,7 @@ static void __rotate_lcd(struct glamofb_handle *glamo, uint32_t rotation)
 static inline int glamofb_cmdq_empty(struct glamofb_handle *gfb)
 {
 	/* DGCMdQempty -- 1 == command queue is empty */
-	return reg_read(gfb, GLAMO_REG_LCD_STATUS1) & (1 << 15);
+	return glamofb_reg_read(gfb, GLAMO_REG_LCD_STATUS1) & (1 << 15);
 }
 
 /* call holding gfb->lock_cmd  when locking, until you unlock */
@@ -285,14 +285,14 @@ static int glamofb_cmd_mode(struct glamofb_handle *gfb, int on)
 		dev_dbg(gfb->dev, "empty!\n");
 
 		/* display the entire frame then switch to command */
-		reg_write(gfb, GLAMO_REG_LCD_COMMAND1,
+		glamofb_reg_write(gfb, GLAMO_REG_LCD_COMMAND1,
 			  GLAMO_LCD_CMD_TYPE_DISP |
 			  GLAMO_LCD_CMD_DATA_FIRE_VSYNC);
 
 		/* wait until lcd idle */
 		dev_dbg(gfb->dev, "waiting for lcd idle: ");
 		timeout = 2000000;
-		while (!(reg_read(gfb, GLAMO_REG_LCD_STATUS2) & (1 << 12)) &&
+		while (!(glamofb_reg_read(gfb, GLAMO_REG_LCD_STATUS2) & (1 << 12)) &&
 		      (timeout--))
 			cpu_relax();
 		if (timeout < 0) {
@@ -308,12 +308,12 @@ static int glamofb_cmd_mode(struct glamofb_handle *gfb, int on)
 
 	} else {
 		/* RGB interface needs vsync/hsync */
-		if (reg_read(gfb, GLAMO_REG_LCD_MODE3) & GLAMO_LCD_MODE3_RGB)
-			reg_write(gfb, GLAMO_REG_LCD_COMMAND1,
+		if (glamofb_reg_read(gfb, GLAMO_REG_LCD_MODE3) & GLAMO_LCD_MODE3_RGB)
+			glamofb_reg_write(gfb, GLAMO_REG_LCD_COMMAND1,
 				  GLAMO_LCD_CMD_TYPE_DISP |
 				  GLAMO_LCD_CMD_DATA_DISP_SYNC);
 
-		reg_write(gfb, GLAMO_REG_LCD_COMMAND1,
+		glamofb_reg_write(gfb, GLAMO_REG_LCD_COMMAND1,
 			  GLAMO_LCD_CMD_TYPE_DISP |
 			  GLAMO_LCD_CMD_DATA_DISP_FIRE);
 	}
@@ -339,15 +339,15 @@ static void glamofb_program_mode(struct glamofb_handle *gfb)
 		glamo_engine_reclock(gcore, GLAMO_ENGINE_LCD,
 				 (1000000000UL / gfb->fb->var.pixclock) * 1000);
 
-	reg_set_bit_mask(gfb,
+	glamofb_reg_set_bit_mask(gfb,
 			 GLAMO_REG_LCD_WIDTH,
 			 GLAMO_LCD_WIDTH_MASK,
 			 var->xres);
-	reg_set_bit_mask(gfb,
+	glamofb_reg_set_bit_mask(gfb,
 			 GLAMO_REG_LCD_HEIGHT,
 			 GLAMO_LCD_HEIGHT_MASK,
 			 var->yres);
-	reg_set_bit_mask(gfb,
+	glamofb_reg_set_bit_mask(gfb,
 			 GLAMO_REG_LCD_PITCH,
 			 GLAMO_LCD_PITCH_MASK,
 			 gfb->fb->fix.line_length);
@@ -362,15 +362,15 @@ static void glamofb_program_mode(struct glamofb_handle *gfb)
 	fp = disp + var->xres;
 	total = fp + var->right_margin;
 
-	reg_set_bit_mask(gfb, GLAMO_REG_LCD_HORIZ_TOTAL,
+	glamofb_reg_set_bit_mask(gfb, GLAMO_REG_LCD_HORIZ_TOTAL,
 			 GLAMO_LCD_HV_TOTAL_MASK, total);
-	reg_set_bit_mask(gfb, GLAMO_REG_LCD_HORIZ_RETR_START,
+	glamofb_reg_set_bit_mask(gfb, GLAMO_REG_LCD_HORIZ_RETR_START,
 			 GLAMO_LCD_HV_RETR_START_MASK, sync);
-	reg_set_bit_mask(gfb, GLAMO_REG_LCD_HORIZ_RETR_END,
+	glamofb_reg_set_bit_mask(gfb, GLAMO_REG_LCD_HORIZ_RETR_END,
 			 GLAMO_LCD_HV_RETR_END_MASK, bp);
-	reg_set_bit_mask(gfb, GLAMO_REG_LCD_HORIZ_DISP_START,
+	glamofb_reg_set_bit_mask(gfb, GLAMO_REG_LCD_HORIZ_DISP_START,
 			  GLAMO_LCD_HV_RETR_DISP_START_MASK, disp);
-	reg_set_bit_mask(gfb, GLAMO_REG_LCD_HORIZ_DISP_END,
+	glamofb_reg_set_bit_mask(gfb, GLAMO_REG_LCD_HORIZ_DISP_END,
 			 GLAMO_LCD_HV_RETR_DISP_END_MASK, fp);
 
 	sync = 0;
@@ -379,15 +379,15 @@ static void glamofb_program_mode(struct glamofb_handle *gfb)
 	fp = disp + var->yres;
 	total = fp + var->lower_margin;
 
-	reg_set_bit_mask(gfb, GLAMO_REG_LCD_VERT_TOTAL,
+	glamofb_reg_set_bit_mask(gfb, GLAMO_REG_LCD_VERT_TOTAL,
 			 GLAMO_LCD_HV_TOTAL_MASK, total);
-	reg_set_bit_mask(gfb, GLAMO_REG_LCD_VERT_RETR_START,
+	glamofb_reg_set_bit_mask(gfb, GLAMO_REG_LCD_VERT_RETR_START,
 			  GLAMO_LCD_HV_RETR_START_MASK, sync);
-	reg_set_bit_mask(gfb, GLAMO_REG_LCD_VERT_RETR_END,
+	glamofb_reg_set_bit_mask(gfb, GLAMO_REG_LCD_VERT_RETR_END,
 			 GLAMO_LCD_HV_RETR_END_MASK, bp);
-	reg_set_bit_mask(gfb, GLAMO_REG_LCD_VERT_DISP_START,
+	glamofb_reg_set_bit_mask(gfb, GLAMO_REG_LCD_VERT_DISP_START,
 			 GLAMO_LCD_HV_RETR_DISP_START_MASK, disp);
-	reg_set_bit_mask(gfb, GLAMO_REG_LCD_VERT_DISP_END,
+	glamofb_reg_set_bit_mask(gfb, GLAMO_REG_LCD_VERT_DISP_END,
 			 GLAMO_LCD_HV_RETR_DISP_END_MASK, fp);
 
 	glamofb_cmd_mode(gfb, 0);
@@ -550,8 +550,8 @@ static inline void glamofb_vsync_wait(struct glamofb_handle *glamo, int line,
 	int count[2];
 
 	do {
-		count[0] = reg_read(glamo, GLAMO_REG_LCD_STATUS2) & 0x3ff;
-		count[1] = reg_read(glamo, GLAMO_REG_LCD_STATUS2) & 0x3ff;
+		count[0] = glamofb_reg_read(glamo, GLAMO_REG_LCD_STATUS2) & 0x3ff;
+		count[1] = glamofb_reg_read(glamo, GLAMO_REG_LCD_STATUS2) & 0x3ff;
 	} while (count[0] != count[1] ||
 			(line < count[0] + range &&
 			 size > count[0] - range) ||
@@ -567,19 +567,19 @@ static void glamofb_cursor_onoff(struct glamofb_handle *glamo, int on)
 	int y, size;
 
 	if (glamo->cursor_on) {
-		y = reg_read(glamo, GLAMO_REG_LCD_CURSOR_Y_POS);
-		size = reg_read(glamo, GLAMO_REG_LCD_CURSOR_Y_SIZE);
+		y = glamofb_reg_read(glamo, GLAMO_REG_LCD_CURSOR_Y_POS);
+		size = glamofb_reg_read(glamo, GLAMO_REG_LCD_CURSOR_Y_SIZE);
 
 		glamofb_vsync_wait(glamo, y, size, 30);
 	}
 
-	reg_set_bit_mask(glamo, GLAMO_REG_LCD_MODE1,
+	glamofb_reg_set_bit_mask(glamo, GLAMO_REG_LCD_MODE1,
 			GLAMO_LCD_MODE1_CURSOR_EN,
 			on ? GLAMO_LCD_MODE1_CURSOR_EN : 0);
 	glamo->cursor_on = on;
 
 	/* Hide the cursor by default */
-	reg_write(glamo, GLAMO_REG_LCD_CURSOR_X_SIZE, 0);
+	glamofb_reg_write(glamo, GLAMO_REG_LCD_CURSOR_X_SIZE, 0);
 }
 
 static int glamofb_cursor(struct fb_info *info, struct fb_cursor *cursor)
@@ -589,13 +589,13 @@ static int glamofb_cursor(struct fb_info *info, struct fb_cursor *cursor)
 
 	spin_lock_irqsave(&glamo->lock_cmd, flags);
 
-	reg_write(glamo, GLAMO_REG_LCD_CURSOR_X_SIZE,
+	glamofb_reg_write(glamo, GLAMO_REG_LCD_CURSOR_X_SIZE,
 			cursor->enable ? cursor->image.width : 0);
 
 	if (cursor->set & FB_CUR_SETPOS) {
-		reg_write(glamo, GLAMO_REG_LCD_CURSOR_X_POS,
+		glamofb_reg_write(glamo, GLAMO_REG_LCD_CURSOR_X_POS,
 			  cursor->image.dx);
-		reg_write(glamo, GLAMO_REG_LCD_CURSOR_Y_POS,
+		glamofb_reg_write(glamo, GLAMO_REG_LCD_CURSOR_Y_POS,
 			  cursor->image.dy);
 	}
 
@@ -603,13 +603,13 @@ static int glamofb_cursor(struct fb_info *info, struct fb_cursor *cursor)
 		uint16_t fg = glamo->pseudo_pal[cursor->image.fg_color];
 		uint16_t bg = glamo->pseudo_pal[cursor->image.bg_color];
 
-		reg_write(glamo, GLAMO_REG_LCD_CURSOR_FG_COLOR, fg);
-		reg_write(glamo, GLAMO_REG_LCD_CURSOR_BG_COLOR, bg);
-		reg_write(glamo, GLAMO_REG_LCD_CURSOR_DST_COLOR, fg);
+		glamofb_reg_write(glamo, GLAMO_REG_LCD_CURSOR_FG_COLOR, fg);
+		glamofb_reg_write(glamo, GLAMO_REG_LCD_CURSOR_BG_COLOR, bg);
+		glamofb_reg_write(glamo, GLAMO_REG_LCD_CURSOR_DST_COLOR, fg);
 	}
 
 	if (cursor->set & FB_CUR_SETHOT)
-		reg_write(glamo, GLAMO_REG_LCD_CURSOR_PRESET,
+		glamofb_reg_write(glamo, GLAMO_REG_LCD_CURSOR_PRESET,
 				(cursor->hot.x << 8) | cursor->hot.y);
 
 	if ((cursor->set & FB_CUR_SETSIZE) ||
@@ -628,9 +628,9 @@ static int glamofb_cursor(struct fb_info *info, struct fb_cursor *cursor)
 		}
 
 		pitch = ((cursor->image.width + 7) >> 2) & ~1;
-		reg_write(glamo, GLAMO_REG_LCD_CURSOR_PITCH,
+		glamofb_reg_write(glamo, GLAMO_REG_LCD_CURSOR_PITCH,
 			pitch);
-		reg_write(glamo, GLAMO_REG_LCD_CURSOR_Y_SIZE,
+		glamofb_reg_write(glamo, GLAMO_REG_LCD_CURSOR_Y_SIZE,
 			cursor->image.height);
 
 		for (y = 0; y < cursor->image.height; y++) {

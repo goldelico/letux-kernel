@@ -37,6 +37,9 @@ struct glamo_core {
 	enum glamo_engine_state engine_state[__NUM_GLAMO_ENGINES];
 	spinlock_t lock;
 	uint16_t saved_irq_mask;
+#ifdef CONFIG_DEBUG_FS
+	struct dentry *debugfs_dir;
+#endif
 };
 
 struct glamo_script {
@@ -52,9 +55,4 @@ int glamo_engine_disable(struct glamo_core *glamo, enum glamo_engine engine);
 void glamo_engine_reset(struct glamo_core *glamo, enum glamo_engine engine);
 int glamo_engine_reclock(struct glamo_core *glamo,
 			 enum glamo_engine engine, int ps);
-
-void glamo_reg_read_batch(struct glamo_core *glamo, uint16_t reg,
-				uint16_t count, uint16_t *values);
-void glamo_reg_write_batch(struct glamo_core *glamo, uint16_t reg,
-				uint16_t count, uint16_t *values);
 #endif /* __GLAMO_CORE_H */

@@ -8,6 +8,8 @@ struct glamo_fb_platform_data;
 struct glamo_mmc_platform_data {
 	int	(*glamo_mmc_use_slow)(void);
 
+	unsigned nonremovable:1;
+
 	struct glamo_core *core;
 };
 
