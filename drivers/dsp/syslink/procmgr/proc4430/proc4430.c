@@ -78,6 +78,8 @@ struct proc4430_module_object {
 struct proc4430_object {
 	struct proc4430_params params;
 	/* Instance parameters (configuration values) */
+	atomic_t attach_count;
+	/* attach reference count */
 };
 
 
@@ -493,6 +495,14 @@ int proc4430_attach(void *handle, struct processor_attach_params *params)
 	proc_handle = (struct processor_object *)handle;
 
 	object = (struct proc4430_object *)proc_handle->object;
+
+	atomic_cmpmask_and_set(&object->attach_count,
+				OMAP4430PROC_MAKE_MAGICSTAMP(0),
+				OMAP4430PROC_MAKE_MAGICSTAMP(0));
+	atomic_inc_return(&object->attach_count);
+
+	printk(KERN_ERR "proc4430_attach num_mem_entries = %d",
+				object->params.num_mem_entries);
 	/* Return memory information in params. */
 	for (i = 0; (i < object->params.num_mem_entries); i++) {
 		/* If the configured master virtual address is invalid, get the
@@ -553,7 +563,6 @@ int proc4430_detach(void *handle)
 			"Module not initialized");
 		return -ENODEV;
 	}
-
 	if (WARN_ON(handle == NULL)) {
 		printk(KERN_ERR "proc4430_detach failed "
 			"Argument Driverhandle is NULL");
@@ -562,6 +571,11 @@ int proc4430_detach(void *handle)
 
 	proc_handle = (struct processor_object *)handle;
 	object = (struct proc4430_object *)proc_handle->object;
+
+	if (!(atomic_dec_return(&object->attach_count) == \
+		OMAP4430PROC_MAKE_MAGICSTAMP(0)))
+		return 1;
+
 	for (i = 0; (i < object->params.num_mem_entries); i++) {
 		if ((object->params.mem_entries[i].master_virt_addr > 0)
 		    && (object->params.mem_entries[i].shared == true)) {
