@@ -18,8 +18,10 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/io.h>
+#include <linux/ctype.h>
 
 #include <asm/cputype.h>
+#include <asm/setup.h>
 
 #include <plat/common.h>
 #include <plat/control.h>
@@ -27,6 +29,8 @@
 
 static struct omap_chip_id omap_chip;
 static unsigned int omap_revision;
+#define OMAP4_INVALID_SILICON_REV (0xFF)
+static unsigned char omap4_sil_rev_override = OMAP4_INVALID_SILICON_REV;
 
 u32 omap3_features;
 
@@ -250,11 +254,36 @@ void __init omap3_check_revision(void)
 	}
 }
 
+/**
+ * omap4_get_silicon_revision - read silicon rev: es1.0 es2.0
+ * @str: is the xxx part in the bootarg parameter "omap4_rev=xx.xx"
+ *
+ * Initial silicon samples do not have the es rev fused correctly
+ * allow bootarg to override, in case required
+ */
+static void __init omap4_get_silicon_revision(char **start)
+{
+	u8 i;
+	char *str = *start;
+
+	for (i = 0; i < strlen(str); i++)
+		*(str + i) = tolower(*(str+i));
+
+	if (!strncmp(str, "es1.0", 5))
+		omap4_sil_rev_override = 0;
+	else if (!strncmp(str, "es2.0", 5))
+		omap4_sil_rev_override = 1;
+
+	return;
+}
+__early_param("omap4_rev=", omap4_get_silicon_revision);
+
 void __init omap4_check_revision(void)
 {
 	u32 idcode;
 	u16 hawkeye;
 	u8 rev;
+	char *type;
 
 	/*
 	 * The IC rev detection is done with hawkeye and rev.
@@ -268,6 +297,8 @@ void __init omap4_check_revision(void)
 	/* Check ES2 hawkeye and rev fields */
 	switch (hawkeye) {
 	case 0xb852:
+		if (omap4_sil_rev_override != OMAP4_INVALID_SILICON_REV)
+			rev = omap4_sil_rev_override;
 		switch(rev) {
 		case 0:
 			omap_revision = OMAP4430_REV_ES1_0;
@@ -292,7 +323,24 @@ void __init omap4_check_revision(void)
 		rev = 2;
 	}
 
-	pr_info("OMAP%04x ES%d.0\n", omap_rev() >> 16, rev);
+	switch (omap_type()) {
+	case OMAP2_DEVICE_TYPE_GP:
+		type = "GP";
+		break;
+	case OMAP2_DEVICE_TYPE_EMU:
+		type = "EMU";
+		break;
+	case OMAP2_DEVICE_TYPE_SEC:
+		type = "HS";
+		break;
+	default:
+		type = "bad-type";
+		break;
+	}
+
+	pr_info("*************************");
+	pr_info("OMAP%04x ES%d.0 type(%s)*\n", omap_rev() >> 16, rev, type);
+	pr_info("*************************");
 }
 
 #define OMAP3_SHOW_FEATURE(feat)		\
@@ -387,6 +435,7 @@ void __init omap2_check_revision(void)
 		omap3_cpuinfo();
 	} else if (cpu_is_omap44xx()) {
 		omap4_check_revision();
+		return;
 	} else {
 		pr_err("OMAP revision unknown, please fix!\n");
 	}
@@ -416,8 +465,6 @@ void __init omap2_check_revision(void)
 			omap_chip.oc |= CHIP_IS_OMAP3430ES3_1;
 		else if (omap_rev() == OMAP3630_REV_ES1_0)
 			omap_chip.oc |= CHIP_IS_OMAP3630ES1;
-	} else if (cpu_is_omap44xx()) {
-		omap_chip.oc |= CHIP_IS_OMAP4430;
 	} else {
 		pr_err("Uninitialized omap_chip, please fix!\n");
 	}
