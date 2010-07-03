@@ -114,7 +114,13 @@ static int iommu_enable(struct iommu *obj)
 	if (!obj)
 		return -EINVAL;
 
+	if (!cpu_is_omap44xx())
+		clk_enable(obj->clk);
+
 	err = arch_iommu->enable(obj);
+
+	if (!cpu_is_omap44xx())
+		clk_disable(obj->clk);
 
 	return err;
 }
@@ -123,8 +129,13 @@ static void iommu_disable(struct iommu *obj)
 {
 	if (!obj)
 		return;
+	if (!cpu_is_omap44xx())
+		clk_enable(obj->clk);
 
 	arch_iommu->disable(obj);
+
+	if (!cpu_is_omap44xx())
+		clk_disable(obj->clk);
 }
 
 /*
@@ -233,6 +244,9 @@ int load_iotlb_entry(struct iommu *obj, struct iotlb_entry *e)
 	if (!obj || !obj->nr_tlb_entries || !e)
 		return -EINVAL;
 
+	if (!cpu_is_omap44xx())
+		clk_enable(obj->clk);
+
 	iotlb_lock_get(obj, &l);
 	if (l.base == obj->nr_tlb_entries) {
 		dev_warn(obj->dev, "%s: preserve entries full\n", __func__);
@@ -261,8 +275,13 @@ int load_iotlb_entry(struct iommu *obj, struct iotlb_entry *e)
 	}
 
 	cr = iotlb_alloc_cr(obj, e);
-	if (IS_ERR(cr))
+	if (IS_ERR(cr)) {
+
+		if (!cpu_is_omap44xx())
+			clk_disable(obj->clk);
+
 		return PTR_ERR(cr);
+	}
 
 	iotlb_load_cr(obj, cr);
 	kfree(cr);
@@ -278,6 +297,9 @@ int load_iotlb_entry(struct iommu *obj, struct iotlb_entry *e)
 
 	iotlb_lock_set(obj, &l);
 out:
+	if (!cpu_is_omap44xx())
+		clk_disable(obj->clk);
+
 	return err;
 }
 EXPORT_SYMBOL_GPL(load_iotlb_entry);
@@ -293,6 +315,9 @@ void flush_iotlb_page(struct iommu *obj, u32 da)
 {
 	struct iotlb_lock l;
 	int i;
+
+	if (!cpu_is_omap44xx())
+		clk_enable(obj->clk);
 
 	for (i = 0; i < obj->nr_tlb_entries; i++) {
 		struct cr_regs cr;
@@ -316,6 +341,8 @@ void flush_iotlb_page(struct iommu *obj, u32 da)
 			iommu_write_reg(obj, 1, MMU_FLUSH_ENTRY);
 		}
 	}
+	if (!cpu_is_omap44xx())
+		clk_disable(obj->clk);
 
 	if (i == obj->nr_tlb_entries)
 		dev_dbg(obj->dev, "%s: no page for %08x\n", __func__, da);
@@ -350,11 +377,17 @@ void flush_iotlb_all(struct iommu *obj)
 {
 	struct iotlb_lock l;
 
+	if (!cpu_is_omap44xx())
+		clk_enable(obj->clk);
+
 	l.base = 0;
 	l.vict = 0;
 	iotlb_lock_set(obj, &l);
 
 	iommu_write_reg(obj, 1, MMU_GFLUSH);
+
+	if (!cpu_is_omap44xx())
+		clk_disable(obj->clk);
 }
 EXPORT_SYMBOL_GPL(flush_iotlb_all);
 
@@ -369,7 +402,13 @@ EXPORT_SYMBOL_GPL(flush_iotlb_all);
  */
 void iommu_set_twl(struct iommu *obj, bool on)
 {
+	if (!cpu_is_omap44xx())
+		clk_enable(obj->clk);
+
 	arch_iommu->set_twl(obj, on);
+
+	if (!cpu_is_omap44xx())
+		clk_disable(obj->clk);
 }
 EXPORT_SYMBOL_GPL(iommu_set_twl);
 
@@ -379,8 +418,13 @@ ssize_t iommu_dump_ctx(struct iommu *obj, char *buf, ssize_t bytes)
 {
 	if (!obj || !buf)
 		return -EINVAL;
+	if (!cpu_is_omap44xx())
+		clk_enable(obj->clk);
 
 	bytes = arch_iommu->dump_ctx(obj, buf, bytes);
+
+	if (!cpu_is_omap44xx())
+		clk_disable(obj->clk);
 
 	return bytes;
 }
@@ -391,6 +435,9 @@ static int __dump_tlb_entries(struct iommu *obj, struct cr_regs *crs, int num)
 	int i;
 	struct iotlb_lock saved, l;
 	struct cr_regs *p = crs;
+
+	if (!cpu_is_omap44xx())
+		clk_enable(obj->clk);
 
 	iotlb_lock_get(obj, &saved);
 	memcpy(&l, &saved, sizeof(saved));
@@ -408,6 +455,9 @@ static int __dump_tlb_entries(struct iommu *obj, struct cr_regs *crs, int num)
 		*p++ = tmp;
 	}
 	iotlb_lock_set(obj, &saved);
+
+	if (!cpu_is_omap44xx())
+		clk_disable(obj->clk);
 
 	return  p - crs;
 }
@@ -762,7 +812,13 @@ static irqreturn_t iommu_fault_handler(int irq, void *data)
 	if (!err)
 		return IRQ_HANDLED;
 
+	if (!cpu_is_omap44xx())
+		clk_enable(obj->clk);
+
 	stat = iommu_report_fault(obj, &da);
+
+	if (!cpu_is_omap44xx())
+		clk_disable(obj->clk);
 	if (!stat)
 		return IRQ_HANDLED;
 
