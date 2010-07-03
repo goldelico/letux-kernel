@@ -34,7 +34,7 @@
 #define GLAMO_NR_GPIO 21
 #define GLAMO_NR_GPIO_REGS DIV_ROUND_UP(GLAMO_NR_GPIO, 4)
 
-#define GLAMO_REG_GPIO(x) (((x) * 2) + GLAMO_REG_GPIO_GEN1)
+#define GLAMO_GPIO_REG(x) (((x) * 2) + GLAMO_GPIO_REG_GEN1)
 
 struct glamo_gpio {
 	struct glamo_core *glamo;
@@ -42,12 +42,12 @@ struct glamo_gpio {
 	uint16_t saved_regs[GLAMO_NR_GPIO_REGS];
 };
 
-#define REG_OF_GPIO(gpio)	(GLAMO_REG_GPIO(gpio >> 2))
-#define NUM_OF_GPIO(gpio)	(gpio & 0x3)
-#define DIRECTION_BIT(gpio)	(1 << (NUM_OF_GPIO(gpio) + 0))
-#define OUTPUT_BIT(gpio)	(1 << (NUM_OF_GPIO(gpio) + 4))
-#define INPUT_BIT(gpio)		(1 << (NUM_OF_GPIO(gpio) + 8))
-#define FUNC_BIT(gpio)		(1 << (NUM_OF_GPIO(gpio) + 12))
+#define GLAMO_GPIO_REG_GPIO(gpio)	GLAMO_GPIO_REG(gpio >> 2)
+#define GLAMO_GPIO_BIT(gpio, offset)	BIT(((gpio) & 0x3) + (offset))
+#define GLAMO_GPIO_DIRECTION_BIT(gpio)	GLAMO_GPIO_BIT(gpio, 0)
+#define GLAMO_GPIO_OUTPUT_BIT(gpio)	GLAMO_GPIO_BIT(gpio, 4)
+#define GLAMO_GPIO_INPUT_BIT(gpio)	GLAMO_GPIO_BIT(gpio, 8)
+#define GLAMO_GPIO_FUNC_BIT(gpio)	GLAMO_GPIO_BIT(gpio, 12)
 
 
 static inline struct glamo_core *chip_to_glamo(struct gpio_chip *chip)
@@ -58,15 +58,15 @@ static inline struct glamo_core *chip_to_glamo(struct gpio_chip *chip)
 static void glamo_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 {
 	struct glamo_core *glamo = chip_to_glamo(chip);
-	unsigned int reg = REG_OF_GPIO(offset);
-	u_int16_t tmp;
+	unsigned int reg = GLAMO_GPIO_REG_GPIO(offset);
+	uint16_t tmp;
 
 	spin_lock(&glamo->lock);
 	tmp = readw(glamo->base + reg);
 	if (value)
-		tmp |= OUTPUT_BIT(offset);
+		tmp |= GLAMO_GPIO_OUTPUT_BIT(offset);
 	else
-		tmp &= ~OUTPUT_BIT(offset);
+		tmp &= ~GLAMO_GPIO_OUTPUT_BIT(offset);
 	writew(tmp, glamo->base + reg);
 	spin_unlock(&glamo->lock);
 }
@@ -74,19 +74,19 @@ static void glamo_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 static int glamo_gpio_get(struct gpio_chip *chip, unsigned offset)
 {
 	struct glamo_core *glamo = chip_to_glamo(chip);
-	return !!(readw(glamo->base + REG_OF_GPIO(offset)) & INPUT_BIT(offset));
+	return !!(readw(glamo->base + GLAMO_GPIO_REG_GPIO(offset)) & GLAMO_GPIO_INPUT_BIT(offset));
 }
 
 static int glamo_gpio_request(struct gpio_chip *chip, unsigned offset)
 {
 	struct glamo_core *glamo = chip_to_glamo(chip);
-	unsigned int reg = REG_OF_GPIO(offset);
-	u_int16_t tmp;
+	unsigned int reg = GLAMO_GPIO_REG_GPIO(offset);
+	uint16_t tmp;
 
 	spin_lock(&glamo->lock);
 	tmp = readw(glamo->base + reg);
-	if ((tmp & FUNC_BIT(offset)) == 0) {
-		tmp |= FUNC_BIT(offset);
+	if ((tmp & GLAMO_GPIO_FUNC_BIT(offset)) == 0) {
+		tmp |= GLAMO_GPIO_FUNC_BIT(offset);
 		writew(tmp, glamo->base + reg);
 	}
 	spin_unlock(&glamo->lock);
@@ -97,13 +97,13 @@ static int glamo_gpio_request(struct gpio_chip *chip, unsigned offset)
 static void glamo_gpio_free(struct gpio_chip *chip, unsigned offset)
 {
 	struct glamo_core *glamo = chip_to_glamo(chip);
-	unsigned int reg = REG_OF_GPIO(offset);
-	u_int16_t tmp;
+	unsigned int reg = GLAMO_GPIO_REG_GPIO(offset);
+	uint16_t tmp;
 
 	spin_lock(&glamo->lock);
 	tmp = readw(glamo->base + reg);
-	if ((tmp & FUNC_BIT(offset)) == 1) {
-		tmp &= ~FUNC_BIT(offset);
+	if ((tmp & GLAMO_GPIO_FUNC_BIT(offset)) == 1) {
+		tmp &= ~GLAMO_GPIO_FUNC_BIT(offset);
 		writew(tmp, glamo->base + reg);
 	}
 	spin_unlock(&glamo->lock);
@@ -113,17 +113,17 @@ static int glamo_gpio_direction_output(struct gpio_chip *chip, unsigned offset,
 				       int value)
 {
 	struct glamo_core *glamo = chip_to_glamo(chip);
-	unsigned int reg = REG_OF_GPIO(offset);
-	u_int16_t tmp;
+	unsigned int reg = GLAMO_GPIO_REG_GPIO(offset);
+	uint16_t tmp;
 
 	spin_lock(&glamo->lock);
 	tmp = readw(glamo->base + reg);
-	tmp &= ~DIRECTION_BIT(offset);
+	tmp &= ~GLAMO_GPIO_DIRECTION_BIT(offset);
 
 	if (value)
-		tmp |= OUTPUT_BIT(offset);
+		tmp |= GLAMO_GPIO_OUTPUT_BIT(offset);
 	else
-		tmp &= ~OUTPUT_BIT(offset);
+		tmp &= ~GLAMO_GPIO_OUTPUT_BIT(offset);
 
 	writew(tmp, glamo->base + reg);
 	spin_unlock(&glamo->lock);
@@ -134,13 +134,13 @@ static int glamo_gpio_direction_output(struct gpio_chip *chip, unsigned offset,
 static int glamo_gpio_direction_input(struct gpio_chip *chip, unsigned offset)
 {
 	struct glamo_core *glamo = chip_to_glamo(chip);
-	unsigned int reg = REG_OF_GPIO(offset);
-	u_int16_t tmp;
+	unsigned int reg = GLAMO_GPIO_REG_GPIO(offset);
+	uint16_t tmp;
 
 	spin_lock(&glamo->lock);
 	tmp = readw(glamo->base + reg);
-	if ((tmp & DIRECTION_BIT(offset)) == 0) {
-		tmp |= DIRECTION_BIT(offset);
+	if ((tmp & GLAMO_GPIO_DIRECTION_BIT(offset)) == 0) {
+		tmp |= GLAMO_GPIO_DIRECTION_BIT(offset);
 		writew(tmp, glamo->base + reg);
 	}
 	spin_unlock(&glamo->lock);
@@ -149,17 +149,17 @@ static int glamo_gpio_direction_input(struct gpio_chip *chip, unsigned offset)
 }
 
 static const struct __devinit gpio_chip glamo_gpio_chip = {
-	.label				= "glamo",
-	.request			= glamo_gpio_request,
-	.free				= glamo_gpio_free,
+	.label			= "glamo",
+	.request		= glamo_gpio_request,
+	.free			= glamo_gpio_free,
 	.direction_input	= glamo_gpio_direction_input,
-	.get				= glamo_gpio_get,
+	.get			= glamo_gpio_get,
 	.direction_output	= glamo_gpio_direction_output,
-	.set				= glamo_gpio_set,
-	.base				= -1,
-	.ngpio				= GLAMO_NR_GPIO,
-	.can_sleep			= 0,
-	.owner				= THIS_MODULE,
+	.set			= glamo_gpio_set,
+	.base			= -1,
+	.ngpio			= GLAMO_NR_GPIO,
+	.can_sleep		= 0,
+	.owner			= THIS_MODULE,
 };
 
 static int __devinit glamo_gpio_probe(struct platform_device *pdev)
@@ -168,7 +168,7 @@ static int __devinit glamo_gpio_probe(struct platform_device *pdev)
 	struct glamo_gpio *glamo_gpio;
 	int ret;
 
-	glamo_gpio = kzalloc(sizeof(struct glamo_gpio), GFP_KERNEL);
+	glamo_gpio = kzalloc(sizeof(*glamo_gpio), GFP_KERNEL);
 	if (!glamo_gpio)
 		return -ENOMEM;
 
@@ -223,7 +223,7 @@ static int glamo_gpio_suspend(struct device *dev)
 
 	spin_lock(&glamo->lock);
 	for (i = 0; i < GLAMO_NR_GPIO / 4; ++i)
-		saved_regs[i] = readw(glamo->base + GLAMO_REG_GPIO(i));
+		saved_regs[i] = readw(glamo->base + GLAMO_GPIO_REG(i));
 	spin_unlock(&glamo->lock);
 
 	return 0;
@@ -238,7 +238,7 @@ static int glamo_gpio_resume(struct device *dev)
 
 	spin_lock(&glamo->lock);
 	for (i = 0; i < GLAMO_NR_GPIO_REGS; ++i)
-		writew(saved_regs[i], glamo->base + GLAMO_REG_GPIO(i));
+		writew(saved_regs[i], glamo->base + GLAMO_GPIO_REG(i));
 	spin_unlock(&glamo->lock);
 	return 0;
 }
