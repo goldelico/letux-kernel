@@ -66,7 +66,6 @@ static struct irqaction omap2_gp_timer_irq = {
 	.handler	= omap2_gp_timer_interrupt,
 };
 
-#ifdef CONFIG_ERRATA_OMAP4_AXI2OCP
 static struct omap_dm_timer *gptimer2;
 static irqreturn_t gpt2_timer_interrupt(int irq, void *dev_id)
 {
@@ -79,7 +78,6 @@ static struct irqaction gpt2_timer_irq = {
 	.flags		= IRQF_DISABLED,
 	.handler	= gpt2_timer_interrupt,
 };
-#endif
 
 static int omap2_gp_timer_set_next_event(unsigned long cycles,
 					 struct clock_event_device *evt)
@@ -189,7 +187,6 @@ static void __init omap2_gp_clockevent_init(void)
 
 }
 
-#ifdef CONFIG_ERRATA_OMAP4_AXI2OCP
 static int __init omap4_setup_gpt2(void)
 {
 	/*  Set up GPT2 for the WA */
@@ -210,8 +207,6 @@ static int __init omap4_setup_gpt2(void)
 
 	return 0;
 }
-late_initcall(omap4_setup_gpt2);
-#endif
 /* Clocksource code */
 
 #ifdef CONFIG_OMAP_32K_TIMER
@@ -277,6 +272,9 @@ static void __init omap2_gp_timer_init(void)
 #endif
 	omap2_gp_clockevent_init();
 	omap2_gp_clocksource_init();
+
+	if (omap_rev() == OMAP4430_REV_ES1_0)
+		omap4_setup_gpt2();
 }
 
 struct sys_timer omap_timer = {

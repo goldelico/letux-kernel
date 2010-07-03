@@ -85,7 +85,6 @@ static inline void l2x0_inv_line(unsigned long addr)
 	writel(addr, base + L2X0_INV_LINE_PA);
 }
 
-#ifdef CONFIG_PL310_ERRATA_588369
 static void debug_writel(unsigned long val)
 {
 	extern void omap_smc1(u32 fn, u32 arg);
@@ -94,33 +93,25 @@ static void debug_writel(unsigned long val)
 	 * Texas Instrument secure monitor api to modify the
 	 * PL310 Debug Control Register.
 	 */
-	omap_smc1(0x100, val);
+	if (omap_rev() == OMAP4430_REV_ES1_0)
+		omap_smc1(0x100, val);
 }
 
 static inline void l2x0_flush_line(unsigned long addr)
 {
 	void __iomem *base = l2x0_base;
 
-	/* Clean by PA followed by Invalidate by PA */
-	cache_wait(base + L2X0_CLEAN_LINE_PA, 1);
-	writel(addr, base + L2X0_CLEAN_LINE_PA);
-	cache_wait(base + L2X0_INV_LINE_PA, 1);
-	writel(addr, base + L2X0_INV_LINE_PA);
+	if (omap_rev() == OMAP4430_REV_ES1_0) {
+		/* Clean by PA followed by Invalidate by PA */
+		cache_wait(base + L2X0_CLEAN_LINE_PA, 1);
+		writel(addr, base + L2X0_CLEAN_LINE_PA);
+		cache_wait(base + L2X0_INV_LINE_PA, 1);
+		writel(addr, base + L2X0_INV_LINE_PA);
+	} else {
+		cache_wait(base + L2X0_CLEAN_INV_LINE_PA, 1);
+		writel(addr, base + L2X0_CLEAN_INV_LINE_PA);
+	}
 }
-#else
-
-/* Optimised out for non-errata case */
-static inline void debug_writel(unsigned long val)
-{
-}
-
-static inline void l2x0_flush_line(unsigned long addr)
-{
-	void __iomem *base = l2x0_base;
-	cache_wait(base + L2X0_CLEAN_INV_LINE_PA, 1);
-	writel(addr, base + L2X0_CLEAN_INV_LINE_PA);
-}
-#endif
 
 static void l2x0_cache_sync(void)
 {
@@ -207,85 +198,68 @@ static void l2x0_clean_range(unsigned long start, unsigned long end)
 	l2x0_unlock(&l2x0_lock, flags);
 }
 
-
-
-#ifdef CONFIG_PL310_ERRATA_588369
 static void l2x0_flush_all(void)
 {
 	void __iomem *base = l2x0_base;
 	unsigned char way;
 	unsigned long flags, value;
 
-	l2x0_lock(&l2x0_lock, flags);
-	debug_writel(0x03);
-	/* Clean all the ways */
-	for (way = 0; way <= 0xf; way++, value = 0) {
-		value = 1 << way;
-		writel(value, base + L2X0_CLEAN_WAY);
-		cache_wait_always(base + L2X0_CLEAN_WAY, value);
+	if (omap_rev() == OMAP4430_REV_ES1_0) {
+		l2x0_lock(&l2x0_lock, flags);
+		debug_writel(0x03);
+		/* Clean all the ways */
+		for (way = 0; way <= 0xf; way++, value = 0) {
+			value = 1 << way;
+			writel(value, base + L2X0_CLEAN_WAY);
+			cache_wait_always(base + L2X0_CLEAN_WAY, value);
+			cache_sync();
+		}
+		/* Invalidate all the ways */
+		for (way = 0; way <= 0xf; way++, value = 0) {
+			value = 1 << way;
+			writel(value, base + L2X0_INV_WAY);
+			cache_wait_always(base +  L2X0_INV_WAY, value);
+			cache_sync();
+		}
+		debug_writel(0x00);
+		l2x0_unlock(&l2x0_lock, flags);
+	} else {
+		/* invalidate all ways */
+		spin_lock_irqsave(&l2x0_lock, flags);
+		writel(0xff, l2x0_base + L2X0_CLEAN_INV_WAY);
+		cache_wait(l2x0_base + L2X0_CLEAN_INV_WAY, 0xff);
 		cache_sync();
+		spin_unlock_irqrestore(&l2x0_lock, flags);
 	}
-	/* Invalidate all the ways */
-	for (way = 0; way <= 0xf; way++, value = 0) {
-		value = 1 << way;
-		writel(value, base + L2X0_INV_WAY);
-		cache_wait_always(base +  L2X0_INV_WAY, value);
-		cache_sync();
-	}
-	debug_writel(0x00);
-	l2x0_unlock(&l2x0_lock, flags);
 }
 
-#else
-
-static inline void l2x0_flush_all(void)
-{
-	unsigned long flags;
-
-	/* invalidate all ways */
-	spin_lock_irqsave(&l2x0_lock, flags);
-	writel(0xff, l2x0_base + L2X0_CLEAN_INV_WAY);
-	cache_wait(l2x0_base + L2X0_CLEAN_INV_WAY, 0xff);
-	cache_sync();
-	spin_unlock_irqrestore(&l2x0_lock, flags);
-}
-#endif
-
-
-#ifdef CONFIG_PL310_ERRATA_588369
 static void l2x0_clean_all(void)
 {
 	void __iomem *base = l2x0_base;
 	unsigned char way;
 	unsigned long flags, value;
 
-	l2x0_lock(&l2x0_lock, flags);
-	debug_writel(0x03);
-	/* Clean all the ways */
-	for (way = 0; way <= 0xf; way++, value = 0) {
-		value = 1 << way;
-		writel(value, base + L2X0_CLEAN_WAY);
-		cache_wait_always(base + L2X0_CLEAN_WAY, value);
+	if (omap_rev() == OMAP4430_REV_ES1_0) {
+		l2x0_lock(&l2x0_lock, flags);
+		debug_writel(0x03);
+		/* Clean all the ways */
+		for (way = 0; way <= 0xf; way++, value = 0) {
+			value = 1 << way;
+			writel(value, base + L2X0_CLEAN_WAY);
+			cache_wait_always(base + L2X0_CLEAN_WAY, value);
+			cache_sync();
+		}
+		debug_writel(0x00);
+		l2x0_unlock(&l2x0_lock, flags);
+	} else {
+		/* invalidate all ways */
+		spin_lock_irqsave(&l2x0_lock, flags);
+		writel(0xff, l2x0_base + L2X0_CLEAN_WAY);
+		cache_wait(l2x0_base + L2X0_CLEAN_WAY, 0xff);
 		cache_sync();
+		spin_unlock_irqrestore(&l2x0_lock, flags);
 	}
-	debug_writel(0x00);
-	l2x0_unlock(&l2x0_lock, flags);
 }
-
-#else
-
-static inline void l2x0_clean_all(void)
-{
-	unsigned long flags;
-
-	/* invalidate all ways */
-	spin_lock_irqsave(&l2x0_lock, flags);
-	writel(0xff, l2x0_base + L2X0_CLEAN_WAY);
-	cache_wait(l2x0_base + L2X0_CLEAN_WAY, 0xff);
-	cache_sync();
-	spin_unlock_irqrestore(&l2x0_lock, flags);
-}
-#endif
 
 static void l2x0_flush_range(unsigned long start, unsigned long end)
 {
