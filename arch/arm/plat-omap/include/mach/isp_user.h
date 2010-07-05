@@ -376,22 +376,6 @@ enum alaw_ipwidth {
 	ALAW_BIT9_0 = 0x6
 };
 
-/* Enumeration constants for Video Port */
-enum vpin {
-	BIT12_3 = 3,
-	BIT11_2 = 4,
-	BIT10_1 = 5,
-	BIT9_0 = 6
-};
-
-enum vpif_freq {
-	PIXCLKBY2,
-	PIXCLKBY3_5,
-	PIXCLKBY4_5,
-	PIXCLKBY5_5,
-	PIXCLKBY6_5
-};
-
 /**
  * struct ispccdc_lsc_config - Structure for LSC configuration.
  * @offset: Table Offset of the gain table.
@@ -461,18 +445,6 @@ struct ispccdc_blcomp {
 	__u8 gb_g;
 	__u8 gr_cy;
 	__u8 r_ye;
-};
-
-/**
- * struct ispccdc_vp - Structure for Video Port parameters
- * @bitshift_sel: Video port input select. 3 - bits 12-3, 4 - bits 11-2,
- *                5 - bits 10-1, 6 - bits 9-0.
- * @freq_sel: Video port data ready frequency. 1 - 1/3.5, 2 - 1/4.5,
- *            3 - 1/5.5, 4 - 1/6.5.
- */
-struct ispccdc_vp {
-	enum vpin bitshift_sel;
-	enum vpif_freq freq_sel;
 };
 
 /**

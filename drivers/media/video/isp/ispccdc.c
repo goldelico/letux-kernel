@@ -339,19 +339,18 @@ static void ispccdc_config_black_comp(struct isp_ccdc_device *isp_ccdc,
 /**
  * ispccdc_config_vp - Configure the Video Port.
  * @isp_ccdc: Pointer to ISP CCDC device.
- * @vpcfg: Structure containing the Video Port input frequency, and the 10 bit
- *         format.
+ * @vp_bitshift:  10 bit format.
  **/
-static void ispccdc_config_vp(struct isp_ccdc_device *isp_ccdc,
-			      struct ispccdc_vp vpcfg)
+static void ispccdc_config_vp_bitshift(struct isp_ccdc_device *isp_ccdc,
+			      enum vp_bitshift bitshift_sel)
 {
 	struct device *dev = to_device(isp_ccdc);
 	u32 fmtcfg_vp = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
 				      ISPCCDC_FMTCFG);
 
-	fmtcfg_vp &= ISPCCDC_FMTCFG_VPIN_MASK & ISPCCDC_FMTCFG_VPIF_FRQ_MASK;
+	fmtcfg_vp &= ~ISPCCDC_FMTCFG_VPIN_MASK;
 
-	switch (vpcfg.bitshift_sel) {
+	switch (bitshift_sel) {
 	case BIT9_0:
 		fmtcfg_vp |= ISPCCDC_FMTCFG_VPIN_9_0;
 		break;
@@ -365,25 +364,32 @@ static void ispccdc_config_vp(struct isp_ccdc_device *isp_ccdc,
 		fmtcfg_vp |= ISPCCDC_FMTCFG_VPIN_12_3;
 		break;
 	};
-	switch (vpcfg.freq_sel) {
-	case PIXCLKBY2:
-		fmtcfg_vp |= ISPCCDC_FMTCFG_VPIF_FRQ_BY2;
-		break;
-	case PIXCLKBY3_5:
-		fmtcfg_vp |= ISPCCDC_FMTCFG_VPIF_FRQ_BY3;
-		break;
-	case PIXCLKBY4_5:
-		fmtcfg_vp |= ISPCCDC_FMTCFG_VPIF_FRQ_BY4;
-		break;
-	case PIXCLKBY5_5:
-		fmtcfg_vp |= ISPCCDC_FMTCFG_VPIF_FRQ_BY5;
-		break;
-	case PIXCLKBY6_5:
-		fmtcfg_vp |= ISPCCDC_FMTCFG_VPIF_FRQ_BY6;
-		break;
-	};
 	isp_reg_writel(dev, fmtcfg_vp, OMAP3_ISP_IOMEM_CCDC,
 		       ISPCCDC_FMTCFG);
+}
+
+/**
+ * ispccdc_config_vp_freq - Configure Video Port frequency.
+ * @isp_ccdc: Pointer to ISP CCDC device.
+ * @divider: Vp devider.
+ **/
+int ispccdc_config_vp_freq(struct isp_ccdc_device *isp_ccdc, u8 divider)
+{
+	struct device *dev = to_device(isp_ccdc);
+	u32 fmtcfg_vp = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
+				      ISPCCDC_FMTCFG);
+
+	/* Check if we are in the range */
+	if (divider > 62)
+		return -1;
+
+	fmtcfg_vp &= ~ISPCCDC_FMTCFG_VPIF_FRQ_MASK;
+
+	fmtcfg_vp |= divider << ISPCCDC_FMTCFG_VPIF_FRQ_SHIFT;
+
+	isp_reg_writel(dev, fmtcfg_vp, OMAP3_ISP_IOMEM_CCDC, ISPCCDC_FMTCFG);
+
+	return 0;
 }
 
 /**
@@ -959,7 +965,7 @@ static int ispccdc_config_datapath(struct isp_ccdc_device *isp_ccdc,
 {
 	struct device *dev = to_device(isp_ccdc);
 	u32 syn_mode = 0;
-	struct ispccdc_vp vpcfg;
+	enum vp_bitshift bitshift_sel;
 	struct ispccdc_syncif syncif;
 	struct ispccdc_bclamp blkcfg;
 
@@ -999,9 +1005,8 @@ static int ispccdc_config_datapath(struct isp_ccdc_device *isp_ccdc,
 		syn_mode &= ~ISPCCDC_SYN_MODE_VP2SDR;
 		syn_mode &= ~ISPCCDC_SYN_MODE_SDR2RSZ;
 		syn_mode &= ~ISPCCDC_SYN_MODE_WEN;
-		vpcfg.bitshift_sel = BIT9_0;
-		vpcfg.freq_sel = PIXCLKBY2;
-		ispccdc_config_vp(isp_ccdc, vpcfg);
+		bitshift_sel = BIT9_0;
+		ispccdc_config_vp_bitshift(isp_ccdc, bitshift_sel);
 		ispccdc_enable_vp(isp_ccdc, 1);
 		break;
 
@@ -1012,9 +1017,8 @@ static int ispccdc_config_datapath(struct isp_ccdc_device *isp_ccdc,
 		syn_mode &= ~ISPCCDC_SYN_MODE_EXWEN;
 		isp_reg_and(dev, OMAP3_ISP_IOMEM_CCDC, ISPCCDC_CFG,
 			    ~ISPCCDC_CFG_WENLOG);
-		vpcfg.bitshift_sel = BIT9_0;
-		vpcfg.freq_sel = PIXCLKBY2;
-		ispccdc_config_vp(isp_ccdc, vpcfg);
+		bitshift_sel = BIT9_0;
+		ispccdc_config_vp_bitshift(isp_ccdc, bitshift_sel);
 		ispccdc_enable_vp(isp_ccdc, 0);
 		break;
 
@@ -1023,13 +1027,11 @@ static int ispccdc_config_datapath(struct isp_ccdc_device *isp_ccdc,
 		syn_mode &= ~ISPCCDC_SYN_MODE_SDR2RSZ;
 		syn_mode |= ISPCCDC_SYN_MODE_WEN;
 		syn_mode &= ~ISPCCDC_SYN_MODE_EXWEN;
-
 		isp_reg_and_or(dev, OMAP3_ISP_IOMEM_CCDC,
 			       ISPCCDC_CFG, ~ISPCCDC_CFG_WENLOG,
 			       isp_ccdc->wenlog);
-		vpcfg.bitshift_sel = BIT9_0;
-		vpcfg.freq_sel = PIXCLKBY2;
-		ispccdc_config_vp(isp_ccdc, vpcfg);
+		bitshift_sel = BIT9_0;
+		ispccdc_config_vp_bitshift(isp_ccdc, bitshift_sel);
 		ispccdc_enable_vp(isp_ccdc, 1);
 		break;
 	default:
@@ -1306,8 +1308,6 @@ void ispccdc_enable(struct isp_ccdc_device *isp_ccdc, u8 enable)
 	}
 	isp_reg_and_or(dev, OMAP3_ISP_IOMEM_CCDC, ISPCCDC_PCR,
 		       ~ISPCCDC_PCR_EN, enable ? ISPCCDC_PCR_EN : 0);
-
-	return;
 }
 
 /**

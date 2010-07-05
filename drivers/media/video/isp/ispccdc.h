@@ -58,6 +58,13 @@ enum datasize {
 	DAT12
 };
 
+/* Enumeration constants for Video Port */
+enum vp_bitshift {
+	BIT12_3 = 3,
+	BIT11_2 = 4,
+	BIT10_1 = 5,
+	BIT9_0 = 6
+};
 
 /**
  * struct ispccdc_syncif - Structure for Sync Interface between sensor and CCDC

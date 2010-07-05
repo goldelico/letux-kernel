@@ -67,6 +67,7 @@ struct isp_csi_device {
 
 void isp_csi_print_status(struct isp_csi_device *isp_csi);
 void isp_csi_if_enable(struct isp_csi_device *isp_csi, u8 enable);
+int isp_csi_set_vp_freq(struct isp_csi_device *isp_csi, u16 vp_freq);
 int isp_csi_configure_interface(struct isp_csi_device *isp_csi,
 				struct isp_csi_interface_cfg *config);
 int isp_csi_lcm_s_src_ofst(struct isp_csi_device *isp_csi, u32 offset);

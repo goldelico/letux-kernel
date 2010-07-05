@@ -433,6 +433,16 @@ struct isp_device {
 	struct iommu *iommu;
 };
 
+struct isp_freq_devider {
+	u32 ccdc_div;	/* Video port data ready frequency */
+	u32 csi2_div;	/* Fractional clock divider for the Video port */
+	u32 resz_exp;	/* RESIZER module read request expand */
+	u32 prev_exp;	/* PREVIEW module read request expand */
+};
+
+struct isp_freq_devider *isp_get_upscale_ratio(int in_w, int in_h, int out_w,
+					       int out_h);
+
 void isp_hist_dma_done(struct device *dev);
 
 u32 isp_rev(struct device *dev);

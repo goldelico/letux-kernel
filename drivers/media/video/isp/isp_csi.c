@@ -232,6 +232,29 @@ static int isp_csi_set_vp_cfg(struct isp_csi_device *isp_csi,
 }
 
 /**
+ * isp_csi_set_vp_cfg - Configure CSI1/CCP2 Videport.
+ * @isp_csi: Pointer to ISP CSI/CCP2 device.
+ * @vp_cfg: Pointer to videoport configuration structure.
+ *
+ * Returns 0 if successful, -EBUSY if the interface is enabled,
+ * and -EINVAL if wrong parameters are passed.
+ **/
+int isp_csi_set_vp_freq(struct isp_csi_device *isp_csi, u16 vp_freq)
+{
+	struct device *dev = to_device(isp_csi);
+	u32 val;
+
+	val = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_CTRL);
+
+	val &= ~ISPCSI1_CTRL_FRACDIV_MASK;
+	val |= (vp_freq << ISPCSI1_CTRL_FRACDIV_SHIFT);
+
+	isp_reg_writel(dev, val, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_CTRL);
+
+	return 0;
+}
+
+/**
  * isp_csi_lcm_s_src_ofst - Configures the Read address line offset.
  * @isp_csi: Pointer to ISP CSI/CCP2 device.
  * @offset: Line Offset for the input image.
@@ -503,15 +526,6 @@ int isp_csi_configure_interface(struct isp_csi_device *isp_csi,
 	if (config->strobe_clock_inv)
 		val |= ISPCSI1_CTRL_INV;
 	val |= ISPCSI1_CTRL_MODE_CCP2;
-
-	/*
-	 * CCDC input speed is limited to 1 pixel every 2 clock cycles,
-	 * FRACDIV should be set to 0x8000
-	 */
-	val = (val & ~ISPCSI1_CTRL_FRACDIV_MASK) |
-		  (0x8000 << ISPCSI1_CTRL_FRACDIV_SHIFT);
-
-	isp_reg_writel(dev, val, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_CTRL);
 
 	if (config->use_mem_read) {
 

@@ -26,6 +26,7 @@
 
 #include <asm/cacheflush.h>
 
+#include <linux/kernel.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/clk.h>
@@ -187,6 +188,38 @@ static struct isp_reg isp_reg_list[] = {
 	{0, ISP_TOK_TERM, 0}
 };
 
+/*
+ * Defined constants for management of pipeline bandwidth constraints.
+ */
+#define REQ_EXP_MULTIPLIER 32
+static struct isp_freq_devider isp_ratio_factor[] = {
+	{  0, 32768, 0 * REQ_EXP_MULTIPLIER, 0 * REQ_EXP_MULTIPLIER },
+	{  2, 16384, 1 * REQ_EXP_MULTIPLIER, 1 * REQ_EXP_MULTIPLIER },
+	{  6,  8192, 2 * REQ_EXP_MULTIPLIER, 2 * REQ_EXP_MULTIPLIER },
+	{ 14,  4096, 3 * REQ_EXP_MULTIPLIER, 3 * REQ_EXP_MULTIPLIER },
+	{ 30,  2048, 4 * REQ_EXP_MULTIPLIER, 4 * REQ_EXP_MULTIPLIER }
+};
+
+/**
+ * isp_get_upscale_ratio - Return ratio releated to the current crop.
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ */
+struct isp_freq_devider *isp_get_upscale_ratio(int in_w, int in_h, int out_w,
+					       int out_h)
+{
+	int in_size, out_size, ratio = 0;
+
+	if (in_w > 0 && in_h > 0 && out_w > 0 && out_h > 0) {
+		in_size = in_w * in_h;
+		out_size = out_w * out_h;
+		if (out_size > in_size)
+			ratio = int_sqrt(out_size / in_size);
+	}
+
+	return &isp_ratio_factor[ratio];
+}
+EXPORT_SYMBOL(isp_get_upscale_ratio);
+
 /**
  * isp_flush - Post pending L3 bus writes by doing a register readback
  * @dev: Device pointer specific to the OMAP3 ISP.
@@ -341,6 +374,55 @@ static int ispccdc_sbl_wait_idle(struct isp_ccdc_device *isp_ccdc, int max_wait)
 	struct device *dev = to_device(isp_ccdc);
 
 	return isp_wait(dev, ispccdc_sbl_busy, 0, max_wait, isp_ccdc);
+}
+
+/**
+ * isp_adjust_bandwidth - Adjust ISP clock to get maximum bandwidth.
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ **/
+static void isp_adjust_bandwidth(struct device *dev)
+{
+	struct isp_device *isp = dev_get_drvdata(dev);
+
+	/* If we are using memory read chanel make adjustment depending of input
+	 * And output size */
+
+	if (isp->config->u.csi.use_mem_read) {
+		struct isp_freq_devider *deviders;
+		u32 in_width, in_height, out_width, out_height;
+
+		in_width = isp->pipeline.in_pix.width;
+		in_height = isp->pipeline.in_pix.height;
+		out_width = isp->pipeline.out_pix.width;
+		out_height = isp->pipeline.out_pix.height;
+
+		/* If Resizer is in the take the crop in calculation */
+		if (isp->pipeline.modules & OMAP_ISP_RESIZER) {
+			in_width = isp->pipeline.rsz.in.crop.width;
+			in_height = isp->pipeline.rsz.in.crop.height;
+		}
+
+		deviders = isp_get_upscale_ratio(in_width, in_height,
+						 out_width, out_height);
+
+		isp_csi_set_vp_freq(&isp->isp_csi, deviders->csi2_div);
+
+		ispccdc_config_vp_freq(&isp->isp_ccdc, deviders->ccdc_div);
+	} else {
+		/* Make adjustment depending of the pixel clock */
+		unsigned long pixelclk = isp->config->pixelclk;
+		unsigned long l3_ick = clk_get_rate(isp->l3_ick);
+		unsigned long div = 2;
+		/* Calculate devider and clamp result between 0 and 64 */
+		if (l3_ick && pixelclk)
+			div = clamp_t(unsigned long, l3_ick / pixelclk, 0,
+				      (ISPCCDC_FMTCFG_VPIF_FRQ_MASK >>
+				      ISPCCDC_FMTCFG_VPIF_FRQ_SHIFT) + 1);
+		/* The range of register value is a 2..62 */
+		ispccdc_config_vp_freq(&isp->isp_ccdc, div - 2);
+	}
+
+	return;
 }
 
 /**
@@ -614,7 +696,6 @@ int isp_configure_interface(struct device *dev,
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
 	u32 ispctrl_val = isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN, ISP_CTRL);
-	u32 fmtcfg;
 	int r;
 
 	isp->config = config;
@@ -708,19 +789,8 @@ int isp_configure_interface(struct device *dev,
 
 	isp->mclk = config->cam_mclk;
 	isp_enable_mclk(dev);
-	/* FIXME: this should be set in ispccdc_config_vp() */
-	fmtcfg = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC, ISPCCDC_FMTCFG);
-	fmtcfg &= ISPCCDC_FMTCFG_VPIF_FRQ_MASK;
-	if (config->pixelclk) {
-		unsigned long l3_ick = clk_get_rate(isp->l3_ick);
-		unsigned long div = l3_ick / config->pixelclk;
-		if (div < 2)
-			div = 2;
-		if (div > 6)
-			div = 6;
-		fmtcfg |= (div - 2) << ISPCCDC_FMTCFG_VPIF_FRQ_SHIFT;
-	}
-	isp_reg_writel(dev, fmtcfg, OMAP3_ISP_IOMEM_CCDC, ISPCCDC_FMTCFG);
+
+	isp_adjust_bandwidth(dev);
 
 	return 0;
 }
@@ -1090,8 +1160,10 @@ out_ignore_buff:
 
 	if (irqstatus & LSC_PRE_COMP) {
 		ispccdc_lsc_pref_comp_handler(&isp->isp_ccdc);
-		if (isp->config->u.csi.use_mem_read)
+		if (isp->config->u.csi.use_mem_read) {
+			isp_adjust_bandwidth(dev);
 			isp_csi_lcm_readport_enable(&isp->isp_csi, 1);
+		}
 	}
 
 out_stopping_isp:
@@ -1927,9 +1999,10 @@ int isp_buf_queue(struct device *dev, struct videobuf_buffer *vb,
 			if (isp->pipeline.modules & OMAP_ISP_CCDC)
 					ispccdc_enable(&isp->isp_ccdc, 1);
 
-			if (ispccdc_is_enabled(&isp->isp_ccdc))
+			if (ispccdc_is_enabled(&isp->isp_ccdc)) {
+				isp_adjust_bandwidth(dev);
 				isp_csi_lcm_readport_enable(&isp->isp_csi, 1);
-
+			}
 		} else {
 			if (isp->pipeline.modules & OMAP_ISP_CCDC)
 				ispccdc_enable(&isp->isp_ccdc, 1);
