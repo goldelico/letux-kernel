@@ -1916,8 +1916,9 @@ int isp_buf_queue(struct device *dev, struct videobuf_buffer *vb,
 				}
 			}
 			if (isp->pipeline.modules & OMAP_ISP_PREVIEW) {
-				isppreview_config_shadow_registers(
-					&isp->isp_prev);
+				if (!isppreview_busy(&isp->isp_prev))
+					isppreview_config_shadow_registers(
+								&isp->isp_prev);
 				isppreview_enable(&isp->isp_prev, 1);
 			}
 
