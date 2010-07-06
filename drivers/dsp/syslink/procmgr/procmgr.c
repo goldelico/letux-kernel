@@ -546,6 +546,8 @@ int proc_mgr_read(void *handle, u32 proc_addr, u32 *num_bytes, void *buffer)
 	int retval = 0;
 	struct proc_mgr_object *proc_mgr_handle =
 					(struct proc_mgr_object *)handle;
+	void *addr;
+
 	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
 		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
 		 == true) {
@@ -558,12 +560,27 @@ int proc_mgr_read(void *handle, u32 proc_addr, u32 *num_bytes, void *buffer)
 	BUG_ON(num_bytes == NULL);
 	BUG_ON(buffer == NULL);
 
-	WARN_ON(mutex_lock_interruptible(proc_mgr_obj_state.gate_handle));
+	/* Check if the address is already mapped */
+	retval = proc_mgr_translate_addr(handle,
+					(void **) &addr,
+					PROC_MGR_ADDRTYPE_MASTERKNLVIRT,
+					(void *) proc_addr,
+					PROC_MGR_ADDRTYPE_SLAVEVIRT);
 
-	retval = processor_read(proc_mgr_handle->proc_handle, proc_addr,
+
+	if (retval >= 0) {
+		/* Enter critical section protection. */
+		WARN_ON(mutex_lock_interruptible(
+					proc_mgr_obj_state.gate_handle));
+
+		retval = processor_read(proc_mgr_handle->proc_handle, (u32)addr,
 							num_bytes, buffer);
+
+		/* Leave critical section protection. */
+		mutex_unlock(proc_mgr_obj_state.gate_handle);
+	}
+
 	WARN_ON(retval < 0);
-	mutex_unlock(proc_mgr_obj_state.gate_handle);
 	return retval;
 }
 EXPORT_SYMBOL(proc_mgr_read);
@@ -647,6 +664,7 @@ int proc_mgr_translate_addr(void *handle, void **dst_addr,
 	int retval = 0;
 	struct proc_mgr_object *proc_mgr_handle =
 					(struct proc_mgr_object *)handle;
+
 	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
 		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
 		 == true) {

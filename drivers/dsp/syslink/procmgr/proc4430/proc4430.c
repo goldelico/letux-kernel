@@ -589,8 +589,8 @@ int proc4430_read(void *handle, u32 proc_addr, u32 *num_bytes,
 			"Module not initialized");
 		return -ENODEV;
 	}
+	buffer = memcpy(buffer, (void *)proc_addr, *num_bytes);
 
-	/* TODO */
 	return retval;
 }
 
@@ -616,7 +616,8 @@ int proc4430_write(void *handle, u32 proc_addr, u32 *num_bytes,
 		return -ENODEV;
 	}
 
-	/* TODO */
+	proc_addr = (u32)memcpy((void *)proc_addr, buffer, *num_bytes);
+
 	return retval;
 }
 
