@@ -63,7 +63,7 @@ static struct iommu_device omap4_devices[] = {
 		.pdata = {
 			.name = "ducati",
 			.nr_tlb_entries = 32,
-			.clk_name = "ducati_ick",
+			.clk_name = "ipu_ick",
 		},
 	},
 #if defined(CONFIG_MPU_TESLA_IOMMU)
@@ -73,7 +73,7 @@ static struct iommu_device omap4_devices[] = {
 		.pdata = {
 			.name = "tesla",
 			.nr_tlb_entries = 32,
-			.clk_name = "tesla_ick",
+			.clk_name = "iva_ick",
 		},
 	},
 #endif
