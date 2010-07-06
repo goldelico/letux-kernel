@@ -42,6 +42,8 @@ struct platform_mem_map_table_info {
 	u32	physical_address; /* Actual address */
 	u32	knl_virtual_address; /* Mapped address */
 	u32	size; /* Size of the region mapped */
+	u16	ref_count; /* Reference count of mapped entry */
+	bool	is_cached;
 };
 
 /*
@@ -142,7 +144,9 @@ EXPORT_SYMBOL(platform_mem_destroy);
 int platform_mem_map(memory_map_info *map_info)
 {
 	int retval = 0;
+	bool exists = false;
 	struct platform_mem_map_table_info *info = NULL;
+	struct list_head *list_info = NULL;
 
 	if (atomic_cmpmask_and_lt(&(platform_mem_state.ref_count),
 				PLATFORM_MEM_MAKE_MAGICSTAMP(0),
@@ -150,28 +154,39 @@ int platform_mem_map(memory_map_info *map_info)
 		retval = -ENODEV;
 		goto exit;
 	}
-
 	if (WARN_ON(map_info == NULL)) {
 		retval = -EINVAL;
 		goto exit;
-
 	}
-
 	if (map_info->src == (u32) NULL) {
 		retval = -EINVAL;
 		goto exit;
 	}
 
-	info = kmalloc(sizeof(struct platform_mem_map_table_info),
-					GFP_KERNEL);
-	if (info == NULL) {
-		retval = -ENOMEM;
-		goto exit;
-	}
-
 	retval = mutex_lock_interruptible(platform_mem_state.gate);
 	if (retval)
-		goto lock_fail;
+		goto exit;
+
+	/* First check if the mapping already exists in the map table */
+	list_for_each(list_info, (struct list_head *)
+		&platform_mem_state.map_table) {
+		if ((((struct platform_mem_map_table_info *)
+			list_info)->physical_address == map_info->src) && \
+			(((struct platform_mem_map_table_info *)
+			list_info)->is_cached == map_info->is_cached)) {
+			exists = true;
+			map_info->dst = ((struct platform_mem_map_table_info *)
+						list_info)->knl_virtual_address;
+			/* Increase the refcount. */
+			((struct platform_mem_map_table_info *)
+				list_info)->ref_count++;
+			break;
+		}
+	}
+	if (exists) {
+		mutex_unlock(platform_mem_state.gate);
+		goto exit;
+	}
 
 	map_info->dst = 0;
 	if (map_info->is_cached == true)
@@ -180,16 +195,22 @@ int platform_mem_map(memory_map_info *map_info)
 	else
 		map_info->dst = (u32) ioremap_nocache((dma_addr_t)
 					(map_info->src), map_info->size);
-
 	if (map_info->dst == 0) {
-			retval = -EFAULT;
-			goto ioremap_fail;
+		retval = -EFAULT;
+		goto ioremap_fail;
 	}
 
+	info = kmalloc(sizeof(struct platform_mem_map_table_info), GFP_KERNEL);
+	if (info == NULL) {
+		retval = -ENOMEM;
+		goto ioremap_fail;
+	}
 	/* Populate the info */
 	info->physical_address = map_info->src;
 	info->knl_virtual_address = map_info->dst;
 	info->size = map_info->size;
+	info->ref_count = 1;
+	info->is_cached = map_info->is_cached;
 	/* Put the info into the list */
 	list_add(&info->mem_entry, &platform_mem_state.map_table);
 	mutex_unlock(platform_mem_state.gate);
@@ -197,8 +218,6 @@ int platform_mem_map(memory_map_info *map_info)
 
 ioremap_fail:
 	mutex_unlock(platform_mem_state.gate);
-lock_fail:
-	kfree(info);
 exit:
 	return retval;
 }
@@ -212,8 +231,8 @@ EXPORT_SYMBOL(platform_mem_map);
 int platform_mem_unmap(memory_unmap_info *unmap_info)
 {
 	s32 retval = 0;
+	bool found = false;
 	struct platform_mem_map_table_info *info = NULL;
-
 
 	if (atomic_cmpmask_and_lt(&(platform_mem_state.ref_count),
 			  PLATFORM_MEM_MAKE_MAGICSTAMP(0),
@@ -221,12 +240,10 @@ int platform_mem_unmap(memory_unmap_info *unmap_info)
 		retval = -ENODEV;
 		goto exit;
 	}
-
 	if (unmap_info == NULL) {
 		retval = -EINVAL;
 		goto exit;
 	}
-
 	if (unmap_info->addr == (u32) NULL) {
 		retval = -EINVAL;
 		goto exit;
@@ -236,14 +253,24 @@ int platform_mem_unmap(memory_unmap_info *unmap_info)
 	if (retval)
 		goto exit;
 
-	iounmap((unsigned int *) unmap_info->addr);
-	/* Delete the node in the map table */
-	list_for_each_entry(info, &platform_mem_state.map_table, mem_entry) {
-		if (info->knl_virtual_address == unmap_info->addr) {
-			list_del(&info->mem_entry);
-			kfree(info);
+	list_for_each_entry(info,
+		(struct list_head *)&platform_mem_state.map_table, mem_entry) {
+		if ((info->knl_virtual_address == unmap_info->addr) && \
+			(info->is_cached == unmap_info->is_cached)) {
+			info->ref_count--;
+			found = true;
 			break;
 		}
+	}
+	if (!found) {
+		mutex_unlock(platform_mem_state.gate);
+		goto exit;
+	}
+
+	if (info->ref_count == 0) {
+		list_del(&info->mem_entry);
+		kfree(info);
+		iounmap((unsigned int *) unmap_info->addr);
 	}
 	mutex_unlock(platform_mem_state.gate);
 
