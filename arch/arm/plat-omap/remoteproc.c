@@ -143,13 +143,17 @@ static int omap_rproc_ioctl(struct inode *inode, struct file *filp,
 
 	switch (cmd) {
 	case RPROC_IOCSTART:
-		if (!capable(CAP_SYS_ADMIN))
-			return -EPERM;
+		/*FIXME: re-visit this check to perform
+			proper permission checks */
+		/*if (!capable(CAP_SYS_ADMIN))
+			return -EPERM;*/
 		rc = rproc_start(rproc);
 		break;
 	case RPROC_IOCSTOP:
-		if (!capable(CAP_SYS_ADMIN))
-			return -EPERM;
+		/*FIXME: re-visit this check to perform
+			proper permission checks */
+		/*if (!capable(CAP_SYS_ADMIN))
+			return -EPERM;*/
 		rc = rproc_stop(rproc);
 		break;
 	case RPROC_IOCGETSTATE:
