@@ -7,7 +7,7 @@ messageq.o messageq_ioctl.o transportshm.o transportshm_setup.o \
 platform.o ipc.o sysipc_ioctl.o ipc_ioctl.o ipc_drv.o \
 ../omap_notify/notify_driver.o ../omap_notify/notify.o \
 ../omap_notify/drv_notify.o ../omap_notify/plat/omap4_notify_setup.o \
-../notify_ducatidriver/notify_ducati.o
+../notify_ducatidriver/notify_ducati.o ../ipu_pm/ipu_pm.o
 
 libsyslink_platform = platform_mem.o
 

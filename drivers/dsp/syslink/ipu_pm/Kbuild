@@ -1,9 +1,0 @@
-libomap_syslink_ipu_pm = ipu_pm.o
-
-obj-$(CONFIG_SYSLINK_DUCATI_PM)        += syslink_ipu_pm.o
-syslink_ipu_pm-objs = $(libomap_syslink_ipu_pm)
-
-ccflags-y += -Wno-strict-prototypes
-
-#Header files
-ccflags-y += -Iarch/arm/plat-omap/include/syslink
