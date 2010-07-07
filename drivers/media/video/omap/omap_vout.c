@@ -45,7 +45,9 @@
 #include <linux/irq.h>
 
 #ifndef CONFIG_ARCH_OMAP4
-#include <linux/omap_resizer.h>
+#include <mach/isp_user.h>
+#include <linux/ispdss.h>
+#include "../isp/ispresizer.h"
 #endif
 
 #include <media/videobuf-dma-sg.h>
@@ -117,30 +119,8 @@ int flushable_buffers;
 
 #ifndef CONFIG_ARCH_OMAP4
 /* ISP resizer related code*/
-struct rsz_params isp_rsz_params;
+struct isp_node pipe;
 static int vrfb_configured;
-
-static u16 omap_vout_rsz_filter_4_tap_high_quality[] = {
-	0x0000, 0x0100, 0x0000, 0x0000,
-	0x03FA, 0x00F6, 0x0010, 0x0000,
-	0x03F9, 0x00DB, 0x002C, 0x0000,
-	0x03FB, 0x00B3, 0x0053, 0x03FF,
-	0x03FD, 0x0082, 0x0084, 0x03FD,
-	0x03FF, 0x0053, 0x00B3, 0x03FB,
-	0x0000, 0x002C, 0x00DB, 0x03F9,
-	0x0000, 0x0010, 0x00F6, 0x03FA
-};
-
-static u16 omap_vout_rsz_filter_7_tap_high_quality[] = {
-	0x0004, 0x0023, 0x005A, 0x0058,
-	0x0023, 0x0004, 0x0000, 0x0000,
-	0x0002, 0x0018, 0x004d, 0x0060,
-	0x0031, 0x0008, 0x0000, 0x0000,
-	0x0001, 0x000f, 0x003f, 0x0062,
-	0x003f, 0x000f, 0x0001, 0x0000,
-	0x0000, 0x0008, 0x0031, 0x0060,
-	0x004d, 0x0018, 0x0002, 0x0000
-};
 #endif
 /* End ISP resizer*/
 
@@ -356,13 +336,13 @@ void omap_vout_isp_rsz_dma_tx_callback(void *arg)
 /* This function configures and initializes the ISP resizer*/
 static int init_isp_rsz(struct omap_vout_device *vout)
 {
-	int k = 0, num_video_buffers = 0;
+	int num_video_buffers = 0;
 	int ret = 0;
 
 	/* get the ISP resizer resource and configure it*/
 	if (vout->use_isp_rsz_for_downscale) {
 		if (vout->rsz_configured == 0) {
-			ret = rsz_get_resource();
+			ret = ispdss_get_resource();
 			if (ret) {
 				printk(KERN_ERR "<%s>: <%s> failed to get ISP "
 						"resizer resource = %d\n",
@@ -371,43 +351,25 @@ static int init_isp_rsz(struct omap_vout_device *vout)
 				return ret;
 			}
 
-			isp_rsz_params.in_hsize = vout->pix.width;
-			isp_rsz_params.in_vsize = vout->pix.height;
-			isp_rsz_params.out_hsize = vout->win.w.width;
-			isp_rsz_params.out_vsize = vout->win.w.height;
+			num_video_buffers = (vout->vid == OMAP_VIDEO1) ?
+			video1_numbuffers : video2_numbuffers;
 
-			isp_rsz_params.in_pitch = isp_rsz_params.in_hsize * 2;
-			isp_rsz_params.inptyp = RSZ_INTYPE_YCBCR422_16BIT;
-			isp_rsz_params.vert_starting_pixel = 0;
-			isp_rsz_params.horz_starting_pixel = 0;
-
-			/* We are going to do downsampling, 0.75x*/
-			isp_rsz_params.cbilin = 0;
-			isp_rsz_params.out_pitch = isp_rsz_params.out_hsize * 2;
-			isp_rsz_params.hstph = 0;
-			isp_rsz_params.vstph = 0;
-			isp_rsz_params.yenh_params.type = 0;
-			isp_rsz_params.yenh_params.gain = 0;
-			isp_rsz_params.yenh_params.slop = 0;
-			isp_rsz_params.yenh_params.core = 0;
-
-			if (vout->pix.pixelformat == V4L2_PIX_FMT_YUYV)
-				isp_rsz_params.pix_fmt = RSZ_PIX_FMT_YUYV;
-			if (vout->pix.pixelformat == V4L2_PIX_FMT_UYVY)
-				isp_rsz_params.pix_fmt = RSZ_PIX_FMT_UYVY;
-
-			/* As we are downsizing, we put */
-			for (k = 0; k < 32; k++)
-				isp_rsz_params.tap4filt_coeffs[k] =
-				omap_vout_rsz_filter_4_tap_high_quality[k];
-			for (k = 0; k < 32; k++)
-				isp_rsz_params.tap7filt_coeffs[k] =
-				omap_vout_rsz_filter_7_tap_high_quality[k];
+			/* clear data */
+			memset(&pipe, 0, sizeof(pipe));
+			pipe.in.path = RSZ_MEM_YUV;
+			/* setup source parameters */
+			pipe.in.image = vout->pix;
+			pipe.in.crop.left = 0; pipe.in.crop.top = 0;
+			pipe.in.crop.width = vout->pix.width;
+			pipe.in.crop.height = vout->pix.height;
+			/* setup destination parameters */
+			pipe.out.image.width = vout->win.w.width;
+			pipe.out.image.height = vout->win.w.height;
 
 			num_video_buffers = (vout->vid == OMAP_VIDEO1) ?
 			video1_numbuffers : video2_numbuffers;
 
-			ret = rsz_configure(&isp_rsz_params,
+			ret = ispdss_configure(&pipe,
 					  omap_vout_isp_rsz_dma_tx_callback,
 					  num_video_buffers,
 					  (void *)vout);
@@ -1503,7 +1465,7 @@ static int omap_vout_buffer_prepare(struct videobuf_queue *q,
 
 	if (vout->use_isp_rsz_for_downscale) {
 		/*Start resizing*/
-		ret = rsz_begin(vb->i, vb->i,
+		ret = ispdss_begin(&pipe, vb->i, vb->i,
 				MAX_PIXELS_PER_LINE *\
 				vout->bpp * vout->vrfb_bpp,
 				(u32)vout->vrfb_context[vb->i].\
@@ -1825,7 +1787,7 @@ static int omap_vout_release(struct file *file)
 	/* Release the ISP resizer resource if not already done so*/
 	if (vout->use_isp_rsz_for_downscale) {
 		if (vout->rsz_configured == 1) {
-			rsz_put_resource();
+			ispdss_put_resource();
 			vout->rsz_configured = 0;
 			vout->use_isp_rsz_for_downscale = 0;
 		}
@@ -2778,7 +2740,7 @@ static int vidioc_streamoff(struct file *file, void *fh,
 	/*release resizer now */
 	if (vout->use_isp_rsz_for_downscale) {
 		if (vout->rsz_configured == 1) {
-			rsz_put_resource();
+			ispdss_put_resource();
 			printk(KERN_ERR "<%s> rsz_put_resource\n",
 			       __func__);
 			vout->rsz_configured = 0;
