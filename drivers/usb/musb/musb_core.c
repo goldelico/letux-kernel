@@ -2140,6 +2140,11 @@ bad_config:
 	status = device_create_file(dev, &dev_attr_vbus);
 #ifdef CONFIG_USB_GADGET_MUSB_HDRC
 	status = device_create_file(dev, &dev_attr_srp);
+
+	/* Android has hardcoded the sysfs path to "usb_mass_storage"
+	 * so we create a link to point to the actual path.
+	 */
+	sysfs_create_link( (dev->kobj).parent, &dev->kobj,"usb_mass_storage");
 #endif /* CONFIG_USB_GADGET_MUSB_HDRC */
 	status = 0;
 #endif

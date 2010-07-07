@@ -2793,6 +2793,12 @@ fsg_function_bind(struct usb_configuration *c, struct usb_function *f)
 			goto out;
 		}
 		rc = device_create_file(&curlun->dev, &dev_attr_file);
+
+		/* Android has harcoded the path to the lun inside usb_mass_storage/lun0
+		 * so adding a link to the gadget/lun0 on the parent of gadget.
+		 */
+		sysfs_create_link(((&curlun->dev)->kobj.parent)->parent,&(&curlun->dev)->kobj,"lun0");
+
 		if (rc != 0) {
 			ERROR(fsg, "device_create_file failed: %d\n", rc);
 			device_unregister(&curlun->dev);
