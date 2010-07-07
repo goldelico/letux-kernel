@@ -44,6 +44,9 @@
 #include <linux/jiffies.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
+#include <linux/regulator/consumer.h>
+#include <linux/regulator/driver.h>
+#include <linux/regulator/machine.h>
 #include <linux/i2c/twl.h>
 
 /* Module headers */
@@ -59,8 +62,16 @@
 #define TESLA 0
 
 #define LINE_ID 0
-#define NUM_REMOTE_PROC 2
+#define NUM_SELF_PROC 2
 #define PM_VERSION 0x0100
+
+/* FIXME:Values needed for the regulator hack */
+#define VAUX3_CFG_STATE 0x8E
+#define VAUX3_CFG_VOLTAGE 0x8F
+#define VCXIO_CFG_TRANS 0x91
+#define VMMC_CFG_VOLTAGE 0x9B
+#define CAM_2_ENABLE 0xE1
+#define CAM_2_DISABLE 0xE0
 
 /** ============================================================================
  *  Forward declarations of internal functions
@@ -79,6 +90,9 @@ static inline int ipu_pm_get_i2c_bus(int proc_id, unsigned rcb_num);
 /* Function to get gpios from PRCM */
 static inline int ipu_pm_get_gpio(int proc_id, unsigned rcb_num);
 
+/* Function to get regulators from PRCM */
+static inline int ipu_pm_get_regulator(int proc_id, unsigned rcb_num);
+
 /* Function to release sdma channels to PRCM */
 static inline int ipu_pm_rel_sdma_chan(int proc_id, unsigned rcb_num);
 
@@ -90,6 +104,9 @@ static inline int ipu_pm_rel_i2c_bus(int proc_id, unsigned rcb_num);
 
 /* Function to release gpios from PRCM */
 static inline int ipu_pm_rel_gpio(int proc_id, unsigned rcb_num);
+
+/* Function to release regulators to PRCM */
+static inline int ipu_pm_rel_regulator(int proc_id, unsigned rcb_num);
 
 /* Function to get ipu pm object */
 static inline struct ipu_pm_object *ipu_pm_get_handle(int proc_id);
@@ -109,6 +126,7 @@ static int pm_i2c_bus_num;
 static int pm_sdmachan_num;
 static int pm_sdmachan_dummy;
 static int ch, ch_aux;
+static int pm_regulator_num;
 static int return_val;
 static u32 GPTIMER_USE_MASK = 0xFFFF;
 
@@ -131,6 +149,7 @@ static struct ipu_pm_params pm_params = {
 	.pm_gptimer_counter = 0,
 	.pm_i2c_bus_counter = 0,
 	.pm_sdmachan_counter = 0,
+	.pm_regulator_counter = 0,
 	.shared_addr = NULL,
 	.timeout = 10000,
 	.pm_num_events = NUMBER_PM_EVENTS,
@@ -154,16 +173,12 @@ void ipu_pm_callback(u16 proc_id, u16 line_id, u32 event_id,
 
 	/* get the handle to proper ipu pm object */
 	handle = ipu_pm_get_handle(proc_id);
-	if (WARN_ON(unlikely(handle == NULL))) {
-		printk(KERN_INFO "Invalid ipu_pm handle\n");
+	if (WARN_ON(unlikely(handle == NULL)))
 		return;
-	}
 
 	params = handle->params;
-	if (WARN_ON(unlikely(params == NULL))) {
-		printk(KERN_INFO "Invalid ipu_pm handle\n");
+	if (WARN_ON(unlikely(params == NULL)))
 		return;
-	}
 
 	/* Get the payload */
 	pm_msg.whole = payload;
@@ -283,11 +298,38 @@ void ipu_pm_callback(u16 proc_id, u16 line_id, u32 event_id,
 			break;
 		}
 		break;
+	case REGULATOR:
+		if (pm_action_type == PM_REQUEST_RESOURCE) {
+			return_val =
+				ipu_pm_get_regulator(proc_id,
+					pm_msg.fields.rcb_num);
+			if (return_val != PM_SUCCESS) {
+				/* Regulator unavailable */
+				/* Update the payload with the failure msg */
+				pm_msg.fields.msg_type = PM_REQUEST_FAIL;
+				pm_msg.fields.parm = return_val;
+				break;
+			}
+			break;
+		}
+		if (pm_action_type == PM_RELEASE_RESOURCE) {
+			return_val =
+				ipu_pm_rel_regulator(proc_id,
+					pm_msg.fields.rcb_num);
+			if (return_val != PM_SUCCESS) {
+				/* Update the payload with the failure msg */
+				pm_msg.fields.msg_type = PM_RELEASE_FAIL;
+				pm_msg.fields.parm = return_val;
+				break;
+			}
+			break;
+		}
+		break;
 	case DUCATI:
 	case IVA_HD:
 	case ISS:
 	default:
-		printk(KERN_INFO "Unsupported resource\n");
+		printk(KERN_ERR "Unsupported resource\n");
 		/* Report error to Remote processor */
 		pm_msg.fields.msg_type = PM_FAILURE,
 		pm_msg.fields.parm = PM_UNSUPPORTED;
@@ -309,7 +351,7 @@ void ipu_pm_callback(u16 proc_id, u16 line_id, u32 event_id,
 				payload,
 				true);
 	if (return_val < 0)
-		printk(KERN_INFO "ERROR SENDING PM EVENT\n");
+		printk(KERN_ERR "ERROR SENDING PM EVENT\n");
 }
 EXPORT_SYMBOL(ipu_pm_callback);
 
@@ -329,10 +371,8 @@ void ipu_pm_notify_callback(u16 proc_id, u16 line_id, u32 event_id,
 	struct ipu_pm_object *handle;
 	/* get the handle to proper ipu pm object */
 	handle = ipu_pm_get_handle(proc_id);
-	if (WARN_ON(unlikely(handle == NULL))) {
-		printk(KERN_INFO "Invalid ipu_pm handle\n");
+	if (WARN_ON(unlikely(handle == NULL)))
 		return;
-	}
 
 	pm_msg.whole = payload;
 	switch (pm_msg.fields.msg_subtype) {
@@ -370,7 +410,7 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 	int proc_id;
 
 	/*get the handle to proper ipu pm object */
-	for (i = 0; i < NUM_REMOTE_PROC; i++) {
+	for (i = 0; i < NUM_SELF_PROC; i++) {
 		proc_id = i + 1;
 		handle = ipu_pm_get_handle(proc_id);
 		if (handle == NULL)
@@ -392,7 +432,7 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 					(unsigned int)pm_msg.whole,
 					true);
 			if (return_val < 0)
-				printk(KERN_INFO "ERROR SENDING PM EVENT\n");
+				printk(KERN_ERR "ERROR SENDING PM EVENT\n");
 			/* wait until event from IPU (ipu_pm_notify_callback)*/
 			return_val = down_timeout
 					(&handle->pm_event[PM_SUSPEND]
@@ -401,7 +441,7 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 			if (WARN_ON((return_val < 0) ||
 					(pm_msg.fields.parm ==
 						PM_NOTIFICATIONS_FAIL))) {
-				printk(KERN_INFO "Error Suspend\n");
+				printk(KERN_ERR "Error Suspend\n");
 				pm_ack = EBUSY;
 			}
 			break;
@@ -418,7 +458,7 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 					(unsigned int)pm_msg.whole,
 					true);
 			if (return_val < 0)
-				printk(KERN_INFO "ERROR SENDING PM EVENT\n");
+				printk(KERN_ERR "ERROR SENDING PM EVENT\n");
 			/* wait until event from IPU (ipu_pm_notify_callback)*/
 			return_val = down_timeout
 					(&handle->pm_event[PM_RESUME]
@@ -427,7 +467,7 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 			if (WARN_ON((return_val < 0) ||
 					(pm_msg.fields.parm ==
 						PM_NOTIFICATIONS_FAIL))) {
-				printk(KERN_INFO "Error Resume\n");
+				printk(KERN_ERR "Error Resume\n");
 				pm_ack = EBUSY;
 			}
 			break;
@@ -444,7 +484,7 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 					(unsigned int)pm_msg.whole,
 					true);
 			if (return_val < 0)
-				printk(KERN_INFO "ERROR SENDING PM EVENT\n");
+				printk(KERN_ERR "ERROR SENDING PM EVENT\n");
 			/* wait until event from IPU (ipu_pm_notify_callback)*/
 			return_val = down_timeout
 					(&handle->pm_event[PM_OTHER]
@@ -453,7 +493,7 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 			if (WARN_ON((return_val < 0) ||
 					(pm_msg.fields.parm ==
 						PM_NOTIFICATIONS_FAIL))) {
-				printk(KERN_INFO "Error Other\n");
+				printk(KERN_ERR "Error Other\n");
 				pm_ack = EBUSY;
 			}
 			break;
@@ -647,6 +687,97 @@ static inline int ipu_pm_get_gpio(int proc_id, unsigned rcb_num)
 }
 
 /*
+  Function to get a regulator
+ *
+ */
+static inline int ipu_pm_get_regulator(int proc_id, unsigned rcb_num)
+{
+	struct ipu_pm_object *handle;
+	struct ipu_pm_params *params;
+	struct rcb_block *rcb_p;
+	struct regulator *p_regulator = NULL;
+	u8 pm_reg_voltage_index;
+	s32 retval = 0;
+	/*
+	  There are 5 bits to set the voltage, to calculate the max_error
+	 *(steps / 2) and we add this value to the
+	 *value shared in rcb->data[0]->(minVoltage) to provide the nearest
+	 *value to the minVoltage.
+	 *Fixed_voltage -> minVoltage + max_error
+	 */
+	u32 fixed_voltage;
+	u32 max_error = (100000 / 2);
+
+	/* get the handle to proper ipu pm object */
+	handle = ipu_pm_get_handle(proc_id);
+	if (WARN_ON(unlikely(handle == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	params = handle->params;
+	if (WARN_ON(unlikely(params == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	/* Get pointer to the proper RCB */
+	if (WARN_ON((rcb_num < RCB_MIN) || (rcb_num > RCB_MAX)))
+		return PM_INVAL_RCB_NUM;
+	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
+
+	pm_regulator_num = rcb_p->fill9;
+	if (WARN_ON((pm_regulator_num < REGULATOR_MIN) ||
+			(pm_regulator_num > REGULATOR_MAX)))
+		return PM_INVAL_REGULATOR;
+
+	/*
+	  FIXME:Only providing 1 regulator, if more are provided
+	 *	this check is not valid.
+	 */
+	if (WARN_ON(params->pm_regulator_counter > 0))
+		return PM_INVAL_REGULATOR;
+
+	/*
+	  Fix the voltage to give the nearest value to
+	 *the minimum by adding the maximum error.
+	 *rcb_p->data[0] contains the minimum voltage
+	 *rcb_p->data[1] contains the maximum voltage
+	 */
+	fixed_voltage = rcb_p->data[0] + max_error;
+	/* 5 bits to represent the voltage */
+	pm_reg_voltage_index = ((fixed_voltage - 1000000)/100000)+1;
+
+	/*
+	  FIXME:Disable/set_voltage regulator with a hack, once the
+	 *	regulator API are fully working this will be removed.
+	 *	This is only for Phoenix ES1.0
+	 */
+	pm_reg_voltage_index |= 0x80;
+	retval = twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x00, VMMC_CFG_VOLTAGE);
+	if (retval)
+		goto exit;
+	retval = twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x80, VCXIO_CFG_TRANS);
+	if (retval)
+		goto exit;
+	retval = twl_i2c_write_u8(TWL6030_MODULE_ID0, CAM_2_ENABLE,
+							VAUX3_CFG_STATE);
+	if (retval)
+		goto exit;
+	retval = twl_i2c_write_u8(TWL6030_MODULE_ID0, pm_reg_voltage_index,
+							VAUX3_CFG_VOLTAGE);
+	if (retval)
+		goto exit;
+
+	/*
+	  FIXME:The real value will be stored once the regulator API
+	 *	are fully working.
+	 */
+	rcb_p->mod_base_addr = (unsigned)p_regulator;
+	params->pm_regulator_counter++;
+
+	return PM_SUCCESS;
+exit:
+	return PM_INVAL_REGULATOR;
+}
+
+/*
   Function to release sdma channels to PRCM
  *
  */
@@ -788,6 +919,64 @@ static inline int ipu_pm_rel_gpio(int proc_id, unsigned rcb_num)
 }
 
 /*
+  Function to release a regulator
+ *
+ */
+static inline int ipu_pm_rel_regulator(int proc_id, unsigned rcb_num)
+{
+	struct ipu_pm_object *handle;
+	struct ipu_pm_params *params;
+	struct rcb_block *rcb_p;
+	struct regulator *p_regulator = NULL;
+	s32 retval = 0;
+
+	/* get the handle to proper ipu pm object */
+	handle = ipu_pm_get_handle(proc_id);
+	if (WARN_ON(unlikely(handle == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	params = handle->params;
+	if (WARN_ON(unlikely(params == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	/* Get pointer to the proper RCB */
+	if (WARN_ON((rcb_num < RCB_MIN) || (rcb_num > RCB_MAX)))
+		return PM_INVAL_RCB_NUM;
+	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
+	p_regulator = (struct regulator *)rcb_p->mod_base_addr;
+
+	/* Release resource using PRCM API */
+	/*
+	  FIXME:Disable/voltage the regulator with a hack, once the regulator
+	 *	API are fully working this will be removed.
+	 * Add a check for twl write
+	 */
+	retval = twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x00, VMMC_CFG_VOLTAGE);
+	if (retval)
+		goto exit;
+	retval = twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x80, VCXIO_CFG_TRANS);
+	if (retval)
+		goto exit;
+	retval = twl_i2c_write_u8(TWL6030_MODULE_ID0, 0x00, VAUX3_CFG_VOLTAGE);
+	if (retval)
+		goto exit;
+	retval = twl_i2c_write_u8(TWL6030_MODULE_ID0, CAM_2_DISABLE,
+							VAUX3_CFG_STATE);
+	if (retval)
+		goto exit;
+	retval = twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x40, VCXIO_CFG_TRANS);
+	if (retval)
+		goto exit;
+
+	rcb_p->mod_base_addr = 0;
+	params->pm_regulator_counter--;
+
+	return PM_SUCCESS;
+exit:
+	return PM_INVAL_REGULATOR;
+}
+
+/*
   Function to set init parameters
  *
  */
@@ -868,7 +1057,7 @@ int ipu_pm_init_transport(struct ipu_pm_object *handle)
 		(notify_fn_notify_cbck)ipu_pm_callback,
 		(void *)NULL);
 		if (status < 0)
-			printk(KERN_INFO "ERROR UNREGISTERING PM EVENT\n");
+			printk(KERN_ERR "ERROR UNREGISTERING PM EVENT\n");
 		goto pm_register_fail;
 	}
 	return status;
@@ -1202,7 +1391,7 @@ int ipu_pm_detach(u16 remote_proc_id)
 		(notify_fn_notify_cbck)ipu_pm_callback,
 		(void *)NULL);
 	if (retval < 0) {
-		printk(KERN_INFO "ERROR UNREGISTERING PM EVENT\n");
+		printk(KERN_ERR "ERROR UNREGISTERING PM EVENT\n");
 		goto exit;
 	}
 	retval = notify_unregister_event(
@@ -1212,7 +1401,7 @@ int ipu_pm_detach(u16 remote_proc_id)
 		(notify_fn_notify_cbck)ipu_pm_notify_callback,
 		(void *)NULL);
 	if (retval < 0) {
-		printk(KERN_INFO "ERROR UNREGISTERING PM EVENT\n");
+		printk(KERN_ERR "ERROR UNREGISTERING PM EVENT\n");
 		goto exit;
 	}
 

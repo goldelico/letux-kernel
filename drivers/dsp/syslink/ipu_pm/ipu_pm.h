@@ -100,6 +100,8 @@
 #define SDMA_CHANNELS_MAX 16
 #define I2C_BUS_MIN 1
 #define I2C_BUS_MAX 4
+#define REGULATOR_MIN 1
+#define REGULATOR_MAX 1
 
 #define GP_TIMER_3 3
 #define GP_TIMER_4 4
@@ -130,9 +132,12 @@ enum pm_failure_codes{
 	PM_NO_GPTIMER,
 	PM_NO_GPIO,
 	PM_NO_I2C,
+	PM_NO_REGULATOR,
+	PM_REGULATOR_IN_USE,
 	PM_INVAL_RCB_NUM,
 	PM_INVAL_NUM_CHANNELS,
 	PM_INVAL_NUM_I2C,
+	PM_INVAL_REGULATOR,
 	PM_NOT_INSTANTIATED,
 	PM_UNSUPPORTED
 };
@@ -143,8 +148,21 @@ enum pm_msgtype_codes{PM_NULLMSG,
 	PM_RELEASE_RESOURCE,
 	PM_REQUEST_FAIL,
 	PM_RELEASE_FAIL,
+	PM_REGULATOR_FAIL,
 	PM_NOTIFICATIONS,
-	PM_NOTIFICATIONS_FAIL
+	PM_NOTIFICATIONS_FAIL,
+	PM_ENABLE_RESOURCE,
+	PM_WRITE_RESOURCE,
+	PM_READ_RESOURCE,
+	PM_DISABLE_RESOURCE
+};
+
+enum pm_regulator_action{PM_SET_VOLTAGE,
+	PM_SET_CURRENT,
+	PM_SET_MODE,
+	PM_GET_MODE,
+	PM_GET_CURRENT,
+	PM_GET_VOLTAGE
 };
 
 enum res_type{
@@ -154,7 +172,8 @@ enum res_type{
 	SDMA,
 	GP_TIMER,
 	GP_IO,
-	I2C
+	I2C,
+	REGULATOR
 };
 
 enum pm_event_type{PM_SUSPEND,
@@ -214,6 +233,7 @@ struct ipu_pm_params {
 	int pm_gpio_counter;
 	int pm_sdmachan_counter;
 	int pm_i2c_bus_counter;
+	int pm_regulator_counter;
 	int timeout;
 	void *shared_addr;
 	int shared_addr_size;
