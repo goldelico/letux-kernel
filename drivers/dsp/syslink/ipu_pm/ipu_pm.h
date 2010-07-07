@@ -242,19 +242,12 @@ struct ipu_pm_module_object {
 	/* Indicates whether the ipu_pm module is setup. */
 };
 
-#ifdef CONFIG_SYSLINK_DUCATI_PM
+/* ipu_pm handle one for each proc SYSM3/APPM3 */
 struct ipu_pm_object {
 	struct sms *rcb_table;
 	struct pm_event *pm_event;
 	struct ipu_pm_params *params;
 };
-#else
-struct ipu_pm_object {
-	struct sms *rcb_table;
-	struct ipu_pm_params *params;
-};
-#endif
-
 
 /* Function for PM resources Callback */
 void ipu_pm_callback(u16 proc_id, u16 line_id, u32 event_id,

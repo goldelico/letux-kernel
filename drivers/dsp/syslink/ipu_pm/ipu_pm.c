@@ -262,7 +262,6 @@ EXPORT_SYMBOL(ipu_pm_callback);
 void ipu_pm_notify_callback(u16 proc_id, u16 line_id, u32 event_id,
 					uint *arg, u32 payload)
 {
-#ifdef CONFIG_SYSLINK_DUCATI_PM
 	/**
 	 * Post semaphore based in eventType (payload);
 	 * IPU has alreay finished the process for the
@@ -285,7 +284,6 @@ void ipu_pm_notify_callback(u16 proc_id, u16 line_id, u32 event_id,
 		up(handle->pm_event[PM_OTHER].sem_handle);
 		break;
 	}
-#endif
 }
 EXPORT_SYMBOL(ipu_pm_notify_callback);
 
@@ -309,7 +307,6 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 	int i;
 	int proc_id;
 
-#ifdef CONFIG_SYSLINK_DUCATI_PM
 	/*get the handle to proper ipu pm object */
 	for (i = 0; i < NUM_REMOTE_PROC; i++) {
 		proc_id = i + 1;
@@ -396,7 +393,6 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 			break;
 		}
 	}
-#endif
 	return pm_ack;
 }
 EXPORT_SYMBOL(ipu_pm_notifications);
@@ -737,7 +733,6 @@ struct ipu_pm_object *ipu_pm_create(const struct ipu_pm_params *params)
 
 		pm_handle_sysm3->rcb_table = (struct sms *)params->shared_addr;
 
-#ifdef CONFIG_SYSLINK_DUCATI_PM
 		pm_handle_sysm3->pm_event = kzalloc(sizeof(struct pm_event)
 					* params->pm_num_events, GFP_KERNEL);
 
@@ -762,7 +757,6 @@ struct ipu_pm_object *ipu_pm_create(const struct ipu_pm_params *params)
 			sema_init(pm_handle_sysm3->pm_event[i].sem_handle, 0);
 			pm_handle_sysm3->pm_event[i].event_type = i;
 		}
-#endif
 
 		pm_handle_sysm3->params = kzalloc(sizeof(struct ipu_pm_params)
 							, GFP_KERNEL);
@@ -788,7 +782,6 @@ struct ipu_pm_object *ipu_pm_create(const struct ipu_pm_params *params)
 
 		pm_handle_appm3->rcb_table = (struct sms *)params->shared_addr;
 
-#ifdef CONFIG_SYSLINK_DUCATI_PM
 		pm_handle_appm3->pm_event = kzalloc(sizeof(struct pm_event)
 					* params->pm_num_events, GFP_KERNEL);
 
@@ -813,7 +806,7 @@ struct ipu_pm_object *ipu_pm_create(const struct ipu_pm_params *params)
 			sema_init(pm_handle_appm3->pm_event[i].sem_handle, 0);
 			pm_handle_appm3->pm_event[i].event_type = i;
 		}
-#endif
+
 		pm_handle_appm3->params = kzalloc(sizeof(struct ipu_pm_params)
 						, GFP_KERNEL);
 
@@ -853,7 +846,7 @@ void ipu_pm_delete(struct ipu_pm_object *handle)
 	params = handle->params;
 	/* Release the shared RCB */
 	handle->rcb_table = NULL;
-#ifdef CONFIG_SYSLINK_DUCATI_PM
+
 	for (i = 0; i < params->pm_num_events; i++) {
 		kfree(handle->pm_event[i].sem_handle);
 		handle->pm_event[i].event_type = 0;
@@ -864,13 +857,6 @@ void ipu_pm_delete(struct ipu_pm_object *handle)
 	else
 		pm_handle_appm3 = NULL;
 	kfree(handle->params);
-#else
-	if (params->remote_proc_id == SYS_M3)
-		pm_handle_sysm3 = NULL;
-	else
-		pm_handle_appm3 = NULL;
-	kfree(handle->params);
-#endif
 	kfree(handle);
 	return;
 exit:
