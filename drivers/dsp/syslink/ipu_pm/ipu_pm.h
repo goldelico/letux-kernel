@@ -87,6 +87,7 @@
 #define _IPU_PM_H_
 
 #include <linux/types.h>
+#include <linux/semaphore.h>
 
 /* Pm notify ducati driver */
 /* Suspend/resume/other... */
@@ -124,12 +125,16 @@
 /* Macro to make a correct module magic number with refCount */
 #define IPU_PM_MAKE_MAGICSTAMP(x) ((IPU_PM_MODULEID << 12u) | (x))
 
-
 enum pm_failure_codes{
 	PM_INSUFFICIENT_CHANNELS = 1,
 	PM_NO_GPTIMER,
 	PM_NO_GPIO,
-	PM_NO_I2C
+	PM_NO_I2C,
+	PM_INVAL_RCB_NUM,
+	PM_INVAL_NUM_CHANNELS,
+	PM_INVAL_NUM_I2C,
+	PM_NOT_INSTANTIATED,
+	PM_UNSUPPORTED
 };
 
 enum pm_msgtype_codes{PM_NULLMSG,
@@ -171,7 +176,6 @@ union message_slicer {
 	int whole;
 };
 
-
 struct rcb_block {
 	unsigned rcb_num:6;
 	unsigned msg_type:4;
@@ -192,17 +196,17 @@ struct rcb_block {
 		};
 		unsigned char channels[SDMA_CHANNELS_MAX];
 	};
-
 };
 
 struct sms {
 	unsigned rat;
+	unsigned pm_version;
 	struct rcb_block rcb[RCB_MAX];
 };
 
 struct pm_event {
 	enum pm_event_type event_type;
-	struct semaphore *sem_handle;
+	struct semaphore sem_handle;
 };
 
 struct ipu_pm_params {
@@ -286,5 +290,8 @@ int ipu_pm_attach(u16 remote_proc_id, void *shared_addr);
 
 /* Function to deattach ipu_pm module */
 int ipu_pm_detach(u16 remote_proc_id);
+
+/* Function to register the ipu_pm events */
+int ipu_pm_init_transport(struct ipu_pm_object *handle);
 
 #endif
