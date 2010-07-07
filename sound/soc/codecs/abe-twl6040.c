@@ -1683,7 +1683,7 @@ static int abe_voice_hw_params(struct snd_pcm_substream *substream,
 #ifdef CONFIG_SND_OMAP_VOICE_TEST
 	/* Vx_DL/UL connection to McBSP 2 ports */
 	format.f = 8000;
-	format.samp_format = MONO_MSB;
+	format.samp_format = STEREO_RSHIFTED_16;
 	abe_connect_serial_port(VX_DL_PORT, &format, MCBSP2_RX);
 	/* Enable downlink port */
 	abe_enable_data_transfer(VX_DL_PORT);
@@ -1691,7 +1691,7 @@ static int abe_voice_hw_params(struct snd_pcm_substream *substream,
 		abe_enable_data_transfer(PDM_DL_PORT);
 
 	format.f = 8000;
-	format.samp_format = MONO_RSHIFTED_16;
+	format.samp_format = STEREO_RSHIFTED_16;
 	abe_connect_serial_port(VX_UL_PORT, &format, MCBSP2_TX);
 	/* Enable uplink port */
 	abe_enable_data_transfer(VX_UL_PORT);
