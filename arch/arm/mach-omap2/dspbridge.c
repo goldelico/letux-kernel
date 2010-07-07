@@ -16,7 +16,6 @@
 #include "cm.h"
 #ifdef CONFIG_BRIDGE_DVFS
 #include <plat/omap-pm.h>
-#include <plat/opp.h>
 /*
  * The DSP load balancer works on the following logic:
  * Opp frequencies:
@@ -42,6 +41,7 @@ static struct dspbridge_platform_data dspbridge_pdata __initdata = {
 	.dsp_get_opp	 = omap_pm_dsp_get_opp,
 	.cpu_set_freq	 = omap_pm_cpu_set_freq,
 	.cpu_get_freq	 = omap_pm_cpu_get_freq,
+	.dsp_get_rate_table = omap_get_dsp_rate_table,
 #endif
 	.dsp_prm_read	= prm_read_mod_reg,
 	.dsp_prm_write	= prm_write_mod_reg,
@@ -62,58 +62,54 @@ static struct dspbridge_platform_data dspbridge_pdata __initdata = {
  */
 static int get_opp_table(struct dspbridge_platform_data *pdata)
 {
+	int ret = 0;
 #ifdef CONFIG_BRIDGE_DVFS
-	int mpu_freqs;
-	int dsp_freqs;
-	int i;
-	struct omap_opp *opp;
-	unsigned long freq, old_rate;
+	int opp_count, i, j;
+	unsigned long old_rate;
+	struct omap_opp *dsp_rate, *dsp_sort, temp;
 
-	mpu_freqs = opp_get_opp_count(OPP_MPU);
-	dsp_freqs = opp_get_opp_count(OPP_DSP);
-	if (mpu_freqs < 0 || dsp_freqs < 0 || mpu_freqs != dsp_freqs) {
-		pr_err("mpu and dsp frequencies are inconsistent! "
-			"mpu_freqs=%d dsp_freqs=%d\n", mpu_freqs, dsp_freqs);
-		return -EINVAL;
+	opp_count = omap_pm_get_max_vdd1_opp();
+	dsp_rate = (*pdata->dsp_get_rate_table)();
+
+	dsp_sort = kzalloc(sizeof(struct omap_opp) * (opp_count + 1),
+			   GFP_KERNEL);
+	if (!dsp_sort) {
+		pr_err("dspbridge mpu sorted table allocation failed\n");
+		ret = -ENOMEM;
+		goto out;
 	}
-	/* allocate memory if we have opps initialized */
-	pdata->mpu_speeds = kzalloc(sizeof(u32) * mpu_freqs,
-			GFP_KERNEL);
-	if (!pdata->mpu_speeds) {
-		pr_err("unable to allocate memory for the mpu"
-		"frequencies\n");
-		return -ENOMEM;
+
+	memcpy(dsp_sort, dsp_rate, sizeof(struct omap_opp) * (opp_count + 1));
+
+	/* Sort the frequencies to get a linear table */
+	for (i = 1; i <= opp_count; i++) {
+		temp = dsp_sort[i];
+		for (j = i - 1; j >= 0 && dsp_sort[j].rate > temp.rate; j--)
+			dsp_sort[j + 1] = dsp_sort[j];
+		dsp_sort[j + 1] = temp;
 	}
-	i = 0;
-	freq = 0;
-	while (!IS_ERR(opp = opp_find_freq_ceil(OPP_MPU, &freq))) {
-		pdata->mpu_speeds[i] = freq;
-		freq++;
-		i++;
-	}
-	pdata->mpu_num_speeds = mpu_freqs;
-	pdata->mpu_min_speed = pdata->mpu_speeds[0];
-	pdata->mpu_max_speed = pdata->mpu_speeds[mpu_freqs - 1];
+
+	pdata->mpu_min_speed = dsp_sort[1].rate;
+	pdata->mpu_max_speed = dsp_sort[opp_count].rate;
+
 	/* need an initial terminator */
 	pdata->dsp_freq_table = kzalloc(
 			sizeof(struct dsp_shm_freq_table) *
-			(dsp_freqs + 1), GFP_KERNEL);
+			(opp_count + 1), GFP_KERNEL);
 	if (!pdata->dsp_freq_table) {
-		pr_err("unable to allocate memory for the dsp"
-			"frequencies\n");
-		return -ENOMEM;
+		pr_err("dspbridge frequency table allocation failed\n");
+		ret = -ENOMEM;
+		goto err;
 	}
 
-	i = 1;
-	freq = 0;
 	old_rate = 0;
 	/*
 	 * the freq table is in terms of khz.. so we need to
 	 * divide by 1000
 	 */
-	while (!IS_ERR(opp = opp_find_freq_ceil(OPP_DSP, &freq))) {
+	for (i = 1; i <= opp_count; i++) {
 		/* dsp frequencies are in khz */
-		u32 rate = freq / 1000;
+		u32 rate = dsp_sort[i].rate / 1000;
 		/*
 		 * On certain 34xx silicons, certain OPPs are duplicated
 		 * for DSP - handle those by copying previous opp value
@@ -124,8 +120,7 @@ static int get_opp_table(struct dspbridge_platform_data *pdata)
 				sizeof(struct dsp_shm_freq_table));
 		} else {
 			pdata->dsp_freq_table[i].dsp_freq = rate;
-			pdata->dsp_freq_table[i].u_volts =
-				opp_get_voltage(opp);
+			pdata->dsp_freq_table[i].u_volts = dsp_sort[i].vsel;
 			/*
 			 * min threshold:
 			 * NOTE: index 1 needs a min of 0! else no
@@ -139,14 +134,17 @@ static int get_opp_table(struct dspbridge_platform_data *pdata)
 				((rate * BRIDGE_THRESH_HIGH_PERCENT) / 100);
 		}
 		old_rate = rate;
-		freq++;
-		i++;
 	}
 	/* the last entry should map with maximum rate */
 	pdata->dsp_freq_table[i - 1].thresh_max_freq = old_rate;
-	pdata->dsp_num_speeds = dsp_freqs;
+	pdata->dsp_num_speeds = opp_count;
+
+err:
+	kfree(dsp_sort);
+
+out:
 #endif
-	return 0;
+	return ret;
 }
 
 static int __init dspbridge_init(void)
@@ -183,9 +181,7 @@ static int __init dspbridge_init(void)
 	return 0;
 
 err_out:
-	kfree(pdata->mpu_speeds);
 	kfree(pdata->dsp_freq_table);
-	pdata->mpu_speeds = NULL;
 	pdata->dsp_freq_table = NULL;
 	platform_device_put(pdev);
 	return err;
@@ -195,9 +191,7 @@ module_init(dspbridge_init);
 static void __exit dspbridge_exit(void)
 {
 	struct dspbridge_platform_data *pdata = &dspbridge_pdata;
-	kfree(pdata->mpu_speeds);
 	kfree(pdata->dsp_freq_table);
-	pdata->mpu_speeds = NULL;
 	pdata->dsp_freq_table = NULL;
 	platform_device_unregister(dspbridge_pdev);
 }

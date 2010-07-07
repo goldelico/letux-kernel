@@ -65,8 +65,7 @@ struct dspbridge_platform_data {
 	 u8(*dsp_get_opp) (void);
 	void (*cpu_set_freq) (unsigned long f);
 	unsigned long (*cpu_get_freq) (void);
-	unsigned long *mpu_speeds;
-	u8 mpu_num_speeds;
+	struct omap_opp *(*dsp_get_rate_table)(void);
 	unsigned long mpu_min_speed;
 	unsigned long mpu_max_speed;
 	struct dsp_shm_freq_table *dsp_freq_table;
