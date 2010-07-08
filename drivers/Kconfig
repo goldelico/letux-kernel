@@ -116,6 +116,8 @@ source "drivers/staging/Kconfig"
 
 source "drivers/platform/Kconfig"
 
+source "drivers/dsp/bridge/Kconfig"
+
 source "drivers/media/video/dmm/Kconfig"
 
 source "drivers/media/video/tiler/Kconfig"
