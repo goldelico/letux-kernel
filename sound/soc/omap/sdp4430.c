@@ -143,6 +143,13 @@ static int sdp4430_voice_hw_params(struct snd_pcm_substream *substream,
 		printk(KERN_ERR "can't set cpu system clock\n");
 		return ret;
 	}
+
+	ret = snd_soc_dai_set_clkdiv(cpu_dai, OMAP_MCBSP_CLKGDV, 193);
+	if (ret < 0) {
+		printk(KERN_ERR "can't set cpu clock div\n");
+		return ret;
+	}
+
 	return 0;
 }
 

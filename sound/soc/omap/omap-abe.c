@@ -74,6 +74,7 @@ struct omap_mcpdm_data {
 	int requested;
 #ifdef CONFIG_SND_OMAP_VOICE_TEST
 	struct omap_mcbsp_reg_cfg	regs;
+	int clk_div;
 #endif
 };
 
@@ -99,6 +100,9 @@ static struct omap_mcpdm_data mcpdm_data = {
 	.links = omap_mcpdm_links,
 	.active = {0},
 	.requested = 0,
+#ifdef CONFIG_SND_OMAP_VOICE_TEST
+	.clk_div = 0,
+#endif
 };
 
 /*
@@ -443,7 +447,21 @@ static int omap_abe_vx_dai_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
-	framesize = wlen * channels;
+	/* In McBSP master modes, FRAME (i.e. sample rate) is generated
+	 * by _counting_ BCLKs. Calculate frame size in BCLKs */
+	master = mcpdm_priv->fmt & SND_SOC_DAIFMT_MASTER_MASK;
+	if (master == SND_SOC_DAIFMT_CBS_CFS) {
+		div = mcpdm_priv->clk_div ? mcpdm_priv->clk_div : 1;
+		framesize = (mcpdm_priv->in_freq / div) / params_rate(params);
+
+		if (framesize < wlen * channels) {
+			printk(KERN_ERR "%s: not enough bandwidth for desired rate and"
+				"channels\n", __func__);
+			return -EINVAL;
+		}
+	} else {
+		framesize = wlen * channels;
+	}
 
 	/* Set FS period and length in terms of bit clock periods */
 	switch (format) {
@@ -602,6 +620,20 @@ static int omap_abe_mcbsp_dai_set_dai_sysclk(struct snd_soc_dai *cpu_dai,
 
 	return err;
 }
+
+static int omap_abe_mcbsp_dai_set_clkdiv(struct snd_soc_dai *cpu_dai,
+						int div_id, int div)
+{
+	struct omap_mcpdm_data *mcpdm_priv = cpu_dai->private_data;
+	struct omap_mcbsp_reg_cfg *regs = &mcpdm_priv->regs;
+
+	if (div_id != OMAP_MCBSP_CLKGDV)
+		return -ENODEV;
+
+	regs->srgr1 |= CLKGDV(div - 1);
+
+	return 0;
+}
 #endif
 
 static struct snd_soc_dai_ops omap_abe_dai_ops = {
@@ -621,6 +653,7 @@ static struct snd_soc_dai_ops omap_abe_vx_dai_ops = {
 	.trigger	= omap_abe_vx_dai_trigger,
 	.set_fmt	= omap_abe_mcbsp_dai_set_dai_fmt,
 	.set_sysclk	= omap_abe_mcbsp_dai_set_dai_sysclk,
+	.set_clkdiv	= omap_abe_mcbsp_dai_set_clkdiv,
 #else
 	.startup	= omap_abe_dai_startup,
 	.shutdown	= omap_abe_dai_shutdown,
