@@ -73,6 +73,7 @@ struct omap_mcpdm_data {
 	int active[2];
 	int requested;
 #ifdef CONFIG_SND_OMAP_VOICE_TEST
+	int mcbsp_requested;
 	struct omap_mcbsp_reg_cfg	regs;
 	unsigned int fmt;
 	unsigned int in_freq;
@@ -103,6 +104,7 @@ static struct omap_mcpdm_data mcpdm_data = {
 	.active = {0},
 	.requested = 0,
 #ifdef CONFIG_SND_OMAP_VOICE_TEST
+	.mcbsp_requested = 0,
 	.clk_div = 0,
 #endif
 };
@@ -145,6 +147,7 @@ static int omap_abe_dai_trigger(struct snd_pcm_substream *substream, int cmd,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;
 	struct omap_mcpdm_data *mcpdm_priv = cpu_dai->private_data;
+	struct omap_mcpdm_link *mcpdm_links = mcpdm_priv->links;
 	int stream = substream->stream;
 	int err = 0;
 
@@ -153,8 +156,10 @@ static int omap_abe_dai_trigger(struct snd_pcm_substream *substream, int cmd,
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		if (substream->stream) {
-			if (!mcpdm_priv->active[stream]++)
+			if (!mcpdm_priv->active[stream]++) {
+				err = omap_mcpdm_capture_open(&mcpdm_links[stream]);
 				omap_mcpdm_start(stream);
+			}
 		}
 		break;
 
@@ -188,7 +193,7 @@ static int omap_abe_dai_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;
 	struct omap_mcpdm_data *mcpdm_priv = cpu_dai->private_data;
 	struct omap_mcpdm_link *mcpdm_links = mcpdm_priv->links;
-	int err, stream = substream->stream, dma_req;
+	int err=0, stream = substream->stream, dma_req;
 	abe_dma_t dma_params;
 
 	/* get abe dma data */
@@ -246,14 +251,10 @@ static int omap_abe_dai_hw_params(struct snd_pcm_substream *substream,
 	omap_abe_dai_dma_params[stream].packet_size = dma_params.iter;
 	cpu_dai->dma_data = &omap_abe_dai_dma_params[stream];
 
-	if (stream == SNDRV_PCM_STREAM_PLAYBACK)
-		err = omap_mcpdm_playback_open(&mcpdm_links[stream]);
-	else
-		err = omap_mcpdm_capture_open(&mcpdm_links[stream]);
-
 	if (!substream->stream) {
 		if (!mcpdm_priv->active[stream]++) {
-			msleep(250);
+			err = omap_mcpdm_playback_open(&mcpdm_links[stream]);
+			msleep(5);
 			omap_mcpdm_start(stream);
 		}
 		/* Increment by 2 because 2 calls of HW free */
@@ -274,11 +275,15 @@ static int omap_abe_dai_hw_free(struct snd_pcm_substream *substream,
 	int err = 0;
 
 	if (mcpdm_priv->active[stream] == 1) {
-		if (stream == SNDRV_PCM_STREAM_PLAYBACK)
+		if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			err = omap_mcpdm_playback_close(&mcpdm_links[stream]);
-		else
-			err = omap_mcpdm_capture_close(&mcpdm_links[stream]);
-		msleep(250);
+			if (mcpdm_priv->active[0] == 0)
+				err = omap_mcpdm_capture_close(&mcpdm_links[stream]);
+		}
+		else {
+			if (mcpdm_priv->active[1] == 0)
+				err = omap_mcpdm_capture_close(&mcpdm_links[stream]);
+		}
 		omap_mcpdm_stop(stream);
 		mcpdm_priv->active[stream] = 0;
 	} else if (mcpdm_priv->active[stream] != 0) {
@@ -299,6 +304,8 @@ static int omap_abe_vx_dai_startup(struct snd_pcm_substream *substream,
 
 	if (!mcpdm_priv->requested++) {
 		err = omap_mcpdm_request();
+	}
+	if (!mcpdm_priv->mcbsp_requested++) {
 		omap_mcbsp_request(bus_id);
 
 		dma_op_mode = omap_mcbsp_get_dma_op_mode(bus_id);
@@ -328,10 +335,11 @@ static void omap_abe_vx_dai_shutdown(struct snd_pcm_substream *substream,
 	struct omap_mcpdm_data *mcpdm_priv = cpu_dai->private_data;
 	int bus_id = 1;
 
-	if (!--mcpdm_priv->requested) {
+	if (!--mcpdm_priv->requested)
 		omap_mcpdm_free();
+
+	if (!--mcpdm_priv->mcbsp_requested)
 		omap_mcbsp_free(bus_id);
-	}
 }
 
 static int omap_abe_vx_dai_trigger(struct snd_pcm_substream *substream, int cmd,
@@ -340,6 +348,7 @@ static int omap_abe_vx_dai_trigger(struct snd_pcm_substream *substream, int cmd,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;
 	struct omap_mcpdm_data *mcpdm_priv = cpu_dai->private_data;
+	struct omap_mcpdm_link *mcpdm_links = mcpdm_priv->links;
 	int stream = substream->stream, bus_id = 1;
 	int err = 0;
 
@@ -348,8 +357,10 @@ static int omap_abe_vx_dai_trigger(struct snd_pcm_substream *substream, int cmd,
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		if (substream->stream) {
-			if (!mcpdm_priv->active[stream]++)
+			if (!mcpdm_priv->active[stream]++) {
+				err = omap_mcpdm_capture_open(&mcpdm_links[stream]);
 				omap_mcpdm_start(stream);
+			}
 			omap_mcbsp_start(bus_id, stream, !stream);
 		}
 		break;
@@ -373,7 +384,7 @@ static int omap_abe_vx_dai_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;
 	struct omap_mcpdm_data *mcpdm_priv = cpu_dai->private_data;
 	struct omap_mcpdm_link *mcpdm_links = mcpdm_priv->links;
-	int err, stream = substream->stream, dma_req, dma, bus_id = 1, id = 1;
+	int err = 0, stream = substream->stream, dma_req, dma, bus_id = 1, id = 1;
 	int wlen, channels, wpf, sync_mode = OMAP_DMA_SYNC_ELEMENT;
 	unsigned long port;
 	abe_dma_t dma_params;
@@ -476,12 +487,13 @@ static int omap_abe_vx_dai_hw_params(struct snd_pcm_substream *substream,
 	omap_mcbsp_config(bus_id, &mcpdm_priv->regs);
 	if (!substream->stream) {
 		if (!mcpdm_priv->active[stream]++) {
-			msleep(250);
+			err = omap_mcpdm_playback_open(&mcpdm_links[stream]);
+			msleep(5);
 			omap_mcpdm_start(stream);
 		}
 		omap_mcbsp_start(bus_id, stream, !stream);
 		/* Increment by 2 because 2 calls of HW free */
-		 mcpdm_priv->active[stream]++;
+		mcpdm_priv->active[stream]++;
 	}
 
 	return err;
@@ -495,14 +507,18 @@ static int omap_abe_vx_dai_hw_free(struct snd_pcm_substream *substream,
 	struct omap_mcpdm_data *mcpdm_priv = cpu_dai->private_data;
 	struct omap_mcpdm_link *mcpdm_links = mcpdm_priv->links;
 	int stream = substream->stream;
-	int err, bus_id = 1;
+	int err=0, bus_id = 1;
 
 	if (mcpdm_priv->active[stream] == 1) {
-		if (stream == SNDRV_PCM_STREAM_PLAYBACK)
+		if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			err = omap_mcpdm_playback_close(&mcpdm_links[stream]);
-		else
-			err = omap_mcpdm_capture_close(&mcpdm_links[stream]);
-		msleep(250);
+			if (mcpdm_priv->active[0] == 0)
+				err = omap_mcpdm_capture_close(&mcpdm_links[stream]);
+		}
+		else {
+			if (mcpdm_priv->active[1] == 0)
+				err = omap_mcpdm_capture_close(&mcpdm_links[stream]);
+		}
 		omap_mcpdm_stop(stream);
 		/* Stop McBSP */
 		omap_mcbsp_stop(bus_id, !stream, stream);

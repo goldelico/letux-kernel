@@ -1783,12 +1783,18 @@ static void abe_voice_shutdown(struct snd_pcm_substream *substream,
 
         if (!substream->stream) {
                 abe_disable_data_transfer(VX_DL_PORT);
-                if (!--priv->mcpdm_dl_enable)
+                if (!--priv->mcpdm_dl_enable) {
 			abe_disable_data_transfer(PDM_DL_PORT);
+	                if (priv->mcpdm_ul_enable == 0)
+				abe_disable_data_transfer(PDM_UL_PORT);
+		}
         } else {
 		abe_disable_data_transfer(VX_UL_PORT);
-		if (!--priv->mcpdm_ul_enable)
-			abe_disable_data_transfer(PDM_UL_PORT);
+		if (!--priv->mcpdm_ul_enable) {
+	                if (priv->mcpdm_dl_enable == 0) {
+				abe_disable_data_transfer(PDM_UL_PORT);
+			}
+		}
 	}
 
         if(!--priv->configure) {
