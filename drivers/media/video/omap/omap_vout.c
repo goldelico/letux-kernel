@@ -105,6 +105,13 @@ MODULE_LICENSE("GPL");
 #define MAX_PIXELS_PER_LINE     2048
 #define VRFB_TX_TIMEOUT         1000
 
+#define VDD1_FREQ_CONST	(cpu_is_omap34xx() ? \
+(cpu_is_omap3630() ? 600000000 : 500000000) : 0)
+#define VDD1_FREQ_MIN	(cpu_is_omap34xx() ? \
+(cpu_is_omap3630() ? 300000000 : 125000000) : 0)
+#define VDD2_OCP_FREQ_CONST	(cpu_is_omap34xx() ? \
+(cpu_is_omap3630() ? 200000 : 166000) : 0)
+
 int cacheable_buffers;
 int flushable_buffers;
 
@@ -2593,6 +2600,7 @@ static int vidioc_streamon(struct file *file, void *fh,
 {
 	struct omap_vout_device *vout = fh;
 	struct videobuf_queue *q = &vout->vbq;
+	struct vout_platform_data *pdata = (vout->dev)->platform_data;
 	u32 addr = 0, uv_addr = 0;
 	int r = 0;
 	int t;
@@ -2651,6 +2659,24 @@ static int vidioc_streamon(struct file *file, void *fh,
 	omap_vout_vrfb_buffer_setup(vout, &count, 0);
 #endif
 
+#ifdef CONFIG_PM
+	if (!cpu_is_omap44xx()) {
+		pdata->set_min_mpu_freq(vout->dev, VDD1_FREQ_CONST);
+		/*
+		 * Through-put requirement.
+		 * Set max OCP freq:
+		 * 		For 3630 is 200 MHz
+		 *		For 3430 is 166 MHz
+		 * Through-put is in KByte/s
+		 * so OCP_FREQ KHz * 4 =
+		 *			800 KByte/s for 3630
+		 *			664 KByte/s for 3430
+		 */
+		pdata->set_min_bus_tput(vout->dev , OCP_INITIATOR_AGENT,
+					VDD2_OCP_FREQ_CONST * 4);
+	}
+#endif
+
 	mask = DISPC_IRQ_VSYNC | DISPC_IRQ_EVSYNC_EVEN |
 			DISPC_IRQ_EVSYNC_ODD | DISPC_IRQ_FRAMEDONE;
 #ifdef CONFIG_ARCH_OMAP4
@@ -2698,6 +2724,7 @@ static int vidioc_streamoff(struct file *file, void *fh,
 {
 	struct omap_vout_device *vout = fh;
 	int t, r = 0;
+	struct vout_platform_data *pdata = (vout->dev)->platform_data;
 	struct omapvideo_info *ovid = &vout->vid_info;
 	u32 mask = 0;
 
@@ -2711,6 +2738,14 @@ static int vidioc_streamoff(struct file *file, void *fh,
 	mask =	mask | DISPC_IRQ_FRAMEDONE2 | DISPC_IRQ_VSYNC2;
 #endif
 	omap_dispc_unregister_isr(omap_vout_isr, vout, mask);
+
+#ifdef CONFIG_PM
+	if (!cpu_is_omap44xx()) {
+		/* Releasing PM constraints */
+		pdata->set_min_bus_tput(vout->dev, OCP_INITIATOR_AGENT, 0);
+		pdata->set_min_mpu_freq(vout->dev, VDD1_FREQ_MIN);
+	}
+#endif
 
 	if (vout->linked) {
 		if (omapvid_link_en_ovl(0, 0, 0))
@@ -3121,6 +3156,7 @@ static int __init omap_vout_create_video_devices(struct platform_device *pdev)
 
 		memset(vout, 0, sizeof(struct omap_vout_device));
 
+		vout->dev = &pdev->dev;
 		vout->vid = k;
 		vid_dev->vouts[k] = vout;
 		vout->vid_dev = vid_dev;

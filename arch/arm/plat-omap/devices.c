@@ -33,6 +33,13 @@
 #include <plat/omap44xx.h>
 #include <plat/omap_hwmod.h>
 #include <plat/omap_device.h>
+#ifdef CONFIG_PM
+#include <plat/vrfb.h>
+
+#include <media/videobuf-dma-sg.h>
+#include <media/v4l2-device.h>
+#include <../drivers/media/video/omap/omap_voutdef.h>
+#endif
 
 #if	defined(CONFIG_OMAP_DSP) || defined(CONFIG_OMAP_DSP_MODULE)
 
@@ -468,11 +475,28 @@ static struct resource zoom3_vout_resource[2] = {
 };
 #endif
 
+#if CONFIG_PM
+struct vout_platform_data zoom3_vout_data = {
+		.set_min_bus_tput = omap_pm_set_min_bus_tput,
+		.set_max_mpu_wakeup_lat =  omap_pm_set_max_mpu_wakeup_lat,
+		.set_min_mpu_freq = omap_pm_set_min_mpu_freq,
+};
+#endif
+
 static struct platform_device zoom3_vout_device = {
 	.name			= "omap_vout",
 	.num_resources	= ARRAY_SIZE(zoom3_vout_resource),
 	.resource		= &zoom3_vout_resource[0],
 	.id		= -1,
+#ifdef CONFIG_PM
+	.dev = {
+		.platform_data = &zoom3_vout_data,
+	}
+#else
+	.dev = {
+		.platform_data = NULL,
+	}
+#endif
 };
 static void omap_init_vout(void)
 {

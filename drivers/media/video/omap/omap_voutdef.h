@@ -12,6 +12,7 @@
 #define OMAP_VOUTDEF_H
 
 #include <plat/display.h>
+#include <plat/omap-pm.h>
 
 #define YUYV_BPP        2
 #define RGB565_BPP      2
@@ -91,6 +92,7 @@ struct omap2video_device {
 struct omap_vout_device {
 
 	struct omapvideo_info vid_info;
+	struct device *dev;
 	struct video_device *vfd;
 	struct omap2video_device *vid_dev;
 	int vid;
@@ -172,5 +174,12 @@ struct omap_vout_device {
 	struct videobuf_queue vbq;
 	int io_allowed;
 	int linked;
+};
+
+struct vout_platform_data {
+	void (*set_min_bus_tput)(struct device *dev, u8 agent_id,
+				unsigned long r);
+	void (*set_max_mpu_wakeup_lat)(struct device *dev, long t);
+	void (*set_min_mpu_freq)(struct device *dev, unsigned long f);
 };
 #endif	/* ifndef OMAP_VOUTDEF_H */
