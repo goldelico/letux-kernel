@@ -340,7 +340,7 @@ static int omap_abe_vx_dai_trigger(struct snd_pcm_substream *substream, int cmd,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;
 	struct omap_mcpdm_data *mcpdm_priv = cpu_dai->private_data;
-	int stream = substream->stream;
+	int stream = substream->stream, bus_id = 1;
 	int err = 0;
 
 	switch (cmd) {
@@ -350,6 +350,7 @@ static int omap_abe_vx_dai_trigger(struct snd_pcm_substream *substream, int cmd,
 		if (substream->stream) {
 			if (!mcpdm_priv->active[stream]++)
 				omap_mcpdm_start(stream);
+			omap_mcbsp_start(bus_id, stream, !stream);
 		}
 		break;
 
@@ -399,21 +400,6 @@ static int omap_abe_vx_dai_hw_params(struct snd_pcm_substream *substream,
 					(unsigned long)dma_params.data;
 	omap_abe_dai_dma_params[stream].packet_size = dma_params.iter;
 	cpu_dai->dma_data = &omap_abe_dai_dma_params[stream];
-
-	if (stream == SNDRV_PCM_STREAM_PLAYBACK)
-		err = omap_mcpdm_playback_open(&mcpdm_links[stream]);
-	else
-		err = omap_mcpdm_capture_open(&mcpdm_links[stream]);
-
-	if (!substream->stream) {
-		if (!mcpdm_priv->active[stream]++) {
-			msleep(250);
-			omap_mcpdm_start(stream);
-		}
-		/* Increment by 2 because 2 calls of HW free */
-		mcpdm_priv->active[stream]++;
-	}
-
 
 	dma = omap44xx_dma_reqs[bus_id][substream->stream];
 	port = omap44xx_mcbsp_port[bus_id][substream->stream];
@@ -488,7 +474,15 @@ static int omap_abe_vx_dai_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	omap_mcbsp_config(bus_id, &mcpdm_priv->regs);
-	omap_mcbsp_start(bus_id, !stream, stream);
+	if (!substream->stream) {
+		if (!mcpdm_priv->active[stream]++) {
+			msleep(250);
+			omap_mcpdm_start(stream);
+		}
+		omap_mcbsp_start(bus_id, stream, !stream);
+		/* Increment by 2 because 2 calls of HW free */
+		 mcpdm_priv->active[stream]++;
+	}
 
 	return err;
 }
@@ -510,12 +504,12 @@ static int omap_abe_vx_dai_hw_free(struct snd_pcm_substream *substream,
 			err = omap_mcpdm_capture_close(&mcpdm_links[stream]);
 		msleep(250);
 		omap_mcpdm_stop(stream);
+		/* Stop McBSP */
+		omap_mcbsp_stop(bus_id, !stream, stream);
 		mcpdm_priv->active[stream] = 0;
 	} else if (mcpdm_priv->active[stream] != 0) {
 		mcpdm_priv->active[stream]--;
 	}
-	/* Stop McBSP */
-	omap_mcbsp_stop(bus_id, !stream, stream);
 
 	return err;
 }
