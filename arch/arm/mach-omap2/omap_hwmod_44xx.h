@@ -5771,7 +5771,6 @@ static struct omap_hwmod omap44xx_mpuss_hwmod = {
 };
 
 static __initdata struct omap_hwmod *omap44xx_hwmods[] = {
-
 	/* interconnect */
 	&omap44xx_dmm_hwmod,
 	&omap44xx_l3_instr_hwmod,
@@ -5815,7 +5814,9 @@ static __initdata struct omap_hwmod *omap44xx_hwmods[] = {
 	&omap44xx_gpio4_hwmod,
 	&omap44xx_gpio5_hwmod,
 	&omap44xx_gpio6_hwmod,
+#if 0
 	&omap44xx_gpmc_hwmod,
+#endif
 	&omap44xx_gptimer1_hwmod,
 	&omap44xx_gptimer10_hwmod,
 	&omap44xx_gptimer11_hwmod,
@@ -5827,12 +5828,15 @@ static __initdata struct omap_hwmod *omap44xx_hwmods[] = {
 	&omap44xx_gptimer7_hwmod,
 	&omap44xx_gptimer8_hwmod,
 	&omap44xx_gptimer9_hwmod,
+#if 0
 	&omap44xx_hdq1w_hwmod,
+#endif
 	&omap44xx_i2c1_hwmod,
 	&omap44xx_i2c2_hwmod,
 	&omap44xx_i2c3_hwmod,
 	&omap44xx_i2c4_hwmod,
 	&omap44xx_keyboard_hwmod,
+#if 0
 	&omap44xx_mailbox_hwmod,
 	&omap44xx_mcasp_hwmod,
 	&omap44xx_mcbsp1_hwmod,
@@ -5847,7 +5851,9 @@ static __initdata struct omap_hwmod *omap44xx_hwmods[] = {
 	&omap44xx_mmc4_hwmod,
 	&omap44xx_mmc5_hwmod,
 	&omap44xx_ocmc_ram_hwmod,
+#endif
 	&omap44xx_pdm_hwmod,
+#if 0
 	&omap44xx_sl2_hwmod,
 	&omap44xx_slimbus1_hwmod,
 	&omap44xx_slimbus2_hwmod,
@@ -5856,23 +5862,25 @@ static __initdata struct omap_hwmod *omap44xx_hwmods[] = {
 	&omap44xx_sr_iva_hwmod,
 	&omap44xx_sr_mpu_hwmod,
 	&omap44xx_synctimer_hwmod,
+#endif
 	&omap44xx_uart1_hwmod,
 	&omap44xx_uart2_hwmod,
 	&omap44xx_uart3_hwmod,
 	&omap44xx_uart4_hwmod,
+#if 0
 	&omap44xx_usb_tll_hwmod,
 	&omap44xx_usbphyocp2scp_hwmod,
 	&omap44xx_usim_hwmod,
 	&omap44xx_wdt2_hwmod,
 	&omap44xx_wdt3_hwmod,
+#endif
 
+	&omap44xx_dss_hwmod,
+#if 0
 	/* master_peripheral */
 	&omap44xx_aess_hwmod,
-	&omap44xx_dss_hwmod,
 	&omap44xx_fdif_hwmod,
-#if 0
 	&omap44xx_gfx_hwmod,
-#endif
 	&omap44xx_hsi_hwmod,
 	&omap44xx_iss_hwmod,
 	&omap44xx_ivahd_hwmod,
@@ -5889,6 +5897,7 @@ static __initdata struct omap_hwmod *omap44xx_hwmods[] = {
 	&omap44xx_cpu1_hwmod,
 	&omap44xx_ducati_hwmod,
 	&omap44xx_mpuss_hwmod,
+#endif
 	NULL,
 };
 
