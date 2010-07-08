@@ -1736,7 +1736,7 @@ static int abe_voice_trigger(struct snd_pcm_substream *substream,
 						RAMP_0MS, MIX_DL1_INPUT_VX_DL);
 
 			if ((snd_reg_shadow & 0x20) == 0x20)
-				abe_write_mixer(MIXDL2, MUTE_GAIN,
+				abe_write_mixer(MIXDL1, MUTE_GAIN,
 						RAMP_0MS, MIX_DL2_INPUT_VX_DL);
 		}
 		break;
