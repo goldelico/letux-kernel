@@ -254,6 +254,8 @@ void __init omap4_check_revision(void)
 {
 	u32 idcode;
 	u8 rev;
+	char *type;
+
 #if 0
 	u16 hawkeye;
 	/*
@@ -321,7 +323,25 @@ void __init omap4_check_revision(void)
 		omap_chip.oc |= CHIP_IS_OMAP4430ES2;
 		rev = 2;
 	}
-	pr_info("OMAP%04x ES%d.0\n", omap_rev() >> 16, rev);
+
+	switch (omap_type()) {
+	case OMAP2_DEVICE_TYPE_GP:
+		type = "GP";
+		break;
+	case OMAP2_DEVICE_TYPE_EMU:
+		type = "EMU";
+		break;
+	case OMAP2_DEVICE_TYPE_SEC:
+		type = "HS";
+		break;
+	default:
+		type = "bad-type";
+		break;
+	}
+
+	pr_info("*************************");
+	pr_info("OMAP%04x ES%d.0 type(%s)*\n", omap_rev() >> 16, rev, type);
+	pr_info("*************************");
 }
 
 #define OMAP3_SHOW_FEATURE(feat)		\
@@ -416,6 +436,7 @@ void __init omap2_check_revision(void)
 		omap3_cpuinfo();
 	} else if (cpu_is_omap44xx()) {
 		omap4_check_revision();
+		return;
 	} else {
 		pr_err("OMAP revision unknown, please fix!\n");
 	}
@@ -445,8 +466,6 @@ void __init omap2_check_revision(void)
 			omap_chip.oc |= CHIP_IS_OMAP3430ES3_1;
 		else if (omap_rev() == OMAP3630_REV_ES1_0)
 			omap_chip.oc |= CHIP_IS_OMAP3630ES1;
-	} else if (cpu_is_omap44xx()) {
-		omap_chip.oc |= CHIP_IS_OMAP4430;
 	} else {
 		pr_err("Uninitialized omap_chip, please fix!\n");
 	}
