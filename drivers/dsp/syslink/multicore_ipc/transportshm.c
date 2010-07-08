@@ -441,6 +441,13 @@ int transportshm_delete(void **handle_ptr)
 	struct transportshm_object *handle;
 	u16 proc_id;
 
+	u32 key;
+
+	key = mutex_lock_interruptible(transportshm_state.gate_handle);
+
+	if (key < 0)
+		goto mutex_fail;
+
 	if (WARN_ON(atomic_cmpmask_and_lt(
 			&(transportshm_module->ref_count),
 			TRANSPORTSHM_MAKE_MAGICSTAMP(0),
@@ -520,6 +527,8 @@ int transportshm_delete(void **handle_ptr)
 	return status;
 
 exit:
+	mutex_unlock(transportshm_state.gate_handle);
+mutex_fail:
 	if (status < 0)
 		printk(KERN_ERR "transportshm_delete failed: "
 			"status = 0x%x\n", status);
@@ -865,6 +874,12 @@ void _transportshm_notify_fxn(u16 proc_id, u16 line_id, u32 event_no,
 	struct transportshm_object *obj = NULL;
 	messageq_msg msg = NULL;
 	u32 queue_id;
+	u32 key;
+
+	key = mutex_lock_interruptible(transportshm_state.gate_handle);
+
+	if (key < 0)
+		goto mutex_fail;
 
 	if (WARN_ON(arg == NULL))
 		goto exit;
@@ -872,19 +887,31 @@ void _transportshm_notify_fxn(u16 proc_id, u16 line_id, u32 event_no,
 	obj = (struct transportshm_object *)arg;
 	/*  While there is are messages, get them out and send them to
 	 *  their final destination. */
-	while ((msg = (messageq_msg) listmp_get_head(obj->local_list))
-		!= NULL) {
+	if (obj->local_list)
+		msg = (messageq_msg) listmp_get_head(obj->local_list);
+	else
+		goto exit;
+	while (msg != NULL) {
 		/* Get the destination message queue Id */
 		queue_id = messageq_get_dst_queue(msg);
 
 		/* put the message to the destination queue */
 		messageq_put(queue_id, msg);
+		if (obj->local_list)
+			msg = (messageq_msg)
+				listmp_get_head(obj->local_list);
+		else
+			msg = NULL;
 	}
+	mutex_unlock(transportshm_state.gate_handle);
 	return;
 
 exit:
+	mutex_unlock(transportshm_state.gate_handle);
+mutex_fail:
 	printk(KERN_ERR "transportshm_notify_fxn: argument passed is "
 		"NULL!\n");
+	return;
 }
 
 
