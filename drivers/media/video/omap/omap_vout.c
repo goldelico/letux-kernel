@@ -1979,12 +1979,6 @@ static int vidioc_s_fmt_vid_out(struct file *file, void *fh,
 
 	mutex_lock(&vout->lock);
 
-#ifndef CONFIG_ARCH_OMAP4
-	/*check for 720p format*/
-	if (vout->pix.height * vout->pix.width == VID_MAX_WIDTH * 720)
-		vout->use_isp_rsz_for_downscale = 1;
-#endif
-
 	ovid = &vout->vid_info;
 	ovl = ovid->overlays[0];
 
@@ -2031,6 +2025,12 @@ static int vidioc_s_fmt_vid_out(struct file *file, void *fh,
 	vout->bpp = bpp;
 	vout->pix = f->fmt.pix;
 	vout->vrfb_bpp = 1;
+
+	if (cpu_is_omap34xx())
+		/*check for 720p format*/
+		if (vout->pix.height * vout->pix.width == VID_MAX_WIDTH * 720)
+			vout->use_isp_rsz_for_downscale = 1;
+
 
 	/* If YUYV then vrfb bpp is 2, for  others its 1 */
 	if (V4L2_PIX_FMT_YUYV == vout->pix.pixelformat ||
