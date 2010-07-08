@@ -136,4 +136,7 @@
 #define TWL6040_HPPLL_ID		1
 #define TWL6040_LPPLL_ID		2
 
+/* STATUS (0x2E) fields */
+#define TWL6040_PLUGCOMP               0x02
+
 #endif /* End of __TWL6040_H__ */

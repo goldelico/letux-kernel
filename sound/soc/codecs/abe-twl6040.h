@@ -27,6 +27,10 @@ extern struct snd_soc_codec_device soc_codec_dev_abe_twl6040;
 
 struct twl6030_setup_data {
 	void (*codec_enable)(int enable);
+	void *jack;
 };
+
+void twl6040_hs_jack_detect(struct snd_soc_codec *codec,
+			   struct snd_soc_jack *jack, int report);
 
 #endif /* End of __ABE_TWL6040_H__ */

@@ -47,11 +47,17 @@
 
 #define ABE_FORMATS	 (SNDRV_PCM_FMTBIT_S32_LE)
 
+struct twl6040_jack_data {
+	struct snd_soc_jack *jack;
+	int report;
+};
+
 /* codec private data */
 struct twl6040_data {
 	struct snd_soc_codec codec;
 	int audpwron;
 	int naudint;
+	struct twl6040_jack_data hs_jack;
 	int codec_powered;
 	int pll;
 	int non_lp;
@@ -471,6 +477,8 @@ static irqreturn_t twl6040_naudint_handler(int irq, void *data)
 {
 	struct snd_soc_codec *codec = data;
 	struct twl6040_data *priv = codec->private_data;
+	struct twl6040_jack_data *jack = &priv->hs_jack;
+	int report = 0;
 	u8 intid;
 
 	twl_i2c_read_u8(TWL_MODULE_AUDIO_VOICE, &intid, TWL6040_REG_INTID);
@@ -480,7 +488,12 @@ static irqreturn_t twl6040_naudint_handler(int irq, void *data)
 		dev_alert(codec->dev, "die temp over-limit detection\n");
 		break;
 	case TWL6040_PLUGINT:
+		/* Debounce */
+		msleep(200);
+		report = jack->report;
 	case TWL6040_UNPLUGINT:
+		snd_soc_jack_report(jack->jack, report, jack->report);
+		break;
 	case TWL6040_HOOKINT:
 		break;
 	case TWL6040_HFINT:
@@ -1833,6 +1846,24 @@ static int abe_twl6040_resume(struct platform_device *pdev)
 #define abe_twl6040_suspend NULL
 #define abe_twl6040_resume NULL
 #endif
+
+void twl6040_hs_jack_detect(struct snd_soc_codec *codec,
+			    struct snd_soc_jack *jack, int report)
+{
+	struct twl6040_data *priv = codec->private_data;
+	int status;
+
+	priv->hs_jack.jack = jack;
+	priv->hs_jack.report = report;
+
+	/* Sync status */
+	status = twl6040_read_reg_volatile(codec, TWL6040_REG_STATUS);
+	if (status & TWL6040_PLUGCOMP)
+		snd_soc_jack_report(jack, report, report);
+	else
+		snd_soc_jack_report(jack, 0, report);
+}
+EXPORT_SYMBOL_GPL(twl6040_hs_jack_detect);
 
 static struct snd_soc_codec *twl6040_codec;
 
