@@ -405,6 +405,27 @@ static void sr_set_testing_nvalues(struct omap_sr *sr)
 	}
 
 }
+
+u32 sr_read_efuse_nvalues(int opp_no)
+{
+	switch (opp_no) {
+		case VDD1_OPP1:
+			return omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP1_VDD1);
+		case VDD1_OPP2:
+			return omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP2_VDD1);
+		case VDD1_OPP3:
+			return omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP3_VDD1);
+		case VDD1_OPP4:
+			return omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP4_VDD1);
+		case VDD1_OPP5:
+			return omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP5_VDD1);
+		default:
+			pr_err("In valid sr1 opp no\n");
+			return 0;
+	}
+}
+EXPORT_SYMBOL(sr_read_efuse_nvalues);
+
 static void sr_set_efuse_nvalues(struct omap_sr *sr)
 {
 	u32 senn_adj = 3.0*12.5;
@@ -416,17 +437,16 @@ static void sr_set_efuse_nvalues(struct omap_sr *sr)
 
 			sr->opp5_nvalue = sr1_opp[5] =
 			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP5_VDD1);
-			/* Add 2 step margin on n-target for 1.3g */
-			sr->opp5_nvalue = calculate_opp_nvalue(sr->opp5_nvalue,
-						senn_adj*2, senp_adj*2);
 			if (sr->opp5_nvalue != 0x0) {
+				/* Add 2 step margin on n-target for 1.2g */
+				sr->opp5_nvalue =
+					calculate_opp_nvalue(sr->opp5_nvalue,
+						senn_adj*2, senp_adj*2);
 				pr_info("SR1:Fused Nvalues for VDD1OPP5 %x\n",
 							sr->opp5_nvalue);
 			} else {
-				/* use test nvalues */
-				pr_info(KERN_INFO "SR: using test nvalues\n");
-				sr_set_testing_nvalues(sr);
-				return;
+				pr_info(KERN_INFO "SR: Nvalues not fused for"
+							"1.2G, disabled\n");
 			}
 
 			sr->opp4_nvalue = sr1_opp[4] =
