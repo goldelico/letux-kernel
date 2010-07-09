@@ -74,6 +74,8 @@ struct omap_mcpdm_data {
 	int requested;
 #ifdef CONFIG_SND_OMAP_VOICE_TEST
 	struct omap_mcbsp_reg_cfg	regs;
+	unsigned int fmt;
+	unsigned int in_freq;
 	int clk_div;
 #endif
 };
@@ -302,9 +304,9 @@ static int omap_abe_vx_dai_startup(struct snd_pcm_substream *substream,
 		dma_op_mode = omap_mcbsp_get_dma_op_mode(bus_id);
 
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-			max_period = omap_mcbsp_get_max_tx_threshold(bus_id);
-		else
 			max_period = omap_mcbsp_get_max_rx_threshold(bus_id);
+		else
+			max_period = omap_mcbsp_get_max_tx_threshold(bus_id);
 
 		max_period++;
 		max_period <<= 1;
@@ -375,7 +377,7 @@ static int omap_abe_vx_dai_hw_params(struct snd_pcm_substream *substream,
 	unsigned long port;
 	abe_dma_t dma_params;
 	struct omap_mcbsp_reg_cfg *regs = &mcpdm_priv->regs;
-	unsigned int format, framesize;
+	unsigned int format, framesize, master, div;
 
 	/* get abe dma data */
 	switch (cpu_dai->id) {
@@ -403,7 +405,15 @@ static int omap_abe_vx_dai_hw_params(struct snd_pcm_substream *substream,
 	else
 		err = omap_mcpdm_capture_open(&mcpdm_links[stream]);
 
-	omap_mcpdm_start(stream);
+	if (!substream->stream) {
+		if (!mcpdm_priv->active[stream]++) {
+			msleep(250);
+			omap_mcpdm_start(stream);
+		}
+		/* Increment by 2 because 2 calls of HW free */
+		mcpdm_priv->active[stream]++;
+	}
+
 
 	dma = omap44xx_dma_reqs[bus_id][substream->stream];
 	port = omap44xx_mcbsp_port[bus_id][substream->stream];
@@ -416,9 +426,10 @@ static int omap_abe_vx_dai_hw_params(struct snd_pcm_substream *substream,
 	omap_mcbsp_dai_dma_params[id][substream->stream].data_type =
 							OMAP_DMA_DATA_TYPE_S16;
 
-	format = SND_SOC_DAIFMT_I2S & SND_SOC_DAIFMT_FORMAT_MASK;
+	format = mcpdm_priv->fmt & SND_SOC_DAIFMT_FORMAT_MASK;
 
-	wpf = channels = params_channels(params);
+	/* FIX-ME: Using mono format per default */
+	wpf = channels = 1;
 	if (channels == 2 && format == SND_SOC_DAIFMT_I2S) {
 		/* Use dual-phase frames */
 		regs->rcr2	|= RPHASE;
@@ -520,14 +531,15 @@ static int omap_abe_mcbsp_dai_set_dai_fmt(struct snd_soc_dai *cpu_dai,
 	struct omap_mcbsp_reg_cfg *regs = &mcpdm_priv->regs;
 	unsigned int temp_fmt = fmt;
 
+	mcpdm_priv->fmt = fmt;
 	memset(regs, 0, sizeof(*regs));
 	/* Generic McBSP register settings */
 	regs->spcr2	|= XINTM(3) | FREE;
 	regs->spcr1	|= RINTM(3);
 
 	if (cpu_is_omap2430() || cpu_is_omap34xx() || cpu_is_omap44xx()) {
-		regs->xccr = DXENDLY(1) | XDMAEN | XDISABLE;
-		regs->rccr = RFULL_CYCLE | RDMAEN | RDISABLE;
+		regs->xccr = DXENDLY(1) | XDMAEN;
+		regs->rccr = RFULL_CYCLE | RDMAEN;
 	}
 
 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
@@ -605,6 +617,7 @@ static int omap_abe_mcbsp_dai_set_dai_sysclk(struct snd_soc_dai *cpu_dai,
 	struct omap_mcbsp_reg_cfg *regs = &mcpdm_priv->regs;
 	int err = 0;
 
+	mcpdm_priv->in_freq = freq;
 	switch (clk_id) {
 	case OMAP_MCBSP_SYSCLK_CLK:
 		regs->srgr2	|= CLKSM;
