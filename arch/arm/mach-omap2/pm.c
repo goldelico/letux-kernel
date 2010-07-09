@@ -18,6 +18,7 @@
 #include <plat/powerdomain.h>
 #include <plat/omap_device.h>
 
+#include <plat/omap-pm.h>
 #include "pm.h"
 
 #ifdef CONFIG_OMAP_PM_SRF
@@ -40,6 +41,7 @@ static struct kobj_attribute vdd2_lock_attr =
 #include <plat/omap34xx.h>
 static int vdd1_locked;
 static int vdd2_locked;
+static struct device sysfs_cpufreq_dev;
 
 static ssize_t vdd_opp_show(struct kobject *kobj, struct kobj_attribute *attr,
 			 char *buf)
@@ -101,11 +103,25 @@ static ssize_t vdd_opp_store(struct kobject *kobj, struct kobj_attribute *attr,
 		}
 		resource_set_opp_level(VDD1_OPP, value, flags);
 	} else if (attr == &vdd2_opp_attr) {
-		if (value < 2 || value > 3) {
+		if (value < MIN_VDD2_OPP || value > MAX_VDD2_OPP) {
 			printk(KERN_ERR "vdd_opp_store: Invalid value\n");
 			return -EINVAL;
 		}
-		resource_set_opp_level(VDD2_OPP, value, flags);
+		if (cpu_is_omap3430()) {
+			if (value == VDD2_OPP2)
+				omap_pm_set_min_bus_tput(&sysfs_cpufreq_dev,
+						OCP_INITIATOR_AGENT, 83*1000*4);
+			else if (value == VDD2_OPP3)
+				omap_pm_set_min_bus_tput(&sysfs_cpufreq_dev,
+						OCP_INITIATOR_AGENT, 166*1000*4);
+		} else if (cpu_is_omap3630()) {
+			if (value == VDD2_OPP1)
+				omap_pm_set_min_bus_tput(&sysfs_cpufreq_dev,
+						OCP_INITIATOR_AGENT, 100*1000*4);
+			else if (value == VDD2_OPP2)
+				omap_pm_set_min_bus_tput(&sysfs_cpufreq_dev,
+						OCP_INITIATOR_AGENT, 200*1000*4);
+		}
 	} else {
 		return -EINVAL;
 	}
