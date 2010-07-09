@@ -63,6 +63,7 @@ static ssize_t vdd_opp_store(struct kobject *kobj, struct kobj_attribute *attr,
 {
 	unsigned short value;
 	int flags = 0;
+	struct omap_opp *opp_table;
 
 	if (sscanf(buf, "%hu", &value) != 1)
 		return -EINVAL;
@@ -97,11 +98,13 @@ static ssize_t vdd_opp_store(struct kobject *kobj, struct kobj_attribute *attr,
 	}
 
 	if (attr == &vdd1_opp_attr) {
-		if (value < 1 || value > 5) {
+		if (value < MIN_VDD1_OPP || value > MAX_VDD1_OPP) {
 			printk(KERN_ERR "vdd_opp_store: Invalid value\n");
 			return -EINVAL;
 		}
-		resource_set_opp_level(VDD1_OPP, value, flags);
+		opp_table = omap_get_mpu_rate_table();
+		omap_pm_set_min_mpu_freq(&sysfs_cpufreq_dev,
+					opp_table[value].rate);
 	} else if (attr == &vdd2_opp_attr) {
 		if (value < MIN_VDD2_OPP || value > MAX_VDD2_OPP) {
 			printk(KERN_ERR "vdd_opp_store: Invalid value\n");
