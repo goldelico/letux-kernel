@@ -278,12 +278,10 @@ static int program_opp(int res, struct omap_opp *opp, int target_level,
 		int current_level)
 {
 	int i, ret = 0, raise;
-#ifdef CONFIG_OMAP_SMARTREFLEX
 	unsigned long t_opp, c_opp;
 
 	t_opp = ID_VDD(res) | ID_OPP_NO(opp[target_level].opp_id);
 	c_opp = ID_VDD(res) | ID_OPP_NO(opp[current_level].opp_id);
-#endif
 
 	/* Sanity check of the OPP params before attempting to set */
 	if (!opp[target_level].rate || !opp[target_level].vsel)
@@ -294,18 +292,19 @@ static int program_opp(int res, struct omap_opp *opp, int target_level,
 	else
 		raise = 0;
 
+	disable_smartreflex(res);
+
 	for (i = 0; i < 2; i++) {
 		if (i == raise)
 			ret = program_opp_freq(res, target_level,
 					current_level);
-#ifdef CONFIG_OMAP_SMARTREFLEX
 		else
-			sr_voltagescale_vcbypass(t_opp, c_opp,
+			omap_scale_voltage(t_opp, c_opp,
 				opp[target_level].vsel,
 				opp[current_level].vsel);
-#endif
 	}
 
+	enable_smartreflex(res);
 	return ret;
 }
 

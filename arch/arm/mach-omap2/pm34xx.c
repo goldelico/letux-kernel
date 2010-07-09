@@ -64,6 +64,8 @@ static int regset_save_on_suspend;
 #define OMAP343X_TABLE_VALUE_OFFSET	   0x30
 #define OMAP343X_CONTROL_REG_VALUE_OFFSET  0x32
 
+#define VP_TRANXDONE_TIMEOUT	62
+
 #define PER_WAKEUP_ERRATA_i582 (1 << 0)
 static u16 pm34xx_errata;
 #define IS_PM34XX_ERRATA(id) (pm34xx_errata & (id))
@@ -418,7 +420,6 @@ void omap_sram_idle(void)
 	/* NEON control */
 	if (pwrdm_read_pwrst(neon_pwrdm) == PWRDM_POWER_ON)
 		pwrdm_set_next_pwrst(neon_pwrdm, mpu_next_state);
-
 	/* PER */
 	per_next_state = pwrdm_read_next_pwrst(per_pwrdm);
 	core_next_state = pwrdm_read_next_pwrst(core_pwrdm);
@@ -1123,6 +1124,123 @@ int omap3_pm_set_suspend_state(struct powerdomain *pwrdm, int state)
 	}
 	return -EINVAL;
 }
+
+#ifdef CONFIG_VOLTSCALE_VPFORCE
+/* Voltage Scale using vp force update */
+static int voltagescale_vpforceupdate(u32 target_opp, u32 current_opp,
+					u8 target_vsel, u8 current_vsel)
+{
+	u32 vdd, target_opp_no, current_opp_no;
+	u32 t2_smps_delay = 0;
+	u32 t2_smps_steps = 0;
+	u32 vpconfig, vp_config_offs, vp_tranxdone_st;
+	int timeout = 0;
+
+	vdd = get_vdd(target_opp);
+	target_opp_no = get_opp_no(target_opp);
+	current_opp_no = get_opp_no(current_opp);
+	t2_smps_steps = abs(target_vsel - current_vsel);
+
+	if (vdd == VDD1_OPP) {
+		vp_config_offs = OMAP3_PRM_VP1_CONFIG_OFFSET;
+		vp_tranxdone_st = OMAP3430_VP1_TRANXDONE_ST;
+		vpconfig = target_vsel << OMAP3430_INITVOLTAGE_SHIFT |
+				((target_opp_no < VDD1_OPP3)
+				? PRM_VP1_CONFIG_ERRORGAIN_OPPLOW
+				: PRM_VP1_CONFIG_ERRORGAIN_OPPHIGH);
+	} else if (vdd == VDD2_OPP) {
+		vp_config_offs = OMAP3_PRM_VP2_CONFIG_OFFSET;
+		vp_tranxdone_st = OMAP3430_VP2_TRANXDONE_ST;
+		vpconfig = target_vsel << OMAP3430_INITVOLTAGE_SHIFT |
+				((target_opp_no < VDD2_OPP3)
+				? PRM_VP2_CONFIG_ERRORGAIN_OPPLOW
+				: PRM_VP2_CONFIG_ERRORGAIN_OPPHIGH);
+	}
+	/* Clear all pending TransactionDone interrupt/status */
+	while (timeout < VP_TRANXDONE_TIMEOUT) {
+		prm_write_mod_reg(vp_tranxdone_st, OCP_MOD,
+			OMAP2_PRCM_IRQSTATUS_MPU_OFFSET);
+		if (!(prm_read_mod_reg(OCP_MOD, OMAP2_PRCM_IRQSTATUS_MPU_OFFSET)
+					& vp_tranxdone_st))
+			break;
+
+		udelay(1);
+		timeout++;
+	}
+	if (timeout == VP_TRANXDONE_TIMEOUT)
+		pr_warning("VP1:TRANXDONE timeout exceeded still\
+			going ahead with voltage changed\n");
+
+	/* Configuring for vpforceupdate */
+	prm_rmw_mod_reg_bits(OMAP3430_ERRORGAIN_MASK |
+			OMAP3430_INITVOLTAGE_MASK | OMAP3430_INITVDD |
+			OMAP3430_FORCEUPDATE, vpconfig, OMAP3430_GR_MOD,
+			vp_config_offs);
+	/* Initialize VP voltage */
+	prm_set_mod_reg_bits(OMAP3430_INITVDD, OMAP3430_GR_MOD,
+			vp_config_offs);
+	/* Force update of voltage */
+	prm_set_mod_reg_bits(OMAP3430_FORCEUPDATE, OMAP3430_GR_MOD,
+			vp_config_offs);
+	timeout = 0;
+	/* Wait for TransactionDone */
+	while ((timeout < VP_TRANXDONE_TIMEOUT) &&
+			(!(prm_read_mod_reg(OCP_MOD,
+			OMAP2_PRCM_IRQSTATUS_MPU_OFFSET) &
+			vp_tranxdone_st))) {
+		udelay(1);
+		timeout++;
+	}
+
+	if (timeout == VP_TRANXDONE_TIMEOUT)
+		pr_warning("VP1:TRANXDONE timeout exceeded going ahead with\
+			 the t2 smps wait\n");
+
+	/* Wait for voltage to settle with SW wait-loop */
+	t2_smps_delay = ((t2_smps_steps * 125) / 40) + 2;
+	udelay(t2_smps_delay);
+
+	timeout = 0;
+	/* Clear all pending TransactionDone interrupt/status */
+	 while (timeout < VP_TRANXDONE_TIMEOUT) {
+		prm_write_mod_reg(vp_tranxdone_st, OCP_MOD,
+			OMAP2_PRCM_IRQSTATUS_MPU_OFFSET);
+		if (!(prm_read_mod_reg(OCP_MOD, OMAP2_PRCM_IRQSTATUS_MPU_OFFSET)
+					& vp_tranxdone_st))
+			break;
+
+		udelay(1);
+		timeout++;
+	}
+	if (timeout == VP_TRANXDONE_TIMEOUT)
+		pr_warning("VP1:TRANXDONE timeout exceeded\n");
+
+	/* Clear INITVDD bit */
+	prm_clear_mod_reg_bits(OMAP3430_INITVDD, OMAP3430_GR_MOD,
+			vp_config_offs);
+
+	/* Clear force bit */
+	prm_clear_mod_reg_bits(OMAP3430_FORCEUPDATE, OMAP3430_GR_MOD,
+			vp_config_offs);
+	return 0;
+}
+#endif
+
+/* Scale voltage using vcbypass or vpforceupdate */
+int omap_scale_voltage(u32 target_opp, u32 current_opp,
+				u8 target_vsel, u8 current_vsel)
+{
+	#if defined(CONFIG_VOLTSCALE_VPFORCE)
+		return voltagescale_vpforceupdate(target_opp, current_opp,
+					target_vsel, current_vsel);
+	#elif defined(CONFIG_OMAP_SMARTREFLEX)
+		return sr_voltagescale_vcbypass(target_opp, current_opp,
+					target_vsel, current_vsel);
+	#else
+		return 0;
+	#endif
+}
+EXPORT_SYMBOL(omap_scale_voltage);
 
 void omap3_pm_init_vc(struct prm_setup_vc *setup_vc)
 {

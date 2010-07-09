@@ -277,6 +277,16 @@ config OMAP_PM_SRF
 
 endchoice
 
+config VOLTSCALE_VPFORCE
+	bool "Voltage scaling using VP force update method"
+	depends on ARCH_OMAP3 && PM
+	help
+	 Say Y if you want to enable VP force update method
+	 of voltage scaling. This is the h/w recomended way
+	 of voltage scaling.
+
+	 If not enabled and if OMAP_SMARTREFLEX is enabled
+	 vcbypass method will be used for voltage scaling.
 endmenu
 
 endif

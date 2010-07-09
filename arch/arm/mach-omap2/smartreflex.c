@@ -649,8 +649,8 @@ static void vp_disable(struct omap_sr *sr)
 
 	while (timeout < VP_TRANXDONE_TIMEOUT) {
 		prm_write_mod_reg(vp_tranxdone_st, OCP_MOD,
-				  OMAP2_PRM_IRQSTATUS_MPU_OFFSET);
-		if (!(prm_read_mod_reg(OCP_MOD, OMAP2_PRM_IRQSTATUS_MPU_OFFSET)
+				  OMAP2_PRCM_IRQSTATUS_MPU_OFFSET);
+		if (!(prm_read_mod_reg(OCP_MOD, OMAP2_PRCM_IRQSTATUS_MPU_OFFSET)
 						& vp_tranxdone_st))
 			break;
 
