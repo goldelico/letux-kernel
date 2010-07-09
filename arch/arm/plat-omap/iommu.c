@@ -261,9 +261,9 @@ int load_iotlb_entry(struct iommu *obj, struct iotlb_entry *e)
 	}
 
 	cr = iotlb_alloc_cr(obj, e);
-	if (IS_ERR(cr)) {
+	if (IS_ERR(cr))
 		return PTR_ERR(cr);
-	}
+
 	iotlb_load_cr(obj, cr);
 	kfree(cr);
 
@@ -910,8 +910,9 @@ static int omap_iommu_ioctl(struct inode *inode, struct file *filp,
 	{
 		struct iotlb_entry e;
 		int size;
-		if (!capable(CAP_SYS_ADMIN))
-			return -EPERM;
+		/* FIXME: Re-visit the following check */
+		/*if (!capable(CAP_SYS_ADMIN))
+		  return -EPERM;*/
 		size = copy_from_user(&e, (void __user *)args,
 					sizeof(struct iotlb_entry));
 		if (size) {
