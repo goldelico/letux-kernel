@@ -250,7 +250,7 @@ static int omap3_enter_idle_bm(struct cpuidle_device *dev,
 				new_core_state = PWRDM_POWER_RET;
 		}
 		/* Fallback to new target core state */
-		while (cx->core_state > new_core_state) {
+		while (cx->core_state < new_core_state) {
 			state--;
 			cx = cpuidle_get_statedata(state);
 		}
