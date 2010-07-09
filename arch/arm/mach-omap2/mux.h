@@ -118,6 +118,8 @@ int omap_mux_init_gpio(int gpio, int val);
  */
 int omap_mux_init_signal(char *muxname, int val);
 
+int omap3_mux_config(char *group);
+
 #else
 
 static inline int omap_mux_init_gpio(int gpio, int val)
@@ -125,6 +127,11 @@ static inline int omap_mux_init_gpio(int gpio, int val)
 	return 0;
 }
 static inline int omap_mux_init_signal(char *muxname, int val)
+{
+	return 0;
+}
+
+static inline int omap3_mux_config(char *group)
 {
 	return 0;
 }

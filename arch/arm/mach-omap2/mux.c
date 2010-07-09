@@ -416,7 +416,7 @@ int __init omap_mux_init_gpio(int gpio, int val)
 	return -ENODEV;
 }
 
-int __init omap_mux_init_signal(char *muxname, int val)
+int omap_mux_init_signal(char *muxname, int val)
 {
 	struct omap_mux_entry *e;
 	char *m0_name = NULL, *mode_name = NULL;
@@ -471,6 +471,77 @@ int __init omap_mux_init_signal(char *muxname, int val)
 
 	printk(KERN_ERR "mux: Could not set signal %s\n", muxname);
 
+	return -ENODEV;
+}
+
+int __init omap3_mux_config(char *group)
+{
+	printk(KERN_ERR "set mux for group mode = %s\n", group);
+	if (strcmp(group, "OMAP_MCBSP2_SLAVE") == 0) {
+		omap_mux_init_signal("mcbsp2_fsx.mcbsp2_fsx",
+						OMAP_PIN_INPUT);
+		omap_mux_init_signal("mcbsp2_clkx.mcbsp2_clkx",
+						OMAP_PIN_INPUT);
+		omap_mux_init_signal("mcbsp2_dr.mcbsp2_dr",
+						OMAP_PIN_INPUT);
+		omap_mux_init_signal("mcbsp2_dx.mcbsp2_dx",
+						OMAP_PIN_OUTPUT);
+		return 0;
+	} else if (strcmp(group, "OMAP_MCBSP3_SLAVE") == 0) {
+		omap_mux_init_signal("mcbsp3_fsx.mcbsp3_fsx",
+						OMAP_PIN_INPUT_PULLDOWN);
+		omap_mux_init_signal("mcbsp3_clkx.mcbsp3_clkx",
+						OMAP_PIN_INPUT_PULLDOWN);
+		omap_mux_init_signal("mcbsp3_dr.mcbsp3_dr",
+						OMAP_PIN_INPUT_PULLDOWN);
+		omap_mux_init_signal("mcbsp3_dx.mcbsp3_dx",
+						OMAP_PIN_OUTPUT);
+		return 0;
+	} else if (strcmp(group, "OMAP_MCBSP3_MASTER") == 0) {
+		omap_mux_init_signal("mcbsp_clks.mcbsp_clks",
+						OMAP_PIN_INPUT);
+		omap_mux_init_signal("mcbsp3_fsx.mcbsp3_fsx",
+						OMAP_PIN_OUTPUT);
+		omap_mux_init_signal("mcbsp3_clkx.mcbsp3_clkx",
+						OMAP_PIN_OUTPUT);
+		omap_mux_init_signal("mcbsp3_dr.mcbsp3_dr",
+						OMAP_PIN_INPUT_PULLDOWN);
+		omap_mux_init_signal("mcbsp3_dx.mcbsp3_dx",
+						OMAP_PIN_OUTPUT);
+		return 0;
+	} else if (strcmp(group, "OMAP_MCBSP3_TRISTATE") == 0) {
+		omap_mux_init_signal("mcbsp3_fsx.safe_mode",
+						OMAP_PIN_INPUT);
+		omap_mux_init_signal("mcbsp3_clkx.safe_mode",
+						OMAP_PIN_INPUT);
+		omap_mux_init_signal("mcbsp3_dr.safe_mode",
+						OMAP_PIN_INPUT);
+		omap_mux_init_signal("mcbsp3_dx.safe_mode",
+						OMAP_PIN_INPUT);
+		return 0;
+	} else if (strcmp(group, "OMAP_MCBSP4_MASTER") == 0) {
+		omap_mux_init_signal("mcbsp_clks.mcbsp_clks",
+						OMAP_PIN_INPUT);
+		omap_mux_init_signal("mcbsp4_fsx.mcbsp4_fsx",
+						OMAP_PIN_OUTPUT);
+		omap_mux_init_signal("gpmc_ncs4.mcbsp4_clkx",
+						OMAP_PIN_OUTPUT);
+		omap_mux_init_signal("gpmc_ncs5.mcbsp4_dr",
+						OMAP_PIN_INPUT);
+		omap_mux_init_signal("gpmc_ncs6.mcbsp4_dx",
+						OMAP_PIN_OUTPUT);
+		return 0;
+	} else if (strcmp(group, "OMAP_MCBSP4_SLAVE") == 0) {
+		omap_mux_init_signal("mcbsp4_fsx.mcbsp4_fsx",
+						OMAP_PIN_INPUT);
+		omap_mux_init_signal("gpmc_ncs4.mcbsp4_clkx",
+						OMAP_PIN_INPUT);
+		omap_mux_init_signal("gpmc_ncs5.mcbsp4_dr",
+						OMAP_PIN_INPUT);
+		omap_mux_init_signal("gpmc_ncs6.mcbsp4_dx",
+						OMAP_PIN_OUTPUT);
+		return 0;
+	}
 	return -ENODEV;
 }
 

@@ -37,6 +37,8 @@
 #include "omap-pcm.h"
 #include "../codecs/twl4030.h"
 
+#include "../../../arch/arm/mach-omap2/mux.h"
+
 #define OMAP_MCBSP_MASTER_MODE	0
 
 #define ZOOM2_BT_MCBSP_GPIO		164
@@ -94,7 +96,7 @@ static int zoom2_hw_voice_params(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;
 	int ret;
 
-	set_mux_group(OMAP_MCBSP3_SLAVE);
+	omap3_mux_config("OMAP_MCBSP3_SLAVE");
 
 	/* Set codec DAI configuration */
 	ret = snd_soc_dai_set_fmt(codec_dai,
@@ -143,7 +145,7 @@ int zoom2_hw_voice_free(struct snd_pcm_substream *substream)
 	struct snd_soc_dai *codec_dai = rtd->dai->codec_dai;
 	int ret;
 
-	set_mux_group(OMAP_MCBSP3_TRISTATE);
+	omap3_mux_config("OMAP_MCBSP3_TRISTATE");
 
 	/* set codec Voice IF to tristate*/
 	ret = snd_soc_dai_set_tristate(codec_dai, 1);
@@ -176,7 +178,7 @@ static int zoom2_pcm_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *codec_dai = rtd->dai->codec_dai;
 	int divisor;
 
-	omap_mux_config("MCBSP3_MASTER");
+	omap3_mux_config("OMAP_MCBSP3_MASTER");
 
 	/* Set codec DAI configuration */
 	ret = snd_soc_dai_set_fmt(codec_dai,
@@ -224,7 +226,7 @@ static int zoom2_pcm_hw_params(struct snd_pcm_substream *substream,
 		return ret;
 	}
 #else
-	omap_mux_config("MCBSP3_SLAVE");
+	omap3_mux_config("OMAP_MCBSP3_SLAVE");
 
 	/* Set cpu DAI configuration */
 	ret = snd_soc_dai_set_fmt(cpu_dai,
@@ -242,7 +244,7 @@ static int zoom2_pcm_hw_params(struct snd_pcm_substream *substream,
 
 int zoom2_pcm_hw_free(struct snd_pcm_substream *substream)
 {
-	omap_mux_config("MCBSP3_TRISTATE");
+	omap3_mux_config("OMAP_MCBSP3_TRISTATE");
 	return 0;
 }
 
@@ -511,12 +513,12 @@ static int __init zoom2_soc_init(void)
 	}
 	printk(KERN_INFO "Zoom2 SoC init\n");
 
-	omap_mux_config("MCBSP2_SLAVE");
+	omap3_mux_config("OMAP_MCBSP2_SLAVE");
 #if !OMAP_MCBSP_MASTER_MODE
 	snd_soc_register_dais(&null_dai, 1);
-	omap_mux_config("MCBSP4_SLAVE");
+	omap3_mux_config("OMAP_MCBSP4_SLAVE");
 #else
-	omap_mux_config("MCBSP4_MASTER");
+	omap3_mux_config("OMAP_MCBSP4_MASTER");
 #endif
 
 	zoom2_snd_device = platform_device_alloc("soc-audio", -1);
