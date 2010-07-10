@@ -49,6 +49,8 @@
 
 #define MAX_UART_HWMOD_NAME_LEN		16
 
+extern int omap_uart_active(int num);
+
 struct omap_uart_state {
 	int num;
 	int can_sleep;
@@ -349,6 +351,16 @@ static void omap_uart_idle_timer(unsigned long data)
 {
 	struct omap_uart_state *uart = (struct omap_uart_state *)data;
 
+#ifdef CONFIG_SERIAL_OMAP
+	/* check if the uart port is active
+	 * if port is active then dont allow
+	 * sleep.
+	 */
+	if (omap_uart_active(uart->num)) {
+		omap_uart_block_sleep(uart);
+		return;
+	}
+#endif
 	omap_uart_allow_sleep(uart);
 }
 
@@ -411,6 +423,23 @@ int omap_uart_can_sleep(void)
 			can_sleep = 0;
 			continue;
 		}
+#ifdef CONFIG_SERIAL_OMAP
+		/*
+		 * Check if console uart can idle. For ZOOM boards console uart
+		 * is on debug board (quad uart), which is not an instance in
+		 * omap_uart_state list.
+		 * So, need to check explicitly for cosole uart state as well.
+		 * On ZOOM, UART 0 to 2 are on OMAP and 3rd Uart which will be
+		 * Quart is on debug board.
+		 * Note: quart is not covered by iactivity timeout. Only OMAP
+		 * Uart's are in inact timeout.
+		 *
+		 * REVISIT: Instead of hardcoding the quart number,
+		 * dynamically detect console uart.
+		 */
+		if (omap_uart_active(3))
+			can_sleep = 0;
+#endif
 
 		/* This UART can now safely sleep. */
 		omap_uart_allow_sleep(uart);
