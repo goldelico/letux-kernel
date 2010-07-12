@@ -75,7 +75,7 @@ struct omap_sr {
 
 #define SR_REGADDR(offs)	(sr->srbase_addr + offset)
 
-static struct clk *dpll1_ck, *l3_ick;
+static struct clk *dpll1_ck, *dpll2_ck, *l3_ick;
 
 static omap3_voltagescale_vcbypass_t omap3_volscale_vcbypass_fun;
 
@@ -216,8 +216,15 @@ static u16 get_opp(struct omap_opp *opp_freq_table,
 
 	prcm_config = opp_freq_table;
 
-	if (prcm_config->rate <= freq)
+	/*
+	 * If the highest OPP has lower freq the table compared to other OPP's
+	 * than the logic fails here.
+	 */
+	if (prcm_config->rate == freq)
 		return prcm_config->opp_id; /* Return the Highest OPP */
+	else
+		prcm_config--;
+
 	for (; prcm_config->rate; prcm_config--)
 		if (prcm_config->rate < freq)
 			return (prcm_config+1)->opp_id;
@@ -227,9 +234,24 @@ static u16 get_opp(struct omap_opp *opp_freq_table,
 	return (prcm_config+1)->opp_id;
 }
 
+static inline u16 get_dsp_opp(void)
+{
+	return get_opp(dsp_opps + MAX_VDD1_OPP, dpll2_ck->rate);
+}
+
 static inline u16 get_vdd1_opp(void)
 {
-	return get_opp(mpu_opps + MAX_VDD1_OPP, dpll1_ck->rate);
+	int vdd1_opp;
+	if (cpu_is_omap3630())
+		/*
+		 * if vdd1 opp table has any two opp's same freq than
+		 * check the dsp opp instead
+		 */
+		vdd1_opp = get_dsp_opp();
+	else
+		vdd1_opp = get_opp(mpu_opps + MAX_VDD1_OPP, dpll1_ck->rate);
+
+	return vdd1_opp;
 }
 
 static inline u16 get_vdd2_opp(void)
@@ -272,38 +294,70 @@ static void sr_set_clk_length(struct omap_sr *sr)
 static void sr_set_efuse_nvalues(struct omap_sr *sr)
 {
 	if (sr->srid == SR1) {
-		sr->senn_mod = (omap_ctrl_readl(OMAP343X_CONTROL_FUSE_SR) &
-					OMAP343X_SR1_SENNENABLE_MASK) >>
-					OMAP343X_SR1_SENNENABLE_SHIFT;
-		sr->senp_mod = (omap_ctrl_readl(OMAP343X_CONTROL_FUSE_SR) &
-					OMAP343X_SR1_SENPENABLE_MASK) >>
-					OMAP343X_SR1_SENPENABLE_SHIFT;
+		if (cpu_is_omap3630()) {
+			sr->senn_mod = sr->senp_mod = 0x1;
 
-		sr->opp5_nvalue = omap_ctrl_readl(
-					OMAP343X_CONTROL_FUSE_OPP5_VDD1);
-		sr->opp4_nvalue = omap_ctrl_readl(
-					OMAP343X_CONTROL_FUSE_OPP4_VDD1);
-		sr->opp3_nvalue = omap_ctrl_readl(
-					OMAP343X_CONTROL_FUSE_OPP3_VDD1);
-		sr->opp2_nvalue = omap_ctrl_readl(
-					OMAP343X_CONTROL_FUSE_OPP2_VDD1);
-		sr->opp1_nvalue = omap_ctrl_readl(
-					OMAP343X_CONTROL_FUSE_OPP1_VDD1);
+			sr->opp4_nvalue =
+			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP4_VDD1);
+			if (sr->opp4_nvalue != 0x0)
+				printk(KERN_INFO "SR1:Fused Nvalues for VDD1OPP4 %x\n",
+							sr->opp4_nvalue);
+			sr->opp5_nvalue = sr->opp4_nvalue;
+
+			sr->opp3_nvalue =
+			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP3_VDD1);
+			sr->opp2_nvalue =
+			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP2_VDD1);
+			sr->opp1_nvalue =
+			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP1_VDD1);
+		} else {
+			sr->senn_mod = (omap_ctrl_readl(OMAP343X_CONTROL_FUSE_SR) &
+						OMAP343X_SR1_SENNENABLE_MASK) >>
+						OMAP343X_SR1_SENNENABLE_SHIFT;
+			sr->senp_mod = (omap_ctrl_readl(OMAP343X_CONTROL_FUSE_SR) &
+						OMAP343X_SR1_SENPENABLE_MASK) >>
+						OMAP343X_SR1_SENPENABLE_SHIFT;
+
+			sr->opp5_nvalue = omap_ctrl_readl(
+						OMAP343X_CONTROL_FUSE_OPP5_VDD1);
+			sr->opp4_nvalue = omap_ctrl_readl(
+						OMAP343X_CONTROL_FUSE_OPP4_VDD1);
+			sr->opp3_nvalue = omap_ctrl_readl(
+						OMAP343X_CONTROL_FUSE_OPP3_VDD1);
+			sr->opp2_nvalue = omap_ctrl_readl(
+						OMAP343X_CONTROL_FUSE_OPP2_VDD1);
+			sr->opp1_nvalue = omap_ctrl_readl(
+						OMAP343X_CONTROL_FUSE_OPP1_VDD1);
+			if (sr->opp5_nvalue) {
+				sr->opp6_nvalue = calculate_opp_nvalue(sr->opp5_nvalue,
+				227, 379);
+			}
+		}
 	} else if (sr->srid == SR2) {
-		sr->senn_mod = (omap_ctrl_readl(OMAP343X_CONTROL_FUSE_SR) &
+		if (cpu_is_omap3630()) {
+			sr->opp1_nvalue =
+			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP1_VDD2);
+			if (sr->opp1_nvalue != 0)
+				printk(KERN_INFO "SR2:Fused Nvalues for VDD2OPP1 %d\n",
+							sr->opp1_nvalue);
+			sr->opp2_nvalue =
+			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP2_VDD2);
+		} else {
+			sr->senn_mod = (omap_ctrl_readl(OMAP343X_CONTROL_FUSE_SR) &
 					OMAP343X_SR2_SENNENABLE_MASK) >>
 					OMAP343X_SR2_SENNENABLE_SHIFT;
 
-		sr->senp_mod = (omap_ctrl_readl(OMAP343X_CONTROL_FUSE_SR) &
+			sr->senp_mod = (omap_ctrl_readl(OMAP343X_CONTROL_FUSE_SR) &
 					OMAP343X_SR2_SENPENABLE_MASK) >>
 					OMAP343X_SR2_SENPENABLE_SHIFT;
 
-		sr->opp3_nvalue = omap_ctrl_readl(
+			sr->opp3_nvalue = omap_ctrl_readl(
 					OMAP343X_CONTROL_FUSE_OPP3_VDD2);
-		sr->opp2_nvalue = omap_ctrl_readl(
+			sr->opp2_nvalue = omap_ctrl_readl(
 					OMAP343X_CONTROL_FUSE_OPP2_VDD2);
-		sr->opp1_nvalue = omap_ctrl_readl(
+			sr->opp1_nvalue = omap_ctrl_readl(
 					OMAP343X_CONTROL_FUSE_OPP1_VDD2);
+		}
 	}
 }
 
@@ -1282,6 +1336,10 @@ static int __init omap3_sr_init(void)
 
 	dpll1_ck = clk_get(NULL, "dpll1_ck");
 	if (dpll1_ck == NULL || IS_ERR(dpll1_ck))
+		return -ENODEV;
+
+	dpll2_ck = clk_get(NULL, "dpll2_ck");
+	if (dpll2_ck == NULL || IS_ERR(dpll2_ck))
 		return -ENODEV;
 
 	l3_ick = clk_get(NULL, "l3_ick");
