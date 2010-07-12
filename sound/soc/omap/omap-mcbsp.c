@@ -49,6 +49,8 @@ struct omap_mcbsp_data {
 	 * another substream
 	 */
 	int				configured;
+	int				tx_active;
+	int 				rx_active;
 };
 
 #define to_mcbsp(priv)	container_of((priv), struct omap_mcbsp_data, bus_id)
@@ -233,12 +235,20 @@ static int omap_mcbsp_dai_trigger(struct snd_pcm_substream *substream, int cmd,
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		omap_mcbsp_start(mcbsp_data->bus_id, play, !play);
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+			mcbsp_data->tx_active = 1;
+		else
+			mcbsp_data->rx_active = 1;
 		break;
 
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		omap_mcbsp_stop(mcbsp_data->bus_id, play, !play);
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+			mcbsp_data->tx_active = 0;
+		else
+			mcbsp_data->rx_active = 0;
 		break;
 	default:
 		err = -EINVAL;
@@ -586,6 +596,23 @@ static int omap_mcbsp_dai_set_dai_sysclk(struct snd_soc_dai *cpu_dai,
 	return err;
 }
 
+static int omap_mcbsp_dai_prepare(struct snd_pcm_substream *substream,
+						struct snd_soc_dai *dai)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;
+	struct omap_mcbsp_data *mcbsp_data =
+				to_mcbsp(cpu_dai->private_data);
+	int bus_id = mcbsp_data->bus_id, id = cpu_dai->id;
+
+	if (!(mcbsp_data->tx_active || mcbsp_data->rx_active)) {
+		omap_mcbsp_config(bus_id, &mcbsp_data->regs);
+
+		/*@ TODO: for for mcbsp2 (busid=1), reset the transfer size */
+	}
+	return 0;
+}
+
 int omap_mcbsp_dai_suspend(struct snd_soc_dai *cpu_dai)
 {
 	struct omap_mcbsp_data *mcbsp_data = to_mcbsp(cpu_dai->private_data);
@@ -615,6 +642,7 @@ int omap_mcbsp_dai_resume(struct snd_soc_dai *cpu_dai)
 static struct snd_soc_dai_ops omap_mcbsp_dai_ops = {
 	.startup	= omap_mcbsp_dai_startup,
 	.shutdown	= omap_mcbsp_dai_shutdown,
+	.prepare = omap_mcbsp_dai_prepare,
 	.trigger	= omap_mcbsp_dai_trigger,
 	.hw_params	= omap_mcbsp_dai_hw_params,
 	.set_fmt	= omap_mcbsp_dai_set_dai_fmt,
