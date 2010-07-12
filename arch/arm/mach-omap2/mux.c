@@ -436,7 +436,7 @@ int omap_mux_init_signal(char *muxname, int val)
 		char *m0_entry = m->muxnames[0];
 		int i;
 
-		if (m0_name && strcmp(m0_name, m0_entry))
+		if (!m0_entry || (m0_name && strcmp(m0_name, m0_entry)))
 			continue;
 
 		for (i = 0; i < OMAP_MUX_NR_MODES; i++) {
