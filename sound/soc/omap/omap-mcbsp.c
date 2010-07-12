@@ -43,11 +43,11 @@ struct omap_mcbsp_data {
 	unsigned int			bus_id;
 	struct omap_mcbsp_reg_cfg	regs;
 	unsigned int			fmt;
+	int				clk_id;
 	/*
-	 * Flags indicating is the bus already activated and configured by
+	 * Flags indicating is the bus already configured by
 	 * another substream
 	 */
-	int				active;
 	int				configured;
 };
 
@@ -169,9 +169,6 @@ static int omap_mcbsp_dai_startup(struct snd_pcm_substream *substream,
 	int bus_id = mcbsp_data->bus_id;
 	int err = 0;
 
-	if (!cpu_dai->active)
-		err = omap_mcbsp_request(bus_id);
-
 	if (cpu_is_omap343x()) {
 		int dma_op_mode = omap_mcbsp_get_dma_op_mode(bus_id);
 		int max_period;
@@ -201,6 +198,11 @@ static int omap_mcbsp_dai_startup(struct snd_pcm_substream *substream,
 						32, max_period);
 	}
 
+	if (!cpu_dai->active) {
+		err = omap_mcbsp_request(mcbsp_data->bus_id);
+		cpu_dai->active = 1;
+	}
+
 	return err;
 }
 
@@ -213,6 +215,7 @@ static void omap_mcbsp_dai_shutdown(struct snd_pcm_substream *substream,
 
 	if (!cpu_dai->active) {
 		omap_mcbsp_free(mcbsp_data->bus_id);
+		cpu_dai->active = 0;
 		mcbsp_data->configured = 0;
 	}
 }
@@ -229,7 +232,6 @@ static int omap_mcbsp_dai_trigger(struct snd_pcm_substream *substream, int cmd,
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		mcbsp_data->active++;
 		omap_mcbsp_start(mcbsp_data->bus_id, play, !play);
 		break;
 
@@ -237,7 +239,6 @@ static int omap_mcbsp_dai_trigger(struct snd_pcm_substream *substream, int cmd,
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		omap_mcbsp_stop(mcbsp_data->bus_id, play, !play);
-		mcbsp_data->active--;
 		break;
 	default:
 		err = -EINVAL;
@@ -563,6 +564,7 @@ static int omap_mcbsp_dai_set_dai_sysclk(struct snd_soc_dai *cpu_dai,
 	case OMAP_MCBSP_SYSCLK_CLKS_FCLK:
 	case OMAP_MCBSP_SYSCLK_CLKS_EXT:
 		err = omap_mcbsp_dai_set_clks_src(mcbsp_data, clk_id);
+		mcbsp_data->clk_id = clk_id;
 		break;
 
 	case OMAP_MCBSP_SYSCLK_CLKX_EXT:
@@ -582,6 +584,32 @@ static int omap_mcbsp_dai_set_dai_sysclk(struct snd_soc_dai *cpu_dai,
 	}
 
 	return err;
+}
+
+int omap_mcbsp_dai_suspend(struct snd_soc_dai *cpu_dai)
+{
+	struct omap_mcbsp_data *mcbsp_data = to_mcbsp(cpu_dai->private_data);
+
+	if (cpu_dai->active) {
+		omap_mcbsp_dai_set_clks_src(mcbsp_data,
+				OMAP_MCBSP_SYSCLK_CLKS_FCLK);
+		omap_mcbsp_disable_fclk(mcbsp_data->bus_id);
+	}
+
+	return 0;
+}
+
+int omap_mcbsp_dai_resume(struct snd_soc_dai *cpu_dai)
+{
+	struct omap_mcbsp_data *mcbsp_data = to_mcbsp(cpu_dai->private_data);
+
+	if (cpu_dai->active) {
+		omap_mcbsp_enable_fclk(mcbsp_data->bus_id);
+		omap_mcbsp_config(mcbsp_data->bus_id, &mcbsp_data->regs);
+		omap_mcbsp_dai_set_clks_src(mcbsp_data, mcbsp_data->clk_id);
+	}
+
+	return 0;
 }
 
 static struct snd_soc_dai_ops omap_mcbsp_dai_ops = {
@@ -610,6 +638,8 @@ static struct snd_soc_dai_ops omap_mcbsp_dai_ops = {
 		.rates = OMAP_MCBSP_RATES,			\
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,		\
 	},							\
+	.suspend = omap_mcbsp_dai_suspend,			\
+	.resume = omap_mcbsp_dai_resume,			\
 	.ops = &omap_mcbsp_dai_ops,				\
 	.private_data = &mcbsp_data[(link_id)].bus_id,		\
 }

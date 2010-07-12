@@ -458,6 +458,33 @@ int omap_mcbsp_request(unsigned int id)
 }
 EXPORT_SYMBOL(omap_mcbsp_request);
 
+void omap_mcbsp_disable_fclk(unsigned int id)
+{
+	struct omap_mcbsp *mcbsp;
+
+	if (!omap_mcbsp_check_valid_id(id)) {
+		printk(KERN_ERR "%s: Invalid id (%d)\n", __func__, id + 1);
+		return;
+	}
+	mcbsp = id_to_mcbsp_ptr(id);
+	clk_disable(mcbsp->fclk);
+}
+EXPORT_SYMBOL(omap_mcbsp_disable_fclk);
+
+
+void omap_mcbsp_enable_fclk(unsigned int id)
+{
+	struct omap_mcbsp *mcbsp;
+
+	if (!omap_mcbsp_check_valid_id(id)) {
+		printk(KERN_ERR "%s: Invalid id (%d)\n", __func__, id + 1);
+		return;
+	}
+	mcbsp = id_to_mcbsp_ptr(id);
+	clk_enable(mcbsp->fclk);
+}
+EXPORT_SYMBOL(omap_mcbsp_enable_fclk);
+
 void omap_mcbsp_free(unsigned int id)
 {
 	struct omap_mcbsp *mcbsp;
