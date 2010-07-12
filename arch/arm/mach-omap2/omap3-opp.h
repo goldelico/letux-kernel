@@ -23,6 +23,7 @@
 #define S260M	260000000
 #define S180M   180000000
 #define S90M    90000000
+#define S65M    65000000
 
 /* L3 speeds */
 #define S200M	200000000

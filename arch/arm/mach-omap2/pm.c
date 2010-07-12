@@ -20,6 +20,7 @@
 
 #include <plat/omap-pm.h>
 #include "pm.h"
+#include "omap3-opp.h"
 
 #ifdef CONFIG_OMAP_PM_SRF
 static ssize_t vdd_opp_show(struct kobject *, struct kobj_attribute *, char *);
@@ -34,8 +35,8 @@ static struct kobj_attribute vdd1_lock_attr =
 	__ATTR(vdd1_lock, 0644, vdd_opp_show, vdd_opp_store);
 static struct kobj_attribute vdd2_lock_attr =
 	__ATTR(vdd2_lock, 0644, vdd_opp_show, vdd_opp_store);
-static struct kobj_attribute dsp_opp_attr =
-	__ATTR(dsp_opp, 0644, vdd_opp_show, vdd_opp_store);
+static struct kobj_attribute dsp_freq_attr =
+	__ATTR(dsp_freq, 0644, vdd_opp_show, vdd_opp_store);
 
 #endif
 
@@ -49,6 +50,9 @@ static struct device sysfs_dsp_dev;
 static ssize_t vdd_opp_show(struct kobject *kobj, struct kobj_attribute *attr,
 			 char *buf)
 {
+	int opp_no;
+	struct omap_opp *opp_table;
+
 	if (attr == &vdd1_opp_attr)
 		return sprintf(buf, "%hu\n", resource_get_level("vdd1_opp"));
 	else if (attr == &vdd2_opp_attr)
@@ -57,20 +61,22 @@ static ssize_t vdd_opp_show(struct kobject *kobj, struct kobj_attribute *attr,
 		return sprintf(buf, "%hu\n", resource_get_opp_lock(VDD1_OPP));
 	else if (attr == &vdd2_lock_attr)
 		return sprintf(buf, "%hu\n", resource_get_opp_lock(VDD2_OPP));
-	else if (attr == &dsp_opp_attr)
-		return sprintf(buf, "%u\n", resource_get_level("vdd1_opp"));
-	else
+	else if (attr == &dsp_freq_attr) {
+		opp_no = resource_get_level("vdd1_opp");
+		opp_table = omap_get_dsp_rate_table();
+		return sprintf(buf, "%lu\n", opp_table[opp_no].rate);
+	} else
 		return -EINVAL;
 }
 
 static ssize_t vdd_opp_store(struct kobject *kobj, struct kobj_attribute *attr,
 			  const char *buf, size_t n)
 {
-	unsigned short value;
+	unsigned long value;
 	int flags = 0;
 	struct omap_opp *opp_table;
 
-	if (sscanf(buf, "%hu", &value) != 1)
+	if (sscanf(buf, "%lu", &value) != 1)
 		return -EINVAL;
 
 	/* Check locks */
@@ -110,10 +116,19 @@ static ssize_t vdd_opp_store(struct kobject *kobj, struct kobj_attribute *attr,
 		opp_table = omap_get_mpu_rate_table();
 		omap_pm_set_min_mpu_freq(&sysfs_cpufreq_dev,
 					opp_table[value].rate);
-	} else if (attr == &dsp_opp_attr) {
-		if (value < MIN_VDD1_OPP || value > MAX_VDD1_OPP) {
-			printk(KERN_ERR "vdd_opp_store: Invalid value\n");
-			return -EINVAL;
+	} else if (attr == &dsp_freq_attr) {
+		if (cpu_is_omap3630()) {
+			if (value < S65M || value > S800M) {
+				printk(KERN_ERR "dsp_freq: Invalid value\n");
+				return -EINVAL;
+			}
+		} else {
+			opp_table = omap_get_dsp_rate_table();
+			if (value < opp_table[MIN_VDD1_OPP].rate
+				|| value > opp_table[MAX_VDD1_OPP].rate) {
+				printk(KERN_ERR "dsp_freq: Invalid value\n");
+				return -EINVAL;
+			}
 		}
 		omap_pm_dsp_set_min_opp(&sysfs_dsp_dev, value);
 	} else if (attr == &vdd2_opp_attr) {
@@ -179,7 +194,7 @@ static int __init omap_pm_init(void)
 
 #ifdef CONFIG_OMAP_PM_SRF
 	error = sysfs_create_file(power_kobj,
-				  &dsp_opp_attr.attr);
+				  &dsp_freq_attr.attr);
 	if (error) {
 		printk(KERN_ERR "sysfs_create_file failed: %d\n", error);
 		return error;
