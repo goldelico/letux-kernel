@@ -155,7 +155,7 @@ static int curr_vdd1_opp;
 static int curr_vdd2_opp;
 static DEFINE_MUTEX(dvfs_mutex);
 
-static unsigned short get_opp(struct omap_opp *opp_freq_table,
+unsigned short get_opp_id(struct omap_opp *opp_freq_table,
 		unsigned long freq)
 {
 	struct omap_opp *prcm_config;
@@ -190,14 +190,14 @@ void init_opp(struct shared_resource *resp)
 		vdd1_resp = resp;
 		dpll1_clk = clk_get(NULL, "dpll1_ck");
 		dpll2_clk = clk_get(NULL, "dpll2_ck");
-		resp->curr_level = get_opp(mpu_opps + MAX_VDD1_OPP,
+		resp->curr_level = get_opp_id(mpu_opps + MAX_VDD1_OPP,
 				dpll1_clk->rate);
 		curr_vdd1_opp = resp->curr_level;
 	} else if (strcmp(resp->name, "vdd2_opp") == 0) {
 		vdd2_resp = resp;
 		dpll3_clk = clk_get(NULL, "dpll3_m2_ck");
 		l3_clk = clk_get(NULL, "l3_ick");
-		resp->curr_level = get_opp(l3_opps + MAX_VDD2_OPP,
+		resp->curr_level = get_opp_id(l3_opps + MAX_VDD2_OPP,
 				l3_clk->rate);
 		curr_vdd2_opp = resp->curr_level;
 	}
@@ -447,10 +447,10 @@ int set_freq(struct shared_resource *resp, u32 target_level)
 		return 0;
 
 	if (strcmp(resp->name, "mpu_freq") == 0) {
-		vdd1_opp = get_opp(mpu_opps + MAX_VDD1_OPP, target_level);
+		vdd1_opp = get_opp_id(mpu_opps + MAX_VDD1_OPP, target_level);
 		resource_request("vdd1_opp", &dummy_mpu_dev, vdd1_opp);
 	} else if (strcmp(resp->name, "dsp_freq") == 0) {
-		vdd1_opp = get_opp(dsp_opps + MAX_VDD1_OPP, target_level);
+		vdd1_opp = get_opp_id(dsp_opps + MAX_VDD1_OPP, target_level);
 		resource_request("vdd1_opp", &dummy_dsp_dev, vdd1_opp);
 	}
 	resp->curr_level = target_level;
