@@ -1917,6 +1917,25 @@ static int twl4030_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+static int twl4030_hw_prepare(struct snd_pcm_substream *substream,
+			struct snd_soc_dai *dai)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_device *socdev = rtd->socdev;
+	struct twl4030_setup_data *setup = socdev->codec_data;
+	/*
+	 * Set headset EXTMUTE signal to ON to make sure we
+	 * get correct headset status
+	 */
+
+	if (setup && setup->hs_extmute) {
+		if (setup->set_hs_extmute)
+			setup->set_hs_extmute(1);
+	}
+
+	return 0;
+}
+
 static int twl4030_hw_free(struct snd_pcm_substream *substream,
 			struct snd_soc_dai *dai)
 {
@@ -2326,6 +2345,7 @@ static int twl4030_voice_set_tristate(struct snd_soc_dai *dai, int tristate)
 static struct snd_soc_dai_ops twl4030_dai_ops = {
 	.startup	= twl4030_startup,
 	.shutdown	= twl4030_shutdown,
+	.prepare	= twl4030_hw_prepare,
 	.hw_params	= twl4030_hw_params,
 	.hw_free	= twl4030_hw_free,
 	.set_sysclk	= twl4030_set_dai_sysclk,
