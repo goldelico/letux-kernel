@@ -5165,8 +5165,8 @@ static struct omap_hwmod_irq_info omap44xx_uart1_irqs[] = {
 };
 
 static struct omap_hwmod_dma_info omap44xx_uart1_sdma_chs[] = {
-	{ .name = "ndmareq_rx", .dma_ch = OMAP44XX_DMA_UART1_RX }, /* 49 */
-	{ .name = "ndmareq_tx", .dma_ch = OMAP44XX_DMA_UART1_TX }, /* 48 */
+	{ .name = "rx", .dma_ch = OMAP44XX_DMA_UART1_RX }, /* 49 */
+	{ .name = "tx", .dma_ch = OMAP44XX_DMA_UART1_TX }, /* 48 */
 };
 
 static struct omap_hwmod_addr_space omap44xx_uart1_addrs[] = {
@@ -5230,8 +5230,8 @@ static struct omap_hwmod_irq_info omap44xx_uart2_irqs[] = {
 };
 
 static struct omap_hwmod_dma_info omap44xx_uart2_sdma_chs[] = {
-	{ .name = "ndmareq_rx", .dma_ch = OMAP44XX_DMA_UART2_RX }, /* 51 */
-	{ .name = "ndmareq_tx", .dma_ch = OMAP44XX_DMA_UART2_TX }, /* 50 */
+	{ .name = "rx", .dma_ch = OMAP44XX_DMA_UART2_RX }, /* 51 */
+	{ .name = "tx", .dma_ch = OMAP44XX_DMA_UART2_TX }, /* 50 */
 };
 
 static struct omap_hwmod_addr_space omap44xx_uart2_addrs[] = {
@@ -5295,8 +5295,8 @@ static struct omap_hwmod_irq_info omap44xx_uart3_irqs[] = {
 };
 
 static struct omap_hwmod_dma_info omap44xx_uart3_sdma_chs[] = {
-	{ .name = "ndmareq_rx", .dma_ch = OMAP44XX_DMA_UART3_RX }, /* 53 */
-	{ .name = "ndmareq_tx", .dma_ch = OMAP44XX_DMA_UART3_TX }, /* 52 */
+	{ .name = "rx", .dma_ch = OMAP44XX_DMA_UART3_RX }, /* 53 */
+	{ .name = "tx", .dma_ch = OMAP44XX_DMA_UART3_TX }, /* 52 */
 };
 
 static struct omap_hwmod_addr_space omap44xx_uart3_addrs[] = {
@@ -5360,8 +5360,8 @@ static struct omap_hwmod_irq_info omap44xx_uart4_irqs[] = {
 };
 
 static struct omap_hwmod_dma_info omap44xx_uart4_sdma_chs[] = {
-	{ .name = "ndmareq_rx", .dma_ch = OMAP44XX_DMA_UART4_RX }, /* 55 */
-	{ .name = "ndmareq_tx", .dma_ch = OMAP44XX_DMA_UART4_TX }, /* 54 */
+	{ .name = "rx", .dma_ch = OMAP44XX_DMA_UART4_RX }, /* 55 */
+	{ .name = "tx", .dma_ch = OMAP44XX_DMA_UART4_TX }, /* 54 */
 };
 
 static struct omap_hwmod_addr_space omap44xx_uart4_addrs[] = {
