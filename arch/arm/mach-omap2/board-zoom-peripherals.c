@@ -19,6 +19,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/synaptics_i2c_rmi.h>
 #include <linux/interrupt.h>
+#include <linux/switch.h>
 
 #ifdef CONFIG_PANEL_SIL9022
 #include <mach/sil9022.h>
@@ -189,6 +190,23 @@ static struct regulator_init_data zoom_vsim = {
 	},
 	.num_consumer_supplies  = 1,
 	.consumer_supplies      = &zoom_vsim_supply,
+};
+
+static struct gpio_switch_platform_data headset_switch_data = {
+	.name		= "h2w",
+	.gpio		= OMAP_MAX_GPIO_LINES + 2, /* TWL4030 GPIO_2 */
+};
+
+static struct platform_device headset_switch_device = {
+	.name		= "switch-gpio",
+	.id		= -1,
+	.dev		= {
+		.platform_data = &headset_switch_data,
+	}
+};
+
+static struct platform_device *zoom_board_devices[] __initdata = {
+	&headset_switch_device,
 };
 
 static struct twl4030_hsmmc_info mmc[] __initdata = {
@@ -438,6 +456,8 @@ static struct omap_musb_board_data musb_board_data = {
 void __init zoom_peripherals_init(void)
 {
 	omap_i2c_init();
+	platform_add_devices(zoom_board_devices,
+			ARRAY_SIZE(zoom_board_devices));
 	synaptics_dev_init();
 	omap_serial_init();
 #if defined(CONFIG_MACH_OMAP_ZOOM3) || defined(CONFIG_MACH_OMAP_ZOOM2)
