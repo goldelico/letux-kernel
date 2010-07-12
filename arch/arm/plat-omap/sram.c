@@ -139,18 +139,9 @@ void __init omap_detect_sram(void)
 					omap_sram_size = 0x8000; /* 32K */
 				}
 			} else if (cpu_is_omap44xx()) {
-				if ((omap_type() == OMAP2_DEVICE_TYPE_EMU) ||
-				    (omap_type() == OMAP2_DEVICE_TYPE_SEC)) {
-					/* 40K For Public SRAM */
-					omap_sram_base = OMAP4_SRAM_PUB_VA;
-					omap_sram_start = OMAP4_SRAM_PUB_PA;
-					omap_sram_size = 0xA000;
-				} else {
-					/* 56 KB SRAM on GP device */
-					omap_sram_base = OMAP4_SRAM_VA;
-					omap_sram_start = OMAP4_SRAM_PA;
-					omap_sram_size = 0xE000;
-				}
+				omap_sram_base = OMAP4_SRAM_PUB_VA;
+				omap_sram_start = OMAP4_SRAM_PUB_PA;
+				omap_sram_size = 0xa000; /* 40K */
 			} else {
 				omap_sram_base = OMAP2_SRAM_PUB_VA;
 				omap_sram_start = OMAP2_SRAM_PUB_PA;
@@ -447,6 +438,20 @@ static inline int omap34xx_sram_init(void)
 }
 #endif
 
+#ifdef CONFIG_ARCH_OMAP4
+int __init omap44xx_sram_init(void)
+{
+	printk(KERN_ERR "FIXME: %s not implemented\n", __func__);
+
+	return -ENODEV;
+}
+#else
+static inline int omap44xx_sram_init(void)
+{
+	return 0;
+}
+#endif
+
 int __init omap_sram_init(void)
 {
 	omap_detect_sram();
@@ -461,7 +466,7 @@ int __init omap_sram_init(void)
 	else if (cpu_is_omap34xx())
 		omap34xx_sram_init();
 	else if (cpu_is_omap44xx())
-		omap34xx_sram_init(); /* FIXME: */
+		omap44xx_sram_init();
 
 	return 0;
 }
