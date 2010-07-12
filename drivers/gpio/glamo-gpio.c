@@ -34,7 +34,7 @@
 #define GLAMO_NR_GPIO 21
 #define GLAMO_NR_GPIO_REGS DIV_ROUND_UP(GLAMO_NR_GPIO, 4)
 
-#define GLAMO_GPIO_REG(x) (((x) * 2) + GLAMO_GPIO_REG_GEN1)
+#define GLAMO_GPIO_REG(x) (((x) * 2) + GLAMO_REG_GPIO_GEN1)
 
 struct glamo_gpio {
 	struct glamo_core *glamo;
