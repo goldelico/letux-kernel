@@ -48,9 +48,9 @@ struct omap_mcbsp_data {
 	 * Flags indicating is the bus already configured by
 	 * another substream
 	 */
-	int				configured;
-	int				tx_active;
-	int 				rx_active;
+	int		configured;
+	int		tx_active;
+	int		rx_active;
 };
 
 #define to_mcbsp(priv)	container_of((priv), struct omap_mcbsp_data, bus_id)
@@ -140,6 +140,9 @@ static const unsigned long omap34xx_mcbsp_port[][2] = {
 #else
 static const unsigned long omap34xx_mcbsp_port[][2] = {};
 #endif
+
+static int omap_mcbsp_dai_set_clks_src(struct omap_mcbsp_data *mcbsp_data,
+					int clk_id);
 
 static void omap_mcbsp_set_threshold(struct snd_pcm_substream *substream)
 {
@@ -234,6 +237,9 @@ static int omap_mcbsp_dai_trigger(struct snd_pcm_substream *substream, int cmd,
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+		if (cpu_dai->active)
+			omap_mcbsp_dai_set_clks_src(mcbsp_data,
+					mcbsp_data->clk_id);
 		omap_mcbsp_start(mcbsp_data->bus_id, play, !play);
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 			mcbsp_data->tx_active = 1;
@@ -244,6 +250,9 @@ static int omap_mcbsp_dai_trigger(struct snd_pcm_substream *substream, int cmd,
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+		if (cpu_dai->active)
+			omap_mcbsp_dai_set_clks_src(mcbsp_data,
+				OMAP_MCBSP_SYSCLK_CLKS_FCLK);
 		omap_mcbsp_stop(mcbsp_data->bus_id, play, !play);
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 			mcbsp_data->tx_active = 0;
