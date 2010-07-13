@@ -1198,6 +1198,8 @@ static int omap_vout_buffer_prepare(struct videobuf_queue *q,
 		/*set dma source burst mode for VRFB */
 		omap_set_dma_src_burst_mode(vout->vrfb_dma_tx.dma_ch,
 				OMAP_DMA_DATA_BURST_16);
+		/* enable src data packing */
+		omap_set_dma_src_data_pack(vout->vrfb_dma_tx.dma_ch, 1);
 
 		/* dest_port required only for OMAP1 */
 		omap_set_dma_dest_params(vout->vrfb_dma_tx.dma_ch, 0,
@@ -1207,6 +1209,9 @@ static int omap_vout_buffer_prepare(struct videobuf_queue *q,
 		/*set dma dest burst mode for VRFB */
 		omap_set_dma_dest_burst_mode(vout->vrfb_dma_tx.dma_ch,
 				OMAP_DMA_DATA_BURST_16);
+		/* enable dest data packing */
+		omap_set_dma_dest_data_pack(vout->vrfb_dma_tx.dma_ch, 1);
+
 		omap_dma_set_global_params(DMA_DEFAULT_ARB_RATE, 0x20, 0);
 
 		omap_start_dma(vout->vrfb_dma_tx.dma_ch);
