@@ -1265,6 +1265,10 @@ static int voltagescale_vpforceupdate(u32 target_opp, u32 current_opp,
 	t2_smps_steps = abs(target_vsel - current_vsel);
 
 	if (vdd == VDD1_OPP) {
+		/* Disable FBB before scaling volt while coming down from 1G */
+		if (target_opp < current_opp)
+			omap3630_abb_change_active_opp(target_opp_no);
+
 		vp_config_offs = OMAP3_PRM_VP1_CONFIG_OFFSET;
 		vp_tranxdone_st = OMAP3430_VP1_TRANXDONE_ST;
 		vpconfig = target_vsel << OMAP3430_INITVOLTAGE_SHIFT |
@@ -1358,7 +1362,8 @@ static int voltagescale_vpforceupdate(u32 target_opp, u32 current_opp,
 			vp_config_offs);
 
 	/* Adjust ABB ldo for new OPP */
-	if (cpu_is_omap3630() && vdd == VDD1_OPP)
+	if (cpu_is_omap3630() && vdd == VDD1_OPP &&
+					target_opp > current_opp)
 		omap3630_abb_change_active_opp(target_opp_no);
 
 	return 0;
