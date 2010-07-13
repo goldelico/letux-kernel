@@ -158,14 +158,9 @@ const struct omap_opp *omap_pm_dsp_get_opp_table(void)
 	return NULL;
 }
 
-void omap_pm_dsp_set_min_opp(u8 opp_id)
+void omap_pm_dsp_set_min_opp(struct device *dev, unsigned long f)
 {
-	if (opp_id == 0) {
-		WARN_ON(1);
-		return;
-	}
-
-	pr_debug("OMAP PM: DSP requests minimum VDD1 OPP to be %d\n", opp_id);
+	pr_debug("OMAP PM: DSP requests minimum VDD1 OPP to be %ld Hz\n", f);
 
 	/*
 	 *
