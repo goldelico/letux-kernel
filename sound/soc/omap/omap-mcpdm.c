@@ -67,18 +67,20 @@ static struct omap_mcpdm_data mcpdm_data = {
  */
 static struct omap_pcm_dma_data omap_mcpdm_dai_dma_params[] = {
 	{
-		.name = "Audio downlink",
+		.name = "Audio playback",
 		.dma_req = OMAP44XX_DMA_MCPDM_DL,
 		.data_type = OMAP_DMA_DATA_TYPE_S32,
-		.sync_mode = OMAP_DMA_SYNC_ELEMENT,
+		.sync_mode = OMAP_DMA_SYNC_PACKET,
+		.packet_size = 16,
 		.port_addr = OMAP44XX_MCPDM_L3_BASE + MCPDM_DN_DATA,
 	},
 	{
-		.name = "Audio uplink",
+		.name = "Audio capture",
 		.dma_req = OMAP44XX_DMA_MCPDM_UP,
 		.data_type = OMAP_DMA_DATA_TYPE_S32,
-		.sync_mode = OMAP_DMA_SYNC_ELEMENT,
-		.port_addr = OMAP44XX_MCPDM_BASE + MCPDM_UP_DATA,
+		.sync_mode = OMAP_DMA_SYNC_PACKET,
+		.packet_size = 16,
+		.port_addr = OMAP44XX_MCPDM_L3_BASE + MCPDM_UP_DATA,
 	},
 };
 
@@ -105,36 +107,6 @@ static void omap_mcpdm_dai_shutdown(struct snd_pcm_substream *substream,
 		omap_mcpdm_free();
 }
 
-static int omap_mcpdm_dai_trigger(struct snd_pcm_substream *substream, int cmd,
-				  struct snd_soc_dai *dai)
-{
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;
-	struct omap_mcpdm_data *mcpdm_priv = cpu_dai->private_data;
-	int stream = substream->stream;
-	int err = 0;
-
-	switch (cmd) {
-	case SNDRV_PCM_TRIGGER_START:
-	case SNDRV_PCM_TRIGGER_RESUME:
-	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		if (!mcpdm_priv->active++)
-			omap_mcpdm_start(stream);
-		break;
-
-	case SNDRV_PCM_TRIGGER_STOP:
-	case SNDRV_PCM_TRIGGER_SUSPEND:
-	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-		if (!--mcpdm_priv->active)
-			omap_mcpdm_stop(stream);
-		break;
-	default:
-		err = -EINVAL;
-	}
-
-	return err;
-}
-
 static int omap_mcpdm_dai_hw_params(struct snd_pcm_substream *substream,
 				    struct snd_pcm_hw_params *params,
 				    struct snd_soc_dai *dai)
@@ -151,13 +123,13 @@ static int omap_mcpdm_dai_hw_params(struct snd_pcm_substream *substream,
 	channels = params_channels(params);
 	switch (channels) {
 	case 4:
-		if (stream)
-			/* up to 2 channels for uplink */
+		if (stream == SNDRV_PCM_STREAM_CAPTURE)
+			/* up to 2 channels for capture */
 			return -EINVAL;
 		link_mask |= 1 << 3;
 	case 3:
-		if (stream)
-			/* up to 2 channels for uplink */
+		if (stream == SNDRV_PCM_STREAM_CAPTURE)
+			/* up to 2 channels for capture */
 			return -EINVAL;
 		link_mask |= 1 << 2;
 	case 2:
@@ -170,13 +142,15 @@ static int omap_mcpdm_dai_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
-	if (stream) {
-		mcpdm_links[stream].channels = link_mask << 0;
-		err = omap_mcpdm_set_uplink(&mcpdm_links[stream]);
-	} else {
+	if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		mcpdm_links[stream].channels = link_mask << 3;
-		err = omap_mcpdm_set_downlink(&mcpdm_links[stream]);
+		err = omap_mcpdm_playback_open(&mcpdm_links[stream]);
+	} else {
+		mcpdm_links[stream].channels = link_mask << 0;
+		err = omap_mcpdm_capture_open(&mcpdm_links[stream]);
 	}
+
+	omap_mcpdm_start(stream);
 
 	return err;
 }
@@ -188,12 +162,15 @@ static int omap_mcpdm_dai_hw_free(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;
 	struct omap_mcpdm_data *mcpdm_priv = cpu_dai->private_data;
 	struct omap_mcpdm_link *mcpdm_links = mcpdm_priv->links;
+	int stream = substream->stream;
 	int err;
 
-	if (substream->stream)
-		err = omap_mcpdm_clr_uplink(&mcpdm_links[substream->stream]);
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		err = omap_mcpdm_playback_close(&mcpdm_links[stream]);
 	else
-		err = omap_mcpdm_clr_downlink(&mcpdm_links[substream->stream]);
+		err = omap_mcpdm_capture_close(&mcpdm_links[stream]);
+
+	omap_mcpdm_stop(stream);
 
 	return err;
 }
@@ -201,7 +178,6 @@ static int omap_mcpdm_dai_hw_free(struct snd_pcm_substream *substream,
 static struct snd_soc_dai_ops omap_mcpdm_dai_ops = {
 	.startup	= omap_mcpdm_dai_startup,
 	.shutdown	= omap_mcpdm_dai_shutdown,
-	.trigger	= omap_mcpdm_dai_trigger,
 	.hw_params	= omap_mcpdm_dai_hw_params,
 	.hw_free	= omap_mcpdm_dai_hw_free,
 };
