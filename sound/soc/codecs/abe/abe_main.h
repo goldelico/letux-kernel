@@ -40,8 +40,6 @@ extern "C" {
 #define ABE_FW_VERSION		0x00000000L
 #define ABE_HW_VERSION		0x00000000L
 
-#define HAL_TIME_STAMP		0	/* generates the time-stamps used for the AESS verification */
-
 #define ABE_DEBUG_CHECKERS	0	/* pipe connection to the TARGET simulator */
 #define ABE_DEBUG_HWFILE	0	/* simulator data extracted from a text-file */
 #define ABE_DEBUG_LL_LOG	0	/* low-level log files */

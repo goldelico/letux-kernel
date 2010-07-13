@@ -17,6 +17,10 @@
 /*
  * OS DEPENDENT MMU CONFIGURATION
  */
+
+#define _lock_enter
+#define _lock_exit
+
 #define ABE_ATC_BASE_ADDRESS_L3		0x490F1000L	/* base address used for L3/DMA access */
 #define ABE_ATC_BASE_ADDRESS_L4		0x401F1000L	/* base address used for L4/MCU access */
 #define ABE_DMEM_BASE_ADDRESS_L3	0x49080000L	/* 64kB as seen from DMA access */
@@ -26,8 +30,8 @@
 #if 0
 #define ABE_PMEM_BASE_ADDRESS_MPU	0x401E0000L	/*  8kB  as seen from MPU access */
 #define ABE_CMEM_BASE_ADDRESS_MPU	0x401A0000L	/*  8kB  +++++++++++++++++++++++ */
-#define ABE_SMEM_BASE_ADDRESS_MPU	0x401C0000L	/* 24kB				 */
-#define ABE_DMEM_BASE_ADDRESS_MPU	0x40180000L	/* 64kB				 */
+#define ABE_SMEM_BASE_ADDRESS_MPU	0x401C0000L	/* 24kB */
+#define ABE_DMEM_BASE_ADDRESS_MPU	0x40180000L	/* 64kB */
 #define ABE_ATC_BASE_ADDRESS_MPU	0x401F1000L
 #else
 #define ABE_PMEM_BASE_ADDRESS_MPU	0x490E0000L	/* 8kB	as seen from MPU access */
@@ -56,7 +60,7 @@
 
 #define EVENT_GENERATOR_COUNTER		0x68
 #define EVENT_GENERATOR_COUNTER_DEFAULT 2048	/* PLL output/desired sampling rate = (32768 * 6000)/96000 */
-#define EVENT_GENERATOR_COUNTER_44100	2229	/* PLL output/desired sampling rate = (32768 * 6000)/88400 */
+#define EVENT_GENERATOR_COUNTER_44100	2229	/* PLL output/desired sampling rate = (32768 * 6000)/88200 */
 
 #define EVENT_GENERATOR_START		0x6C	/* start / stop the EVENT generator */
 #define EVENT_GENERATOR_ON		1
@@ -76,42 +80,43 @@
 /*
  *  * DMA requests
  *   */
-#define External_DMA_0		0	//Internal connection doesn't connect at ABE boundary
-#define DMIC_DMA_REQ		1	//Transmit request digital microphone
-#define McPDM_DMA_DL		2	//Multichannel PDM downlink
-#define McPDM_DMA_UP		3	//Multichannel PDM uplink
-#define MCBSP1_DMA_TX		4	//MCBSP module 1 - transmit request
-#define MCBSP1_DMA_RX		5	//MCBSP module 1 - receive request
-#define MCBSP2_DMA_TX		6	//MCBSP module 2 - transmit request
-#define MCBSP2_DMA_RX		7	//MCBSP module 2 - receive request
-#define MCBSP3_DMA_TX		8	//MCBSP module 3 - transmit request
-#define MCBSP3_DMA_RX		9	//MCBSP module 3 - receive request
-#define SLIMBUS1_DMA_TX0	10	//SLIMBUS module 1 - transmit request channel 0
-#define SLIMBUS1_DMA_TX1	11	//SLIMBUS module 1 - transmit request channel 1
-#define SLIMBUS1_DMA_TX2	12	//SLIMBUS module 1 - transmit request channel 2
-#define SLIMBUS1_DMA_TX3	13	//SLIMBUS module 1 - transmit request channel 3
-#define SLIMBUS1_DMA_TX4	14	//SLIMBUS module 1 - transmit request channel 4
-#define SLIMBUS1_DMA_TX5	15	//SLIMBUS module 1 - transmit request channel 5
-#define SLIMBUS1_DMA_TX6	16	//SLIMBUS module 1 - transmit request channel 6
-#define SLIMBUS1_DMA_TX7	17	//SLIMBUS module 1 - transmit request channel 7
-#define SLIMBUS1_DMA_RX0	18	//SLIMBUS module 1 - receive request channel 0
-#define SLIMBUS1_DMA_RX1	19	//SLIMBUS module 1 - receive request channel 1
-#define SLIMBUS1_DMA_RX2	20	//SLIMBUS module 1 - receive request channel 2
-#define SLIMBUS1_DMA_RX3	21	//SLIMBUS module 1 - receive request channel 3
-#define SLIMBUS1_DMA_RX4	22	//SLIMBUS module 1 - receive request channel 4
-#define SLIMBUS1_DMA_RX5	23	//SLIMBUS module 1 - receive request channel 5
-#define SLIMBUS1_DMA_RX6	24	//SLIMBUS module 1 - receive request channel 6
-#define SLIMBUS1_DMA_RX7	25	//SLIMBUS module 1 - receive request channel 7
-#define McASP1_AXEVT		26	//McASP  - Data transmit DMA request line
-#define McASP1_AREVT		29	//McASP  - Data receive DMA request line
-#define CBPr_DMA_RTX0		32	//DMA of the Circular buffer peripheral 0
-#define CBPr_DMA_RTX1		33	//DMA of the Circular buffer peripheral 1
-#define CBPr_DMA_RTX2		34	//DMA of the Circular buffer peripheral 2
-#define CBPr_DMA_RTX3		35	//DMA of the Circular buffer peripheral 3
-#define CBPr_DMA_RTX4		36	//DMA of the Circular buffer peripheral 4
-#define CBPr_DMA_RTX5		37	//DMA of the Circular buffer peripheral 5
-#define CBPr_DMA_RTX6		38	//DMA of the Circular buffer peripheral 6
-#define CBPr_DMA_RTX7		39	//DMA of the Circular buffer peripheral 7
+#define External_DMA_0		0	/*Internal connection doesn't connect at ABE boundary */
+#define DMIC_DMA_REQ		1	/*Transmit request digital microphone */
+#define McPDM_DMA_DL		2	/*Multichannel PDM downlink */
+#define McPDM_DMA_UP		3	/*Multichannel PDM uplink */
+#define MCBSP1_DMA_TX		4	/*MCBSP module 1 - transmit request */
+#define MCBSP1_DMA_RX		5	/*MCBSP module 1 - receive request */
+#define MCBSP2_DMA_TX		6	/*MCBSP module 2 - transmit request */
+#define MCBSP2_DMA_RX		7	/*MCBSP module 2 - receive request */
+#define MCBSP3_DMA_TX		8	/*MCBSP module 3 - transmit request */
+#define MCBSP3_DMA_RX		9	/*MCBSP module 3 - receive request */
+#define SLIMBUS1_DMA_TX0	10	/*SLIMBUS module 1 - transmit request channel 0 */
+#define SLIMBUS1_DMA_TX1	11	/*SLIMBUS module 1 - transmit request channel 1 */
+#define SLIMBUS1_DMA_TX2	12	/*SLIMBUS module 1 - transmit request channel 2 */
+#define SLIMBUS1_DMA_TX3	13	/*SLIMBUS module 1 - transmit request channel 3 */
+#define SLIMBUS1_DMA_TX4	14	/*SLIMBUS module 1 - transmit request channel 4 */
+#define SLIMBUS1_DMA_TX5	15	/*SLIMBUS module 1 - transmit request channel 5 */
+#define SLIMBUS1_DMA_TX6	16	/*SLIMBUS module 1 - transmit request channel 6 */
+#define SLIMBUS1_DMA_TX7	17	/*SLIMBUS module 1 - transmit request channel 7 */
+#define SLIMBUS1_DMA_RX0	18	/*SLIMBUS module 1 - receive request channel 0 */
+#define SLIMBUS1_DMA_RX1	19	/*SLIMBUS module 1 - receive request channel 1 */
+#define SLIMBUS1_DMA_RX2	20	/*SLIMBUS module 1 - receive request channel 2 */
+#define SLIMBUS1_DMA_RX3	21	/*SLIMBUS module 1 - receive request channel 3 */
+#define SLIMBUS1_DMA_RX4	22	/*SLIMBUS module 1 - receive request channel 4 */
+#define SLIMBUS1_DMA_RX5	23	/*SLIMBUS module 1 - receive request channel 5 */
+#define SLIMBUS1_DMA_RX6	24	/*SLIMBUS module 1 - receive request channel 6 */
+#define SLIMBUS1_DMA_RX7	25	/*SLIMBUS module 1 - receive request channel 7 */
+#define McASP1_AXEVT		26	/*McASP  - Data transmit DMA request line */
+#define McASP1_AREVT		29	/*McASP  - Data receive DMA request line */
+#define _DUMMY_FIFO_		30	/*DUMMY FIFO @@@ */
+#define CBPr_DMA_RTX0		32	/*DMA of the Circular buffer peripheral 0 */
+#define CBPr_DMA_RTX1		33	/*DMA of the Circular buffer peripheral 1 */
+#define CBPr_DMA_RTX2		34	/*DMA of the Circular buffer peripheral 2 */
+#define CBPr_DMA_RTX3		35	/*DMA of the Circular buffer peripheral 3 */
+#define CBPr_DMA_RTX4		36	/*DMA of the Circular buffer peripheral 4 */
+#define CBPr_DMA_RTX5		37	/*DMA of the Circular buffer peripheral 5 */
+#define CBPr_DMA_RTX6		38	/*DMA of the Circular buffer peripheral 6 */
+#define CBPr_DMA_RTX7		39	/*DMA of the Circular buffer peripheral 7 */
 
 /*
  *  * ATC DESCRIPTORS - DESTINATIONS

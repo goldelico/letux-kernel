@@ -158,31 +158,6 @@ void abe_load_fw(void);
 void abe_read_port_address(abe_port_id port, abe_dma_t *dma);
 
 /**
-* abe_default_configuration() description for void abe_default_configuration().
-*
-*  Parameter  :
-*      use-case-ID : "LP player", "voice-call" use-cases as defined in the paragraph
-*      "programming use-case sequences"
-*      param1, 2, 3, 4 : two parameters to be used later during FW06 integration
-*
-*  Operations :
-*      private API used during development. Loads all the necessary parameters and data
-*      patterns to allow a stand-alone functional test without the need of.
-*
-*  Parameter  : No parameter
-* @param	dma : output pointer to the DMA iteration and data destination pointer
-*
-* @pre	  no pre-condition
-*
-* @post
-*
-* @return       error code
-*
-* @see
-*/
-void abe_default_configuration(abe_uint32 use_case);
-
-/**
 * abe_irq_processing() description for void abe_irq_processing().
 *
 *  Parameter  :
@@ -226,24 +201,6 @@ void abe_irq_processing(void);
 * @see
 */
 void abe_write_event_generator(abe_event_id e);
-
-/**
-* abe_read_lowest_opp() description for void abe_read_lowest_opp().
-*
-*  Operations :
-*      Returns the lowest possible OPP based on the current active ports.
-*
-* @param	o: returned data
-*
-* @pre	  no pre-condition
-*
-* @post
-*
-* @return       error code
-*
-* @see
-*/
-void abe_read_lowest_opp(abe_opp_t *o);
 
 /**
 * abe_set_opp_processing() description for void abe_set_opp_processing().
@@ -339,71 +296,6 @@ void abe_connect_irq_ping_pong_port(abe_port_id id, abe_data_format_t *f, abe_ui
 */
 void abe_plug_subroutine(abe_uint32 *id, abe_subroutine2 f, abe_uint32 n, abe_uint32 *params);
 
-/**
-* abe_plug_sequence() description for void abe_plug_sequence().
-*
- *  Parameter  :
- *       Id: returned sequence index after pluging a new sequence (index in the tables);
- *       s : sequence to be inserted
- *
- *  Operations :
- *      Load a list a time-sequenced operations.
-*
-* @param
-*
-* @pre	  no pre-condition
-*
-* @post
-*
-* @return       error code
-*
-* @see
-*/
-void abe_plug_sequence(abe_uint32 *id, abe_sequence_t *s);
-
-/**
-* abe_launch_sequence() description for void abe_launch_sequence().
-*
-*  Parameter  :
-*      Sequence index
-*
-*  Operations :
-*      Launch a list a time-sequenced operations.
-*
-* @param
-*
-* @pre	  no pre-condition
-*
-* @post
-*
-* @return       error code
-*
-* @see
-*/
-void abe_launch_sequence(abe_patch_rev patch, abe_uint32 n);
-
-/**
-* abe_launch_sequence_param() description for void abe_launch_sequence_param().
-*
-*  Parameter  :
-*      Sequence index
-*      Parameters to the programmable sequence
-*
-*  Operations :
-*      Launch a list a time-sequenced operations.
-*
-* @param
-*
-* @pre	  no pre-condition
-*
-* @post
-*
-* @return       error code
-*
-* @see
-*/
-void abe_launch_sequence_param(abe_patch_rev patch, abe_uint32 n, abe_int32 *param1, abe_int32 *param2, abe_int32 *param3, abe_int32 *param4);;
-
 /*
  *  ABE_RESET_PORT
  *
@@ -494,23 +386,6 @@ void abe_set_dmic_filter(abe_dmic_ratio_t d);
 void abe_connect_cbpr_dmareq_port(abe_port_id id, abe_data_format_t *f, abe_uint32 d, abe_dma_t *a);
 
 /**
-* @fn abe_connect_dmareq_port()
-*
-*  Operations : enables the data echange between a DMA and the ABE through the
-*       CBPr registers of AESS.
-*
-*   Parameters :
-*   id: port name
-*   f : desired data format
-*   d : desired dma_request line (0..7)
-*   a : returned pointer to the base address of the ping-pong buffer and number
-*       of samples to exchange during a DMA_request..
-*
-* @see	ABE_API.h
-*/
-void abe_connect_dmareq_port(abe_port_id id, abe_data_format_t *f, abe_uint32 d, abe_dma_t *a);
-
-/**
 * @fn abe_connect_dmareq_ping_pong_port()
 *
 *  Operations : enables the data echanges between a DMA and a direct access to the
@@ -545,6 +420,24 @@ void abe_connect_dmareq_ping_pong_port(abe_port_id id, abe_data_format_t *f, abe
 * @see	ABE_API.h
 */
 void abe_connect_serial_port(abe_port_id id, abe_data_format_t *f, abe_mcbsp_id i);
+
+/**
+* @fn abe_connect_slimbus_port()
+*
+*  Operations : enables the data echanges between 1/2 SB and an ATC buffers in
+*   DMEM.
+*
+*   Parameters :
+*    id: port name
+*    f : data format
+*    i : peripheral ID (McBSP #1, #2, #3)
+*    j : peripheral ID (McBSP #1, #2, #3)
+*
+* @see        ABE_API.h
+*/
+void abe_connect_slimbus_port(abe_port_id id, abe_data_format_t *f,
+			abe_slimbus_id sb_port1, abe_slimbus_id sb_port2);
+
 
 /*
  *  ABE_WRITE_GAIN
@@ -689,6 +582,40 @@ void abe_set_router_configuration(abe_router_id id, abe_uint32 configuration, ab
 void abe_read_debug_trace(abe_uint32 *data, abe_uint32 *n);
 
 /*
+ *  ABE_READ_DEBUG_TRACE
+ *
+ *  Parameter  :
+ *      data destination pointer
+ *      max number of data read
+ *
+ *  Operations :
+ *      reads the AE circular data pointer holding pairs of debug data+timestamps, and store
+ *      the pairs in linear addressing to the parameter pointer. Stops the copy when the max
+ *        parameter is reached or when the FIFO is empty.
+ *
+ *  Return value :
+ *      None.
+ */
+
+void abe_read_debug_trace(abe_uint32 *data, abe_uint32 *n);
+
+/*
+ *  ABE_CONNECT_DEBUG_TRACE
+ *
+ *  Parameter  :
+ *      pointer to the DMEM trace buffer
+ *
+ *  Operations :
+ *      returns the address and size of the real-time debug trace buffer,
+ *	the content of which will vary from one firmware release to an other
+ *
+ *  Return value :
+ *      None.
+ */
+
+void abe_connect_debug_trace(abe_dma_t *a);
+
+/*
  *  ABE_SET_DEBUG_TRACE
  *
  *  Parameter  :
@@ -701,6 +628,20 @@ void abe_read_debug_trace(abe_uint32 *data, abe_uint32 *n);
  *      None.
  */
 void abe_set_debug_trace(abe_dbg_t debug);
+
+/*
+ *  ABE_ENABLE_TEST_PATTERN
+ *
+ *  Parameter  :
+ *
+ *  Operations :
+ *
+ *  Return value :
+ *      None.
+ */
+
+void abe_enable_test_pattern(abe_patched_pattern_id smem_id, abe_uint32 on_off);
+
 #ifdef __cplusplus
 }
 #endif

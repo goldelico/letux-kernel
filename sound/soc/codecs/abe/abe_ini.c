@@ -51,12 +51,14 @@ void abe_hw_configuration()
  *  Return value :
  *
  */
+char aUplinkMuxing[16];
+
 void abe_build_scheduler_table()
 {
 	short MultiFrame[PROCESSING_SLOTS][TASKS_IN_SLOT];
 	abe_uint16 i, n;
 	abe_uint8 *ptr;
-	char aUplinkMuxing[16];
+
 
 	/* LOAD OF THE TASKS' MULTIFRAME */
 	/* WARNING ON THE LOCATION OF IO_MM_DL WHICH IS PATCHED IN "abe_init_io_tasks" */
@@ -70,13 +72,13 @@ void abe_build_scheduler_table()
 	//MultiFrame[0][3] = 0;
 	//MultiFrame[0][4] = 0;
 	//MultiFrame[0][5] = 0;
-	//@@@ MultiFrame[0][6] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_ASRC_MM_DL; No ASRC
+	MultiFrame[0][6] = 0;
 	//MultiFrame[0][7] = 0;
 	//MultiFrame[1][0] = 0;
 	//MultiFrame[1][1] = 0;
 #define TASK_ASRC_VX_DL_SLT 1
 #define TASK_ASRC_VX_DL_IDX 2
-	//MultiFrame[1][2] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_ASRC_VX_DL_16;
+	MultiFrame[1][2] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_ASRC_VX_DL_16;
 #define TASK_VX_DL_SLT 1
 #define TASK_VX_DL_IDX 3
 	MultiFrame[1][3] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_VX_DL_16_48;
@@ -85,25 +87,27 @@ void abe_build_scheduler_table()
 	MultiFrame[1][6] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_DL2Mixer;
 	MultiFrame[1][7] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_IO_VIB_DL;
 	MultiFrame[2][0] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_DL1Mixer;
-	//MultiFrame[2][1] = 0;
-	MultiFrame[2][2] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_SideTone;
+	MultiFrame[2][1] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_SDTMixer;
+	//MultiFrame[2][2] = 0;
 	//MultiFrame[2][3] = 0;
-	MultiFrame[2][4] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_SDTMixer;
+	//MultiFrame[2][4] = 0;
 	MultiFrame[2][5] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_IO_DMIC;
 	//MultiFrame[2][6] = 0;
 	//MultiFrame[2][7] = 0;
 
-	MultiFrame[3][0] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_DL1_EQ;
-	//MultiFrame[3][1] = 0;
+	MultiFrame[3][1] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_DL1_GAIN;
+	MultiFrame[3][0] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_DL1_APS_EQ;
 	MultiFrame[3][2] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_EchoMixer;
 	//MultiFrame[3][3] = 0;
 	//MultiFrame[3][4] = 0;
 	//MultiFrame[3][5] = 0;
-	MultiFrame[3][6] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_DL2_EQ;
-	MultiFrame[3][7] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_VIBRA_SPLIT;
-	MultiFrame[4][0] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_DL1_APS_EQ;
-	MultiFrame[4][1] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_DL1_GAIN;
+	MultiFrame[3][6] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_DL2_GAIN;
+	MultiFrame[3][7] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_DL2_APS_EQ;
+
+	MultiFrame[4][0] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_DL1_EQ;
+	//MultiFrame[4][1] = 0;
 	MultiFrame[4][2] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_VXRECMixer;
+
 	MultiFrame[4][3] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_VXREC_SPLIT;
 	//MultiFrame[4][4] = 0;
 	//MultiFrame[4][5] = 0;
@@ -116,12 +120,13 @@ void abe_build_scheduler_table()
 	//MultiFrame[5][3] = 0;
 	//MultiFrame[5][4] = 0;
 	//MultiFrame[5][5] = 0;
-	MultiFrame[5][6] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_DL2_APS_EQ;
-	MultiFrame[5][7] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_DL2_GAIN;
+	MultiFrame[5][6] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_DL2_EQ;
+	MultiFrame[5][7] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_VIBRA_SPLIT;
 
 	MultiFrame[6][0] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_EARP_48_96_LP;
 	MultiFrame[6][1] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_IO_PDM_DL;
 	//MultiFrame[6][2] = 0;
+
 	//MultiFrame[6][3] = 0;
 	//MultiFrame[6][4] = 0;
 	//MultiFrame[6][5] = 0;
@@ -186,7 +191,7 @@ void abe_build_scheduler_table()
 	//MultiFrame[13][0] = 0;
 	//MultiFrame[13][1] = 0;
 	MultiFrame[13][2] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_MM_UL2_ROUTING;
-	//MultiFrame[13][3] = 0;
+	MultiFrame[13][3] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_SideTone;
 	MultiFrame[13][4] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_IO_MM_UL;
 	//MultiFrame[13][5] = 0;
 	//MultiFrame[13][6] = 0;
@@ -212,15 +217,13 @@ void abe_build_scheduler_table()
 	//MultiFrame[15][4] = 0;
 	//MultiFrame[15][5] = 0;
 	//MultiFrame[15][6] = 0;
-#define TASK_ASRC_ECHO_SLT 15
-#define TASK_ASRC_ECHO_IDX 7
-	//@@@	MultiFrame[15][7] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_ASRC_ECHO_REF_16;
+	//MultiFrame[15][7] = 0;
 
 	//MultiFrame[16][0] = 0;
 	//MultiFrame[16][1] = 0;
 #define TASK_ASRC_VX_UL_SLT 16
 #define TASK_ASRC_VX_UL_IDX 2
-	//@@@  MultiFrame[16][2] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_ASRC_VX_UL_16;
+	MultiFrame[16][2] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_ASRC_VX_UL_16;
 	MultiFrame[16][3] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_IO_VX_UL; // USING ECHO REF MERGED
 	//MultiFrame[16][4] = 0;
 	//MultiFrame[16][5] = 0;
@@ -280,7 +283,8 @@ void abe_build_scheduler_table()
 	//MultiFrame[22][1] = 0;
 	MultiFrame[22][2] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_IO_MM_EXT_OUT;
 	MultiFrame[22][3] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_IO_MM_EXT_IN;
-	//MultiFrame[22][4] = 0;
+	MultiFrame[22][4] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_MM_EXT_IN_SPLIT;
+
 	//MultiFrame[22][5] = 0;
 	//MultiFrame[22][6] = 0;
 	//MultiFrame[22][7] = 0;
@@ -343,13 +347,13 @@ void abe_init_atc(abe_port_id id)
 	datasize = abe_dma_port_iter_factor (&((abe_port[id]).format));
 	iter = (abe_uint8) abe_dma_port_iteration (&((abe_port[id]).format));
 
-	if (abe_port[id].protocol.direction == ABE_ATC_DIRECTION_IN) // IN from AESS point of view
+	if (abe_port[id].protocol.direction == ABE_ATC_DIRECTION_IN) /* IN from AESS point of view */
 		if (iter + 2*datasize > 126)
-			desc.wrpt = (iter >>1) + (2*datasize);
+			desc.wrpt = (iter >>1) + (3*datasize);
 		else
-			desc.wrpt = iter + 2*datasize;
+			desc.wrpt = iter + 3*datasize;
 	else
-		desc.wrpt = 0 + 2*datasize;
+		desc.wrpt = 0 + 3*datasize;
 
 	switch ((abe_port[id]).protocol.protocol_switch) {
 	case SLIMBUS_PORT_PROT:
@@ -438,6 +442,34 @@ void abe_init_atc(abe_port_id id)
 	default:
 		break;
 	}
+}
+
+/*
+ * ABE_RESET_ATC
+ *
+ * Parameter:
+ * prot : protocol being used
+ *
+ * Operations:
+ * reset R/W pointers of a FIFO
+ *
+ * Return value:
+ *
+ */
+void abe_reset_atc(abe_uint32 atc_index)
+{
+	abe_satcdescriptor_aess desc;
+
+	desc.rdpt = desc.wrpt = desc.irqdest = desc.cberr = desc.desen = desc.nw =0;
+	desc.reserved0 = desc.reserved1 = desc.reserved2 = 0;
+	desc.srcid = desc.destid = desc.badd = desc.iter = desc.cbsize = 0;
+
+	desc.cbdir = ABE_ATC_DIRECTION_IN;
+	desc.cbsize = 4;
+	desc.badd = 448 >> 4;
+	desc.iter = 1;
+	abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_DMEM,
+	    ABE_ATC_DMIC_DMA_REQ * ATC_SIZE, (abe_uint32*)&desc, sizeof (desc));
 }
 
 /*
@@ -758,38 +790,45 @@ void abe_init_io_tasks(abe_port_id id, abe_data_format_t *format, abe_port_proto
 
 		/* check for 8kHz/16kHz */
 		if (VX_DL_PORT == id) {
-			abe_block_copy(COPY_FROM_ABE_TO_HOST, ABE_DMEM, D_multiFrame_ADDR,
-				(abe_uint32*)MultiFrame, sizeof (MultiFrame));
+			abe_block_copy (COPY_FROM_ABE_TO_HOST, ABE_DMEM,
+				D_multiFrame_ADDR, (abe_uint32*)MultiFrame, sizeof (MultiFrame));
 			if (abe_port[id].format.f == 8000) {
-				//@@@ MultiFrame[TASK_ASRC_VX_DL_SLT][TASK_ASRC_VX_DL_IDX]  = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_ASRC_VX_DL_8;
+				MultiFrame[TASK_ASRC_VX_DL_SLT][TASK_ASRC_VX_DL_IDX] =
+					D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_ASRC_VX_DL_8;
 				MultiFrame[TASK_VX_DL_SLT][TASK_VX_DL_IDX] =
-						D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_VX_DL_8_48;
-				smem1 = Voice_8k_DL_labelID; //@@@ IO_VX_DL_ASRC_labelID
+					D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_VX_DL_8_48;
+				smem1 = IO_VX_DL_ASRC_labelID; /*Voice_8k_DL_labelID*/
 			} else {
-				//@@@ MultiFrame[TASK_ASRC_VX_DL_SLT][TASK_ASRC_VX_DL_IDX]  = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_ASRC_VX_DL_16;
-				MultiFrame[TASK_VX_DL_SLT][TASK_VX_DL_IDX] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_VX_DL_16_48;
-				smem1 = Voice_16k_DL_labelID; //@@@ IO_VX_DL_ASRC_labelID
+				MultiFrame[TASK_ASRC_VX_DL_SLT][TASK_ASRC_VX_DL_IDX]  = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_ASRC_VX_DL_16;
+				MultiFrame[TASK_VX_DL_SLT][TASK_VX_DL_IDX]  = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_VX_DL_16_48;
+				smem1 = IO_VX_DL_ASRC_labelID; /* Voice_16k_DL_labelID */
 			}
-			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_DMEM, D_multiFrame_ADDR,
-				(abe_uint32*)MultiFrame, sizeof (MultiFrame));
+			abe_block_copy (COPY_FROM_HOST_TO_ABE, ABE_DMEM,
+				D_multiFrame_ADDR, (abe_uint32*)MultiFrame, sizeof (MultiFrame));
 		}
 		/* check for 8kHz/16kHz */
 		if (VX_UL_PORT == id) {
-			abe_block_copy(COPY_FROM_ABE_TO_HOST, ABE_DMEM, D_multiFrame_ADDR, (abe_uint32*)MultiFrame, sizeof(MultiFrame));
+			abe_block_copy (COPY_FROM_ABE_TO_HOST, ABE_DMEM,
+				D_multiFrame_ADDR, (abe_uint32*)MultiFrame, sizeof (MultiFrame));
 			if (abe_port[id].format.f == 8000) {
-				//@@@ MultiFrame[TASK_ASRC_VX_UL_SLT][TASK_ASRC_VX_UL_IDX] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_ASRC_VX_UL_8;
-				MultiFrame[TASK_VX_UL_SLT][TASK_VX_UL_IDX] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_VX_UL_48_8;
-				//@@@ MultiFrame[TASK_ECHO_SLT][TASK_ECHO_IDX] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_ECHO_REF_48_8;
-				//@@@ MultiFrame[TASK_ASRC_ECHO_SLT][TASK_ASRC_ECHO_IDX] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_ASRC_ECHO_REF_8;
-				smem1 = Voice_8k_UL_labelID; //@@@ XinASRC_UL_VX_labelID
+				MultiFrame[TASK_ASRC_VX_UL_SLT][TASK_ASRC_VX_UL_IDX] =
+					D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_ASRC_VX_UL_8;
+				MultiFrame[TASK_VX_UL_SLT][TASK_VX_UL_IDX] =
+					D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_VX_UL_48_8;
+				/* MultiFrame[TASK_ECHO_SLT][TASK_ECHO_IDX] =
+					D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_ECHO_REF_48_8; */
+				smem1 = Voice_8k_UL_labelID;
 			} else {
-				//@@@ MultiFrame[TASK_ASRC_VX_UL_SLT][TASK_ASRC_VX_UL_IDX] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_ASRC_VX_UL_16;
-				MultiFrame[TASK_VX_UL_SLT][TASK_VX_UL_IDX] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_VX_UL_48_16;
-				//@@@ MultiFrame[TASK_ECHO_SLT][TASK_ECHO_IDX] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_ECHO_REF_48_16;
-				//@@@ MultiFrame[TASK_ASRC_ECHO_SLT][TASK_ASRC_ECHO_IDX] = D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_ASRC_ECHO_REF_16;
-				smem1 = Voice_16k_UL_labelID; //@@@ XinASRC_UL_VX_labelID
+				MultiFrame[TASK_ASRC_VX_UL_SLT][TASK_ASRC_VX_UL_IDX] =
+					D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_ASRC_VX_UL_16;
+				MultiFrame[TASK_VX_UL_SLT][TASK_VX_UL_IDX] =
+					D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_VX_UL_48_16;
+				/* MultiFrame[TASK_ECHO_SLT][TASK_ECHO_IDX] =
+					D_tasksList_ADDR + sizeof(ABE_STask)*C_ABE_FW_TASK_ECHO_REF_48_16; */
+				smem1 = Voice_16k_UL_labelID;
 			}
-			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_DMEM, D_multiFrame_ADDR, (abe_uint32*)MultiFrame, sizeof(MultiFrame));
+			abe_block_copy (COPY_FROM_HOST_TO_ABE, ABE_DMEM,
+				D_multiFrame_ADDR, (abe_uint32*)MultiFrame, sizeof (MultiFrame));
 		}
 
 		/* check for 8kHz/16kHz */
@@ -840,14 +879,6 @@ void abe_init_io_tasks(abe_port_id id, abe_data_format_t *format, abe_port_proto
 				smem1 = smem_mm_dl_opp100; /* ASRC input buffer, size 40 */
 			else
 				smem1 = smem_mm_dl_opp25; /* at OPP 25/50 or without ASRC  */
-		}
-		/* MM_EXT_IN takes the PDM_UL path */
-		if (MM_EXT_IN_PORT == id) {
-			/* set the PDM_UL SMEM buffer to /nul */
-			sio_desc_address = dmem_port_descriptors + (PDM_UL_PORT * sizeof(ABE_SIODescriptor));
-			abe_block_copy (COPY_FROM_ABE_TO_HOST, ABE_DMEM, sio_desc_address, (abe_uint32*)&desc, sizeof(desc));
-			desc.smem_addr1 = (abe_uint16) Dummy_AM_labelID;
-			abe_block_copy (COPY_FROM_HOST_TO_ABE, ABE_DMEM, sio_desc_address, (abe_uint32*)&desc, sizeof(desc));
 		}
 
 		if (abe_port[id].protocol.direction == ABE_ATC_DIRECTION_IN)
@@ -975,7 +1006,8 @@ void abe_reset_all_features(void)
 {
 	abe_uint16 i;
 
-	for (i = 0; i < FEAT_GAINS_DMIC1; i++)
+	//for (i = 0; i < FEAT_GAINS_DMIC1; i++)
+	for (i = 0; i < LAST_PORT_ID; i++)
 		abe_reset_one_feature(i);
 }
 
@@ -995,8 +1027,8 @@ void abe_reset_all_ports(void)
 {
 	abe_uint16 i;
 
-	for (i = 0; i < MAXNBABEPORTS; i++)
-		abe_reset_port(i);
+	for (i = 0; i < LAST_PORT_ID; i++)
+                abe_reset_port (i);
 
 	/* mixers' configuration */
 	abe_write_mixer(MIXDL1, MUTE_GAIN, RAMP_100MS, MIX_DL1_INPUT_MM_DL);
@@ -1081,6 +1113,14 @@ void abe_clean_temporary_buffers(abe_port_id id)
 		abe_reset_mem(ABE_DMEM, D_BT_UL_FIFO_ADDR, D_BT_UL_FIFO_sizeof);
 		abe_reset_mem(ABE_SMEM, S_BT_UL_ADDR << 3, S_BT_UL_sizeof << 3);
 		abe_reset_mem(ABE_SMEM, S_BT_UL_ADDR << 3, S_BT_UL_sizeof << 3);
+		abe_reset_mem(ABE_SMEM, S_BT_UL_8_48_HP_data_ADDR << 3,
+						S_BT_UL_8_48_HP_data_sizeof << 3);
+		abe_reset_mem(ABE_SMEM, S_BT_UL_8_48_LP_data_ADDR << 3,
+						S_BT_UL_8_48_LP_data_sizeof << 3);
+		abe_reset_mem(ABE_SMEM, S_BT_UL_16_48_HP_data_ADDR << 3,
+						S_BT_UL_16_48_HP_data_sizeof << 3);
+		abe_reset_mem(ABE_SMEM, S_BT_UL_16_48_LP_data_ADDR << 3,
+						S_BT_UL_16_48_LP_data_sizeof << 3);
 		break;
 	case MM_UL_PORT:
 		abe_reset_mem(ABE_DMEM, D_MM_UL_FIFO_ADDR, D_MM_UL_FIFO_sizeof);
@@ -1094,7 +1134,7 @@ void abe_clean_temporary_buffers(abe_port_id id)
 	case VX_UL_PORT:
 		abe_reset_mem(ABE_DMEM, D_VX_UL_FIFO_ADDR, D_VX_UL_FIFO_sizeof);
 		abe_reset_mem(ABE_SMEM, S_VX_UL_ADDR << 3, S_VX_UL_sizeof << 3);
-		abe_reset_mem(ABE_SMEM, S_VX_UL_48_8_BP_data_ADDR << 3, S_VX_UL_48_8_BP_data_sizeof << 3);
+		abe_reset_mem(ABE_SMEM, S_VX_UL_48_8_HP_data_ADDR << 3, S_VX_UL_48_8_HP_data_sizeof << 3);
 		abe_reset_mem(ABE_SMEM, S_VX_UL_48_8_LP_data_ADDR << 3, S_VX_UL_48_8_LP_data_sizeof << 3);
 		abe_reset_mem(ABE_SMEM, S_VX_UL_48_16_HP_data_ADDR << 3, S_VX_UL_48_16_HP_data_sizeof << 3);
 		abe_reset_mem(ABE_SMEM, S_VX_UL_48_16_LP_data_ADDR << 3, S_VX_UL_48_16_LP_data_sizeof << 3);
@@ -1106,7 +1146,7 @@ void abe_clean_temporary_buffers(abe_port_id id)
 	case VX_DL_PORT:
 		abe_reset_mem(ABE_DMEM, D_VX_DL_FIFO_ADDR, D_VX_DL_FIFO_sizeof);
 		abe_reset_mem(ABE_SMEM, S_VX_DL_ADDR << 3, S_VX_DL_sizeof << 3);
-		abe_reset_mem(ABE_SMEM, S_VX_DL_8_48_BP_data_ADDR << 3, S_VX_DL_8_48_BP_data_sizeof << 3);
+		abe_reset_mem  (ABE_SMEM, S_VX_DL_8_48_HP_data_ADDR << 3, S_VX_DL_8_48_HP_data_sizeof << 3);
 		abe_reset_mem(ABE_SMEM, S_VX_DL_8_48_LP_data_ADDR << 3, S_VX_DL_8_48_LP_data_sizeof << 3);
 		abe_reset_mem(ABE_SMEM, S_VX_DL_16_48_HP_data_ADDR << 3, S_VX_DL_16_48_HP_data_sizeof << 3);
 		abe_reset_mem(ABE_SMEM, S_VX_DL_16_48_LP_data_ADDR << 3, S_VX_DL_16_48_LP_data_sizeof << 3);
@@ -1122,6 +1162,11 @@ void abe_clean_temporary_buffers(abe_port_id id)
 	case BT_VX_DL_PORT:// ABE --> BT (8/16kHz)
 		abe_reset_mem(ABE_DMEM, D_BT_DL_FIFO_ADDR, D_BT_DL_FIFO_sizeof);
 		abe_reset_mem(ABE_SMEM, S_BT_DL_ADDR << 3, S_BT_DL_sizeof << 3);
+		abe_reset_mem(ABE_SMEM, S_BT_DL_48_8_HP_data_ADDR << 3, S_BT_DL_48_8_HP_data_sizeof << 3);
+		abe_reset_mem(ABE_SMEM, S_BT_DL_48_8_LP_data_ADDR << 3, S_BT_DL_48_8_LP_data_sizeof << 3);
+		abe_reset_mem(ABE_SMEM, S_BT_DL_48_16_HP_data_ADDR << 3, S_BT_DL_48_16_HP_data_sizeof << 3);
+		abe_reset_mem(ABE_SMEM, S_BT_DL_48_16_LP_data_ADDR << 3, S_BT_DL_48_16_LP_data_sizeof << 3);
+
 		break;
 	case PDM_DL_PORT:
 		abe_reset_mem(ABE_DMEM, D_McPDM_DL_FIFO_ADDR, D_McPDM_DL_FIFO_sizeof);

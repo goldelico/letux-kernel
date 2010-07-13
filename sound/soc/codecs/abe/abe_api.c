@@ -10,17 +10,19 @@
 
 #include "abe_main.h"
 #include "abe_typedef.h"
+#include "abe_initxxx_labels.h"
+#include "abe_dbg.h"
 
 static abe_uint32 ABE_FW_PM[ABE_PMEM_SIZE / 4]	= {
 #include "C_ABE_FW.PM"
 };
-static abe_uint32 ABE_FW_CM[ABE_CMEM_SIZE / 4]  = {
+static abe_uint32 ABE_FW_CM[ABE_CMEM_SIZE / 4]	= {
 #include "C_ABE_FW.CM"
 };
-static abe_uint32 ABE_FW_DM[ABE_DMEM_SIZE / 4]  = {
+static abe_uint32 ABE_FW_DM[ABE_DMEM_SIZE / 4]	= {
 #include "C_ABE_FW.lDM"
 };
-static abe_uint32 ABE_FW_SM[ABE_SMEM_SIZE / 4]  = {
+static abe_uint32 ABE_FW_SM[ABE_SMEM_SIZE / 4]	= {
 #include "C_ABE_FW.SM32"
 };
 
@@ -34,8 +36,16 @@ static abe_uint32 ABE_FW_SM[ABE_SMEM_SIZE / 4]  = {
 */
 void abe_reset_hal(void)
 {
-	/* init hardware components */
+	_lock_enter
+	_log(id_reset_hal,0,0,0)
+
+	abe_dbg_output = TERMINAL_OUTPUT;
+	abe_irq_dbg_read_ptr = 0; /* IRQ & DBG circular read pointer in DMEM */
+	abe_dbg_mask = (abe_dbg_t)(-1); /* set debug mask to "enable all traces" */
 	abe_hw_configuration();
+
+	_lock_exit
+
 }
 
 /**
@@ -54,6 +64,9 @@ void abe_load_fw_param(abe_uint32 *PMEM, abe_uint32 PMEM_SIZE,
 {
 	static abe_uint32 warm_boot;
 	abe_uint32 event_gen;
+
+	_lock_enter
+	_log(id_load_fw_param,0,0,0)
 
 #if PC_SIMULATION
 	/* the code is loaded from the Checkers */
@@ -83,10 +96,14 @@ void abe_load_fw_param(abe_uint32 *PMEM, abe_uint32 PMEM_SIZE,
 
 	warm_boot = 1;
 #endif
+	_lock_exit
 }
 
 void abe_load_fw(void)
 {
+	_lock_enter
+	_log(id_load_fw,0,0,0)
+
 	abe_load_fw_param(ABE_FW_PM, sizeof (ABE_FW_PM),
 			ABE_FW_CM, sizeof(ABE_FW_CM),
 			ABE_FW_SM, sizeof(ABE_FW_SM),
@@ -96,6 +113,8 @@ void abe_load_fw(void)
 	abe_build_scheduler_table();
 	abe_reset_all_sequence();
 	abe_select_main_port(PDM_DL_PORT);
+	_lock_exit
+
 }
 
 /*
@@ -114,6 +133,9 @@ void abe_load_fw(void)
  */
 void abe_read_hardware_configuration(abe_use_case_id *u, abe_opp_t *o, abe_hw_config_init_t *hw)
 {
+	_lock_enter
+	_log(id_read_hardware_configuration,(abe_uint32)(u),(abe_uint32)u>>8,(abe_uint32)u>>16)
+
 	abe_read_use_case_opp(u, o);
 
 	hw->MCPDM_CTRL__DIV_SEL = 0;		/* 0: 96kHz   1:192kHz */
@@ -137,153 +159,28 @@ void abe_read_hardware_configuration(abe_use_case_id *u, abe_opp_t *o, abe_hw_co
 	hw->DMIC_CTRL__DMIC_UP1_EN = 1;
 	hw->DMIC_FIFO_CTRL__DMIC_TRESH = DMIC_ITER/6; /* 1*(DMIC_UP1_EN+ 2+ 3)*2 OCP read access every 96/88.1 KHz. */
 
-	hw->MCBSP_SPCR1_REG__RJUST = 1;		/* 1:MSB  2:LSB aligned */
-	hw->MCBSP_THRSH2_REG_REG__XTHRESHOLD = 1;
-	hw->MCBSP_THRSH1_REG_REG__RTHRESHOLD = 1;
+	/*   MCBSP SPECIFICATION
+	RJUST = 00 Right justify data and zero fill MSBs in DRR[1,2]
+	RJUST = 01 Right justify data and sign extend it into the MSBs in DRR[1,2]
+	RJUST = 10 Left justify data and zero fill LSBs in DRR[1,2]
+	MCBSPLP_RJUST_MODE_RIGHT_ZERO = 0x0,
+	MCBSPLP_RJUST_MODE_RIGHT_SIGN = 0x1,
+	MCBSPLP_RJUST_MODE_LEFT_ZERO  = 0x2,
+	MCBSPLP_RJUST_MODE_MAX = MCBSPLP_RJUST_MODE_LEFT_ZERO
+	*/
+	hw->MCBSP_SPCR1_REG__RJUST = 2;
+	hw->MCBSP_THRSH2_REG_REG__XTHRESHOLD = 1;	/* 1=MONO, 2=STEREO, 3=TDM_3_CHANNELS, 4=TDM_4_CHANNELS, .... */
+	hw->MCBSP_THRSH1_REG_REG__RTHRESHOLD = 1;	/* 1=MONO, 2=STEREO, 3=TDM_3_CHANNELS, 4=TDM_4_CHANNELS, .... */
 
-	hw->AESS_EVENT_GENERATOR_COUNTER__COUNTER_VALUE = EVENT_GENERATOR_COUNTER_DEFAULT; /* 2050 gives about 96kHz */
-	hw->AESS_EVENT_SOURCE_SELECTION__SELECTION = 1;	/* 0: DMAreq, 1:Counter */
-	hw->AESS_AUDIO_ENGINE_SCHEDULER__DMA_REQ_SELECTION = ABE_ATC_MCPDMDL_DMA_REQ; /* 5bits DMAreq selection */
+	hw->SLIMBUS_DCT_FIFO_SETUP_REG__SB_THRESHOLD = 1;	/* Slimbus IP FIFO thresholds */
 
-	hw->HAL_EVENT_SELECTION = EVENT_TIMER;
-}
+	hw->AESS_EVENT_GENERATOR_COUNTER__COUNTER_VALUE = EVENT_GENERATOR_COUNTER_DEFAULT;	/* 2050 gives about 96kHz */
+	hw->AESS_EVENT_SOURCE_SELECTION__SELECTION = 1;		/* 0: DMAreq, 1:Counter */
+	hw->AESS_AUDIO_ENGINE_SCHEDULER__DMA_REQ_SELECTION = ABE_ATC_MCPDMDL_DMA_REQ;	 /* 5bits DMAreq selection */
 
-/*
- *  ABE_DEFAULT_CONFIGURATION
- *
- *  Parameter  :
- *	use-case-ID : "LP player", "voice-call" use-cases as defined in the paragraph
- *	"programming use-case sequences"
- *	Param 1, 2, 3, 4 used for non regression tests
- *
- *  Operations :
- *	private API used during development. Loads all the necessary parameters and data
- *	patterns to allow a stand-alone functional test without the need of.
- *
- *  Return value :
- *	None.
- */
-void abe_default_configuration(abe_uint32 use_case)
-{
-	abe_data_format_t format;
-	abe_dma_t dma_sink;
-	abe_uint32 data_sink;
-        abe_use_case_id UC2[] = {ABE_AUDIO_PLAYER_ON_HEADSET_OR_EARPHONE, ABE_RINGER_TONES, (abe_use_case_id)0};
-        abe_use_case_id UC5[] = {ABE_AUDIO_PLAYER_ON_HEADSET_OR_EARPHONE, (abe_use_case_id)0};
-        abe_opp_t OPP;
-	abe_hw_config_init_t CONFIG;
+	hw->HAL_EVENT_SELECTION = EVENT_TIMER;	/* THE famous EVENT timer ! */
+	_lock_exit
 
-	abe_load_fw();
-
-	switch (use_case) {
-	/* voice ul/dl on earpiece + MM_DL on IHF */
-	case UC2_VOICE_CALL_AND_IHF_MMDL:
-		/* enable one of the preloaded and programmable routing
-		 * configuration for the uplink paths
-		 * To be added here:
-		 * - Device driver initialization following
-		 *   abe_read_hardware_configuration() returned data
-		 * McPDM_DL : 6 slots activated (5 + Commands)
-		 * DMIC : 6 microphones activated
-		 * McPDM_UL : 2 microphones activated (No status)
-		 */
-		abe_read_hardware_configuration(UC2, &OPP, &CONFIG);	/* check hw config and opp config */
-		abe_set_opp_processing(OPP);				/* sets the OPP100 on FW05.xx */
-		abe_write_event_generator(CONFIG.HAL_EVENT_SELECTION);	/* "tick" of the audio engine */
-		/* mixers' configuration = voice on earphone + music on hands-free path */
-		abe_write_mixer(MIXDL1, GAIN_0dB, RAMP_1MS, MIX_DL1_INPUT_VX_DL);
-		abe_write_mixer(MIXDL2, GAIN_0dB, RAMP_50MS, MIX_DL2_INPUT_MM_DL);
-
-		abe_enable_data_transfer(MM_UL2_PORT);
-		abe_enable_data_transfer(MM_UL_PORT);
-		abe_enable_data_transfer(MM_DL_PORT);			/* enable all the data paths */
-		abe_enable_data_transfer(VX_DL_PORT);
-		abe_enable_data_transfer(VX_UL_PORT);
-		abe_enable_data_transfer(PDM_UL_PORT);
-		abe_enable_data_transfer(DMIC_PORT);
-		abe_enable_data_transfer(PDM_DL_PORT);
-		abe_enable_data_transfer(TONES_DL_PORT);
-		break;
-	case UC5_PINGPONG_MMDL:
-		/* Ping-Pong access through MM_DL using Left/Right
-		 * 16bits/16bits data format
-		 * To be added here:
-		 * - Device driver initialization following abe_read_hardware_configuration() returned data
-		 * McPDM_DL : 6 slots activated (5 + Commands)
-		 * DMIC : 6 microphones activated
-		 * McPDM_UL : 2 microphones activated (No status)
-		 */
-		abe_read_hardware_configuration(UC5, &OPP, &CONFIG);	/* check hw config and opp config */
-		abe_set_opp_processing(OPP);				/* sets the OPP100 on FW05.xx */
-		abe_write_event_generator(CONFIG.HAL_EVENT_SELECTION);	/* "tick" of the audio engine */
-
-		/* MM_DL init: overwrite the previous default initialization made above */
-		format.f = 48000;
-		format.samp_format = MONO_MSB;
-
-		/* connect a Ping-Pong SDMA protocol to MM_DL port
-		 * with Ping-Pong 576 mono samples
-		 * (12x4 bytes for each ping & pong size)
-		 */
-		abe_connect_dmareq_ping_pong_port(MM_DL_PORT, &format, ABE_CBPR0_IDX, (12 * 4), &dma_sink);
-
-		/* mixers' configuration = voice on earphone + music on hands-free path */
-		abe_write_mixer(MIXDL1, GAIN_0dB, RAMP_2MS, MIX_DL1_INPUT_MM_DL);
-		abe_write_mixer(MIXDL2, GAIN_0dB, RAMP_50MS, MIX_DL2_INPUT_MM_DL);
-
-		/* Here: connect the sDMA to "dma_sink" content */
-		abe_enable_data_transfer(MM_DL_PORT);			/* enable all the data paths */
-		abe_enable_data_transfer(PDM_DL1_PORT);
-		break;
-	case UC6_PINGPONG_MMDL_WITH_IRQ:
-		/* Ping-Pong using the IRQ instead of the sDMA	*/
-		abe_read_hardware_configuration(UC5, &OPP, &CONFIG);	/* check hw config and opp config */
-		abe_set_opp_processing(OPP);				/* sets the OPP100 on FW05.xx */
-		abe_write_event_generator(CONFIG.HAL_EVENT_SELECTION);	/* "tick" of the audio engine */
-
-		/* MM_DL init: overwrite the previous default initialization made above */
-		format.f = 48000;
-		format.samp_format = STEREO_16_16;
-
-		/* connect a Ping-Pong cache-flush protocol to MM_DL port
-		 * with 50Hz (20ms) rate
-		 */
-		abe_add_subroutine(&abe_irq_pingpong_player_id,
-			(abe_subroutine2) abe_default_irq_pingpong_player,
-								SUB_0_PARAM, (abe_uint32*)0);
-		#define N_SAMPLES_BYTES (120 *4)
-		abe_connect_irq_ping_pong_port(MM_DL_PORT, &format,
-			abe_irq_pingpong_player_id, N_SAMPLES_BYTES, &data_sink,
-							PING_PONG_WITH_MCU_IRQ);
-
-		/* mixers' configuration = voice on earphone + music on hands-free path */
-		abe_write_mixer(MIXDL1, GAIN_0dB, RAMP_2MS, MIX_DL1_INPUT_MM_DL);
-		abe_write_mixer(MIXDL2, GAIN_0dB, RAMP_50MS, MIX_DL2_INPUT_MM_DL);
-
-		abe_enable_data_transfer(MM_DL_PORT);			/* enable all the data paths */
-		abe_enable_data_transfer(PDM_DL1_PORT);
-		break;
-	case UC71_STOP_ALL:
-		abe_disable_data_transfer(MM_UL2_PORT);
-		abe_disable_data_transfer(MM_DL_PORT);
-		abe_disable_data_transfer(VX_DL_PORT);
-		abe_disable_data_transfer(VX_UL_PORT);
-		abe_disable_data_transfer(PDM_UL_PORT);
-		abe_disable_data_transfer(DMIC_PORT);
-		abe_disable_data_transfer(PDM_DL_PORT);
-		break;
-	case UC72_ENABLE_ALL:
-		abe_enable_data_transfer(MM_UL2_PORT);
-		abe_enable_data_transfer(MM_DL_PORT);
-		abe_enable_data_transfer(VX_DL_PORT);
-		abe_enable_data_transfer(VX_UL_PORT);
-		abe_enable_data_transfer(PDM_UL_PORT);
-		abe_enable_data_transfer(DMIC_PORT);
-		abe_enable_data_transfer(PDM_DL_PORT);
-		break;
-	default:
-		break;
-	}
 }
 
 /*
@@ -307,6 +204,9 @@ void abe_irq_processing(void)
 	abe_uint32 clear_abe_irq;
 	abe_uint32 abe_irq_dbg_write_ptr, i, cmem_src, sm_cm = 0;
 	abe_irq_data_t IRQ_data;
+       _lock_enter
+        _log(id_irq_processing,0,0,0)
+
 #define IrqFiFoMask ((D_McuIrqFifo_sizeof >> 2) - 1)
 
 	/* extract the write pointer index from CMEM memory (INITPTR format) */
@@ -332,13 +232,16 @@ void abe_irq_processing(void)
 		/* select the source of the interrupt */
 		switch (IRQ_data.tag) {
 		case IRQtag_APS:
-			abe_irq_aps(IRQ_data.data);
+			_log(id_irq_processing,(abe_uint32)(IRQ_data.data),0,1)
+			abe_irq_aps (IRQ_data.data);
 			break;
 		case IRQtag_PP:
-			abe_irq_ping_pong();
+			_log(id_irq_processing,0,0,2)
+			abe_irq_ping_pong ();
 			break;
 		case IRQtag_COUNT:
-			abe_irq_check_for_sequences(IRQ_data.data);
+			_log(id_irq_processing,(abe_uint32)(IRQ_data.data),0,3)
+			abe_irq_check_for_sequences (IRQ_data.data);
 			break;
 		default:
 		break;
@@ -350,28 +253,34 @@ void abe_irq_processing(void)
 	clear_abe_irq = 1;
 	abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_ATC, ABE_MCU_IRQSTATUS,
 							     &clear_abe_irq, 4);
+	_lock_exit
 }
 
 /*
  *  ABE_SELECT_MAIN_PORT
  *
  *  Parameter  :
- *      id : audio port name
+ *	id : audio port name
  *
  *  Operations :
  *	tells the FW which is the reference stream for adjusting
  *	the processing on 23/24/25 slots
  *
  *  Return value:
- *      None.
+ *	None.
  */
 void abe_select_main_port (abe_port_id id)
 {
 	abe_uint32 selection;
 
+	_lock_enter
+	_log(id_select_main_port,id,0,0)
+
 	/* flow control */
 	selection = D_IOdescr_ADDR + id*sizeof(ABE_SIODescriptor) + flow_counter_;
 	abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_DMEM, D_Slot23_ctrl_ADDR, &selection, 4);
+
+	_lock_exit
 }
 
 /*
@@ -398,6 +307,9 @@ void abe_select_main_port (abe_port_id id)
 void abe_write_event_generator(abe_event_id e)
 {
 	abe_uint32 event, selection, counter, start;
+
+	_lock_enter
+	_log(id_write_event_generator,e,0,0)
 
 	counter = EVENT_GENERATOR_COUNTER_DEFAULT;
 	start = EVENT_GENERATOR_ON;
@@ -447,6 +359,7 @@ void abe_write_event_generator(abe_event_id e)
 	abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_ATC, EVENT_GENERATOR_START, &start, 4);
 	abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_ATC, AUDIO_ENGINE_SCHEDULER, &event, 4);
 
+	_lock_exit
 }
 
 /**
@@ -474,6 +387,9 @@ void abe_read_use_case_opp(abe_use_case_id *u, abe_opp_t *o)
 	#define OPP_25	1
 	#define OPP_50	2
 	#define OPP_100 4
+
+	_lock_enter
+	_log(id_read_use_case_opp,(abe_uint32)(u),(abe_uint32)u>>8,(abe_uint32)u>>16)
 
 	opp = i = 0;
 	do {
@@ -531,53 +447,11 @@ void abe_read_use_case_opp(abe_use_case_id *u, abe_opp_t *o)
 		*o = ABE_OPP50;
 	else
 		*o = ABE_OPP25;
+
+	_lock_exit
 }
 
-/*
- *  ABE_READ_LOWEST_OPP
- *
- *  Parameter  :
- *	Data pointer : returned data
- *
- *  Operations :
- *	Returns the lowest possible OPP based on the current active ports
- *
- *  Return value :
- *	None.
- */
-void abe_read_lowest_opp(abe_opp_t *o)
-{
-	abe_uint32 opp;
-	opp = OPP_25;
 
-	if (abe_port[DMIC_PORT].status == RUN_P)
-		opp |= OPP_50;
-	if (abe_port[PDM_UL_PORT].status == RUN_P)
-		opp |= OPP_50;
-	if (abe_port[BT_VX_UL_PORT].status == RUN_P)
-		opp |= OPP_50;
-	if (abe_port[MM_UL_PORT].status == RUN_P)
-		opp |= OPP_50;
-	if (abe_port[MM_UL2_PORT].status == RUN_P)
-		opp |= OPP_50;
-	if (abe_port[VX_UL_PORT].status == RUN_P)
-		opp |= OPP_50;
-	if (abe_port[VX_DL_PORT].status == RUN_P)
-		opp |= OPP_50;
-	if (abe_port[MM_EXT_OUT_PORT].status == RUN_P)
-		opp |= OPP_50;
-	if (abe_port[MM_EXT_IN_PORT].status == RUN_P)
-		opp |= OPP_50;
-	if (abe_port[VIB_DL_PORT].status == RUN_P)
-		opp |= OPP_100;
-
-	if (opp & OPP_100)
-		*o = ABE_OPP100;
-	else if (opp & OPP_50)
-		*o = ABE_OPP50;
-	else
-		*o = ABE_OPP25;
-}
 
 /*
  *  ABE_SET_OPP_PROCESSING
@@ -598,7 +472,11 @@ void abe_read_lowest_opp(abe_opp_t *o)
  */
 void abe_set_opp_processing(abe_opp_t opp)
 {
-	abe_uint32 dOppMode32;
+	abe_uint32 dOppMode32, sio_desc_address;
+	ABE_SIODescriptor desc;
+
+	_lock_enter
+	_log(id_set_opp_processing,opp,0,0)
 
 	switch(opp){
 	case ABE_OPP25:
@@ -621,6 +499,19 @@ void abe_set_opp_processing(abe_opp_t opp)
 	/* Write Multiframe inside DMEM */
 	abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_DMEM,
 		D_maxTaskBytesInSlot_ADDR, &dOppMode32, sizeof(abe_uint32));
+
+	sio_desc_address = dmem_port_descriptors + (MM_DL_PORT * sizeof(ABE_SIODescriptor));
+	abe_block_copy(COPY_FROM_ABE_TO_HOST, ABE_DMEM, sio_desc_address,
+					(abe_uint32*)&desc, sizeof (desc));
+	if (dOppMode32 == DOPPMODE32_OPP100)
+		desc.smem_addr1 = smem_mm_dl_opp100; /* ASRC input buffer, size 40 */
+	else
+		desc.smem_addr1 = smem_mm_dl_opp25; /* at OPP 25/50 or without ASRC  */
+	abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_DMEM, sio_desc_address,
+					(abe_uint32*)&desc, sizeof (desc));
+
+	_lock_exit
+
 }
 
 /*
@@ -638,6 +529,9 @@ void abe_set_ping_pong_buffer(abe_port_id port, abe_uint32 n_bytes)
 {
 	abe_uint32 sio_pp_desc_address, struct_offset, *src, n_samples, datasize, base_and_size;
 	ABE_SPingPongDescriptor desc_pp;
+
+	_lock_enter
+	_log(id_set_ping_pong_buffer,port,n_bytes,n_bytes>>8)
 
 	/* ping_pong is only supported on MM_DL */
 	if (port != MM_DL_PORT) {
@@ -674,6 +568,8 @@ void abe_set_ping_pong_buffer(abe_port_id port, abe_uint32 n_bytes)
 	src = &base_and_size;
 	abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_DMEM, sio_pp_desc_address,
 				(abe_uint32 *)&base_and_size, sizeof(abe_uint32));
+
+	_lock_exit
 }
 
 /*
@@ -693,6 +589,9 @@ void abe_read_next_ping_pong_buffer(abe_port_id port, abe_uint32 *p, abe_uint32 
 	abe_uint32 sio_pp_desc_address;
 	ABE_SPingPongDescriptor desc_pp;
 
+	_lock_enter
+	_log(id_read_next_ping_pong_buffer,port,0,0)
+
 	/* ping_pong is only supported on MM_DL */
 	if (port != MM_DL_PORT) {
 		abe_dbg_param |= ERR_API;
@@ -711,6 +610,8 @@ void abe_read_next_ping_pong_buffer(abe_port_id port, abe_uint32 *p, abe_uint32 
 
 	/* translates the number of samples in bytes */
 	(*n) = abe_size_pingpong;
+
+	_lock_exit
 }
 
 /*
@@ -729,6 +630,9 @@ void abe_init_ping_pong_buffer(abe_port_id id, abe_uint32 size_bytes, abe_uint32
 {
 	abe_uint32 i, dmem_addr;
 
+	_lock_enter
+	_log(id_init_ping_pong_buffer,id,size_bytes,n_buffers)
+
 	/* ping_pong is supported in 2 buffers configuration right now but FW is ready for ping/pong/pung/pang... */
 	if (id != MM_DL_PORT || n_buffers > MAX_PINGPONG_BUFFERS) {
 		abe_dbg_param |= ERR_API;
@@ -737,11 +641,12 @@ void abe_init_ping_pong_buffer(abe_port_id id, abe_uint32 size_bytes, abe_uint32
 
 	for (i = 0; i < n_buffers; i++) {
 		dmem_addr = dmem_ping_pong_buffer + (i * size_bytes);
-	    abe_base_address_pingpong [i] = dmem_addr;	 /* base addresses of the ping pong buffers in U8 unit */
+		abe_base_address_pingpong [i] = dmem_addr;	 /* base addresses of the ping pong buffers in U8 unit */
 	}
 
 	abe_size_pingpong = size_bytes;	/* global data */
 	*p = (abe_uint32)dmem_ping_pong_buffer;
+	_lock_exit
 }
 
 /*
@@ -759,25 +664,11 @@ void abe_init_ping_pong_buffer(abe_port_id id, abe_uint32 size_bytes, abe_uint32
  */
 void abe_plug_subroutine(abe_uint32 *id, abe_subroutine2 f, abe_uint32 n, abe_uint32* params)
 {
-	/* debug trace */
-	abe_add_subroutine (id, f, n, params);
-}
-
-/*
- *  ABE_PLUG_SEQUENCE
- *
- *  Parameter  :
- *	 Id: returned sequence index after pluging a new sequence (index in the tables)
- *	 s : sequence to be inserted
- *
- *  Operations :
- *	Load a time-sequenced operations.
- *
- *  Return value :
- *	None.
- */
-void abe_plug_sequence(abe_uint32 *id, abe_sequence_t *s)
-{
+	_lock_enter
+	_log(id_plug_subroutine,(abe_uint32)(*id),(abe_uint32)f,n)
+	abe_add_subroutine((abe_uint32 *)id, (abe_subroutine2)f,
+					(abe_uint32)n, (abe_uint32*)params);
+	_lock_exit
 }
 
 /*
@@ -796,43 +687,20 @@ void abe_plug_sequence(abe_uint32 *id, abe_sequence_t *s)
  */
 void abe_set_sequence_time_accuracy(abe_micros_t fast, abe_micros_t slow)
 {
-}
+	abe_uint32 data;
 
-/*
- *  ABE_LAUNCH_SEQUENCE
- *
- *  Parameter  :
- *	patch bit field used to guarantee the code compatibility without conditionnal compilation
- *	Sequence index
- *
- *  Operations :
- *	Launch a list a time-sequenced operations.
- *
- *  Return value :
- *	None.
- */
-void abe_launch_sequence(abe_patch_rev patch, abe_uint32 n)
-{
-	just_to_avoid_the_many_warnings_abe_patch_rev = patch;
-	just_to_avoid_the_many_warnings = n;
-}
+	_lock_enter
+	_log(id_set_sequence_time_accuracy,fast,slow,0)
 
-/*
- *  ABE_LAUNCH_SEQUENCE_PARAM
- *
- *  Parameter  :
- *	patch bit field used to guarantee the code compatibility without conditionnal compilation
- *	Sequence index
- *	Parameters to the programmable sequence
- *
- *  Operations :
- *	Launch a list a time-sequenced operations.
- *
- *  Return value :
- *	None.
- */
-void abe_launch_sequence_param(abe_patch_rev patch, abe_uint32 n, abe_int32 *param1, abe_int32 *param2, abe_int32 *param3, abe_int32 *param4)
-{
+	data = minimum(MAX_UINT16, (abe_uint32) fast / FW_SCHED_LOOP_FREQ_DIV1000);
+	abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_DMEM, D_fastCounter_ADDR,
+					(abe_uint32 *)&data, sizeof (data));
+
+	data = minimum(MAX_UINT16, (abe_uint32) slow / FW_SCHED_LOOP_FREQ_DIV1000);
+	abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_DMEM, D_slowCounter_ADDR,
+				(abe_uint32 *)&data, sizeof (data));
+
+	_lock_exit
 }
 
 /*
@@ -849,7 +717,10 @@ void abe_launch_sequence_param(abe_patch_rev patch, abe_uint32 n, abe_int32 *par
  */
 void abe_reset_port(abe_port_id id)
 {
+	_lock_enter
+	_log(id_reset_port,id,0,0)
 	abe_port[id] = ((abe_port_t *) abe_port_init) [id];
+	_lock_exit
 }
 
 /*
@@ -867,6 +738,22 @@ void abe_reset_port(abe_port_id id)
  */
 void abe_read_remaining_data(abe_port_id port, abe_uint32 *n)
 {
+	abe_uint32 sio_pp_desc_address;
+	ABE_SPingPongDescriptor desc_pp;
+
+	_lock_enter
+	_log(id_read_remaining_data,port,0,0)
+
+	/*
+	 * read the port SIO descriptor and extract the
+	 * current pointer address  after reading the counter
+	 */
+	sio_pp_desc_address = D_PingPongDesc_ADDR;
+	abe_block_copy (COPY_FROM_ABE_TO_HOST, ABE_DMEM, sio_pp_desc_address,
+		(abe_uint32*)&desc_pp, sizeof(ABE_SPingPongDescriptor));
+	(*n) = desc_pp.workbuff_Samples;
+
+	_lock_exit
 }
 
 /*
@@ -885,6 +772,9 @@ void abe_read_remaining_data(abe_port_id port, abe_uint32 *n)
  */
 void abe_disable_data_transfer(abe_port_id id)
 {
+	_lock_enter
+	_log(id_disable_data_transfer,id,0,0)
+
 	/* local host variable status= "port is running" */
 	abe_port[id].status = IDLE_P;
 	/* disable DMA requests */
@@ -892,6 +782,9 @@ void abe_disable_data_transfer(abe_port_id id)
 	/* disable ATC transfers */
 	abe_init_atc(id);
 	abe_clean_temporary_buffers(id);
+
+	_lock_exit
+
 }
 
 /*
@@ -912,6 +805,9 @@ void abe_enable_data_transfer(abe_port_id id)
 {
 	abe_port_protocol_t *protocol;
 	abe_data_format_t format;
+
+	_lock_enter
+	_log(id_enable_data_transfer,id,0,0)
 
 	abe_clean_temporary_buffers(id);
 
@@ -942,6 +838,7 @@ void abe_enable_data_transfer(abe_port_id id)
 	abe_port[id].status = RUN_P;
 	/* enable DMA requests */
 	abe_enable_dma_request(id);
+	_lock_exit
 }
 
 /*
@@ -962,6 +859,9 @@ void abe_set_dmic_filter(abe_dmic_ratio_t d)
 {
 	abe_int32 *src;
 
+	_lock_enter
+	_log(id_set_dmic_filter,d,0,0)
+
 	switch(d) {
 	case ABE_DEC16:
 		src = (abe_int32 *)abe_dmic_16;
@@ -980,6 +880,7 @@ void abe_set_dmic_filter(abe_dmic_ratio_t d)
 	abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_CMEM,
 		C_98_48_LP_Coefs_ADDR,
 		(abe_uint32 *)src, C_98_48_LP_Coefs_sizeof << 2);
+	_lock_exit
 }
 
 /**
@@ -999,9 +900,9 @@ void abe_set_dmic_filter(abe_dmic_ratio_t d)
 */
 void abe_connect_cbpr_dmareq_port(abe_port_id id, abe_data_format_t *f, abe_uint32 d, abe_dma_t *returned_dma_t)
 {
-	if (f->f == 44100)
-		/* waiting for a true SRC_44_48 in ABE */
-		abe_write_event_generator(EVENT_44100);
+	_lock_enter
+	_log(id_connect_cbpr_dmareq_port,id,f->f,f->samp_format)
+
 	abe_port[id] = ((abe_port_t *)abe_port_init)[id];
 
 	abe_port[id].format = *f;
@@ -1023,27 +924,8 @@ void abe_connect_cbpr_dmareq_port(abe_port_id id, abe_data_format_t *f, abe_uint
 
 	/* return the dma pointer address */
 	abe_read_port_address(id, returned_dma_t);
-}
 
-/**
-* @fn abe_connect_dmareq_port()
-*
-*  Operations : enables the data echanges between a DMA and a direct access to
-*   the DMEM memory of ABE. On each dma_request activation the DMA will exchange
-*   "iter" bytes and rewind its pointer to the base address "l3" waiting for the
-*   next activation. The scheme is used for the MM_UL and debug port
-*
-*   Parameters :
-*   id: port name
-*   f : desired data format
-*   d : desired dma_request line (0..7)
-*   a : returned pointer to the base address of the ping-pong buffer and number
-*	of samples to exchange during a DMA_request..
-*
-* @see	ABE_API.h
-*/
-void abe_connect_dmareq_port(abe_port_id id, abe_data_format_t *f, abe_uint32 d, abe_dma_t *a)
-{
+	_lock_exit
 }
 
 /**
@@ -1067,6 +949,9 @@ void abe_connect_dmareq_ping_pong_port(abe_port_id id, abe_data_format_t *f, abe
 {
 	abe_dma_t dma1;
 
+	_lock_enter
+	_log(id_connect_dmareq_ping_pong_port,id,f->f,f->samp_format)
+
 	/* ping_pong is only supported on MM_DL */
 	if (id != MM_DL_PORT)
 	{
@@ -1075,16 +960,16 @@ void abe_connect_dmareq_ping_pong_port(abe_port_id id, abe_data_format_t *f, abe
 	}
 
 	/* declare PP buffer and prepare the returned dma_t */
-        abe_init_ping_pong_buffer(MM_DL_PORT, s, 2, (abe_uint32 *)&(returned_dma_t->data));
+	abe_init_ping_pong_buffer(MM_DL_PORT, s, 2, (abe_uint32 *)&(returned_dma_t->data));
 
-	abe_port [id]				   = ((abe_port_t *) abe_port_init) [id];
+	abe_port[id] = ((abe_port_t *) abe_port_init) [id];
 
-	(abe_port [id]).format			    = (*f);
-	(abe_port [id]).protocol.protocol_switch	  = PINGPONG_PORT_PROT;
-	(abe_port [id]).protocol.p.prot_pingpong.buf_addr = dmem_ping_pong_buffer;
-	(abe_port [id]).protocol.p.prot_pingpong.buf_size = s;
-	(abe_port [id]).protocol.p.prot_pingpong.irq_addr = ABE_DMASTATUS_RAW;
-	(abe_port [id]).protocol.p.prot_pingpong.irq_data = (1 << d);
+	(abe_port[id]).format = (*f);
+	(abe_port[id]).protocol.protocol_switch = PINGPONG_PORT_PROT;
+	(abe_port[id]).protocol.p.prot_pingpong.buf_addr = dmem_ping_pong_buffer;
+	(abe_port[id]).protocol.p.prot_pingpong.buf_size = s;
+	(abe_port[id]).protocol.p.prot_pingpong.irq_addr = ABE_DMASTATUS_RAW;
+	(abe_port[id]).protocol.p.prot_pingpong.irq_data = (1 << d);
 
 	abe_port [id].status = RUN_P;
 
@@ -1097,6 +982,8 @@ void abe_connect_dmareq_ping_pong_port(abe_port_id id, abe_data_format_t *f, abe
 	dma1.data = (abe_uint32 *)(abe_port [id].dma.data + ABE_DMEM_BASE_ADDRESS_L3);
 	dma1.iter = abe_port [id].dma.iter;
 	(*returned_dma_t) = dma1;
+
+	_lock_exit
 }
 
 /**
@@ -1123,15 +1010,18 @@ void abe_connect_irq_ping_pong_port(abe_port_id id, abe_data_format_t *f,
 			abe_uint32 subroutine_id, abe_uint32 size,
 					abe_uint32 *sink, abe_uint32 dsp_mcu_flag)
 {
+	_lock_enter
+	_log(id_connect_irq_ping_pong_port,id,f->f,f->samp_format)
+
 	/* ping_pong is only supported on MM_DL */
 	if (id != MM_DL_PORT) {
-	    abe_dbg_param |= ERR_API;
-	    abe_dbg_error_log(ABE_PARAMETER_ERROR);
+		abe_dbg_param |= ERR_API;
+		abe_dbg_error_log(ABE_PARAMETER_ERROR);
 	}
 
 	abe_port[id] = ((abe_port_t *) abe_port_init)[id];
 	(abe_port[id]).format = (*f);
-	(abe_port[id]).protocol.protocol_switch	  = PINGPONG_PORT_PROT;
+	(abe_port[id]).protocol.protocol_switch = PINGPONG_PORT_PROT;
 	(abe_port[id]).protocol.p.prot_pingpong.buf_addr = dmem_ping_pong_buffer;
 	(abe_port[id]).protocol.p.prot_pingpong.buf_size = size;
 	(abe_port[id]).protocol.p.prot_pingpong.irq_data = (1);
@@ -1153,6 +1043,7 @@ void abe_connect_irq_ping_pong_port(abe_port_id id, abe_data_format_t *f,
 	abe_init_atc(id);
 
 	(*sink)= (abe_port [id]).protocol.p.prot_pingpong.buf_addr;
+	_lock_exit
 }
 
 /**
@@ -1172,23 +1063,30 @@ void abe_connect_irq_ping_pong_port(abe_port_id id, abe_data_format_t *f,
 */
 void abe_connect_serial_port(abe_port_id id, abe_data_format_t *f, abe_mcbsp_id mcbsp_id)
 {
+	abe_use_case_id UC_NULL[] = {(abe_use_case_id)0};
+	abe_opp_t OPP;
+	abe_hw_config_init_t CONFIG;
+
+	_lock_enter
+	_log(id_connect_serial_port,id,f->samp_format,mcbsp_id)
+
 	abe_port [id] = ((abe_port_t *) abe_port_init) [id];
 	(abe_port [id]).format = (*f);
 	(abe_port [id]).protocol.protocol_switch = SERIAL_PORT_PROT;
 	/* McBSP peripheral connected to ATC */
 	(abe_port [id]).protocol.p.prot_serial.desc_addr = mcbsp_id*ATC_SIZE;
-	/* ITERation on each DMAreq signals */
-	(abe_port [id]).protocol.p.prot_serial.iter = abe_dma_port_iteration(f);
 
-	//(abe_port [id]).protocol.p.prot_serial.buf_addr;		/* Address of ATC McBSP/McASP descriptor's in bytes */
-	//(abe_port [id]).protocol.p.prot_serial.buf_size;		/* DMEM address in bytes */
-	//(abe_port [id]).protocol.p.prot_serial.thr_flow;		/* Data threshold for flow management */
+	abe_read_hardware_configuration(UC_NULL, &OPP, &CONFIG);	/* check the iteration of ATC */
 
-	abe_port [id].status = RUN_P;
+	(abe_port[id]).protocol.p.prot_serial.iter = abe_dma_port_iter_factor(f);
+
+	abe_port[id].status = RUN_P;
+
 	/* load the micro-task parameters */
-	abe_init_io_tasks(id, &((abe_port [id]).format), &((abe_port [id]).protocol));
-	/* load the ATC descriptors - disabled */
-	abe_init_atc(id);
+	abe_init_io_tasks(id, &((abe_port[id]).format), &((abe_port[id]).protocol));
+	abe_init_atc(id); /* load the ATC descriptors - disabled */
+
+	_lock_exit
 }
 
 /*
@@ -1231,6 +1129,103 @@ void abe_read_aps_energy(abe_port_id *p, abe_gain_t *a)
 	just_to_avoid_the_many_warnings_abe_gain_t = *a;
 }
 
+/**
+* @fn abe_connect_slimbus_port()
+*
+*  Operations : enables the data echanges between 1/2 SB and an ATC buffers in
+*   DMEM.
+*
+*   Parameters :
+*    id: port name
+*    f : data format
+*    i : peripheral ID (McBSP #1, #2, #3)
+*    j : peripheral ID (McBSP #1, #2, #3)
+*
+* @see	      ABE_API.h
+*/
+void abe_connect_slimbus_port(abe_port_id id, abe_data_format_t *f,
+			abe_slimbus_id sb_port1, abe_slimbus_id sb_port2)
+{
+	abe_use_case_id UC_NULL[] = {(abe_use_case_id)0};
+	abe_opp_t OPP;
+	abe_hw_config_init_t CONFIG;
+	abe_uint32 iter;
+
+	_lock_enter
+	_log(id_connect_slimbus_port,id,f->samp_format,sb_port2)
+
+	abe_port[id] = ((abe_port_t *) abe_port_init) [id];
+	(abe_port[id]).format = (*f);
+	(abe_port[id]).protocol.protocol_switch = SLIMBUS_PORT_PROT;
+	/* SB1 peripheral connected to ATC */
+	(abe_port[id]).protocol.p.prot_slimbus.desc_addr1= sb_port1*ATC_SIZE;
+	/* SB2 peripheral connected to ATC */
+	(abe_port[id]).protocol.p.prot_slimbus.desc_addr2= sb_port2*ATC_SIZE;
+
+	/* check the iteration of ATC */
+	abe_read_hardware_configuration(UC_NULL, &OPP, &CONFIG);
+	iter = CONFIG.SLIMBUS_DCT_FIFO_SETUP_REG__SB_THRESHOLD;
+	/* SLIMBUS iter should be 1 */
+	(abe_port[id]).protocol.p.prot_serial.iter = iter;
+
+	abe_port[id].status = RUN_P;
+	/* load the micro-task parameters */
+	abe_init_io_tasks(id, &((abe_port [id]).format), &((abe_port [id]).protocol));
+	/* load the ATC descriptors - disabled */
+	abe_init_atc(id);
+
+	_lock_exit
+}
+
+
+/**
+* @fn abe_connect_tdm_port()
+*
+*  Operations : enables the data echanges between TDM McBSP ATC buffers in
+*   DMEM and 1/2 SMEM buffers
+*
+*   Parameters :
+*    id: port name
+*    f : data format
+*    i : peripheral ID (McBSP #1, #2, #3)
+*    j : peripheral ID (McBSP #1, #2, #3)
+*
+* @see	      ABE_API.h
+*/
+
+void abe_connect_tdm_port(abe_port_id id, abe_data_format_t *f, abe_mcbsp_id mcbsp_id)
+{
+	abe_use_case_id UC_NULL[] = {(abe_use_case_id)0};
+	abe_opp_t OPP;
+	abe_hw_config_init_t CONFIG;
+	abe_uint32 iter;
+
+	_lock_enter
+	_log(id_connect_tdm_port,id,f->samp_format,mcbsp_id)
+
+	abe_port [id] = ((abe_port_t *) abe_port_init) [id];
+	(abe_port [id]).format = (*f);
+	(abe_port [id]).protocol.protocol_switch = TDM_SERIAL_PORT_PROT;
+	/* McBSP peripheral connected to ATC */
+	(abe_port [id]).protocol.p.prot_serial.desc_addr = mcbsp_id*ATC_SIZE;
+
+	/* check the iteration of ATC */
+	abe_read_hardware_configuration (UC_NULL, &OPP,  &CONFIG);
+	if (abe_port[id].protocol.direction == ABE_ATC_DIRECTION_IN)
+		iter = CONFIG.MCBSP_THRSH1_REG_REG__RTHRESHOLD;
+	else
+		iter = CONFIG.MCBSP_THRSH2_REG_REG__XTHRESHOLD;
+	/* McBSP iter should be 1 */
+	(abe_port[id]).protocol.p.prot_serial.iter = iter;
+
+	abe_port[id].status = RUN_P;
+	/* load the micro-task parameters */
+	abe_init_io_tasks(id, &((abe_port [id]).format), &((abe_port [id]).protocol));
+	/* load the ATC descriptors - disabled */
+	abe_init_atc(id);
+	_lock_exit
+}
+
 /*
  *  ABE_READ_PORT_ADDRESS
  *
@@ -1248,7 +1243,10 @@ void abe_read_port_address(abe_port_id port, abe_dma_t *dma2)
 	abe_dma_t_offset dma1;
 	abe_uint32 protocol_switch;
 
-	dma1  = (abe_port[port]).dma;
+	_lock_enter
+	_log(id_read_port_address,port,0,0)
+
+	dma1 = (abe_port[port]).dma;
 	protocol_switch = abe_port[port].protocol.protocol_switch;
 
 	switch (protocol_switch) {
@@ -1271,6 +1269,8 @@ void abe_read_port_address(abe_port_id port, abe_dma_t *dma2)
 	}
 
 	(*dma2).iter  = (dma1.iter);
+
+	_lock_exit
 }
 
 /*
@@ -1291,6 +1291,9 @@ void abe_read_port_address(abe_port_id port, abe_dma_t *dma2)
 void abe_write_equalizer(abe_equ_id id, abe_equ_t *param)
 {
 	abe_uint32 eq_offset, length, *src;
+
+	_lock_enter
+	_log(id_write_equalizer,id,0,0)
 
 	switch(id) {
 	default:
@@ -1325,8 +1328,8 @@ void abe_write_equalizer(abe_equ_id id, abe_equ_t *param)
 
 	eq_offset <<=2;	/* translate in bytes */
 	length <<=2;	/* translate in bytes */
-
 	abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_CMEM, eq_offset, src, length);
+	_lock_exit
 }
 
 /*
@@ -1348,6 +1351,9 @@ void abe_write_equalizer(abe_equ_id id, abe_equ_t *param)
  */
 void abe_set_asrc_drift_control(abe_asrc_id id, abe_uint32 f)
 {
+	_lock_enter
+	_log(id_set_asrc_drift_control,id,f,f>>8)
+	_lock_exit
 }
 
 /*
@@ -1367,6 +1373,9 @@ void abe_set_asrc_drift_control(abe_asrc_id id, abe_uint32 f)
  */
 void abe_write_asrc(abe_asrc_id id, abe_drift_t dppm)
 {
+	_lock_enter
+	_log(id_write_asrc,id,dppm,dppm>>8)
+
 #if 0
 	abe_int32 dtempvalue, adppm, alpha_current, beta_current, asrc_params;
 	abe_int32 atempvalue32[8];
@@ -1429,6 +1438,7 @@ void abe_write_asrc(abe_asrc_id id, abe_drift_t dppm)
 	abe_block_copy (COPY_FROM_HOST_TO_ABE, ABE_CMEM, beta_current, (abe_uint32 *)&dtempvalue, 4);
 	abe_block_copy (COPY_FROM_HOST_TO_ABE, ABE_CMEM, asrc_params , (abe_uint32 *)&atempvalue32, sizeof(atempvalue32));
 #endif
+	_lock_exit
 }
 
 /*
@@ -1449,6 +1459,9 @@ void abe_write_asrc(abe_asrc_id id, abe_drift_t dppm)
  */
 void abe_write_aps(abe_aps_id id, abe_aps_t *param)
 {
+	_lock_enter
+	_log(id_write_aps,id,0,0)
+	_lock_exit
 }
 
 /*
@@ -1472,6 +1485,9 @@ void abe_write_gain(abe_gain_id id, abe_gain_t f_g, abe_ramp_t f_ramp, abe_port_
 {
 	abe_uint32 lin_g, mixer_target, mixer_offset;
 	abe_int32 gain_index;
+
+	_lock_enter
+	_log(id_write_gain,id,f_g,p)
 
 	gain_index = ((f_g - min_mdb) / 100);
 	gain_index = maximum(gain_index, 0);
@@ -1530,11 +1546,17 @@ void abe_write_gain(abe_gain_id id, abe_gain_t f_g, abe_ramp_t f_ramp, abe_port_
 	/* load the S_G_Target SMEM table */
 	abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_SMEM, mixer_target,
 				(abe_uint32*)&lin_g, sizeof(lin_g));
+	_lock_exit
 }
 
 void abe_write_mixer(abe_mixer_id id, abe_gain_t f_g, abe_ramp_t f_ramp, abe_port_id p)
 {
-	abe_write_gain((abe_gain_id)id, f_g, f_ramp, p);
+	_lock_enter
+	_log(id_write_mixer,id,f_ramp,p)
+
+	abe_write_gain  ((abe_gain_id)id, f_g, f_ramp, p);
+
+	_lock_exit
 }
 
 /*
@@ -1555,21 +1577,49 @@ void abe_write_mixer(abe_mixer_id id, abe_gain_t f_g, abe_ramp_t f_ramp, abe_por
  *	will be implemented with the following routing table index list :
  *	[3, 2 , 1, 0, 0, 0 (two dummy indexes to data that will not be on MM_UL), 4, 5, 7, 6]
  *  example
- *      abe_set_router_configuration (UPROUTE, UPROUTE_CONFIG_AMIC, abe_router_ul_table_preset[UPROUTE_CONFIG_AMIC]);
+ *	abe_set_router_configuration (UPROUTE, UPROUTE_CONFIG_AMIC, abe_router_ul_table_preset[UPROUTE_CONFIG_AMIC]);
  *  Return value :
  *	None.
  */
-void abe_set_router_configuration(abe_router_id id, abe_uint32 configuration, abe_router_t *param)
+void abe_set_router_configuration(abe_router_id id, abe_uint32 unused, abe_router_t *param)
 {
-	abe_uint8 aUplinkMuxing[16], n, i;
+	_lock_enter
+	_log(id_set_router_configuration,id,(abe_uint32)param,(abe_uint32)param>>8)
 
-	n = D_aUplinkRouting_ADDR_END - D_aUplinkRouting_ADDR + 1;
+	abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_DMEM, D_aUplinkRouting_ADDR,
+		(abe_uint32 *)param, D_aUplinkRouting_ADDR_END - D_aUplinkRouting_ADDR + 1);
 
-	for(i=0; i < n; i++)
-		aUplinkMuxing[i] = (abe_uint8) (param [i]);
-
-	abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_DMEM, D_aUplinkRouting_ADDR, (abe_uint32 *)aUplinkMuxing, sizeof (aUplinkMuxing));
+	_lock_exit
 }
+
+/*
+ *  ABE_SELECT_DATA_SOURCE
+ *
+ *  Parameter  :
+ *
+ *  Operations :
+ *
+ *  Return value :
+ *      None.
+ */
+void abe_select_data_source (abe_port_id port_id, abe_dl_src_id smem_source)
+{
+	ABE_SIODescriptor desc;
+	abe_uint32 sio_desc_address;
+
+	_lock_enter
+	_log(id_select_data_source,port_id,smem_source,smem_source>>8)
+
+	sio_desc_address = dmem_port_descriptors + (port_id * sizeof(ABE_SIODescriptor));
+	abe_block_copy(COPY_FROM_ABE_TO_HOST, ABE_DMEM, sio_desc_address,
+					(abe_uint32*)&desc, sizeof (desc));
+	desc.smem_addr1 = (abe_uint16) smem_source;
+	abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_DMEM, sio_desc_address,
+					(abe_uint32*)&desc, sizeof (desc));
+
+	_lock_exit
+}
+
 
 /*
  *  ABE_READ_DEBUG_TRACE
@@ -1588,9 +1638,40 @@ void abe_set_router_configuration(abe_router_id id, abe_uint32 configuration, ab
  */
 void abe_read_debug_trace(abe_uint32 *data, abe_uint32 *n)
 {
-	just_to_avoid_the_many_warnings = (*data);
-	just_to_avoid_the_many_warnings = (*n);
+	_lock_enter
+	_log(id_select_data_source,0,0,0)
+
+	_lock_exit
 }
+
+/*
+ *  ABE_CONNECT_DEBUG_TRACE
+ *
+ *  Parameter  :
+ *      pointer to the DMEM trace buffer
+ *
+ *  Operations :
+ *      returns the address and size of the real-time debug trace buffer,
+ *	the content of which will vary from one firmware release to an other
+ *
+ *  Return value :
+ *      None.
+ */
+
+void abe_connect_debug_trace (abe_dma_t *dma2)
+{
+	_lock_enter
+	_log(id_connect_debug_trace,0,0,0)
+
+	/* return the base address of the ping buffer in L3 and L4 spaces */
+	(*dma2).data =    (void *)(D_DEBUG_FIFO_ADDR + ABE_DMEM_BASE_ADDRESS_L3);
+	(*dma2).l3_dmem = (void *)(D_DEBUG_FIFO_ADDR + ABE_DMEM_BASE_ADDRESS_L3);
+	(*dma2).l4_dmem = (void *)(D_DEBUG_FIFO_ADDR + ABE_DMEM_BASE_ADDRESS_L4);
+	(*dma2).iter = D_DEBUG_FIFO_ADDR_END - D_DEBUG_FIFO_ADDR;
+
+	_lock_exit
+}
+
 
 /*
  *  ABE_SET_DEBUG_TRACE
@@ -1606,6 +1687,12 @@ void abe_read_debug_trace(abe_uint32 *data, abe_uint32 *n)
  */
 void abe_set_debug_trace(abe_dbg_t debug)
 {
+	_lock_enter
+	_log(id_set_debug_trace,0,0,0)
+
+	abe_dbg_mask = debug;
+
+	_lock_exit
 }
 
 /*
@@ -1622,4 +1709,133 @@ void abe_set_debug_trace(abe_dbg_t debug)
  */
 void abe_remote_debugger_interface(abe_uint32 n, abe_uint8 *p)
 {
+	_lock_enter
+	_log(id_remote_debugger_interface,n,0,0)
+
+	_lock_exit
+
+}
+
+/*
+ *  ABE_ENABLE_TEST_PATTERN
+ *
+ *  Parameter:
+ *
+ *  Operations :
+ *
+ *  Return value :
+ *      None.
+ */
+
+void abe_enable_test_pattern (abe_patched_pattern_id smem_id, abe_uint32 on_off)
+{
+	abe_uint16 dbg_on, dbg_off, idx_patch, task_patch, addr_patch;
+	abe_uint32 patch, task32;
+
+	_lock_enter
+	_log(id_enable_test_pattern,on_off,smem_id,smem_id>>8)
+
+	switch (smem_id) {
+	case DBG_PATCH_AMIC:
+		dbg_on = DBG_48K_PATTERN_labelID;
+		dbg_off = AMIC_labelID;
+		task_patch = C_ABE_FW_TASK_AMIC_SPLIT;
+		idx_patch = 1;
+		break;
+	case DBG_PATCH_DMIC1:
+		dbg_on = DBG_48K_PATTERN_labelID;
+		dbg_off = DMIC1_labelID;
+		task_patch = C_ABE_FW_TASK_DMIC1_SPLIT;
+		idx_patch = 1;
+		break;
+	case DBG_PATCH_DMIC2:
+		dbg_on = DBG_48K_PATTERN_labelID;
+		dbg_off = DMIC2_labelID;
+		task_patch = C_ABE_FW_TASK_DMIC2_SPLIT;
+		idx_patch = 1;
+		break;
+	case DBG_PATCH_DMIC3:
+		dbg_on = DBG_48K_PATTERN_labelID;
+		dbg_off = DMIC3_labelID;
+		task_patch = C_ABE_FW_TASK_DMIC3_SPLIT;
+		idx_patch = 1;
+		break;
+	case DBG_PATCH_VX_REC:
+		dbg_on = DBG_48K_PATTERN_labelID;
+		dbg_off = VX_REC_labelID;
+		task_patch = C_ABE_FW_TASK_VXREC_SPLIT;
+		idx_patch = 1;
+		break;
+	case DBG_PATCH_BT_UL:
+		dbg_on = DBG_48K_PATTERN_labelID;
+		dbg_off = BT_UL_labelID;
+		task_patch = C_ABE_FW_TASK_BT_UL_SPLIT;
+		idx_patch = 1;
+		break;
+	case DBG_PATCH_MM_DL:
+		dbg_on = DBG_48K_PATTERN_labelID;
+		dbg_off = MM_DL_labelID;
+		task_patch = C_ABE_FW_TASK_MM_SPLIT;
+		idx_patch = 1;
+		break;
+	case DBG_PATCH_DL2_EQ:
+		dbg_on = DBG_48K_PATTERN_labelID;
+		dbg_off = DL2_EQ_labelID;
+		task_patch = C_ABE_FW_TASK_DL2_APS_SPLIT;
+		idx_patch = 1;
+		break;
+	case DBG_PATCH_VIBRA:
+		dbg_on = DBG_48K_PATTERN_labelID;
+		dbg_off = VIBRA_labelID;
+		task_patch = C_ABE_FW_TASK_VIBRA_SPLIT;
+		idx_patch = 1;
+		break;
+	case DBG_PATCH_MM_EXT_IN:
+		dbg_on = DBG_48K_PATTERN_labelID;
+		dbg_off = MM_EXT_IN_labelID;
+		task_patch = C_ABE_FW_TASK_MM_EXT_IN_SPLIT;
+		idx_patch = 1;
+		break;
+	case DBG_PATCH_EANC_FBK_Out:
+		dbg_on = DBG_48K_PATTERN_labelID;
+		dbg_off = EANC_FBK_Out_labelID;
+		task_patch = C_ABE_FW_TASK_EANC_FBK_SPLIT;
+		idx_patch = 1;
+		break;
+	case DBG_PATCH_MIC4:
+		dbg_on = DBG_48K_PATTERN_labelID;
+		dbg_off = MIC4_labelID;
+		task_patch = C_ABE_FW_TASK_MIC4_SPLIT;
+		idx_patch = 1;
+		break;
+	case DBG_PATCH_MM_DL_MIXDL1:
+		dbg_on = DBG_48K_PATTERN_labelID;
+		dbg_off = AMIC_labelID;
+		task_patch = C_ABE_FW_TASK_DL1Mixer;
+		idx_patch = 1;
+		break;
+	case DBG_PATCH_MM_DL_MIXDL2:
+		dbg_on = DBG_48K_PATTERN_labelID;
+		dbg_off = AMIC_labelID;
+		task_patch = C_ABE_FW_TASK_DL2Mixer;
+		idx_patch = 1;
+		break;
+	default:
+		return;
+	}
+
+	patch = (on_off != 0)? dbg_on: dbg_off;
+	/* address is on 16bits boundary */
+	addr_patch = D_tasksList_ADDR + 16 * task_patch + 2 * idx_patch;
+	/* read on 32bits words' boundary */
+	abe_block_copy (COPY_FROM_ABE_TO_HOST, ABE_DMEM, addr_patch & (~0x03), &task32, 4);
+
+	if (addr_patch & 0x03)
+		task32 = (0x0000FFFFL & task32) | (patch << 16);
+	else
+		task32 = (0xFFFF0000L & task32) | (0x0000FFFF & patch);
+
+	abe_block_copy (COPY_FROM_HOST_TO_ABE, ABE_DMEM, addr_patch & (~0x03), &task32, 4);
+
+	_lock_exit
 }

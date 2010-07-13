@@ -15,7 +15,8 @@
 #define PROCESSING_SLOTS	25
 #define TASK_POOL_LENGTH	128
 #define MCU_IRQ			0x24
-#define DMA_REQ			0x84
+#define MCU_IRQ_SHIFT2		0x90
+#define DMA_REQ_SHIFT2		0x210
 #define DSP_IRQ			0x4c
 #define IRQtag_APS		0x000a
 #define IRQtag_COUNT		0x000c
@@ -43,5 +44,8 @@
 #define SAMP_LOOP_48K		12
 #define SAMP_LOOP_16K		4
 #define SAMP_LOOP_8K		2
+#define INPUT_SCALE_SHIFTM2	5268
+#define OUTPUT_SCALE_SHIFTM2	5272
+
 
 #endif	/* _ABE_DEFINE_H_ */

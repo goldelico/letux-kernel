@@ -191,8 +191,6 @@
 
 #define NBCHARFEATURENAME	16	/* explicit name of the feature */
 #define NBCHARPORTNAME		16	/* explicit name of the port */
-#define MAXNBABEPORTS		LAST_PORT_ID /* number	of sink+source ports of the ABE */
-#define MAX_MAP_DMEM		LAST_PORT_ID
 
 #define SNK_P			ABE_ATC_DIRECTION_IN	/* sink / input port from Host point of view (or AESS for DMIC/McPDM/.. */
 #define SRC_P			ABE_ATC_DIRECTION_OUT	/* source / ouptut port */

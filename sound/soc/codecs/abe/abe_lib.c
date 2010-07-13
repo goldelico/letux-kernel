@@ -562,12 +562,14 @@ void abe_format_switch(abe_data_format_t *f, abe_uint32 *iter, abe_uint32 *mulfa
 #endif
 	switch (f->samp_format) {
 	case MONO_MSB:
+	case MONO_RSHIFTED_16:
 		*mulfac = 1;
 		break;
 	case STEREO_16_16:
 		*mulfac = 1;
 		break;
 	case STEREO_MSB:
+	case STEREO_RSHIFTED_16:
 		*mulfac = 2;
 		break;
 	case THREE_MSB:
@@ -656,24 +658,25 @@ abe_uint32 abe_dma_port_copy_subroutine_id(abe_port_id port_id)
 	if (abe_port[port_id].protocol.direction == ABE_ATC_DIRECTION_IN) {
 		switch (abe_port[port_id].format.samp_format) {
 		case MONO_MSB:
-			sub_id = COPY_D2S_MONO_CFPID;
-			break;	/* VX_DL */
+			sub_id = D2S_MONO_MSB_CFPID;
+			break;
+		case MONO_RSHIFTED_16:
+			sub_id = D2S_MONO_RSHIFTED_16_CFPID;
+			break;
+		case STEREO_RSHIFTED_16:
+			sub_id = D2S_STEREO_RSHIFTED_16_CFPID;
+			break;
 		case STEREO_16_16:
-			sub_id = COPY_D2S_LR_CFPID;
-			break;	/* MM_DL */
+			sub_id = D2S_STEREO_16_16_CFPID;
+			break;
 		case STEREO_MSB:
-			sub_id = COPY_D2S_2_CFPID; break;	/* AMIC, MM_DL, VIB */
+			sub_id = D2S_STEREO_MSB_CFPID;
+			break;
 		case SIX_MSB:
 			if (port_id == DMIC_PORT) {
 				sub_id = COPY_DMIC_CFPID;
 				break;
 			}
-		case THREE_MSB:
-		case FOUR_MSB:
-		case FIVE_MSB:
-		case SEVEN_MSB:
-		case EIGHT_MSB:
-		case NINE_MSB:
 		default:
 			sub_id = NULL_COPY_CFPID;
 			break;
@@ -681,17 +684,20 @@ abe_uint32 abe_dma_port_copy_subroutine_id(abe_port_id port_id)
 	} else {
 		switch (abe_port[port_id].format.samp_format) {
 		case MONO_MSB:
-			sub_id = COPY_S2D_MONO_CFPID;
-			break; /* VX_UL */
+			sub_id = S2D_MONO_MSB_CFPID;
+			break;
 		case MONO_RSHIFTED_16:
-			sub_id = COPY_S2D_MONOS16_CFPID;
-			break;	/* McBSP_TX Mono */
+			sub_id = S2D_MONO_RSHIFTED_16_CFPID;
+			break;
 		case STEREO_RSHIFTED_16:
-			sub_id = COPY_S2D_2S16_CFPID;
-			break;	/* McBSP_TX Stereo */
+			sub_id = S2D_STEREO_RSHIFTED_16_CFPID;
+			break;
+		case STEREO_16_16:
+			sub_id = S2D_STEREO_16_16_CFPID;
+			break;
 		case STEREO_MSB:
-			sub_id = COPY_S2D_2_CFPID;
-			break;	/* MM_UL2 */
+			sub_id = S2D_STEREO_MSB_CFPID;
+			break;
 		case SIX_MSB:
 			if (port_id == PDM_DL_PORT) {
 				sub_id = COPY_MCPDM_DL_CFPID;
@@ -709,7 +715,6 @@ abe_uint32 abe_dma_port_copy_subroutine_id(abe_port_id port_id)
 		case NINE_MSB:
 			sub_id = COPY_MM_UL_CFPID;
 			break;
-		case STEREO_16_16:
 		default:
 			sub_id = NULL_COPY_CFPID;
 			break;

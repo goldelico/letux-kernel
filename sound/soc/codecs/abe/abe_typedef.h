@@ -71,13 +71,12 @@ typedef struct {
 	ABE_uint16 drift_io;	/* 2 */
 	ABE_uchar io_type_idx;	/* 4 */
 	ABE_uchar samp_size;	/* 5 */
-	ABE_uchar unused1;	/* 6 */
-	ABE_uchar unused2;	/* 7 */
+	ABE_uint16 flow_counter;	/* 6 */
 
 	ABE_uint16 hw_ctrl_addr;	/* 8 */
 	ABE_uchar atc_irq_data;		/* 10 */
 	ABE_uchar direction_rw;		/* 11 */
-	ABE_uchar flow_counter;		/* 12 */
+	ABE_uchar unused1;		/* 12 */
 	ABE_uchar nsamp;		/* 13 */
 	ABE_uchar x_io;			/* 14 */
 	ABE_uchar on_off;		/* 15 */
@@ -112,7 +111,7 @@ typedef struct {
 #define hw_ctrl_addr_	8	/* dmareq address or host irq buffer address (atc address) */
 #define atc_irq_data_	10	/* data content to be loaded to "hw_ctrl_addr" */
 #define direction_rw_	11	/* read dmem =0, write dmem =3 (atc offset of the access pointer) */
-#define flow_counter_	12	/* flow error counter */
+#define flow_counter_	6	/* flow error counter */
 #define nsamp_		13	/* number of samples (either mono stereo...) */
 #define x_io_		14	/* x number of raw DMEM data moved */
 #define on_off_		15

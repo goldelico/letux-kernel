@@ -48,18 +48,26 @@ void abe_monitoring(void);
 void abe_lock_execution(void);
 void abe_unlock_execution(void);
 void abe_hw_configuration(void);
-void abe_add_subroutine(abe_uint32 *id, abe_subroutine2 f, abe_uint32 nparam, abe_uint32* params);
-void abe_read_next_ping_pong_buffer(abe_port_id port, abe_uint32 *p, abe_uint32 *n);
+void abe_add_subroutine(abe_uint32 *id, abe_subroutine2 f,
+					abe_uint32 nparam, abe_uint32* params);
+void abe_read_next_ping_pong_buffer(abe_port_id port,
+					abe_uint32 *p, abe_uint32 *n);
 void abe_irq_ping_pong(void);
 void abe_irq_check_for_sequences(abe_uint32 seq_info);
 void abe_default_irq_pingpong_player(void);
 void abe_default_irq_pingping_player_32bits(void);
 void abe_default_irq_aps_adaptation(void);
-void abe_read_hardware_configuration(abe_use_case_id *u, abe_opp_t *o, abe_hw_config_init_t *hw);
+void abe_read_hardware_configuration(abe_use_case_id *u,
+					abe_opp_t *o, abe_hw_config_init_t *hw);
 void abe_irq_aps(abe_uint32 aps_info);
 void abe_clean_temporary_buffers(abe_port_id id);
+void abe_reset_atc(abe_uint32 atc_index);
+void abe_dbg_log(abe_uint32 x, abe_uint32 y, abe_uint32 z, abe_uint32 t);
+void abe_dbg_error_log(abe_uint32 x);
 
-void abe_translate_to_xmem_format(abe_int32 memory_bank, float fc, abe_uint32 *c);
+
+void abe_translate_to_xmem_format(abe_int32 memory_bank,
+						float fc, abe_uint32 *c);
 
 /*
  * HAL INTERNAL DATA
@@ -83,7 +91,7 @@ extern abe_router_t abe_router_ul_table[NBROUTE_CONFIG_MAX][NBROUTE_UL];
 
 extern abe_uint32 abe_dbg_output;
 extern abe_uint32 abe_dbg_mask;
-extern abe_uint32 abe_dbg_activity_log[DBG_LOG_SIZE];
+extern abe_uint32 abe_dbg_activity_log [D_DEBUG_HAL_TASK_sizeof];
 extern abe_uint32 abe_dbg_activity_log_write_pointer;
 extern abe_uint32 abe_dbg_param;
 

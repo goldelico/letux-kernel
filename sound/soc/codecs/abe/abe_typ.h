@@ -10,6 +10,8 @@
 
 #include "abe_def.h"
 #include "abe_ext.h"
+#include "abe_initxxx_labels.h"
+
 #ifndef _ABE_TYP_H_
 #define _ABE_TYP_H_
 
@@ -20,6 +22,10 @@ extern "C" {
 /*
  * BASIC TYPES
  */
+
+#define MAX_UINT8	((((1L <<  7) -1)<<1) +1)
+#define MAX_UINT16	((((1L << 15) -1)<<1) +1)
+#define MAX_UINT32	((((1L << 31) -1)<<1) +1)
 
 typedef char	    abe_flag;
 typedef unsigned char   abe_uint8;
@@ -45,13 +51,14 @@ typedef abe_uint32  abe_result;
 typedef abe_millibel abe_gain_t;	/* smoothed gain amplitude and ramp */
 typedef abe_uint32  abe_ramp_t;
 
-typedef abe_uint32  abe_freq_t;		 /* 4 bytes	millihertz	      */
-typedef abe_uint32  abe_millis_t;	       /* 4 bytes	milliseconds	    */
-typedef abe_uint32  abe_micros_t;	       /* 4 bytes	microseconds	    */
+typedef abe_uint32  abe_freq_t;		/* 4 bytes hertz */
+typedef abe_uint32  abe_millis_t;	/* 4 bytes milliseconds	    */
+typedef abe_uint32  abe_micros_t;	/* 4 bytes microseconds	    */
 
-typedef abe_uint32  abe_dbg_mask_t;	     /* 4 bytes	Bit field indicating the type of informations to be traced */
-typedef abe_uint32  abe_time_stamp_t;	   /* 4 bytes	infinite loop 32bits counter incremented on each firmware loop */
-						/* scheduling task loops (250us / 272us with respectively 48kHz / 44.1kHz on Phoenix). */
+typedef abe_uint32  abe_dbg_mask_t;	/* 4 bytes bit field indicating the type of informations to be traced */
+typedef abe_uint32  abe_time_stamp_t;	/* 4 bytes infinite loop 32bits counter incremented on each firmware loop */
+
+/* scheduling task loops (250us / 272us with respectively 48kHz / 44.1kHz on Phoenix). */
 typedef abe_uint32   abe_dbg_t;		 /* debug filter */
 
 typedef abe_uint32  abe_seq_code_t;	     /* Index to the table of sequences */
@@ -159,12 +166,12 @@ typedef enum {
 typedef enum {
 	SLIMBUS_PORT_PROT = 1,
 	SERIAL_PORT_PROT,
+	TDM_SERIAL_PORT_PROT,
 	DMIC_PORT_PROT,
 	MCPDMDL_PORT_PROT,
 	MCPDMUL_PORT_PROT,
 	PINGPONG_PORT_PROT,
 	DMAREQ_PORT_PROT,
-	FIFO_PORT_PROT,
 } abe_port_protocol_switch_id;
 
 /*
@@ -191,6 +198,9 @@ typedef enum {
 	PDM_DL_PORT,	/* ABE --> BT (8/16kHz) */
 	MM_EXT_OUT_PORT, /* 12 */
 	MM_EXT_IN_PORT,
+	TDM_DL_PORT,
+	TDM_UL_PORT,
+	DEBUG_PORT,	/* 16 */
 
 	LAST_PORT_ID /* dummy port used to declare the other tasks of the scheduler */
 } abe_port_id;
@@ -206,14 +216,58 @@ typedef enum {
 #define DMIC_PORT3 DMIC_PORT
 
 /*
+ *      ABE_DL_SRC_ID     source of samples
+ */
+
+typedef enum {
+	SRC_DL1_MIXER_OUTPUT	= DL1_M_labelID,
+	SRC_SDT_MIXER_OUTPUT	= SDT_M_labelID,
+	SRC_DL1_GAIN_OUTPUT	= DL1_GAIN_out_labelID,
+	SRC_DL1_EQ_OUTPUT	= DL1_EQ_labelID,
+	SRC_DL2_GAIN_OUTPUT	= DL2_GAIN_out_labelID,
+	SRC_DL2_EQ_OUTPUT	= DL2_EQ_labelID,
+	SRC_MM_DL		= MM_DL_labelID,
+	SRC_TONES_DL		= Tones_labelID,
+	SRC_VX_DL		= VX_DL_labelID,
+	SRC_VX_UL		= VX_UL_labelID,
+	SRC_MM_UL2		= MM_UL2_labelID,
+	SRC_MM_UL		= MM_UL_labelID,
+} abe_dl_src_id;
+
+
+/*
  *      ANA_PORT_ID     Analog companion audio port
  */
 typedef enum {
 	EAR_PHOENIX = 1,
-	HS_L,   HS_R,
-	IHF_L,  IHF_R,
-	VIBRA1, VIBRA2
+	HS_L,
+	HS_R,
+	IHF_L,
+	IHF_R,
+	VIBRA1,
+	VIBRA2
 } abe_ana_port_id ;
+
+/*
+ *  abe_patched_pattern_id: selection of the audio engine
+ *  signal to replace by a precomputed pattern
+ */
+typedef enum {
+	DBG_PATCH_AMIC = 1,
+	DBG_PATCH_DMIC1,
+	DBG_PATCH_DMIC2,
+	DBG_PATCH_DMIC3,
+	DBG_PATCH_VX_REC,
+	DBG_PATCH_BT_UL,
+	DBG_PATCH_MM_DL,
+	DBG_PATCH_DL2_EQ,
+	DBG_PATCH_VIBRA,
+	DBG_PATCH_MM_EXT_IN,
+	DBG_PATCH_EANC_FBK_Out,
+	DBG_PATCH_MIC4,
+	DBG_PATCH_MM_DL_MIXDL1,
+	DBG_PATCH_MM_DL_MIXDL2,
+} abe_patched_pattern_id ;
 
 typedef abe_int32 headset_offset_t;   /* Calibration data from the analog companion */
 
@@ -355,6 +409,28 @@ typedef enum {
 	MCBSP3_RX = MCBSP3_DMA_RX,
 } abe_mcbsp_id;
 
+/*
+ * SERIAL PORTS IDs
+ */
+typedef enum {
+	SLIMBUS1_TX0 = SLIMBUS1_DMA_TX0, /* SLIMBUS mod 1 - tx rqst channel 0 */
+	SLIMBUS1_TX1 = SLIMBUS1_DMA_TX1, /* SLIMBUS mod 1 - tx rqst channel 1 */
+	SLIMBUS1_TX2 = SLIMBUS1_DMA_TX2, /* SLIMBUS mod 1 - tx rqst channel 2 */
+	SLIMBUS1_TX3 = SLIMBUS1_DMA_TX3, /* SLIMBUS mod 1 - tx rqst channel 3 */
+	SLIMBUS1_TX4 = SLIMBUS1_DMA_TX4, /* SLIMBUS mod 1 - tx rqst channel 4 */
+	SLIMBUS1_TX5 = SLIMBUS1_DMA_TX5, /* SLIMBUS mod 1 - tx rqst channel 5 */
+	SLIMBUS1_TX6 = SLIMBUS1_DMA_TX6, /* SLIMBUS mod 1 - tx rqst channel 6 */
+	SLIMBUS1_TX7 = SLIMBUS1_DMA_TX7, /* SLIMBUS mod 1 - tx rqst channel 7 */
+	SLIMBUS1_RX0 = SLIMBUS1_DMA_RX0, /* SLIMBUS mod 1 - rx rqst channel 0 */
+	SLIMBUS1_RX1 = SLIMBUS1_DMA_RX1, /* SLIMBUS mod 1 - rx rqst channel 1 */
+	SLIMBUS1_RX2 = SLIMBUS1_DMA_RX2, /* SLIMBUS mod 1 - rx rqst channel 2 */
+	SLIMBUS1_RX3 = SLIMBUS1_DMA_RX3, /* SLIMBUS mod 1 - rx rqst channel 3 */
+	SLIMBUS1_RX4 = SLIMBUS1_DMA_RX4, /* SLIMBUS mod 1 - rx rqst channel 4 */
+	SLIMBUS1_RX5 = SLIMBUS1_DMA_RX5, /* SLIMBUS mod 1 - rx rqst channel 5 */
+	SLIMBUS1_RX6 = SLIMBUS1_DMA_RX6, /* SLIMBUS mod 1 - rx rqst channel 6 */
+	SLIMBUS1_RX7 = SLIMBUS1_DMA_RX7, /* SLIMBUS mod 1 - rx rqst channel 7 */
+	SLIMBUS_UNUSED = _DUMMY_FIFO_,
+} abe_slimbus_id;
 
 /*
  * TYPES USED FOR APIS
@@ -371,7 +447,7 @@ typedef struct {
 
 	abe_uint32 MCPDM_CTRL__DIV_SEL;	 /* 0: 96kHz   1:192kHz */
 	abe_uint32 MCPDM_CTRL__CMD_INT;	 /* 0: no command in the FIFO,  1: 6 data on each lines (with commands) */
-	abe_uint32 MCPDM_CTRL__PDMOUTFORMAT;    /* 0:MSB aligned  1:LSB aligned */
+	abe_uint32 MCPDM_CTRL__PDMOUTFORMAT;	/* 0:MSB aligned  1:LSB aligned */
 	abe_uint32 MCPDM_CTRL__PDM_DN5_EN;
 	abe_uint32 MCPDM_CTRL__PDM_DN4_EN;
 	abe_uint32 MCPDM_CTRL__PDM_DN3_EN;
@@ -383,16 +459,17 @@ typedef struct {
 	abe_uint32 MCPDM_FIFO_CTRL_DN__DN_TRESH;
 	abe_uint32 MCPDM_FIFO_CTRL_UP__UP_TRESH;
 
-	abe_uint32 DMIC_CTRL__DMIC_CLK_DIV;     /* 0:2.4MHz  1:3.84MHz */
-	abe_uint32 DMIC_CTRL__DMICOUTFORMAT;    /* 0:MSB aligned  1:LSB aligned */
+	abe_uint32 DMIC_CTRL__DMIC_CLK_DIV;	/* 0:2.4MHz  1:3.84MHz */
+	abe_uint32 DMIC_CTRL__DMICOUTFORMAT;	/* 0:MSB aligned  1:LSB aligned */
 	abe_uint32 DMIC_CTRL__DMIC_UP3_EN;
 	abe_uint32 DMIC_CTRL__DMIC_UP2_EN;
 	abe_uint32 DMIC_CTRL__DMIC_UP1_EN;
-	abe_uint32 DMIC_FIFO_CTRL__DMIC_TRESH;  /* 1*(DMIC_UP1_EN+ 2+ 3)*2 OCP read access every 96/88.1 KHz. */
+	abe_uint32 DMIC_FIFO_CTRL__DMIC_TRESH;	/* 1*(DMIC_UP1_EN+ 2+ 3)*2 OCP read access every 96/88.1 KHz. */
 
-	abe_uint32 MCBSP_SPCR1_REG__RJUST;      /* 1:MSB  2:LSB aligned */
-	abe_uint32 MCBSP_THRSH2_REG_REG__XTHRESHOLD;
-	abe_uint32 MCBSP_THRSH1_REG_REG__RTHRESHOLD;
+	abe_uint32 MCBSP_SPCR1_REG__RJUST;	/* 1:MSB  2:LSB aligned */
+	abe_uint32 MCBSP_THRSH2_REG_REG__XTHRESHOLD;	/* 1=MONO, 2=STEREO, 3=TDM_3_CHANNELS, 4=TDM_4_CHANNELS, */
+	abe_uint32 MCBSP_THRSH1_REG_REG__RTHRESHOLD;	/* 1=MONO, 2=STEREO, 3=TDM_3_CHANNELS, 4=TDM_4_CHANNELS,  */
+	abe_uint32 SLIMBUS_DCT_FIFO_SETUP_REG__SB_THRESHOLD;
 } abe_hw_config_init_t;
 
 /*
@@ -417,12 +494,12 @@ typedef struct {
 	abe_iir_t equ_type;	/* type of filter */
 	abe_uint32 equ_length;	/* filter length */
 	union {			/* parameters are the direct and recursive coefficients in */
-	       abe_int32 type1[NBEQ1];		/* Q6.26 integer fixed-point format. */
-	       struct {
+		abe_int32 type1[NBEQ1];		/* Q6.26 integer fixed-point format. */
+		struct {
 			abe_int32 freq [NBEQ2];		/* center frequency of the band [Hz] */
 			abe_int32 gain [NBEQ2];		/* gain of each band. [dB]*/
 			abe_int32 q    [NBEQ2];		/* Q factor of this band [dB] */
-	       } type2;
+		} type2;
 	} coef;
 	abe_int32 equ_param3;
 } abe_equ_t;
@@ -447,7 +524,7 @@ typedef struct {
  *
  * table of indexes in unsigned bytes
  */
-typedef abe_uint32 abe_router_t;
+typedef abe_uint16 abe_router_t;
 
 /*
  * DATA_FORMAT_T
@@ -455,8 +532,8 @@ typedef abe_uint32 abe_router_t;
  * used in port declaration
  */
 typedef struct {
-	abe_freq_t f;	       /* Sampling frequency of the stream */
-	abe_samp_t samp_format;     /* Sample format type  */
+	abe_freq_t f;	/* Sampling frequency of the stream */
+	abe_samp_t samp_format;	/* Sample format type  */
 } abe_data_format_t;
 
 /*
@@ -465,7 +542,7 @@ typedef struct {
  * port declaration
  */
 typedef struct {
-	abe_uint32 direction;		       /* Direction=0 means input from AESS point of view */
+	abe_uint32 direction;		/* Direction=0 means input from AESS point of view */
 	abe_port_protocol_switch_id protocol_switch; /* Protocol type (switch) during the data transfers */
 	union {
 		struct {			/* Slimbus peripheral connected to ATC */
@@ -549,12 +626,12 @@ typedef struct {
 /*
  *  SEQ_T
  *
- *      struct {
- *      micros_t time;	  Waiting time before executing next line
- *      seq_code_t code	 Subroutine index interpreted in the HAL and translated to
- *				FW subroutine codes in case of ABE tasks
- *      int32 param[2]	  Two parameters
- *      } seq_t
+ * struct {
+ * micros_t time;	  Waiting time before executing next line
+ * seq_code_t code	 Subroutine index interpreted in the HAL and translated to
+ *	FW subroutine codes in case of ABE tasks
+ * int32 param[2]	  Two parameters
+ *} seq_t
  *
  */
 typedef struct {

@@ -16,7 +16,10 @@
 /*
  * GLOBAL DEFINITION
  */
-#define FW_SCHED_LOOP_FREQ		4000	/* one scheduler loop = 4kHz = 12 samples at 48kHz */
+/* one scheduler loop = 4kHz = 12 samples at 48kHz */
+#define FW_SCHED_LOOP_FREQ		4000
+/* one scheduler loop = 4kHz = 12 samples at 48kHz */
+#define FW_SCHED_LOOP_FREQ_DIV1000	(FW_SCHED_LOOP_FREQ/1000)
 #define EVENT_FREQUENCY			96000
 #define SLOTS_IN_SCHED_LOOP		(96000/FW_SCHED_LOOP_FREQ)
 
@@ -29,10 +32,8 @@
 /*
  * DMEM AREA - SCHEDULER
  */
-#define smem_mm_trace			0
-#define dmem_mm_trace			D_debugATCptrs_ADDR
-#define dmem_mm_trace_size		((D_debugATCptrs_ADDR_END-D_debugATCptrs_ADDR+1)/4)
-
+#define dmem_mm_trace		D_DEBUG_FIFO_ADDR
+#define dmem_mm_trace_size	((D_DEBUG_FIFO_ADDR_END-D_DEBUG_FIFO_ADDR+1)/4)
 
 #define ATC_SIZE			8   /* 8 bytes per descriptors */
 
@@ -246,9 +247,6 @@ typedef struct {
  */
 #define dmem_dmic			D_DMIC_UL_FIFO_ADDR
 #define dmem_dmic_size			((D_DMIC_UL_FIFO_ADDR_END-D_DMIC_UL_FIFO_ADDR+1)/4)
-#define smem_dmic1			DMIC0_96_labelID
-#define smem_dmic2			DMIC1_96_labelID
-#define smem_dmic3			DMIC2_96_labelID
 
 #define dmem_amic			D_McPDM_UL_FIFO_ADDR
 #define dmem_amic_size			((D_McPDM_UL_FIFO_ADDR_END-D_McPDM_UL_FIFO_ADDR+1)/4)
@@ -272,7 +270,7 @@ typedef struct {
 
 #define dmem_vx_dl			D_VX_DL_FIFO_ADDR
 #define dmem_vx_dl_size			((D_VX_DL_FIFO_ADDR_END-D_VX_DL_FIFO_ADDR+1)/4)
-#define smem_vx_dl			Voice_16k_DL_labelID	/* ASRC input buffer, size 40 */
+#define smem_vx_dl			IO_VX_DL_ASRC_labelID /* Voice_16k_DL_labelID */
 
 #define dmem_vx_ul			D_VX_UL_FIFO_ADDR
 #define dmem_vx_ul_size			((D_VX_UL_FIFO_ADDR_END-D_VX_UL_FIFO_ADDR+1)/4)
@@ -288,19 +286,20 @@ typedef struct {
 
 #define dmem_mm_ext_out			D_MM_EXT_OUT_FIFO_ADDR
 #define dmem_mm_ext_out_size		((D_MM_EXT_OUT_FIFO_ADDR_END-D_MM_EXT_OUT_FIFO_ADDR+1)/4)
-#define smem_mm_ext_out			DL1_M_labelID
+#define smem_mm_ext_out			DL1_GAIN_out_labelID
 
 #define dmem_mm_ext_in			D_MM_EXT_IN_FIFO_ADDR
 #define dmem_mm_ext_in_size		((D_MM_EXT_IN_FIFO_ADDR_END-D_MM_EXT_IN_FIFO_ADDR+1)/4)
-#define smem_mm_ext_in			AMIC_labelID
+#define smem_mm_ext_in			MM_EXT_IN_labelID
 
 #define dmem_bt_vx_dl			D_BT_DL_FIFO_ADDR
 #define dmem_bt_vx_dl_size		((D_BT_DL_FIFO_ADDR_END-D_BT_DL_FIFO_ADDR+1)/4)
-#define smem_bt_vx_dl			AMIC_labelID
+#define smem_bt_vx_dl			BT_DL_8k_labelID
 
 #define dmem_bt_vx_ul			D_BT_UL_FIFO_ADDR
 #define dmem_bt_vx_ul_size		((D_BT_UL_FIFO_ADDR_END-D_BT_UL_FIFO_ADDR+1)/4)
-#define smem_bt_vx_ul			SDT_M_labelID
+#define smem_bt_vx_ul			BT_UL_8k_labelID
+
 
 /*
  * INITPTR / INITREG AREA

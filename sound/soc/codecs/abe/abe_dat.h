@@ -20,9 +20,8 @@ extern "C" {
  */
 abe_subroutine2 callbacks[MAXCALLBACK];	/* 2 parameters subroutine pointers */
 
-abe_port_t abe_port[MAXNBABEPORTS];	/* list of ABE ports */
-
-const abe_port_t abe_port_init[MAXNBABEPORTS] = {
+abe_port_t abe_port [LAST_PORT_ID];	/* list of ABE ports */
+const abe_port_t abe_port_init [LAST_PORT_ID] = {
 /* status, data format, drift, callback, io-task buffer 1, io-task buffer 2,
  * protocol, dma offset, features, name
  * - Features reseted at start
@@ -346,36 +345,85 @@ const abe_port_t abe_port_init[MAXNBABEPORTS] = {
 		{0},
 		"MM_EXT_IN",
 	},
-#if 0
-	/* SCHD_DBG_PORT */
+	/* PCM3_TX */
 	{
 		IDLE_P,
 		{48000, STEREO_MSB},
 		NODRIFT,
 		NOCALLBACK,
-		smem_mm_trace,
+		0,
+		0,
+		{
+			SRC_P,
+			TDM_SERIAL_PORT_PROT,
+			{{
+				MCBSP3_DMA_TX*ATC_SIZE,
+				dmem_mm_ext_out,
+				dmem_mm_ext_out_size,
+				2 * SCHED_LOOP_48kHz,
+			}}
+		},
+		{0, 0},
+		{0},
+		"MM_EXT_OUT",
+	},
+	/* PCM3_RX */
+	{
+		IDLE_P,
+		{48000, STEREO_MSB},
+		NODRIFT,
+		NOCALLBACK,
+		0,
+		0,
+		{
+			SRC_P,
+			TDM_SERIAL_PORT_PROT,
+			{{
+				MCBSP3_DMA_RX*ATC_SIZE,
+				dmem_mm_ext_in,
+				dmem_mm_ext_in_size,
+				2 * SCHED_LOOP_48kHz
+			}}
+		},
+		{0, 0},
+		{0},
+		"MM_EXT_IN"
+	},
+	/* SCHD_DBG_PORT */
+	{
+		IDLE_P,
+		{48000, MONO_MSB},
+		NODRIFT,
+		NOCALLBACK,
+		0,
 		0,
 		{
 			SRC_P,
 			DMAREQ_PORT_PROT,
 			{{
-				CBPr_DMA_RTX7 * ATC_SIZE,
+				CBPr_DMA_RTX7*ATC_SIZE,
 				dmem_mm_trace,
 				dmem_mm_trace_size,
 				2 * SCHED_LOOP_48kHz,
-				DEFAULT_THR_WRITE,
 				ABE_DMASTATUS_RAW,
-				1 << 4,
-			}},
+				(1<<4)
+			}}
 		},
-		{CIRCULAR_BUFFER_PERIPHERAL_R__7, 24},
-		{SEQUENCE, CONTROL, GAINS, 0},
-		"SCHD_DBG",
+		{
+			CIRCULAR_BUFFER_PERIPHERAL_R__7,
+			24
+		},
+		{
+			SEQUENCE,
+			CONTROL,
+			GAINS,
+			0
+		},
+		"SCHD_DBG"
 	},
-#endif
 };
 
-const	abe_port_info_t abe_port_info[MAXNBABEPORTS] = {
+const abe_port_info_t abe_port_info [LAST_PORT_ID] = {
 	/* DMIC */
 	{
 		ABE_OPP50,
@@ -889,8 +937,10 @@ const abe_uint32 abe_atc_srcid[ABE_ATC_DESC_SIZE >> 3] = {
 };
 
 /*
- * Router tables
- */
+ * preset default routing configurations
+ * This is given as implementation EXAMPLES
+ * the programmer uses "abe_set_router_configuration" with its own tables
+*/
 const abe_router_t abe_router_ul_table_preset[NBROUTE_CONFIG][NBROUTE_UL] = {
 	/* Voice uplink with Phoenix microphones - Uproute config_dmic1 */
 	{
@@ -899,8 +949,8 @@ const abe_router_t abe_router_ul_table_preset[NBROUTE_CONFIG][NBROUTE_UL] = {
 		DMIC1_R_labelID,
 		DMIC2_L_labelID,
 		DMIC2_R_labelID,
-		DMIC3_L_labelID,
-		DMIC3_R_labelID,
+		MM_EXT_IN_L_labelID,
+		MM_EXT_IN_R_labelID,
 		ZERO_labelID,
 		ZERO_labelID,
 		ZERO_labelID,
@@ -1258,7 +1308,7 @@ const abe_uint32 abe_sin_table [] = { 0 };
 abe_uint32 abe_irq_dbg_read_ptr;
 
 /* General circular buffer used to trace APIs calls and AE activity */
-abe_uint32 abe_dbg_activity_log[DBG_LOG_SIZE];
+abe_uint32 abe_dbg_activity_log[D_DEBUG_HAL_TASK_sizeof];
 abe_uint32 abe_dbg_activity_log_write_pointer;
 abe_uint32 abe_dbg_mask;
 

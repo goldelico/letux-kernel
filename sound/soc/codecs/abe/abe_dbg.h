@@ -22,88 +22,113 @@ extern "C" {
 #define LINE_OUTPUT		2
 #define DEBUG_TRACE_OUTPUT	3
 
-#define DBG_LOG_SIZE		1000
+/*
+ *	Debug trace format
+ *	TIME 2 bytes from ABE : 4kHz period of the FW scheduler
+ *	SUBID 1 byte : HAL API index
+ *	From 0 to 16 bytes : parameters of the subroutine
+ *	on every 32 dumps a tag is pushed on the debug trace : 0x55555555
+ */
 
-#define DBG_BITFIELD_OFFSET	8
 
-#define DBG_API_CALLS		0
-#define DBG_MAPI		(1L << (DBG_API_CALLS + DBG_BITFIELD_OFFSET))
+#define dbg_bitfield_offset		8
 
-#define DBG_EXT_DATA_ACCESS	1
-#define DBG_MDATA		(1L << (DBG_EXT_DATA_ACCESS + DBG_BITFIELD_OFFSET))
+#define dbg_api_calls			0
+#define dbg_mapi			(1L << (dbg_api_calls + dbg_bitfield_offset))
 
-#define DBG_ERR_CODES		2
-#define DBG_MERR		(1L << (DBG_API_CALLS + DBG_BITFIELD_OFFSET))
+#define dbg_external_data_access	1
+#define dbg_mdata			(1L << (dbg_external_data_access + dbg_bitfield_offset))
+
+#define dbg_err_codes			2
+#define dbg_merr			(1L << (dbg_api_calls + dbg_bitfield_offset))
 
 /*
  * IDs used for traces
  */
-#define ID_RESET_HAL			(1 + DBG_MAPI)
-#define ID_LOAD_FW			(2 + DBG_MAPI)
-#define ID_DEFAULT_CONFIGURATION	(3 + DBG_MAPI)
-#define ID_IRQ_PROCESSING		(4 + DBG_MAPI)
-#define ID_EVENT_GENERATOR_SWITCH	(5 + DBG_MAPI)
-#define ID_SET_MEMORY_CONFIG		(6 + DBG_MAPI)
-#define ID_READ_LOWEST_OPP		(7 + DBG_MAPI)
-#define ID_SET_OPP_PROCESSING		(8 + DBG_MAPI)
-#define ID_SET_PING_PONG_BUFFER		(9 + DBG_MAPI)
-#define ID_PLUG_SUBROUTINE		(10 + DBG_MAPI)
-#define ID_UNPLUG_SUBROUTINE		(11 + DBG_MAPI)
-#define ID_PLUG_SEQUENCE		(12 + DBG_MAPI)
-#define ID_LAUNCH_SEQUENCE		(13 + DBG_MAPI)
-#define ID_LAUNCH_SEQUENCE_PARAM	(14 + DBG_MAPI)
-#define ID_SET_ANALOG_CONTROL		(15 + DBG_MAPI)
-#define ID_READ_ANALOG_GAIN_DL		(16 + DBG_MAPI)
-#define ID_READ_ANALOG_GAIN_UL		(17 + DBG_MAPI)
-#define ID_ENABLE_DYN_UL_GAIN		(18 + DBG_MAPI)
-#define ID_DISABLE_DYN_UL_GAIN		(19 + DBG_MAPI)
-#define ID_ENABLE_DYN_EXTENSION		(20 + DBG_MAPI)
-#define ID_DISABLE_DYN_EXTENSION	(21 + DBG_MAPI)
-#define ID_NOTIFY_ANALOG_GAIN_CHANGED	(22 + DBG_MAPI)
-#define ID_RESET_PORT			(23 + DBG_MAPI)
-#define ID_READ_REMAINING_DATA		(24 + DBG_MAPI)
-#define ID_DISABLE_DATA_TRANSFER	(25 + DBG_MAPI)
-#define ID_ENABLE_DATA_TRANSFER		(26 + DBG_MAPI)
-#define ID_READ_GLOBAL_COUNTER		(27 + DBG_MAPI)
-#define ID_SET_DMIC_FILTER		(28 + DBG_MAPI)
-#define ID_WRITE_PORT_DESCRIPTOR	(29 + DBG_MAPI)
-#define ID_READ_PORT_DESCRIPTOR		(30 + DBG_MAPI)
-#define ID_READ_PORT_ADDRESS		(31 + DBG_MAPI)
-#define ID_WRITE_PORT_GAIN		(32 + DBG_MAPI)
-#define ID_WRITE_HEADSET_OFFSET		(33 + DBG_MAPI)
-#define ID_READ_GAIN_RANGES		(34 + DBG_MAPI)
-#define ID_WRITE_EQUALIZER		(35 + DBG_MAPI)
-#define ID_WRITE_ASRC			(36 + DBG_MAPI)
-#define ID_WRITE_APS			(37 + DBG_MAPI)
-#define ID_WRITE_MIXER			(38 + DBG_MAPI)
-#define ID_WRITE_EANC			(39 + DBG_MAPI)
-#define ID_WRITE_ROUTER			(40 + DBG_MAPI)
-#define ID_READ_PORT_GAIN		(41 + DBG_MAPI)
-#define ID_READ_ASRC			(42 + DBG_MAPI)
-#define ID_READ_APS			(43 + DBG_MAPI)
-#define ID_READ_APS_ENERGY		(44 + DBG_MAPI)
-#define ID_READ_MIXER			(45 + DBG_MAPI)
-#define ID_READ_EANC			(46 + DBG_MAPI)
-#define ID_READ_ROUTER			(47 + DBG_MAPI)
-#define ID_READ_DEBUG_TRACE		(48 + DBG_MAPI)
-#define ID_SET_DEBUG_TRACE		(49 + DBG_MAPI)
-#define ID_SET_DEBUG_PINS		(50 + DBG_MAPI)
-#define ID_CALL_SUBROUTINE		(51 + DBG_MAPI)
+#define id_reset_hal				(1 + dbg_mapi)
+#define id_load_fw				(2 + dbg_mapi)
+#define id_default_configuration		(3 + dbg_mapi)
+#define id_irq_processing			(4 + dbg_mapi)
+#define id_event_generator_switch		(5 + dbg_mapi)
+#define id_read_hardware_configuration		(6 + dbg_mapi)
+#define id_read_lowest_opp			(7 + dbg_mapi)
+#define id_write_gain				(8 + dbg_mapi)
+#define id_set_asrc_drift_control		(9 + dbg_mapi)
+#define id_plug_subroutine			(10 + dbg_mapi)
+#define id_unplug_subroutine			(11 + dbg_mapi)
+#define id_plug_sequence			(12 + dbg_mapi)
+#define id_launch_sequence			(13 + dbg_mapi)
+#define id_launch_sequence_param		(14 + dbg_mapi)
+#define id_connect_irq_ping_pong_port		(15 + dbg_mapi)
+#define id_read_analog_gain_dl			(16 + dbg_mapi)
+#define id_read_analog_gain_ul			(17 + dbg_mapi)
+#define id_enable_dyn_ul_gain			(18 + dbg_mapi)
+#define id_disable_dyn_ul_gain			(19 + dbg_mapi)
+#define id_enable_dyn_extension			(20 + dbg_mapi)
+#define id_disable_dyn_extension		(21 + dbg_mapi)
+#define id_notify_analog_gain_changed		(22 + dbg_mapi)
+#define id_reset_port				(23 + dbg_mapi)
+#define id_read_remaining_data			(24 + dbg_mapi)
+#define id_disable_data_transfer		(25 + dbg_mapi)
+#define id_enable_data_transfer			(26 + dbg_mapi)
+#define id_read_global_counter			(27 + dbg_mapi)
+#define id_set_dmic_filter			(28 + dbg_mapi)
+#define id_set_opp_processing			(29 + dbg_mapi)
+#define id_set_ping_pong_buffer			(30 + dbg_mapi)
+#define id_read_port_address			(31 + dbg_mapi)
+#define id_load_fw_param			(32 + dbg_mapi)
+#define id_write_headset_offset			(33 + dbg_mapi)
+#define id_read_gain_ranges			(34 + dbg_mapi)
+#define id_write_equalizer			(35 + dbg_mapi)
+#define id_write_asrc				(36 + dbg_mapi)
+#define id_write_aps				(37 + dbg_mapi)
+#define id_write_mixer				(38 + dbg_mapi)
+#define id_write_eanc				(39 + dbg_mapi)
+#define id_write_router				(40 + dbg_mapi)
+#define id_read_port_gain			(41 + dbg_mapi)
+#define id_read_asrc				(42 + dbg_mapi)
+#define id_read_aps				(43 + dbg_mapi)
+#define id_read_aps_energy			(44 + dbg_mapi)
+#define id_read_mixer				(45 + dbg_mapi)
+#define id_read_eanc				(46 + dbg_mapi)
+#define id_read_router				(47 + dbg_mapi)
+#define id_read_debug_trace			(48 + dbg_mapi)
+#define id_set_sequence_time_accuracy		(49 + dbg_mapi)
+#define id_set_debug_pins			(50 + dbg_mapi)
+#define id_select_main_port			(51 + dbg_mapi)
+#define id_write_event_generator		(52 + dbg_mapi)
+#define id_read_use_case_opp			(53 + dbg_mapi)
+#define id_select_data_source			(54 + dbg_mapi)
+#define id_read_next_ping_pong_buffer		(55 + dbg_mapi)
+#define id_init_ping_pong_buffer		(56 + dbg_mapi)
+#define id_connect_cbpr_dmareq_port		(57 + dbg_mapi)
+#define id_connect_dmareq_port			(58 + dbg_mapi)
+#define id_connect_dmareq_ping_pong_port	(59 + dbg_mapi)
+#define id_connect_serial_port			(60 + dbg_mapi)
+#define id_connect_slimbus_port			(61 + dbg_mapi)
+#define id_5					(62 + dbg_mapi)
+#define id_set_router_configuration		(63 + dbg_mapi)
+#define id_connect_debug_trace			(64 + dbg_mapi)
+#define id_set_debug_trace			(65 + dbg_mapi)
+#define id_remote_debugger_interface		(66 + dbg_mapi)
+#define id_enable_test_pattern			(67 + dbg_mapi)
+#define id_connect_tdm_port			(68 + dbg_mapi)
 
 /*
  * IDs used for error codes
  */
-#define NOERR				0
-#define ABE_SET_MEMORY_CONFIG_ERR	(1 + DBG_MERR)
-#define ABE_BLOCK_COPY_ERR		(2 + DBG_MERR)
-#define ABE_SEQTOOLONG			(3 + DBG_MERR)
-#define ABE_BADSAMPFORMAT		(4 + DBG_MERR)
-#define ABE_SET_ATC_MEMORY_CONFIG_ERR	(5 + DBG_MERR)
-#define ABE_PROTOCOL_ERROR		(6 + DBG_MERR)
-#define ABE_PARAMETER_ERROR		(7 + DBG_MERR)
-#define ABE_PORT_REPROGRAMMING		(8 + DBG_MERR)	/* port programmed while still running */
-#define ABE_READ_USE_CASE_OPP_ERR	(9 + DBG_MERR)
-#define ABE_PARAMETER_OVERFLOW		(10 + DBG_MERR)
+#define NOERR					0
+#define ABE_SET_MEMORY_CONFIG_ERR		(1 + dbg_merr)
+#define ABE_BLOCK_COPY_ERR			(2 + dbg_merr)
+#define ABE_SEQTOOLONG				(3 + dbg_merr)
+#define ABE_BADSAMPFORMAT			(4 + dbg_merr)
+#define ABE_SET_ATC_MEMORY_CONFIG_ERR		(5 + dbg_merr)
+#define ABE_PROTOCOL_ERROR			(6 + dbg_merr)
+#define ABE_PARAMETER_ERROR			(7 + dbg_merr)
+/* port programmed while still running */
+#define ABE_PORT_REPROGRAMMING			(8 + dbg_merr)
+#define ABE_READ_USE_CASE_OPP_ERR		(9 + dbg_merr)
+#define ABE_PARAMETER_OVERFLOW			(10 + dbg_merr)
 
 /*
  * IDs used for error codes
@@ -118,49 +143,7 @@ extern "C" {
 /*
  * MACROS
  */
-#ifdef HAL_TIME_STAMP
-#define _log(x) ((x&abe_dbg_mask)?abe_dbg_log(x);   \
-		 abe_dbg_time_stamp(x);	     \
-		 abe_dbg_printf(x);		 \
-		)
-#else
-#define _log(x) {if(x&abe_dbg_mask)abe_dbg_log(x);}
-#endif
-
-/*
- * PROTOTYPES
- */
-
-/*
- *  ABE_DBG_LOG
- *
- *  Parameter  :
- *      x : data to be logged
- *
- *      abe_dbg_activity_log : global circular buffer holding the data
- *      abe_dbg_activity_log_write_pointer : circular write pointer
- *
- *  Operations :
- *      saves data in the log file
- *
- *  Return value :
- *      none
- */
-void abe_dbg_log(abe_uint32 x);
-
-/*
- *  ABE_DBG_ERROR_LOG
- *
- *  Parameter  :
- *      x : d
- *
- *  Operations :
- *      log the error codes
- *
- *  Return value :
- *
- */
-void abe_dbg_error_log(abe_uint32 x);
+#define _log(x,y,z,t) {if(x&abe_dbg_mask)abe_dbg_log(x,y,z,t);}
 
 #ifdef __cplusplus
 }
