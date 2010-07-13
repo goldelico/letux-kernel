@@ -61,7 +61,7 @@ struct dsp_shm_freq_table {
 	unsigned long thresh_max_freq;
 };
 struct dspbridge_platform_data {
-	void (*dsp_set_min_opp) (u8 opp_id);
+	void (*dsp_set_min_opp)(struct device *dev, unsigned long f);
 	 u8(*dsp_get_opp) (void);
 	void (*cpu_set_freq) (unsigned long f);
 	unsigned long (*cpu_get_freq) (void);

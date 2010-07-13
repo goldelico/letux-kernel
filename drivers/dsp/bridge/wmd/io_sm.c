@@ -924,8 +924,8 @@ static void io_dispatch_pm(struct io_mgr *pio_mgr)
 			pr_err("%s: hibernate cmd failed 0x%x\n",
 			       __func__, status);
 	} else if (parg[0] == MBX_PM_OPP_REQ) {
-		parg[1] = pio_mgr->shared_mem->opp_request.rqst_opp_pt;
-		dev_dbg(bridge, "PM: Requested OPP = 0x%x\n", parg[1]);
+		parg[1] = pio_mgr->shared_mem->opp_request.rqst_dsp_freq;
+		dev_dbg(bridge, "PM: Requested Freq = 0x%x\n", parg[1]);
 		status =
 		    pio_mgr->intf_fxns->pfn_dev_cntrl(pio_mgr->hwmd_context,
 						      WMDIOCTL_CONSTRAINT_REQUEST,

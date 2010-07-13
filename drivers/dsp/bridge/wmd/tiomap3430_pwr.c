@@ -57,25 +57,32 @@ dsp_status handle_constraints_set(struct wmd_dev_context *dev_context,
 				  IN void *pargs)
 {
 #ifdef CONFIG_BRIDGE_DVFS
-	u32 opp_idx;
+	u32 constraint_val;
 	struct dspbridge_platform_data *pdata =
 	    omap_dspbridge_dev->dev.platform_data;
 
 	/* pick up the opp index */
-	opp_idx = *(((u32 *) (pargs)) + 1);
+	constraint_val = *(((u32 *) (pargs)) + 1);
+	constraint_val = constraint_val * 1000;
+
 
 	/* Sanity check to ensure things are fine */
-	if (!opp_idx || (opp_idx > pdata->dsp_num_speeds)) {
-		pr_err("%s: DSP requested for an invalid OPP %d Vs %d->%d!\n",
-		       __func__, opp_idx, 1, pdata->dsp_num_speeds);
-		return -EINVAL;
+	if (pdata->dsp_set_min_opp) {
+		if (constraint_val < pdata->mpu_min_speed) {
+			pr_debug("dspbridge req freq %u set min freq to %lu\n",
+					constraint_val, pdata->mpu_min_speed);
+			(*pdata->dsp_set_min_opp)(&omap_dspbridge_dev->dev,
+							pdata->mpu_min_speed);
+		} else {
+			(*pdata->dsp_set_min_opp)(&omap_dspbridge_dev->dev,
+							 constraint_val);
+		}
 	}
-	/* Read the target value requested by DSP  */
-	dev_dbg(bridge, "OPP: %s opp requested = 0x%x\n", __func__, opp_idx);
 
-	/* Set the new opp value */
-	if (pdata->dsp_set_min_opp)
-		(*pdata->dsp_set_min_opp) (opp_idx);
+	/* Read the target value requested by DSP  */
+	dev_dbg(bridge, "OPP: %s opp requested = 0x%x\n", __func__,
+		constraint_val);
+
 #endif /* #ifdef CONFIG_BRIDGE_DVFS */
 	return DSP_SOK;
 }
@@ -155,7 +162,10 @@ func_cont:
 			 * mode
 			 */
 			if (pdata->dsp_set_min_opp)
-				(*pdata->dsp_set_min_opp) (VDD1_OPP1);
+				(*pdata->dsp_set_min_opp)
+					(&omap_dspbridge_dev->dev,
+					pdata->mpu_min_speed);
+
 			status = DSP_SOK;
 		}
 #endif /* CONFIG_BRIDGE_DVFS */
@@ -282,7 +292,10 @@ func_cont:
 			 * Set the OPP to low level before moving to OFF mode
 			 */
 			if (pdata->dsp_set_min_opp)
-				(*pdata->dsp_set_min_opp) (VDD1_OPP1);
+				(*pdata->dsp_set_min_opp)
+					(&omap_dspbridge_dev->dev,
+					pdata->mpu_min_speed);
+
 		}
 #endif /* CONFIG_BRIDGE_DVFS */
 	}
