@@ -274,11 +274,19 @@ static int program_opp_freq(int res, int target_level, int current_level)
 	return target_level;
 }
 
+#ifdef CONFIG_OMAP_SMARTREFLEX_CLASS1P5
+u8 sr_class1p5 = 1;
+#else
+/* use default of 0 */
+u8 sr_class1p5;
+#endif
+
 static int program_opp(int res, struct omap_opp *opp, int target_level,
 		int current_level)
 {
 	int i, ret = 0, raise;
 	unsigned long t_opp, c_opp;
+	u8 target_v, current_v;
 
 	t_opp = ID_VDD(res) | ID_OPP_NO(opp[target_level].opp_id);
 	c_opp = ID_VDD(res) | ID_OPP_NO(opp[current_level].opp_id);
@@ -292,19 +300,34 @@ static int program_opp(int res, struct omap_opp *opp, int target_level,
 	else
 		raise = 0;
 
-	disable_smartreflex(res);
+	/* Start with nominal voltage */
+	target_v = opp[target_level].vsel;
+	current_v = opp[current_level].vsel;
+	if (!sr_class1p5) {
+		disable_smartreflex(res);
+	} else {
+		/* if use class 1.5, decide on which voltage to use */
+		target_v = (opp[target_level].sr_adjust_vsel) ?
+			opp[target_level].sr_adjust_vsel : target_v;
+		current_v = (opp[current_level].sr_adjust_vsel) ?
+			opp[current_level].sr_adjust_vsel : current_v;
+	}
 
 	for (i = 0; i < 2; i++) {
 		if (i == raise)
 			ret = program_opp_freq(res, target_level,
 					current_level);
-		else
+		else {
 			omap_scale_voltage(t_opp, c_opp,
-				opp[target_level].vsel,
-				opp[current_level].vsel);
+				target_v, current_v);
+		}
 	}
 
-	enable_smartreflex(res);
+	if (!sr_class1p5)
+		enable_smartreflex(res);
+	else if (!opp[target_level].sr_adjust_vsel)
+		sr_recalibrate(res, t_opp, c_opp);
+
 	return ret;
 }
 

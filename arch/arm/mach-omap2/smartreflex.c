@@ -77,6 +77,8 @@ struct omap_sr {
 
 static struct clk *dpll1_ck, *dpll2_ck, *l3_ick;
 
+extern u8 sr_class1p5;
+
 static omap3_voltagescale_vcbypass_t omap3_volscale_vcbypass_fun;
 
 static inline void sr_write_reg(struct omap_sr *sr, unsigned offset, u32 value)
@@ -138,7 +140,11 @@ static void sr_clk_disable(struct omap_sr *sr)
 static struct omap_sr sr1 = {
 	.srid			= SR1,
 	.is_sr_reset		= 1,
+#ifdef CONFIG_OMAP_SMARTREFLEX_CLASS1P5
+	.is_autocomp_active	= 1,
+#else
 	.is_autocomp_active	= 0,
+#endif
 	.clk_length		= 0,
 	.srbase_addr		= OMAP2_L4_IO_ADDRESS(OMAP34XX_SR1_BASE),
 };
@@ -146,7 +152,11 @@ static struct omap_sr sr1 = {
 static struct omap_sr sr2 = {
 	.srid			= SR2,
 	.is_sr_reset		= 1,
+#ifdef CONFIG_OMAP_SMARTREFLEX_CLASS1P5
+	.is_autocomp_active	= 1,
+#else
 	.is_autocomp_active	= 0,
+#endif
 	.clk_length		= 0,
 	.srbase_addr		= OMAP2_L4_IO_ADDRESS(OMAP34XX_SR2_BASE),
 };
@@ -300,7 +310,7 @@ static void sr_set_efuse_nvalues(struct omap_sr *sr)
 			sr->opp4_nvalue =
 			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP4_VDD1);
 			if (sr->opp4_nvalue != 0x0)
-				printk(KERN_INFO "SR1:Fused Nvalues for VDD1OPP4 %x\n",
+				pr_info("SR1:Fused Nvalues for VDD1OPP4 %x\n",
 							sr->opp4_nvalue);
 			sr->opp5_nvalue = sr->opp4_nvalue;
 
@@ -339,7 +349,7 @@ static void sr_set_efuse_nvalues(struct omap_sr *sr)
 			sr->opp1_nvalue =
 			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP1_VDD2);
 			if (sr->opp1_nvalue != 0)
-				printk(KERN_INFO "SR2:Fused Nvalues for VDD2OPP1 %d\n",
+				pr_info("SR2:Fused Nvalues for VDD2OPP1 %d\n",
 							sr->opp1_nvalue);
 			sr->opp2_nvalue =
 			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP2_VDD2);
@@ -684,6 +694,93 @@ static int sr_reset_voltage(int srid)
 	 */
 	t2_smps_delay = ((t2_smps_steps * 125) / 40) + 2;
 	udelay(t2_smps_delay);
+
+	return 0;
+}
+
+static inline void sr_udelay(u32 delay)
+{
+	while (delay-- > 0) {
+		cpu_relax();
+		udelay(1);
+	};
+
+}
+
+#define SR_CLASS1P5_LOOP_US	100
+#define MAX_STABILIZATION_COUNT 100
+#define MAX_LOOP_COUNT		(MAX_STABILIZATION_COUNT * 20)
+int sr_recalibrate(int srid, u32 t_opp, u32 c_opp)
+{
+	u32 max_loop_count = MAX_LOOP_COUNT;
+	u32 exit_loop_on = 0;
+	u32 target_opp_no;
+	u8 new_v = 0;
+	u8 high_v = 0;
+	struct omap_sr *sr;
+
+	if (srid == SR1)
+		sr = &sr1;
+	else if (srid == SR2)
+		sr = &sr2;
+	else
+		return -EINVAL;
+
+	if (srid == SR1)
+		target_opp_no = get_vdd1_opp();
+	else if (srid == SR2)
+		target_opp_no = get_vdd2_opp();
+
+	pr_debug("Calibrate: Entry %s %d:%d %d %d\n", __func__, srid,
+		target_opp_no, sr->is_autocomp_active, sr->is_sr_reset);
+
+	/* Start Smart reflex */
+	enable_smartreflex(srid);
+	/* We need to wait for SR to stabilize before we start sampling */
+	sr_udelay(MAX_STABILIZATION_COUNT * SR_CLASS1P5_LOOP_US);
+
+	/* Ready for recalibration */
+	while (max_loop_count) {
+		if (srid == SR1)
+			new_v = prm_read_mod_reg(OMAP3430_GR_MOD,
+				OMAP3_PRM_VP1_VOLTAGE_OFFSET);
+		else if (srid == SR2)
+			new_v = prm_read_mod_reg(OMAP3430_GR_MOD,
+				OMAP3_PRM_VP2_VOLTAGE_OFFSET);
+
+		/* handle oscillations */
+		if (new_v != high_v) {
+			high_v = (high_v < new_v) ? new_v : high_v;
+			exit_loop_on = MAX_STABILIZATION_COUNT;
+		}
+		/* wait for one more stabilization loop for us to sample */
+		sr_udelay(SR_CLASS1P5_LOOP_US);
+
+		max_loop_count--;
+		exit_loop_on--;
+		/* Stabilization achieved.. quit */
+		if (!exit_loop_on)
+			break;
+	}
+	/*
+	 * bad case where we are oscillating.. flag it,
+	 * but continue with higher v
+	 */
+	if (!max_loop_count && exit_loop_on) {
+		pr_err("%s: %d:%d exited with voltages 0x%02x 0x%02x\n",
+			__func__, srid, target_opp_no, new_v, high_v);
+	}
+	/* Stop Smart reflex */
+	disable_smartreflex(srid);
+
+	if (srid == SR1)
+		mpu_opps[target_opp_no].sr_adjust_vsel = high_v;
+	else if (srid == SR2)
+		l3_opps[target_opp_no].sr_adjust_vsel = high_v;
+
+	pr_debug("Calibrate:Exit %s [vdd%d: opp%d] %02x loops=[%d,%d]\n",
+		__func__, srid, target_opp_no, high_v,
+		max_loop_count, exit_loop_on);
 
 	return 0;
 }
@@ -1124,7 +1221,8 @@ void disable_smartreflex(int srid)
 			 /* Disable SR clk */
 			sr_clk_disable(sr);
 			/* Reset the volatage for current OPP */
-			sr_reset_voltage(srid);
+			if (!sr_class1p5)
+				sr_reset_voltage(srid);
 		}
 	}
 }
@@ -1235,6 +1333,11 @@ static ssize_t omap_sr_vdd1_autocomp_store(struct kobject *kobj,
 		return -EINVAL;
 	}
 
+	if (sr_class1p5) {
+		pr_err("SR1.5 is enabled by default instead of class3 \n");
+		return -EINVAL;
+	}
+
 	if (value == 0) {
 		sr_stop_vddautocomap(SR1);
 	} else {
@@ -1272,6 +1375,11 @@ static ssize_t omap_sr_vdd2_autocomp_store(struct kobject *kobj,
 
 	if (sscanf(buf, "%hu", &value) != 1 || (value > 1)) {
 		pr_err("sr_vdd2_autocomp: Invalid value\n");
+		return -EINVAL;
+	}
+
+	if (sr_class1p5) {
+		pr_err("SR1.5 is enabled by default instead of class3 \n");
 		return -EINVAL;
 	}
 
@@ -1402,22 +1510,27 @@ static int __init omap3_sr_init(void)
 	if (ret)
 		pr_err("sysfs_create_file failed: %d\n", ret);
 
-	if (sr1.opp3_nvalue) {
-		current_opp_no = get_vdd1_opp();
-		if (!current_opp_no) {
-			pr_err("omap3_sr_init: Current VDD1 opp unknown\n");
-			return -EINVAL;
+	/* Enable SR only for 3430 for now */
+	if (!cpu_is_omap3630()) {
+		if (sr1.opp3_nvalue) {
+			current_opp_no = get_vdd1_opp();
+			if (!current_opp_no) {
+				pr_err("omap3_sr_init: Current VDD1"
+							"opp unknown\n");
+				return -EINVAL;
+			}
+			sr_start_vddautocomap(SR1, current_opp_no);
 		}
-		sr_start_vddautocomap(SR1, current_opp_no);
-	}
-	if (sr2.opp3_nvalue) {
-		current_opp_no = get_vdd2_opp();
-		if (!current_opp_no) {
-			pr_err("omap3_sr_init: Current VDD2 opp unknown\n");
-			return -EINVAL;
+		if (sr2.opp3_nvalue) {
+			current_opp_no = get_vdd2_opp();
+			if (!current_opp_no) {
+				pr_err("omap3_sr_init: Current VDD2"
+							"opp unknown\n");
+				return -EINVAL;
+			}
+			sr_start_vddautocomap(SR2, current_opp_no);
+			pr_info("SmartReflex: enabling autocompensation\n");
 		}
-		sr_start_vddautocomap(SR2, current_opp_no);
-		pr_info("SmartReflex: enabling autocompensation\n");
 	}
 
 	return 0;

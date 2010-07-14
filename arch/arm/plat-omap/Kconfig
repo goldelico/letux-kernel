@@ -110,6 +110,16 @@ config OMAP_SMARTREFLEX_TESTING
 
 	  WARNING: Enabling this option may cause your device to hang!
 
+config OMAP_SMARTREFLEX_CLASS1P5
+	bool "Use Smartreflex Class 1.5"
+	depends on OMAP_SMARTREFLEX
+	default n
+	help
+	   Say Y if you would like to use Smart reflex class 1.5
+	   introduces /sys/power/sr_adjust_vsel to
+	   view calibrated voltage and set to 0 will restart
+	   the calibration cycle
+
 config OMAP_RESET_CLOCKS
 	bool "Reset unused clocks during boot"
 	depends on ARCH_OMAP
