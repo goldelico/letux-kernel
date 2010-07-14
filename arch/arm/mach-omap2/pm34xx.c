@@ -1206,7 +1206,7 @@ static int omap3630_abb_change_active_opp(u32 target_opp_no)
 	/* clear ABB ldo interrupt status */
 	prm_write_mod_reg(OMAP3630_ABB_LDO_TRANXDONE_ST,
 			OCP_MOD,
-			OMAP2_PRM_IRQSTATUS_MPU_OFFSET);
+			OMAP2_PRCM_IRQSTATUS_MPU_OFFSET);
 
 	/* enable ABB LDO OPP change */
 	prm_set_mod_reg_bits(OMAP3630_OPP_CHANGE,
@@ -1218,7 +1218,7 @@ static int omap3630_abb_change_active_opp(u32 target_opp_no)
 	/* wait until OPP change completes */
 	while ((timeout < ABB_TRANXDONE_TIMEOUT) &&
 			(!(prm_read_mod_reg(OCP_MOD,
-					    OMAP2_PRM_IRQSTATUS_MPU_OFFSET) &
+					    OMAP2_PRCM_IRQSTATUS_MPU_OFFSET) &
 			   OMAP3630_ABB_LDO_TRANXDONE_ST))) {
 		udelay(1);
 		timeout++;
@@ -1233,9 +1233,9 @@ static int omap3630_abb_change_active_opp(u32 target_opp_no)
 	while (timeout < ABB_TRANXDONE_TIMEOUT) {
 		prm_write_mod_reg(OMAP3630_ABB_LDO_TRANXDONE_ST,
 				OCP_MOD,
-				OMAP2_PRM_IRQSTATUS_MPU_OFFSET);
+				OMAP2_PRCM_IRQSTATUS_MPU_OFFSET);
 		if (!(prm_read_mod_reg(OCP_MOD,
-						OMAP2_PRM_IRQSTATUS_MPU_OFFSET)
+						OMAP2_PRCM_IRQSTATUS_MPU_OFFSET)
 					& OMAP3630_ABB_LDO_TRANXDONE_ST))
 			break;
 
@@ -1357,7 +1357,8 @@ static int voltagescale_vpforceupdate(u32 target_opp, u32 current_opp,
 	prm_clear_mod_reg_bits(OMAP3430_FORCEUPDATE, OMAP3430_GR_MOD,
 			vp_config_offs);
 
-	if (cpu_is_omap3630())
+	/* Adjust ABB ldo for new OPP */
+	if (cpu_is_omap3630() && vdd == VDD1_OPP)
 		omap3630_abb_change_active_opp(target_opp_no);
 
 	return 0;
