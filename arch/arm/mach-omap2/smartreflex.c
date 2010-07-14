@@ -55,7 +55,22 @@
 #define ERRCONFIG_STATUS_MASK	(ERRCONFIG_VPBOUNDINTST | \
 		 ERRCONFIG_MCUBOUNDINTST | ERRCONFIG_MCUDISACKINTST)
 
+static ssize_t sr_steps_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t n);
+static ssize_t sr_steps_show(struct kobject *kobj, struct kobj_attribute *attr,
+			 char *buf);
+/* sysfs interface to control steps added for 1G OPP */
+static struct kobj_attribute sr_margin_steps_1g_attr =
+	__ATTR(sr_steps_1g, 0644, sr_steps_show, sr_steps_store);
 
+/* sysfs interface to control steps added for OPP's less than 1G */
+static struct kobj_attribute sr_margin_steps_attr =
+	__ATTR(sr_steps, 0644, sr_steps_show, sr_steps_store);
+
+/* Default steps added for 1G volt is 5 */
+static int sr_margin_steps_1g = 5;
+/* Default steps added for less than 1G OPP's is 3 */
+static int sr_margin_steps = 3;
 
 struct omap_sr {
 	int		srid;
@@ -72,6 +87,11 @@ struct omap_sr {
 	void __iomem	*vpbase_addr;
 	u32		starting_ret_volt;
 };
+
+static void sr_add_margin_steps(struct omap_sr *sr);
+
+/* store sr1_opp nValues read from efuse */
+static u32 sr1_opp[5];
 
 #define SR_REGADDR(offs)	(sr->srbase_addr + offset)
 
@@ -301,25 +321,55 @@ static void sr_set_clk_length(struct omap_sr *sr)
 	}
 }
 
+static void sr_add_margin_steps(struct omap_sr *sr)
+{
+	u32 senn_adj = 3.0*12.5;
+	u32 senp_adj = 2.6*12.5;
+
+	if (sr->srid == SR1) {
+		if (sr_margin_steps_1g) {
+			sr->opp4_nvalue = calculate_opp_nvalue(sr->opp4_nvalue,
+						senn_adj*sr_margin_steps_1g,
+						senp_adj*sr_margin_steps_1g);
+		}
+
+		if (sr_margin_steps) {
+			sr->opp3_nvalue = calculate_opp_nvalue(sr1_opp[3],
+						senn_adj*sr_margin_steps,
+						senp_adj*sr_margin_steps);
+			sr->opp2_nvalue = calculate_opp_nvalue(sr1_opp[2],
+						senn_adj*sr_margin_steps,
+						senp_adj*sr_margin_steps);
+			sr->opp1_nvalue = calculate_opp_nvalue(sr1_opp[1],
+						senn_adj*sr_margin_steps,
+						senp_adj*sr_margin_steps);
+		}
+	}
+
+}
+
 static void sr_set_efuse_nvalues(struct omap_sr *sr)
 {
 	if (sr->srid == SR1) {
 		if (cpu_is_omap3630()) {
 			sr->senn_mod = sr->senp_mod = 0x1;
 
-			sr->opp4_nvalue =
+			sr->opp4_nvalue = sr1_opp[4] =
 			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP4_VDD1);
 			if (sr->opp4_nvalue != 0x0)
 				pr_info("SR1:Fused Nvalues for VDD1OPP4 %x\n",
 							sr->opp4_nvalue);
 			sr->opp5_nvalue = sr->opp4_nvalue;
 
-			sr->opp3_nvalue =
+			sr->opp3_nvalue = sr1_opp[3] =
 			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP3_VDD1);
-			sr->opp2_nvalue =
+			sr->opp2_nvalue = sr1_opp[2] =
 			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP2_VDD1);
-			sr->opp1_nvalue =
+			sr->opp1_nvalue = sr1_opp[1] =
 			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP1_VDD1);
+
+			if (sr_margin_steps || sr_margin_steps_1g)
+				sr_add_margin_steps(sr);
 		} else {
 			sr->senn_mod = (omap_ctrl_readl(OMAP343X_CONTROL_FUSE_SR) &
 						OMAP343X_SR1_SENNENABLE_MASK) >>
@@ -1315,6 +1365,40 @@ int sr_voltagescale_vcbypass(u32 target_opp, u32 current_opp,
 	return 0;
 }
 
+/* sysfs interface for setting margin steps */
+static ssize_t sr_steps_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t n)
+{
+	unsigned short value;
+
+	if (sscanf(buf, "%hu", &value) != 1) {
+		printk(KERN_ERR "idle_store: Invalid value\n");
+		return -EINVAL;
+	}
+
+	if (attr == &sr_margin_steps_1g_attr)
+		sr_margin_steps_1g = value;
+	else if (attr == &sr_margin_steps_attr)
+		sr_margin_steps = value;
+	else
+		return -EINVAL;
+
+	sr_add_margin_steps(&sr1);
+
+	return n;
+}
+
+static ssize_t sr_steps_show(struct kobject *kobj, struct kobj_attribute *attr,
+			 char *buf)
+{
+	if (attr == &sr_margin_steps_1g_attr)
+		return sprintf(buf, "%u\n", sr_margin_steps_1g);
+	else if (attr == &sr_margin_steps_attr)
+		return sprintf(buf, "%u\n", sr_margin_steps);
+	else
+		return -EINVAL;
+}
+
 /* Sysfs interface to select SR VDD1 auto compensation */
 static ssize_t omap_sr_vdd1_autocomp_show(struct kobject *kobj,
 					struct kobj_attribute *attr, char *buf)
@@ -1501,6 +1585,14 @@ static int __init omap3_sr_init(void)
 		goto out2;
 
 	pr_info("SmartReflex driver initialized\n");
+
+	ret = sysfs_create_file(power_kobj, &sr_margin_steps_1g_attr.attr);
+	if (ret)
+		pr_err("sysfs_create_file failed: %d\n", ret);
+
+	ret = sysfs_create_file(power_kobj, &sr_margin_steps_attr.attr);
+	if (ret)
+		pr_err("sysfs_create_file failed: %d\n", ret);
 
 	ret = sysfs_create_file(power_kobj, &sr_vdd1_autocomp.attr);
 	if (ret)
