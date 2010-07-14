@@ -187,7 +187,7 @@ static int omap3_enter_idle_bm(struct cpuidle_device *dev,
 	struct cpuidle_state *new_state = state;
 
 	u32 per_state = 0, saved_per_state = 0, cam_state, usb_state;
-	u32 sgx_state, dss_state, new_core_state;
+	u32 iva2_state, sgx_state, dss_state, new_core_state;
 	struct omap3_processor_cx *cx;
 	int ret;
 
@@ -227,7 +227,7 @@ static int omap3_enter_idle_bm(struct cpuidle_device *dev,
 			 * would disable PER wakeups completely
 			 */
 			if (per_state == PWRDM_POWER_OFF &&
-			    new_core_state > PWRDM_POWER_RET)
+			    new_core_state < PWRDM_POWER_RET)
 				per_state = PWRDM_POWER_RET;
 
 		} else if (saved_per_state == PWRDM_POWER_OFF)
@@ -240,11 +240,14 @@ static int omap3_enter_idle_bm(struct cpuidle_device *dev,
 		 */
 		if (new_core_state == PWRDM_POWER_OFF) {
 			dss_state = pwrdm_get_idle_state(dss_pd);
+			iva2_state = pwrdm_get_idle_state(iva2_pd);
 			sgx_state = pwrdm_get_idle_state(sgx_pd);
 			usb_state = pwrdm_get_idle_state(usb_pd);
 
 			if (cam_state > PWRDM_POWER_OFF ||
 			    dss_state > PWRDM_POWER_OFF ||
+			    iva2_state > PWRDM_POWER_OFF ||
+			    per_state > PWRDM_POWER_OFF ||
 			    sgx_state > PWRDM_POWER_OFF ||
 			    usb_state > PWRDM_POWER_OFF)
 				new_core_state = PWRDM_POWER_RET;
