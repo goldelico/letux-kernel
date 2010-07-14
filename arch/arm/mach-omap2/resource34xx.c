@@ -308,9 +308,9 @@ static int program_opp(int res, struct omap_opp *opp, int target_level,
 	} else {
 		/* if use class 1.5, decide on which voltage to use */
 		target_v = (opp[target_level].sr_adjust_vsel) ?
-			opp[target_level].sr_adjust_vsel : target_v;
+			opp[target_level].sr_vsr_step_vsel : target_v;
 		current_v = (opp[current_level].sr_adjust_vsel) ?
-			opp[current_level].sr_adjust_vsel : current_v;
+			opp[current_level].sr_vsr_step_vsel : current_v;
 	}
 
 	for (i = 0; i < 2; i++) {

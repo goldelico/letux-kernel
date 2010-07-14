@@ -1604,17 +1604,22 @@ static ssize_t sr_adjust_vsel_show(struct kobject *kobj,
 	int i;
 	char *tbuf = buf;
 
-	tbuf += sprintf(tbuf, "oppid:\t[nominal v]\t[calib v]\n");
+	tbuf += sprintf(tbuf, "oppid:\t[nominal v]\t[calib v]\t"
+				"[calib step v]\n");
 	for (i = 1; i <= num_mpu_opps; i++)
 		if (mpu_opps[i].rate)
-			tbuf += sprintf(tbuf, "mpu %d:\t0x%02x\t\t0x%02x\n", i,
+			tbuf += sprintf(tbuf, "mpu %d:\t0x%02x\t\t0x%02x\t\t"
+						"0x%02x\n", i,
 					mpu_opps[i].vsel,
-					mpu_opps[i].sr_adjust_vsel);
+					mpu_opps[i].sr_adjust_vsel,
+					mpu_opps[i].sr_vsr_step_vsel);
 	for (i = 1; i <= num_l3_opps; i++)
 		if (l3_opps[i].rate)
-			tbuf += sprintf(tbuf, "l3 %d:\t0x%02x\t\t0x%02x\n", i,
+			tbuf += sprintf(tbuf, "l3 %d:\t0x%02x\t\t0x%02x\t\t"
+						"0x%02x\n", i,
 					l3_opps[i].vsel,
-					l3_opps[i].sr_adjust_vsel);
+					l3_opps[i].sr_adjust_vsel,
+					l3_opps[i].sr_vsr_step_vsel);
 	return tbuf - buf;
 }
 
@@ -1635,11 +1640,15 @@ static ssize_t sr_adjust_vsel_store(struct kobject *kobj,
 	num_l3_opps = omap_pm_get_max_vdd2_opp();
 	/* reset the calibrated voltages which are enabled */
 	for (i = 1; i <= num_mpu_opps; i++)
-		if (mpu_opps[i].rate)
+		if (mpu_opps[i].rate) {
 			mpu_opps[i].sr_adjust_vsel = 0;
+			mpu_opps[i].sr_vsr_step_vsel = 0;
+		}
 	for (i = 1; i <= num_l3_opps; i++)
-		if (l3_opps[i].rate)
+		if (l3_opps[i].rate) {
 			l3_opps[i].sr_adjust_vsel = 0;
+			l3_opps[i].sr_vsr_step_vsel = 0;
+		}
 	return n;
 }
 

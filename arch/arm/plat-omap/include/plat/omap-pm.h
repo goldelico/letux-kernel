@@ -32,6 +32,7 @@ struct omap_opp {
 	u8 opp_id;
 	u16 vsel;
 	u16 sr_adjust_vsel;
+	u16 sr_vsr_step_vsel;
 };
 
 extern struct omap_opp *mpu_opps;

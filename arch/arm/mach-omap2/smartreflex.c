@@ -67,10 +67,10 @@ static struct kobj_attribute sr_margin_steps_1g_attr =
 static struct kobj_attribute sr_margin_steps_attr =
 	__ATTR(sr_steps, 0644, sr_steps_show, sr_steps_store);
 
-/* Default steps added for 1G volt is 5 */
-static int sr_margin_steps_1g = 5;
-/* Default steps added for less than 1G OPP's is 3 */
-static int sr_margin_steps = 3;
+/* Default steps added for 1G volt is 5 in uV */
+static unsigned long sr_margin_steps_1g = 62500;
+/* Default steps added for less than 1G OPP's is 3 in uV*/
+static unsigned long sr_margin_steps = 37500;
 
 struct omap_sr {
 	int		srid;
@@ -91,7 +91,8 @@ struct omap_sr {
 static void sr_add_margin_steps(struct omap_sr *sr);
 
 /* store sr1_opp nValues read from efuse */
-static u32 sr1_opp[5];
+static u32 sr1_opp[6];
+static unsigned long sr1_opp_margin[6];
 
 #define SR_REGADDR(offs)	(sr->srbase_addr + offset)
 
@@ -323,28 +324,25 @@ static void sr_set_clk_length(struct omap_sr *sr)
 
 static void sr_add_margin_steps(struct omap_sr *sr)
 {
-	u32 senn_adj = 3.0*12.5;
-	u32 senp_adj = 2.6*12.5;
+	int i;
 
-	if (sr->srid == SR1) {
-		if (sr_margin_steps_1g) {
-			sr->opp4_nvalue = calculate_opp_nvalue(sr->opp4_nvalue,
-						senn_adj*sr_margin_steps_1g,
-						senp_adj*sr_margin_steps_1g);
-		}
+	/*
+	 * Add 5 steps for 1g and 3 steps for other OPP's by default
+	 * REVISIT: Make it configurable through sysfs dynamically
+	 */
+	for (i = 1; i <= 3; i++)
+		sr1_opp_margin[i] = sr_margin_steps;
 
-		if (sr_margin_steps) {
-			sr->opp3_nvalue = calculate_opp_nvalue(sr1_opp[3],
-						senn_adj*sr_margin_steps,
-						senp_adj*sr_margin_steps);
-			sr->opp2_nvalue = calculate_opp_nvalue(sr1_opp[2],
-						senn_adj*sr_margin_steps,
-						senp_adj*sr_margin_steps);
-			sr->opp1_nvalue = calculate_opp_nvalue(sr1_opp[1],
-						senn_adj*sr_margin_steps,
-						senp_adj*sr_margin_steps);
-		}
+	sr1_opp_margin[4] = sr_margin_steps_1g;
+
+	for (i = 1; i <= MAX_VDD1_OPP; i++) {
+		printk(KERN_INFO "sr1_opp_margin[%d]=%ld\n", i,
+					sr1_opp_margin[i]);
+		mpu_opps[i].sr_vsr_step_vsel = 0x0;
+		mpu_opps[i].sr_adjust_vsel = 0x0;
 	}
+	printk(KERN_INFO "steps added, volt will be"
+				"recaliberated automatically\n");
 
 }
 
@@ -362,15 +360,10 @@ static void sr_set_testing_nvalues(struct omap_sr *sr)
 			sr->opp2_nvalue = cal_test_nvalue(1072, 910);
 			sr->opp3_nvalue = cal_test_nvalue(1405, 1200);
 			sr->opp4_nvalue = cal_test_nvalue(1842, 1580);
-			/*
-			 * use delta adjustment algorithm to add 80 mV to
-			 * OPP4 test n value.
-			 * It is seen that with 1G volt drops when SR is
-			 * enabled.
-			 */
-			sr->opp4_nvalue = calculate_opp_nvalue(sr->opp4_nvalue,
-								 240, 160);
 			sr->opp5_nvalue = cal_test_nvalue(1842, 1580);
+
+			if (sr_margin_steps || sr_margin_steps_1g)
+				sr_add_margin_steps(sr);
 		} else {
 		sr->senp_mod = 0x03;	/* SenN-M5 enabled */
 		sr->senn_mod = 0x03;
@@ -804,6 +797,17 @@ static inline void sr_udelay(u32 delay)
 
 }
 
+unsigned long omap_twl_vsel_to_uv(const u8 vsel)
+{
+	return (((vsel * 125) + 6000)) * 100;
+}
+
+u8 omap_twl_uv_to_vsel(unsigned long uv)
+{
+	/* Round up to higher voltage */
+	return (((uv + 99) / 100 - 6000) + 124) / 125;
+}
+
 #define SR_CLASS1P5_LOOP_US	100
 #define MAX_STABILIZATION_COUNT 100
 #define MAX_LOOP_COUNT		(MAX_STABILIZATION_COUNT * 20)
@@ -812,8 +816,10 @@ int sr_recalibrate(int srid, u32 t_opp, u32 c_opp)
 	u32 max_loop_count = MAX_LOOP_COUNT;
 	u32 exit_loop_on = 0;
 	u32 target_opp_no;
+	unsigned long v_step;
 	u8 new_v = 0;
 	u8 high_v = 0;
+	u8 vsel_step = 0;
 	struct omap_sr *sr;
 
 	if (srid == SR1)
@@ -870,10 +876,16 @@ int sr_recalibrate(int srid, u32 t_opp, u32 c_opp)
 	/* Stop Smart reflex */
 	disable_smartreflex(srid);
 
-	if (srid == SR1)
+	if (srid == SR1) {
 		mpu_opps[target_opp_no].sr_adjust_vsel = high_v;
-	else if (srid == SR2)
+		v_step = omap_twl_vsel_to_uv(high_v);
+		v_step += sr1_opp_margin[target_opp_no];
+		vsel_step = omap_twl_uv_to_vsel(v_step);
+		mpu_opps[target_opp_no].sr_vsr_step_vsel = vsel_step;
+	} else if (srid == SR2) {
 		l3_opps[target_opp_no].sr_adjust_vsel = high_v;
+		l3_opps[target_opp_no].sr_vsr_step_vsel = high_v;
+	}
 
 	pr_debug("Calibrate:Exit %s [vdd%d: opp%d] %02x loops=[%d,%d]\n",
 		__func__, srid, target_opp_no, high_v,
@@ -1424,9 +1436,9 @@ static ssize_t sr_steps_store(struct kobject *kobj,
 	}
 
 	if (attr == &sr_margin_steps_1g_attr)
-		sr_margin_steps_1g = value;
+		sr_margin_steps_1g = 12500 * value;
 	else if (attr == &sr_margin_steps_attr)
-		sr_margin_steps = value;
+		sr_margin_steps = 12500 * value;
 	else
 		return -EINVAL;
 
@@ -1439,9 +1451,9 @@ static ssize_t sr_steps_show(struct kobject *kobj, struct kobj_attribute *attr,
 			 char *buf)
 {
 	if (attr == &sr_margin_steps_1g_attr)
-		return sprintf(buf, "%u\n", sr_margin_steps_1g);
+		return sprintf(buf, "%lu\n", sr_margin_steps_1g);
 	else if (attr == &sr_margin_steps_attr)
-		return sprintf(buf, "%u\n", sr_margin_steps);
+		return sprintf(buf, "%lu\n", sr_margin_steps);
 	else
 		return -EINVAL;
 }
