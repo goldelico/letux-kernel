@@ -72,7 +72,7 @@ static inline u32 sms_read_reg(u16 reg)
  * SDRC_MPURATE_LOOPS: Number of MPU loops to execute at
  * 2^MPURATE_BASE_SHIFT MHz for SDRC to stabilize
  */
-#define SDRC_MPURATE_LOOPS		96
+#define SDRC_MPURATE_LOOPS		24
 
 
 #endif
