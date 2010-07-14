@@ -412,7 +412,7 @@ int set_opp(struct shared_resource *resp, u32 target_level)
 		/* Convert the tput in KiB/s to Bus frequency in MHz */
 		req_l3_freq = (tput * 1000)/4;
 
-		for (ind = 2; ind <= MAX_VDD2_OPP; ind++)
+		for (ind = MIN_VDD2_OPP; ind <= MAX_VDD2_OPP; ind++)
 			if ((l3_opps + ind)->rate >= req_l3_freq) {
 				target_level = ind;
 				break;
