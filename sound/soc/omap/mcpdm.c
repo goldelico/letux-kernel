@@ -325,7 +325,7 @@ int omap_mcpdm_request(void)
 {
 	struct platform_device *pdev;
 	struct omap_mcpdm_platform_data *pdata;
-	int ret;
+	int ret, ctrl;
 
 	pdev = to_platform_device(mcpdm->dev);
 	pdata = pdev->dev.platform_data;
@@ -356,6 +356,12 @@ int omap_mcpdm_request(void)
 		dev_err(mcpdm->dev, "Request for McPDM IRQ failed\n");
 		goto err;
 	}
+
+#ifndef CONFIG_OMAP4_ES1
+	ctrl = omap_mcpdm_read(MCPDM_CTRL);
+	ctrl |= WD_EN;
+	omap_mcpdm_write(MCPDM_CTRL, ctrl);
+#endif
 
 	return 0;
 
