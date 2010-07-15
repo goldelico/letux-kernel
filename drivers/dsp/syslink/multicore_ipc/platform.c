@@ -596,7 +596,7 @@ platform_override_config(struct platform_config *config)
 	strcpy(config->multiproc_config.name_list[3], "MPU");
 
 	/* Override the gate,p default config */
-	config->gatemp_config.num_resources = 64;
+	config->gatemp_config.num_resources = 32;
 
 	/* Override the Sharedregion default config */
 	config->sharedregion_config.cache_line_size = 128;
@@ -785,7 +785,7 @@ platform_setup(void)
 			printk(KERN_ERR "platform_setup : platform_mem_map "
 				"failed [0x%x]\n", status);
 		} else {
-			config->gatehwspinlock_config.num_locks = 64;
+			config->gatehwspinlock_config.num_locks = 32;
 			config->gatehwspinlock_config.base_addr = \
 							m_info.dst + 0x800;
 			status = gatehwspinlock_setup(&config->
