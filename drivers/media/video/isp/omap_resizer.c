@@ -136,6 +136,7 @@ int rsz_ioc_run_engine(struct rsz_fhdl *fhdl)
 	int ret;
 	struct videobuf_queue *sq = &fhdl->src_vbq;
 	struct videobuf_queue *dq = &fhdl->dst_vbq;
+	struct isp_freq_devider *fdiv;
 
 	if (fhdl->config != STATE_CONFIGURED) {
 		dev_err(rsz_device, "State not configured \n");
@@ -154,6 +155,17 @@ int rsz_ioc_run_engine(struct rsz_fhdl *fhdl)
 	if (ispresizer_set_outaddr(&fhdl->isp_dev->isp_res,
 				   fhdl->rsz_sdr_outadd) != 0)
 		return -EINVAL;
+
+	/* Reduces memory bandwidth */
+	fdiv = isp_get_upscale_ratio(fhdl->pipe.in.image.width,
+				     fhdl->pipe.in.image.height,
+				     fhdl->pipe.out.image.width,
+				     fhdl->pipe.out.image.height);
+	dev_dbg(rsz_device, "Set the REQ_EXP register = %d.\n",
+		fdiv->resz_exp);
+	isp_reg_and_or(fhdl->isp, OMAP3_ISP_IOMEM_SBL, ISPSBL_SDR_REQ_EXP,
+		       ~ISPSBL_SDR_REQ_RSZ_EXP_MASK,
+		       fdiv->resz_exp << ISPSBL_SDR_REQ_RSZ_EXP_SHIFT);
 
 	init_completion(&rsz_params->isr_complete);
 
