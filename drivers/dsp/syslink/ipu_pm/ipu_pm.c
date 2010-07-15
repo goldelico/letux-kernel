@@ -42,7 +42,6 @@
 #include <linux/gpio.h>
 #include <linux/semaphore.h>
 #include <linux/jiffies.h>
-#include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/driver.h>
@@ -64,14 +63,6 @@
 #define LINE_ID 0
 #define NUM_SELF_PROC 2
 #define PM_VERSION 0x0100
-
-/* FIXME:Values needed for the regulator hack */
-#define VAUX3_CFG_STATE 0x8E
-#define VAUX3_CFG_VOLTAGE 0x8F
-#define VCXIO_CFG_TRANS 0x91
-#define VMMC_CFG_VOLTAGE 0x9B
-#define CAM_2_ENABLE 0xE1
-#define CAM_2_DISABLE 0xE0
 
 /** ============================================================================
  *  Forward declarations of internal functions
@@ -129,12 +120,17 @@ static int ch, ch_aux;
 static int pm_regulator_num;
 static int return_val;
 static u32 GPTIMER_USE_MASK = 0xFFFF;
+static u32 cam2_prev_volt;
 
+/* Gptimer assignment mapping table */
 static int ipu_timer_list[NUM_IPU_TIMERS] = {
 	GP_TIMER_3,
 	GP_TIMER_4,
 	GP_TIMER_9,
 	GP_TIMER_11};
+
+static char *ipu_regulator_name[REGULATOR_MAX] = {
+	"cam2pwr"};
 
 static struct ipu_pm_object *pm_handle_appm3;
 static struct ipu_pm_object *pm_handle_sysm3;
@@ -696,17 +692,8 @@ static inline int ipu_pm_get_regulator(int proc_id, unsigned rcb_num)
 	struct ipu_pm_params *params;
 	struct rcb_block *rcb_p;
 	struct regulator *p_regulator = NULL;
-	u8 pm_reg_voltage_index;
+	char *regulator_name;
 	s32 retval = 0;
-	/*
-	  There are 5 bits to set the voltage, to calculate the max_error
-	 *(steps / 2) and we add this value to the
-	 *value shared in rcb->data[0]->(minVoltage) to provide the nearest
-	 *value to the minVoltage.
-	 *Fixed_voltage -> minVoltage + max_error
-	 */
-	u32 fixed_voltage;
-	u32 max_error = (100000 / 2);
 
 	/* get the handle to proper ipu pm object */
 	handle = ipu_pm_get_handle(proc_id);
@@ -734,47 +721,26 @@ static inline int ipu_pm_get_regulator(int proc_id, unsigned rcb_num)
 	if (WARN_ON(params->pm_regulator_counter > 0))
 		return PM_INVAL_REGULATOR;
 
-	/*
-	  Fix the voltage to give the nearest value to
-	 *the minimum by adding the maximum error.
-	 *rcb_p->data[0] contains the minimum voltage
-	 *rcb_p->data[1] contains the maximum voltage
-	 */
-	fixed_voltage = rcb_p->data[0] + max_error;
-	/* 5 bits to represent the voltage */
-	pm_reg_voltage_index = ((fixed_voltage - 1000000)/100000)+1;
+	/* Search the name of regulator based on the id and request it */
+	regulator_name = ipu_regulator_name[pm_regulator_num - 1];
+	p_regulator = regulator_get(NULL, regulator_name);
+	if (p_regulator == 0)
+		return PM_NO_REGULATOR;
 
-	/*
-	  FIXME:Disable/set_voltage regulator with a hack, once the
-	 *	regulator API are fully working this will be removed.
-	 *	This is only for Phoenix ES1.0
-	 */
-	pm_reg_voltage_index |= 0x80;
-	retval = twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x00, VMMC_CFG_VOLTAGE);
-	if (retval)
-		goto exit;
-	retval = twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x80, VCXIO_CFG_TRANS);
-	if (retval)
-		goto exit;
-	retval = twl_i2c_write_u8(TWL6030_MODULE_ID0, CAM_2_ENABLE,
-							VAUX3_CFG_STATE);
-	if (retval)
-		goto exit;
-	retval = twl_i2c_write_u8(TWL6030_MODULE_ID0, pm_reg_voltage_index,
-							VAUX3_CFG_VOLTAGE);
-	if (retval)
-		goto exit;
+	/* Get and store the regulator default voltage */
+	cam2_prev_volt = regulator_get_voltage(p_regulator);
 
-	/*
-	  FIXME:The real value will be stored once the regulator API
-	 *	are fully working.
-	 */
+	/* Set the regulator voltage min = data[0]; max = data[1]*/
+	retval = regulator_set_voltage(p_regulator, rcb_p->data[0],
+					rcb_p->data[1]);
+	if (retval)
+		return PM_INVAL_REGULATOR;
+
+	/* Store the regulator handle in the RCB */
 	rcb_p->mod_base_addr = (unsigned)p_regulator;
 	params->pm_regulator_counter++;
 
 	return PM_SUCCESS;
-exit:
-	return PM_INVAL_REGULATOR;
 }
 
 /*
@@ -840,6 +806,10 @@ static inline int ipu_pm_rel_gptimer(int proc_id, unsigned rcb_num)
 
 	p_gpt = (struct omap_dm_timer *)rcb_p->mod_base_addr;
 	pm_gptimer_num = rcb_p->fill9;
+
+	/* Check the usage mask */
+	if (GPTIMER_USE_MASK & (1 << pm_gptimer_num))
+		return PM_NO_GPTIMER;
 
 	/* Set the usage mask for reuse */
 	GPTIMER_USE_MASK |= (1 << pm_gptimer_num);
@@ -943,37 +913,22 @@ static inline int ipu_pm_rel_regulator(int proc_id, unsigned rcb_num)
 	if (WARN_ON((rcb_num < RCB_MIN) || (rcb_num > RCB_MAX)))
 		return PM_INVAL_RCB_NUM;
 	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
+	/* Get the regulator */
 	p_regulator = (struct regulator *)rcb_p->mod_base_addr;
 
+	/* Restart the voltage to the default value */
+	retval = regulator_set_voltage(p_regulator, cam2_prev_volt,
+					cam2_prev_volt);
+	if (retval)
+		return PM_INVAL_REGULATOR;
+
 	/* Release resource using PRCM API */
-	/*
-	  FIXME:Disable/voltage the regulator with a hack, once the regulator
-	 *	API are fully working this will be removed.
-	 * Add a check for twl write
-	 */
-	retval = twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x00, VMMC_CFG_VOLTAGE);
-	if (retval)
-		goto exit;
-	retval = twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x80, VCXIO_CFG_TRANS);
-	if (retval)
-		goto exit;
-	retval = twl_i2c_write_u8(TWL6030_MODULE_ID0, 0x00, VAUX3_CFG_VOLTAGE);
-	if (retval)
-		goto exit;
-	retval = twl_i2c_write_u8(TWL6030_MODULE_ID0, CAM_2_DISABLE,
-							VAUX3_CFG_STATE);
-	if (retval)
-		goto exit;
-	retval = twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x40, VCXIO_CFG_TRANS);
-	if (retval)
-		goto exit;
+	regulator_put(p_regulator);
 
 	rcb_p->mod_base_addr = 0;
 	params->pm_regulator_counter--;
 
 	return PM_SUCCESS;
-exit:
-	return PM_INVAL_REGULATOR;
 }
 
 /*
