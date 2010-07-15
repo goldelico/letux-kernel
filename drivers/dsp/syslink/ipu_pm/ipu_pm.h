@@ -109,6 +109,12 @@
 #define GP_TIMER_11 11
 #define NUM_IPU_TIMERS 4
 
+#define I2C_SL_INVAL -1
+#define I2C_1_SL 0
+#define I2C_2_SL 1
+#define I2C_3_SL 2
+#define I2C_4_SL 3
+
 #define RCB_MIN 1
 #define RCB_MAX 33
 

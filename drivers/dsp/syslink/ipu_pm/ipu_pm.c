@@ -19,6 +19,7 @@
 #include <linux/module.h>
 #include <linux/cdev.h>
 #include <linux/device.h>
+#include <linux/mod_devicetable.h>
 #include <linux/fs.h>
 #include <linux/mm.h>
 #include <linux/slab.h>
@@ -120,14 +121,23 @@ static int ch, ch_aux;
 static int pm_regulator_num;
 static int return_val;
 static u32 GPTIMER_USE_MASK = 0xFFFF;
+static u32 I2C_USE_MASK = 0xFFFF;
 static u32 cam2_prev_volt;
 
-/* Gptimer assignment mapping table */
+/* Ducati Interrupt Capable Gptimers */
 static int ipu_timer_list[NUM_IPU_TIMERS] = {
 	GP_TIMER_3,
 	GP_TIMER_4,
 	GP_TIMER_9,
 	GP_TIMER_11};
+
+/* I2C spinlock assignment mapping table */
+static int i2c_spinlock_list[I2C_BUS_MAX + 1] = {
+	I2C_SL_INVAL,
+	I2C_1_SL,
+	I2C_2_SL,
+	I2C_3_SL,
+	I2C_4_SL};
 
 static char *ipu_regulator_name[REGULATOR_MAX] = {
 	"cam2pwr"};
@@ -612,7 +622,7 @@ static inline int ipu_pm_get_i2c_bus(int proc_id, unsigned rcb_num)
 	struct rcb_block *rcb_p;
 	struct clk *p_i2c_clk;
 	int i2c_clk_status;
-	char i2c_name[10];
+	char i2c_name[I2C_NAME_SIZE];
 
 	/* get the handle to proper ipu pm object */
 	handle = ipu_pm_get_handle(proc_id);
@@ -633,20 +643,27 @@ static inline int ipu_pm_get_i2c_bus(int proc_id, unsigned rcb_num)
 			(pm_i2c_bus_num > I2C_BUS_MAX)))
 		return PM_INVAL_NUM_I2C;
 
-	/* building the name for i2c_clk */
-	sprintf(i2c_name, "i2c%d_fck", pm_i2c_bus_num);
+	if (I2C_USE_MASK & (1 << pm_i2c_bus_num)) {
+		/* building the name for i2c_clk */
+		sprintf(i2c_name, "i2c%d_fck", pm_i2c_bus_num);
 
-	/* Request resource using PRCM API */
-	p_i2c_clk = omap_clk_get_by_name(i2c_name);
-	if (p_i2c_clk == 0)
-		return PM_NO_I2C;
-	i2c_clk_status = clk_enable(p_i2c_clk);
-	if (i2c_clk_status != 0)
-		return PM_NO_I2C;
-	rcb_p->mod_base_addr = (unsigned)p_i2c_clk;
-	params->pm_i2c_bus_counter++;
+		/* Request resource using PRCM API */
+		p_i2c_clk = omap_clk_get_by_name(i2c_name);
+		if (p_i2c_clk == 0)
+			return PM_NO_I2C;
+		i2c_clk_status = clk_enable(p_i2c_clk);
+		if (i2c_clk_status != 0)
+			return PM_NO_I2C;
+		/* Clear the bit in the usage mask */
+		I2C_USE_MASK &= ~(1 << pm_i2c_bus_num);
+		rcb_p->mod_base_addr = (unsigned)p_i2c_clk;
+		/* Get the HW spinlock and store it in the RCB */
+		rcb_p->data[0] = i2c_spinlock_list[pm_i2c_bus_num];
+		params->pm_i2c_bus_counter++;
 
-	return PM_SUCCESS;
+		return PM_SUCCESS;
+	} else
+		return PM_NO_I2C;
 }
 
 /*
@@ -847,11 +864,20 @@ static inline int ipu_pm_rel_i2c_bus(int proc_id, unsigned rcb_num)
 		return PM_INVAL_RCB_NUM;
 
 	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
+	pm_i2c_bus_num = rcb_p->fill9;
 	p_i2c_clk = (struct clk *)rcb_p->mod_base_addr;
+
+	/* Check the usage mask */
+	if (I2C_USE_MASK & (1 << pm_i2c_bus_num))
+		return PM_NO_I2C;
 
 	/* Release resource using PRCM API */
 	clk_disable(p_i2c_clk);
 	rcb_p->mod_base_addr = 0;
+
+	/* Set the usage mask for reuse */
+	I2C_USE_MASK |= (1 << pm_i2c_bus_num);
+
 	params->pm_i2c_bus_counter--;
 
 	return PM_SUCCESS;
