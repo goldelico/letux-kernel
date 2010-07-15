@@ -152,6 +152,9 @@ u32 gatehwspinlock_shared_mem_req(const struct gatehwspinlock_params *params);
 /* Function to return the number of instances configured in the module. */
 u32 gatehwspinlock_get_num_instances(void);
 
+/* Function to return the number of instances not controlled by GateMP. */
+u32 gatehwspinlock_get_num_reserved(void);
+
 /* Function to initialize the locks module. */
 void gatehwspinlock_locks_init(void);
 

@@ -133,6 +133,11 @@ u32 gatepeterson_shared_mem_req(const struct gatepeterson_params *params);
 u32 gatepeterson_get_num_instances(void);
 
 /*
+ * Function to return the number of instances not controlled by GateMP.
+ */
+u32 gatepeterson_get_num_reserved(void);
+
+/*
  * Function to initialize the locks module.
  */
 void gatepeterson_locks_init(void);

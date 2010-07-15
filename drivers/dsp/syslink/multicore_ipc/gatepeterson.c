@@ -293,6 +293,17 @@ u32 gatepeterson_get_num_instances(void)
 EXPORT_SYMBOL(gatepeterson_get_num_instances);
 
 /*
+ * ======== gatepeterson_get_num_reserved ========
+ *  Purpose:
+ *  Function to return the number of instances not under GateMP's control.
+ */
+u32 gatepeterson_get_num_reserved(void)
+{
+	return 0;
+}
+EXPORT_SYMBOL(gatepeterson_get_num_reserved);
+
+/*
  * ======== gatepeterson_locks_init ========
  *  Purpose:
  *  Function to initialize the locks.

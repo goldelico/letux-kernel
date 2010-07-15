@@ -52,6 +52,12 @@
 						gatepeterson_get_num_instances
 #define gatemp_remote_custom2_proxy_get_num_instances	\
 						gatepeterson_get_num_instances
+#define gatemp_remote_system_proxy_get_num_reserved	\
+						gatehwspinlock_get_num_reserved
+#define gatemp_remote_custom1_proxy_get_num_reserved	\
+						gatepeterson_get_num_reserved
+#define gatemp_remote_custom2_proxy_get_num_reserved	\
+						gatepeterson_get_num_reserved
 #define gatemp_remote_system_proxy_locks_init	gatehwspinlock_locks_init
 #define gatemp_remote_custom1_proxy_locks_init	gatepeterson_locks_init
 #define gatemp_remote_custom2_proxy_locks_init	gatepeterson_locks_init
@@ -94,6 +100,12 @@
 						gatepeterson_get_num_instances
 #define gatemp_remote_custom2_proxy_get_num_instances	\
 						gatepeterson_get_num_instances
+#define gatemp_remote_system_proxy_get_num_reserved	\
+						gatepeterson_get_num_reserved
+#define gatemp_remote_custom1_proxy_get_num_reserved	\
+						gatepeterson_get_num_reserved
+#define gatemp_remote_custom2_proxy_get_num_reserved	\
+						gatepeterson_get_num_reserved
 #define gatemp_remote_system_proxy_locks_init	gatepeterson_locks_init
 #define gatemp_remote_custom1_proxy_locks_init	gatepeterson_locks_init
 #define gatemp_remote_custom2_proxy_locks_init	gatepeterson_locks_init

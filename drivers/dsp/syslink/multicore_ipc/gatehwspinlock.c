@@ -21,6 +21,7 @@
 #include <linux/list.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
+#include <plat/hwspinlock.h>
 
 #include <syslink/atomic_linux.h>
 #include <multiproc.h>
@@ -51,6 +52,9 @@ struct gatehwspinlock_module_object {
 							paramters */
 	u32 *base_addr; /* Base address of lock registers */
 	u32 num_locks; /* Maximum number of locks */
+	u32 num_reserved; /* Number of reserved locks */
+	struct hwspinlock **hw_lock_handles; /* Array of hwspinlock handles
+						controlled by gatemp */
 };
 
 /*
@@ -62,6 +66,7 @@ struct gatehwspinlock_object {
 	u32 lock_num;
 	u32 nested;
 	void *local_gate;
+	struct hwspinlock *hwhandle;
 };
 
 /*
@@ -74,7 +79,10 @@ struct gatehwspinlock_module_object gatehwspinlock_state = {
 	.def_inst_params.shared_addr	= NULL,
 	.def_inst_params.resource_id	= 0x0,
 	.def_inst_params.region_id	= 0x0,
-	.num_locks			= 32u
+	.hw_lock_handles		= NULL,
+	.num_locks			= 32u,
+	.num_reserved			= 4
+	/* GateMP controls SpinLocks 4-31. 0-3 are reserved for usage by I2C */
 };
 
 static struct gatehwspinlock_module_object *gatehwspinlock_module =
@@ -131,6 +139,9 @@ int gatehwspinlock_setup(const struct gatehwspinlock_config *config)
 {
 	struct gatehwspinlock_config tmp_cfg;
 	int *key = 0;
+	struct hwspinlock *lock_handle;
+	int i;
+	s32 retval;
 
 	key = gate_enter_system();
 
@@ -153,14 +164,44 @@ int gatehwspinlock_setup(const struct gatehwspinlock_config *config)
 	}
 	gate_leave_system(key);
 
+	gatehwspinlock_module->hw_lock_handles = kzalloc(
+		gatehwspinlock_module->num_locks * sizeof(struct hwspinlock *),
+		GFP_KERNEL);
+	if (gatehwspinlock_module->hw_lock_handles == NULL) {
+		retval = -ENOMEM;
+		goto exit;
+	}
+
 	memcpy(&gatehwspinlock_module->cfg, config,
 					sizeof(struct gatehwspinlock_config));
 
 	gatehwspinlock_module->base_addr = (void *)config->base_addr;
 	gatehwspinlock_module->num_locks = config->num_locks;
-
+	for (i = gatehwspinlock_module->num_reserved;
+		i < gatehwspinlock_module->num_locks; i++) {
+			lock_handle = hwspinlock_request_specific(i);
+			if (lock_handle == NULL) {
+				retval = -EBUSY;
+				printk(KERN_ERR "hwspinlock_request failed for"
+					"id = %d", i);
+				goto spinlock_request_fail;
+			}
+			gatehwspinlock_module->hw_lock_handles[i] = lock_handle;
+	}
 	return 0;
 
+spinlock_request_fail:
+	for (i--; i >= gatehwspinlock_module->num_reserved; i--) {
+		hwspinlock_free(gatehwspinlock_module->hw_lock_handles[i]);
+		gatehwspinlock_module->hw_lock_handles[i] = NULL;
+	}
+exit:
+	kfree(gatehwspinlock_module->hw_lock_handles);
+	atomic_dec_return(&gatehwspinlock_module->ref_count);
+	if (retval < 0)
+		printk(KERN_ERR "gatehwspinlock_setup failed! status = 0x%x",
+			retval);
+	return retval;
 }
 EXPORT_SYMBOL(gatehwspinlock_setup);
 
@@ -173,6 +214,8 @@ int gatehwspinlock_destroy(void)
 {
 	s32 retval = 0;
 	int *key = 0;
+	struct hwspinlock *lock_handle;
+	int i;
 
 	key = gate_enter_system();
 
@@ -191,8 +234,19 @@ int gatehwspinlock_destroy(void)
 	}
 	gate_leave_system(key);
 
+	for (i = gatehwspinlock_module->num_reserved;
+		i < gatehwspinlock_module->num_locks; i++) {
+			lock_handle = gatehwspinlock_module->hw_lock_handles[i];
+			retval = hwspinlock_free(lock_handle);
+			if (retval < 0)
+				printk(KERN_ERR "hwspinlock_free failed for"
+					"id = %d", i);
+			gatehwspinlock_module->hw_lock_handles[i] = NULL;
+	}
 	memset(&gatehwspinlock_module->cfg, 0,
 				sizeof(struct gatehwspinlock_config));
+	kfree(gatehwspinlock_module->hw_lock_handles);
+	gatehwspinlock_module->hw_lock_handles = NULL;
 	return 0;
 
 exit:
@@ -215,6 +269,17 @@ u32 gatehwspinlock_get_num_instances(void)
 	return gatehwspinlock_module->num_locks;
 }
 EXPORT_SYMBOL(gatehwspinlock_get_num_instances);
+
+/*
+ * ======== gatehwspinlock_get_num_reserved ========
+ *  Purpose:
+ *  Function to return the number of instances not under GateMP's control.
+ */
+u32 gatehwspinlock_get_num_reserved(void)
+{
+	return gatehwspinlock_module->num_reserved;
+}
+EXPORT_SYMBOL(gatehwspinlock_get_num_reserved);
 
 /*
  * ======== gatepeterson_locks_init ========
@@ -304,10 +369,19 @@ void *gatehwspinlock_create(enum igatempsupport_local_protect local_protect,
 
 	obj->lock_num = params->resource_id;
 	obj->nested   = 0;
-
+	obj->hwhandle = \
+		gatehwspinlock_module->hw_lock_handles[params->resource_id];
+	if (obj->hwhandle == NULL) {
+		retval = -EBUSY;
+		printk(KERN_ERR "hwspinlock_request failed for id = %d",
+			params->resource_id);
+		goto free_obj;
+	}
 	handle = obj;
 	return handle;
 
+free_obj:
+	kfree(obj);
 exit:
 	printk(KERN_ERR "gatehwspinlock_create failed status: %x\n", retval);
 	return NULL;
@@ -344,7 +418,7 @@ int gatehwspinlock_delete(void **gphandle)
 
 	/* No need to delete the local gate, as it is gatemp module wide
 	 * local mutex. */
-
+	obj->hwhandle = NULL;
 	kfree(obj);
 	*gphandle = NULL;
 
@@ -367,8 +441,6 @@ int *gatehwspinlock_enter(void *gphandle)
 	struct gatehwspinlock_object *obj = NULL;
 	s32 retval = 0;
 	int *key = 0;
-	VOLATILE u32 *base_addr = (VOLATILE u32 *)
-					gatehwspinlock_module->base_addr;
 
 	if (WARN_ON(atomic_cmpmask_and_lt(&(gatehwspinlock_module->ref_count),
 				GATEHWSPINLOCK_MAKE_MAGICSTAMP(0),
@@ -384,7 +456,6 @@ int *gatehwspinlock_enter(void *gphandle)
 	obj = (struct gatehwspinlock_object *)gphandle;
 
 	/* Enter local gate */
-	/* Enter local gate */
 	if (obj->local_gate != NULL) {
 		retval = mutex_lock_interruptible(
 					(struct mutex *)obj->local_gate);
@@ -399,9 +470,10 @@ int *gatehwspinlock_enter(void *gphandle)
 		return key;
 
 	/* Enter the spinlock */
-	while (1) {
-		if (base_addr[obj->lock_num] == 0)
-			break;
+	retval = hwspinlock_lock(obj->hwhandle);
+	if (retval < 0) {
+		obj->nested--;
+		mutex_unlock((struct mutex *)obj->local_gate);
 	}
 
 exit:
@@ -420,8 +492,6 @@ EXPORT_SYMBOL(gatehwspinlock_enter);
 void gatehwspinlock_leave(void *gphandle, int *key)
 {
 	struct gatehwspinlock_object *obj = NULL;
-	VOLATILE u32 *base_addr = (VOLATILE u32 *)
-					gatehwspinlock_module->base_addr;
 	s32 retval = 0;
 
 	if (WARN_ON(atomic_cmpmask_and_lt(&(gatehwspinlock_module->ref_count),
@@ -438,8 +508,13 @@ void gatehwspinlock_leave(void *gphandle, int *key)
 	obj = (struct gatehwspinlock_object *)gphandle;
 	obj->nested--;
 	/* Leave the spinlock if the leave() is not nested */
-	if (obj->nested == 0)
-		base_addr[obj->lock_num] = 0;
+	if (obj->nested == 0) {
+		retval = hwspinlock_unlock(obj->hwhandle);
+		if (retval < 0) {
+			obj->nested++;
+			goto exit;
+		}
+	}
 	/* Leave local gate */
 	mutex_unlock(obj->local_gate);
 

@@ -106,6 +106,9 @@ struct gatemp_module_state {
 	int num_remote_system;
 	int num_remote_custom1;
 	int num_remote_custom2;
+	int num_remote_system_reserved;
+	int num_remote_custom1_reserved;
+	int num_remote_custom2_reserved;
 	u8 *remote_system_in_use_alloc;
 	u8 *remote_custom1_in_use_alloc;
 	u8 *remote_custom2_in_use_alloc;
@@ -188,7 +191,7 @@ static void gatemp_clear_region0_reserved(void);
 static void gatemp_open_region0_reserved(void *shared_addr);
 static void gatemp_close_region0_reserved(void *shared_addr);
 static void gatemp_set_default_remote(void *handle);
-static uint gatemp_get_free_resource(u8 *in_use, int num);
+static uint gatemp_get_free_resource(u8 *in_use, int num, int start_id);
 static struct gatemp_object *_gatemp_create(
 					const struct _gatemp_params *params);
 
@@ -303,7 +306,7 @@ s32 gatemp_setup(const struct gatemp_config *cfg)
 		goto error_nameserver;
 	}
 
-	/* Get the number of coonfigured instances from the plugged in
+	/* Get the number of configured instances from the plugged in
 	* Proxy gates */
 	gatemp_module->num_remote_system = \
 				gatemp_remote_system_proxy_get_num_instances();
@@ -311,6 +314,12 @@ s32 gatemp_setup(const struct gatemp_config *cfg)
 				gatemp_remote_custom1_proxy_get_num_instances();
 	gatemp_module->num_remote_custom2 = \
 				gatemp_remote_custom2_proxy_get_num_instances();
+	gatemp_module->num_remote_system_reserved = \
+				gatemp_remote_system_proxy_get_num_reserved();
+	gatemp_module->num_remote_custom1_reserved = \
+				gatemp_remote_custom1_proxy_get_num_reserved();
+	gatemp_module->num_remote_custom2_reserved = \
+				gatemp_remote_custom2_proxy_get_num_reserved();
 	gatemp_module->remote_system_in_use_alloc = \
 		kzalloc((sizeof(u8) * cfg->num_resources), GFP_KERNEL);
 	if (gatemp_module->remote_system_in_use_alloc == NULL) {
@@ -679,8 +688,9 @@ proxy_work:
 		if (obj->obj_type != IPC_OBJTYPE_OPENDYNAMIC) {
 			/* Created Instance */
 			obj->resource_id = gatemp_get_free_resource(
-					gatemp_module->remote_system_in_use,
-					gatemp_module->num_remote_system);
+				gatemp_module->remote_system_in_use,
+				gatemp_module->num_remote_system,
+				gatemp_module->num_remote_system_reserved);
 			if (obj->resource_id == -1)
 				retval = 6;
 		} else {
@@ -722,8 +732,9 @@ proxy_work:
 		if (obj->obj_type != IPC_OBJTYPE_OPENDYNAMIC) {
 			/* Created Instance */
 			obj->resource_id = gatemp_get_free_resource(
-					gatemp_module->remote_custom1_in_use,
-					gatemp_module->num_remote_custom1);
+				gatemp_module->remote_custom1_in_use,
+				gatemp_module->num_remote_custom1,
+				gatemp_module->num_remote_custom1_reserved);
 			if (obj->resource_id == -1)
 				retval = 6;
 		} else {
@@ -766,7 +777,8 @@ proxy_work:
 			/* Created Instance */
 			obj->resource_id = gatemp_get_free_resource(
 				gatemp_module->remote_custom2_in_use,
-				gatemp_module->num_remote_custom2);
+				gatemp_module->num_remote_custom2,
+				gatemp_module->num_remote_custom1_reserved);
 			if (obj->resource_id == -1)
 				retval = 6;
 		} else {
@@ -1589,7 +1601,7 @@ int gatemp_stop(void)
  *      Internal functions
  *************************************************************************
  */
-uint gatemp_get_free_resource(u8 *in_use, int num)
+uint gatemp_get_free_resource(u8 *in_use, int num, int start_id)
 {
 	int *key = 0;
 	bool flag = false;
@@ -1610,7 +1622,7 @@ uint gatemp_get_free_resource(u8 *in_use, int num)
 
 	/* Find a free resource id. Note: zero is reserved on the
 	 * system proxy for the default gate. */
-	for (resource_id = 0; resource_id < num; resource_id++) {
+	for (resource_id = start_id; resource_id < num; resource_id++) {
 		/* If not in-use, set the in_use to true to prevent other
 		 * creates from getting this one. */
 		if (in_use[resource_id] == false) {
