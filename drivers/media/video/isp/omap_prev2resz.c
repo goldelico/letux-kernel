@@ -200,6 +200,18 @@ static int prev2resz_ioc_run_engine(struct prev2resz_fhdl *fh)
 	 */
 	omap_pm_set_min_bus_tput(fh->isp, OCP_INITIATOR_AGENT, 800000);
 
+	/* Reduces memory bandwidth */
+	fdiv = isp_get_upscale_ratio(fh->pipe.in.image.width,
+				     fh->pipe.in.image.height,
+				     fh->pipe.out.image.width,
+				     fh->pipe.out.image.height);
+	if (fdiv->prev_exp) {
+		dev_dbg(p2r_device, "Set the REQ_EXP register = %d.\n",
+			fdiv->prev_exp);
+		isp_reg_and_or(fh->isp, OMAP3_ISP_IOMEM_SBL, ISPSBL_SDR_REQ_EXP,
+			       ~ISPSBL_SDR_REQ_PRV_EXP_MASK,
+			       fdiv->prev_exp << ISPSBL_SDR_REQ_PRV_EXP_SHIFT);
+	}
 	isp_start(fh->isp);
 
 	init_completion(&p2r_ctx.resz_complete);
