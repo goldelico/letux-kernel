@@ -1317,10 +1317,23 @@ int pwrdm_wait_transition(struct powerdomain *pwrdm)
 int pwrdm_can_idle(struct powerdomain *pwrdm)
 {
 	int i;
+	u32 cur_state;
 	const int fclk_regs[] = { CM_FCLKEN, OMAP3430ES2_CM_FCLKEN3 };
 
 	if (!pwrdm)
 		return -EINVAL;
+
+	/*
+	 * DSP bridge doesn't disable clk only autoidle.
+	 * Check IVA state instead.
+	 */
+	if (!strcmp(pwrdm->name, "iva2_pwrdm")) {
+		cur_state = pwrdm_read_next_pwrst(pwrdm);
+		if (cur_state == PWRDM_POWER_OFF)
+			return 1;
+		else
+			return 0;
+	}
 
 	for (i = 0; i < pwrdm->fclk_reg_amt; i++)
 		if (cm_read_mod_reg(pwrdm->prcm_offs, fclk_regs[i]) &

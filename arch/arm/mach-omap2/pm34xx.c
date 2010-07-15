@@ -438,9 +438,19 @@ void omap_sram_idle(void)
 			omap2_gpio_prepare_for_idle(per_next_state);
 
 			pwrdm_set_next_pwrst(per_pwrdm, per_next_state);
-			if (per_next_state == PWRDM_POWER_OFF) {
+
+			/*
+			 * At this point, need to check if per really idle?
+			 * Avoids unnecessary save/restore
+			 */
+			if (per_next_state == PWRDM_POWER_OFF &&
+					pwrdm_can_idle(per_pwrdm)) {
 				pwrdm_add_sleepdep(mpu_pwrdm, per_pwrdm);
 				omap3_per_save_context();
+			} else {
+				per_next_state = PWRDM_POWER_RET;
+				pwrdm_set_next_pwrst(per_pwrdm, per_next_state);
+				per_state_modified = 1;
 			}
 		}
 
@@ -448,7 +458,8 @@ void omap_sram_idle(void)
 		if (per_next_state < PWRDM_POWER_ON) {
 			omap_uart_prepare_idle(2);
 		omap2_gpio_prepare_for_idle(per_next_state);
-		if (per_next_state == PWRDM_POWER_OFF) {
+		if (per_next_state == PWRDM_POWER_OFF &&
+					pwrdm_can_idle(per_pwrdm)) {
 			if (core_next_state == PWRDM_POWER_ON) {
 				per_next_state = PWRDM_POWER_RET;
 				pwrdm_set_next_pwrst(per_pwrdm,
@@ -456,6 +467,10 @@ void omap_sram_idle(void)
 				per_state_modified = 1;
 			} else
 				omap3_per_save_context();
+		} else {
+			per_next_state = PWRDM_POWER_RET;
+			pwrdm_set_next_pwrst(per_pwrdm, per_next_state);
+			per_state_modified = 1;
 		}
 	}
 }
@@ -482,6 +497,12 @@ if (pwrdm_read_pwrst(cam_pwrdm) == PWRDM_POWER_ON)
 	}
 
 	if (core_next_state < PWRDM_POWER_ON) {
+		if ((core_next_state == PWRDM_POWER_OFF) &&
+			(per_next_state > PWRDM_POWER_OFF)) {
+			core_next_state = PWRDM_POWER_RET;
+			pwrdm_set_next_pwrst(core_pwrdm,
+						core_next_state);
+		}
 		omap_uart_prepare_idle(0);
 		omap_uart_prepare_idle(1);
 		if (core_next_state == PWRDM_POWER_OFF) {

@@ -58,7 +58,7 @@ struct omap3_processor_cx {
 
 struct omap3_processor_cx omap3_power_states[OMAP3_MAX_STATES];
 struct omap3_processor_cx current_cx_state;
-struct powerdomain *mpu_pd, *core_pd, *per_pd, *iva2_pd;
+struct powerdomain *mpu_pd, *core_pd, *iva2_pd;
 struct powerdomain *sgx_pd, *usb_pd, *cam_pd, *dss_pd;
 
 /*
@@ -186,7 +186,7 @@ static int omap3_enter_idle_bm(struct cpuidle_device *dev,
 {
 	struct cpuidle_state *new_state = state;
 
-	u32 per_state = 0, saved_per_state = 0, cam_state, usb_state;
+	u32 cam_state, usb_state;
 	u32 iva2_state, sgx_state, dss_state, new_core_state;
 	struct omap3_processor_cx *cx;
 	int ret;
@@ -215,25 +215,6 @@ static int omap3_enter_idle_bm(struct cpuidle_device *dev,
 		}
 
 		/*
-		 * Check if PER can idle or not. If we are not likely
-		 * to idle, deny PER off. This prevents unnecessary
-		 * context save/restore.
-		 */
-		saved_per_state = pwrdm_read_next_pwrst(per_pd);
-		if (pwrdm_can_idle(per_pd)) {
-			per_state = saved_per_state;
-			/*
-			 * Prevent PER off if CORE is active as this
-			 * would disable PER wakeups completely
-			 */
-			if (per_state == PWRDM_POWER_OFF &&
-			    new_core_state < PWRDM_POWER_RET)
-				per_state = PWRDM_POWER_RET;
-
-		} else if (saved_per_state == PWRDM_POWER_OFF)
-			per_state = PWRDM_POWER_RET;
-
-		/*
 		 * If we are attempting CORE off, check if any other
 		 * powerdomains are at retention or higher. CORE off causes
 		 * chipwide reset which would reset these domains also.
@@ -247,7 +228,6 @@ static int omap3_enter_idle_bm(struct cpuidle_device *dev,
 			if (cam_state > PWRDM_POWER_OFF ||
 			    dss_state > PWRDM_POWER_OFF ||
 			    iva2_state > PWRDM_POWER_OFF ||
-			    per_state > PWRDM_POWER_OFF ||
 			    sgx_state > PWRDM_POWER_OFF ||
 			    usb_state > PWRDM_POWER_OFF)
 				new_core_state = PWRDM_POWER_RET;
@@ -258,17 +238,11 @@ static int omap3_enter_idle_bm(struct cpuidle_device *dev,
 			cx = cpuidle_get_statedata(state);
 		}
 		new_state = state;
-		/* Are we changing PER target state? */
-		if (per_state != saved_per_state)
-			pwrdm_set_next_pwrst(per_pd, per_state);
-
 	}
 select_state:
 	dev->last_state = new_state;
 	ret = omap3_enter_idle(dev, new_state);
-	/* Restore potentially tampered PER state */
-	if (per_state != saved_per_state)
-		pwrdm_set_next_pwrst(per_pd, saved_per_state);
+
 	return ret;
 }
 
