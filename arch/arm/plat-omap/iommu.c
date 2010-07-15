@@ -933,6 +933,10 @@ static int omap_iommu_open(struct inode *inode, struct file *filp)
 
 	filp->private_data = obj;
 	iommu_get(obj->name);
+	/* Hack for now: This is required for ES1.0 until TWL
+	 * fix is available.
+	 */
+	iommu_set_twl(obj, false);
 
 	return ret;
 }
