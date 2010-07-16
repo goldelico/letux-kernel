@@ -212,8 +212,11 @@ struct isp_freq_devider *isp_get_upscale_ratio(int in_w, int in_h, int out_w,
 	if (in_w > 0 && in_h > 0 && out_w > 0 && out_h > 0) {
 		in_size = in_w * in_h;
 		out_size = out_w * out_h;
-		if (out_size > in_size)
+		if (out_size > in_size) {
 			ratio = int_sqrt(out_size / in_size);
+			clamp_t(int, ratio, 0,
+				ARRAY_SIZE(isp_ratio_factor) - 1);
+		}
 	}
 
 	return &isp_ratio_factor[ratio];
