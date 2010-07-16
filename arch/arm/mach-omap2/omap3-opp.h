@@ -57,7 +57,7 @@ static struct omap_opp omap3630_dsp_rate_table[] = {
 	/*OPP1 (OPP50) - 0.93V*/
 	{S260M, VDD1_OPP1, 0x1b, 0x0, 0x0},
 	/*OPP2 (OPP100) - 1.1V*/
-	{S520M, VDD1_OPP2, 0x28i, 0x0, 0x0},
+	{S520M, VDD1_OPP2, 0x28, 0x0, 0x0},
 	/*OPP3 (OPP130) - 1.26V*/
 	{S660M, VDD1_OPP3, 0x35, 0x0, 0x0},
 	/*OPP4 (OPP-1G) - 1.35V*/
