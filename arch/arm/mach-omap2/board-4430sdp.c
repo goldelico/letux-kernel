@@ -233,7 +233,8 @@ static struct omap2_mcspi_device_config dummy2_mcspi_config = {
 };
 #endif
 /* Display */
-static int sdp4430_panel_enable_lcd(struct omap_dss_device *dssdev) {
+static int sdp4430_panel_enable_lcd(struct omap_dss_device *dssdev)
+{
 	if (dssdev->channel == OMAP_DSS_CHANNEL_LCD2) {
 
 		gpio_request(DSI2_GPIO_104, "dsi2_en_gpio");
@@ -282,7 +283,8 @@ static int sdp4430_panel_enable_lcd(struct omap_dss_device *dssdev) {
 	return 0;
 }
 
-static int sdp4430_panel_disable_lcd(struct omap_dss_device *dssdev) {
+static int sdp4430_panel_disable_lcd(struct omap_dss_device *dssdev)
+{
 
 	if (dssdev->channel == OMAP_DSS_CHANNEL_LCD2) {
 		gpio_set_value(DSI2_GPIO_104, 1);
@@ -784,12 +786,12 @@ static struct regulator_init_data sdp4430_vusb = {
 
 static struct twl4030_codec_data twl6040_codec = {
 #ifdef CONFIG_OMAP4_AUDIO_PWRON
-        .audpwron_gpio  = 127,
+	.audpwron_gpio  = 127,
 #else
 	/* provide GPIO number above the valid value
 	 * to mean there is no GPIO connected
 	 */
-        .audpwron_gpio  = 1024,
+	.audpwron_gpio  = 1024,
 #endif
 	.naudint_irq	= INT_44XX_SYS_NIRQ2,
 };
@@ -1014,8 +1016,8 @@ static void omap_sfh7741prox_init(void)
 
 	error = gpio_direction_output(OMAP4_SFH7741_ENABLE_GPIO , 1);
 	if (error < 0) {
-		pr_err("%s: GPIO configuration failed: GPIO %d,\
-			error %d\n", __func__, OMAP4_SFH7741_ENABLE_GPIO, error);
+		pr_err("%s: GPIO configuration failed: GPIO %d,error %d\n",
+			__func__, OMAP4_SFH7741_ENABLE_GPIO, error);
 		goto fail3;
 	}
 	return;
