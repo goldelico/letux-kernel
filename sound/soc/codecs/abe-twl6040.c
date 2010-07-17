@@ -29,6 +29,8 @@
 #include <linux/platform_device.h>
 #include <linux/i2c/twl.h>
 #include <linux/clk.h>
+#include <linux/switch.h>
+#include <linux/workqueue.h>
 
 #include <plat/omap_hwmod.h>
 #include <plat/omap_device.h>
@@ -50,6 +52,9 @@
 struct twl6040_jack_data {
 	struct snd_soc_jack *jack;
 	int report;
+	struct switch_dev sdev;
+	struct work_struct work;
+	int state;
 };
 
 /* codec private data */
@@ -472,6 +477,17 @@ static int twl6040_power_mode_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static void twl6040_hs_jack_detect_work(struct work_struct *work)
+{
+	struct twl6040_jack_data *jack;
+	int state;
+
+	jack = container_of(work, struct twl6040_jack_data, work);
+	state = jack->state;
+	snd_soc_jack_report(jack->jack, state, jack->report);
+	switch_set_state(&jack->sdev, !!state);
+}
+
 /* audio interrupt handler */
 static irqreturn_t twl6040_naudint_handler(int irq, void *data)
 {
@@ -492,7 +508,8 @@ static irqreturn_t twl6040_naudint_handler(int irq, void *data)
 		msleep(200);
 		report = jack->report;
 	case TWL6040_UNPLUGINT:
-		snd_soc_jack_report(jack->jack, report, jack->report);
+		jack->state = report;
+		schedule_work(&jack->work);
 		break;
 	case TWL6040_HOOKINT:
 		break;
@@ -1887,17 +1904,20 @@ void twl6040_hs_jack_detect(struct snd_soc_codec *codec,
 			    struct snd_soc_jack *jack, int report)
 {
 	struct twl6040_data *priv = codec->private_data;
+	struct twl6040_jack_data *hs_jack = &priv->hs_jack;
 	int status;
 
-	priv->hs_jack.jack = jack;
-	priv->hs_jack.report = report;
+	hs_jack->jack = jack;
+	hs_jack->report = report;
 
 	/* Sync status */
 	status = twl6040_read_reg_volatile(codec, TWL6040_REG_STATUS);
 	if (status & TWL6040_PLUGCOMP)
-		snd_soc_jack_report(jack, report, report);
+		hs_jack->state = report;
 	else
-		snd_soc_jack_report(jack, 0, report);
+		hs_jack->state = 0;
+
+	twl6040_hs_jack_detect_work(&hs_jack->work);
 }
 EXPORT_SYMBOL_GPL(twl6040_hs_jack_detect);
 
@@ -1975,6 +1995,7 @@ static int __devinit abe_twl6040_codec_probe(struct platform_device *pdev)
 	struct twl4030_codec_data *twl_codec = pdev->dev.platform_data;
 	struct snd_soc_codec *codec;
 	struct twl6040_data *priv;
+	struct twl6040_jack_data *jack;
 	struct omap_hwmod *oh;
 	struct omap_device *od;
 	int audpwron, naudint;
@@ -2084,6 +2105,16 @@ static int __devinit abe_twl6040_codec_probe(struct platform_device *pdev)
 	if (ret)
 		goto dai_err;
 
+	/* switch-class based headset detection */
+	jack = &priv->hs_jack;
+	INIT_WORK(&jack->work, twl6040_hs_jack_detect_work);
+	jack->sdev.name = "h2w";
+	ret = switch_dev_register(&jack->sdev);
+	if (ret) {
+		printk(KERN_ERR "error registering switch device %d\n", ret);
+		goto dai_err;
+	}
+
 	return 0;
 
 dai_err:
@@ -2112,6 +2143,7 @@ static int __devexit abe_twl6040_codec_remove(struct platform_device *pdev)
 {
 	struct twl6040_data *priv = twl6040_codec->private_data;
 	struct twl4030_codec_data *pdata = pdev->dev.platform_data;
+	struct twl6040_jack_data *jack = &priv->hs_jack;
 	int audpwron = priv->audpwron;
 	int naudint = priv->naudint;
 
@@ -2126,6 +2158,8 @@ static int __devexit abe_twl6040_codec_remove(struct platform_device *pdev)
 
 	snd_soc_unregister_dais(abe_dai, ARRAY_SIZE(abe_dai));
 	snd_soc_unregister_codec(twl6040_codec);
+	cancel_work_sync(&jack->work);
+	switch_dev_unregister(&jack->sdev);
 
 	kfree(twl6040_codec);
 	twl6040_codec = NULL;
