@@ -176,21 +176,23 @@ static void omap_uart_restore_context(struct omap_uart_state *uart)
 		return;
 
 	uart->context_valid = 0;
-
-	/* Disable the UART first, then configure */
-	if (uart->dma_enabled)
-		/* This enables the DMA Mode, the FIFO,the Rx and
-		 * Tx FIFO levels. Keeping the UARt disabled in
-		 * MDR1 Register.
-		 */
-		omap_uart_mdr1_errataset(uart->num, 0x07, \
-				(UART_FCR_DMA_SELECT | 0xA1));
-	else
-		/* This enables the FIFO, the Rx and Tx FIFO levels.
-		 * Keeping the UARt Disabled in MDR1 Register.
-		 */
-		omap_uart_mdr1_errataset(uart->num, 0x07, 0xA1);
-
+	if (cpu_is_omap44xx()) {
+		serial_write_reg(uart, UART_OMAP_MDR1, 0x7);
+	} else {
+		/* Disable the UART first, then configure */
+		if (uart->dma_enabled)
+			/* This enables the DMA Mode, the FIFO,the Rx and
+			 * Tx FIFO levels. Keeping the UARt disabled in
+			 * MDR1 Register.
+			 */
+			omap_uart_mdr1_errataset(uart->num, 0x07,
+					(UART_FCR_DMA_SELECT | 0xA1));
+		else
+			/* This enables the FIFO, the Rx and Tx FIFO levels.
+			 * Keeping the UARt Disabled in MDR1 Register.
+			 */
+			omap_uart_mdr1_errataset(uart->num, 0x07, 0xA1);
+	}
 	serial_write_reg(uart, UART_LCR, 0xBF); /* Config B mode */
 	efr = serial_read_reg(uart, UART_EFR);
 	serial_write_reg(uart, UART_EFR, UART_EFR_ECB);
@@ -201,25 +203,32 @@ static void omap_uart_restore_context(struct omap_uart_state *uart)
 	serial_write_reg(uart, UART_DLM, uart->dlh);
 	serial_write_reg(uart, UART_LCR, 0x0); /* Operational mode */
 	serial_write_reg(uart, UART_IER, uart->ier);
+	if (cpu_is_omap44xx()){
+		serial_write_reg(uart, UART_FCR, 0xA1);
+	}
 	serial_write_reg(uart, UART_LCR, 0xBF); /* Config B mode */
 	serial_write_reg(uart, UART_EFR, efr);
 	serial_write_reg(uart, UART_LCR, UART_LCR_WLEN8);
 	serial_write_reg(uart, UART_OMAP_SCR, uart->scr);
 	serial_write_reg(uart, UART_OMAP_WER, uart->wer);
 	serial_write_reg(uart, UART_OMAP_SYSC, uart->sysc);
-	/* Enable the UART finally */
-	if (uart->dma_enabled)
-		/* This enables the DMA Mode, the FIFO,the Rx and
-		 * Tx FIFO levels. Keeping the UARt Enabled in
-		 * MDR1 Register.
-		 */
-		omap_uart_mdr1_errataset(uart->num, 0x00, \
-				(UART_FCR_DMA_SELECT | 0xA1));
-	else
-		/* This enables the FIFO, the Rx and Tx FIFO levels.
-		 * Keeping the UARt Enabled in MDR1 Register.
-		 */
-		omap_uart_mdr1_errataset(uart->num, 0x00, 0xA1);
+	if (cpu_is_omap44xx()){
+		serial_write_reg(uart, UART_OMAP_MDR1, 0x00); /* UART 16x mode */
+	} else {
+		/* Enable the UART finally */
+		if (uart->dma_enabled)
+			/* This enables the DMA Mode, the FIFO,the Rx and
+			 * Tx FIFO levels. Keeping the UARt Enabled in
+			 * MDR1 Register.
+			 */
+			omap_uart_mdr1_errataset(uart->num, 0x00, \
+					(UART_FCR_DMA_SELECT | 0xA1));
+		else
+			/* This enables the FIFO, the Rx and Tx FIFO levels.
+			 * Keeping the UARt Enabled in MDR1 Register.
+			 */
+			omap_uart_mdr1_errataset(uart->num, 0x00, 0xA1);
+	}
 }
 #else
 static inline void omap_uart_save_context(struct omap_uart_state *uart) {}

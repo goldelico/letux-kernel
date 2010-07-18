@@ -757,11 +757,13 @@ serial_omap_set_termios(struct uart_port *port, struct ktermios *termios,
 	serial_out(up, UART_MCR, up->mcr);
 
 	/* Protocol, Baud Rate, and Interrupt Settings */
-
-	serial_out(up, UART_LCR, 0x0);                  /* Access FCR */
-	omap_uart_mdr1_errataset((up->pdev->id - 1), OMAP_MDR1_DISABLE,
-			up->fcr);
-
+	if (cpu_is_omap44xx()){
+		serial_out(up, UART_OMAP_MDR1, OMAP_MDR1_DISABLE);
+	} else {
+		serial_out(up, UART_LCR, 0x0);                  /* Access FCR */
+		omap_uart_mdr1_errataset((up->pdev->id), OMAP_MDR1_DISABLE,
+				up->fcr);
+	}
 	serial_out(up, UART_LCR, OMAP_UART_LCR_CONF_MDB);
 
 	up->efr = serial_in(up, UART_EFR);
@@ -780,14 +782,19 @@ serial_omap_set_termios(struct uart_port *port, struct ktermios *termios,
 
 	serial_out(up, UART_EFR, up->efr);
 	serial_out(up, UART_LCR, cval);
-
-	if (baud > 230400 && baud != 3000000)
-		omap_uart_mdr1_errataset((up->pdev->id - 1), OMAP_MDR1_MODE13X,
-				up->fcr);
-	else
-		omap_uart_mdr1_errataset((up->pdev->id - 1), OMAP_MDR1_MODE16X,
-				up->fcr);
-
+	if (cpu_is_omap44xx()){
+		if (baud > 230400 && baud != 3000000)
+			serial_out(up, UART_OMAP_MDR1, OMAP_MDR1_MODE13X);
+		else
+			serial_out(up, UART_OMAP_MDR1, OMAP_MDR1_MODE16X);
+	} else {
+		if (baud > 230400 && baud != 3000000)
+			omap_uart_mdr1_errataset((up->pdev->id), OMAP_MDR1_MODE13X,
+					up->fcr);
+		else
+			omap_uart_mdr1_errataset((up->pdev->id), OMAP_MDR1_MODE16X,
+					up->fcr);
+	}
 	/* Hardware Flow Control Configuration */
 
 	if (termios->c_cflag & CRTSCTS) {
