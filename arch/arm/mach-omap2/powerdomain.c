@@ -206,6 +206,10 @@ static __init void _pwrdm_setup(struct powerdomain *pwrdm)
 {
 	int i;
 
+	if(!pwrdm){
+		WARN_ON(1);
+		return ;
+	}
 	for (i = 0; i < PWRDM_MAX_PWRSTS; i++)
 		pwrdm->state_counter[i] = 0;
 
