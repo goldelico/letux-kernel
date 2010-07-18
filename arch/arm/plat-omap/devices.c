@@ -255,8 +255,11 @@ static void omap_init_mcpdm(void)
 		printk(KERN_ERR "Could not look up pdm hw_mod\n");
 
 	pdata = kzalloc(sizeof(struct omap_mcpdm_platform_data), GFP_KERNEL);
-	if (!pdata)
+	if (!pdata) {
 		printk(KERN_ERR "Could not allocate platform data\n");
+		WARN_ON(1);
+		return;
+	}
 
 	od = omap_device_build("omap-mcpdm", -1, oh, pdata,
 				sizeof(struct omap_mcpdm_platform_data),
