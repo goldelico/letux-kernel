@@ -200,7 +200,7 @@ static unsigned twl6030_irq_next;
 int twl6030_interrupt_unmask(u8 bit_mask, u8 offset)
 {
 	int ret;
-	u8 unmask_value;
+	u8 unmask_value = 0;
 	ret = twl_i2c_read_u8(TWL_MODULE_PIH, &unmask_value,
 			REG_INT_STS_A + offset);
 	unmask_value &= (~(bit_mask));
@@ -213,7 +213,7 @@ EXPORT_SYMBOL(twl6030_interrupt_unmask);
 int twl6030_interrupt_mask(u8 bit_mask, u8 offset)
 {
 	int ret;
-	u8 mask_value;
+	u8 mask_value = 0;
 	ret = twl_i2c_read_u8(TWL_MODULE_PIH, &mask_value,
 			REG_INT_STS_A + offset);
 	mask_value |= (bit_mask);
