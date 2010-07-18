@@ -62,7 +62,7 @@ static struct twl_mmc_controller {
 static int twl_mmc_card_detect(int irq)
 {
 	unsigned i;
-	u8 read_reg;
+	u8 read_reg = 0;
 	unsigned res;
 
 	for (i = 0; i < ARRAY_SIZE(hsmmc); i++) {
