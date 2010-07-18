@@ -254,7 +254,7 @@ static irqreturn_t twl6030charger_ctrl_interrupt(int irq, void *_di)
 	struct twl6030_bci_device_info *di = _di;
 	int ret;
 	u8 stat_toggle, stat_reset, stat_set = 0;
-	u8 present_charge_state;
+	u8 present_charge_state = 0;
 	u8 ac_or_vbus, no_ac_and_vbus;
 
 #ifdef CONFIG_LOCKDEP
@@ -334,7 +334,7 @@ static irqreturn_t twl6030charger_fault_interrupt(int irq, void *_di)
 {
 	int ret;
 
-	u8 usb_charge_sts, usb_charge_sts1, usb_charge_sts2;
+	u8 usb_charge_sts = 0, usb_charge_sts1 = 0, usb_charge_sts2 = 0;
 
 	ret = twl_i2c_read_u8(TWL6030_MODULE_CHARGER, &usb_charge_sts,
 						CHARGERUSB_INT_STATUS);
@@ -390,8 +390,8 @@ static int twl6030battery_voltage(void)
  */
 static int twl6030battery_current(void)
 {
-	int temp, ret;
-	u8 read_value1, read_value2;
+	int temp = 0, ret = 0;
+	u8 read_value1 = 0, read_value2 = 0;
 
 	ret = twl_i2c_read_u8(TWL6030_MODULE_GASGAUGE, &read_value1,
 							REG_FG_REG_10);
@@ -422,7 +422,7 @@ static int twl6030backupbatt_voltage(void)
 static int twl6030bci_status(void)
 {
 	int ret;
-	u8 status;
+	u8 status = 0;
 
 	ret = twl_i2c_read_u8(TWL6030_MODULE_CHARGER, &status,
 						CONTROLLER_CTRL1);
