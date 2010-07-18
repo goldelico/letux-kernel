@@ -291,7 +291,7 @@ static int twl4030_irq_thread(void *data)
 	while (!kthread_should_stop()) {
 		int ret;
 		int module_irq;
-		u8 pih_isr;
+		u8 pih_isr = 0;
 
 		/* Wait for IRQ, then read PIH irq status (also blocking) */
 		wait_for_completion_interruptible(&irq_event);
@@ -525,7 +525,7 @@ static void twl4030_sih_do_edge(struct work_struct *work)
 {
 	struct sih_agent	*agent;
 	const struct sih	*sih;
-	u8			bytes[6];
+	u8			bytes[6] = { 0 };
 	u32			edge_change;
 	int			status;
 
