@@ -79,7 +79,7 @@ struct twlreg_info {
 static inline int
 twlreg_read(struct twlreg_info *info, unsigned slave_subgp, unsigned offset)
 {
-	u8 value;
+	u8 value = 0;
 	int status;
 
 	status = twl_i2c_read_u8(slave_subgp,
