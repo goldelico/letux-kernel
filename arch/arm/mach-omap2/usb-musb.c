@@ -173,7 +173,7 @@ static struct platform_device rndis_device = {
 
 static void usb_gadget_init(void)
 {
-	unsigned int val[4];
+	unsigned int val[4] = { 0 };
 	unsigned int reg;
 #ifdef CONFIG_USB_ANDROID_RNDIS
 	int i;
