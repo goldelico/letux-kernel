@@ -249,9 +249,9 @@ static int twl_rtc_update_irq_enable(struct device *dev, unsigned enabled)
  */
 static int twl_rtc_read_time(struct device *dev, struct rtc_time *tm)
 {
-	unsigned char rtc_data[ALL_TIME_REGS + 1];
+	unsigned char rtc_data[ALL_TIME_REGS + 1] = { 0 };
 	int ret;
-	u8 save_control;
+	u8 save_control = 0;
 
 	ret = twl_rtc_read_u8(&save_control, REG_RTC_CTRL_REG);
 	if (ret < 0)
@@ -286,7 +286,7 @@ static int twl_rtc_read_time(struct device *dev, struct rtc_time *tm)
 
 static int twl_rtc_set_time(struct device *dev, struct rtc_time *tm)
 {
-	unsigned char save_control;
+	unsigned char save_control = 0;
 	unsigned char rtc_data[ALL_TIME_REGS + 1];
 	int ret;
 
@@ -328,7 +328,7 @@ out:
  */
 static int twl_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alm)
 {
-	unsigned char rtc_data[ALL_TIME_REGS + 1];
+	unsigned char rtc_data[ALL_TIME_REGS + 1] = { 0 };
 	int ret;
 #ifndef CONFIG_ARCH_OMAP4
 	ret = twl_i2c_read(TWL_MODULE_RTC, rtc_data,
@@ -391,7 +391,7 @@ static irqreturn_t twl_rtc_interrupt(int irq, void *rtc)
 	unsigned long events = 0;
 	int ret = IRQ_NONE;
 	int res;
-	u8 rd_reg;
+	u8 rd_reg = 0;
 
 #ifdef CONFIG_LOCKDEP
 	/* WORKAROUND for lockdep forcing IRQF_DISABLED on us, which
@@ -462,7 +462,7 @@ static int __devinit twl_rtc_probe(struct platform_device *pdev)
 	struct rtc_device *rtc;
 	int ret = 0;
 	int irq = platform_get_irq(pdev, 0);
-	u8 rd_reg;
+	u8 rd_reg = 0;
 
 	if (irq <= 0)
 		return -EINVAL;
