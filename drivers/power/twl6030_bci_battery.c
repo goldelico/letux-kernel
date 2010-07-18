@@ -646,7 +646,7 @@ static int __init twl6030_bci_battery_probe(struct platform_device *pdev)
 	struct twl6030_bci_device_info *di;
 	int irq;
 	int ret;
-	u8 rd_reg, controller_stat = 0;
+	u8 rd_reg = 0, controller_stat = 0;
 
 	di = kzalloc(sizeof(*di), GFP_KERNEL);
 	if (!di)
