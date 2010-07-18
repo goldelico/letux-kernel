@@ -1103,6 +1103,11 @@ omap_i2c_remove(struct platform_device *pdev)
 	iounmap(dev->base);
 	kfree(dev);
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!mem) {
+		dev_err(&pdev->dev, "no mem resource?\n");
+		return -ENODEV;
+	}
+
 	release_mem_region(mem->start, resource_size(mem));
 	return 0;
 }
