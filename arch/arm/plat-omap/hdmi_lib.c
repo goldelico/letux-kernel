@@ -1104,12 +1104,15 @@ static int hdmi_w1_audio_config(void)
 	audio_fmt.sample_size = HDMI_SAMPLE_24BITS;
 	audio_fmt.stereo_channel_enable = HDMI_STEREO_ONECHANNELS;
 	audio_fmt.audio_channel_location = 0x03;
+	audio_fmt.left_before = 0; /*FIXME*/
+	audio_fmt.iec = 0; /*FIXME*/
 
 	ret = hdmi_w1_audio_config_format(HDMI_WP, &audio_fmt);
 
 	audio_dma.dma_transfer = 0x20;
 	audio_dma.threshold_value = 0x60;
 	audio_dma.dma_or_irq = HDMI_THRESHOLD_DMA;
+	audio_dma.block_size = 0; /*FIXME*/
 
 	ret = hdmi_w1_audio_config_dma(HDMI_WP, &audio_dma);
 
@@ -1407,6 +1410,7 @@ int DSS_HDMI_CONFIG(HDMI_Timing_t timings, u32 video_format,
 	data.v_pol = 1;
 	data.hdmi_dvi = mode;
 	data.video_format = video_format;
+	data.interlace = 0; /*FIXME*/
 
 	err = hdmi_lib_enable(&data);
 	return err;
