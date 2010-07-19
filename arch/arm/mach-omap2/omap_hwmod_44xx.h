@@ -5857,12 +5857,12 @@ static __initdata struct omap_hwmod *omap44xx_hwmods[] = {
 	&omap44xx_sl2_hwmod,
 	&omap44xx_slimbus1_hwmod,
 	&omap44xx_slimbus2_hwmod,
-	&omap44xx_spinlock_hwmod,
 	&omap44xx_sr_core_hwmod,
 	&omap44xx_sr_iva_hwmod,
 	&omap44xx_sr_mpu_hwmod,
 	&omap44xx_synctimer_hwmod,
 #endif
+	&omap44xx_spinlock_hwmod,
 	&omap44xx_uart1_hwmod,
 	&omap44xx_uart2_hwmod,
 	&omap44xx_uart3_hwmod,
