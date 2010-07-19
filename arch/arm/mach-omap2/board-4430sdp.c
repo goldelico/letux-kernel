@@ -555,6 +555,12 @@ static struct regulator_consumer_supply sdp4430_vmmc_supply[] = {
 	},
 };
 
+static struct regulator_consumer_supply sdp4430_cam2_supply[] = {
+{
+	.supply = "cam2pwr",
+	},
+};
+
 static int __init sdp4430_mmc_init(void)
 {
 	/* TODO: Fix Hard Coding */
@@ -665,6 +671,8 @@ static struct regulator_init_data sdp4430_vaux3 = {
 					| REGULATOR_CHANGE_MODE
 					| REGULATOR_CHANGE_STATUS,
 	},
+	.num_consumer_supplies = 1,
+	.consumer_supplies = sdp4430_cam2_supply,
 };
 
 /* VMMC1 for MMC1 card */
