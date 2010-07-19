@@ -27,10 +27,10 @@
 #include <linux/wait.h>
 #include <linux/interrupt.h>
 #include <linux/err.h>
-#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/irq.h>
+#include <linux/pm_runtime.h>
 
 #include "mcpdm.h"
 
@@ -327,7 +327,7 @@ int omap_mcpdm_request(void)
 	struct omap_mcpdm_platform_data *pdata;
 	int ret;
 
-	pdev = container_of(mcpdm->dev, struct platform_device, dev);
+	pdev = to_platform_device(mcpdm->dev);
 	pdata = pdev->dev.platform_data;
 
 	if (pdata->device_enable)
@@ -358,8 +358,8 @@ int omap_mcpdm_request(void)
 	return 0;
 
 err:
-	if (pdata->device_disable)
-		pdata->device_disable(pdev);
+	if (pdata->device_idle)
+		pdata->device_idle(pdev);
 	return ret;
 }
 
@@ -368,7 +368,7 @@ void omap_mcpdm_free(void)
 	struct platform_device *pdev;
 	struct omap_mcpdm_platform_data *pdata;
 
-	pdev = container_of(mcpdm->dev, struct platform_device, dev);
+	pdev = to_platform_device(mcpdm->dev);
 	pdata = pdev->dev.platform_data;
 
 	spin_lock(&mcpdm->lock);
@@ -414,21 +414,6 @@ int omap_mcpdm_set_offset(int offset1, int offset2)
 
 	return 0;
 }
-
-#ifdef CONFIG_PM
-static int omap_mcpdm_suspend(struct platform_device *dev, pm_message_t state)
-{
-	return 0;
-}
-
-static int omap_mcpdm_resume(struct platform_device *dev)
-{
-	return 0;
-}
-#else
-#define omap_mcpdm_suspend	NULL
-#define omap_mcpdm_resume	NULL
-#endif
 
 static int __devinit omap_mcpdm_probe(struct platform_device *pdev)
 {
@@ -487,7 +472,6 @@ static int __devexit omap_mcpdm_remove(struct platform_device *pdev)
 
 	iounmap(mcpdm_ptr->io_base);
 
-	mcpdm_ptr->clk = NULL;
 	mcpdm_ptr->free = 0;
 	mcpdm_ptr->dev = NULL;
 
@@ -499,8 +483,6 @@ static int __devexit omap_mcpdm_remove(struct platform_device *pdev)
 static struct platform_driver omap_mcpdm_driver = {
 	.probe = omap_mcpdm_probe,
 	.remove = __devexit_p(omap_mcpdm_remove),
-	.suspend = omap_mcpdm_suspend,
-	.resume = omap_mcpdm_resume,
 	.driver = {
 		.name = "omap-mcpdm",
 	},

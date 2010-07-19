@@ -124,7 +124,6 @@ struct omap_mcpdm_platform_data {
 	int (*device_enable) (struct platform_device *pdev);
 	int (*device_shutdown) (struct platform_device *pdev);
 	int (*device_idle) (struct platform_device *pdev);
-	int (*device_disable) (struct platform_device *pdev);
 };
 
 struct omap_mcpdm {
@@ -136,7 +135,6 @@ struct omap_mcpdm {
 
 	spinlock_t lock;
 	struct omap_mcpdm_platform_data *pdata;
-	struct clk *clk;
 	struct omap_mcpdm_link *downlink;
 	struct omap_mcpdm_link *uplink;
 	struct completion irq_completion;
