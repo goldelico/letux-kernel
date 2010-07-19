@@ -15,6 +15,9 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/bootmem.h>
+#include <linux/slab.h>
+#include <linux/delay.h>
+#include <linux/i2c/twl.h>
 
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
@@ -270,6 +273,48 @@ static void omap_init_mcpdm(void)
 #else
 static inline void omap_init_mcpdm(void) {}
 #endif
+
+/*-------------------------------------------------------------------------*/
+
+#if defined(SND_SOC_ABE_TWL6040)
+
+static struct omap_device_pm_latency omap_aess_latency[] = {
+	{
+		.deactivate_func = omap_device_idle_hwmods,
+		.activate_func = omap_device_enable_hwmods,
+		.flags = OMAP_DEVICE_LATENCY_AUTO_ADJUST,
+	},
+};
+
+static void omap_init_aess(void)
+{
+	struct omap_hwmod *oh;
+	struct omap_device *od;
+	struct twl6040_code_data *pdata;
+
+	oh = omap_hwmod_lookup("aess");
+	if (!oh)
+		printk (KERN_ERR "Could not look up aess hw_mod\n");
+
+
+	pdata->device_enable = omap_device_enable;
+	pdata->device_idle = omap_device_idle;
+	pdata->device_shutdown = omap_device_shutdown;
+
+	od = omap_device_build("omap-aess", -1, oh, pdata,
+				sizeof(struct omap_aess_platform_data),
+				omap_aess_latency,
+				ARRAY_SIZE(omap_aess_latency), 0);
+
+	if (od <= 0)
+		printk(KERN_ERR "Could not build omap_device for omap-aess\n");
+}
+#else
+static inline void omap_init_aess(void) {}
+#endif
+
+/*-------------------------------------------------------------------------*/
+
 #if defined(CONFIG_MMC_OMAP) || defined(CONFIG_MMC_OMAP_MODULE) || \
 	defined(CONFIG_MMC_OMAP_HS) || defined(CONFIG_MMC_OMAP_HS_MODULE)
 

@@ -34,9 +34,6 @@
 #include <linux/workqueue.h>
 #include <linux/pm_runtime.h>
 
-#include <plat/omap_hwmod.h>
-#include <plat/omap_device.h>
-
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -2006,36 +2003,14 @@ struct snd_soc_codec_device soc_codec_dev_abe_twl6040 = {
 };
 EXPORT_SYMBOL_GPL(soc_codec_dev_abe_twl6040);
 
-static struct omap_device_pm_latency omap_aess_latency[] = {
-	{
-		.deactivate_func = omap_device_idle_hwmods,
-		.activate_func = omap_device_enable_hwmods,
-		.flags = OMAP_DEVICE_LATENCY_AUTO_ADJUST,
-	},
-};
-
 static int __devinit abe_twl6040_codec_probe(struct platform_device *pdev)
 {
 	struct twl4030_codec_data *twl_codec = pdev->dev.platform_data;
 	struct snd_soc_codec *codec;
 	struct twl6040_data *priv;
 	struct twl6040_jack_data *jack;
-	struct omap_hwmod *oh;
-	struct omap_device *od;
 	int audpwron, naudint;
 	int ret = 0;
-
-	oh = omap_hwmod_lookup("aess");
-	if (!oh)
-		pr_err("Could not look up aess hw_mod\n");
-
-	od = omap_device_build("omap-aess", -1, oh, twl_codec,
-				sizeof(struct twl4030_codec_data),
-				omap_aess_latency,
-				ARRAY_SIZE(omap_aess_latency), 0);
-
-	if (od <= 0)
-		printk(KERN_ERR "Could not build omap_device for omap-aess\n");
 
 	priv = kzalloc(sizeof(struct twl6040_data), GFP_KERNEL);
 	if (priv == NULL)
@@ -2048,10 +2023,6 @@ static int __devinit abe_twl6040_codec_probe(struct platform_device *pdev)
 		audpwron = -EINVAL;
 		naudint = 0;
 	}
-
-	twl_codec->device_enable = omap_device_enable;
-	twl_codec->device_idle = omap_device_idle;
-	twl_codec->device_shutdown = omap_device_shutdown;
 
 	priv->audpwron = audpwron;
 	priv->naudint = naudint;
