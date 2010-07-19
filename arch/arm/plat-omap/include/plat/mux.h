@@ -130,6 +130,15 @@
 #define OMAP2_PULL_UP		(1 << 4)
 #define OMAP2_ALTELECTRICALSEL	(1 << 5)
 
+/* 34xx mux mode options for each pin. See TRM for options */
+#define	OMAP34XX_MUX_MODE0	0
+#define	OMAP34XX_MUX_MODE1	1
+#define	OMAP34XX_MUX_MODE2	2
+#define	OMAP34XX_MUX_MODE3	3
+#define	OMAP34XX_MUX_MODE4	4
+#define	OMAP34XX_MUX_MODE5	5
+#define	OMAP34XX_MUX_MODE6	6
+#define	OMAP34XX_MUX_MODE7	7
 struct pin_config {
 	char 			*name;
 	const unsigned int 	mux_reg;

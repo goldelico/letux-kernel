@@ -99,7 +99,14 @@ static const struct gpio_pad_range gpio_pads_config[] = {
 	{ 170, 182, 0x1c6 },
 	{ 0, 0, 0x1e0 },
 	{ 186, 186, 0x1e2 },
+	{ 187, 187, 0x238 },
+	{ 32, 32, 0x23a },
 	{ 12, 29, 0x5d8 },
+	{ 1, 1, 0xa06 },
+	{ 30, 30, 0xa08 },
+	{ 2, 10, 0xa0a },
+	{ 11, 11, 0xa24 },
+	{ 31, 31, 0xa26 },
 };
 
 /* GPIO -> PAD config mapping for OMAP3 */
@@ -112,6 +119,7 @@ struct gpio_pad {
 #define OMAP34XX_GPIO_AMT	(32 * OMAP_NR_GPIOS)
 
 struct gpio_pad *gpio_pads;
+static u16 gpio_pad_map[OMAP34XX_GPIO_AMT];
 #endif
 
 static struct gpio_bank gpio_bank[OMAP_NR_GPIOS];
@@ -614,7 +622,7 @@ static void omap_gpio_free(struct gpio_chip *chip, unsigned offset)
 			__raw_writel(1 << offset, reg);
 		} else {
 			spin_lock_irqsave(&bank->lock, flags);
-			return -EINVAL;
+			return;
 		}
 	}
 
@@ -842,6 +850,60 @@ static int gpio_2irq(struct gpio_chip *chip, unsigned offset)
 	bank = container_of(chip, struct gpio_bank, chip);
 	return bank->virtual_irq_start + offset;
 }
+
+/*
+ * Following pad init code in addition to the context / restore hooks are
+ * needed to fix glitches in GPIO outputs during off-mode. See OMAP3
+ * errate section 1.158
+ */
+static int __init omap3_gpio_pads_init(void)
+{
+	int i, j, min, max, gpio_amt;
+	u16 offset;
+
+	gpio_amt = 0;
+
+	for (i = 0; i < ARRAY_SIZE(gpio_pads_config); i++) {
+		min = gpio_pads_config[i].min;
+		max = gpio_pads_config[i].max;
+		offset = gpio_pads_config[i].offset;
+
+		for (j = min; j <= max; j++) {
+			/* Check if pad has been configured as GPIO. */
+			if ((omap_ctrl_readw(offset) &
+				OMAP34XX_MUX_MODE7) == OMAP34XX_MUX_MODE4) {
+				gpio_pad_map[j] = offset;
+				if (j > 31)
+					gpio_amt++;
+			}
+			offset += 2;
+		}
+	}
+	gpio_pads = kmalloc(sizeof(struct gpio_pad) * (gpio_amt + 1),
+		GFP_KERNEL);
+
+	if (gpio_pads == NULL) {
+		printk(KERN_ERR "FATAL: Failed to allocate gpio_pads\n");
+		return -ENOMEM;
+	}
+
+	gpio_amt = 0;
+	for (i = 0; i < OMAP34XX_GPIO_AMT; i++) {
+		/*
+		 * First module (gpio 0...31) is ignored as it is
+		 * in wakeup domain and does not need special
+		 * handling during off mode.
+		 */
+		if (gpio_pad_map[i] && i > 31) {
+			gpio_pads[gpio_amt].gpio = i;
+			gpio_pads[gpio_amt].offset = gpio_pad_map[i];
+			gpio_amt++;
+		}
+	}
+	gpio_pads[gpio_amt].gpio = -1;
+	return 0;
+}
+late_initcall(omap3_gpio_pads_init);
 
 static void __init omap_gpio_show_rev(void)
 {
@@ -1094,6 +1156,11 @@ void omap2_gpio_resume_after_idle(void)
 }
 
 #ifdef CONFIG_ARCH_OMAP3
+#define OFF_EN	1 << 9
+#define OFF_OUT_EN	1 << 10
+#define OFF_OUT_VAL	1 << 11
+#define OFF_PULL_UP_EN	1 << 12
+#define OFF_PULL_TYPE	1 << 13
 /* save the registers of bank 2-6 */
 void omap_gpio_save_context(void)
 {
