@@ -474,7 +474,7 @@ int omap_mux_init_signal(char *muxname, int val)
 	return -ENODEV;
 }
 
-int __init omap3_mux_config(char *group)
+int omap3_mux_config(char *group)
 {
 	printk(KERN_ERR "set mux for group mode = %s\n", group);
 	if (strcmp(group, "OMAP_MCBSP2_SLAVE") == 0) {
