@@ -21,8 +21,6 @@
 #ifndef __ASM_ARCH_DMA_H
 #define __ASM_ARCH_DMA_H
 
-#include <linux/device.h>
-
 /* Hardware registers for omap1 */
 #define OMAP1_DMA_BASE			(0xfffed800)
 
@@ -114,12 +112,8 @@
 #define OMAP1_DMA_COLOR_U(n)		(0x40 * (n) + 0x22)
 #define OMAP1_DMA_CCR2(n)		(0x40 * (n) + 0x24)
 #define OMAP1_DMA_LCH_CTRL(n)		(0x40 * (n) + 0x2a)	/* not on 15xx */
-#define OMAP1_DMA_COLOR(n)		0
 #define OMAP1_DMA_CCEN(n)		0
 #define OMAP1_DMA_CCFN(n)		0
-#define OMAP1_DMA_CDP(n)		0
-#define OMAP1_DMA_CNDP(n)		0
-#define OMAP1_DMA_CCDN(n)		0
 
 /* Channel specific registers only on omap2 */
 #define OMAP_DMA4_CSSA(n)		(0x60 * (n) + 0x9c)
@@ -138,8 +132,6 @@
 #define OMAP1_DMA_IRQSTATUS_L0		0
 #define OMAP1_DMA_IRQENABLE_L0		0
 #define OMAP1_DMA_OCP_SYSCONFIG		0
-#define OMAP1_DMA_CAPS_0		0
-
 #define OMAP_DMA4_HW_ID			0
 #define OMAP_DMA4_CAPS_0_L		0
 #define OMAP_DMA4_CAPS_0_U		0
@@ -584,83 +576,6 @@ struct omap_dma_channel_params {
 #endif
 };
 
-struct omap_dma_sglist_type1_params {
-	u32 src_addr;
-	u32 dst_addr;
-	u16 cfn_fn;
-	u16 cicr;
-	u16 dst_elem_idx;
-	u16 src_elem_idx;
-	u32 dst_frame_idx_or_pkt_size;
-	u32 src_frame_idx_or_pkt_size;
-	u32 color;
-	u32 csdp;
-	u32 clnk_ctrl;
-	u32 ccr;
-};
-
-struct omap_dma_sglist_type2a_params {
-	u32 src_addr;
-	u32 dst_addr;
-	u16 cfn_fn;
-	u16 cicr;
-	u16 dst_elem_idx;
-	u16 src_elem_idx;
-	u32 dst_frame_idx_or_pkt_size;
-	u32 src_frame_idx_or_pkt_size;
-};
-
-struct omap_dma_sglist_type2b_params {
-	u32 src_or_dest_addr;
-	u16 cfn_fn;
-	u16 cicr;
-	u16 dst_elem_idx;
-	u16 src_elem_idx;
-	u32 dst_frame_idx_or_pkt_size;
-	u32 src_frame_idx_or_pkt_size;
-};
-
-struct omap_dma_sglist_type3a_params {
-	u32 src_addr;
-	u32 dst_addr;
-};
-
-struct omap_dma_sglist_type3b_params {
-	u32 src_or_dest_addr;
-};
-
-enum omap_dma_sglist_descriptor_select {
-	OMAP_DMA_SGLIST_DESCRIPTOR_TYPE1,
-	OMAP_DMA_SGLIST_DESCRIPTOR_TYPE2a,
-	OMAP_DMA_SGLIST_DESCRIPTOR_TYPE2b,
-	OMAP_DMA_SGLIST_DESCRIPTOR_TYPE3a,
-	OMAP_DMA_SGLIST_DESCRIPTOR_TYPE3b,
-};
-
-union omap_dma_sglist_node_type{
-	struct omap_dma_sglist_type1_params t1;
-	struct omap_dma_sglist_type2a_params t2a;
-	struct omap_dma_sglist_type2b_params t2b;
-	struct omap_dma_sglist_type3a_params t3a;
-	struct omap_dma_sglist_type3b_params t3b;
-};
-
-struct omap_dma_sglist_node {
-
-	/* Common elements for all descriptors */
-	dma_addr_t next_desc_add_ptr;
-	u32 num_of_elem;
-	/* Type specific elements */
-	union omap_dma_sglist_node_type sg_node;
-	/* Control fields */
-	unsigned short flags;
-	/* Fields that can be set in flags variable */
-	#define OMAP_DMA_LIST_SRC_VALID		(1)
-	#define OMAP_DMA_LIST_DST_VALID		(2)
-	#define OMAP_DMA_LIST_NOTIFY_BLOCK_END	(4)
-	enum omap_dma_sglist_descriptor_select desc_type;
-	struct omap_dma_sglist_node *next;
-};
 
 extern void omap_set_dma_priority(int lch, int dst_port, int priority);
 extern int omap_request_dma(int dev_id, const char *dev_name,
@@ -745,59 +660,6 @@ extern int omap_modify_dma_chain_params(int chain_id,
 					struct omap_dma_channel_params params);
 extern int omap_dma_chain_status(int chain_id);
 #endif
-/* omap_request_dma_sglist:
- * Request to setup a DMA channel to transfer in linked list mode of nelem
- * elements. The memory for the list will be allocated and returned in
- * elems structure
- */
-extern int omap_request_dma_sglist(struct device *ddev, int dev_id,
-		const char *dev_name, void (*callback) (int channel_id,
-		u16 ch_status, void *data),	int *listid, int nelem,
-		struct omap_dma_sglist_node **elems);
-/* omap_set_dma_sglist_params
- * Provide the configuration parameters for the sglist channel
- * sghead should contain a fully populated list of nelems
- * which completely describe the transfer. chparams, if not NULL, will
- * set the appropriate parameters directly into the DMA register.
- * If chparams is NULL, fastmode will be enabled automatically
- */
-extern int omap_set_dma_sglist_params(int listid,
-		struct omap_dma_channel_params *chparams);
-/* omap_start_dma_sglist_transfers
- * Starts the linked list based DMA transfer for the specified listid
- * If no pause is required, -1 is to be set in pauseafter.
- * Else, the transfer will suspend after pauseafter elements.
- */
-extern int omap_start_dma_sglist_transfers(int listid,
-							int pauseafter);
-/* omap_resume_dma_sglist_transfers
- * Resumes the previously paused transfer.
- * Can be again set to pause at pauseafter node of the linked list
- * The index is absolute (from the head of the list)
- */
-extern int omap_resume_dma_sglist_transfers(int listid,
-							int pauseafter);
-/* omap_release_dma_sglist
- * Releases the list based DMA channel and the associated list descriptors
- */
-extern int omap_release_dma_sglist(int listid);
-/* omap_get_completed_sglist_nodes
- * Returns the number of completed elements in the linked list
- * The value is transient if the API is invoked for an ongoing transfer
- */
-int omap_get_completed_sglist_nodes(int listid);
-/* omap_dma_sglist_is_paused
- * Returns non zero if the linked list is currently in pause state
- */
-int omap_dma_sglist_is_paused(int listid);
-/* omap_dma_set_sglist_fastmode
- * Set or clear the fastmode status of the transfer
- * In fastmode, DMA register settings are updated from the first element
- * of the linked list, before initiating the tranfer.
- * In non-fastmode, the first element is used only after completing the
- * transfer as already configured in the registers
- */
-void omap_dma_set_sglist_fastmode(int listid, int fastmode);
 
 /* LCD DMA functions */
 extern int omap_request_lcd_dma(void (*callback)(u16 status, void *data),
