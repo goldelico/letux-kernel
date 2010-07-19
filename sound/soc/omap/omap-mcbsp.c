@@ -96,6 +96,17 @@ static const int omap24xx_dma_reqs[][2] = {
 static const int omap24xx_dma_reqs[][2] = {};
 #endif
 
+#if defined(CONFIG_ARCH_OMAP4)
+static const int omap44xx_dma_reqs[][2] = {
+	{ OMAP44XX_DMA_MCBSP1_TX, OMAP44XX_DMA_MCBSP1_RX },
+	{ OMAP44XX_DMA_MCBSP2_TX, OMAP44XX_DMA_MCBSP2_RX },
+	{ OMAP44XX_DMA_MCBSP3_TX, OMAP44XX_DMA_MCBSP3_RX },
+	{ OMAP44XX_DMA_MCBSP4_TX, OMAP44XX_DMA_MCBSP4_RX },
+};
+#else
+static const int omap44xx_dma_reqs[][2] = {};
+#endif
+
 #if defined(CONFIG_ARCH_OMAP2420)
 static const unsigned long omap2420_mcbsp_port[][2] = {
 	{ OMAP24XX_MCBSP1_BASE + OMAP_MCBSP_REG_DXR1,
@@ -141,6 +152,21 @@ static const unsigned long omap34xx_mcbsp_port[][2] = {
 static const unsigned long omap34xx_mcbsp_port[][2] = {};
 #endif
 
+#if defined(CONFIG_ARCH_OMAP4)
+static const unsigned long omap44xx_mcbsp_port[][2] = {
+	{ OMAP44XX_MCBSP1_BASE + OMAP_MCBSP_REG_DXR,
+	  OMAP44XX_MCBSP1_BASE + OMAP_MCBSP_REG_DRR },
+	{ OMAP44XX_MCBSP2_BASE + OMAP_MCBSP_REG_DXR,
+	  OMAP44XX_MCBSP2_BASE + OMAP_MCBSP_REG_DRR },
+	{ OMAP44XX_MCBSP3_BASE + OMAP_MCBSP_REG_DXR,
+	  OMAP44XX_MCBSP3_BASE + OMAP_MCBSP_REG_DRR },
+	{ OMAP44XX_MCBSP4_BASE + OMAP_MCBSP_REG_DXR,
+	  OMAP44XX_MCBSP4_BASE + OMAP_MCBSP_REG_DRR },
+};
+#else
+static const unsigned long omap44xx_mcbsp_port[][2] = {};
+#endif
+
 static int omap_mcbsp_dai_set_clks_src(struct omap_mcbsp_data *mcbsp_data,
 					int clk_id);
 
@@ -174,7 +200,7 @@ static int omap_mcbsp_dai_startup(struct snd_pcm_substream *substream,
 	int bus_id = mcbsp_data->bus_id;
 	int err = 0;
 
-	if (cpu_is_omap343x()) {
+	if (cpu_is_omap343x() || cpu_is_omap44xx()) {
 		int dma_op_mode = omap_mcbsp_get_dma_op_mode(bus_id);
 		int max_period;
 
@@ -297,6 +323,9 @@ static int omap_mcbsp_dai_hw_params(struct snd_pcm_substream *substream,
 		if (omap_mcbsp_get_dma_op_mode(bus_id) ==
 						MCBSP_DMA_MODE_THRESHOLD)
 			sync_mode = OMAP_DMA_SYNC_FRAME;
+	} else if (cpu_is_omap44xx()) {
+		dma = omap44xx_dma_reqs[bus_id][substream->stream];
+		port = omap44xx_mcbsp_port[bus_id][substream->stream];
 	} else {
 		return -ENODEV;
 	}
@@ -391,11 +420,11 @@ static int omap_mcbsp_dai_set_dai_fmt(struct snd_soc_dai *cpu_dai,
 	regs->spcr2	|= XINTM(3) | FREE;
 	regs->spcr1	|= RINTM(3);
 	/* RFIG and XFIG are not defined in 34xx */
-	if (!cpu_is_omap34xx()) {
+	if (!cpu_is_omap34xx() && !cpu_is_omap44xx()) {
 		regs->rcr2	|= RFIG;
 		regs->xcr2	|= XFIG;
 	}
-	if (cpu_is_omap2430() || cpu_is_omap34xx()) {
+	if (cpu_is_omap2430() || cpu_is_omap34xx() || cpu_is_omap44xx()) {
 		regs->xccr = DXENDLY(1) | XDMAEN | XDISABLE;
 		regs->rccr = RFULL_CYCLE | RDMAEN | RDISABLE;
 	}
@@ -581,6 +610,10 @@ static int omap_mcbsp_dai_set_dai_sysclk(struct snd_soc_dai *cpu_dai,
 		regs->srgr2	|= CLKSM;
 		break;
 	case OMAP_MCBSP_SYSCLK_CLKS_FCLK:
+		if (cpu_is_omap44xx()) {
+			regs->srgr2	|= CLKSM;
+			break;
+		}
 	case OMAP_MCBSP_SYSCLK_CLKS_EXT:
 		err = omap_mcbsp_dai_set_clks_src(mcbsp_data, clk_id);
 		mcbsp_data->clk_id = clk_id;
@@ -687,8 +720,10 @@ struct snd_soc_dai omap_mcbsp_dai[] = {
 #if NUM_LINKS >= 3
 	OMAP_MCBSP_DAI_BUILDER(2),
 #endif
-#if NUM_LINKS == 5
+#if NUM_LINKS >= 4
 	OMAP_MCBSP_DAI_BUILDER(3),
+#endif
+#if NUM_LINKS == 5
 	OMAP_MCBSP_DAI_BUILDER(4),
 #endif
 };
