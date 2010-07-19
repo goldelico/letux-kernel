@@ -52,6 +52,7 @@
 
 #define OMAP4_KBDOCP_BASE               0x4A31C000
 #define OMAP4_CMA3000ACCL_GPIO		186
+#define OMAP4SDP_MDM_PWR_EN_GPIO	157
 #define OMAP4_SFH7741_SENSOR_OUTPUT_GPIO	184
 #define OMAP4_SFH7741_ENABLE_GPIO		188
 
@@ -923,6 +924,18 @@ static struct spi_board_info sdp4430_spi_board_info[] __initdata = {
 	},
 };
 
+static const struct ehci_hcd_omap_platform_data ehci_pdata __initconst = {
+
+	.port_mode[0] = EHCI_HCD_OMAP_MODE_PHY,
+	.port_mode[1] = EHCI_HCD_OMAP_MODE_UNKNOWN,
+	.port_mode[2] = EHCI_HCD_OMAP_MODE_UNKNOWN,
+
+	.phy_reset  = false,
+	.reset_gpio_port[0]  = -EINVAL,
+	.reset_gpio_port[1]  = -EINVAL,
+	.reset_gpio_port[2]  = -EINVAL
+};
+
 static struct omap_musb_board_data musb_board_data = {
 	.interface_type         = MUSB_INTERFACE_UTMI,
 #ifdef CONFIG_USB_MUSB_OTG
@@ -1050,6 +1063,18 @@ static void __init omap_4430sdp_init(void)
 #ifdef CONFIG_MMC_EMBEDDED_SDIO
 	wlan_1283_config();
 #endif
+
+	/* Power on the ULPI PHY */
+	if (gpio_is_valid(OMAP4SDP_MDM_PWR_EN_GPIO)) {
+		/* set pad  muxed for GPIO mode
+		 * should use mux framework when available
+		 */
+		omap_writew(0x0003, 0x4A100160);
+		gpio_request(OMAP4SDP_MDM_PWR_EN_GPIO, "USBB1 PHY VMDM_3V3");
+		gpio_direction_output(OMAP4SDP_MDM_PWR_EN_GPIO, 1);
+	}
+	usb_ehci_init(&ehci_pdata);
+
 	usb_nop_xceiv_register();
 	usb_musb_init(&musb_board_data);
 	omap_ethernet_init();
