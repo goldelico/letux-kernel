@@ -295,7 +295,7 @@ static int ispresizer_try_fmt(struct isp_node *pipe, bool memory)
 						       CIP_4PHASE) /
 						       MAX_SCALE_FACTOR);
 			pipe->out.image.width = ALIGN(pipe->out.image.width,
-						      OUT_WIDTH_ALIGN);
+						      OUT_WIDTH_ALIGN_UP);
 		}
 	}
 
