@@ -183,27 +183,8 @@ static int sdp4430_get_power_mode(struct snd_kcontrol *kcontrol,
 static int sdp4430_set_power_mode(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	int clk_id, freq;
-	int ret;
-
 	if (twl6040_power_mode == ucontrol->value.integer.value[0])
 		return 0;
-
-	if (ucontrol->value.integer.value[0]) {
-		clk_id = TWL6040_SYSCLK_SEL_HPPLL;
-		freq = 38400000;
-	} else {
-		clk_id = TWL6040_SYSCLK_SEL_LPPLL;
-		freq = 32768;
-	}
-
-	/* set the codec mclk */
-	ret = snd_soc_dai_set_sysclk(sdp4430_dai[0].codec_dai, clk_id, freq,
-				SND_SOC_CLOCK_IN);
-	if (ret) {
-		printk(KERN_ERR "can't set codec system clock\n");
-		return ret;
-	}
 
 	twl6040_power_mode = ucontrol->value.integer.value[0];
 
