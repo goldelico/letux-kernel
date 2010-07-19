@@ -330,9 +330,11 @@ int omap_mcpdm_request(void)
 	pdev = to_platform_device(mcpdm->dev);
 	pdata = pdev->dev.platform_data;
 
+	pm_runtime_get_sync(&pdev->dev);
+#ifndef CONFIG_PM_RUNTIME
 	if (pdata->device_enable)
 		pdata->device_enable(pdev);
-
+#endif
 	spin_lock(&mcpdm->lock);
 
 	if (!mcpdm->free) {
@@ -358,8 +360,11 @@ int omap_mcpdm_request(void)
 	return 0;
 
 err:
+	pm_runtime_put_sync(&pdev->dev);
+#ifndef CONFIG_PM_RUNTIME
 	if (pdata->device_idle)
 		pdata->device_idle(pdev);
+#endif
 	return ret;
 }
 
@@ -380,8 +385,11 @@ void omap_mcpdm_free(void)
 	mcpdm->free = 1;
 	spin_unlock(&mcpdm->lock);
 
+	pm_runtime_put_sync(&pdev->dev);
+#ifndef CONFIG_PM_RUNTIME
 	if (pdata->device_idle)
 		pdata->device_idle(pdev);
+#endif
 
 	free_irq(mcpdm->irq, (void *)mcpdm);
 }
@@ -467,9 +475,11 @@ static int __devexit omap_mcpdm_remove(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, NULL);
 
+	pm_runtime_put_sync(&pdev->dev);
+#ifndef CONFIG_PM_RUNTIME
 	if (pdata->device_shutdown)
 		pdata->device_shutdown(pdev);
-
+#endif
 	iounmap(mcpdm_ptr->io_base);
 
 	mcpdm_ptr->free = 0;

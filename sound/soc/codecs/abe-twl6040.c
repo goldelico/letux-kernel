@@ -303,8 +303,11 @@ static void abe_init_chip(struct snd_soc_codec *codec,
 	/* aess_clk has to be enabled to access hal register.
 	 * Disabel the clk after it has been used.
 	 */
+	pm_runtime_get_sync(&pdev->dev);
+#ifndef CONFIG_PM_RUNTIME
 	if (pdata->device_enable)
 		pdata->device_enable(pdev);
+#endif
 
 	abe_reset_hal();
 	abe_load_fw();
@@ -347,8 +350,11 @@ static void abe_init_chip(struct snd_soc_codec *codec,
 	/* Vx in HS, MM in HF and Tones in HF */
 	twl6040_write(codec, TWL6040_REG_SHADOW, 0x92);
 
+	pm_runtime_put_sync(&pdev->dev);
+#ifndef CONFIG_PM_RUNTIME
 	if (pdata->device_idle)
 		pdata->device_idle(pdev);
+#endif
 }
 
 /* twl6040 codec manual power-up sequence */
@@ -1213,8 +1219,11 @@ static int abe_mm_startup(struct snd_pcm_substream *substream,
 				priv->sysclk_constraints);
 
 	if (!priv->configure++) {
+		pm_runtime_get_sync(&pdev->dev);
+#ifndef CONFIG_PM_RUNTIME
 		if (pdata->device_enable)
 			pdata->device_enable(pdev);
+#endif
 
 		abe_set_router_configuration(UPROUTE, UPROUTE_CONFIG_AMIC,
 			(abe_router_t *)abe_router_ul_table_preset[UPROUTE_CONFIG_AMIC]);
@@ -1379,8 +1388,13 @@ static void abe_mm_shutdown(struct snd_pcm_substream *substream,
 	                abe_disable_data_transfer(PDM_UL_PORT);
         }
 
-	if (!--priv->configure && pdata->device_idle)
-		pdata->device_idle(pdev);
+	if (!--priv->configure) {
+		pm_runtime_put_sync(&pdev->dev);
+#ifndef CONFIG_PM_RUNTIME
+		if (pdata->device_idle)
+			pdata->device_idle(pdev);
+#endif
+	}
 }
 
 static int twl6040_mute(struct snd_soc_dai *dai, int mute)
@@ -1550,8 +1564,13 @@ static void abe_tones_shutdown(struct snd_pcm_substream *substream,
 	                abe_disable_data_transfer(PDM_DL_PORT);
         }
 
-	if(!--priv->configure && pdata->device_idle)
-                pdata->device_idle(pdev);
+	if (!--priv->configure) {
+		pm_runtime_put_sync(&pdev->dev);
+#ifndef CONFIG_PM_RUNTIME
+		if (pdata->device_idle)
+			pdata->device_idle(pdev);
+#endif
+	}
 }
 
 static struct snd_soc_dai_ops abe_tones_dai_ops = {
@@ -1595,8 +1614,11 @@ static int abe_voice_startup(struct snd_pcm_substream *substream,
 				priv->sysclk_constraints);
 
 	if (!priv->configure++) {
+		pm_runtime_get_sync(&pdev->dev);
+#ifndef CONFIG_PM_RUNTIME
 		if (pdata->device_enable)
 			pdata->device_enable(pdev);
+#endif
 
 		abe_set_router_configuration(UPROUTE, UPROUTE_CONFIG_AMIC,
 			(abe_router_t *)abe_router_ul_table_preset[UPROUTE_CONFIG_AMIC]);
@@ -1782,8 +1804,13 @@ static void abe_voice_shutdown(struct snd_pcm_substream *substream,
 			abe_disable_data_transfer(PDM_UL_PORT);
 	}
 
-        if(!--priv->configure && pdata->device_idle)
-                pdata->device_idle(pdev);
+        if(!--priv->configure) {
+		pm_runtime_put_sync(&pdev->dev);
+#ifndef CONFIG_PM_RUNTIME
+		if (pdata->device_idle)
+			pdata->device_idle(pdev);
+#endif
+	}
 }
 
 static struct snd_soc_dai_ops abe_voice_dai_ops = {
@@ -2125,8 +2152,11 @@ irq_err:
 	if (gpio_is_valid(audpwron))
 		gpio_free(audpwron);
 gpio2_err:
+	pm_runtime_put_sync(&pdev->dev);
+#ifndef CONFIG_PM_RUNTIME
 	if (twl_codec->device_shutdown)
 		twl_codec->device_shutdown(pdev);
+#endif
 	if (gpio_is_valid(audpwron))
 		gpio_free(audpwron);
 gpio1_err:
@@ -2150,8 +2180,11 @@ static int __devexit abe_twl6040_codec_remove(struct platform_device *pdev)
 	if (naudint)
 		free_irq(naudint, twl6040_codec);
 
+	pm_runtime_put_sync(&pdev->dev);
+#ifndef CONFIG_PM_RUNTIME
 	if (pdata->device_shutdown)
 		pdata->device_shutdown(pdev);
+#endif
 
 	snd_soc_unregister_dais(abe_dai, ARRAY_SIZE(abe_dai));
 	snd_soc_unregister_codec(twl6040_codec);
