@@ -851,6 +851,7 @@ static int gpio_2irq(struct gpio_chip *chip, unsigned offset)
 	return bank->virtual_irq_start + offset;
 }
 
+#ifdef CONFIG_ARCH_OMAP3
 /*
  * Following pad init code in addition to the context / restore hooks are
  * needed to fix glitches in GPIO outputs during off-mode. See OMAP3
@@ -904,6 +905,7 @@ static int __init omap3_gpio_pads_init(void)
 	return 0;
 }
 late_initcall(omap3_gpio_pads_init);
+#endif
 
 static void __init omap_gpio_show_rev(void)
 {
