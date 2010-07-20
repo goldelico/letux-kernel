@@ -168,8 +168,6 @@ void omap_pm_set_max_sdma_lat(struct device *dev, long t)
 	}
 }
 
-static struct device dummy_dsp_dev;
-
 /*
  * DSP Bridge-specific constraints
  */
@@ -202,7 +200,7 @@ void omap_pm_dsp_set_min_opp(struct device *dev, unsigned long f)
 	 * For now pass a dummy_dev struct for SRF to identify the caller.
 	 * Maybe its good to have DSP pass this as an argument
 	 */
-	resource_request("vdd1_opp", &dummy_dsp_dev, opp_id);
+	resource_request("vdd1_opp", dev, opp_id);
 	return;
 }
 
