@@ -92,6 +92,11 @@ static ssize_t vdd_opp_store(struct kobject *kobj, struct kobj_attribute *attr,
 		if (vdd1_locked == 0 && value != 0) {
 			resource_lock_opp(VDD1_OPP);
 			vdd1_locked = 1;
+			if (value < MIN_VDD1_OPP || value > MAX_VDD1_OPP) {
+				printk(KERN_ERR "vdd_opp_store: Invalid value\n");
+				return -EINVAL;
+				}
+		resource_set_opp_level(VDD1_OPP, value, flags);
 		}
 	} else if (attr == &vdd2_lock_attr) {
 		flags = OPP_IGNORE_LOCK;
@@ -105,6 +110,11 @@ static ssize_t vdd_opp_store(struct kobject *kobj, struct kobj_attribute *attr,
 		if (vdd2_locked == 0 && value != 0) {
 			resource_lock_opp(VDD2_OPP);
 			vdd2_locked = 1;
+			if (value < MIN_VDD2_OPP || value > MAX_VDD2_OPP) {
+				printk(KERN_ERR "vdd_opp_store: Invalid value\n");
+				return -EINVAL;
+			}
+			resource_set_opp_level(VDD2_OPP, value, flags);
 		}
 	}
 
