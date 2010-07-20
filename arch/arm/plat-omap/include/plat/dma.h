@@ -112,8 +112,12 @@
 #define OMAP1_DMA_COLOR_U(n)		(0x40 * (n) + 0x22)
 #define OMAP1_DMA_CCR2(n)		(0x40 * (n) + 0x24)
 #define OMAP1_DMA_LCH_CTRL(n)		(0x40 * (n) + 0x2a)	/* not on 15xx */
+#define OMAP1_DMA_COLOR(n)		0
 #define OMAP1_DMA_CCEN(n)		0
 #define OMAP1_DMA_CCFN(n)		0
+#define OMAP1_DMA_CDP(n)		0
+#define OMAP1_DMA_CNDP(n)		0
+#define OMAP1_DMA_CCDN(n)		0
 
 /* Channel specific registers only on omap2 */
 #define OMAP_DMA4_CSSA(n)		(0x60 * (n) + 0x9c)
@@ -132,6 +136,8 @@
 #define OMAP1_DMA_IRQSTATUS_L0		0
 #define OMAP1_DMA_IRQENABLE_L0		0
 #define OMAP1_DMA_OCP_SYSCONFIG		0
+#define OMAP1_DMA_CAPS_0		0
+
 #define OMAP_DMA4_HW_ID			0
 #define OMAP_DMA4_CAPS_0_L		0
 #define OMAP_DMA4_CAPS_0_U		0
@@ -576,6 +582,84 @@ struct omap_dma_channel_params {
 #endif
 };
 
+struct omap_dma_sglist_type1_params {
+	u32 src_addr;
+	u32 dst_addr;
+	u16 cfn_fn;
+	u16 cicr;
+	u16 dst_elem_idx;
+	u16 src_elem_idx;
+	u32 dst_frame_idx_or_pkt_size;
+	u32 src_frame_idx_or_pkt_size;
+	u32 color;
+	u32 csdp;
+	u32 clnk_ctrl;
+	u32 ccr;
+};
+
+struct omap_dma_sglist_type2a_params {
+	u32 src_addr;
+	u32 dst_addr;
+	u16 cfn_fn;
+	u16 cicr;
+	u16 dst_elem_idx;
+	u16 src_elem_idx;
+	u32 dst_frame_idx_or_pkt_size;
+	u32 src_frame_idx_or_pkt_size;
+};
+
+struct omap_dma_sglist_type2b_params {
+	u32 src_or_dest_addr;
+	u16 cfn_fn;
+	u16 cicr;
+	u16 dst_elem_idx;
+	u16 src_elem_idx;
+	u32 dst_frame_idx_or_pkt_size;
+	u32 src_frame_idx_or_pkt_size;
+};
+
+struct omap_dma_sglist_type3a_params {
+	u32 src_addr;
+	u32 dst_addr;
+};
+
+struct omap_dma_sglist_type3b_params {
+	u32 src_or_dest_addr;
+};
+
+enum omap_dma_sglist_descriptor_select {
+	OMAP_DMA_SGLIST_DESCRIPTOR_TYPE1,
+	OMAP_DMA_SGLIST_DESCRIPTOR_TYPE2a,
+	OMAP_DMA_SGLIST_DESCRIPTOR_TYPE2b,
+	OMAP_DMA_SGLIST_DESCRIPTOR_TYPE3a,
+	OMAP_DMA_SGLIST_DESCRIPTOR_TYPE3b,
+};
+
+union omap_dma_sglist_node_type{
+	struct omap_dma_sglist_type1_params t1;
+	struct omap_dma_sglist_type2a_params t2a;
+	struct omap_dma_sglist_type2b_params t2b;
+	struct omap_dma_sglist_type3a_params t3a;
+	struct omap_dma_sglist_type3b_params t3b;
+};
+
+struct omap_dma_sglist_node {
+
+	/* Common elements for all descriptors */
+	dma_addr_t next_desc_add_ptr;
+	u32 num_of_elem;
+	/* Type specific elements */
+	union omap_dma_sglist_node_type sg_node;
+	/* Control fields */
+	unsigned short flags;
+	/* Fields that can be set in flags variable */
+	#define OMAP_DMA_LIST_SRC_VALID		BIT(0)
+	#define OMAP_DMA_LIST_DST_VALID		BIT(1)
+	#define OMAP_DMA_LIST_NOTIFY_BLOCK_END	BIT(2)
+	enum omap_dma_sglist_descriptor_select desc_type;
+	struct omap_dma_sglist_node *next;
+};
+
 
 extern void omap_set_dma_priority(int lch, int dst_port, int priority);
 extern int omap_request_dma(int dev_id, const char *dev_name,
@@ -660,6 +744,94 @@ extern int omap_modify_dma_chain_params(int chain_id,
 					struct omap_dma_channel_params params);
 extern int omap_dma_chain_status(int chain_id);
 #endif
+
+/**
+ * omap_set_dma_sglist_mode()	Switch channel to scatter gather mode
+ * @lch:	Logical channel to switch to sglist mode
+ * @sghead:	Contains the descriptor elements to be executed
+ *		Should be allocated using dma_alloc_coherent
+ * @padd:	The dma address of sghead, as returned by dma_alloc_coherent
+ * @nelem:	Number of elements in sghead
+ * @chparams:	DMA channel transfer parameters. Can be NULL
+ */
+extern int omap_set_dma_sglist_mode(int lch,
+	struct omap_dma_sglist_node *sghead, dma_addr_t padd,
+	int nelem, struct omap_dma_channel_params *chparams);
+
+/**
+ * omap_clear_dma_sglist_mode()	Switch from scatter gather mode
+ *				to normal mode
+ * @lch:	The logical channel to be switched to normal mode
+ *
+ * Switches the requested logical channel to normal mode
+ * from scatter gather mode
+ */
+extern void omap_clear_dma_sglist_mode(int lch);
+
+/**
+ * omap_start_dma_sglist_transfers()	Starts the sglist transfer
+ * @lch:	logical channel on which sglist transfer to be started
+ * @pauseafter:	index of the element on which to pause the transfer
+ *		set to -1 if no pause is needed till end of transfer
+ *
+ * Start the dma transfer in list mode
+ * The index (in pauseafter) is absolute (from the head of the list)
+ * User should have previously called omap_set_dma_sglist_mode()
+ */
+extern int omap_start_dma_sglist_transfers(int lch, int pauseafter);
+
+/**
+ * omap_resume_dma_sglist_transfers()	Resumes a previously paused
+ *					sglist transfer
+ * @lch:	The logical channel to be resumed
+ * @pauseafter:	The index of sglist to be paused again
+ *		set to -1 if no pause is needed till end of transfer
+ *
+ * Resume the previously paused transfer
+ * The index (in pauseafter) is absolute (from the head of the list)
+  */
+extern int omap_resume_dma_sglist_transfers(int lch, int pauseafter);
+
+/**
+ * omap_release_dma_sglist()	Releases a previously requested
+ *				DMA channel which is in sglist mode
+ * @lch:	The logical channel to be released
+ */
+extern void omap_release_dma_sglist(int lch);
+
+/**
+ * omap_get_completed_sglist_nodes()	Returns a list of completed
+ *					sglist nodes
+ * @lch:	The logical on which the query is to be made
+ *
+ * Returns the number of completed elements in the linked list
+ * The value is transient if the API is invoked for an ongoing transfer
+ */
+int omap_get_completed_sglist_nodes(int lch);
+
+/**
+ * omap_dma_sglist_is_paused()	Query is the logical channel in
+ *				sglist mode is paused or note
+ * @lch:	The logical on which the query is to be made
+ *
+ * Returns non zero if the linked list is currently in pause state
+ */
+int omap_dma_sglist_is_paused(int lch);
+
+/**
+ * omap_dma_set_sglist_fastmode() Set the sglist transfer to fastmode
+ * @lch:	The logical channel which is to be changed to fastmode
+ * @fastmode:	Set or clear the fastmode status
+ *		1 = set fastmode
+ *		0 = clear fastmode
+ *
+ * In fastmode, DMA register settings are updated from the first element
+ * of the linked list, before initiating the tranfer.
+ * In non-fastmode, the first element is used only after completing the
+ * transfer as already configured in the registers
+ */
+void omap_dma_set_sglist_fastmode(int lch, int fastmode);
+
 
 /* LCD DMA functions */
 extern int omap_request_lcd_dma(void (*callback)(u16 status, void *data),
