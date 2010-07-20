@@ -88,6 +88,8 @@
 
 #include <linux/types.h>
 #include <linux/semaphore.h>
+#include <linux/workqueue.h>
+#include <linux/kfifo.h>
 
 /* Pm notify ducati driver */
 /* Suspend/resume/other... */
@@ -272,11 +274,20 @@ struct ipu_pm_module_object {
 	/* Indicates whether the ipu_pm module is setup. */
 };
 
+/* Store the payload and processor id for the wq */
+struct ipu_pm_msg {
+	u16 proc_id;
+	int pm_msg;
+};
+
 /* ipu_pm handle one for each proc SYSM3/APPM3 */
 struct ipu_pm_object {
 	struct sms *rcb_table;
 	struct pm_event *pm_event;
 	struct ipu_pm_params *params;
+	struct work_struct work;
+	struct kfifo *fifo;
+	spinlock_t lock;
 };
 
 /* Function for PM resources Callback */

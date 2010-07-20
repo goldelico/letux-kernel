@@ -63,6 +63,7 @@
 
 #define LINE_ID 0
 #define NUM_SELF_PROC 2
+#define IPU_KFIFO_SIZE 16
 #define PM_VERSION 0x0100
 
 /** ============================================================================
@@ -70,35 +71,41 @@
  *  ============================================================================
  */
 
+/* Function to request a resource */
+static inline int ipu_pm_req_res(u32 res_type, u32 proc_id, u32 rcb_num);
+
+/* Function to release a resource */
+static inline int ipu_pm_rel_res(u32 res_type, u32 proc_id, u32 rcb_num);
+
 /* Function to get sdma channels from PRCM */
-static inline int ipu_pm_get_sdma_chan(int proc_id, unsigned rcb_num);
+static inline int ipu_pm_get_sdma_chan(int proc_id, u32 rcb_num);
 
 /* Function to get gptimers from PRCM */
-static inline int ipu_pm_get_gptimer(int proc_id, unsigned rcb_num);
+static inline int ipu_pm_get_gptimer(int proc_id, u32 rcb_num);
 
 /* Function to get i2c buses from PRCM */
-static inline int ipu_pm_get_i2c_bus(int proc_id, unsigned rcb_num);
+static inline int ipu_pm_get_i2c_bus(int proc_id, u32 rcb_num);
 
 /* Function to get gpios from PRCM */
-static inline int ipu_pm_get_gpio(int proc_id, unsigned rcb_num);
+static inline int ipu_pm_get_gpio(int proc_id, u32 rcb_num);
 
 /* Function to get regulators from PRCM */
-static inline int ipu_pm_get_regulator(int proc_id, unsigned rcb_num);
+static inline int ipu_pm_get_regulator(int proc_id, u32 rcb_num);
 
 /* Function to release sdma channels to PRCM */
-static inline int ipu_pm_rel_sdma_chan(int proc_id, unsigned rcb_num);
+static inline int ipu_pm_rel_sdma_chan(int proc_id, u32 rcb_num);
 
 /* Function to release gptimers to PRCM */
-static inline int ipu_pm_rel_gptimer(int proc_id, unsigned rcb_num);
+static inline int ipu_pm_rel_gptimer(int proc_id, u32 rcb_num);
 
 /* Function to release i2c buses to PRCM */
-static inline int ipu_pm_rel_i2c_bus(int proc_id, unsigned rcb_num);
+static inline int ipu_pm_rel_i2c_bus(int proc_id, u32 rcb_num);
 
 /* Function to release gpios from PRCM */
-static inline int ipu_pm_rel_gpio(int proc_id, unsigned rcb_num);
+static inline int ipu_pm_rel_gpio(int proc_id, u32 rcb_num);
 
 /* Function to release regulators to PRCM */
-static inline int ipu_pm_rel_regulator(int proc_id, unsigned rcb_num);
+static inline int ipu_pm_rel_regulator(int proc_id, u32 rcb_num);
 
 /* Function to get ipu pm object */
 static inline struct ipu_pm_object *ipu_pm_get_handle(int proc_id);
@@ -108,21 +115,14 @@ static inline struct ipu_pm_object *ipu_pm_get_handle(int proc_id);
  *  ============================================================================
  */
 
-static union message_slicer pm_msg;
-
-static int pm_action_type;
-static int pm_resource_type;
-static int pm_gptimer_num;
-static int pm_gpio_num;
-static int pm_i2c_bus_num;
-static int pm_sdmachan_num;
-static int pm_sdmachan_dummy;
-static int ch, ch_aux;
-static int pm_regulator_num;
-static int return_val;
+/* Usage Masks */
 static u32 GPTIMER_USE_MASK = 0xFFFF;
 static u32 I2C_USE_MASK = 0xFFFF;
 static u32 cam2_prev_volt;
+
+static struct ipu_pm_object *pm_handle_appm3;
+static struct ipu_pm_object *pm_handle_sysm3;
+static struct workqueue_struct *ipu_wq;
 
 /* Ducati Interrupt Capable Gptimers */
 static int ipu_timer_list[NUM_IPU_TIMERS] = {
@@ -141,9 +141,6 @@ static int i2c_spinlock_list[I2C_BUS_MAX + 1] = {
 
 static char *ipu_regulator_name[REGULATOR_MAX] = {
 	"cam2pwr"};
-
-static struct ipu_pm_object *pm_handle_appm3;
-static struct ipu_pm_object *pm_handle_sysm3;
 
 static struct ipu_pm_module_object ipu_pm_state = {
 	.def_cfg.reserved = 1,
@@ -167,199 +164,163 @@ static struct ipu_pm_params pm_params = {
 } ;
 
 /*
-  Function for PM resources Callback
+  Function to request a resource from PRCM
  *
  */
-void ipu_pm_callback(u16 proc_id, u16 line_id, u32 event_id,
-					uint *arg, u32 payload)
+static inline int ipu_pm_req_res(u32 res_type, u32 proc_id, u32 rcb_num)
 {
-	struct rcb_block *rcb_p;
-	struct ipu_pm_object *handle;
-	struct ipu_pm_params *params;
+	s32 return_val = PM_SUCCESS;
 
-	/* get the handle to proper ipu pm object */
-	handle = ipu_pm_get_handle(proc_id);
-	if (WARN_ON(unlikely(handle == NULL)))
-		return;
-
-	params = handle->params;
-	if (WARN_ON(unlikely(params == NULL)))
-		return;
-
-	/* Get the payload */
-	pm_msg.whole = payload;
-	/* Get pointer to the proper RCB */
-	rcb_p = (struct rcb_block *)
-		&handle->rcb_table->rcb[pm_msg.fields.rcb_num];
-
-	/* Get the type of resource and the actions required */
-	pm_action_type = rcb_p->msg_type;
-	pm_resource_type = rcb_p->sub_type;
-
-	/* Request the resource to PRCM */
-	switch (pm_resource_type) {
+	switch (res_type) {
 	case SDMA:
-		if (pm_action_type == PM_REQUEST_RESOURCE) {
-			return_val =
-				ipu_pm_get_sdma_chan(proc_id,
-					pm_msg.fields.rcb_num);
-			if (return_val != PM_SUCCESS) {
-				/* Update payload with the failure msg */
-				pm_msg.fields.msg_type = PM_REQUEST_FAIL;
-				pm_msg.fields.parm = return_val;
-				break;
-			}
-			break;
-		}
-		if (pm_action_type == PM_RELEASE_RESOURCE) {
-			return_val =
-				ipu_pm_rel_sdma_chan(proc_id,
-					pm_msg.fields.rcb_num);
-			if (return_val != PM_SUCCESS) {
-				/* Update payload with the failure msg */
-				pm_msg.fields.msg_type = PM_RELEASE_FAIL;
-				pm_msg.fields.parm = return_val;
-				break;
-			}
-			break;
-		}
+		return_val = ipu_pm_get_sdma_chan(proc_id, rcb_num);
 		break;
 	case GP_TIMER:
-		if (pm_action_type == PM_REQUEST_RESOURCE) {
-			/* GP Timers 3,4,9 or 11 for Ducati M3 */
-			return_val = ipu_pm_get_gptimer(proc_id,
-							pm_msg.fields.rcb_num);
-			if (return_val != PM_SUCCESS) {
-				/* Update the payload with the failure msg */
-				pm_msg.fields.msg_type = PM_REQUEST_FAIL;
-				pm_msg.fields.parm = return_val;
-				break;
-			}
-			break;
-		}
-		if (pm_action_type == PM_RELEASE_RESOURCE) {
-			return_val =
-				ipu_pm_rel_gptimer(proc_id,
-					pm_msg.fields.rcb_num);
-			if (return_val != PM_SUCCESS) {
-				/* Update the payload with the failure msg */
-				pm_msg.fields.msg_type = PM_RELEASE_FAIL;
-				pm_msg.fields.parm = return_val;
-				break;
-			}
-			break;
-		}
+		return_val = ipu_pm_get_gptimer(proc_id, rcb_num);
 		break;
 	case GP_IO:
-		if (pm_action_type == PM_REQUEST_RESOURCE) {
-			return_val =
-				ipu_pm_get_gpio(proc_id,
-					pm_msg.fields.rcb_num);
-			if (return_val != PM_SUCCESS) {
-				/* Update the payload with the failure msg */
-				pm_msg.fields.msg_type = PM_REQUEST_FAIL;
-				pm_msg.fields.parm = return_val;
-				break;
-			}
-			break;
-		}
-		if (pm_action_type == PM_RELEASE_RESOURCE) {
-			return_val =
-				ipu_pm_rel_gpio(proc_id,
-					pm_msg.fields.rcb_num);
-			if (return_val != PM_SUCCESS) {
-				/* Update the payload with the failure msg */
-				pm_msg.fields.msg_type = PM_RELEASE_FAIL;
-				pm_msg.fields.parm = return_val;
-				break;
-			}
-			break;
-		}
+		return_val = ipu_pm_get_gpio(proc_id, rcb_num);
 		break;
 	case I2C:
-		if (pm_action_type == PM_REQUEST_RESOURCE) {
-			return_val =
-				ipu_pm_get_i2c_bus(proc_id,
-					pm_msg.fields.rcb_num);
-			if (return_val != PM_SUCCESS) {
-				/* i2c bus/clock for Ducati unavailable */
-				/* Update the payload with the failure msg */
-				pm_msg.fields.msg_type = PM_REQUEST_FAIL;
-				pm_msg.fields.parm = return_val;
-				break;
-			}
-			break;
-		}
-		if (pm_action_type == PM_RELEASE_RESOURCE) {
-			return_val =
-				ipu_pm_rel_i2c_bus(proc_id,
-					pm_msg.fields.rcb_num);
-			if (return_val != PM_SUCCESS) {
-				/* i2c bus/clock for Ducati unavailable */
-				/* Update the payload with the failure msg */
-				pm_msg.fields.msg_type = PM_RELEASE_FAIL;
-				pm_msg.fields.parm = return_val;
-				break;
-			}
-			break;
-		}
+		return_val = ipu_pm_get_i2c_bus(proc_id, rcb_num);
 		break;
 	case REGULATOR:
-		if (pm_action_type == PM_REQUEST_RESOURCE) {
-			return_val =
-				ipu_pm_get_regulator(proc_id,
-					pm_msg.fields.rcb_num);
-			if (return_val != PM_SUCCESS) {
-				/* Regulator unavailable */
-				/* Update the payload with the failure msg */
-				pm_msg.fields.msg_type = PM_REQUEST_FAIL;
-				pm_msg.fields.parm = return_val;
-				break;
-			}
-			break;
-		}
-		if (pm_action_type == PM_RELEASE_RESOURCE) {
-			return_val =
-				ipu_pm_rel_regulator(proc_id,
-					pm_msg.fields.rcb_num);
-			if (return_val != PM_SUCCESS) {
-				/* Update the payload with the failure msg */
-				pm_msg.fields.msg_type = PM_RELEASE_FAIL;
-				pm_msg.fields.parm = return_val;
-				break;
-			}
-			break;
-		}
+		return_val = ipu_pm_get_regulator(proc_id, rcb_num);
 		break;
 	case DUCATI:
 	case IVA_HD:
 	case ISS:
 	default:
 		printk(KERN_ERR "Unsupported resource\n");
-		/* Report error to Remote processor */
-		pm_msg.fields.msg_type = PM_FAILURE,
-		pm_msg.fields.parm = PM_UNSUPPORTED;
-		break;
+		return_val = PM_UNSUPPORTED;
 	}
 
-	/* Update the payload with the reply msg */
-	pm_msg.fields.reply_flag = true;
+	return return_val;
+}
 
-	/* Update the payload before send */
-	payload = pm_msg.whole;
+/*
+  Function to release a resource to PRCM
+ *
+ */
+static inline int ipu_pm_rel_res(u32 res_type, u32 proc_id, u32 rcb_num)
+{
+	s32 return_val = PM_SUCCESS;
 
-	/* send the ACK to DUCATI*/
-	return_val = notify_send_event(
-				params->remote_proc_id,/*DUCATI_PROC*/
-				params->line_id,
-				params->pm_resource_event | \
-					(NOTIFY_SYSTEMKEY << 16),
-				payload,
-				true);
-	if (return_val < 0)
-		printk(KERN_ERR "ERROR SENDING PM EVENT\n");
+	switch (res_type) {
+	case SDMA:
+		return_val = ipu_pm_rel_sdma_chan(proc_id, rcb_num);
+		break;
+	case GP_TIMER:
+		return_val = ipu_pm_rel_gptimer(proc_id, rcb_num);
+		break;
+	case GP_IO:
+		return_val = ipu_pm_rel_gpio(proc_id, rcb_num);
+		break;
+	case I2C:
+		return_val = ipu_pm_rel_i2c_bus(proc_id, rcb_num);
+		break;
+	case REGULATOR:
+		return_val = ipu_pm_rel_regulator(proc_id, rcb_num);
+		break;
+	case DUCATI:
+	case IVA_HD:
+	case ISS:
+	default:
+		printk(KERN_ERR "Unsupported resource\n");
+		return_val = PM_UNSUPPORTED;
+	}
+
+	return return_val;
+}
+
+/*
+  Work Function to req/rel a resource
+ *
+ */
+static void ipu_pm_work(struct work_struct *work)
+{
+	struct ipu_pm_object *handle =
+			container_of(work, struct ipu_pm_object, work);
+	struct rcb_block *rcb_p;
+	struct ipu_pm_msg im;
+	struct ipu_pm_params *params = handle->params;
+	union message_slicer pm_msg;
+	int action_type;
+	int res_type;
+	int rcb_num;
+	s32 return_val = PM_SUCCESS;
+
+	while (kfifo_len(handle->fifo) >= sizeof(im)) {
+		kfifo_get(handle->fifo, (unsigned char *)&im, sizeof(im));
+
+		/* Get the payload */
+		pm_msg.whole = im.pm_msg;
+		/* Get the rcb_num */
+		rcb_num = pm_msg.fields.rcb_num;
+		/* Get pointer to the proper RCB */
+		rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
+
+		/* Get the type of resource and the actions required */
+		action_type = rcb_p->msg_type;
+		res_type = rcb_p->sub_type;
+		if (action_type == PM_REQUEST_RESOURCE) {
+			return_val = ipu_pm_req_res(
+						res_type,
+						im.proc_id,
+						rcb_num);
+			if (return_val != PM_SUCCESS)
+				pm_msg.fields.msg_type = PM_REQUEST_FAIL;
+		} else if (action_type == PM_RELEASE_RESOURCE) {
+			return_val = ipu_pm_rel_res(
+						res_type,
+						im.proc_id,
+						rcb_num);
+			if (return_val != PM_SUCCESS)
+				pm_msg.fields.msg_type = PM_RELEASE_FAIL;
+		} else {
+			pm_msg.fields.msg_type = PM_FAILURE;
+			return_val = PM_UNSUPPORTED;
+		}
+
+		/* Update the payload with the reply msg */
+		pm_msg.fields.reply_flag = true;
+		pm_msg.fields.parm = return_val;
+
+		/* Restore the payload and send to caller*/
+		im.pm_msg = pm_msg.whole;
+
+		/* Send the ACK to Remote Proc*/
+		return_val = notify_send_event(
+					params->remote_proc_id,
+					params->line_id,
+					params->pm_resource_event | \
+						(NOTIFY_SYSTEMKEY << 16),
+					im.pm_msg,
+					true);
+		if (return_val < 0)
+			printk(KERN_INFO "Error sending notify event\n");
+	}
+}
+
+void ipu_pm_callback(u16 proc_id, u16 line_id, u32 event_id,
+					uint *arg, u32 payload)
+{
+	struct ipu_pm_object *handle;
+	struct ipu_pm_msg im;
+
+	/*get the handle to proper ipu pm object */
+	handle = ipu_pm_get_handle(proc_id);
+
+	im.proc_id = proc_id;
+	im.pm_msg = payload;
+
+	if (kfifo_avail(handle->fifo) >= sizeof(im)) {
+		kfifo_put(handle->fifo, (unsigned char *)&im, sizeof(im));
+		queue_work(ipu_wq, &handle->work);
+	}
 }
 EXPORT_SYMBOL(ipu_pm_callback);
+
 
 /*
   Function for PM notifications Callback
@@ -375,6 +336,7 @@ void ipu_pm_notify_callback(u16 proc_id, u16 line_id, u32 event_id,
 	 */
 	/* Get the payload */
 	struct ipu_pm_object *handle;
+	union message_slicer pm_msg;
 	/* get the handle to proper ipu pm object */
 	handle = ipu_pm_get_handle(proc_id);
 	if (WARN_ON(unlikely(handle == NULL)))
@@ -411,6 +373,8 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 
 	struct ipu_pm_object *handle;
 	struct ipu_pm_params *params;
+	union message_slicer pm_msg;
+	s32 return_val;
 	int pm_ack = 0;
 	int i;
 	int proc_id;
@@ -438,7 +402,7 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 					(unsigned int)pm_msg.whole,
 					true);
 			if (return_val < 0)
-				printk(KERN_ERR "ERROR SENDING PM EVENT\n");
+				printk(KERN_ERR "Error sending notify event\n");
 			/* wait until event from IPU (ipu_pm_notify_callback)*/
 			return_val = down_timeout
 					(&handle->pm_event[PM_SUSPEND]
@@ -464,7 +428,7 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 					(unsigned int)pm_msg.whole,
 					true);
 			if (return_val < 0)
-				printk(KERN_ERR "ERROR SENDING PM EVENT\n");
+				printk(KERN_ERR "Error sending notify event\n");
 			/* wait until event from IPU (ipu_pm_notify_callback)*/
 			return_val = down_timeout
 					(&handle->pm_event[PM_RESUME]
@@ -490,7 +454,7 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 					(unsigned int)pm_msg.whole,
 					true);
 			if (return_val < 0)
-				printk(KERN_ERR "ERROR SENDING PM EVENT\n");
+				printk(KERN_ERR "Error sending notify event\n");
 			/* wait until event from IPU (ipu_pm_notify_callback)*/
 			return_val = down_timeout
 					(&handle->pm_event[PM_OTHER]
@@ -513,11 +477,16 @@ EXPORT_SYMBOL(ipu_pm_notifications);
   Function to get sdma channels from PRCM
  *
  */
-static inline int ipu_pm_get_sdma_chan(int proc_id, unsigned rcb_num)
+static inline int ipu_pm_get_sdma_chan(int proc_id, u32 rcb_num)
 {
 	struct ipu_pm_object *handle;
 	struct ipu_pm_params *params;
 	struct rcb_block *rcb_p;
+	int pm_sdmachan_num;
+	int pm_sdmachan_dummy;
+	int ch;
+	int ch_aux;
+	s32 return_val;
 
 	/* get the handle to proper ipu pm object */
 	handle = ipu_pm_get_handle(proc_id);
@@ -566,7 +535,7 @@ clean_sdma:
   Function to get gptimers from PRCM
  *
  */
-static inline int ipu_pm_get_gptimer(int proc_id, unsigned rcb_num)
+static inline int ipu_pm_get_gptimer(int proc_id, u32 rcb_num)
 {
 	struct ipu_pm_object *handle;
 	struct ipu_pm_params *params;
@@ -615,7 +584,7 @@ static inline int ipu_pm_get_gptimer(int proc_id, unsigned rcb_num)
   Function to get an i2c bus
  *
  */
-static inline int ipu_pm_get_i2c_bus(int proc_id, unsigned rcb_num)
+static inline int ipu_pm_get_i2c_bus(int proc_id, u32 rcb_num)
 {
 	struct ipu_pm_object *handle;
 	struct ipu_pm_params *params;
@@ -623,6 +592,7 @@ static inline int ipu_pm_get_i2c_bus(int proc_id, unsigned rcb_num)
 	struct clk *p_i2c_clk;
 	int i2c_clk_status;
 	char i2c_name[I2C_NAME_SIZE];
+	int pm_i2c_bus_num;
 
 	/* get the handle to proper ipu pm object */
 	handle = ipu_pm_get_handle(proc_id);
@@ -670,11 +640,13 @@ static inline int ipu_pm_get_i2c_bus(int proc_id, unsigned rcb_num)
   Function to get gpio
  *
  */
-static inline int ipu_pm_get_gpio(int proc_id, unsigned rcb_num)
+static inline int ipu_pm_get_gpio(int proc_id, u32 rcb_num)
 {
 	struct ipu_pm_object *handle;
 	struct ipu_pm_params *params;
 	struct rcb_block *rcb_p;
+	int pm_gpio_num;
+	s32 return_val;
 
 	/* get the handle to proper ipu pm object */
 	handle = ipu_pm_get_handle(proc_id);
@@ -703,13 +675,14 @@ static inline int ipu_pm_get_gpio(int proc_id, unsigned rcb_num)
   Function to get a regulator
  *
  */
-static inline int ipu_pm_get_regulator(int proc_id, unsigned rcb_num)
+static inline int ipu_pm_get_regulator(int proc_id, u32 rcb_num)
 {
 	struct ipu_pm_object *handle;
 	struct ipu_pm_params *params;
 	struct rcb_block *rcb_p;
 	struct regulator *p_regulator = NULL;
 	char *regulator_name;
+	int pm_regulator_num;
 	s32 retval = 0;
 
 	/* get the handle to proper ipu pm object */
@@ -764,11 +737,14 @@ static inline int ipu_pm_get_regulator(int proc_id, unsigned rcb_num)
   Function to release sdma channels to PRCM
  *
  */
-static inline int ipu_pm_rel_sdma_chan(int proc_id, unsigned rcb_num)
+static inline int ipu_pm_rel_sdma_chan(int proc_id, u32 rcb_num)
 {
 	struct ipu_pm_object *handle;
 	struct ipu_pm_params *params;
 	struct rcb_block *rcb_p;
+	int pm_sdmachan_num;
+	int pm_sdmachan_dummy;
+	int ch;
 
 	/* get the handle to proper ipu pm object */
 	handle = ipu_pm_get_handle(proc_id);
@@ -799,12 +775,13 @@ static inline int ipu_pm_rel_sdma_chan(int proc_id, unsigned rcb_num)
   Function to release gptimer to PRCM
  *
  */
-static inline int ipu_pm_rel_gptimer(int proc_id, unsigned rcb_num)
+static inline int ipu_pm_rel_gptimer(int proc_id, u32 rcb_num)
 {
 	struct ipu_pm_object *handle;
 	struct ipu_pm_params *params;
 	struct rcb_block *rcb_p;
 	struct omap_dm_timer *p_gpt;
+	int pm_gptimer_num;
 
 	/* get the handle to proper ipu pm object */
 	handle = ipu_pm_get_handle(proc_id);
@@ -843,12 +820,13 @@ static inline int ipu_pm_rel_gptimer(int proc_id, unsigned rcb_num)
   Function to release an i2c bus
  *
  */
-static inline int ipu_pm_rel_i2c_bus(int proc_id, unsigned rcb_num)
+static inline int ipu_pm_rel_i2c_bus(int proc_id, u32 rcb_num)
 {
 	struct ipu_pm_object *handle;
 	struct ipu_pm_params *params;
 	struct rcb_block *rcb_p;
 	struct clk *p_i2c_clk;
+	int pm_i2c_bus_num;
 
 	/* get the handle to proper ipu pm object */
 	handle = ipu_pm_get_handle(proc_id);
@@ -887,11 +865,12 @@ static inline int ipu_pm_rel_i2c_bus(int proc_id, unsigned rcb_num)
   Function to release gpio
  *
  */
-static inline int ipu_pm_rel_gpio(int proc_id, unsigned rcb_num)
+static inline int ipu_pm_rel_gpio(int proc_id, u32 rcb_num)
 {
 	struct ipu_pm_object *handle;
 	struct ipu_pm_params *params;
 	struct rcb_block *rcb_p;
+	int pm_gpio_num;
 
 	/* get the handle to proper ipu pm object */
 	handle = ipu_pm_get_handle(proc_id);
@@ -918,7 +897,7 @@ static inline int ipu_pm_rel_gpio(int proc_id, unsigned rcb_num)
   Function to release a regulator
  *
  */
-static inline int ipu_pm_rel_regulator(int proc_id, unsigned rcb_num)
+static inline int ipu_pm_rel_regulator(int proc_id, u32 rcb_num)
 {
 	struct ipu_pm_object *handle;
 	struct ipu_pm_params *params;
@@ -1038,7 +1017,7 @@ int ipu_pm_init_transport(struct ipu_pm_object *handle)
 		(notify_fn_notify_cbck)ipu_pm_callback,
 		(void *)NULL);
 		if (status < 0)
-			printk(KERN_ERR "ERROR UNREGISTERING PM EVENT\n");
+			printk(KERN_ERR "Error sending notify event\n");
 		goto pm_register_fail;
 	}
 	return status;
@@ -1108,6 +1087,20 @@ struct ipu_pm_object *ipu_pm_create(const struct ipu_pm_params *params)
 					"Remote:0x%x", PM_VERSION,
 					pm_handle_sysm3->rcb_table->pm_version);
 
+		spin_lock_init(&pm_handle_sysm3->lock);
+		INIT_WORK(&pm_handle_sysm3->work, ipu_pm_work);
+
+		pm_handle_sysm3->fifo = kfifo_alloc(
+				IPU_KFIFO_SIZE * sizeof(struct ipu_pm_msg),
+				GFP_KERNEL, &pm_handle_sysm3->lock);
+
+		if (pm_handle_sysm3->fifo == NULL) {
+			retval = -ENOMEM;
+			kfree(pm_handle_sysm3->params);
+			kfree(pm_handle_sysm3->pm_event);
+			kfree(pm_handle_sysm3);
+			goto exit;
+		}
 		return pm_handle_sysm3;
 	} else {/* remote_proc_id == APP_M3 */
 		pm_handle_appm3 = kmalloc(sizeof(struct ipu_pm_object),
@@ -1155,6 +1148,18 @@ struct ipu_pm_object *ipu_pm_create(const struct ipu_pm_params *params)
 					"Remote:0x%x", PM_VERSION,
 					pm_handle_appm3->rcb_table->pm_version);
 
+		spin_lock_init(&pm_handle_appm3->lock);
+		INIT_WORK(&pm_handle_appm3->work, ipu_pm_work);
+
+		pm_handle_appm3->fifo = kfifo_alloc(
+				IPU_KFIFO_SIZE * sizeof(struct ipu_pm_msg),
+				GFP_KERNEL, &pm_handle_appm3->lock);
+		if  (pm_handle_appm3->fifo == NULL) {
+			retval = -ENOMEM;
+			kfree(pm_handle_appm3->params);
+			kfree(pm_handle_appm3->pm_event);
+			kfree(pm_handle_appm3);
+		}
 		return pm_handle_appm3;
 	}
 
@@ -1285,6 +1290,9 @@ int ipu_pm_setup(struct ipu_pm_config *cfg)
 	mutex_init(lock);
 	ipu_pm_state.gate_handle = lock;
 
+	/* Create the wq for req/rel resources */
+	ipu_wq = create_singlethread_workqueue("ipu_wq");
+
 	/* No proc attached yet */
 	pm_handle_appm3 = NULL;
 	pm_handle_sysm3 = NULL;
@@ -1372,7 +1380,7 @@ int ipu_pm_detach(u16 remote_proc_id)
 		(notify_fn_notify_cbck)ipu_pm_callback,
 		(void *)NULL);
 	if (retval < 0) {
-		printk(KERN_ERR "ERROR UNREGISTERING PM EVENT\n");
+		printk(KERN_ERR "Error registering notify event\n");
 		goto exit;
 	}
 	retval = notify_unregister_event(
@@ -1382,7 +1390,7 @@ int ipu_pm_detach(u16 remote_proc_id)
 		(notify_fn_notify_cbck)ipu_pm_notify_callback,
 		(void *)NULL);
 	if (retval < 0) {
-		printk(KERN_ERR "ERROR UNREGISTERING PM EVENT\n");
+		printk(KERN_ERR "Error registering notify event\n");
 		goto exit;
 	}
 
@@ -1432,6 +1440,8 @@ int ipu_pm_destroy(void)
 	ipu_pm_state.gate_handle = NULL;
 	mutex_unlock(lock);
 	kfree(lock);
+	/* Delete the wq for req/rel resources */
+	destroy_workqueue(ipu_wq);
 	return retval;
 
 exit:
