@@ -189,7 +189,7 @@ int rsz_ioc_run_engine(struct rsz_fhdl *fhdl)
 	ispresizer_enable(&fhdl->isp_dev->isp_res, 1);
 
 	ret = wait_for_completion_interruptible_timeout(
-			&rsz_params->isr_complete, msecs_to_jiffies(500));
+			&rsz_params->isr_complete, msecs_to_jiffies(1000));
 	if (ret == 0)
 		dev_crit(rsz_device, "\nTimeout exit from"
 				     " wait_for_completion\n");
