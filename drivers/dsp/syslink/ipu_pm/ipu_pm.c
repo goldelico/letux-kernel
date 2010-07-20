@@ -1102,7 +1102,7 @@ struct ipu_pm_object *ipu_pm_create(const struct ipu_pm_params *params)
 			goto exit;
 		}
 		return pm_handle_sysm3;
-	} else {/* remote_proc_id == APP_M3 */
+	} else if (params->remote_proc_id == APP_M3) {
 		pm_handle_appm3 = kmalloc(sizeof(struct ipu_pm_object),
 						GFP_ATOMIC);
 
@@ -1161,7 +1161,8 @@ struct ipu_pm_object *ipu_pm_create(const struct ipu_pm_params *params)
 			kfree(pm_handle_appm3);
 		}
 		return pm_handle_appm3;
-	}
+	} else
+		retval = -EINVAL;
 
 exit:
 	printk(KERN_ERR "ipu_pm_create failed! "
