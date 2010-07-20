@@ -226,7 +226,7 @@ static int prev2resz_ioc_run_engine(struct prev2resz_fhdl *fh)
 	ispresizer_enable(fh->isp_resz, 1);
 	isppreview_enable(fh->isp_prev, 1);
 	rval = wait_for_completion_interruptible_timeout(
-			&p2r_ctx.resz_complete, msecs_to_jiffies(500));
+			&p2r_ctx.resz_complete, msecs_to_jiffies(1000));
 	if (rval == 0)
 		dev_crit(p2r_device, "Resizer interrupt timeout exit\n");
 
