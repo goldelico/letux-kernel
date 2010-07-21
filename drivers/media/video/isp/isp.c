@@ -776,6 +776,9 @@ int isp_configure_interface(struct device *dev,
 			return r;
 		break;
 	case ISP_NONE:
+		ispctrl_val &= ~ISPCTRL_SBL_SHARED_RPORTA;
+		isp_reg_writel(dev, ispctrl_val,
+			       OMAP3_ISP_IOMEM_MAIN, ISP_CTRL);
 		return 0;
 	default:
 		return -EINVAL;
