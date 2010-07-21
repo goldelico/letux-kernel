@@ -4,6 +4,7 @@
  *
  * Copyright (C) 2010 Texas Instruments
  * Author: Shubhrajyoti D <shubhrajyoti@ti.com>
+ * Contributor: Dan Murphy <DMurphy@ti.com>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -24,13 +25,15 @@
 /*
  * struct sfh7741_platform_data - SFH7741 Platform data
  * @irq: IRQ assigned
- * @prox_enable: State of the sensor
+ * @prox_blocked: value to report when the prox sensor is blocked
+ * @prox_unblocked: value to report when the prox sensor is not blocked
  * @activate_func: function called to activate/deactivate the sensor
  * @read_prox: function to read the sensor output
  */
 struct sfh7741_platform_data {
 	int irq;
-	int prox_enable;
+	int prox_blocked;
+	int prox_unblocked;
 	void (*activate_func)(int state);
 	int (*read_prox)(void);
 };

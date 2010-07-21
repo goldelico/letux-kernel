@@ -4,6 +4,7 @@
  * Copyright (C) 2010 Texas Instruments
  *
  * Author: Shubhrajyoti D <shubhrajyoti@ti.com>
+ * Contributor: Dan Murphy <DMurphy@ti.com>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -19,60 +20,88 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 
-#include <linux/interrupt.h>
-#include <linux/pm.h>
-#include <linux/platform_device.h>
 #include <linux/input.h>
-#include <linux/input/sfh7741.h>
+#include <linux/interrupt.h>
+#include <linux/platform_device.h>
+#include <linux/pm.h>
 #include <linux/slab.h>
+#include <linux/workqueue.h>
+
+#include <linux/input/sfh7741.h>
+
+#define SFH7741_PROX_ON	1
+#define SFH7741_PROX_OFF	0
+#define SFH7741_NAME	"sfh7741"
 
 struct sfh7741_drvdata {
 	struct input_dev *input;
+	struct mutex lock;
+	struct platform_device *pdev;
+	struct sfh7741_platform_data *pdata;
+	struct work_struct irq_work;
+	struct workqueue_struct *work_queue;
 	int irq;
 	int prox_enable;
-	/* mutex for sysfs operations */
-	struct mutex lock;
-	void (*activate_func)(int state);
-	int (*read_prox)(void);
 };
 
-static irqreturn_t sfh7741_isr(int irq, void *dev_id)
+static void sfh7741_report_input(struct sfh7741_drvdata *sfh)
 {
-	struct sfh7741_drvdata *ddata = dev_id;
-	int proximity;
+	int distance;
 
-	proximity = ddata->read_prox();
-	input_report_abs(ddata->input, ABS_DISTANCE, proximity);
-	input_sync(ddata->input);
+	if (sfh->pdata->read_prox())
+		distance = sfh->pdata->prox_blocked;
+	else
+		distance = sfh->pdata->prox_unblocked;
+
+	input_report_abs(sfh->input, ABS_DISTANCE, distance);
+	input_sync(sfh->input);
+}
+
+static irqreturn_t sfh7741_isr(int irq, void *dev)
+{
+	struct sfh7741_drvdata *sfh = dev;
+
+	disable_irq_nosync(irq);
+	queue_work(sfh->work_queue, &sfh->irq_work);
 
 	return IRQ_HANDLED;
 }
 
+static void sfh7741_irq_work_func(struct work_struct *work)
+{
+	struct sfh7741_drvdata *sfh = container_of(work,
+				struct sfh7741_drvdata, irq_work);
+
+	sfh7741_report_input(sfh);
+	enable_irq(sfh->irq);
+}
 static ssize_t set_prox_state(struct device *dev,
 				struct device_attribute *attr,
 				const char *buf, size_t count)
 {
-	int state;
+	int state = SFH7741_PROX_OFF;
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sfh7741_drvdata *ddata = platform_get_drvdata(pdev);
 
 	if (sscanf(buf, "%u", &state) != 1)
 		return -EINVAL;
 
-	if ((state != 1) && (state != 0))
-		return -EINVAL;
-
-	ddata->activate_func(state);
+	if (state != SFH7741_PROX_OFF)
+		state = SFH7741_PROX_ON;
 
 	mutex_lock(&ddata->lock);
 	if (state != ddata->prox_enable) {
 		if (state)
 			enable_irq(ddata->irq);
 		else
-			disable_irq(ddata->irq);
+			disable_irq_nosync(ddata->irq);
+
+		ddata->pdata->activate_func(state);
 		ddata->prox_enable = state;
 	}
+
 	mutex_unlock(&ddata->lock);
+
 	return strnlen(buf, count);
 }
 
@@ -82,6 +111,7 @@ static ssize_t show_prox_state(struct device *dev,
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sfh7741_drvdata *ddata = platform_get_drvdata(pdev);
+
 	return sprintf(buf, "%u\n", ddata->prox_enable);
 }
 static DEVICE_ATTR(state, S_IWUSR | S_IRUGO, show_prox_state, set_prox_state);
@@ -98,81 +128,104 @@ static const struct attribute_group sfh7741_attr_group = {
 
 static int __devinit sfh7741_probe(struct platform_device *pdev)
 {
-	struct sfh7741_platform_data *pdata = pdev->dev.platform_data;
+	int error;
 	struct sfh7741_drvdata *ddata;
 	struct device *dev = &pdev->dev;
-	struct input_dev *input;
-	int  error;
-	char *desc = "sfh7741";
 
-	pr_info("SFH7741: Proximity sensor\n");
 
-	if (!pdata->activate_func || !pdata->read_prox) {
-		dev_err(dev, "The activate and read func not allocated\n");
-		return -EINVAL;
+	pr_info("%s: SFH7741 Proximity sensor\n", __func__);
+
+	if (pdev->dev.platform_data == NULL) {
+		pr_err("%s:platform data is NULL. exiting.\n", __func__);
+		error = -ENODEV;
+		goto err0;
 	}
 
-	ddata = kzalloc(sizeof(struct sfh7741_drvdata),
-			GFP_KERNEL);
-	if (!ddata)
-		return -ENOMEM;
-	input = input_allocate_device();
-	if (!input) {
-		dev_err(dev, "failed to allocate input device\n");
-		kfree(ddata);
-		return -ENOMEM;
+	ddata = kzalloc(sizeof(struct sfh7741_drvdata),	GFP_KERNEL);
+	if (!ddata) {
+		pr_err("%s: platform data is NULL. exiting.\n", __func__);
+		error = -ENOMEM;
+		goto err1;
+	}
+	ddata->pdata = pdev->dev.platform_data;
+	if (!ddata->pdata->activate_func ||
+	    !ddata->pdata->read_prox) {
+		pr_err("%s:Read Prox or Activate is NULL\n", __func__);
+		error = -EINVAL;
+		goto err2;
 	}
 
-	input->name = pdev->name;
-	input->phys = "sfh7741/input0";
-	input->dev.parent = &pdev->dev;
+	ddata->irq = ddata->pdata->irq;
+	ddata->prox_enable = SFH7741_PROX_ON;
 
-	input->id.bustype = BUS_HOST;
-	ddata->irq = pdata->irq;
-	ddata->prox_enable = pdata->prox_enable;
+	ddata->input = input_allocate_device();
+	if (!ddata->input) {
+		pr_err("%s:Failed to allocate input device\n", __func__);
+		error = -ENOMEM;
+		goto err3;
+	}
 
-	ddata->activate_func = pdata->activate_func;
-	ddata->read_prox =  pdata->read_prox;
+	ddata->input->name = pdev->name;
+	ddata->input->phys = "sfh7741/input0";
+	ddata->input->dev.parent = &pdev->dev;
+	ddata->input->id.bustype = BUS_HOST;
 
-	ddata->input = input;
-	__set_bit(EV_ABS, input->evbit);
+	__set_bit(EV_ABS, ddata->input->evbit);
+	input_set_abs_params(ddata->input, ABS_DISTANCE,
+				ddata->pdata->prox_blocked,
+				ddata->pdata->prox_unblocked, 0, 0);
 
-	input_set_abs_params(input, ABS_DISTANCE, 0, 1, 0, 0);
-
-	error = input_register_device(input);
+	error = input_register_device(ddata->input);
 	if (error) {
-		dev_err(dev, "Unable to register input device,error: %d\n",
-				error);
-		goto fail1;
+		pr_err("%s:Unable to register input device,error: %d\n",
+			__func__, error);
+		goto err4;
 	}
+
+	sfh7741_report_input(ddata);
 
 	platform_set_drvdata(pdev, ddata);
 
-	error = request_threaded_irq(pdata->irq , NULL ,
-				sfh7741_isr,
-				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-				desc, ddata);
-	if (error) {
-		dev_err(dev, "Unable to claim irq %d; error %d\n",
-			pdata->irq, error);
-		goto fail2;
+	INIT_WORK(&ddata->irq_work, sfh7741_irq_work_func);
+	ddata->work_queue = create_singlethread_workqueue("sfh7743_wq");
+	if (!ddata->work_queue) {
+		error = -ENOMEM;
+		pr_err("%s: cannot create work queue: %d\n", __func__, error);
+		goto err5;
+	}
+	error = request_irq(ddata->irq, sfh7741_isr,
+			  IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+			  "sfh7741_irq", ddata);
+
+	if (error < 0) {
+		pr_err("%s: request irq failed: %d\n", __func__, error);
+		goto err6;
 	}
 
 	mutex_init(&ddata->lock);
 	error = sysfs_create_group(&dev->kobj, &sfh7741_attr_group);
 	if (error) {
-		dev_err(dev, "failed to create sysfs entries\n");
-		mutex_destroy(&ddata->lock);
+		pr_err("%s: Failed to create sysfs entries\n", __func__);
+		error = -EINVAL;
+		goto err7;
 	}
 
 	return 0;
 
-fail2:
-	input_unregister_device(input);
+err7:
+	mutex_destroy(&ddata->lock);
+err6:
+	destroy_workqueue(ddata->work_queue);
 	platform_set_drvdata(pdev, NULL);
-fail1:
-	input_free_device(input);
+err5:
+	input_unregister_device(ddata->input);
+err4:
+	input_free_device(ddata->input);
+err3:
+err2:
 	kfree(ddata);
+err1:
+err0:
 	return error;
 
 }
@@ -184,6 +237,7 @@ static int __devexit sfh7741_remove(struct platform_device *pdev)
 	mutex_destroy(&ddata->lock);
 	sysfs_remove_group(&dev->kobj, &sfh7741_attr_group);
 	free_irq(ddata->irq, (void *)ddata);
+	destroy_workqueue(ddata->work_queue);
 	input_unregister_device(ddata->input);
 	kfree(ddata);
 	return 0;
@@ -194,7 +248,8 @@ static int sfh7741_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sfh7741_drvdata *ddata = platform_get_drvdata(pdev);
-	ddata->activate_func(0);
+
+	ddata->pdata->activate_func(SFH7741_PROX_OFF);
 	return 0;
 }
 
@@ -202,7 +257,8 @@ static int sfh7741_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sfh7741_drvdata *ddata = platform_get_drvdata(pdev);
-	ddata->activate_func(1);
+
+	ddata->pdata->activate_func(SFH7741_PROX_ON);
 	return 0;
 }
 
@@ -216,7 +272,7 @@ static struct platform_driver sfh7741_device_driver = {
 	.probe		= sfh7741_probe,
 	.remove		= __devexit_p(sfh7741_remove),
 	.driver		= {
-		.name	= "sfh7741",
+		.name	= SFH7741_NAME,
 		.owner	= THIS_MODULE,
 #ifdef CONFIG_PM
 		.pm	= &sfh7741_pm_ops,
