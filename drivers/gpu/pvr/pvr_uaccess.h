@@ -24,44 +24,42 @@
  *
  ******************************************************************************/
 
-#ifndef __INCLUDED_PRIVATE_DATA_H_
-#define __INCLUDED_PRIVATE_DATA_H_
+#ifndef __PVR_UACCESS_H__
+#define __PVR_UACCESS_H__
 
-#if defined(SUPPORT_DRI_DRM) && defined(PVR_SECURE_DRM_AUTH_EXPORT)
-#include <linux/list.h>
-#include <drm/drmP.h>
+#ifndef AUTOCONF_INCLUDED
+ #include <linux/config.h>
 #endif
 
-typedef struct
+#include <linux/version.h>
+#include <asm/uaccess.h>
+
+static inline unsigned long pvr_copy_to_user(void __user *pvTo, const void *pvFrom, unsigned long ulBytes)
 {
-	
-	IMG_UINT32 ui32OpenPID;
-
-#if defined(PVR_SECURE_FD_EXPORT)
-	
-	IMG_HANDLE hKernelMemInfo;
-#endif 
-
-#if defined(SUPPORT_DRI_DRM) && defined(PVR_SECURE_DRM_AUTH_EXPORT)
-	
-	struct list_head sDRMAuthListItem;
-
-	struct drm_file *psDRMFile;
-#endif
-
-#if defined(SUPPORT_MEMINFO_IDS)
-	
-	IMG_UINT64 ui64Stamp;
-#endif 
-
-	
-	IMG_HANDLE hBlockAlloc;
-
-#if defined(SUPPORT_DRI_DRM_EXT)
-	IMG_PVOID pPriv;	
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,33))
+    if (access_ok(VERIFY_WRITE, pvTo, ulBytes))
+    {
+	return __copy_to_user(pvTo, pvFrom, ulBytes);
+    }
+    return ulBytes;
+#else
+    return copy_to_user(pvTo, pvFrom, ulBytes);
 #endif
 }
-PVRSRV_FILE_PRIVATE_DATA;
+
+static inline unsigned long pvr_copy_from_user(void *pvTo, const void __user *pvFrom, unsigned long ulBytes)
+{
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,33))
+    
+    if (access_ok(VERIFY_READ, pvFrom, ulBytes))
+    {
+	return __copy_from_user(pvTo, pvFrom, ulBytes);
+    }
+    return ulBytes;
+#else
+    return copy_from_user(pvTo, pvFrom, ulBytes);
+#endif
+}
 
 #endif 
 

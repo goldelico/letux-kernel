@@ -1,26 +1,26 @@
 /**********************************************************************
  *
  * Copyright(c) 2008 Imagination Technologies Ltd. All rights reserved.
- *
+ * 
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
  * version 2, as published by the Free Software Foundation.
- *
- * This program is distributed in the hope it will be useful but, except
- * as otherwise stated in writing, without any warranty; without even the
- * implied warranty of merchantability or fitness for a particular purpose.
+ * 
+ * This program is distributed in the hope it will be useful but, except 
+ * as otherwise stated in writing, without any warranty; without even the 
+ * implied warranty of merchantability or fitness for a particular purpose. 
  * See the GNU General Public License for more details.
- *
+ * 
  * You should have received a copy of the GNU General Public License along with
  * this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *
+ * 
  * The full GNU General Public License is included in this distribution in
  * the file called "COPYING".
  *
  * Contact Information:
  * Imagination Technologies Ltd. <gpl-support@imgtec.com>
- * Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK
+ * Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK 
  *
  ******************************************************************************/
 
@@ -28,7 +28,6 @@
 #include "kerneldisplay.h"
 #include "oemfuncs.h"
 #include "sgxinfo.h"
-#include "pdump_km.h"
 #include "sgxinfokm.h"
 #include "syslocal.h"
 #include "sysconfig.h"
@@ -37,7 +36,7 @@
 
 #if !defined(NO_HARDWARE) && \
      defined(SYS_USING_INTERRUPTS) && \
-     defined(SGX540) && (SGX_CORE_REV == 110)
+     defined(SGX540)
 #define SGX_OCP_REGS_ENABLED
 #endif
 
@@ -248,6 +247,14 @@ static PVRSRV_ERROR SysLocateDevices(SYS_DATA *psSysData)
 
 	gsSGXDeviceMap.ui32IRQ = SYS_OMAP4430_SGX_IRQ;
 
+#endif 
+
+#if defined(PDUMP)
+	{
+		
+		static IMG_CHAR pszPDumpDevName[] = "SGXMEM";
+		gsSGXDeviceMap.pszPDumpDevName = pszPDumpDevName;
+	}
 #endif
 
 
@@ -323,8 +330,6 @@ PVRSRV_ERROR SysInitialise(IMG_VOID)
 #endif
 	gpsSysData = &gsSysData;
 	OSMemSet(gpsSysData, 0, sizeof(SYS_DATA));
-
-	PVR_DPF((PVR_DBG_ERROR, "SysInitialise: in SysInitialise"));
 
 	gpsSysSpecificData =  &gsSysSpecificData;
 	OSMemSet(gpsSysSpecificData, 0, sizeof(SYS_SPECIFIC_DATA));
@@ -443,7 +448,6 @@ PVRSRV_ERROR SysInitialise(IMG_VOID)
 
 
 
-
 	psDeviceNode = gpsSysData->psDeviceNodeList;
 	while(psDeviceNode)
 	{
@@ -483,9 +487,6 @@ PVRSRV_ERROR SysInitialise(IMG_VOID)
 
 		psDeviceNode = psDeviceNode->psNext;
 	}
-
-	PDUMPINIT();
-	SYS_SPECIFIC_DATA_SET(&gsSysSpecificData, SYS_SPECIFIC_DATA_ENABLE_PDUMPINIT);
 
 	eError = EnableSystemClocksWrap(gpsSysData);
 	if (eError != PVRSRV_OK)
@@ -617,27 +618,20 @@ PVRSRV_ERROR SysDeinitialise (SYS_DATA *psSysData)
 	PVR_UNREFERENCED_PARAMETER(psSysData);
 #endif
 
-#if defined(SGX_OCP_REGS_ENABLED)
-	OSUnMapPhysToLin(gpvOCPRegsLinAddr,
-					 SYS_OMAP4430_OCP_REGS_SIZE,
-					 PVRSRV_HAP_UNCACHED|PVRSRV_HAP_KERNEL_ONLY,
-					 IMG_NULL);
-#endif
-
 	if (SYS_SPECIFIC_DATA_TEST(gpsSysSpecificData, SYS_SPECIFIC_DATA_ENABLE_INITDEV))
 	{
 #if defined(SUPPORT_ACTIVE_POWER_MANAGEMENT)
 		PVR_ASSERT(SYS_SPECIFIC_DATA_TEST(gpsSysSpecificData, SYS_SPECIFIC_DATA_ENABLE_SYSCLOCKS));
-
+		
 		eError = EnableSGXClocksWrap(gpsSysData);
 		if (eError != PVRSRV_OK)
 		{
 			PVR_DPF((PVR_DBG_ERROR,"SysDeinitialise: EnableSGXClocks failed"));
 			return eError;
 		}
-#endif
+#endif	
 
-
+		
 		eError = PVRSRVDeinitialiseDevice (gui32SGXDeviceID);
 		if (eError != PVRSRV_OK)
 		{
@@ -645,8 +639,15 @@ PVRSRV_ERROR SysDeinitialise (SYS_DATA *psSysData)
 			return eError;
 		}
 	}
+	
+#if defined(SGX_OCP_REGS_ENABLED)
+	OSUnMapPhysToLin(gpvOCPRegsLinAddr,
+					 SYS_OMAP4430_OCP_REGS_SIZE,
+					 PVRSRV_HAP_UNCACHED|PVRSRV_HAP_KERNEL_ONLY,
+					 IMG_NULL);
+#endif
 
-
+	
 
 	if (SYS_SPECIFIC_DATA_TEST(gpsSysSpecificData, SYS_SPECIFIC_DATA_ENABLE_SYSCLOCKS))
 	{
@@ -682,12 +683,6 @@ PVRSRV_ERROR SysDeinitialise (SYS_DATA *psSysData)
 		OSBaseFreeContigMemory(SYS_OMAP4430_SGX_REGS_SIZE, gsSGXRegsCPUVAddr, gsSGXDeviceMap.sRegsCpuPBase);
 	}
 #endif
-
-
-	if(SYS_SPECIFIC_DATA_TEST(gpsSysSpecificData, SYS_SPECIFIC_DATA_ENABLE_PDUMPINIT))
-	{
-		PDUMPDEINIT();
-	}
 
 	gpsSysSpecificData->ui32SysSpecificData = 0;
 	gpsSysSpecificData->bSGXInitComplete = IMG_FALSE;

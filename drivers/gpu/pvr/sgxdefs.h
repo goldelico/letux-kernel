@@ -51,11 +51,19 @@
 #if defined(SGX543)
 #include "sgx543defs.h"
 #else
+#if defined(SGX544)
+#include "sgx544defs.h"
+#else
 #if defined(SGX545)
 #include "sgx545defs.h"
 #else
 #if defined(SGX531)
 #include "sgx531defs.h"
+#else
+#if defined(SGX554)
+#include "sgx554defs.h"
+#endif
+#endif
 #endif
 #endif
 #endif
@@ -76,6 +84,10 @@
 #else
 #include "sgxmpdefs.h"
 #endif 
+#else 
+#if defined(SGX_FEATURE_SYSTEM_CACHE)
+#include "mnemedefs.h"
+#endif
 #endif 
 
 #endif 

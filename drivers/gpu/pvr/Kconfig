@@ -26,10 +26,13 @@ endchoice
 choice
 	prompt "SGX revision"
 	depends on SGX540
-	default SGX_REV110
+	default SGX_REV120
 
 config SGX_REV110
        bool "Revision 1.1.0 - Omap 4430 ES1"
+
+config SGX_REV120
+       bool "Revision 1.2.0 - Omap 4430 ES2"
 
 endchoice
 

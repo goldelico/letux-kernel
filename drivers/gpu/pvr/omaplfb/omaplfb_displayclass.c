@@ -464,7 +464,7 @@ static PVRSRV_ERROR OpenDCDevice(IMG_UINT32 ui32DeviceID,
 	{
 		WARNING_PRINTK("UnBlankDisplay failed for"
 			" display %lu", psDevInfo->ulDeviceID);
-		return PVRSRV_ERROR_GENERIC;
+		return PVRSRV_ERROR_UNBLANK_DISPLAY_FAILED;
 	}
 	*phDevice = (IMG_HANDLE)psDevInfo;
 
@@ -630,7 +630,7 @@ static PVRSRV_ERROR CreateDCSwapChain(IMG_HANDLE hDevice,
 	OMAPLFB_BUFFER *psBuffer;
 	OMAPLFB_FLIP_ITEM *psFlipItems;
 	IMG_UINT32 i;
-	PVRSRV_ERROR eError = PVRSRV_ERROR_GENERIC;
+	PVRSRV_ERROR eError = PVRSRV_OK;
 	IMG_UINT32 ui32BuffersToSkip;
 	
 	if(!hDevice || !psDstSurfAttrib || !psSrcSurfAttrib ||

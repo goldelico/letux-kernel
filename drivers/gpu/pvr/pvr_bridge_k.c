@@ -1,26 +1,26 @@
 /**********************************************************************
  *
  * Copyright(c) 2008 Imagination Technologies Ltd. All rights reserved.
- *
+ * 
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
  * version 2, as published by the Free Software Foundation.
- *
- * This program is distributed in the hope it will be useful but, except
- * as otherwise stated in writing, without any warranty; without even the
- * implied warranty of merchantability or fitness for a particular purpose.
+ * 
+ * This program is distributed in the hope it will be useful but, except 
+ * as otherwise stated in writing, without any warranty; without even the 
+ * implied warranty of merchantability or fitness for a particular purpose. 
  * See the GNU General Public License for more details.
- *
+ * 
  * You should have received a copy of the GNU General Public License along with
  * this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *
+ * 
  * The full GNU General Public License is included in this distribution in
  * the file called "COPYING".
  *
  * Contact Information:
  * Imagination Technologies Ltd. <gpl-support@imgtec.com>
- * Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK
+ * Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK 
  *
  ******************************************************************************/
 
@@ -68,16 +68,11 @@
 
 #if defined(DEBUG_BRIDGE_KM)
 
-#ifdef PVR_PROC_USE_SEQ_FILE
 static struct proc_dir_entry *g_ProcBridgeStats =0;
 static void* ProcSeqNextBridgeStats(struct seq_file *sfile,void* el,loff_t off);
 static void ProcSeqShowBridgeStats(struct seq_file *sfile,void* el);
 static void* ProcSeqOff2ElementBridgeStats(struct seq_file * sfile, loff_t off);
 static void ProcSeqStartstopBridgeStats(struct seq_file *sfile,IMG_BOOL start);
-
-#else
-static off_t printLinuxBridgeStats(IMG_CHAR * buffer, size_t size, off_t off);
-#endif
 
 #endif
 
@@ -85,29 +80,22 @@ extern PVRSRV_LINUX_MUTEX gPVRSRVLock;
 
 #if defined(SUPPORT_MEMINFO_IDS)
 static IMG_UINT64 ui64Stamp;
-#endif
+#endif 
 
 PVRSRV_ERROR
 LinuxBridgeInit(IMG_VOID)
 {
 #if defined(DEBUG_BRIDGE_KM)
 	{
-		IMG_INT iStatus;
-#ifdef PVR_PROC_USE_SEQ_FILE
 		g_ProcBridgeStats = CreateProcReadEntrySeq(
-												  "bridge_stats",
+												  "bridge_stats", 
 												  NULL,
 												  ProcSeqNextBridgeStats,
 												  ProcSeqShowBridgeStats,
 												  ProcSeqOff2ElementBridgeStats,
 												  ProcSeqStartstopBridgeStats
 						  						 );
-		iStatus = !g_ProcBridgeStats ? -1 : 0;
-#else
-		iStatus = CreateProcReadEntry("bridge_stats", printLinuxBridgeStats);
-#endif
-
-		if(iStatus!=0)
+		if(!g_ProcBridgeStats)
 		{
 			return PVRSRV_ERROR_OUT_OF_MEMORY;
 		}
@@ -120,21 +108,15 @@ IMG_VOID
 LinuxBridgeDeInit(IMG_VOID)
 {
 #if defined(DEBUG_BRIDGE_KM)
-#ifdef PVR_PROC_USE_SEQ_FILE
     RemoveProcEntrySeq(g_ProcBridgeStats);
-#else
-	RemoveProcEntry("bridge_stats");
-#endif
 #endif
 }
 
 #if defined(DEBUG_BRIDGE_KM)
 
-#ifdef PVR_PROC_USE_SEQ_FILE
-
-static void ProcSeqStartstopBridgeStats(struct seq_file *sfile,IMG_BOOL start)
+static void ProcSeqStartstopBridgeStats(struct seq_file *sfile,IMG_BOOL start) 
 {
-	if(start)
+	if(start) 
 	{
 		LinuxLockMutex(&gPVRSRVLock);
 	}
@@ -147,7 +129,7 @@ static void ProcSeqStartstopBridgeStats(struct seq_file *sfile,IMG_BOOL start)
 
 static void* ProcSeqOff2ElementBridgeStats(struct seq_file *sfile, loff_t off)
 {
-	if(!off)
+	if(!off) 
 	{
 		return PVR_PROC_SEQ_START_TOKEN;
 	}
@@ -171,13 +153,13 @@ static void ProcSeqShowBridgeStats(struct seq_file *sfile,void* el)
 {
 	PVRSRV_BRIDGE_DISPATCH_TABLE_ENTRY *psEntry = (	PVRSRV_BRIDGE_DISPATCH_TABLE_ENTRY*)el;
 
-	if(el == PVR_PROC_SEQ_START_TOKEN)
+	if(el == PVR_PROC_SEQ_START_TOKEN) 
 	{
 		seq_printf(sfile,
-						  "Total ioctl call count = %lu\n"
-						  "Total number of bytes copied via copy_from_user = %lu\n"
-						  "Total number of bytes copied via copy_to_user = %lu\n"
-						  "Total number of bytes copied via copy_*_user = %lu\n\n"
+						  "Total ioctl call count = %u\n"
+						  "Total number of bytes copied via copy_from_user = %u\n"
+						  "Total number of bytes copied via copy_to_user = %u\n"
+						  "Total number of bytes copied via copy_*_user = %u\n\n"
 						  "%-45s | %-40s | %10s | %20s | %10s\n",
 						  g_BridgeGlobalStats.ui32IOCTLCount,
 						  g_BridgeGlobalStats.ui32TotalCopyFromUserBytes,
@@ -193,7 +175,7 @@ static void ProcSeqShowBridgeStats(struct seq_file *sfile,void* el)
 	}
 
 	seq_printf(sfile,
-				   "%-45s   %-40s   %-10lu   %-20lu   %-10lu\n",
+				   "%-45s   %-40s   %-10u   %-20u   %-10u\n",
 				   psEntry->pszIOCName,
 				   psEntry->pszFunctionName,
 				   psEntry->ui32CallCount,
@@ -201,70 +183,7 @@ static void ProcSeqShowBridgeStats(struct seq_file *sfile,void* el)
 				   psEntry->ui32CopyToUserTotalBytes);
 }
 
-#else
-
-static off_t
-printLinuxBridgeStats(IMG_CHAR * buffer, size_t count, off_t off)
-{
-	PVRSRV_BRIDGE_DISPATCH_TABLE_ENTRY *psEntry;
-	off_t Ret;
-
-	LinuxLockMutex(&gPVRSRVLock);
-
-	if(!off)
-	{
-		if(count < 500)
-		{
-			Ret = 0;
-			goto unlock_and_return;
-		}
-		Ret = printAppend(buffer, count, 0,
-						  "Total ioctl call count = %lu\n"
-						  "Total number of bytes copied via copy_from_user = %lu\n"
-						  "Total number of bytes copied via copy_to_user = %lu\n"
-						  "Total number of bytes copied via copy_*_user = %lu\n\n"
-						  "%-45s | %-40s | %10s | %20s | %10s\n",
-						  g_BridgeGlobalStats.ui32IOCTLCount,
-						  g_BridgeGlobalStats.ui32TotalCopyFromUserBytes,
-						  g_BridgeGlobalStats.ui32TotalCopyToUserBytes,
-						  g_BridgeGlobalStats.ui32TotalCopyFromUserBytes+g_BridgeGlobalStats.ui32TotalCopyToUserBytes,
-						  "Bridge Name",
-						  "Wrapper Function",
-						  "Call Count",
-						  "copy_from_user Bytes",
-						  "copy_to_user Bytes"
-						 );
-		goto unlock_and_return;
-	}
-
-	if(off > BRIDGE_DISPATCH_TABLE_ENTRY_COUNT)
-	{
-		Ret = END_OF_FILE;
-		goto unlock_and_return;
-	}
-
-	if(count < 300)
-	{
-		Ret = 0;
-		goto unlock_and_return;
-	}
-
-	psEntry = &g_BridgeDispatchTable[off-1];
-	Ret =  printAppend(buffer, count, 0,
-					   "%-45s   %-40s   %-10lu   %-20lu   %-10lu\n",
-					   psEntry->pszIOCName,
-					   psEntry->pszFunctionName,
-					   psEntry->ui32CallCount,
-					   psEntry->ui32CopyFromUserTotalBytes,
-					   psEntry->ui32CopyToUserTotalBytes);
-
-unlock_and_return:
-	LinuxUnLockMutex(&gPVRSRVLock);
-	return Ret;
-}
-#endif
-#endif
-
+#endif 
 
 
 #if defined(SUPPORT_DRI_DRM)
@@ -306,8 +225,8 @@ PVRSRV_BridgeDispatchKM(struct file *pFile, IMG_UINT unref__ ioctlCmd, IMG_UINT3
 
 		goto unlock_and_return;
 	}
-
-
+	
+	
 	if(OSCopyFromUser(IMG_NULL,
 					  psBridgePackageKM,
 					  psBridgePackageUM,
@@ -434,15 +353,15 @@ PVRSRV_BridgeDispatchKM(struct file *pFile, IMG_UINT unref__ ioctlCmd, IMG_UINT3
 			IMG_UINT32               ui32PID;
 			PVRSRV_PER_PROCESS_DATA *psPerProc;
 			PVRSRV_ERROR eError;
-
+			
 			ui32PID = OSGetCurrentProcessIDKM();
-
+		
 			PVRSRVTrace("PVRSRV_BRIDGE_SERVICES_TEST_COPYDATA %d", ui32PID);
-
+			
 			psPerProc = PVRSRVPerProcessData(ui32PID);
-
+						
 			eError = CopyDataTest(psBridgePackageKM->pvParamIn, psBridgePackageKM->pvParamOut, psPerProc);
-
+			
 			*(PVRSRV_ERROR*)psBridgePackageKM->pvParamOut = eError;
 			err = 0;
 			goto unlock_and_return;
@@ -463,7 +382,7 @@ PVRSRV_BridgeDispatchKM(struct file *pFile, IMG_UINT unref__ ioctlCmd, IMG_UINT3
 
 	}
 #endif
-
+	
 	if(cmd != PVRSRV_BRIDGE_CONNECT_SERVICES)
 	{
 		PVRSRV_ERROR eError;
@@ -489,7 +408,7 @@ PVRSRV_BridgeDispatchKM(struct file *pFile, IMG_UINT unref__ ioctlCmd, IMG_UINT3
 	}
 	else
 	{
-
+		
 		psPerProc = PVRSRVPerProcessData(ui32PID);
 		if(psPerProc == IMG_NULL)
 		{
@@ -549,7 +468,7 @@ PVRSRV_BridgeDispatchKM(struct file *pFile, IMG_UINT unref__ ioctlCmd, IMG_UINT3
 			break;
 		}
 	}
-#endif
+#endif 
 #if defined(SUPPORT_DRI_DRM) && defined(PVR_SECURE_DRM_AUTH_EXPORT)
 	switch(cmd)
 	{
@@ -565,7 +484,7 @@ PVRSRV_BridgeDispatchKM(struct file *pFile, IMG_UINT unref__ ioctlCmd, IMG_UINT3
 				break;
 			}
 
-
+			
 			psEnvPerProc = (PVRSRV_ENV_PER_PROCESS_DATA *)PVRSRVProcessPrivateData(psPerProc);
 			if (psEnvPerProc == IMG_NULL)
 			{
@@ -599,7 +518,7 @@ PVRSRV_BridgeDispatchKM(struct file *pFile, IMG_UINT unref__ ioctlCmd, IMG_UINT3
 		default:
 			break;
 	}
-#endif
+#endif 
 
 	err = BridgedDispatchKM(psPerProc, psBridgePackageKM);
 	if(err != PVRSRV_OK)
@@ -620,7 +539,7 @@ PVRSRV_BridgeDispatchKM(struct file *pFile, IMG_UINT unref__ ioctlCmd, IMG_UINT3
 #endif
 			break;
 		}
-#endif
+#endif 
 
 #if defined(SUPPORT_MEMINFO_IDS)
 		case PVRSRV_BRIDGE_MAP_DEV_MEMORY:
@@ -639,7 +558,7 @@ PVRSRV_BridgeDispatchKM(struct file *pFile, IMG_UINT unref__ ioctlCmd, IMG_UINT3
 			psDeviceClassMemoryOUT->sClientMemInfo.ui64Stamp = ++ui64Stamp;
 			break;
 		}
-#endif
+#endif 
 
 		default:
 			break;

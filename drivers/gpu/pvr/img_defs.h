@@ -80,8 +80,8 @@ typedef char				TCHAR, *PTCHAR, *PTSTR;
 			#if defined(__linux__) || defined(__METAG)
 
 				#define IMG_CALLCONV
-				#define IMG_INTERNAL	__attribute__ ((visibility ("hidden")))
-				#define IMG_EXPORT
+				#define IMG_INTERNAL	__attribute__((visibility("hidden")))
+				#define IMG_EXPORT		__attribute__((visibility("default")))
 				#define IMG_IMPORT
 				#define IMG_RESTRICT	__restrict__
 
@@ -103,6 +103,16 @@ typedef char				TCHAR, *PTCHAR, *PTSTR;
 
 #define IMG_CONST const
 
+#if defined(__GNUC__)
+#define IMG_FORMAT_PRINTF(x,y)		__attribute__((format(printf,x,y)))
+#else
 #define IMG_FORMAT_PRINTF(x,y)
+#endif
+
+#if defined (_WIN64)
+#define IMG_UNDEF	(~0ULL)
+#else
+#define IMG_UNDEF	(~0UL)
+#endif
 
 #endif 

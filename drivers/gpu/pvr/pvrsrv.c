@@ -26,30 +26,20 @@
 
 #include "services_headers.h"
 #include "buffer_manager.h"
+#include "pvr_bridge_km.h"
 #include "handle.h"
 #include "perproc.h"
 #include "pdump_km.h"
+#include "deviceid.h"
 #include "ra.h"
 
 #include "pvrversion.h"
 
 #include "lists.h"
 
+IMG_UINT32	g_ui32InitFlags;
 
-DECLARE_LIST_ANY_VA_2(BM_CONTEXT, PVRSRV_ERROR, PVRSRV_OK);
-
-DECLARE_LIST_FOR_EACH_VA(BM_HEAP);
-
-DECLARE_LIST_ANY_2(PVRSRV_DEVICE_NODE, PVRSRV_ERROR, PVRSRV_OK);
-DECLARE_LIST_ANY_VA(PVRSRV_DEVICE_NODE);
-DECLARE_LIST_ANY_VA_2(PVRSRV_DEVICE_NODE, PVRSRV_ERROR, PVRSRV_OK);
-DECLARE_LIST_FOR_EACH_VA(PVRSRV_DEVICE_NODE);
-DECLARE_LIST_FOR_EACH(PVRSRV_DEVICE_NODE);
-DECLARE_LIST_INSERT(PVRSRV_DEVICE_NODE);
-DECLARE_LIST_REMOVE(PVRSRV_DEVICE_NODE);
-
-IMG_VOID* MatchDeviceKM_AnyVaCb(PVRSRV_DEVICE_NODE* psDeviceNode, va_list va);
-
+#define		INIT_DATA_ENABLE_PDUMPINIT	0x1U
 
 PVRSRV_ERROR AllocateDeviceID(SYS_DATA *psSysData, IMG_UINT32 *pui32DevID)
 {
@@ -59,6 +49,7 @@ PVRSRV_ERROR AllocateDeviceID(SYS_DATA *psSysData, IMG_UINT32 *pui32DevID)
 	psDeviceWalker = &psSysData->sDeviceID[0];
 	psDeviceEnd = psDeviceWalker + psSysData->ui32NumDevices;
 
+	
 	while (psDeviceWalker < psDeviceEnd)
 	{
 		if (!psDeviceWalker->bInUse)
@@ -69,12 +60,13 @@ PVRSRV_ERROR AllocateDeviceID(SYS_DATA *psSysData, IMG_UINT32 *pui32DevID)
 		}
 		psDeviceWalker++;
 	}
-	
+
 	PVR_DPF((PVR_DBG_ERROR,"AllocateDeviceID: No free and valid device IDs available!"));
 
+	
 	PVR_ASSERT(psDeviceWalker < psDeviceEnd);
 
-	return PVRSRV_ERROR_GENERIC;
+	return PVRSRV_ERROR_NO_FREE_DEVICEIDS_AVALIABLE;
 }
 
 
@@ -100,13 +92,13 @@ PVRSRV_ERROR FreeDeviceID(SYS_DATA *psSysData, IMG_UINT32 ui32DevID)
 		}
 		psDeviceWalker++;
 	}
-	
+
 	PVR_DPF((PVR_DBG_ERROR,"FreeDeviceID: no matching dev ID that is in use!"));
 
 	
 	PVR_ASSERT(psDeviceWalker < psDeviceEnd);
 
-	return PVRSRV_ERROR_GENERIC;
+	return PVRSRV_ERROR_INVALID_DEVICEID;
 }
 
 
@@ -123,7 +115,8 @@ IMG_UINT32 ReadHWReg(IMG_PVOID pvLinRegBaseAddr, IMG_UINT32 ui32Offset)
 IMG_EXPORT
 IMG_VOID WriteHWReg(IMG_PVOID pvLinRegBaseAddr, IMG_UINT32 ui32Offset, IMG_UINT32 ui32Value)
 {
-	PVR_DPF((PVR_DBG_MESSAGE,"WriteHWReg Base:%x, Offset: %x, Value %x",pvLinRegBaseAddr,ui32Offset,ui32Value));
+	PVR_DPF((PVR_DBG_MESSAGE,"WriteHWReg Base:%x, Offset: %x, Value %x",
+			(IMG_UINTPTR_T)pvLinRegBaseAddr,ui32Offset,ui32Value));
 
 	*(IMG_UINT32*)((IMG_UINTPTR_T)pvLinRegBaseAddr+ui32Offset) = ui32Value;
 }
@@ -143,7 +136,7 @@ IMG_VOID WriteHWRegs(IMG_PVOID pvLinRegBaseAddr, IMG_UINT32 ui32Count, PVRSRV_HW
 }
 #endif
 
-IMG_VOID PVRSRVEnumerateDevicesKM_ForEachVaCb(PVRSRV_DEVICE_NODE *psDeviceNode, va_list va)
+static IMG_VOID PVRSRVEnumerateDevicesKM_ForEachVaCb(PVRSRV_DEVICE_NODE *psDeviceNode, va_list va)
 {
 	IMG_UINT *pui32DevCount;
 	PVRSRV_DEVICE_IDENTIFIER **ppsDevIdList;
@@ -153,7 +146,7 @@ IMG_VOID PVRSRVEnumerateDevicesKM_ForEachVaCb(PVRSRV_DEVICE_NODE *psDeviceNode, 
 
 	if (psDeviceNode->sDevId.eDeviceType != PVRSRV_DEVICE_TYPE_EXT)
 	{
-		*(*ppsDevIdList) = psDeviceNode->sDevId; 
+		*(*ppsDevIdList) = psDeviceNode->sDevId;
 		(*ppsDevIdList)++;
 		(*pui32DevCount)++;
 	}
@@ -167,7 +160,7 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVEnumerateDevicesKM(IMG_UINT32 *pui32NumDevices,
 {
 	SYS_DATA			*psSysData;
 	IMG_UINT32 			i;
-	
+
 	if (!pui32NumDevices || !psDevIdList)
 	{
 		PVR_DPF((PVR_DBG_ERROR,"PVRSRVEnumerateDevicesKM: Invalid params"));
@@ -182,20 +175,20 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVEnumerateDevicesKM(IMG_UINT32 *pui32NumDevices,
 	{
 		psDevIdList[i].eDeviceType = PVRSRV_DEVICE_TYPE_UNKNOWN;
 	}
-	
+
 	
 	*pui32NumDevices = 0;
-	
+
 	
 
 
 
 	List_PVRSRV_DEVICE_NODE_ForEach_va(psSysData->psDeviceNodeList,
-									   PVRSRVEnumerateDevicesKM_ForEachVaCb,
+									   &PVRSRVEnumerateDevicesKM_ForEachVaCb,
 									   pui32NumDevices,
 									   &psDevIdList);
-	
-	
+
+
 	return PVRSRV_OK;
 }
 
@@ -236,22 +229,26 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVInit(PSYS_DATA psSysData)
 	psSysData->eFailedPowerState = PVRSRV_SYS_POWER_STATE_Unspecified;
 
 	
-	if(OSAllocMem( PVRSRV_PAGEABLE_SELECT, 
-					 sizeof(PVRSRV_EVENTOBJECT) , 
+	if(OSAllocMem( PVRSRV_PAGEABLE_SELECT,
+					 sizeof(PVRSRV_EVENTOBJECT) ,
 					 (IMG_VOID **)&psSysData->psGlobalEventObject, 0,
-					 "Event Object") != PVRSRV_OK)	
+					 "Event Object") != PVRSRV_OK)
 	{
-		
+
 		goto Error;
 	}
 
 	if(OSEventObjectCreate("PVRSRV_GLOBAL_EVENTOBJECT", psSysData->psGlobalEventObject) != PVRSRV_OK)
 	{
-		goto Error;	
+		goto Error;
 	}
 
-	return eError;
 	
+	PDUMPINIT();
+	g_ui32InitFlags |= INIT_DATA_ENABLE_PDUMPINIT;
+
+	return eError;
+
 Error:
 	PVRSRVDeInit(psSysData);
 	return eError;
@@ -271,6 +268,12 @@ IMG_VOID IMG_CALLCONV PVRSRVDeInit(PSYS_DATA psSysData)
 		return;
 	}
 
+	
+	if( (g_ui32InitFlags & INIT_DATA_ENABLE_PDUMPINIT) > 0)
+	{
+		PDUMPDEINIT();
+	}
+	
 	
 	if(psSysData->psGlobalEventObject)
 	{
@@ -298,24 +301,24 @@ IMG_VOID IMG_CALLCONV PVRSRVDeInit(PSYS_DATA psSysData)
 }
 
 
-PVRSRV_ERROR IMG_CALLCONV PVRSRVRegisterDevice(PSYS_DATA psSysData,  
+PVRSRV_ERROR IMG_CALLCONV PVRSRVRegisterDevice(PSYS_DATA psSysData,
 											  PVRSRV_ERROR (*pfnRegisterDevice)(PVRSRV_DEVICE_NODE*),
 											  IMG_UINT32 ui32SOCInterruptBit,
 			 								  IMG_UINT32 *pui32DeviceIndex)
 {
 	PVRSRV_ERROR		eError;
 	PVRSRV_DEVICE_NODE	*psDeviceNode;
+
 	
-	
-	if(OSAllocMem( PVRSRV_OS_NON_PAGEABLE_HEAP, 
-					 sizeof(PVRSRV_DEVICE_NODE), 
+	if(OSAllocMem( PVRSRV_OS_NON_PAGEABLE_HEAP,
+					 sizeof(PVRSRV_DEVICE_NODE),
 					 (IMG_VOID **)&psDeviceNode, IMG_NULL,
-					 "Device Node") != PVRSRV_OK)	
+					 "Device Node") != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR,"PVRSRVRegisterDevice : Failed to alloc memory for psDeviceNode"));
 		return (PVRSRV_ERROR_OUT_OF_MEMORY);
 	}
-	OSMemSet (psDeviceNode, 0, sizeof(PVRSRV_DEVICE_NODE));	
+	OSMemSet (psDeviceNode, 0, sizeof(PVRSRV_DEVICE_NODE));
 
 	eError = pfnRegisterDevice(psDeviceNode);
 	if (eError != PVRSRV_OK)
@@ -335,16 +338,16 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVRegisterDevice(PSYS_DATA psSysData,
 	psDeviceNode->ui32RefCount = 1;
 	psDeviceNode->psSysData = psSysData;
 	psDeviceNode->ui32SOCInterruptBit = ui32SOCInterruptBit;
-	
+
 	
 	AllocateDeviceID(psSysData, &psDeviceNode->sDevId.ui32DeviceIndex);
-		
+
 	
 	List_PVRSRV_DEVICE_NODE_Insert(&psSysData->psDeviceNodeList, psDeviceNode);
 
 	
 	*pui32DeviceIndex = psDeviceNode->sDevId.ui32DeviceIndex;
-	
+
 	return PVRSRV_OK;
 }
 
@@ -362,7 +365,7 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVInitialiseDevice (IMG_UINT32 ui32DevIndex)
 	
 	psDeviceNode = (PVRSRV_DEVICE_NODE*)
 					 List_PVRSRV_DEVICE_NODE_Any_va(psSysData->psDeviceNodeList,
-													MatchDeviceKM_AnyVaCb,
+													&MatchDeviceKM_AnyVaCb,
 													ui32DevIndex,
 													IMG_TRUE);
 	if(!psDeviceNode)
@@ -381,7 +384,7 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVInitialiseDevice (IMG_UINT32 ui32DevIndex)
 		PVR_DPF((PVR_DBG_ERROR,"PVRSRVInitialiseDevice: Failed PVRSRVResManConnect call"));
 		return eError;
 	}
-	
+
 	
 	if(psDeviceNode->pfnInitDevice != IMG_NULL)
 	{
@@ -397,7 +400,7 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVInitialiseDevice (IMG_UINT32 ui32DevIndex)
 }
 
 
-PVRSRV_ERROR PVRSRVFinaliseSystem_SetPowerState_AnyCb(PVRSRV_DEVICE_NODE *psDeviceNode)
+static PVRSRV_ERROR PVRSRVFinaliseSystem_SetPowerState_AnyCb(PVRSRV_DEVICE_NODE *psDeviceNode)
 {
 	PVRSRV_ERROR eError;
 	eError = PVRSRVSetDevicePowerStateKM(psDeviceNode->sDevId.ui32DeviceIndex,
@@ -410,7 +413,7 @@ PVRSRV_ERROR PVRSRVFinaliseSystem_SetPowerState_AnyCb(PVRSRV_DEVICE_NODE *psDevi
 	return eError;
 }
 
-PVRSRV_ERROR PVRSRVFinaliseSystem_CompatCheck_AnyCb(PVRSRV_DEVICE_NODE *psDeviceNode)
+static PVRSRV_ERROR PVRSRVFinaliseSystem_CompatCheck_AnyCb(PVRSRV_DEVICE_NODE *psDeviceNode)
 {
 	PVRSRV_ERROR eError;
 	eError = PVRSRVDevInitCompatCheck(psDeviceNode);
@@ -442,7 +445,7 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVFinaliseSystem(IMG_BOOL bInitSuccessful)
 
 		
 		eError = List_PVRSRV_DEVICE_NODE_PVRSRV_ERROR_Any(psSysData->psDeviceNodeList,
-														PVRSRVFinaliseSystem_SetPowerState_AnyCb);
+														&PVRSRVFinaliseSystem_SetPowerState_AnyCb);
 		if (eError != PVRSRV_OK)
 		{
 			return eError;
@@ -450,7 +453,7 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVFinaliseSystem(IMG_BOOL bInitSuccessful)
 
 		
 		eError = List_PVRSRV_DEVICE_NODE_PVRSRV_ERROR_Any(psSysData->psDeviceNodeList,
-													PVRSRVFinaliseSystem_CompatCheck_AnyCb);		
+													&PVRSRVFinaliseSystem_CompatCheck_AnyCb);
 		if (eError != PVRSRV_OK)
 		{
 			return eError;
@@ -461,12 +464,7 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVFinaliseSystem(IMG_BOOL bInitSuccessful)
 
 
 
-
-
-
-#if !defined(SUPPORT_PDUMP_DELAYED_INITPHASE_TERMINATION)
 	PDUMPENDINITPHASE();
-#endif
 
 	return PVRSRV_OK;
 }
@@ -481,14 +479,14 @@ PVRSRV_ERROR PVRSRVDevInitCompatCheck(PVRSRV_DEVICE_NODE *psDeviceNode)
 		return PVRSRV_OK;
 }
 
-IMG_VOID * PVRSRVAcquireDeviceDataKM_Match_AnyVaCb(PVRSRV_DEVICE_NODE *psDeviceNode, va_list va)
+static IMG_VOID * PVRSRVAcquireDeviceDataKM_Match_AnyVaCb(PVRSRV_DEVICE_NODE *psDeviceNode, va_list va)
 {
 	PVRSRV_DEVICE_TYPE eDeviceType;
 	IMG_UINT32 ui32DevIndex;
 
 	eDeviceType = va_arg(va, PVRSRV_DEVICE_TYPE);
 	ui32DevIndex = va_arg(va, IMG_UINT32);
-	
+
 	if ((eDeviceType != PVRSRV_DEVICE_TYPE_UNKNOWN &&
 		psDeviceNode->sDevId.eDeviceType == eDeviceType) ||
 		(eDeviceType == PVRSRV_DEVICE_TYPE_UNKNOWN &&
@@ -516,10 +514,10 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVAcquireDeviceDataKM (IMG_UINT32			ui32DevIndex,
 
 	
 	psDeviceNode = List_PVRSRV_DEVICE_NODE_Any_va(psSysData->psDeviceNodeList,
-												PVRSRVAcquireDeviceDataKM_Match_AnyVaCb,
+												&PVRSRVAcquireDeviceDataKM_Match_AnyVaCb,
 												eDeviceType,
 												ui32DevIndex);
-	
+
 
 	if (!psDeviceNode)
 	{
@@ -550,14 +548,14 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVDeinitialiseDevice(IMG_UINT32 ui32DevIndex)
 
 	psDeviceNode = (PVRSRV_DEVICE_NODE*)
 					 List_PVRSRV_DEVICE_NODE_Any_va(psSysData->psDeviceNodeList,
-													MatchDeviceKM_AnyVaCb,
+													&MatchDeviceKM_AnyVaCb,
 													ui32DevIndex,
 													IMG_TRUE);
 
 	if (!psDeviceNode)
 	{
 		PVR_DPF((PVR_DBG_ERROR,"PVRSRVDeinitialiseDevice: requested device %d is not present", ui32DevIndex));
-		return PVRSRV_ERROR_GENERIC;
+		return PVRSRV_ERROR_DEVICEID_NOT_FOUND;
 	}
 
 	
@@ -604,12 +602,12 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVDeinitialiseDevice(IMG_UINT32 ui32DevIndex)
 	
 	List_PVRSRV_DEVICE_NODE_Remove(psDeviceNode);
 
-		
-	(IMG_VOID)FreeDeviceID(psSysData, ui32DevIndex);	
+	
+	(IMG_VOID)FreeDeviceID(psSysData, ui32DevIndex);
 	OSFreeMem(PVRSRV_OS_NON_PAGEABLE_HEAP,
 				sizeof(PVRSRV_DEVICE_NODE), psDeviceNode, IMG_NULL);
 	
-	
+
 	return (PVRSRV_OK);
 }
 
@@ -622,107 +620,106 @@ PVRSRV_ERROR IMG_CALLCONV PollForValueKM (volatile IMG_UINT32* pui32LinMemAddr,
 										  IMG_UINT32 ui32Tries)
 {
 	{
+		IMG_UINT32	ui32ActualValue = 0xFFFFFFFFU; 
 		IMG_UINT32	uiMaxTime = ui32Tries * ui32Waitus;
 
+		 
 		LOOP_UNTIL_TIMEOUT(uiMaxTime)
 		{
-			if((*pui32LinMemAddr & ui32Mask) == ui32Value)
+			ui32ActualValue = (*pui32LinMemAddr & ui32Mask);
+			if(ui32ActualValue == ui32Value)
 			{
 				return PVRSRV_OK;
 			}
 			OSWaitus(ui32Waitus);
 		} END_LOOP_UNTIL_TIMEOUT();
+	
+		PVR_DPF((PVR_DBG_ERROR,"PollForValueKM: Timeout. Expected 0x%x but found 0x%x (mask 0x%x).",
+				ui32Value, ui32ActualValue, ui32Mask));
 	}
 
 
-	return PVRSRV_ERROR_GENERIC;
+	return PVRSRV_ERROR_TIMEOUT;
 }
 
 
-#if defined (USING_ISR_INTERRUPTS)
-
-extern IMG_UINT32 gui32EventStatusServicesByISR;
-
-PVRSRV_ERROR PollForInterruptKM (IMG_UINT32 ui32Value,
-								 IMG_UINT32 ui32Mask,
-								 IMG_UINT32 ui32Waitus,
-								 IMG_UINT32 ui32Tries)
-{
-	IMG_UINT32	uiMaxTime;
-
-	uiMaxTime = ui32Tries * ui32Waitus;
-
-	
-	LOOP_UNTIL_TIMEOUT(uiMaxTime)
-	{
-		if ((gui32EventStatusServicesByISR & ui32Mask) == ui32Value)
-		{
-			gui32EventStatusServicesByISR = 0;
-			return PVRSRV_OK;
-		}
-		OSWaitus(ui32Waitus);
-	} END_LOOP_UNTIL_TIMEOUT();
-
-	return PVRSRV_ERROR_GENERIC;
-}
-#endif  
-
-IMG_VOID PVRSRVGetMiscInfoKM_RA_GetStats_ForEachVaCb(BM_HEAP *psBMHeap, va_list va)
+static IMG_VOID PVRSRVGetMiscInfoKM_RA_GetStats_ForEachVaCb(BM_HEAP *psBMHeap, va_list va)
 {
 	IMG_CHAR **ppszStr;
 	IMG_UINT32 *pui32StrLen;
+	IMG_UINT32 ui32Mode;
+	PVRSRV_ERROR (*pfnGetStats)(RA_ARENA *, IMG_CHAR **, IMG_UINT32 *);
 
 	ppszStr = va_arg(va, IMG_CHAR**);
 	pui32StrLen = va_arg(va, IMG_UINT32*);
+	ui32Mode = va_arg(va, IMG_UINT32);
+
+	
+	switch(ui32Mode)
+	{
+		case PVRSRV_MISC_INFO_MEMSTATS_PRESENT:
+			pfnGetStats = &RA_GetStats;
+			break;
+		case PVRSRV_MISC_INFO_FREEMEM_PRESENT:
+			pfnGetStats = &RA_GetStatsFreeMem;
+			break;
+		default:
+			return;
+	}
 
 	if(psBMHeap->pImportArena)
 	{
-		RA_GetStats(psBMHeap->pImportArena,
-					ppszStr, 
+		pfnGetStats(psBMHeap->pImportArena,
+					ppszStr,
 					pui32StrLen);
 	}
 
 	if(psBMHeap->pVMArena)
 	{
-		RA_GetStats(psBMHeap->pVMArena,
-					ppszStr, 
+		pfnGetStats(psBMHeap->pVMArena,
+					ppszStr,
 					pui32StrLen);
 	}
 }
 
-PVRSRV_ERROR PVRSRVGetMiscInfoKM_BMContext_AnyVaCb(BM_CONTEXT *psBMContext, va_list va)
+static PVRSRV_ERROR PVRSRVGetMiscInfoKM_BMContext_AnyVaCb(BM_CONTEXT *psBMContext, va_list va)
 {
 
 	IMG_UINT32 *pui32StrLen;
 	IMG_INT32 *pi32Count;
 	IMG_CHAR **ppszStr;
-	
+	IMG_UINT32 ui32Mode;
+
 	pui32StrLen = va_arg(va, IMG_UINT32*);
 	pi32Count = va_arg(va, IMG_INT32*);
 	ppszStr = va_arg(va, IMG_CHAR**);
-	
+	ui32Mode = va_arg(va, IMG_UINT32);
+
 	CHECK_SPACE(*pui32StrLen);
-	*pi32Count = OSSNPrintf(*ppszStr, 100, "\nApplication Context (hDevMemContext) 0x%08X:\n",
+	*pi32Count = OSSNPrintf(*ppszStr, 100, "\nApplication Context (hDevMemContext) %p:\n",
 							(IMG_HANDLE)psBMContext);
 	UPDATE_SPACE(*ppszStr, *pi32Count, *pui32StrLen);
 
 	List_BM_HEAP_ForEach_va(psBMContext->psBMHeap,
-							PVRSRVGetMiscInfoKM_RA_GetStats_ForEachVaCb,
+							&PVRSRVGetMiscInfoKM_RA_GetStats_ForEachVaCb,
 							ppszStr,
-							pui32StrLen);
+							pui32StrLen,
+							ui32Mode);
 	return PVRSRV_OK;
 }
 
 
-PVRSRV_ERROR PVRSRVGetMiscInfoKM_Device_AnyVaCb(PVRSRV_DEVICE_NODE *psDeviceNode, va_list va)
+static PVRSRV_ERROR PVRSRVGetMiscInfoKM_Device_AnyVaCb(PVRSRV_DEVICE_NODE *psDeviceNode, va_list va)
 {
 	IMG_UINT32 *pui32StrLen;
 	IMG_INT32 *pi32Count;
 	IMG_CHAR **ppszStr;
-	
+	IMG_UINT32 ui32Mode;
+
 	pui32StrLen = va_arg(va, IMG_UINT32*);
 	pi32Count = va_arg(va, IMG_INT32*);
-	ppszStr = va_arg(va, IMG_CHAR**);	
+	ppszStr = va_arg(va, IMG_CHAR**);
+	ui32Mode = va_arg(va, IMG_UINT32);
 
 	CHECK_SPACE(*pui32StrLen);
 	*pi32Count = OSSNPrintf(*ppszStr, 100, "\n\nDevice Type %d:\n", psDeviceNode->sDevId.eDeviceType);
@@ -734,47 +731,49 @@ PVRSRV_ERROR PVRSRVGetMiscInfoKM_Device_AnyVaCb(PVRSRV_DEVICE_NODE *psDeviceNode
 		CHECK_SPACE(*pui32StrLen);
 		*pi32Count = OSSNPrintf(*ppszStr, 100, "\nKernel Context:\n");
 		UPDATE_SPACE(*ppszStr, *pi32Count, *pui32StrLen);
-		
-		
+
 		List_BM_HEAP_ForEach_va(psDeviceNode->sDevMemoryInfo.pBMKernelContext->psBMHeap,
-								PVRSRVGetMiscInfoKM_RA_GetStats_ForEachVaCb,
+								&PVRSRVGetMiscInfoKM_RA_GetStats_ForEachVaCb,
 								ppszStr,
-								pui32StrLen);
+								pui32StrLen,
+								ui32Mode);
 	}
 
 	
 	return List_BM_CONTEXT_PVRSRV_ERROR_Any_va(psDeviceNode->sDevMemoryInfo.pBMContext,
-												PVRSRVGetMiscInfoKM_BMContext_AnyVaCb,
+												&PVRSRVGetMiscInfoKM_BMContext_AnyVaCb,
 							 					pui32StrLen,
 												pi32Count,
-												ppszStr);
+												ppszStr,
+												ui32Mode);
 }
 
 
-IMG_EXPORT			
+IMG_EXPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVGetMiscInfoKM(PVRSRV_MISC_INFO *psMiscInfo)
 {
 	SYS_DATA *psSysData;
-	
+
 	if(!psMiscInfo)
 	{
-		PVR_DPF((PVR_DBG_ERROR,"PVRSRVGetMiscInfoKM: invalid parameters"));		
+		PVR_DPF((PVR_DBG_ERROR,"PVRSRVGetMiscInfoKM: invalid parameters"));
 		return PVRSRV_ERROR_INVALID_PARAMS;
 	}
-	
+
 	psMiscInfo->ui32StatePresent = 0;
 
 	
-	if(psMiscInfo->ui32StateRequest & ~( PVRSRV_MISC_INFO_TIMER_PRESENT
+	if(psMiscInfo->ui32StateRequest & ~(PVRSRV_MISC_INFO_TIMER_PRESENT
 										|PVRSRV_MISC_INFO_CLOCKGATE_PRESENT
 										|PVRSRV_MISC_INFO_MEMSTATS_PRESENT
 										|PVRSRV_MISC_INFO_GLOBALEVENTOBJECT_PRESENT
 										|PVRSRV_MISC_INFO_DDKVERSION_PRESENT
-										|PVRSRV_MISC_INFO_CPUCACHEFLUSH_PRESENT
-										|PVRSRV_MISC_INFO_RESET_PRESENT))
+										|PVRSRV_MISC_INFO_CPUCACHEOP_PRESENT
+										|PVRSRV_MISC_INFO_RESET_PRESENT
+										|PVRSRV_MISC_INFO_FREEMEM_PRESENT))
 	{
 		PVR_DPF((PVR_DBG_ERROR,"PVRSRVGetMiscInfoKM: invalid state request flags"));
-		return PVRSRV_ERROR_INVALID_PARAMS;			
+		return PVRSRV_ERROR_INVALID_PARAMS;
 	}
 
 	SysAcquireData(&psSysData);
@@ -810,7 +809,7 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVGetMiscInfoKM(PVRSRV_MISC_INFO *psMiscInfo)
 		IMG_CHAR			*pszStr;
 		IMG_UINT32			ui32StrLen;
 		IMG_INT32			i32Count;
-		
+
 		pszStr = psMiscInfo->pszMemoryStr;
 		ui32StrLen = psMiscInfo->ui32MemoryStrLen;
 
@@ -823,9 +822,9 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVGetMiscInfoKM(PVRSRV_MISC_INFO *psMiscInfo)
 			CHECK_SPACE(ui32StrLen);
 			i32Count = OSSNPrintf(pszStr, 100, "\nLocal Backing Store:\n");
 			UPDATE_SPACE(pszStr, i32Count, ui32StrLen);
-			
+
 			RA_GetStats(*ppArena,
-							&pszStr, 
+							&pszStr,
 							&ui32StrLen);
 			
 			ppArena++;
@@ -834,13 +833,39 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVGetMiscInfoKM(PVRSRV_MISC_INFO *psMiscInfo)
 		
 		
 		List_PVRSRV_DEVICE_NODE_PVRSRV_ERROR_Any_va(psSysData->psDeviceNodeList,
-													PVRSRVGetMiscInfoKM_Device_AnyVaCb,
+													&PVRSRVGetMiscInfoKM_Device_AnyVaCb,
 													&ui32StrLen,
 													&i32Count,
-													&pszStr);
+													&pszStr,
+													PVRSRV_MISC_INFO_MEMSTATS_PRESENT);
 
 		
-		i32Count = OSSNPrintf(pszStr, 100, "\n\0");
+		i32Count = OSSNPrintf(pszStr, 100, "\n");
+		UPDATE_SPACE(pszStr, i32Count, ui32StrLen);
+	}
+
+	
+	if((psMiscInfo->ui32StateRequest & PVRSRV_MISC_INFO_FREEMEM_PRESENT)
+		&& psMiscInfo->pszMemoryStr)
+	{
+		IMG_CHAR			*pszStr;
+		IMG_UINT32			ui32StrLen;
+		IMG_INT32			i32Count;
+		
+		pszStr = psMiscInfo->pszMemoryStr;
+		ui32StrLen = psMiscInfo->ui32MemoryStrLen;
+  
+		psMiscInfo->ui32StatePresent |= PVRSRV_MISC_INFO_FREEMEM_PRESENT;
+
+		
+		List_PVRSRV_DEVICE_NODE_PVRSRV_ERROR_Any_va(psSysData->psDeviceNodeList,
+													&PVRSRVGetMiscInfoKM_Device_AnyVaCb,
+													&ui32StrLen,
+													&i32Count,
+													&pszStr,
+													PVRSRV_MISC_INFO_FREEMEM_PRESENT);
+		
+		i32Count = OSSNPrintf(pszStr, 100, "\n");
 		UPDATE_SPACE(pszStr, i32Count, ui32StrLen);
 	}
 
@@ -850,7 +875,7 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVGetMiscInfoKM(PVRSRV_MISC_INFO *psMiscInfo)
 		psMiscInfo->ui32StatePresent |= PVRSRV_MISC_INFO_GLOBALEVENTOBJECT_PRESENT;
 		psMiscInfo->sGlobalEventObject = *psSysData->psGlobalEventObject;
 	}
-	
+
 	
 
 	if (((psMiscInfo->ui32StateRequest & PVRSRV_MISC_INFO_DDKVERSION_PRESENT) != 0UL)
@@ -880,7 +905,7 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVGetMiscInfoKM(PVRSRV_MISC_INFO *psMiscInfo)
 				return PVRSRV_ERROR_INVALID_PARAMS;
 			}
 
-			i32Count = OSSNPrintf(pszStr, ui32LenStrPerNum, "%ld", psMiscInfo->aui32DDKVersion[i]);
+			i32Count = OSSNPrintf(pszStr, ui32LenStrPerNum, "%u", psMiscInfo->aui32DDKVersion[i]);
 			UPDATE_SPACE(pszStr, i32Count, ui32StrLen);
 			if (i != 3)
 			{
@@ -890,41 +915,65 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVGetMiscInfoKM(PVRSRV_MISC_INFO *psMiscInfo)
 		}
 	}
 
-#if defined(SUPPORT_CPU_CACHED_BUFFERS)
-	if((psMiscInfo->ui32StateRequest & PVRSRV_MISC_INFO_CPUCACHEFLUSH_PRESENT) != 0UL)
+	if((psMiscInfo->ui32StateRequest & PVRSRV_MISC_INFO_CPUCACHEOP_PRESENT) != 0UL)
 	{
-		if(psMiscInfo->bDeferCPUCacheFlush)
+		if(psMiscInfo->sCacheOpCtl.bDeferOp)
 		{
-
-			if(!psMiscInfo->bCPUCacheFlushAll)
-			{
-
-
-
-				PVR_DPF((PVR_DBG_MESSAGE,"PVRSRVGetMiscInfoKM: don't support deferred range flushes"));
-				PVR_DPF((PVR_DBG_MESSAGE,"                     using deferred flush all instead"));
-			}
-
-			psSysData->bFlushAll = IMG_TRUE;
+			
+			psSysData->ePendingCacheOpType = psMiscInfo->sCacheOpCtl.eCacheOpType;
 		}
 		else
 		{
+			PVRSRV_KERNEL_MEM_INFO *psKernelMemInfo;
+			PVRSRV_PER_PROCESS_DATA *psPerProc;
 
-			if(psMiscInfo->bCPUCacheFlushAll)
+			if(!psMiscInfo->sCacheOpCtl.u.psKernelMemInfo)
 			{
-
-				OSFlushCPUCacheKM();
-
-				psSysData->bFlushAll = IMG_FALSE;
+				PVR_DPF((PVR_DBG_WARNING, "PVRSRVGetMiscInfoKM: "
+						 "Ignoring non-deferred cache op with no meminfo"));
+				return PVRSRV_ERROR_INVALID_PARAMS;
 			}
-			else
-			{
 
-				OSFlushCPUCacheRangeKM(psMiscInfo->pvRangeAddrStart, psMiscInfo->pvRangeAddrEnd);
+			if(psSysData->ePendingCacheOpType != PVRSRV_MISC_INFO_CPUCACHEOP_NONE)
+			{
+				PVR_DPF((PVR_DBG_WARNING, "PVRSRVGetMiscInfoKM: "
+						 "Deferred cache op is pending. It is unlikely you want "
+						 "to combine deferred cache ops with immediate ones"));
+			}
+
+			
+			psPerProc = PVRSRVFindPerProcessData();
+
+			if(PVRSRVLookupHandle(psPerProc->psHandleBase,
+								  (IMG_PVOID *)&psKernelMemInfo,
+								  psMiscInfo->sCacheOpCtl.u.psKernelMemInfo,
+								  PVRSRV_HANDLE_TYPE_MEM_INFO) != PVRSRV_OK)
+			{
+				PVR_DPF((PVR_DBG_ERROR, "PVRSRVGetMiscInfoKM: "
+						 "Can't find kernel meminfo"));
+				return PVRSRV_ERROR_INVALID_PARAMS;
+			}
+
+			if(psMiscInfo->sCacheOpCtl.eCacheOpType == PVRSRV_MISC_INFO_CPUCACHEOP_FLUSH)
+			{
+				if(!OSFlushCPUCacheRangeKM(psKernelMemInfo->sMemBlk.hOSMemHandle,
+										   psMiscInfo->sCacheOpCtl.pvBaseVAddr,
+										   psMiscInfo->sCacheOpCtl.ui32Length))
+				{
+					return PVRSRV_ERROR_CACHEOP_FAILED;
+				}
+			}
+			else if(psMiscInfo->sCacheOpCtl.eCacheOpType == PVRSRV_MISC_INFO_CPUCACHEOP_CLEAN)
+			{
+				if(!OSCleanCPUCacheRangeKM(psKernelMemInfo->sMemBlk.hOSMemHandle,
+										   psMiscInfo->sCacheOpCtl.pvBaseVAddr,
+										   psMiscInfo->sCacheOpCtl.ui32Length))
+				{
+					return PVRSRV_ERROR_CACHEOP_FAILED;
+				}
 			}
 		}
 	}
-#endif
 
 #if defined(PVRSRV_RESET_ON_HWTIMEOUT)
 	if((psMiscInfo->ui32StateRequest & PVRSRV_MISC_INFO_RESET_PRESENT) != 0UL)
@@ -932,29 +981,7 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVGetMiscInfoKM(PVRSRV_MISC_INFO *psMiscInfo)
 		PVR_LOG(("User requested OS reset"));
 		OSPanic();
 	}
-#endif
-
-	return PVRSRV_OK;
-}
-
-
-PVRSRV_ERROR IMG_CALLCONV PVRSRVGetFBStatsKM(IMG_UINT32		*pui32Total, 
-											 IMG_UINT32		*pui32Available)
-{
-	IMG_UINT32 ui32Total = 0, i = 0;
-	IMG_UINT32 ui32Available = 0;
-
-	*pui32Total		= 0;
-	*pui32Available = 0;
-
-	
-	while(BM_ContiguousStatistics(i, &ui32Total, &ui32Available) == IMG_TRUE)
-	{
-		*pui32Total		+= ui32Total;
-		*pui32Available += ui32Available;
-
-		i++;
-	}
+#endif 
 
 	return PVRSRV_OK;
 }
@@ -979,7 +1006,7 @@ IMG_BOOL IMG_CALLCONV PVRSRVDeviceLISR(PVRSRV_DEVICE_NODE *psDeviceNode)
 	{
 		if(psDeviceNode->pfnDeviceISR != IMG_NULL)
 		{
-			bStatus = (*psDeviceNode->pfnDeviceISR)(psDeviceNode->pvISRData);		
+			bStatus = (*psDeviceNode->pfnDeviceISR)(psDeviceNode->pvISRData);
 		}
 
 		SysClearInterrupts(psSysData, psDeviceNode->ui32SOCInterruptBit);
@@ -989,7 +1016,7 @@ out:
 	return bStatus;
 }
 
-IMG_VOID PVRSRVSystemLISR_ForEachVaCb(PVRSRV_DEVICE_NODE *psDeviceNode, va_list va)
+static IMG_VOID PVRSRVSystemLISR_ForEachVaCb(PVRSRV_DEVICE_NODE *psDeviceNode, va_list va)
 {
 
 	IMG_BOOL *pbStatus;
@@ -999,8 +1026,8 @@ IMG_VOID PVRSRVSystemLISR_ForEachVaCb(PVRSRV_DEVICE_NODE *psDeviceNode, va_list 
 	pbStatus = va_arg(va, IMG_BOOL*);
 	pui32InterruptSource = va_arg(va, IMG_UINT32*);
 	pui32ClearInterrupts = va_arg(va, IMG_UINT32*);
-	
-	
+
+
 	if(psDeviceNode->pfnDeviceISR != IMG_NULL)
 	{
 		if(*pui32InterruptSource & psDeviceNode->ui32SOCInterruptBit)
@@ -1030,13 +1057,13 @@ IMG_BOOL IMG_CALLCONV PVRSRVSystemLISR(IMG_VOID *pvSysData)
 	{
 		
 		ui32InterruptSource = SysGetInterruptSource(psSysData, IMG_NULL);
-	
+
 		
 		if(ui32InterruptSource)
 		{
 			
 			List_PVRSRV_DEVICE_NODE_ForEach_va(psSysData->psDeviceNodeList,
-												PVRSRVSystemLISR_ForEachVaCb,
+												&PVRSRVSystemLISR_ForEachVaCb,
 												&bStatus,
 												&ui32InterruptSource,
 												&ui32ClearInterrupts);
@@ -1048,7 +1075,7 @@ IMG_BOOL IMG_CALLCONV PVRSRVSystemLISR(IMG_VOID *pvSysData)
 }
 
 
-IMG_VOID PVRSRVMISR_ForEachCb(PVRSRV_DEVICE_NODE *psDeviceNode)
+static IMG_VOID PVRSRVMISR_ForEachCb(PVRSRV_DEVICE_NODE *psDeviceNode)
 {
 	if(psDeviceNode->pfnDeviceMISR != IMG_NULL)
 	{
@@ -1067,14 +1094,14 @@ IMG_VOID IMG_CALLCONV PVRSRVMISR(IMG_VOID *pvSysData)
 
 	
 	List_PVRSRV_DEVICE_NODE_ForEach(psSysData->psDeviceNodeList,
-									PVRSRVMISR_ForEachCb);
+									&PVRSRVMISR_ForEachCb);
 
 	
 	if (PVRSRVProcessQueues(ISR_ID, IMG_FALSE) == PVRSRV_ERROR_PROCESSING_BLOCKED)
 	{
 		PVRSRVProcessQueues(ISR_ID, IMG_FALSE);
 	}
-	
+
 	
 	if (psSysData->psGlobalEventObject)
 	{
@@ -1083,7 +1110,7 @@ IMG_VOID IMG_CALLCONV PVRSRVMISR(IMG_VOID *pvSysData)
 		{
 			OSEventObjectSignal(hOSEventKM);
 		}
-	}	
+	}
 }
 
 
@@ -1101,7 +1128,7 @@ IMG_VOID IMG_CALLCONV PVRSRVProcessDisconnect(IMG_UINT32	ui32PID)
 }
 
 
-PVRSRV_ERROR IMG_CALLCONV PVRSRVSaveRestoreLiveSegments(IMG_HANDLE hArena, IMG_PBYTE pbyBuffer, 
+PVRSRV_ERROR IMG_CALLCONV PVRSRVSaveRestoreLiveSegments(IMG_HANDLE hArena, IMG_PBYTE pbyBuffer,
 														IMG_SIZE_T *puiBufSize, IMG_BOOL bSave)
 {
 	IMG_SIZE_T         uiBytesSaved = 0;
@@ -1191,4 +1218,36 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVSaveRestoreLiveSegments(IMG_HANDLE hArena, IMG_P
 	return (PVRSRV_OK);
 }
 
+
+IMG_EXPORT
+const IMG_CHAR *PVRSRVGetErrorStringKM(PVRSRV_ERROR eError)
+{ 
+ 
+#include "pvrsrv_errors.h"
+}
+
+static IMG_VOID PVRSRVCommandCompleteCallbacks_ForEachCb(PVRSRV_DEVICE_NODE *psDeviceNode)
+{
+	if(psDeviceNode->pfnDeviceCommandComplete != IMG_NULL)
+	{
+		
+		(*psDeviceNode->pfnDeviceCommandComplete)(psDeviceNode);
+	}
+}
+
+IMG_VOID PVRSRVScheduleDeviceCallbacks(IMG_VOID)
+{
+	SYS_DATA				*psSysData;
+	SysAcquireData(&psSysData);
+
+	
+	List_PVRSRV_DEVICE_NODE_ForEach(psSysData->psDeviceNodeList,
+									&PVRSRVCommandCompleteCallbacks_ForEachCb);
+}
+
+IMG_EXPORT
+IMG_VOID PVRSRVScheduleDevicesKM(IMG_VOID)
+{
+	PVRSRVScheduleDeviceCallbacks();
+}
 

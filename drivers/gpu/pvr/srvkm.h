@@ -36,34 +36,43 @@ extern "C" {
 	#ifdef PVR_DISABLE_LOGGING
 	#define PVR_LOG(X)
 	#else
-	#define PVR_LOG(X)			PVRSRVReleasePrintf X
+	 
+	#define PVR_LOG(X)			PVRSRVReleasePrintf X;
 	#endif
 
-	IMG_IMPORT IMG_VOID IMG_CALLCONV PVRSRVReleasePrintf(const IMG_CHAR *pszFormat,
-										...);
+	IMG_IMPORT IMG_VOID IMG_CALLCONV PVRSRVReleasePrintf(const IMG_CHAR *pszFormat, ...) IMG_FORMAT_PRINTF(1, 2);
 
 	IMG_IMPORT PVRSRV_ERROR IMG_CALLCONV PVRSRVProcessConnect(IMG_UINT32	ui32PID);
 	IMG_IMPORT IMG_VOID IMG_CALLCONV PVRSRVProcessDisconnect(IMG_UINT32	ui32PID);
+
+	IMG_IMPORT IMG_VOID PVRSRVScheduleDevicesKM(IMG_VOID);
 
 	IMG_VOID IMG_CALLCONV PVRSRVSetDCState(IMG_UINT32 ui32State);
 
 	PVRSRV_ERROR IMG_CALLCONV PVRSRVSaveRestoreLiveSegments(IMG_HANDLE hArena, IMG_PBYTE pbyBuffer, IMG_SIZE_T *puiBufSize, IMG_BOOL bSave);
 
+	IMG_VOID PVRSRVScheduleDeviceCallbacks(IMG_VOID);
+
+
 #if defined (__cplusplus)
 }
 #endif
 
+ 
 #define LOOP_UNTIL_TIMEOUT(TIMEOUT) \
 {\
-	IMG_UINT32 uiOffset, uiStart, uiCurrent, uiNotLastLoop;								\
-	for(uiOffset = 0, uiStart = OSClockus(), uiCurrent = uiStart + 1, uiNotLastLoop = 1;\
-		((uiCurrent - uiStart + uiOffset) < TIMEOUT) || uiNotLastLoop--;				\
-		uiCurrent = OSClockus(),														\
-		uiOffset = uiCurrent < uiStart ? IMG_UINT32_MAX - uiStart : uiOffset,			\
+	IMG_UINT32 uiOffset, uiStart, uiCurrent; \
+	IMG_INT32 iNotLastLoop;					 \
+	for(uiOffset = 0, uiStart = OSClockus(), uiCurrent = uiStart + 1, iNotLastLoop = 1;\
+		((uiCurrent - uiStart + uiOffset) < (TIMEOUT)) || iNotLastLoop--;				\
+		uiCurrent = OSClockus(),													\
+		uiOffset = uiCurrent < uiStart ? IMG_UINT32_MAX - uiStart : uiOffset,		\
 		uiStart = uiCurrent < uiStart ? 0 : uiStart)
 
 #define END_LOOP_UNTIL_TIMEOUT() \
 }
 
+IMG_IMPORT
+const IMG_CHAR *PVRSRVGetErrorStringKM(PVRSRV_ERROR eError);
 
 #endif 

@@ -36,7 +36,9 @@
 #include "ra.h"
 #include "device.h"
 #include "buffer_manager.h"
- 
+#include "pvr_debug.h"
+#include "services.h"
+
 #if defined(NO_HARDWARE) && defined(__linux__) && defined(__KERNEL__)
 #include <asm/io.h>
 #endif
@@ -89,8 +91,7 @@ typedef struct _SYS_DATA_TAG_
     IMG_CHAR                    *pszVersionString;          
 	PVRSRV_EVENTOBJECT			*psGlobalEventObject;			
 
-	IMG_BOOL					bFlushAll;
-
+	PVRSRV_MISC_INFO_CPUCACHEOP_TYPE ePendingCacheOpType;	
 } SYS_DATA;
 
 
@@ -126,7 +127,7 @@ PVRSRV_ERROR SysPowerLockWrap(SYS_DATA *psSysData);
 IMG_VOID SysPowerLockUnwrap(SYS_DATA *psSysData);
 #endif
 
-PVRSRV_ERROR SysOEMFunction (	IMG_UINT32	ui32ID, 
+PVRSRV_ERROR SysOEMFunction (	IMG_UINT32	ui32ID,
 								IMG_VOID	*pvIn,
 								IMG_UINT32  ulInSize,
 								IMG_VOID	*pvOut,
@@ -150,17 +151,26 @@ extern SYS_DATA* gpsSysData;
 #ifdef INLINE_IS_PRAGMA
 #pragma inline(SysAcquireData)
 #endif
-static INLINE PVRSRV_ERROR SysAcquireData(SYS_DATA **ppsSysData)
+static INLINE IMG_VOID SysAcquireData(SYS_DATA **ppsSysData)
 {
 	
 	*ppsSysData = gpsSysData;
 
-	if (!gpsSysData)
-	{
-		return PVRSRV_ERROR_GENERIC;	
-   	}
-   		
-	return PVRSRV_OK;
+	
+
+
+
+	PVR_ASSERT (gpsSysData != IMG_NULL);
+}
+
+
+#ifdef INLINE_IS_PRAGMA
+#pragma inline(SysAcquireDataNoCheck)
+#endif
+static INLINE SYS_DATA * SysAcquireDataNoCheck(IMG_VOID)
+{
+	
+	return gpsSysData;
 }
 
 

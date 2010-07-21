@@ -42,7 +42,8 @@ MMU_InsertHeap(MMU_CONTEXT *psMMUContext, MMU_HEAP *psMMUHeap);
 MMU_HEAP *
 MMU_Create (MMU_CONTEXT *psMMUContext,
 			DEV_ARENA_DESCRIPTOR *psDevArena,
-			RA_ARENA **ppsVMArena);
+			RA_ARENA **ppsVMArena,
+			PDUMP_MMU_ATTRIB **ppsMMUAttrib);
 
 IMG_VOID
 MMU_Delete (MMU_HEAP *pMMU);
@@ -123,17 +124,21 @@ PVRSRV_ERROR MMU_BIFResetPDAlloc(PVRSRV_SGXDEV_INFO *psDevInfo);
 IMG_VOID MMU_BIFResetPDFree(PVRSRV_SGXDEV_INFO *psDevInfo);
 
 #if defined(FIX_HW_BRN_22997) && defined(FIX_HW_BRN_23030) && defined(SGX_FEATURE_HOST_PORT)
-PVRSRV_ERROR WorkaroundBRN22997Alloc(PVRSRV_SGXDEV_INFO *psDevInfo);
+PVRSRV_ERROR WorkaroundBRN22997Alloc(PVRSRV_DEVICE_NODE	*psDeviceNode);
 
 IMG_VOID WorkaroundBRN22997ReadHostPort(PVRSRV_SGXDEV_INFO *psDevInfo);
 
-IMG_VOID WorkaroundBRN22997Free(PVRSRV_SGXDEV_INFO *psDevInfo);
+IMG_VOID WorkaroundBRN22997Free(PVRSRV_DEVICE_NODE *psDeviceNode);
 #endif 
 
 #if defined(SUPPORT_EXTERNAL_SYSTEM_CACHE)
 PVRSRV_ERROR MMU_MapExtSystemCacheRegs(PVRSRV_DEVICE_NODE *psDeviceNode);
 
 PVRSRV_ERROR MMU_UnmapExtSystemCacheRegs(PVRSRV_DEVICE_NODE *psDeviceNode);
+#endif 
+
+#if defined(PDUMP)
+IMG_UINT32 MMU_GetPDumpContextID(IMG_HANDLE hDevMemContext);
 #endif 
 
 #endif 

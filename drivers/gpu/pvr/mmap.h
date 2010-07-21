@@ -30,6 +30,10 @@
 #include <linux/mm.h>
 #include <linux/list.h>
 
+#if defined(VM_MIXEDMAP)
+#define	PVR_MAKE_ALL_PFNS_SPECIAL
+#endif
+
 #include "perproc.h"
 #include "mm.h"
 
@@ -46,8 +50,10 @@ typedef struct KV_OFFSET_STRUCT_TAG
     
     LinuxMemArea                *psLinuxMemArea;
     
+#if !defined(PVR_MAKE_ALL_PFNS_SPECIAL)
     
     IMG_UINT32			ui32TID;
+#endif
 
     
     IMG_UINT32			ui32PID;

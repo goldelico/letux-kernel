@@ -24,44 +24,14 @@
  *
  ******************************************************************************/
 
-#ifndef __INCLUDED_PRIVATE_DATA_H_
-#define __INCLUDED_PRIVATE_DATA_H_
+#ifndef _SERVICES_PDUMP_H_
+#define _SERVICES_PDUMP_H_
 
-#if defined(SUPPORT_DRI_DRM) && defined(PVR_SECURE_DRM_AUTH_EXPORT)
-#include <linux/list.h>
-#include <drm/drmP.h>
-#endif
-
-typedef struct
-{
-	
-	IMG_UINT32 ui32OpenPID;
-
-#if defined(PVR_SECURE_FD_EXPORT)
-	
-	IMG_HANDLE hKernelMemInfo;
-#endif 
-
-#if defined(SUPPORT_DRI_DRM) && defined(PVR_SECURE_DRM_AUTH_EXPORT)
-	
-	struct list_head sDRMAuthListItem;
-
-	struct drm_file *psDRMFile;
-#endif
-
-#if defined(SUPPORT_MEMINFO_IDS)
-	
-	IMG_UINT64 ui64Stamp;
-#endif 
-
-	
-	IMG_HANDLE hBlockAlloc;
-
-#if defined(SUPPORT_DRI_DRM_EXT)
-	IMG_PVOID pPriv;	
-#endif
-}
-PVRSRV_FILE_PRIVATE_DATA;
+#define PDUMP_FLAGS_NEVER			0x08000000UL
+#define PDUMP_FLAGS_LASTFRAME		0x10000000UL
+#define PDUMP_FLAGS_RESETLFBUFFER	0x20000000UL
+#define PDUMP_FLAGS_CONTINUOUS		0x40000000UL
+#define PDUMP_FLAGS_PERSISTENT		0x80000000UL
 
 #endif 
 

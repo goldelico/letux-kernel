@@ -51,6 +51,17 @@ IMG_EXPORT PVRSRV_ERROR SGXSubmitTransferKM(IMG_HANDLE hDevHandle, PVRSRV_TRANSF
 	PVRSRV_KERNEL_SYNC_INFO *psSyncInfo;
 	PVRSRV_ERROR eError;
 
+#if defined(PDUMP)
+	IMG_BOOL bPersistentProcess = IMG_FALSE;
+	
+	{
+		PVRSRV_PER_PROCESS_DATA* psPerProc = PVRSRVFindPerProcessData();
+		if(psPerProc != IMG_NULL)
+		{
+			bPersistentProcess = psPerProc->bPDumpPersistent;
+		}
+	}
+#endif 
 
 	if (!CCB_OFFSET_IS_VALID(SGXMKIF_TRANSFERCMD_SHARED, psCCBMemInfo, psKick, ui32SharedCmdCCBOffset))
 	{
@@ -141,8 +152,9 @@ IMG_EXPORT PVRSRV_ERROR SGXSubmitTransferKM(IMG_HANDLE hDevHandle, PVRSRV_TRANSF
 	}
 
 #if defined(PDUMP)
-	if (PDumpIsCaptureFrameKM()
-	|| ((psKick->ui32PDumpFlags & PDUMP_FLAGS_CONTINUOUS) != 0))
+	if ((PDumpIsCaptureFrameKM()
+	|| ((psKick->ui32PDumpFlags & PDUMP_FLAGS_CONTINUOUS) != 0)) 
+	&&  (bPersistentProcess == IMG_FALSE) )
 	{
 		PDUMPCOMMENT("Shared part of transfer command\r\n");
 		PDUMPMEM(psSharedTransferCmd,
@@ -247,14 +259,14 @@ IMG_EXPORT PVRSRV_ERROR SGXSubmitTransferKM(IMG_HANDLE hDevHandle, PVRSRV_TRANSF
 #endif
 		}
 
-
+		
 		if (psKick->hTASyncInfo != IMG_NULL)
 		{
 			psSyncInfo = (PVRSRV_KERNEL_SYNC_INFO *)psKick->hTASyncInfo;
 			psSyncInfo->psSyncData->ui32WriteOpsPending--;
 		}
 
-
+		
 		if (psKick->h3DSyncInfo != IMG_NULL)
 		{
 			psSyncInfo = (PVRSRV_KERNEL_SYNC_INFO *)psKick->h3DSyncInfo;
@@ -317,6 +329,17 @@ IMG_EXPORT PVRSRV_ERROR SGXSubmit2DKM(IMG_HANDLE hDevHandle, PVRSRV_2D_SGX_KICK 
 	PVRSRV_KERNEL_SYNC_INFO *psSyncInfo;
 	PVRSRV_ERROR eError;
 	IMG_UINT32 i;
+#if defined(PDUMP)
+	IMG_BOOL bPersistentProcess = IMG_FALSE;
+	
+	{
+		PVRSRV_PER_PROCESS_DATA* psPerProc = PVRSRVFindPerProcessData();
+		if(psPerProc != IMG_NULL)
+		{
+			bPersistentProcess = psPerProc->bPDumpPersistent;
+		}
+	}
+#endif 
 
 	if (!CCB_OFFSET_IS_VALID(SGXMKIF_2DCMD_SHARED, psCCBMemInfo, psKick, ui32SharedCmdCCBOffset))
 	{
@@ -391,8 +414,9 @@ IMG_EXPORT PVRSRV_ERROR SGXSubmit2DKM(IMG_HANDLE hDevHandle, PVRSRV_2D_SGX_KICK 
 	}
 
 #if defined(PDUMP)
-	if (PDumpIsCaptureFrameKM()
+	if ((PDumpIsCaptureFrameKM()
 	|| ((psKick->ui32PDumpFlags & PDUMP_FLAGS_CONTINUOUS) != 0))
+	&&  (bPersistentProcess == IMG_FALSE) )
 	{
 		
 		PDUMPCOMMENT("Shared part of 2D command\r\n");
@@ -466,7 +490,7 @@ IMG_EXPORT PVRSRV_ERROR SGXSubmit2DKM(IMG_HANDLE hDevHandle, PVRSRV_2D_SGX_KICK 
 
 	if (eError == PVRSRV_ERROR_RETRY)
 	{
-
+		
 
 #if defined(PDUMP)
 		if (PDumpIsCaptureFrameKM())
@@ -497,7 +521,7 @@ IMG_EXPORT PVRSRV_ERROR SGXSubmit2DKM(IMG_HANDLE hDevHandle, PVRSRV_2D_SGX_KICK 
 			psSyncInfo->psSyncData->ui32WriteOpsPending--;
 		}
 
-
+		
 		if (psKick->hTASyncInfo != IMG_NULL)
 		{
 			psSyncInfo = (PVRSRV_KERNEL_SYNC_INFO *)psKick->hTASyncInfo;
@@ -505,7 +529,7 @@ IMG_EXPORT PVRSRV_ERROR SGXSubmit2DKM(IMG_HANDLE hDevHandle, PVRSRV_2D_SGX_KICK 
 			psSyncInfo->psSyncData->ui32WriteOpsPending--;
 		}
 
-
+		
 		if (psKick->h3DSyncInfo != IMG_NULL)
 		{
 			psSyncInfo = (PVRSRV_KERNEL_SYNC_INFO *)psKick->h3DSyncInfo;
@@ -514,7 +538,7 @@ IMG_EXPORT PVRSRV_ERROR SGXSubmit2DKM(IMG_HANDLE hDevHandle, PVRSRV_2D_SGX_KICK 
 		}
 	}
 
-
+	
 
 
 #if defined(NO_HARDWARE)

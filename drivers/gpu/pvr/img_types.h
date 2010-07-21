@@ -45,9 +45,13 @@ typedef char			IMG_CHAR,	*IMG_PCHAR;
 
 typedef unsigned short	IMG_UINT16,	*IMG_PUINT16;
 typedef signed short	IMG_INT16,	*IMG_PINT16;
+#if !defined(IMG_UINT32_IS_ULONG)
+typedef unsigned int	IMG_UINT32,	*IMG_PUINT32;
+typedef signed int		IMG_INT32,	*IMG_PINT32;
+#else
 typedef unsigned long	IMG_UINT32,	*IMG_PUINT32;
 typedef signed long		IMG_INT32,	*IMG_PINT32;
-
+#endif
 #if !defined(IMG_UINT32_MAX)
 	#define IMG_UINT32_MAX 0xFFFFFFFFUL
 #endif
@@ -75,11 +79,15 @@ typedef	enum tag_img_bool
 	IMG_FORCE_ALIGN = 0x7FFFFFFF
 } IMG_BOOL, *IMG_PBOOL;
 
-typedef void            IMG_VOID,	*IMG_PVOID;
+typedef void            IMG_VOID, *IMG_PVOID;
 
 typedef IMG_INT32       IMG_RESULT;
 
-typedef IMG_UINT32      IMG_UINTPTR_T;
+#if defined(_WIN64)
+typedef unsigned __int64 IMG_UINTPTR_T;
+#else
+typedef unsigned int     IMG_UINTPTR_T;
+#endif
 
 typedef IMG_PVOID       IMG_HANDLE;
 
@@ -87,15 +95,17 @@ typedef void**          IMG_HVOID,	* IMG_PHVOID;
 
 typedef IMG_UINT32		IMG_SIZE_T;
 
-#define IMG_NULL        0
+#define IMG_NULL        0 
+
+typedef IMG_UINT32      IMG_SID;
 
 
 typedef IMG_PVOID IMG_CPU_VIRTADDR;
 
-typedef struct 
+typedef struct _IMG_DEV_VIRTADDR
 {
 	
-	IMG_UINT32 uiAddr;
+	IMG_UINT32  uiAddr;
 #define IMG_CAST_TO_DEVVADDR_UINT(var)		(IMG_UINT32)(var)
 	
 } IMG_DEV_VIRTADDR;

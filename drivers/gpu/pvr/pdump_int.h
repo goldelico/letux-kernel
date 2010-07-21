@@ -24,44 +24,44 @@
  *
  ******************************************************************************/
 
-#ifndef __INCLUDED_PRIVATE_DATA_H_
-#define __INCLUDED_PRIVATE_DATA_H_
+#ifndef __PDUMP_INT_H__
+#define __PDUMP_INT_H__
 
-#if defined(SUPPORT_DRI_DRM) && defined(PVR_SECURE_DRM_AUTH_EXPORT)
-#include <linux/list.h>
-#include <drm/drmP.h>
+#if defined (__cplusplus)
+extern "C" {
 #endif
 
-typedef struct
+#if !defined(_UITRON)
+#include "dbgdrvif.h"
+
+IMG_EXPORT IMG_VOID PDumpConnectionNotify(IMG_VOID);
+
+#endif 
+
+typedef enum
 {
 	
-	IMG_UINT32 ui32OpenPID;
-
-#if defined(PVR_SECURE_FD_EXPORT)
+	PDUMP_WRITE_MODE_CONTINUOUS = 0,
 	
-	IMG_HANDLE hKernelMemInfo;
-#endif 
-
-#if defined(SUPPORT_DRI_DRM) && defined(PVR_SECURE_DRM_AUTH_EXPORT)
+	PDUMP_WRITE_MODE_LASTFRAME,
 	
-	struct list_head sDRMAuthListItem;
-
-	struct drm_file *psDRMFile;
-#endif
-
-#if defined(SUPPORT_MEMINFO_IDS)
+	PDUMP_WRITE_MODE_BINCM,
 	
-	IMG_UINT64 ui64Stamp;
-#endif 
+	PDUMP_WRITE_MODE_PERSISTENT
+} PDUMP_DDWMODE;
 
-	
-	IMG_HANDLE hBlockAlloc;
 
-#if defined(SUPPORT_DRI_DRM_EXT)
-	IMG_PVOID pPriv;	
-#endif
+IMG_UINT32 DbgWrite(PDBG_STREAM psStream, IMG_UINT8 *pui8Data, IMG_UINT32 ui32BCount, IMG_UINT32 ui32Flags);
+
+IMG_UINT32 PDumpOSDebugDriverWrite(	PDBG_STREAM psStream,
+									PDUMP_DDWMODE eDbgDrvWriteMode,
+									IMG_UINT8 *pui8Data,
+									IMG_UINT32 ui32BCount,
+									IMG_UINT32 ui32Level,
+									IMG_UINT32 ui32DbgDrvFlags);
+
+#if defined (__cplusplus)
 }
-PVRSRV_FILE_PRIVATE_DATA;
-
+#endif
 #endif 
 

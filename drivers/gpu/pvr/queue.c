@@ -1,34 +1,32 @@
 /**********************************************************************
  *
  * Copyright(c) 2008 Imagination Technologies Ltd. All rights reserved.
- *
+ * 
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
  * version 2, as published by the Free Software Foundation.
- *
- * This program is distributed in the hope it will be useful but, except
- * as otherwise stated in writing, without any warranty; without even the
- * implied warranty of merchantability or fitness for a particular purpose.
+ * 
+ * This program is distributed in the hope it will be useful but, except 
+ * as otherwise stated in writing, without any warranty; without even the 
+ * implied warranty of merchantability or fitness for a particular purpose. 
  * See the GNU General Public License for more details.
- *
+ * 
  * You should have received a copy of the GNU General Public License along with
  * this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *
+ * 
  * The full GNU General Public License is included in this distribution in
  * the file called "COPYING".
  *
  * Contact Information:
  * Imagination Technologies Ltd. <gpl-support@imgtec.com>
- * Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK
+ * Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK 
  *
  ******************************************************************************/
 
 #include "services_headers.h"
 
 #include "lists.h"
-
-DECLARE_LIST_FOR_EACH(PVRSRV_DEVICE_NODE);
 
 #if defined(__linux__) && defined(__KERNEL__)
 
@@ -47,9 +45,9 @@ QueuePrintCommands (PVRSRV_QUEUE_INFO * psQueue, IMG_CHAR * buffer, size_t size)
 	{
 		psCmd= (PVRSRV_COMMAND *)((IMG_UINTPTR_T)psQueue->pvLinQueueKM + ui32ReadOffset);
 
-		off = printAppend(buffer, size, off, "%p %p  %5lu  %6lu  %3lu  %5lu   %2lu   %2lu    %3lu  \n",
-							psQueue,
-					 		psCmd,
+		off = printAppend(buffer, size, off, "%x %x  %5u  %6u  %3u  %5u   %2u   %2u    %3u  \n",
+							(IMG_UINTPTR_T)psQueue,
+							(IMG_UINTPTR_T)psCmd,
 					 		psCmd->ui32ProcessID,
 							psCmd->CommandType,
 							psCmd->ui32CmdSize,
@@ -57,19 +55,19 @@ QueuePrintCommands (PVRSRV_QUEUE_INFO * psQueue, IMG_CHAR * buffer, size_t size)
 							psCmd->ui32DstSyncCount,
 							psCmd->ui32SrcSyncCount,
 							psCmd->ui32DataSize);
-
+		
 		ui32ReadOffset += psCmd->ui32CmdSize;
 		ui32ReadOffset &= psQueue->ui32QueueSize - 1;
 		cmds++;
 	}
 	if (cmds == 0)
-		off = printAppend(buffer, size, off, "%p <empty>\n", psQueue);
+	{
+		off = printAppend(buffer, size, off, "%x <empty>\n", (IMG_UINTPTR_T)psQueue);
+	}
 	return off;
-}
+} 
 
 
-
-#ifdef PVR_PROC_USE_SEQ_FILE
 
 void ProcSeqShowQueue(struct seq_file *sfile,void* el)
 {
@@ -94,9 +92,9 @@ void ProcSeqShowQueue(struct seq_file *sfile,void* el)
 	{
 		psCmd= (PVRSRV_COMMAND *)((IMG_UINTPTR_T)psQueue->pvLinQueueKM + ui32ReadOffset);
 
-		seq_printf(sfile, "%p %p  %5lu  %6lu  %3lu  %5lu   %2lu   %2lu    %3lu  \n",
-							psQueue,
-					 		psCmd,
+		seq_printf(sfile, "%x %x  %5u  %6u  %3u  %5u   %2u   %2u    %3u  \n",
+							(IMG_UINTPTR_T)psQueue,
+							(IMG_UINTPTR_T)psCmd,
 					 		psCmd->ui32ProcessID,
 							psCmd->CommandType,
 							psCmd->ui32CmdSize,
@@ -104,20 +102,24 @@ void ProcSeqShowQueue(struct seq_file *sfile,void* el)
 							psCmd->ui32DstSyncCount,
 							psCmd->ui32SrcSyncCount,
 							psCmd->ui32DataSize);
-
+		
 		ui32ReadOffset += psCmd->ui32CmdSize;
 		ui32ReadOffset &= psQueue->ui32QueueSize - 1;
 		cmds++;
 	}
 
 	if (cmds == 0)
-		seq_printf(sfile, "%p <empty>\n", psQueue);
+	{
+		seq_printf(sfile, "%x <empty>\n", (IMG_UINTPTR_T)psQueue);
+	}
 }
 
 void* ProcSeqOff2ElementQueue(struct seq_file * sfile, loff_t off)
 {
 	PVRSRV_QUEUE_INFO * psQueue;
 	SYS_DATA * psSysData;
+
+	PVR_UNREFERENCED_PARAMETER(sfile);
 
 	if(!off)
 	{
@@ -130,8 +132,6 @@ void* ProcSeqOff2ElementQueue(struct seq_file * sfile, loff_t off)
 	for (psQueue = psSysData->psQueueList; (((--off) > 0) && (psQueue != IMG_NULL)); psQueue = psQueue->psNextKM);
 	return psQueue;
 }
-
-#endif
 
 off_t
 QueuePrintQueues (IMG_CHAR * buffer, size_t size, off_t off)
@@ -146,28 +146,25 @@ QueuePrintQueues (IMG_CHAR * buffer, size_t size, off_t off)
 								"Command Queues\n"
 								"Queue    CmdPtr      Pid Command Size DevInd  DSC  SSC  #Data ...\n");
 
-
-
+	
 	for (psQueue = psSysData->psQueueList; (((--off) > 0) && (psQueue != IMG_NULL)); psQueue = psQueue->psNextKM)
 		;
 
 	return psQueue ? QueuePrintCommands (psQueue, buffer, size) : END_OF_FILE;
-}
-#endif
+} 
+#endif 
 
 #define GET_SPACE_IN_CMDQ(psQueue)										\
-	(((psQueue->ui32ReadOffset - psQueue->ui32WriteOffset)				\
-	+ (psQueue->ui32QueueSize - 1)) & (psQueue->ui32QueueSize - 1))
+	((((psQueue)->ui32ReadOffset - (psQueue)->ui32WriteOffset)				\
+	+ ((psQueue)->ui32QueueSize - 1)) & ((psQueue)->ui32QueueSize - 1))
 
 #define UPDATE_QUEUE_WOFF(psQueue, ui32Size)							\
-	psQueue->ui32WriteOffset = (psQueue->ui32WriteOffset + ui32Size)	\
-	& (psQueue->ui32QueueSize - 1);
+	(psQueue)->ui32WriteOffset = ((psQueue)->ui32WriteOffset + (ui32Size))	\
+	& ((psQueue)->ui32QueueSize - 1);
 
 #define SYNCOPS_STALE(ui32OpsComplete, ui32OpsPending)					\
-	(ui32OpsComplete >= ui32OpsPending)
+	((ui32OpsComplete) >= (ui32OpsPending))
 
-
-DECLARE_LIST_FOR_EACH(PVRSRV_DEVICE_NODE);
 
 static IMG_VOID QueueDumpCmdComplete(COMMAND_COMPLETE_DATA *psCmdCompleteData,
 									 IMG_UINT32				i,
@@ -179,18 +176,18 @@ static IMG_VOID QueueDumpCmdComplete(COMMAND_COMPLETE_DATA *psCmdCompleteData,
 
 	if (psCmdCompleteData->bInUse)
 	{
-		PVR_LOG(("\t%s %lu: ROC DevVAddr:0x%lX ROP:0x%lx ROC:0x%lx, WOC DevVAddr:0x%lX WOP:0x%lx WOC:0x%lx",
+		PVR_LOG(("\t%s %u: ROC DevVAddr:0x%X ROP:0x%x ROC:0x%x, WOC DevVAddr:0x%X WOP:0x%x WOC:0x%x",
 				bIsSrc ? "SRC" : "DEST", i,
 				psSyncObject[i].psKernelSyncInfoKM->sReadOpsCompleteDevVAddr.uiAddr,
 				psSyncObject[i].psKernelSyncInfoKM->psSyncData->ui32ReadOpsPending,
 				psSyncObject[i].psKernelSyncInfoKM->psSyncData->ui32ReadOpsComplete,
 				psSyncObject[i].psKernelSyncInfoKM->sWriteOpsCompleteDevVAddr.uiAddr,
 				psSyncObject[i].psKernelSyncInfoKM->psSyncData->ui32WriteOpsPending,
-				psSyncObject[i].psKernelSyncInfoKM->psSyncData->ui32WriteOpsComplete));
+				psSyncObject[i].psKernelSyncInfoKM->psSyncData->ui32WriteOpsComplete))
 	}
 	else
 	{
-		PVR_LOG(("\t%s %lu: (Not in use)", bIsSrc ? "SRC" : "DEST", i));
+		PVR_LOG(("\t%s %u: (Not in use)", bIsSrc ? "SRC" : "DEST", i))
 	}
 }
 
@@ -199,8 +196,8 @@ static IMG_VOID QueueDumpDebugInfo_ForEachCb(PVRSRV_DEVICE_NODE *psDeviceNode)
 {
 	if (psDeviceNode->sDevId.eDeviceClass == PVRSRV_DEVICE_CLASS_DISPLAY)
 	{
-		IMG_UINT32				i;
-		SYS_DATA				*psSysData;
+		IMG_UINT32		i;
+		SYS_DATA		*psSysData;
 		COMMAND_COMPLETE_DATA	**ppsCmdCompleteData;
 		COMMAND_COMPLETE_DATA	*psCmdCompleteData;
 
@@ -212,7 +209,7 @@ static IMG_VOID QueueDumpDebugInfo_ForEachCb(PVRSRV_DEVICE_NODE *psDeviceNode)
 		{
 			psCmdCompleteData = ppsCmdCompleteData[DC_FLIP_COMMAND];
 
-			PVR_LOG(("Command Complete Data for display device %lu:", psDeviceNode->sDevId.ui32DeviceIndex));
+			PVR_LOG(("Command Complete Data for display device %u:", psDeviceNode->sDevId.ui32DeviceIndex))
 
 			for (i = 0; i < psCmdCompleteData->ui32SrcSyncCount; i++)
 			{
@@ -226,7 +223,7 @@ static IMG_VOID QueueDumpDebugInfo_ForEachCb(PVRSRV_DEVICE_NODE *psDeviceNode)
 		}
 		else
 		{
-			PVR_LOG(("There is no Command Complete Data for display device %u", psDeviceNode->sDevId.ui32DeviceIndex));
+			PVR_LOG(("There is no Command Complete Data for display device %u", psDeviceNode->sDevId.ui32DeviceIndex))
 		}
 	}
 }
@@ -236,11 +233,11 @@ IMG_VOID QueueDumpDebugInfo(IMG_VOID)
 {
 	SYS_DATA	*psSysData;
 	SysAcquireData(&psSysData);
-	List_PVRSRV_DEVICE_NODE_ForEach(psSysData->psDeviceNodeList, QueueDumpDebugInfo_ForEachCb);
+	List_PVRSRV_DEVICE_NODE_ForEach(psSysData->psDeviceNodeList, &QueueDumpDebugInfo_ForEachCb);
 }
 
 
-IMG_SIZE_T NearestPower2(IMG_SIZE_T ui32Value)
+static IMG_SIZE_T NearestPower2(IMG_SIZE_T ui32Value)
 {
 	IMG_SIZE_T ui32Temp, ui32Result = 1;
 
@@ -270,11 +267,12 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVCreateCommandQueueKM(IMG_SIZE_T ui32QueueSize,
 
 	SysAcquireData(&psSysData);
 
-
-	if(OSAllocMem(PVRSRV_OS_NON_PAGEABLE_HEAP,
+	
+	eError = OSAllocMem(PVRSRV_OS_NON_PAGEABLE_HEAP,
 					 sizeof(PVRSRV_QUEUE_INFO),
 					 (IMG_VOID **)&psQueueInfo, &hMemBlock,
-					 "Queue Info") != PVRSRV_OK)
+					 "Queue Info");
+	if (eError != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR,"PVRSRVCreateCommandQueueKM: Failed to alloc queue struct"));
 		goto ErrorExit;
@@ -284,11 +282,12 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVCreateCommandQueueKM(IMG_SIZE_T ui32QueueSize,
 	psQueueInfo->hMemBlock[0] = hMemBlock;
 	psQueueInfo->ui32ProcessID = OSGetCurrentProcessIDKM();
 
-
-	if(OSAllocMem(PVRSRV_OS_NON_PAGEABLE_HEAP,
+	
+	eError = OSAllocMem(PVRSRV_OS_NON_PAGEABLE_HEAP,
 					 ui32Power2QueueSize + PVRSRV_MAX_CMD_SIZE,
 					 &psQueueInfo->pvLinQueueKM, &hMemBlock,
-					 "Command Queue") != PVRSRV_OK)
+					 "Command Queue");
+	if (eError != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR,"PVRSRVCreateCommandQueueKM: Failed to alloc queue buffer"));
 		goto ErrorExit;
@@ -297,13 +296,13 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVCreateCommandQueueKM(IMG_SIZE_T ui32QueueSize,
 	psQueueInfo->hMemBlock[1] = hMemBlock;
 	psQueueInfo->pvLinQueueUM = psQueueInfo->pvLinQueueKM;
 
-
+	
 	PVR_ASSERT(psQueueInfo->ui32ReadOffset == 0);
 	PVR_ASSERT(psQueueInfo->ui32WriteOffset == 0);
 
 	psQueueInfo->ui32QueueSize = ui32Power2QueueSize;
 
-
+	
 	if (psSysData->psQueueList == IMG_NULL)
 	{
 		eError = OSCreateResource(&psSysData->sQProcessResource);
@@ -313,9 +312,10 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVCreateCommandQueueKM(IMG_SIZE_T ui32QueueSize,
 		}
 	}
 
-
-	if (OSLockResource(&psSysData->sQProcessResource,
-							KERNEL_ID) != PVRSRV_OK)
+	
+	eError = OSLockResource(&psSysData->sQProcessResource,
+							KERNEL_ID);
+	if (eError != PVRSRV_OK)
 	{
 		goto ErrorExit;
 	}
@@ -323,7 +323,8 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVCreateCommandQueueKM(IMG_SIZE_T ui32QueueSize,
 	psQueueInfo->psNextKM = psSysData->psQueueList;
 	psSysData->psQueueList = psQueueInfo;
 
-	if (OSUnlockResource(&psSysData->sQProcessResource, KERNEL_ID) != PVRSRV_OK)
+	eError = OSUnlockResource(&psSysData->sQProcessResource, KERNEL_ID);
+	if (eError != PVRSRV_OK)
 	{
 		goto ErrorExit;
 	}
@@ -349,10 +350,10 @@ ErrorExit:
 					sizeof(PVRSRV_QUEUE_INFO),
 					psQueueInfo,
 					psQueueInfo->hMemBlock[0]);
-
+		
 	}
 
-	return PVRSRV_ERROR_GENERIC;
+	return eError;
 }
 
 
@@ -368,6 +369,7 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVDestroyCommandQueueKM(PVRSRV_QUEUE_INFO *psQueue
 
 	psQueue = psSysData->psQueueList;
 
+	 
 	LOOP_UNTIL_TIMEOUT(MAX_HW_TIME_US)
 	{
 		if(psQueueInfo->ui32ReadOffset == psQueueInfo->ui32WriteOffset)
@@ -380,13 +382,13 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVDestroyCommandQueueKM(PVRSRV_QUEUE_INFO *psQueue
 
 	if (bTimeout)
 	{
-
+		
 		PVR_DPF((PVR_DBG_ERROR,"PVRSRVDestroyCommandQueueKM : Failed to empty queue"));
 		eError = PVRSRV_ERROR_CANNOT_FLUSH_QUEUE;
 		goto ErrorExit;
 	}
 
-
+	
 	eError = OSLockResource(&psSysData->sQProcessResource,
 								KERNEL_ID);
 	if (eError != PVRSRV_OK)
@@ -407,8 +409,8 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVDestroyCommandQueueKM(PVRSRV_QUEUE_INFO *psQueue
 					sizeof(PVRSRV_QUEUE_INFO),
 					psQueueInfo,
 					psQueueInfo->hMemBlock[0]);
-
-		psQueueInfo = IMG_NULL;
+		 
+		psQueueInfo = IMG_NULL; 
 	}
 	else
 	{
@@ -427,8 +429,8 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVDestroyCommandQueueKM(PVRSRV_QUEUE_INFO *psQueue
 							sizeof(PVRSRV_QUEUE_INFO),
 							psQueueInfo,
 							psQueueInfo->hMemBlock[0]);
-
-				psQueueInfo = IMG_NULL;
+				 
+				psQueueInfo = IMG_NULL; 
 				break;
 			}
 			psQueue = psQueue->psNextKM;
@@ -446,14 +448,14 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVDestroyCommandQueueKM(PVRSRV_QUEUE_INFO *psQueue
 		}
 	}
 
-
+	
 	eError = OSUnlockResource(&psSysData->sQProcessResource, KERNEL_ID);
 	if (eError != PVRSRV_OK)
 	{
 		goto ErrorExit;
 	}
 
-
+	
 	if (psSysData->psQueueList == IMG_NULL)
 	{
 		eError = OSDestroyResource(&psSysData->sQProcessResource);
@@ -476,7 +478,7 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVGetQueueSpaceKM(PVRSRV_QUEUE_INFO *psQueue,
 {
 	IMG_BOOL bTimeout = IMG_TRUE;
 
-
+	
 	ui32ParamSize =  (ui32ParamSize+3) & 0xFFFFFFFC;
 
 	if (ui32ParamSize > PVRSRV_MAX_CMD_SIZE)
@@ -485,6 +487,7 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVGetQueueSpaceKM(PVRSRV_QUEUE_INFO *psQueue,
 		return PVRSRV_ERROR_CMD_TOO_BIG;
 	}
 
+	 
 	LOOP_UNTIL_TIMEOUT(MAX_HW_TIME_US)
 	{
 		if (GET_SPACE_IN_CMDQ(psQueue) > ui32ParamSize)
@@ -526,15 +529,15 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVInsertCommandKM(PVRSRV_QUEUE_INFO	*psQueue,
 	IMG_SIZE_T		ui32CommandSize;
 	IMG_UINT32		i;
 
-
+	
 	ui32DataByteSize = (ui32DataByteSize + 3UL) & ~3UL;
 
-
+	
 	ui32CommandSize = sizeof(PVRSRV_COMMAND)
 					+ ((ui32DstSyncCount + ui32SrcSyncCount) * sizeof(PVRSRV_SYNC_OBJECT))
 					+ ui32DataByteSize;
 
-
+	
 	eError = PVRSRVGetQueueSpaceKM (psQueue, ui32CommandSize, (IMG_VOID**)&psCommand);
 	if(eError != PVRSRV_OK)
 	{
@@ -543,14 +546,14 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVInsertCommandKM(PVRSRV_QUEUE_INFO	*psQueue,
 
 	psCommand->ui32ProcessID	= OSGetCurrentProcessIDKM();
 
-
-	psCommand->ui32CmdSize		= ui32CommandSize;
+	
+	psCommand->ui32CmdSize		= ui32CommandSize; 
 	psCommand->ui32DevIndex 	= ui32DevIndex;
 	psCommand->CommandType 		= CommandType;
 	psCommand->ui32DstSyncCount	= ui32DstSyncCount;
 	psCommand->ui32SrcSyncCount	= ui32SrcSyncCount;
-
-
+	
+	
 	psCommand->psDstSync		= (PVRSRV_SYNC_OBJECT*)(((IMG_UINTPTR_T)psCommand) + sizeof(PVRSRV_COMMAND));
 
 
@@ -561,35 +564,35 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVInsertCommandKM(PVRSRV_QUEUE_INFO	*psQueue,
 								+ (ui32SrcSyncCount * sizeof(PVRSRV_SYNC_OBJECT)));
 	psCommand->ui32DataSize		= ui32DataByteSize;
 
-
+	
 	for (i=0; i<ui32DstSyncCount; i++)
 	{
 		psCommand->psDstSync[i].psKernelSyncInfoKM = apsDstSync[i];
 		psCommand->psDstSync[i].ui32WriteOpsPending = PVRSRVGetWriteOpsPending(apsDstSync[i], IMG_FALSE);
 		psCommand->psDstSync[i].ui32ReadOpsPending = PVRSRVGetReadOpsPending(apsDstSync[i], IMG_FALSE);
 
-		PVR_DPF((PVR_DBG_MESSAGE, "PVRSRVInsertCommandKM: Dst %lu RO-VA:0x%lx WO-VA:0x%lx ROP:0x%lx WOP:0x%lx",
+		PVR_DPF((PVR_DBG_MESSAGE, "PVRSRVInsertCommandKM: Dst %u RO-VA:0x%x WO-VA:0x%x ROP:0x%x WOP:0x%x",
 				i, psCommand->psDstSync[i].psKernelSyncInfoKM->sReadOpsCompleteDevVAddr.uiAddr,
 				psCommand->psDstSync[i].psKernelSyncInfoKM->sWriteOpsCompleteDevVAddr.uiAddr,
 				psCommand->psDstSync[i].ui32ReadOpsPending,
 				psCommand->psDstSync[i].ui32WriteOpsPending));
 	}
 
-
+	
 	for (i=0; i<ui32SrcSyncCount; i++)
 	{
 		psCommand->psSrcSync[i].psKernelSyncInfoKM = apsSrcSync[i];
 		psCommand->psSrcSync[i].ui32WriteOpsPending = PVRSRVGetWriteOpsPending(apsSrcSync[i], IMG_TRUE);
 		psCommand->psSrcSync[i].ui32ReadOpsPending = PVRSRVGetReadOpsPending(apsSrcSync[i], IMG_TRUE);
 
-		PVR_DPF((PVR_DBG_MESSAGE, "PVRSRVInsertCommandKM: Src %lu RO-VA:0x%lx WO-VA:0x%lx ROP:0x%lx WOP:0x%lx",
+		PVR_DPF((PVR_DBG_MESSAGE, "PVRSRVInsertCommandKM: Src %u RO-VA:0x%x WO-VA:0x%x ROP:0x%x WOP:0x%x",
 				i, psCommand->psSrcSync[i].psKernelSyncInfoKM->sReadOpsCompleteDevVAddr.uiAddr,
 				psCommand->psSrcSync[i].psKernelSyncInfoKM->sWriteOpsCompleteDevVAddr.uiAddr,
 				psCommand->psSrcSync[i].ui32ReadOpsPending,
 				psCommand->psSrcSync[i].ui32WriteOpsPending));
 	}
 
-
+	
 	*ppsCommand = psCommand;
 
 	return PVRSRV_OK;
@@ -600,9 +603,9 @@ IMG_EXPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVSubmitCommandKM(PVRSRV_QUEUE_INFO *psQueue,
 												PVRSRV_COMMAND *psCommand)
 {
-
-
-
+	
+	
+	
 	if (psCommand->ui32DstSyncCount > 0)
 	{
 		psCommand->psDstSync = (PVRSRV_SYNC_OBJECT*)(((IMG_UINTPTR_T)psQueue->pvLinQueueKM)
@@ -621,7 +624,7 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVSubmitCommandKM(PVRSRV_QUEUE_INFO *psQueue,
 									+ (psCommand->ui32DstSyncCount * sizeof(PVRSRV_SYNC_OBJECT))
 									+ (psCommand->ui32SrcSyncCount * sizeof(PVRSRV_SYNC_OBJECT)));
 
-
+	
 	UPDATE_QUEUE_WOFF(psQueue, psCommand->ui32CmdSize);
 
 	return PVRSRV_OK;
@@ -629,7 +632,7 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVSubmitCommandKM(PVRSRV_QUEUE_INFO *psQueue,
 
 
 
-IMG_EXPORT
+static
 PVRSRV_ERROR PVRSRVProcessCommand(SYS_DATA			*psSysData,
 								  PVRSRV_COMMAND	*psCommand,
 								  IMG_BOOL			bFlush)
@@ -642,7 +645,7 @@ PVRSRV_ERROR PVRSRVProcessCommand(SYS_DATA			*psSysData,
 	IMG_UINT32				ui32WriteOpsComplete;
 	IMG_UINT32				ui32ReadOpsComplete;
 
-
+	
 	psWalkerObj = psCommand->psDstSync;
 	psEndObj = psWalkerObj + psCommand->ui32DstSyncCount;
 	while (psWalkerObj < psEndObj)
@@ -651,7 +654,7 @@ PVRSRV_ERROR PVRSRVProcessCommand(SYS_DATA			*psSysData,
 
 		ui32WriteOpsComplete = psSyncData->ui32WriteOpsComplete;
 		ui32ReadOpsComplete = psSyncData->ui32ReadOpsComplete;
-
+		
 		if ((ui32WriteOpsComplete != psWalkerObj->ui32WriteOpsPending)
 		||	(ui32ReadOpsComplete != psWalkerObj->ui32ReadOpsPending))
 		{
@@ -666,7 +669,7 @@ PVRSRV_ERROR PVRSRVProcessCommand(SYS_DATA			*psSysData,
 		psWalkerObj++;
 	}
 
-
+	
 	psWalkerObj = psCommand->psSrcSync;
 	psEndObj = psWalkerObj + psCommand->ui32SrcSyncCount;
 	while (psWalkerObj < psEndObj)
@@ -675,7 +678,7 @@ PVRSRV_ERROR PVRSRVProcessCommand(SYS_DATA			*psSysData,
 
 		ui32ReadOpsComplete = psSyncData->ui32ReadOpsComplete;
 		ui32WriteOpsComplete = psSyncData->ui32WriteOpsComplete;
-
+		
 		if ((ui32WriteOpsComplete != psWalkerObj->ui32WriteOpsPending)
 		|| (ui32ReadOpsComplete != psWalkerObj->ui32ReadOpsPending))
 		{
@@ -685,7 +688,7 @@ PVRSRV_ERROR PVRSRVProcessCommand(SYS_DATA			*psSysData,
 			{
 				PVR_DPF((PVR_DBG_WARNING,
 						"PVRSRVProcessCommand: Stale syncops psSyncData:0x%x ui32WriteOpsComplete:0x%x ui32WriteOpsPending:0x%x",
-						psSyncData, ui32WriteOpsComplete, psWalkerObj->ui32WriteOpsPending));
+						(IMG_UINTPTR_T)psSyncData, ui32WriteOpsComplete, psWalkerObj->ui32WriteOpsPending));
 			}
 
 			if (!bFlush ||
@@ -698,7 +701,7 @@ PVRSRV_ERROR PVRSRVProcessCommand(SYS_DATA			*psSysData,
 		psWalkerObj++;
 	}
 
-
+	
 	if (psCommand->ui32DevIndex >= SYS_DEVICE_COUNT)
 	{
 		PVR_DPF((PVR_DBG_ERROR,
@@ -707,24 +710,24 @@ PVRSRV_ERROR PVRSRVProcessCommand(SYS_DATA			*psSysData,
 		return PVRSRV_ERROR_INVALID_PARAMS;
 	}
 
-
+	
 	psCmdCompleteData = psSysData->ppsCmdCompleteData[psCommand->ui32DevIndex][psCommand->CommandType];
 	if (psCmdCompleteData->bInUse)
 	{
-
+		
 		return PVRSRV_ERROR_FAILED_DEPENDENCIES;
 	}
 
-
+	
 	psCmdCompleteData->bInUse = IMG_TRUE;
 
-
+	
 	psCmdCompleteData->ui32DstSyncCount = psCommand->ui32DstSyncCount;
 	for (i=0; i<psCommand->ui32DstSyncCount; i++)
 	{
 		psCmdCompleteData->psDstSync[i] = psCommand->psDstSync[i];
 
-		PVR_DPF((PVR_DBG_MESSAGE, "PVRSRVProcessCommand: Dst %lu RO-VA:0x%lx WO-VA:0x%lx ROP:0x%lx WOP:0x%lx",
+		PVR_DPF((PVR_DBG_MESSAGE, "PVRSRVProcessCommand: Dst %u RO-VA:0x%x WO-VA:0x%x ROP:0x%x WOP:0x%x",
 				i, psCmdCompleteData->psDstSync[i].psKernelSyncInfoKM->sReadOpsCompleteDevVAddr.uiAddr,
 				psCmdCompleteData->psDstSync[i].psKernelSyncInfoKM->sWriteOpsCompleteDevVAddr.uiAddr,
 				psCmdCompleteData->psDstSync[i].ui32ReadOpsPending,
@@ -732,19 +735,20 @@ PVRSRV_ERROR PVRSRVProcessCommand(SYS_DATA			*psSysData,
 	}
 
 
+	
 	psCmdCompleteData->ui32SrcSyncCount = psCommand->ui32SrcSyncCount;
 	for (i=0; i<psCommand->ui32SrcSyncCount; i++)
 	{
 		psCmdCompleteData->psSrcSync[i] = psCommand->psSrcSync[i];
 
-		PVR_DPF((PVR_DBG_MESSAGE, "PVRSRVProcessCommand: Src %lu RO-VA:0x%lx WO-VA:0x%lx ROP:0x%lx WOP:0x%lx",
+		PVR_DPF((PVR_DBG_MESSAGE, "PVRSRVProcessCommand: Src %u RO-VA:0x%x WO-VA:0x%x ROP:0x%x WOP:0x%x",
 				i, psCmdCompleteData->psSrcSync[i].psKernelSyncInfoKM->sReadOpsCompleteDevVAddr.uiAddr,
 				psCmdCompleteData->psSrcSync[i].psKernelSyncInfoKM->sWriteOpsCompleteDevVAddr.uiAddr,
 				psCmdCompleteData->psSrcSync[i].ui32ReadOpsPending,
 				psCmdCompleteData->psSrcSync[i].ui32WriteOpsPending));
 	}
 
-
+	
 
 
 
@@ -758,7 +762,7 @@ PVRSRV_ERROR PVRSRVProcessCommand(SYS_DATA			*psSysData,
 																				psCommand->ui32DataSize,
 																				psCommand->pvData) == IMG_FALSE)
 	{
-
+		
 
 
 		psCmdCompleteData->bInUse = IMG_FALSE;
@@ -769,7 +773,7 @@ PVRSRV_ERROR PVRSRVProcessCommand(SYS_DATA			*psSysData,
 }
 
 
-IMG_VOID PVRSRVProcessQueues_ForEachCb(PVRSRV_DEVICE_NODE *psDeviceNode)
+static IMG_VOID PVRSRVProcessQueues_ForEachCb(PVRSRV_DEVICE_NODE *psDeviceNode)
 {
 	if (psDeviceNode->bReProcessDeviceCommandComplete &&
 		psDeviceNode->pfnDeviceCommandComplete != IMG_NULL)
@@ -789,18 +793,18 @@ PVRSRV_ERROR PVRSRVProcessQueues(IMG_UINT32	ui32CallerID,
 
 	SysAcquireData(&psSysData);
 
-
+	
 	psSysData->bReProcessQueues = IMG_FALSE;
 
-
+	
 	eError = OSLockResource(&psSysData->sQProcessResource,
 							ui32CallerID);
 	if(eError != PVRSRV_OK)
 	{
-
+		
 		psSysData->bReProcessQueues = IMG_TRUE;
 
-
+		
 		if(ui32CallerID == ISR_ID)
 		{
 			if (bFlush)
@@ -841,7 +845,7 @@ PVRSRV_ERROR PVRSRVProcessQueues(IMG_UINT32	ui32CallerID,
 
 			if (PVRSRVProcessCommand(psSysData, psCommand, bFlush) == PVRSRV_OK)
 			{
-
+				
 				UPDATE_QUEUE_ROFF(psQueue, psCommand->ui32CmdSize)
 
 				if (bFlush)
@@ -860,15 +864,15 @@ PVRSRV_ERROR PVRSRVProcessQueues(IMG_UINT32	ui32CallerID,
 		PVRSRVSetDCState(DC_STATE_NO_FLUSH_COMMANDS);
 	}
 
-
+	
 	List_PVRSRV_DEVICE_NODE_ForEach(psSysData->psDeviceNodeList,
-									PVRSRVProcessQueues_ForEachCb);
+									&PVRSRVProcessQueues_ForEachCb);
 
 
-
+	
 	OSUnlockResource(&psSysData->sQProcessResource, ui32CallerID);
 
-
+	
 	if(psSysData->bReProcessQueues)
 	{
 		return PVRSRV_ERROR_PROCESSING_BLOCKED;
@@ -887,9 +891,11 @@ IMG_VOID PVRSRVFreeCommandCompletePacketKM(IMG_HANDLE	hCmdCookie,
 
 	SysAcquireData(&psSysData);
 
+	
 	psCmdCompleteData->bInUse = IMG_FALSE;
 
-	PVRSRVCommandCompleteCallbacks();
+	
+	PVRSRVScheduleDeviceCallbacks();
 
 #if defined(SYS_USING_INTERRUPTS)
 	if(bScheduleMISR)
@@ -898,10 +904,12 @@ IMG_VOID PVRSRVFreeCommandCompletePacketKM(IMG_HANDLE	hCmdCookie,
 	}
 #else
 	PVR_UNREFERENCED_PARAMETER(bScheduleMISR);
-#endif
+#endif 
 }
 
-#endif
+#endif 
+
+
 IMG_EXPORT
 IMG_VOID PVRSRVCommandCompleteKM(IMG_HANDLE	hCmdCookie,
 								 IMG_BOOL	bScheduleMISR)
@@ -912,35 +920,35 @@ IMG_VOID PVRSRVCommandCompleteKM(IMG_HANDLE	hCmdCookie,
 
 	SysAcquireData(&psSysData);
 
-
+	
 	for (i=0; i<psCmdCompleteData->ui32DstSyncCount; i++)
 	{
 		psCmdCompleteData->psDstSync[i].psKernelSyncInfoKM->psSyncData->ui32WriteOpsComplete++;
 
-		PVR_DPF((PVR_DBG_MESSAGE, "PVRSRVCommandCompleteKM: Dst %lu RO-VA:0x%lx WO-VA:0x%lx ROP:0x%lx WOP:0x%lx",
+		PVR_DPF((PVR_DBG_MESSAGE, "PVRSRVCommandCompleteKM: Dst %u RO-VA:0x%x WO-VA:0x%x ROP:0x%x WOP:0x%x",
 				i, psCmdCompleteData->psDstSync[i].psKernelSyncInfoKM->sReadOpsCompleteDevVAddr.uiAddr,
 				psCmdCompleteData->psDstSync[i].psKernelSyncInfoKM->sWriteOpsCompleteDevVAddr.uiAddr,
 				psCmdCompleteData->psDstSync[i].ui32ReadOpsPending,
 				psCmdCompleteData->psDstSync[i].ui32WriteOpsPending));
 	}
 
-
+	
 	for (i=0; i<psCmdCompleteData->ui32SrcSyncCount; i++)
 	{
 		psCmdCompleteData->psSrcSync[i].psKernelSyncInfoKM->psSyncData->ui32ReadOpsComplete++;
 
-		PVR_DPF((PVR_DBG_MESSAGE, "PVRSRVCommandCompleteKM: Src %lu RO-VA:0x%lx WO-VA:0x%lx ROP:0x%lx WOP:0x%lx",
+		PVR_DPF((PVR_DBG_MESSAGE, "PVRSRVCommandCompleteKM: Src %u RO-VA:0x%x WO-VA:0x%x ROP:0x%x WOP:0x%x",
 				i, psCmdCompleteData->psSrcSync[i].psKernelSyncInfoKM->sReadOpsCompleteDevVAddr.uiAddr,
 				psCmdCompleteData->psSrcSync[i].psKernelSyncInfoKM->sWriteOpsCompleteDevVAddr.uiAddr,
 				psCmdCompleteData->psSrcSync[i].ui32ReadOpsPending,
 				psCmdCompleteData->psSrcSync[i].ui32WriteOpsPending));
 	}
 
-
+	
 	psCmdCompleteData->bInUse = IMG_FALSE;
 
-
-	PVRSRVCommandCompleteCallbacks();
+	
+	PVRSRVScheduleDeviceCallbacks();
 
 #if defined(SYS_USING_INTERRUPTS)
 	if(bScheduleMISR)
@@ -949,28 +957,11 @@ IMG_VOID PVRSRVCommandCompleteKM(IMG_HANDLE	hCmdCookie,
 	}
 #else
 	PVR_UNREFERENCED_PARAMETER(bScheduleMISR);
-#endif
+#endif 
 }
 
 
-IMG_VOID PVRSRVCommandCompleteCallbacks_ForEachCb(PVRSRV_DEVICE_NODE *psDeviceNode)
-{
-	if(psDeviceNode->pfnDeviceCommandComplete != IMG_NULL)
-	{
 
-		(*psDeviceNode->pfnDeviceCommandComplete)(psDeviceNode);
-	}
-}
-
-IMG_VOID PVRSRVCommandCompleteCallbacks(IMG_VOID)
-{
-	SYS_DATA				*psSysData;
-	SysAcquireData(&psSysData);
-
-
-	List_PVRSRV_DEVICE_NODE_ForEach(psSysData->psDeviceNodeList,
-									PVRSRVCommandCompleteCallbacks_ForEachCb);
-}
 
 IMG_EXPORT
 PVRSRV_ERROR PVRSRVRegisterCmdProcListKM(IMG_UINT32		ui32DevIndex,
@@ -985,7 +976,7 @@ PVRSRV_ERROR PVRSRVRegisterCmdProcListKM(IMG_UINT32		ui32DevIndex,
 	PFN_CMD_PROC			*ppfnCmdProc;
 	COMMAND_COMPLETE_DATA	*psCmdCompleteData;
 
-
+	
 	if(ui32DevIndex >= SYS_DEVICE_COUNT)
 	{
 		PVR_DPF((PVR_DBG_ERROR,
@@ -994,10 +985,10 @@ PVRSRV_ERROR PVRSRVRegisterCmdProcListKM(IMG_UINT32		ui32DevIndex,
 		return PVRSRV_ERROR_INVALID_PARAMS;
 	}
 
-
+	
 	SysAcquireData(&psSysData);
 
-
+	
 	eError = OSAllocMem( PVRSRV_OS_PAGEABLE_HEAP,
 					 ui32CmdCount * sizeof(PFN_CMD_PROC),
 					 (IMG_VOID **)&psSysData->ppfnCmdProcList[ui32DevIndex], IMG_NULL,
@@ -1008,16 +999,16 @@ PVRSRV_ERROR PVRSRVRegisterCmdProcListKM(IMG_UINT32		ui32DevIndex,
 		return eError;
 	}
 
-
+	
 	ppfnCmdProc = psSysData->ppfnCmdProcList[ui32DevIndex];
 
-
+	
 	for (i=0; i<ui32CmdCount; i++)
 	{
 		ppfnCmdProc[i] = ppfnCmdProcList[i];
 	}
 
-
+	
 	ui32AllocSize = ui32CmdCount * sizeof(COMMAND_COMPLETE_DATA*);
 	eError = OSAllocMem( PVRSRV_OS_NON_PAGEABLE_HEAP,
 					 ui32AllocSize,
@@ -1031,12 +1022,12 @@ PVRSRV_ERROR PVRSRVRegisterCmdProcListKM(IMG_UINT32		ui32DevIndex,
 
 	for (i=0; i<ui32CmdCount; i++)
 	{
+		
 
-
-		ui32AllocSize = sizeof(COMMAND_COMPLETE_DATA)
+		ui32AllocSize = sizeof(COMMAND_COMPLETE_DATA) 
 					  + ((ui32MaxSyncsPerCmd[i][0]
 					  +	ui32MaxSyncsPerCmd[i][1])
-					  * sizeof(PVRSRV_SYNC_OBJECT));
+					  * sizeof(PVRSRV_SYNC_OBJECT));	 
 
 		eError = OSAllocMem(PVRSRV_OS_NON_PAGEABLE_HEAP,
 							ui32AllocSize,
@@ -1049,12 +1040,12 @@ PVRSRV_ERROR PVRSRVRegisterCmdProcListKM(IMG_UINT32		ui32DevIndex,
 			goto ErrorExit;
 		}
 
-
+		
 		OSMemSet(psSysData->ppsCmdCompleteData[ui32DevIndex][i], 0x00, ui32AllocSize);
 
 		psCmdCompleteData = psSysData->ppsCmdCompleteData[ui32DevIndex][i];
 
-
+		
 		psCmdCompleteData->psDstSync = (PVRSRV_SYNC_OBJECT*)
 										(((IMG_UINTPTR_T)psCmdCompleteData)
 										+ sizeof(COMMAND_COMPLETE_DATA));
@@ -1069,7 +1060,7 @@ PVRSRV_ERROR PVRSRVRegisterCmdProcListKM(IMG_UINT32		ui32DevIndex,
 
 ErrorExit:
 
-
+	
 
 	if(psSysData->ppsCmdCompleteData[ui32DevIndex] != IMG_NULL)
 	{
@@ -1077,10 +1068,10 @@ ErrorExit:
 		{
 			if (psSysData->ppsCmdCompleteData[ui32DevIndex][i] != IMG_NULL)
 			{
-				ui32AllocSize = sizeof(COMMAND_COMPLETE_DATA)
+				ui32AllocSize = sizeof(COMMAND_COMPLETE_DATA) 
 							  + ((ui32MaxSyncsPerCmd[i][0]
 							  +	ui32MaxSyncsPerCmd[i][1])
-							  * sizeof(PVRSRV_SYNC_OBJECT));
+							  * sizeof(PVRSRV_SYNC_OBJECT));	 
 				OSFreeMem(PVRSRV_OS_NON_PAGEABLE_HEAP, ui32AllocSize, psSysData->ppsCmdCompleteData[ui32DevIndex][i], IMG_NULL);
 				psSysData->ppsCmdCompleteData[ui32DevIndex][i] = IMG_NULL;
 			}
@@ -1108,7 +1099,7 @@ PVRSRV_ERROR PVRSRVRemoveCmdProcListKM(IMG_UINT32 ui32DevIndex,
 	SYS_DATA		*psSysData;
 	IMG_UINT32		i;
 
-
+	
 	if(ui32DevIndex >= SYS_DEVICE_COUNT)
 	{
 		PVR_DPF((PVR_DBG_ERROR,
@@ -1117,7 +1108,7 @@ PVRSRV_ERROR PVRSRVRemoveCmdProcListKM(IMG_UINT32 ui32DevIndex,
 		return PVRSRV_ERROR_INVALID_PARAMS;
 	}
 
-
+	
 	SysAcquireData(&psSysData);
 
 	if(psSysData->ppsCmdCompleteData[ui32DevIndex] == IMG_NULL)
@@ -1129,7 +1120,7 @@ PVRSRV_ERROR PVRSRVRemoveCmdProcListKM(IMG_UINT32 ui32DevIndex,
 	{
 		for(i=0; i<ui32CmdCount; i++)
 		{
-
+			
 			if(psSysData->ppsCmdCompleteData[ui32DevIndex][i] != IMG_NULL)
 			{
 				OSFreeMem(PVRSRV_OS_NON_PAGEABLE_HEAP,
@@ -1140,7 +1131,7 @@ PVRSRV_ERROR PVRSRVRemoveCmdProcListKM(IMG_UINT32 ui32DevIndex,
 			}
 		}
 
-
+		
 		OSFreeMem(PVRSRV_OS_NON_PAGEABLE_HEAP,
 				 ui32CmdCount * sizeof(COMMAND_COMPLETE_DATA*),
 				 psSysData->ppsCmdCompleteData[ui32DevIndex],
@@ -1148,7 +1139,7 @@ PVRSRV_ERROR PVRSRVRemoveCmdProcListKM(IMG_UINT32 ui32DevIndex,
 		psSysData->ppsCmdCompleteData[ui32DevIndex] = IMG_NULL;
 	}
 
-
+	
 	if(psSysData->ppfnCmdProcList[ui32DevIndex] != IMG_NULL)
 	{
 		OSFreeMem(PVRSRV_OS_NON_PAGEABLE_HEAP,

@@ -71,18 +71,6 @@ PVRSRV_ERROR SGXGetMiscInfoKM(PVRSRV_SGXDEV_INFO	*psDevInfo,
 							  PVRSRV_DEVICE_NODE 	*psDeviceNode,
 							  IMG_HANDLE 			 hDevMemContext);
 
-#if defined(SUPPORT_SGX_HWPERF)
-IMG_IMPORT
-PVRSRV_ERROR SGXReadDiffCountersKM(IMG_HANDLE				hDevHandle,
-								   IMG_UINT32				ui32Reg,
-								   IMG_UINT32				*pui32Old,
-								   IMG_BOOL					bNew,
-								   IMG_UINT32				ui32New,
-								   IMG_UINT32				ui32NewReset,
-								   IMG_UINT32				ui32CountersReg,
-								   IMG_UINT32				ui32Reg2,
-								   IMG_BOOL					*pbActive,
-								   PVRSRV_SGXDEV_DIFF_INFO	*psDiffs);
 IMG_IMPORT
 PVRSRV_ERROR SGXReadHWPerfCBKM(IMG_HANDLE					hDevHandle,
 							   IMG_UINT32					ui32ArraySize,
@@ -90,7 +78,6 @@ PVRSRV_ERROR SGXReadHWPerfCBKM(IMG_HANDLE					hDevHandle,
 							   IMG_UINT32					*pui32DataCount,
 							   IMG_UINT32					*pui32ClockSpeed,
 							   IMG_UINT32					*pui32HostTimeStamp);
-#endif 
 
 IMG_IMPORT
 PVRSRV_ERROR SGX2DQueryBlitsCompleteKM(PVRSRV_SGXDEV_INFO		*psDevInfo,

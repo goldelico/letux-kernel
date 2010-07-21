@@ -126,18 +126,18 @@ RA_Free (RA_ARENA *pArena, IMG_UINTPTR_T base, IMG_BOOL bFreeBackingStore);
 
 #define CHECK_SPACE(total)					\
 {											\
-	if(total<100) 							\
+	if((total)<100) 							\
 		return PVRSRV_ERROR_INVALID_PARAMS;	\
 }
 
 #define UPDATE_SPACE(str, count, total)		\
 {											\
-	if(count == -1)					 		\
+	if((count) == -1)					 		\
 		return PVRSRV_ERROR_INVALID_PARAMS;	\
 	else									\
 	{										\
-		str += count;						\
-		total -= count;						\
+		(str) += (count);						\
+		(total) -= (count);						\
 	}										\
 }
 
@@ -148,6 +148,10 @@ IMG_BOOL RA_GetNextLiveSegment(IMG_HANDLE hArena, RA_SEGMENT_DETAILS *psSegDetai
 PVRSRV_ERROR RA_GetStats(RA_ARENA *pArena,
 							IMG_CHAR **ppszStr, 
 							IMG_UINT32 *pui32StrLen);
+
+PVRSRV_ERROR RA_GetStatsFreeMem(RA_ARENA *pArena,
+								IMG_CHAR **ppszStr, 
+								IMG_UINT32 *pui32StrLen);
 
 #endif 
 

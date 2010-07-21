@@ -1,26 +1,26 @@
 /**********************************************************************
  *
  * Copyright(c) 2008 Imagination Technologies Ltd. All rights reserved.
- *
+ * 
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
  * version 2, as published by the Free Software Foundation.
- *
- * This program is distributed in the hope it will be useful but, except
- * as otherwise stated in writing, without any warranty; without even the
- * implied warranty of merchantability or fitness for a particular purpose.
+ * 
+ * This program is distributed in the hope it will be useful but, except 
+ * as otherwise stated in writing, without any warranty; without even the 
+ * implied warranty of merchantability or fitness for a particular purpose. 
  * See the GNU General Public License for more details.
- *
+ * 
  * You should have received a copy of the GNU General Public License along with
  * this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *
+ * 
  * The full GNU General Public License is included in this distribution in
  * the file called "COPYING".
  *
  * Contact Information:
  * Imagination Technologies Ltd. <gpl-support@imgtec.com>
- * Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK
+ * Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK 
  *
  ******************************************************************************/
 
@@ -38,6 +38,15 @@ extern "C" {
 
 #define DRIVERNAME_MAXLENGTH	(100)
 
+#define	ALIGNSIZE(size, alignshift)	(((size) + ((1UL << (alignshift))-1)) & ~((1UL << (alignshift))-1))
+
+#ifndef MAX
+#define MAX(a,b) 					(((a) > (b)) ? (a) : (b))
+#endif
+#ifndef MIN
+#define MIN(a,b) 					(((a) < (b)) ? (a) : (b))
+#endif
+
 typedef enum _PVRSRV_MEMTYPE_
 {
 	PVRSRV_MEMTYPE_UNKNOWN		= 0,
@@ -45,78 +54,77 @@ typedef enum _PVRSRV_MEMTYPE_
 	PVRSRV_MEMTYPE_DEVICECLASS	= 2,
 	PVRSRV_MEMTYPE_WRAPPED		= 3,
 	PVRSRV_MEMTYPE_MAPPED		= 4,
-}
-PVRSRV_MEMTYPE;
+} PVRSRV_MEMTYPE;
 
 typedef struct _PVRSRV_KERNEL_MEM_INFO_
 {
-
+	
 	IMG_PVOID				pvLinAddrKM;
 
-
+	
 	IMG_DEV_VIRTADDR		sDevVAddr;
 
-
+	
 	IMG_UINT32				ui32Flags;
 
-
+	
 	IMG_SIZE_T				ui32AllocSize;
 
-
+	
 	PVRSRV_MEMBLK			sMemBlk;
 
-
+	
 	IMG_PVOID				pvSysBackupBuffer;
 
-
+	
 	IMG_UINT32				ui32RefCount;
 
-
+	
 	IMG_BOOL				bPendingFree;
 
 
-	#if defined(SUPPORT_MEMINFO_IDS)
+#if defined(SUPPORT_MEMINFO_IDS)
 	#if !defined(USE_CODE)
-
+	
 	IMG_UINT64				ui64Stamp;
-	#else
+	#else 
 	IMG_UINT32				dummy1;
 	IMG_UINT32				dummy2;
-	#endif
-	#endif
+	#endif 
+#endif 
 
-
+	
 	struct _PVRSRV_KERNEL_SYNC_INFO_	*psKernelSyncInfo;
 
-	PVRSRV_MEMTYPE			memType;
-
+	PVRSRV_MEMTYPE				memType;
 } PVRSRV_KERNEL_MEM_INFO;
 
 
 typedef struct _PVRSRV_KERNEL_SYNC_INFO_
 {
-
+	
 	PVRSRV_SYNC_DATA		*psSyncData;
 
-
+	
 	IMG_DEV_VIRTADDR		sWriteOpsCompleteDevVAddr;
 
-
+	
 	IMG_DEV_VIRTADDR		sReadOpsCompleteDevVAddr;
 
-
+	
 	PVRSRV_KERNEL_MEM_INFO	*psSyncDataMemInfoKM;
 
+	
+	
+	IMG_UINT32              ui32RefCount;
 
-	IMG_HANDLE				hResItem;
-
-        IMG_UINT32              ui32RefCount;
-
+	
+	IMG_HANDLE hResItem;
 } PVRSRV_KERNEL_SYNC_INFO;
 
 typedef struct _PVRSRV_DEVICE_SYNC_OBJECT_
 {
-
+	
 	IMG_UINT32			ui32ReadOpsPendingVal;
 	IMG_DEV_VIRTADDR	sReadOpsCompleteDevVAddr;
 	IMG_UINT32			ui32WriteOpsPendingVal;
@@ -133,34 +141,34 @@ typedef struct _PVRSRV_SYNC_OBJECT
 
 typedef struct _PVRSRV_COMMAND
 {
-	IMG_SIZE_T			ui32CmdSize;
-	IMG_UINT32			ui32DevIndex;
-	IMG_UINT32			CommandType;
-	IMG_UINT32			ui32DstSyncCount;
-	IMG_UINT32			ui32SrcSyncCount;
-	PVRSRV_SYNC_OBJECT	*psDstSync;
-	PVRSRV_SYNC_OBJECT	*psSrcSync;
-	IMG_SIZE_T			ui32DataSize;
-	IMG_UINT32			ui32ProcessID;
-	IMG_VOID			*pvData;
+	IMG_SIZE_T			ui32CmdSize;		
+	IMG_UINT32			ui32DevIndex;		
+	IMG_UINT32			CommandType;		
+	IMG_UINT32			ui32DstSyncCount;	
+	IMG_UINT32			ui32SrcSyncCount;	
+	PVRSRV_SYNC_OBJECT	*psDstSync;			
+	PVRSRV_SYNC_OBJECT	*psSrcSync;			
+	IMG_SIZE_T			ui32DataSize;		
+	IMG_UINT32			ui32ProcessID;		
+	IMG_VOID			*pvData;			
 }PVRSRV_COMMAND, *PPVRSRV_COMMAND;
 
 
 typedef struct _PVRSRV_QUEUE_INFO_
 {
-	IMG_VOID			*pvLinQueueKM;
-	IMG_VOID			*pvLinQueueUM;
-	volatile IMG_SIZE_T	ui32ReadOffset;
-	volatile IMG_SIZE_T	ui32WriteOffset;
-	IMG_UINT32			*pui32KickerAddrKM;
-	IMG_UINT32			*pui32KickerAddrUM;
-	IMG_SIZE_T			ui32QueueSize;
+	IMG_VOID			*pvLinQueueKM;			
+	IMG_VOID			*pvLinQueueUM;			
+	volatile IMG_SIZE_T	ui32ReadOffset;			
+	volatile IMG_SIZE_T	ui32WriteOffset;		
+	IMG_UINT32			*pui32KickerAddrKM;		
+	IMG_UINT32			*pui32KickerAddrUM;		
+	IMG_SIZE_T			ui32QueueSize;			
 
-	IMG_UINT32			ui32ProcessID;
+	IMG_UINT32			ui32ProcessID;			
 
 	IMG_HANDLE			hMemBlock[2];
 
-	struct _PVRSRV_QUEUE_INFO_ *psNextKM;
+	struct _PVRSRV_QUEUE_INFO_ *psNextKM;		
 }PVRSRV_QUEUE_INFO;
 
 typedef PVRSRV_ERROR (*PFN_INSERT_CMD) (PVRSRV_QUEUE_INFO*,
@@ -207,7 +215,7 @@ IMG_UINT32 PVRSRVGetWriteOpsPending(PVRSRV_KERNEL_SYNC_INFO *psSyncInfo, IMG_BOO
 	}
 	else
 	{
-
+		
 
 
 		ui32WriteOpsPending = psSyncInfo->psSyncData->ui32WriteOpsPending++;
@@ -270,5 +278,5 @@ PVRSRVMapMemInfoMem(const PVRSRV_CONNECTION *psConnection,
 #if defined (__cplusplus)
 }
 #endif
-#endif
+#endif 
 

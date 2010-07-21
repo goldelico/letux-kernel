@@ -137,6 +137,8 @@ struct _LinuxMemArea {
 
     IMG_BOOL bMMapRegistered;		
 
+    IMG_BOOL bNeedsCacheInvalidate;	
+
     
     struct list_head	sMMapItem;
 

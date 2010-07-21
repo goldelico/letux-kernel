@@ -36,7 +36,6 @@
 typedef off_t (pvr_read_proc_t)(IMG_CHAR *, size_t, off_t);
 
 
-#ifdef PVR_PROC_USE_SEQ_FILE
 #define PVR_PROC_SEQ_START_TOKEN (void*)1
 typedef void* (pvr_next_proc_seq_t)(struct seq_file *,void*,loff_t);
 typedef void* (pvr_off2element_proc_seq_t)(struct seq_file *, loff_t);
@@ -56,9 +55,6 @@ void* ProcSeq1ElementOff2Element(struct seq_file *sfile, loff_t off);
 
 void* ProcSeq1ElementHeaderOff2Element(struct seq_file *sfile, loff_t off);
 
-
-#endif 
-
 off_t printAppend(IMG_CHAR * buffer, size_t size, off_t off, const IMG_CHAR * format, ...)
 	__attribute__((format(printf, 4, 5)));
 
@@ -76,7 +72,6 @@ IMG_VOID RemovePerProcessProcEntry(const IMG_CHAR * name);
 
 IMG_VOID RemoveProcEntries(IMG_VOID);
 
-#ifdef PVR_PROC_USE_SEQ_FILE
 struct proc_dir_entry* CreateProcReadEntrySeq (
 								const IMG_CHAR* name, 
 								IMG_VOID* data,
@@ -109,7 +104,5 @@ struct proc_dir_entry* CreatePerProcessProcEntrySeq (
 
 IMG_VOID RemoveProcEntrySeq(struct proc_dir_entry* proc_entry);
 IMG_VOID RemovePerProcessProcEntrySeq(struct proc_dir_entry* proc_entry);
-
-#endif 
 
 #endif

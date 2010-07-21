@@ -41,6 +41,8 @@ extern "C" {
 #define		SGX_HOSTPORT_PRESENT			0x00000001UL
 
 
+#define SGX_PDUMPREG_NAME		"SGXREG"
+
 typedef struct _PVRSRV_STUB_PBDESC_ PVRSRV_STUB_PBDESC;
 
 
@@ -115,22 +117,24 @@ typedef struct _PVRSRV_SGXDEV_INFO_
 #if defined(SGX_SUPPORT_HWPROFILING)
 	PPVRSRV_KERNEL_MEM_INFO psKernelHWProfilingMemInfo;
 #endif
-	IMG_UINT32				ui32KickTACounter;
-	IMG_UINT32				ui32KickTARenderCounter;
-#if defined(SUPPORT_SGX_HWPERF)
-	PPVRSRV_KERNEL_MEM_INFO		psKernelHWPerfCBMemInfo;
-	IMG_UINT32					ui32HWGroupRequested;
-	IMG_UINT32					ui32HWReset;
+	PPVRSRV_KERNEL_MEM_INFO		psKernelHWPerfCBMemInfo;		
+	PPVRSRV_KERNEL_MEM_INFO		psKernelTASigBufferMemInfo;		
+	PPVRSRV_KERNEL_MEM_INFO		psKernel3DSigBufferMemInfo;		
+#if defined(FIX_HW_BRN_29702)
+	PPVRSRV_KERNEL_MEM_INFO psKernelCFIMemInfo;	
 #endif
-#ifdef PVRSRV_USSE_EDM_STATUS_DEBUG
+#if defined(FIX_HW_BRN_29823)
+	PPVRSRV_KERNEL_MEM_INFO	psKernelDummyTermStreamMemInfo; 
+#endif
+#if defined(PVRSRV_USSE_EDM_STATUS_DEBUG)
 	PPVRSRV_KERNEL_MEM_INFO	psKernelEDMStatusBufferMemInfo; 
-#endif 
+#endif
 #if defined(SGX_FEATURE_OVERLAPPED_SPM)
 	PPVRSRV_KERNEL_MEM_INFO	psKernelTmpRgnHeaderMemInfo; 
-#endif 
+#endif
 #if defined(SGX_FEATURE_SPM_MODE_0)
 	PPVRSRV_KERNEL_MEM_INFO	psKernelTmpDPMStateMemInfo; 
-#endif 
+#endif
 
 	
 	IMG_UINT32				ui32ClientRefCount;
@@ -160,6 +164,8 @@ typedef struct _PVRSRV_SGXDEV_INFO_
 #if defined(SGX_FEATURE_MP)
 	IMG_UINT32				ui32MasterClkGateStatusReg;
 	IMG_UINT32				ui32MasterClkGateStatusMask;
+	IMG_UINT32				ui32MasterClkGateStatus2Reg;
+	IMG_UINT32				ui32MasterClkGateStatus2Mask;
 #endif 
 	SGX_INIT_SCRIPTS		sScripts;
 
@@ -201,6 +207,9 @@ typedef struct _PVRSRV_SGXDEV_INFO_
 
 	IMG_UINT32				ui32Flags;
 
+	
+	IMG_UINT32				ui32MemTilingUsage;
+
 	#if defined(PDUMP)
 	PVRSRV_SGX_PDUMP_CONTEXT	sPDContext;
 	#endif
@@ -214,7 +223,9 @@ typedef struct _PVRSRV_SGXDEV_INFO_
 	IMG_DEV_PHYADDR 		sDummyDataDevPAddr;
 	IMG_HANDLE				hDummyDataPageOSMemHandle;
 #endif
-
+#if defined(PDUMP)
+	PDUMP_MMU_ATTRIB sMMUAttrib;
+#endif
 	IMG_UINT32				asSGXDevData[SGX_MAX_DEV_DATA];
 
 } PVRSRV_SGXDEV_INFO;
@@ -263,6 +274,10 @@ typedef struct _SGX_DEVICE_MAP_
 	
 	SGX_TIMING_INFORMATION	sTimingInfo;
 #endif
+#if defined(PDUMP)
+	
+	IMG_CHAR				*pszPDumpDevName;
+#endif
 } SGX_DEVICE_MAP;
 
 
@@ -298,9 +313,11 @@ PVRSRV_ERROR SGXRegisterDevice (PVRSRV_DEVICE_NODE *psDeviceNode);
 IMG_VOID SGXOSTimer(IMG_VOID *pvData);
 
 IMG_VOID SGXReset(PVRSRV_SGXDEV_INFO	*psDevInfo,
-				  IMG_UINT32			 ui32PDUMPFlags);
+				  IMG_BOOL				bHardwareRecovery,
+				  IMG_UINT32			ui32PDUMPFlags);
 
-PVRSRV_ERROR SGXInitialise(PVRSRV_SGXDEV_INFO	*psDevInfo);
+PVRSRV_ERROR SGXInitialise(PVRSRV_SGXDEV_INFO	*psDevInfo,
+						   IMG_BOOL				bHardwareRecovery);
 PVRSRV_ERROR SGXDeinitialise(IMG_HANDLE hDevCookie);
 
 PVRSRV_ERROR SGXPrePowerState(IMG_HANDLE				hDevHandle, 
@@ -319,7 +336,7 @@ PVRSRV_ERROR SGXPostClockSpeedChange(IMG_HANDLE				hDevHandle,
 									 IMG_BOOL				bIdleDevice,
 									 PVRSRV_DEV_POWER_STATE	eCurrentPowerState);
 
-IMG_VOID SGXPanic(PVRSRV_DEVICE_NODE	*psDeviceNode);
+IMG_VOID SGXPanic(PVRSRV_SGXDEV_INFO	*psDevInfo);
 
 PVRSRV_ERROR SGXDevInitCompatCheck(PVRSRV_DEVICE_NODE *psDeviceNode);
 

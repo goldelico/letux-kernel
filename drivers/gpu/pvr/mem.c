@@ -96,7 +96,7 @@ PVRSRVAllocSharedSysMemoryKM(PVRSRV_PER_PROCESS_DATA	*psPerProc,
 								  RESMAN_TYPE_SHARED_MEM_INFO,
 								  psKernelMemInfo,
 								  0,
-								  FreeSharedSysMemCallBack);
+								  &FreeSharedSysMemCallBack);
 
 	*ppsKernelMemInfo = psKernelMemInfo;
 

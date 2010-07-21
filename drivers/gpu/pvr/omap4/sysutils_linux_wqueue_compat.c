@@ -29,8 +29,6 @@
 #include <linux/err.h>
 #include <linux/hardirq.h>
 #include <linux/mutex.h>
-#include <linux/platform_device.h>
-#include <plat/omap-pm.h>
 
 #include "sgxdefs.h"
 #include "services_headers.h"
@@ -52,8 +50,6 @@
 #else
 #define SGX_PARENT_CLOCK "core_ck"
 #endif
-
-extern struct platform_device *gpsPVRLDMDev;
 
 PVRSRV_ERROR SysPowerLockWrap(SYS_DATA unref__ *psSysData)
 {
@@ -128,11 +124,12 @@ PVRSRV_ERROR EnableSGXClocks(SYS_DATA *psSysData)
 
 	PVR_DPF((PVR_DBG_MESSAGE, "EnableSGXClocks: Enabling SGX Clocks"));
 
+
 	atomic_set(&psSysSpecData->sSGXClocksEnabled, 1);
 
-#else	/* !defined(NO_HARDWARE) */
+#else	
 	PVR_UNREFERENCED_PARAMETER(psSysData);
-#endif	/* !defined(NO_HARDWARE) */
+#endif	
 	return PVRSRV_OK;
 }
 
@@ -142,6 +139,7 @@ IMG_VOID DisableSGXClocks(SYS_DATA *psSysData)
 #if !defined(NO_HARDWARE)
 	SYS_SPECIFIC_DATA *psSysSpecData = (SYS_SPECIFIC_DATA *) psSysData->pvSysSpecificData;
 
+	
 	if (atomic_read(&psSysSpecData->sSGXClocksEnabled) == 0)
 	{
 		return;

@@ -51,7 +51,10 @@ typedef struct _PVRSRV_PER_PROCESS_DATA_
 
 	
 	IMG_BOOL		bInitProcess;
-
+#if defined(PDUMP)
+	
+	IMG_BOOL		bPDumpPersistent;
+#endif
 	
 	IMG_HANDLE		hOsPrivateData;
 } PVRSRV_PER_PROCESS_DATA;

@@ -34,10 +34,10 @@
 #define PRIVATE_MAX(a,b) ((a)>(b)?(a):(b))
 
 #define	KEY_TO_INDEX(pHash, key, uSize) \
-	((pHash)->pfnHashFunc((pHash)->uKeySize, key, uSize) % uSize)
+	((pHash)->pfnHashFunc((pHash)->uKeySize, (key), (uSize)) % (uSize))
 
 #define	KEY_COMPARE(pHash, pKey1, pKey2) \
-	((pHash)->pfnKeyComp((pHash)->uKeySize, pKey1, pKey2))
+	((pHash)->pfnKeyComp((pHash)->uKeySize, (pKey1), (pKey2)))
 
 struct _BUCKET_
 {
@@ -52,13 +52,13 @@ struct _BUCKET_
 };
 typedef struct _BUCKET_ BUCKET;
 
-struct _HASH_TABLE_ 
+struct _HASH_TABLE_
 {
 	
 	BUCKET **ppBucketTable;
+
 	
-	
-	IMG_UINT32 uSize;	
+	IMG_UINT32 uSize;
 
 	
 	IMG_UINT32 uCount;
@@ -78,7 +78,7 @@ struct _HASH_TABLE_
 
 IMG_UINT32
 HASH_Func_Default (IMG_SIZE_T uKeySize, IMG_VOID *pKey, IMG_UINT32 uHashTabLen)
-{ 
+{
 	IMG_UINTPTR_T *p = (IMG_UINTPTR_T *)pKey;
 	IMG_UINT32 uKeyLen = uKeySize / sizeof(IMG_UINTPTR_T);
 	IMG_UINT32 ui;
@@ -109,7 +109,7 @@ HASH_Func_Default (IMG_SIZE_T uKeySize, IMG_VOID *pKey, IMG_UINT32 uHashTabLen)
 
 IMG_BOOL
 HASH_Key_Comp_Default (IMG_SIZE_T uKeySize, IMG_VOID *pKey1, IMG_VOID *pKey2)
-{ 
+{
 	IMG_UINTPTR_T *p1 = (IMG_UINTPTR_T *)pKey1;
 	IMG_UINTPTR_T *p2 = (IMG_UINTPTR_T *)pKey2;
 	IMG_UINT32 uKeyLen = uKeySize / sizeof(IMG_UINTPTR_T);
@@ -128,7 +128,7 @@ HASH_Key_Comp_Default (IMG_SIZE_T uKeySize, IMG_VOID *pKey1, IMG_VOID *pKey2)
 
 static PVRSRV_ERROR
 _ChainInsert (HASH_TABLE *pHash, BUCKET *pBucket, BUCKET **ppBucketTable, IMG_UINT32 uSize)
-{	
+{
 	IMG_UINT32 uIndex;
 
 	PVR_ASSERT (pBucket != IMG_NULL);
@@ -160,11 +160,13 @@ _Rehash (HASH_TABLE *pHash,
 		pBucket = ppOldTable[uIndex];
 		while (pBucket != IMG_NULL)
 		{
+			PVRSRV_ERROR eError;
 			BUCKET *pNextBucket = pBucket->pNext;
-			if (_ChainInsert (pHash, pBucket, ppNewTable, uNewSize) != PVRSRV_OK)
+			eError = _ChainInsert (pHash, pBucket, ppNewTable, uNewSize);
+			if (eError != PVRSRV_OK)
 			{
 				PVR_DPF((PVR_DBG_ERROR, "_Rehash: call to _ChainInsert failed"));
-				return PVRSRV_ERROR_GENERIC;
+				return eError;
 			}
 			pBucket = pNextBucket;
 		}
@@ -184,13 +186,13 @@ _Resize (HASH_TABLE *pHash, IMG_UINT32 uNewSize)
                   "HASH_Resize: oldsize=0x%x  newsize=0x%x  count=0x%x",
 				pHash->uSize, uNewSize, pHash->uCount));
 
-		OSAllocMem(PVRSRV_PAGEABLE_SELECT, 
-                      sizeof (BUCKET *) * uNewSize, 
+		OSAllocMem(PVRSRV_PAGEABLE_SELECT,
+                      sizeof (BUCKET *) * uNewSize,
                       (IMG_PVOID*)&ppNewTable, IMG_NULL,
 					  "Hash Table Buckets");
 		if (ppNewTable == IMG_NULL)
             return IMG_FALSE;
-        
+
         for (uIndex=0; uIndex<uNewSize; uIndex++)
             ppNewTable[uIndex] = IMG_NULL;
 
@@ -214,9 +216,9 @@ HASH_TABLE * HASH_Create_Extended (IMG_UINT32 uInitialLen, IMG_SIZE_T uKeySize, 
 	IMG_UINT32 uIndex;
 
 	PVR_DPF ((PVR_DBG_MESSAGE, "HASH_Create_Extended: InitialSize=0x%x", uInitialLen));
-	
-	if(OSAllocMem(PVRSRV_PAGEABLE_SELECT, 
-					sizeof(HASH_TABLE), 
+
+	if(OSAllocMem(PVRSRV_PAGEABLE_SELECT,
+					sizeof(HASH_TABLE),
 					(IMG_VOID **)&pHash, IMG_NULL,
 					"Hash Table") != PVRSRV_OK)
 	{
@@ -230,10 +232,10 @@ HASH_TABLE * HASH_Create_Extended (IMG_UINT32 uInitialLen, IMG_SIZE_T uKeySize, 
 	pHash->pfnHashFunc = pfnHashFunc;
 	pHash->pfnKeyComp = pfnKeyComp;
 
-	OSAllocMem(PVRSRV_PAGEABLE_SELECT, 
-                  sizeof (BUCKET *) * pHash->uSize, 
+	OSAllocMem(PVRSRV_PAGEABLE_SELECT,
+                  sizeof (BUCKET *) * pHash->uSize,
                   (IMG_PVOID*)&pHash->ppBucketTable, IMG_NULL,
-				  "Hash Table Buckets");	
+				  "Hash Table Buckets");
 
 	if (pHash->ppBucketTable == IMG_NULL)
     {
@@ -259,7 +261,7 @@ HASH_Delete (HASH_TABLE *pHash)
 	if (pHash != IMG_NULL)
     {
 		PVR_DPF ((PVR_DBG_MESSAGE, "HASH_Delete"));
-		
+
 		PVR_ASSERT (pHash->uCount==0);
 		if(pHash->uCount != 0)
 		{
@@ -279,7 +281,8 @@ HASH_Insert_Extended (HASH_TABLE *pHash, IMG_VOID *pKey, IMG_UINTPTR_T v)
 	BUCKET *pBucket;
 
 	PVR_DPF ((PVR_DBG_MESSAGE,
-              "HASH_Insert_Extended: Hash=%08X, pKey=%08X, v=0x%x", pHash, pKey, v));
+              "HASH_Insert_Extended: Hash=0x%08x, pKey=0x%08x, v=0x%x",
+              (IMG_UINTPTR_T)pHash, (IMG_UINTPTR_T)pKey, v));
 
 	PVR_ASSERT (pHash != IMG_NULL);
 
@@ -288,9 +291,9 @@ HASH_Insert_Extended (HASH_TABLE *pHash, IMG_VOID *pKey, IMG_UINTPTR_T v)
 		PVR_DPF((PVR_DBG_ERROR, "HASH_Insert_Extended: invalid parameter"));
 		return IMG_FALSE;
 	}
-	
-	if(OSAllocMem(PVRSRV_PAGEABLE_SELECT, 
-					sizeof(BUCKET) + pHash->uKeySize, 
+
+	if(OSAllocMem(PVRSRV_PAGEABLE_SELECT,
+					sizeof(BUCKET) + pHash->uKeySize,
 					(IMG_VOID **)&pBucket, IMG_NULL,
 					"Hash Table entry") != PVRSRV_OK)
 	{
@@ -314,8 +317,8 @@ HASH_Insert_Extended (HASH_TABLE *pHash, IMG_VOID *pKey, IMG_UINTPTR_T v)
 
         _Resize (pHash, pHash->uSize << 1);
     }
-    
-	
+
+
 	return IMG_TRUE;
 }
 
@@ -323,7 +326,8 @@ IMG_BOOL
 HASH_Insert (HASH_TABLE *pHash, IMG_UINTPTR_T k, IMG_UINTPTR_T v)
 {
 	PVR_DPF ((PVR_DBG_MESSAGE,
-              "HASH_Insert: Hash=%08X, k=0x%x, v=0x%x", pHash, k, v));
+              "HASH_Insert: Hash=0x%x, k=0x%x, v=0x%x",
+              (IMG_UINTPTR_T)pHash, k, v));
 
 	return HASH_Insert_Extended(pHash, &k, v);
 }
@@ -334,10 +338,11 @@ HASH_Remove_Extended(HASH_TABLE *pHash, IMG_VOID *pKey)
 	BUCKET **ppBucket;
 	IMG_UINT32 uIndex;
 
-	PVR_DPF ((PVR_DBG_MESSAGE, "HASH_Remove_Extended: Hash=%08X, pKey=%08X", pHash, pKey));
+	PVR_DPF ((PVR_DBG_MESSAGE, "HASH_Remove_Extended: Hash=0x%x, pKey=0x%x",
+			(IMG_UINTPTR_T)pHash, (IMG_UINTPTR_T)pKey));
 
 	PVR_ASSERT (pHash != IMG_NULL);
-	
+
 	if (pHash == IMG_NULL)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "HASH_Remove_Extended: Null hash table"));
@@ -345,7 +350,7 @@ HASH_Remove_Extended(HASH_TABLE *pHash, IMG_VOID *pKey)
 	}
 
 	uIndex = KEY_TO_INDEX(pHash, pKey, pHash->uSize);
-  
+
 	for (ppBucket = &(pHash->ppBucketTable[uIndex]); *ppBucket != IMG_NULL; ppBucket = &((*ppBucket)->pNext))
 	{
 		 
@@ -370,22 +375,24 @@ HASH_Remove_Extended(HASH_TABLE *pHash, IMG_VOID *pKey)
                          PRIVATE_MAX (pHash->uSize >> 1,
                                       pHash->uMinimumSize));
             }
-            
+
 			PVR_DPF ((PVR_DBG_MESSAGE,
-                      "HASH_Remove_Extended: Hash=%08X, pKey=%08X = 0x%x",
-                      pHash, pKey, v));
+                      "HASH_Remove_Extended: Hash=0x%x, pKey=0x%x = 0x%x",
+                      (IMG_UINTPTR_T)pHash, (IMG_UINTPTR_T)pKey, v));
 			return v;
 		}
 	}
 	PVR_DPF ((PVR_DBG_MESSAGE,
-              "HASH_Remove_Extended: Hash=%08X, pKey=%08X = 0x0 !!!!", pHash, pKey));
+              "HASH_Remove_Extended: Hash=0x%x, pKey=0x%x = 0x0 !!!!",
+              (IMG_UINTPTR_T)pHash, (IMG_UINTPTR_T)pKey));
 	return 0;
 }
 
 IMG_UINTPTR_T
 HASH_Remove (HASH_TABLE *pHash, IMG_UINTPTR_T k)
 {
-	PVR_DPF ((PVR_DBG_MESSAGE, "HASH_Remove: Hash=%08X, k=0x%x", pHash, k));
+	PVR_DPF ((PVR_DBG_MESSAGE, "HASH_Remove: Hash=0x%x, k=0x%x",
+			(IMG_UINTPTR_T)pHash, k));
 
 	return HASH_Remove_Extended(pHash, &k);
 }
@@ -396,10 +403,11 @@ HASH_Retrieve_Extended (HASH_TABLE *pHash, IMG_VOID *pKey)
 	BUCKET **ppBucket;
 	IMG_UINT32 uIndex;
 
-	PVR_DPF ((PVR_DBG_MESSAGE, "HASH_Retrieve_Extended: Hash=%08X, pKey=%08X", pHash,pKey));
+	PVR_DPF ((PVR_DBG_MESSAGE, "HASH_Retrieve_Extended: Hash=0x%x, pKey=0x%x",
+			(IMG_UINTPTR_T)pHash, (IMG_UINTPTR_T)pKey));
 
 	PVR_ASSERT (pHash != IMG_NULL);
-	
+
 	if (pHash == IMG_NULL)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "HASH_Retrieve_Extended: Null hash table"));
@@ -407,30 +415,32 @@ HASH_Retrieve_Extended (HASH_TABLE *pHash, IMG_VOID *pKey)
 	}
 
 	uIndex = KEY_TO_INDEX(pHash, pKey, pHash->uSize);
-  
+
 	for (ppBucket = &(pHash->ppBucketTable[uIndex]); *ppBucket != IMG_NULL; ppBucket = &((*ppBucket)->pNext))
 	{
 		 
 		if (KEY_COMPARE(pHash, (*ppBucket)->k, pKey))
-		{         
+		{
 			BUCKET *pBucket = *ppBucket;
 			IMG_UINTPTR_T v = pBucket->v;
 
 			PVR_DPF ((PVR_DBG_MESSAGE,
-                      "HASH_Retrieve: Hash=%08X, pKey=%08X = 0x%x",
-                      pHash, pKey, v));
+                      "HASH_Retrieve: Hash=0x%x, pKey=0x%x = 0x%x",
+                      (IMG_UINTPTR_T)pHash, (IMG_UINTPTR_T)pKey, v));
 			return v;
 		}
 	}
 	PVR_DPF ((PVR_DBG_MESSAGE,
-              "HASH_Retrieve: Hash=%08X, pKey=%08X = 0x0 !!!!", pHash, pKey));
+              "HASH_Retrieve: Hash=0x%x, pKey=0x%x = 0x0 !!!!",
+              (IMG_UINTPTR_T)pHash, (IMG_UINTPTR_T)pKey));
 	return 0;
 }
 
 IMG_UINTPTR_T
 HASH_Retrieve (HASH_TABLE *pHash, IMG_UINTPTR_T k)
 {
-	PVR_DPF ((PVR_DBG_MESSAGE, "HASH_Retrieve: Hash=%08X, k=0x%x", pHash,k));
+	PVR_DPF ((PVR_DBG_MESSAGE, "HASH_Retrieve: Hash=0x%x, k=0x%x",
+			(IMG_UINTPTR_T)pHash, k));
 	return HASH_Retrieve_Extended(pHash, &k);
 }
 
@@ -448,11 +458,15 @@ HASH_Dump (HASH_TABLE *pHash)
 		BUCKET *pBucket;
 		IMG_UINT32 uLength = 0;
 		if (pHash->ppBucketTable[uIndex] == IMG_NULL)
+		{
 			uEmptyCount++;
+		}
 		for (pBucket=pHash->ppBucketTable[uIndex];
-             		pBucket != IMG_NULL;
-             		pBucket = pBucket->pNext)
-				uLength++;
+				pBucket != IMG_NULL;
+				pBucket = pBucket->pNext)
+		{
+			uLength++;
+		}
 		uMaxLength = PRIVATE_MAX (uMaxLength, uLength);
 	}
 

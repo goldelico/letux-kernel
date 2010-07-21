@@ -148,7 +148,7 @@ PVRSRV_ERROR PVRSRVPerProcessDataConnect(IMG_UINT32	ui32PID)
 		if (!HASH_Insert(psHashTab, (IMG_UINTPTR_T)ui32PID, (IMG_UINTPTR_T)psPerProc))
 		{
 			PVR_DPF((PVR_DBG_ERROR, "PVRSRVPerProcessDataConnect: Couldn't insert per-process data into hash table"));
-			eError = PVRSRV_ERROR_GENERIC;
+			eError = PVRSRV_ERROR_INSERT_HASH_TABLE_DATA_FAILED;
 			goto failure;
 		}
 
@@ -262,7 +262,7 @@ PVRSRV_ERROR PVRSRVPerProcessDataInit(IMG_VOID)
 	if (psHashTab == IMG_NULL)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "PVRSRVPerProcessDataInit: Couldn't create per-process data hash table"));
-		return PVRSRV_ERROR_GENERIC;
+		return PVRSRV_ERROR_UNABLE_TO_CREATE_HASH_TABLE;
 	}
 
 	return PVRSRV_OK;

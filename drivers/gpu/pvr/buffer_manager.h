@@ -1,26 +1,26 @@
 /**********************************************************************
  *
  * Copyright(c) 2008 Imagination Technologies Ltd. All rights reserved.
- *
+ * 
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
  * version 2, as published by the Free Software Foundation.
- *
- * This program is distributed in the hope it will be useful but, except
- * as otherwise stated in writing, without any warranty; without even the
- * implied warranty of merchantability or fitness for a particular purpose.
+ * 
+ * This program is distributed in the hope it will be useful but, except 
+ * as otherwise stated in writing, without any warranty; without even the 
+ * implied warranty of merchantability or fitness for a particular purpose. 
  * See the GNU General Public License for more details.
- *
+ * 
  * You should have received a copy of the GNU General Public License along with
  * this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *
+ * 
  * The full GNU General Public License is included in this distribution in
  * the file called "COPYING".
  *
  * Contact Information:
  * Imagination Technologies Ltd. <gpl-support@imgtec.com>
- * Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK
+ * Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK 
  *
  ******************************************************************************/
 
@@ -41,16 +41,16 @@ struct _BM_MAPPING_
 {
 	enum
 	{
-		hm_wrapped = 1,
-		hm_wrapped_scatter,
-		hm_wrapped_virtaddr,
-		hm_wrapped_scatter_virtaddr,
-		hm_env,
-		hm_contiguous
+		hm_wrapped = 1,		
+		hm_wrapped_scatter,	
+		hm_wrapped_virtaddr, 
+		hm_wrapped_scatter_virtaddr, 
+		hm_env,				
+		hm_contiguous		
 	} eCpuMemoryOrigin;
 
-	BM_HEAP				*pBMHeap;
-	RA_ARENA			*pArena;
+	BM_HEAP				*pBMHeap;	
+	RA_ARENA			*pArena;	
 
 	IMG_CPU_VIRTADDR	CpuVAddr;
 	IMG_CPU_PHYADDR		CpuPAddr;
@@ -82,7 +82,8 @@ struct _BM_HEAP_
 	RA_ARENA				*pVMArena;
 	DEV_ARENA_DESCRIPTOR	sDevArena;
 	MMU_HEAP				*pMMUHeap;
-
+	PDUMP_MMU_ATTRIB 		*psMMUAttrib;
+	
 	struct _BM_HEAP_ 		*psNext;
 	struct _BM_HEAP_ 		**ppsThis;
 };
@@ -91,23 +92,23 @@ struct _BM_CONTEXT_
 {
 	MMU_CONTEXT	*psMMUContext;
 
-
+	
 	 BM_HEAP *psBMHeap;
 
-
+	
 	 BM_HEAP *psBMSharedHeap;
 
 	PVRSRV_DEVICE_NODE *psDeviceNode;
 
-
+	
 	HASH_TABLE *pBufferHash;
 
-
+	
 	IMG_HANDLE hResItem;
 
 	IMG_UINT32 ui32RefCount;
 
-
+	
 
 	struct _BM_CONTEXT_ *psNext;
 	struct _BM_CONTEXT_ **ppsThis;
@@ -182,18 +183,9 @@ BM_HandleToSysPaddr (BM_HANDLE hBuf);
 IMG_HANDLE
 BM_HandleToOSMemHandle (BM_HANDLE hBuf);
 
-IMG_BOOL
-BM_ContiguousStatistics (IMG_UINT32 uFlags,
-                         IMG_UINT32 *pTotalBytes,
-                         IMG_UINT32 *pAvailableBytes);
-
-
 IMG_VOID BM_GetPhysPageAddr(PVRSRV_KERNEL_MEM_INFO *psMemInfo,
 								IMG_DEV_VIRTADDR sDevVPageAddr,
 								IMG_DEV_PHYADDR *psDevPAddr);
-
-PVRSRV_ERROR BM_GetHeapInfo(IMG_HANDLE hDevMemHeap,
-							PVRSRV_HEAP_INFO *psHeapInfo);
 
 MMU_CONTEXT* BM_GetMMUContext(IMG_HANDLE hDevMemHeap);
 

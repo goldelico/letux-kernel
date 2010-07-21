@@ -36,7 +36,7 @@ extern "C" {
 #if defined(__linux__)
 #define PVRSRV_GET_BRIDGE_ID(X)	_IOC_NR(X)
 #else
-#define PVRSRV_GET_BRIDGE_ID(X)	(X - PVRSRV_IOWR(PVRSRV_BRIDGE_CORE_CMD_FIRST))
+#define PVRSRV_GET_BRIDGE_ID(X)	((X) - PVRSRV_IOWR(PVRSRV_BRIDGE_CORE_CMD_FIRST))
 #endif
 
 #ifndef ENOMEM
@@ -78,7 +78,7 @@ CopyToUserWrapper(PVRSRV_PER_PROCESS_DATA *pProcData,
 		{						\
 			return (res);				\
 		}						\
-	} while (error != PVRSRV_OK)
+	} while ((error) != PVRSRV_OK);
 
 #define ASSIGN_AND_EXIT_ON_ERROR(error, src)		\
 	ASSIGN_AND_RETURN_ON_ERROR(error, src, 0)
@@ -194,6 +194,7 @@ _SetDispatchTableEntry(IMG_UINT32 ui32Index,
 					   const IMG_CHAR *pszFunctionName);
 
 
+ 
 #define SetDispatchTableEntry(ui32Index, pfFunction) \
 	_SetDispatchTableEntry(PVRSRV_GET_BRIDGE_ID(ui32Index), #ui32Index, (BridgeWrapperFunction)pfFunction, #pfFunction)
 

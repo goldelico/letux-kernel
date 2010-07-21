@@ -58,6 +58,7 @@
 #include "proc.h"
 #include "mutex.h"
 #include "lock.h"
+#include "event.h"
 
 typedef struct PVRSRV_LINUX_EVENT_OBJECT_LIST_TAG
 {
@@ -111,7 +112,7 @@ PVRSRV_ERROR LinuxEventObjectListDestroy(IMG_HANDLE hEventObjectList)
 		if (!list_empty(&psEvenObjectList->sList)) 
 		{
 			 PVR_DPF((PVR_DBG_ERROR, "LinuxEventObjectListDestroy: Event List is not empty"));
-			 return PVRSRV_ERROR_GENERIC;
+			 return PVRSRV_ERROR_UNABLE_TO_DESTROY_EVENT;
 		}
 		OSFreeMem(PVRSRV_OS_NON_PAGEABLE_HEAP, sizeof(PVRSRV_LINUX_EVENT_OBJECT_LIST), psEvenObjectList, IMG_NULL);
 		
@@ -128,17 +129,17 @@ PVRSRV_ERROR LinuxEventObjectDelete(IMG_HANDLE hOSEventObjectList, IMG_HANDLE hO
 		{
 			PVRSRV_LINUX_EVENT_OBJECT *psLinuxEventObject = (PVRSRV_LINUX_EVENT_OBJECT *)hOSEventObject; 
 #if defined(DEBUG)
-			PVR_DPF((PVR_DBG_MESSAGE, "LinuxEventObjectListDelete: Event object waits: %lu", psLinuxEventObject->ui32Stats));
+			PVR_DPF((PVR_DBG_MESSAGE, "LinuxEventObjectListDelete: Event object waits: %u", psLinuxEventObject->ui32Stats));
 #endif
 			if(ResManFreeResByPtr(psLinuxEventObject->hResItem) != PVRSRV_OK)
 			{
-				return PVRSRV_ERROR_GENERIC;
+				return PVRSRV_ERROR_UNABLE_TO_DESTROY_EVENT;
 			}
 			
 			return PVRSRV_OK;
 		}
 	}
-	return PVRSRV_ERROR_GENERIC;
+	return PVRSRV_ERROR_UNABLE_TO_DESTROY_EVENT;
 
 }
 
@@ -154,7 +155,7 @@ static PVRSRV_ERROR LinuxEventObjectDeleteCallback(IMG_PVOID pvParam, IMG_UINT32
 	write_unlock_bh(&psLinuxEventObjectList->sLock);
 
 #if defined(DEBUG)
-	PVR_DPF((PVR_DBG_MESSAGE, "LinuxEventObjectDeleteCallback: Event object waits: %lu", psLinuxEventObject->ui32Stats));
+	PVR_DPF((PVR_DBG_MESSAGE, "LinuxEventObjectDeleteCallback: Event object waits: %u", psLinuxEventObject->ui32Stats));
 #endif	
 
 	OSFreeMem(PVRSRV_OS_NON_PAGEABLE_HEAP, sizeof(PVRSRV_LINUX_EVENT_OBJECT), psLinuxEventObject, IMG_NULL);
@@ -244,7 +245,7 @@ PVRSRV_ERROR LinuxEventObjectWait(IMG_HANDLE hOSEventObject, IMG_UINT32 ui32MSTi
 	do	
 	{
 		prepare_to_wait(&psLinuxEventObject->sWait, &sWait, TASK_INTERRUPTIBLE);
-		ui32TimeStamp = atomic_read(&psLinuxEventObject->sTimeStamp);
+		ui32TimeStamp = (IMG_UINT32)atomic_read(&psLinuxEventObject->sTimeStamp);
    	
 		if(psLinuxEventObject->ui32TimeStampPrevious != ui32TimeStamp)
 		{

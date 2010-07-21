@@ -27,29 +27,14 @@
 #ifndef _PDUMP_KM_H_
 #define _PDUMP_KM_H_
 
-#if defined(LINUX)
-#define COMMON_PDUMP_OS_SUPPORT
-#endif
 
-#if defined(COMMON_PDUMP_OS_SUPPORT)
-#if defined(SUPPORT_SGX) || defined(SUPPORT_MSVDX)
-#define SGX_SUPPORT_COMMON_PDUMP
-#if defined(SGX_SUPPORT_COMMON_PDUMP)
-#include <pdump_osfunc.h>
-#endif
-
-#endif
-#endif 
+#include "pdump_osfunc.h"
 
 #if defined(__cplusplus)
 extern "C" {
 #endif
 
-#define PDUMP_FLAGS_NEVER			0x08000000UL
-#define PDUMP_FLAGS_TOOUT2MEM		0x10000000UL
-#define PDUMP_FLAGS_LASTFRAME		0x20000000UL
-#define PDUMP_FLAGS_RESETLFBUFFER	0x40000000UL
-#define PDUMP_FLAGS_CONTINUOUS		0x80000000UL
+#include "pdump.h"
 
 #define PDUMP_PD_UNIQUETAG			(IMG_HANDLE)0
 #define PDUMP_PT_UNIQUETAG			(IMG_HANDLE)0
@@ -59,6 +44,9 @@ extern "C" {
 #define PDUMP_STREAM_DRIVERINFO		2
 #define PDUMP_NUM_STREAMS			3
 
+#if defined(PDUMP_DEBUG_OUTFILES)
+extern IMG_UINT32 g_ui32EveryLineCounter;
+#endif
 
 #ifndef PDUMP
 #define MAKEUNIQUETAG(hMemInfo)	(0)
@@ -66,7 +54,7 @@ extern "C" {
 
 #ifdef PDUMP
 
-#define MAKEUNIQUETAG(hMemInfo)	(((BM_BUF *)(((PVRSRV_KERNEL_MEM_INFO *)hMemInfo)->sMemBlk.hBuffer))->pMapping)
+#define MAKEUNIQUETAG(hMemInfo)	(((BM_BUF *)(((PVRSRV_KERNEL_MEM_INFO *)(hMemInfo))->sMemBlk.hBuffer))->pMapping)
 
 	IMG_IMPORT PVRSRV_ERROR PDumpMemPolKM(PVRSRV_KERNEL_MEM_INFO *psMemInfo,
 										  IMG_UINT32			ui32Offset,
@@ -100,104 +88,85 @@ extern "C" {
 								 IMG_UINT32			ui32Flags,
 								 IMG_HANDLE			hUniqueTag);
 
-	PVRSRV_ERROR PDumpMem2KM(PVRSRV_DEVICE_TYPE	eDeviceType,
-							 IMG_CPU_VIRTADDR	pvLinAddr,
-							 IMG_UINT32			ui32Bytes,
-							 IMG_UINT32			ui32Flags,
-							 IMG_BOOL			bInitialisePages,
-							 IMG_HANDLE			hUniqueTag1,
-							 IMG_HANDLE			hUniqueTag2);
+	PVRSRV_ERROR PDumpMemPDEntriesKM(PDUMP_MMU_ATTRIB *psMMUAttrib,
+									 IMG_HANDLE hOSMemHandle,
+							 		 IMG_CPU_VIRTADDR pvLinAddr,
+							 		 IMG_UINT32 ui32Bytes,
+							 		 IMG_UINT32 ui32Flags,
+							 		 IMG_BOOL bInitialisePages,
+							 		 IMG_HANDLE hUniqueTag1,
+							 		 IMG_HANDLE hUniqueTag2);
+							 
+	PVRSRV_ERROR PDumpMemPTEntriesKM(PDUMP_MMU_ATTRIB *psMMUAttrib,
+									 IMG_HANDLE         hOSMemHandle,
+									 IMG_CPU_VIRTADDR	pvLinAddr,
+									 IMG_UINT32			ui32Bytes,
+									 IMG_UINT32			ui32Flags,
+									 IMG_BOOL			bInitialisePages,
+									 IMG_HANDLE			hUniqueTag1,
+									 IMG_HANDLE			hUniqueTag2);
 	IMG_VOID PDumpInitCommon(IMG_VOID);
 	IMG_VOID PDumpDeInitCommon(IMG_VOID);
 	IMG_VOID PDumpInit(IMG_VOID);
 	IMG_VOID PDumpDeInit(IMG_VOID);
+	IMG_BOOL PDumpIsSuspended(IMG_VOID);
 	PVRSRV_ERROR PDumpStartInitPhaseKM(IMG_VOID);
 	PVRSRV_ERROR PDumpStopInitPhaseKM(IMG_VOID);
 	IMG_IMPORT PVRSRV_ERROR PDumpSetFrameKM(IMG_UINT32 ui32Frame);
 	IMG_IMPORT PVRSRV_ERROR PDumpCommentKM(IMG_CHAR *pszComment, IMG_UINT32 ui32Flags);
 	IMG_IMPORT PVRSRV_ERROR PDumpDriverInfoKM(IMG_CHAR *pszString, IMG_UINT32 ui32Flags);
 
-	PVRSRV_ERROR PDumpRegWithFlagsKM(IMG_UINT32 ui32RegAddr,
+	PVRSRV_ERROR PDumpRegWithFlagsKM(IMG_CHAR *pszPDumpRegName,
+									 IMG_UINT32 ui32RegAddr,
 									 IMG_UINT32 ui32RegValue,
 									 IMG_UINT32 ui32Flags);
-	PVRSRV_ERROR PDumpRegPolWithFlagsKM(IMG_UINT32 ui32RegAddr,
+	PVRSRV_ERROR PDumpRegPolWithFlagsKM(IMG_CHAR *pszPDumpRegName,
+										IMG_UINT32 ui32RegAddr,
 										IMG_UINT32 ui32RegValue,
 										IMG_UINT32 ui32Mask,
 										IMG_UINT32 ui32Flags);
-	PVRSRV_ERROR PDumpRegPolKM(IMG_UINT32 ui32RegAddr,
-							   IMG_UINT32 ui32RegValue,
-							   IMG_UINT32 ui32Mask);
+	PVRSRV_ERROR PDumpRegPolKM(IMG_CHAR *pszPDumpRegName,
+								IMG_UINT32 ui32RegAddr,
+								IMG_UINT32 ui32RegValue,
+								IMG_UINT32 ui32Mask);
 
-	IMG_IMPORT PVRSRV_ERROR PDumpBitmapKM(IMG_CHAR *pszFileName,
+	IMG_IMPORT PVRSRV_ERROR PDumpBitmapKM(PVRSRV_DEVICE_NODE *psDeviceNode,
+										  IMG_CHAR *pszFileName,
 										  IMG_UINT32 ui32FileOffset,
 										  IMG_UINT32 ui32Width,
 										  IMG_UINT32 ui32Height,
 										  IMG_UINT32 ui32StrideInBytes,
 										  IMG_DEV_VIRTADDR sDevBaseAddr,
+										  IMG_HANDLE hDevMemContext,
 										  IMG_UINT32 ui32Size,
 										  PDUMP_PIXEL_FORMAT ePixelFormat,
 										  PDUMP_MEM_FORMAT eMemFormat,
 										  IMG_UINT32 ui32PDumpFlags);
-	IMG_IMPORT PVRSRV_ERROR PDumpReadRegKM(IMG_CHAR *pszFileName,
+	IMG_IMPORT PVRSRV_ERROR PDumpReadRegKM(IMG_CHAR *pszPDumpRegName,
+										   IMG_CHAR *pszFileName,
 										   IMG_UINT32 ui32FileOffset,
 										   IMG_UINT32 ui32Address,
 										   IMG_UINT32 ui32Size,
 										   IMG_UINT32 ui32PDumpFlags);
 
-	IMG_BOOL PDumpIsSuspended(IMG_VOID);
+	PVRSRV_ERROR PDumpRegKM(IMG_CHAR* pszPDumpRegName,
+							IMG_UINT32 dwReg,
+							IMG_UINT32 dwData);
 
-#if defined(SGX_SUPPORT_COMMON_PDUMP) || !defined(SUPPORT_VGX)
-	
-	PVRSRV_ERROR PDumpRegKM(IMG_UINT32		dwReg,
-							IMG_UINT32		dwData);
-	PVRSRV_ERROR PDumpComment(IMG_CHAR* pszFormat, ...);
+	PVRSRV_ERROR PDumpComment(IMG_CHAR* pszFormat, ...) IMG_FORMAT_PRINTF(1, 2);
 	PVRSRV_ERROR PDumpCommentWithFlags(IMG_UINT32	ui32Flags,
 									   IMG_CHAR*	pszFormat,
-									   ...);
+									   ...) IMG_FORMAT_PRINTF(2, 3);
 
-	PVRSRV_ERROR PDumpPDReg(IMG_UINT32	ui32Reg,
+	PVRSRV_ERROR PDumpPDReg(PDUMP_MMU_ATTRIB *psMMUAttrib,
+							IMG_UINT32	ui32Reg,
 							IMG_UINT32	ui32dwData,
 							IMG_HANDLE	hUniqueTag);
-	PVRSRV_ERROR PDumpPDRegWithFlags(IMG_UINT32		ui32Reg,
+	PVRSRV_ERROR PDumpPDRegWithFlags(PDUMP_MMU_ATTRIB *psMMUAttrib,
+									 IMG_UINT32		ui32Reg,
 									 IMG_UINT32		ui32Data,
 									 IMG_UINT32		ui32Flags,
 									 IMG_HANDLE		hUniqueTag);
-#else
-	IMG_VOID PDumpRegKM(IMG_UINT32		dwReg,
-							IMG_UINT32		dwData);
-	IMG_VOID PDumpComment(IMG_CHAR* pszFormat, ...);
-	IMG_VOID PDumpCommentWithFlags(IMG_UINT32	ui32Flags,
-									   IMG_CHAR*	pszFormat,
-									   ...);
-
-	
-	IMG_VOID PDumpPDReg(IMG_UINT32	ui32Reg,
-							IMG_UINT32	ui32dwData,
-							IMG_HANDLE	hUniqueTag);
-	IMG_VOID PDumpPDRegWithFlags(IMG_UINT32		ui32Reg,
-									 IMG_UINT32		ui32Data,
-									 IMG_UINT32		ui32Flags,
-									 IMG_HANDLE		hUniqueTag);
-#endif 
-
-	IMG_VOID PDumpMsvdxRegRead(const IMG_CHAR* const	pRegRegion,
-							   const IMG_UINT32		dwRegOffset);
-
-	IMG_VOID PDumpMsvdxRegWrite(const IMG_CHAR* const	pRegRegion,
-								const IMG_UINT32		dwRegOffset,
-								const IMG_UINT32		dwData);
-
-	PVRSRV_ERROR PDumpMsvdxRegPol(const IMG_CHAR* const	pRegRegion,
-								  const IMG_UINT32		ui32Offset,
-								  const IMG_UINT32		ui32CheckFuncIdExt,
-								  const IMG_UINT32		ui32RequValue,
-								  const IMG_UINT32		ui32Enable,
-								  const IMG_UINT32		ui32PollCount,
-								  const IMG_UINT32		ui32TimeOut);
-
-	PVRSRV_ERROR  PDumpMsvdxWriteRef(const IMG_CHAR* const	pRegRegion,
-									 const IMG_UINT32		ui32VLROffset,
-									 const IMG_UINT32		ui32Physical );
 
 	IMG_BOOL PDumpIsLastCaptureFrameKM(IMG_VOID);
 	IMG_IMPORT IMG_BOOL PDumpIsCaptureFrameKM(IMG_VOID);
@@ -212,6 +181,7 @@ extern "C" {
 									IMG_UINT32 *pui32MMUContextID,
 									IMG_UINT32 ui32MMUType,
 									IMG_HANDLE hUniqueTag1,
+									IMG_HANDLE hOSMemHandle,
 									IMG_VOID *pvPDCPUAddr);
 	PVRSRV_ERROR PDumpClearMMUContext(PVRSRV_DEVICE_TYPE eDeviceType,
 									IMG_CHAR *pszMemSpace,
@@ -226,59 +196,83 @@ extern "C" {
 
 	IMG_BOOL PDumpTestNextFrame(IMG_UINT32 ui32CurrentFrame);
 
+	PVRSRV_ERROR PDumpSaveMemKM (PVRSRV_DEVICE_IDENTIFIER *psDevId,
+							 	 IMG_CHAR			*pszFileName,
+								 IMG_UINT32			ui32FileOffset,
+								 IMG_DEV_VIRTADDR	sDevBaseAddr,
+								 IMG_UINT32 		ui32Size,
+								 IMG_UINT32 		ui32DataMaster,
+								 IMG_UINT32 		ui32PDumpFlags);
 
-#if defined (COMMON_PDUMP_OS_SUPPORT) && !defined(SUPPORT_VGX)
-	
-	PVRSRV_ERROR PDumpTASignatureRegisters(IMG_UINT32	ui32DumpFrameNum,
+	PVRSRV_ERROR PDumpTASignatureRegisters(PVRSRV_DEVICE_IDENTIFIER *psDevId,
+								   IMG_UINT32	ui32DumpFrameNum,
 								   IMG_UINT32	ui32TAKickCount,
 								   IMG_BOOL		bLastFrame,
 								   IMG_UINT32 *pui32Registers,
 								   IMG_UINT32 ui32NumRegisters);
 
-	PVRSRV_ERROR PDump3DSignatureRegisters(IMG_UINT32 ui32DumpFrameNum,
-															IMG_BOOL bLastFrame,
-															IMG_UINT32 *pui32Registers,
-															IMG_UINT32 ui32NumRegisters);
+	PVRSRV_ERROR PDump3DSignatureRegisters(PVRSRV_DEVICE_IDENTIFIER *psDevId,
+											IMG_UINT32 ui32DumpFrameNum,
+											IMG_BOOL bLastFrame,
+											IMG_UINT32 *pui32Registers,
+											IMG_UINT32 ui32NumRegisters);
 
-	PVRSRV_ERROR PDumpCounterRegisters(IMG_UINT32 ui32DumpFrameNum,
+	PVRSRV_ERROR PDumpCounterRegisters(PVRSRV_DEVICE_IDENTIFIER *psDevId,
+					IMG_UINT32 ui32DumpFrameNum,
 					IMG_BOOL		bLastFrame,
 					IMG_UINT32 *pui32Registers,
 					IMG_UINT32 ui32NumRegisters);
 
-	PVRSRV_ERROR PDumpRegRead(const IMG_UINT32 dwRegOffset, IMG_UINT32	ui32Flags);
+	PVRSRV_ERROR PDumpRegRead(IMG_CHAR *pszPDumpRegName,
+								const IMG_UINT32 dwRegOffset,
+								IMG_UINT32	ui32Flags);
 
-	PVRSRV_ERROR PDumpCycleCountRegRead(const IMG_UINT32 dwRegOffset, IMG_BOOL bLastFrame);
+	PVRSRV_ERROR PDumpCycleCountRegRead(PVRSRV_DEVICE_IDENTIFIER *psDevId,
+										const IMG_UINT32 dwRegOffset,
+										IMG_BOOL bLastFrame);
 
 	PVRSRV_ERROR PDumpIDLWithFlags(IMG_UINT32 ui32Clocks, IMG_UINT32 ui32Flags);
 	PVRSRV_ERROR PDumpIDL(IMG_UINT32 ui32Clocks);
 
-	PVRSRV_ERROR PDumpMallocPages(PVRSRV_DEVICE_TYPE	eDeviceType,
-							  IMG_UINT32			ui32DevVAddr,
-							  IMG_CPU_VIRTADDR		pvLinAddr,
-							  IMG_HANDLE			hOSMemHandle,
-							  IMG_UINT32			ui32NumBytes,
-							  IMG_UINT32			ui32PageSize,
-							  IMG_HANDLE			hUniqueTag);
-	PVRSRV_ERROR PDumpMallocPageTable(PVRSRV_DEVICE_TYPE	eDeviceType,
-								  IMG_CPU_VIRTADDR		pvLinAddr,
-								  IMG_UINT32			ui32NumBytes,
-								  IMG_HANDLE			hUniqueTag);
+	PVRSRV_ERROR PDumpMallocPages(PVRSRV_DEVICE_IDENTIFIER	*psDevID,
+								  IMG_UINT32				ui32DevVAddr,
+								  IMG_CPU_VIRTADDR			pvLinAddr,
+								  IMG_HANDLE				hOSMemHandle,
+								  IMG_UINT32				ui32NumBytes,
+								  IMG_UINT32				ui32PageSize,
+								  IMG_HANDLE				hUniqueTag);
+	PVRSRV_ERROR PDumpMallocPageTable(PVRSRV_DEVICE_IDENTIFIER	*psDevId,
+									  IMG_HANDLE            hOSMemHandle,
+									  IMG_UINT32            ui32Offset,
+									  IMG_CPU_VIRTADDR		pvLinAddr,
+									  IMG_UINT32			ui32NumBytes,
+									  IMG_HANDLE			hUniqueTag);
 	PVRSRV_ERROR PDumpFreePages(struct _BM_HEAP_	*psBMHeap,
 							IMG_DEV_VIRTADDR	sDevVAddr,
 							IMG_UINT32			ui32NumBytes,
 							IMG_UINT32			ui32PageSize,
 							IMG_HANDLE      	hUniqueTag,
 							IMG_BOOL			bInterleaved);
-	PVRSRV_ERROR PDumpFreePageTable(PVRSRV_DEVICE_TYPE	eDeviceType,
-								IMG_CPU_VIRTADDR	pvLinAddr,
-								IMG_UINT32			ui32NumBytes,
-								IMG_HANDLE			hUniqueTag);
+	PVRSRV_ERROR PDumpFreePageTable(PVRSRV_DEVICE_IDENTIFIER *psDevID,
+									IMG_HANDLE          hOSMemHandle,
+									IMG_CPU_VIRTADDR	pvLinAddr,
+									IMG_UINT32			ui32NumBytes,
+									IMG_HANDLE			hUniqueTag);
 
-	IMG_IMPORT PVRSRV_ERROR PDumpHWPerfCBKM(IMG_CHAR			*pszFileName,
+	IMG_IMPORT PVRSRV_ERROR PDumpHWPerfCBKM(PVRSRV_DEVICE_IDENTIFIER *psDevId,
+										IMG_CHAR			*pszFileName,
 										IMG_UINT32			ui32FileOffset,
 										IMG_DEV_VIRTADDR	sDevBaseAddr,
 										IMG_UINT32 			ui32Size,
 										IMG_UINT32 			ui32PDumpFlags);
+
+	PVRSRV_ERROR PDumpSignatureBuffer(PVRSRV_DEVICE_IDENTIFIER *psDevId,
+									  IMG_CHAR			*pszFileName,
+									  IMG_CHAR			*pszBufferType,
+									  IMG_UINT32		ui32FileOffset,
+									  IMG_DEV_VIRTADDR	sDevBaseAddr,
+									  IMG_UINT32 		ui32Size,
+									  IMG_UINT32 		ui32PDumpFlags);
 
 	PVRSRV_ERROR PDumpCBP(PPVRSRV_KERNEL_MEM_INFO	psROffMemInfo,
 				  IMG_UINT32				ui32ROffOffset,
@@ -288,65 +282,12 @@ extern "C" {
 				  IMG_UINT32				ui32Flags,
 				  IMG_HANDLE				hUniqueTag);
 
-#else 
-	IMG_VOID PDumpTASignatureRegisters(IMG_UINT32	ui32DumpFrameNum,
-			   IMG_UINT32	ui32TAKickCount,
-			   IMG_BOOL		bLastFrame,
-			   IMG_UINT32 *pui32Registers,
-			   IMG_UINT32 ui32NumRegisters);
-	IMG_VOID PDump3DSignatureRegisters(IMG_UINT32 ui32DumpFrameNum,
-			IMG_BOOL bLastFrame,
-			IMG_UINT32 *pui32Registers,
-			IMG_UINT32 ui32NumRegisters);
-	IMG_VOID PDumpCounterRegisters(IMG_UINT32 ui32DumpFrameNum,
-			IMG_BOOL		bLastFrame,
-			IMG_UINT32 *pui32Registers,
-			IMG_UINT32 ui32NumRegisters);
-
-	IMG_VOID PDumpRegRead(const IMG_UINT32 dwRegOffset, IMG_UINT32	ui32Flags);
-	IMG_VOID PDumpCycleCountRegRead(const IMG_UINT32 dwRegOffset, IMG_BOOL bLastFrame);
-
-	IMG_VOID PDumpIDLWithFlags(IMG_UINT32 ui32Clocks, IMG_UINT32 ui32Flags);
-	IMG_VOID PDumpIDL(IMG_UINT32 ui32Clocks);
-
-	
-	IMG_VOID PDumpMallocPages(PVRSRV_DEVICE_TYPE	eDeviceType,
-							  IMG_UINT32			ui32DevVAddr,
-							  IMG_CPU_VIRTADDR		pvLinAddr,
-							  IMG_HANDLE			hOSMemHandle,
-							  IMG_UINT32			ui32NumBytes,
-							  IMG_UINT32			ui32PageSize,
-							  IMG_HANDLE			hUniqueTag);
-	IMG_VOID PDumpMallocPageTable(PVRSRV_DEVICE_TYPE	eDeviceType,
-								  IMG_CPU_VIRTADDR		pvLinAddr,
-								  IMG_UINT32			ui32NumBytes,
-								  IMG_HANDLE			hUniqueTag);
-	IMG_VOID PDumpFreePages(struct _BM_HEAP_	*psBMHeap,
-							IMG_DEV_VIRTADDR	sDevVAddr,
-							IMG_UINT32			ui32NumBytes,
-							IMG_UINT32			ui32PageSize,
-							IMG_HANDLE      	hUniqueTag,
-							IMG_BOOL			bInterleaved);
-	IMG_VOID PDumpFreePageTable(PVRSRV_DEVICE_TYPE	eDeviceType,
-								IMG_CPU_VIRTADDR	pvLinAddr,
-								IMG_UINT32			ui32NumBytes,
-								IMG_HANDLE			hUniqueTag);
-
-	IMG_IMPORT IMG_VOID PDumpHWPerfCBKM(IMG_CHAR			*pszFileName,
-										IMG_UINT32			ui32FileOffset,
-										IMG_DEV_VIRTADDR	sDevBaseAddr,
-										IMG_UINT32 			ui32Size,
-										IMG_UINT32 			ui32PDumpFlags);
-
-	IMG_VOID PDumpCBP(PPVRSRV_KERNEL_MEM_INFO	psROffMemInfo,
-				  IMG_UINT32				ui32ROffOffset,
-				  IMG_UINT32				ui32WPosVal,
-				  IMG_UINT32				ui32PacketSize,
-				  IMG_UINT32				ui32BufferSize,
-				  IMG_UINT32				ui32Flags,
-				  IMG_HANDLE				hUniqueTag);
-
-#endif 
+	PVRSRV_ERROR PDumpRegBasedCBP(IMG_CHAR		*pszPDumpRegName,
+								  IMG_UINT32	ui32RegOffset,
+								  IMG_UINT32	ui32WPosVal,
+								  IMG_UINT32	ui32PacketSize,
+								  IMG_UINT32	ui32BufferSize,
+								  IMG_UINT32	ui32Flags);
 
 	IMG_VOID PDumpVGXMemToFile(IMG_CHAR *pszFileName,
 							   IMG_UINT32 ui32FileOffset, 
@@ -359,9 +300,20 @@ extern "C" {
 	IMG_VOID PDumpSuspendKM(IMG_VOID);
 	IMG_VOID PDumpResumeKM(IMG_VOID);
 
+	
+	PVRSRV_ERROR PDumpStoreMemToFile(PDUMP_MMU_ATTRIB *psMMUAttrib,
+							         IMG_CHAR *pszFileName,
+									 IMG_UINT32 ui32FileOffset, 
+									 PVRSRV_KERNEL_MEM_INFO *psMemInfo,
+									 IMG_UINT32 uiAddr, 
+									 IMG_UINT32 ui32Size,
+									 IMG_UINT32 ui32PDumpFlags,
+									 IMG_HANDLE hUniqueTag);
+
 	#define PDUMPMEMPOL				PDumpMemPolKM
 	#define PDUMPMEM				PDumpMemKM
-	#define PDUMPMEM2				PDumpMem2KM
+	#define PDUMPMEMPTENTRIES		PDumpMemPTEntriesKM
+	#define PDUMPPDENTRIES			PDumpMemPDEntriesKM
 	#define PDUMPMEMUM				PDumpMemUM
 	#define PDUMPINIT				PDumpInitCommon
 	#define PDUMPDEINIT				PDumpDeInitCommon
@@ -383,12 +335,9 @@ extern "C" {
 	#define PDUMPPDREG				PDumpPDReg
 	#define PDUMPPDREGWITHFLAGS		PDumpPDRegWithFlags
 	#define PDUMPCBP				PDumpCBP
+	#define PDUMPREGBASEDCBP		PDumpRegBasedCBP
 	#define PDUMPMALLOCPAGESPHYS	PDumpMallocPagesPhys
 	#define PDUMPENDINITPHASE		PDumpStopInitPhaseKM
-	#define PDUMPMSVDXREGWRITE		PDumpMsvdxRegWrite
-	#define PDUMPMSVDXREGREAD		PDumpMsvdxRegRead
-	#define PDUMPMSVDXPOL			PDumpMsvdxRegPol
-	#define PDUMPMSVDXWRITEREF		PDumpMsvdxWriteRef
 	#define PDUMPBITMAPKM			PDumpBitmapKM
 	#define PDUMPDRIVERINFO			PDumpDriverInfoKM
 	#define PDUMPIDLWITHFLAGS		PDumpIDLWithFlags
@@ -400,7 +349,8 @@ extern "C" {
 		#if ((defined(LINUX) || defined(GCC_IA32)) || defined(GCC_ARM))
 			#define PDUMPMEMPOL(args...)
 			#define PDUMPMEM(args...)
-			#define PDUMPMEM2(args...)
+			#define PDUMPMEMPTENTRIES(args...)
+			#define PDUMPPDENTRIES(args...)
 			#define PDUMPMEMUM(args...)
 			#define PDUMPINIT(args...)
 			#define PDUMPDEINIT(args...)
@@ -424,6 +374,7 @@ extern "C" {
 			#define PDUMPCOPYTOMEM(args...)
 			#define PDUMPWRITE(args...)
 			#define PDUMPCBP(args...)
+			#define PDUMPREGBASEDCBP(args...)
 			#define PDUMPCOMMENTWITHFLAGS(args...)
 			#define PDUMPMALLOCPAGESPHYS(args...)
 			#define PDUMPENDINITPHASE(args...)

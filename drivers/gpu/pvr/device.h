@@ -85,6 +85,8 @@ typedef struct _DEVICE_MEMORY_HEAP_INFO_
 	
 	IMG_UINT32				ui32DataPageSize;
 
+	IMG_UINT32				ui32XTileStride;
+
 } DEVICE_MEMORY_HEAP_INFO;
 
 typedef struct _DEVICE_MEMORY_INFO_
@@ -137,6 +139,27 @@ typedef struct DEV_ARENA_DESCRIPTOR_TAG
 
 } DEV_ARENA_DESCRIPTOR;
 
+
+typedef struct _PDUMP_MMU_ATTRIB_
+{
+	PVRSRV_DEVICE_IDENTIFIER	sDevId;
+	
+	IMG_CHAR	*pszPDRegRegion;
+	
+	
+	IMG_UINT32 ui32DataPageMask;
+
+	
+	IMG_UINT32 ui32PTEValid;
+	IMG_UINT32 ui32PTSize;
+	IMG_UINT32 ui32PTEAlignShift;
+
+	
+	IMG_UINT32 ui32PDEMask;
+	IMG_UINT32 ui32PDEAlignShift;
+
+} PDUMP_MMU_ATTRIB;
+
 typedef struct _SYS_DATA_TAG_ *PSYS_DATA;
 
 typedef struct _PVRSRV_DEVICE_NODE_
@@ -158,7 +181,7 @@ typedef struct _PVRSRV_DEVICE_NODE_
 	PVRSRV_ERROR			(*pfnMMUInitialise)(struct _PVRSRV_DEVICE_NODE_*, MMU_CONTEXT**, IMG_DEV_PHYADDR*);
 	IMG_VOID				(*pfnMMUFinalise)(MMU_CONTEXT*);
 	IMG_VOID				(*pfnMMUInsertHeap)(MMU_CONTEXT*, MMU_HEAP*);
-	MMU_HEAP*				(*pfnMMUCreate)(MMU_CONTEXT*,DEV_ARENA_DESCRIPTOR*,RA_ARENA**);
+	MMU_HEAP*				(*pfnMMUCreate)(MMU_CONTEXT*,DEV_ARENA_DESCRIPTOR*,RA_ARENA**,PDUMP_MMU_ATTRIB **ppsMMUAttrib);
 	IMG_VOID				(*pfnMMUDelete)(MMU_HEAP*);
 	IMG_BOOL				(*pfnMMUAlloc)(MMU_HEAP*pMMU,
 										   IMG_SIZE_T uSize,
@@ -199,6 +222,14 @@ typedef struct _PVRSRV_DEVICE_NODE_
 	IMG_DEV_PHYADDR			(*pfnMMUGetPDDevPAddr)(MMU_CONTEXT *pMMUContext);
 
 	
+	PVRSRV_ERROR			(*pfnAllocMemTilingRange)(struct _PVRSRV_DEVICE_NODE_ *psDeviceNode,
+														PVRSRV_KERNEL_MEM_INFO *psMemInfo,
+														IMG_UINT32 ui32TilingStride,
+														IMG_UINT32 *pui32RangeIndex);
+	PVRSRV_ERROR			(*pfnFreeMemTilingRange)(struct _PVRSRV_DEVICE_NODE_ *psDeviceNode,
+														IMG_UINT32 ui32RangeIndex);
+
+	
 	IMG_BOOL				(*pfnDeviceISR)(IMG_VOID*);
 	
 	IMG_VOID				*pvISRData;
@@ -232,6 +263,13 @@ typedef struct _PVRSRV_DEVICE_NODE_
 	
 	struct _PVRSRV_DEVICE_NODE_	*psNext;
 	struct _PVRSRV_DEVICE_NODE_	**ppsThis;
+	
+#if defined(PDUMP)
+	
+	PVRSRV_ERROR			(*pfnPDumpInitDevice)(struct _PVRSRV_DEVICE_NODE_ *psDeviceNode);
+	
+	IMG_UINT32				(*pfnMMUGetContextID)(IMG_HANDLE hDevMemContext);
+#endif
 } PVRSRV_DEVICE_NODE;
 
 PVRSRV_ERROR IMG_CALLCONV PVRSRVRegisterDevice(PSYS_DATA psSysData,

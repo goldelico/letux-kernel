@@ -39,6 +39,10 @@ extern "C" {
 #if defined(__linux__) && defined(__KERNEL__)
 #include <linux/hardirq.h>
 #include <linux/string.h>
+#include <asm/system.h>
+#if defined(__arm__)
+#include <asm/memory.h>
+#endif
 #endif
 
 
@@ -52,8 +56,8 @@ extern "C" {
 
 
 #define HOST_PAGESIZE			OSGetPageSize
-#define HOST_PAGEMASK			(~(HOST_PAGESIZE()-1))
-#define HOST_PAGEALIGN(addr)	(((addr)+HOST_PAGESIZE()-1)&HOST_PAGEMASK)
+#define HOST_PAGEMASK			(HOST_PAGESIZE()-1)
+#define HOST_PAGEALIGN(addr)	(((addr) + HOST_PAGEMASK) & ~HOST_PAGEMASK)
 
 #define PVRSRV_OS_HEAP_MASK			0xf 
 #define PVRSRV_OS_PAGEABLE_HEAP		0x1 
@@ -71,7 +75,7 @@ PVRSRV_ERROR OSInstallSystemLISR(IMG_VOID *pvSysData, IMG_UINT32 ui32Irq);
 PVRSRV_ERROR OSUninstallSystemLISR(IMG_VOID *pvSysData);
 PVRSRV_ERROR OSInstallMISR(IMG_VOID *pvSysData);
 PVRSRV_ERROR OSUninstallMISR(IMG_VOID *pvSysData);
-IMG_CPU_PHYADDR OSMapLinToCPUPhys(IMG_VOID* pvLinAddr);
+IMG_CPU_PHYADDR OSMapLinToCPUPhys(IMG_HANDLE, IMG_VOID* pvLinAddr);
 IMG_VOID OSMemCopy(IMG_VOID *pvDst, IMG_VOID *pvSrc, IMG_SIZE_T ui32Size);
 IMG_VOID *OSMapPhysToLin(IMG_CPU_PHYADDR BasePAddr, IMG_SIZE_T ui32Bytes, IMG_UINT32 ui32Flags, IMG_HANDLE *phOSMemHandle);
 IMG_BOOL OSUnMapPhysToLin(IMG_VOID *pvLinAddr, IMG_SIZE_T ui32Bytes, IMG_UINT32 ui32Flags, IMG_HANDLE hOSMemHandle);
@@ -79,30 +83,74 @@ IMG_BOOL OSUnMapPhysToLin(IMG_VOID *pvLinAddr, IMG_SIZE_T ui32Bytes, IMG_UINT32 
 PVRSRV_ERROR OSReservePhys(IMG_CPU_PHYADDR BasePAddr, IMG_SIZE_T ui32Bytes, IMG_UINT32 ui32Flags, IMG_VOID **ppvCpuVAddr, IMG_HANDLE *phOSMemHandle);
 PVRSRV_ERROR OSUnReservePhys(IMG_VOID *pvCpuVAddr, IMG_SIZE_T ui32Bytes, IMG_UINT32 ui32Flags, IMG_HANDLE hOSMemHandle);
 
-#if defined(CONFIG_OUTER_CACHE)  /* Kernel config option */
-typedef enum {
-    MEM_ALLOC_TYPE_KMALLOC,
-    MEM_ALLOC_TYPE_VMALLOC,
-    MEM_ALLOC_TYPE_ALLOC_PAGES,
-    MEM_ALLOC_TYPE_IOREMAP,
-    MEM_ALLOC_TYPE_IO,
-    MEM_ALLOC_TYPE_KMEM_CACHE,
-    MEM_ALLOC_TYPE_COUNT
-} MEM_ALLOC_TYPE;
+#if defined(__linux__) && defined(__KERNEL__)
 
-IMG_VOID OSFlushOuterCache(IMG_VOID *p, IMG_UINT32 ui32ByteSize, MEM_ALLOC_TYPE eAllocType);
-IMG_VOID OSFlushMemAreas(IMG_VOID);
-#endif
-
-#if defined(__arm__)
-void per_cpu_cache_flush_arm(void *arg);
-#endif
-
-#if defined(SUPPORT_CPU_CACHED_BUFFERS) || defined(SUPPORT_CACHEFLUSH_ON_ALLOC)
 IMG_VOID OSFlushCPUCacheKM(IMG_VOID);
-IMG_VOID OSFlushCPUCacheRangeKM(IMG_VOID *pvRangeAddrStart,
-						 	IMG_VOID *pvRangeAddrEnd);
+
+IMG_VOID OSCleanCPUCacheKM(IMG_VOID);
+
+IMG_BOOL OSFlushCPUCacheRangeKM(IMG_HANDLE hOSMemHandle,
+								IMG_VOID *pvRangeAddrStart,
+								IMG_UINT32 ui32Length);
+IMG_BOOL OSCleanCPUCacheRangeKM(IMG_HANDLE hOSMemHandle,
+								IMG_VOID *pvRangeAddrStart,
+								IMG_UINT32 ui32Length);
+IMG_BOOL OSInvalidateCPUCacheRangeKM(IMG_HANDLE hOSMemHandle,
+									 IMG_VOID *pvRangeAddrStart,
+									 IMG_UINT32 ui32Length);
+
+#else 
+
+#ifdef INLINE_IS_PRAGMA
+#pragma inline(OSFlushCPUCacheKM)
 #endif
+static INLINE IMG_VOID OSFlushCPUCacheKM(IMG_VOID) {}
+
+#ifdef INLINE_IS_PRAGMA
+#pragma inline(OSCleanCPUCacheKM)
+#endif
+static INLINE IMG_VOID OSCleanCPUCacheKM(IMG_VOID) {}
+
+#ifdef INLINE_IS_PRAGMA
+#pragma inline(OSFlushCPUCacheRangeKM)
+#endif
+static INLINE IMG_BOOL OSFlushCPUCacheRangeKM(IMG_HANDLE hOSMemHandle,
+											  IMG_VOID *pvRangeAddrStart,
+											  IMG_UINT32 ui32Length)
+{
+	PVR_UNREFERENCED_PARAMETER(hOSMemHandle);
+	PVR_UNREFERENCED_PARAMETER(pvRangeAddrStart);
+	PVR_UNREFERENCED_PARAMETER(ui32Length);
+	return IMG_FALSE;
+}
+
+#ifdef INLINE_IS_PRAGMA
+#pragma inline(OSCleanCPUCacheRangeKM)
+#endif
+static INLINE IMG_BOOL OSCleanCPUCacheRangeKM(IMG_HANDLE hOSMemHandle,
+											  IMG_VOID *pvRangeAddrStart,
+											  IMG_UINT32 ui32Length)
+{
+	PVR_UNREFERENCED_PARAMETER(hOSMemHandle);
+	PVR_UNREFERENCED_PARAMETER(pvRangeAddrStart);
+	PVR_UNREFERENCED_PARAMETER(ui32Length);
+	return IMG_FALSE;
+}
+
+#ifdef INLINE_IS_PRAGMA
+#pragma inline(OSInvalidateCPUCacheRangeKM)
+#endif
+static INLINE IMG_BOOL OSInvalidateCPUCacheRangeKM(IMG_HANDLE hOSMemHandle,
+												   IMG_VOID *pvRangeAddrStart,
+												   IMG_UINT32 ui32Length)
+{
+	PVR_UNREFERENCED_PARAMETER(hOSMemHandle);
+	PVR_UNREFERENCED_PARAMETER(pvRangeAddrStart);
+	PVR_UNREFERENCED_PARAMETER(ui32Length);
+	return IMG_FALSE;
+}
+
+#endif 
 
 #if defined(__linux__)
 PVRSRV_ERROR OSRegisterDiscontigMem(IMG_SYS_PHYADDR *pBasePAddr,
@@ -253,7 +301,7 @@ static INLINE PVRSRV_ERROR OSReleaseSubMemHandle(IMG_HANDLE hOSMemHandle, IMG_UI
 #endif
 
 IMG_UINT32 OSGetCurrentProcessIDKM(IMG_VOID);
-IMG_UINT32 OSGetCurrentThreadID( IMG_VOID );
+IMG_UINTPTR_T OSGetCurrentThreadID( IMG_VOID );
 IMG_VOID OSMemSet(IMG_VOID *pvDest, IMG_UINT8 ui8Value, IMG_SIZE_T ui32Size);
 
 PVRSRV_ERROR OSAllocPages_Impl(IMG_UINT32 ui32Flags, IMG_SIZE_T ui32Size, IMG_UINT32 ui32PageSize, IMG_PVOID *ppvLinAddr, IMG_HANDLE *phPageAlloc);
@@ -337,7 +385,6 @@ PVRSRV_ERROR OSFreePages(IMG_UINT32 ui32Flags, IMG_SIZE_T ui32Size, IMG_PVOID pv
 #endif
 
 
-
 #if defined(__linux__)
 IMG_CPU_PHYADDR OSMemHandleToCpuPAddr(IMG_VOID *hOSMemHandle, IMG_SIZE_T ui32ByteOffset);
 #else
@@ -356,7 +403,7 @@ static INLINE IMG_CPU_PHYADDR OSMemHandleToCpuPAddr(IMG_HANDLE hOSMemHandle, IMG
 PVRSRV_ERROR OSInitEnvData(IMG_PVOID *ppvEnvSpecificData);
 PVRSRV_ERROR OSDeInitEnvData(IMG_PVOID pvEnvSpecificData);
 IMG_CHAR* OSStringCopy(IMG_CHAR *pszDest, const IMG_CHAR *pszSrc);
-IMG_INT32 OSSNPrintf(IMG_CHAR *pStr, IMG_SIZE_T ui32Size, const IMG_CHAR *pszFormat, ...);
+IMG_INT32 OSSNPrintf(IMG_CHAR *pStr, IMG_SIZE_T ui32Size, const IMG_CHAR *pszFormat, ...) IMG_FORMAT_PRINTF(3, 4);
 #define OSStringLength(pszString) strlen(pszString)
 
 PVRSRV_ERROR OSEventObjectCreate(const IMG_CHAR *pszName,
@@ -460,8 +507,7 @@ PVRSRV_ERROR OSCopyFromUser(IMG_PVOID pvProcess, IMG_VOID *pvDest, IMG_VOID *pvS
 PVRSRV_ERROR OSAcquirePhysPageAddr(IMG_VOID* pvCPUVAddr, 
 									IMG_SIZE_T ui32Bytes, 
 									IMG_SYS_PHYADDR *psSysPAddr,
-									IMG_HANDLE *phOSWrapMem,
-									IMG_BOOL bWrapWorkaround);
+									IMG_HANDLE *phOSWrapMem);
 PVRSRV_ERROR OSReleasePhysPageAddr(IMG_HANDLE hOSWrapMem);
 #else
 #ifdef INLINE_IS_PRAGMA
@@ -470,14 +516,12 @@ PVRSRV_ERROR OSReleasePhysPageAddr(IMG_HANDLE hOSWrapMem);
 static INLINE PVRSRV_ERROR OSAcquirePhysPageAddr(IMG_VOID* pvCPUVAddr, 
 												IMG_SIZE_T ui32Bytes, 
 												IMG_SYS_PHYADDR *psSysPAddr,
-												IMG_HANDLE *phOSWrapMem,
-												IMG_BOOL bWrapWorkaround)
+												IMG_HANDLE *phOSWrapMem)
 {
 	PVR_UNREFERENCED_PARAMETER(pvCPUVAddr);
 	PVR_UNREFERENCED_PARAMETER(ui32Bytes);
 	PVR_UNREFERENCED_PARAMETER(psSysPAddr);
 	PVR_UNREFERENCED_PARAMETER(phOSWrapMem);
-	PVR_UNREFERENCED_PARAMETER(bWrapWorkaround);
 	return PVRSRV_OK;	
 }
 #ifdef INLINE_IS_PRAGMA
@@ -491,12 +535,38 @@ static INLINE PVRSRV_ERROR OSReleasePhysPageAddr(IMG_HANDLE hOSWrapMem)
 #endif
 									
 #if defined(__linux__) && defined(__KERNEL__)
+
 #define	OS_SUPPORTS_IN_LISR
+
 static inline IMG_BOOL OSInLISR(IMG_VOID unref__ *pvSysData)
 {
-	return in_irq();
+	PVR_UNREFERENCED_PARAMETER(pvSysData);
+	return (in_irq()) ? IMG_TRUE : IMG_FALSE;
 }
+
+static inline IMG_VOID OSWriteMemoryBarrier(IMG_VOID)
+{
+	wmb();
+}
+
+static inline IMG_VOID OSMemoryBarrier(IMG_VOID)
+{
+	mb();
+}
+
+#else 
+
+#ifdef INLINE_IS_PRAGMA
+#pragma inline(OSWriteMemoryBarrier)
 #endif
+static INLINE IMG_VOID OSWriteMemoryBarrier(IMG_VOID) { }
+
+#ifdef INLINE_IS_PRAGMA
+#pragma inline(OSMemoryBarrier)
+#endif
+static INLINE IMG_VOID OSMemoryBarrier(IMG_VOID) { }
+
+#endif 
 
 #if defined (__cplusplus)
 }

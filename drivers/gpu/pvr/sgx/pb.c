@@ -27,6 +27,7 @@
 #include <stddef.h>
 
 #include "services_headers.h"
+#include "sgx_bridge_km.h"
 #include "sgxapi_km.h"
 #include "sgxinfo.h"
 #include "sgxinfokm.h"
@@ -74,7 +75,7 @@ SGXFindSharedPBDescKM(PVRSRV_PER_PROCESS_DATA	*psPerProc,
 	{
 		IMG_UINT32 i;
 		PRESMAN_ITEM psResItem;
-		
+
 		if(psStubPBDesc->ui32TotalPBSize != ui32TotalPBSize)
 		{
 			PVR_DPF((PVR_DBG_WARNING,
@@ -94,7 +95,7 @@ SGXFindSharedPBDescKM(PVRSRV_PER_PROCESS_DATA	*psPerProc,
 			eError = PVRSRV_ERROR_OUT_OF_MEMORY;
 			goto ExitNotFound;
 		}
-		
+
 		psResItem = ResManRegisterRes(psPerProc->hResManContext,
 									  RESMAN_TYPE_SHARED_PB_DESC,
 									  psStubPBDesc,
@@ -111,7 +112,7 @@ SGXFindSharedPBDescKM(PVRSRV_PER_PROCESS_DATA	*psPerProc,
 
 			PVR_DPF((PVR_DBG_ERROR, "SGXFindSharedPBDescKM: ResManRegisterRes failed"));
 
-			eError = PVRSRV_ERROR_GENERIC;
+			eError = PVRSRV_ERROR_UNABLE_TO_REGISTER_RESOURCE;
 			goto ExitNotFound;
 		}
 
@@ -151,7 +152,7 @@ SGXFindSharedPBDescKM(PVRSRV_PER_PROCESS_DATA	*psPerProc,
 			{
 				PVR_DPF((PVR_DBG_ERROR, "SGXFindSharedPBDescKM: ResManRegisterRes failed"));
 
-				eError = PVRSRV_ERROR_GENERIC;
+				eError = PVRSRV_ERROR_UNABLE_TO_REGISTER_RESOURCE;
 				goto ExitNotFound;
 			}
 			PVR_ASSERT(psPerProcCreateSharedPB == IMG_NULL);
@@ -179,7 +180,7 @@ SGXCleanupSharedPBDescKM(PVRSRV_STUB_PBDESC *psStubPBDescIn)
 	psDeviceNode = (PVRSRV_DEVICE_NODE*)psStubPBDescIn->hDevCookie;
 
 	
-	
+
 	
 	psStubPBDescIn->ui32RefCount--;
 	if (psStubPBDescIn->ui32RefCount == 0)
@@ -199,7 +200,7 @@ SGXCleanupSharedPBDescKM(PVRSRV_STUB_PBDESC *psStubPBDescIn)
 		psStubPBDescIn->ppsSubKernelMemInfos = IMG_NULL;
 
 		PVRSRVFreeSharedSysMemoryKM(psStubPBDescIn->psBlockKernelMemInfo);
-		
+
 		PVRSRVFreeDeviceMemKM(psStubPBDescIn->hDevCookie, psStubPBDescIn->psHWBlockKernelMemInfo);
 
 		PVRSRVFreeDeviceMemKM(psStubPBDescIn->hDevCookie, psStubPBDescIn->psHWPBDescKernelMemInfo);
@@ -270,7 +271,7 @@ SGXAddSharedPBDescKM(PVRSRV_PER_PROCESS_DATA	*psPerProc,
 					 IMG_UINT32					ui32SharedPBDescSubKernelMemInfosCount)
 {
 	PVRSRV_STUB_PBDESC *psStubPBDesc=IMG_NULL;
-	PVRSRV_ERROR eRet = PVRSRV_ERROR_GENERIC;
+	PVRSRV_ERROR eRet = PVRSRV_ERROR_INVALID_PERPROC;
 	IMG_UINT32 i;
 	PVRSRV_SGXDEV_INFO *psSGXDevInfo;
 	PRESMAN_ITEM psResItem;
@@ -300,7 +301,7 @@ SGXAddSharedPBDescKM(PVRSRV_PER_PROCESS_DATA	*psPerProc,
 			PVR_DPF((PVR_DBG_WARNING,
 					"SGXAddSharedPBDescKM: Shared PB requested with different size (0x%x) from existing shared PB (0x%x) - requested size ignored",
 					ui32TotalPBSize, psStubPBDesc->ui32TotalPBSize));
-				
+
 		}
 
 		
@@ -372,13 +373,13 @@ SGXAddSharedPBDescKM(PVRSRV_PER_PROCESS_DATA	*psPerProc,
 	{
 		goto NoAdd;
 	}
-	
+
 	if(PVRSRVDissociateMemFromResmanKM(psHWBlockKernelMemInfo)
 	   != PVRSRV_OK)
 	{
 		goto NoAdd;
 	}
-		
+
 	psStubPBDesc->ui32RefCount = 1;
 	psStubPBDesc->ui32TotalPBSize = ui32TotalPBSize;
 	psStubPBDesc->psSharedPBDescKernelMemInfo = psSharedPBDescKernelMemInfo;

@@ -55,7 +55,7 @@ PVRSRV_ERROR LinuxLockMutexInterruptible(PVRSRV_LINUX_MUTEX *psPVRSRVMutex)
 {
     if(mutex_lock_interruptible(psPVRSRVMutex) == -EINTR)
     {
-        return PVRSRV_ERROR_GENERIC;
+        return PVRSRV_ERROR_MUTEX_INTERRUPTIBLE_ERROR;
     }
     else
     {
@@ -75,7 +75,7 @@ IMG_VOID LinuxUnLockMutex(PVRSRV_LINUX_MUTEX *psPVRSRVMutex)
 
 IMG_BOOL LinuxIsLockedMutex(PVRSRV_LINUX_MUTEX *psPVRSRVMutex)
 {
-    return (IMG_BOOL)mutex_is_locked(psPVRSRVMutex);
+    return (mutex_is_locked(psPVRSRVMutex)) ? IMG_TRUE : IMG_FALSE;
 }
 
 
@@ -99,7 +99,7 @@ PVRSRV_ERROR LinuxLockMutexInterruptible(PVRSRV_LINUX_MUTEX *psPVRSRVMutex)
     if(down_interruptible(&psPVRSRVMutex->sSemaphore) == -EINTR)
     {
         
-        return PVRSRV_ERROR_GENERIC;
+        return PVRSRV_ERROR_MUTEX_INTERRUPTIBLE_ERROR;
     }else{
         atomic_dec(&psPVRSRVMutex->Count);
         return PVRSRV_OK;

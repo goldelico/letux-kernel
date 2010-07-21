@@ -54,7 +54,9 @@ typedef enum _SGXMKIF_CMD_TYPE_
 	SGXMKIF_CMD_CLEANUP			= 4,
 	SGXMKIF_CMD_GETMISCINFO		= 5,
 	SGXMKIF_CMD_PROCESS_QUEUES	= 6,
-	SGXMKIF_CMD_MAX				= 7,
+	SGXMKIF_CMD_DATABREAKPOINT	= 7,
+	SGXMKIF_CMD_SETHWPERFSTATUS	= 8,
+	SGXMKIF_CMD_MAX				= 9,
 
 	SGXMKIF_CMD_FORCE_I32   	= -1,
 
@@ -83,6 +85,15 @@ typedef struct _SGX_BRIDGE_INIT_INFO_
 #if defined(SUPPORT_SGX_HWPERF)
 	IMG_HANDLE	hKernelHWPerfCBMemInfo;
 #endif
+	IMG_HANDLE	hKernelTASigBufferMemInfo;
+	IMG_HANDLE	hKernel3DSigBufferMemInfo;
+
+#if defined(FIX_HW_BRN_29702)
+	IMG_HANDLE	hKernelCFIMemInfo;
+#endif
+#if defined(FIX_HW_BRN_29823)
+	IMG_HANDLE	hKernelDummyTermStreamMemInfo;
+#endif
 #if defined(PVRSRV_USSE_EDM_STATUS_DEBUG)
 	IMG_HANDLE	hKernelEDMStatusBufferMemInfo;
 #endif
@@ -101,6 +112,8 @@ typedef struct _SGX_BRIDGE_INIT_INFO_
 #if defined(SGX_FEATURE_MP)
 	IMG_UINT32 ui32MasterClkGateStatusReg;
 	IMG_UINT32 ui32MasterClkGateStatusMask;
+	IMG_UINT32 ui32MasterClkGateStatus2Reg;
+	IMG_UINT32 ui32MasterClkGateStatus2Mask;
 #endif 
 
 	IMG_UINT32 ui32CacheControl;
@@ -133,8 +146,6 @@ typedef struct _SGX_INTERNEL_STATUS_UPDATE_
 {
 	CTL_STATUS				sCtlStatus;
 	IMG_HANDLE				hKernelMemInfo;
-	
-	IMG_UINT32				ui32LastStatusUpdateDumpVal;
 } SGX_INTERNEL_STATUS_UPDATE;
 
 
@@ -163,9 +174,6 @@ typedef struct _SGX_CCB_KICK_
 	IMG_BOOL	bFirstKickOrResume;
 #if (defined(NO_HARDWARE) || defined(PDUMP))
 	IMG_BOOL	bTerminateOrAbort;
-#endif
-#if defined(SUPPORT_SGX_HWPERF)
-	IMG_BOOL			bKickRender;
 #endif
 
 	
@@ -273,16 +281,6 @@ typedef struct _PVRSRV_2D_SGX_KICK_
 } PVRSRV_2D_SGX_KICK, *PPVRSRV_2D_SGX_KICK;
 #endif	
 #endif	
-
-#define PVRSRV_SGX_DIFF_NUM_COUNTERS	9
-
-typedef struct _PVRSRV_SGXDEV_DIFF_INFO_
-{
-	IMG_UINT32	aui32Counters[PVRSRV_SGX_DIFF_NUM_COUNTERS];
-	IMG_UINT32	ui32Time[3];
-	IMG_UINT32	ui32Marker[2];
-} PVRSRV_SGXDEV_DIFF_INFO, *PPVRSRV_SGXDEV_DIFF_INFO;
-
 
 
 #endif 
