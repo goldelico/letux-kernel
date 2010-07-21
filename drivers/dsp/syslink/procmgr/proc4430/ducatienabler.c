@@ -848,7 +848,8 @@ EXPORT_SYMBOL(ducati_destroy);
 u32 get_ducati_virt_mem(void)
 {
 	/*shm_virt_addr = (u32)ioremap(shm_phys_addr, DUCATI_SHARED_IPC_LEN);*/
-	shm_virt_addr = (u32)ioremap(shm_phys_addr, DUCATI_MEM_IPC_SHMEM_LEN);
+	shm_virt_addr = (u32)ioremap(shm_phys_addr, DUCATI_MEM_IPC_HEAP0_LEN
+					+ DUCATI_MEM_IPC_HEAP1_LEN);
 	return shm_virt_addr;
 }
 EXPORT_SYMBOL(get_ducati_virt_mem);
