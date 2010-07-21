@@ -99,6 +99,10 @@ static struct powerdomain *core_pwrdm, *per_pwrdm;
 static struct powerdomain *wkup_pwrdm;
 static struct powerdomain *cam_pwrdm;
 
+struct clockdomain *neon_clkdm, *per_clkdm;
+struct clockdomain *mpu_clkdm, *core_clkdm;
+struct clockdomain *wkup_clkdm;
+
 static struct prm_setup_vc prm_setup = {
 	.clksetup = 0xff,
 	.voltsetup_time1 = 0xfff,
@@ -452,7 +456,7 @@ void omap_sram_idle(void)
 			 */
 			if (per_next_state == PWRDM_POWER_OFF &&
 					pwrdm_can_idle(per_pwrdm)) {
-				pwrdm_add_sleepdep(mpu_pwrdm, per_pwrdm);
+				clkdm_add_sleepdep(mpu_clkdm, per_clkdm);
 				omap3_per_save_context();
 			} else {
 				per_next_state = PWRDM_POWER_RET;
@@ -646,7 +650,7 @@ if (core_next_state < PWRDM_POWER_ON) {
 			if (per_next_state == PWRDM_POWER_OFF) {
 				pwrdm_set_next_pwrst(per_pwrdm,
 						PWRDM_POWER_RET);
-				pwrdm_del_sleepdep(mpu_pwrdm, per_pwrdm);
+				clkdm_del_sleepdep(mpu_clkdm, per_clkdm);
 			}
 		} else if (per_state_modified)
 			pwrdm_set_next_pwrst(per_pwrdm,
@@ -1564,7 +1568,6 @@ static void pm_errata_configure(void)
 static int __init omap3_pm_init(void)
 {
 	struct power_state *pwrst, *tmp;
-	struct clockdomain *neon_clkdm, *per_clkdm, *mpu_clkdm, *core_clkdm;
 	int ret;
 
 	if (!cpu_is_omap34xx())
@@ -1609,6 +1612,7 @@ static int __init omap3_pm_init(void)
 	mpu_clkdm = clkdm_lookup("mpu_clkdm");
 	per_clkdm = clkdm_lookup("per_clkdm");
 	core_clkdm = clkdm_lookup("core_clkdm");
+	wkup_clkdm = clkdm_lookup("wkup_clkdm");
 
 	omap_push_sram_idle();
 #ifdef CONFIG_SUSPEND
@@ -1630,7 +1634,7 @@ static int __init omap3_pm_init(void)
 	if (IS_PM34XX_ERRATA(PER_WAKEUP_ERRATA_i582)) {
 		/* Allow per to wakeup the system */
 		if (cpu_is_omap34xx())
-			pwrdm_add_wkdep(per_pwrdm, wkup_pwrdm);
+			clkdm_add_wkdep(per_clkdm, wkup_clkdm);
 	}
 	/*
 	 * A part of the fix for errata 1.158.
@@ -1639,7 +1643,7 @@ static int __init omap3_pm_init(void)
 	 * omap3_gpio_save_context, omap3_gpio_restore_context.
    */
 	if (omap_rev() <= OMAP3430_REV_ES3_1)
-		pwrdm_add_wkdep(per_pwrdm, wkup_pwrdm);
+		clkdm_add_wkdep(per_clkdm, wkup_clkdm);
 
 	if (omap_type() != OMAP2_DEVICE_TYPE_GP) {
 		omap3_secure_ram_storage =
