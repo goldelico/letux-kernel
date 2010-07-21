@@ -82,14 +82,6 @@ void isph3a_aewb_enable(struct isp_h3a_device *isp_h3a, u8 enable)
 		return;
 	}
 
-	/* Check errata i421 for AF and AE paxel size relationship */
-	if (enable &&
-	    isph3a_aewb_validate_errata_i421(isp_h3a,
-					     &isp_h3a->aewb_config_local)) {
-		spin_unlock_irqrestore(isp_h3a->lock, irqflags);
-		return;
-	}
-
 	__isph3a_aewb_enable(isp_h3a, enable);
 	isp_h3a->enabled = enable;
 
@@ -249,53 +241,6 @@ int isph3a_aewb_buf_process(struct isp_h3a_device *isp_h3a)
 		isp_h3a->buf_err = 0;
 		return -1;
 	}
-}
-
-/**
- * isph3a_aewb_validate_errata_i421 - Check errata i421 from AE perspective
- **/
-int isph3a_aewb_validate_errata_i421(struct isp_h3a_device *isp_h3a,
-				     struct isph3a_aewb_config *user_cfg)
-{
-	struct isp_device *isp = to_isp_device(isp_h3a);
-	struct isp_af_device *isp_af = &isp->isp_af;
-	struct af_paxel *af_paxel_cfg = &isp_af->config.paxel_config;
-	int i = 0;
-
-	if (!isp_af->enabled)
-		return 0;
-
-	if (af_paxel_cfg->hz_cnt < user_cfg->hor_win_count) {
-		for (i = 2; i <= af_paxel_cfg->hz_cnt; i++) {
-			int num_cycles = ((i - 1) * af_paxel_cfg->width) + 2;
-
-			if (num_cycles % user_cfg->win_width == 0) {
-				if (num_cycles / user_cfg->win_width <
-				    user_cfg->hor_win_count) {
-					dev_err(isp->dev, "Preventing errata"
-							   " i421... Invalid"
-							   " AE paxel size\n");
-					return -EINVAL;
-				}
-			}
-		}
-	} else if (af_paxel_cfg->hz_cnt > user_cfg->hor_win_count) {
-		for (i = 2; i <= user_cfg->hor_win_count; i++) {
-			int num_cycles = ((i - 1) * user_cfg->win_width) - 2;
-
-			if (num_cycles % af_paxel_cfg->width == 0) {
-				if (num_cycles / af_paxel_cfg->width <
-				    af_paxel_cfg->hz_cnt) {
-					dev_err(isp->dev, "Preventing errata"
-							   " i421... Invalid"
-							   " AE paxel size\n");
-					return -EINVAL;
-				}
-			}
-		}
-	}
-
-	return 0;
 }
 
 static int isph3a_aewb_validate_params(struct isp_h3a_device *isp_h3a,

@@ -155,7 +155,4 @@ int isph3a_aewb_buf_process(struct isp_h3a_device *isp_h3a);
 
 void isph3a_aewb_config_registers(struct isp_h3a_device *isp_h3a);
 
-int isph3a_aewb_validate_errata_i421(struct isp_h3a_device *isp_h3a,
-				     struct isph3a_aewb_config *user_cfg);
-
 #endif		/* OMAP_ISP_H3A_H */

@@ -30,54 +30,6 @@
 #define IS_OUT_OF_BOUNDS(value, min, max)		\
 	(((value) < (min)) || ((value) > (max)))
 
-/**
- * isp_af_validate_errata_i421 - Check errata i421 from AF perspective
- **/
-int isp_af_validate_errata_i421(struct isp_af_device *isp_af,
-				struct af_configuration *afconfig)
-{
-	struct isp_device *isp = to_isp_device(isp_af);
-	struct isp_h3a_device *isp_h3a = &isp->isp_h3a;
-	struct isph3a_aewb_config *ae_cfg = &isp_h3a->aewb_config_local;
-	struct af_paxel *af_paxel_cfg = &afconfig->paxel_config;
-	int i = 0;
-
-	if (!isp_h3a->enabled)
-		return 0;
-
-	if (af_paxel_cfg->hz_cnt < ae_cfg->hor_win_count) {
-		for (i = 2; i <= af_paxel_cfg->hz_cnt; i++) {
-			int num_cycles = ((i - 1) * af_paxel_cfg->width) + 2;
-
-			if (num_cycles % ae_cfg->win_width == 0) {
-				if (num_cycles / ae_cfg->win_width <
-				    ae_cfg->hor_win_count) {
-					dev_err(isp->dev, "Preventing errata"
-							   " i421... Invalid"
-							   " AF paxel size\n");
-					return -EINVAL;
-				}
-			}
-		}
-	} else if (af_paxel_cfg->hz_cnt > ae_cfg->hor_win_count) {
-		for (i = 2; i <= ae_cfg->hor_win_count; i++) {
-			int num_cycles = ((i - 1) * ae_cfg->win_width) - 2;
-
-			if (num_cycles % af_paxel_cfg->width == 0) {
-				if (num_cycles / af_paxel_cfg->width <
-				    af_paxel_cfg->hz_cnt) {
-					dev_err(isp->dev, "Preventing errata"
-							   " i421... Invalid"
-							   " AF paxel size\n");
-					return -EINVAL;
-				}
-			}
-		}
-	}
-
-	return 0;
-}
-
 /* Function to check paxel parameters */
 static int isp_af_check_params(struct isp_af_device *isp_af,
 			       struct af_configuration *afconfig)
@@ -463,12 +415,6 @@ void isp_af_enable(struct isp_af_device *isp_af, int enable)
 	spin_lock_irqsave(isp_af->lock, irqflags);
 
 	if (!isp_af->config.af_config && enable) {
-		spin_unlock_irqrestore(isp_af->lock, irqflags);
-		return;
-	}
-
-	/* Check errata i421 for AF and AE paxel size relationship */
-	if (enable && isp_af_validate_errata_i421(isp_af, &isp_af->config)) {
 		spin_unlock_irqrestore(isp_af->lock, irqflags);
 		return;
 	}

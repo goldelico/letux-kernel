@@ -201,6 +201,39 @@ static struct isp_freq_devider isp_ratio_factor[] = {
 };
 
 /**
+ * isp_validate_errata_i421 - Check errata i421
+ **/
+static int isp_validate_errata_i421(struct device *dev,
+				struct isph3a_aewb_config *aewb_cfg,
+				struct af_paxel *af_cfg)
+{
+	int i, num_cycles;
+	int aewb_width, aewb_cnt, af_width, af_cnt;
+
+	aewb_cnt = aewb_cfg->hor_win_count;
+	aewb_width = aewb_cfg->win_width;
+
+	/* Restore interface differences with AEWB interface */
+	af_cnt = af_cfg->hz_cnt + 1;
+	af_width = (af_cfg->width + 1) * 2;
+
+	for (i = 0; i <= af_cnt; i++) {
+		num_cycles = ((i + 1) * af_width) + 2;
+
+		if ((num_cycles % aewb_width) == 0) {
+			dev_err(dev, "Preventing errata i421..."
+				     " Invalid AF paxel size, index %d\n", i);
+			return -EINVAL;
+		}
+
+		if ((num_cycles / aewb_width) >= aewb_cnt)
+			break;
+	}
+
+	return 0;
+}
+
+/**
  * isp_get_upscale_ratio - Return ratio releated to the current crop.
  * @dev: Device pointer specific to the OMAP3 ISP.
  */
@@ -2347,6 +2380,15 @@ int isp_handle_private(struct device *dev, struct mutex *vdev_mutex, int cmd,
 	case VIDIOC_PRIVATE_ISP_AEWB_CFG: {
 		struct isph3a_aewb_config *params;
 		params = (struct isph3a_aewb_config *)arg;
+
+		/* Check errata i421 */
+		if (isp->isp_af.enabled && params && params->aewb_enable) {
+			rval = isp_validate_errata_i421(dev, params,
+					&isp->isp_af.config.paxel_config);
+			if (rval)
+				break;
+		}
+
 		mutex_lock(vdev_mutex);
 		rval = isph3a_aewb_config(&isp->isp_h3a, params);
 		mutex_unlock(vdev_mutex);
@@ -2375,6 +2417,16 @@ int isp_handle_private(struct device *dev, struct mutex *vdev_mutex, int cmd,
 	case VIDIOC_PRIVATE_ISP_AF_CFG: {
 		struct af_configuration *params;
 		params = (struct af_configuration *)arg;
+
+		/* Check errata i421 */
+		if (isp->isp_h3a.enabled && params && params->af_config) {
+			rval = isp_validate_errata_i421(dev,
+					&isp->isp_h3a.aewb_config_local,
+					&params->paxel_config);
+			if (rval)
+				break;
+		}
+
 		mutex_lock(vdev_mutex);
 		rval = isp_af_config(&isp->isp_af, params);
 		mutex_unlock(vdev_mutex);
