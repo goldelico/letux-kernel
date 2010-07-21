@@ -65,6 +65,11 @@
 
 #define RX_TIMEOUT		(3 * HZ)
 #define OMAP_MAX_HSUART_PORTS	4
+#define UART1			(0x0)
+#define UART2			(0x1)
+#define UART3			(0x2)
+#define UART4			(0x3)
+
 
 #define MSR_SAVE_FLAGS		UART_MSR_ANY_DELTA
 
@@ -133,5 +138,7 @@ struct uart_omap_port {
 
 void omap_uart_mdr1_errataset(int uart_no, u8 mdr1_val,
 		u8 fcr_val);
+extern int omap_uart_cts_wakeup(int uart_no, int state);
+extern int omap_uart_cts_wakeup_event(int uart_no, int state);
 
 #endif /* __OMAP_SERIAL_H__ */

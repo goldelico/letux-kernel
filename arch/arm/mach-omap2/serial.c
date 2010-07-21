@@ -37,6 +37,7 @@
 #include <plat/omap_hwmod.h>
 #include <plat/omap_device.h>
 
+#include "mux.h"
 #include "prm.h"
 #include "pm.h"
 #include "cm.h"
@@ -478,6 +479,74 @@ static irqreturn_t omap_uart_interrupt(int irq, void *dev_id)
 
 	return IRQ_NONE;
 }
+
+int omap_uart_cts_wakeup(int uart_no, int state)
+{
+	u32 padconf_cts;
+	u16 v;
+
+	if (unlikely(uart_no < 0 || uart_no > OMAP_MAX_HSUART_PORTS)) {
+		printk(KERN_INFO "Bad uart id %d \n", uart_no);
+		return -EPERM;
+	}
+
+	if (state) {
+		/*
+		 * Enable the CTS for io pad wakeup
+		 */
+		switch (uart_no) {
+		case UART1:
+			printk(KERN_INFO "Enabling CTS wakeup for UART1");
+			padconf_cts = 0x180;
+			v = omap_ctrl_readw(padconf_cts);
+			break;
+		case UART2:
+			printk(KERN_INFO "Enabling CTS wakeup for UART2");
+			padconf_cts = 0x174;
+			v = omap_ctrl_readw(padconf_cts);
+			break;
+		default:
+			printk(KERN_ERR
+			"Wakeup on Uart%d is not supported\n", uart_no);
+			return -EPERM;
+		}
+
+		v |= ((OMAP_WAKEUP_EN | OMAP_OFF_PULL_EN |
+			OMAP_OFFOUT_VAL | OMAP_OFFOUT_EN |
+			OMAP_OFF_EN | OMAP_PULL_UP |
+			OMAP34XX_MUX_MODE0));
+
+		omap_ctrl_writew(v, padconf_cts);
+	} else {
+		/*
+		 * Disable the CTS capability for io pad wakeup
+		 */
+		switch (uart_no) {
+		case UART1:
+			padconf_cts = 0x180;
+			v = omap_ctrl_readw(padconf_cts);
+			break;
+		case UART2:
+			padconf_cts = 0x174;
+			v = omap_ctrl_readw(padconf_cts);
+			break;
+		default:
+			printk(KERN_ERR
+			"Wakeup on Uart%d is not supported\n", uart_no);
+			return -EPERM;
+		}
+
+		v &= (u32)(~(OMAP_WAKEUP_EN | OMAP_OFF_PULL_EN |
+				OMAP_OFF_EN | OMAP_OFFOUT_EN));
+
+		omap_ctrl_writew(v, padconf_cts);
+	}
+
+	omap_uart_cts_wakeup_event(uart_no, state);
+
+	return 0;
+}
+EXPORT_SYMBOL(omap_uart_cts_wakeup);
 
 static void omap_uart_idle_init(struct omap_uart_state *uart)
 {

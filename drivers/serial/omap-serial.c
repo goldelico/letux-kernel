@@ -141,6 +141,10 @@ static void serial_omap_stop_rx(struct uart_port *port)
 	up->ier &= ~UART_IER_RLSI;
 	up->port.read_status_mask &= ~UART_LSR_DR;
 	serial_out(up, UART_IER, up->ier);
+	/*Disable the UART CTS wakeup for UART1,UART2*/
+	if ((!port->suspended && (((up->pdev->id) == UART1) ||
+			((up->pdev->id) == UART2))))
+		omap_uart_cts_wakeup((up->pdev->id), 0);
 }
 
 static inline void receive_chars(struct uart_omap_port *up, int *status)
@@ -447,6 +451,10 @@ static int serial_omap_startup(struct uart_port *port)
 	unsigned long flags = 0;
 	int irq_flags = port->flags & UPF_SHARE_IRQ ? IRQF_SHARED : 0;
 	int retval;
+
+	/*Enable the UART CTS wakeup for UART1,UART2*/
+	if (((up->pdev->id) == UART1) || ((up->pdev->id) == UART2))
+		omap_uart_cts_wakeup((up->pdev->id), 1);
 
 	/* Zoom2 has GPIO_102 connected to Serial device:
 	* Active High
@@ -1421,6 +1429,52 @@ int omap_uart_active(int num)
 	return 0;
 }
 EXPORT_SYMBOL(omap_uart_active);
+
+int omap_uart_cts_wakeup_event(int uart_no, int state)
+{
+	unsigned char lcr, efr;
+	struct uart_omap_port *up = ui[uart_no];
+
+	if (unlikely(uart_no < 0 || uart_no > OMAP_MAX_HSUART_PORTS)) {
+		printk(KERN_INFO "Bad uart id %d \n", uart_no);
+		return -EPERM;
+	}
+
+	if (state) {
+		/*
+		 * Enable the CTS for module level wakeup
+		 */
+		lcr = serial_in(up, UART_LCR);
+		serial_out(up, UART_LCR, 0xbf);
+		efr = serial_in(up, UART_EFR);
+		serial_out(up, UART_EFR, efr | UART_EFR_ECB);
+		serial_out(up, UART_LCR, lcr);
+		serial_out(up, UART_OMAP_WER,
+				serial_in(up, UART_OMAP_WER) | 0x1);
+		serial_out(up, UART_LCR, 0xbf);
+		serial_out(up, UART_EFR, efr);
+		serial_out(up, UART_LCR, lcr);
+
+	} else {
+		/*
+		 * Disable the CTS for module level wakeup
+		 */
+		lcr = serial_in(up, UART_LCR);
+		serial_out(up, UART_LCR, 0xbf);
+		efr = serial_in(up, UART_EFR);
+		serial_out(up, UART_EFR, efr | UART_EFR_ECB);
+		serial_out(up, UART_LCR, lcr);
+
+		/* TBD:Do we really want to disable
+		 * module wake up for this in WER
+		 */
+		serial_out(up, UART_LCR, 0xbf);
+		serial_out(up, UART_EFR, efr);
+		serial_out(up, UART_LCR, lcr);
+	}
+	return 0;
+}
+EXPORT_SYMBOL(omap_uart_cts_wakeup_event);
 
 int __init serial_omap_init(void)
 {
