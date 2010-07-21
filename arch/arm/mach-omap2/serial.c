@@ -64,6 +64,10 @@ struct omap_uart_state {
 	u32 padconf;
 	u32 dma_enabled;
 
+	u32 rts_padconf;
+	int rts_override;
+	u16 rts_padvalue;
+
 	struct clk *ick;
 	struct clk *fck;
 	int clocked;
@@ -143,6 +147,25 @@ static inline void __init omap_uart_reset(struct omap_uart_state *p)
 	serial_write_reg(p, UART_OMAP_SCR, 0x08);
 	serial_write_reg(p, UART_OMAP_MDR1, 0x00);
 }
+
+static inline void omap_uart_disable_rtspullup(struct omap_uart_state *uart)
+{
+	if (!uart->rts_padconf || !uart->rts_override)
+		return;
+	omap_ctrl_writew(uart->rts_padvalue, uart->rts_padconf);
+	uart->rts_override = 0;
+}
+
+static inline void omap_uart_enable_rtspullup(struct omap_uart_state *uart)
+{
+	if (!uart->rts_padconf || uart->rts_override)
+		return;
+
+	uart->rts_padvalue = omap_ctrl_readw(uart->rts_padconf);
+	omap_ctrl_writew(0x118 | 0x7, uart->rts_padconf);
+	uart->rts_override = 1;
+}
+
 
 #if defined(CONFIG_PM) && defined(CONFIG_ARCH_OMAP3)
 
@@ -380,6 +403,7 @@ void omap_uart_prepare_idle(int num)
 
 	list_for_each_entry(uart, &uart_list, node) {
 		if (num == uart->num && uart->can_sleep) {
+			omap_uart_enable_rtspullup(uart);
 			omap_uart_disable_clocks(uart);
 			return;
 		}
@@ -393,6 +417,7 @@ void omap_uart_resume_idle(int num)
 	list_for_each_entry(uart, &uart_list, node) {
 		if (num == uart->num) {
 			omap_uart_enable_clocks(uart);
+			omap_uart_disable_rtspullup(uart);
 
 			/* Check for IO pad wakeup */
 			if (cpu_is_omap34xx() && uart->padconf) {
@@ -547,6 +572,23 @@ int omap_uart_cts_wakeup(int uart_no, int state)
 	return 0;
 }
 EXPORT_SYMBOL(omap_uart_cts_wakeup);
+
+static void omap_uart_rtspad_init(struct omap_uart_state *uart)
+{
+	if (!cpu_is_omap34xx())
+		return;
+	switch (uart->num) {
+	case 0:
+		uart->rts_padconf = 0x17e;
+		break;
+	case 1:
+		uart->rts_padconf = 0x176;
+		break;
+	default:
+		uart->rts_padconf = 0;
+		break;
+	}
+}
 
 static void omap_uart_idle_init(struct omap_uart_state *uart)
 {
@@ -849,6 +891,7 @@ void __init omap_serial_init_port(int port)
 		omap_hwmod_idle(uart->oh);
 #endif
 		omap_device_enable(uart->pdev);
+		omap_uart_rtspad_init(uart);
 		omap_uart_idle_init(uart);
 		omap_uart_reset(uart);
 		omap_hwmod_enable_wakeup(uart->oh);
