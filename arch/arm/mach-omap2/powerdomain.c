@@ -211,11 +211,13 @@ static void _update_logic_membank_counters(struct powerdomain *pwrdm)
 
 /**
  * pwrdm_init - set up the powerdomain layer
+ * @pwrdm_list: array of struct powerdomain pointers to register
  *
- * Loop through the list of powerdomains, registering all that are
- * available on the current CPU. If pwrdm_list is supplied and not
- * null, all of the referenced powerdomains will be registered.  No
- * return value.
+ * Loop through the array of powerdomains @pwrdm_list, registering all
+ * that are available on the current CPU. If pwrdm_list is supplied
+ * and not null, all of the referenced powerdomains will be
+ * registered.  No return value.  XXX pwrdm_list is not really a
+ * "list"; it is an array.  Rename appropriately.
  */
 void pwrdm_init(struct powerdomain **pwrdm_list)
 {
@@ -243,8 +245,8 @@ void pwrdm_init(struct powerdomain **pwrdm_list)
  * pwrdm_lookup - look up a powerdomain by name, return a pointer
  * @name: name of powerdomain
  *
- * Find a registered powerdomain by its name.  Returns a pointer to the
- * struct powerdomain if found, or NULL otherwise.
+ * Find a registered powerdomain by its name @name.  Returns a pointer
+ * to the struct powerdomain if found, or NULL otherwise.
  */
 struct powerdomain *pwrdm_lookup(const char *name)
 {
@@ -262,11 +264,11 @@ struct powerdomain *pwrdm_lookup(const char *name)
  * pwrdm_for_each - call function on each registered clockdomain
  * @fn: callback function *
  *
- * Call the supplied function for each registered powerdomain.  The
- * callback function can return anything but 0 to bail out early from
- * the iterator.  Returns the last return value of the callback function, which
- * should be 0 for success or anything else to indicate failure; or -EINVAL if
- * the function pointer is null.
+ * Call the supplied function @fn for each registered powerdomain.
+ * The callback function @fn can return anything but 0 to bail out
+ * early from the iterator.  Returns the last return value of the
+ * callback function, which should be 0 for success or anything else
+ * to indicate failure; or -EINVAL if the function pointer is null.
  */
 int pwrdm_for_each(int (*fn)(struct powerdomain *pwrdm, void *user),
 		   void *user)
@@ -291,7 +293,7 @@ int pwrdm_for_each(int (*fn)(struct powerdomain *pwrdm, void *user),
  * @pwrdm: struct powerdomain * to add the clockdomain to
  * @clkdm: struct clockdomain * to associate with a powerdomain
  *
- * Associate the clockdomain 'clkdm' with a powerdomain 'pwrdm'.  This
+ * Associate the clockdomain @clkdm with a powerdomain @pwrdm.  This
  * enables the use of pwrdm_for_each_clkdm().  Returns -EINVAL if
  * presented with invalid pointers; -ENOMEM if memory could not be allocated;
  * or 0 upon success.
@@ -339,10 +341,10 @@ pac_exit:
  * @pwrdm: struct powerdomain * to add the clockdomain to
  * @clkdm: struct clockdomain * to associate with a powerdomain
  *
- * Dissociate the clockdomain 'clkdm' from the powerdomain
- * 'pwrdm'. Returns -EINVAL if presented with invalid pointers;
- * -ENOENT if the clkdm was not associated with the powerdomain, or 0
- * upon success.
+ * Dissociate the clockdomain @clkdm from the powerdomain
+ * @pwrdm. Returns -EINVAL if presented with invalid pointers; -ENOENT
+ * if @clkdm was not associated with the powerdomain, or 0 upon
+ * success.
  */
 int pwrdm_del_clkdm(struct powerdomain *pwrdm, struct clockdomain *clkdm)
 {
@@ -379,8 +381,8 @@ pdc_exit:
  * @pwrdm: struct powerdomain * to iterate over
  * @fn: callback function *
  *
- * Call the supplied function for each clockdomain in the powerdomain
- * 'pwrdm'.  The callback function can return anything but 0 to bail
+ * Call the supplied function @fn for each clockdomain in the powerdomain
+ * @pwrdm.  The callback function can return anything but 0 to bail
  * out early from the iterator.  Returns -EINVAL if presented with
  * invalid pointers; or passes along the last return value of the
  * callback function, which should be 0 for success or anything else
@@ -406,7 +408,7 @@ int pwrdm_for_each_clkdm(struct powerdomain *pwrdm,
  * pwrdm_get_mem_bank_count - get number of memory banks in this powerdomain
  * @pwrdm: struct powerdomain *
  *
- * Return the number of controllable memory banks in powerdomain pwrdm,
+ * Return the number of controllable memory banks in powerdomain @pwrdm,
  * starting with 1.  Returns -EINVAL if the powerdomain pointer is null.
  */
 int pwrdm_get_mem_bank_count(struct powerdomain *pwrdm)
@@ -422,7 +424,7 @@ int pwrdm_get_mem_bank_count(struct powerdomain *pwrdm)
  * @pwrdm: struct powerdomain * to set
  * @pwrst: one of the PWRDM_POWER_* macros
  *
- * Set the powerdomain pwrdm's next power state to pwrst.  The powerdomain
+ * Set the powerdomain @pwrdm's next power state to @pwrst.  The powerdomain
  * may not enter this state immediately if the preconditions for this state
  * have not been satisfied.  Returns -EINVAL if the powerdomain pointer is
  * null or if the power state is invalid for the powerdomin, or returns 0
@@ -450,7 +452,7 @@ int pwrdm_set_next_pwrst(struct powerdomain *pwrdm, u8 pwrst)
  * pwrdm_read_next_pwrst - get next powerdomain power state
  * @pwrdm: struct powerdomain * to get power state
  *
- * Return the powerdomain pwrdm's next power state.  Returns -EINVAL
+ * Return the powerdomain @pwrdm's next power state.  Returns -EINVAL
  * if the powerdomain pointer is null or returns the next power state
  * upon success.
  */
@@ -467,7 +469,7 @@ int pwrdm_read_next_pwrst(struct powerdomain *pwrdm)
  * pwrdm_read_pwrst - get current powerdomain power state
  * @pwrdm: struct powerdomain * to get power state
  *
- * Return the powerdomain pwrdm's current power state.	Returns -EINVAL
+ * Return the powerdomain @pwrdm's current power state.	Returns -EINVAL
  * if the powerdomain pointer is null or returns the current power state
  * upon success.
  */
@@ -484,7 +486,7 @@ int pwrdm_read_pwrst(struct powerdomain *pwrdm)
  * pwrdm_read_prev_pwrst - get previous powerdomain power state
  * @pwrdm: struct powerdomain * to get previous power state
  *
- * Return the powerdomain pwrdm's previous power state.  Returns -EINVAL
+ * Return the powerdomain @pwrdm's previous power state.  Returns -EINVAL
  * if the powerdomain pointer is null or returns the previous power state
  * upon success.
  */
@@ -502,11 +504,11 @@ int pwrdm_read_prev_pwrst(struct powerdomain *pwrdm)
  * @pwrdm: struct powerdomain * to set
  * @pwrst: one of the PWRDM_POWER_* macros
  *
- * Set the next power state that the logic portion of the powerdomain
- * pwrdm will enter when the powerdomain enters retention.  This will
- * be either RETENTION or OFF, if supported.  Returns -EINVAL if the
- * powerdomain pointer is null or the target power state is not not
- * supported, or returns 0 upon success.
+ * Set the next power state @pwrst that the logic portion of the
+ * powerdomain @pwrdm will enter when the powerdomain enters retention.
+ * This will be either RETENTION or OFF, if supported.  Returns
+ * -EINVAL if the powerdomain pointer is null or the target power
+ * state is not not supported, or returns 0 upon success.
  */
 int pwrdm_set_logic_retst(struct powerdomain *pwrdm, u8 pwrst)
 {
@@ -538,13 +540,14 @@ int pwrdm_set_logic_retst(struct powerdomain *pwrdm, u8 pwrst)
  * @bank: memory bank number to set (0-3)
  * @pwrst: one of the PWRDM_POWER_* macros
  *
- * Set the next power state that memory bank x of the powerdomain
- * pwrdm will enter when the powerdomain enters the ON state.  Bank
- * will be a number from 0 to 3, and represents different types of
- * memory, depending on the powerdomain.  Returns -EINVAL if the
- * powerdomain pointer is null or the target power state is not not
- * supported for this memory bank, -EEXIST if the target memory bank
- * does not exist or is not controllable, or returns 0 upon success.
+ * Set the next power state @pwrst that memory bank @bank of the
+ * powerdomain @pwrdm will enter when the powerdomain enters the ON
+ * state.  @bank will be a number from 0 to 3, and represents different
+ * types of memory, depending on the powerdomain.  Returns -EINVAL if
+ * the powerdomain pointer is null or the target power state is not
+ * not supported for this memory bank, -EEXIST if the target memory
+ * bank does not exist or is not controllable, or returns 0 upon
+ * success.
  */
 int pwrdm_set_mem_onst(struct powerdomain *pwrdm, u8 bank, u8 pwrst)
 {
@@ -601,14 +604,15 @@ int pwrdm_set_mem_onst(struct powerdomain *pwrdm, u8 bank, u8 pwrst)
  * @bank: memory bank number to set (0-3)
  * @pwrst: one of the PWRDM_POWER_* macros
  *
- * Set the next power state that memory bank x of the powerdomain
- * pwrdm will enter when the powerdomain enters the RETENTION state.
- * Bank will be a number from 0 to 3, and represents different types
- * of memory, depending on the powerdomain.  pwrst will be either
- * RETENTION or OFF, if supported. Returns -EINVAL if the powerdomain
- * pointer is null or the target power state is not not supported for
- * this memory bank, -EEXIST if the target memory bank does not exist
- * or is not controllable, or returns 0 upon success.
+ * Set the next power state @pwrst that memory bank @bank of the
+ * powerdomain @pwrdm will enter when the powerdomain enters the
+ * RETENTION state.  Bank will be a number from 0 to 3, and represents
+ * different types of memory, depending on the powerdomain.  @pwrst
+ * will be either RETENTION or OFF, if supported.  Returns -EINVAL if
+ * the powerdomain pointer is null or the target power state is not
+ * not supported for this memory bank, -EEXIST if the target memory
+ * bank does not exist or is not controllable, or returns 0 upon
+ * success.
  */
 int pwrdm_set_mem_retst(struct powerdomain *pwrdm, u8 bank, u8 pwrst)
 {
@@ -663,10 +667,10 @@ int pwrdm_set_mem_retst(struct powerdomain *pwrdm, u8 bank, u8 pwrst)
  * pwrdm_read_logic_pwrst - get current powerdomain logic retention power state
  * @pwrdm: struct powerdomain * to get current logic retention power state
  *
- * Return the current power state that the logic portion of
- * powerdomain pwrdm will enter
- * Returns -EINVAL if the powerdomain pointer is null or returns the
- * current logic retention power state upon success.
+ * Return the power state that the logic portion of powerdomain @pwrdm
+ * will enter when the powerdomain enters retention.  Returns -EINVAL
+ * if the powerdomain pointer is null or returns the logic retention
+ * power state upon success.
  */
 int pwrdm_read_logic_pwrst(struct powerdomain *pwrdm)
 {
@@ -681,9 +685,9 @@ int pwrdm_read_logic_pwrst(struct powerdomain *pwrdm)
  * pwrdm_read_prev_logic_pwrst - get previous powerdomain logic power state
  * @pwrdm: struct powerdomain * to get previous logic power state
  *
- * Return the powerdomain pwrdm's logic power state.  Returns -EINVAL
- * if the powerdomain pointer is null or returns the previous logic
- * power state upon success.
+ * Return the powerdomain @pwrdm's previous logic power state.  Returns
+ * -EINVAL if the powerdomain pointer is null or returns the previous
+ * logic power state upon success.
  */
 int pwrdm_read_prev_logic_pwrst(struct powerdomain *pwrdm)
 {
@@ -705,8 +709,8 @@ int pwrdm_read_prev_logic_pwrst(struct powerdomain *pwrdm)
  * @pwrdm: struct powerdomain * to get current memory bank power state
  * @bank: memory bank number (0-3)
  *
- * Return the powerdomain pwrdm's current memory power state for bank
- * x.  Returns -EINVAL if the powerdomain pointer is null, -EEXIST if
+ * Return the powerdomain @pwrdm's current memory power state for bank
+ * @bank.  Returns -EINVAL if the powerdomain pointer is null, -EEXIST if
  * the target memory bank does not exist or is not controllable, or
  * returns the current memory power state upon success.
  */
@@ -759,10 +763,11 @@ int pwrdm_read_mem_pwrst(struct powerdomain *pwrdm, u8 bank)
  * @pwrdm: struct powerdomain * to get previous memory bank power state
  * @bank: memory bank number (0-3)
  *
- * Return the powerdomain pwrdm's previous memory power state for bank
- * x.  Returns -EINVAL if the powerdomain pointer is null, -EEXIST if
- * the target memory bank does not exist or is not controllable, or
- * returns the previous memory power state upon success.
+ * Return the powerdomain @pwrdm's previous memory power state for
+ * bank @bank.  Returns -EINVAL if the powerdomain pointer is null,
+ * -EEXIST if the target memory bank does not exist or is not
+ * controllable, or returns the previous memory power state upon
+ * success.
  */
 int pwrdm_read_prev_mem_pwrst(struct powerdomain *pwrdm, u8 bank)
 {
@@ -809,10 +814,10 @@ int pwrdm_read_prev_mem_pwrst(struct powerdomain *pwrdm, u8 bank)
  * pwrdm_clear_all_prev_pwrst - clear previous powerstate register for a pwrdm
  * @pwrdm: struct powerdomain * to clear
  *
- * Clear the powerdomain's previous power state register.  Clears the
- * entire register, including logic and memory bank previous power states.
- * Returns -EINVAL if the powerdomain pointer is null, or returns 0 upon
- * success.
+ * Clear the powerdomain's previous power state register @pwrdm.
+ * Clears the entire register, including logic and memory bank
+ * previous power states.  Returns -EINVAL if the powerdomain pointer
+ * is null, or returns 0 upon success.
  */
 int pwrdm_clear_all_prev_pwrst(struct powerdomain *pwrdm)
 {
@@ -837,11 +842,11 @@ int pwrdm_clear_all_prev_pwrst(struct powerdomain *pwrdm)
  * @pwrdm: struct powerdomain *
  *
  * Enable automatic context save-and-restore upon power state change
- * for some devices in a powerdomain.  Warning: this only affects a
- * subset of devices in a powerdomain; check the TRM closely.  Returns
- * -EINVAL if the powerdomain pointer is null or if the powerdomain
- * does not support automatic save-and-restore, or returns 0 upon
- * success.
+ * for some devices in the powerdomain @pwrdm.  Warning: this only
+ * affects a subset of devices in a powerdomain; check the TRM
+ * closely.  Returns -EINVAL if the powerdomain pointer is null or if
+ * the powerdomain does not support automatic save-and-restore, or
+ * returns 0 upon success.
  */
 int pwrdm_enable_hdwr_sar(struct powerdomain *pwrdm)
 {
@@ -865,11 +870,11 @@ int pwrdm_enable_hdwr_sar(struct powerdomain *pwrdm)
  * @pwrdm: struct powerdomain *
  *
  * Disable automatic context save-and-restore upon power state change
- * for some devices in a powerdomain.  Warning: this only affects a
- * subset of devices in a powerdomain; check the TRM closely.  Returns
- * -EINVAL if the powerdomain pointer is null or if the powerdomain
- * does not support automatic save-and-restore, or returns 0 upon
- * success.
+ * for some devices in the powerdomain @pwrdm.  Warning: this only
+ * affects a subset of devices in a powerdomain; check the TRM
+ * closely.  Returns -EINVAL if the powerdomain pointer is null or if
+ * the powerdomain does not support automatic save-and-restore, or
+ * returns 0 upon success.
  */
 int pwrdm_disable_hdwr_sar(struct powerdomain *pwrdm)
 {
@@ -892,7 +897,7 @@ int pwrdm_disable_hdwr_sar(struct powerdomain *pwrdm)
  * pwrdm_has_hdwr_sar - test whether powerdomain supports hardware SAR
  * @pwrdm: struct powerdomain *
  *
- * Returns 1 if powerdomain 'pwrdm' supports hardware save-and-restore
+ * Returns 1 if powerdomain @pwrdm supports hardware save-and-restore
  * for some devices, or 0 if it does not.
  */
 bool pwrdm_has_hdwr_sar(struct powerdomain *pwrdm)
@@ -904,7 +909,7 @@ bool pwrdm_has_hdwr_sar(struct powerdomain *pwrdm)
  * pwrdm_wait_transition - wait for powerdomain power transition to finish
  * @pwrdm: struct powerdomain * to wait for
  *
- * If the powerdomain pwrdm is in the process of a state transition,
+ * If the powerdomain @pwrdm is in the process of a state transition,
  * spin until it completes the power transition, or until an iteration
  * bailout value is reached. Returns -EINVAL if the powerdomain
  * pointer is null, -EAGAIN if the bailout value was reached, or
