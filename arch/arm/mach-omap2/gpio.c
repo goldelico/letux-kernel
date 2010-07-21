@@ -62,6 +62,7 @@ struct omap3_gpio_regs {
 	u32 setdataout;
 };
 
+#ifdef CONFIG_ARCH_OMAP3
 static struct omap3_gpio_regs gpio_context[OMAP_NR_GPIOS];
 
 /* GPIO -> PAD init configuration struct */
@@ -119,6 +120,7 @@ struct gpio_pad {
 
 struct gpio_pad *gpio_pads;
 static u16 gpio_pad_map[OMAP34XX_GPIO_AMT];
+#endif
 
 static struct gpio_bank gpio_bank[OMAP_NR_GPIOS];
 static int gpio_bank_count;
@@ -1153,6 +1155,7 @@ void omap2_gpio_resume_after_idle(void)
 	}
 }
 
+#ifdef CONFIG_ARCH_OMAP3
 #define OFF_EN	1 << 9
 #define OFF_OUT_EN	1 << 10
 #define OFF_OUT_VAL	1 << 11
@@ -1301,6 +1304,7 @@ void omap3_gpio_restore_pad_context(int restore_oe)
 		pad++;
 	}
 }
+#endif
 
 static int __devexit omap_gpio_remove(struct platform_device *pdev)
 {
