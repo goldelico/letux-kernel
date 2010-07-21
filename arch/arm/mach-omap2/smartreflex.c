@@ -438,10 +438,6 @@ static void sr_set_efuse_nvalues(struct omap_sr *sr)
 			sr->opp5_nvalue = sr1_opp[5] =
 			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP5_VDD1);
 			if (sr->opp5_nvalue != 0x0) {
-				/* Add 2 step margin on n-target for 1.2g */
-				sr->opp5_nvalue =
-					calculate_opp_nvalue(sr->opp5_nvalue,
-						senn_adj*2, senp_adj*2);
 				pr_info("SR1:Fused Nvalues for VDD1OPP5 %x\n",
 							sr->opp5_nvalue);
 			} else {
