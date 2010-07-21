@@ -61,7 +61,8 @@ static int omap_prox_read(void);
 
 static struct sfh7741_platform_data omap_sfh7741_data = {
 		.irq = OMAP_GPIO_IRQ(OMAP4_SFH7741_SENSOR_OUTPUT_GPIO),
-		.prox_enable = 1,
+		.prox_blocked = 0,
+		.prox_unblocked = 1,
 		.activate_func = omap_prox_activate,
 		.read_prox = omap_prox_read,
 };
