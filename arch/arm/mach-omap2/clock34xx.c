@@ -207,8 +207,6 @@ int omap3_dpll4_set_rate(struct clk *clk, unsigned long rate)
 	return omap3_noncore_dpll_set_rate(clk, rate);
 }
 
-/* Common clock code */
-
 #ifdef CONFIG_CPU_FREQ
 static struct cpufreq_frequency_table freq_table[VDD1_OPP6+1];
 
@@ -241,23 +239,6 @@ void omap2_clk_init_cpufreq_table(struct cpufreq_frequency_table **table)
 }
 #endif
 
-/*
- * Set clocks for bypass mode for reboot to work.
- */
-void omap2_clk_prepare_for_reboot(void)
-{
-	/* REVISIT: Not ready for 343x */
-#if 0
-	u32 rate;
-
-	if (vclk == NULL || sclk == NULL)
-		return;
-
-	rate = clk_get_rate(sclk);
-	clk_set_rate(vclk, rate);
-#endif
-}
-
 void omap3_clk_lock_dpll5(void)
 {
 	struct clk *dpll5_clk;
@@ -279,6 +260,8 @@ void omap3_clk_lock_dpll5(void)
 	clk_disable(dpll5_clk);
 	return;
 }
+
+/* Common clock code */
 
 /* REVISIT: Move this init stuff out into clock.c */
 

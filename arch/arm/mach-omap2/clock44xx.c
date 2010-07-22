@@ -55,11 +55,6 @@ const struct clkops clkops_noncore_dpll_ops = {
 	.disable	= &omap3_noncore_dpll_disable,
 };
 
-void omap2_clk_prepare_for_reboot(void)
-{
-	return;
-}
-
 /**
  * omap4_core_dpll_m2_set_rate - set CORE DPLL M2 divider
  * @clk: struct clk * of DPLL to set
