@@ -217,7 +217,7 @@ dsp_status dcd_enumerate_object(IN s32 cIndex, IN enum dsp_dcdobjtype obj_type,
 		 * than zero, then the current enum_refs must have been
 		 * incremented to greater than zero.
 		 */
-		status = DSP_ECHANGEDURINGENUM;
+		status = -EIDRM;
 	} else {
 		/*
 		 * Pre-determine final key length. It's length of DCD_REGKEY +

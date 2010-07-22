@@ -104,7 +104,7 @@ extern dsp_status mgr_destroy(struct mgr_object *hmgr_obj);
  *      0:            Success.
  *      -EINVAL:    Parameter node_id is > than the number of nodes.
  *                          configutred in the system
- *      DSP_ECHANGEDURINGENUM:  During Enumeration there has been a change in
+ *      -EIDRM:  During Enumeration there has been a change in
  *                              the number of nodes configured or in the
  *                              the properties of the enumerated nodes.
  *      -EPERM:          Failed to querry the Node Data Base
