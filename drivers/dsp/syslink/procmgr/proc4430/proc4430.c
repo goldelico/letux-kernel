@@ -215,17 +215,11 @@ int proc4430_destroy(void)
 	 * deleted so far. If not,delete them.
 	 */
 
-	/* Temporarily increment the ref_count. */
-	atomic_inc_return(&proc4430_state.ref_count);
-
 	for (i = 0; i < MULTIPROC_MAXPROCESSORS; i++) {
 		if (proc4430_state.proc_handles[i] == NULL)
 			continue;
 		proc4430_delete(&(proc4430_state.proc_handles[i]));
 	}
-
-	/* Decrement the ref_count. */
-	atomic_dec_return(&proc4430_state.ref_count);
 
 	/* Check if the gate_handle was created internally. */
 	if (proc4430_state.gate_handle != NULL) {
@@ -787,19 +781,6 @@ int proc4430_control(void *handle, int cmd, void *arg)
 	int retval = 0;
 
 	/*FIXME: Remove handle,etc if not used */
-#ifdef CONFIG_SYSLINK_DUCATI_PM
-	/* For purpose testing */
-	switch (cmd) {
-	case PM_SUSPEND:
-	case PM_RESUME:
-		retval = proc4430_drv_pm_notifications(cmd);
-		break;
-	default:
-		printk(KERN_ERR "Invalid notification\n");
-	}
-	if (retval != PM_SUCCESS)
-		printk(KERN_ERR "Error in notifications\n");
-#endif
 
 	if (atomic_cmpmask_and_lt(&proc4430_state.ref_count,
 					OMAP4430PROC_MAKE_MAGICSTAMP(0),
