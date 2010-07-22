@@ -991,15 +991,16 @@ void isppreview_config_dcor(struct isp_prev_device *isp_prev,
 {
 	struct device *dev = to_device(isp_prev);
 
+	isp_reg_writel(dev, prev_dcor.detect_correct[0],
+		       OMAP3_ISP_IOMEM_PREV, ISPPRV_CDC_THR0);
+	isp_reg_writel(dev, prev_dcor.detect_correct[1],
+		       OMAP3_ISP_IOMEM_PREV, ISPPRV_CDC_THR1);
+	isp_reg_writel(dev, prev_dcor.detect_correct[2],
+		       OMAP3_ISP_IOMEM_PREV, ISPPRV_CDC_THR2);
+	isp_reg_writel(dev, prev_dcor.detect_correct[3],
+		       OMAP3_ISP_IOMEM_PREV, ISPPRV_CDC_THR3);
+
 	if (prev_dcor.couplet_mode_en) {
-		isp_reg_writel(dev, prev_dcor.detect_correct[0],
-			       OMAP3_ISP_IOMEM_PREV, ISPPRV_CDC_THR0);
-		isp_reg_writel(dev, prev_dcor.detect_correct[1],
-			       OMAP3_ISP_IOMEM_PREV, ISPPRV_CDC_THR1);
-		isp_reg_writel(dev, prev_dcor.detect_correct[2],
-			       OMAP3_ISP_IOMEM_PREV, ISPPRV_CDC_THR2);
-		isp_reg_writel(dev, prev_dcor.detect_correct[3],
-			       OMAP3_ISP_IOMEM_PREV, ISPPRV_CDC_THR3);
 		isp_reg_or(dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR,
 			   ISPPRV_PCR_DCCOUP);
 	} else {
