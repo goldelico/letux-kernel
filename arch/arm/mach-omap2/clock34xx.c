@@ -347,18 +347,6 @@ void omap2_clk_init_cpufreq_table(struct cpufreq_frequency_table **table)
 }
 #endif
 
-struct clk_functions omap2_clk_functions = {
-	.clk_enable		= omap2_clk_enable,
-	.clk_disable		= omap2_clk_disable,
-	.clk_round_rate		= omap2_clk_round_rate,
-	.clk_set_rate		= omap2_clk_set_rate,
-	.clk_set_parent		= omap2_clk_set_parent,
-	.clk_disable_unused	= omap2_clk_disable_unused,
-#ifdef CONFIG_CPU_FREQ
-	.clk_init_cpufreq_table = omap2_clk_init_cpufreq_table,
-#endif
-};
-
 /*
  * Set clocks for bypass mode for reboot to work.
  */
