@@ -205,13 +205,12 @@ static int prev2resz_ioc_run_engine(struct prev2resz_fhdl *fh)
 				     fh->pipe.in.image.height,
 				     fh->pipe.out.image.width,
 				     fh->pipe.out.image.height);
-	if (fdiv->prev_exp) {
-		dev_dbg(p2r_device, "Set the REQ_EXP register = %d.\n",
-			fdiv->prev_exp);
-		isp_reg_and_or(fh->isp, OMAP3_ISP_IOMEM_SBL, ISPSBL_SDR_REQ_EXP,
-			       ~ISPSBL_SDR_REQ_PRV_EXP_MASK,
-			       fdiv->prev_exp << ISPSBL_SDR_REQ_PRV_EXP_SHIFT);
-	}
+	dev_dbg(p2r_device, "Set the REQ_EXP register = %d.\n",
+		fdiv->prev_exp);
+	isp_reg_and_or(fh->isp, OMAP3_ISP_IOMEM_SBL, ISPSBL_SDR_REQ_EXP,
+		       ~(ISPSBL_SDR_REQ_PRV_EXP_MASK |
+		         ISPSBL_SDR_REQ_RSZ_EXP_MASK),
+		         fdiv->prev_exp << ISPSBL_SDR_REQ_PRV_EXP_SHIFT);
 	isp_start(fh->isp);
 
 	init_completion(&p2r_ctx.resz_complete);
