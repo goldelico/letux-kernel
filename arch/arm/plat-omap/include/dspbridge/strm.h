@@ -59,7 +59,7 @@ extern dsp_status strm_allocate_buffer(struct strm_res_object *strmres,
  *  Returns:
  *      0:        Success.
  *      -EFAULT:    Invalid hStrm.
- *      DSP_EPENDING:   Some data buffers issued to the stream have not
+ *      -EPIPE:   Some data buffers issued to the stream have not
  *                      been reclaimed.
  *      -EPERM:      Failure to close stream.
  *  Requires:

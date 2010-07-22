@@ -162,7 +162,7 @@ dsp_status strm_close(struct strm_res_object *strmres,
 		status = -EFAULT;
 	} else {
 		/* Have all buffers been reclaimed? If not, return
-		 * DSP_EPENDING */
+		 * -EPIPE */
 		intf_fxns = hstrm->strm_mgr_obj->intf_fxns;
 		status =
 		    (*intf_fxns->pfn_chnl_get_info) (hstrm->chnl_obj,
@@ -170,7 +170,7 @@ dsp_status strm_close(struct strm_res_object *strmres,
 		DBC_ASSERT(DSP_SUCCEEDED(status));
 
 		if (chnl_info_obj.cio_cs > 0 || chnl_info_obj.cio_reqs > 0)
-			status = DSP_EPENDING;
+			status = -EPIPE;
 		else
 			status = delete_strm(hstrm);
 	}
@@ -181,7 +181,7 @@ dsp_status strm_close(struct strm_res_object *strmres,
 	idr_remove(pr_ctxt->strm_idp, strmres->id);
 func_end:
 	DBC_ENSURE(status == 0 || status == -EFAULT ||
-		   status == DSP_EPENDING || status == -EPERM);
+		   status == -EPIPE || status == -EPERM);
 
 	dev_dbg(bridge, "%s: hstrm: %p, status 0x%x\n", __func__,
 		hstrm, status);
