@@ -46,9 +46,6 @@
 #include "cm.h"
 #include "cm-regbits-34xx.h"
 
-/* CM_AUTOIDLE_PLL*.AUTO_* bit values */
-#define MAX_DPLL_WAIT_TRIES		1000000
-
 /*
  * DPLL5_FREQ_FOR_USBHOST: USBHOST and USBTLL are the only clocks
  * that are sourced by DPLL5, and both of these require this clock
