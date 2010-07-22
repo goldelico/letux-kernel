@@ -170,7 +170,7 @@ extern dsp_status proc_enum_nodes(void *hprocessor,
  *  Returns:
  *      0     :       Success.
  *      -EFAULT :       Invalid processor handle.
- *      DSP_EWRONGSTATE:    The processor is not in the PROC_RUNNING state.
+ *      -EBADR:    The processor is not in the PROC_RUNNING state.
  *      -ETIME:       A timeout occured before the DSP responded to the
  *			  querry.
  *      DSP_ERESTART:       A Critical error has occured and the DSP is being
@@ -421,7 +421,7 @@ extern dsp_status proc_notify_all_clients(void *hProc, u32 uEvents);
  *  Returns:
  *      0     :       Success.
  *      -EFAULT :       Invalid processor handle.
- *      DSP_EWRONGSTATE:    Processor is not in PROC_LOADED state.
+ *      -EBADR:    Processor is not in PROC_LOADED state.
  *      -EPERM   :       Unable to start the processor.
  *  Requires:
  *      PROC Initialized.
@@ -443,7 +443,7 @@ extern dsp_status proc_start(void *hprocessor);
  *  Returns:
  *      0     :       Success.
  *      -EFAULT :       Invalid processor handle.
- *      DSP_EWRONGSTATE:    Processor is not in PROC_LOADED state.
+ *      -EBADR:    Processor is not in PROC_LOADED state.
  *      -EPERM   :       Unable to start the processor.
  *  Requires:
  *      PROC Initialized.

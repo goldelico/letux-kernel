@@ -518,7 +518,7 @@ dsp_status bridge_msg_register_notify(struct msg_queue *msg_queue_obj,
 	}
 
 	if (notify_type != DSP_SIGNALEVENT) {
-		status = DSP_EWRONGSTATE;
+		status = -EBADR;
 		goto func_end;
 	}
 

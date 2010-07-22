@@ -1290,7 +1290,7 @@ dsp_status proc_start(void *hprocessor)
 	}
 	/* Call the bridge_brd_start */
 	if (p_proc_object->proc_state != PROC_LOADED) {
-		status = DSP_EWRONGSTATE;
+		status = -EBADR;
 		goto func_end;
 	}
 	dev_get_cod_mgr(p_proc_object->hdev_obj, &cod_mgr);
@@ -1379,7 +1379,7 @@ dsp_status proc_stop(void *hprocessor)
 		if ((status == -EINVAL) || (nodes_allocated > 0)) {
 			pr_err("%s: Can't stop device, active nodes = %d \n",
 			       __func__, nodes_allocated);
-			return DSP_EWRONGSTATE;
+			return -EBADR;
 		}
 	}
 	/* Call the bridge_brd_stop */

@@ -807,7 +807,7 @@ dsp_status node_change_priority(struct node_object *hnode, s32 prio)
 		NODE_SET_PRIORITY(hnode, prio);
 	} else {
 		if (state != NODE_RUNNING) {
-			status = DSP_EWRONGSTATE;
+			status = -EBADR;
 			goto func_cont;
 		}
 		status = proc_get_processor_id(pnode->hprocessor, &proc_id);
@@ -923,10 +923,10 @@ dsp_status node_connect(struct node_object *hNode1, u32 uStream1,
 
 	/* Nodes must be in the allocated state */
 	if (node1_type != NODE_GPP && node_get_state(hNode1) != NODE_ALLOCATED)
-		status = DSP_EWRONGSTATE;
+		status = -EBADR;
 
 	if (node2_type != NODE_GPP && node_get_state(hNode2) != NODE_ALLOCATED)
-		status = DSP_EWRONGSTATE;
+		status = -EBADR;
 
 	if (DSP_SUCCEEDED(status)) {
 		/*  Check that stream indices for task and dais socket nodes
@@ -1189,7 +1189,7 @@ dsp_status node_create(struct node_object *hnode)
 
 	/* Check node state */
 	if (node_get_state(hnode) != NODE_ALLOCATED)
-		status = DSP_EWRONGSTATE;
+		status = -EBADR;
 
 	if (DSP_SUCCEEDED(status))
 		status = proc_get_processor_id(pnode->hprocessor, &proc_id);
@@ -1281,7 +1281,7 @@ func_cont2:
 		hnode_mgr->num_created++;
 		goto func_cont;
 	}
-	if (status != DSP_EWRONGSTATE) {
+	if (status != -EBADR) {
 		/* Put back in NODE_ALLOCATED state if error occurred */
 		NODE_SET_STATE(hnode, NODE_ALLOCATED);
 	}
@@ -2054,7 +2054,7 @@ dsp_status node_pause(struct node_object *hnode)
 		state = node_get_state(hnode);
 		/* Check node state */
 		if (state != NODE_RUNNING)
-			status = DSP_EWRONGSTATE;
+			status = -EBADR;
 
 		if (DSP_FAILED(status))
 			goto func_cont;
@@ -2148,7 +2148,7 @@ dsp_status node_put_message(struct node_object *hnode,
 		mutex_lock(&hnode_mgr->node_mgr_lock);
 		state = node_get_state(hnode);
 		if (state == NODE_TERMINATING || state == NODE_DONE)
-			status = DSP_EWRONGSTATE;
+			status = -EBADR;
 
 		/* end of sync_enter_cs */
 		mutex_unlock(&hnode_mgr->node_mgr_lock);
@@ -2299,7 +2299,7 @@ dsp_status node_run(struct node_object *hnode)
 
 	state = node_get_state(hnode);
 	if (state != NODE_CREATED && state != NODE_PAUSED)
-		status = DSP_EWRONGSTATE;
+		status = -EBADR;
 
 	if (DSP_SUCCEEDED(status))
 		status = proc_get_processor_id(pnode->hprocessor, &proc_id);
@@ -2409,7 +2409,7 @@ dsp_status node_terminate(struct node_object *hnode, OUT dsp_status *pstatus)
 		mutex_lock(&hnode_mgr->node_mgr_lock);
 		state = node_get_state(hnode);
 		if (state != NODE_RUNNING) {
-			status = DSP_EWRONGSTATE;
+			status = -EBADR;
 			/* Set the exit status if node terminated on
 			 * its own. */
 			if (state == NODE_DONE)

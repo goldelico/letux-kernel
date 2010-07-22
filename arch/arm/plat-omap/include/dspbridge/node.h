@@ -45,7 +45,7 @@
  *      -EDOM:         attr_in != NULL and attr_in->prio out of
  *                          range.
  *      -EPERM:          A failure occured, unable to allocate node.
- *      DSP_EWRONGSTATE:    Proccessor is not in the running state.
+ *      -EBADR:    Proccessor is not in the running state.
  *  Requires:
  *      node_init(void) called.
  *      hprocessor != NULL.
@@ -101,7 +101,7 @@ extern dsp_status node_alloc_msg_buf(struct node_object *hnode,
  *      -EFAULT:        Invalid hnode.
  *      -EDOM:         prio is out of range.
  *      -EPERM:      The specified node is not a task node.
- *      DSP_EWRONGSTATE:    Node is not in the NODE_ALLOCATED, NODE_PAUSED,
+ *      -EBADR:    Node is not in the NODE_ALLOCATED, NODE_PAUSED,
  *                          or NODE_RUNNING state.
  *      -ETIME:       A timeout occurred before the DSP responded.
  *      DSP_ERESTART:       A critical error has occurred and the DSP is
@@ -170,7 +170,7 @@ extern dsp_status node_close_orphans(struct node_mgr *hnode_mgr,
  *      -EINVAL:             A stream index parameter is invalid.
  *      -EISCONN:  A connection already exists for one of the
  *                              indices uStream1 or uStream2.
- *      DSP_EWRONGSTATE:        Either hNode1 or hNode2 is not in the
+ *      -EBADR:        Either hNode1 or hNode2 is not in the
  *                              NODE_ALLOCATED state.
  *      -ECONNREFUSED: No more connections available.
  *      -EPERM:              Attempt to make an illegal connection (eg,
@@ -200,7 +200,7 @@ extern dsp_status node_connect(struct node_object *hNode1,
  *      0:            Success.
  *      -EFAULT:        Invalid hnode.
  *      DSP_ESYMBOL:        Create function not found in the COFF file.
- *      DSP_EWRONGSTATE:    Node is not in the NODE_ALLOCATED state.
+ *      -EBADR:    Node is not in the NODE_ALLOCATED state.
  *      -ENOMEM:        Memory allocation failure on the DSP.
  *      DSP_ETASK:          Unable to create node's task or process on the DSP.
  *      DSP_ESTREAM:        Stream creation failure on the DSP.
@@ -469,7 +469,7 @@ extern dsp_status node_pause(struct node_object *hnode);
  *      -EFAULT:        Invalid hnode.
  *      -EPERM:      Messages can't be sent to this type of node.
  *      -ETIME:       Timeout occurred before message could be set.
- *      DSP_EWRONGSTATE:    Node is in invalid state for sending messages.
+ *      -EBADR:    Node is in invalid state for sending messages.
  *      -EPERM:          Unable to send message.
  *  Requires:
  *      node_init(void) called.
@@ -544,7 +544,7 @@ extern dsp_status node_run(struct node_object *hnode);
  *      -EFAULT:        Invalid hnode.
  *      -ETIME:       A timeout occurred before the DSP responded.
  *      -EPERM:      Type of node specified cannot be terminated.
- *      DSP_EWRONGSTATE:    Operation not valid for the current node state.
+ *      -EBADR:    Operation not valid for the current node state.
  *      -EPERM:          Unable to terminate the node.
  *  Requires:
  *      node_init(void) called.
