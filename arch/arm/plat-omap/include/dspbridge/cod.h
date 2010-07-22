@@ -85,7 +85,7 @@ extern void cod_close(struct cod_libraryobj *lib);
  *      attrs:          attributes to be used by this object. A NULL value
  *                      will cause default attrs to be used.
  *  Returns:
- *      DSP_SOK:                Success.
+ *      0:                Success.
  *      COD_E_NOZLFUNCTIONS:    Could not initialize ZL functions.
  *      COD_E_ZLCREATEFAILED:   ZL_Create failed.
  *      -ENOSYS:           attrs was not NULL.  We don't yet support
@@ -137,7 +137,7 @@ extern void cod_exit(void);
  *      cod_mgr_obj:   handle of manager to be deleted
  *      plib:       location to store library handle on output.
  *  Returns:
- *      DSP_SOK:    Success.
+ *      0:    Success.
  *  Requires:
  *      COD module initialized.
  *      valid cod_mgr_obj.
@@ -156,7 +156,7 @@ extern dsp_status cod_get_base_lib(struct cod_manager *cod_mgr_obj,
  *      pszName:    location to store library name on output.
  *      usize:       size of name buffer.
  *  Returns:
- *      DSP_SOK:    Success.
+ *      0:    Success.
  *      -EPERM:  Buffer too small.
  *  Requires:
  *      COD module initialized.
@@ -175,7 +175,7 @@ extern dsp_status cod_get_base_name(struct cod_manager *cod_mgr_obj,
  *      cod_mgr_obj:   handle of manager to be deleted
  *      pulEntry:   pointer to location for entry point
  *  Returns:
- *      DSP_SOK:       Success.
+ *      0:       Success.
  *  Requires:
  *      COD module initialized.
  *      valid cod_mgr_obj.
@@ -193,7 +193,7 @@ extern dsp_status cod_get_entry(struct cod_manager *cod_mgr_obj,
  *      cod_mgr_obj:   handle of manager to be deleted
  *      phLoader:   location to store loader handle on output.
  *  Returns:
- *      DSP_SOK:    Success.
+ *      0:    Success.
  *  Requires:
  *      COD module initialized.
  *      valid cod_mgr_obj.
@@ -214,7 +214,7 @@ extern dsp_status cod_get_loader(struct cod_manager *cod_mgr_obj,
  *      puAddr:     Location to store address.
  *      puLen:      Location to store length.
  *  Returns:
- *      DSP_SOK:                Success
+ *      0:                Success
  *      COD_E_NOSYMBOLSLOADED:  Symbols have not been loaded onto the board.
  *      COD_E_SYMBOLNOTFOUND:   The symbol could not be found.
  *  Requires:
@@ -224,7 +224,7 @@ extern dsp_status cod_get_loader(struct cod_manager *cod_mgr_obj,
  *      puAddr != NULL;
  *      puLen != NULL;
  *  Ensures:
- *      DSP_SOK:  *puAddr and *puLen contain the address and length of the
+ *      0:  *puAddr and *puLen contain the address and length of the
  *                 section.
  *      else:  *puAddr == 0 and *puLen == 0;
  *
@@ -244,7 +244,7 @@ extern dsp_status cod_get_section(struct cod_libraryobj *lib,
  *      pstrSymbol: name of the symbol
  *      value:      value of the symbol
  *  Returns:
- *      DSP_SOK:                Success.
+ *      0:                Success.
  *      COD_E_NOSYMBOLSLOADED:  Symbols have not been loaded onto the board.
  *      COD_E_SYMBOLNOTFOUND:   The symbol could not be found.
  *  Requires:
@@ -286,7 +286,7 @@ extern bool cod_init(void);
  *      pArb:       arbitrary pointer to be passed as first arg to write_fxn
  *      envp:       array of environment strings for DSP exec.
  *  Returns:
- *      DSP_SOK:                   Success.
+ *      0:                   Success.
  *      -EBADF:       Failed to open target code.
  *      COD_E_LOADFAILED:       Failed to load code onto target.
  *  Requires:
@@ -337,7 +337,7 @@ extern dsp_status cod_open(struct cod_manager *hmgr,
  *      pszCoffPath:    Coff file to open.
  *      flags:          Specifies whether to load symbols.
  *  Returns:
- *      DSP_SOK:            Success.
+ *      0:            Success.
  *      -EBADF:   Failed to open target code.
  *  Requires:
  *      COD module initialized.
@@ -357,7 +357,7 @@ extern dsp_status cod_open_base(struct cod_manager *hmgr, IN char *pszCoffPath,
  *      pstrSect    - name of the section, with or without leading "."
  *      pstrContent - buffer to store content of the section.
  *  Returns:
- *      DSP_SOK: on success, error code on failure
+ *      0: on success, error code on failure
  *      COD_E_NOSYMBOLSLOADED:  Symbols have not been loaded onto the board.
  *      COD_E_READFAILED: Failed to read content of code section.
  *  Requires:
@@ -366,7 +366,7 @@ extern dsp_status cod_open_base(struct cod_manager *hmgr, IN char *pszCoffPath,
  *      pstrSect != NULL;
  *      pstrContent != NULL;
  *  Ensures:
- *      DSP_SOK:  *pstrContent stores the content of the named section.
+ *      0:  *pstrContent stores the content of the named section.
  */
 extern dsp_status cod_read_section(struct cod_libraryobj *lib,
 				   IN char *pstrSect,

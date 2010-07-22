@@ -78,7 +78,7 @@ static struct omap_dm_timer *timer;
 dsp_status bridge_deh_create(OUT struct deh_mgr **phDehMgr,
 			     struct dev_object *hdev_obj)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct deh_mgr *deh_mgr_obj = NULL;
 	struct wmd_dev_context *hwmd_context = NULL;
 
@@ -117,7 +117,7 @@ dsp_status bridge_deh_create(OUT struct deh_mgr **phDehMgr,
 			if ((request_irq(INT_DSP_MMU_IRQ, mmu_fault_isr, 0,
 					 "DspBridge\tiommu fault",
 					 (void *)deh_mgr_obj)) == 0)
-				status = DSP_SOK;
+				status = 0;
 			else
 				status = -EPERM;
 		}
@@ -147,7 +147,7 @@ dsp_status bridge_deh_create(OUT struct deh_mgr **phDehMgr,
  */
 dsp_status bridge_deh_destroy(struct deh_mgr *hdeh_mgr)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct deh_mgr *deh_mgr_obj = (struct deh_mgr *)hdeh_mgr;
 
 	if (deh_mgr_obj) {
@@ -182,7 +182,7 @@ dsp_status bridge_deh_register_notify(struct deh_mgr *hdeh_mgr, u32 event_mask,
 				   u32 notify_type,
 				   struct dsp_notification *hnotification)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct deh_mgr *deh_mgr_obj = (struct deh_mgr *)hdeh_mgr;
 
 	if (deh_mgr_obj) {
@@ -205,7 +205,7 @@ void bridge_deh_notify(struct deh_mgr *hdeh_mgr, u32 ulEventMask, u32 dwErrInfo)
 {
 	struct deh_mgr *deh_mgr_obj = (struct deh_mgr *)hdeh_mgr;
 	struct wmd_dev_context *dev_context;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	u32 mem_physical = 0;
 	u32 hw_mmu_max_tlb_count = 31;
 	extern u32 fault_addr;
@@ -380,7 +380,7 @@ void bridge_deh_notify(struct deh_mgr *hdeh_mgr, u32 ulEventMask, u32 dwErrInfo)
 dsp_status bridge_deh_get_info(struct deh_mgr *hdeh_mgr,
 			    struct dsp_errorinfo *pErrInfo)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct deh_mgr *deh_mgr_obj = (struct deh_mgr *)hdeh_mgr;
 
 	DBC_REQUIRE(deh_mgr_obj);

@@ -85,7 +85,7 @@ dsp_status drv_insert_node_res_element(bhandle hnode, bhandle hNodeRes,
 	struct node_res_object **node_res_obj =
 	    (struct node_res_object **)hNodeRes;
 	struct process_context *ctxt = (struct process_context *)hPCtxt;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	int retval;
 
 	*node_res_obj = kzalloc(sizeof(struct node_res_object), GFP_KERNEL);
@@ -123,7 +123,7 @@ func_end:
 static int drv_proc_free_node_res(int id, void *p, void *data)
 {
 	struct process_context *ctxt = data;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct node_res_object *node_res_obj = p;
 	u32 node_state;
 
@@ -146,7 +146,7 @@ static int drv_proc_free_node_res(int id, void *p, void *data)
 dsp_status drv_remove_all_dmm_res_elements(bhandle hPCtxt)
 {
 	struct process_context *ctxt = (struct process_context *)hPCtxt;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct dmm_map_object *temp_map, *map_obj;
 	struct dmm_rsv_object *temp_rsv, *rsv_obj;
 
@@ -199,7 +199,7 @@ dsp_status drv_remove_all_node_res_elements(bhandle hPCtxt)
 	idr_for_each(ctxt->node_idp, drv_proc_free_node_res, ctxt);
 	idr_destroy(ctxt->node_idp);
 
-	return DSP_SOK;
+	return 0;
 }
 
 /* Allocate the STRM resource element
@@ -210,7 +210,7 @@ dsp_status drv_proc_insert_strm_res_element(bhandle hStreamHandle,
 {
 	struct strm_res_object **pstrm_res = hstrm_res;
 	struct process_context *ctxt = hPCtxt;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	int retval;
 
 	*pstrm_res = kzalloc(sizeof(struct strm_res_object), GFP_KERNEL);
@@ -282,13 +282,13 @@ dsp_status drv_remove_all_strm_res_elements(bhandle hPCtxt)
 	idr_for_each(ctxt->strm_idp, drv_proc_free_strm_res, ctxt);
 	idr_destroy(ctxt->strm_idp);
 
-	return DSP_SOK;
+	return 0;
 }
 
 /* Updating the stream resource element */
 dsp_status drv_proc_update_strm_res(u32 num_bufs, bhandle hstrm_res)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct strm_res_object **strm_res =
 	    (struct strm_res_object **)hstrm_res;
 
@@ -305,7 +305,7 @@ dsp_status drv_proc_update_strm_res(u32 num_bufs, bhandle hstrm_res)
  */
 dsp_status drv_create(OUT struct drv_object **phDRVObject)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct drv_object *pdrv_object = NULL;
 
 	DBC_REQUIRE(phDRVObject != NULL);
@@ -370,7 +370,7 @@ void drv_exit(void)
  */
 dsp_status drv_destroy(struct drv_object *hDRVObject)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct drv_object *pdrv_object = (struct drv_object *)hDRVObject;
 
 	DBC_REQUIRE(refs > 0);
@@ -398,7 +398,7 @@ dsp_status drv_destroy(struct drv_object *hDRVObject)
 dsp_status drv_get_dev_object(u32 index, struct drv_object *hdrv_obj,
 			      struct dev_object **phDevObject)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 #ifdef CONFIG_BRIDGE_DEBUG
 	/* used only for Assertions and debug messages */
 	struct drv_object *pdrv_obj = (struct drv_object *)hdrv_obj;
@@ -549,7 +549,7 @@ dsp_status drv_init(void)
 dsp_status drv_insert_dev_object(struct drv_object *hDRVObject,
 				 struct dev_object *hdev_obj)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct drv_object *pdrv_object = (struct drv_object *)hDRVObject;
 
 	DBC_REQUIRE(refs > 0);
@@ -591,7 +591,7 @@ dsp_status drv_remove_dev_object(struct drv_object *hDRVObject,
 		/* If found, remove it. */
 		if ((struct dev_object *)cur_elem == hdev_obj) {
 			lst_remove_elem(pdrv_object->dev_list, cur_elem);
-			status = DSP_SOK;
+			status = 0;
 			break;
 		}
 	}
@@ -613,7 +613,7 @@ dsp_status drv_remove_dev_object(struct drv_object *hDRVObject,
  */
 dsp_status drv_request_resources(u32 dw_context, u32 *pDevNodeString)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct drv_object *pdrv_object;
 	struct drv_ext *pszdev_node;
 
@@ -662,7 +662,7 @@ dsp_status drv_request_resources(u32 dw_context, u32 *pDevNodeString)
  */
 dsp_status drv_release_resources(u32 dw_context, struct drv_object *hdrv_obj)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct drv_object *pdrv_object = (struct drv_object *)hdrv_obj;
 	struct drv_ext *pszdev_node;
 
@@ -701,7 +701,7 @@ dsp_status drv_release_resources(u32 dw_context, struct drv_object *hdrv_obj)
  */
 static dsp_status request_bridge_resources(struct cfg_hostres *res)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct cfg_hostres *host_res = res;
 
 		/* num_mem_windows must not be more than CFG_MAXMEMREGISTERS */
@@ -740,7 +740,7 @@ static dsp_status request_bridge_resources(struct cfg_hostres *res)
  */
 dsp_status drv_request_bridge_res_dsp(void **phost_resources)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct cfg_hostres *host_res;
 	u32 dw_buff_size;
 	u32 dma_addr;

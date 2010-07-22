@@ -53,7 +53,7 @@ void cfg_exit(void)
 dsp_status cfg_get_auto_start(struct cfg_devnode *dev_node_obj,
 			      OUT u32 *pdwAutoStart)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	u32 dw_buf_size;
 	struct drv_data *drv_datap = dev_get_drvdata(bridge);
 
@@ -65,9 +65,9 @@ dsp_status cfg_get_auto_start(struct cfg_devnode *dev_node_obj,
 	if (DSP_SUCCEEDED(status))
 		*pdwAutoStart = (drv_datap->base_img) ? 1 : 0;
 
-	DBC_ENSURE((status == DSP_SOK &&
+	DBC_ENSURE((status == 0 &&
 		    (*pdwAutoStart == 0 || *pdwAutoStart == 1))
-		   || status != DSP_SOK);
+		   || status != 0);
 	return status;
 }
 
@@ -79,7 +79,7 @@ dsp_status cfg_get_auto_start(struct cfg_devnode *dev_node_obj,
 dsp_status cfg_get_dev_object(struct cfg_devnode *dev_node_obj,
 			      OUT u32 *pdwValue)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	u32 dw_buf_size;
 	struct drv_data *drv_datap = dev_get_drvdata(bridge);
 
@@ -115,7 +115,7 @@ dsp_status cfg_get_dev_object(struct cfg_devnode *dev_node_obj,
 dsp_status cfg_get_exec_file(struct cfg_devnode *dev_node_obj, u32 ul_buf_size,
 			     OUT char *pstrExecFile)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct drv_data *drv_datap = dev_get_drvdata(bridge);
 
 	if (!dev_node_obj)
@@ -135,9 +135,9 @@ dsp_status cfg_get_exec_file(struct cfg_devnode *dev_node_obj, u32 ul_buf_size,
 	if (DSP_FAILED(status))
 		pr_err("%s: Failed, status 0x%x\n", __func__, status);
 func_end:
-	DBC_ENSURE(((status == DSP_SOK) &&
+	DBC_ENSURE(((status == 0) &&
 		    (strlen(pstrExecFile) <= ul_buf_size))
-		   || (status != DSP_SOK));
+		   || (status != 0));
 	return status;
 }
 
@@ -160,7 +160,7 @@ dsp_status cfg_get_object(OUT u32 *pdwValue, u8 dw_type)
 	case (REG_DRV_OBJECT):
 		if (drv_datap->drv_object) {
 			*pdwValue = (u32)drv_datap->drv_object;
-			status = DSP_SOK;
+			status = 0;
 		} else {
 			status = -ENODATA;
 		}
@@ -168,7 +168,7 @@ dsp_status cfg_get_object(OUT u32 *pdwValue, u8 dw_type)
 	case (REG_MGR_OBJECT):
 		if (drv_datap->mgr_object) {
 			*pdwValue = (u32)drv_datap->mgr_object;
-			status = DSP_SOK;
+			status = 0;
 		} else {
 			status = -ENODATA;
 		}
@@ -203,7 +203,7 @@ bool cfg_init(void)
  */
 dsp_status cfg_set_dev_object(struct cfg_devnode *dev_node_obj, u32 dwValue)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct drv_data *drv_datap = dev_get_drvdata(bridge);
 
 	if (!drv_datap) {
@@ -243,11 +243,11 @@ dsp_status cfg_set_object(u32 dwValue, u8 dw_type)
 	switch (dw_type) {
 	case (REG_DRV_OBJECT):
 		drv_datap->drv_object = (void *)dwValue;
-		status = DSP_SOK;
+		status = 0;
 		break;
 	case (REG_MGR_OBJECT):
 		drv_datap->mgr_object = (void *)dwValue;
-		status = DSP_SOK;
+		status = 0;
 		break;
 	default:
 		break;

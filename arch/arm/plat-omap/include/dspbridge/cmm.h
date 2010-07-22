@@ -74,7 +74,7 @@ extern void *cmm_calloc_buf(struct cmm_object *hcmm_mgr,
  *      hdev_obj: Handle to a device object.
  *      pMgrAttrs:  Comm mem manager attributes.
  *  Returns:
- *      DSP_SOK:        Success;
+ *      0:        Success;
  *      -ENOMEM:    Insufficient memory for requested resources.
  *      -EPERM:      Failed to initialize critical sect sync object.
  *
@@ -99,7 +99,7 @@ extern dsp_status cmm_create(OUT struct cmm_object **ph_cmm_mgr,
  *                 If FALSE, and outstanding allocations will return -EPERM
  *                 status.
  *  Returns:
- *      DSP_SOK:        CMM object & resources deleted.
+ *      0:        CMM object & resources deleted.
  *      -EPERM:      Unable to free CMM object due to outstanding allocation.
  *      -EFAULT:    Unable to free CMM due to bad handle.
  *  Requires:
@@ -134,7 +134,7 @@ extern void cmm_exit(void);
  *      ul_seg_id:    SM segment Id used in CMM_Calloc() attrs.
  *                  Set to 0 to use default segment.
  *  Returns:
- *      DSP_SOK
+ *      0
  *      -EPERM
  *  Requires:
  *      CMM initialized.
@@ -155,7 +155,7 @@ extern dsp_status cmm_free_buf(struct cmm_object *hcmm_mgr,
  *      		output.
  *
  *  Returns:
- *      DSP_SOK:        Cmm Mgr opaque handle returned.
+ *      0:        Cmm Mgr opaque handle returned.
  *      -EFAULT:    Invalid handle.
  *  Requires:
  *      ph_cmm_mgr != NULL
@@ -174,7 +174,7 @@ extern dsp_status cmm_get_handle(void *hprocessor,
  *      cmm_info_obj:    Location to store the Cmm information on output.
  *
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -EFAULT:    Invalid handle.
  *      -EINVAL Invalid input argument.
  *  Requires:
@@ -212,7 +212,7 @@ extern bool cmm_init(void);
  *      pulSegId:        Address to store segment Id.
  *
  *  Returns:
- *      DSP_SOK:         Success.
+ *      0:         Success.
  *      -EFAULT:     Invalid hcmm_mgr handle.
  *      -EINVAL: Invalid input argument.
  *      -EPERM:       Unable to register.
@@ -243,7 +243,7 @@ extern dsp_status cmm_register_gppsm_seg(struct cmm_object *hcmm_mgr,
  *      hcmm_mgr:    Handle to a Cmm Mgr.
  *      ul_seg_id     Segment identifier returned by cmm_register_gppsm_seg.
  *  Returns:
- *       DSP_SOK:         Success.
+ *       0:         Success.
  *       -EFAULT:     Invalid handle.
  *       -EINVAL: Invalid ul_seg_id.
  *       -EPERM:       Unable to unregister for unknown reason.
@@ -285,7 +285,7 @@ extern void *cmm_xlator_alloc_buf(struct cmm_xlatorobject *xlator,
  *     hcmm_mgr:        Handle to Cmm Mgr associated with this translator.
  *     pXlatorAttrs:   Translator attributes used for the client NODE or STREAM.
  *  Returns:
- *     DSP_SOK:            Success.
+ *     0:            Success.
  *     -EINVAL:    Bad input Attrs.
  *     -ENOMEM:   Insufficient memory(local) for requested resources.
  *  Requires:
@@ -307,7 +307,7 @@ extern dsp_status cmm_xlator_create(OUT struct cmm_xlatorobject **phXlator,
  *      xlator:    handle to translator.
  *      bForce:     bForce = TRUE will free XLators SM buffers/dscriptrs.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -EFAULT:    Bad translator handle.
  *      -EPERM:      Unable to free translator resources.
  *  Requires:
@@ -327,7 +327,7 @@ extern dsp_status cmm_xlator_delete(struct cmm_xlatorobject *xlator,
  *      xlator:    handle to translator.
  *      pBufVa      Virtual address of PA to free.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -EFAULT:    Bad translator handle.
  *  Requires:
  *  Ensures:
@@ -349,7 +349,7 @@ extern dsp_status cmm_xlator_free_buf(struct cmm_xlatorobject *xlator,
  *     uSegId:      Segment identifier of SM segment(s)
  *     set_info     Set xlator fields if TRUE, else return base addr
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -EFAULT:    Bad translator handle.
  *  Requires:
  *      (refs > 0)

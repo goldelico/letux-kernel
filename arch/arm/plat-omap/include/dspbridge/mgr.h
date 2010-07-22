@@ -33,7 +33,7 @@
  *      pu_index         : index of signaled event object
  *      utimeout        : timeout interval in milliseocnds
  *  Returns:
- *      DSP_SOK         : Success.
+ *      0         : Success.
  *      -ETIME    : Wait timed out. *pu_index is undetermined.
  *  Details:
  */
@@ -52,17 +52,17 @@ dsp_status mgr_wait_for_bridge_events(struct dsp_notification
  *      phMgrObject:    Location to store created MGR Object handle.
  *      dev_node_obj:       Device object as known to Windows system.
  *  Returns:
- *      DSP_SOK:        Success
+ *      0:        Success
  *      -ENOMEM:    Failed to Create the Object
  *      -EPERM:      General Failure
  *  Requires:
  *      MGR Initialized (refs > 0 )
  *      phMgrObject != NULL.
  *  Ensures:
- *      DSP_SOK:        *phMgrObject is a valid MGR interface to the device.
+ *      0:        *phMgrObject is a valid MGR interface to the device.
  *                      MGR Object stores the DCD Manager Handle.
  *                      MGR Object stored in the Regsitry.
- *      !DSP_SOK:       MGR Object not created
+ *      !0:       MGR Object not created
  *  Details:
  *      DCD Dll is loaded and MGR Object stores the handle of the DLL.
  */
@@ -76,7 +76,7 @@ extern dsp_status mgr_create(OUT struct mgr_object **hmgr_obj,
  *  Parameters:
  *      hmgr_obj:     Handle to Manager object .
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *                      DCD Manager freed; MGR Object destroyed;
  *                      MGR Object deleted from the Registry.
  *      -EPERM:      Failed to destroy MGR Object
@@ -84,7 +84,7 @@ extern dsp_status mgr_create(OUT struct mgr_object **hmgr_obj,
  *      MGR Initialized (refs > 0 )
  *      hmgr_obj is a valid MGR handle .
  *  Ensures:
- *      DSP_SOK:        MGR Object destroyed and hmgr_obj is Invalid MGR
+ *      0:        MGR Object destroyed and hmgr_obj is Invalid MGR
  *                      Handle.
  */
 extern dsp_status mgr_destroy(struct mgr_object *hmgr_obj);
@@ -101,7 +101,7 @@ extern dsp_status mgr_destroy(struct mgr_object *hmgr_obj);
  *      pu_num_nodes:         Location where the number of nodes configured
  *                          in the database will be returned.
  *  Returns:
- *      DSP_SOK:            Success.
+ *      0:            Success.
  *      -EINVAL:    Parameter node_id is > than the number of nodes.
  *                          configutred in the system
  *      DSP_ECHANGEDURINGENUM:  During Enumeration there has been a change in
@@ -135,7 +135,7 @@ extern dsp_status mgr_enum_node_info(u32 node_id,
  *      pu_num_procs:         Location where the number of DSPs configured
  *                          in the database will be returned
  *  Returns:
- *      DSP_SOK:            Success.
+ *      0:            Success.
  *      -EINVAL:    Parameter processor_id is > than the number of
  *                          DSP Processors in the system.
  *      -EPERM:          Failed to querry the Node Data Base
@@ -176,13 +176,13 @@ extern void mgr_exit(void);
  *      hMGRHandle:     Handle to the Manager Object
  *      phDCDHandle:    Ptr to receive the DCD Handle.
  *  Returns:
- *      DSP_SOK:        Sucess
+ *      0:        Sucess
  *      -EPERM:      Failure to get the Handle
  *  Requires:
  *      MGR is initialized.
  *      phDCDHandle != NULL
  *  Ensures:
- *      DSP_SOK and *phDCDHandle != NULL ||
+ *      0 and *phDCDHandle != NULL ||
  *      -EPERM and *phDCDHandle == NULL
  */
 extern dsp_status mgr_get_dcd_handle(IN struct mgr_object

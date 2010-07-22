@@ -149,7 +149,7 @@ static inline struct ntfy_event *ntfy_event_create(u32 event, u32 type)
  *
  * This function register a new ntfy_event into the ntfy_object list,
  * which will respond to the @event passed.
- * This function will return DSP_SOK in case of error.
+ * This function will return 0 in case of error.
  * -EFAULT in case of bad pointers and
  * DSP_EMemory in case of no memory to create ntfy_event.
  */
@@ -158,7 +158,7 @@ static  inline dsp_status ntfy_register(struct ntfy_object *ntfy_obj,
 			 u32 event, u32 type)
 {
 	struct ntfy_event *ne;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	if (!noti || !ntfy_obj) {
 		status = -EFAULT;
@@ -189,14 +189,14 @@ func_end:
  *
  * This function unregister a ntfy_event from the ntfy_object list,
  * @noti contains the event which is wanted to be removed.
- * This function will return DSP_SOK in case of error.
+ * This function will return 0 in case of error.
  * -EFAULT in case of bad pointers and
  * DSP_EMemory in case of no memory to create ntfy_event.
  */
 static  inline dsp_status ntfy_unregister(struct ntfy_object *ntfy_obj,
 			 struct dsp_notification *noti)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct ntfy_event *ne;
 
 	if (!noti || !ntfy_obj) {

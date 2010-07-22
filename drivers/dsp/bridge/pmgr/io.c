@@ -53,7 +53,7 @@ dsp_status io_create(OUT struct io_mgr **phIOMgr, struct dev_object *hdev_obj,
 	struct bridge_drv_interface *intf_fxns;
 	struct io_mgr *hio_mgr = NULL;
 	struct io_mgr_ *pio_mgr = NULL;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(phIOMgr != NULL);

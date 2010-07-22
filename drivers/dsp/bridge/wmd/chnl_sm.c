@@ -93,7 +93,7 @@ dsp_status bridge_chnl_add_io_req(struct chnl_object *chnl_obj, void *pHostBuf,
 			       u32 byte_size, u32 buf_size,
 			       OPTIONAL u32 dw_dsp_addr, u32 dw_arg)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct chnl_object *pchnl = (struct chnl_object *)chnl_obj;
 	struct chnl_irp *chnl_packet_obj = NULL;
 	struct wmd_dev_context *dev_ctxt;
@@ -254,7 +254,7 @@ func_end:
  */
 dsp_status bridge_chnl_cancel_io(struct chnl_object *chnl_obj)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct chnl_object *pchnl = (struct chnl_object *)chnl_obj;
 	u32 chnl_id = -1;
 	s8 chnl_mode;
@@ -388,7 +388,7 @@ dsp_status bridge_chnl_create(OUT struct chnl_mgr **phChnlMgr,
 			      struct dev_object *hdev_obj,
 			      IN CONST struct chnl_mgrattrs *pMgrAttrs)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct chnl_mgr *chnl_mgr_obj = NULL;
 	u8 max_channels;
 
@@ -448,7 +448,7 @@ dsp_status bridge_chnl_create(OUT struct chnl_mgr **phChnlMgr,
  */
 dsp_status bridge_chnl_destroy(struct chnl_mgr *hchnl_mgr)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct chnl_mgr *chnl_mgr_obj = hchnl_mgr;
 	u32 chnl_id;
 
@@ -484,7 +484,7 @@ dsp_status bridge_chnl_destroy(struct chnl_mgr *hchnl_mgr)
  */
 dsp_status bridge_chnl_flush_io(struct chnl_object *chnl_obj, u32 dwTimeOut)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct chnl_object *pchnl = (struct chnl_object *)chnl_obj;
 	s8 chnl_mode = -1;
 	struct chnl_mgr *chnl_mgr_obj;
@@ -538,7 +538,7 @@ dsp_status bridge_chnl_flush_io(struct chnl_object *chnl_obj, u32 dwTimeOut)
 dsp_status bridge_chnl_get_info(struct chnl_object *chnl_obj,
 			     OUT struct chnl_info *pInfo)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct chnl_object *pchnl = (struct chnl_object *)chnl_obj;
 	if (pInfo != NULL) {
 		if (pchnl) {
@@ -572,7 +572,7 @@ dsp_status bridge_chnl_get_info(struct chnl_object *chnl_obj,
 dsp_status bridge_chnl_get_ioc(struct chnl_object *chnl_obj, u32 dwTimeOut,
 			    OUT struct chnl_ioc *pIOC)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct chnl_object *pchnl = (struct chnl_object *)chnl_obj;
 	struct chnl_irp *chnl_packet_obj;
 	dsp_status stat_sync;
@@ -717,7 +717,7 @@ func_end:
 dsp_status bridge_chnl_get_mgr_info(struct chnl_mgr *hchnl_mgr, u32 uChnlID,
 				 OUT struct chnl_mgrinfo *pMgrInfo)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct chnl_mgr *chnl_mgr_obj = (struct chnl_mgr *)hchnl_mgr;
 
 	if (pMgrInfo != NULL) {
@@ -754,7 +754,7 @@ dsp_status bridge_chnl_idle(struct chnl_object *chnl_obj, u32 dwTimeOut,
 {
 	s8 chnl_mode;
 	struct chnl_mgr *chnl_mgr_obj;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	DBC_REQUIRE(chnl_obj);
 
@@ -783,7 +783,7 @@ dsp_status bridge_chnl_open(OUT struct chnl_object **phChnl,
 			    struct chnl_mgr *hchnl_mgr, s8 chnl_mode,
 			    u32 uChnlId, CONST IN struct chnl_attr *pattrs)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct chnl_mgr *chnl_mgr_obj = hchnl_mgr;
 	struct chnl_object *pchnl = NULL;
 	struct sync_object *sync_event = NULL;
@@ -914,7 +914,7 @@ dsp_status bridge_chnl_register_notify(struct chnl_object *chnl_obj,
 				    u32 event_mask, u32 notify_type,
 				    struct dsp_notification *hnotification)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	DBC_ASSERT(!(event_mask & ~(DSP_STREAMDONE | DSP_STREAMIOCOMPLETION)));
 
@@ -1011,7 +1011,7 @@ static dsp_status search_free_channel(struct chnl_mgr *chnl_mgr_obj,
 
 	for (i = 0; i < chnl_mgr_obj->max_channels; i++) {
 		if (chnl_mgr_obj->ap_channel[i] == NULL) {
-			status = DSP_SOK;
+			status = 0;
 			*pdwChnl = i;
 			break;
 		}

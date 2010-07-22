@@ -211,7 +211,7 @@ static struct notifier_block iva_clk_notifier = {
 static int __devinit omap34_xx_bridge_probe(struct platform_device *pdev)
 {
 	int status;
-	u32 init_status = DSP_SOK;
+	u32 init_status = 0;
 	dev_t dev = 0;
 	int result;
 	struct dspbridge_platform_data *pdata = pdev->dev.platform_data;
@@ -332,7 +332,7 @@ static int __devexit omap34_xx_bridge_remove(struct platform_device *pdev)
 {
 	dev_t devno;
 	bool ret;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	bhandle hdrv_obj = NULL;
 
 	status = cfg_get_object((u32 *) &hdrv_obj, REG_DRV_OBJECT);
@@ -519,7 +519,7 @@ static long bridge_ioctl(struct file *filp, unsigned int code,
 			 unsigned long args)
 {
 	int status;
-	u32 retval = DSP_SOK;
+	u32 retval = 0;
 	union Trapped_Args buf_in;
 
 	DBC_REQUIRE(filp != NULL);
@@ -590,7 +590,7 @@ static int bridge_mmap(struct file *filp, struct vm_area_struct *vma)
  * process context list */
 dsp_status drv_remove_all_resources(bhandle hPCtxt)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct process_context *ctxt = (struct process_context *)hPCtxt;
 	drv_remove_all_strm_res_elements(ctxt);
 	drv_remove_all_node_res_elements(ctxt);

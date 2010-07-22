@@ -31,7 +31,7 @@
  *      args:       Argument structure.
  *      pResult:
  *  Returns:
- *      DSP_SOK if command called; -EINVAL if command not in IOCTL
+ *      0 if command called; -EINVAL if command not in IOCTL
  *      table.
  *  Requires:
  *  Ensures:
@@ -62,7 +62,7 @@ extern bool wcd_init(void);
  *      completely initialized.
  *  Parameters:
  *  Returns:
- *      DSP_SOK:        Allow this device to load
+ *      0:        Allow this device to load
  *      -EPERM:      Failure.
  *  Requires:
  *      WCD initialized.

@@ -84,7 +84,7 @@ dsp_status handle_constraints_set(struct wmd_dev_context *dev_context,
 		constraint_val);
 
 #endif /* #ifdef CONFIG_BRIDGE_DVFS */
-	return DSP_SOK;
+	return 0;
 }
 
 /*
@@ -93,7 +93,7 @@ dsp_status handle_constraints_set(struct wmd_dev_context *dev_context,
  */
 dsp_status handle_hibernation_from_dsp(struct wmd_dev_context *dev_context)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 #ifdef CONFIG_PM
 	u16 timeout = PWRSTST_TIMEOUT / 10;
 	u32 pwr_state;
@@ -166,7 +166,7 @@ func_cont:
 					(&omap_dspbridge_dev->dev,
 					pdata->mpu_min_speed);
 
-			status = DSP_SOK;
+			status = 0;
 		}
 #endif /* CONFIG_BRIDGE_DVFS */
 	}
@@ -181,7 +181,7 @@ func_cont:
 dsp_status sleep_dsp(struct wmd_dev_context *dev_context, IN u32 dw_cmd,
 		     IN void *pargs)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 #ifdef CONFIG_PM
 #ifdef CONFIG_BRIDGE_NTFY_PWRERR
 	struct deh_mgr *hdeh_mgr;
@@ -215,17 +215,17 @@ dsp_status sleep_dsp(struct wmd_dev_context *dev_context, IN u32 dw_cmd,
 			sm_interrupt_dsp(dev_context, MBX_PM_DSPHIBERNATE);
 			target_pwr_state = PWRDM_POWER_OFF;
 		} else
-			return DSP_SOK;
+			return 0;
 		break;
 	case BRD_HIBERNATION:
 	case BRD_DSP_HIBERNATION:
 		/* Already in Hibernation, so just return */
 		dev_dbg(bridge, "PM: %s - DSP already in hibernation\n",
 			__func__);
-		return DSP_SOK;
+		return 0;
 	case BRD_STOPPED:
 		dev_dbg(bridge, "PM: %s - Board in STOP state\n", __func__);
-		return DSP_SALREADYASLEEP;
+		return 0;
 	default:
 		dev_dbg(bridge, "PM: %s - Bridge in Illegal state\n", __func__);
 		return -EPERM;
@@ -309,7 +309,7 @@ func_cont:
  */
 dsp_status wake_dsp(struct wmd_dev_context *dev_context, IN void *pargs)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 #ifdef CONFIG_PM
 
 	/* Check the BRD/WMD state, if it is not 'SLEEP' then return failure */
@@ -317,7 +317,7 @@ dsp_status wake_dsp(struct wmd_dev_context *dev_context, IN void *pargs)
 	    dev_context->dw_brd_state == BRD_STOPPED) {
 		/* The Device is in 'RET' or 'OFF' state and WMD state is not
 		 * 'SLEEP', this means state inconsistency, so return */
-		return DSP_SOK;
+		return 0;
 	}
 
 	/* Send a wakeup message to DSP */
@@ -339,8 +339,8 @@ dsp_status dsp_peripheral_clk_ctrl(struct wmd_dev_context *dev_context,
 	u32 clk_id_index = MBX_PM_MAX_RESOURCES;
 	u32 tmp_index;
 	u32 dsp_per_clks_before;
-	dsp_status status = DSP_SOK;
-	dsp_status status1 = DSP_SOK;
+	dsp_status status = 0;
+	dsp_status status1 = 0;
 	struct cfg_hostres *resources = dev_context->resources;
 	u32 value;
 
@@ -448,17 +448,17 @@ dsp_status pre_scale_dsp(struct wmd_dev_context *dev_context, IN void *pargs)
 	    (dev_context->dw_brd_state == BRD_DSP_HIBERNATION)) {
 		dev_dbg(bridge, "OPP: %s IVA in sleep. No message to DSP\n",
 			__func__);
-		return DSP_SOK;
+		return 0;
 	} else if ((dev_context->dw_brd_state == BRD_RUNNING)) {
 		/* Send a prenotificatio to DSP */
 		dev_dbg(bridge, "OPP: %s sent notification to DSP\n", __func__);
 		sm_interrupt_dsp(dev_context, MBX_PM_SETPOINT_PRENOTIFY);
-		return DSP_SOK;
+		return 0;
 	} else {
 		return -EPERM;
 	}
 #endif /* #ifdef CONFIG_BRIDGE_DVFS */
-	return DSP_SOK;
+	return 0;
 }
 
 /*
@@ -468,7 +468,7 @@ dsp_status pre_scale_dsp(struct wmd_dev_context *dev_context, IN void *pargs)
  */
 dsp_status post_scale_dsp(struct wmd_dev_context *dev_context, IN void *pargs)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 #ifdef CONFIG_BRIDGE_DVFS
 	u32 level;
 	u32 voltage_domain;
@@ -511,7 +511,7 @@ dsp_status dsp_peripheral_clocks_disable(struct wmd_dev_context *dev_context,
 					 IN void *pargs)
 {
 	u32 clk_idx;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct cfg_hostres *resources = dev_context->resources;
 	u32 value;
 
@@ -587,15 +587,15 @@ dsp_status dsp_peripheral_clocks_enable(struct wmd_dev_context *dev_context,
 			    services_clk_enable(bpwr_clks[clk_idx].fun_clk);
 		}
 	}
-	if ((int_clk_status | fun_clk_status) != DSP_SOK)
+	if ((int_clk_status | fun_clk_status) != 0)
 		return -EPERM;
-	return DSP_SOK;
+	return 0;
 }
 
 void dsp_clk_wakeup_event_ctrl(u32 ClkId, bool enable)
 {
 	struct cfg_hostres *resources;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	u32 iva2_grpsel;
 	u32 mpu_grpsel;
 	struct dev_object *hdev_object = NULL;

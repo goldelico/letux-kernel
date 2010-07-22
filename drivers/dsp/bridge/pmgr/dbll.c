@@ -243,7 +243,7 @@ dsp_status dbll_create(struct dbll_tar_obj **target_obj,
 		       struct dbll_attrs *pattrs)
 {
 	struct dbll_tar_obj *pzl_target;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(pattrs != NULL);
@@ -385,7 +385,7 @@ dsp_status dbll_get_sect(struct dbll_library_obj *lib, char *name, u32 *paddr,
 	bool opened_doff = false;
 	const struct ldr_section_info *sect = NULL;
 	struct dbll_library_obj *zl_lib = (struct dbll_library_obj *)lib;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(name != NULL);
@@ -459,7 +459,7 @@ dsp_status dbll_load(struct dbll_library_obj *lib, dbll_flags flags,
 	struct dbll_tar_obj *dbzl;
 	bool got_symbols = true;
 	s32 err;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	bool opened_doff = false;
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(zl_lib);
@@ -592,7 +592,7 @@ dsp_status dbll_open(struct dbll_tar_obj *target, char *file, dbll_flags flags,
 	struct dbll_tar_obj *zl_target = (struct dbll_tar_obj *)target;
 	struct dbll_library_obj *zl_lib = NULL;
 	s32 err;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(zl_target);
@@ -737,7 +737,7 @@ dsp_status dbll_read_sect(struct dbll_library_obj *lib, char *name,
 	u32 byte_size;		/* size of bytes */
 	u32 ul_sect_size;	/* size of section */
 	const struct ldr_section_info *sect = NULL;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(zl_lib);
@@ -887,7 +887,7 @@ static void dof_close(struct dbll_library_obj *zl_lib)
 static dsp_status dof_open(struct dbll_library_obj *zl_lib)
 {
 	void *open = *(zl_lib->target_obj->attrs.fopen);
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	/* First open the file for the dynamic loader, then open COF */
 	zl_lib->fp =
@@ -1226,7 +1226,7 @@ static int dbll_rmm_alloc(struct dynamic_loader_allocate *this,
 {
 	struct dbll_alloc *dbll_alloc_obj = (struct dbll_alloc *)this;
 	struct dbll_library_obj *lib;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	u32 mem_sect_type;
 	struct rmm_addr rmm_addr_obj;
 	s32 ret = TRUE;
@@ -1346,7 +1346,7 @@ static void rmm_dealloc(struct dynamic_loader_allocate *this,
 	struct dbll_alloc *dbll_alloc_obj = (struct dbll_alloc *)this;
 	struct dbll_library_obj *lib;
 	u32 segid;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	unsigned stype = DLOAD_SECTION_TYPE(info->type);
 	u32 mem_sect_type;
 	u32 free_size = 0;

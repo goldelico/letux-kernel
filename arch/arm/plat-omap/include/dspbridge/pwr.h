@@ -38,8 +38,8 @@
  *                          specified as zero.
  *
  *  Returns:
- *      DSP_SOK:            Success.
- *      DSP_SALREADYASLEEP: Success, but the DSP was already asleep.
+ *      0:            Success.
+ *      0: Success, but the DSP was already asleep.
  *      -EINVAL:    The specified sleepCode is not supported.
  *      -ETIME:       A timeout occured while waiting for DSP sleep
  *                          confirmation.
@@ -60,8 +60,8 @@ extern dsp_status pwr_sleep_dsp(IN CONST u32 sleepCode, IN CONST u32 timeout);
  *                          be specified as zero.
  *
  *  Returns:
- *      DSP_SOK:            Success.
- *      DSP_SALREADYAWAKE:  Success, but the DSP was already awake.
+ *      0:            Success.
+ *      0:  Success, but the DSP was already awake.
  *      -ETIME:       A timeout occured while waiting for wake
  *                          confirmation.
  *      -EPERM:          General failure, unable to send wake command to
@@ -78,8 +78,8 @@ extern dsp_status pwr_wake_dsp(IN CONST u32 timeout);
  *    level:			The level of voltage domain
  *
  *  Returns:
- *      DSP_SOK:            Success.
- *      DSP_SALREADYAWAKE:  Success, but the DSP was already awake.
+ *      0:            Success.
+ *      0:  Success, but the DSP was already awake.
  *      -ETIME:       A timeout occured while waiting for wake
  *                          confirmation.
  *      -EPERM:          General failure, unable to send wake command to
@@ -96,8 +96,8 @@ extern dsp_status pwr_pm_pre_scale(IN u16 voltage_domain, u32 level);
  *    level:			The level of voltage domain
  *
  *  Returns:
- *      DSP_SOK:            Success.
- *      DSP_SALREADYAWAKE:  Success, but the DSP was already awake.
+ *      0:            Success.
+ *      0:  Success, but the DSP was already awake.
  *      -ETIME:       A timeout occured while waiting for wake
  *                          confirmation.
  *      -EPERM:          General failure, unable to send wake command to

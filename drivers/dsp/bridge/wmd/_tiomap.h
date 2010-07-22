@@ -377,7 +377,7 @@ extern dsp_status wmd_tlb_dsp_va_to_mpu_pa(struct wmd_dev_context *dev_context,
  *      hDevContext:    Handle to mini-driver defined device info.
  *      mb_val:         Value associated with interrupt(e.g. mailbox value).
  *  Returns:
- *      DSP_SOK:        Interrupt sent;
+ *      0:        Interrupt sent;
  *      else:           Unable to send interrupt.
  *  Requires:
  *  Ensures:

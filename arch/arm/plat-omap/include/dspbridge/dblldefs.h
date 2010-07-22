@@ -195,7 +195,7 @@ typedef void (*dbll_close_fxn) (struct dbll_library_obj *library);
  *      target_obj         - Location to store target handle on output.
  *      pattrs          - Attributes.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -ENOMEM:    Memory allocation failed.
  *  Requires:
  *      DBL initialized.
@@ -298,7 +298,7 @@ typedef bool(*dbll_get_c_addr_fxn) (struct dbll_library_obj *lib, char *name,
  *      paddr           - Location to store section address on output.
  *      psize           - Location to store section size on output.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      DSP_ENOSECT:    Section not found.
  *  Requires:
  *      DBL initialized.
@@ -336,7 +336,7 @@ typedef bool(*dbll_init_fxn) (void);
  *      attrs           - May contain alloc, free, and write function.
  *      pulEntry        - Location to store program entry on output.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -EBADF:     File read failed.
  *      DSP_EFWRITE:    Write to target failed.
  *      DSP_EDYNLOAD:   Failure in dynamic loader library.
@@ -358,7 +358,7 @@ typedef dsp_status(*dbll_load_fxn) (struct dbll_library_obj *lib,
  *      sectName        - Name of section to load.
  *      attrs           - Contains write function and handle to pass to it.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      DSP_ENOSECT:    Section not found.
  *      DSP_EFWRITE:    Write function failed.
  *      -ENOSYS:   Function not implemented.
@@ -383,7 +383,7 @@ typedef dsp_status(*dbll_load_sect_fxn) (struct dbll_library_obj *lib,
  *      flags           - If flags & DBLL_SYMB, load symbols.
  *      pLib            - Location to store library handle on output.
  *  Returns:
- *      DSP_SOK:            Success.
+ *      0:            Success.
  *      -ENOMEM:        Memory allocation failure.
  *      -EBADF:         File open failure.
  *      -EBADF:         File read failure.
@@ -411,7 +411,7 @@ typedef dsp_status(*dbll_open_fxn) (struct dbll_tar_obj *target, char *file,
  *      pbuf            - Buffer to write section contents into.
  *      size            - Buffer size
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      DSP_ENOSECT:    Named section does not exists.
  *  Requires:
  *      DBL initialized.
@@ -464,7 +464,7 @@ typedef void (*dbll_unload_fxn) (struct dbll_library_obj *library,
  *      sectName        - Name of section to load.
  *      attrs           - Contains free() function and handle to pass to it.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      DSP_ENOSECT:    Named section not found.
  *      -ENOSYS
  *  Requires:

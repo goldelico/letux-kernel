@@ -49,7 +49,7 @@ void sync_set_event(struct sync_object *event)
  * @pu_index	index of the event set.
  *
  * This functios will wait until any of the array element is set or until
- * timeout. In case of success the function will return DSP_SOK and
+ * timeout. In case of success the function will return 0 and
  * @pu_index will store the index of the array element set or in case
  * of timeout the function will return -ETIME or in case of
  * interrupting by a signal it will return -EPERM.
@@ -74,7 +74,7 @@ dsp_status sync_wait_on_multiple_events(struct sync_object **events,
 			INIT_COMPLETION(events[i]->comp);
 			*index = i;
 			spin_unlock_bh(&sync_lock);
-			status = DSP_SOK;
+			status = 0;
 			goto func_end;
 		}
 	}
@@ -93,7 +93,7 @@ dsp_status sync_wait_on_multiple_events(struct sync_object **events,
 		if (completion_done(&events[i]->comp)) {
 			INIT_COMPLETION(events[i]->comp);
 			*index = i;
-			status = DSP_SOK;
+			status = 0;
 		}
 		events[i]->multi_comp = NULL;
 	}

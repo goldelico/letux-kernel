@@ -175,7 +175,7 @@ dsp_status bridge_io_create(OUT struct io_mgr **phIOMgr,
 			    struct dev_object *hdev_obj,
 			    IN CONST struct io_attrs *pMgrAttrs)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct io_mgr *pio_mgr = NULL;
 	struct shm *shared_mem = NULL;
 	struct wmd_dev_context *hwmd_context = NULL;
@@ -286,7 +286,7 @@ func_end:
  */
 dsp_status bridge_io_destroy(struct io_mgr *hio_mgr)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	if (hio_mgr) {
 #ifdef CONFIG_BRIDGE_WDT3
@@ -336,7 +336,7 @@ dsp_status bridge_io_on_loaded(struct io_mgr *hio_mgr)
 	u32 ul_seg_size = 0;
 	u32 ul_pad_size = 0;
 	u32 i;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	u8 num_procs = 0;
 	s32 ndx = 0;
 	/* DSP MMU setup table */
@@ -1610,7 +1610,7 @@ static dsp_status register_shm_segs(struct io_mgr *hio_mgr,
 				    struct cod_manager *cod_man,
 				    u32 dw_gpp_base_pa)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	u32 ul_shm0_base = 0;
 	u32 shm0_end = 0;
 	u32 ul_shm0_rsrvd_start = 0;
@@ -1817,7 +1817,7 @@ dsp_status io_sh_msetting(struct io_mgr *hio_mgr, u8 desc, void *pargs)
 		break;
 	}
 #endif
-	return DSP_SOK;
+	return 0;
 }
 
 /*
@@ -1839,7 +1839,7 @@ dsp_status bridge_io_get_proc_load(IN struct io_mgr *hio_mgr,
 		"Pred Freq = %d\n", pProcStat->curr_load,
 		pProcStat->predicted_load, pProcStat->curr_dsp_freq,
 		pProcStat->predicted_freq);
-	return DSP_SOK;
+	return 0;
 }
 
 #ifndef DSP_TRACEBUF_DISABLED
@@ -1910,14 +1910,14 @@ void print_dsp_debug_trace(struct io_mgr *hio_mgr)
  *    hdeh_mgr:          Handle to DEH manager object
  *                      number of extra carriage returns to generate.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -ENOMEM:    Unable to allocate memory.
  *  Requires:
  *      hdeh_mgr muse be valid. Checked in bridge_deh_notify.
  */
 dsp_status print_dsp_trace_buffer(struct wmd_dev_context *hwmd_context)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct cod_manager *cod_mgr;
 	u32 ul_trace_end;
 	u32 ul_trace_begin;
@@ -2089,7 +2089,7 @@ void io_sm_init(void)
  */
 dsp_status dump_dsp_stack(struct wmd_dev_context *wmd_context)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct cod_manager *code_mgr;
 	struct node_mgr *node_mgr;
 	u32 trace_begin;
@@ -2206,7 +2206,7 @@ dsp_status dump_dsp_stack(struct wmd_dev_context *wmd_context)
 			i = buffer[80];         /* NRP */
 
 		if ((*buffer > 0x01000000) && (node_find_addr(node_mgr, i,
-			0x1000, &offset_output, name) == DSP_SOK))
+			0x1000, &offset_output, name) == 0))
 			pr_err("0x%-8x [\"%s\" + 0x%x]\n", i, name,
 							i - offset_output);
 		else
@@ -2231,7 +2231,7 @@ dsp_status dump_dsp_stack(struct wmd_dev_context *wmd_context)
 		pr_err("B2 0x%x\n", *buffer++);
 
 		if ((*buffer > 0x01000000) && (node_find_addr(node_mgr, *buffer,
-			0x1000, &offset_output, name) == DSP_SOK))
+			0x1000, &offset_output, name) == 0))
 
 			pr_err("B3 0x%-8x [Function Return Pointer:"
 				" \"%s\" + 0x%x]\n", *buffer, name,
@@ -2259,7 +2259,7 @@ dsp_status dump_dsp_stack(struct wmd_dev_context *wmd_context)
 		for (i = 0; buffer < buffer_end; i++, buffer++) {
 			if ((*buffer > 0x01000000) && (node_find_addr(node_mgr,
 				*buffer , 0x600, &offset_output, name) ==
-				DSP_SOK))
+				0))
 				pr_err("[%d] 0x%-8x [\"%s\" + 0x%x]\n",
 					i, *buffer, name,
 					*buffer - offset_output);
@@ -2290,7 +2290,7 @@ void dump_dl_modules(struct wmd_dev_context *wmd_context)
 	u32 module_struct_size = 0;
 	u32 sect_ndx;
 	char *sect_str ;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	status = dev_get_intf_fxns(dev_object, &intf_fxns);
 	if (DSP_FAILED(status)) {

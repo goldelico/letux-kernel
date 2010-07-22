@@ -306,7 +306,7 @@ dsp_status node_allocate(struct proc_object *hprocessor,
 	struct node_taskargs *ptask_args;
 	u32 num_streams;
 	struct bridge_drv_interface *intf_fxns;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct cmm_object *hcmm_mgr = NULL;	/* Shared memory manager hndl */
 	u32 proc_id;
 	u32 pul_value;
@@ -693,7 +693,7 @@ DBAPI node_alloc_msg_buf(struct node_object *hnode, u32 usize,
 			 OUT u8 **pbuffer)
 {
 	struct node_object *pnode = (struct node_object *)hnode;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	bool va_flag = false;
 	bool set_info;
 	u32 proc_id;
@@ -781,7 +781,7 @@ dsp_status node_change_priority(struct node_object *hnode, s32 prio)
 	struct node_mgr *hnode_mgr = NULL;
 	enum node_type node_type;
 	enum node_state state;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	u32 proc_id;
 
 	DBC_REQUIRE(refs > 0);
@@ -854,7 +854,7 @@ dsp_status node_connect(struct node_object *hNode1, u32 uStream1,
 	gb_bit_num chnl_id = GB_NOBITS;
 	s8 chnl_mode;
 	u32 dw_length;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	DBC_REQUIRE(refs > 0);
 
 	if ((hNode1 != (struct node_object *)DSP_HGPPNODE && !hNode1) ||
@@ -1152,8 +1152,8 @@ dsp_status node_create(struct node_object *hnode)
 	struct bridge_drv_interface *intf_fxns;
 	u32 ul_create_fxn;
 	enum node_type node_type;
-	dsp_status status = DSP_SOK;
-	dsp_status status1 = DSP_SOK;
+	dsp_status status = 0;
+	dsp_status status1 = 0;
 	struct dsp_cbdata cb_data;
 	u32 proc_id = 255;
 	struct dsp_processorstate proc_state;
@@ -1312,7 +1312,7 @@ dsp_status node_create_mgr(OUT struct node_mgr **phNodeMgr,
 	struct disp_attr disp_attr_obj;
 	char *sz_zl_file = "";
 	struct nldr_attrs nldr_attrs_obj;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	u8 dev_type;
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(phNodeMgr != NULL);
@@ -1448,8 +1448,8 @@ dsp_status node_delete(struct node_res_object *hnoderes,
 	u32 ul_delete_fxn;
 	enum node_type node_type;
 	enum node_state state;
-	dsp_status status = DSP_SOK;
-	dsp_status status1 = DSP_SOK;
+	dsp_status status = 0;
+	dsp_status status1 = 0;
 	struct dsp_cbdata cb_data;
 	u32 proc_id;
 	struct bridge_drv_interface *intf_fxns;
@@ -1602,7 +1602,7 @@ func_end:
  */
 dsp_status node_delete_mgr(struct node_mgr *hnode_mgr)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	DBC_REQUIRE(refs > 0);
 
@@ -1625,7 +1625,7 @@ dsp_status node_enum_nodes(struct node_mgr *hnode_mgr, void **node_tab,
 {
 	struct node_object *hnode;
 	u32 i;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(node_tab != NULL || node_tab_size == 0);
 	DBC_REQUIRE(pu_num_nodes != NULL);
@@ -1684,7 +1684,7 @@ dsp_status node_free_msg_buf(struct node_object *hnode, IN u8 * pbuffer,
 			     OPTIONAL struct dsp_bufferattr *pattr)
 {
 	struct node_object *pnode = (struct node_object *)hnode;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	u32 proc_id;
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(pbuffer != NULL);
@@ -1726,7 +1726,7 @@ dsp_status node_get_attr(struct node_object *hnode,
 			 OUT struct dsp_nodeattr *pattr, u32 attr_size)
 {
 	struct node_mgr *hnode_mgr;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(pattr != NULL);
 	DBC_REQUIRE(attr_size >= sizeof(struct dsp_nodeattr));
@@ -1788,7 +1788,7 @@ dsp_status node_get_channel_id(struct node_object *hnode, u32 dir, u32 index,
 		if (index < MAX_INPUTS(hnode)) {
 			if (hnode->inputs[index].type == HOSTCONNECT) {
 				*pulId = hnode->inputs[index].dev_id;
-				status = DSP_SOK;
+				status = 0;
 			}
 		}
 	} else {
@@ -1796,7 +1796,7 @@ dsp_status node_get_channel_id(struct node_object *hnode, u32 dir, u32 index,
 		if (index < MAX_OUTPUTS(hnode)) {
 			if (hnode->outputs[index].type == HOSTCONNECT) {
 				*pulId = hnode->outputs[index].dev_id;
-				status = DSP_SOK;
+				status = 0;
 			}
 		}
 	}
@@ -1814,7 +1814,7 @@ dsp_status node_get_message(struct node_object *hnode,
 	struct node_mgr *hnode_mgr;
 	enum node_type node_type;
 	struct bridge_drv_interface *intf_fxns;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	void *tmp_buf;
 	struct dsp_processorstate proc_state;
 	struct proc_object *hprocessor;
@@ -1887,7 +1887,7 @@ func_end:
 dsp_status node_get_nldr_obj(struct node_mgr *hnode_mgr,
 			     struct nldr_object **phNldrObj)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct node_mgr *node_mgr_obj = hnode_mgr;
 	DBC_REQUIRE(phNldrObj != NULL);
 
@@ -1909,7 +1909,7 @@ dsp_status node_get_nldr_obj(struct node_mgr *hnode_mgr,
 dsp_status node_get_strm_mgr(struct node_object *hnode,
 			     struct strm_mgr **phStrmMgr)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	DBC_REQUIRE(refs > 0);
 
@@ -2024,7 +2024,7 @@ dsp_status node_pause(struct node_object *hnode)
 	enum node_type node_type;
 	enum node_state state;
 	struct node_mgr *hnode_mgr;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	u32 proc_id;
 	struct dsp_processorstate proc_state;
 	struct proc_object *hprocessor;
@@ -2107,7 +2107,7 @@ dsp_status node_put_message(struct node_object *hnode,
 	enum node_type node_type;
 	struct bridge_drv_interface *intf_fxns;
 	enum node_state state;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	void *tmp_buf;
 	struct dsp_msg new_msg;
 	struct dsp_processorstate proc_state;
@@ -2203,7 +2203,7 @@ dsp_status node_register_notify(struct node_object *hnode, u32 event_mask,
 				struct dsp_notification *hnotification)
 {
 	struct bridge_drv_interface *intf_fxns;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(hnotification != NULL);
@@ -2260,7 +2260,7 @@ dsp_status node_run(struct node_object *hnode)
 	enum node_state state;
 	u32 ul_execute_fxn;
 	u32 ul_fxn_addr;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	u32 proc_id;
 	struct bridge_drv_interface *intf_fxns;
 	struct dsp_processorstate proc_state;
@@ -2380,7 +2380,7 @@ dsp_status node_terminate(struct node_object *hnode, OUT dsp_status *pstatus)
 	struct bridge_drv_interface *intf_fxns;
 	enum node_state state;
 	struct dsp_msg msg, killmsg;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	u32 proc_id, kill_time_out;
 	struct deh_mgr *hdeh_mgr;
 	struct dsp_processorstate proc_state;
@@ -2484,12 +2484,12 @@ dsp_status node_terminate(struct node_object *hnode, OUT dsp_status *pstatus)
 								    -EPERM;
 							}
 						} else
-							status = DSP_SOK;
+							status = 0;
 					}
 				} else
 					status = -EPERM;
 			} else	/* Convert SYNC status to DSP status */
-				status = DSP_SOK;
+				status = 0;
 		}
 	}
 func_cont:
@@ -2837,7 +2837,7 @@ static dsp_status get_fxn_address(struct node_object *hnode, u32 * pulFxnAddr,
 {
 	char *pstr_fxn_name = NULL;
 	struct node_mgr *hnode_mgr = hnode->hnode_mgr;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	DBC_REQUIRE(node_get_type(hnode) == NODE_TASK ||
 		    node_get_type(hnode) == NODE_DAISSOCKET ||
 		    node_get_type(hnode) == NODE_MESSAGE);
@@ -2912,7 +2912,7 @@ static dsp_status get_node_props(struct dcd_manager *hdcd_mgr,
 	enum node_type node_type = NODE_TASK;
 	struct dsp_ndbprops *pndb_props =
 	    &(pdcdProps->obj_data.node_obj.ndb_props);
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	char sz_uuid[MAXUUIDLEN];
 
 	status = dcd_get_object_def(hdcd_mgr, (struct dsp_uuid *)pNodeId,
@@ -2982,7 +2982,7 @@ static dsp_status get_proc_props(struct node_mgr *hnode_mgr,
 {
 	struct cfg_hostres *host_res;
 	struct wmd_dev_context *pwmd_context;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	status = dev_get_wmd_context(hdev_obj, &pwmd_context);
 	if (!pwmd_context)
@@ -3024,7 +3024,7 @@ dsp_status node_get_uuid_props(void *hprocessor,
 {
 	struct node_mgr *hnode_mgr = NULL;
 	struct dev_object *hdev_obj;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct dcd_nodeprops dcd_node_props;
 	struct dsp_processorstate proc_state;
 
@@ -3098,7 +3098,7 @@ static dsp_status get_rms_fxns(struct node_mgr *hnode_mgr)
 {
 	s32 i;
 	struct dev_object *dev_obj = hnode_mgr->hdev_obj;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	static char *psz_fxns[NUMRMSFXNS] = {
 		"RMS_queryServer",	/* RMSQUERYSERVER */
@@ -3148,7 +3148,7 @@ static u32 ovly(void *priv_ref, u32 ulDspRunAddr, u32 ulDspLoadAddr,
 	u32 ul_bytes = 0;
 	u32 ul_size;
 	u32 ul_timeout;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct wmd_dev_context *hwmd_context;
 	struct bridge_drv_interface *intf_fxns;	/* Function interface to WMD */
 
@@ -3190,7 +3190,7 @@ static u32 mem_write(void *priv_ref, u32 ulDspAddr, void *pbuf,
 	struct node_mgr *hnode_mgr;
 	u16 mem_sect_type;
 	u32 ul_timeout;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct wmd_dev_context *hwmd_context;
 	struct bridge_drv_interface *intf_fxns;	/* Function interface to WMD */
 

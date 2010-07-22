@@ -248,7 +248,7 @@ dsp_status cmm_create(OUT struct cmm_object **ph_cmm_mgr,
 		      IN CONST struct cmm_mgrattrs *pMgrAttrs)
 {
 	struct cmm_object *cmm_obj = NULL;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct util_sysinfo sys_info;
 
 	DBC_REQUIRE(refs > 0);
@@ -311,7 +311,7 @@ dsp_status cmm_destroy(struct cmm_object *hcmm_mgr, bool bForce)
 {
 	struct cmm_object *cmm_mgr_obj = (struct cmm_object *)hcmm_mgr;
 	struct cmm_info temp_info;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	s32 slot_seg;
 	struct cmm_mnode *pnode;
 
@@ -413,7 +413,7 @@ dsp_status cmm_free_buf(struct cmm_object *hcmm_mgr, void *buf_pa,
 						(struct list_head *)mnode_obj);
 				/* back to freelist */
 				add_to_free_list(allocator, mnode_obj);
-				status = DSP_SOK;	/* all right! */
+				status = 0;	/* all right! */
 				break;
 			}
 			/* next node. */
@@ -434,7 +434,7 @@ dsp_status cmm_free_buf(struct cmm_object *hcmm_mgr, void *buf_pa,
  */
 dsp_status cmm_get_handle(void *hprocessor, OUT struct cmm_object ** ph_cmm_mgr)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct dev_object *hdev_obj;
 
 	DBC_REQUIRE(refs > 0);
@@ -460,7 +460,7 @@ dsp_status cmm_get_info(struct cmm_object *hcmm_mgr,
 {
 	struct cmm_object *cmm_mgr_obj = (struct cmm_object *)hcmm_mgr;
 	u32 ul_seg;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct cmm_allocator *altr;
 	struct cmm_mnode *mnode_obj = NULL;
 
@@ -547,7 +547,7 @@ dsp_status cmm_register_gppsm_seg(struct cmm_object *hcmm_mgr,
 {
 	struct cmm_object *cmm_mgr_obj = (struct cmm_object *)hcmm_mgr;
 	struct cmm_allocator *psma = NULL;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct cmm_mnode *new_node;
 	s32 slot_seg;
 
@@ -658,7 +658,7 @@ dsp_status cmm_un_register_gppsm_seg(struct cmm_object *hcmm_mgr,
 				     u32 ul_seg_id)
 {
 	struct cmm_object *cmm_mgr_obj = (struct cmm_object *)hcmm_mgr;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct cmm_allocator *psma;
 	u32 ul_id = ul_seg_id;
 
@@ -962,7 +962,7 @@ dsp_status cmm_xlator_create(OUT struct cmm_xlatorobject **phXlator,
 			     struct cmm_xlatorattrs *pXlatorAttrs)
 {
 	struct cmm_xlator *xlator_object = NULL;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(phXlator != NULL);
@@ -995,7 +995,7 @@ dsp_status cmm_xlator_create(OUT struct cmm_xlatorobject **phXlator,
 dsp_status cmm_xlator_delete(struct cmm_xlatorobject *xlator, bool bForce)
 {
 	struct cmm_xlator *xlator_obj = (struct cmm_xlator *)xlator;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	DBC_REQUIRE(refs > 0);
 
@@ -1083,7 +1083,7 @@ dsp_status cmm_xlator_info(struct cmm_xlatorobject *xlator, IN OUT u8 ** paddr,
 			   u32 ul_size, u32 uSegId, bool set_info)
 {
 	struct cmm_xlator *xlator_obj = (struct cmm_xlator *)xlator;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(paddr != NULL);

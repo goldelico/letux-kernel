@@ -57,14 +57,14 @@ struct wmd_dev_context;
  *  Parameters:
  *      hDevContext:    Handle to mini-driver defined device context.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      WMD_E_HARDWARE: A test of hardware assumptions/integrity failed.
  *      -ETIMEDOUT:  Timeout occured waiting for a response from hardware.
  *      -EPERM:      Other, unspecified error.
  *  Requires:
  *      hDevContext != NULL
  *  Ensures:
- *      DSP_SOK:        Board is in BRD_IDLE state;
+ *      0:        Board is in BRD_IDLE state;
  *      else:           Board state is indeterminate.
  */
 typedef dsp_status(*fxn_brd_monitor) (struct wmd_dev_context *hDevContext);
@@ -77,7 +77,7 @@ typedef dsp_status(*fxn_brd_monitor) (struct wmd_dev_context *hDevContext);
  *      hDevContext:    Handle to mini-driver defined device info.
  *      ulBrdState:     Board state
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -EPERM:      Other, unspecified error.
  *  Requires:
  *      hDevContext != NULL;
@@ -97,14 +97,14 @@ typedef dsp_status(*fxn_brd_setstate) (struct wmd_dev_context
  *      hDevContext:    Handle to mini-driver defined device context.
  *      dwDSPAddr:      DSP address at which to start execution.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -ETIMEDOUT:  Timeout occured waiting for a response from hardware.
  *      -EPERM:      Other, unspecified error.
  *  Requires:
  *      hDevContext != NULL
  *      Board is in monitor (BRD_IDLE) state.
  *  Ensures:
- *      DSP_SOK:        Board is in BRD_RUNNING state.
+ *      0:        Board is in BRD_RUNNING state.
  *                      Interrupts to the PC are enabled.
  *      else:           Board state is indeterminate.
  */
@@ -122,12 +122,12 @@ typedef dsp_status(*fxn_brd_start) (struct wmd_dev_context
  *  ul_num_bytes: Number of bytes to copy
  *  ulMemType:  What section of memory to copy to
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -EPERM:      Other, unspecified error.
  *  Requires:
  *      dev_context != NULL
  *  Ensures:
- *      DSP_SOK:        Board is in BRD_RUNNING state.
+ *      0:        Board is in BRD_RUNNING state.
  *                      Interrupts to the PC are enabled.
  *      else:           Board state is indeterminate.
  */
@@ -148,7 +148,7 @@ typedef dsp_status(*fxn_brd_memcopy) (struct wmd_dev_context
  *      ul_num_bytes:     Number of bytes to transfer.
  *      ulMemType:      Memory space on DSP to which to transfer.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -ETIMEDOUT:  Timeout occured waiting for a response from hardware.
  *      -EPERM:      Other, unspecified error.
  *  Requires:
@@ -173,7 +173,7 @@ typedef dsp_status(*fxn_brd_memwrite) (struct wmd_dev_context
  *      ul_num_bytes:     Number of bytes to map.
  *      map_attrs:       Mapping attributes (e.g. endianness).
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -EPERM:      Other, unspecified error.
  *  Requires:
  *      hDevContext != NULL;
@@ -193,7 +193,7 @@ typedef dsp_status(*fxn_brd_memmap) (struct wmd_dev_context
  *      ulVirtAddr:     DSP/IVA memory region u8 address.
  *      ul_num_bytes:     Number of bytes to unmap.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -EPERM:      Other, unspecified error.
  *  Requires:
  *      hDevContext != NULL;
@@ -210,13 +210,13 @@ typedef dsp_status(*fxn_brd_memunmap) (struct wmd_dev_context
  *  Parameters:
  *      hDevContext:    Handle to mini-driver defined device context.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -ETIMEDOUT:  Timeout occured waiting for a response from hardware.
  *      -EPERM:      Other, unspecified error.
  *  Requires:
  *      hDevContext != NULL
  *  Ensures:
- *      DSP_SOK:        Board is in BRD_STOPPED (stop) state;
+ *      0:        Board is in BRD_STOPPED (stop) state;
  *                      Interrupts to the PC are disabled.
  *      else:           Board state is indeterminate.
  */
@@ -230,7 +230,7 @@ typedef dsp_status(*fxn_brd_stop) (struct wmd_dev_context *hDevContext);
  *      hDevContext:    Handle to mini-driver defined device context.
  *      pdwState:       Ptr to BRD status variable.
  *  Returns:
- *      DSP_SOK:
+ *      0:
  *  Requires:
  *      pdwState != NULL;
  *      hDevContext != NULL
@@ -252,7 +252,7 @@ typedef dsp_status(*fxn_brd_status) (struct wmd_dev_context *hDevContext,
  *      ul_num_bytes:     Number of bytes to transfer.
  *      ulMemType:      Memory space on DSP from which to transfer.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -ETIMEDOUT:  Timeout occured waiting for a response from hardware.
  *      -EPERM:      Other, unspecified error.
  *  Requires:
@@ -278,7 +278,7 @@ typedef dsp_status(*fxn_brd_read) (struct wmd_dev_context *hDevContext,
  *      ul_num_bytes:     Number of bytes to transfer.
  *      ulMemType:      Memory space on DSP to which to transfer.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -ETIMEDOUT:  Timeout occured waiting for a response from hardware.
  *      -EPERM:      Other, unspecified error.
  *  Requires:
@@ -307,7 +307,7 @@ typedef dsp_status(*fxn_brd_write) (struct wmd_dev_context *hDevContext,
  *      pMgrAttrs->shm_base:  Base physical address of shared memory, if any.
  *      pMgrAttrs->usm_length: Bytes of shared memory block.
  *  Returns:
- *      DSP_SOK:            Success;
+ *      0:            Success;
  *      -ENOMEM:        Insufficient memory for requested resources.
  *      CHNL_E_ISR:         Unable to plug ISR for given IRQ.
  *      CHNL_E_NOMEMMAP:    Couldn't map physical address to a virtual one.
@@ -336,11 +336,11 @@ typedef dsp_status(*fxn_chnl_create) (OUT struct chnl_mgr
  *  Parameters:
  *      hchnl_mgr:       Channel manager object.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -EFAULT:    hchnl_mgr was invalid.
  *  Requires:
  *  Ensures:
- *      DSP_SOK: Cancels I/O on each open channel. Closes each open channel.
+ *      0: Cancels I/O on each open channel. Closes each open channel.
  *          chnl_create may subsequently be called for the same device.
  */
 typedef dsp_status(*fxn_chnl_destroy) (struct chnl_mgr *hchnl_mgr);
@@ -388,7 +388,7 @@ typedef void (*fxn_deh_notify) (struct deh_mgr *hdeh_mgr,
  *      pattrs->hReserved: The kernel mode handle of this event object.
  *
  *  Returns:
- *      DSP_SOK:                Success.
+ *      0:                Success.
  *      -EFAULT:            hchnl_mgr is invalid.
  *      -ENOMEM:            Insufficient memory for requested resources.
  *      -EINVAL:        Invalid number of IOReqs.
@@ -403,7 +403,7 @@ typedef void (*fxn_deh_notify) (struct deh_mgr *hdeh_mgr,
  *      pattrs->event_obj is a valid event handle.
  *      pattrs->hReserved is the kernel mode handle for pattrs->event_obj.
  *  Ensures:
- *      DSP_SOK:                *phChnl is a valid channel.
+ *      0:                *phChnl is a valid channel.
  *      else:                   *phChnl is set to NULL if (phChnl != NULL);
  */
 typedef dsp_status(*fxn_chnl_open) (OUT struct chnl_object
@@ -424,12 +424,12 @@ typedef dsp_status(*fxn_chnl_open) (OUT struct chnl_object
  *  Parameters:
  *      chnl_obj:          Handle to a channel object.
  *  Returns:
- *      DSP_SOK:        Success;
+ *      0:        Success;
  *      -EFAULT:    Invalid chnl_obj.
  *  Requires:
  *      No thread must be blocked on this channel's I/O completion event.
  *  Ensures:
- *      DSP_SOK:        chnl_obj is no longer valid.
+ *      0:        chnl_obj is no longer valid.
  */
 typedef dsp_status(*fxn_chnl_close) (struct chnl_object *chnl_obj);
 
@@ -449,7 +449,7 @@ typedef dsp_status(*fxn_chnl_close) (struct chnl_object *chnl_obj);
  *      dw_dsp_addr:      DSP address for transfer.  (Currently ignored).
  *      dw_arg:          A user argument that travels with the buffer.
  *  Returns:
- *      DSP_SOK:        Success;
+ *      0:        Success;
  *      -EFAULT:    Invalid chnl_obj.
  *      -EFAULT:   pHostBuf is invalid.
  *      CHNL_E_NOEOS:   User cannot mark EOS on an input channel.
@@ -461,7 +461,7 @@ typedef dsp_status(*fxn_chnl_close) (struct chnl_object *chnl_obj);
  *                      the size of the physical shared memory output window.
  *  Requires:
  *  Ensures:
- *      DSP_SOK: The buffer will be transferred if the channel is ready;
+ *      0: The buffer will be transferred if the channel is ready;
  *          otherwise, will be queued for transfer when the channel becomes
  *          ready.  In any case, notifications of I/O completion are
  *          asynchronous.
@@ -490,7 +490,7 @@ typedef dsp_status(*fxn_chnl_addioreq) (struct chnl_object
  *                      transferred, and status of I/O completion.
  *      pIOC->status:   See chnldefs.h.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -EFAULT:    Invalid chnl_obj.
  *      -EFAULT:   pIOC is invalid.
  *      CHNL_E_NOIOC:   CHNL_IOCNOWAIT was specified as the dwTimeOut parameter
@@ -498,7 +498,7 @@ typedef dsp_status(*fxn_chnl_addioreq) (struct chnl_object
  *  Requires:
  *      dwTimeOut == CHNL_IOCNOWAIT.
  *  Ensures:
- *      DSP_SOK: if there are any remaining IOC's queued before this call
+ *      0: if there are any remaining IOC's queued before this call
  *          returns, the channel event object will be left in a signalled
  *          state.
  */
@@ -518,7 +518,7 @@ typedef dsp_status(*fxn_chnl_getioc) (struct chnl_object *chnl_obj,
  *  Parameters:
  *      chnl_obj:          Channel object handle.
  *  Returns:
- *      DSP_SOK:        Success;
+ *      0:        Success;
  *      -EFAULT:    Invalid chnl_obj.
  *  Requires:
  *  Ensures:
@@ -536,12 +536,12 @@ typedef dsp_status(*fxn_chnl_cancelio) (struct chnl_object *chnl_obj);
  *      chnl_obj:              Channel object handle.
  *      dwTimeOut:          Timeout value for flush operation.
  *  Returns:
- *      DSP_SOK:            Success;
+ *      0:            Success;
  *      S_CHNLIOREQUEST:    Returned if any IORequests are in the output queue.
  *      -EFAULT:        Invalid chnl_obj.
  *  Requires:
  *  Ensures:
- *      DSP_SOK:            No I/O requests will be pending on this channel.
+ *      0:            No I/O requests will be pending on this channel.
  */
 typedef dsp_status(*fxn_chnl_flushio) (struct chnl_object *chnl_obj,
 				       u32 dwTimeOut);
@@ -554,12 +554,12 @@ typedef dsp_status(*fxn_chnl_flushio) (struct chnl_object *chnl_obj,
  *      chnl_obj:          Handle to a valid channel object, or NULL.
  *      pInfo:          Location to store channel info.
  *  Returns:
- *      DSP_SOK:        Success;
+ *      0:        Success;
  *      -EFAULT:    Invalid chnl_obj.
  *      -EFAULT:   pInfo == NULL.
  *  Requires:
  *  Ensures:
- *      DSP_SOK:        pInfo points to a filled in chnl_info struct,
+ *      0:        pInfo points to a filled in chnl_info struct,
  *                      if (pInfo != NULL).
  */
 typedef dsp_status(*fxn_chnl_getinfo) (struct chnl_object *chnl_obj,
@@ -574,13 +574,13 @@ typedef dsp_status(*fxn_chnl_getinfo) (struct chnl_object *chnl_obj,
  *      uChnlID:            Channel ID.
  *      pMgrInfo:           Location to store channel manager info.
  *  Returns:
- *      DSP_SOK:            Success;
+ *      0:            Success;
  *      -EFAULT:        Invalid hchnl_mgr.
  *      -EFAULT:       pMgrInfo == NULL.
  *      CHNL_E_BADCHANID:   Invalid channel ID.
  *  Requires:
  *  Ensures:
- *      DSP_SOK:            pMgrInfo points to a filled in chnl_mgrinfo
+ *      0:            pMgrInfo points to a filled in chnl_mgrinfo
  *                          struct, if (pMgrInfo != NULL).
  */
 typedef dsp_status(*fxn_chnl_getmgrinfo) (struct chnl_mgr
@@ -608,7 +608,7 @@ typedef dsp_status(*fxn_chnl_getmgrinfo) (struct chnl_mgr
  *                      buffered data to be output, or timeout, whichever
  *                      occurs first. fFlush is ignored for input channel.
  *  Returns:
- *      DSP_SOK:            Success;
+ *      0:            Success;
  *      -EFAULT:        Invalid chnl_obj.
  *      CHNL_E_WAITTIMEOUT: Timeout occured before channel could be idled.
  *  Requires:
@@ -629,7 +629,7 @@ typedef dsp_status(*fxn_chnl_idle) (struct chnl_object *chnl_obj,
  *      notify_type:    DSP_SIGNALEVENT.
  *      hnotification:  Handle of a dsp_notification object.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -ENOMEM:    Insufficient memory.
  *      -EINVAL:     event_mask is 0 and hnotification was not
  *                      previously registered.
@@ -658,7 +658,7 @@ typedef dsp_status(*fxn_chnl_registernotify)
  *      pDspConfig:     DSP resources, as specified in the registry key for this
  *                      device.
  *  Returns:
- *      DSP_SOK:            Success.
+ *      0:            Success.
  *      -ENOMEM:        Unable to allocate memory for device context.
  *      WMD_E_BADCONFIG:    One or more of the host or DSP configuration
  *                          parameters did not satisfy hardware assumptions
@@ -670,7 +670,7 @@ typedef dsp_status(*fxn_chnl_registernotify)
  *      pDspConfig != NULL;
  *      Fields in pConfig and pDspConfig contain valid values.
  *  Ensures:
- *      DSP_SOK:        All mini-driver specific DSP resource and other
+ *      0:        All mini-driver specific DSP resource and other
  *                      board context has been allocated.
  *      -ENOMEM:    WMD failed to allocate resources.
  *                      Any acquired resources have been freed.  The WCD will
@@ -701,7 +701,7 @@ typedef dsp_status(*fxn_dev_create) (OUT struct wmd_dev_context
  *      dw_cmd:          WMD defined command code.
  *      pargs:          Pointer to an arbitrary argument structure.
  *  Returns:
- *      DSP_SOK or -EPERM. Actual command error codes should be passed back
+ *      0 or -EPERM. Actual command error codes should be passed back
  *      in the pargs structure, and are defined by the WMD implementor.
  *  Requires:
  *      All calls are currently assumed to be synchronous.  There are no
@@ -721,12 +721,12 @@ typedef dsp_status(*fxn_dev_ctrl) (struct wmd_dev_context *hDevContext,
  *  Parameters:
  *      hDevContext:    Handle to mini-driver defined device information.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -EPERM:      Failed to release a resource previously acquired.
  *  Requires:
  *      hDevContext != NULL;
  *  Ensures:
- *      DSP_SOK: Device context is freed.
+ *      0: Device context is freed.
  */
 typedef dsp_status(*fxn_dev_destroy) (struct wmd_dev_context *hDevContext);
 
@@ -738,7 +738,7 @@ typedef dsp_status(*fxn_dev_destroy) (struct wmd_dev_context *hDevContext);
  *      phDehMgr:       Location to store DEH manager on output.
  *      hdev_obj:     Handle to DEV object.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -ENOMEM:    Memory allocation failure.
  *      -EPERM:      Creation failed.
  *  Requires:
@@ -756,7 +756,7 @@ typedef dsp_status(*fxn_deh_create) (OUT struct deh_mgr
  *  Parameters:
  *      hdeh_mgr:        Handle to DEH manager object.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -EPERM:      Destroy failed.
  *  Requires:
  *      hdeh_mgr != NULL;
@@ -771,7 +771,7 @@ typedef dsp_status(*fxn_deh_destroy) (struct deh_mgr *hdeh_mgr);
  *  Parameters:
  *      hdeh_mgr:        Handle to DEH manager object.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -EPERM:      Destroy failed.
  *  Requires:
  *      hdeh_mgr != NULL;
@@ -789,7 +789,7 @@ typedef dsp_status(*fxn_deh_registernotify)
  *      phDehMgr:       Location to store DEH manager on output.
  *      pErrInfo:       Ptr to error info structure.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -EPERM:      Creation failed.
  *  Requires:
  *      phDehMgr != NULL;
@@ -808,7 +808,7 @@ typedef dsp_status(*fxn_deh_getinfo) (struct deh_mgr *phDehMgr,
  *      hchnl_mgr:       Handle to channel manager.
  *      hmsg_mgr:        Handle to message manager.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -ENOMEM:    Memory allocation failure.
  *      -EPERM:      Creation failed.
  *  Requires:
@@ -830,7 +830,7 @@ typedef dsp_status(*fxn_io_create) (OUT struct io_mgr **phIOMgr,
  *  Parameters:
  *      hio_mgr:         IO Manager.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -ENOMEM:    Memory allocation failure.
  *      -EPERM:      Creation failed.
  *  Requires:
@@ -848,7 +848,7 @@ typedef dsp_status(*fxn_io_destroy) (struct io_mgr *hio_mgr);
  *  Parameters:
  *      hio_mgr:     IO Manager.
  *  Returns:
- *      DSP_SOK:    Success.
+ *      0:    Success.
  *      -EPERM:  Internal failure occurred.
  *  Requires:
  *      Valid hio_mgr;
@@ -864,7 +864,7 @@ typedef dsp_status(*fxn_io_onloaded) (struct io_mgr *hio_mgr);
  *      hio_mgr:     IO Manager.
  *      pProcLoadStat   Processor Load statistics
  *  Returns:
- *      DSP_SOK:    Success.
+ *      0:    Success.
  *      -EPERM:  Internal failure occurred.
  *  Requires:
  *      Valid hio_mgr;
@@ -884,7 +884,7 @@ typedef dsp_status(*fxn_io_getprocload) (struct io_mgr *hio_mgr,
  *      hdev_obj:         Handle to a device object.
  *      msgCallback:        Called whenever an RMS_EXIT message is received.
  *  Returns:
- *      DSP_SOK:            Success.
+ *      0:            Success.
  *      -ENOMEM:        Insufficient memory.
  *  Requires:
  *      phMsgMgr != NULL.
@@ -909,14 +909,14 @@ typedef dsp_status(*fxn_msg_create)
  *      max_msgs:           Max number of simultaneous messages for the node.
  *      h:                  Handle passed to hmsg_mgr->msgCallback().
  *  Returns:
- *      DSP_SOK:            Success.
+ *      0:            Success.
  *      -ENOMEM:        Insufficient memory.
  *  Requires:
  *      phMsgQueue != NULL.
  *      h != NULL.
  *      max_msgs > 0.
  *  Ensures:
- *      phMsgQueue !=NULL <==> DSP_SOK.
+ *      phMsgQueue !=NULL <==> 0.
  */
 typedef dsp_status(*fxn_msg_createqueue)
  (struct msg_mgr *hmsg_mgr,
@@ -959,7 +959,7 @@ typedef void (*fxn_msg_deletequeue) (struct msg_queue *msg_queue_obj);
  *      pmsg:          Location to copy message into.
  *      utimeout:      Timeout to wait for a message.
  *  Returns:
- *      DSP_SOK:       Success.
+ *      0:       Success.
  *      -ETIME:  Timeout occurred.
  *      -EPERM:     No frames available for message (max_msgs too
  *                     small).
@@ -981,7 +981,7 @@ typedef dsp_status(*fxn_msg_get) (struct msg_queue *msg_queue_obj,
  *      pmsg:           Pointer to message.
  *      utimeout:       Timeout to wait for a message.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -ETIME:   Timeout occurred.
  *      -EPERM:      No frames available for message (max_msgs too
  *                      small).
@@ -1005,7 +1005,7 @@ typedef dsp_status(*fxn_msg_put) (struct msg_queue *msg_queue_obj,
  *      notify_type:    DSP_SIGNALEVENT.
  *      hnotification:  Handle of notification object.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -ENOMEM:    Insufficient memory.
  *  Requires:
  *      Valid msg_queue_obj.

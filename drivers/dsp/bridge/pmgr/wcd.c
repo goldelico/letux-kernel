@@ -256,7 +256,7 @@ inline dsp_status wcd_call_dev_io_ctl(u32 cmd, union Trapped_Args *args,
 		*result = (*ioctl_cmd) (args, pr_ctxt);
 	}
 
-	return DSP_SOK;
+	return 0;
 
 err:
 	return -EINVAL;
@@ -369,7 +369,7 @@ bool wcd_init(void)
  *      completely initialized.
  *  Parameters:
  *  Returns:
- *      DSP_SOK:	Allow this device to load
+ *      0:	Allow this device to load
  *      -EPERM:      Failure.
  *  Requires:
  *      WCD initialized.
@@ -377,7 +377,7 @@ bool wcd_init(void)
  */
 dsp_status wcd_init_complete2(void)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct cfg_devnode *dev_node;
 	struct dev_object *hdev_obj;
 	u8 dev_type;
@@ -397,7 +397,7 @@ dsp_status wcd_init_complete2(void)
 			continue;
 
 		if ((dev_type == DSP_UNIT) || (dev_type == IVA_UNIT)) {
-			if (cfg_get_auto_start(dev_node, &tmp) == DSP_SOK && tmp)
+			if (cfg_get_auto_start(dev_node, &tmp) == 0 && tmp)
 				proc_auto_start(dev_node, hdev_obj);
 		}
 	}			/* End For Loop */
@@ -414,7 +414,7 @@ u32 mgrwrap_enum_node_info(union Trapped_Args *args, void *pr_ctxt)
 {
 	u8 *pndb_props;
 	u32 num_nodes;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	u32 size = args->args_mgr_enumnode_info.undb_props_size;
 
 	if (size < sizeof(struct dsp_ndbprops))
@@ -446,7 +446,7 @@ u32 mgrwrap_enum_proc_info(union Trapped_Args *args, void *pr_ctxt)
 {
 	u8 *processor_info;
 	u8 num_procs;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	u32 size = args->args_mgr_enumproc_info.processor_info_size;
 
 	if (size < sizeof(struct dsp_processorinfo))
@@ -482,7 +482,7 @@ u32 mgrwrap_register_object(union Trapped_Args *args, void *pr_ctxt)
 	struct dsp_uuid uuid_obj;
 	u32 path_size = 0;
 	char *psz_path_name = NULL;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	CP_FM_USR(&uuid_obj, args->args_mgr_registerobject.uuid_obj, status, 1);
 	if (DSP_FAILED(status))
@@ -518,7 +518,7 @@ func_end:
  */
 u32 mgrwrap_unregister_object(union Trapped_Args *args, void *pr_ctxt)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct dsp_uuid uuid_obj;
 
 	CP_FM_USR(&uuid_obj, args->args_mgr_registerobject.uuid_obj, status, 1);
@@ -538,7 +538,7 @@ func_end:
  */
 u32 mgrwrap_wait_for_bridge_events(union Trapped_Args *args, void *pr_ctxt)
 {
-	dsp_status status = DSP_SOK, real_status = DSP_SOK;
+	dsp_status status = 0, real_status = 0;
 	struct dsp_notification *anotifications[MAX_EVENTS];
 	struct dsp_notification notifications[MAX_EVENTS];
 	u32 index, i;
@@ -575,7 +575,7 @@ u32 __deprecated mgrwrap_get_process_resources_info(union Trapped_Args * args,
 						    void *pr_ctxt)
 {
 	pr_err("%s: deprecated dspbridge ioctl\n", __func__);
-	return DSP_SOK;
+	return 0;
 }
 
 /*
@@ -584,7 +584,7 @@ u32 __deprecated mgrwrap_get_process_resources_info(union Trapped_Args * args,
 u32 procwrap_attach(union Trapped_Args *args, void *pr_ctxt)
 {
 	void *processor;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct dsp_processorattrin proc_attr_in, *attr_in = NULL;
 
 	/* Optional argument */
@@ -612,7 +612,7 @@ u32 procwrap_ctrl(union Trapped_Args *args, void *pr_ctxt)
 	u32 cb_data_size, __user * psize = (u32 __user *)
 	    args->args_proc_ctrl.pargs;
 	u8 *pargs = NULL;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	void *hprocessor = ((struct process_context *)pr_ctxt)->hprocessor;
 
 	if (psize) {
@@ -649,7 +649,7 @@ u32 __deprecated procwrap_detach(union Trapped_Args * args, void *pr_ctxt)
 {
 	/* proc_detach called at bridge_release only */
 	pr_err("%s: deprecated dspbridge ioctl\n", __func__);
-	return DSP_SOK;
+	return 0;
 }
 
 /*
@@ -717,7 +717,7 @@ u32 procwrap_invalidate_memory(union Trapped_Args *args, void *pr_ctxt)
  */
 u32 procwrap_enum_resources(union Trapped_Args *args, void *pr_ctxt)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct dsp_resourceinfo resource_info;
 	void *hprocessor = ((struct process_context *)pr_ctxt)->hprocessor;
 
@@ -792,7 +792,7 @@ u32 procwrap_get_trace(union Trapped_Args *args, void *pr_ctxt)
 u32 procwrap_load(union Trapped_Args *args, void *pr_ctxt)
 {
 	s32 i, len;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	char *temp;
 	s32 count = args->args_proc_load.argc_index;
 	u8 **argv = NULL, **envp = NULL;
@@ -1046,7 +1046,7 @@ inline void find_node_handle(struct node_res_object **noderes,
  */
 u32 nodewrap_allocate(union Trapped_Args *args, void *pr_ctxt)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct dsp_uuid node_uuid;
 	u32 cb_data_size = 0;
 	u32 __user *psize = (u32 __user *) args->args_node_allocate.pargs;
@@ -1108,7 +1108,7 @@ func_cont:
  */
 u32 nodewrap_alloc_msg_buf(union Trapped_Args *args, void *pr_ctxt)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct dsp_bufferattr *pattr = NULL;
 	struct dsp_bufferattr attr;
 	u8 *pbuffer = NULL;
@@ -1165,7 +1165,7 @@ u32 nodewrap_change_priority(union Trapped_Args *args, void *pr_ctxt)
  */
 u32 nodewrap_connect(union Trapped_Args *args, void *pr_ctxt)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct dsp_strmattr attrs;
 	struct dsp_strmattr *pattrs = NULL;
 	u32 cb_data_size;
@@ -1274,7 +1274,7 @@ u32 nodewrap_delete(union Trapped_Args *args, void *pr_ctxt)
  */
 u32 nodewrap_free_msg_buf(union Trapped_Args *args, void *pr_ctxt)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct dsp_bufferattr *pattr = NULL;
 	struct dsp_bufferattr attr;
 	struct node_res_object *node_res;
@@ -1308,7 +1308,7 @@ u32 nodewrap_free_msg_buf(union Trapped_Args *args, void *pr_ctxt)
  */
 u32 nodewrap_get_attr(union Trapped_Args *args, void *pr_ctxt)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct dsp_nodeattr attr;
 	struct node_res_object *node_res;
 
@@ -1369,7 +1369,7 @@ u32 nodewrap_pause(union Trapped_Args *args, void *pr_ctxt)
  */
 u32 nodewrap_put_message(union Trapped_Args *args, void *pr_ctxt)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct dsp_msg msg;
 	struct node_res_object *node_res;
 
@@ -1394,7 +1394,7 @@ u32 nodewrap_put_message(union Trapped_Args *args, void *pr_ctxt)
  */
 u32 nodewrap_register_notify(union Trapped_Args *args, void *pr_ctxt)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct dsp_notification notification;
 	struct node_res_object *node_res;
 
@@ -1466,7 +1466,7 @@ u32 nodewrap_terminate(union Trapped_Args *args, void *pr_ctxt)
  */
 u32 nodewrap_get_uuid_props(union Trapped_Args *args, void *pr_ctxt)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct dsp_uuid node_uuid;
 	struct dsp_ndbprops *pnode_props = NULL;
 	void *hprocessor = ((struct process_context *)pr_ctxt)->hprocessor;
@@ -1559,7 +1559,7 @@ u32 strmwrap_close(union Trapped_Args *args, void *pr_ctxt)
  */
 u32 strmwrap_free_buffer(union Trapped_Args *args, void *pr_ctxt)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	u8 **ap_buffer = NULL;
 	u32 num_bufs = args->args_strm_freebuffer.num_bufs;
 	struct strm_res_object *strm_res;
@@ -1604,7 +1604,7 @@ u32 __deprecated strmwrap_get_event_handle(union Trapped_Args * args,
  */
 u32 strmwrap_get_info(union Trapped_Args *args, void *pr_ctxt)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct stream_info strm_info;
 	struct dsp_streaminfo user;
 	struct dsp_streaminfo *temp;
@@ -1656,7 +1656,7 @@ u32 strmwrap_idle(union Trapped_Args *args, void *pr_ctxt)
  */
 u32 strmwrap_issue(union Trapped_Args *args, void *pr_ctxt)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct strm_res_object *strm_res;
 
 	find_strm_handle(&strm_res, pr_ctxt, args->args_strm_issue.hstream);
@@ -1684,7 +1684,7 @@ u32 strmwrap_issue(union Trapped_Args *args, void *pr_ctxt)
  */
 u32 strmwrap_open(union Trapped_Args *args, void *pr_ctxt)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct strm_attr attr;
 	struct strm_res_object *strm_res_obj;
 	struct dsp_streamattrin strm_attr_in;
@@ -1723,7 +1723,7 @@ u32 strmwrap_open(union Trapped_Args *args, void *pr_ctxt)
  */
 u32 strmwrap_reclaim(union Trapped_Args *args, void *pr_ctxt)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	u8 *buf_ptr;
 	u32 ul_bytes;
 	u32 dw_arg;
@@ -1754,7 +1754,7 @@ u32 strmwrap_reclaim(union Trapped_Args *args, void *pr_ctxt)
  */
 u32 strmwrap_register_notify(union Trapped_Args *args, void *pr_ctxt)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct dsp_notification notification;
 	struct strm_res_object *strm_res;
 
@@ -1785,7 +1785,7 @@ u32 strmwrap_select(union Trapped_Args *args, void *pr_ctxt)
 {
 	u32 mask;
 	struct strm_object *strm_tab[MAX_STREAMS];
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct strm_res_object *strm_res;
 	int *ids[MAX_STREAMS];
 	int i;
@@ -1842,7 +1842,7 @@ u32 __deprecated cmmwrap_free_buf(union Trapped_Args * args, void *pr_ctxt)
  */
 u32 cmmwrap_get_handle(union Trapped_Args *args, void *pr_ctxt)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct cmm_object *hcmm_mgr;
 	void *hprocessor = ((struct process_context *)pr_ctxt)->hprocessor;
 
@@ -1858,7 +1858,7 @@ u32 cmmwrap_get_handle(union Trapped_Args *args, void *pr_ctxt)
  */
 u32 cmmwrap_get_info(union Trapped_Args *args, void *pr_ctxt)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct cmm_info cmm_info_obj;
 
 	status = cmm_get_info(args->args_cmm_getinfo.hcmm_mgr, &cmm_info_obj);

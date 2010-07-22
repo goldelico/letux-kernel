@@ -100,7 +100,7 @@ dsp_status strm_allocate_buffer(struct strm_res_object *strmres, u32 usize,
 				OUT u8 **ap_buffer, u32 num_bufs,
 				struct process_context *pr_ctxt)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	u32 alloc_cnt = 0;
 	u32 i;
 	struct strm_object *hstrm = strmres->hstream;
@@ -153,7 +153,7 @@ dsp_status strm_close(struct strm_res_object *strmres,
 {
 	struct bridge_drv_interface *intf_fxns;
 	struct chnl_info chnl_info_obj;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct strm_object *hstrm = strmres->hstream;
 
 	DBC_REQUIRE(refs > 0);
@@ -180,7 +180,7 @@ dsp_status strm_close(struct strm_res_object *strmres,
 
 	idr_remove(pr_ctxt->strm_idp, strmres->id);
 func_end:
-	DBC_ENSURE(status == DSP_SOK || status == -EFAULT ||
+	DBC_ENSURE(status == 0 || status == -EFAULT ||
 		   status == DSP_EPENDING || status == -EPERM);
 
 	dev_dbg(bridge, "%s: hstrm: %p, status 0x%x\n", __func__,
@@ -197,7 +197,7 @@ dsp_status strm_create(OUT struct strm_mgr **phStrmMgr,
 		       struct dev_object *dev_obj)
 {
 	struct strm_mgr *strm_mgr_obj;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(phStrmMgr != NULL);
@@ -269,7 +269,7 @@ void strm_exit(void)
 dsp_status strm_free_buffer(struct strm_res_object *strmres, u8 ** ap_buffer,
 			    u32 num_bufs, struct process_context *pr_ctxt)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	u32 i = 0;
 	struct strm_object *hstrm = strmres->hstream;
 
@@ -305,7 +305,7 @@ dsp_status strm_get_info(struct strm_object *hStrm,
 {
 	struct bridge_drv_interface *intf_fxns;
 	struct chnl_info chnl_info_obj;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	void *virt_base = NULL;	/* NULL if no SM used */
 
 	DBC_REQUIRE(refs > 0);
@@ -369,7 +369,7 @@ func_end:
 dsp_status strm_idle(struct strm_object *hStrm, bool fFlush)
 {
 	struct bridge_drv_interface *intf_fxns;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	DBC_REQUIRE(refs > 0);
 
@@ -415,7 +415,7 @@ dsp_status strm_issue(struct strm_object *hStrm, IN u8 *pbuf, u32 ul_bytes,
 		      u32 ul_buf_size, u32 dw_arg)
 {
 	struct bridge_drv_interface *intf_fxns;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	void *tmp_buf = NULL;
 
 	DBC_REQUIRE(refs > 0);
@@ -466,7 +466,7 @@ dsp_status strm_open(struct node_object *hnode, u32 dir, u32 index,
 	struct strm_object *strm_obj = NULL;
 	s8 chnl_mode;
 	struct chnl_attr chnl_attr_obj;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct cmm_object *hcmm_mgr = NULL;	/* Shared memory manager hndl */
 
 	bhandle hstrm_res;
@@ -617,7 +617,7 @@ dsp_status strm_reclaim(struct strm_object *hStrm, OUT u8 ** buf_ptr,
 {
 	struct bridge_drv_interface *intf_fxns;
 	struct chnl_ioc chnl_ioc_obj;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	void *tmp_buf = NULL;
 
 	DBC_REQUIRE(refs > 0);
@@ -699,7 +699,7 @@ dsp_status strm_register_notify(struct strm_object *hStrm, u32 event_mask,
 				* hnotification)
 {
 	struct bridge_drv_interface *intf_fxns;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(hnotification != NULL);
@@ -743,7 +743,7 @@ dsp_status strm_select(IN struct strm_object **strm_tab, u32 nStrms,
 	struct bridge_drv_interface *intf_fxns;
 	struct sync_object **sync_events = NULL;
 	u32 i;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(strm_tab != NULL);
@@ -823,7 +823,7 @@ func_end:
 static dsp_status delete_strm(struct strm_object *hStrm)
 {
 	struct bridge_drv_interface *intf_fxns;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	if (hStrm) {
 		if (hStrm->chnl_obj) {

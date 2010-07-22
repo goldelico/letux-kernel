@@ -121,7 +121,7 @@ proc_attach(u32 processor_id,
 	    OPTIONAL CONST struct dsp_processorattrin *attr_in,
 	    void **ph_processor, struct process_context *pr_ctxt)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct dev_object *hdev_obj;
 	struct proc_object *p_proc_object = NULL;
 	struct mgr_object *hmgr_obj = NULL;
@@ -206,7 +206,7 @@ proc_attach(u32 processor_id,
 						is_already_attached);
 		if (DSP_SUCCEEDED(status)) {
 			if (p_proc_object->is_already_attached)
-				status = DSP_SALREADYATTACHED;
+				status = 0;
 		} else {
 			if (p_proc_object->ntfy_obj) {
 				ntfy_delete(p_proc_object->ntfy_obj);
@@ -246,7 +246,7 @@ static dsp_status get_exec_file(struct cfg_devnode *dev_node_obj,
 		if (iva_img) {
 			len = strlen(iva_img);
 			strncpy(execFile, iva_img, len + 1);
-			return DSP_SOK;
+			return 0;
 		}
 	}
 	return -ENOENT;
@@ -260,7 +260,7 @@ static dsp_status get_exec_file(struct cfg_devnode *dev_node_obj,
  *  Parameters:
  *      hdev_obj:     Handle to the Device
  *  Returns:
- *      DSP_SOK:   On Successful Loading
+ *      0:   On Successful Loading
  *      -EPERM  General Failure
  *  Requires:
  *      hdev_obj != NULL
@@ -339,7 +339,7 @@ func_end:
  */
 dsp_status proc_ctrl(void *hprocessor, u32 dw_cmd, IN struct dsp_cbdata * arg)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct proc_object *p_proc_object = hprocessor;
 	u32 timeout = 0;
 
@@ -370,7 +370,7 @@ dsp_status proc_ctrl(void *hprocessor, u32 dw_cmd, IN struct dsp_cbdata * arg)
 		    if (DSP_SUCCEEDED((*p_proc_object->intf_fxns->pfn_dev_cntrl)
 				      (p_proc_object->hwmd_context, dw_cmd,
 				       arg))) {
-			status = DSP_SOK;
+			status = 0;
 		} else {
 			status = -EPERM;
 		}
@@ -389,7 +389,7 @@ dsp_status proc_ctrl(void *hprocessor, u32 dw_cmd, IN struct dsp_cbdata * arg)
  */
 dsp_status proc_detach(struct process_context *pr_ctxt)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct proc_object *p_proc_object = NULL;
 
 	DBC_REQUIRE(refs > 0);
@@ -532,7 +532,7 @@ static dsp_status proc_memory_sync(void *hprocessor, void *pmpu_addr,
 				   u32 ul_size, u32 ul_flags)
 {
 	/* Keep STATUS here for future additions to this function */
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct proc_object *p_proc_object = (struct proc_object *)hprocessor;
 
 	DBC_REQUIRE(refs > 0);
@@ -679,7 +679,7 @@ dsp_status proc_get_dev_object(void *hprocessor,
 
 	if (p_proc_object) {
 		*phDevObject = p_proc_object->hdev_obj;
-		status = DSP_SOK;
+		status = 0;
 	} else {
 		*phDevObject = NULL;
 		status = -EFAULT;
@@ -700,7 +700,7 @@ dsp_status proc_get_state(void *hprocessor,
 			  OUT struct dsp_processorstate *proc_state_obj,
 			  u32 state_info_size)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct proc_object *p_proc_object = (struct proc_object *)hprocessor;
 	int brd_status;
 	struct deh_mgr *hdeh_mgr;
@@ -797,7 +797,7 @@ bool proc_init(void)
 dsp_status proc_load(void *hprocessor, IN CONST s32 argc_index,
 		     IN CONST char **user_args, IN CONST char **user_envp)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct proc_object *p_proc_object = (struct proc_object *)hprocessor;
 	struct io_mgr *hio_mgr;	/* IO manager handle */
 	struct msg_mgr *hmsg_mgr;
@@ -905,14 +905,14 @@ dsp_status proc_load(void *hprocessor, IN CONST s32 argc_index,
 		if (DSP_SUCCEEDED(status)) {
 			/*  Auto register nodes in specified COFF
 			 *  file.  If registration did not fail,
-			 *  (status = DSP_SOK or DSP_EDCDNOAUTOREGISTER)
+			 *  (status = 0 or DSP_EDCDNOAUTOREGISTER)
 			 *  save the name of the COFF file for
 			 *  de-registration in the future. */
 			status =
 			    dcd_auto_register(hdcd_handle,
 					      (char *)user_args[0]);
 			if (status == DSP_EDCDNOAUTOREGISTER)
-				status = DSP_SOK;
+				status = 0;
 
 			if (DSP_FAILED(status)) {
 				status = -EPERM;
@@ -1069,7 +1069,7 @@ dsp_status proc_map(void *hprocessor, void *pmpu_addr, u32 ul_size,
 	u32 pa_align;
 	struct dmm_object *dmm_mgr;
 	u32 size_align;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct proc_object *p_proc_object = (struct proc_object *)hprocessor;
 	struct dmm_map_object *map_obj;
 
@@ -1153,7 +1153,7 @@ dsp_status proc_register_notify(void *hprocessor, u32 event_mask,
 				u32 notify_type, struct dsp_notification
 				* hnotification)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct proc_object *p_proc_object = (struct proc_object *)hprocessor;
 	struct deh_mgr *hdeh_mgr;
 
@@ -1231,7 +1231,7 @@ dsp_status proc_reserve_memory(void *hprocessor, u32 ul_size,
 			       struct process_context *pr_ctxt)
 {
 	struct dmm_object *dmm_mgr;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct proc_object *p_proc_object = (struct proc_object *)hprocessor;
 	struct dmm_rsv_object *rsv_obj;
 
@@ -1247,7 +1247,7 @@ dsp_status proc_reserve_memory(void *hprocessor, u32 ul_size,
 	}
 
 	status = dmm_reserve_memory(dmm_mgr, ul_size, (u32 *) pp_rsv_addr);
-	if (status != DSP_SOK)
+	if (status != 0)
 		goto func_end;
 
 	/*
@@ -1277,7 +1277,7 @@ func_end:
  */
 dsp_status proc_start(void *hprocessor)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct proc_object *p_proc_object = (struct proc_object *)hprocessor;
 	struct cod_manager *cod_mgr;	/* Code manager handle */
 	u32 dw_dsp_addr;	/* Loaded code's entry point. */
@@ -1351,7 +1351,7 @@ func_end:
  */
 dsp_status proc_stop(void *hprocessor)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct proc_object *p_proc_object = (struct proc_object *)hprocessor;
 	struct msg_mgr *hmsg_mgr;
 	struct node_mgr *hnode_mgr;
@@ -1421,7 +1421,7 @@ func_end:
 dsp_status proc_un_map(void *hprocessor, void *map_addr,
 		       struct process_context *pr_ctxt)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct proc_object *p_proc_object = (struct proc_object *)hprocessor;
 	struct dmm_object *dmm_mgr;
 	u32 va_align;
@@ -1486,7 +1486,7 @@ dsp_status proc_un_reserve_memory(void *hprocessor, void *prsv_addr,
 				  struct process_context *pr_ctxt)
 {
 	struct dmm_object *dmm_mgr;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct proc_object *p_proc_object = (struct proc_object *)hprocessor;
 	struct dmm_rsv_object *rsv_obj;
 
@@ -1502,7 +1502,7 @@ dsp_status proc_un_reserve_memory(void *hprocessor, void *prsv_addr,
 	}
 
 	status = dmm_un_reserve_memory(dmm_mgr, (u32) prsv_addr);
-	if (status != DSP_SOK)
+	if (status != 0)
 		goto func_end;
 
 	/*
@@ -1536,8 +1536,8 @@ func_end:
  *  Parameters:
  *      p_proc_object:    Pointer to Processor Object
  *  Returns:
- *      DSP_SOK:	Processor placed in monitor mode.
- *      !DSP_SOK:       Failed to place processor in monitor mode.
+ *      0:	Processor placed in monitor mode.
+ *      !0:       Failed to place processor in monitor mode.
  *  Requires:
  *      Valid Processor Handle
  *  Ensures:
@@ -1566,7 +1566,7 @@ static dsp_status proc_monitor(struct proc_object *p_proc_object)
 	/* Place the Board in the Monitor State */
 	if (DSP_SUCCEEDED((*p_proc_object->intf_fxns->pfn_brd_monitor)
 			  (p_proc_object->hwmd_context))) {
-		status = DSP_SOK;
+		status = 0;
 		if (DSP_SUCCEEDED((*p_proc_object->intf_fxns->pfn_brd_status)
 				  (p_proc_object->hwmd_context, &brd_state)))
 			DBC_ASSERT(brd_state == BRD_IDLE);
@@ -1630,7 +1630,7 @@ static char **prepend_envp(char **new_envp, char **envp, s32 envp_elems,
  */
 dsp_status proc_notify_clients(void *hProc, u32 uEvents)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct proc_object *p_proc_object = (struct proc_object *)hProc;
 
 	DBC_REQUIRE(p_proc_object);
@@ -1654,7 +1654,7 @@ func_end:
  */
 dsp_status proc_notify_all_clients(void *hProc, u32 uEvents)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct proc_object *p_proc_object = (struct proc_object *)hProc;
 
 	DBC_REQUIRE(IS_VALID_PROC_EVENT(uEvents));
@@ -1678,7 +1678,7 @@ func_end:
  */
 dsp_status proc_get_processor_id(void *hProc, u32 * procID)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct proc_object *p_proc_object = (struct proc_object *)hProc;
 
 	if (p_proc_object)

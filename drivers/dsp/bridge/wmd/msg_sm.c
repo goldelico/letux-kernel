@@ -55,7 +55,7 @@ dsp_status bridge_msg_create(OUT struct msg_mgr **phMsgMgr,
 {
 	struct msg_mgr *msg_mgr_obj;
 	struct io_mgr *hio_mgr;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	if (!phMsgMgr || !msgCallback || !hdev_obj) {
 		status = -EFAULT;
@@ -127,7 +127,7 @@ dsp_status bridge_msg_create_queue(struct msg_mgr *hmsg_mgr,
 	u32 i;
 	u32 num_allocated = 0;
 	struct msg_queue *msg_q;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	if (!hmsg_mgr || phMsgQueue == NULL || !hmsg_mgr->msg_free_list) {
 		status = -EFAULT;
@@ -294,7 +294,7 @@ dsp_status bridge_msg_get(struct msg_queue *msg_queue_obj,
 	bool got_msg = false;
 	struct sync_object *syncs[2];
 	u32 index;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	if (!msg_queue_obj || pmsg == NULL) {
 		status = -ENOMEM;
@@ -398,7 +398,7 @@ dsp_status bridge_msg_put(struct msg_queue *msg_queue_obj,
 	bool put_msg = false;
 	struct sync_object *syncs[2];
 	u32 index;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	if (!msg_queue_obj || !pmsg || !msg_queue_obj->hmsg_mgr) {
 		status = -ENOMEM;
@@ -505,7 +505,7 @@ dsp_status bridge_msg_register_notify(struct msg_queue *msg_queue_obj,
 				   u32 event_mask, u32 notify_type,
 				   struct dsp_notification *hnotification)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	if (!msg_queue_obj || !hnotification) {
 		status = -ENOMEM;
@@ -533,7 +533,7 @@ dsp_status bridge_msg_register_notify(struct msg_queue *msg_queue_obj,
 		/*  Not registered. Ok, since we couldn't have known. Node
 		 *  notifications are split between node state change handled
 		 *  by NODE, and message ready handled by msg_ctrl. */
-		status = DSP_SOK;
+		status = 0;
 	}
 func_end:
 	return status;
@@ -562,7 +562,7 @@ void bridge_msg_set_queue_id(struct msg_queue *msg_queue_obj, u32 msgq_id)
 static dsp_status add_new_msg(struct lst_list *msgList)
 {
 	struct msg_frame *pmsg;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	pmsg = kzalloc(sizeof(struct msg_frame), GFP_ATOMIC);
 	if (pmsg != NULL) {

@@ -95,7 +95,7 @@ dsp_status disp_create(OUT struct disp_object **phDispObject,
 	struct bridge_drv_interface *intf_fxns;
 	u32 ul_chnl_id;
 	struct chnl_attr chnl_attr_obj;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	u8 dev_type;
 
 	DBC_REQUIRE(refs > 0);
@@ -229,7 +229,7 @@ dsp_status disp_node_change_priority(struct disp_object *disp_obj,
 {
 	u32 dw_arg;
 	struct rms_command *rms_cmd;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(disp_obj);
@@ -276,7 +276,7 @@ dsp_status disp_node_create(struct disp_object *disp_obj,
 	s32 offset;
 	struct node_strmdef strm_def;
 	u32 max;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct dsp_nodeinfo node_info;
 	u8 dev_type;
 
@@ -492,7 +492,7 @@ dsp_status disp_node_delete(struct disp_object *disp_obj,
 {
 	u32 dw_arg;
 	struct rms_command *rms_cmd;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	u8 dev_type;
 
 	DBC_REQUIRE(refs > 0);
@@ -546,7 +546,7 @@ dsp_status disp_node_run(struct disp_object *disp_obj,
 {
 	u32 dw_arg;
 	struct rms_command *rms_cmd;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	u8 dev_type;
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(disp_obj);
@@ -595,7 +595,7 @@ dsp_status disp_node_run(struct disp_object *disp_obj,
  */
 static void delete_disp(struct disp_object *disp_obj)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct bridge_drv_interface *intf_fxns;
 
 	if (disp_obj) {
@@ -640,7 +640,7 @@ static dsp_status fill_stream_def(rms_word *pdw_buf, u32 *ptotal, u32 offset,
 	u32 total = *ptotal;
 	u32 name_len;
 	u32 dw_length;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	if (total + sizeof(struct rms_strm_def) / sizeof(rms_word) >= max) {
 		status = -EPERM;
@@ -696,7 +696,7 @@ static dsp_status send_message(struct disp_object *disp_obj, u32 dwTimeout,
 	u32 dw_arg = 0;
 	u8 *pbuf;
 	struct chnl_ioc chnl_ioc_obj;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	DBC_REQUIRE(pdw_arg != NULL);
 

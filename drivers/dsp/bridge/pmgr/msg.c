@@ -52,7 +52,7 @@ dsp_status msg_create(OUT struct msg_mgr **phMsgMgr,
 	struct bridge_drv_interface *intf_fxns;
 	struct msg_mgr_ *msg_mgr_obj;
 	struct msg_mgr *hmsg_mgr;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(phMsgMgr != NULL);

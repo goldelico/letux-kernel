@@ -74,7 +74,7 @@ extern u32 dev_brd_write_fxn(void *pArb,
  *                      bridge_dev_create() is called.
  *      dev_node_obj:       Platform (Windows) specific device node.
  *  Returns:
- *      DSP_SOK:            Module is loaded, device object has been created
+ *      0:            Module is loaded, device object has been created
  *      -ENOMEM:        Insufficient memory to create needed resources.
  *      DEV_E_NEWWMD:       The WMD was compiled for a newer version of WCD.
  *      DEV_E_NULLWMDINTF:  WMD passed back a NULL fxn Interface Struct Ptr
@@ -92,7 +92,7 @@ extern u32 dev_brd_write_fxn(void *pArb,
  *      pHostConfig != NULL.
  *      pDspConfig != NULL.
  *  Ensures:
- *      DSP_SOK:  *phDevObject will contain handle to the new device object.
+ *      0:  *phDevObject will contain handle to the new device object.
  *      Otherwise, does not create the device object, ensures the WMD module is
  *      unloaded, and sets *phDevObject to NULL.
  */
@@ -116,7 +116,7 @@ extern dsp_status dev_create_device(OUT struct dev_object
  *                      bridge_dev_create() is called.
  *      dev_node_obj:       Platform (Windows) specific device node.
  *  Returns:
- *      DSP_SOK:            Module is loaded, device object has been created
+ *      0:            Module is loaded, device object has been created
  *      -ENOMEM:        Insufficient memory to create needed resources.
  *      DEV_E_NEWWMD:       The WMD was compiled for a newer version of WCD.
  *      DEV_E_NULLWMDINTF:  WMD passed back a NULL fxn Interface Struct Ptr
@@ -134,7 +134,7 @@ extern dsp_status dev_create_device(OUT struct dev_object
  *      pHostConfig != NULL.
  *      pDspConfig != NULL.
  *  Ensures:
- *      DSP_SOK:  *phDevObject will contain handle to the new device object.
+ *      0:  *phDevObject will contain handle to the new device object.
  *      Otherwise, does not create the device object, ensures the WMD module is
  *      unloaded, and sets *phDevObject to NULL.
  */
@@ -154,13 +154,13 @@ extern dsp_status dev_create_iva_device(OUT struct dev_object
  *  Parameters:
  *      hdev_obj: Handle to device object created with dev_create_device().
  *  Returns:
- *      DSP_SOK:    Successful Creation of Node Manager
+ *      0:    Successful Creation of Node Manager
  *      -EPERM:  Some Error Occurred.
  *  Requires:
  *      DEV Initialized
  *      Valid hdev_obj
  *  Ensures:
- *      DSP_SOK and hdev_obj->hnode_mgr != NULL
+ *      0 and hdev_obj->hnode_mgr != NULL
  *      else    hdev_obj->hnode_mgr == NULL
  */
 extern dsp_status dev_create2(IN struct dev_object *hdev_obj);
@@ -172,13 +172,13 @@ extern dsp_status dev_create2(IN struct dev_object *hdev_obj);
  *  Parameters:
  *      hdev_obj: Handle to device object created with dev_create_device().
  *  Returns:
- *      DSP_SOK:    Successful Creation of Node Manager
+ *      0:    Successful Creation of Node Manager
  *      -EPERM:  Some Error Occurred.
  *  Requires:
  *      DEV Initialized
  *      Valid hdev_obj
  *  Ensures:
- *      DSP_SOK and hdev_obj->hnode_mgr == NULL
+ *      0 and hdev_obj->hnode_mgr == NULL
  *      else    -EPERM.
  */
 extern dsp_status dev_destroy2(IN struct dev_object *hdev_obj);
@@ -192,7 +192,7 @@ extern dsp_status dev_destroy2(IN struct dev_object *hdev_obj);
  *      hdev_obj:     Handle to device object created with
  *                      dev_create_device().
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -EFAULT:    Invalid hdev_obj.
  *      -EPERM:      The WMD failed it's bridge_dev_destroy() function.
  *  Requires:
@@ -211,13 +211,13 @@ extern dsp_status dev_destroy_device(struct dev_object
  *                      dev_create_device().
  *      *phMgr:         Ptr to location to store handle.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -EFAULT:    Invalid hdev_obj.
  *  Requires:
  *      phMgr != NULL.
  *      DEV Initialized.
  *  Ensures:
- *      DSP_SOK:        *phMgr contains a handle to a channel manager object,
+ *      0:        *phMgr contains a handle to a channel manager object,
  *                      or NULL.
  *      else:           *phMgr is NULL.
  */
@@ -234,13 +234,13 @@ extern dsp_status dev_get_chnl_mgr(struct dev_object *hdev_obj,
  *                      dev_create_device().
  *      *phMgr:         Ptr to location to store handle.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -EFAULT:    Invalid hdev_obj.
  *  Requires:
  *      phMgr != NULL.
  *      DEV Initialized.
  *  Ensures:
- *      DSP_SOK:        *phMgr contains a handle to a channel manager object,
+ *      0:        *phMgr contains a handle to a channel manager object,
  *                      or NULL.
  *      else:           *phMgr is NULL.
  */
@@ -257,13 +257,13 @@ extern dsp_status dev_get_cmm_mgr(struct dev_object *hdev_obj,
  *                      dev_create_device().
  *      *phMgr:         Ptr to location to store handle.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -EFAULT:    Invalid hdev_obj.
  *  Requires:
  *      phMgr != NULL.
  *      DEV Initialized.
  *  Ensures:
- *      DSP_SOK:        *phMgr contains a handle to a channel manager object,
+ *      0:        *phMgr contains a handle to a channel manager object,
  *                      or NULL.
  *      else:           *phMgr is NULL.
  */
@@ -279,13 +279,13 @@ extern dsp_status dev_get_dmm_mgr(struct dev_object *hdev_obj,
  *                      dev_create_device().
  *      *phCodMgr:      Ptr to location to store handle.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -EFAULT:    Invalid hdev_obj.
  *  Requires:
  *      phCodMgr != NULL.
  *      DEV Initialized.
  *  Ensures:
- *      DSP_SOK:        *phCodMgr contains a handle to a COD manager object.
+ *      0:        *phCodMgr contains a handle to a COD manager object.
  *      else:           *phCodMgr is NULL.
  */
 extern dsp_status dev_get_cod_mgr(struct dev_object *hdev_obj,
@@ -299,13 +299,13 @@ extern dsp_status dev_get_cod_mgr(struct dev_object *hdev_obj,
  *      hdev_obj: Handle to device object created with dev_create_device().
  *      *phDehMgr:  Ptr to location to store handle.
  *  Returns:
- *      DSP_SOK:    Success.
+ *      0:    Success.
  *      -EFAULT:   Invalid hdev_obj.
  *  Requires:
  *      phDehMgr != NULL.
  *      DEH Initialized.
  *  Ensures:
- *      DSP_SOK:    *phDehMgr contains a handle to a DEH manager object.
+ *      0:    *phDehMgr contains a handle to a DEH manager object.
  *      else:       *phDehMgr is NULL.
  */
 extern dsp_status dev_get_deh_mgr(struct dev_object *hdev_obj,
@@ -320,13 +320,13 @@ extern dsp_status dev_get_deh_mgr(struct dev_object *hdev_obj,
  *                      dev_create_device().
  *      phDevNode:      Ptr to location to get the device node handle.
  *  Returns:
- *      DSP_SOK:        In Win95, returns a DEVNODE in *dev_node_obj; In NT, ???
+ *      0:        In Win95, returns a DEVNODE in *dev_node_obj; In NT, ???
  *      -EFAULT:    Invalid hdev_obj.
  *  Requires:
  *      phDevNode != NULL.
  *      DEV Initialized.
  *  Ensures:
- *      DSP_SOK:        *phDevNode contains a platform specific device ID;
+ *      0:        *phDevNode contains a platform specific device ID;
  *      else:           *phDevNode is NULL.
  */
 extern dsp_status dev_get_dev_node(struct dev_object *hdev_obj,
@@ -341,13 +341,13 @@ extern dsp_status dev_get_dev_node(struct dev_object *hdev_obj,
  *                      dev_create_device().
  *      phDevNode:      Ptr to location to get the device node handle.
  *  Returns:
- *      DSP_SOK:        Success
+ *      0:        Success
  *      -EFAULT:    Invalid hdev_obj.
  *  Requires:
  *      phDevNode != NULL.
  *      DEV Initialized.
  *  Ensures:
- *      DSP_SOK:        *phDevNode contains a platform specific device ID;
+ *      0:        *phDevNode contains a platform specific device ID;
  *      else:           *phDevNode is NULL.
  */
 extern dsp_status dev_get_dev_type(struct dev_object *hdevObject,
@@ -382,13 +382,13 @@ extern struct dev_object *dev_get_first(void);
  *                      dev_create_device().
  *      *ppIntfFxns:    Ptr to location to store fxn interface.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -EFAULT:    Invalid hdev_obj.
  *  Requires:
  *      ppIntfFxns != NULL.
  *      DEV Initialized.
  *  Ensures:
- *      DSP_SOK:        *ppIntfFxns contains a pointer to the WMD interface;
+ *      0:        *ppIntfFxns contains a pointer to the WMD interface;
  *      else:           *ppIntfFxns is NULL.
  */
 extern dsp_status dev_get_intf_fxns(struct dev_object *hdev_obj,
@@ -403,13 +403,13 @@ extern dsp_status dev_get_intf_fxns(struct dev_object *hdev_obj,
  *                      dev_create_device().
  *      *phMgr:         Ptr to location to store handle.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -EFAULT:    Invalid hdev_obj.
  *  Requires:
  *      phMgr != NULL.
  *      DEV Initialized.
  *  Ensures:
- *      DSP_SOK:        *phMgr contains a handle to an IO manager object.
+ *      0:        *phMgr contains a handle to an IO manager object.
  *      else:           *phMgr is NULL.
  */
 extern dsp_status dev_get_io_mgr(struct dev_object *hdev_obj,
@@ -467,13 +467,13 @@ extern void dev_get_msg_mgr(struct dev_object *hdev_obj,
  *      phNodeMgr:      Location where Handle to the Node Manager will be
  *                      returned..
  *  Returns:
- *      DSP_SOK:        Success
+ *      0:        Success
  *      -EFAULT:    Invalid Dev Object handle.
  *  Requires:
  *      DEV Initialized.
  *      phNodeMgr is not null
  *  Ensures:
- *      DSP_SOK:        *phNodeMgr contains a handle to a Node manager object.
+ *      0:        *phNodeMgr contains a handle to a Node manager object.
  *      else:           *phNodeMgr is NULL.
  */
 extern dsp_status dev_get_node_manager(struct dev_object
@@ -490,7 +490,7 @@ extern dsp_status dev_get_node_manager(struct dev_object
  *      pstrSym:        Name of symbol to look up.
  *      pul_value:       Ptr to symbol value.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -EFAULT:    Invalid hdev_obj.
  *      COD_E_NOSYMBOLSLOADED:  Symbols have not been loaded onto the board.
  *      COD_E_SYMBOLNOTFOUND:   The symbol could not be found.
@@ -499,7 +499,7 @@ extern dsp_status dev_get_node_manager(struct dev_object
  *      pul_value != NULL.
  *      DEV Initialized.
  *  Ensures:
- *      DSP_SOK:        *pul_value contains the symbol value;
+ *      0:        *pul_value contains the symbol value;
  */
 extern dsp_status dev_get_symbol(struct dev_object *hdev_obj,
 				 IN CONST char *pstrSym, OUT u32 * pul_value);
@@ -512,13 +512,13 @@ extern dsp_status dev_get_symbol(struct dev_object *hdev_obj,
  *      hdev_obj:     Handle to device object created with dev_create_device()
  *      *phWmdContext:  Ptr to location to store context handle.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -EFAULT:    Invalid hdev_obj.
  *  Requires:
  *      phWmdContext != NULL.
  *      DEV Initialized.
  *  Ensures:
- *      DSP_SOK:        *phWmdContext contains context handle;
+ *      0:        *phWmdContext contains context handle;
  *      else:           *phWmdContext is NULL;
  */
 extern dsp_status dev_get_wmd_context(struct dev_object *hdev_obj,
@@ -561,8 +561,8 @@ extern bool dev_init(void);
  *      hdev_obj:     Handle to device object created with
  *                      dev_create_device().
  *  Returns:
- *      DSP_SOK:        TRUE: device has been locked.
- *      DSP_SFALSE:     FALSE: device not locked.
+ *      0:        TRUE: device has been locked.
+ *      0:     FALSE: device not locked.
  *      -EFAULT:    hdev_obj was invalid.
  *  Requires:
  *      DEV Initialized.
@@ -580,14 +580,14 @@ extern dsp_status dev_is_locked(IN struct dev_object *hdev_obj);
  *      hdev_obj      Handle to the Dev Object
  *      bAttachedNew    Specifies if there are already processors attached
  *  Returns:
- *      DSP_SOK:        Successfully inserted into the list
+ *      0:        Successfully inserted into the list
  *  Requires:
  *      proc_obj is not NULL
  *      hdev_obj is a valid handle to the DEV.
  *      DEV Initialized.
  *      List(of Proc object in Dev) Exists.
  *  Ensures:
- *      DSP_SOK & the PROC Object is inserted and the list is not empty
+ *      0 & the PROC Object is inserted and the list is not empty
  *  Details:
  *      If the List of Proc Object is empty bAttachedNew is TRUE, it indicated
  *      this is the first Processor attaching.
@@ -608,7 +608,7 @@ extern dsp_status dev_insert_proc_object(IN struct dev_object
  *      dev_obj:         Ptr to Dev Object where the list is.
  *      pbAlreadyAttached:  Ptr to return the bool
  *  Returns:
- *      DSP_SOK:            If successful.
+ *      0:            If successful.
  *      -EPERM           Failure to Remove the PROC Object from the list
  *  Requires:
  *      DevObject is Valid
@@ -635,12 +635,12 @@ extern dsp_status dev_remove_proc_object(struct dev_object
  *      hdev_obj:  Handle to device object created with dev_create_device().
  *      ulStatus:    A status word, most likely a BRD_STATUS.
  *  Returns:
- *      DSP_SOK:     All registered clients were asynchronously notified.
+ *      0:     All registered clients were asynchronously notified.
  *      -EINVAL:   Invalid hdev_obj.
  *  Requires:
  *      DEV Initialized.
  *  Ensures:
- *      DSP_SOK: Notifications are queued by the operating system to be
+ *      0: Notifications are queued by the operating system to be
  *      delivered to clients.  This function does not ensure that
  *      the notifications will ever be delivered.
  */
@@ -653,7 +653,7 @@ extern dsp_status dev_notify_clients(struct dev_object *hdev_obj, u32 ulStatus);
  *  Parameters:
  *      dev_node_obj:       Device node as it is know to OS.
  *  Returns:
- *      DSP_SOK:        If success;
+ *      0:        If success;
  *      <error code>    Otherwise.
  *  Requires:
  *  Ensures:
@@ -669,7 +669,7 @@ extern dsp_status dev_remove_device(struct cfg_devnode *dev_node_obj);
  *                      dev_create_device().
  *      hmgr:           Handle to a channel manager, or NULL.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -EFAULT:    Invalid hdev_obj.
  *  Requires:
  *      DEV Initialized.
@@ -702,7 +702,7 @@ extern void dev_set_msg_mgr(struct dev_object *hdev_obj, struct msg_mgr *hmgr);
  *  Parameters:
  *      dev_node_obj:       Device node as it is know to OS.
  *  Returns:
- *      DSP_SOK:        If success;
+ *      0:        If success;
  *      <error code>    Otherwise.
  *  Requires:
  *      DEV initialized.

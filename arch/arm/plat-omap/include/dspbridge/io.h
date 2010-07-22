@@ -38,7 +38,7 @@
  *      pMgrAttrs->irq_shared:     TRUE if the IRQ is shareable.
  *      pMgrAttrs->word_size:   DSP Word size in equivalent PC bytes..
  *  Returns:
- *      DSP_SOK:                Success;
+ *      0:                Success;
  *      -ENOMEM:            Insufficient memory for requested resources.
  *      CHNL_E_ISR:             Unable to plug channel ISR for configured IRQ.
  *      CHNL_E_INVALIDIRQ:      Invalid IRQ number. Must be 0 <= birq <= 15.
@@ -61,7 +61,7 @@ extern dsp_status io_create(OUT struct io_mgr **phIOMgr,
  *  Parameters:
  *      hio_mgr:         IOmanager object.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -EFAULT:    hio_mgr was invalid.
  *  Requires:
  *      io_init(void) called.
@@ -104,7 +104,7 @@ extern bool io_init(void);
  *  Parameters:
  *      hio_mgr:         IOmanager object.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -EFAULT:    hio_mgr was invalid.
  *  Requires:
  *      io_init(void) called.

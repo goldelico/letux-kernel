@@ -106,7 +106,7 @@ static s32 cod_f_close(struct file *filp)
 
 	filp_close(filp, NULL);
 
-	/* we can't use DSP_SOK here */
+	/* we can't use 0 here */
 	return 0;
 }
 
@@ -170,7 +170,7 @@ static s32 cod_f_seek(struct file *filp, s32 lOffset, s32 cOrigin)
 	if ((s32) dw_cur_pos < 0)
 		return -EPERM;
 
-	/* we can't use DSP_SOK here */
+	/* we can't use 0 here */
 	return 0;
 }
 
@@ -221,7 +221,7 @@ dsp_status cod_create(OUT struct cod_manager **phMgr, char *pstrDummyFile,
 {
 	struct cod_manager *mgr_new;
 	struct dbll_attrs zl_attrs;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(phMgr != NULL);
@@ -274,7 +274,7 @@ dsp_status cod_create(OUT struct cod_manager **phMgr, char *pstrDummyFile,
 	/* return the new manager */
 	*phMgr = mgr_new;
 
-	return DSP_SOK;
+	return 0;
 }
 
 /*
@@ -324,7 +324,7 @@ void cod_exit(void)
 dsp_status cod_get_base_lib(struct cod_manager *cod_mgr_obj,
 			    struct dbll_library_obj **plib)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(IS_VALID(cod_mgr_obj));
@@ -341,7 +341,7 @@ dsp_status cod_get_base_lib(struct cod_manager *cod_mgr_obj,
 dsp_status cod_get_base_name(struct cod_manager *cod_mgr_obj, char *pszName,
 			     u32 usize)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(IS_VALID(cod_mgr_obj));
@@ -369,7 +369,7 @@ dsp_status cod_get_entry(struct cod_manager *cod_mgr_obj, u32 *pulEntry)
 
 	*pulEntry = cod_mgr_obj->ul_entry;
 
-	return DSP_SOK;
+	return 0;
 }
 
 /*
@@ -380,7 +380,7 @@ dsp_status cod_get_entry(struct cod_manager *cod_mgr_obj, u32 *pulEntry)
 dsp_status cod_get_loader(struct cod_manager *cod_mgr_obj,
 			  struct dbll_tar_obj **phLoader)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(IS_VALID(cod_mgr_obj));
@@ -401,7 +401,7 @@ dsp_status cod_get_section(struct cod_libraryobj *lib, IN char *pstrSect,
 			   OUT u32 *puAddr, OUT u32 *puLen)
 {
 	struct cod_manager *cod_mgr_obj;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(lib != NULL);
@@ -458,7 +458,7 @@ dsp_status cod_get_sym_value(struct cod_manager *hmgr, char *pstrSym,
 
 	*pul_value = dbll_sym->value;
 
-	return DSP_SOK;
+	return 0;
 }
 
 /*
@@ -554,7 +554,7 @@ dsp_status cod_load_base(struct cod_manager *hmgr, u32 nArgc, char *aArgs[],
 dsp_status cod_open(struct cod_manager *hmgr, IN char *pszCoffPath,
 		    cod_flags flags, struct cod_libraryobj **pLib)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct cod_libraryobj *lib = NULL;
 
 	DBC_REQUIRE(refs > 0);
@@ -591,7 +591,7 @@ dsp_status cod_open(struct cod_manager *hmgr, IN char *pszCoffPath,
 dsp_status cod_open_base(struct cod_manager *hmgr, IN char *pszCoffPath,
 			 dbll_flags flags)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct dbll_library_obj *lib;
 
 	DBC_REQUIRE(refs > 0);
@@ -629,7 +629,7 @@ dsp_status cod_open_base(struct cod_manager *hmgr, IN char *pszCoffPath,
 dsp_status cod_read_section(struct cod_libraryobj *lib, IN char *pstrSect,
 			    OUT char *pstrContent, IN u32 cContentSize)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(lib != NULL);

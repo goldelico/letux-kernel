@@ -116,7 +116,7 @@ enum nldr_phase {
  *                      will be passed to nldr_load/nldr_unload.
  *      pf_phase_split:   pointer to boolean variable referenced in node.c
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -ENOMEM:    Insufficient memory on GPP.
  *  Requires:
  *      nldr_init(void) called.
@@ -124,7 +124,7 @@ enum nldr_phase {
  *      node_props != NULL.
  *      phNldrNode != NULL.
  *  Ensures:
- *      DSP_SOK:        IsValidNode(*phNldrNode).
+ *      0:        IsValidNode(*phNldrNode).
  *      error:          *phNldrNode == NULL.
  */
 typedef dsp_status(*nldr_allocatefxn) (struct nldr_object *nldr_obj,
@@ -145,7 +145,7 @@ typedef dsp_status(*nldr_allocatefxn) (struct nldr_object *nldr_obj,
  *      hdev_obj:     Device for this processor.
  *      pattrs:         Loader attributes.
  *  Returns:
- *      DSP_SOK:        Success;
+ *      0:        Success;
  *      -ENOMEM:    Insufficient memory for requested resources.
  *  Requires:
  *      nldr_init(void) called.
@@ -153,7 +153,7 @@ typedef dsp_status(*nldr_allocatefxn) (struct nldr_object *nldr_obj,
  *      hdev_obj != NULL.
  *	pattrs != NULL.
  *  Ensures:
- *      DSP_SOK:        Valid *phNldr.
+ *      0:        Valid *phNldr.
  *      error:          *phNldr == NULL.
  */
 typedef dsp_status(*nldr_createfxn) (OUT struct nldr_object **phNldr,
@@ -213,7 +213,7 @@ typedef void (*nldr_freefxn) (struct nldr_nodeobject *nldr_node_obj);
  *      pstrFxn:        Name of function.
  *      pulAddr:        Location to store function address.
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      DSP_ESYMBOL:    Address of function not found.
  *  Requires:
  *      nldr_init(void) called.
@@ -245,7 +245,7 @@ typedef bool(*nldr_initfxn) (void);
  *      nldr_node_obj:      Handle returned from nldr_allocate().
  *      phase:          Type of function to load (create, delete, or execute).
  *  Returns:
- *      DSP_SOK:                Success.
+ *      0:                Success.
  *      -ENOMEM:            Insufficient memory on GPP.
  *      DSP_EOVERLAYMEMORY:     Can't overlay phase because overlay memory
  *                              is already in use.
@@ -267,7 +267,7 @@ typedef dsp_status(*nldr_loadfxn) (struct nldr_nodeobject *nldr_node_obj,
  *      nldr_node_obj:      Handle returned from nldr_allocate().
  *      phase:          Node function to unload (create, delete, or execute).
  *  Returns:
- *      DSP_SOK:        Success.
+ *      0:        Success.
  *      -ENOMEM:    Insufficient memory on GPP.
  *  Requires:
  *      nldr_init(void) called.

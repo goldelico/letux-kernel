@@ -329,7 +329,7 @@ dsp_status nldr_allocate(struct nldr_object *nldr_obj, void *priv_ref,
 			 IN bool *pf_phase_split)
 {
 	struct nldr_nodeobject *nldr_node_obj = NULL;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(node_props != NULL);
@@ -442,7 +442,7 @@ dsp_status nldr_create(OUT struct nldr_object **phNldr,
 	u32 ul_addr;
 	struct rmm_segment *rmm_segs = NULL;
 	u16 i;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(phNldr != NULL);
 	DBC_REQUIRE(hdev_obj != NULL);
@@ -489,7 +489,7 @@ dsp_status nldr_create(OUT struct nldr_object **phNldr,
 			}
 		} else {
 			/* Ok to not have dynamic loading memory */
-			status = DSP_SOK;
+			status = 0;
 			ul_len = 0;
 			dev_dbg(bridge, "%s: failed - no dynamic loading mem "
 				"segments: 0x%x\n", __func__, status);
@@ -681,7 +681,7 @@ dsp_status nldr_get_fxn_addr(struct nldr_nodeobject *nldr_node_obj,
 {
 	struct dbll_sym_val *dbll_sym;
 	struct nldr_object *nldr_obj;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	bool status1 = false;
 	s32 i = 0;
 	struct lib_node root = { NULL, 0, NULL };
@@ -772,7 +772,7 @@ dsp_status nldr_get_fxn_addr(struct nldr_nodeobject *nldr_node_obj,
 dsp_status nldr_get_rmm_manager(struct nldr_object *hNldrObject,
 				OUT struct rmm_target_obj **phRmmMgr)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct nldr_object *nldr_obj = hNldrObject;
 	DBC_REQUIRE(phRmmMgr != NULL);
 
@@ -814,7 +814,7 @@ dsp_status nldr_load(struct nldr_nodeobject *nldr_node_obj,
 {
 	struct nldr_object *nldr_obj;
 	struct dsp_uuid lib_uuid;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(nldr_node_obj);
@@ -874,7 +874,7 @@ dsp_status nldr_load(struct nldr_nodeobject *nldr_node_obj,
 dsp_status nldr_unload(struct nldr_nodeobject *nldr_node_obj,
 		       enum nldr_phase phase)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	struct lib_node *root_lib = NULL;
 	s32 i = 0;
 
@@ -935,7 +935,7 @@ static dsp_status add_ovly_info(void *handle, struct dbll_sect_info *sect_info,
 	char *pch;
 	u16 i;
 	struct nldr_object *nldr_obj = (struct nldr_object *)handle;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	/* Is this an overlay section (load address != run address)? */
 	if (sect_info->sect_load_addr == sect_info->sect_run_addr)
@@ -1013,7 +1013,7 @@ static dsp_status add_ovly_node(struct dsp_uuid *uuid_obj,
 	char *pbuf = NULL;
 	u32 len;
 	struct dcd_genericobj obj_def;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	if (obj_type != DSP_DCDNODETYPE)
 		goto func_end;
@@ -1072,7 +1072,7 @@ static dsp_status add_ovly_sect(struct nldr_object *nldr_obj,
 	struct ovly_sect *new_sect = NULL;
 	struct ovly_sect *last_sect;
 	struct ovly_sect *ovly_section;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	ovly_section = last_sect = *pList;
 	*pExists = false;
@@ -1253,7 +1253,7 @@ static dsp_status load_lib(struct nldr_nodeobject *nldr_node_obj,
 	char *psz_file_name = NULL;
 	struct dsp_uuid *dep_lib_uui_ds = NULL;
 	bool *persistent_dep_libs = NULL;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	bool lib_status = false;
 	struct lib_node *dep_lib;
 
@@ -1300,7 +1300,7 @@ static dsp_status load_lib(struct nldr_nodeobject *nldr_node_obj,
 		/* Close library */
 		if (lib_status) {
 			nldr_obj->ldr_fxns.close_fxn(root->lib);
-			return DSP_SALREADYLOADED;
+			return 0;
 		}
 	}
 	if (DSP_SUCCEEDED(status)) {
@@ -1393,7 +1393,7 @@ static dsp_status load_lib(struct nldr_nodeobject *nldr_node_obj,
 					  phase, depth);
 
 			if (DSP_SUCCEEDED(status)) {
-				if ((status != DSP_SALREADYLOADED) &&
+				if ((status != 0) &&
 				    !rootPersistent && persistent_dep_libs[i] &&
 				    *nldr_node_obj->pf_phase_split) {
 					(nldr_node_obj->pers_libs)++;
@@ -1472,7 +1472,7 @@ static dsp_status load_ovly(struct nldr_nodeobject *nldr_node_obj,
 	u16 *other_ref = NULL;
 	u32 bytes;
 	struct ovly_sect *ovly_section;
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 
 	/* Find the node in the table */
 	for (i = 0; i < nldr_obj->ovly_nodes; i++) {
@@ -1756,7 +1756,7 @@ static dsp_status remote_free(void **pRef, u16 space, u32 dspAddr,
 	     1) / nldr_obj->us_dsp_word_size;
 
 	if (rmm_free(rmm, space, dspAddr, word_size, reserve))
-		status = DSP_SOK;
+		status = 0;
 
 	return status;
 }
@@ -1930,7 +1930,7 @@ static u32 find_gcf(u32 a, u32 b)
 dsp_status nldr_find_addr(struct nldr_nodeobject *nldr_node, u32 sym_addr,
 			u32 offset_range, void *offset_output, char *sym_name)
 {
-	dsp_status status = DSP_SOK;
+	dsp_status status = 0;
 	bool status1 = false;
 	s32 i = 0;
 	struct lib_node root = { NULL, 0, NULL };
