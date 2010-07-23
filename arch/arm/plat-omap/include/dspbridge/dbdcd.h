@@ -257,7 +257,7 @@ extern dsp_status dcd_get_library_name(IN struct dcd_manager *hdcd_mgr,
  *      0: Success.
  *      -EACCES:  Unable to parse content of object code section.
  *      -EACCES:   Unable to read object code section.
- *      DSP_EDCDGETSECT:    Unable to access object code section.
+ *      -EACCES:    Unable to access object code section.
  *      DSP_EDCDLOADBASE:   Unable to load code base.
  *      -EPERM:          General failure.
  *      -EFAULT:        Invalid DCD_HMANAGER handle.

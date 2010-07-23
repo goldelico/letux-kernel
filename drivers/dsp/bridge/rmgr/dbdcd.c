@@ -479,7 +479,7 @@ dsp_status dcd_get_object_def(IN struct dcd_manager *hdcd_mgr,
 	/* Get section information. */
 	status = cod_get_section(lib, sz_sect_name, &ul_addr, &ul_len);
 	if (DSP_FAILED(status)) {
-		status = DSP_EDCDGETSECT;
+		status = -EACCES;
 		goto func_end;
 	}
 
