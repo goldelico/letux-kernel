@@ -67,7 +67,7 @@ extern dsp_status chnl_close(struct chnl_object *chnl_obj);
  *      -ECHRNG:     This manager cannot handle this many channels.
  *      CHNL_E_INVALIDIRQ:      Invalid IRQ number. Must be 0 <= birq <= 15.
  *      -EINVAL: Invalid DSP word size.  Must be > 0.
- *      CHNL_E_INVALIDMEMBASE:  Invalid base address for DSP communications.
+ *      -EINVAL:  Invalid base address for DSP communications.
  *      CHNL_E_MGREXISTS:       Channel manager already exists for this device.
  *  Requires:
  *      chnl_init(void) called.

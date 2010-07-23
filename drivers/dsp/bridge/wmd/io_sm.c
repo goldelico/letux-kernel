@@ -398,7 +398,7 @@ dsp_status bridge_io_on_loaded(struct io_mgr *hio_mgr)
 		goto func_end;
 	}
 	if (ul_shm_limit <= ul_shm_base) {
-		status = CHNL_E_INVALIDMEMBASE;
+		status = -EINVAL;
 		goto func_end;
 	}
 	/* Get total length in bytes */
@@ -417,7 +417,7 @@ dsp_status bridge_io_on_loaded(struct io_mgr *hio_mgr)
 					   &ul_msg_limit);
 		if (DSP_SUCCEEDED(status)) {
 			if (ul_msg_limit <= ul_msg_base) {
-				status = CHNL_E_INVALIDMEMBASE;
+				status = -EINVAL;
 			} else {
 				/*
 				 * Length (bytes) of messaging part of shared

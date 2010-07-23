@@ -63,7 +63,7 @@ dsp_status io_create(OUT struct io_mgr **phIOMgr, struct dev_object *hdev_obj,
 
 	/* A memory base of 0 implies no memory base: */
 	if ((pMgrAttrs->shm_base != 0) && (pMgrAttrs->usm_length == 0))
-		status = CHNL_E_INVALIDMEMBASE;
+		status = -EINVAL;
 
 	if (pMgrAttrs->word_size == 0)
 		status = -EINVAL;
