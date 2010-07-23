@@ -183,7 +183,7 @@ PVRSRV_ERROR EnableSGXClocks(SYS_DATA *psSysData)
 	if (res < 0)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "EnableSGXClocks: Couldn't enable SGX functional clock (%d)", res));
-		return PVRSRV_ERROR_GENERIC;
+		return PVRSRV_OK;
 	}
 
 	res = clk_enable(psSysSpecData->psSGX_ICK);
@@ -192,7 +192,7 @@ PVRSRV_ERROR EnableSGXClocks(SYS_DATA *psSysData)
 		PVR_DPF((PVR_DBG_ERROR, "EnableSGXClocks: Couldn't enable SGX interface clock (%d)", res));
 
 		clk_disable(psSysSpecData->psSGX_FCK);
-		return PVRSRV_ERROR_GENERIC;
+		return PVRSRV_OK;
 	}
 
 #if defined(SGX530) && (SGX_CORE_REV == 125)
@@ -200,7 +200,7 @@ PVRSRV_ERROR EnableSGXClocks(SYS_DATA *psSysData)
 	if (lNewRate <= 0)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "EnableSGXClocks: Couldn't round SGX functional clock rate"));
-		return PVRSRV_ERROR_GENERIC;
+		return PVRSRV_OK;
 	}
 
 	lRate = clk_get_rate(psSysSpecData->psSGX_FCK);
@@ -445,7 +445,7 @@ ExitDisableGPT11FCK:
 ExitUnRegisterConstraintNotifications:
 #endif
 ExitError:
-	eError = PVRSRV_ERROR_GENERIC;
+	eError = PVRSRV_OK;
 Exit:
 	return eError;
 }
