@@ -40,7 +40,7 @@
  *  Returns:
  *      0:                Success;
  *      -ENOMEM:            Insufficient memory for requested resources.
- *      CHNL_E_ISR:             Unable to plug channel ISR for configured IRQ.
+ *      -EIO:             Unable to plug channel ISR for configured IRQ.
  *      CHNL_E_INVALIDIRQ:      Invalid IRQ number. Must be 0 <= birq <= 15.
  *      -EINVAL: Invalid DSP word size.  Must be > 0.
  *      -EINVAL:  Invalid base address for DSP communications.

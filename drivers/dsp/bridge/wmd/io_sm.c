@@ -250,7 +250,7 @@ dsp_status bridge_io_create(OUT struct io_mgr **phIOMgr,
 		pio_mgr->shared_irq = pMgrAttrs->irq_shared;
 
 	} else {
-		status = CHNL_E_ISR;
+		status = -EIO;
 	}
 #ifdef CONFIG_BRIDGE_WDT3
 	if (DSP_SUCCEEDED(status)) {

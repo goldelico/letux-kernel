@@ -309,7 +309,7 @@ typedef dsp_status(*fxn_brd_write) (struct wmd_dev_context *hDevContext,
  *  Returns:
  *      0:            Success;
  *      -ENOMEM:        Insufficient memory for requested resources.
- *      CHNL_E_ISR:         Unable to plug ISR for given IRQ.
+ *      -EIO:         Unable to plug ISR for given IRQ.
  *      -EFAULT:    Couldn't map physical address to a virtual one.
  *  Requires:
  *      phChnlMgr != NULL.

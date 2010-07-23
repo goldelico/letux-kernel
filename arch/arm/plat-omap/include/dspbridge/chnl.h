@@ -63,7 +63,7 @@ extern dsp_status chnl_close(struct chnl_object *chnl_obj);
  *      -EFAULT:            hdev_obj is invalid.
  *      -EINVAL:        max_channels is 0.
  *      -ENOMEM:            Insufficient memory for requested resources.
- *      CHNL_E_ISR:             Unable to plug channel ISR for configured IRQ.
+ *      -EIO:             Unable to plug channel ISR for configured IRQ.
  *      -ECHRNG:     This manager cannot handle this many channels.
  *      CHNL_E_INVALIDIRQ:      Invalid IRQ number. Must be 0 <= birq <= 15.
  *      -EINVAL: Invalid DSP word size.  Must be > 0.
