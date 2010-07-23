@@ -63,7 +63,7 @@ struct rmm_target_obj;
  *  Returns:
  *      0:                Success.
  *      -ENOMEM:            Memory allocation on GPP failed.
- *      DSP_EOVERLAYMEMORY:     Cannot "allocate" overlay memory because it's
+ *      -ENXIO:     Cannot "allocate" overlay memory because it's
  *                              already in use.
  *  Requires:
  *      RMM initialized.

@@ -130,7 +130,7 @@ dsp_status rmm_alloc(struct rmm_target_obj *target, u32 segid, u32 size,
 							   (prev_sect->addr +
 							    prev_sect->size >
 							    addr))) {
-				status = DSP_EOVERLAYMEMORY;
+				status = -ENXIO;
 			}
 			break;
 		}

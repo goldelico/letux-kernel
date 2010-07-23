@@ -247,7 +247,7 @@ typedef bool(*nldr_initfxn) (void);
  *  Returns:
  *      0:                Success.
  *      -ENOMEM:            Insufficient memory on GPP.
- *      DSP_EOVERLAYMEMORY:     Can't overlay phase because overlay memory
+ *      -ENXIO:     Can't overlay phase because overlay memory
  *                              is already in use.
  *      DSP_EDYNLOAD:           Failure in dynamic loader library.
  *      DSP_EFWRITE:            Failed to write phase's code or date to target.
