@@ -81,7 +81,7 @@ dsp_status chnl_create(OUT struct chnl_mgr **phChnlMgr,
 	if (DSP_SUCCEEDED(status)) {
 		status = dev_get_chnl_mgr(hdev_obj, &hchnl_mgr);
 		if (DSP_SUCCEEDED(status) && hchnl_mgr != NULL)
-			status = CHNL_E_MGREXISTS;
+			status = -EEXIST;
 
 	}
 
