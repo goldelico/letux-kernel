@@ -2600,13 +2600,15 @@ EXPORT_SYMBOL(isp_g_crop);
 int isp_s_crop(struct device *dev, struct v4l2_crop *a)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
+	int rval = 0;
 
 	if (isp->pipeline.modules & OMAP_ISP_RESIZER)
-		ispresizer_config_crop(&isp->isp_res, &isp->pipeline.rsz, a);
+		rval = ispresizer_config_crop(&isp->isp_res,
+					      &isp->pipeline.rsz, a);
 	else
-		isp_g_crop(dev, a);
+		rval = isp_g_crop(dev, a);
 
-	return 0;
+	return rval;
 }
 EXPORT_SYMBOL(isp_s_crop);
 

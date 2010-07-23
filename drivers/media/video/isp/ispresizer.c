@@ -219,7 +219,15 @@ static int ispresizer_try_fmt(struct isp_node *pipe, bool memory)
 	 */
 	pipe->out.image.height = ALIGN(pipe->out.image.height,
 				       OUT_HEIGHT_ALIGN);
-	rsz = pipe->in.image.height * RESIZECONSTANT / pipe->out.image.height;
+
+	/* Set default crop, if not defined */
+	if (pipe->in.crop.height <= 0 ||
+	    pipe->in.crop.height + pipe->in.crop.top > pipe->in.image.height) {
+		pipe->in.crop.height = pipe->in.image.height;
+		pipe->in.crop.top = 0;
+	}
+
+	rsz = pipe->in.crop.height * RESIZECONSTANT / pipe->out.image.height;
 	if (rsz > MID_RESIZE_VALUE) {
 		if (pipe->out.image.width > max_out_7tap)
 			pipe->out.image.width = max_out_7tap &
@@ -242,18 +250,24 @@ static int ispresizer_try_fmt(struct isp_node *pipe, bool memory)
 		if (rsz == MIN_RESIZE_VALUE) {
 			pipe->out.image.height = min_t(u32,
 						       pipe->out.image.height,
-						       (pipe->in.image.height -
+						       (pipe->in.crop.height -
 							CIP_7PHASE) *
 							MAX_SCALE_FACTOR);
 			pipe->out.image.height &= ~(OUT_HEIGHT_ALIGN - 1);
 		} else {
 			pipe->out.image.height = max_t(u32,
 						       pipe->out.image.height,
-						       (pipe->in.image.height +
+						       (pipe->in.crop.height +
 							CIP_4PHASE) /
 							MAX_SCALE_FACTOR);
 			pipe->out.image.height = ALIGN(pipe->out.image.height,
 						       OUT_HEIGHT_ALIGN);
+		}
+		/* Update crop, if out of range */
+		if (pipe->in.crop.height + pipe->in.crop.top >
+						pipe->in.image.height) {
+			pipe->in.crop.height = pipe->in.image.height;
+			pipe->in.crop.top = 0;
 		}
 	}
 
@@ -261,13 +275,21 @@ static int ispresizer_try_fmt(struct isp_node *pipe, bool memory)
 	 * Calculate horizontal ratio.
 	 *  See OMAP34XX Technical Refernce Manual.
 	 */
-	rsz = pipe->in.image.width * RESIZECONSTANT / pipe->out.image.width;
+	rsz = pipe->in.crop.width * RESIZECONSTANT / pipe->out.image.width;
 	if (rsz > RESIZECONSTANT)
 		pipe->out.image.width = ALIGN(pipe->out.image.width,
 					      OUT_WIDTH_ALIGN);
 	else
 		pipe->out.image.width = ALIGN(pipe->out.image.width,
 					      OUT_WIDTH_ALIGN_UP);
+
+	/* Set default crop, if not defined */
+	if (pipe->in.crop.width <= 0 ||
+	    pipe->in.crop.width + pipe->in.crop.left > pipe->in.image.width) {
+		pipe->in.crop.width = pipe->in.image.width;
+		pipe->in.crop.left = 0;
+	}
+
 	if (rsz > MID_RESIZE_VALUE) {
 		rsz = ((pipe->in.image.width - TAP7 - CIP_7PHASE)
 			* RESIZECONSTANT - sph * 64)
@@ -284,18 +306,24 @@ static int ispresizer_try_fmt(struct isp_node *pipe, bool memory)
 		if (rsz == MIN_RESIZE_VALUE) {
 			pipe->out.image.width = min_t(u32,
 						      pipe->out.image.width,
-						      (pipe->in.image.width -
+						      (pipe->in.crop.width -
 						       CIP_7PHASE) *
 						       MAX_SCALE_FACTOR);
 			pipe->out.image.width &= ~(OUT_WIDTH_ALIGN_UP - 1);
 		} else {
 			pipe->out.image.width = max_t(u32,
 						      pipe->out.image.width,
-						      (pipe->in.image.width +
+						      (pipe->in.crop.width +
 						       CIP_4PHASE) /
 						       MAX_SCALE_FACTOR);
 			pipe->out.image.width = ALIGN(pipe->out.image.width,
 						      OUT_WIDTH_ALIGN_UP);
+		}
+		/* Update crop, if out of range */
+		if (pipe->in.crop.width + pipe->in.crop.left >
+						pipe->in.image.width) {
+			pipe->in.crop.width = pipe->in.image.width;
+			pipe->in.crop.left = 0;
 		}
 	}
 
@@ -305,49 +333,29 @@ static int ispresizer_try_fmt(struct isp_node *pipe, bool memory)
 /**
  * ispresizer_try_ratio - Calculate resize values, input and output size.
  */
-static int ispresizer_try_ratio(struct isp_node *pipe,
+static int ispresizer_try_ratio(struct device *dev, struct isp_node *pipe,
 				struct v4l2_rect *phy_rect,
 				u16 *h_ratio, u16 *v_ratio)
 {
 	s16 rsz;
 	u32 sph = DEFAULTSTPHASE;
 
-	/* Adjust range of requested horizontal crop */
-	if (pipe->in.crop.width <= 0 ||
-	    pipe->in.crop.width > pipe->in.image.width) {
-		pipe->in.crop.width = pipe->in.image.width;
-		pipe->in.crop.left = 0;
-	} else {
-		pipe->in.crop.width = clamp_t(int, pipe->in.crop.width,
-					      MIN_IN_WIDTH,
-					      pipe->in.image.width);
-		pipe->in.crop.width = clamp_t(int, pipe->in.crop.width,
-					      pipe->out.image.width /
-					      MAX_SCALE_FACTOR,
-					      pipe->out.image.width *
-					      MAX_SCALE_FACTOR);
-		pipe->in.crop.left = clamp_t(int, pipe->in.crop.left, 0,
-					     pipe->in.image.width -
-					     pipe->in.crop.width);
+	/* Check range of requested horizontal crop */
+	if (pipe->in.crop.width < MIN_IN_WIDTH ||
+	    pipe->in.crop.width + pipe->in.crop.left > pipe->in.image.width) {
+		dev_err(dev, "Horizontal crop is out of range Crop: L=%d W=%d "
+			"Image: Width=%d\n", pipe->in.crop.left,
+			pipe->in.crop.width, pipe->in.image.width);
+		return -EINVAL;
 	}
 
-	/* Adjust range of requested vertical crop */
-	if (pipe->in.crop.height <= 0 ||
-	    pipe->in.crop.height > pipe->in.image.height) {
-		pipe->in.crop.height = pipe->in.image.height;
-		pipe->in.crop.top = 0;
-	} else {
-		pipe->in.crop.height = clamp_t(int, pipe->in.crop.height,
-					       MIN_IN_HEIGHT,
-					       pipe->in.image.height);
-		pipe->in.crop.height = clamp_t(int, pipe->in.crop.height,
-					       pipe->out.image.height /
-					       MAX_SCALE_FACTOR,
-					       pipe->out.image.height *
-					       MAX_SCALE_FACTOR);
-		pipe->in.crop.top = clamp_t(int, pipe->in.crop.top, 0,
-					    pipe->in.image.height -
-					    pipe->in.crop.height);
+	/* Check range of requested vertical crop */
+	if (pipe->in.crop.height < MIN_IN_HEIGHT ||
+	    pipe->in.crop.height + pipe->in.crop.top > pipe->in.image.height) {
+		dev_err(dev, "Vertical crop is out of range Crop: T=%d H=%d "
+			"Image: Height=%d\n", pipe->in.crop.top,
+			pipe->in.crop.height, pipe->in.image.height);
+		return -EINVAL;
 	}
 	*phy_rect = pipe->in.crop;
 
@@ -697,8 +705,6 @@ void ispresizer_applycrop(struct isp_res_device *isp_res)
 	ispresizer_s_pipeline(isp_res, &isp->pipeline.rsz);
 
 	isp_res->applycrop = 0;
-
-	return;
 }
 
 /**
@@ -715,11 +721,13 @@ int ispresizer_config_crop(struct isp_res_device *isp_res,
 			   struct isp_node *pipe, struct v4l2_crop *a)
 {
 	struct isp_device *isp = to_isp_device(isp_res);
+	int rval = 0;
 
 	pipe->in.crop = a->c;
 
-	if (ispresizer_try_pipeline(isp_res, &isp->pipeline.rsz))
-		return -EINVAL;
+	rval = ispresizer_try_ratio(to_device(isp_res), pipe,
+				    &isp_res->phy_rect, &isp_res->h_resz,
+				    &isp_res->v_resz);
 
 	a->c = pipe->in.crop;
 
@@ -728,7 +736,7 @@ int ispresizer_config_crop(struct isp_res_device *isp_res,
 	if (isp->running == ISP_STOPPED)
 		ispresizer_applycrop(isp_res);
 
-	return 0;
+	return rval;
 }
 
 /**
@@ -817,7 +825,7 @@ int ispresizer_try_pipeline(struct isp_res_device *isp_res,
 	if (ispresizer_try_fmt(pipe, pipe->in.path != RSZ_OTFLY_YUV))
 		return -EINVAL;
 
-	if (ispresizer_try_ratio(pipe, &isp_res->phy_rect,
+	if (ispresizer_try_ratio(to_device(isp_res), pipe, &isp_res->phy_rect,
 				 &isp_res->h_resz, &isp_res->v_resz))
 		return -EINVAL;
 
