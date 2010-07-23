@@ -450,7 +450,7 @@ dsp_status cod_get_sym_value(struct cod_manager *hmgr, char *pstrSym,
 		    get_addr_fxn(hmgr->base_lib, pstrSym, &dbll_sym)) {
 			if (!hmgr->fxns.
 			    get_c_addr_fxn(hmgr->base_lib, pstrSym, &dbll_sym))
-				return COD_E_SYMBOLNOTFOUND;
+				return -ESPIPE;
 		}
 	} else {
 		return -ESPIPE;

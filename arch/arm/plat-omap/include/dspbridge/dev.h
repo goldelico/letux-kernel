@@ -493,7 +493,7 @@ extern dsp_status dev_get_node_manager(struct dev_object
  *      0:        Success.
  *      -EFAULT:    Invalid hdev_obj.
  *      -ESPIPE:  Symbols have not been loaded onto the board.
- *      COD_E_SYMBOLNOTFOUND:   The symbol could not be found.
+ *      -ESPIPE:   The symbol could not be found.
  *  Requires:
  *      pstrSym != NULL.
  *      pul_value != NULL.

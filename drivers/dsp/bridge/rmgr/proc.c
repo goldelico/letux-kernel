@@ -968,7 +968,7 @@ dsp_status proc_load(void *hprocessor, IN CONST s32 argc_index,
 				dev_dbg(bridge, "%s: Failure to Load the EXE\n",
 					__func__);
 			}
-			if (status == COD_E_SYMBOLNOTFOUND) {
+			if (status == -ESPIPE) {
 				pr_err("%s: Couldn't parse the file\n",
 				       __func__);
 			}

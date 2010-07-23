@@ -3116,7 +3116,7 @@ static dsp_status get_rms_fxns(struct node_mgr *hnode_mgr)
 		status = dev_get_symbol(dev_obj, psz_fxns[i],
 					&(hnode_mgr->ul_fxn_addrs[i]));
 		if (DSP_FAILED(status)) {
-			if (status == COD_E_SYMBOLNOTFOUND) {
+			if (status == -ESPIPE) {
 				/*
 				 *  May be loaded dynamically (in the future),
 				 *  but return an error for now.

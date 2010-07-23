@@ -216,7 +216,7 @@ extern dsp_status cod_get_loader(struct cod_manager *cod_mgr_obj,
  *  Returns:
  *      0:                Success
  *      -ESPIPE:  Symbols have not been loaded onto the board.
- *      COD_E_SYMBOLNOTFOUND:   The symbol could not be found.
+ *      -ESPIPE:   The symbol could not be found.
  *  Requires:
  *      COD module initialized.
  *      valid cod_mgr_obj.
@@ -246,7 +246,7 @@ extern dsp_status cod_get_section(struct cod_libraryobj *lib,
  *  Returns:
  *      0:                Success.
  *      -ESPIPE:  Symbols have not been loaded onto the board.
- *      COD_E_SYMBOLNOTFOUND:   The symbol could not be found.
+ *      -ESPIPE:   The symbol could not be found.
  *  Requires:
  *      COD module initialized.
  *      Valid cod_mgr_obj.
