@@ -73,7 +73,7 @@ dsp_status chnl_create(OUT struct chnl_mgr **phChnlMgr,
 	else if (pMgrAttrs->max_channels == 0)
 		status = -EINVAL;
 	else
-		status = CHNL_E_MAXCHANNELS;
+		status = -ECHRNG;
 
 	if (pMgrAttrs->word_size == 0)
 		status = CHNL_E_INVALIDWORDSIZE;
