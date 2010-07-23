@@ -457,7 +457,7 @@ typedef dsp_status(*fxn_chnl_close) (struct chnl_object *chnl_obj);
  *                      I/O is allowed.
  *      -EPIPE:     End of stream was already marked on a previous
  *                      IORequest on this channel.  No further I/O is expected.
- *      CHNL_E_BUFSIZE: Buffer submitted to this output channel is larger than
+ *      -EINVAL: Buffer submitted to this output channel is larger than
  *                      the size of the physical shared memory output window.
  *  Requires:
  *  Ensures:

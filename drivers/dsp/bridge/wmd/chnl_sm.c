@@ -179,7 +179,7 @@ func_cont:
 			/* Check buffer size on output channels for fit. */
 			if (byte_size >
 			    io_buf_size(pchnl->chnl_mgr_obj->hio_mgr))
-				status = CHNL_E_BUFSIZE;
+				status = -EINVAL;
 
 		}
 	}
