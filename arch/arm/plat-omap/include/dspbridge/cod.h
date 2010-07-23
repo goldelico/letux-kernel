@@ -215,7 +215,7 @@ extern dsp_status cod_get_loader(struct cod_manager *cod_mgr_obj,
  *      puLen:      Location to store length.
  *  Returns:
  *      0:                Success
- *      COD_E_NOSYMBOLSLOADED:  Symbols have not been loaded onto the board.
+ *      -ESPIPE:  Symbols have not been loaded onto the board.
  *      COD_E_SYMBOLNOTFOUND:   The symbol could not be found.
  *  Requires:
  *      COD module initialized.
@@ -245,7 +245,7 @@ extern dsp_status cod_get_section(struct cod_libraryobj *lib,
  *      value:      value of the symbol
  *  Returns:
  *      0:                Success.
- *      COD_E_NOSYMBOLSLOADED:  Symbols have not been loaded onto the board.
+ *      -ESPIPE:  Symbols have not been loaded onto the board.
  *      COD_E_SYMBOLNOTFOUND:   The symbol could not be found.
  *  Requires:
  *      COD module initialized.
@@ -358,7 +358,7 @@ extern dsp_status cod_open_base(struct cod_manager *hmgr, IN char *pszCoffPath,
  *      pstrContent - buffer to store content of the section.
  *  Returns:
  *      0: on success, error code on failure
- *      COD_E_NOSYMBOLSLOADED:  Symbols have not been loaded onto the board.
+ *      -ESPIPE:  Symbols have not been loaded onto the board.
  *      COD_E_READFAILED: Failed to read content of code section.
  *  Requires:
  *      COD module initialized.

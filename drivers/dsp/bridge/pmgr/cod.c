@@ -417,7 +417,7 @@ dsp_status cod_get_section(struct cod_libraryobj *lib, IN char *pstrSect,
 		status = cod_mgr_obj->fxns.get_sect_fxn(lib->dbll_lib, pstrSect,
 							puAddr, puLen);
 	} else {
-		status = COD_E_NOSYMBOLSLOADED;
+		status = -ESPIPE;
 	}
 
 	DBC_ENSURE(DSP_SUCCEEDED(status) || ((*puAddr == 0) && (*puLen == 0)));
@@ -453,7 +453,7 @@ dsp_status cod_get_sym_value(struct cod_manager *hmgr, char *pstrSym,
 				return COD_E_SYMBOLNOTFOUND;
 		}
 	} else {
-		return COD_E_NOSYMBOLSLOADED;
+		return -ESPIPE;
 	}
 
 	*pul_value = dbll_sym->value;
@@ -642,7 +642,7 @@ dsp_status cod_read_section(struct cod_libraryobj *lib, IN char *pstrSect,
 		    lib->cod_mgr->fxns.read_sect_fxn(lib->dbll_lib, pstrSect,
 						     pstrContent, cContentSize);
 	else
-		status = COD_E_NOSYMBOLSLOADED;
+		status = -ESPIPE;
 
 	return status;
 }
