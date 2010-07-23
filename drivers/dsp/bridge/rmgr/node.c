@@ -1870,10 +1870,10 @@ dsp_status node_get_message(struct node_object *hnode,
 			pmsg->dw_arg1 = (u32) tmp_buf;
 			pmsg->dw_arg2 *= hnode->hnode_mgr->udsp_word_size;
 		} else {
-			status = DSP_ETRANSLATE;
+			status = -ESRCH;
 		}
 	} else {
-		status = DSP_ETRANSLATE;
+		status = -ESRCH;
 	}
 func_end:
 	dev_dbg(bridge, "%s: hnode: %p pmsg: %p utimeout: 0x%x\n", __func__,
@@ -2179,7 +2179,7 @@ dsp_status node_put_message(struct node_object *hnode,
 				status = -EPERM;	/* bad DSPWordSize */
 			}
 		} else {	/* failed to translate buffer address */
-			status = DSP_ETRANSLATE;
+			status = -ESRCH;
 		}
 	}
 	if (DSP_SUCCEEDED(status)) {

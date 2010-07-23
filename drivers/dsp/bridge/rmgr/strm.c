@@ -431,7 +431,7 @@ dsp_status strm_issue(struct strm_object *hStrm, IN u8 *pbuf, u32 ul_bytes,
 						       (void *)pbuf,
 						       CMM_VA2DSPPA);
 			if (tmp_buf == NULL)
-				status = DSP_ETRANSLATE;
+				status = -ESRCH;
 
 		}
 		if (DSP_SUCCEEDED(status)) {
@@ -671,7 +671,7 @@ dsp_status strm_reclaim(struct strm_object *hStrm, OUT u8 ** buf_ptr,
 							       CMM_PA2VA);
 			}
 			if (tmp_buf == NULL)
-				status = DSP_ETRANSLATE;
+				status = -ESRCH;
 
 			chnl_ioc_obj.pbuf = tmp_buf;
 		}
@@ -680,7 +680,7 @@ dsp_status strm_reclaim(struct strm_object *hStrm, OUT u8 ** buf_ptr,
 func_end:
 	/* ensure we return a documented return code */
 	DBC_ENSURE(DSP_SUCCEEDED(status) || status == -EFAULT ||
-		   status == -ETIME || status == DSP_ETRANSLATE ||
+		   status == -ETIME || status == -ESRCH ||
 		   status == -EPERM);
 
 	dev_dbg(bridge, "%s: hStrm: %p buf_ptr: %p pulBytes: %p pdw_arg: %p "
@@ -725,7 +725,7 @@ dsp_status strm_register_notify(struct strm_object *hStrm, u32 event_mask,
 	}
 	/* ensure we return a documented return code */
 	DBC_ENSURE(DSP_SUCCEEDED(status) || status == -EFAULT ||
-		   status == -ETIME || status == DSP_ETRANSLATE ||
+		   status == -ETIME || status == -ESRCH ||
 		   status == -ENOSYS || status == -EPERM);
 	return status;
 }
