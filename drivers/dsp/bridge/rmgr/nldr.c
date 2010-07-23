@@ -1487,7 +1487,7 @@ static dsp_status load_ovly(struct nldr_nodeobject *nldr_node_obj,
 	DBC_ASSERT(i < nldr_obj->ovly_nodes);
 
 	if (!po_node) {
-		status = DSP_ENOTFOUND;
+		status = -ENOENT;
 		goto func_end;
 	}
 

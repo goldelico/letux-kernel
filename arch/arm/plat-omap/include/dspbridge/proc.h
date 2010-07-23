@@ -513,7 +513,7 @@ extern dsp_status proc_invalidate_memory(void *hprocessor,
  *      -EFAULT     :   Invalid processor handle.
  *      -EPERM       :   General failure.
  *      -ENOMEM     :   MPU side memory allocation error.
- *      DSP_ENOTFOUND   :   Cannot find a reserved region starting with this
+ *      -ENOENT   :   Cannot find a reserved region starting with this
  *		      :   address.
  *  Requires:
  *      pmpu_addr is not NULL
@@ -564,7 +564,7 @@ extern dsp_status proc_reserve_memory(void *hprocessor,
  *      0	 :   Success.
  *      -EFAULT     :   Invalid processor handle.
  *      -EPERM       :   General failure.
- *      DSP_ENOTFOUND   :   Cannot find a mapped region starting with this
+ *      -ENOENT   :   Cannot find a mapped region starting with this
  *		      :   address.
  *  Requires:
  *      map_addr is not NULL
@@ -586,7 +586,7 @@ extern dsp_status proc_un_map(void *hprocessor, void *map_addr,
  *      0	 :   Success.
  *      -EFAULT     :   Invalid processor handle.
  *      -EPERM       :   General failure.
- *      DSP_ENOTFOUND   :   Cannot find a reserved region starting with this
+ *      -ENOENT   :   Cannot find a reserved region starting with this
  *		      :   address.
  *  Requires:
  *      prsv_addr is not NULL

@@ -266,7 +266,7 @@ dsp_status dmm_map_memory(struct dmm_object *dmm_mgr, u32 addr, u32 size)
 		chunk->mapped = true;
 		chunk->mapped_size = (size / PG_SIZE4K);
 	} else
-		status = DSP_ENOTFOUND;
+		status = -ENOENT;
 	spin_unlock(&dmm_obj->dmm_lock);
 
 	dev_dbg(bridge, "%s dmm_mgr %p, addr %x, size %x\n\tstatus %x, "
@@ -341,7 +341,7 @@ dsp_status dmm_un_map_memory(struct dmm_object *dmm_mgr, u32 addr, u32 *psize)
 	spin_lock(&dmm_obj->dmm_lock);
 	chunk = get_mapped_region(addr);
 	if (chunk == NULL)
-		status = DSP_ENOTFOUND;
+		status = -ENOENT;
 
 	if (DSP_SUCCEEDED(status)) {
 		/* Unmap the region */
@@ -375,7 +375,7 @@ dsp_status dmm_un_reserve_memory(struct dmm_object *dmm_mgr, u32 rsv_addr)
 	/* Find the chunk containing the reserved address */
 	chunk = get_mapped_region(rsv_addr);
 	if (chunk == NULL)
-		status = DSP_ENOTFOUND;
+		status = -ENOENT;
 
 	if (DSP_SUCCEEDED(status)) {
 		/* Free all the mapped pages for this reserved region */

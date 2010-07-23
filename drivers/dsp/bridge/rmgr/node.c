@@ -3218,7 +3218,7 @@ dsp_status node_find_addr(struct node_mgr *node_mgr, u32 sym_addr,
 		u32 offset_range, void *sym_addr_output, char *sym_name)
 {
 	struct node_object *node_obj;
-	dsp_status status = DSP_ENOTFOUND;
+	dsp_status status = -ENOENT;
 	u32 n;
 
 	pr_debug("%s(0x%x, 0x%x, 0x%x, 0x%x,  %s)\n", __func__,
