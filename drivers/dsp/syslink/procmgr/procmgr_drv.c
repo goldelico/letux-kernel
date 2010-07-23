@@ -640,6 +640,40 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 	}
 	break;
 
+	case CMD_PROCMGR_DMAFLUSHRANGE:
+	{
+		struct proc_mgr_cmd_args_dma src_args;
+		retval = copy_from_user((void *)&src_args,
+				(const void *)(args),
+				sizeof(struct proc_mgr_cmd_args_dma));
+		if (WARN_ON(retval < 0))
+			goto func_exit;
+
+		retval = temp_user_dma_op(src_args.ua,
+				(src_args.ua + src_args.buf_size),
+				PROCMGR_DMA_OP_FLUSH);
+		if (WARN_ON(retval < 0))
+			goto func_exit;
+	}
+	break;
+
+	case CMD_PROCMGR_DMAINVRANGE:
+	{
+		struct proc_mgr_cmd_args_dma src_args;
+		retval = copy_from_user((void *)&src_args,
+				(const void *)(args),
+				sizeof(struct proc_mgr_cmd_args_dma));
+		if (WARN_ON(retval < 0))
+			goto func_exit;
+
+		retval = temp_user_dma_op(src_args.ua,
+				(src_args.ua + src_args.buf_size),
+				PROCMGR_DMA_OP_INV);
+		if (WARN_ON(retval < 0))
+			goto func_exit;
+	}
+	break;
+
 	default:
 		printk(KERN_ERR"PROC_MGR_DRV: WRONG IOCTL !!!!\n");
 		BUG_ON(1);

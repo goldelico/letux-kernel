@@ -182,6 +182,21 @@ struct proc_mgr_cmd_args {
 #define CMD_PROCMGR_GETVIRTTOPHYS		(PROCMGR_BASE_CMD + 28)
 
 
+/*
+ * Command for ProcMgr_dmaFlushRange
+ */
+#define CMD_PROCMGR_DMAFLUSHRANGE		(PROCMGR_BASE_CMD + 29)
+
+
+/*
+ * Command for ProcMgr_dmaInvRange
+ */
+#define CMD_PROCMGR_DMAINVRANGE			(PROCMGR_BASE_CMD + 30)
+
+
+#define PROCMGR_DMA_OP_INV			1
+#define PROCMGR_DMA_OP_FLUSH			3
+
 
 
 /*  ----------------------------------------------------------------------------
@@ -536,6 +551,20 @@ struct proc_mgr_cmd_args_get_virt_to_phys {
 	/* number of entries */
 	u32 num_of_entries;
 };
+
+/*
+ * Command arguments for ProcMgr_dmaXXXRange APIs
+ */
+struct proc_mgr_cmd_args_dma {
+	struct proc_mgr_cmd_args commond_args;
+	/*Common command args */
+	u32 ua;
+	/* user address */
+	u32 buf_size;
+	/* buf size */
+};
+
+extern int temp_user_dma_op(unsigned long, unsigned long, int);
 
 #endif
 
