@@ -286,7 +286,7 @@ dsp_status dcd_enumerate_object(IN s32 cIndex, IN enum dsp_dcdobjtype obj_type,
 			/* At the end of enumeration. Reset enum_refs. */
 			enum_refs = 0;
 
-			status = DSP_SENUMCOMPLETE;
+			status = ENODATA;
 		} else {
 			status = -EPERM;
 		}

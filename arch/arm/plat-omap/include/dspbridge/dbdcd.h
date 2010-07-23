@@ -123,7 +123,7 @@ extern dsp_status dcd_destroy_manager(IN struct dcd_manager *hdcd_mgr);
  *  Returns:
  *      0:            Success.
  *      -EPERM:          Unable to enumerate through the DCD database.
- *      DSP_SENUMCOMPLETE:  Enumeration completed. This is not an error code.
+ *      ENODATA:  Enumeration completed. This is not an error code.
  *  Requires:
  *      DCD initialized.
  *      uuid_obj is a valid pointer.
