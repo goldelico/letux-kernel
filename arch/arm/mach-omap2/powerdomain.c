@@ -127,8 +127,12 @@ static int _pwrdm_register(struct powerdomain *pwrdm)
 	list_add(&pwrdm->node, &pwrdm_list);
 
 	/* Initialize the powerdomain's state counter */
-	for (i = 0; i < 4; i++)
+	for (i = 0; i < PWRDM_MAX_PWRSTS; i++)
 		pwrdm->state_counter[i] = 0;
+
+	pwrdm->ret_logic_off_counter = 0;
+	for (i = 0; i < pwrdm->banks; i++)
+		pwrdm->ret_mem_off_counter[i] = 0;
 
 	pwrdm_wait_transition(pwrdm);
 	pwrdm->state = pwrdm_read_pwrst(pwrdm);
