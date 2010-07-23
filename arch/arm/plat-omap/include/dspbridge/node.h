@@ -41,7 +41,7 @@
  *      0:            Success.
  *      -ENOMEM:        Insufficient memory on GPP.
  *      -ENOKEY:          Node UUID has not been registered.
- *      DSP_ESYMBOL:        iAlg functions not found for a DAIS node.
+ *      -ESPIPE:        iAlg functions not found for a DAIS node.
  *      -EDOM:         attr_in != NULL and attr_in->prio out of
  *                          range.
  *      -EPERM:          A failure occured, unable to allocate node.
@@ -199,7 +199,7 @@ extern dsp_status node_connect(struct node_object *hNode1,
  *  Returns:
  *      0:            Success.
  *      -EFAULT:        Invalid hnode.
- *      DSP_ESYMBOL:        Create function not found in the COFF file.
+ *      -ESPIPE:        Create function not found in the COFF file.
  *      -EBADR:    Node is not in the NODE_ALLOCATED state.
  *      -ENOMEM:        Memory allocation failure on the DSP.
  *      DSP_ETASK:          Unable to create node's task or process on the DSP.
@@ -255,7 +255,7 @@ extern dsp_status node_create_mgr(OUT struct node_mgr **phNodeMgr,
  *      DSP_EDELETE:        A deletion failure occurred.
  *      DSP_EUSER1-16:      Node specific failure occurred on the DSP.
  *      -EPERM:          A failure occurred in deleting the node.
- *      DSP_ESYMBOL:        Delete function not found in the COFF file.
+ *      -ESPIPE:        Delete function not found in the COFF file.
  *  Requires:
  *      node_init(void) called.
  *  Ensures:
@@ -522,7 +522,7 @@ extern dsp_status node_register_notify(struct node_object *hnode,
  *      -ETIME:       A timeout occurred before the DSP responded.
  *      DSP_EWRONGSTSATE:   Node is not in NODE_PAUSED or NODE_CREATED state.
  *      -EPERM:          Unable to start or resume execution.
- *      DSP_ESYMBOL:        Execute function not found in the COFF file.
+ *      -ESPIPE:        Execute function not found in the COFF file.
  *  Requires:
  *      node_init(void) called.
  *  Ensures:

@@ -214,7 +214,7 @@ typedef void (*nldr_freefxn) (struct nldr_nodeobject *nldr_node_obj);
  *      pulAddr:        Location to store function address.
  *  Returns:
  *      0:        Success.
- *      DSP_ESYMBOL:    Address of function not found.
+ *      -ESPIPE:    Address of function not found.
  *  Requires:
  *      nldr_init(void) called.
  *      Valid nldr_node_obj.

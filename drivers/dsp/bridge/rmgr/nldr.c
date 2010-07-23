@@ -760,7 +760,7 @@ dsp_status nldr_get_fxn_addr(struct nldr_nodeobject *nldr_node_obj,
 	if (status1)
 		*pulAddr = dbll_sym->value;
 	else
-		status = DSP_ESYMBOL;
+		status = -ESPIPE;
 
 	return status;
 }
@@ -1990,7 +1990,7 @@ dsp_status nldr_find_addr(struct nldr_nodeobject *nldr_node, u32 sym_addr,
 	if (!status1) {
 		pr_debug("%s: Address 0x%x not found in range %d.\n",
 					__func__, sym_addr, offset_range);
-		status = DSP_ESYMBOL;
+		status = -ESPIPE;
 	}
 
 	return status;
