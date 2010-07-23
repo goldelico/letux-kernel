@@ -388,13 +388,13 @@ dsp_status bridge_io_on_loaded(struct io_mgr *hio_mgr)
 	status = cod_get_sym_value(cod_man, CHNL_SHARED_BUFFER_BASE_SYM,
 				   &ul_shm_base);
 	if (DSP_FAILED(status)) {
-		status = CHNL_E_NOMEMMAP;
+		status = -EFAULT;
 		goto func_end;
 	}
 	status = cod_get_sym_value(cod_man, CHNL_SHARED_BUFFER_LIMIT_SYM,
 				   &ul_shm_limit);
 	if (DSP_FAILED(status)) {
-		status = CHNL_E_NOMEMMAP;
+		status = -EFAULT;
 		goto func_end;
 	}
 	if (ul_shm_limit <= ul_shm_base) {
@@ -433,10 +433,10 @@ dsp_status bridge_io_on_loaded(struct io_mgr *hio_mgr)
 				ul_mem_length = ul_shm_length + ul_msg_length;
 			}
 		} else {
-			status = CHNL_E_NOMEMMAP;
+			status = -EFAULT;
 		}
 	} else {
-		status = CHNL_E_NOMEMMAP;
+		status = -EFAULT;
 	}
 	if (DSP_SUCCEEDED(status)) {
 #ifndef DSP_TRACEBUF_DISABLED
@@ -447,18 +447,18 @@ dsp_status bridge_io_on_loaded(struct io_mgr *hio_mgr)
 					   &shm0_end);
 #endif
 		if (DSP_FAILED(status))
-			status = CHNL_E_NOMEMMAP;
+			status = -EFAULT;
 	}
 	if (DSP_SUCCEEDED(status)) {
 		status =
 		    cod_get_sym_value(cod_man, DYNEXTBASE, &ul_dyn_ext_base);
 		if (DSP_FAILED(status))
-			status = CHNL_E_NOMEMMAP;
+			status = -EFAULT;
 	}
 	if (DSP_SUCCEEDED(status)) {
 		status = cod_get_sym_value(cod_man, EXTEND, &ul_ext_end);
 		if (DSP_FAILED(status))
-			status = CHNL_E_NOMEMMAP;
+			status = -EFAULT;
 	}
 	if (DSP_SUCCEEDED(status)) {
 		/* Get memory reserved in host resources */
@@ -715,7 +715,7 @@ dsp_status bridge_io_on_loaded(struct io_mgr *hio_mgr)
 	 * num_procs = 1.
 	 */
 	if (!hio_mgr->ext_proc_info.ty_tlb[0].ul_gpp_phys || num_procs != 1) {
-		status = CHNL_E_NOMEMMAP;
+		status = -EFAULT;
 		goto func_end;
 	} else {
 		if (ae_proc[0].ul_dsp_va > ul_shm_base) {
@@ -786,7 +786,7 @@ dsp_status bridge_io_on_loaded(struct io_mgr *hio_mgr)
 	status = cod_get_sym_value(cod_man, SYS_PUTCBEG,
 				   &hio_mgr->ul_trace_buffer_begin);
 	if (DSP_FAILED(status)) {
-		status = CHNL_E_NOMEMMAP;
+		status = -EFAULT;
 		goto func_end;
 	}
 
@@ -798,7 +798,7 @@ dsp_status bridge_io_on_loaded(struct io_mgr *hio_mgr)
 	status = cod_get_sym_value(cod_man, SYS_PUTCEND,
 				   &hio_mgr->ul_trace_buffer_end);
 	if (DSP_FAILED(status)) {
-		status = CHNL_E_NOMEMMAP;
+		status = -EFAULT;
 		goto func_end;
 	}
 	hio_mgr->ul_trace_buffer_end =
@@ -808,7 +808,7 @@ dsp_status bridge_io_on_loaded(struct io_mgr *hio_mgr)
 	status = cod_get_sym_value(cod_man, BRIDGE_SYS_PUTC_CURRENT,
 				   &hio_mgr->ul_trace_buffer_current);
 	if (DSP_FAILED(status)) {
-		status = CHNL_E_NOMEMMAP;
+		status = -EFAULT;
 		goto func_end;
 	}
 	hio_mgr->ul_trace_buffer_current =
