@@ -737,7 +737,7 @@ DBAPI node_alloc_msg_buf(struct node_object *hnode, u32 usize,
 	if (DSP_SUCCEEDED(status) && (!va_flag)) {
 		if (pattr->segment_id != 1) {
 			/* Node supports single SM segment only. */
-			status = DSP_EBADSEGID;
+			status = -EBADR;
 		}
 		/*  Arbitrary SM buffer alignment not supported for host side
 		 *  allocs, but guaranteed for the following alignment
@@ -1704,7 +1704,7 @@ dsp_status node_free_msg_buf(struct node_object *hnode, IN u8 * pbuffer,
 			}
 			/* Node supports single SM segment only */
 			if (pattr->segment_id != 1)
-				status = DSP_EBADSEGID;
+				status = -EBADR;
 
 			/* pbuffer is clients Va. */
 			status = cmm_xlator_free_buf(pnode->xlator, pbuffer);
