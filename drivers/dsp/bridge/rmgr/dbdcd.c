@@ -514,7 +514,7 @@ dsp_status dcd_get_object_def(IN struct dcd_manager *hdcd_mgr,
 		if (DSP_FAILED(status))
 			status = DSP_EDCDPARSESECT;
 	} else {
-		status = DSP_EDCDREADSECT;
+		status = -EACCES;
 	}
 
 	/* Free the previously allocated dynamic buffer. */
@@ -621,7 +621,7 @@ dsp_status dcd_get_objects(IN struct dcd_manager *hdcd_mgr,
 			}
 		}
 	} else {
-		status = DSP_EDCDREADSECT;
+		status = -EACCES;
 	}
 
 	/* Free the previously allocated dynamic buffer. */

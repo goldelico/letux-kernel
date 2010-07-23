@@ -35,7 +35,7 @@
  *  Returns:
  *      0:                Success.
  *      DSP_EDCDNOAUTOREGISTER: Unable to find auto-registration section.
- *      DSP_EDCDREADSECT:       Unable to read object code section.
+ *      -EACCES:       Unable to read object code section.
  *      DSP_EDCDLOADBASE:       Unable to load code base.
  *      -EFAULT:            Invalid DCD_HMANAGER handle..
  *  Requires:
@@ -61,7 +61,7 @@ extern dsp_status dcd_auto_register(IN struct dcd_manager *hdcd_mgr,
  *  Returns:
  *      0:                Success.
  *      DSP_EDCDNOAUTOREGISTER: Unable to find auto-registration section.
- *      DSP_EDCDREADSECT:       Unable to read object code section.
+ *      -EACCES:       Unable to read object code section.
  *      DSP_EDCDLOADBASE:       Unable to load code base.
  *      -EFAULT:            Invalid DCD_HMANAGER handle..
  *  Requires:
@@ -164,7 +164,7 @@ extern void dcd_exit(void);
  *  Returns:
  *      0: Success.
  *      -ENOMEM: Memory allocation failure.
- *      DSP_EDCDREADSECT: Failure to read section containing library info.
+ *      -EACCES: Failure to read section containing library info.
  *      -EPERM: General failure.
  *  Requires:
  *      DCD initialized.
@@ -194,7 +194,7 @@ extern dsp_status dcd_get_dep_libs(IN struct dcd_manager *hdcd_mgr,
  *  Returns:
  *      0: Success.
  *      -ENOMEM: Memory allocation failure.
- *      DSP_EDCDREADSECT: Failure to read section containing library info.
+ *      -EACCES: Failure to read section containing library info.
  *      -EPERM: General failure.
  *  Requires:
  *      DCD initialized.
@@ -256,7 +256,7 @@ extern dsp_status dcd_get_library_name(IN struct dcd_manager *hdcd_mgr,
  *  Returns:
  *      0: Success.
  *      DSP_EDCDPARSESECT:  Unable to parse content of object code section.
- *      DSP_EDCDREADSECT:   Unable to read object code section.
+ *      -EACCES:   Unable to read object code section.
  *      DSP_EDCDGETSECT:    Unable to access object code section.
  *      DSP_EDCDLOADBASE:   Unable to load code base.
  *      -EPERM:          General failure.
@@ -290,7 +290,7 @@ extern dsp_status dcd_get_object_def(IN struct dcd_manager *hdcd_mgr,
  *  Returns:
  *      0:                Success.
  *      DSP_EDCDNOAUTOREGISTER: Unable to find .dcd_register section.
- *      DSP_EDCDREADSECT:       Unable to read object code section.
+ *      -EACCES:       Unable to read object code section.
  *      DSP_EDCDLOADBASE:       Unable to load code base.
  *      -EFAULT:            Invalid DCD_HMANAGER handle..
  *  Requires:
