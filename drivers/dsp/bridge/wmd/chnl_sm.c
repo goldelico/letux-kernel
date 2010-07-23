@@ -589,7 +589,7 @@ dsp_status bridge_chnl_get_ioc(struct chnl_object *chnl_obj, u32 dwTimeOut,
 		status = -EFAULT;
 	} else if (dwTimeOut == CHNL_IOCNOWAIT) {
 		if (LST_IS_EMPTY(pchnl->pio_completions))
-			status = CHNL_E_NOIOC;
+			status = -EREMOTEIO;
 
 	}
 

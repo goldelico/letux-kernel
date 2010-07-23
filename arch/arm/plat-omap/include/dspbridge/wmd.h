@@ -493,7 +493,7 @@ typedef dsp_status(*fxn_chnl_addioreq) (struct chnl_object
  *      0:        Success.
  *      -EFAULT:    Invalid chnl_obj.
  *      -EFAULT:   pIOC is invalid.
- *      CHNL_E_NOIOC:   CHNL_IOCNOWAIT was specified as the dwTimeOut parameter
+ *      -EREMOTEIO:   CHNL_IOCNOWAIT was specified as the dwTimeOut parameter
  *                      yet no I/O completions were queued.
  *  Requires:
  *      dwTimeOut == CHNL_IOCNOWAIT.
