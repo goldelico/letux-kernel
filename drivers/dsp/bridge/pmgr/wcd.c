@@ -628,6 +628,8 @@ u32 procwrap_ctrl(union Trapped_Args *args, void *pr_ctxt)
 
 		CP_FM_USR(pargs, args->args_proc_ctrl.pargs, status,
 			  cb_data_size);
+	} else {
+		status = -EINVAL;
 	}
 	if (DSP_SUCCEEDED(status)) {
 		status = proc_ctrl(hprocessor,

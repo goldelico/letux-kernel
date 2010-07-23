@@ -319,7 +319,8 @@ void bridge_deh_notify(struct deh_mgr *hdeh_mgr, u32 ulEventMask, u32 dwErrInfo)
 			hw_mmu_event_ack(resources->dw_dmmu_base,
 					 HW_MMU_TRANSLATION_FAULT);
 			dump_dsp_stack(deh_mgr_obj->hwmd_context);
-			omap_dm_timer_disable(timer);
+			if (timer)
+				omap_dm_timer_disable(timer);
 			break;
 #ifdef CONFIG_BRIDGE_NTFY_PWRERR
 		case DSP_PWRERROR:
