@@ -512,7 +512,7 @@ dsp_status dcd_get_object_def(IN struct dcd_manager *hdcd_mgr,
 		status =
 		    get_attrs_from_buf(psz_coff_buf, ul_len, obj_type, pObjDef);
 		if (DSP_FAILED(status))
-			status = DSP_EDCDPARSESECT;
+			status = -EACCES;
 	} else {
 		status = -EACCES;
 	}

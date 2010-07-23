@@ -255,7 +255,7 @@ extern dsp_status dcd_get_library_name(IN struct dcd_manager *hdcd_mgr,
  *                          union of various possible DCD object types.
  *  Returns:
  *      0: Success.
- *      DSP_EDCDPARSESECT:  Unable to parse content of object code section.
+ *      -EACCES:  Unable to parse content of object code section.
  *      -EACCES:   Unable to read object code section.
  *      DSP_EDCDGETSECT:    Unable to access object code section.
  *      DSP_EDCDLOADBASE:   Unable to load code base.
