@@ -268,6 +268,11 @@ int notify_delete(struct notify_object **handle_ptr)
 	obj = (struct notify_object *)(*handle_ptr);
 
 	if (obj->remote_proc_id == multiproc_self()) {
+		if (WARN_ON(obj->line_id >= NOTIFY_MAX_INTLINES ||
+			multiproc_self() >= MULTIPROC_MAXPROCESSORS)) {
+			status = NOTIFY_E_INVALIDARG;
+			goto exit;
+		}
 		notify_state.drivers[multiproc_self()][obj->line_id].is_init =
 			NOTIFY_DRIVERINITSTATUS_NOTDONE;
 	}
@@ -1092,14 +1097,18 @@ void notify_exec(struct notify_object *obj, u32 event_id, u32 payload)
 	struct notify_event_callback *callback;
 
 	WARN_ON(obj == NULL);
-	WARN_ON(event_id >= notify_state.cfg.num_events);
+	if (WARN_ON((event_id >= notify_state.cfg.num_events) ||
+		(event_id >= NOTIFY_MAXEVENTS))) {
+		printk(KERN_ERR "Invalid event_id %d\n", event_id);
+	} else {
+		callback = &(obj->callbacks[event_id]);
+		WARN_ON(callback->fn_notify_cbck == NULL);
 
-	callback = &(obj->callbacks[event_id]);
-	WARN_ON(callback->fn_notify_cbck == NULL);
-
-	/* Execute the callback function with its argument and the payload */
-	callback->fn_notify_cbck(obj->remote_proc_id, obj->line_id, event_id,
-				callback->cbck_arg, payload);
+		/* Execute the callback function with its argument
+		   and the payload */
+		callback->fn_notify_cbck(obj->remote_proc_id, obj->line_id,
+				event_id, callback->cbck_arg, payload);
+	}
 }
 
 

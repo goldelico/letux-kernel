@@ -570,6 +570,11 @@ int notify_drv_ioctl(struct inode *inode, struct file *filp, u32 cmd,
 			printk(KERN_ERR "NOTIFY_ATTACH FAILED\n");
 		else {
 			u32 *data = kmalloc(sizeof(u32), GFP_KERNEL);
+			if (WARN_ON(!data)) {
+				notify_drv_detach(pid, true);
+				os_status = -ENOMEM;
+				goto func_end;
+			}
 			*data = pid;
 			add_pr_res(pr_ctxt, CMD_NOTIFY_THREADDETACH,
 								(void *)data);
@@ -822,38 +827,35 @@ void _notify_drv_destroy(void)
 {
 	int i;
 	struct notify_drv_event_packet *packet;
-	struct list_head *entry;
+	struct list_head *entry, *n;
 	struct notify_drv_event_cbck *cbck;
 
 	for (i = 0; i < MAX_PROCESSES; i++) {
 		notifydrv_state.event_state[i].pid = -1;
 		notifydrv_state.event_state[i].ref_count = 0;
 		/* Free event packets for any received but unprocessed events.*/
-		list_for_each(entry, (struct list_head *)
+		list_for_each_safe(entry, n, (struct list_head *)
 				&(notifydrv_state.event_state[i].buf_list)) {
 			packet = (struct notify_drv_event_packet *)entry;
-			if (packet != NULL)
-				kfree(packet);
+			kfree(packet);
 		}
 		INIT_LIST_HEAD(&notifydrv_state.event_state[i].buf_list);
 	}
 
 	/* Clear any event registrations that were not unregistered. */
-	list_for_each(entry, (struct list_head *)
+	list_for_each_safe(entry, n, (struct list_head *)
 			&(notifydrv_state.event_cbck_list)) {
 		cbck = (struct notify_drv_event_cbck *)(entry);
-		if (cbck != NULL)
-			kfree(cbck);
+		kfree(cbck);
 	}
 	INIT_LIST_HEAD(&notifydrv_state.event_cbck_list);
 
 	/* Clear any event registrations that were not unregistered from single
 	* list. */
-	list_for_each(entry,
+	list_for_each_safe(entry, n,
 		(struct list_head *)&(notifydrv_state.single_event_cbck_list)) {
 		cbck = (struct notify_drv_event_cbck *)(entry);
-		if (cbck != NULL)
-			kfree(cbck);
+		kfree(cbck);
 	}
 	INIT_LIST_HEAD(&notifydrv_state.single_event_cbck_list);
 
