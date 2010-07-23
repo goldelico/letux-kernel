@@ -21,7 +21,6 @@
 
 #include <dspbridge/host_os.h>
 #include <dspbridge/dbdefs.h>
-#include <dspbridge/errbase.h>
 #include <dspbridge/sync.h>
 
 /**

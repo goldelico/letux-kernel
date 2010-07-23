@@ -20,7 +20,6 @@
 
 #include <dspbridge/std.h>
 #include <dspbridge/dbdefs.h>
-#include <dspbridge/errbase.h>
 
 #include <dspbridge/dbc.h>
 

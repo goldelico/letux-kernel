@@ -18,7 +18,6 @@
 #define PWR_
 
 #include <dspbridge/dbdefs.h>
-#include <dspbridge/errbase.h>
 #include <dspbridge/pwr_sh.h>
 
 /*
