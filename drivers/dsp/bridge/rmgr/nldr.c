@@ -1309,7 +1309,7 @@ static dsp_status load_lib(struct nldr_nodeobject *nldr_node_obj,
 			if (root->lib == lib_path[i]) {
 				/* This condition could be checked by a
 				 * tool at build time. */
-				status = DSP_EDYNLOAD;
+				status = -EILSEQ;
 			}
 		}
 	}
@@ -1371,7 +1371,7 @@ static dsp_status load_lib(struct nldr_nodeobject *nldr_node_obj,
 			if (!rootPersistent && persistent_dep_libs[i] &&
 			    *nldr_node_obj->pf_phase_split) {
 				if ((nldr_node_obj->pers_libs) >= MAXLIBS) {
-					status = DSP_EDYNLOAD;
+					status = -EILSEQ;
 					break;
 				}
 

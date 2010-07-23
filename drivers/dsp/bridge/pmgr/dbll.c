@@ -545,12 +545,12 @@ dsp_status dbll_load(struct dbll_library_obj *lib, dbll_flags flags,
 						  &zl_lib->dload_mod_obj);
 
 			if (err != 0) {
-				status = DSP_EDYNLOAD;
+				status = -EILSEQ;
 			} else if (redefined_symbol) {
 				zl_lib->load_ref++;
 				dbll_unload(zl_lib, (struct dbll_attrs *)attrs);
 				redefined_symbol = false;
-				status = DSP_EDYNLOAD;
+				status = -EILSEQ;
 			} else {
 				*pEntry = zl_lib->entry;
 			}
@@ -685,7 +685,7 @@ dsp_status dbll_open(struct dbll_tar_obj *target, char *file, dbll_flags flags,
 					  &zl_lib->init.dl_init, 0,
 					  &zl_lib->dload_mod_obj);
 		if (err != 0) {
-			status = DSP_EDYNLOAD;
+			status = -EILSEQ;
 		} else {
 			/* Now that we have the symbol table, we can unload */
 			err = dynamic_unload_module(zl_lib->dload_mod_obj,
@@ -693,7 +693,7 @@ dsp_status dbll_open(struct dbll_tar_obj *target, char *file, dbll_flags flags,
 						    &zl_lib->allocate.dl_alloc,
 						    &zl_lib->init.dl_init);
 			if (err != 0)
-				status = DSP_EDYNLOAD;
+				status = -EILSEQ;
 
 			zl_lib->dload_mod_obj = NULL;
 		}

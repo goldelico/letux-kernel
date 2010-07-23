@@ -339,7 +339,7 @@ typedef bool(*dbll_init_fxn) (void);
  *      0:        Success.
  *      -EBADF:     File read failed.
  *      DSP_EFWRITE:    Write to target failed.
- *      DSP_EDYNLOAD:   Failure in dynamic loader library.
+ *      -EILSEQ:   Failure in dynamic loader library.
  *  Requires:
  *      DBL initialized.
  *      Valid lib.
