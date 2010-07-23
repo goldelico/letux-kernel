@@ -128,8 +128,6 @@ int chnl_destroy(struct chnl_mgr *hchnl_mgr)
 		status = -EFAULT;
 	}
 
-	DBC_ENSURE(DSP_FAILED(status) || !chnl_mgr_obj);
-
 	return status;
 }
 

@@ -156,9 +156,8 @@ int dcd_create_manager(IN char *pszZlDllName,
 		cod_delete(cod_mgr);
 	}
 
-	DBC_ENSURE((DSP_SUCCEEDED(status)) || ((cod_mgr == NULL) &&
-					       (status == -EPERM))
-		   || ((dcd_mgr_obj == NULL) && (status == -ENOMEM)));
+	DBC_ENSURE((DSP_SUCCEEDED(status)) ||
+			((dcd_mgr_obj == NULL) && (status == -ENOMEM)));
 
 func_end:
 	return status;

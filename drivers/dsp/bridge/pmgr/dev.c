@@ -574,8 +574,6 @@ struct dev_object *dev_get_first(void)
 
 	dev_obj = (struct dev_object *)drv_get_first_dev_object();
 
-	DBC_ENSURE((dev_obj == NULL) || dev_obj);
-
 	return dev_obj;
 }
 
@@ -643,7 +641,6 @@ struct dev_object *dev_get_next(struct dev_object *hdev_obj)
 		next_dev_object = (struct dev_object *)
 		    drv_get_next_dev_object((u32) hdev_obj);
 	}
-	DBC_ENSURE((next_dev_object == NULL) || next_dev_object);
 
 	return next_dev_object;
 }

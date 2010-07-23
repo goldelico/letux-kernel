@@ -184,8 +184,6 @@ void disp_delete(struct disp_object *disp_obj)
 	DBC_REQUIRE(disp_obj);
 
 	delete_disp(disp_obj);
-
-	DBC_ENSURE(!disp_obj);
 }
 
 /*

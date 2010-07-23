@@ -385,7 +385,7 @@ int drv_destroy(struct drv_object *hDRVObject)
 	kfree(pdrv_object);
 	/* Update the DRV Object in Registry to be 0 */
 	(void)cfg_set_object(0, REG_DRV_OBJECT);
-	DBC_ENSURE(!pdrv_object);
+
 	return status;
 }
 

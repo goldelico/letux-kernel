@@ -105,8 +105,6 @@ int mgr_destroy(struct mgr_object *hmgr_obj)
 	/* Update the Registry with NULL for MGR Object */
 	(void)cfg_set_object(0, REG_MGR_OBJECT);
 
-	DBC_ENSURE(DSP_FAILED(status) || !hmgr_obj);
-
 	return status;
 }
 

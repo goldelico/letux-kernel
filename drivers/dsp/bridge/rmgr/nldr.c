@@ -653,7 +653,6 @@ void nldr_delete(struct nldr_object *nldr_obj)
 		kfree(nldr_obj->ovly_table);
 	}
 	kfree(nldr_obj);
-	DBC_ENSURE(!nldr_obj);
 }
 
 /*

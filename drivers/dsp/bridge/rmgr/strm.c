@@ -225,8 +225,8 @@ int strm_create(OUT struct strm_mgr **phStrmMgr,
 	else
 		delete_strm_mgr(strm_mgr_obj);
 
-	DBC_ENSURE(DSP_SUCCEEDED(status) &&
-		(*phStrmMgr || (DSP_FAILED(status) && *phStrmMgr == NULL)));
+	DBC_ENSURE((DSP_SUCCEEDED(status) && *phStrmMgr) ||
+				(DSP_FAILED(status) && *phStrmMgr == NULL));
 
 	return status;
 }
@@ -242,8 +242,6 @@ void strm_delete(struct strm_mgr *strm_mgr_obj)
 	DBC_REQUIRE(strm_mgr_obj);
 
 	delete_strm_mgr(strm_mgr_obj);
-
-	DBC_ENSURE(!strm_mgr_obj);
 }
 
 /*
@@ -596,9 +594,8 @@ func_cont:
 	/* ensure we return a documented error code */
 	DBC_ENSURE((DSP_SUCCEEDED(status) && strm_obj) ||
 		   (*strmres == NULL && (status == -EFAULT ||
-					status == -EPERM
-					|| status == -EINVAL
-					|| status == -EPERM)));
+					status == -EPERM ||
+					status == -EINVAL)));
 
 	dev_dbg(bridge, "%s: hnode: %p dir: 0x%x index: 0x%x pattr: %p "
 		"strmres: %p status: 0x%x\n", __func__,
