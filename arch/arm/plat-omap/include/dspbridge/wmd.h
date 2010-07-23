@@ -455,7 +455,7 @@ typedef dsp_status(*fxn_chnl_close) (struct chnl_object *chnl_obj);
  *      CHNL_E_NOEOS:   User cannot mark EOS on an input channel.
  *      -ECANCELED: I/O has been cancelled on this channel.  No further
  *                      I/O is allowed.
- *      CHNL_E_EOS:     End of stream was already marked on a previous
+ *      -EPIPE:     End of stream was already marked on a previous
  *                      IORequest on this channel.  No further I/O is expected.
  *      CHNL_E_BUFSIZE: Buffer submitted to this output channel is larger than
  *                      the size of the physical shared memory output window.
@@ -466,7 +466,7 @@ typedef dsp_status(*fxn_chnl_close) (struct chnl_object *chnl_obj);
  *          ready.  In any case, notifications of I/O completion are
  *          asynchronous.
  *          If byte_size is 0 for an output channel, subsequent CHNL_AddIOReq's
- *          on this channel will fail with error code CHNL_E_EOS.  The
+ *          on this channel will fail with error code -EPIPE.  The
  *          corresponding IOC for this I/O request will have its status flag
  *          set to CHNL_IOCSTATEOS.
  */

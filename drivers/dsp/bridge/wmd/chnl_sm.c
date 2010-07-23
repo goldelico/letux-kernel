@@ -123,7 +123,7 @@ dsp_status bridge_chnl_add_io_req(struct chnl_object *chnl_obj, void *pHostBuf,
 				status = -ECANCELED;
 			else if ((dw_state & CHNL_STATEEOS)
 				 && CHNL_IS_OUTPUT(pchnl->chnl_mode))
-				status = CHNL_E_EOS;
+				status = -EPIPE;
 			else
 				/* No other possible states left: */
 				DBC_ASSERT(0);
