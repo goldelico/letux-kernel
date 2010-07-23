@@ -239,7 +239,7 @@ void omap2_clk_init_cpufreq_table(struct cpufreq_frequency_table **table)
 }
 #endif
 
-void omap3_clk_lock_dpll5(void)
+void __init omap3_clk_lock_dpll5(void)
 {
 	struct clk *dpll5_clk;
 	struct clk *dpll5_m2_clk;
