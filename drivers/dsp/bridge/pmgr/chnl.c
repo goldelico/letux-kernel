@@ -76,7 +76,7 @@ dsp_status chnl_create(OUT struct chnl_mgr **phChnlMgr,
 		status = -ECHRNG;
 
 	if (pMgrAttrs->word_size == 0)
-		status = CHNL_E_INVALIDWORDSIZE;
+		status = -EINVAL;
 
 	if (DSP_SUCCEEDED(status)) {
 		status = dev_get_chnl_mgr(hdev_obj, &hchnl_mgr);

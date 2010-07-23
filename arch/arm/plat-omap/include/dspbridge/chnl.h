@@ -66,7 +66,7 @@ extern dsp_status chnl_close(struct chnl_object *chnl_obj);
  *      CHNL_E_ISR:             Unable to plug channel ISR for configured IRQ.
  *      -ECHRNG:     This manager cannot handle this many channels.
  *      CHNL_E_INVALIDIRQ:      Invalid IRQ number. Must be 0 <= birq <= 15.
- *      CHNL_E_INVALIDWORDSIZE: Invalid DSP word size.  Must be > 0.
+ *      -EINVAL: Invalid DSP word size.  Must be > 0.
  *      CHNL_E_INVALIDMEMBASE:  Invalid base address for DSP communications.
  *      CHNL_E_MGREXISTS:       Channel manager already exists for this device.
  *  Requires:

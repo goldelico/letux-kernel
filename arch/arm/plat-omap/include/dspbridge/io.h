@@ -42,7 +42,7 @@
  *      -ENOMEM:            Insufficient memory for requested resources.
  *      CHNL_E_ISR:             Unable to plug channel ISR for configured IRQ.
  *      CHNL_E_INVALIDIRQ:      Invalid IRQ number. Must be 0 <= birq <= 15.
- *      CHNL_E_INVALIDWORDSIZE: Invalid DSP word size.  Must be > 0.
+ *      -EINVAL: Invalid DSP word size.  Must be > 0.
  *      CHNL_E_INVALIDMEMBASE:  Invalid base address for DSP communications.
  *  Requires:
  *      io_init(void) called.

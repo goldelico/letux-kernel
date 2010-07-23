@@ -66,7 +66,7 @@ dsp_status io_create(OUT struct io_mgr **phIOMgr, struct dev_object *hdev_obj,
 		status = CHNL_E_INVALIDMEMBASE;
 
 	if (pMgrAttrs->word_size == 0)
-		status = CHNL_E_INVALIDWORDSIZE;
+		status = -EINVAL;
 
 	if (DSP_SUCCEEDED(status)) {
 		status = dev_get_intf_fxns(hdev_obj, &intf_fxns);
