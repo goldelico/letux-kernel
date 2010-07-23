@@ -36,7 +36,7 @@
  *      0:                Success.
  *      DSP_EDCDNOAUTOREGISTER: Unable to find auto-registration section.
  *      -EACCES:       Unable to read object code section.
- *      DSP_EDCDLOADBASE:       Unable to load code base.
+ *      -EACCES:       Unable to load code base.
  *      -EFAULT:            Invalid DCD_HMANAGER handle..
  *  Requires:
  *      DCD initialized.
@@ -62,7 +62,7 @@ extern dsp_status dcd_auto_register(IN struct dcd_manager *hdcd_mgr,
  *      0:                Success.
  *      DSP_EDCDNOAUTOREGISTER: Unable to find auto-registration section.
  *      -EACCES:       Unable to read object code section.
- *      DSP_EDCDLOADBASE:       Unable to load code base.
+ *      -EACCES:       Unable to load code base.
  *      -EFAULT:            Invalid DCD_HMANAGER handle..
  *  Requires:
  *      DCD initialized.
@@ -258,7 +258,7 @@ extern dsp_status dcd_get_library_name(IN struct dcd_manager *hdcd_mgr,
  *      -EACCES:  Unable to parse content of object code section.
  *      -EACCES:   Unable to read object code section.
  *      -EACCES:    Unable to access object code section.
- *      DSP_EDCDLOADBASE:   Unable to load code base.
+ *      -EACCES:   Unable to load code base.
  *      -EPERM:          General failure.
  *      -EFAULT:        Invalid DCD_HMANAGER handle.
  *  Requires:
@@ -291,7 +291,7 @@ extern dsp_status dcd_get_object_def(IN struct dcd_manager *hdcd_mgr,
  *      0:                Success.
  *      DSP_EDCDNOAUTOREGISTER: Unable to find .dcd_register section.
  *      -EACCES:       Unable to read object code section.
- *      DSP_EDCDLOADBASE:       Unable to load code base.
+ *      -EACCES:       Unable to load code base.
  *      -EFAULT:            Invalid DCD_HMANAGER handle..
  *  Requires:
  *      DCD initialized.

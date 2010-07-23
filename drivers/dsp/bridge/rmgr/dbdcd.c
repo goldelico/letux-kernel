@@ -463,7 +463,7 @@ dsp_status dcd_get_object_def(IN struct dcd_manager *hdcd_mgr,
 	status = cod_open(dcd_mgr_obj->cod_mgr, dcd_key->path,
 							COD_NOLOAD, &lib);
 	if (DSP_FAILED(status)) {
-		status = DSP_EDCDLOADBASE;
+		status = -EACCES;
 		goto func_end;
 	}
 
@@ -556,7 +556,7 @@ dsp_status dcd_get_objects(IN struct dcd_manager *hdcd_mgr,
 	/* Open DSP coff file, don't load symbols. */
 	status = cod_open(dcd_mgr_obj->cod_mgr, pszCoffPath, COD_NOLOAD, &lib);
 	if (DSP_FAILED(status)) {
-		status = DSP_EDCDLOADBASE;
+		status = -EACCES;
 		goto func_cont;
 	}
 
