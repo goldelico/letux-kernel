@@ -119,7 +119,7 @@ static int omap34_xxbridge_suspend_lockout(struct omap34_xx_bridge_suspend_data
 {
 	if ((s)->suspended) {
 		if ((f)->f_flags & O_NONBLOCK)
-			return DSP_EDPMSUSPEND;
+			return -EPERM;
 		wait_event_interruptible((s)->suspend_wq, (s)->suspended == 0);
 	}
 	return 0;
