@@ -126,6 +126,7 @@ static const u8 twl6040_reg[TWL6040_CACHEREGNUM] = {
 	0x09, /* TWL6040_ACCCTL		0x2D	*/
 	0x00, /* TWL6040_STATUS (ro)	0x2E	*/
 	0x00, /* TWL6040_SHADOW		0x2F	*/
+	0xBB, /* ABE_AMIC_GAIN_SHADOW	0x30	*/
 };
 
 /*
@@ -181,6 +182,26 @@ static const int twl6040_vdd_reg[TWL6040_VDDREGNUM] = {
 	TWL6040_REG_VIBDATR,
 	TWL6040_REG_ALB,
 	TWL6040_REG_DLB,
+};
+
+/*
+ * Gain values for ABE PGA components
+ */
+static abe_gain_t abe_twl6040_gain_map[ABE_TWL6040_GAINNUM] = {
+	MUTE_GAIN,
+	GAIN_M50dB,
+	GAIN_M40dB,
+	GAIN_M30dB,
+	GAIN_M24dB,
+	GAIN_M18dB,
+	GAIN_M12dB,
+	GAIN_M6dB,
+	GAIN_0dB,
+	GAIN_6dB,
+	GAIN_12dB,
+	GAIN_18dB,
+	GAIN_24dB,
+	GAIN_MAXIMUM,
 };
 
 /*
@@ -338,6 +359,18 @@ static void abe_init_chip(struct snd_soc_codec *codec,
 	abe_write_mixer(MIXVXREC, MUTE_GAIN, RAMP_0MS, MIX_VXREC_INPUT_VX_DL);
 	abe_write_mixer(MIXVXREC, MUTE_GAIN, RAMP_0MS, MIX_VXREC_INPUT_MM_DL);
 	abe_write_mixer(MIXVXREC, MUTE_GAIN, RAMP_0MS, MIX_VXREC_INPUT_VX_UL);
+
+	/* write volumes */
+	abe_write_gain(GAINS_DL1, GAIN_M6dB, RAMP_0MS, GAIN_LEFT_OFFSET);
+	abe_write_gain(GAINS_DL1, GAIN_M6dB, RAMP_0MS, GAIN_RIGHT_OFFSET);
+	abe_write_gain(GAINS_DL2, GAIN_M6dB, RAMP_0MS, GAIN_LEFT_OFFSET);
+	abe_write_gain(GAINS_DL2, GAIN_M6dB, RAMP_0MS, GAIN_RIGHT_OFFSET);
+
+	abe_write_gain(GAINS_AMIC, GAIN_18dB, RAMP_0MS, GAIN_LEFT_OFFSET);
+	abe_write_gain(GAINS_AMIC, GAIN_18dB, RAMP_0MS, GAIN_RIGHT_OFFSET);
+
+	abe_write_gain(GAINS_SPLIT, GAIN_M6dB, RAMP_0MS, GAIN_LEFT_OFFSET);
+	abe_write_gain(GAINS_SPLIT, GAIN_M6dB, RAMP_0MS, GAIN_RIGHT_OFFSET);
 
 	/* load the high-pass coefficient of IHF-Right */
 	abe_write_equalizer(EQ2L, &dl2_eq);
@@ -540,6 +573,46 @@ static irqreturn_t twl6040_naudint_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static int snd_soc_put_volsw_amic(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	unsigned int reg = mc->reg;
+	unsigned int shift = mc->shift;
+	unsigned int rshift = mc->rshift;
+	int max = mc->max;
+	unsigned int mask = (1 << fls(max)) - 1;
+	unsigned int invert = mc->invert;
+	unsigned int val, val2, val_mask;
+
+	val = (ucontrol->value.integer.value[0] & mask);
+	if (val > max)
+		val = max;
+	if (invert)
+		val = max - val;
+	/* write to actual ABE HAL register for left channel */
+	abe_write_gain(GAINS_AMIC, abe_twl6040_gain_map[val],
+		       RAMP_0MS, GAIN_LEFT_OFFSET);
+	val_mask = mask << shift;
+	val = val << shift;
+	if (shift != rshift) {
+		val2 = (ucontrol->value.integer.value[1] & mask);
+		if (val2 > max)
+			val2 = max;
+		if (invert)
+			val2 = max - val2;
+		/* write to actual ABE HAL register for right channel */
+		abe_write_gain(GAINS_AMIC, abe_twl6040_gain_map[val2],
+			       RAMP_0MS, GAIN_RIGHT_OFFSET);
+		val_mask |= mask << rshift;
+		val |= val2 << rshift;
+	}
+
+	return snd_soc_update_bits(codec, reg, val_mask, val);
+}
+
 static int snd_soc_put_dl1_mixer(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
@@ -653,6 +726,12 @@ static DECLARE_TLV_DB_SCALE(mic_preamp_tlv, -600, 600, 0);
 static DECLARE_TLV_DB_SCALE(mic_amp_tlv, 600, 600, 0);
 
 /*
+ * (ABE HAL) GAINS_AMIC volume control:
+ * -42 dB to 30 dB in 6 dB steps (mute instead of -48)
+ */
+static DECLARE_TLV_DB_SCALE(mic_dig_tlv, -4800, 600, 1);
+
+/*
  * AFMGAIN volume control:
  * from 18 to 24 dB in 6 dB steps
  */
@@ -751,6 +830,9 @@ static const struct snd_kcontrol_new twl6040_snd_controls[] = {
 		TWL6040_REG_MICGAIN, 6, 7, 1, 1, mic_preamp_tlv),
 	SOC_DOUBLE_TLV("Capture Volume",
 		TWL6040_REG_MICGAIN, 0, 3, 4, 0, mic_amp_tlv),
+	SOC_DOUBLE_EXT_TLV("Capture Digital Volume",
+		ABE_AMIC_GAIN_SHADOW, 0, 4, ABE_TWL6040_GAINNUM - 1, 0,
+		snd_soc_get_volsw, snd_soc_put_volsw_amic, mic_dig_tlv),
 
 	/* AFM gains */
 	SOC_DOUBLE_TLV("Aux FM Volume",
@@ -1229,17 +1311,6 @@ static int abe_mm_startup(struct snd_pcm_substream *substream,
 
 		abe_set_router_configuration(UPROUTE, UPROUTE_CONFIG_AMIC,
 			(abe_router_t *)abe_router_ul_table_preset[UPROUTE_CONFIG_AMIC]);
-
-		abe_write_gain(GAINS_DL1, GAIN_M6dB, RAMP_0MS, GAIN_LEFT_OFFSET);
-		abe_write_gain(GAINS_DL1, GAIN_M6dB, RAMP_0MS, GAIN_RIGHT_OFFSET);
-		abe_write_gain(GAINS_DL2, GAIN_M6dB, RAMP_0MS, GAIN_LEFT_OFFSET);
-		abe_write_gain(GAINS_DL2, GAIN_M6dB, RAMP_0MS, GAIN_RIGHT_OFFSET);
-
-		abe_write_gain(GAINS_AMIC, GAIN_M6dB, RAMP_0MS, GAIN_LEFT_OFFSET);
-		abe_write_gain(GAINS_AMIC, GAIN_M6dB, RAMP_0MS, GAIN_RIGHT_OFFSET);
-
-		abe_write_gain(GAINS_SPLIT, GAIN_M6dB, RAMP_0MS, GAIN_LEFT_OFFSET);
-		abe_write_gain(GAINS_SPLIT, GAIN_M6dB, RAMP_0MS, GAIN_RIGHT_OFFSET);
 	}
 	return 0;
 }
@@ -1624,16 +1695,6 @@ static int abe_voice_startup(struct snd_pcm_substream *substream,
 
 		abe_set_router_configuration(UPROUTE, UPROUTE_CONFIG_AMIC,
 			(abe_router_t *)abe_router_ul_table_preset[UPROUTE_CONFIG_AMIC]);
-		abe_write_gain(GAINS_DL1, GAIN_M6dB,  RAMP_0MS, GAIN_LEFT_OFFSET);
-		abe_write_gain(GAINS_DL1, GAIN_M6dB,  RAMP_0MS, GAIN_RIGHT_OFFSET);
-		abe_write_gain(GAINS_DL2, GAIN_M6dB,  RAMP_0MS, GAIN_LEFT_OFFSET);
-		abe_write_gain(GAINS_DL2, GAIN_M6dB,  RAMP_0MS, GAIN_RIGHT_OFFSET);
-
-		abe_write_gain(GAINS_AMIC, GAIN_M6dB, RAMP_0MS, GAIN_LEFT_OFFSET);
-		abe_write_gain(GAINS_AMIC, GAIN_M6dB, RAMP_0MS, GAIN_RIGHT_OFFSET);
-
-		abe_write_gain(GAINS_SPLIT, GAIN_M6dB, RAMP_0MS, GAIN_LEFT_OFFSET);
-		abe_write_gain(GAINS_SPLIT, GAIN_M6dB, RAMP_0MS, GAIN_RIGHT_OFFSET);
 	}
 	return 0;
 }
