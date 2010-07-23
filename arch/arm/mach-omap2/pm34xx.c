@@ -1155,6 +1155,11 @@ void omap3_pm_off_mode_enable(int enable)
 	resource_unlock_opp(VDD1_OPP);
 	resource_unlock_opp(VDD2_OPP);
 #endif
+
+#ifdef CONFIG_CPU_IDLE
+	omap3_cpuidle_update_states();
+#endif
+
 	list_for_each_entry(pwrst, &pwrst_list, node) {
 		pwrst->next_state = state;
 
