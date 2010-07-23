@@ -91,14 +91,14 @@ static bool free_block(struct rmm_target_obj *target, u32 segid, u32 addr,
 /*
  *  ======== rmm_alloc ========
  */
-dsp_status rmm_alloc(struct rmm_target_obj *target, u32 segid, u32 size,
+int rmm_alloc(struct rmm_target_obj *target, u32 segid, u32 size,
 		     u32 align, u32 *dspAddr, bool reserve)
 {
 	struct rmm_ovly_sect *sect;
 	struct rmm_ovly_sect *prev_sect = NULL;
 	struct rmm_ovly_sect *new_sect;
 	u32 addr;
-	dsp_status status = 0;
+	int status = 0;
 
 	DBC_REQUIRE(target);
 	DBC_REQUIRE(dspAddr != NULL);
@@ -167,14 +167,14 @@ func_end:
 /*
  *  ======== rmm_create ========
  */
-dsp_status rmm_create(struct rmm_target_obj **target_obj,
+int rmm_create(struct rmm_target_obj **target_obj,
 		      struct rmm_segment seg_tab[], u32 num_segs)
 {
 	struct rmm_header *hptr;
 	struct rmm_segment *sptr, *tmp;
 	struct rmm_target_obj *target;
 	s32 i;
-	dsp_status status = 0;
+	int status = 0;
 
 	DBC_REQUIRE(target_obj != NULL);
 	DBC_REQUIRE(num_segs == 0 || seg_tab != NULL);

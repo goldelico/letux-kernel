@@ -36,11 +36,11 @@
  *  ======== pwr_sleep_dsp ========
  *    Send command to DSP to enter sleep state.
  */
-dsp_status pwr_sleep_dsp(IN CONST u32 sleepCode, IN CONST u32 timeout)
+int pwr_sleep_dsp(IN CONST u32 sleepCode, IN CONST u32 timeout)
 {
 	struct bridge_drv_interface *intf_fxns;
 	struct wmd_dev_context *dw_context;
-	dsp_status status = -EPERM;
+	int status = -EPERM;
 	struct dev_object *hdev_obj = NULL;
 	u32 ioctlcode = 0;
 	u32 arg = timeout;
@@ -78,11 +78,11 @@ dsp_status pwr_sleep_dsp(IN CONST u32 sleepCode, IN CONST u32 timeout)
  *  ======== pwr_wake_dsp ========
  *    Send command to DSP to wake it from sleep.
  */
-dsp_status pwr_wake_dsp(IN CONST u32 timeout)
+int pwr_wake_dsp(IN CONST u32 timeout)
 {
 	struct bridge_drv_interface *intf_fxns;
 	struct wmd_dev_context *dw_context;
-	dsp_status status = -EPERM;
+	int status = -EPERM;
 	struct dev_object *hdev_obj = NULL;
 	u32 arg = timeout;
 
@@ -111,11 +111,11 @@ dsp_status pwr_wake_dsp(IN CONST u32 timeout)
  *  ======== pwr_pm_pre_scale========
  *    Sends pre-notification message to DSP.
  */
-dsp_status pwr_pm_pre_scale(IN u16 voltage_domain, u32 level)
+int pwr_pm_pre_scale(IN u16 voltage_domain, u32 level)
 {
 	struct bridge_drv_interface *intf_fxns;
 	struct wmd_dev_context *dw_context;
-	dsp_status status = -EPERM;
+	int status = -EPERM;
 	struct dev_object *hdev_obj = NULL;
 	u32 arg[2];
 
@@ -147,11 +147,11 @@ dsp_status pwr_pm_pre_scale(IN u16 voltage_domain, u32 level)
  *  ======== pwr_pm_post_scale========
  *    Sends post-notification message to DSP.
  */
-dsp_status pwr_pm_post_scale(IN u16 voltage_domain, u32 level)
+int pwr_pm_post_scale(IN u16 voltage_domain, u32 level)
 {
 	struct bridge_drv_interface *intf_fxns;
 	struct wmd_dev_context *dw_context;
-	dsp_status status = -EPERM;
+	int status = -EPERM;
 	struct dev_object *hdev_obj = NULL;
 	u32 arg[2];
 

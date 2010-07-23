@@ -73,7 +73,7 @@ struct rmm_target_obj;
  *      reserve || target->num_segs > 0.
  *  Ensures:
  */
-extern dsp_status rmm_alloc(struct rmm_target_obj *target, u32 segid, u32 size,
+extern int rmm_alloc(struct rmm_target_obj *target, u32 segid, u32 size,
 			    u32 align, u32 *dspAdr, bool reserve);
 
 /*
@@ -97,7 +97,7 @@ extern dsp_status rmm_alloc(struct rmm_target_obj *target, u32 segid, u32 size,
  *      Success:        Valid *target_obj.
  *      Failure:        *target_obj == NULL.
  */
-extern dsp_status rmm_create(struct rmm_target_obj **target_obj,
+extern int rmm_create(struct rmm_target_obj **target_obj,
 			     struct rmm_segment seg_tab[], u32 num_segs);
 
 /*

@@ -129,7 +129,7 @@ struct chnl_mgr {
 	struct chnl_object **ap_channel;	/* Array of channels */
 	u8 dw_type;		/* Type of channel class library */
 	/* If no shm syms, return for CHNL_Open */
-	dsp_status chnl_open_status;
+	int chnl_open_status;
 };
 
 /*

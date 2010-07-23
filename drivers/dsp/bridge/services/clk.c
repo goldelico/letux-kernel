@@ -142,9 +142,9 @@ bool services_clk_init(void)
  *      Enable Clock .
  *
  */
-dsp_status services_clk_enable(IN enum services_clk_id clk_id)
+int services_clk_enable(IN enum services_clk_id clk_id)
 {
-	dsp_status status = 0;
+	int status = 0;
 	struct clk *clk_handle;
 
 	DBC_REQUIRE(clk_id < SERVICESCLK_NOT_DEFINED);
@@ -180,9 +180,9 @@ dsp_status services_clk_enable(IN enum services_clk_id clk_id)
  *      To Set parent of a clock to 32KHz.
  */
 
-dsp_status clk_set32k_hz(IN enum services_clk_id clk_id)
+int clk_set32k_hz(IN enum services_clk_id clk_id)
 {
-	dsp_status status = 0;
+	int status = 0;
 	struct clk *clk_handle;
 	struct clk *clk_parent;
 	clk_parent = services_clks[SERVICESCLK_SYS32K_CK].clk_handle;
@@ -207,9 +207,9 @@ dsp_status clk_set32k_hz(IN enum services_clk_id clk_id)
  *      Disable the clock.
  *
  */
-dsp_status services_clk_disable(IN enum services_clk_id clk_id)
+int services_clk_disable(IN enum services_clk_id clk_id)
 {
-	dsp_status status = 0;
+	int status = 0;
 	struct clk *clk_handle;
 	s32 clk_use_cnt;
 
@@ -247,9 +247,9 @@ dsp_status services_clk_disable(IN enum services_clk_id clk_id)
  *
  */
 
-dsp_status services_clk_get_rate(IN enum services_clk_id clk_id, u32 *speedKhz)
+int services_clk_get_rate(IN enum services_clk_id clk_id, u32 *speedKhz)
 {
-	dsp_status status = 0;
+	int status = 0;
 	struct clk *clk_handle;
 	u32 clk_speed_hz;
 
@@ -273,7 +273,7 @@ dsp_status services_clk_get_rate(IN enum services_clk_id clk_id, u32 *speedKhz)
 
 s32 clk_get_use_cnt(IN enum services_clk_id clk_id)
 {
-	dsp_status status = 0;
+	int status = 0;
 	struct clk *clk_handle;
 	s32 use_count = -1;
 	DBC_REQUIRE(clk_id < SERVICESCLK_NOT_DEFINED);

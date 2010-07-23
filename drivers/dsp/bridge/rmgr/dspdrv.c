@@ -47,7 +47,7 @@
 u32 dsp_init(OUT u32 *init_status)
 {
 	char dev_node[MAXREGPATHLENGTH] = "TIOMAP1510";
-	dsp_status status = -EPERM;
+	int status = -EPERM;
 	struct drv_object *drv_obj = NULL;
 	u32 device_node;
 	u32 device_node_string;

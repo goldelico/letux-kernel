@@ -82,7 +82,7 @@ void sync_set_event(struct sync_object *event);
  * in case of timeout the function will return -ETIME
  */
 
-static inline dsp_status sync_wait_on_event(struct sync_object *event,
+static inline int sync_wait_on_event(struct sync_object *event,
 							unsigned timeout)
 {
 	if (SYNC_INFINITE == timeout)
@@ -104,7 +104,7 @@ static inline dsp_status sync_wait_on_event(struct sync_object *event,
  * of timeout the function will return -ETIME.
  */
 
-dsp_status sync_wait_on_multiple_events(struct sync_object **events,
+int sync_wait_on_multiple_events(struct sync_object **events,
 				     unsigned count, unsigned timeout,
 				     unsigned *index);
 

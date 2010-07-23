@@ -88,7 +88,7 @@ extern bool services_clk_init(void);
  *  Requires:
  *  Ensures:
  */
-extern dsp_status services_clk_enable(IN enum services_clk_id clk_id);
+extern int services_clk_enable(IN enum services_clk_id clk_id);
 
 /*
  *  ======== services_clk_disable ========
@@ -101,7 +101,7 @@ extern dsp_status services_clk_enable(IN enum services_clk_id clk_id);
  *  Requires:
  *  Ensures:
  */
-extern dsp_status services_clk_disable(IN enum services_clk_id clk_id);
+extern int services_clk_disable(IN enum services_clk_id clk_id);
 
 /*
  *  ======== services_clk_get_rate ========
@@ -114,7 +114,7 @@ extern dsp_status services_clk_disable(IN enum services_clk_id clk_id);
  *  Requires:
  *  Ensures:
  */
-extern dsp_status services_clk_get_rate(IN enum services_clk_id clk_id,
+extern int services_clk_get_rate(IN enum services_clk_id clk_id,
 					u32 *speedMhz);
 /*
  *  ======== clk_set32k_hz ========
@@ -127,7 +127,7 @@ extern dsp_status services_clk_get_rate(IN enum services_clk_id clk_id,
  *  Requires:
  *  Ensures:
  */
-extern dsp_status clk_set32k_hz(IN enum services_clk_id clk_id);
+extern int clk_set32k_hz(IN enum services_clk_id clk_id);
 extern void ssi_clk_prepare(bool FLAG);
 
 /*

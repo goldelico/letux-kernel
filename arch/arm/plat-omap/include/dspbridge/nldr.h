@@ -25,31 +25,31 @@
 #ifndef NLDR_
 #define NLDR_
 
-extern dsp_status nldr_allocate(struct nldr_object *nldr_obj,
+extern int nldr_allocate(struct nldr_object *nldr_obj,
 				void *priv_ref, IN CONST struct dcd_nodeprops
 				*node_props,
 				OUT struct nldr_nodeobject **phNldrNode,
 				IN bool *pf_phase_split);
 
-extern dsp_status nldr_create(OUT struct nldr_object **phNldr,
+extern int nldr_create(OUT struct nldr_object **phNldr,
 			      struct dev_object *hdev_obj,
 			      IN CONST struct nldr_attrs *pattrs);
 
 extern void nldr_delete(struct nldr_object *nldr_obj);
 extern void nldr_exit(void);
 
-extern dsp_status nldr_get_fxn_addr(struct nldr_nodeobject *nldr_node_obj,
+extern int nldr_get_fxn_addr(struct nldr_nodeobject *nldr_node_obj,
 				    char *pstrFxn, u32 * pulAddr);
 
-extern dsp_status nldr_get_rmm_manager(struct nldr_object *hNldrObject,
+extern int nldr_get_rmm_manager(struct nldr_object *hNldrObject,
 				       OUT struct rmm_target_obj **phRmmMgr);
 
 extern bool nldr_init(void);
-extern dsp_status nldr_load(struct nldr_nodeobject *nldr_node_obj,
+extern int nldr_load(struct nldr_nodeobject *nldr_node_obj,
 			    enum nldr_phase phase);
-extern dsp_status nldr_unload(struct nldr_nodeobject *nldr_node_obj,
+extern int nldr_unload(struct nldr_nodeobject *nldr_node_obj,
 			      enum nldr_phase phase);
-dsp_status nldr_find_addr(struct nldr_nodeobject *nldr_node, u32 sym_addr,
+int nldr_find_addr(struct nldr_nodeobject *nldr_node, u32 sym_addr,
 	u32 offset_range, void *offset_output, char *sym_name);
 
 #endif /* NLDR_ */

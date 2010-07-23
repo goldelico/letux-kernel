@@ -85,10 +85,10 @@ u32 dmm_mem_map_dump(struct dmm_object *dmm_mgr);
  *      to hold the information of the virtual memory that is reserved
  *      for DSP.
  */
-dsp_status dmm_create_tables(struct dmm_object *dmm_mgr, u32 addr, u32 size)
+int dmm_create_tables(struct dmm_object *dmm_mgr, u32 addr, u32 size)
 {
 	struct dmm_object *dmm_obj = (struct dmm_object *)dmm_mgr;
-	dsp_status status = 0;
+	int status = 0;
 
 	status = dmm_delete_tables(dmm_obj);
 	if (DSP_SUCCEEDED(status)) {
@@ -120,12 +120,12 @@ dsp_status dmm_create_tables(struct dmm_object *dmm_mgr, u32 addr, u32 size)
  *  Purpose:
  *      Create a dynamic memory manager object.
  */
-dsp_status dmm_create(OUT struct dmm_object **phDmmMgr,
+int dmm_create(OUT struct dmm_object **phDmmMgr,
 		      struct dev_object *hdev_obj,
 		      IN CONST struct dmm_mgrattrs *pMgrAttrs)
 {
 	struct dmm_object *dmm_obj = NULL;
-	dsp_status status = 0;
+	int status = 0;
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(phDmmMgr != NULL);
 
@@ -147,10 +147,10 @@ dsp_status dmm_create(OUT struct dmm_object **phDmmMgr,
  *  Purpose:
  *      Release the communication memory manager resources.
  */
-dsp_status dmm_destroy(struct dmm_object *dmm_mgr)
+int dmm_destroy(struct dmm_object *dmm_mgr)
 {
 	struct dmm_object *dmm_obj = (struct dmm_object *)dmm_mgr;
-	dsp_status status = 0;
+	int status = 0;
 
 	DBC_REQUIRE(refs > 0);
 	if (dmm_mgr) {
@@ -168,9 +168,9 @@ dsp_status dmm_destroy(struct dmm_object *dmm_mgr)
  *  Purpose:
  *      Delete DMM Tables.
  */
-dsp_status dmm_delete_tables(struct dmm_object *dmm_mgr)
+int dmm_delete_tables(struct dmm_object *dmm_mgr)
 {
-	dsp_status status = 0;
+	int status = 0;
 
 	DBC_REQUIRE(refs > 0);
 	/* Delete all DMM tables */
@@ -200,9 +200,9 @@ void dmm_exit(void)
  *      Return the dynamic memory manager object for this device.
  *      This is typically called from the client process.
  */
-dsp_status dmm_get_handle(void *hprocessor, OUT struct dmm_object **phDmmMgr)
+int dmm_get_handle(void *hprocessor, OUT struct dmm_object **phDmmMgr)
 {
-	dsp_status status = 0;
+	int status = 0;
 	struct dev_object *hdev_obj;
 
 	DBC_REQUIRE(refs > 0);
@@ -250,11 +250,11 @@ bool dmm_init(void)
  *  mapping overlaps another one. This function stores the info that will be
  *  required later while unmapping the block.
  */
-dsp_status dmm_map_memory(struct dmm_object *dmm_mgr, u32 addr, u32 size)
+int dmm_map_memory(struct dmm_object *dmm_mgr, u32 addr, u32 size)
 {
 	struct dmm_object *dmm_obj = (struct dmm_object *)dmm_mgr;
 	struct map_page *chunk;
-	dsp_status status = 0;
+	int status = 0;
 
 	spin_lock(&dmm_obj->dmm_lock);
 	/* Find the Reserved memory chunk containing the DSP block to
@@ -279,10 +279,10 @@ dsp_status dmm_map_memory(struct dmm_object *dmm_mgr, u32 addr, u32 size)
  *  Purpose:
  *      Reserve a chunk of virtually contiguous DSP/IVA address space.
  */
-dsp_status dmm_reserve_memory(struct dmm_object *dmm_mgr, u32 size,
+int dmm_reserve_memory(struct dmm_object *dmm_mgr, u32 size,
 			      u32 *prsv_addr)
 {
-	dsp_status status = 0;
+	int status = 0;
 	struct dmm_object *dmm_obj = (struct dmm_object *)dmm_mgr;
 	struct map_page *node;
 	u32 rsv_addr = 0;
@@ -331,11 +331,11 @@ dsp_status dmm_reserve_memory(struct dmm_object *dmm_mgr, u32 size,
  *  Purpose:
  *      Remove the mapped block from the reserved chunk.
  */
-dsp_status dmm_un_map_memory(struct dmm_object *dmm_mgr, u32 addr, u32 *psize)
+int dmm_un_map_memory(struct dmm_object *dmm_mgr, u32 addr, u32 *psize)
 {
 	struct dmm_object *dmm_obj = (struct dmm_object *)dmm_mgr;
 	struct map_page *chunk;
-	dsp_status status = 0;
+	int status = 0;
 
 	spin_lock(&dmm_obj->dmm_lock);
 	chunk = get_mapped_region(addr);
@@ -361,12 +361,12 @@ dsp_status dmm_un_map_memory(struct dmm_object *dmm_mgr, u32 addr, u32 *psize)
  *  Purpose:
  *      Free a chunk of reserved DSP/IVA address space.
  */
-dsp_status dmm_un_reserve_memory(struct dmm_object *dmm_mgr, u32 rsv_addr)
+int dmm_un_reserve_memory(struct dmm_object *dmm_mgr, u32 rsv_addr)
 {
 	struct dmm_object *dmm_obj = (struct dmm_object *)dmm_mgr;
 	struct map_page *chunk;
 	u32 i;
-	dsp_status status = 0;
+	int status = 0;
 	u32 chunk_size;
 
 	spin_lock(&dmm_obj->dmm_lock);

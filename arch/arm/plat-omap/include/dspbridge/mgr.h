@@ -38,7 +38,7 @@
  *  Details:
  */
 
-dsp_status mgr_wait_for_bridge_events(struct dsp_notification
+int mgr_wait_for_bridge_events(struct dsp_notification
 				      **anotifications,
 				      u32 count, OUT u32 *pu_index,
 				      u32 utimeout);
@@ -66,7 +66,7 @@ dsp_status mgr_wait_for_bridge_events(struct dsp_notification
  *  Details:
  *      DCD Dll is loaded and MGR Object stores the handle of the DLL.
  */
-extern dsp_status mgr_create(OUT struct mgr_object **hmgr_obj,
+extern int mgr_create(OUT struct mgr_object **hmgr_obj,
 			     struct cfg_devnode *dev_node_obj);
 
 /*
@@ -87,7 +87,7 @@ extern dsp_status mgr_create(OUT struct mgr_object **hmgr_obj,
  *      0:        MGR Object destroyed and hmgr_obj is Invalid MGR
  *                      Handle.
  */
-extern dsp_status mgr_destroy(struct mgr_object *hmgr_obj);
+extern int mgr_destroy(struct mgr_object *hmgr_obj);
 
 /*
  *  ======== mgr_enum_node_info ========
@@ -118,7 +118,7 @@ extern dsp_status mgr_destroy(struct mgr_object *hmgr_obj);
  *      DSP_FAILED  && *pu_num_nodes == 0.
  *  Details:
  */
-extern dsp_status mgr_enum_node_info(u32 node_id,
+extern int mgr_enum_node_info(u32 node_id,
 				     OUT struct dsp_ndbprops *pndb_props,
 				     u32 undb_props_size,
 				     OUT u32 *pu_num_nodes);
@@ -149,7 +149,7 @@ extern dsp_status mgr_enum_node_info(u32 node_id,
  *      DSP_FAILED && *pu_num_procs == 0.
  *  Details:
  */
-extern dsp_status mgr_enum_processor_info(u32 processor_id,
+extern int mgr_enum_processor_info(u32 processor_id,
 					  OUT struct dsp_processorinfo
 					  *processor_info,
 					  u32 processor_info_size,
@@ -185,7 +185,7 @@ extern void mgr_exit(void);
  *      0 and *phDCDHandle != NULL ||
  *      -EPERM and *phDCDHandle == NULL
  */
-extern dsp_status mgr_get_dcd_handle(IN struct mgr_object
+extern int mgr_get_dcd_handle(IN struct mgr_object
 				     *hMGRHandle, OUT u32 *phDCDHandle);
 
 /*

@@ -49,7 +49,7 @@
  *  Details:
  *      When attr_in is NULL, the default timeout value is 10 seconds.
  */
-extern dsp_status proc_attach(u32 processor_id,
+extern int proc_attach(u32 processor_id,
 			      OPTIONAL CONST struct dsp_processorattrin
 			      *attr_in, void **ph_processor,
 			      struct process_context *pr_ctxt);
@@ -71,7 +71,7 @@ extern dsp_status proc_attach(u32 processor_id,
  *      PROC Initialized.
  *  Ensures:
  */
-extern dsp_status proc_auto_start(struct cfg_devnode *dev_node_obj,
+extern int proc_auto_start(struct cfg_devnode *dev_node_obj,
 				  struct dev_object *hdev_obj);
 
 /*
@@ -100,7 +100,7 @@ extern dsp_status proc_auto_start(struct cfg_devnode *dev_node_obj,
  *  Details:
  *      This function Calls WMD_BRD_Ioctl.
  */
-extern dsp_status proc_ctrl(void *hprocessor,
+extern int proc_ctrl(void *hprocessor,
 			    u32 dw_cmd, IN struct dsp_cbdata *pargs);
 
 /*
@@ -119,7 +119,7 @@ extern dsp_status proc_ctrl(void *hprocessor,
  *  Ensures:
  *      PROC Object is destroyed.
  */
-extern dsp_status proc_detach(struct process_context *pr_ctxt);
+extern int proc_detach(struct process_context *pr_ctxt);
 
 /*
  *  ======== proc_enum_nodes ========
@@ -152,7 +152,7 @@ extern dsp_status proc_detach(struct process_context *pr_ctxt);
  *  Ensures:
  *  Details:
  */
-extern dsp_status proc_enum_nodes(void *hprocessor,
+extern int proc_enum_nodes(void *hprocessor,
 				  void **node_tab,
 				  IN u32 node_tab_size,
 				  OUT u32 *pu_num_nodes,
@@ -186,7 +186,7 @@ extern dsp_status proc_enum_nodes(void *hprocessor,
  *      This function currently returns
  *      -ENOSYS, and does not write any data to the resource_info struct.
  */
-extern dsp_status proc_get_resource_info(void *hprocessor,
+extern int proc_get_resource_info(void *hprocessor,
 					 u32 resource_type,
 					 OUT struct dsp_resourceinfo
 					 *resource_info,
@@ -223,7 +223,7 @@ extern void proc_exit(void);
  *      0     :   *phDevObject is not NULL
  *      -EPERM   :   *phDevObject is NULL.
  */
-extern dsp_status proc_get_dev_object(void *hprocessor,
+extern int proc_get_dev_object(void *hprocessor,
 				      struct dev_object **phDevObject);
 
 /*
@@ -260,7 +260,7 @@ extern bool proc_init(void);
  *  Ensures:
  *  Details:
  */
-extern dsp_status proc_get_state(void *hprocessor, OUT struct dsp_processorstate
+extern int proc_get_state(void *hprocessor, OUT struct dsp_processorstate
 				 *proc_state_obj, u32 state_info_size);
 
 /*
@@ -282,7 +282,7 @@ extern dsp_status proc_get_state(void *hprocessor, OUT struct dsp_processorstate
  *  Ensures:
  *  Details:
  */
-extern dsp_status proc_get_processor_id(void *hprocessor, u32 * procID);
+extern int proc_get_processor_id(void *hprocessor, u32 * procID);
 
 /*
  *  ======== proc_get_trace ========
@@ -304,7 +304,7 @@ extern dsp_status proc_get_processor_id(void *hprocessor, u32 * procID);
  *  Ensures:
  *  Details:
  */
-extern dsp_status proc_get_trace(void *hprocessor, u8 * pbuf, u32 max_size);
+extern int proc_get_trace(void *hprocessor, u8 * pbuf, u32 max_size);
 
 /*
  *  ======== proc_load ========
@@ -337,7 +337,7 @@ extern dsp_status proc_get_trace(void *hprocessor, u8 * pbuf, u32 max_size);
  *      Does not implement access rights to control which GPP application
  *      can load the processor.
  */
-extern dsp_status proc_load(void *hprocessor,
+extern int proc_load(void *hprocessor,
 			    IN CONST s32 argc_index, IN CONST char **user_args,
 			    IN CONST char **user_envp);
 
@@ -363,7 +363,7 @@ extern dsp_status proc_load(void *hprocessor,
  *  Ensures:
  *  Details:
  */
-extern dsp_status proc_register_notify(void *hprocessor,
+extern int proc_register_notify(void *hprocessor,
 				       u32 event_mask, u32 notify_type,
 				       struct dsp_notification
 				       *hnotification);
@@ -385,7 +385,7 @@ extern dsp_status proc_register_notify(void *hprocessor,
  *      PROC Initialized.
  *  Ensures:
  */
-extern dsp_status proc_notify_clients(void *hProc, u32 uEvents);
+extern int proc_notify_clients(void *hProc, u32 uEvents);
 
 /*
  *  ======== proc_notify_all_clients ========
@@ -407,7 +407,7 @@ extern dsp_status proc_notify_clients(void *hProc, u32 uEvents);
  *      NODE And STRM would use this function to notify their clients
  *      about the state changes in NODE or STRM.
  */
-extern dsp_status proc_notify_all_clients(void *hProc, u32 uEvents);
+extern int proc_notify_all_clients(void *hProc, u32 uEvents);
 
 /*
  *  ======== proc_start ========
@@ -429,7 +429,7 @@ extern dsp_status proc_notify_all_clients(void *hProc, u32 uEvents);
  *      Success and ProcState == PROC_RUNNING or DSP_FAILED status.
  *  Details:
  */
-extern dsp_status proc_start(void *hprocessor);
+extern int proc_start(void *hprocessor);
 
 /*
  *  ======== proc_stop ========
@@ -451,7 +451,7 @@ extern dsp_status proc_start(void *hprocessor);
  *      Success and ProcState == PROC_RUNNING or DSP_FAILED status.
  *  Details:
  */
-extern dsp_status proc_stop(void *hprocessor);
+extern int proc_stop(void *hprocessor);
 
 /*
  *  ======== proc_flush_memory ========
@@ -472,7 +472,7 @@ extern dsp_status proc_stop(void *hprocessor);
  *  Details:
  *      All the arguments are currently ignored.
  */
-extern dsp_status proc_flush_memory(void *hprocessor,
+extern int proc_flush_memory(void *hprocessor,
 				    void *pmpu_addr, u32 ul_size, u32 ul_flags);
 
 /*
@@ -493,7 +493,7 @@ extern dsp_status proc_flush_memory(void *hprocessor,
  *  Details:
  *      All the arguments are currently ignored.
  */
-extern dsp_status proc_invalidate_memory(void *hprocessor,
+extern int proc_invalidate_memory(void *hprocessor,
 					 void *pmpu_addr, u32 ul_size);
 
 /*
@@ -523,7 +523,7 @@ extern dsp_status proc_invalidate_memory(void *hprocessor,
  *  Ensures:
  *  Details:
  */
-extern dsp_status proc_map(void *hprocessor,
+extern int proc_map(void *hprocessor,
 			   void *pmpu_addr,
 			   u32 ul_size,
 			   void *req_addr,
@@ -549,7 +549,7 @@ extern dsp_status proc_map(void *hprocessor,
  *  Ensures:
  *  Details:
  */
-extern dsp_status proc_reserve_memory(void *hprocessor,
+extern int proc_reserve_memory(void *hprocessor,
 				      u32 ul_size, void **pp_rsv_addr,
 				      struct process_context *pr_ctxt);
 
@@ -572,7 +572,7 @@ extern dsp_status proc_reserve_memory(void *hprocessor,
  *  Ensures:
  *  Details:
  */
-extern dsp_status proc_un_map(void *hprocessor, void *map_addr,
+extern int proc_un_map(void *hprocessor, void *map_addr,
 			      struct process_context *pr_ctxt);
 
 /*
@@ -594,7 +594,7 @@ extern dsp_status proc_un_map(void *hprocessor, void *map_addr,
  *  Ensures:
  *  Details:
  */
-extern dsp_status proc_un_reserve_memory(void *hprocessor,
+extern int proc_un_reserve_memory(void *hprocessor,
 					 void *prsv_addr,
 					 struct process_context *pr_ctxt);
 

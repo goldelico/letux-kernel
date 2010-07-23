@@ -52,10 +52,10 @@ static u32 refs;
  *  Purpose:
  *      MGR Object gets created only once during driver Loading.
  */
-dsp_status mgr_create(OUT struct mgr_object **phMgrObject,
+int mgr_create(OUT struct mgr_object **phMgrObject,
 		      struct cfg_devnode *dev_node_obj)
 {
-	dsp_status status = 0;
+	int status = 0;
 	struct mgr_object *pmgr_obj = NULL;
 
 	DBC_REQUIRE(phMgrObject != NULL);
@@ -89,9 +89,9 @@ dsp_status mgr_create(OUT struct mgr_object **phMgrObject,
  *  ========= mgr_destroy =========
  *     This function is invoked during bridge driver unloading.Frees MGR object.
  */
-dsp_status mgr_destroy(struct mgr_object *hmgr_obj)
+int mgr_destroy(struct mgr_object *hmgr_obj)
 {
-	dsp_status status = 0;
+	int status = 0;
 	struct mgr_object *pmgr_obj = (struct mgr_object *)hmgr_obj;
 
 	DBC_REQUIRE(refs > 0);
@@ -115,10 +115,10 @@ dsp_status mgr_destroy(struct mgr_object *hmgr_obj)
  *      Enumerate and get configuration information about nodes configured
  *      in the node database.
  */
-dsp_status mgr_enum_node_info(u32 node_id, OUT struct dsp_ndbprops *pndb_props,
+int mgr_enum_node_info(u32 node_id, OUT struct dsp_ndbprops *pndb_props,
 			      u32 undb_props_size, OUT u32 *pu_num_nodes)
 {
-	dsp_status status = 0;
+	int status = 0;
 	struct dsp_uuid node_uuid, temp_uuid;
 	u32 temp_index = 0;
 	u32 node_index = 0;
@@ -178,14 +178,14 @@ func_cont:
  *      Enumerate and get configuration information about available
  *      DSP processors.
  */
-dsp_status mgr_enum_processor_info(u32 processor_id,
+int mgr_enum_processor_info(u32 processor_id,
 				   OUT struct dsp_processorinfo *
 				   processor_info, u32 processor_info_size,
 				   OUT u8 *pu_num_procs)
 {
-	dsp_status status = 0;
-	dsp_status status1 = 0;
-	dsp_status status2 = 0;
+	int status = 0;
+	int status1 = 0;
+	int status2 = 0;
 	struct dsp_uuid temp_uuid;
 	u32 temp_index = 0;
 	u32 proc_index = 0;
@@ -306,10 +306,10 @@ void mgr_exit(void)
  *  ======== mgr_get_dcd_handle ========
  *      Retrieves the MGR handle. Accessor Function.
  */
-dsp_status mgr_get_dcd_handle(struct mgr_object *hMGRHandle,
+int mgr_get_dcd_handle(struct mgr_object *hMGRHandle,
 			      OUT u32 *phDCDHandle)
 {
-	dsp_status status = -EPERM;
+	int status = -EPERM;
 	struct mgr_object *pmgr_obj = (struct mgr_object *)hMGRHandle;
 
 	DBC_REQUIRE(refs > 0);
@@ -356,11 +356,11 @@ bool mgr_init(void)
  *  ======== mgr_wait_for_bridge_events ========
  *      Block on any Bridge event(s)
  */
-dsp_status mgr_wait_for_bridge_events(struct dsp_notification **anotifications,
+int mgr_wait_for_bridge_events(struct dsp_notification **anotifications,
 				      u32 count, OUT u32 *pu_index,
 				      u32 utimeout)
 {
-	dsp_status status;
+	int status;
 	struct sync_object *sync_events[MAX_EVENTS];
 	u32 i;
 

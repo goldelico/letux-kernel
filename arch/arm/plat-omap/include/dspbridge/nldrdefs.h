@@ -127,7 +127,7 @@ enum nldr_phase {
  *      0:        IsValidNode(*phNldrNode).
  *      error:          *phNldrNode == NULL.
  */
-typedef dsp_status(*nldr_allocatefxn) (struct nldr_object *nldr_obj,
+typedef int(*nldr_allocatefxn) (struct nldr_object *nldr_obj,
 				       void *priv_ref,
 				       IN CONST struct dcd_nodeprops
 				       * node_props,
@@ -156,7 +156,7 @@ typedef dsp_status(*nldr_allocatefxn) (struct nldr_object *nldr_obj,
  *      0:        Valid *phNldr.
  *      error:          *phNldr == NULL.
  */
-typedef dsp_status(*nldr_createfxn) (OUT struct nldr_object **phNldr,
+typedef int(*nldr_createfxn) (OUT struct nldr_object **phNldr,
 				     struct dev_object *hdev_obj,
 				     IN CONST struct nldr_attrs *pattrs);
 
@@ -222,7 +222,7 @@ typedef void (*nldr_freefxn) (struct nldr_nodeobject *nldr_node_obj);
  *      pstrFxn != NULL;
  *  Ensures:
  */
-typedef dsp_status(*nldr_getfxnaddrfxn) (struct nldr_nodeobject
+typedef int(*nldr_getfxnaddrfxn) (struct nldr_nodeobject
 					 * nldr_node_obj,
 					 char *pstrFxn, u32 * pulAddr);
 
@@ -256,7 +256,7 @@ typedef bool(*nldr_initfxn) (void);
  *      Valid nldr_node_obj.
  *  Ensures:
  */
-typedef dsp_status(*nldr_loadfxn) (struct nldr_nodeobject *nldr_node_obj,
+typedef int(*nldr_loadfxn) (struct nldr_nodeobject *nldr_node_obj,
 				   enum nldr_phase phase);
 
 /*
@@ -274,7 +274,7 @@ typedef dsp_status(*nldr_loadfxn) (struct nldr_nodeobject *nldr_node_obj,
  *      Valid nldr_node_obj.
  *  Ensures:
  */
-typedef dsp_status(*nldr_unloadfxn) (struct nldr_nodeobject *nldr_node_obj,
+typedef int(*nldr_unloadfxn) (struct nldr_nodeobject *nldr_node_obj,
 				     enum nldr_phase phase);
 
 /*

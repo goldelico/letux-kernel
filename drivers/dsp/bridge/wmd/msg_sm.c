@@ -38,7 +38,7 @@
 #include <dspbridge/wmdmsg.h>
 
 /*  ----------------------------------- Function Prototypes */
-static dsp_status add_new_msg(struct lst_list *msgList);
+static int add_new_msg(struct lst_list *msgList);
 static void delete_msg_mgr(struct msg_mgr *hmsg_mgr);
 static void delete_msg_queue(struct msg_queue *msg_queue_obj, u32 uNumToDSP);
 static void free_msg_list(struct lst_list *msgList);
@@ -48,13 +48,13 @@ static void free_msg_list(struct lst_list *msgList);
  *      Create an object to manage message queues. Only one of these objects
  *      can exist per device object.
  */
-dsp_status bridge_msg_create(OUT struct msg_mgr **phMsgMgr,
+int bridge_msg_create(OUT struct msg_mgr **phMsgMgr,
 			     struct dev_object *hdev_obj,
 			     msg_onexit msgCallback)
 {
 	struct msg_mgr *msg_mgr_obj;
 	struct io_mgr *hio_mgr;
-	dsp_status status = 0;
+	int status = 0;
 
 	if (!phMsgMgr || !msgCallback || !hdev_obj) {
 		status = -EFAULT;
@@ -119,14 +119,14 @@ func_end:
  *      Create a msg_queue for sending/receiving messages to/from a node
  *      on the DSP.
  */
-dsp_status bridge_msg_create_queue(struct msg_mgr *hmsg_mgr,
+int bridge_msg_create_queue(struct msg_mgr *hmsg_mgr,
 				OUT struct msg_queue **phMsgQueue,
 				u32 msgq_id, u32 max_msgs, bhandle arg)
 {
 	u32 i;
 	u32 num_allocated = 0;
 	struct msg_queue *msg_q;
-	dsp_status status = 0;
+	int status = 0;
 
 	if (!hmsg_mgr || phMsgQueue == NULL || !hmsg_mgr->msg_free_list) {
 		status = -EFAULT;
@@ -285,7 +285,7 @@ func_end:
  *  ======== bridge_msg_get ========
  *      Get a message from a msg_ctrl queue.
  */
-dsp_status bridge_msg_get(struct msg_queue *msg_queue_obj,
+int bridge_msg_get(struct msg_queue *msg_queue_obj,
 			  struct dsp_msg *pmsg, u32 utimeout)
 {
 	struct msg_frame *msg_frame_obj;
@@ -293,7 +293,7 @@ dsp_status bridge_msg_get(struct msg_queue *msg_queue_obj,
 	bool got_msg = false;
 	struct sync_object *syncs[2];
 	u32 index;
-	dsp_status status = 0;
+	int status = 0;
 
 	if (!msg_queue_obj || pmsg == NULL) {
 		status = -ENOMEM;
@@ -389,7 +389,7 @@ func_end:
  *  ======== bridge_msg_put ========
  *      Put a message onto a msg_ctrl queue.
  */
-dsp_status bridge_msg_put(struct msg_queue *msg_queue_obj,
+int bridge_msg_put(struct msg_queue *msg_queue_obj,
 			  IN CONST struct dsp_msg *pmsg, u32 utimeout)
 {
 	struct msg_frame *msg_frame_obj;
@@ -397,7 +397,7 @@ dsp_status bridge_msg_put(struct msg_queue *msg_queue_obj,
 	bool put_msg = false;
 	struct sync_object *syncs[2];
 	u32 index;
-	dsp_status status = 0;
+	int status = 0;
 
 	if (!msg_queue_obj || !pmsg || !msg_queue_obj->hmsg_mgr) {
 		status = -ENOMEM;
@@ -500,11 +500,11 @@ func_end:
 /*
  *  ======== bridge_msg_register_notify ========
  */
-dsp_status bridge_msg_register_notify(struct msg_queue *msg_queue_obj,
+int bridge_msg_register_notify(struct msg_queue *msg_queue_obj,
 				   u32 event_mask, u32 notify_type,
 				   struct dsp_notification *hnotification)
 {
-	dsp_status status = 0;
+	int status = 0;
 
 	if (!msg_queue_obj || !hnotification) {
 		status = -ENOMEM;
@@ -558,10 +558,10 @@ void bridge_msg_set_queue_id(struct msg_queue *msg_queue_obj, u32 msgq_id)
  *  ======== add_new_msg ========
  *      Must be called in message manager critical section.
  */
-static dsp_status add_new_msg(struct lst_list *msgList)
+static int add_new_msg(struct lst_list *msgList)
 {
 	struct msg_frame *pmsg;
-	dsp_status status = 0;
+	int status = 0;
 
 	pmsg = kzalloc(sizeof(struct msg_frame), GFP_ATOMIC);
 	if (pmsg != NULL) {

@@ -101,7 +101,7 @@ struct node_createargs {
  *      pulId != NULL.
  *  Ensures:
  */
-extern dsp_status node_get_channel_id(struct node_object *hnode,
+extern int node_get_channel_id(struct node_object *hnode,
 				      u32 dir, u32 index, OUT u32 *pulId);
 
 /*
@@ -118,7 +118,7 @@ extern dsp_status node_get_channel_id(struct node_object *hnode,
  *      phStrmMgr != NULL.
  *  Ensures:
  */
-extern dsp_status node_get_strm_mgr(struct node_object *hnode,
+extern int node_get_strm_mgr(struct node_object *hnode,
 				    struct strm_mgr **phStrmMgr);
 
 /*

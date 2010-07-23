@@ -49,10 +49,10 @@ void cfg_exit(void)
  *  Purpose:
  *      Retreive the autostart mask, if any, for this board.
  */
-dsp_status cfg_get_auto_start(struct cfg_devnode *dev_node_obj,
+int cfg_get_auto_start(struct cfg_devnode *dev_node_obj,
 			      OUT u32 *pdwAutoStart)
 {
-	dsp_status status = 0;
+	int status = 0;
 	u32 dw_buf_size;
 	struct drv_data *drv_datap = dev_get_drvdata(bridge);
 
@@ -75,10 +75,10 @@ dsp_status cfg_get_auto_start(struct cfg_devnode *dev_node_obj,
  *  Purpose:
  *      Retrieve the Device Object handle for a given devnode.
  */
-dsp_status cfg_get_dev_object(struct cfg_devnode *dev_node_obj,
+int cfg_get_dev_object(struct cfg_devnode *dev_node_obj,
 			      OUT u32 *pdwValue)
 {
-	dsp_status status = 0;
+	int status = 0;
 	u32 dw_buf_size;
 	struct drv_data *drv_datap = dev_get_drvdata(bridge);
 
@@ -111,10 +111,10 @@ dsp_status cfg_get_dev_object(struct cfg_devnode *dev_node_obj,
  *  Purpose:
  *      Retreive the default executable, if any, for this board.
  */
-dsp_status cfg_get_exec_file(struct cfg_devnode *dev_node_obj, u32 ul_buf_size,
+int cfg_get_exec_file(struct cfg_devnode *dev_node_obj, u32 ul_buf_size,
 			     OUT char *pstrExecFile)
 {
-	dsp_status status = 0;
+	int status = 0;
 	struct drv_data *drv_datap = dev_get_drvdata(bridge);
 
 	if (!dev_node_obj)
@@ -145,9 +145,9 @@ func_end:
  *  Purpose:
  *      Retrieve the Object handle from the Registry
  */
-dsp_status cfg_get_object(OUT u32 *pdwValue, u8 dw_type)
+int cfg_get_object(OUT u32 *pdwValue, u8 dw_type)
 {
-	dsp_status status = -EINVAL;
+	int status = -EINVAL;
 	struct drv_data *drv_datap = dev_get_drvdata(bridge);
 
 	DBC_REQUIRE(pdwValue != NULL);
@@ -200,9 +200,9 @@ bool cfg_init(void)
  *  Purpose:
  *      Store the Device Object handle and dev_node pointer for a given devnode.
  */
-dsp_status cfg_set_dev_object(struct cfg_devnode *dev_node_obj, u32 dwValue)
+int cfg_set_dev_object(struct cfg_devnode *dev_node_obj, u32 dwValue)
 {
-	dsp_status status = 0;
+	int status = 0;
 	struct drv_data *drv_datap = dev_get_drvdata(bridge);
 
 	if (!drv_datap) {
@@ -231,9 +231,9 @@ dsp_status cfg_set_dev_object(struct cfg_devnode *dev_node_obj, u32 dwValue)
  *  Purpose:
  *      Store the Driver Object handle
  */
-dsp_status cfg_set_object(u32 dwValue, u8 dw_type)
+int cfg_set_object(u32 dwValue, u8 dw_type)
 {
-	dsp_status status = -EINVAL;
+	int status = -EINVAL;
 	struct drv_data *drv_datap = dev_get_drvdata(bridge);
 
 	if (!drv_datap)

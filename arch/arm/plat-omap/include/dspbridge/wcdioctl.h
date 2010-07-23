@@ -245,7 +245,7 @@ union Trapped_Args {
 
 	struct {
 		void *hnode;
-		dsp_status __user *pstatus;
+		int __user *pstatus;
 	} args_node_terminate;
 
 	struct {

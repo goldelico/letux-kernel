@@ -43,7 +43,7 @@
  *      0:        The I/O completion event for this channel is freed.
  *                      chnl_obj is no longer valid.
  */
-extern dsp_status chnl_close(struct chnl_object *chnl_obj);
+extern int chnl_close(struct chnl_object *chnl_obj);
 
 /*
  *  ======== chnl_create ========
@@ -78,7 +78,7 @@ extern dsp_status chnl_close(struct chnl_object *chnl_obj);
  *                              board without an intervening call to
  *                              chnl_destroy() will fail.
  */
-extern dsp_status chnl_create(OUT struct chnl_mgr **phChnlMgr,
+extern int chnl_create(OUT struct chnl_mgr **phChnlMgr,
 			      struct dev_object *hdev_obj,
 			      IN CONST struct chnl_mgrattrs *pMgrAttrs);
 
@@ -99,7 +99,7 @@ extern dsp_status chnl_create(OUT struct chnl_mgr **phChnlMgr,
  *                          chnl_create may subsequently be called for the
  *                          same board.
  */
-extern dsp_status chnl_destroy(struct chnl_mgr *hchnl_mgr);
+extern int chnl_destroy(struct chnl_mgr *hchnl_mgr);
 
 /*
  *  ======== chnl_exit ========

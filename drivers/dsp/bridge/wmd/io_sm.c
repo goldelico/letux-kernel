@@ -162,7 +162,7 @@ static void io_wdt3_ovf(unsigned long);
 #endif
 
 /* Bus Addr (cached kernel) */
-static dsp_status register_shm_segs(struct io_mgr *hio_mgr,
+static int register_shm_segs(struct io_mgr *hio_mgr,
 				    struct cod_manager *cod_man,
 				    u32 dw_gpp_base_pa);
 
@@ -170,11 +170,11 @@ static dsp_status register_shm_segs(struct io_mgr *hio_mgr,
  *  ======== bridge_io_create ========
  *      Create an IO manager object.
  */
-dsp_status bridge_io_create(OUT struct io_mgr **phIOMgr,
+int bridge_io_create(OUT struct io_mgr **phIOMgr,
 			    struct dev_object *hdev_obj,
 			    IN CONST struct io_attrs *pMgrAttrs)
 {
-	dsp_status status = 0;
+	int status = 0;
 	struct io_mgr *pio_mgr = NULL;
 	struct shm *shared_mem = NULL;
 	struct wmd_dev_context *hwmd_context = NULL;
@@ -283,9 +283,9 @@ func_end:
  *  Purpose:
  *      Disable interrupts, destroy the IO manager.
  */
-dsp_status bridge_io_destroy(struct io_mgr *hio_mgr)
+int bridge_io_destroy(struct io_mgr *hio_mgr)
 {
-	dsp_status status = 0;
+	int status = 0;
 
 	if (hio_mgr) {
 #ifdef CONFIG_BRIDGE_WDT3
@@ -315,7 +315,7 @@ dsp_status bridge_io_destroy(struct io_mgr *hio_mgr)
  *      parameters from COFF file. ulSharedBufferBase and ulSharedBufferLimit
  *      are in DSP address units.
  */
-dsp_status bridge_io_on_loaded(struct io_mgr *hio_mgr)
+int bridge_io_on_loaded(struct io_mgr *hio_mgr)
 {
 	struct cod_manager *cod_man;
 	struct chnl_mgr *hchnl_mgr;
@@ -335,7 +335,7 @@ dsp_status bridge_io_on_loaded(struct io_mgr *hio_mgr)
 	u32 ul_seg_size = 0;
 	u32 ul_pad_size = 0;
 	u32 i;
-	dsp_status status = 0;
+	int status = 0;
 	u8 num_procs = 0;
 	s32 ndx = 0;
 	/* DSP MMU setup table */
@@ -906,7 +906,7 @@ func_end:
  */
 static void io_dispatch_pm(struct io_mgr *pio_mgr)
 {
-	dsp_status status;
+	int status;
 	u32 parg[2];
 
 	/* Perform Power message processing here */
@@ -1605,11 +1605,11 @@ func_end:
  *  purpose:
  *      Registers GPP SM segment with CMM.
  */
-static dsp_status register_shm_segs(struct io_mgr *hio_mgr,
+static int register_shm_segs(struct io_mgr *hio_mgr,
 				    struct cod_manager *cod_man,
 				    u32 dw_gpp_base_pa)
 {
-	dsp_status status = 0;
+	int status = 0;
 	u32 ul_shm0_base = 0;
 	u32 shm0_end = 0;
 	u32 ul_shm0_rsrvd_start = 0;
@@ -1758,7 +1758,7 @@ void io_intr_dsp2(IN struct io_mgr *pio_mgr, IN u16 mb_val)
  *  ======== IO_SHMcontrol ========
  *      Sets the requested shm setting.
  */
-dsp_status io_sh_msetting(struct io_mgr *hio_mgr, u8 desc, void *pargs)
+int io_sh_msetting(struct io_mgr *hio_mgr, u8 desc, void *pargs)
 {
 #ifdef CONFIG_BRIDGE_DVFS
 	u32 i;
@@ -1823,7 +1823,7 @@ dsp_status io_sh_msetting(struct io_mgr *hio_mgr, u8 desc, void *pargs)
  *  ======== bridge_io_get_proc_load ========
  *      Gets the Processor's Load information
  */
-dsp_status bridge_io_get_proc_load(IN struct io_mgr *hio_mgr,
+int bridge_io_get_proc_load(IN struct io_mgr *hio_mgr,
 				OUT struct dsp_procloadstat *pProcStat)
 {
 	pProcStat->curr_load = hio_mgr->shared_mem->load_mon_info.curr_dsp_load;
@@ -1914,9 +1914,9 @@ void print_dsp_debug_trace(struct io_mgr *hio_mgr)
  *  Requires:
  *      hdeh_mgr muse be valid. Checked in bridge_deh_notify.
  */
-dsp_status print_dsp_trace_buffer(struct wmd_dev_context *hwmd_context)
+int print_dsp_trace_buffer(struct wmd_dev_context *hwmd_context)
 {
-	dsp_status status = 0;
+	int status = 0;
 	struct cod_manager *cod_mgr;
 	u32 ul_trace_end;
 	u32 ul_trace_begin;
@@ -2086,9 +2086,9 @@ void io_sm_init(void)
  * @wmd_context:	Mini driver's device context pointer.
  *
  */
-dsp_status dump_dsp_stack(struct wmd_dev_context *wmd_context)
+int dump_dsp_stack(struct wmd_dev_context *wmd_context)
 {
-	dsp_status status = 0;
+	int status = 0;
 	struct cod_manager *code_mgr;
 	struct node_mgr *node_mgr;
 	u32 trace_begin;
@@ -2289,7 +2289,7 @@ void dump_dl_modules(struct wmd_dev_context *wmd_context)
 	u32 module_struct_size = 0;
 	u32 sect_ndx;
 	char *sect_str ;
-	dsp_status status = 0;
+	int status = 0;
 
 	status = dev_get_intf_fxns(dev_object, &intf_fxns);
 	if (DSP_FAILED(status)) {

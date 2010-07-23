@@ -52,7 +52,7 @@ extern struct mailbox_context mboxsetting;
  *  ======== handle_constraints_set ========
  *  	Sets new DSP constraint
  */
-dsp_status handle_constraints_set(struct wmd_dev_context *dev_context,
+int handle_constraints_set(struct wmd_dev_context *dev_context,
 				  IN void *pargs)
 {
 #ifdef CONFIG_BRIDGE_DVFS
@@ -90,9 +90,9 @@ dsp_status handle_constraints_set(struct wmd_dev_context *dev_context,
  *  ======== handle_hibernation_from_dsp ========
  *  	Handle Hibernation requested from DSP
  */
-dsp_status handle_hibernation_from_dsp(struct wmd_dev_context *dev_context)
+int handle_hibernation_from_dsp(struct wmd_dev_context *dev_context)
 {
-	dsp_status status = 0;
+	int status = 0;
 #ifdef CONFIG_PM
 	u16 timeout = PWRSTST_TIMEOUT / 10;
 	u32 pwr_state;
@@ -177,10 +177,10 @@ func_cont:
  *  ======== sleep_dsp ========
  *  	Put DSP in low power consuming state.
  */
-dsp_status sleep_dsp(struct wmd_dev_context *dev_context, IN u32 dw_cmd,
+int sleep_dsp(struct wmd_dev_context *dev_context, IN u32 dw_cmd,
 		     IN void *pargs)
 {
-	dsp_status status = 0;
+	int status = 0;
 #ifdef CONFIG_PM
 #ifdef CONFIG_BRIDGE_NTFY_PWRERR
 	struct deh_mgr *hdeh_mgr;
@@ -306,9 +306,9 @@ func_cont:
  *  ======== wake_dsp ========
  *  	Wake up DSP from sleep.
  */
-dsp_status wake_dsp(struct wmd_dev_context *dev_context, IN void *pargs)
+int wake_dsp(struct wmd_dev_context *dev_context, IN void *pargs)
 {
-	dsp_status status = 0;
+	int status = 0;
 #ifdef CONFIG_PM
 
 	/* Check the BRD/WMD state, if it is not 'SLEEP' then return failure */
@@ -329,7 +329,7 @@ dsp_status wake_dsp(struct wmd_dev_context *dev_context, IN void *pargs)
  *  ======== dsp_peripheral_clk_ctrl ========
  *  	Enable/Disable the DSP peripheral clocks as needed..
  */
-dsp_status dsp_peripheral_clk_ctrl(struct wmd_dev_context *dev_context,
+int dsp_peripheral_clk_ctrl(struct wmd_dev_context *dev_context,
 				   IN void *pargs)
 {
 	u32 ext_clk = 0;
@@ -338,8 +338,8 @@ dsp_status dsp_peripheral_clk_ctrl(struct wmd_dev_context *dev_context,
 	u32 clk_id_index = MBX_PM_MAX_RESOURCES;
 	u32 tmp_index;
 	u32 dsp_per_clks_before;
-	dsp_status status = 0;
-	dsp_status status1 = 0;
+	int status = 0;
+	int status1 = 0;
 	struct cfg_hostres *resources = dev_context->resources;
 	u32 value;
 
@@ -431,7 +431,7 @@ dsp_status dsp_peripheral_clk_ctrl(struct wmd_dev_context *dev_context,
  *  Sends prescale notification to DSP
  *
  */
-dsp_status pre_scale_dsp(struct wmd_dev_context *dev_context, IN void *pargs)
+int pre_scale_dsp(struct wmd_dev_context *dev_context, IN void *pargs)
 {
 #ifdef CONFIG_BRIDGE_DVFS
 	u32 level;
@@ -465,9 +465,9 @@ dsp_status pre_scale_dsp(struct wmd_dev_context *dev_context, IN void *pargs)
  *  Sends postscale notification to DSP
  *
  */
-dsp_status post_scale_dsp(struct wmd_dev_context *dev_context, IN void *pargs)
+int post_scale_dsp(struct wmd_dev_context *dev_context, IN void *pargs)
 {
-	dsp_status status = 0;
+	int status = 0;
 #ifdef CONFIG_BRIDGE_DVFS
 	u32 level;
 	u32 voltage_domain;
@@ -506,11 +506,11 @@ dsp_status post_scale_dsp(struct wmd_dev_context *dev_context, IN void *pargs)
  *  ========dsp_peripheral_clocks_disable========
  *  Disables all the peripheral clocks that were requested by DSP
  */
-dsp_status dsp_peripheral_clocks_disable(struct wmd_dev_context *dev_context,
+int dsp_peripheral_clocks_disable(struct wmd_dev_context *dev_context,
 					 IN void *pargs)
 {
 	u32 clk_idx;
-	dsp_status status = 0;
+	int status = 0;
 	struct cfg_hostres *resources = dev_context->resources;
 	u32 value;
 
@@ -550,11 +550,11 @@ dsp_status dsp_peripheral_clocks_disable(struct wmd_dev_context *dev_context,
  *  ========dsp_peripheral_clocks_enable========
  *  Enables all the peripheral clocks that were requested by DSP
  */
-dsp_status dsp_peripheral_clocks_enable(struct wmd_dev_context *dev_context,
+int dsp_peripheral_clocks_enable(struct wmd_dev_context *dev_context,
 					IN void *pargs)
 {
 	u32 clk_idx;
-	dsp_status int_clk_status = -EPERM, fun_clk_status = -EPERM;
+	int int_clk_status = -EPERM, fun_clk_status = -EPERM;
 	struct cfg_hostres *resources = dev_context->resources;
 	u32 value;
 
@@ -594,7 +594,7 @@ dsp_status dsp_peripheral_clocks_enable(struct wmd_dev_context *dev_context,
 void dsp_clk_wakeup_event_ctrl(u32 ClkId, bool enable)
 {
 	struct cfg_hostres *resources;
-	dsp_status status = 0;
+	int status = 0;
 	u32 iva2_grpsel;
 	u32 mpu_grpsel;
 	struct dev_object *hdev_object = NULL;

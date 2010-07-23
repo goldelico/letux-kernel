@@ -40,7 +40,7 @@
  *      msgCallback != NULL.
  *  Ensures:
  */
-extern dsp_status msg_create(OUT struct msg_mgr **phMsgMgr,
+extern int msg_create(OUT struct msg_mgr **phMsgMgr,
 			     struct dev_object *hdev_obj,
 			     msg_onexit msgCallback);
 

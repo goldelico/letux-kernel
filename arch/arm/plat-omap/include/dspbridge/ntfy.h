@@ -152,12 +152,12 @@ static inline struct ntfy_event *ntfy_event_create(u32 event, u32 type)
  * -EFAULT in case of bad pointers and
  * DSP_EMemory in case of no memory to create ntfy_event.
  */
-static  inline dsp_status ntfy_register(struct ntfy_object *ntfy_obj,
+static  inline int ntfy_register(struct ntfy_object *ntfy_obj,
 			 struct dsp_notification *noti,
 			 u32 event, u32 type)
 {
 	struct ntfy_event *ne;
-	dsp_status status = 0;
+	int status = 0;
 
 	if (!noti || !ntfy_obj) {
 		status = -EFAULT;
@@ -192,10 +192,10 @@ func_end:
  * -EFAULT in case of bad pointers and
  * DSP_EMemory in case of no memory to create ntfy_event.
  */
-static  inline dsp_status ntfy_unregister(struct ntfy_object *ntfy_obj,
+static  inline int ntfy_unregister(struct ntfy_object *ntfy_obj,
 			 struct dsp_notification *noti)
 {
-	dsp_status status = 0;
+	int status = 0;
 	struct ntfy_event *ne;
 
 	if (!noti || !ntfy_obj) {

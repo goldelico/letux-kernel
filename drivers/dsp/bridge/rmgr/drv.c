@@ -68,7 +68,7 @@ struct ext_phys_mem_pool {
 static struct ext_phys_mem_pool ext_mem_pool;
 
 /*  ----------------------------------- Function Prototypes */
-static dsp_status request_bridge_resources(struct cfg_hostres *res);
+static int request_bridge_resources(struct cfg_hostres *res);
 
 
 /* GPP PROCESS CLEANUP CODE */
@@ -78,13 +78,13 @@ extern enum node_state node_get_state(bhandle hnode);
 
 /* Allocate and add a node resource element
 * This function is called from .Node_Allocate. */
-dsp_status drv_insert_node_res_element(bhandle hnode, bhandle hNodeRes,
+int drv_insert_node_res_element(bhandle hnode, bhandle hNodeRes,
 				       bhandle hPCtxt)
 {
 	struct node_res_object **node_res_obj =
 	    (struct node_res_object **)hNodeRes;
 	struct process_context *ctxt = (struct process_context *)hPCtxt;
-	dsp_status status = 0;
+	int status = 0;
 	int retval;
 
 	*node_res_obj = kzalloc(sizeof(struct node_res_object), GFP_KERNEL);
@@ -122,7 +122,7 @@ func_end:
 static int drv_proc_free_node_res(int id, void *p, void *data)
 {
 	struct process_context *ctxt = data;
-	dsp_status status = 0;
+	int status = 0;
 	struct node_res_object *node_res_obj = p;
 	u32 node_state;
 
@@ -142,10 +142,10 @@ static int drv_proc_free_node_res(int id, void *p, void *data)
 }
 
 /* Release all Mapped and Reserved DMM resources */
-dsp_status drv_remove_all_dmm_res_elements(bhandle hPCtxt)
+int drv_remove_all_dmm_res_elements(bhandle hPCtxt)
 {
 	struct process_context *ctxt = (struct process_context *)hPCtxt;
-	dsp_status status = 0;
+	int status = 0;
 	struct dmm_map_object *temp_map, *map_obj;
 	struct dmm_rsv_object *temp_rsv, *rsv_obj;
 
@@ -191,7 +191,7 @@ void drv_proc_node_update_heap_status(bhandle hNodeRes, s32 status)
 /* Release all Node resources and its context
 * This is called from .bridge_release.
  */
-dsp_status drv_remove_all_node_res_elements(bhandle hPCtxt)
+int drv_remove_all_node_res_elements(bhandle hPCtxt)
 {
 	struct process_context *ctxt = hPCtxt;
 
@@ -204,12 +204,12 @@ dsp_status drv_remove_all_node_res_elements(bhandle hPCtxt)
 /* Allocate the STRM resource element
 * This is called after the actual resource is allocated
  */
-dsp_status drv_proc_insert_strm_res_element(bhandle hStreamHandle,
+int drv_proc_insert_strm_res_element(bhandle hStreamHandle,
 					    bhandle hstrm_res, bhandle hPCtxt)
 {
 	struct strm_res_object **pstrm_res = hstrm_res;
 	struct process_context *ctxt = hPCtxt;
-	dsp_status status = 0;
+	int status = 0;
 	int retval;
 
 	*pstrm_res = kzalloc(sizeof(struct strm_res_object), GFP_KERNEL);
@@ -274,7 +274,7 @@ static int drv_proc_free_strm_res(int id, void *p, void *data)
 /* Release all Stream resources and its context
 * This is called from .bridge_release.
  */
-dsp_status drv_remove_all_strm_res_elements(bhandle hPCtxt)
+int drv_remove_all_strm_res_elements(bhandle hPCtxt)
 {
 	struct process_context *ctxt = (struct process_context *)hPCtxt;
 
@@ -285,9 +285,9 @@ dsp_status drv_remove_all_strm_res_elements(bhandle hPCtxt)
 }
 
 /* Updating the stream resource element */
-dsp_status drv_proc_update_strm_res(u32 num_bufs, bhandle hstrm_res)
+int drv_proc_update_strm_res(u32 num_bufs, bhandle hstrm_res)
 {
-	dsp_status status = 0;
+	int status = 0;
 	struct strm_res_object **strm_res =
 	    (struct strm_res_object **)hstrm_res;
 
@@ -302,9 +302,9 @@ dsp_status drv_proc_update_strm_res(u32 num_bufs, bhandle hstrm_res)
  *  Purpose:
  *      DRV Object gets created only once during Driver Loading.
  */
-dsp_status drv_create(OUT struct drv_object **phDRVObject)
+int drv_create(OUT struct drv_object **phDRVObject)
 {
-	dsp_status status = 0;
+	int status = 0;
 	struct drv_object *pdrv_object = NULL;
 
 	DBC_REQUIRE(phDRVObject != NULL);
@@ -367,9 +367,9 @@ void drv_exit(void)
  *  purpose:
  *      Invoked during bridge de-initialization
  */
-dsp_status drv_destroy(struct drv_object *hDRVObject)
+int drv_destroy(struct drv_object *hDRVObject)
 {
-	dsp_status status = 0;
+	int status = 0;
 	struct drv_object *pdrv_object = (struct drv_object *)hDRVObject;
 
 	DBC_REQUIRE(refs > 0);
@@ -394,10 +394,10 @@ dsp_status drv_destroy(struct drv_object *hDRVObject)
  *  Purpose:
  *      Given a index, returns a handle to DevObject from the list.
  */
-dsp_status drv_get_dev_object(u32 index, struct drv_object *hdrv_obj,
+int drv_get_dev_object(u32 index, struct drv_object *hdrv_obj,
 			      struct dev_object **phDevObject)
 {
-	dsp_status status = 0;
+	int status = 0;
 #ifdef CONFIG_BRIDGE_DEBUG
 	/* used only for Assertions and debug messages */
 	struct drv_object *pdrv_obj = (struct drv_object *)hdrv_obj;
@@ -526,7 +526,7 @@ u32 drv_get_next_dev_extension(u32 hDevExtension)
  *  Purpose:
  *      Initialize DRV module private state.
  */
-dsp_status drv_init(void)
+int drv_init(void)
 {
 	s32 ret = 1;		/* function return value */
 
@@ -545,10 +545,10 @@ dsp_status drv_init(void)
  *  Purpose:
  *      Insert a DevObject into the list of Manager object.
  */
-dsp_status drv_insert_dev_object(struct drv_object *hDRVObject,
+int drv_insert_dev_object(struct drv_object *hDRVObject,
 				 struct dev_object *hdev_obj)
 {
-	dsp_status status = 0;
+	int status = 0;
 	struct drv_object *pdrv_object = (struct drv_object *)hDRVObject;
 
 	DBC_REQUIRE(refs > 0);
@@ -570,10 +570,10 @@ dsp_status drv_insert_dev_object(struct drv_object *hDRVObject,
  *      Search for and remove a DeviceObject from the given list of DRV
  *      objects.
  */
-dsp_status drv_remove_dev_object(struct drv_object *hDRVObject,
+int drv_remove_dev_object(struct drv_object *hDRVObject,
 				 struct dev_object *hdev_obj)
 {
-	dsp_status status = -EPERM;
+	int status = -EPERM;
 	struct drv_object *pdrv_object = (struct drv_object *)hDRVObject;
 	struct list_head *cur_elem;
 
@@ -610,9 +610,9 @@ dsp_status drv_remove_dev_object(struct drv_object *hDRVObject,
  *  Purpose:
  *      Requests  resources from the OS.
  */
-dsp_status drv_request_resources(u32 dw_context, u32 *pDevNodeString)
+int drv_request_resources(u32 dw_context, u32 *pDevNodeString)
 {
-	dsp_status status = 0;
+	int status = 0;
 	struct drv_object *pdrv_object;
 	struct drv_ext *pszdev_node;
 
@@ -659,9 +659,9 @@ dsp_status drv_request_resources(u32 dw_context, u32 *pDevNodeString)
  *  Purpose:
  *      Releases  resources from the OS.
  */
-dsp_status drv_release_resources(u32 dw_context, struct drv_object *hdrv_obj)
+int drv_release_resources(u32 dw_context, struct drv_object *hdrv_obj)
 {
-	dsp_status status = 0;
+	int status = 0;
 	struct drv_object *pdrv_object = (struct drv_object *)hdrv_obj;
 	struct drv_ext *pszdev_node;
 
@@ -698,9 +698,9 @@ dsp_status drv_release_resources(u32 dw_context, struct drv_object *hdrv_obj)
  *  Purpose:
  *      Reserves shared memory for bridge.
  */
-static dsp_status request_bridge_resources(struct cfg_hostres *res)
+static int request_bridge_resources(struct cfg_hostres *res)
 {
-	dsp_status status = 0;
+	int status = 0;
 	struct cfg_hostres *host_res = res;
 
 		/* num_mem_windows must not be more than CFG_MAXMEMREGISTERS */
@@ -737,9 +737,9 @@ static dsp_status request_bridge_resources(struct cfg_hostres *res)
  *  Purpose:
  *      Reserves shared memory for bridge.
  */
-dsp_status drv_request_bridge_res_dsp(void **phost_resources)
+int drv_request_bridge_res_dsp(void **phost_resources)
 {
-	dsp_status status = 0;
+	int status = 0;
 	struct cfg_hostres *host_res;
 	u32 dw_buff_size;
 	u32 dma_addr;

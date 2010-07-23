@@ -268,7 +268,7 @@ extern void io_ddzc_request_chnl(struct io_mgr *hio_mgr,
  *      pargs != NULL
  *  Ensures:
  */
-extern dsp_status io_sh_msetting(struct io_mgr *hio_mgr, u8 desc, void *pargs);
+extern int io_sh_msetting(struct io_mgr *hio_mgr, u8 desc, void *pargs);
 
 /*
  *  Misc functions for the CHNL_IO shared memory library:
@@ -302,10 +302,10 @@ extern void io_sm_init(void);
  *  ========print_dsp_trace_buffer ========
  *      Print DSP tracebuffer.
  */
-extern dsp_status print_dsp_trace_buffer(struct wmd_dev_context
+extern int print_dsp_trace_buffer(struct wmd_dev_context
 					 *hwmd_context);
 
-dsp_status dump_dsp_stack(struct wmd_dev_context *wmd_context);
+int dump_dsp_stack(struct wmd_dev_context *wmd_context);
 
 void dump_dl_modules(struct wmd_dev_context *wmd_context);
 

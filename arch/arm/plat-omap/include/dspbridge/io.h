@@ -50,7 +50,7 @@
  *      pMgrAttrs != NULL.
  *  Ensures:
  */
-extern dsp_status io_create(OUT struct io_mgr **phIOMgr,
+extern int io_create(OUT struct io_mgr **phIOMgr,
 			    struct dev_object *hdev_obj,
 			    IN CONST struct io_attrs *pMgrAttrs);
 
@@ -67,7 +67,7 @@ extern dsp_status io_create(OUT struct io_mgr **phIOMgr,
  *      io_init(void) called.
  *  Ensures:
  */
-extern dsp_status io_destroy(struct io_mgr *hio_mgr);
+extern int io_destroy(struct io_mgr *hio_mgr);
 
 /*
  *  ======== io_exit ========
@@ -110,6 +110,6 @@ extern bool io_init(void);
  *      io_init(void) called.
  *  Ensures:
  */
-extern dsp_status io_on_loaded(struct io_mgr *hio_mgr);
+extern int io_on_loaded(struct io_mgr *hio_mgr);
 
 #endif /* CHNL_ */

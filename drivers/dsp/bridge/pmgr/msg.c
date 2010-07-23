@@ -45,13 +45,13 @@ static u32 refs;		/* module reference count */
  *      Create an object to manage message queues. Only one of these objects
  *      can exist per device object.
  */
-dsp_status msg_create(OUT struct msg_mgr **phMsgMgr,
+int msg_create(OUT struct msg_mgr **phMsgMgr,
 		      struct dev_object *hdev_obj, msg_onexit msgCallback)
 {
 	struct bridge_drv_interface *intf_fxns;
 	struct msg_mgr_ *msg_mgr_obj;
 	struct msg_mgr *hmsg_mgr;
-	dsp_status status = 0;
+	int status = 0;
 
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(phMsgMgr != NULL);

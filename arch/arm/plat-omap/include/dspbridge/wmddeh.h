@@ -27,15 +27,15 @@
 
 #include <dspbridge/dehdefs.h>
 
-extern dsp_status bridge_deh_create(OUT struct deh_mgr **phDehMgr,
+extern int bridge_deh_create(OUT struct deh_mgr **phDehMgr,
 				    struct dev_object *hdev_obj);
 
-extern dsp_status bridge_deh_destroy(struct deh_mgr *hdeh_mgr);
+extern int bridge_deh_destroy(struct deh_mgr *hdeh_mgr);
 
-extern dsp_status bridge_deh_get_info(struct deh_mgr *hdeh_mgr,
+extern int bridge_deh_get_info(struct deh_mgr *hdeh_mgr,
 				   struct dsp_errorinfo *pErrInfo);
 
-extern dsp_status bridge_deh_register_notify(struct deh_mgr *hdeh_mgr,
+extern int bridge_deh_register_notify(struct deh_mgr *hdeh_mgr,
 					  u32 event_mask,
 					  u32 notify_type,
 					  struct dsp_notification

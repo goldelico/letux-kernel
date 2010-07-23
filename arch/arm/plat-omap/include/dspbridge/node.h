@@ -55,7 +55,7 @@
  *      0:            IsValidNode(*ph_node).
  *      error:              *ph_node == NULL.
  */
-extern dsp_status node_allocate(struct proc_object *hprocessor,
+extern int node_allocate(struct proc_object *hprocessor,
 				IN CONST struct dsp_uuid *pNodeId,
 				OPTIONAL IN CONST struct dsp_cbdata
 				*pargs, OPTIONAL IN CONST struct dsp_nodeattrin
@@ -85,7 +85,7 @@ extern dsp_status node_allocate(struct proc_object *hprocessor,
  *      pbuffer != NULL.
  *  Ensures:
  */
-extern dsp_status node_alloc_msg_buf(struct node_object *hnode,
+extern int node_alloc_msg_buf(struct node_object *hnode,
 				     u32 usize, OPTIONAL struct dsp_bufferattr
 				     *pattr, OUT u8 **pbuffer);
 
@@ -112,7 +112,7 @@ extern dsp_status node_alloc_msg_buf(struct node_object *hnode,
  *  Ensures:
  *      0 && (Node's current priority == prio)
  */
-extern dsp_status node_change_priority(struct node_object *hnode, s32 prio);
+extern int node_change_priority(struct node_object *hnode, s32 prio);
 
 /*
  *  ======== node_close_orphans ========
@@ -129,7 +129,7 @@ extern dsp_status node_change_priority(struct node_object *hnode, s32 prio);
  *      hProc != NULL.
  *  Ensures:
  */
-extern dsp_status node_close_orphans(struct node_mgr *hnode_mgr,
+extern int node_close_orphans(struct node_mgr *hnode_mgr,
 				     struct proc_object *hProc);
 
 /*
@@ -180,7 +180,7 @@ extern dsp_status node_close_orphans(struct node_mgr *hnode_mgr,
  *      node_init(void) called.
  *  Ensures:
  */
-extern dsp_status node_connect(struct node_object *hNode1,
+extern int node_connect(struct node_object *hNode1,
 			       u32 uStream1,
 			       struct node_object *hNode2,
 			       u32 uStream2,
@@ -211,7 +211,7 @@ extern dsp_status node_connect(struct node_object *hNode1,
  *      node_init(void) called.
  *  Ensures:
  */
-extern dsp_status node_create(struct node_object *hnode);
+extern int node_create(struct node_object *hnode);
 
 /*
  *  ======== node_create_mgr ========
@@ -236,7 +236,7 @@ extern dsp_status node_create(struct node_object *hnode);
  *      0:        Valide *phNodeMgr.
  *      error:          *phNodeMgr == NULL.
  */
-extern dsp_status node_create_mgr(OUT struct node_mgr **phNodeMgr,
+extern int node_create_mgr(OUT struct node_mgr **phNodeMgr,
 				  struct dev_object *hdev_obj);
 
 /*
@@ -261,7 +261,7 @@ extern dsp_status node_create_mgr(OUT struct node_mgr **phNodeMgr,
  *  Ensures:
  *      0:            hnode is invalid.
  */
-extern dsp_status node_delete(struct node_res_object *hnoderes,
+extern int node_delete(struct node_res_object *hnoderes,
 			      struct process_context *pr_ctxt);
 
 /*
@@ -277,7 +277,7 @@ extern dsp_status node_delete(struct node_res_object *hnoderes,
  *      Valid hnode_mgr.
  *  Ensures:
  */
-extern dsp_status node_delete_mgr(struct node_mgr *hnode_mgr);
+extern int node_delete_mgr(struct node_mgr *hnode_mgr);
 
 /*
  *  ======== node_enum_nodes ========
@@ -303,7 +303,7 @@ extern dsp_status node_delete_mgr(struct node_mgr *hnode_mgr);
  *      - || (0 && *pu_num_nodes <= node_tab_size)  &&
  *        (*pu_allocated == *pu_num_nodes)
  */
-extern dsp_status node_enum_nodes(struct node_mgr *hnode_mgr,
+extern int node_enum_nodes(struct node_mgr *hnode_mgr,
 				  void **node_tab,
 				  u32 node_tab_size,
 				  OUT u32 *pu_num_nodes,
@@ -340,7 +340,7 @@ extern void node_exit(void);
  *      pbuffer != NULL.
  *  Ensures:
  */
-extern dsp_status node_free_msg_buf(struct node_object *hnode,
+extern int node_free_msg_buf(struct node_object *hnode,
 				    IN u8 *pbuffer,
 				    OPTIONAL struct dsp_bufferattr
 				    *pattr);
@@ -364,7 +364,7 @@ extern dsp_status node_free_msg_buf(struct node_object *hnode,
  *  Ensures:
  *      0:        *pattrs contains the node's current attributes.
  */
-extern dsp_status node_get_attr(struct node_object *hnode,
+extern int node_get_attr(struct node_object *hnode,
 				OUT struct dsp_nodeattr *pattr, u32 attr_size);
 
 /*
@@ -390,7 +390,7 @@ extern dsp_status node_get_attr(struct node_object *hnode,
  *      message != NULL.
  *  Ensures:
  */
-extern dsp_status node_get_message(struct node_object *hnode,
+extern int node_get_message(struct node_object *hnode,
 				   OUT struct dsp_msg *message, u32 utimeout);
 
 /*
@@ -405,7 +405,7 @@ extern dsp_status node_get_message(struct node_object *hnode,
  *      -EFAULT:    Invalid hnode.
  *  Ensures:
  */
-extern dsp_status node_get_nldr_obj(struct node_mgr *hnode_mgr,
+extern int node_get_nldr_obj(struct node_mgr *hnode_mgr,
 				    OUT struct nldr_object **phNldrObj);
 
 /*
@@ -451,7 +451,7 @@ void node_on_exit(struct node_object *hnode, s32 nStatus);
  *      node_init(void) called.
  *  Ensures:
  */
-extern dsp_status node_pause(struct node_object *hnode);
+extern int node_pause(struct node_object *hnode);
 
 /*
  *  ======== node_put_message ========
@@ -476,7 +476,7 @@ extern dsp_status node_pause(struct node_object *hnode);
  *      pmsg != NULL.
  *  Ensures:
  */
-extern dsp_status node_put_message(struct node_object *hnode,
+extern int node_put_message(struct node_object *hnode,
 				   IN CONST struct dsp_msg *pmsg, u32 utimeout);
 
 /*
@@ -500,7 +500,7 @@ extern dsp_status node_put_message(struct node_object *hnode,
  *      hnotification != NULL.
  *  Ensures:
  */
-extern dsp_status node_register_notify(struct node_object *hnode,
+extern int node_register_notify(struct node_object *hnode,
 				       u32 event_mask, u32 notify_type,
 				       struct dsp_notification
 				       *hnotification);
@@ -527,7 +527,7 @@ extern dsp_status node_register_notify(struct node_object *hnode,
  *      node_init(void) called.
  *  Ensures:
  */
-extern dsp_status node_run(struct node_object *hnode);
+extern int node_run(struct node_object *hnode);
 
 /*
  *  ======== node_terminate ========
@@ -551,8 +551,8 @@ extern dsp_status node_run(struct node_object *hnode);
  *      pstatus != NULL.
  *  Ensures:
  */
-extern dsp_status node_terminate(struct node_object *hnode,
-				 OUT dsp_status *pstatus);
+extern int node_terminate(struct node_object *hnode,
+				 OUT int *pstatus);
 
 /*
  *  ======== node_get_uuid_props ========
@@ -561,7 +561,7 @@ extern dsp_status node_terminate(struct node_object *hnode,
  *  Parameters:
  *
  */
-extern dsp_status node_get_uuid_props(void *hprocessor,
+extern int node_get_uuid_props(void *hprocessor,
 				      IN CONST struct dsp_uuid *pNodeId,
 				      OUT struct dsp_ndbprops
 				      *node_props);
@@ -578,7 +578,7 @@ extern dsp_status node_get_uuid_props(void *hprocessor,
  * 	This function finds the closest symbol to the address where a MMU
  *	Fault occurred on the DSP side.
  */
-dsp_status node_find_addr(struct node_mgr *node_mgr, u32 sym_addr,
+int node_find_addr(struct node_mgr *node_mgr, u32 sym_addr,
 				u32 offset_range, void *sym_addr_output,
 				char *sym_name);
 #endif /* NODE_ */

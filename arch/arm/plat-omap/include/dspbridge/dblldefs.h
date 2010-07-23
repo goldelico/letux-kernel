@@ -101,7 +101,7 @@ typedef void *(*dbll_f_open_fxn) (const char *, const char *);
  *  Function to call when writing data from a section, to log the info.
  *  Can be NULL if no logging is required.
  */
-typedef dsp_status(*dbll_log_write_fxn) (void *handle,
+typedef int(*dbll_log_write_fxn) (void *handle,
 					 struct dbll_sect_info *sect, u32 addr,
 					 u32 bytes);
 
@@ -205,7 +205,7 @@ typedef void (*dbll_close_fxn) (struct dbll_library_obj *library);
  *      Success:        *target_obj != NULL.
  *      Failure:        *target_obj == NULL.
  */
-typedef dsp_status(*dbll_create_fxn) (struct dbll_tar_obj **target_obj,
+typedef int(*dbll_create_fxn) (struct dbll_tar_obj **target_obj,
 				      struct dbll_attrs *attrs);
 
 /*
@@ -308,7 +308,7 @@ typedef bool(*dbll_get_c_addr_fxn) (struct dbll_library_obj *lib, char *name,
  *      psize != NULL.
  *  Ensures:
  */
-typedef dsp_status(*dbll_get_sect_fxn) (struct dbll_library_obj *lib,
+typedef int(*dbll_get_sect_fxn) (struct dbll_library_obj *lib,
 					char *name, u32 * addr, u32 * size);
 
 /*
@@ -346,7 +346,7 @@ typedef bool(*dbll_init_fxn) (void);
  *      pEntry != NULL.
  *  Ensures:
  */
-typedef dsp_status(*dbll_load_fxn) (struct dbll_library_obj *lib,
+typedef int(*dbll_load_fxn) (struct dbll_library_obj *lib,
 				    dbll_flags flags,
 				    struct dbll_attrs *attrs, u32 *entry);
 
@@ -369,7 +369,7 @@ typedef dsp_status(*dbll_load_fxn) (struct dbll_library_obj *lib,
  *      attrs->write != NULL.
  *  Ensures:
  */
-typedef dsp_status(*dbll_load_sect_fxn) (struct dbll_library_obj *lib,
+typedef int(*dbll_load_sect_fxn) (struct dbll_library_obj *lib,
 					 char *pszSectName,
 					 struct dbll_attrs *attrs);
 
@@ -398,7 +398,7 @@ typedef dsp_status(*dbll_load_sect_fxn) (struct dbll_library_obj *lib,
  *      Success:        Valid *pLib.
  *      Failure:        *pLib == NULL.
  */
-typedef dsp_status(*dbll_open_fxn) (struct dbll_tar_obj *target, char *file,
+typedef int(*dbll_open_fxn) (struct dbll_tar_obj *target, char *file,
 				    dbll_flags flags,
 				    struct dbll_library_obj **pLib);
 
@@ -421,7 +421,7 @@ typedef dsp_status(*dbll_open_fxn) (struct dbll_tar_obj *target, char *file,
  *      size != 0.
  *  Ensures:
  */
-typedef dsp_status(*dbll_read_sect_fxn) (struct dbll_library_obj *lib,
+typedef int(*dbll_read_sect_fxn) (struct dbll_library_obj *lib,
 					 char *name, char *content,
 					 u32 uContentSize);
 
@@ -473,7 +473,7 @@ typedef void (*dbll_unload_fxn) (struct dbll_library_obj *library,
  *      sectName != NULL.
  *  Ensures:
  */
-typedef dsp_status(*dbll_unload_sect_fxn) (struct dbll_library_obj *lib,
+typedef int(*dbll_unload_sect_fxn) (struct dbll_library_obj *lib,
 					   char *pszSectName,
 					   struct dbll_attrs *attrs);
 

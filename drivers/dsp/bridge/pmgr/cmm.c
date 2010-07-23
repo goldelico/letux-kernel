@@ -242,12 +242,12 @@ void *cmm_calloc_buf(struct cmm_object *hcmm_mgr, u32 usize,
  *  Purpose:
  *      Create a communication memory manager object.
  */
-dsp_status cmm_create(OUT struct cmm_object **ph_cmm_mgr,
+int cmm_create(OUT struct cmm_object **ph_cmm_mgr,
 		      struct dev_object *hdev_obj,
 		      IN CONST struct cmm_mgrattrs *pMgrAttrs)
 {
 	struct cmm_object *cmm_obj = NULL;
-	dsp_status status = 0;
+	int status = 0;
 	struct util_sysinfo sys_info;
 
 	DBC_REQUIRE(refs > 0);
@@ -306,11 +306,11 @@ dsp_status cmm_create(OUT struct cmm_object **ph_cmm_mgr,
  *  Purpose:
  *      Release the communication memory manager resources.
  */
-dsp_status cmm_destroy(struct cmm_object *hcmm_mgr, bool bForce)
+int cmm_destroy(struct cmm_object *hcmm_mgr, bool bForce)
 {
 	struct cmm_object *cmm_mgr_obj = (struct cmm_object *)hcmm_mgr;
 	struct cmm_info temp_info;
-	dsp_status status = 0;
+	int status = 0;
 	s32 slot_seg;
 	struct cmm_mnode *pnode;
 
@@ -379,11 +379,11 @@ void cmm_exit(void)
  *  Purpose:
  *      Free the given buffer.
  */
-dsp_status cmm_free_buf(struct cmm_object *hcmm_mgr, void *buf_pa,
+int cmm_free_buf(struct cmm_object *hcmm_mgr, void *buf_pa,
 			u32 ul_seg_id)
 {
 	struct cmm_object *cmm_mgr_obj = (struct cmm_object *)hcmm_mgr;
-	dsp_status status = -EFAULT;
+	int status = -EFAULT;
 	struct cmm_mnode *mnode_obj = NULL;
 	struct cmm_allocator *allocator = NULL;
 	struct cmm_attrs *pattrs;
@@ -431,9 +431,9 @@ dsp_status cmm_free_buf(struct cmm_object *hcmm_mgr, void *buf_pa,
  *      Return the communication memory manager object for this device.
  *      This is typically called from the client process.
  */
-dsp_status cmm_get_handle(void *hprocessor, OUT struct cmm_object ** ph_cmm_mgr)
+int cmm_get_handle(void *hprocessor, OUT struct cmm_object ** ph_cmm_mgr)
 {
-	dsp_status status = 0;
+	int status = 0;
 	struct dev_object *hdev_obj;
 
 	DBC_REQUIRE(refs > 0);
@@ -454,12 +454,12 @@ dsp_status cmm_get_handle(void *hprocessor, OUT struct cmm_object ** ph_cmm_mgr)
  *  Purpose:
  *      Return the current memory utilization information.
  */
-dsp_status cmm_get_info(struct cmm_object *hcmm_mgr,
+int cmm_get_info(struct cmm_object *hcmm_mgr,
 			OUT struct cmm_info *cmm_info_obj)
 {
 	struct cmm_object *cmm_mgr_obj = (struct cmm_object *)hcmm_mgr;
 	u32 ul_seg;
-	dsp_status status = 0;
+	int status = 0;
 	struct cmm_allocator *altr;
 	struct cmm_mnode *mnode_obj = NULL;
 
@@ -538,7 +538,7 @@ bool cmm_init(void)
  *      Register a block of SM with the CMM to be used for later GPP SM
  *      allocations.
  */
-dsp_status cmm_register_gppsm_seg(struct cmm_object *hcmm_mgr,
+int cmm_register_gppsm_seg(struct cmm_object *hcmm_mgr,
 				  u32 dw_gpp_base_pa, u32 ul_size,
 				  u32 dwDSPAddrOffset, s8 c_factor,
 				  u32 dw_dsp_base, u32 ul_dsp_size,
@@ -546,7 +546,7 @@ dsp_status cmm_register_gppsm_seg(struct cmm_object *hcmm_mgr,
 {
 	struct cmm_object *cmm_mgr_obj = (struct cmm_object *)hcmm_mgr;
 	struct cmm_allocator *psma = NULL;
-	dsp_status status = 0;
+	int status = 0;
 	struct cmm_mnode *new_node;
 	s32 slot_seg;
 
@@ -653,11 +653,11 @@ func_end:
  *  Purpose:
  *      UnRegister GPP SM segments with the CMM.
  */
-dsp_status cmm_un_register_gppsm_seg(struct cmm_object *hcmm_mgr,
+int cmm_un_register_gppsm_seg(struct cmm_object *hcmm_mgr,
 				     u32 ul_seg_id)
 {
 	struct cmm_object *cmm_mgr_obj = (struct cmm_object *)hcmm_mgr;
-	dsp_status status = 0;
+	int status = 0;
 	struct cmm_allocator *psma;
 	u32 ul_id = ul_seg_id;
 
@@ -956,12 +956,12 @@ static struct cmm_allocator *get_allocator(struct cmm_object *cmm_mgr_obj,
  *  Purpose:
  *      Create an address translator object.
  */
-dsp_status cmm_xlator_create(OUT struct cmm_xlatorobject **phXlator,
+int cmm_xlator_create(OUT struct cmm_xlatorobject **phXlator,
 			     struct cmm_object *hcmm_mgr,
 			     struct cmm_xlatorattrs *pXlatorAttrs)
 {
 	struct cmm_xlator *xlator_object = NULL;
-	dsp_status status = 0;
+	int status = 0;
 
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(phXlator != NULL);
@@ -991,10 +991,10 @@ dsp_status cmm_xlator_create(OUT struct cmm_xlatorobject **phXlator,
  *      Free the Xlator resources.
  *      VM gets freed later.
  */
-dsp_status cmm_xlator_delete(struct cmm_xlatorobject *xlator, bool bForce)
+int cmm_xlator_delete(struct cmm_xlatorobject *xlator, bool bForce)
 {
 	struct cmm_xlator *xlator_obj = (struct cmm_xlator *)xlator;
-	dsp_status status = 0;
+	int status = 0;
 
 	DBC_REQUIRE(refs > 0);
 
@@ -1047,10 +1047,10 @@ void *cmm_xlator_alloc_buf(struct cmm_xlatorobject *xlator, void *pVaBuf,
  *      Free the given SM buffer and descriptor.
  *      Does not free virtual memory.
  */
-dsp_status cmm_xlator_free_buf(struct cmm_xlatorobject *xlator, void *pBufVa)
+int cmm_xlator_free_buf(struct cmm_xlatorobject *xlator, void *pBufVa)
 {
 	struct cmm_xlator *xlator_obj = (struct cmm_xlator *)xlator;
-	dsp_status status = -EPERM;
+	int status = -EPERM;
 	void *buf_pa = NULL;
 
 	DBC_REQUIRE(refs > 0);
@@ -1078,11 +1078,11 @@ dsp_status cmm_xlator_free_buf(struct cmm_xlatorobject *xlator, void *pBufVa)
  *  Purpose:
  *      Set/Get translator info.
  */
-dsp_status cmm_xlator_info(struct cmm_xlatorobject *xlator, IN OUT u8 ** paddr,
+int cmm_xlator_info(struct cmm_xlatorobject *xlator, IN OUT u8 ** paddr,
 			   u32 ul_size, u32 uSegId, bool set_info)
 {
 	struct cmm_xlator *xlator_obj = (struct cmm_xlator *)xlator;
-	dsp_status status = 0;
+	int status = 0;
 
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(paddr != NULL);

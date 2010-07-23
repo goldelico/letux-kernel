@@ -44,7 +44,7 @@
  *      ap_buffer != NULL.
  *  Ensures:
  */
-extern dsp_status strm_allocate_buffer(struct strm_res_object *strmres,
+extern int strm_allocate_buffer(struct strm_res_object *strmres,
 				       u32 usize,
 				       OUT u8 **ap_buffer,
 				       u32 num_bufs,
@@ -66,7 +66,7 @@ extern dsp_status strm_allocate_buffer(struct strm_res_object *strmres,
  *      strm_init(void) called.
  *  Ensures:
  */
-extern dsp_status strm_close(struct strm_res_object *strmres,
+extern int strm_close(struct strm_res_object *strmres,
 			     struct process_context *pr_ctxt);
 
 /*
@@ -90,7 +90,7 @@ extern dsp_status strm_close(struct strm_res_object *strmres,
  *      0:        Valid *phStrmMgr.
  *      error:          *phStrmMgr == NULL.
  */
-extern dsp_status strm_create(OUT struct strm_mgr **phStrmMgr,
+extern int strm_create(OUT struct strm_mgr **phStrmMgr,
 			      struct dev_object *dev_obj);
 
 /*
@@ -137,7 +137,7 @@ extern void strm_exit(void);
  *      ap_buffer != NULL.
  *  Ensures:
  */
-extern dsp_status strm_free_buffer(struct strm_res_object *strmres,
+extern int strm_free_buffer(struct strm_res_object *strmres,
 				   u8 **ap_buffer, u32 num_bufs,
 				   struct process_context *pr_ctxt);
 
@@ -157,7 +157,7 @@ extern dsp_status strm_free_buffer(struct strm_res_object *strmres,
  *      ph_event != NULL.
  *  Ensures:
  */
-extern dsp_status strm_get_event_handle(struct strm_object *hStrm,
+extern int strm_get_event_handle(struct strm_object *hStrm,
 					OUT bhandle *ph_event);
 
 /*
@@ -179,7 +179,7 @@ extern dsp_status strm_get_event_handle(struct strm_object *hStrm,
  *      stream_info != NULL.
  *  Ensures:
  */
-extern dsp_status strm_get_info(struct strm_object *hStrm,
+extern int strm_get_info(struct strm_object *hStrm,
 				OUT struct stream_info *stream_info,
 				u32 stream_info_size);
 
@@ -207,7 +207,7 @@ extern dsp_status strm_get_info(struct strm_object *hStrm,
  *      strm_init(void) called.
  *  Ensures:
  */
-extern dsp_status strm_idle(struct strm_object *hStrm, bool fFlush);
+extern int strm_idle(struct strm_object *hStrm, bool fFlush);
 
 /*
  *  ======== strm_init ========
@@ -241,7 +241,7 @@ extern bool strm_init(void);
  *      pbuf != NULL.
  *  Ensures:
  */
-extern dsp_status strm_issue(struct strm_object *hStrm, IN u8 * pbuf,
+extern int strm_issue(struct strm_object *hStrm, IN u8 * pbuf,
 			     u32 ul_bytes, u32 ul_buf_size, IN u32 dw_arg);
 
 /*
@@ -271,7 +271,7 @@ extern dsp_status strm_issue(struct strm_object *hStrm, IN u8 * pbuf,
  *      0:        *phStrm is valid.
  *      error:          *phStrm == NULL.
  */
-extern dsp_status strm_open(struct node_object *hnode, u32 dir,
+extern int strm_open(struct node_object *hnode, u32 dir,
 			    u32 index, IN struct strm_attr *pattr,
 			    OUT struct strm_res_object **strmres,
 			    struct process_context *pr_ctxt);
@@ -294,7 +294,7 @@ extern dsp_status strm_open(struct node_object *hnode, u32 dir,
  *      pbuffer != NULL.
  *  Ensures:
  */
-extern dsp_status strm_prepare_buffer(struct strm_object *hStrm,
+extern int strm_prepare_buffer(struct strm_object *hStrm,
 				      u32 usize, u8 *pbuffer);
 
 /*
@@ -322,7 +322,7 @@ extern dsp_status strm_prepare_buffer(struct strm_object *hStrm,
  *      pdw_arg != NULL.
  *  Ensures:
  */
-extern dsp_status strm_reclaim(struct strm_object *hStrm,
+extern int strm_reclaim(struct strm_object *hStrm,
 			       OUT u8 **buf_ptr, u32 * pulBytes,
 			       u32 *pulBufSize, u32 *pdw_arg);
 
@@ -347,7 +347,7 @@ extern dsp_status strm_reclaim(struct strm_object *hStrm,
  *      hnotification != NULL.
  *  Ensures:
  */
-extern dsp_status strm_register_notify(struct strm_object *hStrm,
+extern int strm_register_notify(struct strm_object *hStrm,
 				       u32 event_mask, u32 notify_type,
 				       struct dsp_notification
 				       *hnotification);
@@ -377,7 +377,7 @@ extern dsp_status strm_register_notify(struct strm_object *hStrm,
  *      0:        *pmask != 0 || utimeout == 0.
  *      Error:          *pmask == 0.
  */
-extern dsp_status strm_select(IN struct strm_object **strm_tab,
+extern int strm_select(IN struct strm_object **strm_tab,
 			      u32 nStrms, OUT u32 *pmask, u32 utimeout);
 
 /*
@@ -399,7 +399,7 @@ extern dsp_status strm_select(IN struct strm_object **strm_tab,
  *      pbuffer != NULL.
  *  Ensures:
  */
-extern dsp_status strm_unprepare_buffer(struct strm_object *hStrm,
+extern int strm_unprepare_buffer(struct strm_object *hStrm,
 					u32 usize, u8 *pbuffer);
 
 #endif /* STRM_ */

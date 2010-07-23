@@ -331,7 +331,7 @@ static int __devexit omap34_xx_bridge_remove(struct platform_device *pdev)
 {
 	dev_t devno;
 	bool ret;
-	dsp_status status = 0;
+	int status = 0;
 	bhandle hdrv_obj = NULL;
 
 	status = cfg_get_object((u32 *) &hdrv_obj, REG_DRV_OBJECT);
@@ -587,9 +587,9 @@ static int bridge_mmap(struct file *filp, struct vm_area_struct *vma)
 
 /* To remove all process resources before removing the process from the
  * process context list */
-dsp_status drv_remove_all_resources(bhandle hPCtxt)
+int drv_remove_all_resources(bhandle hPCtxt)
 {
-	dsp_status status = 0;
+	int status = 0;
 	struct process_context *ctxt = (struct process_context *)hPCtxt;
 	drv_remove_all_strm_res_elements(ctxt);
 	drv_remove_all_node_res_elements(ctxt);

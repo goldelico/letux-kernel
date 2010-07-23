@@ -46,7 +46,7 @@
  *      COFF file to contain the right COFF sections, especially
  *      ".dcd_register", which is used for auto registration.
  */
-extern dsp_status dcd_auto_register(IN struct dcd_manager *hdcd_mgr,
+extern int dcd_auto_register(IN struct dcd_manager *hdcd_mgr,
 				    IN char *pszCoffPath);
 
 /*
@@ -72,7 +72,7 @@ extern dsp_status dcd_auto_register(IN struct dcd_manager *hdcd_mgr,
  *      COFF file to contain the right COFF sections, especially
  *      ".dcd_register", which is used for auto unregistration.
  */
-extern dsp_status dcd_auto_unregister(IN struct dcd_manager *hdcd_mgr,
+extern int dcd_auto_unregister(IN struct dcd_manager *hdcd_mgr,
 				      IN char *pszCoffPath);
 
 /*
@@ -93,7 +93,7 @@ extern dsp_status dcd_auto_unregister(IN struct dcd_manager *hdcd_mgr,
  *  Ensures:
  *      A DCD manager handle is created.
  */
-extern dsp_status dcd_create_manager(IN char *pszZlDllName,
+extern int dcd_create_manager(IN char *pszZlDllName,
 				     OUT struct dcd_manager **phDcdMgr);
 
 /*
@@ -109,7 +109,7 @@ extern dsp_status dcd_create_manager(IN char *pszZlDllName,
  *      DCD initialized.
  *  Ensures:
  */
-extern dsp_status dcd_destroy_manager(IN struct dcd_manager *hdcd_mgr);
+extern int dcd_destroy_manager(IN struct dcd_manager *hdcd_mgr);
 
 /*
  *  ======== dcd_enumerate_object ========
@@ -132,7 +132,7 @@ extern dsp_status dcd_destroy_manager(IN struct dcd_manager *hdcd_mgr);
  *      This function can be used in conjunction with dcd_get_object_def to
  *      retrieve object properties.
  */
-extern dsp_status dcd_enumerate_object(IN s32 cIndex,
+extern int dcd_enumerate_object(IN s32 cIndex,
 				       IN enum dsp_dcdobjtype obj_type,
 				       OUT struct dsp_uuid *uuid_obj);
 
@@ -173,7 +173,7 @@ extern void dcd_exit(void);
  *      pDepLibUuids != NULL.
  *  Ensures:
  */
-extern dsp_status dcd_get_dep_libs(IN struct dcd_manager *hdcd_mgr,
+extern int dcd_get_dep_libs(IN struct dcd_manager *hdcd_mgr,
 				   IN struct dsp_uuid *uuid_obj,
 				   u16 numLibs,
 				   OUT struct dsp_uuid *pDepLibUuids,
@@ -203,7 +203,7 @@ extern dsp_status dcd_get_dep_libs(IN struct dcd_manager *hdcd_mgr,
  *      pNumLibs != NULL.
  *  Ensures:
  */
-extern dsp_status dcd_get_num_dep_libs(IN struct dcd_manager *hdcd_mgr,
+extern int dcd_get_num_dep_libs(IN struct dcd_manager *hdcd_mgr,
 				       IN struct dsp_uuid *uuid_obj,
 				       OUT u16 *pNumLibs,
 				       OUT u16 *pNumPersLibs,
@@ -233,7 +233,7 @@ extern dsp_status dcd_get_num_dep_libs(IN struct dcd_manager *hdcd_mgr,
  *      pdwSize != NULL.
  *  Ensures:
  */
-extern dsp_status dcd_get_library_name(IN struct dcd_manager *hdcd_mgr,
+extern int dcd_get_library_name(IN struct dcd_manager *hdcd_mgr,
 				       IN struct dsp_uuid *uuid_obj,
 				       IN OUT char *pstrLibName,
 				       IN OUT u32 *pdwSize,
@@ -267,7 +267,7 @@ extern dsp_status dcd_get_library_name(IN struct dcd_manager *hdcd_mgr,
  *      pObjDef is non-NULL.
  *  Ensures:
  */
-extern dsp_status dcd_get_object_def(IN struct dcd_manager *hdcd_mgr,
+extern int dcd_get_object_def(IN struct dcd_manager *hdcd_mgr,
 				     IN struct dsp_uuid *pObjUuid,
 				     IN enum dsp_dcdobjtype obj_type,
 				     OUT struct dcd_genericobj *pObjDef);
@@ -301,7 +301,7 @@ extern dsp_status dcd_get_object_def(IN struct dcd_manager *hdcd_mgr,
  *      COFF file to contain the right COFF sections, especially
  *      ".dcd_register", which is used for auto registration.
  */
-extern dsp_status dcd_get_objects(IN struct dcd_manager *hdcd_mgr,
+extern int dcd_get_objects(IN struct dcd_manager *hdcd_mgr,
 				  IN char *pszCoffPath,
 				  dcd_registerfxn registerFxn, void *handle);
 
@@ -337,7 +337,7 @@ extern bool dcd_init(void);
  *      obj_type is a valid type value.
  *  Ensures:
  */
-extern dsp_status dcd_register_object(IN struct dsp_uuid *uuid_obj,
+extern int dcd_register_object(IN struct dsp_uuid *uuid_obj,
 				      IN enum dsp_dcdobjtype obj_type,
 				      IN char *psz_path_name);
 
@@ -359,7 +359,7 @@ extern dsp_status dcd_register_object(IN struct dsp_uuid *uuid_obj,
  *      obj_type is a valid type value.
  *  Ensures:
  */
-extern dsp_status dcd_unregister_object(IN struct dsp_uuid *uuid_obj,
+extern int dcd_unregister_object(IN struct dsp_uuid *uuid_obj,
 					IN enum dsp_dcdobjtype obj_type);
 
 #endif /* _DBDCD_H */

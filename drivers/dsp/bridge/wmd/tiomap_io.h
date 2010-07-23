@@ -47,14 +47,14 @@
  *  Reads it from DSP External memory. The external memory for the DSP
  * is configured by the combination of DSP MMU and shm Memory manager in the CDB
  */
-extern dsp_status read_ext_dsp_data(struct wmd_dev_context *dev_context,
+extern int read_ext_dsp_data(struct wmd_dev_context *dev_context,
 				    OUT u8 *pbHostBuf, u32 dwDSPAddr,
 				    u32 ul_num_bytes, u32 ulMemType);
 
 /*
  *  ======== write_dsp_data ========
  */
-extern dsp_status write_dsp_data(struct wmd_dev_context *dev_context,
+extern int write_dsp_data(struct wmd_dev_context *dev_context,
 				 OUT u8 *pbHostBuf, u32 dwDSPAddr,
 				 u32 ul_num_bytes, u32 ulMemType);
 
@@ -64,7 +64,7 @@ extern dsp_status write_dsp_data(struct wmd_dev_context *dev_context,
  *  The ext mem for progra is configured by the combination of DSP MMU and
  *  shm Memory manager in the CDB
  */
-extern dsp_status write_ext_dsp_data(struct wmd_dev_context *dev_context,
+extern int write_ext_dsp_data(struct wmd_dev_context *dev_context,
 				     IN u8 *pbHostBuf, u32 dwDSPAddr,
 				     u32 ul_num_bytes, u32 ulMemType,
 				     bool bDynamicLoad);

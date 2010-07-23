@@ -50,11 +50,11 @@ bool symbols_reloaded = true;
  *  ======== read_ext_dsp_data ========
  *      Copies DSP external memory buffers to the host side buffers.
  */
-dsp_status read_ext_dsp_data(struct wmd_dev_context *hDevContext,
+int read_ext_dsp_data(struct wmd_dev_context *hDevContext,
 			     OUT u8 *pbHostBuf, u32 dwDSPAddr,
 			     u32 ul_num_bytes, u32 ulMemType)
 {
-	dsp_status status = 0;
+	int status = 0;
 	struct wmd_dev_context *dev_context = hDevContext;
 	u32 offset;
 	u32 ul_tlb_base_virt = 0;
@@ -178,14 +178,14 @@ dsp_status read_ext_dsp_data(struct wmd_dev_context *hDevContext,
  *  purpose:
  *      Copies buffers to the DSP internal/external memory.
  */
-dsp_status write_dsp_data(struct wmd_dev_context *hDevContext,
+int write_dsp_data(struct wmd_dev_context *hDevContext,
 			  IN u8 *pbHostBuf, u32 dwDSPAddr, u32 ul_num_bytes,
 			  u32 ulMemType)
 {
 	u32 offset;
 	u32 dw_base_addr = hDevContext->dw_dsp_base_addr;
 	struct cfg_hostres *resources = hDevContext->resources;
-	dsp_status status = 0;
+	int status = 0;
 	u32 base1, base2, base3;
 	base1 = OMAP_DSP_MEM1_SIZE;
 	base2 = OMAP_DSP_MEM2_BASE - OMAP_DSP_MEM1_BASE;
@@ -224,7 +224,7 @@ dsp_status write_dsp_data(struct wmd_dev_context *hDevContext,
  *      Copies buffers to the external memory.
  *
  */
-dsp_status write_ext_dsp_data(struct wmd_dev_context *dev_context,
+int write_ext_dsp_data(struct wmd_dev_context *dev_context,
 			      IN u8 *pbHostBuf, u32 dwDSPAddr,
 			      u32 ul_num_bytes, u32 ulMemType,
 			      bool bDynamicLoad)
@@ -234,7 +234,7 @@ dsp_status write_ext_dsp_data(struct wmd_dev_context *dev_context,
 	u8 temp_byte1, temp_byte2;
 	u8 remain_byte[4];
 	s32 i;
-	dsp_status ret = 0;
+	int ret = 0;
 	u32 dw_ext_prog_virt_mem;
 	u32 ul_tlb_base_virt = 0;
 	u32 ul_shm_offset_virt = 0;
@@ -386,9 +386,9 @@ dsp_status write_ext_dsp_data(struct wmd_dev_context *dev_context,
 	return ret;
 }
 
-dsp_status sm_interrupt_dsp(struct wmd_dev_context * dev_context, u16 mb_val)
+int sm_interrupt_dsp(struct wmd_dev_context *dev_context, u16 mb_val)
 {
-	dsp_status status = 0;
+	int status = 0;
 
 	if (!dev_context->mbox)
 		return status;

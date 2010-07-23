@@ -189,7 +189,7 @@ struct process_context {
  *      Also it can hold other neccessary
  *      information in its storage area.
  */
-extern dsp_status drv_create(struct drv_object **phDrvObject);
+extern int drv_create(struct drv_object **phDrvObject);
 
 /*
  *  ======== drv_destroy ========
@@ -212,7 +212,7 @@ extern dsp_status drv_create(struct drv_object **phDrvObject);
  *                        DRV handle.
  *                      - Registry is updated with "0" as the DRV Object.
  */
-extern dsp_status drv_destroy(struct drv_object *hdrv_obj);
+extern int drv_destroy(struct drv_object *hdrv_obj);
 
 /*
  *  ======== drv_exit ========
@@ -273,7 +273,7 @@ extern u32 drv_get_first_dev_extension(void);
  *      0:        *phDevObject != NULL
  *      -EPERM:      *phDevObject = NULL
  */
-extern dsp_status drv_get_dev_object(u32 index,
+extern int drv_get_dev_object(u32 index,
 				     struct drv_object *hdrv_obj,
 				     struct dev_object **phDevObject);
 
@@ -319,7 +319,7 @@ extern u32 drv_get_next_dev_extension(u32 hDevExtension);
  *  Requires:
  *  Ensures:
  */
-extern dsp_status drv_init(void);
+extern int drv_init(void);
 
 /*
  *  ======== drv_insert_dev_object ========
@@ -337,7 +337,7 @@ extern dsp_status drv_init(void);
  *  Ensures:
  *      0:        Device Object is inserted and the List is not empty.
  */
-extern dsp_status drv_insert_dev_object(struct drv_object *hdrv_obj,
+extern int drv_insert_dev_object(struct drv_object *hdrv_obj,
 					struct dev_object *hdev_obj);
 
 /*
@@ -358,7 +358,7 @@ extern dsp_status drv_insert_dev_object(struct drv_object *hdrv_obj,
  *  Ensures:
  *      List either does not exist (NULL), or is not empty if it does exist.
  */
-extern dsp_status drv_remove_dev_object(struct drv_object *hdrv_obj,
+extern int drv_remove_dev_object(struct drv_object *hdrv_obj,
 					struct dev_object *hdev_obj);
 
 /*
@@ -378,7 +378,7 @@ extern dsp_status drv_remove_dev_object(struct drv_object *hdrv_obj,
  *      Resource structure is stored in the registry which will be
  *      later used by the CFG module.
  */
-extern dsp_status drv_request_resources(IN u32 dw_context,
+extern int drv_request_resources(IN u32 dw_context,
 					OUT u32 *pDevNodeString);
 
 /*
@@ -395,10 +395,10 @@ extern dsp_status drv_request_resources(IN u32 dw_context,
  *      The Resources are released based on Bus type.
  *      Resource structure is deleted from the registry
  */
-extern dsp_status drv_release_resources(IN u32 dw_context,
+extern int drv_release_resources(IN u32 dw_context,
 					struct drv_object *hdrv_obj);
 
-dsp_status drv_request_bridge_res_dsp(void **phost_resources);
+int drv_request_bridge_res_dsp(void **phost_resources);
 
 #ifdef CONFIG_BRIDGE_RECOVERY
 void bridge_recover_schedule(void);

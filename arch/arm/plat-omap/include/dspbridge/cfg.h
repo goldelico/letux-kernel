@@ -50,7 +50,7 @@ extern void cfg_exit(void);
  *  Ensures:
  *      0:        *pdwAutoStart contains autostart mask for this devnode.
  */
-extern dsp_status cfg_get_auto_start(IN struct cfg_devnode *dev_node_obj,
+extern int cfg_get_auto_start(IN struct cfg_devnode *dev_node_obj,
 				     OUT u32 *pdwAutoStart);
 
 /*
@@ -70,7 +70,7 @@ extern dsp_status cfg_get_auto_start(IN struct cfg_devnode *dev_node_obj,
  *      0:    Success.
  *      else:       *pdwVersion is NULL.
  */
-extern dsp_status cfg_get_cd_version(OUT u32 *pdwVersion);
+extern int cfg_get_cd_version(OUT u32 *pdwVersion);
 
 /*
  *  ======== cfg_get_dev_object ========
@@ -91,7 +91,7 @@ extern dsp_status cfg_get_cd_version(OUT u32 *pdwVersion);
  *      0:    *pdwValue is set to the retrieved u32.
  *      else:       *pdwValue is set to 0L.
  */
-extern dsp_status cfg_get_dev_object(IN struct cfg_devnode *dev_node_obj,
+extern int cfg_get_dev_object(IN struct cfg_devnode *dev_node_obj,
 				     OUT u32 *pdwValue);
 
 /*
@@ -114,7 +114,7 @@ extern dsp_status cfg_get_dev_object(IN struct cfg_devnode *dev_node_obj,
  *                  and *pstrExecFile contains default executable for this
  *                  devnode.
  */
-extern dsp_status cfg_get_exec_file(IN struct cfg_devnode *dev_node_obj,
+extern int cfg_get_exec_file(IN struct cfg_devnode *dev_node_obj,
 				    IN u32 buf_size, OUT char *pstrExecFile);
 
 /*
@@ -132,7 +132,7 @@ extern dsp_status cfg_get_exec_file(IN struct cfg_devnode *dev_node_obj,
  *      0:    *pdwValue is set to the retrieved u32(non-Zero).
  *      else:       *pdwValue is set to 0L.
  */
-extern dsp_status cfg_get_object(OUT u32 *pdwValue, u8 dw_type);
+extern int cfg_get_object(OUT u32 *pdwValue, u8 dw_type);
 
 /*
  *  ======== cfg_get_perf_value ========
@@ -169,7 +169,7 @@ extern void cfg_get_perf_value(OUT bool *pfEnablePerf);
  *                      into pWMDFileName.
  *
  */
-extern dsp_status cfg_get_wmd_file_name(IN struct cfg_devnode *dev_node_obj,
+extern int cfg_get_wmd_file_name(IN struct cfg_devnode *dev_node_obj,
 					IN u32 buf_size,
 					OUT char *pWMDFileName);
 
@@ -193,7 +193,7 @@ extern dsp_status cfg_get_wmd_file_name(IN struct cfg_devnode *dev_node_obj,
  *                  pstrZLFileName, and *pstrZLFileName contains ZLFileName
  *                  for this devnode.
  */
-extern dsp_status cfg_get_zl_file(IN struct cfg_devnode *dev_node_obj,
+extern int cfg_get_zl_file(IN struct cfg_devnode *dev_node_obj,
 				  IN u32 buf_size, OUT char *pstrZLFileName);
 
 /*
@@ -225,7 +225,7 @@ extern bool cfg_init(void);
  *  Ensures:
  *      0:    The Private u32 was successfully set.
  */
-extern dsp_status cfg_set_dev_object(IN struct cfg_devnode *dev_node_obj,
+extern int cfg_set_dev_object(IN struct cfg_devnode *dev_node_obj,
 				     IN u32 dwValue);
 
 /*
@@ -243,6 +243,6 @@ extern dsp_status cfg_set_dev_object(IN struct cfg_devnode *dev_node_obj,
  *  Ensures:
  *      0:        The Private u32 was successfully set.
  */
-extern dsp_status cfg_set_object(IN u32 dwValue, u8 dw_type);
+extern int cfg_set_object(IN u32 dwValue, u8 dw_type);
 
 #endif /* CFG_ */

@@ -78,7 +78,7 @@ typedef bool(*dbl_free_fxn) (void *hdl, u32 addr, s32 space, u32 size,
  *  Function to call when writing data from a section, to log the info.
  *  Can be NULL if no logging is required.
  */
-typedef dsp_status(*dbl_log_write_fxn) (void *handle,
+typedef int(*dbl_log_write_fxn) (void *handle,
 					struct dbl_sect_info *sect, u32 addr,
 					u32 bytes);
 

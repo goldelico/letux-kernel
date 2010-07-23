@@ -67,7 +67,7 @@ struct wmd_dev_context;
  *      0:        Board is in BRD_IDLE state;
  *      else:           Board state is indeterminate.
  */
-typedef dsp_status(*fxn_brd_monitor) (struct wmd_dev_context *hDevContext);
+typedef int(*fxn_brd_monitor) (struct wmd_dev_context *hDevContext);
 
 /*
  *  ======== fxn_brd_setstate ========
@@ -86,7 +86,7 @@ typedef dsp_status(*fxn_brd_monitor) (struct wmd_dev_context *hDevContext);
  *      ulBrdState  <= BRD_LASTSTATE.
  *  Update the Board state to the specified state.
  */
-typedef dsp_status(*fxn_brd_setstate) (struct wmd_dev_context
+typedef int(*fxn_brd_setstate) (struct wmd_dev_context
 				       * hDevContext, u32 ulBrdState);
 
 /*
@@ -108,7 +108,7 @@ typedef dsp_status(*fxn_brd_setstate) (struct wmd_dev_context
  *                      Interrupts to the PC are enabled.
  *      else:           Board state is indeterminate.
  */
-typedef dsp_status(*fxn_brd_start) (struct wmd_dev_context
+typedef int(*fxn_brd_start) (struct wmd_dev_context
 				    * hDevContext, u32 dwDSPAddr);
 
 /*
@@ -131,7 +131,7 @@ typedef dsp_status(*fxn_brd_start) (struct wmd_dev_context
  *                      Interrupts to the PC are enabled.
  *      else:           Board state is indeterminate.
  */
-typedef dsp_status(*fxn_brd_memcopy) (struct wmd_dev_context
+typedef int(*fxn_brd_memcopy) (struct wmd_dev_context
 				      * hDevContext,
 				      u32 ulDspDestAddr,
 				      u32 ulDspSrcAddr,
@@ -156,7 +156,7 @@ typedef dsp_status(*fxn_brd_memcopy) (struct wmd_dev_context
  *      pHostBuf != NULL.
  *  Ensures:
  */
-typedef dsp_status(*fxn_brd_memwrite) (struct wmd_dev_context
+typedef int(*fxn_brd_memwrite) (struct wmd_dev_context
 				       * hDevContext,
 				       IN u8 *pHostBuf,
 				       u32 dwDSPAddr, u32 ul_num_bytes,
@@ -179,7 +179,7 @@ typedef dsp_status(*fxn_brd_memwrite) (struct wmd_dev_context
  *      hDevContext != NULL;
  *  Ensures:
  */
-typedef dsp_status(*fxn_brd_memmap) (struct wmd_dev_context
+typedef int(*fxn_brd_memmap) (struct wmd_dev_context
 				     * hDevContext, u32 ul_mpu_addr,
 				     u32 ulVirtAddr, u32 ul_num_bytes,
 				     u32 ulMapAttrs);
@@ -199,7 +199,7 @@ typedef dsp_status(*fxn_brd_memmap) (struct wmd_dev_context
  *      hDevContext != NULL;
  *  Ensures:
  */
-typedef dsp_status(*fxn_brd_memunmap) (struct wmd_dev_context
+typedef int(*fxn_brd_memunmap) (struct wmd_dev_context
 				       * hDevContext,
 				       u32 ulVirtAddr, u32 ul_num_bytes);
 
@@ -220,7 +220,7 @@ typedef dsp_status(*fxn_brd_memunmap) (struct wmd_dev_context
  *                      Interrupts to the PC are disabled.
  *      else:           Board state is indeterminate.
  */
-typedef dsp_status(*fxn_brd_stop) (struct wmd_dev_context *hDevContext);
+typedef int(*fxn_brd_stop) (struct wmd_dev_context *hDevContext);
 
 /*
  *  ======== bridge_brd_status ========
@@ -237,7 +237,7 @@ typedef dsp_status(*fxn_brd_stop) (struct wmd_dev_context *hDevContext);
  *  Ensures:
  *      *pdwState is one of {BRD_STOPPED, BRD_IDLE, BRD_RUNNING, BRD_UNKNOWN};
  */
-typedef dsp_status(*fxn_brd_status) (struct wmd_dev_context *hDevContext,
+typedef int(*fxn_brd_status) (struct wmd_dev_context *hDevContext,
 				     int *pdwState);
 
 /*
@@ -261,7 +261,7 @@ typedef dsp_status(*fxn_brd_status) (struct wmd_dev_context *hDevContext,
  *  Ensures:
  *  Will not write more than ul_num_bytes bytes into pHostBuf.
  */
-typedef dsp_status(*fxn_brd_read) (struct wmd_dev_context *hDevContext,
+typedef int(*fxn_brd_read) (struct wmd_dev_context *hDevContext,
 				   OUT u8 *pHostBuf,
 				   u32 dwDSPAddr,
 				   u32 ul_num_bytes, u32 ulMemType);
@@ -286,7 +286,7 @@ typedef dsp_status(*fxn_brd_read) (struct wmd_dev_context *hDevContext,
  *      pHostBuf != NULL.
  *  Ensures:
  */
-typedef dsp_status(*fxn_brd_write) (struct wmd_dev_context *hDevContext,
+typedef int(*fxn_brd_write) (struct wmd_dev_context *hDevContext,
 				    IN u8 *pHostBuf,
 				    u32 dwDSPAddr,
 				    u32 ul_num_bytes, u32 ulMemType);
@@ -322,7 +322,7 @@ typedef dsp_status(*fxn_brd_write) (struct wmd_dev_context *hDevContext,
  *      No channel manager exists for this board.
  *  Ensures:
  */
-typedef dsp_status(*fxn_chnl_create) (OUT struct chnl_mgr
+typedef int(*fxn_chnl_create) (OUT struct chnl_mgr
 				      **phChnlMgr,
 				      struct dev_object
 				      * hdev_obj,
@@ -343,7 +343,7 @@ typedef dsp_status(*fxn_chnl_create) (OUT struct chnl_mgr
  *      0: Cancels I/O on each open channel. Closes each open channel.
  *          chnl_create may subsequently be called for the same device.
  */
-typedef dsp_status(*fxn_chnl_destroy) (struct chnl_mgr *hchnl_mgr);
+typedef int(*fxn_chnl_destroy) (struct chnl_mgr *hchnl_mgr);
 /*
  *  ======== bridge_deh_notify ========
  *  Purpose:
@@ -406,7 +406,7 @@ typedef void (*fxn_deh_notify) (struct deh_mgr *hdeh_mgr,
  *      0:                *phChnl is a valid channel.
  *      else:                   *phChnl is set to NULL if (phChnl != NULL);
  */
-typedef dsp_status(*fxn_chnl_open) (OUT struct chnl_object
+typedef int(*fxn_chnl_open) (OUT struct chnl_object
 				    **phChnl,
 				    struct chnl_mgr *hchnl_mgr,
 				    s8 chnl_mode,
@@ -431,7 +431,7 @@ typedef dsp_status(*fxn_chnl_open) (OUT struct chnl_object
  *  Ensures:
  *      0:        chnl_obj is no longer valid.
  */
-typedef dsp_status(*fxn_chnl_close) (struct chnl_object *chnl_obj);
+typedef int(*fxn_chnl_close) (struct chnl_object *chnl_obj);
 
 /*
  *  ======== bridge_chnl_add_io_req ========
@@ -470,7 +470,7 @@ typedef dsp_status(*fxn_chnl_close) (struct chnl_object *chnl_obj);
  *          corresponding IOC for this I/O request will have its status flag
  *          set to CHNL_IOCSTATEOS.
  */
-typedef dsp_status(*fxn_chnl_addioreq) (struct chnl_object
+typedef int(*fxn_chnl_addioreq) (struct chnl_object
 					* chnl_obj,
 					void *pHostBuf,
 					u32 byte_size,
@@ -502,7 +502,7 @@ typedef dsp_status(*fxn_chnl_addioreq) (struct chnl_object
  *          returns, the channel event object will be left in a signalled
  *          state.
  */
-typedef dsp_status(*fxn_chnl_getioc) (struct chnl_object *chnl_obj,
+typedef int(*fxn_chnl_getioc) (struct chnl_object *chnl_obj,
 				      u32 dwTimeOut,
 				      OUT struct chnl_ioc *pIOC);
 
@@ -524,7 +524,7 @@ typedef dsp_status(*fxn_chnl_getioc) (struct chnl_object *chnl_obj,
  *  Ensures:
  *      Subsequent I/O requests to this channel will not be accepted.
  */
-typedef dsp_status(*fxn_chnl_cancelio) (struct chnl_object *chnl_obj);
+typedef int(*fxn_chnl_cancelio) (struct chnl_object *chnl_obj);
 
 /*
  *  ======== bridge_chnl_flush_io ========
@@ -543,7 +543,7 @@ typedef dsp_status(*fxn_chnl_cancelio) (struct chnl_object *chnl_obj);
  *  Ensures:
  *      0:            No I/O requests will be pending on this channel.
  */
-typedef dsp_status(*fxn_chnl_flushio) (struct chnl_object *chnl_obj,
+typedef int(*fxn_chnl_flushio) (struct chnl_object *chnl_obj,
 				       u32 dwTimeOut);
 
 /*
@@ -562,7 +562,7 @@ typedef dsp_status(*fxn_chnl_flushio) (struct chnl_object *chnl_obj,
  *      0:        pInfo points to a filled in chnl_info struct,
  *                      if (pInfo != NULL).
  */
-typedef dsp_status(*fxn_chnl_getinfo) (struct chnl_object *chnl_obj,
+typedef int(*fxn_chnl_getinfo) (struct chnl_object *chnl_obj,
 				       OUT struct chnl_info *pChnlInfo);
 
 /*
@@ -583,7 +583,7 @@ typedef dsp_status(*fxn_chnl_getinfo) (struct chnl_object *chnl_obj,
  *      0:            pMgrInfo points to a filled in chnl_mgrinfo
  *                          struct, if (pMgrInfo != NULL).
  */
-typedef dsp_status(*fxn_chnl_getmgrinfo) (struct chnl_mgr
+typedef int(*fxn_chnl_getmgrinfo) (struct chnl_mgr
 					  * hchnl_mgr,
 					  u32 uChnlID,
 					  OUT struct chnl_mgrinfo *pMgrInfo);
@@ -614,7 +614,7 @@ typedef dsp_status(*fxn_chnl_getmgrinfo) (struct chnl_mgr
  *  Requires:
  *  Ensures:
  */
-typedef dsp_status(*fxn_chnl_idle) (struct chnl_object *chnl_obj,
+typedef int(*fxn_chnl_idle) (struct chnl_object *chnl_obj,
 				    u32 dwTimeOut, bool fFlush);
 
 /*
@@ -642,7 +642,7 @@ typedef dsp_status(*fxn_chnl_idle) (struct chnl_object *chnl_obj,
  *      notify_type == DSP_SIGNALEVENT.
  *  Ensures:
  */
-typedef dsp_status(*fxn_chnl_registernotify)
+typedef int(*fxn_chnl_registernotify)
  (struct chnl_object *chnl_obj,
   u32 event_mask, u32 notify_type, struct dsp_notification *hnotification);
 
@@ -685,7 +685,7 @@ typedef dsp_status(*fxn_chnl_registernotify)
  *      function returns, they must not be stored into the device context
  *      structure.
  */
-typedef dsp_status(*fxn_dev_create) (OUT struct wmd_dev_context
+typedef int(*fxn_dev_create) (OUT struct wmd_dev_context
 				     **phDevContext,
 				     struct dev_object
 				     * hdev_obj,
@@ -708,7 +708,7 @@ typedef dsp_status(*fxn_dev_create) (OUT struct wmd_dev_context
  *      IOCTL completion routines provided.
  *  Ensures:
  */
-typedef dsp_status(*fxn_dev_ctrl) (struct wmd_dev_context *hDevContext,
+typedef int(*fxn_dev_ctrl) (struct wmd_dev_context *hDevContext,
 				   u32 dw_cmd, IN OUT void *pargs);
 
 /*
@@ -728,7 +728,7 @@ typedef dsp_status(*fxn_dev_ctrl) (struct wmd_dev_context *hDevContext,
  *  Ensures:
  *      0: Device context is freed.
  */
-typedef dsp_status(*fxn_dev_destroy) (struct wmd_dev_context *hDevContext);
+typedef int(*fxn_dev_destroy) (struct wmd_dev_context *hDevContext);
 
 /*
  *  ======== bridge_deh_create ========
@@ -746,7 +746,7 @@ typedef dsp_status(*fxn_dev_destroy) (struct wmd_dev_context *hDevContext);
  *      phDehMgr != NULL;
  *  Ensures:
  */
-typedef dsp_status(*fxn_deh_create) (OUT struct deh_mgr
+typedef int(*fxn_deh_create) (OUT struct deh_mgr
 				     **phDehMgr, struct dev_object *hdev_obj);
 
 /*
@@ -762,7 +762,7 @@ typedef dsp_status(*fxn_deh_create) (OUT struct deh_mgr
  *      hdeh_mgr != NULL;
  *  Ensures:
  */
-typedef dsp_status(*fxn_deh_destroy) (struct deh_mgr *hdeh_mgr);
+typedef int(*fxn_deh_destroy) (struct deh_mgr *hdeh_mgr);
 
 /*
  *  ======== bridge_deh_register_notify ========
@@ -777,7 +777,7 @@ typedef dsp_status(*fxn_deh_destroy) (struct deh_mgr *hdeh_mgr);
  *      hdeh_mgr != NULL;
  *  Ensures:
  */
-typedef dsp_status(*fxn_deh_registernotify)
+typedef int(*fxn_deh_registernotify)
  (struct deh_mgr *hdeh_mgr,
   u32 event_mask, u32 notify_type, struct dsp_notification *hnotification);
 
@@ -796,7 +796,7 @@ typedef dsp_status(*fxn_deh_registernotify)
  *      pErrorInfo != NULL;
  *  Ensures:
  */
-typedef dsp_status(*fxn_deh_getinfo) (struct deh_mgr *phDehMgr,
+typedef int(*fxn_deh_getinfo) (struct deh_mgr *phDehMgr,
 				      struct dsp_errorinfo *pErrInfo);
 
 /*
@@ -819,7 +819,7 @@ typedef dsp_status(*fxn_deh_getinfo) (struct deh_mgr *phDehMgr,
  *      phIOMgr != NULL;
  *  Ensures:
  */
-typedef dsp_status(*fxn_io_create) (OUT struct io_mgr **phIOMgr,
+typedef int(*fxn_io_create) (OUT struct io_mgr **phIOMgr,
 				    struct dev_object *hdev_obj,
 				    IN CONST struct io_attrs *pMgrAttrs);
 
@@ -837,7 +837,7 @@ typedef dsp_status(*fxn_io_create) (OUT struct io_mgr **phIOMgr,
  *      Valid hio_mgr;
  *  Ensures:
  */
-typedef dsp_status(*fxn_io_destroy) (struct io_mgr *hio_mgr);
+typedef int(*fxn_io_destroy) (struct io_mgr *hio_mgr);
 
 /*
  *  ======== bridge_io_on_loaded ========
@@ -854,7 +854,7 @@ typedef dsp_status(*fxn_io_destroy) (struct io_mgr *hio_mgr);
  *      Valid hio_mgr;
  *  Ensures:
  */
-typedef dsp_status(*fxn_io_onloaded) (struct io_mgr *hio_mgr);
+typedef int(*fxn_io_onloaded) (struct io_mgr *hio_mgr);
 
 /*
  *  ======== fxn_io_getprocload ========
@@ -870,7 +870,7 @@ typedef dsp_status(*fxn_io_onloaded) (struct io_mgr *hio_mgr);
  *      Valid hio_mgr;
  *  Ensures:
  */
-typedef dsp_status(*fxn_io_getprocload) (struct io_mgr *hio_mgr,
+typedef int(*fxn_io_getprocload) (struct io_mgr *hio_mgr,
 					 struct dsp_procloadstat *
 					 pProcLoadStat);
 
@@ -892,7 +892,7 @@ typedef dsp_status(*fxn_io_getprocload) (struct io_mgr *hio_mgr,
  *      hdev_obj != NULL.
  *  Ensures:
  */
-typedef dsp_status(*fxn_msg_create)
+typedef int(*fxn_msg_create)
  (OUT struct msg_mgr **phMsgMgr,
   struct dev_object *hdev_obj, msg_onexit msgCallback);
 
@@ -918,7 +918,7 @@ typedef dsp_status(*fxn_msg_create)
  *  Ensures:
  *      phMsgQueue !=NULL <==> 0.
  */
-typedef dsp_status(*fxn_msg_createqueue)
+typedef int(*fxn_msg_createqueue)
  (struct msg_mgr *hmsg_mgr,
   OUT struct msg_queue **phMsgQueue, u32 msgq_id, u32 max_msgs, bhandle h);
 
@@ -968,7 +968,7 @@ typedef void (*fxn_msg_deletequeue) (struct msg_queue *msg_queue_obj);
  *      pmsg != NULL.
  *  Ensures:
  */
-typedef dsp_status(*fxn_msg_get) (struct msg_queue *msg_queue_obj,
+typedef int(*fxn_msg_get) (struct msg_queue *msg_queue_obj,
 				  struct dsp_msg *pmsg, u32 utimeout);
 
 /*
@@ -990,7 +990,7 @@ typedef dsp_status(*fxn_msg_get) (struct msg_queue *msg_queue_obj,
  *      pmsg != NULL.
  *  Ensures:
  */
-typedef dsp_status(*fxn_msg_put) (struct msg_queue *msg_queue_obj,
+typedef int(*fxn_msg_put) (struct msg_queue *msg_queue_obj,
 				  IN CONST struct dsp_msg *pmsg, u32 utimeout);
 
 /*
@@ -1014,7 +1014,7 @@ typedef dsp_status(*fxn_msg_put) (struct msg_queue *msg_queue_obj,
  *      event_mask == DSP_NODEMESSAGEREADY || event_mask == 0.
  *  Ensures:
  */
-typedef dsp_status(*fxn_msg_registernotify)
+typedef int(*fxn_msg_registernotify)
  (struct msg_queue *msg_queue_obj,
   u32 event_mask, u32 notify_type, struct dsp_notification *hnotification);
 

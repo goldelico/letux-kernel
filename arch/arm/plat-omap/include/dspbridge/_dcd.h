@@ -36,7 +36,7 @@
  *  Requires:
  *  Ensures:
  */
-extern dsp_status wcd_call_dev_io_ctl(unsigned int cmd,
+extern int wcd_call_dev_io_ctl(unsigned int cmd,
 				      union Trapped_Args *args,
 				      u32 *pResult, void *pr_ctxt);
 
@@ -68,7 +68,7 @@ extern bool wcd_init(void);
  *      WCD initialized.
  *  Ensures:
  */
-extern dsp_status wcd_init_complete2(void);
+extern int wcd_init_complete2(void);
 
 /*
  *  ======== wcd_exit ========

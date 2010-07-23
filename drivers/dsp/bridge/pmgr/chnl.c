@@ -51,11 +51,11 @@ static u32 refs;
  *      Create a channel manager object, responsible for opening new channels
  *      and closing old ones for a given 'Bridge board.
  */
-dsp_status chnl_create(OUT struct chnl_mgr **phChnlMgr,
+int chnl_create(OUT struct chnl_mgr **phChnlMgr,
 		       struct dev_object *hdev_obj,
 		       IN CONST struct chnl_mgrattrs *pMgrAttrs)
 {
-	dsp_status status;
+	int status;
 	struct chnl_mgr *hchnl_mgr;
 	struct chnl_mgr_ *chnl_mgr_obj = NULL;
 
@@ -112,11 +112,11 @@ dsp_status chnl_create(OUT struct chnl_mgr **phChnlMgr,
  *  Purpose:
  *      Close all open channels, and destroy the channel manager.
  */
-dsp_status chnl_destroy(struct chnl_mgr *hchnl_mgr)
+int chnl_destroy(struct chnl_mgr *hchnl_mgr)
 {
 	struct chnl_mgr_ *chnl_mgr_obj = (struct chnl_mgr_ *)hchnl_mgr;
 	struct bridge_drv_interface *intf_fxns;
-	dsp_status status;
+	int status;
 
 	DBC_REQUIRE(refs > 0);
 

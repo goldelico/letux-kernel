@@ -31,7 +31,7 @@
 #define PG_ALIGN_HIGH(addr, pg_size) (((addr)+(pg_size)-1) & PG_MASK(pg_size))
 
 /* API return value and calling convention */
-#define DBAPI                       dsp_status
+#define DBAPI                       int
 
 /* Infinite time value for the utimeout parameter to DSPStream_Select() */
 #define DSP_FOREVER                 (-1)
@@ -110,9 +110,6 @@
 
 /* DSP chip type */
 #define DSPTYPE64	0x99
-
-/* Types defined for 'Bridge API */
-typedef u32 dsp_status;		/* API return code type */
 
 /* Handy Macros */
 #define IS_VALID_PROC_EVENT(x) (((x) == 0) || (((x) & \

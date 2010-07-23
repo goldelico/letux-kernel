@@ -76,17 +76,17 @@ struct disp_object {
 static u32 refs;
 
 static void delete_disp(struct disp_object *disp_obj);
-static dsp_status fill_stream_def(rms_word *pdw_buf, u32 *ptotal, u32 offset,
+static int fill_stream_def(rms_word *pdw_buf, u32 *ptotal, u32 offset,
 				  struct node_strmdef strm_def, u32 max,
 				  u32 chars_in_rms_word);
-static dsp_status send_message(struct disp_object *disp_obj, u32 dwTimeout,
+static int send_message(struct disp_object *disp_obj, u32 dwTimeout,
 			       u32 ul_bytes, OUT u32 *pdw_arg);
 
 /*
  *  ======== disp_create ========
  *  Create a NODE Dispatcher object.
  */
-dsp_status disp_create(OUT struct disp_object **phDispObject,
+int disp_create(OUT struct disp_object **phDispObject,
 		       struct dev_object *hdev_obj,
 		       IN CONST struct disp_attr *pDispAttrs)
 {
@@ -94,7 +94,7 @@ dsp_status disp_create(OUT struct disp_object **phDispObject,
 	struct bridge_drv_interface *intf_fxns;
 	u32 ul_chnl_id;
 	struct chnl_attr chnl_attr_obj;
-	dsp_status status = 0;
+	int status = 0;
 	u8 dev_type;
 
 	DBC_REQUIRE(refs > 0);
@@ -222,13 +222,13 @@ bool disp_init(void)
  *  ======== disp_node_change_priority ========
  *  Change the priority of a node currently running on the target.
  */
-dsp_status disp_node_change_priority(struct disp_object *disp_obj,
+int disp_node_change_priority(struct disp_object *disp_obj,
 				     struct node_object *hnode,
 				     u32 ulRMSFxn, nodeenv node_env, s32 prio)
 {
 	u32 dw_arg;
 	struct rms_command *rms_cmd;
-	dsp_status status = 0;
+	int status = 0;
 
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(disp_obj);
@@ -249,7 +249,7 @@ dsp_status disp_node_change_priority(struct disp_object *disp_obj,
  *  ======== disp_node_create ========
  *  Create a node on the DSP by remotely calling the node's create function.
  */
-dsp_status disp_node_create(struct disp_object *disp_obj,
+int disp_node_create(struct disp_object *disp_obj,
 			    struct node_object *hnode, u32 ulRMSFxn,
 			    u32 ul_create_fxn,
 			    IN CONST struct node_createargs *pargs,
@@ -275,7 +275,7 @@ dsp_status disp_node_create(struct disp_object *disp_obj,
 	s32 offset;
 	struct node_strmdef strm_def;
 	u32 max;
-	dsp_status status = 0;
+	int status = 0;
 	struct dsp_nodeinfo node_info;
 	u8 dev_type;
 
@@ -485,13 +485,13 @@ func_end:
  *      Delete a node on the DSP by remotely calling the node's delete function.
  *
  */
-dsp_status disp_node_delete(struct disp_object *disp_obj,
+int disp_node_delete(struct disp_object *disp_obj,
 			    struct node_object *hnode, u32 ulRMSFxn,
 			    u32 ul_delete_fxn, nodeenv node_env)
 {
 	u32 dw_arg;
 	struct rms_command *rms_cmd;
-	dsp_status status = 0;
+	int status = 0;
 	u8 dev_type;
 
 	DBC_REQUIRE(refs > 0);
@@ -539,13 +539,13 @@ dsp_status disp_node_delete(struct disp_object *disp_obj,
  *      Start execution of a node's execute phase, or resume execution of a node
  *      that has been suspended (via DISP_NodePause()) on the DSP.
  */
-dsp_status disp_node_run(struct disp_object *disp_obj,
+int disp_node_run(struct disp_object *disp_obj,
 			 struct node_object *hnode, u32 ulRMSFxn,
 			 u32 ul_execute_fxn, nodeenv node_env)
 {
 	u32 dw_arg;
 	struct rms_command *rms_cmd;
-	dsp_status status = 0;
+	int status = 0;
 	u8 dev_type;
 	DBC_REQUIRE(refs > 0);
 	DBC_REQUIRE(disp_obj);
@@ -594,7 +594,7 @@ dsp_status disp_node_run(struct disp_object *disp_obj,
  */
 static void delete_disp(struct disp_object *disp_obj)
 {
-	dsp_status status = 0;
+	int status = 0;
 	struct bridge_drv_interface *intf_fxns;
 
 	if (disp_obj) {
@@ -631,7 +631,7 @@ static void delete_disp(struct disp_object *disp_obj)
  *  purpose:
  *      Fills stream definitions.
  */
-static dsp_status fill_stream_def(rms_word *pdw_buf, u32 *ptotal, u32 offset,
+static int fill_stream_def(rms_word *pdw_buf, u32 *ptotal, u32 offset,
 				  struct node_strmdef strm_def, u32 max,
 				  u32 chars_in_rms_word)
 {
@@ -639,7 +639,7 @@ static dsp_status fill_stream_def(rms_word *pdw_buf, u32 *ptotal, u32 offset,
 	u32 total = *ptotal;
 	u32 name_len;
 	u32 dw_length;
-	dsp_status status = 0;
+	int status = 0;
 
 	if (total + sizeof(struct rms_strm_def) / sizeof(rms_word) >= max) {
 		status = -EPERM;
@@ -687,7 +687,7 @@ static dsp_status fill_stream_def(rms_word *pdw_buf, u32 *ptotal, u32 offset,
  *  ======== send_message ======
  *  Send command message to RMS, get reply from RMS.
  */
-static dsp_status send_message(struct disp_object *disp_obj, u32 dwTimeout,
+static int send_message(struct disp_object *disp_obj, u32 dwTimeout,
 			       u32 ul_bytes, u32 *pdw_arg)
 {
 	struct bridge_drv_interface *intf_fxns;
@@ -695,7 +695,7 @@ static dsp_status send_message(struct disp_object *disp_obj, u32 dwTimeout,
 	u32 dw_arg = 0;
 	u8 *pbuf;
 	struct chnl_ioc chnl_ioc_obj;
-	dsp_status status = 0;
+	int status = 0;
 
 	DBC_REQUIRE(pdw_arg != NULL);
 

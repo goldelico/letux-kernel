@@ -96,7 +96,7 @@ extern u32 dev_brd_write_fxn(void *pArb,
  *      Otherwise, does not create the device object, ensures the WMD module is
  *      unloaded, and sets *phDevObject to NULL.
  */
-extern dsp_status dev_create_device(OUT struct dev_object
+extern int dev_create_device(OUT struct dev_object
 				    **phDevObject,
 				    IN CONST char *pstrWMDFileName,
 				    struct cfg_devnode *dev_node_obj);
@@ -138,7 +138,7 @@ extern dsp_status dev_create_device(OUT struct dev_object
  *      Otherwise, does not create the device object, ensures the WMD module is
  *      unloaded, and sets *phDevObject to NULL.
  */
-extern dsp_status dev_create_iva_device(OUT struct dev_object
+extern int dev_create_iva_device(OUT struct dev_object
 					**phDevObject,
 					IN CONST char *pstrWMDFileName,
 					IN CONST struct cfg_hostres
@@ -163,7 +163,7 @@ extern dsp_status dev_create_iva_device(OUT struct dev_object
  *      0 and hdev_obj->hnode_mgr != NULL
  *      else    hdev_obj->hnode_mgr == NULL
  */
-extern dsp_status dev_create2(IN struct dev_object *hdev_obj);
+extern int dev_create2(IN struct dev_object *hdev_obj);
 
 /*
  *  ======== dev_destroy2 ========
@@ -181,7 +181,7 @@ extern dsp_status dev_create2(IN struct dev_object *hdev_obj);
  *      0 and hdev_obj->hnode_mgr == NULL
  *      else    -EPERM.
  */
-extern dsp_status dev_destroy2(IN struct dev_object *hdev_obj);
+extern int dev_destroy2(IN struct dev_object *hdev_obj);
 
 /*
  *  ======== dev_destroy_device ========
@@ -199,7 +199,7 @@ extern dsp_status dev_destroy2(IN struct dev_object *hdev_obj);
  *      DEV Initialized.
  *  Ensures:
  */
-extern dsp_status dev_destroy_device(struct dev_object
+extern int dev_destroy_device(struct dev_object
 				     *hdev_obj);
 
 /*
@@ -221,7 +221,7 @@ extern dsp_status dev_destroy_device(struct dev_object
  *                      or NULL.
  *      else:           *phMgr is NULL.
  */
-extern dsp_status dev_get_chnl_mgr(struct dev_object *hdev_obj,
+extern int dev_get_chnl_mgr(struct dev_object *hdev_obj,
 				   OUT struct chnl_mgr **phMgr);
 
 /*
@@ -244,7 +244,7 @@ extern dsp_status dev_get_chnl_mgr(struct dev_object *hdev_obj,
  *                      or NULL.
  *      else:           *phMgr is NULL.
  */
-extern dsp_status dev_get_cmm_mgr(struct dev_object *hdev_obj,
+extern int dev_get_cmm_mgr(struct dev_object *hdev_obj,
 				  OUT struct cmm_object **phMgr);
 
 /*
@@ -267,7 +267,7 @@ extern dsp_status dev_get_cmm_mgr(struct dev_object *hdev_obj,
  *                      or NULL.
  *      else:           *phMgr is NULL.
  */
-extern dsp_status dev_get_dmm_mgr(struct dev_object *hdev_obj,
+extern int dev_get_dmm_mgr(struct dev_object *hdev_obj,
 				  OUT struct dmm_object **phMgr);
 
 /*
@@ -288,7 +288,7 @@ extern dsp_status dev_get_dmm_mgr(struct dev_object *hdev_obj,
  *      0:        *phCodMgr contains a handle to a COD manager object.
  *      else:           *phCodMgr is NULL.
  */
-extern dsp_status dev_get_cod_mgr(struct dev_object *hdev_obj,
+extern int dev_get_cod_mgr(struct dev_object *hdev_obj,
 				  OUT struct cod_manager **phCodMgr);
 
 /*
@@ -308,7 +308,7 @@ extern dsp_status dev_get_cod_mgr(struct dev_object *hdev_obj,
  *      0:    *phDehMgr contains a handle to a DEH manager object.
  *      else:       *phDehMgr is NULL.
  */
-extern dsp_status dev_get_deh_mgr(struct dev_object *hdev_obj,
+extern int dev_get_deh_mgr(struct dev_object *hdev_obj,
 				  OUT struct deh_mgr **phDehMgr);
 
 /*
@@ -329,7 +329,7 @@ extern dsp_status dev_get_deh_mgr(struct dev_object *hdev_obj,
  *      0:        *phDevNode contains a platform specific device ID;
  *      else:           *phDevNode is NULL.
  */
-extern dsp_status dev_get_dev_node(struct dev_object *hdev_obj,
+extern int dev_get_dev_node(struct dev_object *hdev_obj,
 				   OUT struct cfg_devnode **phDevNode);
 
 /*
@@ -350,7 +350,7 @@ extern dsp_status dev_get_dev_node(struct dev_object *hdev_obj,
  *      0:        *phDevNode contains a platform specific device ID;
  *      else:           *phDevNode is NULL.
  */
-extern dsp_status dev_get_dev_type(struct dev_object *hdevObject,
+extern int dev_get_dev_type(struct dev_object *hdevObject,
 					u8 *dev_type);
 
 /*
@@ -391,7 +391,7 @@ extern struct dev_object *dev_get_first(void);
  *      0:        *ppIntfFxns contains a pointer to the WMD interface;
  *      else:           *ppIntfFxns is NULL.
  */
-extern dsp_status dev_get_intf_fxns(struct dev_object *hdev_obj,
+extern int dev_get_intf_fxns(struct dev_object *hdev_obj,
 				    OUT struct bridge_drv_interface **ppIntfFxns);
 
 /*
@@ -412,7 +412,7 @@ extern dsp_status dev_get_intf_fxns(struct dev_object *hdev_obj,
  *      0:        *phMgr contains a handle to an IO manager object.
  *      else:           *phMgr is NULL.
  */
-extern dsp_status dev_get_io_mgr(struct dev_object *hdev_obj,
+extern int dev_get_io_mgr(struct dev_object *hdev_obj,
 				 OUT struct io_mgr **phMgr);
 
 /*
@@ -476,7 +476,7 @@ extern void dev_get_msg_mgr(struct dev_object *hdev_obj,
  *      0:        *phNodeMgr contains a handle to a Node manager object.
  *      else:           *phNodeMgr is NULL.
  */
-extern dsp_status dev_get_node_manager(struct dev_object
+extern int dev_get_node_manager(struct dev_object
 				       *hdev_obj,
 				       OUT struct node_mgr **phNodeMgr);
 
@@ -501,7 +501,7 @@ extern dsp_status dev_get_node_manager(struct dev_object
  *  Ensures:
  *      0:        *pul_value contains the symbol value;
  */
-extern dsp_status dev_get_symbol(struct dev_object *hdev_obj,
+extern int dev_get_symbol(struct dev_object *hdev_obj,
 				 IN CONST char *pstrSym, OUT u32 * pul_value);
 
 /*
@@ -521,7 +521,7 @@ extern dsp_status dev_get_symbol(struct dev_object *hdev_obj,
  *      0:        *phWmdContext contains context handle;
  *      else:           *phWmdContext is NULL;
  */
-extern dsp_status dev_get_wmd_context(struct dev_object *hdev_obj,
+extern int dev_get_wmd_context(struct dev_object *hdev_obj,
 				      OUT struct wmd_dev_context
 				      **phWmdContext);
 
@@ -568,7 +568,7 @@ extern bool dev_init(void);
  *      DEV Initialized.
  *  Ensures:
  */
-extern dsp_status dev_is_locked(IN struct dev_object *hdev_obj);
+extern int dev_is_locked(IN struct dev_object *hdev_obj);
 
 /*
  *  ======== dev_insert_proc_object ========
@@ -593,7 +593,7 @@ extern dsp_status dev_is_locked(IN struct dev_object *hdev_obj);
  *      this is the first Processor attaching.
  *      If it is False, there are already processors attached.
  */
-extern dsp_status dev_insert_proc_object(IN struct dev_object
+extern int dev_insert_proc_object(IN struct dev_object
 					 *hdev_obj,
 					 IN u32 proc_obj,
 					 OUT bool *pbAlreadyAttached);
@@ -621,7 +621,7 @@ extern dsp_status dev_insert_proc_object(IN struct dev_object
  *      List will be deleted when the DEV is destroyed.
  *
  */
-extern dsp_status dev_remove_proc_object(struct dev_object
+extern int dev_remove_proc_object(struct dev_object
 					 *hdev_obj, u32 proc_obj);
 
 /*
@@ -644,7 +644,7 @@ extern dsp_status dev_remove_proc_object(struct dev_object
  *      delivered to clients.  This function does not ensure that
  *      the notifications will ever be delivered.
  */
-extern dsp_status dev_notify_clients(struct dev_object *hdev_obj, u32 ulStatus);
+extern int dev_notify_clients(struct dev_object *hdev_obj, u32 ulStatus);
 
 /*
  *  ======== dev_remove_device ========
@@ -658,7 +658,7 @@ extern dsp_status dev_notify_clients(struct dev_object *hdev_obj, u32 ulStatus);
  *  Requires:
  *  Ensures:
  */
-extern dsp_status dev_remove_device(struct cfg_devnode *dev_node_obj);
+extern int dev_remove_device(struct cfg_devnode *dev_node_obj);
 
 /*
  *  ======== dev_set_chnl_mgr ========
@@ -675,7 +675,7 @@ extern dsp_status dev_remove_device(struct cfg_devnode *dev_node_obj);
  *      DEV Initialized.
  *  Ensures:
  */
-extern dsp_status dev_set_chnl_mgr(struct dev_object *hdev_obj,
+extern int dev_set_chnl_mgr(struct dev_object *hdev_obj,
 				   struct chnl_mgr *hmgr);
 
 /*
@@ -708,6 +708,6 @@ extern void dev_set_msg_mgr(struct dev_object *hdev_obj, struct msg_mgr *hmgr);
  *      DEV initialized.
  *  Ensures:
  */
-extern dsp_status dev_start_device(struct cfg_devnode *dev_node_obj);
+extern int dev_start_device(struct cfg_devnode *dev_node_obj);
 
 #endif /* DEV_ */

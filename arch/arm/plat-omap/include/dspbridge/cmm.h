@@ -85,7 +85,7 @@ extern void *cmm_calloc_buf(struct cmm_object *hcmm_mgr,
  *  Ensures:
  *
  */
-extern dsp_status cmm_create(OUT struct cmm_object **ph_cmm_mgr,
+extern int cmm_create(OUT struct cmm_object **ph_cmm_mgr,
 			     struct dev_object *hdev_obj,
 			     IN CONST struct cmm_mgrattrs *pMgrAttrs);
 
@@ -108,7 +108,7 @@ extern dsp_status cmm_create(OUT struct cmm_object **ph_cmm_mgr,
  *  Ensures:
  *      Memory resources used by Cmm Mgr are freed.
  */
-extern dsp_status cmm_destroy(struct cmm_object *hcmm_mgr, bool bForce);
+extern int cmm_destroy(struct cmm_object *hcmm_mgr, bool bForce);
 
 /*
  *  ======== cmm_exit ========
@@ -142,7 +142,7 @@ extern void cmm_exit(void);
  *  Ensures:
  *
  */
-extern dsp_status cmm_free_buf(struct cmm_object *hcmm_mgr,
+extern int cmm_free_buf(struct cmm_object *hcmm_mgr,
 			       void *buf_pa, u32 ul_seg_id);
 
 /*
@@ -162,7 +162,7 @@ extern dsp_status cmm_free_buf(struct cmm_object *hcmm_mgr,
  *      hdev_obj != NULL
  *  Ensures:
  */
-extern dsp_status cmm_get_handle(void *hprocessor,
+extern int cmm_get_handle(void *hprocessor,
 				 OUT struct cmm_object **ph_cmm_mgr);
 
 /*
@@ -181,7 +181,7 @@ extern dsp_status cmm_get_handle(void *hprocessor,
  *  Ensures:
  *
  */
-extern dsp_status cmm_get_info(struct cmm_object *hcmm_mgr,
+extern int cmm_get_info(struct cmm_object *hcmm_mgr,
 			       OUT struct cmm_info *cmm_info_obj);
 
 /*
@@ -225,7 +225,7 @@ extern bool cmm_init(void);
  *  Ensures:
  *
  */
-extern dsp_status cmm_register_gppsm_seg(struct cmm_object *hcmm_mgr,
+extern int cmm_register_gppsm_seg(struct cmm_object *hcmm_mgr,
 					 unsigned int dw_gpp_base_pa,
 					 u32 ul_size,
 					 u32 dwDSPAddrOffset,
@@ -251,7 +251,7 @@ extern dsp_status cmm_register_gppsm_seg(struct cmm_object *hcmm_mgr,
  *  Ensures:
  *
  */
-extern dsp_status cmm_un_register_gppsm_seg(struct cmm_object *hcmm_mgr,
+extern int cmm_un_register_gppsm_seg(struct cmm_object *hcmm_mgr,
 					    u32 ul_seg_id);
 
 /*
@@ -295,7 +295,7 @@ extern void *cmm_xlator_alloc_buf(struct cmm_xlatorobject *xlator,
  *  Ensures:
  *
  */
-extern dsp_status cmm_xlator_create(OUT struct cmm_xlatorobject **phXlator,
+extern int cmm_xlator_create(OUT struct cmm_xlatorobject **phXlator,
 				    struct cmm_object *hcmm_mgr,
 				    struct cmm_xlatorattrs *pXlatorAttrs);
 
@@ -315,7 +315,7 @@ extern dsp_status cmm_xlator_create(OUT struct cmm_xlatorobject **phXlator,
  *  Ensures:
  *
  */
-extern dsp_status cmm_xlator_delete(struct cmm_xlatorobject *xlator,
+extern int cmm_xlator_delete(struct cmm_xlatorobject *xlator,
 				    bool bForce);
 
 /*
@@ -333,7 +333,7 @@ extern dsp_status cmm_xlator_delete(struct cmm_xlatorobject *xlator,
  *  Ensures:
  *
  */
-extern dsp_status cmm_xlator_free_buf(struct cmm_xlatorobject *xlator,
+extern int cmm_xlator_free_buf(struct cmm_xlatorobject *xlator,
 				      void *pBufVa);
 
 /*
@@ -358,7 +358,7 @@ extern dsp_status cmm_xlator_free_buf(struct cmm_xlatorobject *xlator,
  *  Ensures:
  *
  */
-extern dsp_status cmm_xlator_info(struct cmm_xlatorobject *xlator,
+extern int cmm_xlator_info(struct cmm_xlatorobject *xlator,
 				  IN OUT u8 **paddr,
 				  u32 ul_size, u32 uSegId, bool set_info);
 

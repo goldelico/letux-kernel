@@ -26,11 +26,11 @@
 
 #include <dspbridge/msgdefs.h>
 
-extern dsp_status bridge_msg_create(OUT struct msg_mgr **phMsgMgr,
+extern int bridge_msg_create(OUT struct msg_mgr **phMsgMgr,
 				    struct dev_object *hdev_obj,
 				    msg_onexit msgCallback);
 
-extern dsp_status bridge_msg_create_queue(struct msg_mgr *hmsg_mgr,
+extern int bridge_msg_create_queue(struct msg_mgr *hmsg_mgr,
 				       OUT struct msg_queue **phMsgQueue,
 				       u32 msgq_id, u32 max_msgs, bhandle h);
 
@@ -38,13 +38,13 @@ extern void bridge_msg_delete(struct msg_mgr *hmsg_mgr);
 
 extern void bridge_msg_delete_queue(struct msg_queue *msg_queue_obj);
 
-extern dsp_status bridge_msg_get(struct msg_queue *msg_queue_obj,
+extern int bridge_msg_get(struct msg_queue *msg_queue_obj,
 				 struct dsp_msg *pmsg, u32 utimeout);
 
-extern dsp_status bridge_msg_put(struct msg_queue *msg_queue_obj,
+extern int bridge_msg_put(struct msg_queue *msg_queue_obj,
 				 IN CONST struct dsp_msg *pmsg, u32 utimeout);
 
-extern dsp_status bridge_msg_register_notify(struct msg_queue *msg_queue_obj,
+extern int bridge_msg_register_notify(struct msg_queue *msg_queue_obj,
 					  u32 event_mask,
 					  u32 notify_type,
 					  struct dsp_notification

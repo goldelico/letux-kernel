@@ -38,26 +38,26 @@ struct dmm_mgrattrs {
  *      This is typically called from the client process.
  */
 
-extern dsp_status dmm_get_handle(void *hprocessor,
+extern int dmm_get_handle(void *hprocessor,
 				 OUT struct dmm_object **phDmmMgr);
 
-extern dsp_status dmm_reserve_memory(struct dmm_object *dmm_mgr,
+extern int dmm_reserve_memory(struct dmm_object *dmm_mgr,
 				     u32 size, u32 *prsv_addr);
 
-extern dsp_status dmm_un_reserve_memory(struct dmm_object *dmm_mgr,
+extern int dmm_un_reserve_memory(struct dmm_object *dmm_mgr,
 					u32 rsv_addr);
 
-extern dsp_status dmm_map_memory(struct dmm_object *dmm_mgr, u32 addr,
+extern int dmm_map_memory(struct dmm_object *dmm_mgr, u32 addr,
 				 u32 size);
 
-extern dsp_status dmm_un_map_memory(struct dmm_object *dmm_mgr,
+extern int dmm_un_map_memory(struct dmm_object *dmm_mgr,
 				    u32 addr, u32 *psize);
 
-extern dsp_status dmm_destroy(struct dmm_object *dmm_mgr);
+extern int dmm_destroy(struct dmm_object *dmm_mgr);
 
-extern dsp_status dmm_delete_tables(struct dmm_object *dmm_mgr);
+extern int dmm_delete_tables(struct dmm_object *dmm_mgr);
 
-extern dsp_status dmm_create(OUT struct dmm_object **phDmmMgr,
+extern int dmm_create(OUT struct dmm_object **phDmmMgr,
 			     struct dev_object *hdev_obj,
 			     IN CONST struct dmm_mgrattrs *pMgrAttrs);
 
@@ -65,6 +65,6 @@ extern bool dmm_init(void);
 
 extern void dmm_exit(void);
 
-extern dsp_status dmm_create_tables(struct dmm_object *dmm_mgr,
+extern int dmm_create_tables(struct dmm_object *dmm_mgr,
 				    u32 addr, u32 size);
 #endif /* DMM_ */

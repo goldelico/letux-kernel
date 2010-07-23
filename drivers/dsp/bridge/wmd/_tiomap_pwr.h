@@ -23,13 +23,13 @@
  * ======== wake_dsp =========
  * Wakes up the DSP from DeepSleep
  */
-extern dsp_status wake_dsp(struct wmd_dev_context *dev_context, IN void *pargs);
+extern int wake_dsp(struct wmd_dev_context *dev_context, IN void *pargs);
 
 /*
  * ======== sleep_dsp =========
  * Places the DSP in DeepSleep.
  */
-extern dsp_status sleep_dsp(struct wmd_dev_context *dev_context,
+extern int sleep_dsp(struct wmd_dev_context *dev_context,
 			    IN u32 dw_cmd, IN void *pargs);
 /*
  *  ========interrupt_dsp========
@@ -41,28 +41,28 @@ extern void interrupt_dsp(struct wmd_dev_context *dev_context, IN u16 mb_val);
  * ======== wake_dsp =========
  * Wakes up the DSP from DeepSleep
  */
-extern dsp_status dsp_peripheral_clk_ctrl(struct wmd_dev_context *dev_context,
+extern int dsp_peripheral_clk_ctrl(struct wmd_dev_context *dev_context,
 					  IN void *pargs);
 /*
  *  ======== handle_hibernation_from_dsp ========
  *  	Handle Hibernation requested from DSP
  */
-dsp_status handle_hibernation_from_dsp(struct wmd_dev_context *dev_context);
+int handle_hibernation_from_dsp(struct wmd_dev_context *dev_context);
 /*
  *  ======== post_scale_dsp ========
  *  	Handle Post Scale notification to DSP
  */
-dsp_status post_scale_dsp(struct wmd_dev_context *dev_context, IN void *pargs);
+int post_scale_dsp(struct wmd_dev_context *dev_context, IN void *pargs);
 /*
  *  ======== pre_scale_dsp ========
  *  	Handle Pre Scale notification to DSP
  */
-dsp_status pre_scale_dsp(struct wmd_dev_context *dev_context, IN void *pargs);
+int pre_scale_dsp(struct wmd_dev_context *dev_context, IN void *pargs);
 /*
  *  ======== handle_constraints_set ========
  *  	Handle constraints request from DSP
  */
-dsp_status handle_constraints_set(struct wmd_dev_context *dev_context,
+int handle_constraints_set(struct wmd_dev_context *dev_context,
 				  IN void *pargs);
 /*
  *  ======== dsp_peripheral_clocks_disable ========
@@ -71,7 +71,7 @@ dsp_status handle_constraints_set(struct wmd_dev_context *dev_context,
  *	DSP is entering Hibernation or when DSP is in
  *	Error state
  */
-dsp_status dsp_peripheral_clocks_disable(struct wmd_dev_context *dev_context,
+int dsp_peripheral_clocks_disable(struct wmd_dev_context *dev_context,
 					 IN void *pargs);
 
 /*
@@ -79,7 +79,7 @@ dsp_status dsp_peripheral_clocks_disable(struct wmd_dev_context *dev_context,
  *  	This function enables all the peripheral clocks that
  *	were requested by DSP.
  */
-dsp_status dsp_peripheral_clocks_enable(struct wmd_dev_context *dev_context,
+int dsp_peripheral_clocks_enable(struct wmd_dev_context *dev_context,
 					IN void *pargs);
 
 /*
