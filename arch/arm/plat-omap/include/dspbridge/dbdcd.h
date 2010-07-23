@@ -34,7 +34,7 @@
  *                              objects to be registered.
  *  Returns:
  *      0:                Success.
- *      DSP_EDCDNOAUTOREGISTER: Unable to find auto-registration section.
+ *      -EACCES: Unable to find auto-registration section.
  *      -EACCES:       Unable to read object code section.
  *      -EACCES:       Unable to load code base.
  *      -EFAULT:            Invalid DCD_HMANAGER handle..
@@ -60,7 +60,7 @@ extern dsp_status dcd_auto_register(IN struct dcd_manager *hdcd_mgr,
  *                              DCD objects to be unregistered.
  *  Returns:
  *      0:                Success.
- *      DSP_EDCDNOAUTOREGISTER: Unable to find auto-registration section.
+ *      -EACCES: Unable to find auto-registration section.
  *      -EACCES:       Unable to read object code section.
  *      -EACCES:       Unable to load code base.
  *      -EFAULT:            Invalid DCD_HMANAGER handle..
@@ -289,7 +289,7 @@ extern dsp_status dcd_get_object_def(IN struct dcd_manager *hdcd_mgr,
  *      handle:                 Handle to pass to callback.
  *  Returns:
  *      0:                Success.
- *      DSP_EDCDNOAUTOREGISTER: Unable to find .dcd_register section.
+ *      -EACCES: Unable to find .dcd_register section.
  *      -EACCES:       Unable to read object code section.
  *      -EACCES:       Unable to load code base.
  *      -EFAULT:            Invalid DCD_HMANAGER handle..

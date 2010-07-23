@@ -563,7 +563,7 @@ dsp_status dcd_get_objects(IN struct dcd_manager *hdcd_mgr,
 	/* Get DCD_RESIGER_SECTION section information. */
 	status = cod_get_section(lib, DCD_REGISTER_SECTION, &ul_addr, &ul_len);
 	if (DSP_FAILED(status) || !(ul_len > 0)) {
-		status = DSP_EDCDNOAUTOREGISTER;
+		status = -EACCES;
 		goto func_cont;
 	}
 

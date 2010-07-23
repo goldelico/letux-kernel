@@ -905,13 +905,13 @@ dsp_status proc_load(void *hprocessor, IN CONST s32 argc_index,
 		if (DSP_SUCCEEDED(status)) {
 			/*  Auto register nodes in specified COFF
 			 *  file.  If registration did not fail,
-			 *  (status = 0 or DSP_EDCDNOAUTOREGISTER)
+			 *  (status = 0 or -EACCES)
 			 *  save the name of the COFF file for
 			 *  de-registration in the future. */
 			status =
 			    dcd_auto_register(hdcd_handle,
 					      (char *)user_args[0]);
-			if (status == DSP_EDCDNOAUTOREGISTER)
+			if (status == -EACCES)
 				status = 0;
 
 			if (DSP_FAILED(status)) {
