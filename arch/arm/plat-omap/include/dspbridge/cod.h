@@ -87,7 +87,7 @@ extern void cod_close(struct cod_libraryobj *lib);
  *  Returns:
  *      0:                Success.
  *      COD_E_NOZLFUNCTIONS:    Could not initialize ZL functions.
- *      COD_E_ZLCREATEFAILED:   ZL_Create failed.
+ *      -ESPIPE:   ZL_Create failed.
  *      -ENOSYS:           attrs was not NULL.  We don't yet support
  *                              non default values of attrs.
  *  Requires:

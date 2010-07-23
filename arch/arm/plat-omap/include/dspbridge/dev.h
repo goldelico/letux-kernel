@@ -84,7 +84,7 @@ extern u32 dev_brd_write_fxn(void *pArb,
  *      LDR_E_NOMEMORY:         PELDR is out of resources.
  *      -EPERM:              Unable to find WMD entry point function.
  *      COD_E_NOZLFUNCTIONS:    One or more ZL functions exports not found.
- *      COD_E_ZLCREATEFAILED:   Unable to load ZL DLL.
+ *      -ESPIPE:   Unable to load ZL DLL.
  *  Requires:
  *      DEV Initialized.
  *      phDevObject != NULL.
@@ -126,7 +126,7 @@ extern dsp_status dev_create_device(OUT struct dev_object
  *      LDR_E_NOMEMORY:         PELDR is out of resources.
  *      -EPERM:              Unable to find WMD entry point function.
  *      COD_E_NOZLFUNCTIONS:    One or more ZL functions exports not found.
- *      COD_E_ZLCREATEFAILED:   Unable to load ZL DLL.
+ *      -ESPIPE:   Unable to load ZL DLL.
  *  Requires:
  *      DEV Initialized.
  *      phDevObject != NULL.

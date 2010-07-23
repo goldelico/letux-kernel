@@ -268,7 +268,7 @@ dsp_status cod_create(OUT struct cod_manager **phMgr, char *pstrDummyFile,
 
 	if (DSP_FAILED(status)) {
 		cod_delete(mgr_new);
-		return COD_E_ZLCREATEFAILED;
+		return -ESPIPE;
 	}
 
 	/* return the new manager */
