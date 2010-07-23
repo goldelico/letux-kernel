@@ -299,7 +299,7 @@ typedef bool(*dbll_get_c_addr_fxn) (struct dbll_library_obj *lib, char *name,
  *      psize           - Location to store section size on output.
  *  Returns:
  *      0:        Success.
- *      DSP_ENOSECT:    Section not found.
+ *      -ENXIO:    Section not found.
  *  Requires:
  *      DBL initialized.
  *      Valid lib.
@@ -359,7 +359,7 @@ typedef dsp_status(*dbll_load_fxn) (struct dbll_library_obj *lib,
  *      attrs           - Contains write function and handle to pass to it.
  *  Returns:
  *      0:        Success.
- *      DSP_ENOSECT:    Section not found.
+ *      -ENXIO:    Section not found.
  *      DSP_EFWRITE:    Write function failed.
  *      -ENOSYS:   Function not implemented.
  *  Requires:
@@ -412,7 +412,7 @@ typedef dsp_status(*dbll_open_fxn) (struct dbll_tar_obj *target, char *file,
  *      size            - Buffer size
  *  Returns:
  *      0:        Success.
- *      DSP_ENOSECT:    Named section does not exists.
+ *      -ENXIO:    Named section does not exists.
  *  Requires:
  *      DBL initialized.
  *      Valid lib.
@@ -465,7 +465,7 @@ typedef void (*dbll_unload_fxn) (struct dbll_library_obj *library,
  *      attrs           - Contains free() function and handle to pass to it.
  *  Returns:
  *      0:        Success.
- *      DSP_ENOSECT:    Named section not found.
+ *      -ENXIO:    Named section not found.
  *      -ENOSYS
  *  Requires:
  *      DBL initialized.

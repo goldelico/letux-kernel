@@ -420,7 +420,7 @@ dsp_status dbll_get_sect(struct dbll_library_obj *lib, char *name, u32 *paddr,
 			/* Align size */
 			*psize = DOFF_ALIGN(*psize);
 		} else {
-			status = DSP_ENOSECT;
+			status = -ENXIO;
 		}
 	}
 	if (opened_doff) {
@@ -765,7 +765,7 @@ dsp_status dbll_read_sect(struct dbll_library_obj *lib, char *name,
 
 	byte_size = 1;
 	if (!dload_get_section_info(zl_lib->desc, name, &sect)) {
-		status = DSP_ENOSECT;
+		status = -ENXIO;
 		goto func_cont;
 	}
 	/*
