@@ -1149,14 +1149,13 @@ int hdmi_lib_enable(struct hdmi_config *cfg)
 	VideoInterfaceParam.timingMode = 1 ; /* HDMI_TIMING_MASTER_24BIT */
 
 	hdmi_w1_video_config_interface(&VideoInterfaceParam);
+	if (omap_rev() == OMAP4430_REV_ES1_0) {
+		val = hdmi_read_reg(HDMI_WP, HDMI_WP_VIDEO_SIZE);
 
-	/* hnagalla */
-	val = hdmi_read_reg(HDMI_WP, HDMI_WP_VIDEO_SIZE);
-
-	val &= 0x0FFFFFFF;
-	val |= ((0x1f) << 27); /* wakeup */
-	hdmi_write_reg(HDMI_WP, HDMI_WP_VIDEO_SIZE, val);
-
+		val &= 0x0FFFFFFF;
+		val |= ((0x1f) << 27); /* wakeup */
+		hdmi_write_reg(HDMI_WP, HDMI_WP_VIDEO_SIZE, val);
+	}
 	hdmi_w1_audio_config();
 
 	/****************************** CORE *******************************/
@@ -1174,7 +1173,10 @@ int hdmi_lib_enable(struct hdmi_config *cfg)
 	audio_cfg.fs = 0x02;
 	audio_cfg.if_fs = 0x00;
 	audio_cfg.n = 6144;
-	audio_cfg.cts = 74250;
+	if (omap_rev() == OMAP4430_REV_ES1_0)
+		audio_cfg.cts = 74250;
+	else
+		audio_cfg.cts = 148500;
 
 	/* audio channel */
 	audio_cfg.if_sample_size = 0x0;
