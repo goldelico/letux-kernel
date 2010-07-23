@@ -575,7 +575,7 @@ func_cont:
 				 * strm_mgr_obj->hchnl_mgr better be valid or we
 				 * assert here), and then return -EPERM.
 				 */
-				DBC_ASSERT(status == CHNL_E_OUTOFSTREAMS ||
+				DBC_ASSERT(status == -ENOSR ||
 					   status == CHNL_E_BADCHANID ||
 					   status == -EALREADY ||
 					   status == CHNL_E_NOIORPS);

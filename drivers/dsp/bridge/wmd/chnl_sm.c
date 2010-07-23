@@ -1004,7 +1004,7 @@ static struct chnl_irp *make_new_chirp(void)
 static dsp_status search_free_channel(struct chnl_mgr *chnl_mgr_obj,
 				      OUT u32 *pdwChnl)
 {
-	dsp_status status = CHNL_E_OUTOFSTREAMS;
+	dsp_status status = -ENOSR;
 	u32 i;
 
 	DBC_REQUIRE(chnl_mgr_obj);
