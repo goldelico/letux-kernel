@@ -395,7 +395,7 @@ typedef void (*fxn_deh_notify) (struct deh_mgr *hdeh_mgr,
  *      -ENOSR:    No free channels available.
  *      -ECHRNG:       Channel ID is out of range.
  *      -EALREADY:        Channel is in use.
- *      CHNL_E_NOIORPS:         No free IO request packets available for
+ *      -EIO:         No free IO request packets available for
  *                              queuing.
  *  Requires:
  *      phChnl != NULL.

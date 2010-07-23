@@ -188,7 +188,7 @@ func_cont:
 		chnl_packet_obj =
 		    (struct chnl_irp *)lst_get_head(pchnl->free_packets_list);
 		if (chnl_packet_obj == NULL)
-			status = CHNL_E_NOIORPS;
+			status = -EIO;
 
 	}
 	if (DSP_SUCCEEDED(status)) {

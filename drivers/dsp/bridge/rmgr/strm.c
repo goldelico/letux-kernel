@@ -439,7 +439,7 @@ dsp_status strm_issue(struct strm_object *hStrm, IN u8 *pbuf, u32 ul_bytes,
 			    (hStrm->chnl_obj, pbuf, ul_bytes, ul_buf_size,
 			     (u32) tmp_buf, dw_arg);
 		}
-		if (status == CHNL_E_NOIORPS)
+		if (status == -EIO)
 			status = -ENOSR;
 	}
 
@@ -578,7 +578,7 @@ func_cont:
 				DBC_ASSERT(status == -ENOSR ||
 					   status == -ECHRNG ||
 					   status == -EALREADY ||
-					   status == CHNL_E_NOIORPS);
+					   status == -EIO);
 				status = -EPERM;
 			}
 		}
