@@ -517,7 +517,7 @@ dsp_status bridge_chnl_flush_io(struct chnl_object *chnl_obj, u32 dwTimeOut)
 					continue;
 
 				if (chnl_ioc_obj.status & CHNL_IOCSTATTIMEOUT)
-					status = CHNL_E_WAITTIMEOUT;
+					status = -ETIMEDOUT;
 
 			}
 		} else {

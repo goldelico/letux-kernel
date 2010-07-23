@@ -610,7 +610,7 @@ typedef dsp_status(*fxn_chnl_getmgrinfo) (struct chnl_mgr
  *  Returns:
  *      0:            Success;
  *      -EFAULT:        Invalid chnl_obj.
- *      CHNL_E_WAITTIMEOUT: Timeout occured before channel could be idled.
+ *      -ETIMEDOUT: Timeout occured before channel could be idled.
  *  Requires:
  *  Ensures:
  */
