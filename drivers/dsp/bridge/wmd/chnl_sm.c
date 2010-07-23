@@ -113,7 +113,7 @@ dsp_status bridge_chnl_add_io_req(struct chnl_object *chnl_obj, void *pHostBuf,
 	} else if (!pchnl) {
 		status = -EFAULT;
 	} else if (is_eos && CHNL_IS_INPUT(pchnl->chnl_mode)) {
-		status = CHNL_E_NOEOS;
+		status = -EPERM;
 	} else {
 		/* Check the channel state: only queue chirp if channel state
 		 * allows */

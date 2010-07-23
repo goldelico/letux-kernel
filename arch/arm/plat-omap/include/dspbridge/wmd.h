@@ -452,7 +452,7 @@ typedef dsp_status(*fxn_chnl_close) (struct chnl_object *chnl_obj);
  *      0:        Success;
  *      -EFAULT:    Invalid chnl_obj.
  *      -EFAULT:   pHostBuf is invalid.
- *      CHNL_E_NOEOS:   User cannot mark EOS on an input channel.
+ *      -EPERM:   User cannot mark EOS on an input channel.
  *      -ECANCELED: I/O has been cancelled on this channel.  No further
  *                      I/O is allowed.
  *      -EPIPE:     End of stream was already marked on a previous
