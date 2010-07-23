@@ -576,7 +576,7 @@ func_cont:
 				 * assert here), and then return -EPERM.
 				 */
 				DBC_ASSERT(status == -ENOSR ||
-					   status == CHNL_E_BADCHANID ||
+					   status == -ECHRNG ||
 					   status == -EALREADY ||
 					   status == CHNL_E_NOIORPS);
 				status = -EPERM;

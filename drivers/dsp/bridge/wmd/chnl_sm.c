@@ -736,7 +736,7 @@ dsp_status bridge_chnl_get_mgr_info(struct chnl_mgr *hchnl_mgr, u32 uChnlID,
 				status = -EFAULT;
 			}
 		} else {
-			status = CHNL_E_BADCHANID;
+			status = -ECHRNG;
 		}
 	} else {
 		status = -EFAULT;
@@ -802,7 +802,7 @@ dsp_status bridge_chnl_open(OUT struct chnl_object **phChnl,
 		} else {
 			if (uChnlId != CHNL_PICKFREE) {
 				if (uChnlId >= chnl_mgr_obj->max_channels)
-					status = CHNL_E_BADCHANID;
+					status = -ECHRNG;
 				else if (chnl_mgr_obj->ap_channel[uChnlId] !=
 					 NULL)
 					status = -EALREADY;

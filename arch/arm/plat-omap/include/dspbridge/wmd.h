@@ -393,7 +393,7 @@ typedef void (*fxn_deh_notify) (struct deh_mgr *hdeh_mgr,
  *      -ENOMEM:            Insufficient memory for requested resources.
  *      -EINVAL:        Invalid number of IOReqs.
  *      -ENOSR:    No free channels available.
- *      CHNL_E_BADCHANID:       Channel ID is out of range.
+ *      -ECHRNG:       Channel ID is out of range.
  *      -EALREADY:        Channel is in use.
  *      CHNL_E_NOIORPS:         No free IO request packets available for
  *                              queuing.
@@ -577,7 +577,7 @@ typedef dsp_status(*fxn_chnl_getinfo) (struct chnl_object *chnl_obj,
  *      0:            Success;
  *      -EFAULT:        Invalid hchnl_mgr.
  *      -EFAULT:       pMgrInfo == NULL.
- *      CHNL_E_BADCHANID:   Invalid channel ID.
+ *      -ECHRNG:   Invalid channel ID.
  *  Requires:
  *  Ensures:
  *      0:            pMgrInfo points to a filled in chnl_mgrinfo
