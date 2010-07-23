@@ -337,7 +337,7 @@ int drv_create(OUT struct drv_object **phDRVObject)
 		status = cfg_set_object((u32) pdrv_object, REG_DRV_OBJECT);
 	if (DSP_SUCCEEDED(status)) {
 		*phDRVObject = pdrv_object;
-	} else {
+	} else if (pdrv_object) {
 		kfree(pdrv_object->dev_list);
 		kfree(pdrv_object->dev_node_string);
 		/* Free the DRV Object */
