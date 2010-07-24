@@ -250,6 +250,10 @@ int sysipc_ioctl(struct inode *inode, struct file *filp,
 				struct sysipc_cmd_args *temp = kmalloc(
 						sizeof(struct sysipc_cmd_args),
 						GFP_KERNEL);
+				if (WARN_ON(!temp)) {
+					status = -ENOMEM;
+					goto exit;
+				}
 				temp->args.control.cmd_id =
 						IPC_CONTROLCMD_STOPCALLBACK;
 				temp->args.control.proc_id = id;

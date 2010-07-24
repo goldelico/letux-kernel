@@ -43,26 +43,30 @@ static struct resource_info *find_messageq_resource(
 	list_for_each_entry(info, &pr_ctxt->resources, res) {
 		struct messageq_cmd_args *args =
 					(struct messageq_cmd_args *)info->data;
-		void *handle = NULL;
-		void *t_handle = NULL;
-		if (cargs != NULL && args != NULL) {
-			handle = args->args.delete_messageq.messageq_handle;
-			t_handle = cargs->args.delete_messageq.messageq_handle;
-		}
 		if (info->cmd == cmd) {
 			switch (cmd) {
 			case CMD_MESSAGEQ_DELETE:
 			{
-				if (t_handle == handle)
-					found = true;
+				void *handle = NULL;
+				void *t_handle = NULL;
+				if (cargs != NULL && args != NULL) {
+					handle = args->args.delete_messageq.
+							messageq_handle;
+					t_handle = cargs->args.delete_messageq.
+							messageq_handle;
+					if (t_handle == handle)
+						found = true;
+				}
 				break;
 			}
 			case CMD_MESSAGEQ_CLOSE:
 			{
-				u16 q_id = args->args.close.queue_id;
-				u16 temp = cargs->args.close.queue_id;
-				if (temp == q_id)
-					found = true;
+				if (cargs != NULL && args != NULL) {
+					u16 q_id = args->args.close.queue_id;
+					u16 temp = cargs->args.close.queue_id;
+					if (temp == q_id)
+						found = true;
+				}
 				break;
 			}
 			case CMD_MESSAGEQ_DESTROY:
@@ -72,10 +76,14 @@ static struct resource_info *find_messageq_resource(
 			}
 			case CMD_MESSAGEQ_UNREGISTERHEAP:
 			{
-				u16 h_id = args->args.unregister_heap.heap_id;
-				u16 temp = cargs->args.unregister_heap.heap_id;
-				if (temp == h_id)
-					found = true;
+				if (cargs != NULL && args != NULL) {
+					u16 h_id = args->args.unregister_heap.
+									heap_id;
+					u16 temp = cargs->args.unregister_heap.
+									heap_id;
+					if (temp == h_id)
+						found = true;
+				}
 				break;
 			}
 			}
@@ -568,6 +576,10 @@ int messageq_ioctl(struct inode *inode, struct file *filp,
 			struct messageq_cmd_args *temp = kmalloc(
 					sizeof(struct messageq_cmd_args),
 					GFP_KERNEL);
+			if (WARN_ON(!temp)) {
+				status = -ENOMEM;
+				goto exit;
+			}
 			temp->args.delete_messageq.messageq_handle =
 					cargs.args.create.messageq_handle;
 			add_pr_res(pr_ctxt, CMD_MESSAGEQ_DELETE, (void *)temp);
@@ -591,6 +603,10 @@ int messageq_ioctl(struct inode *inode, struct file *filp,
 			struct messageq_cmd_args *temp = kmalloc(
 					sizeof(struct messageq_cmd_args),
 					GFP_KERNEL);
+			if (WARN_ON(!temp)) {
+				status = -ENOMEM;
+				goto exit;
+			}
 			temp->args.close.queue_id = cargs.args.open.queue_id;
 			add_pr_res(pr_ctxt, CMD_MESSAGEQ_CLOSE, (void *)temp);
 		}
@@ -634,6 +650,11 @@ int messageq_ioctl(struct inode *inode, struct file *filp,
 			struct messageq_cmd_args *temp = kmalloc(
 					sizeof(struct messageq_cmd_args),
 					GFP_KERNEL);
+			if (WARN_ON(!temp)) {
+				status = -ENOMEM;
+				goto exit;
+			}
+
 			temp->args.unregister_heap.heap_id =
 					cargs.args.register_heap.heap_id;
 			add_pr_res(pr_ctxt, CMD_MESSAGEQ_UNREGISTERHEAP,
@@ -666,6 +687,7 @@ int messageq_ioctl(struct inode *inode, struct file *filp,
 
 	default:
 		WARN_ON(cmd);
+		cargs.api_status = -EFAULT;
 		status = -ENOTTY;
 		break;
 	}

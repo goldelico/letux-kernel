@@ -194,6 +194,7 @@ int multiproc_ioctl(struct inode *inode, struct file *filp,
 
 	default:
 		WARN_ON(cmd);
+		cargs.api_status = -EFAULT;
 		status = -ENOTTY;
 		break;
 	}

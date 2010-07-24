@@ -550,6 +550,10 @@ int listmp_ioctl(struct inode *inode, struct file *filp,
 			struct listmp_cmd_args *temp = kmalloc(
 					sizeof(struct listmp_cmd_args),
 					GFP_KERNEL);
+			if (WARN_ON(!temp)) {
+				status = -ENOMEM;
+				goto exit;
+			}
 			temp->args.delete_instance.listmp_handle =
 						cargs.args.create.listmp_handle;
 			add_pr_res(pr_ctxt, CMD_LISTMP_DELETE, (void *)temp);

@@ -515,6 +515,10 @@ int sharedregion_ioctl(struct inode *inode, struct file *filp,
 			struct sharedregion_cmd_args *temp =
 				kmalloc(sizeof(struct sharedregion_cmd_args),
 					GFP_KERNEL);
+			if (WARN_ON(!temp)) {
+				status = -ENOMEM;
+				goto exit;
+			}
 			temp->args.clear_entry.id = cargs.args.set_entry.id;
 			add_pr_res(pr_ctxt, CMD_SHAREDREGION_CLEARENTRY, temp);
 		}

@@ -270,7 +270,7 @@ exit:
 /* ioctl interface to gatemp_open_by_addr function */
 static int gatemp_ioctl_open_by_addr(struct gatemp_cmd_args *cargs)
 {
-	void *shared_addr;
+	void *shared_addr = NULL;
 	void *handle = NULL;
 	s32 status = 0;
 
@@ -366,6 +366,10 @@ int gatemp_ioctl(struct inode *inode, struct file *filp,
 			struct gatemp_cmd_args *temp = kmalloc(
 					sizeof(struct gatemp_cmd_args),
 					GFP_KERNEL);
+			if (WARN_ON(!temp)) {
+				status = -ENOMEM;
+				goto exit;
+			}
 			temp->args.delete_instance.handle =
 						cargs.args.create.handle;
 			add_pr_res(pr_ctxt, CMD_GATEMP_DELETE, (void *)temp);

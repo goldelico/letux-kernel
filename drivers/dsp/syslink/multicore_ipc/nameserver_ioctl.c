@@ -606,6 +606,10 @@ int nameserver_ioctl(struct inode *inode, struct file *filp,
 			struct nameserver_cmd_args *temp = kmalloc(
 					sizeof(struct nameserver_cmd_args),
 					GFP_KERNEL);
+			if (WARN_ON(!temp)) {
+				status = -ENOMEM;
+				goto exit;
+			}
 			temp->args.delete_instance.handle =
 						cargs.args.create.handle;
 			add_pr_res(pr_ctxt, CMD_NAMESERVER_DELETE,
@@ -647,6 +651,7 @@ int nameserver_ioctl(struct inode *inode, struct file *filp,
 
 	default:
 		WARN_ON(cmd);
+		cargs.api_status = -EFAULT;
 		status = -ENOTTY;
 		break;
 	}

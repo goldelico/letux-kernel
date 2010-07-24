@@ -80,7 +80,7 @@ static int heapbufmp_ioctl_alloc(struct heapbufmp_cmd_args *cargs)
 {
 	u32 *block_srptr = SHAREDREGION_INVALIDSRPTR;
 	void *block;
-	s32 index;
+	s32 index = SHAREDREGION_INVALIDREGIONID;
 	s32 status = 0;
 
 	block = heapbufmp_alloc(cargs->args.alloc.handle,
@@ -452,6 +452,10 @@ int heapbufmp_ioctl(struct inode *pinode, struct file *filp,
 			struct heapbufmp_cmd_args *temp =
 				kmalloc(sizeof(struct heapbufmp_cmd_args),
 						GFP_KERNEL);
+			if (WARN_ON(!temp)) {
+				status = -ENOMEM;
+				goto exit;
+			}
 			temp->args.delete.handle = cargs.args.create.handle;
 			add_pr_res(pr_ctxt, CMD_HEAPBUFMP_DELETE, temp);
 		}

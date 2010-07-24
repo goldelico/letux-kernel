@@ -76,10 +76,9 @@ static int heapmemmp_ioctl_alloc(struct heapmemmp_cmd_args *cargs)
 {
 	u32 *block_srptr = SHAREDREGION_INVALIDSRPTR;
 	void *block;
-	s32 index;
+	s32 index = SHAREDREGION_INVALIDREGIONID;
 	s32 status = 0;
 
-	printk(KERN_ERR "heapmemmp_ioctl_alloc: heapmemmp_alloc\n");
 	block = heapmemmp_alloc(cargs->args.alloc.handle,
 				cargs->args.alloc.size,
 				cargs->args.alloc.align);
@@ -466,6 +465,10 @@ int heapmemmp_ioctl(struct inode *pinode, struct file *filp,
 			struct heapmemmp_cmd_args *temp = kmalloc(
 					sizeof(struct heapmemmp_cmd_args),
 					GFP_KERNEL);
+			if (WARN_ON(!temp)) {
+				status = -ENOMEM;
+				goto exit;
+			}
 			temp->args.delete.handle = cargs.args.create.handle;
 			add_pr_res(pr_ctxt, CMD_HEAPMEMMP_DELETE, (void *)temp);
 		}
