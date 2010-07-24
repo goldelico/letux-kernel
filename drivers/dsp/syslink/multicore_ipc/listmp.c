@@ -737,8 +737,11 @@ void *listmp_get_head(void *listmp_handle)
 	if (local_head_next != (struct listmp_elem *)&obj->attrs->head) {
 		/* Elem to return */
 		elem = local_head_next;
-		WARN_ON(elem == NULL);
 		dsb();
+		if (WARN_ON(elem == NULL)) {
+			retval = -EFAULT;
+			goto gate_leave_and_exit;
+		}
 #if 0
 		if (unlikely(obj->cache_enabled)) {
 			Cache_inv((void *)local_head_next,
@@ -747,7 +750,10 @@ void *listmp_get_head(void *listmp_handle)
 		}
 #endif
 		local_next = sharedregion_get_ptr((u32 *)elem->next);
-		WARN_ON(local_next == NULL);
+		if (WARN_ON(local_next == NULL)) {
+			retval = -EFAULT;
+			goto gate_leave_and_exit;
+		}
 
 		/* Fix the head of the list next pointer */
 		obj->attrs->head.next = elem->next;
@@ -765,6 +771,8 @@ void *listmp_get_head(void *listmp_handle)
 		}
 #endif
 	}
+
+gate_leave_and_exit:
 	gatemp_leave(obj->gatemp_handle, key);
 
 exit:
@@ -816,7 +824,10 @@ void *listmp_get_tail(void *listmp_handle)
 	if (local_head_prev != (struct listmp_elem *)&obj->attrs->head) {
 		/* Elem to return */
 		elem = local_head_prev;
-		WARN_ON(elem == NULL);
+		if (WARN_ON(elem == NULL)) {
+			retval = -EFAULT;
+			goto gate_leave_and_exit;
+		}
 #if 0
 		if (unlikely(obj->cache_enabled)) {
 			Cache_inv((void *)local_head_prev,
@@ -825,10 +836,14 @@ void *listmp_get_tail(void *listmp_handle)
 		}
 #endif
 		local_prev = sharedregion_get_ptr((u32 *)elem->prev);
-		WARN_ON(local_prev == NULL);
+		if (WARN_ON(local_prev == NULL)) {
+			retval = -EFAULT;
+			goto gate_leave_and_exit;
+		}
 
 		/* Fix the head of the list prev pointer */
 		obj->attrs->head.prev = elem->prev;
+
 		/* Fix the next pointer of the new last elem on the list */
 		local_prev->next = local_head_prev->next;
 #if 0
@@ -842,6 +857,8 @@ void *listmp_get_tail(void *listmp_handle)
 		}
 #endif
 	}
+
+gate_leave_and_exit:
 	gatemp_leave(obj->gatemp_handle, key);
 
 exit:
@@ -896,7 +913,10 @@ int listmp_put_head(void *listmp_handle, struct listmp_elem *elem)
 	elem->next = obj->attrs->head.next;
 	dsb();
 	local_next_elem = sharedregion_get_ptr((u32 *)elem->next);
-	WARN_ON(local_next_elem == NULL);
+	if (WARN_ON(local_next_elem == NULL)) {
+		status = -EFAULT;
+		goto gate_leave_and_exit;
+	}
 #if 0
 	if (unlikely(obj->cache_enabled)) {
 		Cache_inv((void *)local_next_elem,
@@ -918,6 +938,8 @@ int listmp_put_head(void *listmp_handle, struct listmp_elem *elem)
 			sizeof(struct listmp_elem), Cache_Type_ALL, true);
 	}
 #endif
+
+gate_leave_and_exit:
 	gatemp_leave(obj->gatemp_handle, key);
 
 exit:
@@ -969,10 +991,18 @@ int listmp_put_tail(void *listmp_handle, struct listmp_elem *elem)
 			sizeof(struct listmp_elem), Cache_Type_ALL, true);
 	}
 #endif
+	if (WARN_ON(obj->attrs == NULL)) {
+		status = -EFAULT;
+		goto gate_leave_and_exit;
+	}
+
 	elem->prev = obj->attrs->head.prev;
 	dsb();
 	local_prev_elem = sharedregion_get_ptr((u32 *)elem->prev);
-	WARN_ON(local_prev_elem == NULL);
+	if (WARN_ON(local_prev_elem == NULL)) {
+		status = -EFAULT;
+		goto gate_leave_and_exit;
+	}
 	dsb();
 #if 0
 	if (unlikely(obj->cache_enabled)) {
@@ -996,6 +1026,8 @@ int listmp_put_tail(void *listmp_handle, struct listmp_elem *elem)
 			sizeof(struct listmp_elem), Cache_Type_ALL, true);
 	}
 #endif
+
+gate_leave_and_exit:
 	gatemp_leave(obj->gatemp_handle, key);
 
 exit:
@@ -1056,7 +1088,10 @@ int listmp_insert(void *listmp_handle, struct listmp_elem *new_elem,
 	}
 #endif
 	local_prev_elem = sharedregion_get_ptr((u32 *)cur_elem->prev);
-	WARN_ON(local_prev_elem == NULL);
+	if (WARN_ON(local_prev_elem == NULL)) {
+		status = -EFAULT;
+		goto gate_leave_and_exit;
+	}
 	dsb();
 #if 0
 	if (unlikely(obj->cache_enabled)) {
@@ -1081,6 +1116,8 @@ int listmp_insert(void *listmp_handle, struct listmp_elem *new_elem,
 			sizeof(struct listmp_elem), Cache_Type_ALL, true);
 	}
 #endif
+
+gate_leave_and_exit:
 	gatemp_leave(obj->gatemp_handle, key);
 
 exit:
@@ -1123,6 +1160,10 @@ int listmp_remove(void *listmp_handle, struct listmp_elem *elem)
 	local_prev_elem = sharedregion_get_ptr((u32 *)elem->prev);
 	local_next_elem = sharedregion_get_ptr((u32 *)elem->next);
 	dsb();
+	if (WARN_ON((local_next_elem == NULL) || (local_prev_elem == NULL))) {
+		status = -EFAULT;
+		goto gate_leave_and_exit;
+	}
 #if 0
 	if (unlikely(obj->cache_enabled)) {
 		/* Need to do cache operations */
@@ -1143,6 +1184,8 @@ int listmp_remove(void *listmp_handle, struct listmp_elem *elem)
 			sizeof(struct listmp_elem), Cache_Type_ALL, true);
 	}
 #endif
+
+gate_leave_and_exit:
 	gatemp_leave(obj->gatemp_handle, key);
 
 exit:
@@ -1393,8 +1436,8 @@ static int _listmp_create(struct listmp_object **handle_ptr,
 				true);
 		}
 #endif
-		if (obj->params.name != NULL) {
-			name_len = strlen(obj->params.name) + 1;
+		if (params->name != NULL) {
+			name_len = strlen(params->name) + 1;
 			/* Copy the name */
 			obj->params.name = kmalloc(name_len, GFP_KERNEL);
 			if (obj->params.name == NULL) {

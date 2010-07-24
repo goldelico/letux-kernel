@@ -536,6 +536,7 @@ int _heapmemmp_create(void **handle_ptr, const struct heapmemmp_params *params,
 	return retval;
 
 error:
+	handle_ptr = (void *)handle;
 	/* Do whatever cleanup is required*/
 	if (create_flag == true)
 		heapmemmp_delete(handle_ptr);
@@ -1498,6 +1499,7 @@ heapmemmp_open_by_addr(void *shared_addr, void **handle_ptr)
 
 	/* First check in the local list */
 	list_for_each(elem, (struct list_head *)&heapmemmp_module->obj_list) {
+		obj = (struct heapmemmp_obj *)elem;
 		if (obj->params.shared_addr == shared_addr) {
 			retval = mutex_lock_interruptible(heapmemmp_module->
 								local_lock);
@@ -1535,7 +1537,6 @@ heapmemmp_open_by_addr(void *shared_addr, void **handle_ptr)
 		}
 
 		retval = _heapmemmp_create(handle_ptr, &params, false);
-
 		if (unlikely(retval < 0))
 			goto error;
 	}
@@ -1544,7 +1545,6 @@ heapmemmp_open_by_addr(void *shared_addr, void **handle_ptr)
 error:
 	printk(KERN_ERR "heapmemmp_open_by_addr status: %x\n",
 		retval);
-
 	return retval;
 }
 

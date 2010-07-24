@@ -564,6 +564,8 @@ int _heapbufmp_create(void **handle_ptr, const struct heapbufmp_params *params,
 
 
 error:
+	*handle_ptr = (void *)handle;
+
 	/* Do whatever cleanup is required*/
 	if (create_flag == true)
 		heapbufmp_delete(handle_ptr);

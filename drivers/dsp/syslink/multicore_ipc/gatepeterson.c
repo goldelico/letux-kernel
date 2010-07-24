@@ -222,7 +222,7 @@ EXPORT_SYMBOL(gatepeterson_setup);
  */
 int gatepeterson_destroy(void)
 {
-	struct gatepeterson_object *obj = NULL;
+	struct gatepeterson_object *obj = NULL, *n;
 	struct mutex *lock = NULL;
 	s32 retval = 0;
 	int *key = 0;
@@ -247,7 +247,7 @@ int gatepeterson_destroy(void)
 	/* Check if any gatepeterson instances have not been
 	*  ideleted/closed so far, if there any, delete or close them
 	*/
-	list_for_each_entry(obj, &gatepeterson_module->obj_list, elem) {
+	list_for_each_entry_safe(obj, n, &gatepeterson_module->obj_list, elem) {
 		gatepeterson_delete((void **)&obj);
 
 		if (list_empty(&gatepeterson_module->obj_list))

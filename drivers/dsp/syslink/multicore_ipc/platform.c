@@ -968,7 +968,7 @@ platform_setup(void)
 	if (status >= 0) {
 		memset(platform_objects, 0,
 			(sizeof(struct platform_object) * \
-				multiproc_get_num_processors()));
+				MULTIPROC_MAXPROCESSORS));
 	}
 
 
@@ -1292,7 +1292,7 @@ platform_destroy(void)
 		memset(platform_objects,
 			0,
 			(sizeof(struct platform_object) *
-				multiproc_get_num_processors()));
+				MULTIPROC_MAXPROCESSORS));
 
 	return status;
 }
@@ -1322,6 +1322,10 @@ s32 _platform_setup(void)
 
 	/* Get MultiProc ID by name. */
 	proc_id = multiproc_get_id("SysM3");
+	if (proc_id >= MULTIPROC_MAXPROCESSORS) {
+		printk(KERN_ERR "multi proc returned invalid proc id\n");
+		goto multiproc_id_fail;
+	}
 	handle = &platform_objects[proc_id];
 
 	/* Create an instance of the Processor object for OMAP4430 */
@@ -1356,6 +1360,10 @@ s32 _platform_setup(void)
 	/* Create the AppM3 ProcMgr object */
 	/* Get MultiProc ID by name. */
 	proc_id = multiproc_get_id("AppM3");
+	if (proc_id >= MULTIPROC_MAXPROCESSORS) {
+		printk(KERN_ERR "multi proc returned invalid proc id\n");
+		goto proc_mgr_create_fail;
+	}
 	handle = &platform_objects[proc_id];
 
 	/* Create an instance of the Processor object for OMAP4430 */
@@ -1386,6 +1394,7 @@ s32 _platform_setup(void)
 	 * ProcMgr_attach from the userspace */
 	return status;
 
+multiproc_id_fail:
 proc_create_fail:
 proc_mgr_create_fail:
 	/* Clean up created objects */

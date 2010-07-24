@@ -223,6 +223,11 @@ int ipc_attach(u16 remote_proc_id)
 	VOLATILE struct ipc_reserved *slave;
 	struct ipc_proc_entry *ipc;
 
+	if (remote_proc_id >= MULTIPROC_MAXPROCESSORS) {
+		printk(KERN_ERR "Invalid remote_proc_id passed\n");
+		return IPC_E_FAIL;
+	}
+
 	/* determine if self is master or slave */
 	if (multiproc_self() < remote_proc_id)
 		ipc_module->proc_entry[remote_proc_id].slave = true;

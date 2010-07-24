@@ -481,7 +481,7 @@ int nameserver_remotenotify_get(void *rhandle, const char *instance_name,
 	/* Pend on the semaphore */
 	retval = down_interruptible(obj->sem_handle);
 	if (retval)
-		goto exit;
+		goto down_error;
 
 	key = gatemp_enter(obj->gatemp);
 
@@ -515,10 +515,10 @@ request_error:
 	obj->msg[offset]->request = 0;
 	obj->msg[offset]->response = 0;
 	gatemp_leave(obj->gatemp, key);
-exit:
+down_error:
 	/* un-block so that subsequent requests can be honored */
 	mutex_unlock(obj->local_gate);
-
+exit:
 	if (retval < 0)
 		printk(KERN_ERR "nameserver_remotenotify_get failed! "
 			"status = 0x%x", retval);
@@ -720,7 +720,7 @@ EXPORT_SYMBOL(nameserver_remotenotify_delete);
 uint nameserver_remotenotify_shared_mem_req(const
 			struct nameserver_remotenotify_params *params)
 {
-	uint total_size;
+	uint total_size = 0;
 
 	/* params is not used- to remove warning. */
 	(void)params;

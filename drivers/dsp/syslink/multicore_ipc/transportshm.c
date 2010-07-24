@@ -440,13 +440,7 @@ int transportshm_delete(void **handle_ptr)
 	int tmp_status = 0;
 	struct transportshm_object *handle;
 	u16 proc_id;
-
 	u32 key;
-
-	key = mutex_lock_interruptible(transportshm_state.gate_handle);
-
-	if (key < 0)
-		goto mutex_fail;
 
 	if (WARN_ON(atomic_cmpmask_and_lt(
 			&(transportshm_module->ref_count),
@@ -455,7 +449,6 @@ int transportshm_delete(void **handle_ptr)
 		status = -ENODEV;
 		goto exit;
 	}
-
 	if (WARN_ON(handle_ptr == NULL)) {
 		status = -EINVAL;
 		goto exit;
@@ -467,34 +460,36 @@ int transportshm_delete(void **handle_ptr)
 		goto exit;
 	}
 
-	handle = (struct transportshm_object *) (*handle_ptr);
+	key = mutex_lock_interruptible(transportshm_state.gate_handle);
+	if (key < 0)
+		goto exit;
 
+	handle = (struct transportshm_object *) (*handle_ptr);
 	if (handle != NULL) {
-		proc_id = handle->self->creator_proc_id;
-		/* Clear handle in the local array */
-		transportshm_module->
-			transports[proc_id][handle->priority] = NULL;
 		if (handle->self != NULL) {
+			proc_id = handle->self->creator_proc_id;
+			/* Clear handle in the local array */
+			transportshm_module->
+				transports[proc_id][handle->priority] = NULL;
 			/* clear the self flag */
 			handle->self->flag = 0;
 #if 0
 			if (EXPECT_FALSE(handle->cache_enabled)) {
 				Cache_wbinv((Ptr)&(handle->self->flag),
 					sharedregion_get_cache_line_size(
-							handle->region_id),
-					Cache_Type_ALL,
-					true);
+						handle->region_id),
+						Cache_Type_ALL,
+						true);
 			}
 #endif
 		}
 
 		if (handle->local_list != NULL) {
 			status = listmp_delete(&handle->local_list);
-
 			if (status < 0)
 				printk(KERN_WARNING "transportshm_delete: "
-					"Failed to delete local listmp "
-					"instance!\n");
+						"Failed to delete local listmp "
+						"instance!\n");
 		}
 
 		if (handle->remote_list != NULL) {
@@ -502,8 +497,8 @@ int transportshm_delete(void **handle_ptr)
 			if ((tmp_status < 0) && (status >= 0)) {
 				status = tmp_status;
 				printk(KERN_WARNING "transportshm_delete: "
-					"Failed to close remote listmp "
-					"instance!\n");
+						"Failed to close remote listmp "
+						"instance!\n");
 			}
 		}
 
@@ -511,24 +506,22 @@ int transportshm_delete(void **handle_ptr)
 				remote_proc_id, handle->params.priority);
 
 		tmp_status = notify_unregister_event_single(handle->
-							remote_proc_id,
+						remote_proc_id,
 						0,
 						handle->notify_event_id);
 		if (tmp_status < 0) {
 			status = tmp_status;
 			printk(KERN_WARNING "transportshm_delete: Failed to "
-				"unregister notify event!\n");
+					"unregister notify event!\n");
 		}
 
 		kfree(handle);
 		*handle_ptr = NULL;
 	}
-
+	mutex_unlock(transportshm_state.gate_handle);
 	return status;
 
 exit:
-	mutex_unlock(transportshm_state.gate_handle);
-mutex_fail:
 	if (status < 0)
 		printk(KERN_ERR "transportshm_delete failed: "
 			"status = 0x%x\n", status);

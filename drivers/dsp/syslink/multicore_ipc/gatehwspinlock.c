@@ -364,7 +364,7 @@ void *gatehwspinlock_create(enum igatempsupport_local_protect local_protect,
 	obj->local_gate = gatemp_create_local(local_protect);
 	if (obj->local_gate == NULL) {
 		retval = GATEHWSPINLOCK_E_FAIL;
-		goto exit;
+		goto free_obj;
 	}
 
 	obj->lock_num = params->resource_id;

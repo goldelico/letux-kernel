@@ -108,11 +108,10 @@ int sharedregion_setup(const struct sharedregion_config *config)
 		sharedregion_get_config(&tmpcfg);
 		config = &tmpcfg;
 	}
-	if (config != NULL) {
-		if (WARN_ON(config->num_entries == 0)) {
-			retval = -EINVAL;
-			goto error;
-		}
+
+	if (WARN_ON(config->num_entries == 0)) {
+		retval = -EINVAL;
+		goto error;
 	}
 
 	memcpy(&sharedregion_module->cfg, config,

@@ -829,7 +829,7 @@ int messageq_get(void *messageq_handle, messageq_msg *msg,
 	}
 
 exit:
-	if (unlikely((messageq_module->cfg.trace_flag == true) || \
+	if (unlikely((messageq_module->cfg.trace_flag == true) && \
 		((*msg != NULL) && \
 		(((*msg)->flags & MESSAGEQ_TRACEMASK) != 0)))) {
 		printk(KERN_INFO "messageq_get: *msg = 0x%x seq_num = 0x%x "
