@@ -38,7 +38,7 @@
 #include <plat/gpio.h>
 
 #include "clock2xxx.h"
-#include "clock34xx.h"
+#include "clock3xxx.h"
 #include "clock44xx.h"
 
 #include <plat/omap-pm.h>
