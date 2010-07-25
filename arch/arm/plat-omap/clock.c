@@ -323,12 +323,12 @@ void clk_enable_init_clocks(void)
  */
 struct clk *omap_clk_get_by_name(const char *name)
 {
-       struct clk *c;
-       struct clk *ret = NULL;
+	struct clk *c;
+	struct clk *ret = NULL;
 
-       mutex_lock(&clocks_mutex);
+	mutex_lock(&clocks_mutex);
 
-       list_for_each_entry(c, &clocks, node) {
+	list_for_each_entry(c, &clocks, node) {
 		if (!strcmp(c->name, name)) {
 			ret = c;
 			break;
