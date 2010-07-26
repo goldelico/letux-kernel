@@ -81,6 +81,7 @@
 #define ROUND_UP(a, b)	(((a) + ((b) - 1)) & (~((b) - 1)))
 
 static struct omap_mbox *ducati_mbox;
+static struct omap_mbox *tesla_mbox;
 static int notify_ducatidrv_isr(void *ntfy_msg);
 static bool notify_ducatidrv_isr_callback(void *ref_data, void* ntfy_msg);
 
@@ -222,12 +223,23 @@ int notify_ducatidrv_setup(struct notify_ducatidrv_config *cfg)
 	if (ducati_mbox == NULL) {
 		ducati_mbox = omap_mbox_get("mailbox-2");
 		if (ducati_mbox == NULL) {
-			printk(KERN_ERR "Failed in omap_mbox_get()\n");
+			printk(KERN_ERR "Failed in omap_mbox_get(ducati)\n");
 			status = NOTIFY_E_INVALIDSTATE;
 			goto error_mailbox_get_failed;
 		}
 		ducati_mbox->rxq->callback =
 				(int (*)(void *))notify_ducatidrv_isr;
+	}
+
+	/* Initialize the maibox module for Tesla */
+	if (!tesla_mbox) {
+		tesla_mbox = omap_mbox_get("mailbox-1");
+		if (!tesla_mbox) {
+			printk(KERN_ERR "Failed in omap_mbox_get(tesla)\n");
+			status = NOTIFY_E_INVALIDSTATE;
+			goto error_mailbox_get_failed;
+		}
+		tesla_mbox->rxq->callback = notify_ducatidrv_isr;
 	}
 	return 0;
 
@@ -284,6 +296,10 @@ int notify_ducatidrv_destroy(void)
 	omap_mbox_put(ducati_mbox);
 	ducati_mbox = NULL;
 
+	/* Finalize the maibox module for Tesla */
+	omap_mbox_put(tesla_mbox);
+	tesla_mbox = NULL;
+
 exit:
 	if (status < 0) {
 		printk(KERN_ERR "notify_ducatidrv_destroy failed! "
@@ -331,6 +347,7 @@ struct notify_ducatidrv_object *notify_ducatidrv_create(
 	struct notify_ducatidrv_object *obj = NULL;
 	struct notify_driver_object *drv_handle = NULL;
 	struct notify_driver_fxn_table fxn_table;
+	struct omap_mbox *mbox;
 	u32 i;
 	u16 region_id;
 	uint region_cache_size;
@@ -363,6 +380,8 @@ struct notify_ducatidrv_object *notify_ducatidrv_create(
 		status = NOTIFY_E_INVALIDARG;
 		goto exit;
 	}
+
+	mbox = (params->remote_proc_id) ? ducati_mbox : tesla_mbox;
 
 	status = mutex_lock_interruptible(
 				notify_ducatidriver_state.gate_handle);
@@ -489,7 +508,7 @@ struct notify_ducatidrv_object *notify_ducatidrv_create(
 
 	/*Set up the ISR on the MPU-Ducati FIFO */
 	if (atomic_inc_return(&(notify_ducatidriver_state.mbox_ref_count)) == 1)
-		omap_mbox_enable_irq(ducati_mbox, IRQ_RX);
+		omap_mbox_enable_irq(mbox, IRQ_RX);
 	obj->self_proc_ctrl->recv_init_status = NOTIFYDUCATIDRIVER_INIT_STAMP;
 	obj->self_proc_ctrl->send_init_status = NOTIFYDUCATIDRIVER_INIT_STAMP;
 
@@ -548,6 +567,7 @@ int notify_ducatidrv_delete(struct notify_ducatidrv_object **handle_ptr)
 	int status = NOTIFY_S_SUCCESS;
 	int tmp_status = NOTIFY_S_SUCCESS;
 	struct notify_ducatidrv_object *obj = NULL;
+	struct omap_mbox *mbox;
 
 	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
 			&(notify_ducatidriver_state.ref_count),
@@ -568,10 +588,11 @@ int notify_ducatidrv_delete(struct notify_ducatidrv_object **handle_ptr)
 
 	obj = (struct notify_ducatidrv_object *)(*handle_ptr);
 	if (obj != NULL) {
+		mbox = (obj->remote_proc_id) ? ducati_mbox : tesla_mbox;
 		/* Uninstall the ISRs & Disable the Mailbox interrupt.*/
 		if (atomic_dec_and_test(
 			&(notify_ducatidriver_state.mbox_ref_count)))
-			omap_mbox_disable_irq(ducati_mbox, IRQ_RX);
+			omap_mbox_disable_irq(mbox, IRQ_RX);
 
 		if (obj->self_proc_ctrl != NULL) {
 			/* Clear initialization status in shared memory. */
@@ -801,6 +822,7 @@ int notify_ducatidrv_send_event(struct notify_driver_object *handle,
 {
 	int status = NOTIFY_S_SUCCESS;
 	struct notify_ducatidrv_object *obj;
+	struct omap_mbox *mbox;
 	VOLATILE struct notify_ducatidrv_event_entry *event_entry;
 	int max_poll_count;
 	int i = 0;
@@ -826,6 +848,8 @@ int notify_ducatidrv_send_event(struct notify_driver_object *handle,
 
 	obj = (struct notify_ducatidrv_object *)
 				handle->notify_handle->driver_handle;
+
+	mbox = (obj->remote_proc_id) ? ducati_mbox : tesla_mbox;
 	if (WARN_ON(unlikely(obj->reg_chart == NULL))) {
 		status = NOTIFY_E_FAIL;
 		goto exit;
@@ -927,7 +951,7 @@ int notify_ducatidrv_send_event(struct notify_driver_object *handle,
 		/* Send an interrupt with the event information to the
 		 * remote processor */
 		msg = ((obj->remote_proc_id << 16) | event_id);
-		status = omap_mbox_msg_send(ducati_mbox, msg);
+		status = omap_mbox_msg_send(mbox, msg);
 
 		/* Leave critical section protection. */
 		mutex_unlock(notify_ducatidriver_state.gate_handle);
@@ -946,6 +970,7 @@ int notify_ducatidrv_disable(struct notify_driver_object *handle)
 {
 	int status = NOTIFY_S_SUCCESS;
 	struct notify_ducatidrv_object *obj;
+	struct omap_mbox *mbox;
 
 	/* All the below parameter checking is unnecessary, but added to
 	 * make sure the driver object is initialized properly */
@@ -969,13 +994,15 @@ int notify_ducatidrv_disable(struct notify_driver_object *handle)
 
 	obj = (struct notify_ducatidrv_object *)
 				handle->notify_handle->driver_handle;
+
+	mbox = (obj->remote_proc_id) ? ducati_mbox : tesla_mbox;
 	if (WARN_ON(unlikely(obj->reg_chart == NULL))) {
 		status = NOTIFY_E_FAIL;
 		goto exit;
 	}
 
 	/* Disable the mailbox interrupt associated with ducati mailbox */
-	omap_mbox_disable_irq(ducati_mbox, IRQ_RX);
+	omap_mbox_disable_irq(mbox, IRQ_RX);
 
 exit:
 	if (status < 0) {
@@ -992,6 +1019,7 @@ void notify_ducatidrv_enable(struct notify_driver_object *handle)
 {
 	int status = NOTIFY_S_SUCCESS;
 	struct notify_ducatidrv_object *obj;
+	struct omap_mbox *mbox;
 
 	/* All the below parameter checking is unnecessary, but added to
 	 * make sure the driver object is initialized properly */
@@ -1015,13 +1043,15 @@ void notify_ducatidrv_enable(struct notify_driver_object *handle)
 
 	obj = (struct notify_ducatidrv_object *)
 				handle->notify_handle->driver_handle;
+
+	mbox = (obj->remote_proc_id) ? ducati_mbox : tesla_mbox;
 	if (WARN_ON(unlikely(obj->reg_chart == NULL))) {
 		status = NOTIFY_E_FAIL;
 		goto exit;
 	}
 
 	/*Enable the receive interrupt for ducati */
-	omap_mbox_enable_irq(ducati_mbox, IRQ_RX);
+	omap_mbox_enable_irq(mbox, IRQ_RX);
 
 exit:
 	if (status < 0) {
