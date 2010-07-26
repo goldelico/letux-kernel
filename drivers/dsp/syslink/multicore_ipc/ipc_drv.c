@@ -24,8 +24,10 @@
 #include <linux/moduleparam.h>
 #include <linux/cdev.h>
 #include <linux/uaccess.h>
-
+#include <linux/slab.h>
+#include <linux/notifier.h>
 #include <ipc_ioctl.h>
+#include <ipc.h>
 #include <drv_notify.h>
 #include <nameserver.h>
 
@@ -38,6 +40,8 @@
 
 struct ipc_device {
 	struct cdev cdev;
+
+	struct blocking_notifier_head	notifier;
 };
 
 struct ipc_device *ipc_device;
@@ -100,6 +104,8 @@ int ipc_release(struct inode *inode, struct file *filp)
 		goto err;
 	}
 
+	ipc_notify_event(IPC_CLOSE, (void *)NULL);
+
 	pr_ctxt = filp->private_data;
 
 	list_for_each_entry_safe(info, temp, &pr_ctxt->resources, res) {
@@ -152,6 +158,39 @@ const struct file_operations ipc_fops = {
 	.read = notify_drv_read,
 	.mmap = notify_drv_mmap,
 };
+
+/*
+ * ======== ipc_notify_event ========
+ *  IPC event notifications.
+ */
+int ipc_notify_event(int event, void *data)
+{
+	return blocking_notifier_call_chain(&ipc_device->notifier, event, data);
+}
+
+/*
+ * ======== ipc_register_notifier ========
+ *  Register for IPC events.
+ */
+int ipc_register_notifier(struct notifier_block *nb)
+{
+	if (!nb)
+		return -EINVAL;
+	return blocking_notifier_chain_register(&ipc_device->notifier, nb);
+}
+EXPORT_SYMBOL_GPL(ipc_register_notifier);
+
+/*
+ * ======== ipc_unregister_notifier ========
+ *  Un-register for IPC events.
+ */
+int ipc_unregister_notifier(struct notifier_block *nb)
+{
+	if (!nb)
+		return -EINVAL;
+	return blocking_notifier_chain_unregister(&ipc_device->notifier, nb);
+}
+EXPORT_SYMBOL_GPL(ipc_unregister_notifier);
 
 /*
  * ======== ipc_modules_init ========
@@ -207,6 +246,9 @@ static int __init ipc_init(void)
 	}
 
 	memset(ipc_device, 0, sizeof(struct ipc_device));
+
+	BLOCKING_INIT_NOTIFIER_HEAD(&ipc_device->notifier);
+
 	retval = ipc_modules_init();
 	if (retval) {
 		printk(KERN_ERR "ipc_init: ipc initialization failed\n");

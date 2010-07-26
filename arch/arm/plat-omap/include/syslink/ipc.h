@@ -119,6 +119,8 @@ struct ipc_params {
 	enum ipc_proc_sync proc_sync;
 };
 
+/* IPC events. */
+#define IPC_CLOSE      0
 
 /* =============================================================================
  * APIs
@@ -163,5 +165,13 @@ int ipc_write_config(u16 remote_proc_id, u32 tag, void *cfg, u32 size);
 /* Clears memory, deletes  default gatemp and heapmemmp */
 int ipc_stop(void);
 
+/* IPC event notifications. */
+int ipc_notify_event(int event, void *data);
+
+/* Register for IPC events. */
+int ipc_register_notifier(struct notifier_block *nb);
+
+/* Un-register for IPC events. */
+int ipc_unregister_notifier(struct notifier_block *nb);
 
 #endif /* ifndef _IPC_H_ */
