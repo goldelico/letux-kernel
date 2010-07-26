@@ -44,6 +44,7 @@ static struct platform_driver omap_rproc_driver;
 
 int rproc_start(struct omap_rproc *rproc, const void __user *arg)
 {
+	int ret;
 	struct omap_rproc_platform_data *pdata;
 	struct omap_rproc_start_args start_args;
 
@@ -60,12 +61,24 @@ int rproc_start(struct omap_rproc *rproc, const void __user *arg)
 	if (copy_from_user(&start_args, arg, sizeof(start_args)))
 		return -EFAULT;
 #endif
-	return pdata->ops->start(rproc->dev, start_args.start_addr);
+	ret = mutex_lock_interruptible(&rproc->lock);
+	if (ret)
+		return ret;
+
+	ret = pdata->ops->start(rproc->dev, start_args.start_addr);
+
+	if (!ret)
+		omap_rproc_notify_event(rproc, OMAP_RPROC_START, NULL);
+
+	mutex_unlock(&rproc->lock);
+
+	return ret;
 }
 EXPORT_SYMBOL_GPL(rproc_start);
 
 int rproc_stop(struct omap_rproc *rproc)
 {
+	int ret;
 	struct omap_rproc_platform_data *pdata;
 	if (!rproc->dev)
 		return -EINVAL;
@@ -74,7 +87,18 @@ int rproc_stop(struct omap_rproc *rproc)
 	if (!pdata->ops)
 		return -EINVAL;
 
-	return pdata->ops->stop(rproc);
+	ret = mutex_lock_interruptible(&rproc->lock);
+	if (ret)
+		return ret;
+
+	ret = pdata->ops->stop(rproc->dev);
+
+	if (!ret)
+		omap_rproc_notify_event(rproc, OMAP_RPROC_STOP, NULL);
+
+	mutex_unlock(&rproc->lock);
+
+	return ret;
 }
 EXPORT_SYMBOL_GPL(rproc_stop);
 
@@ -90,6 +114,30 @@ static inline int rproc_get_state(struct omap_rproc *rproc)
 
 	return pdata->ops->get_state(rproc);
 }
+
+int omap_rproc_notify_event(struct omap_rproc *rproc, int event, void *data)
+{
+	return blocking_notifier_call_chain(&rproc->notifier, event, data);
+}
+
+int omap_rproc_register_notifier(struct omap_rproc *rproc,
+						struct notifier_block *nb)
+{
+	if (!nb)
+		return -EINVAL;
+	return blocking_notifier_chain_register(&rproc->notifier, nb);
+}
+EXPORT_SYMBOL_GPL(omap_rproc_register_notifier);
+
+int omap_rproc_unregister_notifier(struct omap_rproc *rproc,
+						struct notifier_block *nb)
+{
+	if (!nb)
+		return -EINVAL;
+	return blocking_notifier_chain_unregister(&rproc->notifier, nb);
+}
+EXPORT_SYMBOL_GPL(omap_rproc_unregister_notifier);
+
 static int omap_rproc_open(struct inode *inode, struct file *filp)
 {
 	int ret = 0;
@@ -230,6 +278,9 @@ static int omap_rproc_probe(struct platform_device *pdev)
 	rproc->minor = minor;
 	atomic_set(&rproc->count, 0);
 	rproc->name = pdata->name;
+
+	mutex_init(&rproc->lock);
+	BLOCKING_INIT_NOTIFIER_HEAD(&rproc->notifier);
 
 	cdev_init(&rproc->cdev, &omap_rproc_fops);
 	rproc->cdev.owner = THIS_MODULE;
