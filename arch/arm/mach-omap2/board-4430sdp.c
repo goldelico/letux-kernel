@@ -945,6 +945,12 @@ static const struct ehci_hcd_omap_platform_data ehci_pdata __initconst = {
 	.reset_gpio_port[2]  = -EINVAL
 };
 
+static const struct ohci_hcd_omap_platform_data ohci_pdata __initconst = {
+	.port_mode[0] = OMAP_OHCI_PORT_MODE_UNUSED,
+	.port_mode[1] = OMAP_OHCI_PORT_MODE_PHY_6PIN_DATSE0,
+	.port_mode[2] = OMAP_OHCI_PORT_MODE_UNUSED,
+};
+
 static struct omap_musb_board_data musb_board_data = {
 	.interface_type         = MUSB_INTERFACE_UTMI,
 #ifdef CONFIG_USB_MUSB_OTG
@@ -1083,6 +1089,7 @@ static void __init omap_4430sdp_init(void)
 		gpio_direction_output(OMAP4SDP_MDM_PWR_EN_GPIO, 1);
 	}
 	usb_ehci_init(&ehci_pdata);
+	usb_ohci_init(&ohci_pdata);
 
 	usb_nop_xceiv_register();
 	usb_musb_init(&musb_board_data);
