@@ -96,6 +96,21 @@ static inline int ipu_pm_get_regulator(int proc_id, u32 rcb_num);
 /* Function to get Aux clk */
 static inline int ipu_pm_get_aux_clk(int proc_id, u32 rcb_num);
 
+/* Function to get sys m3 */
+static inline int ipu_pm_get_sys_m3(int proc_id, u32 rcb_num);
+
+/* Function to get app m3 */
+static inline int ipu_pm_get_app_m3(int proc_id, u32 rcb_num);
+
+/* Function to get L3 Bus */
+static inline int ipu_pm_get_l3_bus(int proc_id, u32 rcb_num);
+
+/* Function to get IVA HD */
+static inline int ipu_pm_get_iva_hd(int proc_id, u32 rcb_num);
+
+/* Function to get ISS */
+static inline int ipu_pm_get_iss(int proc_id, u32 rcb_num);
+
 /* Function to release sdma channels to PRCM */
 static inline int ipu_pm_rel_sdma_chan(int proc_id, u32 rcb_num);
 
@@ -114,6 +129,20 @@ static inline int ipu_pm_rel_regulator(int proc_id, u32 rcb_num);
 /* Function to release auxiliar clock */
 static inline int ipu_pm_rel_aux_clk(int proc_id, u32 rcb_num);
 
+/* Function to release sys m3 */
+static inline int ipu_pm_rel_sys_m3(int proc_id, u32 rcb_num);
+
+/* Function to release app m3 */
+static inline int ipu_pm_rel_app_m3(int proc_id, u32 rcb_num);
+
+/* Function to release L3 Bus */
+static inline int ipu_pm_rel_l3_bus(int proc_id, u32 rcb_num);
+
+/* Function to release IVA HD */
+static inline int ipu_pm_rel_iva_hd(int proc_id, u32 rcb_num);
+
+/* Function to release ISS */
+static inline int ipu_pm_rel_iss(int proc_id, u32 rcb_num);
 
 /** ============================================================================
  *  Globals
@@ -160,6 +189,11 @@ static struct ipu_pm_params pm_params = {
 	.pm_sdmachan_counter = 0,
 	.pm_regulator_counter = 0,
 	.pm_aux_clk_counter = 0,
+	.pm_sys_m3_counter = 0,
+	.pm_app_m3_counter = 0,
+	.pm_l3_bus_counter = 0,
+	.pm_iva_hd_counter = 0,
+	.pm_iss_counter = 0,
 	.shared_addr = NULL,
 	.timeout = 10000,
 	.pm_num_events = NUMBER_PM_EVENTS,
@@ -197,9 +231,21 @@ static inline int ipu_pm_req_res(u32 res_type, u32 proc_id, u32 rcb_num)
 	case AUX_CLK:
 		return_val = ipu_pm_get_aux_clk(proc_id, rcb_num);
 		break;
-	case DUCATI:
+	case SYSM3:
+		return_val = ipu_pm_get_sys_m3(proc_id, rcb_num);
+		break;
+	case APPM3:
+		return_val = ipu_pm_get_app_m3(proc_id, rcb_num);
+		break;
+	case L3_BUS:
+		return_val = ipu_pm_get_l3_bus(proc_id, rcb_num);
+		break;
 	case IVA_HD:
+		return_val = ipu_pm_get_iva_hd(proc_id, rcb_num);
+		break;
 	case ISS:
+		return_val = ipu_pm_get_iss(proc_id, rcb_num);
+		break;
 	default:
 		printk(KERN_ERR "Unsupported resource\n");
 		return_val = PM_UNSUPPORTED;
@@ -235,9 +281,21 @@ static inline int ipu_pm_rel_res(u32 res_type, u32 proc_id, u32 rcb_num)
 	case AUX_CLK:
 		return_val = ipu_pm_rel_aux_clk(proc_id, rcb_num);
 		break;
-	case DUCATI:
+	case SYSM3:
+		return_val = ipu_pm_rel_sys_m3(proc_id, rcb_num);
+		break;
+	case APPM3:
+		return_val = ipu_pm_rel_app_m3(proc_id, rcb_num);
+		break;
+	case L3_BUS:
+		return_val = ipu_pm_rel_l3_bus(proc_id, rcb_num);
+		break;
 	case IVA_HD:
+		return_val = ipu_pm_rel_iva_hd(proc_id, rcb_num);
+		break;
 	case ISS:
+		return_val = ipu_pm_rel_iss(proc_id, rcb_num);
+		break;
 	default:
 		printk(KERN_ERR "Unsupported resource\n");
 		return_val = PM_UNSUPPORTED;
@@ -798,6 +856,161 @@ static inline int ipu_pm_get_aux_clk(int proc_id, u32 rcb_num)
 }
 
 /*
+  Function to get sys m3
+ *
+ */
+static inline int ipu_pm_get_sys_m3(int proc_id, u32 rcb_num)
+{
+	struct ipu_pm_object *handle;
+	struct ipu_pm_params *params;
+	struct rcb_block *rcb_p;
+
+	/* get the handle to proper ipu pm object */
+	handle = ipu_pm_get_handle(proc_id);
+	if (WARN_ON(unlikely(handle == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	params = handle->params;
+	if (WARN_ON(unlikely(params == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	/* Get pointer to the proper RCB */
+	if (WARN_ON((rcb_num < RCB_MIN) || (rcb_num > RCB_MAX)))
+		return PM_INVAL_RCB_NUM;
+	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
+
+	printk(KERN_INFO "Request SYS M3\n");
+
+	params->pm_sys_m3_counter++;
+
+	return PM_SUCCESS;
+}
+
+/*
+  Function to get app m3
+ *
+ */
+static inline int ipu_pm_get_app_m3(int proc_id, u32 rcb_num)
+{
+	struct ipu_pm_object *handle;
+	struct ipu_pm_params *params;
+	struct rcb_block *rcb_p;
+
+	/* get the handle to proper ipu pm object */
+	handle = ipu_pm_get_handle(proc_id);
+	if (WARN_ON(unlikely(handle == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	params = handle->params;
+	if (WARN_ON(unlikely(params == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	/* Get pointer to the proper RCB */
+	if (WARN_ON((rcb_num < RCB_MIN) || (rcb_num > RCB_MAX)))
+		return PM_INVAL_RCB_NUM;
+	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
+
+	printk(KERN_INFO "Request APP M3\n");
+
+	params->pm_app_m3_counter++;
+
+	return PM_SUCCESS;
+}
+
+/*
+  Function to get L3 Bus
+ *
+ */
+static inline int ipu_pm_get_l3_bus(int proc_id, u32 rcb_num)
+{
+	struct ipu_pm_object *handle;
+	struct ipu_pm_params *params;
+	struct rcb_block *rcb_p;
+
+	/* get the handle to proper ipu pm object */
+	handle = ipu_pm_get_handle(proc_id);
+	if (WARN_ON(unlikely(handle == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	params = handle->params;
+	if (WARN_ON(unlikely(params == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	/* Get pointer to the proper RCB */
+	if (WARN_ON((rcb_num < RCB_MIN) || (rcb_num > RCB_MAX)))
+		return PM_INVAL_RCB_NUM;
+	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
+
+	printk(KERN_INFO "Request L3 BUS\n");
+
+	params->pm_l3_bus_counter++;
+
+	return PM_SUCCESS;
+}
+
+/*
+  Function to get IVA HD
+ *
+ */
+static inline int ipu_pm_get_iva_hd(int proc_id, u32 rcb_num)
+{
+	struct ipu_pm_object *handle;
+	struct ipu_pm_params *params;
+	struct rcb_block *rcb_p;
+
+	/* get the handle to proper ipu pm object */
+	handle = ipu_pm_get_handle(proc_id);
+	if (WARN_ON(unlikely(handle == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	params = handle->params;
+	if (WARN_ON(unlikely(params == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	/* Get pointer to the proper RCB */
+	if (WARN_ON((rcb_num < RCB_MIN) || (rcb_num > RCB_MAX)))
+		return PM_INVAL_RCB_NUM;
+	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
+
+	printk(KERN_INFO "Request IVA_HD\n");
+
+	params->pm_iva_hd_counter++;
+
+	return PM_SUCCESS;
+}
+
+/*
+  Function to get ISS
+ *
+ */
+static inline int ipu_pm_get_iss(int proc_id, u32 rcb_num)
+{
+	struct ipu_pm_object *handle;
+	struct ipu_pm_params *params;
+	struct rcb_block *rcb_p;
+
+	/* get the handle to proper ipu pm object */
+	handle = ipu_pm_get_handle(proc_id);
+	if (WARN_ON(unlikely(handle == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	params = handle->params;
+	if (WARN_ON(unlikely(params == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	/* Get pointer to the proper RCB */
+	if (WARN_ON((rcb_num < RCB_MIN) || (rcb_num > RCB_MAX)))
+		return PM_INVAL_RCB_NUM;
+	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
+
+	printk(KERN_INFO "Request ISS\n");
+
+	params->pm_iss_counter++;
+
+	return PM_SUCCESS;
+}
+
+/*
   Function to release sdma channels to PRCM
  *
  */
@@ -1043,6 +1256,162 @@ static inline int ipu_pm_rel_aux_clk(int proc_id, u32 rcb_num)
 
 	rcb_p->mod_base_addr = 0;
 	params->pm_aux_clk_counter--;
+
+	return PM_SUCCESS;
+}
+
+/*
+  Function to release sys m3
+ *
+ */
+static inline int ipu_pm_rel_sys_m3(int proc_id, u32 rcb_num)
+{
+	struct ipu_pm_object *handle;
+	struct ipu_pm_params *params;
+	struct rcb_block *rcb_p;
+
+	/* get the handle to proper ipu pm object */
+	handle = ipu_pm_get_handle(proc_id);
+	if (WARN_ON(unlikely(handle == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	params = handle->params;
+	if (WARN_ON(unlikely(params == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	/* Get pointer to the proper RCB */
+	if (WARN_ON((rcb_num < RCB_MIN) || (rcb_num > RCB_MAX)))
+		return PM_INVAL_RCB_NUM;
+	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
+
+	printk(KERN_INFO "Release SYS M3\n");
+
+	params->pm_sys_m3_counter--;
+
+	return PM_SUCCESS;
+}
+
+/*
+  Function to release app m3
+ *
+ */
+static inline int ipu_pm_rel_app_m3(int proc_id, u32 rcb_num)
+{
+	struct ipu_pm_object *handle;
+	struct ipu_pm_params *params;
+	struct rcb_block *rcb_p;
+
+	/* get the handle to proper ipu pm object */
+	handle = ipu_pm_get_handle(proc_id);
+	if (WARN_ON(unlikely(handle == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	params = handle->params;
+	if (WARN_ON(unlikely(params == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	/* Get pointer to the proper RCB */
+	if (WARN_ON((rcb_num < RCB_MIN) || (rcb_num > RCB_MAX)))
+		return PM_INVAL_RCB_NUM;
+	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
+
+	printk(KERN_INFO "Release APP M3\n");
+
+	params->pm_app_m3_counter--;
+
+	return PM_SUCCESS;
+}
+
+/*
+  Function to release L3 Bus
+ *
+ */
+static inline int ipu_pm_rel_l3_bus(int proc_id, u32 rcb_num)
+{
+	struct ipu_pm_object *handle;
+	struct ipu_pm_params *params;
+	struct rcb_block *rcb_p;
+
+	/* get the handle to proper ipu pm object */
+	handle = ipu_pm_get_handle(proc_id);
+	if (WARN_ON(unlikely(handle == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	params = handle->params;
+	if (WARN_ON(unlikely(params == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	/* Get pointer to the proper RCB */
+	if (WARN_ON((rcb_num < RCB_MIN) || (rcb_num > RCB_MAX)))
+		return PM_INVAL_RCB_NUM;
+	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
+
+	printk(KERN_INFO "Release L3 BUS\n");
+
+	params->pm_l3_bus_counter--;
+
+	return PM_SUCCESS;
+
+}
+
+/*
+  Function to release IVA HD
+ *
+ */
+static inline int ipu_pm_rel_iva_hd(int proc_id, u32 rcb_num)
+{
+	struct ipu_pm_object *handle;
+	struct ipu_pm_params *params;
+	struct rcb_block *rcb_p;
+
+	/* get the handle to proper ipu pm object */
+	handle = ipu_pm_get_handle(proc_id);
+	if (WARN_ON(unlikely(handle == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	params = handle->params;
+	if (WARN_ON(unlikely(params == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	/* Get pointer to the proper RCB */
+	if (WARN_ON((rcb_num < RCB_MIN) || (rcb_num > RCB_MAX)))
+		return PM_INVAL_RCB_NUM;
+	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
+
+	printk(KERN_INFO "Release IVA_HD\n");
+
+	params->pm_iva_hd_counter--;
+
+	return PM_SUCCESS;
+}
+
+/*
+  Function to release ISS
+ *
+ */
+static inline int ipu_pm_rel_iss(int proc_id, u32 rcb_num)
+{
+	struct ipu_pm_object *handle;
+	struct ipu_pm_params *params;
+	struct rcb_block *rcb_p;
+
+	/* get the handle to proper ipu pm object */
+	handle = ipu_pm_get_handle(proc_id);
+	if (WARN_ON(unlikely(handle == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	params = handle->params;
+	if (WARN_ON(unlikely(params == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	/* Get pointer to the proper RCB */
+	if (WARN_ON((rcb_num < RCB_MIN) || (rcb_num > RCB_MAX)))
+		return PM_INVAL_RCB_NUM;
+	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
+
+	printk(KERN_INFO "Release ISS\n");
+
+	params->pm_iss_counter--;
 
 	return PM_SUCCESS;
 }

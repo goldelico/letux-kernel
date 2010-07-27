@@ -213,7 +213,6 @@ enum pm_regulator_action{PM_SET_VOLTAGE,
 };
 
 enum res_type{
-	DUCATI = 0,
 	IVA_HD,
 	ISS,
 	SDMA,
@@ -221,7 +220,10 @@ enum res_type{
 	GP_IO,
 	I2C,
 	REGULATOR,
-	AUX_CLK
+	AUX_CLK,
+	SYSM3,
+	APPM3,
+	L3_BUS,
 };
 
 enum pm_event_type{PM_SUSPEND,
@@ -283,6 +285,11 @@ struct ipu_pm_params {
 	int pm_i2c_bus_counter;
 	int pm_regulator_counter;
 	int pm_aux_clk_counter;
+	int pm_sys_m3_counter;
+	int pm_app_m3_counter;
+	int pm_l3_bus_counter;
+	int pm_iva_hd_counter;
+	int pm_iss_counter;
 	int timeout;
 	void *shared_addr;
 	int shared_addr_size;
