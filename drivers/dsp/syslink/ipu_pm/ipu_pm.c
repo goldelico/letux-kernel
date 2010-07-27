@@ -39,6 +39,7 @@
 #include <plat/dmtimer.h>
 #include <plat/clock.h>
 #include <plat/i2c.h>
+#include <plat/io.h>
 #include <linux/i2c.h>
 #include <linux/gpio.h>
 #include <linux/semaphore.h>
@@ -92,6 +93,9 @@ static inline int ipu_pm_get_gpio(int proc_id, u32 rcb_num);
 /* Function to get regulators from PRCM */
 static inline int ipu_pm_get_regulator(int proc_id, u32 rcb_num);
 
+/* Function to get Aux clk */
+static inline int ipu_pm_get_aux_clk(int proc_id, u32 rcb_num);
+
 /* Function to release sdma channels to PRCM */
 static inline int ipu_pm_rel_sdma_chan(int proc_id, u32 rcb_num);
 
@@ -107,6 +111,9 @@ static inline int ipu_pm_rel_gpio(int proc_id, u32 rcb_num);
 /* Function to release regulators to PRCM */
 static inline int ipu_pm_rel_regulator(int proc_id, u32 rcb_num);
 
+/* Function to release auxiliar clock */
+static inline int ipu_pm_rel_aux_clk(int proc_id, u32 rcb_num);
+
 /* Function to get ipu pm object */
 static inline struct ipu_pm_object *ipu_pm_get_handle(int proc_id);
 
@@ -118,6 +125,7 @@ static inline struct ipu_pm_object *ipu_pm_get_handle(int proc_id);
 /* Usage Masks */
 static u32 GPTIMER_USE_MASK = 0xFFFF;
 static u32 I2C_USE_MASK = 0xFFFF;
+static u32 AUX_CLK_USE_MASK = 0xFFFF;
 static u32 cam2_prev_volt;
 
 static struct ipu_pm_object *pm_handle_appm3;
@@ -153,6 +161,7 @@ static struct ipu_pm_params pm_params = {
 	.pm_i2c_bus_counter = 0,
 	.pm_sdmachan_counter = 0,
 	.pm_regulator_counter = 0,
+	.pm_aux_clk_counter = 0,
 	.shared_addr = NULL,
 	.timeout = 10000,
 	.pm_num_events = NUMBER_PM_EVENTS,
@@ -186,6 +195,9 @@ static inline int ipu_pm_req_res(u32 res_type, u32 proc_id, u32 rcb_num)
 		break;
 	case REGULATOR:
 		return_val = ipu_pm_get_regulator(proc_id, rcb_num);
+		break;
+	case AUX_CLK:
+		return_val = ipu_pm_get_aux_clk(proc_id, rcb_num);
 		break;
 	case DUCATI:
 	case IVA_HD:
@@ -221,6 +233,9 @@ static inline int ipu_pm_rel_res(u32 res_type, u32 proc_id, u32 rcb_num)
 		break;
 	case REGULATOR:
 		return_val = ipu_pm_rel_regulator(proc_id, rcb_num);
+		break;
+	case AUX_CLK:
+		return_val = ipu_pm_rel_aux_clk(proc_id, rcb_num);
 		break;
 	case DUCATI:
 	case IVA_HD:
@@ -734,6 +749,57 @@ static inline int ipu_pm_get_regulator(int proc_id, u32 rcb_num)
 }
 
 /*
+  Function to get auxiliar clock
+ *
+ */
+static inline int ipu_pm_get_aux_clk(int proc_id, u32 rcb_num)
+{
+	struct ipu_pm_object *handle;
+	struct ipu_pm_params *params;
+	struct rcb_block *rcb_p;
+	u32 tmp = 0;
+	int pm_aux_clk_num;
+
+	/* get the handle to proper ipu pm object */
+	handle = ipu_pm_get_handle(proc_id);
+	if (WARN_ON(unlikely(handle == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	params = handle->params;
+	if (WARN_ON(unlikely(params == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	/* Get pointer to the proper RCB */
+	if (WARN_ON((rcb_num < RCB_MIN) || (rcb_num > RCB_MAX)))
+		return PM_INVAL_RCB_NUM;
+	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
+
+	pm_aux_clk_num = rcb_p->fill9;
+
+	if (WARN_ON((pm_aux_clk_num < AUX_CLK_MIN) ||
+			(pm_aux_clk_num > AUX_CLK_MAX)))
+		return PM_INVAL_AUX_CLK;
+
+	if (AUX_CLK_USE_MASK & (1 << pm_aux_clk_num)) {
+		/* Build the value to write */
+		MASK_SET_FIELD(tmp, AUX_CLK_ENABLE, 0x1);
+
+		/* Clear the bit in the usage mask */
+		AUX_CLK_USE_MASK &= ~(1 << pm_aux_clk_num);
+
+		/* Enabling aux clock */
+		__raw_writel(tmp, AUX_CLK_REG(pm_aux_clk_num));
+
+		/* Store the aux clk addres in the RCB */
+		rcb_p->mod_base_addr = (unsigned)AUX_CLK_REG(pm_aux_clk_num);
+		params->pm_aux_clk_counter++;
+	} else
+		return PM_NO_AUX_CLK;
+
+	return PM_SUCCESS;
+}
+
+/*
   Function to release sdma channels to PRCM
  *
  */
@@ -932,6 +998,53 @@ static inline int ipu_pm_rel_regulator(int proc_id, u32 rcb_num)
 
 	rcb_p->mod_base_addr = 0;
 	params->pm_regulator_counter--;
+
+	return PM_SUCCESS;
+}
+
+/*
+  Function to release auxiliar clock
+ *
+ */
+static inline int ipu_pm_rel_aux_clk(int proc_id, u32 rcb_num)
+{
+	struct ipu_pm_object *handle;
+	struct ipu_pm_params *params;
+	struct rcb_block *rcb_p;
+	u32 tmp = 0;
+	int pm_aux_clk_num;
+
+	/* get the handle to proper ipu pm object */
+	handle = ipu_pm_get_handle(proc_id);
+	if (WARN_ON(unlikely(handle == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	params = handle->params;
+	if (WARN_ON(unlikely(params == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	/* Get pointer to the proper RCB */
+	if (WARN_ON((rcb_num < RCB_MIN) || (rcb_num > RCB_MAX)))
+		return PM_INVAL_RCB_NUM;
+	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
+
+	pm_aux_clk_num = rcb_p->fill9;
+
+	/* Check the usage mask */
+	if (AUX_CLK_USE_MASK & (1 << pm_aux_clk_num))
+		return PM_NO_AUX_CLK;
+
+	/* Build the value to write */
+	MASK_SET_FIELD(tmp, AUX_CLK_ENABLE, 0x0);
+
+	/* Disabling aux clock */
+	__raw_writel(tmp, AUX_CLK_REG(pm_aux_clk_num));
+
+	/* Set the usage mask for reuse */
+	AUX_CLK_USE_MASK |= (1 << pm_aux_clk_num);
+
+	rcb_p->mod_base_addr = 0;
+	params->pm_aux_clk_counter--;
 
 	return PM_SUCCESS;
 }

@@ -104,6 +104,8 @@
 #define I2C_BUS_MAX 4
 #define REGULATOR_MIN 1
 #define REGULATOR_MAX 1
+#define AUX_CLK_MIN 1
+#define AUX_CLK_MAX 3
 
 #define GP_TIMER_3 3
 #define GP_TIMER_4 4
@@ -126,6 +128,41 @@
 #define PM_FAILURE -1
 #define PM_SHM_BASE_ADDR 0x9cff0000
 
+/* Auxiliar Clocks Registers */
+#define SCRM_BASE			OMAP2_L4_IO_ADDRESS(0x4a30A000)
+#define SCRM_BASE_AUX_CLK		0x00000314
+#define SCRM_BASE_AUX_CLK_REQ		0x00000214
+#define SCRM_AUX_CLK_OFFSET		0x4
+/* Auxiliar Clocks bit fields */
+#define SCRM_AUX_CLK_POLARITY		0x0
+#define SCRM_AUX_CLK_SRCSELECT		0x1
+#define SCRM_AUX_CLK_ENABLE		0x8
+#define SCRM_AUX_CLK_CLKDIV		0x10
+/* Auxiliar Clocks Masks */
+#define SCRM_AUX_CLK_POLARITY_MASK	0x00000001
+#define SCRM_AUX_CLK_SRCSELECT_MASK	0x00000006
+#define SCRM_AUX_CLK_ENABLE_MASK	0x00000100
+#define SCRM_AUX_CLK_CLKDIV_MASK	0x000F0000
+/* Auxiliar Clocks Request bit fields */
+#define SCRM_AUX_CLK_REQ_POLARITY	0x0
+#define SCRM_AUX_CLK_REQ_ACCURACY	0x1
+#define SCRM_AUX_CLK_REQ_MAPPING	0x2
+/* Auxiliar Clocks Request Masks */
+#define SCRM_AUX_CLK_REQ_POLARITY_MASK	0x00000001
+#define SCRM_AUX_CLK_REQ_ACCURACY_MASK	0x00000002
+#define SCRM_AUX_CLK_REQ_MAPPING_MASK	0x0000001C
+
+/* Macro to set a val in a bitfield*/
+#define MASK_SET_FIELD(tmp, bitfield, val)	{	\
+						tmp |=	\
+						((val << SCRM_##bitfield)\
+						& SCRM_##bitfield##_MASK);\
+						}
+
+/* Macro to return the address of the aux clk */
+#define AUX_CLK_REG(clk)	(SCRM_BASE + (SCRM_BASE_AUX_CLK + \
+					(SCRM_AUX_CLK_OFFSET * clk)))
+
 /*
  *  IPU_PM_MODULEID
  *  Unique module ID
@@ -147,7 +184,9 @@ enum pm_failure_codes{
 	PM_INVAL_NUM_I2C,
 	PM_INVAL_REGULATOR,
 	PM_NOT_INSTANTIATED,
-	PM_UNSUPPORTED
+	PM_UNSUPPORTED,
+	PM_NO_AUX_CLK,
+	PM_INVAL_AUX_CLK
 };
 
 enum pm_msgtype_codes{PM_NULLMSG,
@@ -181,7 +220,8 @@ enum res_type{
 	GP_TIMER,
 	GP_IO,
 	I2C,
-	REGULATOR
+	REGULATOR,
+	AUX_CLK
 };
 
 enum pm_event_type{PM_SUSPEND,
@@ -242,6 +282,7 @@ struct ipu_pm_params {
 	int pm_sdmachan_counter;
 	int pm_i2c_bus_counter;
 	int pm_regulator_counter;
+	int pm_aux_clk_counter;
 	int timeout;
 	void *shared_addr;
 	int shared_addr_size;
