@@ -33,6 +33,8 @@
 #define SFH7741_PROX_OFF	0
 #define SFH7741_NAME	"sfh7741"
 
+#undef SFH7741_SUSPEND_RESUME
+
 struct sfh7741_drvdata {
 	struct input_dev *input;
 	struct mutex lock;
@@ -141,8 +143,8 @@ static int __devinit sfh7741_probe(struct platform_device *pdev)
 		goto err0;
 	}
 
-	ddata = kzalloc(sizeof(struct sfh7741_drvdata),	GFP_KERNEL);
-	if (!ddata) {
+	ddata = kzalloc(sizeof(*ddata),	GFP_KERNEL);
+	if (ddata == NULL) {
 		pr_err("%s: platform data is NULL. exiting.\n", __func__);
 		error = -ENOMEM;
 		goto err1;
@@ -156,7 +158,7 @@ static int __devinit sfh7741_probe(struct platform_device *pdev)
 	}
 
 	ddata->irq = ddata->pdata->irq;
-	ddata->prox_enable = SFH7741_PROX_ON;
+	ddata->prox_enable = SFH7741_PROX_OFF;
 
 	ddata->input = input_allocate_device();
 	if (!ddata->input) {
@@ -187,7 +189,7 @@ static int __devinit sfh7741_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, ddata);
 
 	INIT_WORK(&ddata->irq_work, sfh7741_irq_work_func);
-	ddata->work_queue = create_singlethread_workqueue("sfh7743_wq");
+	ddata->work_queue = create_singlethread_workqueue("sfh7741_wq");
 	if (!ddata->work_queue) {
 		error = -ENOMEM;
 		pr_err("%s: cannot create work queue: %d\n", __func__, error);
@@ -209,6 +211,8 @@ static int __devinit sfh7741_probe(struct platform_device *pdev)
 		error = -EINVAL;
 		goto err7;
 	}
+
+	disable_irq_nosync(ddata->irq);
 
 	return 0;
 
@@ -243,7 +247,7 @@ static int __devexit sfh7741_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
+#ifdef SFH7741_SUSPEND_RESUME
 static int sfh7741_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
@@ -274,7 +278,7 @@ static struct platform_driver sfh7741_device_driver = {
 	.driver		= {
 		.name	= SFH7741_NAME,
 		.owner	= THIS_MODULE,
-#ifdef CONFIG_PM
+#ifdef SFH7741_SUSPEND_RESUME
 		.pm	= &sfh7741_pm_ops,
 #endif
 	}
