@@ -372,4 +372,7 @@ int ipu_pm_detach(u16 remote_proc_id);
 /* Function to register the ipu_pm events */
 int ipu_pm_init_transport(struct ipu_pm_object *handle);
 
+/* Function to get ipu pm object */
+struct ipu_pm_object *ipu_pm_get_handle(int proc_id);
+
 #endif

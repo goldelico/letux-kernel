@@ -114,8 +114,6 @@ static inline int ipu_pm_rel_regulator(int proc_id, u32 rcb_num);
 /* Function to release auxiliar clock */
 static inline int ipu_pm_rel_aux_clk(int proc_id, u32 rcb_num);
 
-/* Function to get ipu pm object */
-static inline struct ipu_pm_object *ipu_pm_get_handle(int proc_id);
 
 /** ============================================================================
  *  Globals
@@ -1323,7 +1321,7 @@ exit:
   Function to get ipu pm object
  *
  */
-static inline struct ipu_pm_object *ipu_pm_get_handle(int proc_id)
+struct ipu_pm_object *ipu_pm_get_handle(int proc_id)
 {
 	if (proc_id == SYS_M3)
 		return pm_handle_sysm3;
