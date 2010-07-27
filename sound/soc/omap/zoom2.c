@@ -81,6 +81,9 @@ static int zoom2_i2s_hw_params(struct snd_pcm_substream *substream,
 		return ret;
 	}
 
+	/* Use external clock for mcBSP2 */
+	ret = snd_soc_dai_set_sysclk(cpu_dai, OMAP_MCBSP_SYSCLK_CLKS_EXT,
+			0, SND_SOC_CLOCK_OUT);
 	/*
 	 * Set headset EXTMUTE signal to ON to make sure we
 	 * get correct headset status
@@ -90,8 +93,20 @@ static int zoom2_i2s_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+int zoom2_i2s_hw_free(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;
+	int ret;
+
+	/* Use function clock for mcBSP2 */
+	ret = snd_soc_dai_set_sysclk(cpu_dai, OMAP_MCBSP_SYSCLK_CLKS_FCLK,
+			0, SND_SOC_CLOCK_OUT);
+	return 0;
+}
 static struct snd_soc_ops zoom2_i2s_ops = {
 	.hw_params = zoom2_i2s_hw_params,
+	.hw_free = zoom2_i2s_hw_free,
 };
 
 static int zoom2_hw_voice_params(struct snd_pcm_substream *substream,
