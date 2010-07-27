@@ -80,6 +80,8 @@ EXPORT_SYMBOL(omap_type);
 #define OMAP_TAP_DIE_ID_1	0x021C
 #define OMAP_TAP_DIE_ID_2	0x0220
 #define OMAP_TAP_DIE_ID_3	0x0224
+#define DIE_ID_REG_BASE		(L4_WK_34XX_PHYS + 0xA000)
+#define DIE_ID_REG_OFFSET	0x218
 
 #define read_tap_reg(reg)	__raw_readl(tap_base  + (reg))
 
@@ -192,6 +194,16 @@ void __init omap3_check_revision(void)
 	u16 hawkeye;
 	u8 rev;
 
+	/* Exports DIE id control */
+	unsigned int val[4];
+	unsigned int reg;
+	reg = DIE_ID_REG_BASE + DIE_ID_REG_OFFSET;
+
+	val[0] = omap_readl(reg);
+	val[1] = omap_readl(reg + 0x4);
+	val[2] = omap_readl(reg + 0x8);
+	val[3] = omap_readl(reg + 0xC);
+
 	/*
 	 * We cannot access revision registers on ES1.0.
 	 * If the processor type is Cortex-A8 and the revision is 0x0
@@ -255,6 +267,8 @@ void __init omap3_check_revision(void)
 			omap_revision = OMAP3630_REV_ES1_1;
 		}
 	}
+
+	pr_info("DIE ID: %08X%08X%08X%08X \n", val[3], val[2], val[1], val[0]);
 }
 
 void __init omap4_check_revision(void)
