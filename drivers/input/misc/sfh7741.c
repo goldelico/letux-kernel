@@ -44,6 +44,7 @@ struct sfh7741_drvdata {
 	struct workqueue_struct *work_queue;
 	int irq;
 	int prox_enable;
+	int on_before_suspend;
 };
 
 static void sfh7741_report_input(struct sfh7741_drvdata *sfh)
@@ -253,6 +254,8 @@ static int sfh7741_suspend(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sfh7741_drvdata *ddata = platform_get_drvdata(pdev);
 
+	/* Save the prox state for the resume */
+	ddata->on_before_suspend = ddata->prox_enable
 	ddata->pdata->activate_func(SFH7741_PROX_OFF);
 	return 0;
 }
@@ -261,8 +264,8 @@ static int sfh7741_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sfh7741_drvdata *ddata = platform_get_drvdata(pdev);
-
-	ddata->pdata->activate_func(SFH7741_PROX_ON);
+	if (ddata->on_before_suspend)
+		ddata->pdata->activate_func(SFH7741_PROX_ON);
 	return 0;
 }
 
