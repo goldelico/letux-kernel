@@ -119,6 +119,15 @@
 #define SHAREDMEMORY_SLV_VRT_CONST1_BASEADDR	0x80100000
 #define SHAREDMEMORY_SLV_VRT_CONST1_BASESIZE	0x00180000
 
+/*! @brief Start of EXT_RAM section for Tesla */
+#define SHAREDMEMORY_PHY_EXT_RAM_BASEADDR	\
+				(CONFIG_DUCATI_BASEIMAGE_PHYS_ADDR - 0x2F00000)
+#define SHAREDMEMORY_PHY_EXT_RAM_BASESIZE	0x02000000
+
+/*! @brief Start of EXT_RAM section for Tesla */
+#define SHAREDMEMORY_SLV_VRT_EXT_RAM_BASEADDR	0x20000000
+#define SHAREDMEMORY_SLV_VRT_EXT_RAM_BASESIZE	0x02000000
+
 #define USE_NEW_PROCMGR		0
 
 /** ============================================================================
@@ -377,7 +386,7 @@ _platform_write_slave_memory(u16 proc_id,
 /*!
  *  @brief  Number of slave memory entries for OMAP4430.
  */
-#define NUM_MEM_ENTRIES			6
+#define NUM_MEM_ENTRIES			7
 
 /*!
  *  @brief  Position of reset vector memory region in the memEntries array.
@@ -462,6 +471,18 @@ static struct proc4430_mem_entry mem_entries[NUM_MEM_ENTRIES] = {
 		(u32) -1u,
 		/* MASTERVIRTADDR : Master virtual address (if known) */
 		SHAREDMEMORY_SLV_VRT_CONST1_BASESIZE,
+		/* SIZE		: Size of the memory region */
+		true,		/* SHARE : Shared access memory? */
+	},
+	{
+		"TESLA_EXT_RAM",	/* NAME	 : Name of the memory region */
+		SHAREDMEMORY_PHY_EXT_RAM_BASEADDR,
+		/* PHYSADDR	     : Physical address */
+		SHAREDMEMORY_SLV_VRT_EXT_RAM_BASEADDR,
+		/* SLAVEVIRTADDR  : Slave virtual address */
+		(u32) -1u,
+		/* MASTERVIRTADDR : Master virtual address (if known) */
+		SHAREDMEMORY_SLV_VRT_EXT_RAM_BASESIZE,
 		/* SIZE		: Size of the memory region */
 		true,		/* SHARE : Shared access memory? */
 	}
@@ -1356,6 +1377,34 @@ s32 _platform_setup(void)
 		printk(KERN_ERR "multi proc returned invalid proc id\n");
 		goto proc_mgr_create_fail;
 	}
+	handle = &platform_objects[proc_id];
+
+	/* Create an instance of the Processor object for OMAP4430 */
+	proc4430_params_init(NULL, &proc_params);
+	proc_params.num_mem_entries = NUM_MEM_ENTRIES;
+	proc_params.mem_entries = mem_entries;
+	proc_params.reset_vector_mem_entry = RESET_VECTOR_ENTRY_ID;
+	proc_mgr_proc_handle = proc4430_create(proc_id, &proc_params);
+	if (proc_mgr_proc_handle == NULL) {
+		status = PLATFORM_E_FAIL;
+		goto proc_create_fail;
+	}
+
+	/* Initialize parameters */
+	proc_mgr_params_init(NULL, &params);
+	params.proc_handle = proc_mgr_proc_handle;
+	proc_mgr_handle = proc_mgr_create(proc_id, &params);
+	if (proc_mgr_handle == NULL) {
+		status = PLATFORM_E_FAIL;
+		goto proc_mgr_create_fail;
+	}
+
+	handle->phandle = proc_mgr_proc_handle;
+	handle->pm_handle = proc_mgr_handle;
+
+	/* Create the Tesla ProcMgr object */
+	/* Get MultiProc ID by name. */
+	proc_id = multiproc_get_id("Tesla");
 	handle = &platform_objects[proc_id];
 
 	/* Create an instance of the Processor object for OMAP4430 */
