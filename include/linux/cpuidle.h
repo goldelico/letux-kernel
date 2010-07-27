@@ -88,6 +88,7 @@ struct cpuidle_device {
 
 	int			last_residency;
 	int			state_count;
+	int			max_state;
 	struct cpuidle_state	states[CPUIDLE_STATE_MAX];
 	struct cpuidle_state_kobj *kobjs[CPUIDLE_STATE_MAX];
 	struct cpuidle_state	*last_state;
