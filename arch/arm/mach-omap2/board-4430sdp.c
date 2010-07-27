@@ -1008,7 +1008,7 @@ void wlan_1283_config(void)
 
 static void omap_prox_activate(int state)
 {
-	gpio_set_value(OMAP4_SFH7741_ENABLE_GPIO , state);
+	gpio_set_value(OMAP4_SFH7741_ENABLE_GPIO, state);
 }
 
 static int omap_prox_read(void)
@@ -1042,12 +1042,13 @@ static void omap_sfh7741prox_init(void)
 		goto fail1;
 	}
 
-	error = gpio_direction_output(OMAP4_SFH7741_ENABLE_GPIO , 1);
+	error = gpio_direction_output(OMAP4_SFH7741_ENABLE_GPIO, 0);
 	if (error < 0) {
 		pr_err("%s: GPIO configuration failed: GPIO %d,error %d\n",
 			__func__, OMAP4_SFH7741_ENABLE_GPIO, error);
 		goto fail3;
 	}
+
 	return;
 
 fail3:
