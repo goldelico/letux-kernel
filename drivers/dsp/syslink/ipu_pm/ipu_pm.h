@@ -228,7 +228,7 @@ enum res_type{
 
 enum pm_event_type{PM_SUSPEND,
 	PM_RESUME,
-	PM_OTHER
+	PM_PROC_OBIT
 };
 
 struct rcb_message {

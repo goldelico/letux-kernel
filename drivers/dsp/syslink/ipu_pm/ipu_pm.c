@@ -421,8 +421,8 @@ void ipu_pm_notify_callback(u16 proc_id, u16 line_id, u32 event_id,
 	case PM_RESUME:
 		up(&handle->pm_event[PM_RESUME].sem_handle);
 		break;
-	case PM_OTHER:
-		up(&handle->pm_event[PM_OTHER].sem_handle);
+	case PM_PROC_OBIT:
+		up(&handle->pm_event[PM_PROC_OBIT].sem_handle);
 		break;
 	}
 }
@@ -512,9 +512,9 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 				pm_ack = EBUSY;
 			}
 			break;
-		case PM_OTHER:
+		case PM_PROC_OBIT:
 			pm_msg.fields.msg_type = PM_NOTIFICATIONS;
-			pm_msg.fields.msg_subtype = PM_OTHER;
+			pm_msg.fields.msg_subtype = PM_PROC_OBIT;
 			pm_msg.fields.parm = PM_SUCCESS;
 			/* send the request to IPU*/
 			return_val = notify_send_event(
@@ -528,13 +528,13 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 				printk(KERN_ERR "Error sending notify event\n");
 			/* wait until event from IPU (ipu_pm_notify_callback)*/
 			return_val = down_timeout
-					(&handle->pm_event[PM_OTHER]
+					(&handle->pm_event[PM_PROC_OBIT]
 					.sem_handle,
 					msecs_to_jiffies(params->timeout));
 			if (WARN_ON((return_val < 0) ||
 					(pm_msg.fields.parm ==
 						PM_NOTIFICATIONS_FAIL))) {
-				printk(KERN_ERR "Error Other\n");
+				printk(KERN_ERR "Error Proc Obit\n");
 				pm_ack = EBUSY;
 			}
 			break;
