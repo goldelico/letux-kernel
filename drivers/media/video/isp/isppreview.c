@@ -196,6 +196,20 @@ static u32 luma_enhance_table[] = {
 static int isppreview_tables_update(struct isp_prev_device *isp_prev,
 				    struct isptables_update *isptables_struct);
 
+/**
+ * isppreview_config_size
+ */
+static void isppreview_config_size(struct device *dev, struct isp_node *pipe)
+{
+	isp_reg_writel(dev,
+		       (pipe->in.crop.left << ISPPRV_HORZ_INFO_SPH_SHIFT) |
+		       (pipe->in.crop.width - 1),
+		       OMAP3_ISP_IOMEM_PREV, ISPPRV_HORZ_INFO);
+	isp_reg_writel(dev,
+		       (pipe->in.crop.top << ISPPRV_VERT_INFO_SLV_SHIFT) |
+		       (pipe->in.crop.height - 1),
+		       OMAP3_ISP_IOMEM_PREV, ISPPRV_VERT_INFO);
+}
 
 /**
  * isppreview_config - Abstraction layer Preview configuration.
@@ -528,6 +542,7 @@ err_copy_from_user:
 void isppreview_config_shadow_registers(struct isp_prev_device *isp_prev)
 {
 	struct device *dev = to_device(isp_prev);
+	struct isp_device *isp = to_isp_device(isp_prev);
 	u8 current_brightness_contrast;
 	int ctr;
 	unsigned long flags;
@@ -634,6 +649,9 @@ void isppreview_config_shadow_registers(struct isp_prev_device *isp_prev)
 
 	if (isp_prev->nf_update && ~isp_prev->nf_enable)
 		isppreview_enable_noisefilter(isp_prev, 0);
+
+	if (!isppreview_try_pipeline(isp_prev, &isp->pipeline.prv))
+		isppreview_config_size(dev, &isp->pipeline.prv);
 
 	spin_unlock_irqrestore(&isp_prev->lock, flags);
 }
@@ -784,18 +802,6 @@ int isppreview_config_datapath(struct isp_prev_device *isp_prev,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(isppreview_config_datapath);
-
-/**
- * isppreview_set_skip - Set the number of rows/columns that should be skipped.
- *  h - Start Pixel Horizontal.
- *  v - Start Line Vertical.
- **/
-void isppreview_set_skip(struct isp_prev_device *isp_prev, u32 h, u32 v)
-{
-	isp_prev->sph = h;
-	isp_prev->slv = v;
-}
-EXPORT_SYMBOL_GPL(isppreview_set_skip);
 
 /**
  * isppreview_config_ycpos - Configure byte layout of YUV image.
@@ -1636,33 +1642,66 @@ int isppreview_try_pipeline(struct isp_prev_device *isp_prev,
 	pipe->out.image.width = pipe->in.image.width;
 	pipe->out.image.height = pipe->in.image.height;
 
-/* 	if (isp_prev->hmed_en) */
-	pipe->out.crop.width -= 4;
-/* 	if (isp_prev->nf_en) */
-	pipe->out.crop.width -= 4;
-	pipe->out.crop.height -= 4;
-/* 	if (isp_prev->cfa_en) */
+	/* Overwrite previous calculated crop */
+	pipe->in.crop.left = 2;
+	pipe->in.crop.width = pipe->in.image.width;
+	pipe->in.crop.top = 0;
+	pipe->in.crop.height = pipe->in.image.height;
+
+	pipe->out.crop.left = 0;
+	pipe->out.crop.width = pipe->out.image.width;
+	pipe->out.crop.top = 0;
+	pipe->out.crop.height = pipe->out.image.height;
+
+	/* Set crop depend on horizontal median filter */
+	if (isp_prev->hmed_en)
+		pipe->out.crop.width -= 4;
+	else
+		pipe->in.crop.left += 4;
+
+	/* Set crop depend on noise filter */
+	if (isp_prev->nf_en) {
+		pipe->out.crop.width -= 4;
+		pipe->out.crop.height -= 4;
+	} else {
+		pipe->in.crop.left += 4;
+		pipe->in.crop.top += 4;
+	}
+
+	/* Set crop depend on CFA format */
 	switch (isp_prev->cfafmt) {
 	case CFAFMT_BAYER:
 	case CFAFMT_SONYVGA:
-		pipe->out.crop.width -= 4;
-		pipe->out.crop.height -= 4;
+		if (isp_prev->cfa_en) {
+			pipe->out.crop.width -= 4;
+			pipe->out.crop.height -= 4;
+		} else {
+			pipe->in.crop.left += 4;
+			pipe->in.crop.top += 4;
+		}
 		break;
 	case CFAFMT_RGBFOVEON:
 	case CFAFMT_RRGGBBFOVEON:
 	case CFAFMT_DNSPL:
 	case CFAFMT_HONEYCOMB:
-		pipe->out.crop.height -= 2;
+		if (isp_prev->cfa_en)
+			pipe->out.crop.height -= 2;
+		else
+			pipe->in.crop.top += 2;
 		break;
 	};
-/* 	if (isp_prev->yenh_en || isp_prev->csup_en) */
-	pipe->out.crop.width -= 2;
+
+	/* Set crop depend on color suppression or luminance enhancement */
+	if (isp_prev->yenh_en || isp_prev->csup_en)
+		pipe->out.crop.width -= 2;
+	else
+		pipe->in.crop.left += 2;
 
 	/* Start at the correct row/column by skipping
 	 * a Sensor specific amount.
 	 */
-	pipe->out.crop.width -= isp_prev->sph;
-	pipe->out.crop.height -= isp_prev->slv;
+	pipe->out.crop.width -= pipe->in.crop.left;
+	pipe->out.crop.height -= pipe->in.crop.top;
 
 	div = DIV_ROUND_UP(pipe->in.image.width, max_out);
 	if (div == 1) {
@@ -1697,6 +1736,9 @@ int isppreview_try_pipeline(struct isp_prev_device *isp_prev,
 	} else {
 		pipe->out.image.width &= ~0x1f;
 	}
+
+	pipe->out.image.bytesperline = ALIGN(pipe->out.image.width *
+					     ISP_BYTES_PER_PIXEL, 32);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(isppreview_try_pipeline);
@@ -1723,14 +1765,7 @@ int isppreview_s_pipeline(struct isp_prev_device *isp_prev,
 	if (rval)
 		return rval;
 
-	isp_reg_writel(dev,
-		       (isp_prev->sph << ISPPRV_HORZ_INFO_SPH_SHIFT) |
-		       (pipe->out.crop.width - 1),
-		       OMAP3_ISP_IOMEM_PREV, ISPPRV_HORZ_INFO);
-	isp_reg_writel(dev,
-		       (isp_prev->slv << ISPPRV_VERT_INFO_SLV_SHIFT) |
-		       (pipe->out.crop.height - 1),
-		       OMAP3_ISP_IOMEM_PREV, ISPPRV_VERT_INFO);
+	isppreview_config_size(dev, pipe);
 
 	if (isp_prev->cfafmt == CFAFMT_BAYER)
 		isp_reg_writel(dev,
@@ -2080,8 +2115,6 @@ int __init isp_preview_init(struct device *dev)
 	isp_prev->update_color_matrix = 0;
 	isp_prev->update_rgb_blending = 0;
 	isp_prev->update_rgb_to_ycbcr = 0;
-	isp_prev->sph = 2;
-	isp_prev->slv = 0;
 	isp_prev->color = V4L2_COLORFX_NONE;
 	isp_prev->contrast = ISPPRV_CONTRAST_DEF;
 	params->contrast = ISPPRV_CONTRAST_DEF;

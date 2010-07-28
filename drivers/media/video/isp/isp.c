@@ -1694,8 +1694,8 @@ static int isp_try_pipeline(struct device *dev,
 		}
 		pix_output->width = pipe->prv.out.crop.width;
 		pix_output->height = pipe->prv.out.crop.height;
-		pix_output->bytesperline =
-			pipe->prv.out.image.width * ISP_BYTES_PER_PIXEL;
+		pix_output->bytesperline = pipe->prv.out.image.width *
+					   ISP_BYTES_PER_PIXEL;
 	}
 
 	if (pipe->modules & OMAP_ISP_RESIZER) {

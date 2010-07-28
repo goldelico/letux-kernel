@@ -73,8 +73,6 @@ struct isp_prev_device {
 	struct ispprev_nf prev_nf_t;
 	struct prev_params params;
 	int shadow_update;
-	u32 sph;
-	u32 slv;
 	spinlock_t lock;
 	int fmt_avg;
 };
@@ -220,7 +218,5 @@ int isppreview_config(struct isp_prev_device *isp_prev, void *userspace_add);
 
 int isppreview_config_features(struct isp_prev_device *isp_prev,
 			       struct prev_params *config);
-
-void isppreview_set_skip(struct isp_prev_device *isp_prev, u32 h, u32 v);
 
 #endif/* OMAP_ISP_PREVIEW_H */
