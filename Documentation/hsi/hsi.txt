@@ -229,9 +229,9 @@ J) void hsi_close(struct hsi_device *dev);
 
 K) Callback configuration functions:
 void hsi_set_read_cb(struct hsi_device *dev,
-				void (*read_cb)(struct hsi_device *dev));
+		void (*read_cb)(struct hsi_device *dev, unsigned int size));
 void hsi_set_write_cb(struct hsi_device *dev,
-				void (*write_cb)(struct hsi_device *dev));
+		void (*write_cb)(struct hsi_device *dev, unsigned int size));
 void hsi_set_port_event_cb(struct hsi_device *dev,
 				void (*port_event_cb)(struct hsi_device *dev,
 						unsigned int event, void *arg));
@@ -244,13 +244,12 @@ void hsi_set_port_event_cb(struct hsi_device *dev,
   Parameters:
 	- dev: HSI channel
 	- read_cb: Pointer to a callback function to signal that a read transfer
-		is completed
+		is completed. size is the number of words (32bits) received.
 	- write_cb: Pointer to a callback function to signal that a write
-		transfer is completed
+		transfer is completed. size is the number of words (32bits) sent.
 	- port_event_cb: Pointer to a callback function to signal that a HSI
 		event has happened (events can be: Break frame detected, error,
 		cawake-up, cawake-down or HSR-data-available).
-
 
 L) struct hsi_device_driver
 
@@ -263,25 +262,17 @@ Declaration:
 struct hsi_device_driver {
 	unsigned long		ctrl_mask;
 	unsigned long		ch_mask[HSI_MAX_PORTS];
-	void			(*port_event) (struct hsi_device *dev,
-						unsigned int event, void *arg);
 	int			(*probe)(struct hsi_device *dev);
 	int			(*remove)(struct hsi_device *dev);
 	int			(*suspend)(struct hsi_device *dev,
 						pm_message_t mesg);
 	int			(*resume)(struct hsi_device *dev);
-	struct device_driver 	driver;
+	struct device_driver	driver;
 };
 
 Fields description:
 	ctrl_mask: HSI block ids to use
 	ch_mask[HSI_MAX_PORTS]: HSI channels to use
-	port_event: Function callback for notifying HSI events
-		   (i.e.: error transfer)
-		Parameters:
-			dev: HSI channel
-			event: Event code
-			event: Event argument
 	probe: Probe function
 		Parameters: HSI channel
 	remove: Remove function
@@ -292,7 +283,6 @@ Example:
 static struct hsi_device_driver hsi_protocol_driver = {
 	.ctrl_mask = ANY_HSI_CONTROLLER,
 	.ch_mask[0] = CHANNEL(0) | CHANNEL(1),
-	.port_event = port_event_callback,
 	.probe = hsi_proto_probe,
 	.remove = __devexit_p(hsi_proto_remove),
 	.driver = {
