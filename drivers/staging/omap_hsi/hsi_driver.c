@@ -414,7 +414,7 @@ static int __init hsi_controller_init(struct hsi_dev *hsi_ctrl,
 	hsi_ctrl->max_p = pdata->num_ports;
 	hsi_ctrl->dev = &pd->dev;
 	spin_lock_init(&hsi_ctrl->lock);
-	hsi_ctrl->hsi_clk = clk_get(&pd->dev, "hsi_clk");
+	hsi_ctrl->hsi_clk = clk_get(&pd->dev, "hsi_ck");
 	hsi_init_gdd_chan_count(hsi_ctrl);
 
 	if (IS_ERR(hsi_ctrl->hsi_clk)) {
