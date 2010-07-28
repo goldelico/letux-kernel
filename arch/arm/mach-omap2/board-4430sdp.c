@@ -830,6 +830,7 @@ static struct twl4030_platform_data sdp4430_twldata = {
 };
 
 static struct cma3000_platform_data cma3000_platform_data = {
+	.def_poll_rate = 200,
 	.fuzz_x = 25,
 	.fuzz_y = 25,
 	.fuzz_z = 25,
