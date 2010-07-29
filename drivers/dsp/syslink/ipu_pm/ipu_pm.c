@@ -249,7 +249,7 @@ static inline int ipu_pm_req_res(u32 res_type, u32 proc_id, u32 rcb_num)
 		return_val = ipu_pm_get_iss(proc_id, rcb_num);
 		break;
 	default:
-		printk(KERN_ERR "Unsupported resource\n");
+		pr_err("Unsupported resource\n");
 		return_val = PM_UNSUPPORTED;
 	}
 
@@ -299,7 +299,7 @@ static inline int ipu_pm_rel_res(u32 res_type, u32 proc_id, u32 rcb_num)
 		return_val = ipu_pm_rel_iss(proc_id, rcb_num);
 		break;
 	default:
-		printk(KERN_ERR "Unsupported resource\n");
+		pr_err("Unsupported resource\n");
 		return_val = PM_UNSUPPORTED;
 	}
 
@@ -371,7 +371,7 @@ static void ipu_pm_work(struct work_struct *work)
 					im.pm_msg,
 					true);
 		if (return_val < 0)
-			printk(KERN_INFO "Error sending notify event\n");
+			pr_err("Error sending notify event\n");
 	}
 }
 
@@ -475,7 +475,7 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 					(unsigned int)pm_msg.whole,
 					true);
 			if (return_val < 0)
-				printk(KERN_ERR "Error sending notify event\n");
+				pr_err("Error sending notify event\n");
 			/* wait until event from IPU (ipu_pm_notify_callback)*/
 			return_val = down_timeout
 					(&handle->pm_event[PM_SUSPEND]
@@ -484,7 +484,7 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 			if (WARN_ON((return_val < 0) ||
 					(pm_msg.fields.parm ==
 						PM_NOTIFICATIONS_FAIL))) {
-				printk(KERN_ERR "Error Suspend\n");
+				pr_err("Error Suspend\n");
 				pm_ack = EBUSY;
 			}
 			break;
@@ -501,7 +501,7 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 					(unsigned int)pm_msg.whole,
 					true);
 			if (return_val < 0)
-				printk(KERN_ERR "Error sending notify event\n");
+				pr_err("Error sending notify event\n");
 			/* wait until event from IPU (ipu_pm_notify_callback)*/
 			return_val = down_timeout
 					(&handle->pm_event[PM_RESUME]
@@ -510,7 +510,7 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 			if (WARN_ON((return_val < 0) ||
 					(pm_msg.fields.parm ==
 						PM_NOTIFICATIONS_FAIL))) {
-				printk(KERN_ERR "Error Resume\n");
+				pr_err("Error Resume\n");
 				pm_ack = EBUSY;
 			}
 			break;
@@ -527,7 +527,7 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 					(unsigned int)pm_msg.whole,
 					true);
 			if (return_val < 0)
-				printk(KERN_ERR "Error sending notify event\n");
+				pr_err("Error sending notify event\n");
 			/* wait until event from IPU (ipu_pm_notify_callback)*/
 			return_val = down_timeout
 					(&handle->pm_event[PM_PROC_OBIT]
@@ -536,7 +536,7 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 			if (WARN_ON((return_val < 0) ||
 					(pm_msg.fields.parm ==
 						PM_NOTIFICATIONS_FAIL))) {
-				printk(KERN_ERR "Error Proc Obit\n");
+				pr_err("Error Proc Obit\n");
 				pm_ack = EBUSY;
 			}
 			break;
@@ -881,7 +881,7 @@ static inline int ipu_pm_get_sys_m3(int proc_id, u32 rcb_num)
 		return PM_INVAL_RCB_NUM;
 	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
 
-	printk(KERN_INFO "Request SYS M3\n");
+	pr_info("Request SYS M3\n");
 
 	params->pm_sys_m3_counter++;
 
@@ -912,7 +912,7 @@ static inline int ipu_pm_get_app_m3(int proc_id, u32 rcb_num)
 		return PM_INVAL_RCB_NUM;
 	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
 
-	printk(KERN_INFO "Request APP M3\n");
+	pr_info("Request APP M3\n");
 
 	params->pm_app_m3_counter++;
 
@@ -943,7 +943,7 @@ static inline int ipu_pm_get_l3_bus(int proc_id, u32 rcb_num)
 		return PM_INVAL_RCB_NUM;
 	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
 
-	printk(KERN_INFO "Request L3 BUS\n");
+	pr_info("Request L3 BUS\n");
 
 	params->pm_l3_bus_counter++;
 
@@ -974,7 +974,7 @@ static inline int ipu_pm_get_iva_hd(int proc_id, u32 rcb_num)
 		return PM_INVAL_RCB_NUM;
 	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
 
-	printk(KERN_INFO "Request IVA_HD\n");
+	pr_info("Request IVA_HD\n");
 
 	params->pm_iva_hd_counter++;
 
@@ -1005,7 +1005,7 @@ static inline int ipu_pm_get_iss(int proc_id, u32 rcb_num)
 		return PM_INVAL_RCB_NUM;
 	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
 
-	printk(KERN_INFO "Request ISS\n");
+	pr_info("Request ISS\n");
 
 	params->pm_iss_counter++;
 
@@ -1286,7 +1286,7 @@ static inline int ipu_pm_rel_sys_m3(int proc_id, u32 rcb_num)
 		return PM_INVAL_RCB_NUM;
 	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
 
-	printk(KERN_INFO "Release SYS M3\n");
+	pr_info("Release SYS M3\n");
 
 	params->pm_sys_m3_counter--;
 
@@ -1317,7 +1317,7 @@ static inline int ipu_pm_rel_app_m3(int proc_id, u32 rcb_num)
 		return PM_INVAL_RCB_NUM;
 	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
 
-	printk(KERN_INFO "Release APP M3\n");
+	pr_info("Release APP M3\n");
 
 	params->pm_app_m3_counter--;
 
@@ -1348,7 +1348,7 @@ static inline int ipu_pm_rel_l3_bus(int proc_id, u32 rcb_num)
 		return PM_INVAL_RCB_NUM;
 	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
 
-	printk(KERN_INFO "Release L3 BUS\n");
+	pr_info("Release L3 BUS\n");
 
 	params->pm_l3_bus_counter--;
 
@@ -1380,7 +1380,7 @@ static inline int ipu_pm_rel_iva_hd(int proc_id, u32 rcb_num)
 		return PM_INVAL_RCB_NUM;
 	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
 
-	printk(KERN_INFO "Release IVA_HD\n");
+	pr_info("Release IVA_HD\n");
 
 	params->pm_iva_hd_counter--;
 
@@ -1411,7 +1411,7 @@ static inline int ipu_pm_rel_iss(int proc_id, u32 rcb_num)
 		return PM_INVAL_RCB_NUM;
 	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
 
-	printk(KERN_INFO "Release ISS\n");
+	pr_info("Release ISS\n");
 
 	params->pm_iss_counter--;
 
@@ -1434,7 +1434,7 @@ void ipu_pm_params_init(struct ipu_pm_params *params)
 	memcpy(params, &(pm_params), sizeof(struct ipu_pm_params));
 	return;
 exit:
-	printk(KERN_ERR "ipu_pm_params_init failed status(0x%x)\n", retval);
+	pr_err("ipu_pm_params_init failed status(0x%x)\n", retval);
 }
 EXPORT_SYMBOL(ipu_pm_params_init);
 
@@ -1499,13 +1499,13 @@ int ipu_pm_init_transport(struct ipu_pm_object *handle)
 		(notify_fn_notify_cbck)ipu_pm_callback,
 		(void *)NULL);
 		if (status < 0)
-			printk(KERN_ERR "Error sending notify event\n");
+			pr_err("Error sending notify event\n");
 		goto pm_register_fail;
 	}
 	return status;
 
 pm_register_fail:
-	printk(KERN_ERR "pm register events failed status(0x%x)", status);
+	pr_err("pm register events failed status(0x%x)", status);
 	return status;
 }
 
@@ -1565,7 +1565,7 @@ struct ipu_pm_object *ipu_pm_create(const struct ipu_pm_params *params)
 		/* Check the SW version on both sides */
 		if (WARN_ON(pm_handle_sysm3->rcb_table->pm_version !=
 						PM_VERSION))
-			printk(KERN_WARNING "Mismatch in PM version Host:0x%x "
+			pr_warning("Mismatch in PM version Host:0x%x "
 					"Remote:0x%x", PM_VERSION,
 					pm_handle_sysm3->rcb_table->pm_version);
 
@@ -1626,7 +1626,7 @@ struct ipu_pm_object *ipu_pm_create(const struct ipu_pm_params *params)
 		/* Check the SW version on both sides */
 		if (WARN_ON(pm_handle_appm3->rcb_table->pm_version !=
 						PM_VERSION))
-			printk(KERN_WARNING "Mismatch in PM version Host:0x%x "
+			pr_warning("Mismatch in PM version Host:0x%x "
 					"Remote:0x%x", PM_VERSION,
 					pm_handle_appm3->rcb_table->pm_version);
 
@@ -1647,7 +1647,7 @@ struct ipu_pm_object *ipu_pm_create(const struct ipu_pm_params *params)
 		retval = -EINVAL;
 
 exit:
-	printk(KERN_ERR "ipu_pm_create failed! "
+	pr_err("ipu_pm_create failed! "
 		"status = 0x%x\n", retval);
 	return NULL;
 }
@@ -1684,7 +1684,7 @@ void ipu_pm_delete(struct ipu_pm_object *handle)
 	kfree(handle);
 	return;
 exit:
-	printk(KERN_ERR "ipu_pm_delete is already NULL "
+	pr_err("ipu_pm_delete is already NULL "
 		"status = 0x%x\n", retval);
 }
 
@@ -1726,8 +1726,7 @@ void ipu_pm_get_config(struct ipu_pm_config *cfg)
 
 exit:
 	if (retval < 0) {
-		printk(KERN_ERR "ipu_pm_get_config failed! status = 0x%x",
-			retval);
+		pr_err("ipu_pm_get_config failed! status = 0x%x", retval);
 	}
 	return;
 }
@@ -1785,7 +1784,7 @@ int ipu_pm_setup(struct ipu_pm_config *cfg)
 	return retval;
 
 exit:
-	printk(KERN_ERR "ipu_pm_setup failed! retval = 0x%x", retval);
+	pr_err("ipu_pm_setup failed! retval = 0x%x", retval);
 	return retval;
 }
 EXPORT_SYMBOL(ipu_pm_setup);
@@ -1822,7 +1821,7 @@ int ipu_pm_attach(u16 remote_proc_id, void *shared_addr)
 
 	return retval;
 exit:
-	printk(KERN_ERR "ipu_pm_attach failed! retval = 0x%x", retval);
+	pr_err("ipu_pm_attach failed! retval = 0x%x", retval);
 	return retval;
 }
 EXPORT_SYMBOL(ipu_pm_attach);
@@ -1861,7 +1860,7 @@ int ipu_pm_detach(u16 remote_proc_id)
 		(notify_fn_notify_cbck)ipu_pm_callback,
 		(void *)NULL);
 	if (retval < 0) {
-		printk(KERN_ERR "Error registering notify event\n");
+		pr_err("Error registering notify event\n");
 		goto exit;
 	}
 	retval = notify_unregister_event(
@@ -1871,7 +1870,7 @@ int ipu_pm_detach(u16 remote_proc_id)
 		(notify_fn_notify_cbck)ipu_pm_notify_callback,
 		(void *)NULL);
 	if (retval < 0) {
-		printk(KERN_ERR "Error registering notify event\n");
+		pr_err("Error registering notify event\n");
 		goto exit;
 	}
 
@@ -1879,7 +1878,7 @@ int ipu_pm_detach(u16 remote_proc_id)
 	ipu_pm_delete(handle);
 	return retval;
 exit:
-	printk(KERN_ERR "ipu_pm_detach failed handle null retval 0x%x", retval);
+	pr_err("ipu_pm_detach failed handle null retval 0x%x", retval);
 	return retval;
 }
 EXPORT_SYMBOL(ipu_pm_detach);
@@ -1927,8 +1926,7 @@ int ipu_pm_destroy(void)
 
 exit:
 	if (retval < 0) {
-		printk(KERN_ERR "ipu_pm_destroy failed, retval: %x\n",
-			retval);
+		pr_err("ipu_pm_destroy failed, retval: %x\n", retval);
 	}
 	return retval;
 }
