@@ -94,10 +94,16 @@ static ssize_t set_prox_state(struct device *dev,
 
 	mutex_lock(&ddata->lock);
 	if (state != ddata->prox_enable) {
-		if (state)
+		if (state) {
 			enable_irq(ddata->irq);
-		else
+			if (ddata->pdata->flags & SFH7741_WAKEABLE_INT)
+				enable_irq_wake(ddata->irq);
+
+		} else {
 			disable_irq_nosync(ddata->irq);
+			if (ddata->pdata->flags & SFH7741_WAKEABLE_INT)
+				disable_irq_wake(ddata->irq);
+		}
 
 		ddata->pdata->activate_func(state);
 		ddata->prox_enable = state;
@@ -266,6 +272,7 @@ static int sfh7741_resume(struct device *dev)
 	struct sfh7741_drvdata *ddata = platform_get_drvdata(pdev);
 	if (ddata->on_before_suspend)
 		ddata->pdata->activate_func(SFH7741_PROX_ON);
+
 	return 0;
 }
 
