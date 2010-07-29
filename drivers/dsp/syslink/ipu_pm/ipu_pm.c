@@ -412,12 +412,15 @@ void ipu_pm_notify_callback(u16 proc_id, u16 line_id, u32 event_id,
 	pm_msg.whole = payload;
 	switch (pm_msg.fields.msg_subtype) {
 	case PM_SUSPEND:
+		handle->pm_event[PM_SUSPEND].pm_msg = payload;
 		up(&handle->pm_event[PM_SUSPEND].sem_handle);
 		break;
 	case PM_RESUME:
+		handle->pm_event[PM_RESUME].pm_msg = payload;
 		up(&handle->pm_event[PM_RESUME].sem_handle);
 		break;
 	case PM_PROC_OBIT:
+		handle->pm_event[PM_PROC_OBIT].pm_msg = payload;
 		up(&handle->pm_event[PM_PROC_OBIT].sem_handle);
 		break;
 	}
@@ -475,6 +478,7 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 					(&handle->pm_event[PM_SUSPEND]
 					.sem_handle,
 					msecs_to_jiffies(params->timeout));
+			pm_msg.whole = handle->pm_event[PM_SUSPEND].pm_msg;
 			if (WARN_ON((retval < 0) ||
 					(pm_msg.fields.parm ==
 						PM_NOTIFICATIONS_FAIL))) {
@@ -501,6 +505,7 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 					(&handle->pm_event[PM_RESUME]
 					.sem_handle,
 					msecs_to_jiffies(params->timeout));
+			pm_msg.whole = handle->pm_event[PM_RESUME].pm_msg;
 			if (WARN_ON((retval < 0) ||
 					(pm_msg.fields.parm ==
 						PM_NOTIFICATIONS_FAIL))) {
@@ -527,6 +532,7 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 					(&handle->pm_event[PM_PROC_OBIT]
 					.sem_handle,
 					msecs_to_jiffies(params->timeout));
+			pm_msg.whole = handle->pm_event[PM_PROC_OBIT].pm_msg;
 			if (WARN_ON((retval < 0) ||
 					(pm_msg.fields.parm ==
 						PM_NOTIFICATIONS_FAIL))) {

@@ -275,6 +275,7 @@ struct sms {
 struct pm_event {
 	enum pm_event_type event_type;
 	struct semaphore sem_handle;
+	int pm_msg;
 };
 
 struct ipu_pm_params {
