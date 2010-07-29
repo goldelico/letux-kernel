@@ -60,6 +60,7 @@ static void omap_prox_activate(int state);
 static int omap_prox_read(void);
 
 static struct sfh7741_platform_data omap_sfh7741_data = {
+		.flags = SFH7741_WAKEABLE_INT,
 		.irq = OMAP_GPIO_IRQ(OMAP4_SFH7741_SENSOR_OUTPUT_GPIO),
 		.prox_blocked = 0,
 		.prox_unblocked = 1,
