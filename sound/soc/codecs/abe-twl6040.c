@@ -1271,6 +1271,52 @@ static int twl6040_set_dai_sysclk(struct snd_soc_dai *codec_dai,
 	return 0;
 }
 
+static inline void abe_mcpdm_dl_hw_params(struct twl6040_data *priv)
+{
+	if (!priv->mcpdm_dl_enable++)
+		abe_enable_data_transfer(PDM_DL_PORT);
+}
+
+static inline void abe_mcpdm_ul_hw_params(struct twl6040_data *priv)
+{
+	if (!priv->mcpdm_ul_enable++) {
+		/*
+		 * Check if downlink is not running to move
+		 * to McPDM Uplink port for drift management
+		 */
+		if (!priv->mcpdm_dl_enable)
+			abe_select_main_port(PDM_UL_PORT);
+		abe_enable_data_transfer(PDM_UL_PORT);
+	}
+}
+
+static inline void abe_mcpdm_dl_shutdown(struct twl6040_data *priv)
+{
+	if (!--priv->mcpdm_dl_enable) {
+		abe_disable_data_transfer(PDM_DL_PORT);
+		/*
+		 * Check if uplink is running to move
+		 * to McPDM uplink port for drift management
+		 */
+		if (priv->mcpdm_ul_enable)
+			abe_select_main_port(PDM_UL_PORT);
+		else
+			abe_disable_data_transfer(PDM_UL_PORT);
+	}
+}
+
+static inline void abe_mcpdm_ul_shutdown(struct twl6040_data *priv)
+{
+	if (!--priv->mcpdm_ul_enable) {
+		/* Disable ATC only if no DL in parallel (HW issue) */
+		if (!priv->mcpdm_dl_enable)
+			abe_disable_data_transfer(PDM_UL_PORT);
+
+		/* Always move back to McPDM downlink after playback */
+		abe_select_main_port(PDM_DL_PORT);
+	}
+}
+
 static int abe_mm_startup(struct snd_pcm_substream *substream,
 			struct snd_soc_dai *dai)
 {
@@ -1371,16 +1417,13 @@ static int abe_mm_hw_params(struct snd_pcm_substream *substream,
 		abe_connect_cbpr_dmareq_port(MM_DL_PORT, &format,
 						ABE_CBPR0_IDX, &dma_sink);
 		abe_enable_data_transfer(MM_DL_PORT);
-		if (!priv->mcpdm_dl_enable++) {
-			abe_enable_data_transfer(PDM_DL_PORT);
-		}
+		abe_mcpdm_dl_hw_params(priv);
 	} else {
 		/*  Route UL2 port for MM-UL audio capture */
 		abe_connect_cbpr_dmareq_port(MM_UL2_PORT, &format,
 						ABE_CBPR4_IDX, &dma_sink);
 		abe_enable_data_transfer(MM_UL2_PORT);
-		if (!priv->mcpdm_ul_enable++)
-			abe_enable_data_transfer(PDM_UL_PORT);
+		abe_mcpdm_ul_hw_params(priv);
 	}
 
 	return 0;
@@ -1452,13 +1495,10 @@ static void abe_mm_shutdown(struct snd_pcm_substream *substream,
 
         if (!substream->stream) {
                 abe_disable_data_transfer(MM_DL_PORT);
-		if (!--priv->mcpdm_dl_enable) {
-	                abe_disable_data_transfer(PDM_DL_PORT);
-		}
+		abe_mcpdm_dl_shutdown(priv);
         } else {
                 abe_disable_data_transfer(MM_UL2_PORT);
-		if (!--priv->mcpdm_ul_enable)
-	                abe_disable_data_transfer(PDM_UL_PORT);
+		abe_mcpdm_ul_shutdown(priv);
         }
 
 	if (!--priv->configure) {
@@ -1560,8 +1600,7 @@ static int abe_tones_hw_params(struct snd_pcm_substream *substream,
 		abe_connect_cbpr_dmareq_port(TONES_DL_PORT, &format,
 							ABE_CBPR5_IDX, &dma_sink);
 		abe_enable_data_transfer(TONES_DL_PORT);
-		if (!priv->mcpdm_dl_enable++)
-			abe_enable_data_transfer(PDM_DL_PORT);
+		abe_mcpdm_dl_hw_params(priv);
 	}
 
 	return 0;
@@ -1633,8 +1672,7 @@ static void abe_tones_shutdown(struct snd_pcm_substream *substream,
 
         if (!substream->stream) {
                 abe_disable_data_transfer(TONES_DL_PORT);
-		if (!--priv->mcpdm_dl_enable)
-	                abe_disable_data_transfer(PDM_DL_PORT);
+		abe_mcpdm_dl_shutdown(priv);
         }
 
 	if (!--priv->configure) {
@@ -1754,8 +1792,7 @@ static int abe_voice_hw_params(struct snd_pcm_substream *substream,
 		abe_connect_serial_port(VX_DL_PORT, &format, MCBSP2_RX);
 		/* Enable downlink port */
 		abe_enable_data_transfer(VX_DL_PORT);
-		if (!priv->mcpdm_dl_enable++)
-			abe_enable_data_transfer(PDM_DL_PORT);
+		abe_mcpdm_dl_hw_params(priv);
 	} else {
 		/* Vx_UL connection to McBSP 2 ports */
 		format.f = 8000;
@@ -1763,20 +1800,17 @@ static int abe_voice_hw_params(struct snd_pcm_substream *substream,
 		abe_connect_serial_port(VX_UL_PORT, &format, MCBSP2_TX);
 		/* Enable uplink port */
 		abe_enable_data_transfer(VX_UL_PORT);
-		if (!priv->mcpdm_ul_enable++)
-			abe_enable_data_transfer(PDM_UL_PORT);
+		abe_mcpdm_ul_hw_params(priv);
 	}
 #else
 	if (!substream->stream) {
 		abe_connect_cbpr_dmareq_port(VX_DL_PORT, &format, ABE_CBPR1_IDX, &dma_sink);
 		abe_enable_data_transfer(VX_DL_PORT);
-		if (!priv->mcpdm_dl_enable++)
-			abe_enable_data_transfer(PDM_DL_PORT);
+		abe_mcpdm_dl_hw_params(priv);
 	} else {
 		abe_connect_cbpr_dmareq_port(VX_UL_PORT, &format, ABE_CBPR2_IDX, &dma_sink);
 		abe_enable_data_transfer(VX_UL_PORT);
-		if (!priv->mcpdm_ul_enable++)
-			abe_enable_data_transfer(PDM_UL_PORT);
+		abe_mcpdm_ul_hw_params(priv);
 	}
 #endif
 
@@ -1849,18 +1883,10 @@ static void abe_voice_shutdown(struct snd_pcm_substream *substream,
 
         if (!substream->stream) {
                 abe_disable_data_transfer(VX_DL_PORT);
-                if (!--priv->mcpdm_dl_enable) {
-			abe_disable_data_transfer(PDM_DL_PORT);
-	                if (priv->mcpdm_ul_enable == 0)
-				abe_disable_data_transfer(PDM_UL_PORT);
-		}
+		abe_mcpdm_dl_shutdown(priv);
         } else {
 		abe_disable_data_transfer(VX_UL_PORT);
-		if (!--priv->mcpdm_ul_enable) {
-	                if (priv->mcpdm_dl_enable == 0) {
-				abe_disable_data_transfer(PDM_UL_PORT);
-			}
-		}
+		abe_mcpdm_ul_shutdown(priv);
 	}
 
         if(!--priv->configure) {
