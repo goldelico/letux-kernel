@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32.9
-# Mon Jul 26 13:45:25 2010
+# Thu Jul 29 16:35:04 2010
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -1580,7 +1580,10 @@ CONFIG_ANDROID_LOW_MEMORY_KILLER=y
 #
 # CONFIG_RAR_REGISTER is not set
 # CONFIG_IIO is not set
-# CONFIG_OMAP_HSI is not set
+CONFIG_OMAP_HSI=m
+CONFIG_OMAP_HSI_DEVICE=y
+# CONFIG_OMAP_SSI_DEVICE is not set
+CONFIG_OMAP_HSI_CHAR=m
 # CONFIG_MPU_BRIDGE is not set
 CONFIG_DMM_OMAP=y
 CONFIG_TILER_OMAP=y
