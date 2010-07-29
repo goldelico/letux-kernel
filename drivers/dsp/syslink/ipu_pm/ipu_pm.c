@@ -144,6 +144,36 @@ static inline int ipu_pm_rel_iva_hd(int proc_id, u32 rcb_num);
 /* Release ISS on behalf of an IPU client */
 static inline int ipu_pm_rel_iss(int proc_id, u32 rcb_num);
 
+/* Request a sys m3 constraint on behalf of an IPU client */
+static inline int ipu_pm_req_cstr_sys_m3(int proc_id, u32 rcb_num);
+
+/* Request an app m3 constraint on behalf of an IPU client */
+static inline int ipu_pm_req_cstr_app_m3(int proc_id, u32 rcb_num);
+
+/* Request a L3 Bus constraint on behalf of an IPU client */
+static inline int ipu_pm_req_cstr_l3_bus(int proc_id, u32 rcb_num);
+
+/* Request an IVA HD constraint on behalf of an IPU client */
+static inline int ipu_pm_req_cstr_iva_hd(int proc_id, u32 rcb_num);
+
+/* Request an ISS constraint on behalf of an IPU client */
+static inline int ipu_pm_req_cstr_iss(int proc_id, u32 rcb_num);
+
+/* Release a sys m3 constraint on behalf of an IPU client */
+static inline int ipu_pm_rel_cstr_sys_m3(int proc_id, u32 rcb_num);
+
+/* Release an app m3 constraint on behalf of an IPU client */
+static inline int ipu_pm_rel_cstr_app_m3(int proc_id, u32 rcb_num);
+
+/* Release a L3 Bus constraint on behalf of an IPU client */
+static inline int ipu_pm_rel_cstr_l3_bus(int proc_id, u32 rcb_num);
+
+/* Release an IVA HD constraint on behalf of an IPU client */
+static inline int ipu_pm_rel_cstr_iva_hd(int proc_id, u32 rcb_num);
+
+/* Release an ISS constraint on behalf of an IPU client */
+static inline int ipu_pm_rel_cstr_iss(int proc_id, u32 rcb_num);
+
 /** ============================================================================
  *  Globals
  *  ============================================================================
@@ -307,6 +337,70 @@ static inline int ipu_pm_rel_res(u32 res_type, u32 proc_id, u32 rcb_num)
 }
 
 /*
+  Request a resource constraint on behalf of an IPU client
+ *
+ */
+static inline int ipu_pm_req_cstr(u32 res_type, u32 proc_id, u32 rcb_num)
+{
+	int retval = PM_SUCCESS;
+
+	switch (res_type) {
+	case SYSM3:
+		retval = ipu_pm_req_cstr_sys_m3(proc_id, rcb_num);
+		break;
+	case APPM3:
+		retval = ipu_pm_req_cstr_app_m3(proc_id, rcb_num);
+		break;
+	case L3_BUS:
+		retval = ipu_pm_req_cstr_l3_bus(proc_id, rcb_num);
+		break;
+	case IVA_HD:
+		retval = ipu_pm_req_cstr_iva_hd(proc_id, rcb_num);
+		break;
+	case ISS:
+		retval = ipu_pm_req_cstr_iss(proc_id, rcb_num);
+		break;
+	default:
+		pr_err("Resource does not support constraints\n");
+		retval = PM_UNSUPPORTED;
+	}
+
+	return retval;
+}
+
+/*
+  Release a resource constraint on behalf of an IPU client
+ *
+ */
+static inline int ipu_pm_rel_cstr(u32 res_type, u32 proc_id, u32 rcb_num)
+{
+	int retval = PM_SUCCESS;
+
+	switch (res_type) {
+	case SYSM3:
+		retval = ipu_pm_rel_cstr_sys_m3(proc_id, rcb_num);
+		break;
+	case APPM3:
+		retval = ipu_pm_rel_cstr_app_m3(proc_id, rcb_num);
+		break;
+	case L3_BUS:
+		retval = ipu_pm_rel_cstr_l3_bus(proc_id, rcb_num);
+		break;
+	case IVA_HD:
+		retval = ipu_pm_rel_cstr_iva_hd(proc_id, rcb_num);
+		break;
+	case ISS:
+		retval = ipu_pm_rel_cstr_iss(proc_id, rcb_num);
+		break;
+	default:
+		pr_err("Resource does not support constraints\n");
+		retval = PM_UNSUPPORTED;
+	}
+
+	return retval;
+}
+
+/*
   Work Function to req/rel a resource
  *
  */
@@ -336,17 +430,31 @@ static void ipu_pm_work(struct work_struct *work)
 		/* Get the type of resource and the actions required */
 		action_type = rcb_p->msg_type;
 		res_type = rcb_p->sub_type;
-		if (action_type == PM_REQUEST_RESOURCE) {
+		switch (action_type) {
+		case PM_REQUEST_RESOURCE:
 			retval = ipu_pm_req_res(res_type, im.proc_id, rcb_num);
 			if (retval != PM_SUCCESS)
 				pm_msg.fields.msg_type = PM_FAIL;
-		} else if (action_type == PM_RELEASE_RESOURCE) {
+			break;
+		case PM_RELEASE_RESOURCE:
 			retval = ipu_pm_rel_res(res_type, im.proc_id, rcb_num);
 			if (retval != PM_SUCCESS)
 				pm_msg.fields.msg_type = PM_FAIL;
-		} else {
+			break;
+		case PM_REQUEST_CONSTRAINTS:
+			retval = ipu_pm_req_cstr(res_type, im.proc_id, rcb_num);
+			if (retval != PM_SUCCESS)
+				pm_msg.fields.msg_type = PM_FAIL;
+			break;
+		case PM_RELEASE_CONSTRAINTS:
+			retval = ipu_pm_rel_cstr(res_type, im.proc_id, rcb_num);
+			if (retval != PM_SUCCESS)
+				pm_msg.fields.msg_type = PM_FAIL;
+			break;
+		default:
 			pm_msg.fields.msg_type = PM_FAIL;
 			retval = PM_UNSUPPORTED;
+			break;
 		}
 
 		/* Update the payload with the reply msg */
@@ -1414,6 +1522,505 @@ static inline int ipu_pm_rel_iss(int proc_id, u32 rcb_num)
 	pr_info("Release ISS\n");
 
 	params->pm_iss_counter--;
+
+	return PM_SUCCESS;
+}
+
+/*
+  Request a sys m3 constraint on behalf of an IPU client
+ *
+ */
+static inline int ipu_pm_req_cstr_sys_m3(int proc_id, u32 rcb_num)
+{
+	struct ipu_pm_object *handle;
+	struct ipu_pm_params *params;
+	struct rcb_block *rcb_p;
+	int perf;
+	int lat;
+	int bw;
+	u32 cstr_flags;
+
+	/* get the handle to proper ipu pm object */
+	handle = ipu_pm_get_handle(proc_id);
+	if (WARN_ON(unlikely(handle == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	params = handle->params;
+	if (WARN_ON(unlikely(params == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	/* Get pointer to the proper RCB */
+	if (WARN_ON((rcb_num < RCB_MIN) || (rcb_num > RCB_MAX)))
+		return PM_INVAL_RCB_NUM;
+	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
+
+	/* Get the configurable constraints */
+	cstr_flags = rcb_p->data[0];
+
+	/* TODO: call the baseport APIs */
+	if (cstr_flags & PM_CSTR_PERF_MASK) {
+		perf = rcb_p->data[1];
+		pr_info("Request perfomance Cstr SYS M3:%d\n", perf);
+	}
+
+	if (cstr_flags & PM_CSTR_LAT_MASK) {
+		lat = rcb_p->data[2];
+		pr_info("Request latency Cstr SYS M3:%d\n", lat);
+	}
+
+	if (cstr_flags & PM_CSTR_BW_MASK) {
+		bw = rcb_p->data[3];
+		pr_info("Request bandwidth Cstr SYS M3:%d\n", bw);
+	}
+
+	return PM_SUCCESS;
+}
+
+/*
+  Request an app m3 constraint on behalf of an IPU client
+ *
+ */
+static inline int ipu_pm_req_cstr_app_m3(int proc_id, u32 rcb_num)
+{
+	struct ipu_pm_object *handle;
+	struct ipu_pm_params *params;
+	struct rcb_block *rcb_p;
+	int perf;
+	int lat;
+	int bw;
+	u32 cstr_flags;
+
+	/* get the handle to proper ipu pm object */
+	handle = ipu_pm_get_handle(proc_id);
+	if (WARN_ON(unlikely(handle == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	params = handle->params;
+	if (WARN_ON(unlikely(params == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	/* Get pointer to the proper RCB */
+	if (WARN_ON((rcb_num < RCB_MIN) || (rcb_num > RCB_MAX)))
+		return PM_INVAL_RCB_NUM;
+	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
+
+	/* Get the configurable constraints */
+	cstr_flags = rcb_p->data[0];
+
+	/* TODO: call the baseport APIs */
+	if (cstr_flags & PM_CSTR_PERF_MASK) {
+		perf = rcb_p->data[1];
+		pr_info("Request perfomance Cstr APP M3:%d\n", perf);
+	}
+
+	if (cstr_flags & PM_CSTR_LAT_MASK) {
+		lat = rcb_p->data[2];
+		pr_info("Request latency Cstr APP M3:%d\n", lat);
+	}
+
+	if (cstr_flags & PM_CSTR_BW_MASK) {
+		bw = rcb_p->data[3];
+		pr_info("Request bandwidth Cstr APP M3:%d\n", bw);
+	}
+
+	return PM_SUCCESS;
+}
+/*
+  Request a L3 Bus constraint on behalf of an IPU client
+ *
+ */
+static inline int ipu_pm_req_cstr_l3_bus(int proc_id, u32 rcb_num)
+{
+	struct ipu_pm_object *handle;
+	struct ipu_pm_params *params;
+	struct rcb_block *rcb_p;
+	int perf;
+	int lat;
+	int bw;
+	u32 cstr_flags;
+
+	/* get the handle to proper ipu pm object */
+	handle = ipu_pm_get_handle(proc_id);
+	if (WARN_ON(unlikely(handle == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	params = handle->params;
+	if (WARN_ON(unlikely(params == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	/* Get pointer to the proper RCB */
+	if (WARN_ON((rcb_num < RCB_MIN) || (rcb_num > RCB_MAX)))
+		return PM_INVAL_RCB_NUM;
+	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
+
+	/* Get the configurable constraints */
+	cstr_flags = rcb_p->data[0];
+
+	/* TODO: call the baseport APIs */
+	if (cstr_flags & PM_CSTR_PERF_MASK) {
+		perf = rcb_p->data[1];
+		pr_info("Request perfomance Cstr L3 Bus:%d\n", perf);
+	}
+
+	if (cstr_flags & PM_CSTR_LAT_MASK) {
+		lat = rcb_p->data[2];
+		pr_info("Request latency Cstr L3 Bus:%d\n", lat);
+	}
+
+	if (cstr_flags & PM_CSTR_BW_MASK) {
+		bw = rcb_p->data[3];
+		pr_info("Request bandwidth Cstr L3 Bus:%d\n", bw);
+	}
+
+	return PM_SUCCESS;
+}
+
+/*
+  Request an IVA HD constraint on behalf of an IPU client
+ *
+ */
+static inline int ipu_pm_req_cstr_iva_hd(int proc_id, u32 rcb_num)
+{
+	struct ipu_pm_object *handle;
+	struct ipu_pm_params *params;
+	struct rcb_block *rcb_p;
+	int perf;
+	int lat;
+	int bw;
+	u32 cstr_flags;
+
+	/* get the handle to proper ipu pm object */
+	handle = ipu_pm_get_handle(proc_id);
+	if (WARN_ON(unlikely(handle == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	params = handle->params;
+	if (WARN_ON(unlikely(params == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	/* Get pointer to the proper RCB */
+	if (WARN_ON((rcb_num < RCB_MIN) || (rcb_num > RCB_MAX)))
+		return PM_INVAL_RCB_NUM;
+	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
+
+	/* Get the configurable constraints */
+	cstr_flags = rcb_p->data[0];
+
+	/* TODO: call the baseport APIs */
+	if (cstr_flags & PM_CSTR_PERF_MASK) {
+		perf = rcb_p->data[1];
+		pr_info("Request perfomance Cstr IVA HD:%d\n", perf);
+	}
+
+	if (cstr_flags & PM_CSTR_LAT_MASK) {
+		lat = rcb_p->data[2];
+		pr_info("Request latency Cstr IVA HD:%d\n", lat);
+	}
+
+	if (cstr_flags & PM_CSTR_BW_MASK) {
+		bw = rcb_p->data[3];
+		pr_info("Request bandwidth Cstr IVA HD:%d\n", bw);
+	}
+
+	return PM_SUCCESS;
+}
+
+/*
+  Request an ISS constraint on behalf of an IPU client
+ *
+ */
+static inline int ipu_pm_req_cstr_iss(int proc_id, u32 rcb_num)
+{
+	struct ipu_pm_object *handle;
+	struct ipu_pm_params *params;
+	struct rcb_block *rcb_p;
+	int perf;
+	int lat;
+	int bw;
+	u32 cstr_flags;
+
+	/* get the handle to proper ipu pm object */
+	handle = ipu_pm_get_handle(proc_id);
+	if (WARN_ON(unlikely(handle == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	params = handle->params;
+	if (WARN_ON(unlikely(params == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	/* Get pointer to the proper RCB */
+	if (WARN_ON((rcb_num < RCB_MIN) || (rcb_num > RCB_MAX)))
+		return PM_INVAL_RCB_NUM;
+	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
+
+	/* Get the configurable constraints */
+	cstr_flags = rcb_p->data[0];
+
+	/* TODO: call the baseport APIs */
+	if (cstr_flags & PM_CSTR_PERF_MASK) {
+		perf = rcb_p->data[1];
+		pr_info("Request perfomance Cstr ISS:%d\n", perf);
+	}
+
+	if (cstr_flags & PM_CSTR_LAT_MASK) {
+		lat = rcb_p->data[2];
+		pr_info("Request latency Cstr ISS:%d\n", lat);
+	}
+
+	if (cstr_flags & PM_CSTR_BW_MASK) {
+		bw = rcb_p->data[3];
+		pr_info("Request bandwidth Cstr ISS:%d\n", bw);
+	}
+
+	return PM_SUCCESS;
+}
+
+/*
+  Release a sys m3 constraint on behalf of an IPU client
+ *
+ */
+static inline int ipu_pm_rel_cstr_sys_m3(int proc_id, u32 rcb_num)
+{
+	struct ipu_pm_object *handle;
+	struct ipu_pm_params *params;
+	struct rcb_block *rcb_p;
+	int perf;
+	int lat;
+	int bw;
+	u32 cstr_flags;
+
+	/* get the handle to proper ipu pm object */
+	handle = ipu_pm_get_handle(proc_id);
+	if (WARN_ON(unlikely(handle == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	params = handle->params;
+	if (WARN_ON(unlikely(params == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	/* Get pointer to the proper RCB */
+	if (WARN_ON((rcb_num < RCB_MIN) || (rcb_num > RCB_MAX)))
+		return PM_INVAL_RCB_NUM;
+	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
+
+	/* Get the configurable constraints */
+	cstr_flags = rcb_p->data[0];
+
+	/* TODO: call the baseport APIs */
+	if (cstr_flags & PM_CSTR_PERF_MASK) {
+		perf = rcb_p->data[1];
+		pr_info("Release perfomance Cstr SYS M3:%d\n", perf);
+	}
+
+	if (cstr_flags & PM_CSTR_LAT_MASK) {
+		lat = rcb_p->data[2];
+		pr_info("Release latency Cstr SYS M3:%d\n", lat);
+	}
+
+	if (cstr_flags & PM_CSTR_BW_MASK) {
+		bw = rcb_p->data[3];
+		pr_info("Release bandwidth Cstr SYS M3:%d\n", bw);
+	}
+
+	return PM_SUCCESS;
+}
+
+/*
+  Release an app m3 constraint on behalf of an IPU client
+ *
+ */
+static inline int ipu_pm_rel_cstr_app_m3(int proc_id, u32 rcb_num)
+{
+	struct ipu_pm_object *handle;
+	struct ipu_pm_params *params;
+	struct rcb_block *rcb_p;
+	int perf;
+	int lat;
+	int bw;
+	u32 cstr_flags;
+
+	/* get the handle to proper ipu pm object */
+	handle = ipu_pm_get_handle(proc_id);
+	if (WARN_ON(unlikely(handle == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	params = handle->params;
+	if (WARN_ON(unlikely(params == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	/* Get pointer to the proper RCB */
+	if (WARN_ON((rcb_num < RCB_MIN) || (rcb_num > RCB_MAX)))
+		return PM_INVAL_RCB_NUM;
+	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
+
+	/* Get the configurable constraints */
+	cstr_flags = rcb_p->data[0];
+
+	/* TODO: call the baseport APIs */
+	if (cstr_flags & PM_CSTR_PERF_MASK) {
+		perf = rcb_p->data[1];
+		pr_info("Release perfomance Cstr APP M3:%d\n", perf);
+	}
+
+	if (cstr_flags & PM_CSTR_LAT_MASK) {
+		lat = rcb_p->data[2];
+		pr_info("Release latency Cstr APP M3:%d\n", lat);
+	}
+
+	if (cstr_flags & PM_CSTR_BW_MASK) {
+		bw = rcb_p->data[3];
+		pr_info("Release bandwidth Cstr APP M3:%d\n", bw);
+	}
+
+	return PM_SUCCESS;
+}
+
+/*
+  Release a L3 Bus constraint on behalf of an IPU client
+ *
+ */
+static inline int ipu_pm_rel_cstr_l3_bus(int proc_id, u32 rcb_num)
+{
+	struct ipu_pm_object *handle;
+	struct ipu_pm_params *params;
+	struct rcb_block *rcb_p;
+	int perf;
+	int lat;
+	int bw;
+	u32 cstr_flags;
+
+	/* get the handle to proper ipu pm object */
+	handle = ipu_pm_get_handle(proc_id);
+	if (WARN_ON(unlikely(handle == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	params = handle->params;
+	if (WARN_ON(unlikely(params == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	/* Get pointer to the proper RCB */
+	if (WARN_ON((rcb_num < RCB_MIN) || (rcb_num > RCB_MAX)))
+		return PM_INVAL_RCB_NUM;
+	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
+
+	/* Get the configurable constraints */
+	cstr_flags = rcb_p->data[0];
+
+	/* TODO: call the baseport APIs */
+	if (cstr_flags & PM_CSTR_PERF_MASK) {
+		perf = rcb_p->data[1];
+		pr_info("Release perfomance Cstr L3 Bus:%d\n", perf);
+	}
+
+	if (cstr_flags & PM_CSTR_LAT_MASK) {
+		lat = rcb_p->data[2];
+		pr_info("Release latency Cstr L3 Bus:%d\n", lat);
+	}
+
+	if (cstr_flags & PM_CSTR_BW_MASK) {
+		bw = rcb_p->data[3];
+		pr_info("Release bandwidth Cstr L3 Bus:%d\n", bw);
+	}
+
+	return PM_SUCCESS;
+}
+
+/*
+  Release an IVA HD constraint on behalf of an IPU client
+ *
+ */
+static inline int ipu_pm_rel_cstr_iva_hd(int proc_id, u32 rcb_num)
+{
+	struct ipu_pm_object *handle;
+	struct ipu_pm_params *params;
+	struct rcb_block *rcb_p;
+	int perf;
+	int lat;
+	int bw;
+	u32 cstr_flags;
+
+	/* get the handle to proper ipu pm object */
+	handle = ipu_pm_get_handle(proc_id);
+	if (WARN_ON(unlikely(handle == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	params = handle->params;
+	if (WARN_ON(unlikely(params == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	/* Get pointer to the proper RCB */
+	if (WARN_ON((rcb_num < RCB_MIN) || (rcb_num > RCB_MAX)))
+		return PM_INVAL_RCB_NUM;
+	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
+
+	/* Get the configurable constraints */
+	cstr_flags = rcb_p->data[0];
+
+	/* TODO: call the baseport APIs */
+	if (cstr_flags & PM_CSTR_PERF_MASK) {
+		perf = rcb_p->data[1];
+		pr_info("Release perfomance Cstr IVA HD:%d\n", perf);
+	}
+
+	if (cstr_flags & PM_CSTR_LAT_MASK) {
+		lat = rcb_p->data[2];
+		pr_info("Release latency Cstr IVA HD:%d\n", lat);
+	}
+
+	if (cstr_flags & PM_CSTR_BW_MASK) {
+		bw = rcb_p->data[3];
+		pr_info("Release bandwidth Cstr IVA HD:%d\n", bw);
+	}
+
+	return PM_SUCCESS;
+}
+
+/*
+  Release an ISS constraint on behalf of an IPU client
+ *
+ */
+static inline int ipu_pm_rel_cstr_iss(int proc_id, u32 rcb_num)
+{
+	struct ipu_pm_object *handle;
+	struct ipu_pm_params *params;
+	struct rcb_block *rcb_p;
+	int perf;
+	int lat;
+	int bw;
+	u32 cstr_flags;
+
+	/* get the handle to proper ipu pm object */
+	handle = ipu_pm_get_handle(proc_id);
+	if (WARN_ON(unlikely(handle == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	params = handle->params;
+	if (WARN_ON(unlikely(params == NULL)))
+		return PM_NOT_INSTANTIATED;
+
+	/* Get pointer to the proper RCB */
+	if (WARN_ON((rcb_num < RCB_MIN) || (rcb_num > RCB_MAX)))
+		return PM_INVAL_RCB_NUM;
+	rcb_p = (struct rcb_block *)&handle->rcb_table->rcb[rcb_num];
+
+	/* Get the configurable constraints */
+	cstr_flags = rcb_p->data[0];
+
+	/* TODO: call the baseport APIs */
+	if (cstr_flags & PM_CSTR_PERF_MASK) {
+		perf = rcb_p->data[1];
+		pr_info("Release perfomance Cstr ISS:%d\n", perf);
+	}
+
+	if (cstr_flags & PM_CSTR_LAT_MASK) {
+		lat = rcb_p->data[2];
+		pr_info("Release latency Cstr ISS:%d\n", lat);
+	}
+
+	if (cstr_flags & PM_CSTR_BW_MASK) {
+		bw = rcb_p->data[3];
+		pr_info("Release bandwidth Cstr ISS:%d\n", bw);
+	}
 
 	return PM_SUCCESS;
 }
