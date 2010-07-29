@@ -126,7 +126,7 @@ static const u8 twl6040_reg[TWL6040_CACHEREGNUM] = {
 	0x09, /* TWL6040_ACCCTL		0x2D	*/
 	0x00, /* TWL6040_STATUS (ro)	0x2E	*/
 	0x00, /* TWL6040_SHADOW		0x2F	*/
-	0xBB, /* ABE_AMIC_GAIN_SHADOW	0x30	*/
+	0xAA, /* ABE_AMIC_GAIN_SHADOW	0x30	*/
 };
 
 /*
@@ -366,8 +366,8 @@ static void abe_init_chip(struct snd_soc_codec *codec,
 	abe_write_gain(GAINS_DL2, GAIN_M6dB, RAMP_0MS, GAIN_LEFT_OFFSET);
 	abe_write_gain(GAINS_DL2, GAIN_M6dB, RAMP_0MS, GAIN_RIGHT_OFFSET);
 
-	abe_write_gain(GAINS_AMIC, GAIN_18dB, RAMP_0MS, GAIN_LEFT_OFFSET);
-	abe_write_gain(GAINS_AMIC, GAIN_18dB, RAMP_0MS, GAIN_RIGHT_OFFSET);
+	abe_write_gain(GAINS_AMIC, GAIN_12dB, RAMP_0MS, GAIN_LEFT_OFFSET);
+	abe_write_gain(GAINS_AMIC, GAIN_12dB, RAMP_0MS, GAIN_RIGHT_OFFSET);
 
 	abe_write_gain(GAINS_SPLIT, GAIN_M6dB, RAMP_0MS, GAIN_LEFT_OFFSET);
 	abe_write_gain(GAINS_SPLIT, GAIN_M6dB, RAMP_0MS, GAIN_RIGHT_OFFSET);
