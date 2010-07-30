@@ -28,7 +28,6 @@
 #include "kerneldisplay.h"
 #include "oemfuncs.h"
 #include "sgxinfo.h"
-#include "pdump_km.h"
 #include "sgxinfokm.h"
 #include "syslocal.h"
 #include "sysconfig.h"
@@ -250,8 +249,12 @@ static PVRSRV_ERROR SysLocateDevices(SYS_DATA *psSysData)
 
 #endif
 
-
-
+#if defined(PDUMP)
+	{
+		static IMG_CHAR pszPDumpDevName[] = "SGXMEM";
+		gsSGXDeviceMap.pszPDumpDevName = pszPDumpDevName;
+	}
+#endif
 
 
 	return PVRSRV_OK;
@@ -478,9 +481,6 @@ PVRSRV_ERROR SysInitialise(IMG_VOID)
 		psDeviceNode = psDeviceNode->psNext;
 	}
 
-	PDUMPINIT();
-	SYS_SPECIFIC_DATA_SET(&gsSysSpecificData, SYS_SPECIFIC_DATA_ENABLE_PDUMPINIT);
-
 	eError = EnableSystemClocksWrap(gpsSysData);
 	if (eError != PVRSRV_OK)
 	{
@@ -611,13 +611,6 @@ PVRSRV_ERROR SysDeinitialise (SYS_DATA *psSysData)
 	PVR_UNREFERENCED_PARAMETER(psSysData);
 #endif
 
-#if defined(SGX_OCP_REGS_ENABLED)
-	OSUnMapPhysToLin(gpvOCPRegsLinAddr,
-					 SYS_OMAP3430_OCP_REGS_SIZE,
-					 PVRSRV_HAP_UNCACHED|PVRSRV_HAP_KERNEL_ONLY,
-					 IMG_NULL);
-#endif
-
 	if (SYS_SPECIFIC_DATA_TEST(gpsSysSpecificData, SYS_SPECIFIC_DATA_ENABLE_INITDEV))
 	{
 #if defined(SUPPORT_ACTIVE_POWER_MANAGEMENT)
@@ -639,6 +632,13 @@ PVRSRV_ERROR SysDeinitialise (SYS_DATA *psSysData)
 			return eError;
 		}
 	}
+
+#if defined(SGX_OCP_REGS_ENABLED)
+	OSUnMapPhysToLin(gpvOCPRegsLinAddr,
+					 SYS_OMAP3430_OCP_REGS_SIZE,
+					 PVRSRV_HAP_UNCACHED|PVRSRV_HAP_KERNEL_ONLY,
+					 IMG_NULL);
+#endif
 
 
 
@@ -675,11 +675,6 @@ PVRSRV_ERROR SysDeinitialise (SYS_DATA *psSysData)
 	}
 #endif
 
-
-	if(SYS_SPECIFIC_DATA_TEST(gpsSysSpecificData, SYS_SPECIFIC_DATA_ENABLE_PDUMPINIT))
-	{
-		PDUMPDEINIT();
-	}
 
 	gpsSysSpecificData->ui32SysSpecificData = 0;
 	gpsSysSpecificData->bSGXInitComplete = IMG_FALSE;
