@@ -233,7 +233,7 @@ enum res_type{
 
 enum pm_event_type{PM_SUSPEND,
 	PM_RESUME,
-	PM_PROC_OBIT
+	PM_PID_DEATH
 };
 
 struct rcb_message {
@@ -275,6 +275,7 @@ struct rcb_block {
 struct sms {
 	unsigned rat;
 	unsigned pm_version;
+	unsigned gp_msg;
 	struct rcb_block rcb[RCB_MAX];
 };
 
@@ -353,7 +354,7 @@ void ipu_pm_notify_callback(u16 proc_id, u16 line_id, u32 event_id,
 					uint *arg, u32 payload);
 
 /* Function for send PM Notifications */
-int ipu_pm_notifications(enum pm_event_type event_type);
+int ipu_pm_notifications(enum pm_event_type event_type, void *data);
 
 /* Function to set init parameters */
 void ipu_pm_params_init(struct ipu_pm_params *params);

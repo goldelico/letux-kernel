@@ -638,7 +638,7 @@ int proc4430_control(void *handle, int cmd, void *arg)
 	switch (cmd) {
 	case PM_SUSPEND:
 	case PM_RESUME:
-		retval = ipu_pm_notifications(cmd);
+		retval = ipu_pm_notifications(cmd, NULL);
 		break;
 	default:
 		printk(KERN_ERR "Invalid notification\n");

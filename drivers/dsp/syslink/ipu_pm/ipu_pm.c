@@ -527,9 +527,9 @@ void ipu_pm_notify_callback(u16 proc_id, u16 line_id, u32 event_id,
 		handle->pm_event[PM_RESUME].pm_msg = payload;
 		up(&handle->pm_event[PM_RESUME].sem_handle);
 		break;
-	case PM_PROC_OBIT:
-		handle->pm_event[PM_PROC_OBIT].pm_msg = payload;
-		up(&handle->pm_event[PM_PROC_OBIT].sem_handle);
+	case PM_PID_DEATH:
+		handle->pm_event[PM_PID_DEATH].pm_msg = payload;
+		up(&handle->pm_event[PM_PID_DEATH].sem_handle);
 		break;
 	}
 }
@@ -539,7 +539,7 @@ EXPORT_SYMBOL(ipu_pm_notify_callback);
   Function for send PM Notifications
  *
  */
-int ipu_pm_notifications(enum pm_event_type event_type)
+int ipu_pm_notifications(enum pm_event_type event_type, void *data)
 {
 	/**
 	 * Function called by linux driver
@@ -571,6 +571,8 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 			pm_msg.fields.msg_type = PM_NOTIFICATIONS;
 			pm_msg.fields.msg_subtype = PM_SUSPEND;
 			pm_msg.fields.parm = PM_SUCCESS;
+			/* put general purpose message in share memory */
+			handle->rcb_table->gp_msg = (unsigned)data;
 			/* send the request to IPU*/
 			retval = notify_send_event(
 					params->remote_proc_id,
@@ -590,7 +592,7 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 			if (WARN_ON((retval < 0) ||
 					(pm_msg.fields.parm ==
 						PM_NOTIFICATIONS_FAIL))) {
-				pr_err("Error Suspend\n");
+				pr_err("Error sending Suspend\n");
 				pm_ack = EBUSY;
 			}
 			break;
@@ -598,6 +600,8 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 			pm_msg.fields.msg_type = PM_NOTIFICATIONS;
 			pm_msg.fields.msg_subtype = PM_RESUME;
 			pm_msg.fields.parm = PM_SUCCESS;
+			/* put general purpose message in share memory */
+			handle->rcb_table->gp_msg = (unsigned)data;
 			/* send the request to IPU*/
 			retval = notify_send_event(
 					params->remote_proc_id,
@@ -617,14 +621,16 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 			if (WARN_ON((retval < 0) ||
 					(pm_msg.fields.parm ==
 						PM_NOTIFICATIONS_FAIL))) {
-				pr_err("Error Resume\n");
+				pr_err("Error sending Resume\n");
 				pm_ack = EBUSY;
 			}
 			break;
-		case PM_PROC_OBIT:
+		case PM_PID_DEATH:
 			pm_msg.fields.msg_type = PM_NOTIFICATIONS;
-			pm_msg.fields.msg_subtype = PM_PROC_OBIT;
+			pm_msg.fields.msg_subtype = PM_PID_DEATH;
 			pm_msg.fields.parm = PM_SUCCESS;
+			/* put general purpose message in share memory */
+			handle->rcb_table->gp_msg = (unsigned)data;
 			/* send the request to IPU*/
 			retval = notify_send_event(
 					params->remote_proc_id,
@@ -637,14 +643,14 @@ int ipu_pm_notifications(enum pm_event_type event_type)
 				pr_err("Error sending notify event\n");
 			/* wait until event from IPU (ipu_pm_notify_callback)*/
 			retval = down_timeout
-					(&handle->pm_event[PM_PROC_OBIT]
+					(&handle->pm_event[PM_PID_DEATH]
 					.sem_handle,
 					msecs_to_jiffies(params->timeout));
-			pm_msg.whole = handle->pm_event[PM_PROC_OBIT].pm_msg;
+			pm_msg.whole = handle->pm_event[PM_PID_DEATH].pm_msg;
 			if (WARN_ON((retval < 0) ||
 					(pm_msg.fields.parm ==
 						PM_NOTIFICATIONS_FAIL))) {
-				pr_err("Error Proc Obit\n");
+				pr_err("Error sending PID Death\n");
 				pm_ack = EBUSY;
 			}
 			break;
