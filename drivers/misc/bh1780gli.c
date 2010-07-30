@@ -4,6 +4,7 @@
  *
  * Copyright (C) 2010 Texas Instruments
  * Author: Hemanth V <hemanthv@ti.com>
+ * Contributor: Dan Murphy <dmurphy@ti.com>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -17,11 +18,14 @@
  * You should have received a copy of the GNU General Public License along with
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
+#include <linux/delay.h>
 #include <linux/i2c.h>
-#include <linux/slab.h>
+#include <linux/input.h>
 #include <linux/mutex.h>
 #include <linux/platform_device.h>
-#include <linux/delay.h>
+#include <linux/slab.h>
+#include <linux/workqueue.h>
 
 #define BH1780_REG_CONTROL     0x80
 #define BH1780_REG_PARTID      0x8A
@@ -37,11 +41,21 @@
 /* power on settling time in ms */
 #define BH1780_PON_DELAY      2
 
+/* Delayed work queue polling rate in seconds */
+#define BH1780_POLL_RATE      5000
+
+static uint32_t als_debug;
+module_param_named(bh1780_debug, als_debug, uint, 0664);
+
 struct bh1780_data {
+	struct input_dev *input_dev;
+	struct delayed_work input_work;
 	struct i2c_client *client;
-	int power_state;
-	/* lock for sysfs operations */
 	struct mutex lock;
+
+	int current_lux;
+	int power_state;
+	int req_poll_rate;
 };
 
 static int bh1780_write(struct bh1780_data *ddata, u8 reg, u8 val, char *msg)
@@ -64,11 +78,8 @@ static int bh1780_read(struct bh1780_data *ddata, u8 reg, char *msg)
 	return ret;
 }
 
-static ssize_t bh1780_show_lux(struct device *dev,
-				struct device_attribute *attr, char *buf)
+static int bh1780_read_data(struct bh1780_data *ddata)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct bh1780_data *ddata = platform_get_drvdata(pdev);
 	int lsb, msb;
 
 	lsb = bh1780_read(ddata, BH1780_REG_DLOW, "DLOW");
@@ -79,7 +90,63 @@ static ssize_t bh1780_show_lux(struct device *dev,
 	if (msb < 0)
 		return msb;
 
-	return sprintf(buf, "%d\n", (msb << 8) | lsb);
+	if (als_debug)
+		pr_info("%s:msb = 0x%X, lsb = 0x%X\n", __func__, msb, lsb);
+
+	ddata->current_lux = (msb << 8) | lsb;
+
+	if (als_debug)
+		pr_info("%s:current lux = 0x%X\n",
+			__func__, ddata->current_lux);
+
+	return ddata->current_lux;
+}
+
+static void bh1780_report_data(struct bh1780_data *ddata)
+{
+	input_event(ddata->input_dev, EV_LED, LED_MISC, ddata->current_lux);
+	input_sync(ddata->input_dev);
+}
+
+static int bh1780_set_power(struct bh1780_data *ddata, u8 val)
+{
+	int error = 0;
+
+	mutex_lock(&ddata->lock);
+
+	error = bh1780_write(ddata, BH1780_REG_CONTROL, val, "CONTROL");
+	if (error < 0) {
+		mutex_unlock(&ddata->lock);
+		return error;
+	}
+
+	msleep(BH1780_PON_DELAY);
+	ddata->power_state = val;
+	mutex_unlock(&ddata->lock);
+
+	if (val == BH1780_POFF)
+		cancel_delayed_work_sync(&ddata->input_work);
+	else
+		schedule_delayed_work(&ddata->input_work, 0);
+
+	return error;
+}
+
+static ssize_t bh1780_show_lux(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct bh1780_data *ddata = platform_get_drvdata(pdev);
+	int error = -1;
+
+	if (ddata->power_state == BH1780_POFF)
+		return error;
+
+	error = bh1780_read_data(ddata);
+	if (error < 0)
+		return error;
+
+	return sprintf(buf, "%d\n", ddata->current_lux);
 }
 
 static ssize_t bh1780_show_power_state(struct device *dev,
@@ -110,20 +177,12 @@ static ssize_t bh1780_store_power_state(struct device *dev,
 	if (error)
 		return error;
 
-	if (val < BH1780_POFF || val > BH1780_PON)
-		return -EINVAL;
+	if (val != BH1780_POFF)
+		val = BH1780_PON;
 
-	mutex_lock(&ddata->lock);
-
-	error = bh1780_write(ddata, BH1780_REG_CONTROL, val, "CONTROL");
-	if (error < 0) {
-		mutex_unlock(&ddata->lock);
+	error = bh1780_set_power(ddata, val);
+	if (error < 0)
 		return error;
-	}
-
-	msleep(BH1780_PON_DELAY);
-	ddata->power_state = val;
-	mutex_unlock(&ddata->lock);
 
 	return count;
 }
@@ -142,6 +201,19 @@ static struct attribute *bh1780_attributes[] = {
 static const struct attribute_group bh1780_attr_group = {
 	.attrs = bh1780_attributes,
 };
+
+static void bh1780_input_work_func(struct work_struct *work)
+{
+	struct bh1780_data *als = container_of((struct delayed_work *)work,
+						  struct bh1780_data,
+						  input_work);
+
+	bh1780_read_data(als);
+	bh1780_report_data(als);
+
+	schedule_delayed_work(&als->input_work,
+				msecs_to_jiffies(als->req_poll_rate));
+}
 
 static int __devinit bh1780_probe(struct i2c_client *client,
 						const struct i2c_device_id *id)
@@ -171,14 +243,42 @@ static int __devinit bh1780_probe(struct i2c_client *client,
 	dev_info(&client->dev, "Ambient Light Sensor, Rev : %d\n",
 			(ret & BH1780_REVMASK));
 
+	ddata->req_poll_rate = BH1780_POLL_RATE;
+	INIT_DELAYED_WORK(&ddata->input_work, bh1780_input_work_func);
+
+	ddata->input_dev = input_allocate_device();
+	if (!ddata->input_dev) {
+		ret = -ENOMEM;
+		pr_err("%s: input device allocate failed: %d\n", __func__,
+		       ret);
+		goto error_input_allocate_failed;
+	}
+
+	ddata->input_dev->name = "bh1780gli";
+	input_set_capability(ddata->input_dev, EV_LED, LED_MISC);
+
+	ret = input_register_device(ddata->input_dev);
+	if (ret) {
+		pr_err("%s: input device register failed:%d\n", __func__,
+		       ret);
+		goto error_input_register_failed;
+	}
+
 	mutex_init(&ddata->lock);
 
 	ret = sysfs_create_group(&client->dev.kobj, &bh1780_attr_group);
 	if (ret)
-		goto err_op_failed;
+		goto err_sysfs_failed;
+
+	bh1780_set_power(ddata, BH1780_PON);
 
 	return 0;
 
+err_sysfs_failed:
+	input_unregister_device(ddata->input_dev);
+error_input_register_failed:
+	input_free_device(ddata->input_dev);
+error_input_allocate_failed:
 err_op_failed:
 	kfree(ddata);
 	return ret;
@@ -189,6 +289,7 @@ static int __devexit bh1780_remove(struct i2c_client *client)
 	struct bh1780_data *ddata;
 
 	ddata = i2c_get_clientdata(client);
+	input_unregister_device(ddata->input_dev);
 	sysfs_remove_group(&client->dev.kobj, &bh1780_attr_group);
 	i2c_set_clientdata(client, NULL);
 	kfree(ddata);
@@ -203,6 +304,9 @@ static int bh1780_suspend(struct i2c_client *client, pm_message_t mesg)
 	int state, ret;
 
 	ddata = i2c_get_clientdata(client);
+
+	cancel_delayed_work_sync(&ddata->input_work);
+
 	state = bh1780_read(ddata, BH1780_REG_CONTROL, "CONTROL");
 	if (state < 0)
 		return state;
@@ -231,6 +335,8 @@ static int bh1780_resume(struct i2c_client *client)
 
 	if (ret < 0)
 		return ret;
+
+	schedule_delayed_work(&ddata->input_work, 0);
 
 	return 0;
 }
