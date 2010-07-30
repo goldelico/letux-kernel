@@ -431,11 +431,11 @@ static int __init omap_i2c_init(void)
 	omap_register_i2c_bus(2, 400, NULL, 0);
 	omap_register_i2c_bus(3, 400, NULL, 0);
 */
-	omap_register_i2c_bus(1, 100, zoom_i2c_boardinfo,
+	omap_register_i2c_bus(1, 100, NULL, zoom_i2c_boardinfo,
 			ARRAY_SIZE(zoom_i2c_boardinfo));
-	omap_register_i2c_bus(2, 100, zoom2_i2c_bus2_info,
+	omap_register_i2c_bus(2, 100, NULL, zoom2_i2c_bus2_info,
 			ARRAY_SIZE(zoom2_i2c_bus2_info));
-	omap_register_i2c_bus(3, 400, zoom2_i2c_bus3_info,
+	omap_register_i2c_bus(3, 400, NULL, zoom2_i2c_bus3_info,
 			ARRAY_SIZE(zoom2_i2c_bus3_info));
 	return 0;
 }

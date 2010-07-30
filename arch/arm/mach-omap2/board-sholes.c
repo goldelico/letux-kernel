@@ -662,11 +662,11 @@ static struct i2c_board_info __initdata sholes_i2c_bus3_board_info[] = {
 
 static int __init sholes_i2c_init(void)
 {
-	omap_register_i2c_bus(1, 400, sholes_i2c_bus1_board_info,
+	omap_register_i2c_bus(1, 400, NULL, sholes_i2c_bus1_board_info,
 			      ARRAY_SIZE(sholes_i2c_bus1_board_info));
-	omap_register_i2c_bus(2, 400, sholes_i2c_bus2_board_info,
+	omap_register_i2c_bus(2, 400, NULL, sholes_i2c_bus2_board_info,
 			      ARRAY_SIZE(sholes_i2c_bus2_board_info));
-	omap_register_i2c_bus(3, 400, sholes_i2c_bus3_board_info,
+	omap_register_i2c_bus(3, 400, NULL, sholes_i2c_bus3_board_info,
 			      ARRAY_SIZE(sholes_i2c_bus3_board_info));
 	return 0;
 }

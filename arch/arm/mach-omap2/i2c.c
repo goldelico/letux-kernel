@@ -95,6 +95,7 @@ int __init omap2_i2c_add_bus(int bus_id)
 }
 
 int __init omap_register_i2c_bus(int bus_id, u32 clkrate,
+			  struct omap_i2c_bus_board_data *pdata,
 			  struct i2c_board_info const *info,
 			  unsigned len)
 {
@@ -121,5 +122,5 @@ int __init omap_register_i2c_bus(int bus_id, u32 clkrate,
 		omap_mux_init_signal(mux_name, OMAP_PIN_INPUT);
 	}
 
-	return omap_plat_register_i2c_bus(bus_id, clkrate, info, len);
+	return omap_plat_register_i2c_bus(bus_id, clkrate, pdata, info, len);
 }

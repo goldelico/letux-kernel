@@ -22,13 +22,20 @@
 #include <linux/input.h>
 #include <linux/input/matrix_keypad.h>
 #include <linux/input/sfh7741.h>
+#include <linux/i2c/twl.h>
+#include <linux/i2c/cma3000.h>
+#include <linux/regulator/machine.h>
+#include <linux/delay.h>
+#include <linux/interrupt.h>
 
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
-#include <plat/mux.h>
+#include <asm/hardware/gic.h>
+#include <asm/hardware/cache-l2x0.h>
 
+#include <plat/mux.h>
 #include <plat/mcspi.h>
 #include <plat/board.h>
 #include <plat/common.h>
@@ -38,15 +45,9 @@
 #include <plat/syntm12xx.h>
 #include <plat/keypad.h>
 #include <plat/display.h>
-#include <asm/hardware/gic.h>
-#include <asm/hardware/cache-l2x0.h>
-#include <linux/i2c/twl.h>
-#include <linux/i2c/cma3000.h>
-#include <linux/regulator/machine.h>
-#include "mmc-twl4030.h"
-#include <linux/delay.h>
-#include <linux/interrupt.h>
+#include <plat/hwspinlock.h>
 
+#include "mmc-twl4030.h"
 /* Added for FlexST */
 #include "board-connectivity.h"
 
@@ -889,24 +890,41 @@ static struct i2c_board_info __initdata sdp4430_i2c_4_boardinfo[] = {
 	},
 };
 
+static struct omap_i2c_bus_board_data __initdata sdp4430_i2c_1_bus_pdata;
+static struct omap_i2c_bus_board_data __initdata sdp4430_i2c_2_bus_pdata;
+static struct omap_i2c_bus_board_data __initdata sdp4430_i2c_3_bus_pdata;
+static struct omap_i2c_bus_board_data __initdata sdp4430_i2c_4_bus_pdata;
+
+static void __init omap_i2c_hwspinlock_init(int bus_id, struct omap_i2c_bus_board_data *pdata)
+{
+	pdata->handle = hwspinlock_request_specific(bus_id - 1);
+	if (pdata->handle != NULL) {
+		pdata->hwspinlock_lock = hwspinlock_lock;
+		pdata->hwspinlock_unlock = hwspinlock_unlock;
+	} else {
+		pr_err("I2C hwspinlock request failed for bus %d\n", bus_id);
+	}
+}
+
 static int __init omap4_i2c_init(void)
 {
+	omap_i2c_hwspinlock_init(1, &sdp4430_i2c_1_bus_pdata);
+	omap_i2c_hwspinlock_init(2, &sdp4430_i2c_2_bus_pdata);
+	omap_i2c_hwspinlock_init(3, &sdp4430_i2c_3_bus_pdata);
+	omap_i2c_hwspinlock_init(4, &sdp4430_i2c_4_bus_pdata);
+
 	/* Phoenix Audio IC needs I2C1 to srat with 400 KHz and less */
-	omap_register_i2c_bus(1, 400, sdp4430_i2c_boardinfo,
+	omap_register_i2c_bus(1, 400, &sdp4430_i2c_1_bus_pdata,
+				sdp4430_i2c_boardinfo,
 				ARRAY_SIZE(sdp4430_i2c_boardinfo));
-	omap_register_i2c_bus(2, 400, sdp4430_i2c_2_boardinfo,
+	omap_register_i2c_bus(2, 400, &sdp4430_i2c_2_bus_pdata,
+				sdp4430_i2c_2_boardinfo,
 				ARRAY_SIZE(sdp4430_i2c_2_boardinfo));
-
-/* There is a Clash of the ducati camera sensor
- * however, Enable i2c.3 if we want Temperature sensor.
- * or ambient light sensor.
- */
-#if defined(CONFIG_SENSORS_LM75) || defined(CONFIG_SENSORS_BH1780)
-	omap_register_i2c_bus(3, 400, sdp4430_i2c_3_boardinfo,
+	omap_register_i2c_bus(3, 400, &sdp4430_i2c_3_bus_pdata,
+				sdp4430_i2c_3_boardinfo,
 				ARRAY_SIZE(sdp4430_i2c_3_boardinfo));
-#endif
-
-	omap_register_i2c_bus(4, 400, sdp4430_i2c_4_boardinfo,
+	omap_register_i2c_bus(4, 400, &sdp4430_i2c_4_bus_pdata,
+				sdp4430_i2c_4_boardinfo,
 				ARRAY_SIZE(sdp4430_i2c_4_boardinfo));
 
 	return 0;

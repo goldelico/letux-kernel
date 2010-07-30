@@ -382,7 +382,7 @@ static void __init omap_nokia770_init(void)
 				ARRAY_SIZE(nokia770_spi_board_info));
 	omap_gpio_init();
 	omap_serial_init();
-	omap_register_i2c_bus(1, 100, NULL, 0);
+	omap_register_i2c_bus(1, 100, NULL, NULL, 0);
 	omap_dsp_init();
 	hwa742_dev_init();
 	ads7846_dev_init();
