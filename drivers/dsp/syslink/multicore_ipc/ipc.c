@@ -70,7 +70,6 @@ struct ipc_reserved {
 	u32		*notify_sr_ptr;
 	u32		*nsrn_sr_ptr;
 	u32		*transport_sr_ptr;
-	u32		*ipu_pm_sr_ptr;
 	u32		*config_list_head;
 };
 
@@ -127,6 +126,7 @@ struct ipc_module_state {
 	atomic_t		start_ref_count;
 	void			*ipc_shared_addr;
 	void			*gatemp_shared_addr;
+	void			*ipu_pm_shared_addr;
 	enum ipc_proc_sync	proc_sync;
 	struct ipc_config	cfg;
 	struct ipc_proc_entry	proc_entry[MULTIPROC_MAXPROCESSORS];
@@ -218,7 +218,6 @@ int ipc_attach(u16 remote_proc_id)
 	void *notify_shared_addr;
 	void *msgq_shared_addr;
 	void *nsrn_shared_addr;
-	void *ipu_pm_shared_addr;
 	u32 notify_mem_req;
 	VOLATILE struct ipc_reserved *slave;
 	struct ipc_proc_entry *ipc;
@@ -336,45 +335,9 @@ int ipc_attach(u16 remote_proc_id)
 
 	/* Must come before Notify because depends on default Notify */
 	if (status >= 0 && ipc->entry.setup_notify && ipc->entry.setup_ipu_pm) {
-		if (ipc_module->proc_entry[remote_proc_id].slave) {
-			ipu_pm_shared_addr = sl_heap_alloc
-					(sharedregion_get_heap(0),
-					ipu_pm_mem_req(NULL),
-					sharedregion_get_cache_line_size(0));
-
-			slave->ipu_pm_sr_ptr =
-				sharedregion_get_srptr(ipu_pm_shared_addr, 0);
-			if (slave->ipu_pm_sr_ptr ==
-					SHAREDREGION_INVALIDSRPTR) {
-				status = IPC_E_FAIL;
-				printk(KERN_ERR "ipc_attach : "
-					"sharedregion_get_srptr "
-					"failed [0x%x]\n", status);
-			} else {
-				printk(KERN_ERR
-					"sharedregion_get_srptr : "
-					"status [0x%x]\n", status);
-			}
-		} else {
-			ipu_pm_shared_addr =
-				sharedregion_get_ptr(slave->ipu_pm_sr_ptr);
-			if (ipu_pm_shared_addr == NULL) {
-				status = IPC_E_FAIL;
-				printk(KERN_ERR "ipc_attach : "
-					"sharedregion_get_ptr "
-					"failed [0x%x]\n", status);
-			} else {
-				printk(KERN_ERR
-					"sharedregion_get_ptr : "
-					"status [0x%x]\n", status);
-			}
-		}
-
 		if (status >= 0) {
-			/* create the nameserver_remotenotify instances */
-			status = ipu_pm_attach(remote_proc_id,
+			status = ipu_pm_attach(remote_proc_id, ipc_module->
 							ipu_pm_shared_addr);
-
 			if (status < 0)
 				printk(KERN_ERR "ipc_attach : "
 					"ipu_pm_attach "
@@ -385,6 +348,7 @@ int ipc_attach(u16 remote_proc_id)
 					"status [0x%x]\n", status);
 		}
 	}
+
 	/* Must come after gatemp_start because depends on default GateMP */
 	if (status >= 0 && ipc->entry.setup_notify) {
 		if (ipc_module->proc_entry[remote_proc_id].slave) {
@@ -530,7 +494,6 @@ int ipc_detach(u16 remote_proc_id)
 	u32 reserved_size = ipc_reserved_size_per_proc();
 #endif
 	bool cache_enabled = sharedregion_is_cache_enabled(0);
-	void *ipu_pm_shared_addr;
 	void *notify_shared_addr;
 	void *nsrn_shared_addr;
 	void *msgq_shared_addr;
@@ -639,25 +602,6 @@ int ipc_detach(u16 remote_proc_id)
 				printk(KERN_ERR
 					"ipu_pm_detach : "
 					"status [0x%x]\n", status);
-
-			/* free the memory if slave processor */
-			if (ipc_module->proc_entry[remote_proc_id].slave) {
-				/* get the pointer to NSRN instance */
-				ipu_pm_shared_addr = sharedregion_get_ptr(
-							slave->ipu_pm_sr_ptr);
-
-				if (ipu_pm_shared_addr != NULL)
-					/* free the memory back to
-							SharedRegion 0 heap */
-					sl_heap_free(sharedregion_get_heap(1),
-						ipu_pm_shared_addr,
-						ipu_pm_mem_req(NULL));
-
-				/* set the pointer for NSRN instance back
-								to invalid */
-				slave->ipu_pm_sr_ptr =
-						SHAREDREGION_INVALIDSRPTR;
-			}
 		}
 
 		if (ipc->entry.setup_notify) {
@@ -1224,6 +1168,7 @@ int ipc_start(void)
 	struct sharedregion_entry entry;
 	void *ipc_shared_addr;
 	void *gatemp_shared_addr;
+	void *ipu_pm_shared_addr;
 	struct gatemp_params gatemp_params;
 	bool line_available;
 
@@ -1271,12 +1216,17 @@ int ipc_start(void)
 	/* reserve memory for default gate before SharedRegion_start() */
 	sharedregion_reserve_memory(0, gatemp_shared_mem_req(&gatemp_params));
 
+	/* reserve memory for PM region */
+	ipu_pm_shared_addr = sharedregion_reserve_memory(0,
+						ipu_pm_mem_req(NULL));
+
 	/* clear the reserved memory */
 	sharedregion_clear_reserved_memory();
 
 	/* Set shared addresses */
 	ipc_module->ipc_shared_addr = ipc_shared_addr;
 	ipc_module->gatemp_shared_addr = gatemp_shared_addr;
+	ipc_module->ipu_pm_shared_addr = ipu_pm_shared_addr;
 
 	/* create default GateMP, must be called before sharedregion_start */
 	status = gatemp_start(ipc_module->gatemp_shared_addr);
