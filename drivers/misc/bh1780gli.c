@@ -58,6 +58,7 @@ struct bh1780_data {
 	int current_lux;
 	int old_lux;
 	int power_state;
+	int suspend_power_state;
 	int req_poll_rate;
 };
 
@@ -316,36 +317,34 @@ static int bh1780_suspend(struct i2c_client *client, pm_message_t mesg)
 
 	cancel_delayed_work_sync(&ddata->input_work);
 
-	state = bh1780_read(ddata, BH1780_REG_CONTROL, "CONTROL");
-	if (state < 0)
-		return state;
-
-	ddata->power_state = state & BH1780_POWMASK;
-
-	ret = bh1780_write(ddata, BH1780_REG_CONTROL, BH1780_POFF,
-				"CONTROL");
-
+	ddata->suspend_power_state = ddata->power_state;
+	ret = bh1780_write(ddata, BH1780_REG_CONTROL, BH1780_POFF, "CONTROL");
 	if (ret < 0)
 		return ret;
 
+	ddata->power_state = BH1780_POFF;
 	return 0;
 }
 
 static int bh1780_resume(struct i2c_client *client)
 {
 	struct bh1780_data *ddata;
-	int state, ret;
+	int ret;
 
 	ddata = i2c_get_clientdata(client);
-	state = ddata->power_state;
 
-	ret = bh1780_write(ddata, BH1780_REG_CONTROL, state,
-				"CONTROL");
+	if (ddata->suspend_power_state == BH1780_PON) {
+		if (als_debug)
+			pr_info("%s:Setting prox state to %i\n",
+				__func__, ddata->suspend_power_state);
 
-	if (ret < 0)
-		return ret;
+		ddata->power_state = ddata->suspend_power_state;
+		ret = bh1780_write(ddata, BH1780_REG_CONTROL, ddata->power_state, "CONTROL");
+		if (ret < 0)
+			return ret;
 
-	schedule_delayed_work(&ddata->input_work, 0);
+		schedule_delayed_work(&ddata->input_work, 0);
+	}
 
 	return 0;
 }
