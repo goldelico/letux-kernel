@@ -260,6 +260,7 @@ static int sfh7741_suspend(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sfh7741_drvdata *ddata = platform_get_drvdata(pdev);
 
+	disable_irq_nosync(ddata->irq);
 	/* Save the prox state for the resume */
 	ddata->on_before_suspend = ddata->prox_enable
 	ddata->pdata->activate_func(SFH7741_PROX_OFF);
@@ -270,6 +271,8 @@ static int sfh7741_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sfh7741_drvdata *ddata = platform_get_drvdata(pdev);
+
+	enable_irq(ddata->irq);
 	if (ddata->on_before_suspend)
 		ddata->pdata->activate_func(SFH7741_PROX_ON);
 
