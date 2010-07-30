@@ -796,14 +796,7 @@ static struct regulator_init_data sdp4430_vusb = {
 };
 
 static struct twl4030_codec_data twl6040_codec = {
-#ifdef CONFIG_OMAP4_AUDIO_PWRON
 	.audpwron_gpio  = 127,
-#else
-	/* provide GPIO number above the valid value
-	 * to mean there is no GPIO connected
-	 */
-	.audpwron_gpio  = 1024,
-#endif
 	.naudint_irq	= INT_44XX_SYS_NIRQ2,
 };
 
