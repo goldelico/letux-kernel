@@ -99,6 +99,7 @@ static ssize_t set_prox_state(struct device *dev,
 			if (ddata->pdata->flags & SFH7741_WAKEABLE_INT)
 				enable_irq_wake(ddata->irq);
 
+			sfh7741_report_input(ddata);
 		} else {
 			disable_irq_nosync(ddata->irq);
 			if (ddata->pdata->flags & SFH7741_WAKEABLE_INT)
@@ -275,6 +276,8 @@ static int sfh7741_resume(struct device *dev)
 	enable_irq(ddata->irq);
 	if (ddata->on_before_suspend)
 		ddata->pdata->activate_func(SFH7741_PROX_ON);
+
+	sfh7741_report_input(ddata);
 
 	return 0;
 }
