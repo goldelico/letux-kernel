@@ -55,21 +55,6 @@ struct processor_attach_params {
 };
 
 /*
- *Configuration parameters for starting the slave Processor
- */
-struct processor_start_params {
-	struct proc_mgr_start_params *params;
-	/* Common start parameters for ProcMgr */
-};
-
-/*
- *Configuration parameters for stopping the slave Processor
- */
-struct processor_stop_params {
-	struct proc_mgr_stop_params *params;
-	/* Common start parameters for ProcMgr */
-};
-/*
  * Function pointer type for the function to attach to the processor.
  */
 typedef int (*processor_attach_fxn) (void *handle,
@@ -80,18 +65,6 @@ typedef int (*processor_attach_fxn) (void *handle,
  * procssor
  */
 typedef int (*processor_detach_fxn) (void *handle);
-
-/*
- * Function pointer type for the function to start the processor.
- */
-typedef int (*processor_start_fxn) (void *handle, u32 entry_pt,
-					struct processor_start_params *params);
-
-/*
- *Function pointer type for the function to stop the processor.
- */
-typedef int (*processor_stop_fxn) (void *handle,
-					struct processor_stop_params *params);
 
 /*
  * Function pointer type for the function to read from the slave
@@ -122,19 +95,6 @@ typedef int (*processor_translate_addr_fxn) (void *handle, void **dst_addr,
 		enum proc_mgr_addr_type srcAddrType);
 
 /*
- *Function pointer type for the function to map address to slave
- *		address space
- */
-typedef int (*processor_map_fxn) (void *handle, u32 proc_addr, u32 size,
-			u32 *mapped_addr, u32 *mapped_size, u32 map_attribs);
-
-/*
- *Function pointer type for the function to map address to slave
- *		address space
- */
-typedef int (*processor_unmap_fxn) (void *handle, u32 mapped_addr);
-
-/*
  *Function pointer type for the function that returns proc info
  */
 typedef int (*processor_proc_info) (void *handle,
@@ -159,10 +119,6 @@ struct processor_fxn_table {
 	/* Function to attach to the slave processor */
 	processor_detach_fxn detach;
 	/* Function to detach from the slave processor */
-	processor_start_fxn start;
-	/* Function to start the slave processor */
-	processor_stop_fxn stop;
-	/* Function to stop the slave processor */
 	processor_read_fxn read;
 	/* Function to read from the slave processor's memory */
 	processor_write_fxn write;
@@ -171,10 +127,6 @@ struct processor_fxn_table {
 	/* Function to perform device-dependent control function */
 	processor_translate_addr_fxn translateAddr;
 	/* Function to translate between address ranges */
-	processor_map_fxn map;
-	/* Function to map slave addresses to master address space */
-	processor_unmap_fxn unmap;
-	/* Function to unmap slave addresses to master address space */
 	processor_proc_info procinfo;
 	/* Function to convert Virtual to Physical pages */
 	processor_virt_to_phys_fxn virt_to_phys;

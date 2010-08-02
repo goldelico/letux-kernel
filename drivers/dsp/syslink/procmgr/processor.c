@@ -92,71 +92,6 @@ inline int processor_detach(void *handle)
 
 
 /*
- * Function to start the processor.
- *
- * This function calls into the specific Processor implementation
- * to start the slave processor running.
- * This function starts the slave processor running, in most
- * devices, by programming its entry point into the boot location
- * of the slave processor and releasing it from reset.
- * The handle specifies the specific Processor instance to be used.
- *
- *  @param  handle void * to the Processor object
- *  @param  entryPt	Entry point of the file loaded on the slave Processor
- *
- *  @sa	 Processor_stop
- */
-inline int processor_start(void *handle, u32 entry_pt,
-				struct processor_start_params *params)
-{
-	int retval = 0;
-	struct processor_object *proc_handle =
-					(struct processor_object *)handle;
-
-	BUG_ON(handle == NULL);
-	/* entryPt may be 0 for some devices. Cannot check for valid/invalid. */
-	BUG_ON(params == NULL);
-	BUG_ON(proc_handle->proc_fxn_table.start == NULL);
-	retval = proc_handle->proc_fxn_table.start(handle, entry_pt, params);
-
-	if ((proc_handle->boot_mode == PROC_MGR_BOOTMODE_BOOT)
-		|| (proc_handle->boot_mode == PROC_MGR_BOOTMODE_NOLOAD))
-		proc_handle->state = PROC_MGR_STATE_RUNNNING;
-
-	return retval;
-}
-
-
-/*
- * Function to stop the processor.
- *
- * This function calls into the specific Processor implementation
- * to stop the slave processor.
- * This function stops the slave processor running, in most
- * devices, by placing it in reset.
- * The handle specifies the specific Processor instance to be used.
- */
-inline int processor_stop(void *handle,
-				struct processor_stop_params *params)
-{
-	int retval = 0;
-	struct processor_object *proc_handle =
-					(struct processor_object *)handle;
-
-	BUG_ON(handle == NULL);
-	BUG_ON(proc_handle->proc_fxn_table.stop == NULL);
-
-	retval = proc_handle->proc_fxn_table.stop(handle, params);
-
-	if ((proc_handle->boot_mode == PROC_MGR_BOOTMODE_BOOT)
-	||  (proc_handle->boot_mode == PROC_MGR_BOOTMODE_NOLOAD))
-		proc_handle->state = PROC_MGR_STATE_RESET;
-
-	return retval;
-}
-
-
-/*
  * Function to read from the slave processor's memory.
  *
  * This function calls into the specific Processor implementation
@@ -310,46 +245,6 @@ inline int processor_translate_addr(void *handle, void **dst_addr,
 	return retval;
 }
 
-
-/*
- * Function to map address to slave address space.
- *
- * This function maps the provided slave address to a host address
- * and returns the mapped address and size.
- */
-inline int processor_map(void *handle, u32 proc_addr, u32 size,
-			u32 *mapped_addr, u32 *mapped_size, u32 map_attribs)
-{
-	int retval = 0;
-	struct processor_object *proc_handle =
-				(struct processor_object *)handle;
-
-	BUG_ON(handle == NULL);
-	BUG_ON(proc_addr == 0);
-	BUG_ON(size == 0);
-	BUG_ON(mapped_addr == NULL);
-	BUG_ON(mapped_size == NULL);
-	BUG_ON(proc_handle->proc_fxn_table.map == NULL);
-
-	retval = proc_handle->proc_fxn_table.map(handle, proc_addr,
-			size, mapped_addr, mapped_size, map_attribs);
-	return retval;
-}
-
-/*
- * Function to unmap address to slave address space.
- *
- * This function unmap the provided slave address
- */
-inline int processor_unmap(void *handle, u32 mapped_addr)
-{
-	int retval = 0;
-	struct processor_object *proc_handle =
-				(struct processor_object *)handle;
-
-	retval = proc_handle->proc_fxn_table.unmap(handle, mapped_addr);
-	return retval;
-}
 
 /*
  * Function that registers for notification when the slave

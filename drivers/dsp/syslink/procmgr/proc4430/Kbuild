@@ -1,5 +1,4 @@
-libomap_proc4430 = proc4430.o proc4430_drv.o dmm4430.o \
-		   ducatienabler.o hw_mmu.o
+libomap_proc4430 = proc4430.o proc4430_drv.o
 
 obj-$(CONFIG_SYSLINK_PROC)        += syslink_proc4430.o
 syslink_proc4430-objs = $(libomap_proc4430)

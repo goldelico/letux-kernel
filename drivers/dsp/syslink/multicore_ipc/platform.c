@@ -1669,7 +1669,6 @@ int platform_stop_callback(u16 proc_id, void *arg)
 				continue;
 			}
 
-			status = proc_mgr_unmap(pm_handle, m_addr);
 		}
 	}
 
@@ -1746,23 +1745,6 @@ _platform_read_slave_memory(u16 proc_id,
 		goto exit;
 	}
 
-	/* This code path is not validated for OMAP4, as it does not comply
-	 * with the latest ProcMgr */
-	if (done == false) {
-		/* Map the address */
-		/* TODO: backwards compatibility with old procmgr */
-		status = proc_mgr_map(pm_handle,
-			addr,
-			*num_bytes,
-			&m_addr,
-			num_bytes,
-			PROC_MGR_MAPTYPE_VIRT);
-		if (status < 0) {
-			status = PLATFORM_E_FAIL;
-			goto exit;
-		}
-	}
-
 	if (done == false) {
 		status = proc_mgr_read(pm_handle,
 					addr,
@@ -1774,15 +1756,6 @@ _platform_read_slave_memory(u16 proc_id,
 		}
 	}
 
-	if (done == false) {
-		/* Unmap the address */
-		/* TODO: backwards compatibility with old procmgr */
-		status = proc_mgr_unmap(pm_handle, m_addr);
-		if (status < 0) {
-			status = PLATFORM_E_FAIL;
-			goto exit;
-		}
-	}
 exit:
 	return status;
 }
@@ -1835,38 +1808,11 @@ int _platform_write_slave_memory(u16 proc_id, u32 addr, void *value,
 		goto exit;
 	}
 
-	/* This code path is not validated for OMAP4, as it does not comply
-	 * with the latest ProcMgr */
-	if (done == false) {
-		/* Map the address */
-		/* TODO: backwards compatibility with old procmgr */
-		status = proc_mgr_map(pm_handle,
-			addr,
-			*num_bytes,
-			&m_addr,
-			num_bytes,
-			PROC_MGR_MAPTYPE_VIRT);
-		if (status < 0) {
-			status = PLATFORM_E_FAIL;
-			goto exit;
-		}
-	}
-
 	if (done == false) {
 		status = proc_mgr_write(pm_handle,
 					addr,
 					num_bytes,
 					value);
-		if (status < 0) {
-			status = PLATFORM_E_FAIL;
-			goto exit;
-		}
-	}
-
-	if (done == false) {
-		/* Map the address */
-		/* TODO: backwards compatibility with old procmgr */
-		status = proc_mgr_unmap(pm_handle, m_addr);
 		if (status < 0) {
 			status = PLATFORM_E_FAIL;
 			goto exit;

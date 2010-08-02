@@ -31,30 +31,18 @@
 #include "../procmgr_drvdefs.h"
 #include "proc4430.h"
 #include "../../ipu_pm/ipu_pm.h"
-#include "dmm4430.h"
 #include <syslink/multiproc.h>
-#include <syslink/ducatienabler.h>
 #include <syslink/platform_mem.h>
 #include <syslink/atomic_linux.h>
 
-#define DUCATI_DMM_START_ADDR			0xa0000000
-#define DUCATI_DMM_POOL_SIZE			0x6000000
-
-#define SYS_M3					2
-#define APP_M3					1
-#define CORE_PRM_BASE				OMAP2_L4_IO_ADDRESS(0x4a306700)
-#define CORE_CM2_DUCATI_CLKSTCTRL               OMAP2_L4_IO_ADDRESS(0x4A008900)
-#define CORE_CM2_DUCATI_CLKCTRL			OMAP2_L4_IO_ADDRESS(0x4A008920)
-#define RM_MPU_M3_RSTCTRL_OFFSET		0x210
-#define RM_MPU_M3_RSTST_OFFSET			0x214
-#define RM_MPU_M3_RST1				0x1
-#define RM_MPU_M3_RST2				0x2
-#define RM_MPU_M3_RST3				0x4
 
 #define OMAP4430PROC_MODULEID          (u16) 0xbbec
 
 /* Macro to make a correct module magic number with refCount */
 #define OMAP4430PROC_MAKE_MAGICSTAMP(x) ((OMAP4430PROC_MODULEID << 12u) | (x))
+
+#define PG_MASK(pg_size) (~((pg_size)-1))
+#define PG_ALIGN_LOW(addr, pg_size) ((addr) & PG_MASK(pg_size))
 
 /*OMAP4430 Module state object */
 struct proc4430_module_object {
@@ -156,9 +144,6 @@ int proc4430_setup(struct proc4430_config *cfg)
 		cfg = &tmp_cfg;
 	}
 
-	dmm_create();
-	dmm_create_tables(DUCATI_DMM_START_ADDR, DUCATI_DMM_POOL_SIZE);
-
 	/* Create a default gate handle for local module protection. */
 	proc4430_state.gate_handle =
 		kmalloc(sizeof(struct mutex), GFP_KERNEL);
@@ -181,8 +166,6 @@ int proc4430_setup(struct proc4430_config *cfg)
 
 error:
 	atomic_dec_return(&proc4430_state.ref_count);
-	dmm_delete_tables();
-	dmm_destroy();
 
 	return retval;
 }
@@ -302,15 +285,11 @@ void *proc4430_create(u16 proc_id, const struct proc4430_params *params)
 
 		handle->proc_fxn_table.attach = &proc4430_attach;
 		handle->proc_fxn_table.detach = &proc4430_detach;
-		handle->proc_fxn_table.start = &proc4430_start;
-		handle->proc_fxn_table.stop = &proc4430_stop;
 		handle->proc_fxn_table.read = &proc4430_read;
 		handle->proc_fxn_table.write = &proc4430_write;
 		handle->proc_fxn_table.control = &proc4430_control;
 		handle->proc_fxn_table.translateAddr =
 					 &proc4430_translate_addr;
-		handle->proc_fxn_table.map = &proc4430_map;
-		handle->proc_fxn_table.unmap = &proc4430_unmap;
 		handle->proc_fxn_table.procinfo = &proc4430_proc_info;
 		handle->proc_fxn_table.virt_to_phys = &proc4430_virt_to_phys;
 		handle->state = PROC_MGR_STATE_UNKNOWN;
@@ -591,149 +570,6 @@ int proc4430_detach(void *handle)
 	return 0;
 }
 
-/*==========================================
- * Function to start the slave processor
- *
- * Start the slave processor running from its entry point.
- * Depending on the boot mode, this involves configuring the boot
- * address and releasing the slave from reset.
- *
- */
-int proc4430_start(void *handle, u32 entry_pt,
-			struct processor_start_params *start_params)
-{
-	u32 reg;
-	int counter = 10;
-	if (atomic_cmpmask_and_lt(&proc4430_state.ref_count,
-					OMAP4430PROC_MAKE_MAGICSTAMP(0),
-					OMAP4430PROC_MAKE_MAGICSTAMP(1))
-					== true) {
-
-		printk(KERN_ERR "proc4430_start failed "
-			"Module not initialized");
-		return -ENODEV;
-	}
-
-	/*FIXME: Remove handle and entry_pt if not used */
-	if (WARN_ON(start_params == NULL)) {
-		printk(KERN_ERR "proc4430_start failed "
-			"Argument processor_start_params * is NULL");
-		return -EINVAL;
-	}
-
-	reg = __raw_readl(CORE_PRM_BASE + RM_MPU_M3_RSTST_OFFSET);
-	printk(KERN_INFO "proc4430_start: Reset Status [0x%x]", reg);
-	reg = __raw_readl(CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
-	printk(KERN_INFO "proc4430_start: Reset Control [0x%x]", reg);
-
-	switch (start_params->params->proc_id) {
-	case SYS_M3:
-		/* Module is managed automatically by HW */
-		__raw_writel(0x01, CORE_CM2_DUCATI_CLKCTRL);
-		/* Enable the M3 clock */
-		__raw_writel(0x02, CORE_CM2_DUCATI_CLKSTCTRL);
-		do {
-			reg = __raw_readl(CORE_CM2_DUCATI_CLKSTCTRL);
-			if (reg & 0x100) {
-				printk(KERN_INFO "M3 clock enabled:"
-				"CORE_CM2_DUCATI_CLKSTCTRL = 0x%x\n", reg);
-				break;
-			}
-			msleep(1);
-		} while (--counter);
-		if (counter == 0) {
-			printk(KERN_ERR "FAILED TO ENABLE DUCATI M3 CLOCK !\n");
-			return -EFAULT;
-		}
-		/* Check that releasing resets would indeed be effective */
-		reg = __raw_readl(CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
-		if (reg != 7) {
-			printk(KERN_ERR "proc4430_start: Resets in not proper state!\n");
-			__raw_writel(0x7,
-				CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
-		}
-
-		/* De-assert RST3, and clear the Reset status */
-		printk(KERN_INFO "De-assert RST3\n");
-		__raw_writel(0x3, CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
-		while (!(__raw_readl(CORE_PRM_BASE + RM_MPU_M3_RSTST_OFFSET)
-			& 0x4))
-			;
-		printk(KERN_INFO "RST3 released!");
-		__raw_writel(0x4, CORE_PRM_BASE + RM_MPU_M3_RSTST_OFFSET);
-		ducati_setup();
-
-		/* De-assert RST1, and clear the Reset status */
-		printk(KERN_INFO "De-assert RST1\n");
-		__raw_writel(0x2, CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
-		while (!(__raw_readl(CORE_PRM_BASE + RM_MPU_M3_RSTST_OFFSET)
-			& 0x1))
-			;
-		printk(KERN_INFO "RST1 released!");
-		__raw_writel(0x1, CORE_PRM_BASE + RM_MPU_M3_RSTST_OFFSET);
-		break;
-	case APP_M3:
-		/* De-assert RST2, and clear the Reset status */
-		printk(KERN_INFO "De-assert RST2\n");
-		__raw_writel(0x0, CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
-		while (!(__raw_readl(CORE_PRM_BASE + RM_MPU_M3_RSTST_OFFSET)
-			& 0x2))
-			;
-		printk(KERN_INFO "RST2 released!");
-		__raw_writel(0x2, CORE_PRM_BASE + RM_MPU_M3_RSTST_OFFSET);
-		break;
-	default:
-		printk(KERN_ERR "proc4430_start: ERROR input\n");
-		break;
-	}
-	return 0;
-}
-
-
-/*
- * Function to stop the slave processor
- *
- * Stop the execution of the slave processor. Depending on the boot
- * mode, this may result in placing the slave processor in reset.
- *
- *  @param	  handle	void * to the Processor instance
- *
- *  @sa		 proc4430_start, OMAP3530_halResetCtrl
- */
-int
-proc4430_stop(void *handle, struct processor_stop_params *stop_params)
-{
-	u32 reg;
-	if (atomic_cmpmask_and_lt(&proc4430_state.ref_count,
-					OMAP4430PROC_MAKE_MAGICSTAMP(0),
-					OMAP4430PROC_MAKE_MAGICSTAMP(1))
-					== true) {
-		printk(KERN_ERR "proc4430_stop failed "
-			"Module not initialized");
-		return -ENODEV;
-	}
-	switch (stop_params->params->proc_id) {
-	case SYS_M3:
-		printk(KERN_INFO "Assert RST1 and RST2\n");
-		__raw_writel(0x3, CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
-		reg = __raw_readl(CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
-		ducati_destroy();
-		printk(KERN_INFO "Assert RST1 and RST2 and RST3\n");
-		__raw_writel(0x7, CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
-		/* Disable the M3 clock */
-		__raw_writel(0x01, CORE_CM2_DUCATI_CLKSTCTRL);
-		break;
-	case APP_M3:
-		printk(KERN_INFO "Assert RST2\n");
-		__raw_writel(0x2, CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
-		break;
-	default:
-		printk(KERN_ERR "proc4430_stop: ERROR input\n");
-		break;
-	}
-	return 0;
-}
-
 
 /*==============================================
  *	 Function to read from the slave processor's memory.
@@ -908,95 +744,6 @@ error_exit:
 
 
 /*=================================================
- * Function to map slave address to host address space
- *
- * Map the provided slave address to master address space. This
- * function also maps the specified address to slave MMU space.
- */
-int proc4430_map(void *handle, u32 proc_addr,
-	u32 size, u32 *mapped_addr, u32 *mapped_size, u32 map_attribs)
-{
-	int retval = 0;
-	u32 da_align;
-	u32 da;
-	u32 va_align;
-	u32 size_align;
-
-	if (atomic_cmpmask_and_lt(&proc4430_state.ref_count,
-					OMAP4430PROC_MAKE_MAGICSTAMP(0),
-					OMAP4430PROC_MAKE_MAGICSTAMP(1))
-					== true) {
-		printk(KERN_ERR "proc4430_map failed "
-			"Module not initialized");
-		retval = -ENODEV;
-		goto error_exit;
-	}
-
-	/*FIXME: Remove handle,etc if not used */
-
-	/* FIX ME: Temporary work around until the dynamic memory mapping
-	  * for Tiler address space is available
-	  */
-	if ((map_attribs & DSP_MAPTILERADDR)) {
-		da_align = user_va2pa(current->mm, proc_addr);
-		*mapped_addr = (da_align | (proc_addr & (PAGE_SIZE - 1)));
-		return 0;
-	}
-
-	/* Calculate the page-aligned PA, VA and size */
-	va_align = PG_ALIGN_LOW(proc_addr, PAGE_SIZE);
-	size_align = PG_ALIGN_HIGH(size + (u32)proc_addr - va_align, PAGE_SIZE);
-
-	dmm_reserve_memory(size_align, &da);
-	da_align = PG_ALIGN_LOW((u32)da, PAGE_SIZE);
-	retval = ducati_mem_map(va_align, da_align, size_align, map_attribs);
-
-	/* Mapped address = MSB of DA | LSB of VA */
-	*mapped_addr = (da_align | (proc_addr & (PAGE_SIZE - 1)));
-
-error_exit:
-	return retval;
-}
-
-/*=================================================
- * Function to unmap slave address to host address space
- *
- * UnMap the provided slave address to master address space. This
- * function also unmaps the specified address to slave MMU space.
- */
-int proc4430_unmap(void *handle, u32 mapped_addr)
-{
-	int da_align;
-	int ret_val = 0;
-	int size_align;
-
-	if (atomic_cmpmask_and_lt(&proc4430_state.ref_count,
-					OMAP4430PROC_MAKE_MAGICSTAMP(0),
-					OMAP4430PROC_MAKE_MAGICSTAMP(1))
-					== true) {
-		printk(KERN_ERR "proc4430_map failed "
-			"Module not initialized");
-		ret_val = -1;
-		goto error_exit;
-	}
-
-	/*FIXME: Remove handle,etc if not used */
-
-	da_align = PG_ALIGN_LOW((u32)mapped_addr, PAGE_SIZE);
-	ret_val = dmm_unreserve_memory(da_align, &size_align);
-	if (WARN_ON(ret_val < 0))
-		goto error_exit;
-	ret_val = ducati_mem_unmap(da_align, size_align);
-	if (WARN_ON(ret_val < 0))
-		goto error_exit;
-	return 0;
-
-error_exit:
-	printk(KERN_WARNING "proc4430_unmap failed !!!!\n");
-	return ret_val;
-}
-
-/*=================================================
  * Function to return list of translated mem entries
  *
  * This function takes the remote processor address as
@@ -1026,7 +773,7 @@ int proc4430_virt_to_phys(void *handle, u32 da, u32 *mapped_entries,
 	}
 	da_align = PG_ALIGN_LOW((u32)da, PAGE_SIZE);
 	for (i = 0; i < num_of_entries; i++) {
-		mapped_entries[i] = ducati_mem_virtToPhys(da_align);
+		mapped_entries[i] = da_align;
 		da_align += PAGE_SIZE;
 	}
 	return 0;

@@ -130,21 +130,6 @@ struct proc_mgr_attach_params {
 	/* Boot mode for the slave processor. */
 } ;
 
-/*
- *   Configuration parameters to be provided while starting the slave
- *  processor.
- */
-struct proc_mgr_start_params {
-	u32 proc_id;
-};
-
-/*
- *   Configuration parameters to be provided while stopping the slave
- *  processor.
- */
-struct proc_mgr_stop_params {
-	u32 proc_id;
-};
 
 /*
  *   This structure defines information about memory regions mapped by
@@ -219,20 +204,6 @@ int proc_mgr_attach(void *handle, struct proc_mgr_attach_params *params);
  */
 int proc_mgr_detach(void *handle);
 
-/* Function to initialize the parameters for the ProcMgr start function. */
-void proc_mgr_get_start_params(void *handle,
-				struct proc_mgr_start_params *params);
-
-/* Function to starts execution of the loaded code on the slave from the
- * starting point specified in the slave executable loaded earlier by call to
- * proc_mgr_load().
- */
-int proc_mgr_start(void *handle, u32 entry_point,
-				struct proc_mgr_start_params *params);
-
-/* Function to stop execution of the slave Processor. */
-int proc_mgr_stop(void *handle, struct proc_mgr_stop_params *params);
-
 /* Function to get the current state of the slave Processor as maintained on
  * the master Processor state machine.
  */
@@ -253,13 +224,6 @@ int proc_mgr_control(void *handle, int cmd, void *arg);
 int proc_mgr_translate_addr(void *handle, void **dst_addr,
 		enum proc_mgr_addr_type dst_addr_type, void *src_addr,
 		enum proc_mgr_addr_type src_addr_type);
-
-/* Function that maps the specified slave address to master address space. */
-int proc_mgr_map(void *handle, u32 proc_addr, u32 size,
-	u32 *mappedAddr, u32 *mapped_size, u32 map_attribs);
-
-/* Function that unmaps the specified slave address to master address space. */
-int proc_mgr_unmap(void *handle, u32 mapped_addr);
 
 /* Function that registers for notification when the slave processor
  * transitions to any of the states specified.

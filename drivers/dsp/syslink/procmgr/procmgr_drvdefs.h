@@ -352,32 +352,6 @@ struct proc_mgr_cmd_args_get_start_params {
 };
 
 /*
- * Command arguments for ProcMgr_start
- */
-struct proc_mgr_cmd_args_start {
-	struct proc_mgr_cmd_args commond_args;
-	/*Common command args */
-	void *handle;
-	/*Entry point for the image*/
-	u32 entry_point;
-	/*Handle to the ProcMgr object */
-	struct proc_mgr_start_params *params;
-	/*Optional ProcMgr start parameters. */
-};
-
-/*
- * Command arguments for ProcMgr_stop
- */
-struct proc_mgr_cmd_args_stop {
-	struct proc_mgr_cmd_args commond_args;
-	/*Common command args */
-	void *handle;
-	/*Handle to the ProcMgr object */
-	struct proc_mgr_stop_params *params;
-	/*Optional ProcMgr stop parameters. */
-};
-
-/*
  * Command arguments for ProcMgr_getState
  */
 struct proc_mgr_cmd_args_get_state {
@@ -475,38 +449,6 @@ struct proc_mgr_cmd_args_get_symbol_address {
 	/*Name of the symbol */
 	u32 sym_value;
 	/*Return parameter: Symbol address */
-};
-
-/*
- * Command arguments for ProcMgr_map
- */
-struct proc_mgr_cmd_args_map {
-	struct proc_mgr_cmd_args commond_args;
-	/*Common command args */
-	void *handle;
-	/*Handle to the ProcMgr object */
-	u32 proc_addr;
-	/*Slave address to be mapped */
-	u32 size;
-	/*Size (in bytes) of region to be mapped */
-	u32 mapped_addr;
-	/*Return parameter: Mapped address in host address space */
-	u32 mapped_size;
-	/*Return parameter: Mapped size */
-	u32 map_attribs;
-	/*Type of mapping. */
-};
-
-/*
- * Command arguments for ProcMgr_map
- */
-struct proc_mgr_cmd_args_unmap {
-	struct proc_mgr_cmd_args commond_args;
-	/*Common command args */
-	void *handle;
-	/*Handle to the ProcMgr object */
-	u32 mapped_addr;
-	/* Mapped address in host address space */
 };
 
 /*

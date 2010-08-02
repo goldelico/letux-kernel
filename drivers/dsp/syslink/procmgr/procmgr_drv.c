@@ -379,70 +379,6 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 	}
 	break;
 
-	case CMD_PROCMGR_GETSTARTPARAMS:
-	{
-		struct proc_mgr_cmd_args_get_start_params src_args;
-		struct proc_mgr_start_params params;
-
-		/* Copy the full args from user-side. */
-		retval = copy_from_user((void *)&src_args,
-		(const void *)(args),
-		sizeof(struct proc_mgr_cmd_args_get_start_params));
-		if (WARN_ON(retval != 0))
-			goto func_exit;
-		proc_mgr_get_start_params(src_args.handle, &params);
-		if (WARN_ON(retval < 0))
-			goto func_exit;
-		retval = copy_to_user((void *)(src_args.params),
-				(const void *)&params,
-				sizeof(struct proc_mgr_start_params));
-		WARN_ON(retval);
-	}
-	break;
-
-	case CMD_PROCMGR_START:
-	{
-		struct proc_mgr_cmd_args_start  src_args;
-		struct proc_mgr_start_params   params;
-
-		 /* Copy the full args from user-side. */
-		retval = copy_from_user((void *)&src_args,
-			(const void *)(args),
-			sizeof(struct proc_mgr_cmd_args_start));
-		/* Copy params from user-side. */
-		retval = copy_from_user((void *)&params,
-			(const void *)(src_args.params),
-			sizeof(struct proc_mgr_start_params));
-		if (WARN_ON(retval != 0))
-			goto func_exit;
-		retval = proc_mgr_start(src_args.handle,
-				src_args.entry_point, &params);
-
-		WARN_ON(retval);
-	}
-	break;
-
-	case CMD_PROCMGR_STOP:
-	{
-		struct proc_mgr_cmd_args_stop src_args;
-
-		struct proc_mgr_stop_params   params;
-		 /* Copy the full args from user-side. */
-		retval = copy_from_user((void *)&src_args,
-			(const void *)(args),
-			sizeof(struct proc_mgr_cmd_args_stop));
-		/* Copy params from user-side. */
-		retval = copy_from_user((void *)&params,
-			(const void *)(src_args.params),
-			sizeof(struct proc_mgr_stop_params));
-
-		if (WARN_ON(retval != 0))
-			goto func_exit;
-		retval = proc_mgr_stop(src_args.handle, &params);
-		WARN_ON(retval < 0);
-	}
-	break;
-
 	case CMD_PROCMGR_GETSTATE:
 	{
 		struct proc_mgr_cmd_args_get_state src_args;
@@ -543,45 +479,6 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 		WARN_ON(retval < 0);
 	}
 	break;
-
-	case CMD_PROCMGR_MAP:
-	{
-		struct proc_mgr_cmd_args_map src_args;
-
-		 /* Copy the full args from user-side. */
-		retval = copy_from_user((void *)&src_args,
-		(const void *)(args),
-		sizeof(struct proc_mgr_cmd_args_map));
-		if (WARN_ON(retval != 0))
-			goto func_exit;
-		retval = proc_mgr_map(src_args.handle,
-				src_args.proc_addr, src_args.size,
-				&(src_args.mapped_addr),
-				&(src_args.mapped_size),
-				src_args.map_attribs);
-		if (WARN_ON(retval < 0))
-			goto func_exit;
-		retval = copy_to_user((void *)(args),
-				(const void *)&src_args,
-				sizeof(struct proc_mgr_cmd_args_map));
-		WARN_ON(retval < 0);
-	}
-	break;
-
-	case CMD_PROCMGR_UNMAP:
-	{
-		struct proc_mgr_cmd_args_unmap src_args;
-
-		 /* Copy the full args from user-side. */
-		retval = copy_from_user((void *)&src_args,
-		(const void *)(args),
-		sizeof(struct proc_mgr_cmd_args_unmap));
-		if (WARN_ON(retval != 0))
-			goto func_exit;
-		retval = proc_mgr_unmap(src_args.handle,
-						(src_args.mapped_addr));
-		WARN_ON(retval < 0);
-	}
 
 	case CMD_PROCMGR_REGISTERNOTIFY:
 	{

@@ -337,7 +337,6 @@ struct notify_ducatidrv_object *notify_ducatidrv_create(
 	uint min_align;
 	struct notify_ducatidrv_event_entry *event_entry;
 	u32 proc_ctrl_size;
-	u32 shm_va;
 
 	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
 			&(notify_ducatidriver_state.ref_count),
@@ -450,9 +449,7 @@ struct notify_ducatidrv_object *notify_ducatidrv_create(
 
 	/* Save the eventEntrySize in obj since we will need it at runtime to
 	 * index the event charts */
-	/* TODO: Check if this shm_va needs to be passed instead of params->
-	 * shared_addr */
-	shm_va = get_ducati_virt_mem();
+
 	obj->event_entry_size = ROUND_UP(
 				sizeof(struct notify_ducatidrv_event_entry),
 				min_align);

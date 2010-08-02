@@ -48,10 +48,6 @@ struct proc_mgr_module_object {
 	/* Default parameters for the ProcMgr instances */
 	struct proc_mgr_attach_params def_attach_params;
 	/* Default parameters for the ProcMgr attach function */
-	struct proc_mgr_start_params  def_start_params;
-	/* Default parameters for the ProcMgr start function */
-	struct proc_mgr_stop_params  def_stop_params;
-	/* Default parameters for the ProcMgr stop function */
 	struct mutex *gate_handle;
 	/* handle of gate to be used for local thread safety */
 	void *proc_handles[MULTIPROC_MAXPROCESSORS];
@@ -75,10 +71,6 @@ struct proc_mgr_object {
 	/* ProcMgr instance params structure */
 	struct proc_mgr_attach_params attach_params;
 	/* ProcMgr attach params structure */
-	struct proc_mgr_start_params  start_params;
-	/* ProcMgr start params structure */
-	struct proc_mgr_stop_params  stop_params;
-	/* ProcMgr start params structure */
 	u32 file_id;
 	/*!< File ID of the loaded static executable */
 	u16 num_mem_entries;
@@ -93,7 +85,6 @@ struct proc_mgr_module_object proc_mgr_obj_state = {
 	.gate_handle = NULL,
 	.def_inst_params.proc_handle   = NULL,
 	.def_attach_params.boot_mode = PROC_MGR_BOOTMODE_BOOT,
-	.def_start_params.proc_id = 0
 };
 
 
@@ -511,118 +502,6 @@ int proc_mgr_detach(void *handle)
 }
 EXPORT_SYMBOL(proc_mgr_detach);
 
-/*===============================
- *  Function to initialize the parameters for the ProcMgr start
- * function.
- *
- * This function can be called by the application to get their
- * configuration parameter to proc_mgr_start filled in by the
- * ProcMgr module with the default parameters. If the user does
- * not wish to make any change in the default parameters, this API
- * is not required to be called.
- *
- */
-void proc_mgr_get_start_params(void *handle,
-				struct proc_mgr_start_params *params)
-{
-	struct proc_mgr_object *proc_mgr_handle =
-					(struct proc_mgr_object *)handle;
-	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
-		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
-		 == true) {
-		printk(KERN_ERR "proc_mgr_get_start_params:"
-			"Error - module not initialized\n");
-	}
-	BUG_ON(params == NULL);
-
-	if (handle == NULL) {
-		memcpy(params, &(proc_mgr_obj_state.def_start_params),
-				sizeof(struct proc_mgr_start_params));
-	} else {
-		/* Return updated ProcMgr instance specific parameters. */
-		memcpy(params, &(proc_mgr_handle->start_params),
-				sizeof(struct proc_mgr_start_params));
-	}
-	return;
-}
-EXPORT_SYMBOL(proc_mgr_get_start_params);
-
-/*==========================================
- *  Function to start the slave processor running.
- *
- * Function to start execution of the loaded code on the slave
- * from the entry point specified in the slave executable loaded
- * earlier by call to proc_mgr_load ().
- * After successful completion of this function, the ProcMgr
- * instance is expected to be in the proc_mgr_State_Running state.
- */
-int proc_mgr_start(void *handle, u32 entry_point,
-			struct proc_mgr_start_params *params)
-{
-	int retval = 0;
-	struct proc_mgr_object *proc_mgr_handle =
-					(struct proc_mgr_object *)handle;
-	struct proc_mgr_start_params   tmp_params;
-	struct processor_start_params proc_params;
-
-	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
-		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
-		 == true) {
-		printk(KERN_ERR "proc_mgr_start:"
-			"Error - module not initialized\n");
-		return -EFAULT;
-	}
-	BUG_ON(handle == NULL);
-
-	if (params == NULL) {
-		proc_mgr_get_start_params(handle, &tmp_params);
-		params = &tmp_params;
-	}
-	WARN_ON(mutex_lock_interruptible(proc_mgr_obj_state.gate_handle));
-	memcpy(&(proc_mgr_handle->start_params), params,
-					sizeof(struct proc_mgr_start_params));
-	/* Start the slave processor running. */
-	proc_params.params = params;
-	retval = processor_start(proc_mgr_handle->proc_handle,
-						entry_point, &proc_params);
-
-	mutex_unlock(proc_mgr_obj_state.gate_handle);
-	return retval;;
-}
-EXPORT_SYMBOL(proc_mgr_start);
-
-/*========================================
- *  Function to stop the slave processor.
- *
- * Function to stop execution of the slave processor.
- * Depending on the boot mode, after successful completion of this
- * function, the ProcMgr instance may be in the proc_mgr_State_Reset
- * state.
- *
- */
-int proc_mgr_stop(void *handle, struct proc_mgr_stop_params *params)
-{
-	int retval = 0;
-	struct proc_mgr_object *proc_mgr_handle =
-				(struct proc_mgr_object *)handle;
-	struct processor_stop_params proc_params;
-	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
-		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
-		 == true) {
-		printk(KERN_ERR "proc_mgr_stop:"
-			"Error - module not initialized\n");
-		return -EFAULT;
-	}
-	BUG_ON(handle == NULL);
-	WARN_ON(mutex_lock_interruptible(proc_mgr_obj_state.gate_handle));
-	proc_params.params = params;
-	retval = processor_stop(proc_mgr_handle->proc_handle,
-						&proc_params);
-	mutex_unlock(proc_mgr_obj_state.gate_handle);
-	return retval;;
-}
-EXPORT_SYMBOL(proc_mgr_stop);
-
 /*===================================
  *  Function to get the current state of the slave Processor.
  *
@@ -790,70 +669,6 @@ int proc_mgr_translate_addr(void *handle, void **dst_addr,
 	return retval;;
 }
 EXPORT_SYMBOL(proc_mgr_translate_addr);
-
-/*============================================
- *  Function to map address to slave address space.
- *
- * This function maps the provided slave address to a host address
- * and returns the mapped address and size.
- *
- */
-int proc_mgr_map(void *handle, u32 proc_addr, u32 size, u32 *mapped_addr,
-			u32 *mapped_size, u32 map_attribs)
-{
-	int retval = 0;
-	struct proc_mgr_object *proc_mgr_handle =
-				(struct proc_mgr_object *)handle;
-	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
-		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
-		 == true) {
-		printk(KERN_ERR "proc_mgr_map:"
-			"Error - module not initialized\n");
-		return -EFAULT;
-	}
-	BUG_ON(handle == NULL);
-	BUG_ON(proc_addr == 0);
-	BUG_ON(mapped_addr == NULL);
-	BUG_ON(mapped_size == NULL);
-
-	WARN_ON(mutex_lock_interruptible(proc_mgr_obj_state.gate_handle));
-
-	/* Map to host address space. */
-	retval = processor_map(proc_mgr_handle->proc_handle, proc_addr,
-				size, mapped_addr, mapped_size, map_attribs);
-	WARN_ON(retval < 0);
-	mutex_unlock(proc_mgr_obj_state.gate_handle);
-	return retval;;
-}
-EXPORT_SYMBOL(proc_mgr_map);
-
-/*============================================
- *  Function to unmap address to slave address space.
- *
- * This function unmaps the provided slave address to a host address
- *
- */
-int proc_mgr_unmap(void *handle, u32 mapped_addr)
-{
-	int retval = 0;
-	struct proc_mgr_object *proc_mgr_handle =
-				(struct proc_mgr_object *)handle;
-	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
-		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
-		 == true) {
-		printk(KERN_ERR "proc_mgr_unmap:"
-			"Error - module not initialized\n");
-		return -EFAULT;
-	}
-	WARN_ON(mutex_lock_interruptible(proc_mgr_obj_state.gate_handle));
-
-	/* Map to host address space. */
-	retval = processor_unmap(proc_mgr_handle->proc_handle, mapped_addr);
-	WARN_ON(retval < 0);
-	mutex_unlock(proc_mgr_obj_state.gate_handle);
-	return retval;;
-}
-EXPORT_SYMBOL(proc_mgr_unmap);
 
 /*=================================
  *  Function that registers for notification when the slave

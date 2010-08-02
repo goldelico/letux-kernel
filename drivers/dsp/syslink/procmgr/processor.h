@@ -32,14 +32,6 @@ int processor_attach(void *handle, struct processor_attach_params *params);
 /* Function to detach from the Processor. */
 int processor_detach(void *handle);
 
-/* Function to start the processor. */
-int processor_start(void *handle, u32 entry_pt,
-				struct processor_start_params *params);
-
-/* Function to stop the processor. */
-int processor_stop(void *handle,
-			struct processor_stop_params *params);
-
 /* Function to read from the slave processor's memory. */
 int processor_read(void *handle, u32 proc_addr, u32 *num_bytes, void *buffer);
 
@@ -62,12 +54,6 @@ int processor_control(void *handle, int cmd, void *arg);
 int processor_translate_addr(void *handle, void **dst_addr,
 	enum proc_mgr_addr_type dst_addr_type, void *src_addr,
 	enum proc_mgr_addr_type src_addr_type);
-
-/* Function to map address to slave address space */
-int processor_map(void *handle, u32 proc_addr, u32 size, u32 *mapped_addr,
-					u32 *mapped_size, u32 map_attribs);
-/* Function to unmap address to slave address space */
-int processor_unmap(void *handle, u32 mapped_addr);
 
 /* Function that registers for notification when the slave processor
  * transitions to any of the states specified.

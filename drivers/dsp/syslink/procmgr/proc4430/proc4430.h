@@ -76,13 +76,6 @@ int proc4430_attach(void *handle, struct processor_attach_params *params);
 /* Function to finalize the slave processor */
 int proc4430_detach(void *handle);
 
-/* Function to start the slave processor */
-int proc4430_start(void *handle, u32 entry_pt,
-		struct processor_start_params *params);
-
-/* Function to start the stop processor */
-int proc4430_stop(void *handle,
-			struct processor_stop_params *params);
 
 /* Function to read from the slave processor's memory. */
 int proc4430_read(void *handle, u32 proc_addr, u32 *num_bytes,
@@ -99,13 +92,6 @@ int proc4430_control(void *handle, int cmd, void *arg);
 int proc4430_translate_addr(void *handle, void **dst_addr,
 			enum proc_mgr_addr_type dst_addr_type,
 			void *src_addr, enum proc_mgr_addr_type src_addr_type);
-
-/* Function to map slave address to host address space */
-int proc4430_map(void *handle, u32 proc_addr, u32 size, u32 *mapped_addr,
-					u32 *mapped_size, u32 map_attribs);
-
-/* Function to unmap the slave address to host address space */
-int proc4430_unmap(void *handle, u32 mapped_addr);
 
 /* Function to retrive physical address translations */
 int proc4430_virt_to_phys(void *handle, u32 da, u32 *mapped_entries,
