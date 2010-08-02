@@ -1341,7 +1341,7 @@ static struct platform_device* gta02_hdq_children[] = {
 
 static struct gta02_device_children gta02_device_children[] = {
 	{
-		.dev_name = "pcf50633-gpio",
+		.dev_name = "pcf50633-gpio.0",
 		.num_children = 2,
 		.children = gta02_pcf50633_gpio_children,
 	},
