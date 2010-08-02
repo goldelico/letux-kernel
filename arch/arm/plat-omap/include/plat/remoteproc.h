@@ -59,6 +59,7 @@ struct omap_rproc_platform_data {
 };
 
 struct omap_rproc {
+	const char *name;
 	struct device *dev;
 	struct cdev cdev;
 	atomic_t count;
@@ -66,10 +67,10 @@ struct omap_rproc {
 	int minor;
 };
 
-extern struct omap_rproc_platform_data *remoteproc_get_plat_data(void);
+extern int rproc_start(struct omap_rproc *rproc, const void __user *arg);
+extern int rproc_stop(struct omap_rproc *rproc);
 extern int remoteproc_get_plat_data_size(void);
-
-struct omap_rproc *rproc_get(const char *name);
-void rproc_put(struct omap_rproc *obj);
+extern struct omap_rproc *omap_rproc_get(const char *name);
+extern void omap_rproc_put(struct omap_rproc *obj);
 
 #endif /* REMOTEPROC_H */
