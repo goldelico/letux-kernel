@@ -645,7 +645,7 @@ static inline int ipu_pm_get_i2c_bus(int proc_id, unsigned rcb_num)
 
 	if (I2C_USE_MASK & (1 << pm_i2c_bus_num)) {
 		/* building the name for i2c_clk */
-		sprintf(i2c_name, "i2c%d_fck", pm_i2c_bus_num);
+		sprintf(i2c_name, "i2c%d_ck", pm_i2c_bus_num);
 
 		/* Request resource using PRCM API */
 		p_i2c_clk = omap_clk_get_by_name(i2c_name);
