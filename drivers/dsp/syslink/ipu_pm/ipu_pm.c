@@ -590,8 +590,7 @@ int ipu_pm_notifications(enum pm_event_type event_type, void *data)
 					msecs_to_jiffies(params->timeout));
 			pm_msg.whole = handle->pm_event[PM_SUSPEND].pm_msg;
 			if (WARN_ON((retval < 0) ||
-					(pm_msg.fields.parm ==
-						PM_NOTIFICATIONS_FAIL))) {
+					(pm_msg.fields.parm != PM_SUCCESS))) {
 				pr_err("Error sending Suspend\n");
 				pm_ack = EBUSY;
 			}
@@ -619,8 +618,7 @@ int ipu_pm_notifications(enum pm_event_type event_type, void *data)
 					msecs_to_jiffies(params->timeout));
 			pm_msg.whole = handle->pm_event[PM_RESUME].pm_msg;
 			if (WARN_ON((retval < 0) ||
-					(pm_msg.fields.parm ==
-						PM_NOTIFICATIONS_FAIL))) {
+					(pm_msg.fields.parm != PM_SUCCESS))) {
 				pr_err("Error sending Resume\n");
 				pm_ack = EBUSY;
 			}
@@ -648,8 +646,7 @@ int ipu_pm_notifications(enum pm_event_type event_type, void *data)
 					msecs_to_jiffies(params->timeout));
 			pm_msg.whole = handle->pm_event[PM_PID_DEATH].pm_msg;
 			if (WARN_ON((retval < 0) ||
-					(pm_msg.fields.parm ==
-						PM_NOTIFICATIONS_FAIL))) {
+					(pm_msg.fields.parm != PM_SUCCESS))) {
 				pr_err("Error sending PID Death\n");
 				pm_ack = EBUSY;
 			}
