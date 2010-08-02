@@ -78,10 +78,12 @@
 
 /*! @brief Start of IPC SHM for SysM3 */
 #define SHAREDMEMORY_SLV_VRT_BASEADDR_SR0	0xA0000000
+#define SHAREDMEMORY_SLV_VRT_DSP_BASEADDR_SR0	0x30000000
 #define SHAREDMEMORY_SLV_VRT_BASESIZE_SR0	0x00054000
 
 /*! @brief Start of IPC SHM for AppM3 */
 #define SHAREDMEMORY_SLV_VRT_BASEADDR_SR1	0xA0054000
+#define SHAREDMEMORY_SLV_VRT_DSP_BASEADDR_SR1	0x30054000
 #define SHAREDMEMORY_SLV_VRT_BASESIZE_SR1	0x000AC000
 
 /*! @brief Start of Code memory for SysM3 */
@@ -123,6 +125,25 @@
 #define SHAREDMEMORY_PHY_EXT_RAM_BASEADDR	\
 				(CONFIG_DUCATI_BASEIMAGE_PHYS_ADDR - 0x2F00000)
 #define SHAREDMEMORY_PHY_EXT_RAM_BASESIZE	0x02000000
+
+/*! @brief Start of Code memory for Tesla */
+#define SHAREDMEMORY_SLV_VRT_CODE_DSP_BASEADDR	0x20000000
+#define SHAREDMEMORY_SLV_VRT_CODE_DSP_BASESIZE	0x00080000
+
+/*! @brief Start of Code section for Tesla */
+#define SHAREDMEMORY_PHY_CODE_DSP_BASEADDR (SHAREDMEMORY_PHY_BASEADDR - \
+						0x300000)
+#define SHAREDMEMORY_PHY_CODE_DSP_BASESIZE	0x00080000
+
+/*! @brief Start of Const section for Tesla */
+#define SHAREDMEMORY_SLV_VRT_CONST_DSP_BASEADDR	0x20080000
+#define SHAREDMEMORY_SLV_VRT_CONST_DSP_BASESIZE	0x00080000
+
+/*! @brief Start of Const section for Tesla */
+#define SHAREDMEMORY_PHY_CONST_DSP_BASEADDR	\
+				(SHAREDMEMORY_PHY_CODE_DSP_BASEADDR + \
+					SHAREDMEMORY_PHY_CODE_DSP_BASESIZE)
+#define SHAREDMEMORY_PHY_CONST_DSP_BASESIZE	0x00080000
 
 /*! @brief Start of EXT_RAM section for Tesla */
 #define SHAREDMEMORY_SLV_VRT_EXT_RAM_BASEADDR	0x20000000
@@ -386,7 +407,9 @@ _platform_write_slave_memory(u16 proc_id,
 /*!
  *  @brief  Number of slave memory entries for OMAP4430.
  */
-#define NUM_MEM_ENTRIES			7
+#define NUM_MEM_ENTRIES			6
+#define NUM_MEM_ENTRIES_DSP		4
+
 
 /*!
  *  @brief  Position of reset vector memory region in the memEntries array.
@@ -474,22 +497,62 @@ static struct proc4430_mem_entry mem_entries[NUM_MEM_ENTRIES] = {
 		/* SIZE		: Size of the memory region */
 		true,		/* SHARE : Shared access memory? */
 	},
-	{
-		"TESLA_EXT_RAM",	/* NAME	 : Name of the memory region */
-		SHAREDMEMORY_PHY_EXT_RAM_BASEADDR,
-		/* PHYSADDR	     : Physical address */
-		SHAREDMEMORY_SLV_VRT_EXT_RAM_BASEADDR,
-		/* SLAVEVIRTADDR  : Slave virtual address */
-		(u32) -1u,
-		/* MASTERVIRTADDR : Master virtual address (if known) */
-		SHAREDMEMORY_SLV_VRT_EXT_RAM_BASESIZE,
-		/* SIZE		: Size of the memory region */
-		true,		/* SHARE : Shared access memory? */
-	}
-
 };
 
 
+/*!
+ *  @brief  Array of memory entries for OMAP4430
+ */
+static struct proc4430_mem_entry mem_entries_dsp[NUM_MEM_ENTRIES_DSP] = {
+	{
+		"TESLA_CODE_DSP",	/* NAME	 : Name of the memory region */
+		SHAREDMEMORY_PHY_CODE_DSP_BASEADDR,
+		/* PHYSADDR	 : Physical address */
+		SHAREDMEMORY_SLV_VRT_CODE_DSP_BASEADDR,
+		/* SLAVEVIRTADDR  : Slave virtual address */
+		(u32) -1u,
+		/* MASTERVIRTADDR : Master virtual address (if known) */
+		SHAREDMEMORY_SLV_VRT_CODE_DSP_BASESIZE,
+		/* SIZE		 : Size of the memory region */
+		true,		/* SHARE : Shared access memory? */
+	},
+	{
+		"TESLA_CONST_DSP",	/* NAME	 : Name of the memory region */
+		SHAREDMEMORY_PHY_CONST_DSP_BASEADDR,
+		/* PHYSADDR	     : Physical address */
+		SHAREDMEMORY_SLV_VRT_CONST_DSP_BASEADDR,
+		/* SLAVEVIRTADDR  : Slave virtual address */
+		(u32) -1u,
+		/* MASTERVIRTADDR : Master virtual address (if known) */
+		SHAREDMEMORY_SLV_VRT_CONST_DSP_BASESIZE,
+		/* SIZE		: Size of the memory region */
+		true,		/* SHARE : Shared access memory? */
+	},
+	{
+		"TESLA_SHM_SR0",	/* NAME	 : Name of the memory region */
+		SHAREDMEMORY_PHY_BASEADDR_SR0,
+		/* PHYSADDR	 : Physical address */
+		SHAREDMEMORY_SLV_VRT_DSP_BASEADDR_SR0,
+		/* SLAVEVIRTADDR  : Slave virtual address */
+		(u32) -1u,
+		/* MASTERVIRTADDR : Master virtual address (if known) */
+		SHAREDMEMORY_SLV_VRT_BASESIZE_SR0,
+		/* SIZE		 : Size of the memory region */
+		true,		/* SHARE : Shared access memory? */
+	},
+	{
+		"TESLA_SHM_SR1",	/* NAME	 : Name of the memory region */
+		SHAREDMEMORY_PHY_BASEADDR_SR1,
+		/* PHYSADDR : Physical address */
+		SHAREDMEMORY_SLV_VRT_DSP_BASEADDR_SR1,
+		/* SLAVEVIRTADDR  : Slave virtual address */
+		(u32) -1u,
+		/* MASTERVIRTADDR : Master virtual address (if known) */
+		SHAREDMEMORY_SLV_VRT_BASESIZE_SR1,
+		/* SIZE		 : Size of the memory region */
+		true,		/* SHARE : Shared access memory? */
+	}
+};
 
 
 
@@ -1409,8 +1472,8 @@ s32 _platform_setup(void)
 
 	/* Create an instance of the Processor object for OMAP4430 */
 	proc4430_params_init(NULL, &proc_params);
-	proc_params.num_mem_entries = NUM_MEM_ENTRIES;
-	proc_params.mem_entries = mem_entries;
+	proc_params.num_mem_entries = NUM_MEM_ENTRIES_DSP;
+	proc_params.mem_entries = mem_entries_dsp;
 	proc_params.reset_vector_mem_entry = RESET_VECTOR_ENTRY_ID;
 	proc_mgr_proc_handle = proc4430_create(proc_id, &proc_params);
 	if (proc_mgr_proc_handle == NULL) {
