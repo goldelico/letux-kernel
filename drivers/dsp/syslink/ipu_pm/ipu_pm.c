@@ -65,7 +65,7 @@
 #define LINE_ID 0
 #define NUM_SELF_PROC 2
 #define IPU_KFIFO_SIZE 16
-#define PM_VERSION 0x0100
+#define PM_VERSION 0x00020000
 
 /** ============================================================================
  *  Forward declarations of internal functions
@@ -2175,8 +2175,8 @@ struct ipu_pm_object *ipu_pm_create(const struct ipu_pm_params *params)
 		/* Check the SW version on both sides */
 		if (WARN_ON(pm_handle_sysm3->rcb_table->pm_version !=
 						PM_VERSION))
-			pr_warning("Mismatch in PM version Host:0x%x "
-					"Remote:0x%x", PM_VERSION,
+			pr_warning("Mismatch in PM version Host:0x%08x "
+					"Remote:0x%08x", PM_VERSION,
 					pm_handle_sysm3->rcb_table->pm_version);
 
 		spin_lock_init(&pm_handle_sysm3->lock);
@@ -2236,8 +2236,8 @@ struct ipu_pm_object *ipu_pm_create(const struct ipu_pm_params *params)
 		/* Check the SW version on both sides */
 		if (WARN_ON(pm_handle_appm3->rcb_table->pm_version !=
 						PM_VERSION))
-			pr_warning("Mismatch in PM version Host:0x%x "
-					"Remote:0x%x", PM_VERSION,
+			pr_warning("Mismatch in PM version Host:0x%08x "
+					"Remote:0x%08x", PM_VERSION,
 					pm_handle_appm3->rcb_table->pm_version);
 
 		spin_lock_init(&pm_handle_appm3->lock);
