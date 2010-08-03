@@ -44,6 +44,8 @@
 /* Delayed work queue polling rate in seconds */
 #define BH1780_POLL_RATE      5000
 
+#define LUX_MAX_CHANGE	200
+
 static uint32_t als_debug;
 module_param_named(bh1780_debug, als_debug, uint, 0664);
 
@@ -54,6 +56,7 @@ struct bh1780_data {
 	struct mutex lock;
 
 	int current_lux;
+	int old_lux;
 	int power_state;
 	int req_poll_rate;
 };
@@ -209,7 +212,11 @@ static void bh1780_input_work_func(struct work_struct *work)
 						  input_work);
 
 	bh1780_read_data(als);
-	bh1780_report_data(als);
+
+	if (abs(als->current_lux - als->old_lux) > LUX_MAX_CHANGE) {
+		bh1780_report_data(als);
+		als->old_lux = als->current_lux;
+	}
 
 	schedule_delayed_work(&als->input_work,
 				msecs_to_jiffies(als->req_poll_rate));
@@ -244,6 +251,8 @@ static int __devinit bh1780_probe(struct i2c_client *client,
 			(ret & BH1780_REVMASK));
 
 	ddata->req_poll_rate = BH1780_POLL_RATE;
+	ddata->old_lux = 0;
+	ddata->current_lux = 0;
 	INIT_DELAYED_WORK(&ddata->input_work, bh1780_input_work_func);
 
 	ddata->input_dev = input_allocate_device();
