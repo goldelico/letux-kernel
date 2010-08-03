@@ -340,16 +340,16 @@ static void ipu_pm_work(struct work_struct *work)
 						im.proc_id,
 						rcb_num);
 			if (return_val != PM_SUCCESS)
-				pm_msg.fields.msg_type = PM_REQUEST_FAIL;
+				pm_msg.fields.msg_type = PM_FAIL;
 		} else if (action_type == PM_RELEASE_RESOURCE) {
 			return_val = ipu_pm_rel_res(
 						res_type,
 						im.proc_id,
 						rcb_num);
 			if (return_val != PM_SUCCESS)
-				pm_msg.fields.msg_type = PM_RELEASE_FAIL;
+				pm_msg.fields.msg_type = PM_FAIL;
 		} else {
-			pm_msg.fields.msg_type = PM_FAILURE;
+			pm_msg.fields.msg_type = PM_FAIL;
 			return_val = PM_UNSUPPORTED;
 		}
 
