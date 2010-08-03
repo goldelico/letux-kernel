@@ -65,6 +65,7 @@
 #include <dspbridge/dev.h>
 #include <dspbridge/drvdefs.h>
 #include <dspbridge/drv.h>
+#include <dspbridge/brddefs.h>
 
 #ifdef CONFIG_BRIDGE_DVFS
 #include <mach-omap2/omap3-opp.h>
@@ -391,11 +392,22 @@ static int BRIDGE_SUSPEND(struct platform_device *pdev, pm_message_t state)
 
 static int BRIDGE_RESUME(struct platform_device *pdev)
 {
-	u32 status;
+	u32 status = 0;
+	struct wmd_dev_context *dev_ctxt;
 
-	status = pwr_wake_dsp(time_out);
+	dev_get_wmd_context(dev_get_first(), &dev_ctxt);
+	if (!dev_ctxt)
+		return -EFAULT;
+
+	/*
+	 * only wake up the DSP if it was not in Hibernation before the
+	 * suspend transition
+	 */
+	if (dev_ctxt->dw_brd_state != BRD_DSP_HIBERNATION)
+		status = pwr_wake_dsp(time_out);
+
 	if (DSP_FAILED(status))
-		return -1;
+		return status;
 
 	bridge_suspend_data.suspended = 0;
 	wake_up(&bridge_suspend_data.suspend_wq);
