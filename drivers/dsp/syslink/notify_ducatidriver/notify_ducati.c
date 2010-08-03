@@ -102,8 +102,10 @@ struct notify_ducatidrv_module {
 	struct notify_ducatidrv_object *driver_handles
 				[MULTIPROC_MAXPROCESSORS][NOTIFY_MAX_INTLINES];
 	/* Loader handle array. */
-	atomic_t mbox_ref_count;
-	/* Reference count for enabling/disabling mailbox interrupt */
+	atomic_t mbox2_ref_count;
+	/* Reference count for enabling/disabling ducati mailbox interrupt */
+	atomic_t mbox1_ref_count;
+	/* Reference count for enabling/disabling tesla mailbox interrupt */
 };
 
 /* Notify ducati driver instance object. */
@@ -196,7 +198,8 @@ int notify_ducatidrv_setup(struct notify_ducatidrv_config *cfg)
 		NOTIFYDUCATIDRIVER_MAKE_MAGICSTAMP(1u)) {
 		return NOTIFY_S_ALREADYSETUP;
 	}
-	atomic_set(&(notify_ducatidriver_state.mbox_ref_count), 0);
+	atomic_set(&(notify_ducatidriver_state.mbox2_ref_count), 0);
+	atomic_set(&(notify_ducatidriver_state.mbox1_ref_count), 0);
 
 	if (cfg == NULL) {
 		notify_ducatidrv_get_config(&tmp_cfg);
@@ -348,6 +351,7 @@ struct notify_ducatidrv_object *notify_ducatidrv_create(
 	struct notify_driver_object *drv_handle = NULL;
 	struct notify_driver_fxn_table fxn_table;
 	struct omap_mbox *mbox;
+	atomic_t *mbx_cnt;
 	u32 i;
 	u16 region_id;
 	uint region_cache_size;
@@ -381,7 +385,13 @@ struct notify_ducatidrv_object *notify_ducatidrv_create(
 		goto exit;
 	}
 
-	mbox = (params->remote_proc_id) ? ducati_mbox : tesla_mbox;
+	if (params->remote_proc_id) {
+		mbox = ducati_mbox;
+		mbx_cnt = &notify_ducatidriver_state.mbox2_ref_count;
+	} else {
+		mbox = tesla_mbox;
+		mbx_cnt = &notify_ducatidriver_state.mbox1_ref_count;
+	}
 
 	status = mutex_lock_interruptible(
 				notify_ducatidriver_state.gate_handle);
@@ -507,7 +517,7 @@ struct notify_ducatidrv_object *notify_ducatidrv_create(
 
 
 	/*Set up the ISR on the MPU-Ducati FIFO */
-	if (atomic_inc_return(&(notify_ducatidriver_state.mbox_ref_count)) == 1)
+	if (atomic_inc_return(mbx_cnt) == 1)
 		omap_mbox_enable_irq(mbox, IRQ_RX);
 	obj->self_proc_ctrl->recv_init_status = NOTIFYDUCATIDRIVER_INIT_STAMP;
 	obj->self_proc_ctrl->send_init_status = NOTIFYDUCATIDRIVER_INIT_STAMP;
@@ -568,6 +578,7 @@ int notify_ducatidrv_delete(struct notify_ducatidrv_object **handle_ptr)
 	int tmp_status = NOTIFY_S_SUCCESS;
 	struct notify_ducatidrv_object *obj = NULL;
 	struct omap_mbox *mbox;
+	atomic_t *mbx_cnt;
 
 	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
 			&(notify_ducatidriver_state.ref_count),
@@ -588,10 +599,15 @@ int notify_ducatidrv_delete(struct notify_ducatidrv_object **handle_ptr)
 
 	obj = (struct notify_ducatidrv_object *)(*handle_ptr);
 	if (obj != NULL) {
-		mbox = (obj->remote_proc_id) ? ducati_mbox : tesla_mbox;
+		if (obj->remote_proc_id) {
+			mbox = ducati_mbox;
+			mbx_cnt = &notify_ducatidriver_state.mbox2_ref_count;
+		} else {
+			mbox = tesla_mbox;
+			mbx_cnt = &notify_ducatidriver_state.mbox1_ref_count;
+		}
 		/* Uninstall the ISRs & Disable the Mailbox interrupt.*/
-		if (atomic_dec_and_test(
-			&(notify_ducatidriver_state.mbox_ref_count)))
+		if (atomic_dec_and_test(mbx_cnt))
 			omap_mbox_disable_irq(mbox, IRQ_RX);
 
 		if (obj->self_proc_ctrl != NULL) {
