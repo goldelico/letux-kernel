@@ -38,7 +38,12 @@
 #define SYS_SGX_CLOCK_SPEED 190464000
 #else
 #if defined(SGX_CLK_CORE_DIV5)
+#if defined(CONFIG_SGX_REV110)
+#define SYS_SGX_CLOCK_SPEED 304742400
+#endif
+#if defined(CONFIG_SGX_REV120)
 #define SYS_SGX_CLOCK_SPEED 320000000
+#endif
 #endif
 #endif
 #endif
