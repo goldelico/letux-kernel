@@ -93,7 +93,7 @@
 
 /* Pm notify ducati driver */
 /* Suspend/resume/other... */
-#define NUMBER_PM_EVENTS 3
+#define NUMBER_PM_EVENTS 4
 
 #define PM_CSTR_PERF_MASK	0x00000001
 #define PM_CSTR_LAT_MASK	0x00000002
@@ -172,6 +172,8 @@
  *  Unique module ID
  */
 #define IPU_PM_MODULEID      (0x6A6A)
+/* A9 state flag 0000 | 0000 Ducati internal use*/
+#define REMOTE_PROC_DOWN      0x00010000
 
 /* Macro to make a correct module magic number with refCount */
 #define IPU_PM_MAKE_MAGICSTAMP(x) ((IPU_PM_MODULEID << 12u) | (x))
@@ -204,7 +206,8 @@ enum pm_msgtype_codes{PM_FAIL,
 	PM_READ_RESOURCE,
 	PM_DISABLE_RESOURCE,
 	PM_REQUEST_CONSTRAINTS,
-	PM_RELEASE_CONSTRAINTS
+	PM_RELEASE_CONSTRAINTS,
+	PM_NOTIFY_HIBERNATE
 };
 
 enum pm_regulator_action{PM_SET_VOLTAGE,
@@ -231,7 +234,8 @@ enum res_type{
 
 enum pm_event_type{PM_SUSPEND,
 	PM_RESUME,
-	PM_PID_DEATH
+	PM_PID_DEATH,
+	PM_HIBERNATE
 };
 
 struct rcb_message {
@@ -274,6 +278,7 @@ struct sms {
 	unsigned rat;
 	unsigned pm_version;
 	unsigned gp_msg;
+	unsigned state_flag;
 	struct rcb_block rcb[RCB_MAX];
 };
 
@@ -386,5 +391,11 @@ int ipu_pm_init_transport(struct ipu_pm_object *handle);
 
 /* Function to get ipu pm object */
 struct ipu_pm_object *ipu_pm_get_handle(int proc_id);
+
+/* Function to save a processor from hibernation */
+int ipu_pm_save_ctx(int proc_id);
+
+/* Function to restore a processor from hibernation */
+int ipu_pm_restore_ctx(int proc_id);
 
 #endif

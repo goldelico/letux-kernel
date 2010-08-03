@@ -40,6 +40,8 @@
 #include <plat/clock.h>
 #include <plat/i2c.h>
 #include <plat/io.h>
+#include <plat/iommu.h>
+#include <plat/mailbox.h>
 #include <linux/i2c.h>
 #include <linux/gpio.h>
 #include <linux/semaphore.h>
@@ -190,6 +192,9 @@ static u32 cam2_prev_volt;
 static struct ipu_pm_object *pm_handle_appm3;
 static struct ipu_pm_object *pm_handle_sysm3;
 static struct workqueue_struct *ipu_wq;
+static struct iommu *p_iommu;
+struct omap_mbox *p_mbox_1;
+struct omap_mbox *p_mbox_2;
 
 /* Ducati Interrupt Capable Gptimers */
 static int ipu_timer_list[NUM_IPU_TIMERS] = {
@@ -518,19 +523,32 @@ void ipu_pm_notify_callback(u16 proc_id, u16 line_id, u32 event_id,
 		return;
 
 	pm_msg.whole = payload;
-	switch (pm_msg.fields.msg_subtype) {
-	case PM_SUSPEND:
-		handle->pm_event[PM_SUSPEND].pm_msg = payload;
-		up(&handle->pm_event[PM_SUSPEND].sem_handle);
-		break;
-	case PM_RESUME:
-		handle->pm_event[PM_RESUME].pm_msg = payload;
-		up(&handle->pm_event[PM_RESUME].sem_handle);
-		break;
-	case PM_PID_DEATH:
-		handle->pm_event[PM_PID_DEATH].pm_msg = payload;
-		up(&handle->pm_event[PM_PID_DEATH].sem_handle);
-		break;
+	if (pm_msg.fields.msg_type == PM_HIBERNATE) {
+		/* Remote proc requested hibernate */
+		/* Remote Proc is ready to hibernate */
+		handle->rcb_table->state_flag |=
+					REMOTE_PROC_DOWN;
+		pr_info("M3:Saving ctx(0x%x)\n", handle->rcb_table->state_flag);
+		/*TODO: reset IOMMU/SYSM3/APPM3*/
+	} else {
+		switch (pm_msg.fields.msg_subtype) {
+		case PM_SUSPEND:
+			handle->pm_event[PM_SUSPEND].pm_msg = payload;
+			up(&handle->pm_event[PM_SUSPEND].sem_handle);
+			break;
+		case PM_RESUME:
+			handle->pm_event[PM_RESUME].pm_msg = payload;
+			up(&handle->pm_event[PM_RESUME].sem_handle);
+			break;
+		case PM_HIBERNATE:
+			handle->pm_event[PM_HIBERNATE].pm_msg = payload;
+			up(&handle->pm_event[PM_HIBERNATE].sem_handle);
+			break;
+		case PM_PID_DEATH:
+			handle->pm_event[PM_PID_DEATH].pm_msg = payload;
+			up(&handle->pm_event[PM_PID_DEATH].sem_handle);
+			break;
+		}
 	}
 }
 EXPORT_SYMBOL(ipu_pm_notify_callback);
@@ -621,6 +639,40 @@ int ipu_pm_notifications(enum pm_event_type event_type, void *data)
 					(pm_msg.fields.parm != PM_SUCCESS))) {
 				pr_err("Error sending Resume\n");
 				pm_ack = EBUSY;
+			}
+			break;
+		case PM_HIBERNATE:
+			pm_msg.fields.msg_type = PM_NOTIFICATIONS;
+			pm_msg.fields.msg_subtype = PM_HIBERNATE;
+			pm_msg.fields.parm = PM_SUCCESS;
+			/* put general purpose message in share memory */
+			handle->rcb_table->gp_msg = (unsigned)data;
+			/* send the request to IPU*/
+			retval = notify_send_event(
+					params->remote_proc_id,
+					params->line_id,
+					params->pm_notification_event | \
+						(NOTIFY_SYSTEMKEY << 16),
+					(unsigned int)pm_msg.whole,
+					true);
+			if (retval < 0)
+				pr_err("Error sending notify event\n");
+			/* wait until event from IPU (ipu_pm_notify_callback)*/
+			retval = down_timeout
+					(&handle->pm_event[PM_HIBERNATE]
+					.sem_handle,
+					msecs_to_jiffies(params->timeout));
+			pm_msg.whole = handle->pm_event[PM_HIBERNATE].pm_msg;
+			if (WARN_ON((retval < 0) ||
+					(pm_msg.fields.parm != PM_SUCCESS))) {
+				pr_err("Error sending hibernate\n");
+				pm_ack = EBUSY;
+			} else {
+				/*Remote Proc is ready to hibernate*/
+				handle->rcb_table->state_flag |=
+							REMOTE_PROC_DOWN;
+				pr_info("A9:Saving ctx ...\n");
+				/*TODO: reset IOMMU/SYSM3/APPM3*/
 			}
 			break;
 		case PM_PID_DEATH:
@@ -2311,6 +2363,40 @@ struct ipu_pm_object *ipu_pm_get_handle(int proc_id)
 	else
 		return NULL;
 }
+EXPORT_SYMBOL(ipu_pm_get_handle);
+
+/*
+  Function to restore a processor from hibernation
+ *
+ */
+int ipu_pm_save_ctx(int proc_id)
+{
+	p_iommu = iommu_get("ducati");
+	p_mbox_1 = omap_mbox_get("mailbox-1");
+	p_mbox_2 = omap_mbox_get("mailbox-2");
+	iommu_save_ctx(p_iommu);
+	omap_mbox_save_ctx(p_mbox_1);
+	omap_mbox_save_ctx(p_mbox_2);
+	return 0;
+}
+EXPORT_SYMBOL(ipu_pm_save_ctx);
+
+/*
+  Function to save a processor before hibernation
+ *
+ */
+int ipu_pm_restore_ctx(int proc_id)
+{
+	p_iommu = iommu_get("ducati");
+	p_mbox_1 = omap_mbox_get("mailbox-1");
+	p_mbox_2 = omap_mbox_get("mailbox-2");
+	iommu_restore_ctx(p_iommu);
+	omap_mbox_restore_ctx(p_mbox_1);
+	omap_mbox_restore_ctx(p_mbox_2);
+	return 0;
+}
+EXPORT_SYMBOL(ipu_pm_restore_ctx);
+
 
 /*
   Get the default configuration for the ipu_pm module.
