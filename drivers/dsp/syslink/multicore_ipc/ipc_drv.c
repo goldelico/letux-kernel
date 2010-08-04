@@ -30,6 +30,10 @@
 #include <ipc.h>
 #include <drv_notify.h>
 #include <nameserver.h>
+#ifdef CONFIG_SYSLINK_RECOVERY
+#include <plat/iommu.h>
+#include <plat/remoteproc.h>
+#endif
 
 #define IPC_NAME		"syslink_ipc"
 #define IPC_MAJOR		0
@@ -63,6 +67,96 @@ MODULE_PARM_DESC(ipc_minor, "Minor device number, default = 0 (auto)");
 MODULE_AUTHOR("Texas Instruments");
 MODULE_LICENSE("GPL v2");
 
+#ifdef CONFIG_SYSLINK_RECOVERY
+#define REC_TIMEOUT 5000       /* recovery timeout in msecs */
+static atomic_t ipc_cref;	/* number of ipc open handles */
+static struct workqueue_struct *ipc_rec_queue;
+static struct work_struct ipc_recovery_work;
+static DECLARE_COMPLETION_ONSTACK(ipc_comp);
+static DECLARE_COMPLETION_ONSTACK(ipc_open_comp);
+static bool recover;
+struct iommu *piommu;
+struct omap_rproc *prproc_sysm3;
+
+static int ipc_ducati_iommu_notifier_call(struct notifier_block *nb,
+						unsigned long val, void *v);
+
+static int ipc_sysm3_rproc_notifier_call(struct notifier_block *nb,
+						unsigned long val, void *v);
+
+struct notifier_block ipc_notify_nb_iommu_ducati = {
+	.notifier_call = ipc_ducati_iommu_notifier_call,
+};
+
+struct notifier_block ipc_notify_nb_rproc_ducati0 = {
+	.notifier_call = ipc_sysm3_rproc_notifier_call,
+};
+
+static void ipc_recover(struct work_struct *work)
+{
+	if (piommu != NULL) {
+		iommu_unregister_notifier(piommu, &ipc_notify_nb_iommu_ducati);
+		iommu_put(piommu);
+		piommu = NULL;
+	}
+
+	if (atomic_read(&ipc_cref)) {
+		INIT_COMPLETION(ipc_comp);
+		while (!wait_for_completion_timeout(&ipc_comp,
+						msecs_to_jiffies(REC_TIMEOUT)))
+			pr_info("%s:%d handle(s) still opened\n",
+					__func__, atomic_read(&ipc_cref));
+	}
+	recover = false;
+	complete_all(&ipc_open_comp);
+}
+
+void ipc_recover_schedule(void)
+{
+	INIT_COMPLETION(ipc_open_comp);
+	recover = true;
+	queue_work(ipc_rec_queue, &ipc_recovery_work);
+}
+
+static int ipc_ducati_iommu_notifier_call(struct notifier_block *nb,
+						unsigned long val, void *v)
+{
+	switch ((int)val) {
+	case IOMMU_FAULT:
+		ipc_recover_schedule();
+		return 0;
+	default:
+		return 0;
+	}
+}
+
+static int ipc_sysm3_rproc_notifier_call(struct notifier_block *nb,
+						unsigned long val, void *v)
+{
+	switch ((int)val) {
+	case OMAP_RPROC_START:
+		piommu = iommu_get("ducati");
+		if (piommu != ERR_PTR(-ENODEV) &&
+			piommu != ERR_PTR(-EINVAL))
+				iommu_register_notifier(piommu,
+						&ipc_notify_nb_iommu_ducati);
+		else
+			piommu = NULL;
+		return 0;
+	case OMAP_RPROC_STOP:
+		if (piommu != NULL) {
+			iommu_unregister_notifier(piommu,
+						&ipc_notify_nb_iommu_ducati);
+			iommu_put(piommu);
+			piommu = NULL;
+		}
+		return 0;
+	default:
+		return 0;
+	}
+}
+#endif
+
 /*
  * ======== ipc_open ========
  *  This function is invoked when an application
@@ -73,6 +167,14 @@ int ipc_open(struct inode *inode, struct file *filp)
 	s32 retval = 0;
 	struct ipc_device *dev;
 	struct ipc_process_context *pr_ctxt = NULL;
+
+#ifdef CONFIG_SYSLINK_RECOVERY
+	if (recover) {
+		if (filp->f_flags & O_NONBLOCK ||
+			wait_for_completion_killable(&ipc_open_comp))
+			return -EBUSY;
+	}
+#endif
 
 	pr_ctxt = kzalloc(sizeof(struct ipc_process_context), GFP_KERNEL);
 	if (!pr_ctxt)
@@ -85,6 +187,12 @@ int ipc_open(struct inode *inode, struct file *filp)
 		pr_ctxt->dev = dev;
 		filp->private_data = pr_ctxt;
 	}
+
+#ifdef CONFIG_SYSLINK_RECOVERY
+	if (!retval)
+		atomic_inc(&ipc_cref);
+#endif
+
 	return retval;
 }
 
@@ -118,6 +226,10 @@ int ipc_release(struct inode *inode, struct file *filp)
 
 	filp->private_data = NULL;
 err:
+#ifdef CONFIG_SYSLINK_RECOVERY
+	if (!atomic_dec_return(&ipc_cref))
+		complete(&ipc_comp);
+#endif
 	return retval;
 }
 
@@ -131,6 +243,12 @@ int ipc_ioctl(struct inode *ip, struct file *filp, u32 cmd, ulong arg)
 	s32 retval = 0;
 	void __user *argp = (void __user *)arg;
 
+#ifdef CONFIG_SYSLINK_RECOVERY
+	if (recover) {
+		retval = -EIO;
+		goto exit;
+	}
+#endif
 	/* Verify the memory and ensure that it is not is kernel
 	     address space
 	*/
@@ -202,6 +320,19 @@ static int ipc_modules_init(void)
 	/* Setup the notify_drv module */
 	_notify_drv_setup();
 
+#ifdef CONFIG_SYSLINK_RECOVERY
+	ipc_rec_queue = create_workqueue("ipc_rec_queue");
+	INIT_WORK(&ipc_recovery_work, ipc_recover);
+	INIT_COMPLETION(ipc_comp);
+
+	prproc_sysm3 = omap_rproc_get("ducati-proc0");
+	if (prproc_sysm3 != ERR_PTR(-ENODEV))
+		omap_rproc_register_notifier(prproc_sysm3,
+						&ipc_notify_nb_rproc_ducati0);
+	else
+		prproc_sysm3 = NULL;
+#endif
+
 	return 0;
 }
 
@@ -212,6 +343,14 @@ static int ipc_modules_init(void)
  */
 static void ipc_modules_exit(void)
 {
+#ifdef CONFIG_SYSLINK_RECOVERY
+	if (prproc_sysm3) {
+		omap_rproc_unregister_notifier(prproc_sysm3,
+						&ipc_notify_nb_rproc_ducati0);
+		omap_rproc_put(prproc_sysm3);
+	}
+	destroy_workqueue(ipc_rec_queue);
+#endif
 	/* Destroy the notify_drv module */
 	_notify_drv_destroy();
 }
