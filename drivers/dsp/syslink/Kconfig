@@ -6,8 +6,7 @@ if Sys_Link
 config  SYSLINK_PROC
         tristate "Syslink ProcMgr"
         default y
-	select OMAP_IOMMU
-        help
+	help
            Syslink Proc manager
 
 config  SYSLINK_PROC4430
@@ -65,9 +64,9 @@ config SYSLINK_USE_SYSMGR
         help
           This is the experimental option to enable SYS manager setup
 
-config OMAP_IOMMU_DEBUG_MODULE
-	bool "IOMMU debugging"
-	depends on OMAP_IOMMU
+config SYSLINK_IOMMU_ENABLE
+        bool
+        select OMAP_IOMMU
 	default y
 endif
 
