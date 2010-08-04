@@ -478,6 +478,14 @@ static struct platform_device sdp4430_dss_device = {
 
 /* end Display */
 
+static struct platform_device sdp4430_keypad_led = {
+	.name	=	"keypad_led",
+	.id	=	-1,
+	.dev	= {
+		.platform_data = NULL,
+	},
+};
+
 static struct regulator_consumer_supply sdp4430_vdda_dac_supply = {
 	.supply		= "vdda_dac",
 	.dev		= &sdp4430_dss_device.dev,
@@ -487,6 +495,7 @@ static struct platform_device *sdp4430_devices[] __initdata = {
 	&sdp4430_dss_device,
 	&omap_kp_device,
 	&sdp4430_proximity_device,
+	&sdp4430_keypad_led,
 };
 
 static __attribute__ ((unused)) struct
