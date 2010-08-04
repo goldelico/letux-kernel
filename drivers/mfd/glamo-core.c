@@ -383,12 +383,6 @@ static const struct file_operations debugfs_regs_ops = {
 	.release	= single_release,
 };
 
-struct glamo_engine_reg_set {
-	uint16_t reg;
-	uint16_t mask_suspended;
-	uint16_t mask_enabled;
-};
-
 static void glamo_init_debugfs(struct glamo_core *glamo)
 {
 	glamo->debugfs_dir = debugfs_create_dir("glamo3362", NULL);
@@ -413,6 +407,12 @@ static void glamo_exit_debugfs(struct glamo_core *glamo)
 {
 }
 #endif
+
+struct glamo_engine_reg_set {
+	uint16_t reg;
+	uint16_t mask_suspended;
+	uint16_t mask_enabled;
+};
 
 struct glamo_engine_desc {
 	const char *name;
