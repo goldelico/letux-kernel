@@ -242,6 +242,13 @@ config LEDS_SHOLES
 	help
 	  This option enables support for LEDs on Sholes.
 
+config LEDS_OMAP4430_SDP_KEYPAD
+	tristate "Keypad LED support for OMAP4430 SDP"
+	depends on LEDS_CLASS
+	help
+	  This option enables support for keypad LEDs on the
+          OMAP4430 SDP
+
 config LEDS_LM3554
 	tristate "LM3554 driver"
 	depends on LEDS_CLASS && I2C && MFD_CPCAP
