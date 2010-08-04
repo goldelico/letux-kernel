@@ -81,8 +81,9 @@ struct gatehwspinlock_module_object gatehwspinlock_state = {
 	.def_inst_params.region_id	= 0x0,
 	.hw_lock_handles		= NULL,
 	.num_locks			= 32u,
-	.num_reserved			= 4
-	/* GateMP controls SpinLocks 4-31. 0-3 are reserved for usage by I2C */
+	.num_reserved			= 5
+	/* GateMP controls SpinLocks 5-31. 0-3 are reserved for usage by I2C */
+	/* SpinLock 4 is for ipu_pm module usage */
 };
 
 static struct gatehwspinlock_module_object *gatehwspinlock_module =
