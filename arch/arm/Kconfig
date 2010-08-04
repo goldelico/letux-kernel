@@ -161,6 +161,12 @@ config GENERIC_HARDIRQS_NO__DO_IRQ
 
 if OPROFILE
 
+config OPROFILE_OMAP_GPTIMER
+	def_bool y
+	depends on ARCH_OMAP
+	select CONFIG_OMAP_32K_TIMER
+	select CONFIG_OMAP_DM_TIMER
+
 config OPROFILE_ARMV6
 	def_bool y
 	depends on CPU_V6 && !SMP
@@ -175,7 +181,7 @@ config OPROFILE_ARM11_CORE
 	bool
 
 config OPROFILE_ARMV7
-	def_bool y
+	def_bool n
 	depends on CPU_V7 && !SMP
 	bool
 

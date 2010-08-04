@@ -133,6 +133,11 @@ int __init oprofile_arch_init(struct oprofile_operations *ops)
 
 	ops->backtrace = arm_backtrace;
 
+/* comes first, so that it can be overrided by a better implementation */
+#ifdef CONFIG_OPROFILE_OMAP_GPTIMER
+	spec = &op_omap_gptimer_spec;
+#endif
+
 #ifdef CONFIG_CPU_XSCALE
 	spec = &op_xscale_spec;
 #endif
