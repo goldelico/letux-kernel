@@ -74,6 +74,9 @@ struct iovm_struct {
 #define IOVMF_DA_ANON		(2 << (4 + IOVMF_SW_SHIFT))
 #define IOVMF_DA_MASK		(3 << (4 + IOVMF_SW_SHIFT))
 
+#define __round_mask(x, y) ((__typeof__(x))((y)-1))
+#define round_up(x, y) ((((x)-1) | __round_mask(x, y))+1)
+#define round_down(x, y) ((x) & ~__round_mask(x, y))
 
 extern struct iovm_struct *find_iovm_area(struct iommu *obj, u32 da);
 extern u32 iommu_vmap(struct iommu *obj, u32 da,
