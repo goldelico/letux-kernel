@@ -118,7 +118,9 @@ static void __init omap_zoom_init(void)
 	config_wlan_mux();
 #endif
 	zoom_debugboard_init();
+	conn_board_init(); /* wl127x VIO leakage fix*/
 	conn_add_plat_device(); /* Added for FlexST */
+	conn_config_gpios(); /* configure BT,FM and GPS gpios */
 }
 
 MACHINE_START(OMAP_ZOOM3, "OMAP Zoom3 board")
