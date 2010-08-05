@@ -68,6 +68,11 @@ config SYSLINK_IOMMU_ENABLE
         bool
         select OMAP_IOMMU
 	default y
+
+config SYSLINK_RECOVERY
+        bool "Enable Syslink Fault Recovery"
+	default y
+
 endif
 
 
