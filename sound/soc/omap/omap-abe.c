@@ -112,18 +112,65 @@ static struct omap_mcpdm_data mcpdm_data = {
 /*
  * Stream DMA parameters
  */
-static struct omap_pcm_dma_data omap_abe_dai_dma_params[] = {
+static struct omap_pcm_dma_data omap_abe_dai_dma_params[][2] = {
+	/* Multimedia */
 	{
-		.name = "Audio playback",
-		.dma_req = OMAP44XX_DMA_ABE_REQ_0,
-		.data_type = OMAP_DMA_DATA_TYPE_S32,
-		.sync_mode = OMAP_DMA_SYNC_PACKET,
+		{
+			.name = "multimedia playback",
+			.data_type = OMAP_DMA_DATA_TYPE_S32,
+			.sync_mode = OMAP_DMA_SYNC_PACKET,
+		},
+		{
+			.name = "multimedia capture",
+			.data_type = OMAP_DMA_DATA_TYPE_S32,
+			.sync_mode = OMAP_DMA_SYNC_PACKET,
+		},
 	},
+	/* Tones */
 	{
-		.name = "Audio capture",
-		.dma_req = OMAP44XX_DMA_ABE_REQ_2,
-		.data_type = OMAP_DMA_DATA_TYPE_S32,
-		.sync_mode = OMAP_DMA_SYNC_PACKET,
+		{
+			.name = "tones playback",
+			.data_type = OMAP_DMA_DATA_TYPE_S32,
+			.sync_mode = OMAP_DMA_SYNC_PACKET,
+		},
+		{
+			/* not used */
+		},
+	},
+	/* Voice */
+	{
+		{
+			.name = "voice playback",
+			.data_type = OMAP_DMA_DATA_TYPE_S32,
+			.sync_mode = OMAP_DMA_SYNC_PACKET,
+		},
+		{
+			.name = "voice capture",
+			.data_type = OMAP_DMA_DATA_TYPE_S32,
+			.sync_mode = OMAP_DMA_SYNC_PACKET,
+		},
+	},
+	/* Digital mic */
+	{
+		{
+			/* not used */
+		},
+		{
+			.name = "digital capture",
+			.data_type = OMAP_DMA_DATA_TYPE_S32,
+			.sync_mode = OMAP_DMA_SYNC_PACKET,
+		},
+	},
+	/* Vibrator */
+	{
+		{
+			.name = "vibrator playback",
+			.data_type = OMAP_DMA_DATA_TYPE_S32,
+			.sync_mode = OMAP_DMA_SYNC_PACKET,
+		},
+		{
+			/* not used */
+		},
 	},
 };
 
@@ -194,10 +241,11 @@ static int omap_abe_dai_hw_params(struct snd_pcm_substream *substream,
 	struct omap_mcpdm_data *mcpdm_priv = cpu_dai->private_data;
 	struct omap_mcpdm_link *mcpdm_links = mcpdm_priv->links;
 	int err=0, stream = substream->stream, dma_req;
+	int cpu_id = cpu_dai->id;
 	abe_dma_t dma_params;
 
 	/* get abe dma data */
-	switch (cpu_dai->id) {
+	switch (cpu_id) {
 	case OMAP_ABE_MM_DAI:
 		if (stream == SNDRV_PCM_STREAM_CAPTURE) {
 			abe_read_port_address(MM_UL2_PORT, &dma_params);
@@ -245,11 +293,11 @@ static int omap_abe_dai_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
-	omap_abe_dai_dma_params[stream].dma_req = dma_req;
-	omap_abe_dai_dma_params[stream].port_addr =
+	omap_abe_dai_dma_params[cpu_id][stream].dma_req = dma_req;
+	omap_abe_dai_dma_params[cpu_id][stream].port_addr =
 					(unsigned long)dma_params.data;
-	omap_abe_dai_dma_params[stream].packet_size = dma_params.iter;
-	cpu_dai->dma_data = &omap_abe_dai_dma_params[stream];
+	omap_abe_dai_dma_params[cpu_id][stream].packet_size = dma_params.iter;
+	cpu_dai->dma_data = &omap_abe_dai_dma_params[cpu_id][stream];
 
 	if (!substream->stream) {
 		if (!mcpdm_priv->active[stream]++) {
@@ -390,9 +438,10 @@ static int omap_abe_vx_dai_hw_params(struct snd_pcm_substream *substream,
 	abe_dma_t dma_params;
 	struct omap_mcbsp_reg_cfg *regs = &mcpdm_priv->regs;
 	unsigned int format, framesize, master, div;
+	int cpu_id = cpu_dai->id;
 
 	/* get abe dma data */
-	switch (cpu_dai->id) {
+	switch (cpu_id) {
 	case OMAP_ABE_VOICE_DAI:
 		if (stream == SNDRV_PCM_STREAM_CAPTURE) {
 			abe_read_port_address(VX_UL_PORT, &dma_params);
@@ -406,11 +455,11 @@ static int omap_abe_vx_dai_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
-	omap_abe_dai_dma_params[stream].dma_req = dma_req;
-	omap_abe_dai_dma_params[stream].port_addr =
+	omap_abe_dai_dma_params[cpu_id][stream].dma_req = dma_req;
+	omap_abe_dai_dma_params[cpu_id][stream].port_addr =
 					(unsigned long)dma_params.data;
-	omap_abe_dai_dma_params[stream].packet_size = dma_params.iter;
-	cpu_dai->dma_data = &omap_abe_dai_dma_params[stream];
+	omap_abe_dai_dma_params[cpu_id][stream].packet_size = dma_params.iter;
+	cpu_dai->dma_data = &omap_abe_dai_dma_params[cpu_id][stream];
 
 	dma = omap44xx_dma_reqs[bus_id][substream->stream];
 	port = omap44xx_mcbsp_port[bus_id][substream->stream];
