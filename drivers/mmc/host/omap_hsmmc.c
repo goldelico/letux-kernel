@@ -1839,6 +1839,7 @@ static int __init omap_hsmmc_probe(struct platform_device *pdev)
 	host->power_mode = -1;
 	host->dma_type = DMA_TYPE_SDMA;
 
+#if 0 /* FIXME: ADMA disabled due to data corruption issue */
 	if (cpu_is_omap44xx()) {
 		ctrlr_caps = OMAP_HSMMC_READ(host->base, CAPA);
 		if (ctrlr_caps & CAPA_ADMA_SUPPORT) {
@@ -1852,6 +1853,7 @@ static int __init omap_hsmmc_probe(struct platform_device *pdev)
 		}
 	}
 	dev_dbg(mmc_dev(host->mmc), "DMA Mode=%d\n", host->dma_type);
+#endif
 
 
 #ifdef CONFIG_MMC_EMBEDDED_SDIO
