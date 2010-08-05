@@ -363,8 +363,8 @@ static void abe_init_chip(struct snd_soc_codec *codec,
 	/* write volumes */
 	abe_write_gain(GAINS_DL1, GAIN_M6dB, RAMP_0MS, GAIN_LEFT_OFFSET);
 	abe_write_gain(GAINS_DL1, GAIN_M6dB, RAMP_0MS, GAIN_RIGHT_OFFSET);
-	abe_write_gain(GAINS_DL2, GAIN_M6dB, RAMP_0MS, GAIN_LEFT_OFFSET);
-	abe_write_gain(GAINS_DL2, GAIN_M6dB, RAMP_0MS, GAIN_RIGHT_OFFSET);
+	abe_write_gain(GAINS_DL2, GAIN_6dB, RAMP_0MS, GAIN_LEFT_OFFSET);
+	abe_write_gain(GAINS_DL2, GAIN_6dB, RAMP_0MS, GAIN_RIGHT_OFFSET);
 
 	abe_write_gain(GAINS_AMIC, GAIN_12dB, RAMP_0MS, GAIN_LEFT_OFFSET);
 	abe_write_gain(GAINS_AMIC, GAIN_12dB, RAMP_0MS, GAIN_RIGHT_OFFSET);
