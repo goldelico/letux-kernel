@@ -30,6 +30,9 @@
 #include <plat/omap_device.h>
 #include <plat/iommu.h>
 #include <plat/remoteproc.h>
+#if defined(CONFIG_TILER_OMAP)
+#include <mach/tiler.h>
+#endif
 
 #include <syslink/ipc.h>
 
@@ -340,6 +343,60 @@ struct notifier_block devh_notify_nb_rproc_ducati1 = {
 	.notifier_call = devh44xx_appm3_rproc_notifier_call,
 };
 
+#if defined(CONFIG_TILER_OMAP)
+static int devh44xx_sysm3_tiler_notifier_call(struct notifier_block *nb,
+						unsigned long val, void *v)
+{
+	struct omap_devh_platform_data *pdata =
+				devh_get_plat_data_by_name("SysM3");
+
+	switch ((int)val) {
+	case TILER_DEVICE_CLOSE:
+		return devh44xx_notifier_call(nb, val, v, pdata);
+	default:
+		return 0;
+	}
+}
+
+static int devh44xx_appm3_tiler_notifier_call(struct notifier_block *nb,
+						unsigned long val, void *v)
+{
+	struct omap_devh_platform_data *pdata =
+				devh_get_plat_data_by_name("AppM3");
+
+	switch ((int)val) {
+	case TILER_DEVICE_CLOSE:
+		return devh44xx_notifier_call(nb, val, v, pdata);
+	default:
+		return 0;
+	}
+}
+
+static int devh44xx_tesla_tiler_notifier_call(struct notifier_block *nb,
+						unsigned long val, void *v)
+{
+	struct omap_devh_platform_data *pdata =
+				devh_get_plat_data_by_name("Tesla");
+
+	switch ((int)val) {
+	case TILER_DEVICE_CLOSE:
+		return devh44xx_notifier_call(nb, val, v, pdata);
+	default:
+		return 0;
+	}
+}
+
+struct notifier_block devh_notify_nb_tiler_tesla = {
+	.notifier_call = devh44xx_tesla_tiler_notifier_call,
+};
+struct notifier_block devh_notify_nb_tiler_ducati0 = {
+	.notifier_call = devh44xx_sysm3_tiler_notifier_call,
+};
+struct notifier_block devh_notify_nb_tiler_ducati1 = {
+	.notifier_call = devh44xx_appm3_tiler_notifier_call,
+};
+#endif
+
 static inline int devh44xx_sysm3_register(struct omap_devh *devh)
 {
 	int retval = 0;
@@ -363,6 +420,9 @@ static inline int devh44xx_sysm3_register(struct omap_devh *devh)
 						&devh_notify_nb_rproc_ducati0);
 	else
 		pinfo->rproc = NULL;
+#if defined(CONFIG_TILER_OMAP)
+	tiler_reg_notifier(&devh_notify_nb_tiler_ducati0);
+#endif
 
 	return retval;
 }
@@ -390,6 +450,9 @@ static inline int devh44xx_appm3_register(struct omap_devh *devh)
 						&devh_notify_nb_rproc_ducati1);
 	else
 		pinfo->rproc = NULL;
+#if defined(CONFIG_TILER_OMAP)
+	tiler_reg_notifier(&devh_notify_nb_tiler_ducati1);
+#endif
 
 	return retval;
 }
@@ -417,6 +480,9 @@ static inline int devh44xx_tesla_register(struct omap_devh *devh)
 						&devh_notify_nb_rproc_tesla);
 	else
 		pinfo->rproc = NULL;
+#if defined(CONFIG_TILER_OMAP)
+	tiler_reg_notifier(&devh_notify_nb_tiler_tesla);
+#endif
 
 	return retval;
 }
@@ -449,6 +515,9 @@ static inline int devh44xx_sysm3_unregister(struct omap_devh *devh)
 						&devh_notify_nb_iommu_ducati0);
 		iommu_put(pinfo->iommu);
 	}
+#if defined(CONFIG_TILER_OMAP)
+	tiler_unreg_notifier(&devh_notify_nb_tiler_ducati0);
+#endif
 
 	return retval;
 }
@@ -481,6 +550,9 @@ static inline int devh44xx_appm3_unregister(struct omap_devh *devh)
 						&devh_notify_nb_iommu_ducati1);
 		iommu_put(pinfo->iommu);
 	}
+#if defined(CONFIG_TILER_OMAP)
+	tiler_unreg_notifier(&devh_notify_nb_tiler_ducati1);
+#endif
 
 	return retval;
 }
@@ -513,6 +585,9 @@ static inline int devh44xx_tesla_unregister(struct omap_devh *devh)
 						&devh_notify_nb_iommu_tesla);
 		iommu_put(pinfo->iommu);
 	}
+#if defined(CONFIG_TILER_OMAP)
+	tiler_unreg_notifier(&devh_notify_nb_tiler_tesla);
+#endif
 	return retval;
 }
 
