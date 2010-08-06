@@ -28,6 +28,7 @@
 #include <linux/sched.h>
 #include <mach/irqs.h>
 #include <plat/omap_device.h>
+#include <plat/iommu.h>
 #include <plat/remoteproc.h>
 
 #include "../devh.h"
@@ -37,6 +38,7 @@ struct mutex local_gate;
 
 struct omap_devh_runtime_info {
 	int brd_state;
+	struct iommu *iommu;
 	struct omap_rproc *rproc;
 };
 
@@ -96,6 +98,73 @@ exit:
 	return err;
 }
 
+static int devh44xx_sysm3_iommu_notifier_call(struct notifier_block *nb,
+						unsigned long val, void *v)
+{
+	struct omap_devh_platform_data *pdata =
+				devh_get_plat_data_by_name("SysM3");
+	struct omap_devh_runtime_info *pinfo =
+			(struct omap_devh_runtime_info *)pdata->private_data;
+
+	switch ((int)val) {
+	case IOMMU_CLOSE:
+		return devh44xx_notifier_call(nb, val, v, pdata);
+	case IOMMU_FAULT:
+		pinfo->brd_state = DEVH_BRDST_ERROR;
+		return 0;
+	default:
+		return 0;
+	}
+}
+
+static int devh44xx_appm3_iommu_notifier_call(struct notifier_block *nb,
+						unsigned long val, void *v)
+{
+	struct omap_devh_platform_data *pdata =
+				devh_get_plat_data_by_name("AppM3");
+	struct omap_devh_runtime_info *pinfo =
+			(struct omap_devh_runtime_info *)pdata->private_data;
+
+	switch ((int)val) {
+	case IOMMU_CLOSE:
+		return devh44xx_notifier_call(nb, val, v, pdata);
+	case IOMMU_FAULT:
+		pinfo->brd_state = DEVH_BRDST_ERROR;
+		return 0;
+	default:
+		return 0;
+	}
+}
+
+static int devh44xx_tesla_iommu_notifier_call(struct notifier_block *nb,
+						unsigned long val, void *v)
+{
+	struct omap_devh_platform_data *pdata =
+				devh_get_plat_data_by_name("Tesla");
+	struct omap_devh_runtime_info *pinfo =
+			(struct omap_devh_runtime_info *)pdata->private_data;
+
+	switch ((int)val) {
+	case IOMMU_CLOSE:
+		return devh44xx_notifier_call(nb, val, v, pdata);
+	case IOMMU_FAULT:
+		pinfo->brd_state = DEVH_BRDST_ERROR;
+		return 0;
+	default:
+		return 0;
+	}
+}
+
+struct notifier_block devh_notify_nb_iommu_tesla = {
+	.notifier_call = devh44xx_tesla_iommu_notifier_call,
+};
+struct notifier_block devh_notify_nb_iommu_ducati0 = {
+	.notifier_call = devh44xx_sysm3_iommu_notifier_call,
+};
+struct notifier_block devh_notify_nb_iommu_ducati1 = {
+	.notifier_call = devh44xx_appm3_iommu_notifier_call,
+};
+
 static int devh44xx_sysm3_rproc_notifier_call(struct notifier_block *nb,
 						unsigned long val, void *v)
 {
@@ -111,9 +180,22 @@ static int devh44xx_sysm3_rproc_notifier_call(struct notifier_block *nb,
 	switch ((int)val) {
 	case OMAP_RPROC_START:
 		pinfo->brd_state = DEVH_BRDST_RUNNING;
+		pinfo->iommu = iommu_get("ducati");
+		if (pinfo->iommu != ERR_PTR(-ENODEV) &&
+			pinfo->iommu != ERR_PTR(-EINVAL))
+				iommu_register_notifier(pinfo->iommu,
+						&devh_notify_nb_iommu_ducati0);
+		else
+			pinfo->iommu = NULL;
 		return 0;
 	case OMAP_RPROC_STOP:
 		pinfo->brd_state = DEVH_BRDST_STOPPED;
+		if (pinfo->iommu != NULL) {
+			iommu_unregister_notifier(pinfo->iommu,
+						&devh_notify_nb_iommu_ducati0);
+			iommu_put(pinfo->iommu);
+			pinfo->iommu = NULL;
+		}
 		return 0;
 	default:
 		return 0;
@@ -135,9 +217,22 @@ static int devh44xx_appm3_rproc_notifier_call(struct notifier_block *nb,
 	switch ((int)val) {
 	case OMAP_RPROC_START:
 		pinfo->brd_state = DEVH_BRDST_RUNNING;
+		pinfo->iommu = iommu_get("ducati");
+		if (pinfo->iommu != ERR_PTR(-ENODEV) &&
+			pinfo->iommu != ERR_PTR(-EINVAL))
+				iommu_register_notifier(pinfo->iommu,
+						&devh_notify_nb_iommu_ducati1);
+		else
+			pinfo->iommu = NULL;
 		return 0;
 	case OMAP_RPROC_STOP:
 		pinfo->brd_state = DEVH_BRDST_STOPPED;
+		if (pinfo->iommu != NULL) {
+			iommu_unregister_notifier(pinfo->iommu,
+						&devh_notify_nb_iommu_ducati1);
+			iommu_put(pinfo->iommu);
+			pinfo->iommu = NULL;
+		}
 		return 0;
 	default:
 		return 0;
@@ -159,9 +254,22 @@ static int devh44xx_tesla_rproc_notifier_call(struct notifier_block *nb,
 	switch ((int)val) {
 	case OMAP_RPROC_START:
 		pinfo->brd_state = DEVH_BRDST_RUNNING;
+		pinfo->iommu = iommu_get("tesla");
+		if (pinfo->iommu != ERR_PTR(-ENODEV) &&
+			pinfo->iommu != ERR_PTR(-EINVAL))
+				iommu_register_notifier(pinfo->iommu,
+						&devh_notify_nb_iommu_tesla);
+		else
+			pinfo->iommu = NULL;
 		return 0;
 	case OMAP_RPROC_STOP:
 		pinfo->brd_state = DEVH_BRDST_STOPPED;
+		if (pinfo->iommu != NULL) {
+			iommu_unregister_notifier(pinfo->iommu,
+						&devh_notify_nb_iommu_tesla);
+			iommu_put(pinfo->iommu);
+			pinfo->iommu = NULL;
+		}
 		return 0;
 	default:
 		return 0;
@@ -278,6 +386,12 @@ static inline int devh44xx_sysm3_unregister(struct omap_devh *devh)
 						&devh_notify_nb_rproc_ducati0);
 		omap_rproc_put(pinfo->rproc);
 	}
+	if (pinfo->iommu) {
+		iommu_unregister_notifier(pinfo->iommu,
+						&devh_notify_nb_iommu_ducati0);
+		iommu_put(pinfo->iommu);
+	}
+
 	return retval;
 }
 
@@ -302,6 +416,11 @@ static inline int devh44xx_appm3_unregister(struct omap_devh *devh)
 		omap_rproc_unregister_notifier(pinfo->rproc,
 						&devh_notify_nb_rproc_ducati1);
 		omap_rproc_put(pinfo->rproc);
+	}
+	if (pinfo->iommu) {
+		iommu_unregister_notifier(pinfo->iommu,
+						&devh_notify_nb_iommu_ducati1);
+		iommu_put(pinfo->iommu);
 	}
 
 	return retval;
@@ -329,21 +448,29 @@ static inline int devh44xx_tesla_unregister(struct omap_devh *devh)
 						&devh_notify_nb_rproc_tesla);
 		omap_rproc_put(pinfo->rproc);
 	}
+	if (pinfo->iommu) {
+		iommu_unregister_notifier(pinfo->iommu,
+						&devh_notify_nb_iommu_tesla);
+		iommu_put(pinfo->iommu);
+	}
 	return retval;
 }
 
 static struct omap_devh_runtime_info omap4_sysm3_runtime_info = {
 	.brd_state = DEVH_BRDST_STOPPED,
+	.iommu = NULL,
 	.rproc = NULL,
 };
 
 static struct omap_devh_runtime_info omap4_appm3_runtime_info = {
 	.brd_state = DEVH_BRDST_STOPPED,
+	.iommu = NULL,
 	.rproc = NULL,
 };
 
 static struct omap_devh_runtime_info omap4_tesla_runtime_info = {
 	.brd_state = DEVH_BRDST_STOPPED,
+	.iommu = NULL,
 	.rproc = NULL,
 };
 
