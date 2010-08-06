@@ -248,8 +248,8 @@
 #define NOCALLBACK		0
 #define NOPARAMETER		0
 					/* HAL 06: those numbers may be x4 */
-#define MCPDM_UL_ITER		2	/* number of ATC access upon AMIC DMArequests, all the FIFOs are enabled */
-#define MCPDM_DL_ITER		6	/* All the McPDM FIFOs are enabled simultaneously */
+#define MCPDM_UL_ITER		4	/* number of ATC access upon AMIC DMArequests, all the FIFOs are enabled */
+#define MCPDM_DL_ITER		12	/* All the McPDM FIFOs are enabled simultaneously */
 #define DMIC_ITER		6	/* All the DMIC FIFOs are enabled simultaneously */
 
 #define DEFAULT_THR_READ	1	/* port / flow management */
