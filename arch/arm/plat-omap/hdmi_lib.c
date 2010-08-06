@@ -589,7 +589,8 @@ static int hdmi_core_audio_config(u32 name,
 	int ret = 0;
 	u32 SD3_EN, SD2_EN, SD1_EN, SD0_EN;
 	u8 DBYTE1, DBYTE2, DBYTE4, CHSUM;
-	u8 size0, size1;
+	u16 size0;
+	u8 size1;
 
 	/*CTS_MODE*/
 	WR_REG_32(name, HDMI_CORE_AV__ACR_CTRL,
@@ -891,6 +892,7 @@ int hdmi_w1_set_wait_srest(void)
 
 	/* wait till SOFTRESET == 0 */
 	while (FLD_GET(hdmi_read_reg(HDMI_WP, HDMI_WP_SYSCONFIG), 0, 0))
+		;
 
 	return 0;
 }
@@ -1312,6 +1314,7 @@ int HDMI_W1_SetWaitSoftReset(void)
 
 	/* wait till SOFTRESET == 0 */
 	while (FLD_GET(hdmi_read_reg(HDMI_WP, HDMI_WP_SYSCONFIG), 0, 0))
+		;
 
 	return 0;
 }
