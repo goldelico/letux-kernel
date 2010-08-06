@@ -1027,6 +1027,7 @@ static int hdmi_read_edid(struct omap_video_timings *dp)
 	cm = hdmi_get_code(tp);
 	hdmi.code = cm.code;
 	hdmi.mode = cm.mode;
+	hdmi.ti.pplclk = tp->pixel_clock;
 	hdmi.ti.pixelPerLine = tp->x_res;
 	hdmi.ti.linePerPanel = tp->y_res;
 	hdmi.ti.horizontalBackPorch = tp->hbp;
