@@ -32,6 +32,17 @@ config  SYSLINK_DUCATI_PM
         help
            Ducati Power Management Implementation
 
+config  OMAP_DEVICE_HANDLER
+        tristate "Device Handler"
+        depends on OMAP_IOMMU
+        select OMAP_REMOTE_PROC
+        select MPU_SYSLINK_IPC
+        default y
+        help
+          Select this to enable the Device Handler.  The Device Handler
+          is a module that handles device-specific events.  Events handled
+          include process termination.
+
 config MPU_SYSLINK_PLATFORM
         tristate "Syslink Platform Module"
         default y
