@@ -31,6 +31,8 @@
 #include <plat/iommu.h>
 #include <plat/remoteproc.h>
 
+#include <syslink/ipc.h>
+
 #include "../devh.h"
 #include "../../ipu_pm/ipu_pm.h"
 
@@ -163,6 +165,58 @@ struct notifier_block devh_notify_nb_iommu_ducati0 = {
 };
 struct notifier_block devh_notify_nb_iommu_ducati1 = {
 	.notifier_call = devh44xx_appm3_iommu_notifier_call,
+};
+
+static int devh44xx_sysm3_ipc_notifier_call(struct notifier_block *nb,
+						unsigned long val, void *v)
+{
+	struct omap_devh_platform_data *pdata =
+				devh_get_plat_data_by_name("SysM3");
+
+	switch ((int)val) {
+	case IPC_CLOSE:
+		return devh44xx_notifier_call(nb, val, v, pdata);
+	default:
+		return 0;
+	}
+}
+
+static int devh44xx_appm3_ipc_notifier_call(struct notifier_block *nb,
+						unsigned long val, void *v)
+{
+	struct omap_devh_platform_data *pdata =
+				devh_get_plat_data_by_name("AppM3");
+
+	switch ((int)val) {
+	case IPC_CLOSE:
+		return devh44xx_notifier_call(nb, val, v, pdata);
+	default:
+		return 0;
+	}
+}
+
+static int devh44xx_tesla_ipc_notifier_call(struct notifier_block *nb,
+						unsigned long val, void *v)
+{
+	struct omap_devh_platform_data *pdata =
+				devh_get_plat_data_by_name("Tesla");
+
+	switch ((int)val) {
+	case IPC_CLOSE:
+		return devh44xx_notifier_call(nb, val, v, pdata);
+	default:
+		return 0;
+	}
+}
+
+struct notifier_block devh_notify_nb_ipc_tesla = {
+	.notifier_call = devh44xx_tesla_ipc_notifier_call,
+};
+struct notifier_block devh_notify_nb_ipc_ducati1 = {
+	.notifier_call = devh44xx_appm3_ipc_notifier_call,
+};
+struct notifier_block devh_notify_nb_ipc_ducati0 = {
+	.notifier_call = devh44xx_sysm3_ipc_notifier_call,
 };
 
 static int devh44xx_sysm3_rproc_notifier_call(struct notifier_block *nb,
@@ -302,6 +356,7 @@ static inline int devh44xx_sysm3_register(struct omap_devh *devh)
 	pinfo = (struct omap_devh_runtime_info *)pdata->private_data;
 
 	/* register will kernel modules for event notifications. */
+	ipc_register_notifier(&devh_notify_nb_ipc_ducati0);
 	pinfo->rproc = omap_rproc_get("ducati-proc0");
 	if (pinfo->rproc != ERR_PTR(-ENODEV))
 		omap_rproc_register_notifier(pinfo->rproc,
@@ -328,6 +383,7 @@ static inline int devh44xx_appm3_register(struct omap_devh *devh)
 	pinfo = (struct omap_devh_runtime_info *)pdata->private_data;
 
 	/* register will kernel modules for event notifications. */
+	ipc_register_notifier(&devh_notify_nb_ipc_ducati1);
 	pinfo->rproc = omap_rproc_get("ducati-proc1");
 	if (pinfo->rproc != ERR_PTR(-ENODEV))
 		omap_rproc_register_notifier(pinfo->rproc,
@@ -354,6 +410,7 @@ static inline int devh44xx_tesla_register(struct omap_devh *devh)
 	pinfo = (struct omap_devh_runtime_info *)pdata->private_data;
 
 	/* register will kernel modules for event notifications. */
+	ipc_register_notifier(&devh_notify_nb_ipc_tesla);
 	pinfo->rproc = omap_rproc_get("tesla");
 	if (pinfo->rproc != ERR_PTR(-ENODEV))
 		omap_rproc_register_notifier(pinfo->rproc,
@@ -381,6 +438,7 @@ static inline int devh44xx_sysm3_unregister(struct omap_devh *devh)
 	pinfo = (struct omap_devh_runtime_info *)pdata->private_data;
 
 	/* un-register will kernel modules for event notifications. */
+	ipc_unregister_notifier(&devh_notify_nb_ipc_ducati0);
 	if (pinfo->rproc) {
 		omap_rproc_unregister_notifier(pinfo->rproc,
 						&devh_notify_nb_rproc_ducati0);
@@ -412,6 +470,7 @@ static inline int devh44xx_appm3_unregister(struct omap_devh *devh)
 	pinfo = (struct omap_devh_runtime_info *)pdata->private_data;
 
 	/* un-register will kernel modules for event notifications. */
+	ipc_unregister_notifier(&devh_notify_nb_ipc_ducati1);
 	if (pinfo->rproc) {
 		omap_rproc_unregister_notifier(pinfo->rproc,
 						&devh_notify_nb_rproc_ducati1);
@@ -443,6 +502,7 @@ static inline int devh44xx_tesla_unregister(struct omap_devh *devh)
 	pinfo = (struct omap_devh_runtime_info *)pdata->private_data;
 
 	/* un-register will kernel modules for event notifications. */
+	ipc_unregister_notifier(&devh_notify_nb_ipc_tesla);
 	if (pinfo->rproc) {
 		omap_rproc_unregister_notifier(pinfo->rproc,
 						&devh_notify_nb_rproc_tesla);
