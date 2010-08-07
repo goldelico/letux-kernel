@@ -1,1 +1,3 @@
 fix-rtc-read
+delay_patch.diff
+touchscreen_ignoreunexpectedintr29.patch

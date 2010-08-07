@@ -1,3 +1,13 @@
+linux-2.6-openmoko (20100313.git973a41fc-1) pkg-fso; urgency=low
+
+  * New upstream snapshot
+  * Add delay_patch.diff to further workaround WLAN problems
+  - http://docs.openmoko.org/trac/ticket/2327
+  * Add touchscreen_ignoreunexpectedintr29.patch
+  - http://docs.openmoko.org/trac/ticket/2328
+
+ -- Timo Jyrinki <timo@debian.org>  Sat, 07 Aug 2010 11:00:24 +0300
+
 linux-2.6-openmoko (20100118.gita15608f2-4) UNRELEASED; urgency=low
 
   * ext3 is compiled in again to support ext3 root-filesystems
