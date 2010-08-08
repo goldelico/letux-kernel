@@ -1385,6 +1385,14 @@ int omap_uart_active(int num)
 	struct circ_buf *xmit;
 	unsigned int status;
 
+	/* Quart check for active is hardcoded in serial.c
+	 * to 3. If the board boots up without the debug-board connected,
+	 * this uart does not exit, and this is a null pointer.
+	 * return 0 in this case.
+	 */
+	if(!up)
+		return 0;
+
 	/* check for recent driver activity */
 	/* if from now to last activty < 5 second keep clocks on */
 	if ((jiffies_to_msecs(jiffies - up->port_activity) < 5000))
