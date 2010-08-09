@@ -112,7 +112,7 @@ static inline int rproc_get_state(struct omap_rproc *rproc)
 	if (!pdata->ops)
 		return -EINVAL;
 
-	return pdata->ops->get_state(rproc);
+	return pdata->ops->get_state(rproc->dev);
 }
 
 int omap_rproc_notify_event(struct omap_rproc *rproc, int event, void *data)

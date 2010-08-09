@@ -69,11 +69,10 @@
 #define OMAP4_RM_TESLA_RSTST_OFFSET		0x0014
 #define OMAP4_CM_TESLA_TESLA_CLKCTRL_OFFSET	0x0020
 
-static inline int proc44x_sysm3_start(struct omap_rproc *rproc)
+static inline int proc44x_sysm3_start(struct device *dev, u32 start_addr)
 {
 	u32 reg;
 	int counter = 10;
-	struct device *dev = rproc->dev;
 
 	/* Module is managed automatically by HW */
 	cm_write_mod_reg(M3_CLK_MOD_MODE_HW_AUTO, OMAP4430_CM2_CORE_MOD_1,
@@ -112,10 +111,8 @@ static inline int proc44x_sysm3_start(struct omap_rproc *rproc)
 	return 0;
 }
 
-static inline int proc44x_appm3_start(struct omap_rproc *rproc)
+static inline int proc44x_appm3_start(struct device *dev, u32 start_addr)
 {
-	struct device *dev = rproc->dev;
-
 	/* De-assert RST2, and clear the Reset status */
 	dev_info(dev, "De-assert RST2\n");
 	prm_write_mod_reg(RM_M3_REL_RST2_MASK, OMAP4430_PRM_CORE_MOD,
@@ -132,11 +129,10 @@ static inline int proc44x_appm3_start(struct omap_rproc *rproc)
 	return 0;
 }
 
-static inline int proc44x_tesla_start(struct omap_rproc *rproc)
+static inline int proc44x_tesla_start(struct device *dev, u32 start_addr)
 {
 	u32 reg;
 	int counter = 10;
-	struct device *dev = rproc->dev;
 
 	/* Module is managed automatically by HW */
 	cm_write_mod_reg(TESLA_CLK_MOD_MODE_HW_AUTO, OMAP4430_CM1_TESLA_MOD,
@@ -184,9 +180,8 @@ while (!(prm_read_mod_reg(OMAP4430_PRM_TESLA_MOD,
 	return 0;
 }
 
-static inline int proc44x_sysm3_stop(struct omap_rproc *rproc)
+static inline int proc44x_sysm3_stop(struct device *dev)
 {
-	struct device *dev = rproc->dev;
 	u32 reg;
 
 	reg = prm_read_mod_reg(OMAP4430_PRM_CORE_MOD,
@@ -199,9 +194,8 @@ static inline int proc44x_sysm3_stop(struct omap_rproc *rproc)
 	return 0;
 }
 
-static inline int proc44x_appm3_stop(struct omap_rproc *rproc)
+static inline int proc44x_appm3_stop(struct device *dev)
 {
-	struct device *dev = rproc->dev;
 	u32 reg;
 
 	reg = prm_read_mod_reg(OMAP4430_PRM_CORE_MOD,
@@ -213,9 +207,8 @@ static inline int proc44x_appm3_stop(struct omap_rproc *rproc)
 	return 0;
 }
 
-static inline int proc44x_tesla_stop(struct omap_rproc *rproc)
+static inline int proc44x_tesla_stop(struct device *dev)
 {
-	struct device *dev = rproc->dev;
 	u32 reg;
 	reg = prm_read_mod_reg(OMAP4430_PRM_CORE_MOD,
 			OMAP4_RM_TESLA_RSTCTRL_OFFSET);
@@ -234,9 +227,12 @@ static inline int proc44x_tesla_stop(struct omap_rproc *rproc)
 	return 0;
 }
 
-static inline int omap4_rproc_get_state(struct omap_rproc *rproc)
+static inline int omap4_rproc_get_state(struct device *dev)
 {
-	return rproc->state;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct omap_device *odev = to_omap_device(pdev);
+
+	return odev->_state;
 }
 
 static struct omap_rproc_ops omap4_ducati0_ops = {
