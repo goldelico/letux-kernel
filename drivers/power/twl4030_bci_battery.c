@@ -155,6 +155,7 @@ struct twl4030_bci_device_info {
 	int			temp_C;
 	int			charge_rsoc;
 	int			charge_status;
+	int			capacity;
 
 	struct power_supply	bat;
 	struct power_supply	bk_bat;
@@ -593,6 +594,40 @@ static int twl4030battery_current(void)
 }
 
 /*
+ * Return battery capacity
+ * Or < 0 on failure.
+ */
+static int twl4030battery_capacity(struct twl4030_bci_device_info *di)
+{
+	int ret = 0;
+
+	/*
+	 * need to get the correct percentage value per the
+	 * battery characteristics. Approx values for now.
+	 */
+	if (di->voltage_uV < 3230 || LVL_1) {
+		ret = 5;
+		LVL_1 = 0;
+	} else if ((di->voltage_uV < 3340 && di->voltage_uV > 3230)
+		|| LVL_2) {
+		ret = 20;
+		LVL_2 = 0;
+	} else if ((di->voltage_uV < 3550 && di->voltage_uV > 3340)
+		|| LVL_3) {
+		ret = 50;
+		LVL_3 = 0;
+	} else if ((di->voltage_uV < 3830 && di->voltage_uV > 3550)
+		|| LVL_4) {
+		ret = 75;
+		LVL_4 = 0;
+	} else if (di->voltage_uV > 3830)
+		ret = 90;
+
+	return ret;
+}
+
+
+/*
  * Return the battery backup voltage
  * Or < 0 on failure.
  */
@@ -785,6 +820,7 @@ static void twl4030_bci_battery_read_status(struct twl4030_bci_device_info *di)
 	di->temp_C = twl4030battery_temperature();
 	di->voltage_uV = twl4030battery_voltage();
 	di->current_uA = twl4030battery_current();
+	di->capacity = twl4030battery_capacity(di);
 }
 
 static void
@@ -792,6 +828,8 @@ twl4030_bci_battery_update_status(struct twl4030_bci_device_info *di)
 {
 	int old_charge_source = di->charge_rsoc;
 	int old_charge_status = di->charge_status;
+	int old_capacity = di->capacity;
+	static int stable_count;
 
 	twl4030_bci_battery_read_status(di);
 	di->charge_status = POWER_SUPPLY_STATUS_UNKNOWN;
@@ -800,17 +838,45 @@ twl4030_bci_battery_update_status(struct twl4030_bci_device_info *di)
 	else
 		di->charge_status = POWER_SUPPLY_STATUS_DISCHARGING;
 
-	if (old_charge_status != di->charge_status)
-		power_supply_changed(&di->bat);
 	/*
 	 * Since Charger interrupt only happens for AC plug-in
 	 * and not for usb plug-in, we use the next update
 	 * cycle to update the status of the power_supply
 	 * change to user space.
+	 * Read the current usb_charger_flag
+	 * compare this with the value from the last
+	 * update cycle to determine if there was a
+	 * change.
 	 */
+
 	di->charge_rsoc = usb_charger_flag;
-	if (old_charge_source !=  di->charge_rsoc)
-		power_supply_changed(&di->usb_bat);
+
+	/*
+	 * Battery voltage fluctuates, when we are on a threshold
+	 * level, we do not want to keep informing user of the
+	 * capacity fluctuations, or he the battery progress will
+	 * keep moving.
+	 */
+	if (old_capacity != di->capacity) {
+		stable_count = 0;
+	} else {
+		stable_count++;
+	}
+	/*
+	 * Send uevent to user space to notify
+	 * of some battery specific events.
+	 * Ac plugged in, USB plugged in and Capacity
+	 * level changed.
+	 * called every 100 jiffies = 0.7 seconds
+	 * 20 stable cycles means capacity did not change
+	 * in the last 15 seconds.
+	 */
+	if ((old_charge_status != di->charge_status)
+			|| (stable_count == 20)
+			|| (old_charge_source !=  di->charge_rsoc)) {
+		power_supply_changed(&di->bat);
+	}
+
 
 }
 
@@ -907,27 +973,7 @@ static int twl4030_bci_battery_get_property(struct power_supply *psy,
 			val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
-		/*
-		 * need to get the correct percentage value per the
-		 * battery characteristics. Approx values for now.
-		 */
-		if (di->voltage_uV < 2894 || LVL_1) {
-			val->intval = 5;
-			LVL_1 = 0;
-		} else if ((di->voltage_uV < 3451 && di->voltage_uV > 2894)
-			|| LVL_2) {
-			val->intval = 20;
-			LVL_2 = 0;
-		} else if ((di->voltage_uV < 3902 && di->voltage_uV > 3451)
-			|| LVL_3) {
-			val->intval = 50;
-			LVL_3 = 0;
-		} else if ((di->voltage_uV < 3949 && di->voltage_uV > 3902)
-			|| LVL_4) {
-			val->intval = 75;
-			LVL_4 = 0;
-		} else if (di->voltage_uV > 3949)
-			val->intval = 90;
+		val->intval = twl4030battery_capacity(di);
 		break;
 	default:
 		return -EINVAL;
