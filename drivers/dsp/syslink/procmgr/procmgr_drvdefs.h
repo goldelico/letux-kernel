@@ -193,6 +193,12 @@ struct proc_mgr_cmd_args {
  */
 #define CMD_PROCMGR_DMAINVRANGE			(PROCMGR_BASE_CMD + 30)
 
+/*
+ * Command to get Board revision
+ */
+#define CMD_PROCMGR_GETBOARDREV			(PROCMGR_BASE_CMD + 31)
+
+
 
 #define PROCMGR_DMA_OP_INV			1
 #define PROCMGR_DMA_OP_FLUSH			3
@@ -505,6 +511,13 @@ struct proc_mgr_cmd_args_dma {
 	u32 buf_size;
 	/* buf size */
 };
+
+struct proc_mgr_cmd_args_cpurev {
+	struct proc_mgr_cmd_args commond_args;
+	u32 *cpu_rev;
+};
+
+
 
 extern int temp_user_dma_op(unsigned long, unsigned long, int);
 

@@ -25,6 +25,8 @@
 #include <linux/uaccess.h>
 #include <linux/platform_device.h>
 
+#include <plat/cpu.h>
+
 /* Module headers */
 #include <procmgr.h>
 #include "procmgr_drvdefs.h"
@@ -566,6 +568,33 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 		retval = temp_user_dma_op(src_args.ua,
 				(src_args.ua + src_args.buf_size),
 				PROCMGR_DMA_OP_INV);
+		if (WARN_ON(retval < 0))
+			goto func_exit;
+	}
+	break;
+
+	/*
+	 * This is added to provide the information whether to enable
+	 * lock all entries in TLB or not. ES1.0 requires all the entries
+	 * to be locked, so the loader in userspace makes the decision on
+	 * how the entries should be programmed based on ES revision. This
+	 * case is meant for temporary purpose and can be removed once ES1.0
+	 * boards are phased out
+	 */
+	case CMD_PROCMGR_GETBOARDREV:
+	{
+		int rev;
+		struct proc_mgr_cmd_args_cpurev src_args;
+		retval = copy_from_user((void *)&src_args,
+				(const void *)(args),
+				sizeof(struct proc_mgr_cmd_args_cpurev));
+		if (WARN_ON(retval < 0))
+			goto func_exit;
+
+		rev = GET_OMAP_REVISION();
+		*(src_args.cpu_rev) = rev;
+		retval = copy_to_user((void *)(args), (const void *)&src_args,
+				sizeof(struct proc_mgr_cmd_args_cpurev));
 		if (WARN_ON(retval < 0))
 			goto func_exit;
 	}
