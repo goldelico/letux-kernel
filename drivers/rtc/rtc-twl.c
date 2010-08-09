@@ -168,7 +168,7 @@ static int twl_rtc_read(u8 *value, u8 reg, unsigned num_bytes)
 	int ret = 0, i = 0;
 
 	for (i = 0; i < num_bytes; i++)
-		if (twl_rtc_read_u8(value + i, (rtc_reg_map[reg + i])))
+		if (twl_rtc_read_u8(value + i, (reg + i)))
 			return ret;
 
 	return ret;
