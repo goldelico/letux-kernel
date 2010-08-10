@@ -83,8 +83,20 @@ struct isp_csi_memvs_fh {
 /* list of image formats supported by isp_csi_memvs sensor */
 const static struct v4l2_fmtdesc isp_csi_memvs_formats[] = {
 	{
-		.description	= "Bayer10 (RGr/GbB)",
+		.description	= "Bayer10 (GR/BG)",
+		.pixelformat	= V4L2_PIX_FMT_SGRBG10,
+	},
+	{
+		.description	= "Bayer10 (RG/GB)",
 		.pixelformat	= V4L2_PIX_FMT_SRGGB10,
+	},
+	{
+		.description	= "Bayer10 (BG/GR)",
+		.pixelformat	= V4L2_PIX_FMT_SBGGR10,
+	},
+	{
+		.description	= "Bayer10 (GB/RG)",
+		.pixelformat	= V4L2_PIX_FMT_SGBRG10,
 	}
 };
 
