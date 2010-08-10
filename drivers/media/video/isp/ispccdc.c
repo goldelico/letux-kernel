@@ -32,6 +32,8 @@
 #define LSC_TABLE_INIT_SIZE	50052
 #define PTR_FREE		((u32)(-ENOMEM))
 
+#define PHY_ADDRESS_ALIGN	32
+
 /* Structure for saving/restoring CCDC module registers*/
 static struct isp_reg ispccdc_reg_list[] = {
 	{OMAP3_ISP_IOMEM_CCDC, ISPCCDC_SYN_MODE, 0},
@@ -1137,36 +1139,9 @@ int ispccdc_try_pipeline(struct isp_ccdc_device *isp_ccdc,
 	if (!isp_ccdc->refmt_en && pipe->ccdc_out != CCDC_OTHERS_MEM)
 		pipe->ccdc_out_h -= 1;
 
-	if (pipe->ccdc_out == CCDC_OTHERS_VP) {
-		switch (pipe->ccdc_in) {
-		case CCDC_RAW_GRBG:
-			pipe->ccdc_in_h_st = 1;
-			pipe->ccdc_in_v_st = 0;
-			break;
-		case CCDC_RAW_BGGR:
-			pipe->ccdc_in_h_st = 1;
-			pipe->ccdc_in_v_st = 1;
-			break;
-		case CCDC_RAW_RGGB:
-			pipe->ccdc_in_h_st = 0;
-			pipe->ccdc_in_v_st = 0;
-			break;
-		case CCDC_RAW_GBRG:
-			pipe->ccdc_in_h_st = 0;
-			pipe->ccdc_in_v_st = 1;
-			break;
-		default:
-			break;
-		}
-		pipe->ccdc_out_h -= pipe->ccdc_in_v_st;
-		pipe->ccdc_out_w -= pipe->ccdc_in_h_st;
-		pipe->ccdc_out_h -= (pipe->ccdc_out_h % 2);
-		pipe->ccdc_out_w -= (pipe->ccdc_out_w % 2);
-	}
-
 	pipe->ccdc_out_w_img = pipe->ccdc_out_w;
 	/* Round up to nearest 32 pixels. */
-	pipe->ccdc_out_w = ALIGN(pipe->ccdc_out_w, 0x20);
+	pipe->ccdc_out_w = ALIGN(pipe->ccdc_out_w, PHY_ADDRESS_ALIGN);
 
 	isp_ccdc->lsc_request_enable = isp_ccdc->lsc_request_user;
 
