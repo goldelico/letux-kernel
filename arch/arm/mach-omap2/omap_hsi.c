@@ -463,7 +463,6 @@ static const struct clkops clkops_hsi = {
 static struct hsi_internal_clk hsi_clock = {
 	.clk = {
 		.name = "hsi_clk",
-		.id = -1,
 		.clkdm_name = "core_l4_clkdm",
 		.ops = &clkops_hsi,
 	},
