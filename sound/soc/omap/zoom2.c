@@ -81,9 +81,17 @@ static int zoom2_i2s_hw_params(struct snd_pcm_substream *substream,
 		return ret;
 	}
 
+	/* enable 256 FS clk for HDMI */
+	ret = twl4030_set_ext_clock(codec_dai->codec, 1);
+	if (ret < 0) {
+		printk(KERN_ERR "can't set 256 FS clock\n");
+		return ret;
+	}
+
 	/* Use external clock for mcBSP2 */
 	ret = snd_soc_dai_set_sysclk(cpu_dai, OMAP_MCBSP_SYSCLK_CLKS_EXT,
 			0, SND_SOC_CLOCK_OUT);
+
 	/*
 	 * Set headset EXTMUTE signal to ON to make sure we
 	 * get correct headset status

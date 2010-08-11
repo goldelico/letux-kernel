@@ -275,6 +275,7 @@ extern struct snd_soc_codec_device soc_codec_dev_twl4030;
 extern int twl4030_set_rate(struct snd_soc_codec *, struct snd_pcm_hw_params *);
 extern int twl4030_get_clock_divisor(struct snd_soc_codec *,
 				     struct snd_pcm_hw_params *);
+int twl4030_set_ext_clock(struct snd_soc_codec *codec, int enable);
 
 struct twl4030_setup_data {
 	unsigned int ramp_delay_value;

@@ -1995,7 +1995,7 @@ static int twl4030_set_dai_sysclk(struct snd_soc_dai *codec_dai,
 	return 0;
 }
 
-static int twl4030_set_ext_clock(struct snd_soc_codec *codec, int enable)
+int twl4030_set_ext_clock(struct snd_soc_codec *codec, int enable)
 {
 	u8 old_format, format;
 
@@ -2021,6 +2021,7 @@ static int twl4030_set_ext_clock(struct snd_soc_codec *codec, int enable)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(twl4030_set_ext_clock);
 
 static int twl4030_set_dai_fmt(struct snd_soc_dai *codec_dai,
 			     unsigned int fmt)
@@ -2049,6 +2050,7 @@ static int twl4030_set_dai_fmt(struct snd_soc_dai *codec_dai,
 
 	/* interface format */
 	format &= ~TWL4030_AIF_FORMAT;
+	format |= TWL4030_CLK256FS_EN;
 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
 	case SND_SOC_DAIFMT_I2S:
 		format |= TWL4030_AIF_FORMAT_CODEC;
@@ -2378,15 +2380,17 @@ struct snd_soc_dai twl4030_dai[] = {
 	.name = "twl4030",
 	.playback = {
 		.stream_name = "HiFi Playback",
-		.channels_min = 1,
+		.channels_min = 2,
 		.channels_max = 4,
-		.rates = TWL4030_RATES | SNDRV_PCM_RATE_96000,
+		/*.rates = TWL4030_RATES | SNDRV_PCM_RATE_96000, */
+		.rates = SNDRV_PCM_RATE_44100,
 		.formats = TWL4030_FORMATS,},
 	.capture = {
 		.stream_name = "Capture",
-		.channels_min = 1,
+		.channels_min = 2,
 		.channels_max = 4,
-		.rates = TWL4030_RATES,
+		/*.rates = TWL4030_RATES, */
+		.rates = SNDRV_PCM_RATE_44100,
 		.formats = TWL4030_FORMATS,},
 	.ops = &twl4030_dai_ops,
 },
