@@ -744,7 +744,7 @@ int proc_get_state(void *hprocessor,
 	} else {
 		status = -EFAULT;
 	}
-	dev_dbg(bridge, "%s, results: status: 0x%x proc_state_obj: 0x%x\n",
+	dev_dbg(bridge, "%s, results: status: %i proc_state_obj: 0x%x\n",
 		__func__, status, proc_state_obj->proc_state);
 	return status;
 }
@@ -1137,7 +1137,7 @@ int proc_map(void *hprocessor, void *pmpu_addr, u32 ul_size,
 func_end:
 	dev_dbg(bridge, "%s: hprocessor %p, pmpu_addr %p, ul_size %x, "
 		"req_addr %p, ul_map_attr %x, pp_map_addr %p, va_align %x, "
-		"pa_align %x, size_align %x status 0x%x\n", __func__,
+		"pa_align %x, size_align %x status %i\n", __func__,
 		hprocessor, pmpu_addr, ul_size, req_addr, ul_map_attr,
 		pp_map_addr, va_align, pa_align, size_align, status);
 
@@ -1265,7 +1265,7 @@ int proc_reserve_memory(void *hprocessor, u32 ul_size,
 
 func_end:
 	dev_dbg(bridge, "%s: hprocessor: 0x%p ul_size: 0x%x pp_rsv_addr: 0x%p "
-		"status 0x%x\n", __func__, hprocessor,
+		"status %i\n", __func__, hprocessor,
 		ul_size, pp_rsv_addr, status);
 	return status;
 }
@@ -1472,7 +1472,7 @@ int proc_un_map(void *hprocessor, void *map_addr,
 	spin_unlock(&pr_ctxt->dmm_map_lock);
 
 func_end:
-	dev_dbg(bridge, "%s: hprocessor: 0x%p map_addr: 0x%p status: 0x%x\n",
+	dev_dbg(bridge, "%s: hprocessor: 0x%p map_addr: 0x%p status: %i\n",
 		__func__, hprocessor, map_addr, status);
 	return status;
 }
@@ -1521,7 +1521,7 @@ int proc_un_reserve_memory(void *hprocessor, void *prsv_addr,
 	spin_unlock(&pr_ctxt->dmm_rsv_lock);
 
 func_end:
-	dev_dbg(bridge, "%s: hprocessor: 0x%p prsv_addr: 0x%p status: 0x%x\n",
+	dev_dbg(bridge, "%s: hprocessor: 0x%p prsv_addr: 0x%p status: %i\n",
 		__func__, hprocessor, prsv_addr, status);
 	return status;
 }

@@ -920,7 +920,7 @@ static void io_dispatch_pm(struct io_mgr *pio_mgr)
 						      WMDIOCTL_PWR_HIBERNATE,
 						      parg);
 		if (DSP_FAILED(status))
-			pr_err("%s: hibernate cmd failed 0x%x\n",
+			pr_err("%s: hibernate cmd failed: %i\n",
 			       __func__, status);
 	} else if (parg[0] == MBX_PM_OPP_REQ) {
 		parg[1] = pio_mgr->shared_mem->opp_request.rqst_dsp_freq;
@@ -2073,7 +2073,7 @@ int print_dsp_trace_buffer(struct wmd_dev_context *hwmd_context)
 	}
 func_end:
 	if (DSP_FAILED(status))
-		dev_dbg(bridge, "%s Failed, status 0x%x\n", __func__, status);
+		dev_dbg(bridge, "%s Failed, status %i\n", __func__, status);
 	return status;
 }
 

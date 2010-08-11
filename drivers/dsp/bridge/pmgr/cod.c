@@ -577,7 +577,7 @@ int cod_open(struct cod_manager *hmgr, IN char *pszCoffPath,
 	}
 
 	if (DSP_FAILED(status))
-		pr_err("%s: error status 0x%x, pszCoffPath: %s flags: 0x%x\n",
+		pr_err("%s: error status %i, pszCoffPath: %s flags: 0x%x\n",
 		       __func__, status, pszCoffPath, flags);
 	return status;
 }
@@ -615,7 +615,7 @@ int cod_open_base(struct cod_manager *hmgr, IN char *pszCoffPath,
 	}
 
 	if (DSP_FAILED(status))
-		pr_err("%s: error status 0x%x pszCoffPath: %s\n", __func__,
+		pr_err("%s: error status %i pszCoffPath: %s\n", __func__,
 		       status, pszCoffPath);
 	return status;
 }

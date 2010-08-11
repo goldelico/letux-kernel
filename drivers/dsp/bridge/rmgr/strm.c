@@ -182,7 +182,7 @@ func_end:
 	DBC_ENSURE(status == 0 || status == -EFAULT ||
 		   status == -EPIPE || status == -EPERM);
 
-	dev_dbg(bridge, "%s: hstrm: %p, status 0x%x\n", __func__,
+	dev_dbg(bridge, "%s: hstrm: %p, status %i\n", __func__,
 		hstrm, status);
 	return status;
 }
@@ -379,7 +379,7 @@ int strm_idle(struct strm_object *hStrm, bool fFlush)
 						      hStrm->utimeout, fFlush);
 	}
 
-	dev_dbg(bridge, "%s: hStrm: %p fFlush: 0x%x status: 0x%x\n",
+	dev_dbg(bridge, "%s: hStrm: %p fFlush: 0x%x status: %i\n",
 		__func__, hStrm, fFlush, status);
 	return status;
 }
@@ -441,7 +441,7 @@ int strm_issue(struct strm_object *hStrm, IN u8 *pbuf, u32 ul_bytes,
 	}
 
 	dev_dbg(bridge, "%s: hStrm: %p pbuf: %p ul_bytes: 0x%x dw_arg: 0x%x "
-		"status: 0x%x\n", __func__, hStrm, pbuf,
+		"status: %i\n", __func__, hStrm, pbuf,
 		ul_bytes, dw_arg, status);
 	return status;
 }
@@ -598,7 +598,7 @@ func_cont:
 					status == -EINVAL)));
 
 	dev_dbg(bridge, "%s: hnode: %p dir: 0x%x index: 0x%x pattr: %p "
-		"strmres: %p status: 0x%x\n", __func__,
+		"strmres: %p status: %i\n", __func__,
 		hnode, dir, index, pattr, strmres, status);
 	return status;
 }
@@ -680,7 +680,7 @@ func_end:
 		   status == -EPERM);
 
 	dev_dbg(bridge, "%s: hStrm: %p buf_ptr: %p pulBytes: %p pdw_arg: %p "
-		"status 0x%x\n", __func__, hStrm,
+		"status %i\n", __func__, hStrm,
 		buf_ptr, pulBytes, pdw_arg, status);
 	return status;
 }

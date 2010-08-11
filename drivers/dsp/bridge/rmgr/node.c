@@ -597,7 +597,7 @@ func_cont:
 					     &dynext_base);
 			if (DSP_FAILED(status))
 				pr_err("%s: Failed to get addr for DYNEXT_BEG"
-				       " status = 0x%x\n", __func__, status);
+				       " status = %i\n", __func__, status);
 
 			status =
 			    hnode_mgr->nldr_fxns.
@@ -606,7 +606,7 @@ func_cont:
 
 			if (DSP_FAILED(status))
 				pr_err("%s: Failed to get addr for L1DSRAM_HEAP"
-				       " status = 0x%x\n", __func__, status);
+				       " status = %i\n", __func__, status);
 
 			host_res = pwmd_context->resources;
 			if (!host_res)
@@ -614,7 +614,7 @@ func_cont:
 
 			if (DSP_FAILED(status)) {
 				pr_err("%s: Failed to get host resource, status"
-				       " = 0x%x\n", __func__, status);
+				       " = %i\n", __func__, status);
 				goto func_end;
 			}
 
@@ -677,7 +677,7 @@ func_cont:
 		   (DSP_SUCCEEDED(status) && pnode));
 func_end:
 	dev_dbg(bridge, "%s: hprocessor: %p pNodeId: %p pargs: %p attr_in: %p "
-		"node_res: %p status: 0x%x\n", __func__, hprocessor,
+		"node_res: %p status: %i\n", __func__, hprocessor,
 		pNodeId, pargs, attr_in, noderes, status);
 	return status;
 }
@@ -1134,7 +1134,7 @@ func_cont2:
 	mutex_unlock(&hnode_mgr->node_mgr_lock);
 func_end:
 	dev_dbg(bridge, "%s: hNode1: %p uStream1: %d hNode2: %p uStream2: %d"
-		"pattrs: %p status: 0x%x\n", __func__, hNode1,
+		"pattrs: %p status: %i\n", __func__, hNode1,
 		uStream1, hNode2, uStream2, pattrs, status);
 	return status;
 }
@@ -1223,7 +1223,7 @@ int node_create(struct node_object *hnode)
 							 CREATEPHASE);
 			}
 		} else {
-			pr_err("%s: failed to load create code: 0x%x\n",
+			pr_err("%s: failed to load create code: %i\n",
 			       __func__, status);
 		}
 		/* Request the lowest OPP level */
@@ -1271,7 +1271,7 @@ int node_create(struct node_object *hnode)
 		hnode->loaded = false;
 	}
 	if (DSP_FAILED(status1))
-		pr_err("%s: Failed to unload create code: 0x%x\n",
+		pr_err("%s: Failed to unload create code: %i\n",
 		       __func__, status1);
 func_cont2:
 	/* Update node state and node manager state */
@@ -1293,7 +1293,7 @@ func_end:
 		ntfy_notify(hnode->ntfy_obj, DSP_NODESTATECHANGE);
 	}
 
-	dev_dbg(bridge, "%s: hnode: %p status: 0x%x\n", __func__,
+	dev_dbg(bridge, "%s: hnode: %p status: %i\n", __func__,
 		hnode, status);
 	return status;
 }
@@ -1513,7 +1513,7 @@ int node_delete(struct node_res_object *hnoderes,
 					pnode->loaded = true;
 				else
 					pr_err("%s: fail - load delete code:"
-					       " 0x%x\n", __func__, status);
+					       " %i\n", __func__, status);
 			}
 		}
 func_cont1:
@@ -1554,7 +1554,7 @@ func_cont1:
 				}
 				if (DSP_FAILED(status1))
 					pr_err("%s: fail - unload execute code:"
-					       " 0x%x\n", __func__, status1);
+					       " %i\n", __func__, status1);
 
 				status1 =
 				    hnode_mgr->nldr_fxns.pfn_unload(pnode->
@@ -1563,7 +1563,7 @@ func_cont1:
 				pnode->loaded = false;
 				if (DSP_FAILED(status1))
 					pr_err("%s: fail - unload delete code: "
-					       "0x%x\n", __func__, status1);
+					       "%i\n", __func__, status1);
 			}
 		}
 	}
@@ -1590,7 +1590,7 @@ func_cont1:
 	mutex_unlock(&hnode_mgr->node_mgr_lock);
 	proc_notify_clients(hprocessor, DSP_NODESTATECHANGE);
 func_end:
-	dev_dbg(bridge, "%s: pnode: %p status 0x%x\n", __func__, pnode, status);
+	dev_dbg(bridge, "%s: pnode: %p status %i\n", __func__, pnode, status);
 	return status;
 }
 
@@ -2088,7 +2088,7 @@ func_cont:
 		}
 	}
 func_end:
-	dev_dbg(bridge, "%s: hnode: %p status 0x%x\n", __func__, hnode, status);
+	dev_dbg(bridge, "%s: hnode: %p status %i\n", __func__, hnode, status);
 	return status;
 }
 
@@ -2188,7 +2188,7 @@ int node_put_message(struct node_object *hnode,
 	}
 func_end:
 	dev_dbg(bridge, "%s: hnode: %p pmsg: %p utimeout: 0x%x, "
-		"status 0x%x\n", __func__, hnode, pmsg, utimeout, status);
+		"status %i\n", __func__, hnode, pmsg, utimeout, status);
 	return status;
 }
 
@@ -2239,7 +2239,7 @@ int node_register_notify(struct node_object *hnode, u32 event_mask,
 
 	}
 	dev_dbg(bridge, "%s: hnode: %p event_mask: 0x%x notify_type: 0x%x "
-		"hnotification: %p status 0x%x\n", __func__, hnode,
+		"hnotification: %p status %i\n", __func__, hnode,
 		event_mask, notify_type, hnotification, status);
 	return status;
 }
@@ -2318,7 +2318,7 @@ int node_run(struct node_object *hnode)
 			if (DSP_SUCCEEDED(status)) {
 				hnode->loaded = true;
 			} else {
-				pr_err("%s: fail - load execute code: 0x%x\n",
+				pr_err("%s: fail - load execute code: %i\n",
 				       __func__, status);
 			}
 		}
@@ -2361,7 +2361,7 @@ func_cont1:
 		ntfy_notify(hnode->ntfy_obj, DSP_NODESTATECHANGE);
 	}
 func_end:
-	dev_dbg(bridge, "%s: hnode: %p status 0x%x\n", __func__, hnode, status);
+	dev_dbg(bridge, "%s: hnode: %p status %i\n", __func__, hnode, status);
 	return status;
 }
 
@@ -2501,7 +2501,7 @@ func_cont:
 			status = -EPERM;
 		} else {
 			*pstatus = hnode->exit_status;
-			dev_dbg(bridge, "%s: hnode: %p env 0x%x status 0x%x\n",
+			dev_dbg(bridge, "%s: hnode: %p env 0x%x status %i\n",
 				__func__, hnode, hnode->node_env, status);
 		}
 		mutex_unlock(&hnode_mgr->node_mgr_lock);
@@ -3124,7 +3124,7 @@ static int get_rms_fxns(struct node_mgr *hnode_mgr)
 					" not loaded\n", __func__, psz_fxns[i]);
 			} else {
 				dev_dbg(bridge, "%s: Symbol not found: %s "
-					"status = 0x%x\n", __func__,
+					"status = %i\n", __func__,
 					psz_fxns[i], status);
 				break;
 			}

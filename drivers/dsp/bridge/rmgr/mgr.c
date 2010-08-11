@@ -271,7 +271,7 @@ int mgr_enum_processor_info(u32 processor_id,
 			processor_info->processor_type = DSPTYPE64;
 		} else {
 			dev_dbg(bridge, "%s: Failed to get DCD processor info "
-				"%x\n", __func__, status2);
+				"%i\n", __func__, status2);
 			status = -EPERM;
 		}
 	}

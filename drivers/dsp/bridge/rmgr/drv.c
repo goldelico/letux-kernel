@@ -155,7 +155,7 @@ int drv_remove_all_dmm_res_elements(bhandle hPCtxt)
 				     (void *)map_obj->dsp_addr, ctxt);
 		if (DSP_FAILED(status))
 			pr_err("%s: proc_un_map failed!"
-			       " status = 0x%xn", __func__, status);
+			       " status = %i\n", __func__, status);
 	}
 
 	/* Free DMM reserved memory resources */
@@ -165,7 +165,7 @@ int drv_remove_all_dmm_res_elements(bhandle hPCtxt)
 						ctxt);
 		if (DSP_FAILED(status))
 			pr_err("%s: proc_un_reserve_memory failed!"
-			       " status = 0x%xn", __func__, status);
+			       " status = %i\n", __func__, status);
 	}
 	return status;
 }

@@ -110,7 +110,7 @@ int dmm_create_tables(struct dmm_object *dmm_mgr, u32 addr, u32 size)
 	}
 
 	if (DSP_FAILED(status))
-		pr_err("%s: failure, status 0x%x\n", __func__, status);
+		pr_err("%s: failure, status %i\n", __func__, status);
 
 	return status;
 }
@@ -268,7 +268,7 @@ int dmm_map_memory(struct dmm_object *dmm_mgr, u32 addr, u32 size)
 		status = -ENOENT;
 	spin_unlock(&dmm_obj->dmm_lock);
 
-	dev_dbg(bridge, "%s dmm_mgr %p, addr %x, size %x\n\tstatus %x, "
+	dev_dbg(bridge, "%s dmm_mgr %p, addr %x, size %x\n\tstatus %i, "
 		"chunk %p", __func__, dmm_mgr, addr, size, status, chunk);
 
 	return status;
@@ -319,7 +319,7 @@ int dmm_reserve_memory(struct dmm_object *dmm_mgr, u32 size,
 
 	spin_unlock(&dmm_obj->dmm_lock);
 
-	dev_dbg(bridge, "%s dmm_mgr %p, size %x, prsv_addr %p\n\tstatus %x, "
+	dev_dbg(bridge, "%s dmm_mgr %p, size %x, prsv_addr %p\n\tstatus %i, "
 		"rsv_addr %x, rsv_size %x\n", __func__, dmm_mgr, size,
 		prsv_addr, status, rsv_addr, rsv_size);
 
@@ -350,7 +350,7 @@ int dmm_un_map_memory(struct dmm_object *dmm_mgr, u32 addr, u32 *psize)
 	}
 	spin_unlock(&dmm_obj->dmm_lock);
 
-	dev_dbg(bridge, "%s: dmm_mgr %p, addr %x, psize %p\n\tstatus %x, "
+	dev_dbg(bridge, "%s: dmm_mgr %p, addr %x, psize %p\n\tstatus %i, "
 		"chunk %p\n", __func__, dmm_mgr, addr, psize, status, chunk);
 
 	return status;
@@ -399,7 +399,7 @@ int dmm_un_reserve_memory(struct dmm_object *dmm_mgr, u32 rsv_addr)
 	}
 	spin_unlock(&dmm_obj->dmm_lock);
 
-	dev_dbg(bridge, "%s: dmm_mgr %p, rsv_addr %x\n\tstatus %x chunk %p",
+	dev_dbg(bridge, "%s: dmm_mgr %p, rsv_addr %x\n\tstatus %i chunk %p",
 		__func__, dmm_mgr, rsv_addr, status, chunk);
 
 	return status;

@@ -102,7 +102,7 @@ int cfg_get_dev_object(struct cfg_devnode *dev_node_obj,
 			*pdwValue = (u32)drv_datap->dev_object;
 	}
 	if (DSP_FAILED(status))
-		pr_err("%s: Failed, status 0x%x\n", __func__, status);
+		pr_err("%s: Failed, status %i\n", __func__, status);
 	return status;
 }
 
@@ -132,7 +132,7 @@ int cfg_get_exec_file(struct cfg_devnode *dev_node_obj, u32 ul_buf_size,
 		strcpy(pstrExecFile, drv_datap->base_img);
 
 	if (DSP_FAILED(status))
-		pr_err("%s: Failed, status 0x%x\n", __func__, status);
+		pr_err("%s: Failed, status %i\n", __func__, status);
 func_end:
 	DBC_ENSURE(((status == 0) &&
 		    (strlen(pstrExecFile) <= ul_buf_size))
@@ -178,7 +178,7 @@ int cfg_get_object(OUT u32 *pdwValue, u8 dw_type)
 	}
 	if (DSP_FAILED(status)) {
 		*pdwValue = 0;
-		pr_err("%s: Failed, status 0x%x\n", __func__, status);
+		pr_err("%s: Failed, status %i\n", __func__, status);
 	}
 	DBC_ENSURE((DSP_SUCCEEDED(status) && *pdwValue != 0) ||
 		   (DSP_FAILED(status) && *pdwValue == 0));
@@ -206,7 +206,7 @@ int cfg_set_dev_object(struct cfg_devnode *dev_node_obj, u32 dwValue)
 	struct drv_data *drv_datap = dev_get_drvdata(bridge);
 
 	if (!drv_datap) {
-		pr_err("%s: Failed, status 0x%x\n", __func__, status);
+		pr_err("%s: Failed, status %i\n", __func__, status);
 		return -EPERM;
 	}
 
@@ -221,7 +221,7 @@ int cfg_set_dev_object(struct cfg_devnode *dev_node_obj, u32 dwValue)
 		}
 	}
 	if (DSP_FAILED(status))
-		pr_err("%s: Failed, status 0x%x\n", __func__, status);
+		pr_err("%s: Failed, status %i\n", __func__, status);
 
 	return status;
 }
@@ -252,6 +252,6 @@ int cfg_set_object(u32 dwValue, u8 dw_type)
 		break;
 	}
 	if (DSP_FAILED(status))
-		pr_err("%s: Failed, status 0x%x\n", __func__, status);
+		pr_err("%s: Failed, status %i\n", __func__, status);
 	return status;
 }

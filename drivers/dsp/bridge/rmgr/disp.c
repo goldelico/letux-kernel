@@ -469,7 +469,7 @@ int disp_node_create(struct disp_object *disp_obj,
 			 */
 			status = (((rms_word *) (disp_obj->pbuf))[0]);
 			if (DSP_FAILED(status))
-				dev_dbg(bridge, "%s: DSP-side failed: 0x%x\n",
+				dev_dbg(bridge, "%s: DSP-side failed: %i\n",
 					__func__, status);
 		}
 	}
@@ -523,7 +523,7 @@ int disp_node_delete(struct disp_object *disp_obj,
 				status = (((rms_word *) (disp_obj->pbuf))[0]);
 				if (DSP_FAILED(status))
 					dev_dbg(bridge, "%s: DSP-side failed: "
-						"0x%x\n", __func__, status);
+						"%i\n", __func__, status);
 			}
 
 		}
@@ -576,7 +576,7 @@ int disp_node_run(struct disp_object *disp_obj,
 				status = (((rms_word *) (disp_obj->pbuf))[0]);
 				if (DSP_FAILED(status))
 					dev_dbg(bridge, "%s: DSP-side failed: "
-						"0x%x\n", __func__, status);
+						"%i\n", __func__, status);
 			}
 
 		}
@@ -606,7 +606,7 @@ static void delete_disp(struct disp_object *disp_obj)
 			    (disp_obj->chnl_from_dsp);
 			if (DSP_FAILED(status)) {
 				dev_dbg(bridge, "%s: Failed to close channel "
-					"from RMS: 0x%x\n", __func__, status);
+					"from RMS: %i\n", __func__, status);
 			}
 		}
 		if (disp_obj->chnl_to_dsp) {
@@ -615,7 +615,7 @@ static void delete_disp(struct disp_object *disp_obj)
 							  chnl_to_dsp);
 			if (DSP_FAILED(status)) {
 				dev_dbg(bridge, "%s: Failed to close channel to"
-					" RMS: 0x%x\n", __func__, status);
+					" RMS: %i\n", __func__, status);
 			}
 		}
 		kfree(disp_obj->pbuf);

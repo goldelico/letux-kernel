@@ -491,7 +491,7 @@ int nldr_create(OUT struct nldr_object **phNldr,
 			status = 0;
 			ul_len = 0;
 			dev_dbg(bridge, "%s: failed - no dynamic loading mem "
-				"segments: 0x%x\n", __func__, status);
+				"segments: %i\n", __func__, status);
 		}
 	}
 	if (DSP_SUCCEEDED(status) && ul_len > 0) {

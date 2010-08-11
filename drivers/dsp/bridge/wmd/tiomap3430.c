@@ -1148,7 +1148,7 @@ static int bridge_dev_destroy(struct wmd_dev_context *hDevContext)
 			}
 		} else {
 			dev_dbg(bridge, "%s: Error getting shm size "
-				"from registry: %x. Not calling "
+				"from registry: %i. Not calling "
 				"mem_free_phys_mem\n", __func__,
 				status);
 		}
@@ -1478,7 +1478,7 @@ func_cont:
 	 * region
 	 */
 	flush_all(dev_context);
-	dev_dbg(bridge, "%s status %x\n", __func__, status);
+	dev_dbg(bridge, "%s status %i\n", __func__, status);
 	return status;
 }
 
@@ -1677,7 +1677,7 @@ EXIT_LOOP:
 	flush_all(dev_context);
 	dev_dbg(bridge,
 		"%s: va_curr %x, pte_addr_l1 %x pte_addr_l2 %x rem_bytes %x,"
-		" rem_bytes_l2 %x status %x\n", __func__, va_curr, pte_addr_l1,
+		" rem_bytes_l2 %x status %i\n", __func__, va_curr, pte_addr_l1,
 		pte_addr_l2, rem_bytes, rem_bytes_l2, status);
 	return status;
 }
@@ -1930,7 +1930,7 @@ static int mem_map_vmalloc(struct wmd_dev_context *dev_context,
 	 * region
 	 */
 	flush_all(dev_context);
-	dev_dbg(bridge, "%s status %x\n", __func__, status);
+	dev_dbg(bridge, "%s status %i\n", __func__, status);
 	return status;
 }
 

@@ -318,7 +318,7 @@ bool dbll_get_addr(struct dbll_library_obj *zl_lib, char *name,
 		status = true;
 	}
 
-	dev_dbg(bridge, "%s: lib: %p name: %s paddr: %p, status 0x%x\n",
+	dev_dbg(bridge, "%s: lib: %p name: %s paddr: %p, status %i\n",
 		__func__, zl_lib, name, ppSym, status);
 	return status;
 }
@@ -428,7 +428,7 @@ int dbll_get_sect(struct dbll_library_obj *lib, char *name, u32 *paddr,
 	}
 
 	dev_dbg(bridge, "%s: lib: %p name: %s paddr: %p psize: %p, "
-		"status 0x%x\n", __func__, lib, name, paddr, psize, status);
+		"status %i\n", __func__, lib, name, paddr, psize, status);
 
 	return status;
 }
@@ -564,7 +564,7 @@ int dbll_load(struct dbll_library_obj *lib, dbll_flags flags,
 
 	DBC_ENSURE(DSP_FAILED(status) || zl_lib->load_ref > 0);
 
-	dev_dbg(bridge, "%s: lib: %p flags: 0x%x pEntry: %p, status 0x%x\n",
+	dev_dbg(bridge, "%s: lib: %p flags: 0x%x pEntry: %p, status %i\n",
 		__func__, lib, flags, pEntry, status);
 
 	return status;
@@ -718,7 +718,7 @@ func_cont:
 	DBC_ENSURE((DSP_SUCCEEDED(status) && (zl_lib->open_ref > 0) && *pLib)
 				|| (DSP_FAILED(status) && *pLib == NULL));
 
-	dev_dbg(bridge, "%s: target: %p file: %s pLib: %p, status 0x%x\n",
+	dev_dbg(bridge, "%s: target: %p file: %s pLib: %p, status %i\n",
 		__func__, target, file, pLib, status);
 
 	return status;
@@ -792,7 +792,7 @@ func_cont:
 	}
 
 	dev_dbg(bridge, "%s: lib: %p name: %s pContent: %p size: 0x%x, "
-		"status 0x%x\n", __func__, lib, name, pContent, size, status);
+		"status %i\n", __func__, lib, name, pContent, size, status);
 	return status;
 }
 
@@ -836,7 +836,7 @@ void dbll_unload(struct dbll_library_obj *lib, struct dbll_attrs *attrs)
 					    &zl_lib->allocate.dl_alloc,
 					    &zl_lib->init.dl_init);
 		if (err != 0) {
-			dev_dbg(bridge, "%s: failed: 0x%x\n", __func__, err);
+			dev_dbg(bridge, "%s: failed: %i\n", __func__, err);
 		}
 	}
 	/* remove symbols from symbol table */

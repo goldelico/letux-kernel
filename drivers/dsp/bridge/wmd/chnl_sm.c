@@ -459,7 +459,7 @@ int bridge_chnl_destroy(struct chnl_mgr *hchnl_mgr)
 			    bridge_chnl_close(chnl_mgr_obj->ap_channel
 					      [chnl_id]);
 			if (DSP_FAILED(status))
-				dev_dbg(bridge, "%s: Error status 0x%x\n",
+				dev_dbg(bridge, "%s: Error status %i\n",
 					__func__, status);
 		}
 

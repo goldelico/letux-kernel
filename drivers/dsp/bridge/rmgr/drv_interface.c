@@ -563,7 +563,7 @@ static long bridge_ioctl(struct file *filp, unsigned int code,
 			status = retval;
 		} else {
 			dev_dbg(bridge, "%s: IOCTL Failed, code: 0x%x "
-				"status 0x%x\n", __func__, code, status);
+				"status %i\n", __func__, code, status);
 			status = -1;
 		}
 
