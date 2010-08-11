@@ -217,6 +217,7 @@ static struct twl4030_hsmmc_info mmc[] __initdata = {
 		.gpio_wp	= -EINVAL,
 		.power_saving	= true,
 	},
+#ifdef CONFIG_OMAP_HS_MMC2
 	{
 		.name		= "internal",
 		.mmc		= 2,
@@ -226,6 +227,7 @@ static struct twl4030_hsmmc_info mmc[] __initdata = {
 		.nonremovable	= true,
 		.power_saving	= true,
 	},
+#endif
 	{
 		.mmc		= 3,
 		.wires		= 4,

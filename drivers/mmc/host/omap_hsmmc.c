@@ -1855,6 +1855,23 @@ static int __init omap_hsmmc_probe(struct platform_device *pdev)
 	dev_dbg(mmc_dev(host->mmc), "DMA Mode=%d\n", host->dma_type);
 #endif
 
+#ifdef CONFIG_BROKEN_EMMC_ZOOM2_3
+	/*
+	 * HACK:
+	 * The HC eMMC card on Zoom2 and some of the Zoom3 boards is broken.
+	 * It reports wrong ext_csd
+	 * version. This is a hack to make the eMMC card useble on such boards.
+	 * Without this hack the MMC core fails to detect the correct size
+	 * of the card and hence accesses beyond the detected boundary results
+	 * in DATA CRC errors.
+	 * Make use of the unused bit to indicate the host controller ID to
+	 * the MMC core.
+	 */
+	if (host->id == OMAP_MMC2_DEVID)
+		host->mmc->unused = 1;
+	else
+		host->mmc->unused = 0;
+#endif
 
 #ifdef CONFIG_MMC_EMBEDDED_SDIO
 	if (pdev->id == CONFIG_TIWLAN_MMC_CONTROLLER-1) {

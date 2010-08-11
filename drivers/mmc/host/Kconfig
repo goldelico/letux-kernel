@@ -151,6 +151,18 @@ config OMAP_HS_MMC2
 
 	  If unsure, say N.
 
+config BROKEN_EMMC_ZOOM2_3
+	bool "EMMC support for Zoom2/3"
+        depends on OMAP_HS_MMC2 && (MACH_OMAP_ZOOM3 || MACH_OMAP_ZOOM2)
+        default y
+        help
+          This selects High capacity eMMC support for Zoom2/3.
+          If you have a Zoom2/3 board with a broken high capacity eMMC device
+	  reporting a wrong EXT_CSD_REV,
+          say Y here.
+
+          If unsure, say N.
+
 config OMAP_HS_MMC3
 	bool "TI OMAP High Speed MMC3 Interface support"
 	depends on MMC_OMAP_HS
