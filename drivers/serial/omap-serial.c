@@ -31,6 +31,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/clk.h>
 #include <linux/serial_core.h>
+#include <linux/wakelock.h>
 
 #include <asm/irq.h>
 #include <plat/dma.h>
@@ -38,6 +39,7 @@
 #include <plat/omap-serial.h>
 
 static struct uart_omap_port *ui[OMAP_MAX_HSUART_PORTS];
+static struct wake_lock omap_serial_wakelock;
 
 /* Forward declaration of functions */
 static void uart_tx_dma_callback(int lch, u16 ch_status, void *data);
@@ -208,6 +210,13 @@ static inline void receive_chars(struct uart_omap_port *up, int *status)
 ignore_char:
 		lsr = serial_in(up, UART_LSR);
 	} while ((lsr & (UART_LSR_DR | UART_LSR_BI)) && (max_count-- > 0));
+
+	/* Wait for some time, to assure if the TX or RX starts.
+	 * This has to be relooked when the actual use case sec
+	 * narios would handle these wake-locks.
+	 */
+	if (up->pdev->id == UART2)
+		wake_lock_timeout(&omap_serial_wakelock, 1*HZ);
 	spin_unlock(&up->port.lock);
 	tty_flip_buffer_push(tty);
 	spin_lock(&up->port.lock);
@@ -233,8 +242,14 @@ static void transmit_chars(struct uart_omap_port *up)
 		serial_out(up, UART_TX, xmit->buf[xmit->tail]);
 		xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
 		up->port.icount.tx++;
-		if (uart_circ_empty(xmit))
+		if (uart_circ_empty(xmit)) {
+			/* This wake lock has to moved out to use case drivers
+			 * which require these.
+			 */
+			if (up->pdev->id == UART2)
+				wake_lock_timeout(&omap_serial_wakelock, 1*HZ);
 			break;
+		}
 	} while (--count > 0);
 
 	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
@@ -259,7 +274,7 @@ static void serial_omap_start_tx(struct uart_port *port)
 	unsigned int start;
 	int ret = 0;
 
-	if (!up->use_dma || up->port.x_char) {
+	if (!up->use_dma) {
 		serial_omap_enable_ier_thri(up);
 		return;
 	}
@@ -350,21 +365,32 @@ static inline irqreturn_t serial_omap_irq(int irq, void *dev_id)
 	unsigned int iir, lsr;
 	unsigned long flags;
 
-	spin_lock_irqsave(&up->port.lock, flags);
 	iir = serial_in(up, UART_IIR);
 	if (iir & UART_IIR_NO_INT)
 		return IRQ_NONE;
 
+	spin_lock_irqsave(&up->port.lock, flags);
+	/*
+	 * This will enable the clock for some reason if the
+	 * clocks get disabled. This would enable the ICK also
+	 * in case if the Idle state is set and the PRCM modul
+	 * just shutdown the ICK because of inactivity.
+	 */
+	omap_uart_enable_clock_from_irq(up->pdev->id);
+
 	lsr = serial_in(up, UART_LSR);
 	if (iir & UART_IER_RLSI) {
-		if (up->use_dma)
-			up->ier &= ~UART_IER_RDI;
-			serial_out(up, UART_IER, up->ier);
-		if (!up->use_dma ||
-				serial_omap_start_rxdma(up) != 0)
+		if (!up->use_dma) {
 			if (lsr & UART_LSR_DR)
 				receive_chars(up, &lsr);
+		} else {
+			up->ier &= ~UART_IER_RDI;
+			serial_out(up, UART_IER, up->ier);
+			if (serial_omap_start_rxdma(up) != 0)
+				if (lsr & UART_LSR_DR)
+					receive_chars(up, &lsr);
 		}
+	}
 
 	check_modem_status(up);
 	if ((lsr & UART_LSR_THRE) && (iir & UART_IIR_THRI))
@@ -1156,6 +1182,10 @@ static int serial_omap_start_rxdma(struct uart_omap_port *up)
 	mod_timer(&up->uart_dma.rx_timer, jiffies +
 				usecs_to_jiffies(up->uart_dma.rx_timeout));
 	up->uart_dma.rx_dma_used = true;
+
+	if (up->pdev->id == UART2)
+		wake_lock_timeout(&omap_serial_wakelock, 1*HZ);
+
 	return ret;
 }
 
@@ -1209,7 +1239,18 @@ static void uart_tx_dma_callback(int lch, u16 ch_status, void *data)
 		serial_omap_stop_tx(&up->port);
 		up->uart_dma.tx_dma_used = false;
 		spin_unlock(&(up->uart_dma.tx_lock));
+		if (up->pdev->id == UART2)
+			wake_lock_timeout(&omap_serial_wakelock, 1*HZ);
 	} else {
+
+		 /*
+		  * This will enable the clock for some reason if the
+		  * clocks get disabled. This would enable the ICK also
+		  * in case if the Idle state is set and the PRCM modul
+		  * just shutdown the ICK because of inactivity.
+		  */
+		 omap_uart_enable_clock_from_irq(up->pdev->id);
+
 		omap_stop_dma(up->uart_dma.tx_dma_channel);
 		serial_omap_continue_tx(up);
 	}
@@ -1479,6 +1520,8 @@ EXPORT_SYMBOL(omap_uart_cts_wakeup_event);
 int __init serial_omap_init(void)
 {
 	int ret;
+	wake_lock_init(&omap_serial_wakelock, WAKE_LOCK_SUSPEND,
+			   "omap-serial");
 
 	ret = uart_register_driver(&serial_omap_reg);
 	if (ret != 0)

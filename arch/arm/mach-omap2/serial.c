@@ -92,6 +92,7 @@ struct omap_uart_state {
 	u16 sysc;
 	u16 scr;
 	u16 wer;
+	u16 mcr;
 #endif
 };
 
@@ -185,6 +186,10 @@ static void omap_uart_save_context(struct omap_uart_state *uart)
 	uart->sysc = serial_read_reg(uart, UART_OMAP_SYSC);
 	uart->scr = serial_read_reg(uart, UART_OMAP_SCR);
 	uart->wer = serial_read_reg(uart, UART_OMAP_WER);
+	lcr = serial_read_reg(uart, UART_LCR);
+	serial_write_reg(uart, UART_LCR, 0x80);
+	uart->mcr = serial_read_reg(uart, UART_MCR);
+	serial_write_reg(uart, UART_LCR, lcr);
 
 	uart->context_valid = 1;
 }
@@ -210,12 +215,12 @@ static void omap_uart_restore_context(struct omap_uart_state *uart)
 			 * MDR1 Register.
 			 */
 			omap_uart_mdr1_errataset(uart->num, 0x07,
-					(UART_FCR_DMA_SELECT | 0xA1));
+					(UART_FCR_DMA_SELECT | 0x51));
 		else
 			/* This enables the FIFO, the Rx and Tx FIFO levels.
 			 * Keeping the UARt Disabled in MDR1 Register.
 			 */
-			omap_uart_mdr1_errataset(uart->num, 0x07, 0xA1);
+			omap_uart_mdr1_errataset(uart->num, 0x07, 0x51);
 	}
 	serial_write_reg(uart, UART_LCR, 0xBF); /* Config B mode */
 	efr = serial_read_reg(uart, UART_EFR);
@@ -228,8 +233,14 @@ static void omap_uart_restore_context(struct omap_uart_state *uart)
 	serial_write_reg(uart, UART_LCR, 0x0); /* Operational mode */
 	serial_write_reg(uart, UART_IER, uart->ier);
 	if (cpu_is_omap44xx()){
-		serial_write_reg(uart, UART_FCR, 0xA1);
+		if (uart->dma_enabled)
+			serial_write_reg(uart, UART_FCR,
+					UART_FCR_DMA_SELECT | 0x51);
+		else
+			serial_write_reg(uart, UART_FCR, 0x51);
 	}
+	serial_write_reg(uart, UART_LCR, 0x80);
+	serial_write_reg(uart, UART_MCR, uart->mcr);
 	serial_write_reg(uart, UART_LCR, 0xBF); /* Config B mode */
 	serial_write_reg(uart, UART_EFR, efr);
 	serial_write_reg(uart, UART_LCR, UART_LCR_WLEN8);
@@ -246,12 +257,12 @@ static void omap_uart_restore_context(struct omap_uart_state *uart)
 			 * MDR1 Register.
 			 */
 			omap_uart_mdr1_errataset(uart->num, 0x00, \
-					(UART_FCR_DMA_SELECT | 0xA1));
+					(UART_FCR_DMA_SELECT | 0x51));
 		else
 			/* This enables the FIFO, the Rx and Tx FIFO levels.
 			 * Keeping the UARt Enabled in MDR1 Register.
 			 */
-			omap_uart_mdr1_errataset(uart->num, 0x00, 0xA1);
+			omap_uart_mdr1_errataset(uart->num, 0x00, 0x51);
 	}
 }
 #else
@@ -317,8 +328,29 @@ static void omap_uart_disable_wakeup(struct omap_uart_state *uart)
 	}
 }
 
-static inline int omap_uart_smart_idle_enable(struct omap_uart_state *p,
-					       int enable)
+#define UART_IDLE_MODE 0x0018
+static void omap_uart_smart_idle_enable_nhwmod(struct omap_uart_state *uart,
+		int enable)
+{
+	u16 sysc;
+
+	sysc = serial_read_reg(uart, UART_OMAP_SYSC) & 0x7;
+	sysc &= (~(UART_IDLE_MODE));
+
+	if (enable) {
+		/* Errata 2.15: Force idle if in DMA mode */
+		if (uart->dma_enabled)
+			sysc &= (~(UART_IDLE_MODE));
+		else
+			sysc |= (0x2 << 3);
+	} else {
+		sysc |= 0x1 << 3;
+	}
+	serial_write_reg(uart, UART_OMAP_SYSC, sysc);
+}
+
+static inline int omap_uart_smart_idle_enable_hwmod(struct omap_uart_state *p,
+		int enable)
 {
 	u32 sysc;
 	u32 sidle_mask;
@@ -352,6 +384,26 @@ static inline int omap_uart_smart_idle_enable(struct omap_uart_state *p,
 
 	return 0;
 }
+
+/* Both the Platfrom Drivers and Core Drivers have to follow the
+ * hwmod implementation. If Platform alone is following and generic
+ * driver is not following, it would create conflicts in the implem
+ * enttion. Hence for OMAP 3 reverting to the normal implementation
+ * for OMAP4 maintaining the hwmod implementation.
+ * Revisit : Fix this as soon as possible so that both the drivers
+ * follow the hwmods.
+ */
+static void omap_uart_smart_idle_enable(struct omap_uart_state *uart,
+						int enable)
+{
+	if (cpu_is_omap44xx())
+		omap_uart_smart_idle_enable_hwmod(uart, enable);
+	else
+		omap_uart_smart_idle_enable_nhwmod(uart, enable);
+
+	return;
+}
+
 
 static void omap_uart_block_sleep(struct omap_uart_state *uart)
 {
@@ -573,6 +625,27 @@ int omap_uart_cts_wakeup(int uart_no, int state)
 }
 EXPORT_SYMBOL(omap_uart_cts_wakeup);
 
+/*
+ * This function enabled clock. This is exported function
+ * hence call be called by other module to enable the UART
+ * clocks.
+ */
+void omap_uart_enable_clock_from_irq(int uart_num)
+{
+	struct omap_uart_state *uart;
+
+	list_for_each_entry(uart, &uart_list, node) {
+		if (uart_num == uart->num) {
+			if (uart->clocked)
+				break;
+			omap_uart_block_sleep(uart);
+			break;
+		}
+	}
+	return;
+}
+EXPORT_SYMBOL(omap_uart_enable_clock_from_irq);
+
 static void omap_uart_rtspad_init(struct omap_uart_state *uart)
 {
 	if (!cpu_is_omap34xx())
@@ -598,7 +671,8 @@ static void omap_uart_idle_init(struct omap_uart_state *uart)
 	uart->timeout = DEFAULT_TIMEOUT;
 	setup_timer(&uart->timer, omap_uart_idle_timer,
 		    (unsigned long) uart);
-	mod_timer(&uart->timer, jiffies + uart->timeout);
+	if (uart->timeout)
+		mod_timer(&uart->timer, jiffies + uart->timeout);
 	omap_uart_smart_idle_enable(uart, 0);
 
 	if (cpu_is_omap34xx()) {
@@ -611,11 +685,19 @@ static void omap_uart_idle_init(struct omap_uart_state *uart)
 		switch (uart->num) {
 		case 0:
 			wk_mask = OMAP3430_ST_UART1_MASK;
+#if defined(CONFIG_MACH_OMAP_ZOOM2)
 			padconf = 0x182;
+#elif defined(CONFIG_MACH_OMAP_ZOOM3)
+			padconf = 0x180;
+#endif
 			break;
 		case 1:
 			wk_mask = OMAP3430_ST_UART2_MASK;
+#if defined(CONFIG_MACH_OMAP_ZOOM2)
 			padconf = 0x17a;
+#elif defined(CONFIG_MACH_OMAP_ZOOM3)
+			padconf = 0x174;
+#endif
 			break;
 		case 2:
 			wk_mask = OMAP3430_ST_UART3_MASK;
@@ -854,6 +936,13 @@ void __init omap_serial_init_port(int port)
 		name = DRIVER_NAME;
 
 		omap_up.dma_enabled = uart->dma_enabled;
+
+		/* ENABLE DMA MODE UART2 */
+		if (uart->num == 1) {
+			omap_up.dma_enabled = true;
+			uart->dma_enabled = 1;
+		}
+
 		omap_up.uartclk = OMAP24XX_BASE_BAUD * 16;
 		omap_up.mapbase = oh->slaves[0]->addr->pa_start;
 		omap_up.membase = oh->_rt_va;
