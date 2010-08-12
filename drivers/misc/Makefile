@@ -33,6 +33,7 @@ obj-$(CONFIG_APANIC)		+= apanic.o
 obj-$(CONFIG_SENSORS_AKM8973)	+= akm8973.o
 obj-$(CONFIG_SENSORS_AKM8973_AKMD)	+= akm8973_akmd.o
 obj-$(CONFIG_SENSORS_LIS331DLH)	+= lis331dlh.o
+obj-$(CONFIG_SENSORS_BMP085)		+= bmp085.o
 obj-$(CONFIG_OMAP_MODEM_CONTROL)	+= omap_mdm_ctrl.o
 obj-y				+= ts27010mux/
 obj-$(CONFIG_VIB_GPIO)		+= vib-gpio.o
