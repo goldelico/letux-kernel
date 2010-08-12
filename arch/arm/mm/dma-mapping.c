@@ -702,5 +702,4 @@ int temp_user_dma_op(unsigned long start, unsigned long end, int op)
 
 	return 0;
 }
-EXPORT_SYMBOL(temp_user_dma_op);
 #endif
