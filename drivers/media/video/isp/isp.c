@@ -219,6 +219,7 @@ static int isp_validate_errata_i421(struct device *dev,
 
 	for (i = 0; i <= af_cnt; i++) {
 		num_cycles = ((i + 1) * af_width) + 2;
+		num_cycles += af_cfg->hz_start - aewb_cfg->hor_win_start;
 
 		if ((num_cycles % aewb_width) == 0) {
 			dev_err(dev, "Preventing errata i421..."
@@ -2381,17 +2382,17 @@ int isp_handle_private(struct device *dev, struct mutex *vdev_mutex, int cmd,
 		struct isph3a_aewb_config *params;
 		params = (struct isph3a_aewb_config *)arg;
 
+		mutex_lock(vdev_mutex);
+		rval = isph3a_aewb_config(&isp->isp_h3a, params);
+		mutex_unlock(vdev_mutex);
+		if (rval)
+			return rval;
+
 		/* Check errata i421 */
 		if (isp->isp_af.enabled && params && params->aewb_enable) {
 			rval = isp_validate_errata_i421(dev, params,
 					&isp->isp_af.config.paxel_config);
-			if (rval)
-				break;
 		}
-
-		mutex_lock(vdev_mutex);
-		rval = isph3a_aewb_config(&isp->isp_h3a, params);
-		mutex_unlock(vdev_mutex);
 	}
 		break;
 	case VIDIOC_PRIVATE_ISP_AEWB_REQ: {
@@ -2418,18 +2419,18 @@ int isp_handle_private(struct device *dev, struct mutex *vdev_mutex, int cmd,
 		struct af_configuration *params;
 		params = (struct af_configuration *)arg;
 
+		mutex_lock(vdev_mutex);
+		rval = isp_af_config(&isp->isp_af, params);
+		mutex_unlock(vdev_mutex);
+		if (rval)
+			return rval;
+
 		/* Check errata i421 */
 		if (isp->isp_h3a.enabled && params && params->af_config) {
 			rval = isp_validate_errata_i421(dev,
 					&isp->isp_h3a.aewb_config_local,
 					&params->paxel_config);
-			if (rval)
-				break;
 		}
-
-		mutex_lock(vdev_mutex);
-		rval = isp_af_config(&isp->isp_af, params);
-		mutex_unlock(vdev_mutex);
 	}
 		break;
 	case VIDIOC_PRIVATE_ISP_AF_REQ: {
