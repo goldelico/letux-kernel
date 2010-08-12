@@ -29,6 +29,7 @@
 #include <ipc_ioctl.h>
 #include <ipc.h>
 #include <drv_notify.h>
+#include <notify_ioctl.h>
 #include <nameserver.h>
 #ifdef CONFIG_SYSLINK_RECOVERY
 #include <plat/iommu.h>
@@ -245,8 +246,10 @@ int ipc_ioctl(struct inode *ip, struct file *filp, u32 cmd, ulong arg)
 
 #ifdef CONFIG_SYSLINK_RECOVERY
 	if (recover) {
-		retval = -EIO;
-		goto exit;
+		if (cmd != CMD_NOTIFY_THREADDETACH) {
+			retval = -EIO;
+			goto exit;
+		}
 	}
 #endif
 	/* Verify the memory and ensure that it is not is kernel
