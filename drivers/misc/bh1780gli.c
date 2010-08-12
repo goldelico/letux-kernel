@@ -311,7 +311,7 @@ static int __devexit bh1780_remove(struct i2c_client *client)
 static int bh1780_suspend(struct i2c_client *client, pm_message_t mesg)
 {
 	struct bh1780_data *ddata;
-	int state, ret;
+	int ret;
 
 	ddata = i2c_get_clientdata(client);
 
