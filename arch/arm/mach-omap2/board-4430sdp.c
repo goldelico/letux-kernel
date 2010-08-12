@@ -888,6 +888,10 @@ static struct i2c_board_info __initdata sdp4430_i2c_4_boardinfo[] = {
 		.platform_data = &cma3000_platform_data,
 /*		.irq = OMAP_GPIO_IRQ(OMAP4_CMA3000ACCL_GPIO),*/
 	},
+	{
+		I2C_BOARD_INFO("bmp085", 0x77),
+		.platform_data = NULL,
+	},
 };
 
 static struct omap_i2c_bus_board_data __initdata sdp4430_i2c_1_bus_pdata;
