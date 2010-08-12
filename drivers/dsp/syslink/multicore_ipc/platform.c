@@ -1468,6 +1468,10 @@ s32 _platform_setup(void)
 	/* Create the Tesla ProcMgr object */
 	/* Get MultiProc ID by name. */
 	proc_id = multiproc_get_id("Tesla");
+	if (proc_id >= MULTIPROC_MAXPROCESSORS) {
+		printk(KERN_ERR "multi proc returned invalid proc id\n");
+		goto multiproc_id_fail;
+	}
 	handle = &platform_objects[proc_id];
 
 	/* Create an instance of the Processor object for OMAP4430 */
