@@ -892,6 +892,10 @@ static struct i2c_board_info __initdata sdp4430_i2c_4_boardinfo[] = {
 		I2C_BOARD_INFO("bmp085", 0x77),
 		.platform_data = NULL,
 	},
+	{
+		I2C_BOARD_INFO("hmc5843", 0x1e),
+		.platform_data = NULL,
+	},
 };
 
 static struct omap_i2c_bus_board_data __initdata sdp4430_i2c_1_bus_pdata;
