@@ -422,7 +422,7 @@ static int bad_syscall(int n, struct pt_regs *regs)
 	return regs->ARM_r0;
 }
 
-static void
+static inline void
 do_cache_op(unsigned long start, unsigned long end, int flags)
 {
 	struct mm_struct *mm = current->active_mm;
@@ -519,22 +519,6 @@ asmlinkage int arm_syscall(int no, struct pt_regs *regs)
 		*((unsigned int *)0xffff0ff0) = regs->ARM_r0;
 /* #endif */
 		return 0;
-
-#ifdef CONFIG_UNOFFICIAL_USER_DMA_API
-	/*
-	 * These are temporary interfaces; they are a stop gap until we get
-	 * a proper solution to DMA.  These won't always work for every
-	 * device.  Only use these IF you *really* know what you're doing.
-	 * Don't be surprised if they go away in later kernels.
-	 */
-	case NR(temp_dma_inv_range):
-	case NR(temp_dma_clean_range):
-	case NR(temp_dma_flush_range):
-	{
-		extern int temp_user_dma_op(unsigned long, unsigned long, int);
-		return temp_user_dma_op(regs->ARM_r0, regs->ARM_r1, no & 3);
-	}
-#endif
 
 #ifdef CONFIG_NEEDS_SYSCALL_FOR_CMPXCHG
 	/*

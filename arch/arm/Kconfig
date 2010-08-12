@@ -1244,25 +1244,6 @@ config UACCESS_WITH_MEMCPY
 	  However, if the CPU data cache is using a write-allocate mode,
 	  this option is unlikely to provide any performance gain.
 
-config UNOFFICIAL_USER_DMA_API
-	bool "Enable unofficial user DMA API (READ HELP TEXT)"
-	depends on EXPERIMENTAL
-	help
-	  This option enables the exposure of the kernel's three DMA cache
-	  coherence functions to userspace via three ARM private syscalls.
-
-	  This API is not officially supported; it is a stop gap measure
-	  to allow developers to achieve their goals.  It doesn't take
-	  account of any DMA restrictions which may be in the system, and
-	  makes no attempt to work around those.
-
-	  The user is entirely responsible for coordinating the use of this
-	  API with DMA activity and CPU snooping activity.  Improper use
-	  of this API can result in random data corruption, especially if
-	  the memory contains DMA scatterlists.
-
-	  Use of this API will taint the kernel.
-
 endmenu
 
 menu "Boot options"
