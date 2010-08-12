@@ -90,10 +90,12 @@ static int devh44xx_notifier_call(struct notifier_block *nb,
 			pinfo->brd_state = DEVH_BRDST_ERROR;
 			if (!strcmp(pdata->name, "SysM3")) {
 				pdata2 = devh_get_plat_data_by_name("AppM3");
-				pinfo =
+				if (pdata2) {
+					pinfo =
 					(struct omap_devh_runtime_info *)
 							pdata2->private_data;
-				pinfo->brd_state = DEVH_BRDST_ERROR;
+					pinfo->brd_state = DEVH_BRDST_ERROR;
+				}
 			}
 		}
 		mutex_unlock(&local_gate);
@@ -108,8 +110,12 @@ static int devh44xx_sysm3_iommu_notifier_call(struct notifier_block *nb,
 {
 	struct omap_devh_platform_data *pdata =
 				devh_get_plat_data_by_name("SysM3");
-	struct omap_devh_runtime_info *pinfo =
-			(struct omap_devh_runtime_info *)pdata->private_data;
+	struct omap_devh_runtime_info *pinfo = NULL;
+
+	if (!pdata)
+		return 0;
+
+	pinfo = (struct omap_devh_runtime_info *)pdata->private_data;
 
 	switch ((int)val) {
 	case IOMMU_CLOSE:
@@ -127,8 +133,12 @@ static int devh44xx_appm3_iommu_notifier_call(struct notifier_block *nb,
 {
 	struct omap_devh_platform_data *pdata =
 				devh_get_plat_data_by_name("AppM3");
-	struct omap_devh_runtime_info *pinfo =
-			(struct omap_devh_runtime_info *)pdata->private_data;
+	struct omap_devh_runtime_info *pinfo = NULL;
+
+	if (!pdata)
+		return 0;
+
+	pinfo = (struct omap_devh_runtime_info *)pdata->private_data;
 
 	switch ((int)val) {
 	case IOMMU_CLOSE:
@@ -146,8 +156,12 @@ static int devh44xx_tesla_iommu_notifier_call(struct notifier_block *nb,
 {
 	struct omap_devh_platform_data *pdata =
 				devh_get_plat_data_by_name("Tesla");
-	struct omap_devh_runtime_info *pinfo =
-			(struct omap_devh_runtime_info *)pdata->private_data;
+	struct omap_devh_runtime_info *pinfo = NULL;
+
+	if (!pdata)
+		return 0;
+
+	pinfo = (struct omap_devh_runtime_info *)pdata->private_data;
 
 	switch ((int)val) {
 	case IOMMU_CLOSE:
