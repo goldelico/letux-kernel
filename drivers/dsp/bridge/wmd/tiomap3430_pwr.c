@@ -96,6 +96,7 @@ int handle_hibernation_from_dsp(struct wmd_dev_context *dev_context)
 #ifdef CONFIG_PM
 	u16 timeout = PWRSTST_TIMEOUT / 10;
 	u32 pwr_state;
+	u32  prev_state;
 #ifdef CONFIG_BRIDGE_DVFS
 	u32 opplevel;
 	struct io_mgr *hio_mgr;
@@ -103,6 +104,9 @@ int handle_hibernation_from_dsp(struct wmd_dev_context *dev_context)
 	struct dspbridge_platform_data *pdata =
 	    omap_dspbridge_dev->dev.platform_data;
 	DEFINE_SPINLOCK(lock);
+
+	prev_state = dev_context->dw_brd_state;
+	dev_context->dw_brd_state = BRD_SLEEP_TRANSITION;
 
 	pwr_state = (*pdata->dsp_prm_read)(OMAP3430_IVA2_MOD, OMAP2_PM_PWSTST) &
 						OMAP_POWERSTATEST_MASK;
@@ -116,6 +120,7 @@ int handle_hibernation_from_dsp(struct wmd_dev_context *dev_context)
 					OMAP2_PM_PWSTST) & OMAP_POWERSTATEST_MASK;
 	}
 	if (timeout == 0) {
+		dev_context->dw_brd_state = prev_state;
 		pr_err("%s: Timed out waiting for DSP off mode\n", __func__);
 		status = -ETIMEDOUT;
 		return status;
@@ -168,6 +173,8 @@ func_cont:
 			status = 0;
 		}
 #endif /* CONFIG_BRIDGE_DVFS */
+		if  (DSP_FAILED(status))
+			dev_context->dw_brd_state = prev_state;
 	}
 #endif
 	return status;
@@ -187,6 +194,7 @@ int sleep_dsp(struct wmd_dev_context *dev_context, IN u32 dw_cmd,
 #endif /* CONFIG_BRIDGE_NTFY_PWRERR */
 	u16 timeout = PWRSTST_TIMEOUT / 10;
 	u32 pwr_state, target_pwr_state;
+	u32 prev_state;
 	DEFINE_SPINLOCK(lock);
 	struct dspbridge_platform_data *pdata =
 				omap_dspbridge_dev->dev.platform_data;
@@ -194,9 +202,10 @@ int sleep_dsp(struct wmd_dev_context *dev_context, IN u32 dw_cmd,
 	/* Check if sleep code is valid */
 	if ((dw_cmd != PWR_DEEPSLEEP) && (dw_cmd != PWR_EMERGENCYDEEPSLEEP))
 		return -EINVAL;
-
+	prev_state = dev_context->dw_brd_state;
 	switch (dev_context->dw_brd_state) {
 	case BRD_RUNNING:
+		dev_context->dw_brd_state = BRD_SLEEP_TRANSITION;
 		omap_mbox_save_ctx(dev_context->mbox);
 		if (dsp_test_sleepstate == PWRDM_POWER_OFF) {
 			sm_interrupt_dsp(dev_context, MBX_PM_DSPHIBERNATE);
@@ -209,6 +218,7 @@ int sleep_dsp(struct wmd_dev_context *dev_context, IN u32 dw_cmd,
 		}
 		break;
 	case BRD_RETENTION:
+		dev_context->dw_brd_state = BRD_SLEEP_TRANSITION;
 		omap_mbox_save_ctx(dev_context->mbox);
 		if (dsp_test_sleepstate == PWRDM_POWER_OFF) {
 			sm_interrupt_dsp(dev_context, MBX_PM_DSPHIBERNATE);
@@ -245,6 +255,7 @@ int sleep_dsp(struct wmd_dev_context *dev_context, IN u32 dw_cmd,
 	}
 
 	if (!timeout) {
+		dev_context->dw_brd_state = prev_state;
 		pr_err("%s: Timed out waiting for DSP off mode, state %x\n",
 		       __func__, pwr_state);
 #ifdef CONFIG_BRIDGE_NTFY_PWRERR
@@ -483,7 +494,8 @@ int post_scale_dsp(struct wmd_dev_context *dev_context, IN void *pargs)
 		__func__, voltage_domain, level);
 	if ((dev_context->dw_brd_state == BRD_HIBERNATION) ||
 	    (dev_context->dw_brd_state == BRD_RETENTION) ||
-	    (dev_context->dw_brd_state == BRD_DSP_HIBERNATION)) {
+	    (dev_context->dw_brd_state == BRD_DSP_HIBERNATION) ||
+	    (dev_context->dw_brd_state == BRD_SLEEP_TRANSITION)) {
 		/* Update the OPP value in shared memory */
 		io_sh_msetting(hio_mgr, SHM_CURROPP, &level);
 		dev_dbg(bridge, "OPP: %s IVA in sleep. Wrote to shm\n",
