@@ -502,7 +502,7 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 	case CMD_PROCMGR_GETPROCINFO:
 	{
 		struct proc_mgr_cmd_args_get_proc_info src_args;
-		struct proc_mgr_proc_info proc_info;
+		struct proc_mgr_proc_info *proc_info;
 
 		 /* Copy the full args from user-side. */
 		retval = copy_from_user((void *)&src_args,
@@ -510,14 +510,20 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 		sizeof(struct proc_mgr_cmd_args_get_proc_info));
 		if (WARN_ON(retval != 0))
 			goto func_exit;
+
+		proc_info = kzalloc(sizeof(struct proc_mgr_proc_info),
+							GFP_KERNEL);
 		retval = proc_mgr_get_proc_info
-			(src_args.handle, &proc_info);
-		if (WARN_ON(retval < 0))
+			(src_args.handle, proc_info);
+		if (WARN_ON(retval < 0)) {
+			kfree(proc_info);
 			goto func_exit;
+		}
 		retval = copy_to_user((void *)(src_args.proc_info),
-				(const void *) &proc_info,
+				(const void *) proc_info,
 				sizeof(struct proc_mgr_proc_info));
 		WARN_ON(retval < 0);
+		kfree(proc_info);
 	}
 	break;
 
