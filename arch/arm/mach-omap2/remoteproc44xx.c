@@ -41,6 +41,9 @@
 #define TESLA_CLKTRCTRL_SW_SLEEP		0x1
 #define TESLA_CLKACTIVITY_MPU_TESLA_CLK		0x100
 
+#define ABE_GPTIMER_MODULE_ENABLE		0x2
+#define ABE_GPTIMER_MODULE_DISABLE		0x0
+#define ABE_GPTIMER_IDLEST_MASK			0x30000
 #define RM_M3_RST1ST				0x1
 #define RM_M3_RST2ST				0x2
 #define RM_M3_RST3ST				0x4
@@ -158,10 +161,16 @@ static inline int proc44x_tesla_start(struct omap_rproc *rproc)
 		dev_info(dev, "FAILED TO ENABLE TESLA CLOCK !%x\n", reg);
 		return -EFAULT;
 	}
+
+	dev_info(dev, "Enable GPTIMER5 for Tesla BIOS Clock\n");
+	/* Enable the GPTIMER5 clock */
+	cm_write_mod_reg(ABE_GPTIMER_MODULE_ENABLE, OMAP4430_CM1_ABE_MOD,
+				OMAP4_CM1_ABE_TIMER5_CLKCTRL_OFFSET);
+
 	/* De-assert RST1, and clear the Reset status */
 	dev_info(dev, "De-assert RST1\n");
 	prm_write_mod_reg(RM_TESLA_REL_RST1_MASK, OMAP4430_PRM_TESLA_MOD,
-				OMAP4_RM_TESLA_RSTCTRL_OFFSET);
+			OMAP4_RM_TESLA_RSTCTRL_OFFSET);
 
 while (!(prm_read_mod_reg(OMAP4430_PRM_TESLA_MOD,
 		 OMAP4_RM_TESLA_RSTST_OFFSET) & RM_TESLA_RST1ST))
@@ -214,6 +223,14 @@ static inline int proc44x_tesla_stop(struct omap_rproc *rproc)
 	dev_info(dev, "assert RST1 reg = 0x%x\n", reg);
 	prm_write_mod_reg((reg | RM_TESLA_AST_RST1_MASK), OMAP4430_PRM_CORE_MOD,
 				OMAP4_RM_TESLA_RSTCTRL_OFFSET);
+
+	/*prm_write_mod_reg(RM_TESLA_AST_RST1_MASK, OMAP4430_PRM_CORE_MOD,
+		OMAP4_RM_TESLA_RSTCTRL_OFFSET);*/
+
+	dev_info(dev, "disable GPTIMER5\n");
+	cm_write_mod_reg(ABE_GPTIMER_MODULE_DISABLE, OMAP4430_CM1_ABE_MOD,
+			OMAP4_CM1_ABE_TIMER5_CLKCTRL_OFFSET);
+
 	return 0;
 }
 
