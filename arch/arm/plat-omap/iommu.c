@@ -988,6 +988,7 @@ static int __devinit omap_iommu_probe(struct platform_device *pdev)
 		err = -EIO;
 		goto err_mem;
 	}
+	spin_lock_init(&obj->event_lock);
 	INIT_LIST_HEAD(&obj->event_list);
 
 	BLOCKING_INIT_NOTIFIER_HEAD(&obj->notifier);
