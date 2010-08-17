@@ -223,31 +223,6 @@ static int omap_mcbsp_hwrule_min_buffersize(struct snd_pcm_hw_params *params,
 	return snd_interval_refine(buffer_size, &frames);
 }
 
-static int omap_mcbsp_hwrule_max_periodsize(struct snd_pcm_hw_params *params,
-				    struct snd_pcm_hw_rule *rule)
-{
-	struct snd_interval *period_size = hw_param_interval(params,
-					SNDRV_PCM_HW_PARAM_PERIOD_SIZE);
-	struct snd_interval *channels = hw_param_interval(params,
-					SNDRV_PCM_HW_PARAM_CHANNELS);
-	struct snd_pcm_substream *substream = rule->private;
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;
-	struct omap_mcbsp_data *mcbsp_data = to_mcbsp(cpu_dai->private_data);
-	struct snd_interval frames;
-	int size;
-
-	snd_interval_any(&frames);
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		size = omap_mcbsp_get_max_tx_threshold(mcbsp_data->bus_id);
-	else
-		size = omap_mcbsp_get_max_rx_threshold(mcbsp_data->bus_id);
-
-	frames.max = size / channels->min;
-	frames.integer = 1;
-	return snd_interval_refine(period_size, &frames);
-}
-
 static int omap_mcbsp_dai_startup(struct snd_pcm_substream *substream,
 				  struct snd_soc_dai *dai)
 {
@@ -273,10 +248,8 @@ static int omap_mcbsp_dai_startup(struct snd_pcm_substream *substream,
 	 * 4 channels: size is 128 / 4 = 32 frames (4 * 32 words)
 	 */
 	if (cpu_is_omap343x() || cpu_is_omap44xx()) {
-		int dma_op_mode = omap_mcbsp_get_dma_op_mode(bus_id);
-
 		/*
-		* The first rule is for the buffer size, we should not allow
+		* Rule for the buffer size. We should not allow
 		* smaller buffer than the FIFO size to avoid underruns
 		*/
 		snd_pcm_hw_rule_add(substream->runtime, 0,
@@ -285,21 +258,13 @@ static int omap_mcbsp_dai_startup(struct snd_pcm_substream *substream,
 				    mcbsp_data,
 				    SNDRV_PCM_HW_PARAM_BUFFER_SIZE, -1);
 
-		/*
-		 * In case of threshold mode, the rule will ensure, that the
-		 * period size is not bigger than the maximum allowed threshold
-		 * value.
-		 */
-		if (dma_op_mode == MCBSP_DMA_MODE_THRESHOLD)
-			snd_pcm_hw_rule_add(substream->runtime, 0,
-					    SNDRV_PCM_HW_PARAM_CHANNELS,
-					    omap_mcbsp_hwrule_max_periodsize,
-					    substream,
-					    SNDRV_PCM_HW_PARAM_PERIOD_SIZE, -1);
+		/* Make sure, that the period size is always even */
+		snd_pcm_hw_constraint_step(substream->runtime, 0,
+					   SNDRV_PCM_HW_PARAM_PERIOD_SIZE, 2);
 	}
 
 	if (!cpu_dai->active) {
-		err = omap_mcbsp_request(mcbsp_data->bus_id);
+		err = omap_mcbsp_request(bus_id);
 		cpu_dai->active = 1;
 	}
 
@@ -764,7 +729,7 @@ static int omap_mcbsp_dai_prepare(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;
 	struct omap_mcbsp_data *mcbsp_data =
 				to_mcbsp(cpu_dai->private_data);
-	int bus_id = mcbsp_data->bus_id, id = cpu_dai->id;
+	int bus_id = mcbsp_data->bus_id;
 
 	if (!(mcbsp_data->tx_active || mcbsp_data->rx_active)) {
 		omap_mcbsp_config(bus_id, &mcbsp_data->regs);
