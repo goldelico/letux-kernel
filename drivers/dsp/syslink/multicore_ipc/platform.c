@@ -687,6 +687,7 @@ platform_override_config(struct platform_config *config)
 	/* Override the PROCMGR default config */
 
 	/* Override the HeapBuf default config */
+	config->heapbufmp_config.track_allocs = true;
 
 	/* Override the LISTMPSHAREDMEMORY default config */
 

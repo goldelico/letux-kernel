@@ -978,24 +978,25 @@ void *heapbufmp_alloc(void *hphandle, u32 size, u32 align)
 					   true);
 		}
 #endif
-	}
 
-	obj->attrs->num_free_blocks--;
+		obj->attrs->num_free_blocks--;
 
-	if (obj->attrs->num_free_blocks
-		< obj->attrs->min_free_blocks) {
-		/* save the new minimum */
-		obj->attrs->min_free_blocks = obj->attrs->num_free_blocks;
-	}
+		if (obj->attrs->num_free_blocks
+			< obj->attrs->min_free_blocks) {
+			/* save the new minimum */
+			obj->attrs->min_free_blocks =
+						obj->attrs->num_free_blocks;
+		}
 #if 0
-	/* Make sure the attrs are written out to memory */
-	if (EXPECT_false(obj->cacheEnabled == true)) {
-		Cache_wbInv((Ptr) obj->attrs,
-					 sizeof(heapbufmp_attrs),
-					 Cache_Type_ALL,
-					 true);
-	}
+		/* Make sure the attrs are written out to memory */
+		if (EXPECT_false(obj->cacheEnabled == true)) {
+			Cache_wbInv((Ptr) obj->attrs,
+						 sizeof(heapbufmp_attrs),
+						 Cache_Type_ALL,
+						 true);
+		}
 #endif
+	}
 	gatemp_leave(obj->gate, key);
 
 	if (block == NULL)
