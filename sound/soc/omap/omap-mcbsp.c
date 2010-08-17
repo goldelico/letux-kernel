@@ -378,21 +378,12 @@ static int omap_mcbsp_dai_hw_params(struct snd_pcm_substream *substream,
 	} else if (cpu_is_omap343x()) {
 		dma = omap24xx_dma_reqs[bus_id][substream->stream];
 		port = omap34xx_mcbsp_port[bus_id][substream->stream];
-		dma_data->set_threshold = omap_mcbsp_set_threshold;
-		/* TODO: Currently, MODE_ELEMENT == MODE_FRAME */
-		if (omap_mcbsp_get_dma_op_mode(bus_id) ==
-						MCBSP_DMA_MODE_THRESHOLD)
-			sync_mode = OMAP_DMA_SYNC_FRAME;
 	} else if (cpu_is_omap44xx()) {
 		dma = omap44xx_dma_reqs[bus_id][substream->stream];
 		port = omap44xx_mcbsp_port[bus_id][substream->stream];
 	} else {
 		return -ENODEV;
 	}
-	dma_data->name = substream->stream ? "Audio Capture" : "Audio Playback";
-	dma_data->dma_req = dma;
-	dma_data->port_addr = port;
-	dma_data->sync_mode = sync_mode;
 	switch (params_format(params)) {
 	case SNDRV_PCM_FORMAT_S16_LE:
 		dma_data->data_type = OMAP_DMA_DATA_TYPE_S16;
@@ -400,6 +391,18 @@ static int omap_mcbsp_dai_hw_params(struct snd_pcm_substream *substream,
 	default:
 		return -EINVAL;
 	}
+	if (cpu_is_omap343x()) {
+		dma_data->set_threshold = omap_mcbsp_set_threshold;
+		/* TODO: Currently, MODE_ELEMENT == MODE_FRAME */
+		if (omap_mcbsp_get_dma_op_mode(bus_id) ==
+						MCBSP_DMA_MODE_THRESHOLD)
+			sync_mode = OMAP_DMA_SYNC_FRAME;
+	}
+
+	dma_data->name = substream->stream ? "Audio Capture" : "Audio Playback";
+	dma_data->dma_req = dma;
+	dma_data->port_addr = port;
+	dma_data->sync_mode = sync_mode;
 
 	cpu_dai->dma_data = dma_data;
 
