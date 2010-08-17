@@ -411,6 +411,9 @@ static int omap_mcbsp_dai_hw_params(struct snd_pcm_substream *substream,
 			} else {
 				sync_mode = OMAP_DMA_SYNC_FRAME;
 			}
+
+			/* Wake enable for threshold mode */
+			regs->wken = XRDYEN | RRDYEN;
 		}
 	}
 
