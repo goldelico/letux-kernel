@@ -73,6 +73,9 @@ struct omap_rproc {
 	struct mutex lock;
 };
 
+struct omap_rproc_start_args {
+	u32 start_addr;
+};
 extern int rproc_start(struct omap_rproc *rproc, const void __user *arg);
 extern int rproc_stop(struct omap_rproc *rproc);
 extern int remoteproc_get_plat_data_size(void);

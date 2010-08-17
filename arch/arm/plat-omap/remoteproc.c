@@ -141,6 +141,7 @@ EXPORT_SYMBOL_GPL(omap_rproc_unregister_notifier);
 static int omap_rproc_open(struct inode *inode, struct file *filp)
 {
 	int ret = 0;
+	unsigned int count, dev_num = iminor(inode);
 	struct omap_rproc *rproc;
 	struct omap_rproc_platform_data *pdata;
 
@@ -150,15 +151,12 @@ static int omap_rproc_open(struct inode *inode, struct file *filp)
 
 	pdata = rproc->dev->platform_data;
 
-	if (pdata->ops->startup) {
-		ret = pdata->ops->startup(rproc);
-		if (ret)
-			goto out;
-	}
+	count = atomic_inc_return(&rproc->count);
+	dev_info(rproc->dev, "%s: dev num %d, name %s, count %d\n", __func__,
+				dev_num, pdata->name, count);
 	filp->private_data = rproc;
 
-out:
-	return ret;
+	return 0;
 }
 
 static int omap_rproc_release(struct inode *inode, struct file *filp)
@@ -170,8 +168,7 @@ static int omap_rproc_release(struct inode *inode, struct file *filp)
 
 	pdata = rproc->dev->platform_data;
 
-	if (pdata->ops->shutdown)
-		pdata->ops->shutdown(rproc);
+	atomic_dec(&rproc->count);
 
 	return 0;
 }
