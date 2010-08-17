@@ -54,33 +54,67 @@ static struct omap_pcm_dma_data omap_hdmi_dai_dma_params = {
 	.sync_mode = OMAP_DMA_SYNC_PACKET,
 };
 
-static int omap_hdmi_dai_startup(struct snd_pcm_substream *substream,
-				  struct snd_soc_dai *dai)
+static int omap_hdmi_wrapper_enable(void)
 {
 	int err = 0;
+
 #ifdef CONFIG_HDMI_NO_IP_MODULE
 	err = hdmi_w1_wrapper_enable(HDMI_WP);
 #else
 	if (hdmi_audio_core.module_loaded)
 		err = hdmi_audio_core.wrapper_enable(HDMI_WP);
 	else
-		printk(KERN_WARNING "Warning: hdmi_core.ko is not enabled");
+		printk(KERN_WARNING "Warning: hdmi_core.ko is not enabled\n");
 #endif
+
 	return err;
 }
 
-static void omap_hdmi_dai_shutdown(struct snd_pcm_substream *substream,
-				    struct snd_soc_dai *dai)
+static int omap_hdmi_wrapper_disable(void)
 {
 	int err = 0;
+
 #ifdef CONFIG_HDMI_NO_IP_MODULE
 	err = hdmi_w1_wrapper_disable(HDMI_WP);
 #else
 	if (hdmi_audio_core.module_loaded)
 		err = hdmi_audio_core.wrapper_disable(HDMI_WP);
 	else
-		printk(KERN_WARNING "Warning: hdmi_core.ko is not enabled");
+		printk(KERN_WARNING "Warning: hdmi_core.ko is not enabled\n");
 #endif
+
+	return err;
+}
+
+static int omap_hdmi_start_transfer(void)
+{
+	int err = 0;
+
+#ifdef CONFIG_HDMI_NO_IP_MODULE
+	err = hdmi_w1_start_audio_transfer(HDMI_WP);
+#else
+	if (hdmi_audio_core.module_loaded)
+		err = hdmi_audio_core.start_audio(HDMI_WP);
+	else
+		printk(KERN_WARNING "Warning: hdmi_core.ko is not enabled\n");
+#endif
+
+	return err;
+}
+
+static int omap_hdmi_stop_transfer(void)
+{
+	int err = 0;
+
+#ifdef CONFIG_HDMI_NO_IP_MODULE
+	err = hdmi_w1_stop_audio_transfer(HDMI_WP);
+#else
+	if (hdmi_audio_core.module_loaded)
+		err = hdmi_audio_core.stop_audio(HDMI_WP);
+	else
+		printk(KERN_WARNING "Warning: hdmi_core.ko is not enabled\n");
+#endif
+
 	return err;
 }
 
@@ -93,29 +127,33 @@ static int omap_hdmi_dai_trigger(struct snd_pcm_substream *substream, int cmd,
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-#ifdef CONFIG_HDMI_NO_IP_MODULE
-		err = hdmi_w1_start_audio_transfer(HDMI_WP);
-#else
-		if (hdmi_audio_core.module_loaded)
-			err = hdmi_audio_core.start_audio(HDMI_WP);
-		else
-			printk(KERN_WARNING "Warning: hdmi_core.ko is "
-							"not enabled");
-#endif
+		/* Enable HDMI wrapper */
+		err = omap_hdmi_wrapper_enable();
+		if (err) {
+			printk(KERN_ERR "Enable HDMI wrapper failed\n");
+			break;
+		}
+
+		/* Start audio transfer */
+		err = omap_hdmi_start_transfer();
+		if (err) {
+			printk(KERN_ERR "Start HDMI audio transfer failed\n");
+			omap_hdmi_wrapper_disable();
+		}
 		break;
 
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-#ifdef CONFIG_HDMI_NO_IP_MODULE
-		err = hdmi_w1_stop_audio_transfer(HDMI_WP);
-#else
-		if (hdmi_audio_core.module_loaded)
-			err = hdmi_audio_core.stop_audio(HDMI_WP);
-		else
-			printk(KERN_WARNING "Warning: hdmi_core.ko is "
-							"not enabled");
-#endif
+		/* Stop audio transfer */
+		err = omap_hdmi_stop_transfer();
+		if (err)
+			printk(KERN_ERR "Stop HDMI audio transfer failed\n");
+
+		/* Disable HDMI wrapper */
+		err = omap_hdmi_wrapper_disable();
+		if (err)
+			printk(KERN_ERR "Disable HDMI wrapper failed\n");
 		break;
 	default:
 		err = -EINVAL;
@@ -149,8 +187,6 @@ static int omap_hdmi_dai_hw_params(struct snd_pcm_substream *substream,
 }
 
 static struct snd_soc_dai_ops omap_hdmi_dai_ops = {
-	.startup	= omap_hdmi_dai_startup,
-	.shutdown	= omap_hdmi_dai_shutdown,
 	.trigger	= omap_hdmi_dai_trigger,
 	.hw_params	= omap_hdmi_dai_hw_params,
 };
