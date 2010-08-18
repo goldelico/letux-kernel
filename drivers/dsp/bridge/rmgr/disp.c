@@ -719,8 +719,11 @@ static int send_message(struct disp_object *disp_obj, u32 dwTimeout,
 		}
 	}
 	/* Get the reply */
-	if (DSP_FAILED(status))
+	if (DSP_FAILED(status)) {
+		(*intf_fxns->pfn_chnl_idle) (chnl_obj, dwTimeout, 1);
+		(*intf_fxns->pfn_chnl_get_ioc) (chnl_obj, dwTimeout, &chnl_ioc_obj);
 		goto func_end;
+	}
 
 	chnl_obj = disp_obj->chnl_from_dsp;
 	ul_bytes = REPLYSIZE;
@@ -747,6 +750,10 @@ static int send_message(struct disp_object *disp_obj, u32 dwTimeout,
 				status = -EPERM;
 			}
 		}
+	}
+	if (DSP_FAILED(status)) {
+		(*intf_fxns->pfn_chnl_idle) (chnl_obj, dwTimeout, 1);
+		(*intf_fxns->pfn_chnl_get_ioc) (chnl_obj, dwTimeout, &chnl_ioc_obj);
 	}
 func_end:
 	return status;
