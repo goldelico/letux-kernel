@@ -22,10 +22,8 @@ struct clockdomain;
 struct clkops {
 	int			(*enable)(struct clk *);
 	void			(*disable)(struct clk *);
-	void			(*find_idlest)(struct clk *, void __iomem **,
-					       u8 *, u8 *);
-	void			(*find_companion)(struct clk *, void __iomem **,
-						  u8 *);
+	void			(*find_idlest)(struct clk *, void __iomem **, u8 *);
+	void			(*find_companion)(struct clk *, void __iomem **, u8 *);
 };
 
 #if defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3) || \
@@ -121,10 +119,12 @@ struct clk {
 	struct list_head	node;
 	const struct clkops	*ops;
 	const char		*name;
+	int			id;
 	struct clk		*parent;
 	struct list_head	children;
 	struct list_head	sibling;	/* node for children */
 	unsigned long		rate;
+	__u32			flags;
 	void __iomem		*enable_reg;
 	unsigned long		(*recalc)(struct clk *);
 	int			(*set_rate)(struct clk *, unsigned long);
@@ -134,10 +134,9 @@ struct clk {
 	void			(*disable)(struct clk *);
 	__u8			enable_bit;
 	__s8			usecount;
-	u8			fixed_div;
 #if defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3) || \
 		defined(CONFIG_ARCH_OMAP4)
-	u8			flags;
+	u8			fixed_div;
 	void __iomem		*clksel_reg;
 	u32			clksel_mask;
 	const struct clksel	*clksel;
@@ -166,11 +165,10 @@ struct clk_functions {
 	void		(*clk_disable_unused)(struct clk *clk);
 #ifdef CONFIG_CPU_FREQ
 	void		(*clk_init_cpufreq_table)(struct cpufreq_frequency_table **);
-	void		(*clk_exit_cpufreq_table)(struct cpufreq_frequency_table **);
 #endif
 };
 
-extern int mpurate;
+extern unsigned int mpurate;
 
 extern int clk_init(struct clk_functions *custom_clocks);
 extern void clk_preinit(struct clk *clk);
@@ -181,21 +179,28 @@ extern void propagate_rate(struct clk *clk);
 extern void recalculate_root_clocks(void);
 extern unsigned long followparent_recalc(struct clk *clk);
 extern void clk_enable_init_clocks(void);
-unsigned long omap_fixed_divisor_recalc(struct clk *clk);
 #ifdef CONFIG_CPU_FREQ
 extern void clk_init_cpufreq_table(struct cpufreq_frequency_table **table);
-extern void clk_exit_cpufreq_table(struct cpufreq_frequency_table **table);
 #endif
 extern struct clk *omap_clk_get_by_name(const char *name);
 
 extern const struct clkops clkops_null;
 
 /* Clock flags */
-#define ENABLE_REG_32BIT	(1 << 0)	/* Use 32-bit access */
-#define CLOCK_IDLE_CONTROL	(1 << 1)
-#define CLOCK_NO_IDLE_PARENT	(1 << 2)
-#define ENABLE_ON_INIT		(1 << 3)	/* Enable upon framework init */
-#define INVERT_ENABLE		(1 << 4)	/* 0 enables, 1 disables */
+/* bit 0 is free */
+#define RATE_FIXED		(1 << 1)	/* Fixed clock rate */
+/* bits 2-4 are free */
+#define ENABLE_REG_32BIT	(1 << 5)	/* Use 32-bit access */
+/* bit 6 is free */
+#define CLOCK_IDLE_CONTROL	(1 << 7)
+#define CLOCK_NO_IDLE_PARENT	(1 << 8)
+#define DELAYED_APP		(1 << 9)	/* Delay application of clock */
+#define CONFIG_PARTICIPANT	(1 << 10)	/* Fundamental clock */
+#define ENABLE_ON_INIT		(1 << 11)	/* Enable upon framework init */
+#define INVERT_ENABLE           (1 << 12)       /* 0 enables, 1 disables */
+#define CLOCK_IN_OMAP4430	(1 << 13)
+#define ALWAYS_ENABLED		(1 << 14)
+/* bits 15-31 are currently free */
 
 /* Clksel_rate flags */
 #define DEFAULT_RATE		(1 << 0)

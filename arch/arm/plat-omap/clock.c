@@ -36,6 +36,10 @@ static struct clk_functions *arch_clock;
  * Standard clock functions defined in include/linux/clk.h
  *-------------------------------------------------------------------------*/
 
+/* This functions is moved to arch/arm/common/clkdev.c. For OMAP4 since
+ * clock framework is not up , it is defined here to avoid rework in
+ * every driver. Also dummy prcm reset function is added */
+
 int clk_enable(struct clk *clk)
 {
 	unsigned long flags;
@@ -173,7 +177,7 @@ EXPORT_SYMBOL(clk_get_parent);
  * OMAP specific clock functions shared between omap1 and omap2
  *-------------------------------------------------------------------------*/
 
-int __initdata mpurate;
+unsigned int __initdata mpurate;
 
 /*
  * By default we use the rate set by the bootloader.
@@ -197,17 +201,6 @@ __setup("mpurate=", omap_clk_setup);
 unsigned long followparent_recalc(struct clk *clk)
 {
 	return clk->parent->rate;
-}
-
-/*
- * Used for clocks that have the same value as the parent clock,
- * divided by some factor
- */
-unsigned long omap_fixed_divisor_recalc(struct clk *clk)
-{
-	WARN_ON(!clk->fixed_div);
-
-	return clk->parent->rate / clk->fixed_div;
 }
 
 void clk_reparent(struct clk *child, struct clk *parent)
@@ -312,6 +305,7 @@ void clk_enable_init_clocks(void)
 			clk_enable(clkp);
 	}
 }
+EXPORT_SYMBOL(clk_enable_init_clocks);
 
 /**
  * omap_clk_get_by_name - locate OMAP struct clk by its name
@@ -323,12 +317,12 @@ void clk_enable_init_clocks(void)
  */
 struct clk *omap_clk_get_by_name(const char *name)
 {
-	struct clk *c;
-	struct clk *ret = NULL;
+       struct clk *c;
+       struct clk *ret = NULL;
 
-	mutex_lock(&clocks_mutex);
+       mutex_lock(&clocks_mutex);
 
-	list_for_each_entry(c, &clocks, node) {
+       list_for_each_entry(c, &clocks, node) {
 		if (!strcmp(c->name, name)) {
 			ret = c;
 			break;
@@ -368,16 +362,7 @@ void clk_init_cpufreq_table(struct cpufreq_frequency_table **table)
 		arch_clock->clk_init_cpufreq_table(table);
 	spin_unlock_irqrestore(&clockfw_lock, flags);
 }
-
-void clk_exit_cpufreq_table(struct cpufreq_frequency_table **table)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(&clockfw_lock, flags);
-	if (arch_clock->clk_exit_cpufreq_table)
-		arch_clock->clk_exit_cpufreq_table(table);
-	spin_unlock_irqrestore(&clockfw_lock, flags);
-}
+EXPORT_SYMBOL(clk_init_cpufreq_table);
 #endif
 
 /*-------------------------------------------------------------------------*/
@@ -451,6 +436,8 @@ static int clk_debugfs_register_one(struct clk *c)
 	char *p = s;
 
 	p += sprintf(p, "%s", c->name);
+	if (c->id != 0)
+		sprintf(p, ":%d", c->id);
 	d = debugfs_create_dir(s, pa ? pa->dent : clk_debugfs_root);
 	if (!d)
 		return -ENOMEM;

@@ -1,7 +1,7 @@
 /*
  *  linux/arch/arm/mach-omap1/clock.c
  *
- *  Copyright (C) 2004 - 2005, 2009-2010 Nokia Corporation
+ *  Copyright (C) 2004 - 2005, 2009 Nokia corporation
  *  Written by Tuukka Tikkanen <tuukka.tikkanen@elektrobit.com>
  *
  *  Modified to use omap shared clock framework by
@@ -577,6 +577,9 @@ const struct clkops clkops_uart = {
 
 long omap1_clk_round_rate(struct clk *clk, unsigned long rate)
 {
+	if (clk->flags & RATE_FIXED)
+		return clk->rate;
+
 	if (clk->round_rate != NULL)
 		return clk->round_rate(clk, rate);
 

@@ -139,10 +139,6 @@ static inline u32 cm_clear_mod_reg_bits(u32 bits, s16 module, s16 idx)
 /* CM_IDLEST_GFX */
 #define OMAP_ST_GFX					(1 << 0)
 
-/* CM_IDLEST indicator */
-#define OMAP24XX_CM_IDLEST_VAL		0
-#define OMAP34XX_CM_IDLEST_VAL		1
-
 /* MAX_MODULE_READY_TIME: max milliseconds for module to leave idle */
 #define MAX_MODULE_READY_TIME			20000
 

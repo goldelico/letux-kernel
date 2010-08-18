@@ -94,8 +94,7 @@ static int _update_sysc_cache(struct omap_hwmod *oh)
 
 	oh->_sysc_cache = omap_hwmod_readl(oh, oh->sysconfig->sysc_offs);
 
-	if (!(oh->sysconfig->sysc_flags & SYSC_NO_CACHE))
-		oh->_int_flags |= _HWMOD_SYSCONFIG_LOADED;
+	oh->_int_flags |= _HWMOD_SYSCONFIG_LOADED;
 
 	return 0;
 }
@@ -373,7 +372,7 @@ static int _disable_wakeup(struct omap_hwmod *oh)
  * be accessed by the IVA, there should be a sleepdep between the IVA
  * initiator and the module).  Only applies to modules in smart-idle
  * mode.  Returns -EINVAL upon error or passes along
- * clkdm_add_sleepdep() value upon success.
+ * pwrdm_add_sleepdep() value upon success.
  */
 static int __attribute__ ((unused)) _add_initiator_dep(struct omap_hwmod *oh,
 		struct omap_hwmod *init_oh)
@@ -381,7 +380,8 @@ static int __attribute__ ((unused)) _add_initiator_dep(struct omap_hwmod *oh,
 	if (!oh->_clk)
 		return -EINVAL;
 
-	return clkdm_add_sleepdep(oh->_clk->clkdm, init_oh->_clk->clkdm);
+	return pwrdm_add_sleepdep(oh->_clk->clkdm->pwrdm.ptr,
+				  init_oh->_clk->clkdm->pwrdm.ptr);
 }
 
 /**
@@ -394,14 +394,15 @@ static int __attribute__ ((unused)) _add_initiator_dep(struct omap_hwmod *oh,
  * be accessed by the IVA, there should be no sleepdep between the IVA
  * initiator and the module).  Only applies to modules in smart-idle
  * mode.  Returns -EINVAL upon error or passes along
- * clkdm_del_sleepdep() value upon success.
+ * pwrdm_add_sleepdep() value upon success.
  */
 static int _del_initiator_dep(struct omap_hwmod *oh, struct omap_hwmod *init_oh)
 {
 	if (!oh->_clk)
 		return -EINVAL;
 
-	return clkdm_del_sleepdep(oh->_clk->clkdm, init_oh->_clk->clkdm);
+	return pwrdm_del_sleepdep(oh->_clk->clkdm->pwrdm.ptr,
+				  init_oh->_clk->clkdm->pwrdm.ptr);
 }
 
 /**
@@ -417,19 +418,18 @@ static int _init_main_clk(struct omap_hwmod *oh)
 	struct clk *c;
 	int ret = 0;
 
-	if (!oh->main_clk)
+	if (!oh->clkdev_con_id)
 		return 0;
 
-	c = omap_clk_get_by_name(oh->main_clk);
-	WARN(IS_ERR(c), "omap_hwmod: %s: cannot clk_get main_clk %s\n",
-	     oh->name, oh->main_clk);
+	c = clk_get_sys(oh->clkdev_dev_id, oh->clkdev_con_id);
+	WARN(IS_ERR(c), "omap_hwmod: %s: cannot clk_get main_clk %s.%s\n",
+	     oh->name, oh->clkdev_dev_id, oh->clkdev_con_id);
 	if (IS_ERR(c))
 		ret = -EINVAL;
 	oh->_clk = c;
-
 #if 0
 	WARN(!c->clkdm, "omap_hwmod: %s: missing clockdomain for %s.\n",
-	     oh->main_clk, c->name);
+	     oh->clkdev_con_id, c->name);
 #endif
 
 	return ret;
@@ -453,12 +453,13 @@ static int _init_interface_clks(struct omap_hwmod *oh)
 		return 0;
 
 	for (i = 0, os = *oh->slaves; i < oh->slaves_cnt; i++, os++) {
-		if (!os->clk)
+		if (!os->clkdev_con_id)
 			continue;
 
-		c = omap_clk_get_by_name(os->clk);
+		c = clk_get_sys(os->clkdev_dev_id, os->clkdev_con_id);
 		WARN(IS_ERR(c), "omap_hwmod: %s: cannot clk_get "
-		     "interface_clk %s\n", oh->name, os->clk);
+		     "interface_clk %s.%s\n", oh->name,
+		     os->clkdev_dev_id, os->clkdev_con_id);
 		if (IS_ERR(c))
 			ret = -EINVAL;
 		os->_clk = c;
@@ -482,9 +483,10 @@ static int _init_opt_clks(struct omap_hwmod *oh)
 	int ret = 0;
 
 	for (i = oh->opt_clks_cnt, oc = oh->opt_clks; i > 0; i--, oc++) {
-		c = omap_clk_get_by_name(oc->clk);
+		c = clk_get_sys(oc->clkdev_dev_id, oc->clkdev_con_id);
 		WARN(IS_ERR(c), "omap_hwmod: %s: cannot clk_get opt_clk "
-		     "%s\n", oh->name, oc->clk);
+		     "%s.%s\n", oh->name, oc->clkdev_dev_id,
+		     oc->clkdev_con_id);
 		if (IS_ERR(c))
 			ret = -EINVAL;
 		oc->_clk = c;
@@ -1130,23 +1132,6 @@ u32 omap_hwmod_read_sysc(struct omap_hwmod *oh)
 void omap_hwmod_write_sysc(u32 v, struct omap_hwmod *oh)
 {
 	_write_sysconfig(v, oh);
-}
-
-int omap_hwmod_set_slave_idlemode(struct omap_hwmod *oh, u8 idlemode)
-{
-	u32 v;
-	int retval = 0;
-
-	if (!oh)
-		return -EINVAL;
-
-	v = oh->_sysc_cache;
-
-	retval = _set_slave_idlemode(oh, idlemode, &v);
-	if (!retval)
-		_write_sysconfig(v, oh);
-
-	return retval;
 }
 
 /**

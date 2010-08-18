@@ -99,10 +99,6 @@ static struct powerdomain *core_pwrdm, *per_pwrdm;
 static struct powerdomain *wkup_pwrdm;
 static struct powerdomain *cam_pwrdm;
 
-struct clockdomain *neon_clkdm, *per_clkdm;
-struct clockdomain *mpu_clkdm, *core_clkdm;
-struct clockdomain *wkup_clkdm;
-
 static struct prm_setup_vc prm_setup = {
 	.clksetup = 0xff,
 	.voltsetup_time1 = 0xfff,
@@ -456,7 +452,7 @@ void omap_sram_idle(void)
 			 */
 			if (per_next_state == PWRDM_POWER_OFF &&
 					pwrdm_can_idle(per_pwrdm)) {
-				clkdm_add_sleepdep(mpu_clkdm, per_clkdm);
+				pwrdm_add_sleepdep(mpu_pwrdm, per_pwrdm);
 				omap3_per_save_context();
 			} else {
 				per_next_state = PWRDM_POWER_RET;
@@ -650,7 +646,7 @@ if (core_next_state < PWRDM_POWER_ON) {
 			if (per_next_state == PWRDM_POWER_OFF) {
 				pwrdm_set_next_pwrst(per_pwrdm,
 						PWRDM_POWER_RET);
-				clkdm_del_sleepdep(mpu_clkdm, per_clkdm);
+				pwrdm_del_sleepdep(mpu_pwrdm, per_pwrdm);
 			}
 		} else if (per_state_modified)
 			pwrdm_set_next_pwrst(per_pwrdm,
@@ -1099,10 +1095,6 @@ static void __init prcm_setup_regs(void)
 	prm_write_mod_reg(OMAP3430_IO_EN | OMAP3430_WKUP_EN,
 			  OCP_MOD, OMAP3_PRM_IRQENABLE_MPU_OFFSET);
 
-	/* Enable PM_WKEN to support DSS LPR */
-	prm_write_mod_reg(OMAP3430_PM_WKEN_DSS_EN_DSS,
-				OMAP3430_DSS_MOD, PM_WKEN);
-
 	/* Enable wakeups in PER */
 	prm_write_mod_reg(OMAP3430_EN_GPIO2 | OMAP3430_EN_GPIO3 |
 			  OMAP3430_EN_GPIO4 | OMAP3430_EN_GPIO5 |
@@ -1155,11 +1147,6 @@ void omap3_pm_off_mode_enable(int enable)
 	resource_unlock_opp(VDD1_OPP);
 	resource_unlock_opp(VDD2_OPP);
 #endif
-
-#ifdef CONFIG_CPU_IDLE
-	omap3_cpuidle_update_states();
-#endif
-
 	list_for_each_entry(pwrst, &pwrst_list, node) {
 		pwrst->next_state = state;
 
@@ -1502,9 +1489,6 @@ static int __init pwrdms_setup(struct powerdomain *pwrdm, void *unused)
  */
 static int __init clkdms_setup(struct clockdomain *clkdm, void *unused)
 {
-	clkdm_clear_all_wkdeps(clkdm);
-	clkdm_clear_all_sleepdeps(clkdm);
-
 	if (clkdm->flags & CLKDM_CAN_ENABLE_AUTO)
 		omap2_clkdm_allow_idle(clkdm);
 	else if (clkdm->flags & CLKDM_CAN_FORCE_SLEEP &&
@@ -1616,12 +1600,6 @@ static int __init omap3_pm_init(void)
 	cam_pwrdm = pwrdm_lookup("cam_pwrdm");
 	wkup_pwrdm = pwrdm_lookup("wkup_pwrdm");
 
-	neon_clkdm = clkdm_lookup("neon_clkdm");
-	mpu_clkdm = clkdm_lookup("mpu_clkdm");
-	per_clkdm = clkdm_lookup("per_clkdm");
-	core_clkdm = clkdm_lookup("core_clkdm");
-	wkup_clkdm = clkdm_lookup("wkup_clkdm");
-
 	omap_push_sram_idle();
 #ifdef CONFIG_SUSPEND
 	suspend_set_ops(&omap_pm_ops);
@@ -1630,19 +1608,19 @@ static int __init omap3_pm_init(void)
 	pm_idle = omap3_pm_idle;
 	omap3_idle_init();
 
-	clkdm_add_wkdep(neon_clkdm, mpu_clkdm);
+	pwrdm_add_wkdep(neon_pwrdm, mpu_pwrdm);
 	/*
 	 * REVISIT: This wkdep is only necessary when GPIO2-6 are enabled for
 	 * IO-pad wakeup.  Otherwise it will unnecessarily waste power
 	 * waking up PER with every CORE wakeup - see
 	 * http://marc.info/?l=linux-omap&m=121852150710062&w=2
-	*/
-	clkdm_add_wkdep(per_clkdm, core_clkdm);
+   */
+	pwrdm_add_wkdep(per_pwrdm, core_pwrdm);
 
 	if (IS_PM34XX_ERRATA(PER_WAKEUP_ERRATA_i582)) {
 		/* Allow per to wakeup the system */
 		if (cpu_is_omap34xx())
-			clkdm_add_wkdep(per_clkdm, wkup_clkdm);
+			pwrdm_add_wkdep(per_pwrdm, wkup_pwrdm);
 	}
 	/*
 	 * A part of the fix for errata 1.158.
@@ -1651,7 +1629,7 @@ static int __init omap3_pm_init(void)
 	 * omap3_gpio_save_context, omap3_gpio_restore_context.
    */
 	if (omap_rev() <= OMAP3430_REV_ES3_1)
-		clkdm_add_wkdep(per_clkdm, wkup_clkdm);
+		pwrdm_add_wkdep(per_pwrdm, wkup_pwrdm);
 
 	if (omap_type() != OMAP2_DEVICE_TYPE_GP) {
 		omap3_secure_ram_storage =
