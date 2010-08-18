@@ -374,7 +374,10 @@ static inline void set_24xx_gpio_triggering(struct gpio_bank *bank, int gpio,
 				__raw_writel(1 << gpio, bank->base
 					+ OMAP24XX_GPIO_CLEARWKUENA);
 		}
-	} else {
+	}
+
+	/* This part needs to be executed always for OMAP34xx */
+	if (cpu_is_omap34xx() || (bank->non_wakeup_gpios & gpio_bit)) {
 		if (trigger != 0)
 			bank->enabled_non_wakeup_gpios |= gpio_bit;
 		else
@@ -957,6 +960,26 @@ static int omap_gpio_suspend(struct sys_device *dev, pm_message_t mesg)
 		__raw_writel(0xffffffff, wake_clear);
 		__raw_writel(bank->suspend_wakeup, wake_set);
 		spin_unlock_irqrestore(&bank->lock, flags);
+
+#ifdef CONFIG_ARCH_OMAP3
+		if (cpu_is_omap34xx()) {
+			int j = 0;
+			for (j = 0; j < 32; j++) {
+				int offset = gpio_pad_map[j + i * 32];
+				u16 v;
+
+				if (!offset)
+					continue;
+
+				v = omap_ctrl_readw(offset);
+				if (bank->suspend_wakeup & (1 << j))
+					v |= OMAP3_PADCONF_WAKEUPENABLE0;
+				else
+					v &= ~OMAP3_PADCONF_WAKEUPENABLE0;
+				omap_ctrl_writew(v, offset);
+			}
+		}
+#endif
 	}
 
 	return 0;
@@ -1043,7 +1066,7 @@ void omap2_gpio_prepare_for_idle(int power_state)
 		bank->saved_risingdetect = l2;
 		l1 &= ~bank->enabled_non_wakeup_gpios;
 		l2 &= ~bank->enabled_non_wakeup_gpios;
-		if (cpu_is_omap24xx() || cpu_is_omap34xx()) {
+		if (cpu_is_omap24xx()) {
 			__raw_writel(l1, bank->base +
 						OMAP24XX_GPIO_FALLINGDETECT);
 			__raw_writel(l2, bank->base +
@@ -1106,7 +1129,7 @@ void omap2_gpio_resume_after_idle(void)
 		 * horribly racy, but it's the best we can do to work around
 		 * this silicon bug. */
 		l ^= bank->saved_datain;
-		l &= bank->non_wakeup_gpios;
+		l &= bank->enabled_non_wakeup_gpios;
 
 		/*
 		 * No need to generate IRQs for the rising edge for gpio IRQs
