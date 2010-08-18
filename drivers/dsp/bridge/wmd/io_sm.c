@@ -339,7 +339,7 @@ int bridge_io_on_loaded(struct io_mgr *hio_mgr)
 	u8 num_procs = 0;
 	s32 ndx = 0;
 	/* DSP MMU setup table */
-	struct wmdioctl_extproc ae_proc[WMDIOCTL_NUMOFMMUTLB];
+	struct wmdioctl_extproc *ae_proc;
 	struct cfg_hostres *host_res;
 	struct wmd_dev_context *pwmd_context;
 	u32 map_attrs;
@@ -355,6 +355,12 @@ int bridge_io_on_loaded(struct io_mgr *hio_mgr)
 		HW_PAGE_SIZE64KB, HW_PAGE_SIZE4KB
 	};
 
+	ae_proc = kzalloc(sizeof(struct wmdioctl_extproc) *
+				WMDIOCTL_NUMOFMMUTLB, GFP_KERNEL);
+	if (!ae_proc) {
+		pr_err("%s: not enough memory for ae_proc\n", __func__);
+		return -ENOMEM;
+	}
 
 	status = dev_get_wmd_context(hio_mgr->hdev_obj, &pwmd_context);
 	if (!pwmd_context) {
@@ -826,6 +832,7 @@ int bridge_io_on_loaded(struct io_mgr *hio_mgr)
 
 #endif
 func_end:
+	kfree(ae_proc);
 	return status;
 }
 

@@ -68,7 +68,7 @@
 #include <dspbridge/brddefs.h>
 
 #ifdef CONFIG_BRIDGE_DVFS
-#include <mach-omap2/omap3-opp.h>
+#include <linux/cpufreq.h>
 #endif
 
 #define BRIDGE_NAME "C6410"

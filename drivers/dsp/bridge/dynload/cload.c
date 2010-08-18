@@ -14,6 +14,8 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <dspbridge/host_os.h>
+
 #include "header.h"
 
 #include "module_list.h"
@@ -54,6 +56,11 @@ static const char initfail[] = { "%s to target address " FMT_UI32 " failed" };
 static const char dlvwrite[] = { "Write to DLLview list failed" };
 static const char iconnect[] = { "Connect call to init interface failed" };
 static const char err_checksum[] = { "Checksum failed on %s" };
+
+struct buffer{
+	struct image_packet_t ipacket;
+	u8 bufr[BYTE_TO_HOST(IMAGE_PACKET_SIZE)];
+};
 
 /*************************************************************************
  * Procedure dload_error
@@ -713,6 +720,7 @@ static void dload_symbols(struct dload_state *dlthis)
 	struct local_symbol *sp;
 	struct dynload_symbol *symp;
 	struct dynload_symbol *newsym;
+	struct doff_syment_t *my_sym_buf = NULL;
 
 	sym_count = dlthis->dfile_hdr.df_no_syms;
 	if (sym_count == 0)
@@ -746,13 +754,19 @@ static void dload_symbols(struct dload_state *dlthis)
 	 become defined from the global symbol table */
 	checks = dlthis->verify.dv_sym_tab_checksum;
 	symbols_left = sym_count;
+	my_sym_buf = kzalloc(sizeof(struct doff_syment_t) * MY_SYM_BUF_SIZ,
+				GFP_KERNEL);
+	if (!my_sym_buf) {
+		pr_err("%s: not enough memory for my_sym_buf\n", __func__);
+		return;
+	}
+
 	do {			/* read all symbols */
 		char *sname;
 		u32 val;
 		s32 delta;
 		struct doff_syment_t *input_sym;
 		unsigned syms_in_buf;
-		struct doff_syment_t my_sym_buf[MY_SYM_BUF_SIZ];
 		input_sym = my_sym_buf;
 		syms_in_buf = symbols_left > MY_SYM_BUF_SIZ ?
 		    MY_SYM_BUF_SIZ : symbols_left;
@@ -760,7 +774,7 @@ static void dload_symbols(struct dload_state *dlthis)
 		if (dlthis->strm->read_buffer(dlthis->strm, input_sym, siz) !=
 		    siz) {
 			DL_ERROR(readstrm, sym_errid);
-			return;
+			goto func_end;
 		}
 		if (dlthis->reorder_map)
 			dload_reorder(input_sym, siz, dlthis->reorder_map);
@@ -863,7 +877,7 @@ static void dload_symbols(struct dload_state *dlthis)
 					DL_ERROR("Absolute symbol %s is "
 						 "defined multiple times with "
 						 "different values", sname);
-					return;
+					goto func_end;
 				}
 			}
 loop_itr:
@@ -890,10 +904,16 @@ loop_cont:
 			sp += 1;
 			input_sym += 1;
 		} while ((syms_in_buf -= 1) > 0);	/* process sym in buf */
+
+		memset(my_sym_buf, 0,
+			sizeof(struct doff_syment_t) * MY_SYM_BUF_SIZ);
 	} while (symbols_left > 0);	/* read all symbols */
 	if (~checks)
 		dload_error(dlthis, "Checksum of symbols failed");
 
+func_end:
+	kfree(my_sym_buf);
+	return;
 }				/* dload_symbols */
 
 /*****************************************************************************
@@ -1143,15 +1163,15 @@ static void dload_data(struct dload_state *dlthis)
 	bool zero_copy = false;
 #endif
 	u8 *dest;
-
-	struct {
-		struct image_packet_t ipacket;
-		u8 bufr[BYTE_TO_HOST(IMAGE_PACKET_SIZE)];
-	} ibuf;
-
+	struct buffer *ibuf;
 	/* Indicates whether CINIT processing has occurred */
 	bool cinit_processed = false;
 
+	ibuf = kzalloc(sizeof(struct buffer), GFP_KERNEL);
+	if (!ibuf) {
+		pr_err("%s: not enough memory for my_sym_buf\n", __func__);
+		return;
+	}
 	/* Loop through the sections and load them one at a time.
 	 */
 	for (curr_sect = 0; curr_sect < dlthis->dfile_hdr.df_no_scns;
@@ -1179,27 +1199,27 @@ static void dload_data(struct dload_state *dlthis)
 
 				/* get the fixed header bits */
 				if (dlthis->strm->read_buffer(dlthis->strm,
-							      &ibuf.ipacket,
+							      &ibuf->ipacket,
 							      IPH_SIZE) !=
 				    IPH_SIZE) {
 					DL_ERROR(readstrm, imagepak);
-					return;
+					goto func_end;
 				}
 				/* reorder the header if need be */
 				if (dlthis->reorder_map) {
-					dload_reorder(&ibuf.ipacket, IPH_SIZE,
+					dload_reorder(&ibuf->ipacket, IPH_SIZE,
 						      dlthis->reorder_map);
 				}
 				/* now read the rest of the packet */
 				ipsize =
 				    BYTE_TO_HOST(DOFF_ALIGN
-						 (ibuf.ipacket.packet_size));
+						 (ibuf->ipacket.packet_size));
 				if (ipsize > BYTE_TO_HOST(IMAGE_PACKET_SIZE)) {
 					DL_ERROR("Bad image packet size %d",
 						 ipsize);
-					return;
+					goto func_end;
 				}
-				dest = ibuf.bufr;
+				dest = ibuf->bufr;
 #ifdef OPT_ZERO_COPY_LOADER
 				zero_copy = false;
 				if (DLOAD_SECT_TYPE(sptr) != DLOAD_CINIT) {
@@ -1208,19 +1228,19 @@ static void dload_data(struct dload_state *dlthis)
 							       lptr->load_addr +
 							       image_offset,
 							       lptr, 0);
-					zero_copy = (dest != ibuf.bufr);
+					zero_copy = (dest != ibuf->bufr);
 				}
 #endif
 				/* End of determination */
 
 				if (dlthis->strm->read_buffer(dlthis->strm,
-							      ibuf.bufr,
+							      ibuf->bufr,
 							      ipsize) !=
 				    ipsize) {
 					DL_ERROR(readstrm, imagepak);
-					return;
+					goto func_end;
 				}
-				ibuf.ipacket.img_data = dest;
+				ibuf->ipacket.img_data = dest;
 
 				/* reorder the bytes if need be */
 #if !defined(_BIG_ENDIAN) || (TARGET_AU_BITS > 16)
@@ -1247,16 +1267,17 @@ static void dload_data(struct dload_state *dlthis)
 #endif
 #endif
 
-				checks += dload_checksum(&ibuf.ipacket,
+				checks += dload_checksum(&ibuf->ipacket,
 							 IPH_SIZE);
 				/* relocate the image bits as needed */
-				if (ibuf.ipacket.num_relocs) {
+				if (ibuf->ipacket.num_relocs) {
 					dlthis->image_offset = image_offset;
 					if (!relocate_packet(dlthis,
-							     &ibuf.ipacket,
+							     &ibuf->ipacket,
 							     &checks,
 							     &tramp_generated))
-						return;	/* serious error */
+						/* serious error */
+						goto func_end;
 				}
 				if (~checks)
 					DL_ERROR(err_checksum, imagepak);
@@ -1271,7 +1292,7 @@ static void dload_data(struct dload_state *dlthis)
 					if (DLOAD_SECT_TYPE(sptr) ==
 					    DLOAD_CINIT) {
 						cload_cinit(dlthis,
-							    &ibuf.ipacket);
+							    &ibuf->ipacket);
 						cinit_processed = true;
 					} else {
 #ifdef OPT_ZERO_COPY_LOADER
@@ -1281,13 +1302,13 @@ static void dload_data(struct dload_state *dlthis)
 							if (!dlthis->myio->
 							    writemem(dlthis->
 								myio,
-								ibuf.bufr,
+								ibuf->bufr,
 								lptr->
 								load_addr +
 								image_offset,
 								lptr,
 								BYTE_TO_HOST
-								(ibuf.
+								(ibuf->
 								ipacket.
 								packet_size))) {
 								DL_ERROR
@@ -1304,7 +1325,7 @@ static void dload_data(struct dload_state *dlthis)
 					}
 				}
 				image_offset +=
-				    BYTE_TO_TADDR(ibuf.ipacket.packet_size);
+				    BYTE_TO_TADDR(ibuf->ipacket.packet_size);
 			}	/* process packets */
 			/* if this is a BSS section, we may want to fill it */
 			if (DLOAD_SECT_TYPE(sptr) != DLOAD_BSS)
@@ -1362,6 +1383,10 @@ loop_cont:
 		DL_ERROR("Finalization of auto-trampolines (size = " FMT_UI32
 			 ") failed", dlthis->tramp.tramp_sect_next_addr);
 	}
+
+func_end:
+	kfree(ibuf);
+	return;
 }				/* dload_data */
 
 /*************************************************************************
