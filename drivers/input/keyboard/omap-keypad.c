@@ -446,8 +446,8 @@ static int __devinit omap_kp_probe(struct platform_device *pdev)
 	if (cpu_is_omap44xx())
 		__set_bit(KEY_OK, input_dev->keybit);
 
-	input_dev->name = "omap_keypad";
-	input_dev->phys = "omap_keypad/input0";
+	input_dev->name = "omap-keypad";
+	input_dev->phys = "omap-keypad/input0";
 	input_dev->dev.parent = &pdev->dev;
 
 	input_dev->id.bustype = BUS_HOST;
