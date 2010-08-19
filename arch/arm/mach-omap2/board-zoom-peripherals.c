@@ -36,7 +36,7 @@
 
 #include "mmc-twl4030.h"
 #include "mux.h"
-
+#include "twl4030.h"
 #define OMAP_SYNAPTICS_GPIO	163
 
 #include <media/v4l2-int-device.h>
@@ -134,6 +134,8 @@ static struct twl4030_keypad_data zoom_kp_twl4030_data = {
 	.cols		= 8,
 	.rep		= 1,
 };
+
+static struct __initdata twl4030_power_data zoom_t2scripts_data;
 
 static struct regulator_consumer_supply zoom_vmmc1_supply = {
 	.supply		= "vmmc",
@@ -314,6 +316,7 @@ static struct twl4030_platform_data zoom_twldata = {
 	.usb		= &zoom_usb_data,
 	.gpio		= &zoom_gpio_data,
 	.keypad		= &zoom_kp_twl4030_data,
+	.power		= &zoom_t2scripts_data,
 	.codec		= &zoom_codec_data,
 	.vmmc1		= &zoom_vmmc1,
 	.vmmc2		= &zoom_vmmc2,
@@ -457,6 +460,7 @@ static struct omap_musb_board_data musb_board_data = {
 
 void __init zoom_peripherals_init(void)
 {
+	twl4030_get_scripts(&zoom_t2scripts_data);
 	omap_i2c_init();
 	platform_add_devices(zoom_board_devices,
 			ARRAY_SIZE(zoom_board_devices));
