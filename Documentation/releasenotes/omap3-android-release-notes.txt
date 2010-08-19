@@ -1,0 +1,129 @@
+# =====================================================================
+# L25.Inc3.2 Hand-off
+# =====================================================================
+
+Author: Leed Aguilar
+Date: August 18, 2010
+Target Release: L25.Inc3.2
+
+# =====================================================================
+# Configuration Settings
+# =====================================================================
+
+[KERNEL]
+Repo    : git://git.omapzoom.org/kernel/omap.git
+Branch  : p-android-omap-2.6.32
+Commit  : android-2.6.32-2.2-Inc3-2
+Config  : android_zoom3_defconfig
+
+[U-BOOT]
+Repo    : git://git.omapzoom.org/repo/u-boot.git
+Branch  : master
+Commit  : fbe4cef852de5a39412234b4acd47a830d0282a2
+Config  : omap3630zoom3_config
+
+[X-LOADER]
+Repo    : git://git.omapzoom.org/repo/x-loader.git
+Branch  : master
+Commit  : eb8b047c29a2027fbdd841cd1289fa27ddb22d72
+Config  : omap3630zoom3_config (for 1G HIGH MEM only for ES1.1)
+Config  : omap3630zoom3_512m_config (for 512M only for ES1.1)
+
+OS: Linux(r) 2.6.32
+Platform: ZOOM3 OMAP3630 ES1.1
+Toolchain: Android Froyo Toolchain : arm-eabi-4.4.0 (Using GCC4.4.0)
+Toolchain Path: <mydroid_location>/prebuilt/linux-x86/toolchain/arm-eabi-4.4.0/bin/arm-eabi-
+
+# =====================================================================
+# Cloning information
+# =====================================================================
+
+Kernel:
+-------
+git clone git://git.omapzoom.org/kernel/omap.git
+cd omap/
+git checkout --track -b p-android-omap-2.6.32 origin/p-android-omap-2.6.32
+git checkout -b L25.INC3.2 android-2.6.32-2.2-Inc3-2
+make ARCH=arm CROSS_COMPILE=arm-eabi- android_zoom3_defconfig
+make ARCH=arm CROSS_COMPILE=arm-eabi- uImage
+Output: uImage
+
+u-boot:
+-------
+git clone  git://git.omapzoom.org/repo/u-boot.git
+cd u-boot/
+git checkout -b L25.INC3.2 fbe4cef852de5a39412234b4acd47a830d0282a2
+make ARCH=arm CROSS_COMPILE=arm-eabi- omap3630zoom3_config
+make ARCH=arm CROSS_COMPILE=arm-eabi-
+Output: u-boot.bin
+
+x-loader:
+---------
+git clone git://git.omapzoom.org/repo/x-loader.git
+cd x-loader/
+git checkout -b L25.INC3.2 eb8b047c29a2027fbdd841cd1289fa27ddb22d72
+make ARCH=arm CROSS_COMPILE=arm-eabi- omap3630zoom3_512m_config
+make ARCH=arm CROSS_COMPILE=arm-eabi- ift
+Output: MLO
+
+# =====================================================================
+# Known issues / Important Notes
+# =====================================================================
+
+The L25.Inc3.x release family is intended to be used with Android Froyo 2.2
+
+[BOOTARGS]
+
+The following bootargs were used for MMC booting:
+
+bootargs androidboot.console=ttyO3 console=ttyO3,115200n8 \
+root=/dev/mmcblk0p2 rw rootdelay=1 init=/init \
+omap_vout_mod.video1_numbuffers=6 omap_vout_mod.vid1_static_vrfb_alloc=y \
+omapfb.vram=0:4M
+
+[HIGHLIGHTS]
+
+1)  Clock Framework and HWMod Framework re-org to sync with LO/LDC
+2)  eMMC Fastboot support
+3)  Fix battery PM Fwk bugs
+4)  Enable serial CTS Wakeup
+5)  EHCI/OHCI Support for ES1.1
+6)  Fix key character mapping for froyo
+7)  Enable support for broken eMMC
+8)  KlockWork Fixes
+9)  Toolchain Migration to arm-eabi-4.4.0
+10) Migrating to new UTR design
+11) Defect Resolution :14 (Closed/Resolved)
+
+[LOWLIGHTS]
+
+1)Issues with instability using HighMem with Image Capture.
+2)OSWR porting issues with OFF mode and dpll4 enabling.
+
+# =====================================================================
+# Defects Closed/Rejected/Resolved
+# =====================================================================
+
+OMAPS00218242	[OHCI] USB driver porting on Android platform
+OMAPS00211921	PT: Robustness Automation: Android fails to do warm reboot 
+OMAPS00221772	UART CTS wakeup support for Bluetooth Power management on 
+OMAPS00221731	Zoom reboots every 10 seconds when on battery power
+OMAPS00220528	PT: Robustness Automation: Data transfer "Destination
+OMAPS00221806	T2 LED on zoom3 doesnt go off on calling S/R path
+OMAPS00222074	The bit set of EN_IO_CHAIN in the register of PM_WKEN_WKUP 
+OMAPS00212716	DMA test cases failure
+OMAPS00212636	System is not going to off mode after suspending/resuming 
+OMAPS00221191	PT:DB:Keypad is incorrectly mapped
+OMAPS00222704	Enabling OFF mode for power management from Filesystem
+OMAPS00217632	PPM: Power: Battery Life Av Playback H264 720p with
+OMAPS00217634	PPM: Power: Av Playback H264 720p with ACC/ACC+ does not
+OMAPS00220522	PT: PPM: Power: Chip for page load does not meet
+
+# =====================================================================
+ Changelist
+# =====================================================================
+
+Kernel statistics since L25.Inc3.1:
+555 files changed, 69206 insertions(+), 46575 deletions(-)
+
+# ======================================================================
