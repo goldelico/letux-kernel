@@ -101,45 +101,120 @@ static void __init usb_musb_pm_init(void)
 #define DIE_ID_REG_OFFSET		0x218
 #endif /* CONFIG_ARCH_OMAP4 */
 
-#define MAX_USB_SERIAL_NUM		33
-#define OMAP_VENDOR_ID  		0x0451
-#define OMAP_PRODUCT_ID 		0xfffe
+#define MAX_USB_SERIAL_NUM		17
+#define OMAP_VENDOR_ID			0x0451
+#define OMAP_UMS_PRODUCT_ID		0xD100
+#define OMAP_ADB_PRODUCT_ID		0xD101
+#define OMAP_UMS_ADB_PRODUCT_ID		0xD102
+#define OMAP_RNDIS_PRODUCT_ID		0xD103
+#define OMAP_RNDIS_ADB_PRODUCT_ID	0xD104
+#define OMAP_ACM_PRODUCT_ID		0xD105
+#define OMAP_ACM_ADB_PRODUCT_ID		0xD106
+#define OMAP_ACM_UMS_ADB_PRODUCT_ID	0xD107
 
 static char device_serial[MAX_USB_SERIAL_NUM];
 
+static char *usb_functions_ums[] = {
+	"usb_mass_storage",
+};
+
+static char *usb_functions_adb[] = {
+	"adb",
+};
+
+static char *usb_functions_ums_adb[] = {
+	"usb_mass_storage",
+	"adb",
+};
+
+static char *usb_functions_rndis[] = {
+	"rndis",
+};
+
+static char *usb_functions_rndis_adb[] = {
+	"rndis",
+	"adb",
+};
+
+static char *usb_functions_acm[] = {
+	"acm",
+};
+
+static char *usb_functions_acm_adb[] = {
+	"acm",
+	"adb",
+};
+
+static char *usb_functions_acm_ums_adb[] = {
+	"acm",
+	"usb_mass_storage",
+	"adb",
+};
+
 static char *usb_functions_all[] = {
+#ifdef CONFIG_USB_ANDROID_RNDIS
+	"rndis",
+#endif
+#ifdef CONFIG_USB_ANDROID_ACM
+	"acm",
+#endif
 #ifdef CONFIG_USB_ANDROID_MASS_STORAGE
 	"usb_mass_storage",
 #endif
 #ifdef CONFIG_USB_ANDROID_ADB
 	"adb",
 #endif
-#ifdef CONFIG_USB_ANDROID_ACM
-	"acm",
-#endif
-#ifdef CONFIG_USB_ANDROID_RNDIS
-	"rndis",
-#endif
 };
 
 static struct android_usb_product usb_products[] = {
 	{
-		.product_id     = OMAP_PRODUCT_ID,
-		.num_functions  = ARRAY_SIZE(usb_functions_all),
-		.functions      = usb_functions_all,
+		.product_id     = OMAP_UMS_PRODUCT_ID,
+		.num_functions  = ARRAY_SIZE(usb_functions_ums),
+		.functions      = usb_functions_ums,
+	},
+	{
+		.product_id     = OMAP_ADB_PRODUCT_ID,
+		.num_functions  = ARRAY_SIZE(usb_functions_adb),
+		.functions      = usb_functions_adb,
+	},
+	{
+		.product_id     = OMAP_UMS_ADB_PRODUCT_ID,
+		.num_functions  = ARRAY_SIZE(usb_functions_ums_adb),
+		.functions      = usb_functions_ums_adb,
+	},
+	{
+		.product_id     = OMAP_RNDIS_PRODUCT_ID,
+		.num_functions  = ARRAY_SIZE(usb_functions_rndis),
+		.functions      = usb_functions_rndis,
+	},
+	{
+		.product_id     = OMAP_RNDIS_ADB_PRODUCT_ID,
+		.num_functions  = ARRAY_SIZE(usb_functions_rndis_adb),
+		.functions      = usb_functions_rndis_adb,
+	},
+	{
+		.product_id     = OMAP_ACM_PRODUCT_ID,
+		.num_functions  = ARRAY_SIZE(usb_functions_acm),
+		.functions      = usb_functions_acm,
+	},
+	{
+		.product_id     = OMAP_ACM_ADB_PRODUCT_ID,
+		.num_functions  = ARRAY_SIZE(usb_functions_acm_adb),
+		.functions      = usb_functions_acm_adb,
+	},
+	{
+		.product_id     = OMAP_ACM_UMS_ADB_PRODUCT_ID,
+		.num_functions  = ARRAY_SIZE(usb_functions_acm_ums_adb),
+		.functions      = usb_functions_acm_ums_adb,
 	},
 };
 
 /* standard android USB platform data */
 static struct android_usb_platform_data andusb_plat = {
-	.vendor_id                      = OMAP_VENDOR_ID,
-	.product_id                     = OMAP_PRODUCT_ID,
+	.vendor_id		= OMAP_VENDOR_ID,
+	.product_id		= OMAP_UMS_PRODUCT_ID,
 	.manufacturer_name      = "Texas Instruments Inc.",
-#ifdef CONFIG_ARCH_OMAP4
-	.product_name           = "OMAP4",
-#else
-	.product_name           = "OMAP3",
-#endif /* CONFIG_ARCH_OMAP4 */
+	.product_name           = "OMAP-3/4",
 	.serial_number          = device_serial,
 	.num_products = ARRAY_SIZE(usb_products),
 	.products = usb_products,
@@ -159,7 +234,7 @@ static struct platform_device androidusb_device = {
 static struct usb_ether_platform_data rndis_pdata = {
 	/* ethaddr is filled by board_serialno_setup */
 	.vendorID       = OMAP_VENDOR_ID,
-	.vendorDescr    = "TI",
+	.vendorDescr    = "Texas Instruments Inc.",
 	};
 
 static struct platform_device rndis_device = {
