@@ -26,6 +26,7 @@
 #include <linux/clk.h>
 #include <linux/err.h>
 #include <linux/io.h>
+#include <linux/interrupt.h>
 #include <linux/mutex.h>
 #include <linux/completion.h>
 #include <linux/delay.h>
@@ -35,6 +36,7 @@
 #include <plat/cpu.h>
 #include <plat/hdmi_lib.h>
 #include <plat/gpio.h>
+#include <plat/irqs.h>
 
 #include "dss.h"
 #include "hdmi.h"
@@ -43,7 +45,9 @@
 #define HDMI_PHY		0x58006300
 
 static u8  edid[HDMI_EDID_MAX_LENGTH] = {0};
-static u8  edid_set;
+static u8  edid_set = 0;
+u8 header[8] = {0x0, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x0};
+u8 hpd_mode = 0;
 
 /* PLL */
 #define PLLCTRL_PLL_CONTROL				0x0ul
@@ -97,7 +101,7 @@ static struct omap_video_timings all_timings_direct[31] = {
 	{1280, 1024, 108000, 112, 48, 248, 3 , 1, 38},
 	{1024, 768, 65000, 136, 24, 160, 6, 3, 29},
 	{1400, 1050, 121750, 144, 88, 232, 4, 3, 32},
-	{1400, 900, 106500, 152, 80, 232, 6, 3, 25},
+	{1440, 900, 106500, 152, 80, 232, 6, 3, 25},
 	{1680, 1050, 146250, 176 , 104, 280, 6, 3, 30},
 	{1366, 768, 85500, 143, 70, 213, 3, 3, 24},
 	{1920, 1080, 148500, 44, 88, 80, 5, 4, 36},
@@ -486,20 +490,24 @@ static void hdmi_panel_remove(struct omap_dss_device *dssdev)
 
 static int hdmi_panel_enable(struct omap_dss_device *dssdev)
 {
+	hdmi_enable_display(dssdev);
 	return 0;
 }
 
 static void hdmi_panel_disable(struct omap_dss_device *dssdev)
 {
+	hdmi_disable_display(dssdev);
 }
 
 static int hdmi_panel_suspend(struct omap_dss_device *dssdev)
 {
+	hdmi_display_suspend(dssdev);
 	return 0;
 }
 
 static int hdmi_panel_resume(struct omap_dss_device *dssdev)
 {
+	hdmi_display_resume(dssdev);
 	return 0;
 }
 
@@ -522,6 +530,7 @@ static struct omap_dss_driver hdmi_driver = {
 	.suspend	= hdmi_panel_suspend,
 	.resume		= hdmi_panel_resume,
 
+	.hpd_enable	= hdmi_enable_hpd,
 	.driver			= {
 		.name   = "hdmi_panel",
 		.owner  = THIS_MODULE,
@@ -531,6 +540,8 @@ static struct omap_dss_driver hdmi_driver = {
 
 int hdmi_init(struct platform_device *pdev, int code, int mode)
 {
+	int r = 0;
+
 	DSSDBG("Enter hdmi_init()\n");
 
 	mutex_init(&hdmi.lock);
@@ -554,6 +565,10 @@ int hdmi_init(struct platform_device *pdev, int code, int mode)
 	hdmi_lib_init();
 
 	hdmi_enable_clocks(0);
+
+	r = request_irq(INT_44XX_DSS_HDMI, hdmi_irq_handler,
+			0, "OMAP HDMI", (void *)0);
+
 	return omap_dss_register_driver(&hdmi_driver);
 
 }
@@ -562,6 +577,7 @@ void hdmi_exit(void)
 {
 	hdmi_lib_exit();
 
+	free_irq(INT_44XX_DSS_HDMI, NULL);
 	iounmap(hdmi.base_pll);
 	iounmap(hdmi.base_phy);
 }
@@ -645,13 +661,6 @@ static int hdmi_power_on(struct omap_dss_device *dssdev)
 
 	hdmi_enable_clocks(1);
 
-	/* FIXME Gpio config is retained and platform enable which does
-	standard GPIO calls is temporarily commented until GPIO read
-	problem is fixed */
-	hdmi_gpio_config(1);
-	/*if (dssdev->platform_enable)
-		dssdev->platform_enable(dssdev);*/
-
 	p = &dssdev->panel.timings;
 
 	r = hdmi_read_edid(p);
@@ -703,8 +712,59 @@ static int hdmi_power_on(struct omap_dss_device *dssdev)
 
 	dispc_enable_digit_out(1);
 
+	return 0;
 err:
 	return r;
+}
+
+int hdmi_min_enable()
+{
+	int r;
+
+	DSSDBG("hdmi_min_enable");
+	r = hdmi_phy_init(HDMI_WP, HDMI_PHY);
+	if (r)
+		DSSERR("Failed to start PHY\n");
+	DSS_HDMI_CONFIG(hdmi.ti, hdmi.code, hdmi.mode);
+
+	return 0;
+}
+
+static irqreturn_t hdmi_irq_handler()
+{
+	int r = 0;
+	struct omap_dss_device *dssdev = NULL;
+	const char *buf = "hdmi";
+
+	int match(struct omap_dss_device *dssdev2 , void *data)
+	{
+		const char *str = data;
+		return sysfs_streq(dssdev2->name , str);
+	}
+
+	dssdev = omap_dss_find_device((void *)buf , match);
+	DSSDBG("found hdmi handle %s" , dssdev->name);
+	HDMI_W1_HPD_handler(&r);
+	DSSDBG("r = %d", r);
+
+	if ((r == 4 || r == 2) && (hpd_mode == 1)) {
+		hdmi_phy_off(HDMI_WP);
+		hdmi_enable_clocks(1);
+		hdmi_power_on(dssdev);
+		mdelay(1000);
+		printk(KERN_INFO "Display enabled");
+	}
+	if (r == 1 || r == 4)
+		hpd_mode = 0;
+	if ((r == 3) && (dssdev->state != OMAP_DSS_DISPLAY_DISABLED)) {
+		printk(KERN_INFO "Display disabled");
+		hdmi_power_off(dssdev);
+		hpd_mode = 1;
+		hdmi_gpio_config(1);
+		hdmi_min_enable();
+	}
+
+	return IRQ_HANDLED;
 }
 
 static void hdmi_power_off(struct omap_dss_device *dssdev)
@@ -746,10 +806,14 @@ static int hdmi_enable_display(struct omap_dss_device *dssdev)
 		goto err;
 	}
 
+	free_irq(INT_44XX_DSS_HDMI, NULL);
+
 	if (dssdev->state != OMAP_DSS_DISPLAY_DISABLED) {
 		r = -EINVAL;
 		goto err;
 	}
+
+	hdmi_gpio_config(1);
 
 	dssdev->state = OMAP_DSS_DISPLAY_ACTIVE;
 	r = hdmi_power_on(dssdev);
@@ -757,11 +821,44 @@ static int hdmi_enable_display(struct omap_dss_device *dssdev)
 		DSSERR("failed to power on device\n");
 		goto err;
 	}
-
+	r = request_irq(INT_44XX_DSS_HDMI, hdmi_irq_handler,
+			0, "OMAP HDMI", (void *)0);
 err:
 	mutex_unlock(&hdmi.lock);
 	return r;
+}
 
+static int hdmi_enable_hpd(struct omap_dss_device *dssdev)
+{
+	int r = 0;
+	DSSDBG("ENTER hdmi_enable_hpd()\n");
+
+	mutex_lock(&hdmi.lock);
+
+	/* the tv overlay manager is shared*/
+	r = omap_dss_start_device(dssdev);
+	if (r) {
+		DSSERR("failed to start device\n");
+		goto err;
+	}
+
+	if (dssdev->state != OMAP_DSS_DISPLAY_DISABLED) {
+		r = -EINVAL;
+		goto err;
+	}
+
+	dssdev->state = OMAP_DSS_DISPLAY_ACTIVE;
+
+	hdmi_gpio_config(1);
+	hpd_mode = 1;
+	r = hdmi_min_enable(dssdev);
+	if (r) {
+		DSSERR("failed to power on device\n");
+		goto err;
+	}
+err:
+	mutex_unlock(&hdmi.lock);
+	return r;
 }
 
 static void hdmi_disable_display(struct omap_dss_device *dssdev)
@@ -803,6 +900,7 @@ static int hdmi_display_resume(struct omap_dss_device *dssdev)
 	int r = 0;
 
 	DSSDBG("hdmi_display_resume\n");
+	hdmi_gpio_config(1);
 
 	return r;
 }
@@ -878,12 +976,25 @@ static struct hdmi_cm hdmi_get_code(struct omap_video_timings *timing)
 
 static int hdmi_get_edid(struct omap_dss_device *dssdev)
 {
-	u8 i = 0, *ptr;
+	u8 i = 0, flag = 0, *ptr;
 	int count, offset;
 	if (edid_set != 1) {
 		printk(KERN_WARNING "Invalid read: display may be disabled\n");
-		return -ENXIO;
+		if (HDMI_CORE_DDC_READEDID(HDMI_CORE_SYS, edid) != 0)
+			printk(KERN_WARNING "HDMI failed to read E-EDID\n");
+		for (i = 0x00; i < 0x08; i++) {
+			if (edid[i] == header[i])
+				continue;
+			else {
+				flag = 1;
+				break;
+			}
+		}
+		if (flag == 0)
+			edid_set = 1;
 	}
+
+	mdelay(1000);
 
 	printk(KERN_INFO "\nHeader:\n");
 	for (i = 0x00; i < 0x08; i++)
@@ -924,6 +1035,9 @@ static int hdmi_get_edid(struct omap_dss_device *dssdev)
 				show_horz_vert_timing_info(edid, ptr);
 		}
 	}
+
+	hdmi_get_image_format();
+	hdmi_get_audio_format();
 
 	return 0;
 }
@@ -981,7 +1095,7 @@ int hdmi_init_display(struct omap_dss_device *dssdev)
 
 static int hdmi_read_edid(struct omap_video_timings *dp)
 {
-	int r = 0;
+	int r = 0, i = 0, flag = 0, ret;
 	u8		edid[HDMI_EDID_MAX_LENGTH];
 	u16		horizontal_res;
 	u16		vertical_res;
@@ -992,12 +1106,22 @@ static int hdmi_read_edid(struct omap_video_timings *dp)
 	memset(edid, 0, sizeof(edid));
 	tp = dp;
 
-	r = HDMI_CORE_DDC_READEDID(HDMI_CORE_SYS, edid);
+	if (edid_set != 1)
+		ret = HDMI_CORE_DDC_READEDID(HDMI_CORE_SYS, edid);
+	if (ret != 0) {
+		printk(KERN_WARNING "HDMI failed to read E-EDID\n");
+	} else {
+		for (i = 0x00; i < 0x08; i++) {
+			if (edid[i] == header[i]) {
+				continue;
+			} else {
+				flag = 1;
+				break;
+			}
+		}
+		if (flag == 0)
+			edid_set = 1;
 
-	if (r && r != -EINVAL) {
-		printk(KERN_ERR "HDMI failed to read E-EDID\n");
-		goto err;
-	} else if (r == 0) {
 		edid_timings.pixel_clock = dp->pixel_clock;
 		edid_timings.x_res = dp->x_res;
 		edid_timings.y_res = dp->y_res;
@@ -1024,7 +1148,6 @@ static int hdmi_read_edid(struct omap_video_timings *dp)
 			}
 		}
 	}
-	edid_set = 1;
 
 	cm = hdmi_get_code(tp);
 	hdmi.code = cm.code;
