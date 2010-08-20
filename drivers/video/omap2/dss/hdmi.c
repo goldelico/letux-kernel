@@ -32,6 +32,8 @@
 #include <linux/delay.h>
 #include <linux/string.h>
 #include <linux/platform_device.h>
+#include <linux/switch.h>
+#include <linux/workqueue.h>
 #include <plat/display.h>
 #include <plat/cpu.h>
 #include <plat/hdmi_lib.h>
@@ -68,6 +70,7 @@ static int hdmi_read_edid(struct omap_video_timings *);
 static int get_edid_timing_data(u8 *edid, u16 *pixel_clk, u16 *horizontal_res,
 			  u16 *vertical_res);
 static void show_horz_vert_timing_info(u8 *edid, u8 *ptr);
+static void hdmi_switch_class_work(struct work_struct *work);
 
 #define FALLBACK_CEA_CODE 4		/* CEA code 4 = 720p */
 #define DEFAULT_CEA_CODE  16		/* CEA code 16 = 1080p */
@@ -140,14 +143,19 @@ static int code_vesa[83] = {
 	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 26, 27
 };
 
-static struct {
+struct hdmi {
 	void __iomem *base_phy;
 	void __iomem *base_pll;
 	struct mutex lock;
 	int code;
 	int mode;
 	HDMI_Timing_t ti;
-} hdmi;
+	struct switch_dev switch_dev;
+	struct work_struct switch_work;
+	int switch_state;
+};
+
+struct hdmi hdmi;
 
 struct hdmi_cm {
 	int code;
@@ -566,8 +574,15 @@ int hdmi_init(struct platform_device *pdev, int code, int mode)
 
 	hdmi_enable_clocks(0);
 
+	/* switch-class based hdmi detection */
+	INIT_WORK(&hdmi.switch_work, hdmi_switch_class_work);
+	hdmi.switch_dev.name = "hdmi";
+	r = switch_dev_register(&hdmi.switch_dev);
+	if (r)
+		ERR("Register HDMI switch device error %d\n", r);
+
 	r = request_irq(INT_44XX_DSS_HDMI, hdmi_irq_handler,
-			0, "OMAP HDMI", (void *)0);
+			0, "OMAP HDMI", &hdmi);
 
 	return omap_dss_register_driver(&hdmi_driver);
 
@@ -577,6 +592,8 @@ void hdmi_exit(void)
 {
 	hdmi_lib_exit();
 
+	cancel_work_sync(&hdmi.switch_work);
+	switch_dev_unregister(&hdmi.switch_dev);
 	free_irq(INT_44XX_DSS_HDMI, NULL);
 	iounmap(hdmi.base_pll);
 	iounmap(hdmi.base_phy);
@@ -730,11 +747,20 @@ int hdmi_min_enable(void)
 	return 0;
 }
 
+static void hdmi_switch_class_work(struct work_struct *work)
+{
+	struct hdmi *hdmi;
+
+	hdmi = container_of(work, struct hdmi, switch_work);
+	switch_set_state(&hdmi->switch_dev, hdmi->switch_state);
+}
+
 static irqreturn_t hdmi_irq_handler(int irq, void *arg)
 {
 	int r = 0;
 	struct omap_dss_device *dssdev = NULL;
 	const char *buf = "hdmi";
+	struct hdmi *hdmi = arg;
 
 	int match(struct omap_dss_device *dssdev2 , void *data)
 	{
@@ -752,6 +778,8 @@ static irqreturn_t hdmi_irq_handler(int irq, void *arg)
 		hdmi_enable_clocks(1);
 		hdmi_power_on(dssdev);
 		mdelay(1000);
+		hdmi->switch_state = 1;
+		schedule_work(&hdmi->switch_work);
 		printk(KERN_INFO "Display enabled");
 	}
 	if (r == 1 || r == 4)
@@ -762,6 +790,8 @@ static irqreturn_t hdmi_irq_handler(int irq, void *arg)
 		hpd_mode = 1;
 		hdmi_gpio_config(1);
 		hdmi_min_enable();
+		hdmi->switch_state = 0;
+		schedule_work(&hdmi->switch_work);
 	}
 
 	return IRQ_HANDLED;
@@ -822,7 +852,7 @@ static int hdmi_enable_display(struct omap_dss_device *dssdev)
 		goto err;
 	}
 	r = request_irq(INT_44XX_DSS_HDMI, hdmi_irq_handler,
-			0, "OMAP HDMI", (void *)0);
+			0, "OMAP HDMI",  &hdmi);
 err:
 	mutex_unlock(&hdmi.lock);
 	return r;
