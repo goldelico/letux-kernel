@@ -359,7 +359,27 @@ static ssize_t display_device_connected_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%d\n", device_connected);
 }
 
+static ssize_t display_hpd_enabled_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t size)
+{
+	struct omap_dss_device *dssdev = to_dss_device(dev);
+	bool enabled, r;
 
+	enabled = simple_strtoul(buf, NULL, 10);
+
+	if (enabled != (dssdev->state != OMAP_DSS_DISPLAY_DISABLED)) {
+		if (enabled) {
+			r = dssdev->driver->hpd_enable(dssdev);
+			if (r)
+				return r;
+		} else {
+			dssdev->driver->disable(dssdev);
+		}
+	}
+
+	return size;
+}
 
 static DEVICE_ATTR(enabled, S_IRUGO|S_IWUSR,
 		display_enabled_show, display_enabled_store);
@@ -383,6 +403,8 @@ static DEVICE_ATTR(device_detect_enabled, S_IRUGO|S_IWUSR,
 static DEVICE_ATTR(device_connected, S_IRUGO,
 		display_device_connected_show,
 		NULL);
+static DEVICE_ATTR(hpd_enabled, S_IRUGO|S_IWUSR,
+		NULL, display_hpd_enabled_store);
 
 static struct device_attribute *display_sysfs_attrs[] = {
 	&dev_attr_enabled,
@@ -395,6 +417,7 @@ static struct device_attribute *display_sysfs_attrs[] = {
 	&dev_attr_custom_edid_timing,
 	&dev_attr_device_detect_enabled,
 	&dev_attr_device_connected,
+	&dev_attr_hpd_enabled,
 	NULL
 };
 
