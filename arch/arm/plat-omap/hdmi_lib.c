@@ -454,8 +454,9 @@ static int hdmi_core_ddc_edid(u8 pEDID[256])
 	}
 
 	i = 0;
-	while ((FLD_GET(hdmi_read_reg(ins, sts), 4, 4) == 1) \
-			| (FLD_GET(hdmi_read_reg(ins, sts), 2, 2) == 0)) {
+	while (((FLD_GET(hdmi_read_reg(ins, sts), 4, 4) == 1)
+		| (FLD_GET(hdmi_read_reg(ins, sts), 2, 2) == 0))
+		&& i < 256) {
 		if (FLD_GET(hdmi_read_reg(ins,
 			sts), 2, 2) == 0) {
 			/* FIFO not empty */
@@ -1424,7 +1425,7 @@ int hdmi_set_irqs(void)
 /* Interrupt handler*/
 void HDMI_W1_HPD_handler(int *r)
 {
-	u32 val, intr, enabled, set;
+	u32 val, intr, set;
 	mdelay(30);
 	val = hdmi_read_reg(HDMI_WP, HDMI_WP_IRQSTATUS);
 	DBG("%x hdmi_wp_irqstatus\n", val);

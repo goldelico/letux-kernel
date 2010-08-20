@@ -218,10 +218,10 @@ static int hdmi_enable_display(struct omap_dss_device *dssdev);
 static void hdmi_disable_display(struct omap_dss_device *dssdev);
 static int hdmi_display_suspend(struct omap_dss_device *dssdev);
 static int hdmi_display_resume(struct omap_dss_device *dssdev);
-
+static void hdmi_get_edid(struct omap_dss_device *dssdev);
 int hdmi_get_image_format(void);
 int hdmi_get_audio_format(void);
-static irqreturn_t hdmi_irq_handler();
+static irqreturn_t hdmi_irq_handler(int irq, void *arg);
 static int hdmi_enable_hpd(struct omap_dss_device *dssdev);
 static void hdmi_power_off(struct omap_dss_device *dssdev);
 

@@ -717,7 +717,7 @@ err:
 	return r;
 }
 
-int hdmi_min_enable()
+int hdmi_min_enable(void)
 {
 	int r;
 
@@ -730,7 +730,7 @@ int hdmi_min_enable()
 	return 0;
 }
 
-static irqreturn_t hdmi_irq_handler()
+static irqreturn_t hdmi_irq_handler(int irq, void *arg)
 {
 	int r = 0;
 	struct omap_dss_device *dssdev = NULL;
@@ -851,7 +851,7 @@ static int hdmi_enable_hpd(struct omap_dss_device *dssdev)
 
 	hdmi_gpio_config(1);
 	hpd_mode = 1;
-	r = hdmi_min_enable(dssdev);
+	r = hdmi_min_enable();
 	if (r) {
 		DSSERR("failed to power on device\n");
 		goto err;
@@ -974,7 +974,7 @@ static struct hdmi_cm hdmi_get_code(struct omap_video_timings *timing)
 	return cm;
 }
 
-static int hdmi_get_edid(struct omap_dss_device *dssdev)
+static void hdmi_get_edid(struct omap_dss_device *dssdev)
 {
 	u8 i = 0, flag = 0, *ptr;
 	int count, offset;
@@ -1038,8 +1038,6 @@ static int hdmi_get_edid(struct omap_dss_device *dssdev)
 
 	hdmi_get_image_format();
 	hdmi_get_audio_format();
-
-	return 0;
 }
 
 void show_horz_vert_timing_info(u8 *edid, u8 *ptr)
@@ -1095,7 +1093,7 @@ int hdmi_init_display(struct omap_dss_device *dssdev)
 
 static int hdmi_read_edid(struct omap_video_timings *dp)
 {
-	int r = 0, i = 0, flag = 0, ret;
+	int i = 0, flag = 0, ret = -EINVAL;
 	u8		edid[HDMI_EDID_MAX_LENGTH];
 	u16		horizontal_res;
 	u16		vertical_res;
@@ -1108,8 +1106,10 @@ static int hdmi_read_edid(struct omap_video_timings *dp)
 
 	if (edid_set != 1)
 		ret = HDMI_CORE_DDC_READEDID(HDMI_CORE_SYS, edid);
-	if (ret != 0) {
+
+	if (ret) {
 		printk(KERN_WARNING "HDMI failed to read E-EDID\n");
+		return ret;
 	} else {
 		for (i = 0x00; i < 0x08; i++) {
 			if (edid[i] == header[i]) {
@@ -1162,8 +1162,7 @@ static int hdmi_read_edid(struct omap_video_timings *dp)
 	hdmi.ti.verticalFrontPorch = tp->vfp;
 	hdmi.ti.verticalSyncPulse = tp->vsw;
 
-err:
-	return r;
+	return 0;
 }
 
 u16 edid_ptr;
