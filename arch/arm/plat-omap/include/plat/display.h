@@ -301,6 +301,12 @@ int dsi_vc_send_bta_sync(enum dsi lcd_ix, int channel);
 int dsi_vc_send_null(enum dsi lcd_ix, int channel);
 
 /* Board specific data */
+#define PWM2ON		0x03
+#define PWM2OFF		0x04
+#define TOGGLE3		0x92
+#define HDMI_GPIO_60	60
+#define HDMI_GPIO_41	41
+
 struct omap_dss_board_info {
 	int (*get_last_off_on_transaction_id)(struct device *dev);
 	int num_devices;
@@ -613,6 +619,11 @@ struct omap_dss_driver {
 	int (*memory_read)(struct omap_dss_device *dssdev,
 			void *buf, size_t size,
 			u16 x, u16 y, u16 w, u16 h);
+
+	/* HDMI specific */
+	void (*get_edid)(struct omap_dss_device *dssdev);
+	void (*set_custom_edid_timing_code)(struct omap_dss_device *dssdev,
+					    int mode, int code);
 };
 
 struct pico_platform_data {
