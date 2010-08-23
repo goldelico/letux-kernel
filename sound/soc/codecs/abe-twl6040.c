@@ -2093,7 +2093,7 @@ static int __devinit abe_twl6040_codec_probe(struct platform_device *pdev)
 	struct twl6040_jack_data *jack;
 	int audpwron, naudint;
 	int ret = 0;
-	u8 icrev;
+	u8 icrev, status;
 
 	priv = kzalloc(sizeof(struct twl6040_data), GFP_KERNEL);
 	if (priv == NULL)
@@ -2145,6 +2145,11 @@ static int __devinit abe_twl6040_codec_probe(struct platform_device *pdev)
 	ret = switch_dev_register(&jack->sdev);
 	if (ret)
 		goto switch_err;
+
+	/* initial headset state */
+	twl_i2c_read_u8(TWL_MODULE_AUDIO_VOICE, &status, TWL6040_REG_STATUS);
+	jack->state = !!(status & TWL6040_PLUGCOMP);
+	twl6040_hs_jack_detect_work(&jack->work);
 
 	if (gpio_is_valid(audpwron)) {
 		ret = gpio_request(audpwron, "audpwron");
