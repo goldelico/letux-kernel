@@ -1653,6 +1653,17 @@ static int __init omap3_pm_init(void)
 	register_reboot_notifier(&prcm_notifier);
 	atomic_notifier_chain_register(&panic_notifier_list,
 					&prcm_panic_notifier);
+
+	/*
+	 * With RTA enabled there were some issue seen on custom phones.
+	 * some devices running HLOS + camcorder app fails. Failure were
+	 * not deterministic. This was root-caused RTA (Retention-till-access).
+	 * As per H/w team recommendation; RTA is kept disabled till further
+	 * root-cause.
+	 */
+	if (cpu_is_omap3630())
+		omap_ctrl_writel(~OMAP3_MEM_RTA_ENABLE,
+			OMAP343X_CONTROL_MEM_RTA);
 err1:
 	return ret;
 err2:
