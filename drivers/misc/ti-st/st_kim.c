@@ -495,9 +495,10 @@ long st_kim_start(void)
 		/* re-initialize the completion */
 		INIT_COMPLETION(kim_gdata->ldisc_installed);
 		/* send signal to UIM */
-		err = kill_pid(find_get_pid(kim_gdata->uim_pid), SIGUSR2, 0);
+		err = kill_pid_info_as_uid(SIGUSR2, SEND_SIG_PRIV,
+				find_get_pid(kim_gdata->uim_pid), 0, 0, 0);
 		if (err != 0) {
-			ST_KIM_VER(" sending SIGUSR2 to uim failed %ld", err);
+			ST_KIM_ERR(" sending SIGUSR2 to uim failed %ld", err);
 			err = ST_ERR_FAILURE;
 			continue;
 		}
@@ -531,7 +532,8 @@ long st_kim_stop(void)
 
 	INIT_COMPLETION(kim_gdata->ldisc_installed);
 	/* send signal to UIM */
-	err = kill_pid(find_get_pid(kim_gdata->uim_pid), SIGUSR2, 1);
+	err = kill_pid_info_as_uid(SIGUSR2, SEND_SIG_PRIV,
+			find_get_pid(kim_gdata->uim_pid), 0, 0, 0);
 	if (err != 0) {
 		ST_KIM_ERR("sending SIGUSR2 to uim failed %ld", err);
 		return ST_ERR_FAILURE;
