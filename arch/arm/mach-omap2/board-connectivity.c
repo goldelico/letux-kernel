@@ -128,7 +128,7 @@ void conn_config_gpios(void)
 	config_mux_mcbsp3();
 }
 
-void conn_add_plat_device(void)
+void __init conn_add_plat_device(void)
 {
 	pr_info(" Adding Connectivity platform device\n");
 
