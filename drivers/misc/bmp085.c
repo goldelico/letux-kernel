@@ -42,13 +42,12 @@
     Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-
-#include <linux/module.h>
-#include <linux/init.h>
-#include <linux/i2c.h>
-#include <linux/slab.h>
 #include <linux/delay.h>
-
+#include <linux/i2c.h>
+#include <linux/init.h>
+#include <linux/input.h>
+#include <linux/module.h>
+#include <linux/slab.h>
 
 #define BMP085_I2C_ADDRESS		0x77
 #define BMP085_CHIP_ID			0x55
@@ -67,6 +66,9 @@
 
 #define BMP085_CLIENT_NAME		"bmp085"
 
+#define BMP085_OFF		0
+#define BMP085_REPORT_PRESSURE	1
+#define BMP085_REPORT_TEMP	2
 
 static const unsigned short normal_i2c[] = { BMP085_I2C_ADDRESS,
 							I2C_CLIENT_END };
@@ -82,13 +84,19 @@ struct bmp085_calibration_data {
 /* Each client has this additional data */
 struct bmp085_data {
 	struct i2c_client *client;
+	struct input_dev *input_dev;
 	struct mutex lock;
 	struct bmp085_calibration_data calibration;
+	struct delayed_work input_work;
 	u32 raw_temperature;
 	u32 raw_pressure;
+	u32 calib_temperature;
+	u32 calib_pressure;
 	unsigned char oversampling_setting;
 	unsigned long last_temp_measurement;
 	s32 b6; /* calculated temperature correction coefficient */
+	u8 mode;
+	u32 req_poll_rate;
 };
 
 
@@ -360,17 +368,85 @@ static ssize_t show_pressure(struct device *dev,
 }
 static DEVICE_ATTR(pressure0_input, S_IRUGO, show_pressure, NULL);
 
+static ssize_t bmp085_show_attr_enable(struct device *dev,
+				     struct device_attribute *attr,
+				     char *buf)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct bmp085_data *data = i2c_get_clientdata(client);
+
+	return sprintf(buf, "%d\n", data->mode);
+}
+
+static ssize_t bmp085_store_attr_enable(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t count)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct bmp085_data *data = i2c_get_clientdata(client);
+	unsigned long val;
+	int error;
+
+	error = strict_strtoul(buf, 0, &val);
+	if (error)
+		return error;
+
+	if (val < BMP085_OFF)
+		return -EINVAL;
+
+	if (val == BMP085_OFF) {
+		data->mode = val;
+		cancel_delayed_work_sync(&data->input_work);
+	} else if ((val & BMP085_REPORT_TEMP) ||
+		 (val & BMP085_REPORT_PRESSURE)) {
+		data->mode = val;
+		schedule_delayed_work(&data->input_work, 0);
+	} else {
+		return -EINVAL;
+	}
+
+	return 1;
+}
+static DEVICE_ATTR(enable, S_IWUSR | S_IRUGO,
+		bmp085_show_attr_enable, bmp085_store_attr_enable);
 
 static struct attribute *bmp085_attributes[] = {
 	&dev_attr_temp0_input.attr,
 	&dev_attr_pressure0_input.attr,
 	&dev_attr_oversampling.attr,
+	&dev_attr_enable.attr,
 	NULL
 };
 
 static const struct attribute_group bmp085_attr_group = {
 	.attrs = bmp085_attributes,
 };
+
+static void bmp085_report_data(struct bmp085_data *data, u32 pressure,
+				u32 temperature)
+{
+
+	if (data->mode & BMP085_REPORT_TEMP)
+		input_report_abs(data->input_dev, ABS_MISC, temperature);
+	if (data->mode & BMP085_REPORT_PRESSURE)
+		input_report_abs(data->input_dev, ABS_PRESSURE, pressure);
+
+	input_sync(data->input_dev);
+}
+
+static void bmp085_input_work_func(struct work_struct *work)
+{
+	struct bmp085_data *bmp085 = container_of((struct delayed_work *)work,
+						  struct bmp085_data,
+						  input_work);
+
+	bmp085_get_temperature(bmp085, &bmp085->calib_temperature);
+	bmp085_get_pressure(bmp085, &bmp085->calib_pressure);
+	bmp085_report_data(bmp085, bmp085->calib_pressure,
+				bmp085->calib_temperature);
+	schedule_delayed_work(&bmp085->input_work,
+				msecs_to_jiffies(bmp085->req_poll_rate));
+}
 
 static int bmp085_detect(struct i2c_client *client, struct i2c_board_info *info)
 {
@@ -416,23 +492,62 @@ static int bmp085_probe(struct i2c_client *client,
 
 	/* default settings after POR */
 	data->oversampling_setting = 0x00;
+	/* Set default polling rate at 200mSec */
+	data->req_poll_rate = 200;
 
 	i2c_set_clientdata(client, data);
 
 	/* Initialize the BMP085 chip */
 	err = bmp085_init_client(client);
 	if (err != 0)
-		goto exit_free;
+		goto bmp085_init_failed;
+
+	/* Register as an input device */
+	data->input_dev = input_allocate_device();
+	if (data->input_dev == NULL) {
+		err = -ENOMEM;
+		dev_err(&data->client->dev,
+			"Failed to allocate input device\n");
+		goto input_alloc_failed;
+	}
+
+	data->input_dev->name = "bmp085";
+	data->input_dev->id.bustype = BUS_I2C;
+
+	/* ABS_MISC is for temperature */
+	 __set_bit(EV_ABS, data->input_dev->evbit);
+	 __set_bit(EV_MSC, data->input_dev->evbit);
+
+	input_set_abs_params(data->input_dev, ABS_PRESSURE, 0,
+				110000, 0, 0);
+	input_set_abs_params(data->input_dev, ABS_MISC, 0,
+				120, 0, 0);
+
+	err = input_register_device(data->input_dev);
+	if (err) {
+		dev_err(&data->client->dev,
+			"Unable to register input device\n");
+		goto input_reg_failed;
+	}
+
+	INIT_DELAYED_WORK(&data->input_work, bmp085_input_work_func);
 
 	/* Register sysfs hooks */
 	err = sysfs_create_group(&client->dev.kobj, &bmp085_attr_group);
 	if (err)
-		goto exit_free;
+		goto reg_sysfs_failed;
 
 	dev_info(&data->client->dev, "Succesfully initialized bmp085!\n");
 	goto exit;
 
-exit_free:
+reg_sysfs_failed:
+	input_unregister_device(data->input_dev);
+input_reg_failed:
+	if (data->input_dev != NULL)
+		input_free_device(data->input_dev);
+	mutex_destroy(&data->lock);
+input_alloc_failed:
+bmp085_init_failed:
 	kfree(data);
 exit:
 	return err;
@@ -440,6 +555,11 @@ exit:
 
 static int bmp085_remove(struct i2c_client *client)
 {
+	struct bmp085_data *data = i2c_get_clientdata(client);
+
+	mutex_destroy(&data->lock);
+	input_unregister_device(data->input_dev);
+	input_free_device(data->input_dev);
 	sysfs_remove_group(&client->dev.kobj, &bmp085_attr_group);
 	kfree(i2c_get_clientdata(client));
 	return 0;
@@ -459,7 +579,7 @@ static struct i2c_driver bmp085_driver = {
 	.probe		= bmp085_probe,
 	.remove		= bmp085_remove,
 
-/*	.detect		= bmp085_detect,*/
+	.detect		= bmp085_detect,
 	/*.address_list	= normal_i2c*/
 };
 
