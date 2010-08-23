@@ -153,8 +153,8 @@ static void FlushInternalSyncQueue(OMAPLFB_SWAPCHAIN *psSwapChain)
 	psFlipItem = &psSwapChain->psFlipItems[psSwapChain->ulRemoveIndex];
 	ulMaxIndex = psSwapChain->ulBufferCount - 1;
 
-	DEBUG_PRINTK("Flushing sync queue on display %lu",
-		psDevInfo->ulDeviceID);
+	DEBUG_PRINTK("Flushing sync queue on display %u",
+		psDevInfo->uDeviceID);
 	for(i = 0; i < psSwapChain->ulBufferCount; i++)
 	{
 		if (psFlipItem->bValid == OMAP_FALSE)
@@ -210,14 +210,14 @@ static void SetFlushStateInternalNoLock(OMAPLFB_DEVINFO* psDevInfo,
 	/* Nothing to do if there is no swap chain */
 	if (psSwapChain == NULL){
 		DEBUG_PRINTK("Swap chain is null, nothing to do for"
-			" display %lu", psDevInfo->ulDeviceID);
+			" display %u", psDevInfo->uDeviceID);
 		return;
 	}
 
 	if (bFlushState)
 	{
-		DEBUG_PRINTK("Desired flushState is true for display %lu",
-			psDevInfo->ulDeviceID);
+		DEBUG_PRINTK("Desired flushState is true for display %u",
+			psDevInfo->uDeviceID);
 		if (psSwapChain->ulSetFlushStateRefCount == 0)
 		{
 			psSwapChain->bFlushCommands = OMAP_TRUE;
@@ -227,8 +227,8 @@ static void SetFlushStateInternalNoLock(OMAPLFB_DEVINFO* psDevInfo,
 	}
 	else
 	{
-		DEBUG_PRINTK("Desired flushState is false for display %lu",
-			psDevInfo->ulDeviceID);
+		DEBUG_PRINTK("Desired flushState is false for display %u",
+			psDevInfo->uDeviceID);
 		if (psSwapChain->ulSetFlushStateRefCount != 0)
 		{
 			psSwapChain->ulSetFlushStateRefCount--;
@@ -248,8 +248,8 @@ static void SetFlushStateInternalNoLock(OMAPLFB_DEVINFO* psDevInfo,
 static IMG_VOID SetFlushStateInternal(OMAPLFB_DEVINFO* psDevInfo,
                                       OMAP_BOOL bFlushState)
 {
-	DEBUG_PRINTK("Executing for display %lu",
-		psDevInfo->ulDeviceID);
+	DEBUG_PRINTK("Executing for display %u",
+		psDevInfo->uDeviceID);
 	mutex_lock(&psDevInfo->sSwapChainLockMutex);
 	SetFlushStateInternalNoLock(psDevInfo, bFlushState);
 	mutex_unlock(&psDevInfo->sSwapChainLockMutex);
@@ -263,8 +263,8 @@ static IMG_VOID SetFlushStateInternal(OMAPLFB_DEVINFO* psDevInfo,
 static void SetFlushStateExternal(OMAPLFB_DEVINFO* psDevInfo,
                                   OMAP_BOOL bFlushState)
 {
-	DEBUG_PRINTK("Executing for display %lu",
-		psDevInfo->ulDeviceID);
+	DEBUG_PRINTK("Executing for display %u",
+		psDevInfo->uDeviceID);
 	mutex_lock(&psDevInfo->sSwapChainLockMutex);
 	if (psDevInfo->bFlushCommands != bFlushState)
 	{
@@ -280,8 +280,8 @@ static void SetFlushStateExternal(OMAPLFB_DEVINFO* psDevInfo,
  */
 static OMAP_ERROR UnBlankDisplay(OMAPLFB_DEVINFO *psDevInfo)
 {
-	DEBUG_PRINTK("Executing for display %lu",
-		psDevInfo->ulDeviceID);
+	DEBUG_PRINTK("Executing for display %u",
+		psDevInfo->uDeviceID);
 
 	acquire_console_sem();
 	if (fb_blank(psDevInfo->psLINFBInfo, FB_BLANK_UNBLANK))
@@ -346,8 +346,8 @@ static int FrameBufferEvents(struct notifier_block *psNotif,
 	/* Check if the blank state is the same as the swap chain */
 	if (bBlanked != psSwapChain->bBlanked)
 	{
-		DEBUG_PRINTK("Executing for display %lu",
-			psDevInfo->ulDeviceID);
+		DEBUG_PRINTK("Executing for display %u",
+			psDevInfo->uDeviceID);
 
 		/* Set the new blank state in the swap chain */
 		psSwapChain->bBlanked = bBlanked;
@@ -355,20 +355,20 @@ static int FrameBufferEvents(struct notifier_block *psNotif,
 		if (bBlanked)
 		{
 			DEBUG_PRINTK("Requesting flush state true for"
-				" display %lu", psDevInfo->ulDeviceID);
+				" display %u", psDevInfo->uDeviceID);
 			SetFlushStateInternal(psDevInfo, OMAP_TRUE);
 		}
 		else
 		{
 			DEBUG_PRINTK("Requesting flush state false for"
-				" display %lu", psDevInfo->ulDeviceID);
+				" display %u", psDevInfo->uDeviceID);
 			SetFlushStateInternal(psDevInfo, OMAP_FALSE);
 		}
 	}
 	else
 	{
-		DEBUG_PRINTK("Ignoring event for display %lu",
-			psDevInfo->ulDeviceID);
+		DEBUG_PRINTK("Ignoring event for display %u",
+			psDevInfo->uDeviceID);
 	}
 
 	return 0;
@@ -391,12 +391,12 @@ static OMAP_ERROR EnableLFBEventNotification(OMAPLFB_DEVINFO *psDevInfo)
 	psSwapChain->bBlanked = OMAP_FALSE;
 
 	DEBUG_PRINTK("Registering framebuffer event listener for"
-		" display %lu", psDevInfo->ulDeviceID);
+		" display %u", psDevInfo->uDeviceID);
 
 	if (fb_register_client(&psDevInfo->sLINNotifBlock))
 	{
 		WARNING_PRINTK("fb_register_client failed for"
-			" display %lu", psDevInfo->ulDeviceID);
+			" display %u", psDevInfo->uDeviceID);
 		return OMAP_ERROR_GENERIC;
 	}
 
@@ -404,7 +404,7 @@ static OMAP_ERROR EnableLFBEventNotification(OMAPLFB_DEVINFO *psDevInfo)
 	if (eError != OMAP_OK)
 	{
 		WARNING_PRINTK("UnBlankDisplay failed for"
-			" display %lu", psDevInfo->ulDeviceID);
+			" display %u", psDevInfo->uDeviceID);
 		return eError;
 	}
 
@@ -418,12 +418,12 @@ static OMAP_ERROR EnableLFBEventNotification(OMAPLFB_DEVINFO *psDevInfo)
 static OMAP_ERROR DisableLFBEventNotification(OMAPLFB_DEVINFO *psDevInfo)
 {
 	DEBUG_PRINTK("Removing framebuffer event listener for"
-		" display %lu", psDevInfo->ulDeviceID);
+		" display %u", psDevInfo->uDeviceID);
 
 	if (fb_unregister_client(&psDevInfo->sLINNotifBlock))
 	{
 		WARNING_PRINTK("fb_unregister_client failed for"
-			" display %lu", psDevInfo->ulDeviceID);
+			" display %u", psDevInfo->uDeviceID);
 		return OMAP_ERROR_GENERIC;
 	}
 
@@ -445,7 +445,7 @@ static PVRSRV_ERROR OpenDCDevice(IMG_UINT32 ui32DeviceID,
 	psDevInfo = 0;
 	for(i = 0; i < FRAMEBUFFER_COUNT; i++)
 	{
-		if(ui32DeviceID == (&pDisplayDevices[i])->ulDeviceID)
+		if (ui32DeviceID == (&pDisplayDevices[i])->uDeviceID)
 		{
 			psDevInfo = &pDisplayDevices[i];
 			break;
@@ -463,7 +463,7 @@ static PVRSRV_ERROR OpenDCDevice(IMG_UINT32 ui32DeviceID,
 	if ( UnBlankDisplay(psDevInfo) != OMAP_OK)
 	{
 		WARNING_PRINTK("UnBlankDisplay failed for"
-			" display %lu", psDevInfo->ulDeviceID);
+			" display %u", psDevInfo->uDeviceID);
 		return PVRSRV_ERROR_UNBLANK_DISPLAY_FAILED;
 	}
 	*phDevice = (IMG_HANDLE)psDevInfo;
@@ -494,7 +494,7 @@ static PVRSRV_ERROR EnumDCFormats(IMG_HANDLE hDevice,
 		psFormat[0] = psDevInfo->sDisplayFormat;
 	else
 		WARNING_PRINTK("Display format is null for"
-			" display %lu", psDevInfo->ulDeviceID);
+			" display %u", psDevInfo->uDeviceID);
 
 	return PVRSRV_OK;
 }
@@ -523,7 +523,7 @@ static PVRSRV_ERROR EnumDCDims(IMG_HANDLE hDevice,
 		psDim[0] = psDevInfo->sDisplayDim;
 	else
 		WARNING_PRINTK("Display dimensions are null for"
-			" display %lu", psDevInfo->ulDeviceID);
+			" display %u", psDevInfo->uDeviceID);
 
 	return PVRSRV_OK;
 }
@@ -575,13 +575,15 @@ static PVRSRV_ERROR GetDCInfo(IMG_HANDLE hDevice, DISPLAY_INFO *psDCInfo)
  * in: hDevice
  * out: ppsSysAddr, pui32ByteSize, ppvCpuVAddr, phOSMapInfo, pbIsContiguous
  */
-static PVRSRV_ERROR GetDCBufferAddr(IMG_HANDLE        hDevice,
-                                    IMG_HANDLE        hBuffer, 
-                                    IMG_SYS_PHYADDR   **ppsSysAddr,
-                                    IMG_UINT32        *pui32ByteSize,
-                                    IMG_VOID          **ppvCpuVAddr,
-                                    IMG_HANDLE        *phOSMapInfo,
-                                    IMG_BOOL          *pbIsContiguous)
+static PVRSRV_ERROR GetDCBufferAddr(
+				IMG_HANDLE        hDevice,
+				IMG_HANDLE        hBuffer,
+				IMG_SYS_PHYADDR   **ppsSysAddr,
+				IMG_UINT32        *pui32ByteSize,
+				IMG_VOID          **ppvCpuVAddr,
+				IMG_HANDLE        *phOSMapInfo,
+				IMG_BOOL          *pbIsContiguous,
+				IMG_UINT32        *pui32TilingStride)
 {
 	OMAPLFB_DEVINFO	*psDevInfo;
 	OMAPLFB_BUFFER *psSystemBuffer;
@@ -644,25 +646,25 @@ static PVRSRV_ERROR CreateDCSwapChain(IMG_HANDLE hDevice,
 	if (psDevInfo->sDisplayInfo.ui32MaxSwapChains == 0)
 	{
 		ERROR_PRINTK("Unable to operate with 0 MaxSwapChains for"
-			" display %lu", psDevInfo->ulDeviceID);
+			" display %u", psDevInfo->uDeviceID);
 		return PVRSRV_ERROR_NOT_SUPPORTED;
 	}
 
 	if(psDevInfo->psSwapChain != NULL)
 	{
 		ERROR_PRINTK("Swap chain already exists for"
-			" display %lu", psDevInfo->ulDeviceID);
+			" display %u", psDevInfo->uDeviceID);
 		return PVRSRV_ERROR_FLIP_CHAIN_EXISTS;
 	}
 
 	if(ui32BufferCount > psDevInfo->sDisplayInfo.ui32MaxSwapChainBuffers)
 	{
 		ERROR_PRINTK("Too many buffers. Trying to use %u buffers while"
-			" there is only %u available for display %lu",
+			" there is only %u available for display %u",
 			(unsigned int)ui32BufferCount,
 			(unsigned int)psDevInfo->
 			sDisplayInfo.ui32MaxSwapChainBuffers,
-			psDevInfo->ulDeviceID);
+			psDevInfo->uDeviceID);
 		return PVRSRV_ERROR_TOOMANYBUFFERS;
 	}
 
@@ -672,11 +674,11 @@ static PVRSRV_ERROR CreateDCSwapChain(IMG_HANDLE hDevice,
 	{
 		ERROR_PRINTK("Too many buffers. Trying to use %u buffers "
 			"(%lu bytes each) while there is only %lu memory for"
-			" display %lu",
+			" display %u",
 			(unsigned int)ui32BufferCount,
 			psDevInfo->sFBInfo.ulRoundedBufferSize,
 			psDevInfo->sFBInfo.ulFBSize,
-			psDevInfo->ulDeviceID);
+			psDevInfo->uDeviceID);
 		return PVRSRV_ERROR_TOOMANYBUFFERS;
 	}
 
@@ -693,8 +695,8 @@ static PVRSRV_ERROR CreateDCSwapChain(IMG_HANDLE hDevice,
 		psDevInfo->sDisplayDim.ui32Height))
 	{
 		ERROR_PRINTK("Destination surface attributes differ from the"
-			" current framebuffer for display %lu",
-			psDevInfo->ulDeviceID);
+			" current framebuffer for display %u",
+			psDevInfo->uDeviceID);
 		return PVRSRV_ERROR_INVALID_PARAMS;
 	}		
 
@@ -708,8 +710,8 @@ static PVRSRV_ERROR CreateDCSwapChain(IMG_HANDLE hDevice,
 		psSrcSurfAttrib->sDims.ui32Height))
 	{
 		ERROR_PRINTK("Destination surface attributes differ from the"
-			" target destination surface for display %lu",
-			psDevInfo->ulDeviceID);
+			" target destination surface for display %u",
+			psDevInfo->uDeviceID);
 		return PVRSRV_ERROR_INVALID_PARAMS;
 	}		
 
@@ -719,12 +721,12 @@ static PVRSRV_ERROR CreateDCSwapChain(IMG_HANDLE hDevice,
 	if(!psSwapChain)
 	{
 		ERROR_PRINTK("Out of memory to allocate swap chain for"
-			" display %lu", psDevInfo->ulDeviceID);
+			" display %u", psDevInfo->uDeviceID);
 		return PVRSRV_ERROR_OUT_OF_MEMORY;
 	}
 
-	DEBUG_PRINTK("Creating swap chain 0x%lx for display %lu",
-		(unsigned long)psSwapChain, psDevInfo->ulDeviceID );
+	DEBUG_PRINTK("Creating swap chain 0x%lx for display %u",
+		(unsigned long)psSwapChain, psDevInfo->uDeviceID);
 
 	/* Allocate memory for the buffer abstraction structures */
 	psBuffer = (OMAPLFB_BUFFER*)OMAPLFBAllocKernelMem(
@@ -732,8 +734,8 @@ static PVRSRV_ERROR CreateDCSwapChain(IMG_HANDLE hDevice,
 	if(!psBuffer)
 	{
 		ERROR_PRINTK("Out of memory to allocate the buffer"
-			" abstraction structures for display %lu",
-			psDevInfo->ulDeviceID);
+			" abstraction structures for display %u",
+			psDevInfo->uDeviceID);
 		eError = PVRSRV_ERROR_OUT_OF_MEMORY;
 		goto ErrorFreeSwapChain;
 	}
@@ -744,8 +746,8 @@ static PVRSRV_ERROR CreateDCSwapChain(IMG_HANDLE hDevice,
 	if (!psFlipItems)
 	{
 		ERROR_PRINTK("Out of memory to allocate the flip item"
-			" abstraction structures for display %lu",
-			psDevInfo->ulDeviceID);
+			" abstraction structures for display %u",
+			psDevInfo->uDeviceID);
 		eError = PVRSRV_ERROR_OUT_OF_MEMORY;
 		goto ErrorFreeBuffers;
 	}
@@ -767,8 +769,8 @@ static PVRSRV_ERROR CreateDCSwapChain(IMG_HANDLE hDevice,
 	psDevInfo->sync_display_wq =
 		__create_workqueue("pvr_display_sync_wq", 1, 1, 1);
 
-	DEBUG_PRINTK("Swap chain will have %u buffers for display %lu",
-		(unsigned int)ui32BufferCount, psDevInfo->ulDeviceID);
+	DEBUG_PRINTK("Swap chain will have %u buffers for display %u",
+		(unsigned int)ui32BufferCount, psDevInfo->uDeviceID);
 	/* Link the buffers available like a circular list */
 	for(i=0; i<ui32BufferCount-1; i++)
 	{
@@ -788,9 +790,9 @@ static PVRSRV_ERROR CreateDCSwapChain(IMG_HANDLE hDevice,
 			ui32BufferOffset;
 		psBuffer[i].sCPUVAddr = psDevInfo->sFBInfo.sCPUVAddr +
 			ui32BufferOffset;
-		DEBUG_PRINTK("Display %lu buffer index %u has physical "
+		DEBUG_PRINTK("Display %u buffer index %u has physical "
 			"address 0x%x",
-			psDevInfo->ulDeviceID,
+			psDevInfo->uDeviceID,
 			(unsigned int)i,
 			(unsigned int)psBuffer[i].sSysAddr.uiAddr);
 	}
@@ -817,8 +819,8 @@ static PVRSRV_ERROR CreateDCSwapChain(IMG_HANDLE hDevice,
 	if (EnableLFBEventNotification(psDevInfo)!= OMAP_OK)
 	{
 		WARNING_PRINTK("Couldn't enable framebuffer event"
-			" notification for display %lu",
-			psDevInfo->ulDeviceID);
+			" notification for display %u",
+			psDevInfo->uDeviceID);
 		goto ErrorUnRegisterDisplayClient;
 	}
 	
@@ -863,8 +865,8 @@ static PVRSRV_ERROR DestroyDCSwapChain(IMG_HANDLE hDevice,
 		return PVRSRV_ERROR_INVALID_PARAMS;
 	}
 
-	DEBUG_PRINTK("Destroying swap chain for display %lu",
-		psDevInfo->ulDeviceID);
+	DEBUG_PRINTK("Destroying swap chain for display %u",
+		psDevInfo->uDeviceID);
 
 	eError = DisableLFBEventNotification(psDevInfo);
 	if (eError != OMAP_OK)
@@ -925,8 +927,8 @@ static PVRSRV_ERROR GetDCBuffers(IMG_HANDLE hDevice,
 	if (psSwapChain != psDevInfo->psSwapChain)
 	{
 		ERROR_PRINTK("Swap chain handler differs from the one "
-			"present in the display device %lu pointer",
-			psDevInfo->ulDeviceID);
+			"present in the display device %u pointer",
+			psDevInfo->uDeviceID);
 		return PVRSRV_ERROR_INVALID_PARAMS;
 	}
 	*pui32BufferCount = (IMG_UINT32)psSwapChain->ulBufferCount;
@@ -949,18 +951,18 @@ static IMG_VOID SetDCState(IMG_HANDLE hDevice, IMG_UINT32 ui32State)
 	{
 		case DC_STATE_FLUSH_COMMANDS:
 			DEBUG_PRINTK("Setting state to flush commands for"
-				" display %lu", psDevInfo->ulDeviceID);
+				" display %u", psDevInfo->uDeviceID);
 			SetFlushStateExternal(psDevInfo, OMAP_TRUE);
 			break;
 		case DC_STATE_NO_FLUSH_COMMANDS:
 			DEBUG_PRINTK("Setting state to not flush commands for"
-				" display %lu", psDevInfo->ulDeviceID);
+				" display %u", psDevInfo->uDeviceID);
 			SetFlushStateExternal(psDevInfo, OMAP_FALSE);
 			break;
 		default:
 			WARNING_PRINTK("Unknown command state %u for display"
-				" %lu", (unsigned int)ui32State,
-				psDevInfo->ulDeviceID);
+				" %u", (unsigned int)ui32State,
+				psDevInfo->uDeviceID);
 			break;
 	}
 }
@@ -985,14 +987,14 @@ static PVRSRV_ERROR SwapToDCSystem(IMG_HANDLE hDevice,
 	psDevInfo = (OMAPLFB_DEVINFO*)hDevice;
 	psSwapChain = (OMAPLFB_SWAPCHAIN*)hSwapChain;
 
-	DEBUG_PRINTK("Executing for display %lu",
-		psDevInfo->ulDeviceID);
+	DEBUG_PRINTK("Executing for display %u",
+		psDevInfo->uDeviceID);
 
 	if (psSwapChain != psDevInfo->psSwapChain)
 	{
 		ERROR_PRINTK("Swap chain handler differs from the one "
-			"present in the display device %lu pointer",
-			psDevInfo->ulDeviceID);
+			"present in the display device %u pointer",
+			psDevInfo->uDeviceID);
 		return PVRSRV_ERROR_INVALID_PARAMS;
 	}
 	
@@ -1300,21 +1302,21 @@ OMAP_ERROR OMAPLFBDeinit(void)
 		/* Remove the ProcessFlip command callback */
 		psJTable = &psDevInfo->sPVRJTable;
 		if (psDevInfo->sPVRJTable.pfnPVRSRVRemoveCmdProcList(
-			psDevInfo->ulDeviceID,
+			psDevInfo->uDeviceID,
 			OMAPLFB_COMMAND_COUNT) != PVRSRV_OK)
 		{
 			ERROR_PRINTK("Unable to remove callback for "
-				"ProcessFlip command for display %lu",
-				psDevInfo->ulDeviceID);
+				"ProcessFlip command for display %u",
+				psDevInfo->uDeviceID);
 			return OMAP_ERROR_GENERIC;
 		}
 
 		/* Remove the display device from services */
 		if (psJTable->pfnPVRSRVRemoveDCDevice(
-			psDevInfo->ulDeviceID) != PVRSRV_OK)
+			psDevInfo->uDeviceID) != PVRSRV_OK)
 		{
-			ERROR_PRINTK("Unable to remove the display %lu "
-				"from services", psDevInfo->ulDeviceID);
+			ERROR_PRINTK("Unable to remove the display %u "
+				"from services", psDevInfo->uDeviceID);
 			return OMAP_ERROR_GENERIC;
 		}
 
@@ -1652,7 +1654,7 @@ OMAP_ERROR OMAPLFBInit(void)
 			psDevInfo->sFBInfo.sCPUVAddr;
 		psDevInfo->sSystemBuffer.ulBufferSize =
 			psDevInfo->sFBInfo.ulRoundedBufferSize;
-		DEBUG_PRINTK("Buffers available: %lu (%lu bytes per buffer)",
+		DEBUG_PRINTK("Buffers available: %u (%lu bytes per buffer)",
 			psDevInfo->sDisplayInfo.ui32MaxSwapChainBuffers,
 			psDevInfo->sFBInfo.ulBufferSize);
 
@@ -1681,15 +1683,15 @@ OMAP_ERROR OMAPLFBInit(void)
 		/* Register the display device */
 		if(psDevInfo->sPVRJTable.pfnPVRSRVRegisterDCDevice(
 			&psDevInfo->sDCJTable,
-			&psDevInfo->ulDeviceID ) != PVRSRV_OK)
+			&psDevInfo->uDeviceID) != PVRSRV_OK)
 		{
 			ERROR_PRINTK("Unable to register the jump table"
 				" services->display");
 			return OMAP_ERROR_DEVICE_REGISTER_FAILED;
 		}
 
-		DEBUG_PRINTK("Display device %i registered with id %lu",
-			i, psDevInfo->ulDeviceID);
+		DEBUG_PRINTK("Display device %i registered with id %u",
+			i, psDevInfo->uDeviceID);
 
 		/*
 		 * Register the ProcessFlip function to notify when a frame is
@@ -1699,7 +1701,7 @@ OMAP_ERROR OMAPLFBInit(void)
 		aui32SyncCountList[DC_FLIP_COMMAND][0] = 0;
 		aui32SyncCountList[DC_FLIP_COMMAND][1] = 2;
 		if (psDevInfo->sPVRJTable.pfnPVRSRVRegisterCmdProcList(
-			psDevInfo->ulDeviceID, &pfnCmdProcList[0],
+			psDevInfo->uDeviceID, &pfnCmdProcList[0],
 			aui32SyncCountList, OMAPLFB_COMMAND_COUNT) != PVRSRV_OK)
 		{
 			ERROR_PRINTK("Unable to register callback for "
