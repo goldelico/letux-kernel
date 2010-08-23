@@ -293,6 +293,7 @@ static OMAP_ERROR UnBlankDisplay(OMAPLFB_DEVINFO *psDevInfo)
 	acquire_console_sem();
 	if (fb_blank(psDevInfo->psLINFBInfo, FB_BLANK_UNBLANK))
 	{
+		release_console_sem();
 		WARNING_PRINTK("fb_blank failed");
 		return OMAP_ERROR_GENERIC;
 	}
