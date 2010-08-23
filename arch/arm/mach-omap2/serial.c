@@ -938,7 +938,7 @@ void __init omap_serial_init_port(int port)
 		omap_up.dma_enabled = uart->dma_enabled;
 
 		/* ENABLE DMA MODE UART2 */
-		if (uart->num == 1) {
+		if (cpu_is_omap34xx() && uart->num == 1) {
 			omap_up.dma_enabled = true;
 			uart->dma_enabled = 1;
 		}
