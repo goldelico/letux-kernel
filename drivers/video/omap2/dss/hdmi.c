@@ -430,6 +430,7 @@ static int hdmi_phy_init(u32 w1,
 
 	count = 0;
 	while (count++ < 1000)
+		;
 
 	return 0;
 }
@@ -447,6 +448,7 @@ static int hdmi_phy_off(u32 name)
 
 	count = 0;
 	while (count++ < 200)
+		;
 
 	return 0;
 }
