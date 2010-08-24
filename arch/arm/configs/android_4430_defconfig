@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32.9
-# Tue Aug 24 16:05:59 2010
+# Tue Aug 24 16:14:02 2010
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -1476,7 +1476,7 @@ CONFIG_LEDS_CLASS=y
 # CONFIG_LEDS_DAC124S085 is not set
 # CONFIG_LEDS_BD2802 is not set
 CONFIG_LEDS_OMAP4430_SDP_KEYPAD=y
-# CONFIG_LEDS_OMAP4430_SDP_DISPLAY is not set
+CONFIG_LEDS_OMAP4430_SDP_DISPLAY=y
 # CONFIG_LEDS_LM3554 is not set
 # CONFIG_LEDS_LM3530 is not set
 
