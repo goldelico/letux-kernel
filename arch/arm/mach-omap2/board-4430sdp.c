@@ -17,6 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/gpio.h>
+#include <linux/leds-omap4430sdp-display.h>
 #include <linux/spi/spi.h>
 #include <linux/usb/otg.h>
 #include <linux/input.h>
@@ -56,6 +57,12 @@
 #define OMAP4SDP_MDM_PWR_EN_GPIO	157
 #define OMAP4_SFH7741_SENSOR_OUTPUT_GPIO	184
 #define OMAP4_SFH7741_ENABLE_GPIO		188
+
+#define LED_SEC_DISP_GPIO 27
+
+#define LED_PWM2ON		0x03
+#define LED_PWM2OFF		0x04
+#define LED_TOGGLE3		0x92
 
 static void omap_prox_activate(int state);
 static int omap_prox_read(void);
@@ -240,7 +247,6 @@ static struct omap2_mcspi_device_config dummy2_mcspi_config = {
 static int sdp4430_panel_enable_lcd(struct omap_dss_device *dssdev)
 {
 	if (dssdev->channel == OMAP_DSS_CHANNEL_LCD2) {
-
 		gpio_request(DSI2_GPIO_104, "dsi2_en_gpio");
 		gpio_direction_output(DSI2_GPIO_104, 0);
 		mdelay(500);
@@ -249,18 +255,6 @@ static int sdp4430_panel_enable_lcd(struct omap_dss_device *dssdev)
 		gpio_set_value(DSI2_GPIO_104, 0);
 		mdelay(500);
 		gpio_set_value(DSI2_GPIO_104, 1);
-
-		twl_i2c_write_u8(TWL_MODULE_PWM, 0xFF, PWM2ON); /*0xBD = 0xFF*/
-		twl_i2c_write_u8(TWL_MODULE_PWM, 0x7F, PWM2OFF); /*0xBE = 0x7F*/
-		twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x30, TOGGLE3);
-
-		gpio_request(DSI2_GPIO_59, "dsi2_bl_gpio");
-		gpio_direction_output(DSI2_GPIO_59, 1);
-		mdelay(120);
-		gpio_set_value(DSI2_GPIO_59, 0);
-		mdelay(120);
-		gpio_set_value(DSI2_GPIO_59, 1);
-
 	} else {
 		gpio_request(DSI1_GPIO_102, "dsi1_en_gpio");
 		gpio_direction_output(DSI1_GPIO_102, 0);
@@ -270,18 +264,11 @@ static int sdp4430_panel_enable_lcd(struct omap_dss_device *dssdev)
 		gpio_set_value(DSI1_GPIO_102, 0);
 		mdelay(500);
 		gpio_set_value(DSI1_GPIO_102, 1);
-
-		twl_i2c_write_u8(TWL_MODULE_PWM, 0xFF, PWM2ON); /*0xBD = 0xFF*/
-		twl_i2c_write_u8(TWL_MODULE_PWM, 0x7F, PWM2OFF); /*0xBE = 0x7F*/
-		twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x30, TOGGLE3);
-
-		gpio_request(DSI1_GPIO_27, "dsi1_bl_gpio");
-		gpio_direction_output(DSI1_GPIO_27, 1);
-		mdelay(120);
-		gpio_set_value(DSI1_GPIO_27, 0);
-		mdelay(120);
-		gpio_set_value(DSI1_GPIO_27, 1);
-
+		/*TO DO: Figure out how to separate these calls and not
+		affect lcd initialization */
+		twl_i2c_write_u8(TWL_MODULE_PWM, 0xFF, LED_PWM2ON);
+		twl_i2c_write_u8(TWL_MODULE_PWM, 0x7F, LED_PWM2OFF);
+		twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x30, LED_TOGGLE3);
 	}
 
 	return 0;
@@ -292,18 +279,12 @@ static int sdp4430_panel_disable_lcd(struct omap_dss_device *dssdev)
 
 	if (dssdev->channel == OMAP_DSS_CHANNEL_LCD2) {
 		gpio_set_value(DSI2_GPIO_104, 1);
-		gpio_set_value(DSI2_GPIO_59, 0);
 	} else {
 		gpio_set_value(DSI1_GPIO_102, 1);
-		gpio_set_value(DSI1_GPIO_27, 0);
 	}
 	return 0;
 }
 
-static void __init sdp4430_display_init(void)
-{
-	return;
-}
 
 static struct omap_dss_device sdp4430_lcd_device = {
 	.name			= "lcd",
@@ -410,7 +391,6 @@ static int sdp4430_panel_enable_pico_DLP(struct omap_dss_device *dssdev)
 	gpio_direction_input(DLP_4430_GPIO_44);
 	mdelay(500);
 
-	gpio_set_value(DLP_4430_GPIO_59, 1);
 	gpio_set_value(DLP_4430_GPIO_45, 1);
 	mdelay(1000);
 
@@ -476,6 +456,61 @@ static struct platform_device sdp4430_dss_device = {
 	},
 };
 
+static void sdp4430_set_primary_brightness(u8 brightness)
+{
+	if (brightness > 0) {
+		if (brightness == 255)
+			brightness = 0x7f;
+		else
+			brightness = (~(brightness/2)) & 0x7f;
+
+		twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x30, TWL6030_TOGGLE3);
+		twl_i2c_write_u8(TWL_MODULE_PWM, brightness, LED_PWM2ON);
+	} else if (brightness == 0) {
+		twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x08, TWL6030_TOGGLE3);
+		twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x38, TWL6030_TOGGLE3);
+	}
+}
+
+static void sdp4430_set_secondary_brightness(u8 brightness)
+{
+	if (brightness > 0)
+		brightness = 1;
+
+	gpio_set_value(LED_SEC_DISP_GPIO, brightness);
+}
+
+static struct omap4430_sdp_disp_led_platform_data sdp4430_disp_led_data = {
+	.flags = LEDS_CTRL_AS_ONE_DISPLAY,
+	.primary_display_set = sdp4430_set_primary_brightness,
+	.secondary_display_set = sdp4430_set_secondary_brightness,
+};
+
+static void __init omap_disp_led_init()
+{
+	/* Seconday backlight control */
+	gpio_request(DSI2_GPIO_59, "dsi2_bl_gpio");
+	gpio_direction_output(DSI2_GPIO_59, 0);
+
+	if (sdp4430_disp_led_data.flags & LEDS_CTRL_AS_ONE_DISPLAY) {
+		pr_info("%s: Configuring as one display LED\n", __func__);
+		gpio_set_value(DSI2_GPIO_59, 1);
+	}
+
+	gpio_request(DSI1_GPIO_27, "dsi1_bl_gpio");
+	gpio_direction_output(DSI1_GPIO_27, 1);
+	mdelay(120);
+	gpio_set_value(DSI1_GPIO_27, 0);
+
+}
+
+static struct platform_device sdp4430_disp_led = {
+	.name	=	"display_led",
+	.id	=	-1,
+	.dev	= {
+		.platform_data = &sdp4430_disp_led_data,
+	},
+};
 /* end Display */
 
 static struct platform_device sdp4430_keypad_led = {
@@ -496,6 +531,7 @@ static struct platform_device *sdp4430_devices[] __initdata = {
 	&omap_kp_device,
 	&sdp4430_proximity_device,
 	&sdp4430_keypad_led,
+	&sdp4430_disp_led,
 };
 
 static __attribute__ ((unused)) struct
@@ -1105,7 +1141,7 @@ static void __init omap_4430sdp_init(void)
 	omap_serial_init();
 	/* OMAP4 SDP uses internal transceiver so register nop transceiver */
 	sdp4430_mmc_init();
-
+	omap_disp_led_init();
 #ifdef CONFIG_MMC_EMBEDDED_SDIO
 	wlan_1283_config();
 #endif
@@ -1130,7 +1166,6 @@ static void __init omap_4430sdp_init(void)
 			ARRAY_SIZE(sdp4430_spi_board_info));
 	/* Added for FlexST */
 	conn_config_gpios();
-	sdp4430_display_init();
 	omap_sfh7741prox_init();
 	omap_cma3000accl_init();
 }
