@@ -249,6 +249,13 @@ config LEDS_OMAP4430_SDP_KEYPAD
 	  This option enables support for keypad LEDs on the
           OMAP4430 SDP
 
+config LEDS_OMAP4430_SDP_DISPLAY
+	tristate "Display LED support for OMAP4430 SDP"
+	depends on LEDS_CLASS
+	help
+	  This option enables support for display LEDs on the
+          OMAP4430 SDP.
+
 config LEDS_LM3554
 	tristate "LM3554 driver"
 	depends on LEDS_CLASS && I2C && MFD_CPCAP
