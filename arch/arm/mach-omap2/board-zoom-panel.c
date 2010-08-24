@@ -240,7 +240,7 @@ struct spi_board_info zoom_spi_board_info[] __initdata = {
 };
 
 /*--------------------------------------------------------------------------*/
-void zoom_lcd_tv_panel_init(void)
+void __init zoom_lcd_tv_panel_init(void)
 {
 	unsigned char lcd_panel_reset_gpio;
 
