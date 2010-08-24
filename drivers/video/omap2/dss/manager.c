@@ -312,6 +312,69 @@ static ssize_t manager_gamma_store(
 	return size;
 }
 
+static ssize_t manager_dither_mode_show(
+		struct omap_overlay_manager *mgr, char *buf)
+{
+	char *dither_mode;
+
+	if (mgr->id == OMAP_DSS_CHANNEL_DIGIT)
+		return -ENOENT;
+
+	if (mgr->info.dither_mode == OMAP_DSS_DITHER_SP)
+		dither_mode = "spatial";
+	else if (mgr->info.dither_mode == OMAP_DSS_DITHER_SPTP_2)
+		dither_mode = "spatial_temporal_2";
+	else if (mgr->info.dither_mode == OMAP_DSS_DITHER_SPTP_4)
+		dither_mode = "spatial_temporal_4";
+	else
+		dither_mode = "off";
+
+	return snprintf(buf, PAGE_SIZE, "%s\n", dither_mode);
+}
+
+static ssize_t manager_dither_mode_store(
+		struct omap_overlay_manager *mgr,
+		const char *buf, size_t size)
+{
+	struct omap_overlay_manager_info info;
+	enum omap_dss_dither_mode dither_mode;
+	int r;
+
+	if (mgr->id == OMAP_DSS_CHANNEL_DIGIT)
+		return -ENOENT;
+
+	if (strncmp("spatial_temporal_2", buf, 18) == 0)
+		dither_mode = OMAP_DSS_DITHER_SPTP_2;
+	else if (strncmp("spatial_temporal_4", buf, 18) == 0)
+		dither_mode = OMAP_DSS_DITHER_SPTP_4;
+	else if (strncmp("spatial", buf, 7) == 0)
+		dither_mode = OMAP_DSS_DITHER_SP;
+	else if (strncmp("off", buf, 3) == 0)
+		dither_mode = OMAP_DSS_DITHER_OFF;
+	else
+		return -EINVAL;
+
+	mgr->get_manager_info(mgr, &info);
+
+	if (dither_mode == OMAP_DSS_DITHER_OFF)
+		info.dither_enabled = false;
+	else
+		info.dither_enabled = true;
+
+	info.dither_mode = dither_mode;
+
+	r = mgr->set_manager_info(mgr, &info);
+	if (r)
+		return r;
+
+	r = mgr->apply(mgr);
+	if (r)
+		return r;
+
+	return size;
+}
+
+
 struct manager_attribute {
 	struct attribute attr;
 	ssize_t (*show)(struct omap_overlay_manager *, char *);
@@ -340,6 +403,9 @@ static MANAGER_ATTR(alpha_blending_enabled, S_IRUGO|S_IWUSR,
 static MANAGER_ATTR(gamma, S_IRUGO|S_IWUSR,
 		manager_gamma_show,
 		manager_gamma_store);
+static MANAGER_ATTR(dither_mode, S_IRUGO|S_IWUSR,
+		manager_dither_mode_show,
+		manager_dither_mode_store);
 
 static struct attribute *manager_sysfs_attrs[] = {
 	&manager_attr_name.attr,
@@ -350,6 +416,7 @@ static struct attribute *manager_sysfs_attrs[] = {
 	&manager_attr_trans_key_enabled.attr,
 	&manager_attr_alpha_blending_enabled.attr,
 	&manager_attr_gamma.attr,
+	&manager_attr_dither_mode.attr,
 	NULL
 };
 
@@ -489,6 +556,9 @@ struct manager_cache_data {
 
 	/* manual update region */
 	u16 x, y, w, h;
+
+	enum omap_dss_dither_mode dither_mode;
+	bool dither_enabled;
 };
 
 static struct {
@@ -918,6 +988,8 @@ static void configure_manager(enum omap_channel channel)
 	dispc_enable_trans_key(channel, c->trans_enabled);
 	dispc_enable_alpha_blending(channel, c->alpha_enabled);
 	dispc_enable_gamma(channel, c->gamma);
+	dispc_enable_dither(c->dither_enabled);
+	dispc_set_dither_mode(c->dither_mode);
 }
 
 /* configure_dispc() tries to write values from cache to shadow registers.
@@ -1336,6 +1408,8 @@ static int omap_dss_mgr_apply(struct omap_overlay_manager *mgr)
 		mc->trans_enabled = mgr->info.trans_enabled;
 		mc->alpha_enabled = mgr->info.alpha_enabled;
 		mc->gamma = mgr->info.gamma;
+		mc->dither_enabled = mgr->info.dither_enabled;
+		mc->dither_mode = mgr->info.dither_mode;
 
 		mc->manual_upd_display =
 			dssdev->caps & OMAP_DSS_DISPLAY_CAP_MANUAL_UPDATE;
@@ -1495,6 +1569,7 @@ int dss_init_overlay_managers(struct platform_device *pdev)
 			mgr->supported_displays =
 				OMAP_DISPLAY_TYPE_DPI | OMAP_DISPLAY_TYPE_DBI |
 				OMAP_DISPLAY_TYPE_SDI | OMAP_DISPLAY_TYPE_DSI;
+			mgr->info.dither_mode = OMAP_DSS_DITHER_OFF;
 			break;
 		case 1:
 			mgr->name = "tv";

@@ -161,6 +161,13 @@ enum omap_dss_trans_key_type {
 	OMAP_DSS_COLOR_KEY_VID_SRC = 1,
 };
 
+enum omap_dss_dither_mode {
+		OMAP_DSS_DITHER_SP = 0,
+		OMAP_DSS_DITHER_SPTP_2 = 1,
+		OMAP_DSS_DITHER_SPTP_4 = 2,
+		OMAP_DSS_DITHER_OFF = 3,
+};
+
 enum omap_rfbi_te_mode {
 	OMAP_DSS_RFBI_TE_MODE_1 = 1,
 	OMAP_DSS_RFBI_TE_MODE_2 = 2,
@@ -405,6 +412,9 @@ struct omap_overlay_manager_info {
 
 	bool alpha_enabled;
 	u8 gamma;
+
+	bool dither_enabled;
+	enum omap_dss_dither_mode dither_mode;
 };
 
 struct omap_overlay_manager {

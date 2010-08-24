@@ -3023,6 +3023,23 @@ int dispc_enable_gamma(enum omap_channel ch, u8 gamma)
 	return 0;
 #endif
 }
+void dispc_enable_dither(bool enable)
+{
+	enable_clocks(1);
+
+	REG_FLD_MOD(DISPC_CONTROL, enable, 7, 7);
+
+	enable_clocks(0);
+}
+
+void dispc_set_dither_mode(enum omap_dss_dither_mode mode)
+{
+	enable_clocks(1);
+
+	REG_FLD_MOD(DISPC_CONTROL, mode, 31, 30);
+
+	enable_clocks(0);
+}
 
 void dispc_set_tft_data_lines(enum omap_channel channel, u8 data_lines)
 {

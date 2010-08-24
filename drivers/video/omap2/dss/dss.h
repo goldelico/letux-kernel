@@ -358,6 +358,8 @@ void dispc_get_trans_key(enum omap_channel ch,
 void dispc_enable_trans_key(enum omap_channel ch, bool enable);
 void dispc_enable_alpha_blending(enum omap_channel ch, bool enable);
 int  dispc_enable_gamma(enum omap_channel ch, u8 gamma_value);
+void dispc_enable_dither(bool enable);
+void dispc_set_dither_mode(enum omap_dss_dither_mode mode);
 bool dispc_trans_key_enabled(enum omap_channel ch);
 bool dispc_alpha_blending_enabled(enum omap_channel ch);
 
