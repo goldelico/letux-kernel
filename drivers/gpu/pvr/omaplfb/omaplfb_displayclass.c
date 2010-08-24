@@ -37,10 +37,13 @@
 #include <mach/display.h>
 #endif
 
-#ifdef CONFIG_FB_OMAP2_DEBUG_SUPPORT
-#undef DEBUG
-#endif
+#ifdef RELEASE
 #include <../drivers/video/omap2/omapfb/omapfb.h>
+#undef DEBUG
+#else
+#undef DEBUG
+#include <../drivers/video/omap2/omapfb/omapfb.h>
+#endif
 
 #include <linux/module.h>
 #include <linux/string.h>
@@ -145,7 +148,9 @@ static PVRSRV_ERROR CloseDCDevice(IMG_HANDLE hDevice)
  */
 static void FlushInternalSyncQueue(OMAPLFB_SWAPCHAIN *psSwapChain)
 {
+#ifdef DEBUG
 	OMAPLFB_DEVINFO	*psDevInfo = (OMAPLFB_DEVINFO *) psSwapChain->pvDevInfo;
+#endif
 	OMAPLFB_FLIP_ITEM *psFlipItem;
 	unsigned long            ulMaxIndex;
 	unsigned long            i;
@@ -153,8 +158,10 @@ static void FlushInternalSyncQueue(OMAPLFB_SWAPCHAIN *psSwapChain)
 	psFlipItem = &psSwapChain->psFlipItems[psSwapChain->ulRemoveIndex];
 	ulMaxIndex = psSwapChain->ulBufferCount - 1;
 
+#ifdef DEBUG
 	DEBUG_PRINTK("Flushing sync queue on display %u",
 		psDevInfo->uDeviceID);
+#endif
 	for(i = 0; i < psSwapChain->ulBufferCount; i++)
 	{
 		if (psFlipItem->bValid == OMAP_FALSE)

@@ -41,10 +41,13 @@
 #include <mach/display.h>
 #endif
 
-#ifdef CONFIG_FB_OMAP2_DEBUG_SUPPORT
-#undef DEBUG
-#endif
+#ifdef RELEASE
 #include <../drivers/video/omap2/omapfb/omapfb.h>
+#undef DEBUG
+#else
+#undef DEBUG
+#include <../drivers/video/omap2/omapfb/omapfb.h>
+#endif
 
 #if defined(CONFIG_OUTER_CACHE)  /* Kernel config option */
 #include <asm/cacheflush.h>
