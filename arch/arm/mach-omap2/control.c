@@ -100,6 +100,7 @@ struct omap3_control_regs {
 	u32 devconf0;
 	u32 mem_dftrw0;
 	u32 mem_dftrw1;
+	u32 mem_rta;
 	u32 msuspendmux_0;
 	u32 msuspendmux_1;
 	u32 msuspendmux_2;
@@ -339,6 +340,8 @@ void omap3_control_save_context(void)
 			omap_ctrl_readl(OMAP343X_CONTROL_MEM_DFTRW0);
 	control_context.mem_dftrw1 =
 			omap_ctrl_readl(OMAP343X_CONTROL_MEM_DFTRW1);
+	control_context.mem_rta =
+			omap_ctrl_readl(OMAP343X_CONTROL_MEM_RTA);
 	control_context.msuspendmux_0 =
 			omap_ctrl_readl(OMAP2_CONTROL_MSUSPENDMUX_0);
 	control_context.msuspendmux_1 =
@@ -395,6 +398,8 @@ void omap3_control_restore_context(void)
 					OMAP343X_CONTROL_MEM_DFTRW0);
 	omap_ctrl_writel(control_context.mem_dftrw1,
 					OMAP343X_CONTROL_MEM_DFTRW1);
+	omap_ctrl_writel(control_context.mem_rta,
+					OMAP343X_CONTROL_MEM_RTA);
 	omap_ctrl_writel(control_context.msuspendmux_0,
 					OMAP2_CONTROL_MSUSPENDMUX_0);
 	omap_ctrl_writel(control_context.msuspendmux_1,
