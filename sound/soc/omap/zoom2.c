@@ -32,6 +32,7 @@
 
 #include <plat/mcbsp.h>
 #include <plat/mux.h>
+#include <plat/omap-pm.h>
 
 #include "omap-mcbsp.h"
 #include "omap-pcm.h"
@@ -112,9 +113,46 @@ int zoom2_i2s_hw_free(struct snd_pcm_substream *substream)
 			0, SND_SOC_CLOCK_OUT);
 	return 0;
 }
+
+static int snd_hw_latency;
+int zoom2_i2s_startup(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+
+	/*
+	 * Hold C2 as min latency constraint. Deeper states
+	 * MPU RET/OFF is overhead and consume more power than
+	 * savings.
+	 * snd_hw_latency check takes care of playback and capture
+	 * usecase.
+	 */
+	if (!snd_hw_latency) {
+		omap_pm_set_max_mpu_wakeup_lat(rtd->socdev->dev, 18);
+		snd_hw_latency++;
+	} else {
+		snd_hw_latency++;
+	}
+
+	return 0;
+}
+
+int zoom2_i2s_shutdown(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+
+	/* remove latency constraint */
+	snd_hw_latency--;
+	if (!snd_hw_latency)
+		omap_pm_set_max_mpu_wakeup_lat(rtd->socdev->dev, -1);
+
+	return 0;
+}
+
 static struct snd_soc_ops zoom2_i2s_ops = {
+	.startup = zoom2_i2s_startup,
 	.hw_params = zoom2_i2s_hw_params,
 	.hw_free = zoom2_i2s_hw_free,
+	.shutdown = zoom2_i2s_shutdown,
 };
 
 static int zoom2_hw_voice_params(struct snd_pcm_substream *substream,
