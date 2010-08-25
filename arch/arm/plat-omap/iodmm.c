@@ -38,6 +38,82 @@
 
 #include "iopgtable.h"
 
+/* Hack hack code to handle MM buffers */
+int temp_user_dma_op(unsigned long start, unsigned long end, int op)
+{
+
+	struct mm_struct *mm = current->active_mm;
+	void (*inner_op)(const void *, const void *);
+	void (*outer_op)(unsigned long, unsigned long);
+
+	switch (op) {
+	case 1:
+		inner_op = dmac_inv_range;
+		outer_op = outer_inv_range;
+		break;
+
+	case 2:
+		inner_op = dmac_clean_range;
+		outer_op = outer_clean_range;
+		break;
+
+	case 3:
+		inner_op = dmac_flush_range;
+		outer_op = outer_flush_range;
+		break;
+
+	default:
+		return -EINVAL;
+	}
+
+	if (end < start)
+		return -EINVAL;
+
+	down_read(&mm->mmap_sem);
+
+	do {
+		struct vm_area_struct *vma = find_vma(mm, start);
+
+		if (!vma || start < vma->vm_start ||
+			vma->vm_flags & (VM_IO | VM_PFNMAP)) {
+			up_read(&mm->mmap_sem);
+			return -EFAULT;
+		}
+		do {
+			unsigned long e = (start | ~PAGE_MASK) + 1;
+			struct page *page;
+
+			if (e > end)
+				e = end;
+			page = follow_page(vma, start, FOLL_GET);
+			if (IS_ERR(page)) {
+				up_read(&mm->mmap_sem);
+				return PTR_ERR(page);
+			}
+			if (page) {
+				unsigned long phys;
+				/*
+				 * This flushes the userspace address - which
+				 * is not what this API was intended to do.
+				 * Things may go astray as a result.
+				 */
+				inner_op((void *)start, (void *)e);
+				/*
+				 * Now handle the L2 cache.
+				 */
+				phys = page_to_phys(page) +
+						(start & ~PAGE_MASK);
+				outer_op(phys, phys + e - start);
+				put_page(page);
+			}
+			start = e;
+		} while (start < end && start < vma->vm_end);
+	} while (start < end);
+
+	up_read(&mm->mmap_sem);
+	return 0;
+}
+
 /* remember mapping information */
 struct dmm_map_object *add_mapping_info(struct iodmm_struct *obj,
 		struct gen_pool *gen_pool, u32 va, u32 da, u32 size)
@@ -177,6 +253,7 @@ out:
 	return map_obj;
 }
 
+#if 0
 static int find_first_page_in_cache(struct dmm_map_object *map_obj,
 					unsigned long va)
 {
@@ -192,6 +269,7 @@ static int find_first_page_in_cache(struct dmm_map_object *map_obj,
 	pr_debug("%s: first page is %d\n", __func__, pg_index);
 	return pg_index;
 }
+#endif
 
 static inline struct page *get_mapping_page(struct dmm_map_object *map_obj,
 								int pg_i)
@@ -206,6 +284,7 @@ static inline struct page *get_mapping_page(struct dmm_map_object *map_obj,
 	return map_obj->pages[pg_i];
 }
 
+#if 0
 /* Cache operation against kernel address instead of users */
 static int build_dma_sg(struct dmm_map_object *map_obj, unsigned long start,
 						ssize_t len, int pg_i)
@@ -339,12 +418,15 @@ kfree_sg:
 out:
 	return ret;
 }
+#endif
 
 int proc_begin_dma(struct iodmm_struct *obj, void *pva, u32 ul_size,
 					enum dma_data_direction dir)
 {
 	/* Keep STATUS here for future additions to this function */
 	int status = 0;
+	u32 end = (u32)pva + ul_size;
+#if 0
 	u32 va_align;
 	struct dmm_map_object *map_obj;
 	struct device *dev = obj->iovmm->iommu->dev;
@@ -369,7 +451,8 @@ int proc_begin_dma(struct iodmm_struct *obj, void *pva, u32 ul_size,
 	}
 
 err_out:
-
+#endif
+	status = temp_user_dma_op((u32)pva, end, 3);
 	return status;
 }
 
@@ -378,6 +461,8 @@ int proc_end_dma(struct iodmm_struct *obj, void *pva, u32 ul_size,
 {
 	/* Keep STATUS here for future additions to this function */
 	int status = 0;
+	u32 end = (u32)pva + ul_size;
+#if 0
 	u32 va_align;
 	struct dmm_map_object *map_obj;
 	struct device *dev = obj->iovmm->iommu->dev;
@@ -404,6 +489,8 @@ int proc_end_dma(struct iodmm_struct *obj, void *pva, u32 ul_size,
 	}
 
 err_out:
+#endif
+	status = temp_user_dma_op((u32)pva, end, 1);
 	return status;
 }
 
