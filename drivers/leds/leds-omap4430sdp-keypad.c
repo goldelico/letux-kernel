@@ -57,11 +57,11 @@ static void omap4430_keypad_led_store(struct led_classdev *led_cdev,
 		else
 			brightness = (~(value/2)) & 0x7f;
 
-		twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x06, TWL6030_TOGGLE3);
 		twl_i2c_write_u8(TWL_MODULE_PWM, brightness, KP_LED_PWM1ON);
+		twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x36, TWL6030_TOGGLE3);
 	} else {
-		twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x01, TWL6030_TOGGLE3);
-		twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x07, TWL6030_TOGGLE3);
+		twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x31, TWL6030_TOGGLE3);
+		twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x37, TWL6030_TOGGLE3);
 	}
 
 }
