@@ -135,7 +135,7 @@ typedef enum _OMAP_ERROR_
 #define	DEVNAME	DRVNAME
 #define	DRIVER_PREFIX DRVNAME
 
-#define FRAMEBUFFER_COUNT		1 /*num_registered_fb */
+#define FRAMEBUFFER_COUNT		num_registered_fb
 
 #ifdef	DEBUG
 #define	DEBUG_PRINTK(format, ...) printk("DEBUG " DRIVER_PREFIX \

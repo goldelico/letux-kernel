@@ -1577,7 +1577,7 @@ OMAP_ERROR OMAPLFBInit(void)
 	/*
 	 * Initialize each display device
 	 */
-	for(i = 0; i < FRAMEBUFFER_COUNT; i++)
+	for (i = FRAMEBUFFER_COUNT - 1; i >= 0; i--)
 	{
 		DEBUG_PRINTK("-> Initializing display device %i", i);
 		/*
