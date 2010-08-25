@@ -18,6 +18,7 @@
 #include <linux/io.h>
 #include <linux/gpio.h>
 #include <linux/leds-omap4430sdp-display.h>
+#include <linux/leds.h>
 #include <linux/spi/spi.h>
 #include <linux/usb/otg.h>
 #include <linux/input.h>
@@ -521,6 +522,53 @@ static struct platform_device sdp4430_keypad_led = {
 	},
 };
 
+static struct gpio_led sdp4430_gpio_leds[] = {
+	{
+		.name	= "omap4:green:debug0",
+		.gpio	= 61,
+	},
+	{
+		.name	= "omap4:green:debug1",
+		.gpio	= 30,
+	},
+	{
+		.name	= "omap4:green:debug2",
+		.gpio	= 7,
+	},
+	{
+		.name	= "omap4:green:debug3",
+		.gpio	= 8,
+	},
+	{
+		.name	= "omap4:green:debug4",
+		.gpio	= 50,
+	},
+	{
+		.name	= "blue",
+		.gpio	= 169,
+	},
+	{
+		.name	= "red",
+		.gpio	= 170,
+	},
+	{
+		.name	= "green",
+		.gpio	= 139,
+	},
+};
+
+static struct gpio_led_platform_data sdp4430_led_data = {
+	.leds		= sdp4430_gpio_leds,
+	.num_leds	= ARRAY_SIZE(sdp4430_gpio_leds),
+};
+
+static struct platform_device sdp4430_leds_gpio = {
+	.name	= "leds-gpio",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &sdp4430_led_data,
+	},
+};
 static struct regulator_consumer_supply sdp4430_vdda_dac_supply = {
 	.supply		= "vdda_dac",
 	.dev		= &sdp4430_dss_device.dev,
@@ -530,6 +578,7 @@ static struct platform_device *sdp4430_devices[] __initdata = {
 	&sdp4430_dss_device,
 	&omap_kp_device,
 	&sdp4430_proximity_device,
+	&sdp4430_leds_gpio,
 	&sdp4430_keypad_led,
 	&sdp4430_disp_led,
 };
