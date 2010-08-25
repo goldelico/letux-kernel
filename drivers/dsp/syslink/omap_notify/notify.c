@@ -44,7 +44,7 @@ struct notify_module_object notify_state = {
 	.def_cfg.num_events = 32u,
 	.def_cfg.send_event_poll_count = -1u,
 	.def_cfg.num_lines = 1u,
-	.def_cfg.reserved_events = 3u,
+	.def_cfg.reserved_events = 4u,
 	.gate_handle = NULL,
 	.local_notify_handle = NULL
 };
