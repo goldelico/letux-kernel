@@ -72,8 +72,8 @@ const struct twl4030_madc_conversion_method twl4030_conversion_methods[] = {
 
 static int twl4030_madc_read(struct twl4030_madc_data *madc, u8 reg)
 {
-	int ret;
-	u8 val;
+	int ret = 0;
+	u8 val = 0;
 
 	ret = twl_i2c_read_u8(TWL4030_MODULE_MADC, &val, reg);
 	if (ret) {
@@ -337,7 +337,7 @@ static int twl4030_madc_set_current_generator(struct twl4030_madc_data *madc,
 		int chan, int on)
 {
 	int ret;
-	u8 regval;
+	u8 regval = 0;
 
 	/* Current generator is only available for ADCIN0 and ADCIN1. NB:
 	 * ADCIN1 current generator only works when AC or VBUS is present */
@@ -430,8 +430,8 @@ static int __init twl4030_madc_probe(struct platform_device *pdev)
 {
 	struct twl4030_madc_data *madc;
 	struct twl4030_madc_platform_data *pdata = pdev->dev.platform_data;
-	int ret;
-	u8 regval;
+	int ret = 0;
+	u8 regval = 0;
 
 	madc = kzalloc(sizeof *madc, GFP_KERNEL);
 	if (!madc)
