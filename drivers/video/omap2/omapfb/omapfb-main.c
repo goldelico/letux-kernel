@@ -237,6 +237,13 @@ static struct omapfb_colormode omapfb_colormodes[] = {
 		.blue	= { .length = 4, .offset = 0, .msb_right = 0 },
 		.transp	= { .length = 4, .offset = 12, .msb_right = 0 },
 	}, {
+		.dssmode = OMAP_DSS_COLOR_CLUT8,
+		.bits_per_pixel = 8,
+		.red	= { .length = 8, .offset = 0, .msb_right = 0 },
+		.green	= { .length = 8, .offset = 0, .msb_right = 0 },
+		.blue	= { .length = 8, .offset = 0, .msb_right = 0 },
+		.transp	= { .length = 0, .offset = 0, .msb_right = 0 },
+	}, {
 		.dssmode = OMAP_DSS_COLOR_RGB16,
 		.bits_per_pixel = 16,
 		.red	= { .length = 5, .offset = 11, .msb_right = 0 },
