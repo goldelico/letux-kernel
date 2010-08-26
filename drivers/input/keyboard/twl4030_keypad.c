@@ -170,7 +170,7 @@ static inline u16 twl4030_col_xlate(struct twl4030_keypad *kp, u8 col)
 
 static int twl4030_read_kp_matrix_state(struct twl4030_keypad *kp, u16 *state)
 {
-	u8 new_state[TWL4030_MAX_ROWS];
+	u8 new_state[TWL4030_MAX_ROWS] = {0};
 	int row;
 	int ret = twl4030_kpread(kp, new_state,
 				 KEYP_FULL_CODE_7_0, kp->n_rows);
@@ -250,8 +250,8 @@ static void twl4030_kp_scan(struct twl4030_keypad *kp, bool release_all)
 static irqreturn_t do_kp_irq(int irq, void *_kp)
 {
 	struct twl4030_keypad *kp = _kp;
-	u8 reg;
-	int ret;
+	u8 reg = 0;
+	int ret = 0;
 
 #ifdef CONFIG_LOCKDEP
 	/* WORKAROUND for lockdep forcing IRQF_DISABLED on us, which
@@ -334,11 +334,17 @@ static int __devinit twl4030_kp_program(struct twl4030_keypad *kp)
 static int __devinit twl4030_kp_probe(struct platform_device *pdev)
 {
 	struct twl4030_keypad_data *pdata = pdev->dev.platform_data;
-	const struct matrix_keymap_data *keymap_data = pdata->keymap_data;
+	const struct matrix_keymap_data *keymap_data;
 	struct twl4030_keypad *kp;
 	struct input_dev *input;
 	u8 reg;
 	int error;
+
+	if (!pdata) {
+		WARN_ON(1);
+		return -EINVAL;
+	}
+	keymap_data = pdata->keymap_data;
 
 	if (!pdata || !pdata->rows || !pdata->cols ||
 	    pdata->rows > TWL4030_MAX_ROWS || pdata->cols > TWL4030_MAX_COLS) {
