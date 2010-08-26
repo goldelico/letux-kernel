@@ -123,6 +123,11 @@ void omap_pm_set_max_dev_wakeup_lat(struct device *dev, long t)
 	odev = to_omap_device(pdev);
 	if (odev) {
 		pwrdm_dev = omap_device_get_pwrdm(odev);
+		if (!pwrdm_dev) {
+			printk(KERN_ERR "OMAP-PM: Error: Could not get pwrdm for device!\n");
+			return;
+		}
+
 	} else {
 		printk(KERN_ERR "OMAP-PM: Error: Could not find omap_device "
 						"for %s\n", pdev->name);
