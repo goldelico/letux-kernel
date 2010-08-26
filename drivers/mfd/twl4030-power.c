@@ -169,7 +169,7 @@ out:
 static int __init twl4030_write_script_ins(u8 address, u16 pmb_message,
 					   u8 delay, u8 next)
 {
-	int err;
+	int err = 0;
 
 	address *= 4;
 	err = twl4030_write_script_byte(address++, pmb_message >> 8);
@@ -189,7 +189,7 @@ out:
 static int __init twl4030_write_script(u8 address, struct twl4030_ins *script,
 				       int len)
 {
-	int err;
+	int err = 0;
 
 	for (; len; len--, address++, script++) {
 		if (len == 1) {
@@ -213,8 +213,8 @@ static int __init twl4030_write_script(u8 address, struct twl4030_ins *script,
 
 static int __init twl4030_config_wakeup3_sequence(u8 address)
 {
-	int err;
-	u8 data;
+	int err = 0;
+	u8 data = 0;
 
 	/* Set SLEEP to ACTIVE SEQ address for P3 */
 	err = twl_i2c_write_u8(TWL4030_MODULE_PM_MASTER, address,
@@ -239,7 +239,7 @@ out:
 static int __init twl4030_config_wakeup12_sequence(u8 address)
 {
 	int err = 0;
-	u8 data;
+	u8 data = 0;
 
 	/* Set SLEEP to ACTIVE SEQ address for P1 and P2 */
 	err = twl_i2c_write_u8(TWL4030_MODULE_PM_MASTER, address,
@@ -292,7 +292,7 @@ out:
 
 static int __init twl4030_config_sleep_sequence(u8 address)
 {
-	int err;
+	int err = 0;
 
 	/* Set ACTIVE to SLEEP SEQ address in T2 memory*/
 	err = twl_i2c_write_u8(TWL4030_MODULE_PM_MASTER, address,
@@ -306,8 +306,8 @@ static int __init twl4030_config_sleep_sequence(u8 address)
 
 static int __init twl4030_config_warmreset_sequence(u8 address)
 {
-	int err;
-	u8 rd_data;
+	int err = 0;
+	u8 rd_data = 0;
 
 	/* Set WARM RESET SEQ address for P1 */
 	err = twl_i2c_write_u8(TWL4030_MODULE_PM_MASTER, address,
@@ -354,11 +354,11 @@ out:
 
 static int __init twl4030_configure_resource(struct twl4030_resconfig *rconfig)
 {
-	int rconfig_addr;
-	int err;
-	u8 type;
-	u8 grp;
-	u8 remap;
+	int rconfig_addr = 0;
+	int err = 0;
+	u8 type = 0;
+	u8 grp = 0;
+	u8 remap = 0;
 
 	if (rconfig->resource > TOTAL_RESOURCES) {
 		pr_err("TWL4030 Resource %d does not exist\n",
