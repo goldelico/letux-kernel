@@ -2016,7 +2016,7 @@ int uart_suspend_port(struct uart_driver *drv, struct uart_port *uport)
 	}
 
 	tty_dev = device_find_child(uport->dev, &match, serial_match_port);
-	if (device_may_wakeup(tty_dev)) {
+	if (tty_dev && device_may_wakeup(tty_dev)) {
 		enable_irq_wake(uport->irq);
 		put_device(tty_dev);
 		mutex_unlock(&port->mutex);
@@ -2100,7 +2100,7 @@ int uart_resume_port(struct uart_driver *drv, struct uart_port *uport)
 	}
 
 	tty_dev = device_find_child(uport->dev, &match, serial_match_port);
-	if (!uport->suspended && device_may_wakeup(tty_dev)) {
+	if (tty_dev && !uport->suspended && device_may_wakeup(tty_dev)) {
 		disable_irq_wake(uport->irq);
 		mutex_unlock(&port->mutex);
 		return 0;
