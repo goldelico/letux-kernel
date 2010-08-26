@@ -1197,6 +1197,8 @@ void omap_gpio_save_context(void)
 	struct gpio_pad *pad;
 	u32 tmp_oe[OMAP_NR_GPIOS];
 
+	memset(tmp_oe, 0, sizeof(tmp_oe));
+
 	/* saving banks from 2-6 only since GPIO1 is in WKUP */
 	for (i = 1; i < gpio_bank_count; i++) {
 		bank = &gpio_bank[i];
@@ -1333,11 +1335,16 @@ void omap3_gpio_restore_pad_context(int restore_oe)
 
 static int __devexit omap_gpio_remove(struct platform_device *pdev)
 {
-	struct omap_gpio_platform_data *pdata = pdev->dev.platform_data;
+	struct omap_gpio_platform_data *pdata;
 	struct gpio_bank *bank;
 	int id;
 
-	if (!pdev || !pdata)
+	if (!pdev)
+		return 0;
+
+	pdata = pdev->dev.platform_data;
+
+	if (!pdata)
 		return 0;
 
 	id = pdev->id;
@@ -1354,11 +1361,18 @@ static int __devexit omap_gpio_remove(struct platform_device *pdev)
 static int __devinit omap_gpio_probe(struct platform_device *pdev)
 {
 	static int show_rev_once;
-	struct omap_gpio_platform_data *pdata = pdev->dev.platform_data;
+	struct omap_gpio_platform_data *pdata;
 	struct gpio_bank *bank;
 	int id, i;
 
-	if (!pdev || !pdata) {
+	if (!pdev) {
+		pr_err("GPIO device structure is NULL!\n");
+		WARN_ON(1);
+		return -EINVAL;
+	}
+
+	pdata = pdev->dev.platform_data;
+	if (!pdata) {
 		pr_err("GPIO device initialize without"
 					"platform data\n");
 		return -EINVAL;
@@ -1500,6 +1514,11 @@ void __init omap_gpio_early_init(void)
 
 		pdata = kzalloc(sizeof(struct omap_gpio_platform_data),
 					GFP_KERNEL);
+		if (!pdata) {
+			WARN_ON(1);
+			return -ENOMEM;
+		}
+
 		pdata->base = oh->_rt_va;
 		pdata->irq = oh->mpu_irqs[0].irq;
 		pdata->virtual_irq_start = IH_GPIO_BASE + 32 * i;
