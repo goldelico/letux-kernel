@@ -274,7 +274,7 @@ struct twl4030_usb {
 static int twl4030_i2c_write_u8_verify(struct twl4030_usb *twl,
 		u8 module, u8 data, u8 address)
 {
-	u8 check;
+	u8 check = 0;
 
 	if ((twl_i2c_write_u8(module, data, address) >= 0) &&
 	    (twl_i2c_read_u8(module, &check, address) >= 0) &&
@@ -312,7 +312,7 @@ static inline int twl4030_usb_write(struct twl4030_usb *twl,
 
 static inline int twl4030_readb(struct twl4030_usb *twl, u8 module, u8 address)
 {
-	u8 data;
+	u8 data = 0;
 	int ret = 0;
 
 	ret = twl_i2c_read_u8(module, &data, address);
