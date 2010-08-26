@@ -1466,7 +1466,10 @@ static int __exit omap2_mcspi_remove(struct platform_device *pdev)
 	clk_put(mcspi->ick);
 
 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	release_mem_region(r->start, (r->end - r->start) + 1);
+	if (!r)
+		WARN_ON(1);
+	else
+		release_mem_region(r->start, (r->end - r->start) + 1);
 
 	base = mcspi->base;
 	spi_unregister_master(master);
