@@ -29,6 +29,34 @@
 
 #include "iopgtable.h"
 
+#include "../mach-omap2/cm.h"
+#include "../mach-omap2/prm.h"
+
+#define RM_M3_RST1ST				0x1
+#define RM_M3_RST2ST				0x2
+#define RM_M3_RST3ST				0x4
+#define RM_M3_MPU_ALL_RESETS			0x7
+#define RM_M3_REL_RST1_MASK			0x2
+#define RM_M3_REL_RST2_MASK			0x0
+#define RM_M3_REL_RST3_MASK			0x3
+#define RM_M3_AST_RST1_MASK			0x3
+#define RM_M3_AST_RST2_MASK			0x2
+#define RM_M3_AST_RST3_MASK			0x7
+
+#define OMAP4_RM_DUCATI_RSTCTRL_OFFSET		0x0210
+#define OMAP4_RM_DUCATI_RSTST_OFFSET		0x0214
+
+#define RM_TESLA_RST1ST				0x1
+#define RM_TESLA_RST2ST				0x2
+#define RM_TESLA_ALL_RESETS			0x3
+#define RM_TESLA_REL_RST1_MASK			0x0
+#define RM_TESLA_REL_RST2_MASK			0x1
+#define RM_TESLA_AST_RST1_MASK			0x1
+#define RM_TESLA_AST_RST2_MASK			0x3
+
+#define OMAP4_RM_TESLA_RSTCTRL_OFFSET		0x0010
+#define OMAP4_RM_TESLA_RSTST_OFFSET		0x0014
+
 #define for_each_iotlb_cr(obj, n, __i, cr)				\
 	for (__i = 0;							\
 	     (__i < (n)) && (cr = __iotlb_read_cr((obj), __i), true);	\
@@ -104,9 +132,78 @@ EXPORT_SYMBOL_GPL(iommu_arch_version);
 static int iommu_enable(struct iommu *obj)
 {
 	int err;
+	u32 reg;
 
 	if (!obj)
 		return -EINVAL;
+
+	if (cpu_is_omap44xx() && !strcmp(obj->name, "ducati")) {
+		/* Check that releasing resets would indeed be effective */
+		reg = prm_read_mod_reg(OMAP4430_PRM_CORE_MOD,
+					OMAP4_RM_DUCATI_RSTCTRL_OFFSET);
+		pr_info("iommu_enable: OMAP4_RM_DUCATI_RSTCTRL_OFFSET = 0x%x",
+			reg);
+		if ((reg & RM_M3_MPU_ALL_RESETS) != RM_M3_MPU_ALL_RESETS) {
+			pr_info("iommu_enable: Ducati Resets in not proper "
+				"state!\n");
+			pr_info("iommu_enable: Ducati Asserting RST1, RST2, "
+				"and RST3...\n");
+			prm_write_mod_reg(RM_M3_MPU_ALL_RESETS,
+					OMAP4430_PRM_CORE_MOD,
+					OMAP4_RM_DUCATI_RSTCTRL_OFFSET);
+			while (prm_read_mod_reg(OMAP4430_PRM_CORE_MOD,
+				OMAP4_RM_DUCATI_RSTCTRL_OFFSET) !=
+						 RM_M3_MPU_ALL_RESETS);
+		}
+
+		/* De-assert RST3, and clear the Reset status */
+		pr_info("iommu_enable: De-assert Ducati RST3\n");
+		reg = prm_read_mod_reg(OMAP4430_PRM_CORE_MOD,
+					OMAP4_RM_DUCATI_RSTCTRL_OFFSET);
+		pr_info("iommu_enable: Ducati RSTCTRL = 0x%x\n", reg);
+		prm_write_mod_reg(RM_M3_REL_RST3_MASK, OMAP4430_PRM_CORE_MOD,
+					OMAP4_RM_DUCATI_RSTCTRL_OFFSET);
+		while (!(prm_read_mod_reg(OMAP4430_PRM_CORE_MOD,
+				OMAP4_RM_DUCATI_RSTST_OFFSET) & RM_M3_RST3ST));
+		pr_info("iommu_enable: Ducati RST3 released!");
+		prm_write_mod_reg(RM_M3_RST3ST, OMAP4430_PRM_CORE_MOD,
+					OMAP4_RM_DUCATI_RSTST_OFFSET);
+		pr_info("iommu_enable: Ducati %s %d\n", __func__, __LINE__);
+	}
+	if (cpu_is_omap44xx() && !strcmp(obj->name, "tesla")) {
+		/* Check that releasing resets would indeed be effective */
+		reg = prm_read_mod_reg(OMAP4430_PRM_TESLA_MOD,
+					OMAP4_RM_TESLA_RSTCTRL_OFFSET);
+		pr_info("iommu_enable: OMAP4_RM_TESLA_RSTCTRL_OFFSET = 0x%x",
+			reg);
+		if ((reg & RM_TESLA_ALL_RESETS) != RM_TESLA_ALL_RESETS) {
+			pr_info("iommu_enable: Tesla Resets in not proper "
+				"state!\n");
+			pr_info("iommu_enable: Tesla Assert RST1 and RST2.n");
+			prm_write_mod_reg(RM_TESLA_ALL_RESETS,
+					OMAP4430_PRM_TESLA_MOD,
+					OMAP4_RM_TESLA_RSTCTRL_OFFSET);
+			while (prm_read_mod_reg(OMAP4430_PRM_TESLA_MOD,
+					OMAP4_RM_TESLA_RSTCTRL_OFFSET) !=
+					RM_TESLA_ALL_RESETS);
+		}
+
+		/* De-assert RST2, and clear the Reset status */
+		pr_info("iommu_enable: De-assert Tesla RST2\n");
+		reg = prm_read_mod_reg(OMAP4430_PRM_TESLA_MOD,
+					OMAP4_RM_TESLA_RSTCTRL_OFFSET);
+		pr_info("iommu_enable: Tesla RSTCTRL = 0x%x\n", reg);
+		prm_write_mod_reg(RM_TESLA_REL_RST2_MASK,
+					OMAP4430_PRM_TESLA_MOD,
+					OMAP4_RM_TESLA_RSTCTRL_OFFSET);
+		while (!(prm_read_mod_reg(OMAP4430_PRM_TESLA_MOD,
+				OMAP4_RM_TESLA_RSTST_OFFSET) &
+				RM_TESLA_RST2ST));
+		pr_info("iommu_enable: Tesla RST2 released!");
+		prm_write_mod_reg(RM_TESLA_RST2ST, OMAP4430_PRM_TESLA_MOD,
+					OMAP4_RM_TESLA_RSTST_OFFSET);
+		pr_info("iommu_enable: Tesla %s %d\n", __func__, __LINE__);
+	}
 
 	if (!cpu_is_omap44xx())
 		clk_enable(obj->clk);
@@ -121,8 +218,26 @@ static int iommu_enable(struct iommu *obj)
 
 static void iommu_disable(struct iommu *obj)
 {
+	u32 reg;
+
 	if (!obj)
 		return;
+
+	if (cpu_is_omap44xx() && !strcmp(obj->name, "ducati")) {
+		reg = prm_read_mod_reg(OMAP4430_PRM_CORE_MOD,
+					OMAP4_RM_DUCATI_RSTCTRL_OFFSET);
+		prm_write_mod_reg((reg | RM_M3_RST1ST | RM_M3_RST2ST),
+					OMAP4430_PRM_CORE_MOD,
+					OMAP4_RM_DUCATI_RSTCTRL_OFFSET);
+	}
+	if (cpu_is_omap44xx() && !strcmp(obj->name, "tesla")) {
+		reg = prm_read_mod_reg(OMAP4430_PRM_TESLA_MOD,
+					OMAP4_RM_TESLA_RSTCTRL_OFFSET);
+		prm_write_mod_reg((reg | RM_TESLA_RST1ST),
+					OMAP4430_PRM_CORE_MOD,
+					OMAP4_RM_TESLA_RSTCTRL_OFFSET);
+	}
+
 	if (!cpu_is_omap44xx())
 		clk_enable(obj->clk);
 
@@ -130,6 +245,29 @@ static void iommu_disable(struct iommu *obj)
 
 	if (!cpu_is_omap44xx())
 		clk_disable(obj->clk);
+
+	if (cpu_is_omap44xx() && !strcmp(obj->name, "ducati")) {
+		pr_info("iommu_disable: Ducati Assert RST1, RST2 and RST3\n");
+		reg = prm_read_mod_reg(OMAP4430_PRM_CORE_MOD,
+					OMAP4_RM_DUCATI_RSTCTRL_OFFSET);
+		prm_write_mod_reg((reg | RM_M3_MPU_ALL_RESETS),
+					OMAP4430_PRM_CORE_MOD,
+					OMAP4_RM_DUCATI_RSTCTRL_OFFSET);
+		pr_info("iommu_disable: Ducati Reset Status RSTST = 0x%x\n",
+			prm_read_mod_reg(OMAP4430_PRM_CORE_MOD,
+					OMAP4_RM_DUCATI_RSTST_OFFSET));
+	}
+	if (cpu_is_omap44xx() && !strcmp(obj->name, "tesla")) {
+		pr_info("iommu_disable: Tesla Assert DSP RST1 and RST2\n");
+		reg = prm_read_mod_reg(OMAP4430_PRM_TESLA_MOD,
+					OMAP4_RM_TESLA_RSTCTRL_OFFSET);
+		prm_write_mod_reg((reg | RM_TESLA_ALL_RESETS),
+					OMAP4430_PRM_CORE_MOD,
+					OMAP4_RM_TESLA_RSTCTRL_OFFSET);
+		pr_info("iommu_disable: Tesla Reset Status RSTST = 0x%x\n",
+			prm_read_mod_reg(OMAP4430_PRM_TESLA_MOD,
+					OMAP4_RM_TESLA_RSTST_OFFSET));
+	}
 }
 
 /*
