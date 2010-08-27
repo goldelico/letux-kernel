@@ -39,6 +39,13 @@
 /* Structure that has FM character driver data */
 struct fm_chrdrv_ops *fm_chr_dev;
 
+static int fm_chr_flush(struct file *fil, fl_owner_t id)
+{
+	FM_CHR_DRV_DBG("Inside fm_chr_flush");
+	fm_chr_release(0, fil);
+	return 0;
+}
+
 /* File operations structure initialization */
 const struct file_operations fm_chr_ops = {
 	.owner = THIS_MODULE,
@@ -48,7 +55,7 @@ const struct file_operations fm_chr_ops = {
 	.write = fm_chr_write,
 	.poll = fm_chr_poll,
 	.ioctl = fm_chr_ioctl,
-	.release = fm_chr_release,
+	.flush = fm_chr_flush,
 };
 
 /* Converting Channel-8 response to Channel-4 response */
@@ -126,6 +133,31 @@ static struct sk_buff *convert2_channel_4(struct sk_buff *ch8_skb)
 		/* Trim the data to specified length */
 		skb_trim(ch4_skb, 7);
 
+		return ch4_skb;
+	} else if (fm_opcode == CHAN8_FM_INTERRUPT) {
+		FM_CHR_DRV_DBG("Converting FM interrupt event\n");
+		ch4_skb = alloc_skb(7, GFP_ATOMIC);
+		if (ch4_skb == NULL) {
+			FM_CHR_DRV_ERR(" SKB allocation failed ");
+			return NULL;
+		}
+
+		/* Copy from Channel-8 reponse packet */
+		pkt_type = CHAN4_PKT_TYPE;
+		evt_code = CHAN8_FM_INTERRUPT;	/* fm interrupt event */
+		ncmds = ch8_skb->data[CHAN8_RESP_NUM_HCI_POS];/* num_hci cmds */
+		param_len = 2;	/* status + num_hci ? no rules here */
+		status = ch8_skb->data[CHAN8_RESP_STATUS_POS];
+
+		/* Copy to Channel-4 response packet */
+		memcpy(skb_put(ch4_skb, 1), &pkt_type, 1);
+		memcpy(skb_put(ch4_skb, 1), &evt_code, 1);
+		memcpy(skb_put(ch4_skb, 1), &param_len, 1);
+		memcpy(skb_put(ch4_skb, 1), &ncmds, 1);
+		memcpy(skb_put(ch4_skb, 1), &status, 1);
+
+		/* Trim the data to specified length */
+		skb_trim(ch4_skb, 5);
 		return ch4_skb;
 	}
 
@@ -326,66 +358,16 @@ long fm_rx_task(void)
 {
 	struct sk_buff *skb;
 
-#ifdef VERBOSE
-	int len;
-#endif
-
 	FM_CHR_DRV_START();
 
 	skb = NULL;
 	spin_lock(&fm_chr_dev->lock);
 
 	if (skb_queue_empty(&fm_chr_dev->rx_q)) {
-		FM_CHR_DRV_ERR(" Rx Queue empty ");
+		FM_CHR_DRV_DBG(" Rx Queue empty ");
 		spin_unlock(&fm_chr_dev->lock);
 		return FM_CHR_DRV_ERR_FAILURE;
 	}
-
-	/* Dequeue the skb received from the FM_ST interface */
-	skb = skb_dequeue(&fm_chr_dev->rx_q);
-	if (skb == NULL) {
-		FM_CHR_DRV_ERR(" Dequeued skb from Rx queue is NULL ");
-		spin_unlock(&fm_chr_dev->lock);
-		return FM_CHR_DRV_ERR_FAILURE;
-	}
-
-	/* Send a signal to TI FM stack when an Interrupt packet arrives */
-	if (skb->data[CHAN8_RESP_FM_OPCODE_POS] == CHAN8_FM_INTERRUPT) {
-		FM_CHR_DRV_VER(" Interrupt arrived: ");
-
-#ifdef VERBOSE
-		for (len = 0; ((skb) && (len < skb->len)); len++)
-			printk(KERN_INFO " 0x%02x ", skb->data[len]);
-		printk("\n");
-#endif
-
-		kfree_skb(skb);
-
-		/* kill_fasync here - Sends the signal. Check if the queue is
-		 * empty. If not, it means that command complete response for
-		 * the previous command is not sent to the stack. Don't send
-		 * the Signal. Set the SIGNAL_PENDING bit. This bit is cleared
-		 * in the read() of the stack, when it reads the command
-		 * complete response.
-		 */
-		if (likely(skb_queue_empty(&fm_chr_dev->rx_q))) {
-			/* Should come here most often */
-			kill_fasync(&fm_chr_dev->fm_fasync, SIGIO, POLLIN);
-			clear_bit(SIGNAL_PENDING, &fm_chr_dev->state_flags);
-		} else {
-			FM_CHR_DRV_VER(" signal not sent..");
-			set_bit(SIGNAL_PENDING, &fm_chr_dev->state_flags);
-		}
-
-		spin_unlock(&fm_chr_dev->lock);
-
-		return FM_CHR_DRV_SUCCESS;
-	}
-
-	/* Queue it back to the queue if the received packet
-	 * is not an interrupt packet
-	 */
-	skb_queue_head(&fm_chr_dev->rx_q, skb);
 	wake_up_interruptible(&fm_chr_dev->fm_data_q);
 
 	spin_unlock(&fm_chr_dev->lock);
@@ -572,14 +554,12 @@ ssize_t fm_chr_read(struct file *fil, char __user *data, size_t size,
 	ch4_skb = NULL;
 
 	/* Wait till the data is available */
-	if (!wait_event_interruptible_timeout(fm_chr_dev->fm_data_q,
-					      !skb_queue_empty
-					      (&fm_chr_dev->rx_q), 500)) {
-
-		FM_CHR_DRV_ERR(" Read timed out ");
-
+	if (wait_event_interruptible(fm_chr_dev->fm_data_q,
+				!skb_queue_empty(&fm_chr_dev->rx_q))) {
+		FM_CHR_DRV_ERR(" No data, done waiting ...\n");
 		return -EAGAIN;
 	}
+
 	FM_CHR_DRV_VER(" Completed Read wait ");
 
 	spin_lock(&fm_chr_dev->lock);
