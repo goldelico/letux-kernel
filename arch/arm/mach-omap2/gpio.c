@@ -1426,7 +1426,7 @@ static int __devinit omap_gpio_probe(struct platform_device *pdev)
 		static const u32 non_wakeup_gpios[] = {
 			0xe203ffc0, 0x08700040
 		};
-		if (id < ARRAY_SIZE(non_wakeup_gpios))
+		if (cpu_is_omap24xx() && (id < ARRAY_SIZE(non_wakeup_gpios)))
 			bank->non_wakeup_gpios = non_wakeup_gpios[id];
 	}
 
