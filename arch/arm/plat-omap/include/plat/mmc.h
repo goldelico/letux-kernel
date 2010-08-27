@@ -70,7 +70,7 @@ struct omap_mmc_platform_data {
 	int (*resume)(struct device *dev, int slot);
 
 	/* Return context loss count due to PM states changing */
-	int (*get_context_loss_count)(struct device *dev);
+	unsigned (*get_context_loss_count)(struct device *dev);
 
 	u64 dma_mask;
 

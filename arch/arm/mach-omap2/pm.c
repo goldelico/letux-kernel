@@ -187,6 +187,8 @@ unsigned get_last_off_on_transaction_id(struct device *dev)
 				pwrdm = pwrdm_lookup("dss_pwrdm");
 			else if (!strcmp(pdev->name, "musb_hdrc"))
 				pwrdm = pwrdm_lookup("core_pwrdm");
+			else if (!strcmp(pdev->name, "mmci-omap-hs"))
+				pwrdm = pwrdm_lookup("core_pwrdm");
 			else
 				return 0;
 		}

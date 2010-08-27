@@ -244,10 +244,10 @@ static int twl_mmc_resume(struct device *dev, int slot)
 
 #if defined(CONFIG_ARCH_OMAP3) && defined(CONFIG_PM)
 
-static int twl4030_mmc_get_context_loss(struct device *dev)
+static unsigned twl4030_mmc_get_context_loss(struct device *dev)
 {
 	/* FIXME: PM DPS not implemented yet */
-	return 0;
+	return get_last_off_on_transaction_id(dev);;
 }
 
 #else
