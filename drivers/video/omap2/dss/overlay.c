@@ -818,6 +818,10 @@ void dss_recheck_connections(struct omap_dss_device *dssdev, bool force)
 		for (i = 0; i < MAX_DSS_OVERLAYS; i++) {
 			struct omap_overlay *ovl;
 			ovl = omap_dss_get_overlay(i);
+			if (!ovl) {
+				WARN_ON(1);
+				continue;
+			}
 			if (!ovl->manager || force) {
 				if (ovl->manager)
 					omap_dss_unset_manager(ovl);
