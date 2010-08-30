@@ -1366,6 +1366,10 @@ static int omap_dss_mgr_apply(struct omap_overlay_manager *mgr)
 		u32 size;
 
 		ovl = omap_dss_get_overlay(i);
+		if (!ovl) {
+			WARN_ON(1);
+			continue;
+		}
 
 		if (!(ovl->caps & OMAP_DSS_OVL_CAP_DISPC))
 			continue;
