@@ -31,4 +31,23 @@ struct omap2_hdq_platform_config {
 	int id;
 };
 
+int omap_plat_register_hdq_bus(struct omap2_hdq_platform_config *pdata);
+
+/**
+ * struct omap_hdq_platform_data - OMAP HDQ controller platform data
+ */
+struct omap_hdq_platform_data {
+	unsigned short	mode;
+	int id;
+	struct omap_i2c_dev_attr *dev_attr;
+	void (*set_mpu_wkup_lat)(struct device *dev, int set);
+	int (*device_enable) (struct platform_device *pdev);
+	int (*device_shutdown) (struct platform_device *pdev);
+	int (*device_idle) (struct platform_device *pdev);
+};
+
+/* Prototypes for OMAP platform I2C core initialization code */
+
+struct omap_hdq_platform_data * __init omap_hdq_get_pdata(void);
+
 #endif

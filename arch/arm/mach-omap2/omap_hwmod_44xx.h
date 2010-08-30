@@ -5828,9 +5828,7 @@ static __initdata struct omap_hwmod *omap44xx_hwmods[] = {
 	&omap44xx_gptimer7_hwmod,
 	&omap44xx_gptimer8_hwmod,
 	&omap44xx_gptimer9_hwmod,
-#if 0
 	&omap44xx_hdq1w_hwmod,
-#endif
 	&omap44xx_i2c1_hwmod,
 	&omap44xx_i2c2_hwmod,
 	&omap44xx_i2c3_hwmod,
