@@ -1091,12 +1091,18 @@ static int snd_ctl_tlv_ioctl(struct snd_ctl_file *file,
                              struct snd_ctl_tlv __user *_tlv,
                              int op_flag)
 {
-	struct snd_card *card = file->card;
+	struct snd_card *card;
 	struct snd_ctl_tlv tlv;
 	struct snd_kcontrol *kctl;
 	struct snd_kcontrol_volatile *vd;
 	unsigned int len;
 	int err = 0;
+
+	if (!file) {
+		WARN_ON(1);
+		return -EINVAL;
+	}
+	card = file->card;
 
 	if (copy_from_user(&tlv, _tlv, sizeof(tlv)))
 		return -EFAULT;
