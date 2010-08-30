@@ -1248,6 +1248,11 @@ static int omapvid_link_en_ovl(int enable, u32 addr, u32 uv_addr)
 
 	for (t = 0; t < NUM_OF_VIDEO_CHANNELS; t++) {
 		struct omap_overlay *ovl = omap_dss_get_overlay(t+1);
+		if (!ovl) {
+			pr_err("Could not get overlay %d\n", t+1);
+			WARN_ON(1);
+			continue;
+		}
 		if (ovl->manager && ovl->manager->device) {
 			struct omap_overlay_info info;
 			ovl->get_overlay_info(ovl, &info);
@@ -3261,6 +3266,11 @@ static int __init omap_vout_probe(struct platform_device *pdev)
 	 */
 	for (i = 1; i < (NUM_OF_VIDEO_CHANNELS + 1); i++) {
 		ovl = omap_dss_get_overlay(i);
+		if (!ovl) {
+			pr_err("Could not get overlay %d\n", i);
+			WARN_ON(1);
+			continue;
+		}
 		if (ovl->manager && ovl->manager->device) {
 			def_display = ovl->manager->device;
 		} else {
