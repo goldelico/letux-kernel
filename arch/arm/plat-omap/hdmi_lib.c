@@ -1096,8 +1096,8 @@ static int hdmi_w1_audio_config(void)
 {
 	int ret;
 
-	struct hdmi_audio_format audio_fmt;
-	struct hdmi_audio_dma audio_dma;
+	struct hdmi_audio_format audio_fmt = {0};
+	struct hdmi_audio_dma audio_dma = {0};
 
 	audio_fmt.justify = HDMI_AUDIO_JUSTIFY_LEFT;
 	audio_fmt.sample_number = HDMI_ONEWORD_ONE_SAMPLE;
@@ -1393,7 +1393,7 @@ int DSS_HDMI_CONFIG(HDMI_Timing_t timings, u32 video_format,
 	u32 mode)
 {
 	int err;
-	struct hdmi_config data;
+	struct hdmi_config data = {0};
 
 	data.ppl = timings.pixelPerLine;
 	data.lpp = timings.linePerPanel;
