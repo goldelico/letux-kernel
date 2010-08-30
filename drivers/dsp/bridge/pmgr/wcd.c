@@ -1053,7 +1053,7 @@ u32 nodewrap_allocate(union Trapped_Args *args, void *pr_ctxt)
 	u32 __user *psize = (u32 __user *) args->args_node_allocate.pargs;
 	u8 *pargs = NULL;
 	struct dsp_nodeattrin proc_attr_in, *attr_in = NULL;
-	struct node_res_object *node_res;
+	struct node_res_object *node_res = NULL;
 	void *hprocessor = ((struct process_context *)pr_ctxt)->hprocessor;
 	int nodeid;
 
@@ -1090,7 +1090,7 @@ u32 nodewrap_allocate(union Trapped_Args *args, void *pr_ctxt)
 				       &node_uuid, (struct dsp_cbdata *)pargs,
 				       attr_in, &node_res, pr_ctxt);
 	}
-	if (DSP_SUCCEEDED(status)) {
+	if (node_res) {
 		nodeid = node_res->id + 1;
 		CP_TO_USR(args->args_node_allocate.ph_node, &nodeid, status, 1);
 		if (DSP_FAILED(status)) {
