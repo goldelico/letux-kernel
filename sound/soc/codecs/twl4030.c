@@ -249,7 +249,7 @@ static void twl4030_codec_mute(struct snd_soc_codec *codec, int mute)
 static void twl4030_power_up(struct snd_soc_codec *codec)
 {
 	struct twl4030_priv *twl4030 = codec->private_data;
-	u8 anamicl, regmisc1, byte;
+	u8 anamicl, regmisc1, byte = 0;
 	int i = 0;
 
 	if (twl4030->codec_powered)
