@@ -396,7 +396,7 @@ sil9022_blockread_reg(struct i2c_client *client,
 {
 	int err = 0, i;
 	struct i2c_msg msg[1];
-	u8 data[2];
+	u8 data[2] = {0};
 
 	if (!client->adapter) {
 		dev_err(&client->dev, "<%s> ERROR: No HDMI Device\n", __func__);
@@ -511,7 +511,7 @@ sil9022_read_reg(struct i2c_client *client, u16 data_length, u8 reg, u8 *val)
 {
 	int err = 0;
 	struct i2c_msg msg[1];
-	u8 data[2];
+	u8 data[2] = {0};
 
 	if (!client->adapter) {
 		dev_err(&client->dev, "<%s> ERROR: No HDMI Device\n", __func__);
