@@ -314,7 +314,7 @@ int lv8093_is_busy(void)
 	struct lv8093_device *af_dev = &lv8093;
 	struct i2c_client *client = af_dev->i2c_client;
 	int ret;
-	u8  regval;
+	u8  regval = 0;
 
 	ret = lv8093_reg_read(client, &regval);
 
