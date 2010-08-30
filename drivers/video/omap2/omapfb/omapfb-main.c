@@ -1876,9 +1876,12 @@ void suspend(struct early_suspend *h)
 	struct fb_info *fbi = info->fbi;
 	struct omap_dss_device *display = fb2display(fbi);
 
-	if (!cpu_is_omap44xx() && display->suspend)
-		display->suspend(display);
-
+	if (!display) {
+		WARN_ON(1);
+	} else {
+		if (!cpu_is_omap44xx() && display->suspend)
+			display->suspend(display);
+	}
 	/* TODO: Fix PM later */
 	/* omapfb_vrfb_suspend_all(fbdev);*/
 }
@@ -1892,9 +1895,12 @@ void resume(struct early_suspend *h)
 
 	/* TODO: Fix PM later */
 	/* omapfb_vrfb_resume_all(fbdev);*/
-
-	if (!cpu_is_omap44xx() && display->resume)
-		display->resume(display);
+	if (!display) {
+		WARN_ON(1);
+	} else {
+		if (!cpu_is_omap44xx() && display->resume)
+			display->resume(display);
+	}
 }
 
 struct suspend_info suspend_info = {
