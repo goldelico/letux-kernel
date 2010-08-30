@@ -230,6 +230,10 @@ static void dpi_start_auto_update(struct omap_dss_device *dssdev)
 	for (i = 0; i < omap_dss_get_num_overlays(); ++i) {
 		struct omap_overlay *ovl;
 		ovl = omap_dss_get_overlay(i);
+		if (!ovl){
+			WARN_ON(1);
+			continue;
+		}
 		if (ovl->manager == dssdev->manager)
 			ovl->info_dirty = true;
 			printk(KERN_ERR "ovl[%d]->manager = %s", i,
