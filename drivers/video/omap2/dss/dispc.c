@@ -4060,6 +4060,10 @@ static void dispc_error_worker(struct work_struct *work)
 		for (i = 0; i < omap_dss_get_num_overlay_managers(); ++i) {
 			struct omap_overlay_manager *mgr;
 			mgr = omap_dss_get_overlay_manager(i);
+			if (!mgr){
+				pr_err("Error obtaining overlay manager!\n");
+				BUG_ON(1);
+			}
 
 			if (mgr->caps & OMAP_DSS_OVL_CAP_DISPC)
 				mgr->device->disable(mgr->device);
