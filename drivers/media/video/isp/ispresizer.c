@@ -221,25 +221,36 @@ static int ispresizer_try_fmt(struct isp_node *pipe, bool memory)
 				       OUT_HEIGHT_ALIGN);
 
 	/* Set default crop, if not defined */
-	if (pipe->in.crop.height <= 0 ||
+	if (pipe->in.crop.height <= 0 || pipe->in.crop.top < 0 ||
 	    pipe->in.crop.height + pipe->in.crop.top > pipe->in.image.height) {
 		pipe->in.crop.height = pipe->in.image.height;
 		pipe->in.crop.top = 0;
 	}
-
+	/**
+	 * Calculate vertical ratio.
+	 *  See OMAP34XX Technical Refernce Manual.
+	 */
 	rsz = pipe->in.crop.height * RESIZECONSTANT / pipe->out.image.height;
 	if (rsz > MID_RESIZE_VALUE) {
-		if (pipe->out.image.width > max_out_7tap)
+		if (pipe->out.image.width > max_out_7tap) {
 			pipe->out.image.width = max_out_7tap &
 						~(OUT_WIDTH_ALIGN - 1);
-		rsz = ((pipe->in.image.height - TAP7)
+			/* update output crop also */
+			pipe->out.crop.width = pipe->out.image.width;
+			pipe->out.crop.left = 0;
+		}
+		rsz = ((pipe->in.crop.height - TAP7)
 			* RESIZECONSTANT - sph * 64 - CIP_7PHASE)
 			/ (pipe->out.image.height - 1);
 	} else {
-		if (pipe->out.image.width > max_out_4tap)
+		if (pipe->out.image.width > max_out_4tap) {
 			pipe->out.image.width = max_out_4tap &
 						~(OUT_WIDTH_ALIGN - 1);
-		rsz = ((pipe->in.image.height - TAP4)
+			/* update output crop also */
+			pipe->out.crop.width = pipe->out.image.width;
+			pipe->out.crop.left = 0;
+		}
+		rsz = ((pipe->in.crop.height - TAP4)
 			* RESIZECONSTANT - sph * 32 - CIP_4PHASE)
 			/ (pipe->out.image.height - 1);
 	}
@@ -247,28 +258,16 @@ static int ispresizer_try_fmt(struct isp_node *pipe, bool memory)
 	/* To preserve range of vertical ratio */
 	if (rsz < MIN_RESIZE_VALUE || rsz > MAX_RESIZE_VALUE) {
 		rsz = clamp_t(s16, rsz, MIN_RESIZE_VALUE, MAX_RESIZE_VALUE);
-		if (rsz == MIN_RESIZE_VALUE) {
-			pipe->out.image.height = min_t(u32,
-						       pipe->out.image.height,
-						       (pipe->in.crop.height -
-							CIP_7PHASE) *
-							MAX_SCALE_FACTOR);
+		pipe->out.image.height = pipe->in.crop.height *
+					 RESIZECONSTANT / rsz;
+		if (rsz == MIN_RESIZE_VALUE)
 			pipe->out.image.height &= ~(OUT_HEIGHT_ALIGN - 1);
-		} else {
-			pipe->out.image.height = max_t(u32,
-						       pipe->out.image.height,
-						       (pipe->in.crop.height +
-							CIP_4PHASE) /
-							MAX_SCALE_FACTOR);
+		else
 			pipe->out.image.height = ALIGN(pipe->out.image.height,
 						       OUT_HEIGHT_ALIGN);
-		}
-		/* Update crop, if out of range */
-		if (pipe->in.crop.height + pipe->in.crop.top >
-						pipe->in.image.height) {
-			pipe->in.crop.height = pipe->in.image.height;
-			pipe->in.crop.top = 0;
-		}
+		/* update output crop also */
+		pipe->out.crop.height = pipe->out.image.height;
+		pipe->out.crop.top = 0;
 	}
 
 	/**
@@ -284,47 +283,40 @@ static int ispresizer_try_fmt(struct isp_node *pipe, bool memory)
 					      OUT_WIDTH_ALIGN_UP);
 
 	/* Set default crop, if not defined */
-	if (pipe->in.crop.width <= 0 ||
+	if (pipe->in.crop.width <= 0 || pipe->in.crop.left < 0 ||
 	    pipe->in.crop.width + pipe->in.crop.left > pipe->in.image.width) {
 		pipe->in.crop.width = pipe->in.image.width;
 		pipe->in.crop.left = 0;
 	}
 
+	/**
+	 * Calculate horizontal ratio.
+	 *  See OMAP34XX Technical Refernce Manual.
+	 */
+	rsz = pipe->in.crop.width * RESIZECONSTANT / pipe->out.image.width;
 	if (rsz > MID_RESIZE_VALUE) {
-		rsz = ((pipe->in.image.width - TAP7 - CIP_7PHASE)
-			* RESIZECONSTANT - sph * 64)
+		rsz = ((pipe->in.crop.width - TAP7)
+			* RESIZECONSTANT - sph * 64 - CIP_7PHASE)
 			/ (pipe->out.image.width - 1);
 	} else {
-		rsz = ((pipe->in.image.width - TAP4 - CIP_4PHASE)
-			* RESIZECONSTANT - sph * 32)
+		rsz = ((pipe->in.crop.width - TAP4)
+			* RESIZECONSTANT - sph * 32 - CIP_4PHASE)
 			/ (pipe->out.image.width - 1);
 	}
 
 	/* To preserve range of horizontal ratio */
 	if (rsz < MIN_RESIZE_VALUE || rsz > MAX_RESIZE_VALUE) {
 		rsz = clamp_t(s16, rsz, MIN_RESIZE_VALUE, MAX_RESIZE_VALUE);
-		if (rsz == MIN_RESIZE_VALUE) {
-			pipe->out.image.width = min_t(u32,
-						      pipe->out.image.width,
-						      (pipe->in.crop.width -
-						       CIP_7PHASE) *
-						       MAX_SCALE_FACTOR);
+		pipe->out.image.width = pipe->in.crop.width *
+					RESIZECONSTANT / rsz;
+		if (rsz == MIN_RESIZE_VALUE)
 			pipe->out.image.width &= ~(OUT_WIDTH_ALIGN_UP - 1);
-		} else {
-			pipe->out.image.width = max_t(u32,
-						      pipe->out.image.width,
-						      (pipe->in.crop.width +
-						       CIP_4PHASE) /
-						       MAX_SCALE_FACTOR);
+		else
 			pipe->out.image.width = ALIGN(pipe->out.image.width,
 						      OUT_WIDTH_ALIGN_UP);
-		}
-		/* Update crop, if out of range */
-		if (pipe->in.crop.width + pipe->in.crop.left >
-						pipe->in.image.width) {
-			pipe->in.crop.width = pipe->in.image.width;
-			pipe->in.crop.left = 0;
-		}
+		/* update output crop also */
+		pipe->out.crop.width = pipe->out.image.width;
+		pipe->out.crop.left = 0;
 	}
 
 	return 0;
@@ -337,43 +329,41 @@ static int ispresizer_try_ratio(struct device *dev, struct isp_node *pipe,
 				struct v4l2_rect *phy_rect,
 				u16 *h_ratio, u16 *v_ratio)
 {
-	s16 rsz;
+	u16 h_rsz, v_rsz;
 	u32 sph = DEFAULTSTPHASE;
-
-	/* Check range of requested horizontal crop */
-	if (pipe->in.crop.width < MIN_IN_WIDTH ||
-	    pipe->in.crop.width + pipe->in.crop.left > pipe->in.image.width) {
-		dev_err(dev, "Horizontal crop is out of range Crop: L=%d W=%d "
-			"Image: Width=%d\n", pipe->in.crop.left,
-			pipe->in.crop.width, pipe->in.image.width);
-		return -EINVAL;
-	}
+	struct v4l2_rect try_rect;
 
 	/* Check range of requested vertical crop */
-	if (pipe->in.crop.height < MIN_IN_HEIGHT ||
+	if (pipe->in.crop.height < MIN_IN_HEIGHT || pipe->in.crop.top < 0 ||
 	    pipe->in.crop.height + pipe->in.crop.top > pipe->in.image.height) {
 		dev_err(dev, "Vertical crop is out of range Crop: T=%d H=%d "
 			"Image: Height=%d\n", pipe->in.crop.top,
 			pipe->in.crop.height, pipe->in.image.height);
-		return -EINVAL;
+		pipe->in.crop.height = pipe->in.image.height;
+		pipe->in.crop.top = 0;
 	}
-	*phy_rect = pipe->in.crop;
 
 	/**
 	 * Calculate vertical ratio.
 	 *  See OMAP34XX Technical Refernce Manual.
 	 */
-	rsz = pipe->in.crop.height * RESIZECONSTANT / pipe->out.image.height;
-	if (rsz > MID_RESIZE_VALUE) {
-		rsz = ((pipe->in.crop.height - TAP7 - CIP_7PHASE)
-			* RESIZECONSTANT - sph * 64)
+	v_rsz = pipe->in.crop.height * RESIZECONSTANT / pipe->out.image.height;
+	if (v_rsz > MID_RESIZE_VALUE) {
+		v_rsz = ((pipe->in.crop.height - TAP7)
+			* RESIZECONSTANT - sph * 64 - CIP_7PHASE)
 			/ (pipe->out.image.height - 1);
 	} else {
-		rsz = ((pipe->in.crop.height - TAP4 - CIP_4PHASE)
-			* RESIZECONSTANT - sph * 32)
+		v_rsz = ((pipe->in.crop.height - TAP4)
+			* RESIZECONSTANT - sph * 32 - CIP_4PHASE)
 			/ (pipe->out.image.height - 1);
 	}
-	rsz = clamp_t(int, rsz, MIN_RESIZE_VALUE, MAX_RESIZE_VALUE);
+
+	if (v_rsz < MIN_RESIZE_VALUE || v_rsz > MAX_RESIZE_VALUE) {
+		dev_err(dev, "Vertical ratio is out of range: %d", v_rsz);
+		v_rsz = clamp_t(u16, v_rsz, MIN_RESIZE_VALUE, MAX_RESIZE_VALUE);
+		pipe->in.crop.height = pipe->out.image.height * v_rsz /
+				       RESIZECONSTANT;
+	}
 
 	/**
 	 * Recalculate input. See OMAP34XX TRM.
@@ -382,43 +372,54 @@ static int ispresizer_try_ratio(struct device *dev, struct isp_node *pipe,
 	 *  8-phase, 4-tap mode
 	 *     ih = (32 * spv + (oh - 1) * vrsz + 16) >> 8 + 4
 	 */
-	if (rsz > MID_RESIZE_VALUE) {
-		phy_rect->height = (64 * sph + (pipe->out.image.height - 1)
-					* rsz + CIP_7PHASE)
-					/ RESIZECONSTANT + TAP7;
+	if (v_rsz > MID_RESIZE_VALUE) {
+		try_rect.height = (64 * sph + (pipe->out.image.height - 1) *
+				   v_rsz + CIP_7PHASE) / RESIZECONSTANT + TAP7;
 	} else {
-		phy_rect->height = (32 * sph + (pipe->out.image.height - 1)
-					* rsz + CIP_4PHASE)
-					/ RESIZECONSTANT + TAP4;
+		try_rect.height = (32 * sph + (pipe->out.image.height - 1) *
+				   v_rsz + CIP_4PHASE) / RESIZECONSTANT + TAP4;
 	}
-	*v_ratio = rsz;
+	/* First storing user requested offset */
+	try_rect.top = pipe->in.crop.top;
+	/* Compensation of image centering after resize */
+	try_rect.top += (pipe->in.crop.height - try_rect.height) / 2;
 	/* Validate range of physical dimension of crop */
-	phy_rect->height = clamp_t(int, phy_rect->height, MIN_IN_HEIGHT,
-				      pipe->in.image.height);
-	phy_rect->top = min_t(int, phy_rect->top, pipe->in.image.height -
-			      phy_rect->height);
+	try_rect.top = clamp_t(u16, try_rect.top, 0, pipe->in.image.height -
+			       pipe->in.crop.height);
+	pipe->in.crop.height = clamp_t(u16, pipe->in.crop.height, MIN_IN_HEIGHT,
+				       pipe->in.image.height);
+
+	/* Check range of requested horizontal crop */
+	if (pipe->in.crop.width < MIN_IN_WIDTH || pipe->in.crop.left < 0 ||
+	    pipe->in.crop.width + pipe->in.crop.left > pipe->in.image.width) {
+		dev_err(dev, "Horizontal crop is out of range Crop: L=%d W=%d "
+			"Image: Width=%d\n", pipe->in.crop.left,
+			pipe->in.crop.width, pipe->in.image.width);
+		pipe->in.crop.width = pipe->in.image.width;
+		pipe->in.crop.left = 0;
+	}
 
 	/**
 	 * Calculate horizontal ratio.
 	 *  See OMAP34XX Technical Refernce Manual.
 	 */
-	rsz = pipe->in.crop.width * RESIZECONSTANT / pipe->out.image.width;
-	if (rsz > RESIZECONSTANT)
-		pipe->out.image.width = ALIGN(pipe->out.image.width,
-					      OUT_WIDTH_ALIGN);
-	else
-		pipe->out.image.width = ALIGN(pipe->out.image.width,
-					      OUT_WIDTH_ALIGN_UP);
-	if (rsz > MID_RESIZE_VALUE) {
-		rsz = ((pipe->in.crop.width - TAP7 - CIP_7PHASE)
-			* RESIZECONSTANT - sph * 64)
+	h_rsz = pipe->in.crop.width * RESIZECONSTANT / pipe->out.image.width;
+	if (h_rsz > MID_RESIZE_VALUE) {
+		h_rsz = ((pipe->in.crop.width - TAP7)
+			* RESIZECONSTANT - sph * 64 - CIP_7PHASE)
 			/ (pipe->out.image.width - 1);
 	} else {
-		rsz = ((pipe->in.crop.width - TAP4 - CIP_4PHASE)
-			* RESIZECONSTANT - sph * 32)
+		h_rsz = ((pipe->in.crop.width - TAP4)
+			* RESIZECONSTANT - sph * 32 - CIP_4PHASE)
 			/ (pipe->out.image.width - 1);
 	}
-	rsz = clamp_t(int, rsz, MIN_RESIZE_VALUE, MAX_RESIZE_VALUE);
+
+	if (h_rsz < MIN_RESIZE_VALUE || h_rsz > MAX_RESIZE_VALUE) {
+		dev_err(dev, "Horizontal ratio is out of range: %d", h_rsz);
+		h_rsz = clamp_t(u16, h_rsz, MIN_RESIZE_VALUE, MAX_RESIZE_VALUE);
+		pipe->in.crop.height = pipe->out.image.height * v_rsz /
+				       RESIZECONSTANT;
+	}
 
 	/**
 	 * Recalculate input. See OMAP34XX TRM.
@@ -427,21 +428,28 @@ static int ispresizer_try_ratio(struct device *dev, struct isp_node *pipe,
 	 *  8-phase, 4-tap mode
 	 *     iw = (32 * sph + (ow - 1) * hrsz + 16) >> 8 + 7
 	 */
-	if (rsz > MID_RESIZE_VALUE) {
-		phy_rect->width = (64 * sph + (pipe->out.image.width - 1)
-				       * rsz + CIP_7PHASE)
-				       / RESIZECONSTANT + TAP7;
+	if (h_rsz > MID_RESIZE_VALUE) {
+		try_rect.width = (64 * sph + (pipe->out.image.width - 1) *
+				  h_rsz + CIP_7PHASE) / RESIZECONSTANT + TAP7;
 	} else {
-		phy_rect->width = (32 * sph + (pipe->out.image.width - 1)
-				       * rsz + CIP_4PHASE)
-				       / RESIZECONSTANT + TAP4;
+		try_rect.width = (32 * sph + (pipe->out.image.width - 1) *
+				  h_rsz + CIP_4PHASE) / RESIZECONSTANT + TAP4;
 	}
-	*h_ratio = rsz;
+	/* First storing user requested offset */
+	try_rect.left = pipe->in.crop.left;
+	/* Compensation of image centering after resize */
+	try_rect.left += (pipe->in.crop.width - try_rect.width) / 2;
 	/* Validate range of physical dimension of crop */
-	phy_rect->width = clamp_t(int, phy_rect->width, MIN_IN_WIDTH,
+	try_rect.left = clamp_t(u16, try_rect.left, 0, pipe->in.image.width -
+				pipe->in.crop.width);
+	pipe->in.crop.width = clamp_t(u16, pipe->in.crop.width, MIN_IN_WIDTH,
 				      pipe->in.image.width);
-	phy_rect->left = min_t(int, phy_rect->left, pipe->in.image.width -
-			      phy_rect->width);
+
+	/* Storing parameters for engine crop */
+	*phy_rect = try_rect;
+	/* Storing calculated ratio parameters */
+	*v_ratio = v_rsz;
+	*h_ratio = h_rsz;
 
 	return 0;
 }
@@ -698,11 +706,44 @@ static struct isp_reg isprsz_reg_list[] = {
 void ispresizer_applycrop(struct isp_res_device *isp_res)
 {
 	struct isp_device *isp = to_isp_device(isp_res);
+	struct isp_node *pipe = &isp->pipeline.rsz;
+	int bpp = ISP_BYTES_PER_PIXEL;
 
 	if (!isp_res->applycrop)
 		return;
 
-	ispresizer_s_pipeline(isp_res, &isp->pipeline.rsz);
+	ispresizer_set_ratio(isp->dev, isp_res->h_resz, isp_res->v_resz);
+	ispresizer_set_coeffs(isp->dev, NULL, isp_res->h_resz, isp_res->v_resz);
+
+	/* Switch filter, releated to up/down scale */
+	if (ispresizer_is_upscale(pipe))
+		ispresizer_enable_cbilin(isp_res, 1);
+	else
+		ispresizer_enable_cbilin(isp_res, 0);
+
+	/* Set input and output size */
+	ispresizer_set_input_size(isp->dev, isp_res->phy_rect.width,
+				  isp_res->phy_rect.height);
+	ispresizer_set_output_size(isp->dev, pipe->out.image.width,
+				   pipe->out.image.height);
+
+	/* Set input address and line offset address */
+	if (pipe->in.path != RSZ_OTFLY_YUV) {
+		/* Set the input address, plus calculated crop offset */
+		ispresizer_set_inaddr(isp_res, isp_res->in_buff_addr, pipe);
+		/* Set the input line offset/length */
+		ispresizer_set_in_offset(isp_res, pipe->in.image.bytesperline);
+	} else {
+		/* Set the input address.*/
+		ispresizer_set_inaddr(isp_res, 0, NULL);
+		/* Set the starting pixel offset */
+		ispresizer_set_start(isp->dev, isp_res->phy_rect.left * bpp,
+				     isp_res->phy_rect.top);
+		ispresizer_set_in_offset(isp_res, 0);
+	}
+
+	/* Set output line offset */
+	ispresizer_set_out_offset(isp_res, pipe->out.image.bytesperline);
 
 	isp_res->applycrop = 0;
 }
