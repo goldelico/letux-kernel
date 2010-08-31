@@ -526,6 +526,9 @@ if (pwrdm_read_pwrst(cam_pwrdm) == PWRDM_POWER_ON)
 		/* Enable IO-PAD and IO-CHAIN wakeups */
 		prm_set_mod_reg_bits(OMAP3430_EN_IO, WKUP_MOD, PM_WKEN);
 		omap3_enable_io_chain();
+	} else {
+		omap_uart_prepare_idle(0);
+		omap_uart_prepare_idle(1);
 	}
 	omap3_intc_prepare_idle();
 
@@ -605,6 +608,9 @@ if (core_next_state < PWRDM_POWER_ON) {
 			prm_clear_mod_reg_bits(OMAP3430_AUTO_RET,
 						OMAP3430_GR_MOD,
 						OMAP3_PRM_VOLTCTRL_OFFSET);
+	} else {
+		omap_uart_resume_idle(0);
+		omap_uart_resume_idle(1);
 	}
 	omap3_intc_resume_idle();
 
