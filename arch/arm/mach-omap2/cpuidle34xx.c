@@ -70,9 +70,9 @@ struct powerdomain *sgx_pd, *usb_pd, *cam_pd, *dss_pd;
  */
 static struct cpuidle_params cpuidle_params_table[] = {
 	/* C1 */
-	{1, 2, 2, 5},
+	{1, 0, 12, 15},
 	/* C2 */
-	{1, 10, 10, 30},
+	{1, 0, 18, 20},
 	/* C3 */
 	{1, 50, 50, 300},
 	/* C4 */
