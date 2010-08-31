@@ -62,7 +62,6 @@ struct isp_prev_device {
 	u8 gg_update;
 	u8 bg_update;
 	u8 cfa_update;
-	u8 nf_enable;
 	u8 nf_update;
 	u8 wbal_update;
 	u8 fmtavg;

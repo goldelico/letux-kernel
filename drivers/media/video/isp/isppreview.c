@@ -441,7 +441,6 @@ static int isppreview_tables_update(struct isp_prev_device *isp_prev,
 				    struct isptables_update *isptables_struct)
 {
 	struct device *dev = to_device(isp_prev);
-	struct prev_params *params = &isp_prev->params;
 
 	if (ISP_ABS_PREV_WB & isptables_struct->update) {
 		if (copy_from_user(&isp_prev->params.wbal,
@@ -452,26 +451,22 @@ static int isppreview_tables_update(struct isp_prev_device *isp_prev,
 		isp_prev->wbal_update = 1;
 	}
 
-	if (ISP_ABS_TBL_NF & isptables_struct->flag) {
-		isp_prev->nf_enable = 1;
-		params->features |= PREV_NOISE_FILTER;
-		if (ISP_ABS_TBL_NF & isptables_struct->update) {
+	if (ISP_ABS_TBL_NF & isptables_struct->update) {
+		if (isptables_struct->prev_nf) {
 			if (copy_from_user(&isp_prev->prev_nf_t,
 					   (struct ispprev_nf *)
 					   isptables_struct->prev_nf,
 					   sizeof(struct ispprev_nf)))
 				goto err_copy_from_user;
-
-			isp_prev->nf_update = 1;
-		} else
-			isp_prev->nf_update = 0;
-	} else {
-		isp_prev->nf_enable = 0;
-		params->features &= ~PREV_NOISE_FILTER;
-		if (ISP_ABS_TBL_NF & isptables_struct->update)
-			isp_prev->nf_update = 1;
-		else
-			isp_prev->nf_update = 0;
+		}
+		if (ISP_ABS_TBL_NF & isptables_struct->flag) {
+			isp_prev->nf_en = 1;
+			isp_prev->params.features |= PREV_NOISE_FILTER;
+		} else {
+			isp_prev->nf_en = 0;
+			isp_prev->params.features &= ~PREV_NOISE_FILTER;
+		}
+		isp_prev->nf_update = 1;
 	}
 
 	if (ISP_ABS_TBL_REDGAMMA & isptables_struct->update) {
@@ -632,24 +627,10 @@ void isppreview_config_shadow_registers(struct isp_prev_device *isp_prev)
 		isppreview_enable_cfa(isp_prev, isp_prev->cfa_en);
 	}
 
-	if (isp_prev->nf_update && isp_prev->nf_enable) {
-		isppreview_enable_noisefilter(isp_prev, 0);
-		isp_reg_writel(dev, 0xC00,
-			       OMAP3_ISP_IOMEM_PREV, ISPPRV_SET_TBL_ADDR);
-		isp_reg_writel(dev, isp_prev->prev_nf_t.spread,
-			       OMAP3_ISP_IOMEM_PREV, ISPPRV_NF);
-		for (ctr = 0; ctr < ISPPRV_NF_TBL_SIZE; ctr++) {
-			isp_reg_writel(dev,
-				       isp_prev->prev_nf_t.table[ctr],
-				       OMAP3_ISP_IOMEM_PREV,
-				       ISPPRV_SET_TBL_DATA);
-		}
-		isppreview_enable_noisefilter(isp_prev, 1);
+	if (isp_prev->nf_update) {
+		isppreview_enable_noisefilter(isp_prev, isp_prev->nf_en);
 		isp_prev->nf_update = 0;
 	}
-
-	if (isp_prev->nf_update && ~isp_prev->nf_enable)
-		isppreview_enable_noisefilter(isp_prev, 0);
 
 	if (!isppreview_try_pipeline(isp_prev, &isp->pipeline.prv))
 		isppreview_config_size(dev, &isp->pipeline.prv);
@@ -1125,13 +1106,25 @@ EXPORT_SYMBOL_GPL(isppreview_config_chroma_suppression);
 void isppreview_enable_noisefilter(struct isp_prev_device *isp_prev, u8 enable)
 {
 	struct device *dev = to_device(isp_prev);
+	int idx;
 
-	if (enable)
+	if (enable) {
+		isp_reg_writel(dev, 0xC00,
+			       OMAP3_ISP_IOMEM_PREV, ISPPRV_SET_TBL_ADDR);
+		isp_reg_writel(dev, isp_prev->prev_nf_t.spread,
+			       OMAP3_ISP_IOMEM_PREV, ISPPRV_NF);
+		for (idx = 0; idx < ISPPRV_NF_TBL_SIZE; idx++) {
+			isp_reg_writel(dev,
+				       isp_prev->prev_nf_t.table[idx],
+				       OMAP3_ISP_IOMEM_PREV,
+				       ISPPRV_SET_TBL_DATA);
+		}
 		isp_reg_or(dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR,
 			   ISPPRV_PCR_NFEN);
-	else
+	} else {
 		isp_reg_and(dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR,
 			    ~ISPPRV_PCR_NFEN);
+	}
 	isp_prev->nf_en = enable ? 1 : 0;
 }
 EXPORT_SYMBOL_GPL(isppreview_enable_noisefilter);
