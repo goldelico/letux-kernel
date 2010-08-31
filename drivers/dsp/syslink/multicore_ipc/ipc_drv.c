@@ -73,8 +73,8 @@ MODULE_LICENSE("GPL v2");
 static atomic_t ipc_cref;	/* number of ipc open handles */
 static struct workqueue_struct *ipc_rec_queue;
 static struct work_struct ipc_recovery_work;
-static DECLARE_COMPLETION_ONSTACK(ipc_comp);
-static DECLARE_COMPLETION_ONSTACK(ipc_open_comp);
+static DECLARE_COMPLETION(ipc_comp);
+static DECLARE_COMPLETION(ipc_open_comp);
 static bool recover;
 struct iommu *piommu;
 struct omap_rproc *prproc_sysm3;
