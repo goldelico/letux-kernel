@@ -294,14 +294,6 @@ int isppreview_config(struct isp_prev_device *isp_prev, void *userspace_add)
 		params->features &= ~PREV_CHROMA_SUPPRESS;
 	}
 
-	if (ISP_ABS_PREV_BLKADJ & config->update) {
-		if (copy_from_user(&prev_blkadj_t, (struct ispprev_blkadjl *)
-				   config->prev_blkadj,
-				   sizeof(struct ispprev_blkadj)))
-			goto err_copy_from_user;
-		isppreview_config_blkadj(isp_prev, prev_blkadj_t);
-	}
-
 	if (ISP_ABS_PREV_YC_LIMIT & config->update) {
 		if (copy_from_user(&yclimit_t, (struct ispprev_yclimit *)
 				   config->yclimit,
@@ -319,6 +311,14 @@ int isppreview_config(struct isp_prev_device *isp_prev, void *userspace_add)
 	}
 
 out_config_shadow:
+
+	if (ISP_ABS_PREV_BLKADJ & config->update) {
+		if (copy_from_user(&prev_blkadj_t, (struct ispprev_blkadjl *)
+				   config->prev_blkadj,
+				   sizeof(struct ispprev_blkadj)))
+			goto err_copy_from_user;
+		isppreview_config_blkadj(isp_prev, prev_blkadj_t);
+	}
 
 	if (ISP_ABS_PREV_DEFECT_COR & config->flag) {
 		if (ISP_ABS_PREV_DEFECT_COR & config->update) {
