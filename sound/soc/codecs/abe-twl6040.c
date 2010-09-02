@@ -237,7 +237,7 @@ static inline void twl6040_write_reg_cache(struct snd_soc_codec *codec,
 static int twl6040_read_reg_volatile(struct snd_soc_codec *codec,
 			unsigned int reg)
 {
-	u8 value;
+	u8 value = 0;
 
 	if (reg >= TWL6040_CACHEREGNUM)
 		return -EIO;
@@ -542,7 +542,7 @@ static irqreturn_t twl6040_naudint_handler(int irq, void *data)
 	struct snd_soc_codec *codec = data;
 	struct twl6040_data *priv = codec->private_data;
 	struct twl6040_jack_data *jack = &priv->hs_jack;
-	u8 intid;
+	u8 intid = 0;
 
 	twl_i2c_read_u8(TWL_MODULE_AUDIO_VOICE, &intid, TWL6040_REG_INTID);
 
@@ -1053,7 +1053,7 @@ static int twl6040_power_up_completion(struct snd_soc_codec *codec,
 {
 	struct twl6040_data *priv = codec->private_data;
 	int time_left;
-	u8 intid;
+	u8 intid = 0;
 
 	time_left = wait_for_completion_timeout(&priv->ready,
 				msecs_to_jiffies(48));
