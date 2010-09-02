@@ -133,6 +133,9 @@ static inline void omap3_per_save_context(void)
 static inline void omap3_per_restore_context(void)
 {
 	omap_gpio_restore_context();
+	/* Don't attach mcbsp interrupt */
+	prm_clear_mod_reg_bits(OMAP3430_EN_MCBSP2,
+			  OMAP3430_PER_MOD, OMAP3430_PM_MPUGRPSEL);
 }
 
 static void omap3_enable_io_chain(void)
@@ -1110,8 +1113,11 @@ static void __init prcm_setup_regs(void)
 	/* and allow them to wake up MPU */
 	prm_write_mod_reg(OMAP3430_GRPSEL_GPIO2 | OMAP3430_EN_GPIO3 |
 			  OMAP3430_GRPSEL_GPIO4 | OMAP3430_EN_GPIO5 |
-			  OMAP3430_GRPSEL_GPIO6 | OMAP3430_EN_UART3 |
-			  OMAP3430_EN_MCBSP2,
+			  OMAP3430_GRPSEL_GPIO6 | OMAP3430_EN_UART3,
+			  OMAP3430_PER_MOD, OMAP3430_PM_MPUGRPSEL);
+
+	/* Don't attach mcbsp interrupt */
+	prm_clear_mod_reg_bits(OMAP3430_EN_MCBSP2,
 			  OMAP3430_PER_MOD, OMAP3430_PM_MPUGRPSEL);
 
 	/* Don't attach IVA interrupts */
