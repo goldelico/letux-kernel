@@ -113,6 +113,10 @@ __acquires(ep->musb->lock)
 
 	req = to_musb_request(request);
 
+	if (!req) {
+		WARN_ON(1);
+		return;
+	}
 	list_del(&request->list);
 	if (req->request.status == -EINPROGRESS)
 		req->request.status = status;
@@ -854,7 +858,8 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 		musb_writew(epio, MUSB_RXCSR,
 			MUSB_RXCSR_P_WZC_BITS | csr);
 
-		request->actual += musb_ep->dma->actual_len;
+		if (request)
+			request->actual += musb_ep->dma->actual_len;
 
 		DBG(4, "RXCSR%d %04x, dma off, %04x, len %zu, req %p\n",
 			epnum, csr,
@@ -1054,6 +1059,10 @@ static int musb_gadget_disable(struct usb_ep *ep)
 	int		status = 0;
 
 	musb_ep = to_musb_ep(ep);
+	if (!musb_ep) {
+		WARN_ON(1);
+		return -EFAULT;
+	}
 	musb = musb_ep->musb;
 	epnum = musb_ep->current_epnum;
 	epio = musb->endpoints[epnum].regs;
@@ -1098,7 +1107,7 @@ struct usb_request *musb_alloc_request(struct usb_ep *ep, gfp_t gfp_flags)
 	struct musb_request	*request = NULL;
 
 	request = kzalloc(sizeof *request, gfp_flags);
-	if (request) {
+	if (request && musb_ep) {
 		INIT_LIST_HEAD(&request->request.list);
 		request->request.dma = DMA_ADDR_INVALID;
 		request->epnum = musb_ep->current_epnum;
@@ -1221,11 +1230,18 @@ cleanup:
 
 static int musb_gadget_dequeue(struct usb_ep *ep, struct usb_request *request)
 {
-	struct musb_ep		*musb_ep = to_musb_ep(ep);
+	struct musb_ep		*musb_ep;
 	struct usb_request	*r;
 	unsigned long		flags;
 	int			status = 0;
-	struct musb		*musb = musb_ep->musb;
+	struct musb		*musb;
+
+	musb_ep = to_musb_ep(ep);
+	if (!musb_ep) {
+		WARN_ON(1);
+		return -EFAULT;
+	}
+	musb = musb_ep->musb;
 
 	if (!ep || !request || to_musb_request(request)->ep != musb_ep)
 		return -EINVAL;
@@ -1277,15 +1293,24 @@ done:
  */
 int musb_gadget_set_halt(struct usb_ep *ep, int value)
 {
-	struct musb_ep		*musb_ep = to_musb_ep(ep);
-	u8			epnum = musb_ep->current_epnum;
-	struct musb		*musb = musb_ep->musb;
-	void __iomem		*epio = musb->endpoints[epnum].regs;
+	struct musb_ep		*musb_ep;
+	u8			epnum;
+	struct musb		*musb;
+	void __iomem		*epio;
 	void __iomem		*mbase;
 	unsigned long		flags;
 	u16			csr;
 	struct musb_request	*request;
 	int			status = 0;
+
+	musb_ep = to_musb_ep(ep);
+	if (!musb_ep) {
+		WARN_ON(1);
+		return -EFAULT;
+	}
+	epnum = musb_ep->current_epnum;
+	musb = musb_ep->musb;
+	epio = musb->endpoints[epnum].regs;
 
 	if (!ep)
 		return -EINVAL;
@@ -1359,8 +1384,14 @@ done:
 static int musb_gadget_fifo_status(struct usb_ep *ep)
 {
 	struct musb_ep		*musb_ep = to_musb_ep(ep);
-	void __iomem		*epio = musb_ep->hw_ep->regs;
+	void __iomem		*epio;
 	int			retval = -EINVAL;
+
+	if (!musb_ep) {
+		WARN_ON(1);
+		return -EFAULT;
+	}
+	epio = musb_ep->hw_ep->regs;
 
 	if (musb_ep->desc && !musb_ep->is_in) {
 		struct musb		*musb = musb_ep->musb;
@@ -1382,13 +1413,20 @@ static int musb_gadget_fifo_status(struct usb_ep *ep)
 static void musb_gadget_fifo_flush(struct usb_ep *ep)
 {
 	struct musb_ep	*musb_ep = to_musb_ep(ep);
-	struct musb	*musb = musb_ep->musb;
-	u8		epnum = musb_ep->current_epnum;
-	void __iomem	*epio = musb->endpoints[epnum].regs;
+	struct musb	*musb;
+	u8		epnum;
+	void __iomem	*epio;
 	void __iomem	*mbase;
 	unsigned long	flags;
 	u16		csr, int_txe;
 
+	if (!musb_ep) {
+		WARN_ON(1);
+		return;
+	}
+	musb = musb_ep->musb;
+	epnum = musb_ep->current_epnum;
+	epio = musb->endpoints[epnum].regs;
 	mbase = musb->mregs;
 
 	spin_lock_irqsave(&musb->lock, flags);
