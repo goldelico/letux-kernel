@@ -327,10 +327,8 @@ static int omap_abe_dai_hw_free(struct snd_pcm_substream *substream,
 			err = omap_mcpdm_playback_close(&mcpdm_links[stream]);
 			if (mcpdm_priv->active[0] == 0)
 				err = omap_mcpdm_capture_close(&mcpdm_links[stream]);
-		}
-		else {
-			if (mcpdm_priv->active[1] == 0)
-				err = omap_mcpdm_capture_close(&mcpdm_links[stream]);
+		} else {
+			err = omap_mcpdm_capture_close(&mcpdm_links[stream]);
 		}
 		omap_mcpdm_stop(stream);
 		mcpdm_priv->active[stream] = 0;
