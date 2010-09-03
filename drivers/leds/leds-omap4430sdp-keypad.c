@@ -51,7 +51,7 @@ static void omap4430_keypad_led_store(struct led_classdev *led_cdev,
 {
 	u8 brightness = 0;
 
-	if (value > LED_OFF) {
+	if (value > 1) {
 		if (value == LED_FULL)
 			brightness = 0x7f;
 		else
