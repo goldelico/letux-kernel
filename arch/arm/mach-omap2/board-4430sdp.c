@@ -474,7 +474,7 @@ static struct platform_device sdp4430_dss_device = {
 
 static void sdp4430_set_primary_brightness(u8 brightness)
 {
-	if (brightness > 0) {
+	if (brightness > 1) {
 		if (brightness == 255)
 			brightness = 0x7f;
 		else
@@ -482,7 +482,7 @@ static void sdp4430_set_primary_brightness(u8 brightness)
 
 		twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x30, TWL6030_TOGGLE3);
 		twl_i2c_write_u8(TWL_MODULE_PWM, brightness, LED_PWM2ON);
-	} else if (brightness == 0) {
+	} else if (brightness <= 1) {
 		twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x08, TWL6030_TOGGLE3);
 		twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x38, TWL6030_TOGGLE3);
 	}
