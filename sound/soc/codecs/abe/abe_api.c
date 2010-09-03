@@ -278,6 +278,9 @@ void abe_select_main_port (abe_port_id id)
 
 	/* flow control */
 	selection = D_IOdescr_ADDR + id*sizeof(ABE_SIODescriptor) + flow_counter_;
+	/* Is port is McPDM UL no synchronization as algorithm is not working */
+	if (PDM_UL_PORT == id)
+		selection = 0;
 	abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_DMEM, D_Slot23_ctrl_ADDR, &selection, 4);
 
 	_lock_exit
