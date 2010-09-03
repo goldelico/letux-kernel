@@ -134,7 +134,7 @@ static struct sk_buff *convert2_channel_4(struct sk_buff *ch8_skb)
 		skb_trim(ch4_skb, 7);
 
 		return ch4_skb;
-	} else if (fm_opcode == CHAN8_FM_INTERRUPT) {
+	} else if ((fm_opcode == CHAN8_FM_INTERRUPT) && !cpu_is_omap34xx()) {
 		FM_CHR_DRV_DBG("Converting FM interrupt event\n");
 		ch4_skb = alloc_skb(7, GFP_ATOMIC);
 		if (ch4_skb == NULL) {
@@ -368,8 +368,49 @@ long fm_rx_task(void)
 		spin_unlock(&fm_chr_dev->lock);
 		return FM_CHR_DRV_ERR_FAILURE;
 	}
-	wake_up_interruptible(&fm_chr_dev->fm_data_q);
 
+	/* differentiate old FM stack M6 version and new 2.5 FM stack
+	 * Older FM stack M6 uses a user-space FM stack which doesn't require signal
+	 * New FM stack 2.5 uses a user-space FM stack which requires FMINTRs to be queued
+	 */
+	if (cpu_is_omap34xx()) {
+		skb = skb_dequeue(&fm_chr_dev->rx_q);
+		if (skb == NULL) {
+			FM_CHR_DRV_ERR(" Dequeued skb from Rx queue is NULL ");
+			spin_unlock(&fm_chr_dev->lock);
+			return FM_CHR_DRV_ERR_FAILURE;
+		}
+		if (skb->data[CHAN8_RESP_FM_OPCODE_POS] == CHAN8_FM_INTERRUPT) {
+			FM_CHR_DRV_VER(" Interrupt arrived: ");
+#ifdef VERBOSE
+			for (len = 0; ((skb) && (len < skb->len)); len++)
+				printk(KERN_INFO " 0x%02x ", skb->data[len]);
+			printk("\n");
+#endif
+			kfree_skb(skb);
+			/* kill_fasync here - Sends the signal. Check if the queue is
+			 * * empty. If not, it means that command complete response for
+			 * * the previous command is not sent to the stack. Don't send
+			 * 	 * * the Signal. Set the SIGNAL_PENDING bit. This bit is cleared
+			 * * in the read() of the stack, when it reads the command
+			 * * complete response.
+			 * */
+			if (likely(skb_queue_empty(&fm_chr_dev->rx_q))) {
+				/* Should come here most often */
+				kill_fasync(&fm_chr_dev->fm_fasync, SIGIO, POLLIN);
+				clear_bit(SIGNAL_PENDING, &fm_chr_dev->state_flags);
+			} else {
+				FM_CHR_DRV_VER(" signal not sent..");
+				set_bit(SIGNAL_PENDING, &fm_chr_dev->state_flags);
+			}
+			spin_unlock(&fm_chr_dev->lock);
+			return FM_CHR_DRV_SUCCESS;
+		}
+		/* Q the previously de-Qed skb */
+		skb_queue_head(&fm_chr_dev->rx_q, skb);
+	}
+
+	wake_up_interruptible(&fm_chr_dev->fm_data_q);
 	spin_unlock(&fm_chr_dev->lock);
 
 	return FM_CHR_DRV_SUCCESS;
@@ -554,10 +595,19 @@ ssize_t fm_chr_read(struct file *fil, char __user *data, size_t size,
 	ch4_skb = NULL;
 
 	/* Wait till the data is available */
-	if (wait_event_interruptible(fm_chr_dev->fm_data_q,
-				!skb_queue_empty(&fm_chr_dev->rx_q))) {
-		FM_CHR_DRV_ERR(" No data, done waiting ...\n");
-		return -EAGAIN;
+	if (cpu_is_omap34xx()) {
+		if (!wait_event_interruptible_timeout(fm_chr_dev->fm_data_q,
+					!skb_queue_empty
+					(&fm_chr_dev->rx_q), 500)) {
+			FM_CHR_DRV_ERR(" Read timed out ");
+			return -EAGAIN;
+		}
+	} else {
+		if (wait_event_interruptible(fm_chr_dev->fm_data_q,
+					!skb_queue_empty(&fm_chr_dev->rx_q))) {
+			FM_CHR_DRV_ERR(" No data, done waiting ...\n");
+			return -EAGAIN;
+		}
 	}
 
 	FM_CHR_DRV_VER(" Completed Read wait ");
