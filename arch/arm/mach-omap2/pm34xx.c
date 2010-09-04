@@ -70,6 +70,7 @@ static int regset_save_on_suspend;
 #define ABB_FAST_OPP	1
 #define ABB_NOMINAL_OPP	2
 
+#define RTA_ERRATA_i608		(1 << 1)
 #define PER_WAKEUP_ERRATA_i582 (1 << 0)
 static u16 pm34xx_errata;
 #define IS_PM34XX_ERRATA(id) (pm34xx_errata & (id))
@@ -1637,6 +1638,17 @@ static int __init omap3_pm_init(void)
 	if (omap_rev() <= OMAP3430_REV_ES3_1)
 		pwrdm_add_wkdep(per_pwrdm, wkup_pwrdm);
 
+	if (cpu_is_omap3630())
+		pm34xx_errata |= RTA_ERRATA_i608;
+	/*
+	 * RTA is disabled during initialization as per errata i608
+	 * it is safer to disable rta by the bootloader, but we would like
+	 * to be doubly sure here and prevent any mishaps.
+	 */
+	if (IS_PM34XX_ERRATA(RTA_ERRATA_i608))
+		omap_ctrl_writel(OMAP36XX_RTA_DISABLE,
+				OMAP36XX_CONTROL_MEM_RTA_CTRL);
+
 	if (omap_type() != OMAP2_DEVICE_TYPE_GP) {
 		omap3_secure_ram_storage =
 			kmalloc(0x803F, GFP_KERNEL);
@@ -1659,17 +1671,6 @@ static int __init omap3_pm_init(void)
 	register_reboot_notifier(&prcm_notifier);
 	atomic_notifier_chain_register(&panic_notifier_list,
 					&prcm_panic_notifier);
-
-	/*
-	 * With RTA enabled there were some issue seen on custom phones.
-	 * some devices running HLOS + camcorder app fails. Failure were
-	 * not deterministic. This was root-caused RTA (Retention-till-access).
-	 * As per H/w team recommendation; RTA is kept disabled till further
-	 * root-cause.
-	 */
-	if (cpu_is_omap3630())
-		omap_ctrl_writel(~OMAP3_MEM_RTA_ENABLE,
-			OMAP343X_CONTROL_MEM_RTA);
 err1:
 	return ret;
 err2:
