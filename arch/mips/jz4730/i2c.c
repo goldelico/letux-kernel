@@ -19,7 +19,8 @@
 
 #include <asm/jzsoc.h>
 
-#if 1
+#ifndef OLD
+
 /*
  * some older drivers use the 2.4 Kernel interfaces introduced
  * specifically for the JZ processors through this set of
@@ -44,10 +45,14 @@ void i2c_open(void)
 		// initialize
 		adap = i2c_get_adapter(0);	// there is only one on a JZ system
 		printk(KERN_DEBUG "i2c_get_adapter() -> %p\n", adap);
-		if (!adap)
-			return;
-		if (!i2c_check_functionality(adap, I2C_FUNC_I2C))
-			return;		
+		if (!adap) {
+			printk(KERN_INFO "i2c_open() failed to get adapter\n");
+			return;			
+		}
+		if (!i2c_check_functionality(adap, I2C_FUNC_I2C)) {
+			adap = NULL;
+			return;					
+		}
 		//		i2c_setclk(10000);
 	}
 //	i2c_lock_adapter(adap);
@@ -108,7 +113,7 @@ int i2c_write(unsigned char device, unsigned char *buf,
 	return ret;
 }
 
-#else
+#else	// here comes ther old unsynchronized code
 
 /* I2C protocol */
 #define I2C_READ	1

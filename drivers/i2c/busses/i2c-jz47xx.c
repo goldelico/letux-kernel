@@ -7,6 +7,7 @@
  * fixed to really work: hns@goldelico.com
  * Date:20100504
  * fixed to handle http://www.i2c-bus.org/fileadmin/ftp/i2c_bus_specification_1995.pdf
+ * datasheet if i2c controller: http://www.amebasystems.com/downloads/hardware/datasheets/ben-nanonote/Ingenic-SOC-JZ4720/Jz4740-PM/Jz4740_18_i2c_spec.pdf
  * Date:20100906
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -39,7 +40,8 @@
 #define I2C_READ	1
 #define I2C_WRITE	0
 
-#define TIMEOUT         1000
+#define TIMEOUT         1000	// in 10 usec steps - shouldn't this be aligned with clock speed?
+// note: 100kHz I2C has approx. 90us per word, i.e. the timeout should be at least one word
 
 struct jz_i2c {
 	spinlock_t		lock;
@@ -51,166 +53,6 @@ struct jz_i2c {
 	struct clk		*clk;
 };
 
-
-#if OLD
-
-/*
- * I2C bus protocol basic routines
- */
-
-static int i2c_put_data(unsigned char data)
-{
-	unsigned int timeout;
-	printk(KERN_EMERG "i2c_put_data(%02x)\n", data);
-	__i2c_send_nack();
-	__i2c_write(data);	// set data to be written
-	__i2c_set_drf();	// data is ready flag
-	timeout = TIMEOUT*10;	
-	while (!__i2c_transmit_ended() && timeout)
-		timeout--;	// wait until transmit done by controller
-	if (timeout) {
-		if (!__i2c_received_ack())
-			return -EIO;
-		return 0;	// ok
-	}
-	printk(KERN_EMERG "i2c_put_data(): timeout\n");
-	return -ETIMEDOUT;
-}
-
-
-static int i2c_get_data(unsigned char *data)
-{
-	unsigned int timeout;
-	__i2c_send_ack();
-	while (__i2c_check_drf() == 0 && timeout)
-		timeout--;	// wait until data received by controller
-	if (timeout) {
-		*data = __i2c_read();
-		printk(KERN_EMERG "i2c_get_data() -> %02x\n", *data);
-		if (!__i2c_received_ack())
-			return -EIO;	// no ACK
-		__i2c_clear_drf();	// received
-		return 0;	// ok
-	}
-	printk(KERN_EMERG "i2c_get_data(): timeout\n");		
-	return -ETIMEDOUT;
-}
-
-/*
- * I2C interface
- */
-
-static int xfer_read(unsigned char device, unsigned char *buf, int length, int flags)
-{
-	int cnt;
-	int timeout = 5;
-	unsigned char *tmpbuf;
-	
-L_try_again:
-	
-	if (timeout < 0)
-		goto L_timeout;
-	
-	cnt = length;
-	tmpbuf = (unsigned char *)buf;
-
-	__i2c_send_nack();	/* Master does not send ACK, slave sends it */
-	
-//	__i2c_send_start();
-		
-//	if (i2c_put_data( (device << 1) | I2C_WRITE ) < 0)
-//		goto device_werr;
-	
-//	if (i2c_put_data(sub_addr) < 0)
-//		goto address_err;
-	
-	// should skip this if I2C_M_NOSTART so that we can follow a read on a write (which sets the subaddress)
-	// but we should then send a repeated-start condition
-	
-	__i2c_send_start();
-	
-	if (i2c_put_data((device << 1) | I2C_READ ) < 0)
-		goto device_rerr;
-	
-	
-	__i2c_send_ack();	/* Master sends ACK for continue reading */
-	
-//	printk(KERN_EMERG "xfer_read: read %d bytes\n", cnt);
-	
-	while (cnt) {
-		
-		if (cnt == 1) {
-			
-			if (i2c_get_data(tmpbuf, 0) < 0)	// last read - does __i2c_send_stop() 
-				break;
-		} else {
-			
-			if (i2c_get_data(tmpbuf, 1) < 0)
-				break;
-		}
-		cnt--;
-		tmpbuf++;
-	}
-//	printk(KERN_EMERG "xfer_read: cnt is %d\n", cnt);
-	if(flags & I2C_M_STOP)
-		__i2c_send_stop();
-	
-	return length - cnt;
-device_rerr:
-device_werr:
-address_err:
-	
-	timeout --;
-	__i2c_send_stop();
-	goto L_try_again;
-	
-L_timeout:
-	__i2c_send_stop();
-	printk("Read I2C device 0x%2x failed.\n", device);
-	return -ENODEV;
-}
-
-
-static int xfer_write(unsigned char device, unsigned char *buf, int length, int flags)
-{
-	int cnt;
-	int timeout = 5;
-	unsigned char *tmpbuf;
-	
-W_try_again:
-	if (timeout < 0)
-		goto W_timeout;
-	
-	cnt = length;
-	tmpbuf = (unsigned char *)buf;
-	
-	__i2c_send_start();
-	if (i2c_put_data( (device << 1) | I2C_WRITE ) < 0)
-		goto device_err;
-	
-	while (cnt) {
-		
-		if (i2c_put_data(*tmpbuf) < 0) 
-			break;	// NAK before all sent
-		cnt--;
-		tmpbuf++;
-	}
-	if(flags & I2C_M_STOP)
-		__i2c_send_stop();
-	return length - cnt;
-device_err:
-address_err:
-	timeout--;
-	__i2c_send_stop();
-	goto W_try_again;
-	
-W_timeout:
-	printk( "Write I2C device 0x%2x failed.\n", device);
-	__i2c_send_stop();
-	return -ENODEV;
-}
-
-#endif
 
 void i2c_jz_setclk(unsigned int i2cclk)
 {
@@ -225,12 +67,12 @@ void i2c_jz_setclk(unsigned int i2cclk)
 static int i2c_jz_xfer(struct i2c_adapter *adap, struct i2c_msg *pmsg, int num)
 {
 	int ret, i;
-	int cnt;
-	unsigned char *tmpbuf;
 	
-	printk(KERN_INFO "i2c_jz_xfer %d messages\n", num);
+//	printk(KERN_INFO "i2c_jz_xfer %d messages\n", num);
 	dev_dbg(&adap->dev, "jz47xx_xfer: processing %d messages:\n", num);
 	for (i = 0; i < num; i++, pmsg++) {
+		unsigned char *tmpbuf = pmsg->buf;
+		int cnt = (pmsg->flags & I2C_M_TEN) ? -2:-1;	// prepare for sending address;
 		ret = num;	// assume ok
 		dev_dbg(&adap->dev, " #%d: %s %d byte%s %s 0x%02x flags %04x\n", i,
 				pmsg->flags & I2C_M_RD ? "reading" : "writing",
@@ -244,48 +86,13 @@ static int i2c_jz_xfer(struct i2c_adapter *adap, struct i2c_msg *pmsg, int num)
 		
 		if (!pmsg->buf)
 			continue;	/* sanity check */
-		printk(KERN_INFO "addr=%x flags=%04x\n", pmsg->addr, pmsg->flags);
+//		printk(KERN_INFO "addr=%x flags=%04x\n", pmsg->addr, pmsg->flags);
 		if (!(pmsg->flags & I2C_M_NOSTART))
 			__i2c_send_start();
 		__i2c_send_ack();	// default (only last byte during receive gets nack)
-/*
-		if ((pmsg->flags & I2C_M_TEN)) { // 10 bit address
-			__i2c_write(((pmsg->addr >> 7) &0x06) | ((pmsg->flags & I2C_M_RD) ? (0xf0 | I2C_READ) : (0xf0 | I2C_WRITE)) ); 	// first 2 bits
-			__i2c_set_drf();	// data is ready flag
-			while(__i2c_check_drf())
-				if(!(pmsg->flags & I2C_M_IGNORE_NAK) && !__i2c_received_ack())
-					ret = -EIO;
-			__i2c_write(pmsg->addr);	// final 8 bits
-			__i2c_set_drf();	// data is ready flag
-			while(__i2c_check_drf())
-				if(!(pmsg->flags & I2C_M_IGNORE_NAK) && !__i2c_received_ack())
-					ret = -EIO;
-		}
-		else { // 7 bit address
-			__i2c_write((pmsg->addr << 1) | ((pmsg->flags & I2C_M_RD) ? I2C_READ : I2C_WRITE));	// set data to be written
-			__i2c_set_drf();	// data is ready flag
-			while(__i2c_check_drf())
-				if(!(pmsg->flags & I2C_M_IGNORE_NAK) && !__i2c_received_ack())
-					ret = -EIO;
-		}
-		
-		if (pmsg->flags & I2C_M_RD) {
-			while(!__i2c_transmit_ended())	// wait for final ack before starting to read
-				if(!(pmsg->flags & I2C_M_IGNORE_NAK) && !__i2c_received_ack())
-					ret = -EIO;			
-			printk(KERN_INFO "address transmit finished - starting read\n");
-		}
-		
-		if(ret < 0)
-			goto error;
 
-		printk(KERN_INFO "address %x sent\n", pmsg->addr);
-*/
-		tmpbuf = pmsg->buf;
-		cnt = (pmsg->flags & I2C_M_TEN) ? -2:-1;	// prepare for sending address
-		
 		for(; cnt < pmsg->len; cnt++) {
-			printk(KERN_INFO "%d (%d)", cnt, pmsg->len);
+//			printk(KERN_INFO "%d (%d)", cnt, pmsg->len);
 #if 0
 			if(cnt == pmsg->len-1 && i == num-1) {
 				printk("  send stop\n");
@@ -293,62 +100,53 @@ static int i2c_jz_xfer(struct i2c_adapter *adap, struct i2c_msg *pmsg, int num)
 			}
 #endif
 			if (cnt >= 0 && pmsg->flags & I2C_M_RD) { // read data
-				int timeout = TIMEOUT*10;
+				int timeout = TIMEOUT;
 				while(!__i2c_check_drf() && timeout--)	// wait for data to arrive
-					;
+					udelay(10);
 				if (timeout < 0)
 					ret = -ETIMEDOUT;
 				else {
 					if(cnt == pmsg->len-2)
 						__i2c_send_nack();	// nack last byte
 					*tmpbuf++ = __i2c_read();	// read data byte
-					printk("  r: %02x\n", tmpbuf[-1]);
+//					printk("  r: %02x\n", tmpbuf[-1]);
 					__i2c_clear_drf();					
 				}
 			}
 			else {
+				int timeout = TIMEOUT;
 				if(cnt == -2) { // send first byte of 10-bit address
-					printk("  w: %02x\n", ((pmsg->addr >> 7) & 0x06) | ((pmsg->flags & I2C_M_RD) ? (0xf0 | I2C_READ) : (0xf0 | I2C_WRITE)));
+//					printk("  w: %02x\n", ((pmsg->addr >> 7) & 0x06) | ((pmsg->flags & I2C_M_RD) ? (0xf0 | I2C_READ) : (0xf0 | I2C_WRITE)));
 					__i2c_write(((pmsg->addr >> 7) & 0x06) | ((pmsg->flags & I2C_M_RD) ? (0xf0 | I2C_READ) : (0xf0 | I2C_WRITE)) ); 	// first 2 bits					
 				}
 				else if(cnt == -1) { // send 7 bit address or second byte
 					if ((pmsg->flags & I2C_M_TEN)) {
-						printk("  w: %02x\n", pmsg->addr & 0xff);
+//						printk("  w: %02x\n", pmsg->addr & 0xff);
 						__i2c_write(pmsg->addr);	// final 8 bits
 					}
 					else {
-						printk("  w: %02x\n", (pmsg->addr << 1) | ((pmsg->flags & I2C_M_RD) ? I2C_READ : I2C_WRITE));
+//						printk("  w: %02x\n", (pmsg->addr << 1) | ((pmsg->flags & I2C_M_RD) ? I2C_READ : I2C_WRITE));
 						__i2c_write((pmsg->addr << 1) | ((pmsg->flags & I2C_M_RD) ? I2C_READ : I2C_WRITE));	// set data to be written				
 					}
 				}
 				else { // send data
-					printk("  w: %02x\n", *tmpbuf);
+//					printk("  w: %02x\n", *tmpbuf);
 					__i2c_write(*tmpbuf++);
 					
 				}
 				__i2c_set_drf();	// data is ready flag
-				int timeout = TIMEOUT*10;
-				if(0 || cnt == -1 || cnt == pmsg->len-1) { // last byte, wait for ACK
-					printk("  wait transmit_ended\n");
-#if 0
-					while(__i2c_check_drf())
-						;
-#endif
+				while(__i2c_check_drf() && timeout--) // wait until we can push the next byte
+					udelay(10);
+				if(cnt == -1 || cnt == pmsg->len-1) { // last byte, wait for end of transission and final ACK
+//					printk("  wait transmit_ended\n");
+					timeout = TIMEOUT;
 					while(!__i2c_transmit_ended() && timeout--)
-						if(/*!(pmsg->flags & I2C_M_IGNORE_NAK) &&*/ !__i2c_received_ack()) {
-							ret = -EIO;
-							break;
-						}
+						udelay(10);
 				}
-				else { // wait until we can push the next byte
-					while(__i2c_check_drf() && timeout--)
-						if(!(pmsg->flags & I2C_M_IGNORE_NAK) && !__i2c_received_ack()) {
-							ret = -EIO;
-							break;
-						}
-					}
 				if (timeout < 0)
 					ret = -ETIMEDOUT;
+				else if (!(pmsg->flags & I2C_M_IGNORE_NAK) && !__i2c_received_ack())
+					ret = -EIO;
 			}
 			if(ret < 0)
 				break;
@@ -358,7 +156,7 @@ static int i2c_jz_xfer(struct i2c_adapter *adap, struct i2c_msg *pmsg, int num)
 	__i2c_send_stop();	// finally, send a stop to release the bus
 	if(ret < 0) {
 		dev_dbg(&adap->dev, "jz47xx_xfer failed: ret=%d\n", ret);
-#if 1
+#if 0
 		if(ret == -EIO)
 			printk("  EIO\n");
 		else if(ret == -ETIMEDOUT)
@@ -384,7 +182,7 @@ static int i2c_jz_probe(struct platform_device *dev)
 	struct jz_i2c *i2c;
 	struct i2c_jz_platform_data *plat = dev->dev.platform_data;
 	int ret;
-	printk(KERN_INFO "i2c_jz_probe()\n");
+//	printk(KERN_INFO "i2c_jz_probe()\n");
 	i2c_jz_setclk(10000); /* default 10 KHz */
 
 	__i2c_enable();
