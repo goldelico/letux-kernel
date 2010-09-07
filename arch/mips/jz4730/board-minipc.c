@@ -123,7 +123,7 @@ static void __init board_gpio_setup(void)
 #endif
 }
 
-void overwrite_root_name(char *root_name)
+void overwrite_root_name(/* full path to root device */ char *root_name, /* comma separated list of file systems */ char **root_fs_names)
 {
 	extern int jz_kbd_get_col(int col);
 	/* check GPIOs if there is a boot key pressed and override boot arguments
@@ -131,14 +131,14 @@ void overwrite_root_name(char *root_name)
 	 F2:				boot from second SD partition (/dev/mmcblk0p2, ext3)
 	 F3:				boot minifs from internal partition (/dev/mtdblock3, jffs2)
 	 F4:				boot from internal partition (/dev/mtdblock4, yaffs2)
-	 Fn:				boot from second SD partition (/dev/mmcblk0p2, ext3) (kernel was booted from SD on Fn+Ctrl+LeftShift)
+	 Fn:				boot from second SD partition (/dev/mmcblk0p2, ext3) (kernel was booted from SD on Fn+LeftShift)
 	 none:				boot from internal partition (/dev/mtdblock4, yaffs2)
 	 
 	 Notes:
-		- the first condition in this list is taken, i.e. Fn+F4 means F4 mode
+		- the first condition in this list is taken, i.e. Fn+F4 results in F4 mode
 		- there may be shadow keys (like F5) if Fn-Ctrl-LShift are pressed
 		- pressed keys return a 0 bit
-		- this check is done some seconds after starting the kernel
+		- this check is done some seconds after starting the kernel right before the init process starts
 
 	 */
 #if 0
@@ -155,7 +155,7 @@ void overwrite_root_name(char *root_name)
 	else if ((jz_kbd_get_col(13) & 0x40) == 0)	// F2
 		strcpy(root_name, "/dev/mmcblk0p2");
 	else if ((jz_kbd_get_col(3) & 0x02) == 0)	// F3
-		strcpy(root_name, "/dev/mtdblock3");
+		strcpy(root_name, "/dev/mtdblock3"), *root_fs_names="jffs2";
 	else if ((jz_kbd_get_col(3) & 0x08) == 0)	// F4
 		strcpy(root_name, "/dev/mtdblock4");
 /*
@@ -176,8 +176,20 @@ void overwrite_root_name(char *root_name)
 		strcpy(root_name, "/dev/mmcblk0p2");
 	else	// neither
 		strcpy (root_name, "/dev/mtdblock4");
-	printk(KERN_INFO "Root file system overwritten as: %s\n", root_name);
+	printk(KERN_INFO "Root file system (%s) overwritten as: %s\n", *root_fs_names, root_name);
 }
+
+/* initialization */
+
+void __init jz_board_setup(void)
+{
+	printk("JZ4730 MINIPC board setup\n");
+	
+	board_cpm_setup();
+	board_gpio_setup();
+}
+
+/* backlight platform device */
 
 void minipc_bl_set_intensity(int intensity)
 {
@@ -194,19 +206,12 @@ static struct generic_bl_info minipc_bl_machinfo = {
 	// .kick_battery = corgi_bl_kick_battery,
 };
 
-struct platform_device minipc_bl_device = {
+static struct platform_device minipc_bl_device = {
 	.name		= "generic-bl",
 	.dev		= {
 		.platform_data  = &minipc_bl_machinfo,
 	},
 	.id		= -1,
-};
-
-static struct i2c_board_info pcf8563_rtc_board_info[] = {
-	[0] = {
-		.type = "pcf8563",
-		.addr = 0x51,
-		}
 };
 
 /* touch pad buttons */
@@ -248,7 +253,7 @@ static struct gpio_mouse_platform_data touchpad_buttons_board_info[] = {
 	}
 };
 
-struct platform_device touchpad_buttons_device = {
+static struct platform_device touchpad_buttons_device = {
 	.name		= "gpio_mouse",
 	.dev		= {
 //		.num_resources	= ARRAY_SIZE(touchpad_buttons_board_info),
@@ -257,22 +262,35 @@ struct platform_device touchpad_buttons_device = {
 	.id		= -1,
 };
 
-/* initialization */
+static struct platform_device *jz_platform_devices[] __initdata = {
+	&minipc_bl_device,
+	&touchpad_buttons_device,
+};
 
-void __init jz_board_setup(void)
+static int __init board_init(void)
 {
-	printk("JZ4730 MINIPC board setup\n");
-
-	board_cpm_setup();
-	board_gpio_setup();
-
-/*
- * ard:
- *  We don't have pmp timer ack led stuff
-	jz_timer_callback = pmp_timer_ack;
- */
-	
-	// this is how it *should* better work than the probing workaround in pcf8563_attach()
-	//	i2c_register_board_info(0, pcf8563_rtc_board_info, 1);	// before registering adapters
-	
+	printk(KERN_DEBUG "adding board specific platform devices\n");
+	return platform_add_devices(jz_platform_devices, ARRAY_SIZE(jz_platform_devices));
 }
+
+arch_initcall(board_init);
+
+/* RTC I2C device */
+
+struct i2c_board_info i2c_bus_devices[] = {
+	/* can't autoprobe this
+	[0] = {
+		.type = "pcf8563",
+		.addr = 0x51,
+	}
+	 */
+};
+
+static int __init i2c_init(void)
+{
+	printk(KERN_DEBUG "adding I2C devices\n");
+	i2c_register_board_info(0, i2c_bus_devices, ARRAY_SIZE(i2c_bus_devices));
+	return 0;
+}
+
+postcore_initcall(i2c_init);	// but before arch_initcall()

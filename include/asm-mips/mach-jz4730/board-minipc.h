@@ -42,6 +42,8 @@
 #define GPIO_UDC_HOTPLUG  86
 #define GPIO_TS_LEFT_BUTTON	16
 #define GPIO_TS_RIGHT_BUTTON	13
+#define PIC_GPIO			65   //wjx 2007.12.10 89 -> 65
+#define PIC_IRQ				(IRQ_GPIO_0 + PIC_GPIO)
 
 /*====================================================================== 
  * MMC/SD

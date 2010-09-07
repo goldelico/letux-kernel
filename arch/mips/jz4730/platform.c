@@ -154,26 +154,20 @@ struct platform_device jz_i2c_device = {
 
 /* All */
 
-#ifdef CONFIG_JZ4730_MINIPC
-extern struct platform_device minipc_bl_device;
-extern struct platform_device touchpad_buttons_device;
-#endif
-
 static struct platform_device *jz_platform_devices[] __initdata = {
 	&jz_usb_ohci_device,
 	&jz_lcd_device,
 	&jz_usb_gdt_device,
 	&jz_mmc_device,
-#ifdef CONFIG_JZ4730_MINIPC
-	&minipc_bl_device,
-	&touchpad_buttons_device,
-#endif
 	&jz_i2c_device,
 };
 
 static int __init jz_platform_init(void)
 {
-	return platform_add_devices(jz_platform_devices, ARRAY_SIZE(jz_platform_devices));
+	printk(KERN_DEBUG "adding jz platform devices\n");
+	int ret = platform_add_devices(jz_platform_devices, ARRAY_SIZE(jz_platform_devices));
+	printk(KERN_DEBUG "i2c_get_adapter() -> %p\n", i2c_get_adapter(0));
+	return ret;
 }
 
 arch_initcall(jz_platform_init);
