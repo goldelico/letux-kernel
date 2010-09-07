@@ -342,7 +342,7 @@ void dispc_enable_replication(enum omap_plane plane, bool enable);
 
 void dispc_set_parallel_interface_mode(enum omap_channel channel,
 				enum omap_parallel_interface_mode mode);
-void dispc_set_tft_data_lines(enum omap_channel channel, u8 data_lines);
+int dispc_set_tft_data_lines(enum omap_channel channel, u8 data_lines);
 void dispc_set_lcd_display_type(enum omap_channel channel,
 					enum omap_lcd_display_type type);
 void dispc_set_loadmode(enum omap_dss_load_mode mode);

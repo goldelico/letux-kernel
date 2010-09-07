@@ -3040,7 +3040,7 @@ void dispc_set_dither_mode(enum omap_dss_dither_mode mode)
 	enable_clocks(0);
 }
 
-void dispc_set_tft_data_lines(enum omap_channel channel, u8 data_lines)
+int dispc_set_tft_data_lines(enum omap_channel channel, u8 data_lines)
 {
 	int code;
 
@@ -3058,8 +3058,7 @@ void dispc_set_tft_data_lines(enum omap_channel channel, u8 data_lines)
 		code = 3;
 		break;
 	default:
-		BUG();
-		return;
+		return -EINVAL;
 	}
 
 	enable_clocks(1);
@@ -3070,6 +3069,8 @@ void dispc_set_tft_data_lines(enum omap_channel channel, u8 data_lines)
 #endif
 		REG_FLD_MOD(DISPC_CONTROL, code, 9, 8);
 	enable_clocks(0);
+
+	return 0;
 }
 
 void dispc_set_parallel_interface_mode(enum omap_channel channel,

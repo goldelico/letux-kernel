@@ -3619,7 +3619,12 @@ static int dsi_display_init_dispc(struct omap_dss_device *dssdev)
 	if (cpu_is_omap44xx())
 		dispc_enable_fifohandcheck(1);
 
-	dispc_set_tft_data_lines(dssdev->channel, dssdev->ctrl.pixel_size);
+	r = dispc_set_tft_data_lines(dssdev->channel, dssdev->ctrl.pixel_size);
+	if (r) {
+		DSSERR("tft data lines configuration is not supported\n");
+		return r;
+	}
+
 	dispc_set_lcd_timings(dssdev->channel, &timings);
 
 	dispc_set_pol_freq(dssdev->channel, dssdev->panel.config,
@@ -4355,6 +4360,32 @@ void dsi_get_overlay_fifo_thresholds(enum omap_plane plane,
 	}
 }
 
+static int dsi_set_data_lines(struct omap_dss_device *dssdev, int data_lines)
+{
+	int r = 0;
+
+	if (dssdev->channel != OMAP_DSS_CHANNEL_LCD &&
+		dssdev->channel != OMAP_DSS_CHANNEL_LCD2)
+		return -EINVAL;
+
+	dispc_enable_lcd_out(dssdev->channel, 0);
+
+	r = dispc_set_tft_data_lines(dssdev->channel, data_lines);
+
+	if (!r)
+		dssdev->ctrl.pixel_size = data_lines;
+
+	dispc_enable_lcd_out(dssdev->channel, 1);
+
+	return r;
+}
+
+static int dsi_get_data_lines(struct omap_dss_device *dssdev)
+{
+	return dssdev->ctrl.pixel_size;
+}
+
+
 int dsi_init_display(struct omap_dss_device *dssdev)
 {
 	enum dsi lcd_ix;
@@ -4380,6 +4411,9 @@ int dsi_init_display(struct omap_dss_device *dssdev)
 
 	dssdev->get_mirror = dsi_display_get_mirror;
 	dssdev->set_mirror = dsi_display_set_mirror;
+
+	dssdev->set_data_lines = dsi_set_data_lines;
+	dssdev->get_data_lines = dsi_get_data_lines;
 
 	dssdev->run_test = dsi_display_run_test;
 	dssdev->memory_read = dsi_display_memory_read;

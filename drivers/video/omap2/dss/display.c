@@ -381,6 +381,39 @@ static ssize_t display_hpd_enabled_store(struct device *dev,
 	return size;
 }
 
+static ssize_t display_tft_data_lines_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct omap_dss_device *dssdev = to_dss_device(dev);
+	int data_lines;
+
+	if (!dssdev->get_data_lines)
+		return -ENOENT;
+
+	data_lines = dssdev->get_data_lines(dssdev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", data_lines);
+}
+
+static ssize_t display_tft_data_lines_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct omap_dss_device *dssdev = to_dss_device(dev);
+	int data_lines, r;
+
+	if (!dssdev->set_data_lines)
+		return -ENOENT;
+
+	if (sscanf(buf, "%d", &data_lines) != 1)
+		return -EINVAL;
+
+	r = dssdev->set_data_lines(dssdev, data_lines);
+	if (r)
+		return r;
+
+	return size;
+}
+
 static DEVICE_ATTR(enabled, S_IRUGO|S_IWUSR,
 		display_enabled_show, display_enabled_store);
 static DEVICE_ATTR(update_mode, S_IRUGO|S_IWUSR,
@@ -405,6 +438,9 @@ static DEVICE_ATTR(device_connected, S_IRUGO,
 		NULL);
 static DEVICE_ATTR(hpd_enabled, S_IRUGO|S_IWUSR,
 		NULL, display_hpd_enabled_store);
+static DEVICE_ATTR(data_lines, S_IRUGO|S_IWUSR,
+		display_tft_data_lines_show,
+		display_tft_data_lines_store);
 
 static struct device_attribute *display_sysfs_attrs[] = {
 	&dev_attr_enabled,
@@ -418,6 +454,7 @@ static struct device_attribute *display_sysfs_attrs[] = {
 	&dev_attr_device_detect_enabled,
 	&dev_attr_device_connected,
 	&dev_attr_hpd_enabled,
+	&dev_attr_data_lines,
 	NULL
 };
 

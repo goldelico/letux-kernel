@@ -218,9 +218,8 @@ static int dpi_basic_init(struct omap_dss_device *dssdev)
 		OMAP_DSS_PARALLELMODE_BYPASS);
 	dispc_set_lcd_display_type(dssdev->channel,
 		is_tft ? OMAP_DSS_LCD_DISPLAY_TFT : OMAP_DSS_LCD_DISPLAY_STN);
-	dispc_set_tft_data_lines(dssdev->channel,
+	return dispc_set_tft_data_lines(dssdev->channel,
 		dssdev->phy.dpi.data_lines);
-	return 0;
 }
 
 /*This one needs to be to set the ovl info to dirty*/
@@ -625,6 +624,31 @@ static enum omap_dss_update_mode dpi_display_get_update_mode(
 		OMAP_DSS_UPDATE_DISABLED;
 }
 
+static int dpi_set_data_lines(struct omap_dss_device *dssdev, int data_lines)
+{
+	int r = 0;
+
+	if (dssdev->channel != OMAP_DSS_CHANNEL_LCD &&
+		dssdev->channel != OMAP_DSS_CHANNEL_LCD2)
+		return -EINVAL;
+
+	dispc_enable_lcd_out(dssdev->channel, 0);
+
+	r = dispc_set_tft_data_lines(dssdev->channel, data_lines);
+
+	if (!r)
+		dssdev->phy.dpi.data_lines = data_lines;
+
+	dispc_enable_lcd_out(dssdev->channel, 1);
+
+	return r;
+}
+
+static int dpi_get_data_lines(struct omap_dss_device *dssdev)
+{
+	return dssdev->phy.dpi.data_lines;
+}
+
 int dpi_init_display(struct omap_dss_device *dssdev)
 {
 	DSSDBG("init_display\n");
@@ -638,6 +662,8 @@ int dpi_init_display(struct omap_dss_device *dssdev)
 	dssdev->get_timings = dpi_get_timings;
 	dssdev->set_update_mode = dpi_display_set_update_mode;
 	dssdev->get_update_mode = dpi_display_get_update_mode;
+	dssdev->set_data_lines = dpi_set_data_lines;
+	dssdev->get_data_lines = dpi_get_data_lines;
 
 	return 0;
 }
