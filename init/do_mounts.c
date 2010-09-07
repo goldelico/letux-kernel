@@ -440,8 +440,9 @@ void __init prepare_namespace(void)
 
 #if CONFIG_JZ4730_MINIPC
 	{
-		extern void overwrite_root_name(char *root_name);
-		overwrite_root_name(saved_root_name);
+	// give board specific driver a chance to overwrite if special keys are pressed
+		extern void overwrite_root_name(char *root_name, char **root_fs_names);
+		overwrite_root_name(saved_root_name, &root_fs_names);
 	}
 #endif
 
