@@ -66,7 +66,7 @@ static unsigned int jz_kbd_keycode[KB_COLS][KB_ROWS] = {
 /* 9*/ {0, KEY_BACKSPACE, 0, 0, KEY_ENTER, 0, KEY_F9, 0,},
 /*10*/ {0, 0, 0, KEY_LEFTALT, 0, 0, 0, KEY_SYSRQ,},
 /*11*/ {KEY_P, KEY_LEFTBRACE, KEY_SEMICOLON, KEY_APOSTROPHE, KEY_BACKSLASH, KEY_SLASH, KEY_MINUS, KEY_0,},
-/*12*/ {KEY_KP0, KEY_F20, KEY_KP1, KEY_KP2, KEY_KP3, KEY_KP4, KEY_KP5, KEY_F10,}, //CZJ ADD NUM PACK
+/*12*/ {KEY_KP0, KEY_DISPLAY_OFF, KEY_KP1, KEY_KP2, KEY_KP3, KEY_KP4, KEY_KP5, KEY_F10,}, //CZJ ADD NUM PACK
 /*13*/ {KEY_KP6, KEY_KP7, KEY_KP8, KEY_KP9, KEY_KPPLUS, KEY_KPMINUS, KEY_F2, KEY_KPSLASH,}, //CZJ ADD NUM PACK
 /*14*/ {KEY_KPDOT, KEY_KPASTERISK, 0, 0, 0, 0, KEY_INSERT, 0,},  //CZJ ADD NUM PACK
 /*15*/ {0, 0, KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, 0, 0,},
@@ -232,7 +232,8 @@ static void jz_kbd_send_key(int scancode, int key_down_flag)
 	if(key_down_flag)
 		{ // decode special key press
 			switch(scancode) {
-				case KEY_F20:	// zzz key - should change backlight
+				case KEY_DISPLAY_OFF:	// zzz key
+					// cycle backlight
 					return;
 				// add more keys, e.g. volume control here
 				case KEY_CAPSLOCK:
