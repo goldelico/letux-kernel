@@ -89,16 +89,18 @@ static int pcf8563_get_datetime(struct i2c_client *client, struct rtc_time *tm)
 		{ client->addr, I2C_M_RD, 13, buf },	/* read status + date */
 	};
 
+	int r;
+	
 	/* read registers */
-	if ((i2c_transfer(client->adapter, msgs, 2)) != 2) {
-		dev_err(&client->dev, "%s: read error\n", __FUNCTION__);
+	if ((r=i2c_transfer(client->adapter, msgs, 2)) != 2) {
+		dev_err(&client->dev, "%s: read error (%d)\n", __FUNCTION__, r);
 		return -EIO;
 	}
 
 	if (buf[PCF8563_REG_SC] & PCF8563_SC_LV)
 		dev_info(&client->dev,
 			"low voltage detected, date/time is not reliable.\n");
-#if 0	// is somehow enabled and flooding dmesg
+#if 0	// was somehow enabled and flooding dmesg
 	dev_dbg(&client->dev,
 		"%s: raw data is st1=%02x, st2=%02x, sec=%02x, min=%02x, hr=%02x, "
 		"mday=%02x, wday=%02x, mon=%02x, year=%02x\n",
@@ -120,7 +122,7 @@ static int pcf8563_get_datetime(struct i2c_client *client, struct rtc_time *tm)
 	/* detect the polarity heuristically. see note above. */
 	pcf8563->c_polarity = (buf[PCF8563_REG_MO] & PCF8563_MO_C) ?
 		(tm->tm_year >= 100) : (tm->tm_year < 100);
-#if 0	// is somehow enabled and flooding dmesg
+#if 0	// was somehow enabled and flooding dmesg
 	dev_dbg(&client->dev, "%s: tm is secs=%d, mins=%d, hours=%d, "
 		"mday=%d, mon=%d, year=%d, wday=%d\n",
 		__FUNCTION__,
@@ -259,11 +261,15 @@ static const struct rtc_class_ops pcf8563_rtc_ops = {
 
 static int pcf8563_attach(struct i2c_adapter *adapter)
 {
+	printk(KERN_DEBUG "pcf8563_attach\n");
+	// we should be installed with a 'force' paramter to insmod
+	// unfortunately, we can't specify this directly
 #if 1
-	// OVERRIDE probing 
+	// OVERRIDE probing
+	// please make sure that the address 0x51 is not yet in use
 	return pcf8563_probe(adapter, 0x51, 0); 
 #else
-	// does not work. Please add a 	i2c_register_board_info(0, pcf8563_rtc_board_info, 1);  to your platform.c file
+	// does not find the device unless installed by insmod with appropriate force parameter
 	return i2c_probe(adapter, &addr_data, pcf8563_probe);
 #endif
 }
@@ -284,6 +290,7 @@ static int pcf8563_probe(struct i2c_adapter *adapter, int address, int kind)
 	struct rtc_device *rtc;
 
 	int err = 0;
+	printk(KERN_DEBUG "pcf8563_probe %x\n", address);
 
 	dev_dbg(&adapter->dev, "%s\n", __FUNCTION__);
 
@@ -313,13 +320,16 @@ static int pcf8563_probe(struct i2c_adapter *adapter, int address, int kind)
 	}
 
 	/* Inform the i2c layer */
+	printk(KERN_DEBUG "i2c_attach_client()\n");
 	if ((err = i2c_attach_client(client)))
 		goto exit_kfree;
 
+	printk(KERN_DEBUG "chip found()\n");
 	dev_info(&client->dev, "chip found, driver version " DRV_VERSION "\n");
 
 	rtc = rtc_device_register(pcf8563_driver.driver.name, &client->dev,
 				&pcf8563_rtc_ops, THIS_MODULE);
+	printk(KERN_DEBUG "rtc_device_register() -> %p\n", rtc);
 
 	if (IS_ERR(rtc)) {
 		err = PTR_ERR(rtc);
@@ -327,6 +337,7 @@ static int pcf8563_probe(struct i2c_adapter *adapter, int address, int kind)
 	}
 
 	i2c_set_clientdata(client, rtc);
+	printk(KERN_DEBUG "pcf8563_probe successful\n");
 
 	return 0;
 
@@ -337,6 +348,7 @@ exit_kfree:
 	kfree(pcf8563);
 
 exit:
+	printk(KERN_DEBUG "pcf8563_probe error %d\n", err);
 	return err;
 }
 
