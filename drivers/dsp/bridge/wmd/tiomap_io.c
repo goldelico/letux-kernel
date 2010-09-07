@@ -455,8 +455,8 @@ int send_mbox_callback(void *arg)
 	} else if (dev_context->dw_brd_state == BRD_RETENTION) {
 		/* Restart the peripheral clocks */
 		dsp_peripheral_clocks_enable(dev_context, NULL);
+		dev_context->dw_brd_state = BRD_RUNNING;
 	}
 
-	dev_context->dw_brd_state = BRD_RUNNING;
 	return 0;
 }
