@@ -19,6 +19,97 @@
 
 #include <asm/jzsoc.h>
 
+#if 1
+/*
+ * some older drivers use the 2.4 Kernel interfaces introduced
+ * specifically for the JZ processors through this set of
+ * functions.
+ *
+ * doing so may interfere with other I2C operations.
+ * Therefore, we just make a compatibility wrapper
+ * around the 2.6.24 I2C architecture.
+ *
+ * I.e. probing, initialization, synchronization etc.
+ * is now handled by driver/i2c
+ */
+
+#include <linux/i2c.h>
+
+static struct i2c_adapter *adap;	// the I2C adapter
+
+void i2c_open(void)
+{
+	printk(KERN_DEBUG "i2c_open()\n");
+	if(adap == NULL) {
+		// initialize
+		adap = i2c_get_adapter(0);	// there is only one on a JZ system
+		printk(KERN_DEBUG "i2c_get_adapter() -> %p\n", adap);
+		if (!adap)
+			return;
+		if (!i2c_check_functionality(adap, I2C_FUNC_I2C))
+			return;		
+		//		i2c_setclk(10000);
+	}
+//	i2c_lock_adapter(adap);
+}
+
+void i2c_close(void)
+{
+	printk(KERN_DEBUG "i2c_close()\n");
+//	i2c_unlock_adapter(adap);
+}
+
+void i2c_setclk(unsigned int i2cclk)
+{
+	__i2c_set_clk(jz_clocks.devclk, i2cclk);
+}
+
+int i2c_lseek(unsigned char device, unsigned char offset)
+{ // this is not used anywhere so we don't need to implement it
+	printk(KERN_DEBUG "i2c_lseek() not available\n");
+	return -ENODEV;
+}
+
+int i2c_read(unsigned char device, unsigned char *buf,
+			 unsigned char address, int count)
+{
+	int ret;
+	struct i2c_msg msgs[] = {
+		{ device, 0, 1, &address },	/* setup read ptr */
+		{ device, I2C_M_RD, count, buf },	/* read */
+	};
+ 	if (!adap)
+ 		return -ENODEV;
+	ret = i2c_transfer(adap, msgs, 2);
+	printk(KERN_DEBUG "i2c_read(%d, %x, %d) -> %d\n", device, address, count, ret);
+	if(ret == 2)
+		return count;
+	if(ret >= 0)
+		return -ETIMEDOUT;
+	return ret;
+}
+
+int i2c_write(unsigned char device, unsigned char *buf,
+			  unsigned char address, int count)
+{
+	int ret;
+	struct i2c_msg msgs[] = {
+		{ device, 0, 1, &address },	/* setup write ptr */
+		{ device, 0, count, buf },	/* write */
+	};
+ 	if (!adap)
+ 		return -ENODEV;
+	ret = i2c_transfer(adap, msgs, 2);
+	printk(KERN_DEBUG "i2c_write(%d, %x, %d) -> %d\n", device, address, count, ret);
+	if(ret == 2)
+		return count;
+	if(ret >= 0)
+		return -ETIMEDOUT;
+	return ret;
+}
+
+#else
+
 /* I2C protocol */
 #define I2C_READ	1
 #define I2C_WRITE	0
@@ -206,6 +297,8 @@ int i2c_write(unsigned char device, unsigned char *buf,
 	__i2c_send_stop();
 	return -ENODEV;
 }
+
+#endif
 
 EXPORT_SYMBOL(i2c_open);
 EXPORT_SYMBOL(i2c_close);
