@@ -395,6 +395,7 @@ static int mmc_host_do_disable(struct mmc_host *host, int lazy)
 
 		host->en_dis_recurs = 1;
 		err = host->ops->disable(host, lazy);
+		wake_unlock(&mmc_delayed_work_wake_lock);
 		host->en_dis_recurs = 0;
 
 		if (err < 0) {
