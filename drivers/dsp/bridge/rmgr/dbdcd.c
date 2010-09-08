@@ -873,17 +873,15 @@ int dcd_register_object(IN struct dsp_uuid *uuid_obj,
 	 * If psz_path_name != NULL, perform registration, otherwise,
 	 * perform unregistration.
 	 */
-
+	spin_lock(&dbdcd_lock);
 	if (psz_path_name) {
 		dw_path_size = strlen(psz_path_name) + 1;
-		spin_lock(&dbdcd_lock);
 		list_for_each_entry(dcd_key, &reg_key_list, link) {
 			/*  See if the name matches. */
 			if (!strncmp(dcd_key->name, sz_reg_key,
 						strlen(sz_reg_key) + 1))
 				break;
 		}
-		spin_unlock(&dbdcd_lock);
 		if (&dcd_key->link == &reg_key_list) {
 			/*
 			 * Add new reg value (UUID+obj_type)
@@ -891,28 +889,27 @@ int dcd_register_object(IN struct dsp_uuid *uuid_obj,
 			 */
 
 			dcd_key = kmalloc(sizeof(struct dcd_key_elem),
-								GFP_KERNEL);
+								GFP_ATOMIC);
 			if (!dcd_key) {
 				status = -ENOMEM;
-				goto func_end;
+				goto err;
 			}
 
 			dcd_key->path = kmalloc(strlen(sz_reg_key) + 1,
-								GFP_KERNEL);
+								GFP_ATOMIC);
 
 			if (!dcd_key->path) {
 				kfree(dcd_key);
 				status = -ENOMEM;
-				goto func_end;
+				goto err;
 			}
 
 			strncpy(dcd_key->name, sz_reg_key,
 						strlen(sz_reg_key) + 1);
 			strncpy(dcd_key->path, psz_path_name ,
 						dw_path_size);
-			spin_lock(&dbdcd_lock);
+			dcd_key->cnt = 1;
 			list_add_tail(&dcd_key->link, &reg_key_list);
-			spin_unlock(&dbdcd_lock);
 		} else {
 			/*  Make sure the new data is the same. */
 			if (strncmp(dcd_key->path, psz_path_name,
@@ -920,34 +917,40 @@ int dcd_register_object(IN struct dsp_uuid *uuid_obj,
 				/*  The caller needs a different data size! */
 				kfree(dcd_key->path);
 				dcd_key->path = kmalloc(dw_path_size,
-								GFP_KERNEL);
+								GFP_ATOMIC);
 				if (dcd_key->path == NULL) {
 					status = -ENOMEM;
-					goto func_end;
+					goto err;
 				}
 			}
 
 			/*  We have a match!  Copy out the data. */
 			memcpy(dcd_key->path, psz_path_name, dw_path_size);
+
+			/* Increment count since this entry has a user */
+			dcd_key->cnt++;
 		}
 		dev_dbg(bridge, "%s: psz_path_name=%s, dw_path_size=%d\n",
 			__func__, psz_path_name, dw_path_size);
 	} else {
 		/* Deregister an existing object */
-		status = -EPERM;
-		spin_lock(&dbdcd_lock);
+		status = -ENOKEY;
 		list_for_each_entry(dcd_key, &reg_key_list, link) {
 			if (!strncmp(dcd_key->name, sz_reg_key,
 						strlen(sz_reg_key) + 1)) {
-				list_del(&dcd_key->link);
-				kfree(dcd_key->path);
-				kfree(dcd_key);
+				/* Decrement use count */
+				if (!--dcd_key->cnt) {
+					/* Deregister if unused */
+					list_del(&dcd_key->link);
+					kfree(dcd_key->path);
+					kfree(dcd_key);
+				}
 				status = 0;
 				break;
 			}
 		}
-		spin_unlock(&dbdcd_lock);
 	}
+	spin_unlock(&dbdcd_lock);
 
 	if (DSP_SUCCEEDED(status)) {
 		/*
@@ -960,6 +963,10 @@ int dcd_register_object(IN struct dsp_uuid *uuid_obj,
 		enum_refs = 0;
 	}
 func_end:
+	return status;
+
+err:
+	spin_unlock(&dbdcd_lock);
 	return status;
 }
 

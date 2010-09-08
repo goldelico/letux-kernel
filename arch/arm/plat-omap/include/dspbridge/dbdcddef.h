@@ -41,6 +41,7 @@ struct dcd_key_elem {
 	struct list_head link;	/* Make it linked to a list */
 	char name[DCD_MAXPATHLENGTH];	/*  Name of a given value entry */
 	char *path;		/*  Pointer to the actual data */
+	u16 cnt;
 };
 
 /* DCD Node Properties */
