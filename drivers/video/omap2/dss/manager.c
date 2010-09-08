@@ -514,6 +514,7 @@ struct overlay_cache_data {
 	u16 out_height;	/* if 0, out_height == height */
 	u8 global_alpha;
 	u8 pre_alpha_mult;
+	int flicker_filter;
 
 	enum omap_channel channel;
 	bool replication;
@@ -954,7 +955,8 @@ static int configure_overlay(enum omap_plane plane)
 			c->mirror,
 			c->global_alpha, c->channel,
 			c->pre_alpha_mult,
-			c->p_uv_addr);
+			c->p_uv_addr,
+			c->flicker_filter);
 
 	if (r) {
 		/* this shouldn't happen */
@@ -1359,6 +1361,7 @@ static int omap_dss_mgr_apply(struct omap_overlay_manager *mgr)
 		oc->out_height = ovl->info.out_height;
 		oc->global_alpha = ovl->info.global_alpha;
 		oc->pre_alpha_mult = ovl->info.pre_alpha_mult;
+		oc->flicker_filter = ovl->info.flicker_filter;
 
 		oc->replication =
 			dss_use_replication(dssdev, ovl->info.color_mode);

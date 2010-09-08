@@ -1116,6 +1116,7 @@ int omapvid_setup_overlay(struct omap_vout_device *vout,
 	info.screen_width = pixwidth;
 	info.rotation = vout->rotation;
 #else
+	info.flicker_filter = vout->flicker_filter;
 	if (!rotation_enabled(vout)) {
 		info.rotation = 0;
 		info.rotation_type = OMAP_DSS_ROT_DMA;

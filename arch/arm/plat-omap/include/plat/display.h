@@ -372,6 +372,7 @@ struct omap_overlay_info {
 	u8 pre_alpha_mult;
 	u32 p_uv_addr; /* relevant for NV12 format only */
 	enum omap_overlay_zorder zorder;
+	int flicker_filter;
 };
 
 struct omap_overlay {

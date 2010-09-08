@@ -59,6 +59,8 @@
 
 #endif
 
+#define MAX_FLICKER_FILTER	2
+
 struct dispc_reg { u16 idx; };
 
 #define DISPC_REG(idx)			((const struct dispc_reg) { idx })
@@ -1488,6 +1490,7 @@ static const s8 fir5_zero[] = {
 	 0,    0,    0,    0,    0,    0,    0,    0,
 	 0,    0,    0,    0,    0,    0,    0,    0,
 };
+#ifdef CONFIG_ARCH_OMAP4
 static const s8 fir3_m8[] = {
 	 0,    0,    0,    0,    0,    0,    0,    0,
 	 0,    2,    5,    7,    64,   32,   12,   3,
@@ -1596,7 +1599,8 @@ static const s8 fir5_m32[] = {
 
 static const s8 *get_scaling_coef(int orig_size, int out_size,
 			    int orig_ilaced, int out_ilaced,
-			    int three_tap)
+			    int three_tap,
+			    int flicker_filter)
 {
 	/* ranges from 2 to 32 */
 	int two_m = 16 * orig_size / out_size;
@@ -1631,6 +1635,200 @@ static const s8 *get_scaling_coef(int orig_size, int out_size,
 		fir5_m32;
 }
 
+#else
+/* 3-taps vertical filter coefficients */
+/* Downscaling matrix, if image width > 1024 */
+static const s8 fir_vc_d[] = {
+	0,    0,    0,    0,    0,    0,    0,    0,
+	36,   40,   45,	  50,  18,   23,   7,     31,
+	56,   57,   56,	  55,  55,   55,   6,     57,
+	36,   31,   27,	  23,  55,   50,   5,     40,
+	0,    0,    0,    0,    0,    0,    0,    0,
+};
+
+/* Upscaling matrix, if image width > 1024 */
+static const s8 fir_vc_u[] = {
+	0,    0,    0,    0,    0,    0,    0,    0,
+	0,    16,   32,   48,   0,    0,    0,    0,
+	128,  112,  96,   80,   64,   80,   96,   112,
+	0,    0,    0,    0,    64,   48,   32,   16,
+	0,    0,    0,    0,    0,    0,    0,    0,
+};
+
+/* Filter coefficients designed for various scaling ratios */
+/* Below Co-effients are defined for 5 taps as
+* [0] = VCC22
+* [1] = VC2
+* [2] = VC1
+* [3] = VC0
+* [4] = VC00
+*/
+static const s8 fir5_m8[] = {
+	17,    14,   5,    -6,   2,    9,    15,   19,
+	-20,   -4,   17,   47,   -18,  -27,  -30,  -27,
+	134,   127,  121,  105,  81,   105,  121,  127,
+	-20,   -27,  -30,  -27,  81,   47,   17,   -4,
+	17,    18,   15,   9,    -18,  -6,   5,    13,
+};
+static const s8 fir5_m9[] = {
+	 8,    1,    -9,   -18,  14,   17,   17,   14,
+	 -8,   8,    30,   56,   -26,  -30,  -27,  -21,
+	 128,  126,  117,  103,  83,   103,  117,  126,
+	 -8,   -21,  -27,  -30,  83,   56,   30,   8,
+	 8,    14,   17,   17,   -26,  -18,  -9,   1,
+};
+static const s8 fir5_m10[] = {
+	-2,   -10,   -18,  -24,  18,   15,   11,   5,
+	2,    20,    41,   62,   -28,  -27,  -22,  -12,
+	128,  125,   116,  102,  83,   102,  116,  125,
+	2,    -12,   -22,  -27,  83,   62,   41,   20,
+	-2,   5,     11,   15,   -28,  -24,  -18,  -10,
+};
+static const s8 fir5_m11[] = {
+	-12,  -19,   -24,  -27,  14,   9,    3,    -4,
+	12,   30,    49,   67,   -26,  -22,  -15,  -3,
+	128,  124,   115,  101,  83,   101,  115,  124,
+	12,   -3,    -15,  -22,  83,   67,   49,   30,
+	-12,  -4,    3,    9,    -26,  -27,  -24,  -19,
+};
+static const s8 fir5_m12[] = {
+	-19,  -24,   -26,  -25,  6,    1,    -6,   -12,
+	21,   38,    55,   70,   -21,  -16,  -7,   6,
+	124,  120,   112,  98,   82,   98,   112,  120,
+	21,   6,     -7,   -16,  82,   70,   55,   38,
+	-19,  -12,   -6,   1,    -21,  -25,  -26,  -24,
+};
+static const s8 fir5_m13[] = {
+	-22,   -25,  -25,  -22,  0,    -6,   -12,  -18,
+	27,    43,   58,   71,   -17,  -10,  0,    13,
+	118,   115,  107,  95,   81,   95,   107,  115,
+	27,    13,   0,    -10,  81,   71,   58,   43,
+	-22,   -18,  -12,  -6,   -17,  -22,  -25,  -25,
+};
+static const s8 fir5_m14[] = {
+	-23,   -24,  -22,  -18,  -6,   -11,  -16,  -20,
+	32,    46,   59,   70,   -11,  -4,   6,    18,
+	110,   108,  101,  91,   78,   91,   101,  108,
+	32,    18,   6,    -4,   78,   70,   59,   46,
+	-23,   -20,  -16,  -11,  -11,  -18,  -22,  -24,
+};
+static const s8 fir5_m16[] = {
+	-20,   -18,  -14,  -9,   -14,  -17,  -19,  -21,
+	37,    48,   58,   66,   -2,   6,    15,   26,
+	94,    93,   88,   82,   73,   82,   88,   93,
+	37,    26,   15,   6,    73,   66,   58,   48,
+	-20,   -21,  -19,  -17,  -2,   -9,   -14,  -18,
+};
+static const s8 fir5_m19[] = {
+	-12,   -8,   -4,   1,    -16,  -16,  -16,  -13,
+	38,    47,   53,   59,   8,    15,   22,   31,
+	76,    72,   73,   69,   64,   69,   73,   72,
+	38,    31,   22,   15,   64,   59,   53,   47,
+	-12,   -14,  -16,  -16,  8,    1,    -4,   -9,
+};
+static const s8 fir5_m22[] = {
+	-6,    -1,   3,    8,    -14,  -13,  -11,  -7,
+	37,    44,   48,   53,   13,   19,   25,   32,
+	66,    61,   63,   61,   58,   61,   63,   61,
+	37,    32,   25,   19,   58,   53,   48,   44,
+	-6,    -8,   -11,  -13,  13,   8,    3,    -2,
+};
+static const s8 fir5_m26[] = {
+	 1,    4,    8,    13,   -10,  -8,   -5,   -2,
+	 36,   40,   44,   48,   18,   22,   27,   31,
+	 54,   55,   54,   53,   51,   53,   54,   55,
+	 36,   31,   27,   22,   51,   48,   44,   40,
+	 1,    -2,   -5,   -8,   18,   13,   8,    4,
+};
+static const s8 fir5_m32[] = {
+	 7,    10,   14,   17,   -4,   -1,   1,    4,
+	 34,   37,   39,   42,   21,   24,   28,   31,
+	 46,   46,   46,   46,   45,   46,   46,   46,
+	 34,   31,   27,   24,   45,   42,   39,   37,
+	 7,    4,    1,    -1,   21,   17,   14,   10,
+};
+
+static const s8 coeff_mvals[] = {
+	8, 8, 8, 9, 10, 11, 12, 13, 14, 16, 19, 22, 26, 32, 32, 32
+};
+
+static const s8 *get_scaling_coef(int orig_size, int out_size,
+			    int orig_ilaced, int out_ilaced,
+			    int three_tap,
+			    int flicker_filter)
+{
+	unsigned long mval, rem_ratio, default_mval;
+	int i = 0;
+	/* Select the coefficients based on the ratio - height/vertical */
+	if (!three_tap) {
+		rem_ratio = 0;
+		mval = 8; /* default */
+		rem_ratio =  out_size / orig_size ;
+		if (rem_ratio > 1) {
+			mval = 8;
+			DSSDBG("Coefficient class mval = %lu \n", mval);
+		} else
+			mval = (8 * orig_size) / out_size;
+
+		/* if flicker filter is ON then calculate
+		 * the corresponding vertical coeff table
+		*/
+		if (flicker_filter != 0) {
+			default_mval = 	mval == 8  ? 8 :
+					mval == 9  ? 9 :
+					mval == 10 ? 10 :
+					mval == 11 ? 11 :
+					mval == 12 ? 12 :
+					mval == 13 ? 13 :
+					mval == 14 ? 14 :
+					mval < 17  ? 16 :
+					mval < 20  ? 19 :
+					mval < 23  ? 22 :
+					mval < 27  ? 26 :
+					mval <= 32 ? 32 :
+					8;
+
+			for (i = MAX_FLICKER_FILTER;
+			      i < (sizeof(coeff_mvals) - MAX_FLICKER_FILTER);
+			      i++)
+				if (coeff_mvals[i] == default_mval)
+					break;
+
+			/*get the requested frequency coeff table*/
+			mval = coeff_mvals[i + flicker_filter];
+		}
+
+		DSSDBG("<%s> Applying flicker_filter [%d], mval [%lu]\n",
+		       __func__, flicker_filter, mval);
+
+		return mval == 8   ? fir5_m8 :
+			mval == 9  ? fir5_m9 :
+			mval == 10 ? fir5_m10 :
+			mval == 11 ? fir5_m11 :
+			mval == 12 ? fir5_m12 :
+			mval == 13 ? fir5_m13 :
+			mval == 14 ? fir5_m14 :
+			mval < 17  ? fir5_m16 :
+			mval < 20  ? fir5_m19 :
+			mval < 23  ? fir5_m22 :
+			mval < 27  ? fir5_m26 :
+			mval <= 32 ? fir5_m32 :
+			fir5_m8;
+
+	} else {
+		/* Vertical scaling */
+		if (out_size > orig_size) {
+			DSSDBG("Vertical upscaling \n");
+			return fir_vc_u;
+		} else {
+			DSSDBG("Vertical downscaling \n");
+			return fir_vc_d;
+		}
+	}
+}
+
+#endif
+
 static void _dispc_set_vdma_attrs(enum omap_plane plane, bool enable)
 {
 	REG_FLD_MOD(dispc_reg_att[plane], enable ? 1 : 0, 20, 20);
@@ -1641,7 +1839,8 @@ static void _dispc_set_scaling(enum omap_plane plane,
 		u16 out_width, u16 out_height,
 		bool ilace, bool three_taps,
 		bool fieldmode, int scale_x, int scale_y,
-		bool vdma)
+		bool vdma,
+		int flicker_filter)
 {
 	int fir_hinc;
 	int fir_vinc;
@@ -1656,7 +1855,8 @@ static void _dispc_set_scaling(enum omap_plane plane,
 		fir_hinc = 1024 * (orig_width - 1) / (out_width - 1);
 		if (fir_hinc > 4095)
 			fir_hinc = 4095;
-		hfir = get_scaling_coef(orig_width, out_width, 0, 0, 0);
+		hfir = get_scaling_coef(orig_width, out_width, 0, 0, 0,
+					flicker_filter);
 	} else {
 		fir_hinc = 0;
 		hfir = fir5_zero;
@@ -1667,7 +1867,7 @@ static void _dispc_set_scaling(enum omap_plane plane,
 		if (fir_vinc > 4095)
 			fir_vinc = 4095;
 		vfir = get_scaling_coef(orig_height, out_height, 0, 0,
-					three_taps);
+					three_taps, flicker_filter);
 	} else {
 		fir_vinc = 0;
 		vfir = fir5_zero;
@@ -1727,7 +1927,7 @@ static void _dispc_set_scaling_uv(enum omap_plane plane,
 		fir_hinc = 1024 * (orig_width - 1) / (out_width - 1);
 		if (fir_hinc > 4095)
 			fir_hinc = 4095;
-		hfir = get_scaling_coef(orig_width, out_width, 0, 0, 0);
+		hfir = get_scaling_coef(orig_width, out_width, 0, 0, 0, 0);
 	} else {
 		fir_hinc = 0;
 		hfir = fir5_zero;
@@ -1738,7 +1938,7 @@ static void _dispc_set_scaling_uv(enum omap_plane plane,
 		if (fir_vinc > 4095)
 			fir_vinc = 4095;
 		vfir = get_scaling_coef(orig_height, out_height, 0,
-					ilace, three_taps);
+					ilace, three_taps, 0);
 	} else {
 		fir_vinc = 0;
 		vfir = fir5_zero;
@@ -2271,7 +2471,8 @@ static int _dispc_setup_plane(enum omap_plane plane,
 		enum omap_dss_rotation_type rotation_type,
 		u8 rotation, int mirror,
 		u8 global_alpha, enum omap_channel channel,
-		u8 pre_alpha_mult, u32 puv_addr)
+		u8 pre_alpha_mult, u32 puv_addr,
+		int flicker_filter)
 {
 
 #ifdef CONFIG_ARCH_OMAP4
@@ -2297,7 +2498,7 @@ static int _dispc_setup_plane(enum omap_plane plane,
 	if (paddr == 0)
 		return -EINVAL;
 
-	if (ilace && height == out_height)
+	if (ilace && (height == out_height) && flicker_filter == 0)
 		fieldmode = 1;
 
 	if (ilace) {
@@ -2588,7 +2789,8 @@ static int _dispc_setup_plane(enum omap_plane plane,
 		_dispc_set_scaling(plane, width, height,
 					out_width, out_height,
 					ilace, three_taps, fieldmode,
-					scale_x, scale_y, vdma);
+					scale_x, scale_y, vdma,
+					flicker_filter);
 		_dispc_set_vdma_attrs(plane, vdma);
 
 		_dispc_set_vid_size(plane, out_width, out_height);
@@ -4304,17 +4506,20 @@ int dispc_setup_plane(enum omap_plane plane,
 		       enum omap_dss_rotation_type rotation_type,
 		       u8 rotation, bool mirror, u8 global_alpha,
 		       enum omap_channel channel,
-		       u8 pre_alpha_mult, u32 puv_addr)
+		       u8 pre_alpha_mult, u32 puv_addr,
+		       int flicker_filter)
 {
 	int r = 0;
 
 	DSSDBG("dispc_setup_plane %d, pa %x, sw %d, %d,%d, %dx%d -> "
-	       "%dx%d, ilace %d, cmode %x, rot %d, mir %d\n",
+	       "%dx%d, ilace %d, cmode %x, rot %d, mir %d "
+	       "flicker_filter %d\n",
 	       plane, paddr, screen_width, pos_x, pos_y,
 	       width, height,
 	       out_width, out_height,
 	       ilace, color_mode,
-	       rotation, mirror);
+	       rotation, mirror,
+	       flicker_filter);
 
 	enable_clocks(1);
 
@@ -4327,7 +4532,8 @@ int dispc_setup_plane(enum omap_plane plane,
 			   rotation_type,
 			   rotation, mirror,
 			   global_alpha, channel,
-			   pre_alpha_mult, puv_addr);
+			   pre_alpha_mult, puv_addr,
+			   flicker_filter);
 
 	enable_clocks(0);
 
