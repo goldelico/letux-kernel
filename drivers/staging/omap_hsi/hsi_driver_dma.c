@@ -81,10 +81,8 @@ int hsi_driver_write_dma(struct hsi_channel *hsi_channel, u32 *data,
 	unsigned int port = hsi_channel->hsi_port->port_number;
 	unsigned int channel = hsi_channel->channel_number;
 	unsigned int sync;
-	long buff_offset;
 	int lch;
 	dma_addr_t dma_data;
-	dma_addr_t s_addr;
 	u16 tmp;
 
 	if ((size < 1) || (data == NULL))
@@ -118,12 +116,7 @@ int hsi_driver_write_dma(struct hsi_channel *hsi_channel, u32 *data,
 
 	hsi_outw((HSI_BLOCK_IE | HSI_TOUT_IE), base, HSI_GDD_CICR_REG(lch));
 
-	buff_offset = hsi_hst_buffer_reg(hsi_ctrl, port, channel);
-	if (buff_offset < 0)
-		return buff_offset;
-	s_addr = hsi_ctrl->phy_base + buff_offset;
-
-	hsi_outl(s_addr, base, HSI_GDD_CDSA_REG(lch));
+	hsi_outl(channel, base, HSI_GDD_CDSA_REG(lch));
 
 	hsi_outl(dma_data, base, HSI_GDD_CSSA_REG(lch));
 	hsi_outw(size, base, HSI_GDD_CEN_REG(lch));
@@ -154,9 +147,7 @@ int hsi_driver_read_dma(struct hsi_channel *hsi_channel, u32 *data,
 	unsigned int channel = hsi_channel->channel_number;
 	unsigned int sync;
 	unsigned int lch;
-	long buff_offset;
 	dma_addr_t dma_data;
-	dma_addr_t d_addr;
 	u16 tmp;
 
 	lch = hsi_get_free_lch(hsi_ctrl);
@@ -196,12 +187,7 @@ int hsi_driver_read_dma(struct hsi_channel *hsi_channel, u32 *data,
 
 	hsi_outw((HSI_BLOCK_IE | HSI_TOUT_IE), base, HSI_GDD_CICR_REG(lch));
 
-	buff_offset = hsi_hsr_buffer_reg(hsi_ctrl, port, channel);
-	if (buff_offset < 0)
-		return buff_offset;
-	d_addr = hsi_ctrl->phy_base + buff_offset;
-
-	hsi_outl(d_addr, base, HSI_GDD_CSSA_REG(lch));
+	hsi_outl(channel, base, HSI_GDD_CSSA_REG(lch));
 
 	hsi_outl(dma_data, base, HSI_GDD_CDSA_REG(lch));
 	hsi_outw(count, base, HSI_GDD_CEN_REG(lch));
