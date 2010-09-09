@@ -271,6 +271,11 @@ config VIB_GPIO
 	bool "GPIO Vibrator"
 	default n
 
+config TWL6040_VIB
+	bool "TWL6040 Vibrator"
+	depends on TWL4030_CORE
+	default n
+
 config SENSORS_AKM8973
 	tristate "AKM8973 Magnetometer"
 	default n
