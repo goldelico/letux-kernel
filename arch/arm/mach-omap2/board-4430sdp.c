@@ -29,6 +29,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
+#include <linux/twl6040-vib.h>
 
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
@@ -186,6 +187,20 @@ static struct platform_device omap_kp_device = {
 	},
 	.num_resources	= ARRAY_SIZE(sdp4430_kp_resources),
 	.resource	= sdp4430_kp_resources,
+};
+
+static struct twl6040_vib_platform_data sdp4430_vib_data = {
+	.max_timeout = 15000,
+	.active_low = 0,
+	.initial_vibrate = 0,
+};
+
+static struct platform_device sdp4430_vib = {
+	.name           = VIB_NAME,
+	.id             = -1,
+	.dev            = {
+		.platform_data  = &sdp4430_vib_data,
+	},
 };
 
 /* Begin Synaptic Touchscreen TM-01217 */
@@ -584,6 +599,7 @@ static struct platform_device *sdp4430_devices[] __initdata = {
 	&sdp4430_leds_gpio,
 	&sdp4430_keypad_led,
 	&sdp4430_disp_led,
+	&sdp4430_vib,
 };
 
 static __attribute__ ((unused)) struct
