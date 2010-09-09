@@ -169,8 +169,26 @@ static int is_driver_init;
  */
 static inline u32 omap_dm_timer_read_reg(struct omap_dm_timer *timer, u32 reg)
 {
+	int offset1 = 0;
+	int offset2 = 0;
+
+	if (cpu_is_omap44xx()) {
+		if ((timer != &dm_timers[0]) && (timer != &dm_timers[1]) \
+				&& (timer != &dm_timers[9])) {
+			offset1 = 0x10;
+			offset2 = 0x14;
+		}
+	}
+
+	if (reg >= OMAP_TIMER_STAT_REG && reg <= OMAP_TIMER_INT_EN_REG)
+		reg += offset1;
+	else if (reg >= OMAP_TIMER_WAKEUP_EN_REG)
+		reg += offset2;
+
+
 	if (timer->posted)
-		while (readl(timer->io_base + (OMAP_TIMER_WRITE_PEND_REG & 0xff))
+		while (readl(timer->io_base + \
+				((OMAP_TIMER_WRITE_PEND_REG + offset2) & 0xff))
 				& (reg >> WPSHIFT))
 			cpu_relax();
 	return readl(timer->io_base + (reg & 0xff));
@@ -185,8 +203,24 @@ static inline u32 omap_dm_timer_read_reg(struct omap_dm_timer *timer, u32 reg)
 static void omap_dm_timer_write_reg(struct omap_dm_timer *timer, u32 reg,
 						u32 value)
 {
+	int offset1 = 0;
+	int offset2 = 0;
+
+	if (cpu_is_omap44xx()) {
+		if ((timer != &dm_timers[0]) && (timer != &dm_timers[1]) \
+				&& (timer != &dm_timers[9])) {
+			offset1 = 0x10;
+			offset2 = 0x14;
+		}
+	}
+
+	if (reg >= OMAP_TIMER_STAT_REG && reg <= OMAP_TIMER_INT_EN_REG)
+		reg += offset1;
+	else if (reg >= OMAP_TIMER_WAKEUP_EN_REG)
+		reg += offset2;
 	if (timer->posted)
-		while (readl(timer->io_base + (OMAP_TIMER_WRITE_PEND_REG & 0xff))
+		while (readl(timer->io_base + \
+				((OMAP_TIMER_WRITE_PEND_REG + offset2) & 0xff))
 				& (reg >> WPSHIFT))
 			cpu_relax();
 	writel(value, timer->io_base + (reg & 0xff));
@@ -195,9 +229,25 @@ static void omap_dm_timer_write_reg(struct omap_dm_timer *timer, u32 reg,
 static void omap_dm_timer_wait_for_reset(struct omap_dm_timer *timer)
 {
 	int c;
+	u32 reg_address;
+	int reset_active;
+
+	if (cpu_is_omap44xx()) {
+		if ((timer == &dm_timers[1]) || (timer == &dm_timers[9])) {
+			reg_address = OMAP_TIMER_SYS_STAT_REG;
+			reset_active = 0;
+	} else {
+		reg_address = OMAP_TIMER_OCP_CFG_REG;
+		reset_active = 1;
+	}
+	} else {
+		reg_address = OMAP_TIMER_SYS_STAT_REG;
+		reset_active = 0;
+	}
+
 
 	c = 0;
-	while (!(omap_dm_timer_read_reg(timer, OMAP_TIMER_SYS_STAT_REG) & 1)) {
+	while (omap_dm_timer_read_reg(timer, reg_address) == reset_active) {
 		c++;
 		if (c > 100000) {
 			printk(KERN_ERR "Timer failed to reset\n");
