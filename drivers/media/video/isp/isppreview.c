@@ -302,6 +302,8 @@ int isppreview_config(struct isp_prev_device *isp_prev, void *userspace_add)
 		isppreview_config_yc_range(isp_prev, yclimit_t);
 	}
 
+out_config_shadow:
+
 	if (ISP_ABS_PREV_GAMMABYPASS & config->flag) {
 		isppreview_enable_gammabypass(isp_prev, 1);
 		params->features |= PREV_GAMMA_BYPASS;
@@ -309,8 +311,6 @@ int isppreview_config(struct isp_prev_device *isp_prev, void *userspace_add)
 		isppreview_enable_gammabypass(isp_prev, 0);
 		params->features &= ~PREV_GAMMA_BYPASS;
 	}
-
-out_config_shadow:
 
 	if (ISP_ABS_PREV_BLKADJ & config->update) {
 		if (copy_from_user(&prev_blkadj_t, (struct ispprev_blkadjl *)
