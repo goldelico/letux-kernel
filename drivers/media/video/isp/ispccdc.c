@@ -1095,7 +1095,7 @@ static int ispccdc_config_datapath(struct isp_ccdc_device *isp_ccdc,
 
 	ispccdc_config_crop(isp_ccdc, 0, 0, 0, 0);
 	ispccdc_print_status(isp_ccdc, pipe);
-	isp_print_status(dev);
+
 	return 0;
 }
 

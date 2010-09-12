@@ -44,6 +44,9 @@
 #include "isppreview.h"
 #include "ispresizer.h"
 #include "ispcsi2.h"
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+#include "isp_dfs.h"
+#endif
 
 static struct platform_device *omap3isp_pdev;
 static int isp_complete_reset = 1;
@@ -1217,7 +1220,6 @@ out_ignore_buff:
 
 out_stopping_isp:
 	isp_flush(dev);
-
 #if 1
 	{
 		static const struct {
@@ -1338,6 +1340,10 @@ void isp_start(struct device *dev)
 
 	isp->running = ISP_RUNNING;
 
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+	if (isp->dfs_isp)
+		isp_dfs_dump(isp);
+#endif
 	return;
 }
 EXPORT_SYMBOL(isp_start);
@@ -2910,7 +2916,9 @@ static int isp_remove(struct platform_device *pdev)
 
 	if (!isp)
 		return 0;
-
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+	isp_dfs_shutdown();
+#endif
 	isp_csi2_cleanup(&pdev->dev);
 	isp_af_exit(&pdev->dev);
 	isp_resizer_cleanup(&pdev->dev);
@@ -2944,6 +2952,7 @@ static int isp_remove(struct platform_device *pdev)
 	}
 
 	omap3isp_pdev = NULL;
+
 	kfree(isp);
 
 	return 0;
@@ -3153,6 +3162,9 @@ static int isp_probe(struct platform_device *pdev)
 		ret_err = PTR_ERR(isp->iommu);
 		isp->iommu = NULL;
 	}
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+	isp_dfs_setup(isp);
+#endif
 	isp_put();
 	if (!isp->iommu)
 		goto out_iommu_get;
@@ -3227,34 +3239,6 @@ static int __init isp_init(void)
 static void __exit isp_cleanup(void)
 {
 	platform_driver_unregister(&omap3isp_driver);
-}
-
-/**
- * isp_print_status - Prints the values of the ISP Control Module registers
- * @dev: Device pointer specific to the OMAP3 ISP.
- **/
-void isp_print_status(struct device *dev)
-{
-	if (!is_ispctrl_debug_enabled())
-		return;
-
-	DPRINTK_ISPCTRL("###ISP_CTRL=0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN, ISP_CTRL));
-	DPRINTK_ISPCTRL("###ISP_TCTRL_CTRL=0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN,
-				      ISP_TCTRL_CTRL));
-	DPRINTK_ISPCTRL("###ISP_SYSCONFIG=0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN,
-				      ISP_SYSCONFIG));
-	DPRINTK_ISPCTRL("###ISP_SYSSTATUS=0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN,
-				      ISP_SYSSTATUS));
-	DPRINTK_ISPCTRL("###ISP_IRQ0ENABLE=0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN,
-				      ISP_IRQ0ENABLE));
-	DPRINTK_ISPCTRL("###ISP_IRQ0STATUS=0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN,
-				      ISP_IRQ0STATUS));
 }
 
 module_init(isp_init);

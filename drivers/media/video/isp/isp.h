@@ -432,6 +432,7 @@ struct isp_device {
 	struct isp_csi2_device isp_csi2;
 
 	struct iommu *iommu;
+	struct dentry *dfs_isp;
 };
 
 struct isp_freq_devider {
@@ -440,6 +441,16 @@ struct isp_freq_devider {
 	u32 resz_exp;	/* RESIZER module read request expand */
 	u32 prev_exp;	/* PREVIEW module read request expand */
 };
+
+#define MAX_DFS_LABEL_LEN	32
+#define MAX_DFS_LABEL_VAL	16
+
+struct dfs_label_type {
+	char ascii_reg[MAX_DFS_LABEL_LEN];
+	u32 reg_offset;
+};
+
+struct dentry *isp_get_dfs_root(void);
 
 struct isp_freq_devider *isp_get_upscale_ratio(int in_w, int in_h, int out_w,
 					       int out_h);
@@ -524,8 +535,6 @@ int isp_handle_private(struct device *dev, struct mutex *, int cmd, void *arg);
 void isp_save_context(struct device *dev, struct isp_reg *);
 
 void isp_restore_context(struct device *dev, struct isp_reg *);
-
-void isp_print_status(struct device *dev);
 
 void isp_set_hs_vs(struct device *dev, int hs_vs);
 
