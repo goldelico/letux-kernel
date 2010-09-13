@@ -324,8 +324,8 @@ static long download_firmware(void)
 				/* ignore remote change
 				 * baud rate HCI VS command */
 				ST_KIM_ERR
-				    (" change remote baud\
-				    rate command in firmware");
+				    (" change remote baud "
+				    "rate command in firmware");
 				break;
 			}
 			/* Make sure we have enough free space in uart
@@ -351,7 +351,7 @@ static long download_firmware(void)
 				release_firmware(kim_gdata->fw_entry);
 				return ST_ERR_FAILURE;
 			}
-
+			INIT_COMPLETION(kim_gdata->kim_rcvd);
 			/* Free space found in uart buffer, call st_int_write
 			 * to send current firmware command to the uart tx
 			 * buffer.
@@ -384,7 +384,6 @@ static long download_firmware(void)
 				release_firmware(kim_gdata->fw_entry);
 				return ST_ERR_FAILURE;
 			}
-			INIT_COMPLETION(kim_gdata->kim_rcvd);
 			break;
 		case ACTION_DELAY:	/* sleep */
 			ST_KIM_DBG("sleep command in scr");
