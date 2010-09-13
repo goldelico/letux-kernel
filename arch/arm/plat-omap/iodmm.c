@@ -539,7 +539,7 @@ int user_to_device_map(struct iommu *mmu, u32 uva, u32 da, u32 size,
 
 {
 	int res = 0;
-	int w;
+	int w = 0;
 	struct vm_area_struct *vma;
 	struct mm_struct *mm = current->mm;
 	u32 pg_num;
@@ -556,7 +556,10 @@ int user_to_device_map(struct iommu *mmu, u32 uva, u32 da, u32 size,
 	pages = size / PAGE_SIZE;
 
 	vma = find_vma(mm, uva);
-
+	if (!vma) {
+		WARN_ON(1);
+		return -EFAULT;
+	}
 	if (vma->vm_flags & (VM_WRITE | VM_MAYWRITE))
 		w = 1;
 
