@@ -877,7 +877,7 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 		}
 
 		/* incomplete, and not short? wait for next IN packet */
-		if ((request->actual < request->length)
+		if (request && (request->actual < request->length)
 				&& (musb_ep->dma->actual_len
 					== musb_ep->packet_sz))
 			return;
