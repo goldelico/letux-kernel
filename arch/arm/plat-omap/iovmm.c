@@ -333,6 +333,10 @@ static int omap_iovmm_open(struct inode *inode, struct file *filp)
 	obj = container_of(inode->i_cdev, struct iovmm_device, cdev);
 
 	iodmm = kzalloc(sizeof(struct iodmm_struct), GFP_KERNEL);
+	if (!iodmm) {
+		WARN_ON(1);
+		return -ENOMEM;
+	}
 	INIT_LIST_HEAD(&iodmm->map_list);
 	spin_lock_init(&iodmm->dmm_map_lock);
 
@@ -380,7 +384,10 @@ static int __devinit omap_iovmm_probe(struct platform_device *pdev)
 	struct iovmm_device *obj;
 
 	obj = kzalloc(sizeof(struct iovm_struct), GFP_KERNEL);
-
+	if (!obj) {
+		WARN_ON(1);
+		return -ENOMEM;
+	}
 	major = MAJOR(omap_iovmm_dev);
 	minor = atomic_read(&num_of_iovmmus);
 	atomic_inc(&num_of_iovmmus);
