@@ -461,17 +461,6 @@ int disp_node_create(struct disp_object *disp_obj,
 		DBC_ASSERT(ul_bytes < (RMS_COMMANDBUFSIZE * sizeof(rms_word)));
 		status = send_message(disp_obj, node_get_timeout(hnode),
 				      ul_bytes, pNodeEnv);
-		if (DSP_SUCCEEDED(status)) {
-			/*
-			 * Message successfully received from RMS.
-			 * Return the status of the Node's create function
-			 * on the DSP-side
-			 */
-			status = (((rms_word *) (disp_obj->pbuf))[0]);
-			if (DSP_FAILED(status))
-				dev_dbg(bridge, "%s: DSP-side failed: %i\n",
-					__func__, status);
-		}
 	}
 func_end:
 	return status;
@@ -510,22 +499,9 @@ int disp_node_delete(struct disp_object *disp_obj,
 			rms_cmd->arg1 = (rms_word) node_env;
 			rms_cmd->arg2 = (rms_word) (ul_delete_fxn);
 			rms_cmd->data = node_get_type(hnode);
-
 			status = send_message(disp_obj, node_get_timeout(hnode),
 					      sizeof(struct rms_command),
 					      &dw_arg);
-			if (DSP_SUCCEEDED(status)) {
-				/*
-				 * Message successfully received from RMS.
-				 * Return the status of the Node's delete
-				 * function on the DSP-side
-				 */
-				status = (((rms_word *) (disp_obj->pbuf))[0]);
-				if (DSP_FAILED(status))
-					dev_dbg(bridge, "%s: DSP-side failed: "
-						"%i\n", __func__, status);
-			}
-
 		}
 	}
 	return status;
@@ -563,22 +539,9 @@ int disp_node_run(struct disp_object *disp_obj,
 			rms_cmd->arg1 = (rms_word) node_env;
 			rms_cmd->arg2 = (rms_word) (ul_execute_fxn);
 			rms_cmd->data = node_get_type(hnode);
-
 			status = send_message(disp_obj, node_get_timeout(hnode),
 					      sizeof(struct rms_command),
 					      &dw_arg);
-			if (DSP_SUCCEEDED(status)) {
-				/*
-				 * Message successfully received from RMS.
-				 * Return the status of the Node's execute
-				 * function on the DSP-side
-				 */
-				status = (((rms_word *) (disp_obj->pbuf))[0]);
-				if (DSP_FAILED(status))
-					dev_dbg(bridge, "%s: DSP-side failed: "
-						"%i\n", __func__, status);
-			}
-
 		}
 	}
 
@@ -744,6 +707,16 @@ static int send_message(struct disp_object *disp_obj, u32 dwTimeout,
 			if (CHNL_IS_IO_COMPLETE(chnl_ioc_obj)) {
 				DBC_ASSERT(chnl_ioc_obj.pbuf == pbuf);
 				status = (*((rms_word *) chnl_ioc_obj.pbuf));
+				/* Translate DSP's to kernel error */
+				if (DSP_SUCCEEDED(status)) {
+					status = 0;
+				} else {
+					dev_dbg(bridge, "%s: DSP-side failed:"
+						"DSP errcode = 0x%x, Kernel "
+						"errcode = -EREMOTEIO\n",
+						__func__, status);
+					status = -EREMOTEIO;
+				}
 				*pdw_arg =
 				    (((rms_word *) (chnl_ioc_obj.pbuf))[1]);
 			} else {
