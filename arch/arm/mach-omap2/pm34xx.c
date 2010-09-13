@@ -390,6 +390,19 @@ static void restore_table_entry(void)
 	restore_control_register(control_reg_value);
 }
 
+void omap_dpll3_errat_wa(int disable)
+{
+	/* enable/disable autoidle */
+	if (!disable)
+		cm_rmw_mod_reg_bits(OMAP3430_AUTO_CORE_DPLL_MASK,
+					0x1, PLL_MOD, CM_AUTOIDLE);
+	else
+		cm_rmw_mod_reg_bits(OMAP3430_AUTO_CORE_DPLL_MASK,
+					0x0, PLL_MOD, CM_AUTOIDLE);
+	return;
+}
+EXPORT_SYMBOL(omap_dpll3_errat_wa);
+
 void omap_sram_idle(void)
 {
 	/* Variable to tell what needs to be saved and restored

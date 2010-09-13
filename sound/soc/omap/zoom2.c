@@ -115,6 +115,7 @@ int zoom2_i2s_hw_free(struct snd_pcm_substream *substream)
 }
 
 static int snd_hw_latency;
+extern void omap_dpll3_errat_wa(int disable);
 int zoom2_i2s_startup(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
@@ -126,11 +127,15 @@ int zoom2_i2s_startup(struct snd_pcm_substream *substream)
 	 * snd_hw_latency check takes care of playback and capture
 	 * usecase.
 	 */
-	if (!snd_hw_latency) {
+	if (!snd_hw_latency++) {
 		omap_pm_set_max_mpu_wakeup_lat(rtd->socdev->dev, 18);
-		snd_hw_latency++;
-	} else {
-		snd_hw_latency++;
+		/*
+		 * As of now for MP3 playback case need to enable dpll3
+		 * autoidle part of dpll3 lock errata.
+		 * REVISIT: Remove this, Once the dpll3 lock errata is
+		 * updated with with a new workaround without impacting mp3 usecase.
+		 */
+		omap_dpll3_errat_wa(0);
 	}
 
 	return 0;
@@ -142,8 +147,10 @@ int zoom2_i2s_shutdown(struct snd_pcm_substream *substream)
 
 	/* remove latency constraint */
 	snd_hw_latency--;
-	if (!snd_hw_latency)
+	if (!snd_hw_latency) {
 		omap_pm_set_max_mpu_wakeup_lat(rtd->socdev->dev, -1);
+		omap_dpll3_errat_wa(1);
+	}
 
 	return 0;
 }
