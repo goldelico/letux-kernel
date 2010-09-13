@@ -587,9 +587,9 @@ int dss_init(bool skip_init)
 		/* disable LCD and DIGIT output. This seems to fix the synclost
 		 * problem that we get, if the bootloader starts the DSS and
 		 * the kernel resets it */
-		//omap_writel(omap_readl(0x48050440) & ~0x3, 0x48050440);
-		omap_writel(omap_readl(0x48041040) & ~0x3, 0x48041040);
 
+		if (cpu_is_omap34xx())
+			omap_writel(omap_readl(0x48050440) & ~0x3, 0x48050440);
 
 		/* We need to wait here a bit, otherwise we sometimes start to
 		 * get synclost errors, and after that only power cycle will
