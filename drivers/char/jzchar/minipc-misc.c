@@ -59,6 +59,7 @@ extern void (*pm_power_off)(void);
 #define I2C_CLK      10000
 #define BAT_STAT_REG    0xDB    
 #define BAT_CHARGE_REG  0XD9
+
 static int get_battery_stat(unsigned char *data, unsigned char reg)
 {
 	int nr;
@@ -70,6 +71,7 @@ static int get_battery_stat(unsigned char *data, unsigned char reg)
 	i2c_close();
 	return nr;
 }
+
 /**/
 int mcu_exist(void)
 {
@@ -204,8 +206,7 @@ static void pic_shutdown (void)
 	int nr;
 	unsigned char data = 1;
 	unsigned long flags;
-	printk("pic_shutdown\n");
-	// FIXME: replace by newer i2c driver code!
+	printk("pic_shutdown (i2c)\n");
 	i2c_open();
 	i2c_setclk(I2C_CLK);
 	nr = i2c_write(MCU_DEV_ADDR, &data, SHUTDOWN_REG, 1);

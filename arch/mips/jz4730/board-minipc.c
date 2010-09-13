@@ -278,7 +278,7 @@ arch_initcall(board_init);
 /* RTC I2C device */
 
 struct i2c_board_info i2c_bus_devices[] = {
-	/* can't autoprobe this
+	/* can't autoprobe this device
 	[0] = {
 		.type = "pcf8563",
 		.addr = 0x51,

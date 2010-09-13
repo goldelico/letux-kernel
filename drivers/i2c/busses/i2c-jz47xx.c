@@ -8,6 +8,7 @@
  * Date:20100504
  * fixed to handle http://www.i2c-bus.org/fileadmin/ftp/i2c_bus_specification_1995.pdf
  * datasheet if i2c controller: http://www.amebasystems.com/downloads/hardware/datasheets/ben-nanonote/Ingenic-SOC-JZ4720/Jz4740-PM/Jz4740_18_i2c_spec.pdf
+ * for a description of the I2C_M flags: http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=blob;f=Documentation/i2c/i2c-protocol
  * Date:20100906
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -81,7 +82,7 @@ static int i2c_jz_xfer(struct i2c_adapter *adap, struct i2c_msg *pmsg, int num)
 				pmsg->flags);
 		if (pmsg->flags & (/*I2C_M_TEN|I2C_M_NOSTART|*/I2C_M_REV_DIR_ADDR|/*I2C_M_IGNORE_NAK|*/I2C_M_NO_RD_ACK|I2C_M_RECV_LEN)) {
 			dev_dbg(&adap->dev, "jz47xx_xfer: flags=%04x not supported\n", pmsg->flags);
-			return -EIO;
+			return -EINVAL;
 		}
 		
 		if (!pmsg->buf)
@@ -182,7 +183,7 @@ static int i2c_jz_probe(struct platform_device *dev)
 	struct jz_i2c *i2c;
 	struct i2c_jz_platform_data *plat = dev->dev.platform_data;
 	int ret;
-//	printk(KERN_INFO "i2c_jz_probe()\n");
+	printk(KERN_INFO "i2c_jz_probe()\n");
 	i2c_jz_setclk(10000); /* default 10 KHz */
 
 	__i2c_enable();
@@ -227,6 +228,7 @@ static int i2c_jz_probe(struct platform_device *dev)
 eadapt:
 	__i2c_disable();
 emalloc:
+	printk(KERN_INFO "i2c_jz_probe() error ret=%d\n", ret);
 	return ret;
 }
 
@@ -250,6 +252,7 @@ static struct platform_driver i2c_jz_driver = {
 
 static int __init i2c_adap_jz_init(void)
 {
+	printk(KERN_INFO "i2c_adap_jz_init()\n");
 	return platform_driver_register(&i2c_jz_driver);
 }
 
@@ -260,5 +263,9 @@ static void __exit i2c_adap_jz_exit(void)
 
 MODULE_LICENSE("GPL");
 
-module_init(i2c_adap_jz_init);
+// we need to initialize this adapter early
+// see: http://book.chinaunix.net/special/ebook/oreilly/Understanding_Linux_Network_Internals/0596002556/understandlni-CHP-7-SECT-3.html
+
+subsys_initcall(i2c_adap_jz_init);
+// module_init(i2c_adap_jz_init);
 module_exit(i2c_adap_jz_exit);

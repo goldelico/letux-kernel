@@ -40,11 +40,11 @@ static struct i2c_adapter *adap;	// the I2C adapter
 
 void i2c_open(void)
 {
-	printk(KERN_DEBUG "i2c_open()\n");
+	printk(KERN_INFO "i2c_open()\n");
 	if(adap == NULL) {
 		// initialize
 		adap = i2c_get_adapter(0);	// there is only one on a JZ system
-		printk(KERN_DEBUG "i2c_get_adapter() -> %p\n", adap);
+		printk(KERN_INFO "i2c_get_adapter() -> %p\n", adap);
 		if (!adap) {
 			printk(KERN_INFO "i2c_open() failed to get adapter\n");
 			return;			
@@ -60,7 +60,7 @@ void i2c_open(void)
 
 void i2c_close(void)
 {
-	printk(KERN_DEBUG "i2c_close()\n");
+	printk(KERN_INFO "i2c_close()\n");
 //	i2c_unlock_adapter(adap);
 }
 
@@ -86,7 +86,7 @@ int i2c_read(unsigned char device, unsigned char *buf,
  	if (!adap)
  		return -ENODEV;
 	ret = i2c_transfer(adap, msgs, 2);
-	printk(KERN_DEBUG "i2c_read(%d, %x, %d) -> %d\n", device, address, count, ret);
+	printk(KERN_INFO "i2c_read(%02x, %02x, %d) -> %d\n", device, address, count, ret);
 	if(ret == 2)
 		return count;
 	if(ret >= 0)
@@ -105,7 +105,7 @@ int i2c_write(unsigned char device, unsigned char *buf,
  	if (!adap)
  		return -ENODEV;
 	ret = i2c_transfer(adap, msgs, 2);
-	printk(KERN_DEBUG "i2c_write(%d, %x, %d) -> %d\n", device, address, count, ret);
+	printk(KERN_INFO "i2c_write(%02x, %02x, %d) -> %d\n", device, address, count, ret);
 	if(ret == 2)
 		return count;
 	if(ret >= 0)
