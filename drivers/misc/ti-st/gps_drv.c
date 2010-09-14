@@ -357,7 +357,15 @@ ssize_t gpsdrv_read(struct file *file, char __user *data, size_t size,
 		GPSDRV_DBG("SKB length is Greater than requested size \
 				Returning the available length of SKB");
 
-		copy_to_user(data, skb->data, size);
+		if (copy_to_user(data, skb->data, size)) {
+			GPSDRV_ERR(" Unable to copy to user space");
+			/* queue back data */
+			spin_lock(&hgps->lock);
+			skb_queue_head(&hgps->rx_list, skb);
+			spin_unlock(&hgps->lock);
+			return GPS_ERR_CPY_TO_USR;
+
+		}
 		skb_pull(skb, size);
 
 		if (skb->len != 0) {
@@ -561,8 +569,8 @@ static int gpsdrv_ioctl(struct inode *inode, struct file *file,
 	* available in the available SKB
 	*/
 		spin_lock(&hgps->lock);
-		if (!skb_queue_empty(&hgps->rx_list)) {
-			skb = skb_dequeue(&hgps->rx_list);
+		skb = skb_dequeue(&hgps->rx_list);
+		if (skb != NULL) {
 			*(unsigned int *)arg = skb->len;
 			/* Re-Store the SKB for furtur Read operations */
 			skb_queue_head(&hgps->rx_list, skb);
