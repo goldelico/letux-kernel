@@ -27,6 +27,9 @@
 #include "isp.h"
 #include "ispreg.h"
 #include "isppreview.h"
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+#include "isppreview_dfs.h"
+#endif
 
 /* Table addresses */
 #define ISPPRV_TBL_ADDR_RED_G_START	0x00
@@ -42,47 +45,6 @@
 /* Features list */
 #define ISP_NF_TABLE_SIZE 		(1 << 10)
 #define ISP_GAMMA_TABLE_SIZE 		(1 << 10)
-
-/* Structure for saving/restoring preview module registers */
-static struct isp_reg ispprev_reg_list[] = {
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR, 0x0000}, /* See context saving. */
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_HORZ_INFO, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_VERT_INFO, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_RSDR_ADDR, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_RADR_OFFSET, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_DSDR_ADDR, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_DRKF_OFFSET, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_WSDR_ADDR, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_WADD_OFFSET, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_AVE, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_HMED, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_NF, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_WB_DGAIN, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_WBGAIN, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_WBSEL, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_CFA, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_BLKADJOFF, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_RGB_MAT1, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_RGB_MAT2, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_RGB_MAT3, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_RGB_MAT4, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_RGB_MAT5, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_RGB_OFF1, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_RGB_OFF2, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_CSC0, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_CSC1, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_CSC2, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_CSC_OFFSET, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_CNT_BRT, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_CSUP, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_SETUP_YC, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_CDC_THR0, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_CDC_THR1, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_CDC_THR2, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_CDC_THR3, 0x0000},
-	{0, ISP_TOK_TERM, 0x0000}
-};
-
 
 /* Default values in Office Flourescent Light for RGBtoRGB Blending */
 static struct ispprev_rgbtorgb flr_rgb2rgb = {
@@ -1920,12 +1882,18 @@ void isppreview_enable(struct isp_prev_device *isp_prev, int enable)
 {
 	struct device *dev = to_device(isp_prev);
 
-	if (enable)
+	if (enable) {
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+		struct isp_device *isp = to_isp_device(isp_prev);
+		if (isp->dfs_prev)
+			ispprev_dfs_dump(isp);
+#endif
 		isp_reg_or(dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR,
 			   ISPPRV_PCR_EN | ISPPRV_PCR_ONESHOT);
-	else
+	} else {
 		isp_reg_and(dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR,
 			    ~(ISPPRV_PCR_EN | ISPPRV_PCR_ONESHOT));
+	}
 }
 EXPORT_SYMBOL_GPL(isppreview_enable);
 
@@ -1953,6 +1921,46 @@ int isppreview_is_enabled(struct isp_prev_device *isp_prev)
 }
 EXPORT_SYMBOL_GPL(isppreview_is_enabled);
 
+/* Structure for saving/restoring preview module registers */
+static struct isp_reg ispprev_reg_list[] = {
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR, 0x0000}, /* See context saving. */
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_HORZ_INFO, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_VERT_INFO, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_RSDR_ADDR, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_RADR_OFFSET, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_DSDR_ADDR, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_DRKF_OFFSET, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_WSDR_ADDR, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_WADD_OFFSET, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_AVE, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_HMED, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_NF, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_WB_DGAIN, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_WBGAIN, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_WBSEL, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_CFA, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_BLKADJOFF, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_RGB_MAT1, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_RGB_MAT2, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_RGB_MAT3, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_RGB_MAT4, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_RGB_MAT5, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_RGB_OFF1, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_RGB_OFF2, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_CSC0, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_CSC1, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_CSC2, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_CSC_OFFSET, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_CNT_BRT, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_CSUP, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_SETUP_YC, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_CDC_THR0, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_CDC_THR1, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_CDC_THR2, 0x0000},
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_CDC_THR3, 0x0000},
+	{0, ISP_TOK_TERM, 0x0000}
+};
+
 /**
  * isppreview_save_context - Saves the values of the preview module registers.
  **/
@@ -1974,124 +1982,6 @@ void isppreview_restore_context(struct device *dev)
 	isp_restore_context(dev, ispprev_reg_list);
 }
 EXPORT_SYMBOL_GPL(isppreview_restore_context);
-
-/**
- * isppreview_print_status - Prints the values of the Preview Module registers.
- *
- * Also prints other debug information stored in the preview moduel.
- **/
-void isppreview_print_status(struct isp_prev_device *isp_prev,
-			     struct isp_node *pipe)
-{
-#ifdef OMAP_ISPPREV_DEBUG
-	struct device *dev = to_device(isp_prev);
-#endif
-
-	DPRINTK_ISPPREV("Preview Input format =%d, Output Format =%d\n",
-			pipe->in.image.pixelformat,
-			pipe->out.image.pixelformat);
-	DPRINTK_ISPPREV("Accepted CCDC Output (width = %d,Height = %d)\n",
-			pipe->in.image.width, pipe->in.image.height);
-	DPRINTK_ISPPREV("Accepted Preview Output (width = %d,Height = %d)\n",
-			pipe->out.image.width, pipe->out.image.height);
-	DPRINTK_ISPPREV("###ISP_CTRL in preview =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN,
-				      ISP_CTRL));
-	DPRINTK_ISPPREV("###ISP_IRQ0ENABLE in preview =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN,
-				      ISP_IRQ0ENABLE));
-	DPRINTK_ISPPREV("###ISP_IRQ0STATUS in preview =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN,
-				      ISP_IRQ0STATUS));
-	DPRINTK_ISPPREV("###PRV PCR =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_PCR));
-	DPRINTK_ISPPREV("###PRV HORZ_INFO =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_HORZ_INFO));
-	DPRINTK_ISPPREV("###PRV VERT_INFO =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_VERT_INFO));
-	DPRINTK_ISPPREV("###PRV RSDR_ADDR =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_RSDR_ADDR));
-	DPRINTK_ISPPREV("###PRV RADR_OFFSET =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_RADR_OFFSET));
-	DPRINTK_ISPPREV("###PRV WSDR_ADDR =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_WSDR_ADDR));
-	DPRINTK_ISPPREV("###PRV WADD_OFFSET =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_WADD_OFFSET));
-	DPRINTK_ISPPREV("###PRV AVE =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_AVE));
-	DPRINTK_ISPPREV("###PRV HMED =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_HMED));
-	DPRINTK_ISPPREV("###PRV NF =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_NF));
-	DPRINTK_ISPPREV("###PRV WB_DGAIN =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_WB_DGAIN));
-	DPRINTK_ISPPREV("###PRV WBGAIN =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_WBGAIN));
-	DPRINTK_ISPPREV("###PRV WBSEL =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_WBSEL));
-	DPRINTK_ISPPREV("###PRV CFA =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_CFA));
-	DPRINTK_ISPPREV("###PRV BLKADJOFF =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_BLKADJOFF));
-	DPRINTK_ISPPREV("###PRV RGB_MAT1 =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_RGB_MAT1));
-	DPRINTK_ISPPREV("###PRV RGB_MAT2 =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_RGB_MAT2));
-	DPRINTK_ISPPREV("###PRV RGB_MAT3 =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_RGB_MAT3));
-	DPRINTK_ISPPREV("###PRV RGB_MAT4 =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_RGB_MAT4));
-	DPRINTK_ISPPREV("###PRV RGB_MAT5 =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_RGB_MAT5));
-	DPRINTK_ISPPREV("###PRV RGB_OFF1 =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_RGB_OFF1));
-	DPRINTK_ISPPREV("###PRV RGB_OFF2 =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_RGB_OFF2));
-	DPRINTK_ISPPREV("###PRV CSC0 =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_CSC0));
-	DPRINTK_ISPPREV("###PRV CSC1 =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_CSC1));
-	DPRINTK_ISPPREV("###PRV CSC2 =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_CSC2));
-	DPRINTK_ISPPREV("###PRV CSC_OFFSET =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_CSC_OFFSET));
-	DPRINTK_ISPPREV("###PRV CNT_BRT =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_CNT_BRT));
-	DPRINTK_ISPPREV("###PRV CSUP =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_CSUP));
-	DPRINTK_ISPPREV("###PRV SETUP_YC =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-				      ISPPRV_SETUP_YC));
-}
-EXPORT_SYMBOL_GPL(isppreview_print_status);
 
 /**
  * isp_preview_init - Module Initialization.
@@ -2159,7 +2049,20 @@ int __init isp_preview_init(struct device *dev)
 			      PREV_LUMA_ENHANCE);
 
 	spin_lock_init(&isp_prev->lock);
-
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+	ispprev_dfs_setup(isp);
+#endif
 	return 0;
 }
 
+/**
+ * isp_preview_cleanup - Module Cleanup.
+ **/
+void isp_preview_cleanup(struct device *dev)
+{
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+	struct isp_device *isp = dev_get_drvdata(dev);
+
+	ispprev_dfs_shutdown(isp);
+#endif
+}

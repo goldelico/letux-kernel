@@ -206,9 +206,6 @@ int isppreview_busy(struct isp_prev_device *isp_prev);
 
 int isppreview_is_enabled(struct isp_prev_device *isp_prev);
 
-void isppreview_print_status(struct isp_prev_device *isp_prev,
-			     struct isp_node *pipe);
-
 void isppreview_save_context(struct device *dev);
 
 void isppreview_restore_context(struct device *dev);
