@@ -435,6 +435,7 @@ struct isp_device {
 	struct dentry *dfs_isp;
 	struct dentry *dfs_ccdc;
 	struct dentry *dfs_prev;
+	struct dentry *dfs_resz;
 };
 
 struct isp_freq_devider {

@@ -25,6 +25,9 @@
 #include "isp.h"
 #include "ispreg.h"
 #include "ispresizer.h"
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+#include "ispresizer_dfs.h"
+#endif
 
 /*
  * Resizer constants
@@ -970,6 +973,11 @@ void ispresizer_enable(struct isp_res_device *isp_res, int enable)
 	int val;
 
 	if (enable) {
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+		struct isp_device *isp = to_isp_device(isp_res);
+		if (isp->dfs_resz)
+			ispresz_dfs_dump(isp);
+#endif
 		val = (isp_reg_readl(dev, OMAP3_ISP_IOMEM_RESZ,
 			ISPRSZ_PCR) & ISPRSZ_PCR_ONESHOT) |
 			ISPRSZ_PCR_ENABLE;
@@ -1155,41 +1163,6 @@ void ispresizer_restore_context(struct device *dev)
 }
 
 /**
- * ispresizer_print_status - Prints the values of the resizer module registers.
- **/
-void ispresizer_print_status(struct isp_res_device *isp_res)
-{
-	struct device *dev = to_device(isp_res);
-
-	dev_dbg(dev, "###ISP_CTRL inresizer =0x%x\n",
-		isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN, ISP_CTRL));
-	dev_dbg(dev, "###ISP_IRQ0ENABLE in resizer =0x%x\n",
-		isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE));
-	dev_dbg(dev, "###ISP_IRQ0STATUS in resizer =0x%x\n",
-		isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS));
-	dev_dbg(dev, "###RSZ PCR =0x%x\n",
-		isp_reg_readl(dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_PCR));
-	dev_dbg(dev, "###RSZ CNT =0x%x\n",
-		isp_reg_readl(dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_CNT));
-	dev_dbg(dev, "###RSZ OUT SIZE =0x%x\n",
-		isp_reg_readl(dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_OUT_SIZE));
-	dev_dbg(dev, "###RSZ IN START =0x%x\n",
-		isp_reg_readl(dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_IN_START));
-	dev_dbg(dev, "###RSZ IN SIZE =0x%x\n",
-		isp_reg_readl(dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_IN_SIZE));
-	dev_dbg(dev, "###RSZ SDR INADD =0x%x\n",
-		isp_reg_readl(dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_INADD));
-	dev_dbg(dev, "###RSZ SDR INOFF =0x%x\n",
-		isp_reg_readl(dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_INOFF));
-	dev_dbg(dev, "###RSZ SDR OUTADD =0x%x\n",
-		isp_reg_readl(dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_OUTADD));
-	dev_dbg(dev, "###RSZ SDR OTOFF =0x%x\n",
-		isp_reg_readl(dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_OUTOFF));
-	dev_dbg(dev, "###RSZ YENH =0x%x\n",
-		isp_reg_readl(dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_YENH));
-}
-
-/**
  * isp_resizer_init - Module Initialisation.
  *
  * Always returns 0.
@@ -1200,7 +1173,9 @@ int __init isp_resizer_init(struct device *dev)
 	struct isp_res_device *isp_res = &isp->isp_res;
 
 	mutex_init(&isp_res->ispres_mutex);
-
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+	ispresz_dfs_setup(isp);
+#endif
 	return 0;
 }
 
@@ -1209,4 +1184,9 @@ int __init isp_resizer_init(struct device *dev)
  **/
 void isp_resizer_cleanup(struct device *dev)
 {
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+	struct isp_device *isp = dev_get_drvdata(dev);
+
+	ispresz_dfs_shutdown(isp);
+#endif
 }

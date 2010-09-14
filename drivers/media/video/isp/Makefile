@@ -17,7 +17,8 @@ obj-$(CONFIG_VIDEO_OMAP34XX_ISP_PREV2RESZ) += \
 obj-$(CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS) += \
 	isp_dfs.o \
 	ispccdc_dfs.o \
-	isppreview_dfs.o
+	isppreview_dfs.o \
+	ispresizer_dfs.o
 
 obj-$(CONFIG_VIDEO_OMAP3) += isp-mod.o
 

@@ -152,6 +152,4 @@ void ispresizer_save_context(struct device *dev);
 
 void ispresizer_restore_context(struct device *dev);
 
-void ispresizer_print_status(struct isp_res_device *isp_res);
-
 #endif		/* OMAP_ISP_RESIZER_H */
