@@ -503,6 +503,7 @@ IS_OMAP_TYPE(3517, 0x3517)
 #define CHIP_GE_OMAP3430ES3_1		(CHIP_IS_OMAP3430ES3_1 | \
 					 CHIP_IS_OMAP3630ES1)
 
+#define CHIP_GE_OMAP3630ES1_1		(CHIP_IS_OMAP3630ES1_1)
 
 int omap_chip_is(struct omap_chip_id oci);
 void omap2_check_revision(void);
