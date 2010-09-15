@@ -67,10 +67,16 @@ static struct kobj_attribute sr_margin_steps_1g_attr =
 static struct kobj_attribute sr_margin_steps_attr =
 	__ATTR(sr_steps, 0644, sr_steps_show, sr_steps_store);
 
+/* sysfs interface to control steps added for OPP's less than 1G */
+static struct kobj_attribute sr_vnom_steps_attr =
+	__ATTR(sr_vnom_steps, 0644, sr_steps_show, sr_steps_store);
+
 /* Default steps added for 1G volt is 5 in uV */
 static unsigned long sr_margin_steps_1g = 62500;
 /* Default steps added for less than 1G OPP's is 3 in uV*/
 static unsigned long sr_margin_steps = 37500;
+/* steps for dynamic Vnom = 4 steps by default */
+static unsigned long sr_vnom_steps = 50000;
 
 struct omap_sr {
 	int		srid;
@@ -878,12 +884,24 @@ int sr_recalibrate(int srid, u32 t_opp, u32 c_opp)
 
 	if (srid == SR1) {
 		mpu_opps[target_opp_no].sr_adjust_vsel = high_v;
+
+		/* Add system margin on top of Vsr */
 		v_step = omap_twl_vsel_to_uv(high_v);
 		v_step += sr1_opp_margin[target_opp_no];
 		vsel_step = omap_twl_uv_to_vsel(v_step);
 		mpu_opps[target_opp_no].sr_vsr_step_vsel = vsel_step;
+
+		/* Add 4 steps to adjusted vsel to use it next time */
+		v_step += sr_vnom_steps;
+		vsel_step = omap_twl_uv_to_vsel(v_step);
+		if (vsel_step > mpu_opps[target_opp_no].vsel)
+			mpu_opps[target_opp_no].sr_dynamic_vnom =
+				mpu_opps[target_opp_no].vsel;
+		else
+			mpu_opps[target_opp_no].sr_dynamic_vnom = vsel_step;
 	} else if (srid == SR2) {
 		l3_opps[target_opp_no].sr_adjust_vsel = high_v;
+		l3_opps[target_opp_no].sr_dynamic_vnom = high_v;
 		l3_opps[target_opp_no].sr_vsr_step_vsel = high_v;
 	}
 
@@ -1439,6 +1457,8 @@ static ssize_t sr_steps_store(struct kobject *kobj,
 		sr_margin_steps_1g = 12500 * value;
 	else if (attr == &sr_margin_steps_attr)
 		sr_margin_steps = 12500 * value;
+	else if (attr == &sr_vnom_steps_attr)
+		sr_vnom_steps = 12500 * value;
 	else
 		return -EINVAL;
 
@@ -1454,6 +1474,8 @@ static ssize_t sr_steps_show(struct kobject *kobj, struct kobj_attribute *attr,
 		return sprintf(buf, "%lu\n", sr_margin_steps_1g);
 	else if (attr == &sr_margin_steps_attr)
 		return sprintf(buf, "%lu\n", sr_margin_steps);
+	else if (attr == &sr_vnom_steps_attr)
+		return sprintf(buf, "%lu\n", sr_vnom_steps);
 	else
 		return -EINVAL;
 }
@@ -1645,6 +1667,9 @@ static int __init omap3_sr_init(void)
 
 	pr_info("SmartReflex driver initialized\n");
 
+	ret = sysfs_create_file(power_kobj, &sr_vnom_steps_attr.attr);
+	if (ret)
+		pr_err("sysfs_create_file failed: %d\n", ret);
 	ret = sysfs_create_file(power_kobj, &sr_margin_steps_1g_attr.attr);
 	if (ret)
 		pr_err("sysfs_create_file failed: %d\n", ret);

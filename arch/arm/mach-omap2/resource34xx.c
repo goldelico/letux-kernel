@@ -306,11 +306,20 @@ static int program_opp(int res, struct omap_opp *opp, int target_level,
 	if (!sr_class1p5) {
 		disable_smartreflex(res);
 	} else {
-		/* if use class 1.5, decide on which voltage to use */
+		/*
+		 * If using class 1.5, decide on which voltage to use.
+		 * First time, nominal volt is used and
+		 * next calibration (re-calibration) would use dynamic
+		 * nominal as starting point.
+		 */
 		target_v = (opp[target_level].sr_adjust_vsel) ?
-			opp[target_level].sr_vsr_step_vsel : target_v;
+			opp[target_level].sr_vsr_step_vsel ?
+			opp[target_level].sr_vsr_step_vsel :
+			opp[target_level].sr_dynamic_vnom : target_v;
 		current_v = (opp[current_level].sr_adjust_vsel) ?
-			opp[current_level].sr_vsr_step_vsel : current_v;
+			opp[current_level].sr_vsr_step_vsel ?
+			opp[current_level].sr_vsr_step_vsel :
+			opp[current_level].sr_adjust_vsel : current_v;
 	}
 
 	for (i = 0; i < 2; i++) {
@@ -325,7 +334,7 @@ static int program_opp(int res, struct omap_opp *opp, int target_level,
 
 	if (!sr_class1p5)
 		enable_smartreflex(res);
-	else if (!opp[target_level].sr_adjust_vsel)
+	else if (!opp[target_level].sr_vsr_step_vsel)
 		sr_recalibrate(res, t_opp, c_opp);
 
 	return ret;
