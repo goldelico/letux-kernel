@@ -108,11 +108,11 @@ static struct prm_setup_vc prm_setup = {
 	.voltsetup2 = 0xff,
 	.vdd0_on = 0x30,	/* 1.2v */
 	.vdd0_onlp = 0x20,	/* 1.0v */
-	.vdd0_ret = 0x1e,	/* 0.975v */
+	.vdd0_ret = 0x13,	/* 0.975v */
 	.vdd0_off = 0x00,	/* 0.6v */
 	.vdd1_on = 0x2c,	/* 1.15v */
 	.vdd1_onlp = 0x20,	/* 1.0v */
-	.vdd1_ret = 0x1e,	/* .975v */
+	.vdd1_ret = 0x13,	/* .975v */
 	.vdd1_off = 0x00,	/* 0.6v */
 	.i2c_slave_ra = (R_SRI2C_SLAVE_ADDR << OMAP3430_SMPS_SA1_SHIFT) |
 			(R_SRI2C_SLAVE_ADDR << OMAP3430_SMPS_SA0_SHIFT),
