@@ -89,7 +89,7 @@ int omap_mbox_msg_send(struct omap_mbox *mbox, mbox_msg_t msg)
 {
 	struct omap_mbox_queue *mq = mbox->txq;
 	int ret = 0, len;
-	spin_lock(&mq->lock);
+	spin_lock_bh(&mq->lock);
 
 	if ((FIFO_SIZE - (__kfifo_len(mq->fifo))) < sizeof(msg)) {
 		ret = -ENOMEM;
@@ -104,7 +104,7 @@ int omap_mbox_msg_send(struct omap_mbox *mbox, mbox_msg_t msg)
 	tasklet_schedule(&mbox->txq->tasklet);
 
 out:
-	spin_unlock(&mq->lock);
+	spin_unlock_bh(&mq->lock);
 	return ret;
 }
 EXPORT_SYMBOL(omap_mbox_msg_send);
