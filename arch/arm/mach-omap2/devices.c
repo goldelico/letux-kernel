@@ -722,66 +722,115 @@ void __init omap2_init_mmc(struct omap_mmc_platform_data **mmc_data,
 	int i;
 	char *name;
 
-	for (i = 0; i < nr_controllers; i++) {
-		unsigned long base, size;
-		unsigned int irq = 0;
+	if (cpu_is_omap44xx()) {
+		for (i = 1; i >= 0; i--) {
+			unsigned long base, size;
+			unsigned int irq = 0;
 
-		if (!mmc_data[i])
-			continue;
+			if (!mmc_data[i])
+				continue;
 
-		omap2_mmc_mux(mmc_data[i], i);
+			omap2_mmc_mux(mmc_data[i], i);
 
-		switch (i) {
-		case 0:
-			base = OMAP2_MMC1_BASE;
-			irq = INT_24XX_MMC_IRQ;
-			break;
-		case 1:
-			base = OMAP2_MMC2_BASE;
-			irq = INT_24XX_MMC2_IRQ;
-			break;
-		case 2:
-			if (!cpu_is_omap44xx() && !cpu_is_omap34xx())
-				return;
-			base = OMAP3_MMC3_BASE;
-			irq = INT_34XX_MMC3_IRQ;
-			break;
-		case 3:
-			if (!cpu_is_omap44xx())
-				return;
-			base = OMAP4_MMC4_BASE + OMAP4_MMC_REG_OFFSET;
-			irq = INT_44XX_MMC4_IRQ;
-			break;
-		case 4:
-			if (!cpu_is_omap44xx())
-				return;
-			base = OMAP4_MMC5_BASE + OMAP4_MMC_REG_OFFSET;
-			irq = INT_44XX_MMC5_IRQ;
-			break;
-		default:
-			continue;
+			switch (i) {
+			case 0:
+				base = OMAP2_MMC1_BASE;
+				irq = INT_24XX_MMC_IRQ;
+				break;
+			case 1:
+				base = OMAP2_MMC2_BASE;
+				irq = INT_24XX_MMC2_IRQ;
+				break;
+			default:
+				continue;
+			}
+
+			base += OMAP4_MMC_REG_OFFSET;
+			irq += IRQ_GIC_START;
+			size = OMAP4_HSMMC_SIZE;
+			name = "mmci-omap-hs";
+
+			omap_mmc_add(name, i, base, size, irq, mmc_data[i]);
 		}
 
-		if (cpu_is_omap2420()) {
-			size = OMAP2420_MMC_SIZE;
-			name = "mmci-omap";
-		} else if (cpu_is_omap44xx()) {
-			if (i < 3) {
+		for (i = 2; i < nr_controllers; i++) {
+			unsigned long base, size;
+			unsigned int irq = 0;
+
+			if (!mmc_data[i])
+				continue;
+
+			omap2_mmc_mux(mmc_data[i], i);
+
+			switch (i) {
+			case 2:
+				base = OMAP3_MMC3_BASE;
+				irq = INT_34XX_MMC3_IRQ;
+				break;
+			case 3:
+				base = OMAP4_MMC4_BASE + OMAP4_MMC_REG_OFFSET;
+				irq = INT_44XX_MMC4_IRQ;
+				break;
+			case 4:
+				base = OMAP4_MMC5_BASE + OMAP4_MMC_REG_OFFSET;
+				irq = INT_44XX_MMC5_IRQ;
+				break;
+			default:
+				continue;
+			}
+
+			if (i == 2) {
 				base += OMAP4_MMC_REG_OFFSET;
 				irq += IRQ_GIC_START;
 			}
 			size = OMAP4_HSMMC_SIZE;
 			name = "mmci-omap-hs";
-		} else {
-			size = OMAP3_HSMMC_SIZE;
-			if (mmc_data[i]->name)
-				name = mmc_data[i]->name;
-			else
-				name = "mmci-omap-hs";
-		}
 
-		omap_mmc_add(name, i, base, size, irq, mmc_data[i]);
-	};
+			omap_mmc_add(name, i, base, size, irq, mmc_data[i]);
+		}
+	} else {
+		for (i = 0; i < nr_controllers; i++) {
+			unsigned long base, size;
+			unsigned int irq = 0;
+
+			if (!mmc_data[i])
+				continue;
+
+			omap2_mmc_mux(mmc_data[i], i);
+
+			switch (i) {
+			case 0:
+				base = OMAP2_MMC1_BASE;
+				irq = INT_24XX_MMC_IRQ;
+				break;
+			case 1:
+				base = OMAP2_MMC2_BASE;
+				irq = INT_24XX_MMC2_IRQ;
+				break;
+			case 2:
+				if (!cpu_is_omap34xx())
+					return;
+				base = OMAP3_MMC3_BASE;
+				irq = INT_34XX_MMC3_IRQ;
+				break;
+			default:
+				continue;
+			}
+
+			if (cpu_is_omap2420()) {
+				size = OMAP2420_MMC_SIZE;
+				name = "mmci-omap";
+			} else {
+				size = OMAP3_HSMMC_SIZE;
+				if (mmc_data[i]->name)
+					name = mmc_data[i]->name;
+				else
+					name = "mmci-omap-hs";
+			}
+
+			omap_mmc_add(name, i, base, size, irq, mmc_data[i]);
+		}
+	}
 }
 
 #endif
