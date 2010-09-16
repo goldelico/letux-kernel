@@ -81,8 +81,6 @@ static int __mbox_poll_for_space(struct omap_mbox *mbox)
 		udelay(1);
 	}
 
-
-
 	return ret;
 }
 
@@ -159,14 +157,13 @@ static void mbox_rx_work(struct work_struct *work)
 
 	if ((rq_full) && (len == sizeof(msg))) {
 		omap_mbox_enable_irq(mbox, IRQ_RX);
+		rq_full = false;
+	}
+}
+
 /*
  * Mailbox interrupt handler
  */
-		rq_full = false;
-}
-
-}
-
 static void __mbox_tx_interrupt(struct omap_mbox *mbox)
 {
 	omap_mbox_disable_irq(mbox, IRQ_TX);
