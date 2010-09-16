@@ -1025,7 +1025,7 @@ static int ispccdc_config_datapath(struct isp_ccdc_device *isp_ccdc,
 		break;
 
 	case CCDC_OTHERS_VP_MEM:
-		syn_mode &= ~ISPCCDC_SYN_MODE_VP2SDR;
+		syn_mode |= ISPCCDC_SYN_MODE_VP2SDR;
 		syn_mode &= ~ISPCCDC_SYN_MODE_SDR2RSZ;
 		syn_mode |= ISPCCDC_SYN_MODE_WEN;
 		syn_mode &= ~ISPCCDC_SYN_MODE_EXWEN;
