@@ -181,13 +181,14 @@ static int dma_channel_program(struct dma_channel *channel,
 	if ((dma_addr % 4) && (musb->hwvers >= MUSB_HWVERS_1800))
 		return false;
 
-	/* In version 1.4, if two DMA channels are simultaneously
+	/* In version 1.4 and 1.8, if two DMA channels are simultaneously
 	 * enabled in opposite directions, there is a chance that
 	 * the DMA controller will hang. However, it is safe to
 	 * have multiple DMA channels enabled in the same direction
 	 * at the same time.
 	 */
-	if (musb->hwvers == MUSB_HWVERS_1400) {
+	if (musb->hwvers == MUSB_HWVERS_1400 ||
+		musb->hwvers == MUSB_HWVERS_1800) {
 		if (musb_channel->transmit && controller->rx_active)
 			return false;
 		else if	(!musb_channel->transmit && controller->tx_active)
