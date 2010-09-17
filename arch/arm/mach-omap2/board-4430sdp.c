@@ -17,7 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/gpio.h>
-#include <linux/leds-omap4430sdp-display.h>
+#include <linux/leds-omap-display.h>
 #include <linux/leds.h>
 #include <linux/spi/spi.h>
 #include <linux/usb/otg.h>
@@ -496,7 +496,7 @@ static void sdp4430_set_secondary_brightness(u8 brightness)
 	gpio_set_value(LED_SEC_DISP_GPIO, brightness);
 }
 
-static struct omap4430_sdp_disp_led_platform_data sdp4430_disp_led_data = {
+static struct omap_disp_led_platform_data sdp4430_disp_led_data = {
 	.flags = LEDS_CTRL_AS_ONE_DISPLAY,
 	.primary_display_set = sdp4430_set_primary_brightness,
 	.secondary_display_set = sdp4430_set_secondary_brightness,
