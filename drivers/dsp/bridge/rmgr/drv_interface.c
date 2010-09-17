@@ -208,23 +208,126 @@ static struct notifier_block iva_clk_notifier = {
 };
 #endif
 
+/**
+ * omap3_bridge_startup() - perform low lever initializations
+ * @pdev:      pointer to platform device
+ *
+ * Initializes recovery, PM and DVFS required data, before calling
+ * clk and memory init routines.
+ */
+static int omap3_bridge_startup(struct platform_device *pdev)
+{
+	struct dspbridge_platform_data *pdata = pdev->dev.platform_data;
+	struct drv_data *drv_datap = NULL;
+	u32 phys_membase, phys_memsize;
+	int err;
+
+#ifdef CONFIG_BRIDGE_RECOVERY
+	bridge_rec_queue = create_workqueue("bridge_rec_queue");
+	INIT_WORK(&bridge_recovery_work, bridge_recover);
+	INIT_COMPLETION(bridge_comp);
+#endif
+
+#ifdef CONFIG_PM
+	/* Initialize the wait queue */
+	bridge_suspend_data.suspended = 0;
+	init_waitqueue_head(&bridge_suspend_data.suspend_wq);
+
+#ifdef CONFIG_BRIDGE_DVFS
+	clk_handle = clk_get(NULL, "iva2_ck");
+	if (!clk_handle) {
+		pr_err("%s: clk_get failed to get iva2_ck\n", __func__);
+		return -EPERM;
+	}
+
+	if (cpufreq_register_notifier(&iva_clk_notifier,
+				      CPUFREQ_TRANSITION_NOTIFIER)) {
+		pr_err("%s: cpufreq_register_notifier failed for "
+		       "iva2_ck\n", __func__);
+		return -EPERM;
+	}
+#endif
+#endif
+
+	services_init();
+
+	drv_datap = kzalloc(sizeof(struct drv_data), GFP_KERNEL);
+	if (!drv_datap) {
+		err = -ENOMEM;
+		goto err1;
+	}
+
+	drv_datap->shm_size = shm_size;
+	drv_datap->tc_wordswapon = tc_wordswapon;
+
+	if (base_img) {
+		drv_datap->base_img = kmalloc(strlen(base_img) + 1, GFP_KERNEL);
+		if (!drv_datap->base_img) {
+			err = -ENOMEM;
+			goto err2;
+		}
+		strncpy(drv_datap->base_img, base_img, strlen(base_img) + 1);
+	}
+
+	dev_set_drvdata(bridge, drv_datap);
+
+	if (shm_size < 0x10000) {	/* 64 KB */
+		err = -EINVAL;
+		pr_err("%s: shm size must be at least 64 KB\n", __func__);
+		goto err3;
+	}
+	dev_dbg(bridge, "%s: requested shm_size = 0x%x\n", __func__, shm_size);
+
+	phys_membase = pdata->phys_mempool_base;
+	phys_memsize = pdata->phys_mempool_size;
+	if (phys_membase > 0 && phys_memsize > 0)
+		mem_ext_phys_pool_init(phys_membase, phys_memsize);
+
+	if (tc_wordswapon)
+		dev_dbg(bridge, "%s: TC Word Swap is enabled\n", __func__);
+
+	driver_context = dsp_init(&err);
+	if (err) {
+		pr_err("DSP Bridge driver initialization failed\n");
+		goto err4;
+	}
+
+	return 0;
+
+err4:
+	mem_ext_phys_pool_release();
+err3:
+	kfree(drv_datap->base_img);
+err2:
+	kfree(drv_datap);
+err1:
+#ifdef CONFIG_BRIDGE_DVFS
+	cpufreq_unregister_notifier(&iva_clk_notifier,
+					CPUFREQ_TRANSITION_NOTIFIER);
+#endif
+	services_exit();
+
+	return err;
+}
+
 static int __devinit omap34_xx_bridge_probe(struct platform_device *pdev)
 {
 	int status;
-	u32 init_status = 0;
 	dev_t dev = 0;
-	int result;
-	struct dspbridge_platform_data *pdata = pdev->dev.platform_data;
-	struct drv_data *drv_datap = NULL;
 
 	omap_dspbridge_dev = pdev;
 
 	/* Global bridge device */
 	bridge = &omap_dspbridge_dev->dev;
 
+	/* Bridge low level initializations */
+	status = omap3_bridge_startup(pdev);
+	if (status)
+		goto err1;
+
 	/* use 2.6 device model */
-	result = alloc_chrdev_region(&dev, 0, 1, driver_name);
-	if (result < 0) {
+	status = alloc_chrdev_region(&dev, 0, 1, driver_name);
+	if (status < 0) {
 		pr_err("%s: Can't get major %d\n", __func__, driver_major);
 		goto err1;
 	}
@@ -246,86 +349,20 @@ static int __devinit omap34_xx_bridge_probe(struct platform_device *pdev)
 	if (IS_ERR(bridge_class))
 		pr_err("%s: Error creating bridge class\n", __func__);
 
-	device_create(bridge_class, NULL, MKDEV(driver_major, 0),
-		      NULL, "DspBridge");
-
 	bridge_create_sysfs();
-#ifdef CONFIG_PM
-	/* Initialize the wait queue */
-	if (!status) {
-		bridge_suspend_data.suspended = 0;
-		init_waitqueue_head(&bridge_suspend_data.suspend_wq);
-	}
-#endif
-
-	services_init();
-
-	/*  Autostart flag.  This should be set to true if the DSP image should
-	 *  be loaded and run during bridge module initialization */
-	drv_datap = kzalloc(sizeof(struct drv_data), GFP_KERNEL);
-	if (drv_datap) {
-		drv_datap->shm_size = shm_size;
-		drv_datap->tc_wordswapon = tc_wordswapon;
-		if (base_img) {
-			drv_datap->base_img = kmalloc(strlen(base_img) + 1,
-								GFP_KERNEL);
-			if (drv_datap->base_img)
-				strncpy(drv_datap->base_img, base_img,
-							strlen(base_img) + 1);
-			else
-				status = -ENOMEM;
-		}
-	} else {
-		init_status = -ENOMEM;
-	}
-	if (shm_size < 0x10000) {	/* 64 KB */
-		init_status = -EINVAL;
-		status = -1;
-		pr_err("%s: shm size must be at least 64 KB\n", __func__);
-	}
-	dev_dbg(bridge, "%s: requested shm_size = 0x%x\n", __func__, shm_size);
-
-	if ((pdata->phys_mempool_base > 0) && (pdata->phys_mempool_size > 0))
-		mem_ext_phys_pool_init(pdata->phys_mempool_base,
-						pdata->phys_mempool_size);
-	if (tc_wordswapon)
-		dev_dbg(bridge, "%s: TC Word Swap is enabled\n", __func__);
-
-	if (DSP_SUCCEEDED(init_status)) {
-#ifdef CONFIG_BRIDGE_DVFS
-		clk_handle = clk_get(NULL, "iva2_ck");
-		if (!clk_handle)
-			pr_err("%s: clk_get failed to get iva2_ck\n", __func__);
-
-		if (cpufreq_register_notifier(&iva_clk_notifier,
-					      CPUFREQ_TRANSITION_NOTIFIER))
-			pr_err("%s: cpufreq_register_notifier failed for "
-			       "iva2_ck\n", __func__);
-#endif
-		dev_set_drvdata(bridge, drv_datap);
-		driver_context = dsp_init(&init_status);
-		if (DSP_FAILED(init_status)) {
-			status = -1;
-			pr_err("DSP Bridge driver initialization failed\n");
-		} else {
-			pr_info("DSP Bridge driver loaded\n");
-		}
-	}
-#ifdef CONFIG_BRIDGE_RECOVERY
-	bridge_rec_queue = create_workqueue("bridge_rec_queue");
-	INIT_WORK(&bridge_recovery_work, bridge_recover);
-	INIT_COMPLETION(bridge_comp);
-#endif
 
 	DBC_ASSERT(status == 0);
 	DBC_ASSERT(DSP_SUCCEEDED(init_status));
+
+	device_create(bridge_class, NULL, MKDEV(driver_major, 0),
+			NULL, "DspBridge");
 
 	return 0;
 
 err2:
 	unregister_chrdev_region(dev, 1);
 err1:
-	return result;
+	return status;
 }
 
 static int __devexit omap34_xx_bridge_remove(struct platform_device *pdev)
