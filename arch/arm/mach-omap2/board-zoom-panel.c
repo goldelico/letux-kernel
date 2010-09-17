@@ -6,6 +6,7 @@
 #include <linux/gpio.h>
 #include <linux/i2c/twl.h>
 #include <linux/regulator/machine.h>
+#include <linux/leds.h>
 
 #ifdef CONFIG_PANEL_SIL9022
 #include <mach/sil9022.h>
@@ -38,9 +39,11 @@
 
 #define SIL9022_RESET_GPIO 		97
 
+extern void omap_set_primary_brightness(u8 brightness);
 extern unsigned get_last_off_on_transaction_id(struct device *dev);
 static int zoom_panel_enable_lcd(struct omap_dss_device *dssdev);
 static void zoom_panel_disable_lcd(struct omap_dss_device *dssdev);
+
 /*--------------------------------------------------------------------------*/
 static struct omap_dss_device zoom_lcd_device = {
 	.name = "lcd",
@@ -208,12 +211,14 @@ static int zoom_panel_enable_lcd(struct omap_dss_device *dssdev)
 	zoom_panel_power_enable(1);
 	gpio_request(LCD_PANEL_BACKLIGHT_GPIO, "lcd backlight");
 	gpio_direction_output(LCD_PANEL_BACKLIGHT_GPIO, 1);
+	omap_set_primary_brightness(LED_FULL);
 
 	return 0;
 }
 
 static void zoom_panel_disable_lcd(struct omap_dss_device *dssdev)
 {
+	omap_set_primary_brightness(LED_OFF);
 	gpio_direction_output(LCD_PANEL_BACKLIGHT_GPIO, 0);
 }
 

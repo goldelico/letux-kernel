@@ -315,7 +315,7 @@ int dsi_vc_send_null(enum dsi lcd_ix, int channel);
 #define HDMI_GPIO_41	41
 
 struct omap_dss_board_info {
-	int (*get_last_off_on_transaction_id)(struct device *dev);
+	unsigned (*get_last_off_on_transaction_id)(struct device *dev);
 	int num_devices;
 	struct omap_dss_device **devices;
 	struct omap_dss_device *default_device;

@@ -20,6 +20,8 @@
 #include <linux/synaptics_i2c_rmi.h>
 #include <linux/interrupt.h>
 #include <linux/switch.h>
+#include <linux/leds-omap-display.h>
+#include <linux/leds.h>
 
 #ifdef CONFIG_PANEL_SIL9022
 #include <mach/sil9022.h>
@@ -67,6 +69,23 @@ extern struct regulator_init_data zoom_vdac;
 extern struct regulator_init_data zoom2_vdsi;
 extern void zoom_lcd_tv_panel_init(void);
 #endif
+
+/* PWM output/clock enable for LCD backlight*/
+#define REG_INTBR_GPBR1				0xc
+#define REG_INTBR_GPBR1_PWM1_OUT_EN	(0x1 << 3)
+#define REG_INTBR_GPBR1_PWM1_OUT_EN_MASK	(0x1 << 3)
+#define REG_INTBR_GPBR1_PWM1_CLK_EN	(0x1 << 1)
+#define REG_INTBR_GPBR1_PWM1_CLK_EN_MASK 	(0x1 << 1)
+
+/* pin mux for LCD backlight*/
+#define REG_INTBR_PMBR1				0xd
+#define REG_INTBR_PMBR1_PWM1_PIN_EN	(0x3 << 4)
+#define REG_INTBR_PMBR1_PWM1_PIN_MASK	(0x3 << 4)
+
+#define MAX_CYCLES				0x7f
+#define MIN_CYCLES				75
+#define LCD_PANEL_BACKLIGHT_GPIO 		(7 + OMAP_MAX_GPIO_LINES)
+
 
 /* Zoom2 has Qwerty keyboard*/
 static int board_keymap[] = {
@@ -207,8 +226,93 @@ static struct platform_device headset_switch_device = {
 	}
 };
 
+/* omap3 led display */
+static void zoom_pwm_config(u8 brightness)
+{
+
+	u8 pwm_off = 0;
+
+	pwm_off = (MIN_CYCLES * (LED_FULL - brightness) +
+		   MAX_CYCLES * (brightness - LED_OFF)) /
+		(LED_FULL - LED_OFF);
+
+	pwm_off = clamp(pwm_off, (u8)MIN_CYCLES, (u8)MAX_CYCLES);
+
+	printk(KERN_DEBUG "PWM Duty cycles = %d\n", pwm_off);
+
+	/* start at 0 */
+	twl_i2c_write_u8(TWL4030_MODULE_PWM1, 0, 0);
+	twl_i2c_write_u8(TWL4030_MODULE_PWM1, pwm_off, 1);
+}
+
+static void zoom_pwm_enable(int enable)
+{
+	u8 gpbr1;
+
+	twl_i2c_read_u8(TWL4030_MODULE_INTBR, &gpbr1, REG_INTBR_GPBR1);
+	gpbr1 &= ~REG_INTBR_GPBR1_PWM1_OUT_EN_MASK;
+	gpbr1 |= (enable ? REG_INTBR_GPBR1_PWM1_OUT_EN : 0);
+	twl_i2c_write_u8(TWL4030_MODULE_INTBR, gpbr1, REG_INTBR_GPBR1);
+
+	twl_i2c_read_u8(TWL4030_MODULE_INTBR, &gpbr1, REG_INTBR_GPBR1);
+	gpbr1 &= ~REG_INTBR_GPBR1_PWM1_CLK_EN_MASK;
+	gpbr1 |= (enable ? REG_INTBR_GPBR1_PWM1_CLK_EN : 0);
+	twl_i2c_write_u8(TWL4030_MODULE_INTBR, gpbr1, REG_INTBR_GPBR1);
+
+}
+
+void omap_set_primary_brightness(u8 brightness)
+{
+
+
+	u8 pmbr1;
+	static int zoom_pwm1_config;
+	static int zoom_pwm1_output_enabled;
+
+	if (zoom_pwm1_config == 0) {
+		twl_i2c_read_u8(TWL4030_MODULE_INTBR, &pmbr1, REG_INTBR_PMBR1);
+
+		pmbr1 &= ~REG_INTBR_PMBR1_PWM1_PIN_MASK;
+		pmbr1 |=  REG_INTBR_PMBR1_PWM1_PIN_EN;
+		twl_i2c_write_u8(TWL4030_MODULE_INTBR, pmbr1, REG_INTBR_PMBR1);
+
+		zoom_pwm1_config = 1;
+	}
+
+	if (!brightness) {
+		zoom_pwm_enable(0);
+		zoom_pwm1_output_enabled = 0;
+		return;
+	}
+
+	zoom_pwm_config(brightness);
+	if (zoom_pwm1_output_enabled == 0) {
+		zoom_pwm_enable(1);
+		zoom_pwm1_output_enabled = 1;
+	}
+
+	printk(KERN_DEBUG "Zoom LCD Backlight brightness = %d\n", brightness);
+
+}
+
+static struct omap_disp_led_platform_data omap_disp_led_data = {
+	.flags = LEDS_CTRL_AS_ONE_DISPLAY,
+	.primary_display_set = omap_set_primary_brightness,
+	.secondary_display_set = NULL,
+};
+
+static struct platform_device omap_disp_led = {
+	.name	=	"display_led",
+	.id	=	-1,
+	.dev	= {
+		.platform_data = &omap_disp_led_data,
+	},
+};
+/* end led Display */
+
 static struct platform_device *zoom_board_devices[] __initdata = {
 	&headset_switch_device,
+	&omap_disp_led,
 };
 
 static struct twl4030_hsmmc_info mmc[] __initdata = {
