@@ -134,7 +134,7 @@ static void if_hsi_read_done(struct hsi_device *dev, unsigned int size)
 	channel->state &= ~HSI_CHANNEL_STATE_READING;
 	ev.event = HSI_EV_IN;
 	ev.data = channel->rx_data;
-	ev.count = size;
+	ev.count = 4 * size;
 	spin_unlock(&channel->lock);
 	if_notify(dev->n_ch, &ev);
 }
@@ -198,7 +198,7 @@ static void if_hsi_write_done(struct hsi_device *dev, unsigned int size)
 	channel->state &= ~HSI_CHANNEL_STATE_WRITING;
 	ev.event = HSI_EV_OUT;
 	ev.data = channel->tx_data;
-	ev.count = size;
+	ev.count = 4 * size;
 	spin_unlock(&channel->lock);
 	if_notify(dev->n_ch, &ev);
 }
