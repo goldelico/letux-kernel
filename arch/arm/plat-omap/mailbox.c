@@ -156,8 +156,8 @@ static void mbox_rx_work(struct work_struct *work)
 	}
 
 	if ((rq_full) && (len == sizeof(msg))) {
-		omap_mbox_enable_irq(mbox, IRQ_RX);
 		rq_full = false;
+		omap_mbox_enable_irq(mbox, IRQ_RX);
 	}
 }
 
