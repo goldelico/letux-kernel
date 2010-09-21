@@ -1729,16 +1729,17 @@ static unsigned int omap34xxcam_poll(struct file *file,
 
 	poll_wait(file, &ofh->poll_vb, wait);
 
-	mutex_lock(&ofh->vbq.vb_lock);
-	if (!list_empty(&ofh->vbq.stream)) {
-		struct videobuf_buffer *vb =
-			list_entry(ofh->vbq.stream.next,
-				   struct videobuf_buffer, stream);
-		if (vb->state == VIDEOBUF_DONE
-		    || vb->state == VIDEOBUF_ERROR)
-			ret |= POLLIN | POLLRDNORM;
+	if (mutex_trylock(&ofh->vbq.vb_lock)) {
+		if (!list_empty(&ofh->vbq.stream)) {
+			struct videobuf_buffer *vb =
+				list_entry(ofh->vbq.stream.next,
+					   struct videobuf_buffer, stream);
+			if (vb->state == VIDEOBUF_DONE
+			    || vb->state == VIDEOBUF_ERROR)
+				ret |= POLLIN | POLLRDNORM;
+		}
+		mutex_unlock(&ofh->vbq.vb_lock);
 	}
-	mutex_unlock(&ofh->vbq.vb_lock);
 
 	return ret;
 }
