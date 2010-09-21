@@ -143,6 +143,7 @@ void omap34xxcam_vbq_complete(struct videobuf_buffer *vb, void *priv)
 	vb->state = VIDEOBUF_DONE;
 
 	wake_up(&vb->done);
+	wake_up_all(&ofh->poll_vb);
 }
 
 /**
