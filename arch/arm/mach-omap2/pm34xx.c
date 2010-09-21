@@ -549,6 +549,8 @@ if (pwrdm_read_pwrst(cam_pwrdm) == PWRDM_POWER_ON)
 					     OMAP3_PRM_VOLTCTRL_OFFSET);
 			omap3_core_save_context();
 			omap3_prcm_save_context();
+			if (omap_type() != OMAP2_DEVICE_TYPE_GP)
+				omap3_save_secure_ram_context(mpu_next_state);
 		} else if (core_next_state == PWRDM_POWER_RET) {
 			prm_set_mod_reg_bits(OMAP3430_AUTO_RET,
 						OMAP3430_GR_MOD,
