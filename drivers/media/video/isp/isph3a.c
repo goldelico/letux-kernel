@@ -22,46 +22,25 @@
 #include <linux/uaccess.h>
 
 #include "isp.h"
-
-/* Structure for saving/restoring h3a module registers */
-static struct isp_reg isph3a_reg_list[] = {
-	{OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR, 0}, /* Should be the first one */
-	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AEWWIN1, 0},
-	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AEWINSTART, 0},
-	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AEWINBLK, 0},
-	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AEWSUBWIN, 0},
-	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AEWBUFST, 0},
-	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFPAX1, 0},
-	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFPAX2, 0},
-	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFPAXSTART, 0},
-	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFIIRSH, 0},
-	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFBUFST, 0},
-	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF010, 0},
-	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF032, 0},
-	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF054, 0},
-	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF076, 0},
-	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF098, 0},
-	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF0010, 0},
-	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF110, 0},
-	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF132, 0},
-	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF154, 0},
-	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF176, 0},
-	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF198, 0},
-	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF1010, 0},
-	{0, ISP_TOK_TERM, 0}
-};
-
-static void isph3a_print_status(struct isp_h3a_device *isp_h3a);
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+#include "isph3a_dfs.h"
+#endif
 
 void __isph3a_aewb_enable(struct isp_h3a_device *isp_h3a, u8 enable)
 {
 	struct device *dev = to_device(isp_h3a);
 	u32 pcr = isp_reg_readl(dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
 
-	if (enable)
+	if (enable) {
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+		struct isp_device *isp = to_isp_device(isp_h3a);
+		if (isp->dfs_h3a)
+			isph3a_dfs_dump(isp);
+#endif
 		pcr |= ISPH3A_PCR_AEW_EN;
-	else
+	} else {
 		pcr &= ~ISPH3A_PCR_AEW_EN;
+	}
 	isp_reg_writel(dev, pcr, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
 }
 
@@ -448,8 +427,6 @@ int isph3a_aewb_config(struct isp_h3a_device *isp_h3a,
 
 	spin_unlock_irqrestore(isp_h3a->lock, irqflags);
 
-	isph3a_print_status(isp_h3a);
-
 	return 0;
 }
 EXPORT_SYMBOL(isph3a_aewb_config);
@@ -530,7 +507,9 @@ int __init isph3a_aewb_init(struct device *dev)
 	isp_h3a->lock = &isp->h3a_lock;
 	isp_h3a->aewb_config_local.saturation_limit = AEWB_SATURATION_LIMIT;
 	ispstat_init(dev, "H3A", &isp_h3a->stat, H3A_MAX_BUFF, MAX_FRAME_COUNT);
-
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+	isph3a_dfs_setup(isp);
+#endif
 	return 0;
 }
 
@@ -542,38 +521,38 @@ void isph3a_aewb_cleanup(struct device *dev)
 	struct isp_device *isp = dev_get_drvdata(dev);
 
 	ispstat_free(&isp->isp_h3a.stat);
-}
-
-/**
- * isph3a_print_status - Debug print. Values of H3A related registers.
- **/
-static void isph3a_print_status(struct isp_h3a_device *isp_h3a)
-{
-#ifdef OMAP_ISPH3A_DEBUG
-	struct device *dev = to_device(isp_h3a);
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+	isph3a_dfs_shutdown(isp);
 #endif
-
-	DPRINTK_ISPH3A("ISPH3A_PCR = 0x%08x\n",
-		       isp_reg_readl(dev, OMAP3_ISP_IOMEM_H3A,
-				     ISPH3A_PCR));
-	DPRINTK_ISPH3A("ISPH3A_AEWWIN1 = 0x%08x\n",
-		       isp_reg_readl(dev, OMAP3_ISP_IOMEM_H3A,
-				     ISPH3A_AEWWIN1));
-	DPRINTK_ISPH3A("ISPH3A_AEWINSTART = 0x%08x\n",
-		       isp_reg_readl(dev, OMAP3_ISP_IOMEM_H3A,
-				     ISPH3A_AEWINSTART));
-	DPRINTK_ISPH3A("ISPH3A_AEWINBLK = 0x%08x\n",
-		       isp_reg_readl(dev, OMAP3_ISP_IOMEM_H3A,
-				     ISPH3A_AEWINBLK));
-	DPRINTK_ISPH3A("ISPH3A_AEWSUBWIN = 0x%08x\n",
-		       isp_reg_readl(dev, OMAP3_ISP_IOMEM_H3A,
-				     ISPH3A_AEWSUBWIN));
-	DPRINTK_ISPH3A("ISPH3A_AEWBUFST = 0x%08x\n",
-		       isp_reg_readl(dev, OMAP3_ISP_IOMEM_H3A,
-				     ISPH3A_AEWBUFST));
-	DPRINTK_ISPH3A("stats windows = %d\n", isp_h3a->win_count);
-	DPRINTK_ISPH3A("stats buf size = %d\n", isp_h3a->stat.buf_size);
 }
+
+/* Structure for saving/restoring h3a module registers */
+static struct isp_reg isph3a_reg_list[] = {
+	{OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR, 0}, /* Should be the first one */
+	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AEWWIN1, 0},
+	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AEWINSTART, 0},
+	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AEWINBLK, 0},
+	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AEWSUBWIN, 0},
+	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AEWBUFST, 0},
+	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFPAX1, 0},
+	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFPAX2, 0},
+	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFPAXSTART, 0},
+	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFIIRSH, 0},
+	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFBUFST, 0},
+	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF010, 0},
+	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF032, 0},
+	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF054, 0},
+	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF076, 0},
+	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF098, 0},
+	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF0010, 0},
+	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF110, 0},
+	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF132, 0},
+	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF154, 0},
+	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF176, 0},
+	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF198, 0},
+	{OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF1010, 0},
+	{0, ISP_TOK_TERM, 0}
+};
 
 /**
  * isph3a_save_context - Saves the values of the h3a module registers.
