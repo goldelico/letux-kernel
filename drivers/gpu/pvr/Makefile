@@ -29,6 +29,8 @@ ccflags-y = -DLINUX -D__linux__ -Idrivers/gpu/pvr \
         -DSYS_OMAP3430_PIN_MEMORY_BUS_CLOCK \
 	-DPVRSRV_MODNAME="\"pvrsrvkm"\"
 
+ccflags-$(CONFIG_SGX_DEBUG_DISPLAY_DRIVER) += -DDEBUG_DISP_DRV
+
 ccflags-$(CONFIG_SGX540) +=  -Idrivers/gpu/pvr/omap4  -Idrivers/gpu/pvr/sgx \
 	-DNO_OMAP_TIMER \
 	-DSGX_CLK_CORE_DIV5 \

@@ -777,7 +777,7 @@ static PVRSRV_ERROR CreateDCSwapChain(IMG_HANDLE hDevice,
 	psDevInfo->sync_display_wq =
 		__create_workqueue("pvr_display_sync_wq", 1, 1, 1);
 
-	DEBUG_PRINTK("Swap chain will have %u buffers for display %u",
+	INFO_PRINTK("Swap chain will have %u buffers for display %u",
 		(unsigned int)ui32BufferCount, psDevInfo->uDeviceID);
 	/* Link the buffers available like a circular list */
 	for(i=0; i<ui32BufferCount-1; i++)
@@ -1544,8 +1544,8 @@ OMAP_ERROR OMAPLFBInit(void)
 	IMG_UINT32 aui32SyncCountList[OMAPLFB_COMMAND_COUNT][2];
 	int i;
 
-	DEBUG_PRINTK("Initializing 3rd party display driver");
-	DEBUG_PRINTK("Found %u framebuffers", FRAMEBUFFER_COUNT);
+	INFO_PRINTK("Initializing 3rd party display driver");
+	INFO_PRINTK("Found %u framebuffers", FRAMEBUFFER_COUNT);
 
 #if defined(REQUIRES_TWO_FRAMEBUFFERS)
 	/*
@@ -1603,10 +1603,10 @@ OMAP_ERROR OMAPLFBInit(void)
 			return OMAP_ERROR_INIT_FAILURE;
 		}
 
-    		/*
+		/*
 		 * Populate each display device structure
 		*/
-		DEBUG_PRINTK("-> Populating display device %i", i);
+		INFO_PRINTK("-> Populating display device %i", i);
 		psDevInfo = &pDisplayDevices[i];
 
 		if(!(*pfnGetPVRJTable)(&psDevInfo->sPVRJTable))
@@ -1626,12 +1626,12 @@ OMAP_ERROR OMAPLFBInit(void)
 		{
 			if(MAX_BUFFERS_FLIPPING == 1)
 			{
-				DEBUG_PRINTK("Flipping support is possible"
+				INFO_PRINTK("Flipping support is possible"
 					" but you decided not to use it, "
 					"no swap chain will be created");
 			}
 
-			DEBUG_PRINTK("Flipping support");
+			INFO_PRINTK("Flipping support");
 			if(psDevInfo->sDisplayInfo.ui32MaxSwapChainBuffers >
 				MAX_BUFFERS_FLIPPING)
 			psDevInfo->sDisplayInfo.ui32MaxSwapChainBuffers =
@@ -1639,7 +1639,7 @@ OMAP_ERROR OMAPLFBInit(void)
 		}
 		else
 		{
-			DEBUG_PRINTK("Flipping not supported, no swap chain"
+			INFO_PRINTK("Flipping not supported, no swap chain"
 				" will be created");
 		}
 
@@ -1672,7 +1672,7 @@ OMAP_ERROR OMAPLFBInit(void)
 			psDevInfo->sFBInfo.sCPUVAddr;
 		psDevInfo->sSystemBuffer.ulBufferSize =
 			psDevInfo->sFBInfo.ulRoundedBufferSize;
-		DEBUG_PRINTK("Buffers available: %u (%lu bytes per buffer)",
+		INFO_PRINTK("Buffers available: %u (%lu bytes per buffer)",
 			psDevInfo->sDisplayInfo.ui32MaxSwapChainBuffers,
 			psDevInfo->sFBInfo.ulBufferSize);
 
