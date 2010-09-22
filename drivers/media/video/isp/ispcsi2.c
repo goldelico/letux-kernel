@@ -25,32 +25,9 @@
 #include "isp.h"
 #include "ispreg.h"
 #include "ispcsi2.h"
-
-/* Structure for saving/restoring CSI2 module registers*/
-static struct isp_reg ispcsi2_reg_list[] = {
-	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_SYSCONFIG, 0},
-	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_SYSSTATUS, 0},
-	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_IRQSTATUS, 0},
-	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_IRQENABLE, 0},
-	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTRL, 0},
-	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_DBG_H, 0},
-	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_GNQ, 0},
-	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_COMPLEXIO_CFG1, 0},
-	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_COMPLEXIO1_IRQSTATUS, 0},
-	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_SHORT_PACKET, 0},
-	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_COMPLEXIO1_IRQENABLE, 0},
-	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_CTRL1(0), 0},
-	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_CTRL2(0), 0},
-	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_DAT_OFST(0), 0},
-	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_DAT_PING_ADDR(0), 0},
-	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_DAT_PONG_ADDR(0), 0},
-	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_IRQENABLE(0), 0},
-	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_IRQSTATUS(0), 0},
-	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_CTRL3(0), 0},
-	{OMAP3_ISP_IOMEM_CSI2PHY, ISPCSI2PHY_CFG0, 0},
-	{OMAP3_ISP_IOMEM_CSI2PHY, ISPCSI2PHY_CFG1, 0},
-	{0, ISP_TOK_TERM, 0}
-};
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+#include "ispcsi2_dfs.h"
+#endif
 
 /**
  * isp_csi2_complexio_lanes_config - Configuration of CSI2 ComplexIO lanes.
@@ -2140,6 +2117,11 @@ int isp_csi2_reset(struct isp_csi2_device *isp_csi2)
 void isp_csi2_enable(struct isp_csi2_device *isp_csi2, int enable)
 {
 	if (enable) {
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+		struct isp_device *isp = to_isp_device(isp_csi2);
+		if (isp->dfs_csi2)
+			ispcsi2_dfs_dump(isp);
+#endif
 		isp_csi2_ctx_config_eof_enabled(isp_csi2, 0, true);
 		isp_csi2_ctx_config_checksum_enabled(isp_csi2, 0, true);
 		isp_csi2_ctx_update(isp_csi2, 0, false);
@@ -2313,6 +2295,32 @@ void isp_csi2_regdump(struct isp_csi2_device *isp_csi2)
 	printk(KERN_DEBUG "---------------------------------------\n");
 }
 
+/* Structure for saving/restoring CSI2 module registers*/
+static struct isp_reg ispcsi2_reg_list[] = {
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_SYSCONFIG, 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_SYSSTATUS, 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_IRQSTATUS, 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_IRQENABLE, 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTRL, 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_DBG_H, 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_GNQ, 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_COMPLEXIO_CFG1, 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_COMPLEXIO1_IRQSTATUS, 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_SHORT_PACKET, 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_COMPLEXIO1_IRQENABLE, 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_CTRL1(0), 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_CTRL2(0), 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_DAT_OFST(0), 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_DAT_PING_ADDR(0), 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_DAT_PONG_ADDR(0), 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_IRQENABLE(0), 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_IRQSTATUS(0), 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_CTRL3(0), 0},
+	{OMAP3_ISP_IOMEM_CSI2PHY, ISPCSI2PHY_CFG0, 0},
+	{OMAP3_ISP_IOMEM_CSI2PHY, ISPCSI2PHY_CFG1, 0},
+	{0, ISP_TOK_TERM, 0}
+};
+
 /**
  * ispcsi2_save_context - Saves the values of the CSI1 module registers
  **/
@@ -2338,6 +2346,11 @@ EXPORT_SYMBOL(ispcsi2_restore_context);
  **/
 void isp_csi2_cleanup(struct device *dev)
 {
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+	struct isp_device *isp = dev_get_drvdata(dev);
+
+	ispcsi2_dfs_shutdown(isp);
+#endif
 	return;
 }
 
@@ -2364,6 +2377,9 @@ int __init isp_csi2_init(struct device *dev)
 
 	memset(&isp_csi2->current_cfg, 0, sizeof(isp_csi2->current_cfg));
 	memset(&isp_csi2->current_cfg_update, 0, sizeof(isp_csi2->current_cfg_update));
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+	ispcsi2_dfs_setup(isp);
+#endif
 	return 0;
 }
 
