@@ -437,6 +437,7 @@ struct isp_device {
 	struct dentry *dfs_prev;
 	struct dentry *dfs_resz;
 	struct dentry *dfs_h3a;
+	struct dentry *dfs_csi1;
 };
 
 struct isp_freq_devider {
@@ -561,6 +562,7 @@ void isph3a_aewb_cleanup(struct device *dev);
 void isp_resizer_cleanup(struct device *dev);
 void isp_preview_cleanup(struct device *dev);
 void isp_af_exit(struct device *dev);
+void isp_csi_cleanup(struct device *dev);
 void isp_csi2_cleanup(struct device *dev);
 
 /* FIXME: Remove these when iommu supports these directly. */

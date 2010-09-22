@@ -21,6 +21,9 @@
 #include <linux/delay.h>
 
 #include "isp.h"
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+#include "ispcsi1_dfs.h"
+#endif
 
 /**
  * Constraints of memory read channel horizontal/vertical
@@ -40,96 +43,6 @@
 			| (val << shift);	\
 	} while (0)
 
-void isp_csi_print_status(struct isp_csi_device *isp_csi)
-{
-	struct device *dev = to_device(isp_csi);
-	int i = 0;
-
-	printk(KERN_ERR "CCP2_REVISION: \t%x\n",
-	       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_REVISION));
-	printk(KERN_ERR "CCP2_SYSCONFIG: \t%x\n",
-	       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_SYSCONFIG));
-	printk(KERN_ERR "CCP2_SYSSTATUS: \t%x\n",
-	       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_SYSSTATUS));
-	printk(KERN_ERR "CCP2_LC01_IRQENABLE: \t%x\n",
-	       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
-			     ISPCSI1_LC01_IRQENABLE));
-	printk(KERN_ERR "CCP2_LC01_IRQSTATUS: \t%x\n",
-	       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
-			     ISPCSI1_LC01_IRQSTATUS));
-	printk(KERN_ERR "CCP2_LC23_IRQENABLE: \t%x\n",
-	       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
-			     ISPCSI1_LC23_IRQENABLE));
-	printk(KERN_ERR "CCP2_LC23_IRQSTATUS: \t%x\n",
-	       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
-			     ISPCSI1_LC23_IRQSTATUS));
-	printk(KERN_ERR "CCP2_LCM_IRQENABLE: \t%x\n",
-	       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_IRQENABLE));
-	printk(KERN_ERR "CCP2_LCM_IRQSTATUS: \t%x\n",
-	       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_IRQSTATUS));
-	printk(KERN_ERR "CCP2_CTRL: \t%x\n",
-	       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_CTRL));
-	printk(KERN_ERR "CCP2_DBG: \t%x\n",
-	       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_DBG));
-	printk(KERN_ERR "CCP2_GNQ: \t%x\n",
-	       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_GNQ));
-	printk(KERN_ERR "CCP2_CTRL1: \t%x\n",
-	       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_CTRL1));
-
-	for (i = 0; i < 4; i++) {
-		printk(KERN_ERR "CCP2_LC%d_CTRL: \t%x\n", i,
-		       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
-				     ISPCSI1_LCx_CTRL(i)));
-		printk(KERN_ERR "CCP2_LC%d_CODE: \t%x\n", i,
-		       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
-				     ISPCSI1_LCx_CODE(i)));
-		printk(KERN_ERR "CCP2_LC%d_STAT_START: \t%x\n", i,
-		       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
-				     ISPCSI1_LCx_STAT_START(i)));
-		printk(KERN_ERR "CCP2_LC%d_STAT_SIZE: \t%x\n", i,
-		       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
-				     ISPCSI1_LCx_STAT_SIZE(i)));
-		printk(KERN_ERR "CCP2_LC%d_SOF_ADDR: \t%x\n", i,
-		       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
-				     ISPCSI1_LCx_SOF_ADDR(i)));
-		printk(KERN_ERR "CCP2_LC%d_EOF_ADDR: \t%x\n", i,
-		       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
-				     ISPCSI1_LCx_EOF_ADDR(i)));
-		printk(KERN_ERR "CCP2_LC%d_DAT_START: \t%x\n", i,
-		       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
-				     ISPCSI1_LCx_DAT_START(i)));
-		printk(KERN_ERR "CCP2_LC%d_DAT_SIZE: \t%x\n", i,
-		       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
-				     ISPCSI1_LCx_DAT_SIZE(i)));
-		printk(KERN_ERR "CCP2_LC%d_DAT_PING_ADDR: \t%x\n", i,
-		       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
-				     ISPCSI1_LCx_DAT_PING_ADDR(i)));
-		printk(KERN_ERR "CCP2_LC%d_DAT_PONG_ADDR: \t%x\n", i,
-		       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
-				     ISPCSI1_LCx_DAT_PONG_ADDR(i)));
-		printk(KERN_ERR "CCP2_LC%d_DAT_OFST: \t%x\n", i,
-		       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
-				     ISPCSI1_LCx_DAT_OFST(i)));
-	}
-
-	printk(KERN_ERR "CCP2_LCM_CTRL: \t%x\n",
-	       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_CTRL));
-	printk(KERN_ERR "CCP2_LCM_VSIZE: \t%x\n",
-	       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_VSIZE));
-	printk(KERN_ERR "CCP2_LCM_HSIZE: \t%x\n",
-	       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_HSIZE));
-	printk(KERN_ERR "CCP2_LCM_PREFETCH: \t%x\n",
-	       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_PREFETCH));
-	printk(KERN_ERR "CCP2_LCM_SRC_ADDR: \t%x\n",
-	       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_SRC_ADDR));
-	printk(KERN_ERR "CCP2_LCM_SRC_OFST: \t%x\n",
-	       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_SRC_OFST));
-	printk(KERN_ERR "CCP2_LCM_DST_ADDR: \t%x\n",
-	       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_DST_ADDR));
-	printk(KERN_ERR "CCP2_LCM_DST_OFST: \t%x\n",
-	       isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_DST_OFST));
-}
-
 /**
  * isp_csi_if_enable - Enable CSI1/CCP2 interface.
  * @isp_csi: Pointer to ISP CSI/CCP2 device.
@@ -139,6 +52,13 @@ void isp_csi_if_enable(struct isp_csi_device *isp_csi, u8 enable)
 {
 	struct device *dev = to_device(isp_csi);
 
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+	struct isp_device *isp = to_isp_device(isp_csi);
+	if (enable) {
+		if (isp->dfs_csi1)
+			ispcsi1_dfs_dump(isp);
+	}
+#endif
 	isp_reg_and_or(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_CTRL,
 		       ~ISPCSI1_CTRL_IF_EN,
 		       enable ? ISPCSI1_CTRL_IF_EN : 0);
@@ -665,6 +585,20 @@ int __init isp_csi_init(struct device *dev)
 	isp_csi->vp_cfg.no_ocp = false;
 	isp_csi->vp_cfg.divider = 1;
 	isp_csi->vp_cfg.write_polarity = 0;
-
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+	ispcsi1_dfs_setup(isp);
+#endif
 	return 0;
+}
+
+/**
+ * isp_csi_cleanup - Module Cleanup.
+ **/
+void isp_csi_cleanup(struct device *dev)
+{
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+	struct isp_device *isp = dev_get_drvdata(dev);
+
+	ispcsi1_dfs_shutdown(isp);
+#endif
 }

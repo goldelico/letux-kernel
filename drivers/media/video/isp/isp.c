@@ -2920,6 +2920,7 @@ static int isp_remove(struct platform_device *pdev)
 	isp_dfs_shutdown();
 #endif
 	isp_csi2_cleanup(&pdev->dev);
+	isp_csi_cleanup(&pdev->dev);
 	isp_af_exit(&pdev->dev);
 	isp_resizer_cleanup(&pdev->dev);
 	isp_preview_cleanup(&pdev->dev);
