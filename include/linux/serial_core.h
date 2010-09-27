@@ -182,6 +182,22 @@
 /* Aeroflex Gaisler GRLIB APBUART */
 #define PORT_APBUART    90
 
+/* Altera UARTs */
+#define PORT_ALTERA_JTAGUART	91
+#define PORT_ALTERA_UART	92
+
+/* SH-SCI */
+#define PORT_SCIFB	93
+
+/* MAX3107 */
+#define PORT_MAX3107	94
+
+/* High Speed UART for Medfield */
+#define PORT_MFD	95
+
+/* TI OMAP-UART */
+#define PORT_OMAP	96
+
 #ifdef __KERNEL__
 
 #include <linux/compiler.h>
