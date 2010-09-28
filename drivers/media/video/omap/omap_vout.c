@@ -1555,8 +1555,10 @@ static int omap_vout_buffer_prepare(struct videobuf_queue *q,
 		 *			664 KByte/s for 3430
 		 *
 		 * L3 interface is only needed for reading pixel data
-		 * So, hold L3 constraint over DMA transfer, instead
-		 * keeping L3 high througout the clip.
+		 * So, hold L3 constraint over DMA transfer.
+		 * Released at streamoff.
+		 * REVISIT: To scale L3 only at DMA trasfers and VRFB->LCD
+		 * trasfers.
 		 */
 #ifdef CONFIG_PM
 		if (!cpu_is_omap44xx())
@@ -1566,12 +1568,6 @@ static int omap_vout_buffer_prepare(struct videobuf_queue *q,
 		omap_start_dma(tx->dma_ch);
 		interruptible_sleep_on_timeout(&tx->wait, VRFB_TX_TIMEOUT);
 
-#ifdef CONFIG_PM
-		/* Release L3 constraint */
-		if (!cpu_is_omap44xx())
-			pdata->set_min_bus_tput(vout->dev,
-						OCP_INITIATOR_AGENT, 0);
-#endif
 		if (tx->tx_status == 0) {
 			omap_stop_dma(tx->dma_ch);
 			return -EINVAL;
@@ -2597,6 +2593,7 @@ static int vidioc_streamon(struct file *file, void *fh,
 {
 	struct omap_vout_device *vout = fh;
 	struct videobuf_queue *q = &vout->vbq;
+	struct vout_platform_data *pdata = (vout->dev)->platform_data;
 	u32 addr = 0, uv_addr = 0;
 	int r = 0;
 	int t;
@@ -2655,6 +2652,23 @@ static int vidioc_streamon(struct file *file, void *fh,
 	omap_vout_vrfb_buffer_setup(vout, &count, 0);
 #endif
 
+#ifdef CONFIG_PM
+	if (!cpu_is_omap44xx()) {
+		/*
+		 * Through-put requirement.
+		 * Set max OCP freq:
+		 * 		For 3630 is 200 MHz
+		 *		For 3430 is 166 MHz
+		 * Through-put is in KByte/s
+		 * so OCP_FREQ KHz * 4 =
+		 *			800 KByte/s for 3630
+		 *			664 KByte/s for 3430
+		 */
+		pdata->set_min_bus_tput(vout->dev , OCP_INITIATOR_AGENT,
+					VDD2_OCP_FREQ_CONST * 4);
+	}
+#endif
+
 	mask = DISPC_IRQ_VSYNC | DISPC_IRQ_EVSYNC_EVEN |
 			DISPC_IRQ_EVSYNC_ODD | DISPC_IRQ_FRAMEDONE;
 #ifdef CONFIG_ARCH_OMAP4
@@ -2702,6 +2716,7 @@ static int vidioc_streamoff(struct file *file, void *fh,
 {
 	struct omap_vout_device *vout = fh;
 	int t, r = 0;
+	struct vout_platform_data *pdata = (vout->dev)->platform_data;
 	struct omapvideo_info *ovid = &vout->vid_info;
 	u32 mask = 0;
 
@@ -2715,6 +2730,13 @@ static int vidioc_streamoff(struct file *file, void *fh,
 	mask =	mask | DISPC_IRQ_FRAMEDONE2 | DISPC_IRQ_VSYNC2;
 #endif
 	omap_dispc_unregister_isr(omap_vout_isr, vout, mask);
+
+#ifdef CONFIG_PM
+	if (!cpu_is_omap44xx()) {
+		/* Releasing PM constraints */
+		pdata->set_min_bus_tput(vout->dev, OCP_INITIATOR_AGENT, 0);
+	}
+#endif
 
 	if (vout->linked) {
 		if (omapvid_link_en_ovl(0, 0, 0))
