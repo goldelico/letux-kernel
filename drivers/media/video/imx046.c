@@ -99,7 +99,6 @@ struct imx046_sensor {
 static struct imx046_sensor imx046;
 static struct i2c_driver imx046sensor_i2c_driver;
 static unsigned long xclk_current = IMX046_XCLK_NOM_1;
-static enum imx046_image_size isize_current = EIGHT_MP;
 
 /* list of image formats supported by imx046 sensor */
 const static struct v4l2_fmtdesc imx046_formats[] = {
@@ -293,6 +292,9 @@ static struct imx046_sensor_settings sensor_settings[] = {
 	},
 };
 
+#define IMX046_MODES_COUNT ARRAY_SIZE(sensor_settings)
+
+static unsigned isize_current = IMX046_MODES_COUNT - 1;
 static struct imx046_clock_freq current_clk;
 
 struct i2c_list {
@@ -528,22 +530,21 @@ static int imx046_write_regs(struct i2c_client *client,
  * the routine will find the size with a height that is equal to or less
  * than the requested height.
  */
-static enum imx046_image_size imx046_find_size(unsigned int width,
+static unsigned imx046_find_size(unsigned int width,
 							unsigned int height)
 {
-	enum imx046_image_size isize;
+	unsigned isize;
 
-	for (isize = QUART_MP; isize <= EIGHT_MP; isize++) {
-		if ((imx046_sizes[isize].height >= height) &&
-			(imx046_sizes[isize].width >= width)) {
+	for (isize = 0; isize < IMX046_MODES_COUNT; isize++) {
+		if ((sensor_settings[isize].frame.y_output_size >= height) &&
+		    (sensor_settings[isize].frame.x_output_size >= width))
 			break;
-		}
 	}
 
 	printk(KERN_DEBUG "imx046_find_size: Req Size=%dx%d, "
-			"Calc Size=%dx%d\n",
-			width, height, (int)imx046_sizes[isize].width,
-			(int)imx046_sizes[isize].height);
+			"Calc Size=%dx%d\n", width, height,
+			sensor_settings[isize].frame.x_output_size,
+			sensor_settings[isize].frame.y_output_size);
 
 	return isize;
 }
@@ -811,7 +812,7 @@ int imx046sensor_set_gain(u16 lineargain, struct v4l2_int_device *s,
  * imx046_update_clocks - calcs sensor clocks based on sensor settings.
  * @isize: image size enum
  */
-int imx046_update_clocks(u32 xclk, enum imx046_image_size isize)
+int imx046_update_clocks(u32 xclk, unsigned isize)
 {
 	current_clk.vco_clk =
 			xclk * sensor_settings[isize].clk.pll_mult /
@@ -842,7 +843,7 @@ int imx046_update_clocks(u32 xclk, enum imx046_image_size isize)
  * @c: i2c client driver structure
  * @isize: image size enum
  */
-int imx046_setup_pll(struct i2c_client *client, enum imx046_image_size isize)
+int imx046_setup_pll(struct i2c_client *client, unsigned isize)
 {
 	u32 rgpltd_reg;
 	u32 rgpltd[3] = {2, 0, 1};
@@ -882,7 +883,7 @@ int imx046_setup_pll(struct i2c_client *client, enum imx046_image_size isize)
  * @isize: image size enum
  */
 int imx046_setup_mipi(struct v4l2_int_device *s,
-			enum imx046_image_size isize)
+			unsigned isize)
 {
 	struct imx046_sensor *sensor = s->priv;
 	struct i2c_client *client = sensor->i2c_client;
@@ -934,7 +935,7 @@ int imx046_setup_mipi(struct v4l2_int_device *s,
  * @isize: image size enum
  */
 int imx046_configure_frame(struct i2c_client *client,
-			enum imx046_image_size isize)
+			unsigned isize)
 {
 	u32 val;
 
@@ -1067,7 +1068,7 @@ static int imx046_configure(struct v4l2_int_device *s)
 {
 	struct imx046_sensor *sensor = s->priv;
 	struct i2c_client *client = sensor->i2c_client;
-	enum imx046_image_size isize = isize_current;
+	unsigned isize = isize_current;
 	int err, i;
 	struct vcontrol *lvc = NULL;
 
@@ -1305,7 +1306,7 @@ static int ioctl_enum_fmt_cap(struct v4l2_int_device *s,
 static int ioctl_try_fmt_cap(struct v4l2_int_device *s,
 			     struct v4l2_format *f)
 {
-	enum imx046_image_size isize;
+	unsigned isize;
 	int ifmt;
 	struct v4l2_pix_format *pix = &f->fmt.pix;
 	struct imx046_sensor *sensor = s->priv;
@@ -1314,8 +1315,8 @@ static int ioctl_try_fmt_cap(struct v4l2_int_device *s,
 	isize = imx046_find_size(pix->width, pix->height);
 	isize_current = isize;
 
-	pix->width = imx046_sizes[isize].width;
-	pix->height = imx046_sizes[isize].height;
+	pix->width = sensor_settings[isize].frame.x_output_size;
+	pix->height = sensor_settings[isize].frame.y_output_size;
 	for (ifmt = 0; ifmt < NUM_CAPTURE_FORMATS; ifmt++) {
 		if (pix->pixelformat == imx046_formats[ifmt].pixelformat)
 			break;
@@ -1706,12 +1707,14 @@ static int ioctl_enum_framesizes(struct v4l2_int_device *s,
 
 	/* Check that the index we are being asked for is not
 	   out of bounds. */
-	if (frms->index >= ARRAY_SIZE(imx046_sizes))
+	if (frms->index >= IMX046_MODES_COUNT)
 		return -EINVAL;
 
 	frms->type = V4L2_FRMSIZE_TYPE_DISCRETE;
-	frms->discrete.width = imx046_sizes[frms->index].width;
-	frms->discrete.height = imx046_sizes[frms->index].height;
+	frms->discrete.width =
+		sensor_settings[frms->index].frame.x_output_size;
+	frms->discrete.height =
+		sensor_settings[frms->index].frame.y_output_size;
 
 	return 0;
 }

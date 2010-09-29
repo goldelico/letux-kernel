@@ -189,7 +189,6 @@
 #define SENSOR_DETECTED		1
 #define SENSOR_NOT_DETECTED	0
 
-#define NUM_IMAGE_SIZES ARRAY_SIZE(imx046_sizes)
 /**
  * struct imx046_reg - imx046 register format
  * @reg: 16-bit offset to register
@@ -202,25 +201,6 @@ struct imx046_reg {
 	u16 	reg;
 	u32 	val;
 	u16	length;
-};
-
-enum imx046_image_size {
-	QUART_MP,
-	HALF_MP,
-	p729p_MP,
-	TWO_MP,
-	EIGHT_MP
-};
-
-#define NUM_IMAGE_SIZES ARRAY_SIZE(imx046_sizes)
-/**
- * struct imx046_capture_size - image capture size information
- * @width: image width in pixels
- * @height: image height in pixels
- */
-struct imx046_capture_size {
-	unsigned long width;
-	unsigned long height;
 };
 
 /**
@@ -289,18 +269,6 @@ struct imx046_clock_freq {
 	u32 mipi_clk;
 	u32 ddr_clk;
 	u32 vt_pix_clk;
-};
-
-/**
- * Array of image sizes supported by IMX046.  These must be ordered from
- * smallest image size to largest.
- */
-const static struct imx046_capture_size imx046_sizes[] = {
-	{ 410, 308 },	/* QUART_MP - 1/8 Vertical Elim */
-	{ 820, 616 },		/* 0.5Mp - 4X Horizontal & Vertical Elim. */
-	{ 1296, 729},		/*1292x729 - 1/2 vertical & horizontal Elim. */
-	{ 3280, 616 },	/* 2Mp - 4X Vertical Elim. */
-	{ 3280, 2464},	/* 8MP - Full Resolution */
 };
 
 #endif /* ifndef IMX046_REGS_H */
