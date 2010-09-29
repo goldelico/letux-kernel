@@ -8,6 +8,9 @@
  *
  * Leverage mt9p012.c
  *
+ * Contacts:
+ *   Atanas Filipov <afilipov@mm-sol.com>
+ *
  * This file is licensed under the terms of the GNU General Public License
  * version 2. This program is licensed "as is" without any warranty of any
  * kind, whether express or implied.
@@ -113,7 +116,7 @@ const static struct v4l2_fmtdesc imx046_formats[] = {
 static enum v4l2_power current_power_state;
 
 /* Structure of Sensor settings that change with image size */
-static struct imx046_sensor_settings sensor_settings[] = {
+static struct imx046_sensor_settings imx046_settings[] = {
 	 /* NOTE: must be in same order as image_size array */
 
 	/* QUART_MP */
@@ -292,7 +295,7 @@ static struct imx046_sensor_settings sensor_settings[] = {
 	},
 };
 
-#define IMX046_MODES_COUNT ARRAY_SIZE(sensor_settings)
+#define IMX046_MODES_COUNT ARRAY_SIZE(imx046_settings)
 
 static unsigned isize_current = IMX046_MODES_COUNT - 1;
 static struct imx046_clock_freq current_clk;
@@ -355,8 +358,7 @@ static struct vcontrol {
  *
  * Returns the index of the requested ID from the control structure array
  */
-static int
-find_vctrl(int id)
+static int find_vctrl(int id)
 {
 	int i;
 
@@ -382,8 +384,8 @@ find_vctrl(int id)
  * The value is returned in 'val'.
  * Returns zero if successful, or non-zero otherwise.
  */
-static int
-imx046_read_reg(struct i2c_client *client, u16 data_length, u16 reg, u32 *val)
+static int imx046_read_reg(struct i2c_client *client, u16 data_length, u16 reg,
+			   u32 *val)
 {
 	int err;
 	struct i2c_msg msg[1];
@@ -434,8 +436,8 @@ imx046_read_reg(struct i2c_client *client, u16 data_length, u16 reg, u32 *val)
  * @val: Value to be written to a specific register.
  * Returns zero if successful, or non-zero otherwise.
  */
-static int imx046_write_reg(struct i2c_client *client, u16 reg,
-						u32 val, u16 data_length)
+static int imx046_write_reg(struct i2c_client *client, u16 reg, u32 val,
+			    u16 data_length)
 {
 	int err = 0;
 	struct i2c_msg msg[1];
@@ -501,7 +503,7 @@ retry:
  * Returns zero if successful, or non-zero otherwise.
  */
 static int imx046_write_regs(struct i2c_client *client,
-					const struct imx046_reg reglist[])
+			     const struct imx046_reg reglist[])
 {
 	int err = 0;
 	const struct imx046_reg *list = reglist;
@@ -530,21 +532,20 @@ static int imx046_write_regs(struct i2c_client *client,
  * the routine will find the size with a height that is equal to or less
  * than the requested height.
  */
-static unsigned imx046_find_size(unsigned int width,
-							unsigned int height)
+static unsigned imx046_find_size(unsigned int width, unsigned int height)
 {
 	unsigned isize;
 
 	for (isize = 0; isize < IMX046_MODES_COUNT; isize++) {
-		if ((sensor_settings[isize].frame.y_output_size >= height) &&
-		    (sensor_settings[isize].frame.x_output_size >= width))
+		if ((imx046_settings[isize].frame.y_output_size >= height) &&
+		    (imx046_settings[isize].frame.x_output_size >= width))
 			break;
 	}
 
 	printk(KERN_DEBUG "imx046_find_size: Req Size=%dx%d, "
 			"Calc Size=%dx%d\n", width, height,
-			sensor_settings[isize].frame.x_output_size,
-			sensor_settings[isize].frame.y_output_size);
+			imx046_settings[isize].frame.x_output_size,
+			imx046_settings[isize].frame.y_output_size);
 
 	return isize;
 }
@@ -572,7 +573,7 @@ static int imx046_set_virtual_id(struct i2c_client *client, u32 id)
  * frame rate.
  **/
 static int imx046_set_framerate(struct v4l2_int_device *s,
-						struct v4l2_fract *fper)
+				struct v4l2_fract *fper)
 {
 	int err = 0;
 	u16 isize = isize_current;
@@ -597,13 +598,13 @@ static int imx046_set_framerate(struct v4l2_int_device *s,
 		fper->denominator = sensor->fps;
 	}
 
-	ss = &sensor_settings[isize_current];
+	ss = &imx046_settings[isize_current];
 
 	line_time_q8 = ((u32)ss->frame.line_len_pck * 1000000) /
-		(current_clk.vt_pix_clk >> 8); /* usec's */
+			(current_clk.vt_pix_clk >> 8); /* usec's */
 
 	frame_length_lines = (((u32)fper->numerator * 1000000 * 256 /
-		fper->denominator)) / line_time_q8;
+			       fper->denominator)) / line_time_q8;
 
 	/* Range check frame_length_lines */
 	if (frame_length_lines > IMX046_MAX_FRAME_LENGTH_LINES)
@@ -611,11 +612,11 @@ static int imx046_set_framerate(struct v4l2_int_device *s,
 	else if (frame_length_lines < ss->frame.frame_len_lines_min)
 		frame_length_lines = ss->frame.frame_len_lines_min;
 
-	sensor_settings[isize].frame.frame_len_lines = frame_length_lines;
+	imx046_settings[isize].frame.frame_len_lines = frame_length_lines;
 
 	printk(KERN_DEBUG "IMX046 Set Framerate: fper=%d/%d, "
-		"frame_len_lines=%d, max_expT=%dus\n", fper->numerator,
-		fper->denominator, frame_length_lines, IMX046_MAX_EXPOSURE);
+	       "frame_len_lines=%d, max_expT=%dus\n", fper->numerator,
+	       fper->denominator, frame_length_lines, IMX046_MAX_EXPOSURE);
 
 	return err;
 }
@@ -627,9 +628,7 @@ static int imx046_set_framerate(struct v4l2_int_device *s,
  */
 static unsigned long imx046sensor_calc_xclk(void)
 {
-	xclk_current = IMX046_XCLK_NOM_1;
-
-	return xclk_current;
+	return IMX046_XCLK_NOM_1;
 }
 
 /**
@@ -644,7 +643,7 @@ static int imx046_set_orientation(struct i2c_client *client, u32 ver)
 
 	orient = (ver <= 0x2) ? 0x3 : 0x0;
 	err = imx046_write_reg(client, IMX046_REG_IMAGE_ORIENTATION,
-				orient, I2C_8BIT);
+			       orient, I2C_8BIT);
 	return err;
 }
 
@@ -660,8 +659,9 @@ static int imx046_set_orientation(struct i2c_client *client, u32 ver)
  * The function returns 0 upon success.  Otherwise an error code is
  * returned.
  */
-int imx046sensor_set_exposure_time(u32 exp_time, struct v4l2_int_device *s,
-							struct vcontrol *lvc)
+static int imx046sensor_set_exposure_time(u32 exp_time,
+					  struct v4l2_int_device *s,
+					  struct vcontrol *lvc)
 {
 	int err = 0, i;
 	struct imx046_sensor *sensor = s->priv;
@@ -691,28 +691,27 @@ int imx046sensor_set_exposure_time(u32 exp_time, struct v4l2_int_device *s,
 			exp_time = IMX046_MAX_EXPOSURE;
 		}
 
-		ss = &sensor_settings[isize_current];
+		ss = &imx046_settings[isize_current];
 
-		line_time_q8 =
-			((u32)ss->frame.line_len_pck * 1000000) /
-			(current_clk.vt_pix_clk >> 8); /* usec's */
+		line_time_q8 = ((u32)ss->frame.line_len_pck * 1000000) /
+				(current_clk.vt_pix_clk >> 8); /* usec's */
 
 		coarse_int_time = ((exp_time * 256) + (line_time_q8 >> 1)) /
-				 line_time_q8;
+				  line_time_q8;
 
 		if (coarse_int_time > ss->frame.frame_len_lines - 2)
 			err = imx046_write_reg(client,
-						IMX046_REG_FRAME_LEN_LINES,
-						coarse_int_time + 2,
-						I2C_16BIT);
+					       IMX046_REG_FRAME_LEN_LINES,
+					       coarse_int_time + 2,
+					       I2C_16BIT);
 		else
 			err = imx046_write_reg(client,
-						IMX046_REG_FRAME_LEN_LINES,
-						ss->frame.frame_len_lines,
-						I2C_16BIT);
+					       IMX046_REG_FRAME_LEN_LINES,
+					       ss->frame.frame_len_lines,
+					       I2C_16BIT);
 
 		err = imx046_write_reg(client, IMX046_REG_COARSE_INT_TIME,
-					coarse_int_time, I2C_16BIT);
+				       coarse_int_time, I2C_16BIT);
 	}
 
 	if (err) {
@@ -738,21 +737,15 @@ int imx046sensor_set_exposure_time(u32 exp_time, struct v4l2_int_device *s,
  * value: Gain_analog = 256 / (256 - analogue_gain_code_global)
  */
 
-const u16 IMX046_EV_GAIN_TBL[IMX046_EV_TABLE_GAIN_MAX + 1] = {
+static const u16 IMX046_EV_GAIN_TBL[IMX046_EV_TABLE_GAIN_MAX + 1] = {
 	/* Gain x1 */
-	0,  16, 33, 48,
-	62, 74, 88, 98,
-	109, 119,
+	0,  16, 33, 48, 62, 74, 88, 98, 109, 119,
 
 	/* Gain x2 */
-	128, 136, 144, 152,
-	159, 165, 171, 177,
-	182, 187,
+	128, 136, 144, 152, 159, 165, 171, 177, 182, 187,
 
 	/* Gain x4 */
-	192, 196, 200, 204,
-	208, 211, 214, 216,
-	219, 222,
+	192, 196, 200, 204, 208, 211, 214, 216, 219, 222,
 
 	/* Gain x8 */
 	224
@@ -770,8 +763,8 @@ const u16 IMX046_EV_GAIN_TBL[IMX046_EV_TABLE_GAIN_MAX + 1] = {
  * The function returns 0 upon success.  Otherwise an error code is
  * returned.
  */
-int imx046sensor_set_gain(u16 lineargain, struct v4l2_int_device *s,
-							struct vcontrol *lvc)
+static int imx046sensor_set_gain(u16 lineargain, struct v4l2_int_device *s,
+				 struct vcontrol *lvc)
 {
 	int err = 0, i;
 	u16 reg_gain = 0;
@@ -812,18 +805,18 @@ int imx046sensor_set_gain(u16 lineargain, struct v4l2_int_device *s,
  * imx046_update_clocks - calcs sensor clocks based on sensor settings.
  * @isize: image size enum
  */
-int imx046_update_clocks(u32 xclk, unsigned isize)
+static int imx046_update_clocks(u32 xclk, unsigned isize)
 {
 	current_clk.vco_clk =
-			xclk * sensor_settings[isize].clk.pll_mult /
-			sensor_settings[isize].clk.pre_pll_div /
-			sensor_settings[isize].clk.post_pll_div;
+			xclk * imx046_settings[isize].clk.pll_mult /
+			imx046_settings[isize].clk.pre_pll_div /
+			imx046_settings[isize].clk.post_pll_div;
 
 	current_clk.vt_pix_clk = current_clk.vco_clk * 2 /
-			(sensor_settings[isize].clk.vt_pix_clk_div *
-			sensor_settings[isize].clk.vt_sys_clk_div);
+			(imx046_settings[isize].clk.vt_pix_clk_div *
+			imx046_settings[isize].clk.vt_sys_clk_div);
 
-	if (sensor_settings[isize].mipi.data_lanes == 2)
+	if (imx046_settings[isize].mipi.data_lanes == 2)
 		current_clk.mipi_clk = current_clk.vco_clk;
 	else
 		current_clk.mipi_clk = current_clk.vco_clk / 2;
@@ -843,36 +836,36 @@ int imx046_update_clocks(u32 xclk, unsigned isize)
  * @c: i2c client driver structure
  * @isize: image size enum
  */
-int imx046_setup_pll(struct i2c_client *client, unsigned isize)
+static int imx046_setup_pll(struct i2c_client *client, unsigned isize)
 {
 	u32 rgpltd_reg;
 	u32 rgpltd[3] = {2, 0, 1};
 
 	imx046_write_reg(client, IMX046_REG_PRE_PLL_CLK_DIV,
-		sensor_settings[isize].clk.pre_pll_div, I2C_16BIT);
+		imx046_settings[isize].clk.pre_pll_div, I2C_16BIT);
 
 	imx046_write_reg(client, IMX046_REG_PLL_MULTIPLIER,
-		sensor_settings[isize].clk.pll_mult, I2C_16BIT);
+		imx046_settings[isize].clk.pll_mult, I2C_16BIT);
 
 	imx046_read_reg(client, I2C_8BIT, IMX046_REG_RGPLTD_RGCLKEN,
 		&rgpltd_reg);
 	rgpltd_reg &= ~RGPLTD_MASK;
-	rgpltd_reg |= rgpltd[sensor_settings[isize].clk.post_pll_div >> 1];
+	rgpltd_reg |= rgpltd[imx046_settings[isize].clk.post_pll_div >> 1];
 	imx046_write_reg(client, IMX046_REG_RGPLTD_RGCLKEN,
 		rgpltd_reg, I2C_8BIT);
 
 	imx046_write_reg(client, IMX046_REG_VT_PIX_CLK_DIV,
-		sensor_settings[isize].clk.vt_pix_clk_div, I2C_16BIT);
+		imx046_settings[isize].clk.vt_pix_clk_div, I2C_16BIT);
 
 	imx046_write_reg(client, IMX046_REG_VT_SYS_CLK_DIV,
-		sensor_settings[isize].clk.vt_sys_clk_div, I2C_16BIT);
+		imx046_settings[isize].clk.vt_sys_clk_div, I2C_16BIT);
 
 	printk(KERN_DEBUG "IMX046: pre_pll_clk_div=%u, pll_mult=%u, "
 		"rgpltd=0x%x, vt_pix_clk_div=%u, vt_sys_clk_div=%u\n",
-		sensor_settings[isize].clk.pre_pll_div,
-		sensor_settings[isize].clk.pll_mult, rgpltd_reg,
-		sensor_settings[isize].clk.vt_pix_clk_div,
-		sensor_settings[isize].clk.vt_sys_clk_div);
+		imx046_settings[isize].clk.pre_pll_div,
+		imx046_settings[isize].clk.pll_mult, rgpltd_reg,
+		imx046_settings[isize].clk.vt_pix_clk_div,
+		imx046_settings[isize].clk.vt_sys_clk_div);
 
 	return 0;
 }
@@ -882,8 +875,7 @@ int imx046_setup_pll(struct i2c_client *client, unsigned isize)
  * @c: i2c client driver structure
  * @isize: image size enum
  */
-int imx046_setup_mipi(struct v4l2_int_device *s,
-			unsigned isize)
+static int imx046_setup_mipi(struct v4l2_int_device *s, unsigned isize)
 {
 	struct imx046_sensor *sensor = s->priv;
 	struct i2c_client *client = sensor->i2c_client;
@@ -898,33 +890,33 @@ int imx046_setup_mipi(struct v4l2_int_device *s,
 	imx046_write_reg(client, IMX046_REG_RGTHSTRAIL, 0x06, I2C_8BIT);
 
 	imx046_write_reg(client, IMX046_REG_RGTHSPREPARE,
-		sensor_settings[isize].mipi.ths_prepare, I2C_8BIT);
+		imx046_settings[isize].mipi.ths_prepare, I2C_8BIT);
 
 	imx046_write_reg(client, IMX046_REG_RGTHSZERO,
-		sensor_settings[isize].mipi.ths_zero, I2C_8BIT);
+		imx046_settings[isize].mipi.ths_zero, I2C_8BIT);
 
 	/* Set number of lanes in sensor */
-	if (sensor_settings[isize].mipi.data_lanes == 2)
+	if (imx046_settings[isize].mipi.data_lanes == 2)
 		imx046_write_reg(client, IMX046_REG_RGLANESEL, 0x00, I2C_8BIT);
 	else
 		imx046_write_reg(client, IMX046_REG_RGLANESEL, 0x01, I2C_8BIT);
 
 	/* Set number of lanes in isp */
 	sensor->pdata->csi2_lane_count(s,
-				       sensor_settings[isize].mipi.data_lanes);
+				       imx046_settings[isize].mipi.data_lanes);
 
 	/* Send settings to ISP-CSI2 Receiver PHY */
 	sensor->pdata->csi2_calc_phy_cfg0(s, current_clk.mipi_clk,
-		sensor_settings[isize].mipi.ths_settle_lower,
-		sensor_settings[isize].mipi.ths_settle_upper);
+		imx046_settings[isize].mipi.ths_settle_lower,
+		imx046_settings[isize].mipi.ths_settle_upper);
 
 	/* Dump some registers for debug purposes */
 	printk(KERN_DEBUG "imx:THSPREPARE=0x%02X\n",
-		sensor_settings[isize].mipi.ths_prepare);
+		imx046_settings[isize].mipi.ths_prepare);
 	printk(KERN_DEBUG "imx:THSZERO=0x%02X\n",
-		sensor_settings[isize].mipi.ths_zero);
+		imx046_settings[isize].mipi.ths_zero);
 	printk(KERN_DEBUG "imx:LANESEL=0x%02X\n",
-		(sensor_settings[isize].mipi.data_lanes == 2) ? 0 : 1);
+		(imx046_settings[isize].mipi.data_lanes == 2) ? 0 : 1);
 
 	return 0;
 }
@@ -934,60 +926,59 @@ int imx046_setup_mipi(struct v4l2_int_device *s,
  * @c: i2c client driver structure
  * @isize: image size enum
  */
-int imx046_configure_frame(struct i2c_client *client,
-			unsigned isize)
+static int imx046_configure_frame(struct i2c_client *client, unsigned isize)
 {
 	u32 val;
 
 	imx046_write_reg(client, IMX046_REG_FRAME_LEN_LINES,
-		sensor_settings[isize].frame.frame_len_lines, I2C_16BIT);
+		imx046_settings[isize].frame.frame_len_lines, I2C_16BIT);
 
 	imx046_write_reg(client, IMX046_REG_LINE_LEN_PCK,
-		sensor_settings[isize].frame.line_len_pck, I2C_16BIT);
+		imx046_settings[isize].frame.line_len_pck, I2C_16BIT);
 
 	imx046_write_reg(client, IMX046_REG_X_ADDR_START,
-		sensor_settings[isize].frame.x_addr_start, I2C_16BIT);
+		imx046_settings[isize].frame.x_addr_start, I2C_16BIT);
 
 	imx046_write_reg(client, IMX046_REG_X_ADDR_END,
-		sensor_settings[isize].frame.x_addr_end, I2C_16BIT);
+		imx046_settings[isize].frame.x_addr_end, I2C_16BIT);
 
 	imx046_write_reg(client, IMX046_REG_Y_ADDR_START,
-		sensor_settings[isize].frame.y_addr_start, I2C_16BIT);
+		imx046_settings[isize].frame.y_addr_start, I2C_16BIT);
 
 	imx046_write_reg(client, IMX046_REG_Y_ADDR_END,
-		sensor_settings[isize].frame.y_addr_end, I2C_16BIT);
+		imx046_settings[isize].frame.y_addr_end, I2C_16BIT);
 
 	imx046_write_reg(client, IMX046_REG_X_OUTPUT_SIZE,
-		sensor_settings[isize].frame.x_output_size, I2C_16BIT);
+		imx046_settings[isize].frame.x_output_size, I2C_16BIT);
 
 	imx046_write_reg(client, IMX046_REG_Y_OUTPUT_SIZE,
-		sensor_settings[isize].frame.y_output_size, I2C_16BIT);
+		imx046_settings[isize].frame.y_output_size, I2C_16BIT);
 
 	imx046_write_reg(client, IMX046_REG_X_EVEN_INC,
-		sensor_settings[isize].frame.x_even_inc, I2C_16BIT);
+		imx046_settings[isize].frame.x_even_inc, I2C_16BIT);
 
 	imx046_write_reg(client, IMX046_REG_X_ODD_INC,
-		sensor_settings[isize].frame.x_odd_inc, I2C_16BIT);
+		imx046_settings[isize].frame.x_odd_inc, I2C_16BIT);
 
 	imx046_write_reg(client, IMX046_REG_Y_EVEN_INC,
-		sensor_settings[isize].frame.y_even_inc, I2C_16BIT);
+		imx046_settings[isize].frame.y_even_inc, I2C_16BIT);
 
 	imx046_write_reg(client, IMX046_REG_Y_ODD_INC,
-		sensor_settings[isize].frame.y_odd_inc, I2C_16BIT);
+		imx046_settings[isize].frame.y_odd_inc, I2C_16BIT);
 
 	imx046_read_reg(client, I2C_8BIT, IMX046_REG_PGACUR_VMODEADD, &val);
 	val &= ~VMODEADD_MASK;
-	val |= sensor_settings[isize].frame.v_mode_add << VMODEADD_SHIFT;
+	val |= imx046_settings[isize].frame.v_mode_add << VMODEADD_SHIFT;
 	imx046_write_reg(client, IMX046_REG_PGACUR_VMODEADD, val, I2C_8BIT);
 
 	imx046_read_reg(client, I2C_8BIT, IMX046_REG_HMODEADD, &val);
 	val &= ~HMODEADD_MASK;
-	val |= sensor_settings[isize].frame.h_mode_add << HMODEADD_SHIFT;
+	val |= imx046_settings[isize].frame.h_mode_add << HMODEADD_SHIFT;
 	imx046_write_reg(client, IMX046_REG_HMODEADD, val, I2C_8BIT);
 
 	imx046_read_reg(client, I2C_8BIT, IMX046_REG_HADDAVE, &val);
 	val &= ~HADDAVE_MASK;
-	val |= sensor_settings[isize].frame.h_add_ave << HADDAVE_SHIFT;
+	val |= imx046_settings[isize].frame.h_add_ave << HADDAVE_SHIFT;
 	imx046_write_reg(client, IMX046_REG_HADDAVE, val, I2C_8BIT);
 
 	return 0;
@@ -1005,8 +996,8 @@ int imx046_configure_frame(struct i2c_client *client,
  * The function returns 0 upon success.  Otherwise an error code is
  * returned.
  */
-int imx046_configure_test_pattern(int mode, struct v4l2_int_device *s,
-							struct vcontrol *lvc)
+static int imx046_configure_test_pattern(int mode, struct v4l2_int_device *s,
+					 struct vcontrol *lvc)
 {
 	struct imx046_sensor *sensor = s->priv;
 	struct i2c_client *client = sensor->i2c_client;
@@ -1132,8 +1123,7 @@ static int imx046_configure(struct v4l2_int_device *s)
  * Returns a negative error number if no device is detected, or the
  * non-negative value of the version ID register if a device is detected.
  */
-static int
-imx046_detect(struct i2c_client *client)
+static int imx046_detect(struct i2c_client *client)
 {
 	u32 model_id, mfr_id, rev;
 	struct imx046_sensor *sensor;
@@ -1173,8 +1163,7 @@ imx046_detect(struct i2c_client *client)
  * from the imx046sensor_video_control[] array.
  * Otherwise, returns -EINVAL if the control is not supported.
  */
-static int ioctl_queryctrl(struct v4l2_int_device *s,
-				struct v4l2_queryctrl *qc)
+static int ioctl_queryctrl(struct v4l2_int_device *s, struct v4l2_queryctrl *qc)
 {
 	int i;
 
@@ -1198,8 +1187,7 @@ static int ioctl_queryctrl(struct v4l2_int_device *s,
  * value from the imx046sensor_video_control[] array.
  * Otherwise, returns -EINVAL if the control is not supported.
  */
-static int ioctl_g_ctrl(struct v4l2_int_device *s,
-			     struct v4l2_control *vc)
+static int ioctl_g_ctrl(struct v4l2_int_device *s, struct v4l2_control *vc)
 {
 	struct vcontrol *lvc;
 	int i;
@@ -1233,8 +1221,7 @@ static int ioctl_g_ctrl(struct v4l2_int_device *s,
  * value in HW (and updates the imx046sensor_video_control[] array).
  * Otherwise, * returns -EINVAL if the control is not supported.
  */
-static int ioctl_s_ctrl(struct v4l2_int_device *s,
-			     struct v4l2_control *vc)
+static int ioctl_s_ctrl(struct v4l2_int_device *s, struct v4l2_control *vc)
 {
 	int retval = -EINVAL;
 	int i;
@@ -1268,7 +1255,7 @@ static int ioctl_s_ctrl(struct v4l2_int_device *s,
  * Implement the VIDIOC_ENUM_FMT ioctl for the CAPTURE buffer type.
  */
 static int ioctl_enum_fmt_cap(struct v4l2_int_device *s,
-				   struct v4l2_fmtdesc *fmt)
+			      struct v4l2_fmtdesc *fmt)
 {
 	int index = fmt->index;
 	enum v4l2_buf_type type = fmt->type;
@@ -1303,8 +1290,7 @@ static int ioctl_enum_fmt_cap(struct v4l2_int_device *s,
  * ioctl is used to negotiate the image capture size and pixel format
  * without actually making it take effect.
  */
-static int ioctl_try_fmt_cap(struct v4l2_int_device *s,
-			     struct v4l2_format *f)
+static int ioctl_try_fmt_cap(struct v4l2_int_device *s, struct v4l2_format *f)
 {
 	unsigned isize;
 	int ifmt;
@@ -1315,8 +1301,8 @@ static int ioctl_try_fmt_cap(struct v4l2_int_device *s,
 	isize = imx046_find_size(pix->width, pix->height);
 	isize_current = isize;
 
-	pix->width = sensor_settings[isize].frame.x_output_size;
-	pix->height = sensor_settings[isize].frame.y_output_size;
+	pix->width = imx046_settings[isize].frame.x_output_size;
+	pix->height = imx046_settings[isize].frame.y_output_size;
 	for (ifmt = 0; ifmt < NUM_CAPTURE_FORMATS; ifmt++) {
 		if (pix->pixelformat == imx046_formats[ifmt].pixelformat)
 			break;
@@ -1342,8 +1328,7 @@ static int ioctl_try_fmt_cap(struct v4l2_int_device *s,
  * format, returns error code if format not supported or HW can't be
  * correctly configured.
  */
-static int ioctl_s_fmt_cap(struct v4l2_int_device *s,
-				struct v4l2_format *f)
+static int ioctl_s_fmt_cap(struct v4l2_int_device *s, struct v4l2_format *f)
 {
 	struct imx046_sensor *sensor = s->priv;
 	struct v4l2_pix_format *pix = &f->fmt.pix;
@@ -1367,8 +1352,7 @@ static int ioctl_s_fmt_cap(struct v4l2_int_device *s,
  * Returns the sensor's current pixel format in the v4l2_format
  * parameter.
  */
-static int ioctl_g_fmt_cap(struct v4l2_int_device *s,
-				struct v4l2_format *f)
+static int ioctl_g_fmt_cap(struct v4l2_int_device *s, struct v4l2_format *f)
 {
 	struct imx046_sensor *sensor = s->priv;
 	f->fmt.pix = sensor->pix;
@@ -1398,11 +1382,11 @@ static int ioctl_priv_g_pixclk(struct v4l2_int_device *s, u32 *pixclk)
  * Returns the sensor's current active image basesize.
  */
 static int ioctl_priv_g_activesize(struct v4l2_int_device *s,
-			      struct v4l2_rect *pix)
+				   struct v4l2_rect *pix)
 {
 	struct imx046_frame_settings *frm;
 
-	frm = &sensor_settings[isize_current].frame;
+	frm = &imx046_settings[isize_current].frame;
 	pix->left = frm->x_addr_start /
 		((frm->x_even_inc + frm->x_odd_inc) / 2);
 	pix->top = frm->y_addr_start /
@@ -1423,11 +1407,11 @@ static int ioctl_priv_g_activesize(struct v4l2_int_device *s,
  * Returns the sensor's biggest image basesize.
  */
 static int ioctl_priv_g_fullsize(struct v4l2_int_device *s,
-			    struct v4l2_rect *pix)
+				 struct v4l2_rect *pix)
 {
 	struct imx046_frame_settings *frm;
 
-	frm = &sensor_settings[isize_current].frame;
+	frm = &imx046_settings[isize_current].frame;
 	pix->left = 0;
 	pix->top = 0;
 	pix->width = frm->line_len_pck;
@@ -1444,11 +1428,11 @@ static int ioctl_priv_g_fullsize(struct v4l2_int_device *s,
  * Returns the sensor's configure pixel size.
  */
 static int ioctl_priv_g_pixelsize(struct v4l2_int_device *s,
-			    struct v4l2_rect *pix)
+				  struct v4l2_rect *pix)
 {
 	struct imx046_frame_settings *frm;
 
-	frm = &sensor_settings[isize_current].frame;
+	frm = &imx046_settings[isize_current].frame;
 	pix->left = 0;
 	pix->top = 0;
 	pix->width = (frm->x_even_inc + frm->x_odd_inc) / 2;
@@ -1464,8 +1448,7 @@ static int ioctl_priv_g_pixelsize(struct v4l2_int_device *s,
  *
  * Returns the sensor's video CAPTURE parameters.
  */
-static int ioctl_g_parm(struct v4l2_int_device *s,
-			     struct v4l2_streamparm *a)
+static int ioctl_g_parm(struct v4l2_int_device *s, struct v4l2_streamparm *a)
 {
 	struct imx046_sensor *sensor = s->priv;
 	struct v4l2_captureparm *cparm = &a->parm.capture;
@@ -1491,8 +1474,7 @@ static int ioctl_g_parm(struct v4l2_int_device *s,
  * not possible, reverts to the old parameters and returns the
  * appropriate error code.
  */
-static int ioctl_s_parm(struct v4l2_int_device *s,
-			     struct v4l2_streamparm *a)
+static int ioctl_s_parm(struct v4l2_int_device *s, struct v4l2_streamparm *a)
 {
 	struct imx046_sensor *sensor = s->priv;
 	struct v4l2_fract *timeperframe = &a->parm.capture.timeperframe;
@@ -1693,7 +1675,7 @@ static int ioctl_dev_init(struct v4l2_int_device *s)
  * Returns possible framesizes depending on choosen pixel format
  **/
 static int ioctl_enum_framesizes(struct v4l2_int_device *s,
-					struct v4l2_frmsizeenum *frms)
+				 struct v4l2_frmsizeenum *frms)
 {
 	int ifmt;
 
@@ -1712,14 +1694,14 @@ static int ioctl_enum_framesizes(struct v4l2_int_device *s,
 
 	frms->type = V4L2_FRMSIZE_TYPE_DISCRETE;
 	frms->discrete.width =
-		sensor_settings[frms->index].frame.x_output_size;
+		imx046_settings[frms->index].frame.x_output_size;
 	frms->discrete.height =
-		sensor_settings[frms->index].frame.y_output_size;
+		imx046_settings[frms->index].frame.y_output_size;
 
 	return 0;
 }
 
-const struct v4l2_fract imx046_frameintervals[] = {
+static const struct v4l2_fract imx046_frameintervals[] = {
 	{ .numerator = 3, .denominator = 30 },
 	{ .numerator = 2, .denominator = 25 },
 	{ .numerator = 1, .denominator = 15 },
@@ -1729,7 +1711,7 @@ const struct v4l2_fract imx046_frameintervals[] = {
 };
 
 static int ioctl_enum_frameintervals(struct v4l2_int_device *s,
-					struct v4l2_frmivalenum *frmi)
+				     struct v4l2_frmivalenum *frmi)
 {
 	int ifmt;
 
@@ -1748,7 +1730,8 @@ static int ioctl_enum_frameintervals(struct v4l2_int_device *s,
 		return -EINVAL;
 
 	/* Make sure that the 8MP size reports a max of 10fps */
-	if (frmi->width == 3280 && frmi->height == 2464) {
+	if (frmi->width == IMX046_IMAGE_WIDTH_MAX &&
+	    frmi->height == IMX046_IMAGE_HEIGHT_MAX) {
 		if (frmi->index != 0)
 			return -EINVAL;
 	}
@@ -1828,7 +1811,7 @@ static struct v4l2_int_device imx046_int_device = {
  * device.
  */
 static int __devinit imx046_probe(struct i2c_client *client,
-				   const struct i2c_device_id *id)
+				  const struct i2c_device_id *id)
 {
 	struct imx046_sensor *sensor = &imx046;
 	int err;
@@ -1867,8 +1850,7 @@ static int __devinit imx046_probe(struct i2c_client *client,
  * Unregister sensor as an i2c client device and V4L2
  * device.  Complement of imx046_probe().
  */
-static int __exit
-imx046_remove(struct i2c_client *client)
+static int __exit imx046_remove(struct i2c_client *client)
 {
 	struct imx046_sensor *sensor = i2c_get_clientdata(client);
 
