@@ -269,6 +269,9 @@ static int imx046_sensor_power_set(struct v4l2_int_device *s, enum v4l2_power po
 		omap_pm_set_min_bus_tput(vdev->cam->isp, OCP_INITIATOR_AGENT, 0);
 		omap_pm_set_max_mpu_wakeup_lat(vdev->cam->isp, -1);
 
+		/* Make sure not to disable the MCLK twice in a row */
+		if (previous_power == V4L2_POWER_ON)
+			isp_disable_mclk(isp);
 		break;
 	}
 
