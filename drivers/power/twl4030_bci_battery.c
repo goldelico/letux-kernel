@@ -210,8 +210,6 @@ static inline int twl4030charger_presence_evt(void)
  */
 static irqreturn_t twl4030charger_interrupt(int irq, void *_di)
 {
-	struct twl4030_bci_device_info *di = _di;
-
 #ifdef CONFIG_LOCKDEP
 	/* WORKAROUND for lockdep forcing IRQF_DISABLED on us, which
 	 * we don't want and can't tolerate.  Although it might be
@@ -568,9 +566,34 @@ static int twl4030battery_temperature(void)
  */
 static int twl4030battery_voltage(void)
 {
-	int volt = read_bci_val(T2_BATTERY_VOLT);
+	int volt;
+	u8 hwsts;
+	struct twl4030_madc_request req;
 
-	return (volt * VOLT_STEP_SIZE) / VOLT_PSR_R;
+	twl_i2c_read_u8(TWL4030_MODULE_PM_MASTER, &hwsts,
+		REG_STS_HW_CONDITIONS);
+
+	if ((hwsts & STS_CHG) || (hwsts & STS_VBUS)) {
+		/* AC or USB charger connected
+		 * BCI Module requests MADC for info about BTEM,VBUS,ICHG,VCHG
+		 * every 50ms. This info is made available through BCI reg
+		 */
+		volt = read_bci_val(T2_BATTERY_VOLT);
+		return (volt * VOLT_STEP_SIZE) / VOLT_PSR_R;
+	} else {
+		/* No charger present.
+		* BCI registers is not automatically updated.
+		* Request MADC for information - 'SW1 software conversion req'
+		*/
+		req.channels = (1 << 12);
+		req.do_avg = 0;
+		req.method = TWL4030_MADC_SW1;
+		req.active = 0;
+		req.func_cb = NULL;
+		twl4030_madc_conversion(&req);
+		volt = (u16)req.rbuf[12];
+		return (volt * VOLT_STEP_SIZE) / VOLT_PSR_R;
+	}
 }
 
 /*
