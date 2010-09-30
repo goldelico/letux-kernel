@@ -33,6 +33,12 @@
 #define ISPPRV_TBL_ADDR_BLUE_G_START	0x800
 #define ISPPRV_TBL_ADDR_GREEN_G_START	0x400
 
+/*
+ * Maximum pixels and lines cropped internally by Preview engine
+ */
+#define ISPPRV_MAX_FILTERS_SPEND_PIXELS	16
+#define ISPPRV_MAX_FILTERS_SPEND_LINES	8
+
 /* Features list */
 #define ISP_NF_TABLE_SIZE 		(1 << 10)
 #define ISP_GAMMA_TABLE_SIZE 		(1 << 10)
@@ -1643,59 +1649,51 @@ int isppreview_try_pipeline(struct isp_prev_device *isp_prev,
 	pipe->in.crop.height = pipe->in.image.height;
 
 	pipe->out.crop.left = 0;
-	pipe->out.crop.width = pipe->out.image.width;
+	pipe->out.crop.width = pipe->in.image.width -
+			       ISPPRV_MAX_FILTERS_SPEND_PIXELS;
 	pipe->out.crop.top = 0;
-	pipe->out.crop.height = pipe->out.image.height;
+	pipe->out.crop.height = pipe->in.image.height -
+				ISPPRV_MAX_FILTERS_SPEND_LINES;
 
 	/* Set crop depend on horizontal median filter */
-	if (isp_prev->hmed_en)
-		pipe->out.crop.width -= 4;
-	else
-		pipe->in.crop.left += 4;
+	if (!isp_prev->hmed_en) {
+		pipe->in.crop.left += 2;
+		pipe->in.crop.width -= 2;
+	}
 
 	/* Set crop depend on noise filter */
-	if (isp_prev->nf_en) {
-		pipe->out.crop.width -= 4;
-		pipe->out.crop.height -= 4;
-	} else {
-		pipe->in.crop.left += 4;
-		pipe->in.crop.top += 4;
+	if (!isp_prev->nf_en) {
+		pipe->in.crop.left += 2;
+		pipe->in.crop.width -= 2;
+		pipe->in.crop.top += 2;
+		pipe->in.crop.height -= 2;
 	}
 
 	/* Set crop depend on CFA format */
-	switch (isp_prev->cfafmt) {
+	switch (!isp_prev->cfafmt) {
 	case CFAFMT_BAYER:
 	case CFAFMT_SONYVGA:
-		if (isp_prev->cfa_en) {
-			pipe->out.crop.width -= 4;
-			pipe->out.crop.height -= 4;
-		} else {
-			pipe->in.crop.left += 4;
-			pipe->in.crop.top += 4;
+		if (!isp_prev->cfa_en) {
+			pipe->in.crop.left += 2;
+			pipe->in.crop.width -= 2;
+			pipe->in.crop.top += 2;
+			pipe->in.crop.height -= 2;
 		}
 		break;
 	case CFAFMT_RGBFOVEON:
 	case CFAFMT_RRGGBBFOVEON:
 	case CFAFMT_DNSPL:
 	case CFAFMT_HONEYCOMB:
-		if (isp_prev->cfa_en)
-			pipe->out.crop.height -= 2;
-		else
-			pipe->in.crop.top += 2;
+		if (!isp_prev->cfa_en) {
+			pipe->in.crop.top += 1;
+			pipe->in.crop.height -= 1;
+		}
 		break;
 	};
 
 	/* Set crop depend on color suppression or luminance enhancement */
-	if (isp_prev->yenh_en || isp_prev->csup_en)
-		pipe->out.crop.width -= 2;
-	else
-		pipe->in.crop.left += 2;
-
-	/* Start at the correct row/column by skipping
-	 * a Sensor specific amount.
-	 */
-	pipe->out.crop.width -= pipe->in.crop.left;
-	pipe->out.crop.height -= pipe->in.crop.top;
+	if (!isp_prev->yenh_en && !isp_prev->csup_en)
+		pipe->in.crop.width -= 2;
 
 	div = DIV_ROUND_UP(pipe->in.image.width, max_out);
 	if (div == 1) {
