@@ -59,6 +59,12 @@
 
 static int regset_save_on_suspend;
 
+#ifdef CONFIG_TIWLAN_SDIO
+#define OMAP3430_CORE_FCLK	(CONFIG_TIWLAN_MMC_CONTROLLER == 3 ? (1 << 30) :\
+				 CONFIG_TIWLAN_MMC_CONTROLLER == 2 ? (1 << 25) :\
+								    (1 << 24))
+#endif
+
 /* Scratchpad offsets */
 #define OMAP343X_TABLE_ADDRESS_OFFSET	   0x31
 #define OMAP343X_TABLE_VALUE_OFFSET	   0x30
@@ -418,6 +424,7 @@ void omap_sram_idle(void)
 	int core_prev_state, per_prev_state;
 	u32 sdrc_pwr = 0;
 	int per_state_modified = 0;
+	u32 fclk_status = 0;
 
 	if (!_omap_sram_idle)
 		return;
@@ -519,6 +526,13 @@ if (pwrdm_read_pwrst(cam_pwrdm) == PWRDM_POWER_ON)
 		cm_rmw_mod_reg_bits(OMAP3430_AUTO_CORE_DPLL_MASK,
 						0x1, PLL_MOD, CM_AUTOIDLE);
 	}
+
+#ifdef CONFIG_TIWLAN_SDIO
+	fclk_status = cm_read_mod_reg(CORE_MOD, CM_FCLKEN1);
+	fclk_status &= OMAP3430_CORE_FCLK;
+	if (fclk_status)
+		omap2_clkdm_deny_idle(mpu_pwrdm->pwrdm_clkdms[0]);
+#endif
 
 	if (core_next_state < PWRDM_POWER_ON) {
 		if ((core_next_state == PWRDM_POWER_OFF) &&
