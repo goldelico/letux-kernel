@@ -142,8 +142,15 @@ static int omap3_enter_idle(struct cpuidle_device *dev,
 	if (omap_irq_pending() || need_resched())
 		goto return_sleep_time;
 
+	if (cx->type == OMAP3_STATE_C1 &&
+			 !omap_uart_can_sleep())
+		pwrdm_for_each_clkdm(mpu_pd, _cpuidle_deny_idle);
+
 	/* Execute ARM wfi */
 	omap_sram_idle();
+
+	if (cx->type == OMAP3_STATE_C1)
+		pwrdm_for_each_clkdm(mpu_pd, _cpuidle_allow_idle);
 
 return_sleep_time:
 	getnstimeofday(&ts_postidle);
