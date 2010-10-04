@@ -2747,7 +2747,8 @@ int isp_enable_mclk(struct device *dev)
 
 void isp_disable_mclk(struct isp_device *isp)
 {
-	clk_disable(isp->cam_mclk);
+	if (isp->cam_mclk->usecount != 0)
+		clk_disable(isp->cam_mclk);
 }
 
 /**

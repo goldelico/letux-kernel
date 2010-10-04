@@ -26,6 +26,7 @@
 #ifndef OMAP_ISP_TOP_H
 #define OMAP_ISP_TOP_H
 #include <plat/cpu.h>
+#include <plat/clock.h>
 #include <media/videobuf-dma-sg.h>
 #include <linux/device.h>
 #include <linux/videodev2.h>
