@@ -558,10 +558,30 @@ static void sr_configure_vp(int srid)
 
 		vpconfig = PRM_VP1_CONFIG_ERROROFFSET |
 			OMAP3430_TIMEOUTEN |
-			vsel << OMAP3430_INITVOLTAGE_SHIFT |
-			((target_opp_no < VDD1_OPP3)
+			vsel << OMAP3430_INITVOLTAGE_SHIFT;
+		if (cpu_is_omap3430()) {
+			vpconfig |= ((target_opp_no < VDD1_OPP3)
 					? PRM_VP1_CONFIG_ERRORGAIN_OPPLOW
 					: PRM_VP1_CONFIG_ERRORGAIN_OPPHIGH);
+		} else {
+			switch (target_opp_no) {
+			case VDD1_OPP1:
+				vpconfig |= PRM_VP1_CONFIG_ERRORGAIN_OPP1;
+				break;
+			case VDD1_OPP2:
+				vpconfig |= PRM_VP1_CONFIG_ERRORGAIN_OPP2;
+				break;
+			case VDD1_OPP3:
+				vpconfig |= PRM_VP1_CONFIG_ERRORGAIN_OPP3;
+				break;
+			case VDD1_OPP4:
+				vpconfig |= PRM_VP1_CONFIG_ERRORGAIN_OPP4;
+				break;
+			default:
+				pr_warning("VDD1:OPP[%d] not"
+						" supported\n", target_opp_no);
+			}
+		}
 		prm_write_mod_reg(vpconfig, OMAP3430_GR_MOD,
 					OMAP3_PRM_VP1_CONFIG_OFFSET);
 		prm_write_mod_reg(PRM_VP1_VSTEPMIN_SMPSWAITTIMEMIN |
@@ -607,10 +627,25 @@ static void sr_configure_vp(int srid)
 
 		vpconfig = PRM_VP2_CONFIG_ERROROFFSET |
 			OMAP3430_TIMEOUTEN |
-			vsel << OMAP3430_INITVOLTAGE_SHIFT |
-			((target_opp_no < VDD2_OPP3)
+			vsel << OMAP3430_INITVOLTAGE_SHIFT;
+
+		if (cpu_is_omap3430()) {
+			vpconfig |= ((target_opp_no < VDD2_OPP3)
 					? PRM_VP2_CONFIG_ERRORGAIN_OPPLOW
 					: PRM_VP2_CONFIG_ERRORGAIN_OPPHIGH);
+		} else {
+			switch (target_opp_no) {
+			case VDD1_OPP1:
+				vpconfig |= PRM_VP2_CONFIG_ERRORGAIN_OPP1;
+				break;
+			case VDD1_OPP2:
+				vpconfig |= PRM_VP2_CONFIG_ERRORGAIN_OPP2;
+				break;
+			default:
+				pr_warning("VDD2:OPP[%d] not"
+						" supported\n", target_opp_no);
+			}
+		}
 		prm_write_mod_reg(vpconfig, OMAP3430_GR_MOD,
 					OMAP3_PRM_VP2_CONFIG_OFFSET);
 		prm_write_mod_reg(PRM_VP2_VSTEPMIN_SMPSWAITTIMEMIN |
@@ -651,6 +686,7 @@ static void sr_configure(struct omap_sr *sr, u32 target_opp)
 {
 	u32 sr_config;
 	u32 senp_en , senn_en;
+	u32 errmin = 0;
 
 	if (sr->clk_length == 0)
 		sr_set_clk_length(sr);
@@ -667,11 +703,26 @@ static void sr_configure(struct omap_sr *sr, u32 target_opp)
 
 			sr_write_reg(sr, SRCONFIG, sr_config);
 
+			switch (target_opp) {
+			case VDD1_OPP1:
+				errmin |= SR1_ERRMINLIMIT_OPP1;
+				break;
+			case VDD1_OPP2:
+				errmin |= SR1_ERRMINLIMIT_OPP2;
+				break;
+			case VDD1_OPP3:
+				errmin |= SR1_ERRMINLIMIT_OPP3;
+				break;
+			case VDD1_OPP4:
+				errmin |= SR1_ERRMINLIMIT_OPP4;
+				break;
+			default:
+				pr_warning("VDD1:OPP[%d] not"
+					"supported\n", target_opp);
+			}
 			sr_modify_reg(sr, ERRCONFIG_36XX, (SR_ERRWEIGHT_MASK |
 			SR_ERRMAXLIMIT_MASK | SR_ERRMINLIMIT_MASK),
-			(SR1_ERRWEIGHT | SR1_ERRMAXLIMIT |
-			((target_opp < VDD1_OPP3) ? SR1_ERRMINLIMIT_OPPLOW
-			: SR1_ERRMINLIMIT_OPPHIGH)));
+			(SR1_ERRWEIGHT | SR1_ERRMAXLIMIT | errmin));
 		} else {
 			sr_config =
 			(sr->clk_length << SRCONFIG_SRCLKLENGTH_SHIFT) |
@@ -698,12 +749,20 @@ static void sr_configure(struct omap_sr *sr, u32 target_opp)
 
 			sr_write_reg(sr, SRCONFIG, sr_config);
 
+			switch (target_opp) {
+			case VDD2_OPP1:
+				errmin |= SR2_ERRMINLIMIT_OPP1;
+				break;
+			case VDD2_OPP2:
+				errmin |= SR2_ERRMINLIMIT_OPP2;
+				break;
+			default:
+				pr_warning("VDD2:OPP[%d] not"
+					"supported\n", target_opp);
+			}
 			sr_modify_reg(sr, ERRCONFIG_36XX, (SR_ERRWEIGHT_MASK |
 			SR_ERRMAXLIMIT_MASK | SR_ERRMINLIMIT_MASK),
-			(SR2_ERRWEIGHT | SR2_ERRMAXLIMIT |
-			((target_opp < VDD2_OPP3) ? SR2_ERRMINLIMIT_OPPLOW
-			: SR2_ERRMINLIMIT_OPPHIGH)));
-
+			(SR2_ERRWEIGHT | SR2_ERRMAXLIMIT | errmin));
 		} else {
 			sr_config =
 			(sr->clk_length << SRCONFIG_SRCLKLENGTH_SHIFT) |
@@ -1369,7 +1428,7 @@ int sr_voltagescale_vcbypass(u32 target_opp, u32 current_opp,
 	u32 loop_cnt = 0, retries_cnt = 0;
 	u32 t2_smps_steps = 0;
 	u32 t2_smps_delay = 0;
-	u32 error_gain;
+	u32 error_gain = 0;
 
 	if (omap3_volscale_vcbypass_fun)
 		return omap3_volscale_vcbypass_fun(target_opp, current_opp,
@@ -1381,9 +1440,33 @@ int sr_voltagescale_vcbypass(u32 target_opp, u32 current_opp,
 
 	if (vdd == VDD1_OPP) {
 		t2_smps_steps = abs(target_vsel - current_vsel);
-		error_gain = ((target_opp_no < VDD1_OPP3)
+		if (cpu_is_omap3430()) {
+			error_gain = ((target_opp_no < VDD1_OPP3)
 				? PRM_VP1_CONFIG_ERRORGAIN_OPPLOW
 				: PRM_VP1_CONFIG_ERRORGAIN_OPPHIGH);
+		} else {
+			switch (target_opp_no) {
+			case VDD1_OPP1:
+				error_gain |=
+					 PRM_VP1_CONFIG_ERRORGAIN_OPP1;
+				break;
+			case VDD1_OPP2:
+				error_gain |=
+					 PRM_VP1_CONFIG_ERRORGAIN_OPP2;
+				break;
+			case VDD1_OPP3:
+				error_gain |=
+					 PRM_VP1_CONFIG_ERRORGAIN_OPP3;
+				break;
+			case VDD1_OPP4:
+				error_gain |=
+					 PRM_VP1_CONFIG_ERRORGAIN_OPP4;
+				break;
+			default:
+				pr_warning("VDD1:OPP[%d] not"
+						"supported\n", target_opp_no);
+			}
+		}
 		prm_rmw_mod_reg_bits(OMAP3430_ERRORGAIN_MASK, error_gain,
 				OMAP3430_GR_MOD, OMAP3_PRM_VP1_CONFIG_OFFSET);
 		prm_rmw_mod_reg_bits(OMAP3430_VC_CMD_ON_MASK,
@@ -1394,9 +1477,25 @@ int sr_voltagescale_vcbypass(u32 target_opp, u32 current_opp,
 
 	} else if (vdd == VDD2_OPP) {
 		t2_smps_steps =  abs(target_vsel - current_vsel);
-		error_gain = ((target_opp_no < VDD2_OPP3)
+		if (cpu_is_omap3430()) {
+			error_gain = ((target_opp_no < VDD2_OPP3)
 				? PRM_VP2_CONFIG_ERRORGAIN_OPPLOW
 				: PRM_VP2_CONFIG_ERRORGAIN_OPPHIGH);
+		} else {
+			switch (target_opp_no) {
+			case VDD1_OPP1:
+				error_gain |=
+					 PRM_VP2_CONFIG_ERRORGAIN_OPP1;
+				break;
+			case VDD1_OPP2:
+				error_gain |=
+					 PRM_VP2_CONFIG_ERRORGAIN_OPP2;
+				break;
+			default:
+				pr_warning("VDD2:OPP[%d] not"
+						"supported\n", target_opp_no);
+			}
+		}
 		prm_rmw_mod_reg_bits(OMAP3430_ERRORGAIN_MASK, error_gain,
 				OMAP3430_GR_MOD, OMAP3_PRM_VP2_CONFIG_OFFSET);
 		prm_rmw_mod_reg_bits(OMAP3430_VC_CMD_ON_MASK,
