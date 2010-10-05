@@ -121,8 +121,12 @@
 #define ADMA_TABLE_NUM_ENTRIES \
 	(ADMA_TABLE_SZ / sizeof(struct adma_desc_table))
 
+#define DMA_TYPE_NODMA		0
 #define DMA_TYPE_SDMA		1
 #define DMA_TYPE_ADMA   	2
+#define DMA_THRESHOLD		511
+#define POLLING_MAX_LOOPS	10000
+
 /*
  * According to TRM, It is possible to transfer
  * upto 64KB per ADMA table entry.
@@ -196,6 +200,7 @@ struct omap_hsmmc_host {
 	int			suspended;
 	int			irq;
 	int			dma_type, dma_ch;
+	int			polling_enabled;
 	struct adma_desc_table 	*adma_table;
 	dma_addr_t		phy_adma_table;
 	int			dma_line_tx, dma_line_rx;
@@ -481,7 +486,8 @@ omap_hsmmc_start_command(struct omap_hsmmc_host *host, struct mmc_command *cmd,
 		mmc_hostname(host->mmc), cmd->opcode, cmd->arg);
 	host->cmd = cmd;
 
-	omap_hsmmc_enable_irq(host);
+	if (!host->polling_enabled)
+		omap_hsmmc_enable_irq(host);
 
 	host->response_busy = 0;
 	if (cmd->flags & MMC_RSP_PRESENT) {
@@ -505,7 +511,10 @@ omap_hsmmc_start_command(struct omap_hsmmc_host *host, struct mmc_command *cmd,
 	cmdreg = (cmd->opcode << 24) | (resptype << 16) | (cmdtype << 22);
 
 	if (data) {
-		cmdreg |= DP_SELECT | MSBS | BCE;
+		if (host->dma_type)
+			cmdreg |= DP_SELECT | MSBS | BCE;
+		else
+			cmdreg |= DP_SELECT;
 		if (data->flags & MMC_DATA_READ)
 			cmdreg |= DDIR;
 		else
@@ -1258,6 +1267,68 @@ static void omap_hsmmc_request(struct mmc_host *mmc, struct mmc_request *req)
 		host->reqs_blocked = 0;
 	WARN_ON(host->mrq != NULL);
 	host->mrq = req;
+
+	/* REVISIT: This is temp solution for WLAN throughput issues.
+	 * This change only applies to MMC controller
+	 * connected to TI WLAN chip. Temporary solution till
+	 * the actual issue is root caused.
+	 */
+#ifdef CONFIG_MMC_EMBEDDED_SDIO
+	if (host->id == CONFIG_TIWLAN_MMC_CONTROLLER-1) {
+		unsigned int irq_mask = 0, status = 0, loops = 0, i = 0;
+
+		if (req->data != NULL && req->data->blocks == 1
+			&& req->data->blksz < DMA_THRESHOLD) {
+			int dma_type;
+			unsigned char *nondma_data = sg_virt(req->data->sg);
+
+			OMAP_HSMMC_WRITE(host->base, BLK, (req->data->blksz));
+
+			OMAP_HSMMC_WRITE(host->base, STAT, STAT_CLEAR);
+			irq_mask = INT_EN_MASK;
+			OMAP_HSMMC_WRITE(host->base, ISE, 0);
+			OMAP_HSMMC_WRITE(host->base, IE, irq_mask);
+
+			spin_lock(&host->irq_lock);
+			dma_type = host->dma_type;
+			host->dma_type = DMA_TYPE_NODMA;
+			host->polling_enabled = 1;
+			spin_unlock(&host->irq_lock);
+
+			omap_hsmmc_start_command(host, req->cmd, req->data);
+
+			spin_lock(&host->irq_lock);
+			host->dma_type = dma_type;
+			host->polling_enabled = 0;
+			spin_unlock(&host->irq_lock);
+
+			while (!(status & CC) && (loops++ <= POLLING_MAX_LOOPS))
+				status = OMAP_HSMMC_READ(host->base, STAT);
+			status = 0; loops = 0;
+
+			if ((req->data->flags & MMC_DATA_READ)) {
+				while (!(status & BRR_ENABLE) && (loops++ <= POLLING_MAX_LOOPS))
+					status = OMAP_HSMMC_READ(host->base, STAT);
+
+				for (; i < req->data->blksz; i += sizeof(unsigned long))
+					*((unsigned long *)(nondma_data + i)) = OMAP_HSMMC_READ(host->base, DATA);
+
+			} else if ((req->data->flags & MMC_DATA_WRITE)) {
+				for (; i < req->data->blksz; i += sizeof(unsigned long))
+					OMAP_HSMMC_WRITE(host->base, DATA, *((unsigned long *)(nondma_data + i)));
+			}
+
+			status = 0; loops = 0;
+			while (!(status & TC) && (loops++ <= POLLING_MAX_LOOPS))
+				status = OMAP_HSMMC_READ(host->base, STAT);
+
+			omap_hsmmc_request_done(host, req);
+
+			return;
+		}
+	}
+#endif
+
 	err = omap_hsmmc_prepare_data(host, req);
 	if (err) {
 		req->cmd->error = err;
