@@ -26,7 +26,7 @@
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/serial_8250.h>
-
+#include <asm/mach-types.h>
 #include <plat/omap-serial.h>
 
 #include <plat/common.h>
@@ -527,8 +527,9 @@ int omap_uart_can_sleep(void)
 		 * BUG!!! hardcoding this value will causea null pointer
 		 * panic if the zoom is booted without a debugboard!!!
 		 */
-		if (omap_uart_active(3))
-			can_sleep = 0;
+		if (machine_is_omap_zoom2() || machine_is_omap_zoom3())
+			if (omap_uart_active(3))
+				can_sleep = 0;
 #endif
 
 		/* This UART can now safely sleep. */
