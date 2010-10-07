@@ -117,6 +117,8 @@ MODULE_LICENSE("GPL");
 int cacheable_buffers;
 int flushable_buffers;
 
+extern void tick_nohz_disable(int nohz);
+
 #ifndef CONFIG_ARCH_OMAP4
 /* ISP resizer related code*/
 struct isp_node pipe;
@@ -2666,6 +2668,7 @@ static int vidioc_streamon(struct file *file, void *fh,
 		 */
 		pdata->set_min_bus_tput(vout->dev , OCP_INITIATOR_AGENT,
 					VDD2_OCP_FREQ_CONST * 4);
+		tick_nohz_disable(1);
 	}
 #endif
 
@@ -2735,6 +2738,7 @@ static int vidioc_streamoff(struct file *file, void *fh,
 	if (!cpu_is_omap44xx()) {
 		/* Releasing PM constraints */
 		pdata->set_min_bus_tput(vout->dev, OCP_INITIATOR_AGENT, 0);
+		tick_nohz_disable(0);
 	}
 #endif
 

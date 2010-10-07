@@ -51,6 +51,7 @@ struct tick_sched {
 	ktime_t				idle_tick;
 	int				inidle;
 	int				tick_stopped;
+	int				tick_nohz_idle;
 	unsigned long			idle_jiffies;
 	unsigned long			idle_calls;
 	unsigned long			idle_sleeps;

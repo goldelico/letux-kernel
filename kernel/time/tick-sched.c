@@ -295,6 +295,12 @@ void tick_nohz_stop_sched_tick(int inidle)
 
 	if (rcu_needs_cpu(cpu) || printk_needs_cpu(cpu))
 		delta_jiffies = 1;
+
+	if (ts->tick_nohz_idle) {
+		delta_jiffies = 1;
+		goto out;
+	}
+
 	/*
 	 * Do not stop the tick, if we are only one off
 	 * or if the cpu is required for rcu
@@ -761,6 +767,20 @@ void tick_cancel_sched_timer(int cpu)
 	ts->nohz_mode = NOHZ_MODE_INACTIVE;
 }
 #endif
+
+void tick_nohz_disable(int tick_nohz)
+{
+	int cpu;
+	struct tick_sched *ts;
+
+	local_irq_disable();
+	for_each_possible_cpu(cpu) {
+		ts = &per_cpu(tick_cpu_sched, cpu);
+		ts->tick_nohz_idle = tick_nohz;
+	}
+	local_irq_enable();
+}
+EXPORT_SYMBOL(tick_nohz_disable);
 
 /**
  * Async notification about clocksource changes
