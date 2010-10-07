@@ -437,6 +437,7 @@ struct isp_device {
 	struct dentry *dfs_prev;
 	struct dentry *dfs_resz;
 	struct dentry *dfs_h3a;
+	struct dentry *dfs_af;
 	struct dentry *dfs_csi1;
 	struct dentry *dfs_csi2;
 };

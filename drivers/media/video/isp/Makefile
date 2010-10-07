@@ -21,6 +21,7 @@ obj-$(CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS) += \
 	ispresizer_dfs.o \
 	isph3a_dfs.o \
 	ispcsi1_dfs.o \
-	ispcsi2_dfs.o
+	ispcsi2_dfs.o \
+	ispaf_dfs.o
 
 obj-$(CONFIG_VIDEO_OMAP3) += isp-mod.o

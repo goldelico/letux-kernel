@@ -26,6 +26,9 @@
 #include "ispreg.h"
 #include "isph3a.h"
 #include "isp_af.h"
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+#include "ispaf_dfs.h"
+#endif
 
 #define IS_OUT_OF_BOUNDS(value, min, max)		\
 	(((value) < (min)) || ((value) > (max)))
@@ -399,10 +402,15 @@ static void __isp_af_enable(struct isp_af_device *isp_af, int enable)
 	pcr = isp_reg_readl(dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
 
 	/* Set AF_EN bit in PCR Register */
-	if (enable)
+	if (enable) {
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+		struct isp_device *isp = to_isp_device(isp_af);
+		ispaf_dfs_dump(isp);
+#endif
 		pcr |= AF_EN;
-	else
+	} else {
 		pcr &= ~AF_EN;
+	}
 
 	isp_reg_writel(dev, pcr, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
 }
@@ -463,7 +471,9 @@ int __init isp_af_init(struct device *dev)
 
 	isp_af->lock = &isp->h3a_lock;
 	ispstat_init(dev, "AF", &isp_af->stat, H3A_MAX_BUFF, MAX_FRAME_COUNT);
-
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+	ispaf_dfs_setup(isp);
+#endif
 	return 0;
 }
 
@@ -473,4 +483,7 @@ void isp_af_exit(struct device *dev)
 
 	/* Free buffers */
 	ispstat_free(&isp->isp_af.stat);
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+	ispaf_dfs_shutdown(isp);
+#endif
 }
