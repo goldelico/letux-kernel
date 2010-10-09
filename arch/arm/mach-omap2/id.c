@@ -499,7 +499,7 @@ void __init omap2_check_revision(void)
 		else if (omap_rev() == OMAP3630_REV_ES1_1)
 			omap_chip.oc |= CHIP_IS_OMAP3630ES1_1;
 		else if (omap_rev() == OMAP3630_REV_ES1_2)
-					CHIP_IS_OMAP3630ES1_2;
+			omap_chip.oc |= CHIP_IS_OMAP3630ES1_2;
 	} else {
 		pr_err("Uninitialized omap_chip, please fix!\n");
 	}
