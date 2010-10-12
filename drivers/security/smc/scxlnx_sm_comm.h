@@ -79,8 +79,4 @@ int SCXLNXSMCommStart(SCXLNX_SM_COMM_MONITOR *pSMComm,
 
 void SCXLNXSMCommStop(SCXLNX_SM_COMM_MONITOR *pSMComm);
 
-#ifdef SMODULE_SMC_OMAP3XXX_POWER_MANAGEMENT
-int SCXLNXCommSaveContext(uint32_t nPhysicalAddress);
-#endif
-
 #endif	/*__SCXLNX_SM_COMM_H__ */

@@ -36,7 +36,6 @@
 
 #define PUBLIC_CRYPTO_TIMEOUT_CONST	0x000FFFFF
 
-
 /*---------------------------------------------------------------------------*/
 /*RPC IN/OUT structures for CUS implementation                               */
 /*---------------------------------------------------------------------------*/
@@ -549,6 +548,7 @@ u32 scxPublicCryptoInit(void)
 	/*initialize the current key handle loaded in the AES1/D3D2 HWA */
 	g_SCXLNXDeviceMonitor.hAES1SecureKeyContext = 0;
 	g_SCXLNXDeviceMonitor.hD3D2SecureKeyContext = 0;
+	g_SCXLNXDeviceMonitor.bSHAM1IsPublic = false;
 
 	/*initialize the DMA semaphores */
 	init_MUTEX(&g_SCXLNXDeviceMonitor.sm.sDMALock);
@@ -619,13 +619,17 @@ void scxPublicCryptoUpdate(
 {
 /* Might need to remove */
 	dprintk(KERN_INFO
-		"scxPublicCryptoUpdate(%x) : \
-		HWAID=0x%x, In=%p, Out=%p, Len=%u, InputSh=%x, OutputSh=%x\n",
+		"scxPublicCryptoUpdate(%x) : "\
+		"HWAID=0x%x, In=%p, Out=%p, Len=%u, InputSh=%x, OutputSh=%x\n",
 		(uint32_t) pCUSContext, pCUSContext->nHWAID,
 		pCUSParams->pDataBuffer,
 		pCUSParams->pResultBuffer, pCUSParams->nDataLength,
 		pCUSParams->pInputShMem, pCUSParams->pOutputShMem);
 /* might need to remove */
+
+#ifdef CONFIG_HAS_WAKELOCK
+	wake_lock(&g_smc_wake_lock);
+#endif
 
 	/*Enable the clock and Process Data */
 
@@ -664,12 +668,16 @@ void scxPublicCryptoUpdate(
 		break;
 	}
 
+#ifdef CONFIG_HAS_WAKELOCK
+	wake_unlock(&g_smc_wake_lock);
+#endif
+
 #ifdef SMODULE_SMC_OMAP3XXX_POWER_MANAGEMENT
-	dprintk(KERN_INFO "scxPublicCryptoUpdate: start timer \n");
+	dprintk(KERN_INFO "scxPublicCryptoUpdate: start timer\n");
 	scxPublicCryptoStartInactivityTimer();
 #endif
 
-	dprintk(KERN_INFO "scxPublicCryptoUpdate: Done \n");
+	dprintk(KERN_INFO "scxPublicCryptoUpdate: Done\n");
 }
 
 /*------------------------------------------------------------------------- */
@@ -695,9 +703,9 @@ bool scxPublicCryptoIsShortcutedCommand(SCXLNX_CONN_MONITOR *pDeviceContext,
 	CRYPTOKI_UPDATE_SHORTCUT_CONTEXT *pCUSContext = NULL;
 	*ppCUSContext = NULL;
 
-	dprintk(KERN_INFO "scxPublicCryptoIsShortcutedCommand: \
-		pDeviceContext=0x%08x, pCommand=0x%08x, \
-		CltSession=0x%08x, CmdID=0x%08x\n",
+	dprintk(KERN_INFO "scxPublicCryptoIsShortcutedCommand: "\
+		"pDeviceContext=0x%08x, pCommand=0x%08x, "\
+		"CltSession=0x%08x, CmdID=0x%08x\n",
 		(uint32_t) pDeviceContext, (uint32_t) pCommand,
 		(uint32_t) pCommand->hClientSession,
 		pCommand->nClientCommandIdentifier);
@@ -715,8 +723,8 @@ bool scxPublicCryptoIsShortcutedCommand(SCXLNX_CONN_MONITOR *pDeviceContext,
 	list_for_each_entry(
 		pCUSContext, &(pDeviceContext->ShortcutList), list) {
 		dprintk(KERN_INFO
-			"scxPublicCryptoIsShortcutedCommand: \
-			nCommandID = 0x%08x hClientSession = 0x%08x \n",
+			"scxPublicCryptoIsShortcutedCommand: "\
+			"nCommandID = 0x%08x hClientSession = 0x%08x\n",
 			pCUSContext->nCommandID, pCUSContext->hClientSession);
 
 		if ((pCUSContext->hClientSession == pCommand->hClientSession)
@@ -724,8 +732,8 @@ bool scxPublicCryptoIsShortcutedCommand(SCXLNX_CONN_MONITOR *pDeviceContext,
 			(pCUSContext->nCommandID == pCommand->
 			nClientCommandIdentifier)) {
 			dprintk(KERN_INFO
-				"scxPublicCryptoIsShortcutedCommand: \
-				shortcut is identified \n");
+				"scxPublicCryptoIsShortcutedCommand: "\
+				"shortcut is identified\n");
 			/*find a CUS : check if is suspended or not */
 			if (pCUSContext->bSuspended) {
 				/*
@@ -737,17 +745,18 @@ bool scxPublicCryptoIsShortcutedCommand(SCXLNX_CONN_MONITOR *pDeviceContext,
 				 * the client and the service should generally
 				 * communicate to avoid such a collision
 				 */
-				dprintk(KERN_INFO "shortcut exists but \
-					suspended\n");
+				dprintk(KERN_INFO "shortcut exists but "\
+					"suspended\n");
 				goto command_not_shortcutable;
 
 			} else {
 				dprintk(KERN_INFO "shortcut exists\n");
-				/*For AES and DES/3DES operations,
+				/*For AES, DES/3DES and digest operations,
 				 *provisionally determine if the accelerator
-				 *is loaded with the appropriate key before
-				 *deciding to enter the accelerator critical
-				 *section. In most cases, if some other thread
+				 *is loaded with the appropriate key and
+				 *accessible in public before deciding to enter
+				 *the accelerator critical section.
+				 *In most cases, if some other thread
 				 *or the secure world is currently using the
 				 *accelerator, the key won't change.
 				 *So, if the key doesn't match now, it is
@@ -765,9 +774,9 @@ bool scxPublicCryptoIsShortcutedCommand(SCXLNX_CONN_MONITOR *pDeviceContext,
 					 *take the standard path  <=> do not
 					 *shortcut */
 					dprintk(KERN_INFO
-						"shortcut exists but AES key \
-						not correct\nhKeyContext=\
-						0x%08x vs 0x%08x\n",
+						"shortcut exists but AES key "\
+						"not correct\nhKeyContext="\
+						"0x%08x vs 0x%08x\n",
 						pCUSContext->hKeyContext,
 						g_SCXLNXDeviceMonitor.
 						hAES1SecureKeyContext);
@@ -785,18 +794,33 @@ bool scxPublicCryptoIsShortcutedCommand(SCXLNX_CONN_MONITOR *pDeviceContext,
 					 * shortcut
 					 */
 					dprintk(KERN_INFO
-						"shortcut exists but DES key \
-						not correct \
-						hD3D2SecureKeyContext = 0x%08x\
-						 hKeyContext0x%08x\n",
+						"shortcut exists but DES key "\
+						"not correct "\
+						"hD3D2SecureKeyContext = "\
+						"0x%08x hKeyContext0x%08x\n",
 						(u32)g_SCXLNXDeviceMonitor.
 						hD3D2SecureKeyContext,
 						(u32)pCUSContext->hKeyContext);
 					goto command_not_shortcutable;
+
+				} else if (pCUSContext->nHWAID == RPC_SHA_CODE
+						&& !g_SCXLNXDeviceMonitor.
+						bSHAM1IsPublic) {
+					/*
+					 * For digest atomically read
+					 * bSHAM1IsPublic and check if
+					 * it is true. If not,
+					 * take the standard path <=> do not
+					 * shortcut
+					 */
+					dprintk(KERN_INFO
+						"shortcut exists but SHAM1 "\
+						"is not accessible in public");
+					goto command_not_shortcutable;
 				}
 			}
 
-			dprintk(KERN_INFO "shortcut exists and enable\n");
+			dprintk(KERN_INFO "shortcut exists and enabled\n");
 
 			/*Shortcut has been found and context fits with
 			 *thread => YES! the command can be shortcuted */
@@ -876,8 +900,8 @@ bool scxPublicCryptoParseCommandMessage(SCXLNX_CONN_MONITOR *pConn,
 
 	/*Check the input message offset */
 	if (pCommand->nClientParameterSize == 0) {
-		dprintk(KERN_ERR "scxPublicCryptoParseCommandMessage(%p) : \
-			Bad message offset\n",
+		dprintk(KERN_ERR "scxPublicCryptoParseCommandMessage(%p) : "\
+			"Bad message offset\n",
 			pCUSContext);
 		return false;
 	}
@@ -887,8 +911,8 @@ bool scxPublicCryptoParseCommandMessage(SCXLNX_CONN_MONITOR *pConn,
 	if (!static_checkBuffer(pCommand->nClientParameterStartOffset,
 				pCommand->nClientParameterSize,
 				pDeviceContextDesc->nBufferSize)) {
-		dprintk(KERN_ERR "scxPublicCryptoParseCommandMessage(%p) : \
-			Incorrect parameters from client.\n",
+		dprintk(KERN_ERR "scxPublicCryptoParseCommandMessage(%p) : "\
+			"Incorrect parameters from client.\n",
 			pCUSContext);
 		return false;
 	}
@@ -910,9 +934,9 @@ bool scxPublicCryptoParseCommandMessage(SCXLNX_CONN_MONITOR *pConn,
 		  pCurrentCommandMessageElement, pEndOfCommandMessage, &hBlock,
 		  &nStartOffset, &nInputDataLength, &nFlags, &nSharedMemFlags);
 
-	dprintk(KERN_INFO "scxPublicCryptoParseCommandMessage(0x%08x): \
-		hBlock=0x%08x; nStartOffset=0x%08x; \
-		nInputDataLength=%u; nFlags=0x%08x\n",
+	dprintk(KERN_INFO "scxPublicCryptoParseCommandMessage(0x%08x): "\
+		"hBlock=0x%08x; nStartOffset=0x%08x; "\
+		"nInputDataLength=%u; nFlags=0x%08x\n",
 		(u32)pCurrentCommandMessageElement, hBlock, nStartOffset,
 		nInputDataLength, nFlags);
 
@@ -943,8 +967,8 @@ bool scxPublicCryptoParseCommandMessage(SCXLNX_CONN_MONITOR *pConn,
 			 *arguments (offset and size) not compatible with
 			 *shared memory length */
 			dprintk(KERN_ERR
-				"scxPublicCryptoParseCommandMessage(%p): \
-				Bad Input buffer command info \n",
+				"scxPublicCryptoParseCommandMessage(%p): "\
+				"Bad Input buffer command info\n",
 				pCUSContext);
 			return false;
 		}
@@ -955,8 +979,8 @@ bool scxPublicCryptoParseCommandMessage(SCXLNX_CONN_MONITOR *pConn,
 			 || ((pSharedMemoryDescriptor->
 				nFlags & SCX_SHMEM_TYPE_READ) == 0)) {
 			dprintk(KERN_ERR
-				"scxPublicCryptoParseCommandMessage(%p): \
-				Bad memory flags\n",
+				"scxPublicCryptoParseCommandMessage(%p): "\
+				"Bad memory flags\n",
 				pCUSContext);
 			return false;
 		}
@@ -973,8 +997,8 @@ bool scxPublicCryptoParseCommandMessage(SCXLNX_CONN_MONITOR *pConn,
 				pCommand->nClientAnswerSizeMax,
 				pDeviceContextDesc->nBufferSize)) {
 		dprintk(KERN_INFO
-			"scxPublicCryptoParseCommandMessage: \
-			Wrong parameters from client\n");
+			"scxPublicCryptoParseCommandMessage: "\
+			"Wrong parameters from client\n");
 		return false;
 	}
 
@@ -982,8 +1006,8 @@ bool scxPublicCryptoParseCommandMessage(SCXLNX_CONN_MONITOR *pConn,
 		/*No more data should be encoded for digest operations */
 		if (pCurrentCommandMessageElement != pEndOfCommandMessage) {
 			dprintk(KERN_INFO
-				"scxPublicCryptoParseCommandMessage: \
-				Digest operation with output buffer: Error\n");
+				"scxPublicCryptoParseCommandMessage: "\
+				"Digest operation with output buffer: Error\n");
 			return false;
 		}
 	} else {
@@ -994,9 +1018,9 @@ bool scxPublicCryptoParseCommandMessage(SCXLNX_CONN_MONITOR *pConn,
 		 */
 		if (pCurrentCommandMessageElement == pEndOfCommandMessage) {
 			dprintk(KERN_INFO
-				"scxPublicCryptoParseCommandMessage: \
-				Encrypt/Decrypt operation with no output \
-				buffer\n");
+				"scxPublicCryptoParseCommandMessage: "\
+				"Encrypt/Decrypt operation with no output "\
+				"buffer\n");
 			return false;
 		}
 	}
@@ -1010,8 +1034,8 @@ bool scxPublicCryptoParseCommandMessage(SCXLNX_CONN_MONITOR *pConn,
 		 *Result buffer information.
 		 *Go on with the decoding process...
 		 */
-		dprintk(KERN_INFO "scxPublicCryptoParseCommandMessage: \
-			Parsing result buffer info\n");
+		dprintk(KERN_INFO "scxPublicCryptoParseCommandMessage: "\
+			"Parsing result buffer info\n");
 
 		/*set the output message command pointer */
 		pCUSParams->pS2CDataBuffer = pDeviceContextDesc->pBuffer +
@@ -1024,18 +1048,18 @@ bool scxPublicCryptoParseCommandMessage(SCXLNX_CONN_MONITOR *pConn,
 			&nSharedMemFlags);
 
 		dprintk(KERN_INFO
-			"scxPublicCryptoParseCommandMessage(0x%08x): \
-			hBlock=0x%08x; nStartOffset=0x%08x; \
-			nResultDataLength=0x%08x; nFlags=0x%08x; \
-			nSharedMemFlags=0x%08x\n",
+			"scxPublicCryptoParseCommandMessage(0x%08x): "\
+			"hBlock=0x%08x; nStartOffset=0x%08x; "\
+			"nResultDataLength=0x%08x; nFlags=0x%08x; "\
+			"nSharedMemFlags=0x%08x\n",
 			(u32)pCurrentCommandMessageElement, hBlock,
 			nStartOffset, nResultDataLength, nFlags,
 			nSharedMemFlags);
 
 		if (pCurrentCommandMessageElement == NULL) {
 			dprintk(KERN_ERR
-				"scxPublicCryptoParseCommandMessage(%p): \
-				Bad Result buffer command format \n",
+				"scxPublicCryptoParseCommandMessage(%p): "\
+				"Bad Result buffer command format\n",
 				pCUSContext);
 			return false;
 		}
@@ -1043,9 +1067,9 @@ bool scxPublicCryptoParseCommandMessage(SCXLNX_CONN_MONITOR *pConn,
 		if (nResultDataLength < nInputDataLength) {
 			/*Short buffer*/
 			dprintk(KERN_ERR
-				"scxPublicCryptoParseCommandMessage(%p): \
-				Short buffer: nResultDataLength=%d < \
-				nInputDataLength=%d\n",
+				"scxPublicCryptoParseCommandMessage(%p): "\
+				"Short buffer: nResultDataLength=%d < "\
+				"nInputDataLength=%d\n",
 				pCUSContext, nResultDataLength,
 				nInputDataLength);
 			return false;
@@ -1053,9 +1077,9 @@ bool scxPublicCryptoParseCommandMessage(SCXLNX_CONN_MONITOR *pConn,
 
 		if (pCurrentCommandMessageElement != pEndOfCommandMessage) {
 			dprintk(KERN_INFO
-				"scxPublicCryptoParseCommandMessage: Encrypt/\
-				Decrypt operation with data after the output \
-				buffer: Error\n");
+				"scxPublicCryptoParseCommandMessage: Encrypt/"\
+				"Decrypt operation with data after the output "\
+				"buffer: Error\n");
 			return false;
 		}
 
@@ -1074,8 +1098,9 @@ bool scxPublicCryptoParseCommandMessage(SCXLNX_CONN_MONITOR *pConn,
 			if (!static_checkBuffer((u32)pS2CDataBufferEnd, 5,
 				pCommand->nClientAnswerSizeMax)) {
 				dprintk(KERN_ERR
-				"scxPublicCryptoParseCommandMessage(%p): Bad \
-			result buffer. Can not encode tag and length.\n",
+				"scxPublicCryptoParseCommandMessage(%p): Bad "\
+				"result buffer. Can not encode tag and length."\
+				"\n",
 					pCUSContext);
 				return false;
 			}
@@ -1105,8 +1130,8 @@ bool scxPublicCryptoParseCommandMessage(SCXLNX_CONN_MONITOR *pConn,
 				 *with shared memory length or shared mem flags
 				 *not compatible with the acccess */
 				dprintk(KERN_ERR
-				"scxPublicCryptoParseCommandMessage(%p) : \
-				Bad Result buffer command info \n",
+				"scxPublicCryptoParseCommandMessage(%p) : "\
+				"Bad Result buffer command info\n",
 					pCUSContext);
 				return false;
 			}
@@ -1118,8 +1143,8 @@ bool scxPublicCryptoParseCommandMessage(SCXLNX_CONN_MONITOR *pConn,
 				|| ((pSharedMemoryDescriptor->
 				nFlags & SCX_SHMEM_TYPE_WRITE) == 0)) {
 				dprintk(KERN_ERR
-				"scxPublicCryptoParseCommandMessage(%p) : \
-				Bad memory flags\n",
+				"scxPublicCryptoParseCommandMessage(%p) : "\
+				"Bad memory flags\n",
 					pCUSContext);
 				return false;
 			}
@@ -1137,8 +1162,8 @@ bool scxPublicCryptoParseCommandMessage(SCXLNX_CONN_MONITOR *pConn,
 		/*Must be multiple of the AES block size */
 		if ((nInputDataLength % AES_BLOCK_SIZE) != 0) {
 			dprintk(KERN_ERR
-				"scxPublicCryptoParseCommandMessage(%p): \
-				Input Data Length invalid [%d] for AES\n",
+				"scxPublicCryptoParseCommandMessage(%p): "\
+				"Input Data Length invalid [%d] for AES\n",
 				pCUSContext, nInputDataLength);
 			return false;
 		}
@@ -1147,8 +1172,8 @@ bool scxPublicCryptoParseCommandMessage(SCXLNX_CONN_MONITOR *pConn,
 		/*Must be multiple of the DES block size */
 		if ((nInputDataLength % DES_BLOCK_SIZE) != 0) {
 			dprintk(KERN_ERR
-				"scxPublicCryptoParseCommandMessage(%p): \
-				Input Data Length invalid [%d] for DES\n",
+				"scxPublicCryptoParseCommandMessage(%p): "\
+				"Input Data Length invalid [%d] for DES\n",
 				pCUSContext, nInputDataLength);
 			return false;
 		}
@@ -1195,8 +1220,8 @@ void scxPublicCryptoWriteAnswerMessage(
 
 		if (pCUSParams->pOutputShMem) {
 			dprintk(KERN_INFO
-				"scxPublicCryptoWriteAnswerMessage: \
-				MemRef: Length = %d\n",
+				"scxPublicCryptoWriteAnswerMessage: "\
+				"MemRef: Length = %d\n",
 				pCUSParams->nDataLength);
 			/*
 			 *u32: Result buffer length in answer message
@@ -1208,8 +1233,8 @@ void scxPublicCryptoWriteAnswerMessage(
 
 		} else {
 			dprintk(KERN_INFO
-				"scxPublicCryptoWriteAnswerMessage: \
-				U8 Array: Length = %d\n",
+				"scxPublicCryptoWriteAnswerMessage: "\
+				"U8 Array: Length = %d\n",
 				pCUSParams->nDataLength);
 			/*
 			 *The tag and the length of the output data buffer is
@@ -1341,8 +1366,8 @@ void scxPublicCryptoStartInactivityTimer(void)
 	SCXLNX_SM_COMM_MONITOR *pSMComm = &(g_SCXLNXDeviceMonitor.sm);
 
 	dprintk(KERN_INFO
-		"scxPublicCryptoStartInactivityTimer devmon=0x%08x \
-		pSMComm=0x%08x\n",
+		"scxPublicCryptoStartInactivityTimer devmon=0x%08x "\
+		"pSMComm=0x%08x\n",
 		(u32)&g_SCXLNXDeviceMonitor, (u32)pSMComm);
 
 	/*take the lock on the timer */
@@ -1386,8 +1411,8 @@ u32 scxPublicCryptoInstallShortcutLockAccelerator(u32 nRPCCommand,
 		(RPC_INSTALL_SHORTCUT_LOCK_ACCELERATOR_IN *)pL0SharedBuffer;
 
 	dprintk(KERN_INFO
-		"scxPublicCryptoInstallShortcutLockAccelerator : \
-		nRPCCommand=0x%08x; nHWAID=0x%08x \n",
+		"scxPublicCryptoInstallShortcutLockAccelerator :"
+		"nRPCCommand=0x%08x; nHWAID=0x%08x\n",
 		nRPCCommand, pInstallShortcutIn->nHWAID);
 
 /*preventive check1: check if pInstallShortcutIn->hDeviceContext exist */
@@ -1398,9 +1423,9 @@ u32 scxPublicCryptoInstallShortcutLockAccelerator(u32 nRPCCommand,
 
 	if (pDeviceContext == NULL) {
 		dprintk(KERN_INFO
-			"scxPublicCryptoInstallShortcutLockAccelerator: \
-			DeviceContext 0x%08x does not exist, \
-			cannot create Shortcut \n",
+			"scxPublicCryptoInstallShortcutLockAccelerator: "\
+			"DeviceContext 0x%08x does not exist, "\
+			"cannot create Shortcut\n",
 			pInstallShortcutIn->hDeviceContext);
 		pInstallShortcutOut->nError = S_ERROR_BAD_PARAMETERS;
 		return S_SUCCESS;
@@ -1412,8 +1437,8 @@ u32 scxPublicCryptoInstallShortcutLockAccelerator(u32 nRPCCommand,
 					sizeof(*pCUSContext), GFP_KERNEL);
 	if (pCUSContext == NULL) {
 		dprintk(KERN_ERR
-			"scxPublicCryptoInstallShortcutLockAccelerator: \
-			Out of memory for public session\n");
+			"scxPublicCryptoInstallShortcutLockAccelerator: "\
+			"Out of memory for public session\n");
 		pInstallShortcutOut->nError = S_ERROR_OUT_OF_MEMORY;
 		return S_SUCCESS;
 	}
@@ -1493,8 +1518,8 @@ u32 scxPublicCryptoLockAcceleratorsSuspendShortcut(u32 nRPCCommand,
 		(RPC_LOCK_ACCELERATORS_SUSPEND_SHORTCUT_IN *)pL0SharedBuffer;
 
 	dprintk(KERN_INFO
-		"scxPublicCryptoLockAcceleratorsSuspendShortcut: \
-		pSuspendShortcutIn=0x%08x; nShortcutID=0x%08x\n",
+		"scxPublicCryptoLockAcceleratorsSuspendShortcut: "\
+		"pSuspendShortcutIn=0x%08x; nShortcutID=0x%08x\n",
 		pSuspendShortcutIn->nShortcutID, (u32)pSuspendShortcutIn);
 
 	nTargetShortcut = pSuspendShortcutIn->nShortcutID;
@@ -1515,9 +1540,9 @@ u32 scxPublicCryptoLockAcceleratorsSuspendShortcut(u32 nRPCCommand,
 		pDeviceContext = static_GetDeviceContext(pCUSContext);
 		if (pDeviceContext == NULL) {
 			dprintk(KERN_INFO
-			"scxPublicCryptoLockAcceleratorsSuspendShortcut: \
-			nShortcutID=0x%08x does not exist, cannot suspend \
-			Shortcut\n",
+			"scxPublicCryptoLockAcceleratorsSuspendShortcut: "\
+			"nShortcutID=0x%08x does not exist, cannot suspend "\
+			"Shortcut\n",
 				pSuspendShortcutIn->nShortcutID);
 			return S_ERROR_BAD_PARAMETERS;
 		}
@@ -1549,8 +1574,8 @@ loop_on_suspend:
 		if ((nRPCCommand &
 		RPC_LOCK_ACCELERATORS_SUSPEND_SHORTCUT_UNINSTALL) != 0) {
 			dprintk(KERN_INFO
-			"scxPublicCryptoLockAcceleratorsSuspendShortcut: \
-			Uninstall 0x%08x\n",
+			"scxPublicCryptoLockAcceleratorsSuspendShortcut: "\
+			"Uninstall 0x%08x\n",
 				nTargetShortcut);
 			list_del(&(pCUSContext->list));
 			/*list_del only remove the item in the list, the
@@ -1590,8 +1615,8 @@ u32 scxPublicCryptoResumeShortcutUnlockAccelerators(u32 nRPCCommand,
 		(RPC_RESUME_SHORTCUT_UNLOCK_ACCELERATORS_IN *)pL0SharedBuffer;
 
 	dprintk(KERN_INFO
-		"scxPublicCryptoResumeShortcutUnlockAccelerators \n \
-		nRPCCommand=0x%08x\nnShortcutID=0x%08x\n",
+		"scxPublicCryptoResumeShortcutUnlockAccelerators\n" \
+		"nRPCCommand=0x%08x\nnShortcutID=0x%08x\n",
 		nRPCCommand, pResumeShortcutIn->nShortcutID);
 
 	/*if nShortcutID not 0 resume the shortcut and unlock HWA
@@ -1608,9 +1633,9 @@ u32 scxPublicCryptoResumeShortcutUnlockAccelerators(u32 nRPCCommand,
 		pDeviceContext = static_GetDeviceContext(pCUSContext);
 		if (pDeviceContext == NULL) {
 			dprintk(KERN_INFO
-			"scxPublicCryptoResumeShortcutUnlockAccelerators(...):\
-			nShortcutID 0x%08x does not exist, cannot suspend \
-			Shortcut \n",
+			"scxPublicCryptoResumeShortcutUnlockAccelerators(...):"\
+			"nShortcutID 0x%08x does not exist, cannot suspend "\
+			"Shortcut\n",
 				pResumeShortcutIn->nShortcutID);
 			return S_ERROR_BAD_PARAMETERS;
 		}
@@ -1626,6 +1651,12 @@ u32 scxPublicCryptoResumeShortcutUnlockAccelerators(u32 nRPCCommand,
 			/*resume the shortcut */
 			pCUSContext->bSuspended = false;
 		}
+	}
+
+	/*If H is set: Atomically set bSHAM1IsPublic to true */
+	if ((nRPCCommand &
+		RPC_RESUME_SHORTCUT_UNLOCK_ACCELERATORS_UNLOCK_SHA) != 0) {
+		g_SCXLNXDeviceMonitor.bSHAM1IsPublic = true;
 	}
 
 	/*If A is set: Atomically set hAES1SecureKeyContext to
@@ -1727,8 +1758,8 @@ SCXLNX_CONN_MONITOR *PDrvCryptoGetDeviceContextFromHandle(u32 hDeviceContext)
 
 	list_for_each_entry(pDeviceContext, &(g_SCXLNXDeviceMonitor.conns),
 		list) {
-		dprintk("PDrvCryptoGetDeviceContextFromHandle: \
-			DeviceContext 0x%08x vs 0x%08x\n",
+		dprintk("PDrvCryptoGetDeviceContextFromHandle: "\
+			"DeviceContext 0x%08x vs 0x%08x\n",
 			(u32)pDeviceContext->
 			sSharedMemoryMonitor.pDeviceContextDesc->hIdentifier,
 			(u32)hDeviceContext);
@@ -1790,20 +1821,20 @@ void PDrvCryptoLockUnlockHWA(u32 nHWAID, bool bDoLock)
 		break;
 	default:
 	case RPC_SHA_CODE:
-	pHWAToLockUnlock = &g_SCXLNXDeviceMonitor.sSHAM1CriticalSection;
+		pHWAToLockUnlock = &g_SCXLNXDeviceMonitor.sSHAM1CriticalSection;
 		break;
 	}
 
 	if (bDoLock == LOCK_HWA) {
-		dprintk(KERN_INFO "PDrvCryptoLockUnlockHWA: \
-			Wait for HWAID=0x%04X\n", nHWAID);
+		dprintk(KERN_INFO "PDrvCryptoLockUnlockHWA: "\
+			"Wait for HWAID=0x%04X\n", nHWAID);
 		down(pHWAToLockUnlock);
-		dprintk(KERN_INFO "PDrvCryptoLockUnlockHWA: \
-			Locked on HWAID=0x%04X\n", nHWAID);
+		dprintk(KERN_INFO "PDrvCryptoLockUnlockHWA: "\
+			"Locked on HWAID=0x%04X\n", nHWAID);
 	} else {
 		up(pHWAToLockUnlock);
-		dprintk(KERN_INFO "PDrvCryptoLockUnlockHWA: \
-			Released for HWAID=0x%04X\n", nHWAID);
+		dprintk(KERN_INFO "PDrvCryptoLockUnlockHWA: "\
+			"Released for HWAID=0x%04X\n", nHWAID);
 	}
 }
 

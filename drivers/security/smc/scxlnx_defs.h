@@ -30,6 +30,9 @@
 #include <linux/sysdev.h>
 #include <linux/sysfs.h>
 #include <linux/timer.h>
+#ifdef CONFIG_HAS_WAKELOCK
+#include <linux/wakelock.h>
+#endif
 
 #include "scx_sm_protocol.h"
 
@@ -502,6 +505,12 @@ typedef struct {
 	/*current key handle loaded in the AES1/D3D2 HWA */
 	u32 hAES1SecureKeyContext;
 	u32 hD3D2SecureKeyContext;
+	/*
+	 * describes whether the SHAM1 accelerator is currently usable by the
+	 * public or not
+	 */
+	bool bSHAM1IsPublic;
+
 	/*semaphores used to serialize HWA access */
 	struct semaphore sAES1CriticalSection;
 	struct semaphore sD3D2CriticalSection;
@@ -640,6 +649,10 @@ typedef struct {
 } SCXLNX_CONN_MONITOR;
 
 extern SCXLNX_DEVICE_MONITOR g_SCXLNXDeviceMonitor;
+
+#ifdef CONFIG_HAS_WAKELOCK
+extern struct wake_lock g_smc_wake_lock;
+#endif
 
 /*-------------------------------------------------------------------------- */
 

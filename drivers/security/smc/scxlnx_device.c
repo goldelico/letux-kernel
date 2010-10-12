@@ -125,6 +125,17 @@ MODULE_PARM_DESC(device_major_number,
 static int smc_suspend(struct sys_device *dev, pm_message_t state)
 {
 	powerPrintk("smc_suspend\n");
+
+	/* As we enter in CORE OFF, the keys are going to be cleared.
+	 * Reset the global key context.
+	 * When the system leaves CORE OFF, this will force the driver to go
+	 * through the secure world which will reconfigure the accelerator as
+	 * public.
+	 */
+	g_SCXLNXDeviceMonitor.hAES1SecureKeyContext = 0;
+	g_SCXLNXDeviceMonitor.hD3D2SecureKeyContext = 0;
+	g_SCXLNXDeviceMonitor.bSHAM1IsPublic = false;
+
 	return 0;
 }
 

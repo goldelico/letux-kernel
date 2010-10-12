@@ -152,6 +152,10 @@ static u32 *g_pSDPMeasurements;
 static u32 g_nSDPMeasurementsPID;
 #endif				/*SMODULE_SMC_OMAP3XXX_SDP_BENCHMARK */
 
+#ifdef CONFIG_HAS_WAKELOCK
+struct wake_lock g_smc_wake_lock;
+#endif
+
 /*--------------------------------------------------------------------------
  *Function responsible for formatting the parameters to pass
  *from NS-World to S-World.
@@ -188,8 +192,14 @@ u32 SEC_ENTRY_pub2sec_dispatcher(u32 appl_id, u32 proc_ID, u32 flag, u32 nArgs,
 		args=0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
 		pArgs[0], pArgs[1], pArgs[2], pArgs[3], pArgs[4]);
 
+#ifdef CONFIG_HAS_WAKELOCK
+	wake_lock(&g_smc_wake_lock);
+#endif
 	return_value =
 		 pub2sec_bridge_entry(appl_id, proc_ID, flag, __pa(pArgsRaw));
+#ifdef CONFIG_HAS_WAKELOCK
+	wake_unlock(&g_smc_wake_lock);
+#endif
 
 	internal_vunmap(pArgs);
 	internal_kfree(pArgsRaw);
@@ -652,7 +662,7 @@ static int SCXLNXSMCommTestSTimeout(SCXLNX_SM_COMM_MONITOR *pSMComm,
 }
 
 /*Forward Declaration */
-static int SCXLNXSMCommSendMessage(SCXLNX_SM_COMM_MONITOR *pTZComm,
+static int SCXLNXSMCommSendMessage(SCXLNX_SM_COMM_MONITOR *pSMComm,
 					SCX_COMMAND_MESSAGE *pMessage,
 					SCXLNX_CONN_MONITOR *pConn,
 					int bKillable);
@@ -787,11 +797,13 @@ static u32 SCXLNXSMCommPollingRoutine(SCXLNX_SM_COMM_MONITOR *pSMComm)
 		 */
 #ifdef SMODULE_SMC_OMAP3XXX_POWER_MANAGEMENT
 		if (unlikely(freezing(current))) {
-			powerPrintk(KERN_INFO "SCXLNXTZCommPollingThread: \
-					Entering refrigerator.\n");
+			powerPrintk(KERN_INFO
+				"SCXLNXSMCommPollingRoutine: "\
+				"Entering refrigerator.\n");
 			refrigerator();
-			powerPrintk(KERN_INFO "SCXLNXTZCommPollingThread: \
-					Left refrigerator.\n");
+			powerPrintk(KERN_INFO
+				"SCXLNXSMCommPollingRoutine: "\
+				"Left refrigerator.\n");
 		}
 #endif
 
@@ -850,6 +862,16 @@ static u32 SCXLNXSMCommPollingRoutine(SCXLNX_SM_COMM_MONITOR *pSMComm)
 					  "SCXLNXSMCommPollingThread(%p) : \
 					  prepare to sleep infinitely\n",
 					  pSMComm);
+#ifdef CONFIG_HAS_WAKELOCK
+					/*
+					 * Only release the latency constraint
+					 * when the PA indicates an infinite
+					 * timeout (this means no more
+					 * activities)
+					 */
+					wake_unlock(&g_smc_wake_lock);
+#endif
+
 				} else {
 					dprintk(KERN_DEBUG
 					  "SCXLNXSMCommPollingThread(%p) : \
@@ -862,6 +884,17 @@ static u32 SCXLNXSMCommPollingRoutine(SCXLNX_SM_COMM_MONITOR *pSMComm)
 				  "SCXLNXSMCommPollingThread(%p) : \
 				  N_SM_EVENT signaled or timeout expired\n",
 				  pSMComm);
+
+#ifdef CONFIG_HAS_WAKELOCK
+				/*
+				 * Re-acquire the wake_lock only after
+				 * an infinite wait
+				 */
+				if (nRelativeTimeoutJiffies ==
+					 MAX_SCHEDULE_TIMEOUT) {
+					wake_lock(&g_smc_wake_lock);
+				}
+#endif
 
 				finish_wait(&pSMComm->waitQueue, &wait);
 				goto begin;
@@ -1076,12 +1109,12 @@ int SCXLNXSMCommSendReceive(SCXLNX_SM_COMM_MONITOR *pSMComm,
 #ifdef SMODULE_SMC_OMAP3XXX_POWER_MANAGEMENT
 			if (unlikely(freezing(current))) {
 				powerPrintk(KERN_INFO
-					"SCXLNXTZCommPollingThread: Entering \
-					refrigerator.\n");
+					"SCXLNXSMCommSendReceive: Entering "\
+					"refrigerator.\n");
 				refrigerator();
 				powerPrintk(KERN_INFO
-					"SCXLNXTZCommPollingThread: Left \
-					refrigerator.\n");
+					"SCXLNXSMCommSendReceive: Left "\
+					"refrigerator.\n");
 			}
 #endif
 
@@ -1494,32 +1527,6 @@ int SCXLNXSMCommPowerManagement(SCXLNX_SM_COMM_MONITOR *pSMComm,
 	return nError;
 }
 
-/*
- *Saves the context of the secure world
- */
-#ifdef SMODULE_SMC_OMAP3XXX_POWER_MANAGEMENT
-int SCXLNXCommSaveContext(uint32_t nPhysicalAddress)
-{
-	int nError;
-
-	nError = SEC_ENTRY_pub2sec_dispatcher(API_HAL_CONTEXT_SAVE_RESTORE, 0,
-			FLAG_START_HAL_CRITICAL, 4, nPhysicalAddress,
-/*Physical address in sdram where to save the secure ram (u8 *) */
-					/*First Dma channel  */  0x1E,
-					/*Second Dma channel */  0x1F,
-		/*The direction. 1 for save, 0 for restore.  */  1);
-
-	if (nError != API_HAL_RET_VALUE_OK) {
-		powerPrintk("Context save Error=%d PhysAddr=0x%x", nError,
-				 nPhysicalAddress);
-		return -EFAULT;
-	}
-
-	powerPrintk("Context save OK PhysAddr=0x%x", nPhysicalAddress);
-	return 0;
-}
-#endif
-
 /*----------------------------------------------------------------------------
  *Communication initialization and termination
  *-------------------------------------------------------------------------- */
@@ -1696,6 +1703,11 @@ int SCXLNXSMCommStart(SCXLNX_SM_COMM_MONITOR *pSMComm,
 	 */
 
 	dprintk(KERN_INFO "SCXLNXSMCommStart(%p)\n", pSMComm);
+
+#ifdef CONFIG_HAS_WAKELOCK
+	wake_lock_init(&g_smc_wake_lock,
+		WAKE_LOCK_SUSPEND, SCXLNX_DEVICE_BASE_NAME);
+#endif
 
 	if ((test_bit(SCXLNX_SM_COMM_FLAG_POLLING_THREAD_STARTED,
 			&(pSMComm->nFlags))) != 0) {
@@ -1933,6 +1945,10 @@ void SCXLNXSMCommStop(SCXLNX_SM_COMM_MONITOR *pSMComm)
 	}
 
 	spin_unlock(&(pSMComm->lock));
+
+#ifdef CONFIG_HAS_WAKELOCK
+	wake_lock_destroy(&g_smc_wake_lock);
+#endif
 
 	/* vunmap must be called out of spinlock */
 
