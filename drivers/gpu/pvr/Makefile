@@ -26,6 +26,7 @@ ccflags-y = -DLINUX -D__linux__ -Idrivers/gpu/pvr \
 	-DPVR_LINUX_MISR_USING_PRIVATE_WORKQUEUE \
 	-DSYS_CUSTOM_POWERLOCK_WRAP \
 	-DSUPPORT_SGX_NEW_STATUS_VALS \
+        -DSYS_OMAP3430_PIN_MEMORY_BUS_CLOCK \
 	-DPVRSRV_MODNAME="\"pvrsrvkm"\"
 
 ccflags-$(CONFIG_SGX540) +=  -Idrivers/gpu/pvr/omap4  -Idrivers/gpu/pvr/sgx \
@@ -139,3 +140,4 @@ obj-$(CONFIG_SGX540) := pvr_common.o sgx.o omaplfb.o pvr540.o
 obj-$(CONFIG_SGX530) := pvr_common.o sgx.o omaplfb.o pvr530.o
 obj-$(CONFIG_VIRTUAL_DISPLAY_SUPPORT) := pvr_common.o sgx.o \
 	sgx_displayclass.o pvr540.o
+
