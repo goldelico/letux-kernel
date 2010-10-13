@@ -421,14 +421,22 @@ int omap_mux_init_signal(char *muxname, int val)
 	struct omap_mux_entry *e;
 	char *m0_name = NULL, *mode_name = NULL;
 	int found = 0;
+	char *muxname_local;
 
-	mode_name = strchr(muxname, '.');
+	muxname_local = kzalloc(sizeof(strlen(muxname)+1), GFP_KERNEL);
+
+	if (!muxname_local)
+		return -ENOMEM;
+
+	strcpy(muxname_local, muxname);
+
+	mode_name = strchr(muxname_local, '.');
 	if (mode_name) {
 		*mode_name = '\0';
 		mode_name++;
-		m0_name = muxname;
+		m0_name = muxname_local;
 	} else {
-		mode_name = muxname;
+		mode_name = muxname_local;
 	}
 
 	list_for_each_entry(e, &muxmodes, node) {
@@ -453,12 +461,14 @@ int omap_mux_init_signal(char *muxname, int val)
 				mux_mode = val | i;
 				printk(KERN_DEBUG "mux: Setting signal "
 					"%s.%s 0x%04x -> 0x%04x\n",
-					m0_entry, muxname, old_mode, mux_mode);
+				m0_entry, muxname_local, old_mode, mux_mode);
 				omap_mux_write(mux_mode, m->reg_offset);
 				found++;
 			}
 		}
 	}
+
+	kfree(muxname_local);
 
 	if (found == 1)
 		return 0;
