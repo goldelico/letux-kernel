@@ -1091,14 +1091,16 @@ EXPORT_SYMBOL(omap_start_dma);
 void omap_stop_dma(int lch)
 {
 	u32 l;
-
+	unsigned long flags;
 	/* Disable all interrupts on the channel */
 	if (cpu_class_is_omap1())
 		dma_write(0, CICR(lch));
 
+	spin_lock_irqsave(&dma_chan_lock, flags);
 	l = dma_read(CCR(lch));
 	l &= ~OMAP_DMA_CCR_EN;
 	dma_write(l, CCR(lch));
+	spin_unlock_irqrestore(&dma_chan_lock, flags);
 
 	if (!omap_dma_in_1510_mode() && dma_chan[lch].next_lch != -1) {
 		int next_lch, cur_lch = lch;
