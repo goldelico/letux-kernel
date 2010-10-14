@@ -1350,10 +1350,30 @@ static int voltagescale_vpforceupdate(u32 target_opp, u32 current_opp,
 
 		vp_config_offs = OMAP3_PRM_VP1_CONFIG_OFFSET;
 		vp_tranxdone_st = OMAP3430_VP1_TRANXDONE_ST;
-		vpconfig = target_vsel << OMAP3430_INITVOLTAGE_SHIFT |
-				((target_opp_no < VDD1_OPP3)
-				? PRM_VP1_CONFIG_ERRORGAIN_OPPLOW
-				: PRM_VP1_CONFIG_ERRORGAIN_OPPHIGH);
+		vpconfig = target_vsel << OMAP3430_INITVOLTAGE_SHIFT;
+		if (cpu_is_omap3430()) {
+			vpconfig |= ((target_opp_no < VDD1_OPP3)
+					? PRM_VP1_CONFIG_ERRORGAIN_OPPLOW
+					: PRM_VP1_CONFIG_ERRORGAIN_OPPHIGH);
+		} else {
+			switch (target_opp_no) {
+			case VDD1_OPP1:
+				vpconfig |= PRM_VP1_CONFIG_ERRORGAIN_OPP1;
+				break;
+			case VDD1_OPP2:
+				vpconfig |= PRM_VP1_CONFIG_ERRORGAIN_OPP2;
+				break;
+			case VDD1_OPP3:
+				vpconfig |= PRM_VP1_CONFIG_ERRORGAIN_OPP3;
+				break;
+			case VDD1_OPP4:
+				vpconfig |= PRM_VP1_CONFIG_ERRORGAIN_OPP4;
+				break;
+			default:
+				pr_warning("VDD1:OPP[%d] not"
+						" supported\n", target_opp_no);
+			}
+		}
 		prm_rmw_mod_reg_bits(OMAP3430_VC_CMD_ON_MASK,
 				(target_vsel << OMAP3430_VC_CMD_ON_SHIFT),
 				OMAP3430_GR_MOD,
@@ -1361,10 +1381,24 @@ static int voltagescale_vpforceupdate(u32 target_opp, u32 current_opp,
 	} else if (vdd == VDD2_OPP) {
 		vp_config_offs = OMAP3_PRM_VP2_CONFIG_OFFSET;
 		vp_tranxdone_st = OMAP3430_VP2_TRANXDONE_ST;
-		vpconfig = target_vsel << OMAP3430_INITVOLTAGE_SHIFT |
-				((target_opp_no < VDD2_OPP3)
-				? PRM_VP2_CONFIG_ERRORGAIN_OPPLOW
-				: PRM_VP2_CONFIG_ERRORGAIN_OPPHIGH);
+		vpconfig = target_vsel << OMAP3430_INITVOLTAGE_SHIFT;
+		if (cpu_is_omap3430()) {
+			vpconfig |= ((target_opp_no < VDD2_OPP3)
+					? PRM_VP2_CONFIG_ERRORGAIN_OPPLOW
+					: PRM_VP2_CONFIG_ERRORGAIN_OPPHIGH);
+		} else {
+			switch (target_opp_no) {
+			case VDD1_OPP1:
+				vpconfig |= PRM_VP2_CONFIG_ERRORGAIN_OPP1;
+				break;
+			case VDD1_OPP2:
+				vpconfig |= PRM_VP2_CONFIG_ERRORGAIN_OPP2;
+				break;
+			default:
+				pr_warning("VDD2:OPP[%d] not"
+						" supported\n", target_opp_no);
+			}
+		}
 		prm_rmw_mod_reg_bits(OMAP3430_VC_CMD_ON_MASK,
 				(target_vsel << OMAP3430_VC_CMD_ON_SHIFT),
 				OMAP3430_GR_MOD,
