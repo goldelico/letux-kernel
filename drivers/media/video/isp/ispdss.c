@@ -37,6 +37,11 @@
 #include "ispresizer.h"
 #include <linux/ispdss.h>
 
+/**
+ * WA: Adjustment operation speed of ISP Resizer engine
+ */
+#define ISPDSS_RSZ_EXPAND_720p	16
+
 enum config_done {
 	STATE_CONFIGURED,		/* Resizer driver configured */
 	STATE_NOT_CONFIGURED	/* Resizer driver not configured */
@@ -287,6 +292,11 @@ int ispdss_begin(struct isp_node *pipe, u32 input_buffer_index,
 	init_completion(&dev_ctx.compl_isr);
 
 	isp_start(dev_ctx.isp);
+
+	/* WA: Slowdown ISP Resizer to reduce used memory bandwidth */
+	isp_reg_and_or(dev_ctx.isp, OMAP3_ISP_IOMEM_SBL, ISPSBL_SDR_REQ_EXP,
+		       ~ISPSBL_SDR_REQ_RSZ_EXP_MASK,
+		       ISPDSS_RSZ_EXPAND_720p << ISPSBL_SDR_REQ_RSZ_EXP_SHIFT);
 
 	ispresizer_enable(isp_res, 1);
 
