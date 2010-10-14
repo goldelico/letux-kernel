@@ -1641,6 +1641,8 @@ static int __init omap3_pm_init(void)
 	struct power_state *pwrst, *tmp;
 	int ret;
 
+	pm_errata_configure();
+
 	if (!cpu_is_omap34xx())
 		return -ENODEV;
 
