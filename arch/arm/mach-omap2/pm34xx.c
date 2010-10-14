@@ -489,24 +489,24 @@ void omap_sram_idle(void)
 		if (per_next_state < PWRDM_POWER_ON) {
 			omap_uart_prepare_idle(2);
 		omap2_gpio_prepare_for_idle(per_next_state);
-		if (per_next_state == PWRDM_POWER_OFF &&
+			if (per_next_state == PWRDM_POWER_OFF &&
 					pwrdm_can_idle(per_pwrdm)) {
-			if (core_next_state == PWRDM_POWER_ON) {
+				if (core_next_state == PWRDM_POWER_ON) {
+					per_next_state = PWRDM_POWER_RET;
+					pwrdm_set_next_pwrst(per_pwrdm,
+							per_next_state);
+					per_state_modified = 1;
+				} else
+					omap3_per_save_context();
+			} else {
 				per_next_state = PWRDM_POWER_RET;
-				pwrdm_set_next_pwrst(per_pwrdm,
-						per_next_state);
+				pwrdm_set_next_pwrst(per_pwrdm, per_next_state);
 				per_state_modified = 1;
-			} else
-				omap3_per_save_context();
-		} else {
-			per_next_state = PWRDM_POWER_RET;
-			pwrdm_set_next_pwrst(per_pwrdm, per_next_state);
-			per_state_modified = 1;
+			}
 		}
 	}
-}
 
-if (pwrdm_read_pwrst(cam_pwrdm) == PWRDM_POWER_ON)
+	if (pwrdm_read_pwrst(cam_pwrdm) == PWRDM_POWER_ON)
 		omap2_clkdm_deny_idle(mpu_pwrdm->pwrdm_clkdms[0]);
 
 #ifndef CONFIG_OMAP_SMARTREFLEX_CLASS1P5
@@ -597,8 +597,8 @@ if (pwrdm_read_pwrst(cam_pwrdm) == PWRDM_POWER_ON)
 		sdrc_write_reg(sdrc_pwr, SDRC_POWER);
 
 		/* Restore table entry modified during MMU restoration */
-if (pwrdm_read_prev_pwrst(mpu_pwrdm) == PWRDM_POWER_OFF)
-	restore_table_entry();
+	if (pwrdm_read_prev_pwrst(mpu_pwrdm) == PWRDM_POWER_OFF)
+		restore_table_entry();
 
 	if (IS_PM34XX_ERRATA(PER_WAKEUP_ERRATA_i582)) {
 		u32 coreprev_state = prm_read_mod_reg(CORE_MOD,
@@ -611,17 +611,17 @@ if (pwrdm_read_prev_pwrst(mpu_pwrdm) == PWRDM_POWER_OFF)
 			/*
 			 * We dont seem to have a real recovery
 			 * other than reset
-       */
+			 */
 			BUG();
 			/* let wdt Reset the device???????? - eoww */
 		}
 	}
 
-/* CORE */
-if (core_next_state < PWRDM_POWER_ON) {
-	core_prev_state = pwrdm_read_prev_pwrst(core_pwrdm);
-	if (core_prev_state == PWRDM_POWER_OFF) {
-		omap3_core_restore_context();
+	/* CORE */
+	if (core_next_state < PWRDM_POWER_ON) {
+		core_prev_state = pwrdm_read_prev_pwrst(core_pwrdm);
+		if (core_prev_state == PWRDM_POWER_OFF) {
+			omap3_core_restore_context();
 			omap3_prcm_restore_context();
 			omap3_sram_restore_context();
 			omap2_sms_restore_context();
@@ -692,10 +692,10 @@ if (core_next_state < PWRDM_POWER_ON) {
 					PWRDM_POWER_OFF);
 	}
 
-/* Disable IO-PAD and IO-CHAIN wakeup */
-if (core_next_state < PWRDM_POWER_ON) {
-	prm_clear_mod_reg_bits(OMAP3430_EN_IO, WKUP_MOD, PM_WKEN);
-	omap3_disable_io_chain();
+	/* Disable IO-PAD and IO-CHAIN wakeup */
+	if (core_next_state < PWRDM_POWER_ON) {
+		prm_clear_mod_reg_bits(OMAP3430_EN_IO, WKUP_MOD, PM_WKEN);
+		omap3_disable_io_chain();
 	}
 
 
@@ -1690,7 +1690,7 @@ static int __init omap3_pm_init(void)
 	 * IO-pad wakeup.  Otherwise it will unnecessarily waste power
 	 * waking up PER with every CORE wakeup - see
 	 * http://marc.info/?l=linux-omap&m=121852150710062&w=2
-   */
+	 */
 	pwrdm_add_wkdep(per_pwrdm, core_pwrdm);
 
 	if (IS_PM34XX_ERRATA(PER_WAKEUP_ERRATA_i582)) {
@@ -1703,7 +1703,7 @@ static int __init omap3_pm_init(void)
 	 * GPIO pad spurious transition (glitch/spike) upon wakeup
 	 * from SYSTEM OFF mode. The remaining fix is in:
 	 * omap3_gpio_save_context, omap3_gpio_restore_context.
-   */
+	 */
 	if (omap_rev() <= OMAP3430_REV_ES3_1)
 		pwrdm_add_wkdep(per_pwrdm, wkup_pwrdm);
 
