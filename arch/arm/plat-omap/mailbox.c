@@ -69,31 +69,24 @@ static inline int is_mbox_irq(struct omap_mbox *mbox, omap_mbox_irq_t irq)
 /*
  * message sender
  */
-static int __mbox_poll_for_space(struct omap_mbox *mbox)
-{
-	int ret = 0, i = 1000;
-
-	while (mbox_fifo_full(mbox)) {
-		if (--i == 0) {
-			printk(KERN_ERR "Mailbox FIFO full timed out\n");
-			return -1;
-		}
-		udelay(1);
-	}
-
-	return ret;
-}
-
-
 int omap_mbox_msg_send(struct omap_mbox *mbox, mbox_msg_t msg)
 {
 	struct omap_mbox_queue *mq = mbox->txq;
 	int ret = 0, len;
-	spin_lock_bh(&mq->lock);
 
+	spin_lock_bh(&mq->lock);
 	if ((FIFO_SIZE - (__kfifo_len(mq->fifo))) < sizeof(msg)) {
 		ret = -ENOMEM;
 		goto out;
+	}
+
+	if (!__kfifo_len(mq->fifo)) {
+		if (!mbox_fifo_full(mbox)) {
+			if (mbox->txq->callback)
+				ret = mbox->txq->callback(NULL);
+			mbox_fifo_write(mbox, msg);
+			goto out;
+		}
 	}
 
 	len = __kfifo_put(mq->fifo, (unsigned char *)&msg, sizeof(msg));
@@ -118,7 +111,7 @@ static void mbox_tx_tasklet(unsigned long tx_data)
 
 	while (__kfifo_len(mq->fifo)) {
 
-		if (__mbox_poll_for_space(mbox)) {
+		if (mbox_fifo_full(mbox)) {
 			omap_mbox_enable_irq(mbox, IRQ_TX);
 			break;
 		}
