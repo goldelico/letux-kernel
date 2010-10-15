@@ -19,7 +19,7 @@
  */
 #include <linux/kernel.h>
 #include <linux/init.h>
-#include <linux/serial_8250.h>
+#include <linux/console.h>
 #include <linux/serial_reg.h>
 #include <linux/clk.h>
 #include <linux/io.h>
@@ -286,6 +286,13 @@ static inline void omap_uart_enable_clocks(struct omap_uart_state *uart)
 static inline void omap_uart_disable_clocks(struct omap_uart_state *uart)
 {
 	if (!uart->clocked)
+		return;
+
+	/* NOTE : Even if the Uart Active is callec, it can happen at an
+	 * instance, the "omap_uart_active" would return 0, if the communi
+	 * cation is very fast.
+	 */
+	if (omap_is_console_port(uart->num) && omap_uart_active(uart->num))
 		return;
 
 	omap_uart_save_context(uart);
@@ -625,6 +632,23 @@ int omap_uart_cts_wakeup(int uart_no, int state)
 	return 0;
 }
 EXPORT_SYMBOL(omap_uart_cts_wakeup);
+
+/*
+ * This function would return the clocked state to
+ * other modules which are not aware if the clock
+ * states
+ */
+unsigned int omap_get_clock_state(int uart_num)
+{
+	struct omap_uart_state *uart;
+
+	list_for_each_entry(uart, &uart_list, node) {
+		if (uart_num == uart->num)
+			break;
+	}
+	return uart->clocked;
+}
+EXPORT_SYMBOL(omap_get_clock_state);
 
 /*
  * This function enabled clock. This is exported function
