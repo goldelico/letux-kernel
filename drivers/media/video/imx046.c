@@ -1442,6 +1442,30 @@ static int ioctl_priv_g_pixelsize(struct v4l2_int_device *s,
 }
 
 /**
+ * ioctl_priv_g_pixclk_active - V4L2 sensor interface handler
+ *                              for ioctl_priv_g_pixclk_active
+ * @s: pointer to standard V4L2 device structure
+ * @pixclk: pointer to unsigned 32 var to store pixelclk in HZ
+ *
+ * The function calculates optimal pixel clock which can use
+ * the data received from sensor complying with all the
+ * peculiarities of the sensors and the currently selected mode.
+ */
+static int ioctl_priv_g_pixclk_active(struct v4l2_int_device *s, u32 *pixclk)
+{
+	struct v4l2_rect full, active;
+	u32 sens_pixclk;
+
+	ioctl_priv_g_activesize(s, &active);
+	ioctl_priv_g_fullsize(s, &full);
+	ioctl_priv_g_pixclk(s, &sens_pixclk);
+
+	*pixclk = (sens_pixclk / full.width) * active.width;
+
+	return 0;
+}
+
+/**
  * ioctl_g_parm - V4L2 sensor interface handler for VIDIOC_G_PARM ioctl
  * @s: pointer to standard V4L2 device structure
  * @a: pointer to standard V4L2 VIDIOC_G_PARM ioctl structure
@@ -1786,6 +1810,8 @@ static struct v4l2_int_ioctl_desc imx046_ioctl_desc[] = {
 	  .func = (v4l2_int_ioctl_func *)ioctl_priv_g_fullsize },
 	{ .num = vidioc_int_priv_g_pixelsize_num,
 	  .func = (v4l2_int_ioctl_func *)ioctl_priv_g_pixelsize },
+	{ .num = vidioc_int_priv_g_pixclk_active_num,
+	  .func = (v4l2_int_ioctl_func *)ioctl_priv_g_pixclk_active },
 };
 
 static struct v4l2_int_slave imx046_slave = {

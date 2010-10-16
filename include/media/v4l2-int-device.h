@@ -240,6 +240,8 @@ enum v4l2_int_ioctl_num {
 	vidioc_int_priv_g_fullsize_num,
 	/* VIDIOC_INT_PRIV_G_PIXELSIZE */
 	vidioc_int_priv_g_pixelsize_num,
+	/* VIDIOC_INT_PRIV_G_PIXCLK_ACTIVE */
+	vidioc_int_priv_g_pixclk_active_num,
 };
 
 /*
@@ -322,4 +324,5 @@ V4L2_INT_WRAPPER_1(priv_g_pixclk, u32, *);
 V4L2_INT_WRAPPER_1(priv_g_activesize, struct v4l2_rect, *);
 V4L2_INT_WRAPPER_1(priv_g_fullsize, struct v4l2_rect, *);
 V4L2_INT_WRAPPER_1(priv_g_pixelsize, struct v4l2_rect, *);
+V4L2_INT_WRAPPER_1(priv_g_pixclk_active, u32, *);
 #endif
