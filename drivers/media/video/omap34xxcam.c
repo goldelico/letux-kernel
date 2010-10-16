@@ -655,6 +655,7 @@ static int s_pix_parm(struct omap34xxcam_videodev *vdev,
 	struct v4l2_streamparm a;
 	struct v4l2_format fmt;
 	struct v4l2_format old_fmt;
+	u32 pixclk = 0;
 	int rval;
 
 	rval = try_pix_parm(vdev, best_pix, pix, best_ival);
@@ -676,6 +677,9 @@ static int s_pix_parm(struct omap34xxcam_videodev *vdev,
 	a.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	a.parm.capture.timeperframe = *best_ival;
 	rval = vidioc_int_s_parm(vdev->vdev_sensor, &a);
+
+	vidioc_int_priv_g_pixclk_active(vdev->vdev_sensor, &pixclk);
+	isp_set_ccdc_vp_clock(isp, pixclk);
 
 	return rval;
 }
