@@ -203,7 +203,6 @@ struct isp_interface_config {
 	int wait_hs_vs;
 	u32 cam_mclk;
 	enum ispccdc_raw_fmt raw_fmt_in;
-	unsigned int pixelclk;
 	union {
 		struct par {
 			unsigned par_bridge:2;
@@ -419,6 +418,7 @@ struct isp_device {
 	struct isp_pipeline pipeline;
 	u32 interrupts;
 	u32 mclk;
+	u32 ccdc_clk;
 	enum isp_running running;
 
 	/* ISP modules */
@@ -476,6 +476,8 @@ int isp_set_callback(struct device *dev, enum isp_callback_type type,
 int isp_unset_callback(struct device *dev, enum isp_callback_type type);
 
 u32 isp_set_xclk(struct device *dev, u32 xclk, u8 xclksel);
+
+void isp_set_ccdc_vp_clock(struct device *dev, u32 ccdc_clk);
 
 int isp_configure_interface(struct device *dev,
 			    struct isp_interface_config *config);

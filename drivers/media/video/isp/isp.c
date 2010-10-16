@@ -447,14 +447,21 @@ static void isp_adjust_bandwidth(struct device *dev)
 		ispccdc_config_vp_freq(&isp->isp_ccdc, deviders->ccdc_div);
 	} else {
 		/* Make adjustment depending of the pixel clock */
-		unsigned long pixelclk = isp->config->pixelclk;
+		unsigned long pixelclk = isp->ccdc_clk;
 		unsigned long l3_ick = clk_get_rate(isp->l3_ick);
 		unsigned long div = 2;
+
 		/* Calculate devider and clamp result between 0 and 64 */
-		if (l3_ick && pixelclk)
-			div = clamp_t(unsigned long, l3_ick / pixelclk, 0,
+		if (l3_ick && pixelclk) {
+			div = clamp_t(unsigned long, l3_ick / pixelclk, 2,
 				      (ISPCCDC_FMTCFG_VPIF_FRQ_MASK >>
 				      ISPCCDC_FMTCFG_VPIF_FRQ_SHIFT) + 1);
+
+			/* Feedback control */
+			if ((div > 2) && ((l3_ick / div) < pixelclk))
+				div--;
+		}
+
 		/* The range of register value is a 2..62 */
 		ispccdc_config_vp_freq(&isp->isp_ccdc, div - 2);
 	}
@@ -2644,6 +2651,25 @@ int isp_try_fmt_cap(struct device *dev, struct v4l2_pix_format *pix_input,
 	return 0;
 }
 EXPORT_SYMBOL(isp_try_fmt_cap);
+
+/**
+ * isp_set_ccdc_vp_clock - Set adjust CCDC Video Port clock
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ * @ccdc_clk: Clock suitable for the current sensor mode.
+ **/
+void isp_set_ccdc_vp_clock(struct device *dev, u32 ccdc_clk)
+{
+	struct isp_device *isp = dev_get_drvdata(dev);
+	unsigned long l3_ick = clk_get_rate(isp->l3_ick);
+
+	if (ccdc_clk == 0)
+		ccdc_clk = l3_ick / 2;
+
+	isp->ccdc_clk = clamp_t(u32, ccdc_clk, l3_ick / 64, l3_ick / 2);
+
+	return;
+}
+EXPORT_SYMBOL(isp_set_ccdc_vp_clock);
 
 /**
  * isp_save_ctx - Saves ISP, CCDC, HIST, H3A, PREV, RESZ & MMU context.
