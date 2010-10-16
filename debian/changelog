@@ -1,0 +1,274 @@
+linux-2.6-openmoko (20100313.git973a41fc-1) pkg-fso; urgency=low
+
+  * New upstream snapshot
+  * Add delay_patch.diff to further workaround WLAN problems
+  - http://docs.openmoko.org/trac/ticket/2327
+  * Add touchscreen_ignoreunexpectedintr29.patch
+  - http://docs.openmoko.org/trac/ticket/2328
+
+ -- Timo Jyrinki <timo@debian.org>  Sat, 07 Aug 2010 11:00:24 +0300
+
+linux-2.6-openmoko (20100118.gita15608f2-4) UNRELEASED; urgency=low
+
+  * ext3 is compiled in again to support ext3 root-filesystems
+    until we get a kernel with initrd support.
+  * same for jffs2
+  * planned to be compiled as module:
+     + CONFIG_RTC_DRV_PCF50633=y
+     + CONFIG_DISPLAY_JBT6K74=y
+     + FRAMEBUFFER=y
+     + MFD_GLAMO=y
+     + CONFIG_CHARGER_PCF50633=y
+     + CONFIG_BATTERY_BQ27000_HDQ=y
+     + CONFIG_INPUT_PCF50633_PMU=y
+
+ -- Sebastian Reichel <elektranox@gmail.com>  Wed, 03 Mar 2010 00:25:52 +0100
+
+linux-2.6-openmoko (20100118.gita15608f2-3) pkg-fso; urgency=low
+
+  * Add RTC read fix
+  * Debian Standards Version 3.8.0 -> 3.8.4
+
+ -- Sebastian Reichel <elektranox@gmail.com>  Tue, 23 Feb 2010 21:11:13 +0100
+
+linux-2.6-openmoko (20100118.gita15608f2-2) pkg-fso; urgency=low
+
+  * debian/config.gta02:
+   + CONFIG_SYSFS_DEPRECATED_V2 is not set
+   + CONFIG_KEYBOARD_NEO1973=m
+   + CONFIG_LEDS_NEO1973_GTA02=m
+   + CONFIG_INPUT_LIS302DL=m
+   + usb stuff is compiled as modules
+   + hid stuff is compiled as modules
+   + addded ubifs support (module)
+   + ext3 is now a module
+
+ -- Sebastian Reichel <elektranox@gmail.com>  Sat, 13 Feb 2010 00:25:10 +0100
+
+linux-2.6-openmoko (20100118.gita15608f2-1) pkg-fso; urgency=low
+
+  * New git checkout
+  * debian/config.gta02:
+   + disable debug output
+   + disable kernel preemption
+   + disable mtd write verification
+   + disable android stuff
+   + disable CONFIG_SYSFS_DEPRECATED
+
+ -- Sebastian Reichel <elektranox@gmail.com>  Mon, 18 Jan 2010 19:17:56 +0100
+
+linux-2.6-openmoko (20090702.gitd1c828aa-3) pkg-fso; urgency=low
+
+  * debian/config.gta02:
+    + CONFIG_NLS*=m and CONFIG_NLS_DEFAULT="utf8".
+    + CONFIG_BLK_DEV_MD=m, CONFIG_MD*=m and CONFIG_XOR_BLOCKS=m.
+    + CONFIG_DM_*=m.
+    + CONFIG_SCSI_DH*=m.
+    + CONFIG_FAT_DEFAULT_IOCHARSET="utf8".
+    + CONFIG_BLK_DEV_NBD=m.
+    + CONFIG_BLK_DEV_CRYPTOLOOP=m.
+
+ -- Luca Capello <luca@pca.it>  Fri, 24 Jul 2009 19:04:49 +0200
+
+linux-2.6-openmoko (20090702.gitd1c828aa-2) pkg-fso; urgency=low
+
+  * debian/config.gta02:
+    + CONFIG_TASKSTAT=y, CONFIG_TASK_DELAY_ACCT=y, CONFIG_TASK_XACCT=y
+      and CONFIG_TASK_IO_ACCOUNTING=y.
+    + CONFIG_MFD_GLAMO_FB_XGLAMO_WORKAROUND is not set.
+    + CONFIG_INPUT_EVDEV=m.
+    + CONFIG_USB_USBNET=m.
+    + CONFIG_RFKILL=m and CONFIG_RFKILL_INPUT=m.
+    + CONFIG_FS_MBCACHE=m.
+  * debian/postinst.in:
+    + generate the depmod modules.* files when configuring.
+  * debian/prerm.in:
+    - remove the depmod modules.* files when removing or upgrading.
+  * debian/rules:
+    + install the System.map.
+
+ -- Luca Capello <luca@pca.it>  Thu, 23 Jul 2009 13:59:23 +0200
+
+linux-2.6-openmoko (20090702.gitd1c828aa-1) pkg-fso; urgency=low
+
+  * New Git checkout.
+
+ -- Luca Capello <luca@pca.it>  Sun, 19 Jul 2009 18:07:16 +0200
+
+linux-2.6-openmoko (20090610.gitd7ac922b-2) pkg-fso; urgency=low
+
+  * debian/config.gta02:
+    + merge arch/arm/configs/gta02_moredrivers_defconfig.
+    + CONFIG_EXT4_FS=m and CONFIG_EXT4_FS_POSIX_ACL=y.
+    - CONFIG_MTD_PHYSMAP_START, CONFIG_MTD_PHYSMAP_LEN and
+      CONFIG_MTD_PHYSMAP_BANKWIDTH removed, it is better to
+      set them at run-time.
+    - CONFIG_DM9102 removed, useless.
+    - CONFIG_NR_TTY_DEVICES removed, no limit on Debian.
+    - CONFIG_LOCALVERSION_AUTO is not set.
+    - CONFIG_MMC_SDHCI is not set, this kind of hardware does not
+      exist on the Samsung's S3C24XX SoC CPUs.
+    - remove leftover CONFIG_REISERFS_FS comment.
+  * debian/control:
+    + use the full GTA02 name in the Description:.
+
+ -- Luca Capello <luca@pca.it>  Mon, 15 Jun 2009 10:26:56 +0200
+
+linux-2.6-openmoko (20090610.gitd7ac922b-1) pkg-fso; urgency=low
+
+  * New Git checkout.
+  * debian/config.gta02:
+    - CONFIG_POWER_SUPPLY_DEBUG is not set.
+    - CONFIG_RTC_DEBUG is not set.
+  * debian/gbp.conf:
+    + always use pristine-tar.
+
+ -- Luca Capello <luca@pca.it>  Thu, 11 Jun 2009 09:40:40 +0200
+
+linux-2.6-openmoko (20090303.gitb9de904e-2) pkg-fso; urgency=low
+
+  * debian/rules:
+    - remove /lib/firmware/ from the linux-image-2.6.29-openmoko-gta02
+      package, these binary blobs do not belong there.
+
+ -- Luca Capello <luca@pca.it>  Thu, 19 Mar 2009 01:37:53 +0100
+
+linux-2.6-openmoko (20090303.gitb9de904e-1) pkg-fso; urgency=low
+
+  * New Git Checkout:
+    + back to use the first 8 digits to identify the Git commit
+      (Philipp was correct, it seems this is the standard).
+    + now at Linux kernel version 2.6.29.
+  * debian/control:
+    + s/2.6.28/2.6.29/ in binary package name and description.
+  * debian/rules:
+    + s/2.6.28/2.6.29/ in VERSION_FULL.
+
+ -- Luca Capello <luca@pca.it>  Fri, 13 Mar 2009 01:51:45 +0100
+
+linux-2.6-openmoko (20090105.git69b2aa26-3) pkg-fso; urgency=low
+
+  * debian/config.gta02:
+    + CONFIG_AR6000_WLAN=m.
+    + CONFIG_IP_SCTP=m.
+  * debian/postinst:
+    + s/vmlinuz/uImage.bin/.
+  * debian/prerm:
+    + s/vmlinuz/uImage.bin/.
+  * debian/rules:
+    + s/vmlinuz/uImage.bin/g, since the resulting binary is a
+      U-Boot image and no more a Linux kernel executable.
+
+ -- Luca Capello <luca@pca.it>  Tue, 03 Mar 2009 09:28:42 +0100
+
+linux-2.6-openmoko (20090105.git69b2aa26-2) pkg-fso; urgency=low
+
+  * debian/rules:
+    + s/2.6.24/2.6.28/ in VERSION_FULL.
+
+ -- Luca Capello <luca@pca.it>  Tue, 10 Feb 2009 01:52:12 +0100
+
+linux-2.6-openmoko (20090105.git69b2aa26-1) pkg-fso; urgency=low
+
+  * New Git Checkout:
+    + milestone5.
+    + switch to the upstream 'andy-tracking' branch, which also
+      means that the Linux kernel is now at version 2.6.28.
+  * debian/control:
+    + s/2.6.24/2.6.28/ in binary package name and description.
+  * debian/config.gta02:
+    + new file from the /proc/config.gz of the FSO-MS5 image.
+  * debian/rules:
+    + adapt to the new location for the GTA02 config file.
+
+ -- Luca Capello <luca@pca.it>  Thu, 05 Feb 2009 16:38:17 +0100
+
+linux-2.6-openmoko (20081103.git7172ec57-2) pkg-fso; urgency=low
+
+  * This version explicitly does not support vfat /boot partition
+    anymore, since dpkg does not support non-POSIX filesystems.
+  * debian/postinst:
+    + create the uImage.bin symlink.
+  * debian/prerm:
+    - remove the uImage.bin symlink.
+  * debian/rules:
+    + fill in the Debian version in postinst.in and prerm.in.
+    - remove postinst and prerm at clean target.
+    - do not install uImage.bin in order to preserve space, thanks to
+      Timo Juhani Lindfors <timo.lindfors@iki.fi>.
+
+ -- Luca Capello <luca@pca.it>  Wed, 17 Dec 2008 13:29:33 +0100
+
+linux-2.6-openmoko (20081103.git7172ec57-1) pkg-fso; urgency=low
+
+  * New Git Checkout:
+    + milestone4.
+  * debian/patches/series: update.
+  * debian/patches/01_fix-timespec_add_ns-in-time.h.patch:
+    - remove, applied uptream.
+
+ -- Luca Capello <luca@pca.it>  Wed, 12 Nov 2008 19:02:43 +0100
+
+linux-2.6-openmoko (20080903.git2ea34171-2) pkg-fso; urgency=low
+
+  * debian/rules:
+    + correctly capitalize FreeRunner in uImage name.
+    + s/Openmoko/Debian/ in uImage name.
+    + s/VERSION/VERSION_EXTRA/ since it's used as make's EXTRAVERSION.
+    + new variable VERSION_FULL which reflects the real Linux kernel
+      version (VERSION-PATCHLEVEL-SUBLEVEL) and it's used to identify
+      the vmlinuz image, thus the latter and the modules directory
+      use the same version.
+    + install .config in /boot.
+
+ -- Luca Capello <luca@pca.it>  Fri, 24 Oct 2008 20:39:43 +0200
+
+linux-2.6-openmoko (20080903.git2ea34171-1) pkg-fso; urgency=low
+
+  * New Git Checkout:
+    + milestone3.
+    + use the last 8 digits to identify the Git commit.
+
+  * debian/rules:
+    + uImage.bin must be a real file, vfat partitions don't support
+      symlinks, thanks to Michele Renda <michele.renda@gmail.com>.
+
+ -- Luca Capello <luca@pca.it>  Tue, 21 Oct 2008 15:43:20 +0200
+
+linux-2.6-openmoko (20080808.git43620428-2) pkg-fso; urgency=low
+
+  * debian/control:
+    + reword the team name.
+    + add myself to Uploaders:.
+    + add Vcs-* fields.
+    + Build-Depends: on quilt.
+    + use upstream clean target.
+    + clean uImage files.
+    - remove gcc-4.1 from Build-Depends:.
+
+  * debian/copyright:
+    + link to the GPL-2 file.
+    + add Debian packaging section.
+    + add myself for the Debian packaging.
+
+  * debian/patches/series: new file.
+  * debian/patches/01_fix-timespec_add_ns-in-time.h.patch:
+    + backport upstream fix for missing __udivdi3, Openmoko kernel
+      commit 38332cb98772f5ea757e6486bed7ed0381cb5f98.
+
+  * debian/rules:
+    + correct typo s/ARM/ARCH/.
+    + add missing \ for modules_install.
+    + adapt to quilt.
+    + install uImage.
+    - don't build with gcc-4.1.
+
+ -- Luca Capello <luca@pca.it>  Sun, 19 Oct 2008 15:01:13 +0200
+
+linux-2.6-openmoko (20080808.git43620428-1) experimental; urgency=low
+
+  * Initial release of a kernel package building uboot images suitable
+    for use on the Neo Freerunner and corresponding modules.
+
+ -- Philipp Kern <pkern@debian.org>  Fri, 08 Aug 2008 02:14:25 -0300
+

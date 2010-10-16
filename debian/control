@@ -1,0 +1,20 @@
+Source: linux-2.6-openmoko
+Section: devel
+Priority: extra
+Maintainer: Debian FreeSmartphone.Org Team <pkg-fso-maint@lists.alioth.debian.org>
+Uploaders: Philipp Kern <pkern@debian.org>, Joachim Breitner <nomeata@debian.org>, Jan Lübbe <jluebbe@debian.org>, Luca Capello <luca@pca.it>, Sebastian Reichel <elektranox@gmail.com>, Timo Jyrinki <timo@debian.org>
+Standards-Version: 3.8.4
+Build-Depends: debhelper (>= 7), quilt (>= 0.40), uboot-mkimage
+Vcs-Git: http://git.debian.org/git/pkg-fso/linux-2.6-openmoko.git
+Vcs-Browser: http://git.debian.org/?p=pkg-fso/linux-2.6-openmoko.git;a=summary
+
+Package: linux-image-2.6.29-openmoko-gta02
+Architecture: armel
+Section: admin
+Depends: module-init-tools
+Description: Linux 2.6.29 kernel image for Openmoko GTA02 Neo FreeRunner
+ This package provides the binary image and pre-built loadable modules for
+ Linux kernel 2.6.29 on the Openmoko GTA02 Neo FreeRunner as shipped by
+ Openmoko.  The kernel is based upon Openmoko's patch set and thus
+ supports all hardware components in the device.
+

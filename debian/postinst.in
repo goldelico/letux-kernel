@@ -1,0 +1,18 @@
+#!/bin/sh
+
+set -e
+
+VERSION=@PACKAGE_VERSION@
+
+# Create the /boot/uImage.bin symlink
+if [ "$1" = "configure" ]; then
+    UBOOT_IMAGE=/boot/uImage.bin
+    if [ ! -e "$UBOOT_IMAGE" ]; then
+	cd /boot && ln -s uImage.bin-"$VERSION" "$UBOOT_IMAGE"
+    fi
+fi
+
+# Generate the depmod modules.* files
+if [ "$1" = "configure" ]; then
+    depmod -a -F "/boot/System.map-$VERSION" "$VERSION"
+fi

@@ -1,0 +1,96 @@
+#!/usr/bin/make -f
+
+include /usr/share/quilt/quilt.make
+
+
+export DH_VERBOSE=1
+
+VERSION_EXTRA=$(shell dpkg-parsechangelog | sed -n 's/^Version: //p' | sed -e 's/-[^-]*//')
+VERSION_FULL=2.6.29-$(VERSION_EXTRA)
+
+
+build: build-stamp
+build-stamp: $(QUILT_STAMPFN)
+	dh_testdir
+
+	# Configure the kernel for the Freerunner.
+	cp debian/config.gta02 .config
+	yes "" | $(MAKE) ARCH=arm oldconfig
+
+	$(MAKE) ARCH=arm EXTRAVERSION=-$(VERSION_EXTRA)
+
+	# Prepare postinst/prerm
+	for I in postinst prerm; do \
+		sed -e 's/@PACKAGE_VERSION@/${VERSION_FULL}/' debian/$$I.in >debian/$$I; \
+	done
+
+	touch build-stamp
+
+clean: unpatch
+	dh_testdir
+	dh_testroot
+	rm -f build-stamp debian/postinst debian/prerm
+
+	rm -f .config* linux.bin uImage.bin-$(VERSION_FULL)
+
+	# Add here commands to clean up after the build process.
+	$(MAKE) clean
+	#$(MAKE) distclean
+
+	dh_clean
+
+install: install-stamp
+install-stamp: build
+	dh_testdir
+	dh_testroot
+	dh_prep
+	dh_installdirs
+
+	# Generate the uImage.
+	objcopy -O binary -R .note -R .comment \
+		-S arch/arm/boot/compressed/vmlinux linux.bin
+	mkimage -A arm -O linux -T kernel -C none -a 30008000 \
+		-e 30008000 -n "Debian FreeRunner Kernel" -d linux.bin \
+		uImage.bin-$(VERSION_FULL)
+
+	# Install the uImage (this is an ugly hack, I know)
+	mkdir `pwd`/debian/`dh_listpackages`/boot/
+	cp uImage.bin-$(VERSION_FULL) `pwd`/debian/`dh_listpackages`/boot/
+
+	# Install the System.map
+	cp System.map `pwd`/debian/`dh_listpackages`/boot/System.map-$(VERSION_FULL)
+
+	# Install the modules.
+	$(MAKE) INSTALL_MOD_STRIP=1 \
+		INSTALL_MOD_PATH=`pwd`/debian/`dh_listpackages`/ \
+		modules_install
+
+	# Install the config file
+	cp .config `pwd`/debian/`dh_listpackages`/boot/config-$(VERSION_FULL)
+
+	# Remove binary blobs
+	rm -rf `pwd`/debian/`dh_listpackages`/lib/firmware
+
+	touch install-stamp
+
+# Build architecture-independent files here.
+binary-indep: build install
+# We have nothing to do by default.
+
+# Build architecture-dependent files here.
+binary-arch: build install
+	dh_testdir
+	dh_testroot
+	dh_installchangelogs
+	dh_install
+	dh_link
+	dh_strip
+	dh_compress
+	dh_fixperms
+	dh_installdeb
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+
+binary: binary-indep binary-arch
+.PHONY: build clean binary-indep binary-arch binary install
