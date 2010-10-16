@@ -6,7 +6,7 @@ include /usr/share/quilt/quilt.make
 export DH_VERBOSE=1
 
 VERSION_EXTRA=$(shell dpkg-parsechangelog | sed -n 's/^Version: //p' | sed -e 's/-[^-]*//')
-VERSION_FULL=2.6.29-$(VERSION_EXTRA)
+VERSION_FULL=2.6.34-$(VERSION_EXTRA)
 
 
 build: build-stamp
@@ -14,7 +14,7 @@ build-stamp: $(QUILT_STAMPFN)
 	dh_testdir
 
 	# Configure the kernel for the Freerunner.
-	cp debian/config.gta02 .config
+	cp -f debian/config.gta02 .config
 	yes "" | $(MAKE) ARCH=arm oldconfig
 
 	$(MAKE) ARCH=arm EXTRAVERSION=-$(VERSION_EXTRA)

@@ -8,13 +8,14 @@ Build-Depends: debhelper (>= 7), quilt (>= 0.40), uboot-mkimage
 Vcs-Git: http://git.debian.org/git/pkg-fso/linux-2.6-openmoko.git
 Vcs-Browser: http://git.debian.org/?p=pkg-fso/linux-2.6-openmoko.git;a=summary
 
-Package: linux-image-2.6.29-openmoko-gta02
+Package: linux-image-2.6.34-openmoko-gta02
 Architecture: armel
 Section: admin
 Depends: module-init-tools
-Description: Linux 2.6.29 kernel image for Openmoko GTA02 Neo FreeRunner
+Description: Linux 2.6.34 kernel image for Openmoko GTA02 Neo FreeRunner
  This package provides the binary image and pre-built loadable modules for
- Linux kernel 2.6.29 on the Openmoko GTA02 Neo FreeRunner as shipped by
- Openmoko.  The kernel is based upon Openmoko's patch set and thus
- supports all hardware components in the device.
+ Linux kernel 2.6.34 on the Openmoko GTA02 Neo FreeRunner as shipped by
+ Qtmoko distribution (which is a Debian derivative with manually added 
+ Qt Extended). The kernel is based upon the patch set developed at 
+ git.openmoko.org and thus supports all hardware components in the device.
 

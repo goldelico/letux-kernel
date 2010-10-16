@@ -1,3 +1,8 @@
+linux-2.6-openmoko (20100921.gitec52149c-1) pkg-fso; urgency=low
+
+  * New 2.6.34 kernel snapshot from Qtmoko developer branch
+  * Enable LEDs in configuration
+
 linux-2.6-openmoko (20100313.git973a41fc-1) pkg-fso; urgency=low
 
   * New upstream snapshot
