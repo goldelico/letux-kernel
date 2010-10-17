@@ -1,3 +1,9 @@
+linux-2.6-openmoko (20100921.gitec52149c-2) pkg-fso; urgency=low
+
+  * Fix local version
+
+ -- Timo Jyrinki <timo@debian.org>  Sun, 17 Oct 2010 11:25:15 +0000
+
 linux-2.6-openmoko (20100921.gitec52149c-1) pkg-fso; urgency=low
 
   * New 2.6.34 kernel snapshot from Qtmoko developer branch
