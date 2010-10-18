@@ -327,6 +327,13 @@ config VMWARE_BALLOON
 	  To compile this driver as a module, choose M here: the
 	  module will be called vmware_balloon.
 
+config OPENMOKO_RESUME_REASON
+	tristate "Openmoko resume reason driver"
+	depends on SYSFS
+	help
+	  This driver adds a sysfs entry for accessing the resume reason
+          of the openmoko board.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
