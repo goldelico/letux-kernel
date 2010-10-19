@@ -1369,6 +1369,9 @@ static int voltagescale_vpforceupdate(u32 target_opp, u32 current_opp,
 			case VDD1_OPP4:
 				vpconfig |= PRM_VP1_CONFIG_ERRORGAIN_OPP4;
 				break;
+			case VDD1_OPP5:
+				vpconfig |= PRM_VP1_CONFIG_ERRORGAIN_OPP4;
+				break;
 			default:
 				pr_warning("VDD1:OPP[%d] not"
 						" supported\n", target_opp_no);

@@ -340,6 +340,7 @@ static void sr_add_margin_steps(struct omap_sr *sr)
 		sr1_opp_margin[i] = sr_margin_steps;
 
 	sr1_opp_margin[4] = sr_margin_steps_1g;
+	sr1_opp_margin[5] = sr_margin_steps_1g;
 
 	for (i = 1; i <= MAX_VDD1_OPP; i++) {
 		printk(KERN_INFO "sr1_opp_margin[%d]=%ld\n", i,
@@ -418,6 +419,16 @@ static void sr_set_efuse_nvalues(struct omap_sr *sr)
 	if (sr->srid == SR1) {
 		if (cpu_is_omap3630()) {
 			sr->senn_mod = sr->senp_mod = 0x1;
+
+			sr->opp5_nvalue = sr1_opp[5] =
+			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP5_VDD1);
+			if (sr->opp5_nvalue != 0x0) {
+				pr_info("SR1:Fused Nvalues for VDD1OPP5 %x\n",
+							sr->opp5_nvalue);
+			} else {
+				pr_info(KERN_INFO "SR: Nvalues not fused for"
+							"1.2G, disabled\n");
+			}
 
 			sr->opp4_nvalue = sr1_opp[4] =
 			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP4_VDD1);
@@ -577,6 +588,9 @@ static void sr_configure_vp(int srid)
 			case VDD1_OPP4:
 				vpconfig |= PRM_VP1_CONFIG_ERRORGAIN_OPP4;
 				break;
+			case VDD1_OPP5:
+				vpconfig |= PRM_VP1_CONFIG_ERRORGAIN_OPP4;
+				break;
 			default:
 				pr_warning("VDD1:OPP[%d] not"
 						" supported\n", target_opp_no);
@@ -714,6 +728,9 @@ static void sr_configure(struct omap_sr *sr, u32 target_opp)
 				errmin |= SR1_ERRMINLIMIT_OPP3;
 				break;
 			case VDD1_OPP4:
+				errmin |= SR1_ERRMINLIMIT_OPP4;
+				break;
+			case VDD1_OPP5:
 				errmin |= SR1_ERRMINLIMIT_OPP4;
 				break;
 			default:
@@ -1459,6 +1476,10 @@ int sr_voltagescale_vcbypass(u32 target_opp, u32 current_opp,
 					 PRM_VP1_CONFIG_ERRORGAIN_OPP3;
 				break;
 			case VDD1_OPP4:
+				error_gain |=
+					 PRM_VP1_CONFIG_ERRORGAIN_OPP4;
+				break;
+			case VDD1_OPP5:
 				error_gain |=
 					 PRM_VP1_CONFIG_ERRORGAIN_OPP4;
 				break;
