@@ -189,6 +189,18 @@ const struct omap_opp *omap_pm_dsp_get_opp_table(void)
 	return dsp_opps;
 }
 
+static struct device dummy_vdd1_dev;
+void omap_pm_vdd1_set_max_opp(u8 opp_id)
+{
+	pr_debug("OMAP PM: requests constraint for max OPP ID\n");
+
+	if (opp_id != 0)
+		resource_request("vdd1_max", &dummy_vdd1_dev, opp_id);
+	 else
+		resource_request("vdd1_max", &dummy_vdd1_dev, MAX_VDD1_OPP);
+}
+EXPORT_SYMBOL(omap_pm_vdd1_set_max_opp);
+
 void omap_pm_dsp_set_min_opp(struct device *dev, unsigned long f)
 {
 	u8 opp_id;
