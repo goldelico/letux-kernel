@@ -971,9 +971,6 @@ serial_omap_console_write(struct console *co, const char *s,
 	struct uart_omap_port *up = serial_omap_console_ports[co->index];
 	unsigned int ier;
 
-	if (!omap_get_clock_state(up->pdev->id))
-		return;
-
 	spin_lock(&up->port.lock);
 	/*
 	 * First save the IER then disable the interrupts
@@ -1091,9 +1088,6 @@ serial_omap_suspend(struct platform_device *pdev, pm_message_t state)
 static int serial_omap_resume(struct platform_device *dev)
 {
 	struct uart_omap_port *up = platform_get_drvdata(dev);
-
-	if (omap_is_console_port(up->pdev->id))
-		wake_lock_timeout(&omap_serial_wakelock, 5 * HZ);
 
 	if (up)
 		uart_resume_port(&serial_omap_reg, &up->port);
@@ -1436,19 +1430,6 @@ void omap_uart_mdr1_errataset(int uart_no, u8 mdr1_val,
 }
 EXPORT_SYMBOL(omap_uart_mdr1_errataset);
 
-/*
- * This function would check if the UART is being used
- * as a console or not.
- */
-bool omap_is_console_port(int num)
-{
-	struct uart_omap_port *up = ui[num];
-	struct uart_port *port = &(up->port);
-
-	return port->cons && port->cons->index == port->line;
-}
-EXPORT_SYMBOL(omap_is_console_port);
-
 /**
  * omap_uart_active() - Check if any ports managed by this
  * driver are currently busy.
@@ -1472,7 +1453,7 @@ int omap_uart_active(int num)
 
 	/* check for recent driver activity */
 	/* if from now to last activty < 5 second keep clocks on */
-	if ((jiffies_to_msecs(jiffies - up->port_activity) < 2000))
+	if ((jiffies_to_msecs(jiffies - up->port_activity) < 5000))
 		return 1;
 
 	xmit = &up->port.state->xmit;
