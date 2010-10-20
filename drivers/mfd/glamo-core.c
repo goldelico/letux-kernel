@@ -160,6 +160,19 @@ static void reg_set_bit_mask(struct glamo_core *glamo,
 	spin_unlock(&glamo->lock);
 }
 
+
+
+static void reg_checkandset_bit_mask(struct glamo_core *glamo,
+				uint16_t reg, uint16_t mask,
+				uint16_t val, uint16_t check)
+{
+	spin_lock(&glamo->lock);
+	if (__reg_read(glamo, reg) & mask == check)
+	    __reg_set_bit_mask(glamo, reg, mask, val);
+	spin_unlock(&glamo->lock);
+}
+
+
 static inline void __reg_set_bit(struct glamo_core *glamo,
 				 uint16_t reg, uint16_t bit)
 {
@@ -168,6 +181,49 @@ static inline void __reg_set_bit(struct glamo_core *glamo,
 	tmp |= bit;
 	__reg_write(glamo, reg, tmp);
 }
+
+void glamo_pixclock_slow (struct glamo_core *glamo) 
+{
+	
+	int x, lastx = 0;
+	int timeout = 1000000;
+	int threshold = 5;
+	int fa;
+
+ 	int evcnt = 0;
+
+	for (fa = 0; fa < timeout; fa++) {
+		x = glamo_reg_read(glamo, 0x1100 + GLAMO_REG_LCD_STATUS1) & 0x3ff;
+
+
+		if (x == lastx) {
+			evcnt++;
+			if (evcnt == threshold)
+				break;
+		} else {
+			evcnt = 0;
+			lastx = x;
+		}		
+	}
+	if (fa == timeout) {
+		printk (KERN_WARNING "Glamo: Error waiting for stable x position.\n");
+	}
+
+	/* then, make glamo slower */
+	/* it's not a problems if in rare case we do not slow down glamo properly
+	   as all we'll get in that case is singe jittered value */
+	
+	glamo->slowed_divider = glamo_reg_read (glamo, 0x36) & 0xFF;
+	reg_set_bit_mask (glamo, 0x36, 0xFF, 0xFF);
+
+}
+
+void glamo_pixclock_fast (struct glamo_core *glamo) 
+{
+	reg_checkandset_bit_mask (glamo, 0x36, 0xFF, glamo->slowed_divider, 0xFF);
+}
+EXPORT_SYMBOL_GPL(glamo_pixclock_fast);
+EXPORT_SYMBOL_GPL(glamo_pixclock_slow);
 
 static inline void __reg_clear_bit(struct glamo_core *glamo,
 					uint16_t reg, uint16_t bit)
@@ -929,6 +985,7 @@ static int __devinit glamo_probe(struct platform_device *pdev)
 	glamo->irq = platform_get_irq(pdev, 0);
 	glamo->irq_base = irq_base = platform_get_irq(pdev, 1);
 	glamo->pdata = pdev->dev.platform_data;
+	glamo->slowed_divider = 0xFF;
 
 	if (glamo->irq < 0) {
 		ret = glamo->irq;
@@ -964,7 +1021,7 @@ static int __devinit glamo_probe(struct platform_device *pdev)
 		goto err_free;
 	}
 
-	glamo->base = ioremap(glamo->mem->start, resource_size(glamo->mem));
+	glamo->base = ioremap(glamo->mem->start, resource_size(glamo->mem)+0x1100);
 	if (!glamo->base) {
 		dev_err(&pdev->dev, "Failed to ioremap() memory region\n");
 		goto err_release_mem_region;

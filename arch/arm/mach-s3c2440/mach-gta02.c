@@ -111,6 +111,7 @@
 #include <linux/jbt6k74.h>
 #include <linux/glamofb.h>
 #include <linux/mfd/glamo.h>
+#include <linux/mfd/glamo-core.h>
 
 #define S3C2410_GPIONO(bank,offset) ((bank) + (offset))
 
@@ -943,11 +944,31 @@ static struct s3c2410_hcd_info gta02_usb_info __initdata = {
 	},
 };
 
+static int glamo_slowed = 0;
+
+static void gta02_ts_hook_before_adc () 
+{
+	if (!glamo_slowed) {
+		glamo_slowed = 1;
+		glamo_pixclock_slow(dev_get_drvdata (&gta02_glamo_dev.dev));
+	}
+};
+
+static void gta02_ts_hook_after_adc () 
+{
+	if (glamo_slowed) {
+		glamo_slowed = 0;
+		glamo_pixclock_fast(dev_get_drvdata (&gta02_glamo_dev.dev));
+	}
+};
+
 /* Touchscreen */
 static struct s3c2410_ts_mach_info gta02_ts_info = {
-       .delay = 10000,
+       .delay = 1000,
        .presc = 0xff, /* slow as we can go */
-	   .oversampling_shift = 2,
+       .oversampling_shift = 0,
+       .before_adc_hook = gta02_ts_hook_before_adc,
+       .after_adc_hook = gta02_ts_hook_after_adc,
 };
 
 /* Buttons */

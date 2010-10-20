@@ -37,6 +37,7 @@ struct glamo_core {
 	enum glamo_engine_state engine_state[__NUM_GLAMO_ENGINES];
 	spinlock_t lock;
 	uint16_t saved_irq_mask;
+	int slowed_divider;
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *debugfs_dir;
 #endif
@@ -55,4 +56,6 @@ int glamo_engine_disable(struct glamo_core *glamo, enum glamo_engine engine);
 void glamo_engine_reset(struct glamo_core *glamo, enum glamo_engine engine);
 int glamo_engine_reclock(struct glamo_core *glamo,
 			 enum glamo_engine engine, int ps);
+void glamo_pixclock_slow (struct glamo_core *glamo);
+void glamo_pixclock_fast (struct glamo_core *glamo);
 #endif /* __GLAMO_CORE_H */

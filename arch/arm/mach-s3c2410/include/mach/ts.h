@@ -14,6 +14,10 @@ struct s3c2410_ts_mach_info {
        int             delay;
        int             presc;
        int             oversampling_shift;
+#ifdef CONFIG_MACH_NEO1973_GTA02
+       void          (*before_adc_hook)(void);
+       void          (*after_adc_hook)(void);
+#endif
 };
 
 extern void s3c24xx_ts_set_platdata(struct s3c2410_ts_mach_info *);
