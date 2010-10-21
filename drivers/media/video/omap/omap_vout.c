@@ -2657,6 +2657,15 @@ static int vidioc_streamon(struct file *file, void *fh,
 #ifdef CONFIG_PM
 	if (!cpu_is_omap44xx()) {
 		/*
+		 * Hold a max constraint on ARM. i.e., limit ARM
+		 * to scale beyond 1G. As DSP freq is 65Mhz when
+		 * ARM runs above 1.2G.
+		 * Below api is provided by PM SRF layer to hold max
+		 * constraint. Release this in streamoff.
+		 */
+		omap_pm_vdd1_set_max_opp(vout->dev, VDD1_OPP4);
+
+		/*
 		 * Through-put requirement.
 		 * Set max OCP freq:
 		 * 		For 3630 is 200 MHz
@@ -2737,6 +2746,7 @@ static int vidioc_streamoff(struct file *file, void *fh,
 #ifdef CONFIG_PM
 	if (!cpu_is_omap44xx()) {
 		/* Releasing PM constraints */
+		omap_pm_vdd1_set_max_opp(vout->dev, 0);
 		pdata->set_min_bus_tput(vout->dev, OCP_INITIATOR_AGENT, 0);
 		tick_nohz_disable(0);
 	}
