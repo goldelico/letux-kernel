@@ -145,8 +145,7 @@ static void serial_omap_stop_rx(struct uart_port *port)
 	serial_out(up, UART_IER, up->ier);
 	/*Disable the UART CTS wakeup for UART1,UART2*/
 	if ((!port->suspended && (((up->pdev->id) == UART1) ||
-			((up->pdev->id) == UART2) ||
-			((up->pdev->id  - 1) == UART3))))
+			((up->pdev->id) == UART2))))
 		omap_uart_cts_wakeup((up->pdev->id), 0);
 }
 
@@ -480,8 +479,7 @@ static int serial_omap_startup(struct uart_port *port)
 	int retval;
 
 	/*Enable the UART CTS wakeup for UART1,UART2*/
-	if (((up->pdev->id) == UART1) || ((up->pdev->id) == UART2) ||
-			((up->pdev->id  - 1) == UART3))
+	if (((up->pdev->id) == UART1) || ((up->pdev->id) == UART2))
 		omap_uart_cts_wakeup((up->pdev->id), 1);
 
 	/* Zoom2 has GPIO_102 connected to Serial device:
