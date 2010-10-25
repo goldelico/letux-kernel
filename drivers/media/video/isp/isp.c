@@ -2660,12 +2660,8 @@ EXPORT_SYMBOL(isp_try_fmt_cap);
 void isp_set_ccdc_vp_clock(struct device *dev, u32 ccdc_clk)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
-	unsigned long l3_ick = clk_get_rate(isp->l3_ick);
 
-	if (ccdc_clk == 0)
-		ccdc_clk = l3_ick / 2;
-
-	isp->ccdc_clk = clamp_t(u32, ccdc_clk, l3_ick / 64, l3_ick / 2);
+	isp->ccdc_clk = ccdc_clk;
 
 	return;
 }
