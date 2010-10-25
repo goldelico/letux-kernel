@@ -1653,11 +1653,8 @@ u32 scxPublicCryptoResumeShortcutUnlockAccelerators(u32 nRPCCommand,
 		}
 	}
 
-	/*If H is set: Atomically set bSHAM1IsPublic to true */
-	if ((nRPCCommand &
-		RPC_RESUME_SHORTCUT_UNLOCK_ACCELERATORS_UNLOCK_SHA) != 0) {
-		g_SCXLNXDeviceMonitor.bSHAM1IsPublic = true;
-	}
+	/*H is never set by the PA: Atomically set bSHAM1IsPublic to true */
+	g_SCXLNXDeviceMonitor.bSHAM1IsPublic = true;
 
 	/*If A is set: Atomically set hAES1SecureKeyContext to
 	 *hAES1KeyContext */
