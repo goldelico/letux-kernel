@@ -25,6 +25,7 @@
 #include <plat/resource.h>
 #include <plat/omap_device.h>
 #include <plat/omap34xx.h>
+#include <plat/control.h>
 
 struct omap_opp *dsp_opps;
 struct omap_opp *mpu_opps;
@@ -345,7 +346,14 @@ void omap_pm_if_exit(void)
 u8 omap_pm_get_max_vdd1_opp()
 {
 	if (cpu_is_omap3630()) {
-		return VDD1_OPP5;
+		/*
+		 * Check if VDD1 OPP5 has the right fused value, if 0
+		 * then 1.2G is not supported.
+		 */
+		if (omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP5_VDD1))
+			return VDD1_OPP5;
+		else
+			return VDD1_OPP4;
 	} else {
 		return VDD1_OPP5;
 	}
