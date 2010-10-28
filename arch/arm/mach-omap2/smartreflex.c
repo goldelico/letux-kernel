@@ -347,6 +347,8 @@ static void sr_add_margin_steps(struct omap_sr *sr)
 					sr1_opp_margin[i]);
 		mpu_opps[i].sr_vsr_step_vsel = 0x0;
 		mpu_opps[i].sr_adjust_vsel = 0x0;
+		l3_opps[i].sr_vsr_step_vsel = 0x0;
+		l3_opps[i].sr_adjust_vsel = 0x0;
 	}
 	printk(KERN_INFO "steps added, volt will be"
 				"recaliberated automatically\n");
