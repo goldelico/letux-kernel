@@ -287,6 +287,8 @@ int __init musb_platform_init(struct musb *musb, void *board_data)
 
 	otg_put_transceiver(x);
 
+	musb_platform_save_context(musb);
+
 	setup_timer(&musb_idle_timer, musb_do_idle, (unsigned long) musb);
 
 	return 0;
@@ -322,6 +324,7 @@ static struct musb_context_registers {
 void musb_platform_save_context(struct musb *musb)
 {
 	int i;
+	u32 l;
 	struct musb_hdrc_platform_data *plat = musb->controller->platform_data;
 
 	DBG(4, "Saving musb_registers\n");
@@ -331,8 +334,14 @@ void musb_platform_save_context(struct musb *musb)
 			plat->context_loss_counter(musb->controller);
 	}
 
-	musb_context.otg_sysconfig = omap_readl(OTG_SYSCONFIG);
-	musb_context.otg_forcestandby = omap_readl(OTG_FORCESTDBY);
+	l = omap_readl(OTG_SYSCONFIG);
+	l &= ~SMARTSTDBY;       /* disable smart standby */
+	l |= NOSTDBY;           /* enable nostdby */
+	l &= ~SMARTIDLE;        /* disable smart idle */
+	l |= NOIDLE;            /* enable noidle */
+
+	musb_context.otg_sysconfig = l;
+	musb_context.otg_forcestandby = omap_readl(OTG_FORCESTDBY) & ~ENABLEFORCE;
 
 	musb_context.faddr = musb_readb(musb->mregs, MUSB_FADDR);
 	musb_context.power = musb_readb(musb->mregs, MUSB_POWER);
