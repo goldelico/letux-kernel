@@ -36,6 +36,7 @@
 #include <linux/i2c/twl.h>
 #include <linux/regulator/consumer.h>
 #include <linux/err.h>
+#include <linux/wakelock.h>
 
 
 /* Register defines */
@@ -265,6 +266,8 @@ struct twl4030_usb {
 	u8			asleep;
 	bool			irq_enabled;
 };
+
+static struct wake_lock usb_lock;
 
 /* internal define on top of container_of */
 #define xceiv_to_twl(x)		container_of((x), struct twl4030_usb, otg);
@@ -610,7 +613,9 @@ static irqreturn_t twl4030_usb_irq(int irq, void *_twl)
 			if (x.link_force_active)
 				x.link_force_active(0);
 			twl4030_phy_suspend(twl, 0);
+			wake_unlock(&usb_lock);
 		} else {
+			wake_lock(&usb_lock);
 			if (x.link_force_active)
 				x.link_force_active(1);
 			twl4030_phy_resume(twl);
@@ -725,6 +730,8 @@ static int __devinit twl4030_usb_probe(struct platform_device *pdev)
 		return status;
 	}
 
+	wake_lock_init(&usb_lock, WAKE_LOCK_SUSPEND, "musb_wake_lock");
+
 	/* The IRQ handler just handles changes from the previous states
 	 * of the ID and VBUS pins ... in probe() we must initialize that
 	 * previous state.  The easy way:  fake an IRQ.
@@ -768,6 +775,8 @@ static int __exit twl4030_usb_remove(struct platform_device *pdev)
 	regulator_put(twl->usb1v5);
 	regulator_put(twl->usb1v8);
 	regulator_put(twl->usb3v1);
+
+	wake_lock_destroy(&usb_lock);
 
 	kfree(twl);
 
