@@ -140,6 +140,8 @@ void omap_uart_mdr1_errataset(int uart_no, u8 mdr1_val,
 		u8 fcr_val);
 extern int omap_uart_cts_wakeup(int uart_no, int state);
 extern int omap_uart_cts_wakeup_event(int uart_no, int state);
+extern unsigned int omap_get_clock_state(int uart_num);
+extern bool omap_is_console_port(int num);
 void omap_uart_enable_clock_from_irq(int uart_num);
 
 #endif /* __OMAP_SERIAL_H__ */
