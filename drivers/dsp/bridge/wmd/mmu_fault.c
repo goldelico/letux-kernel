@@ -50,13 +50,13 @@ static bool mmu_check_if_fault(struct wmd_dev_context *dev_context);
  *  ======== mmu_fault_dpc ========
  *      Deferred procedure call to handle DSP MMU fault.
  */
-void mmu_fault_dpc(IN unsigned long pRefData)
+void mmu_fault_work(struct work_struct *work)
 {
-	struct deh_mgr *hdeh_mgr = (struct deh_mgr *)pRefData;
+	struct deh_mgr *dehm =
+			container_of(work, struct deh_mgr, fault_work);
 
-	if (hdeh_mgr)
-		bridge_deh_notify(hdeh_mgr, DSP_MMUFAULT, 0L);
-
+	if (dehm)
+		bridge_deh_notify(dehm, DSP_MMUFAULT, 0L);
 }
 
 /*
@@ -90,11 +90,12 @@ irqreturn_t mmu_fault_isr(int irq, IN void *pRefData)
 			printk(KERN_INFO "***** DSPMMU FAULT ***** fault_addr "
 			       "0x%x\n", fault_addr);
 			/*
-			 * Schedule a DPC directly. In the future, it may be
+			 * Schedule the wq directly. In the future, it may be
 			 * necessary to check if DSP MMU fault is intended for
 			 * Bridge.
 			 */
-			tasklet_schedule(&deh_mgr_obj->dpc_tasklet);
+			queue_work(deh_mgr_obj->mmu_wq,
+					&deh_mgr_obj->fault_work);
 
 			/* Reset err_info structure before use. */
 			deh_mgr_obj->err_info.dw_err_mask = DSP_MMUFAULT;

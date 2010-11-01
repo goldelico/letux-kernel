@@ -101,9 +101,12 @@ int bridge_deh_create(OUT struct deh_mgr **phDehMgr,
 		else
 			status = -ENOMEM;
 
-		/* Create a MMUfault DPC */
-		tasklet_init(&deh_mgr_obj->dpc_tasklet, mmu_fault_dpc,
-			     (u32) deh_mgr_obj);
+		deh_mgr_obj->mmu_wq = create_workqueue("dsp-mmu_wq");
+		if (!deh_mgr_obj->mmu_wq)
+			status = -ENOMEM;
+
+		INIT_WORK(&deh_mgr_obj->fault_work, mmu_fault_work);
+
 
 		if (DSP_SUCCEEDED(status)) {
 			/* Fill in context structure */
@@ -160,8 +163,7 @@ int bridge_deh_destroy(struct deh_mgr *hdeh_mgr)
 		/* Disable DSP MMU fault */
 		free_irq(INT_DSP_MMU_IRQ, deh_mgr_obj);
 
-		/* Free DPC object */
-		tasklet_kill(&deh_mgr_obj->dpc_tasklet);
+		destroy_workqueue(deh_mgr_obj->mmu_wq);
 
 		/* Deallocate the DEH manager object */
 		kfree(deh_mgr_obj);

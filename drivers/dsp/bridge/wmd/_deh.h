@@ -28,8 +28,9 @@ struct deh_mgr {
 	struct ntfy_object *ntfy_obj;	/* NTFY object */
 	struct dsp_errorinfo err_info;	/* DSP exception info. */
 
-	/* MMU Fault DPC */
-	struct tasklet_struct dpc_tasklet;
+	/*mmu fault wq */
+	struct workqueue_struct *mmu_wq;
+	struct work_struct fault_work;
 };
 
 #endif /* _DEH_ */

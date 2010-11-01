@@ -20,10 +20,10 @@
 #define MMU_FAULT_
 
 /*
- *  ======== mmu_fault_dpc ========
+ *  ======== mmu_fault_work ========
  *      Deferred procedure call to handle DSP MMU fault.
  */
-void mmu_fault_dpc(IN unsigned long pRefData);
+void mmu_fault_work(struct work_struct *work);
 
 /*
  *  ======== mmu_fault_isr ========
