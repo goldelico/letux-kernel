@@ -590,6 +590,11 @@ int omap_uart_cts_wakeup(int uart_no, int state)
 			padconf_cts = 0x174;
 			v = omap_ctrl_readw(padconf_cts);
 			break;
+		case UART3:
+			printk(KERN_INFO "Enabling CTS wakeup for UART3");
+			padconf_cts = 0x19A;
+			v = omap_ctrl_readw(padconf_cts);
+			break;
 		default:
 			printk(KERN_ERR
 			"Wakeup on Uart%d is not supported\n", uart_no);
@@ -613,6 +618,10 @@ int omap_uart_cts_wakeup(int uart_no, int state)
 			break;
 		case UART2:
 			padconf_cts = 0x174;
+			v = omap_ctrl_readw(padconf_cts);
+			break;
+		case UART3:
+			padconf_cts = 0x19A;
 			v = omap_ctrl_readw(padconf_cts);
 			break;
 		default:
@@ -681,6 +690,9 @@ static void omap_uart_rtspad_init(struct omap_uart_state *uart)
 		break;
 	case 1:
 		uart->rts_padconf = 0x176;
+		break;
+	case 2:
+		uart->rts_padconf = 0x19C;
 		break;
 	default:
 		uart->rts_padconf = 0;
