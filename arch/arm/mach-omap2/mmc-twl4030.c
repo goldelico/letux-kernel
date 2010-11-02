@@ -306,26 +306,32 @@ static int twl_mmc1_set_power(struct device *dev, int slot, int power_on,
 						OMAP4_MMC1_PWRDWNZ);
 		}
 		omap_ctrl_writel(reg, control_pbias_offset);
-		ret = mmc_regulator_set_ocr(c->vcc, vdd);
 
-		/* 100ms delay required for PBIAS configuration */
-		msleep(100);
+		reg = omap_ctrl_readl(control_pbias_offset);
 		if (!cpu_is_omap44xx()) {
-			reg = omap_ctrl_readl(control_pbias_offset);
-			reg |= (OMAP2_PBIASLITEPWRDNZ0 |
-						OMAP2_PBIASSPEEDCTRL0);
 			if ((1 << vdd) <= MMC_VDD_165_195)
 				reg &= ~OMAP2_PBIASLITEVMODE0;
 			else
 				reg |= OMAP2_PBIASLITEVMODE0;
 		} else {
-			reg = omap_ctrl_readl(control_pbias_offset);
-			reg |= OMAP4_MMC1_PBIASLITE_PWRDNZ;
 			if ((1 << vdd) <= MMC_VDD_165_195)
 				reg &= ~(OMAP4_MMC1_PBIASLITE_VMODE);
 			else
 				reg |= (OMAP4_MMC1_PBIASLITE_VMODE);
+		}
+		omap_ctrl_writel(reg, control_pbias_offset);
 
+		ret = mmc_regulator_set_ocr(c->vcc, vdd);
+
+		/* 1ms delay required for PBIAS configuration */
+		msleep(1);
+
+		if (!cpu_is_omap44xx()) {
+			reg = omap_ctrl_readl(control_pbias_offset);
+			reg |= (OMAP2_PBIASLITEPWRDNZ0 |
+						OMAP2_PBIASSPEEDCTRL0);
+		} else {
+			reg = omap_ctrl_readl(control_pbias_offset);
 			reg |= (OMAP4_MMC1_PBIASLITE_PWRDNZ |
 						OMAP4_MMC1_PWRDWNZ);
 		}
@@ -342,8 +348,8 @@ static int twl_mmc1_set_power(struct device *dev, int slot, int power_on,
 		omap_ctrl_writel(reg, control_pbias_offset);
 		ret = mmc_regulator_set_ocr(c->vcc, 0);
 
-		/* 100ms delay required for PBIAS configuration */
-		msleep(100);
+		/* 10ms delay required for PBIAS configuration */
+		msleep(10);
 		if (!cpu_is_omap44xx()) {
 			reg = omap_ctrl_readl(control_pbias_offset);
 			reg |= (OMAP2_PBIASSPEEDCTRL0 | OMAP2_PBIASLITEPWRDNZ0
