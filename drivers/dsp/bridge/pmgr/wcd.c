@@ -537,7 +537,7 @@ func_end:
  */
 u32 mgrwrap_wait_for_bridge_events(union Trapped_Args *args, void *pr_ctxt)
 {
-	int status = 0, real_status = 0;
+	int status = 0;
 	struct dsp_notification *anotifications[MAX_EVENTS];
 	struct dsp_notification notifications[MAX_EVENTS];
 	u32 index, i;
@@ -552,19 +552,21 @@ u32 mgrwrap_wait_for_bridge_events(union Trapped_Args *args, void *pr_ctxt)
 	/* get the events */
 	for (i = 0; i < count; i++) {
 		CP_FM_USR(&notifications[i], anotifications[i], status, 1);
-		if (DSP_SUCCEEDED(status)) {
-			/* set the array of pointers to kernel structures */
-			anotifications[i] = &notifications[i];
+		if (DSP_FAILED(status) || !notifications[i].handle) {
+			status = -EINVAL;
+			break;
 		}
+		/* set the array of pointers to kernel structures */
+		anotifications[i] = &notifications[i];
 	}
 	if (DSP_SUCCEEDED(status)) {
-		real_status = mgr_wait_for_bridge_events(anotifications, count,
+		status = mgr_wait_for_bridge_events(anotifications, count,
 							 &index,
 							 args->args_mgr_wait.
 							 utimeout);
 	}
 	CP_TO_USR(args->args_mgr_wait.pu_index, &index, status, 1);
-	return real_status;
+	return status;
 }
 
 /*
