@@ -2277,8 +2277,6 @@ static int musb_resume_noirq(struct device *dev)
 	else
 		clk_enable(musb->clock);
 
-	musb_platform_restore_context(musb);
-
 	/* for static cmos like DaVinci, register values were preserved
 	 * unless for some reason the whole soc powered down or the USB
 	 * module got reset through the PSC (vs just being disabled).
