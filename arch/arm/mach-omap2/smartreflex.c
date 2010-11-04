@@ -442,7 +442,6 @@ static void sr_set_efuse_nvalues(struct omap_sr *sr)
 				sr_set_testing_nvalues(sr);
 				return;
 			}
-			sr->opp5_nvalue = sr->opp4_nvalue;
 
 			sr->opp3_nvalue = sr1_opp[3] =
 			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP3_VDD1);
