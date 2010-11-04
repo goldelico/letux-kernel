@@ -2085,6 +2085,7 @@ static int vidioc_s_fmt_vid_overlay(struct file *file, void *fh,
 	struct omap_overlay *ovl;
 	struct omapvideo_info *ovid;
 	struct v4l2_window *win = &f->fmt.win;
+	int r = 0;
 
 	mutex_lock(&vout->lock);
 	ovid = &vout->vid_info;
@@ -2111,8 +2112,21 @@ static int vidioc_s_fmt_vid_overlay(struct file *file, void *fh,
 		vout->win.global_alpha = f->fmt.win.global_alpha;
 
 	vout->win.chromakey = f->fmt.win.chromakey;
+
+	/* Save the changes in the overlay strcuture */
+	r = omapvid_init(vout, 0, 0);
+	if (r) {
+		printk(KERN_ERR VOUT_NAME "failed to update window\n");
+		mutex_unlock(&vout->lock);
+		return r;
+	}
+	/* Apply changes and set the Go bit */
+	r = omapvid_apply_changes(vout);
+	if (r)
+		printk(KERN_WARNING VOUT_NAME "Unable to apply changes\n");
+
 	mutex_unlock(&vout->lock);
-	return 0;
+	return r;
 }
 
 static int vidioc_enum_fmt_vid_overlay(struct file *file, void *fh,
