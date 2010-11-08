@@ -210,7 +210,7 @@ static irqreturn_t stylus_irq(int irq, void *dev_id)
 	if (down) {
 		mod_timer(&touch_timer, jiffies + 2);
 	} else
-		dev_info(ts.dev, "%s: count=%d\n", __func__, ts.count);
+		dev_dbg(ts.dev, "%s: count=%d\n", __func__, ts.count);
 
 	return IRQ_HANDLED;
 }
