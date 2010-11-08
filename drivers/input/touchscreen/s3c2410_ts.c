@@ -41,10 +41,6 @@
 #include <mach/regs-gpio.h>
 #include <mach/ts.h>
 
-#ifdef CONFIG_MACH_NEO1973_GTA02
-#include <linux/mfd/glamo-core.h>
-#endif
-
 #define TSC_SLEEP  (S3C2410_ADCTSC_PULL_UP_DISABLE | S3C2410_ADCTSC_XY_PST(0))
 
 #define INT_DOWN	(0)
@@ -95,22 +91,6 @@ static struct s3c2410ts ts;
 #define WAITFORINT_UP (0)
 #define WAITFORINT_DOWN (1)
 #define WAITFORINT_NOTHING (2)
-
-
-static inline void before_adc_hook(void) 
-{
-#ifdef CONFIG_MACH_NEO1973_GTA02
-  glamo_pixclock_slow();
-#endif
-}
-
-static inline void after_adc_hook(void) 
-{
-#ifdef CONFIG_MACH_NEO1973_GTA02
-  glamo_pixclock_fast();
-#endif
-}
-
 
 /**
  * s3c2410_ts_connect - configure gpio for s3c2410 systems
@@ -172,7 +152,6 @@ static void touch_timer_fire(unsigned long data)
 			ts.count = 0;
 		}
 
-		before_adc_hook();
 		s3c_adc_start(ts.client, 0, 1 << ts.shift);
 	} else {
 		ts.xp = 0;
@@ -222,7 +201,7 @@ static irqreturn_t stylus_irq(int irq, void *dev_id)
 	ts.expectedintr = WAITFORINT_NOTHING;
 
 	if (down)
-		mod_timer(&touch_timer, jiffies + 2);
+		s3c_adc_start(ts.client, 0, 1 << ts.shift);
 	else
 		dev_info(ts.dev, "%s: count=%d\n", __func__, ts.count);
 
@@ -249,9 +228,6 @@ static void s3c24xx_ts_conversion(struct s3c_adc_client *client,
 
 	ts.count++;
 
-	if (!*left) 
-		after_adc_hook();
-
 	/* From tests, it seems that it is unlikely to get a pen-up
 	 * event during the conversion process which means we can
 	 * ignore any pen-up events with less than the requisite
@@ -275,7 +251,7 @@ static void s3c24xx_ts_select(struct s3c_adc_client *client, unsigned select)
 		writel(S3C2410_ADCTSC_PULL_UP_DISABLE | AUTOPST,
 		       ts.io + S3C2410_ADCTSC);
 	} else {
-		mod_timer(&touch_timer, jiffies + 3);
+		mod_timer(&touch_timer, jiffies+1);
 		ts.expectedintr = WAITFORINT_UP;
 		writel(WAIT4INT | INT_UP, ts.io + S3C2410_ADCTSC);
 	}

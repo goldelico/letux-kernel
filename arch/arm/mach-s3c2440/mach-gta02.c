@@ -945,9 +945,9 @@ static struct s3c2410_hcd_info gta02_usb_info __initdata = {
 
 /* Touchscreen */
 static struct s3c2410_ts_mach_info gta02_ts_info = {
-       .delay = 1000,
+       .delay = 10000,
        .presc = 0xff, /* slow as we can go */
-       .oversampling_shift = 0,
+	   .oversampling_shift = 2,
 };
 
 /* Buttons */

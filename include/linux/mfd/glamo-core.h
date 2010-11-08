@@ -42,8 +42,6 @@ struct glamo_core {
 #endif
 };
 
-extern struct glamo_core *default_glamo;
-
 struct glamo_script {
 	uint16_t reg;
 	uint16_t val;
@@ -57,6 +55,4 @@ int glamo_engine_disable(struct glamo_core *glamo, enum glamo_engine engine);
 void glamo_engine_reset(struct glamo_core *glamo, enum glamo_engine engine);
 int glamo_engine_reclock(struct glamo_core *glamo,
 			 enum glamo_engine engine, int ps);
-void glamo_pixclock_slow ();
-void glamo_pixclock_fast ();
 #endif /* __GLAMO_CORE_H */

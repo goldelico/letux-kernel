@@ -104,8 +104,6 @@ static const struct reg_range reg_range[] = {
 /*	{ 0x1b00, 0x900,	"3D Unit",	0 }, */
 };
 
-struct glamo_core *default_glamo = 0;
-
 static inline void __reg_write(struct glamo_core *glamo,
 				uint16_t reg, uint16_t val)
 {
@@ -170,44 +168,6 @@ static inline void __reg_set_bit(struct glamo_core *glamo,
 	tmp |= bit;
 	__reg_write(glamo, reg, tmp);
 }
-
-void glamo_pixclock_slow () {
-	
-	int x,lastx=0;
-	int timeout=1000000;
-	int threshold=5;
-	int fa;
-
- 	int evcnt=0;
-
-	//int phase=0; //wait for value changing, then for non-changing
-
-	for (fa=0;fa<timeout;fa++) {
-		x = __reg_read(default_glamo, 0x1100 + GLAMO_REG_LCD_STATUS1) & 0x3ff;
-
-
-		if (x == lastx) {
-			evcnt++;
-			if (evcnt == threshold)
-				break;
-		} else
-			evcnt = 0;
-		
-		lastx=x;
-	}
-	if (fa==timeout) {
-		printk (KERN_WARNING "Error waiting\n");
-	}
-
-	//then, make glamo slower
-	reg_set_bit_mask (default_glamo, 0x36, 0xFF, 0xFF);
-}
-
-void glamo_pixclock_fast () {
-	reg_set_bit_mask (default_glamo, 0x36, 0xFF, 0x02);
-}
-
-
 
 static inline void __reg_clear_bit(struct glamo_core *glamo,
 					uint16_t reg, uint16_t bit)
@@ -962,8 +922,6 @@ static int __devinit glamo_probe(struct platform_device *pdev)
 	for (n = 0; n < __NUM_GLAMO_ENGINES; n++)
 		glamo->engine_state[n] = GLAMO_ENGINE_DISABLED;
 
-	default_glamo = glamo;
-
 	spin_lock_init(&glamo->lock);
 
 	glamo->pdev = pdev;
@@ -1006,7 +964,7 @@ static int __devinit glamo_probe(struct platform_device *pdev)
 		goto err_free;
 	}
 
-	glamo->base = ioremap(glamo->mem->start, resource_size(glamo->mem)+0x1100);
+	glamo->base = ioremap(glamo->mem->start, resource_size(glamo->mem));
 	if (!glamo->base) {
 		dev_err(&pdev->dev, "Failed to ioremap() memory region\n");
 		goto err_release_mem_region;
