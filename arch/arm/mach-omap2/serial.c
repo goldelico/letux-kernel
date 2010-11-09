@@ -27,8 +27,8 @@
 #include <linux/platform_device.h>
 #include <linux/serial_8250.h>
 #include <asm/mach-types.h>
-#include <plat/omap-serial.h>
 
+#include <plat/omap-serial.h>
 #include <plat/common.h>
 #include <plat/board.h>
 #include <plat/clock.h>
@@ -49,8 +49,6 @@
 #define DEFAULT_TIMEOUT (5 * HZ)
 
 #define MAX_UART_HWMOD_NAME_LEN		16
-
-extern int omap_uart_active(int num);
 
 struct omap_uart_state {
 	int num;
@@ -95,6 +93,10 @@ struct omap_uart_state {
 	u16 mcr;
 #endif
 };
+
+#if defined(CONFIG_MACH_OMAP_ZOOM3) && defined(CONFIG_PM)
+struct omap_uart_state quart_context;
+#endif
 
 static LIST_HEAD(uart_list);
 
@@ -169,6 +171,87 @@ static inline void omap_uart_enable_rtspullup(struct omap_uart_state *uart)
 
 
 #if defined(CONFIG_PM) && defined(CONFIG_ARCH_OMAP3)
+#if defined(CONFIG_MACH_OMAP_ZOOM3)
+/* The QUART save and restore are not the same as the OMAP UART
+ * registers. Hence these are being made through a different
+ * function.
+ */
+static void omap_quart_save_context(struct uart_port *uart,
+				struct omap_uart_state *pquart)
+{
+	u16 lcr = 0;
+
+	if (!enable_off_mode)
+		return;
+
+	lcr = __serial_read_reg(uart, UART_LCR);
+	/* Config B Mode */
+	__serial_write_reg(uart, UART_LCR, OMAP_UART_LCR_CONF_MDB);
+	pquart->dll = __serial_read_reg(uart, UART_DLL);
+	pquart->dlh = __serial_read_reg(uart, UART_DLM);
+	__serial_write_reg(uart, UART_LCR, lcr);
+	pquart->ier = __serial_read_reg(uart, UART_IER);
+	lcr = __serial_read_reg(uart, UART_LCR);
+	/* Configuration A Mde */
+	__serial_write_reg(uart, UART_LCR, OMAP_UART_LCR_CONF_MDA);
+	pquart->mcr = __serial_read_reg(uart, UART_MCR);
+	/* Config Operation Mode */
+	__serial_write_reg(uart, UART_LCR, OMAP_UART_LCR_CONF_MOPER);
+	__serial_write_reg(uart, UART_IER, 0x0);
+	__serial_write_reg(uart, UART_LCR, lcr);
+
+	pquart->context_valid = 1;
+}
+
+static void omap_quart_restore_context(struct uart_port *uart,
+				struct omap_uart_state *pquart)
+{
+	u16 efr = 0;
+
+	if (!enable_off_mode)
+		return;
+
+	if (!pquart->context_valid)
+		return;
+
+	pquart->context_valid = 0;
+	/* Config B Mode */
+	__serial_write_reg(uart, UART_LCR, OMAP_UART_LCR_CONF_MDB);
+	efr = __serial_read_reg(uart, UART_EFR);
+	__serial_write_reg(uart, UART_EFR, UART_EFR_ECB);
+	/* Operational mode */
+	__serial_write_reg(uart, UART_LCR, OMAP_UART_LCR_CONF_MOPER);
+	__serial_write_reg(uart, UART_IER, 0x0);
+	/* Config B Mode */
+	__serial_write_reg(uart, UART_LCR, OMAP_UART_LCR_CONF_MDB);
+	__serial_write_reg(uart, UART_DLL, pquart->dll);
+	__serial_write_reg(uart, UART_DLM, pquart->dlh);
+	/* Operational mode */
+	__serial_write_reg(uart, UART_LCR, OMAP_UART_LCR_CONF_MOPER);
+	__serial_write_reg(uart, UART_IER, pquart->ier);
+	__serial_write_reg(uart, UART_FCR, 0x51);
+	/* Config A Mode */
+	__serial_write_reg(uart, UART_LCR, OMAP_UART_LCR_CONF_MDA);
+	__serial_write_reg(uart, UART_MCR, pquart->mcr);
+	/* Config B Mode */
+	__serial_write_reg(uart, UART_LCR, OMAP_UART_LCR_CONF_MDB);
+	__serial_write_reg(uart, UART_EFR, efr);
+	__serial_write_reg(uart, UART_LCR, UART_LCR_WLEN8);
+}
+
+void omap_quart_prepare_context(struct uart_port *uart,
+		unsigned int power_state, unsigned int save)
+{
+	if ((power_state == PWRDM_POWER_OFF) && save)
+		/* While Entering Off state, along with Voltage OFF */
+		omap_quart_save_context(uart, &quart_context);
+	else if ((power_state == PWRDM_POWER_OFF) && (save == 0))
+		/* While Exiting Off state, along with Voltage OFF */
+		omap_quart_restore_context(uart, &quart_context);
+	return;
+}
+EXPORT_SYMBOL(omap_quart_prepare_context);
+#endif
 
 static void omap_uart_save_context(struct omap_uart_state *uart)
 {

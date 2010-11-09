@@ -41,6 +41,7 @@
 #include <plat/dmtimer.h>
 #include <plat/usb.h>
 #include <plat/omap-pm.h>
+#include <plat/omap-serial.h>
 
 #include <plat/resource.h>
 
@@ -544,6 +545,11 @@ void omap_sram_idle(void)
 		omap_uart_prepare_idle(0);
 		omap_uart_prepare_idle(1);
 		if (core_next_state == PWRDM_POWER_OFF) {
+#if defined(CONFIG_MACH_OMAP_ZOOM3)
+			/* Save the QUARt Register, on Entering OFF state */
+			omap_zoom_debugboard_serial_prepare(core_next_state, 1);
+#endif /* CONFIG_MACH_OMAP_ZOOM3 */
+
 			prm_set_mod_reg_bits(OMAP3430_AUTO_OFF,
 					     OMAP3430_GR_MOD,
 					     OMAP3_PRM_VOLTCTRL_OFFSET);
@@ -630,6 +636,10 @@ void omap_sram_idle(void)
 			 * sleep
 			 */
 			usb_musb_disable_autoidle();
+#if defined(CONFIG_MACH_OMAP_ZOOM3)
+			/* Restore the QUARt Register, onExiting OFF state */
+			omap_zoom_debugboard_serial_prepare(core_prev_state, 0);
+#endif /* CONFIG_MACH_OMAP_ZOOM3 */
 		}
 		omap_uart_resume_idle(0);
 		omap_uart_resume_idle(1);

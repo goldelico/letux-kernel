@@ -16,6 +16,7 @@
 
 #include <plat/gpmc.h>
 #include <plat/dma.h>
+#include <plat/omap-serial.h>
 
 #define ZOOM_SMSC911X_CS	7
 #define ZOOM_SMSC911X_GPIO	158
@@ -181,6 +182,17 @@ static struct platform_device *zoom_devices[] __initdata = {
 	&zoom_smsc911x_device,
 	&zoom_debugboard_serial_device,
 };
+
+/* Save and restore the QUART while Entering and Exiting OFF
+ * modes. The QUART is getting a Reset Signal whjen the Volt-
+ * are turned OFF from the Triton Scripts, which clears
+ * QUART register context.
+ */
+void omap_zoom_debugboard_serial_prepare(int power_state, int save)
+{
+	omap_quart_prepare(power_state, save);
+}
+EXPORT_SYMBOL(omap_zoom_debugboard_serial_prepare);
 
 int __init zoom_debugboard_init(void)
 {

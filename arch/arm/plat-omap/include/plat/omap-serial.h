@@ -44,7 +44,10 @@
  * Reference OMAP TRM Chapter 17
  * Section: 1.4.3 Mode Selection
  */
-#define OMAP_UART_LCR_CONF_MDB	0XBF
+#define OMAP_UART_LCR_CONF_MDB	0xBF
+#define OMAP_UART_LCR_CONF_MOPER 0x00
+#define OMAP_UART_LCR_CONF_MDA  0x80
+
 
 /* WER = 0x7F
  * Enable module level wakeup in WER reg
@@ -143,5 +146,12 @@ extern int omap_uart_cts_wakeup_event(int uart_no, int state);
 extern unsigned int omap_get_clock_state(int uart_num);
 extern bool omap_is_console_port(int num);
 void omap_uart_enable_clock_from_irq(int uart_num);
+void omap_quart_prepare(int power_state, int save);
+extern void omap_zoom_debugboard_serial_prepare(int power_state, int save);
+int omap_uart_active(int num);
+#if defined(CONFIG_MACH_OMAP_ZOOM3) && defined(CONFIG_PM)
+extern void omap_quart_prepare_context(struct uart_port *uart,
+				unsigned int power_state, unsigned int save);
+#endif /* CONFIG_MACH_OMAP_ZOOM3 */
 
 #endif /* __OMAP_SERIAL_H__ */

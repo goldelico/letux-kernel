@@ -37,6 +37,7 @@
 #include <plat/dma.h>
 #include <plat/dmtimer.h>
 #include <plat/omap-serial.h>
+#include <plat/powerdomain.h>
 
 static struct uart_omap_port *ui[OMAP_MAX_HSUART_PORTS];
 static struct wake_lock omap_serial_wakelock;
@@ -65,6 +66,31 @@ static inline void serial_omap_clear_fifos(struct uart_omap_port *up)
 		       UART_FCR_CLEAR_RCVR | UART_FCR_CLEAR_XMIT);
 	serial_out(up, UART_FCR, 0);
 }
+
+#if defined(CONFIG_MACH_OMAP_ZOOM3) && defined(CONFIG_PM)
+/* This function needs to be exported since the QUART is not
+ * available, on the "arch/arm/mach-omap2/serial.c". Since
+ * the Core can hit Off mode either in Idle / Suspend path
+ * This function has to be called from both the code flow
+ * hence the suspend interface to the driver wouldnt be the
+ * right place to call this.
+ * the QUART registers have to saved and restored, since the
+ * Core when its Off state and Triton Turns off the Voltages
+ * the GPIO 152 is generating a Pulse from Low-High-Low, which
+ * Resets the QUART. Hence the context save and restore needs
+ * to added.
+ */
+void omap_quart_prepare(int power_state, int save)
+{
+	struct uart_omap_port *up = ui[3];
+
+	/* While Entering Off state, along with Voltage OFF */
+	omap_quart_prepare_context(&(up->port), power_state, save);
+
+	return;
+}
+EXPORT_SYMBOL(omap_quart_prepare);
+#endif /* CONFIG_MACH_OMAP_ZOOM3 */
 
 /**
  * serial_omap_get_divisor() - calculate divisor value
@@ -440,6 +466,8 @@ static void serial_omap_set_mctrl(struct uart_port *port, unsigned int mctrl)
 {
 	struct uart_omap_port *up = (struct uart_omap_port *)port;
 	unsigned char mcr = 0;
+	u16 efr = 0;
+	u16 lcr = 0;
 
 	dev_dbg(up->port.dev, "serial_omap_set_mctrl+%d\n", up->pdev->id);
 	if (mctrl & TIOCM_RTS)
@@ -453,8 +481,44 @@ static void serial_omap_set_mctrl(struct uart_port *port, unsigned int mctrl)
 	if (mctrl & TIOCM_LOOP)
 		mcr |= UART_MCR_LOOP;
 
+#if defined(CONFIG_MACH_OMAP_ZOOM3)
+	/* Need to in this manner in case of ZOOM3 Boards
+	 * only since these have the QUART UARTs on the
+	 * debug board. This would fix the issues for
+	 * QUART while exiting the power saving mode. if
+	 * the QUAD uarts change their memory map, which
+	 * can be case in 3630, this code needs to be
+	 * revisited for the UARTx (number) to  which the
+	 * QUART would be mapped to.
+	 */
+	if (up->pdev->id == UART4) {
+		lcr = serial_in(up, UART_LCR);
+		/* Set the CONFIG B Mode to read the EFR */
+		serial_out(up, UART_LCR, 0xBF); /* Config B mode */
+		efr = serial_in(up, UART_EFR);
+		/* The EFR[4] bit to enable the MCR write */
+		serial_out(up, UART_EFR, (efr | UART_EFR_ECB));
+		serial_out(up, UART_LCR, 0x80); /* Config A mode */
+	}
+
 	mcr |= up->mcr;
 	serial_out(up, UART_MCR, mcr);
+
+	if (up->pdev->id == UART4) {
+		/* Set the CONFIG B Mode to read the EFR */
+		serial_out(up, UART_LCR, 0xBF); /* Config B mode */
+		serial_out(up, UART_EFR, efr);
+
+		/* Restore the LCR Value */
+		serial_out(up, UART_LCR, lcr);
+	}
+#else
+	/* This would be for cases other than ZOOM boards */
+	mcr |= up->mcr;
+	serial_out(up, UART_MCR, mcr);
+#endif
+
+	return;
 }
 
 static void serial_omap_break_ctl(struct uart_port *port, int break_state)
@@ -776,7 +840,15 @@ serial_omap_set_termios(struct uart_port *port, struct ktermios *termios,
 	serial_out(up, UART_EFR, up->efr | UART_EFR_ECB);
 
 	serial_out(up, UART_LCR, 0);
-	up->mcr = serial_in(up, UART_MCR);
+	/*
+	 * old is NULL only if its coming out of Sleep Mode. The up-mcr
+	 * would have a stored value in it, use the value itself. If
+	 * coming up in a normal working state, the MCR register would
+	 * have a valid value, hence read it and then use it.
+	 */
+	if (NULL != old)
+		up->mcr = serial_in(up, UART_MCR);
+
 	serial_out(up, UART_MCR, up->mcr | UART_MCR_TCRTLR);
 	/* FIFO ENABLE, DMA MODE */
 	serial_out(up, UART_FCR, up->fcr);
