@@ -291,6 +291,7 @@ struct dispc_reg { u16 idx; };
 */
 #define DISPC_IRQ_MASK_ERROR            (DISPC_IRQ_GFX_FIFO_UNDERFLOW | \
 					 DISPC_IRQ_OCP_ERR | \
+					 DISPC_IRQ_SYNC_LOST | \
 					 DISPC_IRQ_SYNC_LOST_DIGIT)
 
 #define DISPC_MAX_NR_ISRS		8
