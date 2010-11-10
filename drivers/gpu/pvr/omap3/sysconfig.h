@@ -33,9 +33,13 @@
 
 #if defined(SGX530) && (SGX_CORE_REV == 125)
 #define SYS_SGX_CLOCK_SPEED		200000000
+#define SYS_SGX_CLOCK_SPEED_ES_1_2	266666666
 #else
 #define SYS_SGX_CLOCK_SPEED		110666666
 #endif
+
+/* Maximum frequency for 3630 @ 1.2GHz */
+#define MAX_FREQ_ES_1_2			1200000000
 
 #define SYS_SGX_HWRECOVERY_TIMEOUT_FREQ		(100)
 #define SYS_SGX_PDS_TIMER_FREQ				(1000)

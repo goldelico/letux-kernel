@@ -51,7 +51,10 @@
 #define SGX_PARENT_CLOCK "cm_96m_fck"
 #else
 #define SGX_PARENT_CLOCK "core_ck"
+#define SGX_PARENT_CLOCK_ES_1_2 "corex2_fck"
 #endif
+
+static int vdd1_max_level;
 
 extern struct platform_device *gpsPVRLDMDev;
 #if defined(SGX530) && (SGX_CORE_REV == 125)
@@ -114,12 +117,26 @@ static inline IMG_UINT32 scale_by_rate(IMG_UINT32 val, IMG_UINT32 rate1, IMG_UIN
 
 static inline IMG_UINT32 scale_prop_to_SGX_clock(IMG_UINT32 val, IMG_UINT32 rate)
 {
-	return scale_by_rate(val, rate, SYS_SGX_CLOCK_SPEED);
+	if (mpu_opps[vdd1_max_level].rate == MAX_FREQ_ES_1_2)
+	{
+		return scale_by_rate(val, rate, SYS_SGX_CLOCK_SPEED_ES_1_2);
+	}
+	else
+	{
+		return scale_by_rate(val, rate, SYS_SGX_CLOCK_SPEED);
+	}
 }
 
 static inline IMG_UINT32 scale_inv_prop_to_SGX_clock(IMG_UINT32 val, IMG_UINT32 rate)
 {
-	return scale_by_rate(val, SYS_SGX_CLOCK_SPEED, rate);
+	if (mpu_opps[vdd1_max_level].rate == MAX_FREQ_ES_1_2)
+	{
+		return scale_by_rate(val, SYS_SGX_CLOCK_SPEED_ES_1_2, rate);
+	}
+	else
+	{
+		return scale_by_rate(val, SYS_SGX_CLOCK_SPEED, rate);
+	}
 }
 
 IMG_VOID SysGetSGXTimingInformation(SGX_TIMING_INFORMATION *psTimingInfo)
@@ -183,7 +200,14 @@ PVRSRV_ERROR EnableSGXClocks(SYS_DATA *psSysData)
 		return PVRSRV_ERROR_UNABLE_TO_ENABLE_CLOCK;
 	}
 
-	lNewRate = clk_round_rate(psSysSpecData->psSGX_FCK, SYS_SGX_CLOCK_SPEED + ONE_MHZ);
+	if (mpu_opps[vdd1_max_level].rate == MAX_FREQ_ES_1_2)
+	{
+		lNewRate = clk_round_rate(psSysSpecData->psSGX_FCK, SYS_SGX_CLOCK_SPEED_ES_1_2 + ONE_MHZ);
+	}
+	else
+	{
+		lNewRate = clk_round_rate(psSysSpecData->psSGX_FCK, SYS_SGX_CLOCK_SPEED + ONE_MHZ);
+	}
 	if (lNewRate <= 0)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "EnableSGXClocks: Couldn't round SGX functional clock rate"));
@@ -278,7 +302,17 @@ PVRSRV_ERROR EnableSystemClocks(SYS_DATA *psSysData)
 
 		atomic_set(&psSysSpecData->sSGXClocksEnabled, 0);
 
-		psCLK = clk_get(NULL, SGX_PARENT_CLOCK);
+		vdd1_max_level = omap_pm_get_max_vdd1_opp();
+
+		if (mpu_opps[vdd1_max_level].rate == MAX_FREQ_ES_1_2)
+		{
+			psCLK = clk_get(NULL, SGX_PARENT_CLOCK_ES_1_2);
+		}
+		else
+		{
+			psCLK = clk_get(NULL, SGX_PARENT_CLOCK);
+		}
+
 		if (IS_ERR(psCLK))
 		{
 			PVR_DPF((PVR_DBG_ERROR, "EnableSsystemClocks: Couldn't get Core Clock"));

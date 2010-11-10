@@ -373,7 +373,14 @@ PVRSRV_ERROR SysInitialise(IMG_VOID)
 #if !defined(SGX_DYNAMIC_TIMING_INFO)
 
 	psTimingInfo = &gsSGXDeviceMap.sTimingInfo;
-	psTimingInfo->ui32CoreClockSpeed = SYS_SGX_CLOCK_SPEED;
+	if (mpu_opps[vdd1_max_level].rate == MAX_FREQ_ES_1_2)
+	{
+		psTimingInfo->ui32CoreClockSpeed = SYS_SGX_CLOCK_SPEED_ES_1_2;
+	}
+	else
+	{
+		psTimingInfo->ui32CoreClockSpeed = SYS_SGX_CLOCK_SPEED;
+	}
 	psTimingInfo->ui32HWRecoveryFreq = SYS_SGX_HWRECOVERY_TIMEOUT_FREQ;
 #if defined(SUPPORT_ACTIVE_POWER_MANAGEMENT)
 	psTimingInfo->bEnableActivePM = IMG_TRUE;
