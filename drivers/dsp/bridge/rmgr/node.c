@@ -1261,6 +1261,13 @@ int node_create(struct node_object *hnode)
 			}
 		}
 	}
+
+	if (DSP_FAILED(status) && hnode->loaded) {
+		hnode_mgr->nldr_fxns.pfn_unload(hnode->nldr_node_obj,
+							NLDR_CREATE);
+		hnode->loaded = false;
+	}
+
 	/*  Phase II/Overlays: Create, execute, delete phases  possibly in
 	 *  different files/sections. */
 	if (hnode->loaded && hnode->phase_split) {
