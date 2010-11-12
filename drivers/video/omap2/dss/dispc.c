@@ -1753,7 +1753,7 @@ static void _dispc_set_scaling(enum omap_plane plane,
 #ifndef CONFIG_ARCH_OMAP4
 	l &= ~((0x0f << 5) | (0x1 << 21));
 	l |= out_width > orig_width ? 0 : (1 << 7);
-	l |= out_height > orig_height ? 0 : (1 << 8);
+	l |= out_height >= orig_height ? 0 : (1 << 8);
 #else
     l &= ~((0x03 << 5) | (0x1 << 21));
 #endif
