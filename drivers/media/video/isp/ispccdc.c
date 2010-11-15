@@ -28,6 +28,9 @@
 #include "isp.h"
 #include "ispreg.h"
 #include "ispccdc.h"
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+#include "ispccdc_dfs.h"
+#endif
 
 #define LSC_TABLE_INIT_SIZE	50052
 #define PTR_FREE		((u32)(-ENOMEM))
@@ -79,137 +82,6 @@ static struct isp_reg ispccdc_reg_list[] = {
 	{0, ISP_TOK_TERM, 0}
 };
 
-/**
- * ispccdc_print_status - Print current CCDC Module register values.
- * @isp_ccdc: Pointer to ISP CCDC device.
- * @pipe: Pointer to current ISP pipeline structure.
- *
- * Also prints other debug information stored in the CCDC module.
- **/
-static void ispccdc_print_status(struct isp_ccdc_device *isp_ccdc,
-				 struct isp_pipeline *pipe)
-{
-#ifdef OMAP_ISPCCDC_DEBUG
-	struct device *dev = to_device(isp_ccdc);
-#endif
-
-	if (!is_ispccdc_debug_enabled())
-		return;
-
-	DPRINTK_ISPCCDC("Module in use =%d\n", isp_ccdc->ccdc_inuse);
-	DPRINTK_ISPCCDC("Accepted CCDC Input (width = %d,Height = %d)\n",
-			pipe->ccdc_in_w,
-			pipe->ccdc_in_h);
-	DPRINTK_ISPCCDC("Accepted CCDC Output (width = %d,Height = %d)\n",
-			pipe->ccdc_out_w,
-			pipe->ccdc_out_h);
-	DPRINTK_ISPCCDC("###CCDC PCR=0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
-				      ISPCCDC_PCR));
-	DPRINTK_ISPCCDC("ISP_CTRL =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN,
-				      ISP_CTRL));
-	switch (pipe->ccdc_in) {
-	case CCDC_RAW_GRBG:
-	case CCDC_RAW_RGGB:
-	case CCDC_RAW_BGGR:
-	case CCDC_RAW_GBRG:
-		DPRINTK_ISPCCDC("ccdc input format is CCDC_RAW\n");
-		break;
-	case CCDC_YUV_SYNC:
-		DPRINTK_ISPCCDC("ccdc input format is CCDC_YUV_SYNC\n");
-		break;
-	case CCDC_YUV_BT:
-		DPRINTK_ISPCCDC("ccdc input format is CCDC_YUV_BT\n");
-		break;
-	default:
-		break;
-	}
-
-	switch (pipe->ccdc_out) {
-	case CCDC_OTHERS_VP:
-		DPRINTK_ISPCCDC("ccdc output format is CCDC_OTHERS_VP\n");
-		break;
-	case CCDC_OTHERS_MEM:
-		DPRINTK_ISPCCDC("ccdc output format is CCDC_OTHERS_MEM\n");
-		break;
-	case CCDC_YUV_RSZ:
-		DPRINTK_ISPCCDC("ccdc output format is CCDC_YUV_RSZ\n");
-		break;
-	default:
-		break;
-	}
-
-	DPRINTK_ISPCCDC("###ISP_CTRL in ccdc =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN,
-				      ISP_CTRL));
-	DPRINTK_ISPCCDC("###ISP_IRQ0ENABLE in ccdc =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN,
-				      ISP_IRQ0ENABLE));
-	DPRINTK_ISPCCDC("###ISP_IRQ0STATUS in ccdc =0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN,
-				      ISP_IRQ0STATUS));
-	DPRINTK_ISPCCDC("###CCDC SYN_MODE=0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
-				      ISPCCDC_SYN_MODE));
-	DPRINTK_ISPCCDC("###CCDC HORZ_INFO=0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
-				      ISPCCDC_HORZ_INFO));
-	DPRINTK_ISPCCDC("###CCDC VERT_START=0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
-				      ISPCCDC_VERT_START));
-	DPRINTK_ISPCCDC("###CCDC VERT_LINES=0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
-				      ISPCCDC_VERT_LINES));
-	DPRINTK_ISPCCDC("###CCDC CULLING=0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
-				      ISPCCDC_CULLING));
-	DPRINTK_ISPCCDC("###CCDC HSIZE_OFF=0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
-				      ISPCCDC_HSIZE_OFF));
-	DPRINTK_ISPCCDC("###CCDC SDOFST=0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
-				      ISPCCDC_SDOFST));
-	DPRINTK_ISPCCDC("###CCDC SDR_ADDR=0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
-				      ISPCCDC_SDR_ADDR));
-	DPRINTK_ISPCCDC("###CCDC CLAMP=0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
-				      ISPCCDC_CLAMP));
-	DPRINTK_ISPCCDC("###CCDC COLPTN=0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
-				      ISPCCDC_COLPTN));
-	DPRINTK_ISPCCDC("###CCDC CFG=0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
-				      ISPCCDC_CFG));
-	DPRINTK_ISPCCDC("###CCDC VP_OUT=0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
-				      ISPCCDC_VP_OUT));
-	DPRINTK_ISPCCDC("###CCDC_SDR_ADDR= 0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
-				      ISPCCDC_SDR_ADDR));
-	DPRINTK_ISPCCDC("###CCDC FMTCFG=0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
-				      ISPCCDC_FMTCFG));
-	DPRINTK_ISPCCDC("###CCDC FMT_HORZ=0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
-				      ISPCCDC_FMT_HORZ));
-	DPRINTK_ISPCCDC("###CCDC FMT_VERT=0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
-				      ISPCCDC_FMT_VERT));
-	DPRINTK_ISPCCDC("###CCDC LSC_CONFIG=0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
-				      ISPCCDC_LSC_CONFIG));
-	DPRINTK_ISPCCDC("###CCDC LSC_INIT=0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
-				      ISPCCDC_LSC_INITIAL));
-	DPRINTK_ISPCCDC("###CCDC LSC_TABLE BASE=0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
-				      ISPCCDC_LSC_TABLE_BASE));
-	DPRINTK_ISPCCDC("###CCDC LSC TABLE OFFSET=0x%x\n",
-			isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
-				      ISPCCDC_LSC_TABLE_OFFSET));
-}
 
 /**
  * ispccdc_config_black_clamp - Configures the clamp parameters in CCDC.
@@ -1094,7 +966,6 @@ static int ispccdc_config_datapath(struct isp_ccdc_device *isp_ccdc,
 	}
 
 	ispccdc_config_crop(isp_ccdc, 0, 0, 0, 0);
-	ispccdc_print_status(isp_ccdc, pipe);
 
 	return 0;
 }
@@ -1251,6 +1122,10 @@ void ispccdc_enable(struct isp_ccdc_device *isp_ccdc, u8 enable)
 	int enable_lsc;
 
 	if (enable) {
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+		if (isp->dfs_ccdc)
+			ispccdc_dfs_dump(isp);
+#endif
 		enable_lsc = enable &&
 		((isp->pipeline.ccdc_in == CCDC_RAW_GRBG) ||
 		 (isp->pipeline.ccdc_in == CCDC_RAW_RGGB) ||
@@ -1712,7 +1587,9 @@ int __init isp_ccdc_init(struct device *dev)
 
 	isp_ccdc->shadow_update = 0;
 	spin_lock_init(&isp_ccdc->lock);
-
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+	ispccdc_dfs_setup(isp);
+#endif
 	return 0;
 }
 
@@ -1724,7 +1601,9 @@ void isp_ccdc_cleanup(struct device *dev)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
 	struct isp_ccdc_device *isp_ccdc = &isp->isp_ccdc;
-
+#ifdef CONFIG_VIDEO_OMAP34XX_ISP_DEBUG_FS
+	ispccdc_dfs_shutdown(isp);
+#endif
 	iommu_vfree(isp->iommu, isp_ccdc->lsc_table_inuse);
 	if (isp_ccdc->lsc_table_new != PTR_FREE)
 		iommu_vfree(isp->iommu, isp_ccdc->lsc_table_new);

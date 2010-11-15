@@ -433,6 +433,7 @@ struct isp_device {
 
 	struct iommu *iommu;
 	struct dentry *dfs_isp;
+	struct dentry *dfs_ccdc;
 };
 
 struct isp_freq_devider {
