@@ -41,7 +41,7 @@ int gta02_pm_gps_is_on(void)
 EXPORT_SYMBOL_GPL(gta02_pm_gps_is_on);
 
 /* This is the POWERON pin */
-static void gps_pwron_set(int on)
+static void gps_pwron_set(int on, int ignore_state)
 {
 	if (on) {
 		/* return UART pins to being UART pins */
@@ -49,7 +49,7 @@ static void gps_pwron_set(int on)
 		/* remove pulldown now it won't be floating any more */
 		s3c2410_gpio_pullup(S3C2410_GPH(5), 0);
 
-		if (!gta02_gps.power_was_on)
+		if (!gta02_gps.power_was_on || ignore_state)
 			regulator_enable(gta02_gps.regulator);
 	} else {
 		/*
@@ -60,7 +60,7 @@ static void gps_pwron_set(int on)
 		s3c2410_gpio_setpin(S3C2410_GPH(4), 0);
 		/* don't let RX from unpowered GPS float */
 		s3c2410_gpio_pullup(S3C2410_GPH(5), 1);
-		if (gta02_gps.power_was_on)
+		if (gta02_gps.power_was_on || ignore_state)
 			regulator_disable(gta02_gps.regulator);
 	}
 }
@@ -107,7 +107,7 @@ static ssize_t power_gps_write(struct device *dev,
 	unsigned long on = simple_strtoul(buf, NULL, 10);
 
 	if (!strcmp(attr->attr.name, "power_on")) {
-		gps_pwron_set(on);
+		gps_pwron_set(on, 0);
 		gta02_gps.power_was_on = !!on;
 #ifdef CONFIG_PM
 	} else if (!strcmp(attr->attr.name, "keep_on_in_suspend")) {
@@ -122,7 +122,7 @@ static int gta02_pm_gps_suspend(struct device *dev)
 {
 	if (!gta02_gps.keep_on_in_suspend ||
 		!gta02_gps.power_was_on)
-		gps_pwron_set(0);
+		gps_pwron_set(0, 0);
 	else
 		dev_warn(dev, "GTA02: keeping gps ON "
 			 "during suspend\n");
@@ -132,7 +132,7 @@ static int gta02_pm_gps_suspend(struct device *dev)
 static int gta02_pm_gps_resume(struct device *dev)
 {
 	if (!gta02_gps.keep_on_in_suspend && gta02_gps.power_was_on)
-		gps_pwron_set(1);
+		gps_pwron_set(1, 1);
 
 	return 0;
 }
