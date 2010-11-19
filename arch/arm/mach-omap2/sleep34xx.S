@@ -281,6 +281,11 @@ restore:
         moveq   r9, #0x3        @ MPU OFF => L1 and L2 lost
 	movne	r9, #0x1	@ Only L1 and L2 lost => avoid L2 invalidation
 	bne	logic_l1_restore
+
+	mrc	p15, 0, r4, c1, c0, 1
+	bic	r4, r4, #2	@ disable L2 cache
+	mcr	p15, 0, r4, c1, c0, 1
+
 	ldr	r0, control_stat
 	ldr	r1, [r0]
 	and	r1, #0x700
@@ -341,6 +346,10 @@ smi:    .word 0xE1600070		@ Call SMI monitor (smieq)
 	mov	r12, #0x2
 	.word 0xE1600070	@ Call SMI monitor (smieq)
 logic_l1_restore:
+	mrc	p15, 0, r4, c1, c0, 1
+	orr	r4, r4, #2	@ enable L2 cache
+	mcr	p15, 0, r4, c1, c0, 1
+
 	mov	r1, #0
 	/* Invalidate all instruction caches to PoU
 	 * and flush branch target cache */
