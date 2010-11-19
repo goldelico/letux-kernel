@@ -101,6 +101,7 @@ struct dispc_reg { u16 idx; };
 	/* DISPC_SIZE_TV in OMAP4 */
 #define DISPC_SIZE_LCD			DISPC_REG(0x007C)
 	/* DISPC_SIZE_LCD1 in OMAP4 */
+#define DISPC_SIZE_LCD2			DISPC_REG(0x03CC)
 
 #ifdef CONFIG_ARCH_OMAP4
 #define DISPC_GLOBAL_BUFFER		DISPC_REG(0x0800)
@@ -235,7 +236,6 @@ struct dispc_reg { u16 idx; };
 #define DISPC_DATA2_CYCLE1			DISPC_REG(0x03C0)
 #define DISPC_DATA2_CYCLE2			DISPC_REG(0x03C4)
 #define DISPC_DATA2_CYCLE3			DISPC_REG(0x03C8)
-#define DISPC_SIZE_LCD2				DISPC_REG(0x03CC)
 #define DISPC_TIMING_H2				DISPC_REG(0x0400)
 #define DISPC_TIMING_V2				DISPC_REG(0x0404)
 #define DISPC_POL_FREQ2				DISPC_REG(0x0408)
@@ -1267,6 +1267,22 @@ void dispc_enable_replication(enum omap_plane plane, bool enable)
 	enable_clocks(0);
 }
 
+u32 dispc_get_output_size(enum omap_channel channel)
+{
+	u32 val;
+
+	enable_clocks(1);
+	if (cpu_is_omap44xx() && channel == OMAP_DSS_CHANNEL_LCD2)
+		val = dispc_read_reg(DISPC_SIZE_LCD2);
+	else if (channel == OMAP_DSS_CHANNEL_DIGIT)
+		val = dispc_read_reg(DISPC_SIZE_DIG);
+	else
+		val = dispc_read_reg(DISPC_SIZE_LCD);
+	enable_clocks(0);
+
+	return val;
+}
+
 void dispc_set_lcd_size(enum omap_channel channel, u16 width, u16 height)
 {
 	u32 val;
@@ -1291,7 +1307,6 @@ void dispc_set_digit_size(u16 width, u16 height)
 	dispc_write_reg(DISPC_SIZE_DIG, val);
 	enable_clocks(0);
 }
-
 
 static void dispc_read_plane_fifo_sizes(void)
 {
@@ -2260,8 +2275,8 @@ static unsigned long calc_fclk_five_taps(enum omap_channel channel,
 	u64 tmp, pclk = dispc_pclk_rate(channel);
 
 	if (height > out_height) {
-		/* FIXME get real display PPL */
-		unsigned int ppl = 800;
+		unsigned int out_size = dispc_get_output_size(channel);
+		unsigned int ppl = FLD_VAL(out_size, 10, 0) + 1 ;
 
 		tmp = pclk * height * out_width;
 		do_div(tmp, 2 * out_height * ppl);
