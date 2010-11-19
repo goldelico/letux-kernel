@@ -89,7 +89,8 @@ u32 voltage_off_while_idle;
 
 /* Secure ram save size - store the defaults */
 static struct omap3_secure_copy_data secure_copy_data = {
-	.size = 0x803F,
+	.size = 0xF040,
+	/*60K + 64 Bytes header EMU/HS devices */
 };
 
 struct power_state {
