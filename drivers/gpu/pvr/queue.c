@@ -822,7 +822,10 @@ PVRSRV_ERROR PVRSRVProcessQueues(IMG_UINT32	ui32CallerID,
 				
 				UPDATE_QUEUE_ROFF(psQueue, psCommand->ui32CmdSize)
 
+				if (bFlush)
+				{
 					continue;
+				}
 			}
 
 			break;
