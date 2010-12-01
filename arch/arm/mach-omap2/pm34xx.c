@@ -257,6 +257,7 @@ int __init omap3_secure_copy_data_set(struct omap3_secure_copy_data *data)
 static void omap3_save_secure_ram_context(u32 target_mpu_state)
 {
 	u32 ret;
+	struct clockdomain *clkd = mpu_pwrdm->pwrdm_clkdms[0];
 
 	if (omap_type() != OMAP2_DEVICE_TYPE_GP) {
 		/*
@@ -265,9 +266,11 @@ static void omap3_save_secure_ram_context(u32 target_mpu_state)
 		 * will hang the system.
 		 */
 		pwrdm_set_next_pwrst(mpu_pwrdm, PWRDM_POWER_ON);
+		omap2_clkdm_deny_idle(clkd);
 		ret = _omap_save_secure_sram((u32 *)
 				__pa(omap3_secure_ram_storage));
 		pwrdm_set_next_pwrst(mpu_pwrdm, target_mpu_state);
+		omap2_clkdm_allow_idle(clkd);
 		/* Following is for error tracking, it should not happen */
 		if (ret) {
 			printk(KERN_ERR "save_secure_sram() returns %08x\n",
