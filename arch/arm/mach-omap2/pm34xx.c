@@ -565,6 +565,14 @@ void omap_sram_idle(void)
 		omap2_clkdm_deny_idle(mpu_pwrdm->pwrdm_clkdms[0]);
 #endif
 
+	/*
+	 * We need to disable the autoidle bit from MPU INTC,
+	 * otherwise INTC would get stall, and we would never
+	 * come out of WFI. This is done here because
+	 * save secure ram also does WFI.
+	 */
+	omap3_intc_prepare_idle();
+
 	if (core_next_state < PWRDM_POWER_ON) {
 		if ((core_next_state == PWRDM_POWER_OFF) &&
 			(per_next_state > PWRDM_POWER_OFF)) {
@@ -599,7 +607,6 @@ void omap_sram_idle(void)
 		omap_uart_prepare_idle(0);
 		omap_uart_prepare_idle(1);
 	}
-	omap3_intc_prepare_idle();
 
 	/*
 	* On EMU/HS devices ROM code restores a SRDC value
