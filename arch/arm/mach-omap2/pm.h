@@ -23,6 +23,11 @@ extern void omap_sram_idle(void);
 extern int omap3_can_sleep(void);
 extern int set_pwrdm_state(struct powerdomain *pwrdm, u32 state);
 extern int omap3_idle_init(void);
+#ifdef CONFIG_PM
+extern void pm_alloc_secure_ram(void);
+#else
+static inline void pm_alloc_secure_ram(void) { }
+#endif
 extern int omap4_idle_init(void);
 
 struct prm_setup_vc {

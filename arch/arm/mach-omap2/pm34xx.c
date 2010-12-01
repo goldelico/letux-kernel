@@ -22,6 +22,7 @@
 #include <linux/suspend.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
+#include <linux/bootmem.h>
 #include <linux/list.h>
 #include <linux/err.h>
 #include <linux/gpio.h>
@@ -1759,24 +1760,6 @@ static int __init omap3_pm_init(void)
 		omap_ctrl_writel(OMAP36XX_RTA_DISABLE,
 				OMAP36XX_CONTROL_MEM_RTA_CTRL);
 
-	if (omap_type() != OMAP2_DEVICE_TYPE_GP) {
-		omap3_secure_ram_storage =
-			kmalloc(secure_copy_data.size, GFP_KERNEL);
-		if (!omap3_secure_ram_storage)
-			printk(KERN_ERR "Memory allocation failed when"
-					"allocating for secure sram context\n");
-
-		local_irq_disable();
-		local_fiq_disable();
-
-		omap_dma_global_context_save();
-		omap3_save_secure_ram_context(PWRDM_POWER_ON);
-		omap_dma_global_context_restore();
-
-		local_irq_enable();
-		local_fiq_enable();
-	}
-
 	omap3_save_scratchpad_contents();
 	register_reboot_notifier(&prcm_notifier);
 	atomic_notifier_chain_register(&panic_notifier_list,
@@ -1882,6 +1865,16 @@ static int __init omap3_pm_early_init(void)
 	configure_vc();
 
 	return 0;
+}
+
+void __init pm_alloc_secure_ram(void)
+{
+	if (omap_type() != OMAP2_DEVICE_TYPE_GP) {
+		omap3_secure_ram_storage =
+			alloc_bootmem_low_pages(secure_copy_data.size);
+		if (!omap3_secure_ram_storage)
+			pr_err("Memory alloc failed for secure RAM context.\n");
+	}
 }
 
 arch_initcall(omap3_pm_early_init);

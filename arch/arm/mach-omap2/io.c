@@ -38,6 +38,7 @@
 #include <plat/gpio.h>
 
 #include "clock.h"
+#include "pm.h"
 
 #include <plat/omap-pm.h>
 #include <plat/powerdomain.h>
@@ -271,6 +272,7 @@ void __init omap2_map_common_io(void)
 	omapfb_reserve_sdram();
 	omap_vram_reserve_sdram();
 	dspbridge_reserve_sdram();
+	pm_alloc_secure_ram();
 }
 
 /*
