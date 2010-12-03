@@ -192,6 +192,8 @@ static int ispresizer_try_fmt(struct isp_node *pipe, bool memory)
 		max_out_7tap = MAX_7TAP_OUT_WIDTH;
 		break;
 	case OMAP3630_REV_ES1_0:
+	case OMAP3630_REV_ES1_1:
+	case OMAP3630_REV_ES1_2:
 		max_in_otf = MAX_IN_WIDTH_ONTHEFLY_MODE_ES3;
 		max_out_4tap = MAX_4TAP_OUT_WIDTH_ES3;
 		max_out_7tap = MAX_7TAP_OUT_WIDTH_ES3;

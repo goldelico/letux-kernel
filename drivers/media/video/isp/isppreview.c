@@ -1593,6 +1593,8 @@ int isppreview_try_pipeline(struct isp_prev_device *isp_prev,
 		max_out = ISPPRV_MAXOUTPUT_WIDTH;
 		break;
 	case OMAP3630_REV_ES1_0:
+	case OMAP3630_REV_ES1_1:
+	case OMAP3630_REV_ES1_2:
 		max_out = ISPPRV_MAXOUTPUT_WIDTH_ES3;
 		break;
 	default:
