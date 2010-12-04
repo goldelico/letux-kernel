@@ -33,7 +33,6 @@
 #include <plat/display.h>
 #include <plat/vram.h>
 
-
 #ifndef CONFIG_ARCH_OMAP4
 #include <plat/vrfb.h>
 #endif
@@ -831,7 +830,7 @@ static unsigned calc_rotation_offset_dma(struct fb_var_screeninfo *var,
 }
 
 static unsigned calc_rotation_offset_vrfb(struct fb_var_screeninfo *var,
-		struct fb_fix_screeninfo *fix, int rotation)
+		struct fb_fix_screeninfo *fix, int rotation, int mirror)
 {
 	unsigned offset;
 
@@ -843,6 +842,15 @@ static unsigned calc_rotation_offset_vrfb(struct fb_var_screeninfo *var,
 			(var->bits_per_pixel >> 3);
 	else
 		offset = 0;
+
+	if (mirror) {
+		if (rotation == FB_ROTATE_UR || rotation == FB_ROTATE_UD)
+			offset += OMAP_VRFB_LINE_LEN * (var->yres - 1) *
+					(var->bits_per_pixel >> 3);
+		else
+			offset += OMAP_VRFB_LINE_LEN * (var->xres - 1) *
+					(var->bits_per_pixel >> 3);
+	}
 
 	if (rotation == FB_ROTATE_UR)
 		offset += var->yoffset * fix->line_length +
@@ -903,6 +911,8 @@ static int omapfb_setup_overlay(struct fb_info *fbi, struct omap_overlay *ovl,
 		}
 	}
 
+	mirror =  ofbi->mirror;
+
 	offset = ((var->yoffset * var->xres_virtual +
 				var->xoffset) * var->bits_per_pixel) >> 3;
 
@@ -915,7 +925,7 @@ static int omapfb_setup_overlay(struct fb_info *fbi, struct omap_overlay *ovl,
 	}
 
 	if (ofbi->rotation_type == OMAP_DSS_ROT_VRFB)
-		offset = calc_rotation_offset_vrfb(var, fix, rotation);
+		offset = calc_rotation_offset_vrfb(var, fix, rotation, mirror);
 	else
 		offset = calc_rotation_offset_dma(var, fix, rotation);
 
@@ -948,11 +958,6 @@ static int omapfb_setup_overlay(struct fb_info *fbi, struct omap_overlay *ovl,
 	}
 
 	ovl->get_overlay_info(ovl, &info);
-
-	if (ofbi->rotation_type == OMAP_DSS_ROT_VRFB)
-		mirror = 0;
-	else
-		mirror = ofbi->mirror;
 
 	info.paddr = data_start_p;
 	info.vaddr = data_start_v;
@@ -1424,7 +1429,7 @@ static void omapfb_free_fbmem(struct fb_info *fbi)
 		/* unmap the 0 angle rotation */
 		if (rg->vrfb.vaddr[0]) {
 			iounmap(rg->vrfb.vaddr[0]);
-			//omap_vrfb_release_ctx(&rg->vrfb);
+			omap_vrfb_release_ctx(&rg->vrfb);
 		}
 #endif
 	}
@@ -1530,7 +1535,7 @@ static int omapfb_alloc_fbmem(struct fb_info *fbi, unsigned long size,
 		DBG("allocated VRAM paddr %lx, vaddr %p\n", paddr, vaddr);
 #endif
 	} else if (ofbi->rotation_type == OMAP_DSS_ROT_VRFB) {
-		//r = omap_vrfb_request_ctx(&rg->vrfb);
+		r = omap_vrfb_request_ctx(&rg->vrfb);
 		if (r) {
 			dev_err(fbdev->dev, "vrfb create ctx failed\n");
 			return r;
@@ -1585,10 +1590,10 @@ static int omapfb_alloc_fbmem_display(struct fb_info *fbi, unsigned long size,
 		display->get_resolution(display, &w, &h);
 
 		if (ofbi->rotation_type == OMAP_DSS_ROT_VRFB) {
-			//size = max(omap_vrfb_min_phys_size(w, h, bytespp),
-				//	omap_vrfb_min_phys_size(h, w, bytespp));
-
 			int oldw = w, oldh = h;
+
+			size = max(omap_vrfb_min_phys_size(w, h, bytespp),
+				omap_vrfb_min_phys_size(h, w, bytespp));
 
 			DBG("adjusting fb mem size for VRFB, %u -> %lu\n",
 					w * h * bytespp, size);
