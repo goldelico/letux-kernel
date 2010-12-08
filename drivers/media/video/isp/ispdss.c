@@ -155,6 +155,9 @@ void ispdss_put_resource()
 	/* make device available */
 	dev_ctx.opened = 0;
 
+	/* stop the isp */
+	isp_stop(dev_ctx.isp);
+
 	/* release isp resource*/
 	isp_put();
 
