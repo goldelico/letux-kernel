@@ -183,10 +183,7 @@ void OMAPLFBFlip(OMAPLFB_SWAPCHAIN *psSwapChain, unsigned long aPhyAddr)
 	struct fb_info * framebuffer = psDevInfo->psLINFBInfo;
 	struct omapfb_info *ofbi = FB2OFB(framebuffer);
 	struct omapfb2_device *fbdev = ofbi->fbdev;
-	unsigned long fb_offset =
-		aPhyAddr - psDevInfo->sSystemBuffer.sSysAddr.uiAddr;
-	struct omap_overlay* overlay;
-	struct omap_overlay_info overlay_info;
+	unsigned long fb_offset;
 	int i;
 
 	fb_offset = aPhyAddr - psDevInfo->sSystemBuffer.sSysAddr.uiAddr;
@@ -195,25 +192,29 @@ void OMAPLFBFlip(OMAPLFB_SWAPCHAIN *psSwapChain, unsigned long aPhyAddr)
 
 	for(i = 0; i < ofbi->num_overlays ; i++)
 	{
-		overlay = ofbi->overlays[i];
-		overlay->get_overlay_info( overlay, &overlay_info );
+		struct omap_dss_device *display = NULL;
+		struct omap_overlay_manager *manager;
+		struct omap_overlay *overlay;
+		struct omap_overlay_info overlay_info;
 
-		/* If the overlay is not enabled don't update it */
-		if(!overlay_info.enabled)
-			continue;
+		overlay = ofbi->overlays[i];
+		manager = overlay->manager;
+		overlay->get_overlay_info( overlay, &overlay_info );
 
 		overlay_info.paddr = framebuffer->fix.smem_start + fb_offset;
 		overlay_info.vaddr = framebuffer->screen_base + fb_offset;
 		overlay->set_overlay_info(overlay, &overlay_info);
-		overlay->manager->apply(overlay->manager);
 
-		if(overlay->manager->device->update)
-		{
-			overlay->manager->device->update(
-				overlay->manager->device, 0, 0,
-				overlay_info.width,
-				overlay_info.height);
+		if (manager) {
+			manager->apply(manager);
+			display = manager->device;
 		}
+
+		if (display && display->update &&
+			display->get_update_mode(display) ==
+			OMAP_DSS_UPDATE_MANUAL)
+			display->update(display, 0, 0, overlay_info.width,
+				overlay_info.height);
 
 	}
 
@@ -231,21 +232,36 @@ void OMAPLFBFlip(OMAPLFB_SWAPCHAIN *psSwapChain, unsigned long aPhyAddr)
  * On DPI panels the display->wait_vsync is used to handle VSYNC IRQ
  * in: psDevInfo
  */
-void OMAPLFBWaitForSync(OMAPLFB_DEVINFO *psDevInfo)
+void OMAPLFBPresentSync(OMAPLFB_DEVINFO *psDevInfo,
+	OMAPLFB_FLIP_ITEM *psFlipItem)
 {
 	struct fb_info * framebuffer = psDevInfo->psLINFBInfo;
 	struct omap_dss_device *display = fb2display(framebuffer);
-	if (display)
-	{
-#ifndef CONFIG_FB_OMAP2_FORCE_AUTO_UPDATE
-		if (display->sync) {
-			display->sync(display);
-			return;
-		}
-#endif
-		if (display->wait_vsync)
-			display->wait_vsync(display);
+	int err = 1;
+
+	if (!display)
+		WARNING_PRINTK("No DSS device to sync with display %u!",
+				psDevInfo->uDeviceID);
+
+	if (display->sync &&
+		display->get_update_mode(display) == OMAP_DSS_UPDATE_MANUAL) {
+		/* Wait first for the DSI bus to be released then update */
+		err = display->sync(display);
+		OMAPLFBFlip(psDevInfo->psSwapChain,
+			(unsigned long)psFlipItem->sSysAddr->uiAddr);
+	} else if (display->wait_vsync) {
+		/*
+		 * Update the video pipelines registers then wait until the
+		 * frame is shown with a VSYNC
+		 */
+		OMAPLFBFlip(psDevInfo->psSwapChain,
+			(unsigned long)psFlipItem->sSysAddr->uiAddr);
+		err = display->wait_vsync(display);
 	}
+
+	if (err)
+		WARNING_PRINTK("Unable to sync with display %u!",
+			psDevInfo->uDeviceID);
 }
 
 #if defined(LDM_PLATFORM)
