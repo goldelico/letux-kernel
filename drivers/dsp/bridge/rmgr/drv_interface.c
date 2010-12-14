@@ -352,7 +352,6 @@ static int __devinit omap34_xx_bridge_probe(struct platform_device *pdev)
 	bridge_create_sysfs();
 
 	DBC_ASSERT(status == 0);
-	DBC_ASSERT(DSP_SUCCEEDED(init_status));
 
 	device_create(bridge_class, NULL, MKDEV(driver_major, 0),
 			NULL, "DspBridge");
