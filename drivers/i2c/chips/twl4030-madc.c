@@ -437,6 +437,8 @@ static int __init twl4030_madc_probe(struct platform_device *pdev)
 	if (!madc)
 		return -ENOMEM;
 
+	madc->dev = &pdev->dev;
+
 	if (!pdata) {
 		dev_dbg(&pdev->dev, "platform_data not available\n");
 		ret = -EINVAL;
