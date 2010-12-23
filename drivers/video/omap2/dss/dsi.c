@@ -2926,11 +2926,6 @@ static void dsi_proto_timings(struct omap_dss_device *dssdev)
 	BUG_ON(ddr_clk_pre == 0 || ddr_clk_pre > 255);
 	BUG_ON(ddr_clk_post == 0 || ddr_clk_post > 255);
 
-	/* :TODO: this was different on OMAP2/3 !!! */
-	if (!cpu_is_omap44xx()) {
-		ddr_clk_pre = 0xA; 	/*sv3*/
-		ddr_clk_post = 0x9;	/*sv3*/
-	}
 	r = dsi_read_reg(lcd_ix, DSI_CLK_TIMING);
 	r = FLD_MOD(r, ddr_clk_pre, 15, 8);
 	r = FLD_MOD(r, ddr_clk_post, 7, 0);
@@ -2945,11 +2940,6 @@ static void dsi_proto_timings(struct omap_dss_device *dssdev)
 		DIV_ROUND_UP(ths_zero + 3, 4);
 
 	exit_hs_mode_lat = DIV_ROUND_UP(ths_trail + ths_exit, 4) + 1 + ths_eot;
-	/* :TODO: this was different on OMAP2/3 !!! */
-	if (!cpu_is_omap44xx()) {
-		enter_hs_mode_lat = 7; /*sv3*/
-		exit_hs_mode_lat = 9; /*sv3*/
-	}
 	r = FLD_VAL(enter_hs_mode_lat, 31, 16) |
 		FLD_VAL(exit_hs_mode_lat, 15, 0);
 	dsi_write_reg(lcd_ix, DSI_VM_TIMING7, r);
