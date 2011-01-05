@@ -935,9 +935,9 @@ static void omap_hsmmc_detect(struct work_struct *work)
 	}
 
 	if (carddetect)
-		mmc_detect_change(host->mmc, (HZ * 200) / 1000);
+		mmc_detect_change(host->mmc, msecs_to_jiffies(500));
 	else
-		mmc_detect_change(host->mmc, (HZ * 50) / 1000);
+		mmc_detect_change(host->mmc, msecs_to_jiffies(1500));
 }
 
 /*
