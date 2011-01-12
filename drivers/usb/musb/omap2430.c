@@ -287,8 +287,6 @@ int __init musb_platform_init(struct musb *musb, void *board_data)
 
 	otg_put_transceiver(x);
 
-	musb_platform_save_context(musb);
-
 	setup_timer(&musb_idle_timer, musb_do_idle, (unsigned long) musb);
 
 	return 0;
