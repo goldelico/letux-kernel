@@ -924,6 +924,7 @@ void musb_start(struct musb *musb)
 	}
 	musb_platform_enable(musb);
 	musb_writeb(regs, MUSB_DEVCTL, devctl);
+	musb_platform_save_context(musb);
 }
 
 

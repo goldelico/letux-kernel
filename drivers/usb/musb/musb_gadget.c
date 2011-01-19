@@ -1853,8 +1853,6 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 				spin_unlock_irqrestore(&musb->lock, flags);
 			}
 		}
-
-		musb_platform_save_context(musb);
 	}
 
 	return retval;
