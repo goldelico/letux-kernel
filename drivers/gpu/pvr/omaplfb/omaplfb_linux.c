@@ -32,14 +32,8 @@
 #include <linux/module.h>
 #include <linux/fb.h>
 #include <asm/io.h>
-
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32))
 #include <plat/vrfb.h>
 #include <plat/display.h>
-#else
-#include <mach/vrfb.h>
-#include <mach/display.h>
-#endif
 
 #ifdef RELEASE
 #include <../drivers/video/omap2/omapfb/omapfb.h>
@@ -49,20 +43,12 @@
 #include <../drivers/video/omap2/omapfb/omapfb.h>
 #endif
 
-#if defined(CONFIG_OUTER_CACHE)  /* Kernel config option */
-#include <asm/cacheflush.h>
-#define HOST_PAGESIZE			(4096)
-#define HOST_PAGEMASK			(~(HOST_PAGESIZE-1))
-#define HOST_PAGEALIGN(addr)	(((addr)+HOST_PAGESIZE-1)&HOST_PAGEMASK)
-#endif
-
 #if defined(LDM_PLATFORM)
 #include <linux/platform_device.h>
 #if defined(SGX_EARLYSUSPEND)
 #include <linux/earlysuspend.h>
 #endif
 #endif
-
 
 #include "img_defs.h"
 #include "servicesext.h"
@@ -72,16 +58,6 @@
 
 MODULE_SUPPORTED_DEVICE(DEVNAME);
 
-#if defined(CONFIG_OUTER_CACHE)  /* Kernel config option */
-#if defined(__arm__)
-static void per_cpu_cache_flush_arm(void *arg)
-{
-    PVR_UNREFERENCED_PARAMETER(arg);
-    flush_cache_all();
-}
-#endif
-#endif
-
 /*
  * Kernel malloc
  * in: ui32ByteSize
@@ -90,29 +66,9 @@ void *OMAPLFBAllocKernelMem(unsigned long ui32ByteSize)
 {
 	void *p;
 
-#if defined(CONFIG_OUTER_CACHE)  /* Kernel config option */
-	IMG_VOID *pvPageAlignedCPUPAddr;
-	IMG_VOID *pvPageAlignedCPUVAddr;
-	IMG_UINT32 ui32PageOffset;
-	IMG_UINT32 ui32PageCount;
-#endif
 	p = kmalloc(ui32ByteSize, GFP_KERNEL);
-
 	if(!p)
 		return 0;
-
-#if defined(CONFIG_OUTER_CACHE)  /* Kernel config option */
-	ui32PageOffset = (IMG_UINT32) p & (HOST_PAGESIZE - 1);
-	ui32PageCount = HOST_PAGEALIGN(ui32ByteSize + ui32PageOffset) / HOST_PAGESIZE;
-
-	pvPageAlignedCPUVAddr = (IMG_VOID *)((IMG_UINT8 *)p - ui32PageOffset);
-	pvPageAlignedCPUPAddr = (IMG_VOID*) __pa(pvPageAlignedCPUVAddr);
-
-#if defined(__arm__)
-      on_each_cpu(per_cpu_cache_flush_arm, NULL, 1);
-#endif
-	outer_cache.flush_range((unsigned long) pvPageAlignedCPUPAddr, (unsigned long) ((pvPageAlignedCPUPAddr + HOST_PAGESIZE*ui32PageCount) - 1));
-#endif
 	return p;
 }
 
@@ -301,26 +257,6 @@ static void OMAPLFBCommonSuspend(void)
 	bDeviceSuspended = OMAP_TRUE;
 }
 
-#if 0
-/*
- * Function called when the driver is requested to release
- * in: pDevice
- */
-static void OMAPLFBDeviceRelease_Entry(struct device unref__ *pDevice)
-{
-	DEBUG_PRINTK("Requested driver release");
-	OMAPLFBCommonSuspend();
-}
-
-static struct platform_device omaplfb_device = {
-	.name = DEVNAME,
-	.id = -1,
-	.dev = {
-		.release = OMAPLFBDeviceRelease_Entry
-	}
-};
-#endif
-
 #if defined(SGX_EARLYSUSPEND)
 
 static struct early_suspend omaplfb_early_suspend;
@@ -422,17 +358,6 @@ static int __init OMAPLFB_Init(void)
 			WARNING_PRINTK("Driver cleanup failed\n");
 		return -ENODEV;
 	}
-#if 0
-	DEBUG_PRINTK("Registering device driver");
-	if (platform_device_register(&omaplfb_device))
-	{
-		WARNING_PRINTK("Unable to register platform device");
-		platform_driver_unregister(&omaplfb_driver);
-		if(OMAPLFBDeinit() != OMAP_OK)
-			WARNING_PRINTK("Driver cleanup failed\n");
-		return -ENODEV;
-	}
-#endif
 
 #if defined(SGX_EARLYSUSPEND)
 	omaplfb_early_suspend.suspend = OMAPLFBDriverSuspend_Entry;
@@ -452,10 +377,6 @@ static int __init OMAPLFB_Init(void)
 static IMG_VOID __exit OMAPLFB_Cleanup(IMG_VOID)
 {    
 #if defined(LDM_PLATFORM)
-#if 0
-	DEBUG_PRINTK(format,...)("Removing platform device");
-	platform_device_unregister(&omaplfb_device);
-#endif
 	DEBUG_PRINTK("Removing platform driver");
 	platform_driver_unregister(&omaplfb_driver);
 #if defined(SGX_EARLYSUSPEND)

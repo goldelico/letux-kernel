@@ -75,7 +75,6 @@ typedef struct PVRPDP_SWAPCHAIN_TAG
 	OMAP_BOOL                       bFlushCommands;
 	unsigned long                   ulSetFlushStateRefCount;
 	OMAP_BOOL                       bBlanked;
-	spinlock_t*                     psSwapChainLock;
 	void*                           pvDevInfo;
 
 } OMAPLFB_SWAPCHAIN;

@@ -28,14 +28,11 @@
 #include <linux/kernel.h>
 #include <linux/console.h>
 #include <linux/fb.h>
-
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32))
 #include <plat/vrfb.h>
 #include <plat/display.h>
-#else
-#include <mach/vrfb.h>
-#include <mach/display.h>
-#endif
+#include <linux/module.h>
+#include <linux/string.h>
+#include <linux/notifier.h>
 
 #ifdef RELEASE
 #include <../drivers/video/omap2/omapfb/omapfb.h>
@@ -44,10 +41,6 @@
 #undef DEBUG
 #include <../drivers/video/omap2/omapfb/omapfb.h>
 #endif
-
-#include <linux/module.h>
-#include <linux/string.h>
-#include <linux/notifier.h>
 
 #include "img_defs.h"
 #include "servicesext.h"
@@ -1522,17 +1515,6 @@ OMAP_ERROR OMAPLFBInit(void)
 	INFO_PRINTK("Initializing 3rd party display driver");
 	INFO_PRINTK("Found %u framebuffers", FRAMEBUFFER_COUNT);
 
-#if defined(REQUIRES_TWO_FRAMEBUFFERS)
-	/*
-	 * Fail hard if there isn't at least two framebuffers available
-	 */
-	if(FRAMEBUFFER_COUNT < 2)
-	{
-		ERROR_PRINTK("Driver needs at least two framebuffers");
-		return OMAP_ERROR_INIT_FAILURE;
-	}
-#endif
-
 	/*
 	 * Obtain the function pointer for the jump table from
 	 * services to fill it with the function pointers that we want
@@ -1552,7 +1534,6 @@ OMAP_ERROR OMAPLFBInit(void)
 			sizeof(OMAPLFB_DEVINFO) * FRAMEBUFFER_COUNT);
 	if(!pDisplayDevices)
 	{
-		pDisplayDevices = NULL;
 		ERROR_PRINTK("Out of memory");
 		return OMAP_ERROR_OUT_OF_MEMORY;
 	}
