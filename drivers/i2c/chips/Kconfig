@@ -16,6 +16,10 @@ config DS1682
 	  This driver can also be built as a module.  If so, the module
 	  will be called ds1682.
 
+config TWL4030_POWEROFF
+	bool "TWL4030 device poweroff"
+	depends on TWL4030_CORE
+
 config SENSORS_TSL2550
 	tristate "Taos TSL2550 ambient light sensor"
 	depends on EXPERIMENTAL
