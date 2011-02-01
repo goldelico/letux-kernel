@@ -24,12 +24,31 @@
 #include <linux/slab.h>
 #include <linux/workqueue.h>
 #include <linux/debugfs.h>
+#include <linux/dma-mapping.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
 #include <sound/soc-dsp.h>
 #include <sound/initval.h>
+
+/* ASoC no host IO hardware.
+ * TODO: fine tune these values for all host less transfers.
+ */
+static const struct snd_pcm_hardware no_host_hardware = {
+	.info			= SNDRV_PCM_INFO_MMAP |
+				  SNDRV_PCM_INFO_MMAP_VALID |
+				  SNDRV_PCM_INFO_INTERLEAVED |
+				  SNDRV_PCM_INFO_PAUSE |
+				  SNDRV_PCM_INFO_RESUME,
+	.formats		= SNDRV_PCM_FMTBIT_S16_LE |
+				  SNDRV_PCM_FMTBIT_S32_LE,
+	.period_bytes_min	= PAGE_SIZE >> 2,
+	.period_bytes_max	= PAGE_SIZE >> 1,
+	.periods_min		= 2,
+	.periods_max		= 4,
+	.buffer_bytes_max	= PAGE_SIZE,
+};
 
 /* count the number of FE clients in a particular state */
 int soc_dsp_fe_state_count(struct snd_soc_pcm_runtime *be, int stream,
@@ -98,6 +117,9 @@ static int soc_pcm_open(struct snd_pcm_substream *substream)
 	int ret = 0;
 
 	mutex_lock_nested(&rtd->pcm_mutex, rtd->pcm_subclass);
+
+	if (rtd->dai_link->no_host_mode == SND_SOC_DAI_LINK_NO_HOST)
+		snd_soc_set_runtime_hwparams(substream, &no_host_hardware);
 
 	/* startup the audio subsystem */
 	if (cpu_dai->driver->ops->startup) {
@@ -491,6 +513,20 @@ static int soc_pcm_hw_params(struct snd_pcm_substream *substream,
 	cpu_dai->rate = params_rate(params);
 	codec_dai->rate = params_rate(params);
 
+	/* malloc a page for hostless IO.
+	 * FIXME: rework with alsa-lib changes so that this malloc is not required.
+	 */
+	if (rtd->dai_link->no_host_mode == SND_SOC_DAI_LINK_NO_HOST) {
+		substream->dma_buffer.dev.type = SNDRV_DMA_TYPE_DEV;
+		substream->dma_buffer.dev.dev = &rtd->dev;
+		substream->dma_buffer.dev.dev->coherent_dma_mask = DMA_BIT_MASK(32);
+		substream->dma_buffer.private_data = NULL;
+
+		ret = snd_pcm_lib_malloc_pages(substream, PAGE_SIZE);
+		if (ret < 0)
+			goto platform_err;
+	}
+
 out:
 	mutex_unlock(&rtd->pcm_mutex);
 	return ret;
@@ -542,6 +578,9 @@ static int soc_pcm_hw_free(struct snd_pcm_substream *substream)
 
 	if (cpu_dai->driver->ops->hw_free)
 		cpu_dai->driver->ops->hw_free(substream, cpu_dai);
+
+	if (rtd->dai_link->no_host_mode == SND_SOC_DAI_LINK_NO_HOST)
+		snd_pcm_lib_free_pages(substream);
 
 	mutex_unlock(&rtd->pcm_mutex);
 	return 0;
@@ -2158,7 +2197,6 @@ int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 		snd_soc_set_runtime_hwparams(substream[SNDRV_PCM_STREAM_CAPTURE],
 				&no_host_hardware);
 	}
-
 
 	/* ASoC PCM operations */
 	if (rtd->dai_link->dynamic) {
