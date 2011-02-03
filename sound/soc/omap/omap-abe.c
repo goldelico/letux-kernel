@@ -1461,6 +1461,8 @@ static struct snd_soc_dai_driver omap_abe_dai[] = {
 			.formats = OMAP_ABE_FORMATS,
 		},
 		.ops = &omap_abe_dai_ops,
+		.widgets = mm1_widgets,
+		.num_widgets = ARRAY_SIZE(mm1_widgets),
 	},
 	{	/* Multimedia Capture */
 		.name = "MultiMedia2",
@@ -1474,6 +1476,8 @@ static struct snd_soc_dai_driver omap_abe_dai[] = {
 			.formats = OMAP_ABE_FORMATS,
 		},
 		.ops = &omap_abe_dai_ops,
+		.widgets = mm2_widgets,
+		.num_widgets = ARRAY_SIZE(mm2_widgets),
 	},
 	{	/* Voice Playback and Capture */
 		.name = "Voice",
@@ -1494,6 +1498,8 @@ static struct snd_soc_dai_driver omap_abe_dai[] = {
 			.formats = OMAP_ABE_FORMATS,
 		},
 		.ops = &omap_abe_dai_ops,
+		.widgets = voice_widgets,
+		.num_widgets = ARRAY_SIZE(voice_widgets),
 	},
 	{	/* Tones Playback */
 		.name = "Tones",
@@ -1507,6 +1513,8 @@ static struct snd_soc_dai_driver omap_abe_dai[] = {
 			.formats = OMAP_ABE_FORMATS,
 		},
 		.ops = &omap_abe_dai_ops,
+		.widgets = tones_widgets,
+		.num_widgets = ARRAY_SIZE(tones_widgets),
 	},
 	{	/* Vibra */
 		.name = "Vibra",
@@ -1520,6 +1528,8 @@ static struct snd_soc_dai_driver omap_abe_dai[] = {
 			.formats = OMAP_ABE_FORMATS,
 		},
 		.ops = &omap_abe_dai_ops,
+		.widgets = vibra_widgets,
+		.num_widgets = ARRAY_SIZE(vibra_widgets),
 	},
 	{	/* MODEM Voice Playback and Capture */
 		.name = "MODEM",
@@ -1540,6 +1550,8 @@ static struct snd_soc_dai_driver omap_abe_dai[] = {
 			.formats = OMAP_ABE_FORMATS,
 		},
 		.ops = &omap_abe_dai_ops,
+		.widgets = voice_widgets,
+		.num_widgets = ARRAY_SIZE(voice_widgets),
 	},
 	{	/* Low Power HiFi Playback */
 		.name = "MultiMedia1 LP",
@@ -1553,6 +1565,8 @@ static struct snd_soc_dai_driver omap_abe_dai[] = {
 			.formats = OMAP_ABE_FORMATS,
 		},
 		.ops = &omap_abe_dai_ops,
+		.widgets = mm_lp_widgets,
+		.num_widgets = ARRAY_SIZE(mm_lp_widgets),
 	},
 };
 
