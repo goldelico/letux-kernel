@@ -22,6 +22,7 @@
 #include <linux/clk.h>
 #include <linux/platform_device.h>
 #include <linux/mfd/twl6040.h>
+#include <linux/i2c.h>
 
 #include <sound/core.h>
 #include <sound/pcm.h>
@@ -743,17 +744,40 @@ static int __init sdp4430_soc_init(void)
 
 	ret = snd_soc_register_dais(&sdp4430_snd_device->dev, dai, ARRAY_SIZE(dai));
 	if (ret < 0)
-		goto err;
+		goto err_dai;
 	platform_set_drvdata(sdp4430_snd_device, &snd_soc_sdp4430);
 
 	ret = platform_device_add(sdp4430_snd_device);
 	if (ret)
-		goto err;
+		goto err_dev;
+
+	adapter = i2c_get_adapter(1);
+	if (!adapter) {
+		printk(KERN_ERR "can't get i2c adapter\n");
+		ret = -ENODEV;
+		goto err_adap;
+	}
+
+	tps6130x_client = i2c_new_device(adapter, &tps6130x_hwmon_info);
+	if (!tps6130x_client) {
+		printk(KERN_ERR "can't add i2c device\n");
+		ret = -ENODEV;
+		goto err_i2c;
+	}
+
+	/* Only configure the TPS6130x on SDP4430 */
+	if (machine_is_omap_4430sdp())
+		sdp4430_tps6130x_configure();
 
 	return 0;
 
-err:
-	printk(KERN_ERR "Unable to add platform device\n");
+err_i2c:
+	i2c_put_adapter(adapter);
+err_adap:
+	platform_device_del(sdp4430_snd_device);
+err_dev:
+	snd_soc_unregister_dais(&sdp4430_snd_device->dev, ARRAY_SIZE(dai));
+err_dai:
 	platform_device_put(sdp4430_snd_device);
 	return ret;
 }
@@ -762,6 +786,9 @@ module_init(sdp4430_soc_init);
 static void __exit sdp4430_soc_exit(void)
 {
 	platform_device_unregister(sdp4430_snd_device);
+	snd_soc_unregister_dais(&sdp4430_snd_device->dev, ARRAY_SIZE(dai));
+	i2c_unregister_device(tps6130x_client);
+	i2c_put_adapter(adapter);
 }
 module_exit(sdp4430_soc_exit);
 
