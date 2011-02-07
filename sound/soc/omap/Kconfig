@@ -108,6 +108,11 @@ config SND_OMAP_SOC_SDP4430
 	depends on SND_OMAP_SOC && (MACH_OMAP_4430SDP || MACH_OMAP_5430EVM)
 	select SND_OMAP_SOC_MCPDM
 	select SND_SOC_TWL6040
+	select SND_OMAP_SOC_ABE
+	select SND_OMAP_SOC_MCBSP
+	select SND_SOC_DMIC
+	select SND_OMAP_SOC_DMIC
+	select SND_OMAP_SOC_ABE_DSP
 	help
 	  Say Y if you want to add support for SoC audio on Texas Instruments
 	  OMAP4/5.
