@@ -31,8 +31,20 @@
 
 /*
  * Powerdomains
+ *
+ * The wakeup_lat values are derived from HW and SW measurements on
+ * the actual target. For more details cf.
+ * http://www.omappedia.org/wiki/Power_Management_Device_Latencies_Measurement#Results_for_individual_power_domains
+ *
+ * Note: the latency figures for MPU, PER, CORE, NEON have been obtained
+ * from actual measurements.
+ * The latency figures for the other power domains are preliminary and
+ * shall be added.
+ *
+ * Note: only the SW restore timing values are taken into account.
+ * The HW impact of the sys_clkreq and sys_offmode signals is not taken
+ * into account - TDB
  */
-
 static struct powerdomain iva2_pwrdm = {
 	.name		  = "iva2_pwrdm",
 	.prcm_offs	  = OMAP3430_IVA2_MOD,
@@ -52,6 +64,13 @@ static struct powerdomain iva2_pwrdm = {
 		[3] = PWRSTS_ON,
 	},
 	.voltdm           = { .name = "mpu_iva" },
+	.wakeup_lat = {
+		[PWRDM_FUNC_PWRST_OFF] = 1100,
+		[PWRDM_FUNC_PWRST_OSWR] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_CSWR] = 350,
+		[PWRDM_FUNC_PWRST_INACTIVE] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_ON] = 0,
+	},
 };
 
 static struct powerdomain mpu_3xxx_pwrdm = {
@@ -68,6 +87,13 @@ static struct powerdomain mpu_3xxx_pwrdm = {
 		[0] = PWRSTS_OFF_ON,
 	},
 	.voltdm           = { .name = "mpu_iva" },
+	.wakeup_lat = {
+		[PWRDM_FUNC_PWRST_OFF] = 1830,
+		[PWRDM_FUNC_PWRST_OSWR] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_CSWR] = 121,
+		[PWRDM_FUNC_PWRST_INACTIVE] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_ON] = 0,
+	},
 };
 
 /*
@@ -95,6 +121,13 @@ static struct powerdomain core_3xxx_pre_es3_1_pwrdm = {
 		[1] = PWRSTS_OFF_RET_ON, /* MEM2ONSTATE */
 	},
 	.voltdm           = { .name = "core" },
+	.wakeup_lat = {
+		[PWRDM_FUNC_PWRST_OFF] = 3082,
+		[PWRDM_FUNC_PWRST_OSWR] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_CSWR] = 153,
+		[PWRDM_FUNC_PWRST_INACTIVE] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_ON] = 0,
+	},
 };
 
 static struct powerdomain core_3xxx_es3_1_pwrdm = {
@@ -117,6 +150,13 @@ static struct powerdomain core_3xxx_es3_1_pwrdm = {
 		[1] = PWRSTS_OFF_RET_ON, /* MEM2ONSTATE */
 	},
 	.voltdm           = { .name = "core" },
+	.wakeup_lat = {
+		[PWRDM_FUNC_PWRST_OFF] = 3082,
+		[PWRDM_FUNC_PWRST_OSWR] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_CSWR] = 153,
+		[PWRDM_FUNC_PWRST_INACTIVE] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_ON] = 0,
+	},
 };
 
 static struct powerdomain dss_pwrdm = {
@@ -132,6 +172,13 @@ static struct powerdomain dss_pwrdm = {
 		[0] = PWRSTS_ON,  /* MEMONSTATE */
 	},
 	.voltdm           = { .name = "core" },
+	.wakeup_lat = {
+		[PWRDM_FUNC_PWRST_OFF] = 70,
+		[PWRDM_FUNC_PWRST_OSWR] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_CSWR] = 20,
+		[PWRDM_FUNC_PWRST_INACTIVE] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_ON] = 0,
+	},
 };
 
 /*
@@ -153,6 +200,13 @@ static struct powerdomain sgx_pwrdm = {
 		[0] = PWRSTS_ON,  /* MEMONSTATE */
 	},
 	.voltdm           = { .name = "core" },
+	.wakeup_lat = {
+		[PWRDM_FUNC_PWRST_OFF] = 1000,
+		[PWRDM_FUNC_PWRST_OSWR] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_CSWR] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_INACTIVE] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_ON] = 0,
+	},
 };
 
 static struct powerdomain cam_pwrdm = {
@@ -168,6 +222,13 @@ static struct powerdomain cam_pwrdm = {
 		[0] = PWRSTS_ON,  /* MEMONSTATE */
 	},
 	.voltdm           = { .name = "core" },
+	.wakeup_lat = {
+		[PWRDM_FUNC_PWRST_OFF] = 850,
+		[PWRDM_FUNC_PWRST_OSWR] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_CSWR] = 35,
+		[PWRDM_FUNC_PWRST_INACTIVE] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_ON] = 0,
+	},
 };
 
 static struct powerdomain per_pwrdm = {
@@ -183,6 +244,13 @@ static struct powerdomain per_pwrdm = {
 		[0] = PWRSTS_ON,  /* MEMONSTATE */
 	},
 	.voltdm           = { .name = "core" },
+	.wakeup_lat = {
+		[PWRDM_FUNC_PWRST_OFF] = 671,
+		[PWRDM_FUNC_PWRST_OSWR] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_CSWR] = 31,
+		[PWRDM_FUNC_PWRST_INACTIVE] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_ON] = 0,
+	},
 };
 
 static struct powerdomain emu_pwrdm = {
@@ -197,6 +265,13 @@ static struct powerdomain neon_pwrdm = {
 	.pwrsts		  = PWRSTS_OFF_RET_ON,
 	.pwrsts_logic_ret = PWRSTS_RET,
 	.voltdm           = { .name = "mpu_iva" },
+	.wakeup_lat = {
+		[PWRDM_FUNC_PWRST_OFF] = 0,
+		[PWRDM_FUNC_PWRST_OSWR] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_CSWR] = 0,
+		[PWRDM_FUNC_PWRST_INACTIVE] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_ON] = 0,
+	},
 };
 
 static struct powerdomain usbhost_pwrdm = {
@@ -219,6 +294,13 @@ static struct powerdomain usbhost_pwrdm = {
 		[0] = PWRSTS_ON,  /* MEMONSTATE */
 	},
 	.voltdm           = { .name = "core" },
+	.wakeup_lat = {
+		[PWRDM_FUNC_PWRST_OFF] = 800,
+		[PWRDM_FUNC_PWRST_OSWR] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_CSWR] = 150,
+		[PWRDM_FUNC_PWRST_INACTIVE] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_ON] = 0,
+	},
 };
 
 static struct powerdomain dpll1_pwrdm = {
