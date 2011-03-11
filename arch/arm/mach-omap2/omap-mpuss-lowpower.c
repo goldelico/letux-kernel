@@ -54,6 +54,7 @@
 
 #include <plat/omap44xx.h>
 #include <mach/omap4-common.h>
+#include <mach/omap-secure.h>
 
 #include "omap4-sar-layout.h"
 #include "pm.h"
@@ -451,6 +452,7 @@ int omap_enter_lowpower(unsigned int cpu, unsigned int power_state)
 
 	if ((omap4_device_prev_state_off()) &&
 			(omap_type() != OMAP2_DEVICE_TYPE_GP)) {
+		omap_secure_dispatcher(0x21, 4, 0, 0, 0, 0, 0);
 		restore_ivahd_tesla_regs();
 		restore_l3instr_regs();
 	}
