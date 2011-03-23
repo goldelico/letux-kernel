@@ -24,6 +24,8 @@
 
 #include <plat/cpu.h>
 
+#include "voltage.h"
+
 /* Powerdomain basic power states */
 #define PWRDM_POWER_OFF		0x0
 #define PWRDM_POWER_RET		0x1
@@ -89,6 +91,7 @@ struct powerdomain;
 /**
  * struct powerdomain - OMAP powerdomain
  * @name: Powerdomain name
+ * @voltdm: voltagedomain containing this powerdomain
  * @prcm_offs: the address offset from CM_BASE/PRM_BASE
  * @prcm_partition: (OMAP4 only) the PRCM partition ID containing @prcm_offs
  * @pwrsts: Possible powerdomain power states
@@ -108,6 +111,10 @@ struct powerdomain;
  */
 struct powerdomain {
 	const char *name;
+	union {
+		const char *name;
+		struct voltagedomain *ptr;
+	} voltdm;
 	const s16 prcm_offs;
 	const u8 pwrsts;
 	const u8 pwrsts_logic_ret;
