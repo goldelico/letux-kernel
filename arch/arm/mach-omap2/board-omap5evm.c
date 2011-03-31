@@ -41,6 +41,7 @@
 #include "mux.h"
 #include <linux/qtouch_obp_ts.h>
 
+#include <plat/usb.h>
 #include "common-board-devices.h"
 
 #define OMAP5_TOUCH_IRQ_1              179
@@ -1129,6 +1130,7 @@ static void __init omap_5430evm_init(void)
 	platform_device_register(&dummy_sd_regulator_device);
 	omap2_hsmmc_init(mmc);
 	omap_ehci_ohci_init();
+	usb_dwc3_init();
 	status = omap4_keyboard_init(&evm5430_keypad_data, &keypad_data);
 	if (status)
 		pr_err("Keypad initialization failed: %d\n", status);
