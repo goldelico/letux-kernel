@@ -168,12 +168,36 @@ struct cpuidle_attr {
 
 #define kobj_to_cpuidledev(k) container_of(k, struct cpuidle_device, kobj)
 #define attr_to_cpuidleattr(a) container_of(a, struct cpuidle_attr, attr)
+
+static ssize_t show_cpuidle_enable_state(struct cpuidle_device *dev, char *buf)
+{
+	return sprintf(buf, "%x\n", dev->enable_state);
+}
+
+static ssize_t store_cpuidle_enable_state(struct cpuidle_device *dev,
+						const char *buf, size_t count)
+{
+	int value;
+
+	if (sscanf(buf, "%x", &value) != 1) {
+		printk(KERN_ERR "store_cpuidle_enable_state: Invalid value\n");
+		return -EINVAL;
+	}
+	dev->enable_state = value;
+	return count;
+}
+
+define_one_rw(enable_state, show_cpuidle_enable_state, store_cpuidle_enable_state);
+static struct attribute *cpuidle_default_attr[] = {
+	&attr_enable_state.attr,
+	NULL
+};
+
 static ssize_t cpuidle_show(struct kobject * kobj, struct attribute * attr ,char * buf)
 {
 	int ret = -EIO;
 	struct cpuidle_device *dev = kobj_to_cpuidledev(kobj);
 	struct cpuidle_attr * cattr = attr_to_cpuidleattr(attr);
-
 	if (cattr->show) {
 		mutex_lock(&cpuidle_lock);
 		ret = cattr->show(dev, buf);
@@ -211,6 +235,7 @@ static void cpuidle_sysfs_release(struct kobject *kobj)
 
 static struct kobj_type ktype_cpuidle = {
 	.sysfs_ops = &cpuidle_sysfs_ops,
+	.default_attrs = cpuidle_default_attr,
 	.release = cpuidle_sysfs_release,
 };
 
