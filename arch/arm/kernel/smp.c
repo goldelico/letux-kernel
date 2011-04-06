@@ -120,7 +120,7 @@ int __cpuinit __cpu_up(unsigned int cpu)
 		 * CPU was successfully started, wait for it
 		 * to come online or time out.
 		 */
-		timeout = jiffies + HZ;
+		timeout = jiffies + HZ * 100;
 		while (time_before(jiffies, timeout)) {
 			if (cpu_online(cpu))
 				break;
