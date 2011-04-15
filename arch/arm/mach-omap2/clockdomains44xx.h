@@ -36,7 +36,7 @@ static struct clockdomain l4_cefuse_44xx_clkdm = {
 	.clkstctrl_reg	  = OMAP4430_CM_CEFUSE_CLKSTCTRL,
 	.clktrctrl_mask	  = OMAP4430_CLKTRCTRL_MASK,
 	.flags		  = CLKDM_CAN_FORCE_WAKEUP | CLKDM_CAN_HWSUP,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
+	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP44XX),
 };
 
 static struct clockdomain l4_cfg_44xx_clkdm = {
@@ -45,7 +45,7 @@ static struct clockdomain l4_cfg_44xx_clkdm = {
 	.clkstctrl_reg	  = OMAP4430_CM_L4CFG_CLKSTCTRL,
 	.clktrctrl_mask	  = OMAP4430_CLKTRCTRL_MASK,
 	.flags		  = CLKDM_CAN_HWSUP,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
+	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP44XX),
 };
 
 static struct clockdomain tesla_44xx_clkdm = {
@@ -54,7 +54,7 @@ static struct clockdomain tesla_44xx_clkdm = {
 	.clkstctrl_reg	  = OMAP4430_CM_TESLA_CLKSTCTRL,
 	.clktrctrl_mask	  = OMAP4430_CLKTRCTRL_MASK,
 	.flags		  = CLKDM_CAN_SWSUP,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
+	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP44XX),
 };
 
 static struct clockdomain l3_gfx_44xx_clkdm = {
@@ -63,7 +63,7 @@ static struct clockdomain l3_gfx_44xx_clkdm = {
 	.clkstctrl_reg	  = OMAP4430_CM_GFX_CLKSTCTRL,
 	.clktrctrl_mask	  = OMAP4430_CLKTRCTRL_MASK,
 	.flags		  = CLKDM_CAN_HWSUP_SWSUP,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
+	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP44XX),
 };
 
 static struct clockdomain ivahd_44xx_clkdm = {
@@ -72,7 +72,7 @@ static struct clockdomain ivahd_44xx_clkdm = {
 	.clkstctrl_reg	  = OMAP4430_CM_IVAHD_CLKSTCTRL,
 	.clktrctrl_mask	  = OMAP4430_CLKTRCTRL_MASK,
 	.flags		  = CLKDM_CAN_SWSUP,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
+	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP44XX),
 };
 
 static struct clockdomain l4_secure_44xx_clkdm = {
@@ -81,7 +81,7 @@ static struct clockdomain l4_secure_44xx_clkdm = {
 	.clkstctrl_reg	  = OMAP4430_CM_L4SEC_CLKSTCTRL,
 	.clktrctrl_mask	  = OMAP4430_CLKTRCTRL_MASK,
 	.flags		  = CLKDM_CAN_HWSUP_SWSUP,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
+	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP44XX),
 };
 
 static struct clockdomain l4_per_44xx_clkdm = {
@@ -90,7 +90,7 @@ static struct clockdomain l4_per_44xx_clkdm = {
 	.clkstctrl_reg	  = OMAP4430_CM_L4PER_CLKSTCTRL,
 	.clktrctrl_mask	  = OMAP4430_CLKTRCTRL_MASK,
 	.flags		  = CLKDM_CAN_HWSUP_SWSUP,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
+	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP44XX),
 };
 
 static struct clockdomain abe_44xx_clkdm = {
@@ -99,7 +99,7 @@ static struct clockdomain abe_44xx_clkdm = {
 	.clkstctrl_reg	  = OMAP4430_CM1_ABE_CLKSTCTRL,
 	.clktrctrl_mask	  = OMAP4430_CLKTRCTRL_MASK,
 	.flags		  = CLKDM_CAN_HWSUP_SWSUP,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
+	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP44XX),
 };
 
 static struct clockdomain l3_instr_44xx_clkdm = {
@@ -107,7 +107,7 @@ static struct clockdomain l3_instr_44xx_clkdm = {
 	.pwrdm		  = { .name = "core_pwrdm" },
 	.clkstctrl_reg	  = OMAP4430_CM_L3INSTR_CLKSTCTRL,
 	.clktrctrl_mask	  = OMAP4430_CLKTRCTRL_MASK,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
+	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP44XX),
 };
 
 static struct clockdomain l3_init_44xx_clkdm = {
@@ -116,7 +116,7 @@ static struct clockdomain l3_init_44xx_clkdm = {
 	.clkstctrl_reg	  = OMAP4430_CM_L3INIT_CLKSTCTRL,
 	.clktrctrl_mask	  = OMAP4430_CLKTRCTRL_MASK,
 	.flags		  = CLKDM_CAN_HWSUP_SWSUP,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
+	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP44XX),
 };
 
 static struct clockdomain mpuss_44xx_clkdm = {
@@ -125,7 +125,7 @@ static struct clockdomain mpuss_44xx_clkdm = {
 	.clkstctrl_reg	  = OMAP4430_CM_MPU_CLKSTCTRL,
 	.clktrctrl_mask	  = OMAP4430_CLKTRCTRL_MASK,
 	.flags		  = CLKDM_CAN_FORCE_WAKEUP | CLKDM_CAN_HWSUP,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
+	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP44XX),
 };
 
 static struct clockdomain mpu0_44xx_clkdm = {
@@ -134,7 +134,7 @@ static struct clockdomain mpu0_44xx_clkdm = {
 	.clkstctrl_reg	  = OMAP4430_CM_CPU0_CLKSTCTRL,
 	.clktrctrl_mask	  = OMAP4430_CLKTRCTRL_MASK,
 	.flags		  = CLKDM_CAN_FORCE_WAKEUP | CLKDM_CAN_HWSUP,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
+	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP44XX),
 };
 
 static struct clockdomain mpu1_44xx_clkdm = {
@@ -143,7 +143,7 @@ static struct clockdomain mpu1_44xx_clkdm = {
 	.clkstctrl_reg	  = OMAP4430_CM_CPU1_CLKSTCTRL,
 	.clktrctrl_mask	  = OMAP4430_CLKTRCTRL_MASK,
 	.flags		  = CLKDM_CAN_FORCE_WAKEUP | CLKDM_CAN_HWSUP,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
+	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP44XX),
 };
 
 static struct clockdomain l3_emif_44xx_clkdm = {
@@ -152,7 +152,7 @@ static struct clockdomain l3_emif_44xx_clkdm = {
 	.clkstctrl_reg	  = OMAP4430_CM_MEMIF_CLKSTCTRL,
 	.clktrctrl_mask	  = OMAP4430_CLKTRCTRL_MASK,
 	.flags		  = CLKDM_CAN_FORCE_WAKEUP | CLKDM_CAN_HWSUP,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
+	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP44XX),
 };
 
 static struct clockdomain l4_ao_44xx_clkdm = {
@@ -161,7 +161,7 @@ static struct clockdomain l4_ao_44xx_clkdm = {
 	.clkstctrl_reg	  = OMAP4430_CM_ALWON_CLKSTCTRL,
 	.clktrctrl_mask	  = OMAP4430_CLKTRCTRL_MASK,
 	.flags		  = CLKDM_CAN_FORCE_WAKEUP | CLKDM_CAN_HWSUP,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
+	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP44XX),
 };
 
 static struct clockdomain ducati_44xx_clkdm = {
@@ -170,7 +170,7 @@ static struct clockdomain ducati_44xx_clkdm = {
 	.clkstctrl_reg	  = OMAP4430_CM_DUCATI_CLKSTCTRL,
 	.clktrctrl_mask	  = OMAP4430_CLKTRCTRL_MASK,
 	.flags		  = CLKDM_CAN_SWSUP,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
+	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP44XX),
 };
 
 static struct clockdomain l3_2_44xx_clkdm = {
@@ -179,7 +179,7 @@ static struct clockdomain l3_2_44xx_clkdm = {
 	.clkstctrl_reg	  = OMAP4430_CM_L3_2_CLKSTCTRL,
 	.clktrctrl_mask	  = OMAP4430_CLKTRCTRL_MASK,
 	.flags		  = CLKDM_CAN_HWSUP,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
+	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP44XX),
 };
 
 static struct clockdomain l3_1_44xx_clkdm = {
@@ -188,7 +188,7 @@ static struct clockdomain l3_1_44xx_clkdm = {
 	.clkstctrl_reg	  = OMAP4430_CM_L3_1_CLKSTCTRL,
 	.clktrctrl_mask	  = OMAP4430_CLKTRCTRL_MASK,
 	.flags		  = CLKDM_CAN_HWSUP,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
+	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP44XX),
 };
 
 static struct clockdomain l3_d2d_44xx_clkdm = {
@@ -197,7 +197,7 @@ static struct clockdomain l3_d2d_44xx_clkdm = {
 	.clkstctrl_reg	  = OMAP4430_CM_D2D_CLKSTCTRL,
 	.clktrctrl_mask	  = OMAP4430_CLKTRCTRL_MASK,
 	.flags		  = CLKDM_CAN_FORCE_WAKEUP | CLKDM_CAN_HWSUP,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
+	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP44XX),
 };
 
 static struct clockdomain iss_44xx_clkdm = {
@@ -206,7 +206,7 @@ static struct clockdomain iss_44xx_clkdm = {
 	.clkstctrl_reg	  = OMAP4430_CM_CAM_CLKSTCTRL,
 	.clktrctrl_mask	  = OMAP4430_CLKTRCTRL_MASK,
 	.flags		  = CLKDM_CAN_SWSUP,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
+	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP44XX),
 };
 
 static struct clockdomain l3_dss_44xx_clkdm = {
@@ -215,7 +215,7 @@ static struct clockdomain l3_dss_44xx_clkdm = {
 	.clkstctrl_reg	  = OMAP4430_CM_DSS_CLKSTCTRL,
 	.clktrctrl_mask	  = OMAP4430_CLKTRCTRL_MASK,
 	.flags		  = CLKDM_CAN_HWSUP_SWSUP,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
+	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP44XX),
 };
 
 static struct clockdomain l4_wkup_44xx_clkdm = {
@@ -224,7 +224,7 @@ static struct clockdomain l4_wkup_44xx_clkdm = {
 	.clkstctrl_reg	  = OMAP4430_CM_WKUP_CLKSTCTRL,
 	.clktrctrl_mask	  = OMAP4430_CLKTRCTRL_MASK,
 	.flags		  = CLKDM_CAN_HWSUP,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
+	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP44XX),
 };
 
 static struct clockdomain emu_sys_44xx_clkdm = {
@@ -233,7 +233,7 @@ static struct clockdomain emu_sys_44xx_clkdm = {
 	.clkstctrl_reg	  = OMAP4430_CM_EMU_CLKSTCTRL,
 	.clktrctrl_mask	  = OMAP4430_CLKTRCTRL_MASK,
 	.flags		  = CLKDM_CAN_HWSUP,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
+	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP44XX),
 };
 
 static struct clockdomain l3_dma_44xx_clkdm = {
@@ -242,7 +242,7 @@ static struct clockdomain l3_dma_44xx_clkdm = {
 	.clkstctrl_reg	  = OMAP4430_CM_SDMA_CLKSTCTRL,
 	.clktrctrl_mask	  = OMAP4430_CLKTRCTRL_MASK,
 	.flags		  = CLKDM_CAN_FORCE_WAKEUP | CLKDM_CAN_HWSUP,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
+	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP44XX),
 };
 
 #endif
