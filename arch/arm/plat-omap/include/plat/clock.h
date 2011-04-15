@@ -53,9 +53,11 @@ struct clkops {
 #define RATE_IN_3430ES2		(1 << 3)	/* 3430ES2 rates only */
 #define RATE_IN_36XX		(1 << 4)
 #define RATE_IN_4430		(1 << 5)
+#define RATE_IN_4460		(1 << 6)
 
 #define RATE_IN_24XX		(RATE_IN_242X | RATE_IN_243X)
 #define RATE_IN_3430ES2PLUS	(RATE_IN_3430ES2 | RATE_IN_36XX)
+#define RATE_IN_44XX		(RATE_IN_4430 | RATE_IN_4460)
 
 /**
  * struct clksel_rate - register bitfield values corresponding to clk divisors
