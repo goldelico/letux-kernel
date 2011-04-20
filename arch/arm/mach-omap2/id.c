@@ -29,6 +29,7 @@ static struct omap_chip_id omap_chip;
 static unsigned int omap_revision;
 
 u32 omap3_features;
+u32 omap4_features;
 
 unsigned int omap_rev(void)
 {
@@ -184,6 +185,32 @@ void __init omap3_check_features(void)
 	 * TODO: Get additional info (where applicable)
 	 *       e.g. Size of L2 cache.
 	 */
+}
+
+static void __init omap4_check_features(void)
+{
+	u32 si_type = 0;
+
+	omap4_features = 0;
+
+	if (omap_revision >= OMAP4430_REV_ES2_0)
+		omap4_features |= OMAP4_HAS_MPU_1GHZ;
+
+	if (omap_revision >= OMAP4460_REV_ES1_0) {
+		si_type =
+			read_tap_reg(OMAP4_CTRL_MODULE_CORE_STD_FUSE_PROD_ID_1_OFFSET);
+		switch ((si_type & (3 << 16)) >> 16) {
+		case 2:
+			/* High performance device */
+			omap4_features |= OMAP4_HAS_MPU_1_5GHZ;
+			break;
+		case 1:
+		default:
+			/* Standard device */
+			omap4_features |= OMAP4_HAS_MPU_1_2GHZ;
+			break;
+		}
+	}
 }
 
 void __init omap3_check_revision(void)
@@ -530,6 +557,7 @@ void __init omap2_check_revision(void)
 		return;
 	} else if (cpu_is_omap44xx()) {
 		omap4_check_revision();
+		omap4_check_features();
 		return;
 	} else {
 		pr_err("OMAP revision unknown, please fix!\n");
