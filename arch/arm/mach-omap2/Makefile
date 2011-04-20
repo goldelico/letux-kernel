@@ -320,9 +320,11 @@ obj-y					+= $(disp-m) $(disp-y)
 
 obj-y					+= common-board-devices.o twl-common.o
 
-# EMIF platform code
+# EMIF support
 obj-$(CONFIG_EMIF)			+= emif_omap.o
 
 # Serial ATA support
 s-ata-$(CONFIG_SATA_AHCI_PLATFORM)	:= sata.o
 obj-$(CONFIG_ARCH_OMAP5) 		+= $(s-ata-m) $(s-ata-y)
+
+obj-$(CONFIG_OMAP_REMOTE_PROC)          += remoteproc.o
