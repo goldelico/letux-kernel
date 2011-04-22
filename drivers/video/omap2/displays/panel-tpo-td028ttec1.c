@@ -4,11 +4,11 @@
  * Copyright (C) 2008 Nokia Corporation
  * Author: Tomi Valkeinen <tomi.valkeinen@nokia.com>
  *
- * Ported and adapted from Neo 1973 U-Boot by H. Nikolaus Schaller <hns@goldelico.com>
- *
  * Neo 1973 code (jbt6k74.c):
  * Copyright (C) 2006-2007 by OpenMoko, Inc.
  * Author: Harald Welte <laforge@openmoko.org>
+ *
+ * Ported and adapted from Neo 1973 U-Boot by H. Nikolaus Schaller <hns@goldelico.com>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -25,6 +25,7 @@
 
 #include <linux/module.h>
 #include <linux/delay.h>
+#include <asm/mach-types.h>
 
 #include <plat/display.h>
 #include <linux/gpio.h>
@@ -52,11 +53,11 @@ static struct jbt_info _jbt, *jbt = &_jbt;
 #define JBT_COMMAND	0x000
 #define JBT_DATA	0x100
 
-
-#define GPIO_CS		161
-#define GPIO_SCL	162
-#define GPIO_DIN	159
-#define GPIO_DOUT	158
+// FIXME: this should be passed from the board initialization structure or should be set by driver parameters
+#define GPIO_CS		(machine_is_gta04()?19:161)
+#define GPIO_SCL	(machine_is_gta04()?12:162)
+#define GPIO_DIN	(machine_is_gta04()?18:159)
+#define GPIO_DOUT	(machine_is_gta04()?20:158)
 
 #define SPI_READ()      (gpio_get_value(GPIO_DIN))
 #define SPI_CS(bit) 	(gpio_set_value(GPIO_CS, bit))
@@ -158,9 +159,15 @@ int jbt_reg_init(void)
 	r = gpio_request(GPIO_CS, "TD028_CS");
 	if(r < 0)
 		printk(KERN_ERR "Unable to get TD028_CS GPIO %d\n", GPIO_CS);
-	gpio_request(GPIO_SCL, "TD028_SCL");
-	gpio_request(GPIO_DOUT, "TD028_DOUT");
-	gpio_request(GPIO_DIN, "TD028_DIN");
+	r = gpio_request(GPIO_SCL, "TD028_SCL");
+	if(r < 0)
+		printk(KERN_ERR "Unable to get TD028_SCL GPIO %d\n", GPIO_SCL);
+	r = gpio_request(GPIO_DOUT, "TD028_DOUT");
+	if(r < 0)
+		printk(KERN_ERR "Unable to get TD028_DOUT GPIO %d\n", GPIO_DOUT);
+	r = gpio_request(GPIO_DIN, "TD028_DIN");
+	if(r < 0)
+		printk(KERN_ERR "Unable to get TD028_DIN GPIO %d\n", GPIO_DIN);
 
 	gpio_direction_output(GPIO_CS, true);
 	gpio_direction_output(GPIO_SCL, true);
@@ -185,8 +192,9 @@ int jbt_reg_init(void)
 		}	
 	if(failed > 0)
 		{
-			printk("jbt_reg_init() - no correct response, assuming no connection between GPIO158 and GPIO159\n");
-			return 1;
+		printk("  machine_arch_type = %d (%d)\n", machine_arch_type, machine_is_gta04());
+		printk("jbt_reg_init() - no correct response, assuming no connection between GPIO%d and GPIO%d\n", GPIO_DOUT, GPIO_DIN);
+		return 1;
 		}
 #endif
 	
