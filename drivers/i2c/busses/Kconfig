@@ -460,6 +460,20 @@ config I2C_OMAP
 	  Like OMAP1510/1610/1710/5912 and OMAP242x.
 	  For details see http://www.ti.com/omap.
 
+config I2C_OMAP_GTA04A2
+	tristate "GTA04 I2C adapter"
+	depends on ARCH_OMAP
+	select I2C_ALGOBIT
+	help
+	  If you say yes to this option, we will have a bitbang driver for the OMAP.
+
+config I2C_OMAP_GTA04A2_SWPAPPED
+	tristate "GTA04 swapped I2C adapter"
+	depends on I2C_OMAP_GTA04A2
+	default y if MACH_OMAP_GTA04
+	help
+	  If you say yes to this option, we will have swapped I2C SCL and SDA.
+
 config I2C_PASEMI
 	tristate "PA Semi SMBus interface"
 	depends on PPC_PASEMI && PCI

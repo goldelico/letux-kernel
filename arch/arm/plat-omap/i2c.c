@@ -131,6 +131,25 @@ static int __init omap_i2c_add_bus(int bus_id)
 	resource_size_t base, irq;
 
 	pdev = &omap_i2c_devices[bus_id - 1];
+	
+#if defined(CONFIG_I2C_OMAP_GTA04A2)	/* configured to handle SDA/SCL swapping */
+//	printk("CONFIG_OMAP_I2C_GPIO\n");
+#if defined(CONFIG_MACH_GTA04)
+// #error GTA04
+//		printk("CONFIG_GTA04\n");
+#define BITBANG_BUS 1
+#else
+// #error HYB
+//		printk("!CONFIG_GTA04\n");
+#define BITBANG_BUS 2
+#endif
+	if (bus_id == BITBANG_BUS) {
+		static const char name[] = "i2c-gta04";	// link to our special bit-bang driver
+		printk("install %s for bus %d\n", name, bus_id);
+		pdev->name = name;
+	}
+#endif
+	
 	if (bus_id == 1) {
 		res = pdev->resource;
 		if (cpu_class_is_omap1()) {

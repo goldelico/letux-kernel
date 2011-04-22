@@ -155,6 +155,7 @@ config OMAP_32K_TIMER
 	  intra-tick resolution than OMAP_MPU_TIMER. The 32KHz timer is
 	  currently only available for OMAP16XX, 24XX, 34XX and OMAP4.
 
+
 endchoice
 
 config OMAP3_L2_AUX_SECURE_SAVE_RESTORE
