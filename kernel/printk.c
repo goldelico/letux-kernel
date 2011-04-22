@@ -515,6 +515,14 @@ static void call_console_drivers(unsigned start, unsigned end)
 
 static void emit_log_char(char c)
 {
+#if 0
+	{ // print immediately
+		char buf[2]={c, 0};
+		extern void printascii(char *str);
+		printascii(buf);
+		return;
+	}
+#endif
 	LOG_BUF(log_end) = c;
 	log_end++;
 	if (log_end - log_start > log_buf_len)
@@ -714,7 +722,6 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 	/* Emit the output into the temporary buffer */
 	printed_len += vscnprintf(printk_buf + printed_len,
 				  sizeof(printk_buf) - printed_len, fmt, args);
-
 
 	p = printk_buf;
 
