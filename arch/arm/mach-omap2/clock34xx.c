@@ -528,6 +528,11 @@ int __init omap2_clk_set_freq(void)
 	short err = 0 ;
 	int l3div;
 
+#if defined(CONFIG_I2C_OMAP_GTA04A2)
+	pr_info("Not Switched to new clocking rate (Crystal/Core/MPU)\n");
+	return 0;
+#endif
+
 	/*
 	 * Check if any processing is required.
 	 */

@@ -3343,6 +3343,14 @@ static struct omap_clk omap3xxx_clks[] = {
 	CLK("mmci-omap-hs.0",	"fck",	&mmchs1_fck,	CK_3XXX),
 	CLK("i2c_omap.3", "fck",	&i2c3_fck,	CK_3XXX),
 	CLK("i2c_omap.2", "fck",	&i2c2_fck,	CK_3XXX),
+#if defined(CONFIG_I2C_OMAP_GTA04A2)
+	CLK("i2c-gta04.3", "fck",	&i2c3_fck,	CK_3XXX),
+	CLK("i2c-gta04.3", "ick",	&i2c3_ick,	CK_3XXX),
+	CLK("i2c-gta04.2", "fck",	&i2c2_fck,	CK_3XXX),
+	CLK("i2c-gta04.2", "ick",	&i2c2_ick,	CK_3XXX),
+	CLK("i2c-gta04.1", "fck",	&i2c1_fck,	CK_3XXX),
+	CLK("i2c-gta04.1", "ick",	&i2c1_ick,	CK_3XXX),
+#endif
 	CLK("i2c_omap.1", "fck",	&i2c1_fck,	CK_3XXX),
 	CLK("omap-mcbsp.5", "fck",	&mcbsp5_fck,	CK_3XXX),
 	CLK("omap-mcbsp.1", "fck",	&mcbsp1_fck,	CK_3XXX),
