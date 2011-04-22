@@ -1258,6 +1258,11 @@ static int __init omap3_pm_init(void)
 	if (!cpu_is_omap34xx())
 		return -ENODEV;
 
+#if defined(CONFIG_I2C_OMAP_GTA04A2)
+	printk(KERN_ERR "No Power Management for TI OMAP3.\n");
+	return 0;
+#endif
+
 	printk(KERN_ERR "Power Management for TI OMAP3.\n");
 
 	/* XXX prcm_setup_regs needs to be before enabling hw

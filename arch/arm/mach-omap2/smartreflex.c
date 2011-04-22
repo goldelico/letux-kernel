@@ -1059,6 +1059,11 @@ static int __init omap3_sr_init(void)
 	int ret = 0;
 	u8 RdReg;
 
+#if defined(CONFIG_I2C_OMAP_GTA04A2)
+	pr_info("SmartReflex driver NOT initialized\n");
+	return 0;
+#endif
+	
 	/* Exit if OPP tables are not defined */
         if (!(mpu_opps && l3_opps)) {
                 pr_err("SR: OPP rate tables not defined for platform, not enabling SmartReflex\n");
