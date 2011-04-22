@@ -101,6 +101,8 @@ enum {
 
 static u8 omap3_beagle_version;
 
+#define isXM (omap3_beagle_version == OMAP3BEAGLE_BOARD_XM)
+
 static u8 omap3_beagle_get_rev(void)
 {
 	return omap3_beagle_version;
@@ -534,15 +536,6 @@ static int beagle_twl_gpio_setup(struct device *dev,
 	/* TWL4030_GPIO_MAX + 1 == ledB, PMU_STAT (out, active low LED) */
 	gpio_leds[2].gpio = gpio + TWL4030_GPIO_MAX + 1;
 
-#if 1	// for Openmoko Beagle Hybrid - should have been done by u-boot - but is not reliable
-	omap_mux_init_gpio(158, OMAP_PIN_OUTPUT);
-	omap_mux_init_gpio(159, OMAP_PIN_INPUT);	// neither PUP nor PDN
-	omap_mux_init_gpio(161, OMAP_PIN_OUTPUT);
-	omap_mux_init_gpio(162, OMAP_PIN_OUTPUT);
-	omap_mux_init_gpio(145, OMAP_PIN_OUTPUT);	// backlight
-	omap_mux_init_gpio(145, OMAP_PIN_INPUT);	// ext ant sensor (GPS) - neither PUP nor PDN
-#endif
-		
 	return 0;
 }
 
@@ -1016,6 +1009,7 @@ static int __init expansionboard_setup(char *str)
 {
 	if (!str)
 		return -EINVAL;
+	str="omb";
 	strncpy(expansionboard_name, str, 16);
 	printk(KERN_INFO "Beagle expansionboard: %s\n", expansionboard_name);
 	return 0;
@@ -1030,69 +1024,78 @@ static void __init omap3_beagle_init(void)
 			ARRAY_SIZE(omap3_beagle_devices));
 	omap_serial_init();
 
-//	omap_mux_init_gpio(170, OMAP_PIN_INPUT);
-	omap_mux_init_gpio(170, OMAP_PIN_OUTPUT);
-	gpio_request(170, "DVI_nPD");
-	gpio_direction_output(170, true);
-	gpio_set_value(170, 0);	/* leave DVI powered down until it's needed ... */
-	gpio_export(170, 0);	// no direction change
-
-#if 1	// Openmoko Beagle Hybrid
-	printk(KERN_INFO "Beagle expansionboard: Openmoko Beagle Hybrid\n");
-//	omap_mux_init_gpio(156, OMAP_PIN_OUTPUT);	// inherit from U-Boot...
-	gpio_request(156, "GPS_ON");
-	gpio_direction_output(156, true);
-	gpio_set_value(156, 0);	// off
-	gpio_export(156, 0);	// no direction change
+	if(!strcmp(expansionboard_name, "omb")) 
+		{
+#if 0	// for Openmoko Beagle Hybrid - should have been done by u-boot - but is not reliable
+		omap_mux_init_gpio(158, OMAP_PIN_OUTPUT);
+		omap_mux_init_gpio(159, OMAP_PIN_INPUT);	// neither PUP nor PDN
+		omap_mux_init_gpio(161, OMAP_PIN_OUTPUT);
+		omap_mux_init_gpio(162, OMAP_PIN_OUTPUT);
+		omap_mux_init_gpio(145, OMAP_PIN_OUTPUT);	// backlight
+		omap_mux_init_gpio(138, OMAP_PIN_INPUT);	// ext ant sensor (GPS) - neither PUP nor PDN
+#endif
+		
+		//	omap_mux_init_gpio(170, OMAP_PIN_INPUT);
+		omap_mux_init_gpio(170, OMAP_PIN_OUTPUT);
+		gpio_request(170, "DVI_nPD");
+		gpio_direction_output(170, true);
+		gpio_set_value(170, 0);	/* leave DVI powered down until it's needed ... */
+		gpio_export(170, 0);	// no direction change
+		
+		printk(KERN_INFO "Beagle expansionboard: Openmoko Beagle Hybrid\n");
+		//	omap_mux_init_gpio(156, OMAP_PIN_OUTPUT);	// inherit from U-Boot...
+		gpio_request(156, "GPS_ON");
+		gpio_direction_output(156, true);
+		gpio_set_value(156, 0);	// off
+		gpio_export(156, 0);	// no direction change
+		
+		// should be a backlight driver using PWM
+		gpio_request(145, "LCD_BACKLIGHT");
+		//	gpio_set_value(145, 1);	// on
+		gpio_direction_output(145, true);
+		gpio_export(145, 0);	// no direction change
+		
+		gpio_request(136, "AUX_BUTTON");
+		gpio_direction_input(136);
+		gpio_export(136, 0);	// no direction change
+		
+		gpio_request(137, "POWER_BUTTON");
+		gpio_direction_input(137);
+		gpio_export(137, 0);	// no direction change
+		
+		//	omap_mux_init_signal("gpio138", OMAP_PIN_INPUT);	// gpio 138 - with no pullup/pull-down
+		gpio_request(138, "EXT_ANT");
+		gpio_direction_input(138);
+		gpio_export(138, 0);	// no direction change
+		
+		gpio_request(isXM?88:70, "AUX_RED");
+		gpio_direction_output(isXM?88:70, true);
+		gpio_set_value(isXM?88:70, 0);
+		gpio_export(isXM?88:70, 0);	// no direction change
+		
+		gpio_request(isXM?89:71, "AUX_GREEN");
+		gpio_direction_output(isXM?89:71, true);
+		gpio_set_value(isXM?89:71, 0);
+		gpio_export(isXM?89:71, 0);	// no direction change
+		
+		gpio_request(78, "POWER_RED");
+		gpio_direction_output(78, true);
+		gpio_set_value(78, 0);
+		gpio_export(78, 0);	// no direction change
+		
+		gpio_request(79, "POWER_GREEN");
+		gpio_direction_output(79, true);
+		gpio_set_value(79, 0);
+		gpio_export(79, 0);	// no direction change
+		
+		// for a definition of the mux names see arch/arm/mach-omap2/mux34xx.c
+		// the syntax of the first paramter to omap_mux_init_signal() is "muxname" or "m0name.muxname" (for ambiguous modes)
+		// note: calling omap_mux_init_signal() overwrites the parameter string...
+		
+		omap_mux_init_signal("mcbsp3_clkx.uart2_tx", OMAP_PIN_OUTPUT);	// gpio 142
+		omap_mux_init_signal("mcbsp3_fsx.uart2_rx", OMAP_PIN_INPUT);	// gpio 143
+		}
 	
-	// should be a backlight driver using PWM
-	gpio_request(145, "LCD_BACKLIGHT");
-//	gpio_set_value(145, 1);	// on
-	gpio_direction_output(145, true);
-	gpio_export(145, 0);	// no direction change
-
-	gpio_request(136, "AUX_BUTTON");
-	gpio_direction_input(136);
-	gpio_export(136, 0);	// no direction change
-	
-	gpio_request(137, "POWER_BUTTON");
-	gpio_direction_input(137);
-	gpio_export(137, 0);	// no direction change
-	
-//	omap_mux_init_signal("gpio138", OMAP_PIN_INPUT);	// gpio 138 - with no pullup/pull-down
-	gpio_request(138, "EXT_ANT");
-	gpio_direction_input(138);
-	gpio_export(138, 0);	// no direction change
-	
-	gpio_request(70, "AUX_RED");
-	gpio_direction_output(70, true);
-	gpio_set_value(70, 0);
-	gpio_export(70, 0);	// no direction change
-	
-	gpio_request(71, "AUX_GREEN");
-	gpio_direction_output(71, true);
-	gpio_set_value(71, 0);
-	gpio_export(71, 0);	// no direction change
-	
-	gpio_request(78, "POWER_RED");
-	gpio_direction_output(78, true);
-	gpio_set_value(78, 0);
-	gpio_export(78, 0);	// no direction change
-	
-	gpio_request(79, "POWER_GREEN");
-	gpio_direction_output(79, true);
-	gpio_set_value(79, 0);
-	gpio_export(79, 0);	// no direction change
-	
-	// for a definition of the mux names see arch/arm/mach-omap2/mux34xx.c
-	// the syntax of the first paramter to omap_mux_init_signal() is "muxname" or "m0name.muxname" (for ambiguous modes)
-	// note: calling omap_mux_init_signal() overwrites the parameter string...
-	
-	omap_mux_init_signal("mcbsp3_clkx.uart2_tx", OMAP_PIN_OUTPUT);	// gpio 142
-	omap_mux_init_signal("mcbsp3_fsx.uart2_rx", OMAP_PIN_INPUT);	// gpio 143
-	
-#else
-
 	if(!strcmp(expansionboard_name, "zippy")) 
 	{
 		printk(KERN_INFO "Beagle expansionboard: initializing enc28j60\n");
@@ -1141,7 +1144,6 @@ static void __init omap3_beagle_init(void)
 		gpio_request(162, "sysfs");
 		gpio_export(162, 1);
 	}
-#endif
 	
 	usb_musb_init();
 	usb_ehci_init(&ehci_pdata);
