@@ -449,6 +449,29 @@ struct device *find_dev_ptr(char *name)
 static u8 __initdata omap4_table_init;
 
 
+static int __init omap4_opp_enable(unsigned long freq)
+{
+	int r = -ENODEV;
+	struct device *mpu_dev;
+	struct omap_opp *opp;
+
+	mpu_dev = omap2_get_mpuss_device();
+
+	if (mpu_dev) {
+		opp = opp_find_freq_exact(mpu_dev, freq, false);
+		if (IS_ERR(opp))
+			goto err;
+		r = opp_enable(opp);
+		if (r < 0) {
+			dev_err(mpu_dev,
+				"opp_enable() failed for mpu@%ld", freq);
+			goto err;
+		}
+	}
+err:
+	return r;
+}
+
 int __init omap4_pm_init_opp_table(void)
 {
 	struct omap_opp_def *opp_def;
@@ -484,6 +507,13 @@ int __init omap4_pm_init_opp_table(void)
 			pr_err("unable to add OPP %ld Hz for %s\n",
 				opp_def->freq, opp_def->hwmod_name);
 		opp_def++;
+	}
+
+	if (cpu_is_omap446x()) {
+		if (omap4_has_mpu_1_5ghz())
+			omap4_opp_enable(1500000000);
+		if (omap4_has_mpu_1_2ghz())
+			omap4_opp_enable(1200000000);
 	}
 
 	dpll_mpu_clk = clk_get(NULL, "dpll_mpu_ck");
