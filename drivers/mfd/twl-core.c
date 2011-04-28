@@ -39,7 +39,7 @@
 #include <linux/i2c.h>
 #include <linux/i2c/twl.h>
 
-#if defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3)
+#if defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3) || defined(CONFIG_ARCH_OMAP4)
 #include <plat/cpu.h>
 #endif
 
@@ -1063,9 +1063,11 @@ static void _init_twl6030_settings(void)
 	twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x21, 0xEA);
 
 	/* SYSEN_CFG_TRANS */
-	twl_i2c_write_u8(TWL6030_MODULE_ID0, 0x01, 0xB3);
-	twl_i2c_write_u8(TWL6030_MODULE_ID0, 0x01, 0xB4);
-	twl_i2c_write_u8(TWL6030_MODULE_ID0, 0x20, 0xB5);
+	if (!cpu_is_omap446x()) {
+		twl_i2c_write_u8(TWL6030_MODULE_ID0, 0x01, 0xB3);
+		twl_i2c_write_u8(TWL6030_MODULE_ID0, 0x01, 0xB4);
+		twl_i2c_write_u8(TWL6030_MODULE_ID0, 0x20, 0xB5);
+	}
 
 	/* TMP */
 	twl_i2c_write_u8(TWL6030_MODULE_ID0, 0x01, 0xCE);
