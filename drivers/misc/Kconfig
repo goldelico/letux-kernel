@@ -314,6 +314,28 @@ config BMP085
 	  This driver can also be build as a module. If so, the module
 	  will be called bmp085.
 
+config RFID_TRF7960
+	tristate "Texas Instruments TRF7960/7961 RFID reader"
+	depends on ( SPI || GPIO ) && SYSFS
+	help
+	  Enable this driver to get read/write support to a TRF7960
+	  or TRF7961 RFID reader through SPI. There are two different
+	  types of SPI interface - without SS and with SS. Currently,
+	  we only support "without SS" and use our own SPI driver
+	  to directly access the GPIOs of the SPI interface.
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called trf7960.
+
+	  Future config options:
+		* choose between TRF7960 and 7961
+		* choose SPI without/with SS or parallel IF
+
+	  The driver provides a high-level interface through /sys
+	  which allows to control power on/off, run a continuous
+	  inventory scan and access individual tags (read/write 32
+	  bytes).
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
