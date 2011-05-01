@@ -1,7 +1,8 @@
 /*
- * omap3beagle.c  --  SoC audio for OMAP3 Beagle
+ * gta04.c  --  SoC audio for GTA04 (based on OMAP3 Beagle)
  *
  * Author: Steve Sakoman <steve@sakoman.com>
+ * Author: Nikolaus Schaller <hns@goldelico.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -89,20 +90,45 @@ static struct snd_soc_ops omap3beagle_ops = {
 };
 
 /* Digital audio interface glue - connects codec <--> CPU */
-static struct snd_soc_dai_link omap3beagle_dai = {
-	.name = "TWL4030",
-	.stream_name = "TWL4030",
-	.cpu_dai = &omap_mcbsp_dai[0],
-	.codec_dai = &twl4030_dai[TWL4030_DAI_HIFI],
-	.ops = &omap3beagle_ops,
+static struct snd_soc_dai_link omap3beagle_dai[] = {
+	{
+		.name = "TWL4030",
+		.stream_name = "TWL4030",
+		.cpu_dai = &omap_mcbsp_dai[0],
+		.codec_dai = &twl4030_dai[TWL4030_DAI_HIFI],
+		.ops = &omap3beagle_ops,
+	}, {
+		// FIXME: we may have to enable external clocks/adjust clock frequency etc.
+		.name = "WPAN",
+		.stream_name = "Bluetooth",
+		.cpu_dai = &omap_mcbsp_dai[1],
+		.codec_dai = &twl4030_dai[TWL4030_DAI_HIFI],
+		.ops = &omap3beagle_ops,
+		//	.init = omap3pandora_out_init,
+	}, {
+		.name = "WWAN",
+		.stream_name = "Phone",
+		.cpu_dai = &omap_mcbsp_dai[2],
+		.codec_dai = &twl4030_dai[TWL4030_DAI_HIFI],
+		.ops = &omap3beagle_ops,
+		//	.init = omap3pandora_out_init,
+	}, {
+		.name = "Si4721",
+		.stream_name = "FM",
+		.cpu_dai = &omap_mcbsp_dai[3],
+		.codec_dai = &twl4030_dai[TWL4030_DAI_HIFI],
+		.ops = &omap3beagle_ops,
+		//	.init = omap3pandora_out_init,
+	}
+	/* McBSP5 is used as LCM interface in GPIO mode */
 };
 
 /* Audio machine driver */
 static struct snd_soc_card snd_soc_omap3beagle = {
 	.name = "omap3beagle",
 	.platform = &omap_soc_platform,
-	.dai_link = &omap3beagle_dai,
-	.num_links = 1,
+	.dai_link = &omap3beagle_dai[0],
+	.num_links = ARRAY_SIZE(omap3beagle_dai),
 };
 
 /* Audio subsystem */
@@ -122,6 +148,9 @@ static int __init omap3beagle_soc_init(void)
 		return -ENODEV;
 	}
 	pr_info("GTA04 OMAP3 SoC snd init\n");
+	
+	// FIXME: set any GPIOs i.e. enable Audio in/out switch
+	// microphone power etc.
 
 	omap3beagle_snd_device = platform_device_alloc("soc-audio", -1);
 	if (!omap3beagle_snd_device) {
@@ -131,7 +160,10 @@ static int __init omap3beagle_soc_init(void)
 
 	platform_set_drvdata(omap3beagle_snd_device, &omap3beagle_snd_devdata);
 	omap3beagle_snd_devdata.dev = &omap3beagle_snd_device->dev;
-	*(unsigned int *)omap3beagle_dai.cpu_dai->private_data = 1; /* McBSP2 */
+	*(unsigned int *)omap3beagle_dai[0].cpu_dai->private_data = 1; /* McBSP2 = TPS65950 */
+	*(unsigned int *)omap3beagle_dai[1].cpu_dai->private_data = 2; /* McBSP3 = Bluetooth */
+	*(unsigned int *)omap3beagle_dai[2].cpu_dai->private_data = 3; /* McBSP4 = WWAN */
+	*(unsigned int *)omap3beagle_dai[3].cpu_dai->private_data = 0; /* McBSP1 = FM */
 
 	ret = platform_device_add(omap3beagle_snd_device);
 	if (ret)
@@ -149,6 +181,7 @@ err1:
 static void __exit omap3beagle_soc_exit(void)
 {
 	platform_device_unregister(omap3beagle_snd_device);
+	// switch off power
 }
 
 module_init(omap3beagle_soc_init);
