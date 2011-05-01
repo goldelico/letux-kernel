@@ -463,6 +463,11 @@ out:
 
 /* added from https://build.pub.meego.com/package/view_file?file=linux-2.6-mfd-Implement-twl4030-poweroff.patch&package=kernel-adaptation-n900&project=home%3Aliljeber&srcmd5=67d6adef251bfc5ed81a2b1f2e1fb66f */
 
+ 
+#define TWL4030_WATCHDOG_CFG_REG_OFFS	0x3	/* should be exported from drivers/watchdog/twl4030_wdt.c */
+#define STS_HW_CONDITIONS		0x0F	/* should be exported from drivers/usb/otg/twl4030-usb.c */
+#define STS_VBUS		0x80	/* should be defined by twl4030_charger (?) */
+
 static void twl4030_poweroff(void)
 {
 	u8 val[4];
