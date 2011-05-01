@@ -356,7 +356,11 @@ static void beagle_disable_lcd(struct omap_dss_device *dssdev)
 static struct omap_dss_device beagle_lcd_device = {
 	.type = OMAP_DISPLAY_TYPE_DPI,
 	.name = "lcd",
+#if defined(CONFIG_PANEL_ORTUS_COM37H3M05DTC)
+	.driver_name = "com37h3m05dtc_panel",
+#elif defined(CONFIG_PANEL_TPO_TD028TTEC1)
 	.driver_name = "td028ttec1_panel",
+#endif
 	.phy.dpi.data_lines = 24,
 	.platform_enable = beagle_enable_lcd,
 	.platform_disable = beagle_disable_lcd,
@@ -755,6 +759,51 @@ struct bmp085_platform_data bmp085_info = {
 
 #endif
 
+#ifdef CONFIG_TRF7960
+
+#define TRF7960_IRQ_GPIO		113	/* TRF7960 interrupt GPIO */
+
+static int __init trf7960_init(void)
+{
+	printk("trf7960_init()\n");
+	omap_mux_init_gpio(TRF7960_IRQ_GPIO, OMAP_PIN_INPUT_PULLUP);
+	if (gpio_request(TRF7960_IRQ_GPIO, "trf7960_eoc_irq")) {
+		printk(KERN_ERR "Failed to request GPIO %d for "
+			   "TRF7960 IRQ\n", TRF7960_IRQ_GPIO);
+		return  -ENODEV;
+	}
+	
+	if (gpio_direction_input(TRF7960_IRQ_GPIO)) {
+		printk(KERN_WARNING "GPIO#%d cannot be configured as "
+			   "input\n", TRF7960_IRQ_GPIO);
+		return -ENXIO;
+	}
+	//	gpio_export(TS_PENIRQ_GPIO, 0);
+	omap_set_gpio_debounce(TRF7960_IRQ_GPIO, 1);
+	omap_set_gpio_debounce_time(TRF7960_IRQ_GPIO, 0xa);
+	set_irq_type(OMAP_GPIO_IRQ(TRF7960_IRQ_GPIO), IRQ_TYPE_EDGE_RISING);
+	return 0;
+}
+
+static void trf7960_init(void)
+{
+	gpio_free(TRF7960_IRQ_GPIO);
+}
+
+struct trf7960_platform_data trf7960_info = {
+	.init_platform_hw	= trf7960_init,
+	.exit_platform_hw	= trf7960_exit,
+};
+
+static struct platform_device rfid_device = {
+	.name		= "trf7960",
+	.id			= -1,
+	.dev		= {
+		.platform_data	= &trf7960_info,
+	},
+};
+
+#endif
 
 #if defined(CONFIG_EEPROM_AT24) || defined(CONFIG_EEPROM_AT24_MODULE)
 #include <linux/i2c/at24.h>
@@ -819,6 +868,15 @@ static struct i2c_board_info __initdata beagle_i2c2_boardinfo[] = {
 	.irq		=  -EINVAL,
 },
 #endif
+#if defined(CONFIG_LEDS_TCA6507)
+{
+	I2C_BOARD_INFO("tca6507", 0x45),
+	.type		= "tca6507",
+	.platform_data	= NULL,
+},
+#endif
+	
+	
 };
 
 static int __init omap3_beagle_i2c_init(void)
@@ -945,6 +1003,9 @@ static struct platform_device *omap3_beagle_devices[] __initdata = {
 	&keys_gpio,
 	&beagle_dss_device,
 	&beagle_bklight_device,
+#if defined(CONFIG_TRF7960)
+	&rfid_device,
+#endif
 };
 
 static void __init omap3beagle_flash_init(void)

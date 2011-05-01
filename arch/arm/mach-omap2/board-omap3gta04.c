@@ -98,14 +98,9 @@ enum {
 };
 
 static u8 omap3_beagle_version;
-static u8 omap3_gta04_version;
+static u8 omap3_gta04_version;	/* counts 2..9 */
 
 #define isXM (omap3_beagle_version == OMAP3BEAGLE_BOARD_XM)
-
-static u8 omap3_beagle_get_rev(void)
-{
-	return omap3_beagle_version;
-}
 
 static void __init omap3_beagle_init_rev(void)
 {
@@ -717,6 +712,14 @@ static struct i2c_board_info __initdata beagle_i2c2_boardinfo[] = {
 	.irq		=  114,
 },
 #endif
+#if defined(CONFIG_LEDS_TCA6507)
+{
+	I2C_BOARD_INFO("tca6507", 0x45),
+	.type		= "tca6507",
+	.platform_data	= NULL,
+},	
+#endif
+	/* FIXME: add other drivers for HMC5883, BMA180, Si472x, Camera */
 };
 
 static int __init omap3_beagle_i2c_init(void)
@@ -753,7 +756,7 @@ static void __init beaglefpga_init_spi(void)
 }
 #endif
 
-// FIXME: replace by TCA6507 driver
+// FIXME: replace by TCA6507 driver (and connect to appropriate triggers)
 #if 0
 static struct gpio_led gpio_leds[] = {
 	{
