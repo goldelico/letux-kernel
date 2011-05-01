@@ -26,15 +26,15 @@
 #include <linux/gpio.h>
 
 static struct omap_video_timings com37h3m05dtc_panel_timings = {
-.x_res		= 480,
-.y_res		= 640,
-.pixel_clock	= 22400,
-.hfp		= 2,
-.hsw		= 2,
-.hbp		= 9,
-.vfp		= 2,
-.vsw		= 1,
-.vbp		= 3,
+	.x_res		= 480,
+	.y_res		= 640,
+	.pixel_clock	= 22400,
+	.hfp		= 2,
+	.hsw		= 2,
+	.hbp		= 9,
+	.vfp		= 2,
+	.vsw		= 1,
+	.vbp		= 3,
 };
 
 
@@ -44,7 +44,7 @@ static struct omap_video_timings com37h3m05dtc_panel_timings = {
 static int com37h3m05dtc_panel_probe(struct omap_dss_device *dssdev)
 {
 	int rc = 0;
-//	printk("com37h3m05dtc_panel_probe()\n");
+	printk("com37h3m05dtc_panel_probe()\n");
 	/* not set: OMAP_DSS_LCD_IEO, OMAP_DSS_LCD_IPC, ACBI */
 	dssdev->panel.config = OMAP_DSS_LCD_TFT | OMAP_DSS_LCD_ONOFF | OMAP_DSS_LCD_RF | OMAP_DSS_LCD_IVS | OMAP_DSS_LCD_IHS;
 	dssdev->panel.acb = 0x28;
@@ -59,21 +59,21 @@ static int com37h3m05dtc_panel_probe(struct omap_dss_device *dssdev)
 
 static void com37h3m05dtc_panel_remove(struct omap_dss_device *dssdev)
 {
-//	printk("com37h3m05dtc_panel_remove()\n");
+	printk("com37h3m05dtc_panel_remove()\n");
 	gpio_free(GPIO_STBY);
 }
 
 static int com37h3m05dtc_panel_suspend(struct omap_dss_device *dssdev)
 { // set STBY to 1
-	// turn off backlight
+	printk("com37h3m05dtc_panel_suspend()\n");
 	gpio_set_value(GPIO_STBY, 1);
 	return 0;
 }
 
 static int com37h3m05dtc_panel_resume(struct omap_dss_device *dssdev)
 { // set STBY to 0
+	printk("com37h3m05dtc_panel_resume()\n");
 	gpio_set_value(GPIO_STBY, 0);
-	// turn on backlight
 	return 0;
 }
 
@@ -81,7 +81,7 @@ static int com37h3m05dtc_panel_enable(struct omap_dss_device *dssdev)
 {
 	int rc = 0;
 	
-//	printk("com37h3m05dtc_panel_enable()\n");
+	printk("com37h3m05dtc_panel_enable()\n");
 	if (dssdev->platform_enable)
 		rc = dssdev->platform_enable(dssdev);	// enable e.g. power, backlight
 
@@ -100,7 +100,7 @@ static int com37h3m05dtc_panel_enable(struct omap_dss_device *dssdev)
 static void com37h3m05dtc_panel_disable(struct omap_dss_device *dssdev)
 {
 	
-//	printk("com37h3m05dtc_panel_disable()\n");
+	printk("com37h3m05dtc_panel_disable()\n");
 	if (dssdev->platform_disable)
 		dssdev->platform_disable(dssdev);
 	
