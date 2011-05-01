@@ -340,8 +340,10 @@ static int beagle_enable_lcd(struct omap_dss_device *dssdev)
 	printk("beagle_enable_lcd()\n");
 	// whatever we need, e.g. enable power
 	gpio_set_value(170, 0);	// DVI off
+#if defined(CONFIG_PANEL_TPO_TD028TTEC1)
 	gpio_set_value(145, 1);	// enable backlight
 	gpio_set_value(79, 0);	// disable green power led
+#endif
 	return 0;
 }
 
@@ -349,8 +351,10 @@ static void beagle_disable_lcd(struct omap_dss_device *dssdev)
 {
 	printk("beagle_disable_lcd()\n");
 	// whatever we need, e.g. disable power
+#if defined(CONFIG_PANEL_TPO_TD028TTEC1)
 	gpio_set_value(145, 0);	// shut down backlight
 	gpio_set_value(79, 1);	// show green power led
+#endif
 }
 
 static struct omap_dss_device beagle_lcd_device = {
