@@ -66,14 +66,14 @@ static void com37h3m05dtc_panel_remove(struct omap_dss_device *dssdev)
 static int com37h3m05dtc_panel_suspend(struct omap_dss_device *dssdev)
 { // set STBY to 1
 	printk("com37h3m05dtc_panel_suspend()\n");
-	gpio_set_value(GPIO_STBY, 1);
+	gpio_set_value(GPIO_STBY, 0);
 	return 0;
 }
 
 static int com37h3m05dtc_panel_resume(struct omap_dss_device *dssdev)
 { // set STBY to 0
 	printk("com37h3m05dtc_panel_resume()\n");
-	gpio_set_value(GPIO_STBY, 0);
+	gpio_set_value(GPIO_STBY, 1);
 	return 0;
 }
 
