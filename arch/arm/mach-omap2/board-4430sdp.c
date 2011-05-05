@@ -67,6 +67,7 @@
 #include "hsmmc.h"
 #include "smartreflex-class3.h"
 #include "board-4430sdp-wifi.h"
+#include "omap_tps6236x.h"
 
 #include <linux/skbuff.h>
 #include <linux/ti_wilink_st.h>
@@ -1609,7 +1610,7 @@ static void enable_board_wakeup_source(void)
 
 }
 
-static struct omap_volt_pmic_info omap_pmic_core = {
+static struct omap_volt_pmic_info omap4430_pmic_core = {
 	.name = "twl",
 	.slew_rate = 4000,
 	.step_size = 12500,
@@ -1629,6 +1630,28 @@ static struct omap_volt_pmic_info omap_pmic_core = {
 	.vp_vlimitto_vddmin = 0xA,
 	.vp_vlimitto_vddmax = 0x28,
 };
+
+static struct omap_volt_pmic_info omap4460_pmic_core = {
+	.name = "twl",
+	.slew_rate = 4000,
+	.step_size = 12500,
+	.i2c_addr = 0x12,
+	.i2c_vreg = 0x55,
+	.i2c_cmdreg = 0x56,
+	.vsel_to_uv = omap_twl_vsel_to_uv,
+	.uv_to_vsel = omap_twl_uv_to_vsel,
+	.onforce_cmd = omap_twl_onforce_cmd,
+	.on_cmd = omap_twl_on_cmd,
+	.sleepforce_cmd = omap_twl_sleepforce_cmd,
+	.sleep_cmd = omap_twl_sleep_cmd,
+	.vp_config_erroroffset = 0,
+	.vp_vstepmin_vstepmin = 0x01,
+	.vp_vstepmax_vstepmax = 0x04,
+	.vp_vlimitto_timeout_us = 0x200,
+	.vp_vlimitto_vddmin = 0xA,
+	.vp_vlimitto_vddmax = 0x28,
+};
+
 
 static struct omap_volt_pmic_info omap_pmic_mpu = {
 	.name = "twl",
@@ -1831,6 +1854,27 @@ static void omap4_4430sdp_wifi_init(void)
 		pr_err("Error setting wl12xx data\n");
 }
 #endif
+
+static void __init tps62361_board_init(void)
+{
+	int  error;
+
+	omap_mux_init_gpio(TPS62361_GPIO, OMAP_PIN_OUTPUT);
+	error = gpio_request(TPS62361_GPIO, "tps62361");
+	if (error < 0) {
+		pr_err("%s:failed to request GPIO %d, error %d\n",
+			__func__, TPS62361_GPIO, error);
+		return;
+	}
+
+	error = gpio_direction_output(TPS62361_GPIO , 1);
+	if (error < 0) {
+		pr_err("%s: GPIO configuration failed: GPIO %d,error %d\n",
+			__func__, TPS62361_GPIO, error);
+		gpio_free(TPS62361_GPIO);
+	}
+}
+
 static void __init omap_4430sdp_init(void)
 {
 	int status;
@@ -1900,8 +1944,15 @@ static void __init omap_4430sdp_init(void)
 	omap_cma3000accl_init();
 	omap_display_init(&sdp4430_dss_data);
 	enable_board_wakeup_source();
-	omap_voltage_register_pmic(&omap_pmic_core, "core");
-	omap_voltage_register_pmic(&omap_pmic_mpu, "mpu");
+
+	if (cpu_is_omap443x()) {
+		omap_voltage_register_pmic(&omap4430_pmic_core, "core");
+		omap_voltage_register_pmic(&omap_pmic_mpu, "mpu");
+	} else if (cpu_is_omap446x()) {
+		omap_voltage_register_pmic(&omap4460_pmic_core, "core");
+		tps62361_board_init();
+		omap4_tps62361_init();
+	}
 	omap_voltage_register_pmic(&omap_pmic_iva, "iva");
 	omap_voltage_init_vc(&vc_config);
 }

@@ -311,3 +311,11 @@ config OMAP4_KEEP_STATIC_DEPENDENCIES
 	default n
 	help
 	  Select this option to keep the static dependency mapping for OMAP4.
+
+config OMAP4_TPS62361
+	bool "OMAP4460 MPU power supply PMIC"
+	depends on I2C && ARCH_OMAP4 && TWL4030_CORE
+	default n
+	help
+	  This driver supports TPS62361 PMIC chip. TPS62361 provides
+	  one scalable VDD. This TPS driver has a dependency on the TWL PMIC.

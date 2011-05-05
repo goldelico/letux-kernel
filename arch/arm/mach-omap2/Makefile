@@ -20,7 +20,7 @@ obj-$(CONFIG_ARCH_OMAP4) += $(prcm-common) $(hwmod-common)
 
 obj-$(CONFIG_OMAP_MCBSP)		+= mcbsp.o
 obj-$(CONFIG_DEBUG_FS)			+= omap_hwmod_debug.o
-
+obj-$(CONFIG_OMAP4_TPS62361)		+= omap_tps6236x.o
 
 # SMP support ONLY available for OMAP4
 obj-$(CONFIG_SMP)			+= omap-smp.o omap-headsmp.o
