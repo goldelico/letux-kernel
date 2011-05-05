@@ -93,7 +93,7 @@ static struct omap_opp_def __initdata omap44xx_pre_es2_1_opp_def_list[] = {
 	OMAP_OPP_DEF("hsi", true, 96000000, 1100000),
 };
 
-static struct omap_opp_def __initdata omap44xx_opp_def_list[] = {
+static struct omap_opp_def __initdata omap443x_opp_def_list[] = {
 	/* MPU OPPLP - DPLL cascading */
 	OMAP_OPP_DEF("mpu", false, 196608000, 1005000),
 	/* MPU OPP1 - OPP50 */
@@ -175,6 +175,90 @@ static struct omap_opp_def __initdata omap44xx_opp_def_list[] = {
 	OMAP_OPP_DEF("hsi", true, 96000000, 1200000),
 };
 
+static struct omap_opp_def __initdata omap446x_opp_def_list[] = {
+	/* MPU OPPLP - DPLL cascading */
+	OMAP_OPP_DEF("mpu", false, 196608000, 860000),
+	/* MPU OPP1 - OPP50 */
+	OMAP_OPP_DEF("mpu", true, 350000000, 860000),
+	/* MPU OPP2 - OPP100 */
+	OMAP_OPP_DEF("mpu", true, 700000000, 1010000),
+	/* MPU OPP3 - OPP-Turbo */
+	OMAP_OPP_DEF("mpu", true, 920000000, 1170000),
+	/* MPU OPP4 - OPP-SB */
+	OMAP_OPP_DEF("mpu", false, 1200000000, 1230000),
+	/* MPU OPP4 - OPP-SB */
+	OMAP_OPP_DEF("mpu", false, 1500000000, 1230000),
+
+	/* IVA OPPLP - DPLL cascading */
+	OMAP_OPP_DEF("iva", false,  98304000, 860000),
+	/* IVA OPP1 - OPP50 */
+	OMAP_OPP_DEF("iva", true,  133000000, 860000),
+	/* IVA OPP2 - OPP100 */
+	OMAP_OPP_DEF("iva", true,  266100000, 1010000),
+	/* IVA OPP3 - OPP-Turbo */
+	OMAP_OPP_DEF("iva", false, 332000000, 1170000),
+
+	/* DSP OPPLP - DPLL cascading */
+	OMAP_OPP_DEF("dsp", false, false, 860000),
+	/* DSP OPP1 - OPP50 */
+	OMAP_OPP_DEF("dsp", true, 232800000, 860000),
+	/* DSP OPP2 - OPP100 */
+	OMAP_OPP_DEF("dsp", true, 465600000, 1010000),
+	/* DSP OPP3 - OPPTB */
+	OMAP_OPP_DEF("dsp", false, 498000000, 1170000),
+
+	/* ABE OPP - OPP50_98 */
+	OMAP_OPP_DEF("omap-aess-audio", false, 98304000, 860000),
+	/* ABE OPP1 - OPP50 */
+	OMAP_OPP_DEF("omap-aess-audio", true, 98304000, 860000),
+	/* ABE OPP2 - OPP100 */
+	OMAP_OPP_DEF("omap-aess-audio", true, 196608000, 1010000),
+	/* ABE OPP3 - OPPTB */
+	OMAP_OPP_DEF("omap-aess-audio", false, 196608000, 1170000),
+
+	/* L3 OPPLP - DPLL cascading */
+	OMAP_OPP_DEF("l3_main_1", false, 98304000, 860000),
+	/* L3 OPP1 - OPP50 */
+	OMAP_OPP_DEF("l3_main_1", true, 100000000, 860000),
+	/* L3 OPP2 - OPP100, OPP-Turbo, OPP-SB */
+	OMAP_OPP_DEF("l3_main_1", true, 200000000, 1010000),
+
+	/* EMIF1 OPPLP - DPLL cascading */
+	OMAP_OPP_DEF("emif1", false, 196608000, 860000),
+	/*EMIF1 OPP1 - OPP50 */
+	OMAP_OPP_DEF("emif1", true, 400000000, 860000),
+	/*EMIF1 OPP2 - OPP100 */
+	OMAP_OPP_DEF("emif1", true, 800000000, 1010000),
+
+	/* EMIF2 OPPLP - DPLL cascading */
+	OMAP_OPP_DEF("emif2", false, 196608000, 860000),
+	/*EMIF2 OPP1 - OPP50 */
+	OMAP_OPP_DEF("emif2", true, 400000000, 860000),
+	/*EMIF2 OPP2 - OPP100 */
+	OMAP_OPP_DEF("emif2", true, 800000000, 1010000),
+
+	/* CAM FDIF OPPLP - DPLL cascading */
+	OMAP_OPP_DEF("fdif", false, 49152000, 860000),
+	/* CAM FDIF OPP1 - OPP50 */
+	OMAP_OPP_DEF("fdif", true, 64000000, 860000),
+	/* CAM FDIF OPP2 - OPP100 */
+	OMAP_OPP_DEF("fdif", true, 128000000, 1010000),
+
+	/* SGX OPPLP - DPLL cascading */
+	OMAP_OPP_DEF("gpu", false, 196608000, 860000),
+	/* SGX OPP1 - OPP50 */
+	OMAP_OPP_DEF("gpu", true, 153600000, 860000),
+	/* SGX OPP2 - OPP100 */
+	OMAP_OPP_DEF("gpu", true, 307200000, 1010000),
+
+	/* HSI OPPLP - DPLL cascading */
+	OMAP_OPP_DEF("hsi", false, 98304000, 860000),
+	/* HSI OPP1 - OPP50 */
+	OMAP_OPP_DEF("hsi", true, 96000000, 860000),
+	/* HSI OPP2 - OPP100 */
+	OMAP_OPP_DEF("hsi", true, 96000000, 1010000),
+};
+
 #define	L3_OPP50_RATE			100000000
 #define DPLL_CORE_M3_OPP50_RATE		200000000
 #define DPLL_CORE_M3_OPP100_RATE	320000000
@@ -186,8 +270,6 @@ static struct omap_opp_def __initdata omap44xx_opp_def_list[] = {
 #define DPLL_PER_M3_OPP100_RATE		256000000
 #define DPLL_PER_M6_OPP50_RATE		192000000
 #define DPLL_PER_M6_OPP100_RATE		384000000
-
-static u32 omap44xx_opp_def_size = ARRAY_SIZE(omap44xx_opp_def_list);
 
 static unsigned long omap4_mpu_get_rate(struct device *dev);
 
@@ -372,6 +454,7 @@ int __init omap4_pm_init_opp_table(void)
 	struct omap_opp_def *opp_def;
 	struct device *dev;
 	struct clk *gpu_fclk;
+	static u32 omap44xx_opp_def_size;
 	int i, r;
 
 	/*
@@ -382,10 +465,18 @@ int __init omap4_pm_init_opp_table(void)
 		return 0;
 	omap4_table_init = 1;
 
-	if (omap_rev() <= OMAP4430_REV_ES2_0)
-		opp_def = omap44xx_pre_es2_1_opp_def_list;
-	else
-		opp_def = omap44xx_opp_def_list;
+	if (cpu_is_omap443x()) {
+		if (omap_rev() <= OMAP4430_REV_ES2_0) {
+			omap44xx_opp_def_size = ARRAY_SIZE(omap44xx_pre_es2_1_opp_def_list);
+			opp_def = omap44xx_pre_es2_1_opp_def_list;
+		} else {
+			omap44xx_opp_def_size = ARRAY_SIZE(omap443x_opp_def_list);
+			opp_def = omap443x_opp_def_list;
+		}
+	} else {
+		omap44xx_opp_def_size = ARRAY_SIZE(omap446x_opp_def_list);
+		opp_def = omap446x_opp_def_list;
+	}
 
 	for (i = 0; i < omap44xx_opp_def_size; i++) {
 		r = opp_add(opp_def);
