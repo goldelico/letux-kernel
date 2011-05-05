@@ -1710,6 +1710,23 @@ static struct omap_volt_vc_data vc_config = {
 	.vdd2_off = 0,		/* 0 v */
 };
 
+static struct omap_volt_vc_data vc446x_config = {
+	.vdd0_on = 1350000,	/* 1.35v */
+	.vdd0_onlp = 1350000,	/* 1.35v */
+	.vdd0_ret = 837500,	/* 0.8375v */
+	.vdd0_off = 600000,	/* 0.6 v */
+	.vdd1_on = 1350000,	/* 1.35v */
+	.vdd1_onlp = 1350000,	/* 1.35v */
+	.vdd1_ret = 837500,	/* 0.8375v */
+	.vdd1_off = 600000,	/* 0.6 v */
+	.vdd2_on = 1350000,	/* 1.35v */
+	.vdd2_onlp = 1350000,	/* 1.35v */
+	.vdd2_ret = 837500,	/* .8375v */
+	.vdd2_off = 600000,	/* 0.6 v */
+};
+
+
+
 void plat_hold_wakelock(void *up, int flag)
 {
 	struct uart_omap_port *up2 = (struct uart_omap_port *)up;
@@ -1953,8 +1970,13 @@ static void __init omap_4430sdp_init(void)
 		tps62361_board_init();
 		omap4_tps62361_init();
 	}
+
 	omap_voltage_register_pmic(&omap_pmic_iva, "iva");
-	omap_voltage_init_vc(&vc_config);
+
+	if (cpu_is_omap446x())
+		omap_voltage_init_vc(&vc446x_config);
+	else
+		omap_voltage_init_vc(&vc_config);
 }
 
 static void __init omap_4430sdp_map_io(void)

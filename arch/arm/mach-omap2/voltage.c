@@ -413,6 +413,38 @@ static struct omap_volt_data omap44xx_vdd_core_volt_data[] = {
 	{.volt_nominal = 1200000, .sr_errminlimit = 0xF9, .vp_errgain = 0x16},
 };
 
+
+
+static struct omap_volt_data omap446x_vdd_mpu_volt_data[] = {
+	{.volt_nominal = 860000, .sr_errminlimit = 0xF4, .vp_errgain = 0x0C, .abb_type = NOMINAL_OPP},
+	{.volt_nominal = 860000, .sr_errminlimit = 0xF4, .vp_errgain = 0x0C, .abb_type = NOMINAL_OPP},
+	{.volt_nominal = 1010000, .sr_errminlimit = 0xF4, .vp_errgain = 0x0C, .abb_type = NOMINAL_OPP},
+	{.volt_nominal = 1170000, .sr_errminlimit = 0xF9, .vp_errgain = 0x16, .abb_type = NOMINAL_OPP},
+	{.volt_nominal = 1230000, .sr_errminlimit = 0xFA, .vp_errgain = 0x23, .abb_type = NOMINAL_OPP},
+	{.volt_nominal = 1230000, .sr_errminlimit = 0xFA, .vp_errgain = 0x27, .abb_type = FAST_OPP},
+};
+
+static struct omap_volt_data omap446x_vdd_iva_volt_data[] = {
+	{.volt_nominal = 860000, .sr_errminlimit = 0xF4, .vp_errgain = 0x0C, .abb_type = NOMINAL_OPP},
+	{.volt_nominal = 860000, .sr_errminlimit = 0xF4, .vp_errgain = 0x0C, .abb_type = NOMINAL_OPP},
+	{.volt_nominal = 1010000, .sr_errminlimit = 0xF9, .vp_errgain = 0x16, .abb_type = NOMINAL_OPP},
+#ifdef CONFIG_OMAP_ABB_DEFAULT_IVA_FBB
+	{.volt_nominal = 1170000, .sr_errminlimit = 0xFA, .vp_errgain = 0x23, .abb_type = FAST_OPP},
+#else
+	{.volt_nominal = 1170000, .sr_errminlimit = 0xFA, .vp_errgain = 0x23, .abb_type = NOMINAL_OPP},
+#endif
+};
+
+static struct omap_volt_data omap446x_vdd_core_volt_data[] = {
+	{.volt_nominal = 860000, .sr_errminlimit = 0xF4, .vp_errgain = 0x0C},
+	{.volt_nominal = 860000, .sr_errminlimit = 0xF4, .vp_errgain = 0x0C},
+	{.volt_nominal = 1010000, .sr_errminlimit = 0xF9, .vp_errgain = 0x16},
+};
+
+
+
+
+
 /* OMAP 3430 MPU Core VDD dependency table */
 static struct omap_vdd_dep_volt omap34xx_vdd1_vdd2_data[] = {
 	{.main_vdd_volt = 975000, .dep_vdd_volt = 1050000},
@@ -448,6 +480,25 @@ static struct omap_vdd_dep_volt omap44xx_vddiva_vddcore_data[] = {
 	{.main_vdd_volt = 0, .dep_vdd_volt = 0},
 };
 
+/* OMAP 4460 MPU Core VDD dependency table */
+static struct omap_vdd_dep_volt omap446x_vddmpu_vddcore_data[] = {
+	{.main_vdd_volt = 860000, .dep_vdd_volt = 860000},
+	{.main_vdd_volt = 1010000, .dep_vdd_volt = 860000},
+	{.main_vdd_volt = 1170000, .dep_vdd_volt = 1010000},
+	{.main_vdd_volt = 1230000, .dep_vdd_volt = 1010000},
+	{.main_vdd_volt = 1230000, .dep_vdd_volt = 1010000},
+	{.main_vdd_volt = 0, .dep_vdd_volt = 0},
+};
+
+static struct omap_vdd_dep_volt omap446x_vddiva_vddcore_data[] = {
+	{.main_vdd_volt = 860000, .dep_vdd_volt = 860000},
+	{.main_vdd_volt = 860000, .dep_vdd_volt = 860000},
+	{.main_vdd_volt = 1010000, .dep_vdd_volt = 1010000},
+	{.main_vdd_volt = 1170000, .dep_vdd_volt = 1010000},
+	{.main_vdd_volt = 0, .dep_vdd_volt = 0},
+};
+
+
 static struct omap_vdd_dep_info omap44xx_vddmpu_dep_info[] = {
 	{
 		.name	= "core",
@@ -459,6 +510,20 @@ static struct omap_vdd_dep_info omap44xx_vddiva_dep_info[] = {
 	{
 		.name	= "core",
 		.dep_table = omap44xx_vddiva_vddcore_data,
+	},
+};
+
+static struct omap_vdd_dep_info omap446x_vddmpu_dep_info[] = {
+	{
+		.name	= "core",
+		.dep_table = omap446x_vddmpu_vddcore_data,
+	},
+};
+
+static struct omap_vdd_dep_info omap446x_vddiva_dep_info[] = {
+	{
+		.name	= "core",
+		.dep_table = omap446x_vddiva_vddcore_data,
 	},
 };
 
@@ -1196,10 +1261,17 @@ static void __init omap4_vdd_data_configure(struct omap_vdd_info *vdd)
 	if (!strcmp(vdd->voltdm.name, "mpu")) {
 		vdd->vp_reg.vlimitto_vddmin = vdd->pmic->vp_vlimitto_vddmin;
 		vdd->vp_reg.vlimitto_vddmax = vdd->pmic->vp_vlimitto_vddmax;
-		vdd->volt_data = omap44xx_vdd_mpu_volt_data;
-		vdd->volt_data_count = ARRAY_SIZE(omap44xx_vdd_mpu_volt_data);
-		vdd->dep_vdd_info = omap44xx_vddmpu_dep_info;
-		vdd->nr_dep_vdd = ARRAY_SIZE(omap44xx_vddmpu_dep_info);
+		if (cpu_is_omap446x()) {
+			vdd->volt_data = omap446x_vdd_mpu_volt_data;
+			vdd->volt_data_count = ARRAY_SIZE(omap446x_vdd_mpu_volt_data);
+			vdd->dep_vdd_info = omap446x_vddmpu_dep_info;
+			vdd->nr_dep_vdd = ARRAY_SIZE(omap446x_vddmpu_dep_info);
+		} else {
+			vdd->volt_data = omap44xx_vdd_mpu_volt_data;
+			vdd->volt_data_count = ARRAY_SIZE(omap44xx_vdd_mpu_volt_data);
+			vdd->dep_vdd_info = omap44xx_vddmpu_dep_info;
+			vdd->nr_dep_vdd = ARRAY_SIZE(omap44xx_vddmpu_dep_info);
+		}
 		vdd->volt_clk = clk_get(NULL, "dpll_mpu_ck");
 		WARN(IS_ERR(vdd->volt_clk), "unable to get clock for vdd_%s\n",
 				vdd->voltdm.name);
@@ -1212,8 +1284,13 @@ static void __init omap4_vdd_data_configure(struct omap_vdd_info *vdd)
 	} else if (!strcmp(vdd->voltdm.name, "core")) {
 		vdd->vp_reg.vlimitto_vddmin = vdd->pmic->vp_vlimitto_vddmin;
 		vdd->vp_reg.vlimitto_vddmax = vdd->pmic->vp_vlimitto_vddmax;
-		vdd->volt_data = omap44xx_vdd_core_volt_data;
-		vdd->volt_data_count = ARRAY_SIZE(omap44xx_vdd_core_volt_data);
+		if (cpu_is_omap446x()) {
+			vdd->volt_data = omap446x_vdd_core_volt_data;
+			vdd->volt_data_count = ARRAY_SIZE(omap446x_vdd_core_volt_data);
+		} else {
+			vdd->volt_data = omap44xx_vdd_core_volt_data;
+			vdd->volt_data_count = ARRAY_SIZE(omap44xx_vdd_core_volt_data);
+		}
 		vdd->volt_clk = clk_get(NULL, "l3_div_ck");
 		WARN(IS_ERR(vdd->volt_clk), "unable to get clock for vdd_%s\n",
 				vdd->voltdm.name);
@@ -1226,10 +1303,17 @@ static void __init omap4_vdd_data_configure(struct omap_vdd_info *vdd)
 	} else if (!strcmp(vdd->voltdm.name, "iva")) {
 		vdd->vp_reg.vlimitto_vddmin = vdd->pmic->vp_vlimitto_vddmin;
 		vdd->vp_reg.vlimitto_vddmax = vdd->pmic->vp_vlimitto_vddmax;
-		vdd->volt_data = omap44xx_vdd_iva_volt_data;
-		vdd->volt_data_count = ARRAY_SIZE(omap44xx_vdd_iva_volt_data);
-		vdd->dep_vdd_info = omap44xx_vddiva_dep_info;
-		vdd->nr_dep_vdd = ARRAY_SIZE(omap44xx_vddiva_dep_info);
+		if (cpu_is_omap446x()) {
+			vdd->volt_data = omap446x_vdd_iva_volt_data;
+			vdd->volt_data_count = ARRAY_SIZE(omap446x_vdd_iva_volt_data);
+			vdd->dep_vdd_info = omap446x_vddiva_dep_info;
+			vdd->nr_dep_vdd = ARRAY_SIZE(omap446x_vddiva_dep_info);
+		} else {
+			vdd->volt_data = omap44xx_vdd_iva_volt_data;
+			vdd->volt_data_count = ARRAY_SIZE(omap44xx_vdd_iva_volt_data);
+			vdd->dep_vdd_info = omap44xx_vddiva_dep_info;
+			vdd->nr_dep_vdd = ARRAY_SIZE(omap44xx_vddiva_dep_info);
+		}
 		vdd->volt_clk = clk_get(NULL, "dpll_iva_m5x2_ck");
 		WARN(IS_ERR(vdd->volt_clk), "unable to get clock for vdd_%s\n",
 				vdd->voltdm.name);
