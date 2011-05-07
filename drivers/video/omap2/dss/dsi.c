@@ -626,7 +626,7 @@ irqreturn_t dsi_irq_handler(int irq, void *arg)
 		dsi_read_reg(ix, DSI_COMPLEXIO_IRQ_STATUS);
 
 		if (ciostatus & DSI_CIO_IRQ_ERROR_MASK) {
-			DSSERR("DSI CIO error, cio irqstatus %x\n", ciostatus);
+			DSSDBG("DSI CIO error, cio irqstatus %x\n", ciostatus);
 			print_irq_status_cio(ciostatus);
 		} else if (debug_irq) {
 			print_irq_status_cio(ciostatus);
