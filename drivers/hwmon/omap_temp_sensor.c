@@ -42,9 +42,10 @@
 #include <plat/common.h>
 #include <plat/temperature_sensor.h>
 #include <mach/ctrl_module_core_44xx.h>
+#include <mach/gpio.h>
 
-#define TSHUT_THRESHOLD_TSHUT_HOT	12300	/* 123 deg C */
-#define TSHUT_THRESHOLD_TSHUT_COLD	10000	/* 100 deg C */
+#define TSHUT_THRESHOLD_TSHUT_HOT	122000	/* 122 deg C */
+#define TSHUT_THRESHOLD_TSHUT_COLD	100000	/* 100 deg C */
 #define BGAP_THRESHOLD_T_HOT		73000	/* 73 deg C */
 #define BGAP_THRESHOLD_T_COLD		71000	/* 71 deg C */
 #define OMAP_ADC_START_VALUE	530
@@ -57,7 +58,9 @@
  * @clock - Clock pointer
  * @sensor_mutex - Mutex for sysfs, irq and PM
  * @irq - MPU Irq number for thermal alertemp_sensor
+ * @tshut_irq -  Thermal shutdown IRQ
  * @phy_base - Physical base of the temp I/O
+ * @is_efuse_valid - Flag to determine if eFuse is valid or not
  * @clk_on - Manages the current clock state
  * @clk_rate - Holds current clock rate
  */
@@ -67,7 +70,9 @@ struct omap_temp_sensor {
 	struct clk *clock;
 	struct mutex sensor_mutex;
 	unsigned int irq;
+	unsigned int tshut_irq;
 	unsigned long phy_base;
+	int is_efuse_valid;
 	u8 clk_on;
 	u32 clk_rate;
 };
@@ -457,6 +462,10 @@ static int omap_temp_sensor_read_temp(struct device *dev,
 	temp = omap_temp_sensor_readl(temp_sensor, TEMP_SENSOR_CTRL_OFFSET);
 	temp = temp & (OMAP4_BGAP_TEMP_SENSOR_DTEMP_MASK);
 
+	if (!temp_sensor->is_efuse_valid) {
+		pr_err("Invalid EFUSE, Non-trimmed BGAP, Temp not accurate\n");
+	}
+
 	/* look up for temperature in the table and return the
 	   temperature */
 	if (temp < OMAP_ADC_START_VALUE || temp > OMAP_ADC_END_VALUE) {
@@ -566,6 +575,22 @@ out:
 	return ret;
 }
 
+static irqreturn_t omap_tshut_irq_handler(int irq, void *data)
+{
+	struct omap_temp_sensor *temp_sensor = (struct omap_temp_sensor *)data;
+
+	/* Need to handle thermal mgmt in bootloader
+	 * to avoid restart again at kernel level
+	 */
+	if (temp_sensor->is_efuse_valid)
+		arm_machine_restart('s', NULL);
+	else
+		pr_err("%s:Invalid EFUSE, Non-trimmed BGAP, \
+				No thermal shutdown\n", __func__);
+
+	return IRQ_HANDLED;
+}
+
 static irqreturn_t omap_talert_irq_handler(int irq, void *data)
 {
 	struct omap_temp_sensor *temp_sensor = (struct omap_temp_sensor *)data;
@@ -621,11 +646,21 @@ static int __devinit omap_temp_sensor_probe(struct platform_device *pdev)
 	}
 
 	temp_sensor->irq = platform_get_irq_byname(pdev, "thermal_alert");
+	temp_sensor->tshut_irq = gpio_to_irq(OMAP_TSHUT_GPIO);
 	temp_sensor->phy_base = pdata->offset;
 	temp_sensor->pdev = pdev;
 	temp_sensor->clock = NULL;
 	temp_sensor->clk_rate = 0;
 	temp_sensor->clk_on = 0;
+	temp_sensor->is_efuse_valid = 0;
+
+	/*
+	 * check if the efuse has a non-zero value if not
+	 * it is an untrimmed sample and the temperatures
+	 * may not be accurate
+	 */
+	if (__raw_readl(OMAP4_CTRL_MODULE_CORE_STD_FUSE_OPP_BGAP))
+		temp_sensor->is_efuse_valid = 1;
 
 	ret = omap_temp_sensor_enable(temp_sensor, 1);
 	if (ret) {
@@ -673,6 +708,15 @@ static int __devinit omap_temp_sensor_probe(struct platform_device *pdev)
 		goto req_irq_err;
 	}
 
+	ret = request_threaded_irq(temp_sensor->tshut_irq, NULL,
+			omap_tshut_irq_handler, IRQF_TRIGGER_RISING,
+			"tshut", NULL);
+	if (ret) {
+		gpio_free(OMAP_TSHUT_GPIO);
+		dev_err(&pdev->dev, "Request threaded irq failed for TSHUT.\n");
+		goto req_thsut_irq_err;
+	}
+
 	/* unmask the T_COLD and unmask T_HOT at init */
 	val = omap_temp_sensor_readl(temp_sensor, BGAP_CTRL_OFFSET);
 	val |= OMAP4_MASK_COLD_MASK;
@@ -684,6 +728,8 @@ static int __devinit omap_temp_sensor_probe(struct platform_device *pdev)
 
 	return 0;
 
+req_thsut_irq_err:
+	free_irq(temp_sensor->irq, temp_sensor);
 req_irq_err:
 	kobject_uevent(&temp_sensor->dev->kobj, KOBJ_REMOVE);
 	sysfs_remove_group(&temp_sensor->dev->kobj, &omap_temp_sensor_group);
@@ -712,6 +758,8 @@ static int __devexit omap_temp_sensor_remove(struct platform_device *pdev)
 	platform_set_drvdata(pdev, NULL);
 	if (temp_sensor->irq)
 		free_irq(temp_sensor->irq, temp_sensor);
+	if (temp_sensor->tshut_irq)
+		free_irq(temp_sensor->tshut_irq, temp_sensor);
 	mutex_destroy(&temp_sensor->sensor_mutex);
 	kfree(temp_sensor);
 

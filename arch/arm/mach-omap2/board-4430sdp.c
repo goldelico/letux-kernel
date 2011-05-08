@@ -63,6 +63,7 @@
 #include <plat/omap4-keypad.h>
 #include <plat/hwspinlock.h>
 #include <plat/nokia-dsi-panel.h>
+#include <plat/temperature_sensor.h>
 #include "mux.h"
 #include "hsmmc.h"
 #include "smartreflex-class3.h"
@@ -1892,6 +1893,27 @@ static void __init tps62361_board_init(void)
 	}
 }
 
+static int omap_tshut_init(void)
+{
+	int status;
+
+	/* Request for gpio_86 line */
+	status = gpio_request(OMAP_TSHUT_GPIO, "tshut");
+	if (status < 0) {
+		pr_err("Failed to request TSHUT GPIO: %d\n", OMAP_TSHUT_GPIO);
+		return status;
+	}
+	status = gpio_direction_input(OMAP_TSHUT_GPIO);
+	if (status < 0) {
+		pr_err(" GPIO configuration failed for TSHUT GPIO: %d\n",
+							OMAP_TSHUT_GPIO);
+		gpio_free(OMAP_TSHUT_GPIO);
+		return status;
+	}
+
+	return 0;
+}
+
 static void __init omap_4430sdp_init(void)
 {
 	int status;
@@ -1969,6 +1991,9 @@ static void __init omap_4430sdp_init(void)
 		omap_voltage_register_pmic(&omap4460_pmic_core, "core");
 		tps62361_board_init();
 		omap4_tps62361_init();
+		status = omap_tshut_init();
+		if (status)
+			pr_err("TSHUT gpio initialization failed\n");
 	}
 
 	omap_voltage_register_pmic(&omap_pmic_iva, "iva");

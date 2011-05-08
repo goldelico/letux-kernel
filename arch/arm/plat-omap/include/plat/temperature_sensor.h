@@ -33,6 +33,8 @@
 #define BGAP_TSHUT_OFFSET	0x58
 #define BGAP_STATUS_OFFSET	0x5c
 
+#define OMAP_TSHUT_GPIO		86
+
 
 /*
  * omap_temp_sensor platform data
