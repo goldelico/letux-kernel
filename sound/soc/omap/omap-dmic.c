@@ -614,8 +614,14 @@ static __devinit int asoc_dmic_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(dmic->dev);
 
-	/* Disable lines while request is ongoing */
-	omap_dmic_write(dmic, DMIC_CTRL, 0x00);
+	/*
+	 * Disable lines while request is ongoing
+	 * HACK: check for cpu 446x, with L2 cache disabled
+	 * abort seen. Till h/w issue root caused this check
+	 * needs to be in place. Doesn't impact sound usecase
+	 */
+	if (!cpu_is_omap446x())
+		omap_dmic_write(dmic, DMIC_CTRL, 0x00);
 
 	ret = request_threaded_irq(dmic->irq, NULL, omap_dmic_irq_handler,
 				   IRQF_ONESHOT, "DMIC", (void *)dmic);
