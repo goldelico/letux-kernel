@@ -181,7 +181,7 @@ static struct omap_opp_def __initdata omap446x_opp_def_list[] = {
 	/* MPU OPP1 - OPP50 */
 	OMAP_OPP_DEF("mpu", true, 350000000, 860000),
 	/* MPU OPP2 - OPP100 */
-	OMAP_OPP_DEF("mpu", true, 700000000, 1010000),
+	OMAP_OPP_DEF("mpu", true, 700000000, 1100000),
 	/* MPU OPP3 - OPP-Turbo */
 	OMAP_OPP_DEF("mpu", true, 920000000, 1170000),
 	/* MPU OPP4 - OPP-SB */
@@ -221,42 +221,42 @@ static struct omap_opp_def __initdata omap446x_opp_def_list[] = {
 	/* L3 OPP1 - OPP50 */
 	OMAP_OPP_DEF("l3_main_1", true, 100000000, 860000),
 	/* L3 OPP2 - OPP100, OPP-Turbo, OPP-SB */
-	OMAP_OPP_DEF("l3_main_1", true, 200000000, 1010000),
+	OMAP_OPP_DEF("l3_main_1", true, 200000000, 1100000),
 
 	/* EMIF1 OPPLP - DPLL cascading */
 	OMAP_OPP_DEF("emif1", false, 196608000, 860000),
 	/*EMIF1 OPP1 - OPP50 */
 	OMAP_OPP_DEF("emif1", true, 400000000, 860000),
 	/*EMIF1 OPP2 - OPP100 */
-	OMAP_OPP_DEF("emif1", true, 800000000, 1010000),
+	OMAP_OPP_DEF("emif1", true, 800000000, 1100000),
 
 	/* EMIF2 OPPLP - DPLL cascading */
 	OMAP_OPP_DEF("emif2", false, 196608000, 860000),
 	/*EMIF2 OPP1 - OPP50 */
 	OMAP_OPP_DEF("emif2", true, 400000000, 860000),
 	/*EMIF2 OPP2 - OPP100 */
-	OMAP_OPP_DEF("emif2", true, 800000000, 1010000),
+	OMAP_OPP_DEF("emif2", true, 800000000, 1100000),
 
 	/* CAM FDIF OPPLP - DPLL cascading */
 	OMAP_OPP_DEF("fdif", false, 49152000, 860000),
 	/* CAM FDIF OPP1 - OPP50 */
 	OMAP_OPP_DEF("fdif", true, 64000000, 860000),
 	/* CAM FDIF OPP2 - OPP100 */
-	OMAP_OPP_DEF("fdif", true, 128000000, 1010000),
+	OMAP_OPP_DEF("fdif", true, 128000000, 1100000),
 
 	/* SGX OPPLP - DPLL cascading */
 	OMAP_OPP_DEF("gpu", false, 196608000, 860000),
 	/* SGX OPP1 - OPP50 */
 	OMAP_OPP_DEF("gpu", true, 153600000, 860000),
 	/* SGX OPP2 - OPP100 */
-	OMAP_OPP_DEF("gpu", true, 307200000, 1010000),
+	OMAP_OPP_DEF("gpu", true, 307200000, 1100000),
 
 	/* HSI OPPLP - DPLL cascading */
 	OMAP_OPP_DEF("hsi", false, 98304000, 860000),
 	/* HSI OPP1 - OPP50 */
 	OMAP_OPP_DEF("hsi", true, 96000000, 860000),
 	/* HSI OPP2 - OPP100 */
-	OMAP_OPP_DEF("hsi", true, 96000000, 1010000),
+	OMAP_OPP_DEF("hsi", true, 96000000, 1100000),
 };
 
 #define	L3_OPP50_RATE			100000000
