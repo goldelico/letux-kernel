@@ -40,7 +40,6 @@ static int temp_sensor_dev_init(struct omap_hwmod *oh, void *user)
 {
 	struct omap_temp_sensor_pdata *temp_sensor_pdata;
 	struct omap_device *od;
-	char *name = "temperature_sensor";
 	static int i;
 
 	temp_sensor_pdata =
@@ -58,13 +57,13 @@ static int temp_sensor_dev_init(struct omap_hwmod *oh, void *user)
 
 	temp_sensor_pdata->name = "omap_temp_sensor";
 
-	od = omap_device_build(name, i, oh, temp_sensor_pdata,
+	od = omap_device_build(temp_sensor_pdata->name, i, oh, temp_sensor_pdata,
 			       sizeof(*temp_sensor_pdata),
 			       omap_temp_sensor_latency,
 			       ARRAY_SIZE(omap_temp_sensor_latency), 0);
 	if (IS_ERR(od)) {
 		pr_warning("%s: Could not build omap_device for %s: %s.\n\n",
-			   __func__, name, oh->name);
+			   __func__, temp_sensor_pdata->name, oh->name);
 		kfree(temp_sensor_pdata);
 		return -EINVAL;
 	}
