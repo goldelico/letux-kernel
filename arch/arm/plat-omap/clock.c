@@ -23,7 +23,7 @@
 #include <linux/io.h>
 
 #include <plat/clock.h>
-
+#include "../mach-omap2/cm-regbits-44xx.h"
 static LIST_HEAD(clocks);
 static DEFINE_MUTEX(clocks_mutex);
 static DEFINE_SPINLOCK(clockfw_lock);
@@ -83,7 +83,23 @@ unsigned long clk_get_rate(struct clk *clk)
 		return 0;
 
 	spin_lock_irqsave(&clockfw_lock, flags);
-	ret = clk->rate;
+	/*
+	* On 4460, the MPU clk for frequencies higher than 1Ghz
+	* is sourced from CLKOUTX2_M3, instead of CLKOUT_M2, while
+	* value of M3 is fixed to 1. Hence for frequencies higher
+	* than 1 Ghz, lock the DPLL at half the rate so the
+	* CLKOUTX2_M3 then matches the requested rate.
+	*/
+	if (cpu_is_omap4460() && !strcmp(clk->name, "dpll_mpu_ck")) {
+		struct dpll_data *dd = clk->dpll_data;
+	u32 v;
+	v = __raw_readl(dd->mult_div1_reg);
+		if ((v & OMAP4460_DCC_EN_MASK))
+			ret = 2 * (clk->rate);
+		else
+			ret = clk->rate;
+	} else
+		ret = clk->rate;
 	spin_unlock_irqrestore(&clockfw_lock, flags);
 
 	return ret;
