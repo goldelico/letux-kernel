@@ -244,9 +244,8 @@ static ssize_t set_temp_max(struct device *dev,
 			    const char *buf, size_t count)
 {
 	struct omap_temp_sensor *temp_sensor = dev_get_drvdata(dev);
-	u32 temp;
 	long val;
-	u32 reg_val, t_cold;
+	u32 reg_val, t_cold, t_hot, temp;
 
 	mutex_lock(&temp_sensor->sensor_mutex);
 
@@ -255,51 +254,55 @@ static ssize_t set_temp_max(struct device *dev,
 		goto out;
 	}
 
-	temp = temp_to_adc_conversion(val);
-	if ((temp < OMAP_ADC_START_VALUE || temp > OMAP_ADC_END_VALUE)) {
+	t_hot = temp_to_adc_conversion(val);
+	if ((t_hot < OMAP_ADC_START_VALUE || t_hot > OMAP_ADC_END_VALUE)) {
 		pr_err("invalid range\n");
 		count = -EINVAL;
 		goto out;
 	}
-	/*
-	 *obtain the T cold value
-	 */
+
+	/* obtain the T cold value */
 	t_cold = omap_temp_sensor_readl(temp_sensor, BGAP_THRESHOLD_OFFSET);
 	t_cold = (t_cold & OMAP4_T_COLD_MASK) >> OMAP4_T_COLD_SHIFT;
-	if (t_cold > temp) {
+
+	if (t_hot < t_cold) {
 		pr_err("Error! T_HOT value lesser than T_COLD\n");
 		count = -EINVAL;
 		goto out;
 	}
+
+	/* write the new t_hot value */
 	reg_val = omap_temp_sensor_readl(temp_sensor, BGAP_THRESHOLD_OFFSET);
 	reg_val = reg_val & ~(OMAP4_T_HOT_MASK);
-	reg_val = reg_val | (temp << OMAP4_T_HOT_SHIFT);
+	reg_val = reg_val | (t_hot << OMAP4_T_HOT_SHIFT);
 	omap_temp_sensor_writel(temp_sensor, reg_val, BGAP_THRESHOLD_OFFSET);
-	/*
-	 * Read the current temperature
-	 */
-	reg_val = omap_temp_sensor_readl(temp_sensor, TEMP_SENSOR_CTRL_OFFSET);
-	reg_val = reg_val & (OMAP4_BGAP_TEMP_SENSOR_DTEMP_MASK);
+
+	/* Read the current temperature */
+	temp = omap_temp_sensor_readl(temp_sensor, TEMP_SENSOR_CTRL_OFFSET);
+	temp = temp & (OMAP4_BGAP_TEMP_SENSOR_DTEMP_MASK);
 
 	/*
-	 * User sets the HIGH threshold greater than the current temperature
-	 * unmask the HOT interrupts
+	 * If user sets the HIGH threshold(t_hot) greater than the current
+	 * temperature(temp) unmask the HOT interrupts
 	 */
-	if (temp > reg_val) {
+	if (t_hot > temp) {
 		reg_val = omap_temp_sensor_readl(temp_sensor, BGAP_CTRL_OFFSET);
 		reg_val = reg_val & ~(OMAP4_MASK_COLD_MASK);
 		reg_val = reg_val | OMAP4_MASK_HOT_MASK;
 		omap_temp_sensor_writel(temp_sensor, reg_val, BGAP_CTRL_OFFSET);
 	}
+
 	/*
-	 * Enable both masks because we are in between and an interrupt can come
+	 * If current temperature is in-between the hot and cold thresholds,
+	 * Enable both masks.
 	 */
-	if (temp > t_cold && temp < reg_val) {
+	if (temp > t_cold && temp < t_hot) {
 		reg_val = omap_temp_sensor_readl(temp_sensor, BGAP_CTRL_OFFSET);
 		reg_val = reg_val | OMAP4_MASK_COLD_MASK;
 		reg_val = reg_val | OMAP4_MASK_HOT_MASK;
 		omap_temp_sensor_writel(temp_sensor, reg_val, BGAP_CTRL_OFFSET);
 	}
+
 	/*
 	 * else no need to do anything since HW will immediately compare
 	 * the new threshold and generate interrupt accordingly
@@ -335,8 +338,7 @@ static ssize_t set_temp_max_hyst(struct device *dev,
 				 const char *buf, size_t count)
 {
 	struct omap_temp_sensor *temp_sensor = dev_get_drvdata(dev);
-	u32 temp;
-	u32 reg_val, t_hot;
+	u32 reg_val, t_hot, t_cold, temp;
 	long val;
 
 	mutex_lock(&temp_sensor->sensor_mutex);
@@ -346,51 +348,59 @@ static ssize_t set_temp_max_hyst(struct device *dev,
 		goto out;
 	}
 
-	temp = temp_to_adc_conversion(val);
-	if (temp < OMAP_ADC_START_VALUE || temp > OMAP_ADC_END_VALUE) {
+	t_cold = temp_to_adc_conversion(val);
+	if (t_cold < OMAP_ADC_START_VALUE || t_cold > OMAP_ADC_END_VALUE) {
 		pr_err("invalid range");
 		count = -EINVAL;
 		goto out;
 	}
-	/*
-	 * obtain the T HOT value
-	 */
+
+	/* obtain the T HOT value */
 	t_hot = omap_temp_sensor_readl(temp_sensor, BGAP_THRESHOLD_OFFSET);
 	t_hot = (t_hot & OMAP4_T_HOT_MASK) >> OMAP4_T_HOT_SHIFT;
-	if (t_hot < temp) {
+
+	if (t_cold > t_hot) {
 		pr_err("Error! T_COLD value greater than T_HOT\n");
 		count = -EINVAL;
 		goto out;
 	}
+
+	/* write the new t_cold value */
 	reg_val = omap_temp_sensor_readl(temp_sensor, BGAP_THRESHOLD_OFFSET);
 	reg_val = reg_val & ~(OMAP4_T_COLD_MASK);
-	reg_val = reg_val | (temp << OMAP4_T_COLD_SHIFT);
+	reg_val = reg_val | (t_cold << OMAP4_T_COLD_SHIFT);
 	omap_temp_sensor_writel(temp_sensor, reg_val, BGAP_THRESHOLD_OFFSET);
-	/*
-	 * Read the current temperature
-	 */
-	reg_val = omap_temp_sensor_readl(temp_sensor, TEMP_SENSOR_CTRL_OFFSET);
-	reg_val = reg_val & (OMAP4_BGAP_TEMP_SENSOR_DTEMP_MASK);
+
+	/* Read the current temperature */
+	temp = omap_temp_sensor_readl(temp_sensor, TEMP_SENSOR_CTRL_OFFSET);
+	temp = temp & (OMAP4_BGAP_TEMP_SENSOR_DTEMP_MASK);
 
 	/*
-	 * User sets the LOW threshold lower than the current temperature
-	 * unmask the COLD interrupts
+	 * If user sets the LOW threshold(t_cold) lower than the current
+	 * temperature(temp) unmask the COLD interrupts
 	 */
-	if (temp < reg_val) {
+	if (t_cold < temp) {
 		reg_val = omap_temp_sensor_readl(temp_sensor, BGAP_CTRL_OFFSET);
 		reg_val = reg_val & ~(OMAP4_MASK_HOT_MASK);
 		reg_val = reg_val | OMAP4_MASK_COLD_MASK;
 		omap_temp_sensor_writel(temp_sensor, reg_val, BGAP_CTRL_OFFSET);
 	}
+
 	/*
-	 * If the current temperature is in between t_hot and t_cold enable both masks
+	 * If current temperature is in-between the hot and cold thresholds,
+	 * Enable both masks.
 	 */
-	if (temp < t_hot && temp > reg_val) {
+	if (temp < t_hot && temp > t_cold) {
 		reg_val = omap_temp_sensor_readl(temp_sensor, BGAP_CTRL_OFFSET);
 		reg_val = reg_val | OMAP4_MASK_COLD_MASK;
 		reg_val = reg_val | OMAP4_MASK_HOT_MASK;
 		omap_temp_sensor_writel(temp_sensor, reg_val, BGAP_CTRL_OFFSET);
 	}
+
+	/*
+	 * else no need to do anything since HW will immediately compare
+	 * the new threshold and generate interrupt accordingly
+	 */
 
 out:
 	mutex_unlock(&temp_sensor->sensor_mutex);
