@@ -701,7 +701,7 @@ static int __devinit omap_temp_sensor_probe(struct platform_device *pdev)
 	dev_set_drvdata(temp_sensor->dev, temp_sensor);
 
 	ret = request_threaded_irq(temp_sensor->irq, NULL,
-			omap_talert_irq_handler, IRQF_TRIGGER_RISING,
+			omap_talert_irq_handler, IRQF_TRIGGER_RISING | IRQF_ONESHOT,
 			"temp_sensor", (void *)temp_sensor);
 	if (ret) {
 		dev_err(&pdev->dev, "Request threaded irq failed.\n");
@@ -709,7 +709,7 @@ static int __devinit omap_temp_sensor_probe(struct platform_device *pdev)
 	}
 
 	ret = request_threaded_irq(temp_sensor->tshut_irq, NULL,
-			omap_tshut_irq_handler, IRQF_TRIGGER_RISING,
+			omap_tshut_irq_handler, IRQF_TRIGGER_RISING | IRQF_ONESHOT,
 			"tshut", NULL);
 	if (ret) {
 		gpio_free(OMAP_TSHUT_GPIO);
