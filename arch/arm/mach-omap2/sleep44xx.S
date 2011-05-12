@@ -99,6 +99,7 @@ restore_context:
 	LM_CHECK_IF_CPU0
 	beq	enable_smp_bit				@ if CPU0
 
+#ifdef CONFIG_CACHE_L2X0
 	/*
 	 *     Check the WakeUp CPU
 	 * CPU1 must check if CPU0 is alive/awaken;
@@ -121,6 +122,7 @@ restore_context:
 	wfi				@ wait for interrupt
 	nop
 	nop
+#endif
 set_ns_smp_access:
 	mcr	p15, 0, r7, c7, c5, 6	@ invalidate BPIALL
 	isb
