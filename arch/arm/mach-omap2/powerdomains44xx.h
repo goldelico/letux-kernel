@@ -283,6 +283,7 @@ static struct powerdomain mpu_446x_pwrdm = {
 	.pwrsts		  = PWRSTS_RET_ON,
 	.pwrsts_logic_ret = PWRSTS_OFF_RET,
 	.banks		  = 2,
+	.context_offset	  = 0x24,
 	.pwrsts_mem_ret	= {
 		[0] = PWRSTS_OFF_RET,	/* mpu_l2 */
 		[1] = PWRDM_POWER_RET,	/* mpu_ram */
@@ -290,6 +291,13 @@ static struct powerdomain mpu_446x_pwrdm = {
 	.pwrsts_mem_on	= {
 		[0] = PWRDM_POWER_ON,	/* mpu_l2 */
 		[1] = PWRDM_POWER_ON,	/* mpu_ram */
+	},
+	.flags		= PWRDM_HAS_LASTPOWERSTATEENT,
+	.wakeup_lat = {
+		[PWRDM_FUNC_PWRST_OFF] = 1000,
+		[PWRDM_FUNC_PWRST_OSWR] = 600,
+		[PWRDM_FUNC_PWRST_CSWR] = 300,
+		[PWRDM_FUNC_PWRST_ON] = 0,
 	},
 };
 
