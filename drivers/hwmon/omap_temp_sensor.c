@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2011 Texas Instruments Incorporated - http://www.ti.com/
  * Author: J Keerthy <j-keerthy@ti.com>
+ * Author: Moiz Sonasath <m-sonasath@ti.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -221,7 +222,8 @@ static void omap_enable_continuous_mode(struct omap_temp_sensor *temp_sensor,
 static ssize_t show_temp_max(struct device *dev,
 			struct device_attribute *devattr, char *buf)
 {
-	struct omap_temp_sensor *temp_sensor = dev_get_drvdata(dev);
+	struct platform_device *pdev = to_platform_device(dev);
+	struct omap_temp_sensor *temp_sensor = platform_get_drvdata(pdev);
 	int temp;
 
 	mutex_lock(&temp_sensor->sensor_mutex);
@@ -243,7 +245,8 @@ static ssize_t set_temp_max(struct device *dev,
 			    struct device_attribute *devattr,
 			    const char *buf, size_t count)
 {
-	struct omap_temp_sensor *temp_sensor = dev_get_drvdata(dev);
+	struct platform_device *pdev = to_platform_device(dev);
+	struct omap_temp_sensor *temp_sensor = platform_get_drvdata(pdev);
 	long val;
 	u32 reg_val, t_cold, t_hot, temp;
 
@@ -315,7 +318,8 @@ out:
 static ssize_t show_temp_max_hyst(struct device *dev,
                                   struct device_attribute *devattr, char *buf)
 {
-        struct omap_temp_sensor *temp_sensor = dev_get_drvdata(dev);
+	struct platform_device *pdev = to_platform_device(dev);
+	struct omap_temp_sensor *temp_sensor = platform_get_drvdata(pdev);
 	u32 temp;
 
 	mutex_lock(&temp_sensor->sensor_mutex);
@@ -337,7 +341,8 @@ static ssize_t set_temp_max_hyst(struct device *dev,
 				 struct device_attribute *devattr,
 				 const char *buf, size_t count)
 {
-	struct omap_temp_sensor *temp_sensor = dev_get_drvdata(dev);
+	struct platform_device *pdev = to_platform_device(dev);
+	struct omap_temp_sensor *temp_sensor = platform_get_drvdata(pdev);
 	u32 reg_val, t_hot, t_cold, temp;
 	long val;
 
@@ -410,7 +415,8 @@ out:
 static ssize_t show_update_rate(struct device *dev,
                                 struct device_attribute *devattr, char *buf)
 {
-        struct omap_temp_sensor *temp_sensor = dev_get_drvdata(dev);
+	struct platform_device *pdev = to_platform_device(dev);
+	struct omap_temp_sensor *temp_sensor = platform_get_drvdata(pdev);
 	u32 temp = 0, ret = 0;
 
 	mutex_lock(&temp_sensor->sensor_mutex);
@@ -437,7 +443,8 @@ static ssize_t set_update_rate(struct device *dev,
 			       struct device_attribute *devattr,
 			       const char *buf, size_t count)
 {
-	struct omap_temp_sensor *temp_sensor = dev_get_drvdata(dev);
+	struct platform_device *pdev = to_platform_device(dev);
+	struct omap_temp_sensor *temp_sensor = platform_get_drvdata(pdev);
 	u32 reg_val;
 	long val;
 
@@ -464,7 +471,8 @@ static int omap_temp_sensor_read_temp(struct device *dev,
 				      struct device_attribute *devattr,
 				      char *buf)
 {
-	struct omap_temp_sensor *temp_sensor = dev_get_drvdata(dev);
+	struct platform_device *pdev = to_platform_device(dev);
+	struct omap_temp_sensor *temp_sensor = platform_get_drvdata(pdev);
 	int temp, ret = 0;
 
 	mutex_lock(&temp_sensor->sensor_mutex);
@@ -700,7 +708,7 @@ static int __devinit omap_temp_sensor_probe(struct platform_device *pdev)
 		goto hwmon_reg_err;
 	}
 
-	ret = sysfs_create_group(&temp_sensor->dev->kobj,
+	ret = sysfs_create_group(&pdev->dev.kobj,
 				 &omap_temp_sensor_group);
 	if (ret) {
 		dev_err(&pdev->dev, "could not create sysfs files\n");
@@ -708,7 +716,7 @@ static int __devinit omap_temp_sensor_probe(struct platform_device *pdev)
 	}
 
 	kobject_uevent(&temp_sensor->dev->kobj, KOBJ_ADD);
-	dev_set_drvdata(temp_sensor->dev, temp_sensor);
+	platform_set_drvdata(pdev, temp_sensor);
 
 	ret = request_threaded_irq(temp_sensor->irq, NULL,
 			omap_talert_irq_handler, IRQF_TRIGGER_RISING | IRQF_ONESHOT,
@@ -813,7 +821,7 @@ static void omap_temp_sensor_restore_ctxt(struct omap_temp_sensor *temp_sensor)
 static int omap_temp_sensor_suspend(struct platform_device *pdev,
 				    pm_message_t state)
 {
-	struct omap_temp_sensor *temp_sensor = (struct omap_temp_sensor *)pdev;
+	struct omap_temp_sensor *temp_sensor = platform_get_drvdata(pdev);
 
 	omap_temp_sensor_save_ctxt(temp_sensor);
 	omap_temp_sensor_enable(temp_sensor, 0);
@@ -823,7 +831,7 @@ static int omap_temp_sensor_suspend(struct platform_device *pdev,
 
 static int omap_temp_sensor_resume(struct platform_device *pdev)
 {
-	struct omap_temp_sensor *temp_sensor = (struct omap_temp_sensor *)pdev;
+	struct omap_temp_sensor *temp_sensor = platform_get_drvdata(pdev);
 
 	omap_temp_sensor_enable(temp_sensor, 1);
 	omap_temp_sensor_restore_ctxt(temp_sensor);
