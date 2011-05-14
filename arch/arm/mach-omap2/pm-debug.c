@@ -42,6 +42,7 @@
 
 int omap2_pm_debug;
 u32 enable_off_mode;
+u32 volt_off_mode;
 u32 sleep_while_idle;
 u32 wakeup_timer_seconds;
 u32 wakeup_timer_milliseconds;
@@ -821,6 +822,8 @@ static int __init pm_dbg_init(void)
 
 		}
 
+	(void) debugfs_create_file("volt_off_mode", S_IRUGO | S_IWUGO, d,
+				   &volt_off_mode, &pm_dbg_option_fops);
 	(void) debugfs_create_file("enable_off_mode", S_IRUGO | S_IWUGO, d,
 				   &enable_off_mode, &pm_dbg_option_fops);
 	(void) debugfs_create_file("sleep_while_idle", S_IRUGO | S_IWUGO, d,

@@ -14,6 +14,7 @@
 #include <plat/powerdomain.h>
 
 extern u32 enable_off_mode;
+extern u32 volt_off_mode;
 extern u32 sleep_while_idle;
 extern u32 omap4_device_off_counter;
 
