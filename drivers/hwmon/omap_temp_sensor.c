@@ -805,16 +805,16 @@ static void omap_temp_sensor_restore_ctxt(struct omap_temp_sensor *temp_sensor)
 				temp_sensor_context.temp_sensor_ctrl,
 				TEMP_SENSOR_CTRL_OFFSET);
 	omap_temp_sensor_writel(temp_sensor,
-				temp_sensor_context.temp_sensor_ctrl,
+				temp_sensor_context.bg_ctrl,
 				BGAP_CTRL_OFFSET);
 	omap_temp_sensor_writel(temp_sensor,
-				temp_sensor_context.temp_sensor_ctrl,
+				temp_sensor_context.bg_counter,
 				BGAP_COUNTER_OFFSET);
 	omap_temp_sensor_writel(temp_sensor,
-				temp_sensor_context.temp_sensor_ctrl,
+				temp_sensor_context.bg_threshold,
 				BGAP_THRESHOLD_OFFSET);
 	omap_temp_sensor_writel(temp_sensor,
-				temp_sensor_context.temp_sensor_ctrl,
+				temp_sensor_context.temp_sensor_tshut_threshold,
 				BGAP_TSHUT_OFFSET);
 }
 
