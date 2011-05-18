@@ -728,7 +728,7 @@ static int __devinit omap_temp_sensor_probe(struct platform_device *pdev)
 
 	ret = request_threaded_irq(temp_sensor->tshut_irq, NULL,
 			omap_tshut_irq_handler, IRQF_TRIGGER_RISING | IRQF_ONESHOT,
-			"tshut", NULL);
+			"tshut", (void *)temp_sensor);
 	if (ret) {
 		gpio_free(OMAP_TSHUT_GPIO);
 		dev_err(&pdev->dev, "Request threaded irq failed for TSHUT.\n");
