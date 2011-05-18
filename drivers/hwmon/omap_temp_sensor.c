@@ -45,6 +45,13 @@
 #include <mach/ctrl_module_core_44xx.h>
 #include <mach/gpio.h>
 
+/* This DEBUG flag is used to enable the sysfs entries
+ * for the thermal shutdown thresholds, uncomment #define
+ * for testing thsut mechanism
+ */
+
+/* #define TSHUT_DEBUG	1 */
+
 #define TSHUT_THRESHOLD_TSHUT_HOT	122000	/* 122 deg C */
 #define TSHUT_THRESHOLD_TSHUT_COLD	100000	/* 100 deg C */
 #define BGAP_THRESHOLD_T_HOT		73000	/* 73 deg C */
@@ -501,6 +508,124 @@ out:
 		return ret;
 }
 
+#ifdef TSHUT_DEBUG
+static ssize_t show_temp_crit(struct device *dev,
+				struct device_attribute *devattr, char *buf)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct omap_temp_sensor *temp_sensor = platform_get_drvdata(pdev);
+	int temp;
+
+	mutex_lock(&temp_sensor->sensor_mutex);
+
+	temp = omap_temp_sensor_readl(temp_sensor, BGAP_TSHUT_OFFSET);
+	temp = (temp & OMAP4_TSHUT_HOT_MASK) >> OMAP4_TSHUT_HOT_SHIFT;
+
+	if (temp < OMAP_ADC_START_VALUE || temp > OMAP_ADC_END_VALUE)
+		pr_err("invalid value\n");
+	else
+		temp = adc_to_temp_conversion(temp);
+
+	mutex_unlock(&temp_sensor->sensor_mutex);
+
+	return sprintf(buf, "%d\n", temp);
+}
+
+static ssize_t set_temp_crit(struct device *dev,
+				struct device_attribute *devattr,
+				const char *buf, size_t count)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct omap_temp_sensor *temp_sensor = platform_get_drvdata(pdev);
+	u32 temp, reg_val;
+	long val;
+
+	mutex_lock(&temp_sensor->sensor_mutex);
+
+	if (strict_strtol(buf, 10, &val)) {
+		count = -EINVAL;
+		goto out;
+	}
+
+	temp = temp_to_adc_conversion(val);
+	if ((temp < OMAP_ADC_START_VALUE || temp > OMAP_ADC_END_VALUE)) {
+		pr_err("invalid range\n");
+		count = -EINVAL;
+		goto out;
+	}
+
+	reg_val = omap_temp_sensor_readl(temp_sensor, BGAP_TSHUT_OFFSET);
+	reg_val = reg_val & ~(OMAP4_TSHUT_HOT_MASK);
+	reg_val = reg_val | (temp << OMAP4_TSHUT_HOT_SHIFT);
+	omap_temp_sensor_writel(temp_sensor, reg_val, BGAP_TSHUT_OFFSET);
+
+out:
+	mutex_unlock(&temp_sensor->sensor_mutex);
+	return count;
+}
+
+static ssize_t show_temp_crit_hyst(struct device *dev,
+			struct device_attribute *devattr, char *buf)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct omap_temp_sensor *temp_sensor = platform_get_drvdata(pdev);
+	int temp;
+
+	mutex_lock(&temp_sensor->sensor_mutex);
+
+	temp = omap_temp_sensor_readl(temp_sensor, BGAP_TSHUT_OFFSET);
+	temp = (temp & OMAP4_TSHUT_COLD_MASK) >> OMAP4_TSHUT_COLD_SHIFT;
+
+	if (temp < OMAP_ADC_START_VALUE || temp > OMAP_ADC_END_VALUE)
+		pr_err("invalid value\n");
+	else
+		temp = adc_to_temp_conversion(temp);
+
+	mutex_unlock(&temp_sensor->sensor_mutex);
+
+	return sprintf(buf, "%d\n", temp);
+}
+
+static ssize_t set_temp_crit_hyst(struct device *dev,
+			struct device_attribute *devattr,
+			const char *buf, size_t count)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct omap_temp_sensor *temp_sensor = platform_get_drvdata(pdev);
+	u32 temp, reg_val;
+	long val;
+
+	mutex_lock(&temp_sensor->sensor_mutex);
+
+	if (strict_strtol(buf, 10, &val)) {
+		count = -EINVAL;
+		goto out;
+	}
+
+	temp = temp_to_adc_conversion(val);
+	if ((temp < OMAP_ADC_START_VALUE || temp > OMAP_ADC_END_VALUE)) {
+		pr_err("invalid range\n");
+		count = -EINVAL;
+		goto out;
+	}
+
+	reg_val = omap_temp_sensor_readl(temp_sensor, BGAP_TSHUT_OFFSET);
+	reg_val = reg_val & ~(OMAP4_TSHUT_COLD_MASK);
+	reg_val = reg_val | (temp << OMAP4_TSHUT_COLD_SHIFT);
+	omap_temp_sensor_writel(temp_sensor, reg_val, BGAP_TSHUT_OFFSET);
+
+out:
+	mutex_unlock(&temp_sensor->sensor_mutex);
+	return count;
+}
+
+static SENSOR_DEVICE_ATTR(temp1_crit, S_IWUSR | S_IRUGO, show_temp_crit,
+			  set_temp_crit, 0);
+static SENSOR_DEVICE_ATTR(temp1_crit_hyst, S_IWUSR | S_IRUGO, show_temp_crit_hyst,
+			  set_temp_crit_hyst, 0);
+
+#endif
+
 static SENSOR_DEVICE_ATTR(temp1_input, S_IRUGO, omap_temp_sensor_read_temp,
 			  NULL, 0);
 static SENSOR_DEVICE_ATTR(temp1_max, S_IWUSR | S_IRUGO, show_temp_max,
@@ -514,6 +639,10 @@ static struct attribute *omap_temp_sensor_attributes[] = {
 	&sensor_dev_attr_temp1_input.dev_attr.attr,
 	&sensor_dev_attr_temp1_max.dev_attr.attr,
 	&sensor_dev_attr_temp1_max_hyst.dev_attr.attr,
+#ifdef TSHUT_DEBUG
+	&sensor_dev_attr_temp1_crit.dev_attr.attr,
+	&sensor_dev_attr_temp1_crit_hyst.dev_attr.attr,
+#endif
 	&sensor_dev_attr_update_rate.dev_attr.attr,
 	NULL
 };
