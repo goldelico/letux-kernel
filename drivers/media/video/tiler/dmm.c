@@ -98,10 +98,20 @@ s32 dmm_pat_refill(struct dmm *dmm, struct pat *pd, enum pat_mode mode)
 	/* Set area to be refilled */
 	r = dmm->base + DMM_PAT_AREA__0;
 	v = __raw_readl(r);
-	v = SET_FLD(v, 30, 24, pd->area.y1);
-	v = SET_FLD(v, 23, 16, pd->area.x1);
-	v = SET_FLD(v, 14, 8, pd->area.y0);
-	v = SET_FLD(v, 7, 0, pd->area.x0);
+
+	if (cpu_is_omap54xx()) {
+		/* target area to upper portion of LUT */
+		v = SET_FLD(v, 31, 24, pd->area.y1);
+		v = SET_FLD(v, 23, 16, pd->area.x1);
+		v = SET_FLD(v, 15, 8, pd->area.y0);
+		v = SET_FLD(v, 7, 0, pd->area.x0);
+	} else {
+		v = SET_FLD(v, 30, 24, pd->area.y1);
+		v = SET_FLD(v, 23, 16, pd->area.x1);
+		v = SET_FLD(v, 14, 8, pd->area.y0);
+		v = SET_FLD(v, 7, 0, pd->area.x0);
+	}
+
 	__raw_writel(v, r);
 	wmb();
 
@@ -118,16 +128,6 @@ s32 dmm_pat_refill(struct dmm *dmm, struct pat *pd, enum pat_mode mode)
 	__raw_writel(0xFFFFFFFF, r);
 	wmb();
 
-	r = dmm->base + DMM_PAT_IRQSTATUS_RAW;
-	i = 1000;
-	while(__raw_readl(r) != 0) {
-		if (--i == 0) {
-			printk(KERN_ERR "Cannot clear status register\n");
-			goto refill_error;
-		}
-		udelay(1);
-	}
-
 	/* Fill data register */
 	r = dmm->base + DMM_PAT_DATA__0;
 	v = __raw_readl(r);
@@ -140,7 +140,7 @@ s32 dmm_pat_refill(struct dmm *dmm, struct pat *pd, enum pat_mode mode)
 
 	/* Read back PAT_DATA__0 to see if write was successful */
 	i = 1000;
-	while(__raw_readl(r) != pd->data) {
+	while (__raw_readl(r) != pd->data) {
 		if (--i == 0) {
 			printk(KERN_ERR "Write failed to PAT_DATA__0\n");
 			goto refill_error;
@@ -158,27 +158,12 @@ s32 dmm_pat_refill(struct dmm *dmm, struct pat *pd, enum pat_mode mode)
 	__raw_writel(v, r);
 	wmb();
 
-	/* Check if PAT_IRQSTATUS_RAW is set after the PAT has been refilled */
-	r = dmm->base + DMM_PAT_IRQSTATUS_RAW;
+	/* Wait for PAT refill to complete by polling DONE */
+	r = dmm->base + DMM_PAT_STATUS__0;
 	i = 1000;
-	while((__raw_readl(r) & 0x3) != 0x3) {
+	while (!(__raw_readl(r) & 0x8)) {
 		if (--i == 0) {
-			printk(KERN_ERR "Status check failed after PAT refill\n");
-			goto refill_error;
-		}
-		udelay(1);
-	}
-
-	/* Again, clear the DMM_PAT_IRQSTATUS register */
-	r = dmm->base + DMM_PAT_IRQSTATUS;
-	__raw_writel(0xFFFFFFFF, r);
-	wmb();
-
-	r = dmm->base + DMM_PAT_IRQSTATUS_RAW;
-	i = 1000;
-	while (__raw_readl(r) != 0x0) {
-		if (--i == 0) {
-			printk(KERN_ERR "Failed to clear DMM PAT IRQSTATUS\n");
+			printk(KERN_ERR "Failed to validate DMM PAT STATUS\n");
 			goto refill_error;
 		}
 		udelay(1);
@@ -189,6 +174,7 @@ s32 dmm_pat_refill(struct dmm *dmm, struct pat *pd, enum pat_mode mode)
 	v = __raw_readl(r);
 	v = SET_FLD(v, 31, 4, (u32) NULL);
 	__raw_writel(v, r);
+	wmb();
 
 	/*
 	 * Now, check that the DMM_PAT_STATUS register
@@ -229,6 +215,7 @@ struct dmm *dmm_pat_init(u32 id)
 
 	dmm->base = ioremap(base, DMM_SIZE);
 	if (!dmm->base) {
+		printk(KERN_ERR "dmm ioremap of base failed\n");
 		kfree(dmm);
 		return NULL;
 	}

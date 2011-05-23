@@ -1,7 +1,7 @@
 config HAVE_TI_TILER
         bool
         default y
-        depends on ARCH_OMAP4
+        depends on ARCH_OMAP4 || ARCH_OMAP5
 
 menuconfig TI_TILER
 	tristate "TI TILER support"

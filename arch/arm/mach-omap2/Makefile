@@ -310,3 +310,4 @@ obj-y					+= common-board-devices.o twl-common.o
 obj-$(CONFIG_EMIF)			+= emif_omap.o
 
 obj-$(CONFIG_ARCH_OMAP4)		+= omap_dmm.o
+obj-$(CONFIG_ARCH_OMAP5)		+= omap_dmm.o

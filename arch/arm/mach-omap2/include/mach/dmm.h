@@ -88,10 +88,10 @@ enum pat_mode {
  * Area definition for DMM physical address translator.
  */
 struct pat_area {
-	s32 x0:8;
-	s32 y0:8;
-	s32 x1:8;
-	s32 y1:8;
+	u32 x0:8;
+	u32 y0:8;
+	u32 x1:8;
+	u32 y1:8;
 };
 
 /**
