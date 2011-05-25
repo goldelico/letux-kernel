@@ -279,7 +279,8 @@ obj-$(CONFIG_MACH_SBC3530)		+= board-omap3stalker.o \
 
 obj-$(CONFIG_MACH_TI8168EVM)		+= board-ti8168evm.o
 
-obj-$(CONFIG_MACH_OMAP_5430EVM)            += board-omap5evm.o
+obj-$(CONFIG_MACH_OMAP_5430EVM)            += board-omap5evm.o \
+					      hsmmc.o
 
 # Platform specific device init code
 usbfs-$(CONFIG_ARCH_OMAP_OTG)		:= usb-fs.o
