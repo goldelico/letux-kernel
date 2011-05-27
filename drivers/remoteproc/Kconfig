@@ -17,7 +17,7 @@ config REMOTE_PROC_AUTOSUSPEND
 # can't be tristate, due to omap_device_* and omap_hwmod_* dependency
 config OMAP_REMOTE_PROC
 	bool "OMAP remoteproc support"
-	depends on ARCH_OMAP4
+	depends on ARCH_OMAP4 || ARCH_OMAP5
 	select OMAP_IOMMU
 	select REMOTE_PROC
 	default y

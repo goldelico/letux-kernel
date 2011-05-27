@@ -41,7 +41,7 @@ config OMAP_DEBUG_LEDS
 
 config OMAP_RPMSG
        tristate "OMAP Virtio-based remote processor messaging support"
-       depends on ARCH_OMAP4
+       depends on ARCH_OMAP4 || ARCH_OMAP5
        default y
        select VIRTIO
        select VIRTIO_RING
