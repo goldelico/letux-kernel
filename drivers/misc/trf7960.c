@@ -295,518 +295,225 @@ static int getCollisionPosition(struct trf7960 *device)
 }
 
 
+#endif
+
+
 #if 0
-
-/* how many of these functions do we really need? */
-
-uchar readFifo(struct trf7960 *device)
-{
-	return readRegister(device, 0x1f);
-}
-
-int writeFifo(struct trf7960 *device, uchar byte)
-{
-	return writeRegister(device, 0x1f, byte);
-}
-
-int prepareSend(struct trf7960 *device, int framelength, int options)
-{
-	return sendCommand(device, 0x11); // optionally without CRC? with Timer?
-}
-
-int getRSSI(struct trf7960 *device)
-{
-	sendCommand(device, 0x18);
-	return readRegister(device, 0x0f);
-}
-
-int receiverGainAdjust(struct trf7960 *device)
-{
-	return sendCommand(device, 0x1a);
-}
-
-int blockReceiver(struct trf7960 *device, int flag)
-{
-	return sendCommand(device, flag?0x16:0x17);
-}
-
-int setRfidMode(struct trf7960 *device, int mode)
-{
-	// 6 bit register 0x01
-	return -1;
-}
-
-int setNoResponseWait(struct trf7960 *device, int useconds)
-{ /* in 37.76 us steps */
-	return writeRegister(device, 0x07, (100*useconds+3776/2)/3776);
-}
-
-int setTxRxWait(struct trf7960 *device, int useconds)
-{ /* in 9.44 us steps */
-	return writeRegister(device, 0x08, (100*useconds+944/2)/944);
-}
-
-#endif
-
-/* how to handle spi_claim_bus during irq handler? */
-
-static int prepareIrq(struct trf7960 *device, uchar *data, unsigned int bytes)
-{
-#if 1
-	printf("prepareIrq data=%p bytes=%u\n", data, bytes);
-#endif
-#if 0
-	{
-	//	uchar irq=readRegister(device, TRF7960_REG_IRQ);
-	uchar irq=resetIRQ(device);
-	printf("    irq-status=%02x\n", irq);		
-	}
-#endif
-#if 0
-	while(device->irq >= 0 && omap_get_gpio_datain(device->irq)) {
-		printf("prepareIrq: IRQ pin already active!\n");
-		resetIRQ(device);
-	}
-#endif
-	device->done=0;	/* not yet done */
-	device->datapointer=data;
-	device->bytes=bytes;
-	/* enable IRQ */
-	return 0;
-}
-
-static void handleInterrupt(struct trf7960 *device)
-{ /* process interrupt */
-	unsigned char buffer[12];
-	//	uchar irq=readRegister(device, TRF7960_REG_IRQ);
-	uchar irq=resetIRQ(device);
-	if(!irq)
-		return;	/* false alarm or waitIrq */
-	if(device->done)
-		return;	/* unprocessed previous interrupt */
-#if 0
-	printf("handleirq %02x\n", irq);
-#endif
-	device->done=irq;	/* set done flag with interrupt flags */
-#if 0	// read again test (did a read reset the IRQ flags?)
-	irq=readRegister(device, TRF7960_REG_IRQ);
-	printf("handleirq %02x %02x\n", device->done, irq);
-	irq=device->done;	/* restore */
-#endif
-#if 0
-	udelay(5);
-	if(device->irq >= 0 && omap_get_gpio_datain(device->irq))
-		printf("  IRQ pin still/again active!\n");
-#endif
-	if(irq & 0x80) { /* end of TX */
-#if 1
-		printf("handleirq end of TX %02x\n", irq);
-#endif
-		sendCommand(device, TRF7960_CMD_RESET);	/* reset FIFO */
-		return;
-	}
-	if(irq & 0x02) { /* collision occurred */
-		int position;
-#if 1
-		printf("handleirq collision %02x\n", irq);
-#endif
-		// FIXME: combine into single message
-		sendCommand(device, TRF7960_CMD_RX_BLOCK);	/* block RX */
-		position=getCollisionPosition(device);
-#if 1
-		printf("position=%d\n", position);
-#endif
-		// number of valid bytes is collpos - 32
-		// read bytes
-		// handle broken byte
-		sendCommand(device, TRF7960_CMD_RESET);	/* reset FIFO */
-	}
-	else if(irq & 0x40) { /* end of RX */
-		uchar fifosr=readRegister(device, TRF7960_REG_FIFO_STATUS);
-		uchar unread=(fifosr&0xf) + 1;
-#if 1
-		printf("handleirq end of RX %02x fifosr=%02x unread=%d\n", irq, fifosr, unread);
-#endif
-		int n = device->bytes <= unread ? device->bytes : unread;	/* limit to remaining bytes in FIFO or buffer */
-		buffer[0] = TRF7960_READ | TRF7960_CONTINUE | TRF7960_REG_FIFO_DATA;	/* continuous read from FIFO */
-		memset(&buffer[1], 0, sizeof(buffer)/sizeof(buffer[0])-1);	/* clear buffer so that we don't write garbage */
-		if(spi_xfer(device->slave, 8*sizeof(buffer[0])*(2 + n), buffer, buffer, SPI_XFER_BEGIN | SPI_XFER_END) != 0)	/* we need 8 more clocks to receive the last byte */
-			return;	/* spi error */
-		memcpy(device->datapointer, &buffer[1], n);	/* buffer[0] are the first 8 bits shifted out while we did send the command */
-		device->datapointer += n;
-		device->bytes -= n;
-		// handle broken byte
-		sendCommand(device, TRF7960_CMD_RESET);	/* reset FIFO */		
-	}
-	else if(irq & 0x20) { /* FIFO interrupt */
-		int n = device->bytes <= 9 ? device->bytes : 9;	/* limit to 9 bytes */
-#if 1
-		printf("handleirq fifo request %02x (%d bytes remaining)\n", irq, device->bytes);
-#endif
-		if(n > 0) {
-			if(irq & 0x80) { /* write next n bytes to FIFO (up to 9 or as defined by bytes) */
-#if 1
-				printf("write more (%d)\n", n);
-#endif
-				buffer[0] = TRF7960_WRITE | TRF7960_CONTINUE | TRF7960_REG_FIFO_DATA;	/* continuous write to FIFO */
-				memcpy(&buffer[1], device->datapointer, n);
-				if(spi_xfer(device->slave, 8*sizeof(buffer[0])*(1 + n), buffer, buffer, SPI_XFER_BEGIN | SPI_XFER_END) != 0)
-					return;	/* spi error */
-				device->datapointer += n;
-				device->bytes -= n;				
-			} else { /* read next 9 bytes from FIFO in one sequence */
-#if 1
-				printf("read more (%d)\n", n);
-#endif
-				buffer[0] = TRF7960_READ | TRF7960_CONTINUE | TRF7960_REG_FIFO_DATA;	/* continuous read from FIFO */
-				memset(&buffer[1], 0, sizeof(buffer)/sizeof(buffer[0])-1);	/* clear buffer so that we don't write garbage */
-				if(spi_xfer(device->slave, 8*sizeof(buffer[0])*(2 + n), buffer, buffer, SPI_XFER_BEGIN | SPI_XFER_END) != 0)	/* we need 8 more clocks to receive the last byte */
-					return;	/* spi error */
-				memcpy(device->datapointer, &buffer[1], n);	/* buffer[0] are the first 8 bits shifted out while we did send the command */
-				device->datapointer += n;
-				device->bytes -= n;
-			}
-			device->done=0;	/* don't notify successful data trandfer as 'done' status */
-		}
-		// else some error (FIFO interrupt but no data available or buffer is full
-	}
-}
-
-static void waitIrq(struct trf7960 *device)
-{ /* wait for IRQ */
-#if 0
-	printf("waitIrq %d\n", device->irq);
-#endif
-	if(device->irq >= 0)	{ /* check IRQ pin */
-		int cnt=2000;	// software timeout
-		while(!omap_get_gpio_datain(device->irq) && cnt-- > 0)
-			udelay(500); /* wait for IRQ pin */
-		handleInterrupt(device);
-	}
-	else { /* poll interrupt register to check for interrupts */
-		while(!device->done)
-			handleInterrupt(device);
-	}
-#if 0
-	printf("waitIrq -> %02x\n", device->done);
-#endif
-}
-
-static int setPowerMode(struct trf7960 *device, int mode)
-{ /* control power modes */
-	int status = 0;
-#if 1
-	printf("setPowerMode %d\n", mode);
-#endif
-	if(mode < TRF7960_POWER_DOWN || mode > TRF7960_POWER_RXTX_FULL)
-		return -1;
-	if(device->en >= 0)
-		omap_set_gpio_direction(device->en, 0);		/* make output */
-	if(device->en2 >= 0)
-		omap_set_gpio_direction(device->en2, 0);	/* make output */
-	if(device->irq >= 0)
-		omap_set_gpio_direction(device->irq, 1);	/* make input */
-	if(mode == TRF7960_POWER_DOWN) {
-		if(device->slave) {
-			spi_free_slave(device->slave);
-			device->slave = NULL;
-		}
-		if(device->en >= 0)
-			omap_set_gpio_dataout(device->en, 0);
-		if(device->en2 >= 0 && device->en != device->en2)
-			omap_set_gpio_dataout(device->en2, 0);	/* not tied togehter */
-	}
-	else if(mode == TRF7960_POWER_60kHz) {
-		if(device->en >= 0 && device->en2 >= 0 && device->en == device->en2)
-			return -1;	/* can't control them separately */
-		if(device->en >= 0)
-			omap_set_gpio_dataout(device->en, 0);
-		if(device->en2 >= 0)
-			omap_set_gpio_dataout(device->en2, 1);
-	}
-	else {
-		if(device->en >= 0)
-			omap_set_gpio_dataout(device->en, 1);
-		if(!device->slave) {
-			device->slave = spi_setup_slave(device->bus, device->cs, device->clock, SPI_MODE_0);
-			if(!device->slave)
-				return -1;	// failed			
-		}
-		udelay(1000);	/* wait until we can read/write */
-		status = readRegister(device, TRF7960_REG_CSC);
-#if 1
-		printf("CSC = %02x\n", status);
-#endif
-		if(status < 0)
-			return status;	/* some error */
-		switch(mode) {
-			case TRF7960_POWER_STANDBY:
-				status |= 0x80;
-				break;
-			case TRF7960_POWER_ACTIVE:
-				status &= 0x5d;
-				break;
-			case TRF7960_POWER_RX:
-				status &= 0x5d;
-				status |= 0x02;
-				break;
-			case TRF7960_POWER_RXTX_HALF:
-				status &= 0x4f;
-				status |= 0x20;
-				break;
-			case TRF7960_POWER_RXTX_FULL:
-				status &= 0x4f;
-				status |= 0x30;
-				break;
-			default:
-				return -1;
-		}
-#if 1
-		printf("   => %02x\n", status);
-#endif
-		status = writeRegister(device, TRF7960_REG_CSC, status);
-		// init other registers (only if previous mode was 0 or 1)
-		if(device->vio < 27)
-			; /* set bit 5 in Reg #0x0b to decrease output resistance for low voltage I/O */
-		udelay(5000);	/* wait until reader has recovered (should depend on previous and current mode) */
-	}
-	return status;
-}
-
-static int chooseProtocol(struct trf7960 *device, int protocol)
-{
-#if 1
-	printf("chooseProtocol %d\n", protocol);
-#endif
-	if((protocol < 0 || protocol >15) && protocol != 0x13)
-		return -1;
-	protocol |= readRegister(device, TRF7960_REG_CSC) & 0x80;	/* keep no RX CRC mode */
-	return writeRegister(device, TRF7960_REG_ISOC, protocol);
-}
-
-/* high level functions (protocol handlers) */
-
-int scanInventory(struct trf7960 *device, uchar flags, uchar length, void (*found)(struct trf7960 *device, uchar uid[8], int rssi))
-{ /* poll for tag uids and resolve collisions */
-	static uchar buffer[32];	/* shared rx/tx buffer */
-	uchar collisionslots[16];	/* up to 16 collision slots */
-	int collisions = 0;
-	uchar mask[8];	/* up to 8 mask bytes */
-	int slot;
-	int slots = (flags & (1<<5)) ? 1 : 16;	/* multislot flag */
-	
-	int masksize = (length + 7) / 8;	/* add one mask byte for each started 8 bits */
-	int pdusize = 3 + masksize;			/* flags byte + command byte + mask length byte + mask bytes */
-	
-	int protocol = readRegister(device, TRF7960_REG_ISOC) & 0x1f;
-	
-	if((protocol & 0x18) == TRF7960_PROTOCOL_ISO15693_LBR_1SC_4)
-		;	/* ISO15693 */
-	// FIXME: implement different algorithms for other protocols
-	if((protocol & 0x1c) == TRF7960_PROTOCOL_ISO14443A_BR_106)
-		return -1;	/* ISO14443A */
-	if((protocol & 0x1c) == TRF7960_PROTOCOL_ISO14443B_BR_106)
-		return -1;	/* ISO14443B */
-	if(protocol == TRF7960_PROTOCOL_TAGIT)
-		return -1;	/* Tag-It */
-	if(protocol >= 0x10)
-		return -1;	/* undefined */
-#if 1
-	printf("inventoryRequest\n");
-#endif
-	spi_claim_bus(device->slave);
-	
-	if(writeRegister(device, TRF7960_REG_IRQMASK, 0x3f))	/* enable no-response interrupt */
-		return -1;
-	
-	// write modulator control
-	/* writeRegister(device, TRF... 0x09, something); */
-	// set rxnoresponse timeout to 0x2f if bit1 is 0 (low data rate), 0x13 else (high data rate)
-	
-	buffer[0] = TRF7960_COMMAND | TRF7960_CMD_RESET;	/* reset FIFO */
-	buffer[1] = TRF7960_COMMAND | TRF7960_CMD_TX_CRC;	/* start TX with CRC */
-	buffer[2] = 0x3d;	/* continuous write to register 0x1d */
-	
-	buffer[5] = flags;	/* ISO15693 flags */
-	buffer[6] = 0x01;	/* ISO15693 inventory command */
-	if(flags & (1<<4)) { /* AFI */
-		buffer[7] = 0;	/* insert AFI value */
-		buffer[8] = length;	/* mask length in bits */
-		memcpy(&buffer[9], mask, masksize);	/* append mask */
-		pdusize++;
-	}
-	else {
-		buffer[7] = length;	/* mask length in bits */
-		memcpy(&buffer[8], mask, masksize);	/* append mask */		
-	}
-	buffer[3] = pdusize >> 8;
-	buffer[4] = pdusize << 4;
-	prepareIrq(device, &buffer[5+12], pdusize-12);
-	if(pdusize > 12)
-		pdusize=12; /* limit initial transmission - remainder is sent by interrupt handler */
-#if 0
-	printf("length = %d\n", length);
-	printf("masksize = %d\n", masksize);
-	printf("pdusize = %d\n", pdusize);
-	printf("bitsize = %d\n", 8*sizeof(buffer[0])*(5 + pdusize));
-#endif
-	if(spi_xfer(device->slave, 8*sizeof(buffer[0])*(5 + pdusize), buffer, buffer, SPI_XFER_BEGIN | SPI_XFER_END) != 0)
-		return -1;
-#if 0
-	printf("cmd sent\n");
-#endif
-	waitIrq(device);	/* wait for TX interrupt */
-#if 0
-	printf("tx done %02x\n", device->done);
-#endif
-	if(!(device->done & 0x80)) {
-#if 1
-		printf(" unknown TX interrupt %02x\n", device->done);
-#endif
-		return -1;
-	}
-	collisions=0;
-	for(slot=0; slot < slots; slot++) { /* repeat for all time slots */
-		int rssi;
-#if 0
-		printf("slot %d\n", slot);
-#endif
-		prepareIrq(device, buffer, 8);	/* prepare for RX of tag id */
-		waitIrq(device);	/* wait for RX interrupt */
-#if 1
-		printf("rx[%d] done %02x", slot, device->done);
-#endif
-		rssi = readRegister(device, TRF7960_REG_RSSI) & 0x3f;
-#if 0
-		printf(" rssi=%02o", rssi);	/* print 2 octal digits for AUX and Active channel */
-#endif
-		if(device->done & 0x02) { /* collision */
-#if 1
-			printf(" collision\n");
-#endif
-			collisionslots[collisions++]=slot;	/* remember slot number */
-		}
-		else if(device->done & 0x01) {
-			/* ignore no response timeout */
-#if 1
-			printf(" no response\n");
-#endif
-		}
-		/* check for other errors */
-		else if(device->done & 0x40) { /* RX done - FIFO already reset */
-#if 0
-			printf(" valid id received\n");
-#endif
-			// buffer[0] and buffer[1] appear to be statsu flags and 00 if ok
-			(*found)(device, &buffer[2], rssi);	/* notify caller */
-		}
-		else {
-#if 1
-			printf(" unknown condition %02x\n", device->done);
-#endif
-			break;	/* unknown interrupt reason */
-		}
-		if(!(device->done & 0x40))
-			sendCommand(device, TRF7960_CMD_RESET);	/* reset FIFO */
-		if(slots == 16) { /* send EOF only in ISO15693 multislot Inventory command */
-			sendCommand(device, TRF7960_CMD_RX_BLOCK);
-			sendCommand(device, TRF7960_CMD_RX_ENABLE);
-			sendCommand(device, TRF7960_CMD_TX_NEXT_SLOT);
-		}
-	}
-	if(slots == 16 ) {
-		int i;
-#if 1
-		printf("did have %d collisions\n", collisions);
-#endif
-		for(i=0; i<collisions; i++) { /* loop over all slots with collision */
-			// generate new mask (increased length by 4) from collision slot numbers
-			// inventoryRequest(new mask, length+4)
-		}
-	}
-	// FIXME: how to handle collision in single slot mode?
-	// disable irq
-	spi_release_bus(device->slave);
-	return 0;
-}
-
-static int readBlocks(struct trf7960 *device, uchar uid[8], uchar firstBlock, uchar blocks, uchar data[32])
-{ /* read single/multiple blocks */
-	int flags=0;
-	static uchar buffer[32];	/* shared rx/tx buffer */
-	int pdusize = 4 + (uid?8:0);			/* flags byte + command byte + optional uid + firstblock + #blocks */
-#if 1
-	printf("readBlocks\n");
-#endif
-	if(blocks == 0)
-		return 0;	// no blocks
-	spi_claim_bus(device->slave);
-	
-	if(writeRegister(device, TRF7960_REG_IRQMASK, 0x3f))	/* enable no-response interrupt */
-		return -1;
-	
-	buffer[0] = TRF7960_COMMAND | TRF7960_CMD_RESET;	/* reset FIFO */
-	buffer[1] = TRF7960_COMMAND | TRF7960_CMD_TX_CRC;	/* start TX with CRC */
-	buffer[2] = 0x3d;	/* continuous write to register 0x1d */
-	
-	buffer[5] = flags;	/* ISO15693 flags */
-	buffer[6] = 0x23;	/* ISO15693 read multiple blocks command */
-	if(uid) { /* include uid */
-		memcpy(&buffer[7], uid, 8);
-		buffer[15]=firstBlock;
-		buffer[16]=blocks;
-		pdusize=4+8;
-	} else { /* no UID */
-		buffer[7]=firstBlock;
-		buffer[8]=blocks;
-		pdusize=4;		
-	}
-	buffer[3] = pdusize >> 8;
-	buffer[4] = pdusize << 4;
-	prepareIrq(device, &buffer[5+12], pdusize-12);
-	if(pdusize > 12)
-		pdusize=12; /* limit initial transmission - remainder is sent by interrupt handler */
-#if 1
-	printf("firstBlock = %d\n", firstBlock);
-	printf("blocks = %d\n", blocks);
-	printf("pdusize = %d\n", pdusize);
-	printf("bitsize = %d\n", 8*sizeof(buffer[0])*(5 + pdusize));
-#endif
-	if(spi_xfer(device->slave, 8*sizeof(buffer[0])*(5 + pdusize), buffer, buffer, SPI_XFER_BEGIN | SPI_XFER_END) != 0)
-		return -1;
-#if 1
-	printf("cmd sent\n");
-#endif
-	waitIrq(device);	/* wait for TX interrupt */
-#if 1
-	printf("tx done %02x\n", device->done);
-#endif
-	if(!device->done & 0x80) {
-#if 1
-		printf(" unknown TX interrupt %02x\n", device->done);
-#endif
-		return -1;
-	}
-	prepareIrq(device, data, 32*blocks);	/* prepare for receiving n*32 bytes RX */
-	waitIrq(device);	/* wait for RX interrupt */
-#if 1
-	printf("rx done %02x\n", device->done);
-#endif
-	// check for standard RX done or Collision or timeout or other errors
-	// if ok, read the flags byte from the received PDU to determine potential errors
-	// FIXME: the first bytes received are not data bytes but the received PDU!
-	return 0;
-}
-
-static int writeBlocks(struct trf7960 *device, uchar uid[8], uchar firstBlock, uchar blocks, uchar data[32])
-{ /* write single/multiple blocks */
-	return -1;
-}
-
-#endif	/* code to be ported to kernel */
-
-
 /* Kernel driver definitions and functions */
+
+// FIXME: demangle interrupt (data received) and work thread (regular scan inventory) */
+
+static void trf7960_work(struct work_struct *work)
+{
+	struct trf7960 *ts =
+	container_of(to_delayed_work(work), struct trf7960, work);
+	/* run scan inventory command */
+#if 0
+	struct ts_event tc;
+	u32 rt;
+	
+	/*
+	 * NOTE: We can't rely on the pressure to determine the pen down
+	 * state, even though this controller has a pressure sensor.
+	 * The pressure value can fluctuate for quite a while after
+	 * lifting the pen and in some cases may not even settle at the
+	 * expected value.
+	 *
+	 * The only safe way to check for the pen up condition is in the
+	 * work function by reading the pen signal state (it's a GPIO
+	 * and IRQ). Unfortunately such callback is not always available,
+	 * in that case we have rely on the pressure anyway.
+	 */
+	if (ts->get_pendown_state) {
+		if (unlikely(!ts->get_pendown_state())) {
+			tsc2007_send_up_event(ts);
+			ts->pendown = false;
+			goto out;
+		}
+		
+		dev_dbg(&ts->client->dev, "pen is still down\n");
+	}
+	
+	tsc2007_read_values(ts, &tc);
+	
+	rt = tsc2007_calculate_pressure(ts, &tc);
+	if (rt > MAX_12BIT) {
+		/*
+		 * Sample found inconsistent by debouncing or pressure is
+		 * beyond the maximum. Don't report it to user space,
+		 * repeat at least once more the measurement.
+		 */
+		dev_dbg(&ts->client->dev, "ignored pressure %d\n", rt);
+		goto out;
+		
+	}
+	
+	if (rt) {
+		struct input_dev *input = ts->input;
+		
+		if (!ts->pendown) {
+			dev_dbg(&ts->client->dev, "DOWN\n");
+			
+			input_report_key(input, BTN_TOUCH, 1);
+			ts->pendown = true;
+		}
+		
+		input_report_abs(input, ABS_X, tc.x);
+		input_report_abs(input, ABS_Y, tc.y);
+		input_report_abs(input, ABS_PRESSURE, rt);
+		
+		input_sync(input);
+		
+		dev_dbg(&ts->client->dev, "point(%4d,%4d), pressure (%4u)\n",
+				tc.x, tc.y, rt);
+		
+	} else if (!ts->get_pendown_state && ts->pendown) {
+		/*
+		 * We don't have callback to check pendown state, so we
+		 * have to assume that since pressure reported is 0 the
+		 * pen was lifted up.
+		 */
+		trf7960_send_up_event(ts);
+		ts->pendown = false;
+	}
+#endif
+out:
+	if (ts->pendown)
+		schedule_delayed_work(&ts->work,
+							  msecs_to_jiffies(TS_POLL_PERIOD));
+	else
+		enable_irq(ts->irq);
+}
+
+static irqreturn_t trf7960_irq(int irq, void *handle)
+{
+	struct trf7960 *ts = handle;
+	
+	if (!ts->get_pendown_state || likely(ts->get_pendown_state())) {
+		disable_irq_nosync(ts->irq);
+		schedule_delayed_work(&ts->work,
+							  msecs_to_jiffies(TS_POLL_DELAY));
+	}
+	
+	if (ts->clear_penirq)
+		ts->clear_penirq();
+	
+	return IRQ_HANDLED;
+}
+
+static void trf7960_free_irq(struct trf7960 *ts)
+{
+	free_irq(ts->irq, ts);
+	if (cancel_delayed_work_sync(&ts->work)) {
+		/*
+		 * Work was pending, therefore we need to enable
+		 * IRQ here to balance the disable_irq() done in the
+		 * interrupt handler.
+		 */
+		enable_irq(ts->irq);
+	}
+}
+
+static int __devinit trf7960_probe(struct i2c_client *client,
+								   const struct i2c_device_id *id)
+{
+#if 0
+	struct trf7960 *ts;
+	struct trf7960_platform_data *pdata = pdata = client->dev.platform_data;
+	struct input_dev *input_dev;
+	int err;
+	
+	if (!pdata) {
+		dev_err(&client->dev, "platform data is required!\n");
+		return -EINVAL;
+	}
+	
+	if (!i2c_check_functionality(client->adapter,
+								 I2C_FUNC_SMBUS_READ_WORD_DATA))
+		return -EIO;
+	
+	ts = kzalloc(sizeof(struct trf7960), GFP_KERNEL);
+	input_dev = input_allocate_device();
+	if (!ts || !input_dev) {
+		err = -ENOMEM;
+		goto err_free_mem;
+	}
+#if 0
+	
+	ts->client = client;
+	ts->irq = client->irq;
+	ts->input = input_dev;
+	INIT_DELAYED_WORK(&ts->work, trf7960_work);
+
+	ts->model             = pdata->model;
+	ts->x_plate_ohms      = pdata->x_plate_ohms;
+	ts->get_pendown_state = pdata->get_pendown_state;
+	ts->clear_penirq      = pdata->clear_penirq;
+	
+	snprintf(ts->phys, sizeof(ts->phys),
+			 "%s/input0", dev_name(&client->dev));
+	
+	input_dev->name = "TRF7960 RFID Reader";
+	input_dev->phys = ts->phys;
+	input_dev->id.bustype = BUS_I2C;
+	
+	input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
+	input_dev->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
+	
+	input_set_abs_params(input_dev, ABS_X, 0, MAX_12BIT, 0, 0);
+	input_set_abs_params(input_dev, ABS_Y, 0, MAX_12BIT, 0, 0);
+	input_set_abs_params(input_dev, ABS_PRESSURE, 0, MAX_12BIT, 0, 0);
+#endif	
+	if (pdata->init_platform_hw)
+		pdata->init_platform_hw();
+	
+	err = request_irq(ts->irq, trf7960_irq, 0,
+					  client->dev.driver->name, ts);
+	if (err < 0) {
+		dev_err(&client->dev, "irq %d busy?\n", ts->irq);
+		goto err_free_mem;
+	}
+#if 0
+	/* Prepare for touch readings - power down ADC and enable PENIRQ */
+	err = tsc2007_xfer(ts, PWRDOWN);
+	if (err < 0)
+		goto err_free_irq;
+	
+	err = input_register_device(input_dev);
+	if (err)
+		goto err_free_irq;
+	
+	i2c_set_clientdata(client, ts);
+#endif
+#endif
+	return 0;
+	
+err_free_irq:
+	trf7960_free_irq(ts);
+	if (pdata->exit_platform_hw)
+		pdata->exit_platform_hw();
+err_free_mem:
+	input_free_device(input_dev);
+	kfree(ts);
+	return err;
+}
+
+static int __devexit trf7960_remove(struct i2c_client *client)
+{
+	struct trf7960	*ts = i2c_get_clientdata(client);
+	struct trf7960_platform_data *pdata = client->dev.platform_data;
+	
+	trf7960_free_irq(ts);
+	
+	if (pdata->exit_platform_hw)
+		pdata->exit_platform_hw();
+	
+//	input_unregister_device(ts->input);
+	kfree(ts);
+
+	return 0;
+}
+
 
 static const struct spi_device_id trf7960_id[] = {
 	{ "trf7960", 0 },
@@ -819,8 +526,8 @@ static struct spi_driver trf7960_driver = {
 		.name	= "trf7960"
 	},
 	.id_table	= trf7960_id,
-//	.probe		= trf7960_probe,
-//	.remove		= trf7960_remove,
+	.probe		= trf7960_probe,
+	.remove		= trf7960_remove,
 	// suspend, resume
 };
 
@@ -841,3 +548,5 @@ MODULE_LICENSE("GPL");
 
 module_init(trf7960_init);
 module_exit(trf7960_exit);
+
+#endif

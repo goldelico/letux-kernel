@@ -80,6 +80,8 @@ static struct omap_opp * _omap37x_l3_rate_table         = NULL;
 
 #define NAND_BLOCK_SIZE		SZ_128K
 
+#define TWL4030_MSECURE_GPIO 22
+
 /* see: https://patchwork.kernel.org/patch/120449/
  * OMAP3 Beagle revision
  * Run time detection of Beagle revision is done by reading GPIO.
@@ -367,7 +369,6 @@ static void __init beagle_display_init(void)
 	}
 
 	gpio_direction_output(beagle_dvi_device.reset_gpio, 0);
-	gpio_set_value(beagle_dvi_device.reset_gpio, 0);
  */
 }
 
@@ -927,59 +928,52 @@ static void __init omap3_beagle_init(void)
 	//	omap_mux_init_gpio(170, OMAP_PIN_INPUT);
 		omap_mux_init_gpio(170, OMAP_PIN_OUTPUT);
 		gpio_request(170, "DVI_nPD");
-		gpio_direction_output(170, true);
-		gpio_set_value(170, 0);	/* leave DVI powered down until it's needed ... */
+		gpio_direction_output(170, false);	/* leave DVI powered down until it's needed ... */
 		gpio_export(170, 0);	// no direction change
 #endif
 	
 		printk(KERN_INFO "Revision GTA04A%d\n", omap3_gta04_version);
 		//	omap_mux_init_gpio(156, OMAP_PIN_OUTPUT);	// inherit from U-Boot...
 		gpio_request(146, "GPS_ON");
-		gpio_direction_output(146, true);
-		gpio_set_value(146, 0);	// off
+		gpio_direction_output(146, false);
 		gpio_export(146, 0);	// no direction change
 		
 		// should be a backlight driver using PWM
 		gpio_request(57, "LCD_BACKLIGHT");
-		//	gpio_set_value(145, 1);	// on
 		gpio_direction_output(57, true);
 		gpio_export(57, 0);	// no direction change
 
-#if 0	// mapped to gpio-keys driver
+#if 0	// now mapped to gpio-keys driver
 		gpio_request(7, "AUX_BUTTON");
 		gpio_direction_input(7);
 		gpio_export(7, 0);	// no direction change
 #endif		
-#if 0	// mapped to twl-powerbutton driver
+#if 0	// mow mapped to twl-powerbutton driver
 		gpio_request(137, "POWER_BUTTON");
 		gpio_direction_input(137);
 		gpio_export(137, 0);	// no direction change
 #endif
 	
-		//	omap_mux_init_signal("gpio138", OMAP_PIN_INPUT);	// gpio 138 - with no pullup/pull-down
+		// omap_mux_init_signal("gpio138", OMAP_PIN_INPUT);	// gpio 138 - with no pullup/pull-down
 		gpio_request(144, "EXT_ANT");
 		gpio_direction_input(144);
 		gpio_export(144, 0);	// no direction change
 
 #if 0	// FIXME: needs TCA6507 driver
 		gpio_request(isXM?88:70, "AUX_RED");
-		gpio_direction_output(isXM?88:70, true);
-		gpio_set_value(isXM?88:70, 0);
+		gpio_direction_output(isXM?88:70, false);
 		gpio_export(isXM?88:70, 0);	// no direction change
 		
 		gpio_request(isXM?89:71, "AUX_GREEN");
-		gpio_direction_output(isXM?89:71, true);
-		gpio_set_value(isXM?89:71, 0);
+		gpio_direction_output(isXM?89:71, false);
 		gpio_export(isXM?89:71, 0);	// no direction change
 		
 		gpio_request(78, "POWER_RED");
-		gpio_direction_output(78, true);
-		gpio_set_value(78, 0);
+		gpio_direction_output(78, false);
 		gpio_export(78, 0);	// no direction change
 		
 		gpio_request(79, "POWER_GREEN");
-		gpio_direction_output(79, true);
-		gpio_set_value(79, 0);
+		gpio_direction_output(79, false);
 		gpio_export(79, 0);	// no direction change
 #endif
 	
@@ -1000,6 +994,11 @@ static void __init omap3_beagle_init(void)
 	omap_mux_init_signal("sdrc_cke0", OMAP_PIN_OUTPUT);
 	omap_mux_init_signal("sdrc_cke1", OMAP_PIN_OUTPUT);
 
+	/* TPS65950 mSecure initialization for write access enabling to RTC registers */
+	omap_mux_init_gpio(TWL4030_MSECURE_GPIO, OMAP_PIN_OUTPUT);
+	gpio_request(TWL4030_MSECURE_GPIO, "mSecure");
+	gpio_direction_output(TWL4030_MSECURE_GPIO, true);
+	
 	beagle_display_init();
 }
 
