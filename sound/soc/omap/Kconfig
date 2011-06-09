@@ -103,7 +103,7 @@ config SND_OMAP_SOC_OMAP3_BEAGLE
 
 config SND_OMAP_SOC_GTA04
 	tristate "SoC Audio support for GTA04"
-	depends on TWL4030_CORE && SND_OMAP_SOC && MACH_GTA04
+	depends on TWL4030_CORE && SND_OMAP_SOC && (MACH_GTA04 || MACH_OMAP3_BEAGLE)
 	select SND_OMAP_SOC_MCBSP
 	select SND_SOC_TWL4030
 	help

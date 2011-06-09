@@ -97,35 +97,12 @@ static struct snd_soc_dai_link omap3beagle_dai[] = {
 		.cpu_dai = &omap_mcbsp_dai[0],
 		.codec_dai = &twl4030_dai[TWL4030_DAI_HIFI],
 		.ops = &omap3beagle_ops,
-	}, {
-		// FIXME: we may have to enable external clocks/adjust clock frequency etc.
-		.name = "WPAN",
-		.stream_name = "Bluetooth",
-		.cpu_dai = &omap_mcbsp_dai[1],
-		.codec_dai = &twl4030_dai[TWL4030_DAI_HIFI],
-		.ops = &omap3beagle_ops,
-		//	.init = omap3pandora_out_init,
-	}, {
-		.name = "WWAN",
-		.stream_name = "Phone",
-		.cpu_dai = &omap_mcbsp_dai[2],
-		.codec_dai = &twl4030_dai[TWL4030_DAI_HIFI],
-		.ops = &omap3beagle_ops,
-		//	.init = omap3pandora_out_init,
-	}, {
-		.name = "Si4721",
-		.stream_name = "FM",
-		.cpu_dai = &omap_mcbsp_dai[3],
-		.codec_dai = &twl4030_dai[TWL4030_DAI_HIFI],
-		.ops = &omap3beagle_ops,
-		//	.init = omap3pandora_out_init,
 	}
-	/* McBSP5 is used as LCM interface in GPIO mode */
 };
 
 /* Audio machine driver */
 static struct snd_soc_card snd_soc_omap3beagle = {
-	.name = "omap3beagle",
+	.name = "gta04",
 	.platform = &omap_soc_platform,
 	.dai_link = &omap3beagle_dai[0],
 	.num_links = ARRAY_SIZE(omap3beagle_dai),
@@ -143,7 +120,7 @@ static int __init omap3beagle_soc_init(void)
 {
 	int ret;
 
-	if (!machine_is_gta04()) {
+	if (!machine_is_gta04() && !machine_is_omap3_beagle()) {
 		pr_debug("Not GTA04!\n");
 		return -ENODEV;
 	}
@@ -161,10 +138,6 @@ static int __init omap3beagle_soc_init(void)
 	platform_set_drvdata(omap3beagle_snd_device, &omap3beagle_snd_devdata);
 	omap3beagle_snd_devdata.dev = &omap3beagle_snd_device->dev;
 	*(unsigned int *)omap3beagle_dai[0].cpu_dai->private_data = 1; /* McBSP2 = TPS65950 */
-	*(unsigned int *)omap3beagle_dai[1].cpu_dai->private_data = 2; /* McBSP3 = Bluetooth */
-	*(unsigned int *)omap3beagle_dai[2].cpu_dai->private_data = 3; /* McBSP4 = WWAN */
-	*(unsigned int *)omap3beagle_dai[3].cpu_dai->private_data = 0; /* McBSP1 = FM */
-
 	ret = platform_device_add(omap3beagle_snd_device);
 	if (ret)
 		goto err1;
