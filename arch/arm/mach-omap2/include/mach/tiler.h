@@ -460,6 +460,24 @@ s32 tiler_memsize(enum tiler_fmt fmt, u32 width, u32 height, u32 *alloc_pages,
  */
 u32 tiler_block_vstride(tiler_blk_handle handle);
 
+/**
+ * Creates and returns a tiler_pa_info structure from a user address
+ *
+ * @param usr_addr	User Address
+ * @param num_pg	Number of pages
+ *
+ * @return Ptr to new tiler_pa_info structure
+ */
+struct tiler_pa_info *user_block_to_pa(u32 usr_addr, u32 num_pg);
+
+/**
+ * Frees a tiler_pa_info structure and associated memory
+ *
+ * @param pa		Ptr to tiler_pa_info structure
+ *
+ */
+void tiler_pa_free(struct tiler_pa_info *pa);
+
 /*
  * ---------------------------- IOCTL Definitions ----------------------------
  */
