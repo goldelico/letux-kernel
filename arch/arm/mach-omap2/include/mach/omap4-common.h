@@ -15,11 +15,15 @@
 
 #include <asm/proc-fns.h>
 
+/* Used to implement memory barrier on DRAM path */
+#define OMAP4_DRAM_BARRIER_VA			0xfe600000
+
 #ifndef __ASSEMBLER__
 
 #ifdef CONFIG_CACHE_L2X0
 extern void __iomem *omap4_get_l2cache_base(void);
 #endif
+extern void __iomem *dram_sync, *sram_sync;
 
 #ifdef CONFIG_SMP
 extern void __iomem *omap4_get_scu_base(void);
