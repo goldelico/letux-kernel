@@ -92,7 +92,7 @@ static void omap2_init_processor_devices(void)
 	if (omap3_has_iva())
 		_init_omap_device("iva", &iva_dev);
 
-	if (cpu_is_omap44xx()) {
+	if (cpu_is_omap44xx() || cpu_is_omap54xx()) {
 		_init_omap_device("l3_main_1", &l3_dev);
 		_init_omap_device("dsp", &dsp_dev);
 		_init_omap_device("iva", &iva_dev);
@@ -413,10 +413,12 @@ static int __init omap2_pm_qos_tput_init(void)
 
 static int __init omap2_common_pm_init(void)
 {
+#ifndef CONFIG_MACH_OMAP_5430ZEBU
 	if (cpu_is_omap54xx()) {
 		pr_err("FIXME: omap2_common_pm_init\n");
 		return 0;
 	}
+#endif
 	omap2_init_processor_devices();
 	omap_pm_if_init();
 
