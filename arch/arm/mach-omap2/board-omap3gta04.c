@@ -99,20 +99,29 @@ enum {
 	OMAP3BEAGLE_BOARD_XM,
 };
 
-static u8 omap3_beagle_version;
 static u8 omap3_gta04_version;	/* counts 2..9 */
-
-#define isXM (omap3_beagle_version == OMAP3BEAGLE_BOARD_XM)
 
 static void __init omap3_beagle_init_rev(void)
 {
 	int ret;
 	u16 beagle_rev = 0;
+	static char revision[8] = {	/* revision table defined by pull-down R305, R306, R307 */
+		9,
+		6,
+		7,
+		3,
+		8,
+		4,
+		5,
+		2
+	};
 	
 	omap_mux_init_gpio(171, OMAP_PIN_INPUT_PULLUP);
 	omap_mux_init_gpio(172, OMAP_PIN_INPUT_PULLUP);
 	omap_mux_init_gpio(173, OMAP_PIN_INPUT_PULLUP);
-	
+
+	udelay(100);
+
 	ret = gpio_request(171, "rev_id_0");
 	if (ret < 0)
 		goto fail0;
@@ -124,30 +133,23 @@ static void __init omap3_beagle_init_rev(void)
 	ret = gpio_request(173, "rev_id_2");
 	if (ret < 0)
 		goto fail2;
-	
+
+	udelay(100);
+
 	gpio_direction_input(171);
 	gpio_direction_input(172);
 	gpio_direction_input(173);
 	
 	udelay(100);
 
-	beagle_rev = gpio_get_value(171) | (gpio_get_value(172) << 1)
-	| (gpio_get_value(173) << 2);
-
-	/*
-	 * on GTA04 the resistors are pull-downs (if placed)
-	 * they are not placed for GTA04A2 and all placed for GTA04A9
-	 * i.e. the inputs should read as "1" for GTA04A2
-	 * i.e. we get a beagle_rev = 7.
-	 */
+	beagle_rev = gpio_get_value(171)
+				| (gpio_get_value(172) << 1)
+				| (gpio_get_value(173) << 2);
 	
-	omap3_gta04_version = 9 - omap3_beagle_version;	// counts 2,3,4,...
-	
-	if (omap3_gta04_version == 2)
-		omap3_beagle_version = OMAP3BEAGLE_BOARD_C4;	// GTA04A2 is like C4 board (OMAP3530)
-	else
-		omap3_beagle_version = OMAP3BEAGLE_BOARD_XM;	// GTA04A3++ is like XM board (DM3730)
+	printk("beagle_rev %u\n", beagle_rev);
 
+	omap3_gta04_version = revision[beagle_rev];
+	
 	return;
 	
 fail2:
@@ -156,7 +158,6 @@ fail1:
 	gpio_free(171);
 fail0:
 	printk(KERN_ERR "Unable to get revision detection GPIO pins\n");
-	omap3_beagle_version = OMAP3BEAGLE_BOARD_UNKN;
 	omap3_gta04_version = 0;
 
 	return;
@@ -398,9 +399,11 @@ static struct regulator_consumer_supply beagle_vmmc1_supply = {
 	.supply			= "vmmc",
 };
 
+#if 0
 static struct regulator_consumer_supply beagle_vsim_supply = {
 	.supply			= "vmmc_aux",
 };
+#endif
 
 static struct gpio_led gpio_leds[];
 
@@ -489,9 +492,12 @@ static struct regulator_init_data beagle_vmmc1 = {
 	.consumer_supplies	= &beagle_vmmc1_supply,
 };
 
+#if 0
+// FIXME: control VAUX4 for Bluetooth, VAUX3 for Camera, VAUX2 for Sensors, VSIM for ext. Ant.
+
 // FIXME: VSIM is used differently
 
-/* VSIM for MMC1 pins DAT4..DAT7 (2 mA, plus card == max 50 mA) */
+/* VSIM used for external Antenna */
 static struct regulator_init_data beagle_vsim = {
 	.constraints = {
 		.min_uV			= 1800000,
@@ -505,6 +511,7 @@ static struct regulator_init_data beagle_vsim = {
 	.num_consumer_supplies	= 1,
 	.consumer_supplies	= &beagle_vsim_supply,
 };
+#endif
 
 /* VDAC for DSS driving S-Video (8 mA unloaded, max 65 mA) */
 static struct regulator_init_data beagle_vdac = {
@@ -562,7 +569,9 @@ static struct twl4030_platform_data beagle_twldata = {
 	.codec		= &beagle_codec_data,
 	.madc		= &beagle_madc_data,
 	.vmmc1		= &beagle_vmmc1,
+#if 0
 	.vsim		= &beagle_vsim,
+#endif
 	.vdac		= &beagle_vdac,
 	.vpll2		= &beagle_vpll2,
 };
@@ -815,9 +824,8 @@ static struct platform_device keys_gpio = {
 
 static void __init omap3_beagle_init_irq(void)
 {
-	// FIXME: what is different?
         if (cpu_is_omap3630())
-        {
+        { // initialize different power tables
                 omap2_init_common_hw(mt46h32m32lf6_sdrc_params,
                                         mt46h32m32lf6_sdrc_params,
                                         _omap37x_mpu_rate_table,
@@ -959,24 +967,6 @@ static void __init omap3_beagle_init(void)
 		gpio_direction_input(144);
 		gpio_export(144, 0);	// no direction change
 
-#if 0	// FIXME: needs TCA6507 driver
-		gpio_request(isXM?88:70, "AUX_RED");
-		gpio_direction_output(isXM?88:70, false);
-		gpio_export(isXM?88:70, 0);	// no direction change
-		
-		gpio_request(isXM?89:71, "AUX_GREEN");
-		gpio_direction_output(isXM?89:71, false);
-		gpio_export(isXM?89:71, 0);	// no direction change
-		
-		gpio_request(78, "POWER_RED");
-		gpio_direction_output(78, false);
-		gpio_export(78, 0);	// no direction change
-		
-		gpio_request(79, "POWER_GREEN");
-		gpio_direction_output(79, false);
-		gpio_export(79, 0);	// no direction change
-#endif
-	
 		// for a definition of the mux names see arch/arm/mach-omap2/mux34xx.c
 		// the syntax of the first paramter to omap_mux_init_signal() is "muxname" or "m0name.muxname" (for ambiguous modes)
 		// note: calling omap_mux_init_signal() overwrites the parameter string...
