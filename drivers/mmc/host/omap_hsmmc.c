@@ -1341,7 +1341,7 @@ enum {ENABLED = 0, DISABLED, CARDSLEEP, REGSLEEP, OFF};
 static int omap_hsmmc_enabled_to_disabled(struct omap_hsmmc_host *host)
 {
 	omap_hsmmc_context_save(host);
-	clk_disable(host->fclk);
+//	clk_disable(host->fclk);
 	host->dpm_state = DISABLED;
 
 	dev_dbg(mmc_dev(host->mmc), "ENABLED -> DISABLED\n");
@@ -1365,7 +1365,7 @@ static int omap_hsmmc_disabled_to_sleep(struct omap_hsmmc_host *host)
 	if (mmc_card_can_sleep(host->mmc)) {
 		err = mmc_card_sleep(host->mmc);
 		if (err < 0) {
-			clk_disable(host->fclk);
+//			clk_disable(host->fclk);
 			mmc_release_host(host->mmc);
 			return err;
 		}
@@ -1377,7 +1377,7 @@ static int omap_hsmmc_disabled_to_sleep(struct omap_hsmmc_host *host)
 		mmc_slot(host).set_sleep(host->dev, host->slot_id, 1, 0,
 					 new_state == CARDSLEEP);
 	/* FIXME: turn off bus power and perhaps interrupts too */
-	clk_disable(host->fclk);
+//	clk_disable(host->fclk);
 	host->dpm_state = new_state;
 
 	mmc_release_host(host->mmc);
@@ -1545,7 +1545,7 @@ static int omap_hsmmc_disable_fclk(struct mmc_host *mmc, int lazy)
 	struct omap_hsmmc_host *host = mmc_priv(mmc);
 
 	omap_hsmmc_context_save(host);
-	clk_disable(host->fclk);
+//	clk_disable(host->fclk);
 	dev_dbg(mmc_dev(host->mmc), "mmc_fclk: disabled\n");
 	return 0;
 }
@@ -1616,7 +1616,7 @@ static int omap_hsmmc_regs_show(struct seq_file *s, void *data)
 	seq_printf(s, "CAPA:\t\t0x%08x\n",
 			OMAP_HSMMC_READ(host->base, CAPA));
 
-	clk_disable(host->fclk);
+//	clk_disable(host->fclk);
 
 	return 0;
 }
