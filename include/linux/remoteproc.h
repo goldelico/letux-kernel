@@ -37,6 +37,7 @@
 #include <linux/completion.h>
 #include <linux/workqueue.h>
 #include <linux/notifier.h>
+#include <linux/pm_qos_params.h>
 
 /* Must match the BIOS version embeded in the BIOS firmware image */
 #define RPROC_BIOS_VERSION	2
@@ -134,6 +135,12 @@ struct rproc_mem_entry {
 	u32 size;
 };
 
+enum rproc_constraint {
+	RPROC_CONSTRAINT_SCALE,
+	RPROC_CONSTRAINT_LATENCY,
+	RPROC_CONSTRAINT_BANDWIDTH,
+};
+
 struct rproc;
 
 struct rproc_ops {
@@ -143,6 +150,9 @@ struct rproc_ops {
 	int (*resume)(struct rproc *rproc);
 	int (*iommu_init)(struct rproc *, int (*)(struct rproc *, u64, u32));
 	int (*iommu_exit)(struct rproc *);
+	int (*set_lat)(struct rproc *rproc, long v);
+	int (*set_bw)(struct rproc *rproc, long v);
+	int (*scale)(struct rproc *rproc, long v);
 };
 
 /*
@@ -246,6 +256,7 @@ struct rproc {
 	struct blocking_notifier_head nb_resume;
 	struct mutex pm_lock;
 #endif
+	struct pm_qos_request_list *qos_request;
 };
 
 struct rproc *rproc_get(const char *);
@@ -263,5 +274,6 @@ extern const struct dev_pm_ops rproc_gen_pm_ops;
 #else
 #define GENERIC_RPROC_PM_OPS	NULL
 #endif
+int rproc_set_constraints(struct rproc *, enum rproc_constraint type, long v);
 
 #endif /* REMOTEPROC_H */
