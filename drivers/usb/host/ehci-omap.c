@@ -204,6 +204,33 @@ struct ehci_hcd_omap {
 
 /*-------------------------------------------------------------------------*/
 
+/* read/write Registers in ULPI-PHY */
+static u8 ulpi_direct_access(struct ehci_hcd *ehci, u8 port, u8 reg, int write, u8 value)
+{
+	u32 val;
+	u32 cmd = (((u32)value) << EHCI_INSNREG05_ULPI_WRDATA_SHIFT); /* value to write */
+	if(reg > 0x3f || reg == 0x2f)
+		cmd |= (((u32)reg & 0xff) << EHCI_INSNREG05_ULPI_EXTREGADD_SHIFT) | (0x2f << EHCI_INSNREG05_ULPI_REGADD_SHIFT);	/* extended address */
+	else
+		cmd |= (((u32)reg & 0x3f) << EHCI_INSNREG05_ULPI_REGADD_SHIFT);
+	cmd |= ((write? 0x02 : 0x03) << EHCI_INSNREG05_ULPI_OPSEL_SHIFT);
+	cmd |= (((u32)(port+1) & 3) << EHCI_INSNREG05_ULPI_PORTSEL_SHIFT);	/* port counts 0,1,2 */
+	cmd |= (1 << EHCI_INSNREG05_ULPI_CONTROL_SHIFT);	/* Start */
+
+#if 0
+	printk("  cmd = %08x\n", cmd);
+#endif
+
+	ehci_writel(ehci, cmd, ((void *) &ehci->regs->command) + EHCI_INSNREG05_ULPI - 0x10);	/* write EHCI_INSNREG05_ULPI */
+	
+	// do {
+	udelay(100);	/* wait a little */
+	val = ehci_readl(ehci, ((void *) &ehci->regs->command) + EHCI_INSNREG05_ULPI - 0x10);	/* read EHCI_INSNREG05_ULPI */
+	/* do we need a timepout if the PHY chip is not present? */
+	// } while(!(val & (1<<EHCI_INSNREG05_ULPI_CONTROL_SHIFT)));
+	return val;
+}
+
 /* Electrical test support */
 static void host_write_port(u8 port, const char *buf)
 {
@@ -219,7 +246,44 @@ static void host_write_port(u8 port, const char *buf)
 		if (bus->root_hub->children[port])
 			usb_reset_device(bus->root_hub->children[port]);
 	}
-
+	
+	if (!strncmp(buf, "ulpi-r", 6)) {
+		int reg;
+		
+#ifdef CONFIG_PM
+		/* Suspend bus first */
+		ehci_bus_suspend(ghcd);
+#endif
+		printk(KERN_INFO "\n ULPI_R \n");
+#if 0
+		printk("EHCI_COMMAND = %p\n", &ehci->regs->command);
+		printk("EHCI_PORTSTATUS = %p\n", &ehci->regs->port_status[port]);
+		printk("  value = %08x\n", ehci_readl(ehci, &ehci->regs->port_status[port]));
+		printk("EHCI_INSNREG05_ULPI = %p\n", ((void *) &ehci->regs->command) + EHCI_INSNREG05_ULPI - 0x10);
+#endif		
+		for (reg = 0x00 ; reg <= 0x3f; reg++) {
+			printk("%02x: %02x\n", reg, ulpi_direct_access(ehci, port, reg, 0, 0));
+		}
+#ifdef CONFIG_PM
+		ehci_bus_resume(ghcd);
+#endif
+	}
+	
+	if (!strncmp(buf, "ulpi-i", 6)) {
+		
+#ifdef CONFIG_PM
+		/* Suspend bus first */
+		ehci_bus_suspend(ghcd);
+#endif
+		printk(KERN_INFO "\n INIT \n");
+		
+		ulpi_direct_access(ehci, port, 0x08, 1, 0x40);	/* set IndicatorPassThru in Interface Control register */
+		ulpi_direct_access(ehci, port, 0x0b, 1, 0xd0);	/* set DrvVbusExternal, UseExternalVbusIndicator, ChrgVbus in OTG Control register */
+#ifdef CONFIG_PM
+		ehci_bus_resume(ghcd);
+#endif
+	}
+	
 	if (!strncmp(buf, "t-j", 3)) {
 		printk(KERN_INFO "\n TEST_J \n");
 
@@ -319,7 +383,10 @@ host_show_port(struct device *dev,
 			"\nt-k\t-->Send TEST_K on suspended port"
 			"\nt-pkt\t-->Send TEST_PACKET[53] on suspended port"
 			"\nt-force\t-->Send TEST_FORCE_ENABLE on suspended port"
-			"\nt-se0\t-->Send TEST_SE0_NAK on suspended port\n\n"
+			"\nt-se0\t-->Send TEST_SE0_NAK on suspended port"
+		    "\nulpi-r\t-->Read ULPI Register Array"
+			"\nulpi-i\t-->Init some ULPI registers"
+		    "\n\n"
 			);
 }
 
@@ -1024,6 +1091,16 @@ static int ehci_hcd_omap_probe(struct platform_device *pdev)
 	writel(readl(&omap->ehci->regs->command) | (1 << 16),
 			&omap->ehci->regs->command);
 
+#ifdef CONFIG_MACH_GTA04
+	// >FIXME: pass in some board-file struct[] + sizeof() that writes registers of the ULPI chip
+	printk("writing ULPI registers of port 2");
+	ulpi_direct_access(omap->ehci, 1, 0x08, 1, 0x40);	/* set IndicatorPassThru in Interface Control register */
+	ulpi_direct_access(omap->ehci, 1, 0x0b, 1, 0xd0);	/* set DrvVbusExternal, UseExternalVbusIndicator, ChrgVbus in OTG Control register */
+	ulpi_direct_access(omap->ehci, 1, 0x16, 1, 0x55);	/* write scratch register */
+	if(ulpi_direct_access(omap->ehci, 1, 0x16, 0, 0) != 0x55)
+		printk("failed writing ULPI registers");			/* but ignore errors */
+#endif
+	
 	ret = usb_add_hcd(hcd, irq, IRQF_DISABLED | IRQF_SHARED);
 	if (ret) {
 		dev_dbg(&pdev->dev, "failed to add hcd with err %d\n", ret);
