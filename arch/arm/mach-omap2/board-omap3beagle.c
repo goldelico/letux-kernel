@@ -1091,14 +1091,6 @@ static void __init omap3_beagle_init(void)
 
 	if(!strcmp(expansionboard_name, "omb")) 
 		{
-#if 0	// for Openmoko Beagle Hybrid - should have been done by u-boot - but is not reliable
-		omap_mux_init_gpio(158, OMAP_PIN_OUTPUT);
-		omap_mux_init_gpio(159, OMAP_PIN_INPUT);	// neither PUP nor PDN
-		omap_mux_init_gpio(161, OMAP_PIN_OUTPUT);
-		omap_mux_init_gpio(162, OMAP_PIN_OUTPUT);
-		omap_mux_init_gpio(145, OMAP_PIN_OUTPUT);	// backlight
-		omap_mux_init_gpio(138, OMAP_PIN_INPUT);	// ext ant sensor (GPS) - neither PUP nor PDN
-#endif
 		
 		//	omap_mux_init_gpio(170, OMAP_PIN_INPUT);
 		omap_mux_init_gpio(170, OMAP_PIN_OUTPUT);
