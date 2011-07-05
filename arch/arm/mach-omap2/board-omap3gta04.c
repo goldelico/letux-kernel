@@ -399,6 +399,10 @@ static struct regulator_consumer_supply beagle_vmmc1_supply = {
 	.supply			= "vmmc",
 };
 
+static struct regulator_consumer_supply beagle_vmmc2_supply = {
+	.supply			= "vaux4",
+};
+
 #if 0
 static struct regulator_consumer_supply beagle_vsim_supply = {
 	.supply			= "vmmc_aux",
@@ -430,6 +434,9 @@ static int beagle_twl_gpio_setup(struct device *dev,
 	/* link regulators to MMC adapters */
 	beagle_vmmc1_supply.dev = mmc[0].dev;
 //	beagle_vsim_supply.dev = mmc[0].dev;	/* supply for upper 4 bits */
+	
+	// this should enable power control for WLAN/BT
+	// beagle_vaux4_supply.dev = mmc[1].dev;
 
 #if 0
 	/* REVISIT: need ehci-omap hooks for external VBUS
@@ -491,6 +498,21 @@ static struct regulator_init_data beagle_vmmc1 = {
 	.num_consumer_supplies	= 1,
 	.consumer_supplies	= &beagle_vmmc1_supply,
 };
+
+static struct regulator_init_data beagle_vaux4 = {
+	.constraints = {
+		.min_uV			= 3300000,
+		.max_uV			= 2800000,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL
+		| REGULATOR_MODE_STANDBY,
+		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE
+		| REGULATOR_CHANGE_MODE
+		| REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &beagle_vmmc2_supply,
+};
+
 
 #if 0
 // FIXME: control VAUX4 for Bluetooth, VAUX3 for Camera, VAUX2 for Sensors, VSIM for ext. Ant.
@@ -895,13 +917,13 @@ static void __init omap3beagle_flash_init(void)
 
 static struct ehci_hcd_omap_platform_data ehci_pdata __initdata = {
 
-	.port_mode[0] = EHCI_HCD_OMAP_MODE_PHY,
-	.port_mode[1] = EHCI_HCD_OMAP_MODE_PHY,
-	.port_mode[2] = EHCI_HCD_OMAP_MODE_UNKNOWN,
+	/* HSUSB0 - TPS65950 configured by twl4030.c */
+	.port_mode[0] = EHCI_HCD_OMAP_MODE_UNKNOWN,	/* HSUSB1 - n/a */
+	.port_mode[1] = EHCI_HCD_OMAP_MODE_PHY,		/* HSUSB2 - USB3322C <-> WWAN */
+	.port_mode[2] = EHCI_HCD_OMAP_MODE_UNKNOWN,	/* HSUSB3 - n/a */
 
 	.phy_reset  = true,
 	.reset_gpio_port[0]  = -EINVAL,
-//	.reset_gpio_port[1]  = 147,
 	.reset_gpio_port[1]  = 174,
 	.reset_gpio_port[2]  = -EINVAL
 };
@@ -923,15 +945,6 @@ static void __init omap3_beagle_init(void)
 			ARRAY_SIZE(omap3_beagle_devices));
 	omap_serial_init();
 
-#if 0	// for Openmoko Beagle Hybrid - should have been done by u-boot - but is not reliable
-		omap_mux_init_gpio(158, OMAP_PIN_OUTPUT);
-		omap_mux_init_gpio(159, OMAP_PIN_INPUT);	// neither PUP nor PDN
-		omap_mux_init_gpio(161, OMAP_PIN_OUTPUT);
-		omap_mux_init_gpio(162, OMAP_PIN_OUTPUT);
-		omap_mux_init_gpio(145, OMAP_PIN_OUTPUT);	// backlight
-		omap_mux_init_gpio(138, OMAP_PIN_INPUT);	// ext ant sensor (GPS) - neither PUP nor PDN
-#endif
-		
 #if 0
 	//	omap_mux_init_gpio(170, OMAP_PIN_INPUT);
 		omap_mux_init_gpio(170, OMAP_PIN_OUTPUT);
@@ -951,17 +964,6 @@ static void __init omap3_beagle_init(void)
 		gpio_direction_output(57, true);
 		gpio_export(57, 0);	// no direction change
 
-#if 0	// now mapped to gpio-keys driver
-		gpio_request(7, "AUX_BUTTON");
-		gpio_direction_input(7);
-		gpio_export(7, 0);	// no direction change
-#endif		
-#if 0	// mow mapped to twl-powerbutton driver
-		gpio_request(137, "POWER_BUTTON");
-		gpio_direction_input(137);
-		gpio_export(137, 0);	// no direction change
-#endif
-	
 		// omap_mux_init_signal("gpio138", OMAP_PIN_INPUT);	// gpio 138 - with no pullup/pull-down
 		gpio_request(144, "EXT_ANT");
 		gpio_direction_input(144);
@@ -971,6 +973,8 @@ static void __init omap3_beagle_init(void)
 		// the syntax of the first paramter to omap_mux_init_signal() is "muxname" or "m0name.muxname" (for ambiguous modes)
 		// note: calling omap_mux_init_signal() overwrites the parameter string...
 		
+		// this needs CONFIG_OMAP_MUX!
+	
 		omap_mux_init_signal("mcbsp3_clkx.uart2_tx", OMAP_PIN_OUTPUT);	// gpio 142 / GPS TX
 		omap_mux_init_signal("mcbsp3_fsx.uart2_rx", OMAP_PIN_INPUT);	// gpio 143 / GPS RX
 
@@ -985,7 +989,7 @@ static void __init omap3_beagle_init(void)
 	omap_mux_init_signal("sdrc_cke1", OMAP_PIN_OUTPUT);
 
 	/* TPS65950 mSecure initialization for write access enabling to RTC registers */
-	omap_mux_init_gpio(TWL4030_MSECURE_GPIO, OMAP_PIN_OUTPUT);
+	omap_mux_init_gpio(TWL4030_MSECURE_GPIO, OMAP_PIN_OUTPUT);	// this needs CONFIG_OMAP_MUX!
 	gpio_request(TWL4030_MSECURE_GPIO, "mSecure");
 	gpio_direction_output(TWL4030_MSECURE_GPIO, true);
 	
