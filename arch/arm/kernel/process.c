@@ -192,6 +192,8 @@ __setup("reboot=", reboot_setup);
 
 void machine_halt(void)
 {
+	if (pm_power_off)
+		pm_power_off();
 }
 
 
