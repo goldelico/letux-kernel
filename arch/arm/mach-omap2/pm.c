@@ -36,6 +36,7 @@ static struct device *mpu_dev;
 static struct device *iva_dev;
 static struct device *l3_dev;
 static struct device *dsp_dev;
+static struct device *fdif_dev;
 
 bool omap_pm_is_ready_status;
 
@@ -78,6 +79,13 @@ struct device *omap4_get_dsp_device(void)
 	return dsp_dev;
 }
 EXPORT_SYMBOL(omap4_get_dsp_device);
+
+struct device *omap4_get_fdif_device(void)
+{
+	WARN_ON_ONCE(!fdif_dev);
+	return fdif_dev;
+}
+EXPORT_SYMBOL(omap4_get_fdif_device);
 
 void omap_pm_setup_oscillator(u32 tstart, u32 tshut)
 {
@@ -126,6 +134,7 @@ static void omap2_init_processor_devices(void)
 #ifndef CONFIG_OMAP_PM_STANDALONE
 		_init_omap_device("dsp", &dsp_dev);
 		_init_omap_device("iva", &iva_dev);
+		_init_omap_device("fdif", &fdif_dev);
 #endif
 	} else {
 		_init_omap_device("l3_main", &l3_dev);
