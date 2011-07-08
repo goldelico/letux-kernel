@@ -917,6 +917,7 @@ static int ehci_hub_control (
 		case USB_PORT_FEAT_RESET:
 			if (temp & PORT_RESUME)
 				goto error;
+			dbg_port (ehci, "SetPortFeature Reset", wIndex + 1, temp);
 			/* line status bits may report this as low speed,
 			 * which can be fine if this root hub has a
 			 * transaction translator built in.

@@ -279,6 +279,9 @@ static void host_write_port(u8 port, const char *buf)
 		
 		ulpi_direct_access(ehci, port, 0x08, 1, 0x40);	/* set IndicatorPassThru in Interface Control register */
 		ulpi_direct_access(ehci, port, 0x0b, 1, 0xd0);	/* set DrvVbusExternal, UseExternalVbusIndicator, ChrgVbus in OTG Control register */
+		ulpi_direct_access(ehci, port, 0x16, 1, 0x55);	/* write scratch register */
+		if(ulpi_direct_access(ehci, port, 0x16, 0, 0) != 0x55)
+			printk("failed writing ULPI registers");			/* but ignore errors */
 #ifdef CONFIG_PM
 		ehci_bus_resume(ghcd);
 #endif
@@ -1091,16 +1094,6 @@ static int ehci_hcd_omap_probe(struct platform_device *pdev)
 	writel(readl(&omap->ehci->regs->command) | (1 << 16),
 			&omap->ehci->regs->command);
 
-#ifdef CONFIG_MACH_GTA04
-	// >FIXME: pass in some board-file struct[] + sizeof() that writes registers of the ULPI chip
-	printk("writing ULPI registers of port 2");
-	ulpi_direct_access(omap->ehci, 1, 0x08, 1, 0x40);	/* set IndicatorPassThru in Interface Control register */
-	ulpi_direct_access(omap->ehci, 1, 0x0b, 1, 0xd0);	/* set DrvVbusExternal, UseExternalVbusIndicator, ChrgVbus in OTG Control register */
-	ulpi_direct_access(omap->ehci, 1, 0x16, 1, 0x55);	/* write scratch register */
-	if(ulpi_direct_access(omap->ehci, 1, 0x16, 0, 0) != 0x55)
-		printk("failed writing ULPI registers");			/* but ignore errors */
-#endif
-	
 	ret = usb_add_hcd(hcd, irq, IRQF_DISABLED | IRQF_SHARED);
 	if (ret) {
 		dev_dbg(&pdev->dev, "failed to add hcd with err %d\n", ret);
@@ -1110,6 +1103,17 @@ static int ehci_hcd_omap_probe(struct platform_device *pdev)
 	/* here we "know" root ports should always stay powered */
 	ehci_port_power(omap->ehci, 1);
 
+#ifdef CONFIG_MACH_GTA04
+	// FIXME: pass in some board-file struct[] + sizeof() that writes registers of the ULPI chip
+	printk("writing ULPI registers of port 2");
+	mdelay(4);	/* wait long enough after reset (Tstart) */
+	ulpi_direct_access(omap->ehci, 1, 0x08, 1, 0x40);	/* set IndicatorPassThru in Interface Control register */
+	ulpi_direct_access(omap->ehci, 1, 0x0b, 1, 0xd0);	/* set DrvVbusExternal, UseExternalVbusIndicator, ChrgVbus in OTG Control register */
+	ulpi_direct_access(omap->ehci, 1, 0x16, 1, 0x55);	/* write scratch register */
+	if(ulpi_direct_access(omap->ehci, 1, 0x16, 0, 0) != 0x55)
+		printk("failed writing ULPI registers");			/* but ignore errors */
+#endif
+	
 	return 0;
 
 err_add_hcd:
