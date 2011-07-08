@@ -283,11 +283,15 @@ static int beagle_panel_enable_tv(struct omap_dss_device *dssdev)
 	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
 			ENABLE_VDAC_DEV_GRP, TWL4030_VDAC_DEV_GRP);
 
+	gpio_set_value(23, 1);	// enable driver
+	
 	return 0;
 }
 
 static void beagle_panel_disable_tv(struct omap_dss_device *dssdev)
 {
+	gpio_set_value(23, 1);	// disable driver
+	
 	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x00,
 			TWL4030_VDAC_DEDICATED);
 	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x00,
@@ -399,15 +403,13 @@ static struct regulator_consumer_supply beagle_vmmc1_supply = {
 	.supply			= "vmmc",
 };
 
-static struct regulator_consumer_supply beagle_vmmc2_supply = {
-	.supply			= "vaux4",
-};
-
-#if 0
 static struct regulator_consumer_supply beagle_vsim_supply = {
 	.supply			= "vmmc_aux",
 };
-#endif
+
+static struct regulator_consumer_supply beagle_vmmc2_supply = {
+	.supply			= "vwlanbt",
+};
 
 static struct gpio_led gpio_leds[];
 
@@ -436,7 +438,7 @@ static int beagle_twl_gpio_setup(struct device *dev,
 //	beagle_vsim_supply.dev = mmc[0].dev;	/* supply for upper 4 bits */
 	
 	// this should enable power control for WLAN/BT
-	// beagle_vaux4_supply.dev = mmc[1].dev;
+	beagle_vmmc2_supply.dev = mmc[1].dev;
 
 #if 0
 	/* REVISIT: need ehci-omap hooks for external VBUS
@@ -501,6 +503,7 @@ static struct regulator_init_data beagle_vmmc1 = {
 
 static struct regulator_init_data beagle_vaux4 = {
 	.constraints = {
+		.name			= "VAUX4",
 		.min_uV			= 3300000,
 		.max_uV			= 2800000,
 		.valid_modes_mask	= REGULATOR_MODE_NORMAL
@@ -515,7 +518,7 @@ static struct regulator_init_data beagle_vaux4 = {
 
 
 #if 0
-// FIXME: control VAUX4 for Bluetooth, VAUX3 for Camera, VAUX2 for Sensors, VSIM for ext. Ant.
+// FIXME: control VAUX3 for Camera, VAUX2 for Sensors, VSIM for ext. Ant.
 
 // FIXME: VSIM is used differently
 
@@ -581,6 +584,12 @@ static struct twl4030_madc_platform_data beagle_madc_data = {
 	.irq_line	= 1,
 };
 
+struct twl4030_power_data gta04_power_scripts = {
+/*	.scripts	= NULL,	*/
+	.num		= 0,
+/*	.resource_config	= NULL; */
+};
+
 static struct twl4030_platform_data beagle_twldata = {
 	.irq_base	= TWL4030_IRQ_BASE,
 	.irq_end	= TWL4030_IRQ_END,
@@ -596,6 +605,7 @@ static struct twl4030_platform_data beagle_twldata = {
 #endif
 	.vdac		= &beagle_vdac,
 	.vpll2		= &beagle_vpll2,
+	.power		= &gta04_power_scripts,	/* empty but if not present, pm_power_off is not initialized */
 };
 
 static struct i2c_board_info __initdata beagle_i2c1_boardinfo[] = {
@@ -774,7 +784,7 @@ static struct spi_board_info beaglefpga_mcspi_board_info[] = {
 	{
 		.modalias	= "spidev",
 		.max_speed_hz	= 48000000, //48 Mbps
-		.bus_num	= 4,
+		.bus_num	= 4,	// McSPI4
 		.chip_select	= 0,	
 		.mode = SPI_MODE_1,
 	},
