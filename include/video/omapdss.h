@@ -397,6 +397,13 @@ struct omap_dss_cpr_coefs {
 	s16 br, bg, bb;
 };
 
+struct omap_dss_cconv_coefs {
+	s16 ry, rcr, rcb;
+	s16 gy, gcr, gcb;
+	s16 by, bcr, bcb;
+	u16 full_range;
+} __aligned(4);
+
 struct omap_overlay_info {
 	bool enabled;
 
@@ -417,6 +424,8 @@ struct omap_overlay_info {
 	u8 global_alpha;
 	u8 pre_mult_alpha;
 	u8 zorder;
+
+	struct omap_dss_cconv_coefs cconv;
 };
 
 struct omap_overlay {

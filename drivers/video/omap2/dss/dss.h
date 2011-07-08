@@ -414,6 +414,8 @@ void dispc_mgr_set_lcd_size(enum omap_channel channel, u16 width, u16 height);
 void dispc_mgr_enable_cpr(enum omap_channel channel, bool enable);
 void dispc_mgr_set_cpr_coef(enum omap_channel channel,
 		struct omap_dss_cpr_coefs *coefs);
+void dispc_mgr_setup_color_conv_coef(enum omap_plane plane,
+		const struct omap_dss_cconv_coefs *ct);
 bool dispc_mgr_go_busy(enum omap_channel channel);
 void dispc_mgr_go(enum omap_channel channel);
 void dispc_mgr_enable(enum omap_channel channel, bool enable);

@@ -961,6 +961,9 @@ static int configure_overlay(enum omap_plane plane)
 		return r;
 	}
 
+	if (plane != OMAP_DSS_GFX)
+		dispc_mgr_setup_color_conv_coef(plane, &c->info.cconv);
+
 	dispc_ovl_enable(plane, 1);
 
 	return 0;

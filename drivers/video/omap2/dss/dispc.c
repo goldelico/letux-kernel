@@ -561,39 +561,21 @@ static void dispc_ovl_set_scale_coef(enum omap_plane plane, int fir_hinc,
 	}
 }
 
-static void _dispc_setup_color_conv_coef(void)
+void dispc_mgr_setup_color_conv_coef(enum omap_plane plane,
+	const struct omap_dss_cconv_coefs *ct)
 {
-	int i;
-	const struct color_conv_coef {
-		int  ry,  rcr,  rcb,   gy,  gcr,  gcb,   by,  bcr,  bcb;
-		int  full_range;
-	}  ctbl_bt601_5 = {
-		298,  409,    0,  298, -208, -100,  298,    0,  517, 0,
-	};
-
-	const struct color_conv_coef *ct;
+	BUG_ON(plane < OMAP_DSS_VIDEO1 || plane > OMAP_DSS_VIDEO3);
 
 #define CVAL(x, y) (FLD_VAL(x, 26, 16) | FLD_VAL(y, 10, 0))
 
-	ct = &ctbl_bt601_5;
-
-	for (i = 1; i < dss_feat_get_num_ovls(); i++) {
-		dispc_write_reg(DISPC_OVL_CONV_COEF(i, 0),
-			CVAL(ct->rcr, ct->ry));
-		dispc_write_reg(DISPC_OVL_CONV_COEF(i, 1),
-			CVAL(ct->gy,  ct->rcb));
-		dispc_write_reg(DISPC_OVL_CONV_COEF(i, 2),
-			CVAL(ct->gcb, ct->gcr));
-		dispc_write_reg(DISPC_OVL_CONV_COEF(i, 3),
-			CVAL(ct->bcr, ct->by));
-		dispc_write_reg(DISPC_OVL_CONV_COEF(i, 4),
-			CVAL(0, ct->bcb));
-
-		REG_FLD_MOD(DISPC_OVL_ATTRIBUTES(i), ct->full_range,
-			11, 11);
-	}
-
+	dispc_write_reg(DISPC_OVL_CONV_COEF(plane, 0), CVAL(ct->rcr, ct->ry));
+	dispc_write_reg(DISPC_OVL_CONV_COEF(plane, 1), CVAL(ct->gy,  ct->rcb));
+	dispc_write_reg(DISPC_OVL_CONV_COEF(plane, 2), CVAL(ct->gcb, ct->gcr));
+	dispc_write_reg(DISPC_OVL_CONV_COEF(plane, 3), CVAL(ct->bcr, ct->by));
+	dispc_write_reg(DISPC_OVL_CONV_COEF(plane, 4), CVAL(0, ct->bcb));
 #undef CVAL
+
+	REG_FLD_MOD(DISPC_OVL_ATTRIBUTES(plane), ct->full_range, 11, 11);
 }
 
 
@@ -3292,8 +3274,6 @@ static void _omap_dispc_initial_config(void)
 	/* XXX this should be somewhere in plat-omap */
 	if (cpu_is_omap24xx())
 		__raw_writel(0x402000b0, OMAP2_L3_IO_ADDRESS(0x680050a0));
-
-	_dispc_setup_color_conv_coef();
 
 	dispc_set_loadmode(OMAP_DSS_LOAD_FRAME_ONLY);
 
