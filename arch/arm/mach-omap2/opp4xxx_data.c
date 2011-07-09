@@ -175,6 +175,10 @@ static struct omap_opp_def __initdata omap443x_opp_def_list[] = {
 	/* IVA OPP3 - OPP-Turbo */
 	OPP_INITIALIZER("iva", "dpll_iva_m5x2_ck", "iva", false, 332000000, OMAP4430_VDD_IVA_OPPTURBO_UV),
 	/* TODO: add DSP, aess, fdif, gpu */
+	OPP_INITIALIZER("aess", true, 98304000, OMAP4430_VDD_IVA_OPP50_UV),
+	/* ABE OPP2 - OPP100 */
+	OPP_INITIALIZER("aess", true, 196608000, OMAP4430_VDD_IVA_OPP100_UV),
+	/* TODO: add DSP, fdif, gpu */
 };
 
 #define OMAP4460_VDD_MPU_OPP50_UV		1025000
