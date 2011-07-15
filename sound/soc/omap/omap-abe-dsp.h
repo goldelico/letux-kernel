@@ -164,6 +164,11 @@
 #define OMAP_ABE_OPP100		2
 #define OMAP_ABE_OPP_COUNT	3
 
+#define OMAP_ABE_OPP25		0
+#define OMAP_ABE_OPP50		1
+#define OMAP_ABE_OPP100		2
+#define OMAP_ABE_OPP_COUNT	3
+
 void abe_dsp_shutdown(void);
 void abe_dsp_pm_get(void);
 void abe_dsp_pm_put(void);

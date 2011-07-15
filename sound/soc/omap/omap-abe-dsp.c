@@ -61,12 +61,8 @@
 #include "abe/abe_main.h"
 #include "abe/port_mgr.h"
 
-#warning need omap_device_scale
-#define omap_device_scale(x, y, z)
-
 #define OMAP_ABE_HS_DC_OFFSET_STEP	(1800 / 8)
 #define OMAP_ABE_HF_DC_OFFSET_STEP	(4600 / 8)
-
 
 static const char *abe_memory_bank[5] = {
 	"dmem",
@@ -134,6 +130,7 @@ struct abe_data {
 	u32 dc_hsr;
 	u32 dc_hfl;
 	u32 dc_hfr;
+
 	int active;
 
 	/* coefficients */
@@ -152,7 +149,6 @@ struct abe_data {
 	int opp_req_count;
 
 	u16 router[16];
-	int loss_count;
 
 	struct snd_pcm_substream *ping_pong_substream;
 	int first_irq;
@@ -259,12 +255,21 @@ EXPORT_SYMBOL_GPL(abe_dsp_pm_put);
 
 void abe_dsp_shutdown(void)
 {
+	struct omap4_abe_dsp_pdata *pdata = the_abe->abe_pdata;
+	int ret;
+
 	if (!the_abe->active && !abe_check_activity()) {
 		abe_set_opp_processing(ABE_OPP25);
 		the_abe->opp = 25;
 		abe_stop_event_generator();
 		udelay(250);
-		omap_device_scale(the_abe->dev, the_abe->dev, the_abe->opp_freqs[0]);
+		if (pdata && pdata->device_scale) {
+			ret = pdata->device_scale(the_abe->dev, the_abe->dev,
+				the_abe->opp_freqs[0]);
+			if (ret)
+				dev_err(the_abe->dev,
+					"failed to scale to lowest OPP\n");
+		}
 	}
 }
 EXPORT_SYMBOL_GPL(abe_dsp_shutdown);
@@ -1948,35 +1953,63 @@ EXPORT_SYMBOL(abe_remove_opp_req);
 
 static int abe_set_opp_mode(struct abe_data *abe, int opp)
 {
+	struct omap4_abe_dsp_pdata *pdata = abe->abe_pdata;
+	int ret = 0;
+
 	if (abe->opp > opp) {
 		/* Decrease OPP mode - no need of OPP100% */
 		switch (opp) {
 		case 25:
 			abe_set_opp_processing(ABE_OPP25);
 			udelay(250);
-			omap_device_scale(abe->dev, abe->dev, abe->opp_freqs[OMAP_ABE_OPP25]);
+			if (pdata && pdata->device_scale) {
+				ret = pdata->device_scale(abe->dev, abe->dev,
+					abe->opp_freqs[OMAP_ABE_OPP25]);
+				if (ret)
+					goto err_scale;
+			}
 			break;
 		case 50:
 		default:
 			abe_set_opp_processing(ABE_OPP50);
 			udelay(250);
-			omap_device_scale(abe->dev, abe->dev, abe->opp_freqs[OMAP_ABE_OPP50]);
+			if (pdata && pdata->device_scale) {
+				ret = pdata->device_scale(abe->dev, abe->dev,
+					abe->opp_freqs[OMAP_ABE_OPP50]);
+				if (ret)
+					goto err_scale;
+			}
 			break;
 		}
 	} else if (abe->opp < opp) {
 		/* Increase OPP mode */
 		switch (opp) {
 		case 25:
-			omap_device_scale(abe->dev, abe->dev, abe->opp_freqs[OMAP_ABE_OPP25]);
+			if (pdata && pdata->device_scale) {
+				pdata->device_scale(abe->dev, abe->dev,
+					abe->opp_freqs[OMAP_ABE_OPP25]);
+				if (ret)
+					goto err_scale;
+			}
 			abe_set_opp_processing(ABE_OPP25);
 			break;
 		case 50:
-			omap_device_scale(abe->dev, abe->dev, abe->opp_freqs[OMAP_ABE_OPP50]);
+			if (pdata && pdata->device_scale) {
+				ret = pdata->device_scale(abe->dev, abe->dev,
+					abe->opp_freqs[OMAP_ABE_OPP50]);
+				if (ret)
+					goto err_scale;
+			}
 			abe_set_opp_processing(ABE_OPP50);
 			break;
 		case 100:
 		default:
-			omap_device_scale(abe->dev, abe->dev, abe->opp_freqs[OMAP_ABE_OPP100]);
+			if (pdata && pdata->device_scale) {
+				ret = pdata->device_scale(abe->dev, abe->dev,
+					abe->opp_freqs[OMAP_ABE_OPP100]);
+				if (ret)
+					goto err_scale;
+			}
 			abe_set_opp_processing(ABE_OPP100);
 			break;
 		}
@@ -1985,6 +2018,10 @@ static int abe_set_opp_mode(struct abe_data *abe, int opp)
 	dev_dbg(abe->dev, "new OPP level is %d\n", opp);
 
 	return 0;
+
+err_scale:
+	dev_err(abe->dev, "failed to scale to OPP%d\n", opp);
+	return ret;
 }
 
 static int aess_set_runtime_opp_level(struct abe_data *abe)
@@ -2083,12 +2120,17 @@ static int aess_save_context(struct abe_data *abe)
 
 static int aess_restore_context(struct abe_data *abe)
 {
-	int i;
+	struct omap4_abe_dsp_pdata *pdata = abe->abe_pdata;
+	int i, ret;
 
-	omap_device_scale(abe->dev, abe->dev, abe->opp_freqs[OMAP_ABE_OPP50]);
-
-	//if (pdata->was_context_lost && pdata->was_context_lost(abe->dev))
-	//	abe_reload_fw(abe->firmware);
+	if (pdata && pdata->device_scale) {
+		ret = pdata->device_scale(the_abe->dev, the_abe->dev,
+				abe->opp_freqs[OMAP_ABE_OPP50]);
+		if (ret) {
+			dev_err(abe->dev, "failed to scale to OPP50\n");
+			return ret;
+		}
+	}
 
 	/* unmute gains not associated with FEs/BEs */
 	abe_unmute_gain(MIXAUDUL, MIX_AUDUL_INPUT_MM_DL);
@@ -2424,6 +2466,7 @@ out:
 static int abe_resume(struct snd_soc_dai *dai)
 {
 	struct abe_data *abe = the_abe;
+	struct omap4_abe_dsp_pdata *pdata = abe->abe_pdata;
 	int i, ret = 0;
 
 	dev_dbg(dai->dev, "%s: %s active %d\n",
@@ -2433,12 +2476,19 @@ static int abe_resume(struct snd_soc_dai *dai)
 		return 0;
 
 	/* context retained, no need to restore */
-	//if (pdata->was_context_lost && !pdata->was_context_lost(abe->dev))
-	//	return 0;
+	if (pdata->was_context_lost && !pdata->was_context_lost(abe->dev))
+		return 0;
 
 	pm_runtime_get_sync(abe->dev);
 
-	omap_device_scale(abe->dev, abe->dev, abe->opp_freqs[OMAP_ABE_OPP50]);
+	if (pdata && pdata->device_scale) {
+		ret = pdata->device_scale(abe->dev, abe->dev,
+				abe->opp_freqs[OMAP_ABE_OPP50]);
+		if (ret) {
+			dev_err(abe->dev, "failed to scale to OPP50\n");
+			goto out;
+		}
+	}
 
 	abe_reload_fw(abe->firmware);
 
@@ -2612,7 +2662,7 @@ static int abe_probe(struct snd_soc_platform *platform)
 				abe->irq, ret);
 		goto err_irq;
 	}
-#if 0
+
 	/* query supported opps */
 	rcu_read_lock();
 	opp_count = opp_get_opp_count(abe->dev);
@@ -2636,11 +2686,10 @@ static int abe_probe(struct snd_soc_platform *platform)
 		/* prepare to obtain next available opp */
 		freq--;
 	}
-	rcu_read_unlock();
-#endif
 	/* use lowest available opp for non-populated items */
 	for (freq++; i >= 0; i--)
 		abe->opp_freqs[i] = freq;
+	rcu_read_unlock();
 
 	/* aess_clk has to be enabled to access hal register.
 	 * Disable the clk after it has been used.
