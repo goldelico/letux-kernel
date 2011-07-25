@@ -465,6 +465,10 @@ static const struct usb_device_id hso_ids[] = {
 	{USB_DEVICE(0x0af0, 0x7901)},
 	{USB_DEVICE(0x0af0, 0x8200)},
 	{USB_DEVICE(0x0af0, 0x8201)},
+	{USB_DEVICE(0x0af0, 0x8600)},
+	{USB_DEVICE(0x0af0, 0x8800)},		/* GTM601 */
+	{USB_DEVICE(0x0af0, 0x8900)},
+	{USB_DEVICE(0x0af0, 0x9000)},
 	{USB_DEVICE(0x0af0, 0xd035)},
 	{USB_DEVICE(0x0af0, 0xd055)},
 	{USB_DEVICE(0x0af0, 0xd155)},
