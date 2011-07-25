@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32
-# Fri Jul  8 17:42:46 2011
+# Mon Jul 25 14:30:19 2011
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -2007,7 +2007,7 @@ CONFIG_USB_INVENTRA_DMA=y
 CONFIG_MUSB_USE_SYSTEM_DMA_RX=y
 # CONFIG_USB_TI_CPPI_DMA is not set
 # CONFIG_USB_TI_CPPI41_DMA is not set
-# CONFIG_USB_MUSB_DEBUG is not set
+CONFIG_USB_MUSB_DEBUG=y
 
 #
 # USB Device Class drivers
