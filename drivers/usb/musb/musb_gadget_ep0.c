@@ -789,7 +789,7 @@ setup:
 			case MUSB_EP0_STAGE_ACKWAIT:
 				handled = service_zero_data_request(
 						musb, &setup);
-					/* changed according to https://patchwork.kernel.org/patch/70871/ */
+
 					/*
 					 * We're expecting no data in any case, so
 					 * always set the DATAEND bit -- doing this
@@ -797,7 +797,7 @@ setup:
 					 * in the idle stage when we're stalling...
 					 */
 				musb->ackpend |= MUSB_CSR0_P_DATAEND;
-					
+
 				/* status stage might be immediate */
 				if (handled > 0)
 					musb->ep0_state =
