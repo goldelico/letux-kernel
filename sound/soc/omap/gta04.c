@@ -85,6 +85,94 @@ static int omap3beagle_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+/* this shows how we could control the AUX in/out switch or the Video in/out */
+
+static int omap3pandora_hp_event(struct snd_soc_dapm_widget *w,
+								 struct snd_kcontrol *k, int event)
+{
+	/*
+	 if (SND_SOC_DAPM_EVENT_ON(event)) {
+	 gpio_set_value(OMAP3_PANDORA_DAC_POWER_GPIO, 1);
+	 gpio_set_value(OMAP3_PANDORA_AMP_POWER_GPIO, 1);
+	 } else {
+	 gpio_set_value(OMAP3_PANDORA_AMP_POWER_GPIO, 0);
+	 mdelay(1);
+	 gpio_set_value(OMAP3_PANDORA_DAC_POWER_GPIO, 0);
+	 }
+	 */	
+	return 0;
+}
+
+static const struct snd_soc_dapm_widget gta04_dapm_widgets[] = {
+	SND_SOC_DAPM_DAC("PCM DAC", "HiFi Playback", SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_PGA_E("Headphone Amplifier", SND_SOC_NOPM,
+					   0, 0, NULL, 0, omap3pandora_hp_event,
+					   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
+	SND_SOC_DAPM_HP("Headphone Jack", NULL),
+	SND_SOC_DAPM_LINE("Line Out", NULL),
+	SND_SOC_DAPM_MIC("Internal Mic", NULL),
+	SND_SOC_DAPM_MIC("Headphone Mic", NULL),
+	SND_SOC_DAPM_LINE("Line In", NULL),
+};
+
+static const struct snd_soc_dapm_route audio_map[] = {
+	{"Headphone Amplifier", NULL, "PCM DAC"},
+	{"Line Out", NULL, "PCM DAC"},
+	{"Headphone Jack", NULL, "Headphone Amplifier"},
+
+	{"AUXL", NULL, "Line In"},
+	{"AUXR", NULL, "Line In"},
+	
+	/* Headset Mic: HSMIC with bias */
+	{"HSMIC", NULL, "Headset Mic Bias"},
+	{"Headset Mic Bias", NULL, "Headphone Mic"},
+
+	{"MAINMIC", NULL, "Mic Bias 1"},
+	{"Mic Bias 1", NULL, "Internal Mic"},
+	/*
+	 {"SUBMIC", NULL, "Mic Bias 2"},
+	 {"Mic Bias 2", NULL, "Mic (external)"},
+	 */
+};
+
+static int omap3gta04_init(struct snd_soc_codec *codec)
+{
+	int ret;
+	
+	ret = snd_soc_dapm_new_controls(codec, gta04_dapm_widgets,
+									ARRAY_SIZE(gta04_dapm_widgets));
+	if (ret < 0)
+		return ret;
+	
+	snd_soc_dapm_add_routes(codec, audio_map,
+							ARRAY_SIZE(audio_map));
+
+//	snd_soc_dapm_enable_pin(codec, "Ext Mic");
+//	snd_soc_dapm_enable_pin(codec, "Ext Spk");
+//	snd_soc_dapm_disable_pin(codec, "Headphone Mic");
+//	snd_soc_dapm_disable_pin(codec, "Headphone Amplifier");
+
+	/* TWL4030 not connected pins */
+	//	snd_soc_dapm_nc_pin(codec, "OUTL");
+	//	snd_soc_dapm_nc_pin(codec, "OUTR");
+	//	snd_soc_dapm_nc_pin(codec, "EARPIECE");
+	snd_soc_dapm_nc_pin(codec, "PREDRIVEL");
+	snd_soc_dapm_nc_pin(codec, "PREDRIVER");
+	//	snd_soc_dapm_nc_pin(codec, "HSOL");
+	//	snd_soc_dapm_nc_pin(codec, "HSOR");
+	snd_soc_dapm_nc_pin(codec, "CARKITMIC");
+	snd_soc_dapm_nc_pin(codec, "CARKITL");
+	snd_soc_dapm_nc_pin(codec, "CARKITR");
+	//	snd_soc_dapm_nc_pin(codec, "HFL");
+	//	snd_soc_dapm_nc_pin(codec, "HFR");
+	//	snd_soc_dapm_nc_pin(codec, "VIBRA");
+	//	snd_soc_dapm_nc_pin(codec, "HSMIC");
+	snd_soc_dapm_nc_pin(codec, "DIGIMIC0");
+	snd_soc_dapm_nc_pin(codec, "DIGIMIC1");
+		
+	return snd_soc_dapm_sync(codec);
+}
+
 static struct snd_soc_ops omap3beagle_ops = {
 	.hw_params = omap3beagle_hw_params,
 };
@@ -97,6 +185,7 @@ static struct snd_soc_dai_link omap3beagle_dai[] = {
 		.cpu_dai = &omap_mcbsp_dai[0],
 		.codec_dai = &twl4030_dai[TWL4030_DAI_HIFI],
 		.ops = &omap3beagle_ops,
+		.init = &omap3gta04_init
 	}
 };
 

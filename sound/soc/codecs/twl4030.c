@@ -584,6 +584,7 @@ static void handsfree_ramp(struct snd_soc_codec *codec, int reg, int ramp)
 		hs_ctl &= ~TWL4030_HF_CTL_REF_EN;
 		twl4030_write(codec, reg, hs_ctl);
 	}
+	printk("HFL/HFR ramp %s reg %02x ctl %02x\n", ramp?"up":"down", reg, hs_ctl);
 }
 
 static int handsfreelpga_event(struct snd_soc_dapm_widget *w,
