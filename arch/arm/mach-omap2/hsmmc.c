@@ -424,7 +424,8 @@ static struct omap_device_pm_latency omap_hsmmc_latency[] = {
 
 #define MAX_OMAP_MMC_HWMOD_NAME_LEN		16
 
-void __init omap_init_hsmmc(struct omap2_hsmmc_info *hsmmcinfo, int ctrl_nr)
+static void __init omap_init_hsmmc(struct omap2_hsmmc_info *hsmmcinfo,
+							int ctrl_nr)
 {
 	struct omap_hwmod *oh;
 	struct omap_device *od;
