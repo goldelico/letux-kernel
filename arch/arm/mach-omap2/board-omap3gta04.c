@@ -52,6 +52,7 @@
 #include <plat/clock.h>
 #include <plat/omap-pm.h>
 #include <plat/mcspi.h>
+#include <plat/control.h>
 
 #include "mux.h"
 #include "mmc-twl4030.h"
@@ -238,7 +239,6 @@ static struct omap_dss_device beagle_dvi_device = {
 	.name = "dvi",
 	.driver_name = "generic_panel",
 	.phy.dpi.data_lines = 24,
-	// FIXME: GPIO170 has different job!
 //	.reset_gpio = 170,
 	.reset_gpio = -1,
 	.platform_enable = beagle_enable_dvi,
@@ -251,7 +251,6 @@ static int beagle_enable_lcd(struct omap_dss_device *dssdev)
 	// whatever we need, e.g. enable power
 //	gpio_set_value(170, 0);	// DVI off
 	gpio_set_value(57, 1);	// enable backlight
-//	gpio_set_value(79, 0);	// disable green power led
 	return 0;
 }
 
@@ -260,7 +259,6 @@ static void beagle_disable_lcd(struct omap_dss_device *dssdev)
 	printk("beagle_disable_lcd()\n");
 	// whatever we need, e.g. disable power
 	gpio_set_value(57, 0);	// shut down backlight
-//	gpio_set_value(79, 1);	// show green power led
 }
 
 static struct omap_dss_device beagle_lcd_device = {
@@ -274,8 +272,12 @@ static struct omap_dss_device beagle_lcd_device = {
 
 static int beagle_panel_enable_tv(struct omap_dss_device *dssdev)
 {
+	u32 reg;
+	
 #define ENABLE_VDAC_DEDICATED           0x03
 #define ENABLE_VDAC_DEV_GRP             0x20
+#define OMAP2_TVACEEN				(1 << 11)
+#define OMAP2_TVOUTBYPASS			(1 << 18)
 
 	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
 			ENABLE_VDAC_DEDICATED,
@@ -283,14 +285,23 @@ static int beagle_panel_enable_tv(struct omap_dss_device *dssdev)
 	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
 			ENABLE_VDAC_DEV_GRP, TWL4030_VDAC_DEV_GRP);
 
-	gpio_set_value(23, 1);	// enable driver
+	/* taken from https://e2e.ti.com/support/dsp/omap_applications_processors/f/447/p/94072/343691.aspx */
+	/* switch to TV bypass mode (for OPA362 driver) */
+	reg = omap_ctrl_readl(OMAP343X_CONTROL_DEVCONF1);
+	printk(KERN_INFO "Value of DEVCONF1 was: %08x\n", reg);
+	reg |= OMAP2_TVOUTBYPASS;
+	omap_ctrl_writel(reg, OMAP343X_CONTROL_DEVCONF1);
+	reg = omap_ctrl_readl(OMAP343X_CONTROL_DEVCONF1);
+	printk(KERN_INFO "Value of DEVCONF1 now: %08x\n", reg);  
+	
+	gpio_set_value(23, 1);	// enable output driver (OPA362)
 	
 	return 0;
 }
 
 static void beagle_panel_disable_tv(struct omap_dss_device *dssdev)
 {
-	gpio_set_value(23, 1);	// disable driver
+	gpio_set_value(23, 0);	// disable output driver (and re-enable microphone)
 	
 	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x00,
 			TWL4030_VDAC_DEDICATED);
@@ -302,7 +313,9 @@ static struct omap_dss_device beagle_tv_device = {
 	.name = "tv",
 	.driver_name = "venc",
 	.type = OMAP_DISPLAY_TYPE_VENC,
-	.phy.venc.type = OMAP_DSS_VENC_TYPE_SVIDEO,
+	/* GTA04 has a single composite output (with external video driver) */
+	.phy.venc.type = OMAP_DSS_VENC_TYPE_COMPOSITE, /*OMAP_DSS_VENC_TYPE_SVIDEO, */
+	.phy.venc.invert_polarity = true,
 	.platform_enable = beagle_panel_enable_tv,
 	.platform_disable = beagle_panel_disable_tv,
 };
@@ -403,12 +416,12 @@ static struct regulator_consumer_supply beagle_vmmc1_supply = {
 	.supply			= "vmmc",
 };
 
-static struct regulator_consumer_supply beagle_vsim_supply = {
+static struct regulator_consumer_supply beagle_vmmc_aux_supply = {
 	.supply			= "vmmc_aux",
 };
 
 static struct regulator_consumer_supply beagle_vmmc2_supply = {
-	.supply			= "vwlanbt",
+	.supply			= "vaux4",
 };
 
 static struct gpio_led gpio_leds[];
@@ -418,60 +431,15 @@ static int beagle_twl_gpio_setup(struct device *dev,
 {
 	// we should keep enabling mmc, vmmc1, nEN_USB_PWR, maybe CAM_EN
 	
-	// FIXME: this is a complete mess - mmc and gpio init mixed up
-	
-#if 0	
-	if (system_rev >= 0x20 && system_rev <= 0x34301000) {
-		omap_mux_init_gpio(23, OMAP_PIN_INPUT);
-		mmc[0].gpio_wp = 23;
-	} else {
-		omap_mux_init_gpio(29, OMAP_PIN_INPUT);
-	}
-	/* gpio + 0 is "mmc0_cd" (input/IRQ) */
-	mmc[0].gpio_cd = gpio + 0;
-#endif
-
 	twl4030_mmc_init(mmc);
 
 	/* link regulators to MMC adapters */
 	beagle_vmmc1_supply.dev = mmc[0].dev;
-//	beagle_vsim_supply.dev = mmc[0].dev;	/* supply for upper 4 bits */
+//	beagle_vmmc_aux_supply.dev = mmc[0].dev;	/* supply for upper 4 bits */
 	
 	// this should enable power control for WLAN/BT
-	beagle_vmmc2_supply.dev = mmc[1].dev;
+//	beagle_vmmc2_supply.dev = mmc[1].dev;
 
-#if 0
-	/* REVISIT: need ehci-omap hooks for external VBUS
-	 * power switch and overcurrent detect
-	 */
-
-	if (cpu_is_omap3630()) {
-		/* Power on DVI, Serial and PWR led */ 
- 		gpio_request(gpio + 1, "nDVI_PWR_EN");
-		gpio_direction_output(gpio + 1, 0);	
-
-		/* Power on camera interface */
-		gpio_request(gpio + 2, "CAM_EN");
-		gpio_direction_output(gpio + 2, 1);
-
-		/* TWL4030_GPIO_MAX + 0 == ledA, EHCI nEN_USB_PWR (out, active low) */
-		gpio_request(gpio + TWL4030_GPIO_MAX, "nEN_USB_PWR");
-		gpio_direction_output(gpio + TWL4030_GPIO_MAX, 1);
-	}
-	else {
-		gpio_request(gpio + 1, "EHCI_nOC");
-		gpio_direction_input(gpio + 1);
-
-		/* TWL4030_GPIO_MAX + 0 == ledA, EHCI nEN_USB_PWR (out, active low) */
-		gpio_request(gpio + TWL4030_GPIO_MAX, "nEN_USB_PWR");
-		gpio_direction_output(gpio + TWL4030_GPIO_MAX, 0);
-	}
-
-
-	/* TWL4030_GPIO_MAX + 1 == ledB, PMU_STAT (out, active low LED) */
-	gpio_leds[2].gpio = gpio + TWL4030_GPIO_MAX + 1;
-#endif
-	
 	return 0;
 }
 
@@ -501,11 +469,11 @@ static struct regulator_init_data beagle_vmmc1 = {
 	.consumer_supplies	= &beagle_vmmc1_supply,
 };
 
+/* VAUX4 powers Bluetooth and WLAN */
 static struct regulator_init_data beagle_vaux4 = {
 	.constraints = {
-		.name			= "VAUX4",
 		.min_uV			= 3300000,
-		.max_uV			= 2800000,
+		.max_uV			= 3300000,
 		.valid_modes_mask	= REGULATOR_MODE_NORMAL
 		| REGULATOR_MODE_STANDBY,
 		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE
@@ -517,26 +485,24 @@ static struct regulator_init_data beagle_vaux4 = {
 };
 
 
-#if 0
 // FIXME: control VAUX3 for Camera, VAUX2 for Sensors, VSIM for ext. Ant.
 
-// FIXME: VSIM is used differently
-
-/* VSIM used for external Antenna */
+/* VSIM used for powering the external GPS Antenna */
 static struct regulator_init_data beagle_vsim = {
 	.constraints = {
-		.min_uV			= 1800000,
-		.max_uV			= 3000000,
+		.min_uV			= 2800000,
+		.max_uV			= 2800000,
 		.valid_modes_mask	= REGULATOR_MODE_NORMAL
 					| REGULATOR_MODE_STANDBY,
 		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE
 					| REGULATOR_CHANGE_MODE
 					| REGULATOR_CHANGE_STATUS,
 	},
+#if 0
 	.num_consumer_supplies	= 1,
 	.consumer_supplies	= &beagle_vsim_supply,
-};
 #endif
+};
 
 /* VDAC for DSS driving S-Video (8 mA unloaded, max 65 mA) */
 static struct regulator_init_data beagle_vdac = {
@@ -590,6 +556,8 @@ struct twl4030_power_data gta04_power_scripts = {
 /*	.resource_config	= NULL; */
 };
 
+/* override TWL defaults */
+
 static struct twl4030_platform_data beagle_twldata = {
 	.irq_base	= TWL4030_IRQ_BASE,
 	.irq_end	= TWL4030_IRQ_END,
@@ -600,9 +568,8 @@ static struct twl4030_platform_data beagle_twldata = {
 	.codec		= &beagle_codec_data,
 	.madc		= &beagle_madc_data,
 	.vmmc1		= &beagle_vmmc1,
-#if 0
+	.vaux4		= &beagle_vaux4,
 	.vsim		= &beagle_vsim,
-#endif
 	.vdac		= &beagle_vdac,
 	.vpll2		= &beagle_vpll2,
 	.power		= &gta04_power_scripts,	/* empty but if not present, pm_power_off is not initialized */
@@ -703,7 +670,7 @@ static int __init bmp085_init(void)
 			   "input\n", BMP085_EOC_IRQ_GPIO);
 		return -ENXIO;
 	}
-//	gpio_export(TS_PENIRQ_GPIO, 0);
+//	gpio_export(BMP085_EOC_IRQ_GPIO, 0);
 	omap_set_gpio_debounce(BMP085_EOC_IRQ_GPIO, 1);
 	omap_set_gpio_debounce_time(BMP085_EOC_IRQ_GPIO, 0xa);
 	set_irq_type(OMAP_GPIO_IRQ(BMP085_EOC_IRQ_GPIO), IRQ_TYPE_EDGE_FALLING);
@@ -796,40 +763,6 @@ static void __init beaglefpga_init_spi(void)
 		spi_register_board_info(beaglefpga_mcspi_board_info,
 			ARRAY_SIZE(beaglefpga_mcspi_board_info));
 }
-#endif
-
-// FIXME: replace by TCA6507 driver (and connect to appropriate triggers)
-#if 0
-static struct gpio_led gpio_leds[] = {
-	{
-		.name			= "beagleboard::usr0",
-		.default_trigger	= "heartbeat",
-		.gpio			= 150,
-	},
-	{
-		.name			= "beagleboard::usr1",
-		.default_trigger	= "mmc0",
-		.gpio			= 149,
-	},
-	{
-		.name			= "beagleboard::pmu_stat",
-		.gpio			= -EINVAL,	/* gets replaced */
-		.active_low		= true,
-	},
-};
-
-static struct gpio_led_platform_data gpio_led_info = {
-	.leds		= gpio_leds,
-	.num_leds	= ARRAY_SIZE(gpio_leds),
-};
-
-static struct platform_device leds_gpio = {
-	.name	= "leds-gpio",
-	.id	= -1,
-	.dev	= {
-		.platform_data	= &gpio_led_info,
-	},
-};
 #endif
 
 static struct gpio_keys_button gpio_buttons[] = {
@@ -952,52 +885,74 @@ static void __init omap3_beagle_init(void)
 	omap3_beagle_init_rev();
 	omap3_beagle_i2c_init();
 	platform_add_devices(omap3_beagle_devices,
-			ARRAY_SIZE(omap3_beagle_devices));
+						 ARRAY_SIZE(omap3_beagle_devices));
 	omap_serial_init();
+	
+	printk(KERN_INFO "Revision GTA04A%d\n", omap3_gta04_version);
 
+#ifdef CONFIG_OMAP_MUX
+
+	// for a definition of the mux names see arch/arm/mach-omap2/mux34xx.c
+	// the syntax of the first paramter to omap_mux_init_signal() is "muxname" or "m0name.muxname" (for ambiguous modes)
+	// note: calling omap_mux_init_signal() overwrites the parameter string...
+	
+	omap_mux_init_signal("mcbsp3_clkx.uart2_tx", OMAP_PIN_OUTPUT);	// gpio 142 / GPS TX
+	omap_mux_init_signal("mcbsp3_fsx.uart2_rx", OMAP_PIN_INPUT);	// gpio 143 / GPS RX	
+#else
+#error we need CONFIG_OMAP_MUX
+#endif
+
+	// gpio_export() allows to access through /sys/devices/virtual/gpio/gpio*/value
+	
 #if 0
 	//	omap_mux_init_gpio(170, OMAP_PIN_INPUT);
-		omap_mux_init_gpio(170, OMAP_PIN_OUTPUT);
-		gpio_request(170, "DVI_nPD");
-		gpio_direction_output(170, false);	/* leave DVI powered down until it's needed ... */
-		gpio_export(170, 0);	// no direction change
+	omap_mux_init_gpio(170, OMAP_PIN_OUTPUT);
+	gpio_request(170, "DVI_nPD");
+	gpio_direction_output(170, false);	/* leave DVI powered down until it's needed ... */
+	gpio_export(170, 0);	// no direction change
 #endif
 	
-		printk(KERN_INFO "Revision GTA04A%d\n", omap3_gta04_version);
-		//	omap_mux_init_gpio(156, OMAP_PIN_OUTPUT);	// inherit from U-Boot...
-		gpio_request(146, "GPS_ON");
-		gpio_direction_output(146, false);
-		gpio_export(146, 0);	// no direction change
-		
-		// should be a backlight driver using PWM
-		gpio_request(57, "LCD_BACKLIGHT");
-		gpio_direction_output(57, true);
-		gpio_export(57, 0);	// no direction change
-
-		// omap_mux_init_signal("gpio138", OMAP_PIN_INPUT);	// gpio 138 - with no pullup/pull-down
-		gpio_request(144, "EXT_ANT");
-		gpio_direction_input(144);
-		gpio_export(144, 0);	// no direction change
-
-		// for a definition of the mux names see arch/arm/mach-omap2/mux34xx.c
-		// the syntax of the first paramter to omap_mux_init_signal() is "muxname" or "m0name.muxname" (for ambiguous modes)
-		// note: calling omap_mux_init_signal() overwrites the parameter string...
-		
-		// this needs CONFIG_OMAP_MUX!
+	gpio_request(145, "GPS_ON");
+	gpio_direction_output(145, false);
+	gpio_export(145, 0);	// no direction change
 	
-		omap_mux_init_signal("mcbsp3_clkx.uart2_tx", OMAP_PIN_OUTPUT);	// gpio 142 / GPS TX
-		omap_mux_init_signal("mcbsp3_fsx.uart2_rx", OMAP_PIN_INPUT);	// gpio 143 / GPS RX
-
+	// should be a backlight driver using PWM
+	gpio_request(57, "LCD_BACKLIGHT");
+	gpio_direction_output(57, true);
+	gpio_export(57, 0);	// no direction change
+	
+	// omap_mux_init_signal("gpio138", OMAP_PIN_INPUT);	// gpio 138 - with no pullup/pull-down
+	gpio_request(144, "EXT_ANT");
+	gpio_direction_input(144);
+	gpio_export(144, 0);	// no direction change
+	
+#ifdef GTA04A2
+	// different pins
+	
+#else
+	
+	// enable AUX out/Headset switch
+	gpio_request(55, "AUX_OUT");
+	gpio_direction_output(55, true);
+	gpio_export(55, 0);	// no direction change
+	
+	// disable Video out switch
+	gpio_request(23, "VIDEO_OUT");
+	gpio_direction_output(23, false);
+	gpio_export(23, 0);	// no direction change
+	
+#endif
+	
 	usb_musb_init();
 #if !defined(CONFIG_I2C_OMAP_GTA04A2)	// we don't have the controller chip on the A2 board
 	usb_ehci_init(&ehci_pdata);
 #endif
 	omap3beagle_flash_init();
-
+	
 	/* Ensure SDRC pins are mux'd for self-refresh */
 	omap_mux_init_signal("sdrc_cke0", OMAP_PIN_OUTPUT);
 	omap_mux_init_signal("sdrc_cke1", OMAP_PIN_OUTPUT);
-
+	
 	/* TPS65950 mSecure initialization for write access enabling to RTC registers */
 	omap_mux_init_gpio(TWL4030_MSECURE_GPIO, OMAP_PIN_OUTPUT);	// this needs CONFIG_OMAP_MUX!
 	gpio_request(TWL4030_MSECURE_GPIO, "mSecure");
