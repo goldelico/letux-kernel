@@ -2787,6 +2787,67 @@ static void soc_dapm_stream_event(struct snd_soc_dapm_context *dapm,
 	dapm_power_widgets(dapm, event);
 }
 
+static void widget_stream_event(struct snd_soc_dapm_context *dapm,
+	const char *name, int event)
+{
+	struct snd_soc_dapm_widget *w;
+
+	list_for_each_entry(w, &dapm->card->widgets, list)
+	{
+		if (!strcmp(w->name, name)) {
+			switch(event) {
+			case SND_SOC_DAPM_STREAM_START:
+				w->active = 1;
+				break;
+			case SND_SOC_DAPM_STREAM_STOP:
+				w->active = 0;
+				break;
+			case SND_SOC_DAPM_STREAM_SUSPEND:
+			case SND_SOC_DAPM_STREAM_RESUME:
+			case SND_SOC_DAPM_STREAM_PAUSE_PUSH:
+			case SND_SOC_DAPM_STREAM_PAUSE_RELEASE:
+				break;
+			}
+		}
+	}
+}
+
+static void soc_dapm_stream_widget_event(struct snd_soc_pcm_runtime *rtd,
+	int event)
+{
+	struct snd_soc_codec *codec = rtd->codec;
+	struct snd_soc_platform *platform = rtd->platform;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct snd_soc_dapm_context *dapm = &codec->dapm;
+	struct snd_soc_dai_widget *dw;
+	int i;
+
+	/* we send the stream events to the DAI widgets
+	 * with their corresponding channels enabled */
+	for (i = 0; i < codec_dai->driver->num_widgets; i++) {
+		dw = &codec_dai->widgets[i];
+		if (dw->channel_map)
+			widget_stream_event(&codec->dapm,
+				codec_dai->widgets[i].name, event);
+	}
+	for (i = 0; i < cpu_dai->driver->num_widgets; i++) {
+		dw = &cpu_dai->widgets[i];
+		if (dw->channel_map)
+			widget_stream_event(&platform->dapm,
+				cpu_dai->widgets[i].name, event);
+	}
+
+	dapm_power_widgets(dapm, event);
+
+	/* do we need to notify any clients that DAPM stream is complete */
+	if (dapm->stream_event)
+		dapm->stream_event(dapm, event);
+	dapm = &platform->dapm;
+	if (dapm->stream_event)
+		dapm->stream_event(dapm, event);
+}
+
 /**
  * snd_soc_dapm_stream_event - send a stream event to the dapm core
  * @rtd: PCM runtime data
@@ -2802,13 +2863,20 @@ int snd_soc_dapm_stream_event(struct snd_soc_pcm_runtime *rtd,
 	const char *stream, int event)
 {
 	struct snd_soc_codec *codec = rtd->codec;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 
 	if (stream == NULL)
 		return 0;
 
-	mutex_lock(&codec->mutex);
-	soc_dapm_stream_event(&codec->dapm, stream, event);
-	mutex_unlock(&codec->mutex);
+	/* use widget names if available */
+	if (codec_dai->driver->num_widgets || cpu_dai->driver->num_widgets)
+		soc_dapm_stream_widget_event(rtd, event);
+	else {
+		mutex_lock(&codec->mutex);
+		soc_dapm_stream_event(&codec->dapm, stream, event);
+		mutex_unlock(&codec->mutex);
+	}
 	return 0;
 }
 

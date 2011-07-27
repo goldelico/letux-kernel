@@ -2997,7 +2997,7 @@ int snd_soc_register_dais(struct device *dev,
 		struct snd_soc_dai_driver *dai_drv, size_t count)
 {
 	struct snd_soc_dai *dai;
-	int i, ret = 0;
+	int i, j, ret = 0;
 
 	dev_dbg(dev, "dai register %s #%Zu\n", dev_name(dev), count);
 
@@ -3019,6 +3019,24 @@ int snd_soc_register_dais(struct device *dev,
 
 		dai->dev = dev;
 		dai->driver = &dai_drv[i];
+
+		if (dai->driver->num_widgets) {
+			dai->widgets = kzalloc(sizeof(struct snd_soc_dai_widget) *
+				dai->driver->num_widgets, GFP_KERNEL);
+			if (dai->widgets == NULL) {
+				kfree(dai);
+				ret = -ENOMEM;
+				goto err;
+			}
+
+			/* copy the widget data for use by the runtime DAI */
+			for (j = 0; j < dai->driver->num_widgets; j++) {
+				dai->widgets[j].name = dai->driver->widgets[j].name;
+				dai->widgets[j].channel_map =
+						dai->driver->widgets[j].channel_map;
+			}
+		}
+
 		if (dai->driver->id)
 			dai->id = dai->driver->id;
 		else

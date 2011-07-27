@@ -89,6 +89,32 @@ struct snd_pcm_substream;
                                SNDRV_PCM_FMTBIT_S32_LE |\
                                SNDRV_PCM_FMTBIT_S32_BE)
 
+
+/*
+ * DAI channels - for mapping to widgets.
+ * Indexes correspond to WAV format for convenience.
+ */
+#define SND_SOC_DAI_CHAN(chan)	(1 << chan)
+#define SND_SOC_DAI_CHAN_MASK(channels)	((1UL << channels) - 1)
+#define SND_SOC_DAI_CHAN_LEFT		(1 << 0)
+#define SND_SOC_DAI_CHAN_RIGHT		(1 << 1)
+#define SND_SOC_DAI_CHAN_STEREO	\
+	(SND_SOC_DAI_CHAN_LEFT | SND_SOC_DAI_CHAN_RIGHT)
+#define SND_SOC_DAI_CHAN_MONO	SND_SOC_DAI_CHAN_LEFT
+#define SND_SOC_DAI_CHAN_FRONT_LEFT		SND_SOC_DAI_CHAN_LEFT
+#define SND_SOC_DAI_CHAN_FRONT_RIGHT		SND_SOC_DAI_CHAN_RIGHT
+#define SND_SOC_DAI_CHAN_CENTER		(1 << 2)
+#define SND_SOC_DAI_CHAN_LFE		(1 << 3)
+#define SND_SOC_DAI_CHAN_BACK_LEFT	(1 << 4)
+#define SND_SOC_DAI_CHAN_BACK_RIGHT	(1 << 5)
+#define SND_SOC_DAI_CHAN_FRONT_LEFT_CENTER	(1 << 6)
+#define SND_SOC_DAI_CHAN_FRONT_RIGHT_CENTER	(1 << 7)
+#define SND_SOC_DAI_CHAN_BACK_CENTER	(1 << 8)
+#define SND_SOC_DAI_CHAN_SIDE_LEFT	(1 << 9)
+#define SND_SOC_DAI_CHAN_SIDE_RIGHT	(1 << 10)
+#define SND_SOC_DAI_CHAN_LEFT_HEIGHT	(1 << 12)
+#define SND_SOC_DAI_CHAN_RIGHT_HEIGHT	(1 << 14)
+
 struct snd_soc_dai_driver;
 struct snd_soc_dai;
 struct snd_ac97_bus_ops;
@@ -181,6 +207,21 @@ struct snd_soc_dai_ops {
 };
 
 /*
+ * Maps widgets to channels and DAIs.
+ *
+ * Used by the DAI driver to map connected widgets and supported channel
+ * masks.
+ *
+ * Also can be used by the DAI device to configure the channel to widget
+ * map at hw_params() prior to DAPM walk at prepare().
+ *
+ */
+struct snd_soc_dai_widget {
+	const char *name;
+	u32 channel_map;
+};
+
+/*
  * Digital Audio Interface Driver.
  *
  * Describes the Digital Audio Interface in terms of its ALSA, DAI and AC97
@@ -213,6 +254,9 @@ struct snd_soc_dai_driver {
 	/* probe ordering - for components with runtime dependencies */
 	int probe_order;
 	int remove_order;
+
+	struct snd_soc_dai_widget *widgets;
+	int num_widgets;
 };
 
 /*
@@ -254,6 +298,7 @@ struct snd_soc_dai {
 
 	struct list_head list;
 	struct list_head card_list;
+	struct snd_soc_dai_widget *widgets;
 };
 
 static inline void *snd_soc_dai_get_dma_data(const struct snd_soc_dai *dai,
