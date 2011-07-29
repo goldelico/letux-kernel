@@ -1261,9 +1261,11 @@ void dss_start_update(struct omap_dss_device *dssdev)
 	const int num_mgrs = dss_feat_get_num_mgrs();
 	struct omap_overlay_manager *mgr;
 	int i;
+	unsigned long flags;
 
 	mgr = dssdev->manager;
 
+	spin_lock_irqsave(&dss_cache.lock, flags);
 	for (i = 0; i < num_ovls; ++i) {
 		oc = &dss_cache.overlay_cache[i];
 		if (oc->channel != mgr->id)
@@ -1279,6 +1281,8 @@ void dss_start_update(struct omap_dss_device *dssdev)
 
 		mc->shadow_dirty = false;
 	}
+
+	spin_unlock_irqrestore(&dss_cache.lock, flags);
 
 	dssdev->manager->enable(dssdev->manager);
 }
