@@ -276,7 +276,7 @@ static int beagle_panel_enable_tv(struct omap_dss_device *dssdev)
 	
 #define ENABLE_VDAC_DEDICATED           0x03
 #define ENABLE_VDAC_DEV_GRP             0x20
-#define OMAP2_TVACEEN				(1 << 11)
+#define OMAP2_TVACEN				(1 << 11)
 #define OMAP2_TVOUTBYPASS			(1 << 18)
 
 	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
@@ -286,13 +286,13 @@ static int beagle_panel_enable_tv(struct omap_dss_device *dssdev)
 			ENABLE_VDAC_DEV_GRP, TWL4030_VDAC_DEV_GRP);
 
 	/* taken from https://e2e.ti.com/support/dsp/omap_applications_processors/f/447/p/94072/343691.aspx */
-	/* switch to TV bypass mode (for OPA362 driver) */
 	reg = omap_ctrl_readl(OMAP343X_CONTROL_DEVCONF1);
-	printk(KERN_INFO "Value of DEVCONF1 was: %08x\n", reg);
-	reg |= OMAP2_TVOUTBYPASS;
+//	printk(KERN_INFO "Value of DEVCONF1 was: %08x\n", reg);
+	reg |= OMAP2_TVOUTBYPASS;	/* enable TV bypass mode for external video driver (for OPA362 driver) */
+	reg |= OMAP2_TVACEN;		/* assume AC coupling to remove DC offset */
 	omap_ctrl_writel(reg, OMAP343X_CONTROL_DEVCONF1);
 	reg = omap_ctrl_readl(OMAP343X_CONTROL_DEVCONF1);
-	printk(KERN_INFO "Value of DEVCONF1 now: %08x\n", reg);  
+//	printk(KERN_INFO "Value of DEVCONF1 now: %08x\n", reg);  
 	
 	gpio_set_value(23, 1);	// enable output driver (OPA362)
 	
@@ -315,7 +315,7 @@ static struct omap_dss_device beagle_tv_device = {
 	.type = OMAP_DISPLAY_TYPE_VENC,
 	/* GTA04 has a single composite output (with external video driver) */
 	.phy.venc.type = OMAP_DSS_VENC_TYPE_COMPOSITE, /*OMAP_DSS_VENC_TYPE_SVIDEO, */
-	.phy.venc.invert_polarity = true,
+	.phy.venc.invert_polarity = true,	/* needed if we use external video driver */
 	.platform_enable = beagle_panel_enable_tv,
 	.platform_disable = beagle_panel_disable_tv,
 };
@@ -558,6 +558,23 @@ struct twl4030_power_data gta04_power_scripts = {
 
 /* override TWL defaults */
 
+static int zoom_batt_table[] = {
+	/* 0 C*/
+	30800, 29500, 28300, 27100,
+	26000, 24900, 23900, 22900, 22000, 21100, 20300, 19400, 18700, 17900,
+	17200, 16500, 15900, 15300, 14700, 14100, 13600, 13100, 12600, 12100,
+	11600, 11200, 10800, 10400, 10000, 9630,  9280,  8950,  8620,  8310,
+	8020,  7730,  7460,  7200,  6950,  6710,  6470,  6250,  6040,  5830,
+	5640,  5450,  5260,  5090,  4920,  4760,  4600,  4450,  4310,  4170,
+	4040,  3910,  3790,  3670,  3550
+};
+
+static struct twl4030_bci_platform_data zoom_bci_data = {
+	.battery_tmp_tbl        = zoom_batt_table,
+	.tblsize                = ARRAY_SIZE(zoom_batt_table),
+};
+
+
 static struct twl4030_platform_data beagle_twldata = {
 	.irq_base	= TWL4030_IRQ_BASE,
 	.irq_end	= TWL4030_IRQ_END,
@@ -565,6 +582,7 @@ static struct twl4030_platform_data beagle_twldata = {
 	/* platform_data for children goes here */
 	.usb		= &beagle_usb_data,
 	.gpio		= &beagle_gpio_data,
+	.bci		= &zoom_bci_data,
 	.codec		= &beagle_codec_data,
 	.madc		= &beagle_madc_data,
 	.vmmc1		= &beagle_vmmc1,

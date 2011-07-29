@@ -33,6 +33,8 @@
  *
  */
 
+#define DEBUG 1
+
 #include <linux/kernel.h>
 #include <linux/list.h>
 #include <linux/timer.h>

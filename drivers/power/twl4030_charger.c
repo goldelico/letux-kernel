@@ -11,6 +11,8 @@
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  */
+#define DEBUG 1
+
 
 #include <linux/init.h>
 #include <linux/module.h>
@@ -21,6 +23,7 @@
 #include <linux/power_supply.h>
 #include <linux/notifier.h>
 #include <linux/usb/otg.h>
+
 
 #define TWL4030_BCIMSTATEC	0x02
 #define TWL4030_BCIICHG		0x08
@@ -61,7 +64,17 @@
 #define TWL4030_MSTATEC_COMPLETE1	0x0b
 #define TWL4030_MSTATEC_COMPLETE4	0x0e
 
-static bool allow_usb;
+#define TWL4030_OTG_CTRL		0x0A
+#define TWL4030_OTG_CTRL_SET		0x0B
+#define TWL4030_OTG_CTRL_CLR		0x0C
+#define TWL4030_OTG_CTRL_DRVVBUS	(1 << 5)
+#define TWL4030_OTG_CTRL_CHRGVBUS	(1 << 4)
+#define TWL4030_OTG_CTRL_DISCHRGVBUS	(1 << 3)
+#define TWL4030_OTG_CTRL_DMPULLDOWN	(1 << 2)
+#define TWL4030_OTG_CTRL_DPPULLDOWN	(1 << 1)
+#define TWL4030_OTG_CTRL_IDPULLUP	(1 << 0)
+
+static bool allow_usb = true;
 module_param(allow_usb, bool, 1);
 MODULE_PARM_DESC(allow_usb, "Allow USB charge drawing default current");
 
@@ -141,7 +154,7 @@ static int twl4030_bci_have_vbus(struct twl4030_bci *bci)
 	if (ret < 0)
 		return 0;
 
-	dev_dbg(bci->dev, "check_vbus: HW_CONDITIONS %02x\n", hwsts);
+	dev_dbg(bci->dev, "twl4030_bci_have_vbus: HW_CONDITIONS %02x\n", hwsts);
 
 	/* in case we also have STS_USB_ID, VBUS is driven by TWL itself */
 	if ((hwsts & TWL4030_STS_VBUS) && !(hwsts & TWL4030_STS_USB_ID))
@@ -151,17 +164,37 @@ static int twl4030_bci_have_vbus(struct twl4030_bci *bci)
 }
 
 /*
+ * Enable/Disable OTH charge pump.
+ */
+static int twl4030_charger_enable_vbus_driver(struct twl4030_bci *bci, bool enable)
+{
+	int ret;
+	u8 val = TWL4030_OTG_CTRL_DRVVBUS;
+	dev_dbg(bci->dev, "twl4030_charger_enable_vbus_driver: enable %d\n", enable);
+	
+	if (enable) {
+		ret = twl_i2c_write_u8(TWL4030_MODULE_PM_MASTER, &val,
+							  TWL4030_OTG_CTRL_SET);
+	} else {
+		ret = twl_i2c_write_u8(TWL4030_MODULE_PM_MASTER, &val,
+							   TWL4030_OTG_CTRL_CLR);
+	}
+	
+	return ret;
+}
+
+/*
  * Enable/Disable USB Charge funtionality.
  */
 static int twl4030_charger_enable_usb(struct twl4030_bci *bci, bool enable)
 {
 	int ret;
+	dev_dbg(bci->dev, "twl4030_charger_enable_usb: enable %d\n", enable);
 
 	if (enable) {
 		/* Check for USB charger conneted */
 		if (!twl4030_bci_have_vbus(bci))
 			return -ENODEV;
-
 		/*
 		 * Until we can find out what current the device can provide,
 		 * require a module param to enable USB charging.
@@ -271,8 +304,12 @@ static void twl4030_bci_usb_work(struct work_struct *data)
 		twl4030_charger_enable_usb(bci, true);
 		break;
 	case USB_EVENT_NONE:
-		twl4030_charger_enable_usb(bci, false);
+			twl4030_charger_enable_vbus_driver(bci, false);
+			twl4030_charger_enable_usb(bci, false);
 		break;
+	case USB_EVENT_ID:
+			dev_dbg(bci->dev, "OTG host cable detected\n");
+			twl4030_charger_enable_vbus_driver(bci, true);	// enable charge pump
 	}
 }
 
@@ -280,6 +317,7 @@ static int twl4030_bci_usb_ncb(struct notifier_block *nb, unsigned long val,
 			       void *priv)
 {
 	struct twl4030_bci *bci = container_of(nb, struct twl4030_bci, otg_nb);
+	printk("twl4030_charger notifier called\n");
 
 	dev_dbg(bci->dev, "OTG notify %lu\n", val);
 
@@ -427,6 +465,8 @@ static int __init twl4030_bci_probe(struct platform_device *pdev)
 	int ret;
 	int reg;
 
+	printk("twl4030_charger probe()\n");
+
 	bci = kzalloc(sizeof(*bci), GFP_KERNEL);
 	if (bci == NULL)
 		return -ENOMEM;
@@ -483,6 +523,7 @@ static int __init twl4030_bci_probe(struct platform_device *pdev)
 	if (bci->transceiver != NULL) {
 		bci->otg_nb.notifier_call = twl4030_bci_usb_ncb;
 		otg_register_notifier(bci->transceiver, &bci->otg_nb);
+		printk("twl4030_charger notifier registered\n");
 	}
 
 	/* Enable interrupts now. */
@@ -503,7 +544,14 @@ static int __init twl4030_bci_probe(struct platform_device *pdev)
 
 	twl4030_charger_enable_ac(true);
 	twl4030_charger_enable_usb(bci, true);
-
+#if 1
+	{
+	u8 irqs2;
+	ret = twl_i2c_read_u8(TWL4030_MODULE_INTERRUPTS, &irqs2,
+						  TWL4030_INTERRUPTS_BCISIHCTRL);
+	printk("twl BCISIHCTRL=%02x\n", irqs2);
+	}
+#endif
 	return 0;
 
 fail_unmask_interrupts:

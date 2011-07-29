@@ -24,6 +24,8 @@
  *	- 3-pin mode support may be added in future.
  */
 
+#define DEBUG 1
+
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
@@ -371,6 +373,8 @@ static enum usb_xceiv_events twl4030_usb_linkstat(struct twl4030_usb *twl)
 	dev_dbg(twl->dev, "HW_CONDITIONS 0x%02x/%d; link %d\n",
 			status, status, linkstat);
 
+	twl->otg.last_event = linkstat;
+
 	/* REVISIT this assumes host and peripheral controllers
 	 * are registered, and that both are active...
 	 */
@@ -580,7 +584,6 @@ static irqreturn_t twl4030_usb_irq(int irq, void *_twl)
 
 	status = twl4030_usb_linkstat(twl);
 	if (status >= 0) {
-
 		/* FIXME add a set_power() method so that B-devices can
 		 * configure the charger appropriately.  It's not always
 		 * correct to consume VBUS power, and how much current to
@@ -592,12 +595,27 @@ static irqreturn_t twl4030_usb_irq(int irq, void *_twl)
 		 * USB_EVENT_VBUS state.  musb_hdrc won't care until it
 		 * starts to handle softconnect right.
 		 */
-		if (status == USB_EVENT_NONE)
+		if (status == USB_EVENT_NONE) {
+			int ret;
+			printk("disable OTG charge pump\n");
+			
+			ret = twl_i2c_write_u8(TWL4030_MODULE_PM_MASTER, TWL4030_OTG_CTRL_DRVVBUS,
+									   TWL4030_OTG_CTRL_CLR);
 			twl4030_phy_suspend(twl, 0);
+		}
 		else
 			twl4030_phy_resume(twl);
 
-		blocking_notifier_call_chain(&twl->otg.notifier, status,
+		if (status == USB_EVENT_ID) { /* OTG host cable detected */
+			int ret;
+			printk("enable OTG charge pump\n");
+			
+			ret = twl_i2c_write_u8(TWL4030_MODULE_PM_MASTER, TWL4030_OTG_CTRL_DRVVBUS,
+								   TWL4030_OTG_CTRL_SET);
+			// FIXME: for real OTG operation we must switch the PHY? */
+		}
+		
+		atomic_notifier_call_chain(&twl->otg.notifier, status,
 						twl->otg.gadget);
 	}
 	sysfs_notify(&twl->dev->kobj, NULL, "vbus");
@@ -688,7 +706,7 @@ static int __devinit twl4030_usb_probe(struct platform_device *pdev)
 	if (device_create_file(&pdev->dev, &dev_attr_vbus))
 		dev_warn(&pdev->dev, "could not create sysfs file\n");
 
-	BLOCKING_INIT_NOTIFIER_HEAD(&twl->otg.notifier);
+	ATOMIC_INIT_NOTIFIER_HEAD(&twl->otg.notifier);
 
 	/* Our job is to use irqs and status from the power module
 	 * to keep the transceiver disabled when nothing's connected.
