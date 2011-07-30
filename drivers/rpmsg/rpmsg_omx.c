@@ -51,6 +51,7 @@ enum rpc_omx_map_info_type {
 	RPC_OMX_MAP_INFO_NONE          = 0,
 	RPC_OMX_MAP_INFO_ONE_BUF       = 1,
 	RPC_OMX_MAP_INFO_TWO_BUF       = 2,
+	RPC_OMX_MAP_INFO_THREE_BUF     = 3,
 	RPC_OMX_MAP_INFO_MAX           = 0x7FFFFFFF
 };
 
@@ -145,7 +146,8 @@ static int _rpmsg_omx_map_buf(struct rpmsg_omx_instance *omx, char *packet)
 	/*Nothing to map*/
 	if (maptype == RPC_OMX_MAP_INFO_NONE)
 		return 0;
-	if ((maptype != RPC_OMX_MAP_INFO_TWO_BUF) &&
+	if ((maptype != RPC_OMX_MAP_INFO_THREE_BUF) &&
+		(maptype != RPC_OMX_MAP_INFO_TWO_BUF) &&
 			(maptype != RPC_OMX_MAP_INFO_ONE_BUF))
 		return ret;
 
@@ -153,22 +155,34 @@ static int _rpmsg_omx_map_buf(struct rpmsg_omx_instance *omx, char *packet)
 	buffer = (long *)((int)data + offset);
 
 	pa = _rpmsg_omx_buffer_lookup(omx, *buffer);
-
 	if (pa) {
 		*buffer = pa;
 		ret = 0;
 	}
 
-	if (!ret && maptype == RPC_OMX_MAP_INFO_TWO_BUF) {
+	if (!ret && (maptype >= RPC_OMX_MAP_INFO_TWO_BUF)) {
 		buffer = (long *)((int)data + offset + sizeof(*buffer));
-		ret = -EIO;
-		pa = _rpmsg_omx_buffer_lookup(omx, *buffer);
-		if (pa) {
-			*buffer = pa;
-			ret = 0;
+		if (*buffer != 0) {
+			ret = -EIO;
+			pa = _rpmsg_omx_buffer_lookup(omx, *buffer);
+			if (pa) {
+				*buffer = pa;
+				ret = 0;
+			}
 		}
 	}
 
+	if (!ret && maptype >= RPC_OMX_MAP_INFO_THREE_BUF) {
+		buffer = (long *)((int)data + offset + 2*sizeof(*buffer));
+		if (*buffer != 0) {
+			ret = -1;
+			pa = _rpmsg_omx_buffer_lookup(omx, *buffer);
+			if (pa) {
+				*buffer = pa;
+				ret = 0;
+			}
+		}
+	}
 	return ret;
 }
 
