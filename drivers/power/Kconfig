@@ -103,6 +103,14 @@ config BATTERY_BQ27x00
 	help
 	  Say Y here to enable support for batteries with BQ27200(I2C) chip.
 
+config TWL4030_BCI_BATTERY
+       tristate "OMAP TWL4030 BCI Battery driver"
+       depends on TWL4030_CORE && TWL4030_MADC && !CHARGER_TWL4030
+       default y
+       help
+         Support for OMAP TWL4030 BCI Battery driver.
+         This driver can give support for TWL4030 Battery Charge Interface.
+
 config BATTERY_DA9030
 	tristate "DA9030 battery driver"
 	depends on PMIC_DA903X
@@ -126,7 +134,7 @@ config CHARGER_PCF50633
 
 config CHARGER_TWL4030
 	tristate "OMAP TWL4030 BCI charger driver"
-	depends on TWL4030_CORE
+	depends on TWL4030_CORE && !TWL4030_BCI_BATTERY
 	default y
 	help
 	  Say Y here to enable support for TWL4030 Battery Charge Interface.

@@ -597,22 +597,31 @@ static irqreturn_t twl4030_usb_irq(int irq, void *_twl)
 		 */
 		if (status == USB_EVENT_NONE) {
 			int ret;
+#if 0
 			printk("disable OTG charge pump\n");
-			
-			ret = twl_i2c_write_u8(TWL4030_MODULE_PM_MASTER, TWL4030_OTG_CTRL_DRVVBUS,
-									   TWL4030_OTG_CTRL_CLR);
+			ret = twl_i2c_write_u8(TWL4030_MODULE_USB, TWL4030_OTG_CTRL_DRVVBUS,
+								   TWL4030_OTG_CTRL_CLR);
+#endif
 			twl4030_phy_suspend(twl, 0);
 		}
 		else
 			twl4030_phy_resume(twl);
 
+#if defined(CONFIG_TWL4030_BCI_BATTERY) || defined(CONFIG_TWL4030_BCI_BATTERY_MODULE)
+		{ /* old style interaction with battery/charger driver */
+			extern int twl4030charger_usb_en(int enable);	/* FIXME: we should import some relevant header */
+			twl4030charger_usb_en(status == USB_EVENT_VBUS);
+		}
+#endif
+
 		if (status == USB_EVENT_ID) { /* OTG host cable detected */
 			int ret;
+#if 0
 			printk("enable OTG charge pump\n");
-			
-			ret = twl_i2c_write_u8(TWL4030_MODULE_PM_MASTER, TWL4030_OTG_CTRL_DRVVBUS,
-								   TWL4030_OTG_CTRL_SET);
+			ret = twl_i2c_write_u8(TWL4030_MODULE_USB, TWL4030_OTG_CTRL_DRVVBUS,
+								TWL4030_OTG_CTRL_SET);
 			// FIXME: for real OTG operation we must switch the PHY? */
+#endif
 		}
 		
 		atomic_notifier_call_chain(&twl->otg.notifier, status,
