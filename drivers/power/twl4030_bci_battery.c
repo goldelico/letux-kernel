@@ -62,6 +62,7 @@
 /* Boot BCI register */
 #define REG_BOOT_BCI           0x007
 #define REG_CTRL1              0x00
+#define MADC_ON				   0x01
 #define REG_SW1SELECT_MSB      0x07
 #define SW1_CH9_SEL            0x02
 #define REG_CTRL_SW1           0x012
@@ -470,11 +471,15 @@ int twl4030charger_usb_en(int enable)
        if (enable) {
                /* Check for USB charger connected */
                ret = twl4030charger_presence();
-               if (ret < 0)
-                       return ret;
+               if (ret < 0) {
+				   printk("twl4030charger_usb_en: no charger present\n");
+				   return ret;				   
+			   }
 
-               if (!(ret & USB_PW_CONN))
-                       return -ENXIO;
+               if (!(ret & USB_PW_CONN)) {
+				   printk("twl4030charger_usb_en: no USB charger present\n");
+				   return -ENXIO;				   
+			   }
 
                /* forcing the field BCIAUTOUSB (BOOT_BCI[1]) to 1 */
                ret = clear_n_set(TWL4030_MODULE_PM_MASTER, 0,
@@ -690,7 +695,7 @@ static int read_bci_val(u8 reg)
                reg);
        if (ret)
                return ret;
-	printk("BCI reg %d: %d\n", reg, temp | val);
+//	printk("BCI reg %d: %d\n", reg, temp | val);
        return temp | val;
 }
 
@@ -952,6 +957,9 @@ static int twl4030_bci_battery_probe(struct  platform_device *dev)
 		/* Set up clocks */
 		clear_n_set(TWL4030_MODULE_INTBR, 0,
 				MADC_HFCLK_EN | DEFAULT_MADC_CLK_EN, REG_GPBR1);
+		/* turning adc_on */
+		ret = twl_i2c_write_u8(TWL4030_MODULE_MADC, MADC_ON,
+								REG_CTRL1);
 	
        twl4030charger_ac_en(ENABLE);
        twl4030charger_usb_en(ENABLE);
