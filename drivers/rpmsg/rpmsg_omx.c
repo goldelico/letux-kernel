@@ -86,7 +86,7 @@ static DEFINE_SPINLOCK(rpmsg_omx_services_lock);
 
 static int _rpmsg_omx_map_buf(char *packet)
 {
-	int ret = -1, offset = 0;
+	int ret = -EINVAL, offset = 0;
 	long *buffer;
 	char *data;
 	enum rpc_omx_map_info_type maptype;
@@ -113,7 +113,7 @@ static int _rpmsg_omx_map_buf(char *packet)
 
 	if (!ret && maptype == RPC_OMX_MAP_INFO_TWO_BUF) {
 		buffer = (long *)((int)data + offset + sizeof(*buffer));
-		ret = -1;
+		ret = -EIO;
 		pa = tiler_virt2phys(*buffer);
 		if (pa) {
 			*buffer = pa;
@@ -247,7 +247,9 @@ long rpmsg_omx_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case OMX_IOCCONNECT:
 		ret = copy_from_user(buf, (char __user *) arg, sizeof(buf));
 		if (ret) {
-			dev_err(omxserv->dev, "copy_from_user fail: %d\n", ret);
+			dev_err(omxserv->dev,
+				"%s: %d: copy_from_user fail: %d\n", __func__,
+				_IOC_NR(cmd), ret);
 			ret = -EFAULT;
 			break;
 		}
@@ -362,15 +364,17 @@ static ssize_t rpmsg_omx_read(struct file *filp, char __user *buf,
 	skb = skb_dequeue(&omx->queue);
 	if (!skb) {
 		dev_err(omx->omxserv->dev, "err is rmpsg_omx racy ?\n");
-		return -EFAULT;
+		return -EIO;
 	}
 
 	mutex_unlock(&omx->lock);
 
 	use = min(len, skb->len);
 
-	if (copy_to_user(buf, skb->data, use))
+	if (copy_to_user(buf, skb->data, use)) {
+		dev_err(omx->omxserv->dev, "%s: copy_to_user fail\n", __func__);
 		use = -EFAULT;
+	}
 
 	kfree_skb(skb);
 	return use;

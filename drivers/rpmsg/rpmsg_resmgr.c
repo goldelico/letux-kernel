@@ -172,7 +172,7 @@ static int rprm_auxclk_request(void **rh, struct rprm_auxclk *obj)
 	acd->aux_clk = clk_get(NULL, clk_name);
 	if (!acd->aux_clk) {
 		pr_err("%s: unable to get clock %s\n", __func__, clk_name);
-		ret = -EFAULT;
+		ret = -EIO;
 		goto error;
 	}
 
@@ -183,7 +183,7 @@ static int rprm_auxclk_request(void **rh, struct rprm_auxclk *obj)
 	acd->src = clk_get(NULL, src_clk_name);
 	if (!acd->src) {
 		pr_err("%s: unable to get clock %s\n", __func__, src_clk_name);
-		ret = -EFAULT;
+		ret = -EIO;
 		goto error_aux;
 	}
 
@@ -191,7 +191,7 @@ static int rprm_auxclk_request(void **rh, struct rprm_auxclk *obj)
 	if (!src_parent) {
 		pr_err("%s: unable to get parent clock %s\n", __func__,
 					clk_src_name[obj->parent_src_clk]);
-		ret = -EFAULT;
+		ret = -EIO;
 		goto error_aux_src;
 	}
 
