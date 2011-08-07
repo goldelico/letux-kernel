@@ -102,6 +102,7 @@ static int __init w1_bq27000_init(void)
 {
 	if (F_ID)
 		w1_bq27000_family.fid = F_ID;
+	pr_info("w1_bq27000_init fid = %d\n", w1_bq27000_family.fid);
 
 	return w1_register_family(&w1_bq27000_family);
 }
