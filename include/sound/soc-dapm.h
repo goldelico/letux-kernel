@@ -496,6 +496,7 @@ struct snd_soc_dapm_widget {
 	unsigned char new_power:1;		/* power from this run */
 	unsigned char power_checked:1;		/* power checked this run */
 	int subseq;				/* sort within widget type */
+	void *private_data;			/* for widget specific data */
 
 	int (*power_check)(struct snd_soc_dapm_widget *w);
 
@@ -565,5 +566,17 @@ struct snd_soc_dapm_stats {
 	int path_checks;
 	int neighbour_checks;
 };
+
+/* Accessors for snd_soc_dapm_widget->private_data */
+static inline void *snd_soc_dapm_widget_get_pdata(struct snd_soc_dapm_widget *w)
+{
+	return w->private_data;
+}
+
+static inline void snd_soc_dapm_widget_set_pdata(struct snd_soc_dapm_widget *w,
+		void *data)
+{
+	w->private_data = data;
+}
 
 #endif
