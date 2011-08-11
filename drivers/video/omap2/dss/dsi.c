@@ -3856,6 +3856,7 @@ static void dsi_proto_timings(struct omap_dss_device *dssdev)
 	unsigned ddr_clk_pre, ddr_clk_post;
 	unsigned enter_hs_mode_lat, exit_hs_mode_lat;
 	unsigned ths_eot;
+	unsigned offset_ddr_clk;
 	int ndl = dsi_get_num_data_lanes_dssdev(dssdev);
 	u32 r;
 
@@ -3881,9 +3882,14 @@ static void dsi_proto_timings(struct omap_dss_device *dssdev)
 
 	ths_eot = DIV_ROUND_UP(4, ndl);
 
+	/* DDR PRE & DDR POST increased to keep LP-11 under 10 usec */
+	offset_ddr_clk = dssdev->clocks.dsi.offset_ddr_clk;
+
+
 	ddr_clk_pre = DIV_ROUND_UP(tclk_pre + tlpx + tclk_zero + tclk_prepare,
-			4);
-	ddr_clk_post = DIV_ROUND_UP(tclk_post + ths_trail, 4) + ths_eot;
+			4) + offset_ddr_clk;
+	ddr_clk_post = DIV_ROUND_UP(tclk_post + ths_trail, 4) + ths_eot
+		+ offset_ddr_clk;
 
 	BUG_ON(ddr_clk_pre == 0 || ddr_clk_pre > 255);
 	BUG_ON(ddr_clk_post == 0 || ddr_clk_post > 255);
