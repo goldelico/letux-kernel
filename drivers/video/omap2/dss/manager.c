@@ -28,6 +28,7 @@
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
 #include <linux/jiffies.h>
+#include <linux/ratelimit.h>
 #include <linux/seq_file.h>
 
 #include <video/omapdss.h>
@@ -1535,6 +1536,117 @@ end:
 	spin_unlock(&dss_cache.lock);
 }
 
+static int omap_dss_mgr_blank(struct omap_overlay_manager *mgr,
+			bool wait_for_go)
+{
+	struct overlay_cache_data *oc;
+	struct manager_cache_data *mc;
+	unsigned long flags;
+	int r, r_get, i;
+
+	DSSDBG("omap_dss_mgr_blank(%s,wait=%d)\n", mgr->name, wait_for_go);
+
+	r_get = r = dispc_runtime_get();
+	/* still clear cache even if failed to get clocks, just don't config */
+
+	spin_lock_irqsave(&dss_cache.lock, flags);
+
+	/* disable overlays in overlay info structs and in cache */
+	for (i = 0; i < omap_dss_get_num_overlays(); i++) {
+		struct omap_overlay_info oi = { .enabled = false };
+		struct omap_overlay *ovl;
+
+		ovl = omap_dss_get_overlay(i);
+
+		if (ovl->manager != mgr)
+			continue;
+
+		oc = &dss_cache.overlay_cache[ovl->id];
+
+
+		/* complete unconfigured info in cache */
+		if (ovl->info_dirty)
+			dss_ovl_cb(&ovl->info.cb, i,
+						DSS_COMPLETION_ECLIPSED_SET);
+		dss_ovl_cb(&oc->cb.cache, i, DSS_COMPLETION_ECLIPSED_CACHE);
+		oc->cb.cache.fn = NULL;
+
+		ovl->info = oi;
+		ovl->info_dirty = false;
+		oc->dirty = true;
+		oc->enabled = false;
+	}
+
+	/* dirty manager */
+	mc = &dss_cache.manager_cache[mgr->id];
+	if (mgr->info_dirty)
+		dss_ovl_cb(&mgr->info.cb, mgr->id, DSS_COMPLETION_ECLIPSED_SET);
+	dss_ovl_cb(&mc->cb.cache, mgr->id, DSS_COMPLETION_ECLIPSED_CACHE);
+	mc->cb.cache.fn = NULL;
+	mgr->info.cb.fn = NULL;
+	mc->dirty = true;
+	mgr->info_dirty = false;
+
+	/*
+	 * TRICKY: Enable apply irq even if not waiting for vsync, so that
+	 * DISPC programming takes place in case GO bit was on.
+	 */
+	if (!dss_cache.irq_enabled) {
+		u32 mask;
+
+		mask = DISPC_IRQ_VSYNC	| DISPC_IRQ_EVSYNC_ODD |
+			DISPC_IRQ_EVSYNC_EVEN;
+		if (dss_has_feature(FEAT_MGR_LCD2))
+			mask |= DISPC_IRQ_VSYNC2;
+
+		r = omap_dispc_register_isr(dss_apply_irq_handler, NULL, mask);
+		dss_cache.irq_enabled = true;
+	}
+
+	if (!r_get) {
+		r = configure_dispc();
+		if (r)
+			pr_info("mgr_blank while GO is set");
+	}
+
+	if (r_get || !wait_for_go) {
+		/* pretend that programming has happened */
+		for (i = 0; i < omap_dss_get_num_overlays(); ++i) {
+			oc = &dss_cache.overlay_cache[i];
+			if (oc->channel != mgr->id)
+				continue;
+			if (r && oc->dirty)
+				dss_ovl_configure_cb(&oc->cb, i, false);
+			if (oc->shadow_dirty) {
+				dss_ovl_program_cb(&oc->cb, i);
+				oc->dispc_channel = oc->channel;
+				oc->shadow_dirty = false;
+			} else {
+				pr_warn("ovl%d-shadow is not dirty\n", i);
+			}
+		}
+
+		if (r && mc->dirty)
+			dss_ovl_configure_cb(&mc->cb, i, false);
+		if (mc->shadow_dirty) {
+			dss_ovl_program_cb(&mc->cb, i);
+			mc->shadow_dirty = false;
+		} else {
+			pr_warn("mgr%d-shadow is not dirty\n", mgr->id);
+		}
+	}
+
+	spin_unlock_irqrestore(&dss_cache.lock, flags);
+
+	if (wait_for_go)
+		mgr->wait_for_go(mgr);
+
+	if (!r_get)
+		dispc_runtime_put();
+
+	return r;
+}
+
 int omap_dss_manager_unregister_callback(struct omap_overlay_manager *mgr,
 					 struct omapdss_ovl_cb *cb)
 {
@@ -1570,6 +1682,13 @@ static int omap_dss_mgr_apply(struct omap_overlay_manager *mgr)
 		return r;
 
 	spin_lock_irqsave(&dss_cache.lock, flags);
+
+	if (!mgr->device || mgr->device->state != OMAP_DSS_DISPLAY_ACTIVE) {
+		pr_info_ratelimited("cannot apply mgr(%s) on inactive device\n",
+								mgr->name);
+		r = -ENODEV;
+		goto done;
+	}
 
 	/* Configure overlays */
 	for (i = 0; i < omap_dss_get_num_overlays(); ++i) {
@@ -1735,6 +1854,7 @@ skip_mgr:
 	}
 	configure_dispc();
 
+done:
 	spin_unlock_irqrestore(&dss_cache.lock, flags);
 
 	dispc_runtime_put();
@@ -1931,6 +2051,7 @@ int dss_init_overlay_managers(struct platform_device *pdev)
 		mgr->get_manager_info = &omap_dss_mgr_get_info;
 		mgr->wait_for_go = &dss_mgr_wait_for_go;
 		mgr->wait_for_vsync = &dss_mgr_wait_for_vsync;
+		mgr->blank = &omap_dss_mgr_blank;
 		mgr->dump_cb = &seq_print_cbs;
 
 		mgr->enable = &dss_mgr_enable;
