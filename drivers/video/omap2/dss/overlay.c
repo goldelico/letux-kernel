@@ -588,28 +588,6 @@ int dss_check_overlay(struct omap_overlay *ovl, struct omap_dss_device *dssdev)
 	return 0;
 }
 
-static int dss_ovl_set_overlay_info(struct omap_overlay *ovl,
-		struct omap_overlay_info *info)
-{
-	int r;
-	struct omap_overlay_info old_info;
-
-	old_info = ovl->info;
-	ovl->info = *info;
-
-	if (ovl->manager) {
-		r = dss_check_overlay(ovl, ovl->manager->device);
-		if (r) {
-			ovl->info = old_info;
-			return r;
-		}
-	}
-
-	ovl->info_dirty = true;
-
-	return 0;
-}
-
 static void dss_ovl_get_overlay_info(struct omap_overlay *ovl,
 		struct omap_overlay_info *info)
 {
@@ -772,7 +750,7 @@ void dss_init_overlays(struct platform_device *pdev)
 
 		ovl->set_manager = &omap_dss_set_manager;
 		ovl->unset_manager = &omap_dss_unset_manager;
-		ovl->set_overlay_info = &dss_ovl_set_overlay_info;
+		ovl->set_overlay_info = &omap_dss_ovl_set_info;
 		ovl->get_overlay_info = &dss_ovl_get_overlay_info;
 		ovl->wait_for_go = &dss_ovl_wait_for_go;
 

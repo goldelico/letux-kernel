@@ -1358,6 +1358,7 @@ static int omap_dss_mgr_apply(struct omap_overlay_manager *mgr)
 {
 	struct overlay_cache_data *oc;
 	struct manager_cache_data *mc;
+	struct omap_dss_device *dssdev;
 	int i;
 	struct omap_overlay *ovl;
 	int num_planes_enabled = 0;
@@ -1379,14 +1380,18 @@ static int omap_dss_mgr_apply(struct omap_overlay_manager *mgr)
 
 		ovl = omap_dss_get_overlay(i);
 
+		if (ovl->manager != mgr)
+			continue;
+
 		oc = &dss_cache.overlay_cache[ovl->id];
+		dssdev = mgr->device;
 
 		if (ovl->manager_changed) {
 			ovl->manager_changed = false;
 			ovl->info_dirty  = true;
 		}
 
-		if (!overlay_enabled(ovl)) {
+		if (!overlay_enabled(ovl) || !dssdev) {
 			if (oc->enabled) {
 				oc->enabled = false;
 				oc->dirty = true;
@@ -1399,8 +1404,6 @@ static int omap_dss_mgr_apply(struct omap_overlay_manager *mgr)
 				++num_planes_enabled;
 			continue;
 		}
-
-		dssdev = ovl->manager->device;
 
 		if (dss_check_overlay(ovl, dssdev)) {
 			if (oc->enabled) {
@@ -1419,39 +1422,34 @@ static int omap_dss_mgr_apply(struct omap_overlay_manager *mgr)
 
 		oc->ilace = dssdev->type == OMAP_DISPLAY_TYPE_VENC;
 
-		oc->channel = ovl->manager->id;
+		oc->channel = mgr->id;
 
 		oc->enabled = true;
 
 		++num_planes_enabled;
 	}
 
-	/* Configure managers */
-	list_for_each_entry(mgr, &manager_list, list) {
-		struct omap_dss_device *dssdev;
+	mc = &dss_cache.manager_cache[mgr->id];
 
-		mc = &dss_cache.manager_cache[mgr->id];
-
-		if (mgr->device_changed) {
-			mgr->device_changed = false;
-			mgr->info_dirty  = true;
-		}
-
-		if (!mgr->info_dirty)
-			continue;
-
-		if (!mgr->device)
-			continue;
-
-		dssdev = mgr->device;
-
-		mgr->info_dirty = false;
-		mc->dirty = true;
-		mc->info = mgr->info;
-
-		mc->manual_update =
-			dssdev->caps & OMAP_DSS_DISPLAY_CAP_MANUAL_UPDATE;
+	if (mgr->device_changed) {
+		mgr->device_changed = false;
+		mgr->info_dirty  = true;
 	}
+
+	if (!mgr->info_dirty)
+		goto skip_mgr;
+
+	if (!mgr->device)
+		goto skip_mgr;
+
+	dssdev = mgr->device;
+
+	mc->info = mgr->info;
+	mgr->info_dirty = false;
+	mc->dirty = true;
+
+	mc->manual_update = dssdev->caps & OMAP_DSS_DISPLAY_CAP_MANUAL_UPDATE;
+skip_mgr:
 
 	/* XXX TODO: Try to get fifomerge working. The problem is that it
 	 * affects both managers, not individually but at the same time. This
@@ -1481,6 +1479,8 @@ static int omap_dss_mgr_apply(struct omap_overlay_manager *mgr)
 			continue;
 
 		dssdev = ovl->manager->device;
+		if (!dssdev)
+			continue;
 
 		size = dispc_ovl_get_fifo_size(ovl->id);
 		if (use_fifomerge)
@@ -1548,22 +1548,53 @@ static int dss_check_manager(struct omap_overlay_manager *mgr)
 	return 0;
 }
 
+int omap_dss_ovl_set_info(struct omap_overlay *ovl,
+		struct omap_overlay_info *info)
+{
+	int r;
+	struct omap_overlay_info old_info;
+	unsigned long flags;
+
+	spin_lock_irqsave(&dss_cache.lock, flags);
+	old_info = ovl->info;
+	ovl->info = *info;
+
+	if (ovl->manager) {
+		r = dss_check_overlay(ovl, ovl->manager->device);
+		if (r) {
+			ovl->info = old_info;
+			spin_unlock_irqrestore(&dss_cache.lock, flags);
+			return r;
+		}
+	}
+
+	ovl->info_dirty = true;
+	spin_unlock_irqrestore(&dss_cache.lock, flags);
+
+	return 0;
+}
+
+
 static int omap_dss_mgr_set_info(struct omap_overlay_manager *mgr,
 		struct omap_overlay_manager_info *info)
 {
 	int r;
 	struct omap_overlay_manager_info old_info;
+	unsigned long flags;
 
+	spin_lock_irqsave(&dss_cache.lock, flags);
 	old_info = mgr->info;
 	mgr->info = *info;
 
 	r = dss_check_manager(mgr);
 	if (r) {
 		mgr->info = old_info;
+		spin_unlock_irqrestore(&dss_cache.lock, flags);
 		return r;
 	}
 
 	mgr->info_dirty = true;
+	spin_unlock_irqrestore(&dss_cache.lock, flags);
 
 	return 0;
 }

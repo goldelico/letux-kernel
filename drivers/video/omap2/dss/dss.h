@@ -518,6 +518,9 @@ void hdmi_panel_exit(void);
 int omapdss_hdmi_get_hdmi_mode(void);
 #endif
 
+int omap_dss_ovl_set_info(struct omap_overlay *ovl,
+		struct omap_overlay_info *info);
+
 /* RFBI */
 #ifdef CONFIG_OMAP2_DSS_RFBI
 int rfbi_init_platform_driver(void);
