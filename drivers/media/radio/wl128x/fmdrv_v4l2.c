@@ -205,6 +205,8 @@ static int fm_v4l2_s_ctrl(struct v4l2_ctrl *ctrl)
 	struct fmdev *fmdev = container_of(ctrl->handler,
 			struct fmdev, ctrl_handler);
 
+	int ret;
+
 	switch (ctrl->id) {
 	case V4L2_CID_AUDIO_VOLUME:	/* set volume */
 		return fm_rx_set_volume(fmdev, (u16)ctrl->val);
@@ -218,6 +220,38 @@ static int fm_v4l2_s_ctrl(struct v4l2_ctrl *ctrl)
 
 	case V4L2_CID_TUNE_PREEMPHASIS:
 		return fm_tx_set_preemph_filter(fmdev, (u8) ctrl->val);
+
+	case V4L2_CID_RDS_TX_PI:
+		ret = set_rds_picode(fmdev, ctrl->val);
+		if (ret < 0) {
+			fmerr("Failed to set RDS Radio PS Name\n");
+			return ret;
+		}
+		return 0;
+
+	case V4L2_CID_RDS_TX_PTY:
+		ret = set_rds_pty(fmdev, ctrl->val);
+		if (ret < 0) {
+			fmerr("Failed to set RDS Radio PS Name\n");
+			return ret;
+		}
+		return 0;
+
+	case V4L2_CID_RDS_TX_PS_NAME:
+		ret = fm_tx_set_radio_text(fmdev, ctrl->string, 1);
+		if (ret < 0) {
+			fmerr("Failed to set RDS Radio PS Name\n");
+			return ret;
+		}
+		return 0;
+
+	case V4L2_CID_RDS_TX_RADIO_TEXT:
+		ret = fm_tx_set_radio_text(fmdev, ctrl->string, 2);
+		if (ret < 0) {
+			fmerr("Failed to set RDS Radio Text\n");
+			return ret;
+		}
+		return 0;
 
 	default:
 		return -EINVAL;
@@ -450,6 +484,7 @@ static int fm_v4l2_vidioc_s_modulator(struct file *file, void *priv,
 		fmerr("Failed to set mono/stereo mode for TX\n");
 		return ret;
 	}
+
 	ret = fm_tx_set_rds_mode(fmdev, rds_mode);
 	if (ret < 0)
 		fmerr("Failed to set rds mode for TX\n");
@@ -544,6 +579,18 @@ int fm_v4l2_init_video_device(struct fmdev *fmdev, int radio_nr)
 	v4l2_ctrl_new_std(&fmdev->ctrl_handler, &fm_ctrl_ops,
 			V4L2_CID_AUDIO_MUTE, 0, 1, 1, 1);
 
+	v4l2_ctrl_new_std(&fmdev->ctrl_handler, &fm_ctrl_ops,
+			V4L2_CID_RDS_TX_PI, 0x0, FM_MAX_VALUE, 1, 0x0);
+
+	v4l2_ctrl_new_std(&fmdev->ctrl_handler, &fm_ctrl_ops,
+			V4L2_CID_RDS_TX_PTY, 0, FM_RDS_MAX_PTY, 1, 0);
+
+	v4l2_ctrl_new_std(&fmdev->ctrl_handler, &fm_ctrl_ops,
+			V4L2_CID_RDS_TX_PS_NAME, 0, FM_MAX_VALUE, 1, 0);
+
+	v4l2_ctrl_new_std(&fmdev->ctrl_handler, &fm_ctrl_ops,
+			V4L2_CID_RDS_TX_RADIO_TEXT, 0, FM_MAX_VALUE, 1, 0);
+
 	v4l2_ctrl_new_std_menu(&fmdev->ctrl_handler, &fm_ctrl_ops,
 			V4L2_CID_TUNE_PREEMPHASIS, V4L2_PREEMPHASIS_75_uS,
 			0, V4L2_PREEMPHASIS_75_uS);
@@ -554,7 +601,7 @@ int fm_v4l2_init_video_device(struct fmdev *fmdev, int radio_nr)
 
 	ctrl = v4l2_ctrl_new_std(&fmdev->ctrl_handler, &fm_ctrl_ops,
 			V4L2_CID_TUNE_ANTENNA_CAPACITOR, 0,
-			255, 1, 255);
+			FM_MAX_ANT_VAL, 1, FM_MAX_ANT_VAL);
 
 	if (ctrl)
 		ctrl->is_volatile = 1;
