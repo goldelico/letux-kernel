@@ -37,6 +37,8 @@
 #include <linux/i2c/bmp085.h>
 #include <linux/power/bq27x00_battery.h>
 
+#include <linux/sysfs.h>
+
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -94,16 +96,16 @@ static struct omap_opp * _omap37x_l3_rate_table         = NULL;
  *	XM	= GPIO173, GPIO172, GPIO171: 0 0 0
  */
 enum {
-	OMAP3gta04_BOARD_UNKN = 0,
-	OMAP3gta04_BOARD_AXBX,
-	OMAP3gta04_BOARD_C1_3,
-	OMAP3gta04_BOARD_C4,
-	OMAP3gta04_BOARD_XM,
+	gta04_BOARD_UNKN = 0,
+	gta04_BOARD_AXBX,
+	gta04_BOARD_C1_3,
+	gta04_BOARD_C4,
+	gta04_BOARD_XM,
 };
 
-static u8 omap3_gta04_version;	/* counts 2..9 */
+static u8 gta04_version;	/* counts 2..9 */
 
-static void __init omap3_gta04_init_rev(void)
+static void __init gta04_init_rev(void)
 {
 	int ret;
 	u16 gta04_rev = 0;
@@ -150,7 +152,7 @@ static void __init omap3_gta04_init_rev(void)
 	
 	printk("gta04_rev %u\n", gta04_rev);
 
-	omap3_gta04_version = revision[gta04_rev];
+	gta04_version = revision[gta04_rev];
 	
 	return;
 	
@@ -160,13 +162,13 @@ fail1:
 	gpio_free(171);
 fail0:
 	printk(KERN_ERR "Unable to get revision detection GPIO pins\n");
-	omap3_gta04_version = 0;
+	gta04_version = 0;
 
 	return;
 }
 
 
-static struct mtd_partition omap3gta04_nand_partitions[] = {
+static struct mtd_partition gta04_nand_partitions[] = {
 	/* All the partition sizes are listed in terms of NAND block size */
 	{
 		.name		= "X-Loader",
@@ -196,27 +198,27 @@ static struct mtd_partition omap3gta04_nand_partitions[] = {
 	},
 };
 
-static struct omap_nand_platform_data omap3gta04_nand_data = {
+static struct omap_nand_platform_data gta04_nand_data = {
 	.options	= NAND_BUSWIDTH_16,
-	.parts		= omap3gta04_nand_partitions,
-	.nr_parts	= ARRAY_SIZE(omap3gta04_nand_partitions),
+	.parts		= gta04_nand_partitions,
+	.nr_parts	= ARRAY_SIZE(gta04_nand_partitions),
 	.dma_channel	= -1,		/* disable DMA in OMAP NAND driver */
 	.nand_setup	= NULL,
 	.dev_ready	= NULL,
 };
 
-static struct resource omap3gta04_nand_resource = {
+static struct resource gta04_nand_resource = {
 	.flags		= IORESOURCE_MEM,
 };
 
-static struct platform_device omap3gta04_nand_device = {
+static struct platform_device gta04_nand_device = {
 	.name		= "omap2-nand",
 	.id		= -1,
 	.dev		= {
-		.platform_data	= &omap3gta04_nand_data,
+		.platform_data	= &gta04_nand_data,
 	},
 	.num_resources	= 1,
-	.resource	= &omap3gta04_nand_resource,
+	.resource	= &gta04_nand_resource,
 };
 
 /* DSS */
@@ -393,6 +395,8 @@ static void __init gta04_display_init(void)
 
 #include "sdram-micron-mt46h32m32lf-6.h"
 
+static struct gpio_led gpio_leds[];
+
 static struct twl4030_hsmmc_info mmc[] = {
 	{
 		.mmc		= 1,
@@ -408,7 +412,7 @@ static struct twl4030_hsmmc_info mmc[] = {
 		.gpio_cd	= -EINVAL,	// no card detect
 		.gpio_wp	= -EINVAL,	// no write protect
 		.transceiver	= true,	// external transceiver
-//		.ocr_mask	= 0x00100000,	/* fixed 3.3V */
+		.ocr_mask	= 0x00100000,	/* fixed 3.3V */
 	},
 	{}	/* Terminator */
 };
@@ -417,15 +421,9 @@ static struct regulator_consumer_supply gta04_vmmc1_supply = {
 	.supply			= "vmmc",
 };
 
-static struct regulator_consumer_supply gta04_vmmc_aux_supply = {
+static struct regulator_consumer_supply gta04_vsim_supply = {
 	.supply			= "vmmc_aux",
 };
-
-static struct regulator_consumer_supply gta04_vmmc2_supply = {
-	.supply			= "vaux4",
-};
-
-static struct gpio_led gpio_leds[];
 
 static int gta04_twl_gpio_setup(struct device *dev,
 		unsigned gpio, unsigned ngpio)
@@ -436,11 +434,13 @@ static int gta04_twl_gpio_setup(struct device *dev,
 
 	/* link regulators to MMC adapters */
 	gta04_vmmc1_supply.dev = mmc[0].dev;
-//	gta04_vmmc_aux_supply.dev = mmc[0].dev;	/* supply for upper 4 bits */
+//	gta04_vsim_supply.dev = mmc[0].dev;	/* supply for upper 4 bits */
 	
+#ifdef OLD
 	// this should enable power control for WLAN/BT
-	gta04_vmmc2_supply.dev = mmc[1].dev;
-
+//	gta04_vmmc2_supply.dev = mmc[1].dev;
+#endif
+	
 	return 0;
 }
 
@@ -458,6 +458,7 @@ static struct twl4030_gpio_platform_data gta04_gpio_data = {
 /* VMMC1 for MMC1 pins CMD, CLK, DAT0..DAT3 (20 mA, plus card == max 220 mA) */
 static struct regulator_init_data gta04_vmmc1 = {
 	.constraints = {
+		.name			= "VMMC1",
 		.min_uV			= 1850000,
 		.max_uV			= 3150000,
 		.valid_modes_mask	= REGULATOR_MODE_NORMAL
@@ -471,10 +472,16 @@ static struct regulator_init_data gta04_vmmc1 = {
 };
 
 /* VAUX4 powers Bluetooth and WLAN */
+
+static struct regulator_consumer_supply gta04_vaux4_supply = {
+	.supply			= "vaux4",
+};
+
 static struct regulator_init_data gta04_vaux4 = {
 	.constraints = {
-		.min_uV			= 3300000,
-		.max_uV			= 3300000,
+		.name			= "VAUX4",
+		.min_uV			= 2800000,
+		.max_uV			= 3150000,	// FIXME: this is a HW issue - 3.15V or 3.3V isn't supported officially - set CONFIG_TWL4030_ALLOW_UNSUPPORTED
 		.valid_modes_mask	= REGULATOR_MODE_NORMAL
 		| REGULATOR_MODE_STANDBY,
 		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE
@@ -482,15 +489,77 @@ static struct regulator_init_data gta04_vaux4 = {
 		| REGULATOR_CHANGE_STATUS,
 	},
 	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &gta04_vmmc2_supply,
+	.consumer_supplies	= &gta04_vaux4_supply,
 };
 
+/* VAUX3 for Camera */
 
-// FIXME: control VAUX3 for Camera, VAUX2 for Sensors, VSIM for ext. Ant.
+static struct regulator_consumer_supply gta04_vaux3_supply = {
+	.supply			= "vaux3",
+};
+
+static struct regulator_init_data gta04_vaux3 = {
+	.constraints = {
+		.name			= "VAUX3",
+		.min_uV			= 2500000,
+		.max_uV			= 2500000,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL
+		| REGULATOR_MODE_STANDBY,
+		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE
+		| REGULATOR_CHANGE_MODE
+		| REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &gta04_vaux3_supply,
+};
+
+/* VAUX2 for Sensors ITG3200 (and LIS302/LSM303) */
+
+static struct regulator_consumer_supply gta04_vaux2_supply = {
+	.supply			= "vaux2",
+};
+
+static struct regulator_init_data gta04_vaux2 = {
+	.constraints = {
+		.name			= "VAUX2",
+		.min_uV			= 2800000,
+		.max_uV			= 2800000,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL
+		| REGULATOR_MODE_STANDBY,
+		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE
+		| REGULATOR_CHANGE_MODE
+		| REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &gta04_vaux2_supply,
+};
+
+/* VAUX1 unused */
+
+static struct regulator_consumer_supply gta04_vaux1_supply = {
+	.supply			= "vaux1",
+};
+
+static struct regulator_init_data gta04_vaux1 = {
+	.constraints = {
+		.name			= "VAUX1",
+		.min_uV			= 2500000,
+		.max_uV			= 3000000,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL
+		| REGULATOR_MODE_STANDBY,
+		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE
+		| REGULATOR_CHANGE_MODE
+		| REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &gta04_vaux1_supply,
+};
 
 /* VSIM used for powering the external GPS Antenna */
+
 static struct regulator_init_data gta04_vsim = {
 	.constraints = {
+		.name			= "VSIM",
 		.min_uV			= 2800000,
 		.max_uV			= 2800000,
 		.valid_modes_mask	= REGULATOR_MODE_NORMAL
@@ -499,15 +568,14 @@ static struct regulator_init_data gta04_vsim = {
 					| REGULATOR_CHANGE_MODE
 					| REGULATOR_CHANGE_STATUS,
 	},
-#if 0
 	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &gta04_vsim_supply,
-#endif
+	.consumer_supplies	= &gta04_vsim_supply,	// vmmc_aux
 };
 
 /* VDAC for DSS driving S-Video (8 mA unloaded, max 65 mA) */
 static struct regulator_init_data gta04_vdac = {
 	.constraints = {
+		.name			= "VDAC",
 		.min_uV			= 1800000,
 		.max_uV			= 1800000,
 		.valid_modes_mask	= REGULATOR_MODE_NORMAL
@@ -551,6 +619,8 @@ static struct twl4030_madc_platform_data gta04_madc_data = {
 	.irq_line	= 1,
 };
 
+// FIXME: we could copy more scripts from board-sdp3430.c if we understand what they do... */
+
 struct twl4030_power_data gta04_power_scripts = {
 /*	.scripts	= NULL,	*/
 	.num		= 0,
@@ -559,7 +629,7 @@ struct twl4030_power_data gta04_power_scripts = {
 
 /* override TWL defaults */
 
-static int zoom_batt_table[] = {
+static int gta04_batt_table[] = {
 	/* 0 C*/
 	30800, 29500, 28300, 27100,
 	26000, 24900, 23900, 22900, 22000, 21100, 20300, 19400, 18700, 17900,
@@ -570,9 +640,9 @@ static int zoom_batt_table[] = {
 	4040,  3910,  3790,  3670,  3550
 };
 
-static struct twl4030_bci_platform_data zoom_bci_data = {
-	.battery_tmp_tbl        = zoom_batt_table,
-	.tblsize                = ARRAY_SIZE(zoom_batt_table),
+static struct twl4030_bci_platform_data gta04_bci_data = {
+	.battery_tmp_tbl        = gta04_batt_table,
+	.tblsize                = ARRAY_SIZE(gta04_batt_table),
 };
 
 
@@ -581,17 +651,21 @@ static struct twl4030_platform_data gta04_twldata = {
 	.irq_end	= TWL4030_IRQ_END,
 
 	/* platform_data for children goes here */
-	.usb		= &gta04_usb_data,
+	.bci		= &gta04_bci_data,
 	.gpio		= &gta04_gpio_data,
-	.bci		= &zoom_bci_data,
-	.codec		= &gta04_codec_data,
 	.madc		= &gta04_madc_data,
-	.vmmc1		= &gta04_vmmc1,
+	.power		= &gta04_power_scripts,	/* empty but if not present, pm_power_off is not initialized */
+	.usb		= &gta04_usb_data,
+	.codec		= &gta04_codec_data,
+
+	.vaux1		= &gta04_vaux1,
+	.vaux2		= &gta04_vaux2,
+	.vaux3		= &gta04_vaux3,
 	.vaux4		= &gta04_vaux4,
+	.vmmc1		= &gta04_vmmc1,
 	.vsim		= &gta04_vsim,
 	.vdac		= &gta04_vdac,
 	.vpll2		= &gta04_vpll2,
-	.power		= &gta04_power_scripts,	/* empty but if not present, pm_power_off is not initialized */
 };
 
 static struct i2c_board_info __initdata gta04_i2c1_boardinfo[] = {
@@ -750,7 +824,7 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 	/* FIXME: add other drivers for HMC5883, BMA180, Si472x, Camera */
 };
 
-static int __init omap3_gta04_i2c_init(void)
+static int __init gta04_i2c_init(void)
 {
 	omap_register_i2c_bus(1, 2600, gta04_i2c1_boardinfo,
 			ARRAY_SIZE(gta04_i2c1_boardinfo));
@@ -806,7 +880,7 @@ static struct platform_device keys_gpio = {
 	},
 };
 
-static void __init omap3_gta04_init_irq(void)
+static void __init gta04_init_irq(void)
 {
         if (cpu_is_omap3630())
         { // initialize different power tables
@@ -831,9 +905,7 @@ static void __init omap3_gta04_init_irq(void)
 	omap_gpio_init();
 }
 
-#if defined(CONFIG_W1_SLAVE_BQ27000)
-
-/* HDQ access to the chip inside the battery */
+#if defined(CONFIG_HDQ_MASTER_OMAP)
 
 static struct platform_device gta04_hdq_device = {
 	.name		= "omap-hdq",
@@ -843,9 +915,25 @@ static struct platform_device gta04_hdq_device = {
 	},
 };
 
+#endif
+
+#if defined(CONFIG_W1_SLAVE_BQ27000)
+
+#endif
+
+/* HDQ access to the chip inside the battery */
+
+#if defined(CONFIG_BATTERY_BQ27x00)
+
+int hdq_read(struct device *dev, unsigned int reg)
+{
+	// read function - should do the HDQ transfer... but how do we connect this to the HDQ stack?
+	return -EINVAL;
+}
+
 static struct bq27000_platform_data gta04_bq27000_info = {
 	.name		= "bq27000",
-	.read		= NULL,	// read function - should do the HDQ transfer... but how???
+	.read		= hdq_read,
 };
 
 static struct platform_device gta04_bq27000_device = {
@@ -858,19 +946,64 @@ static struct platform_device gta04_bq27000_device = {
 
 #endif
 
-static struct platform_device *omap3_gta04_devices[] __initdata = {
-	// FIXME: we could keep the Backlight "LED"...
+#if defined(CONFIG_REGULATOR_VIRTUAL_CONSUMER)
+
+static struct platform_device gta04_vaux1_virtual_regulator_device = {
+	.name		= "reg-virt-consumer",
+	.id			= 1,	
+	.dev		= {
+		.platform_data	= "vaux1",
+	},
+};
+
+static struct platform_device gta04_vaux2_virtual_regulator_device = {
+	.name		= "reg-virt-consumer",
+	.id			= 2,	
+	.dev		= {
+		.platform_data	= "vaux2",
+	},
+};
+
+static struct platform_device gta04_vaux3_virtual_regulator_device = {
+	.name		= "reg-virt-consumer",
+	.id			= 3,	
+	.dev		= {
+		.platform_data	= "vaux3",
+	},
+};
+
+static struct platform_device gta04_vaux4_virtual_regulator_device = {
+	.name		= "reg-virt-consumer",
+	.id			= 4,	
+	.dev		= {
+		.platform_data	= "vaux4",	/* allow to control VAUX4 for WLAN/Bluetooth */
+	},
+};
+
+#endif
+
+static struct platform_device *gta04_devices[] __initdata = {
 //	&leds_gpio,
 	&keys_gpio,
 	&gta04_dss_device,
 	&gta04_bklight_device,
-#if defined(CONFIG_W1_SLAVE_BQ27000)
+#if defined(CONFIG_REGULATOR_VIRTUAL_CONSUMER)
+	&gta04_vaux1_virtual_regulator_device,
+	&gta04_vaux2_virtual_regulator_device,
+	&gta04_vaux3_virtual_regulator_device,
+	&gta04_vaux4_virtual_regulator_device,
+#endif
+#if defined(CONFIG_HDQ_MASTER_OMAP)
 	&gta04_hdq_device,
+#endif
+#if defined(CONFIG_BATTERY_BQ27x00)
 	&gta04_bq27000_device,
+#endif
+#if defined(CONFIG_W1_SLAVE_BQ27000)
 #endif
 };
 
-static void __init omap3gta04_flash_init(void)
+static void __init gta04_flash_init(void)
 {
 	u8 cs = 0;
 	u8 nandcs = GPMC_CS_NUM + 1;
@@ -897,13 +1030,13 @@ static void __init omap3gta04_flash_init(void)
 	}
 
 	if (nandcs < GPMC_CS_NUM) {
-		omap3gta04_nand_data.cs = nandcs;
-		omap3gta04_nand_data.gpmc_cs_baseaddr = (void *)
+		gta04_nand_data.cs = nandcs;
+		gta04_nand_data.gpmc_cs_baseaddr = (void *)
 			(gpmc_base_add + GPMC_CS0_BASE + nandcs * GPMC_CS_SIZE);
-		omap3gta04_nand_data.gpmc_baseaddr = (void *) (gpmc_base_add);
+		gta04_nand_data.gpmc_baseaddr = (void *) (gpmc_base_add);
 
 		printk(KERN_INFO "Registering NAND on CS%d\n", nandcs);
-		if (platform_device_register(&omap3gta04_nand_device) < 0)
+		if (platform_device_register(&gta04_nand_device) < 0)
 			printk(KERN_ERR "Unable to register NAND device\n");
 	}
 }
@@ -929,16 +1062,16 @@ static struct omap_board_mux board_mux[] __initdata = {
 #define board_mux	NULL
 #endif
 
-static void __init omap3_gta04_init(void)
+static void __init gta04_init(void)
 {
 	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);
-	omap3_gta04_init_rev();
-	omap3_gta04_i2c_init();
-	platform_add_devices(omap3_gta04_devices,
-						 ARRAY_SIZE(omap3_gta04_devices));
+	gta04_init_rev();
+	gta04_i2c_init();
+	platform_add_devices(gta04_devices,
+						 ARRAY_SIZE(gta04_devices));
 	omap_serial_init();
 	
-	printk(KERN_INFO "Revision GTA04A%d\n", omap3_gta04_version);
+	printk(KERN_INFO "Revision GTA04A%d\n", gta04_version);
 
 #ifdef CONFIG_OMAP_MUX
 
@@ -977,7 +1110,7 @@ static void __init omap3_gta04_init(void)
 	gpio_export(144, 0);	// no direction change
 	
 #ifdef GTA04A2
-	// different pins
+	// has different pins but neither chips are installed
 	
 #else
 	
@@ -997,7 +1130,7 @@ static void __init omap3_gta04_init(void)
 #if !defined(CONFIG_I2C_OMAP_GTA04A2)	// we don't have the controller chip on the A2 board
 	usb_ehci_init(&ehci_pdata);
 #endif
-	omap3gta04_flash_init();
+	gta04_flash_init();
 	
 	/* Ensure SDRC pins are mux'd for self-refresh */
 	omap_mux_init_signal("sdrc_cke0", OMAP_PIN_OUTPUT);
@@ -1008,14 +1141,10 @@ static void __init omap3_gta04_init(void)
 	gpio_request(TWL4030_MSECURE_GPIO, "mSecure");
 	gpio_direction_output(TWL4030_MSECURE_GPIO, true);
 	
-	/*
-	 /* create a simple show/store driver to power up/down the WLAN/BT VAUX4
-	 driver_create_file()
-	 */
 	gta04_display_init();
 }
 
-static void __init omap3_gta04_map_io(void)
+static void __init gta04_map_io(void)
 {
 	omap2_set_globals_343x();
 	omap2_map_common_io();
@@ -1026,8 +1155,8 @@ MACHINE_START(GTA04, "GTA04")
 	.phys_io	= 0x48000000,
 	.io_pg_offst	= ((0xfa000000) >> 18) & 0xfffc,
 	.boot_params	= 0x80000100,
-	.map_io		= omap3_gta04_map_io,
-	.init_irq	= omap3_gta04_init_irq,
-	.init_machine	= omap3_gta04_init,
+	.map_io		= gta04_map_io,
+	.init_irq	= gta04_init_irq,
+	.init_machine	= gta04_init,
 	.timer		= &omap_timer,
 MACHINE_END
