@@ -1727,6 +1727,9 @@ static struct clk dss_fck = {
 	.enable_reg	= OMAP54XX_CM_DSS_DSS_CLKCTRL,
 	.enable_bit	= OMAP54XX_MODULEMODE_SWCTRL,
 	.clkdm_name	= "dss_clkdm",
+#ifdef CONFIG_FB_OMAP_BOOTLOADER_INIT
+	.flags          = ENABLE_ON_INIT,
+#endif
 	.parent		= &l3_div_ck,
 	.recalc		= &followparent_recalc,
 };
@@ -1771,6 +1774,9 @@ static struct clk dss_sys_clk = {
 	.enable_reg	= OMAP54XX_CM_DSS_DSS_CLKCTRL,
 	.enable_bit	= OMAP54XX_OPTFCLKEN_SYS_CLK_SHIFT,
 	.clkdm_name	= "dss_clkdm",
+#ifdef CONFIG_FB_OMAP_BOOTLOADER_INIT
+	.flags          = ENABLE_ON_INIT,
+#endif
 };
 
 static struct clk gpio1_dbclk = {

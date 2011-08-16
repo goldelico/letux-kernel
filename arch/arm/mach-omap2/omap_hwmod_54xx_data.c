@@ -1395,6 +1395,9 @@ static struct omap_hwmod omap54xx_dss_hwmod = {
 	.name		= "dss_core",
 	.class		= &omap54xx_dss_hwmod_class,
 	.clkdm_name	= "dss_clkdm",
+#ifdef CONFIG_FB_OMAP_BOOTLOADER_INIT
+	.flags		= HWMOD_CONTROL_OPT_CLKS_IN_RESET | HWMOD_INIT_NO_RESET,
+#endif
 	.main_clk	= "dss_dss_clk",
 	.prcm = {
 		.omap4 = {
@@ -1497,6 +1500,9 @@ static struct omap_hwmod omap54xx_dss_dispc_hwmod = {
 	.name		= "dss_dispc",
 	.class		= &omap54xx_dispc_hwmod_class,
 	.clkdm_name	= "dss_clkdm",
+#ifdef CONFIG_FB_OMAP_BOOTLOADER_INIT
+	.flags		= HWMOD_INIT_NO_RESET,
+#endif
 	.mpu_irqs	= omap54xx_dss_dispc_irqs,
 	.sdma_reqs	= omap54xx_dss_dispc_sdma_reqs,
 	.main_clk	= "dss_dss_clk",
@@ -1595,6 +1601,9 @@ static struct omap_hwmod omap54xx_dss_dsi1_a_hwmod = {
 	.name		= "dss_dsi1_a",
 	.class		= &omap54xx_dsi1_hwmod_class,
 	.clkdm_name	= "dss_clkdm",
+#ifdef CONFIG_FB_OMAP_BOOTLOADER_INIT
+	.flags		= HWMOD_CONTROL_OPT_CLKS_IN_RESET | HWMOD_INIT_NO_RESET,
+#endif
 	.mpu_irqs	= omap54xx_dss_dsi1_a_irqs,
 	.sdma_reqs	= omap54xx_dss_dsi1_a_sdma_reqs,
 	.main_clk	= "dss_dss_clk",
@@ -1673,6 +1682,9 @@ static struct omap_hwmod omap54xx_dss_dsi1_c_hwmod = {
 	.name		= "dss_dsi1_c",
 	.class		= &omap54xx_dsi1_hwmod_class,
 	.clkdm_name	= "dss_clkdm",
+#ifdef CONFIG_FB_OMAP_BOOTLOADER_INIT
+	.flags		= HWMOD_CONTROL_OPT_CLKS_IN_RESET | HWMOD_INIT_NO_RESET,
+#endif
 	.mpu_irqs	= omap54xx_dss_dsi1_c_irqs,
 	.sdma_reqs	= omap54xx_dss_dsi1_c_sdma_reqs,
 	.main_clk	= "dss_dss_clk",
@@ -1772,6 +1784,9 @@ static struct omap_hwmod omap54xx_dss_hdmi_hwmod = {
 	.name		= "dss_hdmi",
 	.class		= &omap54xx_hdmi_hwmod_class,
 	.clkdm_name	= "dss_clkdm",
+#ifdef CONFIG_FB_OMAP_BOOTLOADER_INIT
+	.flags		= HWMOD_CONTROL_OPT_CLKS_IN_RESET | HWMOD_INIT_NO_RESET,
+#endif
 	.mpu_irqs	= omap54xx_dss_hdmi_irqs,
 	.sdma_reqs	= omap54xx_dss_hdmi_sdma_reqs,
 	.main_clk	= "dss_dss_clk",
@@ -1865,6 +1880,9 @@ static struct omap_hwmod omap54xx_dss_rfbi_hwmod = {
 	.name		= "dss_rfbi",
 	.class		= &omap54xx_rfbi_hwmod_class,
 	.clkdm_name	= "dss_clkdm",
+#ifdef CONFIG_FB_OMAP_BOOTLOADER_INIT
+	.flags		= HWMOD_CONTROL_OPT_CLKS_IN_RESET | HWMOD_INIT_NO_RESET,
+#endif
 	.sdma_reqs	= omap54xx_dss_rfbi_sdma_reqs,
 	.main_clk	= "dss_dss_clk",
 	.prcm = {
