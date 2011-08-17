@@ -1142,6 +1142,7 @@ static void __init gta04_init(void)
 	gpio_direction_output(TWL4030_MSECURE_GPIO, true);
 	
 	gta04_display_init();
+	regulator_has_full_constraints();
 }
 
 static void __init gta04_map_io(void)
