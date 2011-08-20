@@ -927,7 +927,7 @@ static struct platform_device gta04_hdq_device = {
 
 int hdq_read(struct device *dev, unsigned int reg)
 {
-	// read function - should do the HDQ transfer... but how do we connect this to the HDQ stack?
+	// read function - should do the HDQ transfer... but how do we connect this to the HDQ (1-wire CONFIG_HDQ_MASTER_OMAP) stack?
 	return -EINVAL;
 }
 
@@ -940,7 +940,7 @@ static struct platform_device gta04_bq27000_device = {
 	.name		= "bq27000-battery",
 	.id			= -1,
 	.dev		= {
-		.platform_data	= &gta04_bq27000_device,
+		.platform_data	= &gta04_bq27000_info,
 	},
 };
 
