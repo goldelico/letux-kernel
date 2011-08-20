@@ -664,7 +664,8 @@ static int dss_mgr_wait_for_go(struct omap_overlay_manager *mgr)
 
 	if (dssdev->type == OMAP_DISPLAY_TYPE_VENC
 			|| dssdev->type == OMAP_DISPLAY_TYPE_HDMI) {
-		irq = DISPC_IRQ_EVSYNC_ODD | DISPC_IRQ_EVSYNC_EVEN;
+		irq = DISPC_IRQ_EVSYNC_ODD | DISPC_IRQ_EVSYNC_EVEN
+						| DISPC_IRQ_FRAMEDONETV;
 	} else {
 		irq = (dssdev->manager->id == OMAP_DSS_CHANNEL_LCD) ?
 			DISPC_IRQ_VSYNC : DISPC_IRQ_VSYNC2;
@@ -736,7 +737,8 @@ int dss_mgr_wait_for_go_ovl(struct omap_overlay *ovl)
 
 	if (dssdev->type == OMAP_DISPLAY_TYPE_VENC
 			|| dssdev->type == OMAP_DISPLAY_TYPE_HDMI) {
-		irq = DISPC_IRQ_EVSYNC_ODD | DISPC_IRQ_EVSYNC_EVEN;
+		irq = DISPC_IRQ_EVSYNC_ODD | DISPC_IRQ_EVSYNC_EVEN
+						| DISPC_IRQ_FRAMEDONETV;
 	} else {
 		irq = (dssdev->manager->id == OMAP_DSS_CHANNEL_LCD) ?
 			DISPC_IRQ_VSYNC : DISPC_IRQ_VSYNC2;
