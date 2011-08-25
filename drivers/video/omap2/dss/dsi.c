@@ -3838,10 +3838,12 @@ static int dsi_proto_config(struct omap_dss_device *dssdev)
 		dsi_config_blanking_modes(dssdev);
 	}
 
-	dsi_vc_initial_config(dsidev, 0);
-	dsi_vc_initial_config(dsidev, 1);
-	dsi_vc_initial_config(dsidev, 2);
-	dsi_vc_initial_config(dsidev, 3);
+	if (!dssdev->skip_init) {
+		dsi_vc_initial_config(dsidev, 0);
+		dsi_vc_initial_config(dsidev, 1);
+		dsi_vc_initial_config(dsidev, 2);
+		dsi_vc_initial_config(dsidev, 3);
+	}
 
 	return 0;
 }
@@ -4353,9 +4355,11 @@ static int dsi_display_init_dsi(struct omap_dss_device *dssdev)
 	if (r)
 		goto err0;
 
-	r = dsi_configure_dsi_clocks(dssdev);
-	if (r)
-		goto err1;
+	if (!dssdev->skip_init) {
+		r = dsi_configure_dsi_clocks(dssdev);
+		if (r)
+			goto err1;
+	}
 
 	dss_select_dispc_clk_source(dssdev->clocks.dispc.dispc_fclk_src);
 	dss_select_dsi_clk_source(dsi_module, dssdev->clocks.dsi.dsi_fclk_src);
@@ -4364,13 +4368,19 @@ static int dsi_display_init_dsi(struct omap_dss_device *dssdev)
 
 	DSSDBG("PLL OK\n");
 
-	r = dsi_configure_dispc_clocks(dssdev);
-	if (r)
-		goto err2;
+	if (!dssdev->skip_init) {
+		r = dsi_configure_dispc_clocks(dssdev);
+		if (r)
+			goto err2;
+	}
 
-	r = dsi_cio_init(dssdev);
-	if (r)
-		goto err2;
+	if (!dssdev->skip_init) {
+		r = dsi_cio_init(dssdev);
+		if (r)
+			goto err2;
+	} else {
+		dsi_enable_scp_clk(dsidev);
+	}
 
 	_dsi_print_reset_status(dsidev);
 
@@ -4385,12 +4395,14 @@ static int dsi_display_init_dsi(struct omap_dss_device *dssdev)
 		goto err3;
 
 	/* enable interface */
-	dsi_vc_enable(dsidev, 0, 1);
-	dsi_vc_enable(dsidev, 1, 1);
-	dsi_vc_enable(dsidev, 2, 1);
-	dsi_vc_enable(dsidev, 3, 1);
-	dsi_if_enable(dsidev, 1);
-	dsi_force_tx_stop_mode_io(dsidev);
+	if (!dssdev->skip_init) {
+		dsi_vc_enable(dsidev, 0, 1);
+		dsi_vc_enable(dsidev, 1, 1);
+		dsi_vc_enable(dsidev, 2, 1);
+		dsi_vc_enable(dsidev, 3, 1);
+		dsi_if_enable(dsidev, 1);
+		dsi_force_tx_stop_mode_io(dsidev);
+	}
 
 	return 0;
 err3:
@@ -4458,13 +4470,16 @@ int omapdss_dsi_display_enable(struct omap_dss_device *dssdev)
 	if (r)
 		goto err_get_dsi;
 
-	dsi_enable_pll_clock(dsidev, 1);
+	if (!dssdev->skip_init)
+		dsi_enable_pll_clock(dsidev, 1);
 
 	_dsi_initialize_irq(dsidev);
 
-	r = dsi_display_init_dispc(dssdev);
-	if (r)
-		goto err_init_dispc;
+	if (!dssdev->skip_init) {
+		r = dsi_display_init_dispc(dssdev);
+		if (r)
+			goto err_init_dispc;
+	}
 
 	r = dsi_display_init_dsi(dssdev);
 	if (r)

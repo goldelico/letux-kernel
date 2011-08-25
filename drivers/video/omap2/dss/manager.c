@@ -537,6 +537,8 @@ struct manager_cache_data {
 	/* enlarge the update area if the update area contains scaled
 	 * overlays */
 	bool enlarge_update_area;
+
+	bool skip_init;
 };
 
 static struct {
@@ -1088,8 +1090,12 @@ static int configure_dispc(void)
 		/* We don't need GO with manual update display. LCD iface will
 		 * always be turned off after frame, and new settings will be
 		 * taken in to use at next update */
-		if (!mc->manual_update)
-			dispc_mgr_go(i);
+		if (!mc->manual_update) {
+			if (mc->skip_init)
+				mc->skip_init = false;
+			else
+				dispc_mgr_go(i);
+		}
 	}
 
 	if (busy)
@@ -1449,6 +1455,8 @@ static int omap_dss_mgr_apply(struct omap_overlay_manager *mgr)
 	mc->dirty = true;
 
 	mc->manual_update = dssdev->caps & OMAP_DSS_DISPLAY_CAP_MANUAL_UPDATE;
+
+	mc->skip_init = dssdev->skip_init;
 skip_mgr:
 
 	/* XXX TODO: Try to get fifomerge working. The problem is that it
