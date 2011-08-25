@@ -3017,6 +3017,7 @@ int snd_soc_dapm_stream_event(struct snd_soc_pcm_runtime *rtd,
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct snd_soc_platform *platform = rtd->platform;
 
 	if (stream == NULL)
 		return 0;
@@ -3028,6 +3029,7 @@ int snd_soc_dapm_stream_event(struct snd_soc_pcm_runtime *rtd,
 		mutex_lock(&codec->mutex);
 		soc_dapm_stream_event(&codec->dapm, stream, event);
 		mutex_unlock(&codec->mutex);
+		soc_dapm_stream_event(&platform->dapm, stream, event);
 	}
 	return 0;
 }
