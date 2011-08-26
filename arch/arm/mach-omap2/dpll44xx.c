@@ -167,6 +167,51 @@ int omap4_prcm_freq_update(void)
 	return 0;
 }
 
+unsigned long omap4_dpll_regm4xen_recalc(struct clk *clk)
+{
+	u32 v;
+	unsigned long rate;
+	struct dpll_data *dd;
+
+	if (!clk || !clk->dpll_data)
+		return -EINVAL;
+
+	dd = clk->dpll_data;
+
+	rate = omap2_get_dpll_rate(clk);
+
+	/* regm4xen adds a multiplier of 4 to DPLL calculations */
+	v = __raw_readl(dd->control_reg);
+	if (v & OMAP4430_DPLL_REGM4XEN_MASK)
+		rate *= OMAP4430_REGM4XEN_MULT;
+
+	return rate;
+}
+
+long omap4_dpll_regm4xen_round_rate(struct clk *clk, unsigned long target_rate)
+{
+	u32 v;
+	struct dpll_data *dd;
+
+	if (!clk || !clk->dpll_data)
+		return -EINVAL;
+
+	dd = clk->dpll_data;
+
+	/* regm4xen adds a multiplier of 4 to DPLL calculations */
+	v = __raw_readl(dd->control_reg) & OMAP4430_DPLL_REGM4XEN_MASK;
+
+	if (v)
+		target_rate = target_rate / OMAP4430_REGM4XEN_MULT;
+
+	omap2_dpll_round_rate(clk, target_rate);
+
+	if (v)
+		clk->dpll_data->last_rounded_rate *= OMAP4430_REGM4XEN_MULT;
+
+	return clk->dpll_data->last_rounded_rate;
+}
+
 /* Supported only on OMAP4 */
 int omap4_dpllmx_gatectrl_read(struct clk *clk)
 {
