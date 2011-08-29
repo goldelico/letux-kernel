@@ -26,6 +26,8 @@
 #include <linux/mfd/palmas.h>
 #endif
 #include <linux/i2c/smsc.h>
+#include <linux/memblock.h>
+
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
@@ -34,6 +36,7 @@
 #include <mach/hardware.h>
 #include <mach/omap4-common.h>
 #include <plat/common.h>
+#include <plat/remoteproc.h>
 #include <plat/usb.h>
 #include <plat/mmc.h>
 #include <plat/omap4-keypad.h>
@@ -48,6 +51,13 @@
 
 #define OMAP5_TSL2771_INT_GPIO          149
 #define	OMAP5_MPU6050_INT_GPIO		150
+
+#define PHYS_ADDR_SMC_SIZE	(SZ_1M * 3)
+#define PHYS_ADDR_SMC_MEM	(0x80000000 + SZ_1G - PHYS_ADDR_SMC_SIZE)
+#define OMAP_ION_HEAP_SECURE_INPUT_SIZE	(SZ_1M * 90)
+#define PHYS_ADDR_DUCATI_SIZE	(SZ_1M * 105)
+#define PHYS_ADDR_DUCATI_MEM	(PHYS_ADDR_SMC_MEM - PHYS_ADDR_DUCATI_SIZE - \
+					OMAP_ION_HEAP_SECURE_INPUT_SIZE)
 
 static const int evm5430_keymap[] = {
 	KEY(0, 0, KEY_RESERVED),
@@ -1142,11 +1152,23 @@ static void __init omap_5430evm_map_io(void)
 	omap54xx_map_common_io();
 }
 
+static void __init omap_5430evm_reserve(void)
+{
+	/* do the static reservations first */
+	memblock_remove(PHYS_ADDR_SMC_MEM, PHYS_ADDR_SMC_SIZE);
+	memblock_remove(PHYS_ADDR_DUCATI_MEM, PHYS_ADDR_DUCATI_SIZE);
+	/* ipu needs to recognize secure input buffer area as well */
+	omap_ipu_set_static_mempool(PHYS_ADDR_DUCATI_MEM,
+		PHYS_ADDR_DUCATI_SIZE + OMAP_ION_HEAP_SECURE_INPUT_SIZE);
+
+	omap_reserve();
+}
+
 MACHINE_START(OMAP_5430EVM, "OMAP5430 evm board")
 	/* Maintainer: Santosh Shilimkar - Texas Instruments Inc */
 	.boot_params	= 0x80000100,
 	.map_io		= omap_5430evm_map_io,
-	.reserve	= omap_reserve,
+	.reserve        = omap_5430evm_reserve,
 	.init_early	= omap_5430evm_init_early,
 	.init_irq	= gic_init_irq,
 	.handle_irq     = gic_handle_irq,
