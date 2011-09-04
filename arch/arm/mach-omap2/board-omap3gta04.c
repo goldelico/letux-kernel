@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2008 Texas Instruments
  *
- * Modified from mach-omap2/board-omap3beagle.c
+ * Modified from mach-omap2/board-omap3gta04.c
  *
  * Initial code: Syed Mohammed Khasim
  *
@@ -35,6 +35,9 @@
 #include <linux/i2c/tsc2007.h>
 
 #include <linux/i2c/bmp085.h>
+#include <linux/power/bq27x00_battery.h>
+
+#include <linux/sysfs.h>
 
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
@@ -84,8 +87,8 @@ static struct omap_opp * _omap37x_l3_rate_table         = NULL;
 #define TWL4030_MSECURE_GPIO 22
 
 /* see: https://patchwork.kernel.org/patch/120449/
- * OMAP3 Beagle revision
- * Run time detection of Beagle revision is done by reading GPIO.
+ * OMAP3 gta04 revision
+ * Run time detection of gta04 revision is done by reading GPIO.
  * GPIO ID -
  *	AXBX	= GPIO173, GPIO172, GPIO171: 1 1 1
  *	C1_3	= GPIO173, GPIO172, GPIO171: 1 1 0
@@ -93,19 +96,19 @@ static struct omap_opp * _omap37x_l3_rate_table         = NULL;
  *	XM	= GPIO173, GPIO172, GPIO171: 0 0 0
  */
 enum {
-	OMAP3BEAGLE_BOARD_UNKN = 0,
-	OMAP3BEAGLE_BOARD_AXBX,
-	OMAP3BEAGLE_BOARD_C1_3,
-	OMAP3BEAGLE_BOARD_C4,
-	OMAP3BEAGLE_BOARD_XM,
+	gta04_BOARD_UNKN = 0,
+	gta04_BOARD_AXBX,
+	gta04_BOARD_C1_3,
+	gta04_BOARD_C4,
+	gta04_BOARD_XM,
 };
 
-static u8 omap3_gta04_version;	/* counts 2..9 */
+static u8 gta04_version;	/* counts 2..9 */
 
-static void __init omap3_beagle_init_rev(void)
+static void __init gta04_init_rev(void)
 {
 	int ret;
-	u16 beagle_rev = 0;
+	u16 gta04_rev = 0;
 	static char revision[8] = {	/* revision table defined by pull-down R305, R306, R307 */
 		9,
 		6,
@@ -143,13 +146,13 @@ static void __init omap3_beagle_init_rev(void)
 	
 	udelay(100);
 
-	beagle_rev = gpio_get_value(171)
+	gta04_rev = gpio_get_value(171)
 				| (gpio_get_value(172) << 1)
 				| (gpio_get_value(173) << 2);
 	
-	printk("beagle_rev %u\n", beagle_rev);
+	printk("gta04_rev %u\n", gta04_rev);
 
-	omap3_gta04_version = revision[beagle_rev];
+	gta04_version = revision[gta04_rev];
 	
 	return;
 	
@@ -159,13 +162,13 @@ fail1:
 	gpio_free(171);
 fail0:
 	printk(KERN_ERR "Unable to get revision detection GPIO pins\n");
-	omap3_gta04_version = 0;
+	gta04_version = 0;
 
 	return;
 }
 
 
-static struct mtd_partition omap3beagle_nand_partitions[] = {
+static struct mtd_partition gta04_nand_partitions[] = {
 	/* All the partition sizes are listed in terms of NAND block size */
 	{
 		.name		= "X-Loader",
@@ -195,32 +198,32 @@ static struct mtd_partition omap3beagle_nand_partitions[] = {
 	},
 };
 
-static struct omap_nand_platform_data omap3beagle_nand_data = {
+static struct omap_nand_platform_data gta04_nand_data = {
 	.options	= NAND_BUSWIDTH_16,
-	.parts		= omap3beagle_nand_partitions,
-	.nr_parts	= ARRAY_SIZE(omap3beagle_nand_partitions),
+	.parts		= gta04_nand_partitions,
+	.nr_parts	= ARRAY_SIZE(gta04_nand_partitions),
 	.dma_channel	= -1,		/* disable DMA in OMAP NAND driver */
 	.nand_setup	= NULL,
 	.dev_ready	= NULL,
 };
 
-static struct resource omap3beagle_nand_resource = {
+static struct resource gta04_nand_resource = {
 	.flags		= IORESOURCE_MEM,
 };
 
-static struct platform_device omap3beagle_nand_device = {
+static struct platform_device gta04_nand_device = {
 	.name		= "omap2-nand",
 	.id		= -1,
 	.dev		= {
-		.platform_data	= &omap3beagle_nand_data,
+		.platform_data	= &gta04_nand_data,
 	},
 	.num_resources	= 1,
-	.resource	= &omap3beagle_nand_resource,
+	.resource	= &gta04_nand_resource,
 };
 
 /* DSS */
 
-static int beagle_enable_dvi(struct omap_dss_device *dssdev)
+static int gta04_enable_dvi(struct omap_dss_device *dssdev)
 {
 	if (dssdev->reset_gpio != -1)
 		gpio_set_value(dssdev->reset_gpio, 1);
@@ -228,49 +231,49 @@ static int beagle_enable_dvi(struct omap_dss_device *dssdev)
 	return 0;
 }
 
-static void beagle_disable_dvi(struct omap_dss_device *dssdev)
+static void gta04_disable_dvi(struct omap_dss_device *dssdev)
 {
 	if (dssdev->reset_gpio != -1)
 		gpio_set_value(dssdev->reset_gpio, 0);
 }
 
-static struct omap_dss_device beagle_dvi_device = {
+static struct omap_dss_device gta04_dvi_device = {
 	.type = OMAP_DISPLAY_TYPE_DPI,
 	.name = "dvi",
 	.driver_name = "generic_panel",
 	.phy.dpi.data_lines = 24,
 //	.reset_gpio = 170,
 	.reset_gpio = -1,
-	.platform_enable = beagle_enable_dvi,
-	.platform_disable = beagle_disable_dvi,
+	.platform_enable = gta04_enable_dvi,
+	.platform_disable = gta04_disable_dvi,
 };
 
-static int beagle_enable_lcd(struct omap_dss_device *dssdev)
+static int gta04_enable_lcd(struct omap_dss_device *dssdev)
 {
-	printk("beagle_enable_lcd()\n");
+	printk("gta04_enable_lcd()\n");
 	// whatever we need, e.g. enable power
 //	gpio_set_value(170, 0);	// DVI off
 	gpio_set_value(57, 1);	// enable backlight
 	return 0;
 }
 
-static void beagle_disable_lcd(struct omap_dss_device *dssdev)
+static void gta04_disable_lcd(struct omap_dss_device *dssdev)
 {
-	printk("beagle_disable_lcd()\n");
+	printk("gta04_disable_lcd()\n");
 	// whatever we need, e.g. disable power
 	gpio_set_value(57, 0);	// shut down backlight
 }
 
-static struct omap_dss_device beagle_lcd_device = {
+static struct omap_dss_device gta04_lcd_device = {
 	.type = OMAP_DISPLAY_TYPE_DPI,
 	.name = "lcd",
 	.driver_name = "td028ttec1_panel",
 	.phy.dpi.data_lines = 24,
-	.platform_enable = beagle_enable_lcd,
-	.platform_disable = beagle_disable_lcd,
+	.platform_enable = gta04_enable_lcd,
+	.platform_disable = gta04_disable_lcd,
 };
 
-static int beagle_panel_enable_tv(struct omap_dss_device *dssdev)
+static int gta04_panel_enable_tv(struct omap_dss_device *dssdev)
 {
 	u32 reg;
 	
@@ -299,7 +302,7 @@ static int beagle_panel_enable_tv(struct omap_dss_device *dssdev)
 	return 0;
 }
 
-static void beagle_panel_disable_tv(struct omap_dss_device *dssdev)
+static void gta04_panel_disable_tv(struct omap_dss_device *dssdev)
 {
 	gpio_set_value(23, 0);	// disable output driver (and re-enable microphone)
 	
@@ -309,88 +312,90 @@ static void beagle_panel_disable_tv(struct omap_dss_device *dssdev)
 			TWL4030_VDAC_DEV_GRP);
 }
 
-static struct omap_dss_device beagle_tv_device = {
+static struct omap_dss_device gta04_tv_device = {
 	.name = "tv",
 	.driver_name = "venc",
 	.type = OMAP_DISPLAY_TYPE_VENC,
 	/* GTA04 has a single composite output (with external video driver) */
 	.phy.venc.type = OMAP_DSS_VENC_TYPE_COMPOSITE, /*OMAP_DSS_VENC_TYPE_SVIDEO, */
 	.phy.venc.invert_polarity = true,	/* needed if we use external video driver */
-	.platform_enable = beagle_panel_enable_tv,
-	.platform_disable = beagle_panel_disable_tv,
+	.platform_enable = gta04_panel_enable_tv,
+	.platform_disable = gta04_panel_disable_tv,
 };
 
-static struct omap_dss_device *beagle_dss_devices[] = {
-	&beagle_dvi_device,
-	&beagle_tv_device,
-	&beagle_lcd_device,
+static struct omap_dss_device *gta04_dss_devices[] = {
+	&gta04_dvi_device,
+	&gta04_tv_device,
+	&gta04_lcd_device,
 };
 
-static struct omap_dss_board_info beagle_dss_data = {
-	.num_devices = ARRAY_SIZE(beagle_dss_devices),
-	.devices = beagle_dss_devices,
-	.default_device = &beagle_dvi_device,
+static struct omap_dss_board_info gta04_dss_data = {
+	.num_devices = ARRAY_SIZE(gta04_dss_devices),
+	.devices = gta04_dss_devices,
+	.default_device = &gta04_dvi_device,
 };
 
-static struct platform_device beagle_dss_device = {
+static struct platform_device gta04_dss_device = {
 	.name          = "omapdss",
 	.id            = -1,
 	.dev            = {
-		.platform_data = &beagle_dss_data,
+		.platform_data = &gta04_dss_data,
 	},
 };
 
-static void beagle_set_bl_intensity(int intensity)
+static void gta04_set_bl_intensity(int intensity)
 {
 	// control PWM_11
 	// use 500 Hz pulse and intensity 0..255
 }
 
-static struct generic_bl_info beagle_bl_platform_data = {
+static struct generic_bl_info gta04_bl_platform_data = {
 	.name			= "bklight",
 	.max_intensity		= 255,
 	.default_intensity	= 200,
 	.limit_mask		= 0,
-	.set_bl_intensity	= beagle_set_bl_intensity,
+	.set_bl_intensity	= gta04_set_bl_intensity,
 	.kick_battery		= NULL,
 };
 
-static struct platform_device beagle_bklight_device = {
+static struct platform_device gta04_bklight_device = {
 	.name		= "generic-bl",
 	.id			= -1,
 	.dev		= {
-		.parent		= &beagle_dss_device.dev,
-		.platform_data	= &beagle_bl_platform_data,
+		.parent		= &gta04_dss_device.dev,
+		.platform_data	= &gta04_bl_platform_data,
 	},
 };
 
 
-static struct regulator_consumer_supply beagle_vdac_supply = {
+static struct regulator_consumer_supply gta04_vdac_supply = {
 	.supply		= "vdda_dac",
-	.dev		= &beagle_dss_device.dev,
+	.dev		= &gta04_dss_device.dev,
 };
 
-static struct regulator_consumer_supply beagle_vdvi_supply = {
+static struct regulator_consumer_supply gta04_vdvi_supply = {
 	.supply		= "vdds_dsi",
-	.dev		= &beagle_dss_device.dev,
+	.dev		= &gta04_dss_device.dev,
 };
 
-static void __init beagle_display_init(void)
+static void __init gta04_display_init(void)
 {
 /* N/A on GTA04
 	int r;
  
-	r = gpio_request(beagle_dvi_device.reset_gpio, "DVI reset");
+	r = gpio_request(gta04_dvi_device.reset_gpio, "DVI reset");
 	if (r < 0) {
-		printk(KERN_ERR "Unable to get DVI reset GPIO %d\n", beagle_dvi_device.reset_gpio);
+		printk(KERN_ERR "Unable to get DVI reset GPIO %d\n", gta04_dvi_device.reset_gpio);
 		return;
 	}
 
-	gpio_direction_output(beagle_dvi_device.reset_gpio, 0);
+	gpio_direction_output(gta04_dvi_device.reset_gpio, 0);
  */
 }
 
 #include "sdram-micron-mt46h32m32lf-6.h"
+
+static struct gpio_led gpio_leds[];
 
 static struct twl4030_hsmmc_info mmc[] = {
 	{
@@ -412,21 +417,15 @@ static struct twl4030_hsmmc_info mmc[] = {
 	{}	/* Terminator */
 };
 
-static struct regulator_consumer_supply beagle_vmmc1_supply = {
+static struct regulator_consumer_supply gta04_vmmc1_supply = {
 	.supply			= "vmmc",
 };
 
-static struct regulator_consumer_supply beagle_vmmc_aux_supply = {
+static struct regulator_consumer_supply gta04_vsim_supply = {
 	.supply			= "vmmc_aux",
 };
 
-static struct regulator_consumer_supply beagle_vmmc2_supply = {
-	.supply			= "vaux4",
-};
-
-static struct gpio_led gpio_leds[];
-
-static int beagle_twl_gpio_setup(struct device *dev,
+static int gta04_twl_gpio_setup(struct device *dev,
 		unsigned gpio, unsigned ngpio)
 {
 	// we should keep enabling mmc, vmmc1, nEN_USB_PWR, maybe CAM_EN
@@ -434,16 +433,18 @@ static int beagle_twl_gpio_setup(struct device *dev,
 	twl4030_mmc_init(mmc);
 
 	/* link regulators to MMC adapters */
-	beagle_vmmc1_supply.dev = mmc[0].dev;
-//	beagle_vmmc_aux_supply.dev = mmc[0].dev;	/* supply for upper 4 bits */
+	gta04_vmmc1_supply.dev = mmc[0].dev;
+//	gta04_vsim_supply.dev = mmc[0].dev;	/* supply for upper 4 bits */
 	
+#ifdef OLD
 	// this should enable power control for WLAN/BT
-//	beagle_vmmc2_supply.dev = mmc[1].dev;
-
+//	gta04_vmmc2_supply.dev = mmc[1].dev;
+#endif
+	
 	return 0;
 }
 
-static struct twl4030_gpio_platform_data beagle_gpio_data = {
+static struct twl4030_gpio_platform_data gta04_gpio_data = {
 	.gpio_base	= OMAP_MAX_GPIO_LINES,
 	.irq_base	= TWL4030_GPIO_IRQ_BASE,
 	.irq_end	= TWL4030_GPIO_IRQ_END,
@@ -451,12 +452,13 @@ static struct twl4030_gpio_platform_data beagle_gpio_data = {
 	.pullups	= BIT(1),
 	.pulldowns	= BIT(2) | BIT(6) | BIT(7) | BIT(8) | BIT(13)
 				| BIT(15) | BIT(16) | BIT(17),
-	.setup		= beagle_twl_gpio_setup,
+	.setup		= gta04_twl_gpio_setup,
 };
 
 /* VMMC1 for MMC1 pins CMD, CLK, DAT0..DAT3 (20 mA, plus card == max 220 mA) */
-static struct regulator_init_data beagle_vmmc1 = {
+static struct regulator_init_data gta04_vmmc1 = {
 	.constraints = {
+		.name			= "VMMC1",
 		.min_uV			= 1850000,
 		.max_uV			= 3150000,
 		.valid_modes_mask	= REGULATOR_MODE_NORMAL
@@ -466,14 +468,20 @@ static struct regulator_init_data beagle_vmmc1 = {
 					| REGULATOR_CHANGE_STATUS,
 	},
 	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &beagle_vmmc1_supply,
+	.consumer_supplies	= &gta04_vmmc1_supply,
 };
 
 /* VAUX4 powers Bluetooth and WLAN */
-static struct regulator_init_data beagle_vaux4 = {
+
+static struct regulator_consumer_supply gta04_vaux4_supply = {
+	.supply			= "vaux4",
+};
+
+static struct regulator_init_data gta04_vaux4 = {
 	.constraints = {
-		.min_uV			= 3300000,
-		.max_uV			= 3300000,
+		.name			= "VAUX4",
+		.min_uV			= 2800000,
+		.max_uV			= 3150000,	// FIXME: this is a HW issue - 3.15V or 3.3V isn't supported officially - set CONFIG_TWL4030_ALLOW_UNSUPPORTED
 		.valid_modes_mask	= REGULATOR_MODE_NORMAL
 		| REGULATOR_MODE_STANDBY,
 		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE
@@ -481,15 +489,77 @@ static struct regulator_init_data beagle_vaux4 = {
 		| REGULATOR_CHANGE_STATUS,
 	},
 	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &beagle_vmmc2_supply,
+	.consumer_supplies	= &gta04_vaux4_supply,
 };
 
+/* VAUX3 for Camera */
 
-// FIXME: control VAUX3 for Camera, VAUX2 for Sensors, VSIM for ext. Ant.
+static struct regulator_consumer_supply gta04_vaux3_supply = {
+	.supply			= "vaux3",
+};
+
+static struct regulator_init_data gta04_vaux3 = {
+	.constraints = {
+		.name			= "VAUX3",
+		.min_uV			= 2500000,
+		.max_uV			= 2500000,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL
+		| REGULATOR_MODE_STANDBY,
+		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE
+		| REGULATOR_CHANGE_MODE
+		| REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &gta04_vaux3_supply,
+};
+
+/* VAUX2 for Sensors ITG3200 (and LIS302/LSM303) */
+
+static struct regulator_consumer_supply gta04_vaux2_supply = {
+	.supply			= "vaux2",
+};
+
+static struct regulator_init_data gta04_vaux2 = {
+	.constraints = {
+		.name			= "VAUX2",
+		.min_uV			= 2800000,
+		.max_uV			= 2800000,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL
+		| REGULATOR_MODE_STANDBY,
+		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE
+		| REGULATOR_CHANGE_MODE
+		| REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &gta04_vaux2_supply,
+};
+
+/* VAUX1 unused */
+
+static struct regulator_consumer_supply gta04_vaux1_supply = {
+	.supply			= "vaux1",
+};
+
+static struct regulator_init_data gta04_vaux1 = {
+	.constraints = {
+		.name			= "VAUX1",
+		.min_uV			= 2500000,
+		.max_uV			= 3000000,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL
+		| REGULATOR_MODE_STANDBY,
+		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE
+		| REGULATOR_CHANGE_MODE
+		| REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &gta04_vaux1_supply,
+};
 
 /* VSIM used for powering the external GPS Antenna */
-static struct regulator_init_data beagle_vsim = {
+
+static struct regulator_init_data gta04_vsim = {
 	.constraints = {
+		.name			= "VSIM",
 		.min_uV			= 2800000,
 		.max_uV			= 2800000,
 		.valid_modes_mask	= REGULATOR_MODE_NORMAL
@@ -498,15 +568,14 @@ static struct regulator_init_data beagle_vsim = {
 					| REGULATOR_CHANGE_MODE
 					| REGULATOR_CHANGE_STATUS,
 	},
-#if 0
 	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &beagle_vsim_supply,
-#endif
+	.consumer_supplies	= &gta04_vsim_supply,	// vmmc_aux
 };
 
 /* VDAC for DSS driving S-Video (8 mA unloaded, max 65 mA) */
-static struct regulator_init_data beagle_vdac = {
+static struct regulator_init_data gta04_vdac = {
 	.constraints = {
+		.name			= "VDAC",
 		.min_uV			= 1800000,
 		.max_uV			= 1800000,
 		.valid_modes_mask	= REGULATOR_MODE_NORMAL
@@ -515,11 +584,11 @@ static struct regulator_init_data beagle_vdac = {
 					| REGULATOR_CHANGE_STATUS,
 	},
 	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &beagle_vdac_supply,
+	.consumer_supplies	= &gta04_vdac_supply,
 };
 
 /* VPLL2 for digital video outputs */
-static struct regulator_init_data beagle_vpll2 = {
+static struct regulator_init_data gta04_vpll2 = {
 	.constraints = {
 		.name			= "VDVI",
 		.min_uV			= 1800000,
@@ -530,25 +599,27 @@ static struct regulator_init_data beagle_vpll2 = {
 					| REGULATOR_CHANGE_STATUS,
 	},
 	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &beagle_vdvi_supply,
+	.consumer_supplies	= &gta04_vdvi_supply,
 };
 
-static struct twl4030_usb_data beagle_usb_data = {
+static struct twl4030_usb_data gta04_usb_data = {
 	.usb_mode	= T2_USB_MODE_ULPI,
 };
 
-static struct twl4030_codec_audio_data beagle_audio_data = {
+static struct twl4030_codec_audio_data gta04_audio_data = {
 	.audio_mclk = 26000000,
 };
 
-static struct twl4030_codec_data beagle_codec_data = {
+static struct twl4030_codec_data gta04_codec_data = {
 	.audio_mclk = 26000000,
-	.audio = &beagle_audio_data,
+	.audio = &gta04_audio_data,
 };
 
-static struct twl4030_madc_platform_data beagle_madc_data = {
+static struct twl4030_madc_platform_data gta04_madc_data = {
 	.irq_line	= 1,
 };
+
+// FIXME: we could copy more scripts from board-sdp3430.c if we understand what they do... */
 
 struct twl4030_power_data gta04_power_scripts = {
 /*	.scripts	= NULL,	*/
@@ -558,7 +629,7 @@ struct twl4030_power_data gta04_power_scripts = {
 
 /* override TWL defaults */
 
-static int zoom_batt_table[] = {
+static int gta04_batt_table[] = {
 	/* 0 C*/
 	30800, 29500, 28300, 27100,
 	26000, 24900, 23900, 22900, 22000, 21100, 20300, 19400, 18700, 17900,
@@ -569,36 +640,40 @@ static int zoom_batt_table[] = {
 	4040,  3910,  3790,  3670,  3550
 };
 
-static struct twl4030_bci_platform_data zoom_bci_data = {
-	.battery_tmp_tbl        = zoom_batt_table,
-	.tblsize                = ARRAY_SIZE(zoom_batt_table),
+static struct twl4030_bci_platform_data gta04_bci_data = {
+	.battery_tmp_tbl        = gta04_batt_table,
+	.tblsize                = ARRAY_SIZE(gta04_batt_table),
 };
 
 
-static struct twl4030_platform_data beagle_twldata = {
+static struct twl4030_platform_data gta04_twldata = {
 	.irq_base	= TWL4030_IRQ_BASE,
 	.irq_end	= TWL4030_IRQ_END,
 
 	/* platform_data for children goes here */
-	.usb		= &beagle_usb_data,
-	.gpio		= &beagle_gpio_data,
-	.bci		= &zoom_bci_data,
-	.codec		= &beagle_codec_data,
-	.madc		= &beagle_madc_data,
-	.vmmc1		= &beagle_vmmc1,
-	.vaux4		= &beagle_vaux4,
-	.vsim		= &beagle_vsim,
-	.vdac		= &beagle_vdac,
-	.vpll2		= &beagle_vpll2,
+	.bci		= &gta04_bci_data,
+	.gpio		= &gta04_gpio_data,
+	.madc		= &gta04_madc_data,
 	.power		= &gta04_power_scripts,	/* empty but if not present, pm_power_off is not initialized */
+	.usb		= &gta04_usb_data,
+	.codec		= &gta04_codec_data,
+
+	.vaux1		= &gta04_vaux1,
+	.vaux2		= &gta04_vaux2,
+	.vaux3		= &gta04_vaux3,
+	.vaux4		= &gta04_vaux4,
+	.vmmc1		= &gta04_vmmc1,
+	.vsim		= &gta04_vsim,
+	.vdac		= &gta04_vdac,
+	.vpll2		= &gta04_vpll2,
 };
 
-static struct i2c_board_info __initdata beagle_i2c1_boardinfo[] = {
+static struct i2c_board_info __initdata gta04_i2c1_boardinfo[] = {
 	{
 		I2C_BOARD_INFO("twl4030", 0x48),
 		.flags = I2C_CLIENT_WAKE,
 		.irq = INT_34XX_SYS_NIRQ,
-		.platform_data = &beagle_twldata,
+		.platform_data = &gta04_twldata,
 	},
 };
 
@@ -708,7 +783,7 @@ struct bmp085_platform_data bmp085_info = {
 #endif
 
 
-static struct i2c_board_info __initdata beagle_i2c2_boardinfo[] = {
+static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 #ifdef CONFIG_TOUCHSCREEN_TSC2007
 {
 	I2C_BOARD_INFO("tsc2007", 0x48),
@@ -749,12 +824,12 @@ static struct i2c_board_info __initdata beagle_i2c2_boardinfo[] = {
 	/* FIXME: add other drivers for HMC5883, BMA180, Si472x, Camera */
 };
 
-static int __init omap3_beagle_i2c_init(void)
+static int __init gta04_i2c_init(void)
 {
-	omap_register_i2c_bus(1, 2600, beagle_i2c1_boardinfo,
-			ARRAY_SIZE(beagle_i2c1_boardinfo));
-	omap_register_i2c_bus(2, 400,  beagle_i2c2_boardinfo,
-				ARRAY_SIZE(beagle_i2c2_boardinfo));
+	omap_register_i2c_bus(1, 2600, gta04_i2c1_boardinfo,
+			ARRAY_SIZE(gta04_i2c1_boardinfo));
+	omap_register_i2c_bus(2, 400,  gta04_i2c2_boardinfo,
+				ARRAY_SIZE(gta04_i2c2_boardinfo));
 	/* Bus 3 is attached to the DVI port where devices like the pico DLP
 	 * projector don't work reliably with 400kHz */
 	omap_register_i2c_bus(3, 100, NULL, 0);
@@ -764,7 +839,7 @@ static int __init omap3_beagle_i2c_init(void)
 #if 0
 // FIXME: initialize SPIs and McBSPs
 
-static struct spi_board_info beaglefpga_mcspi_board_info[] = {
+static struct spi_board_info gta04fpga_mcspi_board_info[] = {
 	// spi 4.0
 	{
 		.modalias	= "spidev",
@@ -775,11 +850,11 @@ static struct spi_board_info beaglefpga_mcspi_board_info[] = {
 	},
 };
 
-static void __init beaglefpga_init_spi(void)
+static void __init gta04fpga_init_spi(void)
 {
 		/* hook the spi ports to the spidev driver */
-		spi_register_board_info(beaglefpga_mcspi_board_info,
-			ARRAY_SIZE(beaglefpga_mcspi_board_info));
+		spi_register_board_info(gta04fpga_mcspi_board_info,
+			ARRAY_SIZE(gta04fpga_mcspi_board_info));
 }
 #endif
 
@@ -805,7 +880,7 @@ static struct platform_device keys_gpio = {
 	},
 };
 
-static void __init omap3_beagle_init_irq(void)
+static void __init gta04_init_irq(void)
 {
         if (cpu_is_omap3630())
         { // initialize different power tables
@@ -830,15 +905,105 @@ static void __init omap3_beagle_init_irq(void)
 	omap_gpio_init();
 }
 
-static struct platform_device *omap3_beagle_devices[] __initdata = {
-	// FIXME: we could keep the Backlight "LED"...
-//	&leds_gpio,
-	&keys_gpio,
-	&beagle_dss_device,
-	&beagle_bklight_device,
+#if defined(CONFIG_HDQ_MASTER_OMAP)
+
+static struct platform_device gta04_hdq_device = {
+	.name		= "omap-hdq",
+	.id			= -1,
+	.dev		= {
+		.platform_data	= NULL,
+	},
 };
 
-static void __init omap3beagle_flash_init(void)
+#endif
+
+#if defined(CONFIG_W1_SLAVE_BQ27000)
+
+#endif
+
+/* HDQ access to the chip inside the battery */
+
+#if defined(CONFIG_BATTERY_BQ27x00)
+
+int hdq_read(struct device *dev, unsigned int reg)
+{
+	// read function - should do the HDQ transfer... but how do we connect this to the HDQ (1-wire CONFIG_HDQ_MASTER_OMAP) stack?
+	return -EINVAL;
+}
+
+static struct bq27000_platform_data gta04_bq27000_info = {
+	.name		= "bq27000",
+	.read		= hdq_read,
+};
+
+static struct platform_device gta04_bq27000_device = {
+	.name		= "bq27000-battery",
+	.id			= -1,
+	.dev		= {
+		.platform_data	= &gta04_bq27000_info,
+	},
+};
+
+#endif
+
+#if defined(CONFIG_REGULATOR_VIRTUAL_CONSUMER)
+
+static struct platform_device gta04_vaux1_virtual_regulator_device = {
+	.name		= "reg-virt-consumer",
+	.id			= 1,	
+	.dev		= {
+		.platform_data	= "vaux1",
+	},
+};
+
+static struct platform_device gta04_vaux2_virtual_regulator_device = {
+	.name		= "reg-virt-consumer",
+	.id			= 2,	
+	.dev		= {
+		.platform_data	= "vaux2",
+	},
+};
+
+static struct platform_device gta04_vaux3_virtual_regulator_device = {
+	.name		= "reg-virt-consumer",
+	.id			= 3,	
+	.dev		= {
+		.platform_data	= "vaux3",
+	},
+};
+
+static struct platform_device gta04_vaux4_virtual_regulator_device = {
+	.name		= "reg-virt-consumer",
+	.id			= 4,	
+	.dev		= {
+		.platform_data	= "vaux4",	/* allow to control VAUX4 for WLAN/Bluetooth */
+	},
+};
+
+#endif
+
+static struct platform_device *gta04_devices[] __initdata = {
+//	&leds_gpio,
+	&keys_gpio,
+	&gta04_dss_device,
+	&gta04_bklight_device,
+#if defined(CONFIG_REGULATOR_VIRTUAL_CONSUMER)
+	&gta04_vaux1_virtual_regulator_device,
+	&gta04_vaux2_virtual_regulator_device,
+	&gta04_vaux3_virtual_regulator_device,
+	&gta04_vaux4_virtual_regulator_device,
+#endif
+#if defined(CONFIG_HDQ_MASTER_OMAP)
+	&gta04_hdq_device,
+#endif
+#if defined(CONFIG_BATTERY_BQ27x00)
+	&gta04_bq27000_device,
+#endif
+#if defined(CONFIG_W1_SLAVE_BQ27000)
+#endif
+};
+
+static void __init gta04_flash_init(void)
 {
 	u8 cs = 0;
 	u8 nandcs = GPMC_CS_NUM + 1;
@@ -865,20 +1030,20 @@ static void __init omap3beagle_flash_init(void)
 	}
 
 	if (nandcs < GPMC_CS_NUM) {
-		omap3beagle_nand_data.cs = nandcs;
-		omap3beagle_nand_data.gpmc_cs_baseaddr = (void *)
+		gta04_nand_data.cs = nandcs;
+		gta04_nand_data.gpmc_cs_baseaddr = (void *)
 			(gpmc_base_add + GPMC_CS0_BASE + nandcs * GPMC_CS_SIZE);
-		omap3beagle_nand_data.gpmc_baseaddr = (void *) (gpmc_base_add);
+		gta04_nand_data.gpmc_baseaddr = (void *) (gpmc_base_add);
 
 		printk(KERN_INFO "Registering NAND on CS%d\n", nandcs);
-		if (platform_device_register(&omap3beagle_nand_device) < 0)
+		if (platform_device_register(&gta04_nand_device) < 0)
 			printk(KERN_ERR "Unable to register NAND device\n");
 	}
 }
 
 static struct ehci_hcd_omap_platform_data ehci_pdata __initdata = {
 
-	/* HSUSB0 - TPS65950 configured by twl4030.c */
+	/* HSUSB0 - is not a EHCI port; TPS65950 configured by twl4030.c and musb driver */
 	.port_mode[0] = EHCI_HCD_OMAP_MODE_UNKNOWN,	/* HSUSB1 - n/a */
 	.port_mode[1] = EHCI_HCD_OMAP_MODE_PHY,		/* HSUSB2 - USB3322C <-> WWAN */
 	.port_mode[2] = EHCI_HCD_OMAP_MODE_UNKNOWN,	/* HSUSB3 - n/a */
@@ -897,16 +1062,16 @@ static struct omap_board_mux board_mux[] __initdata = {
 #define board_mux	NULL
 #endif
 
-static void __init omap3_beagle_init(void)
+static void __init gta04_init(void)
 {
 	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);
-	omap3_beagle_init_rev();
-	omap3_beagle_i2c_init();
-	platform_add_devices(omap3_beagle_devices,
-						 ARRAY_SIZE(omap3_beagle_devices));
+	gta04_init_rev();
+	gta04_i2c_init();
+	platform_add_devices(gta04_devices,
+						 ARRAY_SIZE(gta04_devices));
 	omap_serial_init();
 	
-	printk(KERN_INFO "Revision GTA04A%d\n", omap3_gta04_version);
+	printk(KERN_INFO "Revision GTA04A%d\n", gta04_version);
 
 #ifdef CONFIG_OMAP_MUX
 
@@ -945,7 +1110,7 @@ static void __init omap3_beagle_init(void)
 	gpio_export(144, 0);	// no direction change
 	
 #ifdef GTA04A2
-	// different pins
+	// has different pins but neither chips are installed
 	
 #else
 	
@@ -965,7 +1130,7 @@ static void __init omap3_beagle_init(void)
 #if !defined(CONFIG_I2C_OMAP_GTA04A2)	// we don't have the controller chip on the A2 board
 	usb_ehci_init(&ehci_pdata);
 #endif
-	omap3beagle_flash_init();
+	gta04_flash_init();
 	
 	/* Ensure SDRC pins are mux'd for self-refresh */
 	omap_mux_init_signal("sdrc_cke0", OMAP_PIN_OUTPUT);
@@ -976,10 +1141,11 @@ static void __init omap3_beagle_init(void)
 	gpio_request(TWL4030_MSECURE_GPIO, "mSecure");
 	gpio_direction_output(TWL4030_MSECURE_GPIO, true);
 	
-	beagle_display_init();
+	gta04_display_init();
+	regulator_has_full_constraints();
 }
 
-static void __init omap3_beagle_map_io(void)
+static void __init gta04_map_io(void)
 {
 	omap2_set_globals_343x();
 	omap2_map_common_io();
@@ -990,8 +1156,8 @@ MACHINE_START(GTA04, "GTA04")
 	.phys_io	= 0x48000000,
 	.io_pg_offst	= ((0xfa000000) >> 18) & 0xfffc,
 	.boot_params	= 0x80000100,
-	.map_io		= omap3_beagle_map_io,
-	.init_irq	= omap3_beagle_init_irq,
-	.init_machine	= omap3_beagle_init,
+	.map_io		= gta04_map_io,
+	.init_irq	= gta04_init_irq,
+	.init_machine	= gta04_init,
 	.timer		= &omap_timer,
 MACHINE_END

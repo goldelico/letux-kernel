@@ -565,6 +565,7 @@ static int __init omap_hdq_probe(struct platform_device *pdev)
 	int ret, irq;
 	u8 rev;
 
+	printk("omap_hdq_probe\n");
 	hdq_data = kmalloc(sizeof(*hdq_data), GFP_KERNEL);
 	if (!hdq_data) {
 		dev_dbg(&pdev->dev, "unable to allocate memory\n");

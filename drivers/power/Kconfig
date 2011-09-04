@@ -98,10 +98,32 @@ config BATTERY_WM97XX
 	  Say Y to enable support for battery measured by WM97xx aux port.
 
 config BATTERY_BQ27x00
-	tristate "BQ27200 battery driver"
-	depends on I2C
+ 	tristate "BQ27x00 battery driver"
 	help
-	  Say Y here to enable support for batteries with BQ27200(I2C) chip.
+	  Say Y here to enable support for batteries with BQ27x00 (I2C/HDQ) chips.
+
+config BATTERY_BQ27X00_I2C
+	bool "BQ27200/BQ27500 support"
+	depends on BATTERY_BQ27x00
+ 	depends on I2C
+	default y
+ 	help
+ 	  Say Y here to enable support for batteries with BQ27x00 (I2C) chips.
+ 
+config BATTERY_BQ27X00_PLATFORM
+	bool "BQ27000 support"
+	depends on BATTERY_BQ27x00
+	default y
+	help
+	  Say Y here to enable support for batteries with BQ27000 (HDQ) chips.
+
+config TWL4030_BCI_BATTERY
+       tristate "OMAP TWL4030 BCI Battery driver"
+       depends on TWL4030_CORE && TWL4030_MADC
+       default y
+       help
+         Support for OMAP TWL4030 BCI Battery driver.
+         This driver can give support for TWL4030 Battery Charge Interface.
 
 config BATTERY_DA9030
 	tristate "DA9030 battery driver"
@@ -126,7 +148,7 @@ config CHARGER_PCF50633
 
 config CHARGER_TWL4030
 	tristate "OMAP TWL4030 BCI charger driver"
-	depends on TWL4030_CORE
+	depends on TWL4030_CORE && !TWL4030_BCI_BATTERY
 	default y
 	help
 	  Say Y here to enable support for TWL4030 Battery Charge Interface.

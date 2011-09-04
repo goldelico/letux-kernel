@@ -430,7 +430,6 @@ static int si47xx_codec_probe(struct platform_device *pdev)
 	int ret = 0;
 
 	printk("si47xx_codec_probe\n");
-	
 	setup = socdev->codec_data;
 	codec = kzalloc(sizeof(struct snd_soc_codec), GFP_KERNEL);
 	if (codec == NULL)

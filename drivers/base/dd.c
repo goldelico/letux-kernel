@@ -17,6 +17,8 @@
  * This file is released under the GPLv2
  */
 
+#define DEBUG 1
+
 #include <linux/device.h>
 #include <linux/delay.h>
 #include <linux/module.h>

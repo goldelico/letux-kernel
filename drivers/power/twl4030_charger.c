@@ -64,16 +64,6 @@
 #define TWL4030_MSTATEC_COMPLETE1	0x0b
 #define TWL4030_MSTATEC_COMPLETE4	0x0e
 
-#define TWL4030_OTG_CTRL		0x0A
-#define TWL4030_OTG_CTRL_SET		0x0B
-#define TWL4030_OTG_CTRL_CLR		0x0C
-#define TWL4030_OTG_CTRL_DRVVBUS	(1 << 5)
-#define TWL4030_OTG_CTRL_CHRGVBUS	(1 << 4)
-#define TWL4030_OTG_CTRL_DISCHRGVBUS	(1 << 3)
-#define TWL4030_OTG_CTRL_DMPULLDOWN	(1 << 2)
-#define TWL4030_OTG_CTRL_DPPULLDOWN	(1 << 1)
-#define TWL4030_OTG_CTRL_IDPULLUP	(1 << 0)
-
 static bool allow_usb = true;
 module_param(allow_usb, bool, 1);
 MODULE_PARM_DESC(allow_usb, "Allow USB charge drawing default current");
@@ -161,26 +151,6 @@ static int twl4030_bci_have_vbus(struct twl4030_bci *bci)
 		return 1;
 
 	return 0;
-}
-
-/*
- * Enable/Disable OTH charge pump.
- */
-static int twl4030_charger_enable_vbus_driver(struct twl4030_bci *bci, bool enable)
-{
-	int ret;
-	u8 val = TWL4030_OTG_CTRL_DRVVBUS;
-	dev_dbg(bci->dev, "twl4030_charger_enable_vbus_driver: enable %d\n", enable);
-	
-	if (enable) {
-		ret = twl_i2c_write_u8(TWL4030_MODULE_PM_MASTER, &val,
-							  TWL4030_OTG_CTRL_SET);
-	} else {
-		ret = twl_i2c_write_u8(TWL4030_MODULE_PM_MASTER, &val,
-							   TWL4030_OTG_CTRL_CLR);
-	}
-	
-	return ret;
 }
 
 /*
@@ -279,8 +249,11 @@ static irqreturn_t twl4030_bci_interrupt(int irq, void *arg)
 	if (irqs1 & (TWL4030_TBATOR2 | TWL4030_TBATOR1))
 		dev_warn(bci->dev, "battery temperature out of range\n");
 
-	if (irqs1 & TWL4030_BATSTS)
-		dev_crit(bci->dev, "battery disconnected\n");
+	if (irqs1 & TWL4030_BATSTS) {
+		dev_crit(bci->dev, "battery disconnected\n");		
+		twl_i2c_write_u8(TWL4030_MODULE_INTERRUPTS,TWL4030_BATSTS,
+						 TWL4030_INTERRUPTS_BCIISR1A);
+	}
 
 	if (irqs2 & TWL4030_VBATOV)
 		dev_crit(bci->dev, "VBAT overvoltage\n");
@@ -299,17 +272,13 @@ static void twl4030_bci_usb_work(struct work_struct *data)
 	struct twl4030_bci *bci = container_of(data, struct twl4030_bci, work);
 
 	switch (bci->event) {
-	case USB_EVENT_VBUS:
-	case USB_EVENT_CHARGER:
-		twl4030_charger_enable_usb(bci, true);
-		break;
-	case USB_EVENT_NONE:
-			twl4030_charger_enable_vbus_driver(bci, false);
+		case USB_EVENT_VBUS:
+		case USB_EVENT_CHARGER:
+			twl4030_charger_enable_usb(bci, true);
+			break;
+		case USB_EVENT_NONE:
 			twl4030_charger_enable_usb(bci, false);
 		break;
-	case USB_EVENT_ID:
-			dev_dbg(bci->dev, "OTG host cable detected\n");
-			twl4030_charger_enable_vbus_driver(bci, true);	// enable charge pump
 	}
 }
 

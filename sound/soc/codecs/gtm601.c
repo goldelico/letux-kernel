@@ -83,7 +83,6 @@ static int gtm601_codec_probe(struct platform_device *pdev)
 	codec->owner = THIS_MODULE;
 	codec->dai = &gtm601_dai;
 	codec->num_dai = 1;
-	
 	/* register pcms */
 	ret = snd_soc_new_pcms(socdev, SNDRV_DEFAULT_IDX1, SNDRV_DEFAULT_STR1);
 	if (ret < 0) {

@@ -230,6 +230,7 @@ int snd_card_create(int idx, const char *xid,
 	if (extra_size > 0)
 		card->private_data = (char *)card + sizeof(struct snd_card);
 	*card_ret = card;
+	printk("snd_card_create(%d, %s, ...) ok\n", idx, xid);
 	return 0;
 
       __error_ctl:
@@ -684,6 +685,8 @@ int snd_card_register(struct snd_card *card)
 			return err;
 	}
 #endif
+	printk("sound card %d registered\n", card->number);
+//	*((char *) 4)=0;
 	return 0;
 }
 

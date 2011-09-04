@@ -59,7 +59,7 @@
 
 #define DRIVER_NAME			"twl"
 
-#if defined(CONFIG_CHARGER_TWL4030) || defined(CONFIG_CHARGER_TWL4030_MODULE)
+#if defined(CONFIG_CHARGER_TWL4030) || defined(CONFIG_CHARGER_TWL4030_MODULE) || defined(CONFIG_TWL4030_BCI_BATTERY) || defined(CONFIG_TWL4030_BCI_BATTERY_MODULE)
 #define twl_has_bci()		true
 #else
 #define twl_has_bci()		false
@@ -587,14 +587,25 @@ add_children(struct twl4030_platform_data *pdata, unsigned long features)
 	struct device	*child;
 	unsigned sub_chip_id;
 
+	printk("hasbci: %d pdata->pci %p\n", twl_has_bci(), pdata->bci);
+	
 	if (twl_has_bci() && pdata->bci &&
 	    !(features & (TPS_SUBSET | TWL5031))) {
-		child = add_child(3, "twl4030_bci",
+		child = add_child(3,
+#if defined(CONFIG_CHARGER_TWL4030) || defined(CONFIG_CHARGER_TWL4030_MODULE)
+						  "twl4030_bci",
+#elif defined(CONFIG_TWL4030_BCI_BATTERY) || defined(CONFIG_TWL4030_BCI_BATTERY_MODULE)
+						  "twl4030-bci-battery",
+#else
+						  "none",
+#endif
 				pdata->bci, sizeof(*pdata->bci),
 				false,
 				/* irq0 = CHG_PRES, irq1 = BCI */
 				pdata->irq_base + BCI_PRES_INTR_OFFSET,
 				pdata->irq_base + BCI_INTR_OFFSET);
+		if (IS_ERR(child))
+			printk("did not setup bci\n");
 		if (IS_ERR(child))
 			return PTR_ERR(child);
 	}
