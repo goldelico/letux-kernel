@@ -157,9 +157,9 @@ static void omap_mcbsp_set_threshold(struct snd_pcm_substream *substream)
 
 	/* Configure McBSP internal buffer usage */
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		omap_mcbsp_set_tx_threshold(mcbsp_data->bus_id, samples - 1);
+		omap_mcbsp_set_tx_threshold(mcbsp_data->bus_id, samples);
 	else
-		omap_mcbsp_set_rx_threshold(mcbsp_data->bus_id, samples - 1);
+		omap_mcbsp_set_rx_threshold(mcbsp_data->bus_id, samples);
 }
 
 static int omap_mcbsp_dai_startup(struct snd_pcm_substream *substream,
@@ -175,32 +175,31 @@ static int omap_mcbsp_dai_startup(struct snd_pcm_substream *substream,
 		err = omap_mcbsp_request(bus_id);
 
 	if (cpu_is_omap343x()) {
-		int dma_op_mode = omap_mcbsp_get_dma_op_mode(bus_id);
 		int max_period;
 
 		/*
-		 * McBSP2 in OMAP3 has 1024 * 32-bit internal audio buffer.
+		 * McBSP2 in OMAP3 has 1280 word (16-bit) internal audio buffer.
 		 * Set constraint for minimum buffer size to the same than FIFO
 		 * size in order to avoid underruns in playback startup because
 		 * HW is keeping the DMA request active until FIFO is filled.
 		 */
-		if (bus_id == 1)
-			snd_pcm_hw_constraint_minmax(substream->runtime,
-					SNDRV_PCM_HW_PARAM_BUFFER_BYTES,
-					4096, UINT_MAX);
-
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 			max_period = omap_mcbsp_get_max_tx_threshold(bus_id);
 		else
 			max_period = omap_mcbsp_get_max_rx_threshold(bus_id);
-
-		max_period++;
 		max_period <<= 1;
 
-		if (dma_op_mode == MCBSP_DMA_MODE_THRESHOLD)
-			snd_pcm_hw_constraint_minmax(substream->runtime,
-						SNDRV_PCM_HW_PARAM_PERIOD_BYTES,
-						32, max_period);
+		snd_pcm_hw_constraint_minmax(substream->runtime,
+				SNDRV_PCM_HW_PARAM_BUFFER_BYTES,
+				max_period, UINT_MAX);
+
+		snd_pcm_hw_constraint_minmax(substream->runtime,
+				SNDRV_PCM_HW_PARAM_PERIOD_BYTES,
+				32, max_period);
+
+		/* Make sure, that the period size is always even */
+		snd_pcm_hw_constraint_step(substream->runtime, 0,
+					   SNDRV_PCM_HW_PARAM_PERIOD_SIZE, 2);
 	}
 
 	return err;
