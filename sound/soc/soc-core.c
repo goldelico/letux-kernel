@@ -20,6 +20,8 @@
  *   o Support TDM on PCM and I2S
  */
 
+#define DEBUG 1
+
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/init.h>

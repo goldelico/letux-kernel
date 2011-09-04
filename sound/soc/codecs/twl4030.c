@@ -2110,6 +2110,8 @@ static int twl4030_soc_probe(struct platform_device *pdev)
 	struct twl4030_priv *twl4030;
 	int ret;
 
+	printk("twl4030_soc_probe\n");
+
 	BUG_ON(!twl4030_codec);
 
 	codec = twl4030_codec;
@@ -2141,6 +2143,7 @@ static int twl4030_soc_probe(struct platform_device *pdev)
 	snd_soc_add_controls(codec, twl4030_snd_controls,
 				ARRAY_SIZE(twl4030_snd_controls));
 	twl4030_add_widgets(codec);
+	printk("twl4030_soc_probe ok\n");
 
 	return 0;
 }
@@ -2165,6 +2168,8 @@ static int __devinit twl4030_codec_probe(struct platform_device *pdev)
 	struct snd_soc_codec *codec;
 	struct twl4030_priv *twl4030;
 	int ret;
+
+	printk("twl4030_codec_probe\n");
 
 	if (!pdata) {
 		dev_err(&pdev->dev, "platform_data is missing\n");
@@ -2223,6 +2228,8 @@ static int __devinit twl4030_codec_probe(struct platform_device *pdev)
 		snd_soc_unregister_codec(codec);
 		goto error_codec;
 	}
+	
+	printk("twl4030_codec_probe ok\n");
 
 	return 0;
 

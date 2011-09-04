@@ -61,6 +61,9 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_WM9705 if SND_SOC_AC97_BUS
 	select SND_SOC_WM9712 if SND_SOC_AC97_BUS
 	select SND_SOC_WM9713 if SND_SOC_AC97_BUS
+	select SND_SOC_SI47XX if I2C
+	select SND_SOC_GTM601
+	select SND_SOC_W2CBW003
         help
           Normally ASoC codec drivers are only built if a machine driver which
           uses them is also built since they are only usable with a machine
@@ -245,3 +248,18 @@ config SND_SOC_MAX9877
 
 config SND_SOC_TPA6130A2
 	tristate
+
+config SND_SOC_GTM601
+	tristate
+       help
+          PCM interface to a GTM601 UMTS modem chip. Does not control the Modem through USB.
+
+config SND_SOC_SI47XX
+	tristate
+       help
+          PCM interface to a Si47xx chip. Needs to enable some I2C or SPI driver.
+
+config SND_SOC_W2CBW003
+	tristate
+       help
+          PCM interface to Bluetooth part of W2CBW003. Does not control the bluetooth headset link.
