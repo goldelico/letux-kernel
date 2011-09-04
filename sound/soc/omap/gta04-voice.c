@@ -103,7 +103,7 @@ static int __init gta04_voice_soc_init(void)
 
 	platform_set_drvdata(gta04_voice_snd_device, &gta04_voice_devdata);
 	gta04_voice_devdata.dev = &gta04_voice_snd_device->dev;
-	*(unsigned int *)gta04_voice_dai.cpu_dai->private_data = 1;
+	*(unsigned int *)gta04_voice_dai.cpu_dai->private_data = 3;	// McBSP4
 
 	ret = platform_device_add(gta04_voice_snd_device);
 	if (ret) {

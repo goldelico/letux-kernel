@@ -103,7 +103,7 @@ static int __init gta04_headset_soc_init(void)
 
 	platform_set_drvdata(gta04_headset_snd_device, &gta04_headset_devdata);
 	gta04_headset_devdata.dev = &gta04_headset_snd_device->dev;
-	*(unsigned int *)gta04_headset_dai.cpu_dai->private_data = 2;
+	*(unsigned int *)gta04_headset_dai.cpu_dai->private_data = 2;	// McBSP3
 
 	ret = platform_device_add(gta04_headset_snd_device);
 	if (ret) {

@@ -108,7 +108,7 @@ static int __init gta04_fm_soc_init(void)
 
 	platform_set_drvdata(gta04_fm_snd_device, &gta04_fm_devdata);
 	gta04_fm_devdata.dev = &gta04_fm_snd_device->dev;
-	*(unsigned int *)gta04_fm_dai.cpu_dai->private_data = 3;
+	*(unsigned int *)gta04_fm_dai.cpu_dai->private_data = 0;	// McBSP1
 
 	ret = platform_device_add(gta04_fm_snd_device);
 	if (ret) {
