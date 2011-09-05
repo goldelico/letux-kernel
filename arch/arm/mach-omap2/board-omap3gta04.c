@@ -35,6 +35,9 @@
 #include <linux/i2c/tsc2007.h>
 
 #include <linux/i2c/bmp085.h>
+#include <../sound/soc/codecs/gtm601.h>
+#include <../sound/soc/codecs/si47xx.h>
+#include <../sound/soc/codecs/w2cbw003-bt.h>
 
 #include <linux/sysfs.h>
 
@@ -677,6 +680,39 @@ static struct i2c_board_info __initdata gta04_i2c1_boardinfo[] = {
 };
 
 	
+#if defined(CONFIG_SND_SOC_GTM601)
+
+static struct platform_device gta04_gtm601_codec_audio_device = {
+	.name	= "gtm601_codec_audio",
+	.id	= -1,
+	.dev	= {
+		.platform_data	= NULL,
+	},
+};
+#endif
+
+#if defined(CONFIG_SND_SOC_SI47XX)
+
+static struct platform_device gta04_si47xx_codec_audio_device = {
+	.name	= "si47xx_codec_audio",
+	.id	= -1,
+	.dev	= {
+		.platform_data	= NULL,
+	},
+};
+#endif
+
+#if defined(CONFIG_SND_SOC_W2CBW003)
+
+static struct platform_device gta04_w2cbw003_codec_audio_device = {
+	.name	= "w2cbw003_codec_audio",
+	.id	= -1,
+	.dev	= {
+		.platform_data	= NULL,
+	},
+};
+#endif
+
 #ifdef CONFIG_TOUCHSCREEN_TSC2007
 
 // TODO: see also http://e2e.ti.com/support/arm174_microprocessors/omap_applications_processors/f/42/t/33262.aspx for an example...
@@ -965,6 +1001,13 @@ static struct platform_device *gta04_devices[] __initdata = {
 #endif
 #if defined(CONFIG_HDQ_MASTER_OMAP)
 	&gta04_hdq_device,
+#endif
+#if defined(CONFIG_SND_SOC_GTM601)
+	&gta04_gtm601_codec_audio_device,
+#endif
+#if FIXME
+	gta04_si47xx_codec_audio_device,
+	gta04_w2cbw003_codec_audio_device,
 #endif
 };
 
