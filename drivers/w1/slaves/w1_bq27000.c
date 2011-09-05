@@ -9,6 +9,8 @@
  *
  */
 
+#define DEBUG 1
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/device.h>
@@ -20,6 +22,8 @@
 #include "../w1_int.h"
 #include "../w1_family.h"
 
+#include "linux/power/bq27x00_battery.h"
+
 #define HDQ_CMD_READ	(0)
 #define HDQ_CMD_WRITE	(1<<7)
 
@@ -28,12 +32,12 @@ static int F_ID;
 void w1_bq27000_write(struct device *dev, u8 buf, u8 reg)
 {
 	struct w1_slave *sl = container_of(dev, struct w1_slave, dev);
-
+	
 	if (!dev) {
 		pr_info("Could not obtain slave dev ptr\n");
 		return;
 	}
-
+	
 	w1_write_8(sl->master, HDQ_CMD_WRITE | reg);
 	w1_write_8(sl->master, buf);
 }
@@ -43,13 +47,26 @@ int w1_bq27000_read(struct device *dev, u8 reg)
 {
 	u8 val;
 	struct w1_slave *sl = container_of(dev, struct w1_slave, dev);
-
-	if (!dev)
+	
+	if (!dev) {
+		pr_info("w1_bq27000_read(): could not obtain dev ptr\n");
 		return 0;
-
+	}
+	
+	if (!sl) {
+		pr_info("w1_bq27000_read(): could not obtain slave dev ptr\n");
+		return 0;
+	}
+	
+	if (!sl->master) {
+		pr_info("w1_bq27000_read(): could not obtain sl->master ptr\n");
+		return 0;
+	}
+	printk("dev=%p sl=%p sl->master=%p\n", dev, sl, sl->master);
+	
 	w1_write_8(sl->master, HDQ_CMD_READ | reg);
 	val = w1_read_8(sl->master);
-
+	
 	return val;
 }
 EXPORT_SYMBOL(w1_bq27000_read);
@@ -59,7 +76,9 @@ static int w1_bq27000_add_slave(struct w1_slave *sl)
 	int ret;
 	int id = 1;
 	struct platform_device *pdev;
-
+	struct bq27000_platform_data bq27000_info;
+	pr_info("w1_bq27000_add_slave() - platform_device_alloc\n");
+	
 	pdev = platform_device_alloc("bq27000-battery", id);
 	if (!pdev) {
 		ret = -ENOMEM;
@@ -67,14 +86,29 @@ static int w1_bq27000_add_slave(struct w1_slave *sl)
 	}
 	pdev->dev.parent = &sl->dev;
 
+#if EXPERIMENTAL
+	/* install w1_bq27000_read callback */
+	
+	bq27000_info.name = "bq27000-battery";
+	bq27000_info.read = w1_bq27000_read;
+	
+	pr_info("w1_bq27000_add_slave() - platform_device_add_data\n");
+	ret = platform_device_add_data(pdev, &bq27000_info,
+								   sizeof(bq27000_info));
+	if (ret)
+		goto pdev_add_failed;
+#endif
+
+	pr_info("w1_bq27000_add_slave() - platform_device_add\n");
 	ret = platform_device_add(pdev);
 	if (ret)
 		goto pdev_add_failed;
-
+	
 	dev_set_drvdata(&sl->dev, pdev);
-
+	pr_info("w1_bq27000_add_slave() - done\n");
+	
 	goto success;
-
+	
 pdev_add_failed:
 	platform_device_unregister(pdev);
 success:
@@ -84,7 +118,7 @@ success:
 static void w1_bq27000_remove_slave(struct w1_slave *sl)
 {
 	struct platform_device *pdev = dev_get_drvdata(&sl->dev);
-
+	
 	platform_device_unregister(pdev);
 }
 
@@ -103,7 +137,7 @@ static int __init w1_bq27000_init(void)
 	if (F_ID)
 		w1_bq27000_family.fid = F_ID;
 	pr_info("w1_bq27000_init fid = %d\n", w1_bq27000_family.fid);
-
+	
 	return w1_register_family(&w1_bq27000_family);
 }
 
