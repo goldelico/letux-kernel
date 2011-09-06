@@ -32,28 +32,23 @@
  * determined automatically by examining the Master clock and Bit clock ratios
  */
 
-// FIXME: adjust what the GTM601 PCM I/F supports...
-
-#define GTM601_RATES  (SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |\
-			SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |\
-			SNDRV_PCM_RATE_192000)
-
+#define GTM601_RATES  (SNDRV_PCM_RATE_8000)	// CHECKME
 
 struct snd_soc_dai gtm601_dai = {
 	.name = "GTM601",
 	.playback = {
 		.stream_name = "Playback",
-		.channels_min = 2,
-		.channels_max = 2,
+		.channels_min = 1,	// CHECKME
+		.channels_max = 1,
 		.rates = GTM601_RATES,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,	/* this is the only format the omap-mcbsp-dai understands */
 		},
 	.capture = {
 		.stream_name = "Capture",
-		.channels_min = 2,
-		.channels_max = 2,
+		.channels_min = 1,
+		.channels_max = 1,
 		.rates = GTM601_RATES,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
 	},
 };
 EXPORT_SYMBOL_GPL(gtm601_dai);

@@ -224,6 +224,13 @@ struct snd_soc_dai si47xx_dai = {
 		.rates = SI47XX_RATES,
 		.formats = SI47XX_FORMATS,
 	},
+	.playback = {
+		.stream_name = "Capture",
+		.channels_min = 2,
+		.channels_max = 2,
+		.rates = SI47XX_RATES,
+		.formats = SI47XX_FORMATS,
+	},
 	.ops = &si47xx_dai_ops,
 };
 EXPORT_SYMBOL_GPL(si47xx_dai);

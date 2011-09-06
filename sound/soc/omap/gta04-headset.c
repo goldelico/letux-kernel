@@ -30,6 +30,31 @@ static int gta04_headset_hw_params(struct snd_pcm_substream *substream,
 				 struct snd_pcm_hw_params *params)
 {
 	/* setup codec dai and cpu dai hardware params */
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	//	struct snd_soc_dai *codec_dai = rtd->dai->codec_dai;
+	struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;
+	unsigned int fmt;
+	int ret;
+	
+	fmt =	SND_SOC_DAIFMT_I2S |	// I2S
+			SND_SOC_DAIFMT_IB_IF |	// positive sync pulse, driven on rising, sampled on falling clock
+			SND_SOC_DAIFMT_CBM_CFM;	// clocks come from bluetooth modem - but this can be configured in the Modem chip
+	
+	/* Set cpu DAI configuration */
+	ret = snd_soc_dai_set_fmt(cpu_dai, fmt);
+	if (ret < 0) {
+		printk(KERN_ERR "can't set cpu DAI configuration\n");
+		return ret;
+	}
+	
+	ret = snd_soc_dai_set_sysclk(cpu_dai, OMAP_MCBSP_SYSCLK_CLKX_EXT, 0,
+								 SND_SOC_CLOCK_IN);
+	// FIXME: set clock divisor
+	if (ret < 0) {
+		printk(KERN_ERR "can't set cpu system clock\n");
+		return ret;
+	}	
+	
 	return 0;
 }
 

@@ -48,6 +48,13 @@ struct snd_soc_dai w2cbw003_dai = {
 		.rates = W2CBW003_RATES,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
 		},
+	.playback = {
+		.stream_name = "Capture",
+		.channels_min = 2,
+		.channels_max = 2,
+		.rates = W2CBW003_RATES,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
+	},
 };
 EXPORT_SYMBOL_GPL(w2cbw003_dai);
 

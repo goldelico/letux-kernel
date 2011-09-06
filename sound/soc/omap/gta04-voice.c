@@ -30,6 +30,56 @@ static int gta04_voice_hw_params(struct snd_pcm_substream *substream,
 				 struct snd_pcm_hw_params *params)
 {
 	/* setup codec dai and cpu dai hardware params */
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+//	struct snd_soc_dai *codec_dai = rtd->dai->codec_dai;
+	struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;
+	unsigned int fmt;
+	int ret;
+	
+	fmt =	SND_SOC_DAIFMT_I2S |	// I2S
+		//	SND_SOC_DAIFMT_GATED |	// try to power down if not needed
+			SND_SOC_DAIFMT_IB_IF |	// positive sync pulse, driven on rising, sampled on falling clock
+			SND_SOC_DAIFMT_CBM_CFM;	// clocks come from GSM modem
+	
+#if 0	// set clocks to be outputs
+
+	fmt =	SND_SOC_DAIFMT_I2S |
+			SND_SOC_DAIFMT_IB_IF |
+			SND_SOC_DAIFMT_CBS_CFS;
+
+#endif	
+	/* Set cpu DAI configuration */
+	ret = snd_soc_dai_set_fmt(cpu_dai, fmt);
+	if (ret < 0) {
+		printk(KERN_ERR "can't set cpu DAI configuration\n");
+		return ret;
+	}
+	
+#if 0	// for testing we switch to output - don't use on a board with GTM601 installed!!!
+	ret = snd_soc_dai_set_sysclk(cpu_dai, OMAP_MCBSP_SYSCLK_CLK, 26000000,
+								 SND_SOC_CLOCK_OUT);
+	// set divider...
+#else
+	ret = snd_soc_dai_set_sysclk(cpu_dai, OMAP_MCBSP_SYSCLK_CLKX_EXT, 0,
+								 SND_SOC_CLOCK_IN);
+	if(cpu_dai->private_data == 0) {
+		/*
+		 * could be necessary if we connect to McBSP1 - but we are on McBSP4
+		 * see http://mailman.alsa-project.org/pipermail/alsa-devel/2009-August/020771.html
+		 */
+		if(ret >= 0)
+			ret = snd_soc_dai_set_sysclk(cpu_dai, OMAP_MCBSP_CLKR_SRC_CLKX, 0,
+												SND_SOC_CLOCK_IN);
+		if(ret >= 0)
+			ret = snd_soc_dai_set_sysclk(cpu_dai, OMAP_MCBSP_FSR_SRC_FSX, 0,
+												SND_SOC_CLOCK_IN);
+	}
+#endif
+	if (ret < 0) {
+		printk(KERN_ERR "can't set cpu system clock\n");
+		return ret;
+	}	
+		
 	return 0;
 }
 
@@ -46,12 +96,14 @@ static int gta04_voice_init(struct snd_soc_codec *codec)
 static int gta04_voice_startup(struct snd_pcm_substream *substream)
 {
 	/* enable clock used by codec */
+	/* clock is provided by the GTM601 */
 	return 0;
 }
 
 static void gta04_voice_shutdown(struct snd_pcm_substream *substream)
 {
 	/* disable clock used by codec */
+	/* clock is provided by the GTM601 */
 }
 
 static struct snd_soc_ops gta04_voice_ops = {
