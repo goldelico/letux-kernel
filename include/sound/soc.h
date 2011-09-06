@@ -873,6 +873,7 @@ struct snd_soc_card {
 	/* Generic DAPM context for the card */
 	struct snd_soc_dapm_context dapm;
 	struct snd_soc_dapm_stats dapm_stats;
+	int (*stream_event)(struct snd_soc_dapm_context *dapm, int event);
 
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *debugfs_card_root;
