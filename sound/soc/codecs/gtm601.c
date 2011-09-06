@@ -41,7 +41,6 @@
 
 struct snd_soc_dai gtm601_dai = {
 	.name = "GTM601",
-	/* playback capabilities */
 	.playback = {
 		.stream_name = "Playback",
 		.channels_min = 2,
@@ -49,10 +48,9 @@ struct snd_soc_dai gtm601_dai = {
 		.rates = GTM601_RATES,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
 		},
-	/* capture capabilities */
 	.capture = {
 		.stream_name = "Capture",
-		.channels_min = 1,
+		.channels_min = 2,
 		.channels_max = 2,
 		.rates = GTM601_RATES,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
@@ -60,39 +58,31 @@ struct snd_soc_dai gtm601_dai = {
 };
 EXPORT_SYMBOL_GPL(gtm601_dai);
 
-static int gtm601_codec_probe(struct platform_device *pdev)
+static int gtm601_soc_probe(struct platform_device *pdev)
 {
 	struct snd_soc_device *socdev = platform_get_drvdata(pdev);
 	struct snd_soc_codec *codec;
 	int ret = 0;
 
-	printk("gtm601_codec_probe\n");
-
-	gtm601_dai.dev = &pdev->dev;
-
 	codec = kzalloc(sizeof(struct snd_soc_codec), GFP_KERNEL);
 	if (codec == NULL)
 		return -ENOMEM;
 	mutex_init(&codec->mutex);
-
-	socdev->card->codec = codec;
-	INIT_LIST_HEAD(&codec->dapm_widgets);
-	INIT_LIST_HEAD(&codec->dapm_paths);
-
 	codec->name = "GTM601";
 	codec->owner = THIS_MODULE;
 	codec->dai = &gtm601_dai;
 	codec->num_dai = 1;
+	socdev->card->codec = codec;
+	INIT_LIST_HEAD(&codec->dapm_widgets);
+	INIT_LIST_HEAD(&codec->dapm_paths);
+
 	/* register pcms */
 	ret = snd_soc_new_pcms(socdev, SNDRV_DEFAULT_IDX1, SNDRV_DEFAULT_STR1);
 	if (ret < 0) {
 		printk(KERN_ERR "gtm601: failed to create pcms\n");
 		goto pcm_err;
 	}
-	snd_soc_register_codec(codec);
-	snd_soc_register_dai(&gtm601_dai);
-	printk("gtm601_codec_probe ok\n");
-	
+
 	return ret;
 
 pcm_err:
@@ -101,7 +91,7 @@ pcm_err:
 	return ret;
 }
 
-static int gtm601_codec_remove(struct platform_device *pdev)
+static int gtm601_soc_remove(struct platform_device *pdev)
 {
 	struct snd_soc_device *socdev = platform_get_drvdata(pdev);
 	struct snd_soc_codec *codec = socdev->card->codec;
@@ -109,28 +99,40 @@ static int gtm601_codec_remove(struct platform_device *pdev)
 	if (codec == NULL)
 		return 0;
 	snd_soc_free_pcms(socdev);
-	snd_soc_unregister_dai(&gtm601_dai);
-	snd_soc_unregister_codec(codec);
 	kfree(codec);
+	return 0;
+}
+
+struct snd_soc_codec_device soc_codec_dev_gtm601 = {
+	.probe = 	gtm601_soc_probe,
+	.remove = 	gtm601_soc_remove,
+};
+EXPORT_SYMBOL_GPL(soc_codec_dev_gtm601);
+
+
+static __devinit int gtm601_platform_probe(struct platform_device *pdev)
+{
+	gtm601_dai.dev = &pdev->dev;
+	return snd_soc_register_dai(&gtm601_dai);
+}
+
+static int __devexit gtm601_platform_remove(struct platform_device *pdev)
+{
+	snd_soc_unregister_dai(&gtm601_dai);
 	return 0;
 }
 
 MODULE_ALIAS("platform:gtm601_codec_audio");
 
 static struct platform_driver gtm601_codec_driver = {
-	.probe = gtm601_codec_probe,
-	.remove = __devexit_p(gtm601_codec_remove),
 	.driver = {
 			.name = "gtm601_codec_audio",
 			.owner = THIS_MODULE,
 	},
-};
 
-struct snd_soc_codec_device soc_codec_dev_gtm601 = {
-	.probe = 	gtm601_codec_probe,
-	.remove = 	gtm601_codec_remove,
+	.probe = gtm601_platform_probe,
+	.remove = __devexit_p(gtm601_platform_remove),
 };
-EXPORT_SYMBOL_GPL(soc_codec_dev_gtm601);
 
 static int __init gtm601_init(void)
 {

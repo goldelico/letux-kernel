@@ -1005,9 +1005,11 @@ static struct platform_device *gta04_devices[] __initdata = {
 #if defined(CONFIG_SND_SOC_GTM601)
 	&gta04_gtm601_codec_audio_device,
 #endif
-#if FIXME
-	gta04_si47xx_codec_audio_device,
-	gta04_w2cbw003_codec_audio_device,
+#if defined(CONFIG_SND_SOC_SI47XX)
+	&gta04_si47xx_codec_audio_device,
+#endif
+#if defined(CONFIG_SND_SOC_W2CBW003)
+	&gta04_w2cbw003_codec_audio_device,
 #endif
 };
 

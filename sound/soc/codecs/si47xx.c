@@ -1,5 +1,6 @@
 /*
- * FIXME: this is a blueprint for a Si47xx I2C driver...
+ * FIXME: this is a blueprint for a Si47xx I2C driver
+ * it is based on the WM8728 driver and
  * needs to be adapted for GTA04
  *
  * si47xx.c  --  Si47xx ALSA SoC Audio driver 
@@ -248,7 +249,7 @@ static int si47xx_resume(struct platform_device *pdev)
 }
 
 /*
- * initialise the WM8728 driver
+ * initialise the Si47xx driver
  * register the mixer and dsp interfaces with the kernel
  */
 static int si47xx_init(struct snd_soc_device *socdev,
@@ -303,7 +304,7 @@ static struct snd_soc_device *si47xx_socdev;
 #if defined(CONFIG_I2C) || defined(CONFIG_I2C_MODULE)
 
 /*
- * WM8728 2 wire address is determined by GPIO5
+ * Si47xx 2 wire address is determined by GPIO5
  * state during powerup.
  *    low  = 0x1a
  *    high = 0x1b
@@ -411,6 +412,8 @@ static int __devexit si47xx_spi_remove(struct spi_device *spi)
 	return 0;
 }
 
+MODULE_ALIAS("platform:si47xx_codec_audio");
+
 static struct spi_driver si47xx_spi_driver = {
 	.driver = {
 		.name	= "si47xx_codec_audio",
@@ -422,29 +425,22 @@ static struct spi_driver si47xx_spi_driver = {
 };
 #endif /* CONFIG_SPI_MASTER */
 
-static int si47xx_codec_probe(struct platform_device *pdev)
+static int si47xx_probe(struct platform_device *pdev)
 {
 	struct snd_soc_device *socdev = platform_get_drvdata(pdev);
 	struct si47xx_setup_data *setup;
 	struct snd_soc_codec *codec;
 	int ret = 0;
 
-	printk("si47xx_codec_probe\n");
 	setup = socdev->codec_data;
 	codec = kzalloc(sizeof(struct snd_soc_codec), GFP_KERNEL);
 	if (codec == NULL)
 		return -ENOMEM;
 
 	socdev->card->codec = codec;
-	
 	mutex_init(&codec->mutex);
 	INIT_LIST_HEAD(&codec->dapm_widgets);
 	INIT_LIST_HEAD(&codec->dapm_paths);
-
-	codec->name="Si47xx";
-	codec->owner = THIS_MODULE;
-	codec->dai = &si47xx_dai;
-	codec->num_dai = 1;
 
 	si47xx_socdev = socdev;
 	ret = -ENODEV;
@@ -461,8 +457,6 @@ static int si47xx_codec_probe(struct platform_device *pdev)
 			printk(KERN_ERR "can't add spi driver");
 	}
 #endif
-	snd_soc_register_codec(codec);
-	snd_soc_register_dai(&si47xx_dai);
 
 	if (ret != 0)
 		kfree(codec);
@@ -471,7 +465,7 @@ static int si47xx_codec_probe(struct platform_device *pdev)
 }
 
 /* power down chip */
-static int si47xx_codec_remove(struct platform_device *pdev)
+static int si47xx_remove(struct platform_device *pdev)
 {
 	struct snd_soc_device *socdev = platform_get_drvdata(pdev);
 	struct snd_soc_codec *codec = socdev->card->codec;
@@ -493,20 +487,9 @@ static int si47xx_codec_remove(struct platform_device *pdev)
 	return 0;
 }
 
-MODULE_ALIAS("platform:si47xx_codec_audio");
-
-static struct platform_driver si47xx_codec_driver = {
-	.probe		= si47xx_codec_probe,
-	.remove		= __devexit_p(si47xx_codec_remove),
-	.driver		= {
-		.name	= "si47xx_codec_audio",
-		.owner	= THIS_MODULE,
-	},
-};
-
 struct snd_soc_codec_device soc_codec_dev_si47xx = {
-	.probe = 	si47xx_codec_probe,
-	.remove = 	si47xx_codec_remove,
+	.probe = 	si47xx_probe,
+	.remove = 	si47xx_remove,
 	.suspend = 	si47xx_suspend,
 	.resume =	si47xx_resume,
 };
@@ -514,13 +497,13 @@ EXPORT_SYMBOL_GPL(soc_codec_dev_si47xx);
 
 static int __init si47xx_modinit(void)
 {
-	return platform_driver_register(&si47xx_codec_driver);
+	return snd_soc_register_dai(&si47xx_dai);
 }
 module_init(si47xx_modinit);
 
 static void __exit si47xx_exit(void)
 {
-	return platform_driver_unregister(&si47xx_codec_driver);
+	snd_soc_unregister_dai(&si47xx_dai);
 }
 module_exit(si47xx_exit);
 
