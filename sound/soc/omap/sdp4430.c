@@ -41,12 +41,14 @@
 #include "omap-mcpdm.h"
 #include "omap-pcm.h"
 #include "omap-abe.h"
+#include "omap-abe-dsp.h"
 #include "omap-mcbsp.h"
 #include "omap-dmic.h"
 #include "../codecs/twl6040.h"
 
 static int twl6040_power_mode;
 static int mcbsp_cfg;
+static struct snd_soc_codec *twl6040_codec;
 static struct i2c_client *tps6130x_client;
 static struct i2c_board_info tps6130x_hwmon_info = {
 	I2C_BOARD_INFO("tps6130x", 0x33),
@@ -319,7 +321,7 @@ static int sdp4430_set_power_mode(struct snd_kcontrol *kcontrol,
 		return 0;
 
 	twl6040_power_mode = ucontrol->value.integer.value[0];
-//	abe_dsp_set_power_mode(twl6040_power_mode);
+	abe_dsp_set_power_mode(twl6040_power_mode);
 
 	return 1;
 }
@@ -386,14 +388,13 @@ static const struct snd_soc_dapm_route audio_map[] = {
 
 static int sdp4430_set_pdm_dl1_gains(struct snd_soc_dapm_context *dapm)
 {
-#if 0
 	int output, val;
 
 	if (snd_soc_dapm_get_pin_power(dapm, "Earphone Spk")) {
 		output = OMAP_ABE_DL1_EARPIECE;
 	} else if (snd_soc_dapm_get_pin_power(dapm, "Headset Stereophone")) {
 		val = snd_soc_read(twl6040_codec, TWL6040_REG_HSLCTL);
-		if (val & TWL6040_HSDACMODEL)
+		if (val & TWL6040_HSDACMODE)
 			/* HSDACL in LP mode */
 			output = OMAP_ABE_DL1_HEADSET_LP;
 		else
@@ -404,17 +405,14 @@ static int sdp4430_set_pdm_dl1_gains(struct snd_soc_dapm_context *dapm)
 	}
 
 	return omap_abe_set_dl1_output(output);
-#else
-	return 0;
-#endif
 }
 
 static int sdp4430_twl6040_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_codec *codec = rtd->codec;
-//	struct twl6040 *twl6040 = codec->control_data;
+	struct twl6040 *twl6040 = codec->control_data;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
-//	int hsotrim, left_offset, right_offset, mode;
+	int hsotrim, left_offset, right_offset, mode;
 	int ret;
 
 	/* Add SDP4430 specific controls */
@@ -468,21 +466,22 @@ static int sdp4430_twl6040_init(struct snd_soc_pcm_runtime *rtd)
 		twl6040_hs_jack_detect(codec, &hs_jack, SND_JACK_HEADSET);
 	else
 		snd_soc_jack_report(&hs_jack, SND_JACK_HEADSET, SND_JACK_HEADSET);
-#if 0
+
 	/* DC offset cancellation computation */
 	hsotrim = snd_soc_read(codec, TWL6040_REG_HSOTRIM);
 	right_offset = (hsotrim & TWL6040_HSRO) >> TWL6040_HSRO_OFFSET;
 	left_offset = hsotrim & TWL6040_HSLO;
 
-	if (twl6040_get_icrev(twl6040) < TWL6040_REV_1_3)
-		/* For ES under ES_1.3 HS step is 2 mV */
+	if ((twl6040_get_revid(twl6040) == TWL6040_REV_ES1_0) ||
+		(twl6040_get_revid(twl6040) == TWL6040_REV_ES1_1))
+		/* For ES under ES_1.0 and 1.1 HS step is 2 mV */
 		mode = 2;
 	else
 		/* For ES_1.3 HS step is 1 mV */
 		mode = 1;
 
 	abe_dsp_set_hs_offset(left_offset, right_offset, mode);
-#endif
+
 	/* don't wait before switching of HS power */
 	rtd->pmdown_time = 0;
 
@@ -491,7 +490,6 @@ static int sdp4430_twl6040_init(struct snd_soc_pcm_runtime *rtd)
 
 static int sdp4430_twl6040_dl2_init(struct snd_soc_pcm_runtime *rtd)
 {
-#if 0
 	struct snd_soc_codec *codec = rtd->codec;
 	int hfotrim, left_offset, right_offset;
 
@@ -502,7 +500,6 @@ static int sdp4430_twl6040_dl2_init(struct snd_soc_pcm_runtime *rtd)
 
 	abe_dsp_set_hf_offset(left_offset, right_offset);
 
-#endif
 	/* don't wait before switching of HF power */
 	rtd->pmdown_time = 0;
 	return 0;
@@ -526,7 +523,7 @@ static int sdp4430_bt_init(struct snd_soc_pcm_runtime *rtd)
 	return 0;
 }
 
-static int sdp4430_stream_event(struct snd_soc_dapm_context *dapm)
+static int sdp4430_stream_event(struct snd_soc_dapm_context *dapm, int event)
 {
 	/*
 	 * set DL1 gains dynamically according to the active output
@@ -910,7 +907,7 @@ static struct snd_soc_dai_link sdp4430_dai[] = {
 
 		.no_pcm = 1, /* don't create ALSA pcm for this */
 		.no_codec = 1, /* TODO: have a dummy CODEC */
-		//.init = sdp4430_bt_init,
+		.init = sdp4430_bt_init,
 		.be_hw_params_fixup = mcbsp_be_hw_params_fixup,
 		.ops = &sdp4430_mcbsp_ops,
 		.be_id = OMAP_ABE_DAI_BT_VX,
@@ -1010,7 +1007,7 @@ static struct snd_soc_card snd_soc_sdp4430 = {
 	.dai_link = sdp4430_dai,
 	.num_links = ARRAY_SIZE(sdp4430_dai),
 
-//	.stream_event = sdp4430_stream_event,
+	.stream_event = sdp4430_stream_event,
 };
 
 static struct platform_device *sdp4430_snd_device;
@@ -1056,6 +1053,9 @@ static int __init sdp4430_soc_init(void)
 	/* Only configure the TPS6130x on SDP4430 */
 	if (machine_is_omap_4430sdp())
 		sdp4430_tps6130x_configure();
+
+	twl6040_codec = snd_soc_card_get_codec(&snd_soc_sdp4430,
+					"twl6040-codec");
 
 	return 0;
 
