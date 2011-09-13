@@ -449,18 +449,6 @@ int hsi_do_cawake_process(struct hsi_port *pport)
 			spin_lock(&hsi_ctrl->lock);
 		}
 		pport->cawake_status = 1;
-		if (omap_readl(0x4A306404) != 0x0) {
-			omap_writel(0x00000002, 0x4A004400);
-			omap_writel(0x003F0703, 0x4A306400);
-			omap_writel(0x003F0700, 0x4A306400);
-			omap_writel(0x00000003, 0x4A004400);
-		}
-		/* Force HSI to ON_ACTIVE when CAWAKE is high */
-		hsi_set_pm_force_hsi_on(hsi_ctrl);
-		/*
-		 * TODO: Use pm_qos() to set latency constraint to prevent
-		 * L3INIT to enter RET/OFF when CAWAKE is high.
-		 */
 
 		spin_unlock(&hsi_ctrl->lock);
 		hsi_port_event_handler(pport, HSI_EVENT_CAWAKE_UP, NULL);
@@ -485,13 +473,6 @@ int hsi_do_cawake_process(struct hsi_port *pport)
 			spin_lock(&hsi_ctrl->lock);
 		}
 		pport->cawake_status = 0;
-
-		/* Allow HSI HW to enter IDLE when CAWAKE is low */
-		hsi_set_pm_default(hsi_ctrl);
-		/*
-		 * TODO: Use pm_qos() to release latency constraint to allow
-		 * L3INIT to enter RET/OFF when CAWAKE is low
-		 */
 
 		spin_unlock(&hsi_ctrl->lock);
 		hsi_port_event_handler(pport, HSI_EVENT_CAWAKE_DOWN, NULL);
