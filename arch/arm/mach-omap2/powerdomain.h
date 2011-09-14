@@ -89,7 +89,6 @@ struct powerdomain;
 /**
  * struct powerdomain - OMAP powerdomain
  * @name: Powerdomain name
- * @omap_chip: represents the OMAP chip types containing this pwrdm
  * @prcm_offs: the address offset from CM_BASE/PRM_BASE
  * @prcm_partition: (OMAP4 only) the PRCM partition ID containing @prcm_offs
  * @pwrsts: Possible powerdomain power states
@@ -109,7 +108,6 @@ struct powerdomain;
  */
 struct powerdomain {
 	const char *name;
-	const struct omap_chip_id omap_chip;
 	const s16 prcm_offs;
 	const u8 pwrsts;
 	const u8 pwrsts_logic_ret;
@@ -229,7 +227,8 @@ bool pwrdm_can_ever_lose_context(struct powerdomain *pwrdm);
 int pwrdm_enable_force_off(struct powerdomain *pwrdm);
 int pwrdm_disable_force_off(struct powerdomain *pwrdm);
 
-extern void omap2xxx_powerdomains_init(void);
+extern void omap242x_powerdomains_init(void);
+extern void omap243x_powerdomains_init(void);
 extern void omap3xxx_powerdomains_init(void);
 extern void omap44xx_powerdomains_init(void);
 extern void omap54xx_powerdomains_init(void);
