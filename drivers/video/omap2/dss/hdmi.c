@@ -82,6 +82,7 @@ static struct {
 	bool custom_set;
 	int hdmi_irq;
 	bool hpd;
+	bool can_do_hdmi;
 
 	struct clk *sys_clk;
 	struct clk *phy_clk;
@@ -219,6 +220,9 @@ void hdmi_get_monspecs(struct fb_monspecs *specs)
 		if (edid[i * 128] == 0x2)
 			fb_edid_add_monspecs(edid + i * 128, specs);
 	}
+
+	hdmi.can_do_hdmi = specs->misc & FB_MISC_HDMI;
+
 	/* filter out resolutions we don't support */
 	for (i = j = 0; i < specs->modedb_len; i++) {
 		if (!hdmi_set_timings(&specs->modedb[i], true))
@@ -446,7 +450,7 @@ static int hdmi_power_on(struct omap_dss_device *dssdev)
 		}
 	}
 
-	hdmi.ip_data.cfg.cm.mode = hdmi.mode;
+	hdmi.ip_data.cfg.cm.mode = hdmi.can_do_hdmi ? hdmi.mode : HDMI_DVI;
 	hdmi.ip_data.cfg.cm.code = hdmi.code;
 
 	if ((hdmi.mode)) {
