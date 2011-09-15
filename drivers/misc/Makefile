@@ -30,4 +30,4 @@ obj-$(CONFIG_IWMC3200TOP)      += iwmc3200top/
 obj-y				+= eeprom/
 obj-y				+= cb710/
 obj-$(CONFIG_RFID_TRF7960)	+= trf7960.o
-
+obj-$(CONFIG_ITG3200)		+= itg3200.o
