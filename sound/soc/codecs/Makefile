@@ -54,6 +54,10 @@ snd-soc-wm-hubs-objs := wm_hubs.o
 snd-soc-max9877-objs := max9877.o
 snd-soc-tpa6130a2-objs := tpa6130a2.o
 
+snd-soc-gtm601-objs := gtm601.o
+snd-soc-si47xx-objs := si47xx.o
+snd-soc-w2cbw003-bt-objs := w2cbw003-bt.o
+
 obj-$(CONFIG_SND_SOC_AC97_CODEC)	+= snd-soc-ac97.o
 obj-$(CONFIG_SND_SOC_AD1836)	+= snd-soc-ad1836.o
 obj-$(CONFIG_SND_SOC_AD1938)	+= snd-soc-ad1938.o
@@ -109,3 +113,8 @@ obj-$(CONFIG_SND_SOC_WM_HUBS)	+= snd-soc-wm-hubs.o
 # Amp
 obj-$(CONFIG_SND_SOC_MAX9877)	+= snd-soc-max9877.o
 obj-$(CONFIG_SND_SOC_TPA6130A2)	+= snd-soc-tpa6130a2.o
+
+# special
+obj-$(CONFIG_SND_SOC_GTM601) 	+= snd-soc-gtm601.o
+obj-$(CONFIG_SND_SOC_SI47XX) 	+= snd-soc-si47xx.o
+obj-$(CONFIG_SND_SOC_W2CBW003) 	+= snd-soc-w2cbw003-bt.o

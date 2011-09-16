@@ -35,7 +35,9 @@
 #include <linux/i2c/tsc2007.h>
 
 #include <linux/i2c/bmp085.h>
-#include <linux/power/bq27x00_battery.h>
+#include <../sound/soc/codecs/gtm601.h>
+#include <../sound/soc/codecs/si47xx.h>
+#include <../sound/soc/codecs/w2cbw003-bt.h>
 
 #include <linux/sysfs.h>
 
@@ -678,6 +680,39 @@ static struct i2c_board_info __initdata gta04_i2c1_boardinfo[] = {
 };
 
 	
+#if defined(CONFIG_SND_SOC_GTM601)
+
+static struct platform_device gta04_gtm601_codec_audio_device = {
+	.name	= "gtm601_codec_audio",
+	.id	= -1,
+	.dev	= {
+		.platform_data	= NULL,
+	},
+};
+#endif
+
+#if defined(CONFIG_SND_SOC_SI47XX)
+
+static struct platform_device gta04_si47xx_codec_audio_device = {
+	.name	= "si47xx_codec_audio",
+	.id	= -1,
+	.dev	= {
+		.platform_data	= NULL,
+	},
+};
+#endif
+
+#if defined(CONFIG_SND_SOC_W2CBW003)
+
+static struct platform_device gta04_w2cbw003_codec_audio_device = {
+	.name	= "w2cbw003_codec_audio",
+	.id	= -1,
+	.dev	= {
+		.platform_data	= NULL,
+	},
+};
+#endif
+
 #ifdef CONFIG_TOUCHSCREEN_TSC2007
 
 // TODO: see also http://e2e.ti.com/support/arm174_microprocessors/omap_applications_processors/f/42/t/33262.aspx for an example...
@@ -733,7 +768,7 @@ static void tsc2007_exit(void)
 	gpio_free(TS_PENIRQ_GPIO);
 }
 
-struct tsc2007_platform_data tsc2007_info = {
+struct tsc2007_platform_data __initdata tsc2007_info = {
 	.model			= 2007,
 	.x_plate_ohms		= 600,	// range: 250 .. 900 
 	.get_pendown_state	= ts_get_pendown_state,
@@ -917,35 +952,6 @@ static struct platform_device gta04_hdq_device = {
 
 #endif
 
-#if defined(CONFIG_W1_SLAVE_BQ27000)
-
-#endif
-
-/* HDQ access to the chip inside the battery */
-
-#if defined(CONFIG_BATTERY_BQ27x00)
-
-int hdq_read(struct device *dev, unsigned int reg)
-{
-	// read function - should do the HDQ transfer... but how do we connect this to the HDQ stack?
-	return -EINVAL;
-}
-
-static struct bq27000_platform_data gta04_bq27000_info = {
-	.name		= "bq27000",
-	.read		= hdq_read,
-};
-
-static struct platform_device gta04_bq27000_device = {
-	.name		= "bq27000-battery",
-	.id			= -1,
-	.dev		= {
-		.platform_data	= &gta04_bq27000_device,
-	},
-};
-
-#endif
-
 #if defined(CONFIG_REGULATOR_VIRTUAL_CONSUMER)
 
 static struct platform_device gta04_vaux1_virtual_regulator_device = {
@@ -996,10 +1002,14 @@ static struct platform_device *gta04_devices[] __initdata = {
 #if defined(CONFIG_HDQ_MASTER_OMAP)
 	&gta04_hdq_device,
 #endif
-#if defined(CONFIG_BATTERY_BQ27x00)
-	&gta04_bq27000_device,
+#if defined(CONFIG_SND_SOC_GTM601)
+	&gta04_gtm601_codec_audio_device,
 #endif
-#if defined(CONFIG_W1_SLAVE_BQ27000)
+#if defined(CONFIG_SND_SOC_SI47XX)
+	&gta04_si47xx_codec_audio_device,
+#endif
+#if defined(CONFIG_SND_SOC_W2CBW003)
+	&gta04_w2cbw003_codec_audio_device,
 #endif
 };
 
@@ -1086,15 +1096,7 @@ static void __init gta04_init(void)
 #endif
 
 	// gpio_export() allows to access through /sys/devices/virtual/gpio/gpio*/value
-	
-#if 0
-	//	omap_mux_init_gpio(170, OMAP_PIN_INPUT);
-	omap_mux_init_gpio(170, OMAP_PIN_OUTPUT);
-	gpio_request(170, "DVI_nPD");
-	gpio_direction_output(170, false);	/* leave DVI powered down until it's needed ... */
-	gpio_export(170, 0);	// no direction change
-#endif
-	
+		
 	gpio_request(145, "GPS_ON");
 	gpio_direction_output(145, false);
 	gpio_export(145, 0);	// no direction change

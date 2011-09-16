@@ -754,6 +754,7 @@ static irqreturn_t musb_stage2_irq(struct musb *musb, u8 int_usb,
  * endpoints, relies on TX/RX interval registers, and isn't claimed
  * to support ISO transfers yet.
  */
+
 	if (int_usb & MUSB_INTR_SOF) {
 		void __iomem *mbase = musb->mregs;
 		struct musb_hw_ep	*ep;
@@ -849,16 +850,23 @@ static irqreturn_t musb_stage2_irq(struct musb *musb, u8 int_usb,
 			break;
 #endif
 		case OTG_STATE_B_PERIPHERAL:
-			musb_g_suspend(musb);
-			musb->is_active = is_otg_enabled(musb)
-					&& musb->xceiv->gadget->b_hnp_enable;
-			if (musb->is_active) {
+			if(!musb->xceiv->gadget) {	/* no gadget assigned */
+				musb->is_active = 0;
+				// FIXME: this does not properly initialize after the gadget is loaded!
+				// one has to unplug/replug the USB cable
+			}
+			else {
+				musb_g_suspend(musb);
+				musb->is_active = is_otg_enabled(musb)
+						&& musb->xceiv->gadget->b_hnp_enable;
 #ifdef	CONFIG_USB_MUSB_OTG
-				musb->xceiv->state = OTG_STATE_B_WAIT_ACON;
-				DBG(1, "HNP: Setting timer for b_ase0_brst\n");
-				musb_otg_timer.data = (unsigned long)musb;
-				mod_timer(&musb_otg_timer, jiffies
-					+ msecs_to_jiffies(TB_ASE0_BRST));
+				if (musb->is_active) {
+					musb->xceiv->state = OTG_STATE_B_WAIT_ACON;
+					DBG(1, "HNP: Setting timer for b_ase0_brst\n");
+					musb_otg_timer.data = (unsigned long)musb;
+					mod_timer(&musb_otg_timer, jiffies
+							  + msecs_to_jiffies(TB_ASE0_BRST));	/* this timer switches back to OTG_STATE_B_PERIPHERAL after a while */
+				}
 #endif
 			}
 			break;
@@ -883,7 +891,6 @@ static irqreturn_t musb_stage2_irq(struct musb *musb, u8 int_usb,
 		}
 		schedule_work(&musb->irq_work);
 	}
-
 
 	return handled;
 }

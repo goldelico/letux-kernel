@@ -19,6 +19,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 
+#define DEBUG 1
+
 #include <linux/spinlock.h>
 #include <linux/list.h>
 #include <linux/sched.h>	/* schedule_timeout() */

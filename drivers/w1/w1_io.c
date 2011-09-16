@@ -19,6 +19,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 
+#define DEBUG 1
+
 #include <asm/io.h>
 
 #include <linux/delay.h>
@@ -135,6 +137,7 @@ static void w1_post_write(struct w1_master *dev)
 void w1_write_8(struct w1_master *dev, u8 byte)
 {
 	int i;
+	printk("w1_write_8(): dev=%p dev->bus_master=%p\n", dev, dev->bus_master);
 
 	if (dev->bus_master->write_byte) {
 		w1_pre_write(dev);
