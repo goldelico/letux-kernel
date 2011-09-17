@@ -37,6 +37,11 @@
 #define TSC2007_ACTIVATE_YN		(0x9 << 4)
 #define TSC2007_ACTIVATE_YP_XN		(0xa << 4)
 #define TSC2007_SETUP			(0xb << 4)
+#define TSC2007_SETUP_PULLUP_90K	0x01
+#define TSC2007_SETUP_BYPASS_MAV	0x02
+#define TSC2007_MEASURE_TEMP0	(0x0 << 4)
+#define TSC2007_MEASURE_AUX		(0x2 << 4)
+#define TSC2007_MEASURE_TEMP1	(0x4 << 4)
 #define TSC2007_MEASURE_X		(0xc << 4)
 #define TSC2007_MEASURE_Y		(0xd << 4)
 #define TSC2007_MEASURE_Z1		(0xe << 4)
@@ -58,6 +63,9 @@
 #define READ_Z1		(ADC_ON_12BIT | TSC2007_MEASURE_Z1)
 #define READ_Z2		(ADC_ON_12BIT | TSC2007_MEASURE_Z2)
 #define READ_X		(ADC_ON_12BIT | TSC2007_MEASURE_X)
+#define READ_TEMP0	(ADC_ON_12BIT | TSC2007_MEASURE_TEMP0)
+#define READ_TEMP1	(ADC_ON_12BIT | TSC2007_MEASURE_TEMP1)
+#define READ_AUX	(ADC_ON_12BIT | TSC2007_MEASURE_AUX)
 #define PWRDOWN		(TSC2007_12BIT | TSC2007_POWER_OFF_IRQ_EN)
 
 struct ts_event {
@@ -81,8 +89,53 @@ struct tsc2007 {
 
 	int			(*get_pendown_state)(void);
 	void			(*clear_penirq)(void);
+
+	int			other_channel_sampling_counter;
+	u16			temp0;
+	u16			temp1;
+	u16			aux;
+	u16			pressure;
 };
 
+/* /sys extension to access TEMP and AUX */
+
+static ssize_t show_data(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct tsc2007	*ts = i2c_get_clientdata(client);
+	/* FIXME: decode which attribute we want to read */
+	return sprintf(buf, "t0=%u,t1=%u,aux=%u,pd=%d,p=%u,r=%uOhm\n",
+				   ts->temp0,
+				   ts->temp1,
+				   ts->aux,
+				   ts->pendown,
+				   ts->pressure,
+				   ts->pressure > 0 ? (4096 * (u32)ts->x_plate_ohms) / ts->pressure : 65535);
+}
+
+static DEVICE_ATTR(temp0, S_IRUGO, show_data, NULL);
+static DEVICE_ATTR(temp1, S_IRUGO, show_data, NULL);
+static DEVICE_ATTR(pressure, S_IRUGO, show_data, NULL);
+static DEVICE_ATTR(resistance, S_IRUGO, show_data, NULL);
+static DEVICE_ATTR(aux, S_IRUGO, show_data, NULL);
+static DEVICE_ATTR(pendown, S_IRUGO, show_data, NULL);
+/* FIXME: we could also report raw x,y,z1,z2 values */
+
+static struct attribute *tsc2007_attributes[] = {
+	&dev_attr_temp0.attr,
+	&dev_attr_temp1.attr,
+	&dev_attr_aux.attr,
+	&dev_attr_resistance.attr,
+	&dev_attr_pressure.attr,
+	&dev_attr_pendown.attr,
+	NULL
+};
+
+static const struct attribute_group tsc2007_attr_group = {
+	.attrs = tsc2007_attributes,
+};
+
+/* i2c/smbus access */
 static inline int tsc2007_xfer(struct tsc2007 *tsc, u8 cmd)
 {
 	s32 data;
@@ -116,6 +169,15 @@ static void tsc2007_read_values(struct tsc2007 *tsc, struct ts_event *tc)
 	/* turn y+ off, x- on; we'll use formula #1 */
 	tc->z1 = tsc2007_xfer(tsc, READ_Z1);
 	tc->z2 = tsc2007_xfer(tsc, READ_Z2);
+
+	/* every 10th conversion, read TEMP0, TEMP1, AUX */
+	
+	if(++tsc->other_channel_sampling_counter > 10) {
+		tsc->temp0 = tsc2007_xfer(tsc, READ_TEMP0);
+		tsc->temp1 = tsc2007_xfer(tsc, READ_TEMP1);
+		tsc->aux = tsc2007_xfer(tsc, READ_AUX);
+		tsc->other_channel_sampling_counter = 0;
+	}
 
 	/* Prepare for next touch reading - power down ADC, enable PENIRQ */
 	tsc2007_xfer(tsc, PWRDOWN);
@@ -185,7 +247,7 @@ static void tsc2007_work(struct work_struct *work)
 
 	tsc2007_read_values(ts, &tc);
 
-	rt = tsc2007_calculate_pressure(ts, &tc);
+	ts->pressure = rt = tsc2007_calculate_pressure(ts, &tc);
 
 	if (rt) {
 		struct input_dev *input = ts->input;
@@ -270,6 +332,13 @@ static int __devinit tsc2007_probe(struct i2c_client *client,
 				     I2C_FUNC_SMBUS_READ_WORD_DATA))
 		return -EIO;
 
+	/* Register sysfs hooks */
+	err = sysfs_create_group(&client->dev.kobj, &tsc2007_attr_group);
+	if (err) {
+		dev_err(&client->dev, "registering with sysfs failed!\n");
+		return err;
+	}
+	
 	ts = kzalloc(sizeof(struct tsc2007), GFP_KERNEL);
 	input_dev = input_allocate_device();
 	if (!ts || !input_dev) {
@@ -344,6 +413,8 @@ static int __devexit tsc2007_remove(struct i2c_client *client)
 	if (pdata->exit_platform_hw)
 		pdata->exit_platform_hw();
 
+	sysfs_remove_group(&client->dev.kobj, &tsc2007_attr_group);
+	
 	input_unregister_device(ts->input);
 	kfree(ts);
 
