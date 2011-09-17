@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32
-# Sat Sep 17 13:13:49 2011
+# Sat Sep 17 16:10:44 2011
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -876,7 +876,9 @@ CONFIG_CS5535_MFGPT_DEFAULT_IRQ=7
 # CONFIG_DS1682 is not set
 # CONFIG_TI_DAC7512 is not set
 CONFIG_BMP085=m
-# CONFIG_RFID_TRF7960 is not set
+CONFIG_ITG3200=m
+CONFIG_BMA180=m
+CONFIG_RFID_TRF7960=m
 # CONFIG_C2PORT is not set
 
 #

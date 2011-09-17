@@ -713,7 +713,7 @@ static struct platform_device gta04_w2cbw003_codec_audio_device = {
 };
 #endif
 
-#ifdef CONFIG_TOUCHSCREEN_TSC2007
+#if defined(CONFIG_TOUCHSCREEN_TSC2007) || defined(CONFIG_TOUCHSCREEN_TSC2007_MODULE)
 
 // TODO: see also http://e2e.ti.com/support/arm174_microprocessors/omap_applications_processors/f/42/t/33262.aspx for an example...
 // and http://www.embedded-bits.co.uk/?tag=struct-i2c_board_info for a description of how struct i2c_board_info works
@@ -769,7 +769,7 @@ struct tsc2007_platform_data __initdata tsc2007_info = {
 #endif
 
 
-#ifdef CONFIG_BMP085
+#if defined(CONFIG_BMP085) || defined(CONFIG_BMP085_MODULE)
 
 #define BMP085_EOC_IRQ_GPIO		113	/* BMP085 end of conversion GPIO */
 
@@ -800,7 +800,7 @@ static void bmp085_exit(void)
 	gpio_free(BMP085_EOC_IRQ_GPIO);
 }
 
-struct bmp085_platform_data bmp085_info = {
+struct bmp085_platform_data __initdata bmp085_info = {
 	.init_platform_hw	= bmp085_init,
 	.exit_platform_hw	= bmp085_exit,
 };
@@ -809,7 +809,37 @@ struct bmp085_platform_data bmp085_info = {
 
 
 static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
-#ifdef CONFIG_TOUCHSCREEN_TSC2007
+#if defined(CONFIG_LIS302) || defined(CONFIG_LIS302_MODULE)
+	{
+	I2C_BOARD_INFO("lis302top", 0x1c),
+	.type		= "lis302",
+	.platform_data	= &lis302_info,
+	.irq		=  115,
+	},
+	{
+	I2C_BOARD_INFO("lis302bottom", 0x1d),
+	.type		= "lis302",
+	.platform_data	= &lis302_info,
+	.irq		=  114,
+	},
+#endif
+#if defined(CONFIG_BMP085) || defined(CONFIG_BMP085_MODULE)
+	{
+	I2C_BOARD_INFO("bmp085", 0x77),
+	.type		= "bmp085",
+	.platform_data	= &bmp085_info,
+	.irq		=  OMAP_GPIO_IRQ(BMP085_EOC_IRQ_GPIO),
+	},
+#endif
+#if defined(CONFIG_ITG3200) || defined(CONFIG_ITG3200_MODULE)
+	{
+	I2C_BOARD_INFO("itg3200", 0x68),
+	.type		= "itg3200",
+	.platform_data	= NULL,
+	.irq		= 56,
+	},	
+#endif
+#if defined(CONFIG_TOUCHSCREEN_TSC2007) || defined(CONFIG_TOUCHSCREEN_TSC2007_MODULE)
 {
 	I2C_BOARD_INFO("tsc2007", 0x48),
 	.type		= "tsc2007",
@@ -817,36 +847,54 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 	.irq		=  OMAP_GPIO_IRQ(TS_PENIRQ_GPIO),
 },
 #endif
-#ifdef CONFIG_BMP085
-{
-	I2C_BOARD_INFO("bmp085", 0x77),
-	.type		= "bmp085",
-	.platform_data	= &bmp085_info,
-	.irq		=  OMAP_GPIO_IRQ(BMP085_EOC_IRQ_GPIO),
-},
+#if defined(CONFIG_BMA180) || defined(CONFIG_BMA180_MODULE)
+	{
+	I2C_BOARD_INFO("bma180", 0x41),
+	.type		= "bma180",
+	.platform_data	= NULL,
+	.irq		= 115,
+	},	
 #endif
-#ifdef CONFIG_LIS302
-{
-	I2C_BOARD_INFO("lis302top", 0x1c),
-	.type		= "lis302",
-	.platform_data	= &lis302_info,
-	.irq		=  -EINVAL,
-},
-{
-	I2C_BOARD_INFO("lis302bottom", 0x1d),
-	.type		= "lis302",
-	.platform_data	= &lis302_info,
-	.irq		=  114,
-},
+#if defined(CONFIG_HMC5883) || defined(CONFIG_HMC5883_MODULE)
+	{
+	I2C_BOARD_INFO("hmc5883", 0x1e),
+	.type		= "hmc5883",
+	.platform_data	= NULL,
+	.irq		= 111,
+	},	
 #endif
-#if defined(CONFIG_LEDS_TCA6507)
-{
+#if defined(CONFIG_LEDS_TCA6507) || defined(CONFIG_LEDS_TCA6507_MODULE)
+	{
 	I2C_BOARD_INFO("tca6507", 0x45),
 	.type		= "tca6507",
 	.platform_data	= NULL,
-},	
+	},	
 #endif
-	/* FIXME: add other drivers for HMC5883, BMA180, Si472x, Camera */
+#if defined(CONFIG_TPS61050) || defined(CONFIG_TPS61050_MODULE)
+	{
+	I2C_BOARD_INFO("tps61050", 0x33),
+	.type		= "tps61050",
+	.platform_data	= NULL,
+	.irq		= -EINVAL,
+	},	
+#endif
+#if defined(CONFIG_MT24LR64) || defined(CONFIG_MT24LR64_MODULE)
+	{
+	// FIXME: can we use some standard EEPROM driver?
+	I2C_BOARD_INFO("mt24lr64", 0x50),
+	.type		= "mt24lr64",
+	.platform_data	= NULL,
+	.irq		= -EINVAL,
+	},	
+#endif
+#if defined(CONFIG_TCA8418) || defined(CONFIG_TCA8418_MODULE)
+	{
+	I2C_BOARD_INFO("tca8418", 0x64),
+	.type		= "tca8418",
+	.platform_data	= NULL,
+	.irq		= -10,
+	},	
+#endif
 };
 
 static int __init gta04_i2c_init(void)
@@ -1102,7 +1150,7 @@ static void __init gta04_init(void)
 	gpio_export(144, 0);	// no direction change
 	
 #ifdef GTA04A2
-	// has different pins but neither chips are installed
+	// has different pins but chips are'nt installed anyway
 	
 #else
 	
@@ -1119,7 +1167,7 @@ static void __init gta04_init(void)
 #endif
 	
 	usb_musb_init();
-#if !defined(CONFIG_I2C_OMAP_GTA04A2)	// we don't have the controller chip on the A2 board
+#if !defined(CONFIG_I2C_OMAP_GTA04A2)	// we don't have this controller chip on the A2 board
 	usb_ehci_init(&ehci_pdata);
 #endif
 	gta04_flash_init();

@@ -214,6 +214,8 @@ static void tsc2007_send_up_event(struct tsc2007 *tsc)
 	input_report_key(input, BTN_TOUCH, 0);
 	input_report_abs(input, ABS_PRESSURE, 0);
 	input_sync(input);
+	
+	ts->pressure = 0;
 }
 
 static void tsc2007_work(struct work_struct *work)
