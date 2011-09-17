@@ -724,21 +724,11 @@ static struct platform_device gta04_w2cbw003_codec_audio_device = {
 
 static int ts_get_pendown_state(void)
 {
-#if 1
-	int val = 0;
-	//	gpio_free(GPIO_FN_INTC_IRQ0);	// what does this change or not change on the board we have copied the code from?
-//	gpio_request(TS_PENIRQ_GPIO, "tsc2007_pen_down");
-//	gpio_direction_input(TS_PENIRQ_GPIO);
-	
+	int val;
+
 	val = gpio_get_value(TS_PENIRQ_GPIO);
-	
-//	gpio_free(TS_PENIRQ_GPIO);
-	//	gpio_request(GPIO_FN_INTC_IRQ0, NULL);
 //	printk("ts_get_pendown_state() -> %d\n", val);
 	return val ? 0 : 1;
-#else
-	return 0;
-#endif
 }
 
 static int __init tsc2007_init(void)
@@ -756,9 +746,9 @@ static int __init tsc2007_init(void)
 			   "input\n", TS_PENIRQ_GPIO);
 		return -ENXIO;
 	}
-//	gpio_export(TS_PENIRQ_GPIO, 0);
+	gpio_export(TS_PENIRQ_GPIO, 0);
 	omap_set_gpio_debounce(TS_PENIRQ_GPIO, 1);
-	omap_set_gpio_debounce_time(TS_PENIRQ_GPIO, 0xa);
+	omap_set_gpio_debounce_time(TS_PENIRQ_GPIO, 0xa);	// means (10+1)x31 us
 	set_irq_type(OMAP_GPIO_IRQ(TS_PENIRQ_GPIO), IRQ_TYPE_EDGE_FALLING);
 	return 0;
 }
@@ -770,7 +760,7 @@ static void tsc2007_exit(void)
 
 struct tsc2007_platform_data __initdata tsc2007_info = {
 	.model			= 2007,
-	.x_plate_ohms		= 600,	// range: 250 .. 900 
+	.x_plate_ohms		= 600,	/* is just a range defining factor - range: 250 .. 900 */
 	.get_pendown_state	= ts_get_pendown_state,
 	.init_platform_hw	= tsc2007_init,
 	.exit_platform_hw	= tsc2007_exit,

@@ -121,21 +121,23 @@ static void tsc2007_read_values(struct tsc2007 *tsc, struct ts_event *tc)
 	tsc2007_xfer(tsc, PWRDOWN);
 }
 
-static u32 tsc2007_calculate_pressure(struct tsc2007 *tsc, struct ts_event *tc)
+static u16 tsc2007_calculate_pressure(struct tsc2007 *tsc, struct ts_event *tc)
 {
 	u32 rt = 0;
 
 	/* range filtering */
-	if (tc->x == MAX_12BIT)
-		tc->x = 0;
+	if (tc->x >= MAX_12BIT)
+		return rt;
 
-	if (likely(tc->x && tc->z1)) {
+	if (likely(tc->x && tc->z1 && tc->z2 > tc->z1)) {
 		/* compute touch pressure resistance using equation #1 */
-		rt = tc->z2 - tc->z1;
-		rt *= tc->x;
-		rt *= tsc->x_plate_ohms;
-		rt /= tc->z1;
-		rt = (rt + 2047) >> 12;
+		/* and translate into increasing pressure for decreasing resistance */
+		
+		rt = ((u32) tc->z1) << (32 - 12);	/* shift to maximum precision */
+		rt /= (tc->x * (u32)(tc->z2 - tc->z1));
+#if 0
+		printk("z1=%u z2=%u x=%u rt=%u\n", tc->z1, tc->z2, tc->x, rt);
+#endif
 	}
 
 	return rt;
@@ -157,7 +159,7 @@ static void tsc2007_work(struct work_struct *work)
 	struct tsc2007 *ts =
 		container_of(to_delayed_work(work), struct tsc2007, work);
 	struct ts_event tc;
-	u32 rt;
+	u16 rt;	/* range: 0 .. 4095 */
 
 	/*
 	 * NOTE: We can't rely on the pressure to determine the pen down
@@ -184,16 +186,6 @@ static void tsc2007_work(struct work_struct *work)
 	tsc2007_read_values(ts, &tc);
 
 	rt = tsc2007_calculate_pressure(ts, &tc);
-	if (rt > MAX_12BIT) {
-		/*
-		 * Sample found inconsistent by debouncing or pressure is
-		 * beyond the maximum. Don't report it to user space,
-		 * repeat at least once more the measurement.
-		 */
-		dev_dbg(&ts->client->dev, "ignored pressure %d\n", rt);
-		goto out;
-
-	}
 
 	if (rt) {
 		struct input_dev *input = ts->input;
