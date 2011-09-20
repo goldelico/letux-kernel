@@ -547,6 +547,7 @@ struct omap_dss_device {
 
 			bool ext_te;
 			u8 ext_te_gpio;
+			enum omap_dss_dsi_mode type;
 		} dsi;
 
 		struct {
