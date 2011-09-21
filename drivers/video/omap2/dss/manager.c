@@ -37,6 +37,7 @@
 
 static int num_managers;
 static struct list_head manager_list;
+static struct omap_overlay_manager *mgrs[MAX_DSS_MANAGERS];
 
 static ssize_t manager_name_show(struct omap_overlay_manager *mgr, char *buf)
 {
@@ -619,6 +620,7 @@ static int dss_mgr_wait_for_vsync(struct omap_overlay_manager *mgr)
 {
 	unsigned long timeout = msecs_to_jiffies(500);
 	u32 irq = 0; /* For non-supported panels will cause a timeout */
+	int r;
 
 	if (mgr->device->type == OMAP_DISPLAY_TYPE_VENC) {
 		irq = DISPC_IRQ_EVSYNC_ODD;
@@ -638,7 +640,11 @@ static int dss_mgr_wait_for_vsync(struct omap_overlay_manager *mgr)
 			irq = DISPC_IRQ_FRAMEDONE2;
 	}
 
-	return omap_dispc_wait_for_irq_interruptible_timeout(irq, timeout);
+	r = omap_dispc_wait_for_irq_interruptible_timeout(irq, timeout);
+	if (!r)
+		mgr->device->first_vsync = true;
+
+	return r;
 }
 
 static int dss_mgr_wait_for_go(struct omap_overlay_manager *mgr)
@@ -693,6 +699,9 @@ static int dss_mgr_wait_for_go(struct omap_overlay_manager *mgr)
 		}
 
 		r = omap_dispc_wait_for_irq_interruptible_timeout(irq, timeout);
+		if (!r)
+			mgr->device->first_vsync = true;
+
 		if (r == -ERESTARTSYS)
 			break;
 
@@ -1316,8 +1325,11 @@ static void dss_apply_irq_handler(void *data, u32 mask)
 
 	for (i = 0; i < num_mgrs; ++i) {
 		mc = &dss_cache.manager_cache[i];
-		if (!mgr_busy[i])
+		if (!mgr_busy[i] && mc->shadow_dirty) {
+			if (mgrs[i] && mgrs[i]->device)
+				mgrs[i]->device->first_vsync = true;
 			mc->shadow_dirty = false;
+		}
 	}
 
 	r = configure_dispc();
@@ -1629,6 +1641,8 @@ static void omap_dss_add_overlay_manager(struct omap_overlay_manager *manager)
 {
 	++num_managers;
 	list_add_tail(&manager->list, &manager_list);
+	if (manager->id < ARRAY_SIZE(mgrs))
+		mgrs[manager->id] = manager;
 }
 
 int dss_init_overlay_managers(struct platform_device *pdev)
