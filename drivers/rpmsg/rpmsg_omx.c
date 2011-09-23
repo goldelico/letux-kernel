@@ -36,7 +36,9 @@
 #include <linux/rpmsg_omx.h>
 #include <linux/completion.h>
 
+#ifdef CONFIG_TI_TILER
 #include <mach/tiler.h>
+#endif
 
 #ifdef CONFIG_ION_OMAP
 #include <linux/ion.h>
@@ -184,7 +186,10 @@ static int _rpmsg_omx_buffer_lookup(struct rpmsg_omx_instance *omx,
 	}
 #endif
 
+#ifdef CONFIG_TI_TILER
 	ret =  _rpmsg_pa_to_da((phys_addr_t)tiler_virt2phys(buffer), va);
+#endif
+
 exit:
 	if (ret)
 		pr_err("%s: buffer lookup failed %x\n", __func__, ret);
