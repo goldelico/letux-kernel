@@ -273,7 +273,7 @@ static void bmp085_work(struct work_struct *work)
 	struct bmp085_data *data =
 		container_of(work, struct bmp085_data, work);
 
-	printk(KERN_INFO "bmp085_work");
+//	printk(KERN_INFO "bmp085_work");
 	switch(data->status) {
 	case BMP085_CONVERTING_TEMPERATURE:
 		bmp085_update_raw_pressure(data);
@@ -292,7 +292,7 @@ static irqreturn_t bmp085_irq(int irq, void *handle)
 {
 	struct bmp085_data *data = handle;
 
-	printk(KERN_INFO "bmp085_irq");
+//	printk(KERN_INFO "bmp085_irq");
 	disable_irq_nosync(data->irq);
 	schedule_work(&data->work);
 
@@ -301,7 +301,7 @@ static irqreturn_t bmp085_irq(int irq, void *handle)
 
 static void bmp085_free_irq(struct bmp085_data *data)
 {
-	printk(KERN_INFO "bmp085_free_irq");
+//	printk(KERN_INFO "bmp085_free_irq");
 	free_irq(data->irq, data);
 	if (cancel_work_sync(&data->work)) {
 		/*
