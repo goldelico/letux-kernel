@@ -430,6 +430,8 @@ static int bmp085_probe(struct i2c_client *client,
 	if (err)
 		goto exit_free;
 
+	INIT_WORK(&data->work, bmp085_work);
+	
 	dev_info(&data->client->dev, "succesfully initialized bmp085!\n");
 	return 0;
 
