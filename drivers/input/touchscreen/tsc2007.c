@@ -29,6 +29,7 @@
 
 #define TS_POLL_DELAY			1 /* ms delay between samples */
 #define TS_POLL_PERIOD			1 /* ms delay between samples */
+#define TS_AUX_POLL_PERIOD		100 /* ms delay between samples of AUX, TEMP1, TEMP2 */
 
 #define TSC2007_MEASURE_TEMP0		(0x0 << 4)
 #define TSC2007_MEASURE_AUX		(0x2 << 4)
@@ -78,6 +79,7 @@ struct tsc2007 {
 	struct input_dev	*input;
 	char			phys[32];
 	struct delayed_work	work;
+	struct delayed_work	aux_work;
 
 	struct i2c_client	*client;
 
@@ -90,7 +92,8 @@ struct tsc2007 {
 	int			(*get_pendown_state)(void);
 	void			(*clear_penirq)(void);
 
-	int			other_channel_sampling_counter;
+	struct ts_event tc;
+
 	u16			temp0;
 	u16			temp1;
 	u16			aux;
@@ -103,31 +106,23 @@ static ssize_t show_data(struct device *dev, struct device_attribute *attr, char
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct tsc2007	*ts = i2c_get_clientdata(client);
-	/* FIXME: decode which attribute we want to read */
-	return sprintf(buf, "t0=%u,t1=%u,aux=%u,pd=%d,p=%u,r=%uOhm\n",
+	return sprintf(buf, "%u,%u,%u,%d,%u,%u,%u,%u,%u,%u\n",
+				   ts->tc.x,
+				   ts->tc.y,
+				   ts->pressure,
+				   ts->pendown,
+				   ts->tc.z1,
+				   ts->tc.z2,
 				   ts->temp0,
 				   ts->temp1,
 				   ts->aux,
-				   ts->pendown,
-				   ts->pressure,
-				   ts->pressure > 0 ? (4096 * (u32)ts->x_plate_ohms) / ts->pressure : 65535);
+				   ts->pressure > 0 ? ((4096/16) * (u32)ts->x_plate_ohms) / ts->pressure : 65535);
 }
 
-static DEVICE_ATTR(temp0, S_IRUGO, show_data, NULL);
-static DEVICE_ATTR(temp1, S_IRUGO, show_data, NULL);
-static DEVICE_ATTR(pressure, S_IRUGO, show_data, NULL);
-static DEVICE_ATTR(resistance, S_IRUGO, show_data, NULL);
-static DEVICE_ATTR(aux, S_IRUGO, show_data, NULL);
-static DEVICE_ATTR(pendown, S_IRUGO, show_data, NULL);
-/* FIXME: we could also report raw x,y,z1,z2 values */
+static DEVICE_ATTR(values, S_IRUGO, show_data, NULL);
 
 static struct attribute *tsc2007_attributes[] = {
-	&dev_attr_temp0.attr,
-	&dev_attr_temp1.attr,
-	&dev_attr_aux.attr,
-	&dev_attr_resistance.attr,
-	&dev_attr_pressure.attr,
-	&dev_attr_pendown.attr,
+	&dev_attr_values.attr,
 	NULL
 };
 
@@ -170,15 +165,6 @@ static void tsc2007_read_values(struct tsc2007 *tsc, struct ts_event *tc)
 	tc->z1 = tsc2007_xfer(tsc, READ_Z1);
 	tc->z2 = tsc2007_xfer(tsc, READ_Z2);
 
-	/* every 10th conversion, read TEMP0, TEMP1, AUX */
-	
-	if(++tsc->other_channel_sampling_counter > 10) {
-		tsc->temp0 = tsc2007_xfer(tsc, READ_TEMP0);
-		tsc->temp1 = tsc2007_xfer(tsc, READ_TEMP1);
-		tsc->aux = tsc2007_xfer(tsc, READ_AUX);
-		tsc->other_channel_sampling_counter = 0;
-	}
-
 	/* Prepare for next touch reading - power down ADC, enable PENIRQ */
 	tsc2007_xfer(tsc, PWRDOWN);
 }
@@ -215,14 +201,29 @@ static void tsc2007_send_up_event(struct tsc2007 *tsc)
 	input_report_abs(input, ABS_PRESSURE, 0);
 	input_sync(input);
 	
-	ts->pressure = 0;
+	tsc->pressure = 0;
+}
+
+static void tsc2007_aux_work(struct work_struct *aux_work)
+{ /* read TEMP0, TEMP1, AUX */
+	struct tsc2007 *ts =
+	container_of(to_delayed_work(aux_work), struct tsc2007, aux_work);
+
+	ts->temp0 = tsc2007_xfer(ts, READ_TEMP0);
+	ts->temp1 = tsc2007_xfer(ts, READ_TEMP1);
+	ts->aux = tsc2007_xfer(ts, READ_AUX);
+	
+	/* Prepare for next touch reading - power down ADC, enable PENIRQ */
+	tsc2007_xfer(ts, PWRDOWN);
+	
+	schedule_delayed_work(&ts->aux_work,
+						  msecs_to_jiffies(TS_AUX_POLL_PERIOD));
 }
 
 static void tsc2007_work(struct work_struct *work)
 {
 	struct tsc2007 *ts =
 		container_of(to_delayed_work(work), struct tsc2007, work);
-	struct ts_event tc;
 	u16 rt;	/* range: 0 .. 4095 */
 
 	/*
@@ -247,9 +248,9 @@ static void tsc2007_work(struct work_struct *work)
 		dev_dbg(&ts->client->dev, "pen is still down\n");
 	}
 
-	tsc2007_read_values(ts, &tc);
+	tsc2007_read_values(ts, &ts->tc);
 
-	ts->pressure = rt = tsc2007_calculate_pressure(ts, &tc);
+	ts->pressure = rt = tsc2007_calculate_pressure(ts, &ts->tc);
 
 	if (rt) {
 		struct input_dev *input = ts->input;
@@ -261,14 +262,14 @@ static void tsc2007_work(struct work_struct *work)
 			ts->pendown = true;
 		}
 
-		input_report_abs(input, ABS_X, tc.x);
-		input_report_abs(input, ABS_Y, tc.y);
+		input_report_abs(input, ABS_X, ts->tc.x);
+		input_report_abs(input, ABS_Y, ts->tc.y);
 		input_report_abs(input, ABS_PRESSURE, rt);
 
 		input_sync(input);
 
 		dev_dbg(&ts->client->dev, "point(%4d,%4d), pressure (%4u)\n",
-			tc.x, tc.y, rt);
+			ts->tc.x, ts->tc.y, rt);
 
 	} else if (!ts->get_pendown_state && ts->pendown) {
 		/*
@@ -352,6 +353,7 @@ static int __devinit tsc2007_probe(struct i2c_client *client,
 	ts->irq = client->irq;
 	ts->input = input_dev;
 	INIT_DELAYED_WORK(&ts->work, tsc2007_work);
+	INIT_DELAYED_WORK(&ts->aux_work, tsc2007_aux_work);
 
 	ts->model             = pdata->model;
 	ts->x_plate_ohms      = pdata->x_plate_ohms;
@@ -392,6 +394,10 @@ static int __devinit tsc2007_probe(struct i2c_client *client,
 		goto err_free_irq;
 
 	i2c_set_clientdata(client, ts);
+	
+	/* schedule AUX and TEMP readings */
+	schedule_delayed_work(&ts->aux_work,
+						  msecs_to_jiffies(TS_AUX_POLL_PERIOD));
 
 	return 0;
 
