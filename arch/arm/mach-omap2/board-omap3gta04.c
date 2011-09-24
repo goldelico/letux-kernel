@@ -878,10 +878,9 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 	.irq		= -EINVAL,
 	},	
 #endif
-#if defined(CONFIG_MT24LR64) || defined(CONFIG_MT24LR64_MODULE)
+#if defined(CONFIG_EEPROM_AT24) || defined(CONFIG_EEPROM_AT24_MODULE)
 	{
-	// FIXME: can we use some standard EEPROM driver?
-	I2C_BOARD_INFO("mt24lr64", 0x50),
+	I2C_BOARD_INFO("24c64", 0x50),
 	.type		= "mt24lr64",
 	.platform_data	= NULL,
 	.irq		= -EINVAL,
@@ -903,8 +902,7 @@ static int __init gta04_i2c_init(void)
 			ARRAY_SIZE(gta04_i2c1_boardinfo));
 	omap_register_i2c_bus(2, 400,  gta04_i2c2_boardinfo,
 				ARRAY_SIZE(gta04_i2c2_boardinfo));
-	/* Bus 3 is attached to the DVI port where devices like the pico DLP
-	 * projector don't work reliably with 400kHz */
+	/* Bus 3 is currently not used */
 	omap_register_i2c_bus(3, 100, NULL, 0);
 	return 0;
 }

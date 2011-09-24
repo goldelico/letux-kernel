@@ -32,3 +32,4 @@ obj-y				+= cb710/
 obj-$(CONFIG_RFID_TRF7960)	+= trf7960.o
 obj-$(CONFIG_ITG3200)		+= itg3200.o
 obj-$(CONFIG_BMA180)		+= bma180.o
+obj-$(CONFIG_HMC5843)		+= hmc5843.o
