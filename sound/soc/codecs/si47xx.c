@@ -349,7 +349,7 @@ MODULE_DEVICE_TABLE(i2c, si47xx_i2c_id);
 
 static struct i2c_driver si47xx_i2c_driver = {
 	.driver = {
-		.name = "Si47xx I2C Codec",
+		.name = "si47xx",	/* used to name the device in /sys */
 		.owner = THIS_MODULE,
 	},
 	.probe =    si47xx_i2c_probe,
