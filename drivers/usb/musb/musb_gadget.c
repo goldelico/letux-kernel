@@ -1908,6 +1908,14 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 	spin_unlock_irqrestore(&musb->lock, flags);
 	
 	if (retval == 0) {
+		/* FIXME: we should find out how we detect this state (musb initialized without any gadget driver) */
+		if (true) {
+			/* is already active as peripheral but we did not have a gadget driver */
+			printk(KERN_INFO "musb: virtually re-plugging\n");
+			musb_pullup(musb, 0);
+			msleep(10);	/* virtually disconnect for 10 ms! */
+			musb_pullup(musb, 1);
+		}
 		retval = driver->bind(&musb->g);
 		if (retval != 0) {
 			DBG(3, "bind to driver %s failed --> %d\n",
@@ -1926,7 +1934,6 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 		 * userspace hooks up printer hardware or DSP codecs, so
 		 * hosts only see fully functional devices.
 		 */
-		
 		if (!is_otg_enabled(musb))
 			musb_start(musb);
 		

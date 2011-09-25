@@ -154,7 +154,7 @@ void musb_platform_enable(struct musb *musb)
 		case USB_EVENT_ID:
 			otg_init(musb->xceiv);
 //			if (data->interface_type == MUSB_INTERFACE_UTMI) {
-			// OMAP3/TWL4 uses ULPI (OMAP4/TWL5 usws UTMI)
+			// OMAP3/TWL4 uses ULPI (OMAP4/TWL5 uses UTMI)
 			if(false) {
 				devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
 				/* start the session */
