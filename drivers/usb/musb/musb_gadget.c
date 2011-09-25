@@ -1845,6 +1845,9 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 				musb->g.dev.driver = NULL;
 				spin_unlock_irqrestore(&musb->lock, flags);
 			}
+			if ((musb->xceiv->last_event == USB_EVENT_ID)
+				&& musb->xceiv->set_vbus)
+				otg_set_vbus(musb->xceiv, 1);
 		}
 	}
 	
@@ -1928,6 +1931,9 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 			musb_start(musb);
 		
 		otg_set_peripheral(musb->xceiv, &musb->g);
+		if ((musb->xceiv->last_event == USB_EVENT_ID)
+			&& musb->xceiv->set_vbus)
+			otg_set_vbus(musb->xceiv, 1);
 		
 		spin_unlock_irqrestore(&musb->lock, flags);
 	}

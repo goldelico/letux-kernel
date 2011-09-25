@@ -143,9 +143,49 @@ void musb_platform_try_idle(struct musb *musb, unsigned long timeout)
 
 void musb_platform_enable(struct musb *musb)
 {
+	u8		devctl;
+	unsigned long timeout = jiffies + msecs_to_jiffies(1000);
+	struct device *dev = musb->controller;
+	struct musb_hdrc_platform_data *pdata = dev->platform_data;
+//	struct omap_musb_board_data *data = pdata->board_data;
+	
+	switch (musb->xceiv->last_event) {
+			
+		case USB_EVENT_ID:
+			otg_init(musb->xceiv);
+//			if (data->interface_type == MUSB_INTERFACE_UTMI) {
+			// OMAP3/TWL4 uses ULPI (OMAP4/TWL5 usws UTMI)
+			if(false) {
+				devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
+				/* start the session */
+				devctl |= MUSB_DEVCTL_SESSION;
+				musb_writeb(musb->mregs, MUSB_DEVCTL, devctl);
+				while (musb_readb(musb->mregs, MUSB_DEVCTL) &
+					   MUSB_DEVCTL_BDEVICE) {
+					cpu_relax();
+					if (time_after(jiffies, timeout)) {
+						dev_err(musb->controller,
+								"configured as A device timeout");
+						break;
+					}
+				}
+			}
+			break;
+			
+		case USB_EVENT_VBUS:
+			otg_init(musb->xceiv);
+			break;
+			
+		default:
+			break;
+	}
 }
+
 void musb_platform_disable(struct musb *musb)
 {
+	if (musb->xceiv->last_event)
+		otg_shutdown(musb->xceiv);
+
 }
 static void omap_vbus_power(struct musb *musb, int is_on, int sleeping)
 {
