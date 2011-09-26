@@ -39,6 +39,8 @@
 #include <../sound/soc/codecs/si47xx.h>
 #include <../sound/soc/codecs/w2cbw003-bt.h>
 
+#include <linux/mmc/host.h>
+
 #include <linux/sysfs.h>
 
 #include <mach/hardware.h>
@@ -414,7 +416,8 @@ static struct twl4030_hsmmc_info mmc[] = {
 		.gpio_cd	= -EINVAL,	// no card detect
 		.gpio_wp	= -EINVAL,	// no write protect
 		.transceiver	= true,	// external transceiver
-		.ocr_mask	= 0x00100000,	/* fixed 3.3V */
+		.ocr_mask	= MMC_VDD_27_28 | MMC_VDD_28_29 | MMC_VDD_29_30
+					| MMC_VDD_30_31 | MMC_VDD_31_32 | MMC_VDD_32_33,	/* VDD voltage 2.7 ~ 3.3 */
 	},
 	{}	/* Terminator */
 };
@@ -483,7 +486,11 @@ static struct regulator_init_data gta04_vaux4 = {
 	.constraints = {
 		.name			= "VAUX4",
 		.min_uV			= 2800000,
+#ifdef CONFIG_TWL4030_ALLOW_UNSUPPORTED
 		.max_uV			= 3150000,	// FIXME: this is a HW issue - 3.15V or 3.3V isn't supported officially - set CONFIG_TWL4030_ALLOW_UNSUPPORTED
+#else
+		.max_uV			= 2800000,
+#endif
 		.valid_modes_mask	= REGULATOR_MODE_NORMAL
 		| REGULATOR_MODE_STANDBY,
 		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE

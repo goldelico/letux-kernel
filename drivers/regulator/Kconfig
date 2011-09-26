@@ -76,6 +76,13 @@ config REGULATOR_TWL4030
 	  This driver supports the voltage regulators provided by
 	  this family of companion chips.
 
+config TWL4030_ALLOW_UNSUPPORTED
+       bool "Allow TWL4030/TWL5030/TPS695x0 unsupported voltage settings"
+       depends on REGULATOR_TWL4030
+       help
+         This enables the ability to set voltages which are not
+         officially supported by Texas Instruments.
+
 config REGULATOR_WM831X
 	tristate "Wolfson Microelcronics WM831x PMIC regulators"
 	depends on MFD_WM831X

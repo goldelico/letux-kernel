@@ -1648,6 +1648,11 @@ static void omap_hsmmc_debugfs(struct mmc_host *mmc)
 
 #endif
 
+#ifdef CONFIG_MACH_GTA04
+struct mmc_host *mmc2_host;
+EXPORT_SYMBOL(mmc2_host);
+#endif
+
 static int __init omap_hsmmc_probe(struct platform_device *pdev)
 {
 	struct omap_mmc_platform_data *pdata = pdev->dev.platform_data;
@@ -1698,6 +1703,15 @@ static int __init omap_hsmmc_probe(struct platform_device *pdev)
 	host->sdio_int = 0;
 
 	platform_set_drvdata(pdev, host);
+	
+#ifdef CONFIG_MACH_GTA04
+	if (host->id == OMAP_MMC2_DEVID)
+		{
+		printk("struct mmc_host: %p pdev->drvdata->mmc = %p\n", mmc, ((struct omap_hsmmc_host *) platform_get_drvdata(pdev))->mmc);
+		mmc2_host = mmc;	/* save in global variable so that we can call mmc_detect_change(mmc2_host, 1) in virtual.c */
+		}
+#endif
+
 	INIT_WORK(&host->mmc_carddetect_work, omap_hsmmc_detect);
 
 	if (mmc_slot(host).power_saving)
