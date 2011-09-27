@@ -27,7 +27,7 @@
 #include <linux/i2c.h>
 #include <linux/i2c/tsc2007.h>
 
-#define TS_POLL_DELAY			1 /* ms delay between samples */
+#define TS_POLL_DELAY			1 /* ms delay between IRQ and first sample */
 #define TS_POLL_PERIOD			1 /* ms delay between samples */
 #define TS_AUX_POLL_PERIOD		100 /* ms delay between samples of AUX, TEMP1, TEMP2 */
 
@@ -94,6 +94,8 @@ struct tsc2007 {
 
 	struct ts_event tc;
 
+	int			aux_counter;
+	
 	u16			temp0;
 	u16			temp1;
 	u16			aux;
@@ -131,14 +133,14 @@ static const struct attribute_group tsc2007_attr_group = {
 };
 
 /* i2c/smbus access */
-static inline int tsc2007_xfer(struct tsc2007 *tsc, u8 cmd)
+static inline int tsc2007_xfer(struct tsc2007 *ts, u8 cmd)
 {
 	s32 data;
 	u16 val;
 
-	data = i2c_smbus_read_word_data(tsc->client, cmd);
+	data = i2c_smbus_read_word_data(ts->client, cmd);
 	if (data < 0) {
-		dev_err(&tsc->client->dev, "i2c io error: %d\n", data);
+		dev_err(&ts->client->dev, "i2c io error: %d\n", data);
 		return data;
 	}
 
@@ -148,66 +150,76 @@ static inline int tsc2007_xfer(struct tsc2007 *tsc, u8 cmd)
 	 */
 	val = swab16(data) >> 4;
 
-	dev_dbg(&tsc->client->dev, "data: 0x%x, val: 0x%x\n", data, val);
+	dev_dbg(&ts->client->dev, "data: 0x%x, val: 0x%x\n", data, val);
 
 	return val;
 }
 
-static void tsc2007_read_values(struct tsc2007 *tsc, struct ts_event *tc)
+static void tsc2007_read_values(struct tsc2007 *ts)
 {
 	/* y- still on; turn on only y+ (and ADC) */
-	tc->y = tsc2007_xfer(tsc, READ_Y);
+	ts->tc.y = tsc2007_xfer(ts, READ_Y);
 
 	/* turn y- off, x+ on, then leave in lowpower */
-	tc->x = tsc2007_xfer(tsc, READ_X);
+	ts->tc.x = tsc2007_xfer(ts, READ_X);
 
 	/* turn y+ off, x- on; we'll use formula #1 */
-	tc->z1 = tsc2007_xfer(tsc, READ_Z1);
-	tc->z2 = tsc2007_xfer(tsc, READ_Z2);
+	ts->tc.z1 = tsc2007_xfer(ts, READ_Z1);
+	ts->tc.z2 = tsc2007_xfer(ts, READ_Z2);
+
+	/* keep updating while we don't schedule the aux_work */
+	if(ts->aux_counter++ >= (TS_AUX_POLL_PERIOD/TS_POLL_PERIOD)) {
+//		printk("update like aux_work\n");
+		ts->temp0 = tsc2007_xfer(ts, READ_TEMP0);
+		ts->temp1 = tsc2007_xfer(ts, READ_TEMP1);
+		ts->aux = tsc2007_xfer(ts, READ_AUX);
+		ts->aux_counter=0;
+	}
 
 	/* Prepare for next touch reading - power down ADC, enable PENIRQ */
-	tsc2007_xfer(tsc, PWRDOWN);
+	tsc2007_xfer(ts, PWRDOWN);
 }
 
-static u16 tsc2007_calculate_pressure(struct tsc2007 *tsc, struct ts_event *tc)
+static u16 tsc2007_calculate_pressure(struct tsc2007 *ts)
 {
 	u32 rt = 0;
 
 	/* range filtering */
-	if (tc->x >= MAX_12BIT)
+	if (ts->tc.x >= MAX_12BIT)
 		return rt;
 
-	if (likely(tc->x && tc->z1 && tc->z2 > tc->z1)) {
+	if (likely(ts->tc.x && ts->tc.z1 && ts->tc.z2 > ts->tc.z1)) {
 		/* compute touch pressure resistance using equation #1 */
 		/* and translate into increasing pressure for decreasing resistance */
 		
-		rt = ((u32) tc->z1) << (32 - 12);	/* shift to maximum precision */
-		rt /= (tc->x * (u32)(tc->z2 - tc->z1));
+		rt = ((u32) ts->tc.z1) << (32 - 12);	/* shift to maximum precision */
+		rt /= (ts->tc.x * (u32)(ts->tc.z2 - ts->tc.z1));
 #if 0
-		printk("z1=%u z2=%u x=%u rt=%u\n", tc->z1, tc->z2, tc->x, rt);
+		printk("z1=%u z2=%u x=%u rt=%u\n", ts->tc.z1, ts->tc.z2, ts->tc.x, rt);
 #endif
 	}
 
 	return rt;
 }
 
-static void tsc2007_send_up_event(struct tsc2007 *tsc)
+static void tsc2007_send_up_event(struct tsc2007 *ts)
 {
-	struct input_dev *input = tsc->input;
+	struct input_dev *input = ts->input;
 
-	dev_dbg(&tsc->client->dev, "UP\n");
+	dev_dbg(&ts->client->dev, "UP\n");
 
 	input_report_key(input, BTN_TOUCH, 0);
 	input_report_abs(input, ABS_PRESSURE, 0);
 	input_sync(input);
 	
-	tsc->pressure = 0;
+	ts->pressure = 0;
 }
 
 static void tsc2007_aux_work(struct work_struct *aux_work)
 { /* read TEMP0, TEMP1, AUX */
 	struct tsc2007 *ts =
 	container_of(to_delayed_work(aux_work), struct tsc2007, aux_work);
+//	printk("tsc2007_aux_work\n");
 
 	ts->temp0 = tsc2007_xfer(ts, READ_TEMP0);
 	ts->temp1 = tsc2007_xfer(ts, READ_TEMP1);
@@ -218,6 +230,7 @@ static void tsc2007_aux_work(struct work_struct *aux_work)
 	
 	schedule_delayed_work(&ts->aux_work,
 						  msecs_to_jiffies(TS_AUX_POLL_PERIOD));
+//	printk("tsc2007_aux_work done\n");
 }
 
 static void tsc2007_work(struct work_struct *work)
@@ -225,6 +238,8 @@ static void tsc2007_work(struct work_struct *work)
 	struct tsc2007 *ts =
 		container_of(to_delayed_work(work), struct tsc2007, work);
 	u16 rt;	/* range: 0 .. 4095 */
+	
+//	printk("tsc2007_work\n");
 
 	/*
 	 * NOTE: We can't rely on the pressure to determine the pen down
@@ -248,9 +263,9 @@ static void tsc2007_work(struct work_struct *work)
 		dev_dbg(&ts->client->dev, "pen is still down\n");
 	}
 
-	tsc2007_read_values(ts, &ts->tc);
+	tsc2007_read_values(ts);
 
-	ts->pressure = rt = tsc2007_calculate_pressure(ts, &ts->tc);
+	ts->pressure = rt = tsc2007_calculate_pressure(ts);
 
 	if (rt) {
 		struct input_dev *input = ts->input;
@@ -285,16 +300,27 @@ static void tsc2007_work(struct work_struct *work)
 	if (ts->pendown)
 		schedule_delayed_work(&ts->work,
 				      msecs_to_jiffies(TS_POLL_PERIOD));
-	else
+	else {
+		schedule_delayed_work(&ts->aux_work,
+							  msecs_to_jiffies(TS_AUX_POLL_PERIOD));	/* restart slow updates */
+		ts->aux_counter = 0;
 		enable_irq(ts->irq);
+	}
+//	printk("tsc2007_work done\n");
 }
 
 static irqreturn_t tsc2007_irq(int irq, void *handle)
 {
 	struct tsc2007 *ts = handle;
-
+//	printk("tsc2007_irq\n");
 	if (!ts->get_pendown_state || likely(ts->get_pendown_state())) {
 		disable_irq_nosync(ts->irq);
+#if 0
+		if (!cancel_delayed_work(&ts->aux_work))
+			printk("aux_work wasn't scheduled!\n");
+#else
+		cancel_delayed_work(&ts->aux_work);
+#endif
 		schedule_delayed_work(&ts->work,
 				      msecs_to_jiffies(TS_POLL_DELAY));
 	}
