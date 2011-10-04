@@ -208,7 +208,7 @@ static int _rpmsg_omx_map_buf(struct rpmsg_omx_instance *omx, char *packet)
 	if (!ret && maptype >= RPC_OMX_MAP_INFO_THREE_BUF) {
 		buffer = (long *)((int)data + offset + 2*sizeof(*buffer));
 		if (*buffer != 0) {
-			ret = -1;
+			ret = -EIO;
 			da = _rpmsg_omx_buffer_lookup(omx, *buffer);
 			if (da) {
 				*buffer = da;
@@ -357,23 +357,39 @@ long rpmsg_omx_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case OMX_IOCIONREGISTER:
 	{
 		struct ion_fd_data data;
-		if (copy_from_user(&data, (char __user *) arg, sizeof(data)))
+		if (copy_from_user(&data, (char __user *) arg, sizeof(data))) {
+			dev_err(omxserv->dev,
+				"%s: %d: copy_from_user fail: %d\n", __func__,
+				_IOC_NR(cmd), ret);
 			return -EFAULT;
+		}
 		data.handle = ion_import_fd(omx->ion_client, data.fd);
 		if (IS_ERR(data.handle))
 			data.handle = NULL;
-		if (copy_to_user(&data, (char __user *) arg, sizeof(data)))
+		if (copy_to_user(&data, (char __user *) arg, sizeof(data))) {
+			dev_err(omxserv->dev,
+				"%s: %d: copy_to_user fail: %d\n", __func__,
+				_IOC_NR(cmd), ret);
 			return -EFAULT;
+		}
 		break;
 	}
 	case OMX_IOCIONUNREGISTER:
 	{
 		struct ion_fd_data data;
-		if (copy_from_user(&data, (char __user *) arg, sizeof(data)))
+		if (copy_from_user(&data, (char __user *) arg, sizeof(data))) {
+			dev_err(omxserv->dev,
+				"%s: %d: copy_from_user fail: %d\n", __func__,
+				_IOC_NR(cmd), ret);
 			return -EFAULT;
+		}
 		ion_free(omx->ion_client, data.handle);
-		if (copy_to_user(&data, (char __user *) arg, sizeof(data)))
+		if (copy_to_user(&data, (char __user *) arg, sizeof(data))) {
+			dev_err(omxserv->dev,
+				"%s: %d: copy_to_user fail: %d\n", __func__,
+				_IOC_NR(cmd), ret);
 			return -EFAULT;
+		}
 		break;
 	}
 #endif
@@ -565,8 +581,9 @@ static ssize_t rpmsg_omx_write(struct file *filp, const char __user *ubuf,
 	if (copy_from_user(hdr->data, ubuf, use))
 		return -EMSGSIZE;
 
-	if (_rpmsg_omx_map_buf(omx, hdr->data))
-		return -EFAULT;
+	ret = _rpmsg_omx_map_buf(omx, hdr->data);
+	if (ret < 0)
+		return ret;
 
 	hdr->type = OMX_RAW_MSG;
 	hdr->flags = 0;
