@@ -22,9 +22,11 @@
 #include <linux/idr.h>
 #include <linux/remoteproc.h>
 #include <linux/clk.h>
+#if defined(CONFIG_REGULATOR)
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
+#endif
 #include <linux/gpio.h>
 #include <linux/err.h>
 #include <linux/list.h>
@@ -49,9 +51,11 @@
 
 static struct dentry *rprm_dbg;
 
+#if defined(CONFIG_REGULATOR)
 static char *regulator_name[] = {
 	"cam2pwr"
 };
+#endif
 
 static char *clk_src_name[] = {
 	"sys_clkin_ck",
@@ -273,6 +277,7 @@ static void rprm_auxclk_release(struct rprm_auxclk_depot *obj)
 	kfree(obj);
 }
 
+#if defined(CONFIG_REGULATOR)
 static
 int rprm_regulator_request(struct rprm_elem *e, struct rprm_regulator *obj)
 {
@@ -345,6 +350,7 @@ static void rprm_regulator_release(struct rprm_regulator_depot *obj)
 	regulator_put(obj->reg_p);
 	kfree(obj);
 }
+#endif
 
 static int rprm_gpio_request(struct rprm_elem *e, struct rprm_gpio *obj)
 {
@@ -693,9 +699,11 @@ static int _resource_free(struct rprm_elem *e)
 	case RPRM_I2C:
 		ret = rprm_i2c_release(e->handle);
 		break;
+#if defined(CONFIG_REGULATOR)
 	case RPRM_REGULATOR:
 		rprm_regulator_release(e->handle);
 		break;
+#endif
 	case RPRM_GPIO:
 		rprm_gpio_release(e->handle);
 		break;
@@ -769,9 +777,11 @@ static int _resource_alloc(struct rprm_elem *e, int type, void *data)
 	case RPRM_I2C:
 		ret = rprm_i2c_request(e, data);
 		break;
+#if defined(CONFIG_REGULATOR)
 	case RPRM_REGULATOR:
 		ret = rprm_regulator_request(e, data);
 		break;
+#endif
 	case RPRM_GPIO:
 		ret = rprm_gpio_request(e, data);
 		break;
@@ -993,6 +1003,7 @@ static int _printf_auxclk_args(char *buf, struct rprm_auxclk *obj)
 		obj->parent_src_clk_rate);
 }
 
+#if defined(CONFIG_REGULATOR)
 static int _printf_regulator_args(char *buf, struct rprm_regulator *obj)
 {
 	return sprintf(buf,
@@ -1001,6 +1012,7 @@ static int _printf_regulator_args(char *buf, struct rprm_regulator *obj)
 		"max_uV:%d\n",
 		obj->id, obj->min_uv, obj->max_uv);
 }
+#endif
 
 static int _printf_gpio_args(char *buf, struct rprm_gpio *obj)
 {
@@ -1033,8 +1045,10 @@ static int _print_res_args(char *buf, struct rprm_elem *e)
 		return _printf_auxclk_args(buf, res);
 	case RPRM_I2C:
 		return _printf_i2c_args(buf, res);
+#if defined(CONFIG_REGULATOR)
 	case RPRM_REGULATOR:
 		return _printf_regulator_args(buf, res);
+#endif
 	case RPRM_GPIO:
 		return _printf_gpio_args(buf, res);
 	case RPRM_SDMA:
