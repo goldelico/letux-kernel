@@ -40,6 +40,7 @@
 
 #include "vc.h"
 #include "vp.h"
+#include "abb.h"
 
 static LIST_HEAD(voltdm_list);
 
@@ -85,10 +86,34 @@ int voltdm_scale(struct voltagedomain *voltdm,
 		return -ENODATA;
 	}
 
-	ret = voltdm->scale(voltdm, target_volt);
-	if (!ret)
-		voltdm->nominal_volt = target_volt;
+	if (voltdm->abb) {
+		ret = omap_abb_pre_scale(voltdm, target_volt);
+		if (ret) {
+			pr_err("%s: abb prescale failed for vdd%s: %d\n",
+					__func__, voltdm->name, ret);
+			goto out;
+		}
+	}
 
+	ret = voltdm->scale(voltdm, target_volt);
+	if (ret) {
+		pr_err("%s: vdd_%s failed to scale: %d\n",
+				__func__, voltdm->name, ret);
+		goto out;
+	}
+
+	voltdm->nominal_volt = target_volt;
+
+	if (voltdm->abb) {
+		ret = omap_abb_post_scale(voltdm, target_volt);
+		if (ret) {
+			pr_err("%s: abb postscale failed for vdd%s: %d\n",
+					__func__, voltdm->name, ret);
+			goto out;
+		}
+	}
+
+out:
 	return ret;
 }
 
@@ -416,6 +441,9 @@ int __init omap_voltage_late_init(void)
 			voltdm->scale = omap_vp_forceupdate_scale;
 			omap_vp_init(voltdm);
 		}
+
+		if (voltdm->abb)
+			omap_abb_init(voltdm);
 
 		if (voltage_dir)
 			 voltdm_debugfs_init(voltage_dir, voltdm);
