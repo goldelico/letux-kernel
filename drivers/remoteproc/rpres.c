@@ -15,6 +15,7 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/err.h>
+#include <linux/pm_qos.h>
 #include <plat/omap_device.h>
 #include <plat/rpres.h>
 
@@ -82,7 +83,7 @@ int rpres_set_constraints(struct rpres *obj, enum rpres_constraint type,
 	struct rpres_platform_data *pdata = obj->pdev->dev.platform_data;
 	struct platform_device *pdev = obj->pdev;
 	static const char *cname[] = {"scale", "latency", "bandwidth"};
-	int (*func)(struct platform_device *, long);
+	int (*func)(struct rpres *, long);
 
 	switch (type) {
 	case RPRES_CONSTRAINT_SCALE:
@@ -114,7 +115,8 @@ int rpres_set_constraints(struct rpres *obj, enum rpres_constraint type,
 	}
 
 	dev_dbg(&pdev->dev, "set %s constraint %ld\n", cname[type], val);
-	ret = func(pdev, val);
+	ret = func(obj, val);
+
 	if (ret)
 		dev_err(&pdev->dev, "%s: error setting constraint %s\n",
 				__func__, cname[type]);
@@ -129,6 +131,7 @@ static int rpres_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct rpres_platform_data *pdata = dev->platform_data;
 	struct rpres *obj;
+	int ret = 0;
 
 	obj = kzalloc(sizeof(*obj), GFP_KERNEL);
 	if (!obj)
@@ -137,13 +140,29 @@ static int rpres_probe(struct platform_device *pdev)
 	obj->pdev = pdev;
 	obj->name = pdata->name;
 	obj->state = RPRES_INACTIVE;
+
+	obj->pm_qos_request = kzalloc(sizeof(*(obj->pm_qos_request)),
+			GFP_KERNEL);
+	if (!obj->pm_qos_request)
+		goto pm_alloc_error;
+
+	ret = dev_pm_qos_add_request(dev, obj->pm_qos_request,
+			PM_QOS_DEFAULT_VALUE);
+	if (ret < 0)
+		goto pm_qos_error;
+
 	mutex_init(&obj->lock);
 
 	spin_lock(&rpres_lock);
 	list_add_tail(&obj->next, &rpres_list);
 	spin_unlock(&rpres_lock);
-
 	return 0;
+
+pm_qos_error:
+	kfree(obj->pm_qos_request);
+pm_alloc_error:
+	kfree(obj);
+	return ret;
 }
 
 static int __devexit rpres_remove(struct platform_device *pdev)
@@ -158,6 +177,9 @@ static int __devexit rpres_remove(struct platform_device *pdev)
 		dev_err(&pdev->dev, "fail to remove %s\n", pdata->name);
 		return -ENOENT;
 	}
+	if (obj->pm_qos_request)
+		dev_pm_qos_remove_request(obj->pm_qos_request);
+	kfree(obj->pm_qos_request);
 	list_del(&obj->next);
 	spin_unlock(&rpres_lock);
 

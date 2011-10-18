@@ -19,7 +19,7 @@
 #include <plat/omap_hwmod.h>
 #include <plat/clock.h>
 #include <plat/rpres.h>
-#include <linux/pm_qos_params.h>
+#include <linux/pm_qos.h>
 #include <plat/common.h>
 #include <plat/omap-pm.h>
 #include "../../arch/arm/mach-omap2/dvfs.h"
@@ -83,19 +83,21 @@ static int rpres_fdif_shutdown(struct platform_device *pdev)
 	return omap_device_idle(pdev);
 }
 
-static int rpres_scale_dev(struct platform_device *pdev, long val)
+static int rpres_scale_dev(struct rpres *obj, long val)
 {
-	return omap_device_scale(&pdev->dev, &pdev->dev, val);
+	struct device *dev = &(obj->pdev->dev);
+	return omap_device_scale(dev, dev, val);
 }
 
-static int rpres_set_dev_lat(struct platform_device *pdev, long val)
+static int rpres_set_dev_lat(struct rpres *obj, long val)
 {
-	return omap_pm_set_max_dev_wakeup_lat(&pdev->dev, &pdev->dev, val);
+	return dev_pm_qos_update_request(obj->pm_qos_request, val);
 }
 
-static int rpres_set_l3_bw(struct platform_device *pdev, long val)
+static int rpres_set_l3_bw(struct rpres *obj, long val)
 {
-	return omap_pm_set_min_bus_tput(&pdev->dev, OCP_INITIATOR_AGENT, val);
+	struct device *dev = &(obj->pdev->dev);
+	return omap_pm_set_min_bus_tput(dev, OCP_INITIATOR_AGENT, val);
 }
 
 static struct rpres_ops iss_ops = {

@@ -14,6 +14,8 @@
 #ifndef _PLAT_OMAP_RPRES_H
 #define _PLAT_OMAP_RPRES_H
 
+struct rpres;
+
 enum rpres_constraint {
 	RPRES_CONSTRAINT_SCALE,
 	RPRES_CONSTRAINT_LATENCY,
@@ -28,9 +30,9 @@ enum {
 struct rpres_ops {
 	int (*start)(struct platform_device *pdev);
 	int (*stop)(struct platform_device *pdev);
-	int (*set_lat)(struct platform_device *pdev, long v);
-	int (*set_bw)(struct platform_device *pdev, long v);
-	int (*scale_dev)(struct platform_device *pdev, long v);
+	int (*set_lat)(struct rpres *obj, long v);
+	int (*set_bw)(struct rpres *obj, long v);
+	int (*scale_dev)(struct rpres *obj, long v);
 };
 
 struct rpres_platform_data {
@@ -49,6 +51,7 @@ struct rpres {
 	struct platform_device *pdev;
 	int state;
 	struct mutex lock;
+	struct dev_pm_qos_request  *pm_qos_request;
 };
 
 struct rpres *rpres_get(const char *);
