@@ -65,6 +65,7 @@ struct omap_uart_state {
 static LIST_HEAD(uart_list);
 static u8 num_uarts;
 static u8 console_uart_id = -1;
+static u8 no_console_suspend;
 
 static int uart_idle_hwmod(struct omap_device *od)
 {
@@ -379,6 +380,10 @@ static int __init omap_serial_early_init(void)
 
 		if (cmdline_find_option(uart_name)) {
 			console_uart_id = uart->num;
+
+			if (cmdline_find_option("no_console_suspend"))
+				no_console_suspend = true;
+
 			/*
 			 * omap-uart can be used for earlyprintk logs
 			 * So if omap-uart is used as console then prevent
@@ -467,7 +472,9 @@ void __init omap_serial_init_port(struct omap_board_data *bdata,
 	WARN(IS_ERR(od), "Could not build omap_device for %s: %s.\n",
 	     name, oh->name);
 
-	omap_device_disable_idle_on_suspend(od);
+	if ((console_uart_id == bdata->id) && no_console_suspend)
+		omap_device_disable_idle_on_suspend(od);
+
 	oh->mux = omap_hwmod_mux_init(bdata->pads, bdata->pads_cnt);
 
 	uart->pdev = &od->pdev;
