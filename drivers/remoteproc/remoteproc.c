@@ -1694,7 +1694,7 @@ int rproc_register(struct device *dev, const char *name,
 		return -ENOMEM;
 	}
 
-	pm_qos_add_request(rproc->qos_request, PM_QOS_CPU_DMA_LATENCY,
+	dev_pm_qos_add_request(rproc->dev, rproc->qos_request,
 				PM_QOS_DEFAULT_VALUE);
 
 	rproc->secure_mode = false;
@@ -1749,7 +1749,7 @@ int rproc_unregister(const char *name)
 
 	rproc->secure_mode = false;
 	rproc->secure_ttb = NULL;
-	pm_qos_remove_request(rproc->qos_request);
+	dev_pm_qos_remove_request(rproc->qos_request);
 	kfree(rproc->qos_request);
 	kfree(rproc->last_trace_buf0);
 	kfree(rproc->last_trace_buf1);

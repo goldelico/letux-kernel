@@ -531,7 +531,7 @@ err:
 
 static int omap_rproc_set_lat(struct rproc *rproc, long val)
 {
-	pm_qos_update_request(rproc->qos_request, val);
+	dev_pm_qos_update_request(rproc->qos_request, val);
 	return 0;
 }
 

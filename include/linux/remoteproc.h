@@ -37,7 +37,7 @@
 #include <linux/completion.h>
 #include <linux/workqueue.h>
 #include <linux/notifier.h>
-#include <linux/pm_qos_params.h>
+#include <linux/pm_qos.h>
 
 /* Must match the BIOS version embeded in the BIOS firmware image */
 #define RPROC_BIOS_VERSION	2
@@ -282,7 +282,7 @@ struct rproc {
 	bool need_resume;
 	struct mutex pm_lock;
 #endif
-	struct pm_qos_request_list *qos_request;
+	struct dev_pm_qos_request *qos_request;
 	void *secure_ttb;
 	struct completion secure_restart;
 	struct mutex secure_lock;
