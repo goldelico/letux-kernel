@@ -42,6 +42,12 @@ enum hdmi_clk_refsel {
 	HDMI_REFSEL_SYSCLK = 3
 };
 
+enum hdmi_deep_color_mode {
+	HDMI_DEEP_COLOR_24BIT = 0,
+	HDMI_DEEP_COLOR_30BIT = 1,
+	HDMI_DEEP_COLOR_36BIT = 2,
+};
+
 struct hdmi_video_timings {
 	u16 x_res;
 	u16 y_res;
@@ -71,6 +77,8 @@ struct hdmi_config {
 	struct hdmi_timings timings;
 	u16	interlace;
 	struct hdmi_cm cm;
+
+	enum hdmi_deep_color_mode deep_color;
 };
 
 /* HDMI PLL structure */
