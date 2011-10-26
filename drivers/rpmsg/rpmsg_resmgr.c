@@ -542,7 +542,7 @@ int _set_constraints(struct rprm_elem *e, struct rprm_constraints_data *c)
 
 	if (c->mask & RPRM_SCALE) {
 		ret = _set_constraints_func(e, RPRM_SCALE, c->frequency);
-		if (ret)
+		if (ret < 0)
 			goto err;
 		mask |= RPRM_SCALE;
 		e->constraints->frequency = c->frequency;
@@ -550,7 +550,7 @@ int _set_constraints(struct rprm_elem *e, struct rprm_constraints_data *c)
 
 	if (c->mask & RPRM_LATENCY) {
 		ret = _set_constraints_func(e, RPRM_LATENCY, c->latency);
-		if (ret)
+		if (ret < 0)
 			goto err;
 		mask |= RPRM_LATENCY;
 		e->constraints->latency = c->latency;
@@ -558,7 +558,7 @@ int _set_constraints(struct rprm_elem *e, struct rprm_constraints_data *c)
 
 	if (c->mask & RPRM_BANDWIDTH) {
 		ret = _set_constraints_func(e, RPRM_BANDWIDTH, c->bandwidth);
-		if (ret)
+		if (ret < 0)
 			goto err;
 		mask |= RPRM_BANDWIDTH;
 		e->constraints->bandwidth = c->bandwidth;
@@ -594,7 +594,7 @@ static int rprm_set_constraints(struct rprm *rprm, u32 addr, int res_id,
 
 	if (set) {
 		ret = _set_constraints(e, data);
-		if (!ret) {
+		if (ret >= 0) {
 			e->constraints->mask |=
 				((struct rprm_constraints_data *)data)->mask;
 			goto out;
@@ -950,13 +950,13 @@ static void rprm_cb(struct rpmsg_channel *rpdev, void *data, int len,
 		}
 		ret = rprm_set_constraints(rprm, src, req->res_id,
 						req->data, true);
-		if (ret)
+		if (ret < 0)
 			dev_err(dev, "set constraints failed! ret %d\n", ret);
 		break;
 	case RPRM_REL_CONSTRAINTS:
 		ret = rprm_set_constraints(rprm, src, req->res_id,
 						req->data, false);
-		if (ret)
+		if (ret < 0)
 			dev_err(dev, "rel constraints failed! ret %d\n", ret);
 		return;
 	default:
@@ -964,7 +964,7 @@ static void rprm_cb(struct rpmsg_channel *rpdev, void *data, int len,
 		ret = -EINVAL;
 	}
 
-	ack->ret = ret;
+	ack->ret = ret == 1 ? 0 : ret;
 	ack->res_type = req->res_type;
 	ack->res_id = req->res_id;
 	memcpy(ack->data, req->data, r_sz);

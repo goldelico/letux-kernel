@@ -117,7 +117,7 @@ int rpres_set_constraints(struct rpres *obj, enum rpres_constraint type,
 	dev_dbg(&pdev->dev, "set %s constraint %ld\n", cname[type], val);
 	ret = func(obj, val);
 
-	if (ret)
+	if (ret < 0)
 		dev_err(&pdev->dev, "%s: error setting constraint %s\n",
 				__func__, cname[type]);
 	mutex_unlock(&obj->lock);
