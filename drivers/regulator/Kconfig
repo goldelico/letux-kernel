@@ -317,5 +317,12 @@ config REGULATOR_AAT2870
 	  If you have a AnalogicTech AAT2870 say Y to enable the
 	  regulator driver.
 
+config REGULATOR_PALMAS
+	tristate "Palmas PMIC Regulators"
+	depends on MFD_PALMAS
+	help
+	  If you wish to control the regulators on the Palmas series of
+	  chips say Y here.
+
 endif
 
