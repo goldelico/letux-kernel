@@ -26,6 +26,15 @@ ccflags-y += \
 	-DSYS_SUPPORTS_SGX_IDLE_CALLBACK \
 	-DSYS_OMAP4_HAS_DVFS_FRAMEWORK
 
+ccflags-$(CONFIG_PVR_SGXCORE_544) += \
+	-Idrivers/gpu/pvr/omap5 \
+	-DSGX_FEATURE_SYSTEM_CACHE \
+	-DSGX_FEATURE_MP \
+	-DSGX_FEATURE_MP_CORE_COUNT=2 \
+	-DPVR_BUILD_DIR="\"omap5430_android\"" \
+	-DSGX544 -DSUPPORT_SGX544 \
+	-DSGX_CORE_REV=105
+
 ccflags-$(CONFIG_PVR_SGXCORE_540) += \
 	-Idrivers/gpu/pvr/omap4 \
 	-DPVR_BUILD_DIR="\"omap4430_android\"" \
@@ -89,8 +98,6 @@ pvrsrvkm-y := \
 	bridged_pvr_bridge.o \
 	perproc.o \
 	lists.o \
-	omap4/sysconfig.o \
-	omap4/sysutils.o \
 	sgx/bridged_sgx_bridge.o \
 	sgx/sgxinit.o \
 	sgx/sgxpower.o \
@@ -100,6 +107,14 @@ pvrsrvkm-y := \
 	sgx/sgxtransfer.o \
 	sgx/mmu.o \
 	sgx/pb.o
+
+pvrsrvkm-$(CONFIG_PVR_SGXCORE_540) += \
+	omap4/sysconfig.o \
+	omap4/sysutils.o
+
+pvrsrvkm-$(CONFIG_PVR_SGXCORE_544) += \
+	omap5/sysconfig.o \
+	omap5/sysutils.o
 
 pvrsrvkm-$(CONFIG_ION_OMAP) += ion.o
 

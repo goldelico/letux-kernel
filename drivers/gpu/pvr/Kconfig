@@ -12,7 +12,10 @@ config PVR_SGX
 choice
 	prompt "PowerVR SGX core"
 	depends on PVR_SGX
-	default PVR_SGXCORE_540
+	default PVR_SGXCORE_544
+
+config PVR_SGXCORE_544
+	bool "SGX 544-MP2"
 
 config PVR_SGXCORE_540
 	bool "SGX 540"
@@ -77,7 +80,7 @@ config PVR_PERCONTEXT_PB
 config PVR_ACTIVE_POWER_MANAGEMENT
 	bool "Support for active power management (recommended)"
 	depends on PVR_SGX
-	default y
+	default n
 
 config PVR_ACTIVE_POWER_LATENCY_MS
 	int "Active power event latency (ms)"
