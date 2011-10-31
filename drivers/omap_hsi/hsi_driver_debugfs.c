@@ -67,6 +67,8 @@ static int hsi_debug_port_show(struct seq_file *m, void *p)
 
 	seq_printf(m, "WAKE\t\t: 0x%08x\n",
 		   hsi_inl(base, HSI_SYS_WAKE_REG(port)));
+	seq_printf(m, "SET_WAKE\t\t: 0x%08x\n",
+		   hsi_inl(base, HSI_SYS_SET_WAKE_REG(port)));
 	seq_printf(m, "MPU_ENABLE_IRQ%d\t: 0x%08x\n", hsi_port->n_irq,
 		   hsi_inl(base,
 			   HSI_SYS_MPU_ENABLE_REG(port, hsi_port->n_irq)));
@@ -83,18 +85,18 @@ static int hsi_debug_port_show(struct seq_file *m, void *p)
 				   HSI_SYS_MPU_U_STATUS_REG(port,
 							    hsi_port->n_irq)));
 	}
+	seq_printf(m, "MPU_DMA_ENABLE_IRQ\t: 0x%08x\n",
+		   hsi_inl(base, HSI_SYS_GDD_MPU_IRQ_ENABLE_REG));
+	seq_printf(m, "MPU_DMA_STATUS_IRQ\t: 0x%08x\n",
+		   hsi_inl(base, HSI_SYS_GDD_MPU_IRQ_STATUS_REG));
 	/* HST */
 	seq_printf(m, "\nHST\n===\n");
+	seq_printf(m, "ID\t\t: 0x%08x\n",
+		   hsi_inl(base, HSI_HST_ID_REG(port)));
 	seq_printf(m, "MODE\t\t: 0x%08x\n",
 		   hsi_inl(base, HSI_HST_MODE_REG(port)));
 	seq_printf(m, "FRAMESIZE\t: 0x%08x\n",
 		   hsi_inl(base, HSI_HST_FRAMESIZE_REG(port)));
-	seq_printf(m, "DIVISOR\t\t: 0x%08x\n",
-		   hsi_inl(base, HSI_HST_DIVISOR_REG(port)));
-	seq_printf(m, "CHANNELS\t: 0x%08x\n",
-		   hsi_inl(base, HSI_HST_CHANNELS_REG(port)));
-	seq_printf(m, "ARBMODE\t\t: 0x%08x\n",
-		   hsi_inl(base, HSI_HST_ARBMODE_REG(port)));
 	seq_printf(m, "TXSTATE\t\t: 0x%08x\n",
 		   hsi_inl(base, HSI_HST_TXSTATE_REG(port)));
 	if (hsi_driver_device_is_hsi(pdev)) {
@@ -106,8 +108,14 @@ static int hsi_debug_port_show(struct seq_file *m, void *p)
 		seq_printf(m, "BUFSTATE\t: 0x%08x\n",
 			   hsi_inl(base, HSI_HST_BUFSTATE_REG(port)));
 	}
+	seq_printf(m, "DIVISOR\t\t: 0x%08x\n",
+		   hsi_inl(base, HSI_HST_DIVISOR_REG(port)));
 	seq_printf(m, "BREAK\t\t: 0x%08x\n",
 		   hsi_inl(base, HSI_HST_BREAK_REG(port)));
+	seq_printf(m, "CHANNELS\t: 0x%08x\n",
+		   hsi_inl(base, HSI_HST_CHANNELS_REG(port)));
+	seq_printf(m, "ARBMODE\t\t: 0x%08x\n",
+		   hsi_inl(base, HSI_HST_ARBMODE_REG(port)));
 	for (ch = 0; ch < 8; ch++) {
 		buff_offset = hsi_hst_buffer_reg(hsi_ctrl, port, ch);
 		if (buff_offset >= 0)
@@ -123,14 +131,12 @@ static int hsi_debug_port_show(struct seq_file *m, void *p)
 	}
 	/* HSR */
 	seq_printf(m, "\nHSR\n===\n");
+	seq_printf(m, "ID\t\t: 0x%08x\n",
+		   hsi_inl(base, HSI_HSR_ID_REG(port)));
 	seq_printf(m, "MODE\t\t: 0x%08x\n",
 		   hsi_inl(base, HSI_HSR_MODE_REG(port)));
 	seq_printf(m, "FRAMESIZE\t: 0x%08x\n",
 		   hsi_inl(base, HSI_HSR_FRAMESIZE_REG(port)));
-	seq_printf(m, "CHANNELS\t: 0x%08x\n",
-		   hsi_inl(base, HSI_HSR_CHANNELS_REG(port)));
-	seq_printf(m, "COUNTERS\t: 0x%08x\n",
-		   hsi_inl(base, HSI_HSR_COUNTERS_REG(port)));
 	seq_printf(m, "RXSTATE\t\t: 0x%08x\n",
 		   hsi_inl(base, HSI_HSR_RXSTATE_REG(port)));
 	if (hsi_driver_device_is_hsi(pdev)) {
@@ -148,6 +154,14 @@ static int hsi_debug_port_show(struct seq_file *m, void *p)
 		   hsi_inl(base, HSI_HSR_ERROR_REG(port)));
 	seq_printf(m, "ERRORACK\t: 0x%08x\n",
 		   hsi_inl(base, HSI_HSR_ERRORACK_REG(port)));
+	seq_printf(m, "CHANNELS\t: 0x%08x\n",
+		   hsi_inl(base, HSI_HSR_CHANNELS_REG(port)));
+	seq_printf(m, "OVERRUN\t\t: 0x%08x\n",
+		   hsi_inl(base, HSI_HSR_OVERRUN_REG(port)));
+	seq_printf(m, "OVERRUNACK\t: 0x%08x\n",
+		   hsi_inl(base, HSI_HSR_OVERRUNACK_REG(port)));
+	seq_printf(m, "COUNTERS\t: 0x%08x\n",
+		   hsi_inl(base, HSI_HSR_COUNTERS_REG(port)));
 	for (ch = 0; ch < 8; ch++) {
 		buff_offset = hsi_hsr_buffer_reg(hsi_ctrl, port, ch);
 		if (buff_offset >= 0)
@@ -160,9 +174,9 @@ static int hsi_debug_port_show(struct seq_file *m, void *p)
 				   hsi_inl(base,
 					   HSI_HSR_MAPPING_FIFO_REG(fifo)));
 		}
-		seq_printf(m, "DLL\t: 0x%08x\n",
+		seq_printf(m, "DLL\t\t: 0x%08x\n",
 			   hsi_inl(base, HSI_HSR_DLL_REG));
-		seq_printf(m, "DIVISOR\t: 0x%08x\n",
+		seq_printf(m, "DIVISOR\t\t: 0x%08x\n",
 			   hsi_inl(base, HSI_HSR_DIVISOR_REG(port)));
 	}
 
