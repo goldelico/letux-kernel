@@ -46,6 +46,7 @@ extern u32 omap_modify_auxcoreboot0(u32 set_mask, u32 clear_mask);
 extern void omap_auxcoreboot_addr(u32 cpu_addr);
 extern u32 omap_read_auxcoreboot0(void);
 extern void omap5_secondary_startup(void);
+extern int omap4_prcm_freq_update(void);
 #endif
 
 #if defined(CONFIG_SMP) && defined(CONFIG_PM)
