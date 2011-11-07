@@ -64,6 +64,7 @@ struct omap_uart_state {
 
 static LIST_HEAD(uart_list);
 static u8 num_uarts;
+static u8 console_uart_id = -1;
 
 static int uart_idle_hwmod(struct omap_device *od)
 {
@@ -345,12 +346,20 @@ static void omap_serial_fill_default_pads(struct omap_board_data *bdata)
 static void omap_serial_fill_default_pads(struct omap_board_data *bdata) {}
 #endif
 
+char *cmdline_find_option(char *str)
+{
+	extern char *saved_command_line;
+
+	return strstr(saved_command_line, str);
+}
+
 static int __init omap_serial_early_init(void)
 {
 	do {
 		char oh_name[MAX_UART_HWMOD_NAME_LEN];
 		struct omap_hwmod *oh;
 		struct omap_uart_state *uart;
+		char uart_name[MAX_UART_HWMOD_NAME_LEN];
 
 		snprintf(oh_name, MAX_UART_HWMOD_NAME_LEN,
 			 "uart%d", num_uarts + 1);
@@ -365,18 +374,22 @@ static int __init omap_serial_early_init(void)
 		uart->oh = oh;
 		uart->num = num_uarts++;
 		list_add_tail(&uart->node, &uart_list);
+		snprintf(uart_name, MAX_UART_HWMOD_NAME_LEN,
+				"%s%d", OMAP_SERIAL_NAME, uart->num);
 
-		/*
-		 * NOTE: omap_hwmod_setup*() has not yet been called,
-		 *       so no hwmod functions will work yet.
-		 */
-
-		/*
-		 * During UART early init, device need to be probed
-		 * to determine SoC specific init before omap_device
-		 * is ready.  Therefore, don't allow idle here
-		 */
-		uart->oh->flags |= HWMOD_INIT_NO_IDLE | HWMOD_INIT_NO_RESET;
+		if (cmdline_find_option(uart_name)) {
+			console_uart_id = uart->num;
+			/*
+			 * omap-uart can be used for earlyprintk logs
+			 * So if omap-uart is used as console then prevent
+			 * uart reset and idle to get logs from omap-uart
+			 * until uart console driver is available to take
+			 * care for console messages.
+			 * Idling or resetting omap-uart while printing logs
+			 * early boot logs can stall the boot-up.
+			 */
+			oh->flags |= HWMOD_INIT_NO_IDLE | HWMOD_INIT_NO_RESET;
+		}
 	} while (1);
 
 	return 0;
@@ -460,25 +473,6 @@ void __init omap_serial_init_port(struct omap_board_data *bdata,
 	uart->pdev = &od->pdev;
 
 	oh->dev_attr = uart;
-
-	console_lock(); /* in case the earlycon is on the UART */
-
-	/*
-	 * Because of early UART probing, UART did not get idled
-	 * on init.  Now that omap_device is ready, ensure full idle
-	 * before doing omap_device_enable().
-	 */
-	if (!cpu_is_omap54xx()) {
-		omap_hwmod_idle(uart->oh);
-		omap_device_enable(uart->pdev);
-		omap_device_idle(uart->pdev);
-	}
-
-	if (uart->timeout)
-		uart->timeout = (30 * HZ);
-
-	console_unlock();
-
 	if ((cpu_is_omap34xx() || cpu_is_omap44xx() || cpu_is_omap54xx())
 			&& bdata->pads)
 		device_init_wakeup(&od->pdev.dev, true);
