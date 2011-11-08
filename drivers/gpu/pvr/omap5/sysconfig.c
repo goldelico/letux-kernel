@@ -238,8 +238,13 @@ static IMG_CHAR *SysCreateVersionString(void)
 		return IMG_NULL;
 	}
 
+#if SGX_CORE_REV == 105 
+	ui32SGXRevision = 0x10005;
+#else
 	ui32SGXRevision = OSReadHWReg((IMG_PVOID)((IMG_PBYTE)pvRegsLinAddr),
 								  EUR_CR_CORE_REVISION);
+#endif /* defined(CONFIG_PVR_SGXCORE_544) */
+
 #else
 	ui32SGXRevision = 0;
 #endif
