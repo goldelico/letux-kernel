@@ -601,5 +601,6 @@ void hdmi_wp_video_init_format(struct hdmi_video_format *video_fmt,
 	struct omap_video_timings *timings, struct hdmi_config *param);
 void hdmi_wp_init(struct omap_video_timings *timings,
 			struct hdmi_video_format *video_fmt,
-			struct hdmi_video_interface *video_int);
+			struct hdmi_video_interface *video_int,
+			struct hdmi_irq_vector *irq_enable);
 #endif
