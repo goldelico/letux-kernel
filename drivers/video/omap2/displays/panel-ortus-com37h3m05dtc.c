@@ -39,7 +39,8 @@ static struct omap_video_timings com37h3m05dtc_panel_timings = {
 
 
 // FIXME: this should be passed from the board initialization structure or should be set by driver parameters
-#define GPIO_STBY 158
+// #define GPIO_STBY 158	/* V1 adapter board for BeagleBoard */
+#define GPIO_STBY 20		/* V2,V3,V4 adapter board for GTA04 */
 
 static int com37h3m05dtc_panel_probe(struct omap_dss_device *dssdev)
 {
