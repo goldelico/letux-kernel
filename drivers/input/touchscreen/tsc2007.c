@@ -30,6 +30,7 @@
 #define TS_POLL_DELAY			1 /* ms delay between IRQ and first sample */
 #define TS_POLL_PERIOD			1 /* ms delay between samples */
 #define TS_AUX_POLL_PERIOD		100 /* ms delay between samples of AUX, TEMP1, TEMP2 */
+#define TS_VREF					1800 /* in mV - should be defined in the board file! */
 
 #define TSC2007_MEASURE_TEMP0		(0x0 << 4)
 #define TSC2007_MEASURE_AUX		(0x2 << 4)
@@ -95,7 +96,9 @@ struct tsc2007 {
 	struct ts_event tc;
 
 	int			aux_counter;
-	
+
+	s16			temperature;	// in degrees C
+
 	u16			temp0;
 	u16			temp1;
 	u16			aux;
@@ -108,11 +111,12 @@ static ssize_t show_data(struct device *dev, struct device_attribute *attr, char
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct tsc2007	*ts = i2c_get_clientdata(client);
-	return sprintf(buf, "%u,%u,%u,%d,%u,%u,%u,%u,%u,%u\n",
+	return sprintf(buf, "%u,%u,%u,%d,%d,%u,%u,%u,%u,%u,%u\n",
 				   ts->tc.x,
 				   ts->tc.y,
 				   ts->pressure,
 				   ts->pendown,
+				   ts->temperature,
 				   ts->tc.z1,
 				   ts->tc.z2,
 				   ts->temp0,
@@ -155,6 +159,17 @@ static inline int tsc2007_xfer(struct tsc2007 *ts, u8 cmd)
 	return val;
 }
 
+static void tsc2007_read_temp(struct tsc2007 *ts) {
+	u32 v1, v2;	// voltage in mV
+	ts->temp0 = tsc2007_xfer(ts, READ_TEMP0);
+	ts->temp1 = tsc2007_xfer(ts, READ_TEMP1);
+	v1 = (TS_VREF * (u32)ts->temp0) / 4096;
+	v2 = (TS_VREF * (u32)ts->temp1) / 4096;
+	ts->temperature = (2573 * (v2-v1)) / 100 - 2730; // in tenths of degrees C
+	ts->aux = tsc2007_xfer(ts, READ_AUX);
+	ts->aux_counter=0;
+}
+
 static void tsc2007_read_values(struct tsc2007 *ts)
 {
 	/* y- still on; turn on only y+ (and ADC) */
@@ -167,14 +182,9 @@ static void tsc2007_read_values(struct tsc2007 *ts)
 	ts->tc.z1 = tsc2007_xfer(ts, READ_Z1);
 	ts->tc.z2 = tsc2007_xfer(ts, READ_Z2);
 
-	/* keep updating while we don't schedule the aux_work */
-	if(ts->aux_counter++ >= (TS_AUX_POLL_PERIOD/TS_POLL_PERIOD)) {
-//		printk("update like aux_work\n");
-		ts->temp0 = tsc2007_xfer(ts, READ_TEMP0);
-		ts->temp1 = tsc2007_xfer(ts, READ_TEMP1);
-		ts->aux = tsc2007_xfer(ts, READ_AUX);
-		ts->aux_counter=0;
-	}
+	/* keep slowly updating while we don't have scheduled the aux_work */
+	if(ts->aux_counter++ >= (TS_AUX_POLL_PERIOD/TS_POLL_PERIOD))
+		tsc2007_read_temp(ts);
 
 	/* Prepare for next touch reading - power down ADC, enable PENIRQ */
 	tsc2007_xfer(ts, PWRDOWN);
@@ -221,9 +231,7 @@ static void tsc2007_aux_work(struct work_struct *aux_work)
 	container_of(to_delayed_work(aux_work), struct tsc2007, aux_work);
 //	printk("tsc2007_aux_work\n");
 
-	ts->temp0 = tsc2007_xfer(ts, READ_TEMP0);
-	ts->temp1 = tsc2007_xfer(ts, READ_TEMP1);
-	ts->aux = tsc2007_xfer(ts, READ_AUX);
+	tsc2007_read_temp(ts);
 	
 	/* Prepare for next touch reading - power down ADC, enable PENIRQ */
 	tsc2007_xfer(ts, PWRDOWN);
