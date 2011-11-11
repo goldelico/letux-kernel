@@ -70,6 +70,10 @@ static struct {
 	struct hdmi_ip_data ip_data;
 	int code;
 	int mode;
+	u8 edid[HDMI_EDID_MAX_LENGTH];
+	u8 edid_set;
+	bool custom_set;
+	int hdmi_irq;
 
 	struct clk *sys_clk;
 	struct clk *phy_clk;
@@ -561,6 +565,16 @@ void omapdss_hdmi_display_disable(struct omap_dss_device *dssdev)
 	mutex_unlock(&hdmi.lock);
 }
 
+static irqreturn_t hdmi_irq_handler(int irq, void *arg)
+{
+	int r = 0;
+
+	r = hdmi.ip_data.ops->irq_handler(&hdmi.ip_data);
+	DSSDBG("Received HDMI IRQ = %08x\n", r);
+
+	return IRQ_HANDLED;
+}
+
 #if defined(CONFIG_SND_OMAP_SOC_OMAP4_HDMI) || \
 	defined(CONFIG_SND_OMAP_SOC_OMAP4_HDMI_MODULE)
 
@@ -794,6 +808,13 @@ static int omapdss_hdmihw_probe(struct platform_device *pdev)
 	}
 
 	pm_runtime_enable(&pdev->dev);
+
+	hdmi.hdmi_irq = platform_get_irq(pdev, 0);
+	r = request_irq(hdmi.hdmi_irq, hdmi_irq_handler, 0, "OMAP HDMI", NULL);
+	if (r < 0) {
+		pr_err("hdmi: request_irq %s failed\n", pdev->name);
+		return -EINVAL;
+	}
 
 	hdmi.ip_data.core_sys_offset = dss_feat_get_hdmi_core_sys_offset();
 	hdmi.ip_data.core_av_offset = HDMI_CORE_AV;
