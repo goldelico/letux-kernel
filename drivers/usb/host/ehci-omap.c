@@ -281,7 +281,7 @@ static void host_write_port(u8 port, const char *buf)
 		ulpi_direct_access(ehci, port, 0x0b, 1, 0xd0);	/* set DrvVbusExternal, UseExternalVbusIndicator, ChrgVbus in OTG Control register */
 		ulpi_direct_access(ehci, port, 0x16, 1, 0x55);	/* write scratch register */
 		if(ulpi_direct_access(ehci, port, 0x16, 0, 0) != 0x55)
-			printk("failed writing ULPI registers");			/* but ignore errors */
+			printk("failed writing ULPI registers\n");			/* but ignore errors */
 #ifdef CONFIG_PM
 		ehci_bus_resume(ghcd);
 #endif
@@ -1105,13 +1105,13 @@ static int ehci_hcd_omap_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_MACH_GTA04
 	// FIXME: pass in some board-file struct[] + sizeof() that writes registers of the ULPI chip
-	printk("writing ULPI registers of port 2");
+	printk("writing ULPI registers of port 2\n");
 	mdelay(4);	/* wait long enough after reset (Tstart) */
 	ulpi_direct_access(omap->ehci, 1, 0x08, 1, 0x40);	/* set IndicatorPassThru in Interface Control register */
 	ulpi_direct_access(omap->ehci, 1, 0x0b, 1, 0xd0);	/* set DrvVbusExternal, UseExternalVbusIndicator, ChrgVbus in OTG Control register */
 	ulpi_direct_access(omap->ehci, 1, 0x16, 1, 0x55);	/* write scratch register */
 	if(ulpi_direct_access(omap->ehci, 1, 0x16, 0, 0) != 0x55)
-		printk("failed writing ULPI registers");			/* but ignore errors */
+		printk("failed writing ULPI registers\n");			/* but ignore errors */
 #endif
 	
 	return 0;
