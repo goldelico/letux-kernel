@@ -567,7 +567,8 @@ int dss_resume_all_devices(void)
 static int dss_disable_device(struct device *dev, void *data)
 {
 	struct omap_dss_device *dssdev = to_dss_device(dev);
-	dssdev->disable(dssdev);
+	if(dssdev->disable)
+		dssdev->disable(dssdev);
 	return 0;
 }
 
