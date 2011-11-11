@@ -256,7 +256,6 @@ static int gta04_enable_lcd(struct omap_dss_device *dssdev)
 {
 	printk("gta04_enable_lcd()\n");
 	// whatever we need, e.g. enable power
-//	gpio_set_value(170, 0);	// DVI off
 	gpio_set_value(57, 1);	// enable backlight
 	return 0;
 }
@@ -271,7 +270,11 @@ static void gta04_disable_lcd(struct omap_dss_device *dssdev)
 static struct omap_dss_device gta04_lcd_device = {
 	.type = OMAP_DISPLAY_TYPE_DPI,
 	.name = "lcd",
+#if defined(CONFIG_PANEL_ORTUS_COM37H3M05DTC)
+	.driver_name = "com37h3m05dtc_panel",
+#elif defined(CONFIG_PANEL_TPO_TD028TTEC1)
 	.driver_name = "td028ttec1_panel",
+#endif
 	.phy.dpi.data_lines = 24,
 	.platform_enable = gta04_enable_lcd,
 	.platform_disable = gta04_disable_lcd,
@@ -295,7 +298,7 @@ static int gta04_panel_enable_tv(struct omap_dss_device *dssdev)
 	/* taken from https://e2e.ti.com/support/dsp/omap_applications_processors/f/447/p/94072/343691.aspx */
 	reg = omap_ctrl_readl(OMAP343X_CONTROL_DEVCONF1);
 //	printk(KERN_INFO "Value of DEVCONF1 was: %08x\n", reg);
-	reg |= OMAP2_TVOUTBYPASS;	/* enable TV bypass mode for external video driver (for OPA362 driver) */
+	reg |= OMAP2_TVOUTBYPASS;	/* enable TV bypass mode for external video driver (OPA362) */
 	reg |= OMAP2_TVACEN;		/* assume AC coupling to remove DC offset */
 	omap_ctrl_writel(reg, OMAP343X_CONTROL_DEVCONF1);
 	reg = omap_ctrl_readl(OMAP343X_CONTROL_DEVCONF1);
@@ -938,9 +941,17 @@ static void __init gta04fpga_init_spi(void)
 
 static struct gpio_keys_button gpio_buttons[] = {
 	{
-		.code			= BTN_EXTRA,
+		.code			= KEY_OK,
 		.gpio			= 7,
-		.desc			= "user",
+		.desc			= "AUX",
+		.debounce_interval = 20,
+		.wakeup			= 1,
+	},
+	{ /* this is a dummy entry because evdev wants to see at least one keycode in the range 0 .. 0xff to recognize a keyboard */
+		.code			= KEY_POWER,	/* our real power button is controlled by the twl4030_powerbutton driver */
+		.gpio			= 8,	/* GPIO8 = SYS_BOOT6 is wired to 1.8V to select the external oscillator */
+		.active_low		= true,	/* never becomes active */
+		.desc			= "POWER",
 		.wakeup			= 1,
 	},
 };
