@@ -941,12 +941,13 @@ static void __init gta04fpga_init_spi(void)
 
 static struct gpio_keys_button gpio_buttons[] = {
 	{
-		.code			= KEY_OK,
+		.code			= KEY_PHONE,
 		.gpio			= 7,
 		.desc			= "AUX",
 		.debounce_interval = 20,
 		.wakeup			= 1,
 	},
+#if 0
 	{ /* this is a dummy entry because evdev wants to see at least one keycode in the range 0 .. 0xff to recognize a keyboard */
 		.code			= KEY_POWER,	/* our real power button is controlled by the twl4030_powerbutton driver */
 		.gpio			= 8,	/* GPIO8 = SYS_BOOT6 is wired to 1.8V to select the external oscillator */
@@ -954,6 +955,7 @@ static struct gpio_keys_button gpio_buttons[] = {
 		.desc			= "POWER",
 		.wakeup			= 1,
 	},
+#endif
 };
 
 static struct gpio_keys_platform_data gpio_key_info = {
