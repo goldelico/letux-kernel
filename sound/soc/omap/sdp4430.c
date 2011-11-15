@@ -786,7 +786,7 @@ static struct snd_soc_dai_link sdp4430_dai[] = {
 		.platform_name = "omap-pcm-audio",
 
 		/* Phoenix - DL1 DAC */
-		.codec_dai_name =  "twl6040-dl1",
+		.codec_dai_name =  "twl6040-legacy",
 		.codec_name = "twl6040-codec",
 
 //		.pre = sdp4430_mcpdm_twl6040_pre,
@@ -794,6 +794,7 @@ static struct snd_soc_dai_link sdp4430_dai[] = {
 		.ops = &sdp4430_mcpdm_ops,
 		.ignore_suspend = 1,
 	},
+#if 0
 	{
 		.name = "SPDIF",
 		.stream_name = "SPDIF",
@@ -804,6 +805,7 @@ static struct snd_soc_dai_link sdp4430_dai[] = {
 		.ignore_suspend = 1,
 		.no_codec = 1,
 	},
+#endif
 	{
 		.name = "Legacy DMIC",
 		.stream_name = "DMIC Capture",
