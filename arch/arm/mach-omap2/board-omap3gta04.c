@@ -430,7 +430,7 @@ static struct regulator_consumer_supply gta04_vmmc1_supply = {
 };
 
 static struct regulator_consumer_supply gta04_vsim_supply = {
-	.supply			= "vmmc_aux",
+	.supply			= "vmmc_aux",	// FIXME: we use VSIM to power the GPS antenna with 2.8V
 };
 
 static int gta04_twl_gpio_setup(struct device *dev,
@@ -1042,6 +1042,14 @@ static struct platform_device gta04_vaux4_virtual_regulator_device = {
 	},
 };
 
+static struct platform_device gta04_vsim_virtual_regulator_device = {
+	.name		= "reg-virt-consumer",
+	.id			= 5,	
+	.dev		= {
+		.platform_data	= "vmmc_aux",	/* allow to control VSIM for GPS antenna power */
+	},
+};
+
 #endif
 
 static struct platform_device *gta04_devices[] __initdata = {
@@ -1052,8 +1060,9 @@ static struct platform_device *gta04_devices[] __initdata = {
 #if defined(CONFIG_REGULATOR_VIRTUAL_CONSUMER)
 	&gta04_vaux1_virtual_regulator_device,
 	&gta04_vaux2_virtual_regulator_device,
-	&gta04_vaux3_virtual_regulator_device,
+	&gta04_vaux3_virtual_regulator_device,	// camera - we should enable the power through the driver
 	&gta04_vaux4_virtual_regulator_device,
+	&gta04_vsim_virtual_regulator_device,
 #endif
 #if defined(CONFIG_HDQ_MASTER_OMAP)
 	&gta04_hdq_device,

@@ -331,7 +331,9 @@ twlldo_set_voltage(struct regulator_dev *rdev, int min_uV, int max_uV)
 {
 	struct twlreg_info	*info = rdev_get_drvdata(rdev);
 	int			vsel;
-
+#if 1
+	printk("twlldo_set_voltage(%d,%d)\n", min_uV, max_uV);
+#endif
 	for (vsel = 0; vsel < info->table_len; vsel++) {
 		int mV = info->table[vsel];
 		int uV;

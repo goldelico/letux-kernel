@@ -11,6 +11,8 @@
  * License, or (at your option) any later version.
  */
 
+#define DEBUG 1
+
 #include <linux/err.h>
 #include <linux/mutex.h>
 #include <linux/platform_device.h>
@@ -33,14 +35,14 @@ static void update_voltage_constraints(struct device *dev,
 	int ret;
 
 	if (data->min_uV && data->max_uV
-	    && data->min_uV <= data->max_uV) {
+	    && data->min_uV <= data->max_uV) {	/* note: you can just enable the regulator if you set min > max */
 		dev_dbg(dev, "Requesting %d-%duV\n",
 			data->min_uV, data->max_uV);
 		ret = regulator_set_voltage(data->regulator,
 					data->min_uV, data->max_uV);
 		if (ret != 0) {
 			dev_err(dev,
-				"regulator_set_voltage() failed: %d\n", ret);
+				"regulator_set_voltage(%d, %d) failed: %d\n", data->min_uV, data->max_uV, ret);
 			return;
 		}
 	}
