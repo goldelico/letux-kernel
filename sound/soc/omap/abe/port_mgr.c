@@ -1,7 +1,7 @@
 /*
  * ALSA SoC OMAP ABE port manager
  *
- * Author: Liam Girdwood <lrg@ti.com>
+ * Author: Liam Girdwood <lrg@slimlogic.co.uk>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -31,12 +31,14 @@
 #include "port_mgr.h"
 #include "abe_main.h"
 
+#ifdef CONFIG_DEBUG_FS
 /* this must match logical ID numbers in port_mgr.h */
 static const char *lport_name[] = {
 		"dmic0", "dmic1", "dmic2", "pdmdl1", "pdmdl2", "pdmvib",
 		"pdmul1", "bt_vx_dl", "bt_vx_ul", "mm_ext_ul", "mm_ext_dl",
 		"mm_dl1", "mm_ul1", "mm_ul2", "vx_dl", "vx_ul", "vib", "tones"
 };
+#endif
 
 static DEFINE_MUTEX(port_mgr_mutex);
 static struct abe *the_abe = NULL;
@@ -67,9 +69,9 @@ static int get_physical_id(int logical_id)
 		return BT_VX_DL_PORT;
 	case OMAP_ABE_BE_PORT_BT_VX_UL:
 		return BT_VX_UL_PORT;
-	case OMAP_ABE_BE_PORT_MM_EXT_UL:
-		return MM_EXT_OUT_PORT;
 	case OMAP_ABE_BE_PORT_MM_EXT_DL:
+		return MM_EXT_OUT_PORT;
+	case OMAP_ABE_BE_PORT_MM_EXT_UL:
 		return MM_EXT_IN_PORT;
 	/* front end ports */
 	case OMAP_ABE_FE_PORT_MM_DL1:
@@ -187,8 +189,10 @@ int omap_abe_port_disable(struct abe *abe, struct omap_abe_port *port)
 			lport_name[port->logical_id], port->users);
 
 	spin_lock_irqsave(&abe->lock, flags);
+
 	WARN(!port->users, "port %s phy port %d is already disabled\n",
 		lport_name[port->logical_id], port->physical_id);
+
 	if (port->users == 1 && port_get_num_users(abe, port) == 1) {
 		/* disable the physical port */
 		pr_debug("port %s phy port %d disabled\n",
@@ -301,9 +305,7 @@ static struct abe *omap_abe_port_mgr_init(void)
 
 static void omap_abe_port_mgr_free(struct abe *abe)
 {
-#ifdef CONFIG_DEBUG_FS
 	debugfs_remove_recursive(abe->debugfs_root);
-#endif
 	kfree(abe);
 	the_abe = NULL;
 }
