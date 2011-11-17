@@ -78,6 +78,7 @@ void abe_init_asrc_mm_ext_in(s32 dppm);
 void abe_init_asrc_bt_ul(s32 dppm);
 void abe_init_asrc_bt_dl(s32 dppm);
 
+void abe_src_filters_saturation_monitoring(void);
 void abe_irq_aps(u32 aps_info);
 void abe_irq_ping_pong(void);
 void abe_irq_check_for_sequences(u32 seq_info);
@@ -146,6 +147,7 @@ EXPORT_SYMBOL(omap_abe_wakeup);
  */
 void abe_monitoring(void)
 {
+
 }
 
 /**
@@ -199,12 +201,12 @@ int omap_abe_irq_processing(struct omap_abe *abe)
 		case IRQtag_COUNT:
 			_log(ABE_ID_IRQ_PROCESSING, IRQ_data.data, 0, 3);
 			abe_irq_check_for_sequences(IRQ_data.data);
+			abe_monitoring();
 			break;
 		default:
 			break;
 		}
 	}
-	abe_monitoring();
 	return 0;
 }
 EXPORT_SYMBOL(omap_abe_irq_processing);
@@ -252,6 +254,10 @@ int omap_abe_set_ping_pong_buffer(struct omap_abe *abe, u32 port, u32 n_bytes)
 			(u32) &(desc_pp);
 		base_and_size = desc_pp.nextbuff1_BaseAddr;
 	}
+
+	base_and_size = abe->pp_buf_addr[abe->pp_buf_id_next];
+	abe->pp_buf_id_next = (abe->pp_buf_id_next + 1) & 0x03;
+
 	base_and_size = (base_and_size & 0xFFFFL) + (n_samples << 16);
 	sio_pp_desc_address = OMAP_ABE_D_PINGPONGDESC_ADDR + struct_offset;
 	src = &base_and_size;
@@ -332,6 +338,13 @@ int omap_abe_init_ping_pong_buffer(struct omap_abe *abe,
 		/* base addresses of the ping pong buffers in U8 unit */
 		abe_base_address_pingpong[i] = dmem_addr;
 	}
+
+	for (i = 0; i < 4; i++)
+		abe->pp_buf_addr[i] = OMAP_ABE_D_PING_ADDR + (i * size_bytes);
+	abe->pp_buf_id = 0;
+	abe->pp_buf_id_next = 0;
+	abe->pp_first_irq = 1;
+
 	/* global data */
 	abe_size_pingpong = size_bytes;
 	*p = (u32) OMAP_ABE_D_PING_ADDR;
@@ -369,29 +382,27 @@ int omap_abe_read_offset_from_ping_buffer(struct omap_abe *abe,
 		   the value of the counter */
 		if ((desc_pp.counter & 0x1) == 0) {
 			/* the next is buffer0, hence the current is buffer1 */
-			switch (abe_port[OMAP_ABE_MM_DL_PORT].format.samp_format) {
-			case MONO_MSB:
-			case MONO_RSHIFTED_16:
-			case STEREO_16_16:
-				*n = abe_size_pingpong / 4 +
-					desc_pp.nextbuff1_Samples -
-					desc_pp.workbuff_Samples;
-				break;
-			case STEREO_MSB:
-			case STEREO_RSHIFTED_16:
-				*n = abe_size_pingpong / 8 +
-					desc_pp.nextbuff1_Samples -
-					desc_pp.workbuff_Samples;
-				break;
-			default:
-				omap_abe_dbg_error(abe, OMAP_ABE_ERR_API,
-						   ABE_PARAMETER_ERROR);
-				break;
-			}
+			*n = desc_pp.nextbuff1_Samples -
+				desc_pp.workbuff_Samples;
 		} else {
 			/* the next is buffer1, hence the current is buffer0 */
 			*n = desc_pp.nextbuff0_Samples -
 				desc_pp.workbuff_Samples;
+		}
+		switch (abe_port[OMAP_ABE_MM_DL_PORT].format.samp_format) {
+		case MONO_MSB:
+		case MONO_RSHIFTED_16:
+		case STEREO_16_16:
+			*n +=  abe->pp_buf_id * abe_size_pingpong / 4;
+			break;
+		case STEREO_MSB:
+		case STEREO_RSHIFTED_16:
+			*n += abe->pp_buf_id * abe_size_pingpong / 8;
+			break;
+		default:
+			omap_abe_dbg_error(abe, OMAP_ABE_ERR_API,
+					   ABE_PARAMETER_ERROR);
+			return -EINVAL;
 		}
 	}
 
@@ -451,8 +462,11 @@ EXPORT_SYMBOL(omap_abe_set_router_configuration);
  */
 int omap_abe_set_opp_processing(struct omap_abe *abe, u32 opp)
 {
-	u32 dOppMode32, sio_desc_address;
+	u32 dOppMode32;
+#if 0
+	u32 sio_desc_address;
 	struct ABE_SIODescriptor sio_desc;
+#endif
 
 	_log(ABE_ID_SET_OPP_PROCESSING, opp, 0, 0);
 
@@ -476,6 +490,9 @@ int omap_abe_set_opp_processing(struct omap_abe *abe, u32 opp)
 	/* Write Multiframe inside DMEM */
 	omap_abe_mem_write(abe, OMAP_ABE_DMEM,
 		       OMAP_ABE_D_MAXTASKBYTESINSLOT_ADDR, &dOppMode32, sizeof(u32));
+
+#if 0
+	/* Disable BT / MM Ext ASRC dynamic switch */
 
 	sio_desc_address = OMAP_ABE_D_IODESCR_ADDR + (OMAP_ABE_MM_EXT_IN_PORT *
 				sizeof(struct ABE_SIODescriptor));
@@ -528,11 +545,11 @@ int omap_abe_set_opp_processing(struct omap_abe *abe, u32 opp)
 	if (abe_port[OMAP_ABE_BT_VX_DL_PORT].format.f == 8000) {
 		if (dOppMode32 == DOPPMODE32_OPP100) {
 			abe->MultiFrame[TASK_BT_DL_48_8_SLT][TASK_BT_DL_48_8_IDX] =
-				ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_8_OPP100);
+				ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_8_FIR_OPP100_FW_COMPAT);
 			sio_desc.smem_addr1 = BT_DL_8k_opp100_labelID;
 		} else {
 			abe->MultiFrame[TASK_BT_DL_48_8_SLT][TASK_BT_DL_48_8_IDX] =
-				ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_8);
+				ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_8_FIR_FW_COMPAT);
 			sio_desc.smem_addr1 = BT_DL_8k_labelID;
 		}
 	} else {
@@ -559,6 +576,7 @@ int omap_abe_set_opp_processing(struct omap_abe *abe, u32 opp)
 		/* Init BT_VX_DL ASRC and enable its adaptation */
 		abe_init_asrc_bt_dl(-250);
 	}
+#endif
 	return 0;
 
 }

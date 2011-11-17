@@ -90,6 +90,11 @@
 #define C_ABE_FW_FUNCTION_FIR6                              27
 #define C_ABE_FW_FUNCTION_SRC44P1                           28
 #define C_ABE_FW_FUNCTION_SRC44P1_1211                      29
+#define C_ABE_FW_FUNCTION_SRC44P1_PP                        30
+#define C_ABE_FW_FUNCTION_SRC44P1_1211_PP                   31
+#define C_ABE_FW_FUNCTION_CHECK_IIR_LEFT                    32
+#define C_ABE_FW_FUNCTION_CHECK_IIR_RIGHT                   33
+#define C_ABE_FW_FUNCTION_FIR12_2                           34
 /*
  *    COPY function ID definitions
  */
@@ -114,4 +119,5 @@
 #define ROUTE_MM_UL_CFPID                                   18
 #define IO_IP_CFPID                                         19
 #define COPY_UNDERFLOW_CFPID                                20
+#define COPY_MCPDM_DL_HF_PDL1_CFPID                         21
 #endif /* _ABE_FUNCTIONSID_H_ */

@@ -128,6 +128,9 @@ int abe_load_fw_param(u32 *ABE_FW)
 {
 	u32 pmem_size, dmem_size, smem_size, cmem_size;
 	u32 *pmem_ptr, *dmem_ptr, *smem_ptr, *cmem_ptr, *fw_ptr;
+	/* fast counter timer set at 4096 * 250us = 1,024s */
+	u32 data = 0x10001000;
+
 	_log(ABE_ID_LOAD_FW_param, 0, 0, 0);
 #define ABE_FW_OFFSET 5
 	fw_ptr = ABE_FW;
@@ -152,6 +155,7 @@ int abe_load_fw_param(u32 *ABE_FW)
 			       smem_size);
 		omap_abe_mem_write(abe, OMAP_ABE_DMEM, 0, dmem_ptr,
 			       dmem_size);
+
 		/* Restore the event Generator status */
 		omap_abe_start_event_generator(abe);
 	} else {
@@ -164,6 +168,21 @@ int abe_load_fw_param(u32 *ABE_FW)
 		omap_abe_mem_write(abe, OMAP_ABE_DMEM, 0, dmem_ptr,
 			       dmem_size);
 	}
+	omap_abe_mem_write(abe, OMAP_ABE_DMEM,
+		       OMAP_ABE_D_FASTCOUNTER_ADDR,
+		       &data,
+		       OMAP_ABE_D_FASTCOUNTER_SIZE);
+
+	/* Update Saturation threshold */
+	data = 0x00700000;
+	omap_abe_mem_write(abe, OMAP_ABE_SMEM,
+		       OMAP_ABE_S_SATURATION_EQ_ADDR,
+		       &data, 4);
+	data = 0x00900000;
+	omap_abe_mem_write(abe, OMAP_ABE_SMEM,
+		       OMAP_ABE_S_SATURATION_EQ_ADDR + 4,
+		       &data, 4);
+
 	abe->warm_boot = 1;
 	return 0;
 }
@@ -199,17 +218,10 @@ int omap_abe_reload_fw(struct omap_abe *abe, u32 *firmware)
 	abe->irq_dbg_read_ptr = 0;
 	/* Restore Gains not managed by the drivers */
 	omap_abe_write_gain(abe, GAINS_SPLIT, GAIN_0dB,
-			    RAMP_5MS, GAIN_LEFT_OFFSET);
+			    RAMP_2MS, GAIN_LEFT_OFFSET);
 	omap_abe_write_gain(abe, GAINS_SPLIT, GAIN_0dB,
-			    RAMP_5MS, GAIN_RIGHT_OFFSET);
-	omap_abe_write_gain(abe, GAINS_DL1, GAIN_0dB,
-			    RAMP_5MS, GAIN_LEFT_OFFSET);
-	omap_abe_write_gain(abe, GAINS_DL1, GAIN_0dB,
-			    RAMP_5MS, GAIN_RIGHT_OFFSET);
-	omap_abe_write_gain(abe, GAINS_DL2, GAIN_0dB,
-			    RAMP_5MS, GAIN_LEFT_OFFSET);
-	omap_abe_write_gain(abe, GAINS_DL2, GAIN_0dB,
-			    RAMP_5MS, GAIN_RIGHT_OFFSET);
+			    RAMP_2MS, GAIN_RIGHT_OFFSET);
+
 	return 0;
 }
 EXPORT_SYMBOL(omap_abe_reload_fw);
@@ -241,16 +253,16 @@ void omap_abe_build_scheduler_table(struct omap_abe *abe)
 	     i < sizeof(abe->MultiFrame); i++)
 		*ptr++ = 0;
 
-	abe->MultiFrame[0][2] = 0/*ABE_TASK_ID(C_ABE_FW_TASK_IO_VX_DL)*/;
+	abe->MultiFrame[0][0] = 0/*ABE_TASK_ID(C_ABE_FW_TASK_IO_PDM_UL)*/;
 	abe->MultiFrame[0][3] = ABE_TASK_ID(C_ABE_FW_TASK_ASRC_VX_DL_8);
 
 	abe->MultiFrame[1][3] = ABE_TASK_ID(C_ABE_FW_TASK_VX_DL_8_48_FIR);
 	abe->MultiFrame[1][6] = ABE_TASK_ID(C_ABE_FW_TASK_DL2Mixer);
-	abe->MultiFrame[1][7] = 0/*ABE_TASK_ID(C_ABE_FW_TASK_IO_VIB_DL)*/;
+	abe->MultiFrame[1][7] = 0; /*ABE_TASK_ID(C_ABE_FW_TASK_IO_VIB_DL)*/
 
 	abe->MultiFrame[2][0] = ABE_TASK_ID(C_ABE_FW_TASK_DL1Mixer);
 	abe->MultiFrame[2][1] = ABE_TASK_ID(C_ABE_FW_TASK_SDTMixer);
-	abe->MultiFrame[2][5] = 0/*ABE_TASK_ID(C_ABE_FW_TASK_IO_DMIC)*/;
+	abe->MultiFrame[2][5] = 0; /*ABE_TASK_ID(C_ABE_FW_TASK_IO_DMIC)*/
 
 	abe->MultiFrame[3][0] = ABE_TASK_ID(C_ABE_FW_TASK_DL1_GAIN);
 	abe->MultiFrame[3][6] = ABE_TASK_ID(C_ABE_FW_TASK_DL2_GAIN);
@@ -264,27 +276,22 @@ void omap_abe_build_scheduler_table(struct omap_abe *abe)
 
 	abe->MultiFrame[5][0] = 0;
 	abe->MultiFrame[5][1] = ABE_TASK_ID(C_ABE_FW_TASK_EARP_48_96_LP);
-	abe->MultiFrame[5][2] = 0/*ABE_TASK_ID(C_ABE_FW_TASK_IO_PDM_UL)*/;
+	abe->MultiFrame[5][2] = 0; /*ABE_TASK_ID(C_ABE_FW_TASK_IO_PDM_UL)*/
 	abe->MultiFrame[5][7] = ABE_TASK_ID(C_ABE_FW_TASK_VIBRA_SPLIT);
 
 	abe->MultiFrame[6][0] = ABE_TASK_ID(C_ABE_FW_TASK_EARP_48_96_LP);
 	abe->MultiFrame[6][4] = ABE_TASK_ID(C_ABE_FW_TASK_EchoMixer);
 	abe->MultiFrame[6][5] = ABE_TASK_ID(C_ABE_FW_TASK_BT_UL_SPLIT);
 
-	abe->MultiFrame[7][0] = 0/*ABE_TASK_ID(C_ABE_FW_TASK_IO_PDM_DL)*/;
+	abe->MultiFrame[7][0] = 0; /*ABE_TASK_ID(C_ABE_FW_TASK_IO_PDM_DL)*/
 	abe->MultiFrame[7][3] = ABE_TASK_ID(C_ABE_FW_TASK_DBG_SYNC);
 	abe->MultiFrame[7][5] = ABE_TASK_ID(C_ABE_FW_TASK_ECHO_REF_SPLIT);
-
-	abe->MultiFrame[8][2] = ABE_TASK_ID(C_ABE_FW_TASK_DMIC1_96_48_LP);
-	abe->MultiFrame[8][4] = ABE_TASK_ID(C_ABE_FW_TASK_DMIC1_SPLIT);
 
 	abe->MultiFrame[9][2] = ABE_TASK_ID(C_ABE_FW_TASK_DMIC2_96_48_LP);
 	abe->MultiFrame[9][4] = ABE_TASK_ID(C_ABE_FW_TASK_DMIC2_SPLIT);
 	abe->MultiFrame[9][6] = 0;
 	abe->MultiFrame[9][7] = ABE_TASK_ID(C_ABE_FW_TASK_IHF_48_96_LP);
 
-	abe->MultiFrame[10][2] = ABE_TASK_ID(C_ABE_FW_TASK_DMIC3_96_48_LP);
-	abe->MultiFrame[10][4] = ABE_TASK_ID(C_ABE_FW_TASK_DMIC3_SPLIT);
 	abe->MultiFrame[10][7] = ABE_TASK_ID(C_ABE_FW_TASK_IHF_48_96_LP);
 
 	abe->MultiFrame[11][2] = ABE_TASK_ID(C_ABE_FW_TASK_AMIC_96_48_LP);
@@ -297,43 +304,45 @@ void omap_abe_build_scheduler_table(struct omap_abe *abe)
 
 	abe->MultiFrame[13][2] = ABE_TASK_ID(C_ABE_FW_TASK_MM_UL2_ROUTING);
 	abe->MultiFrame[13][3] = ABE_TASK_ID(C_ABE_FW_TASK_SideTone);
-	abe->MultiFrame[13][5] = 0/*ABE_TASK_ID(C_ABE_FW_TASK_IO_BT_VX_DL)*/;
+	abe->MultiFrame[13][5] = 0; /*ABE_TASK_ID(C_ABE_FW_TASK_IO_BT_VX_DL)*/
 
-	abe->MultiFrame[14][3] = 0/*ABE_TASK_ID(C_ABE_FW_TASK_IO_DMIC)*/;
-	abe->MultiFrame[14][4] = ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_8);
+	abe->MultiFrame[14][3] = 0; /*ABE_TASK_ID(C_ABE_FW_TASK_IO_DMIC)*/
+	abe->MultiFrame[14][4] = ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_8_FIR_FW_COMPAT);
 
-	abe->MultiFrame[15][0] = 0/*ABE_TASK_ID(C_ABE_FW_TASK_IO_MM_EXT_OUT)*/;
-	abe->MultiFrame[15][3] = 0/*ABE_TASK_ID(C_ABE_FW_TASK_IO_BT_VX_UL)*/;
-	abe->MultiFrame[15][6] = ABE_TASK_ID(C_ABE_FW_TASK_ASRC_BT_UL_8);
+	abe->MultiFrame[15][0] = 0; /*ABE_TASK_ID(C_ABE_FW_TASK_IO_MM_EXT_OUT)*/
+	abe->MultiFrame[15][3] = 0; /*ABE_TASK_ID(C_ABE_FW_TASK_IO_BT_VX_UL)*/
+	abe->MultiFrame[15][6] = 0; /*ABE_TASK_ID(C_ABE_FW_TASK_ASRC_BT_UL_8)*/
 
 	abe->MultiFrame[16][2] = ABE_TASK_ID(C_ABE_FW_TASK_ASRC_VX_UL_8);
-	abe->MultiFrame[16][3] = 0/*ABE_TASK_ID(C_ABE_FW_TASK_IO_VX_UL)*/;
+	abe->MultiFrame[16][3] = 0; /*ABE_TASK_ID(C_ABE_FW_TASK_IO_VX_UL)*/
 
 	abe->MultiFrame[17][2] = ABE_TASK_ID(C_ABE_FW_TASK_BT_UL_8_48);
-	abe->MultiFrame[17][3] = 0/*ABE_TASK_ID(C_ABE_FW_TASK_IO_MM_UL2)*/;
+	abe->MultiFrame[17][3] = 0; /*ABE_TASK_ID(C_ABE_FW_TASK_IO_MM_UL2)*/
 
-	abe->MultiFrame[18][0] = 0/*ABE_TASK_ID(C_ABE_FW_TASK_IO_MM_DL)*/;
-	abe->MultiFrame[18][6] = ABE_TASK_ID(C_ABE_FW_TASK_ASRC_BT_DL_8);
+	abe->MultiFrame[18][0] = 0; /*ABE_TASK_ID(C_ABE_FW_TASK_IO_MM_DL)*/
+	abe->MultiFrame[18][6] = 0; /*ABE_TASK_ID(C_ABE_FW_TASK_ASRC_BT_DL_8)*/
 
-	abe->MultiFrame[19][0] = 0/*ABE_TASK_ID(C_ABE_FW_TASK_IO_PDM_DL)*/;
+	abe->MultiFrame[19][0] = 0; /*ABE_TASK_ID(C_ABE_FW_TASK_IO_PDM_DL)*/
 
 	/*         MM_UL is moved to OPP 100% */
-	abe->MultiFrame[19][6] = 0/*ABE_TASK_ID(C_ABE_FW_TASK_IO_MM_UL)*/;
+	abe->MultiFrame[19][6] = 0; /*ABE_TASK_ID(C_ABE_FW_TASK_IO_MM_UL)*/
 
-	abe->MultiFrame[20][0] = 0/*ABE_TASK_ID(C_ABE_FW_TASK_IO_TONES_DL)*/;
-	abe->MultiFrame[20][6] = ABE_TASK_ID(C_ABE_FW_TASK_ASRC_MM_EXT_IN);
+	abe->MultiFrame[20][0] = 0; /*ABE_TASK_ID(C_ABE_FW_TASK_IO_TONES_DL)*/
+	abe->MultiFrame[20][6] = 0; /*ABE_TASK_ID(C_ABE_FW_TASK_ASRC_MM_EXT_IN)*/
 
 	abe->MultiFrame[21][1] = ABE_TASK_ID(C_ABE_FW_TASK_DEBUGTRACE_VX_ASRCs);
+	abe->MultiFrame[21][2] = ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_RIGHT_8K);
 	abe->MultiFrame[21][3] = 0/*ABE_TASK_ID(C_ABE_FW_TASK_IO_MM_EXT_IN)*/;
 	/* MUST STAY ON SLOT 22 */
 	abe->MultiFrame[22][0] = ABE_TASK_ID(C_ABE_FW_TASK_DEBUG_IRQFIFO);
 	abe->MultiFrame[22][1] = ABE_TASK_ID(C_ABE_FW_TASK_INIT_FW_MEMORY);
-	abe->MultiFrame[22][2] = 0;
+	abe->MultiFrame[22][2] = ABE_TASK_ID(C_ABE_FW_TASK_IO_VX_DL);
 	/* MM_EXT_IN_SPLIT task must be after IO_MM_EXT_IN and before
 	   ASRC_MM_EXT_IN in order to manage OPP50 <-> transitions */
 	abe->MultiFrame[22][4] = ABE_TASK_ID(C_ABE_FW_TASK_MM_EXT_IN_SPLIT);
 
 	abe->MultiFrame[23][0] = ABE_TASK_ID(C_ABE_FW_TASK_GAIN_UPDATE);
+	abe->MultiFrame[23][2] = ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_LEFT_8K);
 
 	omap_abe_mem_write(abe, OMAP_ABE_DMEM, OMAP_ABE_D_MULTIFRAME_ADDR,
 		       (u32 *) abe->MultiFrame, sizeof(abe->MultiFrame));
@@ -373,75 +382,75 @@ void omap_abe_reset_all_ports(struct omap_abe *abe)
 		omap_abe_reset_port(i);
 	/* mixers' configuration */
 	omap_abe_write_mixer(abe, MIXDL1, MUTE_GAIN,
-			     RAMP_5MS, MIX_DL1_INPUT_MM_DL);
+			     RAMP_2MS, MIX_DL1_INPUT_MM_DL);
 	omap_abe_write_mixer(abe, MIXDL1, MUTE_GAIN,
-			     RAMP_5MS, MIX_DL1_INPUT_MM_UL2);
+			     RAMP_2MS, MIX_DL1_INPUT_MM_UL2);
 	omap_abe_write_mixer(abe, MIXDL1, MUTE_GAIN,
-			     RAMP_5MS, MIX_DL1_INPUT_VX_DL);
+			     RAMP_2MS, MIX_DL1_INPUT_VX_DL);
 	omap_abe_write_mixer(abe, MIXDL1, MUTE_GAIN,
-			     RAMP_5MS, MIX_DL1_INPUT_TONES);
+			     RAMP_2MS, MIX_DL1_INPUT_TONES);
 	omap_abe_write_mixer(abe, MIXDL2, MUTE_GAIN,
-			     RAMP_5MS, MIX_DL2_INPUT_TONES);
+			     RAMP_2MS, MIX_DL2_INPUT_TONES);
 	omap_abe_write_mixer(abe, MIXDL2, MUTE_GAIN,
-			     RAMP_5MS, MIX_DL2_INPUT_VX_DL);
+			     RAMP_2MS, MIX_DL2_INPUT_VX_DL);
 	omap_abe_write_mixer(abe, MIXDL2, MUTE_GAIN,
-			     RAMP_5MS, MIX_DL2_INPUT_MM_DL);
+			     RAMP_2MS, MIX_DL2_INPUT_MM_DL);
 	omap_abe_write_mixer(abe, MIXDL2, MUTE_GAIN,
-			     RAMP_5MS, MIX_DL2_INPUT_MM_UL2);
+			     RAMP_2MS, MIX_DL2_INPUT_MM_UL2);
 	omap_abe_write_mixer(abe, MIXSDT, MUTE_GAIN,
-			     RAMP_5MS, MIX_SDT_INPUT_UP_MIXER);
+			     RAMP_2MS, MIX_SDT_INPUT_UP_MIXER);
 	omap_abe_write_mixer(abe, MIXSDT, GAIN_0dB,
-			     RAMP_5MS, MIX_SDT_INPUT_DL1_MIXER);
+			     RAMP_2MS, MIX_SDT_INPUT_DL1_MIXER);
 	omap_abe_write_mixer(abe, MIXECHO, MUTE_GAIN,
-			     RAMP_5MS, MIX_ECHO_DL1);
+			     RAMP_2MS, MIX_ECHO_DL1);
 	omap_abe_write_mixer(abe, MIXECHO, MUTE_GAIN,
-			     RAMP_5MS, MIX_ECHO_DL2);
+			     RAMP_2MS, MIX_ECHO_DL2);
 	omap_abe_write_mixer(abe, MIXAUDUL, MUTE_GAIN,
-			     RAMP_5MS, MIX_AUDUL_INPUT_MM_DL);
+			     RAMP_2MS, MIX_AUDUL_INPUT_MM_DL);
 	omap_abe_write_mixer(abe, MIXAUDUL, MUTE_GAIN,
-			     RAMP_5MS, MIX_AUDUL_INPUT_TONES);
+			     RAMP_2MS, MIX_AUDUL_INPUT_TONES);
 	omap_abe_write_mixer(abe, MIXAUDUL, GAIN_0dB,
-			     RAMP_5MS, MIX_AUDUL_INPUT_UPLINK);
+			     RAMP_2MS, MIX_AUDUL_INPUT_UPLINK);
 	omap_abe_write_mixer(abe, MIXAUDUL, MUTE_GAIN,
-			     RAMP_5MS, MIX_AUDUL_INPUT_VX_DL);
+			     RAMP_2MS, MIX_AUDUL_INPUT_VX_DL);
 	omap_abe_write_mixer(abe, MIXVXREC, MUTE_GAIN,
-			     RAMP_5MS, MIX_VXREC_INPUT_TONES);
+			     RAMP_2MS, MIX_VXREC_INPUT_TONES);
 	omap_abe_write_mixer(abe, MIXVXREC, MUTE_GAIN,
-			     RAMP_5MS, MIX_VXREC_INPUT_VX_DL);
+			     RAMP_2MS, MIX_VXREC_INPUT_VX_DL);
 	omap_abe_write_mixer(abe, MIXVXREC, MUTE_GAIN,
-			     RAMP_5MS, MIX_VXREC_INPUT_MM_DL);
+			     RAMP_2MS, MIX_VXREC_INPUT_MM_DL);
 	omap_abe_write_mixer(abe, MIXVXREC, MUTE_GAIN,
-			     RAMP_5MS, MIX_VXREC_INPUT_VX_UL);
+			     RAMP_2MS, MIX_VXREC_INPUT_VX_UL);
 	omap_abe_write_gain(abe, GAINS_DMIC1, GAIN_0dB,
-			    RAMP_5MS, GAIN_LEFT_OFFSET);
+			    RAMP_2MS, GAIN_LEFT_OFFSET);
 	omap_abe_write_gain(abe, GAINS_DMIC1, GAIN_0dB,
-			    RAMP_5MS, GAIN_RIGHT_OFFSET);
+			    RAMP_2MS, GAIN_RIGHT_OFFSET);
 	omap_abe_write_gain(abe, GAINS_DMIC2, GAIN_0dB,
-			    RAMP_5MS, GAIN_LEFT_OFFSET);
+			    RAMP_2MS, GAIN_LEFT_OFFSET);
 	omap_abe_write_gain(abe, GAINS_DMIC2, GAIN_0dB,
-			    RAMP_5MS, GAIN_RIGHT_OFFSET);
+			    RAMP_2MS, GAIN_RIGHT_OFFSET);
 	omap_abe_write_gain(abe, GAINS_DMIC3, GAIN_0dB,
-			    RAMP_5MS, GAIN_LEFT_OFFSET);
+			    RAMP_2MS, GAIN_LEFT_OFFSET);
 	omap_abe_write_gain(abe, GAINS_DMIC3, GAIN_0dB,
-			    RAMP_5MS, GAIN_RIGHT_OFFSET);
+			    RAMP_2MS, GAIN_RIGHT_OFFSET);
 	omap_abe_write_gain(abe, GAINS_AMIC, GAIN_0dB,
-			    RAMP_5MS, GAIN_LEFT_OFFSET);
+			    RAMP_2MS, GAIN_LEFT_OFFSET);
 	omap_abe_write_gain(abe, GAINS_AMIC, GAIN_0dB,
-			    RAMP_5MS, GAIN_RIGHT_OFFSET);
+			    RAMP_2MS, GAIN_RIGHT_OFFSET);
 	omap_abe_write_gain(abe, GAINS_SPLIT, GAIN_0dB,
-			    RAMP_5MS, GAIN_LEFT_OFFSET);
+			    RAMP_2MS, GAIN_LEFT_OFFSET);
 	omap_abe_write_gain(abe, GAINS_SPLIT, GAIN_0dB,
-			    RAMP_5MS, GAIN_RIGHT_OFFSET);
+			    RAMP_2MS, GAIN_RIGHT_OFFSET);
 	omap_abe_write_gain(abe, GAINS_DL1, GAIN_0dB,
-			    RAMP_5MS, GAIN_LEFT_OFFSET);
+			    RAMP_2MS, GAIN_LEFT_OFFSET);
 	omap_abe_write_gain(abe, GAINS_DL1, GAIN_0dB,
-			    RAMP_5MS, GAIN_RIGHT_OFFSET);
+			    RAMP_2MS, GAIN_RIGHT_OFFSET);
 	omap_abe_write_gain(abe, GAINS_DL2, GAIN_0dB,
-			    RAMP_5MS, GAIN_LEFT_OFFSET);
+			    RAMP_2MS, GAIN_LEFT_OFFSET);
 	omap_abe_write_gain(abe, GAINS_DL2, GAIN_0dB,
-			    RAMP_5MS, GAIN_RIGHT_OFFSET);
+			    RAMP_2MS, GAIN_RIGHT_OFFSET);
 	omap_abe_write_gain(abe, GAINS_BTUL, GAIN_0dB,
-			    RAMP_5MS, GAIN_LEFT_OFFSET);
+			    RAMP_2MS, GAIN_LEFT_OFFSET);
 	omap_abe_write_gain(abe, GAINS_BTUL, GAIN_0dB,
-			    RAMP_5MS, GAIN_RIGHT_OFFSET);
+			    RAMP_2MS, GAIN_RIGHT_OFFSET);
 }

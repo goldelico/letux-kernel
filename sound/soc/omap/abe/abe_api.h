@@ -93,26 +93,6 @@
 #define TASK_ASRC_BT_DL_SLT 18
 #define TASK_ASRC_BT_DL_IDX 6
 
-
-struct omap_abe {
-	void __iomem *io_base[5];
-	u32 firmware_version_number;
-	u16 MultiFrame[PROCESSING_SLOTS][TASKS_IN_SLOT];
-	u32 compensated_mixer_gain;
-	u8  muted_gains_indicator[MAX_NBGAIN_CMEM];
-	u32 desired_gains_decibel[MAX_NBGAIN_CMEM];
-	u32 muted_gains_decibel[MAX_NBGAIN_CMEM];
-	u32 desired_gains_linear[MAX_NBGAIN_CMEM];
-	u32 desired_ramp_delay_ms[MAX_NBGAIN_CMEM];
-	struct mutex mutex;
-	u32 warm_boot;
-
-	u32 irq_dbg_read_ptr;
-	u32 dbg_param;
-
-	struct omap_abe_dbg dbg;
-};
-
 /**
  * abe_reset_hal - reset the ABE/HAL
  * @rdev: regulator source
@@ -465,15 +445,6 @@ abehal_status abe_read_gain(u32 id, u32 *f_g, u32 p);
  * corresponding to an OPP value.
  */
 abehal_status abe_read_mixer(u32 id, u32 *f_g, u32 p);
-/**
- * abe_mono_mixer
- * id: name of the mixer (MIXDL1 or MIXDL2)
- * on_off: enable\disable flag
- *
- * This API Programs DL1Mixer or DL2Mixer to output mono data
- * on both left and right data paths.
- */
-abehal_status abe_mono_mixer(u32 id, u32 on_off);
 /**
  * abe_set_router_configuration
  * @Id: name of the router
