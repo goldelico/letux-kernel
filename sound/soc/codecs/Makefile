@@ -107,6 +107,8 @@ snd-soc-da7219-objs := da7219.o da7219-aad.o
 snd-soc-da732x-objs := da732x.o
 snd-soc-da9055-objs := da9055.o
 snd-soc-dmic-objs := dmic.o
+snd-soc-si47xx-objs := si47xx.o
+snd-soc-w2cbw003-bt-objs := w2cbw003-bt.o
 snd-soc-es7134-objs := es7134.o
 snd-soc-es7241-objs := es7241.o
 snd-soc-es8316-objs := es8316.o
@@ -748,3 +750,8 @@ obj-$(CONFIG_SND_SOC_LPASS_TX_MACRO)	+= snd-soc-lpass-tx-macro.o
 
 # Mux
 obj-$(CONFIG_SND_SOC_SIMPLE_MUX)	+= snd-soc-simple-mux.o
+obj-$(CONFIG_SND_SOC_WM2000)	+= snd-soc-wm2000.o
+obj-$(CONFIG_SND_SOC_WM9090)	+= snd-soc-wm9090.o
+obj-$(CONFIG_SND_SOC_GTM601)    += snd-soc-gtm601.o
+obj-$(CONFIG_SND_SOC_SI47XX)    += snd-soc-si47xx.o
+obj-$(CONFIG_SND_SOC_W2CBW003)  += snd-soc-w2cbw003-bt.o
