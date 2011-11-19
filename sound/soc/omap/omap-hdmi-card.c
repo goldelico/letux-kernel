@@ -26,9 +26,9 @@
 #include <asm/mach-types.h>
 #include <video/omapdss.h>
 
-#define DRV_NAME "omap4-hdmi-audio"
+#define DRV_NAME "omap-hdmi-audio"
 
-static int omap4_hdmi_dai_hw_params(struct snd_pcm_substream *substream,
+static int omap_hdmi_dai_hw_params(struct snd_pcm_substream *substream,
 		struct snd_pcm_hw_params *params)
 {
 	int i;
@@ -57,29 +57,40 @@ static int omap4_hdmi_dai_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static struct snd_soc_ops omap4_hdmi_dai_ops = {
-	.hw_params = omap4_hdmi_dai_hw_params,
+static struct snd_soc_ops omap_hdmi_dai_ops = {
+	.hw_params = omap_hdmi_dai_hw_params,
 };
 
-static struct snd_soc_dai_link omap4_hdmi_dai = {
+static struct snd_soc_dai_link omap_hdmi_dai = {
 	.name = "HDMI",
 	.stream_name = "HDMI",
 	.cpu_dai_name = "hdmi-audio-dai",
 	.platform_name = "omap-pcm-audio",
+/*
+ * TODO: These #ifs will be removed when the OMAP4 HDMI audio codec
+ * is moved to sound/soc/codecs and the codec name can be reused.
+ */
+#if defined(CONFIG_SND_OMAP_SOC_OMAP4_HDMI) || \
+	defined(CONFIG_SND_OMAP_SOC_OMAP4_HDMI_MODULE)
 	.codec_name = "omapdss_hdmi",
+#endif
+#if defined(CONFIG_SND_OMAP_SOC_OMAP5_HDMI) || \
+	defined(CONFIG_SND_OMAP_SOC_OMAP5_HDMI_MODULE)
+	.codec_name = "omap-hdmi-codec",
+#endif
 	.codec_dai_name = "hdmi-audio-codec",
-	.ops = &omap4_hdmi_dai_ops,
+	.ops = &omap_hdmi_dai_ops,
 };
 
-static struct snd_soc_card snd_soc_omap4_hdmi = {
-	.name = "OMAP4HDMI",
-	.dai_link = &omap4_hdmi_dai,
+static struct snd_soc_card snd_soc_omap_hdmi = {
+	.name = "TI OMAP HDMI",
+	.dai_link = &omap_hdmi_dai,
 	.num_links = 1,
 };
 
-static __devinit int omap4_hdmi_probe(struct platform_device *pdev)
+static __devinit int omap_hdmi_probe(struct platform_device *pdev)
 {
-	struct snd_soc_card *card = &snd_soc_omap4_hdmi;
+	struct snd_soc_card *card = &snd_soc_omap_hdmi;
 	int ret;
 
 	card->dev = &pdev->dev;
@@ -93,7 +104,7 @@ static __devinit int omap4_hdmi_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int __devexit omap4_hdmi_remove(struct platform_device *pdev)
+static int __devexit omap_hdmi_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 
@@ -102,28 +113,28 @@ static int __devexit omap4_hdmi_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct platform_driver omap4_hdmi_driver = {
+static struct platform_driver omap_hdmi_driver = {
 	.driver = {
-		.name = "omap4-hdmi-audio",
+		.name = DRV_NAME,
 		.owner = THIS_MODULE,
 	},
-	.probe = omap4_hdmi_probe,
-	.remove = __devexit_p(omap4_hdmi_remove),
+	.probe = omap_hdmi_probe,
+	.remove = __devexit_p(omap_hdmi_remove),
 };
 
 static int __init omap4_hdmi_init(void)
 {
-	return platform_driver_register(&omap4_hdmi_driver);
+	return platform_driver_register(&omap_hdmi_driver);
 }
 module_init(omap4_hdmi_init);
 
-static void __exit omap4_hdmi_exit(void)
+static void __exit omap_hdmi_exit(void)
 {
-	platform_driver_unregister(&omap4_hdmi_driver);
+	platform_driver_unregister(&omap_hdmi_driver);
 }
-module_exit(omap4_hdmi_exit);
+module_exit(omap_hdmi_exit);
 
 MODULE_AUTHOR("Ricardo Neri <ricardo.neri@ti.com>");
-MODULE_DESCRIPTION("OMAP4 HDMI machine ASoC driver");
+MODULE_DESCRIPTION("OMAP HDMI machine ASoC driver");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:" DRV_NAME);
