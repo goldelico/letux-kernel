@@ -46,3 +46,4 @@ obj-$(CONFIG_SND_OMAP_SOC_OMAP3_BEAGLE) += snd-soc-omap3beagle.o
 obj-$(CONFIG_SND_OMAP_SOC_ZOOM2) += snd-soc-zoom2.o
 obj-$(CONFIG_SND_OMAP_SOC_IGEP0020) += snd-soc-igep0020.o
 obj-$(CONFIG_SND_OMAP_SOC_OMAP4_HDMI) += snd-soc-omap-hdmi-card.o
+obj-$(CONFIG_SND_OMAP_SOC_OMAP5_HDMI) += snd-soc-omap-hdmi-card.o
