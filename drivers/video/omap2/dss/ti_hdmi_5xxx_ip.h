@@ -291,4 +291,16 @@ struct csc_table {
 	u16 b1, b2, b3, b4;
 	u16 c1, c2, c3, c4;
 };
+
+#if defined(CONFIG_SND_OMAP_SOC_OMAP5_HDMI) || \
+	defined(CONFIG_SND_OMAP_SOC_OMAP5_HDMI_MODULE)
+void hdmi_ti_5xxx_wp_audio_config_format(struct hdmi_ip_data *ip_data,
+					struct hdmi_audio_format *aud_fmt);
+void hdmi_ti_5xxx_core_audio_config(struct hdmi_ip_data *ip_data,
+					struct hdmi_core_audio_config *cfg);
+void hdmi_ti_5xxx_core_audio_infoframe_config(struct hdmi_ip_data *ip_data,
+		struct hdmi_core_infoframe_audio *info_aud);
+void hdmi_ti_5xxx_audio_enable(struct hdmi_ip_data *ip_data, bool enable);
+#endif
+
 #endif

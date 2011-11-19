@@ -1095,6 +1095,29 @@ void ti_hdmi_4xxx_phy_dump(struct hdmi_ip_data *ip_data, struct seq_file *s)
 }
 
 #if defined(CONFIG_SND_OMAP_SOC_OMAP4_HDMI) || \
+	defined(CONFIG_SND_OMAP_SOC_OMAP4_HDMI_MODULE) || \
+	defined(CONFIG_SND_OMAP_SOC_OMAP5_HDMI) || \
+	defined(CONFIG_SND_OMAP_SOC_OMAP5_HDMI_MODULE)
+void hdmi_wp_audio_config_dma(struct hdmi_ip_data *ip_data,
+					struct hdmi_audio_dma *aud_dma)
+{
+	u32 r;
+
+	DSSDBG("Enter hdmi_wp_audio_config_dma\n");
+
+	r = hdmi_read_reg(hdmi_wp_base(ip_data), HDMI_WP_AUDIO_CFG2);
+	r = FLD_MOD(r, aud_dma->transfer_size, 15, 8);
+	r = FLD_MOD(r, aud_dma->block_size, 7, 0);
+	hdmi_write_reg(hdmi_wp_base(ip_data), HDMI_WP_AUDIO_CFG2, r);
+
+	r = hdmi_read_reg(hdmi_wp_base(ip_data), HDMI_WP_AUDIO_CTRL);
+	r = FLD_MOD(r, aud_dma->mode, 9, 9);
+	r = FLD_MOD(r, aud_dma->fifo_threshold, 8, 0);
+	hdmi_write_reg(hdmi_wp_base(ip_data), HDMI_WP_AUDIO_CTRL, r);
+}
+#endif
+
+#if defined(CONFIG_SND_OMAP_SOC_OMAP4_HDMI) || \
 	defined(CONFIG_SND_OMAP_SOC_OMAP4_HDMI_MODULE)
 void hdmi_wp_audio_config_format(struct hdmi_ip_data *ip_data,
 					struct hdmi_audio_format *aud_fmt)
@@ -1113,24 +1136,6 @@ void hdmi_wp_audio_config_format(struct hdmi_ip_data *ip_data,
 	r = FLD_MOD(r, aud_fmt->samples_per_word, 1, 1);
 	r = FLD_MOD(r, aud_fmt->sample_size, 0, 0);
 	hdmi_write_reg(hdmi_wp_base(ip_data), HDMI_WP_AUDIO_CFG, r);
-}
-
-void hdmi_wp_audio_config_dma(struct hdmi_ip_data *ip_data,
-					struct hdmi_audio_dma *aud_dma)
-{
-	u32 r;
-
-	DSSDBG("Enter hdmi_wp_audio_config_dma\n");
-
-	r = hdmi_read_reg(hdmi_wp_base(ip_data), HDMI_WP_AUDIO_CFG2);
-	r = FLD_MOD(r, aud_dma->transfer_size, 15, 8);
-	r = FLD_MOD(r, aud_dma->block_size, 7, 0);
-	hdmi_write_reg(hdmi_wp_base(ip_data), HDMI_WP_AUDIO_CFG2, r);
-
-	r = hdmi_read_reg(hdmi_wp_base(ip_data), HDMI_WP_AUDIO_CTRL);
-	r = FLD_MOD(r, aud_dma->mode, 9, 9);
-	r = FLD_MOD(r, aud_dma->fifo_threshold, 8, 0);
-	hdmi_write_reg(hdmi_wp_base(ip_data), HDMI_WP_AUDIO_CTRL, r);
 }
 
 void hdmi_core_audio_config(struct hdmi_ip_data *ip_data,
