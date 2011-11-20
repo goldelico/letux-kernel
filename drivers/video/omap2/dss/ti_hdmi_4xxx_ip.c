@@ -1268,12 +1268,11 @@ void hdmi_core_audio_infoframe_config(struct hdmi_ip_data *ip_data,
 	 */
 }
 
-int hdmi_config_audio_acr(struct hdmi_ip_data *ip_data,
-				u32 sample_freq, u32 *n, u32 *cts)
+int hdmi_config_audio_acr(u32 pclk,	u32 sample_freq,
+				u32 *n, u32 *cts)
 {
 	u32 r;
 	u32 deep_color = 0;
-	u32 pclk = ip_data->cfg.timings.timings.pixel_clock;
 
 	if (n == NULL || cts == NULL)
 		return -EINVAL;
@@ -1281,15 +1280,15 @@ int hdmi_config_audio_acr(struct hdmi_ip_data *ip_data,
 	 * Obtain current deep color configuration. This needed
 	 * to calculate the TMDS clock based on the pixel clock.
 	 */
-	r = REG_GET(hdmi_wp_base(ip_data), HDMI_WP_VIDEO_CFG, 1, 0);
+	r = omapdss_hdmi_get_deepcolor();
 	switch (r) {
-	case 1: /* No deep color selected */
+	case HDMI_DEEP_COLOR_24BIT:
 		deep_color = 100;
 		break;
-	case 2: /* 10-bit deep color selected */
+	case HDMI_DEEP_COLOR_30BIT:
 		deep_color = 125;
 		break;
-	case 3: /* 12-bit deep color selected */
+	case HDMI_DEEP_COLOR_36BIT:
 		deep_color = 150;
 		break;
 	default:

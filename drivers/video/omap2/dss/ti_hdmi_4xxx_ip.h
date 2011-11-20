@@ -548,8 +548,8 @@ void hdmi_wp_audio_config_dma(struct hdmi_ip_data *ip_data,
 int hdmi_audio_trigger(struct hdmi_ip_data *ip_data,
 				struct snd_pcm_substream *substream, int cmd,
 				struct snd_soc_dai *dai);
-int hdmi_config_audio_acr(struct hdmi_ip_data *ip_data,
-				u32 sample_freq, u32 *n, u32 *cts);
+int hdmi_config_audio_acr(u32 pclk, u32 sample_freq,
+				u32 *n, u32 *cts);
 void hdmi_core_audio_infoframe_config(struct hdmi_ip_data *ip_data,
 		struct hdmi_core_infoframe_audio *info_aud);
 void hdmi_core_audio_config(struct hdmi_ip_data *ip_data,
