@@ -39,6 +39,7 @@
 	defined(CONFIG_SND_OMAP_SOC_OMAP4_HDMI_MODULE)
 #include <sound/soc.h>
 #include <sound/pcm_params.h>
+#include <linux/slab.h>
 #include "ti_hdmi_4xxx_ip.h"
 #endif
 
@@ -844,16 +845,19 @@ int omapdss_hdmi_get_hdmi_mode(void)
 #if defined(CONFIG_SND_OMAP_SOC_OMAP4_HDMI) || \
 	defined(CONFIG_SND_OMAP_SOC_OMAP4_HDMI_MODULE)
 
-static int hdmi_audio_hw_params(struct hdmi_ip_data *ip_data,
-					struct snd_pcm_substream *substream,
+static int hdmi_audio_hw_params(struct snd_pcm_substream *substream,
 				    struct snd_pcm_hw_params *params,
 				    struct snd_soc_dai *dai)
 {
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_codec *codec = rtd->codec;
+	struct hdmi_ip_data *ip_data = snd_soc_codec_get_drvdata(codec);
 	struct hdmi_audio_format audio_format;
 	struct hdmi_audio_dma audio_dma;
 	struct hdmi_core_audio_config core_cfg;
 	struct hdmi_core_infoframe_audio aud_if_cfg;
 	int err, n, cts;
+	u32 pclk = hdmi.ip_data.cfg.timings.timings.pixel_clock;
 	enum hdmi_core_audio_sample_freq sample_freq;
 
 	switch (params_format(params)) {
@@ -899,7 +903,7 @@ static int hdmi_audio_hw_params(struct hdmi_ip_data *ip_data,
 		return -EINVAL;
 	}
 
-	err = hdmi_config_audio_acr(ip_data, params_rate(params), &n, &cts);
+	err = hdmi_config_audio_acr(pclk, params_rate(params), &n, &cts);
 	if (err < 0)
 		return err;
 
@@ -988,7 +992,31 @@ static int hdmi_audio_startup(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+static int hdmi_audio_drv_probe(struct snd_soc_codec *codec)
+{
+	struct hdmi_ip_data *priv;
+
+	priv = kzalloc(sizeof(struct hdmi_ip_data), GFP_KERNEL);
+	if (priv == NULL)
+		return -ENOMEM;
+
+	priv->base_wp = hdmi.ip_data.base_wp;
+	priv->core_av_offset = HDMI_CORE_AV;
+
+	snd_soc_codec_set_drvdata(codec, priv);
+	return 0;
+}
+
+static int hdmi_audio_drv_remove(struct snd_soc_codec *codec)
+{
+	struct hdmi_ip_data *priv = snd_soc_codec_get_drvdata(codec);
+	kfree(priv);
+	return 0;
+}
+
 static struct snd_soc_codec_driver hdmi_audio_codec_drv = {
+	.probe = hdmi_audio_drv_probe,
+	.remove = hdmi_audio_drv_remove,
 };
 
 static struct snd_soc_dai_ops hdmi_audio_codec_ops = {
