@@ -3,6 +3,7 @@
 #ifndef	__ASM_ARCH_OMAP_USB_H
 #define	__ASM_ARCH_OMAP_USB_H
 
+#include <linux/platform_device.h>
 #include <linux/usb/musb.h>
 #include <plat/board.h>
 
