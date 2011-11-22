@@ -26,6 +26,7 @@
 #include <linux/usb/otg.h>
 #include <linux/hwspinlock.h>
 #include <linux/i2c/twl.h>
+#include <linux/mfd/twl6040.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/fixed.h>
 #include <linux/wl12xx.h>
@@ -92,9 +93,65 @@ static struct platform_device leds_gpio = {
 	},
 };
 
+static struct regulator_consumer_supply panda_vpmic_v2v1_supply[] = {
+	REGULATOR_SUPPLY("v2v1", "1-004b"),
+};
+
+static struct regulator_init_data panda_v2v1smps = {
+	.constraints = {
+		.always_on		= true,
+	},
+	.num_consumer_supplies	= ARRAY_SIZE(panda_vpmic_v2v1_supply),
+	.consumer_supplies	= panda_vpmic_v2v1_supply,
+};
+
+static struct fixed_voltage_config panda_v2v1_pdata = {
+	.supply_name	= "VPMIC-V2V1",
+	.microvolts	= 2100000,
+	.init_data	= &panda_v2v1smps,
+	.gpio		= -EINVAL,
+};
+
+static struct platform_device panda_v2v1 = {
+	.name		= "reg-fixed-voltage",
+	.id		= -1,
+	.dev = {
+		.platform_data = &panda_v2v1_pdata,
+	},
+};
+
+static struct regulator_consumer_supply panda_vpmic_v1v8_supply[] = {
+	REGULATOR_SUPPLY("vio", "1-004b"),
+};
+
+static struct regulator_init_data panda_v1v8smps = {
+	.constraints = {
+		.always_on		= true,
+	},
+	.num_consumer_supplies	= ARRAY_SIZE(panda_vpmic_v1v8_supply),
+	.consumer_supplies	= panda_vpmic_v1v8_supply,
+};
+
+static struct fixed_voltage_config panda_v1v8_pdata = {
+	.supply_name	= "VPMIC-V1V8",
+	.microvolts	= 1800000,
+	.init_data	= &panda_v1v8smps,
+	.gpio		= -EINVAL,
+};
+
+static struct platform_device panda_v1v8 = {
+	.name		= "reg-fixed-voltage",
+	.id		= -1,
+	.dev = {
+		.platform_data = &panda_v1v8_pdata,
+	},
+};
+
 static struct platform_device *panda_devices[] __initdata = {
 	&leds_gpio,
 	&wl1271_device,
+	&panda_v1v8,
+	&panda_v2v1,
 };
 
 static void __init omap4_panda_init_early(void)
@@ -259,6 +316,20 @@ static int __init omap4_twl6030_hsmmc_init(struct omap2_hsmmc_info *controllers)
 	return 0;
 }
 
+static struct twl6040_codec_data twl6040_codec = {
+	/* single-step ramp for headset and handsfree */
+	.hs_left_step	= 0x0f,
+	.hs_right_step	= 0x0f,
+	.hf_left_step	= 0x1d,
+	.hf_right_step	= 0x1d,
+};
+
+static struct twl6040_platform_data twl6040_data = {
+	.codec		= &twl6040_codec,
+	.audpwron_gpio	= 127,
+	.irq_base	= TWL6040_CODEC_IRQ_BASE,
+};
+
 /* Panda board uses the common PMIC configuration */
 static struct twl4030_platform_data omap4_panda_twldata;
 
@@ -316,7 +387,8 @@ static int __init omap4_panda_i2c_init(void)
 			TWL_COMMON_REGULATOR_VCXIO |
 			TWL_COMMON_REGULATOR_VUSB |
 			TWL_COMMON_REGULATOR_CLK32KG);
-	omap4_pmic_init("twl6030", &omap4_panda_twldata);
+	omap4_pmic_init("twl6030", &omap4_panda_twldata,
+			&twl6040_data, OMAP44XX_IRQ_SYS_2N);
 	omap_register_i2c_bus(2, 400, NULL, 0);
 	/*
 	 * Bus 3 is attached to the DVI port where devices like the pico DLP
