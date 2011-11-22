@@ -35,5 +35,6 @@ obj-$(CONFIG_MACH_OMAP3517EVM) += psp-version.o
 obj-$(CONFIG_MACH_OMAP3EVM) += psp-version.o
 
 obj-$(CONFIG_OMAP_PM_NOOP) += omap-pm-noop.o
+obj-$(CONFIG_HAVE_PWM) += pwm.o
 obj-$(CONFIG_OMAP_PM_SRF) += omap-pm-srf.o \
 				resource.o
