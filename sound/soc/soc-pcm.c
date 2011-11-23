@@ -2202,6 +2202,7 @@ int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 
 	rtd->pcm = pcm;
 	pcm->private_data = rtd;
+	INIT_DELAYED_WORK(&rtd->delayed_work, close_delayed_work);
 
 	substream[SNDRV_PCM_STREAM_PLAYBACK] =
 			pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream;
