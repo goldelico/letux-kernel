@@ -3026,9 +3026,9 @@ int snd_soc_dapm_stream_event(struct snd_soc_pcm_runtime *rtd,
 	if (codec_dai->driver->num_widgets || cpu_dai->driver->num_widgets)
 		soc_dapm_stream_widget_event(rtd, event);
 	else {
-		mutex_lock(&codec->mutex);
+		//mutex_lock(&codec->mutex);
 		soc_dapm_stream_event(&codec->dapm, stream, event);
-		mutex_unlock(&codec->mutex);
+		//mutex_unlock(&codec->mutex);
 		soc_dapm_stream_event(&platform->dapm, stream, event);
 	}
 	return 0;
