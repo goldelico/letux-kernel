@@ -42,6 +42,7 @@
 #include <plat/usb.h>
 #include <linux/regulator/consumer.h>
 #include <linux/pm_runtime.h>
+#include <linux/gpio.h>
 
 /* EHCI Register Set */
 #define EHCI_INSNREG04					(0xA0)
@@ -191,6 +192,23 @@ static int ehci_hcd_omap_probe(struct platform_device *pdev)
 		}
 	}
 
+	if (pdata->phy_reset) {
+		if (gpio_is_valid(pdata->reset_gpio_port[0])) {
+			gpio_request(pdata->reset_gpio_port[0],
+						"USB1 PHY reset");
+			gpio_direction_output(pdata->reset_gpio_port[0], 0);
+		}
+
+		if (gpio_is_valid(pdata->reset_gpio_port[1])) {
+			gpio_request(pdata->reset_gpio_port[1],
+						"USB2 PHY reset");
+			gpio_direction_output(pdata->reset_gpio_port[1], 0);
+		}
+
+		/* Hold the PHY in RESET for enough time till DIR is high */
+		udelay(10);
+	}
+
 	pm_runtime_enable(dev);
 	pm_runtime_get_sync(dev);
 
@@ -235,11 +253,31 @@ static int ehci_hcd_omap_probe(struct platform_device *pdev)
 	/* root ports should always stay powered */
 	ehci_port_power(omap_ehci, 1);
 
+	if (pdata->phy_reset) {
+		/* Hold the PHY in RESET for enough time till
+		 * PHY is settled and ready
+		 */
+		udelay(10);
+
+		if (gpio_is_valid(pdata->reset_gpio_port[0]))
+			gpio_set_value(pdata->reset_gpio_port[0], 1);
+
+		if (gpio_is_valid(pdata->reset_gpio_port[1]))
+			gpio_set_value(pdata->reset_gpio_port[1], 1);
+	}
+
 	return 0;
 
 err_add_hcd:
 	disable_put_regulator(pdata);
 	pm_runtime_put_sync(dev);
+
+	if (pdata->phy_reset) {
+		if (gpio_is_valid(pdata->reset_gpio_port[0]))
+			gpio_free(pdata->reset_gpio_port[0]);
+		if (gpio_is_valid(pdata->reset_gpio_port[1]))
+			gpio_free(pdata->reset_gpio_port[1]);
+	}
 
 err_io:
 	iounmap(regs);
@@ -257,8 +295,9 @@ err_io:
  */
 static int ehci_hcd_omap_remove(struct platform_device *pdev)
 {
-	struct device *dev	= &pdev->dev;
-	struct usb_hcd *hcd	= dev_get_drvdata(dev);
+	struct device *dev				= &pdev->dev;
+	struct usb_hcd *hcd				= dev_get_drvdata(dev);
+	struct ehci_hcd_omap_platform_data *pdata	= dev->platform_data;
 
 	usb_remove_hcd(hcd);
 	disable_put_regulator(dev->platform_data);
@@ -266,7 +305,12 @@ static int ehci_hcd_omap_remove(struct platform_device *pdev)
 	usb_put_hcd(hcd);
 	pm_runtime_put_sync(dev);
 	pm_runtime_disable(dev);
-
+	if (pdata->phy_reset) {
+		if (gpio_is_valid(pdata->reset_gpio_port[0]))
+			gpio_free(pdata->reset_gpio_port[0]);
+		if (gpio_is_valid(pdata->reset_gpio_port[1]))
+			gpio_free(pdata->reset_gpio_port[1]);
+	}
 	return 0;
 }
 

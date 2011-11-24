@@ -24,7 +24,6 @@
 #include <linux/clk.h>
 #include <linux/dma-mapping.h>
 #include <linux/spinlock.h>
-#include <linux/gpio.h>
 #include <plat/usb.h>
 #include <linux/pm_runtime.h>
 
@@ -284,25 +283,6 @@ static void omap_usbhs_init(struct device *dev)
 	pm_runtime_get_sync(dev);
 	spin_lock_irqsave(&omap->lock, flags);
 
-	if (pdata->ehci_data->phy_reset) {
-		if (gpio_is_valid(pdata->ehci_data->reset_gpio_port[0])) {
-			gpio_request(pdata->ehci_data->reset_gpio_port[0],
-						"USB1 PHY reset");
-			gpio_direction_output
-				(pdata->ehci_data->reset_gpio_port[0], 0);
-		}
-
-		if (gpio_is_valid(pdata->ehci_data->reset_gpio_port[1])) {
-			gpio_request(pdata->ehci_data->reset_gpio_port[1],
-						"USB2 PHY reset");
-			gpio_direction_output
-				(pdata->ehci_data->reset_gpio_port[1], 0);
-		}
-
-		/* Hold the PHY in RESET for enough time till DIR is high */
-		udelay(10);
-	}
-
 	omap->usbhs_rev = usbhs_read(omap->uhh_base, OMAP_UHH_REVISION);
 	dev_dbg(dev, "OMAP UHH_REVISION 0x%x\n", omap->usbhs_rev);
 
@@ -364,26 +344,11 @@ static void omap_usbhs_init(struct device *dev)
 			reg |= OMAP4_P2_MODE_HSIC;
 	}
 
-	usbhs_write(omap->uhh_base, OMAP_UHH_HOSTCONFIG, reg);
-	dev_dbg(dev, "UHH setup done, uhh_hostconfig=%x\n", reg);
-
-	if (pdata->ehci_data->phy_reset) {
-		/* Hold the PHY in RESET for enough time till
-		 * PHY is settled and ready
-		 */
-		udelay(10);
-
-		if (gpio_is_valid(pdata->ehci_data->reset_gpio_port[0]))
-			gpio_set_value
-				(pdata->ehci_data->reset_gpio_port[0], 1);
-
-		if (gpio_is_valid(pdata->ehci_data->reset_gpio_port[1]))
-			gpio_set_value
-				(pdata->ehci_data->reset_gpio_port[1], 1);
-	}
-
 	spin_unlock_irqrestore(&omap->lock, flags);
 	pm_runtime_put_sync(dev);
+
+	usbhs_write(omap->uhh_base, OMAP_UHH_HOSTCONFIG, reg);
+	dev_dbg(dev, "UHH setup done, uhh_hostconfig=%x\n", reg);
 }
 
 /**
@@ -587,7 +552,6 @@ static int __devexit usbhs_omap_remove(struct platform_device *pdev)
 {
 	struct usbhs_hcd_omap *omap = platform_get_drvdata(pdev);
 
-	omap_usbhs_deinit(&pdev->dev);
 	iounmap(omap->uhh_base);
 	clk_put(omap->init_60m_fclk);
 	clk_put(omap->usbhost_p2_fck);
@@ -665,20 +629,6 @@ static int usbhs_runtime_suspend(struct device *dev)
 	omap_tll_disable();
 
 	return 0;
-}
-
-static void omap_usbhs_deinit(struct device *dev)
-{
-	struct usbhs_hcd_omap		*omap = dev_get_drvdata(dev);
-	struct usbhs_omap_platform_data	*pdata = &omap->platdata;
-
-	if (pdata->ehci_data->phy_reset) {
-		if (gpio_is_valid(pdata->ehci_data->reset_gpio_port[0]))
-			gpio_free(pdata->ehci_data->reset_gpio_port[0]);
-
-		if (gpio_is_valid(pdata->ehci_data->reset_gpio_port[1]))
-			gpio_free(pdata->ehci_data->reset_gpio_port[1]);
-	}
 }
 
 
