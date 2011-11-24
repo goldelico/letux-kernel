@@ -170,6 +170,10 @@ static struct omap_opp_def __initdata omap54xx_opp_def_list[] = {
 	OPP_INITIALIZER("l3_main_1", "virt_l3_ck", "core", true, 133000000, OMAP5430_VDD_CORE_OPP_LOW),
 	/* L3 OPP2 - OPPNOM */
 	OPP_INITIALIZER("l3_main_1", "virt_l3_ck", "core", true, 266000000, OMAP5430_VDD_CORE_OPP_NOM),
+	/* HSI OPP1 - OPPLOW */
+	OPP_INITIALIZER("hsi", "hsi_fck", "core", true, 96000000, OMAP5430_VDD_CORE_OPP_LOW),
+	/* HSI OPP3 - OPPNOM */
+	OPP_INITIALIZER("hsi", "hsi_fck", "core", true, 192000000, OMAP5430_VDD_CORE_OPP_NOM),
 	/* TODO: Uncomment the following once we have drivers for them */
 #if 0
 	/* MMC1 OPP1 - OPPLOW */
@@ -186,11 +190,6 @@ static struct omap_opp_def __initdata omap54xx_opp_def_list[] = {
 	OPP_INITIALIZER("fdif", "fdif_fck", "core", true, 64000000, OMAP5430_VDD_CORE_OPP_LOW),
 	/* FDIF OPP3 - OPPNOM */
 	OPP_INITIALIZER("fdif", "fdif_fck", "core", true, 128000000, OMAP5430_VDD_CORE_OPP_NOM),
-
-	/* HSI OPP1 - OPPLOW */
-	OPP_INITIALIZER("hsi", "hsi_fck", "core", true, 96000000, OMAP5430_VDD_CORE_OPP_LOW),
-	/* FDIF OPP3 - OPPNOM */
-	OPP_INITIALIZER("fdif", "hsi_fck", "core", true, 192000000, OMAP5430_VDD_CORE_OPP_NOM),
 
 	/* ABE OPP1 - OPPLOW */
 	OPP_INITIALIZER("aess", "abe_clk", "core", true, 98304000, OMAP5430_VDD_CORE_OPP_LOW),
