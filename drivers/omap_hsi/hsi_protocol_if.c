@@ -35,8 +35,10 @@
 #include <linux/hsi_driver_if.h>
 #include "hsi-protocol-if.h"
 
-//#define DEBUG	1
-//#define DEBUG_PHY_DATA	1
+/*
+#define DEBUG	1
+#define DEBUG_PHY_DATA	1
+*/
 
 #define HSI_CHANNEL_STATE_UNAVAIL       (1 << 0)
 #define HSI_CHANNEL_STATE_READING       (1 << 1)
@@ -47,7 +49,8 @@ struct if_hsi_iface hsi_protocol_iface;
 wait_queue_head_t ipc_read_wait, ipc_write_wait;
 
 
-static void if_hsi_protocol_port_event(struct hsi_device *dev, unsigned int event,
+static void if_hsi_protocol_port_event(struct hsi_device *dev,
+				       unsigned int event,
 				       void *arg);
 static int __devinit hsi_protocol_probe(struct hsi_device *dev);
 static int __devexit hsi_protocol_remove(struct hsi_device *dev);
@@ -101,7 +104,6 @@ static void if_hsi_proto_read_done(struct hsi_device *dev, unsigned int size)
 	u32 i;
 #endif
 
-	//printk(KERN_INFO "if_hsi_proto_read_done() is called for ch-> %d\n", dev->n_ch);
 	channel = &hsi_protocol_iface.channels[dev->n_ch];
 	dev_dbg(&channel->dev->device, "%s, ch = %d\n", __func__, dev->n_ch);
 	spin_lock(&channel->lock);
@@ -112,14 +114,15 @@ static void if_hsi_proto_read_done(struct hsi_device *dev, unsigned int size)
 	spin_unlock(&channel->lock);
 
 #ifdef DEBUG_PHY_DATA
-	//Check received data -> Commented as it adds delay which causes MSG_BREAK
+	/* Check received data -> Commented as it adds delay which causes
+	MSG_BREAK */
 	tmp = channel->rx_data;
-	printk(KERN_INFO "[%s](%d)(%d) RX = ", __func__, dev->n_ch, ev.count);
+	pr_info("[%s](%d)(%d) RX = ", __func__, dev->n_ch, ev.count);
 	for (i = 0; i < ((size > 5) ? 5 : size); i++) {
-		printk(KERN_INFO "%08x ", *tmp);
+		pr_info("%08x ", *tmp);
 		tmp++;
 	}
-	printk(KERN_INFO "\n");
+	pr_info("\n");
 #endif
 
 	if_notify(dev->n_ch, &ev);
@@ -155,7 +158,7 @@ static int if_hsi_write_on(int ch, u32 *address, unsigned int count)
 	spin_lock(&channel->lock);
 	if (channel->state & HSI_CHANNEL_STATE_WRITING) {
 		pr_err("Write still pending on channel %d\n", ch);
-		printk(KERN_INFO "Write still pending on channel %d\n", ch);
+		pr_info("Write still pending on channel %d\n", ch);
 		spin_unlock(&channel->lock);
 		return -EBUSY;
 	}
@@ -180,7 +183,6 @@ static void if_hsi_proto_write_done(struct hsi_device *dev, unsigned int size)
 	u32 i;
 #endif
 
-	//printk(KERN_INFO "if_hsi_proto_write_done() is called for ch-> %d\n", dev->n_ch);
 	channel = &hsi_protocol_iface.channels[dev->n_ch];
 	dev_dbg(&channel->dev->device, "%s, ch = %d\n", __func__, dev->n_ch);
 
@@ -192,14 +194,15 @@ static void if_hsi_proto_write_done(struct hsi_device *dev, unsigned int size)
 	spin_unlock(&channel->lock);
 
 #ifdef DEBUG_PHY_DATA
-	//Check Outgoing data, Commented as it adds delay which causes MSG_BREAK
+	/* Check Outgoing data, Commented as it adds delay which causes
+	   MSG_BREAK */
 	tmp = channel->tx_data;
-	printk(KERN_INFO "[%s](%d)(%d) TX = ", __func__, dev->n_ch, ev.count);
+	pr_info("[%s](%d)(%d) TX = ", __func__, dev->n_ch, ev.count);
 	for (i = 0; i < ((size > 5) ? 5 : size); i++) {
-		printk(KERN_INFO "%08x ", *tmp);
+		pr_info("%08x ", *tmp);
 		tmp++;
 	}
-	printk(KERN_INFO "\n");
+	pr_info("\n");
 #endif
 
 	if_notify(dev->n_ch, &ev);
@@ -237,7 +240,8 @@ void if_hsi_set_wakeline(int ch, unsigned int state)
 }
 
 
-static void if_hsi_protocol_port_event(struct hsi_device *dev, unsigned int event,
+static void if_hsi_protocol_port_event(struct hsi_device *dev,
+				       unsigned int event,
 				       void *arg)
 {
 	struct hsi_event ev;
@@ -315,7 +319,8 @@ int if_hsi_openchannel(struct if_hsi_channel *channel)
 	channel->opened = 1;
 	channel->tx_state = HSI_LL_TX_STATE_IDLE;
 	channel->rx_state = HSI_LL_RX_STATE_TO_CONN_READY;
-	printk(KERN_INFO "setting channel->opened=1 for channel %d\n", channel->dev->n_ch);
+	pr_info("setting channel->opened=1 for channel %d\n",
+						channel->dev->n_ch);
 leave:
 	spin_unlock(&channel->lock);
 	return ret;
@@ -365,23 +370,23 @@ leave:
 }
 
 
-/* Read Thread
-* Should be responsible for handling commands
-* Should wait on port events - waitqueue
-*
-*/
+/*
+ * Read Thread
+ * Should be responsible for handling commands
+ * Should wait on port events - waitqueue
+ */
 static int hsi_read_thrd(void *data)
 {
 	u32 cmd_data[4], cmd, channel, param = 0;
 	int ret;
 
-	printk(KERN_INFO "Inside read thread\n");
+	pr_info("Inside read thread\n");
 	while (1) {
 		/*Call hsi_proto_read*/
 		/*Read 16 bytes due to Modem limitation*/
-		//hsi_proto_read(0, cmd_data, (4 * 4));
+		/* hsi_proto_read(0, cmd_data, (4 * 4));*/
 
-		// For es 2.1 ver.
+		/* For es 2.1 ver. */
 		hsi_proto_read(0, cmd_data, 4);
 
 		hsi_cmd_history.rx_cmd[rx_cmd_history_p] = cmd_data[0];
@@ -395,7 +400,8 @@ static int hsi_read_thrd(void *data)
 		if (ret != 0) {
 			pr_err("Can not decode command\n");
 		} else {
-			printk(KERN_INFO "%s(),CMD Received->  %x, ch-> %d, param-> %d.\n", __func__, cmd, channel, param);
+			pr_info("%s(),CMD Received->  %x, ch-> %d, param-> %d.\n",
+				__func__, cmd, channel, param);
 			/*Rx State Machine*/
 			rx_stm(cmd, channel, param);
 		}
@@ -410,32 +416,37 @@ int hsi_start_protocol(void)
 	struct hsr_ctx rx_config;
 	int i, ret = 0;
 
-	printk(KERN_INFO "In function  %s()\n", __func__);
+	pr_info("In function  %s()\n", __func__);
 	/*Open All channels */
 	for (i = 0; i <= 5; i++) {
 		ret = if_hsi_openchannel(&hsi_protocol_iface.channels[i]);
 		if (ret < 0)
-			pr_err("Can not Open channel->%d . Can not start HSI protocol\n", i);
+			pr_err("Can not Open channel->%d.
+					Can not start HSI protocol\n", i);
 		else
-			printk(KERN_INFO "Channel->%d Open Successful\n", i);
+			pr_info("Channel->%d Open Successful\n", i);
 
 		/*Set Rx Config*/
-		hsi_ioctl(hsi_protocol_iface.channels[i].dev, HSI_IOCTL_GET_RX, &rx_config);
+		hsi_ioctl(hsi_protocol_iface.channels[i].dev,
+			  HSI_IOCTL_GET_RX, &rx_config);
 		rx_config.mode = 2;
 		rx_config.divisor = 1;
 		rx_config.channels = HSI_MAX_CHANNELS;
-		ret = hsi_ioctl(hsi_protocol_iface.channels[i].dev, HSI_IOCTL_SET_RX, &rx_config);
+		ret = hsi_ioctl(hsi_protocol_iface.channels[i].dev,
+				HSI_IOCTL_SET_RX, &rx_config);
 		if (ret == 0)
-			printk(KERN_INFO "SET_RX Successful for ch->%d\n", i);
+			pr_info("SET_RX Successful for ch->%d\n", i);
 
 		/*Set Tx Config*/
-		hsi_ioctl(hsi_protocol_iface.channels[i].dev, HSI_IOCTL_GET_TX, &tx_config);
+		hsi_ioctl(hsi_protocol_iface.channels[i].dev,
+			  HSI_IOCTL_GET_TX, &tx_config);
 		tx_config.mode = 2;
 		tx_config.divisor = 1;
 		tx_config.channels = HSI_MAX_CHANNELS;
-		ret = hsi_ioctl(hsi_protocol_iface.channels[i].dev, HSI_IOCTL_SET_TX, &tx_config);
+		ret = hsi_ioctl(hsi_protocol_iface.channels[i].dev,
+				HSI_IOCTL_SET_TX, &tx_config);
 		if (ret == 0)
-			printk(KERN_INFO "SET_TX Successful for ch->%d\n", i);
+			pr_info("SET_TX Successful for ch->%d\n", i);
 	}
 	/*Make channel-0 tx_state to IDLE*/
 	hsi_protocol_iface.channels[0].tx_state = HSI_LL_TX_STATE_IDLE;
@@ -443,7 +454,8 @@ int hsi_start_protocol(void)
 }
 EXPORT_SYMBOL(hsi_start_protocol);
 
-static int hsi_protocol_proc(char *page, char **start, off_t off, int count, int *eof, void *data)
+static int hsi_protocol_proc(char *page, char **start, off_t off, int count,
+			     int *eof, void *data)
 {
 	char *p = page;
 	int len, i;
@@ -452,9 +464,14 @@ static int hsi_protocol_proc(char *page, char **start, off_t off, int count, int
 	p += sprintf(p, "   tx_cmd_history_p : %d\n", tx_cmd_history_p);
 	p += sprintf(p, "   rx_cmd_history_p : %d\n", rx_cmd_history_p);
 	for (i = 0; i < 50; i++) {
-		p += sprintf(p, "   [%d] tx : 0x%08x(%lu.%09lu), rx : 0x%08x(%lu.%09lu)\n",
-			      i, hsi_cmd_history.tx_cmd[i], (unsigned long)hsi_cmd_history.tx_cmd_time[i].tv_sec, (unsigned long)hsi_cmd_history.tx_cmd_time[i].tv_nsec,
-			      hsi_cmd_history.rx_cmd[i], (unsigned long)hsi_cmd_history.rx_cmd_time[i].tv_sec, (unsigned long)hsi_cmd_history.rx_cmd_time[i].tv_nsec);
+		p += sprintf(p, "   [%d] tx : 0x%08x(%lu.%09lu), rx :
+				0x%08x(%lu.%09lu)\n",
+			i, hsi_cmd_history.tx_cmd[i],
+			(unsigned long)hsi_cmd_history.tx_cmd_time[i].tv_sec,
+			(unsigned long)hsi_cmd_history.tx_cmd_time[i].tv_nsec,
+			hsi_cmd_history.rx_cmd[i],
+			(unsigned long)hsi_cmd_history.rx_cmd_time[i].tv_sec,
+			(unsigned long)hsi_cmd_history.rx_cmd_time[i].tv_nsec);
 	}
 	p += sprintf(p, "======= HISTORY OF CMD =======\n");
 
@@ -474,8 +491,8 @@ int __devexit hsi_protocol_remove(struct hsi_device *dev)
 	unsigned long *address;
 	int port, ret;
 
-	//dev_dbg(&dev->device, "%s, port = %d, ch = %d\n", __func__, dev->n_p,
-	//      dev->n_ch);
+	dev_dbg(&dev->device, "%s, port = %d, ch = %d\n", __func__, dev->n_p,
+		 dev->n_ch);
 
 	for (port = 0; port < HSI_MAX_PORTS; port++) {
 		if (if_hsi_protocol_driver.ch_mask[port])
@@ -505,7 +522,7 @@ int __devinit hsi_protocol_probe(struct hsi_device *dev)
 	unsigned long *address;
 	int port;
 
-	printk(KERN_INFO "Inside Function %s\n", __func__);
+	pr_info("Inside Function %s\n", __func__);
 	for (port = 0; port < HSI_MAX_PORTS; port++) {
 		if (if_hsi_protocol_driver.ch_mask[port])
 			break;
@@ -515,7 +532,7 @@ int __devinit hsi_protocol_probe(struct hsi_device *dev)
 
 	spin_lock_bh(&hsi_protocol_iface.lock);
 	if (test_bit(dev->n_ch, address) && (dev->n_p == port)) {
-		printk(KERN_INFO "Regestering callback functions\n");
+		pr_info("Regestering callback functions\n");
 		hsi_set_read_cb(dev, if_hsi_proto_read_done);
 		hsi_set_write_cb(dev, if_hsi_proto_write_done);
 		hsi_set_port_event_cb(dev, if_hsi_protocol_port_event);
@@ -568,10 +585,11 @@ int __init if_hsi_init(void)
 	if (ret)
 		pr_err("Error while registering HSI driver %d", ret);
 
-	dir = create_proc_read_entry("driver/hsi_cmd", 0, 0, hsi_protocol_proc, NULL);
+	dir = create_proc_read_entry("driver/hsi_cmd", 0, 0,
+				     hsi_protocol_proc, NULL);
 	if (dir == NULL)
-		printk(KERN_INFO "create_proc_read_entry Fail.\n");
-	printk(KERN_INFO "create_proc_read_entry Done.\n");
+		pr_err("create_proc_read_entry Fail.\n");
+	pr_info("create_proc_read_entry Done.\n");
 
 	return ret;
 }
@@ -610,7 +628,7 @@ u32 initialization = 0;
 int write_hsi(u32 ch, u32 *data, int length)
 {
 	int ret;
-	//u32 cmd[4] = {0x00000000, 0xAAAAAAAA, 0xBBBBBBBB, 0xCCCCCCCC};
+	/*u32 cmd[4] = {0x00000000, 0xAAAAAAAA, 0xBBBBBBBB, 0xCCCCCCCC};*/
 	struct if_hsi_channel *channel;
 	struct task_struct *read_thread;
 
@@ -618,48 +636,55 @@ int write_hsi(u32 ch, u32 *data, int length)
 	channel->tx_buf = data;
 	channel->tx_count = 0;
 
-	//cmd[0] = protocol_create_cmd(HSI_LL_MSG_OPEN_CONN_OCTET, ch, (void *)&length);
-	//printk(KERN_INFO "data ptr is %x\n", data);
+	/*cmd[0] = protocol_create_cmd(HSI_LL_MSG_OPEN_CONN_OCTET, ch,
+					(void *)&length);
+	pr_info("data ptr is %x\n", data);*/
 
 	if (initialization == 0) {
 
 #if 0
 		/* ACWAKE ->HIGH */
-		ret = hsi_ioctl(hsi_protocol_iface.channels[0].dev, HSI_IOCTL_ACWAKE_UP, NULL);
+		ret = hsi_ioctl(hsi_protocol_iface.channels[0].dev,
+				HSI_IOCTL_ACWAKE_UP, NULL);
 		if (ret == 0)
-			printk(KERN_INFO "ACWAKE pulled high in %s()\n", __func__);
+			pr_info("ACWAKE pulled high in %s()\n", __func__);
 		else
-			printk(KERN_INFO "ACWAKE pulled high in %s() ERROR : %d\n", __func__, ret);
+			pr_info("ACWAKE pulled high in %s() ERROR : %d\n",
+				__func__, ret);
 #endif
 
 		/*Creating read thread*/
-		read_thread = kthread_run(hsi_read_thrd, NULL, "hsi_read_thread");
+		read_thread = kthread_run(hsi_read_thrd, NULL,
+					  "hsi_read_thread");
 
 		initialization++;
 	}
 	/*Wait till previous data transfer is over*/
 	while (channel->tx_state != HSI_LL_TX_STATE_IDLE) {
-		//printk(KERN_INFO "Wait 5ms previous data transfer isn't over %s()\n", __func__);
+		/*pr_info("Wait 5ms previous data transfer isn't over %s()\n",
+			  __func__);
 
-		//msleep(5);
+		msleep(5);*/
 
 		return -EAGAIN;
 	}
 
 #if 1
 	/* ACWAKE ->HIGH */
-	ret = hsi_ioctl(hsi_protocol_iface.channels[0].dev, HSI_IOCTL_ACWAKE_UP, NULL);
+	ret = hsi_ioctl(hsi_protocol_iface.channels[0].dev,
+			HSI_IOCTL_ACWAKE_UP, NULL);
 	if (ret == 0)
-		printk(KERN_INFO "ACWAKE pulled high in %s()\n", __func__);
+		pr_info("ACWAKE pulled high in %s()\n", __func__);
 	else
-		printk(KERN_INFO "ACWAKE pulled high in %s() ERROR : %d\n", __func__, ret);
+		pr_info("ACWAKE pulled high in %s() ERROR : %d\n",
+			__func__, ret);
 #endif
 
 	channel->tx_state = HSI_LL_TX_STATE_WAIT_FOR_ACK;
 
-	//send_cmd(cmd, channel, data)
-	//ret = hsi_proto_write(0, &cmd, 4*4);
-	//printk(KERN_INFO "Write returned %d\n", ret);
+	/*send_cmd(cmd, channel, data)
+	ret = hsi_proto_write(0, &cmd, 4*4);
+	pr_info("Write returned %d\n", ret);*/
 	hsi_protocol_send_command(HSI_LL_MSG_OPEN_CONN_OCTET, ch, length);
 
 	wait_event_interruptible(ipc_write_wait, channel->tx_count != 0);
@@ -679,47 +704,49 @@ int read_hsi(u8 *data, u32 ch, u32 *length)
 	channel = &hsi_protocol_iface.channels[ch];
 	channel->rx_state = HSI_LL_RX_STATE_IDLE;
 
-	//printk(KERN_INFO "In read_hsi() function, Sleeping ... channel-> %d\n", ch);
+	pr_debug("%s() function, Sleeping ... channel-> %d\n", __func__, ch);
 	wait_event_interruptible(ipc_read_wait, (channel->rx_count != 0));
-	//printk(KERN_INFO "In read_hsi() function, Waking Up ... channel-> %d\n", ch);
+	pr_debug("%s() function, Waking Up ... channel-> %d\n", __func__, ch);
 
 	actual_length = channel->rx_count;
 	size = channel->rx_count;
 
 #if 0
-	// TEMP: send/read by 16 byte unit for v.11A(CP)
+	/* TEMP: send/read by 16 byte unit for v.11A(CP)*/
 	if ((size > 16) && (size % 16))
 		size += (16 - (size % 16));
 	else if (size < 16)
 		size = 16;
 #endif
 
-	// For es 2.1 ver.
+	/* For es 2.1 ver.*/
 	if (size % 4)
 		size += (4 - (size % 4));
 
 	ret = hsi_proto_read(ch, (u32 *)data, size);
 	if (ret < 0)
-		printk(KERN_INFO "Read in IPC failed, %s()\n", __func__);
+		pr_info("Read in IPC failed, %s()\n", __func__);
 
-	//printk(KERN_INFO "%s() read returned %d, actual_length = %d, ch-> %d\n", __func__, ret, actual_length, ch);
-	//printk(KERN_INFO "%s() sending CONN_CLOSED.\n", __func__);
+	pr_debug("%s() read returned %d, actual_length = %d, ch-> %d\n",
+		 __func__, ret, actual_length, ch);
+	pr_debug("%s() sending CONN_CLOSED.\n", __func__);
 	tmp = hsi_protocol_send_command(HSI_LL_MSG_CONN_CLOSED, ch, 0);
-	//printk(KERN_INFO "%s() Sending CONN_CLOSED Finished. ret = %d\n", __func__, tmp);
+	pr_debug("%s() Sending CONN_CLOSED Finished. ret = %d\n", __func__,
+		 tmp);
 
 	*length = actual_length;
 	channel->rx_count = 0;
 
-	//printk(KERN_INFO "%s() RETURNING TO IPC with ret = %d\n", __func__, ret);
+	pr_debug("%s() RETURNING TO IPC with ret = %d\n", __func__, ret);
 	return ret;
 
 }
 EXPORT_SYMBOL(read_hsi);
 
 
-//========================================================//
-//                ++ Flashless Boot. ++                   //
-//========================================================//
+/*========================================================
+ *                ++ Flashless Boot. ++
+ *========================================================*/
 int hsi_start_protocol_single(void)
 {
 	int ret = 0;
@@ -733,35 +760,40 @@ int hsi_start_protocol_single(void)
 		pr_err("Can not Open channel 0. Can not start HSI protocol\n");
 		goto err;
 	} else
-		printk(KERN_INFO "if_hsi_openchannel() returned %d\n", ret);
+		pr_info("if_hsi_openchannel() returned %d\n", ret);
 
 
 	/*Set Tx Config*/
-	hsi_ioctl(hsi_protocol_iface.channels[0].dev, HSI_IOCTL_GET_TX, &tx_config);
+	hsi_ioctl(hsi_protocol_iface.channels[0].dev, HSI_IOCTL_GET_TX,
+		  &tx_config);
 	tx_config.mode = 2;
 	tx_config.channels = 1;
 	tx_config.divisor = 0;
-	ret = hsi_ioctl(hsi_protocol_iface.channels[0].dev, HSI_IOCTL_SET_TX, &tx_config);
+	ret = hsi_ioctl(hsi_protocol_iface.channels[0].dev, HSI_IOCTL_SET_TX,
+			&tx_config);
 	if (ret < 0) {
-		printk(KERN_INFO "write_hsi_direct : SET_TX Fail : %d\n", ret);
+		pr_info("write_hsi_direct : SET_TX Fail : %d\n", ret);
 		return ret;
 	}
 
-	hsi_ioctl(hsi_protocol_iface.channels[0].dev, HSI_IOCTL_GET_RX, &rx_config);
+	hsi_ioctl(hsi_protocol_iface.channels[0].dev, HSI_IOCTL_GET_RX,
+		  &rx_config);
 	rx_config.mode = 2;
 	rx_config.channels = 1;
 	rx_config.divisor = 0;
-	//rx_config.timeout = HZ / 2;
-	ret = hsi_ioctl(hsi_protocol_iface.channels[0].dev, HSI_IOCTL_SET_RX, &rx_config);
+	/*rx_config.timeout = HZ / 2;*/
+	ret = hsi_ioctl(hsi_protocol_iface.channels[0].dev, HSI_IOCTL_SET_RX,
+			&rx_config);
 	if (ret < 0) {
-		printk(KERN_INFO "write_hsi_direct : SET_RX Fail : %d\n", ret);
+		pr_info("write_hsi_direct : SET_RX Fail : %d\n", ret);
 		return ret;
 	}
 
 	/* ACWAKE ->HIGH */
-	ret = hsi_ioctl(hsi_protocol_iface.channels[0].dev, HSI_IOCTL_ACWAKE_UP, NULL);
+	ret = hsi_ioctl(hsi_protocol_iface.channels[0].dev,
+			HSI_IOCTL_ACWAKE_UP, NULL);
 	if (ret == 0)
-		printk(KERN_INFO "ACWAKE pulled high in %s()\n", __func__);
+		pr_info("ACWAKE pulled high in %s()\n", __func__);
 
 err:
 
@@ -774,24 +806,26 @@ int hsi_reconfigure_protocol(void)
 	int ret = 0;
 
 	/* ACWAKE ->LOW */
-	ret = hsi_ioctl(hsi_protocol_iface.channels[0].dev, HSI_IOCTL_ACWAKE_DOWN, NULL);
+	ret = hsi_ioctl(hsi_protocol_iface.channels[0].dev,
+			HSI_IOCTL_ACWAKE_DOWN, NULL);
 	if (ret == 0)
-		printk(KERN_INFO "ACWAKE pulled low in %s()\n", __func__);
+		pr_info("ACWAKE pulled low in %s()\n", __func__);
 	else
-		printk(KERN_INFO "ACWAKE down fail!! %d\n", ret);
+		pr_info("ACWAKE down fail!! %d\n", ret);
 
 
-	/*Clse channel 0 */
+	/*Close channel 0 */
 	ret = if_hsi_closechannel(&hsi_protocol_iface.channels[0]);
 	if (ret < 0) {
-		pr_err("Can not Close channel 0. Can not Stop HSI protocol for flashless\n");
+		pr_err("Can not Close channel 0.
+			Can not Stop HSI protocol for flashless\n");
 		goto err;
 	}
 
 
-	printk(KERN_INFO "(%s)(%d) hsi_start_protocol Start.\n", __func__, __LINE__);
+	pr_info("(%s)(%d) hsi_start_protocol Start.\n", __func__, __LINE__);
 	hsi_start_protocol();
-	printk(KERN_INFO "(%s)(%d) hsi_start_protocol Done.\n", __func__, __LINE__);
+	pr_info("(%s)(%d) hsi_start_protocol Done.\n", __func__, __LINE__);
 
 err:
 
@@ -806,21 +840,24 @@ int write_hsi_direct(u32 *data, int length)
 	struct hst_ctx tx_config;
 
 
-	printk(KERN_INFO "write_hsi_direct : len : %d\n", length);
-	hsi_ioctl(hsi_protocol_iface.channels[0].dev, HSI_IOCTL_GET_TX, &tx_config);
+	pr_info("write_hsi_direct : len : %d\n", length);
+	hsi_ioctl(hsi_protocol_iface.channels[0].dev, HSI_IOCTL_GET_TX,
+		  &tx_config);
 	tx_config.mode = 2;
 	tx_config.channels = 1;
 	tx_config.divisor = 47;
-	retval = hsi_ioctl(hsi_protocol_iface.channels[0].dev, HSI_IOCTL_SET_TX, &tx_config);
+	retval = hsi_ioctl(hsi_protocol_iface.channels[0].dev,
+			   HSI_IOCTL_SET_TX, &tx_config);
 	if (retval < 0) {
-		printk(KERN_INFO "write_hsi_direct : SET_TX Fail : %d\n", retval);
+		pr_info("write_hsi_direct : SET_TX Fail : %d\n", retval);
 		return retval;
 	}
-	printk(KERN_INFO "write_hsi_direct : SET_TX Successful\n");
+	pr_info("write_hsi_direct : SET_TX Successful\n");
 
-	retval = hsi_ioctl(hsi_protocol_iface.channels[0].dev, HSI_IOCTL_ACWAKE_UP, NULL);
+	retval = hsi_ioctl(hsi_protocol_iface.channels[0].dev,
+			   HSI_IOCTL_ACWAKE_UP, NULL);
 	if (retval < 0) {
-		printk(KERN_INFO "write_hsi_direct : ACWAKE High Fail : %d\n", retval);
+		pr_info("write_hsi_direct : ACWAKE High Fail : %d\n", retval);
 		return retval;
 	}
 #endif
@@ -832,14 +869,15 @@ int write_hsi_direct(u32 *data, int length)
 		length = 16;
 #endif
 
-//	printk(KERN_INFO "write_hsi_direct : new len : %d\n", length);
+/*	pr_info("write_hsi_direct : new len : %d\n", length);*/
 
 	retval = hsi_proto_write(0, data, length);
 	if (retval < 0) {
-		printk(KERN_INFO "write_hsi_direct : hsi_proto_write Fail : %d\n", retval);
+		pr_info("write_hsi_direct : hsi_proto_write Fail : %d\n",
+			retval);
 		return retval;
 	}
-	//printk(KERN_INFO "write_hsi_direct : Write returned %d\n", retval);
+	/*pr_info("write_hsi_direct : Write returned %d\n", retval);*/
 
 	return retval;
 }
@@ -852,24 +890,27 @@ int read_hsi_direct(u32 *data, int length)
 	struct hsr_ctx rx_config;
 
 
-	printk(KERN_INFO "read_hsi_direct : len : %d\n", length);
-	hsi_ioctl(hsi_protocol_iface.channels[0].dev, HSI_IOCTL_GET_RX, &rx_config);
+	pr_info("read_hsi_direct : len : %d\n", length);
+	hsi_ioctl(hsi_protocol_iface.channels[0].dev, HSI_IOCTL_GET_RX,
+		  &rx_config);
 	rx_config.mode = 2;
 	rx_config.channels = 1;
 	rx_config.divisor = 47;
-	retval = hsi_ioctl(hsi_protocol_iface.channels[0].dev, HSI_IOCTL_SET_RX, &rx_config);
+	retval = hsi_ioctl(hsi_protocol_iface.channels[0].dev,
+			   HSI_IOCTL_SET_RX, &rx_config);
 	if (retval < 0) {
-		printk(KERN_INFO "read_hsi_direct : SET_RX Fail : %d\n", retval);
+		pr_info("read_hsi_direct : SET_RX Fail : %d\n", retval);
 		return retval;
 	}
-	printk(KERN_INFO "read_hsi_direct : SET_RX Successful\n");
+	pr_info("read_hsi_direct : SET_RX Successful\n");
 
-	retval = hsi_ioctl(hsi_protocol_iface.channels[0].dev, HSI_IOCTL_ACWAKE_UP, NULL);
+	retval = hsi_ioctl(hsi_protocol_iface.channels[0].dev,
+			   HSI_IOCTL_ACWAKE_UP, NULL);
 	if (retval < 0) {
-		printk(KERN_INFO "read_hsi_direct : ACWAKE High Fail : %d\n", retval);
+		pr_info("read_hsi_direct : ACWAKE High Fail : %d\n", retval);
 		return retval;
 	}
-	printk(KERN_INFO "read_hsi_direct : ACWAKE High\n");
+	pr_info("read_hsi_direct : ACWAKE High\n");
 #endif
 
 #if 0
@@ -878,19 +919,20 @@ int read_hsi_direct(u32 *data, int length)
 	else if (length < 16)
 		length = 16;
 #endif
-	//printk(KERN_INFO "read_hsi_direct : new len : %d\n", length);
+	/*pr_info("read_hsi_direct : new len : %d\n", length);*/
 
 	retval = hsi_proto_read(0, data, length);
 	if (retval < 0) {
-		printk(KERN_INFO "read_hsi_direct : hsi_proto_read Fail : %d\n", retval);
+		pr_info("read_hsi_direct : hsi_proto_read Fail : %d\n",
+			retval);
 		return retval;
 	}
-	//printk(KERN_INFO "read_hsi_direct : Read returned %d\n", retval);
+	/*pr_info("read_hsi_direct : Read returned %d\n", retval);*/
 
 	return retval;
 }
 EXPORT_SYMBOL(read_hsi_direct);
 
-//========================================================//
-//                -- Flashless Boot. --                   //
-//========================================================//
+/*========================================================
+ *                -- Flashless Boot. --
+ *========================================================*/

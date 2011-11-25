@@ -178,14 +178,15 @@ int hsi_proto_read(int ch, u32 *buffer, int count)
 							~(POLLIN | POLLRDNORM);
 			spin_unlock_bh(&hsi_protocol_data[ch].lock);
 			if_hsi_poll(ch);
-#if 0
-			memcpy(buffer, data, count);
-#endif
+
+			/*memcpy(buffer, data, count);*/
+
 			recv_data += data_len;
-#if 0
-			buffer += data_len;
-			if ((recv_data == count) || (recv_data >= MAX_HSI_IPC_BUFFER))
-#endif
+
+			/*buffer += data_len;
+			if ((recv_data == count) ||
+				(recv_data >= MAX_HSI_IPC_BUFFER))*/
+
 			break;
 		} else if (signal_pending(current)) {
 			pr_debug("%s, ERESTARTSYS\n", __func__);

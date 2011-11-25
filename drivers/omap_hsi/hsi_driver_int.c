@@ -61,7 +61,8 @@ bool hsi_is_channel_busy(struct hsi_channel *ch)
 	return true;
 }
 
-/* Check if a HSI port is busy :
+/*
+ * Check if a HSI port is busy :
  * - data transfer (Write) is ongoing for a given HSI channel
  * - CAWAKE is high
  * - CAWAKE is not used (receiver in 3-wires mode)
@@ -108,7 +109,8 @@ bool hsi_is_hsi_port_busy(struct hsi_port *pport)
 	return false;
 }
 
-/* Check if HSI controller is busy :
+/*
+ * Check if HSI controller is busy :
  * - One of the HSI port is busy
  * - Currently in HSI DMA tasklet
  */
@@ -621,7 +623,8 @@ static u32 hsi_process_int_event(struct hsi_port *pport)
 			    HSI_SYS_MPU_STATUS_REG(port, irq),
 			    HSI_SYS_MPU_ENABLE_REG(port, irq),
 			    0,
-			    min(pport->max_ch, (u8) HSI_SSI_CHANNELS_MAX) - 1);
+			    min_t(u8 , pport->max_ch,  HSI_SSI_CHANNELS_MAX)
+					    - 1);
 
 	/* Process events for channels 8..15 */
 	if (pport->max_ch > HSI_SSI_CHANNELS_MAX)

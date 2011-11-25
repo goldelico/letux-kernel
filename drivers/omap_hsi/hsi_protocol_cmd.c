@@ -77,7 +77,7 @@ int hsi_decode_cmd(u32 *cmd_data, u32 *cmd, u32 *ch, u32 *param)
 	case HSI_LL_MSG_ACK:
 		*ch = ((data & 0x0F000000) >> 24);
 		*param = (data & 0x00FFFFFF);
-		//printk(KERN_INFO "ACK Received ch=%d, param=%d\n",*ch, *param);
+		pr_debug("ACK Received ch=%d, param=%d\n", *ch, *param);
 		break;
 
 	case HSI_LL_MSG_CONF_RATE:
@@ -141,15 +141,19 @@ int protocol_create_cmd(int cmd_type, unsigned int channel, void *arg)
 
 	case HSI_LL_MSG_CONN_READY:
 		{
-			command = ((HSI_LL_MSG_CONN_READY & 0x0000000F) << 28) |
-				  ((channel               & 0x000000FF) << 24);
+			command = ((HSI_LL_MSG_CONN_READY
+					& 0x0000000F) << 28) |
+				  ((channel
+					& 0x000000FF) << 24);
 		}
 		break;
 
 	case HSI_LL_MSG_CONN_CLOSED:
 		{
-			command = ((HSI_LL_MSG_CONN_CLOSED & 0x0000000F) << 28) |
-				  ((channel                & 0x000000FF) << 24);
+			command = ((HSI_LL_MSG_CONN_CLOSED
+					& 0x0000000F) << 28) |
+				  ((channel
+					& 0x000000FF) << 24);
 		}
 		break;
 
@@ -157,9 +161,12 @@ int protocol_create_cmd(int cmd_type, unsigned int channel, void *arg)
 		{
 			unsigned int role = *(unsigned int *)arg;
 
-			command = ((HSI_LL_MSG_CANCEL_CONN & 0x0000000F) << 28) |
-				  ((channel                & 0x000000FF) << 24) |
-				  ((role                   & 0x000000FF) << 16);
+			command = ((HSI_LL_MSG_CANCEL_CONN
+					& 0x0000000F) << 28) |
+				  ((channel
+					& 0x000000FF) << 24) |
+				  ((role
+					& 0x000000FF) << 16);
 		}
 		break;
 
@@ -194,9 +201,12 @@ int protocol_create_cmd(int cmd_type, unsigned int channel, void *arg)
 		{
 			unsigned int size = *(unsigned int *)arg;
 
-			command = ((HSI_LL_MSG_OPEN_CONN_OCTET & 0x0000000F) << 28) |
-				  ((channel                    & 0x000000FF) << 24) |
-				  ((size                       & 0x00FFFFFF));
+			command = ((HSI_LL_MSG_OPEN_CONN_OCTET
+					& 0x0000000F) << 28) |
+				  ((channel
+					& 0x000000FF) << 24) |
+				  ((size
+					& 0x00FFFFFF));
 
 		}
 		break;
@@ -231,15 +241,17 @@ static u32 cmd_saved[5];
 int hsi_protocol_send_command(u32 cmd, u32 channel, u32 param)
 {
 	struct if_hsi_channel *channel_zero;
-	u32 cmd_array[4] = {0x00000000, 0xAAAAAAAA, 0xBBBBBBBB, 0xCCCCCCCC}, ret = -1;
+	u32 cmd_array[4] = {0x00000000, 0xAAAAAAAA, 0xBBBBBBBB, 0xCCCCCCCC};
+	u32 ret = -1;
 
 	channel_zero = &hsi_protocol_iface.channels[0];
 	cmd_array[0] = protocol_create_cmd(cmd, channel, &param);
-	pr_debug("[%s] CMD = %08x\n",__func__, cmd_array[0]);
+	pr_debug("[%s] CMD = %08x\n", __func__, cmd_array[0]);
 	while (channel_zero->tx_state != HSI_LL_TX_STATE_IDLE) {
 		cmd_saved[saved_cmd_queue] = cmd_array[0];
 		saved_cmd_queue++;
-		pr_debug("(%s) cmd_saved : %x(%d)\n", __func__, cmd_array[0], saved_cmd_queue);
+		pr_debug("(%s) cmd_saved : %x(%d)\n", __func__,
+					cmd_array[0], saved_cmd_queue);
 
 		return 0;
 	}
@@ -248,10 +260,11 @@ send_retry:
 
 	channel_zero->tx_state = HSI_LL_TX_STATE_TX;
 
-	// For es 2.1 ver.
+	/* For es 2.1 ver.*/
 	ret = hsi_proto_write(0, cmd_array, 4);
 	if (ret < 0) {
-		pr_err("(%s) Command Write failed, CMD->%X\n", __func__, cmd_array[0]);
+		pr_err("(%s) Command Write failed, CMD->%X\n", __func__,
+								cmd_array[0]);
 		channel_zero->tx_state = HSI_LL_TX_STATE_IDLE;
 		return -1;
 	} else {
@@ -297,13 +310,17 @@ void rx_stm(u32 cmd, u32 ch, u32 param)
 			channel->tx_state = HSI_LL_TX_STATE_IDLE;
 
 			/* ACWAKE ->LOW */
-			ret = hsi_ioctl(hsi_protocol_iface.channels[0].dev, HSI_IOCTL_ACWAKE_DOWN, NULL);
+			ret = hsi_ioctl(hsi_protocol_iface.channels[0].dev,
+					HSI_IOCTL_ACWAKE_DOWN, NULL);
 			if (ret == 0)
-				pr_debug("ACWAKE pulled low in %s()\n", __func__);
+				pr_debug("ACWAKE pulled low in %s()\n",
+					 __func__);
 			else
-				pr_err("ACWAKE pulled low in %s() ERROR : %d\n", __func__, ret);
+				pr_err("ACWAKE pulled low in %s() ERROR : %d\n",
+				       __func__, ret);
 
-			pr_debug("[%s] Received CONN_CLOSED. ch-> %d\n", __func__,ch);
+			pr_debug("[%s] Received CONN_CLOSED. ch-> %d\n",
+				 __func__, ch);
 			break;
 
 		default:
@@ -319,36 +336,42 @@ void rx_stm(u32 cmd, u32 ch, u32 param)
 		switch (channel->tx_state) {
 		case HSI_LL_TX_STATE_WAIT_FOR_ACK:
 		case HSI_LL_TX_STATE_SEND_OPEN_CONN:
-			//printk(KERN_INFO "ACK received %s()\n",__func__);
+			pr_debug("ACK received %s()\n", __func__);
 
 			channel->tx_state = HSI_LL_TX_STATE_TX;
 			size = param;
 #if 0
-			// TEMP: send/read by 16 byte unit for v.11A(CP)
+			/* TEMP: send/read by 16 byte unit for v.11A(CP)*/
 			if ((size > 16) && (size % 16))
 				size += (16 - (size % 16));
 			else if (size < 16)
 				size = 16;
 #endif
 
-			// For es 2.1 ver.
+			/* For es 2.1 ver.*/
 			if (size % 4)
 				size += (4 - (size % 4));
 
-			pr_debug("Writing %d bytes data on channel %d, tx_buf = %x,  in %s()\n", size, ch, channel->tx_buf, __func__);
+			pr_debug("Writing %d bytes data on channel %d,
+				 tx_buf = %x,  in %s()\n",
+				 size, ch, channel->tx_buf, __func__);
 			ret = hsi_proto_write(ch, channel->tx_buf, size);
-			channel->tx_state = HSI_LL_TX_STATE_WAIT_FOR_CONN_CLOSED;
+			channel->tx_state =
+					HSI_LL_TX_STATE_WAIT_FOR_CONN_CLOSED;
 			wake_up_interruptible(&ipc_write_wait);
 			channel->tx_nak_count = 0;
 			break;
 
-		case HSI_LL_TX_STATE_CLOSED:/* ACK as response to CANCEL_CONN */
-			if (channel->rx_state == HSI_LL_RX_STATE_WAIT_FOR_CANCEL_CONN_ACK)
+		case HSI_LL_TX_STATE_CLOSED:
+			/* ACK as response to CANCEL_CONN */
+			if (channel->rx_state ==
+			    HSI_LL_RX_STATE_WAIT_FOR_CANCEL_CONN_ACK)
 				channel->rx_state = HSI_LL_RX_STATE_IDLE;
 			break;
 
-		case HSI_LL_TX_STATE_WAIT_FOR_CONF_ACK:	/* ACK as response to CONF_RATE */
-			//TODO: SET CONF RATE
+		case HSI_LL_TX_STATE_WAIT_FOR_CONF_ACK:
+			/* ACK as response to CONF_RATE */
+			/*TODO: SET CONF RATE*/
 			pr_debug("ACK Received for CONF_RATE\n");
 			break;
 
@@ -360,41 +383,56 @@ void rx_stm(u32 cmd, u32 ch, u32 param)
 	case HSI_LL_MSG_NAK:
 		switch (channel->tx_state) {
 		case HSI_LL_TX_STATE_WAIT_FOR_ACK:
-			printk(KERN_INFO "(%s) NAK received. ch->%d\n", __func__, ch);
-			//channel->tx_state = HSI_LL_TX_STATE_NACK;
+			pr_info("(%s) NAK received. ch->%d\n",
+			       __func__, ch);
+			/*channel->tx_state = HSI_LL_TX_STATE_NACK;*/
 			if (channel->tx_nak_count < 10) {
 				msleep(10);
 
-				tmp_cmd = ((HSI_LL_MSG_OPEN_CONN_OCTET & 0x0000000F) << 28) |
-					  ((ch                         & 0x000000FF) << 24);
+				tmp_cmd = ((HSI_LL_MSG_OPEN_CONN_OCTET
+						& 0x0000000F) << 28) |
+					  ((ch
+						& 0x000000FF) << 24);
 				for (i = 49; i >= 0; i--) {
-					if ((hsi_cmd_history.tx_cmd[i] & 0xFFF00000) == tmp_cmd)
+					if ((hsi_cmd_history.tx_cmd[i]
+					    & 0xFFF00000) == tmp_cmd)
 						break;
 				}
 				size = (hsi_cmd_history.tx_cmd[i] & 0x000FFFFF);
 
-				pr_debug("(%s) Re Send OPEN CONN ch->%d, size->%d, count->%d\n", __func__, ch, size, channel->tx_nak_count);
+				pr_debug("(%s) Re Send OPEN CONN ch->%d,
+					 size->%d, count->%d\n", __func__,
+					 ch, size, channel->tx_nak_count);
 
-				hsi_protocol_send_command(HSI_LL_MSG_OPEN_CONN_OCTET, ch, size);
+				hsi_protocol_send_command(
+						HSI_LL_MSG_OPEN_CONN_OCTET,
+						ch, size);
 				channel->tx_nak_count++;
 			} else {
-				hsi_protocol_send_command(HSI_LL_MSG_BREAK, ch, size);
-				pr_debug("(%s) Sending MSG_BREAK. ch->%d\n", __func__, ch);
-				//TODO Reset All channels and inform IPC write about failure (Possibly by sending signal)
+				hsi_protocol_send_command(HSI_LL_MSG_BREAK,
+						ch, size);
+				pr_debug("(%s) Sending MSG_BREAK. ch->%d\n",
+					 __func__, ch);
+				/*TODO Reset All channels and inform IPC write
+				 * about failure (Possibly by sending signal)
+				 */
 			}
 			break;
 
-		case HSI_LL_TX_STATE_WAIT_FOR_CONF_ACK:	/* NAK as response to CONF_RATE */
+		case HSI_LL_TX_STATE_WAIT_FOR_CONF_ACK:
+			/* NAK as response to CONF_RATE */
 			channel->tx_state = HSI_LL_TX_STATE_IDLE;
 			break;
 
 		default:
-			pr_err("ERROR - Received NAK in invalid state. state->%d\n", channel->tx_state);
+			pr_err("ERROR - Received NAK in invalid state.
+					state->%d\n",
+			       channel->tx_state);
 		}
 		break;
 
 	case HSI_LL_MSG_CONF_RATE:
-		//TODO: Set Conf Rate
+		/*TODO: Set Conf Rate*/
 		pr_debug("CONF_RATE Received\n");
 		break;
 
@@ -402,7 +440,8 @@ void rx_stm(u32 cmd, u32 ch, u32 param)
 		switch (channel->rx_state) {
 		/* case HSI_LL_RX_STATE_CLOSED: */
 		case HSI_LL_RX_STATE_IDLE:
-			pr_debug("OPEN_CONN_OCTET in %s(), ch-> %d\n", __func__, ch);
+			pr_debug("OPEN_CONN_OCTET in %s(), ch-> %d\n",
+				 __func__, ch);
 			channel->rx_state = HSI_LL_RX_STATE_TO_ACK;
 			hsi_protocol_send_command(HSI_LL_MSG_ACK, ch, param);
 
@@ -416,7 +455,8 @@ void rx_stm(u32 cmd, u32 ch, u32 param)
 			break;
 
 		default:
-			pr_err("OPEN_CONN_OCTET in invalid state, Current State -> %d\n", channel->rx_state);
+			pr_err("OPEN_CONN_OCTET in invalid state,
+			       Current State -> %d\n", channel->rx_state);
 			pr_info("Sending NAK to channel-> %d\n", ch);
 			hsi_protocol_send_command(HSI_LL_MSG_NAK, ch, param);
 		}
