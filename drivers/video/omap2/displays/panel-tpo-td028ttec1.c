@@ -379,6 +379,9 @@ static int td028ttec1_panel_resume(struct omap_dss_device *dssdev)
 		return -EIO;
 
 	// turn on backlight
+	if (dssdev->platform_enable)
+		dssdev->platform_enable(dssdev);
+
 	dssdev->state = OMAP_DSS_DISPLAY_ACTIVE;
 	
 	return rc ? -EIO : 0;
