@@ -398,7 +398,7 @@ int snd_soc_dapm_ignore_suspend(struct snd_soc_dapm_context *dapm,
 void dapm_mark_dirty(struct snd_soc_dapm_widget *w, const char *reason);
 
 /* dapm path query */
-int snd_soc_dapm_get_connected_widgets(struct snd_soc_dapm_context *dapm,
+int snd_soc_dapm_get_connected_widgets(struct snd_soc_card *card,
 		const char *name, struct snd_soc_dapm_widget_list **list, int stream);
 
 /* dapm widget types */
