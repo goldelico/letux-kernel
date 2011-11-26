@@ -901,7 +901,7 @@ static int dapm_get_capture_paths(struct snd_soc_dapm_context *dapm,
 
 /**
  * snd_soc_dapm_get_connected_widgets - query audio path and it's widgets.
- * @dapm: the dapm context.
+ * @card: the soc card.
  * @stream_name: stream name.
  * @list: list of active widgets for this stream.
  * @stream: stream direction.
@@ -912,29 +912,37 @@ static int dapm_get_capture_paths(struct snd_soc_dapm_context *dapm,
  *
  * Returns the number of valid paths or negative error.
  */
-int snd_soc_dapm_get_connected_widgets(struct snd_soc_dapm_context *dapm,
+int snd_soc_dapm_get_connected_widgets(struct snd_soc_card *card,
 	const char *widget_name, struct snd_soc_dapm_widget_list **list,
 	int stream)
 {
 	struct snd_soc_dapm_widget *w;
 	int paths;
 
+	memset(&card->dapm_stats, 0, sizeof(card->dapm_stats));
+
+	list_for_each_entry(w, &card->widgets, list) {
+		w->power_checked = false;
+		w->inputs = -1;
+		w->outputs = -1;
+	}
+
 	/* get stream root widget AIF from stream string and direction */
-	list_for_each_entry(w, &dapm->card->widgets, list) {
+	list_for_each_entry(w, &card->widgets, list) {
 
 		if (!strcmp(w->name, widget_name))
 			goto found;
 	}
-	dev_err(dapm->dev, "root widget for %s not found\n", widget_name);
+	dev_err(card->dapm.dev, "root widget for %s not found\n", widget_name);
 	return 0;
 
 found:
 	if (stream == SNDRV_PCM_STREAM_PLAYBACK)
-		paths = dapm_get_playback_paths(dapm, w, list);
+		paths = dapm_get_playback_paths(&card->dapm, w, list);
 	else
-		paths = dapm_get_capture_paths(dapm, w, list);
+		paths = dapm_get_capture_paths(&card->dapm, w, list);
 
-	dapm_clear_walk(dapm);
+	dapm_clear_walk(&card->dapm);
 	return paths;
 }
 
