@@ -759,7 +759,7 @@ static int is_connected_output_ep(struct snd_soc_dapm_widget *widget,
 				widget->name, path->name, path->sink->name,
 				path->weak ? 'w': ' ');
 
-		if (path->source && path->connect) {
+		if (path->sink && path->connect) {
 			path->walked = 1;
 
 			/* do we need to add this widget to the list ? */
