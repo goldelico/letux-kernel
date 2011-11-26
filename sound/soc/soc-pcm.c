@@ -828,7 +828,7 @@ static int dsp_add_new_paths(struct snd_soc_pcm_runtime *fe,
 
 	/* get number of valid DAI paths and their widgets */
 	for (i = 0; i < cpu_dai->driver->num_widgets; i++) {
-		paths += snd_soc_dapm_get_connected_widgets(&card->dapm,
+		paths += snd_soc_dapm_get_connected_widgets(card,
 			cpu_dai->widgets[i].name, &list, stream);
 	}
 
@@ -897,7 +897,7 @@ static int dsp_prune_old_paths(struct snd_soc_pcm_runtime *fe, int stream,
 
 	/* get number of valid DAI paths and their widgets */
 	for (i = 0; i < cpu_dai->driver->num_widgets; i++) {
-		paths += snd_soc_dapm_get_connected_widgets(&card->dapm,
+		paths += snd_soc_dapm_get_connected_widgets(card,
 			cpu_dai->widgets[i].name, &list, stream);
 	}
 
