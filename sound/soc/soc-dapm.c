@@ -3040,6 +3040,15 @@ int snd_soc_dapm_stream_event(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
+void snd_soc_dapm_codec_stream_event(struct snd_soc_codec *codec,
+	const char *stream, int event)
+{
+//	mutex_lock(&codec->card->dapm_mutex);
+	soc_dapm_stream_event(&codec->dapm, stream, event);
+//	mutex_unlock(&codec->card->dapm_mutex);
+}
+EXPORT_SYMBOL(snd_soc_dapm_codec_stream_event);
+
 /**
  * snd_soc_dapm_enable_pin - enable pin.
  * @dapm: DAPM context
