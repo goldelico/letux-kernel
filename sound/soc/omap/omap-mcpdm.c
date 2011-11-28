@@ -73,6 +73,7 @@ struct omap_mcpdm {
 	/* McPDM dn offsets for rx1, and 2 channels */
 	u32 dn_rx_offset;
 
+	int active;
 	int abe_mode;
 
 	struct abe *abe;
@@ -283,6 +284,10 @@ static int omap_mcpdm_dai_startup(struct snd_pcm_substream *substream,
 
 	mutex_lock(&mcpdm->mutex);
 
+	/* nothing to do if already active */
+	if (mcpdm->active++)
+		goto out;
+
 	if (!dai->active) {
 		pm_runtime_get_sync(mcpdm->dev);
 
@@ -308,6 +313,7 @@ static int omap_mcpdm_dai_startup(struct snd_pcm_substream *substream,
 		ret = -EINVAL;
 	}
 
+out:
 	mutex_unlock(&mcpdm->mutex);
 
 	return ret;
@@ -319,6 +325,9 @@ static void omap_mcpdm_dai_shutdown(struct snd_pcm_substream *substream,
 	struct omap_mcpdm *mcpdm = snd_soc_dai_get_drvdata(dai);
 
 	mutex_lock(&mcpdm->mutex);
+
+	if (--mcpdm->active)
+		goto out;
 
 	if (!dai->active) {
 		if (omap_mcpdm_active(mcpdm)) {
@@ -342,6 +351,7 @@ static void omap_mcpdm_dai_shutdown(struct snd_pcm_substream *substream,
 			pm_runtime_put_sync(mcpdm->dev);
 	}
 
+out:
 	mutex_unlock(&mcpdm->mutex);
 }
 
