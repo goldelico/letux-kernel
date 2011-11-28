@@ -71,6 +71,7 @@ struct twl6040_output {
 	u16 right_step;
 	unsigned int step_delay;
 	u16 ramp;
+	u16 mute;
 	struct delayed_work work;
 	struct completion ramp_done;
 };
@@ -1396,11 +1397,25 @@ static int twl6040_set_dai_sysclk(struct snd_soc_dai *codec_dai,
 	return 0;
 }
 
+static int twl6040_digital_mute(struct snd_soc_dai *dai, int mute)
+{
+	/*
+	 * pop-noise reduction sequence requires to shutdown
+	 * analog side before CPU DAI
+	 */
+	if (mute)
+		snd_soc_dapm_codec_stream_event(dai->codec,
+				dai->driver->playback.stream_name,
+				SND_SOC_DAPM_STREAM_STOP);
+
+	return 0;
+}
 static struct snd_soc_dai_ops twl6040_dai_ops = {
 	.startup	= twl6040_startup,
 	.hw_params	= twl6040_hw_params,
 	.prepare	= twl6040_prepare,
 	.set_sysclk	= twl6040_set_dai_sysclk,
+	.digital_mute	= twl6040_digital_mute,
 };
 
 static struct snd_soc_dai_driver twl6040_dai[] = {
