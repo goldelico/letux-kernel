@@ -18,8 +18,6 @@
  * 02110-1301 USA
  */
 
-//#define DEBUG
-
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/slab.h>
