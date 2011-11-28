@@ -549,7 +549,7 @@ static void dwc3_gadget_ep_free_request(struct usb_ep *ep,
  * @dep: endpoint for which this request is prepared
  * @req: dwc3_request pointer
  */
-static int dwc3_prepare_one_trb(struct dwc3_ep *dep,
+static void dwc3_prepare_one_trb(struct dwc3_ep *dep,
 		struct dwc3_request *req, unsigned last)
 {
 	struct dwc3_trb_hw	*trb_hw;
@@ -564,7 +564,7 @@ static int dwc3_prepare_one_trb(struct dwc3_ep *dep,
 	/* Skip the LINK-TRB on ISOC */
 	if (((cur_slot & DWC3_TRB_MASK) == DWC3_TRB_NUM - 1) &&
 			usb_endpoint_xfer_isoc(dep->desc))
-		return 0;
+		return;
 
 	dwc3_gadget_move_request_queued(req);
 	memset(&trb, 0, sizeof(trb));
@@ -612,8 +612,6 @@ static int dwc3_prepare_one_trb(struct dwc3_ep *dep,
 
 	dwc3_trb_to_hw(&trb, trb_hw);
 	req->trb_dma = dwc3_trb_dma_offset(dep, trb_hw);
-
-	return 0;
 }
 
 /*
@@ -625,10 +623,9 @@ static int dwc3_prepare_one_trb(struct dwc3_ep *dep,
  * transfers. The functions returns once there are not more TRBs available or
  * it run out of requests.
  */
-static struct dwc3_request *dwc3_prepare_trbs(struct dwc3_ep *dep,
-		bool starting)
+static void dwc3_prepare_trbs(struct dwc3_ep *dep, bool starting)
 {
-	struct dwc3_request	*req, *n, *ret = NULL;
+	struct dwc3_request	*req, *n;
 	u32			trbs_left;
 	unsigned int		last_one = 0;
 
@@ -644,7 +641,7 @@ static struct dwc3_request *dwc3_prepare_trbs(struct dwc3_ep *dep,
 	 */
 	if (!trbs_left) {
 		if (!starting)
-			return NULL;
+			return;
 		trbs_left = DWC3_TRB_NUM;
 		/*
 		 * In case we start from scratch, we queue the ISOC requests
@@ -668,7 +665,7 @@ static struct dwc3_request *dwc3_prepare_trbs(struct dwc3_ep *dep,
 
 	/* The last TRB is a link TRB, not used for xfer */
 	if ((trbs_left <= 1) && usb_endpoint_xfer_isoc(dep->desc))
-		return NULL;
+		return;
 
 	list_for_each_entry_safe(req, n, &dep->request_list, list) {
 		trbs_left--;
@@ -689,11 +686,8 @@ static struct dwc3_request *dwc3_prepare_trbs(struct dwc3_ep *dep,
 		 * multiple TRBs handling, use only one TRB at a time.
 		 */
 		dwc3_prepare_one_trb(dep, req, true);
-		ret = req;
 		break;
 	}
-
-	return ret;
 }
 
 static int __dwc3_gadget_kick_transfer(struct dwc3_ep *dep, u16 cmd_param,
@@ -722,11 +716,13 @@ static int __dwc3_gadget_kick_transfer(struct dwc3_ep *dep, u16 cmd_param,
 		/* req points to the first request which will be sent */
 		req = next_request(&dep->req_queued);
 	} else {
+		dwc3_prepare_trbs(dep, start_new);
+
 		/*
 		 * req points to the first request where HWO changed
 		 * from 0 to 1
 		 */
-		req = dwc3_prepare_trbs(dep, start_new);
+		req = next_request(&dep->req_queued);
 	}
 	if (!req) {
 		dep->flags |= DWC3_EP_PENDING_REQUEST;
