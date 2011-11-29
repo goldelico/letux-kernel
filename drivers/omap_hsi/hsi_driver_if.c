@@ -178,19 +178,11 @@ int hsi_set_tx(struct hsi_port *sport, struct hst_ctx *cfg)
 		return -EINVAL;
 
 	if (hsi_driver_device_is_hsi(pdev)) {
-		if (((cfg->flow & HSI_FLOW_VAL_MASK) != HSI_FLOW_SYNCHRONIZED)
-		    && ((cfg->flow & HSI_FLOW_VAL_MASK) != HSI_FLOW_PIPELINED)
-		    && (cfg->flow != NOT_SET))
-			return -EINVAL;
 		/* HSI only supports payload size of 32bits */
 		if ((cfg->frame_size != HSI_FRAMESIZE_MAX) &&
 		    (cfg->frame_size != NOT_SET))
 			return -EINVAL;
 	} else {
-		if (((cfg->flow & HSI_FLOW_VAL_MASK) != HSI_FLOW_SYNCHRONIZED)
-		    && (cfg->flow != NOT_SET))
-			return -EINVAL;
-
 		if ((cfg->frame_size > HSI_FRAMESIZE_MAX) &&
 		    (cfg->frame_size != NOT_SET))
 			return -EINVAL;
@@ -206,12 +198,6 @@ int hsi_set_tx(struct hsi_port *sport, struct hst_ctx *cfg)
 	if ((cfg->arb_mode != HSI_ARBMODE_ROUNDROBIN) &&
 	    (cfg->arb_mode != HSI_ARBMODE_PRIORITY) && (cfg->mode != NOT_SET))
 		return -EINVAL;
-
-	if ((cfg->mode != NOT_SET) && (cfg->flow != NOT_SET))
-		hsi_outl(cfg->mode | ((cfg->flow & HSI_FLOW_VAL_MASK) <<
-				      HSI_FLOW_OFFSET) |
-			 HSI_HST_MODE_WAKE_CTRL_SW, base,
-			 HSI_HST_MODE_REG(port));
 
 	if (cfg->frame_size != NOT_SET)
 		hsi_outl(cfg->frame_size, base, HSI_HST_FRAMESIZE_REG(port));
@@ -240,8 +226,6 @@ void hsi_get_tx(struct hsi_port *sport, struct hst_ctx *cfg)
 	int port = sport->port_number;
 
 	cfg->mode = hsi_inl(base, HSI_HST_MODE_REG(port)) & HSI_MODE_VAL_MASK;
-	cfg->flow = (hsi_inl(base, HSI_HST_MODE_REG(port)) & HSI_FLOW_VAL_MASK)
-	    >> HSI_FLOW_OFFSET;
 	cfg->frame_size = hsi_inl(base, HSI_HST_FRAMESIZE_REG(port));
 	cfg->channels = hsi_inl(base, HSI_HST_CHANNELS_REG(port));
 	cfg->divisor = hsi_inl(base, HSI_HST_DIVISOR_REG(port));

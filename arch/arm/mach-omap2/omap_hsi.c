@@ -87,7 +87,6 @@ static struct hsi_port_ctx omap_hsi_port_ctx[] = {
 	[0] = {
 	       .port_number = 1,
 	       .hst.mode = HSI_MODE_FRAME,
-	       .hst.flow = HSI_FLOW_SYNCHRONIZED,
 	       .hst.frame_size = HSI_FRAMESIZE_DEFAULT,
 	       .hst.divisor = HSI_DIVISOR_DEFAULT,
 	       .hst.channels = HSI_CHANNELS_DEFAULT,

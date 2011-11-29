@@ -158,12 +158,6 @@
 #define HSI_MODE_STREAM			1
 #define HSI_MODE_FRAME			2
 #define HSI_SSI_MODE_MULTIPOINTS	3		/* SSI only */
-#define HSI_FLOW_OFFSET			2		/* HSI only */
-#define HSI_FLOW_VAL_MASK		3		/* HSI only */
-#define HSI_FLOW_SYNCHRONIZED		0		/* HSI only */
-#define HSI_FLOW_PIPELINED		1		/* HSI only */
-#define HSI_FLOW_REAL_TIME		2		/* HSI only */
-#define HSI_FLOW_SUSPENDED		3		/* HSI only */
 #define HSI_HST_MODE_WAKE_CTRL_AUTO	(1 << 4)	/* HSI only */
 #define HSI_HST_MODE_WAKE_CTRL_SW	(0 << 4)	/* HSI only */
 
@@ -227,7 +221,12 @@
 #define HSI_HSR_ID_REG(port)		(HSI_HSR_BASE(port) + 0x0000)
 
 #define HSI_HSR_MODE_REG(port)		(HSI_HSR_BASE(port) + 0x0004)
-
+#define HSI_FLOW_OFFSET			2		/* HSI only */
+#define HSI_FLOW_VAL_MASK		3		/* HSI only */
+#define HSI_FLOW_SYNCHRONIZED		0		/* HSI only */
+#define HSI_FLOW_PIPELINED		1		/* HSI only */
+#define HSI_FLOW_REAL_TIME		2		/* HSI only */
+#define HSI_FLOW_SUSPENDED		3		/* HSI only */
 #define HSI_HSR_MODE_MODE_VAL_MASK     (3 << 0)       /* HSI only */
 #define HSI_HSR_MODE_FLOW_VAL_MASK     (3 << 2)       /* HSI only */
 #define HSI_HSR_MODE_WAKE_STATUS	(1 << 4)	/* HSI only */

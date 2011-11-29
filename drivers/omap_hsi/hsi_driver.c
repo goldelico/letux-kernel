@@ -370,8 +370,7 @@ static void hsi_set_ports_default(struct hsi_dev *hsi_ctrl,
 	for (port = 1; port <= pdata->num_ports; port++) {
 		cfg = &pdata->ctx->pctx[port - 1];
 		/* HST */
-		hsi_outl(cfg->hst.mode | cfg->hst.flow |
-			HSI_HST_MODE_WAKE_CTRL_SW, base,
+		hsi_outl(cfg->hst.mode | HSI_HST_MODE_WAKE_CTRL_SW, base,
 			HSI_HST_MODE_REG(port));
 		if (!hsi_driver_device_is_hsi(pdev))
 			hsi_outl(cfg->hst.frame_size, base,

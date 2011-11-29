@@ -55,7 +55,6 @@
 /**
  * struct hsi_tx_config - HSI TX configuration data
  * @mode: Bit transmission mode
- * @flow: Data flow type
  * @frame_size: frame payload size
  * @channels: Number of active channels
  * @divisor: Transmission bit rate divisor
@@ -63,7 +62,6 @@
  */
 struct hsi_tx_config {
 	__u32 mode;       /* Stream:1, Frame:2 */
-	__u32 flow;       /* Synchronized:0, Pipelined:1. No Realtime support */
 	__u32 frame_size; /* HSI: 31,  SSI: <= 31 */
 	__u32 channels;   /* 1, 2, 4, 8, 16 (HSI only) */
 	__u32 divisor;    /* For HSI: <= 0xFF, for SSI: <= 0x7F */

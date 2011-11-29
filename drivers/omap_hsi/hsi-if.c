@@ -56,7 +56,6 @@
 #define TXCONV(dst, src) \
 	do { \
 		(dst)->mode = (src)->mode; \
-		(dst)->flow = (src)->flow; \
 		(dst)->frame_size = (src)->frame_size; \
 		(dst)->channels = (src)->channels; \
 		(dst)->divisor = (src)->divisor; \
