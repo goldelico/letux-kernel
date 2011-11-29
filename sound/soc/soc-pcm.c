@@ -720,6 +720,12 @@ static inline void be_reparent(struct snd_soc_pcm_runtime *fe,
 
 	list_for_each_entry(dsp_params, &be->dsp[stream].fe_clients, list_fe) {
 		if (dsp_params->fe != fe) {
+
+			dev_dbg(&fe->dev, "  reparent %s path %s %s %s\n",
+					stream ? "capture" : "playback",
+					dsp_params->fe->dai_link->name,
+					stream ? "<-" : "->", dsp_params->be->dai_link->name);
+
 			fe_substream = snd_soc_dsp_get_substream(dsp_params->fe,
 								stream);
 			be_substream->runtime = fe_substream->runtime;
@@ -733,6 +739,10 @@ static inline void be_disconnect(struct snd_soc_pcm_runtime *fe, int stream)
 	struct snd_soc_dsp_params *dsp_params, *d;
 
 	list_for_each_entry_safe(dsp_params, d, &fe->dsp[stream].be_clients, list_be) {
+		dev_dbg(&fe->dev, "BE %s disconnect check for %s\n",
+				stream ? "capture" : "playback",
+				dsp_params->be->dai_link->name);
+
 		if (dsp_params->state == SND_SOC_DSP_LINK_STATE_FREE) {
 			dev_dbg(&fe->dev, "  freed DSP %s path %s %s %s\n",
 					stream ? "capture" : "playback", fe->dai_link->name,
@@ -1009,8 +1019,12 @@ static int soc_dsp_be_dai_startup(struct snd_soc_pcm_runtime *fe, int stream)
 
 		be_substream->runtime = be->dsp[stream].runtime;
 		err = soc_pcm_open(be_substream);
-		if (err < 0)
+		if (err < 0) {
+			dev_err(&be->dev, "BE open failed %d\n", err);
+			be->dsp[stream].users--;
+			be->dsp[stream].state = SND_SOC_DSP_STATE_CLOSE;
 			goto unwind;
+		}
 
 		be->dsp[stream].state = SND_SOC_DSP_STATE_OPEN;
 		count++;
@@ -1671,6 +1685,7 @@ static int dsp_run_update_startup(struct snd_soc_pcm_runtime *fe, int stream)
 {
 	struct snd_soc_dsp_link *dsp_link = fe->dai_link->dsp_link;
 	struct snd_pcm_substream *substream = snd_soc_dsp_get_substream(fe, stream);
+	struct snd_soc_dsp_params *dsp_params;
 	int ret;
 
 	dev_dbg(&fe->dev, "runtime %s open on FE %s\n",
@@ -1684,7 +1699,7 @@ static int dsp_run_update_startup(struct snd_soc_pcm_runtime *fe, int stream)
 
 	ret = soc_dsp_be_dai_hw_params(fe, stream);
 	if (ret < 0) {
-		goto unwind;
+		goto close;
 		return ret;
 	}
 
@@ -1711,7 +1726,7 @@ static int dsp_run_update_startup(struct snd_soc_pcm_runtime *fe, int stream)
 
 		ret = soc_pcm_bespoke_trigger(substream, SNDRV_PCM_TRIGGER_START);
 		if (ret < 0) {
-			dev_err(&fe->dev,"dsp: trigger FE failed %d\n", ret);
+			dev_err(&fe->dev,"dsp: bespoke trigger FE failed %d\n", ret);
 			goto stream_stop;
 		}
 	} else {
@@ -1720,8 +1735,10 @@ static int dsp_run_update_startup(struct snd_soc_pcm_runtime *fe, int stream)
 
 		ret = soc_dsp_be_dai_trigger(fe, stream,
 					SNDRV_PCM_TRIGGER_START);
-		if (ret < 0)
+		if (ret < 0) {
+			dev_err(&fe->dev,"dsp: trigger FE failed %d\n", ret);
 			goto stream_stop;
+		}
 	}
 
 	return 0;
@@ -1737,9 +1754,15 @@ stream_stop:
 				SNDRV_PCM_TRIGGER_STOP);
 hw_free:
 	soc_dsp_be_dai_hw_free(fe, stream);
-unwind:
-	soc_dsp_be_dai_startup_unwind(fe, stream);
+close:
+	soc_dsp_be_dai_shutdown(fe, stream);
 disconnect:
+	/* disconnect any non started BEs */
+	list_for_each_entry(dsp_params, &fe->dsp[stream].be_clients, list_be) {
+		struct snd_soc_pcm_runtime *be = dsp_params->be;
+		if (be->dsp[stream].state != SND_SOC_DSP_STATE_START)
+				dsp_params->state = SND_SOC_DSP_LINK_STATE_FREE;
+	}
 	be_disconnect(fe, stream);
 	return ret;
 }
@@ -1755,14 +1778,14 @@ static int dsp_run_update(struct snd_soc_pcm_runtime *fe, int stream,
 	if (start) {
 		ret = dsp_run_update_startup(fe, stream);
 		if (ret < 0)
-			dev_err(&fe->dev, "failed to startup BEs\n");
+			dev_err(&fe->dev, "failed to startup some BEs\n");
 	}
 
 	/* close down old BEs */
 	if (stop) {
 		ret = dsp_run_update_shutdown(fe, stream);
 		if (ret < 0)
-			dev_err(&fe->dev, "failed to shutdown BEs\n");
+			dev_err(&fe->dev, "failed to shutdown some BEs\n");
 	}
 
 	fe->dsp[stream].runtime_update = SND_SOC_DSP_UPDATE_NO;
