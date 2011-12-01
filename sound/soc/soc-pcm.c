@@ -1821,7 +1821,8 @@ int soc_dsp_runtime_update(struct snd_soc_dapm_widget *widget)
 		}
 
 		/* DAPM sync will call this to update DSP paths */
-		dev_dbg(card->dev, "DSP runtime update for FE %s\n", fe->dai_link->name);
+		dev_dbg(&fe->dev, "DSP runtime update for FE %s\n", fe->dai_link->name);
+
 		/* skip if FE doesn't have playback capability */
 		if (!fe->cpu_dai->driver->playback.channels_min)
 			goto capture;
