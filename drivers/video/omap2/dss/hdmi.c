@@ -58,7 +58,7 @@
 #define EDID_SIZE_BLOCK0_TIMING_DESCRIPTOR	4
 #define EDID_SIZE_BLOCK1_TIMING_DESCRIPTOR	4
 
-#define OMAP_HDMI_TIMINGS_NB			34
+#define OMAP_HDMI_TIMINGS_NB			37
 
 #define HDMI_DEFAULT_REGN 16
 #define HDMI_DEFAULT_REGM2 1
@@ -128,7 +128,11 @@ static const struct hdmi_timings cea_vesa_timings[OMAP_HDMI_TIMINGS_NB] = {
 	{ {1400, 1050, 101000, 32, 48, 80, 4, 3, 23}, 0, 1},
 	{ {1680, 1050, 119000, 32, 48, 80, 6, 3, 21}, 0, 1},
 	{ {1280, 800, 79500, 32, 48, 80, 6, 3, 14}, 0, 1},
-	{ {1280, 720, 74250, 40, 110, 220, 5, 5, 20}, 1, 1}
+	{ {1280, 720, 74250, 40, 110, 220, 5, 5, 20}, 1, 1},
+	/* 3D */
+	{ {1920, 2205, 148500, 44, 638, 148, 5, 4, 36}, 1, 1},
+	{ {1280, 1485, 148500, 40, 440, 220, 5, 5, 20}, 1, 1},
+	{ {1280, 1485, 148500, 40, 110, 220, 5, 5, 20}, 1, 1},
 };
 
 /*
@@ -153,6 +157,12 @@ static const int code_cea[39] = {
 	11, 12, 14, -1, -1, 13, 13,  4,  4
 };
 
+static const int code_3d[39] = {
+	-1,  -1,  -1,  -1,  36,  -1,  -1,  -1, -1, -1,
+	-1, -1, -1, -1, -1, -1,  34, -1, -1,  -1,
+	-1,   -1,  -1, -1, -1, -1, -1, -1, -1, -1,
+	-1, -1, -1, -1, -1, -1, -1,  -1,  -1
+};
 static const int code_vesa[85] = {
 	-1, -1, -1, -1, 15, -1, -1, -1, -1, 16,
 	-1, -1, -1, -1, 17, -1, 23, -1, -1, -1,
@@ -197,10 +207,14 @@ static int get_timings_index(void)
 {
 	int code;
 
-	if (hdmi.mode == 0)
-		code = code_vesa[hdmi.code];
-	else
-		code = code_cea[hdmi.code];
+	if (!hdmi.ip_data.cfg.s3d_enabled) {
+		if (hdmi.mode == 0)
+			code = code_vesa[hdmi.code];
+		else
+			code = code_cea[hdmi.code];
+	} else {
+		code = code_3d[hdmi.code];
+	}
 
 	if (code == -1)	{
 		/* HDMI code 4 corresponds to 640 * 480 VGA */
@@ -491,6 +505,97 @@ int omapdss_hdmi_display_check_timing(struct omap_dss_device *dssdev,
 
 	return 0;
 
+}
+
+int omapdss_hdmi_display_3d_enable(struct omap_dss_device *dssdev,
+					struct s3d_disp_info *info, int code)
+{
+	int r = 0;
+
+	DSSDBG("ENTER hdmi_display_3d_enable\n");
+
+	mutex_lock(&hdmi.lock);
+
+	if (dssdev->manager == NULL) {
+		DSSERR("failed to enable display: no manager\n");
+		r = -ENODEV;
+		goto err0;
+	}
+
+	r = omap_dss_start_device(dssdev);
+	if (r) {
+		DSSERR("failed to start device\n");
+		goto err0;
+	}
+
+	if (dssdev->platform_enable) {
+		r = dssdev->platform_enable(dssdev);
+		if (r) {
+			DSSERR("failed to enable GPIO's\n");
+			goto err1;
+		}
+	}
+
+	/* hdmi.s3d_enabled will be updated when powering display up */
+	/* if there's no S3D support it will be reset to false */
+	switch (info->type) {
+	case S3D_DISP_OVERUNDER:
+		if (info->sub_samp == S3D_DISP_SUB_SAMPLE_NONE) {
+			dssdev->panel.s3d_info = *info;
+			hdmi.ip_data.cfg.s3d_info.frame_struct = HDMI_S3D_FRAME_PACKING;
+			hdmi.ip_data.cfg.s3d_info.subsamp = false;
+			hdmi.ip_data.cfg.s3d_info.subsamp_pos = 0;
+			hdmi.ip_data.cfg.s3d_enabled = true;
+			hdmi.ip_data.cfg.s3d_info.vsi_enabled = true;
+		} else {
+			goto err2;
+		}
+		break;
+	case S3D_DISP_SIDEBYSIDE:
+		dssdev->panel.s3d_info = *info;
+		if (info->sub_samp == S3D_DISP_SUB_SAMPLE_NONE) {
+			hdmi.ip_data.cfg.s3d_info.frame_struct = HDMI_S3D_SIDE_BY_SIDE_FULL;
+			hdmi.ip_data.cfg.s3d_info.subsamp = true;
+			hdmi.ip_data.cfg.s3d_info.subsamp_pos = HDMI_S3D_HOR_EL_ER;
+			hdmi.ip_data.cfg.s3d_enabled = true;
+			hdmi.ip_data.cfg.s3d_info.vsi_enabled = true;
+		} else if (info->sub_samp == S3D_DISP_SUB_SAMPLE_H) {
+			hdmi.ip_data.cfg.s3d_info.frame_struct = HDMI_S3D_SIDE_BY_SIDE_HALF;
+			hdmi.ip_data.cfg.s3d_info.subsamp = true;
+			hdmi.ip_data.cfg.s3d_info.subsamp_pos = HDMI_S3D_HOR_EL_ER;
+			hdmi.ip_data.cfg.s3d_info.vsi_enabled = true;
+		} else {
+			goto err2;
+		}
+		break;
+	default:
+		goto err2;
+	}
+	if (hdmi.ip_data.cfg.s3d_enabled) {
+		hdmi.custom_set = 1;
+		hdmi.code = code;
+		hdmi.mode = 1;
+	}
+
+	r = hdmi_power_on(dssdev);
+	if (r) {
+		DSSERR("failed to power on device\n");
+		goto err2;
+	}
+
+	hdmi.custom_set = 0;
+
+	mutex_unlock(&hdmi.lock);
+	return 0;
+
+err2:
+	if (dssdev->platform_disable)
+		dssdev->platform_disable(dssdev);
+err1:
+	omap_dss_stop_device(dssdev);
+err0:
+	mutex_unlock(&hdmi.lock);
+	return r;
 }
 
 void omapdss_hdmi_display_set_timing(struct omap_dss_device *dssdev)
