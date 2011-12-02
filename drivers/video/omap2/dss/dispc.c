@@ -926,16 +926,32 @@ static void dispc_ovl_enable_replication(enum omap_plane plane, bool enable)
 void dispc_mgr_set_lcd_size(enum omap_channel channel, u16 width, u16 height)
 {
 	u32 val;
-	BUG_ON((width > (1 << 11)) || (height > (1 << 11)));
-	val = FLD_VAL(height - 1, 26, 16) | FLD_VAL(width - 1, 10, 0);
+
+	if (cpu_is_omap54xx()) {
+		BUG_ON((width > (1 << 12)) || (height > (1 << 12)));
+
+		val = FLD_VAL(height - 1, 27, 16) | FLD_VAL(width - 1, 11, 0);
+	} else {
+		BUG_ON((width > (1 << 11)) || (height > (1 << 11)));
+
+		val = FLD_VAL(height - 1, 26, 16) | FLD_VAL(width - 1, 10, 0);
+	}
 	dispc_write_reg(DISPC_SIZE_MGR(channel), val);
 }
 
 void dispc_set_digit_size(u16 width, u16 height)
 {
 	u32 val;
-	BUG_ON((width > (1 << 11)) || (height > (1 << 11)));
-	val = FLD_VAL(height - 1, 26, 16) | FLD_VAL(width - 1, 10, 0);
+
+	if (cpu_is_omap54xx()) {
+		BUG_ON((width > (1 << 12)) || (height > (1 << 12)));
+
+		val = FLD_VAL(height - 1, 27, 16) | FLD_VAL(width - 1, 11, 0);
+	} else {
+		BUG_ON((width > (1 << 11)) || (height > (1 << 11)));
+
+		val = FLD_VAL(height - 1, 26, 16) | FLD_VAL(width - 1, 10, 0);
+	}
 	dispc_write_reg(DISPC_SIZE_MGR(OMAP_DSS_CHANNEL_DIGIT), val);
 }
 
