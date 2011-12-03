@@ -129,9 +129,7 @@ typedef struct OMAPLFB_FBINFO_TAG
 #if defined(CONFIG_DSSCOMP)
 	OMAPLFB_BOOL		bIs2D;
 	IMG_SYS_PHYADDR		*psPageList;
-#if defined(CONFIG_ION_OMAP)
 	struct ion_handle	*psIONHandle;
-#endif
 	IMG_UINT32			uiBytesPerPixel;
 #endif
 } OMAPLFB_FBINFO;

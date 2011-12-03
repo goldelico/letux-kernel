@@ -45,14 +45,12 @@
 
 #include <linux/ion.h>
 #include <linux/omap_ion.h>
+
 extern struct ion_client *gpsIONClient;
+
 #include <mach/tiler.h>
 #include <video/dsscomp.h>
 #include <plat/dsscomp.h>
-
-#include "servicesint.h"
-#include "services.h"
-#include "mm.h"
 
 #endif
 
@@ -883,13 +881,11 @@ static IMG_BOOL ProcessFlipV1(IMG_HANDLE hCmdCookie,
 
 static IMG_BOOL ProcessFlipV2(IMG_HANDLE hCmdCookie,
 							  OMAPLFB_DEVINFO *psDevInfo,
-							  IMG_VOID **ppvMemInfos,
+							  PDC_MEM_INFO *ppsMemInfos,
 							  IMG_UINT32 ui32NumMemInfos,
 							  struct dsscomp_setup_dispc_data *psDssData,
 							  IMG_UINT32 ui32DssDataLength)
 {
-	PVRSRV_KERNEL_MEM_INFO **ppsMemInfos =
-		(PVRSRV_KERNEL_MEM_INFO **)ppvMemInfos;
 	struct tiler_pa_info *apsTilerPAs[5];
 	IMG_UINT32 i, k;
 
@@ -906,37 +902,38 @@ static IMG_BOOL ProcessFlipV2(IMG_HANDLE hCmdCookie,
 		return IMG_FALSE;
 	}
 
-	for(i = k = 0; i < ui32NumMemInfos && i < ARRAY_SIZE(apsTilerPAs); i++, k++)
+	for(i = k = 0; i < ui32NumMemInfos && k < ARRAY_SIZE(apsTilerPAs); i++, k++)
 	{
 		struct tiler_pa_info *psTilerInfo;
-		LinuxMemArea *psLinuxMemArea;
+		IMG_CPU_VIRTADDR virtAddr;
+		IMG_CPU_PHYADDR phyAddr;
 		IMG_UINT32 ui32NumPages;
-		u32 uiAddr;
+		IMG_SIZE_T uByteSize;
 		int j;
 
-		psLinuxMemArea = ppsMemInfos[i]->sMemBlk.hOSMemHandle;
-		ui32NumPages = (psLinuxMemArea->ui32ByteSize + PAGE_SIZE - 1) >> PAGE_SHIFT;
+		psDevInfo->sPVRJTable.pfnPVRSRVDCMemInfoGetByteSize(ppsMemInfos[i], &uByteSize);
+		ui32NumPages = (uByteSize + PAGE_SIZE - 1) >> PAGE_SHIFT;
 
 		apsTilerPAs[k] = NULL;
 
-		uiAddr = (u32)LinuxMemAreaToCpuPAddr(psLinuxMemArea, 0).uiAddr;
-		/* NV12 buffers do not need meminfos */
+		psDevInfo->sPVRJTable.pfnPVRSRVDCMemInfoGetCpuPAddr(ppsMemInfos[i], 0, &phyAddr);
+
 		if(psDssData->ovls[k].cfg.color_mode == OMAP_DSS_COLOR_NV12)
 		{
-			/* must have still 2 meminfos in array */
+
 			BUG_ON(i + 1 >= ui32NumMemInfos);
-			psDssData->ovls[k].ba = uiAddr;
+			psDssData->ovls[k].ba = (u32)phyAddr.uiAddr;
 
 			i++;
-			psLinuxMemArea = ppsMemInfos[i]->sMemBlk.hOSMemHandle;
-			psDssData->ovls[k].uv = (u32)LinuxMemAreaToCpuPAddr(psLinuxMemArea, 0).uiAddr;
+			psDevInfo->sPVRJTable.pfnPVRSRVDCMemInfoGetCpuPAddr(ppsMemInfos[i], 0, &phyAddr);
+			psDssData->ovls[k].uv = (u32)phyAddr.uiAddr;
 
 			continue;
 		}
 		/* check if it is a TILER buffer */
-		if(is_tiler_addr(uiAddr))
+		if(is_tiler_addr((u32)phyAddr.uiAddr))
 		{
-			psDssData->ovls[k].ba = uiAddr;
+			psDssData->ovls[k].ba = (u32)phyAddr.uiAddr;
 			continue;
 		}
 
@@ -958,12 +955,13 @@ static IMG_BOOL ProcessFlipV2(IMG_HANDLE hCmdCookie,
 
 		for(j = 0; j < ui32NumPages; j++)
 		{
-			psTilerInfo->mem[j] =
-				(u32)LinuxMemAreaToCpuPAddr(psLinuxMemArea, j << PAGE_SHIFT).uiAddr;
+			psDevInfo->sPVRJTable.pfnPVRSRVDCMemInfoGetCpuPAddr(ppsMemInfos[i], j << PAGE_SHIFT, &phyAddr);
+			psTilerInfo->mem[j] = (u32)phyAddr.uiAddr;
 		}
 
-		/* need base address for in-page offset */
-		psDssData->ovls[k].ba = (u32)ppsMemInfos[i]->pvLinAddrKM;
+
+		psDevInfo->sPVRJTable.pfnPVRSRVDCMemInfoGetCpuVAddr(ppsMemInfos[i], &virtAddr);
+		psDssData->ovls[k].ba = (u32)virtAddr;
 		apsTilerPAs[k] = psTilerInfo;
 	}
 
@@ -971,6 +969,12 @@ static IMG_BOOL ProcessFlipV2(IMG_HANDLE hCmdCookie,
 	for(i = k; i < psDssData->num_ovls && i < ARRAY_SIZE(apsTilerPAs); i++)
 	{
 		unsigned int ix = psDssData->ovls[i].ba;
+		if(ix >= ARRAY_SIZE(apsTilerPAs))
+		{
+			WARN(1, "Invalid clone layer (%u); skipping all cloned layers", ix);
+			psDssData->num_ovls = k;
+			break;
+		}
 		apsTilerPAs[i] = apsTilerPAs[ix];
 		psDssData->ovls[i].ba = psDssData->ovls[ix].ba;
 		psDssData->ovls[i].uv = psDssData->ovls[ix].uv;
@@ -1026,7 +1030,7 @@ static IMG_BOOL ProcessFlip(IMG_HANDLE  hCmdCookie,
 		psFlipCmd2 = (DISPLAYCLASS_FLIP_COMMAND2 *)pvData;
 		return ProcessFlipV2(hCmdCookie,
 							 psDevInfo,
-							 psFlipCmd2->ppvMemInfos,
+							 psFlipCmd2->ppsMemInfos,
 							 psFlipCmd2->ui32NumMemInfos,
 							 psFlipCmd2->pvPrivData,
 							 psFlipCmd2->ui32PrivDataLength);
