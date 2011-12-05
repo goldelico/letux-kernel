@@ -343,7 +343,7 @@ static const struct snd_soc_dapm_widget sdp4430_twl6040_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
 	SND_SOC_DAPM_HP("Headset Stereophone", NULL),
 	SND_SOC_DAPM_SPK("Earphone Spk", NULL),
-	SND_SOC_DAPM_INPUT("Aux/FM Stereo In"),
+	SND_SOC_DAPM_INPUT("Aux-FM Stereo In"),
 
 	SND_SOC_DAPM_MIC("Digital Mic 0", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic 1", NULL),
@@ -371,9 +371,9 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	/* Earphone speaker */
 	{"Earphone Spk", NULL, "EP"},
 
-	/* Aux/FM Stereo In: AFML, AFMR */
-	{"AFML", NULL, "Aux/FM Stereo In"},
-	{"AFMR", NULL, "Aux/FM Stereo In"},
+	/* Aux-FM Stereo In: AFML, AFMR */
+	{"AFML", NULL, "Aux-FM Stereo In"},
+	{"AFMR", NULL, "Aux-FM Stereo In"},
 
 	/* Digital Mics: DMic0, DMic1, DMic2 with bias */
 	{"DMIC0", NULL, "Digital Mic1 Bias"},
