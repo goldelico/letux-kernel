@@ -103,6 +103,21 @@ static const struct dss_reg_field omap4_dss_reg_fields[] = {
 	[FEAT_REG_DSIPLL_REGM_DSI]		= { 30, 26 },
 };
 
+static const struct dss_reg_field omap5_dss_reg_fields[] = {
+	[FEAT_REG_FIRHINC]			= { 12, 0 },
+	[FEAT_REG_FIRVINC]			= { 28, 16 },
+	[FEAT_REG_FIFOLOWTHRESHOLD]		= { 15, 0 },
+	[FEAT_REG_FIFOHIGHTHRESHOLD]		= { 31, 16 },
+	[FEAT_REG_FIFOSIZE]			= { 15, 0 },
+	[FEAT_REG_HORIZONTALACCU]		= { 10, 0 },
+	[FEAT_REG_VERTICALACCU]			= { 26, 16 },
+	[FEAT_REG_DISPC_CLK_SWITCH]		= { 9, 7 },
+	[FEAT_REG_DSIPLL_REGN]			= { 8, 1 },
+	[FEAT_REG_DSIPLL_REGM]			= { 20, 9 },
+	[FEAT_REG_DSIPLL_REGM_DISPC]		= { 25, 21 },
+	[FEAT_REG_DSIPLL_REGM_DSI]		= { 30, 26 },
+};
+
 static const enum omap_display_type omap2_dss_supported_displays[] = {
 	/* OMAP_DSS_CHANNEL_LCD */
 	OMAP_DISPLAY_TYPE_DPI | OMAP_DISPLAY_TYPE_DBI,
@@ -135,6 +150,19 @@ static const enum omap_display_type omap4_dss_supported_displays[] = {
 
 	/* OMAP_DSS_CHANNEL_DIGIT */
 	OMAP_DISPLAY_TYPE_VENC | OMAP_DISPLAY_TYPE_HDMI,
+
+	/* OMAP_DSS_CHANNEL_LCD2 */
+	OMAP_DISPLAY_TYPE_DPI | OMAP_DISPLAY_TYPE_DBI |
+	OMAP_DISPLAY_TYPE_DSI,
+};
+
+static const enum omap_display_type omap5_dss_supported_displays[] = {
+	/* OMAP_DSS_CHANNEL_LCD */
+	OMAP_DISPLAY_TYPE_DPI | OMAP_DISPLAY_TYPE_DBI |
+	OMAP_DISPLAY_TYPE_DSI,
+
+	/* OMAP_DSS_CHANNEL_DIGIT */
+	OMAP_DISPLAY_TYPE_HDMI | OMAP_DISPLAY_TYPE_DPI,
 
 	/* OMAP_DSS_CHANNEL_LCD2 */
 	OMAP_DISPLAY_TYPE_DPI | OMAP_DISPLAY_TYPE_DBI |
@@ -449,6 +477,30 @@ static const struct omap_dss_features omap4_dss_features = {
 	.burst_size_unit = 16,
 };
 
+/* OMAP5 DSS Features */
+static const struct omap_dss_features omap5_dss_features = {
+	.reg_fields = omap5_dss_reg_fields,
+	.num_reg_fields = ARRAY_SIZE(omap5_dss_reg_fields),
+
+	.has_feature	=
+		FEAT_MGR_LCD2 |
+		FEAT_CORE_CLK_DIV | FEAT_LCD_CLK_SRC |
+		FEAT_DSI_DCS_CMD_CONFIG_VC | FEAT_DSI_VC_OCP_WIDTH |
+		FEAT_DSI_GNQ | FEAT_HDMI_CTS_SWMODE |
+		FEAT_HANDLE_UV_SEPARATE | FEAT_ATTR2 | FEAT_CPR |
+		FEAT_PRELOAD | FEAT_FIR_COEF_V | FEAT_ALPHA_FREE_ZORDER,
+
+	.num_mgrs = 3,
+	.num_ovls = 4,
+	.supported_displays = omap5_dss_supported_displays,
+	.supported_color_modes = omap4_dss_supported_color_modes,
+	.overlay_caps = omap4_dss_overlay_caps,
+	.clksrc_names = omap4_dss_clk_source_names,
+	.dss_params = omap4_dss_param_range,
+	.buffer_size_unit = 16,
+	.burst_size_unit = 16,
+};
+
 #if defined(CONFIG_OMAP4_DSS_HDMI)
 /* HDMI OMAP4 Functions*/
 static const struct ti_hdmi_ip_ops omap4_hdmi_functions = {
@@ -560,6 +612,8 @@ void dss_features_init(void)
 		omap_current_dss_features = &omap4430_es1_0_dss_features;
 	else if (cpu_is_omap44xx())
 		omap_current_dss_features = &omap4_dss_features;
+	else if (cpu_is_omap54xx())
+		omap_current_dss_features = &omap5_dss_features;
 	else
 		DSSWARN("Unsupported OMAP version");
 }
