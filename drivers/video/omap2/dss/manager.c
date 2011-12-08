@@ -578,6 +578,13 @@ static int omap_dss_set_device(struct omap_overlay_manager *mgr,
 			return r;
 	}
 
+	if (dssdev->type == OMAP_DISPLAY_TYPE_DPI &&
+			dss_has_feature(FEAT_PARALLEL_SEL)) {
+		dss_runtime_get();
+		dss_select_dpi_manager(mgr->id);
+		dss_runtime_put();
+	}
+
 	dssdev->manager = mgr;
 	mgr->device = dssdev;
 	mgr->device_changed = true;

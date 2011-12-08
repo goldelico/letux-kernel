@@ -394,6 +394,27 @@ void dss_select_lcd_clk_source(enum omap_channel channel,
 	dss.lcd_clk_source[ix] = clk_src;
 }
 
+void dss_select_dpi_manager(enum omap_channel channel)
+{
+	int b;
+
+	switch (channel) {
+	case OMAP_DSS_CHANNEL_LCD:
+		b = 1;
+		break;
+	case OMAP_DSS_CHANNEL_DIGIT:
+		b = 0;
+		break;
+	case OMAP_DSS_CHANNEL_LCD2:
+		b = 2;
+		break;
+	default:
+		BUG();
+	}
+
+	REG_FLD_MOD(DSS_CONTROL, b, 17, 16);
+}
+
 enum omap_dss_clk_source dss_get_dispc_clk_source(void)
 {
 	return dss.dispc_clk_source;
