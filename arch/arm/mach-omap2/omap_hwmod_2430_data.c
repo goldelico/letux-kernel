@@ -963,6 +963,10 @@ static struct omap_hwmod_ocp_if *omap2430_dss_slaves[] = {
 };
 
 static struct omap_hwmod_opt_clk dss_opt_clks[] = {
+	/*
+	 * The DSS HW needs all DSS clocks enabled during reset. The dss_core
+	 * driver does not use these clocks.
+	 */
 	{ .role = "tv_clk", .clk = "dss_54m_fck" },
 	{ .role = "sys_clk", .clk = "dss2_fck" },
 };
@@ -988,7 +992,7 @@ static struct omap_hwmod omap2430_dss_core_hwmod = {
 	.masters	= omap2430_dss_masters,
 	.masters_cnt	= ARRAY_SIZE(omap2430_dss_masters),
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP2430),
-	.flags		= HWMOD_NO_IDLEST,
+	.flags		= HWMOD_NO_IDLEST | HWMOD_CONTROL_OPT_CLKS_IN_RESET,
 };
 
 /* l4_core -> dss_dispc */
