@@ -966,6 +966,7 @@ static struct omap_hwmod omap2420_dss_dispc_hwmod = {
 	.slaves_cnt	= ARRAY_SIZE(omap2420_dss_dispc_slaves),
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP2420),
 	.flags		= HWMOD_NO_IDLEST,
+	.dev_attr	= &omap2_3_dss_dispc_dev_attr
 };
 
 /* l4_core -> dss_rfbi */

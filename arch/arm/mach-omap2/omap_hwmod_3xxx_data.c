@@ -1507,6 +1507,7 @@ static struct omap_hwmod omap3xxx_dss_dispc_hwmod = {
 				CHIP_GE_OMAP3430ES2 | CHIP_IS_OMAP3630ES1 |
 				CHIP_GE_OMAP3630ES1_1),
 	.flags		= HWMOD_NO_IDLEST,
+	.dev_attr	= &omap2_3_dss_dispc_dev_attr
 };
 
 /*
