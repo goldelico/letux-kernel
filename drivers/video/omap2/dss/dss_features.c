@@ -489,7 +489,8 @@ static const struct omap_dss_features omap5_dss_features = {
 		FEAT_DSI_GNQ | FEAT_HDMI_CTS_SWMODE |
 		FEAT_HANDLE_UV_SEPARATE | FEAT_ATTR2 | FEAT_CPR |
 		FEAT_PRELOAD | FEAT_FIR_COEF_V | FEAT_ALPHA_FREE_ZORDER |
-		FEAT_PARALLEL_SEL,
+		FEAT_PARALLEL_SEL | FEAT_DSI_PLL_SELFREQDCO |
+		FEAT_DSI_PLL_REFSEL,
 
 	.num_mgrs = 3,
 	.num_ovls = 4,

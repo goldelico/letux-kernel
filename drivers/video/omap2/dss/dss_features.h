@@ -59,6 +59,8 @@ enum dss_feat_id {
 	FEAT_ALPHA_FIXED_ZORDER		= 1 << 26,
 	FEAT_ALPHA_FREE_ZORDER		= 1 << 27,
 	FEAT_PARALLEL_SEL		= 1 << 28,
+	FEAT_DSI_PLL_SELFREQDCO		= 1 << 29,
+	FEAT_DSI_PLL_REFSEL		= 1 << 30,
 };
 
 /* DSS register field id */
