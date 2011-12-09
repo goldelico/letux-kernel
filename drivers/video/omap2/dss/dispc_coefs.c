@@ -21,7 +21,7 @@
 #include <video/omapdss.h>
 #include "dispc.h"
 
-#define ARRAY_LEN(array) { sizeof(array) / sizeof(array[0]) }
+#define ARRAY_LEN(array)(sizeof(array) / sizeof(array[0]))
 
 static const struct dispc_coef coef3_M8[8] = {
 	{ 0,  0, 128,  0, 0 },
@@ -314,7 +314,7 @@ const struct dispc_coef *dispc_ovl_get_scale_coef(int inc, int five_taps)
 	 * tables are used to prevent this.
 	 */
 	{  2,  3, coef3_M11, coef5_M11 },
-	{  1,  2, coef3_M16, coef5_M16 },
+	{  1,  2, coef3_M16, coef5_M16 }
 	};
 
 	inc /= 128;
