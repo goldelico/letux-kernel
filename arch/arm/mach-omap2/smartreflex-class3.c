@@ -25,6 +25,7 @@ static int sr_class3_disable(struct voltagedomain *voltdm,
 				struct omap_volt_data *vdata,
 				int is_volt_reset)
 {
+	sr_disable_errgen(voltdm);
 	omap_vp_disable(voltdm);
 	sr_disable(voltdm);
 	if (is_volt_reset)
