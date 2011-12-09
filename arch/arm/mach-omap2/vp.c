@@ -165,7 +165,7 @@ int omap_vp_forceupdate_scale(struct voltagedomain *voltdm,
 	 * This is an additional allowance to ensure we are in proper state
 	 * to enter into forceupdate state transition.
 	 */
-	omap_test_timeout((voltdm->read(vp->vstatus)),
+	omap_test_timeout((voltdm->read(vp->vstatus) & vp->common->vstatus_vpidle),
 			VP_IDLE_TIMEOUT, timeout);
 
 	if (timeout >= VP_IDLE_TIMEOUT)
@@ -321,7 +321,7 @@ void omap_vp_disable(struct voltagedomain *voltdm)
 	 * Wait for VP idle Typical latency is <2us. Maximum latency is ~100us
 	 * Depending on if we catch VP in the middle of an SR operation.
 	 */
-	omap_test_timeout((voltdm->read(vp->vstatus)),
+	omap_test_timeout((voltdm->read(vp->vstatus) & vp->common->vstatus_vpidle),
 			VP_IDLE_TIMEOUT, timeout);
 
 	if (timeout >= VP_IDLE_TIMEOUT)
@@ -336,8 +336,8 @@ void omap_vp_disable(struct voltagedomain *voltdm)
 	/*
 	 * Wait for VP idle Typical latency is <2us. Maximum latency is ~100us
 	 */
-	omap_test_timeout((voltdm->read(vp->vstatus)),
-			  VP_IDLE_TIMEOUT, timeout);
+	omap_test_timeout((voltdm->read(vp->vstatus) & vp->common->vstatus_vpidle),
+			VP_IDLE_TIMEOUT, timeout);
 
 	if (timeout >= VP_IDLE_TIMEOUT)
 		pr_warning("%s: vdd_%s idle timedout after disable\n",
