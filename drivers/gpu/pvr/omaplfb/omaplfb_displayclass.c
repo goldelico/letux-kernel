@@ -884,6 +884,13 @@ static IMG_BOOL ProcessFlipV2(IMG_HANDLE hCmdCookie,
 {
 	struct tiler_pa_info *apsTilerPAs[5];
 	IMG_UINT32 i, k;
+	struct {
+		IMG_UINTPTR_T uiAddr;
+		IMG_UINTPTR_T uiUVAddr;
+		struct tiler_pa_info *psTilerInfo;
+	} asMemInfo[5];
+
+	memset(asMemInfo, 0, sizeof(asMemInfo));
 
 	if(ui32DssDataLength != sizeof(*psDssData))
 	{
@@ -910,34 +917,27 @@ static IMG_BOOL ProcessFlipV2(IMG_HANDLE hCmdCookie,
 		psDevInfo->sPVRJTable.pfnPVRSRVDCMemInfoGetByteSize(ppsMemInfos[i], &uByteSize);
 		ui32NumPages = (uByteSize + PAGE_SIZE - 1) >> PAGE_SHIFT;
 
-		apsTilerPAs[k] = NULL;
-
 		psDevInfo->sPVRJTable.pfnPVRSRVDCMemInfoGetCpuPAddr(ppsMemInfos[i], 0, &phyAddr);
 
-		if(psDssData->ovls[k].cfg.color_mode == OMAP_DSS_COLOR_NV12)
-		{
-#if defined(SUPPORT_NV12_FROM_2_HWADDRS)
-			BUG_ON(i + 1 >= ui32NumMemInfos);
-			psDssData->ovls[k].ba = (u32)phyAddr.uiAddr;
-
-			i++;
-			psDevInfo->sPVRJTable.pfnPVRSRVDCMemInfoGetCpuPAddr(ppsMemInfos[i], 0, &phyAddr);
-			psDssData->ovls[k].uv = (u32)phyAddr.uiAddr;
-#else
-			psDssData->ovls[k].ba = (u32)phyAddr.uiAddr;
-
-			psDevInfo->sPVRJTable.pfnPVRSRVDCMemInfoGetCpuPAddr(ppsMemInfos[i], (uByteSize * 2) / 3, &phyAddr);
-			psDssData->ovls[k].uv = (u32)phyAddr.uiAddr;
-#endif
-			continue;
-		}
-		/* check if it is a TILER buffer */
+		/* TILER buffers do not need meminfos */
 		if(is_tiler_addr((u32)phyAddr.uiAddr))
 		{
-			psDssData->ovls[k].ba = (u32)phyAddr.uiAddr;
+			asMemInfo[k].uiAddr = phyAddr.uiAddr;
+			if (tiler_fmt((u32)phyAddr.uiAddr) == TILFMT_8BIT) {
+#if defined(SUPPORT_NV12_FROM_2_HWADDRS)
+				/* NV12 buffers have 2 meminfos */
+				BUG_ON(i + 1 >= ui32NumMemInfos);
+				i++;
+				psDevInfo->sPVRJTable.pfnPVRSRVDCMemInfoGetCpuPAddr(ppsMemInfos[i], 0, &phyAddr);
+#else
+				psDevInfo->sPVRJTable.pfnPVRSRVDCMemInfoGetCpuPAddr(ppsMemInfos[i], (uByteSize * 2) / 3, &phyAddr);
+#endif
+				asMemInfo[k].uiUVAddr = phyAddr.uiAddr;
+			}
 			continue;
 		}
 
+		/* normal gralloc layer */
 		psTilerInfo = kzalloc(sizeof(*psTilerInfo), GFP_KERNEL);
 		if(!psTilerInfo)
 		{
@@ -953,7 +953,6 @@ static IMG_BOOL ProcessFlipV2(IMG_HANDLE hCmdCookie,
 
 		psTilerInfo->num_pg = ui32NumPages;
 		psTilerInfo->memtype = TILER_MEM_USING;
-
 		for(j = 0; j < ui32NumPages; j++)
 		{
 			psDevInfo->sPVRJTable.pfnPVRSRVDCMemInfoGetCpuPAddr(ppsMemInfos[i], j << PAGE_SHIFT, &phyAddr);
@@ -962,23 +961,31 @@ static IMG_BOOL ProcessFlipV2(IMG_HANDLE hCmdCookie,
 
 
 		psDevInfo->sPVRJTable.pfnPVRSRVDCMemInfoGetCpuVAddr(ppsMemInfos[i], &virtAddr);
-		psDssData->ovls[k].ba = (u32)virtAddr;
-		apsTilerPAs[k] = psTilerInfo;
+		asMemInfo[k].uiAddr = (IMG_UINTPTR_T) virtAddr;
+		asMemInfo[k].psTilerInfo = psTilerInfo;
 	}
 
-	/* set up cloned layer addresses (but don't duplicate tiler_pas) */
-	for(i = k; i < psDssData->num_ovls && i < ARRAY_SIZE(apsTilerPAs); i++)
+	for(i = 0; i < psDssData->num_ovls; i++)
 	{
-		unsigned int ix = psDssData->ovls[i].ba;
-		if(ix >= ARRAY_SIZE(apsTilerPAs))
+		unsigned int ix;
+		apsTilerPAs[i] = NULL;
+
+		if (psDssData->ovls[i].addressing != OMAP_DSS_BUFADDR_LAYER_IX)
+			continue;
+
+		/* resolve Post2 layers */
+		ix = psDssData->ovls[i].ba;
+		if (ix >= k)
 		{
-			WARN(1, "Invalid clone layer (%u); skipping all cloned layers", ix);
-			psDssData->num_ovls = k;
-			break;
+			WARN(1, "Invalid Post2 layer (%u)", ix);
+			psDssData->ovls[i].cfg.enabled = false;
+			continue;
 		}
-		apsTilerPAs[i] = apsTilerPAs[ix];
-		psDssData->ovls[i].ba = psDssData->ovls[ix].ba;
-		psDssData->ovls[i].uv = psDssData->ovls[ix].uv;
+
+		psDssData->ovls[i].addressing = OMAP_DSS_BUFADDR_DIRECT;
+		psDssData->ovls[i].ba = (u32) asMemInfo[ix].uiAddr;
+		psDssData->ovls[i].uv = (u32) asMemInfo[ix].uiUVAddr;
+		apsTilerPAs[i] = asMemInfo[ix].psTilerInfo;
 	}
 
 	dsscomp_gralloc_queue(psDssData, apsTilerPAs, false,
@@ -1171,7 +1178,7 @@ static OMAPLFB_ERROR OMAPLFBInitFBDev(OMAPLFB_DEVINFO *psDevInfo)
 			goto ErrorModPut;
 		}
 
-		psLINFBInfo->fix.smem_start = ion_phys(gpsIONClient, sAllocData.handle, &phys, &size);
+		ion_phys(gpsIONClient, sAllocData.handle, &phys, &size);
 
 		psPVRFBInfo->sSysAddr.uiAddr = phys;
 		psPVRFBInfo->sCPUVAddr = 0;
