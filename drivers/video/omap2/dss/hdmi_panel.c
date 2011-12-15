@@ -119,7 +119,8 @@ static int hdmi_panel_probe(struct omap_dss_device *dssdev)
 	dssdev->panel.timings = (struct omap_video_timings){640, 480, 25175, 96, 16, 48, 2 , 11, 31};
 
 	/* sysfs entry to provide user space control to set deepcolor mode */
-	if (device_create_file(&dssdev->dev, &dev_attr_deepcolor))
+	if (device_create_file(&dssdev->dev, &dev_attr_deepcolor) ||
+	    device_create_file(&dssdev->dev, &dev_attr_hdmi_timings))
 		DSSERR("failed to create sysfs file\n");
 
 	DSSDBG("hdmi_panel_probe x_res= %d y_res = %d\n",
@@ -132,6 +133,7 @@ static void hdmi_panel_remove(struct omap_dss_device *dssdev)
 {
 	device_remove_file(&dssdev->dev, &dev_attr_deepcolor);
 	device_remove_file(&dssdev->dev, &dev_attr_range);
+	device_remove_file(&dssdev->dev, &dev_attr_hdmi_timings);
 }
 
 static int hdmi_panel_enable(struct omap_dss_device *dssdev)

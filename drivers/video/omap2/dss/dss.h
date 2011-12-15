@@ -496,6 +496,8 @@ static inline unsigned long hdmi_get_pixel_clock(void)
 	return 0;
 }
 #endif
+
+extern struct device_attribute dev_attr_hdmi_timings;
 int omapdss_hdmi_display_enable(struct omap_dss_device *dssdev);
 void omapdss_hdmi_display_disable(struct omap_dss_device *dssdev);
 void omapdss_hdmi_display_set_timing(struct omap_dss_device *dssdev);
