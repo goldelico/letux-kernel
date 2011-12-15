@@ -203,6 +203,10 @@ void hdmi_get_monspecs(struct fb_monspecs *specs)
 	int i, j;
 	char *edid = (char *) hdmi.edid;
 	u32 fclk = dispc_fclk_rate() / 1000;
+	u32 max_pclk = hdmi.dssdev->clocks.hdmi.max_pixclk_khz;
+
+	if (max_pclk && max_pclk < fclk)
+		fclk = max_pclk;
 
 	memset(specs, 0x0, sizeof(*specs));
 	if (!hdmi.edid_set)
@@ -1218,6 +1222,8 @@ static int omapdss_hdmihw_remove(struct platform_device *pdev)
 #endif
 
 	free_irq(gpio_to_irq(hdmi.dssdev->hpd_gpio), hpd_irq_handler);
+
+	hdmi.dssdev = NULL;
 
 	pm_runtime_disable(&pdev->dev);
 
