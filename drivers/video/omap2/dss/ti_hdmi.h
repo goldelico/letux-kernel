@@ -21,6 +21,8 @@
 #ifndef _TI_HDMI_H
 #define _TI_HDMI_H
 
+#include <linux/fb.h>
+
 struct hdmi_ip_data;
 
 enum hdmi_pll_pwr {
@@ -84,33 +86,13 @@ struct hdmi_s3d_info {
 	bool vsi_enabled;
 };
 
-struct hdmi_video_timings {
-	u16 x_res;
-	u16 y_res;
-	/* Unit: KHz */
-	u32 pixel_clock;
-	u16 hsw;
-	u16 hfp;
-	u16 hbp;
-	u16 vsw;
-	u16 vfp;
-	u16 vbp;
-};
-
-/* HDMI timing structure */
-struct hdmi_timings {
-	struct hdmi_video_timings timings;
-	int vsync_pol;
-	int hsync_pol;
-};
-
 struct hdmi_cm {
 	int	code;
 	int	mode;
 };
 
 struct hdmi_config {
-	struct hdmi_timings timings;
+	struct fb_videomode timings;
 	u16	interlace;
 	struct hdmi_cm cm;
 	bool s3d_enabled;

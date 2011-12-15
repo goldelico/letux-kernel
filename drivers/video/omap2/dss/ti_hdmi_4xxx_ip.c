@@ -28,6 +28,7 @@
 #include <linux/delay.h>
 #include <linux/string.h>
 #include <linux/seq_file.h>
+#include <linux/omapfb.h>
 
 #include "ti_hdmi_4xxx_ip.h"
 #include "dss.h"
@@ -235,8 +236,9 @@ int ti_hdmi_4xxx_phy_poweron(struct hdmi_ip_data *ip_data)
 {
 	u16 r = 0;
 	void __iomem *phy_base = hdmi_phy_base(ip_data);
-	unsigned long pclk = ip_data->cfg.timings.timings.pixel_clock;
+	unsigned long pclk = ip_data->cfg.timings.pixclock;
 	u16 freqout = 1;
+	pclk = pclk ? PICOS2KHZ(pclk) : 0;
 
 	r = hdmi_set_phy_pwr(ip_data, HDMI_PHYPWRCMD_LDOON);
 
@@ -740,15 +742,9 @@ void hdmi_wp_video_init_format(struct hdmi_video_format *video_fmt,
 {
 	pr_debug("Enter hdmi_wp_video_init_format\n");
 
-	video_fmt->y_res = param->timings.timings.y_res;
-	video_fmt->x_res = param->timings.timings.x_res;
-
-	timings->hbp = param->timings.timings.hbp;
-	timings->hfp = param->timings.timings.hfp;
-	timings->hsw = param->timings.timings.hsw;
-	timings->vbp = param->timings.timings.vbp;
-	timings->vfp = param->timings.timings.vfp;
-	timings->vsw = param->timings.timings.vsw;
+	video_fmt->y_res = param->timings.yres;
+	video_fmt->x_res = param->timings.xres;
+	omapfb_fb2dss_timings(&param->timings, timings);
 }
 
 void hdmi_wp_video_config_format(struct hdmi_ip_data *ip_data,
@@ -866,9 +862,12 @@ void ti_hdmi_4xxx_basic_configure(struct hdmi_ip_data *ip_data)
 
 	hdmi_wp_video_config_format(ip_data, &video_format);
 
-	video_interface.vsp = cfg->timings.vsync_pol;
-	video_interface.hsp = cfg->timings.hsync_pol;
-	video_interface.interlacing = cfg->interlace;
+	video_interface.vsp =
+		!!(cfg->timings.sync & FB_SYNC_VERT_HIGH_ACT);
+	video_interface.hsp =
+		!!(cfg->timings.sync & FB_SYNC_HOR_HIGH_ACT);
+	video_interface.interlacing =
+		!!(cfg->timings.vmode & FB_VMODE_INTERLACED);
 	video_interface.tm = 1 ; /* HDMI_TIMING_MASTER_24BIT */
 
 	hdmi_wp_video_config_interface(ip_data, &video_interface);
