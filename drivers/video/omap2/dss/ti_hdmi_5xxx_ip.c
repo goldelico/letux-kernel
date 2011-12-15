@@ -127,7 +127,7 @@ static void hdmi_core_ddc_init(struct hdmi_ip_data *ip_data)
 static int hdmi_core_ddc_edid(struct hdmi_ip_data *ip_data,
 					u8 *pedid, int ext)
 {
-	u8 cur_addr = 0;
+	u32 cur_addr = 0;
 	char checksum = 0;
 	void __iomem *core_sys_base = hdmi_core_sys_base(ip_data);
 
@@ -142,7 +142,7 @@ static int hdmi_core_ddc_edid(struct hdmi_ip_data *ip_data,
 	 * Ideally the read has to be based on the done interrupt and
 	 * status which is not received thus it is ignored for now
 	 */
-	while (cur_addr < 128) {
+	while (cur_addr < (256)) {
 	#if 0
 		if (hdmi_wait_for_bit_change(HDMI_CORE_I2CM_INT,
 						0, 0, 1) != 1) {
@@ -176,16 +176,15 @@ int ti_hdmi_5xxx_read_edid(struct hdmi_ip_data *ip_data,
 	if (r)
 		return r;
 
-	l = 128;
+	l = 256;
 
-	if (len >= 128 * 2 && edid[0x7e] > 0) {
+	if (len > 128 * 2 && edid[0x7e] > 0) {
 		r = hdmi_core_ddc_edid(ip_data, edid + 0x80, 1);
 		if (r)
 			return r;
 		l += 128;
 	}
-
-	return l;
+	return 0;
 }
 void ti_hdmi_5xxx_core_dump(struct hdmi_ip_data *ip_data, struct seq_file *s)
 {
@@ -250,8 +249,6 @@ static void hdmi_core_init(struct hdmi_core_vid_config *video_cfg,
 			struct hdmi_core_infoframe_avi *avi_cfg,
 			struct hdmi_config *cfg)
 {
-	printk(KERN_INFO "Enter hdmi_core_init\n");
-
 	/* video core */
 	video_cfg->data_enable_pol = 1; /* It is always 1*/
 	video_cfg->v_fc_config.timings.hsync_pol =
