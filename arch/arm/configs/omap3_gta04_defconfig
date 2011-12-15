@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32
-# Sun Dec 11 17:55:45 2011
+# Thu Dec 15 21:40:51 2011
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -1216,6 +1216,8 @@ CONFIG_SERIAL_8250_RSA=y
 # CONFIG_SERIAL_MAX3100 is not set
 CONFIG_SERIAL_CORE=y
 CONFIG_SERIAL_CORE_CONSOLE=y
+CONFIG_SERIAL_OMAP=y
+# CONFIG_SERIAL_OMAP_CONSOLE is not set
 CONFIG_UNIX98_PTYS=y
 # CONFIG_DEVPTS_MULTIPLE_INSTANCES is not set
 # CONFIG_LEGACY_PTYS is not set
