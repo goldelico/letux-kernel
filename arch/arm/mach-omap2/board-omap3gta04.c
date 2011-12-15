@@ -97,24 +97,33 @@ static struct omap_opp * _omap37x_l3_rate_table         = NULL;
 
 #define NAND_BLOCK_SIZE		SZ_128K
 
-#define TWL4030_MSECURE_GPIO 22
+/* definitions of some GPIOs */
 
-/* see: https://patchwork.kernel.org/patch/120449/
+#define AUX_BUTTON_GPIO	7
+#define TWL4030_MSECURE_GPIO 22
+#define TS_PENIRQ_GPIO		160
+
+/*
+ This interrupt line is pulsed by the UMTS modem
+ on an incoming call or SMS and is intended to wake
+ up the CPU.
+ For testing purposes we just assume the CPU isn't
+ suspended at all and can catch the interrupt.
+ For a fully optimized system the CPU should go
+ to sleep as often as possible and the power management
+ should be configured that either this WO3G_GPIO,
+ or a TS_PENIRQ_GPIO or the AUX, Power Button or USB
+ event can wake up.
+ Maybe, the type of the wakup event should be notified
+ to user space.
+ */
+
+#define WO3G_GPIO	(gta04_version >= 4 ? 10 : 176)	/* changed on A4 boards */
+
+/* compare with: https://patchwork.kernel.org/patch/120449/
  * OMAP3 gta04 revision
  * Run time detection of gta04 revision is done by reading GPIO.
- * GPIO ID -
- *	AXBX	= GPIO173, GPIO172, GPIO171: 1 1 1
- *	C1_3	= GPIO173, GPIO172, GPIO171: 1 1 0
- *	C4	= GPIO173, GPIO172, GPIO171: 1 0 1
- *	XM	= GPIO173, GPIO172, GPIO171: 0 0 0
  */
-enum {
-	gta04_BOARD_UNKN = 0,
-	gta04_BOARD_AXBX,
-	gta04_BOARD_C1_3,
-	gta04_BOARD_C4,
-	gta04_BOARD_XM,
-};
 
 static u8 gta04_version;	/* counts 2..9 */
 
@@ -739,8 +748,6 @@ static struct platform_device gta04_w2cbw003_codec_audio_device = {
 
 /* TouchScreen */
 
-#define TS_PENIRQ_GPIO		160	// GPIO pin
-
 static int ts_get_pendown_state(void)
 {
 	int val;
@@ -1085,13 +1092,15 @@ static void __init gta04fpga_init_spi(void)
 #endif
 
 static struct gpio_keys_button gpio_buttons[] = {
+#if 1
 	{
 		.code			= KEY_PHONE,
-		.gpio			= 7,
+		.gpio			= AUX_BUTTON_GPIO,
 		.desc			= "AUX",
 		.debounce_interval = 20,
 		.wakeup			= 1,
 	},
+#endif
 #if 0
 	{ /* this is a dummy entry because evdev wants to see at least one keycode in the range 0 .. 0xff to recognize a keyboard */
 		.code			= KEY_POWER,	/* our real power button is controlled by the twl4030_powerbutton driver */
@@ -1282,6 +1291,52 @@ static struct omap_board_mux board_mux[] __initdata = {
 #define board_mux	NULL
 #endif
 
+#if 0	/* use AUX button for testing if the interrupt handler works */
+#undef WO3G_GPIO
+#define WO3G_GPIO	AUX_BUTTON_GPIO
+#endif
+
+static irqreturn_t wake_3G_irq(int irq, void *handle)
+{
+	printk("3G Wakeup\n");
+/*	schedule_work(&work); */	
+	return IRQ_HANDLED;
+}
+
+static int __init wake_3G_init(void)
+{
+#if defined(CONFIG_SND_SOC_GTM601)	// should be a separate config
+	int err;
+	
+	printk("wake_3G_init() for GPIO %d\n", WO3G_GPIO);
+
+	omap_mux_init_gpio(WO3G_GPIO, OMAP_PIN_INPUT);
+	if (gpio_request(WO3G_GPIO, "3G_wakeup")) {
+		printk(KERN_ERR "Failed to request GPIO %d for "
+			   "3G Wakeup IRQ\n", WO3G_GPIO);
+		return  -ENODEV;
+	}
+	
+	if (gpio_direction_input(WO3G_GPIO)) {
+		printk(KERN_WARNING "GPIO#%d cannot be configured as "
+			   "input\n", WO3G_GPIO);
+		return -ENXIO;
+	}
+	gpio_export(WO3G_GPIO, 0);
+	omap_set_gpio_debounce(WO3G_GPIO, 1);
+	omap_set_gpio_debounce_time(WO3G_GPIO, 0xa);	// means (10+1)x31 us
+	set_irq_type(OMAP_GPIO_IRQ(WO3G_GPIO), IRQ_TYPE_EDGE_RISING);
+	
+	err = request_irq(OMAP_GPIO_IRQ(WO3G_GPIO), wake_3G_irq, 0,
+					  "wake_3G", NULL /* handle */);
+	if (err < 0) {
+		printk(KERN_WARNING "irq %d busy?\n", OMAP_GPIO_IRQ(WO3G_GPIO));
+		return err;
+	}
+	return 0;	
+#endif
+}
+
 static void __init gta04_init(void)
 {
 	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);
@@ -1355,6 +1410,7 @@ static void __init gta04_init(void)
 	
 	gta04_display_init();
 	regulator_has_full_constraints();
+	wake_3G_init();
 }
 
 static void __init gta04_map_io(void)
