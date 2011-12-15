@@ -597,6 +597,8 @@ struct omap_dss_device {
 		enum omap_dss_dsi_pixel_format dsi_pix_fmt;
 		enum omap_dss_dsi_mode dsi_mode;
 		struct omap_dss_dsi_videomode_data dsi_vm_data;
+		u32 width_in_um;
+		u32 height_in_um;
 		struct s3d_disp_info s3d_info;
 	} panel;
 
@@ -719,6 +721,9 @@ int omap_dispc_wait_for_irq_interruptible_timeout(u32 irqmask,
 
 #define to_dss_driver(x) container_of((x), struct omap_dss_driver, driver)
 #define to_dss_device(x) container_of((x), struct omap_dss_device, dev)
+
+void omapdss_display_get_dimensions(struct omap_dss_device *dssdev,
+				u32 *width_in_um, u32 *height_in_um);
 
 void omapdss_dsi_vc_enable_hs(struct omap_dss_device *dssdev, int channel,
 		bool enable);
