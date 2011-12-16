@@ -22,7 +22,8 @@ ccflags-y += \
 	-DSUPPORT_DC_CMDCOMPLETE_WHEN_NO_LONGER_DISPLAYED \
 	-DSUPPORT_LARGE_GENERAL_HEAP \
 	-DPVR_NO_OMAP_TIMER \
-	-DSYS_SUPPORTS_SGX_IDLE_CALLBACK
+	-DSYS_SUPPORTS_SGX_IDLE_CALLBACK \
+	-DPVRSRV_REFCOUNT_DEBUG
 
 ccflags-$(CONFIG_PVR_SGXCORE_544) += \
 	-Idrivers/gpu/pvr/omap5 \
@@ -100,6 +101,7 @@ pvrsrvkm-y := \
 	bridged_pvr_bridge.o \
 	perproc.o \
 	lists.o \
+	refcount.o \
 	sgx/bridged_sgx_bridge.o \
 	sgx/sgxinit.o \
 	sgx/sgxpower.o \

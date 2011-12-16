@@ -831,9 +831,6 @@ static IMG_BOOL ProcessFlipV1(IMG_HANDLE hCmdCookie,
 	{
 		psBuffer->hCmdComplete = (OMAPLFB_HANDLE)hCmdCookie;
 		psBuffer->ulSwapInterval = ulSwapInterval;
-#if defined(NO_HARDWARE)
-		psDevInfo->sPVRJTable.pfnPVRSRVCmdComplete((IMG_HANDLE)psBuffer->hCmdComplete, IMG_FALSE);
-#else
 #if defined(CONFIG_DSSCOMP)
 		if (is_tiler_addr(psBuffer->sSysAddr.uiAddr))
 		{
@@ -869,7 +866,6 @@ static IMG_BOOL ProcessFlipV1(IMG_HANDLE hCmdCookie,
 		{
 			OMAPLFBQueueBufferForSwap(psSwapChain, psBuffer);
 		}
-#endif
 	}
 
 	OMAPLFBCreateSwapChainUnLock(psDevInfo);
