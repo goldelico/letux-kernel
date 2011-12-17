@@ -518,7 +518,10 @@ asmlinkage void __init start_kernel(void)
 {
 	char * command_line;
 	extern struct kernel_param __start___param[], __stop___param[];
-
+#if defined(CONFIG_DEBUG_LL)
+	extern printascii(char *str);
+	printascii("start_kernel - DEBUG_LL enabled\n");
+#endif
 	smp_setup_processor_id();
 
 	/*

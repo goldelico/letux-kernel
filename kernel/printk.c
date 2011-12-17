@@ -515,8 +515,8 @@ static void call_console_drivers(unsigned start, unsigned end)
 
 static void emit_log_char(char c)
 {
-#if 0
-	{ // print immediately
+#if defined(CONFIG_DEBUG_LL)
+	{ // print immediately bypassing the buffer
 		char buf[2]={c, 0};
 		extern void printascii(char *str);
 		printascii(buf);
