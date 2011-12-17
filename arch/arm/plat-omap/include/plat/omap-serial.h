@@ -23,7 +23,7 @@
 #include <plat/control.h>
 #include <plat/mux.h>
 
-#define DRIVER_NAME	"omap-hsuart"
+#define DRIVER_NAME	"omap-uart"
 
 /*
  * Use tty device name as ttyO, [O -> OMAP]
@@ -70,12 +70,21 @@
 #define MSR_SAVE_FLAGS		UART_MSR_ANY_DELTA
 
 struct omap_uart_port_info {
-	bool			dma_enabled;	/* To specify DMA Mode */
-	unsigned int		uartclk;	/* UART clock rate */
+	unsigned long	__iobase;		/* io base address */
 	void __iomem		*membase;	/* ioremap cookie or NULL */
 	resource_size_t		mapbase;	/* resource base */
+	unsigned int	__irq;		/* interrupt number */
 	unsigned long		irqflags;	/* request_irq flags */
+	unsigned int		uartclk;	/* UART clock rate */
+	void            *__private_data;
+	unsigned char	__regshift;	/* register shift */
+	unsigned char	__iotype;		/* UPIO_* */
+	unsigned char	__hub6;
 	upf_t			flags;		/* UPF_* flags */
+	unsigned int	__type;		/* If UPF_FIXED_TYPE */
+	unsigned int	(*__serial_in)(struct uart_port *, int);
+	void		(*__serial_out)(struct uart_port *, int, int);
+	bool			dma_enabled;	/* To specify DMA Mode */
 };
 
 struct uart_omap_dma {
