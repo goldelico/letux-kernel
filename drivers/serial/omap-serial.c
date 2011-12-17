@@ -818,10 +818,21 @@ serial_omap_pm(struct uart_port *port, unsigned int state,
 {
 	struct uart_omap_port *up = (struct uart_omap_port *)port;
 	unsigned char efr;
-
+/*
+	printk("up=%p\n", up);
+	printk("up->port.dev=%p\n", up->port.dev);
+	printk("up->pdev=%p\n", up->pdev);
+	printk("up->pdev->id=%d\n", up->pdev->id);
+ */
 	dev_dbg(up->port.dev, "serial_omap_pm+%d\n", up->pdev->id);
+//	printk("1\n");
+//	printk("up->port.regshift=%u\n", up->port.regshift);
+//	printk("up->port.membase=%p\n", up->port.membase);
+
 	serial_out(up, UART_LCR, OMAP_UART_LCR_CONF_MDB);
+//	printk("2\n");
 	efr = serial_in(up, UART_EFR);
+//	printk("3\n");
 	serial_out(up, UART_EFR, efr | UART_EFR_ECB);
 	serial_out(up, UART_LCR, 0);
 
@@ -829,6 +840,7 @@ serial_omap_pm(struct uart_port *port, unsigned int state,
 	serial_out(up, UART_LCR, OMAP_UART_LCR_CONF_MDB);
 	serial_out(up, UART_EFR, efr);
 	serial_out(up, UART_LCR, 0);
+//	printk("4\n");
 }
 
 static void serial_omap_release_port(struct uart_port *port)
@@ -1222,18 +1234,21 @@ static int serial_omap_probe(struct platform_device *pdev)
 
 	dma_rx = platform_get_resource_byname(pdev, IORESOURCE_DMA, "rx");
 	if (!dma_rx) {
+		dev_err(&pdev->dev, "rx DMA invalid\n");
 		ret = -EINVAL;
 		goto err;
 	}
 
 	dma_tx = platform_get_resource_byname(pdev, IORESOURCE_DMA, "tx");
 	if (!dma_tx) {
+		dev_err(&pdev->dev, "tx DMA invalid\n");
 		ret = -EINVAL;
 		goto err;
 	}
 
 	up = kzalloc(sizeof(*up), GFP_KERNEL);
 	if (up == NULL) {
+		dev_err(&pdev->dev, "no memory\n");
 		ret = -ENOMEM;
 		goto do_release_region;
 	}
@@ -1249,8 +1264,14 @@ static int serial_omap_probe(struct platform_device *pdev)
 	up->port.ops = &serial_omap_pops;
 	up->port.line = pdev->id;
 
-	up->port.membase = omap_up_info->membase;
-	up->port.mapbase = omap_up_info->mapbase;
+	/* see http://www.mail-archive.com/linux-omap@vger.kernel.org/msg58487.html */
+	up->port.mapbase = mem->start;
+	up->port.membase = ioremap(mem->start, resource_size(mem));
+	if (!up->port.membase) {
+		dev_err(&pdev->dev, "can't ioremap UART\n");
+		ret = -ENOMEM;
+		goto err;
+		}
 	up->port.flags = omap_up_info->flags;
 	up->port.irqflags = omap_up_info->irqflags;
 	up->port.uartclk = omap_up_info->uartclk;
@@ -1273,7 +1294,8 @@ static int serial_omap_probe(struct platform_device *pdev)
 
 	ret = uart_add_one_port(&serial_omap_reg, &up->port);
 	if (ret != 0)
-		goto do_release_region;
+		//	goto do_release_region;
+		goto err;
 
 	platform_set_drvdata(pdev, up);
 	return 0;
