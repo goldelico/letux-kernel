@@ -24,6 +24,11 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 
+#ifdef CONFIG_SERIAL_OMAP
+#include <plat/omap-serial.h>
+#include <plat/dma.h>
+#endif
+
 #include <plat/common.h>
 #include <plat/board.h>
 #include <plat/clock.h>
@@ -125,6 +130,7 @@ static struct plat_serial8250_port serial_platform_data3[] = {
 	}
 };
 #endif
+
 static inline unsigned int serial_read_reg(struct plat_serial8250_port *up,
 					   int offset)
 {
@@ -537,7 +543,11 @@ static inline void omap_uart_idle_init(struct omap_uart_state *uart) {}
 static struct omap_uart_state omap_uart[] = {
 	{
 		.pdev = {
+#if defined(CONFIG_SERIAL_OMAP)
+			.name			= "omap-uart",
+#else
 			.name			= "serial8250",
+#endif
 			.id			= PLAT8250_DEV_PLATFORM,
 			.dev			= {
 				.platform_data	= serial_platform_data0,
@@ -545,7 +555,11 @@ static struct omap_uart_state omap_uart[] = {
 		},
 	}, {
 		.pdev = {
+#if defined(CONFIG_SERIAL_OMAP)
+			.name			= "omap-uart",
+#else
 			.name			= "serial8250",
+#endif
 			.id			= PLAT8250_DEV_PLATFORM1,
 			.dev			= {
 				.platform_data	= serial_platform_data1,
@@ -553,7 +567,11 @@ static struct omap_uart_state omap_uart[] = {
 		},
 	}, {
 		.pdev = {
+#if defined(CONFIG_SERIAL_OMAP)
+			.name			= "omap-uart",
+#else
 			.name			= "serial8250",
+#endif
 			.id			= PLAT8250_DEV_PLATFORM2,
 			.dev			= {
 				.platform_data	= serial_platform_data2,
@@ -663,19 +681,157 @@ void __init omap_serial_init_port(int port)
 	struct platform_device *pdev;
 	struct device *dev;
 
+//	printk("omap_serial_init_port(%d)\n", port);
+
 	BUG_ON(port < 0);
 	BUG_ON(port >= ARRAY_SIZE(omap_uart));
 
 	uart = &omap_uart[port];
 	pdev = &uart->pdev;
 	dev = &pdev->dev;
+//	printk("  pdev->name=%s\n", pdev->name);
+//	printk("  pdev->id=%d\n", pdev->id);
+	if(strcmp(pdev->name, "omap-uart") == 0)
+		{ /* replace platform data for this port */
+		static struct omap_uart_port_info uart_platform_data[] = {
+			{
+			.dma_enabled = 1,	/* To specify DMA Mode */
+			.uartclk	= OMAP24XX_BASE_BAUD * 16,	/* UART clock rate */
+//			.membase	= NULL,	/* ioremap cookie or NULL */
+//			.mapbase	= OMAP_UART1_BASE,	/* resource base */
+			.irqflags	= IRQF_SHARED,	/* request_irq flags */
+			.flags		= UPF_BOOT_AUTOCONF | UPF_SHARE_IRQ,		/* UPF_* flags */
+//			.rx_dma_bufsize	= 4096,
+//			.rx_timeout	= 1,
+			},
+			{
+			.dma_enabled = 1,	/* To specify DMA Mode */
+			.uartclk	= OMAP24XX_BASE_BAUD * 16,	/* UART clock rate */
+//			.membase	= NULL,	/* ioremap cookie or NULL */
+//			.mapbase	= OMAP_UART2_BASE,	/* resource base */
+			.irqflags	= IRQF_SHARED,	/* request_irq flags */
+			.flags		= UPF_BOOT_AUTOCONF | UPF_SHARE_IRQ,		/* UPF_* flags */
+//			.rx_dma_bufsize	= 4096,
+//			.rx_timeout	= 1,
+			},
+			{
+			.dma_enabled = 1,	/* To specify DMA Mode */
+			.uartclk	= OMAP24XX_BASE_BAUD * 16,	/* UART clock rate */
+//			.membase	= NULL,	/* ioremap cookie or NULL */
+//			.mapbase	= OMAP_UART3_BASE,	/* resource base */
+			.irqflags	= IRQF_SHARED,	/* request_irq flags */
+			.flags		= UPF_BOOT_AUTOCONF | UPF_SHARE_IRQ,		/* UPF_* flags */
+//			.rx_dma_bufsize	= 4096,
+//			.rx_timeout	= 1,
+			}
+		};
+			
+			static struct resource omap2_uart1_resources[] = {
+				{
+					.start = OMAP_UART1_BASE,
+					.end = OMAP_UART1_BASE + 0x3ff,
+					.flags = IORESOURCE_MEM,
+					.name	 = "mem",
+				}, {
+					/* UART1 IRQ - 72*/
+					.start = INT_24XX_UART1_IRQ,
+					.flags = IORESOURCE_IRQ,
+					.name	 = "irq",
+				}, {
+					/* UART1 TX DMA CHANNEL -S_DMA_48- */
+					.start	 = OMAP24XX_DMA_UART1_TX,
+					.flags	 = IORESOURCE_DMA,
+					.name	 = "tx",
+				}, {
+					/* UART1 RX DMA CHANNEL -S_DMA_49- */
+					.start	 = OMAP24XX_DMA_UART1_RX,
+					.flags	 = IORESOURCE_DMA,
+					.name	 = "rx",
+				}
+			};
+			
+			static struct resource omap2_uart2_resources[] = {
+				{
+					.start = OMAP_UART2_BASE,
+					.end = OMAP_UART2_BASE + 0x3ff,
+					.flags = IORESOURCE_MEM,
+					.name	 = "mem",
+				}, {
+					/* UART2 IRQ - 73*/
+					.start = INT_24XX_UART2_IRQ,
+					.flags = IORESOURCE_IRQ,
+					.name	 = "irq",
+				}, {
+					/* UART2 TX DMA CHANNEL -S_DMA_50- */
+					.start	 = OMAP24XX_DMA_UART2_TX,
+					.flags	 = IORESOURCE_DMA,
+					.name	 = "tx",
+				}, {
+					/* UART2 RX DMA CHANNEL -S_DMA_51- */
+					.start	 = OMAP24XX_DMA_UART2_RX,
+					.flags	 = IORESOURCE_DMA,
+					.name	 = "rx",
+				}
+			};
+			
+			static struct resource omap2_uart3_resources[] = {
+				{
+					.start = OMAP_UART3_BASE,
+					.end = OMAP_UART3_BASE + 0x3ff,
+					.flags = IORESOURCE_MEM,
+					.name	 = "mem",
+				}, {
+					/* UART3 IRQ - 74*/
+					.start = INT_24XX_UART3_IRQ,
+					.flags = IORESOURCE_IRQ,
+					.name	 = "irq",
+				}, {
+					/* UART3 TX DMA CHANNEL -S_DMA_52- */
+					.start	 = OMAP24XX_DMA_UART3_TX,
+					.flags	 = IORESOURCE_DMA,
+					.name	 = "tx",
+				}, {
+					/* UART3 RX DMA CHANNEL -S_DMA_53- */
+					.start	 = OMAP24XX_DMA_UART3_RX,
+					.flags	 = IORESOURCE_DMA,
+					.name	 = "rx",
+				}
+			};
 
-	omap_uart_enable_clocks(uart);
-
-	omap_uart_reset(uart);
-	omap_uart_idle_init(uart);
+			switch(port) {
+				case 0:
+					pdev->resource=omap2_uart1_resources;
+					pdev->num_resources=ARRAY_SIZE(omap2_uart1_resources);
+					break;
+				case 1:
+					pdev->resource=omap2_uart2_resources;
+					pdev->num_resources=ARRAY_SIZE(omap2_uart2_resources);
+					break;
+				case 2:
+					pdev->resource=omap2_uart3_resources;
+					pdev->num_resources=ARRAY_SIZE(omap2_uart3_resources);
+					break;
+			}
+			pdev->dev.platform_data = &uart_platform_data[port];
+		}
+/*
+	printk("  uart=%p\n", uart);
+	printk("  uart->pdev=%p\n", pdev);
+	printk("  uart->pdev.resources=%p\n", pdev->resource);
+	printk("  uart->pdev.num_resources=%u\n", pdev->num_resources);
+	printk("  uart->pdev.dev=%p\n", dev);
+	
+	printk("omap_uart_enable_clocks(%p)\n", uart);
+ */
+	omap_uart_enable_clocks(uart);		
+//	printk("omap_uart_reset(%p)\n", uart);
+	omap_uart_reset(uart);	// 8250 only
+//	printk("omap_uart_idle_init(%p)\n", uart);
+	omap_uart_idle_init(uart);		
 
 	list_add_tail(&uart->node, &uart_list);
+
+//	printk("  pdev->name=%s\n", pdev->name);
 
 	if (WARN_ON(platform_device_register(pdev)))
 		return;
@@ -695,6 +851,7 @@ void __init omap_serial_init_port(int port)
 		else if ((serial_read_reg(uart->p, UART_OMAP_MVER) & 0xFF)
 				>= UART_OMAP_NO_EMPTY_FIFO_READ_IP_REV)
 			uart->p->serial_in = serial_in_override;
+//	printk("  done\n");
 }
 
 /**
