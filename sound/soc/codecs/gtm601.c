@@ -42,7 +42,8 @@ struct snd_soc_dai_driver gtm601_dai = {
 		.channels_min = 1,	// CHECKME
 		.channels_max = 1,
 		.rates = GTM601_RATES,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,	/* this is the only format the omap-mcbsp-dai understands */
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,	/* this is the only format the
+							 * omap-mcbsp-dai understands */
 		},
 	.capture = {
 		.stream_name = "Capture",
@@ -52,50 +53,17 @@ struct snd_soc_dai_driver gtm601_dai = {
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,
 	},
 };
-EXPORT_SYMBOL_GPL(gtm601_dai);
 
-static int gtm601_soc_probe(struct snd_soc_codec *codec)
-{
-	int ret = 0;
-
-	/* register pcms */
-	ret = snd_soc_new_ac97_codec(codec, &soc_ac97_ops, 0);
-	if (ret < 0)
-		printk(KERN_ERR "gtm601: failed to create pcms\n");
-	return ret;
-}
-
-static int gtm601_soc_remove(struct snd_soc_codec *codec)
-{
-	if (codec == NULL)
-		return 0;
-	snd_soc_free_ac97_codec(codec);
-	return 0;
-}
-
-struct snd_soc_codec_driver soc_codec_dev_gtm601 = {
-	.probe = 	gtm601_soc_probe,
-	.remove = 	gtm601_soc_remove,
-// 	.reg_cache_size = ARRAY_SIZE(ad1980_reg),
-// 	.reg_word_size = sizeof(u16),
-// 	.reg_cache_step = 2,
-// 	.write = ac97_write,
-// 	.read = ac97_read,
-};
-EXPORT_SYMBOL_GPL(soc_codec_dev_gtm601);
-
+struct snd_soc_codec_driver soc_codec_dev_gtm601;
 
 static __devinit int gtm601_platform_probe(struct platform_device *pdev)
 {
-// 	gtm601_dai.dev = &pdev->dev;
-// 	return snd_soc_register_dai(&gtm601_dai);
 	return snd_soc_register_codec(&pdev->dev,
 			&soc_codec_dev_gtm601, &gtm601_dai, 1);
 }
 
 static int __devexit gtm601_platform_remove(struct platform_device *pdev)
 {
-// 	snd_soc_unregister_dai(&gtm601_dai);
 	snd_soc_unregister_codec(&pdev->dev);
 	return 0;
 }

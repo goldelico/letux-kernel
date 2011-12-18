@@ -22,6 +22,7 @@
 
 #include <linux/clk.h>
 #include <linux/platform_device.h>
+#include <linux/module.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/soc.h>
@@ -135,13 +136,14 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	 */
 };
 
-static int omap3gta04_init(struct snd_soc_codec *codec)
+static int omap3gta04_init(struct snd_soc_pcm_runtime *runtime)
 {
 	int ret;
+	struct snd_soc_codec *codec = runtime->codec;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	
 	ret = snd_soc_dapm_new_controls(dapm, gta04_dapm_widgets,
-									ARRAY_SIZE(gta04_dapm_widgets));
+					ARRAY_SIZE(gta04_dapm_widgets));
 	if (ret < 0)
 		return ret;
 	
@@ -179,30 +181,23 @@ static struct snd_soc_ops omap3gta04_ops = {
 };
 
 /* Digital audio interface glue - connects codec <--> CPU */
-static struct snd_soc_dai_link omap3gta04_dai[] = {
-	{
+static struct snd_soc_dai_link omap3gta04_dai = {
 		.name = "TWL4030",
 		.stream_name = "TWL4030",
 		.cpu_dai_name	= "omap-mcpdm-dai.0",
+		.platform_name = "omap-pcm-audio",
 		.codec_dai_name = "twl4030-hifi",
 		.ops = &omap3gta04_ops,
 		.init = &omap3gta04_init
-	}
 };
 
 /* Audio machine driver */
 static struct snd_soc_card snd_soc_omap3gta04 = {
 	.name = "gta04",
-// 	.platform = &omap_soc_platform,
-	.dai_link = &omap3gta04_dai[0],
-	.num_links = ARRAY_SIZE(omap3gta04_dai),
+	.owner = THIS_MODULE,
+	.dai_link = &omap3gta04_dai,
+	.num_links = 1,
 };
-
-/* Audio subsystem */
-/*static struct snd_soc_driver omap3gta04_snd_devdata = {
-	.card = &snd_soc_omap3gta04,
-	.codec_dev = &soc_codec_dev_twl4030,
-};*/
 
 static struct platform_device *omap3gta04_snd_device;
 
@@ -210,10 +205,12 @@ static int __init omap3gta04_soc_init(void)
 {
 	int ret;
 
-/*	if (!machine_is_gta04() && !machine_is_omap3_gta04()) {
+#if 0
+	if (!machine_is_gta04() && !machine_is_omap3_gta04()) {
 		pr_debug("Not GTA04!\n");
 		return -ENODEV;
-	}*/
+	}
+#endif
 	pr_info("GTA04 OMAP3 SoC snd init\n");
 	
 	// FIXME: set any GPIOs i.e. enable Audio in/out switch
@@ -226,8 +223,7 @@ static int __init omap3gta04_soc_init(void)
 	}
 
 	platform_set_drvdata(omap3gta04_snd_device, &snd_soc_omap3gta04);
-// 	omap3gta04_snd_devdata.dev = &omap3gta04_snd_device->dev;
-// 	*(unsigned int *)omap3gta04_dai[0].cpu_dai->private_data = 1; /* McBSP2 = TPS65950 */
+
 	ret = platform_device_add(omap3gta04_snd_device);
 	if (ret)
 		goto err1;
@@ -244,7 +240,6 @@ err1:
 static void __exit omap3gta04_soc_exit(void)
 {
 	platform_device_unregister(omap3gta04_snd_device);
-	// switch off power
 }
 
 module_init(omap3gta04_soc_init);
