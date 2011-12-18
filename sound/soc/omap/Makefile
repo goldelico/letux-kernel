@@ -19,7 +19,8 @@ snd-soc-sdp3430-objs := sdp3430.o
 snd-soc-sdp4430-objs := sdp4430.o
 snd-soc-omap3pandora-objs := omap3pandora.o
 snd-soc-omap3beagle-objs := omap3beagle.o
-snd-soc-gta04-objs := gta04-audio.o gta04-voice.o gta04-headset.o gta04-fm.o
+snd-soc-gta04-objs := gta04-audio.o gta04-voice.o gta04-headset.o 
+#gta04-fm.o
 snd-soc-zoom2-objs := zoom2.o
 snd-soc-igep0020-objs := igep0020.o
 

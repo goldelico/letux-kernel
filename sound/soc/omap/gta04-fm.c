@@ -16,6 +16,7 @@
  */
 
 #include <linux/platform_device.h>
+#include <linux/module.h>
 
 #include <sound/core.h>
 #include <sound/pcm.h>
@@ -32,7 +33,7 @@ static int gta04_fm_hw_params(struct snd_pcm_substream *substream,
 	/* setup codec dai and cpu dai hardware params */
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	//	struct snd_soc_dai *codec_dai = rtd->dai->codec_dai;
-	struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	unsigned int fmt;
 	int ret;
 	
@@ -58,13 +59,14 @@ static int gta04_fm_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static int gta04_fm_init(struct snd_soc_codec *codec)
+static int gta04_fm_init(struct snd_soc_pcm_runtime *runtime)
 {
 	/* add controls */
 	/* add routes */
 	/* setup pins */
+	struct snd_soc_codec *codec = runtime->codec;
 
-	snd_soc_dapm_sync(codec);
+	snd_soc_dapm_sync(&codec->dapm);
 	return 0;
 }
 
@@ -89,8 +91,8 @@ static struct snd_soc_ops gta04_fm_ops = {
 static struct snd_soc_dai_link gta04_fm_dai = {
 	.name 		= "Si47xx",
 	.stream_name 	= "Si47xx",
-	.cpu_dai 	= &omap_mcbsp_dai[3],
-	.codec_dai 	= &si47xx_dai,
+	.cpu_dai_name	= "omap-mcbsp-dai.3",
+	.codec_dai_name = "Si47xx",
 	.init		= gta04_fm_init,
 	.ops 		= &gta04_fm_ops,
 };
@@ -98,7 +100,7 @@ static struct snd_soc_dai_link gta04_fm_dai = {
 /* fm machine driver */
 static struct snd_soc_card gta04_fm_card = {
 	.name		= "gta04-fm",
-	.platform	= &omap_soc_platform,
+//	.platform_name	= "omap-pcm-audio",
 	.dai_link	= &gta04_fm_dai,
 	.num_links	= 1,
 };
