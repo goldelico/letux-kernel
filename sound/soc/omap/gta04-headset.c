@@ -17,6 +17,7 @@
 
 #include <linux/platform_device.h>
 
+#include <linux/module.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/soc.h>
@@ -58,11 +59,12 @@ static int gta04_headset_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static int gta04_headset_init(struct snd_soc_codec *codec)
+static int gta04_headset_init(struct snd_soc_pcm_runtime *runtime)
 {
 	/* add controls */
 	/* add routes */
 	/* setup pins */
+	struct snd_soc_codec *codec = runtime->codec;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	snd_soc_dapm_sync(dapm);
 	return 0;
