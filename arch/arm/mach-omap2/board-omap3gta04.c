@@ -1376,22 +1376,35 @@ static void __init gta04_init(void)
 	gpio_direction_input(144);
 	gpio_export(144, 0);	// no direction change
 	
-#ifdef GTA04A2
-	// has different pins but chips are'nt installed anyway
+	if(gta04_version >= 3)
+		{
+		// enable AUX out/Headset switch
+		gpio_request(55, "AUX_OUT");
+		gpio_direction_output(55, true);
+		gpio_export(55, 0);	// no direction change
 	
-#else
-	
-	// enable AUX out/Headset switch
-	gpio_request(55, "AUX_OUT");
-	gpio_direction_output(55, true);
-	gpio_export(55, 0);	// no direction change
-	
-	// disable Video out switch
-	gpio_request(23, "VIDEO_OUT");
-	gpio_direction_output(23, false);
-	gpio_export(23, 0);	// no direction change
-	
-#endif
+		// disable Video out switch
+		gpio_request(23, "VIDEO_OUT");
+		gpio_direction_output(23, false);
+		gpio_export(23, 0);	// no direction change
+		}
+
+	if(gta04_version >= 4)
+		{ // release WWAN_RESET and trigger ON_KEY so that Modem should initialize now and respond on the internal USB (EHCI)
+		// ON_KEY switch
+		omap_mux_init_gpio(175, OMAP_PIN_OUTPUT);
+		gpio_request(175, "ON_KEY");
+		gpio_direction_output(175, false);	// pull down
+		gpio_export(175, 0);	// no direction change
+		
+		// WWAN_RESET
+		omap_mux_init_gpio(186, OMAP_PIN_OUTPUT);
+		gpio_request(186, "WWAN_RESET");	// pull up
+		gpio_direction_output(186, true);
+		gpio_export(23, 0);	// no direction change
+
+		printk("GTM601W wake up requested\n");
+		}
 	
 	usb_musb_init();
 #if !defined(CONFIG_I2C_OMAP_GTA04A2)	// we don't have this controller chip on the A2 board
