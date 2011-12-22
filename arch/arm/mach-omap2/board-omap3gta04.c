@@ -1387,6 +1387,7 @@ static void __init gta04_init(void)
 		gpio_request(23, "VIDEO_OUT");
 		gpio_direction_output(23, false);
 		gpio_export(23, 0);	// no direction change
+		
 		}
 
 	if(gta04_version >= 4)

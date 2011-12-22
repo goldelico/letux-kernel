@@ -146,7 +146,8 @@ struct twl4030_priv {
 static inline unsigned int twl4030_read_reg_cache(struct snd_soc_codec *codec,
 	unsigned int reg)
 {
-	u8 *cache = codec->reg_cache;
+	u8 *cache;
+	cache = codec->reg_cache;
 
 	if (reg >= TWL4030_CACHEREGNUM)
 		return -EIO;
@@ -2013,6 +2014,7 @@ static int twl4030_voice_set_dai_fmt(struct snd_soc_dai *codec_dai,
 static int twl4030_voice_set_tristate(struct snd_soc_dai *dai, int tristate)
 {
 	struct snd_soc_codec *codec = dai->codec;
+	printk("twl4030_voice_set_tristate codec=%p\n", codec);
 	u8 reg = twl4030_read_reg_cache(codec, TWL4030_REG_VOICE_IF);
 
 	if (tristate)
@@ -2228,7 +2230,13 @@ static int __devinit twl4030_codec_probe(struct platform_device *pdev)
 		snd_soc_unregister_codec(codec);
 		goto error_codec;
 	}
-	
+
+	/* GTA04A4 specific */
+	twl_i2c_write_u8(TWL4030_MODULE_AUDIO_VOICE,
+					 TWL4030_VIF_TRI_EN,
+					 TWL4030_REG_VOICE_IF);
+	printk("TPS Voice IF set to tristate\n");
+		
 	printk("twl4030_codec_probe ok\n");
 
 	return 0;
