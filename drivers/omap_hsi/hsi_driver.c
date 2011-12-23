@@ -561,8 +561,14 @@ static int __init hsi_ports_init(struct hsi_dev *hsi_ctrl)
 		hsi_p->flags = 0;
 		hsi_p->port_number = pdata->ctx->pctx[port].port_number;
 		hsi_p->hsi_controller = hsi_ctrl;
-		hsi_p->max_ch = hsi_driver_device_is_hsi(pd) ?
-		    HSI_CHANNELS_MAX : HSI_SSI_CHANNELS_MAX;
+		if(hsi_driver_device_is_hsi(pd)) {
+			if(pdata->fifo_mapping_strategy == HSI_FIFO_MAPPING_SSI)
+				hsi_p->max_ch = HSI_SSI_CHANNELS_MAX;
+			else
+				hsi_p->max_ch = HSI_CHANNELS_MAX;
+		}
+		else
+			hsi_p->max_ch = HSI_SSI_CHANNELS_MAX;
 		hsi_p->irq = 0;
 		hsi_p->wake_rx_3_wires_mode = 0; /* 4 wires */
 		hsi_p->cawake_status = -1; /* Unknown */
