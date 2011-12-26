@@ -67,6 +67,7 @@ struct gpio_bank {
 	struct clk *dbck;
 	u32 mod_usage;
 	u32 dbck_enable_mask;
+	bool dbck_enabled;
 	struct device *dev;
 	bool is_mpuio;
 	bool dbck_flag;
@@ -155,6 +156,22 @@ static inline void _gpio_rmw(void __iomem *base, u32 reg, u32 mask, bool set)
 		l &= ~mask;
 
 	__raw_writel(l, base + reg);
+}
+
+static inline void _gpio_dbck_enable(struct gpio_bank *bank)
+{
+	if (bank->dbck_enable_mask && !bank->dbck_enabled) {
+		clk_enable(bank->dbck);
+		bank->dbck_enabled = true;
+	}
+}
+
+static inline void _gpio_dbck_disable(struct gpio_bank *bank)
+{
+	if (bank->dbck_enable_mask && bank->dbck_enabled) {
+		clk_disable(bank->dbck);
+		bank->dbck_enabled = false;
+	}
 }
 
 /**
@@ -1145,7 +1162,6 @@ static int omap_gpio_runtime_suspend(struct device *dev)
 	struct gpio_bank *bank = platform_get_drvdata(pdev);
 	u32 l1 = 0, l2 = 0;
 	unsigned long flags;
-	int j;
 
 	spin_lock_irqsave(&bank->lock, flags);
 	if (bank->power_mode != OFF_MODE) {
@@ -1180,8 +1196,7 @@ save_gpio_context:
 				bank->get_context_loss_count(bank->dev);
 
 	omap_gpio_save_context(bank);
-	for (j = 0; j < hweight_long(bank->dbck_enable_mask); j++)
-		clk_disable(bank->dbck);
+	_gpio_dbck_disable(bank);
 	spin_unlock_irqrestore(&bank->lock, flags);
 
 	return 0;
@@ -1194,11 +1209,9 @@ static int omap_gpio_runtime_resume(struct device *dev)
 	int context_lost_cnt_after;
 	u32 l = 0, gen, gen0, gen1;
 	unsigned long flags;
-	int j;
 
 	spin_lock_irqsave(&bank->lock, flags);
-	for (j = 0; j < hweight_long(bank->dbck_enable_mask); j++)
-		clk_enable(bank->dbck);
+	_gpio_dbck_enable(bank);
 
 	if (!(bank->enabled_non_wakeup_gpios)) {
 		spin_unlock_irqrestore(&bank->lock, flags);
