@@ -121,6 +121,7 @@ int omap_device_enable_hwmods(struct omap_device *od);
 
 int omap_device_disable_clocks(struct omap_device *od);
 int omap_device_enable_clocks(struct omap_device *od);
+int omap_device_reset(struct device *dev);
 
 static inline void omap_device_disable_idle_on_suspend(struct omap_device *od)
 {
