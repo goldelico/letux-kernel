@@ -91,10 +91,10 @@ static struct snd_soc_ops gta04_headset_ops = {
 static struct snd_soc_dai_link gta04_headset_dai = {
 	.name 		= "W2CBW003",
 	.stream_name 	= "W2CBW003",
-// 	.cpu_dai 	= &omap_mcbsp_dai[2],
-	.cpu_dai_name	= "omap-mcpdm-dai.2",
-// 	.codec_dai 	= &w2cbw003_dai,
-	.codec_dai_name 	= "w2cbw003_codec_audio",
+	.cpu_dai_name	= "omap-mcbsp-dai.2",
+	.platform_name	= "omap-pcm-audio",
+	.codec_dai_name	= "W2CBW003",
+	.codec_name	= "w2cbw003_codec_audio",
 	.init		= gta04_headset_init,
 	.ops 		= &gta04_headset_ops,
 };
@@ -102,16 +102,9 @@ static struct snd_soc_dai_link gta04_headset_dai = {
 /* headset machine driver */
 static struct snd_soc_card gta04_headset_card = {
 	.name		= "gta04-headset",
-// 	.platform	= &omap_soc_platform,
 	.dai_link	= &gta04_headset_dai,
 	.num_links	= 1,
 };
-
-/* headset subsystem */
-/*static struct snd_soc_device gta04_headset_devdata = {
-	.card		= &gta04_headset_card,
-	.codec_dev	= &soc_codec_dev_w2cbw003,
-};*/
 
 static struct platform_device *gta04_headset_snd_device;
 
@@ -131,8 +124,6 @@ static int __init gta04_headset_soc_init(void)
 	dev = &gta04_headset_snd_device->dev;
 
 	platform_set_drvdata(gta04_headset_snd_device, &gta04_headset_card);
-// 	gta04_headset_devdata.dev = &gta04_headset_snd_device->dev;
-// 	*(unsigned int *)gta04_headset_dai.cpu_dai->private_data = 2;	// McBSP3
 
 	ret = platform_device_add(gta04_headset_snd_device);
 	if (ret) {
