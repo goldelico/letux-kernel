@@ -89,7 +89,7 @@ static int omap3gta04_hw_params(struct snd_pcm_substream *substream,
 /* this shows how we could control the AUX in/out switch or the Video in/out */
 
 static int omap3pandora_hp_event(struct snd_soc_dapm_widget *w,
-								 struct snd_kcontrol *k, int event)
+				 struct snd_kcontrol *k, int event)
 {
 	/*
 	 if (SND_SOC_DAPM_EVENT_ON(event)) {
@@ -107,8 +107,8 @@ static int omap3pandora_hp_event(struct snd_soc_dapm_widget *w,
 static const struct snd_soc_dapm_widget gta04_dapm_widgets[] = {
 	SND_SOC_DAPM_DAC("PCM DAC", "HiFi Playback", SND_SOC_NOPM, 0, 0),
 	SND_SOC_DAPM_PGA_E("Headphone Amplifier", SND_SOC_NOPM,
-					   0, 0, NULL, 0, omap3pandora_hp_event,
-					   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
+			   0, 0, NULL, 0, omap3pandora_hp_event,
+			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
 	SND_SOC_DAPM_HP("Headphone Jack", NULL),
 	SND_SOC_DAPM_LINE("Line Out", NULL),
 	SND_SOC_DAPM_MIC("Internal Mic", NULL),
@@ -148,7 +148,7 @@ static int omap3gta04_init(struct snd_soc_pcm_runtime *runtime)
 		return ret;
 	
 	snd_soc_dapm_add_routes(dapm, audio_map,
-							ARRAY_SIZE(audio_map));
+				ARRAY_SIZE(audio_map));
 
 //	snd_soc_dapm_enable_pin(codec, "Ext Mic");
 //	snd_soc_dapm_enable_pin(codec, "Ext Spk");
@@ -184,9 +184,12 @@ static struct snd_soc_ops omap3gta04_ops = {
 static struct snd_soc_dai_link omap3gta04_dai = {
 		.name = "TWL4030",
 		.stream_name = "TWL4030",
-		.cpu_dai_name	= "omap-mcpdm-dai.0",
+		.cpu_dai_name	= "omap-mcbsp-dai.1",
 		.platform_name = "omap-pcm-audio",
 		.codec_dai_name = "twl4030-hifi",
+		.codec_name = "twl4030-codec",
+		.dai_fmt = (SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
+			    SND_SOC_DAIFMT_CBM_CFM),
 		.ops = &omap3gta04_ops,
 		.init = &omap3gta04_init
 };
@@ -216,7 +219,7 @@ static int __init omap3gta04_soc_init(void)
 	// FIXME: set any GPIOs i.e. enable Audio in/out switch
 	// microphone power etc.
 
-	omap3gta04_snd_device = platform_device_alloc("soc-audio", -1);
+	omap3gta04_snd_device = platform_device_alloc("soc-audio", 0);
 	if (!omap3gta04_snd_device) {
 		printk(KERN_ERR "Platform device allocation failed\n");
 		return -ENOMEM;

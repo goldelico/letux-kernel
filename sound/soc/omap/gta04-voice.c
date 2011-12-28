@@ -118,10 +118,10 @@ static struct snd_soc_ops gta04_voice_ops = {
 static struct snd_soc_dai_link gta04_voice_dai = {
 	.name 		= "GTM601",
 	.stream_name 	= "GTM601",
-// 	.cpu_dai 	= &omap_mcbsp_dai[1],
-	.cpu_dai_name	= "omap-mcpdm-dai.1",
-// 	.codec_dai 	= &gtm601_dai,
-	.codec_dai_name = "gtm601_codec_audio",
+	.cpu_dai_name	= "omap-mcbsp-dai.3",
+	.platform_name	= "omap-pcm-audio",
+	.codec_dai_name = "GTM601",
+	.codec_name	= "gtm601_codec_audio",
 	.init		= gta04_voice_init,
 	.ops 		= &gta04_voice_ops,
 };
@@ -129,7 +129,6 @@ static struct snd_soc_dai_link gta04_voice_dai = {
 /* voice machine driver */
 static struct snd_soc_card gta04_voice_card = {
 	.name		= "gta04-voice",
-// 	.platform	= &omap_soc_platform,
 	.dai_link	= &gta04_voice_dai,
 	.num_links	= 1,
 };
@@ -158,8 +157,6 @@ static int __init gta04_voice_soc_init(void)
 	dev = &gta04_voice_snd_device->dev;
 
 	platform_set_drvdata(gta04_voice_snd_device, &gta04_voice_card);
-// 	gta04_voice_devdata.dev = &gta04_voice_snd_device->dev;
-// 	*(unsigned int *)gta04_voice_dai.cpu_dai->private_data = 3;	// McBSP4
 
 	ret = platform_device_add(gta04_voice_snd_device);
 	if (ret) {
