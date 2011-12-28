@@ -91,7 +91,8 @@ static struct snd_soc_ops gta04_fm_ops = {
 static struct snd_soc_dai_link gta04_fm_dai = {
 	.name 		= "Si47xx",
 	.stream_name 	= "Si47xx",
-	.cpu_dai_name	= "omap-mcbsp-dai.3",
+	.cpu_dai_name	= "omap-mcbsp-dai.0",
+	.platform_name	= "omap-pcm-audio",
 	.codec_dai_name = "Si47xx",
 	.init		= gta04_fm_init,
 	.ops 		= &gta04_fm_ops,
@@ -100,7 +101,6 @@ static struct snd_soc_dai_link gta04_fm_dai = {
 /* fm machine driver */
 static struct snd_soc_card gta04_fm_card = {
 	.name		= "gta04-fm",
-//	.platform_name	= "omap-pcm-audio",
 	.dai_link	= &gta04_fm_dai,
 	.num_links	= 1,
 };
@@ -134,8 +134,6 @@ static int __init gta04_fm_soc_init(void)
 	dev = &gta04_fm_snd_device->dev;
 
 	platform_set_drvdata(gta04_fm_snd_device, &gta04_fm_card);
-// 	gta04_fm_devdata.dev = &gta04_fm_snd_device->dev;
-// 	*(unsigned int *)gta04_fm_dai.cpu_dai->private_data = 0;	// McBSP1
 
 	ret = platform_device_add(gta04_fm_snd_device);
 	if (ret) {
