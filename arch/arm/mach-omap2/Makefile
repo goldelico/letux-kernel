@@ -21,6 +21,7 @@ obj-$(CONFIG_ARCH_OMAP4) += prm44xx.o $(hwmod-common) $(secure-common) $(omap-4-
 obj-$(CONFIG_ARCH_OMAP5) += prm44xx.o $(hwmod-common) $(secure-common) $(omap-4-5-common)
 
 obj-$(CONFIG_OMAP_MCBSP) += mcbsp.o
+obj-$(CONFIG_OMAP_SCM_DEV)          += scm_device.o
 
 obj-$(CONFIG_TWL4030_CORE) += omap_twl.o
 
