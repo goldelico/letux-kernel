@@ -56,6 +56,7 @@ config ARCH_OMAP5
 	depends on ARCH_OMAP2PLUS
 	select CPU_V7
 	select ARM_GIC
+	select ARM_ERRATA_761171
 
 comment "OMAP Core Type"
 	depends on ARCH_OMAP2
