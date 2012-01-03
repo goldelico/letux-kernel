@@ -759,7 +759,6 @@ static struct omap_hwmod omap54xx_mpu_private_hwmod = {
  *  mpu_c0
  *  mpu_c1
  *  ocmc_ram
- *  ocp2scp1
  *  ocp2scp2
  *  ocp2scp3
  *  ocp_wp_noc
@@ -4418,6 +4417,47 @@ static struct omap_hwmod_class omap54xx_ocp2scp_hwmod_class = {
 	.sysc	= &omap54xx_ocp2scp_sysc,
 };
 
+/* ocp2scp1 */
+static struct omap_hwmod omap54xx_ocp2scp1_hwmod;
+static struct omap_hwmod_addr_space omap54xx_ocp2scp1_addrs[] = {
+	{
+		.pa_start	= 0x4a080000,
+		.pa_end		= 0x4a08001f,
+		.flags		= ADDR_TYPE_RT
+	},
+	{ }
+};
+
+/* l4_cfg -> ocp2scp1 */
+static struct omap_hwmod_ocp_if omap54xx_l4_cfg__ocp2scp1 = {
+	.master		= &omap54xx_l4_cfg_hwmod,
+	.slave		= &omap54xx_ocp2scp1_hwmod,
+	.clk		= "l4_div_ck",
+	.addr		= omap54xx_ocp2scp1_addrs,
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
+/* ocp2scp1 slave ports */
+static struct omap_hwmod_ocp_if *omap54xx_ocp2scp1_slaves[] = {
+	&omap54xx_l4_cfg__ocp2scp1,
+};
+
+static struct omap_hwmod omap54xx_ocp2scp1_hwmod = {
+	.name		= "ocp2scp1",
+	.class		= &omap54xx_ocp2scp_hwmod_class,
+	.clkdm_name	= "l3init_clkdm",
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs = OMAP54XX_CM_L3INIT_OCP2SCP1_CLKCTRL_OFFSET,
+			.context_offs = OMAP54XX_RM_L3INIT_OCP2SCP1_CONTEXT_OFFSET,
+			.modulemode   = MODULEMODE_HWCTRL,
+		},
+	},
+	.slaves		= omap54xx_ocp2scp1_slaves,
+	.slaves_cnt	= ARRAY_SIZE(omap54xx_ocp2scp1_slaves),
+	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP54XX),
+};
+
 /* ocp2scp3 */
 static struct omap_hwmod omap54xx_ocp2scp3_hwmod;
 static struct omap_hwmod_addr_space omap54xx_ocp2scp3_addrs[] = {
@@ -6372,6 +6412,9 @@ static __initdata struct omap_hwmod *omap54xx_hwmods[] = {
 	/* ocp2scp class */
 	&omap54xx_ocp2scp3_hwmod,
 #endif
+
+	/* ocp2scp class */
+	&omap54xx_ocp2scp1_hwmod,
 
 	/* sata class */
 	&omap54xx_sata_hwmod,
