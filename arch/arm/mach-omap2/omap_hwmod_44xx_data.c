@@ -19,6 +19,7 @@
  */
 
 #include <linux/io.h>
+#include <linux/mfd/omap_ocp2scp.h>
 
 #include <plat/omap_hwmod.h>
 #include <plat/cpu.h>
@@ -4257,6 +4258,27 @@ static struct omap_hwmod_class omap44xx_ocp2scp_hwmod_class = {
 	.sysc	= &omap44xx_ocp2scp_sysc,
 };
 
+/* ocp2scp dev_attr */
+static struct resource omap44xx_usb_phy_and_pll_addrs[] = {
+	{
+		.name		= "usb_phy",
+		.start		= 0x4a0ad080,
+		.end		= 0x4a0ae000,
+		.flags		= IORESOURCE_MEM,
+	},
+	{ }
+};
+
+static struct omap_ocp2scp_dev ocp2scp_dev_attr[] = {
+	{
+		.rev_id		= 1,
+		.dev_name       = "usb_phy_cm",
+		.dev_type	= DEV_TYPE_USB2PHY,
+		.res		= omap44xx_usb_phy_and_pll_addrs,
+	},
+	{ }
+};
+
 /* ocp2scp_usb_phy */
 static struct omap_hwmod omap44xx_ocp2scp_usb_phy_hwmod;
 static struct omap_hwmod_addr_space omap44xx_ocp2scp_usb_phy_addrs[] = {
@@ -4298,6 +4320,7 @@ static struct omap_hwmod omap44xx_ocp2scp_usb_phy_hwmod = {
 			.modulemode   = MODULEMODE_SWCTRL,
 		},
 	},
+	.dev_attr	= ocp2scp_dev_attr,
 	.opt_clks	= ocp2scp_usb_phy_opt_clks,
 	.opt_clks_cnt	= ARRAY_SIZE(ocp2scp_usb_phy_opt_clks),
 	.slaves		= omap44xx_ocp2scp_usb_phy_slaves,
