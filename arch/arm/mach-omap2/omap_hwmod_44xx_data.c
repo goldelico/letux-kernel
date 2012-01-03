@@ -724,7 +724,6 @@ static struct omap_hwmod omap44xx_mpu_private_hwmod = {
  *  mpu_c0
  *  mpu_c1
  *  ocmc_ram
- *  ocp2scp_usb_phy
  *  ocp_wp_noc
  *  prcm_mpu
  *  prm
@@ -4237,6 +4236,52 @@ static struct omap_hwmod omap44xx_mpu_hwmod = {
 };
 
 /*
+ * 'ocp2scp' class
+ * bridge to transform ocp interface protocol to scp (serial control port)
+ * protocol
+ */
+
+static struct omap_hwmod_class omap44xx_ocp2scp_hwmod_class = {
+	.name	= "ocp2scp",
+};
+
+/* ocp2scp_usb_phy */
+static struct omap_hwmod omap44xx_ocp2scp_usb_phy_hwmod;
+/* l4_cfg -> ocp2scp_usb_phy */
+static struct omap_hwmod_ocp_if omap44xx_l4_cfg__ocp2scp_usb_phy = {
+	.master		= &omap44xx_l4_cfg_hwmod,
+	.slave		= &omap44xx_ocp2scp_usb_phy_hwmod,
+	.clk		= "l4_div_ck",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
+/* ocp2scp_usb_phy slave ports */
+static struct omap_hwmod_ocp_if *omap44xx_ocp2scp_usb_phy_slaves[] = {
+	&omap44xx_l4_cfg__ocp2scp_usb_phy,
+};
+
+static struct omap_hwmod_opt_clk ocp2scp_usb_phy_opt_clks[] = {
+	{ .role = "phy_48m", .clk = "ocp2scp_usb_phy_phy_48m" },
+};
+
+static struct omap_hwmod omap44xx_ocp2scp_usb_phy_hwmod = {
+	.name		= "ocp2scp_usb_phy",
+	.class		= &omap44xx_ocp2scp_hwmod_class,
+	.main_clk	= "ocp2scp_usb_phy_ick",
+	.prcm		= {
+		.omap4 = {
+			.clkctrl_reg = OMAP4430_CM_L3INIT_USBPHYOCP2SCP_CLKCTRL,
+			.context_reg = OMAP4430_RM_L3INIT_USBPHYOCP2SCP_CONTEXT,
+		},
+	},
+	.opt_clks	= ocp2scp_usb_phy_opt_clks,
+	.opt_clks_cnt	= ARRAY_SIZE(ocp2scp_usb_phy_opt_clks),
+	.slaves		= omap44xx_ocp2scp_usb_phy_slaves,
+	.slaves_cnt	= ARRAY_SIZE(omap44xx_ocp2scp_usb_phy_slaves),
+	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP44XX),
+};
+
+/*
  * 'smartreflex' class
  * smartreflex module (monitor silicon performance and outputs a measure of
  * performance error)
@@ -6030,6 +6075,9 @@ static __initdata struct omap_hwmod *omap44xx_hwmods[] = {
 
 	/* mpu class */
 	&omap44xx_mpu_hwmod,
+
+	/* ocp2scp class */
+	&omap44xx_ocp2scp_usb_phy_hwmod,
 
 	/* smartreflex class */
 	&omap44xx_smartreflex_core_hwmod,
