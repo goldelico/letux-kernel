@@ -30,12 +30,60 @@
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
 #include <linux/delay.h>
-#include <linux/i2c/twl.h>
+#include <linux/i2c.h>
 #include <linux/mfd/core.h>
 #include <linux/mfd/twl6040.h>
 
 #define VIBRACTRL_MEMBER(reg) ((reg == TWL6040_REG_VIBCTLL) ? 0 : 1)
 
+static int twl6040_i2c_read(struct i2c_client *i2c, u8 *value, u8 reg)
+{
+	struct i2c_msg msg[2];
+	int ret;
+
+	msg[0].addr = i2c->addr;
+	msg[0].len = 1;
+	msg[0].flags = 0;
+	msg[0].buf = &reg;
+
+	msg[1].addr = i2c->addr;
+	msg[1].flags = I2C_M_RD;
+	msg[1].len = 1;
+	msg[1].buf = value;
+	ret = i2c_transfer(i2c->adapter, msg, 2);
+
+	if (ret < 0)
+		return ret;
+	if (ret != 2)
+		return -EIO;
+
+	return 0;
+}
+
+static int twl6040_i2c_write(struct i2c_client *i2c, u8 value, u8 reg)
+{
+	struct i2c_msg msg;
+	u8 data[2];
+	int ret;
+
+	data[0] = reg;
+	data[1] = value;
+	
+	msg.addr = i2c->addr;
+	msg.len = 2;
+	msg.flags = 0;
+	msg.buf = data;
+
+	ret = i2c_transfer(i2c->adapter, &msg, 1);
+
+	if (ret < 0)
+		return ret;
+	if (ret != 1)
+		return -EIO;
+
+	return 0;
+}
+ 
 int twl6040_reg_read(struct twl6040 *twl6040, unsigned int reg)
 {
 	int ret;
@@ -47,7 +95,7 @@ int twl6040_reg_read(struct twl6040 *twl6040, unsigned int reg)
 		     reg == TWL6040_REG_VIBCTLR)) {
 		val = twl6040->vibra_ctrl_cache[VIBRACTRL_MEMBER(reg)];
 	} else {
-		ret = twl_i2c_read_u8(TWL_MODULE_AUDIO_VOICE, &val, reg);
+		ret = twl6040_i2c_read(twl6040->control_data, &val, reg);
 		if (ret < 0) {
 			mutex_unlock(&twl6040->io_mutex);
 			return ret;
@@ -64,7 +112,7 @@ int twl6040_reg_write(struct twl6040 *twl6040, unsigned int reg, u8 val)
 	int ret;
 
 	mutex_lock(&twl6040->io_mutex);
-	ret = twl_i2c_write_u8(TWL_MODULE_AUDIO_VOICE, val, reg);
+	ret = twl6040_i2c_write(twl6040->control_data, val, reg);
 	/* Cache the vibra control registers */
 	if (reg == TWL6040_REG_VIBCTLL || reg == TWL6040_REG_VIBCTLR)
 		twl6040->vibra_ctrl_cache[VIBRACTRL_MEMBER(reg)] = val;
@@ -80,12 +128,12 @@ int twl6040_set_bits(struct twl6040 *twl6040, unsigned int reg, u8 mask)
 	u8 val;
 
 	mutex_lock(&twl6040->io_mutex);
-	ret = twl_i2c_read_u8(TWL_MODULE_AUDIO_VOICE, &val, reg);
+	ret = twl6040_i2c_read(twl6040->control_data, &val, reg);
 	if (ret)
 		goto out;
 
 	val |= mask;
-	ret = twl_i2c_write_u8(TWL_MODULE_AUDIO_VOICE, val, reg);
+	ret = twl6040_i2c_write(twl6040->control_data, val, reg);
 out:
 	mutex_unlock(&twl6040->io_mutex);
 	return ret;
@@ -98,12 +146,12 @@ int twl6040_clear_bits(struct twl6040 *twl6040, unsigned int reg, u8 mask)
 	u8 val;
 
 	mutex_lock(&twl6040->io_mutex);
-	ret = twl_i2c_read_u8(TWL_MODULE_AUDIO_VOICE, &val, reg);
+	ret = twl6040_i2c_read(twl6040->control_data, &val, reg);
 	if (ret)
 		goto out;
 
 	val &= ~mask;
-	ret = twl_i2c_write_u8(TWL_MODULE_AUDIO_VOICE, val, reg);
+	ret = twl6040_i2c_write(twl6040->control_data, val, reg);
 out:
 	mutex_unlock(&twl6040->io_mutex);
 	return ret;
@@ -468,21 +516,22 @@ static struct resource twl6040_codec_rsrc[] = {
 	},
 };
 
-static int __devinit twl6040_probe(struct platform_device *pdev)
+static int __devinit twl6040_probe(struct i2c_client *client,
+				     const struct i2c_device_id *id)
 {
-	struct twl4030_audio_data *pdata = pdev->dev.platform_data;
+	struct twl6040_platform_data *pdata = client->dev.platform_data;
 	struct twl6040 *twl6040;
 	struct mfd_cell *cell = NULL;
 	int ret, children = 0;
 
 	if (!pdata) {
-		dev_err(&pdev->dev, "Platform data is missing\n");
+		dev_err(&client->dev, "Platform data is missing\n");
 		return -EINVAL;
 	}
 
 	/* In order to operate correctly we need valid interrupt config */
-	if (!pdata->naudint_irq || !pdata->irq_base) {
-		dev_err(&pdev->dev, "Invalid IRQ configuration\n");
+	if (!client->irq || !pdata->irq_base) {
+		dev_err(&client->dev, "Invalid IRQ configuration\n");
 		return -EINVAL;
 	}
 
@@ -490,10 +539,11 @@ static int __devinit twl6040_probe(struct platform_device *pdev)
 	if (!twl6040)
 		return -ENOMEM;
 
-	platform_set_drvdata(pdev, twl6040);
+	i2c_set_clientdata(client, twl6040);
 
-	twl6040->dev = &pdev->dev;
-	twl6040->irq = pdata->naudint_irq;
+	twl6040->dev = &client->dev;
+	twl6040->control_data = client;
+	twl6040->irq = client->irq;
 	twl6040->irq_base = pdata->irq_base;
 
 	mutex_init(&twl6040->mutex);
@@ -565,12 +615,12 @@ static int __devinit twl6040_probe(struct platform_device *pdev)
 	}
 
 	if (children) {
-		ret = mfd_add_devices(&pdev->dev, pdev->id, twl6040->cells,
+		ret = mfd_add_devices(&client->dev, -1, twl6040->cells,
 				      children, NULL, 0);
 		if (ret)
 			goto mfd_err;
 	} else {
-		dev_err(&pdev->dev, "No platform data found for children\n");
+		dev_err(&client->dev, "No platform data found for children\n");
 		ret = -ENODEV;
 		goto mfd_err;
 	}
@@ -585,14 +635,14 @@ gpio2_err:
 	if (gpio_is_valid(twl6040->audpwron))
 		gpio_free(twl6040->audpwron);
 gpio1_err:
-	platform_set_drvdata(pdev, NULL);
+	i2c_set_clientdata(client, NULL);
 	kfree(twl6040);
 	return ret;
 }
 
-static int __devexit twl6040_remove(struct platform_device *pdev)
+static int __devexit twl6040_remove(struct i2c_client *client)
 {
-	struct twl6040 *twl6040 = platform_get_drvdata(pdev);
+	struct twl6040 *twl6040 = i2c_get_clientdata(client);
 
 	if (twl6040->power_count)
 		twl6040_power(twl6040, 0);
@@ -603,31 +653,38 @@ static int __devexit twl6040_remove(struct platform_device *pdev)
 	free_irq(twl6040->irq_base + TWL6040_IRQ_READY, twl6040);
 	twl6040_irq_exit(twl6040);
 
-	mfd_remove_devices(&pdev->dev);
-	platform_set_drvdata(pdev, NULL);
+	mfd_remove_devices(&client->dev);
+	i2c_set_clientdata(client, NULL);
 	kfree(twl6040);
 
 	return 0;
 }
 
-static struct platform_driver twl6040_driver = {
-	.probe		= twl6040_probe,
-	.remove		= __devexit_p(twl6040_remove),
-	.driver		= {
-		.owner	= THIS_MODULE,
-		.name	= "twl6040",
+static const struct i2c_device_id twl6040_i2c_id[] = {
+	{ "twl6040", 0,	},
+	{ },
+};
+MODULE_DEVICE_TABLE(i2c, twl6040_i2c_id);
+
+static struct i2c_driver twl6040_driver = {
+	.driver = {
+		.name = "twl6040",
+		.owner = THIS_MODULE,
 	},
+ 	.probe		= twl6040_probe,
+ 	.remove		= __devexit_p(twl6040_remove),
+	.id_table	= twl6040_i2c_id,
 };
 
 static int __devinit twl6040_init(void)
 {
-	return platform_driver_register(&twl6040_driver);
+	return i2c_add_driver(&twl6040_driver);
 }
 module_init(twl6040_init);
 
 static void __devexit twl6040_exit(void)
 {
-	platform_driver_unregister(&twl6040_driver);
+	i2c_del_driver(&twl6040_driver);
 }
 
 module_exit(twl6040_exit);
