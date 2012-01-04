@@ -123,6 +123,9 @@ void __init omap3_pmic_get_config(struct twl4030_platform_data *pmic_data,
 	if (!pmic_data->irq_end)
 		pmic_data->irq_end = TWL4030_IRQ_END;
 
+	/* PMIC for OMAP3 platform has four slaves */
+	pmic_data->num_slaves = 4;
+
 	/* Common platform data configurations */
 	if (pdata_flags & TWL_COMMON_PDATA_USB && !pmic_data->usb)
 		pmic_data->usb = &omap3_usb_pdata;
@@ -280,6 +283,9 @@ void __init omap4_pmic_get_config(struct twl4030_platform_data *pmic_data,
 		pmic_data->irq_base = TWL6030_IRQ_BASE;
 	if (!pmic_data->irq_end)
 		pmic_data->irq_end = TWL6030_IRQ_END;
+
+	/* PMIC for OMAP4 platform has three slaves (audio is separate IC) */
+	pmic_data->num_slaves = 3;
 
 	/* Common platform data configurations */
 	if (pdata_flags & TWL_COMMON_PDATA_USB && !pmic_data->usb)
