@@ -161,7 +161,7 @@ static struct snd_soc_dai_link sdp4430_dai = {
 
 /* Audio machine driver */
 static struct snd_soc_card snd_soc_sdp4430 = {
-	.name = "SDP4430",
+	.name = "OMAP4-5",
 	.dai_link = &sdp4430_dai,
 	.num_links = 1,
 
@@ -177,9 +177,9 @@ static int __init sdp4430_soc_init(void)
 {
 	int ret;
 
-	if (!machine_is_omap_4430sdp())
+	if (!machine_is_omap_4430sdp() && !machine_is_omap_5430evm())
 		return -ENODEV;
-	printk(KERN_INFO "SDP4430 SoC init\n");
+	printk(KERN_INFO "OMAP4/5 SoC init\n");
 
 	sdp4430_snd_device = platform_device_alloc("soc-audio", -1);
 	if (!sdp4430_snd_device) {
