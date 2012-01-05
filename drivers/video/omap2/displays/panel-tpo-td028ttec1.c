@@ -283,6 +283,9 @@ static int td028ttec1_panel_suspend(struct omap_dss_device *dssdev)
 	
 	printk("td028ttec1_panel_suspend()\n");
 
+	if (dssdev->state != OMAP_DSS_DISPLAY_ACTIVE)
+		return;
+
 	omapdss_dpi_display_disable(dssdev);
 
 	rc = jbt_reg_write_nodata(jbt, JBT_REG_DISPLAY_OFF);
