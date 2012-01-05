@@ -624,13 +624,13 @@ static int dss_mgr_wait_for_vsync(struct omap_overlay_manager *mgr)
 		irq = DISPC_IRQ_EVSYNC_EVEN;
 	} else if ((mgr->device->type == OMAP_DISPLAY_TYPE_DSI) &&
 			(mgr->device->channel == OMAP_DSS_CHANNEL_LCD)) {
-		if (mgr->device->phy.dsi.type == OMAP_DSS_DSI_VIDEO_MODE)
+		if (mgr->device->panel.dsi_mode == OMAP_DSS_DSI_VIDEO_MODE)
 			irq = DISPC_IRQ_VSYNC;
 		else
 			irq = DISPC_IRQ_FRAMEDONE;
 	} else if ((mgr->device->type == OMAP_DISPLAY_TYPE_DSI) &&
 			(mgr->device->channel == OMAP_DSS_CHANNEL_LCD2)) {
-		if (mgr->device->phy.dsi.type == OMAP_DSS_DSI_VIDEO_MODE)
+		if (mgr->device->panel.dsi_mode == OMAP_DSS_DSI_VIDEO_MODE)
 			irq = DISPC_IRQ_VSYNC2;
 		else
 			irq = DISPC_IRQ_FRAMEDONE2;
