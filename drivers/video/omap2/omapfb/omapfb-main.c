@@ -41,6 +41,10 @@
 #define OMAPFB_PLANE_XRES_MIN		8
 #define OMAPFB_PLANE_YRES_MIN		8
 
+#ifdef CONFIG_PVR_SGXCORE_544
+#define SGX_HW_WRITE_BURST                     17
+#endif
+
 static char *def_mode;
 static char *def_vram;
 static int def_vrfb;
@@ -605,6 +609,7 @@ void set_fb_fix(struct fb_info *fbi)
 	struct fb_var_screeninfo *var = &fbi->var;
 	struct omapfb_info *ofbi = FB2OFB(fbi);
 	struct omapfb2_mem_region *rg = ofbi->region;
+	int aligned_stride;
 
 	DBG("set_fb_fix\n");
 
@@ -627,8 +632,12 @@ void set_fb_fix(struct fb_info *fbi)
 
 		fix->smem_len = var->yres_virtual * fix->line_length;
 	} else {
+		aligned_stride = var->xres_virtual;
+#ifdef CONFIG_PVR_SGXCORE_544
+		aligned_stride = ALIGN(var->xres_virtual, SGX_HW_WRITE_BURST);
+#endif
 		fix->line_length =
-			(var->xres_virtual * var->bits_per_pixel) >> 3;
+			(aligned_stride * var->bits_per_pixel) >> 3;
 		fix->smem_len = rg->size;
 	}
 
