@@ -27,12 +27,14 @@
 #include <linux/types.h>
 #include <linux/slab.h>
 #include <linux/kernel.h>
+#include <linux/err.h>
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
 #include <linux/mfd/core.h>
 #include <linux/mfd/twl6040.h>
+#include <linux/regulator/consumer.h>
 
 #define VIBRACTRL_MEMBER(reg) ((reg == TWL6040_REG_VIBCTLL) ? 0 : 1)
 
@@ -83,7 +85,7 @@ static int twl6040_i2c_write(struct i2c_client *i2c, u8 value, u8 reg)
 
 	return 0;
 }
- 
+
 int twl6040_reg_read(struct twl6040 *twl6040, unsigned int reg)
 {
 	int ret;
@@ -541,6 +543,33 @@ static int __devinit twl6040_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, twl6040);
 
+	twl6040->vio = regulator_get(&client->dev, "vio");
+	if (IS_ERR(twl6040->vio)) {
+		ret = PTR_ERR(twl6040->vio);
+		dev_err(&client->dev, "Failed to request VIO supply: %d\n",
+			ret);
+		goto regulator_get_err;
+	}
+	twl6040->v2v1 = regulator_get(&client->dev, "v2v1");
+	if (IS_ERR(twl6040->v2v1)) {
+		ret = PTR_ERR(twl6040->v2v1);
+		dev_err(&client->dev, "Failed to request V2V1 supply: %d\n",
+			ret);
+		regulator_put(twl6040->vio);
+		goto regulator_get_err;
+	}
+	ret = regulator_enable(twl6040->vio);
+	if (ret != 0) {
+		dev_err(&client->dev, "Failed to enable VIO: %d\n", ret);
+		goto power_err;
+	}
+	ret = regulator_enable(twl6040->v2v1);
+	if (ret != 0) {
+		dev_err(&client->dev, "Failed to enable V2V1: %d\n", ret);
+		regulator_disable(twl6040->vio);
+		goto power_err;
+	}
+
 	twl6040->dev = &client->dev;
 	twl6040->control_data = client;
 	twl6040->irq = client->irq;
@@ -635,6 +664,12 @@ gpio2_err:
 	if (gpio_is_valid(twl6040->audpwron))
 		gpio_free(twl6040->audpwron);
 gpio1_err:
+	regulator_disable(twl6040->v2v1);
+	regulator_disable(twl6040->vio);
+power_err:
+	regulator_put(twl6040->vio);
+	regulator_put(twl6040->v2v1);
+regulator_get_err:
 	i2c_set_clientdata(client, NULL);
 	kfree(twl6040);
 	return ret;
@@ -655,6 +690,12 @@ static int __devexit twl6040_remove(struct i2c_client *client)
 
 	mfd_remove_devices(&client->dev);
 	i2c_set_clientdata(client, NULL);
+
+	regulator_disable(twl6040->v2v1);
+	regulator_disable(twl6040->vio);
+	regulator_put(twl6040->vio);
+	regulator_put(twl6040->v2v1);
+
 	kfree(twl6040);
 
 	return 0;

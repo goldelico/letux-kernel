@@ -201,6 +201,8 @@ struct twl6040_platform_data {
 struct twl6040 {
 	struct i2c_client *control_data;
 	struct device *dev;
+	struct regulator *vio;
+	struct regulator *v2v1;
 	struct mutex mutex;
 	struct mutex io_mutex;
 	struct mutex irq_mutex;
