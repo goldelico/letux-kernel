@@ -72,6 +72,7 @@
 #include <linux/serial_core.h>
 #include <linux/serial.h>
 
+#include <linux/pm_runtime.h>
 
 #define MOD_AUTHOR			"Option Wireless"
 #define MOD_DESCRIPTION			"USB High Speed Option driver"
@@ -2980,6 +2981,8 @@ static int hso_probe(struct usb_interface *interface,
 
 	/* save our data pointer in this device */
 	usb_set_intfdata(interface, hso_dev);
+
+	pm_runtime_allow(&hso_dev->usb->dev);
 
 	/* done */
 	return 0;
