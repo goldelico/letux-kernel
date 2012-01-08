@@ -916,14 +916,19 @@ static IMG_BOOL ProcessFlipV2(IMG_HANDLE hCmdCookie,
 
 		if(psDssData->ovls[k].cfg.color_mode == OMAP_DSS_COLOR_NV12)
 		{
-
+#if defined(SUPPORT_NV12_FROM_2_HWADDRS)
 			BUG_ON(i + 1 >= ui32NumMemInfos);
 			psDssData->ovls[k].ba = (u32)phyAddr.uiAddr;
 
 			i++;
 			psDevInfo->sPVRJTable.pfnPVRSRVDCMemInfoGetCpuPAddr(ppsMemInfos[i], 0, &phyAddr);
 			psDssData->ovls[k].uv = (u32)phyAddr.uiAddr;
+#else
+			psDssData->ovls[k].ba = (u32)phyAddr.uiAddr;
 
+			psDevInfo->sPVRJTable.pfnPVRSRVDCMemInfoGetCpuPAddr(ppsMemInfos[i], (uByteSize * 2) / 3, &phyAddr);
+			psDssData->ovls[k].uv = (u32)phyAddr.uiAddr;
+#endif
 			continue;
 		}
 		/* check if it is a TILER buffer */
