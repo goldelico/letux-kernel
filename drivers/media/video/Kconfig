@@ -329,6 +329,26 @@ config VIDEO_MT9V011
 	  mt0v011 1.3 Mpixel camera.  It currently only works with the
 	  em28xx driver.
 
+config VIDEO_MT9V113
+	tristate "Aptina MT9V113 VGA CMOS IMAGE SENSOR"
+	depends on VIDEO_V4L2 && I2C
+	---help---
+	  This is a Video4Linux2 sensor-level driver for the Aptina MT9V113
+	  image sensor.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called mt9v113.
+
+config VIDEO_OV9655
+	tristate "OmniVision OV9655 VGA CMOS IMAGE SENSOR"
+	depends on VIDEO_V4L2 && I2C
+	---help---
+	  This is a Video4Linux2 sensor-level driver for the OmniVision
+	  OV9655 image sensor.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ov9655.
+
 config VIDEO_TCM825X
 	tristate "TCM825x camera sensor support"
 	depends on I2C && VIDEO_V4L2
@@ -343,6 +363,12 @@ config VIDEO_MT9P012
 	  This is a Video4Linux2 sensor-level driver for the Micron
 	  MT9P012 camera.  It is currently working with the TI OMAP3
 	  camera controller.
+
+config VIDEO_MT9T112
+	tristate "mt9t112 support"
+	depends on I2C && VIDEO_V4L2
+	help
+	  This driver supports MT9T112 cameras from Aptina.
 
 config VIDEO_DW9710
 	tristate "Lens driver for DW9710"

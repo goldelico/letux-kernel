@@ -544,7 +544,7 @@ static int try_pix_parm(struct omap34xxcam_videodev *vdev,
 				pix_tmp_out.height = pix_tmp_in.height;
 			rval = isp_try_fmt_cap(isp, &pix_tmp_in, &pix_tmp_out);
 			if (rval)
-				return rval;
+				break;
 
 			dev_dbg(&vdev->vfd->dev, "this w %d\th %d\tfmt %8.8x\t"
 				"-> w %d\th %d\t fmt %8.8x"
@@ -1852,8 +1852,8 @@ static int omap34xxcam_open(struct file *file)
 				vdev->slave_config[OMAP34XXCAM_SLAVE_SENSOR]
 					.cur_input = route.input;
 		}
-		sensor_format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	}
+	sensor_format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
 	/* Get the format the sensor is using. */
 	rval = vidioc_int_g_fmt_cap(vdev->vdev_sensor, &sensor_format);

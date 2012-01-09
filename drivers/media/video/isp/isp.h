@@ -199,6 +199,7 @@ struct isp_interface_config {
 	u32 prev_slv;
 	u32 wenlog;
 	int wait_hs_vs;
+	u32 cam_mclk;
 	unsigned int pixelclk;
 	union {
 		struct par {
@@ -414,6 +415,7 @@ struct isp_device {
 	int ref_count;
 	struct clk *cam_ick;
 	struct clk *cam_mclk;
+	struct clk *dpll4_m5_ck;
 	struct clk *csi2_fck;
 	struct clk *l3_ick;
 	struct isp_interface_config *config;
@@ -424,6 +426,7 @@ struct isp_device {
 	struct isp_irq irq;
 	struct isp_pipeline pipeline;
 	u32 interrupts;
+	u32 mclk;
 	enum isp_running running;
 	int current_field;
 	int bt656ifen;
@@ -479,14 +482,31 @@ int isp_set_callback(struct device *dev, enum isp_callback_type type,
 
 int isp_unset_callback(struct device *dev, enum isp_callback_type type);
 
+#if defined(CONFIG_VIDEO_OMAP3_ISP)
 u32 isp_set_xclk(struct device *dev, u32 xclk, u8 xclksel);
 
 int isp_configure_interface(struct device *dev,
 			    struct isp_interface_config *config);
+#else
+static inline u32 isp_set_xclk(struct device *dev, u32 xclk, u8 xclksel)
+{
+	return 0;
+}
+static inline int isp_configure_interface(struct device *dev,
+			    struct isp_interface_config *config)
+{
+	return 0;
+}
+
+#endif
 
 struct device *isp_get(void);
 
 int isp_put(void);
+
+int isp_enable_mclk(struct device *dev);
+
+void isp_disable_mclk(struct isp_device *dev);
 
 int isp_queryctrl(struct v4l2_queryctrl *a);
 

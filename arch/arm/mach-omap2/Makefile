@@ -100,7 +100,8 @@ obj-$(CONFIG_PMIC_TWL4030)		+= twl4030-pmic.o
 obj-$(CONFIG_MACH_OMAP3_PANDORA)	+= board-omap3pandora.o \
 					   mmc-twl4030.o
 obj-$(CONFIG_MACH_GTA04)		+= board-omap3gta04.o \
-					   mmc-twl4030.o
+					   mmc-twl4030.o \
+					   board-omap3gta04-camera.o
 obj-$(CONFIG_MACH_OMAP_3430SDP)		+= board-3430sdp.o \
 					   mmc-twl4030.o \
 					   board-3430sdp-camera.o

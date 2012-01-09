@@ -40,13 +40,11 @@
 #include <../sound/soc/codecs/si47xx.h>
 #include <../sound/soc/codecs/w2cbw003-bt.h>
 
-#include <linux/videodev2.h>
+#if defined(CONFIG_VIDEO_OV9655) || defined(CONFIG_VIDEO_OV9655_MODULE)
 #include <media/v4l2-int-device.h>
-#include <media/tvp514x-int.h>
-
-/* Include V4L2 ISP-Camera driver related header file */
-#include <../drivers/media/video/omap34xxcam.h>
-#include <../drivers/media/video/isp/ispreg.h>
+#include <media/ov9655.h>
+extern struct ov9655_platform_data ov9655_pdata;
+#endif
 
 #include <linux/mmc/host.h>
 
@@ -460,15 +458,20 @@ static int gta04_twl_gpio_setup(struct device *dev,
 
 	/* link regulators to MMC adapters */
 	gta04_vmmc1_supply.dev = mmc[0].dev;
-//	gta04_vsim_supply.dev = mmc[0].dev;	/* supply for upper 4 bits */
-	
-#ifdef OLD
-	// this should enable power control for WLAN/BT
-//	gta04_vmmc2_supply.dev = mmc[1].dev;
+
+#if XXX	// unclear what this does on the BeagleBoard
+	/* Power on camera interface */
+	gpio_request(gpio + 2, "CAM_EN");
+	gpio_direction_output(gpio + 2, 1);
 #endif
 	
 	return 0;
 }
+
+static struct platform_device gta04_cam_device = {
+	.name		= "gta04_cam",
+	.id		= -1,
+};
 
 static struct twl4030_gpio_platform_data gta04_gpio_data = {
 	.gpio_base	= OMAP_MAX_GPIO_LINES,
@@ -525,7 +528,8 @@ static struct regulator_init_data gta04_vaux4 = {
 /* VAUX3 for Camera */
 
 static struct regulator_consumer_supply gta04_vaux3_supply = {
-	.supply			= "vaux3",
+	.supply			= "cam_2v5",
+	.dev		= &gta04_cam_device.dev,
 };
 
 static struct regulator_init_data gta04_vaux3 = {
@@ -833,130 +837,6 @@ struct bmp085_platform_data __initdata bmp085_info = {
 
 #endif
 
-#if defined(CONFIG_SOC_CAMERA_OV9640) || defined(CONFIG_SOC_CAMERA_OV9640_MODULE)
-
-#if defined(CONFIG_VIDEO_OMAP3) || defined(CONFIG_VIDEO_OMAP3_MODULE)
-static struct omap34xxcam_hw_config decoder_hwc = {
-	.dev_index		= 0,
-	.dev_minor		= 0,
-	.dev_type		= OMAP34XXCAM_SLAVE_SENSOR,
-	.u.sensor.sensor_isp	= 1,
-	.u.sensor.capture_mem	= PAGE_ALIGN(720*525*2*4),
-};
-
-static struct isp_interface_config tvp5146_if_config = {
-	.ccdc_par_ser		= ISP_PARLL_YUV_BT,
-	.dataline_shift		= 0x1,
-	.hsvs_syncdetect	= ISPCTRL_SYNC_DETECT_VSRISE,
-	.strobe			= 0x0,
-	.prestrobe		= 0x0,
-	.shutter		= 0x0,
-	.wait_hs_vs		= 2,
-	.u.par.par_bridge	= 0x0,
-	.u.par.par_clk_pol	= 0x0,
-};
-#endif
-
-static struct v4l2_ifparm ifparm = {
-	.if_type = V4L2_IF_TYPE_BT656,
-	.u 	 = {
-		.bt656 = {
-			.frame_start_on_rising_vs = 1,
-			.bt_sync_correct = 0,
-			.swap		= 0,
-			.latch_clk_inv	= 0,
-			.nobt_hs_inv	= 0,	/* active high */
-			.nobt_vs_inv	= 0,	/* active high */
-			.mode		= V4L2_IF_TYPE_BT656_MODE_BT_8BIT,
-			.clock_min	= TVP514X_XCLK_BT656,
-			.clock_max	= TVP514X_XCLK_BT656,
-		},
-	},
-};
-
-static int tvp5146_ifparm(struct v4l2_ifparm *p)
-{
-	if (p == NULL)
-		return -EINVAL;
-	
-	*p = ifparm;
-	return 0;
-}
-
-static int tvp5146_set_prv_data(struct v4l2_int_device *s, void *priv)
-{
-#if defined(CONFIG_VIDEO_OMAP3) || defined(CONFIG_VIDEO_OMAP3_MODULE)
-	struct omap34xxcam_hw_config *hwc = priv;
-	
-	if (priv == NULL)
-		return -EINVAL;
-	
-	hwc->u.sensor.sensor_isp = decoder_hwc.u.sensor.sensor_isp;
-	hwc->u.sensor.capture_mem = decoder_hwc.u.sensor.capture_mem;
-	hwc->dev_index = decoder_hwc.dev_index;
-	hwc->dev_minor = decoder_hwc.dev_minor;
-	hwc->dev_type = decoder_hwc.dev_type;
-	return 0;
-#else
-	return -EINVAL;
-#endif
-}
-
-static int tvp5146_power_set(struct v4l2_int_device *s, enum v4l2_power power)
-{
-	struct omap34xxcam_videodev *vdev = s->u.slave->master->priv;
-#if 0	// FIXME to switch on/off VAUX3
-	switch (power) {
-		case V4L2_POWER_OFF:
-			/* Disable mux for TVP5146 decoder data path */
-			if (is_dec_onboard) {
-				if (omap3evm_set_mux(MUX_TVP5146, DISABLE_MUX))
-					return -ENODEV;
-			} else {
-				if (omap3evmdc_set_mux(MUX_TVP5146, DISABLE_MUX))
-					return -ENODEV;
-			}
-			break;
-			
-		case V4L2_POWER_STANDBY:
-			break;
-			
-		case V4L2_POWER_ON:
-			/* Enable mux for TVP5146 decoder data path */
-			if (is_dec_onboard) {
-				if (omap3evm_set_mux(MUX_TVP5146, ENABLE_MUX))
-					return -ENODEV;
-			} else {
-				if (omap3evmdc_set_mux(MUX_TVP5146, ENABLE_MUX))
-					return -ENODEV;
-			}
-			
-#if defined(CONFIG_VIDEO_OMAP3) || defined(CONFIG_VIDEO_OMAP3_MODULE)
-			isp_configure_interface(vdev->cam->isp, &tvp5146_if_config);
-#endif
-			break;
-			
-		default:
-			return -ENODEV;
-			break;
-	}
-#endif
-	return 0;
-}
-
-static struct tvp514x_platform_data ov96xx_pdata = {
-	.master		= "omap34xxcam",
-	.power_set	= tvp5146_power_set,
-	.priv_data_set	= tvp5146_set_prv_data,
-	.ifparm		= tvp5146_ifparm,
-	/* Some interface dependent params */
-	.clk_polarity	= 0, /* data clocked out on falling edge */
-	.hs_polarity	= 1, /* 0 - Active low, 1- Active high */
-	.vs_polarity	= 1, /* 0 - Active low, 1- Active high */
-};
-
-#endif
-
 static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 #if defined(CONFIG_LIS302) || defined(CONFIG_LIS302_MODULE)
 	{
@@ -1043,15 +923,15 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 	.irq		= -EINVAL,	// replace by KEYIRQ which has changed between GTA04A3 and GTA04A4
 	},	
 #endif
-#if defined(CONFIG_SOC_CAMERA_OV9640) || defined(CONFIG_SOC_CAMERA_OV9640_MODULE)
+#if defined(CONFIG_VIDEO_OV9655) || defined(CONFIG_VIDEO_OV9655_MODULE)
 	{
-	I2C_BOARD_INFO("ov96xx", 0x30),
-	.type		= "ov96xx",
-	.platform_data	= &ov96xx_pdata,
+	I2C_BOARD_INFO("ov9655", OV9655_I2C_ADDR),
+	.type		= "ov9655",
+	.platform_data	= &ov9655_pdata,
 	.irq		= -EINVAL,
-	},	
+	},
 #endif
-};
+	};
 
 static struct i2c_board_info __initdata gta04_i2c3_boardinfo[] = {
 	/* Bus 3 is currently not used */
@@ -1210,6 +1090,7 @@ static struct platform_device *gta04_devices[] __initdata = {
 //	&leds_gpio,
 	&keys_gpio,
 	&gta04_dss_device,
+	&gta04_cam_device,
 	&gta04_bklight_device,
 #if defined(CONFIG_REGULATOR_VIRTUAL_CONSUMER)
 	&gta04_vaux1_virtual_regulator_device,

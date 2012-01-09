@@ -602,16 +602,11 @@ static int ispccdc_config_datapath(struct isp_ccdc_device *isp_ccdc,
 		syn_mode &= ~ISPCCDC_SYN_MODE_VP2SDR;
 		syn_mode &= ~ISPCCDC_SYN_MODE_SDR2RSZ;
 		syn_mode |= ISPCCDC_SYN_MODE_WEN;
-		if (pipe->ccdc_in == CCDC_YUV_BT) {
-			syn_mode &= ~ISPCCDC_SYN_MODE_EXWEN;
-			isp_reg_and(isp_ccdc->dev, OMAP3_ISP_IOMEM_CCDC,
-					ISPCCDC_CFG, ~ISPCCDC_CFG_WENLOG);
-		} else {
-			syn_mode |= ISPCCDC_SYN_MODE_EXWEN;
-			isp_reg_or(isp_ccdc->dev, OMAP3_ISP_IOMEM_CCDC,
-					ISPCCDC_CFG, ISPCCDC_CFG_WENLOG);
-		}
-		vpcfg.bitshift_sel = BIT11_2;
+		syn_mode &= ~ISPCCDC_SYN_MODE_EXWEN;
+
+		isp_reg_and(isp_ccdc->dev, OMAP3_ISP_IOMEM_CCDC,
+				ISPCCDC_CFG, ~ISPCCDC_CFG_WENLOG);
+		vpcfg.bitshift_sel = BIT9_0;
 		vpcfg.freq_sel = PIXCLKBY2;
 		ispccdc_config_vp(isp_ccdc, vpcfg);
 		ispccdc_enable_vp(isp_ccdc, 0);
@@ -669,14 +664,14 @@ static int ispccdc_config_datapath(struct isp_ccdc_device *isp_ccdc,
 	case CCDC_YUV_SYNC:
 		syncif.ccdc_mastermode = 0;
 		syncif.datapol = 0;
-		syncif.datsz = DAT8;
+		syncif.datsz = DAT10;
 		syncif.fldmode = 0;
 		syncif.fldout = 0;
 		syncif.fldpol = 0;
 		syncif.fldstat = 0;
 		syncif.hdpol = 0;
 		syncif.ipmod = YUV16;
-		syncif.vdpol = 1;
+		syncif.vdpol = 0;
 		syncif.bt_r656_en = 0;
 		ispccdc_config_imgattr(isp_ccdc, 0);
 		ispccdc_config_sync_if(isp_ccdc, syncif);
@@ -693,7 +688,7 @@ static int ispccdc_config_datapath(struct isp_ccdc_device *isp_ccdc,
 		syncif.fldstat = 0;
 		syncif.hdpol = 0;
 		syncif.ipmod = YUV8;
-		syncif.vdpol = 1;
+		syncif.vdpol = 0;
 		syncif.bt_r656_en = 1;
 		ispccdc_config_imgattr(isp_ccdc, 0);
 		ispccdc_config_sync_if(isp_ccdc, syncif);

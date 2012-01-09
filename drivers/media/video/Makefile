@@ -75,6 +75,8 @@ obj-$(CONFIG_VIDEO_OV7670) 	+= ov7670.o
 obj-$(CONFIG_VIDEO_TCM825X) += tcm825x.o
 obj-$(CONFIG_VIDEO_TVEEPROM) += tveeprom.o
 obj-$(CONFIG_VIDEO_MT9V011) += mt9v011.o
+obj-$(CONFIG_VIDEO_MT9V113) += mt9v113.o
+obj-$(CONFIG_VIDEO_OV9655) += ov9655.o
 
 obj-$(CONFIG_SOC_CAMERA_MT9M001)	+= mt9m001.o
 obj-$(CONFIG_SOC_CAMERA_MT9M111)	+= mt9m111.o
@@ -127,6 +129,7 @@ obj-$(CONFIG_VIDEO_CAFE_CCIC) += cafe_ccic.o
 obj-y				+= isp/
 obj-$(CONFIG_VIDEO_OMAP3)	+= omap34xxcam.o
 obj-$(CONFIG_VIDEO_MT9P012)     += mt9p012.o
+obj-$(CONFIG_VIDEO_MT9T112)	+= mt9t112.o
 obj-$(CONFIG_VIDEO_DW9710)	+= dw9710.o
 obj-$(CONFIG_VIDEO_TPS61059)    += tps61059.o
 obj-$(CONFIG_VIDEO_OV3640)	+= ov3640.o
