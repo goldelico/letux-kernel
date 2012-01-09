@@ -113,7 +113,7 @@ config PVR_OMAP_DSS2
 config SUPPORT_ANDROID_OMAP_NV12
 	bool "Support contiguous mapping of NV12 buffers"
 	depends on PVR_SGXCORE_544
-	default y
+	default n
 
 choice
 	prompt "SGX DVFS mode"
