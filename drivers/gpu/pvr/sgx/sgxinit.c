@@ -1019,7 +1019,7 @@ IMG_VOID SGXDumpDebugInfo (PVRSRV_SGXDEV_INFO	*psDevInfo,
 	IMG_UINT32	ui32CoreNum;
 
 	PVR_LOG(("SGX debug (%s)", PVRVERSION_STRING));
-
+/*
 	if (bDumpSGXRegs)
 	{
 		PVR_DPF((PVR_DBG_ERROR,"SGX Register Base Address (Linear):   0x%08X", (IMG_UINTPTR_T)psDevInfo->pvRegsBaseKM));
@@ -1046,7 +1046,7 @@ IMG_VOID SGXDumpDebugInfo (PVRSRV_SGXDEV_INFO	*psDevInfo,
 		#endif
 		}
 	}
-
+*/
 
 
 	QueueDumpDebugInfo();
@@ -1065,7 +1065,7 @@ IMG_VOID SGXDumpDebugInfo (PVRSRV_SGXDEV_INFO	*psDevInfo,
 		}
 
 		PVR_LOG(("SGX Host control:"));
-
+/*
 		for (ui32LoopCounter = 0;
 			 ui32LoopCounter < sizeof(*psDevInfo->psSGXHostCtl) / sizeof(*pui32HostCtlBuffer);
 			 ui32LoopCounter += 4)
@@ -1074,6 +1074,7 @@ IMG_VOID SGXDumpDebugInfo (PVRSRV_SGXDEV_INFO	*psDevInfo,
 					pui32HostCtlBuffer[ui32LoopCounter + 0], pui32HostCtlBuffer[ui32LoopCounter + 1],
 					pui32HostCtlBuffer[ui32LoopCounter + 2], pui32HostCtlBuffer[ui32LoopCounter + 3]));
 		}
+*/
 	}
 
 	{
@@ -1083,7 +1084,7 @@ IMG_VOID SGXDumpDebugInfo (PVRSRV_SGXDEV_INFO	*psDevInfo,
 		IMG_UINT32	ui32LoopCounter;
 
 		PVR_LOG(("SGX TA/3D control:"));
-
+/*
 		for (ui32LoopCounter = 0;
 			 ui32LoopCounter < psDevInfo->psKernelSGXTA3DCtlMemInfo->uAllocSize / sizeof(*pui32TA3DCtlBuffer);
 			 ui32LoopCounter += 4)
@@ -1092,6 +1093,7 @@ IMG_VOID SGXDumpDebugInfo (PVRSRV_SGXDEV_INFO	*psDevInfo,
 					pui32TA3DCtlBuffer[ui32LoopCounter + 0], pui32TA3DCtlBuffer[ui32LoopCounter + 1],
 					pui32TA3DCtlBuffer[ui32LoopCounter + 2], pui32TA3DCtlBuffer[ui32LoopCounter + 3]));
 		}
+*/
 	}
 
 	#if defined(PVRSRV_USSE_EDM_STATUS_DEBUG)
@@ -1106,7 +1108,7 @@ IMG_VOID SGXDumpDebugInfo (PVRSRV_SGXDEV_INFO	*psDevInfo,
 
 		PVR_LOG(("Last SGX microkernel status code: %08X", ui32LastStatusCode));
 
-		#if defined(PVRSRV_DUMP_MK_TRACE)
+/*		#if defined(PVRSRV_DUMP_MK_TRACE)
 
 
 		{
@@ -1124,6 +1126,8 @@ IMG_VOID SGXDumpDebugInfo (PVRSRV_SGXDEV_INFO	*psDevInfo,
 			}
 		}
 		#endif
+*/
+
 	}
 	#endif
 
