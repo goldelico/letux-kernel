@@ -192,6 +192,8 @@ static int omap4_keypad_open(struct input_dev *input)
 	__raw_writel(OMAP4_DEF_WUP_EVENT_ENA | OMAP4_DEF_WUP_LONG_KEY_ENA,
 			keypad_data->base + regs[KBD_WAKEUPENABLE]);
 
+	input->rep[REP_DELAY] = 500;
+
 	enable_irq(keypad_data->irq);
 
 	return 0;
