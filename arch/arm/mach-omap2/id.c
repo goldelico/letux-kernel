@@ -99,6 +99,7 @@ static struct omap_id omap_ids[] __initdata = {
 
 static void __iomem *tap_base;
 static u16 tap_prod_id;
+u32 dieid[4];
 
 void __init omap24xx_check_revision(void)
 {
@@ -115,18 +116,25 @@ void __init omap24xx_check_revision(void)
 
 	pr_debug("OMAP_TAP_IDCODE 0x%08x REV %i HAWKEYE 0x%04x MANF %03x\n",
 		 idcode, rev, hawkeye, (idcode >> 1) & 0x7ff);
+	dieid[0]=read_tap_reg(OMAP_TAP_DIE_ID_0);
+	dieid[1]=read_tap_reg(OMAP_TAP_DIE_ID_1);
+	dieid[2]=read_tap_reg(OMAP_TAP_DIE_ID_2);
+	dieid[3]=read_tap_reg(OMAP_TAP_DIE_ID_3);
 	pr_debug("OMAP_TAP_DIE_ID_0: 0x%08x\n",
-		 read_tap_reg(OMAP_TAP_DIE_ID_0));
+		 dieid[0]);
 	pr_debug("OMAP_TAP_DIE_ID_1: 0x%08x DEV_REV: %i\n",
-		 read_tap_reg(OMAP_TAP_DIE_ID_1),
-		 (read_tap_reg(OMAP_TAP_DIE_ID_1) >> 28) & 0xf);
+		 dieid[1],
+		 (dieid[1] >> 28) & 0xf);
 	pr_debug("OMAP_TAP_DIE_ID_2: 0x%08x\n",
-		 read_tap_reg(OMAP_TAP_DIE_ID_2));
+		 dieid[2]);
 	pr_debug("OMAP_TAP_DIE_ID_3: 0x%08x\n",
-		 read_tap_reg(OMAP_TAP_DIE_ID_3));
+		 dieid[3]);
 	pr_debug("OMAP_TAP_PROD_ID_0: 0x%08x DEV_TYPE: %i\n",
 		 prod_id, dev_type);
 
+	system_serial_high = dieid[2];
+	system_serial_low = dieid[3];
+	
 	/* Check hawkeye ids */
 	for (i = 0; i < ARRAY_SIZE(omap_ids); i++) {
 		if (hawkeye == omap_ids[i].hawkeye)
