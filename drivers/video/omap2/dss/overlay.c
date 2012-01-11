@@ -436,7 +436,6 @@ int dss_check_overlay(struct omap_overlay *ovl, struct omap_dss_device *dssdev)
 	struct omap_overlay_info *info;
 	u16 outw, outh;
 	u16 dw, dh;
-	int i;
 
 	if (!dssdev)
 		return 0;
@@ -497,23 +496,6 @@ int dss_check_overlay(struct omap_overlay *ovl, struct omap_dss_device *dssdev)
 			DSSERR("zorder out of range: %d\n",
 				info->zorder);
 			return -EINVAL;
-		}
-		/*
-		 * Check that zorder doesn't match with zorder of any other
-		 * overlay which is enabled and is also connected to the same
-		 * manager
-		 */
-		for (i = 0; i < omap_dss_get_num_overlays(); i++) {
-			struct omap_overlay *tmp_ovl = omap_dss_get_overlay(i);
-
-			if (tmp_ovl->id != ovl->id &&
-					tmp_ovl->manager == ovl->manager &&
-					tmp_ovl->info.enabled == true &&
-					tmp_ovl->info.zorder == info->zorder) {
-				DSSERR("%s and %s have same zorder: %d\n",
-					ovl->name, tmp_ovl->name, info->zorder);
-				return -EINVAL;
-			}
 		}
 	}
 
