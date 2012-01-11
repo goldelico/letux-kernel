@@ -1216,6 +1216,11 @@ static void omap4_sdp4430_wifi_init(void)
 	platform_device_register(&omap_vwlan_device);
 }
 
+static struct __initdata emif_custom_configs custom_configs = {
+	.mask   = EMIF_CUSTOM_CONFIG_LPMODE,
+	.lpmode = EMIF_LP_MODE_DISABLE
+};
+
 static void __init omap_4430sdp_init(void)
 {
 	int status;
@@ -1227,12 +1232,14 @@ static void __init omap_4430sdp_init(void)
 	omap_emif_set_device_details(1, &lpddr2_elpida_2G_S4_x2_info,
 			lpddr2_elpida_2G_S4_timings,
 			ARRAY_SIZE(lpddr2_elpida_2G_S4_timings),
-			&lpddr2_elpida_S4_min_tck, NULL);
+			&lpddr2_elpida_S4_min_tck,
+			&custom_configs);
+
 	omap_emif_set_device_details(2, &lpddr2_elpida_2G_S4_x2_info,
 			lpddr2_elpida_2G_S4_timings,
 			ARRAY_SIZE(lpddr2_elpida_2G_S4_timings),
-			&lpddr2_elpida_S4_min_tck, NULL);
-
+			&lpddr2_elpida_S4_min_tck,
+			&custom_configs);
 
 	omap4_mux_init(board_mux, NULL, package);
 
