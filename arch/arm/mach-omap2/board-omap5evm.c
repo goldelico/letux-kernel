@@ -27,6 +27,9 @@
 #endif
 #include <linux/i2c/smsc.h>
 #include <linux/memblock.h>
+#include <linux/ion.h>
+#include <linux/omap_ion.h>
+
 #include <linux/i2c/twl.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/fixed.h>
@@ -290,6 +293,91 @@ static struct smsc_keypad_data omap5_kp_data = {
 	.cols           = 16,
 	.rep            = 1,
 };
+
+#define PHYS_ADDR_SMC_SIZE     (SZ_1M * 3)
+#define PHYS_ADDR_SMC_MEM      (0x80000000 + SZ_1G - PHYS_ADDR_SMC_SIZE)
+#define OMAP_ION_HEAP_SECURE_INPUT_SIZE        (SZ_1M * 90)
+#define PHYS_ADDR_DUCATI_SIZE  (SZ_1M * 105)
+#define PHYS_ADDR_DUCATI_MEM   (PHYS_ADDR_SMC_MEM - PHYS_ADDR_DUCATI_SIZE - \
+				OMAP_ION_HEAP_SECURE_INPUT_SIZE)
+
+#ifdef CONFIG_ION_OMAP
+#define OMAP5_RAMCONSOLE_START	(PLAT_PHYS_OFFSET + SZ_512M)
+#define OMAP5_RAMCONSOLE_SIZE	SZ_2M
+#define OMAP5_ION_HEAP_TILER_SIZE		(SZ_128M - SZ_32M)
+#define OMAP5_ION_HEAP_NONSECURE_TILER_SIZE	SZ_32M
+#endif
+
+#define PHYS_ADDR_SMC_SIZE     (SZ_1M * 3)
+#define PHYS_ADDR_SMC_MEM      (0x80000000 + SZ_1G - PHYS_ADDR_SMC_SIZE)
+#define OMAP_ION_HEAP_SECURE_INPUT_SIZE        (SZ_1M * 90)
+#define PHYS_ADDR_DUCATI_SIZE  (SZ_1M * 105)
+#define PHYS_ADDR_DUCATI_MEM   (PHYS_ADDR_SMC_MEM - PHYS_ADDR_DUCATI_SIZE - \
+				OMAP_ION_HEAP_SECURE_INPUT_SIZE)
+
+
+#ifdef CONFIG_ION_OMAP
+static struct ion_platform_data omap5_ion_data = {
+	.nr = 3,
+	.heaps = {
+		{
+			.type = ION_HEAP_TYPE_CARVEOUT,
+			.id = OMAP_ION_HEAP_SECURE_INPUT,
+			.name = "secure_input",
+			.base = PHYS_ADDR_SMC_MEM -
+					OMAP_ION_HEAP_SECURE_INPUT_SIZE,
+			.size = OMAP_ION_HEAP_SECURE_INPUT_SIZE,
+		},
+		{	.type = OMAP_ION_HEAP_TYPE_TILER,
+			.id = OMAP_ION_HEAP_TILER,
+			.name = "tiler",
+			.base = PHYS_ADDR_DUCATI_MEM -
+					OMAP5_ION_HEAP_TILER_SIZE,
+			.size = OMAP5_ION_HEAP_TILER_SIZE,
+		},
+		{
+			.type = OMAP_ION_HEAP_TYPE_TILER,
+			.id = OMAP_ION_HEAP_NONSECURE_TILER,
+			.name = "nonsecure_tiler",
+			.base = 0x80000000 + SZ_512M + SZ_2M,
+			.size = OMAP5_ION_HEAP_NONSECURE_TILER_SIZE,
+		},
+	},
+};
+
+static struct platform_device omap5_ion_device = {
+	.name = "ion-omap",
+	.id = -1,
+	.dev = {
+		.platform_data = &omap5_ion_data,
+	},
+};
+
+void __init omap_register_ion(void)
+{
+	platform_device_register(&omap5_ion_device);
+}
+
+void __init omap_ion_init(void)
+{
+	int i;
+	int ret;
+
+	memblock_remove(OMAP5_RAMCONSOLE_START, OMAP5_RAMCONSOLE_SIZE);
+
+	for (i = 0; i < omap5_ion_data.nr; i++)
+		if (omap5_ion_data.heaps[i].type == ION_HEAP_TYPE_CARVEOUT ||
+		    omap5_ion_data.heaps[i].type == OMAP_ION_HEAP_TYPE_TILER) {
+			ret = memblock_remove(omap5_ion_data.heaps[i].base,
+					      omap5_ion_data.heaps[i].size);
+			if (ret)
+				pr_err("memblock remove of %x@%lx failed\n",
+				       omap5_ion_data.heaps[i].size,
+				       omap5_ion_data.heaps[i].base);
+		}
+
+}
+#endif
 
 static void __init omap_5430evm_init_early(void)
 {
@@ -1341,14 +1429,20 @@ static void __init omap_5430evm_init(void)
 	if (status)
 		pr_err("Keypad initialization failed: %d\n", status);
 
-	omap5evm_display_init();
 	omap_dmm_init(); /* needs to be before display_init */
+#ifdef CONFIG_ION_OMAP
+	omap_register_ion();
+#endif
+	omap5evm_display_init();
 }
 
 static void __init omap_5430evm_map_io(void)
 {
 	omap2_set_globals_543x();
 	omap54xx_map_common_io();
+#ifdef CONFIG_ION_OMAP
+	omap_ion_init();
+#endif
 }
 
 static void __init omap_5430evm_reserve(void)
