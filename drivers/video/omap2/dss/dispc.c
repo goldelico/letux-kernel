@@ -1726,6 +1726,7 @@ int dispc_ovl_setup(enum omap_plane plane, struct omap_overlay_info *oi,
 	s32 pix_inc;
 	u16 frame_height = oi->height;
 	unsigned int field_offset = 0;
+	u8 global_alpha;
 
 	DSSDBG("dispc_ovl_setup %d, pa %x, pa_uv %x, sw %d, %d,%d, %dx%d -> "
 		"%dx%d, cmode %x, rot %d, mir %d, ilace %d chan %d repl %d "
@@ -1832,7 +1833,20 @@ int dispc_ovl_setup(enum omap_plane plane, struct omap_overlay_info *oi,
 
 	dispc_ovl_set_zorder(plane, oi->zorder);
 	dispc_ovl_set_pre_mult_alpha(plane, oi->pre_mult_alpha);
-	dispc_ovl_setup_global_alpha(plane, oi->global_alpha);
+
+	/* Errata OMAP5: Premultiply alpha global condition issue */
+	global_alpha = oi->global_alpha;
+	if (cpu_is_omap54xx() &&
+			oi->pre_mult_alpha && global_alpha == 0xFF && !cconv) {
+		if (oi->color_mode == OMAP_DSS_COLOR_ARGB16 ||
+		    oi->color_mode == OMAP_DSS_COLOR_ARGB32 ||
+		    oi->color_mode == OMAP_DSS_COLOR_ARGB16_1555 ||
+		    oi->color_mode == OMAP_DSS_COLOR_RGBA16 ||
+		    oi->color_mode == OMAP_DSS_COLOR_RGBA32)
+			global_alpha--;
+	}
+
+	dispc_ovl_setup_global_alpha(plane, global_alpha);
 
 	dispc_ovl_set_channel_out(plane, channel);
 
