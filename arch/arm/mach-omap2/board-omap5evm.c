@@ -22,6 +22,7 @@
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 #include <asm/hardware/gic.h>
+#include <mach/dmm.h>
 
 #include <mach/hardware.h>
 #include <mach/omap4-common.h>
@@ -105,6 +106,8 @@ static void __init omap_5430evm_init(void)
 
 	omap_5430evm_i2c_init();
 	omap_serial_init();
+
+	omap_dmm_init(); /* needs to be before display_init */
 }
 
 static void __init omap_5430evm_map_io(void)
