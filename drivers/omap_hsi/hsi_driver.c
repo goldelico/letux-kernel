@@ -204,6 +204,7 @@ static int __init reg_hsi_dev_ch(struct hsi_dev *hsi_ctrl, unsigned int p,
 {
 	struct hsi_device *dev;
 	struct hsi_port *port = &hsi_ctrl->hsi_port[p];
+	struct hsi_platform_data *pdata = dev_get_platdata(hsi_ctrl->dev);
 	int err;
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
@@ -211,22 +212,22 @@ static int __init reg_hsi_dev_ch(struct hsi_dev *hsi_ctrl, unsigned int p,
 		return -ENOMEM;
 
 	dev->n_ctrl = hsi_ctrl->id;
-	dev->n_p = p;
+	dev->n_p = pdata->ctx->pctx[p].port_number - 1;
 	dev->n_ch = ch;
 	dev->ch = &port->hsi_channel[ch];
 	dev->device.bus = &hsi_bus_type;
 	dev->device.parent = hsi_ctrl->dev;
 	dev->device.release = hsi_dev_release;
 	if (dev->n_ctrl < 0)
-		dev_set_name(&dev->device, "omap_hsi-p%u.c%u", p, ch);
+		dev_set_name(&dev->device, "omap_hsi-p%u.c%u", dev->n_p, ch);
 	else
-		dev_set_name(&dev->device, "omap_hsi%d-p%u.c%u", dev->n_ctrl, p,
+		dev_set_name(&dev->device, "omap_hsi%d-p%u.c%u", dev->n_ctrl, dev->n_p,
 			     ch);
 
 	dev_dbg(hsi_ctrl->dev,
 		"reg_hsi_dev_ch, port %d, ch %d, hsi_ctrl->dev:0x%x,"
 		"&dev->device:0x%x\n",
-		p, ch, (unsigned int)hsi_ctrl->dev, (unsigned int)&dev->device);
+		dev->n_p, ch, (unsigned int)hsi_ctrl->dev, (unsigned int)&dev->device);
 
 	err = device_register(&dev->device);
 	if (err >= 0) {

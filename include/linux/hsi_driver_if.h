@@ -119,7 +119,7 @@ struct hsi_ctrl_ctx {
 /**
  * struct hsi_device - HSI device object (Virtual)
  * @n_ctrl: associated HSI controller platform id number
- * @n_p: port number
+ * @n_p: port number [0, 1]
  * @n_ch: channel number
  * @ch: channel descriptor
  * @device: associated device
