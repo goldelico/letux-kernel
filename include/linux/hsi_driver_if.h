@@ -78,6 +78,7 @@ struct hsi_channel;
 /* DPS */
 struct hst_ctx {
 	u32 mode;
+	u32 flow;	/* Kept for Legacy: flow is not used for HST */
 	u32 frame_size;
 	u32 divisor;
 	u32 arb_mode;

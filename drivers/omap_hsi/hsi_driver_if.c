@@ -199,6 +199,10 @@ int hsi_set_tx(struct hsi_port *sport, struct hst_ctx *cfg)
 	    (cfg->arb_mode != HSI_ARBMODE_PRIORITY) && (cfg->mode != NOT_SET))
 		return -EINVAL;
 
+	if (cfg->mode != NOT_SET)
+		hsi_outl(cfg->mode | HSI_HST_MODE_WAKE_CTRL_SW, base,
+			 HSI_HST_MODE_REG(port));
+
 	if (cfg->frame_size != NOT_SET)
 		hsi_outl(cfg->frame_size, base, HSI_HST_FRAMESIZE_REG(port));
 
