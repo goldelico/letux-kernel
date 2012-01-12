@@ -53,6 +53,8 @@ extern int omap_mpuss_init(void);
 extern int omap_enter_lowpower(unsigned int cpu, unsigned int power_state);
 extern int omap_hotplug_cpu(unsigned int cpu, unsigned int power_state);
 extern u32 omap_mpuss_read_prev_context_state(void);
+extern void mpuss_timer_setup(unsigned long freq);
+extern void omap_mpuss_timer_init(void);
 #else
 static inline int omap_enter_lowpower(unsigned int cpu,
 					unsigned int power_state)
@@ -76,6 +78,8 @@ static inline u32 omap_mpuss_read_prev_context_state(void)
 {
 	return 0;
 }
+static inline void omap_mpuss_timer_init(void);
+{}
 #endif
 #endif /* __ASSEMBLER__ */
 #endif /* OMAP_ARCH_OMAP4_COMMON_H */
