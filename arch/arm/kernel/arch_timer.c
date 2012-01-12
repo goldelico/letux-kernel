@@ -266,6 +266,9 @@ int __init arch_timer_register(struct resource *res, int res_nr)
 	if (!res_nr || res[0].start < 0 || !(res[0].flags & IORESOURCE_IRQ))
 		return -EINVAL;
 
+	if ((res_nr > 1) && (res[1].flags & IORESOURCE_MEM))
+		arch_timer_rate = res[1].start;
+
 	err = arch_timer_available();
 	if (err)
 		return err;
