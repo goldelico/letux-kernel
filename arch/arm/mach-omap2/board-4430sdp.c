@@ -357,6 +357,60 @@ static int __init omap_ethernet_init(void)
 	return status;
 }
 
+static struct regulator_consumer_supply sdp4430_vpmic_v2v1_supply[] = {
+	REGULATOR_SUPPLY("v2v1", "1-004b"),
+};
+
+static struct regulator_init_data sdp4430_v2v1smps = {
+	.constraints = {
+		.always_on		= true,
+	},
+	.num_consumer_supplies	= ARRAY_SIZE(sdp4430_vpmic_v2v1_supply),
+	.consumer_supplies	= sdp4430_vpmic_v2v1_supply,
+};
+
+static struct fixed_voltage_config sdp4430_v2v1_pdata = {
+	.supply_name	= "VPMIC-V2V1",
+	.microvolts	= 2100000,
+	.init_data	= &sdp4430_v2v1smps,
+	.gpio		= -EINVAL,
+};
+
+static struct platform_device sdp4430_v2v1 = {
+	.name		= "reg-fixed-voltage",
+	.id		= -1,
+	.dev = {
+		.platform_data = &sdp4430_v2v1_pdata,
+	},
+};
+
+static struct regulator_consumer_supply sdp4430_vpmic_v1v8_supply[] = {
+	REGULATOR_SUPPLY("vio", "1-004b"),
+};
+
+static struct regulator_init_data sdp4430_v1v8smps = {
+	.constraints = {
+		.always_on		= true,
+	},
+	.num_consumer_supplies	= ARRAY_SIZE(sdp4430_vpmic_v1v8_supply),
+	.consumer_supplies	= sdp4430_vpmic_v1v8_supply,
+};
+
+static struct fixed_voltage_config sdp4430_v1v8_pdata = {
+	.supply_name	= "VPMIC-V1V8",
+	.microvolts	= 1800000,
+	.init_data	= &sdp4430_v1v8smps,
+	.gpio		= -EINVAL,
+};
+
+static struct platform_device sdp4430_v1v8 = {
+	.name		= "reg-fixed-voltage",
+	.id		= -1,
+	.dev = {
+		.platform_data = &sdp4430_v1v8_pdata,
+	},
+};
+
 static struct regulator_consumer_supply sdp4430_vbat_supply[] = {
 	REGULATOR_SUPPLY("vddvibl", "twl6040-vibra"),
 	REGULATOR_SUPPLY("vddvibr", "twl6040-vibra"),
@@ -390,6 +444,8 @@ static struct platform_device *sdp4430_devices[] __initdata = {
 	&sdp4430_leds_gpio,
 	&sdp4430_leds_pwm,
 	&sdp4430_vbat,
+	&sdp4430_v1v8,
+	&sdp4430_v2v1,
 };
 
 static struct omap_lcd_config sdp4430_lcd_config __initdata = {
