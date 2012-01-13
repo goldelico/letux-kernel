@@ -1194,10 +1194,8 @@ static int __init hsi_driver_init(void)
 	}
 
 	err = hsi_debug_init();
-	if (err < 0) {
-		pr_err(LOG_NAME "HSI Debugfs failed %d\n", err);
-		goto rback1;
-	}
+	if (err < 0)
+		pr_warn(LOG_NAME "HSI debugfs failed %d\n", err);
 
 	/* Register the HSI platform driver */
 	err = platform_driver_probe(&hsi_pdriver, hsi_platform_device_probe);
@@ -1209,8 +1207,11 @@ static int __init hsi_driver_init(void)
 	return 0;
 rback2:
 	hsi_debug_exit();
-rback1:
-	hsi_bus_exit();
+
+	/* Note : we do not unregister the bus even if hsi devices were not */
+	/* registered. This is to allow hsi bus driver to be registered */
+	/* later successfully. */
+
 	return err;
 }
 
