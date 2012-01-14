@@ -373,13 +373,21 @@ int twl6040_set_pll(struct twl6040 *twl6040, int pll_id,
 
 	mutex_lock(&twl6040->mutex);
 
-	hppllctl = twl6040_reg_read(twl6040, TWL6040_REG_HPPLLCTL);
-	lppllctl = twl6040_reg_read(twl6040, TWL6040_REG_LPPLLCTL);
-
 	/* Force full reconfiguration when switching between PLL */
 	if (pll_id != twl6040->pll) {
 		twl6040->sysclk = 0;
 		twl6040->mclk = 0;
+
+		/* Reset PLLs */
+		hppllctl = lppllctl = 0;
+		twl6040_reg_write(twl6040, TWL6040_REG_LPPLLCTL, 0x02);
+		twl6040_reg_write(twl6040, TWL6040_REG_HPPLLCTL, 0x02);
+		usleep_range(100, 200);
+		twl6040_reg_write(twl6040, TWL6040_REG_LPPLLCTL, 0);
+		twl6040_reg_write(twl6040, TWL6040_REG_HPPLLCTL, 0);
+	} else {
+		hppllctl = twl6040_reg_read(twl6040, TWL6040_REG_HPPLLCTL);
+		lppllctl = twl6040_reg_read(twl6040, TWL6040_REG_LPPLLCTL);
 	}
 
 	switch (pll_id) {
