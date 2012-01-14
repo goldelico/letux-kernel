@@ -284,6 +284,8 @@ static int omap_mcpdm_dai_startup(struct snd_pcm_substream *substream,
 
 	mutex_lock(&mcpdm->mutex);
 
+	snd_pcm_hw_constraint_msbits(substream->runtime, 0, 32, 24);
+
 	/* nothing to do if already active */
 	if (mcpdm->active++)
 		goto out;
