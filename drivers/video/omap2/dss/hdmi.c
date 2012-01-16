@@ -673,6 +673,8 @@ static irqreturn_t hpd_enable_handler(int irq, void *ptr)
 {
 	DSSDBG("hpd enable %d\n", hdmi.hpd);
 
+	hdmi.ip_data.ops->notify_hpd(&hdmi.ip_data, hdmi.hpd);
+
 	return IRQ_HANDLED;
 }
 

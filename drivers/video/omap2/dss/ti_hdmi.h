@@ -117,6 +117,7 @@ struct hdmi_config {
 	struct hdmi_s3d_info s3d_info;
 	enum hdmi_deep_color_mode deep_color;
 	enum hdmi_range range;
+	bool hdmi_phy_tx_enabled;
 };
 
 /* HDMI PLL structure */
@@ -177,6 +178,8 @@ struct ti_hdmi_ip_ops {
 	int (*irq_process) (struct hdmi_ip_data *ip_data);
 
 	int (*configure_range)(struct hdmi_ip_data *ip_data);
+
+	int (*notify_hpd)(struct hdmi_ip_data *ip_data, bool hpd_state);
 };
 
 /*
@@ -244,6 +247,7 @@ void ti_hdmi_4xxx_wp_dump(struct hdmi_ip_data *ip_data, struct seq_file *s);
 void ti_hdmi_4xxx_pll_dump(struct hdmi_ip_data *ip_data, struct seq_file *s);
 void ti_hdmi_4xxx_core_dump(struct hdmi_ip_data *ip_data, struct seq_file *s);
 void ti_hdmi_4xxx_phy_dump(struct hdmi_ip_data *ip_data, struct seq_file *s);
+int ti_hdmi_4xxx_notify_hpd(struct hdmi_ip_data *ip_data, bool hpd_state);
 void ti_hdmi_5xxx_basic_configure(struct hdmi_ip_data *ip_data);
 void ti_hdmi_5xxx_core_dump(struct hdmi_ip_data *ip_data, struct seq_file *s);
 int ti_hdmi_5xxx_read_edid(struct hdmi_ip_data *ip_data,
