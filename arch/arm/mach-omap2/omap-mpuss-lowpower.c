@@ -413,7 +413,6 @@ int omap_hotplug_cpu(unsigned int cpu, unsigned int power_state)
 	return 0;
 }
 
-
 static void enable_mercury_retention_mode(void)
 {
 	u32 reg;
