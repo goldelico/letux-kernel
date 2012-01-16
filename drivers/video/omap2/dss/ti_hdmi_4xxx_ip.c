@@ -159,6 +159,9 @@ static int hdmi_set_phy_pwr(struct hdmi_ip_data *ip_data, enum hdmi_phy_pwr val)
 				HDMI_WP_PWR_CTRL, 5, 4, val) != val) {
 		pr_err("Failed to set PHY power mode to %d\n", val);
 		return -ETIMEDOUT;
+	} else if (cpu_is_omap54xx()) {
+		DSSDBG("HDMI_WP_PWR_CTRL %08x\n",
+		hdmi_read_reg(hdmi_wp_base(ip_data), HDMI_WP_PWR_CTRL));
 	}
 
 	return 0;
