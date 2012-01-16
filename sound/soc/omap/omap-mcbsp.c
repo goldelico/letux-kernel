@@ -132,9 +132,10 @@ static int omap_mcbsp_dai_startup(struct snd_pcm_substream *substream,
 		err = omap_mcbsp_request(bus_id);
 
 	/*
-	 * OMAP3 McBSP FIFO is word structured.
-	 * McBSP2 has 1024 + 256 = 1280 word long buffer,
-	 * McBSP1,3,4,5 has 128 word long buffer
+	 * There is a FIFO in OMAP3 and newer SoCs for McBSP. This FIFO is word
+	 * structured.
+	 * OMAP3 McBSP2 has 1024 + 256 = 1280 word long buffer,
+	 * All other McBSP port has 128 word long buffer.
 	 * This means that the size of the FIFO depends on the sample format.
 	 * For example on McBSP3:
 	 * 16bit samples: size is 128 * 2 = 256 bytes
@@ -146,7 +147,7 @@ static int omap_mcbsp_dai_startup(struct snd_pcm_substream *substream,
 	 * 2 channels (stereo): size is 128 / 2 = 64 frames (2 * 64 words)
 	 * 4 channels: size is 128 / 4 = 32 frames (4 * 32 words)
 	 */
-	if (cpu_is_omap34xx() || cpu_is_omap44xx()) {
+	if (cpu_class_is_omap2() && !cpu_is_omap24xx()) {
 		/*
 		* Rule for the buffer size. We should not allow
 		* smaller buffer than the FIFO size to avoid underruns
@@ -258,7 +259,7 @@ static int omap_mcbsp_dai_hw_params(struct snd_pcm_substream *substream,
 	default:
 		return -EINVAL;
 	}
-	if (cpu_is_omap34xx() || cpu_is_omap44xx()) {
+	if (cpu_class_is_omap2() && !cpu_is_omap24xx()) {
 		dma_data->set_threshold = omap_mcbsp_set_threshold;
 		/* TODO: Currently, MODE_ELEMENT == MODE_FRAME */
 		if (omap_mcbsp_get_dma_op_mode(bus_id) ==
