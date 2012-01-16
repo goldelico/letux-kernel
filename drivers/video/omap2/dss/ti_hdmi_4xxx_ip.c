@@ -236,12 +236,21 @@ int ti_hdmi_4xxx_phy_enable(struct hdmi_ip_data *ip_data)
 	u16 freqout = 1;
 
 	r = hdmi_set_phy_pwr(ip_data, HDMI_PHYPWRCMD_LDOON);
+
+	/*
+	 * HDMI_WP_PWR_CTRL doesn't seem to reflect the change in power
+	 * states, ignore the error for now
+	 */
+#if 0
 	if (r)
 		return r;
+#endif
 
 	r = hdmi_set_phy_pwr(ip_data, HDMI_PHYPWRCMD_TXON);
+#if 0
 	if (r)
 		return r;
+#endif
 
 	/*
 	 * Read address 0 in order to get the SCP reset done completed
