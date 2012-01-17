@@ -1,6 +1,7 @@
 menuconfig ION
 	tristate "Ion Memory Manager"
 	select GENERIC_ALLOCATOR
+	default y
 	help
 	  Chose this option to enable the ION Memory Manager.
 
@@ -13,6 +14,7 @@ config ION_TEGRA
 config ION_OMAP
 	tristate "Ion for OMAP"
 	depends on (ARCH_OMAP5 || ARCH_OMAP4) && ION && TI_TILER
+	default y
 	help
 	  Choose this option if you wish to use ion on OMAP4/5.
 
