@@ -40,8 +40,9 @@
 #include <plat/i2c.h>
 #include <plat/omap_hwmod.h>
 
+#define OMAP4_REGULATOR_MAX     1
+#define OMAP5_REGULATOR_MAX     2
 #define NAME_SIZE	50
-#define REGULATOR_MAX	1
 #define NUM_SRC_CLK	3
 #define AUX_CLK_MIN	0
 #define AUX_CLK_MAX	5
@@ -53,7 +54,10 @@ static struct dentry *rprm_dbg;
 
 #if defined(CONFIG_REGULATOR)
 static char *regulator_name[] = {
-	"cam2pwr"
+	"cam2pwr",
+#if defined(CONFIG_ARCH_OMAP5)
+	"cam2csi"
+#endif
 };
 #endif
 
@@ -284,8 +288,10 @@ int rprm_regulator_request(struct rprm_elem *e, struct rprm_regulator *obj)
 	int ret;
 	struct rprm_regulator_depot *rd;
 	char *reg_name;
+	int max_regulators = (cpu_is_omap54xx() ? OMAP5_REGULATOR_MAX : \
+				OMAP4_REGULATOR_MAX);
 
-	if (obj->id > REGULATOR_MAX) {
+	if (!obj->id || obj->id > max_regulators) {
 		pr_err("Invalid regulator %d\n", obj->id);
 		return -EINVAL;
 	}
@@ -306,10 +312,16 @@ int rprm_regulator_request(struct rprm_elem *e, struct rprm_regulator *obj)
 
 	rd->orig_uv = regulator_get_voltage(rd->reg_p);
 
-	ret = regulator_set_voltage(rd->reg_p, obj->min_uv, obj->max_uv);
-	if (ret) {
-		pr_err("%s: error setting %s voltage\n", __func__, reg_name);
-		goto error_reg;
+	/* OMAP5 Regulators are fixed voltage regulators, so do not call the
+	 * set_voltage api and ignore the arguments */
+	if (cpu_is_omap44xx()) {
+		ret = regulator_set_voltage(rd->reg_p, obj->min_uv,
+						obj->max_uv);
+		if (ret) {
+			pr_err("%s: error setting %s voltage\n", __func__,
+				reg_name);
+			goto error_reg;
+		}
 	}
 
 	ret = regulator_enable(rd->reg_p);
