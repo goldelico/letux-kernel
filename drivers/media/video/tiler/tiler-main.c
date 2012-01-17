@@ -29,6 +29,7 @@
 #include <linux/mutex.h>
 #include <linux/dma-mapping.h>		/* dma_alloc_coherent */
 #include <linux/pagemap.h>		/* page_cache_release() */
+#include <linux/vmalloc.h>
 #include <linux/slab.h>
 #include <linux/sched.h>
 #include <linux/seq_file.h>
@@ -180,9 +181,17 @@ static u32 _m_get_id(void)
  */
 struct tiler_debugfs_data {
 	char name[17];
-	void (*func)(struct seq_file *, u32 arg);
-	u32 arg;
+	void (*func)(struct seq_file *, u32 xdiv, u32 ydiv, u32 lut);
+	u32 xdiv;
+	u32 ydiv;
+	u32 lut;
 };
+
+static const char * const map_list[] = {"1x1", "2x1", "4x1", "2x2", "4x2",
+					"4x4"};
+static const char * const const cont_str[] = {"0", "1"};
+
+static struct tiler_debugfs_data *debug_maps[MAX_CONTAINERS];
 
 static void fill_map(char **map, int xdiv, int ydiv, struct tcm_area *a,
 							char c, bool ovw)
@@ -249,10 +258,9 @@ static void map_2d_info(char **map, int xdiv, int ydiv, char *nice,
 							a->p0.x, a->p1.x);
 }
 
-static void debug_allocation_map(struct seq_file *s, u32 arg)
+static void debug_allocation_map(struct seq_file *s, u32 xdiv, u32 ydiv,
+		u32 lut)
 {
-	int xdiv = (arg >> 8) & 0xFF;
-	int ydiv = arg & 0xFF;
 	int i;
 	char **map, *global_map;
 	struct area_info *ai;
@@ -265,9 +273,9 @@ static void debug_allocation_map(struct seq_file *s, u32 arg)
 	char nice[128];
 
 	/* allocate map */
-	map = kzalloc(tiler.height / ydiv * sizeof(*map), GFP_KERNEL);
-	global_map = kzalloc((tiler.width / xdiv + 1) * tiler.height / ydiv,
-								GFP_KERNEL);
+	map = vmalloc(tiler.height / ydiv * sizeof(*map));
+	global_map = vmalloc((tiler.width / xdiv + 1) * tiler.height / ydiv);
+
 	if (!map || !global_map) {
 		printk(KERN_ERR "could not allocate map for debug print\n");
 		goto error;
@@ -282,27 +290,32 @@ static void debug_allocation_map(struct seq_file *s, u32 arg)
 	mutex_lock(&mtx);
 
 	list_for_each_entry(mi, &blocks, global) {
-		if (mi->area.is2d) {
-			ai = mi->parent;
-			fill_map(map, xdiv, ydiv, &ai->area, *a2dp, false);
-			fill_map(map, xdiv, ydiv, &mi->area, *m2dp, true);
-			if (!*++a2dp)
-				a2dp = a2d;
-			if (!*++m2dp)
-				m2dp = m2d;
-			map_2d_info(map, xdiv, ydiv, nice, &mi->area);
-		} else {
-			bool start = read_map_pt(map, xdiv, ydiv, &mi->area.p0)
-									== ' ';
-			bool end = read_map_pt(map, xdiv, ydiv, &mi->area.p1)
-									== ' ';
-			tcm_for_each_slice(a, mi->area, p)
-				fill_map(map, xdiv, ydiv, &a, '=', true);
-			fill_map_pt(map, xdiv, ydiv, &mi->area.p0,
+		if (mi->area.tcm->lut == lut) {
+			if (mi->area.is2d) {
+				ai = mi->parent;
+				fill_map(map, xdiv, ydiv, &ai->area, *a2dp,
+					false);
+				fill_map(map, xdiv, ydiv, &mi->area, *m2dp,
+					true);
+				if (!*++a2dp)
+					a2dp = a2d;
+				if (!*++m2dp)
+					m2dp = m2d;
+				map_2d_info(map, xdiv, ydiv, nice, &mi->area);
+			} else {
+				bool start = read_map_pt(map, xdiv, ydiv,
+							&mi->area.p0) == ' ';
+				bool end = read_map_pt(map, xdiv, ydiv,
+							&mi->area.p1) == ' ';
+				tcm_for_each_slice(a, mi->area, p)
+					fill_map(map, xdiv, ydiv, &a, '=',
+						true);
+				fill_map_pt(map, xdiv, ydiv, &mi->area.p0,
 							start ? '<' : 'X');
-			fill_map_pt(map, xdiv, ydiv, &mi->area.p1,
+				fill_map_pt(map, xdiv, ydiv, &mi->area.p1,
 							end ? '>' : 'X');
-			map_1d_info(map, xdiv, ydiv, nice, &mi->area);
+				map_1d_info(map, xdiv, ydiv, nice, &mi->area);
+			}
 		}
 	}
 
@@ -314,23 +327,14 @@ static void debug_allocation_map(struct seq_file *s, u32 arg)
 	mutex_unlock(&mtx);
 
 error:
-	kfree(map);
-	kfree(global_map);
+	vfree(map);
+	vfree(global_map);
 }
-
-const struct tiler_debugfs_data debugfs_maps[] = {
-	{ "1x1", debug_allocation_map, 0x0101 },
-	{ "2x1", debug_allocation_map, 0x0201 },
-	{ "4x1", debug_allocation_map, 0x0401 },
-	{ "2x2", debug_allocation_map, 0x0202 },
-	{ "4x2", debug_allocation_map, 0x0402 },
-	{ "4x4", debug_allocation_map, 0x0404 },
-};
 
 static int tiler_debug_show(struct seq_file *s, void *unused)
 {
 	struct tiler_debugfs_data *fn = s->private;
-	fn->func(s, fn->arg);
+	fn->func(s, fn->xdiv, fn->ydiv, fn->lut);
 	return 0;
 }
 
@@ -1576,7 +1580,8 @@ static s32 __init tiler_init(void)
 	/* Allocate tiler container manager (we share 1 on OMAP4) */
 	div_pt.x = tiler.width;   /* hardcoded default */
 	div_pt.y = (3 * tiler.height) / 4;
-	sita[cont_cnt] = sita_init(tiler.width, tiler.height, (void *)&div_pt);
+	sita[cont_cnt] = sita_init(tiler.width, tiler.height, (void *)&div_pt,
+					cont_cnt);
 
 	tmm_pat[0] = tmm_pat_init(0, dmac_va, dmac_pa);
 
@@ -1592,7 +1597,7 @@ static s32 __init tiler_init(void)
 
 		/* Allocate additional container manager for OMAP5 page mode */
 		sita[cont_cnt] = sita_init(tiler.width, tiler.height,
-					   (void *)&div_pt);
+					   (void *)&div_pt, cont_cnt);
 		tmm_pat[cont_cnt] = tmm_pat_init(0, dmac_va, dmac_pa);
 
 		cont_cnt++;
@@ -1684,18 +1689,48 @@ static s32 __init tiler_init(void)
 	INIT_LIST_HEAD(&orphan_onedim);
 
 	dbgfs = debugfs_create_dir("tiler", NULL);
-	if (IS_ERR_OR_NULL(dbgfs))
+	if (IS_ERR_OR_NULL(dbgfs)) {
 		dev_warn(device, "failed to create debug files.\n");
-	else
-		dbg_map = debugfs_create_dir("map", dbgfs);
-	if (!IS_ERR_OR_NULL(dbg_map)) {
-		int i;
-		for (i = 0; i < ARRAY_SIZE(debugfs_maps); i++)
-			debugfs_create_file(debugfs_maps[i].name, S_IRUGO,
-				dbg_map, (void *) (debugfs_maps + i),
-				&tiler_debug_fops);
+		goto skip_to_done;
 	}
 
+	dbg_map = debugfs_create_dir("map", dbgfs);
+
+	if (IS_ERR_OR_NULL(dbg_map)) {
+		dev_warn(device, "failed to create map directory.\n");
+		goto skip_to_done;
+	}
+
+	for (i = 0; i < cont_cnt; i++) {
+		int j;
+		struct dentry *dbg_cont = debugfs_create_dir(cont_str[i],
+						dbg_map);
+		debug_maps[i] = kzalloc(sizeof(struct tiler_debugfs_data) *
+					ARRAY_SIZE(map_list), GFP_KERNEL);
+
+		if (IS_ERR_OR_NULL(dbg_cont) ||
+			IS_ERR_OR_NULL(debug_maps[i])) {
+			dev_warn(device, "failed to create map files.\n");
+			goto skip_to_done;
+		}
+
+		for (j = 0; j < ARRAY_SIZE(map_list); j++) {
+			struct tiler_debugfs_data *entry = debug_maps[i] + j;
+			if (sscanf(map_list[j], "%dx%d", &entry->xdiv,
+				&entry->ydiv) == 2) {
+				entry->func = debug_allocation_map;
+				strncpy(entry->name, map_list[j],
+						sizeof(entry->name));
+				entry->lut = i;
+
+				debugfs_create_file(map_list[j], S_IRUGO,
+					dbg_cont, (void *) entry,
+					&tiler_debug_fops);
+			}
+		}
+	}
+
+skip_to_done:
 	return 0;
 
 err_class:
@@ -1727,6 +1762,9 @@ static void __exit tiler_exit(void)
 	mutex_lock(&mtx);
 
 	debugfs_remove_recursive(dbgfs);
+
+	for (i = 0; i < MAX_CONTAINERS; i++)
+		kfree(debug_maps[i]);
 
 	/* free all process data */
 	tiler.cleanup();

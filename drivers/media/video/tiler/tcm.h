@@ -64,6 +64,8 @@ struct tcm {
 	any changes to the publicly available width and height fields. */
 	void *pvt;
 
+	u32 lut;
+
 	/* function table */
 	s32 (*reserve_2d)(struct tcm *tcm, u16 height, u16 width, u8 align,
 			  struct tcm_area *area);
@@ -99,13 +101,14 @@ struct tcm {
  * @param attr		Container manager specific configuration
  *			arguments.  Please describe these in
  *			your header file.
+ * @param lut		LUT index
  *
  * @return Pointer to the allocated and initialized container
  *	   manager.  NULL on failure.  DO NOT leak any memory on
  *	   failure!
  */
-#define TCM_INIT(name, attr_t) \
-struct tcm *name(u16 width, u16 height, typeof(attr_t) *attr);
+#define TCM_INIT(name, attr_t, lut) \
+struct tcm *name(u16 width, u16 height, typeof(attr_t) *attr, u32 lut);
 
 /**
  * Deinitialize tiler container manager.

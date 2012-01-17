@@ -49,11 +49,12 @@
  * @param attr   preferred division point between 64-aligned
  *		 allocation (top left), 32-aligned allocations
  *		 (top right), and page mode allocations (bottom)
+ * @param lut	 Index of hardware lookup table (LUT)
  *
  * @return TCM instance
  */
-struct tcm *sita_init(u16 width, u16 height, struct tcm_pt *attr);
+struct tcm *sita_init(u16 width, u16 height, struct tcm_pt *attr, u32 lut);
 
-TCM_INIT(sita_init, struct tcm_pt);
+TCM_INIT(sita_init, struct tcm_pt, u32);
 
 #endif /* TCM_SITA_H_ */

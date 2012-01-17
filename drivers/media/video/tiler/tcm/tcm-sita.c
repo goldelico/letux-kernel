@@ -93,7 +93,7 @@ static void fill_area(struct tcm *tcm,
 /*********************************************
  *	Utility Methods
  *********************************************/
-struct tcm *sita_init(u16 width, u16 height, struct tcm_pt *attr)
+struct tcm *sita_init(u16 width, u16 height, struct tcm_pt *attr, u32 lut)
 {
 	struct tcm *tcm;
 	struct sita_pvt *pvt;
@@ -119,6 +119,7 @@ struct tcm *sita_init(u16 width, u16 height, struct tcm_pt *attr)
 	tcm->free = sita_free;
 	tcm->deinit = sita_deinit;
 	tcm->pvt = (void *)pvt;
+	tcm->lut = lut;
 
 	mutex_init(&(pvt->mtx));
 
