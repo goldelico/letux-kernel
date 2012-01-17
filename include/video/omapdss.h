@@ -641,6 +641,19 @@ struct omap_dss_device {
 	int (*get_backlight)(struct omap_dss_device *dssdev);
 };
 
+
+struct omap_hdmi_data {
+	u32 deep_color;
+	u32 lrfr;
+};
+
+
+
+union omap_display_interface_data {
+	struct omap_hdmi_data hdmi;  /*HDMI specific data*/
+};
+
+
 struct omap_dss_driver {
 	struct device_driver driver;
 
@@ -686,6 +699,8 @@ struct omap_dss_driver {
 	int (*set_wss)(struct omap_dss_device *dssdev, u32 wss);
 	u32 (*get_wss)(struct omap_dss_device *dssdev);
 
+	int (*set_display_interface)(struct omap_dss_device *dssdev,
+			union omap_display_interface_data data);
 	int (*read_edid)(struct omap_dss_device *dssdev, u8 *buf, int len);
 	bool (*detect)(struct omap_dss_device *dssdev);
 	int (*s3d_enable)(struct omap_dss_device *dssdev,

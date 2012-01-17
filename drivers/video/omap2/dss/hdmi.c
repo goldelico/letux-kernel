@@ -519,9 +519,8 @@ int omapdss_hdmi_set_deepcolor(struct omap_dss_device *dssdev, int val,
 	}
 
 	omapdss_hdmi_display_disable(dssdev);
-
+	hdmi.custom_set = true;
 	hdmi.ip_data.cfg.deep_color = val;
-
 	r = omapdss_hdmi_display_enable(dssdev);
 	if (r)
 		return r;
@@ -667,6 +666,22 @@ err1:
 	omap_dss_stop_device(dssdev);
 err0:
 	mutex_unlock(&hdmi.lock);
+	return r;
+}
+
+int omapdss_hdmi_display_set_display_interface(struct omap_dss_device *dssdev,
+					union omap_display_interface_data data)
+{
+	int  r;
+	DSSINFO("Enter omapdss_hdmi_display_set_display_interface\n");
+
+	if (dssdev->state != OMAP_DSS_DISPLAY_ACTIVE)
+		r = omapdss_hdmi_set_deepcolor(dssdev,
+						data.hdmi.deep_color, false);
+	else
+		r = omapdss_hdmi_set_deepcolor(dssdev,
+						data.hdmi.deep_color, true);
+
 	return r;
 }
 
