@@ -49,7 +49,7 @@ static int hsi_bus_match(struct device *device, struct device_driver *driver)
 	struct hsi_device_driver *drv = to_hsi_device_driver(driver);
 
 	pr_debug("HSI DRIVER BUS : hsi_bus_match for ctrl:%d, port:%d, ch%d\n",
-		 dev->n_ctrl, dev->n_p, dev->n_ch);
+		 dev->n_ctrl, dev->n_p + 1, dev->n_ch);
 
 	if (!test_bit(dev->n_ctrl, &drv->ctrl_mask))
 		return 0;
@@ -60,7 +60,7 @@ static int hsi_bus_match(struct device *device, struct device_driver *driver)
 	pr_info
 	    ("HSI DRIVER BUS : hsi_bus_match SUCCESS : ctrl:%d (mask:%x),"
 		" port:%d, ch:%d (mask:%x)\n",
-	     dev->n_ctrl, (u32) drv->ctrl_mask, dev->n_p, dev->n_ch,
+	     dev->n_ctrl, (u32) drv->ctrl_mask, dev->n_p + 1, dev->n_ch,
 	     (u32) drv->ch_mask[dev->n_p]);
 
 	return 1;

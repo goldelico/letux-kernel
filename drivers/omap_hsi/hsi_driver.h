@@ -344,7 +344,14 @@ static inline struct hsi_channel *hsi_ctrl_get_ch(struct hsi_dev *hsi_ctrl,
 					      unsigned int port,
 					      unsigned int channel)
 {
-	return &hsi_ctrl->hsi_port[port - 1].hsi_channel[channel];
+	struct hsi_platform_data *pdata = hsi_ctrl->dev->platform_data;
+	int i;
+
+	for (i = 0; i < pdata->num_ports; i++)
+		if (hsi_ctrl->hsi_port[i].port_number == port)
+			break;
+
+		return &hsi_ctrl->hsi_port[i].hsi_channel[channel];
 }
 
 /* HSI IO access */

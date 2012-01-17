@@ -410,7 +410,7 @@ int hsi_driver_cancel_read_dma(struct hsi_channel *hsi_ch)
  * hsi_get_info_from_gdd_lch - Retrieve channels information from DMA channel
  * @hsi_ctrl - HSI device control structure
  * @lch - DMA logical channel
- * @port - HSI port
+ * @port - HSI port index. Range [0, 1]
  * @channel - HSI channel
  * @is_read_path - channel is used for reading
  *
@@ -431,14 +431,14 @@ int hsi_get_info_from_gdd_lch(struct hsi_dev *hsi_ctrl, unsigned int lch,
 			if (hsi_ctrl->hsi_port[i].
 			    hsi_channel[j].read_data.lch == lch) {
 				*is_read_path = 1;
-				*port = i + 1;
+				*port = i;
 				*channel = j;
 				err = 0;
 				goto get_info_bk;
 			} else if (hsi_ctrl->hsi_port[i].
 				   hsi_channel[j].write_data.lch == lch) {
 				*is_read_path = 0;
-				*port = i + 1;
+				*port = i;
 				*channel = j;
 				err = 0;
 				goto get_info_bk;
@@ -452,7 +452,7 @@ static void do_hsi_gdd_lch(struct hsi_dev *hsi_ctrl, unsigned int gdd_lch)
 	void __iomem *base = hsi_ctrl->base;
 	struct platform_device *pdev = to_platform_device(hsi_ctrl->dev);
 	struct hsi_channel *ch;
-	unsigned int port;
+	unsigned int port, port_i;
 	unsigned int channel;
 	unsigned int is_read_path;
 	u32 gdd_csr;
@@ -460,12 +460,13 @@ static void do_hsi_gdd_lch(struct hsi_dev *hsi_ctrl, unsigned int gdd_lch)
 	size_t size;
 	int fifo, fifo_words_avail;
 
-	if (hsi_get_info_from_gdd_lch(hsi_ctrl, gdd_lch, &port, &channel,
+	if (hsi_get_info_from_gdd_lch(hsi_ctrl, gdd_lch, &port_i, &channel,
 				      &is_read_path) < 0) {
 		dev_err(hsi_ctrl->dev, "Unable to match the DMA channel %d with"
 			" an HSI channel\n", gdd_lch);
 		return;
 	} else {
+		port  = hsi_ctrl->hsi_port[port_i].port_number;
 		dev_dbg(hsi_ctrl->dev, "DMA event on gdd_lch=%d => port=%d, "
 			"channel=%d, read=%d\n", gdd_lch, port, channel,
 			is_read_path);
@@ -535,7 +536,7 @@ static void do_hsi_gdd_lch(struct hsi_dev *hsi_ctrl, unsigned int gdd_lch)
 			" on gdd channel %d\n", gdd_lch);
 		spin_unlock(&hsi_ctrl->lock);
 		/* TODO : need to perform a DMA soft reset */
-		hsi_port_event_handler(&hsi_ctrl->hsi_port[port - 1],
+		hsi_port_event_handler(&hsi_ctrl->hsi_port[port_i],
 				       HSI_EVENT_ERROR, NULL);
 		spin_lock(&hsi_ctrl->lock);
 	}

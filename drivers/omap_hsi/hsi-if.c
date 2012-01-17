@@ -504,7 +504,7 @@ static int __devinit if_hsi_probe(struct hsi_device *dev)
 	unsigned long *address;
 	int ret = -ENXIO, port;
 
-	dev_dbg(&dev->device, "%s, port = %d, ch = %d\n", __func__, dev->n_p,
+	dev_dbg(&dev->device, "%s, port = %d, ch = %d\n", __func__, dev->n_p + 1,
 		dev->n_ch);
 
 	for (port = 0; port < HSI_MAX_PORTS; port++) {
@@ -544,7 +544,7 @@ static int __devexit if_hsi_remove(struct hsi_device *dev)
 	unsigned long *address;
 	int ret = -ENXIO, port;
 
-	dev_dbg(&dev->device, "%s, port = %d, ch = %d\n", __func__, dev->n_p,
+	dev_dbg(&dev->device, "%s, port = %d, ch = %d\n", __func__, dev->n_p + 1,
 		dev->n_ch);
 
 	for (port = 0; port < HSI_MAX_PORTS; port++) {

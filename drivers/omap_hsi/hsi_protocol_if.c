@@ -491,7 +491,7 @@ int __devexit hsi_protocol_remove(struct hsi_device *dev)
 	unsigned long *address;
 	int port, ret;
 
-	dev_dbg(&dev->device, "%s, port = %d, ch = %d\n", __func__, dev->n_p,
+	dev_dbg(&dev->device, "%s, port = %d, ch = %d\n", __func__, dev->n_p + 1,
 		 dev->n_ch);
 
 	for (port = 0; port < HSI_MAX_PORTS; port++) {

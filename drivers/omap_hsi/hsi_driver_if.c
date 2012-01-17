@@ -264,7 +264,7 @@ int hsi_open(struct hsi_device *dev)
 	}
 	if (ch->flags & HSI_CH_OPEN) {
 		dev_err(dev->device.parent, "Port %d Channel %d already open\n",
-			dev->n_p, dev->n_ch);
+			dev->n_p + 1, dev->n_ch);
 		return -EBUSY;
 	}
 
@@ -273,7 +273,7 @@ int hsi_open(struct hsi_device *dev)
 	if (!hsi_ctrl) {
 		dev_err(dev->device.parent,
 			"%s: Port %d Channel %d has no hsi controller?\n",
-			__func__, dev->n_p, dev->n_ch);
+			__func__, dev->n_p + 1, dev->n_ch);
 		return -EINVAL;
 	}
 

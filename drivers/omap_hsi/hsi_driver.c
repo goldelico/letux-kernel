@@ -54,7 +54,7 @@ void hsi_hsr_suspend(struct hsi_dev *hsi_ctrl)
 	/* Put HSR into SLEEP mode to force ACREADY to low while HSI is idle */
 	for (port = 1; port <= pdata->num_ports; port++) {
 		hsi_outl_and(HSI_HSR_MODE_MODE_VAL_SLEEP, hsi_ctrl->base,
-			     HSI_HSR_MODE_REG(port));
+			     HSI_HSR_MODE_REG(pdata->ctx->pctx[port - 1].port_number));
 	}
 }
 
@@ -71,7 +71,7 @@ void hsi_hsr_resume(struct hsi_dev *hsi_ctrl)
 	/* This will enable the ACREADY flow control mechanism. */
 	for (port = 1; port <= pdata->num_ports; port++) {
 		p = &pdata->ctx->pctx[port - 1];
-		hsi_outl(p->hsr.mode, base, HSI_HSR_MODE_REG(port));
+		hsi_outl(p->hsr.mode, base, HSI_HSR_MODE_REG(p->port_number));
 	}
 }
 
@@ -81,15 +81,16 @@ void hsi_save_ctx(struct hsi_dev *hsi_ctrl)
 	struct platform_device *pdev = to_platform_device(hsi_ctrl->dev);
 	void __iomem *base = hsi_ctrl->base;
 	struct hsi_port_ctx *p;
-	int port;
+	int port, i;
 
 	pdata->ctx->sysconfig = hsi_inl(base, HSI_SYS_SYSCONFIG_REG);
 	pdata->ctx->gdd_gcr = hsi_inl(base, HSI_GDD_GCR_REG);
 	if (hsi_driver_device_is_hsi(pdev))
 		pdata->ctx->dll = hsi_inl(base, HSI_HSR_DLL_REG);
 
-	for (port = 1; port <= pdata->num_ports; port++) {
-		p = &pdata->ctx->pctx[port - 1];
+	for (i = 0; i < pdata->num_ports; i++) {
+		p = &pdata->ctx->pctx[i];
+		port = p->port_number;
 		/* HSI TOP */
 		p->sys_mpu_enable[0] = hsi_inl(base,
 					       HSI_SYS_MPU_ENABLE_REG(port, 0));
@@ -122,15 +123,16 @@ void hsi_restore_ctx(struct hsi_dev *hsi_ctrl)
 	struct platform_device *pdev = to_platform_device(hsi_ctrl->dev);
 	void __iomem *base = hsi_ctrl->base;
 	struct hsi_port_ctx *p;
-	int port;
+	int port, i;
 
 	hsi_outl(pdata->ctx->sysconfig, base, HSI_SYS_SYSCONFIG_REG);
 	hsi_outl(pdata->ctx->gdd_gcr, base, HSI_GDD_GCR_REG);
 	if (hsi_driver_device_is_hsi(pdev))
 		hsi_outl(pdata->ctx->dll, base, HSI_HSR_DLL_REG);
 
-	for (port = 1; port <= pdata->num_ports; port++) {
-		p = &pdata->ctx->pctx[port - 1];
+	for (i = 0; i < pdata->num_ports; i++) {
+		p = &pdata->ctx->pctx[i];
+		port = p->port_number;
 		/* HSI TOP */
 		hsi_outl(p->sys_mpu_enable[0], base,
 			 HSI_SYS_MPU_ENABLE_REG(port, 0));
@@ -219,15 +221,15 @@ static int __init reg_hsi_dev_ch(struct hsi_dev *hsi_ctrl, unsigned int p,
 	dev->device.parent = hsi_ctrl->dev;
 	dev->device.release = hsi_dev_release;
 	if (dev->n_ctrl < 0)
-		dev_set_name(&dev->device, "omap_hsi-p%u.c%u", dev->n_p, ch);
+		dev_set_name(&dev->device, "omap_hsi-p%u.c%u", dev->n_p + 1, ch);
 	else
-		dev_set_name(&dev->device, "omap_hsi%d-p%u.c%u", dev->n_ctrl, dev->n_p,
+		dev_set_name(&dev->device, "omap_hsi%d-p%u.c%u", dev->n_ctrl, dev->n_p + 1,
 			     ch);
 
 	dev_dbg(hsi_ctrl->dev,
 		"reg_hsi_dev_ch, port %d, ch %d, hsi_ctrl->dev:0x%x,"
 		"&dev->device:0x%x\n",
-		dev->n_p, ch, (unsigned int)hsi_ctrl->dev, (unsigned int)&dev->device);
+		dev->n_p + 1, ch, (unsigned int)hsi_ctrl->dev, (unsigned int)&dev->device);
 
 	err = device_register(&dev->device);
 	if (err >= 0) {
@@ -314,8 +316,8 @@ int hsi_softreset(struct hsi_dev *hsi_ctrl)
 	/* under specific circumstances  */
 	for (port = 1; port <= hsi_ctrl->max_p; port++) {
 		hsi_outl_and(HSI_HSR_MODE_MODE_VAL_SLEEP, base,
-			     HSI_HSR_MODE_REG(port));
-		hsi_outl(HSI_HSR_ERROR_ALL, base, HSI_HSR_ERRORACK_REG(port));
+			     HSI_HSR_MODE_REG(hsi_ctrl->hsi_port[port - 1].port_number));
+		hsi_outl(HSI_HSR_ERROR_ALL, base, HSI_HSR_ERRORACK_REG(hsi_ctrl->hsi_port[port - 1].port_number));
 	}
 
 	/* Reseting HSI Block */
@@ -364,11 +366,12 @@ static void hsi_set_ports_default(struct hsi_dev *hsi_ctrl,
 	struct hsi_port_ctx *cfg;
 	struct hsi_platform_data *pdata = dev_get_platdata(hsi_ctrl->dev);
 	struct platform_device *pdev = to_platform_device(hsi_ctrl->dev);
-	unsigned int port = 0;
+	unsigned int port, i;
 	void __iomem *base = hsi_ctrl->base;
 
-	for (port = 1; port <= pdata->num_ports; port++) {
-		cfg = &pdata->ctx->pctx[port - 1];
+	for (i = 0; i < pdata->num_ports; i++) {
+		cfg = &pdata->ctx->pctx[i];
+		port = cfg->port_number;
 		/* HST */
 		hsi_outl(cfg->hst.mode | HSI_HST_MODE_WAKE_CTRL_SW, base,
 			HSI_HST_MODE_REG(port));
