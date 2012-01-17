@@ -2164,6 +2164,8 @@ bool dispc_mgr_alpha_fixed_zorder_enabled(enum omap_channel ch)
 		enabled = REG_GET(DISPC_CONFIG, 18, 18);
 	else if (ch == OMAP_DSS_CHANNEL_DIGIT)
 		enabled = REG_GET(DISPC_CONFIG, 19, 19);
+	else if (ch == OMAP_DSS_CHANNEL_LCD2)
+		enabled = false;
 	else
 		BUG();
 
