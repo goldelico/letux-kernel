@@ -458,25 +458,6 @@
 			      ((channel < HSI_SSI_CHANNELS_MAX) ?    \
 			      HSI_SYS_MPU_STATUS_REG(port, irq) :    \
 			      HSI_SYS_MPU_U_STATUS_REG(port, irq))
-/**
- *	struct omap_ssi_config - SSI board configuration
- *	@num_ports: Number of ports in use
- *	@cawake_line: Array of cawake gpio lines
- */
-struct omap_ssi_board_config {
-	unsigned int num_ports;
-	int cawake_gpio[2];
-};
-extern int omap_ssi_config(struct omap_ssi_board_config *ssi_config);
-
-/**
- *	struct omap_hsi_config - HSI board configuration
- *	@num_ports: Number of ports in use
- */
-struct omap_hsi_board_config {
-	unsigned int num_ports;
-};
-extern int omap_hsi_config(struct omap_hsi_board_config *hsi_config);
 
 #ifdef CONFIG_OMAP_HSI
 extern int omap_hsi_prepare_suspend(int hsi_port, bool dev_may_wakeup);

@@ -47,14 +47,14 @@
 void hsi_hsr_suspend(struct hsi_dev *hsi_ctrl)
 {
 	struct hsi_platform_data *pdata = hsi_ctrl->dev->platform_data;
-	int port;
+	int i;
 
 	dev_dbg(hsi_ctrl->dev, "%s\n", __func__);
 
 	/* Put HSR into SLEEP mode to force ACREADY to low while HSI is idle */
-	for (port = 1; port <= pdata->num_ports; port++) {
+	for (i = 0; i < pdata->num_ports; i++) {
 		hsi_outl_and(HSI_HSR_MODE_MODE_VAL_SLEEP, hsi_ctrl->base,
-			     HSI_HSR_MODE_REG(pdata->ctx->pctx[port - 1].port_number));
+			     HSI_HSR_MODE_REG(pdata->ctx->pctx[i].port_number));
 	}
 }
 
@@ -63,14 +63,14 @@ void hsi_hsr_resume(struct hsi_dev *hsi_ctrl)
 	struct hsi_platform_data *pdata = hsi_ctrl->dev->platform_data;
 	void __iomem *base = hsi_ctrl->base;
 	struct hsi_port_ctx *p;
-	int port;
+	int i;
 
 	dev_dbg(hsi_ctrl->dev, "%s\n", __func__);
 
 	/* Move HSR from MODE_VAL.SLEEP to the relevant mode. */
 	/* This will enable the ACREADY flow control mechanism. */
-	for (port = 1; port <= pdata->num_ports; port++) {
-		p = &pdata->ctx->pctx[port - 1];
+	for (i = 0; i < pdata->num_ports; i++) {
+		p = &pdata->ctx->pctx[i];
 		hsi_outl(p->hsr.mode, base, HSI_HSR_MODE_REG(p->port_number));
 	}
 }
@@ -201,11 +201,11 @@ static void hsi_dev_release(struct device *dev)
 }
 
 /* Register a hsi_device, linked to a port and channel id */
-static int __init reg_hsi_dev_ch(struct hsi_dev *hsi_ctrl, unsigned int p,
+static int __init reg_hsi_dev_ch(struct hsi_dev *hsi_ctrl, unsigned int port_i,
 				 unsigned int ch)
 {
 	struct hsi_device *dev;
-	struct hsi_port *port = &hsi_ctrl->hsi_port[p];
+	struct hsi_port *pport = &hsi_ctrl->hsi_port[port_i];
 	struct hsi_platform_data *pdata = dev_get_platdata(hsi_ctrl->dev);
 	int err;
 
@@ -214,28 +214,29 @@ static int __init reg_hsi_dev_ch(struct hsi_dev *hsi_ctrl, unsigned int p,
 		return -ENOMEM;
 
 	dev->n_ctrl = hsi_ctrl->id;
-	dev->n_p = pdata->ctx->pctx[p].port_number - 1;
+	dev->n_p = pdata->ctx->pctx[port_i].port_number - 1;
 	dev->n_ch = ch;
-	dev->ch = &port->hsi_channel[ch];
+	dev->ch = &pport->hsi_channel[ch];
 	dev->device.bus = &hsi_bus_type;
 	dev->device.parent = hsi_ctrl->dev;
 	dev->device.release = hsi_dev_release;
 	if (dev->n_ctrl < 0)
-		dev_set_name(&dev->device, "omap_hsi-p%u.c%u", dev->n_p + 1, ch);
+		dev_set_name(&dev->device, "omap_hsi-p%u.c%u",
+			      dev->n_p + 1, ch);
 	else
-		dev_set_name(&dev->device, "omap_hsi%d-p%u.c%u", dev->n_ctrl, dev->n_p + 1,
-			     ch);
+		dev_set_name(&dev->device, "omap_hsi%d-p%u.c%u",
+			      dev->n_ctrl, dev->n_p + 1,  ch);
 
 	dev_dbg(hsi_ctrl->dev,
 		"reg_hsi_dev_ch, port %d, ch %d, hsi_ctrl->dev:0x%x,"
-		"&dev->device:0x%x\n",
-		dev->n_p + 1, ch, (unsigned int)hsi_ctrl->dev, (unsigned int)&dev->device);
+		"&dev->device:0x%x\n", dev->n_p + 1, ch,
+		(unsigned int)hsi_ctrl->dev, (unsigned int)&dev->device);
 
 	err = device_register(&dev->device);
 	if (err >= 0) {
-		write_lock_bh(&port->hsi_channel[ch].rw_lock);
-		port->hsi_channel[ch].dev = dev;
-		write_unlock_bh(&port->hsi_channel[ch].rw_lock);
+		write_lock_bh(&pport->hsi_channel[ch].rw_lock);
+		pport->hsi_channel[ch].dev = dev;
+		write_unlock_bh(&pport->hsi_channel[ch].rw_lock);
 	} else {
 		kfree(dev);
 	}
@@ -244,13 +245,13 @@ static int __init reg_hsi_dev_ch(struct hsi_dev *hsi_ctrl, unsigned int p,
 
 static int __init register_hsi_devices(struct hsi_dev *hsi_ctrl)
 {
-	int port;
+	int i;
 	int ch;
 	int err;
 
-	for (port = 0; port < hsi_ctrl->max_p; port++)
-		for (ch = 0; ch < hsi_ctrl->hsi_port[port].max_ch; ch++) {
-			err = reg_hsi_dev_ch(hsi_ctrl, port, ch);
+	for (i = 0; i < hsi_ctrl->max_p; i++)
+		for (ch = 0; ch < hsi_ctrl->hsi_port[i].max_ch; ch++) {
+			err = reg_hsi_dev_ch(hsi_ctrl, i, ch);
 			if (err < 0)
 				return err;
 		}
@@ -262,11 +263,11 @@ static void __exit unregister_hsi_devices(struct hsi_dev *hsi_ctrl)
 {
 	struct hsi_port *hsi_p;
 	struct hsi_device *device;
-	unsigned int port;
+	unsigned int i;
 	unsigned int ch;
 
-	for (port = 0; port < hsi_ctrl->max_p; port++) {
-		hsi_p = &hsi_ctrl->hsi_port[port];
+	for (i = 0; i < hsi_ctrl->max_p; i++) {
+		hsi_p = &hsi_ctrl->hsi_port[i];
 		for (ch = 0; ch < hsi_p->max_ch; ch++) {
 			device = hsi_p->hsi_channel[ch].dev;
 			hsi_close(device);
@@ -308,16 +309,17 @@ void hsi_set_pm_force_hsi_on(struct hsi_dev *hsi_ctrl)
 int hsi_softreset(struct hsi_dev *hsi_ctrl)
 {
 	unsigned int ind = 0;
-	unsigned int port;
+	unsigned int i;
 	void __iomem *base = hsi_ctrl->base;
 	u32 status;
 
 	/* SW WA for HSI-C1BUG00088 OMAP4430 HSI : No recovery from SW reset */
 	/* under specific circumstances  */
-	for (port = 1; port <= hsi_ctrl->max_p; port++) {
+	for (i = 0; i < hsi_ctrl->max_p; i++) {
 		hsi_outl_and(HSI_HSR_MODE_MODE_VAL_SLEEP, base,
-			     HSI_HSR_MODE_REG(hsi_ctrl->hsi_port[port - 1].port_number));
-		hsi_outl(HSI_HSR_ERROR_ALL, base, HSI_HSR_ERRORACK_REG(hsi_ctrl->hsi_port[port - 1].port_number));
+			HSI_HSR_MODE_REG(hsi_ctrl->hsi_port[i].port_number));
+		hsi_outl(HSI_HSR_ERROR_ALL, base, HSI_HSR_ERRORACK_REG(
+			hsi_ctrl->hsi_port[i].port_number));
 	}
 
 	/* Reseting HSI Block */
@@ -363,36 +365,36 @@ int hsi_softreset(struct hsi_dev *hsi_ctrl)
 static void hsi_set_ports_default(struct hsi_dev *hsi_ctrl,
 					    struct platform_device *pd)
 {
-	struct hsi_port_ctx *cfg;
+	struct hsi_port_ctx *p;
 	struct hsi_platform_data *pdata = dev_get_platdata(hsi_ctrl->dev);
 	struct platform_device *pdev = to_platform_device(hsi_ctrl->dev);
 	unsigned int port, i;
 	void __iomem *base = hsi_ctrl->base;
 
 	for (i = 0; i < pdata->num_ports; i++) {
-		cfg = &pdata->ctx->pctx[i];
-		port = cfg->port_number;
+		p = &pdata->ctx->pctx[i];
+		port = p->port_number;
 		/* HST */
-		hsi_outl(cfg->hst.mode | HSI_HST_MODE_WAKE_CTRL_SW, base,
+		hsi_outl(p->hst.mode | HSI_HST_MODE_WAKE_CTRL_SW, base,
 			HSI_HST_MODE_REG(port));
 		if (!hsi_driver_device_is_hsi(pdev))
-			hsi_outl(cfg->hst.frame_size, base,
+			hsi_outl(p->hst.frame_size, base,
 				 HSI_HST_FRAMESIZE_REG(port));
-		hsi_outl(cfg->hst.divisor, base, HSI_HST_DIVISOR_REG(port));
-		hsi_outl(cfg->hst.channels, base, HSI_HST_CHANNELS_REG(port));
-		hsi_outl(cfg->hst.arb_mode, base, HSI_HST_ARBMODE_REG(port));
+		hsi_outl(p->hst.divisor, base, HSI_HST_DIVISOR_REG(port));
+		hsi_outl(p->hst.channels, base, HSI_HST_CHANNELS_REG(port));
+		hsi_outl(p->hst.arb_mode, base, HSI_HST_ARBMODE_REG(port));
 
 		/* HSR */
-		hsi_outl(cfg->hsr.mode | cfg->hsr.flow, base,
+		hsi_outl(p->hsr.mode | p->hsr.flow, base,
 			 HSI_HSR_MODE_REG(port));
 		if (!hsi_driver_device_is_hsi(pdev))
-			hsi_outl(cfg->hsr.frame_size, base,
+			hsi_outl(p->hsr.frame_size, base,
 				 HSI_HSR_FRAMESIZE_REG(port));
-		hsi_outl(cfg->hsr.channels, base, HSI_HSR_CHANNELS_REG(port));
+		hsi_outl(p->hsr.channels, base, HSI_HSR_CHANNELS_REG(port));
 		if (hsi_driver_device_is_hsi(pdev))
-			hsi_outl(cfg->hsr.divisor, base,
+			hsi_outl(p->hsr.divisor, base,
 				 HSI_HSR_DIVISOR_REG(port));
-		hsi_outl(cfg->hsr.counters, base, HSI_HSR_COUNTERS_REG(port));
+		hsi_outl(p->hsr.counters, base, HSI_HSR_COUNTERS_REG(port));
 	}
 
 	if (hsi_driver_device_is_hsi(pdev)) {
@@ -402,17 +404,17 @@ static void hsi_set_ports_default(struct hsi_dev *hsi_ctrl,
 	}
 }
 
-static int __init hsi_port_channels_init(struct hsi_port *port)
+static int __init hsi_port_channels_init(struct hsi_port *pport)
 {
 	struct hsi_channel *ch;
 	unsigned int ch_i;
 
-	for (ch_i = 0; ch_i < port->max_ch; ch_i++) {
-		ch = &port->hsi_channel[ch_i];
+	for (ch_i = 0; ch_i < pport->max_ch; ch_i++) {
+		ch = &pport->hsi_channel[ch_i];
 		ch->channel_number = ch_i;
 		rwlock_init(&ch->rw_lock);
 		ch->flags = 0;
-		ch->hsi_port = port;
+		ch->hsi_port = pport;
 		ch->read_data.addr = NULL;
 		ch->read_data.size = 0;
 		ch->read_data.lch = -1;
@@ -428,13 +430,13 @@ static int __init hsi_port_channels_init(struct hsi_port *port)
 	return 0;
 }
 
-static int hsi_port_channels_reset(struct hsi_port *port)
+static int hsi_port_channels_reset(struct hsi_port *pport)
 {
 	struct hsi_channel *ch;
 	unsigned int ch_i;
 
-	for (ch_i = 0; ch_i < port->max_ch; ch_i++) {
-		ch = &port->hsi_channel[ch_i];
+	for (ch_i = 0; ch_i < pport->max_ch; ch_i++) {
+		ch = &pport->hsi_channel[ch_i];
 		ch->flags = 0;
 		ch->read_data.addr = NULL;
 		ch->read_data.size = 0;
@@ -459,15 +461,15 @@ void hsi_softreset_driver(struct hsi_dev *hsi_ctrl)
 	struct platform_device *pd = to_platform_device(hsi_ctrl->dev);
 	struct hsi_platform_data *pdata = dev_get_platdata(hsi_ctrl->dev);
 	struct hsi_port *hsi_p;
-	unsigned int port;
+	unsigned int i;
 	u32 revision;
 
 	/* HSI port reset */
-	for (port = 0; port < hsi_ctrl->max_p; port++) {
-		hsi_p = &hsi_ctrl->hsi_port[port];
+	for (i = 0; i < hsi_ctrl->max_p; i++) {
+		hsi_p = &hsi_ctrl->hsi_port[i];
 		hsi_p->counters_on = 1;
-		hsi_p->reg_counters = pdata->ctx->pctx[port].hsr.counters;
-		hsi_port_channels_reset(&hsi_ctrl->hsi_port[port]);
+		hsi_p->reg_counters = pdata->ctx->pctx[i].hsr.counters;
+		hsi_port_channels_reset(&hsi_ctrl->hsi_port[i]);
 	}
 
 	hsi_set_pm_force_hsi_on(hsi_ctrl);
@@ -543,10 +545,10 @@ static int __init hsi_request_cawake_irq(struct hsi_port *hsi_p)
 static void hsi_ports_exit(struct hsi_dev *hsi_ctrl, unsigned int max_ports)
 {
 	struct hsi_port *hsi_p;
-	unsigned int port;
+	unsigned int i;
 
-	for (port = 0; port < max_ports; port++) {
-		hsi_p = &hsi_ctrl->hsi_port[port];
+	for (i = 0; i < max_ports; i++) {
+		hsi_p = &hsi_ctrl->hsi_port[i];
 		hsi_mpu_exit(hsi_p);
 		hsi_cawake_exit(hsi_p);
 	}
@@ -557,21 +559,21 @@ static int __init hsi_ports_init(struct hsi_dev *hsi_ctrl)
 	struct platform_device *pd = to_platform_device(hsi_ctrl->dev);
 	struct hsi_platform_data *pdata = dev_get_platdata(hsi_ctrl->dev);
 	struct hsi_port *hsi_p;
-	unsigned int port;
+	unsigned int i;
 	int err;
 
-	for (port = 0; port < hsi_ctrl->max_p; port++) {
-		hsi_p = &hsi_ctrl->hsi_port[port];
+	for (i = 0; i < hsi_ctrl->max_p; i++) {
+		hsi_p = &hsi_ctrl->hsi_port[i];
 		hsi_p->flags = 0;
-		hsi_p->port_number = pdata->ctx->pctx[port].port_number;
+		hsi_p->port_number = pdata->ctx->pctx[i].port_number;
 		hsi_p->hsi_controller = hsi_ctrl;
-		if(hsi_driver_device_is_hsi(pd)) {
-			if(pdata->fifo_mapping_strategy == HSI_FIFO_MAPPING_SSI)
+		if (hsi_driver_device_is_hsi(pd)) {
+			if (pdata->fifo_mapping_strategy ==
+						 HSI_FIFO_MAPPING_SSI)
 				hsi_p->max_ch = HSI_SSI_CHANNELS_MAX;
 			else
 				hsi_p->max_ch = HSI_CHANNELS_MAX;
-		}
-		else
+		} else
 			hsi_p->max_ch = HSI_SSI_CHANNELS_MAX;
 		hsi_p->irq = 0;
 		hsi_p->wake_rx_3_wires_mode = 0; /* 4 wires */
@@ -581,7 +583,7 @@ static int __init hsi_ports_init(struct hsi_dev *hsi_ctrl)
 		hsi_p->in_int_tasklet = false;
 		hsi_p->in_cawake_tasklet = false;
 		hsi_p->counters_on = 1;
-		hsi_p->reg_counters = pdata->ctx->pctx[port].hsr.counters;
+		hsi_p->reg_counters = pdata->ctx->pctx[i].hsr.counters;
 		spin_lock_init(&hsi_p->lock);
 		err = hsi_port_channels_init(hsi_p);
 		if (err < 0)
@@ -597,7 +599,7 @@ static int __init hsi_ports_init(struct hsi_dev *hsi_ctrl)
 	}
 	return 0;
 rback:
-	hsi_ports_exit(hsi_ctrl, port + 1);
+	hsi_ports_exit(hsi_ctrl, i + 1);
 	return err;
 }
 

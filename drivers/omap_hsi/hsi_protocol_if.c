@@ -489,20 +489,20 @@ int __devexit hsi_protocol_remove(struct hsi_device *dev)
 {
 	struct if_hsi_channel *channel;
 	unsigned long *address;
-	int port, ret;
+	int i, ret;
 
-	dev_dbg(&dev->device, "%s, port = %d, ch = %d\n", __func__, dev->n_p + 1,
-		 dev->n_ch);
+	dev_dbg(&dev->device, "%s, port = %d, ch = %d\n", __func__,
+		 dev->n_p + 1,  dev->n_ch);
 
-	for (port = 0; port < HSI_MAX_PORTS; port++) {
-		if (if_hsi_protocol_driver.ch_mask[port])
+	for (i = 0; i < HSI_MAX_PORTS; i++) {
+		if (if_hsi_protocol_driver.ch_mask[i])
 			break;
 	}
 
-	address = &if_hsi_protocol_driver.ch_mask[port];
+	address = &if_hsi_protocol_driver.ch_mask[i];
 
 	spin_lock_bh(&hsi_protocol_iface.lock);
-	if (test_bit(dev->n_ch, address) && (dev->n_p == port)) {
+	if (test_bit(dev->n_ch, address) && (dev->n_p == i)) {
 		hsi_set_read_cb(dev, NULL);
 		hsi_set_write_cb(dev, NULL);
 		hsi_set_port_event_cb(dev, NULL);
@@ -520,18 +520,18 @@ int __devinit hsi_protocol_probe(struct hsi_device *dev)
 {
 	struct if_hsi_channel *channel;
 	unsigned long *address;
-	int port;
+	int i;
 
 	pr_info("Inside Function %s\n", __func__);
-	for (port = 0; port < HSI_MAX_PORTS; port++) {
-		if (if_hsi_protocol_driver.ch_mask[port])
+	for (i = 0; i < HSI_MAX_PORTS; i++) {
+		if (if_hsi_protocol_driver.ch_mask[i])
 			break;
 	}
 
-	address = &if_hsi_protocol_driver.ch_mask[port];
+	address = &if_hsi_protocol_driver.ch_mask[i];
 
 	spin_lock_bh(&hsi_protocol_iface.lock);
-	if (test_bit(dev->n_ch, address) && (dev->n_p == port)) {
+	if (test_bit(dev->n_ch, address) && (dev->n_p == i)) {
 		pr_info("Regestering callback functions\n");
 		hsi_set_read_cb(dev, if_hsi_proto_read_done);
 		hsi_set_write_cb(dev, if_hsi_proto_write_done);
@@ -598,16 +598,16 @@ int __devexit if_hsi_exit(void)
 {
 	struct if_hsi_channel *channel;
 	unsigned long *address;
-	int i, port;
+	int i;
 
 	pr_debug("%s\n", __func__);
 
-	for (port = 0; port < HSI_MAX_PORTS; port++) {
-		if (if_hsi_protocol_driver.ch_mask[port])
+	for (i = 0; i < HSI_MAX_PORTS; i++) {
+		if (if_hsi_protocol_driver.ch_mask[i])
 			break;
 	}
 
-	address = &if_hsi_protocol_driver.ch_mask[port];
+	address = &if_hsi_protocol_driver.ch_mask[i];
 
 	for (i = 0; i < HSI_MAX_CHANNELS; i++) {
 		channel = &hsi_protocol_iface.channels[i];

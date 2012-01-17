@@ -206,7 +206,7 @@ int hsi_fifo_mapping(struct hsi_dev *hsi_ctrl, unsigned int mtype)
 /**
  * hsi_hst_bufstate_f_reg - Return the proper HSI_HST_BUFSTATE register offset
  * @hsi_ctrl - HSI controler data
- * @port - HSI port used
+ * @port - HSI port used. Range [1, 2]
  * @channel - channel used
  *
  * Returns the HSI_HST_BUFSTATE register offset
@@ -234,7 +234,7 @@ long hsi_hst_bufstate_f_reg(struct hsi_dev *hsi_ctrl,
 /**
  * hsi_hsr_bufstate_f_reg - Return the proper HSI_HSR_BUFSTATE register offset
  * @hsi_ctrl - HSI controler data
- * @port - HSI port used
+ * @port - HSI port used. Range [1, 2]
  * @channel - channel used
  *
  * Returns the HSI_HSR_BUFSTATE register offset
@@ -262,7 +262,7 @@ long hsi_hsr_bufstate_f_reg(struct hsi_dev *hsi_ctrl,
 /**
  * hsi_hst_buffer_f_reg - Return the proper HSI_HST_BUFFER register offset
  * @hsi_ctrl - HSI controler data
- * @port - HSI port used
+ * @port - HSI port used. Range [1, 2]
  * @channel - channel used
  *
  * Returns the HSI_HST_BUFFER register offset
@@ -290,7 +290,7 @@ long hsi_hst_buffer_reg(struct hsi_dev *hsi_ctrl,
 /**
  * hsi_hsr_buffer_f_reg - Return the proper HSI_HSR_BUFFER register offset
  * @hsi_ctrl - HSI controler data
- * @port - HSI port used
+ * @port - HSI port used. Range [1, 2]
  * @channel - channel used
  *
  * Returns the HSI_HSR_BUFFER register offset

@@ -502,17 +502,17 @@ static int __devinit if_hsi_probe(struct hsi_device *dev)
 {
 	struct if_hsi_channel *channel;
 	unsigned long *address;
-	int ret = -ENXIO, port;
+	int ret = -ENXIO, i;
 
-	dev_dbg(&dev->device, "%s, port = %d, ch = %d\n", __func__, dev->n_p + 1,
-		dev->n_ch);
+	dev_dbg(&dev->device, "%s, port = %d, ch = %d\n", __func__,
+		 dev->n_p + 1, dev->n_ch);
 
-	for (port = 0; port < HSI_MAX_PORTS; port++) {
-		if (if_hsi_char_driver.ch_mask[port])
+	for (i = 0; i < HSI_MAX_PORTS; i++) {
+		if (if_hsi_char_driver.ch_mask[i])
 			break;
 	}
 
-	if (port == HSI_MAX_PORTS)
+	if (i >= HSI_MAX_PORTS)
 		return -ENXIO;
 
 	if (dev->n_ch >= HSI_MAX_CHAR_DEV_ID) {
@@ -520,10 +520,10 @@ static int __devinit if_hsi_probe(struct hsi_device *dev)
 		return -ENXIO;
 	}
 
-	address = &if_hsi_char_driver.ch_mask[port];
+	address = &if_hsi_char_driver.ch_mask[i];
 
 	spin_lock_bh(&hsi_iface.lock);
-	if (test_bit(dev->n_ch, address) && (dev->n_p == port)) {
+	if (test_bit(dev->n_ch, address) && (dev->n_p == i)) {
 		hsi_set_read_cb(dev, if_hsi_read_done);
 		hsi_set_write_cb(dev, if_hsi_write_done);
 		hsi_set_port_event_cb(dev, if_hsi_port_event);
@@ -542,23 +542,23 @@ static int __devexit if_hsi_remove(struct hsi_device *dev)
 {
 	struct if_hsi_channel *channel;
 	unsigned long *address;
-	int ret = -ENXIO, port;
+	int ret = -ENXIO, i;
 
-	dev_dbg(&dev->device, "%s, port = %d, ch = %d\n", __func__, dev->n_p + 1,
-		dev->n_ch);
+	dev_dbg(&dev->device, "%s, port = %d, ch = %d\n", __func__,
+		 dev->n_p + 1, dev->n_ch);
 
-	for (port = 0; port < HSI_MAX_PORTS; port++) {
-		if (if_hsi_char_driver.ch_mask[port])
+	for (i = 0; i < HSI_MAX_PORTS; i++) {
+		if (if_hsi_char_driver.ch_mask[i])
 			break;
 	}
 
-	if (port == HSI_MAX_PORTS)
+	if (i >= HSI_MAX_PORTS)
 		return -ENXIO;
 
-	address = &if_hsi_char_driver.ch_mask[port];
+	address = &if_hsi_char_driver.ch_mask[i];
 
 	spin_lock_bh(&hsi_iface.lock);
-	if (test_bit(dev->n_ch, address) && (dev->n_p == port)) {
+	if (test_bit(dev->n_ch, address) && (dev->n_p == i)) {
 		hsi_set_read_cb(dev, NULL);
 		hsi_set_write_cb(dev, NULL);
 		hsi_set_port_event_cb(dev, NULL);
@@ -622,8 +622,7 @@ int __init if_hsi_init(unsigned int port, unsigned int *channels_map,
 
 	pr_debug("%s, port = %d\n", __func__, port);
 
-	port -= 1;
-	if (port >= HSI_MAX_PORTS)
+	if (port > HSI_MAX_PORTS)
 		return -EINVAL;
 
 	hsi_iface.bootstrap = 1;
@@ -645,7 +644,7 @@ int __init if_hsi_init(unsigned int port, unsigned int *channels_map,
 		pr_debug("%s, port = %d, channels_map[i] = %d\n", __func__,
 			 port, channels_map[i]);
 		if ((channels_map[i] - 1) < HSI_MAX_CHAR_DEV_ID)
-			if_hsi_char_driver.ch_mask[port] |=
+			if_hsi_char_driver.ch_mask[port - 1] |=
 			    (1 << ((channels_map[i] - 1)));
 		else {
 			pr_err("Channel %d cannot be handled by the HSI "
@@ -654,7 +653,7 @@ int __init if_hsi_init(unsigned int port, unsigned int *channels_map,
 		}
 
 	}
-	hsi_iface.init_chan_map = if_hsi_char_driver.ch_mask[port];
+	hsi_iface.init_chan_map = if_hsi_char_driver.ch_mask[port - 1];
 
 	ret = hsi_register_driver(&if_hsi_char_driver);
 	if (ret)
@@ -672,19 +671,19 @@ int __devexit if_hsi_exit(void)
 {
 	struct if_hsi_channel *channel;
 	unsigned long *address;
-	int i, port;
+	int i;
 
 	pr_debug("%s\n", __func__);
 
-	for (port = 0; port < HSI_MAX_PORTS; port++) {
-		if (if_hsi_char_driver.ch_mask[port])
+	for (i = 0; i < HSI_MAX_PORTS; i++) {
+		if (if_hsi_char_driver.ch_mask[i])
 			break;
 	}
 
-	if (port == HSI_MAX_PORTS)
+	if (i >= HSI_MAX_PORTS)
 		return -ENXIO;
 
-	address = &if_hsi_char_driver.ch_mask[port];
+	address = &if_hsi_char_driver.ch_mask[i];
 
 	for (i = 0; i < HSI_MAX_CHAR_DEVS; i++) {
 		channel = &hsi_iface.channels[i];
