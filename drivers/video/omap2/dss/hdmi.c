@@ -395,6 +395,20 @@ static int hdmi_power_on(struct omap_dss_device *dssdev)
 
 	hdmi.ip_data.cfg.cm.mode = hdmi.mode;
 	hdmi.ip_data.cfg.cm.code = hdmi.code;
+
+	if ((hdmi.mode)) {
+		switch (hdmi.code) {
+		case 20:
+		case 5:
+		case 6:
+		case 21:
+			hdmi.ip_data.cfg.interlace = 1;
+			break;
+		default:
+			hdmi.ip_data.cfg.interlace = 0;
+			break;
+		}
+	}
 	hdmi.ip_data.ops->video_configure(&hdmi.ip_data);
 
 	/* Make selection of HDMI in DSS */
