@@ -512,6 +512,10 @@ int omapdss_hdmi_display_set_display_interface(struct omap_dss_device *dssdev,
 				union omap_display_interface_data data);
 int omapdss_hdmi_display_set_mode(struct omap_dss_device *dssdev,
 					struct fb_videomode *mode);
+u8 *hdmi_read_valid_edid(void);
+int hdmi_panel_hpd_handler(int hpd);
+int hdmi_get_current_hpd(void);
+void hdmi_get_monspecs(struct fb_monspecs *specs);
 int omapdss_hdmi_display_3d_enable(struct omap_dss_device *dssdev,
 					struct s3d_disp_info *info, int code);
 int hdmi_panel_init(void);
