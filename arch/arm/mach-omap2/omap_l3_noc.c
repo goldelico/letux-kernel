@@ -108,7 +108,7 @@ static irqreturn_t l3_interrupt_handler(int irq, void *_l3)
 						master_name =
 							l3_masters[k].name;
 				}
-				WARN(true, "L3 custom error: MASTER:%s TARGET:%s\n",
+				WARN_ONCE(true, "L3 custom error: MASTER:%s TARGET:%s\n",
 					master_name, target_name);
 				/* clear the std error log*/
 				clear = std_err_main | CLEAR_STDERR_LOG;
