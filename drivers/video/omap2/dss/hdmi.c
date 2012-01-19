@@ -734,7 +734,14 @@ int hdmi_get_current_hpd(void)
 
 static irqreturn_t hpd_enable_handler(int irq, void *ptr)
 {
-	DSSDBG("hpd enable %d\n", hdmi.hpd);
+	static int hpd_prev;
+	int hpd = hdmi_get_current_hpd();
+	pr_info("hpd %d\n", hpd);
+
+	if (hpd_prev != hpd) {
+		hdmi_panel_hpd_handler(hpd);
+		hpd_prev = hpd;
+	}
 
 	hdmi.ip_data.ops->notify_hpd(&hdmi.ip_data, hdmi.hpd);
 
@@ -743,11 +750,8 @@ static irqreturn_t hpd_enable_handler(int irq, void *ptr)
 
 static irqreturn_t hpd_irq_handler(int irq, void *ptr)
 {
-	if (hdmi.dssdev->state == OMAP_DSS_DISPLAY_ACTIVE) {
-		hdmi.hpd = hdmi_get_current_hpd();
-		return IRQ_WAKE_THREAD;
-	}
-	return IRQ_HANDLED;
+	hdmi.hpd = hdmi_get_current_hpd();
+	return IRQ_WAKE_THREAD;
 }
 
 int omapdss_hdmi_read_edid(u8 *buf, int len)
