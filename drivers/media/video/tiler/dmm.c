@@ -52,6 +52,12 @@ static int dmm_probe(struct platform_device *pdev)
 	}
 
 	device_data = pdev->dev.platform_data;
+	device_data->base = ioremap(DMM_BASE, DMM_SIZE);
+
+	if (!device_data->base) {
+		printk(KERN_ERR "dmm: ioremap of base failed\n");
+		return -EINVAL;
+	}
 
 	printk(KERN_INFO "dmm: probe base: %p, irq %d\n",
 		device_data->base, device_data->irq);
@@ -254,6 +260,8 @@ static s32 __init dmm_init(void)
 static void __exit dmm_exit(void)
 {
 	mutex_destroy(&dmm_mtx);
+	if (device_data)
+		iounmap(device_data->base);
 	platform_driver_unregister(&dmm_driver_ldm);
 }
 

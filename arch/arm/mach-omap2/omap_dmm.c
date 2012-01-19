@@ -52,7 +52,6 @@ void __init omap_dmm_init(void)
 	if (!oh)
 		return;
 
-	dmm_data.base = omap_hwmod_get_mpu_rt_va(oh);
 	dmm_data.irq = oh->mpu_irqs[0].irq;
 
 	od = omap_device_build(dmm_data.oh_name, -1, oh, &dmm_data,
