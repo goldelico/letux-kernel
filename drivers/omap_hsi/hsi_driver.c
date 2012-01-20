@@ -85,8 +85,6 @@ void hsi_save_ctx(struct hsi_dev *hsi_ctrl)
 
 	pdata->ctx->sysconfig = hsi_inl(base, HSI_SYS_SYSCONFIG_REG);
 	pdata->ctx->gdd_gcr = hsi_inl(base, HSI_GDD_GCR_REG);
-	if (hsi_driver_device_is_hsi(pdev))
-		pdata->ctx->dll = hsi_inl(base, HSI_HSR_DLL_REG);
 
 	for (i = 0; i < pdata->num_ports; i++) {
 		p = &pdata->ctx->pctx[i];
@@ -127,8 +125,6 @@ void hsi_restore_ctx(struct hsi_dev *hsi_ctrl)
 
 	hsi_outl(pdata->ctx->sysconfig, base, HSI_SYS_SYSCONFIG_REG);
 	hsi_outl(pdata->ctx->gdd_gcr, base, HSI_GDD_GCR_REG);
-	if (hsi_driver_device_is_hsi(pdev))
-		hsi_outl(pdata->ctx->dll, base, HSI_HSR_DLL_REG);
 
 	for (i = 0; i < pdata->num_ports; i++) {
 		p = &pdata->ctx->pctx[i];
@@ -400,7 +396,6 @@ static void hsi_set_ports_default(struct hsi_dev *hsi_ctrl,
 	if (hsi_driver_device_is_hsi(pdev)) {
 		/* SW strategy for HSI fifo management can be changed here */
 		hsi_fifo_mapping(hsi_ctrl, hsi_ctrl->fifo_mapping_strategy);
-		hsi_outl(pdata->ctx->dll, base, HSI_HSR_DLL_REG);
 	}
 }
 

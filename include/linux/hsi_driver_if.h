@@ -105,13 +105,11 @@ struct hsi_port_ctx {
  * struct hsi_ctrl_ctx - hsi controller regs context
  * @sysconfig: keeps HSI_SYSCONFIG reg state
  * @gdd_gcr: keeps DMA_GCR reg state
- * @dll: keeps HSR_DLL state
  * @pctx: array of port context
  */
 struct hsi_ctrl_ctx {
 	u32 sysconfig;
 	u32 gdd_gcr;
-	u32 dll;
 	struct hsi_port_ctx *pctx;
 };
 /* END DPS */

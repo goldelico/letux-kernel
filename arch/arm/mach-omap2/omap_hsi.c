@@ -68,7 +68,6 @@ static struct hsi_port_ctx omap_hsi_port_ctx[] = {
 static struct hsi_ctrl_ctx omap_hsi_ctrl_ctx = {
 		.sysconfig = 0,
 		.gdd_gcr = 0,
-		.dll = 0,
 		.pctx = omap_hsi_port_ctx,
 };
 

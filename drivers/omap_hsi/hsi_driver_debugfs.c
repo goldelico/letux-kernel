@@ -174,8 +174,6 @@ static int hsi_debug_port_show(struct seq_file *m, void *p)
 				   hsi_inl(base,
 					   HSI_HSR_MAPPING_FIFO_REG(fifo)));
 		}
-		seq_printf(m, "DLL\t\t: 0x%08x\n",
-			   hsi_inl(base, HSI_HSR_DLL_REG));
 		seq_printf(m, "DIVISOR\t\t: 0x%08x\n",
 			   hsi_inl(base, HSI_HSR_DIVISOR_REG(port)));
 	}
