@@ -428,6 +428,7 @@ void __init omap2_init_common_infrastructure(void)
 		omap44xx_clockdomains_init();
 		omap44xx_hwmod_init();
 	} else if (cpu_is_omap54xx()) {
+		omap54xx_voltagedomains_init();
 		omap54xx_powerdomains_init();
 		omap54xx_clockdomains_init();
 		omap54xx_hwmod_init();
