@@ -182,7 +182,7 @@ static int hdmi_audio_hw_params(struct snd_pcm_substream *substream,
 	audio_format->type = HDMI_AUDIO_TYPE_LPCM;
 	audio_format->sample_order = HDMI_AUDIO_SAMPLE_LEFT_FIRST;
 	/* Disable start/stop signals of IEC 60958 blocks */
-	audio_format->en_sig_blk_strt_end = HDMI_AUDIO_BLOCK_SIG_STARTEND_OFF;
+	audio_format->en_sig_blk_strt_end = HDMI_AUDIO_BLOCK_SIG_STARTEND_ON;
 
 	audio_dma->block_size = 0xC0;
 	audio_dma->mode = HDMI_AUDIO_TRANSF_DMA;
