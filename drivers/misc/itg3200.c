@@ -83,6 +83,9 @@
 #define ITG3200_SLEEP				(0x01 << 6)
 #define ITG3200_RESET				(0x01 << 7)
 
+#define ITG3200_TEMP_SENSITIVITY	280			/* LSB per centigrade */
+#define ITG3200_TEMP_OFFSET35		(-13200)	/* at 35 centigrade */
+
 /* Addresses to scan: 0x68, 0x69 */
 static const unsigned short normal_i2c[] = { 0x68, 0x69, I2C_CLIENT_END };
 
@@ -254,11 +257,11 @@ static ssize_t show_values(struct device *dev, struct device_attribute *attr, ch
 	data.gyro_z = 0;
 	result = itg3200_read_measurements(client, &data);
 	if (result > 0) {
-		return sprintf(buf, "%d %d %d %d\n",
-				data.temperature,
-				data.gyro_x,
-				data.gyro_y,
-			        data.gyro_z
+		return sprintf(buf, "%d,%d,%d,%d\n",
+					   data.gyro_x,
+					   data.gyro_y,
+					   data.gyro_z,
+					   350+(((s32) data.temperature-ITG3200_TEMP_OFFSET35)/(ITG3200_TEMP_SENSITIVITY/10))
 				);
 	}
 	return result;

@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32
-# Mon Jan  9 09:22:55 2012
+# Mon Jan 23 13:13:17 2012
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -879,8 +879,8 @@ CONFIG_CS5535_MFGPT_DEFAULT_IRQ=7
 CONFIG_BMP085=y
 CONFIG_ITG3200=y
 CONFIG_BMA180=y
-# CONFIG_HMC5843 is not set
-CONFIG_RFID_TRF7960=y
+CONFIG_HMC5843=m
+# CONFIG_RFID_TRF7960 is not set
 # CONFIG_C2PORT is not set
 
 #

@@ -315,39 +315,34 @@ config BMP085
 	  will be called bmp085.
 
 config ITG3200
-	tristate "Invensense triaxial digital gyroscope"
+	tristate "Invensense ITG3200 triaxial digital gyroscope"
 	depends on I2C && SYSFS
 	help
 	  If you say yes here you get support for the digital triaxial
-	  gyroscope sensor ITG3200 from Invensense
+	  gyroscope sensor ITG3200 from Invensense.
 
 	  This driver can also be build as a module. If so, the module
 	  will be called itg3200.
 
 config BMA180
-	tristate "Triaxial magnetometer BMA180 from Bosch Sensortec"
+	tristate "Triaxial accelerometer BMA180 from Bosch Sensortec"
 	depends on I2C && SYSFS
 	help
 	  If you say yes here you get support for the digital triaxial
-	  magnetometer (compass) sensor BMA180 from Bosch Sensortec.
-
-	  Attention: This driver is a stub. Please write a real one.
+	  accelerometer sensor BMA180 from Bosch Sensortec.
 
 	  This driver can also be build as a module. If so, the module
 	  will be called bma180.
 
 config HMC5843
-	tristate "Triaxial magnetometer HMC5843 from Bosch Sensortec"
+	tristate "Triaxial magnetometer HMC5843 from Honeywell"
 	depends on I2C && SYSFS
 	help
 	  If you say yes here you get support for the digital triaxial
-	  magnetometer (compass) sensor HMC5843 from Bosch Sensortec.
-
-	  Attention: This driver is a stub. Please write a real one.
+	  magnetometer (compass) sensor HMC5843 from Honeywell.
 
 	  This driver can also be build as a module. If so, the module
-	  will be called bma180.
-
+	  will be called hmc5843.
 
 config RFID_TRF7960
 	tristate "Texas Instruments TRF7960/7961 RFID reader"
