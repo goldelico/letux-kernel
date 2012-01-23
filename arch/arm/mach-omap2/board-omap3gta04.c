@@ -459,7 +459,7 @@ static int gta04_twl_gpio_setup(struct device *dev,
 	/* link regulators to MMC adapters */
 	gta04_vmmc1_supply.dev = mmc[0].dev;
 
-#if XXX	// unclear what this does on the BeagleBoard
+#ifdef XXX	// unclear what this does on the BeagleBoard
 	/* Power on camera interface */
 	gpio_request(gpio + 2, "CAM_EN");
 	gpio_direction_output(gpio + 2, 1);
@@ -884,10 +884,10 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 	.irq		= 115,
 	},	
 #endif
-#if defined(CONFIG_HMC5883) || defined(CONFIG_HMC5883_MODULE)
+#if defined(CONFIG_HMC5883L) || defined(CONFIG_HMC5883L_MODULE)
 	{
-	I2C_BOARD_INFO("hmc5883", 0x1e),
-	.type		= "hmc5883",
+	I2C_BOARD_INFO("hmc5883l", 0x1e),
+	.type		= "hmc5883l",
 	.platform_data	= NULL,
 	.irq		= 111,
 	},	

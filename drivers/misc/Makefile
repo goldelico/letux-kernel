@@ -33,3 +33,4 @@ obj-$(CONFIG_RFID_TRF7960)	+= trf7960.o
 obj-$(CONFIG_ITG3200)		+= itg3200.o
 obj-$(CONFIG_BMA180)		+= bma180.o
 obj-$(CONFIG_HMC5843)		+= hmc5843.o
+obj-$(CONFIG_HMC5883L)		+= hmc5883l.o
