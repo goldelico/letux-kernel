@@ -120,6 +120,8 @@ void __init omap24xx_check_revision(void)
 	dieid[1]=read_tap_reg(OMAP_TAP_DIE_ID_1);
 	dieid[2]=read_tap_reg(OMAP_TAP_DIE_ID_2);
 	dieid[3]=read_tap_reg(OMAP_TAP_DIE_ID_3);
+	printk("omap24xx_check_revision: %08x%08x%08x%08x\n", dieid[0], dieid[1], dieid[2], dieid[3]);
+
 	pr_debug("OMAP_TAP_DIE_ID_0: 0x%08x\n",
 		 dieid[0]);
 	pr_debug("OMAP_TAP_DIE_ID_1: 0x%08x DEV_REV: %i\n",
@@ -132,9 +134,6 @@ void __init omap24xx_check_revision(void)
 	pr_debug("OMAP_TAP_PROD_ID_0: 0x%08x DEV_TYPE: %i\n",
 		 prod_id, dev_type);
 
-	system_serial_high = dieid[2];
-	system_serial_low = dieid[3];
-	
 	/* Check hawkeye ids */
 	for (i = 0; i < ARRAY_SIZE(omap_ids); i++) {
 		if (hawkeye == omap_ids[i].hawkeye)
@@ -263,6 +262,12 @@ void __init omap3_check_revision(void)
 		/* Unknown default to latest silicon rev as default*/
 		omap_revision = OMAP3630_REV_ES1_0;
 	}
+	dieid[0]=read_tap_reg(OMAP_TAP_DIE_ID_0);
+	dieid[1]=read_tap_reg(OMAP_TAP_DIE_ID_1);
+	dieid[2]=read_tap_reg(OMAP_TAP_DIE_ID_2);
+	dieid[3]=read_tap_reg(OMAP_TAP_DIE_ID_3);
+//	printk("omap3_check_revision: %08x%08x%08x%08x\n", dieid[0], dieid[1], dieid[2], dieid[3]);
+	
 }
 
 void __init omap4_check_revision(void)

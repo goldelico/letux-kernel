@@ -863,7 +863,13 @@ static int c_show(struct seq_file *m, void *v)
 	seq_printf(m, "Revision\t: %04x\n", system_rev);
 	seq_printf(m, "Serial\t\t: %08x%08x\n",
 		   system_serial_high, system_serial_low);
-
+#ifdef CONFIG_ARCH_OMAP
+	{
+	extern u32 dieid[4];
+	seq_printf(m, "Die-ID\t\t: %08x%08x%08x%08x\n",
+			   dieid[3], dieid[2], dieid[1], dieid[0]);	/* same order as U-Boot dieid_num_r() */
+	}
+#endif	
 	return 0;
 }
 
