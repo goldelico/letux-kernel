@@ -130,6 +130,7 @@ static struct omap_globals omap4_globals = {
 	.prm	= OMAP4430_PRM_BASE,
 	.cm	= OMAP4430_CM_BASE,
 	.cm2	= OMAP4430_CM2_BASE,
+	.prcm_mpu	= OMAP4430_PRCM_MPU_BASE,
 };
 
 void __init omap2_set_globals_443x(void)
@@ -140,3 +141,22 @@ void __init omap2_set_globals_443x(void)
 }
 #endif
 
+#if defined(CONFIG_ARCH_OMAP5)
+static struct omap_globals omap5_globals = {
+	.class	= OMAP543X_CLASS,
+	.tap	= OMAP2_L4_IO_ADDRESS(OMAP543x_SCM_BASE),
+	.ctrl	= OMAP543x_SCM_BASE,
+	.ctrl_pad	= OMAP543x_CTRL_BASE,
+	.prm	= OMAP54XX_PRM_BASE,
+	.cm	= OMAP54XX_CM_CORE_AON_BASE,
+	.cm2	= OMAP54XX_CM_CORE_BASE,
+	.prcm_mpu = OMAP54XX_PRCM_MPU_BASE,
+};
+
+void __init omap2_set_globals_543x(void)
+{
+	omap2_set_globals_tap(&omap5_globals);
+	omap2_set_globals_control(&omap5_globals);
+	omap2_set_globals_prcm(&omap5_globals);
+}
+#endif

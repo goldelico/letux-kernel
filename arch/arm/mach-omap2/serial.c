@@ -768,7 +768,7 @@ void __init omap_serial_init_port(struct omap_board_data *bdata)
 	 */
 	uart->regshift = p->regshift;
 	uart->membase = p->membase;
-	if (cpu_is_omap44xx() || cpu_is_ti816x())
+	if (cpu_is_omap44xx() || cpu_is_ti816x() || cpu_is_omap54xx())
 		uart->errata |= UART_ERRATA_FIFO_FULL_ABORT;
 	else if ((serial_read_reg(uart, UART_OMAP_MVER) & 0xFF)
 			>= UART_OMAP_NO_EMPTY_FIFO_READ_IP_REV)
@@ -823,13 +823,14 @@ void __init omap_serial_init_port(struct omap_board_data *bdata)
 	 * on init.  Now that omap_device is ready, ensure full idle
 	 * before doing omap_device_enable().
 	 */
-	omap_hwmod_idle(uart->oh);
-
-	omap_device_enable(uart->pdev);
-	omap_uart_idle_init(uart);
-	omap_uart_reset(uart);
-	omap_hwmod_enable_wakeup(uart->oh);
-	omap_device_idle(uart->pdev);
+	if (!cpu_is_omap54xx()) {
+		omap_hwmod_idle(uart->oh);
+		omap_device_enable(uart->pdev);
+		omap_uart_idle_init(uart);
+		omap_uart_reset(uart);
+		omap_hwmod_enable_wakeup(uart->oh);
+		omap_device_idle(uart->pdev);
+	}
 
 	/*
 	 * Need to block sleep long enough for interrupt driven

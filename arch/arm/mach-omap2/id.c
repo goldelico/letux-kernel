@@ -62,6 +62,11 @@ int omap_type(void)
 		val = omap_ctrl_readl(OMAP343X_CONTROL_STATUS);
 	} else if (cpu_is_omap44xx()) {
 		val = omap_ctrl_readl(OMAP4_CTRL_MODULE_CORE_STATUS);
+	} else if (cpu_is_omap54xx()) {
+		val = omap_ctrl_readl(OMAP5XXX_CONTROL_STATUS);
+		val &= OMAP5_DEVICETYPE_MASK;
+		val >>= 6;
+		goto out;
 	} else {
 		pr_err("Cannot detect omap type!\n");
 		goto out;
@@ -421,6 +426,38 @@ static void __init omap4_check_revision(void)
 		((omap_rev() >> 12) & 0xf), ((omap_rev() >> 8) & 0xf));
 }
 
+static void __init omap5_check_revision(void)
+{
+	u32 idcode;
+	u16 hawkeye;
+	u8 rev;
+
+	idcode = read_tap_reg(OMAP_TAP_IDCODE);
+	hawkeye = (idcode >> 12) & 0xffff;
+	rev = (idcode >> 28) & 0xff;
+
+	switch (hawkeye) {
+	case 0xb852:
+		switch (rev) {
+		case 0:
+			omap_revision = OMAP5430_REV_ES1_0;
+			omap_chip.oc |= CHIP_IS_OMAP5430ES1;
+			break;
+		default:
+			omap_revision = OMAP5430_REV_ES1_0;
+			omap_chip.oc |= CHIP_IS_OMAP5430ES1;
+	}
+	break;
+	default:
+		/* Unknown default to latest silicon rev as default*/
+		omap_revision = OMAP5430_REV_ES1_0;
+		omap_chip.oc |= CHIP_IS_OMAP5430ES1;
+	}
+
+	pr_info("OMAP%04x ES%d.0\n",
+			omap_rev() >> 16, ((omap_rev() >> 12) & 0xf) + 1);
+}
+
 #define OMAP3_SHOW_FEATURE(feat)		\
 	if (omap3_has_ ##feat())		\
 		printk(#feat" ");
@@ -553,6 +590,9 @@ void __init omap2_check_revision(void)
 	} else if (cpu_is_omap44xx()) {
 		omap4_check_revision();
 		omap4_check_features();
+		return;
+	} else if (cpu_is_omap54xx()) {
+		omap5_check_revision();
 		return;
 	} else {
 		pr_err("OMAP revision unknown, please fix!\n");

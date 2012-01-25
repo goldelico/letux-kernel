@@ -51,6 +51,12 @@ config ARCH_OMAP4
 	select PM_OPP if PM
 	select USB_ARCH_HAS_EHCI
 
+config ARCH_OMAP5
+	bool "TI OMAP5"
+	depends on ARCH_OMAP2PLUS
+	select CPU_V7
+	select ARM_GIC
+
 comment "OMAP Core Type"
 	depends on ARCH_OMAP2
 
@@ -325,6 +331,10 @@ config MACH_OMAP4_PANDA
 	select OMAP_PACKAGE_CBL
 	select OMAP_PACKAGE_CBS
 	select REGULATOR_FIXED_VOLTAGE
+
+config MACH_OMAP_5430EVM
+	bool "OMAP5 EVM board"
+	depends on ARCH_OMAP5
 
 config OMAP3_EMU
 	bool "OMAP3 debugging peripherals"

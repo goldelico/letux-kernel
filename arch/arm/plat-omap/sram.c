@@ -6,8 +6,8 @@
  * Copyright (C) 2005 Nokia Corporation
  * Written by Tony Lindgren <tony@atomide.com>
  *
- * Copyright (C) 2009 Texas Instruments
- * Added OMAP4 support - Santosh Shilimkar <santosh.shilimkar@ti.com>
+ * Copyright (C) 2009-2011 Texas Instruments
+ * Added OMAP4/5 support - Santosh Shilimkar <santosh.shilimkar@ti.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -51,6 +51,10 @@
 #define OMAP4_SRAM_VA		0xfe400000
 #define OMAP4_SRAM_PUB_PA	(OMAP4_SRAM_PA + 0x4000)
 #define OMAP4_SRAM_PUB_VA	(OMAP4_SRAM_VA + 0x4000)
+#define OMAP5_SRAM_PA		0x40300000
+#define OMAP5_SRAM_VA		0xfe400000
+#define OMAP5_SRAM_PUB_PA	OMAP5_SRAM_PA
+#define OMAP5_SRAM_PUB_VA	OMAP5_SRAM_VA
 
 #if defined(CONFIG_ARCH_OMAP2PLUS)
 #define SRAM_BOOTLOADER_SZ	0x00
@@ -129,6 +133,10 @@ static void __init omap_detect_sram(void)
 				omap_sram_base = OMAP4_SRAM_PUB_VA;
 				omap_sram_start = OMAP4_SRAM_PUB_PA;
 				omap_sram_size = 0xa000; /* 40K */
+			} else if (cpu_is_omap54xx()) {
+				omap_sram_base = OMAP5_SRAM_PUB_VA;
+				omap_sram_start = OMAP5_SRAM_PUB_PA;
+				omap_sram_size = SZ_128K; /* 128KB */
 			} else {
 				omap_sram_base = OMAP2_SRAM_PUB_VA;
 				omap_sram_start = OMAP2_SRAM_PUB_PA;
@@ -143,6 +151,10 @@ static void __init omap_detect_sram(void)
 				omap_sram_base = OMAP4_SRAM_VA;
 				omap_sram_start = OMAP4_SRAM_PA;
 				omap_sram_size = 0xe000; /* 56K */
+			} else if (cpu_is_omap54xx()) {
+				omap_sram_base = OMAP5_SRAM_VA;
+				omap_sram_start = OMAP5_SRAM_PA;
+				omap_sram_size = SZ_128K; /* 128KB */
 			} else {
 				omap_sram_base = OMAP2_SRAM_VA;
 				omap_sram_start = OMAP2_SRAM_PA;
@@ -419,8 +431,9 @@ static inline int omap34xx_sram_init(void)
 
 int __init omap_sram_init(void)
 {
-	omap_detect_sram();
-	omap_map_sram();
+	if (!cpu_is_omap54xx())
+		omap_detect_sram();
+		omap_map_sram();
 
 	if (!(cpu_class_is_omap2()))
 		omap1_sram_init();

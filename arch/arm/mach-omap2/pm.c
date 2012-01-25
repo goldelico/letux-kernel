@@ -242,6 +242,10 @@ static void __init omap4_init_voltages(void)
 
 static int __init omap2_common_pm_init(void)
 {
+	if (cpu_is_omap54xx()) {
+		pr_err("FIXME: omap2_common_pm_init\n");
+		return 0;
+	}
 	omap2_init_processor_devices();
 	omap_pm_if_init();
 
@@ -251,6 +255,11 @@ postcore_initcall(omap2_common_pm_init);
 
 static int __init omap2_common_pm_late_init(void)
 {
+	if (cpu_is_omap54xx()) {
+		pr_err("FIXME: omap2_common_pm_late_init\n");
+		return 0;
+	}
+
 	/* Init the OMAP TWL parameters */
 	omap3_twl_init();
 	omap4_twl_init();

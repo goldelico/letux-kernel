@@ -4,7 +4,7 @@
  * Low-level IRQ helper macros for OMAP-based platforms
  *
  * Copyright (C) 2009 Texas Instruments
- * Added OMAP4 support - Santosh Shilimkar <santosh.shilimkar@ti.com>
+ * Added OMAP4/5 support - Santosh Shilimkar <santosh.shilimkar@ti.com>
  *
  * This file is licensed under  the terms of the GNU General Public
  * License version 2. This program is licensed "as is" without any
@@ -18,12 +18,14 @@
 #include <plat/omap24xx.h>
 #include <plat/omap34xx.h>
 #include <plat/omap44xx.h>
+#include <plat/omap54xx.h>
 
 #include <plat/multi.h>
 
 #define OMAP2_IRQ_BASE		OMAP2_L4_IO_ADDRESS(OMAP24XX_IC_BASE)
 #define OMAP3_IRQ_BASE		OMAP2_L4_IO_ADDRESS(OMAP34XX_IC_BASE)
 #define OMAP4_IRQ_BASE		OMAP2_L4_IO_ADDRESS(OMAP44XX_GIC_CPU_BASE)
+#define OMAP5_IRQ_BASE		OMAP2_L4_IO_ADDRESS(OMAP54XX_GIC_CPU_BASE)
 #define INTCPS_SIR_IRQ_OFFSET	0x0040	/* omap2/3 active interrupt offset */
 #define	ACTIVEIRQ_MASK		0x7f	/* omap2/3 active interrupt bits */
 
@@ -154,12 +156,16 @@
 #endif
 
 
-#ifdef CONFIG_ARCH_OMAP4
+#if defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_ARCH_OMAP5)
 #define HAVE_GET_IRQNR_PREAMBLE
 #include <asm/hardware/entry-macro-gic.S>
 
 		.macro  get_irqnr_preamble, base, tmp
+#ifdef CONFIG_ARCH_OMAP4
 		ldr     \base, =OMAP4_IRQ_BASE
+#else
+		ldr     \base, =OMAP5_IRQ_BASE
+#endif
 		.endm
 
 #endif

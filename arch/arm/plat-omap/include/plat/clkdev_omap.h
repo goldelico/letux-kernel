@@ -40,7 +40,7 @@ struct omap_clk {
 #define CK_443X		(1 << 11)
 #define CK_TI816X	(1 << 12)
 #define CK_446X		(1 << 13)
-
+#define CK_54XX		(1 << 13)
 
 #define CK_34XX		(CK_3430ES1 | CK_3430ES2PLUS)
 #define CK_AM35XX	(CK_3505 | CK_3517)	/* all Sitara AM35xx */
