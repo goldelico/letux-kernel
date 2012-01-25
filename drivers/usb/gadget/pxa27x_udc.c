@@ -1845,7 +1845,8 @@ static int pxa27x_udc_start(struct usb_gadget_driver *driver,
 		driver->driver.name);
 
 	if (udc->transceiver) {
-		retval = otg_set_peripheral(udc->transceiver, &udc->gadget);
+		retval = otg_set_peripheral(udc->transceiver->otg,
+						&udc->gadget);
 		if (retval) {
 			dev_err(udc->dev, "can't bind to transceiver\n");
 			goto transceiver_fail;
@@ -1918,7 +1919,7 @@ static int pxa27x_udc_stop(struct usb_gadget_driver *driver)
 		 driver->driver.name);
 
 	if (udc->transceiver)
-		return otg_set_peripheral(udc->transceiver, NULL);
+		return otg_set_peripheral(udc->transceiver->otg, NULL);
 	return 0;
 }
 

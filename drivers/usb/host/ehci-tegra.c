@@ -670,7 +670,7 @@ static int tegra_ehci_probe(struct platform_device *pdev)
 	if (pdata->operating_mode == TEGRA_USB_OTG) {
 		tegra->transceiver = usb_get_transceiver();
 		if (tegra->transceiver)
-			otg_set_host(tegra->transceiver, &hcd->self);
+			otg_set_host(tegra->transceiver->otg, &hcd->self);
 	}
 #endif
 
@@ -685,7 +685,7 @@ static int tegra_ehci_probe(struct platform_device *pdev)
 fail:
 #ifdef CONFIG_USB_OTG_UTILS
 	if (tegra->transceiver) {
-		otg_set_host(tegra->transceiver, NULL);
+		otg_set_host(tegra->transceiver->otg, NULL);
 		usb_put_transceiver(tegra->transceiver);
 	}
 #endif
@@ -743,7 +743,7 @@ static int tegra_ehci_remove(struct platform_device *pdev)
 
 #ifdef CONFIG_USB_OTG_UTILS
 	if (tegra->transceiver) {
-		otg_set_host(tegra->transceiver, NULL);
+		otg_set_host(tegra->transceiver->otg, NULL);
 		usb_put_transceiver(tegra->transceiver);
 	}
 #endif

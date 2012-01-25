@@ -1609,7 +1609,7 @@ static int musb_gadget_wakeup(struct usb_gadget *gadget)
 		}
 
 		spin_unlock_irqrestore(&musb->lock, flags);
-		otg_start_srp(musb->xceiv);
+		otg_start_srp(musb->xceiv->otg);
 		spin_lock_irqsave(&musb->lock, flags);
 
 		/* Block idling for at least 1s */
@@ -1883,6 +1883,7 @@ static int musb_gadget_start(struct usb_gadget *g,
 		struct usb_gadget_driver *driver)
 {
 	struct musb		*musb = gadget_to_musb(g);
+	struct usb_otg		*otg = musb->xceiv->otg;
 	unsigned long		flags;
 	int			retval = -EINVAL;
 
@@ -1899,7 +1900,7 @@ static int musb_gadget_start(struct usb_gadget *g,
 	spin_lock_irqsave(&musb->lock, flags);
 	musb->is_active = 1;
 
-	otg_set_peripheral(musb->xceiv, &musb->g);
+	otg_set_peripheral(otg, &musb->g);
 	musb->xceiv->state = OTG_STATE_B_IDLE;
 
 	/*
@@ -1930,8 +1931,8 @@ static int musb_gadget_start(struct usb_gadget *g,
 		}
 
 		if ((musb->xceiv->last_event == USB_EVENT_ID)
-					&& musb->xceiv->set_vbus)
-			otg_set_vbus(musb->xceiv, 1);
+					&& otg->set_vbus)
+			otg_set_vbus(otg, 1);
 
 		hcd->self.uses_pio_for_control = 1;
 	}
@@ -2017,7 +2018,7 @@ static int musb_gadget_stop(struct usb_gadget *g,
 
 	musb->xceiv->state = OTG_STATE_UNDEFINED;
 	stop_activity(musb, driver);
-	otg_set_peripheral(musb->xceiv, NULL);
+	otg_set_peripheral(musb->xceiv->otg, NULL);
 
 	dev_dbg(musb->controller, "unregistering driver %s\n", driver->function);
 
