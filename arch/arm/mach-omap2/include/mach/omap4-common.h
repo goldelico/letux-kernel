@@ -99,10 +99,10 @@ void __init omap_emif_set_device_details(u32 emif_nr,
 extern int omap_sar_save(void);
 extern void omap_sar_overwrite(void);
 #else
-void omap_sar_save(void)
+static inline void omap_sar_save(void)
 {
 }
-void omap_sar_overwrite(void)
+static inline void omap_sar_overwrite(void)
 {
 }
 #endif

@@ -327,9 +327,14 @@ int omap_enter_lowpower(unsigned int cpu, unsigned int power_state)
 	 */
 	mpuss_clear_prev_logic_pwrst();
 	pwrdm_clear_all_prev_pwrst(mpuss_pd);
-	if ((pwrdm_read_next_pwrst(mpuss_pd) == PWRDM_POWER_RET) &&
+
+	if (omap4_device_next_state_off())
+		save_state = 3;
+	else if ((pwrdm_read_next_pwrst(mpuss_pd) == PWRDM_POWER_RET) &&
 		(pwrdm_read_logic_retst(mpuss_pd) == PWRDM_POWER_OFF))
 		save_state = 2;
+	else if (pwrdm_read_next_pwrst(mpuss_pd) == PWRDM_POWER_OFF)
+		save_state = 3;
 
 	clear_cpu_prev_pwrst(cpu);
 	cpu_clear_prev_logic_pwrst(cpu);
