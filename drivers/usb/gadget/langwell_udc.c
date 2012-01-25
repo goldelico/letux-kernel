@@ -3147,7 +3147,7 @@ static int langwell_udc_probe(struct pci_dev *pdev,
 	dev_dbg(&dev->pdev->dev, "---> %s()\n", __func__);
 
 #ifdef	OTG_TRANSCEIVER
-	/* PCI device is already enabled by otg_transceiver driver */
+	/* PCI device is already enabled by usb_phy driver */
 	dev->enabled = 1;
 
 	/* mem region and register base */

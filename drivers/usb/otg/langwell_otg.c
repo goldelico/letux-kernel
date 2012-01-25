@@ -55,11 +55,11 @@ static void langwell_otg_remove(struct pci_dev *pdev);
 static int langwell_otg_suspend(struct pci_dev *pdev, pm_message_t message);
 static int langwell_otg_resume(struct pci_dev *pdev);
 
-static int langwell_otg_set_host(struct otg_transceiver *otg,
+static int langwell_otg_set_host(struct usb_phy *otg,
 				struct usb_bus *host);
-static int langwell_otg_set_peripheral(struct otg_transceiver *otg,
+static int langwell_otg_set_peripheral(struct usb_phy *otg,
 				struct usb_gadget *gadget);
-static int langwell_otg_start_srp(struct otg_transceiver *otg);
+static int langwell_otg_start_srp(struct usb_phy *otg);
 
 static const struct pci_device_id pci_ids[] = {{
 	.class =        ((PCI_CLASS_SERIAL_USB << 8) | 0xfe),
@@ -118,7 +118,7 @@ void langwell_update_transceiver(void)
 }
 EXPORT_SYMBOL(langwell_update_transceiver);
 
-static int langwell_otg_set_host(struct otg_transceiver *otg,
+static int langwell_otg_set_host(struct usb_phy *otg,
 					struct usb_bus *host)
 {
 	otg->host = host;
@@ -126,7 +126,7 @@ static int langwell_otg_set_host(struct otg_transceiver *otg,
 	return 0;
 }
 
-static int langwell_otg_set_peripheral(struct otg_transceiver *otg,
+static int langwell_otg_set_peripheral(struct usb_phy *otg,
 					struct usb_gadget *gadget)
 {
 	otg->gadget = gadget;
@@ -134,14 +134,14 @@ static int langwell_otg_set_peripheral(struct otg_transceiver *otg,
 	return 0;
 }
 
-static int langwell_otg_set_power(struct otg_transceiver *otg,
+static int langwell_otg_set_power(struct usb_phy *otg,
 				unsigned mA)
 {
 	return 0;
 }
 
 /* A-device drives vbus, controlled through IPC commands */
-static int langwell_otg_set_vbus(struct otg_transceiver *otg, bool enabled)
+static int langwell_otg_set_vbus(struct usb_phy *otg, bool enabled)
 {
 	struct langwell_otg		*lnw = the_transceiver;
 	u8				sub_id;
@@ -180,7 +180,7 @@ static void langwell_otg_chrg_vbus(int on)
 }
 
 /* Start SRP */
-static int langwell_otg_start_srp(struct otg_transceiver *otg)
+static int langwell_otg_start_srp(struct usb_phy *otg)
 {
 	struct langwell_otg		*lnw = the_transceiver;
 	struct intel_mid_otg_xceiv	*iotg = &lnw->iotg;
