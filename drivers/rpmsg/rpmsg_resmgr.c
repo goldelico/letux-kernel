@@ -45,7 +45,7 @@
 #define NAME_SIZE	50
 #define NUM_SRC_CLK	3
 #define AUX_CLK_MIN	0
-#define AUX_CLK_MAX	5
+#define AUX_CLK_MAX	(cpu_is_omap54xx() ? 3 : 5)
 #define GPTIMERS_MAX	11
 #define MHZ		1000000
 #define MAX_MSG		(sizeof(struct rprm_ack) + sizeof(struct rprm_sdma))
@@ -61,7 +61,15 @@ static char *regulator_name[] = {
 };
 #endif
 
-static char *clk_src_name[] = {
+#if defined(CONFIG_ARCH_OMAP5)
+static char *omap5_clk_src_name[] = {
+	"sys_clkin_ck",
+	"dpll_core_m3x2_opt_ck",
+	"dpll_per_m3x2_opt_ck",
+};
+#endif
+
+static char *omap4_clk_src_name[] = {
 	"sys_clkin_ck",
 	"dpll_core_m3x2_ck",
 	"dpll_per_m3x2_ck",
@@ -181,11 +189,18 @@ static int rprm_auxclk_request(struct rprm_elem *e, struct rprm_auxclk *obj)
 	char src_clk_name[NAME_SIZE];
 	struct rprm_auxclk_depot *acd;
 	struct clk *src_parent;
+	struct clk *src_setrate_parent;
+	char **clk_src_name = omap4_clk_src_name;
 
 	if ((obj->id < AUX_CLK_MIN) || (obj->id > AUX_CLK_MAX)) {
 		pr_err("Invalid aux_clk %d\n", obj->id);
 		return -EINVAL;
 	}
+
+#if defined(CONFIG_ARCH_OMAP5)
+	if (cpu_is_omap54xx())
+		clk_src_name = omap5_clk_src_name;
+#endif
 
 	/* Create auxclks depot */
 	acd = kmalloc(sizeof(*acd), GFP_KERNEL);
@@ -219,10 +234,13 @@ static int rprm_auxclk_request(struct rprm_elem *e, struct rprm_auxclk *obj)
 		goto error_aux_src;
 	}
 
-	ret = clk_set_rate(src_parent, (obj->parent_src_clk_rate * MHZ));
+	src_setrate_parent = (cpu_is_omap54xx() ?
+				clk_get_parent(src_parent) : src_parent);
+	ret = clk_set_rate(src_setrate_parent,
+				(obj->parent_src_clk_rate * MHZ));
 	if (ret) {
 		pr_err("%s: rate not supported by %s\n", __func__,
-					clk_src_name[obj->parent_src_clk]);
+						src_setrate_parent->name);
 		goto error_aux_src_parent;
 	}
 
@@ -353,10 +371,13 @@ static void rprm_regulator_release(struct rprm_regulator_depot *obj)
 	}
 
 	/* Restore orginal voltage */
-	ret = regulator_set_voltage(obj->reg_p, obj->orig_uv, obj->orig_uv);
-	if (ret) {
-		pr_err("%s: error restoring voltage\n", __func__);
-		return;
+	if (cpu_is_omap44xx()) {
+		ret = regulator_set_voltage(obj->reg_p, obj->orig_uv,
+								obj->orig_uv);
+		if (ret) {
+			pr_err("%s: error restoring voltage\n", __func__);
+			return;
+		}
 	}
 
 	regulator_put(obj->reg_p);
