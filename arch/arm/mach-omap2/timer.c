@@ -426,7 +426,7 @@ static int omap2_dm_timer_set_src(struct platform_device *pdev, int source)
 	return ret;
 }
 
-struct omap_device_pm_latency omap2_dmtimer_latency[] = {
+static struct omap_device_pm_latency omap2_dmtimer_latency[] = {
 	{
 		.deactivate_func = omap_device_idle_hwmods,
 		.activate_func   = omap_device_enable_hwmods,
