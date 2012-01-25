@@ -94,5 +94,18 @@ void __init omap_emif_set_device_details(u32 emif_nr,
 			struct ddr_min_tck *min_tck,
 			struct emif_custom_configs *custom_configs);
 #endif
+
+#ifdef CONFIG_PM
+extern int omap_sar_save(void);
+extern void omap_sar_overwrite(void);
+#else
+void omap_sar_save(void)
+{
+}
+void omap_sar_overwrite(void)
+{
+}
+#endif
+
 #endif /* __ASSEMBLER__ */
 #endif /* OMAP_ARCH_OMAP4_COMMON_H */
