@@ -108,7 +108,8 @@ struct iotg_ulpi_access_ops {
  * purpose.
  */
 struct intel_mid_otg_xceiv {
-	struct usb_phy		otg;
+	struct usb_phy		phy;
+	struct usb_otg		otg;
 	struct otg_hsm		hsm;
 
 	/* base address */
@@ -147,9 +148,9 @@ struct intel_mid_otg_xceiv {
 
 };
 static inline
-struct intel_mid_otg_xceiv *otg_to_mid_xceiv(struct usb_phy *otg)
+struct intel_mid_otg_xceiv *otg_to_mid_xceiv(struct usb_phy *phy)
 {
-	return container_of(otg, struct intel_mid_otg_xceiv, otg);
+	return container_of(phy, struct intel_mid_otg_xceiv, phy);
 }
 
 #define MID_OTG_NOTIFY_CONNECT		0x0001
