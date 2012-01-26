@@ -1221,7 +1221,7 @@ static int fsl_vbus_draw(struct usb_gadget *gadget, unsigned mA)
 
 	udc = container_of(gadget, struct fsl_udc, gadget);
 	if (udc->transceiver)
-		return otg_set_power(udc->transceiver, mA);
+		return usb_phy_set_power(udc->transceiver, mA);
 	return -ENOTSUPP;
 }
 
@@ -2435,7 +2435,7 @@ static int __init fsl_udc_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_USB_OTG
 	if (pdata->operating_mode == FSL_USB2_DR_OTG) {
-		udc_controller->transceiver = otg_get_transceiver();
+		udc_controller->transceiver = usb_get_transceiver();
 		if (!udc_controller->transceiver) {
 			ERR("Can't find OTG driver!\n");
 			ret = -ENODEV;

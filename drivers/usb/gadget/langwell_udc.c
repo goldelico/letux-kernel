@@ -1279,9 +1279,9 @@ static int langwell_vbus_draw(struct usb_gadget *_gadget, unsigned mA)
 	dev_vdbg(&dev->pdev->dev, "---> %s()\n", __func__);
 
 	if (dev->transceiver) {
-		dev_vdbg(&dev->pdev->dev, "otg_set_power\n");
+		dev_vdbg(&dev->pdev->dev, "usb_phy_set_power\n");
 		dev_vdbg(&dev->pdev->dev, "<--- %s()\n", __func__);
-		return otg_set_power(dev->transceiver, mA);
+		return usb_phy_set_power(dev->transceiver, mA);
 	}
 
 	dev_vdbg(&dev->pdev->dev, "<--- %s()\n", __func__);
@@ -3087,7 +3087,7 @@ static void langwell_udc_remove(struct pci_dev *pdev)
 		pci_disable_device(pdev);
 #else
 	if (dev->transceiver) {
-		otg_put_transceiver(dev->transceiver);
+		usb_put_transceiver(dev->transceiver);
 		dev->transceiver = NULL;
 		dev->lotg = NULL;
 	}
@@ -3152,7 +3152,7 @@ static int langwell_udc_probe(struct pci_dev *pdev,
 
 	/* mem region and register base */
 	dev->region = 1;
-	dev->transceiver = otg_get_transceiver();
+	dev->transceiver = usb_get_transceiver();
 	dev->lotg = otg_to_langwell(dev->transceiver);
 	base = dev->lotg->regs;
 #else

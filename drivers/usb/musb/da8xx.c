@@ -424,7 +424,7 @@ static int da8xx_musb_init(struct musb *musb)
 		goto fail;
 
 	usb_nop_xceiv_register();
-	musb->xceiv = otg_get_transceiver();
+	musb->xceiv = usb_get_transceiver();
 	if (!musb->xceiv)
 		goto fail;
 
@@ -457,7 +457,7 @@ static int da8xx_musb_exit(struct musb *musb)
 
 	phy_off();
 
-	otg_put_transceiver(musb->xceiv);
+	usb_put_transceiver(musb->xceiv);
 	usb_nop_xceiv_unregister();
 
 	return 0;
