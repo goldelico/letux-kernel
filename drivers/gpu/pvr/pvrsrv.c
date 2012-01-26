@@ -436,9 +436,17 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVInitialiseDevice (IMG_UINT32 ui32DevIndex)
 static PVRSRV_ERROR PVRSRVFinaliseSystem_SetPowerState_AnyCb(PVRSRV_DEVICE_NODE *psDeviceNode)
 {
 	PVRSRV_ERROR eError;
+
+	eError = PVRSRVPowerLock(KERNEL_ID, IMG_FALSE);
+	if (eError != PVRSRV_OK)
+	{
+		PVR_DPF((PVR_DBG_ERROR,"PVRSRVFinaliseSystem: Failed PVRSRVPowerLock call (device index: %d)", psDeviceNode->sDevId.ui32DeviceIndex));
+		return eError;
+	}
+
 	eError = PVRSRVSetDevicePowerStateKM(psDeviceNode->sDevId.ui32DeviceIndex,
-										 PVRSRV_DEV_POWER_STATE_DEFAULT,
-										 KERNEL_ID, IMG_FALSE);
+										 PVRSRV_DEV_POWER_STATE_DEFAULT);
+	PVRSRVPowerUnlock(KERNEL_ID);
 	if (eError != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR,"PVRSRVFinaliseSystem: Failed PVRSRVSetDevicePowerStateKM call (device index: %d)", psDeviceNode->sDevId.ui32DeviceIndex));
@@ -591,12 +599,16 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVDeinitialiseDevice(IMG_UINT32 ui32DevIndex)
 		return PVRSRV_ERROR_DEVICEID_NOT_FOUND;
 	}
 
-
+	eError = PVRSRVPowerLock(KERNEL_ID, IMG_FALSE);
+	if (eError != PVRSRV_OK)
+	{
+		PVR_DPF((PVR_DBG_ERROR,"PVRSRVDeinitialiseDevice: Failed PVRSRVPowerLock call"));
+		return eError;
+	}
 
 	eError = PVRSRVSetDevicePowerStateKM(ui32DevIndex,
-										 PVRSRV_DEV_POWER_STATE_OFF,
-										 KERNEL_ID,
-										 IMG_FALSE);
+										 PVRSRV_DEV_POWER_STATE_OFF);
+	PVRSRVPowerUnlock(KERNEL_ID);
 	if (eError != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR,"PVRSRVDeinitialiseDevice: Failed PVRSRVSetDevicePowerStateKM call"));
