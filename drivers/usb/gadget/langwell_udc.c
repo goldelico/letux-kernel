@@ -3087,7 +3087,7 @@ static void langwell_udc_remove(struct pci_dev *pdev)
 		pci_disable_device(pdev);
 #else
 	if (dev->transceiver) {
-		usb_put_transceiver(dev->transceiver);
+		usb_put_phy(dev->transceiver);
 		dev->transceiver = NULL;
 		dev->lotg = NULL;
 	}
@@ -3152,7 +3152,7 @@ static int langwell_udc_probe(struct pci_dev *pdev,
 
 	/* mem region and register base */
 	dev->region = 1;
-	dev->transceiver = usb_get_transceiver();
+	dev->transceiver = usb_get_phy();
 	dev->lotg = otg_to_langwell(dev->transceiver);
 	base = dev->lotg->regs;
 #else

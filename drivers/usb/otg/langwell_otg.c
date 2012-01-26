@@ -2058,7 +2058,7 @@ static int langwell_otg_probe(struct pci_dev *pdev,
 	otg->set_vbus = langwell_otg_set_vbus;
 	otg->start_srp = langwell_otg_start_srp;
 
-	if (usb_set_transceiver(&lnw->iotg.phy)) {
+	if (usb_add_phy(&lnw->iotg.phy)) {
 		dev_dbg(lnw->dev, "can't set transceiver\n");
 		retval = -EBUSY;
 		goto err;
@@ -2158,7 +2158,7 @@ static void langwell_otg_remove(struct pci_dev *pdev)
 		release_mem_region(pci_resource_start(pdev, 0),
 				pci_resource_len(pdev, 0));
 
-	usb_set_transceiver(NULL);
+	usb_add_phy(NULL);
 	pci_disable_device(pdev);
 	sysfs_remove_group(&pdev->dev.kobj, &debug_dev_attr_group);
 	device_remove_file(&pdev->dev, &dev_attr_hsm);
