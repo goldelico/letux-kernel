@@ -828,7 +828,8 @@ static int configure_overlay(enum omap_plane plane)
 	u32 paddr;
 	int r;
 	u16 orig_w, orig_h, orig_outw, orig_outh;
-	u16 x_decim = 1, y_decim = 1;
+	u16 x_decim, y_decim;
+	bool five_taps = true;
 
 	DSSDBGF("%d", plane);
 
@@ -959,9 +960,11 @@ static int configure_overlay(enum omap_plane plane)
 	new_oi.out_height = outh;
 	new_oi.paddr = paddr;
 
-	r = dispc_ovl_setup(plane, &new_oi, c->ilace,
+	r = dispc_scaling_decision(plane, &new_oi, c->channel,
+						&x_decim, &y_decim, &five_taps);
+	r = r ? : dispc_ovl_setup(plane, &new_oi, c->ilace,
 		c->channel, c->replication,
-		x_decim, y_decim,
+		x_decim, y_decim, five_taps,
 		c->fifo_low, c->fifo_high);
 	if (r) {
 		/* this shouldn't happen */
