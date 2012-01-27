@@ -142,6 +142,7 @@ static irqreturn_t twd_handler(int irq, void *dev_id)
  */
 static void __cpuinit twd_timer_setup(struct clock_event_device *clk)
 {
+	extern void smp_timer_broadcast(const struct cpumask *mask);
 	twd_calibrate_rate();
 
 	clk->name = "local_timer";
@@ -154,6 +155,7 @@ static void __cpuinit twd_timer_setup(struct clock_event_device *clk)
 	clk->mult = div_sc(twd_timer_rate, NSEC_PER_SEC, clk->shift);
 	clk->max_delta_ns = clockevent_delta2ns(0xffffffff, clk);
 	clk->min_delta_ns = clockevent_delta2ns(0xf, clk);
+	clk->broadcast	= smp_timer_broadcast;
 
 	clockevents_register_device(clk);
 
