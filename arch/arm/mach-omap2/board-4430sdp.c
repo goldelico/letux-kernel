@@ -356,11 +356,6 @@ static int __init omap_ethernet_init(void)
 	return status;
 }
 
-static struct platform_device sdp4430_lcd_device = {
-	.name		= "sdp4430_lcd",
-	.id		= -1,
-};
-
 static struct regulator_consumer_supply sdp4430_vbat_supply[] = {
 	REGULATOR_SUPPLY("vddvibl", "twl6040-vibra"),
 	REGULATOR_SUPPLY("vddvibr", "twl6040-vibra"),
@@ -390,7 +385,6 @@ static struct platform_device sdp4430_vbat = {
 };
 
 static struct platform_device *sdp4430_devices[] __initdata = {
-	&sdp4430_lcd_device,
 	&sdp4430_gpio_keys_device,
 	&sdp4430_leds_gpio,
 	&sdp4430_leds_pwm,
