@@ -50,6 +50,8 @@ config ARCH_OMAP4
 	select ARCH_HAS_OPP
 	select PM_OPP if PM
 	select USB_ARCH_HAS_EHCI
+	select MISC_DEVICES
+	select EMIF
 
 config ARCH_OMAP5
 	bool "TI OMAP5"
@@ -59,6 +61,8 @@ config ARCH_OMAP5
 	select ARM_ERRATA_761171
 	select ARM_ERRATA_4668
 	select ARM_ARCH_TIMER
+	select MISC_DEVICES
+	select EMIF
 
 comment "OMAP Core Type"
 	depends on ARCH_OMAP2

@@ -14,6 +14,7 @@
 #define OMAP_ARCH_OMAP4_COMMON_H
 
 #include <asm/proc-fns.h>
+#include <linux/emif.h>
 
 /* Used to implement memory barrier on DRAM path */
 #define OMAP4_DRAM_BARRIER_VA			0xfe600000
@@ -81,6 +82,15 @@ static inline u32 omap_mpuss_read_prev_context_state(void)
 }
 static inline void omap_mpuss_timer_init(void);
 {}
+#endif
+
+#ifdef CONFIG_EMIF
+void __init omap_emif_set_device_details(u32 emif_nr,
+			struct ddr_device_info *device_info,
+			struct lpddr2_timings *timings,
+			u32 timings_arr_size,
+			struct ddr_min_tck *min_tck,
+			struct emif_custom_configs *custom_configs);
 #endif
 #endif /* __ASSEMBLER__ */
 #endif /* OMAP_ARCH_OMAP4_COMMON_H */
