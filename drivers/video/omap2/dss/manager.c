@@ -871,11 +871,17 @@ static int configure_overlay(enum omap_plane plane)
 		case OMAP_DSS_COLOR_NV12:
 			bpp = 8;
 			break;
+
+		case OMAP_DSS_COLOR_CLUT1:
+		case OMAP_DSS_COLOR_CLUT2:
+		case OMAP_DSS_COLOR_CLUT4:
+		case OMAP_DSS_COLOR_CLUT8:
 		case OMAP_DSS_COLOR_RGB16:
 		case OMAP_DSS_COLOR_ARGB16:
 		case OMAP_DSS_COLOR_YUV2:
 		case OMAP_DSS_COLOR_UYVY:
 		case OMAP_DSS_COLOR_RGBA16:
+		case OMAP_DSS_COLOR_RGB12U:
 		case OMAP_DSS_COLOR_RGBX16:
 		case OMAP_DSS_COLOR_ARGB16_1555:
 		case OMAP_DSS_COLOR_XRGB16_1555:
