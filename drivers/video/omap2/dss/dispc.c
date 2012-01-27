@@ -1332,6 +1332,7 @@ static s32 pixinc(int pixels, u8 ps)
 }
 
 static void calc_tiler_row_rotation(struct tiler_view_t *view,
+		u16 width, int bpp, int y_decim,
 		s32 *row_inc, unsigned *offset1, bool ilace)
 {
 	/* assume TB. We worry about swapping top/bottom outside of this call */
@@ -1340,13 +1341,14 @@ static void calc_tiler_row_rotation(struct tiler_view_t *view,
 		/* even and odd frames are interleaved */
 
 		/* offset1 is always at an odd line */
-		*offset1 = view->v_inc;
+		*offset1 = view->v_inc * (y_decim | 1);
+		y_decim *= 2;
 	}
-	*row_inc = view->v_inc + 1 - view->width * view->bpp;
+	*row_inc = view->v_inc * y_decim + 1 - width * bpp;
 
-	DSSDBG(" ps: %d, width: %d, offset1: %d,"
-		" height: %d, row_inc:%d\n",
-		view->bpp, view->width, *offset1, view->height, *row_inc);
+	DSSDBG(" ps: %d/%d, width: %d/%d, offset1: %d,"
+		" height: %d, row_inc:%d\n", view->bpp, bpp,
+		view->width, width, *offset1, view->height, *row_inc);
 
 	return;
 }
@@ -1441,7 +1443,7 @@ static void calc_dma_rotation_offset(u8 rotation, bool mirror,
 		enum omap_color_mode color_mode, bool fieldmode,
 		unsigned int field_offset,
 		unsigned *offset0, unsigned *offset1,
-		s32 *row_inc, s32 *pix_inc)
+		s32 *row_inc, s32 *pix_inc, int x_decim, int y_decim)
 {
 	u8 ps;
 	u16 fbw, fbh;
@@ -1492,10 +1494,10 @@ static void calc_dma_rotation_offset(u8 rotation, bool mirror,
 			*offset0 = *offset1 + field_offset * screen_width * ps;
 		else
 			*offset0 = *offset1;
-		*row_inc = pixinc(1 + (screen_width - fbw) +
+		*row_inc = pixinc(1 + (y_decim * screen_width - fbw * x_decim) +
 				(fieldmode ? screen_width : 0),
 				ps);
-		*pix_inc = pixinc(1, ps);
+		*pix_inc = pixinc(x_decim, ps);
 		break;
 	case OMAP_DSS_ROT_90:
 		*offset1 = screen_width * (fbh - 1) * ps;
@@ -1750,6 +1752,7 @@ static int dispc_ovl_calc_scaling(enum omap_plane plane,
 
 int dispc_ovl_setup(enum omap_plane plane, struct omap_overlay_info *oi,
 		bool ilace, enum omap_channel channel, bool replication,
+		int x_decim, int y_decim,
 		u32 fifo_low, u32 fifo_high)
 {
 	struct omap_overlay *ovl = omap_dss_get_overlay(plane);
@@ -1761,6 +1764,7 @@ int dispc_ovl_setup(enum omap_plane plane, struct omap_overlay_info *oi,
 	s32 pix_inc;
 	u16 frame_height = oi->height;
 	int pixpg = 1;
+	u32 orig_width, orig_height;
 	unsigned int field_offset = 0;
 	u8 global_alpha;
 
@@ -1791,6 +1795,8 @@ int dispc_ovl_setup(enum omap_plane plane, struct omap_overlay_info *oi,
 	if (!dss_feat_color_mode_supported(plane, oi->color_mode))
 		return -EINVAL;
 
+	/* predecimate */
+
 	/* adjust for group-of-pixels*/
 	if (dss_has_feature(FEAT_HANDLE_UV_SEPARATE) &&
 	    (oi->color_mode == OMAP_DSS_COLOR_YUV2 ||
@@ -1801,6 +1807,13 @@ int dispc_ovl_setup(enum omap_plane plane, struct omap_overlay_info *oi,
 		oi->height /= pixpg;
 	else
 		oi->width /= pixpg;
+
+	/* we need to remember the original block's size for rotations */
+	orig_width  = oi->width;
+	orig_height = oi->height;
+
+	oi->width = DIV_ROUND_UP(oi->width, x_decim);
+	oi->height = DIV_ROUND_UP(oi->height, y_decim);
 
 	/* NV12 width has to be even (height apparently does not) */
 	if (oi->color_mode == OMAP_DSS_COLOR_NV12)
@@ -1851,7 +1864,8 @@ int dispc_ovl_setup(enum omap_plane plane, struct omap_overlay_info *oi,
 
 	if (oi->rotation_type == OMAP_DSS_ROT_TILER) {
 		struct tiler_view_t view = {0};
-		u32 tiler_width = oi->width, tiler_height = oi->height;
+		u16 tiler_width = orig_width, tiler_height = orig_height;
+		int bpp = color_mode_to_bpp(oi->color_mode) / 8;
 		/* tiler needs 0-degree width & height */
 		if (oi->rotation & 1)
 			swap(tiler_width, tiler_height);
@@ -1862,8 +1876,9 @@ int dispc_ovl_setup(enum omap_plane plane, struct omap_overlay_info *oi,
 		oi->paddr = view.tsptr;
 
 		/* we cannot do TB field interlaced in rotated view */
-		calc_tiler_row_rotation(&view, &row_inc, &offset1, ilace);
-
+		pix_inc = 1 + (x_decim - 1) * bpp * pixpg;
+		calc_tiler_row_rotation(&view, oi->width * x_decim, bpp * pixpg,
+					y_decim, &row_inc, &offset1, ilace);
 		DSSDBG("w, h = %u %u\n", tiler_width, tiler_height);
 
 		if (oi->p_uv_addr) {
@@ -1878,7 +1893,8 @@ int dispc_ovl_setup(enum omap_plane plane, struct omap_overlay_info *oi,
 		calc_dma_rotation_offset(oi->rotation, oi->mirror,
 				oi->screen_width, oi->width, frame_height,
 				oi->color_mode, fieldmode, field_offset,
-				&offset0, &offset1, &row_inc, &pix_inc);
+				&offset0, &offset1, &row_inc, &pix_inc,
+				x_decim, y_decim);
 	} else {
 		calc_vrfb_rotation_offset(oi->rotation, oi->mirror,
 				oi->screen_width, oi->width, frame_height,
@@ -1909,8 +1925,9 @@ int dispc_ovl_setup(enum omap_plane plane, struct omap_overlay_info *oi,
 	dispc_ovl_set_row_inc(plane, row_inc);
 	dispc_ovl_set_pix_inc(plane, pix_inc);
 
-	DSSDBG("%d,%d %dx%d -> %dx%d\n", oi->pos_x, oi->pos_y, oi->width,
-			oi->height, oi->out_width, oi->out_height);
+	DSSDBG("%d,%d %d*%dx%d*%d -> %dx%d\n", oi->pos_x, oi->pos_y,
+			oi->width, x_decim, oi->height, y_decim,
+			oi->out_width, oi->out_height);
 
 	dispc_ovl_set_pos(plane, oi->pos_x, oi->pos_y);
 
