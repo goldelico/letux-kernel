@@ -464,7 +464,7 @@ void smp_timer_broadcast(const struct cpumask *mask)
 #define smp_timer_broadcast	NULL
 #endif
 
-#ifndef CONFIG_ARM_SMP_TWD
+#if !(defined(CONFIG_ARM_SMP_TWD) || defined(CONFIG_ARM_ARCH_TIMER))
 static void broadcast_timer_set_mode(enum clock_event_mode mode,
 	struct clock_event_device *evt)
 {

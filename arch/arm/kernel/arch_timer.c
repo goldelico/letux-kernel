@@ -129,17 +129,20 @@ static int arch_timer_set_next_event(unsigned long evt,
 
 static void __cpuinit arch_timer_setup(void *data)
 {
+	extern void smp_timer_broadcast(const struct cpumask *mask);
 	struct clock_event_device *clk = data;
 
 	/* Be safe... */
 	arch_timer_stop();
-	clk->features = CLOCK_EVT_FEAT_ONESHOT;
+	clk->features = CLOCK_EVT_FEAT_ONESHOT |
+			CLOCK_EVT_FEAT_C3STOP;
 	clk->name = "arch_sys_timer";
 	clk->rating = 450;
 	clk->set_mode = arch_timer_set_mode;
 	clk->set_next_event = arch_timer_set_next_event;
 	clk->irq = arch_timer_ppi;
 	clk->cpumask = cpumask_of(smp_processor_id());
+	clk->broadcast	= smp_timer_broadcast;
 
 	clockevents_config_and_register(clk, arch_timer_rate,
 					0xf, 0x7fffffff);
