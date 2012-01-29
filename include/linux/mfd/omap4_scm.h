@@ -81,6 +81,33 @@ struct omap4460plus_temp_sensor_data {
 /* forward declaration */
 struct scm;
 
+#define	CONTROL_DEV_CONF		0x00000300
+#define	CONTROL_USBOTGHS_CONTROL	0x0000033C
+
+#define	CONTROL_PHY_POWER_USB		0x00000370
+
+#define	USB_PWRCTL_CLK_CMD_MASK		0x003FC000
+#define	USB_PWRCTL_CLK_CMD_SHIFT	0xE
+
+#define	USB_PWRCTL_CLK_FREQ_MASK	0xFFC00000
+#define	USB_PWRCTL_CLK_FREQ_SHIFT	0x16
+
+#define	PHY_PD				0x1
+#define	AVALID				BIT(0)
+#define	BVALID				BIT(1)
+#define	VBUSVALID			BIT(2)
+#define	SESSEND				BIT(3)
+#define	IDDIG				BIT(4)
+
+#define	USB3_PHY_TX_RX_POWERON		0x3
+#define	USB3_PHY_TX_RX_POWEROFF		0x0
+
+extern void omap4plus_scm_phy_power(struct device *dev, int on);
+extern void omap4plus_scm_usb_host_mode(struct device *dev);
+extern void omap4plus_scm_usb_device_mode(struct device *dev);
+extern void omap4plus_scm_usb_set_sessionend(struct device *dev);
+extern void omap5_scm_usb3_phy_power(struct device *dev, int on);
+
 /**
  * struct temp_sensor_hwmon - temperature sensor hwmon device structure
  * @scm_ptr: pointer to system control module structure
