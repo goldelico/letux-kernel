@@ -181,3 +181,4 @@ void omap4460plus_scm_set_update_interval(struct scm *scm_ptr,
 						u32 interval, int id);
 int omap4460plus_scm_read_temp(struct scm *scm_ptr, int id);
 int adc_to_temp_conversion(struct scm *scm_ptr, int id, int val);
+struct device *omap_get_scm_dev(void);

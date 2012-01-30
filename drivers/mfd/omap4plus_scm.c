@@ -38,6 +38,8 @@
 #include <plat/scm.h>
 #include <linux/mfd/omap4_scm.h>
 
+static struct scm *scm_ptr;
+
 u32 omap4plus_scm_readl(struct scm *scm_ptr, u32 reg)
 {
 	return __raw_readl(scm_ptr->base + reg);
@@ -50,11 +52,21 @@ void omap4plus_scm_writel(struct scm *scm_ptr, u32 val, u32 reg)
 }
 EXPORT_SYMBOL_GPL(omap4plus_scm_writel);
 
+/**
+ * omap_get_scm_dev - returns the scm device pinter
+ *
+ * The modules which has to use SCM API's should call this API to get the scm
+ * device pointer.
+ */
+struct device *omap_get_scm_dev(void)
+{
+	return scm_ptr->dev;
+}
+EXPORT_SYMBOL_GPL(omap_get_scm_dev);
 
 static int __devinit omap4plus_scm_probe(struct platform_device *pdev)
 {
 	struct omap4plus_scm_pdata *pdata = pdev->dev.platform_data;
-	struct scm *scm_ptr;
 	struct resource *mem;
 	int ret = 0;
 
@@ -137,7 +149,7 @@ static int __init omap4plus_scm_init(void)
 	return platform_driver_register(&omap4plus_scm_driver);
 }
 
-module_init(omap4plus_scm_init);
+arch_initcall(omap4plus_scm_init);
 
 static void __exit omap4plus_scm_exit(void)
 {
