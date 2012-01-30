@@ -117,7 +117,6 @@
 #define OMAP_MMC5_DEVID		4
 
 #define MMC_TIMEOUT_MS		20
-#define OMAP_MMC_MASTER_CLOCK	96000000
 #define DRIVER_NAME		"mmci-omap-hs"
 
 /* Timeouts for entering power saving states on inactivity, msec */
@@ -285,11 +284,11 @@ static int omap_hsmmc_context_restore(struct omap_hsmmc_host *host)
 	}
 
 	if (ios->clock) {
-		dsor = OMAP_MMC_MASTER_CLOCK / ios->clock;
+		dsor = clk_get_rate(host->fclk) / ios->clock;
 		if (dsor < 1)
 			dsor = 1;
 
-		if (OMAP_MMC_MASTER_CLOCK / dsor > ios->clock)
+		if (clk_get_rate(host->fclk) / dsor > ios->clock)
 			dsor++;
 
 		if (dsor > 250)
@@ -1213,11 +1212,11 @@ static void omap_hsmmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	}
 
 	if (ios->clock) {
-		dsor = OMAP_MMC_MASTER_CLOCK / ios->clock;
+		dsor = clk_get_rate(host->fclk) / ios->clock;
 		if (dsor < 1)
 			dsor = 1;
 
-		if (OMAP_MMC_MASTER_CLOCK / dsor > ios->clock)
+		if (clk_get_rate(host->fclk) / dsor > ios->clock)
 			dsor++;
 
 		if (dsor > 250)
@@ -1341,7 +1340,10 @@ enum {ENABLED = 0, DISABLED, CARDSLEEP, REGSLEEP, OFF};
 static int omap_hsmmc_enabled_to_disabled(struct omap_hsmmc_host *host)
 {
 	omap_hsmmc_context_save(host);
-//	clk_disable(host->fclk);
+#ifdef CONFIG_MACH_GTA04
+	if (host->id != OMAP_MMC2_DEVID)
+#endif
+	clk_disable(host->fclk);
 	host->dpm_state = DISABLED;
 
 	dev_dbg(mmc_dev(host->mmc), "ENABLED -> DISABLED\n");
@@ -1365,7 +1367,10 @@ static int omap_hsmmc_disabled_to_sleep(struct omap_hsmmc_host *host)
 	if (mmc_card_can_sleep(host->mmc)) {
 		err = mmc_card_sleep(host->mmc);
 		if (err < 0) {
-//			clk_disable(host->fclk);
+#ifdef CONFIG_MACH_GTA04
+			if (host->id != OMAP_MMC2_DEVID)
+#endif
+			clk_disable(host->fclk);
 			mmc_release_host(host->mmc);
 			return err;
 		}
@@ -1377,7 +1382,10 @@ static int omap_hsmmc_disabled_to_sleep(struct omap_hsmmc_host *host)
 		mmc_slot(host).set_sleep(host->dev, host->slot_id, 1, 0,
 					 new_state == CARDSLEEP);
 	/* FIXME: turn off bus power and perhaps interrupts too */
-//	clk_disable(host->fclk);
+#ifdef CONFIG_MACH_GTA04
+	if (host->id != OMAP_MMC2_DEVID)
+#endif
+	clk_disable(host->fclk);
 	host->dpm_state = new_state;
 
 	mmc_release_host(host->mmc);
@@ -1545,7 +1553,10 @@ static int omap_hsmmc_disable_fclk(struct mmc_host *mmc, int lazy)
 	struct omap_hsmmc_host *host = mmc_priv(mmc);
 
 	omap_hsmmc_context_save(host);
-//	clk_disable(host->fclk);
+#ifdef CONFIG_MACH_GTA04
+	if (host->id != OMAP_MMC2_DEVID)
+#endif
+	clk_disable(host->fclk);
 	dev_dbg(mmc_dev(host->mmc), "mmc_fclk: disabled\n");
 	return 0;
 }
@@ -1616,7 +1627,10 @@ static int omap_hsmmc_regs_show(struct seq_file *s, void *data)
 	seq_printf(s, "CAPA:\t\t0x%08x\n",
 			OMAP_HSMMC_READ(host->base, CAPA));
 
-//	clk_disable(host->fclk);
+#ifdef CONFIG_MACH_GTA04
+	if (host->id != OMAP_MMC2_DEVID)
+#endif
+	clk_disable(host->fclk);
 
 	return 0;
 }
