@@ -1136,6 +1136,9 @@ static void rproc_loader_defered(struct rproc *rproc)
 	memcpy(rproc->header, image->header, image->header_len);
 	rproc->header_len = image->header_len;
 
+	debugfs_create_file("version", 0444, rproc->dbg_dir, rproc,
+							&rproc_version_ops);
+
 	/* Ensure we recognize this BIOS version: */
 	if (image->version != RPROC_BIOS_VERSION) {
 		dev_err(dev, "Expected BIOS version: %d!\n",
@@ -1719,8 +1722,6 @@ int rproc_register(struct device *dev, const char *name,
 	debugfs_create_file("name", 0444, rproc->dbg_dir, rproc,
 							&rproc_name_ops);
 
-	debugfs_create_file("version", 0444, rproc->dbg_dir, rproc,
-							&rproc_version_ops);
 out:
 	return 0;
 }
