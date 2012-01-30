@@ -240,12 +240,10 @@ static int musb_otg_notifications(struct notifier_block *nb,
 		if (is_otg_enabled(musb)) {
 			if (musb->gadget_driver) {
 				pm_runtime_get_sync(musb->controller);
-				usb_phy_init(musb->xceiv);
 				omap2430_musb_set_vbus(musb, 1);
 			}
 		} else {
 			pm_runtime_get_sync(musb->controller);
-			usb_phy_init(musb->xceiv);
 			omap2430_musb_set_vbus(musb, 1);
 		}
 		break;
@@ -255,7 +253,6 @@ static int musb_otg_notifications(struct notifier_block *nb,
 
 		if (musb->gadget_driver)
 			pm_runtime_get_sync(musb->controller);
-		usb_phy_init(musb->xceiv);
 		break;
 
 	case USB_EVENT_NONE:
@@ -347,10 +344,11 @@ static void omap2430_musb_enable(struct musb *musb)
 	struct musb_hdrc_platform_data *pdata = dev->platform_data;
 	struct omap_musb_board_data *data = pdata->board_data;
 
+	usb_phy_init(musb->xceiv);
+
 	switch (musb->xceiv->last_event) {
 
 	case USB_EVENT_ID:
-		usb_phy_init(musb->xceiv);
 		if (data->interface_type == MUSB_INTERFACE_UTMI) {
 			devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
 			/* start the session */
@@ -367,10 +365,6 @@ static void omap2430_musb_enable(struct musb *musb)
 				}
 			}
 		}
-		break;
-
-	case USB_EVENT_VBUS:
-		usb_phy_init(musb->xceiv);
 		break;
 
 	default:

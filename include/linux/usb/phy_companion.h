@@ -39,9 +39,15 @@ struct phy_companion {
 	int	(*start_srp)(struct phy_companion *x);
 };
 
+#if defined(CONFIG_TWL6030_USB) || defined(CONFIG_TWL6030_USB_MODULE)
+extern struct phy_companion *get_phy_twl6030_companion
+					(struct notifier_block *nb);
+#else
 static inline struct phy_companion *get_phy_twl6030_companion
 					(struct notifier_block *nb)
 {
 	return NULL;
 }
+#endif /* CONFIG_TWL6030_USB */
+
 #endif /* __DRIVERS_PHY_COMPANION_H */
