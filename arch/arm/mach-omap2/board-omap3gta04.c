@@ -1240,12 +1240,12 @@ static void __init gta04_init(void)
 #else
 #error we need CONFIG_OMAP_MUX
 #endif
-
+	
 	// gpio_export() allows to access through /sys/devices/virtual/gpio/gpio*/value
 		
 	gpio_request(145, "GPS_ON");
 	gpio_direction_output(145, false);
-	gpio_export(145, 0);	// no direction change
+	gpio_export(145, 0);	// no direction change by user
 	
 	// should be a backlight driver using PWM
 	gpio_request(57, "LCD_BACKLIGHT");
@@ -1260,38 +1260,82 @@ static void __init gta04_init(void)
 	if(gta04_version >= 3)
 		{
 		// enable AUX out/Headset switch
-		gpio_request(55, "AUX_OUT");
+		gpio_request(55, "AUX_OUT");	// enable headset out
 		gpio_direction_output(55, true);
 		gpio_export(55, 0);	// no direction change
 	
 		// disable Video out switch
-		gpio_request(23, "VIDEO_OUT");
+		gpio_request(23, "VIDEO_OUT");	// enable video out
 		gpio_direction_output(23, false);
 		gpio_export(23, 0);	// no direction change
 		
 		}
 
-	if(gta04_version >= 4)
-		{ // release WWAN_RESET and trigger ON_KEY so that Modem should initialize now and respond on the internal USB (EHCI)
-		// ON_KEY switch
-		omap_mux_init_gpio(175, OMAP_PIN_OUTPUT);
-		gpio_request(175, "ON_KEY");
-		gpio_direction_output(175, false);	// pull down
-		gpio_export(175, 0);	// no direction change
+	gpio_request(13, "RS232");	// enable RS232/disable IrDA
+	gpio_direction_output(13, 1);	// keep RS232 enabled
+	gpio_export(13, 0);	// no direction change
 		
-		// WWAN_RESET
-		omap_mux_init_gpio(186, OMAP_PIN_OUTPUT);
-		gpio_request(186, "WWAN_RESET");	// pull up
-		gpio_direction_output(186, true);
-		gpio_export(23, 0);	// no direction change
+	gpio_request(21, "RS232-EXT");	// control EXT line/IrDA FIR-SEL
+	gpio_direction_output(21, 1);
+	gpio_export(21, 0);	// no direction change by user
 
-		printk("GTM601W wake up requested\n");
+	if(gta04_version >= 4) { /* feature of GTA04A4 */
+		omap_mux_init_gpio(186, OMAP_PIN_OUTPUT);	// this needs CONFIG_OMAP_MUX!
+		gpio_request(186, "WWAN_RESET");
+		gpio_direction_output(186, 0);		// keep initial value 0
+		gpio_export(186, 0);	// no direction change
+	}
+	
+	// changed: don't wake up the modem automatically on GTA04A4! Leave that to user space or some rfkill control
+
+#if 0 && defined(CONFIG_SND_SOC_GTM601)	// should be a separate config
+	if(gta04_version >= 4)
+		{ // trigger ON_KEY so that Modem should initialize now and respond on the internal USB (EHCI)
+
+			printk("GTM601W wake up\n");
+			// 1. reset state of GPIO186 is low (ON_KEY not pressed)
+		
+			printk("ON_KEY is initially released\n");
+			
+			// 2. activate for 250 ms to switch module on
+			
+			gpio_set_value(186, 1);	// press button
+			printk("ON_KEY pressed\n");
+			mdelay(250);
+			gpio_set_value(186, 0);	// release button
+			printk("ON_KEY released\n");
+			
+			// FIXME: install driver in pm_power_off
+			// that activates ON_KEY for at least 200 ms
+
+#if 0	// does not work as intended
+			// 3. deactivate for 50ms - this will be ignored if we just switched on
+			// but it will be treated as the real wakeup if the modem was still on
+			
+			mdelay(50);
+			
+			// 4. activate for 250 ms to switch definitively on
+			
+			gpio_set_value(186, 1);	// press button
+			printk("ON_KEY pressed\n");
+			mdelay(250);
+			gpio_set_value(186, 0);	// release button
+			printk("ON_KEY released\n");
+			
+			// 5. deactivate for 5000ms - this allows the module to initialize
+			// and wait for a power-off signal (otherwise it is ignored)
+
+			mdelay(5000);
+			
+			// 6. activate again to prepare for automagic module-off on CPU power-off (GPIO goes to low by hardware)
+			gpio_set_value(186, 1);	// press button again in preparation for a release
+			printk("ON_KEY pressed\n");
+#endif
 		}
+#endif
 	
 	usb_musb_init();
-#if !defined(CONFIG_I2C_OMAP_GTA04A2)	// we don't have this controller chip on the A2 board
 	usb_ehci_init(&ehci_pdata);
-#endif
 	gta04_flash_init();
 	
 	/* Ensure SDRC pins are mux'd for self-refresh */

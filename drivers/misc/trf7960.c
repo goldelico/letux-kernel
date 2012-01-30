@@ -24,7 +24,7 @@
  this driver presents in /sys
  
  a) power control (off, on, on+scanning)
- b) an automatic inventory scan creating a subdirectory for each found tag
+ b) an automatic inventory scan creating a subdirectory for each tag that is currently found
  c) access to found tags through the subdirectory
  
  -> see samples/kobject/kset-example.c
@@ -301,7 +301,7 @@ static int getCollisionPosition(struct trf7960 *device)
 #if 0
 /* Kernel driver definitions and functions */
 
-// FIXME: demangle interrupt (data received) and work thread (regular scan inventory) */
+// FIXME: demangle interrupt (data received) and work thread (regularly scan for inventory) */
 
 static void trf7960_work(struct work_struct *work)
 {

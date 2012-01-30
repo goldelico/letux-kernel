@@ -190,7 +190,7 @@ static ssize_t show_value(struct device *dev, struct device_attribute *attr, cha
 /*		printk("%x  %x  %x\n", (s16)swab16((u16)data[0]),
 				(s16)swab16((u16)data[1]),
 				(s16)swab16((u16)data[2]));*/
-		return sprintf(buf, "%d, %d, %d\n",
+		return sprintf(buf, "%d,%d,%d\n",
 				(s16)swab16((u16)data[0]),
 				(s16)swab16((u16)data[1]),
 				(s16)swab16((u16)data[2]));
