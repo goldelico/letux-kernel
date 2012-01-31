@@ -423,7 +423,7 @@ v7_crval:
 	crval	clear=0x0120c302, mmuset=0x10c03c7d, ucset=0x00c01c7c
 
 __v7_setup_stack:
-	.space	4 * 11				@ 11 registers
+	.space	4 * 15				@ 15 registers
 
 	__INITDATA
 
