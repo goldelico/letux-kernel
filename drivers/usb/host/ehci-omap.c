@@ -205,6 +205,12 @@ static int ehci_hcd_omap_probe(struct platform_device *pdev)
 			gpio_direction_output(pdata->reset_gpio_port[1], 0);
 		}
 
+		if (gpio_is_valid(pdata->reset_gpio_port[2])) {
+			gpio_request(pdata->reset_gpio_port[2],
+						"USB3 PHY reset");
+			gpio_direction_output(pdata->reset_gpio_port[2], 0);
+		}
+
 		/* Hold the PHY in RESET for enough time till DIR is high */
 		udelay(10);
 	}
@@ -264,6 +270,9 @@ static int ehci_hcd_omap_probe(struct platform_device *pdev)
 
 		if (gpio_is_valid(pdata->reset_gpio_port[1]))
 			gpio_set_value(pdata->reset_gpio_port[1], 1);
+
+		if (gpio_is_valid(pdata->reset_gpio_port[2]))
+			gpio_set_value(pdata->reset_gpio_port[2], 1);
 	}
 
 	return 0;
@@ -277,6 +286,8 @@ err_add_hcd:
 			gpio_free(pdata->reset_gpio_port[0]);
 		if (gpio_is_valid(pdata->reset_gpio_port[1]))
 			gpio_free(pdata->reset_gpio_port[1]);
+		if (gpio_is_valid(pdata->reset_gpio_port[2]))
+			gpio_free(pdata->reset_gpio_port[2]);
 	}
 
 err_io:
