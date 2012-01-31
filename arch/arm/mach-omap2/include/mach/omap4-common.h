@@ -80,7 +80,7 @@ static inline u32 omap_mpuss_read_prev_context_state(void)
 {
 	return 0;
 }
-static inline void omap_mpuss_timer_init(void);
+static inline void omap_mpuss_timer_init(void)
 {}
 #endif
 
