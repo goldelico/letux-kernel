@@ -342,9 +342,9 @@ static void source_sink_complete(struct usb_ep *ep, struct usb_request *req)
 
 	status = usb_ep_queue(ep, req, GFP_ATOMIC);
 	if (status) {
-		cdev = loop->function.config->cdev;
+		cdev = ss->function.config->cdev;
 		ERROR(cdev, "%s loop complete --> %d, %d/%d\n", ep->name,
-				ep->name, req->length, status);
+				status, req->length, status);
 		usb_ep_set_halt(ep);
 		/* FIXME recover later ... somehow */
 	}
