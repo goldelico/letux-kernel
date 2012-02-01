@@ -1250,7 +1250,7 @@ static unsigned int find_faked_portnum_from_hw_portnum(struct usb_hcd *hcd,
 static void handle_port_status(struct xhci_hcd *xhci,
 		union xhci_trb *event)
 {
-	struct usb_hcd *hcd;
+	struct usb_hcd *hcd = xhci_to_hcd(xhci);
 	u32 port_id;
 	u32 temp, temp1;
 	int max_ports;
@@ -1303,7 +1303,6 @@ static void handle_port_status(struct xhci_hcd *xhci,
 	 * correct bus_state structure.
 	 */
 	/* Find the right roothub. */
-	hcd = xhci_to_hcd(xhci);
 	if ((major_revision == 0x03) != (hcd->speed == HCD_USB3))
 		hcd = xhci->shared_hcd;
 	bus_state = &xhci->bus_state[hcd_index(hcd)];
