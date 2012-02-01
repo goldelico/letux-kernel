@@ -39,6 +39,27 @@
 
 #include <linux/mfd/palmas.h>
 
+static struct phy_companion *comparator;
+
+struct phy_companion *get_phy_palmas_companion(struct notifier_block *nb)
+{
+	u32			status = 0;
+	struct palmas_usb	*palmas_usb = comparator_to_palmas(comparator);
+
+	if (comparator) {
+		status = atomic_notifier_chain_register(&comparator->notifier,
+									nb);
+		if (status) {
+			dev_dbg(palmas_usb->dev, "notification register"
+								" failed\n");
+			return NULL;
+		}
+	}
+
+	return comparator;
+}
+EXPORT_SYMBOL_GPL(get_phy_palmas_companion);
+
 static void palmas_usb_wakeup(struct palmas *palmas, int enable)
 {
 	if (enable)
@@ -57,7 +78,7 @@ static ssize_t palmas_usb_vbus_show(struct device *dev,
 
 	spin_lock_irqsave(&palmas_usb->lock, flags);
 
-	switch (palmas_usb->linkstat) {
+	switch (palmas_usb->comparator.linkstat) {
 	case USB_EVENT_VBUS:
 	       ret = snprintf(buf, PAGE_SIZE, "vbus\n");
 	       break;
@@ -94,14 +115,18 @@ static irqreturn_t palmas_vbus_wakeup_irq(int irq, void *_palmas_usb)
 					&vbus_line_state);
 
 	if (vbus_line_state & INT3_LINE_STATE_VBUS) {
-		regulator_enable(palmas_usb->vbus_reg);
+		if (!palmas_usb->comparator.linkstat)
+			regulator_enable(palmas_usb->vbus_reg);
 		status = USB_EVENT_VBUS;
 	} else {
 		status = USB_EVENT_NONE;
-		regulator_disable(palmas_usb->vbus_reg);
+		if (palmas_usb->comparator.linkstat)
+			regulator_disable(palmas_usb->vbus_reg);
 	}
 
-	palmas_usb->linkstat = status;
+	atomic_notifier_call_chain(&palmas_usb->comparator.notifier, status,
+									NULL);
+	palmas_usb->comparator.linkstat = status;
 
 	return IRQ_HANDLED;
 }
@@ -122,7 +147,8 @@ static irqreturn_t palmas_id_wakeup_irq(int irq, void *_palmas_usb)
 	palmas_usb_read(palmas_usb->palmas, PALMAS_USB_ID_INT_LATCH_SET, &set);
 
 	if (set & USB_ID_INT_SRC_ID_GND) {
-		regulator_enable(palmas_usb->vbus_reg);
+		if (!palmas_usb->comparator.linkstat)
+			regulator_enable(palmas_usb->vbus_reg);
 		palmas_usb_write(palmas_usb->palmas,
 						PALMAS_USB_ID_INT_EN_HI_SET,
 					    USB_ID_INT_EN_HI_SET_ID_FLOAT);
@@ -137,11 +163,14 @@ static irqreturn_t palmas_id_wakeup_irq(int irq, void *_palmas_usb)
 		palmas_usb_write(palmas_usb->palmas,
 						PALMAS_USB_ID_INT_EN_HI_CLR,
 						USB_ID_INT_EN_HI_CLR_ID_FLOAT);
-		regulator_disable(palmas_usb->vbus_reg);
+		if (palmas_usb->comparator.linkstat)
+			regulator_disable(palmas_usb->vbus_reg);
 		status = USB_EVENT_NONE;
 	}
 
-	palmas_usb->linkstat = status;
+	atomic_notifier_call_chain(&palmas_usb->comparator.notifier, status,
+									NULL);
+	palmas_usb->comparator.linkstat = status;
 
 	return IRQ_HANDLED;
 }
@@ -156,6 +185,11 @@ static int palmas_enable_irq(struct palmas_usb *palmas_usb)
 
 	palmas_usb_write(palmas_usb->palmas, PALMAS_USB_ID_INT_EN_HI_SET,
 						USB_ID_INT_EN_HI_SET_ID_GND);
+
+	palmas_vbus_wakeup_irq(palmas_usb->irq4, palmas_usb);
+
+	if (!palmas_usb->comparator.linkstat)
+		palmas_id_wakeup_irq(palmas_usb->irq2, palmas_usb);
 
 	return 0;
 }
@@ -176,16 +210,20 @@ static void palmas_set_vbus_work(struct work_struct *data)
 		regulator_disable(palmas_usb->vbus_reg);
 }
 
-static int palmas_set_vbus(struct palmas_usb *palmas_usb, bool enabled)
+static int palmas_set_vbus(struct phy_companion *comparator, bool enabled)
 {
+	struct palmas_usb	*palmas_usb = comparator_to_palmas(comparator);
+
 	palmas_usb->vbus_enable = enabled;
 	schedule_work(&palmas_usb->set_vbus_work);
 
 	return 0;
 }
 
-static int palmas_start_srp(struct palmas_usb *palmas_usb)
+static int palmas_start_srp(struct phy_companion *comparator)
 {
+	struct palmas_usb	*palmas_usb = comparator_to_palmas(comparator);
+
 	palmas_usb_write(palmas_usb->palmas, PALMAS_USB_VBUS_CTRL_SET,
 			USB_VBUS_CTRL_SET_VBUS_DISCHRG |
 			USB_VBUS_CTRL_SET_VBUS_IADP_SINK);
@@ -225,6 +263,11 @@ static int __devinit palmas_usb_probe(struct platform_device *pdev)
 	palmas_usb->irq3	= platform_get_irq(pdev, 2);
 	palmas_usb->irq4	= platform_get_irq(pdev, 3);
 
+	palmas_usb->comparator.set_vbus		= palmas_set_vbus;
+	palmas_usb->comparator.start_srp	= palmas_start_srp;
+	comparator				= &palmas_usb->comparator;
+
+
 	palmas_usb_wakeup(palmas, pdata->usb_pdata->wakeup);
 
 	/* init spinlock for workqueue */
@@ -247,6 +290,8 @@ static int __devinit palmas_usb_probe(struct platform_device *pdev)
 
 	/* init spinlock for workqueue */
 	spin_lock_init(&palmas_usb->lock);
+
+	ATOMIC_INIT_NOTIFIER_HEAD(&comparator->notifier);
 
 	INIT_WORK(&palmas_usb->set_vbus_work, palmas_set_vbus_work);
 

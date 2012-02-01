@@ -16,6 +16,7 @@
 #define __LINUX_MFD_PALMAS_H
 
 #include <linux/usb/otg.h>
+#include <linux/usb/phy_companion.h>
 
 #define PALMAS_ID_TWL6035		1
 #define PALMAS_ID_TPS65913		2
@@ -421,6 +422,7 @@ struct palmas_resource {
 };
 
 struct palmas_usb {
+	struct phy_companion	comparator;
 	struct palmas *palmas;
 	struct device *dev;
 

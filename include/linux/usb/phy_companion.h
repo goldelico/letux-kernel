@@ -50,4 +50,15 @@ static inline struct phy_companion *get_phy_twl6030_companion
 }
 #endif /* CONFIG_TWL6030_USB */
 
+#if defined(CONFIG_PALMAS_USB) || defined(CONFIG_PALMAS_USB_MODULE)
+extern struct phy_companion *get_phy_palmas_companion
+						(struct notifier_block *nb);
+#else
+static inline struct phy_companion *get_phy_palmas_companion
+						(struct notifier_block *nb)
+{
+	return NULL;
+}
+#endif /* CONFIG_PALMAS_USB */
+
 #endif /* __DRIVERS_PHY_COMPANION_H */

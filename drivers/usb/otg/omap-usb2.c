@@ -145,6 +145,13 @@ static int omap_usb2_init(struct usb_phy *x)
 			omap_usb2_power(phy, 0, 1);
 
 		omap_usb_update_state(phy, phy->comparator->linkstat);
+	} else {
+		phy->comparator		= get_phy_palmas_companion(&phy->nb);
+		if (!phy->comparator) {
+			dev_err(x->dev, "unable to get comparator for"
+								" usb2 phy\n");
+			return -ENODEV;
+		}
 	}
 
 	if (phy->comparator->linkstat != USB_EVENT_NONE)
