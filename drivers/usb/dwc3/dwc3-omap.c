@@ -49,6 +49,7 @@
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/module.h>
+#include <linux/usb/otg.h>
 
 #include "core.h"
 #include "io.h"
@@ -131,6 +132,9 @@
 
 struct dwc3_omap {
 	/* device lock */
+	struct usb_phy		*usb2_phy;
+	struct usb_phy		*usb3_phy;
+
 	spinlock_t		lock;
 
 	struct platform_device	*dwc3;
@@ -143,6 +147,7 @@ struct dwc3_omap {
 	u32			resource_size;
 
 	u32			dma_status:1;
+	struct notifier_block	nb;
 };
 
 static irqreturn_t dwc3_omap_interrupt(int irq, void *_omap)
@@ -196,10 +201,172 @@ static irqreturn_t dwc3_omap_interrupt(int irq, void *_omap)
 	return IRQ_HANDLED;
 }
 
+/* blocking notifier support */
+static int dwc3_otg_notifications(struct notifier_block *nb,
+		unsigned long event, void *unused)
+{
+	u32			val;
+	struct dwc3_omap	*omap = container_of(nb, struct dwc3_omap, nb);
+
+	switch (event) {
+	case USB_EVENT_ID:
+		dev_dbg(omap->dev, "ID GND\n");
+
+		usb_phy_set_suspend(omap->usb2_phy, 0);
+		usb_phy_set_suspend(omap->usb3_phy, 0);
+		val = dwc3_readl(omap->base, USBOTGSS_UTMI_OTG_STATUS);
+		val &= ~(USBOTGSS_UTMI_OTG_STATUS_IDDIG
+				| USBOTGSS_UTMI_OTG_STATUS_VBUSVALID
+				| USBOTGSS_UTMI_OTG_STATUS_SESSEND);
+		val |= USBOTGSS_UTMI_OTG_STATUS_SESSVALID
+				| USBOTGSS_UTMI_OTG_STATUS_POWERPRESENT;
+		dwc3_writel(omap->base, USBOTGSS_UTMI_OTG_STATUS, val);
+
+		break;
+
+	case USB_EVENT_VBUS:
+		dev_dbg(omap->dev, "VBUS Connect\n");
+
+		usb_phy_set_suspend(omap->usb2_phy, 0);
+		usb_phy_set_suspend(omap->usb3_phy, 0);
+		val = dwc3_readl(omap->base, USBOTGSS_UTMI_OTG_STATUS);
+		val &= ~USBOTGSS_UTMI_OTG_STATUS_SESSEND;
+		val |= USBOTGSS_UTMI_OTG_STATUS_IDDIG
+				| USBOTGSS_UTMI_OTG_STATUS_VBUSVALID
+				| USBOTGSS_UTMI_OTG_STATUS_SESSVALID
+				| USBOTGSS_UTMI_OTG_STATUS_POWERPRESENT;
+		dwc3_writel(omap->base, USBOTGSS_UTMI_OTG_STATUS, val);
+
+		break;
+
+	case USB_EVENT_NONE:
+		dev_dbg(omap->dev, "VBUS Disconnect\n");
+
+		val = dwc3_readl(omap->base, USBOTGSS_UTMI_OTG_STATUS);
+		val &= ~(USBOTGSS_UTMI_OTG_STATUS_SESSVALID
+				| USBOTGSS_UTMI_OTG_STATUS_VBUSVALID
+				| USBOTGSS_UTMI_OTG_STATUS_POWERPRESENT);
+		val |= USBOTGSS_UTMI_OTG_STATUS_SESSEND
+				| USBOTGSS_UTMI_OTG_STATUS_IDDIG;
+		dwc3_writel(omap->base, USBOTGSS_UTMI_OTG_STATUS, val);
+
+		usb_phy_set_suspend(omap->usb2_phy, 1);
+		usb_phy_set_suspend(omap->usb3_phy, 1);
+
+		break;
+	default:
+		dev_dbg(omap->dev, "ID float\n");
+		return NOTIFY_DONE;
+	}
+
+	return NOTIFY_OK;
+}
+
+static int omap_dwc3_init(struct dwc3_omap *omap)
+{
+	u32		status = 0;
+
+	omap->usb2_phy = usb_get_phy(USB_PHY_TYPE_USB2);
+	if (!omap->usb2_phy) {
+		dev_err(omap->dev, "no usb2 phy configured\n");
+		return -ENODEV;
+	}
+
+	omap->usb3_phy = usb_get_phy(USB_PHY_TYPE_USB3);
+	if (!omap->usb3_phy) {
+		dev_err(omap->dev, "no usb3 phy configured\n");
+		return -ENODEV;
+	}
+
+	usb_phy_init(omap->usb2_phy);
+
+	omap->nb.notifier_call = dwc3_otg_notifications;
+	status = usb_register_notifier(omap->usb2_phy, &omap->nb);
+
+	if (status)
+		dev_dbg(omap->dev, "notification register failed\n");
+
+	return 0;
+}
+
+static int omap_dwc3_exit(struct dwc3_omap *omap)
+{
+	usb_put_phy(omap->usb2_phy);
+	usb_put_phy(omap->usb3_phy);
+
+	usb_unregister_notifier(omap->usb2_phy, &omap->nb);
+
+	return 0;
+}
+
+static void omap_dwc3_enable(struct dwc3_omap *omap)
+{
+	u32	val;
+
+	switch (omap->usb2_phy->last_event) {
+	case USB_EVENT_ID:
+		dev_dbg(omap->dev, "ID GND\n");
+
+		val = dwc3_readl(omap->base, USBOTGSS_UTMI_OTG_STATUS);
+		val &= ~(USBOTGSS_UTMI_OTG_STATUS_IDDIG
+				| USBOTGSS_UTMI_OTG_STATUS_VBUSVALID
+				| USBOTGSS_UTMI_OTG_STATUS_SESSEND);
+		val |= USBOTGSS_UTMI_OTG_STATUS_SESSVALID
+				| USBOTGSS_UTMI_OTG_STATUS_POWERPRESENT;
+		dwc3_writel(omap->base, USBOTGSS_UTMI_OTG_STATUS, val);
+
+		break;
+
+	case USB_EVENT_VBUS:
+		dev_dbg(omap->dev, "VBUS Connect\n");
+
+		val = dwc3_readl(omap->base, USBOTGSS_UTMI_OTG_STATUS);
+		val &= ~USBOTGSS_UTMI_OTG_STATUS_SESSEND;
+		val |= USBOTGSS_UTMI_OTG_STATUS_IDDIG
+				| USBOTGSS_UTMI_OTG_STATUS_VBUSVALID
+				| USBOTGSS_UTMI_OTG_STATUS_SESSVALID
+				| USBOTGSS_UTMI_OTG_STATUS_POWERPRESENT;
+		dwc3_writel(omap->base, USBOTGSS_UTMI_OTG_STATUS, val);
+
+		break;
+
+	case USB_EVENT_NONE:
+		dev_dbg(omap->dev, "VBUS Disconnect\n");
+
+		val = dwc3_readl(omap->base, USBOTGSS_UTMI_OTG_STATUS);
+		val &= ~(USBOTGSS_UTMI_OTG_STATUS_SESSVALID
+				| USBOTGSS_UTMI_OTG_STATUS_VBUSVALID
+				| USBOTGSS_UTMI_OTG_STATUS_POWERPRESENT);
+		val |= USBOTGSS_UTMI_OTG_STATUS_SESSEND
+				| USBOTGSS_UTMI_OTG_STATUS_IDDIG;
+		dwc3_writel(omap->base, USBOTGSS_UTMI_OTG_STATUS, val);
+
+		break;
+	default:
+		break;
+	}
+}
+
+static void omap_dwc3_disable(struct dwc3_omap *omap)
+{
+	u32	val;
+
+	if (omap->usb2_phy->last_event) {
+		val = dwc3_readl(omap->base, USBOTGSS_UTMI_OTG_STATUS);
+		val &= ~(USBOTGSS_UTMI_OTG_STATUS_SESSVALID
+				| USBOTGSS_UTMI_OTG_STATUS_VBUSVALID
+				| USBOTGSS_UTMI_OTG_STATUS_POWERPRESENT);
+		val |= USBOTGSS_UTMI_OTG_STATUS_SESSEND
+				| USBOTGSS_UTMI_OTG_STATUS_IDDIG;
+		dwc3_writel(omap->base, USBOTGSS_UTMI_OTG_STATUS, val);
+	}
+}
+
 static int __devinit dwc3_omap_probe(struct platform_device *pdev)
 {
-	struct dwc3_omap_data	*pdata = pdev->dev.platform_data;
-	struct device_node	*node = pdev->dev.of_node;
+	struct dwc3_omap_data		*pdata = pdev->dev.platform_data;
+	struct dwc3_platform_data	*dwc3_pdata;
+	struct device_node		*node = pdev->dev.of_node;
 
 	struct platform_device	*dwc3;
 	struct dwc3_omap	*omap;
@@ -222,42 +389,54 @@ static int __devinit dwc3_omap_probe(struct platform_device *pdev)
 		goto err0;
 	}
 
+	dwc3_pdata = kzalloc(sizeof(*dwc3_pdata), GFP_KERNEL);
+	if (!omap) {
+		dev_err(&pdev->dev, "not enough memory\n");
+		goto err1;
+	}
+
 	platform_set_drvdata(pdev, omap);
 
 	irq = platform_get_irq(pdev, 1);
 	if (irq < 0) {
 		dev_err(&pdev->dev, "missing IRQ resource\n");
 		ret = -EINVAL;
-		goto err1;
+		goto err2;
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (!res) {
 		dev_err(&pdev->dev, "missing memory base resource\n");
 		ret = -EINVAL;
-		goto err1;
+		goto err2;
 	}
 
 	base = ioremap_nocache(res->start, resource_size(res));
 	if (!base) {
 		dev_err(&pdev->dev, "ioremap failed\n");
-		goto err1;
+		goto err2;
 	}
 
 	devid = dwc3_get_device_id();
 	if (devid < 0)
-		goto err2;
+		goto err3;
 
 	dwc3 = platform_device_alloc("dwc3", devid);
 	if (!dwc3) {
 		dev_err(&pdev->dev, "couldn't allocate dwc3 device\n");
-		goto err3;
+		goto err4;
 	}
 
 	context = kzalloc(resource_size(res), GFP_KERNEL);
 	if (!context) {
 		dev_err(&pdev->dev, "couldn't allocate dwc3 context memory\n");
-		goto err4;
+		goto err5;
+	}
+
+	ret = omap_dwc3_init(omap);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to initialize omap platform\n");
+		goto err6;
 	}
 
 	spin_lock_init(&omap->lock);
@@ -275,6 +454,9 @@ static int __devinit dwc3_omap_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
+
+	dwc3_pdata->usb2_phy	= omap->usb2_phy;
+	dwc3_pdata->usb3_phy	= omap->usb3_phy;
 
 	reg = dwc3_readl(omap->base, USBOTGSS_UTMI_OTG_STATUS);
 
@@ -319,7 +501,7 @@ static int __devinit dwc3_omap_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev, "failed to request IRQ #%d --> %d\n",
 				omap->irq, ret);
-		goto err5;
+		goto err7;
 	}
 
 	/* enable all IRQs */
@@ -344,34 +526,46 @@ static int __devinit dwc3_omap_probe(struct platform_device *pdev)
 			pdev->num_resources);
 	if (ret) {
 		dev_err(&pdev->dev, "couldn't add resources to dwc3 device\n");
-		goto err6;
+		goto err8;
+	}
+
+	ret = platform_device_add_data(dwc3, dwc3_pdata, sizeof(*dwc3_pdata));
+	if (ret) {
+		dev_err(&pdev->dev, "failed to add platform_data\n");
+		goto err8;
 	}
 
 	ret = platform_device_add(dwc3);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to register dwc3 device\n");
-		goto err6;
+		goto err8;
 	}
 
 	return 0;
 
-err6:
+err8:
 	free_irq(omap->irq, omap);
 
-err5:
+err7:
+	omap_dwc3_exit(omap);
+
+err6:
 	kfree(omap->context);
 
-err4:
+err5:
 	platform_device_put(dwc3);
 
-err3:
+err4:
 	dwc3_put_device_id(devid);
 
-err2:
+err3:
 	iounmap(base);
 
-err1:
+err2:
 	kfree(omap);
+
+err1:
+	kfree(dwc3_pdata);
 
 err0:
 	return ret;
@@ -380,6 +574,8 @@ err0:
 static int __devexit dwc3_omap_remove(struct platform_device *pdev)
 {
 	struct dwc3_omap	*omap = platform_get_drvdata(pdev);
+
+	omap_dwc3_exit(omap);
 
 	platform_device_unregister(omap->dwc3);
 
@@ -401,12 +597,51 @@ static const struct of_device_id of_dwc3_matach[] = {
 };
 MODULE_DEVICE_TABLE(of, of_dwc3_matach);
 
+#ifdef CONFIG_PM
+
+static int dwc3_omap_runtime_resume(struct device *dev)
+{
+	struct platform_device	*pdev = to_platform_device(dev);
+	struct dwc3_omap	*omap = platform_get_drvdata(pdev);
+
+	usb_phy_set_suspend(omap->usb2_phy, 0);
+	usb_phy_set_suspend(omap->usb3_phy, 0);
+
+	omap_dwc3_enable(omap);
+
+	return 0;
+}
+
+static int dwc3_omap_runtime_suspend(struct device *dev)
+{
+	struct platform_device	*pdev = to_platform_device(dev);
+	struct dwc3_omap	*omap = platform_get_drvdata(pdev);
+
+	omap_dwc3_disable(omap);
+
+	usb_phy_set_suspend(omap->usb2_phy, 1);
+	usb_phy_set_suspend(omap->usb3_phy, 1);
+
+	return 0;
+}
+
+static const struct dev_pm_ops dwc3_omap_pm_ops = {
+	.runtime_suspend	= dwc3_omap_runtime_suspend,
+	.runtime_resume		= dwc3_omap_runtime_resume,
+};
+
+#define DEV_PM_OPS	(&dwc3_omap_pm_ops)
+#else
+#define DEV_PM_OPS	NULL
+#endif
+
 static struct platform_driver dwc3_omap_driver = {
 	.probe		= dwc3_omap_probe,
 	.remove		= __devexit_p(dwc3_omap_remove),
 	.driver		= {
 		.name	= "omap-dwc3",
 		.of_match_table	= of_dwc3_matach,
+		.pm	= DEV_PM_OPS,
 	},
 };
 

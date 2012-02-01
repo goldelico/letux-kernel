@@ -52,6 +52,7 @@
 
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
+#include <linux/usb/otg.h>
 #include <linux/module.h>
 
 #include "core.h"
@@ -137,6 +138,7 @@ static void dwc3_core_soft_reset(struct dwc3 *dwc)
 	reg |= DWC3_GUSB2PHYCFG_PHYSOFTRST;
 	dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(0), reg);
 
+	usb_phy_init(dwc->usb3_phy);
 	mdelay(100);
 
 	/* Clear USB3 PHY reset */
@@ -405,6 +407,7 @@ static void dwc3_core_exit(struct dwc3 *dwc)
 
 static int __devinit dwc3_probe(struct platform_device *pdev)
 {
+	struct dwc3_platform_data *pdata = pdev->dev.platform_data;
 	struct device_node	*node = pdev->dev.of_node;
 	struct resource		*res;
 	struct dwc3		*dwc;
@@ -459,6 +462,8 @@ static int __devinit dwc3_probe(struct platform_device *pdev)
 	dwc->regs_size	= resource_size(res);
 	dwc->dev	= &pdev->dev;
 	dwc->irq	= irq;
+	dwc->usb2_phy	= pdata->usb2_phy;
+	dwc->usb3_phy	= pdata->usb3_phy;
 
 	if (!strncmp("super", maximum_speed, 5))
 		dwc->maximum_speed = DWC3_DCFG_SUPERSPEED;

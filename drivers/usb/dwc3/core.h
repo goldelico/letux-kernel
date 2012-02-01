@@ -49,6 +49,7 @@
 
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
+#include <linux/usb/otg.h>
 
 /* Global constants */
 #define DWC3_ENDPOINTS_NUM	32
@@ -302,6 +303,11 @@
 /* Structures */
 
 struct dwc3_trb_hw;
+
+struct dwc3_platform_data {
+	struct usb_phy	*usb2_phy;
+	struct usb_phy	*usb3_phy;
+};
 
 /**
  * struct dwc3_event_buffer - Software event buffer representation
@@ -583,6 +589,8 @@ struct dwc3_request {
 
 /**
  * struct dwc3 - representation of our controller
+ * @usb2_phy: represent usb2 phy present in the system
+ * @usb3_phy: represent usb3 phy present in the system
  * @ctrl_req: usb control request which is used for ep0
  * @ep0_trb: trb which is used for the ctrl_req
  * @ep0_bounce: bounce buffer for ep0
@@ -623,6 +631,9 @@ struct dwc3_request {
  * @root: debugfs root folder pointer
  */
 struct dwc3 {
+	struct usb_phy		*usb2_phy;
+	struct usb_phy		*usb3_phy;
+
 	struct usb_ctrlrequest	*ctrl_req;
 	struct dwc3_trb_hw	*ep0_trb;
 	void			*ep0_bounce;
