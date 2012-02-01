@@ -208,6 +208,20 @@ int hdmi_init_display(struct omap_dss_device *dssdev)
 	return 0;
 }
 
+static int omapdss_hdmi_io_configure(void)
+{
+	int r;
+	printk(KERN_DEBUG "configure TPD\n");
+	r = pio_a_read_byte(0xC);
+	r &= 0xFC;
+	pio_a_i2c_write(0xC, r);
+	r = pio_a_read_byte(0x4);
+	r |= 0x3;
+	pio_a_i2c_write(0x4, r);
+
+	return 0;
+}
+
 static int get_timings_index(void)
 {
 	int code;
@@ -770,6 +784,9 @@ int omapdss_hdmi_display_enable(struct omap_dss_device *dssdev)
 			goto err1;
 		}
 	}
+
+	if (cpu_is_omap54xx())
+		omapdss_hdmi_io_configure();
 
 	r = hdmi_power_on(dssdev);
 	if (r) {
