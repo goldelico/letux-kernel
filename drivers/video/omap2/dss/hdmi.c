@@ -833,6 +833,14 @@ static irqreturn_t hdmi_irq_handler(int irq, void *arg)
 	return IRQ_HANDLED;
 }
 
+#if defined(CONFIG_SND_OMAP_SOC_OMAP5_HDMI) || \
+	defined(CONFIG_SND_OMAP_SOC_OMAP5_HDMI_MODULE)
+int omapdss_hdmi_get_hdmi_mode(void)
+{
+	return hdmi.mode;
+}
+#endif
+
 #if defined(CONFIG_SND_OMAP_SOC_OMAP4_HDMI) || \
 	defined(CONFIG_SND_OMAP_SOC_OMAP4_HDMI_MODULE)
 

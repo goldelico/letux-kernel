@@ -510,6 +510,11 @@ int omapdss_hdmi_display_3d_enable(struct omap_dss_device *dssdev,
 int hdmi_panel_init(void);
 void hdmi_panel_exit(void);
 
+#if defined(CONFIG_SND_OMAP_SOC_OMAP5_HDMI) || \
+	defined(CONFIG_SND_OMAP_SOC_OMAP5_HDMI_MODULE)
+int omapdss_hdmi_get_hdmi_mode(void);
+#endif
+
 /* RFBI */
 #ifdef CONFIG_OMAP2_DSS_RFBI
 int rfbi_init_platform_driver(void);
