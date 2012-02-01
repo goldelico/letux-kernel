@@ -42,6 +42,7 @@
 #include <linux/interrupt.h>
 #include <linux/spinlock.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/platform_data/dwc3-omap.h>
 #include <linux/dma-mapping.h>
 #include <linux/ioport.h>
@@ -272,6 +273,9 @@ static int __devinit dwc3_omap_probe(struct platform_device *pdev)
 	omap->base	= base;
 	omap->dwc3	= dwc3;
 
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_get_sync(&pdev->dev);
+
 	reg = dwc3_readl(omap->base, USBOTGSS_UTMI_OTG_STATUS);
 
 	utmi_mode = of_get_property(node, "utmi-mode", &size);
@@ -333,6 +337,8 @@ static int __devinit dwc3_omap_probe(struct platform_device *pdev)
 			USBOTGSS_IRQ1_IDPULLUP_FALL);
 
 	dwc3_writel(omap->base, USBOTGSS_IRQENABLE_SET_1, reg);
+
+	pm_runtime_put_sync(&pdev->dev);
 
 	ret = platform_device_add_resources(dwc3, pdev->resource,
 			pdev->num_resources);
