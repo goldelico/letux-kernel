@@ -28,6 +28,7 @@
 #include <linux/err.h>
 #include <linux/pm_runtime.h>
 #include <linux/mfd/omap_ocp2scp.h>
+#include <linux/usb/omap_usb.h>
 
 static LIST_HEAD(ocp2scp_list);
 static DEFINE_SPINLOCK(ocp2scp_lock);
@@ -108,6 +109,7 @@ static int __devinit omap_ocp2scp_probe(struct platform_device *pdev)
 	struct resource				*res;
 	struct platform_device			*omap_usb;
 	struct omap_ocp2scp_platform_data	*pdata;
+	struct omap_usb_platform_data		*usb_pdata;
 	struct omap_ocp2scp_dev			*dev;
 
 	pdata = pdev->dev.platform_data;
@@ -157,6 +159,24 @@ static int __devinit omap_ocp2scp_probe(struct platform_device *pdev)
 				goto err_io;
 			}
 
+			usb_pdata = kzalloc(sizeof *usb_pdata, GFP_KERNEL);
+			if (!usb_pdata) {
+				dev_err(&pdev->dev, "unable to allocate memory"
+						"for usb platform data\n");
+				return -ENOMEM;
+			}
+
+			usb_pdata->rev_id = dev->rev_id;
+
+			ret = platform_device_add_data(omap_usb, usb_pdata,
+							sizeof *usb_pdata);
+			if (ret) {
+				dev_err(&pdev->dev, "failed to add pdata"
+						" to usb2 phy device\n");
+				kfree(usb_pdata);
+				goto err_io;
+			}
+
 			omap_usb->dev.parent		= &pdev->dev;
 			ocp2scp->omap_usb2		= omap_usb;
 
@@ -164,6 +184,7 @@ static int __devinit omap_ocp2scp_probe(struct platform_device *pdev)
 			if (ret) {
 				dev_err(&pdev->dev, "failed to register omap"
 							"usb2 phy device\n");
+				kfree(usb_pdata);
 				goto err_io;
 			}
 
