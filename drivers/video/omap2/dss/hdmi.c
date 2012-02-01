@@ -33,6 +33,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/clk.h>
 #include <video/omapdss.h>
+#include <linux/gpio.h>
 #if defined(CONFIG_SND_OMAP_SOC_OMAP4_HDMI) || \
 	defined(CONFIG_SND_OMAP_SOC_OMAP4_HDMI_MODULE)
 #include <sound/soc.h>
@@ -68,12 +69,14 @@ static struct {
 	struct omap_display_platform_data *pdata;
 	struct platform_device *pdev;
 	struct hdmi_ip_data ip_data;
+	struct omap_dss_device *dssdev;
 	int code;
 	int mode;
 	u8 edid[HDMI_EDID_MAX_LENGTH];
 	u8 edid_set;
 	bool custom_set;
 	int hdmi_irq;
+	bool hpd;
 
 	struct clk *sys_clk;
 	struct clk *phy_clk;
@@ -661,6 +664,27 @@ void hdmi_dump_regs(struct seq_file *s)
 	mutex_unlock(&hdmi.lock);
 }
 
+static int hdmi_get_current_hpd(void)
+{
+	return gpio_get_value(hdmi.dssdev->hpd_gpio);
+}
+
+static irqreturn_t hpd_enable_handler(int irq, void *ptr)
+{
+	DSSDBG("hpd enable %d\n", hdmi.hpd);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t hpd_irq_handler(int irq, void *ptr)
+{
+	if (hdmi.dssdev->state == OMAP_DSS_DISPLAY_ACTIVE) {
+		hdmi.hpd = hdmi_get_current_hpd();
+		return IRQ_WAKE_THREAD;
+	}
+	return IRQ_HANDLED;
+}
+
 int omapdss_hdmi_read_edid(u8 *buf, int len)
 {
 	int r;
@@ -973,12 +997,24 @@ static void hdmi_put_clocks(void)
 static int omapdss_hdmihw_probe(struct platform_device *pdev)
 {
 	struct resource *hdmi_mem;
+	struct omap_dss_board_info *board_data;
 	int r;
 
 	hdmi.pdata = pdev->dev.platform_data;
 	hdmi.pdev = pdev;
 
 	mutex_init(&hdmi.lock);
+
+	/* save reference to HDMI device */
+	board_data = hdmi.pdata->board_data;
+	for (r = 0; r < board_data->num_devices; r++) {
+		if (board_data->devices[r]->type == OMAP_DISPLAY_TYPE_HDMI)
+			hdmi.dssdev = board_data->devices[r];
+	}
+	if (!hdmi.dssdev) {
+		DSSERR("can't get HDMI device\n");
+		return -EINVAL;
+	}
 
 	hdmi_mem = platform_get_resource(hdmi.pdev, IORESOURCE_MEM, 0);
 	if (!hdmi_mem) {
@@ -1001,6 +1037,16 @@ static int omapdss_hdmihw_probe(struct platform_device *pdev)
 	}
 
 	pm_runtime_enable(&pdev->dev);
+
+	r = request_threaded_irq(gpio_to_irq(hdmi.dssdev->hpd_gpio),
+			hpd_irq_handler, hpd_enable_handler,
+			IRQF_DISABLED | IRQF_TRIGGER_RISING |
+			IRQF_TRIGGER_FALLING, "hpd", NULL);
+	if (r < 0) {
+		pr_err("hdmi: request_irq %d failed\n",
+			gpio_to_irq(hdmi.dssdev->hpd_gpio));
+		return -EINVAL;
+	}
 
 	hdmi.hdmi_irq = platform_get_irq(pdev, 0);
 	r = request_irq(hdmi.hdmi_irq, hdmi_irq_handler, 0, "OMAP HDMI", NULL);
@@ -1038,6 +1084,8 @@ static int omapdss_hdmihw_remove(struct platform_device *pdev)
 	defined(CONFIG_SND_OMAP_SOC_OMAP4_HDMI_MODULE)
 	snd_soc_unregister_codec(&pdev->dev);
 #endif
+
+	free_irq(gpio_to_irq(hdmi.dssdev->hpd_gpio), hpd_irq_handler);
 
 	pm_runtime_disable(&pdev->dev);
 
