@@ -304,6 +304,8 @@ int ti_hdmi_4xxx_phy_enable(struct hdmi_ip_data *ip_data)
 void ti_hdmi_4xxx_phy_disable(struct hdmi_ip_data *ip_data)
 {
 	hdmi_set_phy_pwr(ip_data, HDMI_PHYPWRCMD_OFF);
+
+	ip_data->cfg.hdmi_phy_tx_enabled = 0;
 }
 
 int ti_hdmi_4xxx_notify_hpd(struct hdmi_ip_data *ip_data, bool hpd_state)
