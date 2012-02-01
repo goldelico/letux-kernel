@@ -25,6 +25,21 @@
 
 #include <linux/ioport.h>
 
+#define	OCP2SCP_TIMING		0x00000018
+#define	OCP2SCP_SYNC1_MASK	0x00000070
+#define	OCP2SCP_SYNC2_MASK	0x0000000F
+
+struct omap_ocp2scp {
+	unsigned		id;
+	struct device		*dev;
+	void __iomem		*base;
+	struct list_head	head;
+	struct clk		*clk;
+	struct platform_device	*omap_usb2;
+	struct platform_device	*omap_usb3;
+	struct platform_device	*omap_sata;
+};
+
 enum omap_ocp2scp_bus_devices {
 	DEV_TYPE_UNDEFINED,
 	DEV_TYPE_USB2PHY,
@@ -38,4 +53,12 @@ struct omap_ocp2scp_dev {
 	enum omap_ocp2scp_bus_devices	dev_type;
 	struct resource			*res;
 };
+
+
+struct omap_ocp2scp_platform_data {
+	int				dev_cnt;
+	struct omap_ocp2scp_dev		**devices;
+};
+
+extern int omap_ocp2scp_setsync(int id, u8 val);
 #endif /* __DRIVERS_OMAP_OCP2SCP_H */
