@@ -58,9 +58,6 @@ MODULE_PARM_DESC(alloc_debug, "Allocation debug flag");
 
 #define MAX_CONTAINERS 2
 
-struct tiler_dev {
-	struct cdev cdev;
-};
 static struct dentry *dbgfs;
 static struct dentry *dbg_map;
 
@@ -69,10 +66,14 @@ static struct tiler_ops tiler;		/* shared methods and variables */
 static struct list_head blocks;		/* all tiler blocks */
 static struct list_head orphan_areas;	/* orphaned 2D areas */
 static struct list_head orphan_onedim;	/* orphaned 1D areas */
-
+#ifdef CONFIG_TILER_ENABLE_USERSPACE
+struct tiler_dev {
+	struct cdev cdev;
+};
 static s32 tiler_major;
 static s32 tiler_minor;
 static struct tiler_dev *tiler_device;
+#endif
 static struct class *tilerdev_class;
 static struct mutex mtx;
 static struct tcm *tcm[TILER_FORMATS];
@@ -81,6 +82,7 @@ static u32 *dmac_va;
 static dma_addr_t dmac_pa;
 static DEFINE_MUTEX(dmac_mtx);
 static u32 cont_cnt;
+static dev_t dev;
 
 /*
  *  TMM connectors
@@ -1525,7 +1527,6 @@ static struct platform_driver tiler_driver_ldm = {
 
 static s32 __init tiler_init(void)
 {
-	dev_t dev  = 0;
 	s32 r = -1;
 	struct device *device = NULL;
 	struct tcm_pt div_pt;
@@ -1636,13 +1637,13 @@ static s32 __init tiler_init(void)
 	tiler.nv12_packed = tcm[TILFMT_8BIT] == tcm[TILFMT_16BIT];
 #endif
 
-	tiler_device = kmalloc(sizeof(*tiler_device), GFP_KERNEL);
+#ifdef CONFIG_TILER_ENABLE_USERSPACE
+	tiler_device = kzalloc(sizeof(*tiler_device), GFP_KERNEL);
 	if (!tiler_device) {
 		r = -ENOMEM;
 		goto err_dmac;
 	}
 
-	memset(tiler_device, 0x0, sizeof(*tiler_device));
 	if (tiler_major) {
 		dev = MKDEV(tiler_major, tiler_minor);
 		r = register_chrdev_region(dev, 1, "tiler");
@@ -1664,6 +1665,7 @@ static s32 __init tiler_init(void)
 		printk(KERN_ERR "cdev_add():failed\n");
 		goto err_region;
 	}
+#endif
 
 	tilerdev_class = class_create(THIS_MODULE, "tiler");
 
@@ -1736,12 +1738,14 @@ skip_to_done:
 err_class:
 	class_destroy(tilerdev_class);
 err_cdev:
+#ifdef CONFIG_TILER_ENABLE_USERSPACE
 	cdev_del(&tiler_device->cdev);
 err_region:
 	unregister_chrdev_region(dev, 1);
 err_device:
 	kfree(tiler_device);
 err_dmac:
+#endif
 	dma_free_coherent(NULL, tiler.width * tiler.height *
 				sizeof(*dmac_va), dmac_va, dmac_pa);
 err_containers:
@@ -1794,10 +1798,12 @@ static void __exit tiler_exit(void)
 
 	mutex_destroy(&mtx);
 	platform_driver_unregister(&tiler_driver_ldm);
+#ifdef CONFIG_TILER_ENABLE_USERSPACE
 	cdev_del(&tiler_device->cdev);
 	unregister_chrdev_region(MKDEV(tiler_major, tiler_minor), 1);
 	kfree(tiler_device);
-	device_destroy(tilerdev_class, MKDEV(tiler_major, tiler_minor));
+#endif
+	device_destroy(tilerdev_class, dev);
 	class_destroy(tilerdev_class);
 }
 
