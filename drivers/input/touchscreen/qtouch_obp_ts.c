@@ -28,6 +28,9 @@
 #include <linux/platform_device.h>
 #include <linux/qtouch_obp_ts.h>
 #include <linux/slab.h>
+#ifdef CONFIG_HAS_EARLYSUSPEND
+#include <linux/earlysuspend.h>
+#endif
 
 #define IGNORE_CHECKSUM_MISMATCH
 
@@ -74,6 +77,9 @@ struct qtouch_ts_data {
 	uint8_t				*msg_buf;
 	int				msg_size;
 	int				reset_type;
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	struct early_suspend		early_suspend;
+#endif
 };
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
