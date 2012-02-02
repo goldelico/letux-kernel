@@ -36,6 +36,16 @@ static struct i2c_board_info __initdata pmic_i2c_board_info = {
 	.flags		= I2C_CLIENT_WAKE,
 };
 
+static struct i2c_board_info __initdata omap4_i2c1_board_info[] = {
+	{
+		.addr		= 0x48,
+		.flags		= I2C_CLIENT_WAKE,
+	},
+	{
+		I2C_BOARD_INFO("twl6040", 0x4b),
+	},
+};
+
 void __init omap_pmic_init(int bus, u32 clkrate,
 			   const char *pmic_type, int pmic_irq,
 			   struct twl4030_platform_data *pmic_data)
@@ -46,6 +56,26 @@ void __init omap_pmic_init(int bus, u32 clkrate,
 	pmic_i2c_board_info.platform_data = pmic_data;
 
 	omap_register_i2c_bus(bus, clkrate, &pmic_i2c_board_info, 1);
+}
+
+void omap4_pmic_init(const char *pmic_type,
+		    struct twl4030_platform_data *pmic_data,
+		    struct twl6040_platform_data *twl6040_data, int twl6040_irq)
+{
+	pmic_data->num_slaves = 3;
+
+	/* PMIC part*/
+	strncpy(omap4_i2c1_board_info[0].type, pmic_type,
+		sizeof(omap4_i2c1_board_info[0].type));
+	omap4_i2c1_board_info[0].irq = OMAP44XX_IRQ_SYS_1N;
+	omap4_i2c1_board_info[0].platform_data = pmic_data;
+
+	/* TWL6040 audio IC part */
+	omap4_i2c1_board_info[1].irq = twl6040_irq;
+	omap4_i2c1_board_info[1].platform_data = twl6040_data;
+
+	omap_register_i2c_bus(1, 400, omap4_i2c1_board_info, 2);
+
 }
 
 #if defined(CONFIG_ARCH_OMAP3)
@@ -122,6 +152,9 @@ void __init omap3_pmic_get_config(struct twl4030_platform_data *pmic_data,
 		pmic_data->irq_base = TWL4030_IRQ_BASE;
 	if (!pmic_data->irq_end)
 		pmic_data->irq_end = TWL4030_IRQ_END;
+
+	/* PMIC for OMAP3 platform has four slaves */
+	pmic_data->num_slaves = 4;
 
 	/* Common platform data configurations */
 	if (pdata_flags & TWL_COMMON_PDATA_USB && !pmic_data->usb)
@@ -280,6 +313,9 @@ void __init omap4_pmic_get_config(struct twl4030_platform_data *pmic_data,
 		pmic_data->irq_base = TWL6030_IRQ_BASE;
 	if (!pmic_data->irq_end)
 		pmic_data->irq_end = TWL6030_IRQ_END;
+
+	/* PMIC for OMAP4 platform has three slaves (audio is separate IC) */
+	pmic_data->num_slaves = 3;
 
 	/* Common platform data configurations */
 	if (pdata_flags & TWL_COMMON_PDATA_USB && !pmic_data->usb)

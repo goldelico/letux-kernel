@@ -286,7 +286,7 @@ config TWL6030_PWM
 
 config TWL6040_CORE
 	bool
-	depends on TWL4030_CORE && GENERIC_HARDIRQS
+	depends on I2C && GENERIC_HARDIRQS
 	select MFD_CORE
 	default n
 

@@ -272,6 +272,12 @@
 	.get = xget, \
 	.put = xput, \
 	.private_value = (unsigned long)&xenum }
+#define SOC_DAPM_ENUM_EXT(xname, xenum, xget, xput) \
+{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
+	.info = snd_soc_info_enum_double, \
+	.get = xget, \
+	.put = xput, \
+	.private_value = (unsigned long)&xenum }
 #define SOC_DAPM_VALUE_ENUM(xname, xenum) \
 {	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
 	.info = snd_soc_info_enum_double, \
@@ -316,6 +322,7 @@ struct snd_soc_dapm_path;
 struct snd_soc_dapm_pin;
 struct snd_soc_dapm_route;
 struct snd_soc_dapm_context;
+struct snd_soc_dapm_widget_list;
 
 int dapm_reg_event(struct snd_soc_dapm_widget *w,
 		   struct snd_kcontrol *kcontrol, int event);
@@ -358,9 +365,17 @@ int snd_soc_dapm_weak_routes(struct snd_soc_dapm_context *dapm,
 			     const struct snd_soc_dapm_route *route, int num);
 
 /* dapm events */
+void snd_soc_dapm_codec_stream_event(struct snd_soc_codec *codec,
+	const char *stream, int event);
 int snd_soc_dapm_stream_event(struct snd_soc_pcm_runtime *rtd,
 	const char *stream, int event);
 void snd_soc_dapm_shutdown(struct snd_soc_card *card);
+/* external DAPM widget events */
+int snd_soc_dapm_mixer_update_power(struct snd_soc_dapm_widget *widget,
+		struct snd_kcontrol *kcontrol, int connect);
+int snd_soc_dapm_mux_update_power(struct snd_soc_dapm_widget *widget,
+				 struct snd_kcontrol *kcontrol, int change,
+				 int mux, struct soc_enum *e);
 
 /* dapm sys fs - used by the core */
 int snd_soc_dapm_sys_add(struct device *dev);
@@ -375,11 +390,20 @@ int snd_soc_dapm_disable_pin(struct snd_soc_dapm_context *dapm,
 int snd_soc_dapm_nc_pin(struct snd_soc_dapm_context *dapm, const char *pin);
 int snd_soc_dapm_get_pin_status(struct snd_soc_dapm_context *dapm,
 				const char *pin);
+int snd_soc_dapm_get_pin_power(struct snd_soc_dapm_context *dapm,
+				const char *pin);
 int snd_soc_dapm_sync(struct snd_soc_dapm_context *dapm);
 int snd_soc_dapm_force_enable_pin(struct snd_soc_dapm_context *dapm,
 				  const char *pin);
 int snd_soc_dapm_ignore_suspend(struct snd_soc_dapm_context *dapm,
 				const char *pin);
+
+/* Mostly internal - should not normally be used */
+void dapm_mark_dirty(struct snd_soc_dapm_widget *w, const char *reason);
+
+/* dapm path query */
+int snd_soc_dapm_get_connected_widgets(struct snd_soc_card *card,
+		const char *name, struct snd_soc_dapm_widget_list **list, int stream);
 
 /* dapm widget types */
 enum snd_soc_dapm_type {
@@ -473,7 +497,10 @@ struct snd_soc_dapm_widget {
 	unsigned char ext:1;			/* has external widgets */
 	unsigned char force:1;			/* force state */
 	unsigned char ignore_suspend:1;         /* kept enabled over suspend */
+	unsigned char new_power:1;		/* power from this run */
+	unsigned char power_checked:1;		/* power checked this run */
 	int subseq;				/* sort within widget type */
+	void *private_data;			/* for widget specific data */
 
 	int (*power_check)(struct snd_soc_dapm_widget *w);
 
@@ -492,6 +519,9 @@ struct snd_soc_dapm_widget {
 
 	/* used during DAPM updates */
 	struct list_head power_list;
+	struct list_head dirty;
+	int inputs;
+	int outputs;
 };
 
 struct snd_soc_dapm_update {
@@ -524,6 +554,8 @@ struct snd_soc_dapm_context {
 	enum snd_soc_bias_level target_bias_level;
 	struct list_head list;
 
+	int (*stream_event)(struct snd_soc_dapm_context *dapm, int event);
+
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *debugfs_dapm;
 #endif
@@ -534,5 +566,23 @@ struct snd_soc_dapm_widget_list {
 	int num_widgets;
 	struct snd_soc_dapm_widget *widgets[0];
 };
+
+struct snd_soc_dapm_stats {
+	int power_checks;
+	int path_checks;
+	int neighbour_checks;
+};
+
+/* Accessors for snd_soc_dapm_widget->private_data */
+static inline void *snd_soc_dapm_widget_get_pdata(struct snd_soc_dapm_widget *w)
+{
+	return w->private_data;
+}
+
+static inline void snd_soc_dapm_widget_set_pdata(struct snd_soc_dapm_widget *w,
+		void *data)
+{
+	w->private_data = data;
+}
 
 #endif

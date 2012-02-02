@@ -27,14 +27,64 @@
 #include <linux/types.h>
 #include <linux/slab.h>
 #include <linux/kernel.h>
+#include <linux/err.h>
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
 #include <linux/delay.h>
-#include <linux/i2c/twl.h>
+#include <linux/i2c.h>
 #include <linux/mfd/core.h>
 #include <linux/mfd/twl6040.h>
+#include <linux/regulator/consumer.h>
 
-static struct platform_device *twl6040_dev;
+#define VIBRACTRL_MEMBER(reg) ((reg == TWL6040_REG_VIBCTLL) ? 0 : 1)
+
+static int twl6040_i2c_read(struct i2c_client *i2c, u8 *value, u8 reg)
+{
+	struct i2c_msg msg[2];
+	int ret;
+
+	msg[0].addr = i2c->addr;
+	msg[0].len = 1;
+	msg[0].flags = 0;
+	msg[0].buf = &reg;
+
+	msg[1].addr = i2c->addr;
+	msg[1].flags = I2C_M_RD;
+	msg[1].len = 1;
+	msg[1].buf = value;
+	ret = i2c_transfer(i2c->adapter, msg, 2);
+
+	if (ret < 0)
+		return ret;
+	if (ret != 2)
+		return -EIO;
+
+	return 0;
+}
+
+static int twl6040_i2c_write(struct i2c_client *i2c, u8 value, u8 reg)
+{
+	struct i2c_msg msg;
+	u8 data[2];
+	int ret;
+
+	data[0] = reg;
+	data[1] = value;
+	
+	msg.addr = i2c->addr;
+	msg.len = 2;
+	msg.flags = 0;
+	msg.buf = data;
+
+	ret = i2c_transfer(i2c->adapter, &msg, 1);
+
+	if (ret < 0)
+		return ret;
+	if (ret != 1)
+		return -EIO;
+
+	return 0;
+}
 
 int twl6040_reg_read(struct twl6040 *twl6040, unsigned int reg)
 {
@@ -42,10 +92,16 @@ int twl6040_reg_read(struct twl6040 *twl6040, unsigned int reg)
 	u8 val = 0;
 
 	mutex_lock(&twl6040->io_mutex);
-	ret = twl_i2c_read_u8(TWL_MODULE_AUDIO_VOICE, &val, reg);
-	if (ret < 0) {
-		mutex_unlock(&twl6040->io_mutex);
-		return ret;
+	/* Vibra control registers from cache */
+	if (unlikely(reg == TWL6040_REG_VIBCTLL ||
+		     reg == TWL6040_REG_VIBCTLR)) {
+		val = twl6040->vibra_ctrl_cache[VIBRACTRL_MEMBER(reg)];
+	} else {
+		ret = twl6040_i2c_read(twl6040->control_data, &val, reg);
+		if (ret < 0) {
+			mutex_unlock(&twl6040->io_mutex);
+			return ret;
+		}
 	}
 	mutex_unlock(&twl6040->io_mutex);
 
@@ -58,7 +114,10 @@ int twl6040_reg_write(struct twl6040 *twl6040, unsigned int reg, u8 val)
 	int ret;
 
 	mutex_lock(&twl6040->io_mutex);
-	ret = twl_i2c_write_u8(TWL_MODULE_AUDIO_VOICE, val, reg);
+	ret = twl6040_i2c_write(twl6040->control_data, val, reg);
+	/* Cache the vibra control registers */
+	if (reg == TWL6040_REG_VIBCTLL || reg == TWL6040_REG_VIBCTLR)
+		twl6040->vibra_ctrl_cache[VIBRACTRL_MEMBER(reg)] = val;
 	mutex_unlock(&twl6040->io_mutex);
 
 	return ret;
@@ -71,12 +130,12 @@ int twl6040_set_bits(struct twl6040 *twl6040, unsigned int reg, u8 mask)
 	u8 val;
 
 	mutex_lock(&twl6040->io_mutex);
-	ret = twl_i2c_read_u8(TWL_MODULE_AUDIO_VOICE, &val, reg);
+	ret = twl6040_i2c_read(twl6040->control_data, &val, reg);
 	if (ret)
 		goto out;
 
 	val |= mask;
-	ret = twl_i2c_write_u8(TWL_MODULE_AUDIO_VOICE, val, reg);
+	ret = twl6040_i2c_write(twl6040->control_data, val, reg);
 out:
 	mutex_unlock(&twl6040->io_mutex);
 	return ret;
@@ -89,12 +148,12 @@ int twl6040_clear_bits(struct twl6040 *twl6040, unsigned int reg, u8 mask)
 	u8 val;
 
 	mutex_lock(&twl6040->io_mutex);
-	ret = twl_i2c_read_u8(TWL_MODULE_AUDIO_VOICE, &val, reg);
+	ret = twl6040_i2c_read(twl6040->control_data, &val, reg);
 	if (ret)
 		goto out;
 
 	val &= ~mask;
-	ret = twl_i2c_write_u8(TWL_MODULE_AUDIO_VOICE, val, reg);
+	ret = twl6040_i2c_write(twl6040->control_data, val, reg);
 out:
 	mutex_unlock(&twl6040->io_mutex);
 	return ret;
@@ -203,11 +262,11 @@ static irqreturn_t twl6040_naudint_handler(int irq, void *data)
 	if (intid & TWL6040_THINT) {
 		status = twl6040_reg_read(twl6040, TWL6040_REG_STATUS);
 		if (status & TWL6040_TSHUTDET) {
-			dev_warn(&twl6040_dev->dev,
+			dev_warn(twl6040->dev,
 				 "Thermal shutdown, powering-off");
 			twl6040_power(twl6040, 0);
 		} else {
-			dev_warn(&twl6040_dev->dev,
+			dev_warn(twl6040->dev,
 				 "Leaving thermal shutdown, powering-on");
 			twl6040_power(twl6040, 1);
 		}
@@ -227,7 +286,7 @@ static int twl6040_power_up_completion(struct twl6040 *twl6040,
 	if (!time_left) {
 		intid = twl6040_reg_read(twl6040, TWL6040_REG_INTID);
 		if (!(intid & TWL6040_READYINT)) {
-			dev_err(&twl6040_dev->dev,
+			dev_err(twl6040->dev,
 				"timeout waiting for READYINT\n");
 			return -ETIMEDOUT;
 		}
@@ -255,7 +314,7 @@ int twl6040_power(struct twl6040 *twl6040, int on)
 			/* wait for power-up completion */
 			ret = twl6040_power_up_completion(twl6040, naudint);
 			if (ret) {
-				dev_err(&twl6040_dev->dev,
+				dev_err(twl6040->dev,
 					"automatic power-down failed\n");
 				twl6040->power_count = 0;
 				goto out;
@@ -264,7 +323,7 @@ int twl6040_power(struct twl6040 *twl6040, int on)
 			/* use manual power-up sequence */
 			ret = twl6040_power_up(twl6040);
 			if (ret) {
-				dev_err(&twl6040_dev->dev,
+				dev_err(twl6040->dev,
 					"manual power-up failed\n");
 				twl6040->power_count = 0;
 				goto out;
@@ -273,10 +332,11 @@ int twl6040_power(struct twl6040 *twl6040, int on)
 		/* Default PLL configuration after power up */
 		twl6040->pll = TWL6040_SYSCLK_SEL_LPPLL;
 		twl6040->sysclk = 19200000;
+		twl6040->mclk = 32768;
 	} else {
 		/* already powered-down */
 		if (!twl6040->power_count) {
-			dev_err(&twl6040_dev->dev,
+			dev_err(twl6040->dev,
 				"device is already powered-off\n");
 			ret = -EPERM;
 			goto out;
@@ -296,6 +356,7 @@ int twl6040_power(struct twl6040 *twl6040, int on)
 			twl6040_power_down(twl6040);
 		}
 		twl6040->sysclk = 0;
+		twl6040->mclk = 0;
 	}
 
 out:
@@ -312,26 +373,49 @@ int twl6040_set_pll(struct twl6040 *twl6040, int pll_id,
 
 	mutex_lock(&twl6040->mutex);
 
-	hppllctl = twl6040_reg_read(twl6040, TWL6040_REG_HPPLLCTL);
-	lppllctl = twl6040_reg_read(twl6040, TWL6040_REG_LPPLLCTL);
+	/* Force full reconfiguration when switching between PLL */
+	if (pll_id != twl6040->pll) {
+		twl6040->sysclk = 0;
+		twl6040->mclk = 0;
+
+		/* Reset PLLs */
+		hppllctl = lppllctl = 0;
+		twl6040_reg_write(twl6040, TWL6040_REG_LPPLLCTL, 0x02);
+		twl6040_reg_write(twl6040, TWL6040_REG_HPPLLCTL, 0x02);
+		usleep_range(100, 200);
+		twl6040_reg_write(twl6040, TWL6040_REG_LPPLLCTL, 0);
+		twl6040_reg_write(twl6040, TWL6040_REG_HPPLLCTL, 0);
+	} else {
+		hppllctl = twl6040_reg_read(twl6040, TWL6040_REG_HPPLLCTL);
+		lppllctl = twl6040_reg_read(twl6040, TWL6040_REG_LPPLLCTL);
+	}
 
 	switch (pll_id) {
 	case TWL6040_SYSCLK_SEL_LPPLL:
 		/* low-power PLL divider */
-		switch (freq_out) {
-		case 17640000:
-			lppllctl |= TWL6040_LPLLFIN;
-			break;
-		case 19200000:
-			lppllctl &= ~TWL6040_LPLLFIN;
-			break;
-		default:
-			dev_err(&twl6040_dev->dev,
-				"freq_out %d not supported\n", freq_out);
-			ret = -EINVAL;
-			goto pll_out;
+		/* Change the sysclk configuration only if it has been canged */
+		if (twl6040->sysclk != freq_out) {
+			switch (freq_out) {
+			case 17640000:
+				lppllctl |= TWL6040_LPLLFIN;
+				break;
+			case 19200000:
+				lppllctl &= ~TWL6040_LPLLFIN;
+				break;
+			default:
+				dev_err(twl6040->dev,
+					"freq_out %d not supported\n",
+					freq_out);
+				ret = -EINVAL;
+				goto pll_out;
+			}
+			twl6040_reg_write(twl6040, TWL6040_REG_LPPLLCTL,
+					  lppllctl);
 		}
-		twl6040_reg_write(twl6040, TWL6040_REG_LPPLLCTL, lppllctl);
+
+		/* The PLL in use has not been change, we can exit */
+		if (twl6040->pll == pll_id)
+			break;
 
 		switch (freq_in) {
 		case 32768:
@@ -347,7 +431,7 @@ int twl6040_set_pll(struct twl6040 *twl6040, int pll_id,
 					  hppllctl);
 			break;
 		default:
-			dev_err(&twl6040_dev->dev,
+			dev_err(twl6040->dev,
 				"freq_in %d not supported\n", freq_in);
 			ret = -EINVAL;
 			goto pll_out;
@@ -356,62 +440,71 @@ int twl6040_set_pll(struct twl6040 *twl6040, int pll_id,
 	case TWL6040_SYSCLK_SEL_HPPLL:
 		/* high-performance PLL can provide only 19.2 MHz */
 		if (freq_out != 19200000) {
-			dev_err(&twl6040_dev->dev,
+			dev_err(twl6040->dev,
 				"freq_out %d not supported\n", freq_out);
 			ret = -EINVAL;
 			goto pll_out;
 		}
 
-		hppllctl &= ~TWL6040_MCLK_MSK;
+		if (twl6040->mclk != freq_in) {
+			hppllctl &= ~TWL6040_MCLK_MSK;
 
-		switch (freq_in) {
-		case 12000000:
-			/* PLL enabled, active mode */
-			hppllctl |= TWL6040_MCLK_12000KHZ |
-				    TWL6040_HPLLENA;
-			break;
-		case 19200000:
+			switch (freq_in) {
+			case 12000000:
+				/* PLL enabled, active mode */
+				hppllctl |= TWL6040_MCLK_12000KHZ |
+					    TWL6040_HPLLENA;
+				break;
+			case 19200000:
+				/*
+				* PLL disabled
+				* (enable PLL if MCLK jitter quality
+				*  doesn't meet specification)
+				*/
+				hppllctl |= TWL6040_MCLK_19200KHZ;
+				break;
+			case 26000000:
+				/* PLL enabled, active mode */
+				hppllctl |= TWL6040_MCLK_26000KHZ |
+					    TWL6040_HPLLENA;
+				break;
+			case 38400000:
+				/* PLL enabled, active mode */
+				hppllctl |= TWL6040_MCLK_38400KHZ |
+					    TWL6040_HPLLENA;
+				break;
+			default:
+				dev_err(twl6040->dev,
+					"freq_in %d not supported\n", freq_in);
+				ret = -EINVAL;
+				goto pll_out;
+			}
+
 			/*
-			 * PLL disabled
-			 * (enable PLL if MCLK jitter quality
-			 *  doesn't meet specification)
+			 * enable clock slicer to ensure input waveform is
+			 * square
 			 */
-			hppllctl |= TWL6040_MCLK_19200KHZ;
-			break;
-		case 26000000:
-			/* PLL enabled, active mode */
-			hppllctl |= TWL6040_MCLK_26000KHZ |
-				    TWL6040_HPLLENA;
-			break;
-		case 38400000:
-			/* PLL enabled, active mode */
-			hppllctl |= TWL6040_MCLK_38400KHZ |
-				    TWL6040_HPLLENA;
-			break;
-		default:
-			dev_err(&twl6040_dev->dev,
-				"freq_in %d not supported\n", freq_in);
-			ret = -EINVAL;
-			goto pll_out;
+			hppllctl |= TWL6040_HPLLSQRENA;
+
+			twl6040_reg_write(twl6040, TWL6040_REG_HPPLLCTL,
+					  hppllctl);
+			usleep_range(500, 700);
+			lppllctl |= TWL6040_HPLLSEL;
+			twl6040_reg_write(twl6040, TWL6040_REG_LPPLLCTL,
+					  lppllctl);
+			lppllctl &= ~TWL6040_LPLLENA;
+			twl6040_reg_write(twl6040, TWL6040_REG_LPPLLCTL,
+					  lppllctl);
 		}
-
-		/* enable clock slicer to ensure input waveform is square */
-		hppllctl |= TWL6040_HPLLSQRENA;
-
-		twl6040_reg_write(twl6040, TWL6040_REG_HPPLLCTL, hppllctl);
-		usleep_range(500, 700);
-		lppllctl |= TWL6040_HPLLSEL;
-		twl6040_reg_write(twl6040, TWL6040_REG_LPPLLCTL, lppllctl);
-		lppllctl &= ~TWL6040_LPLLENA;
-		twl6040_reg_write(twl6040, TWL6040_REG_LPPLLCTL, lppllctl);
 		break;
 	default:
-		dev_err(&twl6040_dev->dev, "unknown pll id %d\n", pll_id);
+		dev_err(twl6040->dev, "unknown pll id %d\n", pll_id);
 		ret = -EINVAL;
 		goto pll_out;
 	}
 
 	twl6040->sysclk = freq_out;
+	twl6040->mclk = freq_in;
 	twl6040->pll = pll_id;
 
 pll_out:
@@ -435,6 +528,18 @@ unsigned int twl6040_get_sysclk(struct twl6040 *twl6040)
 }
 EXPORT_SYMBOL(twl6040_get_sysclk);
 
+/* Get the combined status of the vibra control register */
+int twl6040_get_vibralr_status(struct twl6040 *twl6040)
+{
+	u8 status;
+
+	status = twl6040->vibra_ctrl_cache[0] | twl6040->vibra_ctrl_cache[1];
+	status &= (TWL6040_VIBENA | TWL6040_VIBSEL);
+
+	return status;
+}
+EXPORT_SYMBOL(twl6040_get_vibralr_status);
+
 static struct resource twl6040_vibra_rsrc[] = {
 	{
 		.flags = IORESOURCE_IRQ,
@@ -447,21 +552,22 @@ static struct resource twl6040_codec_rsrc[] = {
 	},
 };
 
-static int __devinit twl6040_probe(struct platform_device *pdev)
+static int __devinit twl6040_probe(struct i2c_client *client,
+				     const struct i2c_device_id *id)
 {
-	struct twl4030_audio_data *pdata = pdev->dev.platform_data;
+	struct twl6040_platform_data *pdata = client->dev.platform_data;
 	struct twl6040 *twl6040;
 	struct mfd_cell *cell = NULL;
 	int ret, children = 0;
 
 	if (!pdata) {
-		dev_err(&pdev->dev, "Platform data is missing\n");
+		dev_err(&client->dev, "Platform data is missing\n");
 		return -EINVAL;
 	}
 
 	/* In order to operate correctly we need valid interrupt config */
-	if (!pdata->naudint_irq || !pdata->irq_base) {
-		dev_err(&pdev->dev, "Invalid IRQ configuration\n");
+	if (!client->irq || !pdata->irq_base) {
+		dev_err(&client->dev, "Invalid IRQ configuration\n");
 		return -EINVAL;
 	}
 
@@ -469,12 +575,38 @@ static int __devinit twl6040_probe(struct platform_device *pdev)
 	if (!twl6040)
 		return -ENOMEM;
 
-	platform_set_drvdata(pdev, twl6040);
+	i2c_set_clientdata(client, twl6040);
 
-	twl6040_dev = pdev;
-	twl6040->dev = &pdev->dev;
-	twl6040->audpwron = pdata->audpwron_gpio;
-	twl6040->irq = pdata->naudint_irq;
+	twl6040->vio = regulator_get(&client->dev, "vio");
+	if (IS_ERR(twl6040->vio)) {
+		ret = PTR_ERR(twl6040->vio);
+		dev_err(&client->dev, "Failed to request VIO supply: %d\n",
+			ret);
+		goto regulator_get_err;
+	}
+	twl6040->v2v1 = regulator_get(&client->dev, "v2v1");
+	if (IS_ERR(twl6040->v2v1)) {
+		ret = PTR_ERR(twl6040->v2v1);
+		dev_err(&client->dev, "Failed to request V2V1 supply: %d\n",
+			ret);
+		regulator_put(twl6040->vio);
+		goto regulator_get_err;
+	}
+	ret = regulator_enable(twl6040->vio);
+	if (ret != 0) {
+		dev_err(&client->dev, "Failed to enable VIO: %d\n", ret);
+		goto power_err;
+	}
+	ret = regulator_enable(twl6040->v2v1);
+	if (ret != 0) {
+		dev_err(&client->dev, "Failed to enable V2V1: %d\n", ret);
+		regulator_disable(twl6040->vio);
+		goto power_err;
+	}
+
+	twl6040->dev = &client->dev;
+	twl6040->control_data = client;
+	twl6040->irq = client->irq;
 	twl6040->irq_base = pdata->irq_base;
 
 	mutex_init(&twl6040->mutex);
@@ -482,6 +614,12 @@ static int __devinit twl6040_probe(struct platform_device *pdev)
 	init_completion(&twl6040->ready);
 
 	twl6040->rev = twl6040_reg_read(twl6040, TWL6040_REG_ASICREV);
+
+	/* ERRATA: Automatic power-up is not possible in ES1.0 */
+	if (twl6040_get_revid(twl6040) > TWL6040_REV_ES1_0)
+		twl6040->audpwron = pdata->audpwron_gpio;
+	else
+		twl6040->audpwron = -EINVAL;
 
 	if (gpio_is_valid(twl6040->audpwron)) {
 		ret = gpio_request(twl6040->audpwron, "audpwron");
@@ -492,10 +630,6 @@ static int __devinit twl6040_probe(struct platform_device *pdev)
 		if (ret)
 			goto gpio2_err;
 	}
-
-	/* ERRATA: Automatic power-up is not possible in ES1.0 */
-	if (twl6040->rev == TWL6040_REV_ES1_0)
-		twl6040->audpwron = -EINVAL;
 
 	/* codec interrupt */
 	ret = twl6040_irq_init(twl6040);
@@ -544,12 +678,12 @@ static int __devinit twl6040_probe(struct platform_device *pdev)
 	}
 
 	if (children) {
-		ret = mfd_add_devices(&pdev->dev, pdev->id, twl6040->cells,
+		ret = mfd_add_devices(&client->dev, -1, twl6040->cells,
 				      children, NULL, 0);
 		if (ret)
 			goto mfd_err;
 	} else {
-		dev_err(&pdev->dev, "No platform data found for children\n");
+		dev_err(&client->dev, "No platform data found for children\n");
 		ret = -ENODEV;
 		goto mfd_err;
 	}
@@ -564,15 +698,20 @@ gpio2_err:
 	if (gpio_is_valid(twl6040->audpwron))
 		gpio_free(twl6040->audpwron);
 gpio1_err:
-	platform_set_drvdata(pdev, NULL);
+	regulator_disable(twl6040->v2v1);
+	regulator_disable(twl6040->vio);
+power_err:
+	regulator_put(twl6040->vio);
+	regulator_put(twl6040->v2v1);
+regulator_get_err:
+	i2c_set_clientdata(client, NULL);
 	kfree(twl6040);
-	twl6040_dev = NULL;
 	return ret;
 }
 
-static int __devexit twl6040_remove(struct platform_device *pdev)
+static int __devexit twl6040_remove(struct i2c_client *client)
 {
-	struct twl6040 *twl6040 = platform_get_drvdata(pdev);
+	struct twl6040 *twl6040 = i2c_get_clientdata(client);
 
 	if (twl6040->power_count)
 		twl6040_power(twl6040, 0);
@@ -583,32 +722,44 @@ static int __devexit twl6040_remove(struct platform_device *pdev)
 	free_irq(twl6040->irq_base + TWL6040_IRQ_READY, twl6040);
 	twl6040_irq_exit(twl6040);
 
-	mfd_remove_devices(&pdev->dev);
-	platform_set_drvdata(pdev, NULL);
+	mfd_remove_devices(&client->dev);
+	i2c_set_clientdata(client, NULL);
+
+	regulator_disable(twl6040->v2v1);
+	regulator_disable(twl6040->vio);
+	regulator_put(twl6040->vio);
+	regulator_put(twl6040->v2v1);
+
 	kfree(twl6040);
-	twl6040_dev = NULL;
 
 	return 0;
 }
 
-static struct platform_driver twl6040_driver = {
-	.probe		= twl6040_probe,
-	.remove		= __devexit_p(twl6040_remove),
-	.driver		= {
-		.owner	= THIS_MODULE,
-		.name	= "twl6040",
+static const struct i2c_device_id twl6040_i2c_id[] = {
+	{ "twl6040", 0,	},
+	{ },
+};
+MODULE_DEVICE_TABLE(i2c, twl6040_i2c_id);
+
+static struct i2c_driver twl6040_driver = {
+	.driver = {
+		.name = "twl6040",
+		.owner = THIS_MODULE,
 	},
+ 	.probe		= twl6040_probe,
+ 	.remove		= __devexit_p(twl6040_remove),
+	.id_table	= twl6040_i2c_id,
 };
 
 static int __devinit twl6040_init(void)
 {
-	return platform_driver_register(&twl6040_driver);
+	return i2c_add_driver(&twl6040_driver);
 }
 module_init(twl6040_init);
 
 static void __devexit twl6040_exit(void)
 {
-	platform_driver_unregister(&twl6040_driver);
+	i2c_del_driver(&twl6040_driver);
 }
 
 module_exit(twl6040_exit);

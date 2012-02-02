@@ -191,10 +191,44 @@
 #define HDMI_CORE_PHY_I2CM_CTLINT_ADDR		0x0C0A0
 
 /* HDMI Audio */
+#define HDMI_CORE_AUD_CONF0			0x0C400
+#define HDMI_CORE_AUD_CONF1			0x0C404
 #define HDMI_CORE_AUD_INT			0x0C408
+#define HDMI_CORE_AUD_N1			0x0C800
+#define HDMI_CORE_AUD_N2			0x0C804
+#define HDMI_CORE_AUD_N3			0x0C808
+#define HDMI_CORE_AUD_CTS1			0x0C80C
+#define HDMI_CORE_AUD_CTS2			0x0C810
+#define HDMI_CORE_AUD_CTS3			0x0C814
+#define HDMI_CORE_AUD_INPUTCLKFS		0x0C818
 #define HDMI_CORE_AUD_CC08			0x0CC08
 #define HDMI_CORE_AUD_D010			0x0D010
-#define HDMI_CORE_GP_MASK			0x0D414
+#define HDMI_CORE_AUD_GP_CONF0			0x0D400
+#define HDMI_CORE_AUD_GP_CONF1			0x0D404
+#define HDMI_CORE_AUD_GP_CONF2			0x0D408
+#define HDMI_CORE_AUD_GP_STAT			0x0D40C
+#define HDMI_CORE_AUD_GP_INT			0x0D410
+#define HDMI_CORE_AUD_GB_POL			0x0D414
+#define HDMI_CORE_GP_MASK			0x0D418
+
+/* HDMI Audio Sampler */
+#define HDMI_AUDIOSAMPLER_CONF0		0xC400
+#define HDMI_AUDIOSAMPLER_CONF1		0xC404
+#define HDMI_AUDIOSAMPLER_INT			0xC408
+#define HDMI_AUDIOSAMPLER_N1			0xC800
+#define HDMI_AUDIOSAMPLER_N2			0xC804
+#define HDMI_AUDIOSAMPLER_N3			0xC808
+#define HDMI_AUDIOSAMPLER_CTS1			0xC80C
+#define HDMI_AUDIOSAMPLER_CTS2			0xC810
+#define HDMI_AUDIOSAMPLER_CTS3			0xC814
+#define HDMI_AUDIOSAMPLER_INPUTCLKFS		0xC818
+#define HDMI_AUDIOSAMPLER_GP_CONF0		0xD400
+#define HDMI_AUDIOSAMPLER_GP_CONF1		0xD404
+#define HDMI_AUDIOSAMPLER_GP_CONF2		0xD408
+#define HDMI_AUDIOSAMPLER_GP_STAT		0xD40C
+#define HDMI_AUDIOSAMPLER_GP_INT		0xD410
+#define HDMI_AUDIOSAMPLER_GB_POL		0xD414
+#define HDMI_AUDIOSAMPLER_GP_MASK		0xD418
 
 /* HDMI Main Controller */
 #define HDMI_CORE_MC_CLKDIS			0x10004
@@ -276,4 +310,16 @@ struct csc_table {
 	u16 b1, b2, b3, b4;
 	u16 c1, c2, c3, c4;
 };
+
+#if defined(CONFIG_SND_OMAP_SOC_OMAP5_HDMI) || \
+	defined(CONFIG_SND_OMAP_SOC_OMAP5_HDMI_MODULE)
+void hdmi_ti_5xxx_wp_audio_config_format(struct hdmi_ip_data *ip_data,
+					struct hdmi_audio_format *aud_fmt);
+void hdmi_ti_5xxx_core_audio_config(struct hdmi_ip_data *ip_data,
+					struct hdmi_core_audio_config *cfg);
+void hdmi_ti_5xxx_core_audio_infoframe_config(struct hdmi_ip_data *ip_data,
+		struct hdmi_core_infoframe_audio *info_aud);
+void hdmi_ti_5xxx_audio_enable(struct hdmi_ip_data *ip_data, bool enable);
+#endif
+
 #endif

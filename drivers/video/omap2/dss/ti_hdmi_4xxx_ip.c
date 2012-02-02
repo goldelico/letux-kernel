@@ -817,8 +817,7 @@ void hdmi_wp_irq_enable(struct hdmi_ip_data *ip_data,
 
 int ti_hdmi_4xxx_irq_handler(struct hdmi_ip_data *ip_data)
 {
-	u32 val;
-	u32 r = 0;
+	u32 val = 0;
 	void __iomem *wp_base = hdmi_wp_base(ip_data);
 
 	pr_debug("Enter hdmi_ti_4xxx_irq_handler\n");
@@ -832,7 +831,7 @@ int ti_hdmi_4xxx_irq_handler(struct hdmi_ip_data *ip_data)
 	/* flush posted write */
 	hdmi_read_reg(wp_base, HDMI_WP_IRQSTATUS);
 
-	return r;
+	return val;
 }
 
 void ti_hdmi_4xxx_basic_configure(struct hdmi_ip_data *ip_data)
@@ -1095,6 +1094,29 @@ void ti_hdmi_4xxx_phy_dump(struct hdmi_ip_data *ip_data, struct seq_file *s)
 }
 
 #if defined(CONFIG_SND_OMAP_SOC_OMAP4_HDMI) || \
+	defined(CONFIG_SND_OMAP_SOC_OMAP4_HDMI_MODULE) || \
+	defined(CONFIG_SND_OMAP_SOC_OMAP5_HDMI) || \
+	defined(CONFIG_SND_OMAP_SOC_OMAP5_HDMI_MODULE)
+void hdmi_wp_audio_config_dma(struct hdmi_ip_data *ip_data,
+					struct hdmi_audio_dma *aud_dma)
+{
+	u32 r;
+
+	DSSDBG("Enter hdmi_wp_audio_config_dma\n");
+
+	r = hdmi_read_reg(hdmi_wp_base(ip_data), HDMI_WP_AUDIO_CFG2);
+	r = FLD_MOD(r, aud_dma->transfer_size, 15, 8);
+	r = FLD_MOD(r, aud_dma->block_size, 7, 0);
+	hdmi_write_reg(hdmi_wp_base(ip_data), HDMI_WP_AUDIO_CFG2, r);
+
+	r = hdmi_read_reg(hdmi_wp_base(ip_data), HDMI_WP_AUDIO_CTRL);
+	r = FLD_MOD(r, aud_dma->mode, 9, 9);
+	r = FLD_MOD(r, aud_dma->fifo_threshold, 8, 0);
+	hdmi_write_reg(hdmi_wp_base(ip_data), HDMI_WP_AUDIO_CTRL, r);
+}
+#endif
+
+#if defined(CONFIG_SND_OMAP_SOC_OMAP4_HDMI) || \
 	defined(CONFIG_SND_OMAP_SOC_OMAP4_HDMI_MODULE)
 void hdmi_wp_audio_config_format(struct hdmi_ip_data *ip_data,
 					struct hdmi_audio_format *aud_fmt)
@@ -1113,24 +1135,6 @@ void hdmi_wp_audio_config_format(struct hdmi_ip_data *ip_data,
 	r = FLD_MOD(r, aud_fmt->samples_per_word, 1, 1);
 	r = FLD_MOD(r, aud_fmt->sample_size, 0, 0);
 	hdmi_write_reg(hdmi_wp_base(ip_data), HDMI_WP_AUDIO_CFG, r);
-}
-
-void hdmi_wp_audio_config_dma(struct hdmi_ip_data *ip_data,
-					struct hdmi_audio_dma *aud_dma)
-{
-	u32 r;
-
-	DSSDBG("Enter hdmi_wp_audio_config_dma\n");
-
-	r = hdmi_read_reg(hdmi_wp_base(ip_data), HDMI_WP_AUDIO_CFG2);
-	r = FLD_MOD(r, aud_dma->transfer_size, 15, 8);
-	r = FLD_MOD(r, aud_dma->block_size, 7, 0);
-	hdmi_write_reg(hdmi_wp_base(ip_data), HDMI_WP_AUDIO_CFG2, r);
-
-	r = hdmi_read_reg(hdmi_wp_base(ip_data), HDMI_WP_AUDIO_CTRL);
-	r = FLD_MOD(r, aud_dma->mode, 9, 9);
-	r = FLD_MOD(r, aud_dma->fifo_threshold, 8, 0);
-	hdmi_write_reg(hdmi_wp_base(ip_data), HDMI_WP_AUDIO_CTRL, r);
 }
 
 void hdmi_core_audio_config(struct hdmi_ip_data *ip_data,
@@ -1263,12 +1267,11 @@ void hdmi_core_audio_infoframe_config(struct hdmi_ip_data *ip_data,
 	 */
 }
 
-int hdmi_config_audio_acr(struct hdmi_ip_data *ip_data,
-				u32 sample_freq, u32 *n, u32 *cts)
+int hdmi_config_audio_acr(u32 pclk,	u32 sample_freq,
+				u32 *n, u32 *cts)
 {
 	u32 r;
 	u32 deep_color = 0;
-	u32 pclk = ip_data->cfg.timings.timings.pixel_clock;
 
 	if (n == NULL || cts == NULL)
 		return -EINVAL;
@@ -1276,15 +1279,15 @@ int hdmi_config_audio_acr(struct hdmi_ip_data *ip_data,
 	 * Obtain current deep color configuration. This needed
 	 * to calculate the TMDS clock based on the pixel clock.
 	 */
-	r = REG_GET(hdmi_wp_base(ip_data), HDMI_WP_VIDEO_CFG, 1, 0);
+	r = omapdss_hdmi_get_deepcolor();
 	switch (r) {
-	case 1: /* No deep color selected */
+	case HDMI_DEEP_COLOR_24BIT:
 		deep_color = 100;
 		break;
-	case 2: /* 10-bit deep color selected */
+	case HDMI_DEEP_COLOR_30BIT:
 		deep_color = 125;
 		break;
-	case 3: /* 12-bit deep color selected */
+	case HDMI_DEEP_COLOR_36BIT:
 		deep_color = 150;
 		break;
 	default:
@@ -1320,10 +1323,12 @@ int hdmi_config_audio_acr(struct hdmi_ip_data *ip_data,
 	return 0;
 }
 
-int hdmi_audio_trigger(struct hdmi_ip_data *ip_data,
-				struct snd_pcm_substream *substream, int cmd,
-				struct snd_soc_dai *dai)
+int hdmi_audio_trigger(struct snd_pcm_substream *substream,
+				int cmd, struct snd_soc_dai *dai)
 {
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_codec *codec = rtd->codec;
+	struct hdmi_ip_data *ip_data = snd_soc_codec_get_drvdata(codec);
 	int err = 0;
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:

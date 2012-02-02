@@ -27,6 +27,10 @@
 #endif
 #include <linux/i2c/smsc.h>
 #include <linux/memblock.h>
+#include <linux/i2c/twl.h>
+#include <linux/regulator/machine.h>
+#include <linux/regulator/fixed.h>
+#include <linux/mfd/twl6040.h>
 
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -497,6 +501,10 @@ static struct regulator_init_data omap5_smps6 = {
 	},
 };
 
+static struct regulator_consumer_supply omap5_vdds1v8_main_supply[] = {
+	REGULATOR_SUPPLY("vio", "1-004b"),
+};
+
 static struct regulator_init_data omap5_smps7 = {
 	.constraints = {
 		.min_uV			= 1800000,
@@ -506,6 +514,8 @@ static struct regulator_init_data omap5_smps7 = {
 		.valid_ops_mask		= REGULATOR_CHANGE_MODE
 					| REGULATOR_CHANGE_STATUS,
 	},
+	.num_consumer_supplies	= ARRAY_SIZE(omap5_vdds1v8_main_supply),
+	.consumer_supplies	= omap5_vdds1v8_main_supply,
 };
 
 static struct regulator_init_data omap5_smps8 = {
@@ -521,7 +531,7 @@ static struct regulator_init_data omap5_smps8 = {
 };
 
 static struct regulator_consumer_supply omap5_adac_supply[] = {
-	REGULATOR_SUPPLY("vcc", "soc-audio"),
+	REGULATOR_SUPPLY("v2v1", "1-004b"),
 };
 
 static struct regulator_init_data omap5_smps9 = {
@@ -535,7 +545,6 @@ static struct regulator_init_data omap5_smps9 = {
 	},
 	.num_consumer_supplies	= ARRAY_SIZE(omap5_adac_supply),
 	.consumer_supplies	= omap5_adac_supply,
-
 };
 
 static struct regulator_consumer_supply omap5_vbus_supply[] = {
@@ -792,6 +801,30 @@ static struct palmas_platform_data palmas_omap5 = {
 };
 #endif  /* CONFIG_OMAP5_SEVM_PALMAS */
 
+static struct twl6040_codec_data twl6040_codec = {
+	/* single-step ramp for headset and handsfree */
+	.hs_left_step	= 0x0f,
+	.hs_right_step	= 0x0f,
+	.hf_left_step	= 0x1d,
+	.hf_right_step	= 0x1d,
+};
+
+static struct twl6040_vibra_data twl6040_vibra = {
+	.vibldrv_res = 8,
+	.vibrdrv_res = 3,
+	.viblmotor_res = 10,
+	.vibrmotor_res = 10,
+	.vddvibl_uV = 0,	/* fixed volt supply - VBAT */
+	.vddvibr_uV = 0,	/* fixed volt supply - VBAT */
+};
+
+static struct twl6040_platform_data twl6040_data = {
+	.codec		= &twl6040_codec,
+	.vibra		= &twl6040_vibra,
+	.audpwron_gpio	= 145,
+	.irq_base	= TWL6040_CODEC_IRQ_BASE,
+};
+
 static struct i2c_board_info __initdata omap5evm_i2c_1_boardinfo[] = {
 #ifdef CONFIG_OMAP5_SEVM_PALMAS
 	{
@@ -800,6 +833,11 @@ static struct i2c_board_info __initdata omap5evm_i2c_1_boardinfo[] = {
 		.irq = OMAP44XX_IRQ_SYS_1N,
 	},
 #endif
+	{
+		I2C_BOARD_INFO("twl6040", 0x4b),
+		.platform_data = &twl6040_data,
+		.irq = OMAP44XX_IRQ_SYS_2N,
+	},
 };
 
 static struct qtm_touch_keyarray_cfg omap5evm_key_array_data[] = {

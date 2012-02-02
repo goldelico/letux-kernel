@@ -21,6 +21,7 @@
 #include <linux/spi/spi.h>
 #include <linux/hwspinlock.h>
 #include <linux/i2c/twl.h>
+#include <linux/mfd/twl6040.h>
 #include <linux/gpio_keys.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/fixed.h>
@@ -82,6 +83,10 @@
 #define PHYS_ADDR_DUCATI_SIZE	(SZ_1M * 105)
 #define PHYS_ADDR_DUCATI_MEM	(PHYS_ADDR_SMC_MEM - PHYS_ADDR_DUCATI_SIZE - \
 				OMAP_ION_HEAP_SECURE_INPUT_SIZE)
+#define FIXED_REG_WLAN_ID 0
+#define FIXED_REG_V2V1_ID 1
+#define FIXED_REG_V1V8_ID 2
+#define FIXED_REG_VBAT_ID 3
 
 static const int sdp4430_keymap[] = {
 	KEY(0, 0, KEY_E),
@@ -367,6 +372,60 @@ static int __init omap_ethernet_init(void)
 	return status;
 }
 
+static struct regulator_consumer_supply sdp4430_vpmic_v2v1_supply[] = {
+	REGULATOR_SUPPLY("v2v1", "1-004b"),
+};
+
+static struct regulator_init_data sdp4430_v2v1smps = {
+	.constraints = {
+		.always_on		= true,
+	},
+	.num_consumer_supplies	= ARRAY_SIZE(sdp4430_vpmic_v2v1_supply),
+	.consumer_supplies	= sdp4430_vpmic_v2v1_supply,
+};
+
+static struct fixed_voltage_config sdp4430_v2v1_pdata = {
+	.supply_name	= "VPMIC-V2V1",
+	.microvolts	= 2100000,
+	.init_data	= &sdp4430_v2v1smps,
+	.gpio		= -EINVAL,
+};
+
+static struct platform_device sdp4430_v2v1 = {
+	.name		= "reg-fixed-voltage",
+	.id		= FIXED_REG_V2V1_ID,
+	.dev = {
+		.platform_data = &sdp4430_v2v1_pdata,
+	},
+};
+
+static struct regulator_consumer_supply sdp4430_vpmic_v1v8_supply[] = {
+	REGULATOR_SUPPLY("vio", "1-004b"),
+};
+
+static struct regulator_init_data sdp4430_v1v8smps = {
+	.constraints = {
+		.always_on		= true,
+	},
+	.num_consumer_supplies	= ARRAY_SIZE(sdp4430_vpmic_v1v8_supply),
+	.consumer_supplies	= sdp4430_vpmic_v1v8_supply,
+};
+
+static struct fixed_voltage_config sdp4430_v1v8_pdata = {
+	.supply_name	= "VPMIC-V1V8",
+	.microvolts	= 1800000,
+	.init_data	= &sdp4430_v1v8smps,
+	.gpio		= -EINVAL,
+};
+
+static struct platform_device sdp4430_v1v8 = {
+	.name		= "reg-fixed-voltage",
+	.id		= FIXED_REG_V1V8_ID,
+	.dev = {
+		.platform_data = &sdp4430_v1v8_pdata,
+	},
+};
+
 static struct regulator_consumer_supply sdp4430_vbat_supply[] = {
 	REGULATOR_SUPPLY("vddvibl", "twl6040-vibra"),
 	REGULATOR_SUPPLY("vddvibr", "twl6040-vibra"),
@@ -389,7 +448,7 @@ static struct fixed_voltage_config sdp4430_vbat_pdata = {
 
 static struct platform_device sdp4430_vbat = {
 	.name		= "reg-fixed-voltage",
-	.id		= -1,
+	.id		= FIXED_REG_VBAT_ID,
 	.dev = {
 		.platform_data = &sdp4430_vbat_pdata,
 	},
@@ -400,6 +459,8 @@ static struct platform_device *sdp4430_devices[] __initdata = {
 	&sdp4430_leds_gpio,
 	&sdp4430_leds_pwm,
 	&sdp4430_vbat,
+	&sdp4430_v1v8,
+	&sdp4430_v2v1,
 };
 
 static struct omap_lcd_config sdp4430_lcd_config __initdata = {
@@ -480,7 +541,7 @@ static struct fixed_voltage_config sdp4430_vwlan = {
 
 static struct platform_device omap_vwlan_device = {
 	.name		= "reg-fixed-voltage",
-	.id		= 1,
+	.id		= FIXED_REG_WLAN_ID,
 	.dev = {
 		.platform_data = &sdp4430_vwlan,
 	},
@@ -999,7 +1060,7 @@ static struct regulator_init_data sdp4430_vusim = {
 	},
 };
 
-static struct twl4030_codec_data twl6040_codec = {
+static struct twl6040_codec_data twl6040_codec = {
 	/* single-step ramp for headset and handsfree */
 	.hs_left_step	= 0x0f,
 	.hs_right_step	= 0x0f,
@@ -1007,7 +1068,7 @@ static struct twl4030_codec_data twl6040_codec = {
 	.hf_right_step	= 0x1d,
 };
 
-static struct twl4030_vibra_data twl6040_vibra = {
+static struct twl6040_vibra_data twl6040_vibra = {
 	.vibldrv_res = 8,
 	.vibrdrv_res = 3,
 	.viblmotor_res = 10,
@@ -1016,16 +1077,14 @@ static struct twl4030_vibra_data twl6040_vibra = {
 	.vddvibr_uV = 0,	/* fixed volt supply - VBAT */
 };
 
-static struct twl4030_audio_data twl6040_audio = {
+static struct twl6040_platform_data twl6040_data = {
 	.codec		= &twl6040_codec,
 	.vibra		= &twl6040_vibra,
 	.audpwron_gpio	= 127,
-	.naudint_irq	= OMAP44XX_IRQ_SYS_2N,
 	.irq_base	= TWL6040_CODEC_IRQ_BASE,
 };
 
 static struct twl4030_platform_data sdp4430_twldata = {
-	.audio		= &twl6040_audio,
 	/* Regulators */
 	.vusim		= &sdp4430_vusim,
 	.vaux1		= &sdp4430_vaux1,
@@ -1091,7 +1150,8 @@ static int __init omap4_i2c_init(void)
 			TWL_COMMON_REGULATOR_VCXIO |
 			TWL_COMMON_REGULATOR_VUSB |
 			TWL_COMMON_REGULATOR_CLK32KG);
-	omap4_pmic_init("twl6030", &sdp4430_twldata);
+	omap4_pmic_init("twl6030", &sdp4430_twldata,
+			&twl6040_data, OMAP44XX_IRQ_SYS_2N);
 	omap_register_i2c_bus(2, 400, NULL, 0);
 	omap_register_i2c_bus(3, 400, sdp4430_i2c_3_boardinfo,
 				ARRAY_SIZE(sdp4430_i2c_3_boardinfo));
