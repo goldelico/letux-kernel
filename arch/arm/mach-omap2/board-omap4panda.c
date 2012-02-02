@@ -57,6 +57,10 @@
 #define HDMI_GPIO_HPD 60 /* Hot plug pin for HDMI */
 #define HDMI_GPIO_LS_OE 41 /* Level shifter for HDMI */
 
+#define FIXED_REG_WLAN_ID 0
+#define FIXED_REG_V2V1_ID 1
+#define FIXED_REG_V1V8_ID 2
+
 /* wl127x BT, FM, GPS connectivity chip */
 static int wl1271_gpios[] = {46, -1, -1};
 static struct platform_device wl1271_device = {
@@ -114,7 +118,7 @@ static struct fixed_voltage_config panda_v2v1_pdata = {
 
 static struct platform_device panda_v2v1 = {
 	.name		= "reg-fixed-voltage",
-	.id		= -1,
+	.id		= FIXED_REG_V2V1_ID,
 	.dev = {
 		.platform_data = &panda_v2v1_pdata,
 	},
@@ -141,7 +145,7 @@ static struct fixed_voltage_config panda_v1v8_pdata = {
 
 static struct platform_device panda_v1v8 = {
 	.name		= "reg-fixed-voltage",
-	.id		= -1,
+	.id		= FIXED_REG_V1V8_ID,
 	.dev = {
 		.platform_data = &panda_v1v8_pdata,
 	},
@@ -256,7 +260,7 @@ static struct fixed_voltage_config panda_vwlan = {
 
 static struct platform_device omap_vwlan_device = {
 	.name		= "reg-fixed-voltage",
-	.id		= 1,
+	.id		= FIXED_REG_WLAN_ID,
 	.dev = {
 		.platform_data = &panda_vwlan,
 	},
