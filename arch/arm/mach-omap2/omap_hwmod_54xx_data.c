@@ -3121,10 +3121,17 @@ static struct omap_hwmod_irq_info omap54xx_ipu_irqs[] = {
 	{ .irq = -1 }
 };
 
+/* IPU structures changed back to omap4 scheme. */
 static struct omap_hwmod_rst_info omap54xx_ipu_resets[] = {
-	{ .name = "rst_cpu0", .rst_shift = 0 },
-	{ .name = "rst_cpu1", .rst_shift = 1 },
 	{ .name = "rst_ipu_mmu_cache", .rst_shift = 2 },
+};
+
+static struct omap_hwmod_rst_info omap54xx_ipu_c0_resets[] = {
+	{ .name = "rst_cpu0", .rst_shift = 0 },
+};
+
+static struct omap_hwmod_rst_info omap54xx_ipu_c1_resets[] = {
+	{ .name = "rst_cpu1", .rst_shift = 1 },
 };
 
 /* ipu master ports */
@@ -3134,8 +3141,8 @@ static struct omap_hwmod_ocp_if *omap54xx_ipu_masters[] = {
 
 static struct omap_hwmod_addr_space omap54xx_ipu_addrs[] = {
 	{
-		.pa_start	= 0x55080800,
-		.pa_end		= 0x550827ff,
+		.pa_start	= 0x55082000,
+		.pa_end		= 0x550820ff,
 		.flags		= ADDR_TYPE_RT
 	},
 	{ }
@@ -3157,12 +3164,13 @@ static struct omap_hwmod_ocp_if *omap54xx_ipu_slaves[] = {
 
 static struct omap_hwmod omap54xx_ipu_hwmod = {
 	.name		= "ipu",
+	.flags		= HWMOD_INIT_NO_IDLE | HWMOD_INIT_NO_RESET,
 	.class		= &omap54xx_ipu_hwmod_class,
 	.clkdm_name	= "ipu_clkdm",
 	.mpu_irqs	= omap54xx_ipu_irqs,
 	.rst_lines	= omap54xx_ipu_resets,
 	.rst_lines_cnt	= ARRAY_SIZE(omap54xx_ipu_resets),
-	.main_clk	= "dpll_core_h22x2_ck",
+	.main_clk	= "ipu_fck",
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = OMAP54XX_CM_IPU_IPU_CLKCTRL_OFFSET,
@@ -3176,6 +3184,38 @@ static struct omap_hwmod omap54xx_ipu_hwmod = {
 	.masters	= omap54xx_ipu_masters,
 	.masters_cnt	= ARRAY_SIZE(omap54xx_ipu_masters),
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP54XX),
+};
+
+static struct omap_hwmod omap54xx_ipu_c0_hwmod = {
+	.name		= "ipu_c0",
+	.flags		= HWMOD_INIT_NO_IDLE | HWMOD_INIT_NO_RESET,
+	.clkdm_name	= "ipu_clkdm",
+	.main_clk	= "ipu_fck",
+	.class		= &omap54xx_ipu_hwmod_class,
+	.rst_lines	= omap54xx_ipu_c0_resets,
+	.rst_lines_cnt	= ARRAY_SIZE(omap54xx_ipu_resets),
+	.prcm		= {
+		.omap4 = {
+			.rstctrl_offs = OMAP54XX_RM_IPU_RSTCTRL_OFFSET,
+		},
+	},
+	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP5430),
+};
+
+static struct omap_hwmod omap54xx_ipu_c1_hwmod = {
+	.name		= "ipu_c1",
+	.flags		= HWMOD_INIT_NO_IDLE | HWMOD_INIT_NO_RESET,
+	.clkdm_name	= "ipu_clkdm",
+	.main_clk	= "ipu_fck",
+	.class		= &omap54xx_ipu_hwmod_class,
+	.rst_lines	= omap54xx_ipu_c1_resets,
+	.rst_lines_cnt	= ARRAY_SIZE(omap54xx_ipu_resets),
+	.prcm		= {
+		.omap4 = {
+			.rstctrl_offs = OMAP54XX_RM_IPU_RSTCTRL_OFFSET,
+		},
+	},
+	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP5430),
 };
 
 /*
@@ -6498,6 +6538,8 @@ static __initdata struct omap_hwmod *omap54xx_hwmods[] = {
 #ifndef CONFIG_OMAP_PM_STANDALONE
 	/* ipu class */
 	&omap54xx_ipu_hwmod,
+	&omap54xx_ipu_c0_hwmod,
+	&omap54xx_ipu_c1_hwmod,
 #endif
 
 	/* iss class */
