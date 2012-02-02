@@ -107,7 +107,7 @@ int omap_tiler_alloc(struct ion_heap *heap,
 		info->tiler_handle = tiler_alloc_block_area_aligned(data->fmt,
 					data->w, data->h, &info->tiler_start,
 					info->tiler_addrs, data->out_align,
-					data->token);
+					data->offset, data->token);
 	} else {
 		info->tiler_handle = tiler_alloc_block_area(data->fmt, data->w,
 					data->h, &info->tiler_start,
