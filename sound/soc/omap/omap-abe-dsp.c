@@ -2663,16 +2663,6 @@ static int abe_probe(struct snd_soc_platform *platform)
 		goto err_irq;
 	}
 
-#if 1
-	/*
-	 * FIXME: Hard-code ABE frequencies for different OPPs as this
-	 * data is not defined yet for OMAP5 in the OPP library.
-	 * Meanwhile, take data from OMAP4.
-	 */
-	abe->opp_freqs[OMAP_ABE_OPP25] = 98304000;
-	abe->opp_freqs[OMAP_ABE_OPP50] = 98304000;
-	abe->opp_freqs[OMAP_ABE_OPP100] = 196608000;
-#else
 	/* query supported opps */
 	rcu_read_lock();
 	opp_count = opp_get_opp_count(abe->dev);
@@ -2700,7 +2690,6 @@ static int abe_probe(struct snd_soc_platform *platform)
 	for (freq++; i >= 0; i--)
 		abe->opp_freqs[i] = freq;
 	rcu_read_unlock();
-#endif
 
 	/* aess_clk has to be enabled to access hal register.
 	 * Disable the clk after it has been used.
