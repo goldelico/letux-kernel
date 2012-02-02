@@ -39,6 +39,29 @@ config OMAP_DEBUG_LEDS
 	depends on OMAP_DEBUG_DEVICES
 	default y if LEDS_CLASS
 
+config OMAP_RPMSG
+       tristate "OMAP Virtio-based remote processor messaging support"
+       depends on ARCH_OMAP4 || ARCH_OMAP5
+       default y
+       select VIRTIO
+       select VIRTIO_RING
+       select OMAP_MBOX_FWK
+       help
+         Say Y if you want to enable OMAP virtio-based remote-processor
+         communication, currently only available with OMAP4. This is required
+         for offloading tasks to the remote on-chip M3s or C64x+ dsp,
+         usually used by multimedia frameworks to offload cpu-intensive and/or
+          latency-sensitive tasks.
+
+config OMAP_RPMSG_RECOVERY
+	bool "OMAP RPMSG recovery"
+	default y
+	depends on OMAP_RPMSG
+	help
+	  Say Y if you want RPMSG to reset the rpmsg channels after a fatal
+	  error in remote proc. That way it will restart all the channels and
+	  the remote processor, causing a clean restart.
+
 config OMAP_SMARTREFLEX
 	bool "SmartReflex support"
 	depends on (ARCH_OMAP3 || ARCH_OMAP4 || ARCH_OMAP5) && PM
@@ -171,7 +194,7 @@ config OMAP_SCM_DEV
 	  temperature sensor.
 
 config OMAP_MBOX_FWK
-	tristate "Mailbox framework support"
+	bool "Mailbox framework support"
 	depends on ARCH_OMAP
 	help
 	  Say Y here if you want to use OMAP Mailbox framework support for
@@ -187,10 +210,10 @@ config OMAP_MBOX_KFIFO_SIZE
 	  module parameter).
 
 config OMAP_IOMMU
-	tristate
+	bool "IOMMU support for OMAP devices"
 
 config OMAP_IOMMU_DEBUG
-       tristate "Export OMAP IOMMU internals in DebugFS"
+       bool "Export OMAP IOMMU internals in DebugFS"
        depends on OMAP_IOMMU && DEBUG_FS
        help
          Select this to see extensive information about
@@ -260,6 +283,15 @@ config OMAP_SERIAL_WAKE
 	  Select this option if you want to have your system wake up
 	  to data on the serial RX line. This allows you to wake the
 	  system from serial console.
+
+# this carveout should probably become generic and not omap specific
+config OMAP_REMOTEPROC_MEMPOOL_SIZE
+	hex "Physical carveout memory pool size (Byte)"
+	depends on OMAP_REMOTE_PROC
+	default 0x700000
+	help
+	  Allocate specified size of memory at boot time so we can ioremap
+	  it safely.
 
 choice
 	prompt "OMAP PM layer selection"

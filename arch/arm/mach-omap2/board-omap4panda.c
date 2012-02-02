@@ -29,6 +29,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/regulator/fixed.h>
 #include <linux/wl12xx.h>
+#include <linux/memblock.h>
 
 #include <mach/hardware.h>
 #include <mach/omap4-common.h>
@@ -45,6 +46,8 @@
 #include <plat/usb.h>
 #include <plat/mmc.h>
 #include <video/omap-panel-dvi.h>
+#include <video/omap-panel-generic-dpi.h>
+#include <plat/remoteproc.h>
 
 #include "hsmmc.h"
 #include "control.h"
@@ -57,6 +60,13 @@
 #define GPIO_WIFI_IRQ		53
 #define HDMI_GPIO_HPD 60 /* Hot plug pin for HDMI */
 #define HDMI_GPIO_LS_OE 41 /* Level shifter for HDMI */
+
+#define PHYS_ADDR_SMC_SIZE	(SZ_1M * 3)
+#define PHYS_ADDR_SMC_MEM	(0x80000000 + SZ_1G - PHYS_ADDR_SMC_SIZE)
+#define OMAP_ION_HEAP_SECURE_INPUT_SIZE	(SZ_1M * 90)
+#define PHYS_ADDR_DUCATI_SIZE	(SZ_1M * 105)
+#define PHYS_ADDR_DUCATI_MEM	(PHYS_ADDR_SMC_MEM - PHYS_ADDR_DUCATI_SIZE - \
+				OMAP_ION_HEAP_SECURE_INPUT_SIZE)
 
 /* wl127x BT, FM, GPS connectivity chip */
 static int wl1271_gpios[] = {46, -1, -1};
@@ -570,10 +580,22 @@ static void __init omap4_panda_map_io(void)
 	omap44xx_map_common_io();
 }
 
+static void __init omap4_panda_reserve(void)
+{
+	/* do the static reservations first */
+	memblock_remove(PHYS_ADDR_SMC_MEM, PHYS_ADDR_SMC_SIZE);
+	memblock_remove(PHYS_ADDR_DUCATI_MEM, PHYS_ADDR_DUCATI_SIZE);
+	/* ipu needs to recognize secure input buffer area as well */
+	omap_ipu_set_static_mempool(PHYS_ADDR_DUCATI_MEM,
+		PHYS_ADDR_DUCATI_SIZE + OMAP_ION_HEAP_SECURE_INPUT_SIZE);
+
+	omap_reserve();
+}
+
 MACHINE_START(OMAP4_PANDA, "OMAP4 Panda board")
 	/* Maintainer: David Anders - Texas Instruments Inc */
 	.boot_params	= 0x80000100,
-	.reserve	= omap_reserve,
+	.reserve	= omap4_panda_reserve,
 	.map_io		= omap4_panda_map_io,
 	.init_early	= omap4_panda_init_early,
 	.init_irq	= gic_init_irq,
