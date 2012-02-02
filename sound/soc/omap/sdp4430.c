@@ -1017,7 +1017,7 @@ static int __init sdp4430_soc_init(void)
 {
 	int ret;
 
-	if (!machine_is_omap_4430sdp() && !machine_is_omap_5430evm())
+	if (!machine_is_omap4_panda() && !machine_is_omap_4430sdp() && !machine_is_omap_5430evm())
 		return -ENODEV;
 	printk(KERN_INFO "OMAP4/5 SoC init\n");
 
