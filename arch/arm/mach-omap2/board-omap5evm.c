@@ -30,6 +30,7 @@
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 #include <asm/hardware/gic.h>
+#include <mach/dmm.h>
 
 #include <mach/hardware.h>
 #include <mach/omap4-common.h>
@@ -1276,6 +1277,7 @@ static void __init omap_5430evm_init(void)
 		pr_err("Keypad initialization failed: %d\n", status);
 
 	omap5evm_display_init();
+	omap_dmm_init(); /* needs to be before display_init */
 }
 
 static void __init omap_5430evm_map_io(void)

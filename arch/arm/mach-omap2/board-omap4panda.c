@@ -33,6 +33,8 @@
 #include <mach/hardware.h>
 #include <mach/omap4-common.h>
 #include <asm/hardware/gic.h>
+#include <mach/dmm.h>
+
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
@@ -558,6 +560,7 @@ static void __init omap4_panda_init(void)
 	omap4_twl6030_hsmmc_init(mmc);
 	omap4_ehci_init();
 	usb_musb_init(&musb_board_data);
+	omap_dmm_init();
 	omap4_panda_display_init();
 }
 
