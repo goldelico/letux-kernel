@@ -134,4 +134,6 @@ source "drivers/iommu/Kconfig"
 
 source "drivers/virt/Kconfig"
 
+source "drivers/omap_hsi/Kconfig"
+
 endmenu

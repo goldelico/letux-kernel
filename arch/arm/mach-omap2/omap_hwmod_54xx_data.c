@@ -2729,9 +2729,9 @@ static struct omap_hwmod_class omap54xx_hsi_hwmod_class = {
 
 /* hsi */
 static struct omap_hwmod_irq_info omap54xx_hsi_irqs[] = {
-	{ .name = "mpu_p1", .irq = 67 + OMAP54XX_IRQ_GIC_START },
-	{ .name = "mpu_p2", .irq = 68 + OMAP54XX_IRQ_GIC_START },
-	{ .name = "mpu_dma", .irq = 71 + OMAP54XX_IRQ_GIC_START },
+	{ .name = "hsi_mpu_p1", .irq = 67 + OMAP54XX_IRQ_GIC_START },
+	{ .name = "hsi_mpu_p2", .irq = 68 + OMAP54XX_IRQ_GIC_START },
+	{ .name = "hsi_mpu_dma", .irq = 71 + OMAP54XX_IRQ_GIC_START },
 	{ .irq = -1 }
 };
 
@@ -2768,7 +2768,7 @@ static struct omap_hwmod omap54xx_hsi_hwmod = {
 	.class		= &omap54xx_hsi_hwmod_class,
 	.clkdm_name	= "l3init_clkdm",
 	.mpu_irqs	= omap54xx_hsi_irqs,
-	.main_clk	= "hsi_fclk",
+	.main_clk	= "hsi_fck",
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = OMAP54XX_CM_L3INIT_HSI_CLKCTRL_OFFSET,
@@ -6550,10 +6550,10 @@ static __initdata struct omap_hwmod *omap54xx_hwmods[] = {
 #ifndef CONFIG_OMAP_PM_STANDALONE
 	/* gpu class */
 	&omap54xx_gpu_hwmod,
+#endif
 
 	/* hsi class */
 	&omap54xx_hsi_hwmod,
-#endif
 
 	/* i2c class */
 	&omap54xx_i2c1_hwmod,

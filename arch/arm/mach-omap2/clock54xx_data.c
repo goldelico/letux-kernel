@@ -2124,8 +2124,8 @@ static const struct clksel hsi_fclk_div[] = {
 	{ .parent = NULL },
 };
 
-static struct clk hsi_fclk = {
-	.name		= "hsi_fclk",
+static struct clk hsi_fck = {
+	.name		= "hsi_fck",
 	.parent		= &dpll_per_m2x2_ck,
 	.clksel		= hsi_fclk_div,
 	.clksel_reg	= OMAP54XX_CM_L3INIT_HSI_CLKCTRL,
@@ -2596,7 +2596,7 @@ static struct omap_clk omap54xx_clks[] = {
 	CLK(NULL,	"usb_tll_hs_usb_ch2_clk",	&usb_tll_hs_usb_ch2_clk,	CK_54XX),
 	CLK(NULL,	"usb_tll_hs_ick",		&usb_tll_hs_ick,		CK_54XX),
 	CLK(NULL,	"fdif_fclk",			&fdif_fclk,	CK_54XX),
-	CLK(NULL,	"hsi_fclk",			&hsi_fclk,	CK_54XX),
+	CLK(NULL,	"hsi_fck",			&hsi_fck,	CK_54XX),
 	CLK(NULL,	"auxclk0_src_ck",		&auxclk0_src_ck,	CK_54XX),
 	CLK(NULL,	"auxclk0_ck",			&auxclk0_ck,	CK_54XX),
 	CLK(NULL,	"auxclkreq0_ck",		&auxclkreq0_ck,	CK_54XX),
