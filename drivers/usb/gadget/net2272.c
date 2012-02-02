@@ -204,7 +204,7 @@ net2272_enable(struct usb_ep *_ep, const struct usb_endpoint_descriptor *desc)
 	if (!dev->driver || dev->gadget.speed == USB_SPEED_UNKNOWN)
 		return -ESHUTDOWN;
 
-	max = le16_to_cpu(desc->wMaxPacketSize) & 0x1fff;
+	max = usb_endpoint_maxp(desc) & 0x1fff;
 
 	spin_lock_irqsave(&dev->lock, flags);
 	_ep->maxpacket = max & 0x7fff;
@@ -1764,8 +1764,8 @@ net2272_handle_stat0_irqs(struct net2272 *dev, u8 stat)
 				dev->gadget.speed = USB_SPEED_HIGH;
 			else
 				dev->gadget.speed = USB_SPEED_FULL;
-			dev_dbg(dev->dev, "%s speed\n",
-				(dev->gadget.speed == USB_SPEED_HIGH) ? "high" : "full");
+			dev_dbg(dev->dev, "%s\n",
+				usb_speed_string(dev->gadget.speed));
 		}
 
 		ep = &dev->ep[0];

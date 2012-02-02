@@ -354,7 +354,7 @@ udc_ep_enable(struct usb_ep *usbep, const struct usb_endpoint_descriptor *desc)
 	writel(tmp, &dev->ep[ep->num].regs->ctl);
 
 	/* set max packet size */
-	maxpacket = le16_to_cpu(desc->wMaxPacketSize);
+	maxpacket = usb_endpoint_maxp(desc);
 	tmp = readl(&dev->ep[ep->num].regs->bufout_maxpkt);
 	tmp = AMD_ADDBITS(tmp, maxpacket, UDC_EP_MAX_PKT_SIZE);
 	ep->ep.maxpacket = maxpacket;
@@ -3014,13 +3014,8 @@ __acquires(dev->lock)
 
 		/* link up all endpoints */
 		udc_setup_endpoints(dev);
-		if (dev->gadget.speed == USB_SPEED_HIGH) {
-			dev_info(&dev->pdev->dev, "Connect: speed = %s\n",
-				"high");
-		} else if (dev->gadget.speed == USB_SPEED_FULL) {
-			dev_info(&dev->pdev->dev, "Connect: speed = %s\n",
-				"full");
-		}
+		dev_info(&dev->pdev->dev, "Connect: %s\n",
+			 usb_speed_string(dev->gadget.speed));
 
 		/* init ep 0 */
 		activate_control_endpoints(dev);
