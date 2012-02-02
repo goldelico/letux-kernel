@@ -30,6 +30,7 @@
 #include <plat/i2c.h>
 #include <plat/dmtimer.h>
 #include <plat/scm.h>
+#include <plat/common.h>
 
 #include "omap_hwmod_common_data.h"
 
@@ -1305,8 +1306,16 @@ static struct omap_hwmod omap54xx_dsp_hwmod = {
  * display sub-system
  */
 
+static struct omap_hwmod_class_sysconfig omap54xx_dss_sysc = {
+	.rev_offs	= 0x0000,
+	.syss_offs	= 0x0014,
+	.sysc_flags	= SYSS_HAS_RESET_STATUS,
+};
+
 static struct omap_hwmod_class omap54xx_dss_hwmod_class = {
 	.name	= "dss",
+	.sysc	= &omap54xx_dss_sysc,
+	.reset	= omap_dss_reset,
 };
 
 /* dss */
@@ -1328,7 +1337,7 @@ static struct omap_hwmod_addr_space omap54xx_dss_dma_addrs[] = {
 static struct omap_hwmod_ocp_if omap54xx_l3_main_2__dss = {
 	.master		= &omap54xx_l3_main_2_hwmod,
 	.slave		= &omap54xx_dss_hwmod,
-	.clk		= "l3_div_ck",
+	.clk		= "dss_fck",
 	.addr		= omap54xx_dss_dma_addrs,
 	.user		= OCP_USER_SDMA,
 };
@@ -1360,8 +1369,7 @@ static struct omap_hwmod_ocp_if *omap54xx_dss_slaves[] = {
 static struct omap_hwmod_opt_clk dss_opt_clks[] = {
 	{ .role = "32khz_clk", .clk = "dss_32khz_clk" },
 	{ .role = "sys_clk", .clk = "dss_sys_clk" },
-	{ .role = "dss_clk", .clk = "dss_dss_clk" },
-	{ .role = "video_clk", .clk = "dss_48mhz_clk" },
+	{ .role = "hdmi_clk", .clk = "dss_48mhz_clk" },
 };
 
 static struct omap_hwmod omap54xx_dss_hwmod = {
@@ -1373,7 +1381,6 @@ static struct omap_hwmod omap54xx_dss_hwmod = {
 		.omap4 = {
 			.clkctrl_offs = OMAP54XX_CM_DSS_DSS_CLKCTRL_OFFSET,
 			.context_offs = OMAP54XX_RM_DSS_DSS_CONTEXT_OFFSET,
-			.modulemode   = MODULEMODE_SWCTRL,
 		},
 	},
 	.opt_clks	= dss_opt_clks,
@@ -1433,7 +1440,7 @@ static struct omap_hwmod_addr_space omap54xx_dss_dispc_dma_addrs[] = {
 static struct omap_hwmod_ocp_if omap54xx_l3_main_2__dss_dispc = {
 	.master		= &omap54xx_l3_main_2_hwmod,
 	.slave		= &omap54xx_dss_dispc_hwmod,
-	.clk		= "l3_div_ck",
+	.clk		= "dss_fck",
 	.addr		= omap54xx_dss_dispc_dma_addrs,
 	.user		= OCP_USER_SDMA,
 };
@@ -1445,6 +1452,11 @@ static struct omap_hwmod_addr_space omap54xx_dss_dispc_addrs[] = {
 		.flags		= ADDR_TYPE_RT
 	},
 	{ }
+};
+
+static struct omap_dss_dispc_dev_attr omap54xx_dss_dispc_dev_attr = {
+	.manager_count		= 3,
+	.has_framedonetv_irq	= 1
 };
 
 /* l4_per -> dss_dispc */
@@ -1462,10 +1474,6 @@ static struct omap_hwmod_ocp_if *omap54xx_dss_dispc_slaves[] = {
 	&omap54xx_l4_per__dss_dispc,
 };
 
-static struct omap_hwmod_opt_clk dss_dispc_opt_clks[] = {
-	{ .role = "sys_clk", .clk = "dss_sys_clk" },
-};
-
 static struct omap_hwmod omap54xx_dss_dispc_hwmod = {
 	.name		= "dss_dispc",
 	.class		= &omap54xx_dispc_hwmod_class,
@@ -1479,11 +1487,10 @@ static struct omap_hwmod omap54xx_dss_dispc_hwmod = {
 			.context_offs = OMAP54XX_RM_DSS_DSS_CONTEXT_OFFSET,
 		},
 	},
-	.opt_clks	= dss_dispc_opt_clks,
-	.opt_clks_cnt	= ARRAY_SIZE(dss_dispc_opt_clks),
 	.slaves		= omap54xx_dss_dispc_slaves,
 	.slaves_cnt	= ARRAY_SIZE(omap54xx_dss_dispc_slaves),
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP54XX),
+	.dev_attr	= &omap54xx_dss_dispc_dev_attr,
 };
 
 /*
@@ -1532,7 +1539,7 @@ static struct omap_hwmod_addr_space omap54xx_dss_dsi1_a_dma_addrs[] = {
 static struct omap_hwmod_ocp_if omap54xx_l3_main_2__dss_dsi1_a = {
 	.master		= &omap54xx_l3_main_2_hwmod,
 	.slave		= &omap54xx_dss_dsi1_a_hwmod,
-	.clk		= "l3_div_ck",
+	.clk		= "dss_fck",
 	.addr		= omap54xx_dss_dsi1_a_dma_addrs,
 	.user		= OCP_USER_SDMA,
 };
@@ -1561,79 +1568,27 @@ static struct omap_hwmod_ocp_if *omap54xx_dss_dsi1_a_slaves[] = {
 	&omap54xx_l4_per__dss_dsi1_a,
 };
 
+static struct omap_hwmod_opt_clk dss_dsi1_a_opt_clks[] = {
+	{ .role = "sys_clk", .clk = "dss_sys_clk" },
+};
+
 static struct omap_hwmod omap54xx_dss_dsi1_a_hwmod = {
 	.name		= "dss_dsi1_a",
 	.class		= &omap54xx_dsi1_hwmod_class,
 	.clkdm_name	= "dss_clkdm",
 	.mpu_irqs	= omap54xx_dss_dsi1_a_irqs,
 	.sdma_reqs	= omap54xx_dss_dsi1_a_sdma_reqs,
+	.main_clk	= "dss_dss_clk",
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = OMAP54XX_CM_DSS_DSS_CLKCTRL_OFFSET,
 			.context_offs = OMAP54XX_RM_DSS_DSS_CONTEXT_OFFSET,
 		},
 	},
+	.opt_clks	= dss_dsi1_a_opt_clks,
+	.opt_clks_cnt	= ARRAY_SIZE(dss_dsi1_a_opt_clks),
 	.slaves		= omap54xx_dss_dsi1_a_slaves,
 	.slaves_cnt	= ARRAY_SIZE(omap54xx_dss_dsi1_a_slaves),
-	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP54XX),
-};
-
-/* dss_dsi1_b */
-static struct omap_hwmod omap54xx_dss_dsi1_b_hwmod;
-static struct omap_hwmod_addr_space omap54xx_dss_dsi1_b_dma_addrs[] = {
-	{
-		.pa_start	= 0x58005000,
-		.pa_end		= 0x580051ff,
-		.flags		= ADDR_TYPE_RT
-	},
-	{ }
-};
-
-/* l3_main_2 -> dss_dsi1_b */
-static struct omap_hwmod_ocp_if omap54xx_l3_main_2__dss_dsi1_b = {
-	.master		= &omap54xx_l3_main_2_hwmod,
-	.slave		= &omap54xx_dss_dsi1_b_hwmod,
-	.clk		= "l3_div_ck",
-	.addr		= omap54xx_dss_dsi1_b_dma_addrs,
-	.user		= OCP_USER_SDMA,
-};
-
-static struct omap_hwmod_addr_space omap54xx_dss_dsi1_b_addrs[] = {
-	{
-		.pa_start	= 0x48105000,
-		.pa_end		= 0x481051ff,
-		.flags		= ADDR_TYPE_RT
-	},
-	{ }
-};
-
-/* l4_per -> dss_dsi1_b */
-static struct omap_hwmod_ocp_if omap54xx_l4_per__dss_dsi1_b = {
-	.master		= &omap54xx_l4_per_hwmod,
-	.slave		= &omap54xx_dss_dsi1_b_hwmod,
-	.clk		= "l4_div_ck",
-	.addr		= omap54xx_dss_dsi1_b_addrs,
-	.user		= OCP_USER_MPU,
-};
-
-/* dss_dsi1_b slave ports */
-static struct omap_hwmod_ocp_if *omap54xx_dss_dsi1_b_slaves[] = {
-	&omap54xx_l3_main_2__dss_dsi1_b,
-	&omap54xx_l4_per__dss_dsi1_b,
-};
-
-static struct omap_hwmod omap54xx_dss_dsi1_b_hwmod = {
-	.name		= "dss_dsi1_b",
-	.class		= &omap54xx_dsi1_hwmod_class,
-	.clkdm_name	= "dss_clkdm",
-	.prcm = {
-		.omap4 = {
-			.clkctrl_offs = OMAP54XX_CM_DSS_DSS_CLKCTRL_OFFSET,
-			.context_offs = OMAP54XX_RM_DSS_DSS_CONTEXT_OFFSET,
-		},
-	},
-	.slaves		= omap54xx_dss_dsi1_b_slaves,
-	.slaves_cnt	= ARRAY_SIZE(omap54xx_dss_dsi1_b_slaves),
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP54XX),
 };
 
@@ -1662,7 +1617,7 @@ static struct omap_hwmod_addr_space omap54xx_dss_dsi1_c_dma_addrs[] = {
 static struct omap_hwmod_ocp_if omap54xx_l3_main_2__dss_dsi1_c = {
 	.master		= &omap54xx_l3_main_2_hwmod,
 	.slave		= &omap54xx_dss_dsi1_c_hwmod,
-	.clk		= "l3_div_ck",
+	.clk		= "dss_fck",
 	.addr		= omap54xx_dss_dsi1_c_dma_addrs,
 	.user		= OCP_USER_SDMA,
 };
@@ -1691,18 +1646,25 @@ static struct omap_hwmod_ocp_if *omap54xx_dss_dsi1_c_slaves[] = {
 	&omap54xx_l4_per__dss_dsi1_c,
 };
 
+static struct omap_hwmod_opt_clk dss_dsi1_c_opt_clks[] = {
+	{ .role = "sys_clk", .clk = "dss_sys_clk" },
+};
+
 static struct omap_hwmod omap54xx_dss_dsi1_c_hwmod = {
 	.name		= "dss_dsi1_c",
 	.class		= &omap54xx_dsi1_hwmod_class,
 	.clkdm_name	= "dss_clkdm",
 	.mpu_irqs	= omap54xx_dss_dsi1_c_irqs,
 	.sdma_reqs	= omap54xx_dss_dsi1_c_sdma_reqs,
+	.main_clk	= "dss_dss_clk",
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = OMAP54XX_CM_DSS_DSS_CLKCTRL_OFFSET,
 			.context_offs = OMAP54XX_RM_DSS_DSS_CONTEXT_OFFSET,
 		},
 	},
+	.opt_clks	= dss_dsi1_c_opt_clks,
+	.opt_clks_cnt	= ARRAY_SIZE(dss_dsi1_c_opt_clks),
 	.slaves		= omap54xx_dss_dsi1_c_slaves,
 	.slaves_cnt	= ARRAY_SIZE(omap54xx_dss_dsi1_c_slaves),
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP54XX),
@@ -1724,7 +1686,7 @@ static struct omap_hwmod_class_sysconfig omap54xx_hdmi_sysc = {
 };
 
 static struct omap_hwmod_class omap54xx_hdmi_hwmod_class = {
-	.name	= "hdmi",
+	.name	= "dss_hdmi",
 	.sysc	= &omap54xx_hdmi_sysc,
 };
 
@@ -1753,7 +1715,7 @@ static struct omap_hwmod_addr_space omap54xx_dss_hdmi_dma_addrs[] = {
 static struct omap_hwmod_ocp_if omap54xx_l3_main_2__dss_hdmi = {
 	.master		= &omap54xx_l3_main_2_hwmod,
 	.slave		= &omap54xx_dss_hdmi_hwmod,
-	.clk		= "l3_div_ck",
+	.clk		= "dss_fck",
 	.addr		= omap54xx_dss_hdmi_dma_addrs,
 	.user		= OCP_USER_SDMA,
 };
@@ -1784,6 +1746,7 @@ static struct omap_hwmod_ocp_if *omap54xx_dss_hdmi_slaves[] = {
 
 static struct omap_hwmod_opt_clk dss_hdmi_opt_clks[] = {
 	{ .role = "sys_clk", .clk = "dss_sys_clk" },
+	{ .role = "hdmi_phy_clk", .clk = "dss_48mhz_clk" },
 };
 
 static struct omap_hwmod omap54xx_dss_hdmi_hwmod = {
@@ -1792,7 +1755,7 @@ static struct omap_hwmod omap54xx_dss_hdmi_hwmod = {
 	.clkdm_name	= "dss_clkdm",
 	.mpu_irqs	= omap54xx_dss_hdmi_irqs,
 	.sdma_reqs	= omap54xx_dss_hdmi_sdma_reqs,
-	.main_clk	= "dss_48mhz_clk",
+	.main_clk	= "dss_dss_clk",
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = OMAP54XX_CM_DSS_DSS_CLKCTRL_OFFSET,
@@ -1846,7 +1809,7 @@ static struct omap_hwmod_addr_space omap54xx_dss_rfbi_dma_addrs[] = {
 static struct omap_hwmod_ocp_if omap54xx_l3_main_2__dss_rfbi = {
 	.master		= &omap54xx_l3_main_2_hwmod,
 	.slave		= &omap54xx_dss_rfbi_hwmod,
-	.clk		= "l3_div_ck",
+	.clk		= "dss_fck",
 	.addr		= omap54xx_dss_rfbi_dma_addrs,
 	.user		= OCP_USER_SDMA,
 };
@@ -1876,7 +1839,7 @@ static struct omap_hwmod_ocp_if *omap54xx_dss_rfbi_slaves[] = {
 };
 
 static struct omap_hwmod_opt_clk dss_rfbi_opt_clks[] = {
-	{ .role = "ick", .clk = "l3_div_ck" },
+	{ .role = "ick", .clk = "dss_fck" },
 };
 
 static struct omap_hwmod omap54xx_dss_rfbi_hwmod = {
@@ -1884,6 +1847,7 @@ static struct omap_hwmod omap54xx_dss_rfbi_hwmod = {
 	.class		= &omap54xx_rfbi_hwmod_class,
 	.clkdm_name	= "dss_clkdm",
 	.sdma_reqs	= omap54xx_dss_rfbi_sdma_reqs,
+	.main_clk	= "dss_dss_clk",
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = OMAP54XX_CM_DSS_DSS_CLKCTRL_OFFSET,
@@ -6315,7 +6279,6 @@ static __initdata struct omap_hwmod *omap54xx_hwmods[] = {
 	&omap54xx_dss_hwmod,
 	&omap54xx_dss_dispc_hwmod,
 	&omap54xx_dss_dsi1_a_hwmod,
-	&omap54xx_dss_dsi1_b_hwmod,
 	&omap54xx_dss_dsi1_c_hwmod,
 	&omap54xx_dss_hdmi_hwmod,
 	&omap54xx_dss_rfbi_hwmod,

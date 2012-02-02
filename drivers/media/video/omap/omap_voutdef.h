@@ -18,6 +18,7 @@
 #define RGB565_BPP      2
 #define RGB24_BPP       3
 #define RGB32_BPP       4
+#define NV12_BPP	1
 #define TILE_SIZE       32
 #define YUYV_VRFB_BPP   2
 #define RGB_VRFB_BPP    1
@@ -25,7 +26,7 @@
 #define MAC_VRFB_CTXS	4
 #define MAX_VOUT_DEV	2
 #define MAX_OVLS	3
-#define MAX_DISPLAYS	3
+#define MAX_DISPLAYS	10
 #define MAX_MANAGERS	3
 
 #define QQVGA_WIDTH		160
@@ -172,7 +173,9 @@ struct omap_vout_device {
 	struct videobuf_buffer *cur_frm, *next_frm;
 	struct list_head dma_queue;
 	u8 *queued_buf_addr[VIDEO_MAX_FRAME];
+	u8 *queued_buf_uv_addr[VIDEO_MAX_FRAME];
 	u32 cropped_offset;
+	u32 cropped_uv_offset;
 	s32 tv_field1_offset;
 	void *isr_handle;
 

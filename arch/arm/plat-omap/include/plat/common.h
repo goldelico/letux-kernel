@@ -30,6 +30,7 @@
 #include <linux/delay.h>
 
 #include <plat/i2c.h>
+#include <plat/omap_hwmod.h>
 
 struct sys_timer;
 
@@ -42,6 +43,8 @@ extern struct sys_timer omap4_timer;
 extern struct sys_timer omap5_timer;
 extern bool omap_32k_timer_init(void);
 extern int __init omap_init_clocksource_32k(void);
+
+extern int omap_dss_reset(struct omap_hwmod *);
 
 extern void omap_reserve(void);
 

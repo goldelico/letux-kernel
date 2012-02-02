@@ -394,6 +394,27 @@ void dss_select_lcd_clk_source(enum omap_channel channel,
 	dss.lcd_clk_source[ix] = clk_src;
 }
 
+void dss_select_dpi_manager(enum omap_channel channel)
+{
+	int b;
+
+	switch (channel) {
+	case OMAP_DSS_CHANNEL_LCD:
+		b = 1;
+		break;
+	case OMAP_DSS_CHANNEL_DIGIT:
+		b = 0;
+		break;
+	case OMAP_DSS_CHANNEL_LCD2:
+		b = 2;
+		break;
+	default:
+		BUG();
+	}
+
+	REG_FLD_MOD(DSS_CONTROL, b, 17, 16);
+}
+
 enum omap_dss_clk_source dss_get_dispc_clk_source(void)
 {
 	return dss.dispc_clk_source;
@@ -425,6 +446,9 @@ int dss_calc_clock_rates(struct dss_clock_info *cinfo)
 
 		if (cpu_is_omap3630() || cpu_is_omap44xx())
 			fck_div_max = 32;
+
+		if (cpu_is_omap54xx())
+			fck_div_max = 64;
 
 		if (cinfo->fck_div > fck_div_max || cinfo->fck_div == 0)
 			return -EINVAL;
@@ -472,7 +496,7 @@ int dss_get_clock_div(struct dss_clock_info *cinfo)
 
 		prate = clk_get_rate(clk_get_parent(dss.dpll4_m4_ck));
 
-		if (cpu_is_omap3630() || cpu_is_omap44xx())
+		if (cpu_is_omap3630() || cpu_is_omap44xx() || cpu_is_omap54xx())
 			cinfo->fck_div = prate / (cinfo->fck);
 		else
 			cinfo->fck_div = prate / (cinfo->fck / 2);
@@ -553,10 +577,13 @@ retry:
 		if (cpu_is_omap3630() || cpu_is_omap44xx())
 			fck_div_max = 32;
 
+		if (cpu_is_omap54xx())
+			fck_div_max = 64;
+
 		for (fck_div = fck_div_max; fck_div > 0; --fck_div) {
 			struct dispc_clock_info cur_dispc;
 
-			if (fck_div_max == 32)
+			if (fck_div_max == 32 || fck_div_max == 64)
 				fck = prate / fck_div;
 			else
 				fck = prate / fck_div * 2;
@@ -639,6 +666,17 @@ void dss_select_hdmi_venc_clk_source(enum dss_hdmi_venc_clk_source_select hdmi)
 	REG_FLD_MOD(DSS_CONTROL, hdmi, 15, 15);	/* VENC_HDMI_SWITCH */
 }
 
+enum dss_hdmi_venc_clk_source_select dss_get_hdmi_venc_clk_source(void)
+{
+	enum omap_display_type displays;
+
+	displays = dss_feat_get_supported_displays(OMAP_DSS_CHANNEL_DIGIT);
+	if ((displays & OMAP_DISPLAY_TYPE_HDMI) == 0)
+		return DSS_VENC_TV_CLK;
+
+	return REG_GET(DSS_CONTROL, 15, 15);
+}
+
 static int dss_get_clocks(void)
 {
 	struct clk *clk;
@@ -667,6 +705,13 @@ static int dss_get_clocks(void)
 			r = PTR_ERR(clk);
 			goto err;
 		}
+	} else if (cpu_is_omap54xx()) {
+		clk = clk_get(NULL, "dpll_per_h12x2_ck");
+		if (IS_ERR(clk)) {
+			DSSERR("Failed to get dpll_per_h12x2_ck\n");
+			r = PTR_ERR(clk);
+			goto err;
+		}
 	} else { /* omap24xx */
 		clk = NULL;
 	}
@@ -689,11 +734,6 @@ static void dss_put_clocks(void)
 	if (dss.dpll4_m4_ck)
 		clk_put(dss.dpll4_m4_ck);
 	clk_put(dss.dss_clk);
-}
-
-struct clk *dss_get_ick(void)
-{
-	return clk_get(&dss.pdev->dev, "ick");
 }
 
 int dss_runtime_get(void)
@@ -824,13 +864,11 @@ static int omap_dsshw_remove(struct platform_device *pdev)
 static int dss_runtime_suspend(struct device *dev)
 {
 	dss_save_context();
-	clk_disable(dss.dss_clk);
 	return 0;
 }
 
 static int dss_runtime_resume(struct device *dev)
 {
-	clk_enable(dss.dss_clk);
 	dss_restore_context();
 	return 0;
 }
