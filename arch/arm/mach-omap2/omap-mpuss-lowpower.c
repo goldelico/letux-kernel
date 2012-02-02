@@ -54,6 +54,7 @@
 
 #include <plat/omap44xx.h>
 #include <mach/omap4-common.h>
+#include <mach/omap-secure.h>
 
 #include "omap4-sar-layout.h"
 #include "pm.h"
@@ -93,6 +94,31 @@ extern void omap5_cpu_resume(void);
 static DEFINE_PER_CPU(struct omap4_cpu_pm_info, omap4_pm_info);
 static struct powerdomain *mpuss_pd;
 static void __iomem *sar_base;
+static struct voltagedomain *mpu_voltdm;
+
+struct reg_tuple {
+	void __iomem *addr;
+	u32 val;
+};
+
+static struct reg_tuple tesla_reg[] = {
+	{.addr = OMAP4430_CM_TESLA_CLKSTCTRL},
+	{.addr = OMAP4430_CM_TESLA_TESLA_CLKCTRL},
+	{.addr = OMAP4430_PM_TESLA_PWRSTCTRL},
+};
+
+static struct reg_tuple ivahd_reg[] = {
+	{.addr = OMAP4430_CM_IVAHD_CLKSTCTRL},
+	{.addr = OMAP4430_CM_IVAHD_IVAHD_CLKCTRL},
+	{.addr = OMAP4430_CM_IVAHD_SL2_CLKCTRL},
+	{.addr = OMAP4430_PM_IVAHD_PWRSTCTRL}
+};
+
+static struct reg_tuple l3instr_reg[] = {
+	{.addr = OMAP4430_CM_L3INSTR_L3_3_CLKCTRL},
+	{.addr = OMAP4430_CM_L3INSTR_L3_INSTR_CLKCTRL},
+	{.addr = OMAP4430_CM_L3INSTR_OCP_WP1_CLKCTRL},
+};
 
 static int default_finish_suspend(unsigned long cpu_state)
 {
@@ -265,6 +291,44 @@ static void save_l2x0_context(void)
 {}
 #endif
 
+static inline void save_ivahd_tesla_regs(void)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(tesla_reg); i++)
+		tesla_reg[i].val = __raw_readl(tesla_reg[i].addr);
+
+	for (i = 0; i < ARRAY_SIZE(ivahd_reg); i++)
+		ivahd_reg[i].val = __raw_readl(ivahd_reg[i].addr);
+}
+
+static inline void restore_ivahd_tesla_regs(void)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(tesla_reg); i++)
+		__raw_writel(tesla_reg[i].val, tesla_reg[i].addr);
+
+	for (i = 0; i < ARRAY_SIZE(ivahd_reg); i++)
+		__raw_writel(ivahd_reg[i].val, ivahd_reg[i].addr);
+}
+
+static inline void save_l3instr_regs(void)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(l3instr_reg); i++)
+		l3instr_reg[i].val = __raw_readl(l3instr_reg[i].addr);
+}
+
+static inline void restore_l3instr_regs(void)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(l3instr_reg); i++)
+		__raw_writel(l3instr_reg[i].val, l3instr_reg[i].addr);
+}
+
 /**
  * omap_enter_lowpower: OMAP4 MPUSS Low Power Entry Function
  * The purpose of this function is to manage low power programming
@@ -326,9 +390,19 @@ int omap_enter_lowpower(unsigned int cpu, unsigned int power_state)
 	 */
 	mpuss_clear_prev_logic_pwrst();
 	pwrdm_clear_all_prev_pwrst(mpuss_pd);
-	if ((pwrdm_read_next_pwrst(mpuss_pd) == PWRDM_POWER_RET) &&
-		(pwrdm_read_logic_retst(mpuss_pd) == PWRDM_POWER_OFF))
+
+	if (omap4_device_next_state_off()) {
+		if (omap_type() != OMAP2_DEVICE_TYPE_GP) {
+			save_ivahd_tesla_regs();
+			save_l3instr_regs();
+		}
+		save_state = 3;
+	} else if ((pwrdm_read_next_pwrst(mpuss_pd) == PWRDM_POWER_RET) &&
+		(pwrdm_read_logic_retst(mpuss_pd) == PWRDM_POWER_OFF)) {
 		save_state = 2;
+	} else if (pwrdm_read_next_pwrst(mpuss_pd) == PWRDM_POWER_OFF) {
+		save_state = 3;
+	}
 
 	clear_cpu_prev_pwrst(cpu);
 	cpu_clear_prev_logic_pwrst(cpu);
@@ -337,11 +411,14 @@ int omap_enter_lowpower(unsigned int cpu, unsigned int power_state)
 	omap_pm_ops.scu_prepare(cpu, power_state);
 	l2x0_pwrst_prepare(cpu, save_state);
 
+	voltdm_pwrdm_disable(mpu_voltdm);
 
 	/*
 	 * Call low level function  with targeted low power state.
 	 */
 	cpu_suspend(save_state, omap_pm_ops.finish_suspend);
+
+	voltdm_pwrdm_enable(mpu_voltdm);
 
 	/*
 	 * Restore the CPUx power state to ON otherwise CPUx
@@ -351,7 +428,35 @@ int omap_enter_lowpower(unsigned int cpu, unsigned int power_state)
 	 * domain transition
 	 */
 	wakeup_cpu = smp_processor_id();
+	/*
+	 * If !master cpu return to hotplug-path.
+	 *
+	 * GIC distributor control register has changed between
+	 * CortexA9 r1pX and r2pX. The Control Register secure
+	 * banked version is now composed of 2 bits:
+	 * bit 0 == Secure Enable
+	 * bit 1 == Non-Secure Enable
+	 * The Non-Secure banked register has not changed
+	 * Because the ROM Code is based on the r1pX GIC, the CPU1
+	 * GIC restoration will cause a problem to CPU0 Non-Secure SW.
+	 * The workaround must be:
+	 * 1) Before doing the CPU1 wakeup, CPU0 must disable
+	 * the GIC distributor
+	 * 2) CPU1 must re-enable the GIC distributor on
+	 * it's wakeup path.
+	 */
+	if (wakeup_cpu)
+		if (cpu_is_omap446x())
+			gic_dist_enable();
 	set_cpu_next_pwrst(wakeup_cpu, PWRDM_POWER_ON);
+
+	if ((omap4_device_prev_state_off()) &&
+			(omap_type() != OMAP2_DEVICE_TYPE_GP)) {
+		omap_secure_dispatcher(0x21, 4, 0, 0, 0, 0, 0);
+		restore_ivahd_tesla_regs();
+		restore_l3instr_regs();
+	}
+
 
 	pwrdm_post_transition();
 
@@ -413,7 +518,6 @@ int omap_hotplug_cpu(unsigned int cpu, unsigned int power_state)
 	return 0;
 }
 
-
 static void enable_mercury_retention_mode(void)
 {
 	u32 reg;
@@ -435,7 +539,7 @@ static void enable_mercury_retention_mode(void)
 int __init omap_mpuss_init(void)
 {
 	struct omap4_cpu_pm_info *pm_info;
-	u32 cpu_wakeup_addr, l2x0_offset, omap_type_offset;
+	u32 cpu_wakeup_addr;
 
 	if (omap_rev() == OMAP4430_REV_ES1_0) {
 		WARN(1, "Power Management not supported on OMAP4430 ES1.0\n");
@@ -445,18 +549,15 @@ int __init omap_mpuss_init(void)
 	sar_base = omap4_get_sar_ram_base();
 
 	/* Initilaise per CPU PM information */
-	if (cpu_is_omap44xx()) {
+	if (cpu_is_omap44xx())
 		cpu_wakeup_addr = CPU0_WAKEUP_NS_PA_ADDR_OFFSET;
-		l2x0_offset = L2X0_SAVE_OFFSET0;
-	} else if (cpu_is_omap54xx()) {
+	else if (cpu_is_omap54xx())
 		cpu_wakeup_addr = OMAP5_CPU0_WAKEUP_NS_PA_ADDR_OFFSET;
-		l2x0_offset = OMAP5_L2X0_SAVE_OFFSET0;
-	}
 
 	pm_info = &per_cpu(omap4_pm_info, 0x0);
 	pm_info->scu_sar_addr = sar_base + SCU_OFFSET0;
 	pm_info->wkup_sar_addr = sar_base + cpu_wakeup_addr;
-	pm_info->l2x0_sar_addr = sar_base + l2x0_offset;
+	pm_info->l2x0_sar_addr = sar_base + L2X0_SAVE_OFFSET0;
 	pm_info->pwrdm = pwrdm_lookup("cpu0_pwrdm");
 	if (!pm_info->pwrdm) {
 		pr_err("Lookup failed for CPU0 pwrdm\n");
@@ -470,18 +571,15 @@ int __init omap_mpuss_init(void)
 	/* Initialise CPU0 power domain state to ON */
 	pwrdm_set_next_pwrst(pm_info->pwrdm, PWRDM_POWER_ON);
 
-	if (cpu_is_omap44xx()) {
+	if (cpu_is_omap44xx())
 		cpu_wakeup_addr = CPU1_WAKEUP_NS_PA_ADDR_OFFSET;
-		l2x0_offset = L2X0_SAVE_OFFSET1;
-	} else if (cpu_is_omap54xx()) {
+	else if (cpu_is_omap54xx())
 		cpu_wakeup_addr = OMAP5_CPU1_WAKEUP_NS_PA_ADDR_OFFSET;
-		l2x0_offset = OMAP5_L2X0_SAVE_OFFSET1;
-	}
 
 	pm_info = &per_cpu(omap4_pm_info, 0x1);
 	pm_info->scu_sar_addr = sar_base + SCU_OFFSET1;
 	pm_info->wkup_sar_addr = sar_base + cpu_wakeup_addr;
-	pm_info->l2x0_sar_addr = sar_base + l2x0_offset;
+	pm_info->l2x0_sar_addr = sar_base + L2X0_SAVE_OFFSET1;
 	pm_info->pwrdm = pwrdm_lookup("cpu1_pwrdm");
 	if (!pm_info->pwrdm) {
 		pr_err("Lookup failed for CPU1 pwrdm\n");
@@ -503,16 +601,13 @@ int __init omap_mpuss_init(void)
 	pwrdm_clear_all_prev_pwrst(mpuss_pd);
 	mpuss_clear_prev_logic_pwrst();
 
-	/* Save device type on scratchpad for low level code to use */
-	if (cpu_is_omap44xx())
-		omap_type_offset = OMAP_TYPE_OFFSET;
-	else if (cpu_is_omap54xx())
-		omap_type_offset = OMAP5_TYPE_OFFSET;
+	mpu_voltdm = voltdm_lookup("mpu");
 
+	/* Save device type on scratchpad for low level code to use */
 	if (omap_type() != OMAP2_DEVICE_TYPE_GP)
-		__raw_writel(1, sar_base + omap_type_offset);
+		__raw_writel(1, sar_base + OMAP_TYPE_OFFSET);
 	else
-		__raw_writel(0, sar_base + omap_type_offset);
+		__raw_writel(0, sar_base + OMAP_TYPE_OFFSET);
 
 	save_l2x0_context();
 

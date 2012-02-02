@@ -4,7 +4,7 @@
 
 # Common support
 obj-y := id.o io.o control.o mux.o devices.o serial.o gpmc.o timer.o pm.o \
-	 common.o gpio.o dma.o wd_timer.o
+	 common.o gpio.o dma.o wd_timer.o omap_pmic.o
 
 omap-2-3-common				= irq.o sdrc.o
 hwmod-common				= omap_hwmod.o \
@@ -17,13 +17,15 @@ omap-4-5-common				= omap4-common.o omap-wakeupgen.o \
 
 obj-$(CONFIG_ARCH_OMAP2) += $(omap-2-3-common) $(hwmod-common) $(secure-common)
 obj-$(CONFIG_ARCH_OMAP3) += $(omap-2-3-common) $(hwmod-common) $(secure-common)
-obj-$(CONFIG_ARCH_OMAP4) += prm44xx.o $(hwmod-common) $(secure-common) $(omap-4-5-common)
-obj-$(CONFIG_ARCH_OMAP5) += prm44xx.o $(hwmod-common) $(secure-common) $(omap-4-5-common)
+obj-$(CONFIG_ARCH_OMAP4) += $(hwmod-common) $(secure-common) $(omap-4-5-common)
+obj-$(CONFIG_ARCH_OMAP5) += $(hwmod-common) $(secure-common) $(omap-4-5-common)
 
 obj-$(CONFIG_OMAP_MCBSP) += mcbsp.o
 obj-$(CONFIG_OMAP_SCM_DEV)          += scm_device.o
 
-obj-$(CONFIG_TWL4030_CORE) += omap_twl.o
+obj-$(CONFIG_TWL4030_CORE) += omap_twl4030.o
+obj-$(CONFIG_OMAP_TPS6236X) += omap_tps6236x.o
+obj-$(CONFIG_MFD_PALMAS) += omap_palmas.o
 
 # SMP support ONLY available for OMAP4
 obj-$(CONFIG_SMP)			+= omap-smp.o omap-headsmp.o
@@ -58,7 +60,11 @@ ifeq ($(CONFIG_PM_OPP),y)
 obj-y					+= opp.o
 obj-$(CONFIG_ARCH_OMAP3)		+= opp3xxx_data.o
 obj-$(CONFIG_ARCH_OMAP4)		+= opp4xxx_data.o
+obj-$(CONFIG_ARCH_OMAP5)		+= opp5xxx_data.o
 endif
+
+# CPUFREQ driver
+obj-$(CONFIG_CPU_FREQ)                  += omap2plus-cpufreq.o
 
 # Power Management
 ifeq ($(CONFIG_PM),y)
@@ -72,6 +78,7 @@ obj-$(CONFIG_ARCH_OMAP5)		+= $(omap-4-5-common-pm)
 obj-$(CONFIG_PM_DEBUG)			+= pm-debug.o
 obj-$(CONFIG_OMAP_SMARTREFLEX)          += sr_device.o smartreflex.o
 obj-$(CONFIG_OMAP_SMARTREFLEX_CLASS3)	+= smartreflex-class3.o
+obj-$(CONFIG_OMAP_SMARTREFLEX_CLASS1P5)	+= smartreflex-class1p5.o
 
 AFLAGS_sleep24xx.o			:=-Wa,-march=armv6
 AFLAGS_sleep34xx.o			:=-Wa,-march=armv7-a$(plus_sec)
@@ -83,32 +90,35 @@ endif
 endif
 
 # PRCM
+obj-y					+= prm_common.o
 obj-$(CONFIG_ARCH_OMAP2)		+= prcm.o cm2xxx_3xxx.o prm2xxx_3xxx.o
 obj-$(CONFIG_ARCH_OMAP3)		+= prcm.o cm2xxx_3xxx.o prm2xxx_3xxx.o \
-					   vc3xxx_data.o vp3xxx_data.o
+					   vc3xxx_data.o vp3xxx_data.o dvfs.o \
+					   abb36xx_data.o
 # XXX The presence of cm2xxx_3xxx.o on the line below is temporary and
 # will be removed once the OMAP4 part of the codebase is converted to
 # use OMAP4-specific PRCM functions.
 obj-$(CONFIG_ARCH_OMAP4)		+= prcm.o cm2xxx_3xxx.o cminst44xx.o \
 					   cm44xx.o prcm_mpu44xx.o \
 					   prminst44xx.o vc44xx_data.o \
-					   vp44xx_data.o
+					   vp44xx_data.o dvfs.o abb44xx_data.o \
+					   prm44xx.o scrm44xx.o omap-sar.o
 obj-$(CONFIG_ARCH_OMAP5)                += prcm.o cm2xxx_3xxx.o cminst44xx.o \
                                            cm44xx.o prcm_mpu44xx.o \
-                                           prminst44xx.o vc44xx_data.o \
-                                           vp44xx_data.o
+                                           prminst44xx.o vc54xx_data.o \
+                                           vp54xx_data.o dvfs.o abb54xx_data.o \
+					   prm44xx.o scrm44xx.o omap-sar.o
 
 # OMAP voltage domains
-ifeq ($(CONFIG_PM),y)
-voltagedomain-common			:= voltage.o
-obj-$(CONFIG_ARCH_OMAP2)		+= $(voltagedomain-common)
+voltagedomain-common			:= voltage.o vc.o vp.o abb.o
+obj-$(CONFIG_ARCH_OMAP2)		+= $(voltagedomain-common) \
+					   voltagedomains2xxx_data.o
 obj-$(CONFIG_ARCH_OMAP3)		+= $(voltagedomain-common) \
 					   voltagedomains3xxx_data.o
 obj-$(CONFIG_ARCH_OMAP4)		+= $(voltagedomain-common) \
 					   voltagedomains44xx_data.o
 obj-$(CONFIG_ARCH_OMAP5)		+= $(voltagedomain-common) \
-					   voltagedomains44xx_data.o
-endif
+					   voltagedomains54xx_data.o
 
 # OMAP powerdomain framework
 powerdomain-common			+= powerdomain.o powerdomain-common.o
@@ -130,9 +140,12 @@ obj-$(CONFIG_ARCH_OMAP5)                += $(powerdomain-common) \
 obj-$(CONFIG_ARCH_OMAP2)		+= clockdomain.o \
 					   clockdomain2xxx_3xxx.o \
 					   clockdomains2xxx_3xxx_data.o
+obj-$(CONFIG_SOC_OMAP2420)		+= clockdomains2420_data.o
+obj-$(CONFIG_SOC_OMAP2430)		+= clockdomains2430_data.o
 obj-$(CONFIG_ARCH_OMAP3)		+= clockdomain.o \
 					   clockdomain2xxx_3xxx.o \
-					   clockdomains2xxx_3xxx_data.o
+					   clockdomains2xxx_3xxx_data.o \
+					   clockdomains3xxx_data.o
 obj-$(CONFIG_ARCH_OMAP4)		+= clockdomain.o \
 					   clockdomain44xx.o \
 					   clockdomains44xx_data.o

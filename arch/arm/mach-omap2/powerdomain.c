@@ -1,7 +1,7 @@
 /*
  * OMAP powerdomain control
  *
- * Copyright (C) 2007-2008 Texas Instruments, Inc.
+ * Copyright (C) 2007-2008, 2011 Texas Instruments, Inc.
  * Copyright (C) 2007-2011 Nokia Corporation
  *
  * Written by Paul Walmsley
@@ -17,6 +17,7 @@
 #include <linux/kernel.h>
 #include <linux/types.h>
 #include <linux/list.h>
+#include <linux/slab.h>
 #include <linux/errno.h>
 #include <linux/string.h>
 #include <trace/events/power.h>
@@ -77,11 +78,9 @@ static struct powerdomain *_pwrdm_lookup(const char *name)
 static int _pwrdm_register(struct powerdomain *pwrdm)
 {
 	int i;
+	struct voltagedomain *voltdm;
 
 	if (!pwrdm || !pwrdm->name)
-		return -EINVAL;
-
-	if (!omap_chip_is(pwrdm->omap_chip))
 		return -EINVAL;
 
 	if (cpu_is_omap44xx() &&
@@ -94,6 +93,16 @@ static int _pwrdm_register(struct powerdomain *pwrdm)
 	if (_pwrdm_lookup(pwrdm->name))
 		return -EEXIST;
 
+	voltdm = voltdm_lookup(pwrdm->voltdm.name);
+	if (!voltdm) {
+		pr_err("powerdomain: %s: voltagedomain %s does not exist\n",
+		       pwrdm->name, pwrdm->voltdm.name);
+		return -EINVAL;
+	}
+	pwrdm->voltdm.ptr = voltdm;
+	INIT_LIST_HEAD(&pwrdm->voltdm_node);
+	voltdm_add_pwrdm(voltdm, pwrdm);
+
 	list_add(&pwrdm->node, &pwrdm_list);
 
 	/* Initialize the powerdomain's state counter */
@@ -104,6 +113,12 @@ static int _pwrdm_register(struct powerdomain *pwrdm)
 	for (i = 0; i < pwrdm->banks; i++)
 		pwrdm->ret_mem_off_counter[i] = 0;
 
+	/* Initialize the per-device wake-up constraints framework data */
+	mutex_init(&pwrdm->wkup_lat_plist_lock);
+	plist_head_init(&pwrdm->wkup_lat_plist_head);
+	pwrdm->wkup_lat_next_state = PWRDM_POWER_OFF;
+
+	/* Initialize the pwrdm state */
 	pwrdm_wait_transition(pwrdm);
 	pwrdm->state = pwrdm_read_pwrst(pwrdm);
 	pwrdm->state_counter[pwrdm->state] = 1;
@@ -116,18 +131,22 @@ static int _pwrdm_register(struct powerdomain *pwrdm)
 static void _update_logic_membank_counters(struct powerdomain *pwrdm)
 {
 	int i;
-	u8 prev_logic_pwrst, prev_mem_pwrst;
+	int logic_pwrst, mem_pwrst;
 
-	prev_logic_pwrst = pwrdm_read_prev_logic_pwrst(pwrdm);
+	logic_pwrst = pwrdm_read_prev_logic_pwrst(pwrdm);
+	if (logic_pwrst == -EINVAL)
+		logic_pwrst = pwrdm_read_logic_retst(pwrdm);
+
 	if ((pwrdm->pwrsts_logic_ret == PWRSTS_OFF_RET) &&
-	    (prev_logic_pwrst == PWRDM_POWER_OFF))
+	    (logic_pwrst == PWRDM_POWER_OFF))
 		pwrdm->ret_logic_off_counter++;
 
 	for (i = 0; i < pwrdm->banks; i++) {
-		prev_mem_pwrst = pwrdm_read_prev_mem_pwrst(pwrdm, i);
-
+		mem_pwrst = pwrdm_read_prev_mem_pwrst(pwrdm, i);
+		if (mem_pwrst == -EINVAL)
+			mem_pwrst = pwrdm_read_mem_retst(pwrdm, i);
 		if ((pwrdm->pwrsts_mem_ret[i] == PWRSTS_OFF_RET) &&
-		    (prev_mem_pwrst == PWRDM_POWER_OFF))
+		    (mem_pwrst == PWRDM_POWER_OFF))
 			pwrdm->ret_mem_off_counter[i]++;
 	}
 }
@@ -191,39 +210,231 @@ static int _pwrdm_post_transition_cb(struct powerdomain *pwrdm, void *unused)
 	return 0;
 }
 
+/**
+ * _pwrdm_wakeuplat_update_list - Set/update/remove a powerdomain wakeup
+ *  latency constraint from the pwrdm's constraint list
+ * @pwrdm: struct powerdomain * which the constraint applies to
+ * @cookie: constraint identifier, used for tracking.
+ * @min_latency: minimum wakeup latency constraint (in microseconds) for
+ *  the given pwrdm. The value of PM_QOS_DEV_LAT_DEFAULT_VALUE removes
+ *  the constraint.
+ * @user: pointer to the current list entry
+ * @new_user: allocated list entry, used for insertion of new constraints
+ *  in the list
+ * @free_new_user: set to non-zero if the newly allocated list entry
+ *  is unused and needs to be freed
+ * @free_node: set to non-zero if the current list entry is not in use
+ *  anymore and needs to be freed
+ *
+ * Tracks the constraints by @cookie.
+ * Constraint set/update: Adds a new entry to powerdomain's wake-up latency
+ * constraint list.
+ * If the constraint identifier already exists in the list, the old value is
+ * overwritten.
+ * Constraint removal: Removes the identifier's entry from powerdomain's
+ * wakeup latency constraint list.
+ *
+ * Called with the pwrdm wakeup latency lock held.
+ *
+ * Returns 0 upon success, -EINVAL if the constraint is not existing.
+ */
+static inline int _pwrdm_update_wakeuplat_list(
+			struct powerdomain *pwrdm,
+			void *cookie,
+			long min_latency,
+			struct pwrdm_wkup_constraints_entry *user,
+			struct pwrdm_wkup_constraints_entry *new_user,
+			int *free_new_user,
+			int *free_node)
+{
+	struct pwrdm_wkup_constraints_entry *tmp_user;
+
+	/* Check if there already is a constraint for cookie */
+	plist_for_each_entry(tmp_user, &pwrdm->wkup_lat_plist_head, node) {
+		if (tmp_user->cookie == cookie) {
+			user = tmp_user;
+			break;
+		}
+	}
+
+	if (min_latency != PM_QOS_DEV_LAT_DEFAULT_VALUE) {
+		/* If nothing to update, job done */
+		if (user && (user->node.prio == min_latency))
+			return 0;
+
+		if (!user) {
+			/* Add new entry to the list */
+			user = new_user;
+			user->cookie = cookie;
+			*free_new_user = 0;
+		} else {
+			/* Update existing entry */
+			plist_del(&user->node, &pwrdm->wkup_lat_plist_head);
+		}
+
+		plist_node_init(&user->node, min_latency);
+		plist_add(&user->node, &pwrdm->wkup_lat_plist_head);
+	} else {
+		if (user) {
+			/* Remove the constraint from the list */
+			plist_del(&user->node, &pwrdm->wkup_lat_plist_head);
+			*free_node = 1;
+		} else {
+			/* Constraint not existing or list empty, do nothing */
+			return -EINVAL;
+		}
+
+	}
+
+	return 0;
+}
+
+/**
+ * _pwrdm_wakeuplat_update_pwrst - Update power domain power state if needed
+ * @pwrdm: struct powerdomain * to which requesting device belongs to.
+ * @min_latency: the allowed wake-up latency for the given power domain. A
+ *  value of PM_QOS_DEV_LAT_DEFAULT_VALUE means 'no constraint' on the pwrdm.
+ *
+ * Finds the power domain next power state that fulfills the constraint.
+ * Programs a new target state if it is different from current power state.
+ * The power domains get the next power state programmed directly in the
+ * registers.
+ *
+ * Returns 0 in case of success, -EINVAL in case of invalid parameters,
+ * or the return value from omap_set_pwrdm_state.
+ */
+static int _pwrdm_wakeuplat_update_pwrst(struct powerdomain *pwrdm,
+					long min_latency)
+{
+	int ret = 0, new_state;
+
+	if (!pwrdm) {
+		WARN(1, "powerdomain: %s: invalid parameter(s)", __func__);
+		return -EINVAL;
+	}
+
+	/*
+	 * Find the next supported power state with
+	 * wakeup latency < minimum constraint
+	 */
+	for (new_state = 0x0; new_state < PWRDM_MAX_PWRSTS; new_state++) {
+		if (min_latency == PM_QOS_DEV_LAT_DEFAULT_VALUE)
+			break;
+		if ((pwrdm->wakeup_lat[new_state] != UNSUP_STATE) &&
+		    (pwrdm->wakeup_lat[new_state] <= min_latency))
+			break;
+	}
+
+	switch (new_state) {
+	case PWRDM_FUNC_PWRST_OFF:
+		new_state = PWRDM_POWER_OFF;
+		break;
+	case PWRDM_FUNC_PWRST_OSWR:
+		pwrdm_set_logic_retst(pwrdm, PWRDM_POWER_OFF);
+		new_state = PWRDM_POWER_RET;
+		break;
+	case PWRDM_FUNC_PWRST_CSWR:
+		pwrdm_set_logic_retst(pwrdm, PWRDM_POWER_RET);
+		new_state = PWRDM_POWER_RET;
+		break;
+	case PWRDM_FUNC_PWRST_INACTIVE:
+		new_state = PWRDM_POWER_INACTIVE;
+		break;
+	case PWRDM_FUNC_PWRST_ON:
+		new_state = PWRDM_POWER_ON;
+		break;
+	default:
+		pr_warn("powerdomain: requested latency constraint not "
+			"supported %s set to ON state\n", pwrdm->name);
+		new_state = PWRDM_POWER_ON;
+		break;
+	}
+
+	pwrdm->wkup_lat_next_state = new_state;
+	if (pwrdm_read_next_pwrst(pwrdm) != new_state)
+		ret = omap_set_pwrdm_state(pwrdm, new_state);
+
+	pr_debug("powerdomain: %s pwrst: curr=%d, prev=%d next=%d "
+		 "min_latency=%ld, set_state=%d\n", pwrdm->name,
+		 pwrdm_read_pwrst(pwrdm), pwrdm_read_prev_pwrst(pwrdm),
+		 pwrdm_read_next_pwrst(pwrdm), min_latency, new_state);
+
+	return ret;
+}
+
 /* Public functions */
 
 /**
- * pwrdm_init - set up the powerdomain layer
- * @pwrdms: array of struct powerdomain pointers to register
- * @custom_funcs: func pointers for arch specific implementations
+ * pwrdm_register_platform_funcs - register powerdomain implementation fns
+ * @po: func pointers for arch specific implementations
  *
- * Loop through the array of powerdomains @pwrdms, registering all
- * that are available on the current CPU.  Also, program all
- * powerdomain target state as ON; this is to prevent domains from
- * hitting low power states (if bootloader has target states set to
- * something other than ON) and potentially even losing context while
- * PM is not fully initialized.  The PM late init code can then program
- * the desired target state for all the power domains.  No return
- * value.
+ * Register the list of function pointers used to implement the
+ * powerdomain functions on different OMAP SoCs.  Should be called
+ * before any other pwrdm_register*() function.  Returns -EINVAL if
+ * @po is null, -EEXIST if platform functions have already been
+ * registered, or 0 upon success.
  */
-void pwrdm_init(struct powerdomain **pwrdms, struct pwrdm_ops *custom_funcs)
+int pwrdm_register_platform_funcs(struct pwrdm_ops *po)
+{
+	if (!po)
+		return -EINVAL;
+
+	if (arch_pwrdm)
+		return -EEXIST;
+
+	arch_pwrdm = po;
+
+	return 0;
+}
+
+/**
+ * pwrdm_register_pwrdms - register SoC powerdomains
+ * @ps: pointer to an array of struct powerdomain to register
+ *
+ * Register the powerdomains available on a particular OMAP SoC.  Must
+ * be called after pwrdm_register_platform_funcs().  May be called
+ * multiple times.  Returns -EACCES if called before
+ * pwrdm_register_platform_funcs(); -EINVAL if the argument @ps is
+ * null; or 0 upon success.
+ */
+int pwrdm_register_pwrdms(struct powerdomain **ps)
 {
 	struct powerdomain **p = NULL;
+
+	if (!arch_pwrdm)
+		return -EEXIST;
+
+	if (!ps)
+		return -EINVAL;
+
+	for (p = ps; *p; p++)
+		_pwrdm_register(*p);
+
+	return 0;
+}
+
+/**
+ * pwrdm_complete_init - set up the powerdomain layer
+ *
+ * Do whatever is necessary to initialize registered powerdomains and
+ * powerdomain code.  Currently, this programs the next power state
+ * for each powerdomain to ON.  This prevents powerdomains from
+ * unexpectedly losing context or entering high wakeup latency modes
+ * with non-power-management-enabled kernels.  Must be called after
+ * pwrdm_register_pwrdms().  Returns -EACCES if called before
+ * pwrdm_register_pwrdms(), or 0 upon success.
+ */
+int pwrdm_complete_init(void)
+{
 	struct powerdomain *temp_p;
 
-	if (!custom_funcs)
-		WARN(1, "powerdomain: No custom pwrdm functions registered\n");
-	else
-		arch_pwrdm = custom_funcs;
-
-	if (pwrdms) {
-		for (p = pwrdms; *p; p++)
-			_pwrdm_register(*p);
-	}
+	if (list_empty(&pwrdm_list))
+		return -EACCES;
 
 	list_for_each_entry(temp_p, &pwrdm_list, node)
 		pwrdm_set_next_pwrst(temp_p, PWRDM_POWER_ON);
+
+	return 0;
 }
 
 /**
@@ -387,6 +598,18 @@ int pwrdm_for_each_clkdm(struct powerdomain *pwrdm,
 		ret = (*fn)(pwrdm, pwrdm->pwrdm_clkdms[i]);
 
 	return ret;
+}
+
+/**
+ * pwrdm_get_voltdm - return a ptr to the voltdm that this pwrdm resides in
+ * @pwrdm: struct powerdomain *
+ *
+ * Return a pointer to the struct voltageomain that the specified powerdomain
+ * @pwrdm exists in.
+ */
+struct voltagedomain *pwrdm_get_voltdm(struct powerdomain *pwrdm)
+{
+	return pwrdm->voltdm.ptr;
 }
 
 /**
@@ -925,6 +1148,18 @@ int pwrdm_clkdm_state_switch(struct clockdomain *clkdm)
 	return -EINVAL;
 }
 
+void pwrdm_clkdm_enable(struct powerdomain *pwrdm)
+{
+	if (atomic_inc_return(&pwrdm->usecount) == 1)
+		voltdm_pwrdm_enable(pwrdm->voltdm.ptr);
+}
+
+void pwrdm_clkdm_disable(struct powerdomain *pwrdm)
+{
+	if (!atomic_dec_return(&pwrdm->usecount))
+		voltdm_pwrdm_disable(pwrdm->voltdm.ptr);
+}
+
 int pwrdm_pre_transition(void)
 {
 	pwrdm_for_each(_pwrdm_pre_transition_cb, NULL);
@@ -935,6 +1170,90 @@ int pwrdm_post_transition(void)
 {
 	pwrdm_for_each(_pwrdm_post_transition_cb, NULL);
 	return 0;
+}
+
+/**
+ * pwrdm_set_wkup_lat_constraint - Set/update/remove a powerdomain wakeup
+ *  latency constraint and apply it
+ * @pwrdm: struct powerdomain * which the constraint applies to
+ * @cookie: constraint identifier, used for tracking.
+ * @min_latency: minimum wakeup latency constraint (in microseconds) for
+ *  the given pwrdm. The value of PM_QOS_DEV_LAT_DEFAULT_VALUE removes
+ *  the constraint.
+ *
+ * Tracks the constraints by @cookie.
+ * Constraint set/update: Adds a new entry to powerdomain's wake-up latency
+ * constraint list.
+ * If the constraint identifier already exists in the list, the old value is
+ * overwritten.
+ * Constraint removal: Removes the identifier's entry from powerdomain's
+ * wakeup latency constraint list.
+ *
+ * Applies the aggregated constraint value for the given pwrdm by calling
+ * _pwrdm_wakeuplat_update_pwrst.
+ *
+ * Returns 0 upon success, -ENOMEM in case of memory shortage, -EINVAL in
+ * case of invalid parameters, or the return value from
+ * _pwrdm_wakeuplat_update_pwrst.
+ *
+ * The caller must check the validity of the parameters.
+ *
+ * Note about the resources allocation and release:
+ *  The free_new_user and free_node variables are used to indicate
+ *  if the allocated resources can be freed, respectively for the
+ *  newly allocated list entry and the current list entry.
+ *  Cf. kerneldoc for the _pwrdm_update_wakeuplat_list function for
+ *  detailed information about those variables and the
+ *  allocation and release of the constraints list entries.
+ */
+int pwrdm_set_wkup_lat_constraint(struct powerdomain *pwrdm, void *cookie,
+				  long min_latency)
+{
+	struct pwrdm_wkup_constraints_entry *user = NULL, *new_user = NULL;
+	int ret = 0, free_new_user = 0, free_node = 0;
+	long value = PM_QOS_DEV_LAT_DEFAULT_VALUE;
+
+	pr_debug("powerdomain: %s: pwrdm %s, cookie=0x%p, min_latency=%ld\n",
+		 __func__, pwrdm->name, cookie, min_latency);
+
+	if (min_latency != PM_QOS_DEV_LAT_DEFAULT_VALUE) {
+		new_user = kzalloc(sizeof(struct pwrdm_wkup_constraints_entry),
+				   GFP_KERNEL);
+		if (!new_user) {
+			pr_err("%s: FATAL ERROR: kzalloc failed\n", __func__);
+			return -ENOMEM;
+		}
+		free_new_user = 1;
+	}
+
+	mutex_lock(&pwrdm->wkup_lat_plist_lock);
+
+	/* Manage the constraints list */
+	ret = _pwrdm_update_wakeuplat_list(pwrdm, cookie, min_latency,
+					   user, new_user,
+					   &free_new_user, &free_node);
+
+	/* Find the aggregated constraint value from the list */
+	if (!ret)
+		if (!plist_head_empty(&pwrdm->wkup_lat_plist_head))
+			value = plist_first(&pwrdm->wkup_lat_plist_head)->prio;
+
+	/* Apply the constraint to the pwrdm */
+	if (!ret) {
+		pr_debug("powerdomain: %s: pwrdm %s, value=%ld\n",
+			 __func__, pwrdm->name, value);
+		ret = _pwrdm_wakeuplat_update_pwrst(pwrdm, value);
+	}
+
+	mutex_unlock(&pwrdm->wkup_lat_plist_lock);
+
+	if (free_node)
+		kfree(user);
+
+	if (free_new_user)
+		kfree(new_user);
+
+	return ret;
 }
 
 /**

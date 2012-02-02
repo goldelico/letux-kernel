@@ -97,6 +97,7 @@ struct omap_hwmod_mux_info {
 	struct omap_device_pad		*pads;
 	int				nr_pads_dynamic;
 	struct omap_device_pad		**pads_dynamic;
+	int				*irqs;
 	bool				enabled;
 };
 
@@ -304,6 +305,7 @@ struct omap_hwmod_sysc_fields {
  * @rev_offs: IP block revision register offset (from module base addr)
  * @sysc_offs: OCP_SYSCONFIG register offset (from module base addr)
  * @syss_offs: OCP_SYSSTATUS register offset (from module base addr)
+ * @srst_udelay: Delay needed after doing a softreset in usecs
  * @idlemodes: One or more of {SIDLE,MSTANDBY}_{OFF,FORCE,SMART}
  * @sysc_flags: SYS{C,S}_HAS* flags indicating SYSCONFIG bits supported
  * @clockact: the default value of the module CLOCKACTIVITY bits
@@ -329,6 +331,7 @@ struct omap_hwmod_class_sysconfig {
 	u16 sysc_offs;
 	u16 syss_offs;
 	u16 sysc_flags;
+	u16 srst_udelay;
 	u8 idlemodes;
 	u8 clockact;
 	struct omap_hwmod_sysc_fields *sysc_fields;
@@ -363,12 +366,14 @@ struct omap_hwmod_omap2_prcm {
  * struct omap_hwmod_omap4_prcm - OMAP4-specific PRCM data
  * @clkctrl_reg: PRCM address of the clock control register
  * @rstctrl_reg: address of the XXX_RSTCTRL register located in the PRM
+ * context_lost_counter: Count of module level context lost
  * @submodule_wkdep_bit: bit shift of the WKDEP range
  */
 struct omap_hwmod_omap4_prcm {
 	u16		clkctrl_offs;
 	u16		rstctrl_offs;
 	u16		context_offs;
+	unsigned	context_lost_counter;
 	u8		submodule_wkdep_bit;
 	u8		modulemode;
 };
@@ -398,6 +403,8 @@ struct omap_hwmod_omap4_prcm {
  *     in order to complete the reset. Optional clocks will be disabled
  *     again after the reset.
  * HWMOD_16BIT_REG: Module has 16bit registers
+ * HWMOD_NO_CLKDM_USECOUNTING: No clockdomain usecounting for this hwmod,
+ *     handled by hardware.
  */
 #define HWMOD_SWSUP_SIDLE			(1 << 0)
 #define HWMOD_SWSUP_MSTANDBY			(1 << 1)
@@ -408,6 +415,7 @@ struct omap_hwmod_omap4_prcm {
 #define HWMOD_NO_IDLEST				(1 << 6)
 #define HWMOD_CONTROL_OPT_CLKS_IN_RESET		(1 << 7)
 #define HWMOD_16BIT_REG				(1 << 8)
+#define HWMOD_NO_CLKDM_USECOUNTING		(1 << 9)
 
 /*
  * omap_hwmod._int_flags definitions
@@ -531,8 +539,6 @@ struct omap_hwmod {
 	struct omap_hwmod_opt_clk	*opt_clks;
 	char				*clkdm_name;
 	struct clockdomain		*clkdm;
-	char				*vdd_name;
-	struct voltagedomain		*voltdm;
 	struct omap_hwmod_ocp_if	**masters; /* connect to *_IA */
 	struct omap_hwmod_ocp_if	**slaves;  /* connect to *_TA */
 	void				*dev_attr;
@@ -603,15 +609,21 @@ int omap_hwmod_set_clockact_none(struct omap_hwmod *oh);
 int omap_hwmod_enable_wakeup(struct omap_hwmod *oh);
 int omap_hwmod_disable_wakeup(struct omap_hwmod *oh);
 
+int omap_hwmod_disable_clkdm_usecounting(struct omap_hwmod *oh);
+
 int omap_hwmod_for_each_by_class(const char *classname,
 				 int (*fn)(struct omap_hwmod *oh,
 					   void *user),
 				 void *user);
 
 int omap_hwmod_set_postsetup_state(struct omap_hwmod *oh, u8 state);
+int omap_hwmod_set_wkup_lat_constraint(struct omap_hwmod *oh, void *cookie,
+				       long min_latency);
 u32 omap_hwmod_get_context_loss_count(struct omap_hwmod *oh);
 
 int omap_hwmod_no_setup_reset(struct omap_hwmod *oh);
+
+int omap_hwmod_pad_route_irq(struct omap_hwmod *oh, int pad_idx, int irq_idx);
 
 /*
  * Chip variant-specific hwmod init routines - XXX should be converted
@@ -622,5 +634,7 @@ extern int omap2430_hwmod_init(void);
 extern int omap3xxx_hwmod_init(void);
 extern int omap44xx_hwmod_init(void);
 extern int omap54xx_hwmod_init(void);
+
+extern struct device *omap_hwmod_name_get_dev(const char *oh_name);
 
 #endif

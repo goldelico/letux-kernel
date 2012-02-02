@@ -60,19 +60,6 @@ struct omap_chip_id {
 unsigned int omap_rev(void);
 
 /*
- * Define CPU revision bits
- *
- * Verbose meaning of the revision bits may be different for a silicon
- * family. This difference can be handled separately.
- */
-#define OMAP_REVBITS_00		0x00
-#define OMAP_REVBITS_01		0x01
-#define OMAP_REVBITS_02		0x02
-#define OMAP_REVBITS_03		0x03
-#define OMAP_REVBITS_04		0x04
-#define OMAP_REVBITS_05		0x05
-
-/*
  * Get the CPU revision for OMAP devices
  */
 #define GET_OMAP_REVISION()	((omap_rev() >> 8) & 0xff)
@@ -266,7 +253,7 @@ IS_OMAP_TYPE(2422, 0x2422)
 IS_OMAP_TYPE(2423, 0x2423)
 IS_OMAP_TYPE(2430, 0x2430)
 IS_OMAP_TYPE(3430, 0x3430)
-IS_OMAP_TYPE(3505, 0x3505)
+IS_OMAP_TYPE(3505, 0x3517)
 IS_OMAP_TYPE(3517, 0x3517)
 
 #define cpu_is_omap310()		0
@@ -359,8 +346,9 @@ IS_OMAP_TYPE(3517, 0x3517)
 						(!omap3_has_sgx()) &&	\
 						(omap3_has_iva()))
 # define cpu_is_omap3530()		(cpu_is_omap3430())
-# define cpu_is_omap3505()		is_omap3505()
 # define cpu_is_omap3517()		is_omap3517()
+# define cpu_is_omap3505()		(cpu_is_omap3517() &&		\
+						!omap3_has_sgx())
 # undef cpu_is_omap3630
 # define cpu_is_omap3630()		is_omap363x()
 # define cpu_is_ti816x()		is_ti816x()
@@ -391,35 +379,31 @@ IS_OMAP_TYPE(3517, 0x3517)
 /* Various silicon revisions for omap2 */
 #define OMAP242X_CLASS		0x24200024
 #define OMAP2420_REV_ES1_0	OMAP242X_CLASS
-#define OMAP2420_REV_ES2_0	(OMAP242X_CLASS | (OMAP_REVBITS_01 << 8))
+#define OMAP2420_REV_ES2_0	(OMAP242X_CLASS | (0x1 << 8))
 
 #define OMAP243X_CLASS		0x24300024
 #define OMAP2430_REV_ES1_0	OMAP243X_CLASS
 
 #define OMAP343X_CLASS		0x34300034
 #define OMAP3430_REV_ES1_0	OMAP343X_CLASS
-#define OMAP3430_REV_ES2_0	(OMAP343X_CLASS | (OMAP_REVBITS_01 << 8))
-#define OMAP3430_REV_ES2_1	(OMAP343X_CLASS | (OMAP_REVBITS_02 << 8))
-#define OMAP3430_REV_ES3_0	(OMAP343X_CLASS | (OMAP_REVBITS_03 << 8))
-#define OMAP3430_REV_ES3_1	(OMAP343X_CLASS | (OMAP_REVBITS_04 << 8))
-#define OMAP3430_REV_ES3_1_2	(OMAP343X_CLASS | (OMAP_REVBITS_05 << 8))
+#define OMAP3430_REV_ES2_0	(OMAP343X_CLASS | (0x1 << 8))
+#define OMAP3430_REV_ES2_1	(OMAP343X_CLASS | (0x2 << 8))
+#define OMAP3430_REV_ES3_0	(OMAP343X_CLASS | (0x3 << 8))
+#define OMAP3430_REV_ES3_1	(OMAP343X_CLASS | (0x4 << 8))
+#define OMAP3430_REV_ES3_1_2	(OMAP343X_CLASS | (0x5 << 8))
 
 #define OMAP363X_CLASS		0x36300034
 #define OMAP3630_REV_ES1_0	OMAP363X_CLASS
-#define OMAP3630_REV_ES1_1	(OMAP363X_CLASS | (OMAP_REVBITS_01 << 8))
-#define OMAP3630_REV_ES1_2	(OMAP363X_CLASS | (OMAP_REVBITS_02 << 8))
+#define OMAP3630_REV_ES1_1	(OMAP363X_CLASS | (0x1 << 8))
+#define OMAP3630_REV_ES1_2	(OMAP363X_CLASS | (0x2 << 8))
 
-#define OMAP35XX_CLASS		0x35000034
-#define OMAP3503_REV(v)		(OMAP35XX_CLASS | (0x3503 << 16) | (v << 8))
-#define OMAP3515_REV(v)		(OMAP35XX_CLASS | (0x3515 << 16) | (v << 8))
-#define OMAP3525_REV(v)		(OMAP35XX_CLASS | (0x3525 << 16) | (v << 8))
-#define OMAP3530_REV(v)		(OMAP35XX_CLASS | (0x3530 << 16) | (v << 8))
-#define OMAP3505_REV(v)		(OMAP35XX_CLASS | (0x3505 << 16) | (v << 8))
-#define OMAP3517_REV(v)		(OMAP35XX_CLASS | (0x3517 << 16) | (v << 8))
+#define OMAP3517_CLASS		0x35170034
+#define OMAP3517_REV_ES1_0	OMAP3517_CLASS
+#define OMAP3517_REV_ES1_1	(OMAP3517_CLASS | (0x1 << 8))
 
 #define TI816X_CLASS		0x81600034
 #define TI8168_REV_ES1_0	TI816X_CLASS
-#define TI8168_REV_ES1_1	(TI816X_CLASS | (OMAP_REVBITS_01 << 8))
+#define TI8168_REV_ES1_1	(TI816X_CLASS | (0x1 << 8))
 
 #define OMAP443X_CLASS		0x44300044
 #define OMAP4430_REV_ES1_0	(OMAP443X_CLASS | (0x10 << 8))

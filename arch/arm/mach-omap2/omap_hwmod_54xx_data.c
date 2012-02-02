@@ -33,6 +33,7 @@
 
 #include "omap_hwmod_common_data.h"
 
+#include "smartreflex.h"
 #include "cm1_54xx.h"
 #include "cm2_54xx.h"
 #include "prm54xx.h"
@@ -4508,7 +4509,7 @@ static struct omap_hwmod_addr_space omap54xx_sata_addrs[] = {
 		.flags		= ADDR_TYPE_RT
 	},
 
-#if (!defined(CONFIG_MACH_OMAP_5430ZEBU) && !defined(CONFIG_OMAP5_VIRTIO))
+#if (!defined(CONFIG_MACH_OMAP_5430ZEBU))
 	/*
 	 * - TODO -
 	 * Following PLL addresses will be removed in future,
@@ -4601,6 +4602,11 @@ static struct omap_hwmod_class omap54xx_smartreflex_hwmod_class = {
 };
 
 /* smartreflex_core */
+/* smartreflex_core */
+static struct omap_smartreflex_dev_attr smartreflex_core_dev_attr = {
+	.sensor_voltdm_name   = "core",
+};
+
 static struct omap_hwmod omap54xx_smartreflex_core_hwmod;
 static struct omap_hwmod_irq_info omap54xx_smartreflex_core_irqs[] = {
 	{ .irq = 19 + OMAP54XX_IRQ_GIC_START },
@@ -4636,7 +4642,6 @@ static struct omap_hwmod omap54xx_smartreflex_core_hwmod = {
 	.clkdm_name	= "coreaon_clkdm",
 	.mpu_irqs	= omap54xx_smartreflex_core_irqs,
 	.main_clk	= "wkupaon_clk_mux_ck",
-	.vdd_name	= "core",
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = OMAP54XX_CM_COREAON_SMARTREFLEX_CORE_CLKCTRL_OFFSET,
@@ -4646,10 +4651,15 @@ static struct omap_hwmod omap54xx_smartreflex_core_hwmod = {
 	},
 	.slaves		= omap54xx_smartreflex_core_slaves,
 	.slaves_cnt	= ARRAY_SIZE(omap54xx_smartreflex_core_slaves),
+	.dev_attr       = &smartreflex_core_dev_attr,
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP54XX),
 };
 
 /* smartreflex_mm */
+static struct omap_smartreflex_dev_attr smartreflex_mm_dev_attr = {
+	.sensor_voltdm_name   = "mm",
+};
+
 static struct omap_hwmod omap54xx_smartreflex_mm_hwmod;
 static struct omap_hwmod_irq_info omap54xx_smartreflex_mm_irqs[] = {
 	{ .irq = 102 + OMAP54XX_IRQ_GIC_START },
@@ -4685,7 +4695,6 @@ static struct omap_hwmod omap54xx_smartreflex_mm_hwmod = {
 	.clkdm_name	= "coreaon_clkdm",
 	.mpu_irqs	= omap54xx_smartreflex_mm_irqs,
 	.main_clk	= "wkupaon_clk_mux_ck",
-	.vdd_name	= "mm",
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = OMAP54XX_CM_COREAON_SMARTREFLEX_MM_CLKCTRL_OFFSET,
@@ -4695,10 +4704,14 @@ static struct omap_hwmod omap54xx_smartreflex_mm_hwmod = {
 	},
 	.slaves		= omap54xx_smartreflex_mm_slaves,
 	.slaves_cnt	= ARRAY_SIZE(omap54xx_smartreflex_mm_slaves),
+	.dev_attr       = &smartreflex_mm_dev_attr,
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP54XX),
 };
 
 /* smartreflex_mpu */
+static struct omap_smartreflex_dev_attr smartreflex_mpu_dev_attr = {
+	.sensor_voltdm_name   = "mpu",
+};
 static struct omap_hwmod omap54xx_smartreflex_mpu_hwmod;
 static struct omap_hwmod_irq_info omap54xx_smartreflex_mpu_irqs[] = {
 	{ .irq = 18 + OMAP54XX_IRQ_GIC_START },
@@ -4734,7 +4747,6 @@ static struct omap_hwmod omap54xx_smartreflex_mpu_hwmod = {
 	.clkdm_name	= "coreaon_clkdm",
 	.mpu_irqs	= omap54xx_smartreflex_mpu_irqs,
 	.main_clk	= "wkupaon_clk_mux_ck",
-	.vdd_name	= "mpu",
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = OMAP54XX_CM_COREAON_SMARTREFLEX_MPU_CLKCTRL_OFFSET,
@@ -4744,6 +4756,7 @@ static struct omap_hwmod omap54xx_smartreflex_mpu_hwmod = {
 	},
 	.slaves		= omap54xx_smartreflex_mpu_slaves,
 	.slaves_cnt	= ARRAY_SIZE(omap54xx_smartreflex_mpu_slaves),
+	.dev_attr       = &smartreflex_mpu_dev_attr,
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP54XX),
 };
 
@@ -6267,7 +6280,9 @@ static __initdata struct omap_hwmod *omap54xx_hwmods[] = {
 	&omap54xx_l3_main_3_hwmod,
 
 	/* l4 class */
+#ifndef CONFIG_OMAP_PM_STANDALONE
 	&omap54xx_l4_abe_hwmod,
+#endif
 	&omap54xx_l4_cfg_hwmod,
 	&omap54xx_l4_per_hwmod,
 	&omap54xx_l4_wkup_hwmod,
@@ -6276,7 +6291,9 @@ static __initdata struct omap_hwmod *omap54xx_hwmods[] = {
 	&omap54xx_mpu_private_hwmod,
 
 	/* aess class */
+#ifndef CONFIG_OMAP_PM_STANDALONE
 	&omap54xx_aess_hwmod,
+#endif
 
 	/* counter class */
 /*	&omap54xx_counter_32k_hwmod, */
@@ -6284,11 +6301,15 @@ static __initdata struct omap_hwmod *omap54xx_hwmods[] = {
 	/* dma class */
 	&omap54xx_dma_system_hwmod,
 
+#ifndef CONFIG_OMAP_PM_STANDALONE
 	/* dmic class */
 	&omap54xx_dmic_hwmod,
+#endif
 
 	/* dsp class */
+#ifndef CONFIG_OMAP_PM_STANDALONE
 	&omap54xx_dsp_hwmod,
+#endif
 
 	/* dss class */
 	&omap54xx_dss_hwmod,
@@ -6316,11 +6337,13 @@ static __initdata struct omap_hwmod *omap54xx_hwmods[] = {
 	/* gpmc class */
 	&omap54xx_gpmc_hwmod,
 
+#ifndef CONFIG_OMAP_PM_STANDALONE
 	/* gpu class */
 	&omap54xx_gpu_hwmod,
 
 	/* hsi class */
-/*	&omap54xx_hsi_hwmod, */
+	&omap54xx_hsi_hwmod,
+#endif
 
 	/* i2c class */
 	&omap54xx_i2c1_hwmod,
@@ -6329,15 +6352,18 @@ static __initdata struct omap_hwmod *omap54xx_hwmods[] = {
 	&omap54xx_i2c4_hwmod,
 	&omap54xx_i2c5_hwmod,
 
+#ifndef CONFIG_OMAP_PM_STANDALONE
 	/* ipu class */
 	&omap54xx_ipu_hwmod,
+#endif
 
 	/* iss class */
 /*	&omap54xx_iss_hwmod, */
 
+#ifndef CONFIG_OMAP_PM_STANDALONE
 	/* iva class */
 	&omap54xx_iva_hwmod,
-
+#endif
 	/* kbd class */
 	&omap54xx_kbd_hwmod,
 
@@ -6349,9 +6375,10 @@ static __initdata struct omap_hwmod *omap54xx_hwmods[] = {
 	&omap54xx_mcbsp2_hwmod,
 	&omap54xx_mcbsp3_hwmod,
 
+#ifndef CONFIG_OMAP_PM_STANDALONE
 	/* mcpdm class */
 	&omap54xx_mcpdm_hwmod,
-
+#endif
 	/* mcspi class */
 	&omap54xx_mcspi1_hwmod,
 	&omap54xx_mcspi2_hwmod,
@@ -6373,8 +6400,10 @@ static __initdata struct omap_hwmod *omap54xx_hwmods[] = {
 	&omap54xx_ocp2scp3_hwmod,
 #endif
 
+#ifndef CONFIG_OMAP_PM_STANDALONE
 	/* sata class */
 	&omap54xx_sata_hwmod,
+#endif
 
 	/* smartreflex class */
 	&omap54xx_smartreflex_core_hwmod,

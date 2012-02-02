@@ -16,16 +16,43 @@
 #include <linux/list.h>
 #include <linux/err.h>
 #include <linux/slab.h>
+#include <linux/interrupt.h>
+#include <linux/io.h>
 
 #include <mach/omap4-common.h>
+#include <plat/omap_hwmod.h>
 
 #include "powerdomain.h"
 #include "clockdomain.h"
+#include "prm44xx.h"
+#include "prcm44xx.h"
+#include "prm-regbits-44xx.h"
+#include "prminst44xx.h"
 #include "pm.h"
+#include "cm2_54xx.h"
+#include "cm44xx.h"
+#include "prm54xx.h"
+#include "dvfs.h"
+
+static const char * const autoidle_hwmods[] = {
+	"gpio2",
+	"gpio3",
+	"gpio4",
+	"gpio5",
+	"gpio6",
+	"kbd",
+	"timer1",
+	"emif1",
+	"emif2",
+	"gpmc",
+	"l3_instr",
+	"l3_main_3"
+};
 
 struct power_state {
 	struct powerdomain *pwrdm;
 	u32 next_state;
+	u32 next_logic_state;
 #ifdef CONFIG_SUSPEND
 	u32 saved_state;
 	u32 saved_logic_state;
@@ -35,12 +62,163 @@ struct power_state {
 
 static LIST_HEAD(pwrst_list);
 
+static struct powerdomain *mpu_pwrdm, *core_pwrdm, *per_pwrdm;
+
+/**
+ * omap4_device_set_state_off() - setup device off state
+ * @enable:	set to off or not.
+ *
+ * When Device OFF is enabled, Device is allowed to perform
+ * transition to off mode as soon as all power domains in MPU, IVA
+ * and CORE voltage are in OFF or OSWR state (open switch retention)
+ */
+void omap4_device_set_state_off(u8 enable)
+{
+	u16 offset;
+
+	if (cpu_is_omap44xx())
+		offset = OMAP4_PRM_DEVICE_OFF_CTRL_OFFSET;
+	else
+		offset = OMAP54XX_PRM_DEVICE_OFF_CTRL_OFFSET;
+
+#ifdef CONFIG_OMAP_ALLOW_OSWR
+	if (enable)
+		omap4_prminst_write_inst_reg(0x1 <<
+				OMAP4430_DEVICE_OFF_ENABLE_SHIFT,
+		OMAP4430_PRM_PARTITION, OMAP4430_PRM_DEVICE_INST,
+		offset);
+	else
+#endif
+		omap4_prminst_write_inst_reg(0x0 <<
+				OMAP4430_DEVICE_OFF_ENABLE_SHIFT,
+		OMAP4430_PRM_PARTITION, OMAP4430_PRM_DEVICE_INST,
+		offset);
+
+#ifdef CONFIG_OMAP_PM_STANDALONE
+	/*
+	 * XXX: We must toggle auto-ret control for MM when changing
+	 * device off state. This should be removed once MM is used
+	 * properly
+	 */
+	if (cpu_is_omap54xx()) {
+		u32 val;
+
+		val = omap4_prminst_read_inst_reg(OMAP54XX_PRM_PARTITION,
+			OMAP54XX_PRM_DEVICE_INST, OMAP54XX_PRM_VOLTCTRL_OFFSET);
+		if (enable)
+			val &= ~(0x3 << 4);
+		else
+			val |= 0x2 << 4;
+
+		omap4_prminst_write_inst_reg(val, OMAP54XX_PRM_PARTITION,
+			OMAP54XX_PRM_DEVICE_INST, OMAP54XX_PRM_VOLTCTRL_OFFSET);
+	}
+#endif
+}
+
+/**
+ * omap4_device_prev_state_off:
+ * returns true if the device hit OFF mode
+ * This is API to check whether OMAP is waking up from device OFF mode.
+ * There is no other status bit available for SW to read whether last state
+ * entered was device OFF. To work around this, CORE PD, RFF context state
+ * is used which is lost only when we hit device OFF state
+ */
+bool omap4_device_prev_state_off(void)
+{
+	u32 reg;
+
+	reg = omap4_prminst_read_inst_reg(OMAP4430_PRM_PARTITION,
+				OMAP4430_PRM_CORE_INST,
+				OMAP4_RM_L3_1_L3_1_CONTEXT_OFFSET)
+		& OMAP4430_LOSTCONTEXT_RFF_MASK;
+
+	return reg ? true : false;
+}
+
+void omap4_device_clear_prev_off_state(void)
+{
+	omap4_prminst_write_inst_reg(OMAP4430_LOSTCONTEXT_RFF_MASK |
+				OMAP4430_LOSTCONTEXT_DFF_MASK,
+				OMAP4430_PRM_PARTITION,
+				OMAP4430_PRM_CORE_INST,
+				OMAP4_RM_L3_1_L3_1_CONTEXT_OFFSET);
+}
+
+/**
+ * omap4_device_next_state_off:
+ * returns true if the device next state is OFF
+ * This is API to check whether OMAP is programmed for device OFF
+ */
+bool omap4_device_next_state_off(void)
+{
+	u16 offset;
+
+	if (cpu_is_omap44xx())
+		offset = OMAP4_PRM_DEVICE_OFF_CTRL_OFFSET;
+	else
+		offset = OMAP54XX_PRM_DEVICE_OFF_CTRL_OFFSET;
+
+	return omap4_prminst_read_inst_reg(OMAP4430_PRM_PARTITION,
+			OMAP4430_PRM_DEVICE_INST,
+			offset)
+			& OMAP4430_DEVICE_OFF_ENABLE_MASK ? true : false;
+}
+
+
+void omap_pm_idle(u32 cpu_id, int state)
+{
+	pwrdm_clear_all_prev_pwrst(mpu_pwrdm);
+	pwrdm_clear_all_prev_pwrst(core_pwrdm);
+	pwrdm_clear_all_prev_pwrst(per_pwrdm);
+	omap4_device_clear_prev_off_state();
+
+	/*
+	 * Just return if we detect a scenario where we conflict
+	 * with DVFS
+	 */
+	if (omap_dvfs_is_any_dev_scaling())
+		return;
+
+	if (omap4_device_next_state_off()) {
+		/* Save the device context to SAR RAM */
+		if (omap_sar_save())
+			return;
+		omap_sar_overwrite();
+		omap4_cm_prepare_off();
+		omap4_dpll_prepare_off();
+	}
+
+	omap_trigger_wuclk_ctrl();
+
+	omap_enter_lowpower(cpu_id, state);
+
+	if (omap4_device_prev_state_off()) {
+		omap4_dpll_resume_off();
+		omap4_cm_resume_off();
+#ifdef CONFIG_PM_DEBUG
+		omap4_device_off_counter++;
+#endif
+	}
+}
+
 #ifdef CONFIG_SUSPEND
 static int omap_pm_suspend(void)
 {
 	struct power_state *pwrst;
 	int state, ret = 0;
 	u32 cpu_id = smp_processor_id();
+
+	/*
+	 * If any device was in the middle of a scale operation
+	 * then abort, as we cannot predict which part of the scale
+	 * operation we interrupted.
+	 */
+	if (omap_dvfs_is_any_dev_scaling()) {
+		pr_err("%s: oops.. middle of scale op.. aborting suspend\n",
+			__func__);
+		return -EBUSY;
+	}
 
 	/* Save current powerdomain state */
 	list_for_each_entry(pwrst, &pwrst_list, node) {
@@ -51,7 +229,7 @@ static int omap_pm_suspend(void)
 	/* Set targeted power domain states by suspend */
 	list_for_each_entry(pwrst, &pwrst_list, node) {
 		omap_set_pwrdm_state(pwrst->pwrdm, pwrst->next_state);
-		pwrdm_set_logic_retst(pwrst->pwrdm, PWRDM_POWER_OFF);
+		pwrdm_set_logic_retst(pwrst->pwrdm, pwrst->next_logic_state);
 	}
 
 	/*
@@ -63,7 +241,7 @@ static int omap_pm_suspend(void)
 	 * domain CSWR is not supported by hardware.
 	 * More details can be found in OMAP4430 TRM section 4.3.4.2.
 	 */
-	omap_enter_lowpower(cpu_id, PWRDM_POWER_OFF);
+	omap_pm_idle(cpu_id, PWRDM_POWER_OFF);
 
 	/* Restore next powerdomain state */
 	list_for_each_entry(pwrst, &pwrst_list, node) {
@@ -121,6 +299,27 @@ static const struct platform_suspend_ops omap_pm_ops = {
 };
 #endif /* CONFIG_SUSPEND */
 
+/**
+ * get_achievable_state() - Provide achievable state
+ * @available_states:	what states are available
+ * @req_min_state:	what state is the minimum we'd like to hit
+ *
+ * Power domains have varied capabilities. When attempting a low power
+ * state such as OFF/RET, a specific min requested state may not be
+ * supported on the power domain, in which case, the next higher power
+ * state which is supported is returned. This is because a combination
+ * of system power states where the parent PD's state is not in line
+ * with expectation can result in system instabilities.
+ */
+static inline u8 get_achievable_state(u8 available_states, u8 req_min_state)
+{
+	u16 mask = 0xFF << req_min_state;
+
+	if (available_states & mask)
+		return __ffs(available_states & mask);
+	return PWRDM_POWER_ON;
+}
+
 /*
  * Enable hardware supervised mode for all clockdomains if it's
  * supported. Initiate sleep transition for other clockdomains, if
@@ -137,6 +336,30 @@ static int __init clkdms_setup(struct clockdomain *clkdm, void *unused)
 }
 
 
+void omap4_pm_off_mode_enable(int enable)
+{
+	u32 next_state = PWRDM_POWER_RET;
+	u32 next_logic_state = PWRDM_POWER_ON;
+	struct power_state *pwrst;
+
+#ifdef CONFIG_OMAP_ALLOW_OSWR
+	if (enable) {
+		next_state = PWRDM_POWER_OFF;
+		next_logic_state = PWRDM_POWER_OFF;
+	}
+#endif
+
+	list_for_each_entry(pwrst, &pwrst_list, node) {
+		pwrst->next_state =
+			get_achievable_state(pwrst->pwrdm->pwrsts, next_state);
+		pwrst->next_logic_state =
+			get_achievable_state(pwrst->pwrdm->pwrsts_logic_ret,
+				next_logic_state);
+		omap_set_pwrdm_state(pwrst->pwrdm, pwrst->next_state);
+		pwrdm_set_logic_retst(pwrst->pwrdm, pwrst->next_logic_state);
+	}
+}
+
 static int __init pwrdms_setup(struct powerdomain *pwrdm, void *unused)
 {
 	struct power_state *pwrst;
@@ -152,19 +375,13 @@ static int __init pwrdms_setup(struct powerdomain *pwrdm, void *unused)
 	if (!strncmp(pwrdm->name, "cpu", 3))
 		return 0;
 
-	/*
-	 * FIXME: Remove this check when core retention is supported
-	 * Only MPUSS power domain is added in the list.
-	 */
-	if (strcmp(pwrdm->name, "mpu_pwrdm"))
-		return 0;
-
 	pwrst = kmalloc(sizeof(struct power_state), GFP_ATOMIC);
 	if (!pwrst)
 		return -ENOMEM;
 
 	pwrst->pwrdm = pwrdm;
 	pwrst->next_state = PWRDM_POWER_RET;
+	pwrst->next_logic_state = PWRDM_POWER_ON;
 	list_add(&pwrst->node, &pwrst_list);
 
 	return omap_set_pwrdm_state(pwrst->pwrdm, pwrst->next_state);
@@ -248,6 +465,85 @@ static inline int omap5_init_static_deps(void)
 	return ret;
 }
 
+static irqreturn_t prcm_interrupt_handler (int irq, void *dev_id)
+{
+	/* Do nothing, we just need the interrupt handler to enable it */
+	return IRQ_HANDLED;
+}
+
+static void __init prcm_setup_regs(void)
+{
+	struct omap_hwmod *oh;
+
+#ifdef CONFIG_MACH_OMAP_5430ZEBU
+	/* Idle gpmc */
+	oh = omap_hwmod_lookup("gpmc");
+	omap_hwmod_idle(oh);
+
+	/* Idle OCP_WP_NOC */
+	__raw_writel(0, OMAP54XX_CM_L3INSTR_OCP_WP_NOC_CLKCTRL);
+
+	/* Idle hdq */
+	__raw_writel(0, OMAP54XX_CM_L4PER_HDQ1W_CLKCTRL);
+#endif
+
+#ifdef CONFIG_OMAP_ALLOW_OSWR
+	/* Enable L3 hwmods, otherwise dev off will fail */
+	oh = omap_hwmod_lookup("l3_main_3");
+	omap_hwmod_enable(oh);
+	oh = omap_hwmod_lookup("l3_instr");
+	omap_hwmod_enable(oh);
+#endif
+
+/*
+	 * Errata ID: i608 Impacted OMAP4430 ES 1.0,2.0,2.1,2.2
+	 * On OMAP4, Retention-Till-Access Memory feature is not working
+	 * reliably and hardware recommondation is keep it disabled by
+	 * default
+	 */
+	omap4_prminst_rmw_inst_reg_bits(OMAP4430_DISABLE_RTA_EXPORT_MASK,
+		0x1 << OMAP4430_DISABLE_RTA_EXPORT_SHIFT,
+		OMAP4430_PRM_PARTITION, OMAP4430_PRM_DEVICE_INST, OMAP4_PRM_SRAM_WKUP_SETUP_OFFSET);
+	omap4_prminst_rmw_inst_reg_bits(OMAP4430_DISABLE_RTA_EXPORT_MASK,
+		0x1 << OMAP4430_DISABLE_RTA_EXPORT_SHIFT,
+		OMAP4430_PRM_PARTITION, OMAP4430_PRM_DEVICE_INST, OMAP4_PRM_LDO_SRAM_CORE_SETUP_OFFSET);
+	omap4_prminst_rmw_inst_reg_bits(OMAP4430_DISABLE_RTA_EXPORT_MASK,
+		0x1 << OMAP4430_DISABLE_RTA_EXPORT_SHIFT,
+		OMAP4430_PRM_PARTITION, OMAP4430_PRM_DEVICE_INST, OMAP4_PRM_LDO_SRAM_MPU_SETUP_OFFSET);
+	omap4_prminst_rmw_inst_reg_bits(OMAP4430_DISABLE_RTA_EXPORT_MASK,
+		0x1 << OMAP4430_DISABLE_RTA_EXPORT_SHIFT,
+		OMAP4430_PRM_PARTITION, OMAP4430_PRM_DEVICE_INST, OMAP4_PRM_LDO_SRAM_IVA_SETUP_OFFSET);
+
+	/* Toggle CLKREQ in RET and OFF states */
+	omap4_prminst_write_inst_reg(0x2, OMAP4430_PRM_PARTITION,
+		OMAP4430_PRM_DEVICE_INST, OMAP4_PRM_CLKREQCTRL_OFFSET);
+	/*
+	 * De-assert PWRREQ signal in Device OFF state
+	 *      0x3: PWRREQ is de-asserted if all voltage domain are in
+	 *      OFF state. Conversely, PWRREQ is asserted upon any
+	 *      voltage domain entering or staying in ON or SLEEP or
+	 *      RET state.
+	 */
+	omap4_prminst_write_inst_reg(0x3, OMAP4430_PRM_PARTITION,
+		OMAP4430_PRM_DEVICE_INST, OMAP4_PRM_PWRREQCTRL_OFFSET);
+
+#ifdef CONFIG_OMAP_PM_STANDALONE
+	/*
+	 * XXX: Enable MM autoret on omap5 by default
+	 * Should be removed once MM domain is used properly
+	 */
+	if (cpu_is_omap54xx()) {
+		u32 val;
+
+		val = omap4_prminst_read_inst_reg(OMAP54XX_PRM_PARTITION,
+			OMAP54XX_PRM_DEVICE_INST, OMAP54XX_PRM_VOLTCTRL_OFFSET);
+		val |= 0x2 << 4;
+		omap4_prminst_write_inst_reg(val, OMAP54XX_PRM_PARTITION,
+			OMAP54XX_PRM_DEVICE_INST, OMAP54XX_PRM_VOLTCTRL_OFFSET);
+	}
+#endif
+}
+
 /**
  * omap_pm_init - Init routine for OMAP4 PM
  *
@@ -256,7 +552,7 @@ static inline int omap5_init_static_deps(void)
  */
 static int __init omap_pm_init(void)
 {
-	int ret;
+	int ret, i;
 
 	if (!(cpu_is_omap44xx() || cpu_is_omap54xx()))
 		return -ENODEV;
@@ -268,11 +564,29 @@ static int __init omap_pm_init(void)
 
 	pr_info("Power Management for TI OMAP4XX/OMAP5XXX devices.\n");
 
+	prcm_setup_regs();
+
 	ret = pwrdm_for_each(pwrdms_setup, NULL);
 	if (ret) {
 		pr_err("Failed to setup powerdomains\n");
 		goto err2;
 	}
+
+#ifdef CONFIG_PM
+		/* Enable GLOBAL_WUEN */
+		omap4_prminst_rmw_inst_reg_bits(OMAP4430_GLOBAL_WUEN_MASK, OMAP4430_GLOBAL_WUEN_MASK,
+			OMAP4430_PRM_PARTITION, OMAP4430_PRM_DEVICE_INST, OMAP4_PRM_IO_PMCTRL_OFFSET);
+
+		ret = request_irq(omap_prcm_event_to_irq("io"),
+						(irq_handler_t)prcm_interrupt_handler,
+						IRQF_SHARED | IRQF_NO_SUSPEND, "pm_io",
+						omap_pm_init);
+		if (ret) {
+				printk(KERN_ERR "request_irq failed to register for pm_io\n");
+				goto err2;
+		}
+
+#endif
 
 	if (cpu_is_omap44xx())
 		ret = omap4_init_static_deps();
@@ -282,6 +596,17 @@ static int __init omap_pm_init(void)
 	if (ret) {
 		pr_err("Failed to initialise static depedencies\n");
 		goto err2;
+	}
+
+
+	for (i = 0; i < ARRAY_SIZE(autoidle_hwmods); i++) {
+		struct omap_hwmod *oh;
+
+		oh = omap_hwmod_lookup(autoidle_hwmods[i]);
+		if (oh)
+			omap_hwmod_disable_clkdm_usecounting(oh);
+		else
+			pr_warning("hwmod %s not found\n", autoidle_hwmods[i]);
 	}
 
 	ret = omap_mpuss_init();
@@ -295,6 +620,13 @@ static int __init omap_pm_init(void)
 #ifdef CONFIG_SUSPEND
 	suspend_set_ops(&omap_pm_ops);
 #endif /* CONFIG_SUSPEND */
+
+	mpu_pwrdm = pwrdm_lookup("mpu_pwrdm");
+	core_pwrdm = pwrdm_lookup("core_pwrdm");
+	per_pwrdm = pwrdm_lookup("l4per_pwrdm");
+
+	 /* Enable wakeup for PRCM IRQ for system wide suspend */
+	enable_irq_wake(OMAP44XX_IRQ_PRCM);
 
 	if (cpu_is_omap44xx()) {
 		/* Overwrite the default arch_idle() */

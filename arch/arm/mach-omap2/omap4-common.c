@@ -27,16 +27,12 @@
 #include <mach/omap4-common.h>
 #include <mach/omap-wakeupgen.h>
 
-#include "omap4-sar-layout.h"
-
 #ifdef CONFIG_CACHE_L2X0
 static void __iomem *l2cache_base;
 #endif
 
 void __iomem *gic_dist_base_addr;
 void __iomem *dram_sync, *sram_sync;
-
-static void __iomem *sar_ram_base;
 
 #ifdef CONFIG_OMAP4_ERRATA_I688
 void omap_bus_sync(void)
@@ -101,6 +97,21 @@ void __init gic_init_irq(void)
 	omap_wakeupgen_init();
 
 	gic_init(0, 29, gic_dist_base_addr, omap_irq_base);
+}
+
+void gic_dist_enable(void)
+{
+	__raw_writel(0x1, gic_dist_base_addr + GIC_DIST_CTRL);
+}
+
+void gic_dist_disable(void)
+{
+	__raw_writel(0, gic_dist_base_addr + GIC_DIST_CTRL);
+}
+
+u32 gic_readl(u32 offset, u8 idx)
+{
+	return __raw_readl(gic_dist_base_addr + offset + 4 * idx);
 }
 
 #ifdef CONFIG_CACHE_L2X0
@@ -176,32 +187,3 @@ static int __init omap_l2_cache_init(void)
 }
 early_initcall(omap_l2_cache_init);
 #endif
-
-void __iomem *omap4_get_sar_ram_base(void)
-{
-	return sar_ram_base;
-}
-
-/*
- * SAR RAM used to save and restore the HW
- * context in low power modes
- */
-static int __init omap4_sar_ram_init(void)
-{
-	unsigned long sar_base_phys;
-
-	if (cpu_is_omap44xx())
-		sar_base_phys = OMAP44XX_SAR_RAM_BASE;
-	else if (cpu_is_omap54xx())
-		sar_base_phys = OMAP54XX_SAR_RAM_BASE;
-	else
-		return -ENOMEM;
-
-	/* Static mapping, never released */
-	sar_ram_base = ioremap(sar_base_phys, SZ_16K);
-	if (WARN_ON(!sar_ram_base))
-		return -ENOMEM;
-
-	return 0;
-}
-early_initcall(omap4_sar_ram_init);

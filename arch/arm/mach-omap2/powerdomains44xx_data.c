@@ -33,9 +33,9 @@
 /* core_44xx_pwrdm: CORE power domain */
 static struct powerdomain core_44xx_pwrdm = {
 	.name		  = "core_pwrdm",
+	.voltdm		  = { .name = "core" },
 	.prcm_offs	  = OMAP4430_PRM_CORE_INST,
 	.prcm_partition	  = OMAP4430_PRM_PARTITION,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
 	.pwrsts		  = PWRSTS_RET_ON,
 	.pwrsts_logic_ret = PWRSTS_OFF_RET,
 	.banks		  = 5,
@@ -54,14 +54,21 @@ static struct powerdomain core_44xx_pwrdm = {
 		[4] = PWRSTS_ON,	/* ducati_unicache */
 	},
 	.flags		  = PWRDM_HAS_LOWPOWERSTATECHANGE,
+	.wakeup_lat = {
+		[PWRDM_FUNC_PWRST_OFF] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_OSWR] = 600,
+		[PWRDM_FUNC_PWRST_CSWR] = 300,
+		[PWRDM_FUNC_PWRST_INACTIVE] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_ON] = 0,
+	},
 };
 
 /* gfx_44xx_pwrdm: 3D accelerator power domain */
 static struct powerdomain gfx_44xx_pwrdm = {
 	.name		  = "gfx_pwrdm",
+	.voltdm		  = { .name = "core" },
 	.prcm_offs	  = OMAP4430_PRM_GFX_INST,
 	.prcm_partition	  = OMAP4430_PRM_PARTITION,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
 	.pwrsts		  = PWRSTS_OFF_ON,
 	.banks		  = 1,
 	.pwrsts_mem_ret	= {
@@ -71,14 +78,21 @@ static struct powerdomain gfx_44xx_pwrdm = {
 		[0] = PWRSTS_ON,	/* gfx_mem */
 	},
 	.flags		  = PWRDM_HAS_LOWPOWERSTATECHANGE,
+	.wakeup_lat = {
+		[PWRDM_FUNC_PWRST_OFF] = 1000,
+		[PWRDM_FUNC_PWRST_OSWR] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_CSWR] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_INACTIVE] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_ON] = 0,
+	},
 };
 
 /* abe_44xx_pwrdm: Audio back end power domain */
 static struct powerdomain abe_44xx_pwrdm = {
 	.name		  = "abe_pwrdm",
+	.voltdm		  = { .name = "iva" },
 	.prcm_offs	  = OMAP4430_PRM_ABE_INST,
 	.prcm_partition	  = OMAP4430_PRM_PARTITION,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
 	.pwrsts		  = PWRSTS_OFF_RET_ON,
 	.pwrsts_logic_ret = PWRSTS_OFF,
 	.banks		  = 2,
@@ -91,14 +105,21 @@ static struct powerdomain abe_44xx_pwrdm = {
 		[1] = PWRSTS_ON,	/* periphmem */
 	},
 	.flags		  = PWRDM_HAS_LOWPOWERSTATECHANGE,
+	.wakeup_lat = {
+		[PWRDM_FUNC_PWRST_OFF] = 1000,
+		[PWRDM_FUNC_PWRST_OSWR] = 600,
+		[PWRDM_FUNC_PWRST_CSWR] = 300,
+		[PWRDM_FUNC_PWRST_INACTIVE] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_ON] = 0,
+	},
 };
 
 /* dss_44xx_pwrdm: Display subsystem power domain */
 static struct powerdomain dss_44xx_pwrdm = {
 	.name		  = "dss_pwrdm",
+	.voltdm		  = { .name = "core" },
 	.prcm_offs	  = OMAP4430_PRM_DSS_INST,
 	.prcm_partition	  = OMAP4430_PRM_PARTITION,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
 	.pwrsts		  = PWRSTS_OFF_RET_ON,
 	.pwrsts_logic_ret = PWRSTS_OFF,
 	.banks		  = 1,
@@ -109,14 +130,21 @@ static struct powerdomain dss_44xx_pwrdm = {
 		[0] = PWRSTS_ON,	/* dss_mem */
 	},
 	.flags		  = PWRDM_HAS_LOWPOWERSTATECHANGE,
+	.wakeup_lat = {
+		[PWRDM_FUNC_PWRST_OFF] = 1000,
+		[PWRDM_FUNC_PWRST_OSWR] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_CSWR] = 300,
+		[PWRDM_FUNC_PWRST_INACTIVE] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_ON] = 0,
+	},
 };
 
 /* tesla_44xx_pwrdm: Tesla processor power domain */
 static struct powerdomain tesla_44xx_pwrdm = {
 	.name		  = "tesla_pwrdm",
+	.voltdm		  = { .name = "iva" },
 	.prcm_offs	  = OMAP4430_PRM_TESLA_INST,
 	.prcm_partition	  = OMAP4430_PRM_PARTITION,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
 	.pwrsts		  = PWRSTS_OFF_RET_ON,
 	.pwrsts_logic_ret = PWRSTS_OFF_RET,
 	.banks		  = 3,
@@ -131,14 +159,21 @@ static struct powerdomain tesla_44xx_pwrdm = {
 		[2] = PWRSTS_ON,	/* tesla_l2 */
 	},
 	.flags		  = PWRDM_HAS_LOWPOWERSTATECHANGE,
+	.wakeup_lat = {
+		[PWRDM_FUNC_PWRST_OFF] = 1000,
+		[PWRDM_FUNC_PWRST_OSWR] = 600,
+		[PWRDM_FUNC_PWRST_CSWR] = 300,
+		[PWRDM_FUNC_PWRST_INACTIVE] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_ON] = 0,
+	},
 };
 
 /* wkup_44xx_pwrdm: Wake-up power domain */
 static struct powerdomain wkup_44xx_pwrdm = {
 	.name		  = "wkup_pwrdm",
+	.voltdm		  = { .name = "wakeup" },
 	.prcm_offs	  = OMAP4430_PRM_WKUP_INST,
 	.prcm_partition	  = OMAP4430_PRM_PARTITION,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
 	.pwrsts		  = PWRSTS_ON,
 	.banks		  = 1,
 	.pwrsts_mem_ret	= {
@@ -152,9 +187,9 @@ static struct powerdomain wkup_44xx_pwrdm = {
 /* cpu0_44xx_pwrdm: MPU0 processor and Neon coprocessor power domain */
 static struct powerdomain cpu0_44xx_pwrdm = {
 	.name		  = "cpu0_pwrdm",
+	.voltdm		  = { .name = "mpu" },
 	.prcm_offs	  = OMAP4430_PRCM_MPU_CPU0_INST,
 	.prcm_partition	  = OMAP4430_PRCM_MPU_PARTITION,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
 	.pwrsts		  = PWRSTS_OFF_RET_ON,
 	.pwrsts_logic_ret = PWRSTS_OFF_RET,
 	.banks		  = 1,
@@ -164,14 +199,21 @@ static struct powerdomain cpu0_44xx_pwrdm = {
 	.pwrsts_mem_on	= {
 		[0] = PWRSTS_ON,	/* cpu0_l1 */
 	},
+	.wakeup_lat = {
+		[PWRDM_FUNC_PWRST_OFF] = 1000,
+		[PWRDM_FUNC_PWRST_OSWR] = 600,
+		[PWRDM_FUNC_PWRST_CSWR] = 300,
+		[PWRDM_FUNC_PWRST_INACTIVE] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_ON] = 0,
+	},
 };
 
 /* cpu1_44xx_pwrdm: MPU1 processor and Neon coprocessor power domain */
 static struct powerdomain cpu1_44xx_pwrdm = {
 	.name		  = "cpu1_pwrdm",
+	.voltdm		  = { .name = "mpu" },
 	.prcm_offs	  = OMAP4430_PRCM_MPU_CPU1_INST,
 	.prcm_partition	  = OMAP4430_PRCM_MPU_PARTITION,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
 	.pwrsts		  = PWRSTS_OFF_RET_ON,
 	.pwrsts_logic_ret = PWRSTS_OFF_RET,
 	.banks		  = 1,
@@ -181,14 +223,21 @@ static struct powerdomain cpu1_44xx_pwrdm = {
 	.pwrsts_mem_on	= {
 		[0] = PWRSTS_ON,	/* cpu1_l1 */
 	},
+	.wakeup_lat = {
+		[PWRDM_FUNC_PWRST_OFF] = 1000,
+		[PWRDM_FUNC_PWRST_OSWR] = 600,
+		[PWRDM_FUNC_PWRST_CSWR] = 300,
+		[PWRDM_FUNC_PWRST_INACTIVE] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_ON] = 0,
+	},
 };
 
 /* emu_44xx_pwrdm: Emulation power domain */
 static struct powerdomain emu_44xx_pwrdm = {
 	.name		  = "emu_pwrdm",
+	.voltdm		  = { .name = "wakeup" },
 	.prcm_offs	  = OMAP4430_PRM_EMU_INST,
 	.prcm_partition	  = OMAP4430_PRM_PARTITION,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
 	.pwrsts		  = PWRSTS_OFF_ON,
 	.banks		  = 1,
 	.pwrsts_mem_ret	= {
@@ -202,9 +251,9 @@ static struct powerdomain emu_44xx_pwrdm = {
 /* mpu_44xx_pwrdm: Modena processor and the Neon coprocessor power domain */
 static struct powerdomain mpu_44xx_pwrdm = {
 	.name		  = "mpu_pwrdm",
+	.voltdm		  = { .name = "mpu" },
 	.prcm_offs	  = OMAP4430_PRM_MPU_INST,
 	.prcm_partition	  = OMAP4430_PRM_PARTITION,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
 	.pwrsts		  = PWRSTS_RET_ON,
 	.pwrsts_logic_ret = PWRSTS_OFF_RET,
 	.banks		  = 3,
@@ -218,14 +267,21 @@ static struct powerdomain mpu_44xx_pwrdm = {
 		[1] = PWRSTS_ON,	/* mpu_l2 */
 		[2] = PWRSTS_ON,	/* mpu_ram */
 	},
+	.wakeup_lat = {
+		[PWRDM_FUNC_PWRST_OFF] = 1000,
+		[PWRDM_FUNC_PWRST_OSWR] = 600,
+		[PWRDM_FUNC_PWRST_CSWR] = 300,
+		[PWRDM_FUNC_PWRST_INACTIVE] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_ON] = 0,
+	},
 };
 
 /* ivahd_44xx_pwrdm: IVA-HD power domain */
 static struct powerdomain ivahd_44xx_pwrdm = {
 	.name		  = "ivahd_pwrdm",
+	.voltdm		  = { .name = "iva" },
 	.prcm_offs	  = OMAP4430_PRM_IVAHD_INST,
 	.prcm_partition	  = OMAP4430_PRM_PARTITION,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
 	.pwrsts		  = PWRSTS_OFF_RET_ON,
 	.pwrsts_logic_ret = PWRSTS_OFF,
 	.banks		  = 4,
@@ -242,14 +298,21 @@ static struct powerdomain ivahd_44xx_pwrdm = {
 		[3] = PWRSTS_ON,	/* tcm2_mem */
 	},
 	.flags		  = PWRDM_HAS_LOWPOWERSTATECHANGE,
+	.wakeup_lat = {
+		[PWRDM_FUNC_PWRST_OFF] = 1000,
+		[PWRDM_FUNC_PWRST_OSWR] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_CSWR] = 300,
+		[PWRDM_FUNC_PWRST_INACTIVE] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_ON] = 0,
+	},
 };
 
 /* cam_44xx_pwrdm: Camera subsystem power domain */
 static struct powerdomain cam_44xx_pwrdm = {
 	.name		  = "cam_pwrdm",
+	.voltdm		  = { .name = "core" },
 	.prcm_offs	  = OMAP4430_PRM_CAM_INST,
 	.prcm_partition	  = OMAP4430_PRM_PARTITION,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
 	.pwrsts		  = PWRSTS_OFF_ON,
 	.banks		  = 1,
 	.pwrsts_mem_ret	= {
@@ -259,14 +322,21 @@ static struct powerdomain cam_44xx_pwrdm = {
 		[0] = PWRSTS_ON,	/* cam_mem */
 	},
 	.flags		  = PWRDM_HAS_LOWPOWERSTATECHANGE,
+	.wakeup_lat = {
+		[PWRDM_FUNC_PWRST_OFF] = 1000,
+		[PWRDM_FUNC_PWRST_OSWR] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_CSWR] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_INACTIVE] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_ON] = 0,
+	},
 };
 
 /* l3init_44xx_pwrdm: L3 initators pheripherals power domain  */
 static struct powerdomain l3init_44xx_pwrdm = {
 	.name		  = "l3init_pwrdm",
+	.voltdm		  = { .name = "core" },
 	.prcm_offs	  = OMAP4430_PRM_L3INIT_INST,
 	.prcm_partition	  = OMAP4430_PRM_PARTITION,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
 	.pwrsts		  = PWRSTS_RET_ON,
 	.pwrsts_logic_ret = PWRSTS_OFF_RET,
 	.banks		  = 1,
@@ -276,15 +346,22 @@ static struct powerdomain l3init_44xx_pwrdm = {
 	.pwrsts_mem_on	= {
 		[0] = PWRSTS_ON,	/* l3init_bank1 */
 	},
-	.flags		  = PWRDM_HAS_LOWPOWERSTATECHANGE,
+	.flags		  = PWRDM_HAS_LOWPOWERSTATECHANGE | PWRDM_HAS_HDWR_SAR,
+	.wakeup_lat = {
+		[PWRDM_FUNC_PWRST_OFF] = 1000,
+		[PWRDM_FUNC_PWRST_OSWR] = 600,
+		[PWRDM_FUNC_PWRST_CSWR] = 300,
+		[PWRDM_FUNC_PWRST_INACTIVE] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_ON] = 0,
+	},
 };
 
 /* l4per_44xx_pwrdm: Target peripherals power domain */
 static struct powerdomain l4per_44xx_pwrdm = {
 	.name		  = "l4per_pwrdm",
+	.voltdm		  = { .name = "core" },
 	.prcm_offs	  = OMAP4430_PRM_L4PER_INST,
 	.prcm_partition	  = OMAP4430_PRM_PARTITION,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
 	.pwrsts		  = PWRSTS_RET_ON,
 	.pwrsts_logic_ret = PWRSTS_OFF_RET,
 	.banks		  = 2,
@@ -297,6 +374,13 @@ static struct powerdomain l4per_44xx_pwrdm = {
 		[1] = PWRSTS_ON,	/* retained_bank */
 	},
 	.flags		  = PWRDM_HAS_LOWPOWERSTATECHANGE,
+	.wakeup_lat = {
+		[PWRDM_FUNC_PWRST_OFF] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_OSWR] = 600,
+		[PWRDM_FUNC_PWRST_CSWR] = 300,
+		[PWRDM_FUNC_PWRST_INACTIVE] = UNSUP_STATE,
+		[PWRDM_FUNC_PWRST_ON] = 0,
+	},
 };
 
 /*
@@ -305,18 +389,18 @@ static struct powerdomain l4per_44xx_pwrdm = {
  */
 static struct powerdomain always_on_core_44xx_pwrdm = {
 	.name		  = "always_on_core_pwrdm",
+	.voltdm		  = { .name = "core" },
 	.prcm_offs	  = OMAP4430_PRM_ALWAYS_ON_INST,
 	.prcm_partition	  = OMAP4430_PRM_PARTITION,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
 	.pwrsts		  = PWRSTS_ON,
 };
 
 /* cefuse_44xx_pwrdm: Customer efuse controller power domain */
 static struct powerdomain cefuse_44xx_pwrdm = {
 	.name		  = "cefuse_pwrdm",
+	.voltdm		  = { .name = "core" },
 	.prcm_offs	  = OMAP4430_PRM_CEFUSE_INST,
 	.prcm_partition	  = OMAP4430_PRM_PARTITION,
-	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
 	.pwrsts		  = PWRSTS_OFF_ON,
 	.flags		  = PWRDM_HAS_LOWPOWERSTATECHANGE,
 };
@@ -352,5 +436,7 @@ static struct powerdomain *powerdomains_omap44xx[] __initdata = {
 
 void __init omap44xx_powerdomains_init(void)
 {
-	pwrdm_init(powerdomains_omap44xx, &omap4_pwrdm_operations);
+	pwrdm_register_platform_funcs(&omap4_pwrdm_operations);
+	pwrdm_register_pwrdms(powerdomains_omap44xx);
+	pwrdm_complete_init();
 }

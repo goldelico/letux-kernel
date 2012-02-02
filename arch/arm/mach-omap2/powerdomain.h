@@ -19,10 +19,14 @@
 
 #include <linux/types.h>
 #include <linux/list.h>
-
+#include <linux/plist.h>
+#include <linux/mutex.h>
 #include <linux/atomic.h>
+#include <linux/pm_qos.h>
 
 #include <plat/cpu.h>
+
+#include "voltage.h"
 
 /* Powerdomain basic power states */
 #define PWRDM_POWER_OFF		0x0
@@ -43,6 +47,16 @@
 #define PWRSTS_RET_ON		(PWRSTS_RET | PWRSTS_ON)
 #define PWRSTS_OFF_RET_ON	(PWRSTS_OFF_RET | PWRSTS_ON)
 
+/* Powerdomain functional power states */
+#define PWRDM_FUNC_PWRST_OFF		0x0
+#define PWRDM_FUNC_PWRST_OSWR		0x1
+#define PWRDM_FUNC_PWRST_CSWR		0x2
+#define PWRDM_FUNC_PWRST_INACTIVE	0x3
+#define PWRDM_FUNC_PWRST_ON		0x4
+
+#define PWRDM_MAX_FUNC_PWRSTS	5
+
+#define UNSUP_STATE		-1
 
 /* Powerdomain flags: hardware save-and-restore support */
 #define PWRDM_HAS_HDWR_SAR		(1 << 0)
@@ -89,7 +103,7 @@ struct powerdomain;
 /**
  * struct powerdomain - OMAP powerdomain
  * @name: Powerdomain name
- * @omap_chip: represents the OMAP chip types containing this pwrdm
+ * @voltdm: voltagedomain containing this powerdomain
  * @prcm_offs: the address offset from CM_BASE/PRM_BASE
  * @prcm_partition: (OMAP4 only) the PRCM partition ID containing @prcm_offs
  * @pwrsts: Possible powerdomain power states
@@ -100,16 +114,26 @@ struct powerdomain;
  * @pwrsts_mem_on: Possible memory bank pwrstates when pwrdm in ON
  * @pwrdm_clkdms: Clockdomains in this powerdomain
  * @node: list_head linking all powerdomains
+ * @voltdm_node: list_head linking all powerdomains in a voltagedomain
  * @state:
  * @state_counter:
  * @timer:
  * @state_timer:
- *
+ * @wakeup_lat: wakeup latencies (in us) for possible powerdomain power states
+ * Note about the wakeup latencies ordering: the values must be sorted
+ *  in decremental order
+ * @wkup_lat_plist_head: pwrdm wake-up latency constraints list
+ * @wkup_lat_plist_lock: mutex that protects the constraints lists
+ *  domains states
+ * @wkup_lat_next_state: next pwrdm state, calculated from the constraints list
  * @prcm_partition possible values are defined in mach-omap2/prcm44xx.h.
  */
 struct powerdomain {
 	const char *name;
-	const struct omap_chip_id omap_chip;
+	union {
+		const char *name;
+		struct voltagedomain *ptr;
+	} voltdm;
 	const s16 prcm_offs;
 	const u8 pwrsts;
 	const u8 pwrsts_logic_ret;
@@ -120,15 +144,27 @@ struct powerdomain {
 	const u8 prcm_partition;
 	struct clockdomain *pwrdm_clkdms[PWRDM_MAX_CLKDMS];
 	struct list_head node;
+	struct list_head voltdm_node;
 	int state;
 	unsigned state_counter[PWRDM_MAX_PWRSTS];
 	unsigned ret_logic_off_counter;
 	unsigned ret_mem_off_counter[PWRDM_MAX_MEM_BANKS];
+	atomic_t usecount;
 
 #ifdef CONFIG_PM_DEBUG
 	s64 timer;
 	s64 state_timer[PWRDM_MAX_PWRSTS];
 #endif
+	const s32 wakeup_lat[PWRDM_MAX_FUNC_PWRSTS];
+	struct plist_head wkup_lat_plist_head;
+	struct mutex wkup_lat_plist_lock;
+	int wkup_lat_next_state;
+};
+
+/* Linked list for the wake-up latency constraints */
+struct pwrdm_wkup_constraints_entry {
+	void			*cookie;
+	struct plist_node	node;
 };
 
 /**
@@ -177,7 +213,9 @@ struct pwrdm_ops {
 	int	(*pwrdm_disable_force_off)(struct powerdomain *pwrdm);
 };
 
-void pwrdm_init(struct powerdomain **pwrdm_list, struct pwrdm_ops *custom_funcs);
+int pwrdm_register_platform_funcs(struct pwrdm_ops *custom_funcs);
+int pwrdm_register_pwrdms(struct powerdomain **pwrdm_list);
+int pwrdm_complete_init(void);
 
 struct powerdomain *pwrdm_lookup(const char *name);
 
@@ -191,6 +229,7 @@ int pwrdm_del_clkdm(struct powerdomain *pwrdm, struct clockdomain *clkdm);
 int pwrdm_for_each_clkdm(struct powerdomain *pwrdm,
 			 int (*fn)(struct powerdomain *pwrdm,
 				   struct clockdomain *clkdm));
+struct voltagedomain *pwrdm_get_voltdm(struct powerdomain *pwrdm);
 
 int pwrdm_get_mem_bank_count(struct powerdomain *pwrdm);
 
@@ -221,13 +260,25 @@ int pwrdm_state_switch(struct powerdomain *pwrdm);
 int pwrdm_clkdm_state_switch(struct clockdomain *clkdm);
 int pwrdm_pre_transition(void);
 int pwrdm_post_transition(void);
+
+void pwrdm_clkdm_enable(struct powerdomain *pwrdm);
+void pwrdm_clkdm_disable(struct powerdomain *pwrdm);
+
 int pwrdm_set_lowpwrstchange(struct powerdomain *pwrdm);
 u32 pwrdm_get_context_loss_count(struct powerdomain *pwrdm);
 bool pwrdm_can_ever_lose_context(struct powerdomain *pwrdm);
 int pwrdm_enable_force_off(struct powerdomain *pwrdm);
 int pwrdm_disable_force_off(struct powerdomain *pwrdm);
+int pwrdm_set_wkup_lat_constraint(struct powerdomain *pwrdm, void *cookie,
+				long min_latency);
+#define pwrdm_wakeuplat_update_constraint(pwrdm, cookie, min_latency)	\
+				pwrdm_set_wkup_lat_constraint(pwrdm, cookie, min_latency)
 
-extern void omap2xxx_powerdomains_init(void);
+#define pwrdm_wakeuplat_remove_constraint(pwrdm, cookie)					\
+				pwrdm_set_wkup_lat_constraint(pwrdm, cookie,			\
+				PM_QOS_DEV_LAT_DEFAULT_VALUE)
+extern void omap242x_powerdomains_init(void);
+extern void omap243x_powerdomains_init(void);
 extern void omap3xxx_powerdomains_init(void);
 extern void omap44xx_powerdomains_init(void);
 extern void omap54xx_powerdomains_init(void);

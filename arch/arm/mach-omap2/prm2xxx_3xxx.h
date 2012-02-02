@@ -1,7 +1,7 @@
 /*
  * OMAP2/3 Power/Reset Management (PRM) register definitions
  *
- * Copyright (C) 2007-2009 Texas Instruments, Inc.
+ * Copyright (C) 2007-2009, 2011 Texas Instruments, Inc.
  * Copyright (C) 2008-2010 Nokia Corporation
  * Paul Walmsley
  *
@@ -167,6 +167,10 @@
 #define OMAP3430_PRM_VP2_VOLTAGE	OMAP34XX_PRM_REGADDR(OMAP3430_GR_MOD, 0x00e0)
 #define OMAP3_PRM_VP2_STATUS_OFFSET	0x00e4
 #define OMAP3430_PRM_VP2_STATUS		OMAP34XX_PRM_REGADDR(OMAP3430_GR_MOD, 0x00e4)
+#define OMAP3_PRM_LDO_ABB_SETUP_OFFSET	0x00f0
+#define OMAP3630_PRM_LDO_ABB_SETUP	OMAP34XX_PRM_REGADDR(OMAP3430_GR_MOD, 0x00f0)
+#define OMAP3_PRM_LDO_ABB_CTRL_OFFSET	0x00f4
+#define OMAP3630_PRM_LDO_ABB_CTRL	OMAP34XX_PRM_REGADDR(OMAP3430_GR_MOD, 0x00f4)
 
 #define OMAP3_PRM_CLKSEL_OFFSET	0x0040
 #define OMAP3430_PRM_CLKSEL		OMAP34XX_PRM_REGADDR(OMAP3430_CCR_MOD, 0x0040)
@@ -290,6 +294,16 @@ static inline int omap2_prm_deassert_hardreset(s16 prm_mod, u8 rst_shift,
 		"not suppose to be used on omap4\n");
 	return 0;
 }
+static inline void omap3_trigger_wuclk_ctrl(void)
+{
+	WARN(1, "prm: omap2xxx/omap3xxx specific function and "
+		"not suppose to be used on omap4\n");
+}
+static inline void omap3_disable_io_chain(void)
+{
+	WARN(1, "prm: omap2xxx/omap3xxx specific function and "
+		"not suppose to be used on omap4\n");
+}
 #else
 /* Power/reset management domain register get/set */
 extern u32 omap2_prm_read_mod_reg(s16 module, u16 idx);
@@ -303,8 +317,33 @@ extern u32 omap2_prm_read_mod_bits_shift(s16 domain, s16 idx, u32 mask);
 extern int omap2_prm_is_hardreset_asserted(s16 prm_mod, u8 shift);
 extern int omap2_prm_assert_hardreset(s16 prm_mod, u8 shift);
 extern int omap2_prm_deassert_hardreset(s16 prm_mod, u8 rst_shift, u8 st_shift);
+extern void omap3_trigger_wuclk_ctrl(void);
+extern void omap3_disable_io_chain(void);
+
+/* OMAP3-specific VP functions */
+u32 omap3_prm_vp_check_txdone(u8 vp_id);
+void omap3_prm_vp_clear_txdone(u8 vp_id);
+
+/* OMAP36xx-specific ABB functions */
+u32 omap3_prm_abb_check_txdone(u8 vp_id);
+void omap3_prm_abb_clear_txdone(u8 vp_id);
+
+/*
+ * OMAP3 access functions for voltage controller (VC) and
+ * voltage proccessor (VP) in the PRM.
+ */
+extern u32 omap3_prm_vcvp_read(u8 offset);
+extern void omap3_prm_vcvp_write(u32 val, u8 offset);
+extern u32 omap3_prm_vcvp_rmw(u32 mask, u32 bits, u8 offset);
+
+/* PRM interrupt-related functions */
+extern void omap3xxx_prm_read_pending_irqs(unsigned long *events);
+extern void omap3xxx_prm_ocp_barrier(void);
+extern void omap3xxx_prm_save_and_clear_irqen(u32 *saved_mask);
+extern void omap3xxx_prm_restore_irqen(u32 *saved_mask);
 
 #endif	/* CONFIG_ARCH_OMAP4 */
+
 #endif
 
 /*

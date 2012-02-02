@@ -343,6 +343,7 @@ static inline void __omap_dm_timer_init_regs(struct omap_dm_timer *timer)
 static inline void __omap_dm_timer_reset(struct omap_dm_timer *timer,
 					int autoidle, int wakeup)
 {
+#if 0
 	u32 l;
 
 	l = __raw_readl(timer->io_base + OMAP_TIMER_OCP_CFG_OFFSET);
@@ -356,6 +357,7 @@ static inline void __omap_dm_timer_reset(struct omap_dm_timer *timer,
 		l |= 1 << 2;
 
 	__raw_writel(l, timer->io_base + OMAP_TIMER_OCP_CFG_OFFSET);
+#endif
 
 	/* Match hardware reset default of posted mode */
 	__omap_dm_timer_write(timer, OMAP_TIMER_IF_CTRL_REG,

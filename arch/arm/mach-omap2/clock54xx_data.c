@@ -39,6 +39,14 @@
 #include "control.h"
 #include "scrm54xx.h"
 
+/* OMAP4 modulemode control */
+#define OMAP54XX_MODULEMODE_HWCTRL			0
+#define OMAP54XX_MODULEMODE_SWCTRL			1
+
+static int omap5_virt_l3_set_rate(struct clk *clk, unsigned long rate);
+static long omap5_virt_l3_round_rate(struct clk *clk, unsigned long rate);
+static unsigned long omap5_virt_l3_recalc(struct clk *clk);
+
 /* Root clocks */
 
 static struct clk pad_clks_ck = {
@@ -1265,6 +1273,16 @@ static const struct clksel l3init_60m_fclk_div[] = {
 	{ .parent = &dpll_usb_m2_ck, .rates = div2_0to8_rates },
 	{ .parent = NULL },
 };
+
+static struct clk virt_l3_ck = {
+	.name		= "virt_l3_ck",
+	.parent		= &dpll_core_h12x2_ck,
+	.ops		= &clkops_null,
+	.set_rate	= &omap5_virt_l3_set_rate,
+	.recalc		= &omap5_virt_l3_recalc,
+	.round_rate	= &omap5_virt_l3_round_rate,
+};
+
 static struct clk l3init_60m_fclk = {
 	.name		= "l3init_60m_fclk",
 	.parent		= &dpll_usb_m2_ck,
@@ -2013,6 +2031,26 @@ static struct clk usb_tll_hs_usb_ch2_clk = {
 	.clkdm_name	= "l3init_clkdm",
 };
 
+static struct clk usb_host_hs_fck = {
+	.name		= "usb_host_hs_fck",
+	.ops		= &clkops_omap2_dflt,
+	.enable_reg	= OMAP54XX_CM_L3INIT_USB_HOST_HS_CLKCTRL,
+	.enable_bit	= OMAP54XX_MODULEMODE_SWCTRL,
+	.clkdm_name	= "l3init_clkdm",
+	.parent		= &l3init_60m_fclk,
+	.recalc		= &followparent_recalc,
+};
+
+static struct clk usb_tll_hs_ick = {
+	.name		= "usb_tll_hs_ick",
+	.ops		= &clkops_omap2_dflt,
+	.enable_reg	= OMAP54XX_CM_L3INIT_USB_TLL_HS_CLKCTRL,
+	.enable_bit	= OMAP54XX_MODULEMODE_HWCTRL,
+	.clkdm_name	= "l3init_clkdm",
+	.parent		= &l4_div_ck,
+	.recalc		= &followparent_recalc,
+};
+
 static const struct clksel fdif_fclk_div[] = {
 	{ .parent = &dpll_per_h11x2_ck, .rates = div2_1to2_rates },
 	{ .parent = NULL },
@@ -2351,6 +2389,7 @@ static struct clk auxclkreq5_ck = {
 	.clksel_mask	= OMAP5_MAPPING_MASK,
 	.recalc		= &omap2_clksel_recalc,
 };
+
 /*
  * clkdev
  */
@@ -2384,6 +2423,7 @@ static struct omap_clk omap54xx_clks[] = {
 	CLK(NULL,	"dpll_abe_m3x2_ck",		&dpll_abe_m3x2_ck,	CK_54XX),
 	CLK(NULL,	"dpll_core_ck",			&dpll_core_ck,	CK_54XX),
 	CLK(NULL,	"dpll_core_h12x2_ck",		&dpll_core_h12x2_ck,	CK_54XX),
+	CLK(NULL,	"virt_l3_ck",			&virt_l3_ck,		CK_54XX),
 	CLK(NULL,	"div_iva_hs_clk",		&div_iva_hs_clk,	CK_54XX),
 	CLK(NULL,	"div_mpu_hs_clk",		&div_mpu_hs_clk,	CK_54XX),
 	CLK(NULL,	"syc_clk_div_ck",		&syc_clk_div_ck,	CK_54XX),
@@ -2493,10 +2533,12 @@ static struct omap_clk omap54xx_clks[] = {
 	CLK(NULL,	"usb_host_hs_utmi_p1_clk",	&usb_host_hs_utmi_p1_clk,	CK_54XX),
 	CLK(NULL,	"usb_host_hs_utmi_p2_clk",	&usb_host_hs_utmi_p2_clk,	CK_54XX),
 	CLK(NULL,	"usb_host_hs_utmi_p3_clk",	&usb_host_hs_utmi_p3_clk,	CK_54XX),
+	CLK(NULL,	"usb_host_hs_fck",		&usb_host_hs_fck,		CK_54XX),
 	CLK(NULL,	"usb_otg_ss_refclk960m_ck",	&usb_otg_ss_refclk960m_ck,	CK_54XX),
 	CLK(NULL,	"usb_tll_hs_usb_ch0_clk",	&usb_tll_hs_usb_ch0_clk,	CK_54XX),
 	CLK(NULL,	"usb_tll_hs_usb_ch1_clk",	&usb_tll_hs_usb_ch1_clk,	CK_54XX),
 	CLK(NULL,	"usb_tll_hs_usb_ch2_clk",	&usb_tll_hs_usb_ch2_clk,	CK_54XX),
+	CLK(NULL,	"usb_tll_hs_ick",		&usb_tll_hs_ick,		CK_54XX),
 	CLK(NULL,	"fdif_fclk",			&fdif_fclk,	CK_54XX),
 	CLK(NULL,	"hsi_fclk",			&hsi_fclk,	CK_54XX),
 	CLK(NULL,	"auxclk0_src_ck",		&auxclk0_src_ck,	CK_54XX),
@@ -2588,6 +2630,115 @@ static struct omap_clk omap54xx_clks[] = {
 	CLK("omap_timer.7",	"sys_ck",	&syc_clk_div_ck,	CK_54XX),
 	CLK("omap_timer.8",	"sys_ck",	&syc_clk_div_ck,	CK_54XX),
 };
+
+#define L3_OPP50_RATE				133000000
+#define DPLL_CORE_M2_OPP50_RATE		266000000
+#define DPLL_CORE_M2_OPP100_RATE	532000000
+#define DPLL_CORE_M3_OPP50_RATE		266000000
+#define DPLL_CORE_M3_OPP100_RATE	425600000
+#define DPLL_CORE_H14_OPP50_RATE	212800000
+#define DPLL_CORE_H14_OPP100_RATE	425600000
+#define DPLL_CORE_H22_OPP50_RATE	212800000
+#define DPLL_CORE_H22_OPP100_RATE	425600000
+#define DPLL_CORE_H23_OPP50_RATE	152000000
+#define DPLL_CORE_H23_OPP100_RATE	304000000
+#define DPLL_PER_M3_OPP50_RATE		192000000
+#define DPLL_PER_M3_OPP100_RATE		256000000
+#define DPLL_PER_H14_OPP50_RATE		192000000
+#define DPLL_PER_H14_OPP100_RATE	512000000
+
+static long omap5_virt_l3_round_rate(struct clk *clk, unsigned long rate)
+{
+	long parent_rate;
+
+	if (!clk || !clk->parent)
+		return 0;
+
+	if (clk->parent->round_rate) {
+		parent_rate = clk->parent->round_rate(clk->parent, rate * 2);
+		if (parent_rate)
+			return parent_rate / 2;
+	}
+	return 0;
+}
+
+static unsigned long omap5_virt_l3_recalc(struct clk *clk)
+{
+	if (!clk || !clk->parent)
+		return 0;
+
+	return clk->parent->rate / 2;
+}
+
+static int omap5_clksel_set_rate(struct clk *clk, unsigned long rate)
+{
+	int ret = -EINVAL;
+
+	if (!clk->set_rate || !clk->round_rate)
+		return ret;
+
+	rate = clk->round_rate(clk, rate);
+	if (rate) {
+		ret = clk->set_rate(clk, rate);
+		if (!ret)
+			propagate_rate(clk);
+	}
+	return ret;
+}
+
+struct virt_l3_ck_deps {
+	unsigned long core_m2_rate;
+	unsigned long core_m3_rate;
+	unsigned long core_h14_rate;
+	unsigned long core_h22_rate;
+	unsigned long core_h23_rate;
+	unsigned long per_m3_rate;
+};
+
+#define NO_OF_L3_OPPS 2
+#define L3_OPP_50_INDEX 0
+#define L3_OPP_100_INDEX 1
+
+static struct virt_l3_ck_deps omap5_virt_l3_clk_deps[NO_OF_L3_OPPS] = {
+	{ /* OPP 50 */
+		.core_m2_rate = DPLL_CORE_M2_OPP50_RATE,
+		.core_m3_rate = DPLL_CORE_M3_OPP50_RATE,
+		.core_h14_rate = DPLL_CORE_H14_OPP50_RATE,
+		.core_h22_rate = DPLL_CORE_H22_OPP50_RATE,
+		.core_h23_rate = DPLL_CORE_H23_OPP50_RATE,
+		.per_m3_rate = DPLL_PER_M3_OPP50_RATE,
+	},
+	{ /* OPP 100 */
+		.core_m2_rate = DPLL_CORE_M2_OPP100_RATE,
+		.core_m3_rate = DPLL_CORE_M3_OPP100_RATE,
+		.core_h14_rate = DPLL_CORE_H14_OPP100_RATE,
+		.core_h22_rate = DPLL_CORE_H22_OPP100_RATE,
+		.core_h23_rate = DPLL_CORE_H23_OPP100_RATE,
+		.per_m3_rate = DPLL_PER_M3_OPP100_RATE,
+	},
+};
+
+static int omap5_virt_l3_set_rate(struct clk *clk, unsigned long rate)
+{
+	struct virt_l3_ck_deps *l3_deps;
+
+	if (rate <= L3_OPP50_RATE)
+		l3_deps = &omap5_virt_l3_clk_deps[L3_OPP_50_INDEX];
+	else
+		l3_deps = &omap5_virt_l3_clk_deps[L3_OPP_100_INDEX];
+
+	omap5_clksel_set_rate(&dpll_core_m2_ck, l3_deps->core_m2_rate);
+	omap5_clksel_set_rate(&dpll_core_m3x2_ck, l3_deps->core_m3_rate);
+	omap5_clksel_set_rate(&dpll_core_h14x2_ck, l3_deps->core_h14_rate);
+	omap5_clksel_set_rate(&dpll_core_h22x2_ck, l3_deps->core_h22_rate);
+	omap5_clksel_set_rate(&dpll_core_h23x2_ck, l3_deps->core_h23_rate);
+
+	omap5_clksel_set_rate(&dpll_per_m3x2_ck, l3_deps->per_m3_rate);
+	omap5_clksel_set_rate(&dpll_core_h12x2_ck, rate * 2);
+
+	clk->rate = rate;
+	return 0;
+}
 
 int __init omap5xxx_clk_init(void)
 {

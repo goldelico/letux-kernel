@@ -41,7 +41,7 @@ config OMAP_DEBUG_LEDS
 
 config OMAP_SMARTREFLEX
 	bool "SmartReflex support"
-	depends on (ARCH_OMAP3 || ARCH_OMAP4) && PM
+	depends on (ARCH_OMAP3 || ARCH_OMAP4 || ARCH_OMAP5) && PM
 	help
 	  Say Y if you want to enable SmartReflex.
 
@@ -61,6 +61,11 @@ config OMAP_SMARTREFLEX
 	  by default during system init via the enable_on_init flag
 	  which an be passed as platform data to the smartreflex driver.
 
+choice
+	prompt "OMAP SmartReflex operating mode selection"
+	depends on (ARCH_OMAP3 || ARCH_OMAP4 || ARCH_OMAP5) && PM
+	default OMAP_SMARTREFLEX_CLASS3
+
 config OMAP_SMARTREFLEX_CLASS3
 	bool "Class 3 mode of Smartreflex Implementation"
 	depends on OMAP_SMARTREFLEX && TWL4030_CORE
@@ -69,6 +74,25 @@ config OMAP_SMARTREFLEX_CLASS3
 
 	  Class 3 implementation of Smartreflex employs continuous hardware
 	  voltage calibration.
+
+config OMAP_SMARTREFLEX_CLASS1P5
+	bool "Class 1.5 mode of Smartreflex Implementation"
+	depends on OMAP_SMARTREFLEX && TWL4030_CORE
+	help
+	  Say Y to enable Class 1.5 implementation of Smartreflex
+	  Class 1.5 implementation of Smartreflex employs software controlled
+	  hardware voltage calibration.
+
+endchoice
+
+config OMAP_SR_CLASS1P5_RECALIBRATION_DELAY
+	int "Class 1.5 mode recalibration recalibration delay(ms)"
+	depends on OMAP_SMARTREFLEX_CLASS1P5
+	default 86400000
+	help
+	  Setup the recalibration delay in milliseconds. Use 0 for never doing
+	  a recalibration. Defaults to recommended recalibration every 24hrs.
+	  If you do not understand this, use the default.
 
 config OMAP_RESET_CLOCKS
 	bool "Reset unused clocks during boot"
@@ -98,6 +122,15 @@ config OMAP5_SEVM_PALMAS
 	help
 	  For PALMAS support in OMAP5 say Y. Only for SEVM boards with
 	  PALMAS/TWL6035 mounted on them say y else
+
+config OMAP4460_SEVM_PALMAS
+	bool "PALMAS Support on OMAP4460"
+	depends on ARCH_OMAP
+	default n
+	help
+	  For PALMAS support in OMAP4460 say Y. By default this should
+	  be turned n since all OMAP4460 come with TWL6030. Only for
+	  SEVM boards with PALMAS/TWL6035 mounted on them say y else
 	  say n.
 
 config OMAP_MUX_DEBUG

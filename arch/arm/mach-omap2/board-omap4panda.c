@@ -24,6 +24,7 @@
 #include <linux/leds.h>
 #include <linux/gpio.h>
 #include <linux/usb/otg.h>
+#include <linux/hwspinlock.h>
 #include <linux/i2c/twl.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/fixed.h>
@@ -271,8 +272,40 @@ static struct i2c_board_info __initdata panda_i2c_eeprom[] = {
 	},
 };
 
+static void __init omap_i2c_hwspinlock_init(int bus_id, int spinlock_id,
+					struct omap_i2c_bus_board_data *pdata)
+{
+	/* spinlock_id should be -1 for a generic lock request */
+	if (spinlock_id < 0)
+		pdata->handle = hwspin_lock_request();
+	else
+		pdata->handle = hwspin_lock_request_specific(spinlock_id);
+
+	if (pdata->handle != NULL) {
+		pdata->hwspin_lock_timeout = hwspin_lock_timeout;
+		pdata->hwspin_unlock = hwspin_unlock;
+	} else {
+		pr_err("I2C hwspinlock request failed for bus %d\n", bus_id);
+	}
+}
+
+static struct omap_i2c_bus_board_data __initdata panda_i2c_1_bus_pdata;
+static struct omap_i2c_bus_board_data __initdata panda_i2c_2_bus_pdata;
+static struct omap_i2c_bus_board_data __initdata panda_i2c_3_bus_pdata;
+static struct omap_i2c_bus_board_data __initdata panda_i2c_4_bus_pdata;
+
 static int __init omap4_panda_i2c_init(void)
 {
+	omap_i2c_hwspinlock_init(1, 0, &panda_i2c_1_bus_pdata);
+	omap_i2c_hwspinlock_init(2, 1, &panda_i2c_2_bus_pdata);
+	omap_i2c_hwspinlock_init(3, 2, &panda_i2c_3_bus_pdata);
+	omap_i2c_hwspinlock_init(4, 3, &panda_i2c_4_bus_pdata);
+
+	omap_register_i2c_bus_board_data(1, &panda_i2c_1_bus_pdata);
+	omap_register_i2c_bus_board_data(2, &panda_i2c_2_bus_pdata);
+	omap_register_i2c_bus_board_data(3, &panda_i2c_3_bus_pdata);
+	omap_register_i2c_bus_board_data(4, &panda_i2c_4_bus_pdata);
+
 	omap4_pmic_get_config(&omap4_panda_twldata, TWL_COMMON_PDATA_USB,
 			TWL_COMMON_REGULATOR_VDAC |
 			TWL_COMMON_REGULATOR_VAUX2 |
@@ -489,6 +522,11 @@ void omap4_panda_display_init(void)
 	omap_display_init(&omap4_panda_dss_data);
 }
 
+static struct __initdata emif_custom_configs custom_configs = {
+	.mask   = EMIF_CUSTOM_CONFIG_LPMODE,
+	.lpmode = EMIF_LP_MODE_DISABLE
+};
+
 static void __init omap4_panda_init(void)
 {
 	int package = OMAP_PACKAGE_CBS;
@@ -499,11 +537,14 @@ static void __init omap4_panda_init(void)
 	omap_emif_set_device_details(1, &lpddr2_elpida_2G_S4_x2_info,
 			lpddr2_elpida_2G_S4_timings,
 			ARRAY_SIZE(lpddr2_elpida_2G_S4_timings),
-			&lpddr2_elpida_S4_min_tck, NULL);
+			&lpddr2_elpida_S4_min_tck,
+			&custom_configs);
+
 	omap_emif_set_device_details(2, &lpddr2_elpida_2G_S4_x2_info,
 			lpddr2_elpida_2G_S4_timings,
 			ARRAY_SIZE(lpddr2_elpida_2G_S4_timings),
-			&lpddr2_elpida_S4_min_tck, NULL);
+			&lpddr2_elpida_S4_min_tck,
+			&custom_configs);
 
 	omap4_mux_init(board_mux, NULL, package);
 

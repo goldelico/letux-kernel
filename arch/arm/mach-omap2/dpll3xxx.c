@@ -139,10 +139,19 @@ static u16 _omap3_dpll_compute_freqsel(struct clk *clk, u8 n)
  */
 static int _omap3_noncore_dpll_lock(struct clk *clk)
 {
+	const struct dpll_data *dd;
 	u8 ai;
-	int r;
+	u8 state = 1;
+	int r = 0;
 
 	pr_debug("clock: locking DPLL %s\n", clk->name);
+
+	dd = clk->dpll_data;
+	state <<= __ffs(dd->idlest_mask);
+
+	/* Check if already locked */
+	if ((__raw_readl(dd->idlest_reg) & dd->idlest_mask) == state)
+		goto done;
 
 	ai = omap3_dpll_autoidle_read(clk);
 
@@ -155,6 +164,7 @@ static int _omap3_noncore_dpll_lock(struct clk *clk)
 	if (ai)
 		omap3_dpll_allow_idle(clk);
 
+done:
 	return r;
 }
 
@@ -308,7 +318,7 @@ static int omap3_noncore_dpll_program(struct clk *clk, u16 m, u8 n, u16 freqsel)
 	 * Set jitter correction. No jitter correction for OMAP4 and 3630
 	 * since freqsel field is no longer present
 	 */
-	if (!cpu_is_omap44xx() && !cpu_is_omap3630()) {
+	if (!cpu_is_omap54xx() && !cpu_is_omap44xx() && !cpu_is_omap3630()) {
 		v = __raw_readl(dd->control_reg);
 		v &= ~dd->freqsel_mask;
 		v |= freqsel << __ffs(dd->freqsel_mask);
@@ -468,7 +478,7 @@ int omap3_noncore_dpll_set_rate(struct clk *clk, unsigned long rate)
 			return -EINVAL;
 
 		/* No freqsel on OMAP4 and OMAP3630 */
-		if (!cpu_is_omap44xx() && !cpu_is_omap3630()) {
+		if (!cpu_is_omap54xx() && !cpu_is_omap44xx() && !cpu_is_omap3630()) {
 			freqsel = _omap3_dpll_compute_freqsel(clk,
 						dd->last_rounded_n);
 			if (!freqsel)

@@ -11,18 +11,24 @@
 
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/notifier.h>
 #include <linux/io.h>
 #include <linux/err.h>
 #include <linux/opp.h>
+#include <linux/pm_qos.h>
 
 #include <plat/omap-pm.h>
 #include <plat/omap_device.h>
 #include <plat/common.h>
+#include <plat/omap_hwmod.h>
 
 #include "voltage.h"
 #include "powerdomain.h"
 #include "clockdomain.h"
 #include "pm.h"
+#include "dvfs.h"
+#include "prm2xxx_3xxx.h"
+#include "prm44xx.h"
 
 static struct omap_device_pm_latency *pm_lats;
 
@@ -30,6 +36,23 @@ static struct device *mpu_dev;
 static struct device *iva_dev;
 static struct device *l3_dev;
 static struct device *dsp_dev;
+
+bool omap_pm_is_ready_status;
+
+/**
+ * struct omap2_oscillator - Describe the board main oscillator latencies
+ * @startup_time: oscillator startup latency
+ * @shutdown_time: oscillator shutdown latency
+ */
+struct omap2_oscillator {
+	u32 startup_time;
+	u32 shutdown_time;
+};
+
+static struct omap2_oscillator oscillator = {
+	.startup_time = ULONG_MAX,
+	.shutdown_time = ULONG_MAX,
+};
 
 struct device *omap2_get_mpuss_device(void)
 {
@@ -55,6 +78,18 @@ struct device *omap4_get_dsp_device(void)
 	return dsp_dev;
 }
 EXPORT_SYMBOL(omap4_get_dsp_device);
+
+void omap_pm_setup_oscillator(u32 tstart, u32 tshut)
+{
+	oscillator.startup_time = tstart;
+	oscillator.shutdown_time = tshut;
+}
+
+void omap_pm_get_oscillator(u32 *tstart, u32 *tshut)
+{
+	*tstart = oscillator.startup_time;
+	*tshut = oscillator.shutdown_time;
+}
 
 /* static int _init_omap_device(struct omap_hwmod *oh, void *user) */
 static int _init_omap_device(char *name, struct device **new_dev)
@@ -86,13 +121,24 @@ static void omap2_init_processor_devices(void)
 	if (omap3_has_iva())
 		_init_omap_device("iva", &iva_dev);
 
-	if (cpu_is_omap44xx()) {
+	if (cpu_is_omap44xx() || cpu_is_omap54xx()) {
 		_init_omap_device("l3_main_1", &l3_dev);
+#ifndef CONFIG_OMAP_PM_STANDALONE
 		_init_omap_device("dsp", &dsp_dev);
 		_init_omap_device("iva", &iva_dev);
+#endif
 	} else {
 		_init_omap_device("l3_main", &l3_dev);
 	}
+}
+
+void omap_trigger_wuclk_ctrl(void)
+{
+	if (cpu_is_omap34xx())
+		omap3_trigger_wuclk_ctrl();
+
+	if (cpu_is_omap44xx() || cpu_is_omap54xx())
+		omap4_trigger_wuclk_ctrl();
 }
 
 /* Types of sleep_switch used in omap_set_pwrdm_state */
@@ -130,6 +176,7 @@ int omap_set_pwrdm_state(struct powerdomain *pwrdm, u32 state)
 		} else {
 			hwsup = clkdm_in_hwsup(pwrdm->pwrdm_clkdms[0]);
 			clkdm_wakeup(pwrdm->pwrdm_clkdms[0]);
+			pwrdm_wait_transition(pwrdm);
 			sleep_switch = FORCEWAKEUP_SWITCH;
 		}
 	}
@@ -174,14 +221,15 @@ static int __init omap2_set_init_voltage(char *vdd_name, char *clk_name,
 	struct voltagedomain *voltdm;
 	struct clk *clk;
 	struct opp *opp;
-	unsigned long freq, bootup_volt;
+	unsigned long freq_cur, freq_valid, bootup_volt;
+	int ret = -EINVAL;
 
 	if (!vdd_name || !clk_name || !dev) {
 		printk(KERN_ERR "%s: Invalid parameters!\n", __func__);
 		goto exit;
 	}
 
-	voltdm = omap_voltage_domain_lookup(vdd_name);
+	voltdm = voltdm_lookup(vdd_name);
 	if (IS_ERR(voltdm)) {
 		printk(KERN_ERR "%s: Unable to get vdd pointer for vdd_%s\n",
 			__func__, vdd_name);
@@ -195,25 +243,80 @@ static int __init omap2_set_init_voltage(char *vdd_name, char *clk_name,
 		goto exit;
 	}
 
-	freq = clk->rate;
-	clk_put(clk);
+	freq_cur = clk->rate;
+	freq_valid = freq_cur;
 
-	opp = opp_find_freq_ceil(dev, &freq);
+	rcu_read_lock();
+	opp = opp_find_freq_ceil(dev, &freq_valid);
 	if (IS_ERR(opp)) {
-		printk(KERN_ERR "%s: unable to find boot up OPP for vdd_%s\n",
-			__func__, vdd_name);
-		goto exit;
+		opp = opp_find_freq_floor(dev, &freq_valid);
+		if (IS_ERR(opp)) {
+			rcu_read_unlock();
+			pr_err("%s: no boot OPP match for %ld on vdd_%s\n",
+				__func__, freq_cur, vdd_name);
+			ret = -ENOENT;
+			goto exit_ck;
+		}
 	}
 
 	bootup_volt = opp_get_voltage(opp);
+	rcu_read_unlock();
 	if (!bootup_volt) {
 		printk(KERN_ERR "%s: unable to find voltage corresponding"
 			"to the bootup OPP for vdd_%s\n", __func__, vdd_name);
-		goto exit;
+		ret = -ENOENT;
+		goto exit_ck;
 	}
 
-	omap_voltage_scale_vdd(voltdm, bootup_volt);
-	return 0;
+	/*
+	 * Frequency and Voltage have to be sequenced: if we move from
+	 * a lower frequency to higher frequency, raise voltage, followed by
+	 * frequency, and vice versa. we assume that the voltage at boot
+	 * is the required voltage for the frequency it was set for.
+	 * NOTE:
+	 * we can check the frequency, but there is numerous ways to set
+	 * voltage. We play the safe path and just set the voltage.
+	 */
+
+	if (freq_cur < freq_valid) {
+		ret = voltdm_scale(voltdm,
+			omap_voltage_get_voltdata(voltdm, bootup_volt));
+		if (ret) {
+			pr_err("%s: Fail set voltage-%s(f=%ld v=%ld)on vdd%s\n",
+				__func__, vdd_name, freq_valid,
+				bootup_volt, vdd_name);
+			goto exit_ck;
+		}
+	}
+
+	/* Set freq only if there is a difference in freq */
+	if (freq_valid != freq_cur) {
+		ret = clk_set_rate(clk, freq_valid);
+		if (ret) {
+			pr_err("%s: Fail set clk-%s(f=%ld v=%ld)on vdd%s\n",
+				__func__, clk_name, freq_valid,
+				bootup_volt, vdd_name);
+			goto exit_ck;
+		}
+	}
+
+	if (freq_cur >= freq_valid) {
+		ret = voltdm_scale(voltdm,
+			omap_voltage_get_voltdata(voltdm, bootup_volt));
+		if (ret) {
+			pr_err("%s: Fail set voltage-%s(f=%ld v=%ld)on vdd%s\n",
+				__func__, clk_name, freq_valid,
+				bootup_volt, vdd_name);
+			goto exit_ck;
+		}
+	}
+
+	ret = 0;
+exit_ck:
+	clk_put(clk);
+
+	if (!ret)
+		return 0;
 
 exit:
 	printk(KERN_ERR "%s: Unable to put vdd_%s to its init voltage\n\n",
@@ -226,7 +329,7 @@ static void __init omap3_init_voltages(void)
 	if (!cpu_is_omap34xx())
 		return;
 
-	omap2_set_init_voltage("mpu", "dpll1_ck", mpu_dev);
+	omap2_set_init_voltage("mpu_iva", "dpll1_ck", mpu_dev);
 	omap2_set_init_voltage("core", "l3_ick", l3_dev);
 }
 
@@ -236,33 +339,151 @@ static void __init omap4_init_voltages(void)
 		return;
 
 	omap2_set_init_voltage("mpu", "dpll_mpu_ck", mpu_dev);
-	omap2_set_init_voltage("core", "l3_div_ck", l3_dev);
+	omap2_set_init_voltage("core", "virt_l3_ck", l3_dev);
 	omap2_set_init_voltage("iva", "dpll_iva_m5x2_ck", iva_dev);
+}
+
+/* Interface to the per-device PM QoS framework */
+static int omap2_dev_pm_qos_handler(struct notifier_block *nb,
+				    unsigned long new_value,
+				    void *req)
+{
+	struct omap_device *od;
+	struct omap_hwmod *oh;
+	struct platform_device *pdev;
+	struct dev_pm_qos_request *dev_pm_qos_req = req;
+
+	pr_debug("OMAP PM CONSTRAINTS: req@0x%p, new_value=%lu\n",
+		 req, new_value);
+
+	/* Look for the platform device for the constraint target device */
+	pdev = to_platform_device(dev_pm_qos_req->dev);
+
+	/* Try to catch non platform devices */
+	if (pdev->name == NULL) {
+		pr_err("%s: Error: platform device for device %s not valid\n",
+		       __func__, dev_name(dev_pm_qos_req->dev));
+		return -EINVAL;
+	}
+
+	/* Find the associated omap_device for dev */
+	od = container_of(pdev, struct omap_device, pdev);
+
+	/* Find the primary omap_hwmod for dev */
+	oh = od->hwmods[0];
+
+	if (od->hwmods_cnt != 1)
+		pr_warn_once("%s: No unique hwmod for device %s, using the "
+			     "hwmod[0] entry (%s)\n", __func__,
+			     dev_name(dev_pm_qos_req->dev), oh->name);
+
+	pr_debug("OMAP PM CONSTRAINTS: req@0x%p, dev=0x%p, new_value=%lu\n",
+		 req, dev_pm_qos_req->dev, new_value);
+
+	/* Apply the constraint */
+	return omap_hwmod_set_wkup_lat_constraint(oh, dev_pm_qos_req,
+						  new_value);
+}
+
+static struct notifier_block omap2_dev_pm_qos_notifier = {
+	.notifier_call	= omap2_dev_pm_qos_handler,
+};
+
+static int __init omap2_dev_pm_qos_init(void)
+{
+	int ret;
+
+	ret = dev_pm_qos_add_global_notifier(&omap2_dev_pm_qos_notifier);
+	if (ret)
+		WARN(1, KERN_ERR "Cannot add global notifier for dev PM QoS\n");
+
+	return ret;
+}
+
+/* Interface to the memory throughput class of the PM QoS framework */
+static int omap2_pm_qos_tput_handler(struct notifier_block *nb,
+				     unsigned long new_value,
+				     void *unused)
+{
+	int ret = 0;
+	struct device *l3_dev;
+	static struct device dummy_l3_dev = {
+		.init_name = "omap2_pm_qos_tput_handler",
+	};
+
+	pr_debug("OMAP PM MEM TPUT: new_value=%lu\n", new_value);
+
+	/* Apply the constraint */
+
+	l3_dev = omap2_get_l3_device();
+	if (!l3_dev) {
+		pr_err("Unable to get l3 device pointer");
+		ret = -EINVAL;
+		goto err;
+	}
+
+	/*
+	 * Add a call to the DVFS layer, using the new_value (in kB/s)
+	 * as the minimum memory throughput to calculate the L3
+	 * minimum allowed frequency
+	 */
+	/* Convert the throughput(in KiB/s) into Hz. */
+	new_value = (new_value * 1000) / 4;
+
+	ret = omap_device_scale(&dummy_l3_dev, l3_dev, new_value);
+
+err:
+	return ret;
+}
+
+static struct notifier_block omap2_pm_qos_tput_notifier = {
+	.notifier_call	= omap2_pm_qos_tput_handler,
+};
+
+static int __init omap2_pm_qos_tput_init(void)
+{
+	int ret;
+
+	ret = pm_qos_add_notifier(PM_QOS_MEMORY_THROUGHPUT,
+				  &omap2_pm_qos_tput_notifier);
+	if (ret)
+		WARN(1, KERN_ERR "Cannot add global notifier for dev PM QoS\n");
+
+	return ret;
+}
+
+static void __init omap5_init_voltages(void)
+{
+	if (!cpu_is_omap54xx())
+		return;
+
+	omap2_set_init_voltage("mpu", "virt_dpll_mpu_ck", mpu_dev);
+	omap2_set_init_voltage("core", "virt_l3_ck", l3_dev);
+#ifndef CONFIG_OMAP_PM_STANDALONE
+	omap2_set_init_voltage("mm", "dpll_iva_h12x2_ck", iva_dev);
+#endif
 }
 
 static int __init omap2_common_pm_init(void)
 {
-	if (cpu_is_omap54xx()) {
-		pr_err("FIXME: omap2_common_pm_init\n");
-		return 0;
-	}
 	omap2_init_processor_devices();
 	omap_pm_if_init();
 
+	/* Register to the per-device PM QoS framework */
+	omap2_dev_pm_qos_init();
+
+	/* Register to the throughput class of PM QoS */
+	omap2_pm_qos_tput_init();
+
 	return 0;
 }
+
 postcore_initcall(omap2_common_pm_init);
 
 static int __init omap2_common_pm_late_init(void)
 {
-	if (cpu_is_omap54xx()) {
-		pr_err("FIXME: omap2_common_pm_late_init\n");
-		return 0;
-	}
-
 	/* Init the OMAP TWL parameters */
-	omap3_twl_init();
-	omap4_twl_init();
+	omap_init_all_pmic();
 
 	/* Init the voltage layer */
 	omap_voltage_late_init();
@@ -270,9 +491,14 @@ static int __init omap2_common_pm_late_init(void)
 	/* Initialize the voltages */
 	omap3_init_voltages();
 	omap4_init_voltages();
+	omap5_init_voltages();
 
 	/* Smartreflex device init */
 	omap_devinit_smartreflex();
+
+	omap_pm_is_ready_status = true;
+	/* let the other CPU know as well */
+	smp_wmb();
 
 	return 0;
 }

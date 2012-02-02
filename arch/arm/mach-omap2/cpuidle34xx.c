@@ -37,27 +37,41 @@
 #ifdef CONFIG_CPU_IDLE
 
 /*
- * The latencies/thresholds for various C states have
- * to be configured from the respective board files.
- * These are some default values (which might not provide
- * the best power savings) used on boards which do not
- * pass these details from the board file.
+ * The MPU latency and threshold values for the C-states are the worst case
+ * values from the HW and SW, as described in details at
+ * http://www.omappedia.org/wiki/Power_Management_Device_Latencies_Measurement#cpuidle_results
+ *
+ * Measurements conditions and remarks:
+ *  . the measurements have been performed at OPP50
+ *  . the sys_offmode signal is not supported and so not used for the
+ *    measurements. Instead the latency and threshold values for C9 are
+ *    corrected with the value for Triton 2, which is 11.5ms
+ *  . the sys_clkreq signal is not used and so a correction is needed - TBD
+ *  . the sys_clkoff signal is supported, this value need to be corrected with
+ *    the correct value of SYSCLK on/off timings (1ms for sysclk on, 2.5ms
+ *    for sysclk off)
+ *  . in order to force the cpuidle algorithm to chose the power efficient
+ *    C-states (C1, C3, C5, C7) in preference, the other C-states have a
+ *    threshold value equal to the next power efficient C-state
+ *
+ * The latency and threshold values can be overriden by data from the board
+ * files, using omap3_pm_init_cpuidle.
  */
 static struct cpuidle_params cpuidle_params_table[] = {
-	/* C1 */
-	{2 + 2, 5, 1},
-	/* C2 */
-	{10 + 10, 30, 1},
-	/* C3 */
-	{50 + 50, 300, 1},
-	/* C4 */
-	{1500 + 1800, 4000, 1},
-	/* C5 */
-	{2500 + 7500, 12000, 1},
-	/* C6 */
-	{3000 + 8500, 15000, 1},
-	/* C7 */
-	{10000 + 30000, 300000, 1},
+	/* C1 . MPU WFI + Core active */
+	{73 + 78, 152, 1},
+	/* C2 . MPU WFI + Core inactive */
+	{165 + 88, 345, 1},
+	/* C3 . MPU CSWR + Core inactive */
+	{163 + 182, 345, 1},
+	/* C4 . MPU OFF + Core inactive */
+	{2852 + 605, 150000, 1},
+	/* C5 . MPU RET + Core RET */
+	{800 + 366, 2120, 1},
+	/* C6 . MPU OFF + Core RET */
+	{4080 + 801, 215000, 1},
+	/* C7 . MPU OFF + Core OFF */
+	{4300 + 13000, 215000, 1},
 };
 #define OMAP3_NUM_STATES ARRAY_SIZE(cpuidle_params_table)
 
@@ -72,14 +86,14 @@ struct omap3_idle_statedata omap3_idle_data[OMAP3_NUM_STATES];
 struct powerdomain *mpu_pd, *core_pd, *per_pd, *cam_pd;
 
 static int _cpuidle_allow_idle(struct powerdomain *pwrdm,
-				struct clockdomain *clkdm)
+			       struct clockdomain *clkdm)
 {
 	clkdm_allow_idle(clkdm);
 	return 0;
 }
 
 static int _cpuidle_deny_idle(struct powerdomain *pwrdm,
-				struct clockdomain *clkdm)
+			      struct clockdomain *clkdm)
 {
 	clkdm_deny_idle(clkdm);
 	return 0;
@@ -92,9 +106,13 @@ static int _cpuidle_deny_idle(struct powerdomain *pwrdm,
  *
  * Called from the CPUidle framework to program the device to the
  * specified target state selected by the governor.
+ *
+ * Note: this function does not check for any pending activity or dependency
+ * between power domains states, so the caller shall check the parameters
+ * correctness.
  */
 static int omap3_enter_idle(struct cpuidle_device *dev,
-			struct cpuidle_state *state)
+			    struct cpuidle_state *state)
 {
 	struct omap3_idle_statedata *cx = cpuidle_get_statedata(state);
 	struct timespec ts_preidle, ts_postidle, ts_idle;
@@ -160,8 +178,11 @@ return_sleep_time:
  * Else, this function searches for a lower c-state which is still
  * valid.
  *
- * A state is valid if the 'valid' field is enabled and
- * if it satisfies the enable_off_mode condition.
+ * A state is valid if:
+ * . the 'valid' field is enabled,
+ * . it satisfies the enable_off_mode flag,
+ * . the next state for MPU and CORE power domains is not lower than the
+ *   state programmed by the per-device PM QoS.
  */
 static struct cpuidle_state *next_valid_state(struct cpuidle_device *dev,
 					      struct cpuidle_state *curr)
@@ -170,6 +191,8 @@ static struct cpuidle_state *next_valid_state(struct cpuidle_device *dev,
 	struct omap3_idle_statedata *cx = cpuidle_get_statedata(curr);
 	u32 mpu_deepest_state = PWRDM_POWER_RET;
 	u32 core_deepest_state = PWRDM_POWER_RET;
+	u32 mpu_pm_qos_next_state = mpu_pd->wkup_lat_next_state;
+	u32 core_pm_qos_next_state = core_pd->wkup_lat_next_state;
 
 	if (enable_off_mode) {
 		mpu_deepest_state = PWRDM_POWER_OFF;
@@ -185,7 +208,9 @@ static struct cpuidle_state *next_valid_state(struct cpuidle_device *dev,
 	/* Check if current state is valid */
 	if ((cx->valid) &&
 	    (cx->mpu_state >= mpu_deepest_state) &&
-	    (cx->core_state >= core_deepest_state)) {
+	    (cx->core_state >= core_deepest_state) &&
+	    (cx->mpu_state >= mpu_pm_qos_next_state) &&
+	    (cx->core_state >= core_pm_qos_next_state)) {
 		return curr;
 	} else {
 		int idx = OMAP3_NUM_STATES - 1;
@@ -210,7 +235,9 @@ static struct cpuidle_state *next_valid_state(struct cpuidle_device *dev,
 			cx = cpuidle_get_statedata(&dev->states[idx]);
 			if ((cx->valid) &&
 			    (cx->mpu_state >= mpu_deepest_state) &&
-			    (cx->core_state >= core_deepest_state)) {
+			    (cx->core_state >= core_deepest_state) &&
+			    (cx->mpu_state >= mpu_pm_qos_next_state) &&
+			    (cx->core_state >= core_pm_qos_next_state)) {
 				next = &dev->states[idx];
 				break;
 			}
@@ -229,8 +256,12 @@ static struct cpuidle_state *next_valid_state(struct cpuidle_device *dev,
  * @dev: cpuidle device
  * @state: The target state to be programmed
  *
- * This function checks for any pending activity and then programs
- * the device to the specified or a safer state.
+ * Called from the CPUidle framework to program the device to the
+ * specified target state selected by the governor.
+ *
+ * This function checks for any pending activity or dependency between
+ * power domains states and then programs the device to the specified
+ * or a safer state.
  */
 static int omap3_enter_idle_bm(struct cpuidle_device *dev,
 			       struct cpuidle_state *state)
@@ -250,19 +281,13 @@ static int omap3_enter_idle_bm(struct cpuidle_device *dev,
 		goto select_state;
 	}
 
-	/*
-	 * FIXME: we currently manage device-specific idle states
-	 *        for PER and CORE in combination with CPU-specific
-	 *        idle states.  This is wrong, and device-specific
-	 *        idle management needs to be separated out into
-	 *        its own code.
-	 */
+	new_state = next_valid_state(dev, state);
 
 	/*
 	 * Prevent PER off if CORE is not in retention or off as this
 	 * would disable PER wakeups completely.
 	 */
-	cx = cpuidle_get_statedata(state);
+	cx = cpuidle_get_statedata(new_state);
 	core_next_state = cx->core_state;
 	per_next_state = per_saved_state = pwrdm_read_next_pwrst(per_pd);
 	if ((per_next_state == PWRDM_POWER_OFF) &&
@@ -272,8 +297,6 @@ static int omap3_enter_idle_bm(struct cpuidle_device *dev,
 	/* Are we changing PER target state? */
 	if (per_next_state != per_saved_state)
 		pwrdm_set_next_pwrst(per_pd, per_next_state);
-
-	new_state = next_valid_state(dev, state);
 
 select_state:
 	dev->last_state = new_state;

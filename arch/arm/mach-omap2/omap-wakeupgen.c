@@ -33,6 +33,8 @@
 
 #include "omap4-sar-layout.h"
 
+#include "pm.h"
+
 #define MAX_NR_BANKS		5
 #define MAX_IRQS		160
 #define WKG_MASK_ALL		0x00000000
@@ -43,6 +45,16 @@
 #define OMAP4_NR_BANKS		4
 #define OMAP4_NR_IRQS		128
 
+#define GIC_MASK_ALL			0x0
+#define GIC_ISR_NON_SECURE		0xffffffff
+#define SPI_ENABLE_SET_OFFSET		0x04
+#define PPI_PRI_OFFSET			0x1c
+#define SPI_PRI_OFFSET			0x20
+#define SPI_TARGET_OFFSET		0x20
+#define SPI_CONFIG_OFFSET		0x20
+
+/* Variables to store maximum spi(Shared Peripheral Interrupts) registers. */
+static u32 max_spi_irq, max_spi_reg;
 
 static void __iomem *wakeupgen_base;
 static void __iomem *sar_base;
@@ -52,6 +64,8 @@ static unsigned int irq_target_cpu[NR_IRQS];
 static unsigned int irq_banks = MAX_NR_BANKS;
 static unsigned int max_irqs = MAX_IRQS;
 static unsigned int secure_api_index;
+
+static struct powerdomain *mpuss_pd;
 
 /*
  * Static helper functions.
@@ -198,7 +212,167 @@ static void wakeupgen_irqmask_all(unsigned int cpu, unsigned int set)
 	spin_unlock_irqrestore(&wakeupgen_lock, flags);
 }
 
-static inline void omap4_irq_save_context(void)
+/*
+ * Save GIC context in SAR RAM. Restore is done by ROM code
+ * GIC is lost only when MPU hits OSWR or OFF. It consists
+ * of a distributor and a per-CPU interface module. The GIC
+ * save restore is optimised to save only necessary registers.
+ */
+static void omap4_gic_save_context(void)
+{
+	u8 i;
+	u32 val;
+
+	/*
+	 * Interrupt Clear Enable registers are inverse of set enable
+	 * and hence not needed to be saved. ROM code programs it
+	 * based on Set Enable register values.
+	 */
+
+	/* Save CPU 0 Interrupt Set Enable register */
+	val = gic_readl(GIC_DIST_ENABLE_SET, 0);
+	sar_writel(val, ICDISER_CPU0_OFFSET, 0);
+
+	/* Disable interrupts on CPU1 */
+	sar_writel(GIC_MASK_ALL, ICDISER_CPU1_OFFSET, 0);
+
+	/* Save all SPI Set Enable register */
+	for (i = 0; i < max_spi_reg; i++) {
+		val = gic_readl(GIC_DIST_ENABLE_SET + SPI_ENABLE_SET_OFFSET, i);
+		sar_writel(val, ICDISER_SPI_OFFSET, i);
+	}
+
+	/*
+	 * Interrupt Priority Registers
+	 * Secure sw accesses, last 5 bits of the 8 bits (bit[7:3] are used)
+	 * Non-Secure sw accesses, last 4 bits (i.e. bits[7:4] are used)
+	 * But the Secure Bits[7:3] are shifted by 1 in Non-Secure access.
+	 * Secure (bits[7:3] << 1)== Non Secure bits[7:4]
+	 * Hence right shift the value by 1 while saving the priority
+	 */
+
+	/* Save SGI priority registers (Software Generated Interrupt) */
+	for (i = 0; i < 4; i++) {
+		val = gic_readl(GIC_DIST_PRI, i);
+
+		/* Save the priority bits of the Interrupts */
+		sar_writel(val >> 0x1, ICDIPR_SFI_CPU0_OFFSET, i);
+
+		/* Disable the interrupts on CPU1 */
+		sar_writel(GIC_MASK_ALL, ICDIPR_SFI_CPU1_OFFSET, i);
+	}
+
+	/* Save PPI priority registers (Private Peripheral Intterupts) */
+	val = gic_readl(GIC_DIST_PRI + PPI_PRI_OFFSET, 0);
+	sar_writel(val >> 0x1, ICDIPR_PPI_CPU0_OFFSET, 0);
+	sar_writel(GIC_MASK_ALL, ICDIPR_PPI_CPU1_OFFSET, 0);
+
+	/* SPI priority registers - 4 interrupts/register */
+	for (i = 0; i < (max_spi_irq / 4); i++) {
+		val = gic_readl((GIC_DIST_PRI + SPI_PRI_OFFSET), i);
+		sar_writel(val >> 0x1, ICDIPR_SPI_OFFSET, i);
+	}
+
+	/* SPI Interrupt Target registers - 4 interrupts/register */
+	for (i = 0; i < (max_spi_irq / 4); i++) {
+		val = gic_readl((GIC_DIST_TARGET + SPI_TARGET_OFFSET), i);
+		sar_writel(val, ICDIPTR_SPI_OFFSET, i);
+	}
+
+	/* SPI Interrupt Congigeration eegisters- 16 interrupts/register */
+	for (i = 0; i < (max_spi_irq / 16); i++) {
+		val = gic_readl((GIC_DIST_CONFIG + SPI_CONFIG_OFFSET), i);
+		sar_writel(val, ICDICFR_OFFSET, i);
+	}
+
+	/* Set the Backup Bit Mask status for GIC */
+	val = __raw_readl(sar_base + SAR_BACKUP_STATUS_OFFSET);
+	val |= (SAR_BACKUP_STATUS_GIC_CPU0 | SAR_BACKUP_STATUS_GIC_CPU1);
+	__raw_writel(val, sar_base + SAR_BACKUP_STATUS_OFFSET);
+}
+
+static void omap5_gic_save_context(void)
+{
+	u8 i;
+	u32 val;
+
+	/*
+	 * Interrupt Clear Enable registers are inverse of set enable
+	 * and hence not needed to be saved. ROM code programs it
+	 * based on Set Enable register values.
+	 */
+
+	/* Save CPU 0 Interrupt Set Enable register */
+	val = gic_readl(GIC_DIST_ENABLE_SET, 0);
+	sar_writel(val, OMAP5_ICDISER_CPU0_OFFSET, 0);
+
+	/* Disable interrupts on CPU1 */
+	sar_writel(GIC_MASK_ALL, OMAP5_ICDISER_CPU1_OFFSET, 0);
+
+	/* Save all SPI Set Enable register */
+	for (i = 0; i < max_spi_reg; i++) {
+		val = gic_readl(GIC_DIST_ENABLE_SET + SPI_ENABLE_SET_OFFSET, i);
+		sar_writel(val, OMAP5_ICDISER_SPI_OFFSET, i);
+	}
+
+	/*
+	 * Interrupt Priority Registers
+	 * Secure sw accesses, last 5 bits of the 8 bits (bit[7:3] are used)
+	 * Non-Secure sw accesses, last 4 bits (i.e. bits[7:4] are used)
+	 * But the Secure Bits[7:3] are shifted by 1 in Non-Secure access.
+	 * Secure (bits[7:3] << 1)== Non Secure bits[7:4]
+	 * Hence right shift the value by 1 while saving the priority
+	 */
+
+	/* Save SGI priority registers (Software Generated Interrupt) */
+	for (i = 0; i < 4; i++) {
+		val = gic_readl(GIC_DIST_PRI, i);
+
+		/* Save the priority bits of the Interrupts */
+		sar_writel(val >> 0x1, OMAP5_ICDIPR_SFI_CPU0_OFFSET, i);
+
+		/* Disable the interrupts on CPU1 */
+		sar_writel(GIC_MASK_ALL, OMAP5_ICDIPR_SFI_CPU1_OFFSET, i);
+	}
+
+	/* Save PPI priority registers (Private Peripheral Intterupts) */
+	val = gic_readl(GIC_DIST_PRI + PPI_PRI_OFFSET, 0);
+	sar_writel(val >> 0x1, OMAP5_ICDIPR_PPI_CPU0_OFFSET, 0);
+	sar_writel(GIC_MASK_ALL, OMAP5_ICDIPR_PPI_CPU1_OFFSET, 0);
+
+	/* SPI priority registers - 4 interrupts/register */
+	for (i = 0; i < (max_spi_irq / 4); i++) {
+		val = gic_readl((GIC_DIST_PRI + SPI_PRI_OFFSET), i);
+		sar_writel(val >> 0x1, OMAP5_ICDIPR_SPI_OFFSET, i);
+	}
+
+	/* SPI Interrupt Target registers - 4 interrupts/register */
+	for (i = 0; i < (max_spi_irq / 4); i++) {
+		val = gic_readl((GIC_DIST_TARGET + SPI_TARGET_OFFSET), i);
+		sar_writel(val, OMAP5_ICDIPTR_SPI_OFFSET, i);
+	}
+
+	/* SPI Interrupt Congigeration eegisters- 16 interrupts/register */
+	for (i = 0; i < (max_spi_irq / 16); i++) {
+		val = gic_readl((GIC_DIST_CONFIG + SPI_CONFIG_OFFSET), i);
+		sar_writel(val, OMAP5_ICDICFR_OFFSET, i);
+	}
+
+	/* Set the Backup Bit Mask status for GIC */
+	val = __raw_readl(sar_base + OMAP5_SAR_BACKUP_STATUS_OFFSET);
+	val |= (SAR_BACKUP_STATUS_GIC_CPU0 | SAR_BACKUP_STATUS_GIC_CPU1);
+	__raw_writel(val, sar_base + OMAP5_SAR_BACKUP_STATUS_OFFSET);
+}
+
+static void gic_save_context(void)
+{
+	if (cpu_is_omap44xx())
+		omap4_gic_save_context();
+	else
+		omap5_gic_save_context();
+}
+
+static inline void omap4_wakeupgen_save_context(void)
 {
 	u32 i, val;
 
@@ -245,7 +419,7 @@ static inline void omap4_irq_save_context(void)
 
 }
 
-static inline void omap5_irq_save_context(void)
+static inline void omap5_wakeupgen_save_context(void)
 {
 	u32 i, val;
 
@@ -280,21 +454,21 @@ static inline void omap5_irq_save_context(void)
  * interrupt enable/disable control should be in sync and consistent
  * at WakeupGen and GIC so that interrupts are not lost.
  */
-static void irq_save_context(void)
+static void omap_wakeupgen_save(void)
 {
 	if (!sar_base)
 		sar_base = omap4_get_sar_ram_base();
 
 	if (cpu_is_omap54xx())
-		omap5_irq_save_context();
+		omap5_wakeupgen_save_context();
 	else
-		omap4_irq_save_context();
+		omap4_wakeupgen_save_context();
 }
 
 /*
  * Clear WakeupGen SAR backup status.
  */
-void irq_sar_clear(void)
+static void irq_sar_clear(void)
 {
 	u32 val;
 	u32 offset = SAR_BACKUP_STATUS_OFFSET;
@@ -303,7 +477,8 @@ void irq_sar_clear(void)
 		offset = OMAP5_SAR_BACKUP_STATUS_OFFSET;
 
 	val = __raw_readl(sar_base + offset);
-	val &= ~SAR_BACKUP_STATUS_WAKEUPGEN;
+	val &= ~(SAR_BACKUP_STATUS_WAKEUPGEN | SAR_BACKUP_STATUS_GIC_CPU0 |
+		 SAR_BACKUP_STATUS_GIC_CPU1);
 	__raw_writel(val, sar_base + offset);
 }
 
@@ -311,7 +486,7 @@ void irq_sar_clear(void)
  * Save GIC and Wakeupgen interrupt context using secure API
  * for HS/EMU devices.
  */
-static void irq_save_secure_context(void)
+static void save_gic_wakeupgen_secure(void)
 {
 	u32 ret;
 	ret = omap_secure_dispatcher(secure_api_index,
@@ -319,6 +494,46 @@ static void irq_save_secure_context(void)
 				0, 0, 0, 0, 0);
 	if (ret != API_HAL_RET_VALUE_OK)
 		pr_err("GIC and Wakeupgen context save failed\n");
+}
+
+static void save_secure_ram(void)
+{
+	u32 ret;
+	ret = omap_secure_dispatcher(OMAP4_HAL_SAVESECURERAM_INDEX,
+				FLAG_START_CRITICAL,
+				1, omap_secure_ram_mempool_base(),
+				0, 0, 0);
+	if (ret != API_HAL_RET_VALUE_OK)
+		pr_err("Secure ram context save failed\n");
+}
+
+static void save_secure_all(void)
+{
+	u32 ret;
+	ret = omap_secure_dispatcher(OMAP4_HAL_SAVEALL_INDEX,
+				FLAG_START_CRITICAL,
+				1, omap_secure_ram_mempool_base(),
+				0, 0, 0);
+	if (ret != API_HAL_RET_VALUE_OK)
+		pr_err("Secure all context save failed\n");
+}
+
+static void irq_save_context(void)
+{
+	omap_wakeupgen_save();
+	gic_save_context();
+}
+
+static void irq_save_secure_context(void)
+{
+	if (omap4_device_next_state_off()) {
+		save_secure_all();
+	} else if (pwrdm_read_next_pwrst(mpuss_pd) == PWRDM_POWER_OFF) {
+		save_gic_wakeupgen_secure();
+		save_secure_ram();
+	} else {
+		save_gic_wakeupgen_secure();
+	}
 }
 
 #ifdef CONFIG_HOTPLUG_CPU
@@ -437,8 +652,49 @@ int __init omap_wakeupgen_init(void)
 	for (i = 0; i < max_irqs; i++)
 		irq_target_cpu[i] = boot_cpu;
 
+	/*
+	 * Find out how many interrupts are supported.
+	 * OMAP4 supports max of 128 SPIs where as GIC can support
+	 * up to 1020 interrupt sources. On OMAP4, maximum SPIs are
+	 * fused in DIST_CTR bit-fields as 128. Hence the code is safe
+	 * from reserved register writes since its well within 1020.
+	 */
+	max_spi_reg = gic_readl(GIC_DIST_CTR, 0) & 0x1f;
+	max_spi_irq = max_spi_reg * 32;
+
+	/*
+	 * Mark the PPI and SPI interrupts as non-secure.
+	 * program the SAR locations for interrupt security registers to
+	 * reflect the same.
+	 */
+	if (omap_type() == OMAP2_DEVICE_TYPE_GP) {
+		u16 offset = 0, spi_offset = 0;
+
+		if (cpu_is_omap54xx()) {
+			offset = OMAP5_ICDISR_CPU0_OFFSET -
+				ICDISR_CPU0_OFFSET;
+			spi_offset = OMAP5_ICDISR_SPI_OFFSET -
+				ICDISR_SPI_OFFSET;
+			sar_base = ioremap(OMAP54XX_SAR_RAM_BASE, SZ_16K);
+		} else
+			sar_base = ioremap(OMAP44XX_SAR_RAM_BASE, SZ_16K);
+		sar_writel(GIC_ISR_NON_SECURE, ICDISR_CPU0_OFFSET + offset, 0);
+		sar_writel(GIC_ISR_NON_SECURE, ICDISR_CPU1_OFFSET + offset, 0);
+		for (i = 0; i < max_spi_reg; i++)
+			sar_writel(GIC_ISR_NON_SECURE, ICDISR_SPI_OFFSET +
+				spi_offset, i);
+		iounmap(sar_base);
+		sar_base = NULL;
+	}
+
 	irq_hotplug_init();
 	irq_pm_init();
+
+	mpuss_pd = pwrdm_lookup("mpu_pwrdm");
+	if (!mpuss_pd) {
+		pr_err("wakeupgen: unable to get mpu_pwrdm\n");
+		return -EINVAL;
+	}
 
 	return 0;
 }

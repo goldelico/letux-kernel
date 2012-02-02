@@ -136,6 +136,7 @@
 #include <linux/list.h>
 #include <linux/mutex.h>
 #include <linux/spinlock.h>
+#include <linux/slab.h>
 
 #include <plat/common.h>
 #include <plat/cpu.h>
@@ -143,6 +144,7 @@
 #include "powerdomain.h"
 #include <plat/clock.h>
 #include <plat/omap_hwmod.h>
+#include <plat/omap_device.h>
 #include <plat/prcm.h>
 
 #include "cm2xxx_3xxx.h"
@@ -151,6 +153,7 @@
 #include "prm44xx.h"
 #include "prminst44xx.h"
 #include "mux.h"
+#include "pm.h"
 
 /* Maximum microseconds to wait for OMAP module to softreset */
 #define MAX_MODULE_SOFTRESET_WAIT	10000
@@ -381,6 +384,51 @@ static int _set_module_autoidle(struct omap_hwmod *oh, u8 autoidle,
 }
 
 /**
+ * _set_idle_ioring_wakeup - enable/disable IO pad wakeup on hwmod idle for mux
+ * @oh: struct omap_hwmod *
+ * @set_wake: bool value indicating to set (true) or clear (false) wakeup enable
+ *
+ * Set or clear the I/O pad wakeup flag in the mux entries for the
+ * hwmod @oh.  This function changes the @oh->mux->pads_dynamic array
+ * in memory.  If the hwmod is currently idled, and the new idle
+ * values don't match the previous ones, this function will also
+ * update the SCM PADCTRL registers.  Otherwise, if the hwmod is not
+ * currently idled, this function won't touch the hardware: the new
+ * mux settings are written to the SCM PADCTRL registers when the
+ * hwmod is idled.  No return value.
+ */
+static void _set_idle_ioring_wakeup(struct omap_hwmod *oh, bool set_wake)
+{
+	struct omap_device_pad *pad;
+	bool change = false;
+	u16 prev_idle;
+	int j;
+
+	if (!oh->mux || !oh->mux->enabled)
+		return;
+
+	for (j = 0; j < oh->mux->nr_pads_dynamic; j++) {
+		pad = oh->mux->pads_dynamic[j];
+
+		if (!(pad->flags & OMAP_DEVICE_PAD_WAKEUP))
+			continue;
+
+		prev_idle = pad->idle;
+
+		if (set_wake)
+			pad->idle |= OMAP_WAKEUP_EN;
+		else
+			pad->idle &= ~OMAP_WAKEUP_EN;
+
+		if (prev_idle != pad->idle)
+			change = true;
+	}
+
+	if (change && oh->_state == _HWMOD_STATE_IDLE)
+		omap_hwmod_mux(oh->mux, _HWMOD_STATE_IDLE);
+}
+
+/**
  * _enable_wakeup: set OCP_SYSCONFIG.ENAWAKEUP bit in the hardware
  * @oh: struct omap_hwmod *
  *
@@ -519,11 +567,9 @@ static int _init_main_clk(struct omap_hwmod *oh)
 			   oh->name, oh->main_clk);
 		return -EINVAL;
 	}
-#ifndef CONFIG_MACH_OMAP_5430ZEBU
 	if (!oh->_clk->clkdm && !oh->clkdm_name)
 		pr_warning("omap_hwmod: %s: missing clockdomain for %s.\n",
 			   oh->main_clk, oh->_clk->name);
-#endif
 	return ret;
 }
 
@@ -1380,6 +1426,9 @@ static int _ocp_softreset(struct omap_hwmod *oh)
 		goto dis_opt_clks;
 	_write_sysconfig(v, oh);
 
+	if (oh->class->sysc->srst_udelay)
+		udelay(oh->class->sysc->srst_udelay);
+
 	if (oh->class->sysc->sysc_flags & SYSS_HAS_RESET_STATUS)
 		omap_test_timeout((omap_hwmod_read(oh,
 						    oh->class->sysc->syss_offs)
@@ -1436,6 +1485,32 @@ static int _reset(struct omap_hwmod *oh)
 	ret = (oh->class->reset) ? oh->class->reset(oh) : _ocp_softreset(oh);
 
 	return ret;
+}
+
+static void _update_context_lost(struct omap_hwmod *oh)
+{
+	if (oh->prcm.omap4.context_offs)
+		if (omap4_prminst_read_inst_reg(
+				oh->clkdm->pwrdm.ptr->prcm_partition,
+				oh->clkdm->pwrdm.ptr->prcm_offs,
+				oh->prcm.omap4.context_offs))
+				oh->prcm.omap4.context_lost_counter++;
+}
+
+static void _clear_context_lost(struct omap_hwmod *oh)
+{
+	u32 context_reg;
+
+	if (oh->prcm.omap4.context_offs) {
+		context_reg = omap4_prminst_read_inst_reg(
+				oh->clkdm->pwrdm.ptr->prcm_partition,
+				oh->clkdm->pwrdm.ptr->prcm_offs,
+				oh->prcm.omap4.context_offs);
+		omap4_prminst_write_inst_reg(context_reg,
+				oh->clkdm->pwrdm.ptr->prcm_partition,
+				oh->clkdm->pwrdm.ptr->prcm_offs,
+				oh->prcm.omap4.context_offs);
+	}
 }
 
 /**
@@ -1495,8 +1570,10 @@ static int _enable(struct omap_hwmod *oh)
 	/* Mux pins for device runtime if populated */
 	if (oh->mux && (!oh->mux->enabled ||
 			((oh->_state == _HWMOD_STATE_IDLE) &&
-			 oh->mux->pads_dynamic)))
+			 oh->mux->pads_dynamic))) {
 		omap_hwmod_mux(oh->mux, _HWMOD_STATE_ENABLED);
+		omap_trigger_wuclk_ctrl();
+	}
 
 	_add_initiator_dep(oh, mpu_oh);
 
@@ -1517,6 +1594,7 @@ static int _enable(struct omap_hwmod *oh)
 
 	_enable_clocks(oh);
 	_enable_module(oh);
+	_update_context_lost(oh);
 
 	r = _wait_target_ready(oh);
 	if (!r) {
@@ -1568,7 +1646,7 @@ static int _idle(struct omap_hwmod *oh)
 	if (oh->class->sysc)
 		_idle_sysc(oh);
 	_del_initiator_dep(oh, mpu_oh);
-
+	_clear_context_lost(oh);
 	_omap4_disable_module(oh);
 
 	/*
@@ -1582,8 +1660,10 @@ static int _idle(struct omap_hwmod *oh)
 		clkdm_hwmod_disable(oh->clkdm, oh);
 
 	/* Mux pins for device idle if populated */
-	if (oh->mux && oh->mux->pads_dynamic)
+	if (oh->mux && oh->mux->pads_dynamic) {
 		omap_hwmod_mux(oh->mux, _HWMOD_STATE_IDLE);
+		omap_trigger_wuclk_ctrl();
+	}
 
 	oh->_state = _HWMOD_STATE_IDLE;
 
@@ -2448,6 +2528,7 @@ int omap_hwmod_enable_wakeup(struct omap_hwmod *oh)
 	v = oh->_sysc_cache;
 	_enable_wakeup(oh, &v);
 	_write_sysconfig(v, oh);
+	_set_idle_ioring_wakeup(oh, true);
 	spin_unlock_irqrestore(&oh->_lock, flags);
 
 	return 0;
@@ -2478,7 +2559,33 @@ int omap_hwmod_disable_wakeup(struct omap_hwmod *oh)
 	v = oh->_sysc_cache;
 	_disable_wakeup(oh, &v);
 	_write_sysconfig(v, oh);
+	_set_idle_ioring_wakeup(oh, false);
 	spin_unlock_irqrestore(&oh->_lock, flags);
+
+	return 0;
+}
+
+/**
+ * omap_hwmod_disable_clkdm_usecounting - disables clockdomain usecounting
+ * for the given hwmod.
+ * @oh: struct omap_hwmod *
+ *
+ * The state of some hwmods does not matter for the clockdomain, it can
+ * transition to idle anyway. This API can be used to disable usecount
+ * mechanism for these hwmods, so that the usecount value is sensible
+ * all the time.
+ */
+int omap_hwmod_disable_clkdm_usecounting(struct omap_hwmod *oh)
+{
+	if (!oh)
+		return -EINVAL;
+
+	oh->flags |= HWMOD_NO_CLKDM_USECOUNTING;
+
+	if ((oh->clkdm && oh->_state == _HWMOD_STATE_ENABLED) ||
+		(oh->clkdm && oh->_state == _HWMOD_STATE_ENABLED_AT_INIT)) {
+		clkdm_usecount_dec(oh->clkdm);
+	}
 
 	return 0;
 }
@@ -2648,10 +2755,34 @@ ohsps_unlock:
 }
 
 /**
+ * omap_hwmod_set_wkup_constraint- set/release a wake-up latency constraint
+ *
+ * @oh: struct omap_hwmod* to which the target device belongs to.
+ * @cookie: identifier of the constraints list for @oh.
+ * @min_latency: the minimum allowed wake-up latency for @oh.
+ *
+ * Returns 0 upon success, -EINVAL in case of invalid parameters, or
+ * the return value from pwrdm_set_wkup_lat_constraint.
+ */
+int omap_hwmod_set_wkup_lat_constraint(struct omap_hwmod *oh,
+				       void *cookie, long min_latency)
+{
+	struct powerdomain *pwrdm = omap_hwmod_get_pwrdm(oh);
+
+	if (!pwrdm) {
+		pr_err("%s: Error: could not find powerdomain "
+		       "for %s\n", __func__, oh->name);
+		return -EINVAL;
+	}
+
+	return pwrdm_set_wkup_lat_constraint(pwrdm, cookie, min_latency);
+}
+
+/**
  * omap_hwmod_get_context_loss_count - get lost context count
  * @oh: struct omap_hwmod *
  *
- * Query the powerdomain of of @oh to get the context loss
+ * Query the powerdomain of @oh to get the context loss
  * count for this device.
  *
  * Returns the context loss count of the powerdomain assocated with @oh
@@ -2662,9 +2793,14 @@ u32 omap_hwmod_get_context_loss_count(struct omap_hwmod *oh)
 	struct powerdomain *pwrdm;
 	int ret = 0;
 
-	pwrdm = omap_hwmod_get_pwrdm(oh);
-	if (pwrdm)
-		ret = pwrdm_get_context_loss_count(pwrdm);
+	if (oh->prcm.omap4.context_offs) {
+		/* Support for per-hwmod context register */
+		ret = oh->prcm.omap4.context_lost_counter;
+	} else {
+		pwrdm = omap_hwmod_get_pwrdm(oh);
+		if (pwrdm)
+			ret = pwrdm_get_context_loss_count(pwrdm);
+	}
 
 	return ret;
 }
@@ -2694,3 +2830,89 @@ int omap_hwmod_no_setup_reset(struct omap_hwmod *oh)
 
 	return 0;
 }
+
+/**
+ * omap_hwmod_pad_route_irq - route an I/O pad wakeup to a particular MPU IRQ
+ * @oh: struct omap_hwmod * containing hwmod mux entries
+ * @pad_idx: array index in oh->mux of the hwmod mux entry to route wakeup
+ * @irq_idx: the hwmod mpu_irqs array index of the IRQ to trigger on wakeup
+ *
+ * When an I/O pad wakeup arrives for the dynamic or wakeup hwmod mux
+ * entry number @pad_idx for the hwmod @oh, trigger the interrupt
+ * service routine for the hwmod's mpu_irqs array index @irq_idx.  If
+ * this function is not called for a given pad_idx, then the ISR
+ * associated with @oh's first MPU IRQ will be triggered when an I/O
+ * pad wakeup occurs on that pad.  Note that @pad_idx is the index of
+ * the _dynamic or wakeup_ entry: if there are other entries not
+ * marked with OMAP_DEVICE_PAD_WAKEUP or OMAP_DEVICE_PAD_REMUX, these
+ * entries are NOT COUNTED in the dynamic pad index.  This function
+ * must be called separately for each pad that requires its interrupt
+ * to be re-routed this way.  Returns -EINVAL if there is an argument
+ * problem or if @oh does not have hwmod mux entries or MPU IRQs;
+ * returns -ENOMEM if memory cannot be allocated; or 0 upon success.
+ *
+ * XXX This function interface is fragile.  Rather than using array
+ * indexes, which are subject to unpredictable change, it should be
+ * using hwmod IRQ names, and some other stable key for the hwmod mux
+ * pad records.
+ */
+int omap_hwmod_pad_route_irq(struct omap_hwmod *oh, int pad_idx, int irq_idx)
+{
+	int nr_irqs;
+
+	might_sleep();
+
+	if (!oh || !oh->mux || !oh->mpu_irqs || pad_idx < 0 ||
+	    pad_idx >= oh->mux->nr_pads_dynamic)
+		return -EINVAL;
+
+	/* Check the number of available mpu_irqs */
+	for (nr_irqs = 0; oh->mpu_irqs[nr_irqs].irq >= 0; nr_irqs++)
+		;
+
+	if (irq_idx >= nr_irqs)
+		return -EINVAL;
+
+	if (!oh->mux->irqs) {
+		/* XXX What frees this? */
+		oh->mux->irqs = kzalloc(sizeof(int) * oh->mux->nr_pads_dynamic,
+			GFP_KERNEL);
+		if (!oh->mux->irqs)
+			return -ENOMEM;
+	}
+	oh->mux->irqs[pad_idx] = irq_idx;
+
+	return 0;
+}
+
+/**
+ * omap_hwmod_name_get_dev() - convert a hwmod name to device pointer
+ * @oh_name: name of the hwmod device
+ *
+ * returns back a struct device * pointer associated with a hwmod
+ * device represented by a hwmod_name
+ */
+struct device *omap_hwmod_name_get_dev(const char *oh_name)
+{
+	struct omap_hwmod *oh;
+
+	if (!oh_name) {
+		WARN(1, "%s: no hwmod name!\n", __func__);
+		return ERR_PTR(-EINVAL);
+	}
+
+	oh = _lookup(oh_name);
+	if (IS_ERR_OR_NULL(oh)) {
+		WARN(1, "%s: no hwmod for %s\n", __func__,
+			oh_name);
+		return ERR_PTR(oh ? PTR_ERR(oh) : -ENODEV);
+	}
+	if (IS_ERR_OR_NULL(oh->od)) {
+		WARN(1, "%s: no omap_device for %s\n", __func__,
+			oh_name);
+		return ERR_PTR(oh ? PTR_ERR(oh) : -ENODEV);
+	}
+
+	return &oh->od->pdev.dev;
+}
+EXPORT_SYMBOL(omap_hwmod_name_get_dev);

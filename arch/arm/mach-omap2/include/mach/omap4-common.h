@@ -55,8 +55,10 @@ extern int omap_mpuss_init(void);
 extern int omap_enter_lowpower(unsigned int cpu, unsigned int power_state);
 extern int omap_hotplug_cpu(unsigned int cpu, unsigned int power_state);
 extern u32 omap_mpuss_read_prev_context_state(void);
-extern void mpuss_timer_setup(unsigned long freq);
 extern void omap_mpuss_timer_init(void);
+extern void gic_dist_enable(void);
+extern void gic_dist_disable(void);
+extern u32 gic_readl(u32 offset, u8 idx);
 #else
 static inline int omap_enter_lowpower(unsigned int cpu,
 					unsigned int power_state)
@@ -92,5 +94,18 @@ void __init omap_emif_set_device_details(u32 emif_nr,
 			struct ddr_min_tck *min_tck,
 			struct emif_custom_configs *custom_configs);
 #endif
+
+#ifdef CONFIG_PM
+extern int omap_sar_save(void);
+extern void omap_sar_overwrite(void);
+#else
+static inline void omap_sar_save(void)
+{
+}
+static inline void omap_sar_overwrite(void)
+{
+}
+#endif
+
 #endif /* __ASSEMBLER__ */
 #endif /* OMAP_ARCH_OMAP4_COMMON_H */

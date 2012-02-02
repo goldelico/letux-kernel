@@ -77,11 +77,49 @@ static void __init sr_set_nvalues(struct omap_volt_data *volt_data,
 	sr_data->nvalue_count = count;
 }
 
+static void __init lvt_sr_set_nvalues(struct omap_volt_data *volt_data,
+				struct omap_sr_data *sr_data)
+{
+	struct omap_sr_nvalue_table *lvt_nvalue_table;
+	int i, count = 0;
+
+	while (volt_data[count].volt_nominal)
+		count++;
+
+	lvt_nvalue_table = kzalloc(sizeof(struct omap_sr_nvalue_table)*count,
+				GFP_KERNEL);
+
+	for (i = 0; i < count; i++) {
+		u32 v;
+		/*
+		 * In OMAP4 the efuse registers are 24 bit aligned.
+		 * A __raw_readl will fail for non-32 bit aligned address
+		 * and hence the 8-bit read and shift.
+		 */
+		if (cpu_is_omap44xx()) {
+			u16 offset = volt_data[i].lvt_sr_efuse_offs;
+
+			v = omap_ctrl_readb(offset) |
+				omap_ctrl_readb(offset + 1) << 8 |
+				omap_ctrl_readb(offset + 2) << 16;
+		} else {
+			v = omap_ctrl_readl(volt_data[i].lvt_sr_efuse_offs);
+		}
+
+		lvt_nvalue_table[i].efuse_offs = volt_data[i].lvt_sr_efuse_offs;
+		lvt_nvalue_table[i].nvalue = v;
+	}
+
+	sr_data->lvt_nvalue_table = lvt_nvalue_table;
+	sr_data->lvt_nvalue_count = count;
+}
+
 static int sr_dev_init(struct omap_hwmod *oh, void *user)
 {
 	struct omap_sr_data *sr_data;
 	struct omap_device *od;
 	struct omap_volt_data *volt_data;
+	struct omap_smartreflex_dev_attr *sr_dev_attr;
 	char *name = "smartreflex";
 	static int i;
 
@@ -92,22 +130,29 @@ static int sr_dev_init(struct omap_hwmod *oh, void *user)
 		return -ENOMEM;
 	}
 
-	if (!oh->vdd_name) {
+	sr_dev_attr = (struct omap_smartreflex_dev_attr *)oh->dev_attr;
+	if (!sr_dev_attr || !sr_dev_attr->sensor_voltdm_name) {
 		pr_err("%s: No voltage domain specified for %s."
-			"Cannot initialize\n", __func__, oh->name);
+				"Cannot initialize\n", __func__,
+					oh->name);
 		goto exit;
 	}
 
+	sr_data->lvt_sensor = false;
 	sr_data->ip_type = oh->class->rev;
 	sr_data->senn_mod = 0x1;
 	sr_data->senp_mod = 0x1;
 
-	sr_data->voltdm = omap_voltage_domain_lookup(oh->vdd_name);
+	sr_data->voltdm = voltdm_lookup(sr_dev_attr->sensor_voltdm_name);
 	if (IS_ERR(sr_data->voltdm)) {
 		pr_err("%s: Unable to get voltage domain pointer for VDD %s\n",
-			__func__, oh->vdd_name);
+			__func__, sr_dev_attr->sensor_voltdm_name);
 		goto exit;
 	}
+
+	if ((cpu_is_omap54xx()) && (!strcmp(sr_data->voltdm->name, "mpu") ||
+		!strcmp(sr_data->voltdm->name, "mm")))
+		sr_data->lvt_sensor = true;
 
 	omap_voltage_get_volttable(sr_data->voltdm, &volt_data);
 	if (!volt_data) {
@@ -117,6 +162,9 @@ static int sr_dev_init(struct omap_hwmod *oh, void *user)
 	}
 
 	sr_set_nvalues(volt_data, sr_data);
+
+	if (sr_data->lvt_sensor)
+		lvt_sr_set_nvalues(volt_data, sr_data);
 
 	sr_data->enable_on_init = sr_enable_on_init;
 
