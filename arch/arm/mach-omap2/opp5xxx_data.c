@@ -192,11 +192,11 @@ static struct omap_opp_def __initdata omap54xx_opp_def_list[] = {
 	/* FDIF OPP3 - OPPNOM */
 	OPP_INITIALIZER("fdif", "hsi_fck", "core", true, 192000000, OMAP5430_VDD_CORE_OPP_NOM),
 
+#endif
 	/* ABE OPP1 - OPPLOW */
 	OPP_INITIALIZER("aess", "abe_clk", "core", true, 98304000, OMAP5430_VDD_CORE_OPP_LOW),
 	/* ABE OPP2 - OPPNOM */
 	OPP_INITIALIZER("aess", "abe_clk", "core", true, 196608000, OMAP5430_VDD_CORE_OPP_NOM),
-#endif
 
 #ifndef CONFIG_OMAP_PM_STANDALONE
 	/* IVA OPP1 - OPPLOW */
