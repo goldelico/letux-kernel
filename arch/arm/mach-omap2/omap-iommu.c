@@ -52,7 +52,7 @@ static struct iommu_platform_data omap3_devices_data[] = {
 #define NR_OMAP3_IOMMU_DEVICES	0
 #endif
 
-#ifdef CONFIG_ARCH_OMAP4
+#if defined(CONFIG_ARCH_OMAP4) ||  defined(CONFIG_ARCH_OMAP5)
 static struct iommu_platform_data omap4_devices_data[] = {
 	{
 		.name = "ducati",
@@ -104,7 +104,7 @@ static int __init omap_iommu_init(void)
 	if (cpu_is_omap34xx()) {
 		devices_data = omap3_devices_data;
 		num_iommu_devices = NR_OMAP3_IOMMU_DEVICES;
-	} else if (cpu_is_omap44xx()) {
+	} else if (cpu_is_omap44xx() || cpu_is_omap54xx()) {
 		devices_data = omap4_devices_data;
 		num_iommu_devices = NR_OMAP4_IOMMU_DEVICES;
 	} else
