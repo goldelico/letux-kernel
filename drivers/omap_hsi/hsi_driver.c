@@ -674,6 +674,11 @@ void hsi_clocks_disable_channel(struct device *dev, u8 channel_number,
 	else
 		dev_dbg(dev, "CLK: hsi_clocks_disable: %s\n", s);
 
+	if (hsi_ctrl->clock_forced_on) {
+		dev_dbg(dev, "Clocks in forced on mode, skipping...\n");
+		return;
+	}
+
 	if (!hsi_ctrl->clock_enabled) {
 		dev_dbg(dev, "Clocks already disabled, skipping...\n");
 		return;
@@ -779,6 +784,7 @@ static int __init hsi_controller_init(struct hsi_dev *hsi_ctrl,
 		return -ENXIO;
 	}
 	hsi_ctrl->max_p = pdata->num_ports;
+	hsi_ctrl->clock_forced_on = false;
 	hsi_ctrl->clock_enabled = false;
 	hsi_ctrl->clock_change_ongoing = false;
 	hsi_ctrl->hsi_fclk_current = 0;

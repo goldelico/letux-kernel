@@ -173,6 +173,7 @@ struct hsi_port {
  * @base: HSI registers base virtual address
  * @phy_base: HSI registers base physical address
  * @lock: Serializes access to internal data and regs
+ * @clock_forced_on: Indicates if HSI Clocks are forced ON or dynamic
  * @clock_enabled: Indicates if HSI Clocks are ON
  * @clock_change_ongoing: Indicates if HSI FClk is being changed (OPP change)
  * @hsi_fclk_req: Indicates what HSI FClk user requested (96MHz/192MHz)
@@ -196,6 +197,7 @@ struct hsi_dev { /* HSI_TODO:  should be later renamed into hsi_controller*/
 	void __iomem *base;
 	unsigned long phy_base;
 	spinlock_t lock; /* Serializes access to internal data and regs */
+	bool clock_forced_on;
 	bool clock_enabled;
 	bool clock_change_ongoing;
 	unsigned long hsi_fclk_req;

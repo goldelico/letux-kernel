@@ -69,6 +69,8 @@ enum {
 	HSI_IOCTL_SET_WAKE_RX_4WIRES_MODE, /* Enable RX wakeup 4-wires mode */
 	HSI_IOCTL_SET_HI_SPEED, /* Change HSI Fclock (96MHz/192MHz) */
 	HSI_IOCTL_GET_SPEED, /* Get HSI Fclock (96MHz/192MHz) */
+	HSI_IOCTL_SET_CLK_FORCE_ON, /* Enter mode where HSI clk are forced on */
+	HSI_IOCTL_SET_CLK_DYNAMIC,  /* Exit from forced clocks on mode */
 };
 
 /* Forward references */

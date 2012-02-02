@@ -43,6 +43,10 @@
 #define CS_SET_WAKE_RX_3WIRES_MODE	CS_IOR(14, unsigned int)
 #define CS_SET_HI_SPEED		CS_IOR(15, unsigned int)
 #define CS_GET_SPEED		CS_IOW(16, unsigned long)
+#define CS_SET_CLK_FORCE_ON	CS_IOW(17, unsigned int)
+#define CS_SET_CLK_DYNAMIC	CS_IOW(18, unsigned int)
+
+
 
 #define HSI_MODE_SLEEP		0
 #define HSI_MODE_STREAM		1

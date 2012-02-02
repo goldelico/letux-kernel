@@ -972,7 +972,14 @@ int hsi_ioctl(struct hsi_device *dev, unsigned int command, void *arg)
 
 		*(unsigned long *)arg = hsi_ctrl->hsi_fclk_current;
 		break;
-
+	case HSI_IOCTL_SET_CLK_FORCE_ON:
+		dev_info(hsi_ctrl->dev, "Entering clocks forced on mode\n");
+		hsi_ctrl->clock_forced_on = true;
+		break;
+	case HSI_IOCTL_SET_CLK_DYNAMIC:
+		dev_info(hsi_ctrl->dev, "Entering clocks dynamic mode\n");
+		hsi_ctrl->clock_forced_on = false;
+		break;
 	default:
 		err = -ENOIOCTLCMD;
 		break;

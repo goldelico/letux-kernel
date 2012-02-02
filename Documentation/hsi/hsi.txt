@@ -249,6 +249,14 @@ K) int hsi_ioctl(struct hsi_device *dev, unsigned int command, void *arg);
 	- HSI_IOCTL_SET_WAKE_RX_4WIRES_MODE:
 		Description: Set the 4 wires mode.
 		Parameters: None
+	- HSI_IOCTL_CLK_FORCE_ON:
+		Description: Enter mode where HSI clocks are forced on. Prevent from platfom suspend.
+		             IO Daisy chain is not used. Big impact on power consumption, but slow latency to
+		             process CAWAKE low to high events.
+		Parameters: None
+	- HSI_IOCTL_CLK_DYNAMIC:
+		Description: Exit from forced clocks on mode and go back to automatic mode.
+		Parameters: None
 
 L) void hsi_close(struct hsi_device *dev);
 
