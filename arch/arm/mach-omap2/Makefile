@@ -324,6 +324,9 @@ obj-y					+= common-board-devices.o twl-common.o
 # EMIF support
 obj-$(CONFIG_EMIF)			+= emif_omap.o
 
+# HSI support
+obj-$(CONFIG_OMAP_HSI_DEVICE)           += omap_hsi.o
+
 # Serial ATA support
 s-ata-$(CONFIG_SATA_AHCI_PLATFORM)	:= sata.o
 obj-$(CONFIG_ARCH_OMAP5) 		+= $(s-ata-m) $(s-ata-y)
