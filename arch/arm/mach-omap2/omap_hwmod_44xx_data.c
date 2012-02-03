@@ -19,6 +19,7 @@
  */
 
 #include <linux/io.h>
+#include <linux/mfd/omap_ocp2scp.h>
 
 #include <plat/omap_hwmod.h>
 #include <plat/cpu.h>
@@ -726,7 +727,6 @@ static struct omap_hwmod omap44xx_mpu_private_hwmod = {
  *  mpu_c0
  *  mpu_c1
  *  ocmc_ram
- *  ocp2scp_usb_phy
  *  ocp_wp_noc
  *  prcm_mpu
  *  prm
@@ -4462,6 +4462,98 @@ static struct omap_hwmod omap44xx_mmc5_hwmod = {
 };
 
 /*
+ * 'ocp2scp' class
+ * bridge to transform ocp interface protocol to scp (serial control port)
+ * protocol
+ */
+
+static struct omap_hwmod_class_sysconfig omap44xx_ocp2scp_sysc = {
+	.rev_offs	= 0x0000,
+	.sysc_offs	= 0x0010,
+	.syss_offs	= 0x0014,
+	.sysc_flags	= (SYSC_HAS_AUTOIDLE | SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_SOFTRESET),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
+			   SIDLE_SMART_WKUP),
+	.sysc_fields	= &omap_hwmod_sysc_type1,
+};
+
+static struct omap_hwmod_class omap44xx_ocp2scp_hwmod_class = {
+	.name	= "ocp2scp",
+	.sysc	= &omap44xx_ocp2scp_sysc,
+};
+
+/* ocp2scp dev_attr */
+static struct resource omap44xx_usb_phy_and_pll_addrs[] = {
+	{
+		.name		= "usb_phy",
+		.start		= 0x4a0ad080,
+		.end		= 0x4a0ae000,
+		.flags		= IORESOURCE_MEM,
+	},
+	{ }
+};
+
+static struct omap_ocp2scp_dev ocp2scp_dev_attr[] = {
+	{
+		.rev_id		= 1,
+		.dev_name       = "usb_phy_cm",
+		.dev_type	= DEV_TYPE_USB2PHY,
+		.res		= omap44xx_usb_phy_and_pll_addrs,
+	},
+	{ }
+};
+
+/* ocp2scp_usb_phy */
+static struct omap_hwmod omap44xx_ocp2scp_usb_phy_hwmod;
+static struct omap_hwmod_addr_space omap44xx_ocp2scp_usb_phy_addrs[] = {
+	{
+		.pa_start	= 0x4a0ad000,
+		.pa_end		= 0x4a0ad040,
+		.flags		= ADDR_TYPE_RT
+	},
+	{ }
+};
+
+/* l4_cfg -> ocp2scp_usb_phy */
+static struct omap_hwmod_ocp_if omap44xx_l4_cfg__ocp2scp_usb_phy = {
+	.master		= &omap44xx_l4_cfg_hwmod,
+	.slave		= &omap44xx_ocp2scp_usb_phy_hwmod,
+	.clk		= "l4_div_ck",
+	.addr		= omap44xx_ocp2scp_usb_phy_addrs,
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
+/* ocp2scp_usb_phy slave ports */
+static struct omap_hwmod_ocp_if *omap44xx_ocp2scp_usb_phy_slaves[] = {
+	&omap44xx_l4_cfg__ocp2scp_usb_phy,
+};
+
+static struct omap_hwmod_opt_clk ocp2scp_usb_phy_opt_clks[] = {
+	{ .role = "phy_48m", .clk = "ocp2scp_usb_phy_phy_48m" },
+};
+
+static struct omap_hwmod omap44xx_ocp2scp_usb_phy_hwmod = {
+	.name		= "ocp2scp_usb_phy",
+	.class		= &omap44xx_ocp2scp_hwmod_class,
+	.clkdm_name	= "l3_init_clkdm",
+	.main_clk	= "ocp2scp_usb_phy_ick",
+	.prcm		= {
+		.omap4 = {
+			.clkctrl_offs = OMAP4_CM_L3INIT_USBPHYOCP2SCP_CLKCTRL_OFFSET,
+			.context_offs = OMAP4_RM_L3INIT_USBPHYOCP2SCP_CONTEXT_OFFSET,
+			.modulemode   = MODULEMODE_SWCTRL,
+		},
+	},
+	.dev_attr	= ocp2scp_dev_attr,
+	.opt_clks	= ocp2scp_usb_phy_opt_clks,
+	.opt_clks_cnt	= ARRAY_SIZE(ocp2scp_usb_phy_opt_clks),
+	.slaves		= omap44xx_ocp2scp_usb_phy_slaves,
+	.slaves_cnt	= ARRAY_SIZE(omap44xx_ocp2scp_usb_phy_slaves),
+	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
+};
+
+/*
  * 'spinlock' class
  * spinlock provides hardware assistance for synchronizing the processes
  * running on multiple processors
@@ -6081,6 +6173,9 @@ static __initdata struct omap_hwmod *omap44xx_hwmods[] = {
 
 	/* mpu class */
 	&omap44xx_mpu_hwmod,
+
+	/* ocp2scp class */
+	&omap44xx_ocp2scp_usb_phy_hwmod,
 
 	/* smartreflex class */
 	&omap44xx_smartreflex_core_hwmod,

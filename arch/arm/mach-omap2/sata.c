@@ -132,7 +132,7 @@ static inline u32 omap_sata_readl(void __iomem *base, u32 reg)
 }
 
 #ifdef OMAP_SATA_PHY_PWR
-static void __init sata_phy_pwr_on(void)
+static void __devinit sata_phy_pwr_on(void)
 {
 	void __iomem	*base;
 
@@ -152,7 +152,7 @@ static void __init sata_phy_pwr_on(void)
  * Following PLL configuration will be removed in future,
  * to a seperate platform driver
  */
-static int __init sata_phy_init(struct device *dev)
+static int __devinit sata_phy_init(struct device *dev)
 {
 	void __iomem		*pll;
 	void __iomem		*ocp2scp3;
@@ -288,7 +288,7 @@ static void sata_phy_exit(void)
 	clk_put(sata_ref_clk);
 }
 
-static int __init omap_ahci_plat_init(struct device *dev, void __iomem *base)
+static int __devinit omap_ahci_plat_init(struct device *dev, void __iomem *base)
 {
 	pm_runtime_enable(dev);
 	pm_runtime_get_sync(dev);

@@ -133,6 +133,7 @@ static void omap2430_musb_try_idle(struct musb *musb, unsigned long timeout)
 
 static void omap2430_musb_set_vbus(struct musb *musb, int is_on)
 {
+	struct usb_otg	*otg = musb->xceiv->otg;
 	u8		devctl;
 	unsigned long timeout = jiffies + msecs_to_jiffies(1000);
 	int ret = 1;
@@ -164,11 +165,11 @@ static void omap2430_musb_set_vbus(struct musb *musb, int is_on)
 				}
 			}
 
-			if (ret && musb->xceiv->set_vbus)
-				otg_set_vbus(musb->xceiv, 1);
+			if (ret && otg->set_vbus)
+				otg_set_vbus(otg, 1);
 		} else {
 			musb->is_active = 1;
-			musb->xceiv->default_a = 1;
+			otg->default_a = 1;
 			musb->xceiv->state = OTG_STATE_A_WAIT_VRISE;
 			devctl |= MUSB_DEVCTL_SESSION;
 			MUSB_HST_MODE(musb);
@@ -180,7 +181,7 @@ static void omap2430_musb_set_vbus(struct musb *musb, int is_on)
 		 * jumping right to B_IDLE...
 		 */
 
-		musb->xceiv->default_a = 0;
+		otg->default_a = 0;
 		musb->xceiv->state = OTG_STATE_B_IDLE;
 		devctl &= ~MUSB_DEVCTL_SESSION;
 
@@ -239,12 +240,10 @@ static int musb_otg_notifications(struct notifier_block *nb,
 		if (is_otg_enabled(musb)) {
 			if (musb->gadget_driver) {
 				pm_runtime_get_sync(musb->controller);
-				otg_init(musb->xceiv);
 				omap2430_musb_set_vbus(musb, 1);
 			}
 		} else {
 			pm_runtime_get_sync(musb->controller);
-			otg_init(musb->xceiv);
 			omap2430_musb_set_vbus(musb, 1);
 		}
 		break;
@@ -254,7 +253,6 @@ static int musb_otg_notifications(struct notifier_block *nb,
 
 		if (musb->gadget_driver)
 			pm_runtime_get_sync(musb->controller);
-		otg_init(musb->xceiv);
 		break;
 
 	case USB_EVENT_NONE:
@@ -267,10 +265,10 @@ static int musb_otg_notifications(struct notifier_block *nb,
 			}
 
 		if (data->interface_type == MUSB_INTERFACE_UTMI) {
-			if (musb->xceiv->set_vbus)
-				otg_set_vbus(musb->xceiv, 0);
+			if (musb->xceiv->otg->set_vbus)
+				otg_set_vbus(musb->xceiv->otg, 0);
 		}
-		otg_shutdown(musb->xceiv);
+		usb_phy_shutdown(musb->xceiv);
 		break;
 	default:
 		dev_dbg(musb->controller, "ID float\n");
@@ -291,7 +289,7 @@ static int omap2430_musb_init(struct musb *musb)
 	 * up through ULPI.  TWL4030-family PMICs include one,
 	 * which needs a driver, drivers aren't always needed.
 	 */
-	musb->xceiv = otg_get_transceiver();
+	musb->xceiv = usb_get_phy(USB_PHY_TYPE_USB2);
 	if (!musb->xceiv) {
 		pr_err("HS USB OTG: no transceiver configured\n");
 		return -ENODEV;
@@ -324,7 +322,7 @@ static int omap2430_musb_init(struct musb *musb)
 			musb_readl(musb->mregs, OTG_SIMENABLE));
 
 	musb->nb.notifier_call = musb_otg_notifications;
-	status = otg_register_notifier(musb->xceiv, &musb->nb);
+	status = usb_register_notifier(musb->xceiv, &musb->nb);
 
 	if (status)
 		dev_dbg(musb->controller, "notification register failed\n");
@@ -346,10 +344,11 @@ static void omap2430_musb_enable(struct musb *musb)
 	struct musb_hdrc_platform_data *pdata = dev->platform_data;
 	struct omap_musb_board_data *data = pdata->board_data;
 
+	usb_phy_init(musb->xceiv);
+
 	switch (musb->xceiv->last_event) {
 
 	case USB_EVENT_ID:
-		otg_init(musb->xceiv);
 		if (data->interface_type == MUSB_INTERFACE_UTMI) {
 			devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
 			/* start the session */
@@ -368,10 +367,6 @@ static void omap2430_musb_enable(struct musb *musb)
 		}
 		break;
 
-	case USB_EVENT_VBUS:
-		otg_init(musb->xceiv);
-		break;
-
 	default:
 		break;
 	}
@@ -380,7 +375,7 @@ static void omap2430_musb_enable(struct musb *musb)
 static void omap2430_musb_disable(struct musb *musb)
 {
 	if (musb->xceiv->last_event)
-		otg_shutdown(musb->xceiv);
+		usb_phy_shutdown(musb->xceiv);
 }
 
 static int omap2430_musb_exit(struct musb *musb)
@@ -388,7 +383,7 @@ static int omap2430_musb_exit(struct musb *musb)
 	del_timer_sync(&musb_idle_timer);
 
 	omap2430_low_level_exit(musb);
-	otg_put_transceiver(musb->xceiv);
+	usb_put_phy(musb->xceiv);
 
 	return 0;
 }
@@ -492,7 +487,7 @@ static int omap2430_runtime_suspend(struct device *dev)
 	struct musb			*musb = glue_to_musb(glue);
 
 	omap2430_low_level_exit(musb);
-	otg_set_suspend(musb->xceiv, 1);
+	usb_phy_set_suspend(musb->xceiv, 1);
 
 	return 0;
 }
@@ -503,7 +498,7 @@ static int omap2430_runtime_resume(struct device *dev)
 	struct musb			*musb = glue_to_musb(glue);
 
 	omap2430_low_level_init(musb);
-	otg_set_suspend(musb->xceiv, 0);
+	usb_phy_set_suspend(musb->xceiv, 0);
 
 	return 0;
 }

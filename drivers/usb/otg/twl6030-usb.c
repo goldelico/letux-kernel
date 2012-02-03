@@ -26,6 +26,7 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/usb/otg.h>
+#include <linux/usb/phy_companion.h>
 #include <linux/i2c/twl.h>
 #include <linux/regulator/consumer.h>
 #include <linux/err.h>
@@ -87,7 +88,7 @@
 #define	VBUS_DET			BIT(2)
 
 struct twl6030_usb {
-	struct otg_transceiver	otg;
+	struct phy_companion	comparator;
 	struct device		*dev;
 
 	/* for vbus reporting with irqs disabled */
@@ -100,16 +101,34 @@ struct twl6030_usb {
 
 	int			irq1;
 	int			irq2;
-	u8			linkstat;
 	u8			asleep;
 	bool			irq_enabled;
 	bool			vbus_enable;
 	unsigned long		features;
 };
 
-#define xceiv_to_twl(x)		container_of((x), struct twl6030_usb, otg)
+static struct phy_companion	*comparator;
 
+#define	comparator_to_twl(x) container_of((x), struct twl6030_usb, comparator)
 /*-------------------------------------------------------------------------*/
+
+struct phy_companion *get_phy_twl6030_companion(struct notifier_block *nb)
+{
+	u32			status = 0;
+	struct twl6030_usb *twl = comparator_to_twl(comparator);
+
+	if (comparator) {
+		status = atomic_notifier_chain_register(&comparator->notifier,
+									nb);
+		if (status) {
+			dev_dbg(twl->dev, "notification register failed\n");
+			return NULL;
+		}
+	}
+
+	return comparator;
+}
+EXPORT_SYMBOL_GPL(get_phy_twl6030_companion);
 
 static inline int twl6030_writeb(struct twl6030_usb *twl, u8 module,
 						u8 data, u8 address)
@@ -137,66 +156,9 @@ static inline u8 twl6030_readb(struct twl6030_usb *twl, u8 module, u8 address)
 	return ret;
 }
 
-/*-------------------------------------------------------------------------*/
-static int twl6030_set_phy_clk(struct otg_transceiver *x, int on)
+static int twl6030_start_srp(struct phy_companion *comparator)
 {
-	struct twl6030_usb *twl;
-	struct device *dev;
-	struct twl4030_usb_data *pdata;
-
-	twl = xceiv_to_twl(x);
-	dev  = twl->dev;
-	pdata = dev->platform_data;
-
-	pdata->phy_set_clock(twl->dev, on);
-
-	return 0;
-}
-
-static int twl6030_phy_init(struct otg_transceiver *x)
-{
-	struct twl6030_usb *twl;
-	struct device *dev;
-	struct twl4030_usb_data *pdata;
-
-	twl = xceiv_to_twl(x);
-	dev  = twl->dev;
-	pdata = dev->platform_data;
-
-	if (twl->linkstat == USB_EVENT_ID)
-		pdata->phy_power(twl->dev, 1, 1);
-	else
-		pdata->phy_power(twl->dev, 0, 1);
-
-	return 0;
-}
-
-static void twl6030_phy_shutdown(struct otg_transceiver *x)
-{
-	struct twl6030_usb *twl;
-	struct device *dev;
-	struct twl4030_usb_data *pdata;
-
-	twl = xceiv_to_twl(x);
-	dev  = twl->dev;
-	pdata = dev->platform_data;
-	pdata->phy_power(twl->dev, 0, 0);
-}
-
-static int twl6030_phy_suspend(struct otg_transceiver *x, int suspend)
-{
-	struct twl6030_usb *twl = xceiv_to_twl(x);
-	struct device *dev = twl->dev;
-	struct twl4030_usb_data *pdata = dev->platform_data;
-
-	pdata->phy_suspend(dev, suspend);
-
-	return 0;
-}
-
-static int twl6030_start_srp(struct otg_transceiver *x)
-{
-	struct twl6030_usb *twl = xceiv_to_twl(x);
+	struct twl6030_usb *twl = comparator_to_twl(comparator);
 
 	twl6030_writeb(twl, TWL_MODULE_USB, 0x24, USB_VBUS_CTRL_SET);
 	twl6030_writeb(twl, TWL_MODULE_USB, 0x84, USB_VBUS_CTRL_SET);
@@ -250,7 +212,7 @@ static ssize_t twl6030_usb_vbus_show(struct device *dev,
 
 	spin_lock_irqsave(&twl->lock, flags);
 
-	switch (twl->linkstat) {
+	switch (twl->comparator.linkstat) {
 	case USB_EVENT_VBUS:
 	       ret = snprintf(buf, PAGE_SIZE, "vbus\n");
 	       break;
@@ -284,18 +246,14 @@ static irqreturn_t twl6030_usb_irq(int irq, void *_twl)
 			regulator_enable(twl->usb3v3);
 			twl->asleep = 1;
 			status = USB_EVENT_VBUS;
-			twl->otg.default_a = false;
-			twl->otg.state = OTG_STATE_B_IDLE;
-			twl->linkstat = status;
-			twl->otg.last_event = status;
-			atomic_notifier_call_chain(&twl->otg.notifier,
-						status, twl->otg.gadget);
+			twl->comparator.linkstat = status;
+			atomic_notifier_call_chain(&twl->comparator.notifier,
+								status, NULL);
 		} else {
 			status = USB_EVENT_NONE;
-			twl->linkstat = status;
-			twl->otg.last_event = status;
-			atomic_notifier_call_chain(&twl->otg.notifier,
-						status, twl->otg.gadget);
+			twl->comparator.linkstat = status;
+			atomic_notifier_call_chain(&twl->comparator.notifier,
+								status, NULL);
 			if (twl->asleep) {
 				regulator_disable(twl->usb3v3);
 				twl->asleep = 0;
@@ -323,12 +281,9 @@ static irqreturn_t twl6030_usbotg_irq(int irq, void *_twl)
 		twl6030_writeb(twl, TWL_MODULE_USB, USB_ID_INT_EN_HI_SET,
 								0x10);
 		status = USB_EVENT_ID;
-		twl->otg.default_a = true;
-		twl->otg.state = OTG_STATE_A_IDLE;
-		twl->linkstat = status;
-		twl->otg.last_event = status;
-		atomic_notifier_call_chain(&twl->otg.notifier, status,
-							twl->otg.gadget);
+		twl->comparator.linkstat = status;
+		atomic_notifier_call_chain(&twl->comparator.notifier,
+								status, NULL);
 	} else  {
 		twl6030_writeb(twl, TWL_MODULE_USB, USB_ID_INT_EN_HI_CLR,
 								0x10);
@@ -340,26 +295,8 @@ static irqreturn_t twl6030_usbotg_irq(int irq, void *_twl)
 	return IRQ_HANDLED;
 }
 
-static int twl6030_set_peripheral(struct otg_transceiver *x,
-		struct usb_gadget *gadget)
+static int twl6030_enable_irq(struct twl6030_usb *twl)
 {
-	struct twl6030_usb *twl;
-
-	if (!x)
-		return -ENODEV;
-
-	twl = xceiv_to_twl(x);
-	twl->otg.gadget = gadget;
-	if (!gadget)
-		twl->otg.state = OTG_STATE_UNDEFINED;
-
-	return 0;
-}
-
-static int twl6030_enable_irq(struct otg_transceiver *x)
-{
-	struct twl6030_usb *twl = xceiv_to_twl(x);
-
 	twl6030_writeb(twl, TWL_MODULE_USB, USB_ID_INT_EN_HI_SET, 0x1);
 	twl6030_interrupt_unmask(0x05, REG_INT_MSK_LINE_C);
 	twl6030_interrupt_unmask(0x05, REG_INT_MSK_STS_C);
@@ -392,27 +329,13 @@ static void otg_set_vbus_work(struct work_struct *data)
 							CHARGERUSB_CTRL1);
 }
 
-static int twl6030_set_vbus(struct otg_transceiver *x, bool enabled)
+static int twl6030_set_vbus(struct phy_companion *comparator, bool enabled)
 {
-	struct twl6030_usb *twl = xceiv_to_twl(x);
+	struct twl6030_usb *twl = comparator_to_twl(comparator);
 
 	twl->vbus_enable = enabled;
 	schedule_work(&twl->set_vbus_work);
 
-	return 0;
-}
-
-static int twl6030_set_host(struct otg_transceiver *x, struct usb_bus *host)
-{
-	struct twl6030_usb *twl;
-
-	if (!x)
-		return -ENODEV;
-
-	twl = xceiv_to_twl(x);
-	twl->otg.host = host;
-	if (!host)
-		twl->otg.state = OTG_STATE_UNDEFINED;
 	return 0;
 }
 
@@ -432,15 +355,10 @@ static int __devinit twl6030_usb_probe(struct platform_device *pdev)
 	twl->irq1		= platform_get_irq(pdev, 0);
 	twl->irq2		= platform_get_irq(pdev, 1);
 	twl->features		= pdata->features;
-	twl->otg.dev		= twl->dev;
-	twl->otg.label		= "twl6030";
-	twl->otg.set_host	= twl6030_set_host;
-	twl->otg.set_peripheral	= twl6030_set_peripheral;
-	twl->otg.set_vbus	= twl6030_set_vbus;
-	twl->otg.init		= twl6030_phy_init;
-	twl->otg.shutdown	= twl6030_phy_shutdown;
-	twl->otg.set_suspend	= twl6030_phy_suspend;
-	twl->otg.start_srp	= twl6030_start_srp;
+
+	twl->comparator.set_vbus	= twl6030_set_vbus;
+	twl->comparator.start_srp	= twl6030_start_srp;
+	comparator			= &twl->comparator;
 
 	/* init spinlock for workqueue */
 	spin_lock_init(&twl->lock);
@@ -451,13 +369,12 @@ static int __devinit twl6030_usb_probe(struct platform_device *pdev)
 		kfree(twl);
 		return err;
 	}
-	otg_set_transceiver(&twl->otg);
 
 	platform_set_drvdata(pdev, twl);
 	if (device_create_file(&pdev->dev, &dev_attr_vbus))
 		dev_warn(&pdev->dev, "could not create sysfs file\n");
 
-	ATOMIC_INIT_NOTIFIER_HEAD(&twl->otg.notifier);
+	ATOMIC_INIT_NOTIFIER_HEAD(&comparator->notifier);
 
 	INIT_WORK(&twl->set_vbus_work, otg_set_vbus_work);
 
@@ -486,9 +403,7 @@ static int __devinit twl6030_usb_probe(struct platform_device *pdev)
 	}
 
 	twl->asleep = 0;
-	pdata->phy_init(dev);
-	twl6030_phy_suspend(&twl->otg, 0);
-	twl6030_enable_irq(&twl->otg);
+	twl6030_enable_irq(twl);
 	dev_info(&pdev->dev, "Initialized TWL6030 USB module\n");
 
 	return 0;
@@ -498,10 +413,6 @@ static int __exit twl6030_usb_remove(struct platform_device *pdev)
 {
 	struct twl6030_usb *twl = platform_get_drvdata(pdev);
 
-	struct twl4030_usb_data *pdata;
-	struct device *dev = &pdev->dev;
-	pdata = dev->platform_data;
-
 	twl6030_interrupt_mask(TWL6030_USBOTG_INT_MASK,
 		REG_INT_MSK_LINE_C);
 	twl6030_interrupt_mask(TWL6030_USBOTG_INT_MASK,
@@ -509,7 +420,6 @@ static int __exit twl6030_usb_remove(struct platform_device *pdev)
 	free_irq(twl->irq1, twl);
 	free_irq(twl->irq2, twl);
 	regulator_put(twl->usb3v3);
-	pdata->phy_exit(twl->dev);
 	device_remove_file(twl->dev, &dev_attr_vbus);
 	cancel_work_sync(&twl->set_vbus_work);
 	kfree(twl);

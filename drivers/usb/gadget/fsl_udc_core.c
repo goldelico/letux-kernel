@@ -559,7 +559,7 @@ static int fsl_ep_enable(struct usb_ep *_ep,
 	if (!udc->driver || (udc->gadget.speed == USB_SPEED_UNKNOWN))
 		return -ESHUTDOWN;
 
-	max = le16_to_cpu(desc->wMaxPacketSize);
+	max = usb_endpoint_maxp(desc);
 
 	/* Disable automatic zlp generation.  Driver is responsible to indicate
 	 * explicitly through req->req.zero.  This is needed to enable multi-td
@@ -1221,7 +1221,7 @@ static int fsl_vbus_draw(struct usb_gadget *gadget, unsigned mA)
 
 	udc = container_of(gadget, struct fsl_udc, gadget);
 	if (udc->transceiver)
-		return otg_set_power(udc->transceiver, mA);
+		return usb_phy_set_power(udc->transceiver, mA);
 	return -ENOTSUPP;
 }
 
@@ -1715,34 +1715,31 @@ static void dtd_complete_irq(struct fsl_udc *udc)
 	}
 }
 
+static inline enum usb_device_speed portscx_device_speed(u32 reg)
+{
+	switch (speed & PORTSCX_PORT_SPEED_MASK) {
+	case PORTSCX_PORT_SPEED_HIGH:
+		return USB_SPEED_HIGH;
+	case PORTSCX_PORT_SPEED_FULL:
+		return USB_SPEED_FULL;
+	case PORTSCX_PORT_SPEED_LOW:
+		return USB_SPEED_LOW;
+	default:
+		return USB_SPEED_UNKNOWN;
+	}
+}
+
 /* Process a port change interrupt */
 static void port_change_irq(struct fsl_udc *udc)
 {
-	u32 speed;
-
 	if (udc->bus_reset)
 		udc->bus_reset = 0;
 
 	/* Bus resetting is finished */
-	if (!(fsl_readl(&dr_regs->portsc1) & PORTSCX_PORT_RESET)) {
+	if (!(fsl_readl(&dr_regs->portsc1) & PORTSCX_PORT_RESET))
 		/* Get the speed */
-		speed = (fsl_readl(&dr_regs->portsc1)
-				& PORTSCX_PORT_SPEED_MASK);
-		switch (speed) {
-		case PORTSCX_PORT_SPEED_HIGH:
-			udc->gadget.speed = USB_SPEED_HIGH;
-			break;
-		case PORTSCX_PORT_SPEED_FULL:
-			udc->gadget.speed = USB_SPEED_FULL;
-			break;
-		case PORTSCX_PORT_SPEED_LOW:
-			udc->gadget.speed = USB_SPEED_LOW;
-			break;
-		default:
-			udc->gadget.speed = USB_SPEED_UNKNOWN;
-			break;
-		}
-	}
+		udc->gadget.speed =
+			portscx_device_speed(fsl_readl(&dr_regs->portsc1));
 
 	/* Update USB state */
 	if (!udc->resume_state)
@@ -1974,7 +1971,8 @@ static int fsl_start(struct usb_gadget_driver *driver,
 
 		/* connect to bus through transceiver */
 		if (udc_controller->transceiver) {
-			retval = otg_set_peripheral(udc_controller->transceiver,
+			retval = otg_set_peripheral(
+					udc_controller->transceiver->otg,
 						    &udc_controller->gadget);
 			if (retval < 0) {
 				ERR("can't bind to transceiver\n");
@@ -2014,7 +2012,7 @@ static int fsl_stop(struct usb_gadget_driver *driver)
 		return -EINVAL;
 
 	if (udc_controller->transceiver)
-		otg_set_peripheral(udc_controller->transceiver, NULL);
+		otg_set_peripheral(udc_controller->transceiver->otg, NULL);
 
 	/* stop DR, disable intr */
 	dr_controller_stop(udc_controller);
@@ -2167,20 +2165,8 @@ static int fsl_proc_read(char *page, char **start, off_t off, int count,
 			default:
 				s = "None"; break;
 			}
-			s;} ), ( {
-			char *s;
-			switch (tmp_reg & PORTSCX_PORT_SPEED_UNDEF) {
-			case PORTSCX_PORT_SPEED_FULL:
-				s = "Full Speed"; break;
-			case PORTSCX_PORT_SPEED_LOW:
-				s = "Low Speed"; break;
-			case PORTSCX_PORT_SPEED_HIGH:
-				s = "High Speed"; break;
-			default:
-				s = "Undefined"; break;
-			}
-			s;
-		} ),
+			s;} ),
+		usb_speed_string(portscx_device_speed(tmp_reg)),
 		(tmp_reg & PORTSCX_PHY_LOW_POWER_SPD) ?
 		"Normal PHY mode" : "Low power mode",
 		(tmp_reg & PORTSCX_PORT_RESET) ? "In Reset" :
@@ -2450,7 +2436,7 @@ static int __init fsl_udc_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_USB_OTG
 	if (pdata->operating_mode == FSL_USB2_DR_OTG) {
-		udc_controller->transceiver = otg_get_transceiver();
+		udc_controller->transceiver = usb_get_phy();
 		if (!udc_controller->transceiver) {
 			ERR("Can't find OTG driver!\n");
 			ret = -ENODEV;

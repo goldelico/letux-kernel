@@ -283,7 +283,7 @@ static int langwell_ep_enable(struct usb_ep *_ep,
 	if (!dev->driver || dev->gadget.speed == USB_SPEED_UNKNOWN)
 		return -ESHUTDOWN;
 
-	max = le16_to_cpu(desc->wMaxPacketSize);
+	max = usb_endpoint_maxp(desc);
 
 	/*
 	 * disable HW zero length termination select
@@ -1279,9 +1279,9 @@ static int langwell_vbus_draw(struct usb_gadget *_gadget, unsigned mA)
 	dev_vdbg(&dev->pdev->dev, "---> %s()\n", __func__);
 
 	if (dev->transceiver) {
-		dev_vdbg(&dev->pdev->dev, "otg_set_power\n");
+		dev_vdbg(&dev->pdev->dev, "usb_phy_set_power\n");
 		dev_vdbg(&dev->pdev->dev, "<--- %s()\n", __func__);
-		return otg_set_power(dev->transceiver, mA);
+		return usb_phy_set_power(dev->transceiver, mA);
 	}
 
 	dev_vdbg(&dev->pdev->dev, "<--- %s()\n", __func__);
@@ -1700,20 +1700,7 @@ static ssize_t show_langwell_udc(struct device *_dev,
 		"BmAttributes: %d\n\n",
 		LPM_PTS(tmp_reg),
 		(tmp_reg & LPM_STS) ? 1 : 0,
-		({
-			char	*s;
-			switch (LPM_PSPD(tmp_reg)) {
-			case LPM_SPEED_FULL:
-				s = "Full Speed"; break;
-			case LPM_SPEED_LOW:
-				s = "Low Speed"; break;
-			case LPM_SPEED_HIGH:
-				s = "High Speed"; break;
-			default:
-				s = "Unknown Speed"; break;
-			}
-			s;
-		}),
+		usb_speed_string(lpm_device_speed(tmp_reg)),
 		(tmp_reg & LPM_PFSC) ? "Force Full Speed" : "Not Force",
 		(tmp_reg & LPM_PHCD) ? "Disabled" : "Enabled",
 		LPM_BA(tmp_reg));
@@ -1940,7 +1927,7 @@ static int langwell_stop(struct usb_gadget_driver *driver)
 
 	/* unbind OTG transceiver */
 	if (dev->transceiver)
-		(void)otg_set_peripheral(dev->transceiver, 0);
+		(void)otg_set_peripheral(dev->transceiver->otg, 0);
 
 	/* disable interrupt and set controller to stop state */
 	langwell_udc_stop(dev);
@@ -2657,12 +2644,24 @@ done:
 	dev_vdbg(&dev->pdev->dev, "<--- %s()\n", __func__);
 }
 
+static inline enum usb_device_speed lpm_device_speed(u32 reg)
+{
+	switch (LPM_PSPD(reg)) {
+	case LPM_SPEED_HIGH:
+		return USB_SPEED_HIGH;
+	case LPM_SPEED_FULL:
+		return USB_SPEED_FULL;
+	case LPM_SPEED_LOW:
+		return USB_SPEED_LOW;
+	default:
+		return USB_SPEED_UNKNOWN;
+	}
+}
 
 /* port change detect interrupt handler */
 static void handle_port_change(struct langwell_udc *dev)
 {
 	u32	portsc1, devlc;
-	u32	speed;
 
 	dev_vdbg(&dev->pdev->dev, "---> %s()\n", __func__);
 
@@ -2677,24 +2676,9 @@ static void handle_port_change(struct langwell_udc *dev)
 	/* bus reset is finished */
 	if (!(portsc1 & PORTS_PR)) {
 		/* get the speed */
-		speed = LPM_PSPD(devlc);
-		switch (speed) {
-		case LPM_SPEED_HIGH:
-			dev->gadget.speed = USB_SPEED_HIGH;
-			break;
-		case LPM_SPEED_FULL:
-			dev->gadget.speed = USB_SPEED_FULL;
-			break;
-		case LPM_SPEED_LOW:
-			dev->gadget.speed = USB_SPEED_LOW;
-			break;
-		default:
-			dev->gadget.speed = USB_SPEED_UNKNOWN;
-			break;
-		}
-		dev_vdbg(&dev->pdev->dev,
-				"speed = %d, dev->gadget.speed = %d\n",
-				speed, dev->gadget.speed);
+		dev->gadget.speed = lpm_device_speed(devlc);
+		dev_vdbg(&dev->pdev->dev, "dev->gadget.speed = %d\n",
+			dev->gadget.speed);
 	}
 
 	/* LPM L0 to L1 */
@@ -3103,7 +3087,7 @@ static void langwell_udc_remove(struct pci_dev *pdev)
 		pci_disable_device(pdev);
 #else
 	if (dev->transceiver) {
-		otg_put_transceiver(dev->transceiver);
+		usb_put_phy(dev->transceiver);
 		dev->transceiver = NULL;
 		dev->lotg = NULL;
 	}
@@ -3163,12 +3147,12 @@ static int langwell_udc_probe(struct pci_dev *pdev,
 	dev_dbg(&dev->pdev->dev, "---> %s()\n", __func__);
 
 #ifdef	OTG_TRANSCEIVER
-	/* PCI device is already enabled by otg_transceiver driver */
+	/* PCI device is already enabled by usb_phy driver */
 	dev->enabled = 1;
 
 	/* mem region and register base */
 	dev->region = 1;
-	dev->transceiver = otg_get_transceiver();
+	dev->transceiver = usb_get_phy();
 	dev->lotg = otg_to_langwell(dev->transceiver);
 	base = dev->lotg->regs;
 #else

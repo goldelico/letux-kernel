@@ -243,7 +243,7 @@ loopback_unbind(struct usb_configuration *c, struct usb_function *f)
 static void loopback_complete(struct usb_ep *ep, struct usb_request *req)
 {
 	struct f_loopback	*loop = ep->driver_data;
-	struct usb_composite_dev *cdev = loop->function.config->cdev;
+	struct usb_composite_dev *cdev;
 	int			status = req->status;
 
 	switch (status) {
@@ -258,6 +258,7 @@ static void loopback_complete(struct usb_ep *ep, struct usb_request *req)
 				return;
 
 			/* "should never get here" */
+			cdev = loop->function.config->cdev;
 			ERROR(cdev, "can't loop %s to %s: %d\n",
 				ep->name, loop->in_ep->name,
 				status);
@@ -273,7 +274,7 @@ static void loopback_complete(struct usb_ep *ep, struct usb_request *req)
 		/* FALLTHROUGH */
 
 	default:
-		ERROR(cdev, "%s loop complete --> %d, %d/%d\n", ep->name,
+		pr_err("%s loop complete --> %d, %d/%d\n", ep->name,
 				status, req->actual, req->length);
 		/* FALLTHROUGH */
 

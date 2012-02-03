@@ -42,6 +42,8 @@
 #include <linux/thermal_framework.h>
 #endif
 
+static struct scm *scm_ptr;
+
 u32 omap4plus_scm_readl(struct scm *scm_ptr, u32 reg)
 {
 	return __raw_readl(scm_ptr->base + reg);
@@ -137,10 +139,138 @@ static irqreturn_t omap4460_tshut_irq_handler(int irq, void *data)
 }
 #endif
 
+/**
+ * omap_get_scm_dev - returns the scm device pinter
+ *
+ * The modules which has to use SCM API's should call this API to get the scm
+ * device pointer.
+ */
+struct device *omap_get_scm_dev(void)
+{
+	return scm_ptr->dev;
+}
+EXPORT_SYMBOL_GPL(omap_get_scm_dev);
+
+/**
+ * omap4plus_scm_phy_power - power on/off the phy using control module register
+ * @dev: struct device *
+ * @on: 0 or 1, based on powering on or off the PHY
+ *
+ * omap_usb2 can call this API to power on or off the PHY.
+ */
+void omap4plus_scm_phy_power(struct device *dev, int on)
+{
+	struct scm *scm_ptr	= dev_get_drvdata(dev);
+
+	if (on) {
+		if (omap4plus_scm_readl(scm_ptr, CONTROL_DEV_CONF) & PHY_PD) {
+			omap4plus_scm_writel(scm_ptr, ~PHY_PD,
+							CONTROL_DEV_CONF);
+			mdelay(200);
+		}
+	} else {
+		omap4plus_scm_writel(scm_ptr, PHY_PD, CONTROL_DEV_CONF);
+	}
+}
+EXPORT_SYMBOL_GPL(omap4plus_scm_phy_power);
+
+/**
+ * omap4plus_scm_usb_host_mode - set AVALID, VBUSVALID and ID pin in grounded
+ * @dev: struct device *
+ *
+ * On detection of a device (ID pin is grounded), OMAP_USB2 calls this API
+ * to set AVALID, VBUSVALID and ID pin is grounded.
+ */
+void omap4plus_scm_usb_host_mode(struct device *dev)
+{
+	struct scm *scm_ptr	= dev_get_drvdata(dev);
+	int val;
+
+	val = AVALID | VBUSVALID;
+
+	omap4plus_scm_writel(scm_ptr, val, CONTROL_USBOTGHS_CONTROL);
+}
+EXPORT_SYMBOL_GPL(omap4plus_scm_usb_host_mode);
+
+/**
+ * omap4plus_scm_usb_device_mode - set AVALID, VBUSVALID and ID pin in high
+ * impedance
+ * @dev: struct device *
+ *
+ * When OMAP is connected to a host (OMAP in device mode), OMAP_USB2 calls
+ * this API to set AVALID, VBUSVALID and ID pin in high impedance.
+ */
+void omap4plus_scm_usb_device_mode(struct device *dev)
+{
+	struct scm *scm_ptr	= dev_get_drvdata(dev);
+	int val;
+
+	val = IDDIG | AVALID | VBUSVALID;
+
+	omap4plus_scm_writel(scm_ptr, val, CONTROL_USBOTGHS_CONTROL);
+}
+EXPORT_SYMBOL_GPL(omap4plus_scm_usb_device_mode);
+
+/**
+ * omap4plus_scm_usb_set_sessionend - Enable SESSIONEND and IDIG to high
+ * impedance
+ * @dev: struct device *
+ *
+ * OMAP_USB2 calls this API, if OMAP is not connected to anything (neither act
+ * as host or device).
+ */
+void omap4plus_scm_usb_set_sessionend(struct device *dev)
+{
+	struct scm *scm_ptr	= dev_get_drvdata(dev);
+	int val;
+
+	val = SESSEND | IDDIG;
+
+	omap4plus_scm_writel(scm_ptr, val, CONTROL_USBOTGHS_CONTROL);
+}
+EXPORT_SYMBOL_GPL(omap4plus_scm_usb_set_sessionend);
+
+/**
+ * omap5_scm_usb3_phy_power - power on/off the serializer using control module
+ * @dev: struct device *
+ * @on: 0 or 1, based on powering on or off the PHY
+ *
+ * omap_usb3 can call this API to power on or off the PHY.
+ */
+void omap5_scm_usb3_phy_power(struct device *dev, int on)
+{
+	u32		val;
+	unsigned long	rate;
+	struct clk	*sys_clk;
+	struct scm	*scm_ptr = dev_get_drvdata(dev);
+
+	sys_clk	= clk_get(NULL, "sys_clkin_ck");
+	if (IS_ERR(sys_clk)) {
+		pr_err("unable to get sys_clkin_ck\n");
+		return;
+	}
+
+	rate = clk_get_rate(sys_clk);
+	rate = rate/1000000;
+
+	val = omap4plus_scm_readl(scm_ptr, CONTROL_PHY_POWER_USB);
+
+	if (on) {
+		val &= ~(USB_PWRCTL_CLK_CMD_MASK | USB_PWRCTL_CLK_FREQ_MASK);
+		val |= USB3_PHY_TX_RX_POWERON << USB_PWRCTL_CLK_CMD_SHIFT;
+		val |= rate << USB_PWRCTL_CLK_FREQ_SHIFT;
+	} else {
+		val &= ~USB_PWRCTL_CLK_CMD_MASK;
+		val |= USB3_PHY_TX_RX_POWEROFF << USB_PWRCTL_CLK_CMD_SHIFT;
+	}
+
+	omap4plus_scm_writel(scm_ptr, val, CONTROL_PHY_POWER_USB);
+}
+EXPORT_SYMBOL_GPL(omap5_scm_usb3_phy_power);
+
 static int __devinit omap4plus_scm_probe(struct platform_device *pdev)
 {
 	struct omap4plus_scm_pdata *pdata = pdev->dev.platform_data;
-	struct scm *scm_ptr;
 	struct resource *mem;
 	int ret = 0, i;
 
@@ -342,7 +472,7 @@ static int __init omap4plus_scm_init(void)
 	return platform_driver_register(&omap4plus_scm_driver);
 }
 
-module_init(omap4plus_scm_init);
+arch_initcall(omap4plus_scm_init);
 
 static void __exit omap4plus_scm_exit(void)
 {

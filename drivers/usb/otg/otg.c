@@ -14,56 +14,113 @@
 
 #include <linux/usb/otg.h>
 
-static struct otg_transceiver *xceiv;
+static LIST_HEAD(phy_list);
+static DEFINE_SPINLOCK(phy_lock);
 
 /**
- * otg_get_transceiver - find the (single) OTG transceiver
+ * usb_get_phy - find the USB PHY
+ * @type - the type of the phy the controller requires
  *
- * Returns the transceiver driver, after getting a refcount to it; or
- * null if there is no such transceiver.  The caller is responsible for
- * calling otg_put_transceiver() to release that count.
+ * Returns the phy driver, after getting a refcount to it; or
+ * null if there is no such phy.  The caller is responsible for
+ * calling usb_put_phy() to release that count.
  *
  * For use by USB host and peripheral drivers.
  */
-struct otg_transceiver *otg_get_transceiver(void)
+struct usb_phy *usb_get_phy(enum usb_phy_type type)
 {
-	if (xceiv)
-		get_device(xceiv->dev);
-	return xceiv;
+	struct usb_phy	*phy = NULL;
+	unsigned long	flags;
+
+	spin_lock_irqsave(&phy_lock, flags);
+
+	list_for_each_entry(phy, &phy_list, head) {
+		if (phy->type == type) {
+			get_device(phy->dev);
+			spin_unlock_irqrestore(&phy_lock, flags);
+			return phy;
+		}
+	}
+
+	spin_unlock_irqrestore(&phy_lock, flags);
+
+	pr_err("unable to find transceiver of type %d\n", type);
+
+	return phy;
 }
-EXPORT_SYMBOL(otg_get_transceiver);
+EXPORT_SYMBOL(usb_get_phy);
 
 /**
- * otg_put_transceiver - release the (single) OTG transceiver
- * @x: the transceiver returned by otg_get_transceiver()
+ * usb_put_phy - release the USB PHY
+ * @x: the phy returned by usb_get_phy()
  *
- * Releases a refcount the caller received from otg_get_transceiver().
+ * Releases a refcount the caller received from usb_get_phy().
  *
  * For use by USB host and peripheral drivers.
  */
-void otg_put_transceiver(struct otg_transceiver *x)
+void usb_put_phy(struct usb_phy *x)
 {
 	if (x)
 		put_device(x->dev);
 }
-EXPORT_SYMBOL(otg_put_transceiver);
+EXPORT_SYMBOL(usb_put_phy);
 
 /**
- * otg_set_transceiver - declare the (single) OTG transceiver
- * @x: the USB OTG transceiver to be used; or NULL
+ * usb_add_phy - declare the USB PHY
+ * @x: the USB phy to be used; or NULL
+ * @type - the type of this PHY
  *
- * This call is exclusively for use by transceiver drivers, which
+ * This call is exclusively for use by phy drivers, which
  * coordinate the activities of drivers for host and peripheral
  * controllers, and in some cases for VBUS current regulation.
  */
-int otg_set_transceiver(struct otg_transceiver *x)
+int usb_add_phy(struct usb_phy *x, enum usb_phy_type type)
 {
-	if (xceiv && x)
-		return -EBUSY;
-	xceiv = x;
-	return 0;
+	int		ret = 0;
+	unsigned long	flags;
+	struct usb_phy	*phy;
+
+	if (x && x->type != USB_PHY_TYPE_UNDEFINED) {
+		dev_err(x->dev, "not accepting initialized PHY %s\n", x->label);
+		return -EINVAL;
+	}
+
+	spin_lock_irqsave(&phy_lock, flags);
+
+	list_for_each_entry(phy, &phy_list, head) {
+		if (phy->type == type) {
+			ret = -EBUSY;
+			dev_err(x->dev, "transceiver of type %s already exists\n",
+						usb_phy_type_string(type));
+			goto out;
+		}
+	}
+
+	x->type = type;
+	list_add_tail(&x->head, &phy_list);
+
+out:
+	spin_unlock_irqrestore(&phy_lock, flags);
+	return ret;
 }
-EXPORT_SYMBOL(otg_set_transceiver);
+EXPORT_SYMBOL(usb_add_phy);
+
+/**
+ * usb_remove_phy - remove the OTG PHY
+ * @x: the USB OTG PHY to be removed;
+ *
+ * This reverts the effects of usb_add_phy
+ */
+void usb_remove_phy(struct usb_phy *x)
+{
+	unsigned long	flags;
+
+	spin_lock_irqsave(&phy_lock, flags);
+	if (x)
+		list_del(&x->head);
+	spin_unlock_irqrestore(&phy_lock, flags);
+}
+EXPORT_SYMBOL(usb_remove_phy);
 
 const char *otg_state_string(enum usb_otg_state state)
 {

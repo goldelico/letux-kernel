@@ -232,8 +232,7 @@ static int pxa25x_ep_enable (struct usb_ep *_ep,
 	if (!_ep || !desc || ep->desc || _ep->name == ep0name
 			|| desc->bDescriptorType != USB_DT_ENDPOINT
 			|| ep->bEndpointAddress != desc->bEndpointAddress
-			|| ep->fifo_size < le16_to_cpu
-						(desc->wMaxPacketSize)) {
+			|| ep->fifo_size < usb_endpoint_maxp (desc)) {
 		DMSG("%s, bad ep or descriptor\n", __func__);
 		return -EINVAL;
 	}
@@ -248,7 +247,7 @@ static int pxa25x_ep_enable (struct usb_ep *_ep,
 
 	/* hardware _could_ do smaller, but driver doesn't */
 	if ((desc->bmAttributes == USB_ENDPOINT_XFER_BULK
-				&& le16_to_cpu (desc->wMaxPacketSize)
+				&& usb_endpoint_maxp (desc)
 						!= BULK_FIFO_SIZE)
 			|| !desc->wMaxPacketSize) {
 		DMSG("%s, bad %s maxpacket\n", __func__, _ep->name);
@@ -264,7 +263,7 @@ static int pxa25x_ep_enable (struct usb_ep *_ep,
 	ep->desc = desc;
 	ep->stopped = 0;
 	ep->pio_irqs = 0;
-	ep->ep.maxpacket = le16_to_cpu (desc->wMaxPacketSize);
+	ep->ep.maxpacket = usb_endpoint_maxp (desc);
 
 	/* flush fifo (mostly for OUT buffers) */
 	pxa25x_ep_fifo_flush (_ep);
@@ -401,7 +400,7 @@ write_fifo (struct pxa25x_ep *ep, struct pxa25x_request *req)
 {
 	unsigned		max;
 
-	max = le16_to_cpu(ep->desc->wMaxPacketSize);
+	max = usb_endpoint_maxp(ep->desc);
 	do {
 		unsigned	count;
 		int		is_last, is_short;
@@ -671,8 +670,7 @@ pxa25x_ep_queue(struct usb_ep *_ep, struct usb_request *_req, gfp_t gfp_flags)
 	 * we can report per-packet status.  that also helps with dma.
 	 */
 	if (unlikely (ep->bmAttributes == USB_ENDPOINT_XFER_ISOC
-			&& req->req.length > le16_to_cpu
-						(ep->desc->wMaxPacketSize)))
+		        && req->req.length > usb_endpoint_maxp (ep->desc)))
 		return -EMSGSIZE;
 
 	DBG(DBG_NOISY, "%s queue req %p, len %d buf %p\n",
@@ -1007,7 +1005,7 @@ static int pxa25x_udc_vbus_draw(struct usb_gadget *_gadget, unsigned mA)
 	udc = container_of(_gadget, struct pxa25x_udc, gadget);
 
 	if (udc->transceiver)
-		return otg_set_power(udc->transceiver, mA);
+		return usb_phy_set_power(udc->transceiver, mA);
 	return -EOPNOTSUPP;
 }
 
@@ -1105,7 +1103,7 @@ udc_seq_show(struct seq_file *m, void *_d)
 			tmp = *dev->ep [i].reg_udccs;
 			seq_printf(m,
 				"%s max %d %s udccs %02x irqs %lu\n",
-				ep->ep.name, le16_to_cpu(desc->wMaxPacketSize),
+				ep->ep.name, usb_endpoint_maxp(desc),
 				"pio", tmp, ep->pio_irqs);
 			/* TODO translate all five groups of udccs bits! */
 
@@ -1313,7 +1311,8 @@ fail:
 
 	/* connect to bus through transceiver */
 	if (dev->transceiver) {
-		retval = otg_set_peripheral(dev->transceiver, &dev->gadget);
+		retval = otg_set_peripheral(dev->transceiver->otg,
+						&dev->gadget);
 		if (retval) {
 			DMSG("can't bind to transceiver\n");
 			if (driver->unbind)
@@ -1372,7 +1371,7 @@ static int pxa25x_stop(struct usb_gadget_driver *driver)
 	local_irq_enable();
 
 	if (dev->transceiver)
-		(void) otg_set_peripheral(dev->transceiver, NULL);
+		(void) otg_set_peripheral(dev->transceiver->otg, NULL);
 
 	driver->unbind(&dev->gadget);
 	dev->gadget.dev.driver = NULL;
@@ -2171,7 +2170,7 @@ static int __init pxa25x_udc_probe(struct platform_device *pdev)
 	dev->dev = &pdev->dev;
 	dev->mach = pdev->dev.platform_data;
 
-	dev->transceiver = otg_get_transceiver();
+	dev->transceiver = usb_get_phy();
 
 	if (gpio_is_valid(dev->mach->gpio_pullup)) {
 		if ((retval = gpio_request(dev->mach->gpio_pullup,
@@ -2250,7 +2249,7 @@ lubbock_fail0:
 		gpio_free(dev->mach->gpio_pullup);
  err_gpio_pullup:
 	if (dev->transceiver) {
-		otg_put_transceiver(dev->transceiver);
+		usb_put_phy(dev->transceiver);
 		dev->transceiver = NULL;
 	}
 	clk_put(dev->clk);
@@ -2292,7 +2291,7 @@ static int __exit pxa25x_udc_remove(struct platform_device *pdev)
 	clk_put(dev->clk);
 
 	if (dev->transceiver) {
-		otg_put_transceiver(dev->transceiver);
+		usb_put_phy(dev->transceiver);
 		dev->transceiver = NULL;
 	}
 

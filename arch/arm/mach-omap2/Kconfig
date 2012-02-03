@@ -66,6 +66,7 @@ config ARCH_OMAP5
 	select USB_ARCH_HAS_EHCI if USB_SUPPORT
 	select ARCH_HAS_OPP
 	select PM_OPP if PM
+	select USB_ARCH_HAS_XHCI if USB_SUPPORT
 
 comment "OMAP Core Type"
 	depends on ARCH_OMAP2
