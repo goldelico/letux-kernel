@@ -3381,7 +3381,9 @@ static struct omap_hwmod omap54xx_iva_seq0_hwmod = {
 	.name		= "iva_seq0",
 	.class		= &omap54xx_iva_seq_hwmod_class,
 	.clkdm_name	= "iva_clkdm",
+#ifndef CONFIG_OMAP_PM_STANDALONE
 	.flags		= HWMOD_INIT_NO_IDLE | HWMOD_INIT_NO_RESET,
+#endif
 	.rst_lines	= omap54xx_iva_seq0_resets,
 	.rst_lines_cnt	= ARRAY_SIZE(omap54xx_iva_seq0_resets),
 	.main_clk	= "iva_fck",
@@ -3398,7 +3400,9 @@ static struct omap_hwmod omap54xx_iva_seq1_hwmod = {
 	.name		= "iva_seq1",
 	.class		= &omap54xx_iva_seq_hwmod_class,
 	.clkdm_name	= "iva_clkdm",
+#ifndef CONFIG_OMAP_PM_STANDALONE
 	.flags		= HWMOD_INIT_NO_IDLE | HWMOD_INIT_NO_RESET,
+#endif
 	.rst_lines	= omap54xx_iva_seq1_resets,
 	.rst_lines_cnt	= ARRAY_SIZE(omap54xx_iva_seq1_resets),
 	.main_clk	= "iva_fck",
@@ -3413,7 +3417,9 @@ static struct omap_hwmod omap54xx_iva_seq1_hwmod = {
 static struct omap_hwmod omap54xx_iva_hwmod = {
 	.name		= "iva",
 	.class		= &omap54xx_iva_hwmod_class,
+#ifndef CONFIG_OMAP_PM_STANDALONE
 	.flags		= HWMOD_INIT_NO_IDLE | HWMOD_INIT_NO_RESET,
+#endif
 	.clkdm_name	= "iva_clkdm",
 	.mpu_irqs	= omap54xx_iva_irqs,
 	.rst_lines	= omap54xx_iva_resets,
@@ -6610,6 +6616,7 @@ static __initdata struct omap_hwmod *omap54xx_hwmods[] = {
 	&omap54xx_dsp_hwmod,
 #endif
 
+#ifndef CONFIG_OMAP_PM_STANDALONE
 	/* dss class */
 	&omap54xx_dss_hwmod,
 	&omap54xx_dss_dispc_hwmod,
@@ -6617,6 +6624,7 @@ static __initdata struct omap_hwmod *omap54xx_hwmods[] = {
 	&omap54xx_dss_dsi1_c_hwmod,
 	&omap54xx_dss_hdmi_hwmod,
 	&omap54xx_dss_rfbi_hwmod,
+#endif
 
 	/* emif class */
 	&omap54xx_emif1_hwmod,
@@ -6660,15 +6668,16 @@ static __initdata struct omap_hwmod *omap54xx_hwmods[] = {
 	&omap54xx_ipu_c1_hwmod,
 #endif
 
-	/* iss class */
-	&omap54xx_iss_hwmod,
 
 #ifndef CONFIG_OMAP_PM_STANDALONE
+	/* iss class */
+	&omap54xx_iss_hwmod,
+#endif
+
 	/* iva class */
 	&omap54xx_iva_hwmod,
 	&omap54xx_iva_seq0_hwmod,
 	&omap54xx_iva_seq1_hwmod,
-#endif
 
 	/* kbd class */
 	&omap54xx_kbd_hwmod,
