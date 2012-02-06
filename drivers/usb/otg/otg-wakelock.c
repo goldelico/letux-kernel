@@ -24,7 +24,7 @@
 #define TEMPORARY_HOLD_TIME	2000
 
 static bool enabled = true;
-static struct otg_transceiver *otgwl_xceiv;
+static struct usb_phy *otgwl_xceiv;
 static struct notifier_block otgwl_nb;
 
 /*
@@ -138,7 +138,9 @@ static int __init otg_wakelock_init(void)
 {
 	int ret;
 
-	otgwl_xceiv = otg_get_transceiver();
+	otgwl_xceiv = usb_get_phy(USB_PHY_TYPE_USB3);
+	if (!otgwl_xceiv)
+		otgwl_xceiv = usb_get_phy(USB_PHY_TYPE_USB2);
 
 	if (!otgwl_xceiv) {
 		pr_err("%s: No OTG transceiver found\n", __func__);
@@ -151,7 +153,7 @@ static int __init otg_wakelock_init(void)
 		       vbus_lock.name);
 
 	otgwl_nb.notifier_call = otgwl_otg_notifications;
-	ret = otg_register_notifier(otgwl_xceiv, &otgwl_nb);
+	ret = usb_register_notifier(otgwl_xceiv, &otgwl_nb);
 
 	if (ret) {
 		pr_err("%s: otg_register_notifier on transceiver %s"
