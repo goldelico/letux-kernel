@@ -40,14 +40,19 @@ struct gpio_switch_platform_data {
 	const char *state_off;
 };
 
+#ifdef CONFIG_SWITCH
 extern int switch_dev_register(struct switch_dev *sdev);
 extern void switch_dev_unregister(struct switch_dev *sdev);
+extern void switch_set_state(struct switch_dev *sdev, int state);
+#else
+int switch_dev_register(struct switch_dev *sdev) {return 0;}
+void switch_dev_unregister(struct switch_dev *sdev) {}
 
+void switch_set_state(struct switch_dev *sdev, int state) {};
+#endif
 static inline int switch_get_state(struct switch_dev *sdev)
 {
 	return sdev->state;
 }
-
-extern void switch_set_state(struct switch_dev *sdev, int state);
 
 #endif /* __LINUX_SWITCH_H__ */
