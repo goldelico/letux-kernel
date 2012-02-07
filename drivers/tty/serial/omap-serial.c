@@ -819,8 +819,13 @@ serial_omap_set_termios(struct uart_port *port, struct ktermios *termios,
 	up->scr |= OMAP_UART_SCR_RX_TRIG_GRANU1_MASK;
 
 	if (up->use_dma) {
+		if (up->errata & OMAP4_UART_ERRATA_i659_TX_THR) {
+			serial_out(up, UART_MDR3, SET_DMA_TX_THRESHOLD);
+			serial_out(up, UART_TX_DMA_THRESHOLD, TX_FIFO_THR_LVL);
+		}
+
 		serial_out(up, UART_TI752_TLR, 0);
-		up->scr |= UART_FCR_TRIGGER_4;
+		up->scr = (UART_FCR_TRIGGER_4 | UART_FCR_TRIGGER_8);
 	} else {
 		/* Set receive FIFO threshold to 1 byte */
 		up->fcr &= ~OMAP_UART_FCR_RX_FIFO_TRIG_MASK;
@@ -1038,7 +1043,7 @@ static int serial_omap_poll_get_char(struct uart_port *port)
 
 #ifdef CONFIG_SERIAL_OMAP_CONSOLE
 
-static struct uart_omap_port *serial_omap_console_ports[4];
+static struct uart_omap_port *serial_omap_console_ports[OMAP_MAX_HSUART_PORTS];
 
 static struct uart_driver serial_omap_reg;
 
@@ -1530,6 +1535,18 @@ static void serial_omap_restore_context(struct uart_omap_port *up)
 	serial_out(up, UART_OMAP_SCR, up->scr);
 	serial_out(up, UART_EFR, up->efr);
 	serial_out(up, UART_LCR, up->lcr);
+	if (up->use_dma) {
+		if (up->errata & OMAP4_UART_ERRATA_i659_TX_THR) {
+			serial_out(up, UART_MDR3, SET_DMA_TX_THRESHOLD);
+			serial_out(up, UART_TX_DMA_THRESHOLD, TX_FIFO_THR_LVL);
+		}
+
+		serial_out(up, UART_TI752_TLR, 0);
+		serial_out(up, UART_OMAP_SCR,
+			(UART_FCR_TRIGGER_4 | UART_FCR_TRIGGER_8));
+	}
+
+	/* UART 16x mode */
 	if (up->errata & UART_ERRATA_i202_MDR1_ACCESS)
 		serial_omap_mdr1_errataset(up, up->mdr1);
 	else
