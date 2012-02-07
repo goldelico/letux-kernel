@@ -32,6 +32,8 @@
 #include <linux/string.h>
 #include <linux/notifier.h>
 
+#include <linux/bltsville.h>
+
 #include "img_defs.h"
 #include "servicesext.h"
 #include "kerneldisplay.h"
@@ -53,6 +55,8 @@ extern struct ion_client *gpsIONClient;
 #include <plat/dsscomp.h>
 
 #endif
+
+#include <video/omap_hwc.h>
 
 #define OMAPLFB_COMMAND_COUNT		1
 
@@ -879,8 +883,8 @@ static IMG_BOOL ProcessFlipV2(IMG_HANDLE hCmdCookie,
 							  OMAPLFB_DEVINFO *psDevInfo,
 							  PDC_MEM_INFO *ppsMemInfos,
 							  IMG_UINT32 ui32NumMemInfos,
-							  struct dsscomp_setup_dispc_data *psDssData,
-							  IMG_UINT32 ui32DssDataLength)
+							  struct omap_hwc_data *psHwcData,
+							  IMG_UINT32 uiHwcDataSz)
 {
 	struct tiler_pa_info *apsTilerPAs[5];
 	IMG_UINT32 i, k;
@@ -890,12 +894,14 @@ static IMG_BOOL ProcessFlipV2(IMG_HANDLE hCmdCookie,
 		struct tiler_pa_info *psTilerInfo;
 	} asMemInfo[5];
 
+	struct dsscomp_setup_dispc_data *psDssData = &(psHwcData->dsscomp_data);
+
 	memset(asMemInfo, 0, sizeof(asMemInfo));
 
-	if(ui32DssDataLength != sizeof(*psDssData))
+	if(uiHwcDataSz != sizeof(*psHwcData))
 	{
 		WARN(1, "invalid size of private data (%d vs %d)",
-			 ui32DssDataLength, sizeof(*psDssData));
+			 uiHwcDataSz, sizeof(*psHwcData));
 		return IMG_FALSE;
 	}
 
