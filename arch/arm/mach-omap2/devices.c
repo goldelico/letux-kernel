@@ -503,7 +503,7 @@ static void omap_init_aess(void)
 	}
 
 	/* FIXME: Add correct context loss counter */
-	/*pdata->get_context_loss_count = omap_pm_get_dev_context_loss_count;*/
+	pdata->was_context_lost = omap_device_get_context_loss_count;
 	pdata->device_scale = omap_device_scale;
 
 	od = omap_device_build("aess", -1, oh, pdata,
