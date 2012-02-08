@@ -2132,6 +2132,9 @@ static int aess_restore_context(struct abe_data *abe)
 		}
 	}
 
+	if (pdata->was_context_lost && pdata->was_context_lost(abe->dev))
+		abe_reload_fw(abe->firmware);
+
 	/* unmute gains not associated with FEs/BEs */
 	abe_unmute_gain(MIXAUDUL, MIX_AUDUL_INPUT_MM_DL);
 	abe_unmute_gain(MIXAUDUL, MIX_AUDUL_INPUT_TONES);
