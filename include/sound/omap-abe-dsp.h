@@ -12,7 +12,7 @@
 #define _OMAP4_ABE_DSP_H
 
 struct omap4_abe_dsp_pdata {
-	bool (*was_context_lost)(struct device *dev);
+	u32 (*was_context_lost)(struct device *dev);
 	int (*device_scale)(struct device *req_dev,
 			    struct device *target_dev,
 			    unsigned long rate);
