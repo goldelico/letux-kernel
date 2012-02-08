@@ -496,6 +496,15 @@ s32 tiler_fill_virt_array(tiler_blk_handle handle, u32 *virt_array,
 		u32 *array_size);
 
 /**
+ * Returns virtual size of a tiler block
+ *
+ * @param handle	Handle to tiler block allocation
+ *
+ * @return Size of buffer
+ */
+u32 tiler_block_vsize(tiler_blk_handle handle);
+
+/**
  * Creates and returns a tiler_pa_info structure from a user address
  *
  * @param usr_addr      User Address
