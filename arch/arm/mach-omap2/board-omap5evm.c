@@ -884,6 +884,7 @@ static struct palmas_platform_data palmas_omap5 = {
 	.resource_pdata = &omap5_palmas_resource,
 };
 
+#ifdef CONFIG_TI_ST
 /* TODO: handle suspend/resume here.
  * Upon every suspend, make sure the wilink chip is capable
  * enough to wake-up the OMAP host.
@@ -952,6 +953,7 @@ static struct platform_device *wl18xx_devices[] __initdata = {
 	&wl18xx_device,
 	&btwilink_device,
 };
+#endif
 
 #endif  /* CONFIG_OMAP5_SEVM_PALMAS */
 
@@ -1473,10 +1475,12 @@ static struct omap_dss_board_info omap5evm_dss_data = {
 
 static void omap_5430evm_bluetooth_init(void)
 {
+#ifdef CONFIG_TI_ST
 	omap_mux_init_gpio(OMAP5_BT_NSHUTDOWN_GPIO, OMAP_PIN_OUTPUT);
 	/* UART5 muxing */
 	/* To DO: uart5 string from mux framework */
 	/* Currently muxing is handled in bootloader */
+#endif
 }
 
 static void __init omap_5430evm_init(void)
@@ -1498,7 +1502,9 @@ static void __init omap_5430evm_init(void)
 
 	omap5evm_touch_init();
 	omap_5430evm_i2c_init();
+#ifdef CONFIG_TI_ST
 	platform_add_devices(wl18xx_devices, ARRAY_SIZE(wl18xx_devices));
+#endif
 	omap_5430evm_bluetooth_init();
 	omap_serial_init();
 	platform_device_register(&dummy_sd_regulator_device);
