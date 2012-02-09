@@ -484,10 +484,22 @@ s32 tiler_memsize(enum tiler_fmt fmt, u32 width, u32 height, u32 *alloc_pages,
 u32 tiler_block_vstride(tiler_blk_handle handle);
 
 /**
+ * Fills an array virtual size of a tiler block
+ *
+ * @param handle	Handle to tiler block allocation
+ * @param virt_array	Array of physical address for the start of each virtual
+ *			page
+ * @param handle	Pointer to the size of the virt_array array
+ * @return 0 for success.  Non zero for error
+ */
+s32 tiler_fill_virt_array(tiler_blk_handle handle, u32 *virt_array,
+		u32 *array_size);
+
+/**
  * Creates and returns a tiler_pa_info structure from a user address
  *
- * @param usr_addr	User Address
- * @param num_pg	Number of pages
+ * @param usr_addr      User Address
+ * @param num_pg        Number of pages
  *
  * @return Ptr to new tiler_pa_info structure
  */
