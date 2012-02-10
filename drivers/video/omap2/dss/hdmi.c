@@ -114,18 +114,13 @@ static void hdmi_runtime_put(void)
 	WARN_ON(r < 0);
 }
 
-int hdmi_init_display(struct omap_dss_device *dssdev)
-{
-	DSSDBG("init_display\n");
-
-	dss_init_hdmi_ip_ops(&hdmi.ip_data);
-	return 0;
-}
-
+#ifdef CONFIG_OMAP5_DSS_HDMI
 static int omapdss_hdmi_io_configure(void)
 {
 	int r;
+
 	printk(KERN_DEBUG "configure TPD\n");
+
 	r = pio_a_read_byte(0xC);
 	r &= 0xFC;
 	pio_a_i2c_write(0xC, r);
@@ -134,6 +129,22 @@ static int omapdss_hdmi_io_configure(void)
 	pio_a_i2c_write(0x4, r);
 
 	return 0;
+}
+#endif
+
+int hdmi_init_display(struct omap_dss_device *dssdev)
+{
+	int r = 0;
+
+	DSSDBG("init_display\n");
+
+	dss_init_hdmi_ip_ops(&hdmi.ip_data);
+#ifdef CONFIG_OMAP5_DSS_HDMI
+	r = pio_a_init();
+	if (!r)
+		omapdss_hdmi_io_configure();
+#endif
+	return r;
 }
 
 static int relaxed_fb_mode_is_equal(const struct fb_videomode *mode1,
@@ -992,9 +1003,6 @@ int omapdss_hdmi_display_enable(struct omap_dss_device *dssdev)
 			goto err1;
 		}
 	}
-
-	if (cpu_is_omap54xx())
-		omapdss_hdmi_io_configure();
 
 	r = hdmi_power_on(dssdev);
 	if (r) {
