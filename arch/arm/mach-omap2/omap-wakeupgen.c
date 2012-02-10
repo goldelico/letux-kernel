@@ -212,85 +212,6 @@ static void wakeupgen_irqmask_all(unsigned int cpu, unsigned int set)
 	spin_unlock_irqrestore(&wakeupgen_lock, flags);
 }
 
-/*
- * Save GIC context in SAR RAM. Restore is done by ROM code
- * GIC is lost only when MPU hits OSWR or OFF. It consists
- * of a distributor and a per-CPU interface module. The GIC
- * save restore is optimised to save only necessary registers.
- */
-static void gic_save_context(void)
-{
-	u8 i;
-	u32 val;
-
-	/*
-	 * Interrupt Clear Enable registers are inverse of set enable
-	 * and hence not needed to be saved. ROM code programs it
-	 * based on Set Enable register values.
-	 */
-
-	/* Save CPU 0 Interrupt Set Enable register */
-	val = gic_readl(GIC_DIST_ENABLE_SET, 0);
-	sar_writel(val, ICDISER_CPU0_OFFSET, 0);
-
-	/* Disable interrupts on CPU1 */
-	sar_writel(GIC_MASK_ALL, ICDISER_CPU1_OFFSET, 0);
-
-	/* Save all SPI Set Enable register */
-	for (i = 0; i < max_spi_reg; i++) {
-		val = gic_readl(GIC_DIST_ENABLE_SET + SPI_ENABLE_SET_OFFSET, i);
-		sar_writel(val, ICDISER_SPI_OFFSET, i);
-	}
-
-	/*
-	 * Interrupt Priority Registers
-	 * Secure sw accesses, last 5 bits of the 8 bits (bit[7:3] are used)
-	 * Non-Secure sw accesses, last 4 bits (i.e. bits[7:4] are used)
-	 * But the Secure Bits[7:3] are shifted by 1 in Non-Secure access.
-	 * Secure (bits[7:3] << 1)== Non Secure bits[7:4]
-	 * Hence right shift the value by 1 while saving the priority
-	 */
-
-	/* Save SGI priority registers (Software Generated Interrupt) */
-	for (i = 0; i < 4; i++) {
-		val = gic_readl(GIC_DIST_PRI, i);
-
-		/* Save the priority bits of the Interrupts */
-		sar_writel(val >> 0x1, ICDIPR_SFI_CPU0_OFFSET, i);
-
-		/* Disable the interrupts on CPU1 */
-		sar_writel(GIC_MASK_ALL, ICDIPR_SFI_CPU1_OFFSET, i);
-	}
-
-	/* Save PPI priority registers (Private Peripheral Intterupts) */
-	val = gic_readl(GIC_DIST_PRI + PPI_PRI_OFFSET, 0);
-	sar_writel(val >> 0x1, ICDIPR_PPI_CPU0_OFFSET, 0);
-	sar_writel(GIC_MASK_ALL, ICDIPR_PPI_CPU1_OFFSET, 0);
-
-	/* SPI priority registers - 4 interrupts/register */
-	for (i = 0; i < (max_spi_irq / 4); i++) {
-		val = gic_readl((GIC_DIST_PRI + SPI_PRI_OFFSET), i);
-		sar_writel(val >> 0x1, ICDIPR_SPI_OFFSET, i);
-	}
-
-	/* SPI Interrupt Target registers - 4 interrupts/register */
-	for (i = 0; i < (max_spi_irq / 4); i++) {
-		val = gic_readl((GIC_DIST_TARGET + SPI_TARGET_OFFSET), i);
-		sar_writel(val, ICDIPTR_SPI_OFFSET, i);
-	}
-
-	/* SPI Interrupt Congigeration eegisters- 16 interrupts/register */
-	for (i = 0; i < (max_spi_irq / 16); i++) {
-		val = gic_readl((GIC_DIST_CONFIG + SPI_CONFIG_OFFSET), i);
-		sar_writel(val, ICDICFR_OFFSET, i);
-	}
-
-	/* Set the Backup Bit Mask status for GIC */
-	val = __raw_readl(sar_base + SAR_BACKUP_STATUS_OFFSET);
-	val |= (SAR_BACKUP_STATUS_GIC_CPU0 | SAR_BACKUP_STATUS_GIC_CPU1);
-	__raw_writel(val, sar_base + SAR_BACKUP_STATUS_OFFSET);
-}
-
 static inline void omap4_wakeupgen_save_context(void)
 {
 	u32 i, val;
@@ -440,7 +361,6 @@ static void save_secure_all(void)
 static void irq_save_context(void)
 {
 	omap_wakeupgen_save();
-	gic_save_context();
 }
 
 static void irq_save_secure_context(void)
