@@ -202,7 +202,7 @@ static int si47xx_set_bias_level(struct snd_soc_codec *codec,
 	return 0;
 }
 
-// FIXME: adjust what the Si47xx chip needs...
+// FIXME: adjust to what the Si47xx chip really needs...
 
 #define SI47XX_RATES (SNDRV_PCM_RATE_8000_192000)
 
@@ -224,7 +224,7 @@ struct snd_soc_dai si47xx_dai = {
 		.rates = SI47XX_RATES,
 		.formats = SI47XX_FORMATS,
 	},
-	.playback = {
+	.capture = {
 		.stream_name = "Capture",
 		.channels_min = 2,
 		.channels_max = 2,
