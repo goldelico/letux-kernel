@@ -75,8 +75,10 @@
 #ifdef CONFIG_ION_OMAP
 #define OMAP5_RAMCONSOLE_START	(PLAT_PHYS_OFFSET + SZ_512M)
 #define OMAP5_RAMCONSOLE_SIZE	SZ_2M
-#define OMAP5_ION_HEAP_TILER_SIZE		(SZ_128M - SZ_32M)
-#define OMAP5_ION_HEAP_NONSECURE_TILER_SIZE	SZ_32M
+/* TODO: Clean this up and align with OMAP4 as well */
+#define OMAP5_ION_HEAP_NONSECURE_TILER_SIZE	(SZ_1M * 15)
+#define OMAP5_ION_HEAP_TILER_SIZE	(SZ_128M - SZ_32M - \
+					OMAP5_ION_HEAP_NONSECURE_TILER_SIZE)
 #endif
 
 static const int evm5430_keymap[] = {
@@ -324,7 +326,9 @@ static struct ion_platform_data omap5_ion_data = {
 			.type = OMAP_ION_HEAP_TYPE_TILER,
 			.id = OMAP_ION_HEAP_NONSECURE_TILER,
 			.name = "nonsecure_tiler",
-			.base = 0x80000000 + SZ_512M + SZ_2M,
+			.base = PHYS_ADDR_DUCATI_MEM -
+					OMAP5_ION_HEAP_TILER_SIZE -
+					OMAP5_ION_HEAP_NONSECURE_TILER_SIZE,
 			.size = OMAP5_ION_HEAP_NONSECURE_TILER_SIZE,
 		},
 	},
@@ -1516,9 +1520,6 @@ static void __init omap_5430evm_map_io(void)
 {
 	omap2_set_globals_543x();
 	omap54xx_map_common_io();
-#ifdef CONFIG_ION_OMAP
-	omap_ion_init();
-#endif
 }
 
 static void __init omap_5430evm_reserve(void)
@@ -1530,6 +1531,9 @@ static void __init omap_5430evm_reserve(void)
 	omap_ipu_set_static_mempool(PHYS_ADDR_DUCATI_MEM,
 		PHYS_ADDR_DUCATI_SIZE + OMAP_ION_HEAP_SECURE_INPUT_SIZE);
 
+#ifdef CONFIG_ION_OMAP
+	omap_ion_init();
+#endif
 	omap_reserve();
 }
 
