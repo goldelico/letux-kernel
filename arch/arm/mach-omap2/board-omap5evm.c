@@ -44,6 +44,7 @@
 #include <mach/omap4-common.h>
 #include <plat/common.h>
 #include <plat/remoteproc.h>
+#include <plat/omap_hsi.h>
 #include <plat/usb.h>
 #include <plat/mmc.h>
 #include <plat/omap4-keypad.h>
@@ -1513,6 +1514,15 @@ static void omap_5430evm_bluetooth_init(void)
 #endif
 }
 
+/*
+ * HSI usage is declared using bootargs variable:
+ * board-omap5evm.modem_ipc=hsi
+ * Variable modem_ipc is used to catch bootargs parameter value.
+ */
+static char *modem_ipc = "n/a";
+module_param(modem_ipc, charp, 0);
+MODULE_PARM_DESC(modem_ipc, "Modem IPC setting");
+
 static void __init omap_5430evm_init(void)
 {
 	int status;
@@ -1544,6 +1554,13 @@ static void __init omap_5430evm_init(void)
 	omap5_sdp5430_wifi_init();
 
 	omap2_hsmmc_init(mmc);
+
+	/* blaze_modem_init shall be called before omap_ehci_ohci_init */
+	if (!strcmp(modem_ipc, "hsi")) {
+		status = omap_hsi_dev_init();
+		if (status < 0)
+			pr_err("HSI: device registration failed: %d\n", status);
+	}
 	omap_ehci_ohci_init();
 	usb_dwc3_init();
 	status = omap4_keyboard_init(&evm5430_keypad_data, &keypad_data);
