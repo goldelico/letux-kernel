@@ -80,7 +80,7 @@ config PVR_PERCONTEXT_PB
 config PVR_ACTIVE_POWER_MANAGEMENT
 	bool "Support for active power management (recommended)"
 	depends on PVR_SGX
-	default n
+	default y
 
 config PVR_ACTIVE_POWER_LATENCY_MS
 	int "Active power event latency (ms)"
