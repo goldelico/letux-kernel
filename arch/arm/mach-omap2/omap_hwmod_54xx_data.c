@@ -1340,6 +1340,7 @@ static struct omap_hwmod_ocp_if omap54xx_l3_main_2__dss = {
 	.clk		= "dss_fck",
 	.addr		= omap54xx_dss_dma_addrs,
 	.user		= OCP_USER_SDMA,
+	.flags		= OCPIF_SWSUP_IDLE,
 };
 
 static struct omap_hwmod_addr_space omap54xx_dss_addrs[] = {
@@ -1358,6 +1359,7 @@ static struct omap_hwmod_ocp_if omap54xx_l4_per__dss = {
 	.clk		= "l4_div_ck",
 	.addr		= omap54xx_dss_addrs,
 	.user		= OCP_USER_MPU,
+	.flags		= OCPIF_SWSUP_IDLE,
 };
 
 /* dss slave ports */
@@ -1444,6 +1446,7 @@ static struct omap_hwmod_ocp_if omap54xx_l3_main_2__dss_dispc = {
 	.clk		= "dss_fck",
 	.addr		= omap54xx_dss_dispc_dma_addrs,
 	.user		= OCP_USER_SDMA,
+	.flags		= OCPIF_SWSUP_IDLE,
 };
 
 static struct omap_hwmod_addr_space omap54xx_dss_dispc_addrs[] = {
@@ -1467,6 +1470,7 @@ static struct omap_hwmod_ocp_if omap54xx_l4_per__dss_dispc = {
 	.clk		= "l4_div_ck",
 	.addr		= omap54xx_dss_dispc_addrs,
 	.user		= OCP_USER_MPU,
+	.flags		= OCPIF_SWSUP_IDLE,
 };
 
 /* dss_dispc slave ports */
@@ -1544,6 +1548,7 @@ static struct omap_hwmod_ocp_if omap54xx_l3_main_2__dss_dsi1_a = {
 	.clk		= "dss_fck",
 	.addr		= omap54xx_dss_dsi1_a_dma_addrs,
 	.user		= OCP_USER_SDMA,
+	.flags		= OCPIF_SWSUP_IDLE,
 };
 
 static struct omap_hwmod_addr_space omap54xx_dss_dsi1_a_addrs[] = {
@@ -1562,6 +1567,7 @@ static struct omap_hwmod_ocp_if omap54xx_l4_per__dss_dsi1_a = {
 	.clk		= "l4_div_ck",
 	.addr		= omap54xx_dss_dsi1_a_addrs,
 	.user		= OCP_USER_MPU,
+	.flags		= OCPIF_SWSUP_IDLE,
 };
 
 /* dss_dsi1_a slave ports */
@@ -1623,6 +1629,7 @@ static struct omap_hwmod_ocp_if omap54xx_l3_main_2__dss_dsi1_c = {
 	.clk		= "dss_fck",
 	.addr		= omap54xx_dss_dsi1_c_dma_addrs,
 	.user		= OCP_USER_SDMA,
+	.flags		= OCPIF_SWSUP_IDLE,
 };
 
 static struct omap_hwmod_addr_space omap54xx_dss_dsi1_c_addrs[] = {
@@ -1641,6 +1648,7 @@ static struct omap_hwmod_ocp_if omap54xx_l4_per__dss_dsi1_c = {
 	.clk		= "l4_div_ck",
 	.addr		= omap54xx_dss_dsi1_c_addrs,
 	.user		= OCP_USER_MPU,
+	.flags		= OCPIF_SWSUP_IDLE,
 };
 
 /* dss_dsi1_c slave ports */
@@ -1722,6 +1730,7 @@ static struct omap_hwmod_ocp_if omap54xx_l3_main_2__dss_hdmi = {
 	.clk		= "dss_fck",
 	.addr		= omap54xx_dss_hdmi_dma_addrs,
 	.user		= OCP_USER_SDMA,
+	.flags		= OCPIF_SWSUP_IDLE,
 };
 
 static struct omap_hwmod_addr_space omap54xx_dss_hdmi_addrs[] = {
@@ -1740,6 +1749,7 @@ static struct omap_hwmod_ocp_if omap54xx_l4_per__dss_hdmi = {
 	.clk		= "l4_div_ck",
 	.addr		= omap54xx_dss_hdmi_addrs,
 	.user		= OCP_USER_MPU,
+	.flags		= OCPIF_SWSUP_IDLE,
 };
 
 /* dss_hdmi slave ports */
@@ -1817,6 +1827,7 @@ static struct omap_hwmod_ocp_if omap54xx_l3_main_2__dss_rfbi = {
 	.clk		= "dss_fck",
 	.addr		= omap54xx_dss_rfbi_dma_addrs,
 	.user		= OCP_USER_SDMA,
+	.flags		= OCPIF_SWSUP_IDLE,
 };
 
 static struct omap_hwmod_addr_space omap54xx_dss_rfbi_addrs[] = {
@@ -1835,6 +1846,7 @@ static struct omap_hwmod_ocp_if omap54xx_l4_per__dss_rfbi = {
 	.clk		= "l4_div_ck",
 	.addr		= omap54xx_dss_rfbi_addrs,
 	.user		= OCP_USER_MPU,
+	.flags		= OCPIF_SWSUP_IDLE,
 };
 
 /* dss_rfbi slave ports */
