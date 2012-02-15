@@ -1257,8 +1257,11 @@ static struct omap_hwmod_irq_info omap54xx_dsp_irqs[] = {
 };
 
 static struct omap_hwmod_rst_info omap54xx_dsp_resets[] = {
-	{ .name = "rst_dsp", .rst_shift = 0 },
 	{ .name = "rst_dsp_mmu_cache", .rst_shift = 1 },
+};
+
+static struct omap_hwmod_rst_info omap54xx_dsp_c0_resets[] = {
+	{ .name = "rst_dsp", .rst_shift = 0 },
 };
 
 /* dsp -> iva */
@@ -1268,11 +1271,19 @@ static struct omap_hwmod_ocp_if omap54xx_dsp__iva = {
 	.clk		= "dpll_iva_h12x2_ck",
 };
 
+/* dsp -> sl2if */
+static struct omap_hwmod_ocp_if omap54xx_dsp__sl2if = {
+	.master		= &omap54xx_dsp_hwmod,
+	.slave		= &omap54xx_sl2if_hwmod,
+	.clk		= "dpll_iva_h12x2_ck",
+};
+
 /* dsp master ports */
 static struct omap_hwmod_ocp_if *omap54xx_dsp_masters[] = {
 	&omap54xx_dsp__l3_main_1,
 	&omap54xx_dsp__l4_abe,
 	&omap54xx_dsp__iva,
+	&omap54xx_dsp__sl2if,
 };
 
 /* l4_cfg -> dsp */
@@ -1286,6 +1297,22 @@ static struct omap_hwmod_ocp_if omap54xx_l4_cfg__dsp = {
 /* dsp slave ports */
 static struct omap_hwmod_ocp_if *omap54xx_dsp_slaves[] = {
 	&omap54xx_l4_cfg__dsp,
+};
+
+/* Pseudo hwmod for reset control purpose only */
+static struct omap_hwmod omap54xx_dsp_c0_hwmod = {
+	.name		= "dsp_c0",
+	.class		= &omap54xx_dsp_hwmod_class,
+	.clkdm_name	= "dsp_clkdm",
+	.flags		= HWMOD_INIT_NO_RESET,
+	.rst_lines	= omap54xx_dsp_c0_resets,
+	.rst_lines_cnt	= ARRAY_SIZE(omap54xx_dsp_c0_resets),
+	.prcm = {
+		.omap4 = {
+			.rstctrl_offs = OMAP54XX_RM_DSP_RSTCTRL_OFFSET,
+		},
+	},
+	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP54XX),
 };
 
 static struct omap_hwmod omap54xx_dsp_hwmod = {
@@ -1310,13 +1337,6 @@ static struct omap_hwmod omap54xx_dsp_hwmod = {
 	.masters	= omap54xx_dsp_masters,
 	.masters_cnt	= ARRAY_SIZE(omap54xx_dsp_masters),
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP54XX),
-};
-
-/* dsp -> sl2if */
-static struct omap_hwmod_ocp_if omap54xx_dsp__sl2if = {
-	.master		= &omap54xx_dsp_hwmod,
-	.slave		= &omap54xx_sl2if_hwmod,
-	.clk		= "dpll_iva_h12x2_ck",
 };
 
 /*
@@ -6552,6 +6572,7 @@ static __initdata struct omap_hwmod *omap54xx_hwmods[] = {
 	/* dsp class */
 #ifndef CONFIG_OMAP_PM_STANDALONE
 	&omap54xx_dsp_hwmod,
+	&omap54xx_dsp_c0_hwmod,
 #endif
 
 	/* dss class */
