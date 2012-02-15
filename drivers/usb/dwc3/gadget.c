@@ -1894,18 +1894,10 @@ static void dwc3_gadget_usb2_phy_power(struct dwc3 *dwc, int on)
 	dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(0), reg);
 }
 
-static void dwc3_gadget_disconnect_phy(struct dwc3 *dwc, u8 speed)
+static void dwc3_gadget_enable_phys(struct dwc3 *dwc)
 {
-	switch (speed) {
-	case USB_SPEED_SUPER:
-		dwc3_gadget_usb3_phy_power(dwc, false);
-		break;
-	case USB_SPEED_HIGH:
-	case USB_SPEED_FULL:
-	case USB_SPEED_LOW:
-		dwc3_gadget_usb2_phy_power(dwc, false);
-		break;
-	}
+	dwc3_gadget_usb3_phy_power(dwc, true);
+	dwc3_gadget_usb2_phy_power(dwc, true);
 }
 
 static void dwc3_gadget_disconnect_interrupt(struct dwc3 *dwc)
@@ -1928,7 +1920,7 @@ static void dwc3_gadget_disconnect_interrupt(struct dwc3 *dwc)
 	dwc3_disconnect_gadget(dwc);
 	dwc->start_config_issued = false;
 
-	dwc3_gadget_disconnect_phy(dwc, dwc->gadget.speed);
+	dwc3_gadget_enable_phys(dwc);
 	dwc->gadget.speed = USB_SPEED_UNKNOWN;
 }
 
