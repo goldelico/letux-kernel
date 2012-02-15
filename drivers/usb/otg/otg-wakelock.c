@@ -138,10 +138,7 @@ static int __init otg_wakelock_init(void)
 {
 	int ret;
 
-	otgwl_xceiv = usb_get_phy(USB_PHY_TYPE_USB3);
-	if (!otgwl_xceiv)
-		otgwl_xceiv = usb_get_phy(USB_PHY_TYPE_USB2);
-
+	otgwl_xceiv = usb_get_phy(USB_PHY_TYPE_USB2);
 	if (!otgwl_xceiv) {
 		pr_err("%s: No OTG transceiver found\n", __func__);
 		return -ENODEV;
