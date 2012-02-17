@@ -45,7 +45,9 @@
 
 #include <plat/omap_hwmod.h>
 #include <plat/omap_device.h>
+#include <plat/omap-pm.h>
 #include <plat/dma.h>
+#include "../../../arch/arm/mach-omap2/dvfs.h"
 
 #include <sound/core.h>
 #include <sound/pcm.h>
@@ -54,7 +56,6 @@
 #include <sound/soc-dapm.h>
 #include <sound/initval.h>
 #include <sound/tlv.h>
-#include <sound/omap-abe-dsp.h>
 
 #include "omap-abe-dsp.h"
 #include "omap-abe.h"
@@ -111,7 +112,6 @@ struct abe_opp_req {
  * ABE private data.
  */
 struct abe_data {
-	struct omap4_abe_dsp_pdata *abe_pdata;
 	struct device *dev;
 	struct snd_soc_platform *platform;
 	struct delayed_work delayed_work;
@@ -119,6 +119,13 @@ struct abe_data {
 	struct mutex opp_mutex;
 	struct mutex opp_req_mutex;
 	struct clk *clk;
+
+	u32 (*get_context_lost_count)(struct device *dev);
+	int (*device_scale)(struct device *req_dev,
+			    struct device *target_dev,
+			    unsigned long rate);
+	u32 context_lost;
+
 	void __iomem *io_base[5];
 	int irq;
 	int opp;
@@ -255,7 +262,6 @@ EXPORT_SYMBOL_GPL(abe_dsp_pm_put);
 
 void abe_dsp_shutdown(void)
 {
-	struct omap4_abe_dsp_pdata *pdata = the_abe->abe_pdata;
 	int ret;
 
 	if (!the_abe->active && !abe_check_activity()) {
@@ -263,8 +269,8 @@ void abe_dsp_shutdown(void)
 		the_abe->opp = 25;
 		abe_stop_event_generator();
 		udelay(250);
-		if (pdata && pdata->device_scale) {
-			ret = pdata->device_scale(the_abe->dev, the_abe->dev,
+		if (the_abe->device_scale) {
+			ret = the_abe->device_scale(the_abe->dev, the_abe->dev,
 				the_abe->opp_freqs[0]);
 			if (ret)
 				dev_err(the_abe->dev,
@@ -1953,7 +1959,6 @@ EXPORT_SYMBOL(abe_remove_opp_req);
 
 static int abe_set_opp_mode(struct abe_data *abe, int opp)
 {
-	struct omap4_abe_dsp_pdata *pdata = abe->abe_pdata;
 	int ret = 0;
 
 	if (abe->opp > opp) {
@@ -1962,8 +1967,8 @@ static int abe_set_opp_mode(struct abe_data *abe, int opp)
 		case 25:
 			abe_set_opp_processing(ABE_OPP25);
 			udelay(250);
-			if (pdata && pdata->device_scale) {
-				ret = pdata->device_scale(abe->dev, abe->dev,
+			if (abe->device_scale) {
+				ret = abe->device_scale(abe->dev, abe->dev,
 					abe->opp_freqs[OMAP_ABE_OPP25]);
 				if (ret)
 					goto err_scale;
@@ -1973,8 +1978,8 @@ static int abe_set_opp_mode(struct abe_data *abe, int opp)
 		default:
 			abe_set_opp_processing(ABE_OPP50);
 			udelay(250);
-			if (pdata && pdata->device_scale) {
-				ret = pdata->device_scale(abe->dev, abe->dev,
+			if (abe->device_scale) {
+				ret = abe->device_scale(abe->dev, abe->dev,
 					abe->opp_freqs[OMAP_ABE_OPP50]);
 				if (ret)
 					goto err_scale;
@@ -1985,8 +1990,8 @@ static int abe_set_opp_mode(struct abe_data *abe, int opp)
 		/* Increase OPP mode */
 		switch (opp) {
 		case 25:
-			if (pdata && pdata->device_scale) {
-				pdata->device_scale(abe->dev, abe->dev,
+			if (abe->device_scale) {
+				abe->device_scale(abe->dev, abe->dev,
 					abe->opp_freqs[OMAP_ABE_OPP25]);
 				if (ret)
 					goto err_scale;
@@ -1994,8 +1999,8 @@ static int abe_set_opp_mode(struct abe_data *abe, int opp)
 			abe_set_opp_processing(ABE_OPP25);
 			break;
 		case 50:
-			if (pdata && pdata->device_scale) {
-				ret = pdata->device_scale(abe->dev, abe->dev,
+			if (abe->device_scale) {
+				ret = abe->device_scale(abe->dev, abe->dev,
 					abe->opp_freqs[OMAP_ABE_OPP50]);
 				if (ret)
 					goto err_scale;
@@ -2004,8 +2009,8 @@ static int abe_set_opp_mode(struct abe_data *abe, int opp)
 			break;
 		case 100:
 		default:
-			if (pdata && pdata->device_scale) {
-				ret = pdata->device_scale(abe->dev, abe->dev,
+			if (abe->device_scale) {
+				ret = abe->device_scale(abe->dev, abe->dev,
 					abe->opp_freqs[OMAP_ABE_OPP100]);
 				if (ret)
 					goto err_scale;
@@ -2120,11 +2125,10 @@ static int aess_save_context(struct abe_data *abe)
 
 static int aess_restore_context(struct abe_data *abe)
 {
-	struct omap4_abe_dsp_pdata *pdata = abe->abe_pdata;
 	int i, ret;
 
-	if (pdata && pdata->device_scale) {
-		ret = pdata->device_scale(the_abe->dev, the_abe->dev,
+	if (abe->device_scale) {
+		ret = abe->device_scale(the_abe->dev, the_abe->dev,
 				abe->opp_freqs[OMAP_ABE_OPP50]);
 		if (ret) {
 			dev_err(abe->dev, "failed to scale to OPP50\n");
@@ -2132,8 +2136,10 @@ static int aess_restore_context(struct abe_data *abe)
 		}
 	}
 
-	if (pdata->was_context_lost && pdata->was_context_lost(abe->dev))
+	if (abe->get_context_lost_count && abe->get_context_lost_count(abe->dev) != abe->context_lost) {
 		abe_reload_fw(abe->firmware);
+		abe->context_lost = abe->get_context_lost_count(abe->dev);
+	}
 
 	/* unmute gains not associated with FEs/BEs */
 	abe_unmute_gain(MIXAUDUL, MIX_AUDUL_INPUT_MM_DL);
@@ -2469,7 +2475,6 @@ out:
 static int abe_resume(struct snd_soc_dai *dai)
 {
 	struct abe_data *abe = the_abe;
-	struct omap4_abe_dsp_pdata *pdata = abe->abe_pdata;
 	int i, ret = 0;
 
 	dev_dbg(dai->dev, "%s: %s active %d\n",
@@ -2479,13 +2484,14 @@ static int abe_resume(struct snd_soc_dai *dai)
 		return 0;
 
 	/* context retained, no need to restore */
-	if (pdata->was_context_lost && !pdata->was_context_lost(abe->dev))
+	if (abe->get_context_lost_count && abe->get_context_lost_count(abe->dev) == abe->context_lost)
 		return 0;
+	abe->context_lost = abe->get_context_lost_count(abe->dev);
 
 	pm_runtime_get_sync(abe->dev);
 
-	if (pdata && pdata->device_scale) {
-		ret = pdata->device_scale(abe->dev, abe->dev,
+	if (abe->device_scale) {
+		ret = abe->device_scale(abe->dev, abe->dev,
 				abe->opp_freqs[OMAP_ABE_OPP50]);
 		if (ret) {
 			dev_err(abe->dev, "failed to scale to OPP50\n");
@@ -2771,7 +2777,6 @@ static struct snd_soc_platform_driver omap_aess_platform = {
 static int __devinit abe_engine_probe(struct platform_device *pdev)
 {
 	struct resource *res;
-	struct omap4_abe_dsp_pdata *pdata = pdev->dev.platform_data;
 	struct abe_data *abe;
 	int ret = -EINVAL, i;
 
@@ -2806,8 +2811,12 @@ static int __devinit abe_engine_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	abe->abe_pdata = pdata;
+#ifdef CONFIG_PM
+	abe->get_context_lost_count = omap_pm_get_dev_context_loss_count;
+	abe->device_scale = omap_device_scale;
+#endif
 	abe->dev = &pdev->dev;
+
 	mutex_init(&abe->mutex);
 	mutex_init(&abe->opp_mutex);
 	mutex_init(&abe->opp_req_mutex);
