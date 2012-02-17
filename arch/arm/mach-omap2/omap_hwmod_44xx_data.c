@@ -2253,6 +2253,7 @@ static struct omap_hwmod_ocp_if *omap44xx_fdif_slaves[] = {
 static struct omap_hwmod omap44xx_fdif_hwmod = {
 	.name		= "fdif",
 	.class		= &omap44xx_fdif_hwmod_class,
+	.clkdm_name	= "iss_clkdm",
 	.mpu_irqs	= omap44xx_fdif_irqs,
 	.main_clk	= "fdif_fck",
 	.prcm = {
@@ -2264,6 +2265,7 @@ static struct omap_hwmod omap44xx_fdif_hwmod = {
 	.slaves_cnt	= ARRAY_SIZE(omap44xx_fdif_slaves),
 	.masters	= omap44xx_fdif_masters,
 	.masters_cnt	= ARRAY_SIZE(omap44xx_fdif_masters),
+	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
 };
 
 /*
@@ -3030,6 +3032,7 @@ static struct omap_hwmod omap44xx_ipu_c0_hwmod = {
 	.flags		= HWMOD_INIT_NO_RESET,
 	.rst_lines	= omap44xx_ipu_c0_resets,
 	.rst_lines_cnt	= ARRAY_SIZE(omap44xx_ipu_c0_resets),
+	.main_clk	= "ipu_fck",
 	.prcm = {
 		.omap4 = {
 			.rstctrl_offs = OMAP4_RM_DUCATI_RSTCTRL_OFFSET,
@@ -3046,6 +3049,7 @@ static struct omap_hwmod omap44xx_ipu_c1_hwmod = {
 	.flags		= HWMOD_INIT_NO_RESET,
 	.rst_lines	= omap44xx_ipu_c1_resets,
 	.rst_lines_cnt	= ARRAY_SIZE(omap44xx_ipu_c1_resets),
+	.main_clk	= "ipu_fck",
 	.prcm = {
 		.omap4 = {
 			.rstctrl_offs = OMAP4_RM_DUCATI_RSTCTRL_OFFSET,
@@ -3057,6 +3061,7 @@ static struct omap_hwmod omap44xx_ipu_c1_hwmod = {
 static struct omap_hwmod omap44xx_ipu_hwmod = {
 	.name		= "ipu",
 	.class		= &omap44xx_ipu_hwmod_class,
+	.clkdm_name	= "ducati_clkdm",
 	.flags		= HWMOD_INIT_NO_RESET,
 	.mpu_irqs	= omap44xx_ipu_irqs,
 	.rst_lines	= omap44xx_ipu_resets,
@@ -3251,6 +3256,7 @@ static struct omap_hwmod omap44xx_iva_seq0_hwmod = {
 	.flags		= HWMOD_INIT_NO_RESET,
 	.rst_lines	= omap44xx_iva_seq0_resets,
 	.rst_lines_cnt	= ARRAY_SIZE(omap44xx_iva_seq0_resets),
+	.main_clk	= "iva_fck",
 	.prcm = {
 		.omap4 = {
 			.rstctrl_offs = OMAP4_RM_IVAHD_RSTCTRL_OFFSET,
@@ -3267,6 +3273,7 @@ static struct omap_hwmod omap44xx_iva_seq1_hwmod = {
 	.flags		= HWMOD_INIT_NO_RESET,
 	.rst_lines	= omap44xx_iva_seq1_resets,
 	.rst_lines_cnt	= ARRAY_SIZE(omap44xx_iva_seq1_resets),
+	.main_clk	= "iva_fck",
 	.prcm = {
 		.omap4 = {
 			.rstctrl_offs = OMAP4_RM_IVAHD_RSTCTRL_OFFSET,
@@ -3326,6 +3333,7 @@ static struct omap_hwmod_ocp_if *omap44xx_sl2if_slaves[] = {
 static struct omap_hwmod omap44xx_sl2if_hwmod = {
 	.name		= "sl2if",
 	.class		= &omap44xx_sl2if_hwmod_class,
+	.clkdm_name	= "ivahd_clkdm",
 	.main_clk	= "sl2if_ick",
 	.prcm = {
 		.omap4 = {
@@ -3334,6 +3342,7 @@ static struct omap_hwmod omap44xx_sl2if_hwmod = {
 	},
 	.slaves		= omap44xx_sl2if_slaves,
 	.slaves_cnt	= ARRAY_SIZE(omap44xx_sl2if_slaves),
+	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
 };
 
 /*
