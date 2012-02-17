@@ -36,10 +36,6 @@
 #include <plat/omap_device.h>
 #include <plat/omap4-keypad.h>
 
-#if defined(CONFIG_SND_OMAP_SOC_ABE_DSP) || \
-	defined(CONFIG_SND_OMAP_SOC_ABE_DSP_MODULE)
-#include <sound/omap-abe-dsp.h>
-#endif
 #include "mux.h"
 #include "control.h"
 #include "devices.h"
@@ -534,30 +530,15 @@ static void omap_init_aess(void)
 {
 	struct omap_hwmod *oh;
 	struct omap_device *od;
-	struct omap4_abe_dsp_pdata *pdata;
 
 	oh = omap_hwmod_lookup("aess");
 	if (!oh) {
 		pr_err("Could not look up aess hw_mod\n");
 		return;
 	}
-
-	pdata = kzalloc(sizeof(struct omap4_abe_dsp_pdata), GFP_KERNEL);
-	if (!pdata) {
-		pr_err("%s Could not allocate platform data\n", __func__);
-		return;
-	}
-
-	/* FIXME: Add correct context loss counter */
-	pdata->was_context_lost = omap_device_get_context_loss_count;
-	pdata->device_scale = omap_device_scale;
-
-	od = omap_device_build("aess", -1, oh, pdata,
-				sizeof(struct omap4_abe_dsp_pdata),
+	od = omap_device_build("aess", -1, oh, NULL, 0,
 				omap_aess_latency,
 				ARRAY_SIZE(omap_aess_latency), 0);
-
-	kfree(pdata);
 
 	if (IS_ERR(od))
 		pr_err("Could not build omap_device for omap-aess-audio\n");
