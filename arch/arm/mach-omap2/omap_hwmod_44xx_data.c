@@ -2253,6 +2253,7 @@ static struct omap_hwmod_ocp_if *omap44xx_fdif_slaves[] = {
 static struct omap_hwmod omap44xx_fdif_hwmod = {
 	.name		= "fdif",
 	.class		= &omap44xx_fdif_hwmod_class,
+	.clkdm_name	= "iss_clkdm",
 	.mpu_irqs	= omap44xx_fdif_irqs,
 	.main_clk	= "fdif_fck",
 	.prcm = {
@@ -2264,6 +2265,7 @@ static struct omap_hwmod omap44xx_fdif_hwmod = {
 	.slaves_cnt	= ARRAY_SIZE(omap44xx_fdif_slaves),
 	.masters	= omap44xx_fdif_masters,
 	.masters_cnt	= ARRAY_SIZE(omap44xx_fdif_masters),
+	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
 };
 
 /*
