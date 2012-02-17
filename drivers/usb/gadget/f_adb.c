@@ -41,6 +41,7 @@ struct adb_dev {
 
 	struct usb_ep *ep_in;
 	struct usb_ep *ep_out;
+	int bulk_out_maxpacket;
 
 	int online;
 	int error;
@@ -298,6 +299,11 @@ static ssize_t adb_read(struct file *fp, char __user *buf,
 requeue_req:
 	/* queue a request */
 	req = dev->rx_req;
+	/* Pass maxpacket length for RX(out) case:
+	   buffer size is large enough to accomodate */
+	if (count % dev->bulk_out_maxpacket)
+		count += (dev->bulk_out_maxpacket -
+				(count % dev->bulk_out_maxpacket));
 	req->length = count;
 	dev->rx_done = 0;
 	ret = usb_ep_queue(dev->ep_out, req, GFP_ATOMIC);
@@ -525,6 +531,7 @@ static int adb_function_set_alt(struct usb_function *f,
 	if (ret)
 		goto ep_out_enable_fail;
 
+	dev->bulk_out_maxpacket = usb_endpoint_maxp(dev->ep_out->desc);
 	dev->online = 1;
 
 	/* readers may be blocked waiting for us to go online */
