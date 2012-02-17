@@ -203,10 +203,67 @@ void omap_pm_idle(u32 cpu_id, int state)
 }
 
 #ifdef CONFIG_SUSPEND
+/**
+ * omap4_restore_pwdms_after_suspend() - Restore powerdomains after suspend
+ *
+ * Re-program all powerdomains to saved power domain states.
+ *
+ * returns 0 if all power domains hit targeted power state, -1 if any domain
+ * failed to hit targeted power state (status related to the actual restore
+ * is not returned).
+ */
+static int omap4_restore_pwdms_after_suspend(void)
+{
+	struct power_state *pwrst;
+	int cstate, pstate, ret = 0;
+
+	/* Restore next powerdomain state */
+	list_for_each_entry(pwrst, &pwrst_list, node) {
+		cstate = pwrdm_read_pwrst(pwrst->pwrdm);
+		pstate = pwrdm_read_prev_pwrst(pwrst->pwrdm);
+		if (pstate > pwrst->next_state) {
+			pr_info("Powerdomain (%s) didn't enter "
+				"target state %d Vs achieved state %d.\n"
+				"current state %d\n",
+				pwrst->pwrdm->name, pwrst->next_state,
+				pstate, cstate);
+			ret = -1;
+		}
+
+		/* If state already ON due to h/w dep, don't do anything */
+		if (cstate == PWRDM_POWER_ON)
+			continue;
+
+		/* If we have already achieved saved state, nothing to do */
+		if (cstate == pwrst->saved_state)
+			continue;
+
+		/*
+		 * Skip pd program if saved state higher than current state
+		 * Since we would have already returned if the state
+		 * was ON, if the current state is yet another low power
+		 * state, the PRCM specification clearly states that
+		 * transition from a lower LP state to a higher LP state
+		 * is forbidden.
+		 */
+		if (pwrst->saved_state > cstate)
+			continue;
+
+		if (pwrst->pwrdm->pwrsts)
+			omap_set_pwrdm_state(pwrst->pwrdm, pwrst->saved_state);
+
+		if (pwrst->pwrdm->pwrsts_logic_ret)
+			pwrdm_set_logic_retst(pwrst->pwrdm,
+						pwrst->saved_logic_state);
+	}
+
+	return ret;
+}
+
 static int omap_pm_suspend(void)
 {
 	struct power_state *pwrst;
-	int state, ret = 0;
+	int ret = 0;
 	u32 cpu_id = smp_processor_id();
 
 	/*
@@ -243,18 +300,8 @@ static int omap_pm_suspend(void)
 	 */
 	omap_pm_idle(cpu_id, PWRDM_POWER_OFF);
 
-	/* Restore next powerdomain state */
-	list_for_each_entry(pwrst, &pwrst_list, node) {
-		state = pwrdm_read_prev_pwrst(pwrst->pwrdm);
-		if (state > pwrst->next_state) {
-			pr_info("Powerdomain (%s) didn't enter "
-			       "target state %d\n",
-			       pwrst->pwrdm->name, pwrst->next_state);
-			ret = -1;
-		}
-		omap_set_pwrdm_state(pwrst->pwrdm, pwrst->saved_state);
-		pwrdm_set_logic_retst(pwrst->pwrdm, pwrst->saved_logic_state);
-	}
+	ret = omap4_restore_pwdms_after_suspend();
+
 	if (ret)
 		pr_crit("Could not enter target state in pm_suspend\n");
 	else
@@ -300,23 +347,69 @@ static const struct platform_suspend_ops omap_pm_ops = {
 #endif /* CONFIG_SUSPEND */
 
 /**
+ * omap4_pm_cold_reset() - Cold reset OMAP4
+ * @reason:	why am I resetting.
+ *
+ * As per the TRM, it is recommended that we set all the power domains to
+ * ON state before we trigger cold reset.
+ */
+int omap4_pm_cold_reset(char *reason)
+{
+	struct power_state *pwrst;
+
+	/* Switch ON all pwrst registers */
+	list_for_each_entry(pwrst, &pwrst_list, node) {
+		if (pwrst->pwrdm->pwrsts_logic_ret)
+			pwrdm_set_logic_retst(pwrst->pwrdm, PWRDM_POWER_ON);
+		if (pwrst->pwrdm->pwrsts)
+			omap_set_pwrdm_state(pwrst->pwrdm, PWRDM_POWER_ON);
+	}
+
+	WARN(1, "Arch Cold reset has been triggered due to %s\n", reason);
+	omap4_prminst_global_cold_sw_reset(); /* never returns */
+
+	/* If we reached here - something bad went on.. */
+	BUG();
+
+	/* make the compiler happy */
+	return -EINTR;
+}
+
+/**
  * get_achievable_state() - Provide achievable state
  * @available_states:	what states are available
  * @req_min_state:	what state is the minimum we'd like to hit
+ * @is_parent_pd:	is this a parent power domain?
  *
  * Power domains have varied capabilities. When attempting a low power
  * state such as OFF/RET, a specific min requested state may not be
- * supported on the power domain, in which case, the next higher power
- * state which is supported is returned. This is because a combination
- * of system power states where the parent PD's state is not in line
- * with expectation can result in system instabilities.
+ * supported on the power domain, in which case:
+ * a) if this power domain is a parent power domain, we do not intend
+ * for it to go to a lower power state(because we are not targetting it),
+ * select the next higher power state which is supported is returned.
+ * b) However, for all children power domains, we first try to match
+ * with a lower power domain state before attempting a higher state.
+ * This is because a combination of system power states where the
+ * parent PD's state is not in line with expectation can result in
+ * system instabilities.
  */
-static inline u8 get_achievable_state(u8 available_states, u8 req_min_state)
+static inline u8 get_achievable_state(u8 available_states, u8 req_min_state,
+					bool is_parent_pd)
 {
-	u16 mask = 0xFF << req_min_state;
+	u8 max_mask = 0xFF << req_min_state;
+	u8 min_mask = ~max_mask;
 
-	if (available_states & mask)
-		return __ffs(available_states & mask);
+	/* First see if we have an accurate match */
+	if (available_states & BIT(req_min_state))
+		return req_min_state;
+
+	/* See if a lower power state is possible on this child domain */
+	if (!is_parent_pd && available_states & min_mask)
+		return __ffs(available_states & min_mask);
+
+	if (available_states & max_mask)
+		return __ffs(available_states & max_mask);
+
 	return PWRDM_POWER_ON;
 }
 
@@ -350,13 +443,26 @@ void omap4_pm_off_mode_enable(int enable)
 #endif
 
 	list_for_each_entry(pwrst, &pwrst_list, node) {
+		bool parent_power_domain = false;
+
+		if (!strcmp(pwrst->pwrdm->name, "core_pwrdm") ||
+		    !strcmp(pwrst->pwrdm->name, "mpu_pwrdm") ||
+		    !strcmp(pwrst->pwrdm->name, "ivahd_pwrdm"))
+			parent_power_domain = true;
+
 		pwrst->next_state =
-			get_achievable_state(pwrst->pwrdm->pwrsts, next_state);
+			get_achievable_state(pwrst->pwrdm->pwrsts, next_state,
+				parent_power_domain);
 		pwrst->next_logic_state =
 			get_achievable_state(pwrst->pwrdm->pwrsts_logic_ret,
-				next_logic_state);
-		omap_set_pwrdm_state(pwrst->pwrdm, pwrst->next_state);
-		pwrdm_set_logic_retst(pwrst->pwrdm, pwrst->next_logic_state);
+				next_logic_state, parent_power_domain);
+		if (pwrst->pwrdm->pwrsts &&
+		    pwrst->next_state < pwrst->saved_state)
+			omap_set_pwrdm_state(pwrst->pwrdm, pwrst->next_state);
+		if (pwrst->pwrdm->pwrsts_logic_ret &&
+		    pwrst->next_logic_state < pwrst->saved_logic_state)
+			pwrdm_set_logic_retst(pwrst->pwrdm,
+				pwrst->next_logic_state);
 	}
 }
 
