@@ -180,6 +180,7 @@ struct hsi_port {
  * @clock_change_ongoing: Indicates if HSI FClk is being changed (OPP change)
  * @hsi_fclk_req: Indicates what HSI FClk user requested (96MHz/192MHz)
  * @hsi_fclk_current: Current HSI Fclock
+ * @context_loss_cnt: lost context count
  * @gdd_irq: GDD (DMA) irq number
  * @fifo_mapping_strategy: Selected strategy for fifo to ports/channels mapping
  * @gdd_usecount: Holds the number of ongoning DMA transfers
@@ -204,6 +205,7 @@ struct hsi_dev { /* HSI_TODO:  should be later renamed into hsi_controller*/
 	bool clock_change_ongoing;
 	unsigned long hsi_fclk_req;
 	unsigned long hsi_fclk_current;
+	u32 context_loss_cnt;
 	int gdd_irq;
 	unsigned int fifo_mapping_strategy;
 	unsigned int gdd_usecount;
@@ -231,6 +233,7 @@ struct hsi_platform_data {
 	int (*device_idle) (struct platform_device *pdev);
 	int (*device_scale) (struct device *req_dev, struct device *target_dev,
 			unsigned long rate);
+	u32 (*get_context_loss_count)(struct device *);
 	int (*wakeup_enable) (int hsi_port);
 	int (*wakeup_disable) (int hsi_port);
 	bool (*wakeup_is_from_hsi) (int *hsi_port);

@@ -28,6 +28,7 @@
 #include <plat/omap_hsi.h>
 #include <plat/omap_hwmod.h>
 #include <plat/omap_device.h>
+#include <plat/omap-pm.h>
 
 #include <../drivers/omap_hsi/hsi_driver.h>
 #include "clock.h"
@@ -81,6 +82,8 @@ static struct hsi_platform_data omap_hsi_platform_data = {
 	.device_idle = omap_device_idle,
 	.device_shutdown = omap_device_shutdown,
 	.device_scale = omap_device_scale,
+	.get_context_loss_count = omap_pm_get_dev_context_loss_count,
+
 };
 
 

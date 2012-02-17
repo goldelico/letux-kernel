@@ -789,6 +789,7 @@ static int __init hsi_controller_init(struct hsi_dev *hsi_ctrl,
 	hsi_ctrl->clock_enabled = false;
 	hsi_ctrl->clock_change_ongoing = false;
 	hsi_ctrl->hsi_fclk_current = 0;
+	hsi_ctrl->context_loss_cnt = 0;
 	hsi_ctrl->in_dma_tasklet = false;
 	hsi_ctrl->fifo_mapping_strategy = pdata->fifo_mapping_strategy;
 	hsi_ctrl->dev = &pd->dev;
@@ -1057,6 +1058,7 @@ int hsi_runtime_resume(struct device *dev)
 {
 	struct platform_device *pd = to_platform_device(dev);
 	struct hsi_dev *hsi_ctrl = platform_get_drvdata(pd);
+	struct hsi_platform_data *pdata = dev_get_platdata(dev);
 
 	dev_dbg(dev, "%s\n", __func__);
 
@@ -1065,8 +1067,16 @@ int hsi_runtime_resume(struct device *dev)
 
 	hsi_ctrl->clock_enabled = true;
 
-	/* Restore context */
-	hsi_restore_ctx(hsi_ctrl);
+	if (pdata->get_context_loss_count) {
+		u32 loss_cnt = pdata->get_context_loss_count(dev);
+
+		dev_dbg(dev, "Context was %slost\n",
+			loss_cnt == hsi_ctrl->context_loss_cnt ? "not " : "");
+
+		if (hsi_ctrl->context_loss_cnt != loss_cnt)
+			/* Restore context */
+			hsi_restore_ctx(hsi_ctrl);
+	}
 
 	/* Allow data reception */
 	hsi_hsr_resume(hsi_ctrl);
@@ -1089,11 +1099,15 @@ int hsi_runtime_suspend(struct device *dev)
 {
 	struct platform_device *pd = to_platform_device(dev);
 	struct hsi_dev *hsi_ctrl = platform_get_drvdata(pd);
+	struct hsi_platform_data *pdata = dev_get_platdata(dev);
 
 	dev_dbg(dev, "%s\n", __func__);
 
 	if (!hsi_ctrl->clock_enabled)
 		dev_warn(dev, "Warning: clock status mismatch vs runtime PM\n");
+
+	if (pdata->get_context_loss_count)
+		hsi_ctrl->context_loss_cnt = pdata->get_context_loss_count(dev);
 
 	/* Save context */
 	hsi_save_ctx(hsi_ctrl);
