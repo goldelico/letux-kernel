@@ -753,7 +753,7 @@ void dss_runtime_put(void)
 
 	DSSDBG("dss_runtime_put\n");
 
-	r = pm_runtime_put(&dss.pdev->dev);
+	r = pm_runtime_put_sync(&dss.pdev->dev);
 	WARN_ON(r < 0);
 }
 
