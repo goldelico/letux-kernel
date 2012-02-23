@@ -471,7 +471,7 @@ int __init hsi_debug_add_ctrl(struct hsi_dev *hsi_ctrl)
 	struct platform_device *pdev = to_platform_device(hsi_ctrl->dev);
 	unsigned char dir_name[HSI_DIR_NAME_SIZE];
 	struct dentry *dir;
-	unsigned int port;
+	unsigned int i;
 
 	if (pdev->id < 0) {
 		hsi_ctrl->dir = debugfs_create_dir(pdev->name, hsi_dir);
@@ -486,16 +486,17 @@ int __init hsi_debug_add_ctrl(struct hsi_dev *hsi_ctrl)
 	debugfs_create_file("regs", S_IRUGO, hsi_ctrl->dir, hsi_ctrl,
 			    &hsi_regs_fops);
 
-	for (port = 0; port < hsi_ctrl->max_p; port++) {
-		snprintf(dir_name, sizeof(dir_name), "port%d", port + 1);
+	for (i = 0; i < hsi_ctrl->max_p; i++) {
+		snprintf(dir_name, sizeof(dir_name), "port%d",
+			 hsi_ctrl->hsi_port[i].port_number);
 		dir = debugfs_create_dir(dir_name, hsi_ctrl->dir);
 		if (IS_ERR(dir))
 			goto rback;
 		debugfs_create_file("regs", S_IRUGO, dir,
-				    &hsi_ctrl->hsi_port[port],
+				    &hsi_ctrl->hsi_port[i],
 				    &hsi_port_regs_fops);
 		debugfs_create_file("counters", S_IRUGO | S_IWUSR, dir,
-				    &hsi_ctrl->hsi_port[port],
+				    &hsi_ctrl->hsi_port[i],
 				    &hsi_port_counters_fops);
 	}
 
