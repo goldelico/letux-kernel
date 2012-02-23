@@ -416,6 +416,7 @@ struct omap_hwmod_omap4_prcm {
 #define HWMOD_CONTROL_OPT_CLKS_IN_RESET		(1 << 7)
 #define HWMOD_16BIT_REG				(1 << 8)
 #define HWMOD_NO_CLKDM_USECOUNTING		(1 << 9)
+#define HWMOD_DISABLE_SLAVE_FIRST		(1 << 10)
 
 /*
  * omap_hwmod._int_flags definitions
