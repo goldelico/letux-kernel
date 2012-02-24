@@ -292,6 +292,7 @@ obj-$(CONFIG_MACH_TI8168EVM)		+= board-ti8168evm.o
 
 obj-$(CONFIG_MACH_OMAP_5430EVM)		+= board-omap5evm.o \
 					   board-omap5evm-sensors.o \
+					   board-omap5evm-modem.o \
 					   hsmmc.o
 
 # Platform specific device init code
@@ -320,7 +321,7 @@ obj-$(CONFIG_ARCH_OMAP5)		+= hwspinlock.o
 
 disp-$(CONFIG_OMAP2_DSS)              := display.o
 obj-y                                 += $(disp-m) $(disp-y)
-    
+
 obj-y					+= common-board-devices.o twl-common.o
 
 # EMIF support

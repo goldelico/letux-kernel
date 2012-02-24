@@ -19,4 +19,8 @@
 
 int omap5evm_sensor_init(void);
 
+extern struct usbhs_omap_board_data usbhs_bdata;
+
+void omap5evm_modem_init(bool force_mux);
+
 #endif

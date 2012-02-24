@@ -1358,7 +1358,7 @@ static void omap5_sdp5430_wifi_init(void)
 /* USBB2 to SMSC 4640 HUB */
 #define GPIO_HUB_NRESET	173
 
-static const struct usbhs_omap_board_data usbhs_bdata __initconst = {
+struct usbhs_omap_board_data usbhs_bdata __initconst = {
 	.port_mode[0] = OMAP_USBHS_PORT_MODE_UNUSED,
 	.port_mode[1] = OMAP_EHCI_PORT_MODE_HSIC,
 	.port_mode[2] = OMAP_EHCI_PORT_MODE_HSIC,
@@ -1555,12 +1555,12 @@ static void __init omap_5430evm_init(void)
 
 	omap2_hsmmc_init(mmc);
 
-	/* blaze_modem_init shall be called before omap_ehci_ohci_init */
-	if (!strcmp(modem_ipc, "hsi")) {
-		status = omap_hsi_dev_init();
-		if (status < 0)
-			pr_err("HSI: device registration failed: %d\n", status);
-	}
+	/* omap5evm_modem_init shall be called before omap_ehci_ohci_init */
+	if (!strcmp(modem_ipc, "hsi"))
+		omap5evm_modem_init(true);
+	else
+		omap5evm_modem_init(false);
+
 	omap_ehci_ohci_init();
 	usb_dwc3_init();
 	status = omap4_keyboard_init(&evm5430_keypad_data, &keypad_data);
