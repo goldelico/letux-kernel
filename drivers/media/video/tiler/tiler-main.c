@@ -133,13 +133,21 @@ static void unpin_mem_from_area(struct tmm *tmm, struct tcm_area *area)
 {
 	struct pat_area p_area = {0};
 	struct tcm_area slice, area_s;
+	u32 y_offset = 0;
+
+	/*
+	 * adjust y offset to target correct row if this is a omap5 and we are
+	 * in page mode
+	 */
+	if (cpu_is_omap54xx() && !area->is2d)
+		y_offset = 128;
 
 	mutex_lock(&dmac_mtx);
 	tcm_for_each_slice(slice, *area, area_s) {
 		p_area.x0 = slice.p0.x;
-		p_area.y0 = slice.p0.y;
+		p_area.y0 = slice.p0.y + y_offset;
 		p_area.x1 = slice.p1.x;
-		p_area.y1 = slice.p1.y;
+		p_area.y1 = slice.p1.y + y_offset;
 
 		tmm_unpin(tmm, p_area);
 	}
