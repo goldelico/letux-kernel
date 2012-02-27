@@ -380,7 +380,7 @@ int dwc3_send_gadget_ep_cmd(struct dwc3 *dwc, unsigned ep,
 }
 
 static dma_addr_t dwc3_trb_dma_offset(struct dwc3_ep *dep,
-		struct dwc3_trb_hw *trb)
+		struct dwc3_trb *trb)
 {
 	u32		offset = (char *) trb - (char *) dep->trb_pool;
 
@@ -529,9 +529,8 @@ static int __dwc3_gadget_ep_enable(struct dwc3_ep *dep,
 		return ret;
 
 	if (!(dep->flags & DWC3_EP_ENABLED)) {
-		struct dwc3_trb_hw	*trb_st_hw;
-		struct dwc3_trb_hw	*trb_link_hw;
-		struct dwc3_trb		trb_link;
+		struct dwc3_trb	*trb_st_hw;
+		struct dwc3_trb	*trb_link;
 
 		ret = dwc3_gadget_set_xfer_resource(dwc, dep);
 		if (ret)
@@ -554,12 +553,12 @@ static int __dwc3_gadget_ep_enable(struct dwc3_ep *dep,
 		/* Link TRB for ISOC. The HWO but is never reset */
 		trb_st_hw = &dep->trb_pool[0];
 
-		trb_link.bplh = dwc3_trb_dma_offset(dep, trb_st_hw);
-		trb_link.trbctl = DWC3_TRBCTL_LINK_TRB;
-		trb_link.hwo = true;
+		trb_link = &dep->trb_pool[DWC3_TRB_NUM - 1];
 
-		trb_link_hw = &dep->trb_pool[DWC3_TRB_NUM - 1];
-		dwc3_trb_to_hw(&trb_link, trb_link_hw);
+		trb_link->bpl = lower_32_bits(dwc3_trb_dma_offset(dep, trb_st_hw));
+		trb_link->bph = upper_32_bits(dwc3_trb_dma_offset(dep, trb_st_hw));
+		trb_link->ctrl |= DWC3_TRBCTL_LINK_TRB;
+		trb_link->ctrl |= DWC3_TRB_CTRL_HWO;
 	}
 
 	return 0;
@@ -570,8 +569,33 @@ static void dwc3_remove_requests(struct dwc3 *dwc, struct dwc3_ep *dep)
 {
 	struct dwc3_request		*req;
 
-	if (!list_empty(&dep->req_queued))
+	if (!list_empty(&dep->req_queued)) {
 		dwc3_stop_active_transfer(dwc, dep->number);
+
+		/*
+		 * NOTICE: We are violating what the Databook says about the
+		 * EndTransfer command. Ideally we would _always_ wait for the
+		 * EndTransfer Command Completion IRQ, but that's causing too
+		 * much trouble synchronizing between us and gadget driver.
+		 *
+		 * We have discussed this with the IP Provider and it was
+		 * suggested to giveback all requests here, but give HW some
+		 * extra time to synchronize with the interconnect. We're using
+		 * an arbitraty 100us delay for that.
+		 *
+		 * Note also that a similar handling tested by Synopsys (thanks
+		 * a lot Paul) and nothing bad has come out of it. In short,
+		 * what we're doing is:
+		 *
+		 * - Issue EndTransfer WITH CMDIOC bit set
+		 * - Wait 100us
+		 * - giveback all requests to gadget driver
+		 */
+		udelay(100);
+
+		req = next_request(&dep->req_queued);
+		dwc3_gadget_giveback(dep, req, -ESHUTDOWN);
+	}
 
 	while (!list_empty(&dep->request_list)) {
 		req = next_request(&dep->request_list);
@@ -746,8 +770,7 @@ static void dwc3_prepare_one_trb(struct dwc3_ep *dep,
 		unsigned length, unsigned last, unsigned chain)
 {
 	struct dwc3		*dwc = dep->dwc;
-	struct dwc3_trb_hw	*trb_hw;
-	struct dwc3_trb		trb;
+	struct dwc3_trb		*trb;
 
 	unsigned int		cur_slot;
 
@@ -756,7 +779,7 @@ static void dwc3_prepare_one_trb(struct dwc3_ep *dep,
 			length, last ? " last" : "",
 			chain ? " chain" : "");
 
-	trb_hw = &dep->trb_pool[dep->free_slot & DWC3_TRB_MASK];
+	trb = &dep->trb_pool[dep->free_slot & DWC3_TRB_MASK];
 	cur_slot = dep->free_slot;
 	dep->free_slot++;
 
@@ -765,40 +788,32 @@ static void dwc3_prepare_one_trb(struct dwc3_ep *dep,
 			usb_endpoint_xfer_isoc(dep->desc))
 		return;
 
-	memset(&trb, 0, sizeof(trb));
 	if (!req->trb) {
 		dwc3_gadget_move_request_queued(req);
-		req->trb = trb_hw;
-		req->trb_dma = dwc3_trb_dma_offset(dep, trb_hw);
+		req->trb = trb;
+		req->trb_dma = dwc3_trb_dma_offset(dep, trb);
 	}
 
-	if (usb_endpoint_xfer_isoc(dep->desc)) {
-		trb.isp_imi = true;
-		trb.csp = true;
-	} else {
-		trb.chn = chain;
-		trb.lst = last;
-	}
-
-	if (usb_endpoint_xfer_bulk(dep->desc) && dep->stream_capable)
-		trb.sid_sofn = req->request.stream_id;
+	trb->size = DWC3_TRB_SIZE_LENGTH(length);
+	trb->bpl = lower_32_bits(dma);
+	trb->bph = upper_32_bits(dma);
 
 	switch (usb_endpoint_type(dep->desc)) {
 	case USB_ENDPOINT_XFER_CONTROL:
-		trb.trbctl = DWC3_TRBCTL_CONTROL_SETUP;
+		trb->ctrl = DWC3_TRBCTL_CONTROL_SETUP;
 		break;
 
 	case USB_ENDPOINT_XFER_ISOC:
-		trb.trbctl = DWC3_TRBCTL_ISOCHRONOUS_FIRST;
+		trb->ctrl = DWC3_TRBCTL_ISOCHRONOUS_FIRST;
 
 		/* IOC every DWC3_TRB_NUM / 4 so we can refill */
 		if (!(cur_slot % (DWC3_TRB_NUM / 4)))
-			trb.ioc = last;
+			trb->ctrl |= DWC3_TRB_CTRL_IOC;
 		break;
 
 	case USB_ENDPOINT_XFER_BULK:
 	case USB_ENDPOINT_XFER_INT:
-		trb.trbctl = DWC3_TRBCTL_NORMAL;
+		trb->ctrl = DWC3_TRBCTL_NORMAL;
 		break;
 	default:
 		/*
@@ -808,11 +823,21 @@ static void dwc3_prepare_one_trb(struct dwc3_ep *dep,
 		BUG();
 	}
 
-	trb.length	= length;
-	trb.bplh	= dma;
-	trb.hwo		= true;
+	if (usb_endpoint_xfer_isoc(dep->desc)) {
+		trb->ctrl |= DWC3_TRB_CTRL_ISP_IMI;
+		trb->ctrl |= DWC3_TRB_CTRL_CSP;
+	} else {
+		if (chain)
+			trb->ctrl |= DWC3_TRB_CTRL_CHN;
 
-	dwc3_trb_to_hw(&trb, trb_hw);
+		if (last)
+			trb->ctrl |= DWC3_TRB_CTRL_LST;
+	}
+
+	if (usb_endpoint_xfer_bulk(dep->desc) && dep->stream_capable)
+		trb->ctrl |= DWC3_TRB_CTRL_SID_SOFN(req->request.stream_id);
+
+	trb->ctrl |= DWC3_TRB_CTRL_HWO;
 }
 
 /*
@@ -828,12 +853,20 @@ static void dwc3_prepare_trbs(struct dwc3_ep *dep, bool starting)
 {
 	struct dwc3_request	*req, *n;
 	u32			trbs_left;
+	u32			max;
 	unsigned int		last_one = 0;
 
 	BUILD_BUG_ON_NOT_POWER_OF_2(DWC3_TRB_NUM);
 
 	/* the first request must not be queued */
 	trbs_left = (dep->busy_slot - dep->free_slot) & DWC3_TRB_MASK;
+
+	/* Can't wrap around on a non-isoc EP since there's no link TRB */
+	if (!usb_endpoint_xfer_isoc(dep->desc)) {
+		max = DWC3_TRB_NUM - (dep->free_slot & DWC3_TRB_MASK);
+		if (trbs_left > max)
+			trbs_left = max;
+	}
 
 	/*
 	 * if busy & slot are equal than it is either full or empty. If we are
@@ -1544,7 +1577,7 @@ static int dwc3_cleanup_done_reqs(struct dwc3 *dwc, struct dwc3_ep *dep,
 		const struct dwc3_event_depevt *event, int status)
 {
 	struct dwc3_request	*req;
-	struct dwc3_trb         trb;
+	struct dwc3_trb		*trb;
 	unsigned int		count;
 	unsigned int		s_pkt = 0;
 
@@ -1555,9 +1588,9 @@ static int dwc3_cleanup_done_reqs(struct dwc3 *dwc, struct dwc3_ep *dep,
 			return 1;
 		}
 
-		dwc3_trb_to_nat(req->trb, &trb);
+		trb = req->trb;
 
-		if (trb.hwo && status != -ESHUTDOWN)
+		if ((trb->ctrl & DWC3_TRB_CTRL_HWO) && status != -ESHUTDOWN)
 			/*
 			 * We continue despite the error. There is not much we
 			 * can do. If we don't clean in up we loop for ever. If
@@ -1568,7 +1601,7 @@ static int dwc3_cleanup_done_reqs(struct dwc3 *dwc, struct dwc3_ep *dep,
 			 */
 			dev_err(dwc->dev, "%s's TRB (%p) still owned by HW\n",
 					dep->name, req->trb);
-		count = trb.length;
+		count = trb->size & DWC3_TRB_SIZE_MASK;
 
 		if (dep->direction) {
 			if (count) {
@@ -1592,13 +1625,16 @@ static int dwc3_cleanup_done_reqs(struct dwc3 *dwc, struct dwc3_ep *dep,
 		dwc3_gadget_giveback(dep, req, status);
 		if (s_pkt)
 			break;
-		if ((event->status & DEPEVT_STATUS_LST) && trb.lst)
+		if ((event->status & DEPEVT_STATUS_LST) &&
+				(trb->ctrl & DWC3_TRB_CTRL_LST))
 			break;
-		if ((event->status & DEPEVT_STATUS_IOC) && trb.ioc)
+		if ((event->status & DEPEVT_STATUS_IOC) &&
+				(trb->ctrl & DWC3_TRB_CTRL_IOC))
 			break;
 	} while (1);
 
-	if ((event->status & DEPEVT_STATUS_IOC) && trb.ioc)
+	if ((event->status & DEPEVT_STATUS_IOC) &&
+			(trb->ctrl & DWC3_TRB_CTRL_IOC))
 		return 0;
 	return 1;
 }
@@ -1668,46 +1704,6 @@ static void dwc3_gadget_start_isoc(struct dwc3 *dwc,
 	}
 
 	__dwc3_gadget_kick_transfer(dep, uf, 1);
-}
-
-static void dwc3_process_ep_cmd_complete(struct dwc3_ep *dep,
-		const struct dwc3_event_depevt *event)
-{
-	struct dwc3 *dwc = dep->dwc;
-	struct dwc3_event_depevt mod_ev = *event;
-
-	/*
-	 * We were asked to remove one requests. It is possible that this
-	 * request and a few other were started together and have the same
-	 * transfer index. Since we stopped the complete endpoint we don't
-	 * know how many requests were already completed (and not yet)
-	 * reported and how could be done (later). We purge them all until
-	 * the end of the list.
-	 */
-	mod_ev.status = DEPEVT_STATUS_LST;
-	dwc3_cleanup_done_reqs(dwc, dep, &mod_ev, -ESHUTDOWN);
-	dep->flags &= ~DWC3_EP_BUSY;
-	/* pending requets are ignored and are queued on XferNotReady */
-}
-
-static void dwc3_ep_cmd_compl(struct dwc3_ep *dep,
-		const struct dwc3_event_depevt *event)
-{
-	u32 param = event->parameters;
-	u32 cmd_type = (param >> 8) & ((1 << 5) - 1);
-
-	switch (cmd_type) {
-	case DWC3_DEPCMD_ENDTRANSFER:
-		dwc3_process_ep_cmd_complete(dep, event);
-		break;
-	case DWC3_DEPCMD_STARTTRANSFER:
-		dep->res_trans_idx = param & 0x7f;
-		break;
-	default:
-		printk(KERN_ERR "%s() unknown /unexpected type: %d\n",
-				__func__, cmd_type);
-		break;
-	};
 }
 
 static void dwc3_endpoint_interrupt(struct dwc3 *dwc,
@@ -1789,7 +1785,7 @@ static void dwc3_endpoint_interrupt(struct dwc3 *dwc,
 		dev_dbg(dwc->dev, "%s FIFO Overrun\n", dep->name);
 		break;
 	case DWC3_DEPEVT_EPCMDCMPLT:
-		dwc3_ep_cmd_compl(dep, event);
+		dev_vdbg(dwc->dev, "Endpoint Command Complete\n");
 		break;
 	}
 }
@@ -1982,6 +1978,7 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 	reg = dwc3_readl(dwc->regs, DWC3_DCTL);
 	reg &= ~DWC3_DCTL_TSTCTRL_MASK;
 	dwc3_writel(dwc->regs, DWC3_DCTL, reg);
+	dwc->test_mode = false;
 
 	dwc3_stop_active_transfers(dwc);
 	dwc3_clear_stall_all_ep(dwc);
@@ -2259,7 +2256,8 @@ static irqreturn_t dwc3_process_event_buf(struct dwc3 *dwc, u32 buf)
 	while (left > 0) {
 		union dwc3_event event;
 
-		memcpy(&event.raw, (evt->buf + evt->lpos), sizeof(event.raw));
+		event.raw = *(u32 *) (evt->buf + evt->lpos);
+
 		dwc3_process_event_entry(dwc, &event);
 		/*
 		 * XXX we wrap around correctly to the next entry as almost all
