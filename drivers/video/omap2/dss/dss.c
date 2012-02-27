@@ -30,6 +30,7 @@
 #include <linux/clk.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
+#include <linux/pm_qos.h>
 
 #include <video/omapdss.h>
 #include <plat/clock.h>
@@ -69,6 +70,7 @@ static struct {
 	unsigned long	cache_prate;
 	struct dss_clock_info cache_dss_cinfo;
 	struct dispc_clock_info cache_dispc_cinfo;
+	struct pm_qos_request pm_qos_handle;
 
 	enum omap_dss_clk_source dsi_clk_source[MAX_NUM_DSI];
 	enum omap_dss_clk_source dispc_clk_source;
@@ -864,11 +866,20 @@ static int omap_dsshw_remove(struct platform_device *pdev)
 static int dss_runtime_suspend(struct device *dev)
 {
 	dss_save_context();
+
+	pm_qos_remove_request(&dss.pm_qos_handle);
+
 	return 0;
 }
 
 static int dss_runtime_resume(struct device *dev)
 {
+	/* Force OPP100 to ensure full L3 bandwidth and maximum DSS clock
+	 * limit as many DSS usecase would require a higher bandwidth.
+	 */
+	pm_qos_add_request(&dss.pm_qos_handle,
+			PM_QOS_MEMORY_THROUGHPUT, 100000000);
+
 	dss_restore_context();
 	return 0;
 }
