@@ -152,18 +152,19 @@ int hsi_fifo_mapping(struct hsi_dev *hsi_ctrl, unsigned int mtype)
 	if ((mtype == HSI_FIFO_MAPPING_ALL_PORT1) ||
 	    (mtype == HSI_FIFO_MAPPING_ALL_PORT2)) {
 		port = (mtype == HSI_FIFO_MAPPING_ALL_PORT1) ? 0 : 1;
-		channel = 0;
-		for (i = 0; i < HSI_HST_FIFO_COUNT; i++) {
+		/* After reset, FIFOs are mapped and enabled. Mapping the */
+		/* FIFOs from the last one avoid mapping errors due to */
+		/* same channel mapped to 2 different FIFOs. */
+		for (i = HSI_HST_FIFO_COUNT - 1; i >= 0; i--) {
 			hsi_outl(HSI_MAPPING_ENABLE |
-				 (channel << HSI_MAPPING_CH_NUMBER_OFFSET) |
+				 (i << HSI_MAPPING_CH_NUMBER_OFFSET) |
 				 (port << HSI_MAPPING_PORT_NUMBER_OFFSET) |
 				 HSI_HST_MAPPING_THRESH_VALUE,
 				 base, HSI_HST_MAPPING_FIFO_REG(i));
 			hsi_outl(HSI_MAPPING_ENABLE |
-				 (channel << HSI_MAPPING_CH_NUMBER_OFFSET) |
+				 (i << HSI_MAPPING_CH_NUMBER_OFFSET) |
 				 (port << HSI_MAPPING_PORT_NUMBER_OFFSET),
 				 base, HSI_HSR_MAPPING_FIFO_REG(i));
-			channel++;
 		}
 
 		if (hsi_ctrl->fifo_mapping_strategy == HSI_FIFO_MAPPING_UNDEF)
