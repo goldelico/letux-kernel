@@ -246,10 +246,7 @@ static int rpmsg_rproc_suspend(struct omap_rpmsg_vproc *rpdev)
 static int rpmsg_rproc_pos_suspend(struct omap_rpmsg_vproc *rpdev)
 {
 	mutex_lock(&rpdev->lock);
-	if (rpdev->mbox) {
-		omap_mbox_put(rpdev->mbox, &rpdev->nb);
-		rpdev->mbox = NULL;
-	}
+	omap_mbox_disable(rpdev->mbox);
 	mutex_unlock(&rpdev->lock);
 
 	return NOTIFY_DONE;
@@ -270,8 +267,7 @@ static int rpmsg_rproc_load_error(struct omap_rpmsg_vproc *rpdev)
 static int rpmsg_rproc_resume(struct omap_rpmsg_vproc *rpdev)
 {
 	mutex_lock(&rpdev->lock);
-	if (!rpdev->mbox)
-		rpdev->mbox = omap_mbox_get(rpdev->mbox_name, &rpdev->nb);
+	omap_mbox_enable(rpdev->mbox);
 	mutex_unlock(&rpdev->lock);
 
 	return NOTIFY_DONE;
