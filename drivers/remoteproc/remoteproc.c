@@ -1467,6 +1467,7 @@ static int rproc_resume(struct device *dev)
 		goto unlock;
 
 	rproc->need_resume = false;
+	rproc->force_suspend = false;
 	pm_runtime_get_sync(dev);
 	pm_runtime_mark_last_busy(dev);
 	pm_runtime_put_autosuspend(dev);
@@ -1504,24 +1505,12 @@ static int rproc_suspend(struct device *dev)
 	dev_dbg(dev, "%s: will be forced to suspend\n", rproc->name);
 	rproc->force_suspend = true;
 
-	/* Now call machine-specific suspend function (if it exists) */
-	if (rproc->ops->suspend)
-		ret = rproc->ops->suspend(rproc, rproc->force_suspend);
-
-	rproc->force_suspend = false;
-
-	if (ret) {
-		dev_err(dev, "suspend failed %d\n", ret);
-		goto out;
-	}
 	/*
 	 * As the remote processor had to be forced to suspend, it was
 	 * executing some task, so it needs to be waken up on system resume
 	 */
 	rproc->need_resume = true;
 out:
-	if (!ret)
-		rproc->state = RPROC_SUSPENDED;
 	mutex_unlock(&rproc->lock);
 
 	return ret;
