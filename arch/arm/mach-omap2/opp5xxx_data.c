@@ -175,12 +175,11 @@ static struct omap_opp_def __initdata omap54xx_opp_def_list[] = {
 	/* HSI OPP3 - OPPNOM */
 	OPP_INITIALIZER("hsi", "hsi_fck", "core", true, 192000000, OMAP5430_VDD_CORE_OPP_NOM),
 	/* TODO: Uncomment the following once we have drivers for them */
-#if 0
+
 	/* FDIF OPP1 - OPPLOW */
-	OPP_INITIALIZER("fdif", "fdif_fck", "core", true, 64000000, OMAP5430_VDD_CORE_OPP_LOW),
+	OPP_INITIALIZER("fdif", "fdif_fclk", "core", true, 64000000, OMAP5430_VDD_CORE_OPP_LOW),
 	/* FDIF OPP3 - OPPNOM */
-	OPP_INITIALIZER("fdif", "fdif_fck", "core", true, 128000000, OMAP5430_VDD_CORE_OPP_NOM),
-#endif
+	OPP_INITIALIZER("fdif", "fdif_fclk", "core", true, 128000000, OMAP5430_VDD_CORE_OPP_NOM),
 
 	/* ABE OPP1 - OPPLOW */
 	OPP_INITIALIZER("aess", "abe_clk", "core", true, 98304000, OMAP5430_VDD_CORE_OPP_LOW),

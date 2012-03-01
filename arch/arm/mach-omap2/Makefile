@@ -64,7 +64,7 @@ obj-$(CONFIG_ARCH_OMAP5)		+= opp5xxx_data.o
 endif
 
 # CPUFREQ driver
-obj-$(CONFIG_CPU_FREQ)                  += omap2plus-cpufreq.o
+obj-$(CONFIG_CPU_FREQ)                  += omap2plus-cpufreq.o dvfs.o
 
 # Power Management
 ifeq ($(CONFIG_PM),y)
@@ -108,8 +108,6 @@ obj-$(CONFIG_ARCH_OMAP5)                += prcm.o cm2xxx_3xxx.o cminst44xx.o \
                                            prminst44xx.o vc54xx_data.o \
                                            vp54xx_data.o abb54xx_data.o \
 					   prm44xx.o scrm44xx.o omap-sar.o
-
-obj-$(CONFIG_OMAP_DVFS)                += dvfs.o
 
 # OMAP voltage domains
 voltagedomain-common			:= voltage.o vc.o vp.o abb.o
