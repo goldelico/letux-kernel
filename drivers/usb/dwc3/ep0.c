@@ -679,19 +679,26 @@ static void dwc3_ep0_do_control_data(struct dwc3 *dwc,
 				DWC3_TRBCTL_CONTROL_DATA);
 	} else if ((req->request.length % dep->endpoint.maxpacket)
 			&& (event->endpoint_number == 0)) {
+		unsigned transfer_size = req->request.length;
+		unsigned maxp = dep->endpoint.maxpacket;
+
+		transfer_size += (maxp - (transfer_size % maxp));
+
 		dwc3_map_buffer_to_dma(req);
 
-		WARN_ON(req->request.length > dep->endpoint.maxpacket);
+		WARN(req->request.length > DWC3_EP0_BOUNCE_BUFFER_SIZE,
+				"%s request too big (%d)\n", dep->name,
+				req->request.length);
 
 		dwc->ep0_bounced = true;
 
 		/*
 		 * REVISIT in case request length is bigger than EP0
-		 * wMaxPacketSize, we will need two chained TRBs to handle
-		 * the transfer.
+		 * DWC3_EP0_BOUNCE_BUFFER_SIZE, we will need two chained TRBs
+		 * to handle the transfer.
 		 */
 		ret = dwc3_ep0_start_trans(dwc, event->endpoint_number,
-				dwc->ep0_bounce_addr, dep->endpoint.maxpacket,
+				dwc->ep0_bounce_addr, transfer_size,
 				DWC3_TRBCTL_CONTROL_DATA);
 	} else {
 		dwc3_map_buffer_to_dma(req);

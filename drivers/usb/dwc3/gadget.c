@@ -2334,7 +2334,8 @@ int __devinit dwc3_gadget_init(struct dwc3 *dwc)
 	}
 
 	dwc->ep0_bounce = dma_alloc_coherent(dwc->dev,
-			512, &dwc->ep0_bounce_addr, GFP_KERNEL);
+			DWC3_EP0_BOUNCE_BUFFER_SIZE,
+			&dwc->ep0_bounce_addr, GFP_KERNEL);
 	if (!dwc->ep0_bounce) {
 		dev_err(dwc->dev, "failed to allocate ep0 bounce buffer\n");
 		ret = -ENOMEM;
