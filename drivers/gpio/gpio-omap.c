@@ -116,6 +116,7 @@ static void _set_gpio_dataout_reg(struct gpio_bank *bank, int gpio, int enable)
 		reg += bank->regs->clr_dataout;
 
 	__raw_writel(l, reg);
+	bank->context.dataout = l;
 }
 
 /* set data out value using mask register */
