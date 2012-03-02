@@ -786,7 +786,9 @@ static irqreturn_t hpd_enable_handler(int irq, void *ptr)
 		hpd_prev = hpd;
 	}
 
+	hdmi_runtime_get();
 	hdmi.ip_data.ops->notify_hpd(&hdmi.ip_data, hdmi.hpd);
+	hdmi_runtime_put();
 
 	return IRQ_HANDLED;
 }
