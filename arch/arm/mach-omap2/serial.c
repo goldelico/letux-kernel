@@ -476,12 +476,13 @@ void __init omap_serial_init_port(struct omap_board_data *bdata,
 /**
  * omap_serial_board_init() - initialize all supported serial ports
  * @info: platform specific data pointer
+ * @port_id: uart port number to be initialised
  *
- * Initializes all available UARTs as serial ports. Platforms
+ * Initializes individual UARTs as serial ports. Platforms
  * can call this function when they want to have default behaviour
- * for serial ports (e.g initialize them all as serial ports).
+ * for serial ports (e.g initialize individual serial ports based on port id).
  */
-void __init omap_serial_board_init(struct omap_uart_port_info *info)
+void __init omap_serial_board_init(struct omap_uart_port_info *info, u8 port_id)
 {
 	struct omap_uart_state *uart;
 	struct omap_board_data bdata;
@@ -492,13 +493,13 @@ void __init omap_serial_board_init(struct omap_uart_port_info *info)
 		bdata.pads = NULL;
 		bdata.pads_cnt = 0;
 
-		if (cpu_is_omap54xx() || cpu_is_omap44xx() || cpu_is_omap34xx())
+		if (!cpu_is_omap24xx())
 			omap_serial_fill_default_pads(&bdata);
 
 		if (!info)
 			omap_serial_init_port(&bdata, NULL);
 		else
-			omap_serial_init_port(&bdata, &info[uart->num]);
+			omap_serial_init_port(&bdata, info);
 	}
 }
 
@@ -511,5 +512,8 @@ void __init omap_serial_board_init(struct omap_uart_port_info *info)
  */
 void __init omap_serial_init(void)
 {
-	omap_serial_board_init(NULL);
+	struct omap_uart_state *uart;
+
+	list_for_each_entry(uart, &uart_list, node)
+		omap_serial_board_init(NULL, uart->num);
 }
