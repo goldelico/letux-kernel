@@ -194,7 +194,7 @@ static struct omap_device_pad default_uart3_pads[] __initdata = {
 		.enable	= OMAP_PIN_INPUT_PULLUP | OMAP_MUX_MODE0,
 	},
 	{
-		.name	= "uart3_rts_sd.uart3_rts_sd",
+		.name	= "uart3_rts_irsd.uart3_rts_irsd",
 		.enable	= OMAP_PIN_OUTPUT | OMAP_MUX_MODE0,
 	},
 	{
