@@ -2097,8 +2097,6 @@ static int __init omap_hsmmc_probe(struct platform_device *pdev)
 	if (res == NULL || irq < 0)
 		return -ENXIO;
 
-	res->start += pdata->reg_offset;
-	res->end += pdata->reg_offset;
 	res = request_mem_region(res->start, resource_size(res), pdev->name);
 	if (res == NULL)
 		return -EBUSY;
@@ -2123,7 +2121,7 @@ static int __init omap_hsmmc_probe(struct platform_device *pdev)
 	host->irq	= irq;
 	host->id	= pdev->id;
 	host->slot_id	= 0;
-	host->mapbase	= res->start;
+	host->mapbase	= res->start + pdata->reg_offset;
 	host->base	= ioremap(host->mapbase, SZ_4K);
 	host->power_mode = MMC_POWER_OFF;
 	host->flags	= AUTO_CMD12;
