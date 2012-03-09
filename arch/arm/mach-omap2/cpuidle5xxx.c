@@ -30,22 +30,30 @@ struct omap5_idle_statedata {
 	u32 mpu_logic_state;
 	u32 mpu_state;
 	u8 mpu_state_vote;
+	u32 core_state;
+	u32 core_logic_state;
 	u8 valid;
 };
 
 static struct cpuidle_params cpuidle_params_table[] = {
-	/* C1 - CPU0 ON + CPU1 ON + MPU ON */
+	/* C1 - CPU0 ON + CPU1 ON + MPU ON + CORE ON*/
 	{.exit_latency = 2 + 2 , .target_residency = 5, .valid = 1},
-	/* C2 - CPU0 INA + CPU1 INA + MPU INA */
+	/* C2 - CPU0 INA + CPU1 INA + MPU INA + CORE INA */
 	{.exit_latency = 10 + 10 , .target_residency = 10, .valid = 1},
-	/* C3- CPU0 CSWR + CPU1 CSWR + MPU CSWR */
+	/* C3- CPU0 CSWR + CPU1 CSWR + MPU CSWR + CORE CSWR*/
 	{.exit_latency = 328 + 440 , .target_residency = 960, .valid = 1},
+#ifdef CONFIG_OMAP_ALLOW_OSWR
+	/* C4- CPU0 CSWR + CPU1 CSWR + MPU CSWR + CORE OSWR*/
+	{.exit_latency = 1200 , .target_residency = 1200, .valid = 1},
+#else
+	{.exit_latency = 1200 , .target_residency = 1200, .valid = 0},
+#endif
 };
 
 #define OMAP5_NUM_STATES ARRAY_SIZE(cpuidle_params_table)
 
 struct omap5_idle_statedata omap5_idle_data[OMAP5_NUM_STATES];
-static struct powerdomain *mpu_pd, *cpu_pd[NR_CPUS];
+static struct powerdomain *mpu_pd, *cpu_pd[NR_CPUS], *core_pd;
 static DEFINE_RAW_SPINLOCK(mpuss_idle_lock);
 
 /**
@@ -87,6 +95,8 @@ static int omap5_enter_idle(struct cpuidle_device *dev,
 	if (cx->mpu_state_vote == num_online_cpus()) {
 		pwrdm_set_logic_retst(mpu_pd, cx->mpu_logic_state);
 		omap_set_pwrdm_state(mpu_pd, cx->mpu_state);
+		pwrdm_set_logic_retst(core_pd, cx->core_logic_state);
+		omap_set_pwrdm_state(core_pd, cx->core_state);
 	}
 
 	/*
@@ -97,7 +107,7 @@ static int omap5_enter_idle(struct cpuidle_device *dev,
 		(cx->mpu_logic_state == PWRDM_POWER_OFF))
 			cpu_cluster_pm_enter();
 
-	omap_enter_lowpower(dev->cpu, cx->cpu_state);
+	omap_pm_idle(dev->cpu, cx->cpu_state);
 
 	/*
 	 * Call idle CPU PM exit notifier chain to restore
@@ -176,7 +186,8 @@ int __init omap5_idle_init(void)
 	mpu_pd = pwrdm_lookup("mpu_pwrdm");
 	cpu_pd[0] = pwrdm_lookup("cpu0_pwrdm");
 	cpu_pd[1] = pwrdm_lookup("cpu1_pwrdm");
-	if ((!mpu_pd) || (!cpu_pd[0]) || (!cpu_pd[1]))
+	core_pd = pwrdm_lookup("core_pwrdm");
+	if ((!mpu_pd) || (!cpu_pd[0]) || (!cpu_pd[1]) || (!core_pd))
 		return -ENODEV;
 
 	cpuidle_register_driver(&omap5_idle_driver);
@@ -185,36 +196,53 @@ int __init omap5_idle_init(void)
 		dev = &per_cpu(omap5_idle_dev, cpu_id);
 		dev->cpu = cpu_id;
 
-		/* C1 - CPU0 ON + CPU1 ON + MPU ON */
-		cx = _fill_cstate(dev, 0, "MPUSS ON");
+		/* C1 - CPU0 ON + CPU1 ON + MPU ON + CORE ON*/
+		cx = _fill_cstate(dev, 0, "MPUSS + CORE ON");
 		dev->safe_state = &dev->states[0];
 		cx->valid = 1;	/* C1 is always valid */
 		cx->cpu_state = PWRDM_POWER_ON;
 		cx->mpu_state = PWRDM_POWER_ON;
 		cx->mpu_state_vote = 0;
 		cx->mpu_logic_state = PWRDM_POWER_RET;
+		cx->core_state = PWRDM_POWER_ON;
+		cx->core_logic_state = PWRDM_POWER_RET;
 		dev->state_count++;
 
-		/* C2 - CPU0 INA + CPU1 INA + MPU INA */
-		cx = _fill_cstate(dev, 1, "MPUSS INACTIVE");
+		/* C2 - CPU0 INA + CPU1 INA + MPU INA + CORE INA */
+		cx = _fill_cstate(dev, 1, "MPUSS + CORE INACTIVE");
 		if (cx != NULL) {
 			cx->cpu_state = PWRDM_POWER_INACTIVE;
 			cx->mpu_state = PWRDM_POWER_INACTIVE;
 			cx->mpu_state_vote = 0;
 			cx->mpu_logic_state = PWRDM_POWER_RET;
+			cx->core_state = PWRDM_POWER_INACTIVE;
+			cx->core_logic_state = PWRDM_POWER_RET;
 			dev->state_count++;
 		}
 
-		/* C3 - CPU0 CSWR + CPU1 CSWR + MPU CSWR */
-		cx = _fill_cstate(dev, 2, "MPUSS CSWR");
+		/* C3 - CPU0 CSWR + CPU1 CSWR + MPU CSWR + CORE CSWR*/
+		cx = _fill_cstate(dev, 2, "MPUSS + CORE CSWR");
 		if (cx != NULL) {
 			cx->cpu_state = PWRDM_POWER_RET;
 			cx->mpu_state = PWRDM_POWER_RET;
 			cx->mpu_state_vote = 0;
 			cx->mpu_logic_state = PWRDM_POWER_RET;
+			cx->core_state = PWRDM_POWER_RET;
+			cx->core_logic_state = PWRDM_POWER_RET;
 			dev->state_count++;
 		}
 
+		/* C4 - CPU0 CSWR + CPU1 CSWR + MPU CSWR + CORE OSWR*/
+		cx = _fill_cstate(dev, 3, "MPUSS CSWR + CORE OSWR");
+		if (cx != NULL) {
+			cx->cpu_state = PWRDM_POWER_RET;
+			cx->mpu_state = PWRDM_POWER_RET;
+			cx->mpu_state_vote = 0;
+			cx->mpu_logic_state = PWRDM_POWER_RET;
+			cx->core_state = PWRDM_POWER_RET;
+			cx->core_logic_state = PWRDM_POWER_OFF;
+			dev->state_count++;
+		}
 		pr_debug("Register %d C-states on CPU%d\n",
 						dev->state_count, cpu_id);
 		if (cpuidle_register_device(dev)) {
