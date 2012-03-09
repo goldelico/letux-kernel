@@ -44,9 +44,6 @@ static int omap_usb3_init(struct usb_phy *x)
 
 	omap5_scm_usb3_phy_power(phy->scm_dev, 1);
 
-	/* wkup CLK should be enabled always */
-	clk_enable(phy->wkupclk);
-
 	return 0;
 }
 
@@ -57,9 +54,11 @@ static int omap_usb3_suspend(struct usb_phy *x, int suspend)
 	if (suspend && !phy->is_suspended) {
 		pm_runtime_put_sync(phy->dev);
 		clk_disable(phy->optclk);
+		clk_disable(phy->wkupclk);
 		phy->is_suspended	= 1;
 	} else if (!suspend && phy->is_suspended) {
 		phy->is_suspended	= 0;
+		clk_enable(phy->wkupclk);
 		clk_enable(phy->optclk);
 		pm_runtime_get_sync(phy->dev);
 	}
