@@ -2736,6 +2736,7 @@ static struct omap_hwmod omap54xx_gpu_hwmod = {
 	.name		= "gpu",
 	.class		= &omap54xx_gpu_hwmod_class,
 	.clkdm_name	= "gpu_clkdm",
+	.flags		= HWMOD_SWSUP_MSTANDBY,
 	.mpu_irqs	= omap54xx_gpu_irqs,
 	.main_clk	= "gpu_core_clk_mux_ck",
 	.prcm = {
