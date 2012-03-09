@@ -38,7 +38,8 @@ static int gta04_fm_hw_params(struct snd_pcm_substream *substream,
 	
 	fmt =	SND_SOC_DAIFMT_I2S |	// I2S
 			SND_SOC_DAIFMT_IB_IF |	// positive sync pulse, driven on rising, sampled on falling clock
-			SND_SOC_DAIFMT_CBM_CFM;	// clocks come from FM tuner
+//			SND_SOC_DAIFMT_CBM_CFM;	// clocks come from FM tuner
+			SND_SOC_DAIFMT_CBS_CFS;	// clocks go to FM tuner
 	
 	/* Set cpu DAI configuration */
 	ret = snd_soc_dai_set_fmt(cpu_dai, fmt);
@@ -47,8 +48,10 @@ static int gta04_fm_hw_params(struct snd_pcm_substream *substream,
 		return ret;
 	}
 	
-	ret = snd_soc_dai_set_sysclk(cpu_dai, OMAP_MCBSP_SYSCLK_CLKX_EXT, 0,
-								 SND_SOC_CLOCK_IN);
+//	ret = snd_soc_dai_set_sysclk(cpu_dai, OMAP_MCBSP_SYSCLK_CLKX_EXT, 0,
+//								 SND_SOC_CLOCK_IN);
+	ret = snd_soc_dai_set_sysclk(cpu_dai, OMAP_MCBSP_SYSCLK_CLKX_EXT, 6000000,
+								 SND_SOC_CLOCK_OUT);
 	// FIXME: set clock divisor
 	if (ret < 0) {
 		printk(KERN_ERR "can't set cpu system clock\n");
