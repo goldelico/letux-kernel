@@ -57,6 +57,71 @@ static struct powerdomain *mpu_pd, *cpu_pd[NR_CPUS], *core_pd;
 static DEFINE_RAW_SPINLOCK(mpuss_idle_lock);
 
 /**
+ * next_valid_state - Find next valid C-state
+ * @dev: cpuidle device
+ * @state: Currently selected C-state
+ *
+ * If the current state is valid, it is returned back to the caller.
+ * Else, this function searches for a lower c-state which is still
+ * valid.
+ *
+ * A state is valid if:
+ * . the 'valid' field is enabled,
+ * . the next state for MPU and CORE power domains is not lower than the
+ *   state programmed by the per-device PM QoS.
+ */
+static struct cpuidle_state *next_valid_state(struct cpuidle_device *dev,
+					      struct cpuidle_state *curr)
+{
+	struct cpuidle_state *next = NULL;
+	struct omap5_idle_statedata *cx = cpuidle_get_statedata(curr);
+	u32 mpu_pm_qos_next_state = mpu_pd->wkup_lat_next_state;
+	u32 core_pm_qos_next_state = core_pd->wkup_lat_next_state;
+
+
+	/* Check if current state is valid */
+	if ((cx->valid) &&
+		(cx->mpu_state >= mpu_pm_qos_next_state) &&
+	    (cx->core_state >= core_pm_qos_next_state)) {
+		return curr;
+	} else {
+		int idx = OMAP5_NUM_STATES - 1;
+
+		/* Reach the current state starting at highest C-state */
+		for (; idx >= 0; idx--) {
+			if (&dev->states[idx] == curr) {
+				next = &dev->states[idx];
+				break;
+			}
+		}
+
+		/* Should never hit this condition */
+		WARN_ON(next == NULL);
+
+		/*
+		 * Drop to next valid state.
+		 * Start search from the next (lower) state.
+		 */
+		idx--;
+		for (; idx >= 0; idx--) {
+			cx = cpuidle_get_statedata(&dev->states[idx]);
+			if ((cx->valid) &&
+				(cx->mpu_state >= mpu_pm_qos_next_state) &&
+			    (cx->core_state >= core_pm_qos_next_state)) {
+				next = &dev->states[idx];
+				break;
+			}
+		}
+		/*
+		 * C1 is always valid.
+		 * So, no need to check for 'next==NULL' outside this loop.
+		 */
+	}
+
+	return next;
+}
+
+/**
  * omap5_enter_idle - Programs OMAP5 to enter the specified state
  * @dev: cpuidle device
  * @state: The target state to be programmed
@@ -71,6 +136,7 @@ static int omap5_enter_idle(struct cpuidle_device *dev,
 	struct omap5_idle_statedata *cx = cpuidle_get_statedata(state);
 	struct timespec ts_preidle, ts_postidle, ts_idle;
 	int cpu_id = smp_processor_id();
+	struct cpuidle_state *new_state = state;
 
 	/* Used to keep track of the total time in idle */
 	getnstimeofday(&ts_preidle);
@@ -78,7 +144,13 @@ static int omap5_enter_idle(struct cpuidle_device *dev,
 	local_irq_disable();
 	local_fiq_disable();
 
-	if (state > &dev->states[0])
+	/* Check Device QOS constraints if we are attempting deeper C states */
+	if (cx->mpu_state != PWRDM_POWER_ON) {
+		new_state = next_valid_state(dev, state);
+		cx = cpuidle_get_statedata(state);
+	}
+
+	if (new_state > &dev->states[0])
 		clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_ENTER, &cpu_id);
 
 	/*
@@ -107,6 +179,7 @@ static int omap5_enter_idle(struct cpuidle_device *dev,
 		(cx->mpu_logic_state == PWRDM_POWER_OFF))
 			cpu_cluster_pm_enter();
 
+	dev->last_state = new_state;
 	omap_pm_idle(dev->cpu, cx->cpu_state);
 
 	/*
@@ -128,7 +201,7 @@ static int omap5_enter_idle(struct cpuidle_device *dev,
 	if (omap_mpuss_read_prev_context_state())
 		cpu_cluster_pm_exit();
 
-	if (state > &dev->states[0])
+	if (new_state > &dev->states[0])
 		clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_EXIT, &cpu_id);
 
 	getnstimeofday(&ts_postidle);
