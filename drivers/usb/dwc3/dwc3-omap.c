@@ -79,23 +79,6 @@
 
 /* SYSCONFIG REGISTER */
 #define USBOTGSS_SYSCONFIG_DMADISABLE		(1 << 16)
-#define USBOTGSS_SYSCONFIG_STANDBYMODE(x)	((x) << 4)
-
-#define USBOTGSS_STANDBYMODE_FORCE_STANDBY	0
-#define USBOTGSS_STANDBYMODE_NO_STANDBY		1
-#define USBOTGSS_STANDBYMODE_SMART_STANDBY	2
-#define USBOTGSS_STANDBYMODE_SMART_WAKEUP	3
-
-#define USBOTGSS_STANDBYMODE_MASK		(0x03 << 4)
-
-#define USBOTGSS_SYSCONFIG_IDLEMODE(x)		((x) << 2)
-
-#define USBOTGSS_IDLEMODE_FORCE_IDLE		0
-#define USBOTGSS_IDLEMODE_NO_IDLE		1
-#define USBOTGSS_IDLEMODE_SMART_IDLE		2
-#define USBOTGSS_IDLEMODE_SMART_WAKEUP		3
-
-#define USBOTGSS_IDLEMODE_MASK			(0x03 << 2)
 
 /* IRQ_EOI REGISTER */
 #define USBOTGSS_IRQ_EOI_LINE_NUMBER		(1 << 0)
@@ -370,6 +353,7 @@ static int __devinit dwc3_omap_probe(struct platform_device *pdev)
 
 	struct platform_device	*dwc3;
 	struct dwc3_omap	*omap;
+	struct resource         dwc3_res[2];
 	struct resource		*res;
 
 	int			devid;
@@ -404,7 +388,7 @@ static int __devinit dwc3_omap_probe(struct platform_device *pdev)
 		goto err2;
 	}
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		dev_err(&pdev->dev, "missing memory base resource\n");
 		ret = -EINVAL;
@@ -487,15 +471,6 @@ static int __devinit dwc3_omap_probe(struct platform_device *pdev)
 	reg = dwc3_readl(omap->base, USBOTGSS_SYSCONFIG);
 	omap->dma_status = !!(reg & USBOTGSS_SYSCONFIG_DMADISABLE);
 
-	/* Set No-Idle and No-Standby */
-	reg &= ~(USBOTGSS_STANDBYMODE_MASK
-			| USBOTGSS_IDLEMODE_MASK);
-
-	reg |= (USBOTGSS_SYSCONFIG_STANDBYMODE(USBOTGSS_STANDBYMODE_NO_STANDBY)
-		| USBOTGSS_SYSCONFIG_IDLEMODE(USBOTGSS_IDLEMODE_NO_IDLE));
-
-	dwc3_writel(omap->base, USBOTGSS_SYSCONFIG, reg);
-
 	ret = request_irq(omap->irq, dwc3_omap_interrupt, 0,
 			"dwc3-omap", omap);
 	if (ret) {
@@ -522,8 +497,33 @@ static int __devinit dwc3_omap_probe(struct platform_device *pdev)
 
 	pm_runtime_put_sync(&pdev->dev);
 
-	ret = platform_device_add_resources(dwc3, pdev->resource,
-			pdev->num_resources);
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (!res) {
+		dev_err(&pdev->dev, "missing memory base resource for dwc3\n");
+		ret = -EINVAL;
+		goto err8;
+	}
+
+	memset(dwc3_res, 0, sizeof(dwc3_res));
+
+	dwc3_res[0].start	= res->start;
+	dwc3_res[0].end		= res->end;
+	dwc3_res[0].flags	= res->flags;
+	dwc3_res[0].name	= res->name;
+
+	irq = platform_get_irq(pdev, 0);
+	if (irq < 0) {
+		dev_err(&pdev->dev, "missing IRQ\n");
+		ret = -EINVAL;
+		goto err8;
+	}
+
+	dwc3_res[1].start	= irq;
+	dwc3_res[1].flags	= IORESOURCE_IRQ;
+	dwc3_res[1].name	= res->name;
+
+	ret = platform_device_add_resources(dwc3, dwc3_res,
+							ARRAY_SIZE(dwc3_res));
 	if (ret) {
 		dev_err(&pdev->dev, "couldn't add resources to dwc3 device\n");
 		goto err8;
