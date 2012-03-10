@@ -81,7 +81,7 @@ static inline void mbox_write_reg(u32 val, size_t ofs)
 
 static void omap2_mbox_save_ctx(struct omap_mbox *mbox)
 {
-	int i;
+	int i, max_iter = 100;
 
 	if (context_saved)
 		return;
@@ -98,6 +98,21 @@ static void omap2_mbox_save_ctx(struct omap_mbox *mbox)
 	}
 
 	context_saved = true;
+
+	/*
+	 * Softreset sequence supposedly fixes user's recovery issues,
+	 * given that there might be pending messages (IRQs) that were
+	 * not serviced.
+	 *
+	 * Care must be taken given that this could override any previous
+	 * setting (e.g.: hwmod).
+	 */
+	mbox_write_reg(MAILBOX_SOFTRESET, MAILBOX_SYSCONFIG);
+	while (mbox_read_reg(MAILBOX_SYSCONFIG) & MAILBOX_SOFTRESET) {
+		if (WARN_ON(!max_iter--))
+			break;
+		udelay(1);
+	}
 }
 
 static void omap2_mbox_restore_ctx(struct omap_mbox *mbox)
@@ -125,33 +140,16 @@ static void omap2_mbox_restore_ctx(struct omap_mbox *mbox)
 static int omap2_mbox_startup(struct omap_mbox *mbox)
 {
 	u32 l;
-	u32 max_iter = 100;
-
-	pm_runtime_enable(mbox->dev->parent);
-	pm_runtime_get_sync(mbox->dev->parent);
-
-	mbox_write_reg(MAILBOX_SOFTRESET, MAILBOX_SYSCONFIG);
-	while (mbox_read_reg(MAILBOX_SYSCONFIG) & MAILBOX_SOFTRESET) {
-		if (WARN_ON(!max_iter--))
-			break;
-		udelay(1);
-	}
-
-	omap2_mbox_restore_ctx(mbox);
 
 	l = mbox_read_reg(MAILBOX_REVISION);
 	pr_debug("omap mailbox rev %d.%d\n", (l & 0xf0) >> 4, (l & 0x0f));
-
-	omap2_mbox_enable_irq(mbox, IRQ_RX);
 
 	return 0;
 }
 
 static void omap2_mbox_shutdown(struct omap_mbox *mbox)
 {
-	omap2_mbox_save_ctx(mbox);
-	pm_runtime_put_sync(mbox->dev->parent);
-	pm_runtime_disable(mbox->dev->parent);
+	/* Do nothing */
 }
 
 /* Mailbox FIFO handle functions */
@@ -430,7 +428,7 @@ unmap_base:
 
 static int __devexit omap2_mbox_remove(struct platform_device *pdev)
 {
-	omap_mbox_unregister();
+	omap_mbox_unregister(&pdev->dev);
 	iounmap(mbox_base);
 	return 0;
 }
@@ -440,6 +438,7 @@ static struct platform_driver omap2_mbox_driver = {
 	.remove = __devexit_p(omap2_mbox_remove),
 	.driver = {
 		.name = "omap-mailbox",
+		.pm = &mbox_pm_ops,
 	},
 };
 

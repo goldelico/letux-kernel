@@ -206,11 +206,11 @@ static struct omap_opp_def __initdata omap54xx_opp_def_list[] = {
 	OPP_INITIALIZER("iva", "dpll_iva_h12x2_ck", "mm", false, 532000000, OMAP5430_VDD_MM_OPP_OD),
 
 	/* DSP OPP1 - OPP50 */
-	OPP_INITIALIZER("dsp", "dpll_iva_h11x2_ck", "mm", true, 233000000, OMAP5430_VDD_MM_OPP_LOW),
+	OPP_INITIALIZER("dsp_c0", "dpll_iva_h11x2_ck", "mm", true, 233000000, OMAP5430_VDD_MM_OPP_LOW),
 	/* DSP OPP2 - OPP100 */
-	OPP_INITIALIZER("dsp", "dpll_iva_h11x2_ck", "mm", true, 466000000, OMAP5430_VDD_MM_OPP_NOM),
+	OPP_INITIALIZER("dsp_c0", "dpll_iva_h11x2_ck", "mm", true, 466000000, OMAP5430_VDD_MM_OPP_NOM),
 	/* DSP OPP3 - OPPTB */
-	OPP_INITIALIZER("dsp", "dpll_iva_h11x2_ck", "mm", false, 532000000, OMAP5430_VDD_MM_OPP_OD),
+	OPP_INITIALIZER("dsp_c0", "dpll_iva_h11x2_ck", "mm", false, 532000000, OMAP5430_VDD_MM_OPP_OD),
 #endif
 #if 0
 	/* SGX OPP1 - OPPLOW */
