@@ -261,9 +261,8 @@ static int setup_rproc_elf_core_dump(struct core_rproc *d)
 {
 	short __phnum;
 	struct elf_phdr *nphdr;
-	struct exc_regs *xregs = d->rproc->cdump_buf1;
-	struct pt_regs *regs =
-		(struct pt_regs *)&d->core.core_note.prstatus.pr_reg;
+	struct exc_regs *xregs;
+	struct pt_regs *regs;
 
 	memset(&d->core.elf, 0, sizeof(d->core.elf));
 
@@ -298,8 +297,12 @@ static int setup_rproc_elf_core_dump(struct core_rproc *d)
 	d->core.core_note.note_prstatus.n_type = NT_PRSTATUS;
 	memcpy(d->core.core_note.name, CORE_STR, sizeof(CORE_STR));
 
-	remoteproc_fill_pt_regs(regs, xregs);
-
+	/* fill in registers for ipu only, dsp yet to be supported */
+	if (!strcmp(d->rproc->name, "ipu")) {
+		xregs = d->rproc->cdump_buf1;
+		regs = (struct pt_regs *)&d->core.core_note.prstatus.pr_reg;
+		remoteproc_fill_pt_regs(regs, xregs);
+	}
 	/* We ignore the NVIC registers for now */
 
 	d->offset = sizeof(struct core);
@@ -757,7 +760,9 @@ static int rproc_add_mem_entry(struct rproc *rproc, struct fw_resource *rsc)
 		 * carveouts we don't care about in a core dump.
 		 * Perhaps the ION carveout should be reported as RSC_DEVMEM.
 		 */
-		me->core = (rsc->type == RSC_CARVEOUT && rsc->pa != 0xba300000);
+		me->core = (rsc->type == RSC_CARVEOUT &&
+				strcmp(rsc->name, "IPU_MEM_IOBUFS") &&
+				strcmp(rsc->name, "DSP_MEM_IOBUFS"));
 #endif
 	}
 
@@ -880,7 +885,13 @@ static int rproc_handle_resources(struct rproc *rproc, struct fw_resource *rsc,
 				rsc->pa = pa;
 			} else {
 				ret = rproc_check_poolmem(rproc, rsc->len, pa);
-				if (ret) {
+				/*
+				 * ignore the error for DSP buffers as they can
+				 * not be assigned together with rest of dsp
+				 * pool memory
+				 */
+				if (ret &&
+					strcmp(rsc->name, "DSP_MEM_IOBUFS")) {
 					dev_err(dev, "static memory for %s "
 						"doesn't belong to poolmem\n",
 						rsc->name);
@@ -1136,6 +1147,9 @@ static void rproc_loader_defered(struct rproc *rproc)
 	memcpy(rproc->header, image->header, image->header_len);
 	rproc->header_len = image->header_len;
 
+	debugfs_create_file("version", 0444, rproc->dbg_dir, rproc,
+							&rproc_version_ops);
+
 	/* Ensure we recognize this BIOS version: */
 	if (image->version != RPROC_BIOS_VERSION) {
 		dev_err(dev, "Expected BIOS version: %d!\n",
@@ -1183,6 +1197,34 @@ static int rproc_loader(struct rproc *rproc)
 
 	return 0;
 }
+
+int rproc_pa_to_da(struct rproc *rproc, phys_addr_t pa, u64 *da)
+{
+	int i, ret = -EINVAL;
+	struct rproc_mem_entry *maps = NULL;
+
+	if (!rproc || !da)
+		return -EINVAL;
+
+	if (mutex_lock_interruptible(&rproc->lock))
+		return -EINTR;
+
+	if (rproc->state == RPROC_RUNNING || rproc->state == RPROC_SUSPENDED) {
+		maps = rproc->memory_maps;
+		for (i = 0; maps->size; maps++) {
+			if (pa >= maps->pa && pa < (maps->pa + maps->size)) {
+				*da = maps->da + (pa - maps->pa);
+				ret = 0;
+				break;
+			}
+		}
+	}
+
+	mutex_unlock(&rproc->lock);
+	return ret;
+
+}
+EXPORT_SYMBOL(rproc_pa_to_da);
 
 int rproc_set_secure(const char *name, bool enable)
 {
@@ -1467,6 +1509,7 @@ static int rproc_resume(struct device *dev)
 		goto unlock;
 
 	rproc->need_resume = false;
+	rproc->force_suspend = false;
 	pm_runtime_get_sync(dev);
 	pm_runtime_mark_last_busy(dev);
 	pm_runtime_put_autosuspend(dev);
@@ -1504,24 +1547,12 @@ static int rproc_suspend(struct device *dev)
 	dev_dbg(dev, "%s: will be forced to suspend\n", rproc->name);
 	rproc->force_suspend = true;
 
-	/* Now call machine-specific suspend function (if it exists) */
-	if (rproc->ops->suspend)
-		ret = rproc->ops->suspend(rproc, rproc->force_suspend);
-
-	rproc->force_suspend = false;
-
-	if (ret) {
-		dev_err(dev, "suspend failed %d\n", ret);
-		goto out;
-	}
 	/*
 	 * As the remote processor had to be forced to suspend, it was
 	 * executing some task, so it needs to be waken up on system resume
 	 */
 	rproc->need_resume = true;
 out:
-	if (!ret)
-		rproc->state = RPROC_SUSPENDED;
 	mutex_unlock(&rproc->lock);
 
 	return ret;
@@ -1730,8 +1761,6 @@ int rproc_register(struct device *dev, const char *name,
 	debugfs_create_file("name", 0444, rproc->dbg_dir, rproc,
 							&rproc_name_ops);
 
-	debugfs_create_file("version", 0444, rproc->dbg_dir, rproc,
-							&rproc_version_ops);
 out:
 	return 0;
 }

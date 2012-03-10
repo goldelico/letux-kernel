@@ -65,12 +65,20 @@
 #define PHYS_ADDR_SMC_SIZE	(SZ_1M * 3)
 #define PHYS_ADDR_SMC_MEM	(0x80000000 + SZ_1G - PHYS_ADDR_SMC_SIZE)
 #define OMAP_ION_HEAP_SECURE_INPUT_SIZE	(SZ_1M * 90)
+#define OMAP_ION_HEAP_TILER_SIZE	(SZ_128M - SZ_32M)
 #define PHYS_ADDR_DUCATI_SIZE	(SZ_1M * 105)
 #define PHYS_ADDR_DUCATI_MEM	(PHYS_ADDR_SMC_MEM - PHYS_ADDR_DUCATI_SIZE - \
 				OMAP_ION_HEAP_SECURE_INPUT_SIZE)
 #define FIXED_REG_WLAN_ID 0
 #define FIXED_REG_V2V1_ID 1
 #define FIXED_REG_V1V8_ID 2
+
+#ifdef CONFIG_OMAP_REMOTE_PROC_DSP
+#define PHYS_ADDR_TESLA_SIZE	(SZ_1M * 4)
+#define PHYS_ADDR_TESLA_MEM	(PHYS_ADDR_DUCATI_MEM - \
+					OMAP_ION_HEAP_TILER_SIZE - \
+					PHYS_ADDR_TESLA_SIZE)
+#endif
 
 /* wl127x BT, FM, GPS connectivity chip */
 static int wl1271_gpios[] = {46, -1, -1};
@@ -662,7 +670,12 @@ static void __init omap4_panda_reserve(void)
 	memblock_remove(PHYS_ADDR_DUCATI_MEM, PHYS_ADDR_DUCATI_SIZE);
 	/* ipu needs to recognize secure input buffer area as well */
 	omap_ipu_set_static_mempool(PHYS_ADDR_DUCATI_MEM,
-		PHYS_ADDR_DUCATI_SIZE + OMAP_ION_HEAP_SECURE_INPUT_SIZE);
+		PHYS_ADDR_DUCATI_SIZE +	OMAP_ION_HEAP_SECURE_INPUT_SIZE);
+#ifdef CONFIG_OMAP_REMOTE_PROC_DSP
+	memblock_remove(PHYS_ADDR_TESLA_MEM, PHYS_ADDR_TESLA_SIZE);
+	omap_dsp_set_static_mempool(PHYS_ADDR_TESLA_MEM,
+					PHYS_ADDR_TESLA_SIZE);
+#endif
 
 	omap_reserve();
 }

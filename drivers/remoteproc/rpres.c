@@ -82,7 +82,7 @@ int rpres_set_constraints(struct rpres *obj, enum rpres_constraint type,
 	int ret;
 	struct rpres_platform_data *pdata = obj->pdev->dev.platform_data;
 	struct platform_device *pdev = obj->pdev;
-	static const char *cname[] = {"scale", "latency", "bandwidth"};
+	static char * const cname[] = {"scale", "latency", "bandwidth"};
 	int (*func)(struct rpres *, long);
 
 	switch (type) {
