@@ -41,34 +41,42 @@
 #endif
 
 static struct mutex dmm_mtx;
-
-static struct omap_dmm_platform_data *device_data;
+static void __iomem *dmm_base;
 
 static int dmm_probe(struct platform_device *pdev)
 {
-	if (!pdev || !pdev->dev.platform_data) {
-		printk(KERN_ERR "dmm: invalid platform data\n");
-		return -EINVAL;
+	struct resource *mem;
+
+	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!mem) {
+		dev_err(&pdev->dev, "failed to get base address resource\n");
+		return -ENODEV;
 	}
 
-	device_data = pdev->dev.platform_data;
-	device_data->base = ioremap(DMM_BASE, DMM_SIZE);
-
-	if (!device_data->base) {
+	dmm_base = ioremap(mem->start, SZ_2K);
+	if (!dmm_base) {
 		printk(KERN_ERR "dmm: ioremap of base failed\n");
-		return -EINVAL;
+		return -ENOMEM;
 	}
 
-	printk(KERN_INFO "dmm: probe base: %p, irq %d\n",
-		device_data->base, device_data->irq);
-	writel(0x88888888, device_data->base + DMM_TILER_OR__0);
-	writel(0x88888888, device_data->base + DMM_TILER_OR__1);
+	printk(KERN_INFO "dmm: probe base: %08x\n", mem->start);
+	writel(0x88888888, dmm_base + DMM_TILER_OR__0);
+	writel(0x88888888, dmm_base + DMM_TILER_OR__1);
+
+	return 0;
+}
+
+static int dmm_remove(struct platform_device *pdev)
+{
+	if (dmm_base)
+		iounmap(dmm_base);
 
 	return 0;
 }
 
 static struct platform_driver dmm_driver_ldm = {
 	.probe = dmm_probe,
+	.remove = dmm_remove,
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = "dmm",
@@ -260,8 +268,6 @@ static s32 __init dmm_init(void)
 static void __exit dmm_exit(void)
 {
 	mutex_destroy(&dmm_mtx);
-	if (device_data)
-		iounmap(device_data->base);
 	platform_driver_unregister(&dmm_driver_ldm);
 }
 

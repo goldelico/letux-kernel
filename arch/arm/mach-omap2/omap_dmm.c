@@ -25,10 +25,6 @@
 
 #ifdef CONFIG_TI_TILER
 
-static struct omap_dmm_platform_data dmm_data = {
-	.oh_name = "dmm",
-};
-
 static struct platform_device omap_tiler_device = {
 	.name           = "tiler",
 	.id             = -1,
@@ -48,14 +44,12 @@ void __init omap_dmm_init(void)
 	struct omap_hwmod *oh = NULL;
 	struct omap_device *od = NULL;
 
-	oh = omap_hwmod_lookup(dmm_data.oh_name);
+	oh = omap_hwmod_lookup("dmm");
 	if (!oh)
 		return;
 
-	dmm_data.irq = oh->mpu_irqs[0].irq;
-
-	od = omap_device_build(dmm_data.oh_name, -1, oh, &dmm_data,
-				sizeof(dmm_data), omap_dmm_latency,
+	od = omap_device_build(oh->name, -1, oh, NULL,
+				0, omap_dmm_latency,
 				ARRAY_SIZE(omap_dmm_latency), false);
 
 	/* register tiler platform device to go along with the dmm device */
