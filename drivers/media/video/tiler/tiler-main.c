@@ -58,9 +58,6 @@ MODULE_PARM_DESC(alloc_debug, "Allocation debug flag");
 
 #define MAX_CONTAINERS 2
 
-struct tiler_dev {
-	struct cdev cdev;
-};
 static struct dentry *dbgfs;
 static struct dentry *dbg_map;
 
@@ -69,10 +66,14 @@ static struct tiler_ops tiler;		/* shared methods and variables */
 static struct list_head blocks;		/* all tiler blocks */
 static struct list_head orphan_areas;	/* orphaned 2D areas */
 static struct list_head orphan_onedim;	/* orphaned 1D areas */
-
+#ifdef CONFIG_TILER_ENABLE_USERSPACE
+struct tiler_dev {
+	struct cdev cdev;
+};
 static s32 tiler_major;
 static s32 tiler_minor;
 static struct tiler_dev *tiler_device;
+#endif
 static struct class *tilerdev_class;
 static struct mutex mtx;
 static struct tcm *tcm[TILER_FORMATS];
@@ -81,6 +82,7 @@ static u32 *dmac_va;
 static dma_addr_t dmac_pa;
 static DEFINE_MUTEX(dmac_mtx);
 static u32 cont_cnt;
+static dev_t dev;
 
 /*
  *  TMM connectors
@@ -131,13 +133,21 @@ static void unpin_mem_from_area(struct tmm *tmm, struct tcm_area *area)
 {
 	struct pat_area p_area = {0};
 	struct tcm_area slice, area_s;
+	u32 y_offset = 0;
+
+	/*
+	 * adjust y offset to target correct row if this is a omap5 and we are
+	 * in page mode
+	 */
+	if (cpu_is_omap54xx() && !area->is2d)
+		y_offset = 128;
 
 	mutex_lock(&dmac_mtx);
 	tcm_for_each_slice(slice, *area, area_s) {
 		p_area.x0 = slice.p0.x;
-		p_area.y0 = slice.p0.y;
+		p_area.y0 = slice.p0.y + y_offset;
 		p_area.x1 = slice.p1.x;
-		p_area.y1 = slice.p1.y;
+		p_area.y1 = slice.p1.y + y_offset;
 
 		tmm_unpin(tmm, p_area);
 	}
@@ -1478,6 +1488,24 @@ s32 tiler_pin_block(tiler_blk_handle block, u32 *addr_array, u32 nents)
 }
 EXPORT_SYMBOL(tiler_pin_block);
 
+static void clear_pat_entries(void)
+{
+	struct tcm_area area = {0};
+
+	/* clear out PAT entries and set dummy page */
+	area.is2d = true;
+	area.tcm = tcm[TILFMT_8BIT];
+	area.p1.x = tiler.width - 1;
+	area.p1.y = tiler.height - 1;
+	unpin_mem_from_area(tmm[TILFMT_8BIT], &area);
+
+	if (cpu_is_omap54xx()) {
+		area.is2d = false;
+		area.tcm = tcm[TILFMT_PAGE];
+		unpin_mem_from_area(tmm[TILFMT_PAGE], &area);
+	}
+}
+
 /*
  *  Driver code
  *  ==========================================================================
@@ -1487,14 +1515,9 @@ EXPORT_SYMBOL(tiler_pin_block);
 static int tiler_resume(struct device *pdev)
 {
 	struct mem_info *mi;
-	struct pat_area area = {0};
 
-	/* clear out PAT entries and set dummy page */
-	area.x1 = tiler.width - 1;
-	area.y1 = tiler.height - 1;
-	mutex_lock(&dmac_mtx);
-	tmm_unpin(tmm[TILFMT_8BIT], area);
-	mutex_unlock(&dmac_mtx);
+	/* initialize all the PAT entries */
+	clear_pat_entries();
 
 	/* iterate over all the blocks and refresh the PAT entries */
 	list_for_each_entry(mi, &blocks, global) {
@@ -1525,11 +1548,9 @@ static struct platform_driver tiler_driver_ldm = {
 
 static s32 __init tiler_init(void)
 {
-	dev_t dev  = 0;
 	s32 r = -1;
 	struct device *device = NULL;
 	struct tcm_pt div_pt;
-	struct pat_area area = {0};
 	struct tcm *sita[MAX_CONTAINERS] = {0};
 	struct tmm *tmm_pat[MAX_CONTAINERS] = {0};
 	u32 i;
@@ -1620,29 +1641,20 @@ static s32 __init tiler_init(void)
 	tmm[TILFMT_32BIT] = tmm_pat[0];
 	tmm[TILFMT_PAGE]  = (cpu_is_omap54xx()) ? tmm_pat[1] : tmm_pat[0];
 
-	/* Clear out all PAT entries */
-	area.x1 = tiler.width - 1;
-	area.y1 = tiler.height - 1;
-	tmm_unpin(tmm[TILFMT_8BIT], area);
-
-	if (cpu_is_omap54xx()) {
-		/* add 128 to index into the upper LUT area */
-		area.y0 += 128;
-		area.y1 += 128;
-		tmm_unpin(tmm[TILFMT_PAGE], area);
-	}
+	/* initialize all the PAT entries */
+	clear_pat_entries();
 
 #ifdef CONFIG_TILER_ENABLE_NV12
 	tiler.nv12_packed = tcm[TILFMT_8BIT] == tcm[TILFMT_16BIT];
 #endif
 
-	tiler_device = kmalloc(sizeof(*tiler_device), GFP_KERNEL);
+#ifdef CONFIG_TILER_ENABLE_USERSPACE
+	tiler_device = kzalloc(sizeof(*tiler_device), GFP_KERNEL);
 	if (!tiler_device) {
 		r = -ENOMEM;
 		goto err_dmac;
 	}
 
-	memset(tiler_device, 0x0, sizeof(*tiler_device));
 	if (tiler_major) {
 		dev = MKDEV(tiler_major, tiler_minor);
 		r = register_chrdev_region(dev, 1, "tiler");
@@ -1664,6 +1676,7 @@ static s32 __init tiler_init(void)
 		printk(KERN_ERR "cdev_add():failed\n");
 		goto err_region;
 	}
+#endif
 
 	tilerdev_class = class_create(THIS_MODULE, "tiler");
 
@@ -1736,12 +1749,14 @@ skip_to_done:
 err_class:
 	class_destroy(tilerdev_class);
 err_cdev:
+#ifdef CONFIG_TILER_ENABLE_USERSPACE
 	cdev_del(&tiler_device->cdev);
 err_region:
 	unregister_chrdev_region(dev, 1);
 err_device:
 	kfree(tiler_device);
 err_dmac:
+#endif
 	dma_free_coherent(NULL, tiler.width * tiler.height *
 				sizeof(*dmac_va), dmac_va, dmac_pa);
 err_containers:
@@ -1794,10 +1809,12 @@ static void __exit tiler_exit(void)
 
 	mutex_destroy(&mtx);
 	platform_driver_unregister(&tiler_driver_ldm);
+#ifdef CONFIG_TILER_ENABLE_USERSPACE
 	cdev_del(&tiler_device->cdev);
 	unregister_chrdev_region(MKDEV(tiler_major, tiler_minor), 1);
 	kfree(tiler_device);
-	device_destroy(tilerdev_class, MKDEV(tiler_major, tiler_minor));
+#endif
+	device_destroy(tilerdev_class, dev);
 	class_destroy(tilerdev_class);
 }
 
