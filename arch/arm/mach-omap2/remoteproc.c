@@ -125,7 +125,11 @@ static struct omap_rproc_pdata omap4_rproc_data[] = {
 		.timers_cnt	= ARRAY_SIZE(dsp_timers),
 		.idle_addr	= OMAP4430_CM_DSP_DSP_CLKCTRL,
 		.idle_mask	= OMAP4430_STBYST_MASK,
-		.suspend_addr   = 0xad6e134c,
+#ifdef CONFIG_ARCH_OMAP5
+		.suspend_addr	= 0xa9ae134c,
+#else
+		.suspend_addr	= 0xad6e134c,
+#endif
 		.suspend_mask	= ~0,
 		.sus_timeout	= 5000,
 		.sus_mbox_name	= "mailbox-2",
@@ -143,7 +147,11 @@ static struct omap_rproc_pdata omap4_rproc_data[] = {
 		.timers_cnt	= ARRAY_SIZE(ipu_timers),
 		.idle_addr	= OMAP4430_CM_M3_M3_CLKCTRL,
 		.idle_mask	= OMAP4430_STBYST_MASK,
+#ifdef CONFIG_ARCH_OMAP5
+		.suspend_addr	= 0xafff02d8,
+#else
 		.suspend_addr	= 0xb3bf02d8,
+#endif
 		.suspend_mask	= ~0,
 		.sus_timeout	= 5000,
 		.sus_mbox_name	= "mailbox-1",
