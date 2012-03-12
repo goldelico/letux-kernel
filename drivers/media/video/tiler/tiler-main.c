@@ -1488,6 +1488,24 @@ s32 tiler_pin_block(tiler_blk_handle block, u32 *addr_array, u32 nents)
 }
 EXPORT_SYMBOL(tiler_pin_block);
 
+static void clear_pat_entries(void)
+{
+	struct tcm_area area = {0};
+
+	/* clear out PAT entries and set dummy page */
+	area.is2d = true;
+	area.tcm = tcm[TILFMT_8BIT];
+	area.p1.x = tiler.width - 1;
+	area.p1.y = tiler.height - 1;
+	unpin_mem_from_area(tmm[TILFMT_8BIT], &area);
+
+	if (cpu_is_omap54xx()) {
+		area.is2d = false;
+		area.tcm = tcm[TILFMT_PAGE];
+		unpin_mem_from_area(tmm[TILFMT_PAGE], &area);
+	}
+}
+
 /*
  *  Driver code
  *  ==========================================================================
@@ -1497,14 +1515,9 @@ EXPORT_SYMBOL(tiler_pin_block);
 static int tiler_resume(struct device *pdev)
 {
 	struct mem_info *mi;
-	struct pat_area area = {0};
 
-	/* clear out PAT entries and set dummy page */
-	area.x1 = tiler.width - 1;
-	area.y1 = tiler.height - 1;
-	mutex_lock(&dmac_mtx);
-	tmm_unpin(tmm[TILFMT_8BIT], area);
-	mutex_unlock(&dmac_mtx);
+	/* initialize all the PAT entries */
+	clear_pat_entries();
 
 	/* iterate over all the blocks and refresh the PAT entries */
 	list_for_each_entry(mi, &blocks, global) {
@@ -1538,7 +1551,6 @@ static s32 __init tiler_init(void)
 	s32 r = -1;
 	struct device *device = NULL;
 	struct tcm_pt div_pt;
-	struct pat_area area = {0};
 	struct tcm *sita[MAX_CONTAINERS] = {0};
 	struct tmm *tmm_pat[MAX_CONTAINERS] = {0};
 	u32 i;
@@ -1629,17 +1641,8 @@ static s32 __init tiler_init(void)
 	tmm[TILFMT_32BIT] = tmm_pat[0];
 	tmm[TILFMT_PAGE]  = (cpu_is_omap54xx()) ? tmm_pat[1] : tmm_pat[0];
 
-	/* Clear out all PAT entries */
-	area.x1 = tiler.width - 1;
-	area.y1 = tiler.height - 1;
-	tmm_unpin(tmm[TILFMT_8BIT], area);
-
-	if (cpu_is_omap54xx()) {
-		/* add 128 to index into the upper LUT area */
-		area.y0 += 128;
-		area.y1 += 128;
-		tmm_unpin(tmm[TILFMT_PAGE], area);
-	}
+	/* initialize all the PAT entries */
+	clear_pat_entries();
 
 #ifdef CONFIG_TILER_ENABLE_NV12
 	tiler.nv12_packed = tcm[TILFMT_8BIT] == tcm[TILFMT_16BIT];
