@@ -184,8 +184,9 @@ struct mpu6050_gyro_data *mpu6050_gyro_init(const struct mpu6050_data *mpu_data)
 	gyro_data->bus_ops = mpu_data->bus_ops;
 	mutex_init(&gyro_data->mutex);
 
-
-	/*TODO: Mode & FSR Range Check */
+	/* Configure the full scale range value from platform data */
+	MPU6050_WRITE(gyro_data, MPU6050_CHIP_I2C_ADDR,
+		MPU6050_REG_GYRO_CONFIG, (pdata->fsr << 3), "Init fsr");
 
 	input_dev->name = "mpu6050-gyroscope";
 	input_dev->id.bustype = mpu_data->bus_ops->bustype;
