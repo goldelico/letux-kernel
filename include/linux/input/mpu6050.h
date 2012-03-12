@@ -76,7 +76,7 @@ struct mpu6050_gyro_platform_data {
 	int x_axis;
 	int y_axis;
 	int z_axis;
-	int fsr;
+	uint8_t fsr;
 	uint8_t config;
 	unsigned long irqflags;
 };
