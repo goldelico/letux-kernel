@@ -57,7 +57,7 @@ static struct mpu6050_platform_data mpu6050_platform_data = {
 		.x_axis = 2,
 		.y_axis = 2,
 		.z_axis = 2,
-		.fsr = 0,
+		.fsr = MPU6050_GYRO_FSR_250,
 		.config = 0,
 	},
 };
