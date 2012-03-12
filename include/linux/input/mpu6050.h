@@ -31,6 +31,12 @@
 #define MPU6050_RANGE_8G	2
 #define MPU6050_RANGE_16G	3
 
+/* Gyroscope full scale range */
+#define MPU6050_GYRO_FSR_250	0
+#define MPU6050_GYRO_FSR_500	1
+#define MPU6050_GYRO_FSR_1000	2
+#define MPU6050_GYRO_FSR_2000	3
+
 /**
  * struct mpu6050_accel_platform_data - MPU6050 Accelerometer Platform data
  * @x_axis: X Axis accelerometer measurement
