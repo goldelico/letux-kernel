@@ -257,7 +257,6 @@ bool pwrdm_has_hdwr_sar(struct powerdomain *pwrdm);
 int pwrdm_wait_transition(struct powerdomain *pwrdm);
 
 int pwrdm_state_switch(struct powerdomain *pwrdm);
-int pwrdm_clkdm_state_switch(struct clockdomain *clkdm);
 int pwrdm_pre_transition(void);
 int pwrdm_post_transition(void);
 
