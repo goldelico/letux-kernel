@@ -1564,6 +1564,13 @@ static struct omap_dss_board_info omap5evm_dss_data = {
 	.devices	= omap5evm_dss_devices,
 	.default_device	= &omap5evm_lcd_device,
 };
+#ifdef CONFIG_OMAP_MUX
+static struct omap_board_mux board_mux[] __initdata = {
+	{ .reg_offset = OMAP_MUX_TERMINATOR },
+};
+#else
+#define board_mux NULL
+#endif
 
 static void omap_5430evm_bluetooth_init(void)
 {
@@ -1591,7 +1598,7 @@ static void __init omap_5430evm_init(void)
 			&lpddr2_elpida_S4_min_tck,
 			&custom_configs);
 #endif
-
+	omap5_mux_init(board_mux, NULL, OMAP_PACKAGE_CBL);
 	omap5evm_touch_init();
 	omap_5430evm_i2c_init();
 #ifdef CONFIG_TI_ST
