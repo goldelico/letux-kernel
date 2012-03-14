@@ -544,6 +544,23 @@ static void sgx_dvfs_idle_work_func(struct work_struct *work)
 	RequestSGXFreq(gpsSysData, 0);
 }
 
+enum hrtimer_restart sgx_dvfs_active_timer_func(struct hrtimer *timer)
+{
+	queue_work(system_unbound_wq, &gpsSysSpecificData->sgx_dvfs_active_work);
+	return HRTIMER_NORESTART;
+}
+
+void sgx_dvfs_active_work_func(struct work_struct *work)
+{
+	gpsSysSpecificData->ui32SGXFreqListIndexActive =
+		gpsSysSpecificData->ui32SGXFreqListSize - 2;
+	gpsSysSpecificData->counter = 0;
+
+	if(!gpsSysSpecificData->sgx_is_idle)
+		RequestSGXFreq(gpsSysData,
+			gpsSysSpecificData->ui32SGXFreqListIndexActive);
+}
+
 PVRSRV_ERROR SysDvfsInitialize(SYS_SPECIFIC_DATA *psSysSpecificData)
 {
 	IMG_UINT32 i, *freq_list;
@@ -613,6 +630,20 @@ PVRSRV_ERROR SysDvfsInitialize(SYS_SPECIFIC_DATA *psSysSpecificData)
 	psSysSpecificData->sgx_dvfs_idle_timer.function = sgx_dvfs_idle_timer_func;
 	INIT_WORK(&psSysSpecificData->sgx_dvfs_idle_work, sgx_dvfs_idle_work_func);
 
+	hrtimer_init(&psSysSpecificData->sgx_dvfs_active_timer, HRTIMER_BASE_MONOTONIC,
+			HRTIMER_MODE_REL);
+	psSysSpecificData->sgx_dvfs_active_timer.function = sgx_dvfs_active_timer_func;
+	INIT_WORK(&psSysSpecificData->sgx_dvfs_active_work, sgx_dvfs_active_work_func);
+
+	psSysSpecificData->sgx_idle_stamp = ktime_set(0, 0);
+	psSysSpecificData->sgx_active_stamp = ktime_set(0, 0);
+	psSysSpecificData->sgx_work_stamp = ktime_set(0, 0);
+	psSysSpecificData->dss_return_stamp = ktime_set(0, 0);
+	psSysSpecificData->sgx_is_idle = true;
+	psSysSpecificData->dss_kick_is_pending = false;
+	psSysSpecificData->sgx_active_kickcmd = SGXMKIF_CMD_MAX;
+	psSysSpecificData->counter = 0;
+
 	return PVRSRV_OK;
 }
 
@@ -620,6 +651,8 @@ PVRSRV_ERROR SysDvfsDeinitialize(SYS_SPECIFIC_DATA *psSysSpecificData)
 {
 	hrtimer_cancel(&gpsSysSpecificData->sgx_dvfs_idle_timer);
 	cancel_work_sync(&gpsSysSpecificData->sgx_dvfs_idle_work);
+	hrtimer_cancel(&gpsSysSpecificData->sgx_dvfs_active_timer);
+	cancel_work_sync(&gpsSysSpecificData->sgx_dvfs_active_work);
 	RequestSGXFreq(gpsSysData, 0);
 
 	kfree(psSysSpecificData->pui32SGXFreqList);

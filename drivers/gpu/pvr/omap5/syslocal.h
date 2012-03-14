@@ -166,6 +166,16 @@ typedef struct _SYS_SPECIFIC_DATA_TAG_
 	IMG_UINT32 ui32SGXFreqListIndexActive;
 	struct hrtimer sgx_dvfs_idle_timer;
 	struct work_struct sgx_dvfs_idle_work;
+	struct hrtimer sgx_dvfs_active_timer;
+	struct work_struct sgx_dvfs_active_work;
+	ktime_t sgx_idle_stamp;
+	ktime_t sgx_active_stamp;
+	ktime_t sgx_work_stamp;
+	ktime_t dss_return_stamp;
+	bool sgx_is_idle;
+	bool dss_kick_is_pending;
+	SGXMKIF_CMD_TYPE sgx_active_kickcmd;
+	int counter;
 #endif
 } SYS_SPECIFIC_DATA;
 

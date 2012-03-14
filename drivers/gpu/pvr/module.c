@@ -136,6 +136,8 @@ uint sgx_dvfs_idle_mode = 1;
 module_param(sgx_dvfs_idle_mode, uint, 0644);
 uint sgx_dvfs_idle_timeout = 1;
 module_param(sgx_dvfs_idle_timeout, uint, 0644);
+uint sgx_dvfs_active_mode = 1;
+module_param(sgx_dvfs_active_mode, uint, 0644);
 
 #if defined(CONFIG_ION_OMAP)
 #include <linux/ion.h>

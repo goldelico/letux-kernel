@@ -585,7 +585,7 @@ PVRSRV_ERROR SGXScheduleCCBCommandKM(PVRSRV_DEVICE_NODE		*psDeviceNode,
 		return eError;
 	}
 
-	SysSGXCommandPending(psDevInfo->bSGXIdle);
+	SysSGXCommandPending(eCmdType, psDevInfo->bSGXIdle);
 	psDevInfo->bSGXIdle = IMG_FALSE;
 
 	eError = PVRSRVSetDevicePowerStateKM(psDeviceNode->sDevId.ui32DeviceIndex,

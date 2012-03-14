@@ -38,6 +38,7 @@
 #include "buffer_manager.h"
 #include "pvr_debug.h"
 #include "services.h"
+#include "sgxinfo.h"
 
 #if defined(NO_HARDWARE) && defined(__linux__) && defined(__KERNEL__)
 #include <asm/io.h>
@@ -133,7 +134,8 @@ PVRSRV_ERROR SysDevicePostPowerState(IMG_UINT32 ui32DeviceIndex,
 									 PVRSRV_DEV_POWER_STATE eCurrentPowerState);
 
 IMG_VOID SysSGXIdleEntered(IMG_VOID);
-IMG_VOID SysSGXCommandPending(IMG_BOOL bSGXIdle);
+IMG_VOID SysSGXCommandPending(SGXMKIF_CMD_TYPE eCmdType, IMG_BOOL bSGXIdle);
+IMG_VOID SysDSSReturnFrame(IMG_VOID);
 
 #if defined(SYS_CUSTOM_POWERLOCK_WRAP)
 PVRSRV_ERROR SysPowerLockWrap(IMG_BOOL bTryLock);
