@@ -57,6 +57,9 @@
 #include <linux/platform_device.h>
 #endif
 
+#include <linux/hrtimer.h>
+#include <linux/workqueue.h>
+
 #if ((defined(DEBUG) || defined(TIMING)) && \
 	(LINUX_VERSION_CODE == KERNEL_VERSION(2,6,34))) && \
 	!defined(PVR_NO_OMAP_TIMER)
@@ -100,6 +103,7 @@ PVRSRV_ERROR EnableSystemClocks(SYS_DATA *psSysData);
 
 IMG_VOID DisableSGXClocks(SYS_DATA *psSysData);
 PVRSRV_ERROR EnableSGXClocks(SYS_DATA *psSysData);
+IMG_VOID RequestSGXFreq(SYS_DATA *psSysData, IMG_UINT32 freq_index);
 
 #define SYS_SPECIFIC_DATA_ENABLE_SYSCLOCKS	0x00000001
 #define SYS_SPECIFIC_DATA_ENABLE_LISR		0x00000002
@@ -159,6 +163,9 @@ typedef struct _SYS_SPECIFIC_DATA_TAG_
 	IMG_UINT32 ui32SGXFreqListSize;
 	IMG_UINT32 *pui32SGXFreqList;
 	IMG_UINT32 ui32SGXFreqListIndex;
+	IMG_UINT32 ui32SGXFreqListIndexActive;
+	struct hrtimer sgx_dvfs_idle_timer;
+	struct work_struct sgx_dvfs_idle_work;
 #endif
 } SYS_SPECIFIC_DATA;
 

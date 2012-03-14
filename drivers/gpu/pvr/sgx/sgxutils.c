@@ -90,30 +90,17 @@ IMG_VOID SGXTestActivePowerEvent (PVRSRV_DEVICE_NODE	*psDeviceNode,
 	PVRSRV_SGXDEV_INFO	*psDevInfo = psDeviceNode->pvDevice;
 	SGXMKIF_HOST_CTL	*psSGXHostCtl = psDevInfo->psSGXHostCtl;
 
-#if defined(SYS_SUPPORTS_SGX_IDLE_CALLBACK)
-	if (!psDevInfo->bSGXIdle &&
-		((psSGXHostCtl->ui32InterruptFlags & PVRSRV_USSE_EDM_INTERRUPT_IDLE) != 0))
-	{
-		psDevInfo->bSGXIdle = IMG_TRUE;
-		SysSGXIdleTransition(psDevInfo->bSGXIdle);
-	}
-	else if (psDevInfo->bSGXIdle &&
-			((psSGXHostCtl->ui32InterruptFlags & PVRSRV_USSE_EDM_INTERRUPT_IDLE) == 0))
-	{
-		psDevInfo->bSGXIdle = IMG_FALSE;
-		SysSGXIdleTransition(psDevInfo->bSGXIdle);
-	}
-#endif
-
 	/**
-	 * Quickly check (without lock) if there is an APM event we should handle.
+	 * Quickly check (without lock) if there is an IDLE or APM event we should handle.
 	 * This check fails most of the time so we don't want to incur lock overhead.
 	 * Check the flags in the reverse order that microkernel clears them to prevent
 	 * us from seeing an inconsistent state.
 	*/
-	if (((psSGXHostCtl->ui32InterruptClearFlags & PVRSRV_USSE_EDM_INTERRUPT_ACTIVE_POWER) == 0) &&
+	if ((((psSGXHostCtl->ui32InterruptClearFlags & PVRSRV_USSE_EDM_INTERRUPT_IDLE) == 0) &&
+		((psSGXHostCtl->ui32InterruptFlags & PVRSRV_USSE_EDM_INTERRUPT_IDLE) != 0)) ||
+		(((psSGXHostCtl->ui32InterruptClearFlags & PVRSRV_USSE_EDM_INTERRUPT_ACTIVE_POWER) == 0) &&
 		((psSGXHostCtl->ui32InterruptFlags & PVRSRV_USSE_EDM_INTERRUPT_ACTIVE_POWER) != 0) &&
-		(sgx_apm_mode != 0))
+		(sgx_apm_mode != 0)))
 	{
 		eError = PVRSRVPowerLock(ui32CallerID, IMG_FALSE);
 		if (eError == PVRSRV_ERROR_RETRY)
@@ -126,38 +113,38 @@ IMG_VOID SGXTestActivePowerEvent (PVRSRV_DEVICE_NODE	*psDeviceNode,
 		}
 
 		/**
+		 * Check again (with lock) if IDLE event has been cleared or handled. A race
+		 * condition may allow multiple threads to pass the quick check.
+		*/
+		if(((psSGXHostCtl->ui32InterruptClearFlags & PVRSRV_USSE_EDM_INTERRUPT_IDLE) == 0) &&
+			((psSGXHostCtl->ui32InterruptFlags & PVRSRV_USSE_EDM_INTERRUPT_IDLE) != 0))
+		{
+			psSGXHostCtl->ui32InterruptClearFlags |= PVRSRV_USSE_EDM_INTERRUPT_IDLE;
+			psDevInfo->bSGXIdle = IMG_TRUE;
+
+			SysSGXIdleEntered();
+		}
+
+		/**
 		 * Check again (with lock) if APM event has been cleared or handled. A race
 		 * condition may allow multiple threads to pass the quick check.
 		*/
-		if (((psSGXHostCtl->ui32InterruptClearFlags & PVRSRV_USSE_EDM_INTERRUPT_ACTIVE_POWER) != 0) ||
-			((psSGXHostCtl->ui32InterruptFlags & PVRSRV_USSE_EDM_INTERRUPT_ACTIVE_POWER) == 0))
+		if (((psSGXHostCtl->ui32InterruptClearFlags & PVRSRV_USSE_EDM_INTERRUPT_ACTIVE_POWER) == 0) &&
+			((psSGXHostCtl->ui32InterruptFlags & PVRSRV_USSE_EDM_INTERRUPT_ACTIVE_POWER) != 0))
 		{
-			PVRSRVPowerUnlock(ui32CallerID);
-			return;
+			psSGXHostCtl->ui32InterruptClearFlags |= PVRSRV_USSE_EDM_INTERRUPT_ACTIVE_POWER;
+
+			PDUMPSUSPEND();
+			eError = PVRSRVSetDevicePowerStateKM(psDeviceNode->sDevId.ui32DeviceIndex,
+								PVRSRV_DEV_POWER_STATE_OFF);
+			if (eError == PVRSRV_OK)
+			{
+				SGXPostActivePowerEvent(psDeviceNode, ui32CallerID);
+			}
+			PDUMPRESUME();
 		}
 
-		psSGXHostCtl->ui32InterruptClearFlags |= PVRSRV_USSE_EDM_INTERRUPT_ACTIVE_POWER;
-
-
-		PDUMPSUSPEND();
-
-#if defined(SYS_CUSTOM_POWERDOWN)
-
-
-
-		eError = SysPowerDownMISR(psDeviceNode, ui32CallerID);
-#else
-		eError = PVRSRVSetDevicePowerStateKM(psDeviceNode->sDevId.ui32DeviceIndex,
-											 PVRSRV_DEV_POWER_STATE_OFF);
-		if (eError == PVRSRV_OK)
-		{
-			SGXPostActivePowerEvent(psDeviceNode, ui32CallerID);
-		}
-#endif
 		PVRSRVPowerUnlock(ui32CallerID);
-
-
-		PDUMPRESUME();
 	}
 
 	if (eError != PVRSRV_OK)
@@ -522,10 +509,11 @@ PVRSRV_ERROR SGXScheduleCCBCommand(PVRSRV_DEVICE_NODE	*psDeviceNode,
 	*psDevInfo->pui32KernelCCBEventKicker = (*psDevInfo->pui32KernelCCBEventKicker + 1) & 0xFF;
 
 	/**
-	 * New command submission is considered a proper handling of any pending APM
-	 * event, so mark it as handled to prevent other host threads from taking
-	 * action.
+	 * New command submission is considered a proper handling of any pending
+	 * IDLE or APM event, so mark them as handled to prevent other host threads
+	 * from taking action.
 	*/
+	psSGXHostCtl->ui32InterruptClearFlags |= PVRSRV_USSE_EDM_INTERRUPT_IDLE;
 	psSGXHostCtl->ui32InterruptClearFlags |= PVRSRV_USSE_EDM_INTERRUPT_ACTIVE_POWER;
 
 	OSWriteMemoryBarrier();
@@ -570,6 +558,7 @@ PVRSRV_ERROR SGXScheduleCCBCommandKM(PVRSRV_DEVICE_NODE		*psDeviceNode,
 									 IMG_BOOL				bLastInScene)
 {
 	PVRSRV_ERROR		eError;
+	PVRSRV_SGXDEV_INFO	*psDevInfo = psDeviceNode->pvDevice;
 
 
 	PDUMPSUSPEND();
@@ -595,6 +584,9 @@ PVRSRV_ERROR SGXScheduleCCBCommandKM(PVRSRV_DEVICE_NODE		*psDeviceNode,
 				"ui32CallerID:%d eError:%u", ui32CallerID, eError));
 		return eError;
 	}
+
+	SysSGXCommandPending(psDevInfo->bSGXIdle);
+	psDevInfo->bSGXIdle = IMG_FALSE;
 
 	eError = PVRSRVSetDevicePowerStateKM(psDeviceNode->sDevId.ui32DeviceIndex,
 						PVRSRV_DEV_POWER_STATE_ON);

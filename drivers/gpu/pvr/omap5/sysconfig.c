@@ -44,6 +44,8 @@ static IMG_UINT32			gui32SGXDeviceID;
 static SGX_DEVICE_MAP		gsSGXDeviceMap;
 static PVRSRV_DEVICE_NODE	*gpsSGXDevNode;
 
+extern uint sgx_dvfs_idle_mode;
+extern uint sgx_dvfs_idle_timeout;
 
 #if defined(NO_HARDWARE) || defined(SGX_OCP_REGS_ENABLED)
 static IMG_CPU_VIRTADDR gsSGXRegsCPUVAddr;
@@ -858,6 +860,11 @@ PVRSRV_ERROR SysSystemPrePowerState(PVRSRV_SYS_POWER_STATE eNewPowerState)
 			SYS_SPECIFIC_DATA_SET(&gsSysSpecificData, SYS_SPECIFIC_DATA_PM_DISABLE_SYSCLOCKS);
 			SYS_SPECIFIC_DATA_CLEAR(&gsSysSpecificData, SYS_SPECIFIC_DATA_ENABLE_SYSCLOCKS);
 		}
+
+		/* Set lowest frequency for system suspend */
+		hrtimer_cancel(&gpsSysSpecificData->sgx_dvfs_idle_timer);
+		cancel_work_sync(&gpsSysSpecificData->sgx_dvfs_idle_work);
+		RequestSGXFreq(gpsSysData, 0);
 	}
 
 	return eError;
@@ -962,14 +969,25 @@ PVRSRV_ERROR SysDevicePostPowerState(IMG_UINT32				ui32DeviceIndex,
 	return eError;
 }
 
-#if defined(SYS_SUPPORTS_SGX_IDLE_CALLBACK)
-
-IMG_VOID SysSGXIdleTransition(IMG_BOOL bSGXIdle)
+IMG_VOID SysSGXIdleEntered(IMG_VOID)
 {
-	PVR_DPF((PVR_DBG_MESSAGE, "SysSGXIdleTransition switch to %u", bSGXIdle));
+	if (sgx_dvfs_idle_mode != 0)
+	{
+		hrtimer_start(&gpsSysSpecificData->sgx_dvfs_idle_timer,
+				ktime_set(0, sgx_dvfs_idle_timeout * NSEC_PER_MSEC),
+				HRTIMER_MODE_REL);
+	}
 }
 
-#endif
+IMG_VOID SysSGXCommandPending(IMG_BOOL bSGXIdle)
+{
+	if(bSGXIdle)
+	{
+		hrtimer_cancel(&gpsSysSpecificData->sgx_dvfs_idle_timer);
+		cancel_work_sync(&gpsSysSpecificData->sgx_dvfs_idle_work);
+	}
+	RequestSGXFreq(gpsSysData, gpsSysSpecificData->ui32SGXFreqListIndexActive);
+}
 
 PVRSRV_ERROR SysOEMFunction (	IMG_UINT32	ui32ID,
 								IMG_VOID	*pvIn,

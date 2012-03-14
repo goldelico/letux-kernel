@@ -41,9 +41,7 @@
 
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
-#if defined(SYS_OMAP4_HAS_DVFS_FRAMEWORK)
 #include <linux/opp.h>
-#endif
 
 #if defined(SUPPORT_DRI_DRM_PLUGIN)
 #include <drm/drmP.h>
@@ -130,12 +128,16 @@ IMG_VOID SysGetSGXTimingInformation(SGX_TIMING_INFORMATION *psTimingInfo)
 #if !defined(NO_HARDWARE)
 	PVR_ASSERT(atomic_read(&gpsSysSpecificData->sSGXClocksEnabled) != 0);
 #endif
-#if defined(SYS_OMAP4_HAS_DVFS_FRAMEWORK)
+	/*
+	 * Always report highest possible core clock speed for the purpose
+	 * of initializing SGX timers. This allows us the freedom to scale
+	 * core clock asynchronously without shortening timer period in
+	 * wall-clock time domain (potentially more problematic than
+	 * lengthening).
+	*/
 	psTimingInfo->ui32CoreClockSpeed =
-		gpsSysSpecificData->pui32SGXFreqList[gpsSysSpecificData->ui32SGXFreqListIndex];
-#else
-	psTimingInfo->ui32CoreClockSpeed = SYS_SGX_CLOCK_SPEED;
-#endif
+		gpsSysSpecificData->pui32SGXFreqList[gpsSysSpecificData->ui32SGXFreqListSize - 2];
+
 	psTimingInfo->ui32HWRecoveryFreq = SYS_SGX_HWRECOVERY_TIMEOUT_FREQ;
 	psTimingInfo->ui32uKernelFreq = SYS_SGX_PDS_TIMER_FREQ;
 #if defined(SUPPORT_ACTIVE_POWER_MANAGEMENT)
@@ -144,6 +146,39 @@ IMG_VOID SysGetSGXTimingInformation(SGX_TIMING_INFORMATION *psTimingInfo)
 	psTimingInfo->bEnableActivePM = IMG_FALSE;
 #endif
 	psTimingInfo->ui32ActivePowManLatencyms = sgx_apm_timeout;
+}
+
+IMG_VOID RequestSGXFreq(SYS_DATA *psSysData, IMG_UINT32 freq_index)
+{
+	SYS_SPECIFIC_DATA *psSysSpecData = (SYS_SPECIFIC_DATA *) psSysData->pvSysSpecificData;
+	PVRSRV_SGXDEV_INFO *psDevInfo = (PVRSRV_SGXDEV_INFO *)psSysSpecData->psSGXDevNode->pvDevice;
+	struct gpu_platform_data *pdata;
+	int res;
+
+	pdata = (struct gpu_platform_data *)gpsPVRLDMDev->dev.platform_data;
+
+	if (psSysSpecData->ui32SGXFreqListIndex != freq_index)
+	{
+		PVR_ASSERT(pdata->device_scale != IMG_NULL);
+		res = pdata->device_scale(&gpsPVRLDMDev->dev,
+					  &gpsPVRLDMDev->dev,
+					  psSysSpecData->pui32SGXFreqList[freq_index]);
+
+		if (res == 0)
+			psSysSpecData->ui32SGXFreqListIndex = freq_index;
+		else if (res == -EBUSY)
+		{
+			PVR_DPF((PVR_DBG_WARNING, "RequestSGXFreq: Unable to scale SGX frequency (EBUSY)"));
+			psSysSpecData->ui32SGXFreqListIndex = psSysSpecData->ui32SGXFreqListSize - 1;
+		}
+		else if (res < 0)
+		{
+			PVR_DPF((PVR_DBG_ERROR, "RequestSGXFreq: Unable to scale SGX frequency (%d)", res));
+			psSysSpecData->ui32SGXFreqListIndex = psSysSpecData->ui32SGXFreqListSize - 1;
+		}
+	}
+	psDevInfo->ui32CoreClockSpeed =
+		psSysSpecData->pui32SGXFreqList[psSysSpecData->ui32SGXFreqListIndex];
 }
 
 PVRSRV_ERROR EnableSGXClocks(SYS_DATA *psSysData)
@@ -160,44 +195,6 @@ PVRSRV_ERROR EnableSGXClocks(SYS_DATA *psSysData)
 	PVR_DPF((PVR_DBG_MESSAGE, "EnableSGXClocks: Enabling SGX Clocks"));
 
 #if defined(LDM_PLATFORM) && !defined(PVR_DRI_DRM_NOT_PCI)
-#if defined(SYS_OMAP4_HAS_DVFS_FRAMEWORK)
-	{
-		struct gpu_platform_data *pdata;
-		IMG_UINT32 max_freq_index;
-		int res;
-
-		pdata = (struct gpu_platform_data *)gpsPVRLDMDev->dev.platform_data;
-		max_freq_index = psSysSpecData->ui32SGXFreqListSize - 2;
-
-		/**
-		 * Request maximum frequency from DVFS layer if not already set. DVFS may
-		 * report busy if early in initialization, but all other errors are
-		 * considered serious. Upon any error we proceed assuming our safe frequency
-		 * value to be in use as indicated by the "unknown" index.
-		 */
-		if (psSysSpecData->ui32SGXFreqListIndex != max_freq_index)
-		{
-			PVR_ASSERT(pdata->device_scale != IMG_NULL);
-			res = pdata->device_scale(&gpsPVRLDMDev->dev,
-									  &gpsPVRLDMDev->dev,
-									  psSysSpecData->pui32SGXFreqList[max_freq_index]);
-			if (res == 0)
-			{
-				psSysSpecData->ui32SGXFreqListIndex = max_freq_index;
-			}
-			else if (res == -EBUSY)
-			{
-				PVR_DPF((PVR_DBG_WARNING, "EnableSGXClocks: Unable to scale SGX frequency (EBUSY)"));
-				psSysSpecData->ui32SGXFreqListIndex = psSysSpecData->ui32SGXFreqListSize - 1;
-			}
-			else if (res < 0)
-			{
-				PVR_DPF((PVR_DBG_ERROR, "EnableSGXClocks: Unable to scale SGX frequency (%d)", res));
-				psSysSpecData->ui32SGXFreqListIndex = psSysSpecData->ui32SGXFreqListSize - 1;
-			}
-		}
-	}
-#endif
 	{
 
 		int res = pm_runtime_get_sync(&gpsPVRLDMDev->dev);
@@ -244,42 +241,6 @@ IMG_VOID DisableSGXClocks(SYS_DATA *psSysData)
 			PVR_DPF((PVR_DBG_ERROR, "DisableSGXClocks: pm_runtime_put_sync failed (%d)", -res));
 		}
 	}
-#if defined(SYS_OMAP4_HAS_DVFS_FRAMEWORK)
-	{
-		struct gpu_platform_data *pdata;
-		int res;
-
-		pdata = (struct gpu_platform_data *)gpsPVRLDMDev->dev.platform_data;
-
-		/**
-		 * Request minimum frequency (list index 0) from DVFS layer if not already
-		 * set. DVFS may report busy if early in initialization, but all other errors
-		 * are considered serious. Upon any error we proceed assuming our safe frequency
-		 * value to be in use as indicated by the "unknown" index.
-		 */
-		if (psSysSpecData->ui32SGXFreqListIndex != 0)
-		{
-			PVR_ASSERT(pdata->device_scale != IMG_NULL);
-			res = pdata->device_scale(&gpsPVRLDMDev->dev,
-									  &gpsPVRLDMDev->dev,
-									  psSysSpecData->pui32SGXFreqList[0]);
-			if (res == 0)
-			{
-				psSysSpecData->ui32SGXFreqListIndex = 0;
-			}
-			else if (res == -EBUSY)
-			{
-				PVR_DPF((PVR_DBG_WARNING, "DisableSGXClocks: Unable to scale SGX frequency (EBUSY)"));
-				psSysSpecData->ui32SGXFreqListIndex = psSysSpecData->ui32SGXFreqListSize - 1;
-			}
-			else if (res < 0)
-			{
-				PVR_DPF((PVR_DBG_ERROR, "DisableSGXClocks: Unable to scale SGX frequency (%d)", res));
-				psSysSpecData->ui32SGXFreqListIndex = psSysSpecData->ui32SGXFreqListSize - 1;
-			}
-		}
-	}
-#endif
 #endif
 
 
@@ -572,11 +533,19 @@ PVRSRV_ERROR SysPMRuntimeUnregister(void)
 	return PVRSRV_OK;
 }
 
+static enum hrtimer_restart sgx_dvfs_idle_timer_func(struct hrtimer *timer)
+{
+	queue_work(system_unbound_wq, &gpsSysSpecificData->sgx_dvfs_idle_work);
+	return HRTIMER_NORESTART;
+}
+
+static void sgx_dvfs_idle_work_func(struct work_struct *work)
+{
+	RequestSGXFreq(gpsSysData, 0);
+}
+
 PVRSRV_ERROR SysDvfsInitialize(SYS_SPECIFIC_DATA *psSysSpecificData)
 {
-#if !defined(SYS_OMAP4_HAS_DVFS_FRAMEWORK)
-	PVR_UNREFERENCED_PARAMETER(psSysSpecificData);
-#else
 	IMG_UINT32 i, *freq_list;
 	IMG_INT32 opp_count;
 	unsigned long freq;
@@ -636,54 +605,27 @@ PVRSRV_ERROR SysDvfsInitialize(SYS_SPECIFIC_DATA *psSysSpecificData)
 	psSysSpecificData->pui32SGXFreqList = freq_list;
 	/* Start in unknown state - no frequency request to DVFS yet made */
 	psSysSpecificData->ui32SGXFreqListIndex = opp_count;
-#endif
+	/* Initialize target active frequency to max */
+	psSysSpecificData->ui32SGXFreqListIndexActive = opp_count - 1;
+
+	hrtimer_init(&psSysSpecificData->sgx_dvfs_idle_timer, HRTIMER_BASE_MONOTONIC,
+			HRTIMER_MODE_REL);
+	psSysSpecificData->sgx_dvfs_idle_timer.function = sgx_dvfs_idle_timer_func;
+	INIT_WORK(&psSysSpecificData->sgx_dvfs_idle_work, sgx_dvfs_idle_work_func);
 
 	return PVRSRV_OK;
 }
 
 PVRSRV_ERROR SysDvfsDeinitialize(SYS_SPECIFIC_DATA *psSysSpecificData)
 {
-
-#if !defined(SYS_OMAP4_HAS_DVFS_FRAMEWORK)
-	PVR_UNREFERENCED_PARAMETER(psSysSpecificData);
-#else
-	/**
-	 * We assume this function is only called if SysDvfsInitialize() was
-	 * completed successfully before.
-	 *
-	 * The DVFS interface does not allow us to actually unregister as a
-	 * user of SGX, so we do the next best thing which is to lower our
-	 * required frequency to the minimum if not already set. DVFS may
-	 * report busy if early in initialization, but all other errors are
-	 * considered serious.
-	 */
-	if (psSysSpecificData->ui32SGXFreqListIndex != 0)
-	{
-		struct gpu_platform_data *pdata;
-		IMG_INT32 res;
-
-		pdata = (struct gpu_platform_data *)gpsPVRLDMDev->dev.platform_data;
-
-		PVR_ASSERT(pdata->device_scale != IMG_NULL);
-		res = pdata->device_scale(&gpsPVRLDMDev->dev,
-								  &gpsPVRLDMDev->dev,
-								  psSysSpecificData->pui32SGXFreqList[0]);
-		if (res == -EBUSY)
-		{
-			PVR_DPF((PVR_DBG_WARNING, "SysDvfsDeinitialize: Unable to scale SGX frequency (EBUSY)"));
-		}
-		else if (res < 0)
-		{
-			PVR_DPF((PVR_DBG_ERROR, "SysDvfsDeinitialize: Unable to scale SGX frequency (%d)", res));
-		}
-
-		psSysSpecificData->ui32SGXFreqListIndex = 0;
-	}
+	hrtimer_cancel(&gpsSysSpecificData->sgx_dvfs_idle_timer);
+	cancel_work_sync(&gpsSysSpecificData->sgx_dvfs_idle_work);
+	RequestSGXFreq(gpsSysData, 0);
 
 	kfree(psSysSpecificData->pui32SGXFreqList);
 	psSysSpecificData->pui32SGXFreqList = 0;
 	psSysSpecificData->ui32SGXFreqListSize = 0;
-#endif
+	psSysSpecificData->ui32SGXFreqListIndexActive = 0;
 
 	return PVRSRV_OK;
 }
