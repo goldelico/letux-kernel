@@ -52,6 +52,10 @@
 #include "pvr_drm.h"
 #endif
 
+#ifdef CONFIG_OMAP_GPU_GOVERNOR
+#include <linux/thermal_framework.h>
+#endif
+
 #define	ONE_MHZ	1000000
 #define	HZ_TO_MHZ(m) ((m) / ONE_MHZ)
 
@@ -578,6 +582,69 @@ static void sgx_dvfs_active_work_func(struct work_struct *work)
 	mutex_unlock(&gpsSysSpecificData->sgx_dvfs_lock);
 }
 
+#ifdef CONFIG_OMAP_GPU_GOVERNOR
+static int sgx_tmfw_cool_dev(struct thermal_dev *dev, int cooling_level)
+{
+	mutex_lock(&gpsSysSpecificData->sgx_dvfs_lock);
+
+	if((cooling_level > gpsSysSpecificData->cooling_level) &&
+		(gpsSysSpecificData->ui32SGXFreqListIndexLimit > 0))
+	{
+		gpsSysSpecificData->ui32SGXFreqListIndexLimit--;
+
+		/* Reduce frequency if needed */
+		if(gpsSysSpecificData->ui32SGXFreqListIndexLimit <
+			gpsSysSpecificData->ui32SGXFreqListIndex)
+		{
+			RequestSGXFreq(gpsSysData,
+				gpsSysSpecificData->ui32SGXFreqListIndexLimit);
+		}
+
+		/* Reset active DVFS counter if min(active, limit) changed. */
+		if(gpsSysSpecificData->ui32SGXFreqListIndexActive >
+			gpsSysSpecificData->ui32SGXFreqListIndexLimit)
+		{
+			gpsSysSpecificData->counter = 0;
+		}
+	}
+	else if((cooling_level < gpsSysSpecificData->cooling_level) &&
+		(gpsSysSpecificData->ui32SGXFreqListIndexLimit <
+		gpsSysSpecificData->ui32SGXFreqListSize - 2))
+	{
+		gpsSysSpecificData->ui32SGXFreqListIndexLimit++;
+
+		/* Increase frequency now only if active. */
+		if(!gpsSysSpecificData->sgx_is_idle)
+		{
+			RequestSGXFreq(gpsSysData,
+				min(gpsSysSpecificData->ui32SGXFreqListIndexActive,
+				gpsSysSpecificData->ui32SGXFreqListIndexLimit));
+		}
+		/* Reset active DVFS counter if min(active, limit) changed. */
+		if(gpsSysSpecificData->ui32SGXFreqListIndexActive >=
+			gpsSysSpecificData->ui32SGXFreqListIndexLimit)
+		{
+			gpsSysSpecificData->counter = 0;
+		}
+	}
+	gpsSysSpecificData->cooling_level = cooling_level;
+
+	mutex_unlock(&gpsSysSpecificData->sgx_dvfs_lock);
+
+	return 0;
+}
+
+static struct thermal_dev_ops sgx_tmfw_dev_ops = {
+	.cool_device = sgx_tmfw_cool_dev,
+};
+
+static struct thermal_dev sgx_tmfw_dev = {
+	.name = "gpu_cooling",
+	.domain_name = "gpu",
+	.dev_ops = &sgx_tmfw_dev_ops,
+};
+#endif
+
 PVRSRV_ERROR SysDvfsInitialize(SYS_SPECIFIC_DATA *psSysSpecificData)
 {
 	IMG_UINT32 i, *freq_list;
@@ -664,11 +731,28 @@ PVRSRV_ERROR SysDvfsInitialize(SYS_SPECIFIC_DATA *psSysSpecificData)
 	psSysSpecificData->sgx_active_kickcmd = SGXMKIF_CMD_MAX;
 	psSysSpecificData->counter = 0;
 
+#ifdef CONFIG_OMAP_GPU_GOVERNOR
+	if(thermal_cooling_dev_register(&sgx_tmfw_dev))
+	{
+		PVR_DPF((PVR_DBG_ERROR, "SysDvfsInitialize: Could not register with thermal framework"));
+		kfree(psSysSpecificData->pui32SGXFreqList);
+		psSysSpecificData->pui32SGXFreqList = 0;
+		psSysSpecificData->ui32SGXFreqListSize = 0;
+		psSysSpecificData->ui32SGXFreqListIndexActive = 0;
+		psSysSpecificData->ui32SGXFreqListIndexLimit = 0;
+		return PVRSRV_ERROR_NOT_SUPPORTED;
+	}
+#endif
+
 	return PVRSRV_OK;
 }
 
 PVRSRV_ERROR SysDvfsDeinitialize(SYS_SPECIFIC_DATA *psSysSpecificData)
 {
+#ifdef CONFIG_OMAP_GPU_GOVERNOR
+	thermal_cooling_dev_unregister(&sgx_tmfw_dev);
+#endif
+
 	hrtimer_cancel(&gpsSysSpecificData->sgx_dvfs_idle_timer);
 	cancel_work_sync(&gpsSysSpecificData->sgx_dvfs_idle_work);
 	hrtimer_cancel(&gpsSysSpecificData->sgx_dvfs_active_timer);

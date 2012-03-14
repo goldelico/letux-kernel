@@ -178,6 +178,9 @@ typedef struct _SYS_SPECIFIC_DATA_TAG_
 	bool dss_kick_is_pending;
 	SGXMKIF_CMD_TYPE sgx_active_kickcmd;
 	int counter;
+#if defined(CONFIG_OMAP_GPU_GOVERNOR)
+	int cooling_level;
+#endif
 #endif
 } SYS_SPECIFIC_DATA;
 
