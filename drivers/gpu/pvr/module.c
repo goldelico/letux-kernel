@@ -59,6 +59,7 @@
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/proc_fs.h>
+#include <linux/moduleparam.h>
 
 #if defined(SUPPORT_DRI_DRM)
 #include <drm/drmP.h>
@@ -117,10 +118,18 @@
 MODULE_SUPPORTED_DEVICE(DEVNAME);
 
 #if defined(PVRSRV_NEED_PVR_DPF)
-#include <linux/moduleparam.h>
 extern IMG_UINT32 gPVRDebugLevel;
 module_param(gPVRDebugLevel, uint, 0644);
 MODULE_PARM_DESC(gPVRDebugLevel, "Sets the level of debug output (default 0x7)");
+#endif
+
+uint sgx_apm_mode = 1;
+uint sgx_apm_timeout = SYS_SGX_ACTIVE_POWER_LATENCY_MS;
+#if defined(SUPPORT_ACTIVE_POWER_MANAGEMENT)
+module_param(sgx_apm_mode, uint, 0644);
+#if defined(SGX_DYNAMIC_TIMING_INFO)
+module_param(sgx_apm_timeout, uint, 0644);
+#endif
 #endif
 
 #if defined(CONFIG_ION_OMAP)

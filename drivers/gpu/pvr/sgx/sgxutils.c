@@ -49,6 +49,7 @@
 #include <stdio.h>
 #endif
 
+extern uint sgx_apm_mode;
 
 #if defined(SYS_CUSTOM_POWERDOWN)
 PVRSRV_ERROR SysPowerDownMISR(PVRSRV_DEVICE_NODE	* psDeviceNode, IMG_UINT32 ui32CallerID);
@@ -111,7 +112,8 @@ IMG_VOID SGXTestActivePowerEvent (PVRSRV_DEVICE_NODE	*psDeviceNode,
 	 * us from seeing an inconsistent state.
 	*/
 	if (((psSGXHostCtl->ui32InterruptClearFlags & PVRSRV_USSE_EDM_INTERRUPT_ACTIVE_POWER) == 0) &&
-		((psSGXHostCtl->ui32InterruptFlags & PVRSRV_USSE_EDM_INTERRUPT_ACTIVE_POWER) != 0))
+		((psSGXHostCtl->ui32InterruptFlags & PVRSRV_USSE_EDM_INTERRUPT_ACTIVE_POWER) != 0) &&
+		(sgx_apm_mode != 0))
 	{
 		eError = PVRSRVPowerLock(ui32CallerID, IMG_FALSE);
 		if (eError == PVRSRV_ERROR_RETRY)

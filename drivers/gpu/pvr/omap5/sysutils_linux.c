@@ -63,6 +63,8 @@
 #define SGX_PARENT_CLOCK "core_ck"
 #endif
 
+extern uint sgx_apm_timeout;
+
 #if defined(LDM_PLATFORM) && !defined(PVR_DRI_DRM_NOT_PCI)
 extern struct platform_device *gpsPVRLDMDev;
 #endif
@@ -141,7 +143,7 @@ IMG_VOID SysGetSGXTimingInformation(SGX_TIMING_INFORMATION *psTimingInfo)
 #else
 	psTimingInfo->bEnableActivePM = IMG_FALSE;
 #endif
-	psTimingInfo->ui32ActivePowManLatencyms = SYS_SGX_ACTIVE_POWER_LATENCY_MS;
+	psTimingInfo->ui32ActivePowManLatencyms = sgx_apm_timeout;
 }
 
 PVRSRV_ERROR EnableSGXClocks(SYS_DATA *psSysData)
