@@ -29,22 +29,24 @@ struct omap4_idle_statedata {
 	u32 cpu_state;
 	u32 mpu_logic_state;
 	u32 mpu_state;
+	u32 core_state;
+	u32 core_logic_state;
 	u8 valid;
 };
 
 static struct cpuidle_params cpuidle_params_table[] = {
-	/* C1 - CPU0 ON + CPU1 ON + MPU ON */
+	/* C1 - CPU0 ON + CPU1 ON + MPU ON+ CORE ON  */
 	{.exit_latency = 2 + 2 , .target_residency = 5, .valid = 1},
-	/* C2- CPU0 OFF + CPU1 OFF + MPU CSWR */
+	/* C2- CPU0 OFF + CPU1 OFF + MPU CSWR + CORE CSWR */
 	{.exit_latency = 328 + 440 , .target_residency = 960, .valid = 1},
-	/* C3 - CPU0 OFF + CPU1 OFF + MPU OSWR */
+	/* C3 - CPU0 OFF + CPU1 OFF + MPU OSWR + CORE OSWR */
 	{.exit_latency = 460 + 518 , .target_residency = 1100, .valid = 1},
 };
 
 #define OMAP4_NUM_STATES ARRAY_SIZE(cpuidle_params_table)
 
 struct omap4_idle_statedata omap4_idle_data[OMAP4_NUM_STATES];
-static struct powerdomain *mpu_pd, *cpu0_pd, *cpu1_pd;
+static struct powerdomain *mpu_pd, *cpu0_pd, *cpu1_pd, *core_pd;
 
 /**
  * omap4_enter_idle - Programs OMAP4 to enter the specified state
@@ -96,6 +98,9 @@ static int omap4_enter_idle(struct cpuidle_device *dev,
 	pwrdm_set_logic_retst(mpu_pd, cx->mpu_logic_state);
 	omap_set_pwrdm_state(mpu_pd, cx->mpu_state);
 
+	pwrdm_set_logic_retst(core_pd, cx->core_logic_state);
+	omap_set_pwrdm_state(core_pd, cx->core_state);
+
 	/*
 	 * Call idle CPU cluster PM enter notifier chain
 	 * to save GIC and wakeupgen context.
@@ -104,7 +109,7 @@ static int omap4_enter_idle(struct cpuidle_device *dev,
 		(cx->mpu_logic_state == PWRDM_POWER_OFF))
 			cpu_cluster_pm_enter();
 
-	omap_enter_lowpower(dev->cpu, cx->cpu_state);
+	omap_pm_idle(dev->cpu, cx->cpu_state);
 
 	/*
 	 * Call idle CPU PM exit notifier chain to restore
@@ -174,7 +179,8 @@ int __init omap4_idle_init(void)
 	mpu_pd = pwrdm_lookup("mpu_pwrdm");
 	cpu0_pd = pwrdm_lookup("cpu0_pwrdm");
 	cpu1_pd = pwrdm_lookup("cpu1_pwrdm");
-	if ((!mpu_pd) || (!cpu0_pd) || (!cpu1_pd))
+	core_pd = pwrdm_lookup("core_pwrdm");
+	if ((!mpu_pd) || (!cpu0_pd) || (!cpu1_pd) || (!core_pd))
 		return -ENODEV;
 
 	cpuidle_register_driver(&omap4_idle_driver);
@@ -182,25 +188,31 @@ int __init omap4_idle_init(void)
 	dev = &per_cpu(omap4_idle_dev, cpu_id);
 	dev->cpu = cpu_id;
 
-	/* C1 - CPU0 ON + CPU1 ON + MPU ON */
-	cx = _fill_cstate(dev, 0, "MPUSS ON");
+	/* C1 - CPU0 ON + CPU1 ON + MPU ON + CORE ON */
+	cx = _fill_cstate(dev, 0, "MPUSS + CORE ON");
 	dev->safe_state = &dev->states[0];
 	cx->valid = 1;	/* C1 is always valid */
 	cx->cpu_state = PWRDM_POWER_ON;
 	cx->mpu_state = PWRDM_POWER_ON;
 	cx->mpu_logic_state = PWRDM_POWER_RET;
+	cx->core_state = PWRDM_POWER_ON;
+	cx->core_logic_state = PWRDM_POWER_RET;
 
-	/* C2 - CPU0 OFF + CPU1 OFF + MPU CSWR */
-	cx = _fill_cstate(dev, 1, "MPUSS CSWR");
+	/* C2 - CPU0 OFF + CPU1 OFF + MPU CSWR + CORE CSWR */
+	cx = _fill_cstate(dev, 1, "MPUSS + CORE CSWR");
 	cx->cpu_state = PWRDM_POWER_OFF;
 	cx->mpu_state = PWRDM_POWER_RET;
 	cx->mpu_logic_state = PWRDM_POWER_RET;
+	cx->core_state = PWRDM_POWER_RET;
+	cx->core_logic_state = PWRDM_POWER_RET;
 
-	/* C3 - CPU0 OFF + CPU1 OFF + MPU OSWR */
-	cx = _fill_cstate(dev, 2, "MPUSS OSWR");
+	/* C3 - CPU0 OFF + CPU1 OFF + MPU OSWR + CORE OSWR */
+	cx = _fill_cstate(dev, 2, "MPUSS + CORE OSWR");
 	cx->cpu_state = PWRDM_POWER_OFF;
 	cx->mpu_state = PWRDM_POWER_RET;
 	cx->mpu_logic_state = PWRDM_POWER_OFF;
+	cx->core_state = PWRDM_POWER_RET;
+	cx->core_logic_state = PWRDM_POWER_OFF;
 
 	dev->state_count = OMAP4_NUM_STATES;
 	if (cpuidle_register_device(dev)) {
