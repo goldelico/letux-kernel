@@ -541,24 +541,41 @@ static enum hrtimer_restart sgx_dvfs_idle_timer_func(struct hrtimer *timer)
 
 static void sgx_dvfs_idle_work_func(struct work_struct *work)
 {
+	mutex_lock(&gpsSysSpecificData->sgx_dvfs_lock);
+
 	RequestSGXFreq(gpsSysData, 0);
+
+	mutex_unlock(&gpsSysSpecificData->sgx_dvfs_lock);
 }
 
-enum hrtimer_restart sgx_dvfs_active_timer_func(struct hrtimer *timer)
+static enum hrtimer_restart sgx_dvfs_active_timer_func(struct hrtimer *timer)
 {
 	queue_work(system_unbound_wq, &gpsSysSpecificData->sgx_dvfs_active_work);
 	return HRTIMER_NORESTART;
 }
 
-void sgx_dvfs_active_work_func(struct work_struct *work)
+static void sgx_dvfs_active_work_func(struct work_struct *work)
 {
+	mutex_lock(&gpsSysSpecificData->sgx_dvfs_lock);
+
+	/* Reset active DVFS counter if min(active, limit) is changing. */
+	if(gpsSysSpecificData->ui32SGXFreqListIndexActive <
+		gpsSysSpecificData->ui32SGXFreqListIndexLimit)
+	{
+		gpsSysSpecificData->counter = 0;
+	}
+
 	gpsSysSpecificData->ui32SGXFreqListIndexActive =
 		gpsSysSpecificData->ui32SGXFreqListSize - 2;
-	gpsSysSpecificData->counter = 0;
 
+	/* Increase frequency now only if active. */
 	if(!gpsSysSpecificData->sgx_is_idle)
+	{
 		RequestSGXFreq(gpsSysData,
-			gpsSysSpecificData->ui32SGXFreqListIndexActive);
+			gpsSysSpecificData->ui32SGXFreqListIndexLimit);
+	}
+
+	mutex_unlock(&gpsSysSpecificData->sgx_dvfs_lock);
 }
 
 PVRSRV_ERROR SysDvfsInitialize(SYS_SPECIFIC_DATA *psSysSpecificData)
@@ -622,8 +639,9 @@ PVRSRV_ERROR SysDvfsInitialize(SYS_SPECIFIC_DATA *psSysSpecificData)
 	psSysSpecificData->pui32SGXFreqList = freq_list;
 	/* Start in unknown state - no frequency request to DVFS yet made */
 	psSysSpecificData->ui32SGXFreqListIndex = opp_count;
-	/* Initialize target active frequency to max */
+	/* Initialize target active frequency and limit frequency to max */
 	psSysSpecificData->ui32SGXFreqListIndexActive = opp_count - 1;
+	psSysSpecificData->ui32SGXFreqListIndexLimit = opp_count - 1;
 
 	hrtimer_init(&psSysSpecificData->sgx_dvfs_idle_timer, HRTIMER_BASE_MONOTONIC,
 			HRTIMER_MODE_REL);
@@ -634,6 +652,8 @@ PVRSRV_ERROR SysDvfsInitialize(SYS_SPECIFIC_DATA *psSysSpecificData)
 			HRTIMER_MODE_REL);
 	psSysSpecificData->sgx_dvfs_active_timer.function = sgx_dvfs_active_timer_func;
 	INIT_WORK(&psSysSpecificData->sgx_dvfs_active_work, sgx_dvfs_active_work_func);
+
+	mutex_init(&psSysSpecificData->sgx_dvfs_lock);
 
 	psSysSpecificData->sgx_idle_stamp = ktime_set(0, 0);
 	psSysSpecificData->sgx_active_stamp = ktime_set(0, 0);
@@ -653,12 +673,18 @@ PVRSRV_ERROR SysDvfsDeinitialize(SYS_SPECIFIC_DATA *psSysSpecificData)
 	cancel_work_sync(&gpsSysSpecificData->sgx_dvfs_idle_work);
 	hrtimer_cancel(&gpsSysSpecificData->sgx_dvfs_active_timer);
 	cancel_work_sync(&gpsSysSpecificData->sgx_dvfs_active_work);
+
+	mutex_lock(&gpsSysSpecificData->sgx_dvfs_lock);
+
 	RequestSGXFreq(gpsSysData, 0);
+
+	mutex_unlock(&gpsSysSpecificData->sgx_dvfs_lock);
 
 	kfree(psSysSpecificData->pui32SGXFreqList);
 	psSysSpecificData->pui32SGXFreqList = 0;
 	psSysSpecificData->ui32SGXFreqListSize = 0;
 	psSysSpecificData->ui32SGXFreqListIndexActive = 0;
+	psSysSpecificData->ui32SGXFreqListIndexLimit = 0;
 
 	return PVRSRV_OK;
 }

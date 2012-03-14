@@ -164,10 +164,12 @@ typedef struct _SYS_SPECIFIC_DATA_TAG_
 	IMG_UINT32 *pui32SGXFreqList;
 	IMG_UINT32 ui32SGXFreqListIndex;
 	IMG_UINT32 ui32SGXFreqListIndexActive;
+	IMG_UINT32 ui32SGXFreqListIndexLimit;
 	struct hrtimer sgx_dvfs_idle_timer;
 	struct work_struct sgx_dvfs_idle_work;
 	struct hrtimer sgx_dvfs_active_timer;
 	struct work_struct sgx_dvfs_active_work;
+	struct mutex sgx_dvfs_lock;
 	ktime_t sgx_idle_stamp;
 	ktime_t sgx_active_stamp;
 	ktime_t sgx_work_stamp;

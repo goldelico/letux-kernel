@@ -867,9 +867,13 @@ PVRSRV_ERROR SysSystemPrePowerState(PVRSRV_SYS_POWER_STATE eNewPowerState)
 		cancel_work_sync(&gpsSysSpecificData->sgx_dvfs_idle_work);
 		hrtimer_cancel(&gpsSysSpecificData->sgx_dvfs_active_timer);
 		cancel_work_sync(&gpsSysSpecificData->sgx_dvfs_active_work);
-		RequestSGXFreq(gpsSysData, 0);
 
+		mutex_lock(&gpsSysSpecificData->sgx_dvfs_lock);
+
+		RequestSGXFreq(gpsSysData, 0);
 		gpsSysSpecificData->sgx_is_idle = true;
+
+		mutex_unlock(&gpsSysSpecificData->sgx_dvfs_lock);
 	}
 
 	return eError;
@@ -979,11 +983,24 @@ static void do_dvfs_active_none(void)
 	/*
 	 * DVFS active mode "none" always uses highest available frequency.
 	*/
+	mutex_lock(&gpsSysSpecificData->sgx_dvfs_lock);
+
+	/* Reset active DVFS counter if min(active, limit) is changing. */
+	if(gpsSysSpecificData->ui32SGXFreqListIndexActive <
+		gpsSysSpecificData->ui32SGXFreqListIndexLimit)
+	{
+		gpsSysSpecificData->counter = 0;
+	}
+
 	gpsSysSpecificData->ui32SGXFreqListIndexActive =
 		gpsSysSpecificData->ui32SGXFreqListSize - 2;
 
-	/* Reset state of other DVFS active modes */
-	gpsSysSpecificData->counter = 0;
+	RequestSGXFreq(gpsSysData,
+		gpsSysSpecificData->ui32SGXFreqListIndexLimit);
+
+	gpsSysSpecificData->sgx_is_idle = false;
+
+	mutex_unlock(&gpsSysSpecificData->sgx_dvfs_lock);
 }
 
 #define CYCLE_MSEC_MAX 18
@@ -1003,6 +1020,7 @@ static void do_dvfs_active_display_cycle(void)
 	 * without sacrificing throughput.
 	*/
 	ktime_t sgx_work_time, sgx_wait_time;
+	IMG_UINT32 freq_index;
 
 	/*
 	 * Was SGX waiting for display to return a frame? This is the display-
@@ -1010,7 +1028,15 @@ static void do_dvfs_active_display_cycle(void)
 	*/
 	if((gpsSysSpecificData->sgx_active_kickcmd != SGXMKIF_CMD_PROCESS_QUEUES) ||
 		(!gpsSysSpecificData->dss_kick_is_pending))
-		return;
+	{
+		/*
+		 * No, just a mid-work transition. So continue with the same
+		 * active frequency.
+		*/
+		mutex_lock(&gpsSysSpecificData->sgx_dvfs_lock);
+
+		goto set_freq;
+	}
 
 	/*
 	 * The work-wait cycle has finished. Collect times and mark the start
@@ -1031,40 +1057,51 @@ static void do_dvfs_active_display_cycle(void)
 	if(ktime_to_ns(ktime_add(sgx_work_time, sgx_wait_time)) >
 		CYCLE_MSEC_MAX * NSEC_PER_MSEC)
 	{
+		mutex_lock(&gpsSysSpecificData->sgx_dvfs_lock);
+
 		gpsSysSpecificData->ui32SGXFreqListIndexActive =
 			gpsSysSpecificData->ui32SGXFreqListSize - 2;
 		gpsSysSpecificData->counter = 0;
-		return;
+		goto set_freq;
 	}
+
+	/*
+	 * Work-wait analysis assumes that the entire work period was
+	 * performed at the lesser of the current active (desired) frequency
+	 * and current limit frequency. Mid-work changes to these frequencies
+	 * can violate this assumption, but that is why we require multiple
+	 * consecutive cycle analyses before requesting a lower frequency.
+	*/
+	mutex_lock(&gpsSysSpecificData->sgx_dvfs_lock);
+
+	freq_index = min(gpsSysSpecificData->ui32SGXFreqListIndexActive,
+			gpsSysSpecificData->ui32SGXFreqListIndexLimit);
 
 	/*
 	 * Increase the active frequency if the currently reduced value lead
 	 * to a wait time below threshold.
 	*/
-	if((gpsSysSpecificData->ui32SGXFreqListIndexActive <
-		(gpsSysSpecificData->ui32SGXFreqListSize - 2)) &&
+	if((freq_index < (gpsSysSpecificData->ui32SGXFreqListSize - 2)) &&
 		(ktime_to_ns(sgx_wait_time) < WAIT_USEC_LOW_MIN * NSEC_PER_USEC))
 	{
-		gpsSysSpecificData->ui32SGXFreqListIndexActive++;
+		gpsSysSpecificData->ui32SGXFreqListIndexActive = freq_index+1;
 		gpsSysSpecificData->counter = 0;
-		goto start_timer;
+		goto set_freq;
 	}
 
 	/*
 	 * Consider decreasing the active frequency based on the timing of
 	 * the previous work-wait cycle.
 	*/
-	if(gpsSysSpecificData->ui32SGXFreqListIndexActive > 0)
+	if(freq_index > 0)
 	{
 		ktime_t sgx_est_work_time, sgx_est_wait_time;
 		IMG_UINT32 freq_current, freq_reduced;
 
 		freq_current = gpsSysSpecificData->
-			pui32SGXFreqList[gpsSysSpecificData->
-			ui32SGXFreqListIndexActive];
+			pui32SGXFreqList[freq_index];
 		freq_reduced = gpsSysSpecificData->
-			pui32SGXFreqList[gpsSysSpecificData->
-			ui32SGXFreqListIndexActive-1];
+			pui32SGXFreqList[freq_index-1];
 
 		sgx_est_work_time = ktime_add_ns(ktime_set(0, 0),
 			div_u64(ktime_to_ns(sgx_work_time) * freq_current,
@@ -1077,7 +1114,8 @@ static void do_dvfs_active_display_cycle(void)
 			gpsSysSpecificData->counter++;
 			if(gpsSysSpecificData->counter == CYCLE_COUNT_MIN)
 			{
-				gpsSysSpecificData->ui32SGXFreqListIndexActive--;
+				gpsSysSpecificData->ui32SGXFreqListIndexActive =
+					freq_index-1;
 				gpsSysSpecificData->counter = 0;
 			}
 		}
@@ -1085,7 +1123,15 @@ static void do_dvfs_active_display_cycle(void)
 			gpsSysSpecificData->counter = 0;
 	}
 
-start_timer:
+set_freq:
+	RequestSGXFreq(gpsSysData,
+		min(gpsSysSpecificData->ui32SGXFreqListIndexActive,
+		gpsSysSpecificData->ui32SGXFreqListIndexLimit));
+
+	gpsSysSpecificData->sgx_is_idle = false;
+
+	mutex_unlock(&gpsSysSpecificData->sgx_dvfs_lock);
+
 	/* Start the cycle length watchdog timer if needed. */
 	if(gpsSysSpecificData->ui32SGXFreqListIndexActive <
 		(gpsSysSpecificData->ui32SGXFreqListSize - 2))
@@ -1125,10 +1171,8 @@ IMG_VOID SysSGXCommandPending(SGXMKIF_CMD_TYPE eCmdType, IMG_BOOL bSGXIdle)
 		else
 			do_dvfs_active_display_cycle();
 
-		gpsSysSpecificData->sgx_is_idle = false;
 		gpsSysSpecificData->dss_kick_is_pending = false;
 	}
-	RequestSGXFreq(gpsSysData, gpsSysSpecificData->ui32SGXFreqListIndexActive);
 }
 
 IMG_VOID SysDSSReturnFrame(IMG_VOID)
