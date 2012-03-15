@@ -1884,6 +1884,7 @@ static int omap_start_signal_voltage_switch(struct mmc_host *mmc,
 	unsigned long notimeout = 0;
 
 	host  = mmc_priv(mmc);
+	pm_runtime_get_sync(host->dev);
 
 	if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_330) {
 		omap_hsmmc_conf_bus_power(host);
@@ -1892,6 +1893,7 @@ static int omap_start_signal_voltage_switch(struct mmc_host *mmc,
 		value &= ~OMAP_V1V8_SIGEN_V1V8;
 		OMAP_HSMMC_WRITE(host->base, AC12, value);
 		dev_dbg(mmc_dev(host->mmc), " i/o voltage switch to 3V\n");
+		pm_runtime_put_autosuspend(host->dev);
 		return 0;
 	}
 
@@ -1977,6 +1979,7 @@ static int omap_start_signal_voltage_switch(struct mmc_host *mmc,
 
 	value = OMAP_HSMMC_READ(host->base, CON);
 	OMAP_HSMMC_WRITE(host->base, CON, (value & ~(CLKEXTFREE | PADEN)));
+	pm_runtime_put_autosuspend(host->dev);
 
 	return 0;
 }
@@ -2094,8 +2097,6 @@ static int __init omap_hsmmc_probe(struct platform_device *pdev)
 	if (res == NULL || irq < 0)
 		return -ENXIO;
 
-	res->start += pdata->reg_offset;
-	res->end += pdata->reg_offset;
 	res = request_mem_region(res->start, resource_size(res), pdev->name);
 	if (res == NULL)
 		return -EBUSY;
@@ -2120,7 +2121,7 @@ static int __init omap_hsmmc_probe(struct platform_device *pdev)
 	host->irq	= irq;
 	host->id	= pdev->id;
 	host->slot_id	= 0;
-	host->mapbase	= res->start;
+	host->mapbase	= res->start + pdata->reg_offset;
 	host->base	= ioremap(host->mapbase, SZ_4K);
 	host->power_mode = MMC_POWER_OFF;
 	host->flags	= AUTO_CMD12;
@@ -2187,7 +2188,7 @@ static int __init omap_hsmmc_probe(struct platform_device *pdev)
 	mmc->max_seg_size = mmc->max_req_size;
 
 	mmc->caps |= MMC_CAP_MMC_HIGHSPEED | MMC_CAP_SD_HIGHSPEED |
-		     MMC_CAP_WAIT_WHILE_BUSY | MMC_CAP_ERASE | MMC_CAP_CMD23;
+		     MMC_CAP_WAIT_WHILE_BUSY | MMC_CAP_ERASE;
 
 	mmc->caps |= mmc_slot(host).caps;
 	if (mmc->caps & MMC_CAP_8_BIT_DATA)

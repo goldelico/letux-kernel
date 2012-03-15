@@ -29,6 +29,15 @@
 #include <linux/gpio.h>
 #include "mpu6050x.h"
 
+
+/*MPU6050 full scale range types*/
+static int mpu6050_grange_table[4] = {
+	2000,
+	4000,
+	8000,
+	16000,
+};
+
 /**
  * mpu6050_accel_set_standby - Put's the axis of acceleromter in standby or not
  * @mpu6050_accel_data: accelerometer data
@@ -68,6 +77,28 @@ static int mpu6050_accel_reset(struct mpu6050_accel_data *data)
 	return 0;
 }
 
+/**
+ * mpu6050_data_decode_mg - Data in 2's complement, convert to mg
+ * @mpu6050_accel_data: accelerometer data
+ * @datax: X axis data value
+ * @datay: Y axis data value
+ * @dataz: Z axis data value
+ */
+static void mpu6050_data_decode_mg(struct mpu6050_accel_data *data,
+				s16 *datax, s16 *datay, s16 *dataz)
+{
+	u8 fsr;
+	int range;
+
+	MPU6050_READ(data, MPU6050_CHIP_I2C_ADDR,
+		MPU6050_REG_ACCEL_CONFIG, 1, &fsr, "full scale range");
+	range = mpu6050_grange_table[(fsr >> 3)];
+	/* Data in 2's complement, convert to mg */
+	*datax = (*datax * range) / MPU6050_ABS_READING;
+	*datay = (*datay * range) / MPU6050_ABS_READING;
+	*dataz = (*dataz * range) / MPU6050_ABS_READING;
+}
+
 static irqreturn_t mpu6050_accel_thread_irq(int irq, void *dev_id)
 {
 	struct mpu6050_accel_data *data = dev_id;
@@ -85,39 +116,14 @@ static irqreturn_t mpu6050_accel_thread_irq(int irq, void *dev_id)
 	datay = be16_to_cpu(buffer[1]);
 	dataz = be16_to_cpu(buffer[2]);
 
+	mpu6050_data_decode_mg(data, &datax, &datay, &dataz);
+
 	input_report_abs(data->input_dev, ABS_X, datax);
 	input_report_abs(data->input_dev, ABS_Y, datay);
 	input_report_abs(data->input_dev, ABS_Z, dataz);
 	input_sync(data->input_dev);
 
 	return IRQ_HANDLED;
-}
-
-static int mpu6050_accel_open(struct input_dev *input_dev)
-{
-	struct mpu6050_accel_data *data = input_get_drvdata(input_dev);
-
-	mutex_lock(&data->mutex);
-
-	if (!data->suspended)
-		mpu6050_accel_set_standby(data, 0);
-
-	data->opened = true;
-
-	mutex_unlock(&data->mutex);
-
-	return 0;
-}
-
-static void mpu6050_accel_close(struct input_dev *input_dev)
-{
-	struct mpu6050_accel_data *data = input_get_drvdata(input_dev);
-
-	mutex_lock(&data->mutex);
-	if (!data->suspended)
-		mpu6050_accel_set_standby(data, 1);
-	data->opened = false;
-	mutex_unlock(&data->mutex);
 }
 
 void mpu6050_accel_suspend(struct mpu6050_accel_data *data)
@@ -327,6 +333,9 @@ static ssize_t mpu6050_accel_store_attr_confmode(struct device *dev,
 	if (error)
 		return error;
 
+	if (val < FREE_FALL_MODE || val > ZERO_MOT_DET_MODE)
+		return -EINVAL;
+
 	mutex_lock(&data->mutex);
 	data->mode = (enum accel_op_mode) val;
 	if (data->mode == FREE_FALL_MODE)
@@ -339,6 +348,69 @@ static ssize_t mpu6050_accel_store_attr_confmode(struct device *dev,
 								"Attr conf mode");
 
 	mutex_unlock(&data->mutex);
+	return count;
+}
+
+/**
+ * mpu6050_accel_show_attr_enable - sys entry to show accel enable state.
+ * @dev: device entry
+ * @attr: device attribute entry
+ * @buf: pointer to the buffer which holds enable state value.
+ *
+ * Returns 'enable' state.
+ */
+static ssize_t mpu6050_accel_show_attr_enable(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct mpu6050_data *mpu_data = platform_get_drvdata(pdev);
+	struct mpu6050_accel_data *data = mpu_data->accel_data;
+	int val;
+
+	val = data->enabled;
+	if (val < 0)
+		return val;
+
+	return sprintf(buf, "%d\n", val);
+}
+
+/**
+ * mpu6050_accel_store_attr_enable - sys entry to set accel enable state.
+ * @dev: device entry
+ * @attr: device attribute entry
+ * @buf: pointer to the buffer which holds enable state value.
+ *
+ * Returns 'count' on success.
+ */
+static ssize_t mpu6050_accel_store_attr_enable(struct device *dev,
+				       struct device_attribute *attr,
+				       const char *buf, size_t count)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct mpu6050_data *mpu_data = platform_get_drvdata(pdev);
+	struct mpu6050_accel_data *data = mpu_data->accel_data;
+	unsigned long val;
+	int error;
+
+	error = strict_strtoul(buf, 0, &val);
+	if (error)
+		return error;
+
+	if (val < 0 || val > 1)
+		return -EINVAL;
+
+	if (val) {
+		if (!data->suspended)
+			mpu6050_accel_set_standby(data, 0);
+		data->opened = true;
+		data->enabled = 1;
+	} else {
+		if (!data->suspended)
+			mpu6050_accel_set_standby(data, 1);
+		data->opened = false;
+		data->enabled = 0;
+	}
 	return count;
 }
 
@@ -513,6 +585,10 @@ static DEVICE_ATTR(modedur, S_IWUSR | S_IRUGO,
 static DEVICE_ATTR(modethr, S_IWUSR | S_IRUGO,
 		mpu6050_accel_show_attr_modethr,
 		mpu6050_accel_store_attr_modethr);
+static DEVICE_ATTR(enable, S_IWUSR | S_IRUGO,
+		mpu6050_accel_show_attr_enable,
+		mpu6050_accel_store_attr_enable);
+
 
 static struct attribute *mpu6050_accel_attrs[] = {
 	&dev_attr_fsr.attr,
@@ -521,6 +597,7 @@ static struct attribute *mpu6050_accel_attrs[] = {
 	&dev_attr_confmode.attr,
 	&dev_attr_modedur.attr,
 	&dev_attr_modethr.attr,
+	&dev_attr_enable.attr,
 	NULL,
 };
 
@@ -541,7 +618,7 @@ struct mpu6050_accel_data *mpu6050_accel_init(
 
 	/* if no IRQ return error */
 	if (!mpu_data->irq) {
-		printk(KERN_ERR "MPU6050 Accelerometer Irq not assigned\n");
+		dev_err(mpu_data->accel_data->dev, "MPU6050 Accelerometer Irq not assigned\n");
 		error = -EINVAL;
 		goto err_out;
 	}
@@ -557,6 +634,7 @@ struct mpu6050_accel_data *mpu6050_accel_init(
 	accel_data->input_dev = input_dev;
 	accel_data->bus_ops = mpu_data->bus_ops;
 	accel_data->irq = mpu_data->irq;
+	accel_data->enabled = 0;
 	mutex_init(&accel_data->mutex);
 
 	/* Configure the init values from platform data */
@@ -586,19 +664,18 @@ struct mpu6050_accel_data *mpu6050_accel_init(
 
 	input_dev->name = "mpu6050-accelerometer";
 	input_dev->id.bustype = mpu_data->bus_ops->bustype;
-	input_dev->open = mpu6050_accel_open;
-	input_dev->close = mpu6050_accel_close;
 
 	 __set_bit(EV_ABS, input_dev->evbit);
 
 	input_set_abs_params(input_dev, ABS_X,
-			MPU6050_ACCEL_MIN_VALUE,
-			MPU6050_ACCEL_MAX_VALUE, pdata->x_axis, 0);
+			-mpu6050_grange_table[pdata->fsr],
+			mpu6050_grange_table[pdata->fsr], pdata->x_axis, 0);
 	input_set_abs_params(input_dev, ABS_Y,
-			MPU6050_ACCEL_MIN_VALUE,
-			MPU6050_ACCEL_MAX_VALUE, pdata->y_axis, 0);
-	input_set_abs_params(input_dev, ABS_Z, MPU6050_ACCEL_MIN_VALUE,
-				MPU6050_ACCEL_MAX_VALUE, pdata->z_axis, 0);
+			-mpu6050_grange_table[pdata->fsr],
+			mpu6050_grange_table[pdata->fsr], pdata->y_axis, 0);
+	input_set_abs_params(input_dev, ABS_Z,
+			-mpu6050_grange_table[pdata->fsr],
+			mpu6050_grange_table[pdata->fsr], pdata->z_axis, 0);
 
 	input_set_drvdata(input_dev, accel_data);
 
@@ -638,6 +715,12 @@ struct mpu6050_accel_data *mpu6050_accel_init(
 	/* Clear interrupts for Defined mode */
 	MPU6050_READ(accel_data, MPU6050_CHIP_I2C_ADDR,
 		MPU6050_REG_INT_STATUS, 1, &val, "Clear Isr");
+
+	/* Disable Accelerometer by default */
+	if (!accel_data->suspended)
+		mpu6050_accel_set_standby(accel_data, 1);
+	accel_data->opened = false;
+
 	return accel_data;
 
 err_free_gpio:
