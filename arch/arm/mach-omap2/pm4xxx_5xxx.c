@@ -200,6 +200,8 @@ void omap_pm_idle(u32 cpu_id, int state)
 	if (omap_dvfs_is_any_dev_scaling())
 		return;
 
+	pwrdm_pre_transition();
+
 	if (omap4_device_next_state_off()) {
 		/* Save the device context to SAR RAM */
 		if (omap_sar_save())
@@ -218,6 +220,8 @@ void omap_pm_idle(u32 cpu_id, int state)
 		omap4_device_off_counter++;
 #endif
 	}
+
+	pwrdm_post_transition();
 }
 
 #ifdef CONFIG_SUSPEND

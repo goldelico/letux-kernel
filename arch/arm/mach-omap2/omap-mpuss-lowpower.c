@@ -382,8 +382,6 @@ int omap_enter_lowpower(unsigned int cpu, unsigned int power_state)
 		return -ENXIO;
 	}
 
-	pwrdm_pre_transition();
-
 	/*
 	 * Check MPUSS next state and save interrupt controller if needed.
 	 * In MPUSS OSWR or device OFF, interrupt controller  contest is lost.
@@ -456,9 +454,6 @@ int omap_enter_lowpower(unsigned int cpu, unsigned int power_state)
 		restore_ivahd_tesla_regs();
 		restore_l3instr_regs();
 	}
-
-
-	pwrdm_post_transition();
 
 	return 0;
 }
