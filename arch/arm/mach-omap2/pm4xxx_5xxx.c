@@ -34,21 +34,6 @@
 #include "prm54xx.h"
 #include "dvfs.h"
 
-static const char * const autoidle_hwmods[] = {
-	"gpio2",
-	"gpio3",
-	"gpio4",
-	"gpio5",
-	"gpio6",
-	"kbd",
-	"timer1",
-	"emif1",
-	"emif2",
-	"gpmc",
-	"l3_instr",
-	"l3_main_3"
-};
-
 struct power_state {
 	struct powerdomain *pwrdm;
 	u32 next_state;
@@ -723,10 +708,8 @@ static void __init prcm_setup_regs(void)
 #endif
 
 #ifdef CONFIG_OMAP_ALLOW_OSWR
-	/* Enable L3 hwmods, otherwise dev off will fail */
+	/* Enable L3_main_3 hwmod, otherwise dev off will fail */
 	oh = omap_hwmod_lookup("l3_main_3");
-	omap_hwmod_enable(oh);
-	oh = omap_hwmod_lookup("l3_instr");
 	omap_hwmod_enable(oh);
 #endif
 
@@ -793,7 +776,7 @@ static void __init omap_pm_setup_errata(void)
  */
 static int __init omap_pm_init(void)
 {
-	int ret, i;
+	int ret;
 
 	if (!(cpu_is_omap44xx() || cpu_is_omap54xx()))
 		return -ENODEV;
@@ -840,17 +823,6 @@ static int __init omap_pm_init(void)
 	if (ret) {
 		pr_err("Failed to initialise static depedencies\n");
 		goto err2;
-	}
-
-
-	for (i = 0; i < ARRAY_SIZE(autoidle_hwmods); i++) {
-		struct omap_hwmod *oh;
-
-		oh = omap_hwmod_lookup(autoidle_hwmods[i]);
-		if (oh)
-			omap_hwmod_disable_clkdm_usecounting(oh);
-		else
-			pr_warning("hwmod %s not found\n", autoidle_hwmods[i]);
 	}
 
 	ret = omap_mpuss_init();
