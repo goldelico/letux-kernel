@@ -284,69 +284,6 @@ static int omap_dwc3_exit(struct dwc3_omap *omap)
 	return 0;
 }
 
-static void omap_dwc3_enable(struct dwc3_omap *omap)
-{
-	u32	val;
-
-	switch (omap->usb2_phy->last_event) {
-	case USB_EVENT_ID:
-		dev_dbg(omap->dev, "ID GND\n");
-
-		val = dwc3_readl(omap->base, USBOTGSS_UTMI_OTG_STATUS);
-		val &= ~(USBOTGSS_UTMI_OTG_STATUS_IDDIG
-				| USBOTGSS_UTMI_OTG_STATUS_VBUSVALID
-				| USBOTGSS_UTMI_OTG_STATUS_SESSEND);
-		val |= USBOTGSS_UTMI_OTG_STATUS_SESSVALID
-				| USBOTGSS_UTMI_OTG_STATUS_POWERPRESENT;
-		dwc3_writel(omap->base, USBOTGSS_UTMI_OTG_STATUS, val);
-
-		break;
-
-	case USB_EVENT_VBUS:
-		dev_dbg(omap->dev, "VBUS Connect\n");
-
-		val = dwc3_readl(omap->base, USBOTGSS_UTMI_OTG_STATUS);
-		val &= ~USBOTGSS_UTMI_OTG_STATUS_SESSEND;
-		val |= USBOTGSS_UTMI_OTG_STATUS_IDDIG
-				| USBOTGSS_UTMI_OTG_STATUS_VBUSVALID
-				| USBOTGSS_UTMI_OTG_STATUS_SESSVALID
-				| USBOTGSS_UTMI_OTG_STATUS_POWERPRESENT;
-		dwc3_writel(omap->base, USBOTGSS_UTMI_OTG_STATUS, val);
-
-		break;
-
-	case USB_EVENT_NONE:
-		dev_dbg(omap->dev, "VBUS Disconnect\n");
-
-		val = dwc3_readl(omap->base, USBOTGSS_UTMI_OTG_STATUS);
-		val &= ~(USBOTGSS_UTMI_OTG_STATUS_SESSVALID
-				| USBOTGSS_UTMI_OTG_STATUS_VBUSVALID
-				| USBOTGSS_UTMI_OTG_STATUS_POWERPRESENT);
-		val |= USBOTGSS_UTMI_OTG_STATUS_SESSEND
-				| USBOTGSS_UTMI_OTG_STATUS_IDDIG;
-		dwc3_writel(omap->base, USBOTGSS_UTMI_OTG_STATUS, val);
-
-		break;
-	default:
-		break;
-	}
-}
-
-static void omap_dwc3_disable(struct dwc3_omap *omap)
-{
-	u32	val;
-
-	if (omap->usb2_phy->last_event) {
-		val = dwc3_readl(omap->base, USBOTGSS_UTMI_OTG_STATUS);
-		val &= ~(USBOTGSS_UTMI_OTG_STATUS_SESSVALID
-				| USBOTGSS_UTMI_OTG_STATUS_VBUSVALID
-				| USBOTGSS_UTMI_OTG_STATUS_POWERPRESENT);
-		val |= USBOTGSS_UTMI_OTG_STATUS_SESSEND
-				| USBOTGSS_UTMI_OTG_STATUS_IDDIG;
-		dwc3_writel(omap->base, USBOTGSS_UTMI_OTG_STATUS, val);
-	}
-}
-
 static int __devinit dwc3_omap_probe(struct platform_device *pdev)
 {
 	struct dwc3_omap_data		*pdata = pdev->dev.platform_data;
@@ -543,6 +480,10 @@ static int __devinit dwc3_omap_probe(struct platform_device *pdev)
 		goto err8;
 	}
 
+	if (omap->usb2_phy->last_event)
+		dwc3_otg_notifications(&omap->nb, omap->usb2_phy->last_event,
+									NULL);
+
 	return 0;
 
 err8:
@@ -599,45 +540,12 @@ static const struct of_device_id of_dwc3_matach[] = {
 };
 MODULE_DEVICE_TABLE(of, of_dwc3_matach);
 
-#ifdef CONFIG_PM
-
-static int dwc3_omap_runtime_resume(struct device *dev)
-{
-	struct platform_device	*pdev = to_platform_device(dev);
-	struct dwc3_omap	*omap = platform_get_drvdata(pdev);
-
-	omap_dwc3_enable(omap);
-
-	return 0;
-}
-
-static int dwc3_omap_runtime_suspend(struct device *dev)
-{
-	struct platform_device	*pdev = to_platform_device(dev);
-	struct dwc3_omap	*omap = platform_get_drvdata(pdev);
-
-	omap_dwc3_disable(omap);
-
-	return 0;
-}
-
-static const struct dev_pm_ops dwc3_omap_pm_ops = {
-	.runtime_suspend	= dwc3_omap_runtime_suspend,
-	.runtime_resume		= dwc3_omap_runtime_resume,
-};
-
-#define DEV_PM_OPS	(&dwc3_omap_pm_ops)
-#else
-#define DEV_PM_OPS	NULL
-#endif
-
 static struct platform_driver dwc3_omap_driver = {
 	.probe		= dwc3_omap_probe,
 	.remove		= __devexit_p(dwc3_omap_remove),
 	.driver		= {
 		.name	= "omap-dwc3",
 		.of_match_table	= of_dwc3_matach,
-		.pm	= DEV_PM_OPS,
 	},
 };
 
