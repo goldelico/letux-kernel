@@ -28,6 +28,14 @@
 #include <linux/input/mpu6050.h>
 #include <linux/i2c.h>
 
+/*MPU6050 Gyro full scale range (degrees/sec) */
+static int mpu6050_gyro_fsr_table[4] = {
+	250,
+	500,
+	1000,
+	2000,
+};
+
 /* Put's the Gyroscope in Stand-by mode */
 static int mpu6050_gyro_set_standby(struct mpu6050_gyro_data *data,
 								int action)
@@ -57,9 +65,11 @@ static int mpu6050_gyro_reset(struct mpu6050_gyro_data *data)
 
 static int mpu6050_gyro_read_xyz(struct mpu6050_gyro_data *data)
 {
+	int range;
 	s16 datax, datay, dataz;
 	u16 buffer[3];
 	u8 val = 0;
+	u8 fsr;
 
 	MPU6050_READ(data, MPU6050_CHIP_I2C_ADDR, MPU6050_REG_INT_STATUS,
 						1, &val, "interrupt status");
@@ -69,6 +79,14 @@ static int mpu6050_gyro_read_xyz(struct mpu6050_gyro_data *data)
 	datax = be16_to_cpu(buffer[0]);
 	datay = be16_to_cpu(buffer[1]);
 	dataz = be16_to_cpu(buffer[2]);
+
+	MPU6050_READ(data, MPU6050_CHIP_I2C_ADDR,
+		MPU6050_REG_GYRO_CONFIG, 1, &fsr, "Gyro full scale range");
+
+	range = mpu6050_gyro_fsr_table[(fsr >> 3)];
+	datax = (datax * range) / MPU6050_ABS_READING;
+	datay = (datay * range) / MPU6050_ABS_READING;
+	dataz = (dataz * range) / MPU6050_ABS_READING;
 
 	input_report_abs(data->input_dev, ABS_X, datax);
 	input_report_abs(data->input_dev, ABS_Y, datay);
@@ -195,12 +213,15 @@ struct mpu6050_gyro_data *mpu6050_gyro_init(const struct mpu6050_data *mpu_data)
 
 	 __set_bit(EV_ABS, input_dev->evbit);
 
-	input_set_abs_params(input_dev, ABS_X, MPU6050_GYRO_MIN_VALUE,
-				MPU6050_GYRO_MAX_VALUE, pdata->x_axis, 0);
-	input_set_abs_params(input_dev, ABS_Y, MPU6050_GYRO_MIN_VALUE,
-				MPU6050_GYRO_MAX_VALUE, pdata->y_axis, 0);
-	input_set_abs_params(input_dev, ABS_Z, MPU6050_GYRO_MIN_VALUE,
-				MPU6050_GYRO_MAX_VALUE, pdata->z_axis, 0);
+	input_set_abs_params(input_dev, ABS_X,
+			-mpu6050_gyro_fsr_table[pdata->fsr],
+			mpu6050_gyro_fsr_table[pdata->fsr], pdata->x_axis, 0);
+	input_set_abs_params(input_dev, ABS_Y,
+			-mpu6050_gyro_fsr_table[pdata->fsr],
+			mpu6050_gyro_fsr_table[pdata->fsr], pdata->y_axis, 0);
+	input_set_abs_params(input_dev, ABS_Z,
+			-mpu6050_gyro_fsr_table[pdata->fsr],
+			mpu6050_gyro_fsr_table[pdata->fsr], pdata->z_axis, 0);
 
 	input_set_drvdata(input_dev, gyro_data);
 

@@ -135,9 +135,6 @@
 
 #define MPU6050_ABS_READING			16384 /* (2^15/2) */
 
-#define MPU6050_GYRO_MAX_VALUE			-32768
-#define MPU6050_GYRO_MIN_VALUE			 32767
-
 #define MPU6050_READ(data, addr, reg, len, val, msg) \
 	(data->bus_ops->read(data->dev, addr, reg, len, val, msg))
 #define MPU6050_WRITE(data, addr, reg, val, msg) \
