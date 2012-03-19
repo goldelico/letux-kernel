@@ -57,11 +57,12 @@ static int omap5evm_modem_switch(int new_state)
 	return modem_pwrrst_ca;
 }
 
-static void omap5evm_hsi_pad_conf(void)
+static void omap5evm_modem_pad_conf(void)
 {
 	/*
 	 * HSI pad conf: hsi2_ca/ac_wake/flag/data/ready
-	 * Also configure gpio_66, input from modem
+	 * gpio_66, input from modem
+	 * uart1_rx/tx for modem bootloader uploading
 	 */
 
 	pr_info("Update PADs for modem connection\n");
@@ -173,8 +174,11 @@ err_pwrstate:
 		if (usbhs_bdata.port_mode[0] == OMAP_EHCI_PORT_MODE_PHY)
 			usbhs_bdata.port_mode[0] = OMAP_USBHS_PORT_MODE_UNUSED;
 
-		/* Setup HSI pad conf for blaze platform */
-		omap5evm_hsi_pad_conf();
+		/* Initialize the UART1 connected to the modem */
+		omap_serial_board_init(NULL, 0);
+
+		/* Setup Modem pad conf for the platform */
+		omap5evm_modem_pad_conf();
 
 		status = omap_hsi_dev_init();
 		if (status < 0)
