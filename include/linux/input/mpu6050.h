@@ -20,6 +20,8 @@
 #ifndef _LINUX_MPU6050_H
 #define _LINUX_MPU6050_H
 
+#define MPU6050_NAME		"mpu6050"
+
 /* Accelerometer operational modes */
 #define MPU605_MODE_FF		0  /*Free Fall mode*/
 #define MPU605_MODE_MD		1  /*Motion Detection mode*/

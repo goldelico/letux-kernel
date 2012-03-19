@@ -193,14 +193,14 @@ static UNIVERSAL_DEV_PM_OPS(mpu6050_i2c_pm, mpu6050_i2c_suspend,
 					mpu6050_i2c_resume, NULL);
 
 static const struct i2c_device_id mpu6050_i2c_id[] = {
-	{ "mpu6050", 0 },
+	{ MPU6050_NAME, 0 },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, mpu6050_i2c_id);
 
 static struct i2c_driver mpu6050_i2c_driver = {
 	.driver	= {
-		.name	= "mpu6050",
+		.name	= MPU6050_NAME,
 		.owner	= THIS_MODULE,
 #ifdef CONFIG_PM
 		.pm	= &mpu6050_i2c_pm,
