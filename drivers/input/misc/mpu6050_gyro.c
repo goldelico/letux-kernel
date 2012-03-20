@@ -141,11 +141,78 @@ static ssize_t mpu6050_gyro_show_attr_xyz(struct device *dev,
 	return  mpu6050_gyro_read_xyz(data);
 }
 
+/**
+ * mpu6050_gyro_show_attr_enable - sys entry to show gyro enable state.
+ * @dev: device entry
+ * @attr: device attribute entry
+ * @buf: pointer to the buffer which holds enable state value.
+ *
+ * Returns 'enable' state.
+ */
+static ssize_t mpu6050_gyro_show_attr_enable(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct mpu6050_data *mpu_data = platform_get_drvdata(pdev);
+	struct mpu6050_gyro_data *data = mpu_data->gyro_data;
+	int val;
+
+	val = data->enabled;
+	if (val < 0)
+		return val;
+
+	return sprintf(buf, "%d\n", val);
+}
+
+/**
+ * mpu6050_gyro_store_attr_enable - sys entry to set gyro enable state.
+ * @dev: device entry
+ * @attr: device attribute entry
+ * @buf: pointer to the buffer which holds enable state value.
+ *
+ * Returns 'count' on success.
+ */
+static ssize_t mpu6050_gyro_store_attr_enable(struct device *dev,
+				       struct device_attribute *attr,
+				       const char *buf, size_t count)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct mpu6050_data *mpu_data = platform_get_drvdata(pdev);
+	struct mpu6050_gyro_data *data = mpu_data->gyro_data;
+	unsigned long val;
+	int error;
+
+	error = strict_strtoul(buf, 0, &val);
+	if (error)
+		return error;
+
+	if (val < 0 || val > 1)
+		return -EINVAL;
+
+	mutex_lock(&data->mutex);
+	if (val) {
+		if (!data->suspended)
+			mpu6050_gyro_set_standby(data, 0);
+		data->enabled = 1;
+	} else {
+		if (!data->suspended)
+			mpu6050_gyro_set_standby(data, 1);
+		data->enabled = 0;
+	}
+	mutex_unlock(&data->mutex);
+
+	return count;
+}
+
 static DEVICE_ATTR(xyz, S_IWUSR | S_IRUGO,
 				mpu6050_gyro_show_attr_xyz, NULL);
+static DEVICE_ATTR(gyro_enable, S_IWUSR | S_IRUGO,
+				mpu6050_gyro_show_attr_enable,
+				mpu6050_gyro_store_attr_enable);
 
 static struct attribute *mpu6050_gyro_attrs[] = {
 	&dev_attr_xyz.attr,
+	&dev_attr_gyro_enable.attr,
 	NULL,
 };
 
@@ -170,6 +237,7 @@ struct mpu6050_gyro_data *mpu6050_gyro_init(const struct mpu6050_data *mpu_data)
 	gyro_data->dev = mpu_data->dev;
 	gyro_data->input_dev = input_dev;
 	gyro_data->bus_ops = mpu_data->bus_ops;
+	gyro_data->enabled = 0;
 	mutex_init(&gyro_data->mutex);
 
 	/* Configure the full scale range value from platform data */

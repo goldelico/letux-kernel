@@ -152,6 +152,7 @@ struct mpu6050_gyro_data {
 	struct input_dev *input_dev;
 	struct mutex mutex;
 	bool suspended;
+	u8 enabled;
 };
 
 enum accel_op_mode {
