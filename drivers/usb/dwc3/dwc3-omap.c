@@ -49,6 +49,7 @@
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/module.h>
+#include <linux/delay.h>
 #include <linux/usb/otg.h>
 
 #include "core.h"
@@ -195,8 +196,8 @@ static int dwc3_otg_notifications(struct notifier_block *nb,
 	case USB_EVENT_ID:
 		dev_dbg(omap->dev, "ID GND\n");
 
-		usb_phy_set_suspend(omap->usb2_phy, 0);
-		usb_phy_set_suspend(omap->usb3_phy, 0);
+		dwc3_core_late_init(&omap->dwc3->dev);
+
 		val = dwc3_readl(omap->base, USBOTGSS_UTMI_OTG_STATUS);
 		val &= ~(USBOTGSS_UTMI_OTG_STATUS_IDDIG
 				| USBOTGSS_UTMI_OTG_STATUS_VBUSVALID
@@ -210,8 +211,8 @@ static int dwc3_otg_notifications(struct notifier_block *nb,
 	case USB_EVENT_VBUS:
 		dev_dbg(omap->dev, "VBUS Connect\n");
 
-		usb_phy_set_suspend(omap->usb2_phy, 0);
-		usb_phy_set_suspend(omap->usb3_phy, 0);
+		dwc3_core_late_init(&omap->dwc3->dev);
+
 		val = dwc3_readl(omap->base, USBOTGSS_UTMI_OTG_STATUS);
 		val &= ~USBOTGSS_UTMI_OTG_STATUS_SESSEND;
 		val |= USBOTGSS_UTMI_OTG_STATUS_IDDIG
@@ -233,8 +234,9 @@ static int dwc3_otg_notifications(struct notifier_block *nb,
 				| USBOTGSS_UTMI_OTG_STATUS_IDDIG;
 		dwc3_writel(omap->base, USBOTGSS_UTMI_OTG_STATUS, val);
 
-		usb_phy_set_suspend(omap->usb2_phy, 1);
-		usb_phy_set_suspend(omap->usb3_phy, 1);
+		/* Give enough time for the core to process disconnect intr */
+		msleep(20);
+		dwc3_core_shutdown(&omap->dwc3->dev);
 
 		break;
 	default:
@@ -604,9 +606,6 @@ static int dwc3_omap_runtime_resume(struct device *dev)
 	struct platform_device	*pdev = to_platform_device(dev);
 	struct dwc3_omap	*omap = platform_get_drvdata(pdev);
 
-	usb_phy_set_suspend(omap->usb2_phy, 0);
-	usb_phy_set_suspend(omap->usb3_phy, 0);
-
 	omap_dwc3_enable(omap);
 
 	return 0;
@@ -618,9 +617,6 @@ static int dwc3_omap_runtime_suspend(struct device *dev)
 	struct dwc3_omap	*omap = platform_get_drvdata(pdev);
 
 	omap_dwc3_disable(omap);
-
-	usb_phy_set_suspend(omap->usb2_phy, 1);
-	usb_phy_set_suspend(omap->usb3_phy, 1);
 
 	return 0;
 }

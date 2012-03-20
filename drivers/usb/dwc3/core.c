@@ -269,6 +269,7 @@ static int __devinit dwc3_event_buffers_setup(struct dwc3 *dwc)
 				evt->buf, (unsigned long long) evt->dma,
 				evt->length);
 
+		evt->lpos = 0;
 		dwc3_writel(dwc->regs, DWC3_GEVNTADRLO(n),
 				lower_32_bits(evt->dma));
 		dwc3_writel(dwc->regs, DWC3_GEVNTADRHI(n),
@@ -311,25 +312,42 @@ static void __devinit dwc3_cache_hwparams(struct dwc3 *dwc)
 }
 
 /**
- * dwc3_core_init - Low-level initialization of DWC3 Core
- * @dwc: Pointer to our controller context structure
+ * dwc3_core_late_init - late initialization of DWC3 Core
+ * @dev: device pointer of dwc3 device
  *
- * Returns 0 on success otherwise negative errno.
+ * Enables the dwc3 module, performs reset and starts the gadget (enables
+ * the endpoint). This function should be called on demand i.e whenever dwc3
+ * is going to be used.
+ *
+ * Called from the glue layer on cable connect and when a gadget driver is
+ * inserted.
  */
-static int __devinit dwc3_core_init(struct dwc3 *dwc)
+int dwc3_core_late_init(struct device *dev)
 {
 	unsigned long		timeout;
 	u32			reg;
-	int			ret;
+	int			ret = 0;
+	unsigned long		flags;
+	struct platform_device	*pdev = to_platform_device(dev);
+	struct dwc3		*dwc = platform_get_drvdata(pdev);
 
-	reg = dwc3_readl(dwc->regs, DWC3_GSNPSID);
-	/* This should read as U3 followed by revision number */
-	if ((reg & DWC3_GSNPSID_MASK) != 0x55330000) {
-		dev_err(dwc->dev, "this is not a DesignWare USB3 DRD Core\n");
-		ret = -ENODEV;
-		goto err0;
+	pm_runtime_get_sync(dev);
+
+	spin_lock_irqsave(&dwc->lock, flags);
+
+	dwc->is_connected = true;
+
+	/* return if a gadget driver is not found on cable connect */
+	if (!dwc->gadget_driver) {
+		dev_dbg(dev, "%s is not bound to any driver\n",
+						dwc->gadget.name);
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		pm_runtime_put_sync(dev);
+		return -EINVAL;
 	}
-	dwc->revision = reg & DWC3_GSNPSREV_MASK;
+
+	usb_phy_set_suspend(dwc->usb2_phy, 0);
+	usb_phy_set_suspend(dwc->usb3_phy, 0);
 
 	dwc3_core_soft_reset(dwc);
 
@@ -349,6 +367,90 @@ static int __devinit dwc3_core_init(struct dwc3 *dwc)
 
 		cpu_relax();
 	} while (true);
+
+	ret = dwc3_event_buffers_setup(dwc);
+	if (ret) {
+		dev_err(dwc->dev, "failed to setup event buffers\n");
+		goto err0;
+	}
+
+	ret = dwc3_gadget_delayed_start(&dwc->gadget, dwc->gadget_driver);
+	if (ret) {
+		dev_err(dwc->dev, "failed to start the gadget\n");
+		goto err0;
+	}
+
+	dwc3_gadget_run_stop(dwc, true);
+
+err0:
+	spin_unlock_irqrestore(&dwc->lock, flags);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(dwc3_core_late_init);
+
+/**
+ * dwc3_core_shutdown - disables the DWC3 Core
+ * @dev: device pointer of dwc3 device
+ *
+ * Power off the phy and stop the dwc3 module. This function should be called
+ * as soon as the dwc3 module is not going to used.
+ *
+ * Called from the glue layer on cable dis-connect and when a gadget driver is
+ * removed
+ */
+int dwc3_core_shutdown(struct device *dev)
+{
+	unsigned long		flags;
+	struct platform_device	*pdev = to_platform_device(dev);
+	struct dwc3		*dwc = platform_get_drvdata(pdev);
+
+	spin_lock_irqsave(&dwc->lock, flags);
+
+	/* core should be already shutdown while removing the gadget driver */
+	if (!dwc->gadget_driver) {
+		dev_dbg(dev, "Core is already shutdown\n");
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		return -EINVAL;
+	}
+
+	dwc3_gadget_early_stop(&dwc->gadget, dwc->gadget_driver);
+
+	usb_phy_set_suspend(dwc->usb2_phy, 1);
+	usb_phy_set_suspend(dwc->usb3_phy, 1);
+
+	dwc3_gadget_run_stop(dwc, false);
+
+	dwc->is_connected = false;
+
+	spin_unlock_irqrestore(&dwc->lock, flags);
+
+	pm_runtime_mark_last_busy(dev);
+	pm_runtime_put_autosuspend(dev);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(dwc3_core_shutdown);
+
+/**
+ * dwc3_core_init - Low-level initialization of DWC3 Core
+ * @dwc: Pointer to our controller context structure
+ *
+ * Returns 0 on success otherwise negative errno.
+ */
+static int __devinit dwc3_core_init(struct dwc3 *dwc)
+{
+	u32			reg;
+	int			ret;
+
+	reg = dwc3_readl(dwc->regs, DWC3_GSNPSID);
+	/* This should read as U3 followed by revision number */
+	if ((reg & DWC3_GSNPSID_MASK) != 0x55330000) {
+		dev_err(dwc->dev, "this is not a DesignWare USB3 DRD Core\n");
+		ret = -ENODEV;
+		goto err0;
+	}
+	dwc->revision = reg & DWC3_GSNPSREV_MASK;
 
 	dwc3_cache_hwparams(dwc);
 
@@ -379,12 +481,6 @@ static int __devinit dwc3_core_init(struct dwc3 *dwc)
 	if (ret) {
 		dev_err(dwc->dev, "failed to allocate event buffers\n");
 		ret = -ENOMEM;
-		goto err1;
-	}
-
-	ret = dwc3_event_buffers_setup(dwc);
-	if (ret) {
-		dev_err(dwc->dev, "failed to setup event buffers\n");
 		goto err1;
 	}
 
@@ -464,6 +560,7 @@ static int __devinit dwc3_probe(struct platform_device *pdev)
 	dwc->irq	= irq;
 	dwc->usb2_phy	= pdata->usb2_phy;
 	dwc->usb3_phy	= pdata->usb3_phy;
+	dwc->is_connected = false;
 
 	if (!strncmp("super", maximum_speed, 5))
 		dwc->maximum_speed = DWC3_DCFG_SUPERSPEED;
@@ -488,7 +585,6 @@ static int __devinit dwc3_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
-	pm_runtime_forbid(&pdev->dev);
 
 	ret = dwc3_core_init(dwc);
 	if (ret) {
@@ -541,7 +637,7 @@ static int __devinit dwc3_probe(struct platform_device *pdev)
 		goto err5;
 	}
 
-	pm_runtime_allow(&pdev->dev);
+	pm_runtime_put_sync(&pdev->dev);
 
 	return 0;
 
@@ -585,7 +681,9 @@ static int __devexit dwc3_remove(struct platform_device *pdev)
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
-	pm_runtime_put(&pdev->dev);
+	if (!pm_runtime_suspended(&pdev->dev))
+		pm_runtime_put(&pdev->dev);
+
 	pm_runtime_disable(&pdev->dev);
 
 	dwc3_debugfs_exit(dwc);

@@ -646,6 +646,8 @@ struct dwc3 {
 
 	u8			test_mode;
 	u8			test_mode_nr;
+
+	u8			is_connected:1;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -793,5 +795,8 @@ void dwc3_gadget_exit(struct dwc3 *dwc);
 
 extern int dwc3_get_device_id(void);
 extern void dwc3_put_device_id(int id);
+
+extern int dwc3_core_late_init(struct device *dev);
+extern int dwc3_core_shutdown(struct device *dev);
 
 #endif /* __DRIVERS_USB_DWC3_CORE_H */
