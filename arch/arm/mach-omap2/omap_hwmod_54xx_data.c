@@ -5927,14 +5927,14 @@ static struct omap_hwmod_ocp_if *omap54xx_usb_otg_ss_masters[] = {
 
 static struct omap_hwmod_addr_space omap54xx_usb_otg_ss_addrs[] = {
 	{
-		.name           = "dwc_usb3",
-		.pa_start       = 0x4a030000,
-		.pa_end         = 0x4a03ffff,
-		.flags          = ADDR_TYPE_RT
-	}, {
 		.name           = "wrapper",
 		.pa_start       = 0x4a020000,
 		.pa_end         = 0x4a02ffff,
+		.flags          = ADDR_TYPE_RT
+	}, {
+		.name           = "dwc_usb3",
+		.pa_start       = 0x4a030000,
+		.pa_end         = 0x4a03ffff,
 		.flags          = ADDR_TYPE_RT
 	},
 	{ }
@@ -5976,6 +5976,7 @@ static struct omap_hwmod omap54xx_usb_otg_ss_hwmod = {
 	.slaves_cnt	= ARRAY_SIZE(omap54xx_usb_otg_ss_slaves),
 	.masters	= omap54xx_usb_otg_ss_masters,
 	.masters_cnt	= ARRAY_SIZE(omap54xx_usb_otg_ss_masters),
+	.flags		= HWMOD_SWSUP_SIDLE,
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP54XX),
 };
 

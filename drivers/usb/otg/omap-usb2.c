@@ -128,9 +128,6 @@ static int omap_usb2_init(struct usb_phy *x)
 
 	phy->nb.notifier_call = omap_usb_irq;
 
-	/* wkup CLK should be enabled always */
-	clk_enable(phy->wkupclk);
-
 	if (phy->rev_id == 1) {
 		phy->comparator		= get_phy_twl6030_companion(&phy->nb);
 		if (!phy->comparator) {
@@ -218,12 +215,14 @@ static int omap_usb2_suspend(struct usb_phy *x, int suspend)
 
 		pm_runtime_put_sync(phy->dev);
 		clk_disable(phy->optclk);
+		clk_disable(phy->wkupclk);
 
 		phy->is_suspended = 1;
 		if (phy->rev_id == 1 && phy->phy.last_event == USB_EVENT_NONE)
 			omap_usb2_power(phy, 0, 0);
 	} else if (!suspend && phy->is_suspended) {
 		clk_enable(phy->optclk);
+		clk_enable(phy->wkupclk);
 		pm_runtime_get_sync(phy->dev);
 
 		omap4plus_scm_phy_power(phy->scm_dev, 1);
