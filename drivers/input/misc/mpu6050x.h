@@ -151,7 +151,6 @@ struct mpu6050_gyro_data {
 	struct device *dev;
 	struct input_dev *input_dev;
 	struct mutex mutex;
-	bool opened;
 	bool suspended;
 };
 

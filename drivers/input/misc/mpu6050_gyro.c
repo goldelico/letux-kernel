@@ -96,41 +96,11 @@ static int mpu6050_gyro_read_xyz(struct mpu6050_gyro_data *data)
 	return 0;
 }
 
-static int mpu6050_gyro_open(struct input_dev *input_dev)
-{
-	struct mpu6050_gyro_data *data = input_get_drvdata(input_dev);
-
-	mutex_lock(&data->mutex);
-
-	if (!data->suspended)
-		mpu6050_gyro_set_standby(data, 0);
-
-	data->opened = true;
-
-	mutex_unlock(&data->mutex);
-
-	return 0;
-}
-
-static void mpu6050_gyro_close(struct input_dev *input_dev)
-{
-	struct mpu6050_gyro_data *data = input_get_drvdata(input_dev);
-
-	mutex_lock(&data->mutex);
-
-	if (!data->suspended)
-		mpu6050_gyro_set_standby(data, 1);
-
-	data->opened = false;
-
-	mutex_unlock(&data->mutex);
-}
-
 void mpu6050_gyro_suspend(struct mpu6050_gyro_data *data)
 {
 	mutex_lock(&data->mutex);
 
-	if (!data->suspended && data->opened)
+	if (!data->suspended)
 		mpu6050_gyro_set_standby(data, 1);
 
 	data->suspended = true;
@@ -144,7 +114,7 @@ void mpu6050_gyro_resume(struct mpu6050_gyro_data *data)
 {
 	mutex_lock(&data->mutex);
 
-	if (data->suspended && data->opened)
+	if (data->suspended)
 		mpu6050_gyro_set_standby(data, 0);
 
 	data->suspended = false;
@@ -208,8 +178,6 @@ struct mpu6050_gyro_data *mpu6050_gyro_init(const struct mpu6050_data *mpu_data)
 
 	input_dev->name = "mpu6050-gyroscope";
 	input_dev->id.bustype = mpu_data->bus_ops->bustype;
-	input_dev->open = mpu6050_gyro_open;
-	input_dev->close = mpu6050_gyro_close;
 
 	 __set_bit(EV_ABS, input_dev->evbit);
 
