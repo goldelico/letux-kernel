@@ -712,11 +712,46 @@ static int __devexit dwc3_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+
+static int dwc3_runtime_suspend(struct device *dev)
+{
+	struct platform_device	*pdev = to_platform_device(dev);
+	struct dwc3		*dwc = platform_get_drvdata(pdev);
+	struct dwc3_context_regs *context = &dwc->context;
+
+	context->gctl = dwc3_readl(dwc->regs, DWC3_GCTL);
+
+	return 0;
+}
+
+static int dwc3_runtime_resume(struct device *dev)
+{
+	struct platform_device	*pdev = to_platform_device(dev);
+	struct dwc3		*dwc = platform_get_drvdata(pdev);
+	struct dwc3_context_regs *context = &dwc->context;
+
+	dwc3_writel(dwc->regs, DWC3_GCTL, context->gctl);
+
+	return 0;
+}
+
+static const struct dev_pm_ops dwc3_pm_ops = {
+	.runtime_suspend	= dwc3_runtime_suspend,
+	.runtime_resume		= dwc3_runtime_resume,
+};
+
+#define DEV_PM_OPS	(&dwc3_pm_ops)
+#else
+#define DEV_PM_OPS	NULL
+#endif
+
 static struct platform_driver dwc3_driver = {
 	.probe		= dwc3_probe,
 	.remove		= __devexit_p(dwc3_remove),
 	.driver		= {
 		.name	= "dwc3",
+		.pm	= DEV_PM_OPS,
 	},
 };
 

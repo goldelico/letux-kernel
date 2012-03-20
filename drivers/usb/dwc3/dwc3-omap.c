@@ -284,6 +284,26 @@ static int omap_dwc3_exit(struct dwc3_omap *omap)
 	return 0;
 }
 
+static void dwc3_omap_enable_irqs(struct dwc3_omap *omap)
+{
+	u32	reg;
+
+	reg = USBOTGSS_IRQO_COREIRQ_ST;
+	dwc3_writel(omap->base, USBOTGSS_IRQENABLE_SET_0, reg);
+
+	reg = (USBOTGSS_IRQ1_OEVT |
+			USBOTGSS_IRQ1_DRVVBUS_RISE |
+			USBOTGSS_IRQ1_CHRGVBUS_RISE |
+			USBOTGSS_IRQ1_DISCHRGVBUS_RISE |
+			USBOTGSS_IRQ1_IDPULLUP_RISE |
+			USBOTGSS_IRQ1_DRVVBUS_FALL |
+			USBOTGSS_IRQ1_CHRGVBUS_FALL |
+			USBOTGSS_IRQ1_DISCHRGVBUS_FALL |
+			USBOTGSS_IRQ1_IDPULLUP_FALL);
+
+	dwc3_writel(omap->base, USBOTGSS_IRQENABLE_SET_1, reg);
+}
+
 static int __devinit dwc3_omap_probe(struct platform_device *pdev)
 {
 	struct dwc3_omap_data		*pdata = pdev->dev.platform_data;
@@ -540,12 +560,34 @@ static const struct of_device_id of_dwc3_matach[] = {
 };
 MODULE_DEVICE_TABLE(of, of_dwc3_matach);
 
+#ifdef CONFIG_PM
+
+static int dwc3_omap_runtime_resume(struct device *dev)
+{
+	struct platform_device	*pdev = to_platform_device(dev);
+	struct dwc3_omap	*omap = platform_get_drvdata(pdev);
+
+	dwc3_omap_enable_irqs(omap);
+
+	return 0;
+}
+
+static const struct dev_pm_ops dwc3_omap_pm_ops = {
+	.runtime_resume		= dwc3_omap_runtime_resume,
+};
+
+#define DEV_PM_OPS	(&dwc3_omap_pm_ops)
+#else
+#define DEV_PM_OPS	NULL
+#endif
+
 static struct platform_driver dwc3_omap_driver = {
 	.probe		= dwc3_omap_probe,
 	.remove		= __devexit_p(dwc3_omap_remove),
 	.driver		= {
 		.name	= "omap-dwc3",
 		.of_match_table	= of_dwc3_matach,
+		.pm	= DEV_PM_OPS,
 	},
 };
 
