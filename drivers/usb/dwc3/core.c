@@ -714,6 +714,20 @@ static int __devexit dwc3_remove(struct platform_device *pdev)
 
 #ifdef CONFIG_PM
 
+static int dwc3_suspend(struct device *dev)
+{
+	struct platform_device	*pdev = to_platform_device(dev);
+	struct dwc3		*dwc = platform_get_drvdata(pdev);
+
+	if (dwc->is_active) {
+		dev_err(dwc->dev, "can't suspend dwc3 when the device is "
+							"connected\n");
+		return -EBUSY;
+	}
+
+	return 0;
+}
+
 static int dwc3_runtime_suspend(struct device *dev)
 {
 	struct platform_device	*pdev = to_platform_device(dev);
@@ -737,6 +751,7 @@ static int dwc3_runtime_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops dwc3_pm_ops = {
+	.suspend		= dwc3_suspend,
 	.runtime_suspend	= dwc3_runtime_suspend,
 	.runtime_resume		= dwc3_runtime_resume,
 };

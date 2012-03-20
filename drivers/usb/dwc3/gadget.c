@@ -1958,6 +1958,8 @@ static void dwc3_gadget_disconnect_interrupt(struct dwc3 *dwc)
 
 	dwc3_gadget_enable_phys(dwc);
 	dwc->gadget.speed = USB_SPEED_UNKNOWN;
+
+	dwc->is_active = false;
 }
 
 static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
@@ -2136,6 +2138,7 @@ static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)
 		return;
 	}
 
+	dwc->is_active = true;
 	/*
 	 * Configure PHY via GUSB3PIPECTLn if required.
 	 *
