@@ -563,41 +563,41 @@ static ssize_t mpu6050_accel_store_attr_fsr(struct device *dev,
 	return count;
 }
 
-static DEVICE_ATTR(fsr, S_IWUSR | S_IRUGO,
+static DEVICE_ATTR(accel_fsr, S_IWUSR | S_IRUGO,
 		mpu6050_accel_show_attr_fsr,
 		mpu6050_accel_store_attr_fsr);
 
-static DEVICE_ATTR(hpf, S_IWUSR | S_IRUGO,
+static DEVICE_ATTR(accel_hpf, S_IWUSR | S_IRUGO,
 		mpu6050_accel_show_attr_hpf,
 		mpu6050_accel_store_attr_hpf);
 
-static DEVICE_ATTR(ast, S_IWUSR | S_IRUGO, NULL,
+static DEVICE_ATTR(accel_ast, S_IWUSR | S_IRUGO, NULL,
 		mpu6050_accel_store_attr_ast);
 
-static DEVICE_ATTR(confmode, S_IWUSR | S_IRUGO,
+static DEVICE_ATTR(accel_confmode, S_IWUSR | S_IRUGO,
 		mpu6050_accel_show_attr_confmode,
 		mpu6050_accel_store_attr_confmode);
 
-static DEVICE_ATTR(modedur, S_IWUSR | S_IRUGO,
+static DEVICE_ATTR(accel_modedur, S_IWUSR | S_IRUGO,
 		mpu6050_accel_show_attr_modedur,
 		mpu6050_accel_store_attr_modedur);
 
-static DEVICE_ATTR(modethr, S_IWUSR | S_IRUGO,
+static DEVICE_ATTR(accel_modethr, S_IWUSR | S_IRUGO,
 		mpu6050_accel_show_attr_modethr,
 		mpu6050_accel_store_attr_modethr);
-static DEVICE_ATTR(enable, S_IWUSR | S_IRUGO,
+static DEVICE_ATTR(accel_enable, S_IWUSR | S_IRUGO,
 		mpu6050_accel_show_attr_enable,
 		mpu6050_accel_store_attr_enable);
 
 
 static struct attribute *mpu6050_accel_attrs[] = {
-	&dev_attr_fsr.attr,
-	&dev_attr_hpf.attr,
-	&dev_attr_ast.attr,
-	&dev_attr_confmode.attr,
-	&dev_attr_modedur.attr,
-	&dev_attr_modethr.attr,
-	&dev_attr_enable.attr,
+	&dev_attr_accel_fsr.attr,
+	&dev_attr_accel_hpf.attr,
+	&dev_attr_accel_ast.attr,
+	&dev_attr_accel_confmode.attr,
+	&dev_attr_accel_modedur.attr,
+	&dev_attr_accel_modethr.attr,
+	&dev_attr_accel_enable.attr,
 	NULL,
 };
 
