@@ -38,30 +38,32 @@ static struct usb_dpll_params omap_usb3_dpll_params[NUM_SYS_CLKS] = {
 	{3125, 47, 4, 20, 92843},	/* 38.4 MHz */
 };
 
-static int omap_usb3_init(struct usb_phy *x)
-{
-	struct omap_usb	*phy = phy_to_omapusb(x);
-
-	omap5_scm_usb3_phy_power(phy->scm_dev, 1);
-
-	/* wkup CLK should be enabled always */
-	clk_enable(phy->wkupclk);
-
-	return 0;
-}
-
 static int omap_usb3_suspend(struct usb_phy *x, int suspend)
 {
+	u32		val;
 	struct omap_usb *phy = phy_to_omapusb(x);
 
 	if (suspend && !phy->is_suspended) {
 		pm_runtime_put_sync(phy->dev);
 		clk_disable(phy->optclk);
+		clk_disable(phy->wkupclk);
+
+		val = omap_usb_readl(phy->pll_ctrl_base, PLL_CONFIGURATION2);
+		val |= PLL_IDLE;
+		omap_usb_writel(phy->pll_ctrl_base, PLL_CONFIGURATION2, val);
+
+		omap5_scm_usb3_phy_power(phy->scm_dev, 0);
+
 		phy->is_suspended	= 1;
 	} else if (!suspend && phy->is_suspended) {
 		phy->is_suspended	= 0;
+		clk_enable(phy->wkupclk);
 		clk_enable(phy->optclk);
 		pm_runtime_get_sync(phy->dev);
+
+		val = omap_usb_readl(phy->pll_ctrl_base, PLL_CONFIGURATION2);
+		val &= ~PLL_IDLE;
+		omap_usb_writel(phy->pll_ctrl_base, PLL_CONFIGURATION2, val);
 	}
 
 	return 0;
@@ -97,7 +99,7 @@ static void omap_usb_dpll_relock(struct omap_usb *phy)
 		val = omap_usb_readl(phy->pll_ctrl_base, PLL_STATUS);
 		if (val & PLL_LOCK)
 			break;
-	} while (!time_after(jiffies, timeout));
+	} while (!WARN_ON(time_after(jiffies, timeout)));
 }
 
 static int omap_usb_dpll_lock(struct omap_usb *phy)
@@ -122,7 +124,6 @@ static int omap_usb_dpll_lock(struct omap_usb *phy)
 		return -EINVAL;
 	}
 
-	pm_runtime_get_sync(phy->dev);
 	val = omap_usb_readl(phy->pll_ctrl_base, PLL_CONFIGURATION1);
 	val &= ~PLL_REGN_MASK;
 	val |= omap_usb3_dpll_params[clk_index].n << PLL_REGN_SHIFT;
@@ -149,7 +150,16 @@ static int omap_usb_dpll_lock(struct omap_usb *phy)
 	omap_usb_writel(phy->pll_ctrl_base, PLL_CONFIGURATION3, val);
 
 	omap_usb_dpll_relock(phy);
-	pm_runtime_put_sync(phy->dev);
+
+	return 0;
+}
+
+static int omap_usb3_init(struct usb_phy *x)
+{
+	struct omap_usb	*phy = phy_to_omapusb(x);
+
+	omap_usb_dpll_lock(phy);
+	omap5_scm_usb3_phy_power(phy->scm_dev, 1);
 
 	return 0;
 }
@@ -202,8 +212,6 @@ static int __devinit omap_usb3_probe(struct platform_device *pdev)
 	ATOMIC_INIT_NOTIFIER_HEAD(&phy->phy.notifier);
 
 	pm_runtime_enable(phy->dev);
-
-	omap_usb_dpll_lock(phy);
 
 	return 0;
 }
