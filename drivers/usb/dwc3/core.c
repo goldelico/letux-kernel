@@ -407,6 +407,8 @@ int dwc3_core_shutdown(struct device *dev)
 
 	spin_lock_irqsave(&dwc->lock, flags);
 
+	dwc->is_connected = false;
+
 	/* core should be already shutdown while removing the gadget driver */
 	if (!dwc->gadget_driver) {
 		dev_dbg(dev, "Core is already shutdown\n");
@@ -420,8 +422,6 @@ int dwc3_core_shutdown(struct device *dev)
 	usb_phy_set_suspend(dwc->usb3_phy, 1);
 
 	dwc3_gadget_run_stop(dwc, false);
-
-	dwc->is_connected = false;
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
