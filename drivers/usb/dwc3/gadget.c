@@ -1508,6 +1508,8 @@ int dwc3_gadget_early_stop(struct usb_gadget *g,
 	__dwc3_gadget_ep_disable(dwc->eps[0]);
 	__dwc3_gadget_ep_disable(dwc->eps[1]);
 
+	dwc->is_active = false;
+
 	return 0;
 }
 
@@ -1964,8 +1966,6 @@ static void dwc3_gadget_disconnect_interrupt(struct dwc3 *dwc)
 
 	dwc3_gadget_enable_phys(dwc);
 	dwc->gadget.speed = USB_SPEED_UNKNOWN;
-
-	dwc->is_active = false;
 }
 
 static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
