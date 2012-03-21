@@ -76,6 +76,7 @@ enum sys_clk_rate {
 #define	PLL_SD_SHIFT		0x9
 #define	SET_PLL_GO		0x1
 #define	PLL_LOCK		0x2
+#define	PLL_IDLE		0x1
 
 struct omap_usb_platform_data {
 	u8	rev_id;
