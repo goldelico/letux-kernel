@@ -1485,13 +1485,16 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 	dwc->gadget_driver	= driver;
 	dwc->gadget.dev.driver	= &driver->driver;
 
-	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	if (dwc->is_connected) {
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		ret = dwc3_core_late_init(dwc->dev);
 		if (ret)
 			dev_vdbg(dwc->dev, "core init failed\n");
+		spin_lock_irqsave(&dwc->lock, flags);
 	}
+
+	spin_unlock_irqrestore(&dwc->lock, flags);
 
 err0:
 	return ret;
@@ -1514,14 +1517,17 @@ static int dwc3_gadget_stop(struct usb_gadget *g,
 	struct dwc3		*dwc = gadget_to_dwc(g);
 	unsigned long		flags;
 
+	spin_lock_irqsave(&dwc->lock, flags);
+
 	if (dwc->is_connected) {
+		spin_unlock_irqrestore(&dwc->lock, flags);
+
 		dwc3_core_shutdown(dwc->dev);
 
+		spin_lock_irqsave(&dwc->lock, flags);
 		/* This is to indicate the cable is still connected */
 		dwc->is_connected = true;
 	}
-
-	spin_lock_irqsave(&dwc->lock, flags);
 
 	dwc->gadget_driver	= NULL;
 	dwc->gadget.dev.driver	= NULL;
