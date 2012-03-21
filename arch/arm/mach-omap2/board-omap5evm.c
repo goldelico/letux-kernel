@@ -1515,6 +1515,21 @@ static void omap_5430evm_bluetooth_init(void)
 }
 
 /*
+ * McBSP2 is shared between the WiLink for FM and the Modem for voice.
+*/
+static void omap_mcbsp2_mux_init(void)
+{
+	omap_mux_init_signal("abemcbsp2_dr",
+		OMAP_PIN_INPUT | OMAP_PIN_OFF_INPUT_PULLDOWN);
+	omap_mux_init_signal("abemcbsp2_dx",
+		OMAP_PIN_INPUT_PULLDOWN | OMAP_PIN_OFF_OUTPUT_LOW);
+	omap_mux_init_signal("abemcbsp2_fsx",
+		OMAP_PIN_INPUT | OMAP_PIN_OFF_INPUT_PULLDOWN);
+	omap_mux_init_signal("abemcbsp2_clkx",
+		OMAP_PIN_INPUT | OMAP_PIN_OFF_INPUT_PULLDOWN);
+}
+
+/*
  * HSI usage is declared using bootargs variable:
  * board-omap5evm.modem_ipc=hsi
  * Variable modem_ipc is used to catch bootargs parameter value.
@@ -1554,6 +1569,7 @@ static void __init omap_5430evm_init(void)
 	omap5_sdp5430_wifi_init();
 
 	omap2_hsmmc_init(mmc);
+	omap_mcbsp2_mux_init();
 
 	/* omap5evm_modem_init shall be called before omap_ehci_ohci_init */
 	if (!strcmp(modem_ipc, "hsi"))
