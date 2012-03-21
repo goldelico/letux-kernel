@@ -203,6 +203,10 @@ struct mpu6050_gyro_data *mpu6050_gyro_init(const struct mpu6050_data *mpu_data)
 	}
 	error = sysfs_create_group(&mpu_data->client->dev.kobj,
 					&mpu6050_gyro_attr_group);
+
+	/* Set the device in stand-by-mode by default */
+	mpu6050_gyro_set_standby(gyro_data, 1);
+
 	return gyro_data;
 
 err_free_mem:
