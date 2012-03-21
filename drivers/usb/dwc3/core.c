@@ -751,9 +751,8 @@ static int dwc3_runtime_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops dwc3_pm_ops = {
-	.suspend		= dwc3_suspend,
-	.runtime_suspend	= dwc3_runtime_suspend,
-	.runtime_resume		= dwc3_runtime_resume,
+	SET_SYSTEM_SLEEP_PM_OPS(dwc3_suspend, NULL)
+	SET_RUNTIME_PM_OPS(dwc3_runtime_suspend, dwc3_runtime_resume, NULL)
 };
 
 #define DEV_PM_OPS	(&dwc3_pm_ops)
