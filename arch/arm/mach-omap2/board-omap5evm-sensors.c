@@ -54,6 +54,7 @@ static struct mpu6050_platform_data mpu6050_platform_data = {
 		.irqflags = IRQF_TRIGGER_HIGH,
 	},
 	.mpu6050_gyro = {
+		.def_poll_rate = 200,
 		.x_axis = 2,
 		.y_axis = 2,
 		.z_axis = 2,
