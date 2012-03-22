@@ -171,17 +171,6 @@ static struct omap_opp_def __initdata omap54xx_opp_def_list[] = {
 	/* L3 OPP2 - OPPNOM */
 	OPP_INITIALIZER("l3_main_1", "virt_l3_ck", "core", true, 266000000, OMAP5430_VDD_CORE_OPP_NOM),
 	/* TODO: Uncomment the following once we have drivers for them */
-#if 0
-	/* MMC1 OPP1 - OPPLOW */
-	OPP_INITIALIZER("mmc1", "mmc1_fclk", "core", true, 96000000, OMAP5430_VDD_CORE_OPP_LOW),
-	/* MMC1 OPP2 - OPPNOM */
-	OPP_INITIALIZER("mmc1", "mmc1_fclk", "core", true, 192000000, OMAP5430_VDD_CORE_OPP_NOM),
-
-	/* MMC2 OPP1 - OPPLOW */
-	OPP_INITIALIZER("mmc2", "mmc2_fclk", "core", true, 96000000, OMAP5430_VDD_CORE_OPP_LOW),
-	/* MMC2 OPP2 - OPPNOM */
-	OPP_INITIALIZER("mmc2", "mmc2_fclk", "core", true, 192000000, OMAP5430_VDD_CORE_OPP_NOM),
-#endif
 
 	/* FDIF OPP1 - OPPLOW */
 	OPP_INITIALIZER("fdif", "fdif_fclk", "core", true, 64000000, OMAP5430_VDD_CORE_OPP_LOW),
@@ -201,6 +190,17 @@ static struct omap_opp_def __initdata omap54xx_opp_def_list[] = {
 #endif
 
 #ifndef CONFIG_OMAP_PM_STANDALONE
+	/* MMC1 OPP1 - OPPLOW */
+	OPP_INITIALIZER("mmc1", "mmc1_fclk", "core", true, 96000000, OMAP5430_VDD_CORE_OPP_LOW),
+	/* MMC1 OPP2 - OPPNOM */
+	OPP_INITIALIZER("mmc1", "mmc1_fclk", "core", true, 192000000, OMAP5430_VDD_CORE_OPP_NOM),
+
+	/* MMC2 OPP1 - OPPLOW */
+	OPP_INITIALIZER("mmc2", "mmc2_fclk", "core", true, 96000000, OMAP5430_VDD_CORE_OPP_LOW),
+	/* MMC2 OPP2 - OPPNOM */
+	OPP_INITIALIZER("mmc2", "mmc2_fclk", "core", true, 192000000, OMAP5430_VDD_CORE_OPP_NOM),
+
+
 	/* IVA OPP1 - OPPLOW */
 	OPP_INITIALIZER("iva", "dpll_iva_h12x2_ck", "mm", true, 194200000, OMAP5430_VDD_MM_OPP_LOW),
 	/* IVA OPP2 - OPPNOM */

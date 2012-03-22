@@ -50,6 +50,7 @@ obj-$(CONFIG_SOC_OMAP2420)		+= mux2420.o
 obj-$(CONFIG_SOC_OMAP2430)		+= mux2430.o
 obj-$(CONFIG_ARCH_OMAP3)		+= mux34xx.o
 obj-$(CONFIG_ARCH_OMAP4)		+= mux44xx.o
+obj-$(CONFIG_ARCH_OMAP5)		+= mux54xx.o
 
 # SMS/SDRC
 obj-$(CONFIG_ARCH_OMAP2)		+= sdrc2xxx.o
@@ -64,7 +65,7 @@ obj-$(CONFIG_ARCH_OMAP5)		+= opp5xxx_data.o
 endif
 
 # CPUFREQ driver
-obj-$(CONFIG_CPU_FREQ)                  += omap2plus-cpufreq.o
+obj-$(CONFIG_CPU_FREQ)                  += omap2plus-cpufreq.o dvfs.o
 
 # Power Management
 ifeq ($(CONFIG_PM),y)
@@ -93,7 +94,7 @@ endif
 obj-y					+= prm_common.o
 obj-$(CONFIG_ARCH_OMAP2)		+= prcm.o cm2xxx_3xxx.o prm2xxx_3xxx.o
 obj-$(CONFIG_ARCH_OMAP3)		+= prcm.o cm2xxx_3xxx.o prm2xxx_3xxx.o \
-					   vc3xxx_data.o vp3xxx_data.o dvfs.o \
+					   vc3xxx_data.o vp3xxx_data.o \
 					   abb36xx_data.o
 # XXX The presence of cm2xxx_3xxx.o on the line below is temporary and
 # will be removed once the OMAP4 part of the codebase is converted to
@@ -101,12 +102,12 @@ obj-$(CONFIG_ARCH_OMAP3)		+= prcm.o cm2xxx_3xxx.o prm2xxx_3xxx.o \
 obj-$(CONFIG_ARCH_OMAP4)		+= prcm.o cm2xxx_3xxx.o cminst44xx.o \
 					   cm44xx.o prcm_mpu44xx.o \
 					   prminst44xx.o vc44xx_data.o \
-					   vp44xx_data.o dvfs.o abb44xx_data.o \
+					   vp44xx_data.o abb44xx_data.o \
 					   prm44xx.o scrm44xx.o omap-sar.o
 obj-$(CONFIG_ARCH_OMAP5)                += prcm.o cm2xxx_3xxx.o cminst44xx.o \
                                            cm44xx.o prcm_mpu44xx.o \
                                            prminst44xx.o vc54xx_data.o \
-                                           vp54xx_data.o dvfs.o abb54xx_data.o \
+                                           vp54xx_data.o abb54xx_data.o \
 					   prm44xx.o scrm44xx.o omap-sar.o
 
 # OMAP voltage domains

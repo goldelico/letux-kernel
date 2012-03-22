@@ -194,7 +194,7 @@ static struct omap_device_pad default_uart3_pads[] __initdata = {
 		.enable	= OMAP_PIN_INPUT_PULLUP | OMAP_MUX_MODE0,
 	},
 	{
-		.name	= "uart3_rts_sd.uart3_rts_sd",
+		.name	= "uart3_rts_irsd.uart3_rts_irsd",
 		.enable	= OMAP_PIN_OUTPUT | OMAP_MUX_MODE0,
 	},
 	{
@@ -499,14 +499,6 @@ void __init omap_serial_board_init(struct omap_uart_port_info *info)
 			omap_serial_init_port(&bdata, NULL);
 		else
 			omap_serial_init_port(&bdata, &info[uart->num]);
-	}
-
-	/* XXX: temporary hack to enable wakeup for UART3 RX pad */
-	if (cpu_is_omap54xx()) {
-		u32 val;
-		val = omap_readl(0x4a0029dc);
-		val |= 0x4000;
-		omap_writel(val, 0x4a0029dc);
 	}
 }
 

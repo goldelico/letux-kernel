@@ -348,6 +348,9 @@ static int __init omap_hsmmc_pdata_init(struct omap2_hsmmc_info *c,
 							cpu_is_omap54xx())
 		mmc->slots[0].features |= HSMMC_HAS_UPDATED_RESET;
 
+	if (cpu_is_omap54xx())
+		mmc->slots[0].features |= HSMMC_DVFS;
+
 	switch (c->mmc) {
 	case 1:
 		if (mmc->slots[0].features & HSMMC_HAS_PBIAS) {
