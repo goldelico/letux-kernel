@@ -209,11 +209,11 @@ static void dwc3_free_event_buffers(struct dwc3 *dwc)
 
 	for (i = 0; i < dwc->num_event_buffers; i++) {
 		evt = dwc->ev_buffs[i];
-		if (evt) {
+		if (evt)
 			dwc3_free_one_event_buffer(dwc, evt);
-			dwc->ev_buffs[i] = NULL;
-		}
 	}
+
+	kfree(dwc->ev_buffs);
 }
 
 /**
@@ -345,7 +345,7 @@ int dwc3_core_late_init(struct device *dev)
 		pm_runtime_put_sync(dev);
 		return -EINVAL;
 	}
-
+	dwc->revision = reg;
 	usb_phy_set_suspend(dwc->usb2_phy, 0);
 	usb_phy_set_suspend(dwc->usb3_phy, 0);
 
@@ -407,6 +407,8 @@ int dwc3_core_shutdown(struct device *dev)
 
 	spin_lock_irqsave(&dwc->lock, flags);
 
+	dwc->is_connected = false;
+
 	/* core should be already shutdown while removing the gadget driver */
 	if (!dwc->gadget_driver) {
 		dev_dbg(dev, "Core is already shutdown\n");
@@ -420,8 +422,6 @@ int dwc3_core_shutdown(struct device *dev)
 	usb_phy_set_suspend(dwc->usb3_phy, 1);
 
 	dwc3_gadget_run_stop(dwc, false);
-
-	dwc->is_connected = false;
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
@@ -751,9 +751,8 @@ static int dwc3_runtime_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops dwc3_pm_ops = {
-	.suspend		= dwc3_suspend,
-	.runtime_suspend	= dwc3_runtime_suspend,
-	.runtime_resume		= dwc3_runtime_resume,
+	SET_SYSTEM_SLEEP_PM_OPS(dwc3_suspend, NULL)
+	SET_RUNTIME_PM_OPS(dwc3_runtime_suspend, dwc3_runtime_resume, NULL)
 };
 
 #define DEV_PM_OPS	(&dwc3_pm_ops)
