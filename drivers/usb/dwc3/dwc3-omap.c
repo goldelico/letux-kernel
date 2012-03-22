@@ -198,6 +198,7 @@ static int dwc3_otg_notifications(struct notifier_block *nb,
 
 		dwc3_core_late_init(&omap->dwc3->dev);
 
+		pm_runtime_get_sync(omap->dev);
 		val = dwc3_readl(omap->base, USBOTGSS_UTMI_OTG_STATUS);
 		val &= ~(USBOTGSS_UTMI_OTG_STATUS_IDDIG
 				| USBOTGSS_UTMI_OTG_STATUS_VBUSVALID
@@ -205,6 +206,7 @@ static int dwc3_otg_notifications(struct notifier_block *nb,
 		val |= USBOTGSS_UTMI_OTG_STATUS_SESSVALID
 				| USBOTGSS_UTMI_OTG_STATUS_POWERPRESENT;
 		dwc3_writel(omap->base, USBOTGSS_UTMI_OTG_STATUS, val);
+		pm_runtime_put_sync(omap->dev);
 
 		break;
 
@@ -213,6 +215,7 @@ static int dwc3_otg_notifications(struct notifier_block *nb,
 
 		dwc3_core_late_init(&omap->dwc3->dev);
 
+		pm_runtime_get_sync(omap->dev);
 		val = dwc3_readl(omap->base, USBOTGSS_UTMI_OTG_STATUS);
 		val &= ~USBOTGSS_UTMI_OTG_STATUS_SESSEND;
 		val |= USBOTGSS_UTMI_OTG_STATUS_IDDIG
@@ -220,12 +223,14 @@ static int dwc3_otg_notifications(struct notifier_block *nb,
 				| USBOTGSS_UTMI_OTG_STATUS_SESSVALID
 				| USBOTGSS_UTMI_OTG_STATUS_POWERPRESENT;
 		dwc3_writel(omap->base, USBOTGSS_UTMI_OTG_STATUS, val);
+		pm_runtime_put_sync(omap->dev);
 
 		break;
 
 	case USB_EVENT_NONE:
 		dev_dbg(omap->dev, "VBUS Disconnect\n");
 
+		pm_runtime_get_sync(omap->dev);
 		val = dwc3_readl(omap->base, USBOTGSS_UTMI_OTG_STATUS);
 		val &= ~(USBOTGSS_UTMI_OTG_STATUS_SESSVALID
 				| USBOTGSS_UTMI_OTG_STATUS_VBUSVALID
@@ -233,6 +238,7 @@ static int dwc3_otg_notifications(struct notifier_block *nb,
 		val |= USBOTGSS_UTMI_OTG_STATUS_SESSEND
 				| USBOTGSS_UTMI_OTG_STATUS_IDDIG;
 		dwc3_writel(omap->base, USBOTGSS_UTMI_OTG_STATUS, val);
+		pm_runtime_put_sync(omap->dev);
 
 		/* Give enough time for the core to process disconnect intr */
 		msleep(20);
@@ -573,7 +579,7 @@ static int dwc3_omap_runtime_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops dwc3_omap_pm_ops = {
-	.runtime_resume		= dwc3_omap_runtime_resume,
+	SET_RUNTIME_PM_OPS(NULL, dwc3_omap_runtime_resume, NULL)
 };
 
 #define DEV_PM_OPS	(&dwc3_omap_pm_ops)
