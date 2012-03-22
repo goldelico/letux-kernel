@@ -63,7 +63,7 @@ static int mpu6050_gyro_reset(struct mpu6050_gyro_data *data)
 	return 0;
 }
 
-static int mpu6050_gyro_read_xyz(struct mpu6050_gyro_data *data)
+static void mpu6050_gyro_read_xyz(struct mpu6050_gyro_data *data)
 {
 	int range;
 	s16 datax, datay, dataz;
@@ -93,7 +93,6 @@ static int mpu6050_gyro_read_xyz(struct mpu6050_gyro_data *data)
 	input_report_abs(data->input_dev, ABS_Z, dataz);
 	input_sync(data->input_dev);
 
-	return 0;
 }
 
 static void mpu6050_gyro_input_work(struct work_struct *work)
@@ -133,23 +132,6 @@ void mpu6050_gyro_resume(struct mpu6050_gyro_data *data)
 }
 EXPORT_SYMBOL(mpu6050_gyro_resume);
 
-/**
- * mpu6050_gyro_show_attr_xyz - Reports x,y,z axis events to input device
- * @dev: device entry
- * @attr: device attribute entry
- * @buf: pointer to the buffer which holds threshold duartion value.
- *
- * Returns '0' on success.
- */
-static ssize_t mpu6050_gyro_show_attr_xyz(struct device *dev,
-			struct device_attribute *attr, char *buf)
-{
-	struct platform_device *pdev = to_platform_device(dev);
-	struct mpu6050_data *mpu_data = platform_get_drvdata(pdev);
-	struct mpu6050_gyro_data *data = mpu_data->gyro_data;
-
-	return  mpu6050_gyro_read_xyz(data);
-}
 
 /**
  * mpu6050_gyro_show_attr_enable - sys entry to show gyro enable state.
@@ -216,14 +198,11 @@ static ssize_t mpu6050_gyro_store_attr_enable(struct device *dev,
 	return count;
 }
 
-static DEVICE_ATTR(xyz, S_IWUSR | S_IRUGO,
-				mpu6050_gyro_show_attr_xyz, NULL);
 static DEVICE_ATTR(gyro_enable, S_IWUSR | S_IRUGO,
 				mpu6050_gyro_show_attr_enable,
 				mpu6050_gyro_store_attr_enable);
 
 static struct attribute *mpu6050_gyro_attrs[] = {
-	&dev_attr_xyz.attr,
 	&dev_attr_gyro_enable.attr,
 	NULL,
 };
