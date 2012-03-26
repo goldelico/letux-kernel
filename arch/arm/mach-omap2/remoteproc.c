@@ -120,7 +120,11 @@ static struct omap_rproc_pdata omap4_rproc_data[] = {
 		.iommu_name	= "tesla",
 		.firmware	= "tesla-dsp.bin",
 		.oh_name	= "dsp_c0",
+#ifdef CONFIG_ARCH_OMAP5
 		.clkdm_name	= "dsp_clkdm",
+#else
+		.clkdm_name     = "tesla_clkdm",
+#endif
 		.timers		= dsp_timers,
 		.timers_cnt	= ARRAY_SIZE(dsp_timers),
 		.idle_addr	= OMAP4430_CM_DSP_DSP_CLKCTRL,
