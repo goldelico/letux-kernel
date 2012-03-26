@@ -1486,11 +1486,11 @@ int soc_dsp_fe_dai_prepare(struct snd_pcm_substream *substream)
 	if (stream == SNDRV_PCM_STREAM_PLAYBACK)
 		soc_dsp_dapm_stream_event(fe, stream,
 				fe->cpu_dai->driver->playback.stream_name,
-				SNDRV_PCM_TRIGGER_START);
+				SND_SOC_DAPM_STREAM_START);
 	else
 		soc_dsp_dapm_stream_event(fe, stream,
 				fe->cpu_dai->driver->capture.stream_name,
-				SNDRV_PCM_TRIGGER_START);
+				SND_SOC_DAPM_STREAM_START);
 
 	fe->dsp[stream].state = SND_SOC_DSP_STATE_PREPARE;
 
@@ -1590,7 +1590,8 @@ static void soc_dsp_dapm_be_start_stream_event(struct snd_soc_pcm_runtime *fe,
 		dev_dbg(&be->dev, "dapm: BE %s stream %s start dir %d\n",
 				be->dai_link->name, stream, dir);
 
-		snd_soc_dapm_stream_event(be, stream, SNDRV_PCM_TRIGGER_START);
+		snd_soc_dapm_stream_event(be, stream,
+					SND_SOC_DAPM_STREAM_START);
 	}
 }
 
@@ -1609,7 +1610,7 @@ static void soc_dsp_dapm_be_stop_stream_event(struct snd_soc_pcm_runtime *fe,
 		dev_dbg(&be->dev, "dapm: BE %s stream %s stop dir %d\n",
 				be->dai_link->name, stream, dir);
 
-		snd_soc_dapm_stream_event(be, stream, SNDRV_PCM_TRIGGER_STOP);
+		snd_soc_dapm_stream_event(be, stream, SND_SOC_DAPM_STREAM_STOP);
 	}
 }
 
@@ -1622,7 +1623,7 @@ int soc_dsp_dapm_stream_event(struct snd_soc_pcm_runtime *fe,
 	dev_dbg(&fe->dev, "dapm: FE %s stream %s event %d dir %d\n",
 				fe->dai_link->name, stream, event, dir);
 
-	if (event == SNDRV_PCM_TRIGGER_START)
+	if (event == SND_SOC_DAPM_STREAM_START)
 		soc_dsp_dapm_be_start_stream_event(fe, dir, stream);
 	else
 		soc_dsp_dapm_be_stop_stream_event(fe, dir, stream);
@@ -1672,11 +1673,11 @@ static int dsp_run_update_shutdown(struct snd_soc_pcm_runtime *fe, int stream)
 	if (stream == SNDRV_PCM_STREAM_PLAYBACK)
 		soc_dsp_dapm_stream_event(fe, stream,
 				fe->cpu_dai->driver->playback.stream_name,
-				SNDRV_PCM_TRIGGER_STOP);
+				SND_SOC_DAPM_STREAM_STOP);
 	else
 		soc_dsp_dapm_stream_event(fe, stream,
 				fe->cpu_dai->driver->capture.stream_name,
-				SNDRV_PCM_TRIGGER_STOP);
+				SND_SOC_DAPM_STREAM_STOP);
 
 	return 0;
 }
@@ -1713,11 +1714,11 @@ static int dsp_run_update_startup(struct snd_soc_pcm_runtime *fe, int stream)
 	if (stream == SNDRV_PCM_STREAM_PLAYBACK)
 		soc_dsp_dapm_stream_event(fe, stream,
 				fe->cpu_dai->driver->playback.stream_name,
-				SNDRV_PCM_TRIGGER_START);
+				SND_SOC_DAPM_STREAM_START);
 	else
 		soc_dsp_dapm_stream_event(fe, stream,
 				fe->cpu_dai->driver->capture.stream_name,
-				SNDRV_PCM_TRIGGER_START);
+				SND_SOC_DAPM_STREAM_START);
 
 	if (dsp_link->trigger[stream] == SND_SOC_DSP_TRIGGER_BESPOKE) {
 		/* call trigger on the frontend - FE takes care of all BE triggers */
@@ -1747,11 +1748,11 @@ stream_stop:
 	if (stream == SNDRV_PCM_STREAM_PLAYBACK)
 		soc_dsp_dapm_stream_event(fe, stream,
 				fe->cpu_dai->driver->playback.stream_name,
-				SNDRV_PCM_TRIGGER_STOP);
+				SND_SOC_DAPM_STREAM_STOP);
 	else
 		soc_dsp_dapm_stream_event(fe, stream,
 				fe->cpu_dai->driver->capture.stream_name,
-				SNDRV_PCM_TRIGGER_STOP);
+				SND_SOC_DAPM_STREAM_STOP);
 hw_free:
 	soc_dsp_be_dai_hw_free(fe, stream);
 close:
