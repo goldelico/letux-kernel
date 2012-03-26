@@ -75,6 +75,7 @@ struct mpu6050_accel_platform_data {
  */
 
 struct mpu6050_gyro_platform_data {
+	uint32_t def_poll_rate;
 	int x_axis;
 	int y_axis;
 	int z_axis;

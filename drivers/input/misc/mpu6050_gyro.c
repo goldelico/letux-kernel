@@ -96,6 +96,16 @@ static int mpu6050_gyro_read_xyz(struct mpu6050_gyro_data *data)
 	return 0;
 }
 
+static void mpu6050_gyro_input_work(struct work_struct *work)
+{
+	struct mpu6050_gyro_data *gyro = container_of((struct delayed_work *)work,
+				struct mpu6050_gyro_data, input_work);
+
+	mpu6050_gyro_read_xyz(gyro);
+	schedule_delayed_work(&gyro->input_work,
+			msecs_to_jiffies(gyro->req_poll_rate));
+}
+
 void mpu6050_gyro_suspend(struct mpu6050_gyro_data *data)
 {
 	mutex_lock(&data->mutex);
@@ -194,10 +204,12 @@ static ssize_t mpu6050_gyro_store_attr_enable(struct device *dev,
 		if (!data->suspended)
 			mpu6050_gyro_set_standby(data, 0);
 		data->enabled = 1;
+		schedule_delayed_work(&data->input_work, 0);
 	} else {
 		if (!data->suspended)
 			mpu6050_gyro_set_standby(data, 1);
 		data->enabled = 0;
+		cancel_delayed_work_sync(&data->input_work);
 	}
 	mutex_unlock(&data->mutex);
 
@@ -234,6 +246,7 @@ struct mpu6050_gyro_data *mpu6050_gyro_init(const struct mpu6050_data *mpu_data)
 		error = -ENOMEM;
 		goto err_free_mem;
 	}
+	gyro_data->req_poll_rate = pdata->def_poll_rate;
 	gyro_data->dev = mpu_data->dev;
 	gyro_data->input_dev = input_dev;
 	gyro_data->bus_ops = mpu_data->bus_ops;
@@ -274,6 +287,8 @@ struct mpu6050_gyro_data *mpu6050_gyro_init(const struct mpu6050_data *mpu_data)
 
 	/* Set the device in stand-by-mode by default */
 	mpu6050_gyro_set_standby(gyro_data, 1);
+
+	INIT_DELAYED_WORK(&gyro_data->input_work, mpu6050_gyro_input_work);
 
 	return gyro_data;
 

@@ -149,8 +149,10 @@ struct mpu6050_bus_ops {
 struct mpu6050_gyro_data {
 	const struct mpu6050_bus_ops *bus_ops;
 	struct device *dev;
+	struct delayed_work input_work;
 	struct input_dev *input_dev;
 	struct mutex mutex;
+	uint32_t req_poll_rate;
 	bool suspended;
 	u8 enabled;
 };
