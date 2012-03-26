@@ -24,6 +24,7 @@ extern int omap3_can_sleep(void);
 extern int omap_set_pwrdm_state(struct powerdomain *pwrdm, u32 state);
 extern int omap3_idle_init(void);
 extern int omap4_idle_init(void);
+extern int omap5_idle_init(void);
 void omap_trigger_wuclk_ctrl(void);
 extern void omap_pm_idle(u32 cpu_id, int state);
 
