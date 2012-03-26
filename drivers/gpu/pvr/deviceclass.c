@@ -1737,6 +1737,9 @@ PVRSRV_ERROR PVRSRVSwapToDCBuffer2KM(IMG_HANDLE	hDeviceKM,
 	psFlipCmd->ppsMemInfos = (PDC_MEM_INFO *)ppvMemInfos;
 	psFlipCmd->ui32NumMemInfos = ui32NumMemSyncInfos;
 
+
+	psFlipCmd->hUnused = IMG_NULL;
+
 	SysAcquireData(&psSysData);
 
 
