@@ -345,7 +345,6 @@ int dwc3_core_late_init(struct device *dev)
 		pm_runtime_put_sync(dev);
 		return -EINVAL;
 	}
-	dwc->revision = reg;
 	usb_phy_set_suspend(dwc->usb2_phy, 0);
 	usb_phy_set_suspend(dwc->usb3_phy, 0);
 
@@ -450,7 +449,7 @@ static int __devinit dwc3_core_init(struct dwc3 *dwc)
 		ret = -ENODEV;
 		goto err0;
 	}
-	dwc->revision = reg & DWC3_GSNPSREV_MASK;
+	dwc->revision = reg;
 
 	dwc3_cache_hwparams(dwc);
 
