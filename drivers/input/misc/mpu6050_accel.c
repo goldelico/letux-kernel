@@ -715,8 +715,7 @@ struct mpu6050_accel_data *mpu6050_accel_init(
 		MPU6050_REG_INT_STATUS, 1, &val, "Clear Isr");
 
 	/* Disable Accelerometer by default */
-	if (!accel_data->suspended)
-		mpu6050_accel_set_standby(accel_data, 1);
+	mpu6050_accel_set_standby(accel_data, 1);
 
 	return accel_data;
 
