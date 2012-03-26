@@ -38,7 +38,6 @@
 #include <plat/clock.h>
 #include <plat/dma.h>
 #include <plat/i2c.h>
-#include <plat/omap_hwmod.h>
 
 #define OMAP4_REGULATOR_MAX     1
 #define OMAP5_REGULATOR_MAX     2
@@ -463,15 +462,16 @@ static void rprm_sdma_release(struct rprm_sdma *obj)
 static int rprm_i2c_request(struct rprm_elem *e, struct rprm_i2c *obj)
 {
 	struct device *i2c_dev;
-	char i2c_name[NAME_SIZE];
+	struct i2c_adapter *adapter;
 	int ret = -EINVAL;
 
-	sprintf(i2c_name, "i2c%d", obj->id);
-	i2c_dev = omap_hwmod_name_get_dev(i2c_name);
-	if (IS_ERR_OR_NULL(i2c_dev)) {
-		pr_err("%s: unable to lookup %s\n", __func__, i2c_name);
-		return ret;
+	adapter = i2c_get_adapter(obj->id);
+	if (!adapter) {
+		pr_err("%s: could not get i2c%d adapter\n", __func__, obj->id);
+		return -EINVAL;
 	}
+
+	i2c_dev = adapter->dev.parent;
 
 	ret = pm_runtime_get_sync(i2c_dev);
 	ret -= ret == 1;
