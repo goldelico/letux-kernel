@@ -171,7 +171,6 @@ struct mpu6050_accel_data {
 	int irq;
 	enum accel_op_mode mode;
 	struct mutex mutex;
-	bool opened;
 	bool suspended;
 	u8 enabled;
 };

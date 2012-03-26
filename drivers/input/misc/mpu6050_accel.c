@@ -129,7 +129,7 @@ static irqreturn_t mpu6050_accel_thread_irq(int irq, void *dev_id)
 void mpu6050_accel_suspend(struct mpu6050_accel_data *data)
 {
 	mutex_lock(&data->mutex);
-	if (!data->suspended && data->opened)
+	if (!data->suspended)
 		mpu6050_accel_set_standby(data, 1);
 	data->suspended = true;
 	mutex_unlock(&data->mutex);
@@ -140,7 +140,7 @@ EXPORT_SYMBOL(mpu6050_accel_suspend);
 void mpu6050_accel_resume(struct mpu6050_accel_data *data)
 {
 	mutex_lock(&data->mutex);
-	if (data->suspended && data->opened)
+	if (data->suspended)
 		mpu6050_accel_set_standby(data, 0);
 	data->suspended = false;
 	mutex_unlock(&data->mutex);
@@ -403,12 +403,10 @@ static ssize_t mpu6050_accel_store_attr_enable(struct device *dev,
 	if (val) {
 		if (!data->suspended)
 			mpu6050_accel_set_standby(data, 0);
-		data->opened = true;
 		data->enabled = 1;
 	} else {
 		if (!data->suspended)
 			mpu6050_accel_set_standby(data, 1);
-		data->opened = false;
 		data->enabled = 0;
 	}
 	return count;
@@ -719,7 +717,6 @@ struct mpu6050_accel_data *mpu6050_accel_init(
 	/* Disable Accelerometer by default */
 	if (!accel_data->suspended)
 		mpu6050_accel_set_standby(accel_data, 1);
-	accel_data->opened = false;
 
 	return accel_data;
 
