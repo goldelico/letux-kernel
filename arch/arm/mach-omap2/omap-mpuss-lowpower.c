@@ -481,6 +481,8 @@ int omap_hotplug_cpu(unsigned int cpu, unsigned int power_state)
 	/* Enable FORCE OFF mode if supported */
 	set_cpu_force_off(cpu, 1);
 
+	voltdm_pwrdm_disable(mpu_voltdm);
+
 	/*
 	 * CPU never retuns back if targetted power state is OFF mode.
 	 * CPU ONLINE follows normal CPU ONLINE ptah via
@@ -494,6 +496,8 @@ int omap_hotplug_cpu(unsigned int cpu, unsigned int power_state)
 		cpu_suspend(cpu_state, omap_pm_ops.finish_suspend);
 	else
 		omap_pm_ops.finish_suspend(cpu_state);
+
+	voltdm_pwrdm_enable(mpu_voltdm);
 
 	/* Clear FORCE OFF mode if supported */
 	set_cpu_force_off(cpu, 0);
@@ -535,6 +539,7 @@ int __init omap_mpuss_init(void)
 {
 	struct omap4_cpu_pm_info *pm_info;
 	u32 cpu_wakeup_addr;
+	int i;
 
 	if (omap_rev() == OMAP4430_REV_ES1_0) {
 		WARN(1, "Power Management not supported on OMAP4430 ES1.0\n");
@@ -597,6 +602,9 @@ int __init omap_mpuss_init(void)
 	mpuss_clear_prev_logic_pwrst();
 
 	mpu_voltdm = voltdm_lookup("mpu");
+
+	for_each_online_cpu(i)
+		voltdm_pwrdm_enable(mpu_voltdm);
 
 	/* Save device type on scratchpad for low level code to use */
 	if (omap_type() != OMAP2_DEVICE_TYPE_GP)
