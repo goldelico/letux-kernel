@@ -295,5 +295,17 @@ extern u32 omap2_pwrdm_get_mem_bank_stst_mask(u8 bank);
 extern struct powerdomain wkup_omap2_pwrdm;
 extern struct powerdomain gfx_omap2_pwrdm;
 
+#define PWRSTS_RET_INA_ON	((1 << PWRDM_POWER_RET) | \
+				 (1 << PWRDM_POWER_INACTIVE)  | \
+				 (1 << PWRDM_POWER_ON))
+
+#define PWRSTS_OFF_INA_ON	((1 << PWRDM_POWER_OFF) | \
+				 (1 << PWRDM_POWER_INACTIVE)  | \
+				 (1 << PWRDM_POWER_ON))
+
+#define PWRSTS_OFF_RET_INA_ON	((1 << PWRDM_POWER_OFF) | \
+				 (1 << PWRDM_POWER_RET) | \
+				 (1 << PWRDM_POWER_INACTIVE)  | \
+				 (1 << PWRDM_POWER_ON))
 
 #endif
