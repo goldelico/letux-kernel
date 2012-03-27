@@ -77,7 +77,7 @@ static void omap5evm_modem_pad_conf(void)
 		OMAP_PIN_OFF_NONE);
 
 	omap_mux_init_signal("hsi2_cadata", \
-		OMAP_PIN_INPUT | \
+		OMAP_PIN_INPUT_PULLDOWN | \
 		OMAP_PIN_OFF_NONE);
 
 	omap_mux_init_signal("hsi2_acready", \
