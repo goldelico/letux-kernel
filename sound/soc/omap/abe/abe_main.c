@@ -760,5 +760,18 @@ int abe_mono_mixer(u32 id, u32 on_off)
 }
 EXPORT_SYMBOL(abe_mono_mixer);
 
+/**
+ * abe_set_auto_gating - Enable auto-gating of the ABE clocks.
+ *
+ * This needs to be called every time the clocks are enabled
+ * to restore auto-gating even before the firmware is loaded.
+ * This enables the system to go into a low-power state.
+ */
+void abe_set_auto_gating(void)
+{
+	return omap_abe_set_auto_gating(abe);
+}
+EXPORT_SYMBOL(abe_set_auto_gating);
+
 EXPORT_SYMBOL(abe_use_compensated_gain);
 

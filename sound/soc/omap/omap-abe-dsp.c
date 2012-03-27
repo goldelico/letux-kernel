@@ -240,7 +240,7 @@ static irqreturn_t abe_irq_handler(int irq, void *dev_id)
 	struct abe_data *abe = dev_id;
 
 	/* TODO: handle underruns/overruns/errors */
-	pm_runtime_get_sync(abe->dev);
+	abe_dsp_pm_get();
 	abe_clear_irq();  // TODO: why is IRQ not cleared after processing ?
 	abe_irq_processing();
 	pm_runtime_put_sync_suspend(abe->dev);
@@ -248,9 +248,11 @@ static irqreturn_t abe_irq_handler(int irq, void *dev_id)
 }
 
 // TODO: these should really be called internally since we will know the McPDM state
+/* They should be used everywhere except for the probe(). */
 void abe_dsp_pm_get(void)
 {
 	pm_runtime_get_sync(the_abe->dev);
+	abe_set_auto_gating();
 }
 EXPORT_SYMBOL_GPL(abe_dsp_pm_get);
 
@@ -397,7 +399,7 @@ static int dl1_put_mixer(struct snd_kcontrol *kcontrol,
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 
-	pm_runtime_get_sync(the_abe->dev);
+	abe_dsp_pm_get();
 
 	// TODO: optimise all of these to call HAL abe_enable_gain(mixer, enable)
 	if (ucontrol->value.integer.value[0]) {
@@ -409,7 +411,7 @@ static int dl1_put_mixer(struct snd_kcontrol *kcontrol,
 		snd_soc_dapm_mixer_update_power(widget, kcontrol, 0);
 		abe_disable_gain(MIXDL1, mc->reg);
 	}
-	pm_runtime_put_sync(the_abe->dev);
+	abe_dsp_pm_put();
 
 	return 1;
 }
@@ -422,7 +424,7 @@ static int dl2_put_mixer(struct snd_kcontrol *kcontrol,
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 
-	pm_runtime_get_sync(the_abe->dev);
+	abe_dsp_pm_get();
 
 	if (ucontrol->value.integer.value[0]) {
 		the_abe->widget_opp[mc->shift] = ucontrol->value.integer.value[0];
@@ -434,7 +436,7 @@ static int dl2_put_mixer(struct snd_kcontrol *kcontrol,
 		abe_disable_gain(MIXDL2, mc->reg);
 	}
 
-	pm_runtime_put_sync(the_abe->dev);
+	abe_dsp_pm_put();
 	return 1;
 }
 
@@ -446,7 +448,7 @@ static int audio_ul_put_mixer(struct snd_kcontrol *kcontrol,
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 
-	pm_runtime_get_sync(the_abe->dev);
+	abe_dsp_pm_get();
 
 	if (ucontrol->value.integer.value[0]) {
 		the_abe->widget_opp[mc->shift] = ucontrol->value.integer.value[0];
@@ -457,7 +459,7 @@ static int audio_ul_put_mixer(struct snd_kcontrol *kcontrol,
 		snd_soc_dapm_mixer_update_power(widget, kcontrol, 0);
 		abe_disable_gain(MIXAUDUL, mc->reg);
 	}
-	pm_runtime_put_sync(the_abe->dev);
+	abe_dsp_pm_put();
 
 	return 1;
 }
@@ -470,7 +472,7 @@ static int vxrec_put_mixer(struct snd_kcontrol *kcontrol,
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 
-	pm_runtime_get_sync(the_abe->dev);
+	abe_dsp_pm_get();
 
 	if (ucontrol->value.integer.value[0]) {
 		the_abe->widget_opp[mc->shift] = ucontrol->value.integer.value[0];
@@ -481,7 +483,7 @@ static int vxrec_put_mixer(struct snd_kcontrol *kcontrol,
 		snd_soc_dapm_mixer_update_power(widget, kcontrol, 0);
 		abe_disable_gain(MIXVXREC, mc->reg);
 	}
-	pm_runtime_put_sync(the_abe->dev);
+	abe_dsp_pm_put();
 
 	return 1;
 }
@@ -494,7 +496,7 @@ static int sdt_put_mixer(struct snd_kcontrol *kcontrol,
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 
-	pm_runtime_get_sync(the_abe->dev);
+	abe_dsp_pm_get();
 
 	if (ucontrol->value.integer.value[0]) {
 		the_abe->widget_opp[mc->shift] = ucontrol->value.integer.value[0];
@@ -505,7 +507,7 @@ static int sdt_put_mixer(struct snd_kcontrol *kcontrol,
 		snd_soc_dapm_mixer_update_power(widget, kcontrol, 0);
 		abe_disable_gain(MIXSDT, mc->reg);
 	}
-	pm_runtime_put_sync(the_abe->dev);
+	abe_dsp_pm_put();
 
 	return 1;
 }
@@ -538,9 +540,9 @@ static int abe_dsp_set_mono_mixer(int id, int enable)
 		return -EINVAL;
 	}
 
-	pm_runtime_get_sync(the_abe->dev);
+	abe_dsp_pm_get();
 	abe_mono_mixer(mixer, enable);
-	pm_runtime_put_sync(the_abe->dev);
+	abe_dsp_pm_put();
 
 	return 0;
 }
@@ -590,7 +592,7 @@ static int ul_mux_put_route(struct snd_kcontrol *kcontrol,
 	int mux = ucontrol->value.enumerated.item[0];
 	int reg = e->reg - ABE_MUX(0);
 
-	pm_runtime_get_sync(the_abe->dev);
+	abe_dsp_pm_get();
 
 	if (mux > ABE_ROUTES_UL)
 		return 0;
@@ -614,7 +616,7 @@ static int ul_mux_put_route(struct snd_kcontrol *kcontrol,
 		the_abe->widget_opp[e->reg] = 0;
 
 	snd_soc_dapm_mux_update_power(widget, kcontrol, 1, mux, e);
-	pm_runtime_put_sync(the_abe->dev);
+	abe_dsp_pm_put();
 
 	return 1;
 }
@@ -655,7 +657,7 @@ static int abe_put_switch(struct snd_kcontrol *kcontrol,
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 
-	pm_runtime_get_sync(the_abe->dev);
+	abe_dsp_pm_get();
 
 	if (ucontrol->value.integer.value[0]) {
 		the_abe->widget_opp[mc->shift] = ucontrol->value.integer.value[0];
@@ -664,7 +666,7 @@ static int abe_put_switch(struct snd_kcontrol *kcontrol,
 		the_abe->widget_opp[mc->shift] = ucontrol->value.integer.value[0];
 		snd_soc_dapm_mixer_update_power(widget, kcontrol, 0);
 	}
-	pm_runtime_put_sync(the_abe->dev);
+	abe_dsp_pm_put();
 
 	return 1;
 }
@@ -676,11 +678,11 @@ static int volume_put_sdt_mixer(struct snd_kcontrol *kcontrol,
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 
-	pm_runtime_get_sync(the_abe->dev);
+	abe_dsp_pm_get();
 
 	abe_write_mixer(MIXSDT, abe_val_to_gain(ucontrol->value.integer.value[0]),
 				RAMP_2MS, mc->reg);
-	pm_runtime_put_sync(the_abe->dev);
+	abe_dsp_pm_put();
 
 	return 1;
 }
@@ -691,10 +693,10 @@ static int volume_put_audul_mixer(struct snd_kcontrol *kcontrol,
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 
-	pm_runtime_get_sync(the_abe->dev);
+	abe_dsp_pm_get();
 	abe_write_mixer(MIXAUDUL, abe_val_to_gain(ucontrol->value.integer.value[0]),
 				RAMP_2MS, mc->reg);
-	pm_runtime_put_sync(the_abe->dev);
+	abe_dsp_pm_put();
 
 	return 1;
 }
@@ -705,10 +707,10 @@ static int volume_put_vxrec_mixer(struct snd_kcontrol *kcontrol,
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 
-	pm_runtime_get_sync(the_abe->dev);
+	abe_dsp_pm_get();
 	abe_write_mixer(MIXVXREC, abe_val_to_gain(ucontrol->value.integer.value[0]),
 				RAMP_2MS, mc->reg);
-	pm_runtime_put_sync(the_abe->dev);
+	abe_dsp_pm_put();
 
 	return 1;
 }
@@ -719,10 +721,10 @@ static int volume_put_dl1_mixer(struct snd_kcontrol *kcontrol,
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 
-	pm_runtime_get_sync(the_abe->dev);
+	abe_dsp_pm_get();
 	abe_write_mixer(MIXDL1, abe_val_to_gain(ucontrol->value.integer.value[0]),
 				RAMP_2MS, mc->reg);
-	pm_runtime_put_sync(the_abe->dev);
+	abe_dsp_pm_put();
 
 	return 1;
 }
@@ -733,10 +735,10 @@ static int volume_put_dl2_mixer(struct snd_kcontrol *kcontrol,
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 
-	pm_runtime_get_sync(the_abe->dev);
+	abe_dsp_pm_get();
 	abe_write_mixer(MIXDL2, abe_val_to_gain(ucontrol->value.integer.value[0]),
 				RAMP_2MS, mc->reg);
-	pm_runtime_put_sync(the_abe->dev);
+	abe_dsp_pm_put();
 
 	return 1;
 }
@@ -747,14 +749,14 @@ static int volume_put_gain(struct snd_kcontrol *kcontrol,
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 
-	pm_runtime_get_sync(the_abe->dev);
+	abe_dsp_pm_get();
 	abe_write_gain(mc->reg,
 		       abe_val_to_gain(ucontrol->value.integer.value[0]),
 		       RAMP_2MS, mc->shift);
 	abe_write_gain(mc->reg,
 		       -12000 + (ucontrol->value.integer.value[1] * 100),
 		       RAMP_2MS, mc->rshift);
-	pm_runtime_put_sync(the_abe->dev);
+	abe_dsp_pm_put();
 
 	return 1;
 }
@@ -766,10 +768,10 @@ static int volume_get_dl1_mixer(struct snd_kcontrol *kcontrol,
 		(struct soc_mixer_control *)kcontrol->private_value;
 	u32 val;
 
-	pm_runtime_get_sync(the_abe->dev);
+	abe_dsp_pm_get();
 	abe_read_mixer(MIXDL1, &val, mc->reg);
 	ucontrol->value.integer.value[0] = abe_gain_to_val(val);
-	pm_runtime_put_sync(the_abe->dev);
+	abe_dsp_pm_put();
 
 	return 0;
 }
@@ -781,10 +783,10 @@ static int volume_get_dl2_mixer(struct snd_kcontrol *kcontrol,
 		(struct soc_mixer_control *)kcontrol->private_value;
 	u32 val;
 
-	pm_runtime_get_sync(the_abe->dev);
+	abe_dsp_pm_get();
 	abe_read_mixer(MIXDL2, &val, mc->reg);
 	ucontrol->value.integer.value[0] = abe_gain_to_val(val);
-	pm_runtime_put_sync(the_abe->dev);
+	abe_dsp_pm_put();
 
 	return 0;
 }
@@ -796,10 +798,10 @@ static int volume_get_audul_mixer(struct snd_kcontrol *kcontrol,
 		(struct soc_mixer_control *)kcontrol->private_value;
 	u32 val;
 
-	pm_runtime_get_sync(the_abe->dev);
+	abe_dsp_pm_get();
 	abe_read_mixer(MIXAUDUL, &val, mc->reg);
 	ucontrol->value.integer.value[0] = abe_gain_to_val(val);
-	pm_runtime_put_sync(the_abe->dev);
+	abe_dsp_pm_put();
 
 	return 0;
 }
@@ -811,10 +813,10 @@ static int volume_get_vxrec_mixer(struct snd_kcontrol *kcontrol,
 		(struct soc_mixer_control *)kcontrol->private_value;
 	u32 val;
 
-	pm_runtime_get_sync(the_abe->dev);
+	abe_dsp_pm_get();
 	abe_read_mixer(MIXVXREC, &val, mc->reg);
 	ucontrol->value.integer.value[0] = abe_gain_to_val(val);
-	pm_runtime_put_sync(the_abe->dev);
+	abe_dsp_pm_put();
 
 	return 0;
 }
@@ -826,10 +828,10 @@ static int volume_get_sdt_mixer(struct snd_kcontrol *kcontrol,
 		(struct soc_mixer_control *)kcontrol->private_value;
 	u32 val;
 
-	pm_runtime_get_sync(the_abe->dev);
+	abe_dsp_pm_get();
 	abe_read_mixer(MIXSDT, &val, mc->reg);
 	ucontrol->value.integer.value[0] = abe_gain_to_val(val);
-	pm_runtime_put_sync(the_abe->dev);
+	abe_dsp_pm_put();
 
 	return 0;
 }
@@ -841,12 +843,12 @@ static int volume_get_gain(struct snd_kcontrol *kcontrol,
 		(struct soc_mixer_control *)kcontrol->private_value;
 	u32 val;
 
-	pm_runtime_get_sync(the_abe->dev);
+	abe_dsp_pm_get();
 	abe_read_gain(mc->reg, &val, mc->shift);
 	ucontrol->value.integer.value[0] = abe_gain_to_val(val);
 	abe_read_gain(mc->reg, &val, mc->rshift);
 	ucontrol->value.integer.value[1] = abe_gain_to_val(val);
-	pm_runtime_put_sync(the_abe->dev);
+	abe_dsp_pm_put();
 
 	return 0;
 }
@@ -868,9 +870,9 @@ static int abe_dsp_set_equalizer(unsigned int id, unsigned int profile)
 		len * sizeof(u32));
 	the_abe->equ_profile[id] = profile;
 
-	pm_runtime_get_sync(the_abe->dev);
+	abe_dsp_pm_get();
 	abe_write_equalizer(id + 1, &equ_params);
-	pm_runtime_put_sync(the_abe->dev);
+	abe_dsp_pm_put();
 
 	return 0;
 }
@@ -1623,7 +1625,7 @@ static int abe_dbg_start_dma(struct abe_data *abe, int circular)
 
 	abe->dbg_reader_offset = 0;
 
-	pm_runtime_get_sync(abe->dev);
+	abe_dsp_pm_get();
 	omap_start_dma(abe->dma_ch);
 	return 0;
 }
@@ -1636,7 +1638,7 @@ static void abe_dbg_stop_dma(struct abe_data *abe)
 	if (abe->dbg_circular)
 		omap_dma_unlink_lch(abe->dma_ch, abe->dma_ch);
 	omap_free_dma(abe->dma_ch);
-	pm_runtime_put_sync(abe->dev);
+	abe_dsp_pm_put();
 }
 
 static int abe_open_data(struct inode *inode, struct file *file)
@@ -2048,9 +2050,9 @@ static int aess_set_runtime_opp_level(struct abe_data *abe)
 	/* opps requested outside ABE DSP driver (e.g. McPDM) */
 	req_opp = abe_get_opp_req(abe);
 
-	pm_runtime_get_sync(abe->dev);
+	abe_dsp_pm_get();
 	abe_set_opp_mode(abe, max(opp, req_opp));
-	pm_runtime_put_sync(abe->dev);
+	abe_dsp_pm_put();
 
 	mutex_unlock(&abe->opp_mutex);
 
@@ -2189,7 +2191,7 @@ static int aess_open(struct snd_pcm_substream *substream)
 
 	dev_dbg(dai->dev, "%s: %s\n", __func__, dai->name);
 
-	pm_runtime_get_sync(abe->dev);
+	abe_dsp_pm_get();
 
 	if (!abe->active++) {
 		abe->opp = 0;
@@ -2303,7 +2305,7 @@ static int aess_close(struct snd_pcm_substream *substream)
 		 * if ABE is still active */
 		aess_set_runtime_opp_level(abe);
 	}
-	pm_runtime_put_sync(abe->dev);
+	abe_dsp_pm_put();
 
 	mutex_unlock(&abe->mutex);
 	return 0;
@@ -2421,7 +2423,6 @@ static int abe_add_widgets(struct snd_soc_platform *platform)
 #ifdef CONFIG_PM
 static int abe_suspend(struct snd_soc_dai *dai)
 {
-	struct abe_data *abe = the_abe;
 	int ret = 0;
 
 	dev_dbg(dai->dev, "%s: %s active %d\n",
@@ -2430,7 +2431,7 @@ static int abe_suspend(struct snd_soc_dai *dai)
 	if (!dai->active)
 		return 0;
 
-	pm_runtime_get_sync(abe->dev);
+	abe_dsp_pm_get();
 
 	switch (dai->id) {
 	case OMAP_ABE_DAI_PDM_UL:
@@ -2468,7 +2469,7 @@ static int abe_suspend(struct snd_soc_dai *dai)
 	}
 
 out:
-	pm_runtime_put_sync(abe->dev);
+	abe_dsp_pm_put();
 	return ret;
 }
 
@@ -2488,7 +2489,7 @@ static int abe_resume(struct snd_soc_dai *dai)
 		return 0;
 	abe->context_lost = abe->get_context_lost_count(abe->dev);
 
-	pm_runtime_get_sync(abe->dev);
+	abe_dsp_pm_get();
 
 	if (abe->device_scale) {
 		ret = abe->device_scale(abe->dev, abe->dev,
@@ -2551,7 +2552,7 @@ static int abe_resume(struct snd_soc_dai *dai)
 	for (i = 0; i < ABE_NUM_MONO_MIXERS; i++)
 		abe_dsp_set_mono_mixer(MIX_DL1_MONO + i, abe->mono_mix[i]);
 out:
-	pm_runtime_put_sync(abe->dev);
+	abe_dsp_pm_put();
 	return ret;
 }
 #else
@@ -2713,6 +2714,7 @@ static int abe_probe(struct snd_soc_platform *platform)
 
 	/* "tick" of the audio engine */
 	abe_write_event_generator(EVENT_TIMER);
+	abe_set_auto_gating();
 	abe_dsp_init_gains(abe);
 	/* Stop the engine */
 	abe_stop_event_generator();

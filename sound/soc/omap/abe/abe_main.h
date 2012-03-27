@@ -665,5 +665,6 @@ void abe_add_subroutine(u32 *id, abe_subroutine2 f,
 
 u32 abe_plug_subroutine(u32 *id, abe_subroutine2 f, u32 n,
 			u32 *params);
+void abe_set_auto_gating(void);
 
 #endif				/* _ABE_MAIN_H_ */

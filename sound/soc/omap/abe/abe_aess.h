@@ -110,5 +110,6 @@ int omap_abe_stop_event_generator(struct omap_abe *abe);
 int omap_abe_write_event_generator(struct omap_abe *abe, u32 e);
 
 void omap_abe_hw_configuration(struct omap_abe *abe);
+void omap_abe_set_auto_gating(struct omap_abe *abe);
 
 #endif/* _ABE_AESS_H_ */
