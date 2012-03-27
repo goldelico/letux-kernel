@@ -63,13 +63,13 @@ int __init omap_init_opp_table(struct omap_opp_def *opp_def,
 		struct device *dev;
 
 		if (!opp_def->hwmod_name) {
-			WARN(1, "%s: NULL name of omap_hwmod, failing"
+			pr_warn("%s: NULL name of omap_hwmod, failing"
 				" [%d].\n", __func__, i);
 			goto next;
 		}
 		oh = omap_hwmod_lookup(opp_def->hwmod_name);
 		if (!oh || !oh->od) {
-			WARN(1, "%s: no hwmod or odev for %s, [%d] "
+			pr_warn("%s: no hwmod or odev for %s, [%d] "
 				"cannot add OPPs.\n", __func__,
 				opp_def->hwmod_name, i);
 			goto next;
@@ -82,12 +82,12 @@ int __init omap_init_opp_table(struct omap_opp_def *opp_def,
 			if (round_rate > 0) {
 				opp_def->freq = round_rate;
 			} else {
-				WARN(1, "%s: round_rate for clock %s failed\n",
+				pr_warn("%s: round_rate for clock %s failed\n",
 					__func__, opp_def->clk_name);
 				goto next; /* skip Bad OPP */
 			}
 		} else {
-			WARN(1, "%s: No clock by name %s found\n", __func__,
+			pr_warn("%s: No clock by name %s found\n", __func__,
 				opp_def->clk_name);
 			goto next; /* skip Bad OPP */
 		}
