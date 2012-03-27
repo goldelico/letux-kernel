@@ -1502,7 +1502,8 @@ static int dapm_power_widgets(struct snd_soc_dapm_context *dapm, int event)
 	trace_snd_soc_dapm_start(card);
 
 	list_for_each_entry(d, &card->dapm_list, list) {
-		if (d->n_widgets || d->codec == NULL) {
+		if (d->n_widgets || d->codec == NULL ||
+		    strstr(d->codec->name, "null-codec")) {
 			if (d->idle_bias_off)
 				d->target_bias_level = SND_SOC_BIAS_OFF;
 			else
