@@ -400,6 +400,7 @@ static ssize_t mpu6050_accel_store_attr_enable(struct device *dev,
 	if (val < 0 || val > 1)
 		return -EINVAL;
 
+	mutex_lock(&data->mutex);
 	if (val) {
 		if (!data->suspended)
 			mpu6050_accel_set_standby(data, 0);
@@ -409,6 +410,7 @@ static ssize_t mpu6050_accel_store_attr_enable(struct device *dev,
 			mpu6050_accel_set_standby(data, 1);
 		data->enabled = 0;
 	}
+	mutex_unlock(&data->mutex);
 	return count;
 }
 
