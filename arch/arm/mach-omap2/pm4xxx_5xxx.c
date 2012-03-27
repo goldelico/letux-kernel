@@ -64,6 +64,10 @@ static LIST_HEAD(pwrst_list);
 
 static struct powerdomain *mpu_pwrdm, *core_pwrdm, *per_pwrdm;
 
+static u8 pm44xx_54xx_errata;
+#define is_pm44xx_54xx_erratum(erratum) (pm44xx_54xx_errata & \
+					OMAP44xx_54xx_PM_ERRATUM_##erratum)
+
 /**
  * omap4_device_set_state_off() - setup device off state
  * @enable:	set to off or not.
@@ -660,6 +664,12 @@ static void __init prcm_setup_regs(void)
 #endif
 }
 
+static void __init omap_pm_setup_errata(void)
+{
+	if (cpu_is_omap44xx())
+		pm44xx_54xx_errata = 0;
+}
+
 /**
  * omap_pm_init - Init routine for OMAP4 PM
  *
@@ -679,6 +689,9 @@ static int __init omap_pm_init(void)
 	}
 
 	pr_info("Power Management for TI OMAP4XX/OMAP5XXX devices.\n");
+
+	/* setup the erratas */
+	omap_pm_setup_errata();
 
 	prcm_setup_regs();
 
