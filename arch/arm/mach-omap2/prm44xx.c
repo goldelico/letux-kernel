@@ -287,24 +287,33 @@ void omap4_trigger_wuclk_ctrl(void)
 {
 	int i = 0;
 
-	/* Enable GLOBAL_WUEN */
-	if (!(omap4_prm_read_inst_reg(OMAP4430_PRM_DEVICE_INST, OMAP4_PRM_IO_PMCTRL_OFFSET)
-				& OMAP4430_GLOBAL_WUEN_MASK))
-		omap4_prm_rmw_inst_reg_bits(OMAP4430_GLOBAL_WUEN_MASK,
-			OMAP4430_GLOBAL_WUEN_MASK, OMAP4430_PRM_DEVICE_INST,
-			OMAP4_PRM_IO_PMCTRL_OFFSET);
+	/* Enable GLOBAL_WUEN + set WUCLKIN to clear pending status */
+	omap4_prm_rmw_inst_reg_bits(0x0,
+		OMAP4430_GLOBAL_WUEN_MASK | OMAP4430_WUCLK_CTRL_MASK,
+		OMAP4430_PRM_DEVICE_INST, OMAP4_PRM_IO_PMCTRL_OFFSET);
 
-	/* Trigger WUCLKIN enable */
-	omap4_prm_rmw_inst_reg_bits(OMAP4430_WUCLK_CTRL_MASK, OMAP4430_WUCLK_CTRL_MASK,
-			OMAP4430_PRM_DEVICE_INST, OMAP4_PRM_IO_PMCTRL_OFFSET);
+	/* Wait until ready (last WUCLKOUT shall be 1) */
 	omap_test_timeout(
-		(((omap4_prm_read_inst_reg(OMAP4430_PRM_DEVICE_INST, OMAP4_PRM_IO_PMCTRL_OFFSET) &
-		OMAP4430_WUCLK_STATUS_MASK) >> OMAP4430_WUCLK_STATUS_SHIFT) == 1),
-		MAX_IOPAD_LATCH_TIME, i);
+		(((omap4_prm_read_inst_reg(OMAP4430_PRM_DEVICE_INST,
+		OMAP4_PRM_IO_PMCTRL_OFFSET) & OMAP4430_WUCLK_STATUS_MASK) >>
+		OMAP4430_WUCLK_STATUS_SHIFT) == 1), MAX_IOPAD_LATCH_TIME, i);
+	if (i == MAX_IOPAD_LATCH_TIME)
+		pr_err("%s: Max IO latch time reached for WUCLKIN enable\n",
+			__func__);
 
-	/* Trigger WUCLKIN disable */
+	/* Reset WUCLKIN to arm daisy chain */
 	omap4_prm_rmw_inst_reg_bits(OMAP4430_WUCLK_CTRL_MASK, 0x0,
 			OMAP4430_PRM_DEVICE_INST, OMAP4_PRM_IO_PMCTRL_OFFSET);
+
+	/* Wait until ready (last WUCLKOUT shall be 0) */
+	omap_test_timeout(
+		(((omap4_prm_read_inst_reg(OMAP4430_PRM_DEVICE_INST,
+		OMAP4_PRM_IO_PMCTRL_OFFSET) & OMAP4430_WUCLK_STATUS_MASK) >>
+		OMAP4430_WUCLK_STATUS_SHIFT) == 0), MAX_IOPAD_LATCH_TIME, i);
+	if (i == MAX_IOPAD_LATCH_TIME)
+		pr_err("%s: Max IO latch time reached for WUCLKIN disable\n",
+			__func__);
+
 	return;
 }
 
