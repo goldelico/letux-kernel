@@ -1556,6 +1556,7 @@ static void __init omap_5430evm_init(void)
 			&custom_configs);
 #endif
 	omap5_mux_init(board_mux, NULL, OMAP_PACKAGE_CBL);
+	omap5_create_board_props();
 	omap5evm_touch_init();
 	omap_5430evm_i2c_init();
 #ifdef CONFIG_TI_ST
