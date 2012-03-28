@@ -57,6 +57,7 @@
 
 #include "common-board-devices.h"
 #include "board-omap5evm.h"
+#include "pm.h"
 
 #define OMAP5_TOUCH_IRQ_1              179
 #define OMAP5_TOUCH_RESET              230
@@ -1588,6 +1589,7 @@ static void __init omap_5430evm_init(void)
 	omap_register_ion();
 #endif
 	omap5evm_display_init();
+	omap4_pm_off_mode_enable(true);
 }
 
 static void __init omap_5430evm_map_io(void)
