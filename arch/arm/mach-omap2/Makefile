@@ -294,6 +294,7 @@ obj-$(CONFIG_MACH_TI8168EVM)		+= board-ti8168evm.o
 obj-$(CONFIG_MACH_OMAP_5430EVM)		+= board-omap5evm.o \
 					   board-omap5evm-sensors.o \
 					   board-omap5evm-modem.o \
+					   board-54xx-identity.o \
 					   hsmmc.o
 
 # Platform specific device init code
