@@ -829,6 +829,18 @@ PVRMMap(struct file* pFile, struct vm_area_struct* ps_vma)
 	    goto unlock_and_return;
 	}
 
+	/* Temporary Fix- Start */
+	/* In OMAP5, something is not correct in Kernel mapping routines
+	and causes incorrect mapping which treats the WRITECOMBINE
+	as CACHED. Due to this issue, when the SW try to access the
+	2D mapped space a SIGBUS error is noticed ( a non-line
+	fetch abort) */
+	if (cpu_is_omap54xx() &&
+		psOffsetStruct->psLinuxMemArea->eAreaType == LINUX_MEM_AREA_ION)
+		ps_vma->vm_page_prot = PGPROT_UC(ps_vma->vm_page_prot);
+
+	/* Temporary Fix - End */
+
 
 	ps_vma->vm_ops = &MMapIOOps;
 
