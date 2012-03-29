@@ -17,7 +17,8 @@
 
 extern void *omap3_secure_ram_storage;
 extern void omap3_pm_off_mode_enable(int);
-extern void omap4_pm_off_mode_enable(int);
+extern void omap4_pm_off_mode_enable(bool);
+extern void omap4_set_pwrdm_state(bool);
 extern void omap_sram_idle(void);
 extern int omap3_can_sleep(void);
 extern int omap_set_pwrdm_state(struct powerdomain *pwrdm, u32 state);
@@ -27,12 +28,12 @@ void omap_trigger_wuclk_ctrl(void);
 extern void omap_pm_idle(u32 cpu_id, int state);
 
 #ifdef CONFIG_PM
-extern void omap4_device_set_state_off(u8 enable);
+extern void omap4_device_set_state_off(bool enable);
 extern bool omap4_device_prev_state_off(void);
 extern bool omap4_device_next_state_off(void);
 extern void omap4_device_clear_prev_off_state(void);
 #else
-static inline void omap4_device_set_state_off(u8 enable)
+static inline void omap4_device_set_state_off(bool enable)
 {
 }
 static inline bool omap4_device_prev_state_off(void)
