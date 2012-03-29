@@ -41,6 +41,7 @@ static struct usb_dpll_params omap_usb3_dpll_params[NUM_SYS_CLKS] = {
 static int omap_usb3_suspend(struct usb_phy *x, int suspend)
 {
 	u32		val;
+	u32		ret;
 	struct omap_usb *phy = phy_to_omapusb(x);
 
 	if (suspend && !phy->is_suspended) {
@@ -59,7 +60,14 @@ static int omap_usb3_suspend(struct usb_phy *x, int suspend)
 		phy->is_suspended	= 0;
 		clk_enable(phy->wkupclk);
 		clk_enable(phy->optclk);
-		pm_runtime_get_sync(phy->dev);
+		ret = pm_runtime_get_sync(phy->dev);
+		if (ret < 0) {
+			dev_err(phy->dev, "get_sync failed with err %d\n",
+									ret);
+			clk_disable(phy->optclk);
+			clk_disable(phy->wkupclk);
+			return ret;
+		}
 
 		val = omap_usb_readl(phy->pll_ctrl_base, PLL_CONFIGURATION2);
 		val &= ~PLL_IDLE;
