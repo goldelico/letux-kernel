@@ -104,6 +104,12 @@ static int omap_usb_irq(struct notifier_block *nb, unsigned long status,
 	struct omap_usb		*phy = container_of(nb, struct omap_usb, nb);
 	struct usb_otg		*otg = phy->phy.otg;
 
+	if (phy->phy.last_event == status) {
+		dev_err(phy->dev, "Spurious USB connect/disconnect event"
+								" detected\n");
+		return -EINVAL;
+	}
+
 	omap_usb_update_state(phy, status);
 
 #ifdef CONFIG_PM
