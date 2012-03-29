@@ -331,7 +331,11 @@ int dwc3_core_late_init(struct device *dev)
 	struct platform_device	*pdev = to_platform_device(dev);
 	struct dwc3		*dwc = platform_get_drvdata(pdev);
 
-	pm_runtime_get_sync(dev);
+	ret = pm_runtime_get_sync(dev);
+	if (ret < 0) {
+		dev_err(dev, "get_sync failed with err %d\n", ret);
+		return ret;
+	}
 
 	spin_lock_irqsave(&dwc->lock, flags);
 

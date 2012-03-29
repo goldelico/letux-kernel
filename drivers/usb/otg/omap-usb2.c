@@ -229,6 +229,7 @@ static void omap_usb2_shutdown(struct usb_phy *x)
 
 static int omap_usb2_suspend(struct usb_phy *x, int suspend)
 {
+	u32		ret;
 	struct omap_usb *phy = phy_to_omapusb(x);
 
 	if (suspend && !phy->is_suspended) {
@@ -244,7 +245,14 @@ static int omap_usb2_suspend(struct usb_phy *x, int suspend)
 	} else if (!suspend && phy->is_suspended) {
 		clk_enable(phy->optclk);
 		clk_enable(phy->wkupclk);
-		pm_runtime_get_sync(phy->dev);
+		ret = pm_runtime_get_sync(phy->dev);
+		if (ret < 0) {
+			dev_err(phy->dev, "get_sync failed with err %d\n",
+									ret);
+			clk_disable(phy->optclk);
+			clk_disable(phy->wkupclk);
+			return ret;
+		}
 
 		omap4plus_scm_phy_power(phy->scm_dev, 1);
 
