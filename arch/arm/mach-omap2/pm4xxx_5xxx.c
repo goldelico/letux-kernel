@@ -76,6 +76,8 @@ static u8 pm44xx_54xx_errata;
 #define is_pm44xx_54xx_erratum(erratum) (pm44xx_54xx_errata & \
 					OMAP44xx_54xx_PM_ERRATUM_##erratum)
 
+static bool off_mode_enabled;
+
 /**
  * omap4_device_set_state_off() - setup device off state
  * @enable:	set to off or not.
@@ -84,7 +86,7 @@ static u8 pm44xx_54xx_errata;
  * transition to off mode as soon as all power domains in MPU, IVA
  * and CORE voltage are in OFF or OSWR state (open switch retention)
  */
-void omap4_device_set_state_off(u8 enable)
+void omap4_device_set_state_off(bool enable)
 {
 	u16 offset;
 
@@ -293,11 +295,11 @@ static int omap_pm_suspend(void)
 		pwrst->saved_logic_state = pwrdm_read_logic_retst(pwrst->pwrdm);
 	}
 
-	/* Set targeted power domain states by suspend */
-	list_for_each_entry(pwrst, &pwrst_list, node) {
-		omap_set_pwrdm_state(pwrst->pwrdm, pwrst->next_state);
-		pwrdm_set_logic_retst(pwrst->pwrdm, pwrst->next_logic_state);
-	}
+	omap4_set_pwrdm_state(off_mode_enabled);
+
+	/* Enable Device OFF */
+	if (off_mode_enabled)
+		omap4_device_set_state_off(true);
 
 	/*
 	 * For MPUSS to hit power domain retention(CSWR or OSWR),
@@ -309,6 +311,10 @@ static int omap_pm_suspend(void)
 	 * More details can be found in OMAP4430 TRM section 4.3.4.2.
 	 */
 	omap_pm_idle(cpu_id, PWRDM_POWER_OFF);
+
+	/* Disable Device OFF */
+	if (off_mode_enabled)
+		omap4_device_set_state_off(false);
 
 	ret = omap4_restore_pwdms_after_suspend();
 
@@ -521,7 +527,16 @@ static int __init clkdms_setup(struct clockdomain *clkdm, void *unused)
 }
 
 
-void omap4_pm_off_mode_enable(int enable)
+/*
+ * Sets off_mode_enabled flag as true or false. Based on this pwrdm
+ * next_state is configured. This should be called from board file.
+ */
+void omap4_pm_off_mode_enable(bool enable)
+{
+	off_mode_enabled = enable;
+}
+
+void omap4_set_pwrdm_state(bool enable)
 {
 	u32 next_state = PWRDM_POWER_RET;
 	u32 next_logic_state = PWRDM_POWER_ON;
