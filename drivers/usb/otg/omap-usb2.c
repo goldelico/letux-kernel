@@ -102,11 +102,19 @@ static int omap_usb_irq(struct notifier_block *nb, unsigned long status,
 								void *unused)
 {
 	struct omap_usb		*phy = container_of(nb, struct omap_usb, nb);
-	struct usb_otg		*otg = (&phy->phy)->otg;
+	struct usb_otg		*otg = phy->phy.otg;
 
 	omap_usb_update_state(phy, status);
 
-	atomic_notifier_call_chain(&phy->phy.notifier, status, otg->gadget);
+#ifdef CONFIG_PM
+	if (phy->dev->power.disable_depth) {
+		phy->pending_work = true;
+		queue_delayed_work(phy->workqueue, &phy->wakeup_work,
+							DELAYED_WORK_DELAY);
+	} else
+#endif
+		atomic_notifier_call_chain(&phy->phy.notifier, status,
+								otg->gadget);
 
 	return 0;
 }
@@ -155,6 +163,19 @@ static int omap_usb2_init(struct usb_phy *x)
 		omap_usb_irq(&phy->nb, phy->comparator->linkstat, NULL);
 
 	return 0;
+}
+
+void omap_usb_resume_work(struct work_struct *work)
+{
+	struct delayed_work	*d_work = to_delayed_work(work);
+	struct omap_usb		*phy = container_of(d_work, struct omap_usb,
+								wakeup_work);
+	struct usb_otg		*otg = phy->phy.otg;
+
+	atomic_notifier_call_chain(&phy->phy.notifier, phy->phy.last_event,
+								otg->gadget);
+
+	phy->pending_work = false;
 }
 
 static int omap_usb_set_vbus(struct usb_otg *otg, bool enabled)
@@ -275,6 +296,13 @@ static int __devinit omap_usb2_probe(struct platform_device *pdev)
 	phy->phy.set_suspend	= omap_usb2_suspend;
 	phy->phy.otg		= otg;
 
+	phy->workqueue = create_singlethread_workqueue("omap_usb_phy");
+	if (!phy->workqueue) {
+		dev_err(phy->dev, "unable to create a workqueue for usb "
+									"phy\n");
+		return -EINVAL;
+	}
+
 	phy->scm_dev		= omap_get_scm_dev();
 
 	phy->is_suspended	= 1;
@@ -297,6 +325,8 @@ static int __devinit omap_usb2_probe(struct platform_device *pdev)
 
 	ATOMIC_INIT_NOTIFIER_HEAD(&phy->phy.notifier);
 
+	INIT_DELAYED_WORK(&phy->wakeup_work, omap_usb_resume_work);
+
 	pm_runtime_enable(phy->dev);
 
 	return 0;
@@ -314,12 +344,40 @@ static int __devexit omap_usb2_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+
+static int omap_usb_suspend(struct device *dev)
+{
+	struct platform_device	*pdev = to_platform_device(dev);
+	struct omap_usb	*phy = platform_get_drvdata(pdev);
+
+	flush_scheduled_work();
+
+	if (phy->phy.last_event && phy->pending_work) {
+		dev_err(phy->dev, "can't suspend phy when the device is "
+							"connected\n");
+		return -EBUSY;
+	}
+
+	return 0;
+}
+
+static const struct dev_pm_ops omap_usb_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(omap_usb_suspend, NULL)
+};
+
+#define DEV_PM_OPS	(&omap_usb_pm_ops)
+#else
+#define DEV_PM_OPS	NULL
+#endif
+
 static struct platform_driver omap_usb2_driver = {
 	.probe		= omap_usb2_probe,
 	.remove		= __devexit_p(omap_usb2_remove),
 	.driver		= {
 		.name	= "omap-usb2",
 		.owner	= THIS_MODULE,
+		.pm	= DEV_PM_OPS,
 	},
 };
 
