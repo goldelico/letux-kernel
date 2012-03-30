@@ -77,6 +77,7 @@ struct gpio_bank {
 	u32 context_loss_count;
 	u16 id;
 	int power_mode;
+	bool workaround_enabled;
 
 	void (*set_dataout)(struct gpio_bank *bank, int gpio, int enable);
 	u32 (*get_context_loss_count)(struct device *dev);
@@ -1226,6 +1227,8 @@ static int omap_gpio_runtime_suspend(struct device *dev)
 	__raw_writel(l1, bank->base + bank->regs->fallingdetect);
 	__raw_writel(l2, bank->base + bank->regs->risingdetect);
 
+	bank->workaround_enabled = true;
+
 update_gpio_context_count:
 	if (bank->get_context_loss_count)
 		bank->context_loss_count =
@@ -1257,6 +1260,11 @@ static int omap_gpio_runtime_resume(struct device *dev)
 			spin_unlock_irqrestore(&bank->lock, flags);
 			return 0;
 		}
+	}
+
+	if (!bank->workaround_enabled) {
+		spin_unlock_irqrestore(&bank->lock, flags);
+		return 0;
 	}
 
 	__raw_writel(bank->context.fallingdetect,
@@ -1311,6 +1319,8 @@ static int omap_gpio_runtime_resume(struct device *dev)
 		__raw_writel(old0, bank->base + bank->regs->leveldetect0);
 		__raw_writel(old1, bank->base + bank->regs->leveldetect1);
 	}
+
+	bank->workaround_enabled = false;
 
 	spin_unlock_irqrestore(&bank->lock, flags);
 
