@@ -77,6 +77,7 @@ static u8 pm44xx_54xx_errata;
 					OMAP44xx_54xx_PM_ERRATUM_##erratum)
 
 static bool off_mode_enabled;
+static bool enable_dev_off;
 
 /**
  * omap4_device_set_state_off() - setup device off state
@@ -87,6 +88,11 @@ static bool off_mode_enabled;
  * and CORE voltage are in OFF or OSWR state (open switch retention)
  */
 void omap4_device_set_state_off(bool enable)
+{
+	enable_dev_off = enable;
+}
+
+static void omap4_configure_dev_off_state(u8 enable)
 {
 	u16 offset;
 
@@ -298,8 +304,8 @@ static int omap_pm_suspend(void)
 	omap4_set_pwrdm_state(off_mode_enabled);
 
 	/* Enable Device OFF */
-	if (off_mode_enabled)
-		omap4_device_set_state_off(true);
+	if (enable_dev_off)
+		omap4_configure_dev_off_state(true);
 
 	/*
 	 * For MPUSS to hit power domain retention(CSWR or OSWR),
@@ -313,8 +319,8 @@ static int omap_pm_suspend(void)
 	omap_pm_idle(cpu_id, PWRDM_POWER_OFF);
 
 	/* Disable Device OFF */
-	if (off_mode_enabled)
-		omap4_device_set_state_off(false);
+	if (enable_dev_off)
+		omap4_configure_dev_off_state(false);
 
 	ret = omap4_restore_pwdms_after_suspend();
 
