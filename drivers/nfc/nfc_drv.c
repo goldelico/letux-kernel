@@ -155,7 +155,7 @@ static int nfc_drv_open(struct inode *inode, struct file *filp)
 				&dev->st_register_completed,
 				msecs_to_jiffies(NFC_DRV_REGISTER_TIMEOUT)
 				);
-			NFC_DRV_DBG("wait_for_completion_timeout returned %d",
+			NFC_DRV_DBG("wait_for_completion_timeout returned %ld",
 					comp_ret);
 			if (comp_ret == 0) {
 				/* timeout */
@@ -199,7 +199,7 @@ static int nfc_drv_release(struct inode *inode, struct file *filp)
 	NFC_DRV_FUNC_START();
 
 	unreg_ret = st_unregister(&dev->st_proto);
-	NFC_DRV_DBG("st_unregister returned %d", unreg_ret);
+	NFC_DRV_DBG("st_unregister returned %ld", unreg_ret);
 
 	/* delete all buffers on the rx queue */
 	skb_queue_purge(&dev->rx_q);
@@ -248,7 +248,7 @@ static ssize_t nfc_drv_write(struct file *filp, const char __user *buf,
 	/* forward the skb to the ST */
 	BUG_ON(dev->st_proto.write == 0);
 	write_ret = dev->st_proto.write(skb);
-	NFC_DRV_DBG("st_write returned %d", write_ret);
+	NFC_DRV_DBG("st_write returned %ld", write_ret);
 	if (unlikely(write_ret < 0)) {
 		NFC_DRV_ERR("st_write failed");
 		ret = write_ret;
@@ -287,7 +287,7 @@ static ssize_t nfc_drv_read(struct file *filp, char __user *buf,
 					!skb_queue_empty(&dev->rx_q),
 					msecs_to_jiffies(NFC_DRV_READ_TIMEOUT)
 					);
-	NFC_DRV_DBG("wait_event_interruptible_timeout returned %d", wait_ret);
+	NFC_DRV_DBG("wait_event_interruptible_timeout returned %ld", wait_ret);
 	if (unlikely(wait_ret == 0)) {
 		ret = -ETIMEDOUT;
 		goto exit;
