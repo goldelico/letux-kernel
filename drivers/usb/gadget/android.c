@@ -835,9 +835,11 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 		cdev->desc.bDeviceProtocol = device_desc.bDeviceProtocol;
 		usb_add_config(cdev, &android_config_driver,
 					android_bind_config);
+		usb_gadget_allow_pullup(cdev->gadget, 1);
 		usb_gadget_connect(cdev->gadget);
 		dev->enabled = true;
 	} else if (!enabled && dev->enabled) {
+		usb_gadget_allow_pullup(cdev->gadget, 1);
 		usb_gadget_disconnect(cdev->gadget);
 		/* Cancel pending control requests */
 		usb_ep_dequeue(cdev->gadget->ep0, cdev->req);
@@ -971,7 +973,7 @@ static int android_bind(struct usb_composite_dev *cdev)
 	struct usb_gadget	*gadget = cdev->gadget;
 	int			gcnum, id, ret;
 
-	usb_gadget_disconnect(gadget);
+	usb_gadget_allow_pullup(gadget, 0);
 
 	ret = android_init_functions(dev->functions, cdev);
 	if (ret)
