@@ -525,6 +525,7 @@ PVRSRV_ERROR SysFinalise(IMG_VOID)
 		return eError;
 	}
 	SYS_SPECIFIC_DATA_SET(&gsSysSpecificData, SYS_SPECIFIC_DATA_ENABLE_LISR);
+	SysEnableSGXInterrupts(gpsSysData);
 #endif
 #if defined(__linux__)
 
