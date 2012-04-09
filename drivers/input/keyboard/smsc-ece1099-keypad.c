@@ -227,7 +227,7 @@ smsc_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		__set_bit(EV_REP, input->evbit);
 
 	input_set_capability(input, EV_MSC, MSC_SCAN);
-	input->name             = "SMSC Keypad";
+	input->name             = "smsc_keypad";
 	input->phys             = "smsc_keypad/input0";
 	input->dev.parent       = &client->dev;
 	input->id.bustype       = BUS_HOST;
