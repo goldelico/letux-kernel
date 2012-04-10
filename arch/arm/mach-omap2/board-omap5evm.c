@@ -265,7 +265,7 @@ static struct smsc_keypad_data omap5_kp_data = {
 	.keymap_data    = &board_map_data,
 	.rows           = 8,
 	.cols           = 16,
-	.rep            = 1,
+	.rep            = 0,
 };
 
 #ifdef CONFIG_ION_OMAP
