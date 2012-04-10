@@ -5,9 +5,9 @@
 
 struct omap4_keypad_platform_data {
 	const struct matrix_keymap_data *keymap_data;
-
 	u8 rows;
 	u8 cols;
+	bool rep;
 };
 
 extern int omap4_keyboard_init(struct omap4_keypad_platform_data *,
