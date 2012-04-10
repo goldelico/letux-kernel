@@ -1318,18 +1318,12 @@ static void omap5_sdp5430_wifi_mux_init(void)
 				OMAP_PIN_OFF_WAKEUPENABLE);
 	omap_mux_init_gpio(GPIO_WIFI_PMENA, OMAP_PIN_OUTPUT);
 
-	omap_mux_init_signal("wlsdio_cmd.wlsdio_cmd",
-				OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP);
-	omap_mux_init_signal("wlsdio_clk.wlsdio_clk",
-				OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP);
-	omap_mux_init_signal("wlsdio_data0.wlsdio_data0",
-				OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP);
-	omap_mux_init_signal("wlsdio_data1.wlsdio_data1",
-				OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP);
-	omap_mux_init_signal("wlsdio_data2.wlsdio_data2",
-				OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP);
-	omap_mux_init_signal("wlsdio_data3.wlsdio_data3",
-				OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP);
+	omap_mux_init_signal("wlsdio_cmd", OMAP_PIN_INPUT_PULLUP);
+	omap_mux_init_signal("wlsdio_clk", OMAP_PIN_INPUT_PULLUP);
+	omap_mux_init_signal("wlsdio_data0", OMAP_PIN_INPUT_PULLUP);
+	omap_mux_init_signal("wlsdio_data1", OMAP_PIN_INPUT_PULLUP);
+	omap_mux_init_signal("wlsdio_data2", OMAP_PIN_INPUT_PULLUP);
+	omap_mux_init_signal("wlsdio_data3", OMAP_PIN_INPUT_PULLUP);
 }
 
 static struct wl12xx_platform_data omap5_sdp5430_wlan_data __initdata = {
@@ -1340,10 +1334,7 @@ static struct wl12xx_platform_data omap5_sdp5430_wlan_data __initdata = {
 
 static void omap5_sdp5430_wifi_init(void)
 {
-/* PRDP: To be enabled on production */
-#if 0
 	omap5_sdp5430_wifi_mux_init();
-#endif
 
 	if (gpio_request_one(GPIO_WIFI_IRQ, GPIOF_IN, "wlan"))
 		printk(KERN_INFO "wlan: IRQ gpio request failure in board file\n");
