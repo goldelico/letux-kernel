@@ -829,17 +829,18 @@ PVRMMap(struct file* pFile, struct vm_area_struct* ps_vma)
 	    goto unlock_and_return;
 	}
 
-	/* Temporary Fix- Start */
-	/* In OMAP5, something is not correct in Kernel mapping routines
-	and causes incorrect mapping which treats the WRITECOMBINE
-	as CACHED. Due to this issue, when the SW try to access the
-	2D mapped space a SIGBUS error is noticed ( a non-line
-	fetch abort) */
+	/* OMAP5 workaround */
+	/* In OMAP5, the A15 no longer masks an issue with the interconnect.
+	Writecombined access to Tiler 2D memory will encounter errors due to
+	incorrect bus accesses.  This will result in a SIGBUS error with a
+	"non-line fetch abort".  The workaround is to use a shared device
+	access.  This will be fixed in OMAP6 */
 	if (cpu_is_omap54xx() &&
 		psOffsetStruct->psLinuxMemArea->eAreaType == LINUX_MEM_AREA_ION)
-		ps_vma->vm_page_prot = PGPROT_UC(ps_vma->vm_page_prot);
+		ps_vma->vm_page_prot = __pgprot_modify(ps_vma->vm_page_prot,
+					L_PTE_MT_MASK, L_PTE_MT_DEV_SHARED);
 
-	/* Temporary Fix - End */
+	/* OMAP5 workaround - End */
 
 
 	ps_vma->vm_ops = &MMapIOOps;
