@@ -224,6 +224,15 @@ int omap_tiler_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 	u32 vma_pages = (vma->vm_end - vma->vm_start) / PAGE_SIZE;
 	int n_pages = min(vma_pages, info->n_tiler_pages);
 	int i, ret = 0;
+	pgprot_t vm_page_prot;
+
+	/* Use writecombined mappings unless on OMAP5.  If OMAP5, use
+	shared device due to h/w issue. */
+	if (cpu_is_omap54xx())
+		vm_page_prot = __pgprot_modify(vma->vm_page_prot, L_PTE_MT_MASK,
+						L_PTE_MT_DEV_SHARED);
+	else
+		vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 
 	if (TILER_PIXEL_FMT_PAGE == info->fmt) {
 		/* Since 1D buffer is linear, map whole buffer in one shot */
@@ -232,13 +241,13 @@ int omap_tiler_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 				(vma->vm_end - vma->vm_start),
 				(buffer->cached ?
 				(vma->vm_page_prot)
-				: pgprot_writecombine(vma->vm_page_prot)));
+				: vm_page_prot));
 	} else {
 		for (i = vma->vm_pgoff; i < n_pages; i++, addr += PAGE_SIZE) {
 			ret = remap_pfn_range(vma, addr,
 				 __phys_to_pfn(info->tiler_addrs[i]),
 				PAGE_SIZE,
-				pgprot_writecombine(vma->vm_page_prot));
+				vm_page_prot);
 			if (ret)
 				return ret;
 		}
