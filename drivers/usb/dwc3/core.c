@@ -328,8 +328,7 @@ int dwc3_core_late_init(struct device *dev)
 	u32			reg;
 	int			ret = 0;
 	unsigned long		flags;
-	struct platform_device	*pdev = to_platform_device(dev);
-	struct dwc3		*dwc = platform_get_drvdata(pdev);
+	struct dwc3		*dwc = dev_get_drvdata(dev);
 
 	pm_runtime_get_sync(dev);
 
@@ -401,8 +400,7 @@ EXPORT_SYMBOL_GPL(dwc3_core_late_init);
 int dwc3_core_shutdown(struct device *dev)
 {
 	unsigned long		flags;
-	struct platform_device	*pdev = to_platform_device(dev);
-	struct dwc3		*dwc = platform_get_drvdata(pdev);
+	struct dwc3		*dwc = dev_get_drvdata(dev);
 
 	spin_lock_irqsave(&dwc->lock, flags);
 
@@ -715,8 +713,7 @@ static int __devexit dwc3_remove(struct platform_device *pdev)
 
 static int dwc3_suspend(struct device *dev)
 {
-	struct platform_device	*pdev = to_platform_device(dev);
-	struct dwc3		*dwc = platform_get_drvdata(pdev);
+	struct dwc3		*dwc = dev_get_drvdata(dev);
 
 	if (dwc->is_active) {
 		dev_err(dwc->dev, "can't suspend dwc3 when the device is "
@@ -729,8 +726,7 @@ static int dwc3_suspend(struct device *dev)
 
 static int dwc3_runtime_suspend(struct device *dev)
 {
-	struct platform_device	*pdev = to_platform_device(dev);
-	struct dwc3		*dwc = platform_get_drvdata(pdev);
+	struct dwc3		*dwc = dev_get_drvdata(dev);
 	struct dwc3_context_regs *context = &dwc->context;
 
 	context->gctl = dwc3_readl(dwc->regs, DWC3_GCTL);
@@ -740,8 +736,7 @@ static int dwc3_runtime_suspend(struct device *dev)
 
 static int dwc3_runtime_resume(struct device *dev)
 {
-	struct platform_device	*pdev = to_platform_device(dev);
-	struct dwc3		*dwc = platform_get_drvdata(pdev);
+	struct dwc3		*dwc = dev_get_drvdata(dev);
 	struct dwc3_context_regs *context = &dwc->context;
 
 	dwc3_writel(dwc->regs, DWC3_GCTL, context->gctl);
