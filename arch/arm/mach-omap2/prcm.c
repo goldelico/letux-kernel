@@ -72,6 +72,33 @@ static void omap_prcm_arch_reset(char mode, const char *cmd)
 		omap3_ctrl_write_boot_mode((cmd ? (u8)*cmd : 0));
 	} else if (cpu_is_omap44xx()) {
 		omap4_prminst_global_warm_sw_reset(); /* never returns */
+	} else if (cpu_is_omap54xx()) {
+		/*
+		 * Erratum i744:
+		 * Seems that the HSDIVIDER ratio is corrupted after WARM reset
+		 * H/w team WA is as follows:
+		 * when warm reset is generated, PMIC must be set to generate
+		 * cold reset OR, in the specific case of TWL6035,
+		 * "TWL6035 device, it is recommended to connect the OMAP
+		 * sys_nreswarm pin to the reset_in pin."
+		 * Instead, Since many of the boards are not accessible for
+		 * modification OR may use other PMICs which may not be capable,
+		 * lets do cold reset in the first place.
+		 *
+		 * NOTE: this does not save us from other h/w Warm reset sources
+		 * such as WDT/Thermal events.
+		 */
+		if (OMAP5430_REV_ES1_0 == omap_rev()) {
+			/* print a warning to ensure that WA eventually goes */
+			pr_warning("%s: USING Cold reset as WA for i744\n",
+				__func__);
+			udelay(50);
+			omap4_prminst_global_cold_sw_reset();
+		} else {
+			omap4_prminst_global_warm_sw_reset();
+		}
+		/* Neither should return.. if they did, bug */
+		BUG();
 	} else {
 		WARN_ON(1);
 	}
