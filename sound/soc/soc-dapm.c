@@ -720,7 +720,11 @@ static int is_connected_output_ep(struct snd_soc_dapm_widget *widget,
 	case snd_soc_dapm_aif_out:
 		if (widget->active) {
 			widget->outputs = snd_soc_dapm_suspend_check(widget);
-			return widget->outputs;
+			con = widget->outputs;
+			if (!list)
+				return con;
+			else
+				goto build_list;
 		}
 	default:
 		break;
@@ -730,7 +734,11 @@ static int is_connected_output_ep(struct snd_soc_dapm_widget *widget,
 		/* connected pin ? */
 		if (widget->id == snd_soc_dapm_output && !widget->ext) {
 			widget->outputs = snd_soc_dapm_suspend_check(widget);
-			return widget->outputs;
+			con = widget->outputs;
+			if (!list)
+				return con;
+			else
+				goto build_list;
 		}
 
 		/* connected jack or spk ? */
@@ -739,10 +747,15 @@ static int is_connected_output_ep(struct snd_soc_dapm_widget *widget,
 		    (widget->id == snd_soc_dapm_line &&
 		     !list_empty(&widget->sources))) {
 			widget->outputs = snd_soc_dapm_suspend_check(widget);
-			return widget->outputs;
+			con = widget->outputs;
+			if (!list)
+				return con;
+			else
+				goto build_list;
 		}
 	}
 
+build_list:
 	list_for_each_entry(path, &widget->sinks, list_source) {
 		DAPM_UPDATE_STAT(widget, neighbour_checks);
 
@@ -804,7 +817,11 @@ static int is_connected_input_ep(struct snd_soc_dapm_widget *widget,
 	case snd_soc_dapm_aif_in:
 		if (widget->active) {
 			widget->inputs = snd_soc_dapm_suspend_check(widget);
-			return widget->inputs;
+			con = widget->inputs;
+			if (!list)
+				return con;
+			else
+				goto build_list;
 		}
 	default:
 		break;
@@ -814,13 +831,21 @@ static int is_connected_input_ep(struct snd_soc_dapm_widget *widget,
 		/* connected pin ? */
 		if (widget->id == snd_soc_dapm_input && !widget->ext) {
 			widget->inputs = snd_soc_dapm_suspend_check(widget);
-			return widget->inputs;
+			con = widget->inputs;
+			if (!list)
+				return con;
+			else
+				goto build_list;
 		}
 
 		/* connected VMID/Bias for lower pops */
 		if (widget->id == snd_soc_dapm_vmid) {
 			widget->inputs = snd_soc_dapm_suspend_check(widget);
-			return widget->inputs;
+			con = widget->inputs;
+			if (!list)
+				return con;
+			else
+				goto build_list;
 		}
 
 		/* connected jack ? */
@@ -828,11 +853,16 @@ static int is_connected_input_ep(struct snd_soc_dapm_widget *widget,
 		    (widget->id == snd_soc_dapm_line &&
 		     !list_empty(&widget->sinks))) {
 			widget->inputs = snd_soc_dapm_suspend_check(widget);
-			return widget->inputs;
+			con = widget->inputs;
+			if (!list)
+				return con;
+			else
+				goto build_list;
 		}
 
 	}
 
+build_list:
 	list_for_each_entry(path, &widget->sources, list_sink) {
 		DAPM_UPDATE_STAT(widget, neighbour_checks);
 
