@@ -91,7 +91,8 @@ static int rpres_scale_dev(struct rpres *obj, long val)
 
 static int rpres_set_dev_lat(struct rpres *obj, long val)
 {
-	return dev_pm_qos_update_request(obj->pm_qos_request, val);
+	int ret = dev_pm_qos_update_request(obj->pm_qos_request, val);
+	return ret -= ret == 1;
 }
 
 static int rpres_set_l3_bw(struct rpres *obj, long val)
