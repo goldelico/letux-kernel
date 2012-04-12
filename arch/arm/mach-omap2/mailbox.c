@@ -44,6 +44,8 @@
 #define OMAP4_MBOX_NUM_USER            3
 #define OMAP4_MBOX_NR_REGS             3
 
+#define SET_MPU_CORE_CONSTRAINT		10
+
 static void __iomem *mbox_base;
 
 static u32 *mbox_ctx;
@@ -328,9 +330,10 @@ static struct omap_mbox2_priv omap2_mbox_1_priv = {
 };
 
 struct omap_mbox mbox_1_info = {
-	.name	= "mailbox-1",
-	.ops	= &omap2_mbox_ops,
-	.priv	= &omap2_mbox_1_priv,
+	.name		= "mailbox-1",
+	.ops		= &omap2_mbox_ops,
+	.priv		= &omap2_mbox_1_priv,
+	.pm_constraint	= SET_MPU_CORE_CONSTRAINT,
 };
 
 static struct omap_mbox2_priv omap2_mbox_2_priv = {
@@ -350,9 +353,10 @@ static struct omap_mbox2_priv omap2_mbox_2_priv = {
 };
 
 struct omap_mbox mbox_2_info = {
-	.name	= "mailbox-2",
-	.ops	= &omap2_mbox_ops,
-	.priv	= &omap2_mbox_2_priv,
+	.name		= "mailbox-2",
+	.ops		= &omap2_mbox_ops,
+	.priv		= &omap2_mbox_2_priv,
+	.pm_constraint	= SET_MPU_CORE_CONSTRAINT,
 };
 
 struct omap_mbox *omap4_mboxes[] = { &mbox_1_info, &mbox_2_info, NULL };

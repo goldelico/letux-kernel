@@ -861,13 +861,21 @@ struct iommu *iommu_get(const char *name)
 	mutex_lock(&obj->iommu_lock);
 
 	if (obj->refcount++ == 0) {
-		dev_info(obj->dev, "%s: %s qos_request\n", __func__, obj->name);
-		dev_pm_qos_update_request(obj->qos_request, 10);
-		err = iommu_enable(obj);
-		if (err) {
-			dev_pm_qos_update_request(obj->qos_request, -1);
-			goto err_enable;
+		if (obj->pm_constraint) {
+			dev_info(obj->dev, "%s: %s qos_request\n",
+					__func__, obj->name);
+			err = dev_pm_qos_update_request(obj->qos_request,
+					obj->pm_constraint);
+			if (err < 0) {
+				dev_err(dev,
+					"failed to update qos constraint\n");
+				goto err_constraint;
+			}
 		}
+		err = iommu_enable(obj);
+		if (err)
+			goto err_enable;
+
 		flush_iotlb_all(obj);
 	}
 
@@ -883,6 +891,12 @@ err_module:
 	if (obj->refcount == 1)
 		iommu_disable(obj);
 err_enable:
+	if (obj->pm_constraint)
+		if (dev_pm_qos_update_request(obj->qos_request,
+				PM_QOS_DEFAULT_VALUE) < 0)
+			dev_err(dev,
+				"failed to relax qos constraint\n");
+err_constraint:
 	obj->refcount--;
 	mutex_unlock(&obj->iommu_lock);
 	return ERR_PTR(err);
@@ -908,7 +922,11 @@ void iommu_put(struct iommu *obj)
 
 	if (--obj->refcount == 0) {
 		iommu_disable(obj);
-		dev_pm_qos_update_request(obj->qos_request, -1);
+		if (obj->pm_constraint)
+			if (dev_pm_qos_update_request(obj->qos_request,
+					PM_QOS_DEFAULT_VALUE) < 0)
+				dev_err(obj->dev,
+					"failed to relax qos constraint\n");
 	}
 
 	module_put(obj->owner);
@@ -991,6 +1009,7 @@ static int __devinit omap_iommu_probe(struct platform_device *pdev)
 	obj->ctx = (void *)obj + sizeof(*obj);
 	obj->da_start = pdata->da_start;
 	obj->da_end = pdata->da_end;
+	obj->pm_constraint = pdata->pm_constraint;
 
 	mutex_init(&obj->iommu_lock);
 	mutex_init(&obj->mmap_lock);
