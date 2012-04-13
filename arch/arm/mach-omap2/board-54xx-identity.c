@@ -131,11 +131,14 @@ static struct attribute_group omap5_brd_prop_attr_group = {
 	.attrs = omap5_brd_prop_attrs,
 };
 
+static char omap5_mach_print[255];
+
 void __init omap5_create_board_props(char *bname, char *rev, char *vname)
 {
 	struct kobject *board_props_kobj;
 	struct kobject *soc_kobj = NULL;
 	int ret = 0;
+	char soc_f[10], soc_r[10], soc_t[10], soc_pid[20], soc_die[40];
 
 	omap5_bname = kasprintf(GFP_KERNEL, "%s", bname);
 	omap5_brev = kasprintf(GFP_KERNEL, "%s", rev);
@@ -157,6 +160,19 @@ void __init omap5_create_board_props(char *bname, char *rev, char *vname)
 	ret = sysfs_create_group(soc_kobj, &omap5_soc_prop_attr_group);
 	if (ret)
 		goto err_soc_sysfs_create;
+
+	omap5_soc_family_show(NULL, NULL, soc_f);
+	omap5_soc_revision_show(NULL, NULL, soc_r);
+	omap5_soc_type_show(NULL, NULL, soc_t);
+	omap5_prod_id_show(NULL, NULL, soc_pid);
+	omap5_die_id_show(NULL, NULL, soc_die);
+	snprintf(omap5_mach_print, ARRAY_SIZE(omap5_mach_print),
+		 "\n Name: %s\n Rev: %s (%s)\nSoC Information:\n"
+		 " CPU: %s Rev: %s Type: %s Production ID: %s Die ID: %s",
+		 bname, rev, vname, soc_f, soc_r, soc_t, soc_pid, soc_die);
+
+	pr_info("Board Information: %s\n", omap5_mach_print);
+	mach_panic_string = omap5_mach_print;
 
 	return;
 
