@@ -18,7 +18,7 @@
 #define _MACH_OMAP_BOARD_OMAP5EVM_H
 
 int omap5evm_sensor_init(void);
-void omap5_create_board_props(void);
+void omap5_create_board_props(char *bname, char *rev, char *vname);
 
 extern struct usbhs_omap_board_data usbhs_bdata;
 

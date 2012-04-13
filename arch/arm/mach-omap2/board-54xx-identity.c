@@ -93,15 +93,62 @@ static struct attribute_group omap5_soc_prop_attr_group = {
 	.attrs = omap5_soc_prop_attrs,
 };
 
-void __init omap5_create_board_props(void)
+#define OMAP5_BRD_ATTR_RO(_name, _show) \
+	struct kobj_attribute omap5_brd_prop_attr_##_name = \
+		__ATTR(_name, S_IRUGO, _show, NULL)
+
+static char *omap5_bname;
+static ssize_t omap5_brd_name_show(struct kobject *kobj,
+				    struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%s\n", omap5_bname);
+}
+OMAP5_BRD_ATTR_RO(name, omap5_brd_name_show);
+
+static char *omap5_brev;
+static ssize_t omap5_brd_rev_show(struct kobject *kobj,
+				    struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%s\n", omap5_brev);
+}
+OMAP5_BRD_ATTR_RO(revision, omap5_brd_rev_show);
+
+static char *omap5_bvname;
+static ssize_t omap5_brd_vname_show(struct kobject *kobj,
+				    struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%s\n", omap5_bvname);
+}
+OMAP5_BRD_ATTR_RO(variant_name, omap5_brd_vname_show);
+
+static struct attribute *omap5_brd_prop_attrs[] = {
+	&omap5_brd_prop_attr_name.attr,
+	&omap5_brd_prop_attr_revision.attr,
+	&omap5_brd_prop_attr_variant_name.attr,
+	NULL,
+};
+static struct attribute_group omap5_brd_prop_attr_group = {
+	.attrs = omap5_brd_prop_attrs,
+};
+
+void __init omap5_create_board_props(char *bname, char *rev, char *vname)
 {
 	struct kobject *board_props_kobj;
 	struct kobject *soc_kobj = NULL;
 	int ret = 0;
 
+	omap5_bname = kasprintf(GFP_KERNEL, "%s", bname);
+	omap5_brev = kasprintf(GFP_KERNEL, "%s", rev);
+	omap5_bvname = kasprintf(GFP_KERNEL, "%s", vname);
+
 	board_props_kobj = kobject_create_and_add("board_properties", NULL);
+
 	if (!board_props_kobj)
 		goto err_board_obj;
+
+	ret = sysfs_create_group(board_props_kobj, &omap5_brd_prop_attr_group);
+	if (ret)
+		goto err_brd_soc_sysfs_create;
 
 	soc_kobj = kobject_create_and_add("soc", board_props_kobj);
 	if (!soc_kobj)
@@ -117,6 +164,8 @@ err_soc_sysfs_create:
 	sysfs_remove_group(soc_kobj, &omap5_soc_prop_attr_group);
 err_soc_obj:
 	kobject_put(soc_kobj);
+err_brd_soc_sysfs_create:
+	sysfs_remove_group(board_props_kobj, &omap5_brd_prop_attr_group);
 err_board_obj:
 	if (!board_props_kobj || !soc_kobj || ret)
 		pr_err("failed to create board_properties\n");
