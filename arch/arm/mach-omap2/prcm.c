@@ -38,6 +38,7 @@
 #include "prm-regbits-24xx.h"
 #include "prm-regbits-44xx.h"
 #include "control.h"
+#include "pm.h"
 
 void __iomem *prm_base;
 void __iomem *cm_base;
@@ -88,15 +89,10 @@ static void omap_prcm_arch_reset(char mode, const char *cmd)
 		 * NOTE: this does not save us from other h/w Warm reset sources
 		 * such as WDT/Thermal events.
 		 */
-		if (OMAP5430_REV_ES1_0 == omap_rev()) {
-			/* print a warning to ensure that WA eventually goes */
-			pr_warning("%s: USING Cold reset as WA for i744\n",
-				__func__);
-			udelay(50);
-			omap4_prminst_global_cold_sw_reset();
-		} else {
+		if (OMAP5430_REV_ES1_0 == omap_rev())
+			omap4_pm_cold_reset("Cold reset as WA reboot for i744");
+		else
 			omap4_prminst_global_warm_sw_reset();
-		}
 		/* Neither should return.. if they did, bug */
 		BUG();
 	} else {
