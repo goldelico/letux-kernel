@@ -1207,6 +1207,27 @@ static int omap_gpio_runtime_suspend(struct device *dev)
 	struct gpio_bank *bank = platform_get_drvdata(pdev);
 	u32 l1 = 0, l2 = 0;
 	unsigned long flags;
+	u32 wake_low, wake_hi;
+
+	/*
+	 * Only edges can generate a wakeup event to the PRCM.
+	 *
+	 * Therefore, ensure any wake-up capable GPIOs have
+	 * edge-detection enabled before going idle to ensure a wakeup
+	 * to the PRCM is generated on a GPIO transition. (c.f. 34xx
+	 * NDA TRM 25.5.3.1)
+	 *
+	 * The normal values will be restored upon ->runtime_resume()
+	 * by writing back the values saved in bank->context.
+	 */
+	wake_low = bank->context.leveldetect0 & bank->context.wake_en;
+	if (wake_low)
+		__raw_writel(wake_low | bank->context.fallingdetect,
+			     bank->base + bank->regs->fallingdetect);
+	wake_hi = bank->context.leveldetect1 & bank->context.wake_en;
+	if (wake_hi)
+		__raw_writel(wake_hi | bank->context.risingdetect,
+			     bank->base + bank->regs->risingdetect);
 
 	spin_lock_irqsave(&bank->lock, flags);
 	if (bank->power_mode != OFF_MODE) {
@@ -1255,6 +1276,17 @@ static int omap_gpio_runtime_resume(struct device *dev)
 	spin_lock_irqsave(&bank->lock, flags);
 	_gpio_dbck_enable(bank);
 
+	/*
+	 * In ->runtime_suspend(), level-triggered, wakeup-enabled
+	 * GPIOs were set to edge trigger also in order to be able to
+	 * generate a PRCM wakeup.  Here we restore the
+	 * pre-runtime_suspend() values for edge triggering.
+	 */
+	__raw_writel(bank->context.fallingdetect,
+		     bank->base + bank->regs->fallingdetect);
+	__raw_writel(bank->context.risingdetect,
+		     bank->base + bank->regs->risingdetect);
+
 	if (bank->get_context_loss_count) {
 		context_lost_cnt_after =
 			bank->get_context_loss_count(bank->dev);
@@ -1271,10 +1303,6 @@ static int omap_gpio_runtime_resume(struct device *dev)
 		return 0;
 	}
 
-	__raw_writel(bank->context.fallingdetect,
-			bank->base + bank->regs->fallingdetect);
-	__raw_writel(bank->context.risingdetect,
-			bank->base + bank->regs->risingdetect);
 	l = __raw_readl(bank->base + bank->regs->datain);
 
 	/*
