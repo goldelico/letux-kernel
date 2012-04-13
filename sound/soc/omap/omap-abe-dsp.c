@@ -743,20 +743,54 @@ static int volume_put_dl2_mixer(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
+static int do_volume_put_gain(struct soc_mixer_control *mc, int lval, int rval,
+	int ramp)
+{
+	abe_dsp_pm_get();
+	abe_write_gain(mc->reg,
+		       abe_val_to_gain(lval),
+		       ramp, mc->shift);
+	abe_write_gain(mc->reg,
+		       abe_val_to_gain(rval),
+		       ramp, mc->rshift);
+	abe_dsp_pm_put();
+
+	return 1;
+}
+
 static int volume_put_gain(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
+	int lval = ucontrol->value.integer.value[0];
+	int rval = ucontrol->value.integer.value[1];
+	int ramp = RAMP_2MS;
 
-	abe_dsp_pm_get();
-	abe_write_gain(mc->reg,
-		       abe_val_to_gain(ucontrol->value.integer.value[0]),
-		       RAMP_2MS, mc->shift);
-	abe_write_gain(mc->reg,
-		       -12000 + (ucontrol->value.integer.value[1] * 100),
-		       RAMP_2MS, mc->rshift);
-	abe_dsp_pm_put();
+	do_volume_put_gain(mc, lval, rval, ramp);
+
+	return 1;
+}
+
+static int volume_put_dmic_gain(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	int lval = ucontrol->value.integer.value[0];
+	int rval = ucontrol->value.integer.value[1];
+	int ramp = RAMP_2MS;
+
+	/* DMic's typ. need 10ms to settle after applying bias and clocks.
+	 * The OMAP DMic module is unable to start the clocks independent
+	 * of starting the sDMA transfer, so there will always be a pop.
+	 * This is worked around by setting a slower ramp for everything
+	 * except muting.
+	 */
+	if ((lval >= 0) && (rval >= 0))
+		ramp = RAMP_50MS;
+
+	do_volume_put_gain(mc, lval, rval, ramp);
 
 	return 1;
 }
@@ -1124,15 +1158,15 @@ static const struct snd_kcontrol_new abe_controls[] = {
 	/* DMIC gains */
 	SOC_DOUBLE_EXT_TLV("DMIC1 UL Volume",
 		GAINS_DMIC1, GAIN_LEFT_OFFSET, GAIN_RIGHT_OFFSET, 149, 0,
-		volume_get_gain, volume_put_gain, dmic_tlv),
+		volume_get_gain, volume_put_dmic_gain, dmic_tlv),
 
 	SOC_DOUBLE_EXT_TLV("DMIC2 UL Volume",
 		GAINS_DMIC2, GAIN_LEFT_OFFSET, GAIN_RIGHT_OFFSET, 149, 0,
-		volume_get_gain, volume_put_gain, dmic_tlv),
+		volume_get_gain, volume_put_dmic_gain, dmic_tlv),
 
 	SOC_DOUBLE_EXT_TLV("DMIC3 UL Volume",
 		GAINS_DMIC3, GAIN_LEFT_OFFSET, GAIN_RIGHT_OFFSET, 149, 0,
-		volume_get_gain, volume_put_gain, dmic_tlv),
+		volume_get_gain, volume_put_dmic_gain, dmic_tlv),
 
 	SOC_DOUBLE_EXT_TLV("AMIC UL Volume",
 		GAINS_AMIC, GAIN_LEFT_OFFSET, GAIN_RIGHT_OFFSET, 149, 0,
