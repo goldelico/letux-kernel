@@ -238,6 +238,9 @@ static void tsc2007_work(struct work_struct *work)
 
 		tsc2007_range_values(ts, &tc, &rt);
 
+		/* Invert Y to have ts->min_y to match the top. */
+		tc.y = (ts->max_y - tc.y) + ts->min_y;
+
 		input_report_abs(input, ABS_X, tc.x);
 		input_report_abs(input, ABS_Y, tc.y);
 		input_report_abs(input, ABS_PRESSURE, rt);
