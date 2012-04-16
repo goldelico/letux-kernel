@@ -480,15 +480,16 @@ static void __init omap5_check_revision(void)
 			omap_revision = OMAP5430_REV_ES1_0;
 			omap_chip.oc |= CHIP_IS_OMAP5430ES1;
 			break;
+		case 1:
 		default:
-			omap_revision = OMAP5430_REV_ES1_0;
-			omap_chip.oc |= CHIP_IS_OMAP5430ES1;
-	}
-	break;
+			omap_revision = OMAP5430_REV_ES2_0;
+			omap_chip.oc |= CHIP_IS_OMAP5430ES2;
+		}
+		break;
 	default:
 		/* Unknown default to latest silicon rev as default*/
-		omap_revision = OMAP5430_REV_ES1_0;
-		omap_chip.oc |= CHIP_IS_OMAP5430ES1;
+		omap_revision = OMAP5430_REV_ES2_0;
+		omap_chip.oc |= CHIP_IS_OMAP5430ES2;
 	}
 
 	pr_info("OMAP%04x ES%d.0\n",
