@@ -143,7 +143,7 @@ void __init omap2_set_globals_443x(void)
 
 #if defined(CONFIG_ARCH_OMAP5)
 static struct omap_globals omap5_globals = {
-	.class	= OMAP543X_CLASS,
+	.class	= OMAP54XX_CLASS,
 	.tap	= OMAP2_L4_IO_ADDRESS(OMAP543X_SCM_BASE),
 	.ctrl	= OMAP543X_SCM_BASE,
 	.ctrl_pad	= OMAP543X_CTRL_BASE,
