@@ -492,7 +492,7 @@ static void __init omap5_check_revision(void)
 	}
 
 	pr_info("OMAP%04x ES%d.0\n",
-			omap_rev() >> 16, ((omap_rev() >> 12) & 0xf) + 1);
+			omap_rev() >> 16, ((omap_rev() >> 12) & 0xf));
 }
 
 #define OMAP3_SHOW_FEATURE(feat)		\
