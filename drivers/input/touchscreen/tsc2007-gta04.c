@@ -95,6 +95,16 @@ struct tsc2007 {
 	u16			model;
 	u16			x_plate_ohms;
 
+	u16			min_x;
+	u16			min_y;
+	u16			min_z;
+	u16			max_x;
+	u16			max_y;
+	u16			max_z;
+	bool		flip_x;
+	bool		flip_y;
+	bool		swap_xy;
+
 	bool		pendown;
 	int			irq;
 
@@ -261,6 +271,42 @@ static void tsc2007_dejitter(struct tsc2007 *ts, bool first)
 	/* dejitter pressure ? */
 }
 		 
+static void tsc2007_shape_values(struct tsc2007 *ts)
+{
+	/* Get the read values in the correct calibrated range. */
+
+	if(ts->swap_xy) { /* swap before applying the range limits */
+		u16 h = ts->tc.x;
+		ts->tc.x = ts->tc.y;
+		ts->tc.y = h;
+	}
+
+	/* X */
+	if(ts->tc.x > ts->max_x)
+		ts->tc.x = ts->max_x;
+	else if(ts->tc.x < ts->min_x)
+		ts->tc.x = ts->min_x;
+
+	if(ts->flip_x)
+		ts->tc.x = (ts->max_x - ts->tc.x) + ts->min_x;
+
+	/* Y */
+	if(ts->tc.y > ts->max_y)
+		ts->tc.y = ts->max_y;
+	else if(ts->tc.y < ts->min_y)
+		ts->tc.y = ts->min_y;
+
+	if(ts->flip_y)
+		ts->tc.y = (ts->max_y - ts->tc.y) + ts->min_y;
+
+	/* Z */
+	if(ts->pressure > ts->max_z)
+		ts->pressure = ts->max_z;
+	else if(ts->pressure < ts->min_z)
+		ts->pressure = ts->min_z;
+
+}
+
 static void tsc2007_send_up_event(struct tsc2007 *ts)
 {
 	struct input_dev *input = ts->input;
@@ -294,7 +340,6 @@ static void tsc2007_work(struct work_struct *work)
 {
 	struct tsc2007 *ts =
 		container_of(to_delayed_work(work), struct tsc2007, work);
-	u16 rt;	/* range: 0 .. 4095 */
 
 //	printk("tsc2007_work\n");
 
@@ -336,7 +381,9 @@ static void tsc2007_work(struct work_struct *work)
 		} else {
 			tsc2007_dejitter(ts, false);
 		}
-		
+
+		tsc2007_shape_values(ts);
+
 		input_report_abs(input, ABS_X, ts->tc.x);
 		input_report_abs(input, ABS_Y, ts->tc.y);
 		input_report_abs(input, ABS_PRESSURE, ts->pressure);
@@ -443,6 +490,15 @@ static int tsc2007_probe(struct i2c_client *client,
 
 	ts->model             = pdata->model;
 	ts->x_plate_ohms      = pdata->x_plate_ohms;
+	ts->min_x             = pdata->min_x ? : 0;
+	ts->min_y             = pdata->min_y ? : 0;
+	ts->min_z             = pdata->min_z ? : 0;
+	ts->max_x             = pdata->max_x ? : MAX_12BIT;
+	ts->max_y             = pdata->max_y ? : MAX_12BIT;
+	ts->max_z             = pdata->max_z ? : MAX_12BIT;
+	ts->flip_x            = pdata->flip_x;
+	ts->flip_y            = pdata->flip_y;
+	ts->swap_xy           = pdata->swap_xy;
 	ts->get_pendown_state = pdata->get_pendown_state;
 	ts->clear_penirq      = pdata->clear_penirq;
 
@@ -456,9 +512,9 @@ static int tsc2007_probe(struct i2c_client *client,
 	input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
 	input_dev->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
 
-	input_set_abs_params(input_dev, ABS_X, 0, MAX_12BIT, 0, 0);
-	input_set_abs_params(input_dev, ABS_Y, 0, MAX_12BIT, 0, 0);
-	input_set_abs_params(input_dev, ABS_PRESSURE, 0, MAX_12BIT, 0, 0);
+	input_set_abs_params(input_dev, ABS_X, pdata->min_x, pdata->max_x, pdata->fuzz_x, 0);
+	input_set_abs_params(input_dev, ABS_Y, pdata->min_y, pdata->max_y, pdata->fuzz_y, 0);
+	input_set_abs_params(input_dev, ABS_PRESSURE, pdata->min_z, pdata->max_z, pdata->fuzz_z, 0);
 
 	if (pdata->init_platform_hw)
 		pdata->init_platform_hw();

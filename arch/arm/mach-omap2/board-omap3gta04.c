@@ -102,6 +102,8 @@
 #define GPMC_CS0_BASE  0x60
 #define GPMC_CS_SIZE   0x30
 
+#define MAX_12BIT		((1 << 12) - 1)
+
 #define NAND_BLOCK_SIZE		SZ_128K
 
 /* hardware specific GPIO assignments - may depend on board version and variant */
@@ -1031,7 +1033,16 @@ static void tsc2007_exit(void)
 
 struct tsc2007_platform_data __initdata tsc2007_info = {
 	.model			= 2007,
-	.x_plate_ohms		= 550,			// GTA04: 250 - 900
+	.x_plate_ohms	= 550,			// GTA04: 250 - 900
+	.min_x			= 0x0100,
+	.min_y			= 0x00c0,
+	.min_z			= 0,
+	.max_x			= 0x0f00,
+	.max_y			= 0x0f00,
+	.max_z			= 0x0fff,
+	.flip_x			= 0,
+	.flip_y			= 1,
+	.swap_xy		= 0,
 	.get_pendown_state	= ts_get_pendown_state,
 	.init_platform_hw	= tsc2007_init,
 	.exit_platform_hw	= tsc2007_exit,
