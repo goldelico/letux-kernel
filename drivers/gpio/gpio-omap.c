@@ -1250,6 +1250,10 @@ static int omap_gpio_runtime_resume(struct device *dev)
 	spin_lock_irqsave(&bank->lock, flags);
 	_gpio_dbck_enable(bank);
 
+	if (!(bank->enabled_non_wakeup_gpios)) {
+		spin_unlock_irqrestore(&bank->lock, flags);
+		return 0;
+	}
 
 	if (bank->get_context_loss_count) {
 		context_lost_cnt_after =
