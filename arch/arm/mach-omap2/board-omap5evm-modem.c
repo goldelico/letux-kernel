@@ -35,7 +35,7 @@
  * - Modem Vbat supplied with
  * - MDM_ONSWC and MDM_PWRSTATE gpio reserved and PAD configured
  */
-static int omap5evm_modem_switch(int new_state)
+static int __init omap5evm_modem_switch(int new_state)
 {
 	int modem_pwrrst_ca;
 	int i = 0;
@@ -57,7 +57,7 @@ static int omap5evm_modem_switch(int new_state)
 	return modem_pwrrst_ca;
 }
 
-static void omap5evm_modem_pad_conf(void)
+static void __init omap5evm_modem_pad_conf(void)
 {
 	/*
 	 * HSI pad conf: hsi2_ca/ac_wake/flag/data/ready

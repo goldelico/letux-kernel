@@ -293,9 +293,12 @@ obj-$(CONFIG_MACH_TI8168EVM)		+= board-ti8168evm.o
 
 obj-$(CONFIG_MACH_OMAP_5430EVM)		+= board-omap5evm.o \
 					   board-omap5evm-sensors.o \
-					   board-omap5evm-modem.o \
 					   board-54xx-identity.o \
 					   hsmmc.o
+
+ifeq ($(CONFIG_OMAP_HSI_DEVICE),y)
+obj-$(CONFIG_MACH_OMAP_5430EVM)		+= board-omap5evm-modem.o
+endif
 
 # Platform specific device init code
 usbfs-$(CONFIG_ARCH_OMAP_OTG)		:= usb-fs.o

@@ -22,6 +22,12 @@ void omap5_create_board_props(char *bname, char *rev, char *vname);
 
 extern struct usbhs_omap_board_data usbhs_bdata;
 
-void omap5evm_modem_init(bool force_mux);
+
+
+#ifdef CONFIG_OMAP_HSI
+extern void __init omap5evm_modem_init(bool force_mux);
+#else
+static inline void __init omap5evm_modem_init(bool force_mux) { }
+#endif
 
 #endif
