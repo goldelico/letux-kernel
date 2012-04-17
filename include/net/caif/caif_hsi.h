@@ -9,6 +9,9 @@
 #ifndef CAIF_HSI_H_
 #define CAIF_HSI_H_
 
+#ifdef CONFIG_WAKELOCK
+#include <linux/wakelock.h>
+#endif
 #include <net/caif/caif_layer.h>
 #include <net/caif/caif_device.h>
 #include <linux/atomic.h>
@@ -52,14 +55,15 @@ struct cfhsi_desc {
 /*
  * Maximum bytes transferred in one transfer.
  */
-/* TODO: 4096 is temporary... */
-#define CFHSI_MAX_PAYLOAD_SZ (CFHSI_MAX_PKTS * 4096)
+#define CFHSI_MAX_CAIF_FRAME_SZ 4096
+
+#define CFHSI_MAX_PAYLOAD_SZ (CFHSI_MAX_PKTS * CFHSI_MAX_CAIF_FRAME_SZ)
 
 /* Size of the complete HSI TX buffer. */
 #define CFHSI_BUF_SZ_TX (CFHSI_DESC_SZ + CFHSI_MAX_PAYLOAD_SZ)
 
 /* Size of the complete HSI RX buffer. */
-#define CFHSI_BUF_SZ_RX ((2 * CFHSI_DESC_SZ) + CFHSI_MAX_PAYLOAD_SZ)
+#define CFHSI_BUF_SZ_RX (2 * CFHSI_DESC_SZ + CFHSI_MAX_PAYLOAD_SZ)
 
 /* Bitmasks for the HSI descriptor. */
 #define CFHSI_PIGGY_DESC		(0x01 << 7)
@@ -75,18 +79,25 @@ struct cfhsi_desc {
 #define CFHSI_WAKE_UP_ACK			1
 #define CFHSI_WAKE_DOWN_ACK			2
 #define CFHSI_AWAKE				3
-#define CFHSI_PENDING_RX			4
-#define CFHSI_SHUTDOWN				6
-#define CFHSI_FLUSH_FIFO			7
+#define CFHSI_WAKELOCK_HELD			4
+#define CFHSI_SHUTDOWN				5
+#define CFHSI_FLUSH_FIFO			6
 
 #ifndef CFHSI_INACTIVITY_TOUT
 #define CFHSI_INACTIVITY_TOUT			(1 * HZ)
 #endif /* CFHSI_INACTIVITY_TOUT */
 
-#ifndef CFHSI_WAKEUP_TOUT
-#define CFHSI_WAKEUP_TOUT			(3 * HZ)
-#endif /* CFHSI_WAKEUP_TOUT */
+#ifndef CFHSI_WAKE_TOUT
+#define CFHSI_WAKE_TOUT			(3 * HZ)
+#endif /* CFHSI_WAKE_TOUT */
 
+#ifndef CFHSI_MAX_RX_RETRIES
+#define CFHSI_MAX_RX_RETRIES		(10 * HZ)
+#endif
+
+#ifndef CFHSI_RX_GRACE_PERIOD
+#define CFHSI_RX_GRACE_PERIOD		(1 * HZ)
+#endif
 
 /* Structure implemented by the CAIF HSI driver. */
 struct cfhsi_drv {
@@ -104,9 +115,19 @@ struct cfhsi_dev {
 	int (*cfhsi_rx) (u8 *ptr, int len, struct cfhsi_dev *dev);
 	int (*cfhsi_wake_up) (struct cfhsi_dev *dev);
 	int (*cfhsi_wake_down) (struct cfhsi_dev *dev);
+	int (*cfhsi_get_peer_wake) (struct cfhsi_dev *dev, bool *status);
 	int (*cfhsi_fifo_occupancy)(struct cfhsi_dev *dev, size_t *occupancy);
 	int (*cfhsi_rx_cancel)(struct cfhsi_dev *dev);
 	struct cfhsi_drv *drv;
+};
+
+/* Structure holds status of received CAIF frames processing */
+struct cfhsi_rx_state {
+	int state;
+	int nfrms;
+	int pld_len;
+	int retries;
+	bool piggy_desc;
 };
 
 /* Structure implemented by CAIF HSI drivers. */
@@ -118,11 +139,13 @@ struct cfhsi {
 	struct cfhsi_drv drv;
 	struct cfhsi_dev *dev;
 	int tx_state;
-	int rx_state;
+	struct cfhsi_rx_state rx_state;
+	unsigned long inactivity_timeout;
 	int rx_len;
 	u8 *rx_ptr;
 	u8 *tx_buf;
 	u8 *rx_buf;
+	u8 *rx_flip_buf;
 	spinlock_t lock;
 	int flow_off_sent;
 	u32 q_low_mark;
@@ -130,16 +153,104 @@ struct cfhsi {
 	struct list_head list;
 	struct work_struct wake_up_work;
 	struct work_struct wake_down_work;
-	struct work_struct rx_done_work;
-	struct work_struct tx_done_work;
+	struct work_struct out_of_sync_work;
 	struct workqueue_struct *wq;
 	wait_queue_head_t wake_up_wait;
 	wait_queue_head_t wake_down_wait;
 	wait_queue_head_t flush_fifo_wait;
 	struct timer_list timer;
+	struct timer_list rx_slowpath_timer;
 	unsigned long bits;
+#ifdef CONFIG_WAKELOCK
+	struct wake_lock link_wakelock;
+	struct timer_list sys_wakelock_timer;
+	unsigned long last_rx_jiffies;
+#endif
 };
 
 extern struct platform_driver cfhsi_driver;
+
+#ifdef CONFIG_WAKELOCK
+static inline void cfhsi_wakelock_lock(struct cfhsi *cfhsi)
+{
+	/* Hold link wakelock if not held already */
+	if (!test_and_set_bit(CFHSI_WAKELOCK_HELD,
+			&cfhsi->bits)) {
+		if (!del_timer_sync(&cfhsi->sys_wakelock_timer))
+			wake_lock(&cfhsi->link_wakelock);
+	}
+}
+
+static inline void cfhsi_wakelock_unlock(struct cfhsi *cfhsi)
+{
+	long tmo = CFHSI_RX_GRACE_PERIOD - (jiffies - cfhsi->last_rx_jiffies);
+
+	/* Release link wakelock */
+	if (test_and_clear_bit(CFHSI_WAKELOCK_HELD,
+			&cfhsi->bits)) {
+		if (tmo > 0 && tmo <= CFHSI_RX_GRACE_PERIOD)
+			mod_timer(&cfhsi->sys_wakelock_timer, jiffies + tmo);
+		else
+			wake_unlock(&cfhsi->link_wakelock);
+	}
+}
+
+static inline void cfhsi_notify_rx(struct cfhsi *cfhsi)
+{
+	cfhsi->last_rx_jiffies = jiffies;
+}
+
+static void cfhsi_sys_wakelock_tout(unsigned long arg)
+{
+	struct cfhsi *cfhsi = (struct cfhsi *)arg;
+
+	dev_dbg(&cfhsi->ndev->dev, "%s.\n",
+		__func__);
+
+	wake_unlock(&cfhsi->link_wakelock);
+}
+
+static inline void cfhsi_wakelock_init(struct cfhsi *cfhsi)
+{
+	/* Init wakelock which will hold system awake when link is active. */
+	wake_lock_init(&cfhsi->link_wakelock, WAKE_LOCK_SUSPEND, "caif_hsi");
+
+	/* Init system timer which holds system in awake state when incoming
+	 * CAIF frame is processed by upper layer */
+	init_timer(&cfhsi->sys_wakelock_timer);
+	cfhsi->sys_wakelock_timer.data = (unsigned long)cfhsi;
+	cfhsi->sys_wakelock_timer.function = cfhsi_sys_wakelock_tout;
+}
+
+static inline void cfhsi_wakelock_deinit(struct cfhsi *cfhsi)
+{
+	/* Destroy wakelock. Will also release if it is held. */
+	if (del_timer_sync(&cfhsi->sys_wakelock_timer) ||
+			test_bit(CFHSI_WAKELOCK_HELD, &cfhsi->bits))
+		wake_unlock(&cfhsi->link_wakelock);
+	wake_lock_destroy(&cfhsi->link_wakelock);
+}
+#else /* CONFIG_WAKELOCK */
+static inline void cfhsi_wakelock_init(struct cfhsi *cfhsi)
+{
+}
+
+static inline void cfhsi_wakelock_deinit(struct cfhsi *cfhsi)
+{
+}
+
+static inline void cfhsi_wakelock_lock(struct cfhsi *cfhsi)
+{
+}
+
+static inline void cfhsi_wakelock_unlock(struct cfhsi *cfhsi)
+{
+}
+
+static inline void cfhsi_notify_rx(struct cfhsi *cfhsi)
+{
+}
+
+#endif /* CONFIG_WAKELOCK */
 
 #endif		/* CAIF_HSI_H_ */
