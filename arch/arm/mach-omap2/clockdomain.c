@@ -956,6 +956,26 @@ static int _clkdm_clk_hwmod_enable(struct clockdomain *clkdm)
 	return 0;
 }
 
+static int _clkdm_clk_hwmod_enable_no_usecount(struct clockdomain *clkdm)
+{
+	unsigned long flags;
+
+	if (!clkdm || !arch_clkdm || !arch_clkdm->clkdm_clk_enable)
+		return -EINVAL;
+
+	if (clkdm->flags & CLKDM_NO_MANUAL_TRANSITIONS)
+		return 0;
+
+	spin_lock_irqsave(&clkdm->lock, flags);
+	arch_clkdm->clkdm_clk_enable(clkdm);
+	pwrdm_state_switch(clkdm->pwrdm.ptr);
+	spin_unlock_irqrestore(&clkdm->lock, flags);
+
+	pr_debug("clockdomain: clkdm %s: enabled\n", clkdm->name);
+
+	return 0;
+}
+
 static int _clkdm_clk_hwmod_disable(struct clockdomain *clkdm)
 {
 	unsigned long flags;
@@ -970,6 +990,26 @@ static int _clkdm_clk_hwmod_disable(struct clockdomain *clkdm)
 
 	if (clkdm_usecount_dec(clkdm) > 0)
 		return 0;
+
+	if (clkdm->flags & CLKDM_NO_MANUAL_TRANSITIONS)
+		return 0;
+
+	spin_lock_irqsave(&clkdm->lock, flags);
+	arch_clkdm->clkdm_clk_disable(clkdm);
+	pwrdm_state_switch(clkdm->pwrdm.ptr);
+	spin_unlock_irqrestore(&clkdm->lock, flags);
+
+	pr_debug("clockdomain: clkdm %s: disabled\n", clkdm->name);
+
+	return 0;
+}
+
+static int _clkdm_clk_hwmod_disable_no_usecount(struct clockdomain *clkdm)
+{
+	unsigned long flags;
+
+	if (!clkdm || !arch_clkdm || !arch_clkdm->clkdm_clk_disable)
+		return -EINVAL;
 
 	if (clkdm->flags & CLKDM_NO_MANUAL_TRANSITIONS)
 		return 0;
@@ -1072,8 +1112,8 @@ int clkdm_hwmod_enable(struct clockdomain *clkdm, struct omap_hwmod *oh)
 	if (!oh)
 		return -EINVAL;
 
-	if (oh->flags & HWMOD_NO_CLKDM_USECOUNTING)
-		return 0;
+	if (oh->prcm.omap4.modulemode != MODULEMODE_SWCTRL)
+		return _clkdm_clk_hwmod_enable_no_usecount(clkdm);
 
 	return _clkdm_clk_hwmod_enable(clkdm);
 }
@@ -1106,8 +1146,8 @@ int clkdm_hwmod_disable(struct clockdomain *clkdm, struct omap_hwmod *oh)
 	if (!oh)
 		return -EINVAL;
 
-	if (oh->flags & HWMOD_NO_CLKDM_USECOUNTING)
-		return 0;
+	if (oh->prcm.omap4.modulemode != MODULEMODE_SWCTRL)
+		return _clkdm_clk_hwmod_disable_no_usecount(clkdm);
 
 	return _clkdm_clk_hwmod_disable(clkdm);
 }
