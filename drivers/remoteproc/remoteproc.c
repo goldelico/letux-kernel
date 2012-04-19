@@ -1150,7 +1150,7 @@ static void rproc_loader_defered(struct rproc *rproc)
 		goto out;
 	}
 
-	dev_info(dev, "BIOS image version is %d\n", image->version);
+	dev_dbg(dev, "BIOS image version is %d\n", image->version);
 
 	rproc->header = kzalloc(image->header_len, GFP_KERNEL);
 	if (!rproc->header) {
