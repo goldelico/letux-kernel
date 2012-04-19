@@ -2717,10 +2717,6 @@ static struct omap_clk omap54xx_clks[] = {
 #define DPLL_CORE_M3_OPP100_RATE	425600000
 #define DPLL_CORE_H14_OPP50_RATE	212800000
 #define DPLL_CORE_H14_OPP100_RATE	425600000
-#define DPLL_CORE_H22_OPP50_RATE	212800000
-#define DPLL_CORE_H22_OPP100_RATE	425600000
-#define DPLL_CORE_H23_OPP50_RATE	152000000
-#define DPLL_CORE_H23_OPP100_RATE	304000000
 #define DPLL_PER_M3_OPP50_RATE		192000000
 #define DPLL_PER_M3_OPP100_RATE		256000000
 #define DPLL_PER_H14_OPP50_RATE		192000000
@@ -2769,8 +2765,6 @@ struct virt_l3_ck_deps {
 	unsigned long core_m2_rate;
 	unsigned long core_m3_rate;
 	unsigned long core_h14_rate;
-	unsigned long core_h22_rate;
-	unsigned long core_h23_rate;
 	unsigned long per_m3_rate;
 };
 
@@ -2783,16 +2777,12 @@ static struct virt_l3_ck_deps omap5_virt_l3_clk_deps[NO_OF_L3_OPPS] = {
 		.core_m2_rate = DPLL_CORE_M2_OPP50_RATE,
 		.core_m3_rate = DPLL_CORE_M3_OPP50_RATE,
 		.core_h14_rate = DPLL_CORE_H14_OPP50_RATE,
-		.core_h22_rate = DPLL_CORE_H22_OPP50_RATE,
-		.core_h23_rate = DPLL_CORE_H23_OPP50_RATE,
 		.per_m3_rate = DPLL_PER_M3_OPP50_RATE,
 	},
 	{ /* OPP 100 */
 		.core_m2_rate = DPLL_CORE_M2_OPP100_RATE,
 		.core_m3_rate = DPLL_CORE_M3_OPP100_RATE,
 		.core_h14_rate = DPLL_CORE_H14_OPP100_RATE,
-		.core_h22_rate = DPLL_CORE_H22_OPP100_RATE,
-		.core_h23_rate = DPLL_CORE_H23_OPP100_RATE,
 		.per_m3_rate = DPLL_PER_M3_OPP100_RATE,
 	},
 };
@@ -2809,8 +2799,6 @@ static int omap5_virt_l3_set_rate(struct clk *clk, unsigned long rate)
 	omap5_clksel_set_rate(&dpll_core_m2_ck, l3_deps->core_m2_rate);
 	omap5_clksel_set_rate(&dpll_core_m3x2_ck, l3_deps->core_m3_rate);
 	omap5_clksel_set_rate(&dpll_core_h14x2_ck, l3_deps->core_h14_rate);
-	omap5_clksel_set_rate(&dpll_core_h22x2_ck, l3_deps->core_h22_rate);
-	omap5_clksel_set_rate(&dpll_core_h23x2_ck, l3_deps->core_h23_rate);
 
 	omap5_clksel_set_rate(&dpll_per_m3x2_ck, l3_deps->per_m3_rate);
 	omap5_clksel_set_rate(&dpll_core_h12x2_ck, rate * 2);

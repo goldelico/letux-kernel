@@ -174,7 +174,17 @@ static struct omap_opp_def __initdata omap54xx_opp_def_list[] = {
 	OPP_INITIALIZER("hsi", "hsi_fck", "core", true, 96000000, OMAP5430_VDD_CORE_OPP_LOW),
 	/* HSI OPP3 - OPPNOM */
 	OPP_INITIALIZER("hsi", "hsi_fck", "core", true, 192000000, OMAP5430_VDD_CORE_OPP_NOM),
-	/* TODO: Uncomment the following once we have drivers for them */
+
+#ifndef CONFIG_OMAP_PM_STANDALONE
+	/* CORE_IPU_ISS_BOOST_CLK OPP1 - OPPLOW */
+	OPP_INITIALIZER("ipu_c0", "dpll_core_h22x2_ck", "core", true, 212800000, OMAP5430_VDD_CORE_OPP_LOW),
+	/* CORE_IPU_ISS_BOOST_CLK OPP2 - OPPNOM */
+	OPP_INITIALIZER("ipu_c0", "dpll_core_h22x2_ck", "core", true, 425600000, OMAP5430_VDD_CORE_OPP_NOM),
+
+	/* CORE_ISS_MAIN_CLK OPP1 - OPPLOW */
+	OPP_INITIALIZER("iss", "dpll_core_h23x2_ck", "core", true, 152000000, OMAP5430_VDD_CORE_OPP_LOW),
+	/* CORE_ISS_MAIN_CLK OPP2 - OPPNOM */
+	OPP_INITIALIZER("iss", "dpll_core_h23x2_ck", "core", true, 304000000, OMAP5430_VDD_CORE_OPP_NOM),
 
 	/* FDIF OPP1 - OPPLOW */
 	OPP_INITIALIZER("fdif", "fdif_fclk", "core", true, 64000000, OMAP5430_VDD_CORE_OPP_LOW),
@@ -186,7 +196,6 @@ static struct omap_opp_def __initdata omap54xx_opp_def_list[] = {
 	/* ABE OPP2 - OPPNOM */
 	OPP_INITIALIZER("aess", "abe_clk", "core", true, 196608000, OMAP5430_VDD_CORE_OPP_NOM),
 
-#ifndef CONFIG_OMAP_PM_STANDALONE
 	/* MMC1 OPP1 - OPPLOW */
 	OPP_INITIALIZER("mmc1", "mmc1_fclk", "core", true, 96000000, OMAP5430_VDD_CORE_OPP_LOW),
 	/* MMC1 OPP2 - OPPNOM */
