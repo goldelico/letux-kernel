@@ -556,6 +556,13 @@ config APANIC_PLABEL
 	 If your platform uses a different flash partition label for storing
  	 crashdumps, enter it here.
 
+config DRV2667_HAPTICS
+	tristate "Texas Instruments DRV2667 Haptics driver"
+	depends on I2C
+	default n
+	help
+	 This is the driver for the TI DRV2667 Haptics piezoelectric driver.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
