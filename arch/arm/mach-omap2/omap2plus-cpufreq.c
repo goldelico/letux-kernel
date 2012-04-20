@@ -339,8 +339,6 @@ static int __cpuinit omap_cpu_init(struct cpufreq_policy *policy)
 		cpumask_setall(policy->cpus);
 	}
 
-	omap_cpufreq_cooling_init();
-
 	/* FIXME: what's the actual transition time? */
 #ifdef CONFIG_MACH_OMAP_5430ZEBU
 	policy->cpuinfo.transition_latency = 10000 * 1000;
@@ -405,6 +403,10 @@ static int __init omap_cpufreq_init(void)
 
 	ret = cpufreq_register_driver(&omap_driver);
 	omap_cpufreq_ready = !ret;
+
+	if (!ret)
+		ret = omap_cpufreq_cooling_init();
+
 	return ret;
 
 }
