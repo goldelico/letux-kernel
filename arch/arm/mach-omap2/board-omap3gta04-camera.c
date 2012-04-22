@@ -241,6 +241,7 @@ static int gta04_cam_probe(struct platform_device *pdev)
 	gpio_direction_output(CAMERA_RESET_GPIO, 0);	/* 0: activate reset */
 	gpio_direction_output(CAMERA_PWDN_GPIO, 1);		/* 1: activate power down */
 
+#if 0	// standard more
 	/* MUX init */
 	omap_ctrl_writew(OMAP_PIN_INPUT_PULLUP | OMAP_MUX_MODE0,
 			 0x10C); /* CAM_HS */
@@ -275,6 +276,25 @@ static int gta04_cam_probe(struct platform_device *pdev)
 	omap_ctrl_writew(OMAP_PIN_INPUT | OMAP_MUX_MODE0,
 			 0x12C); /* CAM_D11 */
 
+#else	// special experimental mode
+	
+	omap_ctrl_writew(OMAP_PIN_OUTPUT | OMAP_MUX_MODE0,
+					 0x110); /* CAM_XCLKA */
+	omap_ctrl_writew(OMAP_PIN_INPUT_PULLUP | OMAP_MUX_MODE0,
+					 0x112); /* CAM_PCLK */
+	{ // map camera interface to GPIOs
+		int i;
+		for(i=94; i <= 110; i++) {
+			gpio_request(i, "camera");
+			omap_mux_init_gpio(i, OMAP_PIN_INPUT_PULLUP);
+			gpio_direction_input(i);
+			gpio_export(i, 0);	// no direction change through /sys
+			if(i == 95) i+=3;
+		}
+	}
+
+#endif	
+	
 	printk(KERN_INFO "omap3gta04lmb: Driver registration complete\n");
 
 	return 0;
