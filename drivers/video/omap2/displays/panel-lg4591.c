@@ -271,19 +271,6 @@ static int lg4591_update_brightness(struct omap_dss_device *dssdev, int level)
 	int r;
 	u8 buf[2];
 
-	/*
-	 * HACK: Brightness value less than 147 results in a dark display.
-	 * Below brightness value of 150, there are flickerings observed in the
-	 * screen. Hence restrict the minimum brightness value to 150.
-	 *
-	 * Inorder to avoid sudden change in brightness level at the middle
-	 * of the brightness range, retain the brightness value as "150"
-	 * for all brightness values between 1 and 150.
-	 *
-	 */
-	if (level && level < 150)
-		level = 150;
-
 	buf[0] = WRDISBV;
 	buf[1] = level;
 
