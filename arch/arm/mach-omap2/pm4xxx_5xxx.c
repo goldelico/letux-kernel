@@ -292,10 +292,6 @@ static int omap_pm_suspend(void)
 
 	omap4_set_pwrdm_state(off_mode_enabled);
 
-	/* Enable Device OFF */
-	if (enable_dev_off)
-		omap4_configure_dev_off_state(true);
-
 	/*
 	 * For MPUSS to hit power domain retention(CSWR or OSWR),
 	 * CPU0 and CPU1 power domains need to be in OFF or DORMANT state,
@@ -306,10 +302,6 @@ static int omap_pm_suspend(void)
 	 * More details can be found in OMAP4430 TRM section 4.3.4.2.
 	 */
 	omap_pm_idle(cpu_id, PWRDM_POWER_OFF);
-
-	/* Disable Device OFF */
-	if (enable_dev_off)
-		omap4_configure_dev_off_state(false);
 
 	ret = omap4_restore_pwdms_after_suspend();
 
@@ -340,11 +332,18 @@ static int omap_pm_enter(suspend_state_t suspend_state)
 static int omap_pm_begin(suspend_state_t state)
 {
 	disable_hlt();
+	/* Enable Device OFF */
+	if (enable_dev_off)
+		omap4_configure_dev_off_state(true);
 	return 0;
 }
 
 static void omap_pm_end(void)
 {
+	/* Disable Device OFF */
+	if (enable_dev_off)
+		omap4_configure_dev_off_state(false);
+
 	enable_hlt();
 	return;
 }
