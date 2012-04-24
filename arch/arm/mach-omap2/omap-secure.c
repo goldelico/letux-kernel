@@ -37,7 +37,7 @@ static struct clockdomain *l4_secure_clkdm;
 u32 omap_secure_dispatcher(u32 idx, u32 flag, u32 nargs, u32 arg1, u32 arg2,
 							 u32 arg3, u32 arg4)
 {
-	u32 ret;
+	u32 ret = 0;
 	u32 param[5];
 
 	param[0] = nargs;
@@ -46,8 +46,17 @@ u32 omap_secure_dispatcher(u32 idx, u32 flag, u32 nargs, u32 arg1, u32 arg2,
 	param[3] = arg3;
 	param[4] = arg4;
 
-	if (!l4_secure_clkdm)
-		l4_secure_clkdm = clkdm_lookup("l4_secure_clkdm");
+	if (!l4_secure_clkdm) {
+		if (cpu_is_omap54xx())
+			l4_secure_clkdm = clkdm_lookup("l4sec_clkdm");
+		else
+			l4_secure_clkdm = clkdm_lookup("l4_secure_clkdm");
+	}
+
+	if (!l4_secure_clkdm) {
+		pr_err("%s: failed to get l4_secure_clkdm\n", __func__);
+		return -EINVAL;
+	}
 
 	clkdm_wakeup(l4_secure_clkdm);
 
