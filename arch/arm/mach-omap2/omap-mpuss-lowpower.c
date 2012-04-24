@@ -95,6 +95,7 @@ static DEFINE_PER_CPU(struct omap4_cpu_pm_info, omap4_pm_info);
 static struct powerdomain *mpuss_pd;
 static void __iomem *sar_base;
 static struct voltagedomain *mpu_voltdm;
+static unsigned int ppa_service_0_api_index;
 
 struct reg_tuple {
 	void __iomem *addr;
@@ -502,7 +503,7 @@ int omap_enter_lowpower(unsigned int cpu, unsigned int power_state)
 
 	if ((omap4_device_prev_state_off()) &&
 			(omap_type() != OMAP2_DEVICE_TYPE_GP)) {
-		omap_secure_dispatcher(OMAP4_PPA_SERVICE_0,
+		omap_secure_dispatcher(ppa_service_0_api_index,
 					FLAG_START_CRITICAL,
 					0, 0, 0, 0, 0);
 		restore_ivahd_tesla_regs();
@@ -603,10 +604,14 @@ int __init omap_mpuss_init(void)
 	sar_base = omap4_get_sar_ram_base();
 
 	/* Initilaise per CPU PM information */
-	if (cpu_is_omap44xx())
+	if (cpu_is_omap44xx()) {
+		ppa_service_0_api_index = OMAP4_PPA_SERVICE_0;
 		cpu_wakeup_addr = CPU0_WAKEUP_NS_PA_ADDR_OFFSET;
-	else if (cpu_is_omap54xx())
+	}
+	else if (cpu_is_omap54xx()) {
+		ppa_service_0_api_index = OMAP5_PPA_SERVICE_0;
 		cpu_wakeup_addr = OMAP5_CPU0_WAKEUP_NS_PA_ADDR_OFFSET;
+	}
 
 	pm_info = &per_cpu(omap4_pm_info, 0x0);
 	pm_info->scu_sar_addr = sar_base + SCU_OFFSET0;

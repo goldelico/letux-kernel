@@ -64,6 +64,9 @@ static unsigned int irq_target_cpu[NR_IRQS];
 static unsigned int irq_banks = MAX_NR_BANKS;
 static unsigned int max_irqs = MAX_IRQS;
 static unsigned int secure_api_index;
+static unsigned int secure_hw_api_index;
+static unsigned int secure_hal_save_all_api_index;
+static unsigned int secure_ram_api_index;
 
 static struct powerdomain *mpuss_pd;
 
@@ -339,7 +342,7 @@ static void save_gic_wakeupgen_secure(void)
 static void save_secure_ram(void)
 {
 	u32 ret;
-	ret = omap_secure_dispatcher(OMAP4_HAL_SAVESECURERAM_INDEX,
+	ret = omap_secure_dispatcher(secure_ram_api_index,
 				FLAG_START_CRITICAL,
 				1, omap_secure_ram_mempool_base(),
 				0, 0, 0);
@@ -350,7 +353,7 @@ static void save_secure_ram(void)
 static void save_secure_all(void)
 {
 	u32 ret;
-	ret = omap_secure_dispatcher(OMAP4_HAL_SAVEALL_INDEX,
+	ret = omap_secure_dispatcher(secure_hal_save_all_api_index,
 				FLAG_START_CRITICAL,
 				1, omap_secure_ram_mempool_base(),
 				0, 0, 0);
@@ -464,8 +467,14 @@ int __init omap_wakeupgen_init(void)
 		irq_banks = OMAP4_NR_BANKS;
 		max_irqs = OMAP4_NR_IRQS;
 		secure_api_index = OMAP4_HAL_SAVEGIC_INDEX;
+		secure_hw_api_index = OMAP4_HAL_SAVEHW_INDEX;
+		secure_hal_save_all_api_index = OMAP4_HAL_SAVEALL_INDEX;
+		secure_ram_api_index  = OMAP4_HAL_SAVESECURERAM_INDEX;
 	} else if (cpu_is_omap54xx()) {
 		secure_api_index = OMAP5_HAL_SAVEGIC_INDEX;
+		secure_hw_api_index = OMAP5_HAL_SAVEHW_INDEX;
+		secure_hal_save_all_api_index = OMAP5_HAL_SAVEALL_INDEX;
+		secure_ram_api_index  = OMAP5_HAL_SAVESECURERAM_INDEX;
 	}
 
 	/* Clear all IRQ bitmasks at wakeupGen level */
