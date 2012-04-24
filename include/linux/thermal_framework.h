@@ -147,6 +147,7 @@ struct thermal_dev {
 	ret;								\
 })
 
+#ifdef CONFIG_THERMAL_FRAMEWORK
 extern int thermal_request_temp(struct thermal_dev *tdev);
 extern int thermal_lookup_temp(const char *domain_name);
 extern int thermal_sensor_set_temp(struct thermal_dev *tdev);
@@ -160,5 +161,27 @@ extern int thermal_cooling_dev_register(struct thermal_dev *tdev);
 extern void thermal_cooling_dev_unregister(struct thermal_dev *tdev);
 extern int thermal_governor_dev_register(struct thermal_dev *tdev);
 extern void thermal_governor_dev_unregister(struct thermal_dev *tdev);
+#else
+static int thermal_request_temp(struct thermal_dev *tdev) { return 0; }
+static int thermal_lookup_temp(const char *domain_name) { return 0; };
+static int thermal_sensor_set_temp(struct thermal_dev *tdev) { return 0; }
+extern int thermal_get_slope(struct thermal_dev *tdev) { return 0; }
+extern int thermal_get_offset(struct thermal_dev *tdev) {return 0; }
+
+/* Registration and unregistration calls for the thermal devices */
+static int thermal_sensor_dev_register(struct thermal_dev *tdev) { return 0; }
+static void thermal_sensor_dev_unregister(struct thermal_dev *tdev) { }
+static int thermal_cooling_dev_register(struct thermal_dev *tdev) { return 0; }
+static void thermal_cooling_dev_unregister(struct thermal_dev *tdev) { }
+static int thermal_governor_dev_register(struct thermal_dev *tdev) { return 0; }
+static void thermal_governor_dev_unregister(struct thermal_dev *tdev) { }
+#endif
+
+/* Specific to governors */
+#ifdef CONFIG_CASE_TEMP_GOVERNOR
+extern int case_subzone_number;
+#else
+#define case_subzone_number	-1
+#endif
 
 #endif /* __LINUX_THERMAL_FRAMEWORK_H__ */
