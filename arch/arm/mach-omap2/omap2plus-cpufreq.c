@@ -38,8 +38,6 @@
 
 #include "dvfs.h"
 
-#include "dvfs.h"
-
 #ifdef CONFIG_SMP
 struct lpj_info {
 	unsigned long ref;
@@ -61,6 +59,9 @@ static unsigned int max_thermal;
 static unsigned int max_freq;
 static unsigned int current_target_freq;
 static unsigned int current_cooling_level;
+static unsigned int cpu_cooling_level;
+static unsigned int case_cooling_level;
+static unsigned int new_cooling_level;
 static bool omap_cpufreq_ready;
 
 static unsigned int omap_getspeed(unsigned int cpu)
@@ -203,8 +204,6 @@ static void omap_thermal_step_freq_down(void)
 {
 	unsigned int cur;
 
-	mutex_lock(&omap_cpufreq_lock);
-
 	max_thermal = omap_thermal_lower_speed();
 
 	pr_debug("%s: temperature too high, starting cpu throttling at max %u\n",
@@ -214,14 +213,12 @@ static void omap_thermal_step_freq_down(void)
 	if (cur > max_thermal)
 		omap_cpufreq_scale(max_thermal, cur);
 
-	mutex_unlock(&omap_cpufreq_lock);
 }
 
 static void omap_thermal_step_freq_up(void)
 {
 	unsigned int cur;
 
-	mutex_lock(&omap_cpufreq_lock);
 	max_thermal = max_freq;
 
 	pr_debug("%s: temperature reduced, stepping up to %i\n",
@@ -230,7 +227,6 @@ static void omap_thermal_step_freq_up(void)
 	cur = omap_getspeed(0);
 	omap_cpufreq_scale(current_target_freq, cur);
 
-	mutex_unlock(&omap_cpufreq_lock);
 }
 
 /*
@@ -242,17 +238,38 @@ static void omap_thermal_step_freq_up(void)
 */
 static int cpufreq_apply_cooling(struct thermal_dev *dev, int cooling_level)
 {
-	if (cooling_level < current_cooling_level) {
-		pr_debug("%s: Unthrottle cool level %i curr cool %i\n",
-		       __func__, cooling_level, current_cooling_level);
+	mutex_lock(&omap_cpufreq_lock);
+
+	if (!strcmp(dev->domain_name, "case")) {
+		if (cooling_level > case_subzone_number)
+			case_cooling_level++;
+		if (cooling_level == 0)
+			case_cooling_level = 0;
+	} else {
+		cpu_cooling_level = cooling_level;
+	}
+
+	if (case_cooling_level > cpu_cooling_level)
+		new_cooling_level = case_cooling_level;
+	else
+		new_cooling_level = cpu_cooling_level;
+
+	pr_info("%s: cooling_level %d case %d cpu %d new %d curr %d\n",
+		__func__, cooling_level, case_cooling_level,
+		cpu_cooling_level, new_cooling_level, current_cooling_level);
+	if (new_cooling_level < current_cooling_level) {
+		pr_err("%s: Unthrottle cool level %i curr cool %i\n",
+			__func__, new_cooling_level, current_cooling_level);
 		omap_thermal_step_freq_up();
-	} else if (cooling_level > current_cooling_level) {
-		pr_debug("%s: Throttle cool level %i curr cool %i\n",
-		       __func__, cooling_level, current_cooling_level);
+	} else if (new_cooling_level > current_cooling_level) {
+		pr_err("%s: Throttle cool level %i curr cool %i\n",
+			__func__, new_cooling_level, current_cooling_level);
 		omap_thermal_step_freq_down();
 	}
 
-	current_cooling_level = cooling_level;
+	current_cooling_level = new_cooling_level;
+
+	mutex_unlock(&omap_cpufreq_lock);
 
 	return 0;
 }
@@ -262,19 +279,32 @@ static struct thermal_dev_ops cpufreq_cooling_ops = {
 };
 
 static struct thermal_dev thermal_dev = {
-	.name = "cpufreq_cooling",
-	.domain_name = "cpu",
-	.dev_ops = &cpufreq_cooling_ops,
+	.name		= "cpufreq_cooling.0",
+	.domain_name	= "cpu",
+	.dev_ops	= &cpufreq_cooling_ops,
+};
+
+static struct thermal_dev case_thermal_dev = {
+	.name		= "cpufreq_cooling.1",
+	.domain_name	= "case",
+	.dev_ops	= &cpufreq_cooling_ops,
 };
 
 static int __init omap_cpufreq_cooling_init(void)
 {
-	return thermal_cooling_dev_register(&thermal_dev);
+	int ret;
+
+	ret = thermal_cooling_dev_register(&thermal_dev);
+	if (ret)
+		return ret;
+
+	return thermal_cooling_dev_register(&case_thermal_dev);
 }
 
 static void __exit omap_cpufreq_cooling_exit(void)
 {
 	thermal_governor_dev_unregister(&thermal_dev);
+	thermal_governor_dev_unregister(&case_thermal_dev);
 }
 #else
 static int __init omap_cpufreq_cooling_init(void)
@@ -326,6 +356,8 @@ static int __cpuinit omap_cpu_init(struct cpufreq_policy *policy)
 		max_freq = max(freq_table[i].frequency, max_freq);
 	max_thermal = max_freq;
 	current_cooling_level = 0;
+	cpu_cooling_level = 0;
+	case_cooling_level = 0;
 
 	/*
 	 * On OMAP SMP configuartion, both processors share the voltage
