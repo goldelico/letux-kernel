@@ -377,6 +377,7 @@ static struct omap_i2c_bus_board_data __initdata sdp4430_i2c_5_bus_pdata;
 /* for TI WiLink devices */
 #include <linux/skbuff.h>
 #include <linux/ti_wilink_st.h>
+#include <plat/omap-serial.h>
 #define WILINK_UART_DEV_NAME "/dev/ttyO4"
 #define OMAP5_BT_NSHUTDOWN_GPIO		142
 
@@ -866,28 +867,36 @@ static int plat_wlink_kim_resume(struct platform_device *pdev)
 	return 0;
 }
 
-/* TODO: handle
- */
-static int plat_wlink_kim_enable(struct kim_data_s *kim_gdata)
+static bool uart_req;
+static struct wake_lock st_wk_lock;
+/* Call the uart disable of serial driver */
+static int plat_uart_disable(void)
 {
-	/* Get 32Khz clock via TWL regulator here */
-	return 0;
+	int port_id = 0;
+	int err = 0;
+	if (uart_req) {
+		sscanf(WILINK_UART_DEV_NAME, "/dev/ttyO%d", &port_id);
+		err = omap_serial_ext_uart_disable(port_id);
+		if (!err)
+			uart_req = false;
+	}
+	wake_unlock(&st_wk_lock);
+	return err;
 }
 
-static int plat_wlink_kim_disable(struct kim_data_s *kim_gdata)
+/* Call the uart enable of serial driver */
+static int plat_uart_enable(void)
 {
-	/* Put/Release 32Khz clock via TWL regulator here */
-	return 0;
-}
-
-static int plat_wlink_kim_asleep(struct kim_data_s *kim_gdata)
-{
-	return 0;
-}
-
-static int plat_wlink_kim_awake(struct kim_data_s *kim_gdata)
-{
-	return 0;
+	int port_id = 0;
+	int err = 0;
+	if (!uart_req) {
+		sscanf(WILINK_UART_DEV_NAME, "/dev/ttyO%d", &port_id);
+		err = omap_serial_ext_uart_enable(port_id);
+		if (!err)
+			uart_req = true;
+	}
+	wake_lock(&st_wk_lock);
+	return err;
 }
 
 /* wl18xx, wl128x BT, FM, GPS connectivity chip */
@@ -898,10 +907,10 @@ static struct ti_st_plat_data wilink_pdata = {
 	.baud_rate = 3686400, /* 115200 for test */
 	.suspend = plat_wlink_kim_suspend,
 	.resume = plat_wlink_kim_resume,
-	.chip_enable = plat_wlink_kim_enable,
-	.chip_disable = plat_wlink_kim_disable,
-	.chip_asleep = plat_wlink_kim_asleep,
-	.chip_awake = plat_wlink_kim_awake,
+	.chip_enable = plat_uart_enable,
+	.chip_disable = plat_uart_disable,
+	.chip_asleep = plat_uart_disable,
+	.chip_awake = plat_uart_enable,
 };
 
 static struct platform_device wl18xx_device = {
@@ -1502,6 +1511,7 @@ static void omap_5430evm_bluetooth_init(void)
 {
 #ifdef CONFIG_TI_ST
 	omap_mux_init_gpio(OMAP5_BT_NSHUTDOWN_GPIO, OMAP_PIN_OUTPUT);
+	wake_lock_init(&st_wk_lock, WAKE_LOCK_SUSPEND, "st_wake_lock");
 	/* UART5 muxing */
 	/* To DO: uart5 string from mux framework */
 	/* Currently muxing is handled in bootloader */
