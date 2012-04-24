@@ -101,13 +101,13 @@ struct reg_tuple {
 	u32 val;
 };
 
-static struct reg_tuple tesla_reg[] = {
+static struct reg_tuple omap4_tesla_reg[] = {
 	{.addr = OMAP4430_CM_TESLA_CLKSTCTRL},
 	{.addr = OMAP4430_CM_TESLA_TESLA_CLKCTRL},
 	{.addr = OMAP4430_PM_TESLA_PWRSTCTRL},
 };
 
-static struct reg_tuple ivahd_reg[] = {
+static struct reg_tuple omap4_ivahd_reg[] = {
 	{.addr = OMAP4430_CM_IVAHD_CLKSTCTRL},
 	{.addr = OMAP4430_CM_IVAHD_IVAHD_CLKCTRL},
 	{.addr = OMAP4430_CM_IVAHD_SL2_CLKCTRL},
@@ -118,6 +118,19 @@ static struct reg_tuple l3instr_reg[] = {
 	{.addr = OMAP4430_CM_L3INSTR_L3_3_CLKCTRL},
 	{.addr = OMAP4430_CM_L3INSTR_L3_INSTR_CLKCTRL},
 	{.addr = OMAP4430_CM_L3INSTR_OCP_WP1_CLKCTRL},
+};
+
+static struct reg_tuple omap5_tesla_reg[] = {
+	{.addr = OMAP4430_CM_TESLA_CLKSTCTRL},
+	{.addr = OMAP4430_CM_TESLA_TESLA_CLKCTRL},
+	{.addr = OMAP54XX_PM_DSP_PWRSTCTRL},
+};
+
+static struct reg_tuple omap5_ivahd_reg[] = {
+	{.addr = OMAP4430_CM_IVAHD_CLKSTCTRL},
+	{.addr = OMAP4430_CM_IVAHD_IVAHD_CLKCTRL},
+	{.addr = OMAP4430_CM_IVAHD_SL2_CLKCTRL},
+	{.addr = OMAP54XX_PM_IVA_PWRSTCTRL}
 };
 
 static int default_finish_suspend(unsigned long cpu_state)
@@ -291,26 +304,64 @@ static void save_l2x0_context(void)
 {}
 #endif
 
-static inline void save_ivahd_tesla_regs(void)
+static inline void omap4_save_ivahd_tesla_regs(void)
 {
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(tesla_reg); i++)
-		tesla_reg[i].val = __raw_readl(tesla_reg[i].addr);
+	for (i = 0; i < ARRAY_SIZE(omap4_tesla_reg); i++)
+		omap4_tesla_reg[i].val = __raw_readl(omap4_tesla_reg[i].addr);
 
-	for (i = 0; i < ARRAY_SIZE(ivahd_reg); i++)
-		ivahd_reg[i].val = __raw_readl(ivahd_reg[i].addr);
+	for (i = 0; i < ARRAY_SIZE(omap4_ivahd_reg); i++)
+		omap4_tesla_reg[i].val = __raw_readl(omap4_ivahd_reg[i].addr);
+}
+
+static inline void omap5_save_ivahd_tesla_regs(void)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(omap5_tesla_reg); i++)
+		omap5_tesla_reg[i].val = __raw_readl(omap5_tesla_reg[i].addr);
+
+	for (i = 0; i < ARRAY_SIZE(omap5_ivahd_reg); i++)
+		omap5_ivahd_reg[i].val = __raw_readl(omap5_ivahd_reg[i].addr);
+}
+
+static inline void omap4_restore_ivahd_tesla_regs(void)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(omap4_tesla_reg); i++)
+		__raw_writel(omap4_tesla_reg[i].val, omap4_tesla_reg[i].addr);
+
+	for (i = 0; i < ARRAY_SIZE(omap4_ivahd_reg); i++)
+		__raw_writel(omap4_ivahd_reg[i].val, omap4_ivahd_reg[i].addr);
+}
+
+static inline void omap5_restore_ivahd_tesla_regs(void)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(omap5_tesla_reg); i++)
+		__raw_writel(omap5_tesla_reg[i].val, omap5_tesla_reg[i].addr);
+
+	for (i = 0; i < ARRAY_SIZE(omap5_ivahd_reg); i++)
+		__raw_writel(omap5_ivahd_reg[i].val, omap5_ivahd_reg[i].addr);
+}
+
+static inline void save_ivahd_tesla_regs(void)
+{
+	if (cpu_is_omap44xx())
+		omap4_save_ivahd_tesla_regs();
+	else
+		omap5_save_ivahd_tesla_regs();
 }
 
 static inline void restore_ivahd_tesla_regs(void)
 {
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(tesla_reg); i++)
-		__raw_writel(tesla_reg[i].val, tesla_reg[i].addr);
-
-	for (i = 0; i < ARRAY_SIZE(ivahd_reg); i++)
-		__raw_writel(ivahd_reg[i].val, ivahd_reg[i].addr);
+	if (cpu_is_omap44xx())
+		omap4_restore_ivahd_tesla_regs();
+	else
+		omap5_restore_ivahd_tesla_regs();
 }
 
 static inline void save_l3instr_regs(void)
@@ -320,6 +371,7 @@ static inline void save_l3instr_regs(void)
 	for (i = 0; i < ARRAY_SIZE(l3instr_reg); i++)
 		l3instr_reg[i].val = __raw_readl(l3instr_reg[i].addr);
 }
+
 
 static inline void restore_l3instr_regs(void)
 {
