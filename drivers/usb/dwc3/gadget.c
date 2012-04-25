@@ -2411,8 +2411,7 @@ int __devinit dwc3_gadget_init(struct dwc3 *dwc)
 	}
 
 	dwc->setup_buf = dma_alloc_coherent(dwc->dev,
-			sizeof(*dwc->setup_buf) * 2,
-			&dwc->setup_buf_addr, GFP_KERNEL);
+			512, &dwc->setup_buf_addr, GFP_KERNEL);
 	if (!dwc->setup_buf) {
 		dev_err(dwc->dev, "failed to allocate setup buffer\n");
 		ret = -ENOMEM;
