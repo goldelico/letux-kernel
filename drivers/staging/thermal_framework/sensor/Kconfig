@@ -8,3 +8,10 @@ config CASE_TEMP_SENSOR
 	help
 	  Enabling this config will give support for the case
 	  temp sensor for the OMAP platform.
+
+config OMAP_TMP102_SENSOR
+	bool "OMAP TMP102 temp sensor support"
+	depends on THERMAL_FRAMEWORK
+	help
+	  Enabling this config will give support for the tmp102
+	  temp sensor for the OMAP platform.

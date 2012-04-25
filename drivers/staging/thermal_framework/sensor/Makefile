@@ -2,3 +2,4 @@
 # Makefile for sensor chip drivers.
 #
 obj-$(CONFIG_CASE_TEMP_SENSOR)	+= case_temp_sensor.o
+obj-$(CONFIG_OMAP_TMP102_SENSOR)	+= tmp102_temp_sensor.o

@@ -115,7 +115,7 @@ static struct i2c_board_info __initdata omap5evm_sensor_i2c2_boardinfo[] = {
  */
 static struct i2c_board_info __initdata omap5evm_sensor_i2c4_boardinfo[] = {
 	{
-		I2C_BOARD_INFO("tmp102", 0x48),
+		I2C_BOARD_INFO("tmp102_temp_sensor", 0x48),
 	},
 };
 
