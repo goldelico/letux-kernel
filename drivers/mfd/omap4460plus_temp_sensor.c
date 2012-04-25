@@ -864,7 +864,7 @@ static int omap_set_measuring_rate(struct thermal_dev *tdev, int rate)
 	return rate;
 }
 
-static int omap_report_slope(struct thermal_dev *tdev)
+static int omap_report_slope(struct thermal_dev *tdev, const char *rel_name)
 {
 	struct platform_device *pdev = to_platform_device(tdev->dev);
 	struct scm *scm_ptr = platform_get_drvdata(pdev);
@@ -872,7 +872,7 @@ static int omap_report_slope(struct thermal_dev *tdev)
 	return scm_ptr->therm_fw[id]->slope;
 }
 
-static int omap_report_offset(struct thermal_dev *tdev)
+static int omap_report_offset(struct thermal_dev *tdev, const char *rel_name)
 {
 	struct platform_device *pdev = to_platform_device(tdev->dev);
 	struct scm *scm_ptr = platform_get_drvdata(pdev);

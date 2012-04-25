@@ -41,8 +41,8 @@
 #define NORMAL_TEMP_MONITORING_RATE 1000
 #define FAST_TEMP_MONITORING_RATE 250
 
-static int omap_gpu_slope;
-static int omap_gpu_const;
+static int omap_gradient_slope;
+static int omap_gradient_const;
 
 struct omap_gpu_governor {
 	struct thermal_dev *temp_sensor;
@@ -136,8 +136,8 @@ static signed int convert_omap_sensor_temp_to_hotspot_temp(int sensor_temp)
 {
 	int absolute_delta;
 
-	absolute_delta = ((sensor_temp * omap_gpu_slope / 1000) +
-			omap_gpu_const);
+	absolute_delta = ((sensor_temp * omap_gradient_slope / 1000) +
+			omap_gradient_const);
 	return sensor_temp + absolute_delta;
 }
 
@@ -156,8 +156,8 @@ static signed int convert_omap_sensor_temp_to_hotspot_temp(int sensor_temp)
 
 static signed hotspot_temp_to_sensor_temp(int hot_spot_temp)
 {
-	return ((hot_spot_temp - omap_gpu_const) * 1000) /
-			(1000 + omap_gpu_slope);
+	return ((hot_spot_temp - omap_gradient_const) * 1000) /
+			(1000 + omap_gradient_slope);
 }
 
 /**
@@ -490,8 +490,8 @@ static int __init omap_gpu_governor_init(void)
 		return -ENOMEM;
 	}
 
-	omap_gpu_slope = thermal_get_slope(thermal_fw);
-	omap_gpu_const = thermal_get_offset(thermal_fw);
+	omap_gradient_slope = thermal_get_slope(thermal_fw, NULL);
+	omap_gradient_const = thermal_get_offset(thermal_fw, NULL);
 
 	return 0;
 }
