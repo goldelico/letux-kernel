@@ -34,7 +34,7 @@
 #define OMAP_PANIC_TEMP 110000
 #define OMAP_ALERT_TEMP 100000
 #define OMAP_MONITOR_TEMP 85000
-
+#define OMAP_SAFE_TEMP	25000
 
 /* TODO: Define this via a configurable file */
 #define HYSTERESIS_VALUE 2000
@@ -52,10 +52,41 @@ struct omap_gpu_governor {
 	int cooling_level;
 };
 
+#define OMAP_THERMAL_ZONE_NAME_SZ	10
+struct omap_thermal_zone {
+	const char name[OMAP_THERMAL_ZONE_NAME_SZ];
+	unsigned int cooling_increment;
+	int temp_lower;
+	int temp_upper;
+	int update_rate;
+	int average_rate;
+};
+#define OMAP_THERMAL_ZONE(n, i, l, u, r, a)		\
+{							\
+	.name				= n,		\
+	.cooling_increment		= (i),		\
+	.temp_lower			= (l),		\
+	.temp_upper			= (u),		\
+	.update_rate			= (r),		\
+	.average_rate			= (a),		\
+}
+
+static struct omap_thermal_zone omap_thermal_zones[] = {
+	OMAP_THERMAL_ZONE("safe", 0, OMAP_SAFE_TEMP, OMAP_MONITOR_TEMP,
+			FAST_TEMP_MONITORING_RATE, NORMAL_TEMP_MONITORING_RATE),
+	OMAP_THERMAL_ZONE("monitor", 0,
+			OMAP_MONITOR_TEMP - HYSTERESIS_VALUE, OMAP_ALERT_TEMP,
+			FAST_TEMP_MONITORING_RATE, FAST_TEMP_MONITORING_RATE),
+	OMAP_THERMAL_ZONE("alert", 0,
+			OMAP_ALERT_TEMP - HYSTERESIS_VALUE, OMAP_PANIC_TEMP,
+			FAST_TEMP_MONITORING_RATE, FAST_TEMP_MONITORING_RATE),
+	OMAP_THERMAL_ZONE("panic", 1,
+			OMAP_PANIC_TEMP - HYSTERESIS_VALUE, OMAP_FATAL_TEMP,
+			FAST_TEMP_MONITORING_RATE, FAST_TEMP_MONITORING_RATE),
+};
+
 static struct thermal_dev *therm_fw;
 static struct omap_gpu_governor *omap_gov;
-
-static LIST_HEAD(cooling_agents);
 
 /**
  * DOC: Introduction
@@ -186,231 +217,34 @@ static signed hotspot_temp_to_sensor_temp(int hot_spot_temp)
 			(1000 + omap_gradient_slope);
 }
 
-/**
- * omap_safe_zone() - THERMAL "Safe Zone" definition:
- *  - No constraint about Max GPU frequency
- *  - No constraint about GPU freq governor
- *  - Normal temperature monitoring rate
- *
- * @cooling_list: The list of cooling devices available to cool the zone
- * @gpu_temp:	The current adjusted GPU temperature
- *
- * Returns 0 on success and -ENODEV for no cooling devices available to cool
- */
-static int omap_safe_zone(struct list_head *cooling_list, int gpu_temp)
+static int omap_enter_zone(struct omap_thermal_zone *zone,
+				bool set_cooling_level,
+				struct list_head *cooling_list, int gpu_temp)
 {
-	struct thermal_dev *cooling_dev, *tmp;
-	int gpu_temp_upper = 0;
-	int gpu_temp_lower = 0;
-	pr_debug("%s:hot spot temp %d\n", __func__, gpu_temp);
-	/* TO DO: need to build an algo to find the right cooling agent */
-	list_for_each_entry_safe(cooling_dev, tmp, cooling_list, node) {
-		if (cooling_dev->dev_ops &&
-			cooling_dev->dev_ops->cool_device) {
-			/* TO DO: Add cooling agents to a list here */
-			list_add(&cooling_dev->node, &cooling_agents);
-			goto out;
-		} else {
-			pr_info("%s:Cannot find cool_device for %s\n",
-				__func__, cooling_dev->name);
-		}
-	}
-out:
-	if (list_empty(&cooling_agents)) {
+	int temp_upper;
+	int temp_lower;
+
+	pr_info("%s: hot spot temp %d - going into %s zone\n", __func__,
+			gpu_temp, zone->name);
+	if (list_empty(cooling_list)) {
 		pr_err("%s: No Cooling devices registered\n",
 			__func__);
 		return -ENODEV;
-	} else {
-		omap_gov->cooling_level = 0;
-		thermal_device_call_all(&cooling_agents, cool_device,
-					omap_gov->cooling_level);
-		list_del_init(&cooling_agents);
-		gpu_temp_lower = hotspot_temp_to_sensor_temp(
-			OMAP_MONITOR_TEMP - HYSTERESIS_VALUE);
-		gpu_temp_upper = hotspot_temp_to_sensor_temp(OMAP_MONITOR_TEMP);
-		thermal_device_call(omap_gov->temp_sensor, set_temp_thresh,
-					gpu_temp_lower, gpu_temp_upper);
-		omap_update_report_rate(omap_gov->temp_sensor,
-			NORMAL_TEMP_MONITORING_RATE);
-		omap_gov->panic_zone_reached = 0;
 	}
 
-	return 0;
-}
-
-/**
- * omap_monitor_zone() - Current device is in a situation that requires
- *			monitoring and may impose agents to keep the device
- *			at a steady state temperature or moderately cool the
- *			device.
- *
- * @cooling_list: The list of cooling devices available to cool the zone
- * @gpu_temp:	The current adjusted GPU temperature
- *
- * Returns 0 on success and -ENODEV for no cooling devices available to cool
- */
-static int omap_monitor_zone(struct list_head *cooling_list, int gpu_temp)
-{
-	struct thermal_dev *cooling_dev, *tmp;
-	int gpu_temp_upper = 0;
-	int gpu_temp_lower = 0;
-
-	pr_debug("%s:hot spot temp %d\n", __func__, gpu_temp);
-	/* TO DO: need to build an algo to find the right cooling agent */
-	list_for_each_entry_safe(cooling_dev, tmp, cooling_list, node) {
-		if (cooling_dev->dev_ops &&
-			cooling_dev->dev_ops->cool_device) {
-			/* TO DO: Add cooling agents to a list here */
-			list_add(&cooling_dev->node, &cooling_agents);
-			goto out;
-		} else {
-			pr_info("%s:Cannot find cool_device for %s\n",
-				__func__, cooling_dev->name);
-		}
-	}
-out:
-	if (list_empty(&cooling_agents)) {
-		pr_err("%s: No Cooling devices registered\n",
-			__func__);
-		return -ENODEV;
-	} else {
-		omap_gov->cooling_level = 0;
-		thermal_device_call_all(&cooling_agents, cool_device,
-					omap_gov->cooling_level);
-		list_del_init(&cooling_agents);
-		gpu_temp_lower = hotspot_temp_to_sensor_temp(
-			OMAP_MONITOR_TEMP - HYSTERESIS_VALUE);
-		gpu_temp_upper =
-			hotspot_temp_to_sensor_temp(OMAP_ALERT_TEMP);
-		thermal_device_call(omap_gov->temp_sensor, set_temp_thresh,
-					gpu_temp_lower, gpu_temp_upper);
-		omap_update_report_rate(omap_gov->temp_sensor,
-			FAST_TEMP_MONITORING_RATE);
-		omap_gov->panic_zone_reached = 0;
-	}
-
-	return 0;
-}
-/**
- * omap_alert_zone() - "Alert Zone" definition:
- *	- If the Panic Zone has never been reached, then
- *	- Define constraint about Max GPU frequency
- *		if Current frequency < Max frequency,
- *		then Max frequency = Current frequency
- *	- Else keep the constraints set previously until
- *		temperature falls to safe zone
- *
- * @cooling_list: The list of cooling devices available to cool the zone
- * @gpu_temp:	The current adjusted GPU temperature
- *
- * Returns 0 on success and -ENODEV for no cooling devices available to cool
- */
-static int omap_alert_zone(struct list_head *cooling_list, int gpu_temp)
-{
-	struct thermal_dev *cooling_dev, *tmp;
-	int gpu_temp_upper = 0;
-	int gpu_temp_lower = 0;
-
-	pr_debug("%s:hot spot temp %d\n", __func__, gpu_temp);
-	/* TO DO: need to build an algo to find the right cooling agent */
-	list_for_each_entry_safe(cooling_dev, tmp, cooling_list, node) {
-		if (cooling_dev->dev_ops &&
-			cooling_dev->dev_ops->cool_device) {
-			/* TO DO: Add cooling agents to a list here */
-			list_add(&cooling_dev->node, &cooling_agents);
-			goto out;
-		} else {
-			pr_info("%s:Cannot find cool_device for %s\n",
-				__func__, cooling_dev->name);
-		}
-	}
-out:
-	if (list_empty(&cooling_agents)) {
-		pr_err("%s: No Cooling devices registered\n",
-			__func__);
-		return -ENODEV;
-	} else {
-		if (omap_gov->panic_zone_reached == 0) {
-			/* Temperature rises and enters into alert zone */
+	if (set_cooling_level) {
+		if (zone->cooling_increment)
+			omap_gov->cooling_level += zone->cooling_increment;
+		else
 			omap_gov->cooling_level = 0;
-			thermal_device_call_all(&cooling_agents, cool_device,
+			thermal_device_call_all(cooling_list, cool_device,
 						omap_gov->cooling_level);
-		}
-
-		list_del_init(&cooling_agents);
-		gpu_temp_lower = hotspot_temp_to_sensor_temp(
-			OMAP_ALERT_TEMP - HYSTERESIS_VALUE);
-		gpu_temp_upper = hotspot_temp_to_sensor_temp(
-			OMAP_PANIC_TEMP);
-		thermal_device_call(omap_gov->temp_sensor, set_temp_thresh,
-					gpu_temp_lower, gpu_temp_upper);
-		omap_update_report_rate(omap_gov->temp_sensor,
-			FAST_TEMP_MONITORING_RATE);
 	}
-
-	return 0;
-}
-
-/**
- * omap_panic_zone() - Force GPU frequency to a "safe frequency"
- *     . Force the GPU frequency to a “safe” frequency
- *     . Limit max GPU frequency to the “safe” frequency
- *
- * @cooling_list: The list of cooling devices available to cool the zone
- * @gpu_temp:	The current adjusted GPU temperature
- *
- * Returns 0 on success and -ENODEV for no cooling devices available to cool
- */
-static int omap_panic_zone(struct list_head *cooling_list, int gpu_temp)
-{
-	struct thermal_dev *cooling_dev, *tmp;
-	int gpu_temp_upper = 0;
-	int gpu_temp_lower = 0;
-
-	pr_debug("%s:hot spot temp %d\n", __func__, gpu_temp);
-	/* TO DO: need to build an algo to find the right cooling agent */
-	list_for_each_entry_safe(cooling_dev, tmp, cooling_list, node) {
-		if (cooling_dev->dev_ops &&
-			cooling_dev->dev_ops->cool_device) {
-			/* TO DO: Add cooling agents to a list here */
-			list_add(&cooling_dev->node, &cooling_agents);
-			goto out;
-		} else {
-			pr_info("%s:Cannot find cool_device for %s\n",
-				__func__, cooling_dev->name);
-		}
-	}
-out:
-	if (list_empty(&cooling_agents)) {
-		pr_err("%s: No Cooling devices registered\n",
-			__func__);
-		return -ENODEV;
-	} else {
-		omap_gov->cooling_level++;
-		omap_gov->panic_zone_reached++;
-		pr_debug("%s: Panic zone reached %i times\n",
-			__func__, omap_gov->panic_zone_reached);
-		thermal_device_call_all(&cooling_agents, cool_device,
-					omap_gov->cooling_level);
-		list_del_init(&cooling_agents);
-		gpu_temp_lower = hotspot_temp_to_sensor_temp(
-			OMAP_PANIC_TEMP - HYSTERESIS_VALUE);
-
-		/* Set the threshold window to below fatal.  This way the
-		 * governor can manage the thermal if the temp should rise
-		 * while throttling.  We need to be agressive with throttling
-		 * should we reach this zone. */
-		gpu_temp_upper = (((OMAP_FATAL_TEMP - OMAP_PANIC_TEMP) / 4) *
-				omap_gov->panic_zone_reached) + OMAP_PANIC_TEMP;
-		if (gpu_temp_upper >= OMAP_FATAL_TEMP)
-			gpu_temp_upper = OMAP_FATAL_TEMP;
-
-		gpu_temp_upper = hotspot_temp_to_sensor_temp(gpu_temp_upper);
-		thermal_device_call(omap_gov->temp_sensor, set_temp_thresh,
-					gpu_temp_lower, gpu_temp_upper);
-		omap_update_report_rate(omap_gov->temp_sensor,
-			FAST_TEMP_MONITORING_RATE);
-	}
+	temp_lower = hotspot_temp_to_sensor_temp(zone->temp_lower);
+	temp_upper = hotspot_temp_to_sensor_temp(zone->temp_upper);
+	thermal_device_call(omap_gov->temp_sensor, set_temp_thresh, temp_lower,
+								temp_upper);
+	omap_update_report_rate(omap_gov->temp_sensor, zone->update_rate);
 
 	return 0;
 }
@@ -432,31 +266,39 @@ static void omap_fatal_zone(int gpu_temp)
 
 static int omap_gpu_thermal_manager(struct list_head *cooling_list, int temp)
 {
-	int gpu_temp;
+	int gpu_temp, zone = NO_ACTION;
+	bool set_cooling_level = true;
 
 	gpu_temp = convert_omap_sensor_temp_to_hotspot_temp(temp);
 	if (gpu_temp >= OMAP_FATAL_TEMP) {
 		omap_fatal_zone(gpu_temp);
 		return FATAL_ZONE;
 	} else if (gpu_temp >= OMAP_PANIC_TEMP) {
-		omap_panic_zone(cooling_list, gpu_temp);
-		return PANIC_ZONE;
+		int temp_upper;
+
+		omap_gov->panic_zone_reached++;
+		temp_upper = (((OMAP_FATAL_TEMP - OMAP_PANIC_TEMP) / 4) *
+				omap_gov->panic_zone_reached) + OMAP_PANIC_TEMP;
+		if (temp_upper >= OMAP_FATAL_TEMP)
+			temp_upper = OMAP_FATAL_TEMP;
+		omap_thermal_zones[PANIC_ZONE - 1].temp_upper = temp_upper;
+		zone = PANIC_ZONE;
 	} else if (gpu_temp < (OMAP_PANIC_TEMP - HYSTERESIS_VALUE)) {
 		if (gpu_temp >= OMAP_ALERT_TEMP) {
-			omap_alert_zone(cooling_list, gpu_temp);
-			return ALERT_ZONE;
+			set_cooling_level = omap_gov->panic_zone_reached == 0;
+			zone = ALERT_ZONE;
 		} else if (gpu_temp < (OMAP_ALERT_TEMP - HYSTERESIS_VALUE)) {
 			if (gpu_temp >= OMAP_MONITOR_TEMP) {
-				omap_monitor_zone(cooling_list, gpu_temp);
-				return MONITOR_ZONE;
+				omap_gov->panic_zone_reached = 0;
+				zone = MONITOR_ZONE;
 			} else {
 				/*
 				 * this includes the case where :
 				 * (OMAP_MONITOR_TEMP - HYSTERESIS_VALUE) <= T
 				 * && T < OMAP_MONITOR_TEMP
 				 */
-				omap_safe_zone(cooling_list, gpu_temp);
-				return SAFE_ZONE;
+				omap_gov->panic_zone_reached = 0;
+				zone = SAFE_ZONE;
 			}
 		} else {
 			/*
@@ -464,20 +306,23 @@ static int omap_gpu_thermal_manager(struct list_head *cooling_list, int temp)
 			 * (OMAP_ALERT_TEMP - HYSTERESIS_VALUE) <=
 			 * T < OMAP_ALERT_TEMP
 			 */
-			omap_monitor_zone(cooling_list, gpu_temp);
-			return MONITOR_ZONE;
+			omap_gov->panic_zone_reached = 0;
+			zone = MONITOR_ZONE;
 		}
 	} else {
 		/*
 		 * this includes the case where :
 		 * (OMAP_PANIC_TEMP - HYSTERESIS_VALUE) <= T < OMAP_PANIC_TEMP
 		 */
-		omap_alert_zone(cooling_list, gpu_temp);
-		return ALERT_ZONE;
+		set_cooling_level = omap_gov->panic_zone_reached == 0;
+		zone = ALERT_ZONE;
 	}
 
-	return NO_ACTION;
+	if (zone != NO_ACTION)
+		omap_enter_zone(&omap_thermal_zones[zone - 1],
+				set_cooling_level, cooling_list, gpu_temp);
 
+	return zone;
 }
 
 static int omap_process_gpu_temp(struct thermal_dev *governor,
