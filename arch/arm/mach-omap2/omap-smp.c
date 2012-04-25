@@ -59,7 +59,8 @@ void __cpuinit platform_secondary_init(unsigned int cpu)
 	 */
 	if (cpu_is_omap443x() && (omap_type() != OMAP2_DEVICE_TYPE_GP))
 		omap_secure_dispatcher(OMAP4_PPA_CPU_ACTRL_SMP_INDEX,
-							4, 0, 0, 0, 0, 0);
+					FLAG_START_CRITICAL,
+					0, 0, 0, 0, 0);
 
 	/*
 	 * If any interrupts are already enabled for the primary

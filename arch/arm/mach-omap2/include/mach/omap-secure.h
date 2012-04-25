@@ -48,8 +48,10 @@
 #define OMAP5_MON_CACHES_CLEAN_INDEX	0x103
 
 /* Secure PPA(Primary Protected Application) APIs */
+#define OMAP4_PPA_SERVICE_0		0x21
 #define OMAP4_PPA_L2_POR_INDEX		0x23
 #define OMAP4_PPA_CPU_ACTRL_SMP_INDEX	0x25
+#define OMAP5_PPA_SERVICE_0		0x23
 
 #ifndef __ASSEMBLER__
 extern u32 omap_secure_dispatcher(u32 idx, u32 flag, u32 nargs,
