@@ -1160,6 +1160,17 @@ static int omap_gpio_suspend(struct device *dev)
 	void __iomem *wakeup_enable;
 	unsigned long flags;
 
+	/* WA for GPIO pins 140 (BT) & 142 (WLAN) used as output pins.
+	 * On OMAP5 ES1.0 the pins do not maintain their level in OFF.
+	 * This WA changes the direction to input while in OFF and back
+	 * to input in resume. This is fixed in ES2.0
+	 */
+	if ((cpu_is_omap54xx() && (omap_rev() <= OMAP5430_REV_ES1_0)) \
+		&& (bank->id == 4)) {
+		_set_gpio_direction(bank, GPIO_INDEX(bank, 142), 1);
+		_set_gpio_direction(bank, GPIO_INDEX(bank, 140), 1);
+	}
+
 	if (!bank->mod_usage || !bank->loses_context)
 		return 0;
 
@@ -1183,6 +1194,12 @@ static int omap_gpio_resume(struct device *dev)
 	struct gpio_bank *bank = platform_get_drvdata(pdev);
 	void __iomem *base = bank->base;
 	unsigned long flags;
+
+	if ((cpu_is_omap54xx() && (omap_rev() <= OMAP5430_REV_ES1_0)) \
+		&& (bank->id == 4)) {
+		_set_gpio_direction(bank, GPIO_INDEX(bank, 142), 0);
+		_set_gpio_direction(bank, GPIO_INDEX(bank, 140), 0);
+	}
 
 	if (!bank->mod_usage || !bank->loses_context)
 		return 0;
