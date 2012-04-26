@@ -1325,7 +1325,8 @@ static void omap5_sdp5430_wifi_mux_init(void)
 {
 	omap_mux_init_gpio(GPIO_WIFI_IRQ, OMAP_PIN_INPUT |
 				OMAP_PIN_OFF_WAKEUPENABLE);
-	omap_mux_init_gpio(GPIO_WIFI_PMENA, OMAP_PIN_OUTPUT);
+	omap_mux_init_gpio(GPIO_WIFI_PMENA,
+		OMAP_PIN_OUTPUT | OMAP_PIN_INPUT_PULLUP);
 
 	omap_mux_init_signal("wlsdio_cmd", OMAP_PIN_INPUT_PULLUP);
 	omap_mux_init_signal("wlsdio_clk", OMAP_PIN_INPUT_PULLUP);
@@ -1508,7 +1509,8 @@ static struct omap_board_mux board_mux[] __initdata = {
 static void omap_5430evm_bluetooth_init(void)
 {
 #ifdef CONFIG_TI_ST
-	omap_mux_init_gpio(OMAP5_BT_NSHUTDOWN_GPIO, OMAP_PIN_OUTPUT);
+	omap_mux_init_gpio(OMAP5_BT_NSHUTDOWN_GPIO,
+		OMAP_PIN_OUTPUT | OMAP_PIN_INPUT_PULLUP);
 	wake_lock_init(&st_wk_lock, WAKE_LOCK_SUSPEND, "st_wake_lock");
 	/* UART5 muxing */
 	/* To DO: uart5 string from mux framework */
