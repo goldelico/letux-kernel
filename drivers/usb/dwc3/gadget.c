@@ -342,6 +342,33 @@ static const char *dwc3_gadget_ep_cmd_string(u8 cmd)
 	}
 }
 
+int dwc3_send_gadget_generic_command(struct dwc3 *dwc, int cmd, u32 param)
+{
+	u32		timeout = 500;
+	u32		reg;
+
+	dwc3_writel(dwc->regs, DWC3_DGCMDPAR, param);
+	dwc3_writel(dwc->regs, DWC3_DGCMD, cmd | DWC3_DGCMD_CMDACT);
+
+	do {
+		reg = dwc3_readl(dwc->regs, DWC3_DGCMD);
+		if (!(reg & DWC3_DGCMD_CMDACT)) {
+			dev_vdbg(dwc->dev, "Command Complete --> %d\n",
+					DWC3_DGCMD_STATUS(reg));
+			return 0;
+		}
+
+		/*
+		 * We can't sleep here, because it's also called from
+		 * interrupt context.
+		 */
+		timeout--;
+		if (!timeout)
+			return -ETIMEDOUT;
+		udelay(1);
+	} while (1);
+}
+
 int dwc3_send_gadget_ep_cmd(struct dwc3 *dwc, unsigned ep,
 		unsigned cmd, struct dwc3_gadget_ep_cmd_params *params)
 {
@@ -1445,7 +1472,24 @@ int dwc3_gadget_delayed_start(struct usb_gadget *g,
 
 	reg = dwc3_readl(dwc->regs, DWC3_DCFG);
 	reg &= ~(DWC3_DCFG_SPEED_MASK);
-	reg |= dwc->maximum_speed;
+
+	/**
+	 * WORKAROUND: DWC3 revision < 2.20a have an issue
+	 * which would cause metastability state on Run/Stop
+	 * bit if we try to force the IP to USB2-only mode.
+	 *
+	 * Because of that, we cannot configure the IP to any
+	 * speed other than the SuperSpeed
+	 *
+	 * Refers to:
+	 *
+	 * STAR#9000525659: Clock Domain Crossing on DCTL in
+	 * USB 2.0 Mode
+	 */
+	if (dwc->revision < DWC3_REVISION_220A)
+		reg |= DWC3_DCFG_SUPERSPEED;
+	else
+		reg |= dwc->maximum_speed;
 	dwc3_writel(dwc->regs, DWC3_DCFG, reg);
 
 	dwc->start_config_issued = false;
@@ -2034,6 +2078,7 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 
 	reg = dwc3_readl(dwc->regs, DWC3_DCTL);
 	reg &= ~DWC3_DCTL_TSTCTRL_MASK;
+	reg &= ~(DWC3_DCTL_INITU1ENA | DWC3_DCTL_INITU2ENA);
 	dwc3_writel(dwc->regs, DWC3_DCTL, reg);
 	dwc->test_mode = false;
 
@@ -2379,6 +2424,7 @@ void dwc3_enable_irqs(struct dwc3 *dwc)
  */
 int __devinit dwc3_gadget_init(struct dwc3 *dwc)
 {
+	u32					reg;
 	int					ret;
 	int					irq;
 
@@ -2399,8 +2445,7 @@ int __devinit dwc3_gadget_init(struct dwc3 *dwc)
 	}
 
 	dwc->setup_buf = dma_alloc_coherent(dwc->dev,
-			sizeof(*dwc->setup_buf) * 2,
-			&dwc->setup_buf_addr, GFP_KERNEL);
+			512, &dwc->setup_buf_addr, GFP_KERNEL);
 	if (!dwc->setup_buf) {
 		dev_err(dwc->dev, "failed to allocate setup buffer\n");
 		ret = -ENOMEM;
@@ -2449,6 +2494,14 @@ int __devinit dwc3_gadget_init(struct dwc3 *dwc)
 				irq, ret);
 		goto err5;
 	}
+
+	reg = dwc3_readl(dwc->regs, DWC3_DCFG);
+	reg |= DWC3_DCFG_LPM_CAP;
+	dwc3_writel(dwc->regs, DWC3_DCFG, reg);
+
+	reg = dwc3_readl(dwc->regs, DWC3_DCTL);
+	reg |= DWC3_DCTL_ACCEPTU1ENA | DWC3_DCTL_ACCEPTU2ENA;
+	dwc3_writel(dwc->regs, DWC3_DCTL, reg);
 
 	ret = device_register(&dwc->gadget.dev);
 	if (ret) {
