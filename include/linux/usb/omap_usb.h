@@ -36,7 +36,10 @@ struct omap_usb {
 	struct clk		*wkupclk;
 	u8			rev_id;
 	u8			is_suspended:1;
+	u8			pending_work:1;
 	struct notifier_block	nb;
+	struct delayed_work     wakeup_work;
+	struct workqueue_struct	*workqueue;
 };
 
 struct usb_dpll_params {
@@ -55,6 +58,9 @@ enum sys_clk_rate {
 	CLK_RATE_26MHZ,
 	CLK_RATE_38MHZ
 };
+
+/* Delay for runtime fw to enable all the modules */
+#define DELAYED_WORK_DELAY	500
 
 #define	NUM_SYS_CLKS		5
 #define	PLL_STATUS		0x00000004

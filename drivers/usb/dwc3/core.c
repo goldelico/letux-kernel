@@ -330,7 +330,11 @@ int dwc3_core_late_init(struct device *dev)
 	unsigned long		flags;
 	struct dwc3		*dwc = dev_get_drvdata(dev);
 
-	pm_runtime_get_sync(dev);
+	ret = pm_runtime_get_sync(dev);
+	if (ret < 0) {
+		dev_err(dev, "get_sync failed with err %d\n", ret);
+		return ret;
+	}
 
 	spin_lock_irqsave(&dwc->lock, flags);
 
@@ -740,6 +744,7 @@ static int dwc3_runtime_resume(struct device *dev)
 	struct dwc3_context_regs *context = &dwc->context;
 
 	dwc3_writel(dwc->regs, DWC3_GCTL, context->gctl);
+	dwc3_enable_irqs(dwc);
 
 	return 0;
 }

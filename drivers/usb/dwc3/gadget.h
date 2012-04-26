@@ -115,6 +115,7 @@ int dwc3_send_gadget_generic_command(struct dwc3 *dwc, int cmd, u32 param);
 void dwc3_map_buffer_to_dma(struct dwc3_request *req);
 void dwc3_unmap_buffer_from_dma(struct dwc3_request *req);
 
+void dwc3_enable_irqs(struct dwc3 *dwc);
 int dwc3_gadget_delayed_start(struct usb_gadget *g,
 		struct usb_gadget_driver *driver);
 int dwc3_gadget_early_stop(struct usb_gadget *g,

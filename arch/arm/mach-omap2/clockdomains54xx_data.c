@@ -621,7 +621,7 @@ static struct clockdomain coreaon_54xx_clkdm = {
 	.prcm_partition	  = OMAP54XX_CM_CORE_PARTITION,
 	.cm_inst	  = OMAP54XX_CM_CORE_COREAON_INST,
 	.clkdm_offs	  = OMAP54XX_CM_CORE_COREAON_COREAON_CDOFFS,
-	.flags		  = CLKDM_CAN_HWSUP,
+	.flags		  = CLKDM_CAN_FORCE_WAKEUP | CLKDM_CAN_HWSUP,
 	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP54XX),
 };
 

@@ -106,23 +106,28 @@ static irqreturn_t palmas_vbus_irq(int irq, void *_palmas_usb)
 
 static irqreturn_t palmas_vbus_wakeup_irq(int irq, void *_palmas_usb)
 {
+	unsigned long timeout;
 	struct palmas_usb *palmas_usb = _palmas_usb;
-	int status = 0;
+	int status = -EINVAL;
 	u8 vbus_line_state;
 
-	palmas_usb->palmas->read(palmas_usb->palmas, PALMAS_INTERRUPT_BASE,
-					PALMAS_INT3_LINE_STATE,
-					&vbus_line_state);
-
-	if (vbus_line_state & INT3_LINE_STATE_VBUS) {
-		if (!palmas_usb->comparator.linkstat)
-			regulator_enable(palmas_usb->vbus_reg);
-		status = USB_EVENT_VBUS;
-	} else {
-		status = USB_EVENT_NONE;
-		if (palmas_usb->comparator.linkstat)
-			regulator_disable(palmas_usb->vbus_reg);
-	}
+	timeout = jiffies + msecs_to_jiffies(20);
+	do {
+		palmas_usb->palmas->read(palmas_usb->palmas,
+				PALMAS_INTERRUPT_BASE, PALMAS_INT3_LINE_STATE,
+							&vbus_line_state);
+		if (vbus_line_state == INT3_LINE_STATE_VBUS) {
+			if (!palmas_usb->comparator.linkstat)
+				regulator_enable(palmas_usb->vbus_reg);
+			status = USB_EVENT_VBUS;
+			break;
+		} else if (vbus_line_state == INT3_LINE_STATE_NONE) {
+			status = USB_EVENT_NONE;
+			if (palmas_usb->comparator.linkstat)
+				regulator_disable(palmas_usb->vbus_reg);
+			break;
+		}
+	} while (!WARN_ON(time_after(jiffies, timeout)));
 
 	atomic_notifier_call_chain(&palmas_usb->comparator.notifier, status,
 									NULL);

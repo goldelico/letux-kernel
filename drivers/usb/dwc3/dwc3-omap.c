@@ -190,6 +190,7 @@ static int dwc3_otg_notifications(struct notifier_block *nb,
 		unsigned long event, void *unused)
 {
 	u32			val;
+	u32			ret;
 	struct dwc3_omap	*omap = container_of(nb, struct dwc3_omap, nb);
 
 	switch (event) {
@@ -198,7 +199,13 @@ static int dwc3_otg_notifications(struct notifier_block *nb,
 
 		dwc3_core_late_init(&omap->dwc3->dev);
 
-		pm_runtime_get_sync(omap->dev);
+		ret = pm_runtime_get_sync(omap->dev);
+		if (ret < 0) {
+			dev_err(omap->dev, "get_sync failed with err %d\n",
+									ret);
+			return ret;
+		}
+
 		val = dwc3_readl(omap->base, USBOTGSS_UTMI_OTG_STATUS);
 		val &= ~(USBOTGSS_UTMI_OTG_STATUS_IDDIG
 				| USBOTGSS_UTMI_OTG_STATUS_VBUSVALID
@@ -215,7 +222,13 @@ static int dwc3_otg_notifications(struct notifier_block *nb,
 
 		dwc3_core_late_init(&omap->dwc3->dev);
 
-		pm_runtime_get_sync(omap->dev);
+		ret = pm_runtime_get_sync(omap->dev);
+		if (ret < 0) {
+			dev_err(omap->dev, "get_sync failed with err %d\n",
+									ret);
+			return ret;
+		}
+
 		val = dwc3_readl(omap->base, USBOTGSS_UTMI_OTG_STATUS);
 		val &= ~USBOTGSS_UTMI_OTG_STATUS_SESSEND;
 		val |= USBOTGSS_UTMI_OTG_STATUS_IDDIG
@@ -230,7 +243,13 @@ static int dwc3_otg_notifications(struct notifier_block *nb,
 	case USB_EVENT_NONE:
 		dev_dbg(omap->dev, "VBUS Disconnect\n");
 
-		pm_runtime_get_sync(omap->dev);
+		ret = pm_runtime_get_sync(omap->dev);
+		if (ret < 0) {
+			dev_err(omap->dev, "get_sync failed with err %d\n",
+									ret);
+			return ret;
+		}
+
 		val = dwc3_readl(omap->base, USBOTGSS_UTMI_OTG_STATUS);
 		val &= ~(USBOTGSS_UTMI_OTG_STATUS_SESSVALID
 				| USBOTGSS_UTMI_OTG_STATUS_VBUSVALID
@@ -443,22 +462,6 @@ static int __devinit dwc3_omap_probe(struct platform_device *pdev)
 				omap->irq, ret);
 		goto err7;
 	}
-
-	/* enable all IRQs */
-	reg = USBOTGSS_IRQO_COREIRQ_ST;
-	dwc3_writel(omap->base, USBOTGSS_IRQENABLE_SET_0, reg);
-
-	reg = (USBOTGSS_IRQ1_OEVT |
-			USBOTGSS_IRQ1_DRVVBUS_RISE |
-			USBOTGSS_IRQ1_CHRGVBUS_RISE |
-			USBOTGSS_IRQ1_DISCHRGVBUS_RISE |
-			USBOTGSS_IRQ1_IDPULLUP_RISE |
-			USBOTGSS_IRQ1_DRVVBUS_FALL |
-			USBOTGSS_IRQ1_CHRGVBUS_FALL |
-			USBOTGSS_IRQ1_DISCHRGVBUS_FALL |
-			USBOTGSS_IRQ1_IDPULLUP_FALL);
-
-	dwc3_writel(omap->base, USBOTGSS_IRQENABLE_SET_1, reg);
 
 	pm_runtime_put_sync(&pdev->dev);
 
