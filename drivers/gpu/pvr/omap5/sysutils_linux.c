@@ -631,6 +631,10 @@ static int sgx_tmfw_cool_dev(struct thermal_dev *dev, int cooling_level)
 
 	mutex_unlock(&gpsSysSpecificData->sgx_dvfs_lock);
 
+	PVR_DPF((PVR_DBG_THERMAL, "cooling level = %d, limit freq = %d ",
+		cooling_level, gpsSysSpecificData->pui32SGXFreqList[gpsSysSpecificData->
+		ui32SGXFreqListIndexLimit]));
+
 	return 0;
 }
 
