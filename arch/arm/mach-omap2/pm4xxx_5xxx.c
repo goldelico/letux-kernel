@@ -62,7 +62,6 @@ static u8 pm44xx_54xx_errata;
 					OMAP44xx_54xx_PM_ERRATUM_##erratum)
 
 static bool off_mode_enabled;
-static bool enable_dev_off;
 
 /**
  * omap4_device_set_state_off() - setup device off state
@@ -74,7 +73,7 @@ static bool enable_dev_off;
  */
 void omap4_device_set_state_off(bool enable)
 {
-	enable_dev_off = enable;
+	off_mode_enabled = enable;
 }
 
 static void omap4_configure_dev_off_state(u8 enable)
@@ -333,7 +332,7 @@ static int omap_pm_begin(suspend_state_t state)
 {
 	disable_hlt();
 	/* Enable Device OFF */
-	if (enable_dev_off)
+	if (off_mode_enabled)
 		omap4_configure_dev_off_state(true);
 	return 0;
 }
@@ -341,7 +340,7 @@ static int omap_pm_begin(suspend_state_t state)
 static void omap_pm_end(void)
 {
 	/* Disable Device OFF */
-	if (enable_dev_off)
+	if (off_mode_enabled)
 		omap4_configure_dev_off_state(false);
 
 	enable_hlt();
