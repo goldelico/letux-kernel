@@ -448,11 +448,11 @@ long st_kim_start(void *kim_data)
 	pr_info(" %s", __func__);
 	pdata = kim_gdata->kim_pdev->dev.platform_data;
 
-	do {
-		/* platform specific enabling code here */
-		if (pdata->chip_enable)
-			pdata->chip_enable();
+	/* platform specific enabling code here */
+	if (pdata->chip_enable)
+		pdata->chip_enable();
 
+	do {
 		/* Configure BT nShutdown to HIGH state */
 		gpio_set_value(kim_gdata->nshutdown, GPIO_LOW);
 		mdelay(5);	/* FIXME: a proper toggle */
@@ -505,6 +505,11 @@ long st_kim_start(void *kim_data)
 			}
 		}
 	} while (retry--);
+
+	/* In case line discipline installation failed */
+	if (err && pdata->chip_disable)
+		pdata->chip_disable();
+
 	return err;
 }
 
