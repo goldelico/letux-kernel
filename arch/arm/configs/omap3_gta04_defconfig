@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32
-# Sun Apr 22 16:41:45 2012
+# Fri Apr 27 16:57:30 2012
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -1116,6 +1116,7 @@ CONFIG_INPUT_KEYBOARD=y
 # CONFIG_KEYBOARD_LKKBD is not set
 CONFIG_KEYBOARD_GPIO=y
 # CONFIG_KEYBOARD_TCA6416 is not set
+CONFIG_KEYBOARD_TCA8418=m
 # CONFIG_KEYBOARD_MATRIX is not set
 # CONFIG_KEYBOARD_LM8323 is not set
 # CONFIG_KEYBOARD_MAX7359 is not set
