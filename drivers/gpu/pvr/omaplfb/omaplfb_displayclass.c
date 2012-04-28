@@ -54,6 +54,7 @@ extern struct ion_client *gpsIONClient;
 #include <video/dsscomp.h>
 #include <plat/dsscomp.h>
 
+#define OMAPLFB_NUM_SGX_FBS		2
 #endif
 
 #include <video/omap_hwc.h>
@@ -1144,8 +1145,7 @@ static OMAPLFB_ERROR OMAPLFBInitFBDev(OMAPLFB_DEVINFO *psDevInfo)
 
 #if defined(CONFIG_DSSCOMP)
 	{
-		/* for some reason we need at least 3 buffers in the swap chain */
-		int n = FBSize / RoundUpToMultiple(psLINFBInfo->fix.line_length * psLINFBInfo->var.yres, ulLCM);
+		int n = OMAPLFB_NUM_SGX_FBS;
 		int res;
 		int i, x, y, w;
 		ion_phys_addr_t phys;
@@ -1166,16 +1166,13 @@ static OMAPLFB_ERROR OMAPLFBInitFBDev(OMAPLFB_DEVINFO *psDevInfo)
 			   " %s: Device %u: Requesting %d TILER 2D framebuffers\n",
 			   __FUNCTION__, uiFBDevID, n);
 
-		/* HACK: limit to MAX 3 FBs to save TILER container space */
-		if (n > 3)
-			n = 3;
 		sAllocData.w *= n;
 
 		psPVRFBInfo->uiBytesPerPixel = psLINFBInfo->var.bits_per_pixel >> 3;
 		psPVRFBInfo->bIs2D = OMAPLFB_TRUE;
 
 		res = omap_ion_tiler_alloc(gpsIONClient, &sAllocData);
-		psPVRFBInfo->psIONHandle = sAllocData.handle;
+
 		if (res < 0)
 		{
 			printk(KERN_ERR DRIVER_PREFIX
@@ -1183,6 +1180,7 @@ static OMAPLFB_ERROR OMAPLFBInitFBDev(OMAPLFB_DEVINFO *psDevInfo)
 				   __FUNCTION__, uiFBDevID, res);
 			goto ErrorModPut;
 		}
+		psPVRFBInfo->psIONHandle = sAllocData.handle;
 
 		ion_phys(gpsIONClient, sAllocData.handle, &phys, &size);
 
@@ -1192,6 +1190,8 @@ static OMAPLFB_ERROR OMAPLFBInitFBDev(OMAPLFB_DEVINFO *psDevInfo)
 		psPVRFBInfo->ulWidth = psLINFBInfo->var.xres;
 		psPVRFBInfo->ulHeight = psLINFBInfo->var.yres;
 		psPVRFBInfo->ulByteStride = PAGE_ALIGN(psPVRFBInfo->ulWidth * psPVRFBInfo->uiBytesPerPixel);
+		psPVRFBInfo->ulBufferSize = psPVRFBInfo->ulHeight * psPVRFBInfo->ulByteStride;
+		psPVRFBInfo->ulRoundedBufferSize = psPVRFBInfo->ulBufferSize;
 		w = psPVRFBInfo->ulByteStride >> PAGE_SHIFT;
 
 		/* this is an "effective" FB size to get correct number of buffers */
@@ -1226,12 +1226,11 @@ static OMAPLFB_ERROR OMAPLFBInitFBDev(OMAPLFB_DEVINFO *psDevInfo)
 	psPVRFBInfo->ulHeight = psLINFBInfo->var.yres;
 	psPVRFBInfo->ulByteStride =  psLINFBInfo->fix.line_length;
 	psPVRFBInfo->ulFBSize = FBSize;
+	psPVRFBInfo->ulBufferSize = psPVRFBInfo->ulHeight * psPVRFBInfo->ulByteStride;
+	psPVRFBInfo->ulRoundedBufferSize = RoundUpToMultiple(psPVRFBInfo->ulBufferSize, ulLCM);
 #endif
 
-	psPVRFBInfo->ulBufferSize = psPVRFBInfo->ulHeight * psPVRFBInfo->ulByteStride;
 
-
-	psPVRFBInfo->ulRoundedBufferSize = RoundUpToMultiple(psPVRFBInfo->ulBufferSize, ulLCM);
 
 	if(psLINFBInfo->var.bits_per_pixel == 16)
 	{
@@ -1358,7 +1357,11 @@ static OMAPLFB_DEVINFO *OMAPLFBInitDev(unsigned uiFBDevID)
 		goto ErrorFreeDevInfo;
 	}
 
+#if defined(CONFIG_DSSCOMP)
+	psDevInfo->sDisplayInfo.ui32MaxSwapChainBuffers = OMAPLFB_NUM_SGX_FBS;
+#else
 	psDevInfo->sDisplayInfo.ui32MaxSwapChainBuffers = (IMG_UINT32)(psDevInfo->sFBInfo.ulFBSize / psDevInfo->sFBInfo.ulRoundedBufferSize);
+#endif
 	if (psDevInfo->sDisplayInfo.ui32MaxSwapChainBuffers != 0)
 	{
 		psDevInfo->sDisplayInfo.ui32MaxSwapChains = 1;
