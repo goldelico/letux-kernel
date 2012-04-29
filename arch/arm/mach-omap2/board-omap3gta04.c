@@ -36,6 +36,8 @@
 
 #include <linux/i2c/bmp085.h>
 
+#include <linux/input/tca8418_keypad.h>
+
 #include <../sound/soc/codecs/gtm601.h>
 #include <../sound/soc/codecs/si47xx.h>
 #include <../sound/soc/codecs/w2cbw003-bt.h>
@@ -117,6 +119,11 @@ static struct omap_opp * _omap37x_l3_rate_table         = NULL;
  */
 
 #define WO3G_GPIO	(gta04_version >= 4 ? 10 : 176)	/* changed on A4 boards */
+
+// FIXME: we use that in a static initialization...
+// #define KEYIRQ_GPIO	(gta04_version >= 4 ? 176 : 10)	/* changed on A4 boards */
+
+#define KEYIRQ_GPIO	10	// GTA04A3 only!!!
 
 /* compare with: https://patchwork.kernel.org/patch/120449/
  * OMAP3 gta04 revision
@@ -459,12 +466,6 @@ static int gta04_twl_gpio_setup(struct device *dev,
 	/* link regulators to MMC adapters */
 	gta04_vmmc1_supply.dev = mmc[0].dev;
 
-#ifdef XXX	// unclear what this does on the BeagleBoard
-	/* Power on camera interface */
-	gpio_request(gpio + 2, "CAM_EN");
-	gpio_direction_output(gpio + 2, 1);
-#endif
-	
 	return 0;
 }
 
@@ -539,9 +540,9 @@ static struct regulator_init_data gta04_vaux3 = {
 		.max_uV			= 2500000,
 		.valid_modes_mask	= REGULATOR_MODE_NORMAL
 		| REGULATOR_MODE_STANDBY,
-		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE
+		.valid_ops_mask		= /* REGULATOR_CHANGE_VOLTAGE
 		| REGULATOR_CHANGE_MODE
-		| REGULATOR_CHANGE_STATUS,
+		| */ REGULATOR_CHANGE_STATUS,
 	},
 	.num_consumer_supplies	= 1,
 	.consumer_supplies	= &gta04_vaux3_supply,
@@ -838,6 +839,114 @@ struct bmp085_platform_data __initdata bmp085_info = {
 
 #endif
 
+#if defined(CONFIG_KEYBOARD_TCA8418) || defined(CONFIG_KEYBOARD_TCA8418_MODULE)
+
+const uint32_t gta04_keymap[] = {
+	/* KEY(row, col, val) - see include/linux/input.h */
+	KEY(0, 0, KEY_LEFTCTRL),
+	KEY(0, 1, KEY_RIGHTCTRL),
+	KEY(0, 2, KEY_Y),
+	KEY(0, 3, KEY_A),
+	KEY(0, 4, KEY_Q),
+	KEY(0, 5, KEY_1),
+//	KEY(0, 6, KEY_RESERVED),
+//	KEY(0, 7, KEY_RESERVED),
+	KEY(0, 8, KEY_SPACE),
+	KEY(0, 9, KEY_OK),
+
+	KEY(1, 0, KEY_LEFTALT),
+	KEY(1, 1, KEY_FN),
+	KEY(1, 2, KEY_SPACE),
+	KEY(1, 3, KEY_SPACE),
+	KEY(1, 4, KEY_COMMA),
+	KEY(1, 5, KEY_DOT),
+	KEY(1, 6, KEY_PAGEDOWN),
+	KEY(1, 7, KEY_END),
+	KEY(1, 8, KEY_LEFT),
+	KEY(1, 9, KEY_RIGHT),
+	
+	KEY(2, 0, KEY_DELETE),
+//	KEY(2, 1, KEY_RESERVED),
+	KEY(2, 2, KEY_TAB),
+	KEY(2, 3, KEY_BACKSPACE),
+	KEY(2, 4, KEY_ENTER),
+	KEY(2, 5, KEY_GRAVE),
+	KEY(2, 6, KEY_PAGEUP),
+	KEY(2, 7, KEY_HOME),
+	KEY(2, 8, KEY_UP),
+	KEY(2, 9, KEY_DOWN),
+
+	KEY(3, 0, KEY_RIGHTALT),
+	KEY(3, 1, KEY_CAPSLOCK),
+	KEY(3, 2, KEY_ESC),
+//	KEY(3, 3, KEY_RESERVED),
+//	KEY(3, 4, KEY_RESERVED),
+//	KEY(3, 5, KEY_RESERVED),
+	KEY(3, 6, KEY_LEFTBRACE),
+	KEY(3, 7, KEY_RIGHTBRACE),
+	KEY(3, 8, KEY_SEMICOLON),
+	KEY(3, 9, KEY_APOSTROPHE),
+
+	KEY(4, 0, KEY_LEFTSHIFT),
+	KEY(4, 1, KEY_X),
+	KEY(4, 2, KEY_C),
+	KEY(4, 3, KEY_V),
+	KEY(4, 4, KEY_B),
+	KEY(4, 5, KEY_N),
+	KEY(4, 6, KEY_M),
+	KEY(4, 7, KEY_MINUS),
+	KEY(4, 8, KEY_EQUAL),
+	KEY(4, 9, KEY_KPASTERISK),
+
+	KEY(5, 0, KEY_RIGHTSHIFT),
+	KEY(5, 1, KEY_S),
+	KEY(5, 2, KEY_D),
+	KEY(5, 3, KEY_F),
+	KEY(5, 4, KEY_G),
+	KEY(5, 5, KEY_H),
+	KEY(5, 6, KEY_J),
+	KEY(5, 7, KEY_K),
+	KEY(5, 8, KEY_L),
+	KEY(5, 9, KEY_APOSTROPHE),
+	
+	KEY(6, 0, KEY_LEFTMETA),
+	KEY(6, 1, KEY_W),
+	KEY(6, 2, KEY_E),
+	KEY(6, 3, KEY_R),
+	KEY(6, 4, KEY_T),
+	KEY(6, 5, KEY_Z),
+	KEY(6, 6, KEY_U),
+	KEY(6, 7, KEY_I),
+	KEY(6, 8, KEY_O),
+	KEY(6, 9, KEY_P),
+	
+	KEY(7, 0, KEY_RIGHTMETA),
+	KEY(7, 1, KEY_2),
+	KEY(7, 2, KEY_3),
+	KEY(7, 3, KEY_4),
+	KEY(7, 4, KEY_5),
+	KEY(7, 5, KEY_6),
+	KEY(7, 6, KEY_7),
+	KEY(7, 7, KEY_8),
+	KEY(7, 8, KEY_9),
+	KEY(7, 9, KEY_0),
+};
+
+struct matrix_keymap_data tca8418_keymap = {
+	.keymap = gta04_keymap,
+	.keymap_size = ARRAY_SIZE(gta04_keymap),
+};
+
+struct tca8418_keypad_platform_data tca8418_pdata = {
+	.keymap_data = &tca8418_keymap,
+	.rows = 8,
+	.cols = 10,
+	.rep = 1,
+	.irq_is_gpio = 1,
+	};
+
+#endif
+
 static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 #if defined(CONFIG_LIS302) || defined(CONFIG_LIS302_MODULE)
 	{
@@ -916,12 +1025,12 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 	.irq		= -EINVAL,
 	},	
 #endif
-#if defined(CONFIG_TCA8418) || defined(CONFIG_TCA8418_MODULE)
+#if defined(CONFIG_KEYBOARD_TCA8418) || defined(CONFIG_KEYBOARD_TCA8418_MODULE)
 	{
-	I2C_BOARD_INFO("tca8418", 0x64),
-	.type		= "tca8418",
-	.platform_data	= NULL,
-	.irq		= -EINVAL,	// replace by KEYIRQ which has changed between GTA04A3 and GTA04A4
+	I2C_BOARD_INFO("tca8418", 0x34),	/* /sys/.../name */
+	.type		= "tca8418_keypad",	/* driver name */
+	.platform_data	= &tca8418_pdata,
+	.irq		= KEYIRQ_GPIO,
 	},	
 #endif
 #if defined(CONFIG_VIDEO_OV9655) || defined(CONFIG_VIDEO_OV9655_MODULE)
@@ -1061,6 +1170,7 @@ static struct platform_device gta04_vaux2_virtual_regulator_device = {
 	},
 };
 
+#if 0
 static struct platform_device gta04_vaux3_virtual_regulator_device = {
 	.name		= "reg-virt-consumer",
 	.id			= 3,	
@@ -1068,6 +1178,7 @@ static struct platform_device gta04_vaux3_virtual_regulator_device = {
 		.platform_data	= "vaux3",
 	},
 };
+#endif
 
 static struct platform_device gta04_vaux4_virtual_regulator_device = {
 	.name		= "reg-virt-consumer",
@@ -1096,7 +1207,9 @@ static struct platform_device *gta04_devices[] __initdata = {
 #if defined(CONFIG_REGULATOR_VIRTUAL_CONSUMER)
 	&gta04_vaux1_virtual_regulator_device,
 	&gta04_vaux2_virtual_regulator_device,
-	&gta04_vaux3_virtual_regulator_device,	// camera - we should enable the power through the driver
+#if 0	/* camera - we enable the power through the driver */
+	&gta04_vaux3_virtual_regulator_device,
+#endif
 	&gta04_vaux4_virtual_regulator_device,
 	&gta04_vsim_virtual_regulator_device,
 #endif
@@ -1170,6 +1283,7 @@ static struct omap_board_mux board_mux[] __initdata = {
 	{ .reg_offset = OMAP_MUX_TERMINATOR },
 };
 #else
+#error we need CONFIG_OMAP_MUX
 #define board_mux	NULL
 #endif
 
@@ -1238,8 +1352,29 @@ static void __init gta04_init(void)
 	
 	omap_mux_init_signal("mcbsp3_clkx.uart2_tx", OMAP_PIN_OUTPUT);	// gpio 142 / GPS TX
 	omap_mux_init_signal("mcbsp3_fsx.uart2_rx", OMAP_PIN_INPUT);	// gpio 143 / GPS RX	
-#else
-#error we need CONFIG_OMAP_MUX
+#endif
+
+#if defined(CONFIG_KEYBOARD_TCA8418) || defined(CONFIG_KEYBOARD_TCA8418_MODULE)
+	{ /* dynamically insert the correct IRQ number */
+	int i;
+	for(i=0; i<ARRAY_SIZE(gta04_i2c2_boardinfo); i++)
+		if(strcmp(gta04_i2c2_boardinfo[i].type, "tca8418") == 0)
+			gta04_i2c2_boardinfo[i].irq = KEYIRQ_GPIO;
+	}
+	omap_mux_init_gpio(KEYIRQ_GPIO, OMAP_PIN_INPUT_PULLUP);	// gpio 10 or 176
+
+	if (gpio_request(KEYIRQ_GPIO, "keyirq")) {
+		printk(KERN_ERR "Failed to request GPIO %d for "
+			   "KEYIRQ\n", KEYIRQ_GPIO);
+	}
+	
+	if (gpio_direction_input(KEYIRQ_GPIO)) {
+		printk(KERN_WARNING "GPIO#%d cannot be configured as "
+			   "input\n", KEYIRQ_GPIO);
+	}
+	omap_set_gpio_debounce(KEYIRQ_GPIO, 1);
+	omap_set_gpio_debounce_time(KEYIRQ_GPIO, 0xa);
+	set_irq_type(OMAP_GPIO_IRQ(KEYIRQ_GPIO), IRQ_TYPE_EDGE_FALLING);
 #endif
 	
 	// gpio_export() allows to access through /sys/devices/virtual/gpio/gpio*/value
@@ -1253,7 +1388,7 @@ static void __init gta04_init(void)
 	gpio_direction_output(57, true);
 	gpio_export(57, 0);	// no direction change
 	
-	// omap_mux_init_signal("gpio138", OMAP_PIN_INPUT);	// gpio 138 - with no pullup/pull-down
+	// omap_mux_init_gpio(138, OMAP_PIN_INPUT);	// gpio 138 - with no pullup/pull-down
 	gpio_request(144, "EXT_ANT");
 	gpio_direction_input(144);
 	gpio_export(144, 0);	// no direction change
