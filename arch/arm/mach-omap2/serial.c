@@ -691,6 +691,7 @@ void __init omap_serial_init_port(int port)
 	dev = &pdev->dev;
 //	printk("  pdev->name=%s\n", pdev->name);
 //	printk("  pdev->id=%d\n", pdev->id);
+#if defined(CONFIG_SERIAL_OMAP)
 	if(strcmp(pdev->name, "omap-uart") == 0)
 		{ /* replace platform data for this port */
 		static struct omap_uart_port_info uart_platform_data[] = {
@@ -814,6 +815,7 @@ void __init omap_serial_init_port(int port)
 			}
 			pdev->dev.platform_data = &uart_platform_data[port];
 		}
+#endif
 /*
 	printk("  uart=%p\n", uart);
 	printk("  uart->pdev=%p\n", pdev);
