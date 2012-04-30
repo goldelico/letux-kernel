@@ -14,6 +14,10 @@
  * GNU General Public License for more details.
  *
 */
+#define DEBUG
+
+/* Uncomment the below define for thermal debug */
+/* #define THERMAL_GPU_DEBUG */
 
 #include <linux/err.h>
 #include <linux/module.h>
@@ -199,10 +203,12 @@ static signed int convert_omap_sensor_temp_to_hotspot_temp(int sensor_temp)
 	}
 
 	omap_gov->absolute_delta = absolute_delta;
+#ifdef THERMAL_GPU_DEBUG
 	pr_debug("%s:sensor %d avg sensor %d pcb %d, delta %d hot spot %d\n",
 			__func__, sensor_temp, omap_gov->avg_gpu_sensor_temp,
 			omap_gov->pcb_temp, omap_gov->absolute_delta,
 			sensor_temp + absolute_delta);
+#endif
 
 	return sensor_temp + absolute_delta;
 }
@@ -236,8 +242,6 @@ static int omap_enter_zone(struct omap_thermal_zone *zone,
 	int temp_upper;
 	int temp_lower;
 
-	pr_info("%s: hot spot temp %d - going into %s zone\n", __func__,
-			gpu_temp, zone->name);
 	if (list_empty(cooling_list)) {
 		pr_err("%s: No Cooling devices registered\n",
 			__func__);
@@ -285,6 +289,7 @@ static int omap_gpu_thermal_manager(struct list_head *cooling_list, int temp)
 {
 	int gpu_temp, zone = NO_ACTION;
 	bool set_cooling_level = true;
+	static int prev_zone = NO_ACTION;
 
 	gpu_temp = convert_omap_sensor_temp_to_hotspot_temp(temp);
 	if (gpu_temp >= OMAP_FATAL_TEMP) {
@@ -335,9 +340,18 @@ static int omap_gpu_thermal_manager(struct list_head *cooling_list, int temp)
 		zone = ALERT_ZONE;
 	}
 
-	if (zone != NO_ACTION)
+	if (zone != NO_ACTION) {
+		/* Only for Debug : Print when we cross the zones */
+		if (zone != prev_zone)
+			pr_debug("gpu: omap_enter_zone: hot spot temp %d - "
+				"going into %s zone\n", gpu_temp,
+				omap_thermal_zones[zone - 1].name);
+
 		omap_enter_zone(&omap_thermal_zones[zone - 1],
 				set_cooling_level, cooling_list, gpu_temp);
+	}
+
+	prev_zone = zone;
 
 	return zone;
 }
@@ -416,7 +430,10 @@ static int omap_process_gpu_temp(struct thermal_dev *governor,
 				struct thermal_dev *temp_sensor,
 				int temp)
 {
+#ifdef THERMAL_GPU_DEBUG
 	pr_debug("%s: Received temp %i\n", __func__, temp);
+#endif
+
 	omap_gov->temp_sensor = temp_sensor;
 	return omap_gpu_thermal_manager(cooling_list, temp);
 }

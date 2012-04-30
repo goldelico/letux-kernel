@@ -254,7 +254,7 @@ static int cpufreq_apply_cooling(struct thermal_dev *dev, int cooling_level)
 	else
 		new_cooling_level = cpu_cooling_level;
 
-	pr_info("%s: cooling_level %d case %d cpu %d new %d curr %d\n",
+	pr_debug("%s: cooling_level %d case %d cpu %d new %d curr %d\n",
 		__func__, cooling_level, case_cooling_level,
 		cpu_cooling_level, new_cooling_level, current_cooling_level);
 	if (new_cooling_level < current_cooling_level) {
