@@ -245,12 +245,17 @@ static struct omap_device_pad default_omap4_uart4_pads[] __initdata = {
 
 static struct omap_device_pad default_uart5_pads[] __initdata = {
 	{
-		.name	= "uart5_cts.uart5_cts",
-		.enable	= OMAP_PIN_INPUT_PULLUP | OMAP_MUX_MODE0,
+		.name   = "uart5_cts.uart5_cts",
+		.flags  = OMAP_DEVICE_PAD_REMUX,
+		.enable = OMAP_PIN_INPUT_PULLUP | OMAP_MUX_MODE0,
+		.idle   = OMAP_WAKEUP_EN | OMAP_PIN_OFF_INPUT_PULLUP |
+				OMAP_MUX_MODE0,
 	},
 	{
-		.name	= "uart5_rts.uart5_rts",
-		.enable	= OMAP_PIN_OUTPUT | OMAP_MUX_MODE0,
+		.name   = "uart5_rts.uart5_rts",
+		.flags  = OMAP_DEVICE_PAD_REMUX,
+		.enable = OMAP_PIN_OUTPUT | OMAP_MUX_MODE0,
+		.idle   = OMAP_PIN_OFF_INPUT_PULLUP | OMAP_MUX_MODE7,
 	},
 	{
 		.name	= "uart5_tx.uart5_tx",
@@ -258,9 +263,7 @@ static struct omap_device_pad default_uart5_pads[] __initdata = {
 	},
 	{
 		.name	= "uart5_rx.uart5_rx",
-		.flags	= OMAP_DEVICE_PAD_REMUX | OMAP_DEVICE_PAD_WAKEUP,
-		.enable	= OMAP_PIN_INPUT_PULLUP | OMAP_MUX_MODE0,
-		.idle	= OMAP_PIN_INPUT_PULLUP | OMAP_MUX_MODE0,
+		.enable = OMAP_PIN_INPUT_PULLUP | OMAP_MUX_MODE0,
 	},
 };
 
