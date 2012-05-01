@@ -1323,8 +1323,7 @@ static struct platform_device omap_vwlan_device = {
 
 static void omap5_sdp5430_wifi_mux_init(void)
 {
-	omap_mux_init_gpio(GPIO_WIFI_IRQ, OMAP_PIN_INPUT |
-				OMAP_PIN_OFF_WAKEUPENABLE);
+	omap_mux_init_gpio(GPIO_WIFI_IRQ, OMAP_PIN_INPUT);
 	omap_mux_init_gpio(GPIO_WIFI_PMENA,
 		OMAP_PIN_OUTPUT | OMAP_PIN_INPUT_PULLUP);
 
