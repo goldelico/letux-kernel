@@ -60,23 +60,30 @@ static struct regulator *cam_2v5_reg;
 #if defined(CONFIG_VIDEO_OV9655) || defined(CONFIG_VIDEO_OV9655_MODULE)
 #include <media/ov9655.h>
 
-#define ISP_OV9655_MCLK	216000000
+#define ISP_OV9655_MCLK	(216*1000000)
 
 /* Arbitrary memory handling limit */
-#define OV9655_MAX_FRAME_SIZE	PAGE_ALIGN(640 * 480 * 4)
+#define OV9655_MAX_FRAME_SIZE	PAGE_ALIGN(1280 * 1024 * 4)
+
+// FIXME: adjust sync polarity to what the OV9655 delivers
 
 static struct isp_interface_config ov9655_if_config = {
 	.ccdc_par_ser		= ISP_PARLL,
-	.dataline_shift		= 0x2,
-	.hsvs_syncdetect	= ISPCTRL_SYNC_DETECT_VSRISE,
+//	.ccdc_par_ser		= ISP_PARLL_YUV_BT,
+	.dataline_shift		= ISPCTRL_SHIFT_2>>ISPCTRL_SHIFT_SHIFT,
+//	.hsvs_syncdetect	= ISPCTRL_SYNC_DETECT_VSRISE,
+	.hsvs_syncdetect	= ISPCTRL_SYNC_DETECT_HSFALL,
 	.strobe			= 0x0,
 	.prestrobe		= 0x0,
 	.shutter		= 0x0,
 	.cam_mclk		= ISP_OV9655_MCLK,
 	.wenlog 		= ISPCCDC_CFG_WENLOG_AND,
 	.wait_hs_vs		= 2,
-	.u.par.par_bridge	= 0x3,
-	.u.par.par_clk_pol	= 0x0,
+//	.u.par.par_bridge	= 0x2,
+//	.u.par.par_bridge	= ISPCTRL_PAR_BRIDGE_LENDIAN>>ISPCTRL_PAR_BRIDGE_SHIFT,
+	.u.par.par_bridge	= ISPCTRL_PAR_BRIDGE_BENDIAN>>ISPCTRL_PAR_BRIDGE_SHIFT,
+	.u.par.par_clk_pol	= 0&ISPCTRL_PAR_CLK_POL_INV>>ISPCTRL_PAR_CLK_POL_SHIFT,
+//	.u.par.par_clk_pol	= ISPCTRL_PAR_CLK_POL_INV>>ISPCTRL_PAR_CLK_POL_SHIFT,
 };
 
 static struct v4l2_ifparm ov9655_ifparm_s = {
@@ -241,7 +248,7 @@ static int gta04_cam_probe(struct platform_device *pdev)
 	gpio_direction_output(CAMERA_RESET_GPIO, 0);	/* 0: activate reset */
 	gpio_direction_output(CAMERA_PWDN_GPIO, 1);		/* 1: activate power down */
 
-#if 0	// standard more
+#if 1	// standard mode
 	/* MUX init */
 	omap_ctrl_writew(OMAP_PIN_INPUT_PULLUP | OMAP_MUX_MODE0,
 			 0x10C); /* CAM_HS */
@@ -276,7 +283,7 @@ static int gta04_cam_probe(struct platform_device *pdev)
 	omap_ctrl_writew(OMAP_PIN_INPUT | OMAP_MUX_MODE0,
 			 0x12C); /* CAM_D11 */
 
-#else	// special experimental mode
+#else	// special experimental mode - map most camera lines to GPIOs in /sys
 	
 	omap_ctrl_writew(OMAP_PIN_OUTPUT | OMAP_MUX_MODE0,
 					 0x110); /* CAM_XCLKA */
