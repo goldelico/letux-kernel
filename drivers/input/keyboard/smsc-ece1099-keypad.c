@@ -191,7 +191,7 @@ smsc_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	const struct matrix_keymap_data *keymap_data;
 	struct input_dev *input;
 	struct smsc_keypad *kp;
-	int ret = 0, error;
+	int ret = 0;
 	int col;
 
 	if (!pdata || !pdata->rows || !pdata->cols || !pdata->keymap_data) {
@@ -201,12 +201,12 @@ smsc_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 	keymap_data = pdata->keymap_data;
 	kp = kzalloc(sizeof(*kp), GFP_KERNEL);
+	if (!kp)
+		return -ENOMEM;
 
 	input = input_allocate_device();
-	if (!kp || !input) {
-		error = -ENOMEM;
+	if (!input)
 		goto err1;
-	}
 
 	/* Get the debug Device */
 	kp->dbg_dev = &client->dev;
@@ -222,6 +222,35 @@ smsc_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	/* setup input device */
 	 __set_bit(EV_KEY, input->evbit);
 
+	if (i2c_check_functionality(client->adapter, I2C_FUNC_I2C) == 0) {
+		dev_dbg(&client->dev, "can't talk I2C?\n");
+		ret = -EIO;
+		goto err2;
+	}
+
+	kp_client = client;
+
+	/* Print SMSC revision info */
+	ret = smsc_read_data(SMSC_DEVICE_ID);
+	if (ret < 0)
+		goto err2;
+
+	input->id.product = ret;
+
+	ret = smsc_read_data(SMSC_DEV_VERSION);
+	input->id.version = ret;
+
+	ret = smsc_read_data(SMSC_VENDOR_ID_LSB);
+	input->id.vendor = 0x0;
+	input->id.vendor |= ret;
+
+	ret = smsc_read_data(SMSC_VENDOR_ID_MSB);
+	input->id.vendor |= (ret << 8);
+
+	dev_info(&client->dev, "SMSC: Device ID: %d, Version No.:"
+		" %d, Vendor ID: 0x%x\n", input->id.product, input->id.version,
+		input->id.vendor);
+
 	/* Enable auto repeat feature of Linux input subsystem */
 	if (pdata->rep)
 		__set_bit(EV_REP, input->evbit);
@@ -231,55 +260,33 @@ smsc_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	input->phys             = "smsc_keypad/input0";
 	input->dev.parent       = &client->dev;
 	input->id.bustype       = BUS_HOST;
-	input->id.vendor        = 0x0001;
-	input->id.product       = 0x0001;
-	input->id.version       = 0x0003;
 	input->keycode          = kp->keymap;
 	input->keycodesize      = sizeof(kp->keymap[0]);
 	input->keycodemax       = ARRAY_SIZE(kp->keymap);
 
-	error = input_register_device(input);
-	if (error) {
+	ret = input_register_device(input);
+	if (ret) {
 		dev_err(kp->dbg_dev,
-			"Unable to register twl4030 keypad device\n");
-		goto err1;
+			"Unable to register keypad device\n");
+		goto err2;
 	}
-
-	if (i2c_check_functionality(client->adapter, I2C_FUNC_I2C) == 0) {
-		dev_dbg(&client->dev, "can't talk I2C?\n");
-		return -EIO;
-	}
-
-	kp_client = client;
-
-	 /* Print SMSC revision info */
-	ret = smsc_read_data(SMSC_DEVICE_ID);
-	dev_info(&client->dev, "SMSC Device ID: %d\n", ret);
-
-	ret = smsc_read_data(SMSC_DEV_VERSION);
-	dev_info(&client->dev, "SMSC Device Version Number: %d\n", ret);
-
-	ret = smsc_read_data(SMSC_VENDOR_ID_LSB);
-	dev_info(&client->dev, "SMSC Device Vendor ID(LSB): %d\n", ret);
-
-	ret = smsc_read_data(SMSC_VENDOR_ID_MSB);
-	dev_info(&client->dev, "SMSC Device Vendor ID(MSB): %d\n", ret);
 
 	ret = smsc_write_data(SMSC_CLK_CTRL, 0x13);
+	if (ret < 0)
+		goto err3;
 
 	ret = smsc_kp_initialize(kp);
 	if (ret)
-		goto err1;
+		goto err3;
 
 	matrix_keypad_build_keymap(pdata->keymap_data, ROW_SHIFT,
 			input->keycode, input->keybit);
 
-	error = gpio_request_one(client->irq, GPIOF_IN, "keypad");
-	if (error) {
-		dev_err(&client->dev, "sensor: gpio request failure\n");
-		return error;
+	ret = gpio_request_one(client->irq, GPIOF_IN, "keypad");
+	if (ret) {
+		dev_err(&client->dev, "keypad: gpio request failure\n");
+		goto err3;
 	}
-
 
 	/*
 	* This ISR will always execute in kernel thread context because of
@@ -291,27 +298,43 @@ smsc_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	if (ret) {
 		dev_info(&client->dev, "request_irq failed for irq no=%d\n",
 			client->irq);
-		goto err2;
+		goto err4;
 	}
 
 	/* Enable smsc keypad interrupts */
 	ret = smsc_write_data(SMSC_KSI_MASK, 0xff);
 	if (ret < 0)
-		goto err2;
+		goto err5;
+
+	i2c_set_clientdata(client, kp);
 
 	return 0;
 
-err2:
-	input_unregister_device(input);
-	gpio_free(client->irq);
+err5:
 	free_irq(client->irq, NULL);
-err1:
+err4:
+	gpio_free(client->irq);
+err3:
+	input_unregister_device(input);
+err2:
 	input_free_device(input);
+err1:
+	kfree(kp);
+
 	return ret;
 }
 
 static int smsc_remove(struct i2c_client *client)
 {
+	struct smsc_keypad *kp = i2c_get_clientdata(client);
+
+	smsc_write_data(SMSC_CLK_CTRL, 0x0);
+	free_irq(client->irq, NULL);
+	gpio_free(client->irq);
+	input_unregister_device(kp->input);
+	input_free_device(kp->input);
+	kfree(kp);
+
 	return 0;
 }
 
