@@ -157,12 +157,15 @@ struct isp_reg {
  * struct isp_interface_config - ISP interface configuration.
  * @ccdc_par_ser: ISP interface type. 0 - Parallel, 1 - CSIA, 2 - CSIB to CCDC.
  * @dataline_shift: Data lane shifter.
- *                      0 - No Shift, 1 - CAMEXT[13 to 2]->CAM[11 to 0]
- *                      2 - CAMEXT[13 to 4]->CAM[9 to 0]
- *                      3 - CAMEXT[13 to 6]->CAM[7 to 0]
+ *                      ISPCTRL_SHIFT_0 - No Shift
+ *						1 - CAMEXT[13 to 2]->CAM[11 to 0]
+ *                      ISPCTRL_SHIFT_2 - CAMEXT[13 to 4]->CAM[9 to 0]
+ *                      ISPCTRL_SHIFT_4 - CAMEXT[13 to 6]->CAM[7 to 0]
  * @hsvs_syncdetect: HS or VS synchronization signal detection.
- *                       0 - HS Falling, 1 - HS rising
- *                       2 - VS falling, 3 - VS rising
+ *                       ISPCTRL_SYNC_DETECT_HSFALL - HS Falling,
+ *						 ISPCTRL_SYNC_DETECT_HSRISE - HS rising
+ *                       ISPCTRL_SYNC_DETECT_VSFALL - VS falling
+ *						 ISPCTRL_SYNC_DETECT_VSRISE - VS rising
  * @strobe: Strobe related parameter.
  * @prestrobe: PreStrobe related parameter.
  * @shutter: Shutter related parameter.
@@ -172,8 +175,9 @@ struct isp_reg {
  * @wait_hs_vs: Wait for this many hs_vs before anything else in the beginning.
  * @pixelclk: Pixel data rate from sensor.
  * @par_bridge: CCDC Bridge input control. Parallel interface.
- *                  0 - Disable, 1 - Enable, first byte->cam_d(bits 7 to 0)
- *                  2 - Enable, first byte -> cam_d(bits 15 to 8)
+ *                  0 - Disable
+ *					2 - Enable, first byte->cam_d(bits 7 to 0)
+ *                  3 - Enable, first byte -> cam_d(bits 15 to 8)
  * @par_clk_pol: Pixel clock polarity on the parallel interface.
  *                    0 - Non Inverted, 1 - Inverted
  * @crc: Use cyclic redundancy check.
@@ -203,8 +207,8 @@ struct isp_interface_config {
 	unsigned int pixelclk;
 	union {
 		struct par {
-			unsigned par_bridge:2;
-			unsigned par_clk_pol:1;
+			unsigned par_bridge:2;	/* will be shifted by ISPCTRL_PAR_BRIDGE_SHIFT */
+			unsigned par_clk_pol:1;	/* will be shifted by ISPCTRL_PAR_CLK_POL_SHIFT */
 		} par;
 		struct csi {
 			unsigned crc:1;

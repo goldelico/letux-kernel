@@ -2359,6 +2359,9 @@ int isp_enable_mclk(struct device *dev)
 	/* Check ratio between DPLL4_M5 and CAM_MCLK */
 	curr_mclk = clk_get_rate(isp->cam_mclk);
 	curr_dpll4_m5 = clk_get_rate(isp->dpll4_m5_ck);
+	printk("curr_mclk %lu\n", curr_mclk);
+	printk("curr_dpll4_m5 %lu\n", curr_dpll4_m5);
+	printk("isp->mclk %lu\n", isp->mclk);
 
 	/* Protection for potential Zero division, or zero-ratio result */
 	if (!curr_mclk || !curr_dpll4_m5)
@@ -2366,11 +2369,13 @@ int isp_enable_mclk(struct device *dev)
 
 	ratio = curr_mclk / curr_dpll4_m5;
 
-	r = clk_set_rate(isp->dpll4_m5_ck, isp->mclk / ratio);
-		if (r) {
-			dev_err(dev, "clk_set_rate for dpll4_m5_ck failed\n");
-			return r;
-	}
+	if(isp->mclk / ratio != curr_mclk) { /* really change */
+		r = clk_set_rate(isp->dpll4_m5_ck, isp->mclk / ratio);
+			if (r) {
+				dev_err(dev, "clk_set_rate for dpll4_m5_ck to %lu failed r=%d\n", isp->mclk / ratio, r);
+				return r;
+			}
+		}
 	r = clk_enable(isp->cam_mclk);
 	if (r) {
 		dev_err(dev, "clk_enable cam_mclk failed\n");
