@@ -727,23 +727,37 @@ PVRSRV_ERROR SGXCleanupRequest(PVRSRV_DEVICE_NODE *psDeviceNode,
 		}
 	}
 
-	psHostCtl->ui32CleanupStatus &= ~(PVRSRV_USSE_EDM_CLEANUPCMD_COMPLETE);
-	PDUMPMEM(IMG_NULL, psHostCtlMemInfo, offsetof(SGXMKIF_HOST_CTL, ui32CleanupStatus), sizeof(IMG_UINT32), 0, MAKEUNIQUETAG(psHostCtlMemInfo));
+	if (psHostCtl->ui32CleanupStatus & PVRSRV_USSE_EDM_CLEANUPCMD_BUSY) {
+		/* Only one flag should be set */
+		PVR_ASSERT((psHostCtl->ui32CleanupStatus &
+					PVRSRV_USSE_EDM_CLEANUPCMD_DONE) == 0);
+		eError = PVRSRV_ERROR_RETRY;
+		psHostCtl->ui32CleanupStatus &= ~(PVRSRV_USSE_EDM_CLEANUPCMD_COMPLETE |
+					      PVRSRV_USSE_EDM_CLEANUPCMD_BUSY);
+	} else {
+		eError = PVRSRV_OK;
+		psHostCtl->ui32CleanupStatus &= ~(PVRSRV_USSE_EDM_CLEANUPCMD_COMPLETE |
+					      PVRSRV_USSE_EDM_CLEANUPCMD_DONE);
+	}
+
+	PDUMPMEM(IMG_NULL, psHostCtlMemInfo, offsetof(SGXMKIF_HOST_CTL, ui32CleanupStatus),
+		       sizeof(IMG_UINT32), 0, MAKEUNIQUETAG(psHostCtlMemInfo));
 
 
 #if defined(SGX_FEATURE_SYSTEM_CACHE)
-	psDevInfo->ui32CacheControl |= (SGXMKIF_CC_INVAL_BIF_SL | SGXMKIF_CC_INVAL_DATA);
+	psDevInfo->ui32CacheControl |= (SGXMKIF_CC_INVAL_BIF_SL |
+					SGXMKIF_CC_INVAL_DATA);
 #else
 	psDevInfo->ui32CacheControl |= SGXMKIF_CC_INVAL_DATA;
 #endif
-	return PVRSRV_OK;
+	return eError;
 }
 
 
 typedef struct _SGX_HW_RENDER_CONTEXT_CLEANUP_
 {
 	PVRSRV_DEVICE_NODE *psDeviceNode;
-    PVRSRV_KERNEL_MEM_INFO *psHWRenderContextMemInfo;
+	PVRSRV_KERNEL_MEM_INFO *psHWRenderContextMemInfo;
 	IMG_HANDLE hBlockAlloc;
 	PRESMAN_ITEM psResItem;
 } SGX_HW_RENDER_CONTEXT_CLEANUP;
@@ -763,16 +777,18 @@ static PVRSRV_ERROR SGXCleanupHWRenderContextCallback(IMG_PVOID		pvParam,
 					  PVRSRV_CLEANUPCMD_RC,
 					  bForceCleanup);
 
+	if (eError != PVRSRV_ERROR_RETRY) {
+	    /* Free the Device Mem allocated */
+		PVRSRVFreeDeviceMemKM(psCleanup->psDeviceNode,
+			psCleanup->psHWRenderContextMemInfo);
 
-    PVRSRVFreeDeviceMemKM(psCleanup->psDeviceNode,
-            psCleanup->psHWRenderContextMemInfo);
-
-
-	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP,
-			  sizeof(SGX_HW_RENDER_CONTEXT_CLEANUP),
-			  psCleanup,
-			  psCleanup->hBlockAlloc);
-
+	    /* Finally, free the cleanup structure itself */
+		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP,
+				  sizeof(SGX_HW_RENDER_CONTEXT_CLEANUP),
+				  psCleanup,
+				  psCleanup->hBlockAlloc);
+		/*not nulling pointer, copy on stack*/
+	}
 
 	return eError;
 }
@@ -800,16 +816,18 @@ static PVRSRV_ERROR SGXCleanupHWTransferContextCallback(IMG_PVOID	pvParam,
 					  PVRSRV_CLEANUPCMD_TC,
 					  bForceCleanup);
 
+	if (eError != PVRSRV_ERROR_RETRY) {
+	    /* Free the Device Mem allocated */
+		PVRSRVFreeDeviceMemKM(psCleanup->psDeviceNode,
+			psCleanup->psHWTransferContextMemInfo);
 
-    PVRSRVFreeDeviceMemKM(psCleanup->psDeviceNode,
-            psCleanup->psHWTransferContextMemInfo);
-
-
-	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP,
-			  sizeof(SGX_HW_TRANSFER_CONTEXT_CLEANUP),
-			  psCleanup,
-			  psCleanup->hBlockAlloc);
-
+	    /* Finally, free the cleanup structure itself */
+		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP,
+				  sizeof(SGX_HW_TRANSFER_CONTEXT_CLEANUP),
+				  psCleanup,
+				  psCleanup->hBlockAlloc);
+		/*not nulling pointer, copy on stack*/
+	}
 
 	return eError;
 }
