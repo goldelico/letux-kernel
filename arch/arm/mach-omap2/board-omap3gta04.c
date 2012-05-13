@@ -115,15 +115,11 @@ static struct omap_opp * _omap37x_l3_rate_table         = NULL;
  or a TS_PENIRQ_GPIO or the AUX, Power Button or USB
  event can wake up.
  Maybe, the type of the wakup event should be notified
- to user space.
+ to user space as a button-press.
  */
 
 #define WO3G_GPIO	(gta04_version >= 4 ? 10 : 176)	/* changed on A4 boards */
-
-// FIXME: we use that in a static initialization...
-// #define KEYIRQ_GPIO	(gta04_version >= 4 ? 176 : 10)	/* changed on A4 boards */
-
-#define KEYIRQ_GPIO	10	// GTA04A3 only!!!
+#define KEYIRQ_GPIO	(gta04_version >= 4 ? 176 : 10)	/* changed on A4 boards */
 
 /* compare with: https://patchwork.kernel.org/patch/120449/
  * OMAP3 gta04 revision
@@ -1030,7 +1026,7 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 	I2C_BOARD_INFO("tca8418", 0x34),	/* /sys/.../name */
 	.type		= "tca8418_keypad",	/* driver name */
 	.platform_data	= &tca8418_pdata,
-	.irq		= KEYIRQ_GPIO,
+	.irq		= -EINVAL,	// will be modified dynamically by code
 	},	
 #endif
 #if defined(CONFIG_VIDEO_OV9655) || defined(CONFIG_VIDEO_OV9655_MODULE)
@@ -1294,7 +1290,7 @@ static struct omap_board_mux board_mux[] __initdata = {
 
 static irqreturn_t wake_3G_irq(int irq, void *handle)
 {
-	printk("3G Wakeup\n");
+	printk("3G Wakeup received :)\n");
 /*	schedule_work(&work); */	
 	return IRQ_HANDLED;
 }
@@ -1309,7 +1305,7 @@ static int __init wake_3G_init(void)
 	omap_mux_init_gpio(WO3G_GPIO, OMAP_PIN_INPUT);
 	if (gpio_request(WO3G_GPIO, "3G_wakeup")) {
 		printk(KERN_ERR "Failed to request GPIO %d for "
-			   "3G Wakeup IRQ\n", WO3G_GPIO);
+			   "3G_wakeup IRQ\n", WO3G_GPIO);
 		return  -ENODEV;
 	}
 	

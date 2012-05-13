@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32
-# Sat Apr 28 09:28:41 2012
+# Sun May 13 13:43:16 2012
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
