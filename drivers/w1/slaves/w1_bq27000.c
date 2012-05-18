@@ -47,8 +47,10 @@ int w1_bq27000_read(struct device *dev, u8 reg)
 	if (!dev)
 		return 0;
 
+	mutex_lock(&sl->master->bus_mutex);
 	w1_write_8(sl->master, HDQ_CMD_READ | reg);
 	val = w1_read_8(sl->master);
+	mutex_unlock(&sl->master->bus_mutex);
 
 	return val;
 }
