@@ -526,6 +526,8 @@ static void fill_platform_info(struct dsscomp_dev *cdev)
 	p->integer_scale_ratio_limit = 2048;
 
 	p->tiler1d_slot_size = tiler1d_slot_size(cdev);
+
+	p->fbmem_type = DSSCOMP_FBMEM_TILER2D;
 }
 
 static long comp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
