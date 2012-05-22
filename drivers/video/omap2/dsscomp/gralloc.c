@@ -43,13 +43,6 @@ static LIST_HEAD(flip_queue);
 
 static u32 ovl_use_mask[MAX_MANAGERS];
 
-static unsigned int tiler1d_slot_size(struct dsscomp_dev *cdev)
-{
-	struct dsscomp_platform_data *pdata;
-	pdata = (struct dsscomp_platform_data *)cdev->pdev->platform_data;
-	return pdata->tiler1d_slotsz;
-}
-
 static void unpin_tiler_blocks(struct list_head *slots)
 {
 	struct tiler1d_slot *slot;
