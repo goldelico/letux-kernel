@@ -617,6 +617,7 @@ static int dsscomp_probe(struct platform_device *pdev)
 	ret = misc_register(&cdev->dev);
 	if (ret) {
 		pr_err("dsscomp: failed to register misc device.\n");
+		kfree(cdev);
 		return ret;
 	}
 	cdev->dbgfs = debugfs_create_dir("dsscomp", NULL);
@@ -633,6 +634,7 @@ static int dsscomp_probe(struct platform_device *pdev)
 #endif
 	}
 
+	cdev->pdev = &pdev->dev;
 	platform_set_drvdata(pdev, cdev);
 
 	pr_info("dsscomp: initializing.\n");
@@ -664,26 +666,17 @@ static struct platform_driver dsscomp_pdriver = {
 	.driver = { .name = MODULE_NAME, .owner = THIS_MODULE }
 };
 
-static struct platform_device dsscomp_pdev = {
-	.name = MODULE_NAME,
-	.id = -1
-};
-
 static int __init dsscomp_init(void)
 {
 	int err = platform_driver_register(&dsscomp_pdriver);
 	if (err)
 		return err;
 
-	err = platform_device_register(&dsscomp_pdev);
-	if (err)
-		platform_driver_unregister(&dsscomp_pdriver);
 	return err;
 }
 
 static void __exit dsscomp_exit(void)
 {
-	platform_device_unregister(&dsscomp_pdev);
 	platform_driver_unregister(&dsscomp_pdriver);
 }
 
