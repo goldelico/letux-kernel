@@ -1175,6 +1175,10 @@ static void rproc_loader_defered(struct rproc *rproc)
 
 	left = fw->size - sizeof(struct fw_header) - image->header_len;
 
+	/* event currently used to bump the remoteproc to max freq
+	 * while booting.  */
+	_event_notify(rproc, RPROC_PRELOAD, NULL);
+
 	ret = rproc_process_fw(rproc, section, left, &bootaddr);
 	if (ret) {
 		dev_err(dev, "Failed to process the image: %d\n", ret);
