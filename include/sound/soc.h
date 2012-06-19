@@ -429,6 +429,8 @@ enum snd_soc_card_subclass {
 int snd_soc_register_card(struct snd_soc_card *card);
 int snd_soc_unregister_card(struct snd_soc_card *card);
 int devm_snd_soc_register_card(struct device *dev, struct snd_soc_card *card);
+int snd_soc_card_new_dai_links(struct snd_soc_card *card,
+			       struct snd_soc_dai_link *new, int count);
 #ifdef CONFIG_PM_SLEEP
 int snd_soc_suspend(struct device *dev);
 int snd_soc_resume(struct device *dev);
