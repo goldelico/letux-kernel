@@ -628,6 +628,13 @@ static struct twl4030_usb_data gta04_usb_data = {
 	.usb_mode	= T2_USB_MODE_ULPI,
 };
 
+static struct twl4030_codec_data omap3_codec;
+
+static struct twl4030_audio_data omap3_audio_pdata = {
+	.audio_mclk = 26000000,
+	.codec = &omap3_codec,
+};
+
 static struct twl4030_madc_platform_data gta04_madc_data = {
 	.irq_line	= 1,
 };
@@ -770,7 +777,7 @@ static struct twl4030_platform_data gta04_twldata = {
 	.madc		= &gta04_madc_data,
 	.power		= &gta04_power_scripts,	/* empty but if not present, pm_power_off is not initialized */
 	.usb		= &gta04_usb_data,
-// 	.codec		= &gta04_codec_data,
+	.audio		= &omap3_audio_pdata,
 
 	.vaux1		= &gta04_vaux1,
 	.vaux2		= &gta04_vaux2,
