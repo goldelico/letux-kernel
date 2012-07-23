@@ -1311,6 +1311,7 @@ MACHINE_START(GTA04, "GTA04")
 	.handle_irq	=	omap3_intc_handle_irq,
 	.init_early	=	gta04_init_early,
 	.init_machine	=	gta04_init,
+	.init_late	=	omap3630_init_late,
 	.timer		=	&omap3_secure_timer,
 	.restart	=	omap_prcm_restart,
 MACHINE_END
