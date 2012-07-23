@@ -352,8 +352,11 @@ static struct platform_device gta04_dss_device = {
 static struct regulator_consumer_supply gta04_vdac_supply =
 	REGULATOR_SUPPLY("vdda_dac","omapdss.0");
 
-static struct regulator_consumer_supply gta04_vdvi_supply =
-	REGULATOR_SUPPLY("vdds_dsi", "omapdss.0");
+static struct regulator_consumer_supply gta04_vdvi_supplies[] = {
+	REGULATOR_SUPPLY("vdds_sdi", "omapdss"),
+	REGULATOR_SUPPLY("vdds_dsi", "omapdss"),
+	REGULATOR_SUPPLY("vdds_dsi", "omapdss_dsi.0"),
+};
 
 #include "sdram-micron-mt46h32m32lf-6.h"
 
@@ -589,8 +592,8 @@ static struct regulator_init_data gta04_vpll2 = {
 		.valid_ops_mask		= REGULATOR_CHANGE_MODE
 					| REGULATOR_CHANGE_STATUS,
 	},
-	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &gta04_vdvi_supply,
+	.num_consumer_supplies	= ARRAY_SIZE(gta04_vdvi_supplies),
+	.consumer_supplies	= &gta04_vdvi_supplies,
 };
 
 static struct regulator_init_data *all_reg_data[] = {
