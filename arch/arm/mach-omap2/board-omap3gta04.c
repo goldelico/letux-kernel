@@ -27,6 +27,7 @@
 #include <linux/backlight.h>
 #include <linux/pwm_backlight.h>
 #include <linux/rfkill-regulator.h>
+#include <linux/gpio-reg.h>
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
@@ -446,6 +447,7 @@ static struct regulator_init_data gta04_vwlan_data = {
 
 /* "+2" because TWL4030 adds 2 LED drives as gpio outputs */
 #define GPIO_WIFI_RESET (OMAP_MAX_GPIO_LINES + TWL4030_GPIO_MAX + 2)
+#define GPIO_BT_REG (GPIO_WIFI_RESET + 1)
 
 static struct fixed_voltage_config gta04_vwlan = {
 	.supply_name		= "vwlan",
@@ -468,7 +470,7 @@ static struct platform_device gta04_vwlan_device = {
 /* VAUX4 powers Bluetooth and WLAN */
 
 static struct regulator_consumer_supply gta04_vaux4_supply[] = {
-	REGULATOR_SUPPLY("vrfkill", "rfkill-regulator.1"), // bluetooth
+	REGULATOR_SUPPLY("vgpio","regulator-gpio.0"),
 };
 
 static struct twl_regulator_driver_data vaux4_data = {
@@ -598,7 +600,7 @@ static struct regulator_init_data gta04_vpll2 = {
 					| REGULATOR_CHANGE_STATUS,
 	},
 	.num_consumer_supplies	= ARRAY_SIZE(gta04_vdvi_supplies),
-	.consumer_supplies	= &gta04_vdvi_supplies,
+	.consumer_supplies	= gta04_vdvi_supplies,
 };
 
 static struct regulator_init_data *all_reg_data[] = {
@@ -621,21 +623,20 @@ static struct rfkill_regulator_platform_data gps_rfkill_data = {
 	.type = RFKILL_TYPE_GPS,
 };
 
-static struct rfkill_regulator_platform_data bt_rfkill_data = {
-	.name = "Bluetooth",
-	.type = RFKILL_TYPE_BLUETOOTH,
-};
-
 static struct platform_device gps_rfkill_device = {
 	.name = "rfkill-regulator",
 	.id = 0,
 	.dev.platform_data = &gps_rfkill_data,
 };
 
-static struct platform_device bt_rfkill_device = {
-	.name = "rfkill-regulator",
-	.id = 1,
-	.dev.platform_data = &bt_rfkill_data,
+static struct gpio_reg_data bt_gpio_data = {
+	.gpio = GPIO_BT_REG,
+};
+
+static struct platform_device bt_gpio_reg_device = {
+	.name = "regulator-gpio",
+	.id = 0,
+	.dev.platform_data = &bt_gpio_data,
 };
 
 static struct twl4030_usb_data gta04_usb_data = {
@@ -1123,7 +1124,7 @@ static struct platform_device *gta04_devices[] __initdata = {
 // 	&gta04_dss_device,
 	&gta04_vwlan_device,
 	&gps_rfkill_device,
-	&bt_rfkill_device,
+	&bt_gpio_reg_device,
 #if defined(CONFIG_REGULATOR_VIRTUAL_CONSUMER)
 	&gta04_vaux1_virtual_regulator_device,
 	&gta04_vaux2_virtual_regulator_device,
@@ -1187,15 +1188,29 @@ static int __init wake_3G_init(void)
 	return err;
 }
 
+#define DEFAULT_RXDMA_POLLRATE		1	/* RX DMA polling rate (us) */
+#define DEFAULT_RXDMA_BUFSIZE		4096	/* RX DMA buffer size */
+#define DEFAULT_RXDMA_TIMEOUT		(3 * HZ)/* RX DMA timeout (jiffies) */
+#define DEFAULT_AUTOSUSPEND_DELAY	-1
+
 static void gta04_serial_init(void)
 {
 	struct omap_board_data bdata;
+	struct omap_uart_port_info info = {
+		.dma_enabled	= false,
+		.dma_rx_buf_size = DEFAULT_RXDMA_BUFSIZE,
+		.dma_rx_poll_rate = DEFAULT_RXDMA_POLLRATE,
+		.dma_rx_timeout = DEFAULT_RXDMA_TIMEOUT,
+		.autosuspend_timeout = DEFAULT_AUTOSUSPEND_DELAY,
+		.DTR_gpio = GPIO_BT_REG,
+		.DTR_present = 1,
+	};
 
 	bdata.flags = 0;
 	bdata.pads = NULL;
 
 	bdata.id = 0;
-	omap_serial_init_port(&bdata, NULL);
+	omap_serial_init_port(&bdata, &info);
 
 	bdata.id = 1;
 	omap_serial_init_port(&bdata, NULL);
