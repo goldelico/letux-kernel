@@ -995,6 +995,12 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 	.platform_data	= &tca6507_info,
 },
 #endif
+#ifdef CONFIG_INPUT_BMA150
+{
+	I2C_BOARD_INFO("bma150", 0x41),
+	.type		= "bma150",
+},
+#endif
 	/* FIXME: add other drivers for HMC5883, BMA180, Si472x, Camera */
 };
 
