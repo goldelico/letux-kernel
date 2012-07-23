@@ -357,6 +357,8 @@ static struct regulator_consumer_supply gta04_vdvi_supply = {
 
 #include "sdram-micron-mt46h32m32lf-6.h"
 
+static void wlan_reset(struct device *dev, int slow, int power_on);
+
 static struct omap2_hsmmc_info mmc[] = {
 	{
 		.mmc		= 1,
@@ -370,6 +372,7 @@ static struct omap2_hsmmc_info mmc[] = {
 		.gpio_cd	= -EINVAL, // virtual card detect
 		.gpio_wp	= -EINVAL,	// no write protect
 		.transceiver	= true,	// external transceiver
+		.remux		= wlan_reset,
 // 		.ocr_mask	= 0x00100000,	/* fixed 3.3V */
 	},
 	{}	/* Terminator */
@@ -769,11 +772,22 @@ struct bmp085_platform_data bmp085_info = {
 /* "+2" because TWL4030 adds 2 LED drives as gpio outputs */
 #define GPIO_WIFI_RESET (OMAP_MAX_GPIO_LINES + TWL4030_GPIO_MAX + 2)
 
+static int reset_ready;
+static void wlan_reset(struct device *dev, int slow, int power_on)
+{
+	if (power_on && reset_ready) {
+		gpio_set_value(GPIO_WIFI_RESET, 0);
+		msleep(10);
+		gpio_set_value(GPIO_WIFI_RESET, 1);
+	}
+}
+
 void tca_setup(unsigned gpio_base, unsigned ngpio)
 {
 	gpio_request(GPIO_WIFI_RESET, "WIFI_RESET");
 	gpio_direction_output(GPIO_WIFI_RESET, true);
 	gpio_export(GPIO_WIFI_RESET, 0);
+	reset_ready = 1;
 }
 
 static struct led_info tca6507_leds[] = {
