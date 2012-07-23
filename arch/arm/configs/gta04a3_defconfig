@@ -429,7 +429,7 @@ CONFIG_USE_OF=y
 CONFIG_ZBOOT_ROM_TEXT=0x0
 CONFIG_ZBOOT_ROM_BSS=0x0
 # CONFIG_ARM_APPENDED_DTB is not set
-CONFIG_CMDLINE="console=ttyO2,115200n8 mpurate=800 vram=12M omapfb.rotate_type=0 omapdss.def_disp=lcd root=/dev/mmcblk0p2 rw rootfstype=ext3 rootwait twl4030_charger.allow_usb=1 log_buf_len=8M ignore_loglevel"
+CONFIG_CMDLINE="console=ttyO2,115200n8 mpurate=800 vram=12M omapfb.rotate_type=0 omapdss.def_disp=lcd root=/dev/mmcblk0p2 rw rootfstype=ext3 rootwait twl4030_charger.allow_usb=1 twl4030_charger.charge_backup=1 log_buf_len=8M ignore_loglevel"
 # CONFIG_CMDLINE_FROM_BOOTLOADER is not set
 # CONFIG_CMDLINE_EXTEND is not set
 CONFIG_CMDLINE_FORCE=y
@@ -792,11 +792,11 @@ CONFIG_MAC80211_LEDS=y
 # CONFIG_MAC80211_DEBUG_MENU is not set
 CONFIG_WIMAX=m
 CONFIG_WIMAX_DEBUG_LEVEL=8
-CONFIG_RFKILL=m
+CONFIG_RFKILL=y
 CONFIG_RFKILL_LEDS=y
 CONFIG_RFKILL_INPUT=y
-CONFIG_RFKILL_REGULATOR=m
-CONFIG_RFKILL_GPIO=m
+CONFIG_RFKILL_REGULATOR=y
+CONFIG_RFKILL_GPIO=y
 CONFIG_NET_9P=m
 # CONFIG_NET_9P_DEBUG is not set
 # CONFIG_CAIF is not set
@@ -2112,7 +2112,7 @@ CONFIG_LEDS_TRIGGER_TIMER=m
 CONFIG_LEDS_TRIGGER_HEARTBEAT=y
 CONFIG_LEDS_TRIGGER_BACKLIGHT=m
 # CONFIG_LEDS_TRIGGER_GPIO is not set
-CONFIG_LEDS_TRIGGER_DEFAULT_ON=m
+CONFIG_LEDS_TRIGGER_DEFAULT_ON=y
 
 #
 # iptables trigger is under Netfilter config (LED target)
