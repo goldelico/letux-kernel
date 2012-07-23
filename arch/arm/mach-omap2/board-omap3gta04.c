@@ -38,7 +38,6 @@
 #include <linux/regulator/fixed.h>
 #include <linux/i2c/twl.h>
 #include <linux/i2c/tsc2007.h>
-#include <linux/gpio-inout.h>
 
 #include <linux/i2c/bmp085.h>
 #ifdef CONFIG_LEDS_TCA6507
@@ -373,19 +372,13 @@ static struct omap2_hsmmc_info mmc[] = {
 		.gpio_cd	= -EINVAL, // virtual card detect
 		.gpio_wp	= -EINVAL,	// no write protect
 		.transceiver	= true,	// external transceiver
-		.remux		= wlan_reset,
-// 		.ocr_mask	= 0x00100000,	/* fixed 3.3V */
+		.ocr_mask	= MMC_VDD_31_32,	/* 3.15 is what we want */
 	},
 	{}	/* Terminator */
 };
 
 static struct regulator_consumer_supply gta04_vmmc1_supply[] = {
 	REGULATOR_SUPPLY("vmmc", "omap_hsmmc.0"),
-// 	.supply			= "vmmc",
-};
-
-static struct regulator_consumer_supply gta04_vmmc2_supply[] = {
-	REGULATOR_SUPPLY("vmmc", "omap_hsmmc.1"),
 // 	.supply			= "vmmc",
 };
 
@@ -448,24 +441,38 @@ static struct regulator_init_data gta04_vmmc1 = {
 	.consumer_supplies	= gta04_vmmc1_supply,
 };
 
-/* Fixed regulator internal to Wifi module */
-
-static struct regulator_init_data gta04_vmmc2 = {
-	.constraints = {
-		.name			= "VMMC2",
-		.valid_ops_mask		= REGULATOR_CHANGE_STATUS,
-	},
-	.num_consumer_supplies	= ARRAY_SIZE(gta04_vmmc2_supply),
-	.consumer_supplies	= gta04_vmmc2_supply,
+/* Pseudo Fixed regulator to provide reset toggle to Wifi module */
+static struct regulator_consumer_supply gta04_vwlan_supply[] = {
+	REGULATOR_SUPPLY("vmmc", "omap_hsmmc.1"), // wlan
 };
+
+static struct regulator_init_data gta04_vwlan_data = {
+	.supply_regulator = "VAUX4",
+	.constraints = {
+		.name			= "VWLAN",
+		.min_uV			= 2800000,
+		.max_uV			= 3150000,
+		.valid_modes_mask	= (REGULATOR_MODE_NORMAL
+					   | REGULATOR_MODE_STANDBY),
+		.valid_ops_mask		= (REGULATOR_CHANGE_VOLTAGE
+					   | REGULATOR_CHANGE_MODE
+					   | REGULATOR_CHANGE_STATUS),
+	},
+	.num_consumer_supplies	= ARRAY_SIZE(gta04_vwlan_supply),
+	.consumer_supplies	= gta04_vwlan_supply,
+};
+
+/* "+2" because TWL4030 adds 2 LED drives as gpio outputs */
+#define GPIO_WIFI_RESET (OMAP_MAX_GPIO_LINES + TWL4030_GPIO_MAX + 2)
 
 static struct fixed_voltage_config gta04_vwlan = {
 	.supply_name		= "vwlan",
-	.microvolts		= 3300000, /* 3.3V */
+	.microvolts		= 3150000, /* 3.15V */
+	.gpio			= GPIO_WIFI_RESET,
 	.startup_delay		= 10000, /* 10ms */
-	.enable_high		= 0,
-	.enabled_at_boot	= 1,
-	.init_data		= &gta04_vmmc2,
+	.enable_high		= 1,
+	.enabled_at_boot	= 0,
+	.init_data		= &gta04_vwlan_data,
 };
 
 static struct platform_device gta04_vwlan_device = {
@@ -478,8 +485,7 @@ static struct platform_device gta04_vwlan_device = {
 
 /* VAUX4 powers Bluetooth and WLAN */
 
-static struct regulator_consumer_supply gta04_vaux4_supply = {
-	.supply			= "vaux4",
+static struct regulator_consumer_supply gta04_vaux4_supply[] = {
 };
 
 static struct regulator_init_data gta04_vaux4 = {
@@ -493,8 +499,8 @@ static struct regulator_init_data gta04_vaux4 = {
 		| REGULATOR_CHANGE_MODE
 		| REGULATOR_CHANGE_STATUS,
 	},
-	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &gta04_vaux4_supply,
+	.num_consumer_supplies	= ARRAY_SIZE(gta04_vaux4_supply),
+	.consumer_supplies	= gta04_vaux4_supply,
 };
 
 /* VAUX3 for Camera */
@@ -770,25 +776,13 @@ struct bmp085_platform_data bmp085_info = {
 
 #ifdef CONFIG_LEDS_TCA6507
 
-/* "+2" because TWL4030 adds 2 LED drives as gpio outputs */
-#define GPIO_WIFI_RESET (OMAP_MAX_GPIO_LINES + TWL4030_GPIO_MAX + 2)
-
-static int reset_ready;
-static void wlan_reset(struct device *dev, int slow, int power_on)
-{
-	if (power_on && reset_ready) {
-		gpio_set_value(GPIO_WIFI_RESET, 0);
-		msleep(10);
-		gpio_set_value(GPIO_WIFI_RESET, 1);
-	}
-}
-
 void tca_setup(unsigned gpio_base, unsigned ngpio)
 {
-	gpio_request(GPIO_WIFI_RESET, "WIFI_RESET");
-	gpio_direction_output(GPIO_WIFI_RESET, true);
-	gpio_export(GPIO_WIFI_RESET, 0);
-	reset_ready = 1;
+	/* Now that reset line is available we can create
+	 * the virtual regulator and register the mmc devices.
+	 */
+	platform_device_register(&gta04_vwlan_device);
+	omap2_hsmmc_init(mmc);
 }
 
 static struct led_info tca6507_leds[] = {
@@ -808,31 +802,6 @@ static struct tca6507_platform_data tca6507_info = {
 	.setup = tca_setup,
 };
 #endif
-
-#define GPIO_WIFI_CD_OUT (GPIO_WIFI_RESET + 1)
-#define GPIO_WIFI_CD_IN (GPIO_WIFI_RESET + 2)
-
-void inout_setup_gpio(unsigned gpio_base)
-{
-	gpio_request(GPIO_WIFI_CD_OUT, "WIFI_CARD_INSERT");
-	gpio_direction_output(GPIO_WIFI_CD_OUT, 0);
-	gpio_export(GPIO_WIFI_CD_OUT, 0);
-	mmc[1].gpio_cd = gpio_base + 1;
-	omap2_hsmmc_init(mmc);
-}
-const char *inout_names[] = { "gta04:wlan:cd", NULL };
-static struct gpio_inout_platform_data inout_info =  {
-	.npairs = 1,
-	.gpio_base = GPIO_WIFI_CD_OUT,
-	.irq_base = TWL4030_GPIO_IRQ_END,
-	.names = inout_names,
-	.setup = inout_setup_gpio,
-};
-
-static struct platform_device gta04_inout_device = {
-	.name			= "gpio-inout",
-	.dev.platform_data	 = &inout_info,
-};
 
 static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 #ifdef CONFIG_TOUCHSCREEN_TSC2007
@@ -963,14 +932,6 @@ static struct platform_device gta04_vaux3_virtual_regulator_device = {
 	},
 };
 
-static struct platform_device gta04_vaux4_virtual_regulator_device = {
-	.name		= "reg-virt-consumer",
-	.id			= 4,
-	.dev		= {
-		.platform_data	= "vaux4",	/* allow to control VAUX4 for WLAN/Bluetooth */
-	},
-};
-
 static struct platform_device gta04_vsim_virtual_regulator_device = {
        .name           = "reg-virt-consumer",
        .id                     = 5,
@@ -985,13 +946,11 @@ static struct platform_device *gta04_devices[] __initdata = {
 //	&leds_gpio,
 	&keys_gpio,
 // 	&gta04_dss_device,
-	&gta04_vwlan_device,
-	&gta04_inout_device,
+//	&gta04_vwlan_device,
 #if defined(CONFIG_REGULATOR_VIRTUAL_CONSUMER)
 	&gta04_vaux1_virtual_regulator_device,
 	&gta04_vaux2_virtual_regulator_device,
 	&gta04_vaux3_virtual_regulator_device,
-	&gta04_vaux4_virtual_regulator_device,
        &gta04_vsim_virtual_regulator_device,
 #endif
 };
@@ -1023,6 +982,7 @@ static void __init gta04_init(void)
 	gta04_init_rev();
 	gta04_i2c_init();
 
+	regulator_has_full_constraints();
 	omap_serial_init();
 	omap_sdrc_init(mt46h32m32lf6_sdrc_params,
 		       mt46h32m32lf6_sdrc_params);
