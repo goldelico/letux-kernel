@@ -24,3 +24,7 @@
   then the uImage and modules are in 'M' ready to be copied
 
 
+- Directory 'scripts' includes some sample scripts to various
+  simple tasks
+
+  + vibra.py shows how to program the vibrator as a rumble effect.
