@@ -661,16 +661,6 @@ static struct twl4030_platform_data gta04_twldata = {
 	.vpll2		= &gta04_vpll2,
 };
 
-static struct i2c_board_info __initdata gta04_i2c1_boardinfo[] = {
-	{
-		I2C_BOARD_INFO("twl4030", 0x48),
-		.flags = I2C_CLIENT_WAKE,
-		.irq = INT_34XX_SYS_NIRQ,
-		.platform_data = &gta04_twldata,
-	},
-};
-
-
 #ifdef CONFIG_TOUCHSCREEN_TSC2007
 
 // TODO: see also http://e2e.ti.com/support/arm174_microprocessors/omap_applications_processors/f/42/t/33262.aspx for an example...
@@ -872,8 +862,8 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 
 static int __init gta04_i2c_init(void)
 {
-	omap_register_i2c_bus(1, 2600, gta04_i2c1_boardinfo,
-			ARRAY_SIZE(gta04_i2c1_boardinfo));
+	omap_pmic_init(1, 2600, "twl4030", INT_34XX_SYS_NIRQ,
+		       &gta04_twldata);
 	omap_register_i2c_bus(2, 400,  gta04_i2c2_boardinfo,
 				ARRAY_SIZE(gta04_i2c2_boardinfo));
 	/* Bus 3 is attached to the DVI port where devices like the pico DLP
