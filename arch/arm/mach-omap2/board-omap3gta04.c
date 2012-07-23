@@ -399,6 +399,10 @@ static struct twl4030_gpio_platform_data gta04_gpio_data = {
 				| BIT(15) | BIT(16) | BIT(17),
 };
 
+static struct twl4030_clock_init_data gta04_clock = {
+	.ck32k_lowpwr_enable = 1, /* Reduce power when on backup battery */
+};
+
 /* VMMC1 for MMC1 pins CMD, CLK, DAT0..DAT3 (20 mA, plus card == max 220 mA) */
 static struct regulator_init_data gta04_vmmc1 = {
 	.constraints = {
@@ -767,6 +771,8 @@ static int gta04_batt_table[] = {
 static struct twl4030_bci_platform_data gta04_bci_data = {
 	.battery_tmp_tbl        = gta04_batt_table,
 	.tblsize                = ARRAY_SIZE(gta04_batt_table),
+	.bb_uvolt		= 3200000,
+	.bb_uamp		= 150,
 };
 
 
@@ -781,6 +787,7 @@ static struct twl4030_platform_data gta04_twldata = {
 	.power		= &gta04_power_scripts,	/* empty but if not present, pm_power_off is not initialized */
 	.usb		= &gta04_usb_data,
 	.audio		= &omap3_audio_pdata,
+	.clock		= &gta04_clock,
 
 	.vaux1		= &gta04_vaux1,
 	.vaux2		= &gta04_vaux2,
