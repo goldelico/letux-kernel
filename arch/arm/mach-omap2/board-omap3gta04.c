@@ -753,8 +753,8 @@ static struct twl4030_resconfig twl4030_rconfig[] = {
 };
 
 struct twl4030_power_data gta04_power_scripts = {
-	.scripts	= twl4030_scripts,
-	.num		= ARRAY_SIZE(twl4030_scripts),
+//	.scripts	= twl4030_scripts,
+//	.num		= ARRAY_SIZE(twl4030_scripts),
 	.resource_config = twl4030_rconfig,
 	.use_poweroff	= 1,
 };
