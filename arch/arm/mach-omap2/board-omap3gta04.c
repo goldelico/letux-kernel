@@ -39,6 +39,9 @@
 #include <linux/i2c/tsc2007.h>
 
 #include <linux/i2c/bmp085.h>
+#ifdef CONFIG_LEDS_TCA6507
+#include <linux/leds-tca6507.h>
+#endif
 
 #include <linux/sysfs.h>
 
@@ -771,6 +774,34 @@ struct bmp085_platform_data bmp085_info = {
 
 #endif
 
+#ifdef CONFIG_LEDS_TCA6507
+/* "+2" because TWL4030 adds 2 LED drives as gpio outputs */
+#define GPIO_WIFI_RESET (OMAP_MAX_GPIO_LINES + TWL4030_GPIO_MAX + 2)
+void tca_setup(unsigned gpio_base, unsigned ngpio)
+{
+	gpio_request(GPIO_WIFI_RESET, "WIFI_RESET");
+	gpio_direction_output(GPIO_WIFI_RESET, false);
+	gpio_export(GPIO_WIFI_RESET, 0);
+}
+
+static struct led_info tca6507_leds[] = {
+	[0] = { .name = "gta04:red:aux" },
+	[1] = { .name = "gta04:green:aux" },
+	[3] = { .name = "gta04:red:power" },
+	[4] = { .name = "gta04:green:power" },
+
+	[6] = { .name = "WiFi-Reset", .flags = TCA6507_MAKE_GPIO },
+};
+static struct tca6507_platform_data tca6507_info = {
+	.leds = {
+		.num_leds = 7,
+		.leds = tca6507_leds,
+	},
+	.gpio_base = GPIO_WIFI_RESET,
+	.setup = tca_setup,
+};
+#endif
+
 
 static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 #ifdef CONFIG_TOUCHSCREEN_TSC2007
@@ -807,7 +838,7 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 {
 	I2C_BOARD_INFO("tca6507", 0x45),
 	.type		= "tca6507",
-	.platform_data	= NULL,
+	.platform_data	= &tca6507_info,
 },
 #endif
 	/* FIXME: add other drivers for HMC5883, BMA180, Si472x, Camera */
