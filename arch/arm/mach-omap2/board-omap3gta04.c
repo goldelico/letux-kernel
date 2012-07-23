@@ -471,6 +471,10 @@ static struct regulator_consumer_supply gta04_vaux4_supply[] = {
 	REGULATOR_SUPPLY("vrfkill", "rfkill-regulator.1"), // bluetooth
 };
 
+static struct twl_regulator_driver_data vaux4_data = {
+	.features = TWL4030_ALLOW_UNSUPPORTED,
+};
+
 static struct regulator_init_data gta04_vaux4 = {
 	.constraints = {
 		.name			= "VAUX4",
@@ -486,6 +490,7 @@ static struct regulator_init_data gta04_vaux4 = {
 	},
 	.num_consumer_supplies	= ARRAY_SIZE(gta04_vaux4_supply),
 	.consumer_supplies	= gta04_vaux4_supply,
+	.driver_data = &vaux4_data,
 };
 
 /* VAUX3 for Camera */
