@@ -1166,6 +1166,23 @@ static int __init wake_3G_init(void)
 	return err;
 }
 
+static void gta04_serial_init(void)
+{
+	struct omap_board_data bdata;
+
+	bdata.flags = 0;
+	bdata.pads = NULL;
+
+	bdata.id = 0;
+	omap_serial_init_port(&bdata, NULL);
+
+	bdata.id = 1;
+	omap_serial_init_port(&bdata, NULL);
+
+	bdata.id = 2;
+	omap_serial_init_port(&bdata, NULL);
+}
+
 static void __init gta04_init(void)
 {
 	int err;
@@ -1176,7 +1193,7 @@ static void __init gta04_init(void)
 	gta04_i2c_init();
 
 	regulator_has_full_constraints_listed(all_reg_data);
-	omap_serial_init();
+	gta04_serial_init();
 	omap_sdrc_init(mt46h32m32lf6_sdrc_params,
 		       mt46h32m32lf6_sdrc_params);
 
@@ -1210,11 +1227,12 @@ static void __init gta04_init(void)
 	gpio_export(170, 0);	// no direction change
 #endif
 
+	omap_mux_init_gpio(145, OMAP_PIN_OUTPUT);
 	gpio_request(145, "GPS_ON");
 	gpio_direction_output(145, false);
 	gpio_export(145, 0);	// no direction change
 
-	// omap_mux_init_signal("gpio138", OMAP_PIN_INPUT);	// gpio 138 - with no pullup/pull-down
+	omap_mux_init_gpio(144, OMAP_PIN_INPUT);
 	gpio_request(144, "EXT_ANT");
 	gpio_direction_input(144);
 	gpio_export(144, 0);	// no direction change
