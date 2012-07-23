@@ -29,6 +29,7 @@
 #include <linux/rfkill-regulator.h>
 #include <linux/gpio-reg.h>
 #include <linux/gpio-w2sg0004.h>
+#include <linux/extcon/extcon_gpio.h>
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
@@ -661,6 +662,21 @@ static struct platform_device gps_gpio_device = {
 	.dev.platform_data = &gps_gpio_data,
 };
 
+static struct gpio_extcon_platform_data antenna_extcon_data = {
+	.name = "gps_antenna",
+	.gpio = 144,
+	.debounce = 10,
+	.irq_flags = IRQF_TRIGGER_RISING|IRQF_TRIGGER_FALLING,
+	.state_on = "external",
+	.state_off = "internal",
+};
+
+static struct platform_device antenna_extcon_dev = {
+	.name = "extcon-gpio",
+	.id = -1,
+	.dev.platform_data = &antenna_extcon_data,
+};
+
 static struct twl4030_usb_data gta04_usb_data = {
 	.usb_mode	= T2_USB_MODE_ULPI,
 };
@@ -1175,6 +1191,7 @@ static struct platform_device *gta04_devices[] __initdata = {
 	&gps_rfkill_device,
 	&bt_gpio_reg_device,
 	&gps_gpio_device,
+	&antenna_extcon_dev,
 #if defined(CONFIG_REGULATOR_VIRTUAL_CONSUMER)
 	&gta04_vaux1_virtual_regulator_device,
 	&gta04_vaux2_virtual_regulator_device,
@@ -1319,11 +1336,12 @@ static void __init gta04_init(void)
 #endif
 
 	omap_mux_init_gpio(145, OMAP_PIN_OUTPUT);
+#if 0
 	omap_mux_init_gpio(144, OMAP_PIN_INPUT);
 	gpio_request(144, "EXT_ANT");
 	gpio_direction_input(144);
 	gpio_export(144, 0);	// no direction change
-
+#endif
 
 	if(gta04_version >= 4) { /* feature of GTA04A4 */
 		omap_mux_init_gpio(186, OMAP_PIN_OUTPUT);    // this needs CONFIG_OMAP_MUX!
