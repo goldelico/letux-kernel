@@ -878,7 +878,9 @@ static int __init tsc2007_init(void)
 			   "input\n", TS_PENIRQ_GPIO);
 		return -ENXIO;
 	}
-	gpio_set_debounce(TS_PENIRQ_GPIO, (0x0a+1)*31);
+//	debounce isn't handled properly when power-saving and we lose
+//	interrupts, so don't bother for now.
+//	gpio_set_debounce(TS_PENIRQ_GPIO, (0x0a+1)*31);
 	irq_set_irq_type(OMAP_GPIO_IRQ(TS_PENIRQ_GPIO), IRQ_TYPE_EDGE_FALLING);
 	return 0;
 }
