@@ -896,9 +896,9 @@ static void __init gta04fpga_init_spi(void)
 
 static struct gpio_keys_button gpio_buttons[] = {
 	{
-		.code			= BTN_EXTRA,
+		.code			= KEY_PHONE,
 		.gpio			= 7,
-		.desc			= "user",
+		.desc			= "AUX",
 		.wakeup			= 1,
 	},
 };
