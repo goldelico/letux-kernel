@@ -1157,12 +1157,11 @@ static int __init wake_3G_init(void)
 
 	gpio_export(WO3G_GPIO, 0);
 	gpio_set_debounce(WO3G_GPIO, 350);
-	irq_set_irq_type(OMAP_GPIO_IRQ(WO3G_GPIO), IRQ_TYPE_EDGE_RISING);
 	irq_set_irq_wake(OMAP_GPIO_IRQ(WO3G_GPIO), 1);
 
 	err = request_irq(OMAP_GPIO_IRQ(WO3G_GPIO),
-			  wake_3G_irq, 0,
-			  "wake_3G", NULL);
+			  wake_3G_irq, IRQF_SHARED|IRQF_TRIGGER_RISING,
+			  "wake_3G", (void*)wake_3G_init);
 	return err;
 }
 
