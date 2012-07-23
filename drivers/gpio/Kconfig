@@ -367,6 +367,13 @@ config GPIO_RC5T583
 	  This driver provides the support for driving/reading the gpio pins
 	  of RC5T583 device through standard gpio library.
 
+config GPIO_REG
+	tristate "Virtual GPIO for controlling a regulator"
+	depends on GPIOLIB
+	help
+	  If your board needs to control a regulator using a
+	  virtual GPIO, this is the driver for you.  Otherwise don't bother.
+
 config GPIO_SX150X
 	bool "Semtech SX150x I2C GPIO expander"
 	depends on I2C=y
