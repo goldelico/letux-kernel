@@ -349,15 +349,11 @@ static struct platform_device gta04_dss_device = {
 	},
 };
 
-static struct regulator_consumer_supply gta04_vdac_supply = {
-	.supply		= "vdda_dac",
-	.dev		= &gta04_dss_device.dev,
-};
+static struct regulator_consumer_supply gta04_vdac_supply =
+	REGULATOR_SUPPLY("vdda_dac","omapdss.0");
 
-static struct regulator_consumer_supply gta04_vdvi_supply = {
-	.supply		= "vdds_dsi",
-	.dev		= &gta04_dss_device.dev,
-};
+static struct regulator_consumer_supply gta04_vdvi_supply =
+	REGULATOR_SUPPLY("vdds_dsi", "omapdss.0");
 
 #include "sdram-micron-mt46h32m32lf-6.h"
 
@@ -380,6 +376,7 @@ static struct omap2_hsmmc_info mmc[] = {
 		.gpio_wp	= -EINVAL,	// no write protect
 		.transceiver	= true,	// external transceiver
 		.ocr_mask	= MMC_VDD_31_32,	/* 3.15 is what we want */
+		.deferred	= true,
 	},
 	{}	/* Terminator */
 };
@@ -884,7 +881,7 @@ static int __init tsc2007_init(void)
 //	debounce isn't handled properly when power-saving and we lose
 //	interrupts, so don't bother for now.
 //	gpio_set_debounce(TS_PENIRQ_GPIO, (0x0a+1)*31);
-	irq_set_irq_type(OMAP_GPIO_IRQ(TS_PENIRQ_GPIO), IRQ_TYPE_EDGE_FALLING);
+	irq_set_irq_type(gpio_to_irq(TS_PENIRQ_GPIO), IRQ_TYPE_EDGE_FALLING);
 	return 0;
 }
 
@@ -927,7 +924,7 @@ static int __init bmp085_init(void)
 // 	omap_set_gpio_debounce(BMP085_EOC_IRQ_GPIO, 1);
 // 	omap_set_gpio_debounce_time(BMP085_EOC_IRQ_GPIO, 0xa);
 	gpio_set_debounce(BMP085_EOC_IRQ_GPIO, (0xa+1)*31);
-	irq_set_irq_type(OMAP_GPIO_IRQ(BMP085_EOC_IRQ_GPIO), IRQ_TYPE_EDGE_FALLING);
+	irq_set_irq_type(gpio_to_irq(BMP085_EOC_IRQ_GPIO), IRQ_TYPE_EDGE_FALLING);
 	return 0;
 }
 
@@ -945,6 +942,11 @@ struct bmp085_platform_data bmp085_info = {
 
 #ifdef CONFIG_LEDS_TCA6507
 
+void tca6507_setup(unsigned gpio_base, unsigned ngpio)
+{
+	omap_hsmmc_late_init(mmc);
+}
+
 static struct led_info tca6507_leds[] = {
 	[0] = { .name = "gta04:red:aux" },
 	[1] = { .name = "gta04:green:aux" },
@@ -959,26 +961,27 @@ static struct tca6507_platform_data tca6507_info = {
 		.leds = tca6507_leds,
 	},
 	.gpio_base = GPIO_WIFI_RESET,
+	.setup = tca6507_setup,
 };
 #endif
 
-static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 #ifdef CONFIG_TOUCHSCREEN_TSC2007
+static struct i2c_board_info tsc2007_boardinfo =
 {
 	I2C_BOARD_INFO("tsc2007", 0x48),
 	.type		= "tsc2007",
 	.platform_data	= &tsc2007_info,
-	.irq		=  OMAP_GPIO_IRQ(TS_PENIRQ_GPIO),
-},
+};
 #endif
 #ifdef CONFIG_BMP085
+static struct i2c_board_info bmp085_boardinfo =
 {
 	I2C_BOARD_INFO("bmp085", 0x77),
 	.type		= "bmp085",
 	.platform_data	= &bmp085_info,
-	.irq		=  OMAP_GPIO_IRQ(BMP085_EOC_IRQ_GPIO),
-},
+};
 #endif
+static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 #ifdef CONFIG_LIS302
 {
 	I2C_BOARD_INFO("lis302top", 0x1c),
@@ -1013,6 +1016,14 @@ static int __init gta04_i2c_init(void)
 {
 	omap_pmic_init(1, 2600, "twl4030", INT_34XX_SYS_NIRQ,
 		       &gta04_twldata);
+#ifdef CONFIG_TOUCHSCREEN_TSC2007
+	tsc2007_boardinfo.irq = gpio_to_irq(TS_PENIRQ_GPIO);
+	i2c_register_board_info(2, &tsc2007_boardinfo, 1);
+#endif
+#ifdef CONFIG_BMP085
+	bmp085_boardinfo.irq = gpio_to_irq(BMP085_EOC_IRQ_GPIO);
+	i2c_register_board_info(2, &bmp085_boardinfo, 1);
+#endif
 	omap_register_i2c_bus(2, 400,  gta04_i2c2_boardinfo,
 				ARRAY_SIZE(gta04_i2c2_boardinfo));
 	/* Bus 3 is attached to the DVI port where devices like the pico DLP
@@ -1160,9 +1171,9 @@ static int __init wake_3G_init(void)
 
 	gpio_export(WO3G_GPIO, 0);
 	gpio_set_debounce(WO3G_GPIO, 350);
-	irq_set_irq_wake(OMAP_GPIO_IRQ(WO3G_GPIO), 1);
+	irq_set_irq_wake(gpio_to_irq(WO3G_GPIO), 1);
 
-	err = request_irq(OMAP_GPIO_IRQ(WO3G_GPIO),
+	err = request_irq(gpio_to_irq(WO3G_GPIO),
 			  wake_3G_irq, IRQF_SHARED|IRQF_TRIGGER_RISING,
 			  "wake_3G", (void*)wake_3G_init);
 	return err;
@@ -1194,7 +1205,7 @@ static void __init gta04_init(void)
 	gta04_init_rev();
 	gta04_i2c_init();
 
-	regulator_has_full_constraints_listed(all_reg_data);
+	regulator_has_full_constraints/*_listed*/(/*all_reg_data*/);
 	gta04_serial_init();
 	omap_sdrc_init(mt46h32m32lf6_sdrc_params,
 		       mt46h32m32lf6_sdrc_params);
@@ -1203,7 +1214,7 @@ static void __init gta04_init(void)
 
 	platform_add_devices(gta04_devices,
 						ARRAY_SIZE(gta04_devices));
-	omap2_hsmmc_init(mmc);
+	omap_hsmmc_init(mmc);
 
 // #ifdef CONFIG_OMAP_MUX
 
