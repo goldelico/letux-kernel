@@ -1148,7 +1148,7 @@ static int __init wake_3G_init(void)
 {
 	int err;
 
-	omap_mux_init_gpio(WO3G_GPIO, OMAP_PIN_INPUT);
+	omap_mux_init_gpio(WO3G_GPIO, OMAP_PIN_INPUT | OMAP_WAKEUP_EN);
 	if (gpio_request(WO3G_GPIO, "3G_wakeup"))
 		return -ENODEV;
 
@@ -1158,6 +1158,7 @@ static int __init wake_3G_init(void)
 	gpio_export(WO3G_GPIO, 0);
 	gpio_set_debounce(WO3G_GPIO, 350);
 	irq_set_irq_type(OMAP_GPIO_IRQ(WO3G_GPIO), IRQ_TYPE_EDGE_RISING);
+	irq_set_irq_wake(OMAP_GPIO_IRQ(WO3G_GPIO), 1);
 
 	err = request_irq(OMAP_GPIO_IRQ(WO3G_GPIO),
 			  wake_3G_irq, 0,
