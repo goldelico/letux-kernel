@@ -617,6 +617,7 @@ struct twl4030_power_data gta04_power_scripts = {
 /*	.scripts	= NULL,	*/
 	.num		= 0,
 /*	.resource_config	= NULL; */
+	.use_poweroff	= 1,
 };
 
 /* override TWL defaults */
