@@ -182,6 +182,9 @@ config MACH_GTA04
 	depends on ARCH_OMAP3
 	default y
 	select OMAP_PACKAGE_CBB
+	select SND_SOC_GTM601
+	select SND_SOC_W2CBW003
+	select SND_SOC_SI47XX
 
 config MACH_DEVKIT8000
 	bool "DEVKIT8000 board"
