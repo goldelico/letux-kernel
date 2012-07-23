@@ -520,11 +520,9 @@ static struct regulator_init_data gta04_vaux2 = {
 		.name			= "VAUX2",
 		.min_uV			= 2800000,
 		.max_uV			= 2800000,
-		.valid_modes_mask	= (REGULATOR_MODE_NORMAL
-					   | REGULATOR_MODE_STANDBY),
-		.valid_ops_mask		= (REGULATOR_CHANGE_VOLTAGE
-					   | REGULATOR_CHANGE_MODE
-					   | REGULATOR_CHANGE_STATUS),
+		.always_on		= 1,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
+		.valid_ops_mask		= 0,
 	},
 	.num_consumer_supplies	= 1,
 	.consumer_supplies	= &gta04_vaux2_supply,
