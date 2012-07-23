@@ -25,6 +25,7 @@
 #include <linux/input.h>
 #include <linux/gpio_keys.h>
 #include <linux/backlight.h>
+#include <linux/pwm_backlight.h>
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
@@ -62,6 +63,7 @@
 #include <plat/omap-pm.h>
 #include <plat/mcspi.h>
 #include <plat/omap-serial.h>
+#include <plat/pwm.h>
 
 #include "mux.h"
 #include "hsmmc.h"
@@ -216,20 +218,52 @@ static struct omap_dss_device gta04_dvi_device = {
 	.platform_disable = gta04_disable_dvi,
 };
 
+
+static struct omap2_pwm_platform_config pwm_config = {
+	.timer_id           = 11,   // GPT11_PWM_EVT
+	.polarity           = 1     // Active-high
+};
+
+static struct platform_device pwm_device = {
+	.name               = "omap-pwm",
+	.id                 = 0,
+	.dev                = {
+	        .platform_data  = &pwm_config
+	}
+};
+
+static struct platform_pwm_backlight_data pwm_backlight = {
+	.pwm_id		= 0,
+	.max_brightness = 100,
+	.dft_brightness = 100,
+	.pwm_period_ns  = 2000000, /* 500 Hz */
+};
+static struct platform_device backlight_device = {
+	.name = "pwm-backlight",
+	.dev = {
+		.platform_data = &pwm_backlight,
+	},
+	.id = -1,
+};
+
 static int gta04_enable_lcd(struct omap_dss_device *dssdev)
 {
+	static int did_reg = 0;
 	printk("gta04_enable_lcd()\n");
-	// whatever we need, e.g. enable power
-	gpio_set_value(170, 0);	// DVI off
-	gpio_set_value(57, 1);	// enable backlight
+	if (!did_reg) {
+		/* Cannot do this in gta04_init() as clocks aren't
+		 * initialised yet, so do it here.
+		 */
+		platform_device_register(&pwm_device);
+		platform_device_register(&backlight_device);
+		did_reg = 1;
+	}
 	return 0;
 }
 
 static void gta04_disable_lcd(struct omap_dss_device *dssdev)
 {
 	printk("gta04_disable_lcd()\n");
-	// whatever we need, e.g. disable power
-	gpio_set_value(57, 0);	// shut down backlight
 }
 
 static struct omap_dss_device gta04_lcd_device = {
@@ -308,30 +342,6 @@ static struct platform_device gta04_dss_device = {
 	.id            = 0,
 	.dev            = {
 		.platform_data = &gta04_dss_data,
-	},
-};
-
-static void gta04_set_bl_intensity(int intensity)
-{
-	// control PWM_11
-	// use 500 Hz pulse and intensity 0..255
-}
-
-static struct generic_bl_info gta04_bl_platform_data = {
-	.name			= "bklight",
-	.max_intensity		= 255,
-	.default_intensity	= 200,
-	.limit_mask		= 0,
-	.set_bl_intensity	= gta04_set_bl_intensity,
-	.kick_battery		= NULL,
-};
-
-static struct platform_device gta04_bklight_device = {
-	.name		= "generic-bl",
-	.id			= 0,
-	.dev		= {
-		.parent		= &gta04_dss_device.dev,
-		.platform_data	= &gta04_bl_platform_data,
 	},
 };
 
@@ -946,7 +956,6 @@ static struct platform_device *gta04_devices[] __initdata = {
 //	&leds_gpio,
 	&keys_gpio,
 // 	&gta04_dss_device,
-// 	&gta04_bklight_device,
 	&gta04_vwlan_device,
 #if defined(CONFIG_REGULATOR_VIRTUAL_CONSUMER)
 	&gta04_vaux1_virtual_regulator_device,
@@ -969,19 +978,16 @@ static const struct usbhs_omap_board_data usbhs_bdata __initconst = {
 	.reset_gpio_port[2]  = -EINVAL
 };
 
-// #ifdef CONFIG_OMAP_MUX
 static struct omap_board_mux board_mux[] __initdata = {
+	/* Enable GPT11_PWM_EVT instead of GPIO-57 */
+	OMAP3_MUX(GPMC_NCS6, OMAP_MUX_MODE3),
+
 	{ .reg_offset = OMAP_MUX_TERMINATOR },
 };
-// #else
-// #define board_mux	NULL
-// #endif
-
-
 
 static void __init gta04_init(void)
 {
-	early_printk("running gta04_init()\n");
+	printk("running gta04_init()\n");
 	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);
 	gta04_init_rev();
 	gta04_i2c_init();
@@ -1007,7 +1013,7 @@ static void __init gta04_init(void)
 // #error we need CONFIG_OMAP_MUX
 // #endif
 
-	early_printk(KERN_INFO "Revision GTA04A%d\n", gta04_version);
+	printk(KERN_INFO "Revision GTA04A%d\n", gta04_version);
 	// gpio_export() allows to access through /sys/devices/virtual/gpio/gpio*/value
 
 #if 0
@@ -1021,12 +1027,6 @@ static void __init gta04_init(void)
 	gpio_request(145, "GPS_ON");
 	gpio_direction_output(145, false);
 	gpio_export(145, 0);	// no direction change
-
-	// should be a backlight driver using PWM
-	gpio_request(57, "LCD_BACKLIGHT");
-	gpio_direction_output(57, true);
-	gpio_export(57, 0);	// no direction change
-	gpio_set_value(57, 0); //shutdown backlight first
 
 	// omap_mux_init_signal("gpio138", OMAP_PIN_INPUT);	// gpio 138 - with no pullup/pull-down
 	gpio_request(144, "EXT_ANT");
@@ -1064,7 +1064,7 @@ static void __init gta04_init(void)
 	gpio_request(TWL4030_MSECURE_GPIO, "mSecure");
 	gpio_direction_output(TWL4030_MSECURE_GPIO, true);
 
-	early_printk("gta04_init done...\n");
+	printk("gta04_init done...\n");
 }
 
 MACHINE_START(GTA04, "GTA04")
