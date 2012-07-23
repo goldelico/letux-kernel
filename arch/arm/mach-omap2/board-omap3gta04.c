@@ -1094,17 +1094,36 @@ static struct gpio_keys_button gpio_buttons[] = {
 		.wakeup			= 1,
 	},
 };
+static struct gpio_keys_button gpio_3G_buttons[] = {
+	{
+		.code			= KEY_UNKNOWN,
+		.gpio			= -1/*WO3G_GPIO*/,
+		.desc			= "Option",
+		.wakeup			= 1,
+	},
+};
 
 static struct gpio_keys_platform_data gpio_key_info = {
 	.buttons	= gpio_buttons,
 	.nbuttons	= ARRAY_SIZE(gpio_buttons),
 };
+static struct gpio_keys_platform_data gpio_3G_info = {
+	.buttons	= gpio_3G_buttons,
+	.nbuttons	= ARRAY_SIZE(gpio_3G_buttons),
+};
 
 static struct platform_device keys_gpio = {
 	.name	= "gpio-keys",
-	.id	= -1,
+	.id	= 0,
 	.dev	= {
 		.platform_data	= &gpio_key_info,
+	},
+};
+static struct platform_device keys_3G_gpio = {
+	.name	= "gpio-keys",
+	.id	= 1,
+	.dev	= {
+		.platform_data	= &gpio_3G_info,
 	},
 };
 
@@ -1144,6 +1163,7 @@ static struct platform_device gta04_vaux3_virtual_regulator_device = {
 static struct platform_device *gta04_devices[] __initdata = {
 //	&leds_gpio,
 	&keys_gpio,
+	&keys_3G_gpio,
 // 	&gta04_dss_device,
 	&gta04_vwlan_device,
 	&gps_rfkill_device,
@@ -1263,6 +1283,7 @@ static void __init gta04_init(void)
 
 	omap_display_init(&gta04_dss_data);
 
+	gpio_3G_buttons[0].gpio = WO3G_GPIO;
 	platform_add_devices(gta04_devices,
 			     ARRAY_SIZE(gta04_devices));
 	omap_hsmmc_init(mmc);
@@ -1322,9 +1343,11 @@ static void __init gta04_init(void)
 
 #endif
 
+#if 0
 	err = wake_3G_init();
 	if (err)
 		printk("Failed to init 3G wake interrupt: %d\n", err);
+#endif
 
 	usb_musb_init(NULL);
 	usbhs_init(&usbhs_bdata);
