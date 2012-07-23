@@ -77,7 +77,10 @@
 
 #define NAND_BLOCK_SIZE		SZ_128K
 
-#define TWL4030_MSECURE_GPIO 22
+#define	AUX_BUTTON_GPIO		7
+#define TWL4030_MSECURE_GPIO	22
+#define	TS_PENIRQ_GPIO		160
+#define	WO3G_GPIO		(gta04_version >= 4 ? 10 : 176)
 
 /* see: https://patchwork.kernel.org/patch/120449/
  * OMAP3 gta04 revision
@@ -841,8 +844,6 @@ static struct platform_device gta04_w2cbw003_codec_audio_device = {
 
 /* TouchScreen */
 
-#define TS_PENIRQ_GPIO		160	// GPIO pin
-
 static int ts_get_pendown_state(void)
 {
 #if 1
@@ -921,7 +922,7 @@ static int __init bmp085_init(void)
 // 	omap_set_gpio_debounce(BMP085_EOC_IRQ_GPIO, 1);
 // 	omap_set_gpio_debounce_time(BMP085_EOC_IRQ_GPIO, 0xa);
 	gpio_set_debounce(BMP085_EOC_IRQ_GPIO, (0xa+1)*31);
-	set_irq_type(OMAP_GPIO_IRQ(BMP085_EOC_IRQ_GPIO), IRQ_TYPE_EDGE_FALLING);
+	irq_set_irq_type(OMAP_GPIO_IRQ(BMP085_EOC_IRQ_GPIO), IRQ_TYPE_EDGE_FALLING);
 	return 0;
 }
 
@@ -1034,7 +1035,7 @@ static void __init gta04fpga_init_spi(void)
 static struct gpio_keys_button gpio_buttons[] = {
 	{
 		.code			= KEY_PHONE,
-		.gpio			= 7,
+		.gpio			= AUX_BUTTON_GPIO,
 		.desc			= "AUX",
 		.wakeup			= 1,
 	},
@@ -1129,8 +1130,37 @@ static struct omap_board_mux board_mux[] __initdata = {
 	{ .reg_offset = OMAP_MUX_TERMINATOR },
 };
 
+static irqreturn_t wake_3G_irq(int irq, void *handle)
+{
+	printk("3G Wakeup\n");
+	return IRQ_HANDLED;
+}
+
+static int __init wake_3G_init(void)
+{
+	int err;
+
+	omap_mux_init_gpio(WO3G_GPIO, OMAP_PIN_INPUT);
+	if (gpio_request(WO3G_GPIO, "3G_wakeup"))
+		return -ENODEV;
+
+	if (gpio_direction_input(WO3G_GPIO))
+		return -ENXIO;
+
+	gpio_export(WO3G_GPIO, 0);
+	gpio_set_debounce(WO3G_GPIO, 350);
+	irq_set_irq_type(OMAP_GPIO_IRQ(WO3G_GPIO), IRQ_TYPE_EDGE_RISING);
+
+	err = request_irq(OMAP_GPIO_IRQ(WO3G_GPIO),
+			  wake_3G_irq, 0,
+			  "wake_3G", NULL);
+	return err;
+}
+
 static void __init gta04_init(void)
 {
+	int err;
+
 	printk("running gta04_init()\n");
 	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);
 	gta04_init_rev();
@@ -1196,6 +1226,10 @@ static void __init gta04_init(void)
 	gpio_export(23, 0);	// no direction change
 
 #endif
+
+	err = wake_3G_init();
+	if (err)
+		printk("Failed to init 3G wake interrupt: %d\n", err);
 
 	usb_musb_init(NULL);
 	usbhs_init(&usbhs_bdata);
