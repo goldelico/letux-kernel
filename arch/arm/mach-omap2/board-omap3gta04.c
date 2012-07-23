@@ -1218,6 +1218,14 @@ static void __init gta04_init(void)
 	gpio_direction_input(144);
 	gpio_export(144, 0);	// no direction change
 
+
+	if(gta04_version >= 4) { /* feature of GTA04A4 */
+		omap_mux_init_gpio(186, OMAP_PIN_OUTPUT);    // this needs CONFIG_OMAP_MUX!
+		gpio_request(186, "WWAN_RESET");
+		gpio_direction_output(186, 0); // keep initial value 
+		gpio_export(186, 0);    // no direction change
+        }
+
 #ifdef GTA04A2
 	// has different pins but neither chips are installed
 
