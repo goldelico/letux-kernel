@@ -779,7 +779,7 @@ void tca_setup(unsigned gpio_base, unsigned ngpio)
 static struct led_info tca6507_leds[] = {
 	[0] = { .name = "gta04:red:aux" },
 	[1] = { .name = "gta04:green:aux" },
-	[3] = { .name = "gta04:red:power" },
+	[3] = { .name = "gta04:red:power", .default_trigger = "default-on" },
 	[4] = { .name = "gta04:green:power" },
 
 	[6] = { .name = "gta04:wlan:reset", .flags = TCA6507_MAKE_GPIO },
