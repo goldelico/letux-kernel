@@ -161,7 +161,7 @@ out:
 static int __devinit twl4030_write_script(u8 address, struct twl4030_ins *script,
 				       int len)
 {
-	int err;
+	int err = 0;
 
 	for (; len; len--, address++, script++) {
 		if (len == 1) {
