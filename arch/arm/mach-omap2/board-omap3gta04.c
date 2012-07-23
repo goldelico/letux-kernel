@@ -28,6 +28,7 @@
 #include <linux/pwm_backlight.h>
 #include <linux/rfkill-regulator.h>
 #include <linux/gpio-reg.h>
+#include <linux/gpio-w2sg0004.h>
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
@@ -448,6 +449,7 @@ static struct regulator_init_data gta04_vwlan_data = {
 /* "+2" because TWL4030 adds 2 LED drives as gpio outputs */
 #define GPIO_WIFI_RESET (OMAP_MAX_GPIO_LINES + TWL4030_GPIO_MAX + 2)
 #define GPIO_BT_REG (GPIO_WIFI_RESET + 1)
+#define GPIO_GPS_CTRL (GPIO_BT_REG + 1)
 
 static struct fixed_voltage_config gta04_vwlan = {
 	.supply_name		= "vwlan",
@@ -637,6 +639,20 @@ static struct platform_device bt_gpio_reg_device = {
 	.name = "regulator-gpio",
 	.id = 0,
 	.dev.platform_data = &bt_gpio_data,
+};
+
+static struct gpio_w2sg_data gps_gpio_data = {
+	.ctrl_gpio	= GPIO_GPS_CTRL,
+	.on_off_gpio	= 145,
+	.rx_gpio	= 147,
+	.on_state	= OMAP_PIN_INPUT_PULLUP | OMAP_MUX_MODE0,
+	.off_state	= OMAP_PIN_INPUT_PULLUP | OMAP_MUX_MODE4,
+};
+
+static struct platform_device gps_gpio_device = {
+	.name = "w2s-gpio",
+	.id = 0,
+	.dev.platform_data = &gps_gpio_data,
 };
 
 static struct twl4030_usb_data gta04_usb_data = {
@@ -1125,6 +1141,7 @@ static struct platform_device *gta04_devices[] __initdata = {
 	&gta04_vwlan_device,
 	&gps_rfkill_device,
 	&bt_gpio_reg_device,
+	&gps_gpio_device,
 #if defined(CONFIG_REGULATOR_VIRTUAL_CONSUMER)
 	&gta04_vaux1_virtual_regulator_device,
 	&gta04_vaux2_virtual_regulator_device,
@@ -1202,7 +1219,6 @@ static void gta04_serial_init(void)
 		.dma_rx_poll_rate = DEFAULT_RXDMA_POLLRATE,
 		.dma_rx_timeout = DEFAULT_RXDMA_TIMEOUT,
 		.autosuspend_timeout = DEFAULT_AUTOSUSPEND_DELAY,
-		.DTR_gpio = GPIO_BT_REG,
 		.DTR_present = 1,
 	};
 
@@ -1210,10 +1226,15 @@ static void gta04_serial_init(void)
 	bdata.pads = NULL;
 
 	bdata.id = 0;
+	info.DTR_gpio = GPIO_BT_REG;
 	omap_serial_init_port(&bdata, &info);
 
+	/* GPS port.  modem lines are used for on/off management
+	 * and antenna detection.
+	 */
 	bdata.id = 1;
-	omap_serial_init_port(&bdata, NULL);
+	info.DTR_gpio = GPIO_GPS_CTRL;
+	omap_serial_init_port(&bdata, &info);
 
 	bdata.id = 2;
 	omap_serial_init_port(&bdata, NULL);
@@ -1236,7 +1257,7 @@ static void __init gta04_init(void)
 	omap_display_init(&gta04_dss_data);
 
 	platform_add_devices(gta04_devices,
-						ARRAY_SIZE(gta04_devices));
+			     ARRAY_SIZE(gta04_devices));
 	omap_hsmmc_init(mmc);
 
 // #ifdef CONFIG_OMAP_MUX
@@ -1264,10 +1285,6 @@ static void __init gta04_init(void)
 #endif
 
 	omap_mux_init_gpio(145, OMAP_PIN_OUTPUT);
-	gpio_request(145, "GPS_ON");
-	gpio_direction_output(145, false);
-	gpio_export(145, 0);	// no direction change
-
 	omap_mux_init_gpio(144, OMAP_PIN_INPUT);
 	gpio_request(144, "EXT_ANT");
 	gpio_direction_input(144);
