@@ -95,7 +95,6 @@ static u8 gta04_version;	/* counts 2..9 */
 static void __init gta04_init_rev(void)
 {
 	int ret;
-	early_printk("Running gta04_init_rev()\n");
 	u16 gta04_rev = 0;
 	static char revision[8] = {	/* revision table defined by pull-down R305, R306, R307 */
 		9,
@@ -107,6 +106,7 @@ static void __init gta04_init_rev(void)
 		5,
 		2
 	};
+	early_printk("Running gta04_init_rev()\n");
 
 	omap_mux_init_gpio(171, OMAP_PIN_INPUT_PULLUP);
 	omap_mux_init_gpio(172, OMAP_PIN_INPUT_PULLUP);
@@ -872,9 +872,7 @@ static struct platform_device keys_gpio = {
 static void __init gta04_init_early(void)
 {
 // 	early_printk("Doing gta04_init_early()\n");
-	omap2_init_common_infrastructure();
-	omap2_init_common_devices(mt46h32m32lf6_sdrc_params,
-				  mt46h32m32lf6_sdrc_params);
+	omap3_init_early();
 }
 
 #if defined(CONFIG_REGULATOR_VIRTUAL_CONSUMER)
@@ -957,6 +955,8 @@ static void __init gta04_init(void)
 	gta04_init_rev();
 	gta04_i2c_init();
 	omap_serial_init();
+	omap_sdrc_init(mt46h32m32lf6_sdrc_params,
+		       mt46h32m32lf6_sdrc_params);
 
 	omap_display_init(&gta04_dss_data);
 
@@ -1040,11 +1040,12 @@ MACHINE_START(GTA04, "GTA04")
 	/* Maintainer: Nikolaus Schaller - http://www.gta04.org */
 // 	.phys_io	= 0x48000000,
 // 	.io_pg_offst	= ((0xfa000000) >> 18) & 0xfffc,
-	.boot_params	=	0x80000100,
-	.reserve		=	omap_reserve,
-	.map_io			=	omap3_map_io,
-	.init_irq		=	omap3_init_irq,
-	.init_early		=	gta04_init_early,
+//	.boot_params	=	0x80000100,
+	.atag_offset	=	0x100,
+	.reserve	=	omap_reserve,
+	.map_io		=	omap3_map_io,
+	.init_irq	=	omap3_init_irq,
+	.init_early	=	gta04_init_early,
 	.init_machine	=	gta04_init,
-	.timer			=	&omap3_secure_timer,
+	.timer		=	&omap3_secure_timer,
 MACHINE_END
