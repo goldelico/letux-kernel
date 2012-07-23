@@ -729,28 +729,37 @@ serial_omap_set_termios(struct uart_port *port, struct ktermios *termios,
 	unsigned char cval = 0;
 	unsigned char efr = 0;
 	unsigned long flags = 0;
-	unsigned int baud, quot;
+	unsigned int baud, quot, bits;
 
 	switch (termios->c_cflag & CSIZE) {
 	case CS5:
 		cval = UART_LCR_WLEN5;
+		bits = 5;
 		break;
 	case CS6:
 		cval = UART_LCR_WLEN6;
+		bits = 6;
 		break;
 	case CS7:
 		cval = UART_LCR_WLEN7;
+		bits = 7;
 		break;
 	default:
 	case CS8:
 		cval = UART_LCR_WLEN8;
+		bits = 8;
 		break;
 	}
 
-	if (termios->c_cflag & CSTOPB)
+	bits += 2; /* start bit plus stop bit */
+	if (termios->c_cflag & CSTOPB) {
 		cval |= UART_LCR_STOP;
-	if (termios->c_cflag & PARENB)
+		bits++;
+	}
+	if (termios->c_cflag & PARENB) {
 		cval |= UART_LCR_PARITY;
+		bits++;
+	}
 	if (!(termios->c_cflag & PARODD))
 		cval |= UART_LCR_EPAR;
 
@@ -762,7 +771,10 @@ serial_omap_set_termios(struct uart_port *port, struct ktermios *termios,
 	quot = serial_omap_get_divisor(port, baud);
 
 	/* calculate wakeup latency constraint */
-	up->calc_latency = (USEC_PER_SEC * up->port.fifosize) / (baud / 8);
+	if (termios->c_cflag & CRTSCTS)
+		up->calc_latency = PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE;
+	else
+		up->calc_latency = (USEC_PER_SEC * up->port.fifosize) / (baud / bits);
 	up->latency = up->calc_latency;
 	schedule_work(&up->qos_work);
 
