@@ -194,6 +194,7 @@ struct dpll_data {
 #define ENABLE_ON_INIT		(1 << 3)	/* Enable upon framework init */
 #define INVERT_ENABLE		(1 << 4)	/* 0 enables, 1 disables */
 #define CLOCK_CLKOUTX2		(1 << 5)
+#define SWSUP_ICLK_IDLE		(1 << 6)
 
 /**
  * struct clk - OMAP struct clk

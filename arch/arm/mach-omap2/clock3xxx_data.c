@@ -1877,6 +1877,7 @@ static struct clk hdq_ick = {
 	.enable_bit	= OMAP3430_EN_HDQ_SHIFT,
 	.clkdm_name	= "core_l4_clkdm",
 	.recalc		= &followparent_recalc,
+	.flags		= SWSUP_ICLK_IDLE,
 };
 
 static struct clk mcspi4_ick = {
