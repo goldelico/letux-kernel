@@ -429,6 +429,12 @@ config GPIO_TWL6040
 	  Say yes here to access the GPO signals of twl6040
 	  audio chip from Texas Instruments.
 
+config GPIO_W2SG0004
+	tristate "W2SG0004 on/off control"
+	depends on GPIOLIB
+	help
+	  Enable on/off control of W2SG0004 GPS using a virtual GPIO.
+
 config GPIO_WM831X
 	tristate "WM831x GPIOs"
 	depends on MFD_WM831X
