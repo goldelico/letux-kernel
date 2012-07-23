@@ -54,7 +54,7 @@
 #include <asm/mach/flash.h>
 
 #include <plat/board.h>
-#include <plat/common.h>
+#include "common.h"
 #include <video/omapdss.h>
 #include <video/omap-panel-generic-dpi.h>
 #include <plat/gpmc.h>
@@ -1263,7 +1263,9 @@ MACHINE_START(GTA04, "GTA04")
 	.reserve	=	omap_reserve,
 	.map_io		=	omap3_map_io,
 	.init_irq	=	omap3_init_irq,
+	.handle_irq	=	omap3_intc_handle_irq,
 	.init_early	=	gta04_init_early,
 	.init_machine	=	gta04_init,
 	.timer		=	&omap3_secure_timer,
+	.restart	=	omap_prcm_restart,
 MACHINE_END
