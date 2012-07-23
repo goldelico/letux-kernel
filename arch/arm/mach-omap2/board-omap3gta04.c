@@ -1034,7 +1034,14 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 	.type		= "bma150",
 },
 #endif
-	/* FIXME: add other drivers for HMC5883, BMA180, Si472x, Camera */
+#ifdef CONFIG_SENSORS_HMC5843
+{
+	I2C_BOARD_INFO("hmc5843", 0x1e),
+	.type		= "hmc5883",
+},
+#endif
+
+	/* FIXME: add other drivers for BMA180, Si472x, Camera */
 };
 
 static int __init gta04_i2c_init(void)
