@@ -229,8 +229,6 @@ static void serial_omap_stop_tx(struct uart_port *port)
 		serial_out(up, UART_IER, up->ier);
 	}
 
-	serial_omap_set_forceidle(up);
-
 	pm_runtime_mark_last_busy(up->dev);
 	pm_runtime_put_autosuspend(up->dev);
 }
@@ -263,6 +261,7 @@ static void transmit_chars(struct uart_omap_port *up, unsigned int lsr)
 	}
 	if (uart_circ_empty(xmit) || uart_tx_stopped(&up->port)) {
 		serial_omap_stop_tx(&up->port);
+		serial_omap_set_forceidle(up);
 		return;
 	}
 	count = up->port.fifosize / 4;
@@ -280,8 +279,6 @@ static void transmit_chars(struct uart_omap_port *up, unsigned int lsr)
 		spin_lock(&up->port.lock);
 	}
 
-	if (uart_circ_empty(xmit))
-		serial_omap_stop_tx(&up->port);
 }
 
 static inline void serial_omap_enable_ier_thri(struct uart_omap_port *up)

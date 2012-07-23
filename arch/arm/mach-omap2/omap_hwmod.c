@@ -1329,7 +1329,7 @@ static void _enable_sysc(struct omap_hwmod *oh)
 	v = oh->_sysc_cache;
 	sf = oh->class->sysc->sysc_flags;
 
-	if (sf & SYSC_HAS_SIDLEMODE) {
+	if (strcmp(oh->name, "uart3") && sf & SYSC_HAS_SIDLEMODE) {
 		clkdm_act = ((oh->clkdm &&
 			      oh->clkdm->flags & CLKDM_ACTIVE_WITH_MPU) ||
 			     (oh->_clk && oh->_clk->clkdm &&
@@ -1404,7 +1404,7 @@ static void _idle_sysc(struct omap_hwmod *oh)
 	v = oh->_sysc_cache;
 	sf = oh->class->sysc->sysc_flags;
 
-	if (sf & SYSC_HAS_SIDLEMODE) {
+	if (strcmp(oh->name, "uart3") && sf & SYSC_HAS_SIDLEMODE) {
 		/* XXX What about HWMOD_IDLEMODE_SMART_WKUP? */
 		if (oh->flags & HWMOD_SWSUP_SIDLE ||
 		    !(oh->class->sysc->idlemodes &
