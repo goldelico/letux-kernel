@@ -177,6 +177,12 @@ config MACH_OMAP3_BEAGLE
 	default y
 	select OMAP_PACKAGE_CBB
 
+config MACH_GTA04
+	bool "GTA04 board"
+	depends on ARCH_OMAP3
+	default y
+	select OMAP_PACKAGE_CBB
+
 config MACH_DEVKIT8000
 	bool "DEVKIT8000 board"
 	depends on ARCH_OMAP3
