@@ -113,7 +113,7 @@ static void __init gta04_init_rev(void)
 		5,
 		2
 	};
-	early_printk("Running gta04_init_rev()\n");
+	printk("Running gta04_init_rev()\n");
 
 	omap_mux_init_gpio(171, OMAP_PIN_INPUT_PULLUP);
 	omap_mux_init_gpio(172, OMAP_PIN_INPUT_PULLUP);
@@ -145,7 +145,7 @@ static void __init gta04_init_rev(void)
 				| (gpio_get_value(172) << 1)
 				| (gpio_get_value(173) << 2);
 
-	early_printk("gta04_rev %u\n", gta04_rev);
+	printk("gta04_rev %u\n", gta04_rev);
 
 	gta04_version = revision[gta04_rev];
 
@@ -156,7 +156,7 @@ fail2:
 fail1:
 	gpio_free(171);
 fail0:
-	early_printk(KERN_ERR "Unable to get revision detection GPIO pins\n");
+	printk(KERN_ERR "Unable to get revision detection GPIO pins\n");
 	gta04_version = 0;
 
 	return;
@@ -589,6 +589,19 @@ static struct regulator_init_data gta04_vpll2 = {
 	.consumer_supplies	= &gta04_vdvi_supply,
 };
 
+static struct regulator_init_data *all_reg_data[] = {
+	&gta04_vmmc1,
+	&gta04_vwlan_data,
+	&gta04_vaux4,
+	&gta04_vaux3,
+	&gta04_vaux2,
+	&gta04_vaux1,
+	&gta04_vsim,
+	&gta04_vdac,
+	&gta04_vpll2,
+	NULL
+};
+
 /* rfkill devices for GPS and Bluetooth to control regulators */
 
 static struct rfkill_regulator_platform_data gps_rfkill_data = {
@@ -776,19 +789,6 @@ struct bmp085_platform_data bmp085_info = {
 
 #ifdef CONFIG_LEDS_TCA6507
 
-void tca_setup(unsigned gpio_base, unsigned ngpio)
-{
-	/* Now that reset line is available we can create
-	 * the virtual regulator and register the mmc devices.
-	 * This is after twl is probed to, so the regulators for the
-	 * rfkill devices are available
-	 */
-	platform_device_register(&gps_rfkill_device);
-	platform_device_register(&bt_rfkill_device);
-	platform_device_register(&gta04_vwlan_device);
-	omap2_hsmmc_init(mmc);
-}
-
 static struct led_info tca6507_leds[] = {
 	[0] = { .name = "gta04:red:aux" },
 	[1] = { .name = "gta04:green:aux" },
@@ -803,7 +803,6 @@ static struct tca6507_platform_data tca6507_info = {
 		.leds = tca6507_leds,
 	},
 	.gpio_base = GPIO_WIFI_RESET,
-	.setup = tca_setup,
 };
 #endif
 
@@ -906,7 +905,7 @@ static struct platform_device keys_gpio = {
 
 static void __init gta04_init_early(void)
 {
-// 	early_printk("Doing gta04_init_early()\n");
+// 	printk("Doing gta04_init_early()\n");
 	omap3_init_early();
 }
 
@@ -941,7 +940,9 @@ static struct platform_device *gta04_devices[] __initdata = {
 //	&leds_gpio,
 	&keys_gpio,
 // 	&gta04_dss_device,
-//	&gta04_vwlan_device,
+	&gta04_vwlan_device,
+	&gps_rfkill_device,
+	&bt_rfkill_device,
 #if defined(CONFIG_REGULATOR_VIRTUAL_CONSUMER)
 	&gta04_vaux1_virtual_regulator_device,
 	&gta04_vaux2_virtual_regulator_device,
@@ -976,7 +977,7 @@ static void __init gta04_init(void)
 	gta04_init_rev();
 	gta04_i2c_init();
 
-	regulator_has_full_constraints();
+	regulator_has_full_constraints_listed(all_reg_data);
 	omap_serial_init();
 	omap_sdrc_init(mt46h32m32lf6_sdrc_params,
 		       mt46h32m32lf6_sdrc_params);
@@ -985,6 +986,7 @@ static void __init gta04_init(void)
 
 	platform_add_devices(gta04_devices,
 						ARRAY_SIZE(gta04_devices));
+	omap2_hsmmc_init(mmc);
 
 // #ifdef CONFIG_OMAP_MUX
 
