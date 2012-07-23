@@ -496,6 +496,43 @@ static ssize_t twl4030_usb_vbus_show(struct device *dev,
 }
 static DEVICE_ATTR(vbus, 0444, twl4030_usb_vbus_show, NULL);
 
+static ssize_t twl4030_usb_id_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int ret;
+	int n = 0;
+	struct twl4030_usb *twl = dev_get_drvdata(dev);
+	twl4030_i2c_access(twl, 1);
+	ret = twl4030_usb_read(twl, ULPI_OTG_CTRL);
+	if ((ret < 0) || (!(ret & ULPI_OTG_ID_PULLUP))) {
+		/*
+		 * enable ID pullup so that the id pin state can be measured,
+		 * seems to be disabled sometimes for some reasons
+		 */
+		dev_dbg(dev, "ULPI_OTG_ID_PULLUP not set (%x)\n", ret);
+		twl4030_usb_set_bits(twl, ULPI_OTG_CTRL, ULPI_OTG_ID_PULLUP);
+		mdelay(100);
+	}
+	ret = twl4030_usb_read(twl, ID_STATUS);
+	twl4030_i2c_access(twl, 0);
+	if (ret < 0)
+		return ret;
+	if (ret & ID_RES_FLOAT)
+		n = scnprintf(buf, PAGE_SIZE, "%s\n", "floating");
+	else if (ret & ID_RES_440K)
+		n = scnprintf(buf, PAGE_SIZE, "%s\n", "440k");
+	else if (ret & ID_RES_200K)
+		n = scnprintf(buf, PAGE_SIZE, "%s\n", "200k");
+	else if (ret & ID_RES_102K)
+		n = scnprintf(buf, PAGE_SIZE, "%s\n", "102k");
+	else if (ret & ID_RES_GND)
+		n = scnprintf(buf, PAGE_SIZE, "%s\n", "GND");
+	else
+		n = scnprintf(buf, PAGE_SIZE, "unknown: id=0x%x\n", ret);
+	return n;
+}
+static DEVICE_ATTR(id, 0444, twl4030_usb_id_show, NULL);
+
 static irqreturn_t twl4030_usb_irq(int irq, void *_twl)
 {
 	struct twl4030_usb *twl = _twl;
@@ -638,6 +675,8 @@ static int __devinit twl4030_usb_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, twl);
 	if (device_create_file(&pdev->dev, &dev_attr_vbus))
 		dev_warn(&pdev->dev, "could not create sysfs file\n");
+	if (device_create_file(&pdev->dev, &dev_attr_id))
+		dev_warn(&pdev->dev, "could not create sysfs file\n");
 
 	/* Our job is to use irqs and status from the power module
 	 * to keep the transceiver disabled when nothing's connected.
@@ -672,6 +711,7 @@ static int __exit twl4030_usb_remove(struct platform_device *pdev)
 	int val;
 
 	free_irq(twl->irq, twl);
+	device_remove_file(twl->dev, &dev_attr_id);
 	device_remove_file(twl->dev, &dev_attr_vbus);
 
 	/* set transceiver mode to power on defaults */
