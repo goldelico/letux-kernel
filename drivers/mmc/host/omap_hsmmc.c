@@ -262,6 +262,8 @@ static int omap_hsmmc_set_power(struct device *dev, int slot, int power_on,
 	if (dev->of_node && !vdd)
 		return 0;
 
+	if (gpio_is_valid(mmc_slot(host).gpio_reset))
+		gpio_set_value_cansleep(mmc_slot(host).gpio_reset, 0);
 	if (mmc_slot(host).before_set_reg)
 		mmc_slot(host).before_set_reg(dev, slot, power_on, vdd);
 
@@ -300,6 +302,8 @@ static int omap_hsmmc_set_power(struct device *dev, int slot, int power_on,
 
 	if (mmc_slot(host).after_set_reg)
 		mmc_slot(host).after_set_reg(dev, slot, power_on, vdd);
+	if (gpio_is_valid(mmc_slot(host).gpio_reset))
+		gpio_set_value_cansleep(mmc_slot(host).gpio_reset, 1);
 
 	return ret;
 }
@@ -419,10 +423,22 @@ static int omap_hsmmc_gpio_init(struct omap_mmc_platform_data *pdata)
 	} else
 		pdata->slots[0].gpio_wp = -EINVAL;
 
-	return 0;
+	if (gpio_is_valid(pdata->slots[0].gpio_reset)) {
+		ret = gpio_request(pdata->slots[0].gpio_reset, "mmc_reset");
+		if (ret)
+			goto err_free_wp;
+		ret = gpio_direction_output(pdata->slots[0].gpio_reset, 1);
+		if (ret)
+			goto err_free_reset;
+	} else
+		pdata->slots[0].gpio_reset = -EINVAL;
 
+	return 0;
+err_free_reset:
+	gpio_free(pdata->slots[0].gpio_reset);
 err_free_wp:
-	gpio_free(pdata->slots[0].gpio_wp);
+	if (gpio_is_valid(pdata->slots[0].gpio_wp))
+		gpio_free(pdata->slots[0].gpio_wp);
 err_free_cd:
 	if (gpio_is_valid(pdata->slots[0].switch_pin))
 err_free_sp:
@@ -432,6 +448,8 @@ err_free_sp:
 
 static void omap_hsmmc_gpio_free(struct omap_mmc_platform_data *pdata)
 {
+	if (gpio_is_valid(pdata->slots[0].gpio_reset))
+		gpio_free(pdata->slots[0].gpio_reset);
 	if (gpio_is_valid(pdata->slots[0].gpio_wp))
 		gpio_free(pdata->slots[0].gpio_wp);
 	if (gpio_is_valid(pdata->slots[0].switch_pin))
@@ -1717,10 +1735,11 @@ static struct omap_mmc_platform_data *of_get_hsmmc_pdata(struct device *dev)
 	struct omap_mmc_platform_data *pdata;
 	struct device_node *np = dev->of_node;
 	u32 bus_width, max_freq;
-	int cd_gpio, wp_gpio;
+	int cd_gpio, wp_gpio, reset_gpio;
 
 	cd_gpio = of_get_named_gpio(np, "cd-gpios", 0);
 	wp_gpio = of_get_named_gpio(np, "wp-gpios", 0);
+	reset_gpio = of_get_named_gpio(np, "reset-gpios", 0);
 	if (cd_gpio == -EPROBE_DEFER || wp_gpio == -EPROBE_DEFER)
 		return ERR_PTR(-EPROBE_DEFER);
 
@@ -1735,6 +1754,7 @@ static struct omap_mmc_platform_data *of_get_hsmmc_pdata(struct device *dev)
 	pdata->nr_slots = 1;
 	pdata->slots[0].switch_pin = cd_gpio;
 	pdata->slots[0].gpio_wp = wp_gpio;
+	pdata->slots[0].gpio_reset = reset_gpio;
 
 	if (of_find_property(np, "ti,non-removable", NULL)) {
 		pdata->slots[0].nonremovable = true;
