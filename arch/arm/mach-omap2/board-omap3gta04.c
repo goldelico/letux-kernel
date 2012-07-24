@@ -38,7 +38,6 @@
 #include <linux/mmc/sdio.h>
 
 #include <linux/regulator/machine.h>
-#include <linux/regulator/fixed.h>
 #include <linux/i2c/twl.h>
 #include <linux/i2c/tsc2007.h>
 
@@ -362,6 +361,12 @@ static struct regulator_consumer_supply gta04_vdvi_supplies[] = {
 
 #include "sdram-micron-mt46h32m32lf-6.h"
 
+/* "+2" because TWL4030 adds 2 LED drives as gpio outputs */
+#define GPIO_WIFI_RESET (OMAP_MAX_GPIO_LINES + TWL4030_GPIO_MAX + 2)
+#define GPIO_BT_REG (GPIO_WIFI_RESET + 1)
+#define GPIO_GPS_CTRL (GPIO_BT_REG + 1)
+
+
 static struct omap2_hsmmc_info mmc[] = {
 	{
 		.mmc		= 1,
@@ -371,6 +376,7 @@ static struct omap2_hsmmc_info mmc[] = {
 				   |MMC_CAP_POWER_OFF_CARD),
 		.gpio_cd	= -EINVAL,	// no card detect
 		.gpio_wp	= -EINVAL,	// no write protect
+		.gpio_reset	= -EINVAL,
 	},
 	{ // this is the WiFi SDIO interface
 		.mmc		= 2,
@@ -379,6 +385,7 @@ static struct omap2_hsmmc_info mmc[] = {
 				   |MMC_CAP_POWER_OFF_CARD),
 		.gpio_cd	= -EINVAL, // virtual card detect
 		.gpio_wp	= -EINVAL,	// no write protect
+		.gpio_reset	= GPIO_WIFI_RESET,
 		.transceiver	= true,	// external transceiver
 		.ocr_mask	= MMC_VDD_31_32,	/* 3.15 is what we want */
 		.deferred	= true,
@@ -425,6 +432,7 @@ static struct regulator_init_data gta04_vmmc1 = {
 	.consumer_supplies	= gta04_vmmc1_supply,
 };
 
+#if 0
 /* Pseudo Fixed regulator to provide reset toggle to Wifi module */
 static struct regulator_consumer_supply gta04_vwlan_supply[] = {
 	REGULATOR_SUPPLY("vmmc", "omap_hsmmc.1"), // wlan
@@ -446,11 +454,6 @@ static struct regulator_init_data gta04_vwlan_data = {
 	.consumer_supplies	= gta04_vwlan_supply,
 };
 
-/* "+2" because TWL4030 adds 2 LED drives as gpio outputs */
-#define GPIO_WIFI_RESET (OMAP_MAX_GPIO_LINES + TWL4030_GPIO_MAX + 2)
-#define GPIO_BT_REG (GPIO_WIFI_RESET + 1)
-#define GPIO_GPS_CTRL (GPIO_BT_REG + 1)
-
 static struct fixed_voltage_config gta04_vwlan = {
 	.supply_name		= "vwlan",
 	.microvolts		= 3150000, /* 3.15V */
@@ -468,11 +471,12 @@ static struct platform_device gta04_vwlan_device = {
 		.platform_data = &gta04_vwlan,
 	},
 };
-
+#endif
 /* VAUX4 powers Bluetooth and WLAN */
 
 static struct regulator_consumer_supply gta04_vaux4_supply[] = {
 	REGULATOR_SUPPLY("vgpio","regulator-gpio.0"),
+	REGULATOR_SUPPLY("vmmc","omap_hsmmc.1")
 };
 
 static struct twl_regulator_driver_data vaux4_data = {
@@ -605,9 +609,10 @@ static struct regulator_init_data gta04_vpll2 = {
 	.consumer_supplies	= gta04_vdvi_supplies,
 };
 
+#if 0
 static struct regulator_init_data *all_reg_data[] = {
 	&gta04_vmmc1,
-	&gta04_vwlan_data,
+//	&gta04_vwlan_data,
 	&gta04_vaux4,
 	&gta04_vaux3,
 	&gta04_vaux2,
@@ -617,6 +622,7 @@ static struct regulator_init_data *all_reg_data[] = {
 	&gta04_vpll2,
 	NULL
 };
+#endif
 
 /* rfkill devices for GPS and Bluetooth to control regulators */
 
@@ -1165,7 +1171,7 @@ static struct platform_device *gta04_devices[] __initdata = {
 	&keys_gpio,
 	&keys_3G_gpio,
 // 	&gta04_dss_device,
-	&gta04_vwlan_device,
+//	&gta04_vwlan_device,
 	&gps_rfkill_device,
 	&bt_gpio_reg_device,
 	&gps_gpio_device,
