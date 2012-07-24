@@ -24,6 +24,9 @@ struct omap2_hsmmc_info {
 	bool	deferred;	/* mmc needs a deferred probe */
 	int	gpio_cd;	/* or -EINVAL */
 	int	gpio_wp;	/* or -EINVAL */
+	int	gpio_reset;	/* or -EINVAL - reset is held low during
+				 * power-on
+				 */
 	char	*name;		/* or NULL for default */
 	struct platform_device *pdev;	/* mmc controller instance */
 	int	ocr_mask;	/* temporary HACK */
