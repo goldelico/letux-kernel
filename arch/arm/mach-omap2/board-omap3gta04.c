@@ -31,6 +31,7 @@
 #include <linux/gpio-reg.h>
 #include <linux/gpio-w2sg0004.h>
 #include <linux/extcon/extcon_gpio.h>
+#include <linux/opp.h>
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
@@ -67,6 +68,7 @@
 #include <linux/platform_data/spi-omap2-mcspi.h>
 #include <linux/platform_data/omap-pwm.h>
 #include <plat/omap-serial.h>
+#include <plat/omap_device.h>
 
 #include "mux.h"
 #include "hsmmc.h"
@@ -1287,6 +1289,48 @@ static void gta04_serial_init(void)
 	omap_serial_init_port(&bdata, NULL);
 }
 
+static void __init gta04_opp_init(void)
+{
+	int r = 0;
+
+	/* Initialize the omap3 opp table */
+	if (omap3_opp_init()) {
+		pr_err("%s: opp default init failed\n", __func__);
+		return;
+	}
+
+	/* Custom OPP enabled for all xM versions */
+	if (cpu_is_omap3630()) {
+		struct device *mpu_dev, *iva_dev;
+
+		mpu_dev = omap_device_get_by_hwmod_name("mpu");
+		iva_dev = omap_device_get_by_hwmod_name("iva");
+
+		if (!mpu_dev || !iva_dev) {
+			pr_err("%s: Aiee.. no mpu/dsp devices? %p %p\n",
+				__func__, mpu_dev, iva_dev);
+			return;
+		}
+		/* Enable MPU 1GHz and lower opps */
+		r = opp_enable(mpu_dev, 800000000);
+		/* TODO: MPU 1GHz needs SR and ABB */
+
+		/* Enable IVA 800MHz and lower opps */
+		r |= opp_enable(iva_dev, 660000000);
+		/* TODO: DSP 800MHz needs SR and ABB */
+		if (r) {
+			pr_err("%s: failed to enable higher opp %d\n",
+				__func__, r);
+			/*
+			 * Cleanup - disable the higher freqs - we dont care
+			 * about the results
+			 */
+			opp_disable(mpu_dev, 800000000);
+			opp_disable(iva_dev, 660000000);
+		}
+	}
+}
+
 static void __init gta04_init(void)
 {
 	printk("running gta04_init()\n");
@@ -1383,6 +1427,8 @@ static void __init gta04_init(void)
 	omap_mux_init_gpio(TWL4030_MSECURE_GPIO, OMAP_PIN_OUTPUT);	// this needs CONFIG_OMAP_MUX!
 	gpio_request(TWL4030_MSECURE_GPIO, "mSecure");
 	gpio_direction_output(TWL4030_MSECURE_GPIO, true);
+
+	gta04_opp_init();
 
 	printk("gta04_init done...\n");
 }
