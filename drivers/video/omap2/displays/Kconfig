@@ -41,12 +41,24 @@ config PANEL_TPO_TD028TTEC1
         tristate "Toppoly TD028TTEC1 Panel"
         depends on OMAP2_DSS_DSI
         help
-          TPO panel used by Openmoko.
+          TPO panel used by GTA04.
 
 config PANEL_ORTUS_COM37H3M05DTC
         tristate "Ortustech COM37H3M05DTC Panel"
         depends on OMAP2_DSS_DSI
         help
-          Ortustech panel used by GTA04 Custom variant.
+          Ortustech panel used by GTA04b2 custom variant.
+
+config PANEL_SHARP_LQ070Y3DG3B
+        tristate "Sharp LQ070Y3DG3B LCD Panel"
+        depends on OMAP2_DSS
+        help
+          Sharp panel used by GTA04b3 custom variant.
+
+config PANEL_SHARP_LQ050W1LC1B
+        tristate "Sharp LQ050W1LC1B LCD Panel"
+        depends on OMAP2_DSS
+        help
+          Sharp panel used by GTA04b4 custom variant.
 
 endmenu
