@@ -950,37 +950,8 @@ struct tsc2007_platform_data tsc2007_info = {
 
 #define BMP085_EOC_IRQ_GPIO		113	/* BMP085 end of conversion GPIO */
 
-static int __init bmp085_init(void)
-{
-	printk("bmp085_init()\n");
-	omap_mux_init_gpio(BMP085_EOC_IRQ_GPIO, OMAP_PIN_INPUT_PULLUP);
-	if (gpio_request(BMP085_EOC_IRQ_GPIO, "bmp085_eoc_irq")) {
-		printk(KERN_ERR "Failed to request GPIO %d for "
-			   "BMP085 EOC IRQ\n", BMP085_EOC_IRQ_GPIO);
-		return  -ENODEV;
-	}
-
-	if (gpio_direction_input(BMP085_EOC_IRQ_GPIO)) {
-		printk(KERN_WARNING "GPIO#%d cannot be configured as "
-			   "input\n", BMP085_EOC_IRQ_GPIO);
-		return -ENXIO;
-	}
-//	gpio_export(BMP085_EOC_IRQ_GPIO, 0);
-// 	omap_set_gpio_debounce(BMP085_EOC_IRQ_GPIO, 1);
-// 	omap_set_gpio_debounce_time(BMP085_EOC_IRQ_GPIO, 0xa);
-	gpio_set_debounce(BMP085_EOC_IRQ_GPIO, (0xa+1)*31);
-	irq_set_irq_type(gpio_to_irq(BMP085_EOC_IRQ_GPIO), IRQ_TYPE_EDGE_FALLING);
-	return 0;
-}
-
-static void bmp085_exit(void)
-{
-	gpio_free(BMP085_EOC_IRQ_GPIO);
-}
-
 struct bmp085_platform_data bmp085_info = {
-	.init_platform_hw	= bmp085_init,
-	.exit_platform_hw	= bmp085_exit,
+	.gpio = BMP085_EOC_IRQ_GPIO,
 };
 
 #endif
@@ -1073,7 +1044,6 @@ static int __init gta04_i2c_init(void)
 	i2c_register_board_info(2, &tsc2007_boardinfo, 1);
 #endif
 #ifdef CONFIG_BMP085
-	bmp085_boardinfo.irq = gpio_to_irq(BMP085_EOC_IRQ_GPIO);
 	i2c_register_board_info(2, &bmp085_boardinfo, 1);
 #endif
 	omap_register_i2c_bus(2, 400,  gta04_i2c2_boardinfo,
