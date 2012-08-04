@@ -35,4 +35,10 @@ config ITG3200
 	help
 	  Support for 3-axis gyroscope as IIO device
 
+config ITG3200
+	tristate "InvenSence ITG3200 3-axis gyroscope"
+	depends on I2C
+	help
+	  Support for 3-axis gyroscope as IIO device
+
 endmenu
