@@ -2530,6 +2530,7 @@ CONFIG_STAGING=y
 # CONFIG_ADIS16130 is not set
 # CONFIG_ADIS16260 is not set
 # CONFIG_ADXRS450 is not set
+CONFIG_ITG3200=y
 
 #
 # Network Analyzer, Impedance Converters
