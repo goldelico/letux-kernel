@@ -1003,7 +1003,7 @@ struct tsc2007_platform_data __initdata tsc2007_info = {
 
 #define BMP085_EOC_IRQ_GPIO		113	/* BMP085 end of conversion GPIO */
 
-struct bmp085_platform_data bmp085_info = {
+struct bmp085_platform_data __initdata bmp085_info = {
 	.gpio = BMP085_EOC_IRQ_GPIO,
 };
 
