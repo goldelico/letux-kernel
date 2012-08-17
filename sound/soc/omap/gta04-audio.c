@@ -23,15 +23,18 @@
 #include <linux/clk.h>
 #include <linux/platform_device.h>
 #include <linux/module.h>
+#include <linux/input.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
+#include <sound/jack.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 
 #include <asm/mach-types.h>
 #include <mach/hardware.h>
 #include <mach/gpio.h>
-#include <plat/mcbsp.h>
+
+#include <linux/i2c/twl4030-madc.h>
 
 #include "omap-mcbsp.h"
 #include "omap-pcm.h"
@@ -136,6 +139,62 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	 */
 };
 
+static struct {
+	struct snd_soc_jack hs_jack;
+	struct delayed_work jack_work;
+	struct snd_soc_codec *codec;
+	int open;
+} jack;
+
+static void gta04_audio_jack_work(struct work_struct *work)
+{
+	long val;
+
+	val = twl4030_get_madc_conversion(7);
+	if (val < 100)
+		snd_soc_jack_report(&jack.hs_jack, 0, SND_JACK_HEADSET);
+	else
+		snd_soc_jack_report(&jack.hs_jack, SND_JACK_HEADSET,
+				     SND_JACK_HEADSET);
+	if (jack.open)
+		schedule_delayed_work(&jack.jack_work, msecs_to_jiffies(500));
+}
+
+static int gta04_audio_suspend(struct snd_soc_card *card)
+{
+	if (jack.codec) {
+		snd_soc_dapm_disable_pin(&jack.codec->dapm, "Headset Mic Bias");
+		snd_soc_dapm_sync(&jack.codec->dapm);
+	}
+	return 0;
+}
+
+static int gta04_audio_resume(struct snd_soc_card *card)
+{
+	if (jack.codec && jack.open) {
+		snd_soc_dapm_force_enable_pin(&jack.codec->dapm, "Headset Mic Bias");
+		snd_soc_dapm_sync(&jack.codec->dapm);
+	}
+	return 0;
+}
+
+static int gta04_jack_open(struct input_dev *dev)
+{
+	snd_soc_dapm_force_enable_pin(&jack.codec->dapm, "Headset Mic Bias");
+	snd_soc_dapm_sync(&jack.codec->dapm);
+	jack.open = 1;
+	schedule_delayed_work(&jack.jack_work, msecs_to_jiffies(100));
+	return 0;
+}
+
+static void gta04_jack_close(struct input_dev *dev)
+{
+	jack.open = 0;
+	cancel_delayed_work_sync(&jack.jack_work);
+	snd_soc_dapm_disable_pin(&jack.codec->dapm, "Headset Mic Bias");
+	snd_soc_dapm_sync(&jack.codec->dapm);
+}
+
 static int omap3gta04_init(struct snd_soc_pcm_runtime *runtime)
 {
 	int ret;
@@ -173,6 +232,18 @@ static int omap3gta04_init(struct snd_soc_pcm_runtime *runtime)
 	snd_soc_dapm_nc_pin(dapm, "DIGIMIC0");
 	snd_soc_dapm_nc_pin(dapm, "DIGIMIC1");
 
+	/* We can detect when something is plugged in,
+	 * but we need to poll :-(
+	 */
+	ret = snd_soc_jack_new(codec, "Headset Jack",
+			       SND_JACK_HEADSET, &jack.hs_jack);
+	if (ret)
+		return ret;
+	INIT_DELAYED_WORK(&jack.jack_work, gta04_audio_jack_work);
+	jack.codec = codec;
+	jack.hs_jack.jack->input_dev->open = gta04_jack_open;
+	jack.hs_jack.jack->input_dev->close = gta04_jack_close;
+
 	return snd_soc_dapm_sync(dapm);
 }
 
@@ -200,6 +271,8 @@ static struct snd_soc_card snd_soc_omap3gta04 = {
 	.owner = THIS_MODULE,
 	.dai_link = &omap3gta04_dai,
 	.num_links = 1,
+	.suspend_pre = gta04_audio_suspend,
+	.resume_post = gta04_audio_resume,
 };
 
 static struct platform_device *omap3gta04_snd_device;
