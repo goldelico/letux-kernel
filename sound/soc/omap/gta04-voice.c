@@ -56,26 +56,6 @@ static int gta04_voice_hw_params(struct snd_pcm_substream *substream,
 		return ret;
 	}
 
-#if 0	// for testing we switch to output - don't use on a board with GTM601 installed!!!
-	ret = snd_soc_dai_set_sysclk(cpu_dai, OMAP_MCBSP_SYSCLK_CLK, 26000000,
-								 SND_SOC_CLOCK_OUT);
-	// set divider...
-#else
-	ret = snd_soc_dai_set_sysclk(cpu_dai, OMAP_MCBSP_SYSCLK_CLKX_EXT, 0,
-								 SND_SOC_CLOCK_IN);
-	if(cpu_dai == 0) {
-		/*
-		 * could be necessary if we connect to McBSP1 - but we are on McBSP4
-		 * see http://mailman.alsa-project.org/pipermail/alsa-devel/2009-August/020771.html
-		 */
-		if(ret >= 0)
-			ret = snd_soc_dai_set_sysclk(cpu_dai, OMAP_MCBSP_CLKR_SRC_CLKX, 0,
-												SND_SOC_CLOCK_IN);
-		if(ret >= 0)
-			ret = snd_soc_dai_set_sysclk(cpu_dai, OMAP_MCBSP_FSR_SRC_FSX, 0,
-												SND_SOC_CLOCK_IN);
-	}
-#endif
 	if (ret < 0) {
 		printk(KERN_ERR "can't set cpu system clock\n");
 		return ret;
