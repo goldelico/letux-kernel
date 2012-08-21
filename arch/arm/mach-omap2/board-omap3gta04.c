@@ -293,6 +293,10 @@ static struct omap_dss_device gta04_lcd_device = {
 	.driver_name = "com37h3m05dtc_panel",
 #elif defined(CONFIG_PANEL_TPO_TD028TTEC1)
 	.driver_name = "td028ttec1_panel",
+#elif defined(CONFIG_PANEL_SHARP_LQ070Y3DG3B)
+	.driver_name = "lq070y3dg3b_panel",
+#elif defined(CONFIG_PANEL_SHARP_LQ050W1LC1B)
+	.driver_name = "lq050w1lc1b_panel",
 #endif
 	.phy.dpi.data_lines = 24,
 	.platform_enable = gta04_enable_lcd,
