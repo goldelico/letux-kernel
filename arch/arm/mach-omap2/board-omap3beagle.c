@@ -342,9 +342,16 @@ static int beagle_enable_lcd(struct omap_dss_device *dssdev)
 	printk("beagle_enable_lcd()\n");
 	// whatever we need, e.g. enable power
 	gpio_set_value(170, 0);	// DVI off
-#if defined(CONFIG_PANEL_TPO_TD028TTEC1)
+#if defined(CONFIG_PANEL_ORTUS_COM37H3M05DTC)
+
+#elif defined(CONFIG_PANEL_TPO_TD028TTEC1)
 	gpio_set_value(145, 1);	// enable backlight
 	gpio_set_value(79, 0);	// disable green power led
+	.driver_name = "td028ttec1_panel",
+#elif defined(CONFIG_PANEL_SHARP_LQ070Y3DG3B)
+
+#elif defined(CONFIG_PANEL_SHARP_LQ050W1LC1B)
+
 #endif
 	return 0;
 }
@@ -353,9 +360,15 @@ static void beagle_disable_lcd(struct omap_dss_device *dssdev)
 {
 	printk("beagle_disable_lcd()\n");
 	// whatever we need, e.g. disable power
-#if defined(CONFIG_PANEL_TPO_TD028TTEC1)
+#if defined(CONFIG_PANEL_ORTUS_COM37H3M05DTC)
+
+#elif defined(CONFIG_PANEL_TPO_TD028TTEC1)
 	gpio_set_value(145, 0);	// shut down backlight
 	gpio_set_value(79, 1);	// show green power led
+#elif defined(CONFIG_PANEL_SHARP_LQ070Y3DG3B)
+
+#elif defined(CONFIG_PANEL_SHARP_LQ050W1LC1B)
+
 #endif
 }
 
@@ -366,6 +379,10 @@ static struct omap_dss_device beagle_lcd_device = {
 	.driver_name = "com37h3m05dtc_panel",
 #elif defined(CONFIG_PANEL_TPO_TD028TTEC1)
 	.driver_name = "td028ttec1_panel",
+#elif defined(CONFIG_PANEL_SHARP_LQ070Y3DG3B)
+	.driver_name = "lq070y3dg3b_panel",
+#elif defined(CONFIG_PANEL_SHARP_LQ050W1LC1B)
+	.driver_name = "lq050w1lc1b_panel",
 #endif
 	.phy.dpi.data_lines = 24,
 	.platform_enable = beagle_enable_lcd,
@@ -1198,7 +1215,15 @@ static int __init expansionboard_setup(char *str)
 {
 	if (!str)
 		return -EINVAL;
+#if defined(CONFIG_PANEL_TPO_TD028TTEC1)
 	str="omb";
+#elif defined(CONFIG_PANEL_ORTUS_COM37H3M05DTC)
+	str="b2";
+#elif defined(CONFIG_PANEL_SHARP_LQ070Y3DG3B)
+	str="b3";
+#elif defined(CONFIG_PANEL_SHARP_LQ050W1LC1B)
+	str="b4";
+#endif
 	strncpy(expansionboard_name, str, 16);
 	printk(KERN_INFO "Beagle expansionboard: %s\n", expansionboard_name);
 	return 0;
@@ -1229,9 +1254,9 @@ static void __init omap3_beagle_init(void)
 	omap_set_gpio_debounce_time(KEYIRQ_GPIO, 0xa);
 	set_irq_type(OMAP_GPIO_IRQ(KEYIRQ_GPIO), IRQ_TYPE_EDGE_FALLING);
 #endif
+
 	if(!strcmp(expansionboard_name, "omb")) 
 		{
-		
 		//	omap_mux_init_gpio(170, OMAP_PIN_INPUT);
 		omap_mux_init_gpio(170, OMAP_PIN_OUTPUT);
 		gpio_request(170, "DVI_nPD");
@@ -1293,6 +1318,8 @@ static void __init omap3_beagle_init(void)
 		omap_mux_init_signal("mcbsp3_fsx.uart2_rx", OMAP_PIN_INPUT);	// gpio 143
 		}
 	
+// FIXME: handle b2 and b4
+
 	if(!strcmp(expansionboard_name, "zippy")) 
 	{
 		printk(KERN_INFO "Beagle expansionboard: initializing enc28j60\n");
