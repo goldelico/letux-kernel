@@ -281,12 +281,8 @@ static int omap3gta04_init(struct snd_soc_pcm_runtime *runtime)
 	 * but we need to poll :-(
 	 */
 	ret = snd_soc_jack_new(codec, "Headset Jack",
-<<<<<<< HEAD
 			       SND_JACK_HEADSET | SND_JACK_BTN_0,
 			       &jack.hs_jack);
-=======
-			       SND_JACK_HEADSET, &jack.hs_jack);
->>>>>>> GTA04: add simple headset-jack detection support.
 	if (ret)
 		return ret;
 	INIT_DELAYED_WORK(&jack.jack_work, gta04_audio_jack_work);
