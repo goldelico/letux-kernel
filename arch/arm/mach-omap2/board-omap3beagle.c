@@ -347,7 +347,6 @@ static int beagle_enable_lcd(struct omap_dss_device *dssdev)
 #elif defined(CONFIG_PANEL_TPO_TD028TTEC1)
 	gpio_set_value(145, 1);	// enable backlight
 	gpio_set_value(79, 0);	// disable green power led
-	.driver_name = "td028ttec1_panel",
 #elif defined(CONFIG_PANEL_SHARP_LQ070Y3DG3B)
 
 #elif defined(CONFIG_PANEL_SHARP_LQ050W1LC1B)

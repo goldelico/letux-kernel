@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32
-# Thu Jul 12 09:50:08 2012
+# Wed Aug 22 15:49:14 2012
 #
 CONFIG_ARM=y
 # CONFIG_HAVE_PWM is not set
@@ -1787,6 +1787,7 @@ CONFIG_DVB_LGS8GL5=m
 #
 # Graphics support
 #
+# CONFIG_SGX530 is not set
 # CONFIG_VGASTATE is not set
 # CONFIG_VIDEO_OUTPUT_CONTROL is not set
 CONFIG_FB=y
@@ -1847,7 +1848,8 @@ CONFIG_PANEL_GENERIC=y
 # CONFIG_PANEL_SHARP_LQ043T1DG01 is not set
 # CONFIG_PANEL_TAAL is not set
 # CONFIG_PANEL_TPO_TD028TTEC1 is not set
-# CONFIG_PANEL_ORTUS_COM37H3M05DTC=y
+# CONFIG_PANEL_ORTUS_COM37H3M05DTC is not set
+# CONFIG_PANEL_SHARP_LQ070Y3DG3B is not set
 CONFIG_PANEL_SHARP_LQ050W1LC1B=y
 # CONFIG_BACKLIGHT_LCD_SUPPORT is not set
 

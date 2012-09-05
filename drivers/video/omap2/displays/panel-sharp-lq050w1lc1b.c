@@ -27,7 +27,6 @@
 #include <linux/gpio.h>
 
 static struct omap_video_timings lq050w1lc1b_panel_timings = {
-#error FIXME
 	.x_res		= 1024,
 	.y_res		= 600,
 	.pixel_clock	= 48836,
@@ -41,10 +40,11 @@ static struct omap_video_timings lq050w1lc1b_panel_timings = {
 
 
 // FIXME: this should be passed from the board initialization structure or should be set by driver parameters
+// FIXME: different if connected to beagle board!
 
-#define GPIO_POWER 12			/* McBSP5-CLKX GTA04 controls 5V power for the display */
-#define GPIO_BLSHUTDOWN 19		/* McBSP5-FSX controls Backlight SHUTDOWN (shutdown if high) */
-#define GPIO_SHUTDOWN 20		/* McBSP5-DX controls LVDS SHUTDOWN (shutdown if low) */
+#define GPIO_POWER (machine_is_gta04()?12:162)			/* McBSP5-CLKX (GTA04) controls 5V power for the display */
+#define GPIO_BLSHUTDOWN (machine_is_gta04()?19:161)		/* McBSP5-FSX controls Backlight SHUTDOWN (shutdown if high) */
+#define GPIO_SHUTDOWN (machine_is_gta04()?20:158)		/* McBSP5-DX controls LVDS SHUTDOWN (shutdown if low) */
 
 static int lq050w1lc1b_panel_probe(struct omap_dss_device *dssdev)
 {

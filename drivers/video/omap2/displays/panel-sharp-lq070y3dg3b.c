@@ -41,7 +41,7 @@ static struct omap_video_timings lq070y3dg3b_panel_timings = {
 
 // FIXME: this should be passed from the board initialization structure or should be set by driver parameters
 
-#define GPIO_STBY 12		/* McBSP5-CLKX of GTA04 */
+#define GPIO_STBY (machine_is_gta04()?12:162)		/* McBSP5-CLKX of GTA04 */
 
 static int lq070y3dg3b_panel_probe(struct omap_dss_device *dssdev)
 {
