@@ -93,7 +93,9 @@ OMAP_ERROR OMAPLFBGetLibFuncAddr (char *szFunctionName, PFN_DC_GET_PVRJTABLE *pp
 }
 
 static void GetLcdManager(void){
-    lcd_mgr = omap_dss_get_overlay_manager(OMAP_DSS_OVL_MGR_LCD);
+	struct omap_overlay *ovl;
+	ovl = omap_dss_get_overlay(0);
+	lcd_mgr = omap_dss_get_overlay_manager(ovl->manager->id);
     if(!lcd_mgr)
     {
     	DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": GetLcdManager couldn't find lcd overlay manager\n"));
