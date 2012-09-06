@@ -48,7 +48,7 @@ struct _BUCKET_
 	IMG_UINTPTR_T v;
 
 	
-	IMG_UINTPTR_T k[];		 
+	IMG_UINTPTR_T k[];
 };
 typedef struct _BUCKET_ BUCKET;
 
@@ -141,7 +141,7 @@ _ChainInsert (HASH_TABLE *pHash, BUCKET *pBucket, BUCKET **ppBucketTable, IMG_UI
 		return PVRSRV_ERROR_INVALID_PARAMS;
 	}
 
-	uIndex = KEY_TO_INDEX(pHash, pBucket->k, uSize);	 
+	uIndex = KEY_TO_INDEX(pHash, pBucket->k, uSize);
 	pBucket->pNext = ppBucketTable[uIndex];
 	ppBucketTable[uIndex] = pBucket;
 
@@ -184,10 +184,9 @@ _Resize (HASH_TABLE *pHash, IMG_UINT32 uNewSize)
                   "HASH_Resize: oldsize=0x%x  newsize=0x%x  count=0x%x",
 				pHash->uSize, uNewSize, pHash->uCount));
 
-		OSAllocMem(PVRSRV_PAGEABLE_SELECT, 
+		OSAllocMem (PVRSRV_PAGEABLE_SELECT, 
                       sizeof (BUCKET *) * uNewSize, 
-                      (IMG_PVOID*)&ppNewTable, IMG_NULL,
-					  "Hash Table Buckets");
+                      (IMG_PVOID*)&ppNewTable, IMG_NULL);
 		if (ppNewTable == IMG_NULL)
             return IMG_FALSE;
         
@@ -199,8 +198,7 @@ _Resize (HASH_TABLE *pHash, IMG_UINT32 uNewSize)
 			return IMG_FALSE;
 		}
 
-        OSFreeMem (PVRSRV_PAGEABLE_SELECT, sizeof(BUCKET *)*pHash->uSize, pHash->ppBucketTable, IMG_NULL);
-        
+        OSFreeMem (PVRSRV_PAGEABLE_SELECT, 0, pHash->ppBucketTable, IMG_NULL);
         pHash->ppBucketTable = ppNewTable;
         pHash->uSize = uNewSize;
     }
@@ -217,8 +215,7 @@ HASH_TABLE * HASH_Create_Extended (IMG_UINT32 uInitialLen, IMG_SIZE_T uKeySize, 
 	
 	if(OSAllocMem(PVRSRV_PAGEABLE_SELECT, 
 					sizeof(HASH_TABLE), 
-					(IMG_VOID **)&pHash, IMG_NULL,
-					"Hash Table") != PVRSRV_OK)
+					(IMG_VOID **)&pHash, IMG_NULL) != PVRSRV_OK)
 	{
 		return IMG_NULL;
 	}
@@ -230,15 +227,13 @@ HASH_TABLE * HASH_Create_Extended (IMG_UINT32 uInitialLen, IMG_SIZE_T uKeySize, 
 	pHash->pfnHashFunc = pfnHashFunc;
 	pHash->pfnKeyComp = pfnKeyComp;
 
-	OSAllocMem(PVRSRV_PAGEABLE_SELECT, 
+	OSAllocMem (PVRSRV_PAGEABLE_SELECT, 
                   sizeof (BUCKET *) * pHash->uSize, 
-                  (IMG_PVOID*)&pHash->ppBucketTable, IMG_NULL,
-				  "Hash Table Buckets");	
+                  (IMG_PVOID*)&pHash->ppBucketTable, IMG_NULL);	
 
 	if (pHash->ppBucketTable == IMG_NULL)
     {
 		OSFreeMem(PVRSRV_PAGEABLE_SELECT, sizeof(HASH_TABLE), pHash, IMG_NULL);
-		
 		return IMG_NULL;
     }
 
@@ -261,15 +256,8 @@ HASH_Delete (HASH_TABLE *pHash)
 		PVR_DPF ((PVR_DBG_MESSAGE, "HASH_Delete"));
 		
 		PVR_ASSERT (pHash->uCount==0);
-		if(pHash->uCount != 0)
-		{
-			PVR_DPF ((PVR_DBG_ERROR, "HASH_Delete: leak detected in hash table!"));
-			PVR_DPF ((PVR_DBG_ERROR, "Likely Cause: client drivers not freeing alocations before destroying devmemcontext"));
-		}
-		OSFreeMem(PVRSRV_PAGEABLE_SELECT, sizeof(BUCKET *)*pHash->uSize, pHash->ppBucketTable, IMG_NULL);
-		pHash->ppBucketTable = IMG_NULL;
+		OSFreeMem(PVRSRV_PAGEABLE_SELECT, 0, pHash->ppBucketTable, IMG_NULL);
 		OSFreeMem(PVRSRV_PAGEABLE_SELECT, sizeof(HASH_TABLE), pHash, IMG_NULL);
-		
     }
 }
 
@@ -291,14 +279,12 @@ HASH_Insert_Extended (HASH_TABLE *pHash, IMG_VOID *pKey, IMG_UINTPTR_T v)
 	
 	if(OSAllocMem(PVRSRV_PAGEABLE_SELECT, 
 					sizeof(BUCKET) + pHash->uKeySize, 
-					(IMG_VOID **)&pBucket, IMG_NULL,
-					"Hash Table entry") != PVRSRV_OK)
+					(IMG_VOID **)&pBucket, IMG_NULL) != PVRSRV_OK)
 	{
 		return IMG_FALSE;
 	}
 
 	pBucket->v = v;
-	 
 	OSMemCopy(pBucket->k, pKey, pHash->uKeySize);
 	if (_ChainInsert (pHash, pBucket, pHash->ppBucketTable, pHash->uSize) != PVRSRV_OK)
 	{
@@ -334,13 +320,13 @@ HASH_Remove_Extended(HASH_TABLE *pHash, IMG_VOID *pKey)
 	BUCKET **ppBucket;
 	IMG_UINT32 uIndex;
 
-	PVR_DPF ((PVR_DBG_MESSAGE, "HASH_Remove_Extended: Hash=%08X, pKey=%08X", pHash, pKey));
+	PVR_DPF ((PVR_DBG_MESSAGE, "HASH_Remove: Hash=%08X, pKey=%08X", pHash, pKey));
 
 	PVR_ASSERT (pHash != IMG_NULL);
 	
 	if (pHash == IMG_NULL)
 	{
-		PVR_DPF((PVR_DBG_ERROR, "HASH_Remove_Extended: Null hash table"));
+		PVR_DPF((PVR_DBG_ERROR, "FreeResourceByPtr: invalid parameter"));
 		return 0;
 	}
 
@@ -348,7 +334,6 @@ HASH_Remove_Extended(HASH_TABLE *pHash, IMG_VOID *pKey)
   
 	for (ppBucket = &(pHash->ppBucketTable[uIndex]); *ppBucket != IMG_NULL; ppBucket = &((*ppBucket)->pNext))
 	{
-		 
 		if (KEY_COMPARE(pHash, (*ppBucket)->k, pKey))
 		{
 			BUCKET *pBucket = *ppBucket;
@@ -356,7 +341,6 @@ HASH_Remove_Extended(HASH_TABLE *pHash, IMG_VOID *pKey)
 			(*ppBucket) = pBucket->pNext;
 
 			OSFreeMem(PVRSRV_PAGEABLE_SELECT, sizeof(BUCKET) + pHash->uKeySize, pBucket, IMG_NULL);
-			
 
 			pHash->uCount--;
 
@@ -396,13 +380,13 @@ HASH_Retrieve_Extended (HASH_TABLE *pHash, IMG_VOID *pKey)
 	BUCKET **ppBucket;
 	IMG_UINT32 uIndex;
 
-	PVR_DPF ((PVR_DBG_MESSAGE, "HASH_Retrieve_Extended: Hash=%08X, pKey=%08X", pHash,pKey));
+	PVR_DPF ((PVR_DBG_MESSAGE, "HASH_Retrieve: Hash=%08X, pKey=%08X", pHash,pKey));
 
 	PVR_ASSERT (pHash != IMG_NULL);
 	
 	if (pHash == IMG_NULL)
 	{
-		PVR_DPF((PVR_DBG_ERROR, "HASH_Retrieve_Extended: Null hash table"));
+		PVR_DPF((PVR_DBG_ERROR, "HASH_Retrieve_Extended: invalid parameter"));
 		return 0;
 	}
 
@@ -410,7 +394,6 @@ HASH_Retrieve_Extended (HASH_TABLE *pHash, IMG_VOID *pKey)
   
 	for (ppBucket = &(pHash->ppBucketTable[uIndex]); *ppBucket != IMG_NULL; ppBucket = &((*ppBucket)->pNext))
 	{
-		 
 		if (KEY_COMPARE(pHash, (*ppBucket)->k, pKey))
 		{         
 			BUCKET *pBucket = *ppBucket;

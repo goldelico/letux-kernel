@@ -3,13 +3,13 @@ ccflags-y = -DLINUX -D__linux__ -Idrivers/gpu/pvr \
 	-Idrivers/gpu/pvr/include4 \
 	-Idrivers/gpu/pvr/services4/include \
 	-Idrivers/gpu/pvr/services4/system/include \
-	-Idrivers/gpu/pvr/services4/system/omap3 \
+	-Idrivers/gpu/pvr/services4/system/omap3630 \
 	-Idrivers/gpu/pvr/services4/srvkm/bridged \
 	-Idrivers/gpu/pvr/services4/srvkm/bridged/sgx \
 	-Idrivers/gpu/pvr/services4/srvkm/devices/sgx \
+	-Idrivers/gpu/pvr/services4/srvkm/env/linux \
 	-Idrivers/gpu/pvr/services4/srvkm/hwdefs \
 	-Idrivers/gpu/pvr/services4/srvkm/include \
-	-Idrivers/gpu/pvr/services4/srvkm/env/linux \
 	-DPVR_BUILD_DIR="\"omap_sgx_android\"" \
 	-DSGX_DYNAMIC_TIMING_INFO \
 	-DSYS_CUSTOM_POWERLOCK_WRAP \
@@ -24,7 +24,6 @@ ccflags-y = -DLINUX -D__linux__ -Idrivers/gpu/pvr \
 	-DSUPPORT_SGX_HWPERF \
 	-DSUPPORT_MEMINFO_IDS \
 	-DDISPLAY_CONTROLLER=omaplfb \
-	-DSYS_SGX_ACTIVE_POWER_LATENCY_MS=100 \
 	-DPVR_BUILD_DATE="" \
 	-DSUPPORT_SGX \
 	-DCLIENT_DRIVER_DEFAULT_WAIT_RETRIES=50 \
@@ -38,6 +37,7 @@ ccflags-y = -DLINUX -D__linux__ -Idrivers/gpu/pvr \
 
 # 	-DANDROID \  # we are NOT compiling on Android
 #		-DSUPPORT_ANDROID_PLATFORM \
+#	-DSYS_SGX_ACTIVE_POWER_LATENCY_MS=100 \
 
 #ccflags-$(CONFIG_SGX540) +=  -Idrivers/gpu/pvr/omap4  -Idrivers/gpu/pvr/sgx \
 #	-DNO_OMAP_TIMER \
@@ -115,19 +115,23 @@ pvr_common-y := \
 	services4/srvkm/common/mem.o \
 	services4/srvkm/common/pdump_common.o \
 	services4/srvkm/common/perproc.o \
-	services4/srvkm/common/lists.o \
-	services4/srvkm/common/mem_debug.o \
 	services4/srvkm/bridged/bridged_support.o \
 	services4/srvkm/bridged/bridged_pvr_bridge.o \
+#	services4/srvkm/common/lists.o \
+#	services4/srvkm/common/mem_debug.o \
 #	osfunc_common.o
 
 #pvr540-$(CONFIG_SGX540) := \
 #	omap4/sysconfig.o \
 #	omap4/sysutils.o
 
-pvr530-$(CONFIG_SGX530) := \
-	services4/system/omap3/sysconfig.o \
-	services4/system/omap3/sysutils.o
+pvr530-$(CONFIG_SGX_REV121) := \
+	services4/system/omap3430/sysconfig.o \
+	services4/system/omap3430/sysutils.o
+
+pvr530-$(CONFIG_SGX_REV125) := \
+	services4/system/omap3630/sysconfig.o \
+	services4/system/omap3630/sysutils.o
 
 sgx-y :=  \
 	services4/srvkm/bridged/sgx/bridged_sgx_bridge.o \
@@ -144,11 +148,12 @@ sgx-y :=  \
 #	display/omap_sgx_displayclass.o \
 #	display/omap_display.o
 
-omaplfb-y := \
-	services4/3rdparty/dc_omap3_linux/omaplfb_displayclass.o \
-	services4/3rdparty/dc_omap3_linux/omaplfb_linux.o
+#omaplfb-y := \
+#	services4/3rdparty/dc_omap3_linux/omaplfb_displayclass.o \
+#	services4/3rdparty/dc_omap3_linux/omaplfb_linux.o
 
 #obj-$(CONFIG_SGX540) := pvr_common.o sgx.o omaplfb.o pvr540.o
-obj-$(CONFIG_SGX530) := pvr_common.o sgx.o omaplfb.o pvr530.o
+obj-$(CONFIG_SGX530) := pvr_common.o sgx.o pvr530.o
+#obj-$(CONFIG_SGX530) := pvr_common.o sgx.o omaplfb.o pvr530.o
 #obj-$(CONFIG_VIRTUAL_DISPLAY_SUPPORT) := pvr_common.o sgx.o \
 #	sgx_displayclass.o pvr540.o

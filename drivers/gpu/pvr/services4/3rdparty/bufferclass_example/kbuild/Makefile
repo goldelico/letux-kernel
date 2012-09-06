@@ -26,18 +26,17 @@
 
 include $(EURASIAROOT)/eurasiacon/build/linux/kbuild/Makefile.kbuild_subdir_common
 
-MODULE		= omaplfb
+MODULE		= bc_example
 
 INCLUDES = 	-I$(EURASIAROOT)/include4 \
 		-I$(EURASIAROOT)/services4/include \
 		-I$(EURASIAROOT)/services4/system/$(PVR_SYSTEM) \
 		-I$(EURASIAROOT)/services4/system/include \
 
-SOURCES	=	../omaplfb_displayclass.c \
-			../omaplfb_linux.c
+SOURCES =	../bufferclass_example.c \
+			../bufferclass_example_linux.c \
+			../bufferclass_example_private.c
 
 SYM_VERS_DEPS = $(EURASIAROOT)/services4/srvkm/env/linux
-
-
 
 

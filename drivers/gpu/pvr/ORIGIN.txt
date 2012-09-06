@@ -1,1 +1,5 @@
-imported from OMAP35x_Android_Graphics_SDK_setuplinux_3_01_00_03.bin found at http://gitorious.org/rowboat/ti_android_sgx_sdk/trees/master
+imported manually
+
+as OMAP35x_Graphics_SDK_setuplinux_3_01_00_06.bin
+through 'Graphics SDK v3.01.00.06 Link' 
+found at http://software-dl.ti.com/dsps/dsps_public_sw/sdo_sb/targetcontent/dvsdk/DVSDK_3_00/latest/index_FDS.html

@@ -24,40 +24,21 @@
  *
  ******************************************************************************/
 
-#if !defined(__SOCCONFIG_H__)
-#define __SOCCONFIG_H__
+#ifndef _SGXCORETYPES_KM_H_
+#define _SGXCORETYPES_KM_H_
 
-#include "syscommon.h"
+typedef enum
+{
+	SGX_CORE_ID_INVALID = 0,
+	SGX_CORE_ID_530	= 2,
+	SGX_CORE_ID_535 = 3,
+} SGX_CORE_ID_TYPE;
 
-#define VS_PRODUCT_NAME	"OMAP3"
+typedef struct _SGX_CORE_INFO
+{
+	SGX_CORE_ID_TYPE	eID;
+	IMG_UINT32			uiRev;
+} SGX_CORE_INFO, *PSGX_CORE_INFO;
 
-#if defined(SGX530) && (SGX_CORE_REV == 125)
-#define SYS_SGX_CLOCK_SPEED		200000000
-#else
-#define SYS_SGX_CLOCK_SPEED		110666666
-#endif
+#endif 
 
-#define SYS_SGX_HWRECOVERY_TIMEOUT_FREQ		(100)	
-#define SYS_SGX_PDS_TIMER_FREQ				(1000)	
-
-#if !defined(SYS_SGX_ACTIVE_POWER_LATENCY_MS)
-#define SYS_SGX_ACTIVE_POWER_LATENCY_MS		(1)
-#endif
-
-
-#define SYS_OMAP3430_SGX_REGS_SYS_PHYS_BASE  0x50000000
-
-#if defined(SGX530) && (SGX_CORE_REV == 125)
-#define SYS_OMAP3430_SGX_REGS_SIZE           0x10000
-#else
-#define SYS_OMAP3430_SGX_REGS_SIZE           0x4000
-#endif
-
-#define SYS_OMAP3430_SGX_IRQ				 21
-
-#define SYS_OMAP3430_GP11TIMER_ENABLE_SYS_PHYS_BASE  0x48088024
-#define SYS_OMAP3430_GP11TIMER_REGS_SYS_PHYS_BASE	 0x48088028
-#define SYS_OMAP3430_GP11TIMER_TSICR_SYS_PHYS_BASE	 0x48088040
-
- 
-#endif	

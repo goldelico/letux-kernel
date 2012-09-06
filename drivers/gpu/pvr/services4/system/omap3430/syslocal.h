@@ -92,7 +92,7 @@ typedef struct _SYS_SPECIFIC_DATA_TAG_
 	IMG_BOOL	bSysClocksOneTimeInit;
 	IMG_BOOL	bConstraintNotificationsEnabled;
 	atomic_t	sSGXClocksEnabled;
-	struct mutex	sPowerLock;
+	spinlock_t	sPowerLock;
 	atomic_t	sPowerLockCPU;
 	spinlock_t	sNotifyLock;
 	atomic_t	sNotifyLockCPU;
@@ -102,7 +102,7 @@ typedef struct _SYS_SPECIFIC_DATA_TAG_
 	struct clk	*psSGX_FCK;
 	struct clk	*psSGX_ICK;
 	struct clk	*psMPU_CK;
-#if defined(DEBUG_PVR) || defined(TIMING)
+#if defined(DEBUG) || defined(TIMING)
 	struct clk	*psGPT11_FCK;
 	struct clk	*psGPT11_ICK;
 #endif

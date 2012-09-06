@@ -24,12 +24,24 @@
  *
  ******************************************************************************/
 
-#if !defined(__SYSINFO_H__)
-#define __SYSINFO_H__
+#ifndef __BC_EXAMPLE_LINUX_H__
+#define __BC_EXAMPLE_LINUX_H__
 
-#define MAX_HW_TIME_US				(500000)
-#define WAIT_TRY_COUNT				(10000)
+#include <linux/ioctl.h>
 
-#define SYS_DEVICE_COUNT 3 
+typedef struct BC_Example_ioctl_package_TAG
+{
+	int inputparam;
+	int outputparam;
 
-#endif	
+}BC_Example_ioctl_package;
+
+#define BC_EXAMPLE_IOC_GID      'g'
+
+#define BC_EXAMPLE_IOWR(INDEX)  _IOWR(BC_EXAMPLE_IOC_GID, INDEX, BC_Example_ioctl_package)
+
+#define BC_Example_ioctl_fill_buffer		BC_EXAMPLE_IOWR(0)
+#define BC_Example_ioctl_get_buffer_count	BC_EXAMPLE_IOWR(1)
+
+#endif 
+

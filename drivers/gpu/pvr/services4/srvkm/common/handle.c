@@ -30,7 +30,7 @@
 #include "services_headers.h"
 #include "handle.h"
 
-#ifdef	DEBUG_PVR
+#ifdef	DEBUG
 #define	HANDLE_BLOCK_SIZE	1
 #else
 #define	HANDLE_BLOCK_SIZE	256
@@ -49,7 +49,7 @@
 #define INDEX_TO_HANDLE_PTR(psBase, i) (((psBase)->psHandleArray) + (i))
 #define	HANDLE_TO_HANDLE_PTR(psBase, h) (INDEX_TO_HANDLE_PTR(psBase, HANDLE_TO_INDEX(psBase, h)))
 
-#define	HANDLE_PTR_TO_INDEX(psBase, psHandle) (IMG_UINT32)((psHandle) - ((psBase)->psHandleArray))
+#define	HANDLE_PTR_TO_INDEX(psBase, psHandle) ((psHandle) - ((psBase)->psHandleArray))
 #define	HANDLE_PTR_TO_HANDLE(psBase, psHandle) \
 	INDEX_TO_HANDLE(psBase, HANDLE_PTR_TO_INDEX(psBase, psHandle))
 
@@ -223,7 +223,7 @@ IMG_BOOL HandleListIsEmpty(IMG_UINT32 ui32Index, struct sHandleList *psList)
 
 	bIsEmpty = (IMG_BOOL)(psList->ui32Next == ui32Index);
 
-#ifdef	DEBUG_PVR
+#ifdef	DEBUG
 	{
 		IMG_BOOL bIsEmpty2;
 
@@ -235,7 +235,7 @@ IMG_BOOL HandleListIsEmpty(IMG_UINT32 ui32Index, struct sHandleList *psList)
 	return bIsEmpty;
 }
 
-#ifdef DEBUG_PVR
+#ifdef DEBUG
 #ifdef INLINE_IS_PRAGMA
 #pragma inline(NoChildren)
 #endif
@@ -284,7 +284,6 @@ IMG_HANDLE ParentHandle(struct sHandle *psHandle)
 static INLINE
 IMG_VOID HandleListInsertBefore(PVRSRV_HANDLE_BASE *psBase, IMG_UINT32 ui32InsIndex, struct sHandleList *psIns, IMG_SIZE_T uiParentOffset, IMG_UINT32 ui32EntryIndex, struct sHandleList *psEntry, IMG_SIZE_T uiEntryOffset, IMG_UINT32 ui32ParentIndex)
 {
-	 
 	struct sHandleList *psPrevIns = LIST_PTR_FROM_INDEX_AND_OFFSET(psBase, psIns->ui32Prev, ui32ParentIndex, uiParentOffset, uiEntryOffset);
 
 	PVR_ASSERT(psEntry->hParent == IMG_NULL);
@@ -307,7 +306,7 @@ IMG_VOID AdoptChild(PVRSRV_HANDLE_BASE *psBase, struct sHandle *psParent, struct
 {
 	IMG_UINT32 ui32Parent = HANDLE_TO_INDEX(psBase, psParent->sChildren.hParent);
 
-	PVR_ASSERT(ui32Parent == HANDLE_PTR_TO_INDEX(psBase, psParent));
+	PVR_ASSERT(ui32Parent == (IMG_UINT32)HANDLE_PTR_TO_INDEX(psBase, psParent));
 
 	HandleListInsertBefore(psBase, ui32Parent, &psParent->sChildren, offsetof(struct sHandle, sChildren), HANDLE_PTR_TO_INDEX(psBase, psChild), &psChild->sSiblings, offsetof(struct sHandle, sSiblings), ui32Parent);
 
@@ -321,7 +320,6 @@ IMG_VOID HandleListRemove(PVRSRV_HANDLE_BASE *psBase, IMG_UINT32 ui32EntryIndex,
 {
 	if (!HandleListIsEmpty(ui32EntryIndex, psEntry))
 	{
-		 
 		struct sHandleList *psPrev = LIST_PTR_FROM_INDEX_AND_OFFSET(psBase, psEntry->ui32Prev, HANDLE_TO_INDEX(psBase, psEntry->hParent), uiParentOffset, uiEntryOffset);
 		struct sHandleList *psNext = LIST_PTR_FROM_INDEX_AND_OFFSET(psBase, psEntry->ui32Next, HANDLE_TO_INDEX(psBase, psEntry->hParent), uiParentOffset, uiEntryOffset);
 
@@ -359,7 +357,6 @@ PVRSRV_ERROR HandleListIterate(PVRSRV_HANDLE_BASE *psBase, struct sHandleList *p
 	for(ui32Index = psHead->ui32Next; ui32Index != ui32Parent; )
 	{
 		struct sHandle *psHandle = INDEX_TO_HANDLE_PTR(psBase, ui32Index);
-		 
 		struct sHandleList *psEntry = LIST_PTR_FROM_INDEX_AND_OFFSET(psBase, ui32Index, ui32Parent, uiParentOffset, uiEntryOffset);
 		PVRSRV_ERROR eError;
 
@@ -504,7 +501,6 @@ static PVRSRV_ERROR FreeHandle(PVRSRV_HANDLE_BASE *psBase, struct sHandle *psHan
 
 	if (BATCHED_HANDLE(psHandle) && !BATCHED_HANDLE_PARTIALLY_FREE(psHandle))
 	{
-		 
 		SET_BATCHED_HANDLE_PARTIALLY_FREE(psHandle);
 		
 		return PVRSRV_OK;
@@ -655,8 +651,7 @@ static PVRSRV_ERROR ReallocMem(IMG_PVOID *ppvMem, IMG_HANDLE *phBlockAlloc, IMG_
 		eError = OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 			ui32NewSize,
 			&pvNewMem,
-			&hNewBlockAlloc,
-			"Memory Area");
+			&hNewBlockAlloc);
 		if (eError != PVRSRV_OK)
 		{
 			PVR_DPF((PVR_DBG_ERROR, "ReallocMem: Couldn't allocate new memory area (%d)", eError));
@@ -901,14 +896,10 @@ static PVRSRV_ERROR AllocHandle(PVRSRV_HANDLE_BASE *psBase, IMG_HANDLE *phHandle
 	psNewHandle->ui32Index = ui32NewIndex;
 
 	InitParentList(psBase, psNewHandle);
-#if defined(DEBUG_PVR)
 	PVR_ASSERT(NoChildren(psBase, psNewHandle));
-#endif
 
 	InitChildEntry(psBase, psNewHandle);
-#if defined(DEBUG_PVR)
 	PVR_ASSERT(NoParent(psBase, psNewHandle));
-#endif
 
 	if (HANDLES_BATCHED(psBase))
 	{
@@ -917,7 +908,6 @@ static PVRSRV_ERROR AllocHandle(PVRSRV_HANDLE_BASE *psBase, IMG_HANDLE *phHandle
 
 		psBase->ui32FirstBatchIndexPlusOne = ui32NewIndex + 1;
 
-		 
 		SET_BATCHED_HANDLE(psNewHandle);
 	}
 	else
@@ -1287,7 +1277,7 @@ static PVRSRV_ERROR PVRSRVHandleBatchCommitOrRelease(PVRSRV_HANDLE_BASE *psBase,
 			
 			if (!BATCHED_HANDLE_PARTIALLY_FREE(psHandle))
 			{
-				SET_UNBATCHED_HANDLE(psHandle);  
+				SET_UNBATCHED_HANDLE(psHandle);
 			}
 
 			eError = FreeHandle(psBase, psHandle);
@@ -1299,13 +1289,13 @@ static PVRSRV_ERROR PVRSRVHandleBatchCommitOrRelease(PVRSRV_HANDLE_BASE *psBase,
 		}
 		else
 		{
-			SET_UNBATCHED_HANDLE(psHandle);  
+			SET_UNBATCHED_HANDLE(psHandle);
 		}
 
 		ui32IndexPlusOne = ui32NextIndexPlusOne;
 	}
 
-#ifdef DEBUG_PVR
+#ifdef DEBUG
 	if (psBase->ui32TotalHandCountPreBatch != psBase->ui32TotalHandCount)
 	{
 		IMG_UINT32 ui32Delta = psBase->ui32TotalHandCount - psBase->ui32TotalHandCountPreBatch;
@@ -1351,7 +1341,7 @@ PVRSRV_ERROR PVRSRVSetMaxHandle(PVRSRV_HANDLE_BASE *psBase, IMG_UINT32 ui32MaxHa
 	}
 
 	
-	if (ui32MaxHandle == 0 || ui32MaxHandle >= DEFAULT_MAX_HANDLE)
+	if (ui32MaxHandle == 0 || ui32MaxHandle > DEFAULT_MAX_HANDLE)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "PVRSRVSetMaxHandle: Limit must be between %u and %u, inclusive", 0, DEFAULT_MAX_HANDLE));
 
@@ -1456,8 +1446,7 @@ PVRSRV_ERROR PVRSRVAllocHandleBase(PVRSRV_HANDLE_BASE **ppsBase)
 	eError = OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 		sizeof(*psBase),
 		(IMG_PVOID *)&psBase,
-		&hBlockAlloc,
-		"Handle Base");
+		&hBlockAlloc);
 	if (eError != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "PVRSRVAllocHandleBase: Couldn't allocate handle base (%d)", eError));

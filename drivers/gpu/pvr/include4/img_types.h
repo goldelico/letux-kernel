@@ -27,14 +27,6 @@
 #ifndef __IMG_TYPES_H__
 #define __IMG_TYPES_H__
 
-#if !defined(IMG_ADDRSPACE_CPUVADDR_BITS)
-#define IMG_ADDRSPACE_CPUVADDR_BITS		32
-#endif
-
-#if !defined(IMG_ADDRSPACE_PHYSADDR_BITS)
-#define IMG_ADDRSPACE_PHYSADDR_BITS		32
-#endif
-
 typedef unsigned int	IMG_UINT,	*IMG_PUINT;
 typedef signed int		IMG_INT,	*IMG_PINT;
 
@@ -49,7 +41,7 @@ typedef unsigned long	IMG_UINT32,	*IMG_PUINT32;
 typedef signed long		IMG_INT32,	*IMG_PINT32;
 
 #if !defined(IMG_UINT32_MAX)
-	#define IMG_UINT32_MAX 0xFFFFFFFFUL
+      #define IMG_UINT32_MAX 0xFFFFFFFFUL
 #endif
 
 	#if (defined(LINUX) || defined(__METAG))
@@ -85,43 +77,41 @@ typedef IMG_PVOID       IMG_HANDLE;
 
 typedef void**          IMG_HVOID,	* IMG_PHVOID;
 
-typedef IMG_UINT32		IMG_SIZE_T;
+typedef IMG_UINT32      IMG_SIZE_T;
 
 #define IMG_NULL        0
 
 
 typedef IMG_PVOID IMG_CPU_VIRTADDR;
 
-typedef struct 
-{
-	
-	IMG_UINT32 uiAddr;
-#define IMG_CAST_TO_DEVVADDR_UINT(var)		(IMG_UINT32)(var)
-	
-} IMG_DEV_VIRTADDR;
+typedef struct {IMG_UINT32 uiAddr;} IMG_CPU_PHYADDR;
 
-typedef struct _IMG_CPU_PHYADDR
-{
-	
-	IMG_UINTPTR_T uiAddr;
-} IMG_CPU_PHYADDR;
+typedef struct {IMG_UINT32 uiAddr;} IMG_DEV_VIRTADDR;
 
-typedef struct _IMG_DEV_PHYADDR
-{
-#if IMG_ADDRSPACE_PHYSADDR_BITS == 32
-	
-	IMG_UINTPTR_T uiAddr;
-#else
-	IMG_UINT32 uiAddr;
-	IMG_UINT32 uiHighAddr;
-#endif
-} IMG_DEV_PHYADDR;
+typedef struct {IMG_UINT32 uiAddr;} IMG_DEV_PHYADDR;
 
-typedef struct _IMG_SYS_PHYADDR
+typedef struct {IMG_UINT32 uiAddr;} IMG_SYS_PHYADDR;
+
+typedef struct _SYSTEM_ADDR_
 {
 	
-	IMG_UINTPTR_T uiAddr;
-} IMG_SYS_PHYADDR;
+	IMG_UINT32	ui32PageCount;
+	union
+	{
+		
+
+
+		IMG_SYS_PHYADDR	sContig;		
+
+		
+
+
+
+
+
+		IMG_SYS_PHYADDR	asNonContig[1];
+	} u;
+} SYSTEM_ADDR;
 
 #include "img_defs.h"
 

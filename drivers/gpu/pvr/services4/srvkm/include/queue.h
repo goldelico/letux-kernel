@@ -44,11 +44,9 @@ extern "C" {
 	IMG_UINT32			ui32SrcSyncCount;	
 	PVRSRV_SYNC_OBJECT	*psDstSync;			
 	PVRSRV_SYNC_OBJECT	*psSrcSync;			
-	IMG_UINT32			ui32AllocSize;		
  }COMMAND_COMPLETE_DATA, *PCOMMAND_COMPLETE_DATA;
 
 #if !defined(USE_CODE)
-IMG_VOID QueueDumpDebugInfo(IMG_VOID);
 
 IMG_IMPORT
 PVRSRV_ERROR PVRSRVProcessQueues (IMG_UINT32	ui32CallerID,
@@ -56,20 +54,13 @@ PVRSRV_ERROR PVRSRVProcessQueues (IMG_UINT32	ui32CallerID,
 
 #if defined(__linux__) && defined(__KERNEL__) 
 #include <linux/types.h>
-#include <linux/seq_file.h>
 off_t
 QueuePrintQueues (IMG_CHAR * buffer, size_t size, off_t off);
-
-#ifdef PVR_PROC_USE_SEQ_FILE
-void* ProcSeqOff2ElementQueue(struct seq_file * sfile, loff_t off);
-void ProcSeqShowQueue(struct seq_file *sfile,void* el);
-#endif
-
 #endif
 
 
 IMG_IMPORT
-PVRSRV_ERROR IMG_CALLCONV PVRSRVCreateCommandQueueKM(IMG_SIZE_T ui32QueueSize,
+PVRSRV_ERROR IMG_CALLCONV PVRSRVCreateCommandQueueKM(IMG_UINT32 ui32QueueSize,
 													 PVRSRV_QUEUE_INFO **ppsQueueInfo);
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVDestroyCommandQueueKM(PVRSRV_QUEUE_INFO *psQueueInfo);
@@ -83,11 +74,11 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVInsertCommandKM(PVRSRV_QUEUE_INFO	*psQueue,
 												PVRSRV_KERNEL_SYNC_INFO	*apsDstSync[],
 												IMG_UINT32			ui32SrcSyncCount,
 												PVRSRV_KERNEL_SYNC_INFO	*apsSrcSync[],
-												IMG_SIZE_T			ui32DataByteSize );
+												IMG_UINT32			ui32DataByteSize );
 
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVGetQueueSpaceKM(PVRSRV_QUEUE_INFO *psQueue,
-												IMG_SIZE_T ui32ParamSize,
+												IMG_UINT32 ui32ParamSize,
 												IMG_VOID **ppvSpace);
 
 IMG_IMPORT

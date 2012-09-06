@@ -27,9 +27,6 @@
 #ifndef _SGXDEFS_H_
 #define	_SGXDEFS_H_
 
-#include "sgxerrata.h"
-#include "sgxfeaturedefs.h"
-
 #if defined(SGX520)
 #include "sgx520defs.h"
 #else
@@ -67,16 +64,11 @@
 #endif
 
 #if defined(SGX_FEATURE_MP)
-#if defined(SGX541)
-#if SGX_CORE_REV == 100
-#include "sgx541_100mpdefs.h"
-#else
-#include "sgx541mpdefs.h"
-#endif 
-#else
 #include "sgxmpdefs.h"
 #endif 
-#endif 
+
+#include "sgxerrata.h"
+#include "sgxfeaturedefs.h"
 
 #endif 
 

@@ -68,21 +68,20 @@ PVRSRV_ERROR SGXGetClientInfoKM(IMG_HANDLE				hDevCookie,
 IMG_IMPORT
 PVRSRV_ERROR SGXGetMiscInfoKM(PVRSRV_SGXDEV_INFO	*psDevInfo,
 							  SGX_MISC_INFO			*psMiscInfo,
-							  PVRSRV_DEVICE_NODE 	*psDeviceNode,
-							  IMG_HANDLE 			 hDevMemContext);
+							  PVRSRV_DEVICE_NODE 	*psDeviceNode);
 
 #if defined(SUPPORT_SGX_HWPERF)
 IMG_IMPORT
-PVRSRV_ERROR SGXReadDiffCountersKM(IMG_HANDLE				hDevHandle,
-								   IMG_UINT32				ui32Reg,
-								   IMG_UINT32				*pui32Old,
-								   IMG_BOOL					bNew,
-								   IMG_UINT32				ui32New,
-								   IMG_UINT32				ui32NewReset,
-								   IMG_UINT32				ui32CountersReg,
-								   IMG_UINT32				ui32Reg2,
-								   IMG_BOOL					*pbActive,
-								   PVRSRV_SGXDEV_DIFF_INFO	*psDiffs);
+PVRSRV_ERROR SGXReadDiffCountersKM(IMG_HANDLE					hDevHandle,
+									 IMG_UINT32					ui32Reg,
+									 IMG_UINT32					*pui32Old,
+									 IMG_BOOL					bNew,
+									 IMG_UINT32					ui32New,
+									 IMG_UINT32					ui32NewReset,
+									 IMG_UINT32					ui32CountersReg,
+									 IMG_UINT32					*pui32Time,
+									 IMG_BOOL					*pbActive,
+									 PVRSRV_SGXDEV_DIFF_INFO	*psDiffs);
 IMG_IMPORT
 PVRSRV_ERROR SGXReadHWPerfCBKM(IMG_HANDLE					hDevHandle,
 							   IMG_UINT32					ui32ArraySize,
@@ -115,7 +114,6 @@ SGXFindSharedPBDescKM(PVRSRV_PER_PROCESS_DATA	*psPerProc,
 					  PVRSRV_KERNEL_MEM_INFO	**ppsSharedPBDescKernelMemInfo,
 					  PVRSRV_KERNEL_MEM_INFO	**ppsHWPBDescKernelMemInfo,
 					  PVRSRV_KERNEL_MEM_INFO	**ppsBlockKernelMemInfo,
-					  PVRSRV_KERNEL_MEM_INFO	**ppsHWBlockKernelMemInfo,
 					  PVRSRV_KERNEL_MEM_INFO	***pppsSharedPBDescSubKernelMemInfos,
 					  IMG_UINT32				*ui32SharedPBDescSubKernelMemInfosCount);
 
@@ -128,7 +126,6 @@ SGXAddSharedPBDescKM(PVRSRV_PER_PROCESS_DATA	*psPerProc,
 					 PVRSRV_KERNEL_MEM_INFO		*psSharedPBDescKernelMemInfo,
 					 PVRSRV_KERNEL_MEM_INFO		*psHWPBDescKernelMemInfo,
 					 PVRSRV_KERNEL_MEM_INFO		*psBlockKernelMemInfo,
-					 PVRSRV_KERNEL_MEM_INFO		*psHWBlockKernelMemInfo,
 					 IMG_UINT32					ui32TotalPBSize,
 					 IMG_HANDLE					*phSharedPBDesc,
 					 PVRSRV_KERNEL_MEM_INFO		**psSharedPBDescSubKernelMemInfos,

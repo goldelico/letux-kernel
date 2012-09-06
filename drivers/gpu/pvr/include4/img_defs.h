@@ -49,9 +49,7 @@ typedef		enum	img_tag_TriStateSwitch
 	#define INLINE					inline
 	#define	FORCE_INLINE			inline
 #else
-#if	!defined(INLINE)
 	#define	INLINE					__inline
-#endif
 	#define	FORCE_INLINE			static __inline
 #endif
 #endif
@@ -102,7 +100,5 @@ typedef char				TCHAR, *PTCHAR, *PTSTR;
 #endif
 
 #define IMG_CONST const
-
-#define IMG_FORMAT_PRINTF(x,y)
 
 #endif 

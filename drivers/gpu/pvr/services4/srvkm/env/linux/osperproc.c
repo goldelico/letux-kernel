@@ -30,8 +30,6 @@
 #include "env_perproc.h"
 #include "proc.h"
 
-extern IMG_UINT32 gui32ReleasePID;
-
 PVRSRV_ERROR OSPerProcessPrivateDataInit(IMG_HANDLE *phOsPrivateData)
 {
 	PVRSRV_ERROR eError;
@@ -41,8 +39,7 @@ PVRSRV_ERROR OSPerProcessPrivateDataInit(IMG_HANDLE *phOsPrivateData)
 	eError = OSAllocMem(PVRSRV_OS_NON_PAGEABLE_HEAP,
 				sizeof(PVRSRV_ENV_PER_PROCESS_DATA),
 				phOsPrivateData,
-				&hBlockAlloc,
-				"Environment per Process Data");
+				&hBlockAlloc);
 
 	if (eError != PVRSRV_OK)
 	{
@@ -85,8 +82,6 @@ PVRSRV_ERROR OSPerProcessPrivateDataDeInit(IMG_HANDLE hOsPrivateData)
 				sizeof(PVRSRV_ENV_PER_PROCESS_DATA),
 				hOsPrivateData,
 				psEnvPerProc->hBlockAlloc);
-	
-
 	if (eError != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "%s: OSFreeMem failed (%d)", __FUNCTION__, eError));
@@ -100,9 +95,3 @@ PVRSRV_ERROR OSPerProcessSetHandleOptions(PVRSRV_HANDLE_BASE *psHandleBase)
 	return LinuxMMapPerProcessHandleOptions(psHandleBase);
 }
 
-IMG_HANDLE LinuxTerminatingProcessPrivateData(IMG_VOID)
-{
-	if(!gui32ReleasePID)
-		return NULL;
-	return PVRSRVPerProcessPrivateData(gui32ReleasePID);
-}

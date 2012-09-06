@@ -29,33 +29,52 @@
 #include "sgxdefs.h"
 #include "services_headers.h"
 #include "sgxapi_km.h"
-#include "sgx_mkif_km.h"
+#include "sgxinfokm.h"
 #include "sgxutils.h"
 #include "pdump_km.h"
 
 
-#if defined(SUPPORT_HW_RECOVERY)
-static PVRSRV_ERROR SGXAddTimer(PVRSRV_DEVICE_NODE		*psDeviceNode,
-								SGX_TIMING_INFORMATION	*psSGXTimingInfo,
-								IMG_HANDLE				*phTimer)
+typedef enum _PVR_DEVICE_POWER_STATE_
 {
 	
+	PVR_DEVICE_POWER_STATE_ON		= 0,
+	PVR_DEVICE_POWER_STATE_IDLE		= 1,
+	PVR_DEVICE_POWER_STATE_OFF		= 2,
+
+	PVR_DEVICE_POWER_STATE_FORCE_I32 = 0x7fffffff
+
+} PVR_DEVICE_POWER_STATE, *PPVR_DEVICE_POWER_STATE;	
 
 
-	*phTimer = OSAddTimer(SGXOSTimer, psDeviceNode,
-						  1000 * 50 / psSGXTimingInfo->ui32uKernelFreq);
-	if(*phTimer == IMG_NULL)
+static PVR_DEVICE_POWER_STATE MapDevicePowerState(PVR_POWER_STATE	ePowerState)
+{
+	PVR_DEVICE_POWER_STATE eDevicePowerState;
+	
+	switch (ePowerState)
 	{
-		PVR_DPF((PVR_DBG_ERROR,"SGXAddTimer : Failed to register timer callback function"));
-		return PVRSRV_ERROR_OUT_OF_MEMORY;
+		case PVRSRV_POWER_STATE_D0:
+		{
+			eDevicePowerState = PVR_DEVICE_POWER_STATE_ON;
+			break;
+		}
+		case PVRSRV_POWER_STATE_D3:
+		{
+			eDevicePowerState = PVR_DEVICE_POWER_STATE_OFF;
+			break;
+		}
+		default:
+		{
+			PVR_DPF((PVR_DBG_ERROR,"MapDevicePowerState: Invalid state: %ld", ePowerState));
+			eDevicePowerState = PVR_DEVICE_POWER_STATE_FORCE_I32;
+			PVR_DBG_BREAK;
+		}
 	}
 
-	return PVRSRV_OK;
+	return eDevicePowerState;
 }
-#endif 
 
 
-static PVRSRV_ERROR SGXUpdateTimingInfo(PVRSRV_DEVICE_NODE	*psDeviceNode)
+static IMG_VOID SGXGetTimingInfo(PVRSRV_DEVICE_NODE	*psDeviceNode)
 {
 	PVRSRV_SGXDEV_INFO	*psDevInfo = psDeviceNode->pvDevice;
 #if defined(SGX_DYNAMIC_TIMING_INFO)
@@ -88,30 +107,25 @@ static PVRSRV_ERROR SGXUpdateTimingInfo(PVRSRV_DEVICE_NODE	*psDeviceNode)
 			{
 				
 
-				IMG_HANDLE hNewTimer;
-				
-				eError = SGXAddTimer(psDeviceNode, psSGXTimingInfo, &hNewTimer);
-				if (eError == PVRSRV_OK)
+				eError = OSRemoveTimer(psDevInfo->hTimer);
+				if (eError != PVRSRV_OK)
 				{
-					eError = OSRemoveTimer(psDevInfo->hTimer);
-					if (eError != PVRSRV_OK)
-					{
-						PVR_DPF((PVR_DBG_ERROR,"SGXUpdateTimingInfo: Failed to remove timer"));
-					}
-					psDevInfo->hTimer = hNewTimer;
+					PVR_DPF((PVR_DBG_ERROR,"SGXGetTimingInfo: Failed to remove timer"));
 				}
-				else
-				{
-					
-				}
+				psDevInfo->hTimer = IMG_NULL;
 			}
 		}
-		else
+		
+		if (psDevInfo->hTimer == IMG_NULL)
 		{
-			eError = SGXAddTimer(psDeviceNode, psSGXTimingInfo, &psDevInfo->hTimer);
-			if (eError != PVRSRV_OK)
+			
+
+
+			psDevInfo->hTimer = OSAddTimer(SGXOSTimer, psDeviceNode,
+										   1000 * 50 / psSGXTimingInfo->ui32uKernelFreq);
+			if(psDevInfo->hTimer == IMG_NULL)
 			{
-				return eError;
+				PVR_DPF((PVR_DBG_ERROR,"SGXGetTimingInfo : Failed to register timer callback function"));
 			}
 		}
 
@@ -124,21 +138,9 @@ static PVRSRV_ERROR SGXUpdateTimingInfo(PVRSRV_DEVICE_NODE	*psDeviceNode)
 	psDevInfo->ui32CoreClockSpeed = psSGXTimingInfo->ui32CoreClockSpeed;
 	psDevInfo->ui32uKernelTimerClock = psSGXTimingInfo->ui32CoreClockSpeed / psSGXTimingInfo->ui32uKernelFreq;
 
+	ui32ActivePowManSampleRate =
+		psSGXTimingInfo->ui32uKernelFreq * psSGXTimingInfo->ui32ActivePowManLatencyms / 1000;
 	
-	psDevInfo->psSGXHostCtl->ui32uKernelTimerClock = psDevInfo->ui32uKernelTimerClock;
-#if defined(PDUMP)
-	PDUMPCOMMENT("Host Control - Microkernel clock");
-	PDUMPMEM(IMG_NULL, psDevInfo->psKernelSGXHostCtlMemInfo,
-			 offsetof(SGXMKIF_HOST_CTL, ui32uKernelTimerClock),
-			 sizeof(IMG_UINT32), PDUMP_FLAGS_CONTINUOUS,
-			 MAKEUNIQUETAG(psDevInfo->psKernelSGXHostCtlMemInfo));
-#endif 
-
-	if (psSGXTimingInfo->bEnableActivePM)
-	{
-		ui32ActivePowManSampleRate =
-			psSGXTimingInfo->ui32uKernelFreq * psSGXTimingInfo->ui32ActivePowManLatencyms / 1000;
-		
 
 
 
@@ -146,37 +148,38 @@ static PVRSRV_ERROR SGXUpdateTimingInfo(PVRSRV_DEVICE_NODE	*psDeviceNode)
 
 
 	
-		ui32ActivePowManSampleRate += 1;
-	}
-	else
-	{
-		ui32ActivePowManSampleRate = 0;	
-	}
+	ui32ActivePowManSampleRate += 1;
 	
 	psDevInfo->psSGXHostCtl->ui32ActivePowManSampleRate = ui32ActivePowManSampleRate;
-#if defined(PDUMP)
-	PDUMPMEM(IMG_NULL, psDevInfo->psKernelSGXHostCtlMemInfo,
-			 offsetof(SGXMKIF_HOST_CTL, ui32ActivePowManSampleRate),
-			 sizeof(IMG_UINT32), PDUMP_FLAGS_CONTINUOUS,
-			 MAKEUNIQUETAG(psDevInfo->psKernelSGXHostCtlMemInfo));
-#endif 
-
-	return PVRSRV_OK;
 }
 
 
-static IMG_VOID SGXStartTimer(PVRSRV_SGXDEV_INFO	*psDevInfo)
+IMG_VOID SGXStartTimer(PVRSRV_SGXDEV_INFO	*psDevInfo,
+					   IMG_BOOL				bStartOSTimer)
 {
-	#if defined(SUPPORT_HW_RECOVERY)
-	PVRSRV_ERROR	eError;
+	IMG_UINT32		ui32RegVal;
+
+	#if !defined(SUPPORT_HW_RECOVERY)
+	PVR_UNREFERENCED_PARAMETER(bStartOSTimer);
+	#endif 
+
 	
-	eError = OSEnableTimer(psDevInfo->hTimer);
-	if (eError != PVRSRV_OK)
+
+	ui32RegVal = EUR_CR_EVENT_TIMER_ENABLE_MASK | psDevInfo->ui32uKernelTimerClock;
+	OSWriteHWReg(psDevInfo->pvRegsBaseKM, EUR_CR_EVENT_TIMER, ui32RegVal);
+	PDUMPREGWITHFLAGS(EUR_CR_EVENT_TIMER, ui32RegVal, PDUMP_FLAGS_CONTINUOUS);
+
+	#if defined(SUPPORT_HW_RECOVERY)
+	if (bStartOSTimer)
 	{
-		PVR_DPF((PVR_DBG_ERROR,"SGXStartTimer : Failed to enable host timer"));
+		PVRSRV_ERROR	eError;
+		
+		eError = OSEnableTimer(psDevInfo->hTimer);
+		if (eError != PVRSRV_OK)
+		{
+			PVR_DPF((PVR_DBG_ERROR,"SGXStartTimer : Failed to enable host timer"));
+		}
 	}
-	#else
-	PVR_UNREFERENCED_PARAMETER(psDevInfo);
 	#endif 
 }
 
@@ -192,16 +195,16 @@ static IMG_VOID SGXPollForClockGating (PVRSRV_SGXDEV_INFO	*psDevInfo,
 	PVR_UNREFERENCED_PARAMETER(pszComment);
 
 	#if !defined(NO_HARDWARE)
-	PVR_ASSERT(psDevInfo != IMG_NULL);
-	
-	 
-	if (PollForValueKM((IMG_UINT32 *)psDevInfo->pvRegsBaseKM + (ui32Register >> 2),
-						0,
-						ui32RegisterValue,
-						MAX_HW_TIME_US/WAIT_TRY_COUNT,
-						WAIT_TRY_COUNT) != PVRSRV_OK)
+	if (psDevInfo != IMG_NULL)
 	{
-		PVR_DPF((PVR_DBG_ERROR,"SGXPrePowerState: %s failed.", pszComment));
+		if (PollForValueKM((IMG_UINT32 *)psDevInfo->pvRegsBaseKM + (ui32Register >> 2),
+							0,
+							ui32RegisterValue,
+							MAX_HW_TIME_US/WAIT_TRY_COUNT,
+							WAIT_TRY_COUNT) != PVRSRV_OK)
+		{
+			PVR_DPF((PVR_DBG_ERROR,"SGXPrePowerState: %s failed.", pszComment));
+		}
 	}
 	#endif 
 	
@@ -210,19 +213,18 @@ static IMG_VOID SGXPollForClockGating (PVRSRV_SGXDEV_INFO	*psDevInfo,
 }
 
 
-PVRSRV_ERROR SGXPrePowerState (IMG_HANDLE				hDevHandle, 
-							   PVRSRV_DEV_POWER_STATE	eNewPowerState, 
-							   PVRSRV_DEV_POWER_STATE	eCurrentPowerState)
+static PVRSRV_ERROR SGXPrePowerState (IMG_HANDLE				hDevHandle, 
+									  PVR_DEVICE_POWER_STATE	eNewPowerState, 
+									  PVR_DEVICE_POWER_STATE	eCurrentPowerState)
 {
 	if ((eNewPowerState != eCurrentPowerState) &&
-		(eNewPowerState != PVRSRV_DEV_POWER_STATE_ON))
+		(eNewPowerState != PVR_DEVICE_POWER_STATE_ON))
 	{
 		PVRSRV_ERROR		eError;
 		PVRSRV_DEVICE_NODE	*psDeviceNode = hDevHandle;
 		PVRSRV_SGXDEV_INFO	*psDevInfo = psDeviceNode->pvDevice;
 		IMG_UINT32			ui32PowerCmd, ui32CompleteStatus;
 		SGXMKIF_COMMAND		sCommand = {0};
-		IMG_UINT32			ui32Core;
 	
 		#if defined(SUPPORT_HW_RECOVERY)
 		
@@ -234,7 +236,7 @@ PVRSRV_ERROR SGXPrePowerState (IMG_HANDLE				hDevHandle,
 		}
 		#endif 
 
-		if (eNewPowerState == PVRSRV_DEV_POWER_STATE_OFF)
+		if (eNewPowerState == PVR_DEVICE_POWER_STATE_OFF)
 		{
 			
 			ui32PowerCmd = PVRSRV_POWERCMD_POWEROFF;
@@ -249,9 +251,10 @@ PVRSRV_ERROR SGXPrePowerState (IMG_HANDLE				hDevHandle,
 			PDUMPCOMMENT("SGX idle request");
 		}
 
+		sCommand.ui32Data[0] = PVRSRV_CCBFLAGS_POWERCMD;
 		sCommand.ui32Data[1] = ui32PowerCmd;
 		
-		eError = SGXScheduleCCBCommand(psDevInfo, SGXMKIF_CMD_POWER, &sCommand, KERNEL_ID, 0);
+		eError = SGXScheduleCCBCommand(psDevInfo, SGXMKIF_COMMAND_EDM_KICK, &sCommand, KERNEL_ID, 0);
 		if (eError != PVRSRV_OK)
 		{
 			PVR_DPF((PVR_DBG_ERROR,"SGXPrePowerState: Failed to submit power down command"));
@@ -278,19 +281,16 @@ PVRSRV_ERROR SGXPrePowerState (IMG_HANDLE				hDevHandle,
 					ui32CompleteStatus,
 					ui32CompleteStatus,
 					PDUMP_POLL_OPERATOR_EQUAL,
-					0,
+					IMG_FALSE, IMG_FALSE,
 					MAKEUNIQUETAG(psDevInfo->psKernelSGXHostCtlMemInfo));
 		#endif 
 
-		for (ui32Core = 0; ui32Core < SGX_FEATURE_MP_CORE_COUNT; ui32Core++)
-		{
-			
-			SGXPollForClockGating(psDevInfo,
-								  SGX_MP_CORE_SELECT(psDevInfo->ui32ClkGateStatusReg, ui32Core),
-								  psDevInfo->ui32ClkGateStatusMask,
-								  "Wait for SGX clock gating");
-		}
 		
+		SGXPollForClockGating(psDevInfo,
+							  psDevInfo->ui32ClkGateStatusReg,
+							  psDevInfo->ui32ClkGateStatusMask,
+							  "Wait for SGX clock gating");
+
 		#if defined(SGX_FEATURE_MP)
 		
 		SGXPollForClockGating(psDevInfo,
@@ -299,7 +299,7 @@ PVRSRV_ERROR SGXPrePowerState (IMG_HANDLE				hDevHandle,
 							  "Wait for SGX master clock gating");
 		#endif 
 				
-		if (eNewPowerState == PVRSRV_DEV_POWER_STATE_OFF)
+		if (eNewPowerState == PVR_DEVICE_POWER_STATE_OFF)
 		{
 			
 			eError = SGXDeinitialise(psDevInfo);
@@ -315,12 +315,12 @@ PVRSRV_ERROR SGXPrePowerState (IMG_HANDLE				hDevHandle,
 }
 
 
-PVRSRV_ERROR SGXPostPowerState (IMG_HANDLE				hDevHandle, 
-								PVRSRV_DEV_POWER_STATE	eNewPowerState, 
-								PVRSRV_DEV_POWER_STATE	eCurrentPowerState)
+static PVRSRV_ERROR SGXPostPowerState (IMG_HANDLE				hDevHandle, 
+									   PVR_DEVICE_POWER_STATE	eNewPowerState, 
+									   PVR_DEVICE_POWER_STATE	eCurrentPowerState)
 {
 	if ((eNewPowerState != eCurrentPowerState) &&
-		(eCurrentPowerState != PVRSRV_DEV_POWER_STATE_ON))
+		(eCurrentPowerState != PVR_DEVICE_POWER_STATE_ON))
 	{
 		PVRSRV_ERROR		eError;
 		PVRSRV_DEVICE_NODE	*psDeviceNode = hDevHandle;
@@ -329,31 +329,26 @@ PVRSRV_ERROR SGXPostPowerState (IMG_HANDLE				hDevHandle,
 
 		
 		psSGXHostCtl->ui32PowerStatus = 0;
-		#if defined(PDUMP)
 		PDUMPCOMMENT("TA/3D CCB Control - Reset power status");
+		#if defined(PDUMP)
 		PDUMPMEM(IMG_NULL, psDevInfo->psKernelSGXHostCtlMemInfo,
 				 offsetof(SGXMKIF_HOST_CTL, ui32PowerStatus),
 				 sizeof(IMG_UINT32), PDUMP_FLAGS_CONTINUOUS,
 				 MAKEUNIQUETAG(psDevInfo->psKernelSGXHostCtlMemInfo));
 		#endif 
 
-		if (eCurrentPowerState == PVRSRV_DEV_POWER_STATE_OFF)
+		if (eCurrentPowerState == PVR_DEVICE_POWER_STATE_OFF)
 		{
 			
 
 			
 			
 
-			eError = SGXUpdateTimingInfo(psDeviceNode);
-			if (eError != PVRSRV_OK)
-			{
-				PVR_DPF((PVR_DBG_ERROR,"SGXPostPowerState: SGXUpdateTimingInfo failed"));
-				return eError;
-			}
+			SGXGetTimingInfo(psDeviceNode);
 
 			
 
-			eError = SGXInitialise(psDevInfo);
+			eError = SGXInitialise(psDevInfo, IMG_FALSE);
 			if (eError != PVRSRV_OK)
 			{
 				PVR_DPF((PVR_DBG_ERROR,"SGXPostPowerState: SGXInitialise failed"));
@@ -366,25 +361,58 @@ PVRSRV_ERROR SGXPostPowerState (IMG_HANDLE				hDevHandle,
 
 			SGXMKIF_COMMAND		sCommand = {0};
 
-			sCommand.ui32Data[1] = PVRSRV_POWERCMD_RESUME;
-			eError = SGXScheduleCCBCommand(psDevInfo, SGXMKIF_CMD_POWER, &sCommand, ISR_ID, 0);
+			SGXStartTimer(psDevInfo, IMG_TRUE);
+			
+			sCommand.ui32Data[0] = PVRSRV_CCBFLAGS_PROCESS_QUEUESCMD;
+			eError = SGXScheduleCCBCommand(psDevInfo, SGXMKIF_COMMAND_EDM_KICK, &sCommand, ISR_ID, 0);
 			if (eError != PVRSRV_OK)
 			{
 				PVR_DPF((PVR_DBG_ERROR,"SGXPostPowerState failed to schedule CCB command: %lu", eError));
 				return PVRSRV_ERROR_GENERIC;
 			}
 		}
-		
-		SGXStartTimer(psDevInfo);
 	}
 
 	return PVRSRV_OK;
 }
 
 
-PVRSRV_ERROR SGXPreClockSpeedChange (IMG_HANDLE				hDevHandle,
-									 IMG_BOOL				bIdleDevice,
-									 PVRSRV_DEV_POWER_STATE	eCurrentPowerState)
+PVRSRV_ERROR SGXPrePowerStateExt (IMG_HANDLE		hDevHandle, 
+								  PVR_POWER_STATE	eNewPowerState, 
+								  PVR_POWER_STATE	eCurrentPowerState)
+{
+	PVR_DEVICE_POWER_STATE	eNewDevicePowerState = MapDevicePowerState(eNewPowerState);
+	PVR_DEVICE_POWER_STATE	eCurrentDevicePowerState = MapDevicePowerState(eCurrentPowerState);
+	
+	return SGXPrePowerState(hDevHandle, eNewDevicePowerState, eCurrentDevicePowerState);
+}
+
+
+PVRSRV_ERROR SGXPostPowerStateExt (IMG_HANDLE		hDevHandle, 
+								   PVR_POWER_STATE	eNewPowerState, 
+								   PVR_POWER_STATE	eCurrentPowerState)
+{
+	PVRSRV_ERROR			eError;
+	PVR_DEVICE_POWER_STATE	eNewDevicePowerState = MapDevicePowerState(eNewPowerState);
+	PVR_DEVICE_POWER_STATE	eCurrentDevicePowerState = MapDevicePowerState(eCurrentPowerState);
+	
+	eError = SGXPostPowerState(hDevHandle, eNewDevicePowerState, eCurrentDevicePowerState);
+	if (eError != PVRSRV_OK)
+	{
+		return eError;
+	}
+	
+	PVR_DPF((PVR_DBG_MESSAGE,
+			"SGXPostPowerState : SGX Power Transition from %d to %d OK",
+			eCurrentPowerState, eNewPowerState));
+	
+	return eError;		
+}
+
+
+PVRSRV_ERROR SGXPreClockSpeedChange (IMG_HANDLE			hDevHandle,
+									 IMG_BOOL			bIdleDevice,
+									 PVR_POWER_STATE	eCurrentPowerState)
 {
 	PVRSRV_ERROR		eError;
 	PVRSRV_DEVICE_NODE	*psDeviceNode = hDevHandle;
@@ -392,15 +420,15 @@ PVRSRV_ERROR SGXPreClockSpeedChange (IMG_HANDLE				hDevHandle,
 
 	PVR_UNREFERENCED_PARAMETER(psDevInfo);
 
-	if (eCurrentPowerState == PVRSRV_DEV_POWER_STATE_ON)
+	if (eCurrentPowerState == PVRSRV_POWER_STATE_D0)
 	{
 		if (bIdleDevice)
 		{
 			
 			PDUMPSUSPEND();
 			
-			eError = SGXPrePowerState(hDevHandle, PVRSRV_DEV_POWER_STATE_IDLE,
-									  PVRSRV_DEV_POWER_STATE_ON);
+			eError = SGXPrePowerState(hDevHandle, PVR_DEVICE_POWER_STATE_IDLE,
+									  PVR_DEVICE_POWER_STATE_ON);
 
 			if (eError != PVRSRV_OK)
 			{
@@ -417,9 +445,9 @@ PVRSRV_ERROR SGXPreClockSpeedChange (IMG_HANDLE				hDevHandle,
 }
 
 
-PVRSRV_ERROR SGXPostClockSpeedChange (IMG_HANDLE				hDevHandle,
-									  IMG_BOOL					bIdleDevice,
-									  PVRSRV_DEV_POWER_STATE	eCurrentPowerState)
+PVRSRV_ERROR SGXPostClockSpeedChange (IMG_HANDLE		hDevHandle,
+									  IMG_BOOL			bIdleDevice,
+									  PVR_POWER_STATE	eCurrentPowerState)
 {
 	PVRSRV_DEVICE_NODE	*psDeviceNode = hDevHandle;
 	PVRSRV_SGXDEV_INFO	*psDevInfo = psDeviceNode->pvDevice;
@@ -427,24 +455,18 @@ PVRSRV_ERROR SGXPostClockSpeedChange (IMG_HANDLE				hDevHandle,
 
 	PVR_UNREFERENCED_PARAMETER(ui32OldClockSpeed);
 
-	if (eCurrentPowerState == PVRSRV_DEV_POWER_STATE_ON)
+	if (eCurrentPowerState == PVRSRV_POWER_STATE_D0)
 	{
-		PVRSRV_ERROR eError;
-
 		
 
-		eError = SGXUpdateTimingInfo(psDeviceNode);
-		if (eError != PVRSRV_OK)
-		{
-			PVR_DPF((PVR_DBG_ERROR,"SGXPostPowerState: SGXUpdateTimingInfo failed"));
-			return eError;
-		}
+		SGXGetTimingInfo(psDeviceNode);
 
 		if (bIdleDevice)
 		{
+			PVRSRV_ERROR eError;
 			
-			eError = SGXPostPowerState(hDevHandle, PVRSRV_DEV_POWER_STATE_ON,
-									   PVRSRV_DEV_POWER_STATE_IDLE);
+			eError = SGXPostPowerState(hDevHandle, PVR_DEVICE_POWER_STATE_ON,
+									   PVR_DEVICE_POWER_STATE_IDLE);
 
 			PDUMPRESUME();
 			
@@ -455,7 +477,7 @@ PVRSRV_ERROR SGXPostClockSpeedChange (IMG_HANDLE				hDevHandle,
 		}
 		else
 		{
-			SGXStartTimer(psDevInfo);
+			SGXStartTimer(psDevInfo, IMG_TRUE);
 		}
 
 	}

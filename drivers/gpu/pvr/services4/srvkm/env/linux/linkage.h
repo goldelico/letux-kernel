@@ -27,32 +27,17 @@
 #ifndef __LINKAGE_H__
 #define __LINKAGE_H__
 
-#if !defined(SUPPORT_DRI_DRM)
 IMG_INT32 PVRSRV_BridgeDispatchKM(struct file *file, IMG_UINT cmd, IMG_UINT32 arg);
-#endif
-
 IMG_VOID PVRDPFInit(IMG_VOID);
 
-#ifdef DEBUG_PVR
+#ifdef DEBUG
 IMG_INT PVRDebugProcSetLevel(struct file *file, const IMG_CHAR *buffer, IMG_UINT32 count, IMG_VOID *data);
-IMG_VOID PVRDebugSetLevel(IMG_UINT32 uDebugLevel);
-
-#ifdef PVR_PROC_USE_SEQ_FILE
-void ProcSeqShowDebugLevel(struct seq_file *sfile,void* el);
-#else
 IMG_INT PVRDebugProcGetLevel(IMG_CHAR *page, IMG_CHAR **start, off_t off, IMG_INT count, IMG_INT *eof, IMG_VOID *data);
-#endif
+IMG_VOID PVRDebugSetLevel(IMG_UINT32 uDebugLevel);
 
 #ifdef PVR_MANUAL_POWER_CONTROL
 IMG_INT PVRProcSetPowerLevel(struct file *file, const IMG_CHAR *buffer, IMG_UINT32 count, IMG_VOID *data);
-
-#ifdef PVR_PROC_USE_SEQ_FILE
-void ProcSeqShowPowerLevel(struct seq_file *sfile,void* el);
-#else
 IMG_INT PVRProcGetPowerLevel(IMG_CHAR *page, IMG_CHAR **start, off_t off, IMG_INT count, IMG_INT *eof, IMG_VOID *data);
-#endif
-
-
 #endif
 #endif	
 

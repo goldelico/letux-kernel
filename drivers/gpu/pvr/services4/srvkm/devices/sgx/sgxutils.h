@@ -25,7 +25,6 @@
  ******************************************************************************/
 
 #include "perproc.h"
-#include "sgxinfokm.h"
 
 #define CCB_OFFSET_IS_VALID(type, psCCBMemInfo, psCCBKick, offset) \
 	((sizeof(type) <= (psCCBMemInfo)->ui32AllocSize) && \
@@ -36,20 +35,22 @@
 		(psCCBKick)->offset))
 
 
+#if defined(SUPPORT_ACTIVE_POWER_MANAGEMENT)
 IMG_IMPORT
 IMG_VOID SGXTestActivePowerEvent(PVRSRV_DEVICE_NODE	*psDeviceNode,
 								 IMG_UINT32			ui32CallerID);
+#endif 
 
 IMG_IMPORT
 PVRSRV_ERROR SGXScheduleCCBCommand(PVRSRV_SGXDEV_INFO 	*psDevInfo,
-								   SGXMKIF_CMD_TYPE		eCommandType,
+								   SGXMKIF_COMMAND_TYPE	eCommandType,
 								   SGXMKIF_COMMAND		*psCommandData,
 								   IMG_UINT32			ui32CallerID,
 								   IMG_UINT32			ui32PDumpFlags);
 IMG_IMPORT
-PVRSRV_ERROR SGXScheduleCCBCommandKM(PVRSRV_DEVICE_NODE		*psDeviceNode,
-									 SGXMKIF_CMD_TYPE		eCommandType,
-									 SGXMKIF_COMMAND		*psCommandData,
+PVRSRV_ERROR SGXScheduleCCBCommandKM(PVRSRV_DEVICE_NODE			*psDeviceNode,
+									 SGXMKIF_COMMAND_TYPE	eCommandType,
+									 SGXMKIF_COMMAND			*psCommandData,
 									 IMG_UINT32				ui32CallerID,
 									 IMG_UINT32				ui32PDumpFlags);
 
@@ -94,6 +95,6 @@ IMG_UINT32 SGXConvertTimeStamp(PVRSRV_SGXDEV_INFO	*psDevInfo,
 
 IMG_VOID SGXCleanupRequest(PVRSRV_DEVICE_NODE	*psDeviceNode,
 							IMG_DEV_VIRTADDR	*psHWDataDevVAddr,
-							IMG_UINT32			ui32CleanupType);
+							IMG_UINT32			ui32ResManRequestFlag);
 							   
 

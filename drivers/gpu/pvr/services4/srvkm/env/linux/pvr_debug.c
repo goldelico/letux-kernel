@@ -44,13 +44,9 @@
 #include "mutex.h"
 #include "linkage.h"
 
-#if defined(PVRSRV_NEED_PVR_DPF)
+#if defined(DEBUG) || defined(TIMING)
 
-#define PVR_MAX_FILEPATH_LEN 256
-
-static IMG_UINT32 gPVRDebugLevel = DBGPRIV_WARNING;
-
-#endif 
+IMG_UINT32	gPVRDebugLevel = DBGPRIV_WARNING;
 
 #define	PVR_MAX_MSG_LEN PVR_MAX_DEBUG_MESSAGE_LEN
 
@@ -119,84 +115,6 @@ static IMG_BOOL VBAppend(IMG_CHAR *pszBuf, IMG_UINT32 ui32BufSiz, const IMG_CHAR
 	return (i32Len < 0 || i32Len >= ui32Space);
 }
 
-IMG_VOID PVRDPFInit(IMG_VOID)
-{
-    LinuxInitMutex(&gsDebugMutexNonIRQ);
-}
-
-IMG_VOID PVRSRVReleasePrintf(const IMG_CHAR *pszFormat, ...)
-{
-	va_list vaArgs;
-	unsigned long ulLockFlags = 0;
-	IMG_CHAR *pszBuf;
-	IMG_UINT32 ui32BufSiz;
-
-	SelectBuffer(&pszBuf, &ui32BufSiz);
-
-	va_start(vaArgs, pszFormat);
-
-	GetBufferLock(&ulLockFlags);
-	strncpy (pszBuf, "PVR_K: ", (ui32BufSiz -1));
-
-	if (VBAppend(pszBuf, ui32BufSiz, pszFormat, vaArgs))
-	{
-		printk(KERN_INFO "PVR_K:(Message Truncated): %s\n", pszBuf);
-	}
-	else
-	{
-		printk(KERN_INFO "%s\n", pszBuf);
-	}
-
-	ReleaseBufferLock(ulLockFlags);
-	va_end(vaArgs);
-
-}
-
-#if defined(PVRSRV_NEED_PVR_ASSERT)
-
-IMG_VOID PVRSRVDebugAssertFail(const IMG_CHAR* pszFile, IMG_UINT32 uLine)
-{
-	PVRSRVDebugPrintf(DBGPRIV_FATAL, pszFile, uLine, "Debug assertion failed!");
-	BUG();
-}
-
-#endif 
-
-#if defined(PVRSRV_NEED_PVR_TRACE)
-
-IMG_VOID PVRSRVTrace(const IMG_CHAR* pszFormat, ...)
-{
-	va_list VArgs;
-	unsigned long ulLockFlags = 0;
-	IMG_CHAR *pszBuf;
-	IMG_UINT32 ui32BufSiz;
-
-	SelectBuffer(&pszBuf, &ui32BufSiz);
-
-	va_start(VArgs, pszFormat);
-
-	GetBufferLock(&ulLockFlags);
-
-	strncpy(pszBuf, "PVR: ", (ui32BufSiz -1));
-
-	if (VBAppend(pszBuf, ui32BufSiz, pszFormat, VArgs))
-	{
-		printk(KERN_INFO "PVR_K:(Message Truncated): %s\n", pszBuf);
-	}
-	else
-	{
-		printk(KERN_INFO "%s\n", pszBuf);
-	}
-	
-	ReleaseBufferLock(ulLockFlags);
-
-	va_end(VArgs);
-}
-
-#endif 
-
-#if defined(PVRSRV_NEED_PVR_DPF)
-
 static IMG_BOOL BAppend(IMG_CHAR *pszBuf, IMG_UINT32 ui32BufSiz, const IMG_CHAR *pszFormat, ...)
 {
 		va_list VArgs;
@@ -213,15 +131,23 @@ static IMG_BOOL BAppend(IMG_CHAR *pszBuf, IMG_UINT32 ui32BufSiz, const IMG_CHAR 
 
 IMG_VOID PVRSRVDebugPrintf	(
 						IMG_UINT32	ui32DebugLevel,
-						const IMG_CHAR*	pszFullFileName,
+						const IMG_CHAR*	pszFileName,
 						IMG_UINT32	ui32Line,
 						const IMG_CHAR*	pszFormat,
 						...
 					)
 {
 	IMG_BOOL bTrace, bDebug;
-	const IMG_CHAR *pszFileName = pszFullFileName;	
-	IMG_CHAR *pszLeafName;	
+#if !defined(__sh__)
+	IMG_CHAR *pszLeafName;
+	
+	pszLeafName = (IMG_CHAR *)strrchr (pszFileName, '\\');
+	
+	if (pszLeafName)
+	{
+		pszFileName = pszLeafName;
+	}
+#endif 
 		
 	bTrace = gPVRDebugLevel & ui32DebugLevel & DBGPRIV_CALLTRACE;
 	bDebug = ((gPVRDebugLevel & DBGPRIV_ALLLEVELS) >= ui32DebugLevel);
@@ -290,69 +216,6 @@ IMG_VOID PVRSRVDebugPrintf	(
 			
 			if (!bTrace)
 			{
-#ifdef DEBUG_LOG_PATH_TRUNCATE
-				
-				static IMG_CHAR szFileNameRewrite[PVR_MAX_FILEPATH_LEN];
-
-   				IMG_CHAR* pszTruncIter;
-				IMG_CHAR* pszTruncBackInter;
-	
-				
-				pszFileName = pszFullFileName + strlen(DEBUG_LOG_PATH_TRUNCATE)+1;
-  
-				
-				strncpy(szFileNameRewrite, pszFileName,PVR_MAX_FILEPATH_LEN);
-
-				if(strlen(szFileNameRewrite) == PVR_MAX_FILEPATH_LEN-1) {
-					IMG_CHAR szTruncateMassage[] = "FILENAME TRUNCATED";
-					strcpy(szFileNameRewrite + (PVR_MAX_FILEPATH_LEN - 1 - strlen(szTruncateMassage)), szTruncateMassage);
-				}
-
-				pszTruncIter = szFileNameRewrite;
-				while(*pszTruncIter++ != 0) 
-				{
-					IMG_CHAR* pszNextStartPoint;
-					
-					if(
-					   !( ( *pszTruncIter == '/' && (pszTruncIter-4 >= szFileNameRewrite) ) && 
-						 ( *(pszTruncIter-1) == '.') &&
-						 ( *(pszTruncIter-2) == '.') &&
-						 ( *(pszTruncIter-3) == '/') )	
-					   ) continue;
-  
-					
-					pszTruncBackInter = pszTruncIter - 3;
-					while(*(--pszTruncBackInter) != '/') 
-					{
-						if(pszTruncBackInter <= szFileNameRewrite) break;
-					}
-					pszNextStartPoint = pszTruncBackInter;
-
-					
-					while(*pszTruncIter != 0) 
-					{
-						*pszTruncBackInter++ = *pszTruncIter++;
-					}
-					*pszTruncBackInter = 0;
-
-					
-					pszTruncIter = pszNextStartPoint;
-				}
-
-				pszFileName = szFileNameRewrite;
-				
-				if(*pszFileName == '/') pszFileName++;
-#endif
-
-#if !defined(__sh__)
-				pszLeafName = (IMG_CHAR *)strrchr (pszFileName, '\\');
-	
-				if (pszLeafName)
-				{
-					pszFileName = pszLeafName;
-		       	} 
-#endif 
-
 				if (BAppend(pszBuf, ui32BufSiz, " [%lu, %s]", ui32Line, pszFileName))
 				{
 					printk(KERN_INFO "PVR_K:(Message Truncated): %s\n", pszBuf);
@@ -362,10 +225,6 @@ IMG_VOID PVRSRVDebugPrintf	(
 					printk(KERN_INFO "%s\n", pszBuf);
 				}
 			}
-			else
-			{
-				printk(KERN_INFO "%s\n", pszBuf);
-			}
 		}
 
 		ReleaseBufferLock(ulLockFlags);
@@ -374,9 +233,41 @@ IMG_VOID PVRSRVDebugPrintf	(
 	}
 }
 
-#endif 
+IMG_VOID PVRSRVDebugAssertFail(const IMG_CHAR* pszFile, IMG_UINT32 uLine)
+{
+	PVRSRVDebugPrintf(DBGPRIV_FATAL, pszFile, uLine, "Debug assertion failed!");
+	BUG();
+}
 
-#if defined(DEBUG_PVR)
+IMG_VOID PVRSRVTrace(const IMG_CHAR* pszFormat, ...)
+{
+	va_list VArgs;
+	unsigned long ulLockFlags = 0;
+	IMG_CHAR *pszBuf;
+	IMG_UINT32 ui32BufSiz;
+
+	SelectBuffer(&pszBuf, &ui32BufSiz);
+
+	va_start(VArgs, pszFormat);
+
+	GetBufferLock(&ulLockFlags);
+
+	strncpy(pszBuf, "PVR: ", (ui32BufSiz -1));
+
+	if (VBAppend(pszBuf, ui32BufSiz, pszFormat, VArgs))
+	{
+		printk(KERN_INFO "PVR_K:(Message Truncated): %s\n", pszBuf);
+	}
+	else
+	{
+		printk(KERN_INFO "%s\n", pszBuf);
+	}
+	
+	ReleaseBufferLock(ulLockFlags);
+
+	va_end(VArgs);
+}
+
 
 IMG_VOID PVRDebugSetLevel(IMG_UINT32 uDebugLevel)
 {
@@ -405,13 +296,6 @@ IMG_INT PVRDebugProcSetLevel(struct file *file, const IMG_CHAR *buffer, IMG_UINT
 	return (count);
 }
 
-#ifdef PVR_PROC_USE_SEQ_FILE
-void ProcSeqShowDebugLevel(struct seq_file *sfile,void* el)	
-{
-	seq_printf(sfile, "%lu\n", gPVRDebugLevel);
-}
-
-#else 
 IMG_INT PVRDebugProcGetLevel(IMG_CHAR *page, IMG_CHAR **start, off_t off, IMG_INT count, IMG_INT *eof, IMG_VOID *data)
 {
 	if (off == 0) {
@@ -423,4 +307,11 @@ IMG_INT PVRDebugProcGetLevel(IMG_CHAR *page, IMG_CHAR **start, off_t off, IMG_IN
 }
 #endif 
 
+IMG_VOID
+PVRDPFInit(IMG_VOID)
+{
+#if defined(DEBUG) || defined(TIMING)
+    LinuxInitMutex(&gsDebugMutexNonIRQ);
 #endif 
+}
+

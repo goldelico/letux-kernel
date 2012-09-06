@@ -30,10 +30,6 @@
 #include <linux/interrupt.h>
 #include <linux/pci.h>
 
-#if defined(PVR_LINUX_MISR_USING_WORKQUEUE) || defined(PVR_LINUX_MISR_USING_PRIVATE_WORKQUEUE)
-#include <linux/workqueue.h>
-#endif
-
 #define PVRSRV_MAX_BRIDGE_IN_SIZE	0x1000
 #define PVRSRV_MAX_BRIDGE_OUT_SIZE	0x1000
 
@@ -52,15 +48,7 @@ typedef struct _ENV_DATA_TAG
 	IMG_BOOL		bMISRInstalled;
 	IMG_UINT32		ui32IRQ;
 	IMG_VOID		*pvISRCookie;
-#if defined(PVR_LINUX_MISR_USING_PRIVATE_WORKQUEUE)
-	struct workqueue_struct	*psWorkQueue;
-#endif
-#if defined(PVR_LINUX_MISR_USING_WORKQUEUE) || defined(PVR_LINUX_MISR_USING_PRIVATE_WORKQUEUE)
-	struct work_struct	sMISRWork;
-	IMG_VOID		*pvMISRData;
-#else
 	struct tasklet_struct	sMISRTasklet;
-#endif
 } ENV_DATA;
 
 #endif 

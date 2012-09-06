@@ -41,32 +41,6 @@
 
 #define MINIMUM_HASH_SIZE (64)
 
-#if defined(VALIDATE_ARENA_TEST)
-
-typedef enum RESOURCE_DESCRIPTOR_TAG {
-	
-	RESOURCE_SPAN_LIVE				= 10,
-	RESOURCE_SPAN_FREE, 
-	IMPORTED_RESOURCE_SPAN_START,
-	IMPORTED_RESOURCE_SPAN_LIVE,	
-	IMPORTED_RESOURCE_SPAN_FREE,	
-	IMPORTED_RESOURCE_SPAN_END,		 
-
-} RESOURCE_DESCRIPTOR;
-
-typedef enum RESOURCE_TYPE_TAG {
-
-	IMPORTED_RESOURCE_TYPE		= 20,
-	NON_IMPORTED_RESOURCE_TYPE
-
-} RESOURCE_TYPE;
-
-
-static IMG_UINT32 ui32BoundaryTagID = 0;
-
-IMG_UINT32 ValidateArena(RA_ARENA *pArena);
-#endif
-
 struct _BT_
 {
 	enum bt_type
@@ -88,15 +62,6 @@ struct _BT_
 	struct _BT_ *pPrevFree;
 	
 	BM_MAPPING *psMapping;
-
-#if defined(VALIDATE_ARENA_TEST)
-	RESOURCE_DESCRIPTOR eResourceSpan;
-	RESOURCE_TYPE		eResourceType;
-
-	
-	IMG_UINT32			ui32BoundaryTagID;
-#endif
-
 };
 typedef struct _BT_ BT;
 
@@ -107,7 +72,7 @@ struct _RA_ARENA_
 	IMG_CHAR *name;
 
 	
-	IMG_SIZE_T uQuantum;
+	IMG_UINT32 uQuantum;
 
 	
 	IMG_BOOL (*pImportAlloc)(IMG_VOID *,
@@ -119,7 +84,7 @@ struct _RA_ARENA_
 	IMG_VOID (*pImportFree) (IMG_VOID *,
 						 IMG_UINTPTR_T,
 						 BM_MAPPING *psMapping);
-	IMG_VOID (*pBackingStoreFree) (IMG_VOID *, IMG_SIZE_T, IMG_SIZE_T, IMG_HANDLE);
+	IMG_VOID (*pBackingStoreFree) (IMG_VOID *, IMG_UINT32, IMG_UINT32, IMG_HANDLE);
 
 	
 	IMG_VOID *pImportHandle;
@@ -141,17 +106,10 @@ struct _RA_ARENA_
 	RA_STATISTICS sStatistics;
 #endif
 
-#if defined(CONFIG_PROC_FS) && defined(DEBUG_PVR)
+#if defined(CONFIG_PROC_FS) && defined(DEBUG)
 #define PROC_NAME_SIZE		32
-
-#ifdef PVR_PROC_USE_SEQ_FILE
-	struct proc_dir_entry* pProcInfo;
-	struct proc_dir_entry* pProcSegs;
-#else 
 	IMG_CHAR szProcInfoName[PROC_NAME_SIZE];
 	IMG_CHAR szProcSegsName[PROC_NAME_SIZE];
-#endif 
-
 	IMG_BOOL bInitProcEntry;
 #endif
 };
@@ -159,30 +117,18 @@ struct _RA_ARENA_
 IMG_VOID RA_Dump (RA_ARENA *pArena);
 #endif
 
-#if defined(CONFIG_PROC_FS) && defined(DEBUG_PVR)
-
-#ifdef PVR_PROC_USE_SEQ_FILE
-
-static void RA_ProcSeqShowInfo(struct seq_file *sfile, void* el);
-static void* RA_ProcSeqOff2ElementInfo(struct seq_file * sfile, loff_t off);
-
-static void RA_ProcSeqShowRegs(struct seq_file *sfile, void* el);
-static void* RA_ProcSeqOff2ElementRegs(struct seq_file * sfile, loff_t off);
-
-#else 
+#if defined(CONFIG_PROC_FS) && defined(DEBUG)
 static IMG_INT
 RA_DumpSegs(IMG_CHAR *page, IMG_CHAR **start, off_t off, IMG_INT count, IMG_INT *eof, IMG_VOID *data);
 static IMG_INT
 RA_DumpInfo(IMG_CHAR *page, IMG_CHAR **start, off_t off, IMG_INT count, IMG_INT *eof, IMG_VOID *data);
-#endif 
-
-#endif 
+#endif
 
 #ifdef USE_BM_FREESPACE_CHECK
 IMG_VOID CheckBMFreespace(IMG_VOID);
 #endif
 
-#if defined(CONFIG_PROC_FS) && defined(DEBUG_PVR)
+#if defined(CONFIG_PROC_FS) && defined(DEBUG)
 static IMG_CHAR *ReplaceSpaces(IMG_CHAR * const pS)
 {
 	IMG_CHAR *pT;
@@ -330,17 +276,10 @@ _SegmentSplit (RA_ARENA *pArena, BT *pBT, IMG_SIZE_T uSize)
 	
 	if(OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP, 
 					sizeof(BT), 
-					(IMG_VOID **)&pNeighbour, IMG_NULL,
-					"Boundary Tag") != PVRSRV_OK)
+					(IMG_VOID **)&pNeighbour, IMG_NULL) != PVRSRV_OK)
 	{
 		return IMG_NULL;
 	}
-
-	OSMemSet(pNeighbour, 0, sizeof(BT));
-
-#if defined(VALIDATE_ARENA_TEST)
-	pNeighbour->ui32BoundaryTagID = ++ui32BoundaryTagID;
-#endif
 
 	pNeighbour->pPrevSegment = pBT;
 	pNeighbour->pNextSegment = pBT->pNextSegment;
@@ -355,25 +294,6 @@ _SegmentSplit (RA_ARENA *pArena, BT *pBT, IMG_SIZE_T uSize)
 	pNeighbour->base = pBT->base + uSize;
 	pNeighbour->psMapping = pBT->psMapping;
 	pBT->uSize = uSize;
-
-#if defined(VALIDATE_ARENA_TEST)
-	if (pNeighbour->pPrevSegment->eResourceType == IMPORTED_RESOURCE_TYPE)
-	{
-		pNeighbour->eResourceType = IMPORTED_RESOURCE_TYPE;
-		pNeighbour->eResourceSpan = IMPORTED_RESOURCE_SPAN_FREE;
-	}
-	else if (pNeighbour->pPrevSegment->eResourceType == NON_IMPORTED_RESOURCE_TYPE)
-	{
-		pNeighbour->eResourceType = NON_IMPORTED_RESOURCE_TYPE;
-		pNeighbour->eResourceSpan = RESOURCE_SPAN_FREE;
-	}
-	else
-	{
-		PVR_DPF ((PVR_DBG_ERROR,"_SegmentSplit: pNeighbour->pPrevSegment->eResourceType unrecognized"));
-		PVR_DBG_BREAK;
-	}
-#endif
-
 	return pNeighbour;
 }
 
@@ -410,17 +330,10 @@ _BuildSpanMarker (IMG_UINTPTR_T base, IMG_SIZE_T uSize)
 
 	if(OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 					sizeof(BT),
-					(IMG_VOID **)&pBT, IMG_NULL,
-					"Boundary Tag") != PVRSRV_OK)
+					(IMG_VOID **)&pBT, IMG_NULL) != PVRSRV_OK)
 	{
 		return IMG_NULL;
 	}
-
-	OSMemSet(pBT, 0, sizeof(BT));
-	
-#if defined(VALIDATE_ARENA_TEST)
-	pBT->ui32BoundaryTagID = ++ui32BoundaryTagID;
-#endif
 
 	pBT->type = btt_span;
 	pBT->base = base;
@@ -437,17 +350,10 @@ _BuildBT (IMG_UINTPTR_T base, IMG_SIZE_T uSize)
 	
 	if(OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP, 
 					sizeof(BT), 
-					(IMG_VOID **)&pBT, IMG_NULL,
-					"Boundary Tag") != PVRSRV_OK)
+					(IMG_VOID **)&pBT, IMG_NULL) != PVRSRV_OK)
 	{
 		return IMG_NULL;
 	}
-
-	OSMemSet(pBT, 0, sizeof(BT));
-
-#if defined(VALIDATE_ARENA_TEST)
-	pBT->ui32BoundaryTagID = ++ui32BoundaryTagID;
-#endif
 
 	pBT->type = btt_free;
 	pBT->base = base;
@@ -470,12 +376,6 @@ _InsertResource (RA_ARENA *pArena, IMG_UINTPTR_T base, IMG_SIZE_T uSize)
 	pBT = _BuildBT (base, uSize);
 	if (pBT != IMG_NULL)
 	{
-
-#if defined(VALIDATE_ARENA_TEST)
-		pBT->eResourceSpan = RESOURCE_SPAN_FREE;
-		pBT->eResourceType = NON_IMPORTED_RESOURCE_TYPE;
-#endif
-
 		if (_SegmentListInsert (pArena, pBT) != PVRSRV_OK)
 		{
 			PVR_DPF ((PVR_DBG_ERROR,"_InsertResource: call to _SegmentListInsert failed"));
@@ -515,33 +415,17 @@ _InsertResourceSpan (RA_ARENA *pArena, IMG_UINTPTR_T base, IMG_SIZE_T uSize)
 	{
 		goto fail_start;
 	}
-
-#if defined(VALIDATE_ARENA_TEST)
-	pSpanStart->eResourceSpan = IMPORTED_RESOURCE_SPAN_START;
-	pSpanStart->eResourceType = IMPORTED_RESOURCE_TYPE;
-#endif
-
 	pSpanEnd = _BuildSpanMarker (base + uSize, 0);
 	if (pSpanEnd == IMG_NULL)
 	{
 		goto fail_end;
 	}
 
-#if defined(VALIDATE_ARENA_TEST)
-	pSpanEnd->eResourceSpan = IMPORTED_RESOURCE_SPAN_END;
-	pSpanEnd->eResourceType = IMPORTED_RESOURCE_TYPE;
-#endif
-
 	pBT = _BuildBT (base, uSize);
 	if (pBT == IMG_NULL)
 	{
 		goto fail_bt;
 	}
-
-#if defined(VALIDATE_ARENA_TEST)
-	pBT->eResourceSpan = IMPORTED_RESOURCE_SPAN_FREE;
-	pBT->eResourceType = IMPORTED_RESOURCE_TYPE;
-#endif
 
 	eError = _SegmentListInsert (pArena, pSpanStart);
 	if (eError != PVRSRV_OK)
@@ -570,13 +454,10 @@ _InsertResourceSpan (RA_ARENA *pArena, IMG_UINTPTR_T base, IMG_SIZE_T uSize)
 
   fail_SegListInsert:
 	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BT), pBT, IMG_NULL);
-	
   fail_bt:
 	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BT), pSpanEnd, IMG_NULL);
-	
   fail_end:
 	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BT), pSpanStart, IMG_NULL);
-	
   fail_start:
 	return IMG_NULL;
 }
@@ -617,7 +498,6 @@ _FreeBT (RA_ARENA *pArena, BT *pBT, IMG_BOOL bFreeBackingStore)
 		pBT->base = pNeighbour->base;
 		pBT->uSize += pNeighbour->uSize;
 		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BT), pNeighbour, IMG_NULL);
-		
 #ifdef RA_STATS
 		pArena->sStatistics.uFreeSegmentCount--;
 #endif
@@ -633,7 +513,6 @@ _FreeBT (RA_ARENA *pArena, BT *pBT, IMG_BOOL bFreeBackingStore)
 		_SegmentListRemove (pArena, pNeighbour);
 		pBT->uSize += pNeighbour->uSize;
 		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BT), pNeighbour, IMG_NULL);
-		
 #ifdef RA_STATS
 		pArena->sStatistics.uFreeSegmentCount--;
 #endif
@@ -683,11 +562,8 @@ _FreeBT (RA_ARENA *pArena, BT *pBT, IMG_BOOL bFreeBackingStore)
 		pArena->sStatistics.uTotalResourceCount-=pBT->uSize;
 #endif
 		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BT), next, IMG_NULL);
-		
 		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BT), prev, IMG_NULL);
-		
 		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BT), pBT, IMG_NULL);
-		
 	}
 	else
 		_FreeListInsert (pArena, pBT);
@@ -808,21 +684,6 @@ _AttemptAllocAligned (RA_ARENA *pArena,
 
 						pBT->type = btt_live;
 
-#if defined(VALIDATE_ARENA_TEST)
-						if (pBT->eResourceType == IMPORTED_RESOURCE_TYPE)
-						{
-							pBT->eResourceSpan = IMPORTED_RESOURCE_SPAN_LIVE;
-						}
-						else if (pBT->eResourceType == NON_IMPORTED_RESOURCE_TYPE)
-						{
-							pBT->eResourceSpan = RESOURCE_SPAN_LIVE;
-						}
-						else
-						{
-							PVR_DPF ((PVR_DBG_ERROR,"_AttemptAllocAligned ERROR: pBT->eResourceType unrecognized"));
-							PVR_DBG_BREAK;
-						}
-#endif
 						if (!HASH_Insert (pArena->pSegmentHash, pBT->base, (IMG_UINTPTR_T) pBT))
 						{
 							_FreeBT (pArena, pBT, IMG_FALSE);
@@ -864,7 +725,7 @@ RA_Create (IMG_CHAR *name,
 		   IMG_BOOL (*imp_alloc)(IMG_VOID *, IMG_SIZE_T uSize, IMG_SIZE_T *pActualSize,
 		                     BM_MAPPING **ppsMapping, IMG_UINT32 _flags, IMG_UINTPTR_T *pBase),
 		   IMG_VOID (*imp_free) (IMG_VOID *, IMG_UINTPTR_T, BM_MAPPING *),
-		   IMG_VOID (*backingstore_free) (IMG_VOID*, IMG_SIZE_T, IMG_SIZE_T, IMG_HANDLE),
+		   IMG_VOID (*backingstore_free) (IMG_VOID*, IMG_UINT32, IMG_UINT32, IMG_HANDLE),
 		   IMG_VOID *pImportHandle)
 {
 	RA_ARENA *pArena;
@@ -878,8 +739,7 @@ RA_Create (IMG_CHAR *name,
 
 	if (OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 					 sizeof (*pArena),
-					 (IMG_VOID **)&pArena, IMG_NULL,
-					 "Resource Arena") != PVRSRV_OK)
+					 (IMG_VOID **)&pArena, IMG_NULL) != PVRSRV_OK)
 	{
 		goto arena_fail;
 	}
@@ -907,16 +767,14 @@ RA_Create (IMG_CHAR *name,
 	pArena->sStatistics.uExportCount = 0;
 #endif
 
-#if defined(CONFIG_PROC_FS) && defined(DEBUG_PVR)
+#if defined(CONFIG_PROC_FS) && defined(DEBUG)
 	if(strcmp(pArena->name,"") != 0)
 	{
-
-#ifndef PVR_PROC_USE_SEQ_FILE
 		IMG_INT ret;
 		IMG_INT (*pfnCreateProcEntry)(const IMG_CHAR *, read_proc_t, write_proc_t, IMG_VOID *);
 
 		pArena->bInitProcEntry = !PVRSRVGetInitServerState(PVRSRV_INIT_SERVER_SUCCESSFUL);
-		
+
 		
 		pfnCreateProcEntry = pArena->bInitProcEntry ? CreateProcEntry : CreatePerProcessProcEntry;
 
@@ -932,7 +790,7 @@ RA_Create (IMG_CHAR *name,
 		}
 
 		ret = snprintf(pArena->szProcSegsName, sizeof(pArena->szProcSegsName), "ra_segs_%s", pArena->name);
-		if (ret > 0 && ret < sizeof(pArena->szProcSegsName))
+		if (ret > 0 && ret < sizeof(pArena->szProcInfoName))
 		{
 			(IMG_VOID) pfnCreateProcEntry(ReplaceSpaces(pArena->szProcSegsName), RA_DumpSegs, 0, pArena);
 		}
@@ -941,52 +799,8 @@ RA_Create (IMG_CHAR *name,
 			pArena->szProcSegsName[0] = 0;
 			PVR_DPF((PVR_DBG_ERROR, "RA_Create: couldn't create ra_segs proc entry for arena %s", pArena->name));
 		}
-#else 
-
-		IMG_INT ret;
-		IMG_CHAR szProcInfoName[PROC_NAME_SIZE];
-		IMG_CHAR szProcSegsName[PROC_NAME_SIZE];
-		struct proc_dir_entry* (*pfnCreateProcEntrySeq)(const IMG_CHAR *, 
-										 IMG_VOID*, 
-										 pvr_next_proc_seq_t, 
-										 pvr_show_proc_seq_t,
-										 pvr_off2element_proc_seq_t,
-										 pvr_startstop_proc_seq_t,
-										 write_proc_t);
-
-		pArena->bInitProcEntry = !PVRSRVGetInitServerState(PVRSRV_INIT_SERVER_SUCCESSFUL);
-		
-		
-		pfnCreateProcEntrySeq = pArena->bInitProcEntry ? CreateProcEntrySeq : CreatePerProcessProcEntrySeq;
-
-		ret = snprintf(szProcInfoName, sizeof(szProcInfoName), "ra_info_%s", pArena->name);
-		if (ret > 0 && ret < sizeof(szProcInfoName))
-		{
-			pArena->pProcInfo =  pfnCreateProcEntrySeq(ReplaceSpaces(szProcInfoName), pArena, NULL, 
-											 RA_ProcSeqShowInfo, RA_ProcSeqOff2ElementInfo, NULL, NULL);
-		}
-		else
-		{
-			pArena->pProcInfo = 0;
-			PVR_DPF((PVR_DBG_ERROR, "RA_Create: couldn't create ra_info proc entry for arena %s", pArena->name));
-		}
-
-		ret = snprintf(szProcSegsName, sizeof(szProcSegsName), "ra_segs_%s", pArena->name);
-		if (ret > 0 && ret < sizeof(szProcInfoName))
-		{
-			pArena->pProcSegs = pfnCreateProcEntrySeq(ReplaceSpaces(szProcSegsName), pArena, NULL,
-											 RA_ProcSeqShowRegs, RA_ProcSeqOff2ElementRegs, NULL, NULL);
-		}
-		else
-		{
-			pArena->pProcSegs = 0;
-			PVR_DPF((PVR_DBG_ERROR, "RA_Create: couldn't create ra_segs proc entry for arena %s", pArena->name));
-		}
-
-#endif 
-		
 	}
-#endif 
+#endif
 
 	pArena->pSegmentHash = HASH_Create (MINIMUM_HASH_SIZE);
 	if (pArena->pSegmentHash==IMG_NULL)
@@ -1010,7 +824,6 @@ insert_fail:
 	HASH_Delete (pArena->pSegmentHash);
 hash_fail:
 	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(RA_ARENA), pArena, IMG_NULL);
-	
 arena_fail:
 	return IMG_NULL;
 }
@@ -1037,40 +850,15 @@ RA_Delete (RA_ARENA *pArena)
 	while (pArena->pHeadSegment != IMG_NULL)
 	{
 		BT *pBT = pArena->pHeadSegment;
-
-		if (pBT->type != btt_free)
-		{
-			PVR_DPF ((PVR_DBG_ERROR,"RA_Delete: allocations still exist in the arena that is being destroyed"));
-			PVR_DPF ((PVR_DBG_ERROR,"Likely Cause: client drivers not freeing alocations before destroying devmemcontext"));
-			PVR_DPF ((PVR_DBG_ERROR,"RA_Delete: base = 0x%x size=0x%x", pBT->base, pBT->uSize));
-		}
-
+		PVR_ASSERT (pBT->type == btt_free);
 		_SegmentListRemove (pArena, pBT);
 		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BT), pBT, IMG_NULL);
-		
 #ifdef RA_STATS
 		pArena->sStatistics.uSpanCount--;
 #endif
 	}
-#if defined(CONFIG_PROC_FS) && defined(DEBUG_PVR)
+#if defined(CONFIG_PROC_FS) && defined(DEBUG)
 	{
-
-#ifdef PVR_PROC_USE_SEQ_FILE
-		IMG_VOID (*pfnRemoveProcEntrySeq)(struct proc_dir_entry*);
-
-		pfnRemoveProcEntrySeq = pArena->bInitProcEntry ? RemoveProcEntrySeq : RemovePerProcessProcEntrySeq;
-
-		if (pArena->pProcInfo != 0)
-		{
-			pfnRemoveProcEntrySeq( pArena->pProcInfo );
-		}
-
-		if (pArena->pProcSegs != 0)
-		{
-			pfnRemoveProcEntrySeq( pArena->pProcSegs );
-		}
-
-#else 
 		IMG_VOID (*pfnRemoveProcEntry)(const IMG_CHAR *);
 
 		pfnRemoveProcEntry = pArena->bInitProcEntry ? RemoveProcEntry : RemovePerProcessProcEntry;
@@ -1084,13 +872,10 @@ RA_Delete (RA_ARENA *pArena)
 		{
 			pfnRemoveProcEntry(pArena->szProcSegsName);
 		}
-
-#endif 
 	}
 #endif
 	HASH_Delete (pArena->pSegmentHash);
 	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(RA_ARENA), pArena, IMG_NULL);
-	
 }
 
 IMG_BOOL
@@ -1105,8 +890,6 @@ RA_TestDelete (RA_ARENA *pArena)
 			BT *pBT = pArena->pHeadSegment;
 			if (pBT->type != btt_free)
 			{
-				PVR_DPF ((PVR_DBG_ERROR,"RA_TestDelete: detected resource leak!"));
-				PVR_DPF ((PVR_DBG_ERROR,"RA_TestDelete: base = 0x%x size=0x%x", pBT->base, pBT->uSize));
 				return IMG_FALSE;
 			}
 		}
@@ -1153,10 +936,6 @@ RA_Alloc (RA_ARENA *pArena,
 		PVR_DPF ((PVR_DBG_ERROR,"RA_Alloc: invalid parameter - pArena"));
 		return IMG_FALSE;
 	}
-
-#if defined(VALIDATE_ARENA_TEST)
-	ValidateArena(pArena);
-#endif	
 
 #ifdef USE_BM_FREESPACE_CHECK
 	CheckBMFreespace();
@@ -1240,162 +1019,8 @@ RA_Alloc (RA_ARENA *pArena,
 
 	
 
-#if defined(VALIDATE_ARENA_TEST)
-	ValidateArena(pArena);
-#endif	
-
 	return bResult;
 }
-
-
-#if defined(VALIDATE_ARENA_TEST)
-
-IMG_UINT32 ValidateArena(RA_ARENA *pArena)
-{
-	BT* pSegment;
-	RESOURCE_DESCRIPTOR eNextSpan;
-
-	pSegment = pArena->pHeadSegment;
-
-	if (pSegment == IMG_NULL)
-	{
-		return 0;
-	}
-
-	if (pSegment->eResourceType == IMPORTED_RESOURCE_TYPE)
-	{
-		PVR_ASSERT(pSegment->eResourceSpan == IMPORTED_RESOURCE_SPAN_START);
-
-		while (pSegment->pNextSegment)
-		{
-			eNextSpan = pSegment->pNextSegment->eResourceSpan;
-
-			switch (pSegment->eResourceSpan)
-			{
-				case IMPORTED_RESOURCE_SPAN_LIVE:
-
-					if (!((eNextSpan == IMPORTED_RESOURCE_SPAN_LIVE) ||
-						  (eNextSpan == IMPORTED_RESOURCE_SPAN_FREE) ||
-						  (eNextSpan == IMPORTED_RESOURCE_SPAN_END)))
-					{
-						
-						PVR_DPF((PVR_DBG_ERROR, "ValidateArena ERROR: adjacent boundary tags %d (base=0x%x) and %d (base=0x%x) are incompatible (arena: %s)", 
-								pSegment->ui32BoundaryTagID, pSegment->base, pSegment->pNextSegment->ui32BoundaryTagID, pSegment->pNextSegment->base, pArena->name));
-
-						PVR_DBG_BREAK;
-					}
-				break;
-
-				case IMPORTED_RESOURCE_SPAN_FREE:
-
-					if (!((eNextSpan == IMPORTED_RESOURCE_SPAN_LIVE) ||
-						  (eNextSpan == IMPORTED_RESOURCE_SPAN_END)))
-					{
-						
-						PVR_DPF((PVR_DBG_ERROR, "ValidateArena ERROR: adjacent boundary tags %d (base=0x%x) and %d (base=0x%x) are incompatible (arena: %s)", 
-								pSegment->ui32BoundaryTagID, pSegment->base, pSegment->pNextSegment->ui32BoundaryTagID, pSegment->pNextSegment->base, pArena->name));
-
-						PVR_DBG_BREAK;
-					}
-				break;
-
-				case IMPORTED_RESOURCE_SPAN_END:
-
-					if ((eNextSpan == IMPORTED_RESOURCE_SPAN_LIVE) ||
-						(eNextSpan == IMPORTED_RESOURCE_SPAN_FREE) ||
-						(eNextSpan == IMPORTED_RESOURCE_SPAN_END))
-					{
-						
-						PVR_DPF((PVR_DBG_ERROR, "ValidateArena ERROR: adjacent boundary tags %d (base=0x%x) and %d (base=0x%x) are incompatible (arena: %s)", 
-								pSegment->ui32BoundaryTagID, pSegment->base, pSegment->pNextSegment->ui32BoundaryTagID, pSegment->pNextSegment->base, pArena->name));
-
-						PVR_DBG_BREAK;
-					}
-				break;
-
-
-				case IMPORTED_RESOURCE_SPAN_START:
-
-					if (!((eNextSpan == IMPORTED_RESOURCE_SPAN_LIVE) ||
-						  (eNextSpan == IMPORTED_RESOURCE_SPAN_FREE)))
-					{
-						
-						PVR_DPF((PVR_DBG_ERROR, "ValidateArena ERROR: adjacent boundary tags %d (base=0x%x) and %d (base=0x%x) are incompatible (arena: %s)", 
-								pSegment->ui32BoundaryTagID, pSegment->base, pSegment->pNextSegment->ui32BoundaryTagID, pSegment->pNextSegment->base, pArena->name));
-
-						PVR_DBG_BREAK;
-					}
-				break;
-
-				default:
-					PVR_DPF((PVR_DBG_ERROR, "ValidateArena ERROR: adjacent boundary tags %d (base=0x%x) and %d (base=0x%x) are incompatible (arena: %s)", 
-								pSegment->ui32BoundaryTagID, pSegment->base, pSegment->pNextSegment->ui32BoundaryTagID, pSegment->pNextSegment->base, pArena->name));
-
-					PVR_DBG_BREAK;
-				break;
-			}
-			pSegment = pSegment->pNextSegment;
-		}
-	}
-	else if (pSegment->eResourceType == NON_IMPORTED_RESOURCE_TYPE)
-	{
-		PVR_ASSERT((pSegment->eResourceSpan == RESOURCE_SPAN_FREE) || (pSegment->eResourceSpan == RESOURCE_SPAN_LIVE));
-
-		while (pSegment->pNextSegment)
-		{
-			eNextSpan = pSegment->pNextSegment->eResourceSpan;
-
-			switch (pSegment->eResourceSpan)
-			{
-				case RESOURCE_SPAN_LIVE:
-
-					if (!((eNextSpan == RESOURCE_SPAN_FREE) ||
-						  (eNextSpan == RESOURCE_SPAN_LIVE)))
-					{
-						
-						PVR_DPF((PVR_DBG_ERROR, "ValidateArena ERROR: adjacent boundary tags %d (base=0x%x) and %d (base=0x%x) are incompatible (arena: %s)", 
-								pSegment->ui32BoundaryTagID, pSegment->base, pSegment->pNextSegment->ui32BoundaryTagID, pSegment->pNextSegment->base, pArena->name));
-
-						PVR_DBG_BREAK;
-					}
-				break;
-
-				case RESOURCE_SPAN_FREE:
-
-					if (!((eNextSpan == RESOURCE_SPAN_FREE) ||
-						  (eNextSpan == RESOURCE_SPAN_LIVE)))
-					{
-						
-						PVR_DPF((PVR_DBG_ERROR, "ValidateArena ERROR: adjacent boundary tags %d (base=0x%x) and %d (base=0x%x) are incompatible (arena: %s)", 
-								pSegment->ui32BoundaryTagID, pSegment->base, pSegment->pNextSegment->ui32BoundaryTagID, pSegment->pNextSegment->base, pArena->name));
-
-						PVR_DBG_BREAK;
-					}
-				break;
-
-				default:
-					PVR_DPF((PVR_DBG_ERROR, "ValidateArena ERROR: adjacent boundary tags %d (base=0x%x) and %d (base=0x%x) are incompatible (arena: %s)", 
-								pSegment->ui32BoundaryTagID, pSegment->base, pSegment->pNextSegment->ui32BoundaryTagID, pSegment->pNextSegment->base, pArena->name));
-
-					PVR_DBG_BREAK;
-				break;
-			}
-			pSegment = pSegment->pNextSegment;
-		}
-
-	}
-	else
-	{
-		PVR_DPF ((PVR_DBG_ERROR,"ValidateArena ERROR: pSegment->eResourceType unrecognized"));
-
-		PVR_DBG_BREAK;
-	}
-
-	return 0;
-}
-
-#endif
-
 
 IMG_VOID
 RA_Free (RA_ARENA *pArena, IMG_UINTPTR_T base, IMG_BOOL bFreeBackingStore)
@@ -1537,7 +1162,7 @@ IMG_VOID CheckBMFreespace(IMG_VOID)
 #endif
 
 
-#if (defined(CONFIG_PROC_FS) && defined(DEBUG_PVR)) || defined (RA_STATS)
+#if (defined(CONFIG_PROC_FS) && defined(DEBUG)) || defined (RA_STATS)
 static IMG_CHAR *
 _BTType (IMG_INT eType)
 {
@@ -1583,105 +1208,7 @@ RA_Dump (RA_ARENA *pArena)
 #endif 
 
 
-#if defined(CONFIG_PROC_FS) && defined(DEBUG_PVR)
-
-
-#ifdef PVR_PROC_USE_SEQ_FILE
-
-static void RA_ProcSeqShowInfo(struct seq_file *sfile, void* el) 
-{
-	PVR_PROC_SEQ_HANDLERS *handlers = (PVR_PROC_SEQ_HANDLERS*)sfile->private;
-	RA_ARENA *pArena = (RA_ARENA *)handlers->data;
-	IMG_INT off = (IMG_INT)el;
-
-	switch (off)
-	{
-	case 1:
-		seq_printf(sfile, "quantum\t\t\t%lu\n", pArena->uQuantum);
-		break;
-	case 2:
-		seq_printf(sfile, "import_handle\t\t%08X\n", (IMG_UINT)pArena->pImportHandle);
-		break;
-#ifdef RA_STATS
-	case 3:
-		seq_printf(sfile,"span count\t\t%lu\n", pArena->sStatistics.uSpanCount);
-		break;
-	case 4:
-		seq_printf(sfile, "live segment count\t%lu\n", pArena->sStatistics.uLiveSegmentCount);
-		break;
-	case 5:
-		seq_printf(sfile, "free segment count\t%lu\n", pArena->sStatistics.uFreeSegmentCount);
-		break;
-	case 6:
-		seq_printf(sfile, "free resource count\t%lu (0x%x)\n",
-							pArena->sStatistics.uFreeResourceCount,
-							(IMG_UINT)pArena->sStatistics.uFreeResourceCount);
-		break;
-	case 7:
-		seq_printf(sfile, "total allocs\t\t%lu\n", pArena->sStatistics.uCumulativeAllocs);
-		break;
-	case 8:
-		seq_printf(sfile, "total frees\t\t%lu\n", pArena->sStatistics.uCumulativeFrees);
-		break;
-	case 9:
-		seq_printf(sfile, "import count\t\t%lu\n", pArena->sStatistics.uImportCount);
-		break;
-	case 10:
-		seq_printf(sfile, "export count\t\t%lu\n", pArena->sStatistics.uExportCount);
-		break;
-#endif
-	}
-
-}
-
-static void* RA_ProcSeqOff2ElementInfo(struct seq_file * sfile, loff_t off)
-{
-#ifdef RA_STATS
-	if(off <= 9) 
-#else
-	if(off <= 1) 
-#endif
-		return (void*)(IMG_INT)(off+1);
-	return 0;
-}
-
-static void RA_ProcSeqShowRegs(struct seq_file *sfile, void* el)
-{
-	PVR_PROC_SEQ_HANDLERS *handlers = (PVR_PROC_SEQ_HANDLERS*)sfile->private;
-	RA_ARENA *pArena = (RA_ARENA *)handlers->data;
-	BT *pBT = (BT*)el;
-
-	if (el == PVR_PROC_SEQ_START_TOKEN)
-	{
-		seq_printf(sfile, "Arena \"%s\"\nBase         Size Type Ref\n", pArena->name);
-		return;
-	}
-
-	if (pBT)
-	{
-		seq_printf(sfile, "%08x %8x %4s %08x\n", 
-				   (IMG_UINT)pBT->base, (IMG_UINT)pBT->uSize, _BTType (pBT->type),
-			       (IMG_UINT)pBT->psMapping);
-	}
-}
-
-static void* RA_ProcSeqOff2ElementRegs(struct seq_file * sfile, loff_t off) 
-{
-	PVR_PROC_SEQ_HANDLERS *handlers = (PVR_PROC_SEQ_HANDLERS*)sfile->private;
-	RA_ARENA *pArena = (RA_ARENA *)handlers->data;
-	BT *pBT = 0;
-
-	if(off == 0) 
-		return PVR_PROC_SEQ_START_TOKEN;
-
-	for (pBT=pArena->pHeadSegment; --off && pBT; pBT=pBT->pNextSegment);
-
-	return (void*)pBT;
-}
-
-
-
-#else 
+#if defined(CONFIG_PROC_FS) && defined(DEBUG)
 static IMG_INT
 RA_DumpSegs(IMG_CHAR *page, IMG_CHAR **start, off_t off, IMG_INT count, IMG_INT *eof, IMG_VOID *data)
 {
@@ -1770,8 +1297,7 @@ RA_DumpInfo(IMG_CHAR *page, IMG_CHAR **start, off_t off, IMG_INT count, IMG_INT 
 	*start = (IMG_CHAR *)1;
 	return (len);
 }
-#endif 
-#endif 
+#endif
 
 
 #ifdef RA_STATS

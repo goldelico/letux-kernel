@@ -83,7 +83,6 @@ struct _BM_HEAP_
 	MMU_HEAP				*pMMUHeap;
 	
 	struct _BM_HEAP_ 		*psNext;
-	struct _BM_HEAP_ 		**ppsThis;
 };
 
 struct _BM_CONTEXT_
@@ -109,7 +108,6 @@ struct _BM_CONTEXT_
 	
 
 	struct _BM_CONTEXT_ *psNext;
-	struct _BM_CONTEXT_ **ppsThis;
 };
 
 
@@ -156,8 +154,8 @@ BM_Alloc (IMG_HANDLE			hDevMemHeap,
 
 IMG_BOOL
 BM_Wrap (	IMG_HANDLE hDevMemHeap,
-		    IMG_SIZE_T ui32Size,
-			IMG_SIZE_T ui32Offset,
+		    IMG_UINT32 ui32Size,
+			IMG_UINT32 ui32Offset,
 			IMG_BOOL bPhysContig,
 			IMG_SYS_PHYADDR *psSysAddr,
 			IMG_VOID *pvCPUVAddr,
@@ -187,8 +185,8 @@ BM_ContiguousStatistics (IMG_UINT32 uFlags,
                          IMG_UINT32 *pAvailableBytes);
 
 
-IMG_VOID BM_GetPhysPageAddr(PVRSRV_KERNEL_MEM_INFO *psMemInfo,
-								IMG_DEV_VIRTADDR sDevVPageAddr,
+PVRSRV_ERROR BM_GetPhysPageAddr(PVRSRV_KERNEL_MEM_INFO *psMemInfo, 
+								IMG_DEV_VIRTADDR sDevVPageAddr,  
 								IMG_DEV_PHYADDR *psDevPAddr);
 
 PVRSRV_ERROR BM_GetHeapInfo(IMG_HANDLE hDevMemHeap, 
