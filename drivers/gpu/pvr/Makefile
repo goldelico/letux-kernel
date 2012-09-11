@@ -62,14 +62,14 @@ ccflags-y = -Idrivers/gpu/pvr \
 #	-DSGX_CLK_CORE_DIV5 \
 #	-DSGX540 -DSUPPORT_SGX540
 
-# ccflags-$(CONFIG_SGX_REV110) += -DSGX_CORE_REV=110
-# ccflags-$(CONFIG_SGX_REV120) += -DSGX_CORE_REV=120
-
 ccflags-$(CONFIG_SGX530) +=  -Idrivers/gpu/pvr/omap3  -Idrivers/gpu/pvr/sgx \
-	-DSGX530 -DSUPPORT_SGX530
+	-DSGX530 \
+	-DSUPPORT_SGX530
 
-ccflags-$(CONFIG_SGX_REV125) += -DSGX_CORE_REV=125
+ccflags-$(CONFIG_SGX_REV110) += -DSGX_CORE_REV=110
+ccflags-$(CONFIG_SGX_REV120) += -DSGX_CORE_REV=120
 ccflags-$(CONFIG_SGX_REV121) += -DSGX_CORE_REV=121
+ccflags-$(CONFIG_SGX_REV125) += -DSGX_CORE_REV=125
 
 ccflags-$(CONFIG_SGX_530_BUILD_RELEASE) += \
 	-DPVR_BUILD_TYPE="\"release\"" \
@@ -180,8 +180,7 @@ omaplfb-y := \
 	services4/3rdparty/dc_omap3430_linux/omaplfb_displayclass.o \
 	services4/3rdparty/dc_omap3430_linux/omaplfb_linux.o
 
-#obj-$(CONFIG_SGX540) := pvr_common.o sgx.o omaplfb.o pvr540.o
-#obj-$(CONFIG_SGX530) := pvr_common.o sgx.o pvr530.o
+obj-$(CONFIG_SGX540) := pvr_common.o sgx.o omaplfb.o pvr540.o
 obj-$(CONFIG_SGX530) := pvr_common.o sgx.o omaplfb.o pvr530.o
 #obj-$(CONFIG_VIRTUAL_DISPLAY_SUPPORT) := pvr_common.o sgx.o \
 #	sgx_displayclass.o pvr540.o

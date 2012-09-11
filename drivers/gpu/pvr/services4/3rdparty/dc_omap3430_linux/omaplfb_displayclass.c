@@ -1113,10 +1113,16 @@ static OMAP_ERROR InitDev(OMAPLFB_DEVINFO *psDevInfo)
 	OMAP_ERROR eError = OMAP_ERROR_GENERIC;
 	unsigned long FBSize;
 
+#ifdef CONFIG_OMAP2_DSS	
+	printk("InitDev: CONFIG_OMAP2_DSS\n");
+#else
+	printk("InitDev: !CONFIG_OMAP2_DSS\n");
+#endif
 	acquire_console_sem();
 
 	if (fb_idx < 0 || fb_idx >= num_registered_fb)
 	{
+		printk("InitDev: invalid device %d [0..%d[\n", fb_idx, num_registered_fb);
 		eError = OMAP_ERROR_INVALID_DEVICE;
 		goto errRelSem;
 	}
@@ -1291,6 +1297,7 @@ OMAP_ERROR OMAPLFBInit(void)
 
 		if(!psDevInfo)
 		{
+			printk("OMAPLFBInit: out of memory\n");
 			return (OMAP_ERROR_OUT_OF_MEMORY);
 		}
 
@@ -1306,17 +1313,20 @@ OMAP_ERROR OMAPLFBInit(void)
 		
 		if(InitDev(psDevInfo) != OMAP_OK)
 		{
+			printk("OMAPLFBInit: InitDev failed\n");
 			return (OMAP_ERROR_INIT_FAILURE);
 		}
 
 		if(OMAPLFBGetLibFuncAddr ("PVRGetDisplayClassJTable", &pfnGetPVRJTable) != OMAP_OK)
 		{
+			printk("OMAPLFBInit: OMAPLFBGetLibFuncAddr(\"PVRGetDisplayClassJTable\") failed\n");
 			return (OMAP_ERROR_INIT_FAILURE);
 		}
 
 		
 		if(!(*pfnGetPVRJTable)(&psDevInfo->sPVRJTable))
 		{
+			printk("OMAPLFBInit: pfnGetPVRJTable() failed\n");
 			return (OMAP_ERROR_INIT_FAILURE);
 		}
 
@@ -1388,6 +1398,7 @@ OMAP_ERROR OMAPLFBInit(void)
 			&psDevInfo->sDCJTable,
 			&psDevInfo->ulDeviceID ) != PVRSRV_OK)
 		{
+			printk("OMAPLFBInit: pfnPVRSRVRegisterDCDevice failed\n");
 			return (OMAP_ERROR_DEVICE_REGISTER_FAILED);
 		}
 		
@@ -1411,6 +1422,9 @@ OMAP_ERROR OMAPLFBInit(void)
 			return (OMAP_ERROR_CANT_REGISTER_CALLBACK);
 		}
 
+	}
+	else {
+		printk("OMAPLFBInit: psDevInfo != NULL (ok)\n");
 	}
 
 	

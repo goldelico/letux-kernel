@@ -656,6 +656,6 @@ static IMG_VOID __exit PVRCore_Cleanup(IMG_VOID)
 #endif
 }
 
-module_init(PVRCore_Init);
+late_initcall(PVRCore_Init);
 module_exit(PVRCore_Cleanup);
 

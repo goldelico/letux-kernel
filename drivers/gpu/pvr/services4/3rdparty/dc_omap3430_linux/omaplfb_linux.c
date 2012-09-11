@@ -376,6 +376,6 @@ static IMG_VOID __exit OMAPLFB_Cleanup(IMG_VOID)
 	}
 }
 
-module_init(OMAPLFB_Init);
+late_initcall(OMAPLFB_Init);
 module_exit(OMAPLFB_Cleanup);
 
