@@ -1500,7 +1500,7 @@ register_framebuffer(struct fb_info *fb_info)
 
 	if (fb_check_foreignness(fb_info))
 		return -ENOSYS;
-
+	printk("register_framebuffer\n");
 	/* check all firmware fbs and kick off if the base addr overlaps */
 	for (i = 0 ; i < FB_MAX; i++) {
 		if (!registered_fb[i])
