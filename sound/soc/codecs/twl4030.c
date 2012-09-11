@@ -2014,8 +2014,9 @@ static int twl4030_voice_set_dai_fmt(struct snd_soc_dai *codec_dai,
 static int twl4030_voice_set_tristate(struct snd_soc_dai *dai, int tristate)
 {
 	struct snd_soc_codec *codec = dai->codec;
-	printk("twl4030_voice_set_tristate codec=%p\n", codec);
 	u8 reg = twl4030_read_reg_cache(codec, TWL4030_REG_VOICE_IF);
+
+	printk("twl4030_voice_set_tristate codec=%p\n", codec);
 
 	if (tristate)
 		reg |= TWL4030_VIF_TRI_EN;
