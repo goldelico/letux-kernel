@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32
-# Wed Sep  5 18:54:09 2012
+# Tue Sep 11 10:09:02 2012
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -1821,8 +1821,8 @@ CONFIG_DVB_LGS8GL5=m
 CONFIG_SGX530=y
 # CONFIG_SGX_REV121 is not set
 CONFIG_SGX_REV125=y
-# CONFIG_SGX_530_BUILD_RELEASE is not set
-CONFIG_SGX_530_BUILD_DEBUG=y
+CONFIG_SGX_530_BUILD_RELEASE=y
+# CONFIG_SGX_530_BUILD_DEBUG is not set
 # CONFIG_VGASTATE is not set
 # CONFIG_VIDEO_OUTPUT_CONTROL is not set
 CONFIG_FB=y
