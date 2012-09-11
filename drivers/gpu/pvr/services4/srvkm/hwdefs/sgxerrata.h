@@ -82,8 +82,8 @@
 	#endif
 	#endif
 	#endif
-#endif
-        #endif
+	#endif
+	#endif
 	
 	#define SGX_CORE_DEFINED
 #endif
