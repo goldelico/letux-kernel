@@ -26,7 +26,6 @@
 #include <linux/gpio.h>
 
 static struct omap_video_timings lq070y3dg3b_panel_timings = {
-#error FIXME
 	.x_res		= 800,
 	.y_res		= 480,
 	.pixel_clock	= 33260,
@@ -41,7 +40,7 @@ static struct omap_video_timings lq070y3dg3b_panel_timings = {
 
 // FIXME: this should be passed from the board initialization structure or should be set by driver parameters
 
-#define GPIO_STBY (machine_is_gta04()?12:162)		/* McBSP5-CLKX of GTA04 */
+#define GPIO_STBY (machine_is_gta04()?12:162)		/* 3.3V LDO McBSP5-CLKX of GTA04 */
 
 static int lq070y3dg3b_panel_probe(struct omap_dss_device *dssdev)
 {
@@ -135,6 +134,7 @@ static struct omap_dss_driver lq070y3dg3b_driver = {
 
 static int __init lq070y3dg3b_panel_drv_init(void)
 {
+	printk("lq070y3dg3b_panel_drv_init()\n");
 	return omap_dss_register_driver(&lq070y3dg3b_driver);
 }
 
