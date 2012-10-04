@@ -118,7 +118,7 @@ config BATTERY_BQ27X00_PLATFORM
 	  Say Y here to enable support for batteries with BQ27000 (HDQ) chips.
 
 config TWL4030_BCI_BATTERY
-       tristate "OMAP TWL4030 BCI Battery driver"
+       tristate "OMAP TWL4030 BCI Battery driver (old but working)"
        depends on TWL4030_CORE && TWL4030_MADC
        default y
        help
@@ -147,7 +147,7 @@ config CHARGER_PCF50633
 	 Say Y to include support for NXP PCF50633 Main Battery Charger.
 
 config CHARGER_TWL4030
-	tristate "OMAP TWL4030 BCI charger driver"
+	tristate "OMAP TWL4030 BCI charger driver (new but breaks MADC)"
 	depends on TWL4030_CORE && !TWL4030_BCI_BATTERY
 	default y
 	help

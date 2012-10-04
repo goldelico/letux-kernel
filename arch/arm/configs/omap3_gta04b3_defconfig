@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32
-# Wed Oct  3 20:45:46 2012
+# Thu Oct  4 19:01:40 2012
 #
 CONFIG_ARM=y
 # CONFIG_HAVE_PWM is not set
@@ -1841,7 +1841,7 @@ CONFIG_FB_OMAP2_NUM_FBS=3
 #
 # OMAP2/3 Display Device Drivers
 #
-# CONFIG_PANEL_GENERIC is not set
+CONFIG_PANEL_GENERIC=y
 # CONFIG_PANEL_LGPHILIPS_LB035Q02 is not set
 # CONFIG_PANEL_SAMSUNG_LTE430WQ_F0C is not set
 # CONFIG_PANEL_SHARP_LS037V7DW01 is not set
