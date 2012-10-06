@@ -290,13 +290,13 @@ static struct omap_dss_device gta04_lcd_device = {
 	.type = OMAP_DISPLAY_TYPE_DPI,
 	.name = "lcd",
 #if defined(CONFIG_PANEL_ORTUS_COM37H3M05DTC)
-	.driver_name = "com37h3m05dtc_panel",
+	.driver_name = "com37h3m05dtc_panel",		// GTA04b2
 #elif defined(CONFIG_PANEL_TPO_TD028TTEC1)
-	.driver_name = "td028ttec1_panel",
+	.driver_name = "td028ttec1_panel",			// GTA04
 #elif defined(CONFIG_PANEL_SHARP_LQ070Y3DG3B)
-	.driver_name = "lq070y3dg3b_panel",
+	.driver_name = "lq070y3dg3b_panel",			// GTA04b3
 #elif defined(CONFIG_PANEL_SHARP_LQ050W1LC1B)
-	.driver_name = "lq050w1lc1b_panel",
+	.driver_name = "lq050w1lc1b_panel",			// GTA04b4
 #endif
 	.phy.dpi.data_lines = 24,
 	.platform_enable = gta04_enable_lcd,
@@ -1335,7 +1335,7 @@ static int __init wake_3G_init(void)
 
 static void __init gta04_init(void)
 {
-	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);
+	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);	// this switches most pins to safe mode as defined in arch/arm/mach-omap2/mux34xx.c
 	gta04_init_rev();
 	gta04_i2c_init();
 	platform_add_devices(gta04_devices,
@@ -1351,7 +1351,10 @@ static void __init gta04_init(void)
 	// note: calling omap_mux_init_signal() overwrites the parameter string...
 	
 	omap_mux_init_signal("mcbsp3_clkx.uart2_tx", OMAP_PIN_OUTPUT);	// gpio 142 / GPS TX
-	omap_mux_init_signal("mcbsp3_fsx.uart2_rx", OMAP_PIN_INPUT);	// gpio 143 / GPS RX	
+	omap_mux_init_signal("mcbsp3_fsx.uart2_rx", OMAP_PIN_INPUT);	// gpio 143 / GPS RX
+#ifdef CONFIG_PANEL_SHARP_LQ070Y3DG3B	// GTA04b3 board
+	omap_mux_init_gpio(20, OMAP_PIN_INPUT_PULLDOWN);	// gpio 20
+#endif
 #endif
 
 #if defined(CONFIG_KEYBOARD_TCA8418) || defined(CONFIG_KEYBOARD_TCA8418_MODULE)
