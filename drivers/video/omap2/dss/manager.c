@@ -503,7 +503,7 @@ static int omap_dss_unset_device(struct omap_overlay_manager *mgr)
 
 static int dss_mgr_wait_for_go(struct omap_overlay_manager *mgr)
 {
-	unsigned long timeout = msecs_to_jiffies(500);
+	unsigned long timeout = msecs_to_jiffies(1000);
 	struct manager_cache_data *mc;
 	enum omap_channel channel;
 	u32 irq;
@@ -573,7 +573,7 @@ static int dss_mgr_wait_for_go(struct omap_overlay_manager *mgr)
 
 int dss_mgr_wait_for_go_ovl(struct omap_overlay *ovl)
 {
-	unsigned long timeout = msecs_to_jiffies(500);
+	unsigned long timeout = msecs_to_jiffies(1000);
 	enum omap_channel channel;
 	struct overlay_cache_data *oc;
 	struct omap_dss_device *dssdev;
