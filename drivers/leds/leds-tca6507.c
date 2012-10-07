@@ -175,9 +175,11 @@ static void tca6507_led_work(struct work_struct *work)
 	int ls_led;	/* which set of bits within the Select registers to use (0-2) */
 
 	tca6507 = container_of(work, struct tca6507_led, work);
-	ls_led = tca6507->led_num % 4;
+	ls_led = tca6507->led_num % 7;
 
 	ls = tca6507_read_ls(tca6507->client, ls_led);
+
+	printk("LED status registers before %06x\n", ls);
 
 #ifdef CONFIG_MACH_GTA04
 	if (tca6507->led_num == 6) {
@@ -215,6 +217,8 @@ static void tca6507_led_work(struct work_struct *work)
 			ls = tca6507_ledsel(ls, ls_led, TCA6507_LS_LED_PWM0);
 		break;
 	}
+
+	printk("LED status registers after %06x\n", ls);
 
 	tca6507_write_ls(tca6507->client, ls_led, ls);
 	
