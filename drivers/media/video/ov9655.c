@@ -574,6 +574,7 @@ static int ov9655_set_current_std(struct ov9655_decoder *decoder, enum ov9655_st
 static int ov9655_configure(struct ov9655_decoder *decoder)
 {
 	int err;
+	// write 0x80 to register 0x12 and msleep(100)
 	/* common register initialization */
 	err =
 	    ov9655_write_regs(decoder->client, ov9655_init_hardware, ARRAY_SIZE(ov9655_init_hardware));
