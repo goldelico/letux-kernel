@@ -2361,7 +2361,7 @@ int isp_enable_mclk(struct device *dev)
 	curr_dpll4_m5 = clk_get_rate(isp->dpll4_m5_ck);
 	printk("curr_mclk %lu\n", curr_mclk);
 	printk("curr_dpll4_m5 %lu\n", curr_dpll4_m5);
-	printk("isp->mclk %lu\n", isp->mclk);
+	printk("isp->mclk %u\n", isp->mclk);
 
 	/* Protection for potential Zero division, or zero-ratio result */
 	if (!curr_mclk || !curr_dpll4_m5)
