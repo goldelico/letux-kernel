@@ -42,17 +42,21 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 
+#define KEYIRQ_GPIO	(gta04_version >= 4 ? 176 : 10)	/* changed on A4 boards */
+
 /* gpio pins to fix HW problem with TRF7960 being in "SPI without SS" mode */
 
 #define spi_xfer bitbang_spi_xfer
 #define spi_claim_bus(X)
 #define spi_release_bus(X)
 
+/* gpio definitions */
+
 #define McSPI3_CLK	130
 #define McSPI3_SIMO	131
 #define McSPI3_SOMI	132
 
-#define IRQ	156
+#define IRQ	KEYIRQ_GPIO
 #define EN	161
 #define EN2	159
 
