@@ -143,6 +143,10 @@ static void __init gta04_init_rev(void)
 		2
 	};
 	
+#ifndef CONFIG_OMAP_MUX
+#error we need CONFIG_OMAP_MUX
+#endif
+
 	omap_mux_init_gpio(171, OMAP_PIN_INPUT_PULLUP);
 	omap_mux_init_gpio(172, OMAP_PIN_INPUT_PULLUP);
 	omap_mux_init_gpio(173, OMAP_PIN_INPUT_PULLUP);
@@ -792,7 +796,15 @@ static void tsc2007_exit(void)
 
 struct tsc2007_platform_data __initdata tsc2007_info = {
 	.model			= 2007,
-	.x_plate_ohms		= 600,	/* is just a range defining factor - range: 250 .. 900 */
+#if defined(CONFIG_PANEL_ORTUS_COM37H3M05DTC)
+	.x_plate_ohms		= 600,		// GTA04b2: 200 - 900
+#elif defined(CONFIG_PANEL_TPO_TD028TTEC1)
+	.x_plate_ohms		= 550,			// GTA04: 250 - 900
+#elif defined(CONFIG_PANEL_SHARP_LQ070Y3DG3B)
+	.x_plate_ohms		= 450,			// GTA04b3: 100 - 900
+#elif defined(CONFIG_PANEL_SHARP_LQ050W1LC1B)
+	.x_plate_ohms		= 400,			// GTA04b4: 100 - 850 (very asymmetric between X and Y!)
+#endif
 	.get_pendown_state	= ts_get_pendown_state,
 	.init_platform_hw	= tsc2007_init,
 	.exit_platform_hw	= tsc2007_exit,
@@ -1278,14 +1290,9 @@ static struct ehci_hcd_omap_platform_data ehci_pdata __initdata = {
 	.reset_gpio_port[2]  = -EINVAL
 };
 
-#ifdef CONFIG_OMAP_MUX
 static struct omap_board_mux board_mux[] __initdata = {
 	{ .reg_offset = OMAP_MUX_TERMINATOR },
 };
-#else
-#error we need CONFIG_OMAP_MUX
-#define board_mux	NULL
-#endif
 
 #if 0	/* use AUX button for testing if the interrupt handler works */
 #undef WO3G_GPIO
@@ -1335,28 +1342,29 @@ static int __init wake_3G_init(void)
 
 static void __init gta04_init(void)
 {
-	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);	// this switches most pins to safe mode as defined in arch/arm/mach-omap2/mux34xx.c
+	/* this switches most pins to safe mode as defined in arch/arm/mach-omap2/mux34xx.c */
+	/* but this may also be harmful if the Pins have built-in PullUp or PullDown states */
+	
+	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);
+	
 	gta04_init_rev();
 	gta04_i2c_init();
 	platform_add_devices(gta04_devices,
 						 ARRAY_SIZE(gta04_devices));
 	omap_serial_init();
 	
-	printk(KERN_INFO "Revision GTA04A%d\n", gta04_version);
-
-#ifdef CONFIG_OMAP_MUX
-
 	// for a definition of the mux names see arch/arm/mach-omap2/mux34xx.c
 	// the syntax of the first paramter to omap_mux_init_signal() is "muxname" or "m0name.muxname" (for ambiguous modes)
-	// note: calling omap_mux_init_signal() overwrites the parameter string...
+	// note: calling omap_mux_init_signal() can modify the parameter string (replace '.' by '\0')
 	
 	omap_mux_init_signal("mcbsp3_clkx.uart2_tx", OMAP_PIN_OUTPUT);	// gpio 142 / GPS TX
 	omap_mux_init_signal("mcbsp3_fsx.uart2_rx", OMAP_PIN_INPUT);	// gpio 143 / GPS RX
 #ifdef CONFIG_PANEL_SHARP_LQ070Y3DG3B	// GTA04b3 board
 	omap_mux_init_gpio(20, OMAP_PIN_INPUT_PULLDOWN);	// gpio 20
 #endif
-#endif
 
+	printk(KERN_INFO "Revision GTA04A%d\n", gta04_version);
+	
 #if defined(CONFIG_KEYBOARD_TCA8418) || defined(CONFIG_KEYBOARD_TCA8418_MODULE)
 	{ /* dynamically insert the correct IRQ number */
 	int i;
