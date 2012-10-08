@@ -179,14 +179,14 @@ static void tca6507_led_work(struct work_struct *work)
 
 	ls = tca6507_read_ls(tca6507->client, ls_led);
 
-	printk("LED status registers before %06x\n", ls);
+//	printk("LED status registers before %06x\n", ls);
 
 #ifdef CONFIG_MACH_GTA04
 	if (tca6507->led_num == 6) {
-		printk("WLAN reset status %06x\n", ls);
-		printk("WLAN brightness %d", tca6507->brightness);
+//		printk("WLAN reset status %06x\n", ls);
+//		printk("WLAN brightness %d", tca6507->brightness);
 		tca6507->brightness = tca6507->brightness > 127 ? LED_FULL:LED_OFF;	/* limit to LED_FULL and LED_OFF since it is used as a WLAN reset */		
-		printk(" -> %d\n", tca6507->brightness);
+//		printk(" -> %d\n", tca6507->brightness);
 	}
 #endif
 	
@@ -218,14 +218,14 @@ static void tca6507_led_work(struct work_struct *work)
 		break;
 	}
 
-	printk("LED status registers after %06x\n", ls);
+//	printk("LED status registers after %06x\n", ls);
 
 	tca6507_write_ls(tca6507->client, ls_led, ls);
 	
 #ifdef CONFIG_MACH_GTA04
 	if (tca6507->led_num == 6) { /* LED6 is used as a Reset for the W2CBW003 SDIO WLAN/BT module */
 		extern struct mmc_host *mmc2_host;
-		printk("WLAN reset changed to %06x\n", ls);
+//		printk("WLAN reset changed to %06x\n", ls);
 		mmc_detect_change(mmc2_host, 1);	/* trigger rescan */
 	}
 #endif
