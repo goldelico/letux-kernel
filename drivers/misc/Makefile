@@ -34,3 +34,5 @@ obj-$(CONFIG_ITG3200)		+= itg3200.o
 obj-$(CONFIG_BMA180)		+= bma180.o
 obj-$(CONFIG_HMC5843)		+= hmc5843.o
 obj-$(CONFIG_HMC5883L)		+= hmc5883l.o
+obj-$(CONFIG_BMA250)		+= bma250.o
+obj-$(CONFIG_BMC050)		+= bmc050.o
