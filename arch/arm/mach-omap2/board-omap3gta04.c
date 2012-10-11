@@ -1006,6 +1006,22 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 	.irq		= 115,
 	},	
 #endif
+#if defined(CONFIG_BMA250) || defined(CONFIG_BMA250_MODULE)
+	{
+	I2C_BOARD_INFO("bma250", 0x18),
+	.type		= "bma250",
+	.platform_data	= NULL,
+	.irq		= 115,
+	},	
+#endif
+#if defined(CONFIG_BMC050) || defined(CONFIG_BMC050_MODULE)
+	{
+	I2C_BOARD_INFO("bmc050", 0x10),
+	.type		= "bmc050",
+	.platform_data	= NULL,
+	.irq		= 111,
+	},	
+#endif
 #if defined(CONFIG_HMC5883L) || defined(CONFIG_HMC5883L_MODULE)
 	{
 	I2C_BOARD_INFO("hmc5883l", 0x1e),

@@ -1317,8 +1317,16 @@ static void __init omap3_beagle_init(void)
 		omap_mux_init_signal("mcbsp3_fsx.uart2_rx", OMAP_PIN_INPUT);	// gpio 143
 		}
 	
-// FIXME: handle b2 and b4
+	if(!strcmp(expansionboard_name, "b2"))
+		{
+		// FIXME: handle b2 and b4
+		}
 
+	if(!strcmp(expansionboard_name, "b4"))
+		{
+		// FIXME: handle b2 and b4
+		}
+	
 	if(!strcmp(expansionboard_name, "zippy")) 
 	{
 		printk(KERN_INFO "Beagle expansionboard: initializing enc28j60\n");

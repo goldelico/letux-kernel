@@ -673,9 +673,9 @@ int twl4030_sih_setup(int module);
 #define TWL4030_VAUX4_REMAP		0x25
 #define TWL4030_VAUX4_DEDICATED		0x26
 
-#if defined(CONFIG_TWL4030_BCI_BATTERY) || \
-	defined(CONFIG_TWL4030_BCI_BATTERY_MODULE)
+#if defined(CONFIG_TWL4030_BCI_BATTERY)
 	extern int twl4030charger_usb_en(int enable);
+#elif  defined(CONFIG_TWL4030_BCI_BATTERY_MODULE)
 #else
 	static inline int twl4030charger_usb_en(int enable) { return 0; }
 #endif

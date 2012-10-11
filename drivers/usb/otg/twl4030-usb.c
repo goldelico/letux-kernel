@@ -607,9 +607,8 @@ static irqreturn_t twl4030_usb_irq(int irq, void *_twl)
 		else
 			twl4030_phy_resume(twl);
 
-#if defined(CONFIG_TWL4030_BCI_BATTERY) || defined(CONFIG_TWL4030_BCI_BATTERY_MODULE)
+#if defined(CONFIG_TWL4030_BCI_BATTERY) // || defined(CONFIG_TWL4030_BCI_BATTERY_MODULE)
 		{ /* old style interaction with battery/charger driver */
-			extern int twl4030charger_usb_en(int enable);	/* FIXME: we should import some relevant header */
 			twl4030charger_usb_en(status == USB_EVENT_VBUS);
 		}
 #endif
