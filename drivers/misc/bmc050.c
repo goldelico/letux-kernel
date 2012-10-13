@@ -53,7 +53,7 @@ static int bmc050_read_chip_id(struct i2c_client *client)
 static s32 bmc050_read_data(struct i2c_client *client, struct bmc050_meas_data *data)
 {
 	s32 result = i2c_smbus_read_i2c_block_data(client, 0x42, sizeof(struct bmc050_meas_data), (u8*)data);
-	printk("bytes: %d\n", result);
+//	printk("bytes: %d\n", result);
 	/*
 	 * here we should apply a compensation formula
 	 */
