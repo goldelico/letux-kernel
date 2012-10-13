@@ -1,5 +1,5 @@
 /*
- * Ortustech COM37H3M05DTC panel support
+ * Ortustech COM37H3M05DTC and COM37H3M99DTC panel support
  *
  * Copyright (C) 2008 Nokia Corporation
  * Author: Tomi Valkeinen <tomi.valkeinen@nokia.com>
@@ -28,12 +28,14 @@
 static struct omap_video_timings com37h3m05dtc_panel_timings = {
 	.x_res		= 480,
 	.y_res		= 640,
+	/* could be lowered to reduce noise */
 	.pixel_clock	= 22400,
-	.hfp		= 2,
-	.hsw		= 2,
-	.hbp		= 9,
-	.vfp		= 2,
-	.vsw		= 1,
+	/* this is short but long enough to work with both COM37H3M05DTC and COM37H3M99DTC */
+	.hfp		= 8,
+	.hsw		= 10,
+	.hbp		= 10,
+	.vfp		= 4,
+	.vsw		= 3,
 	.vbp		= 3,
 };
 
