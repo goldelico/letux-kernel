@@ -667,6 +667,69 @@ static void tca6507_remove_gpio(struct tca6507_chip *tca)
 }
 #endif /* CONFIG_GPIOLIB */
 
+#ifdef CONFIG_OF
+static struct tca6507_platform_data * __devinit tca6507_led_dt_init(struct i2c_client *client)
+{
+	struct device_node *np = client->dev.of_node, *child;
+	struct tca6507_platform_data *pdata;
+	struct led_info *tca_leds;
+	int count = 0;
+
+	for_each_child_of_node(np, child)
+		count++;
+	if (!count)
+		return NULL;
+
+	if (count > NUM_LEDS)
+		return NULL;
+
+	tca_leds = devm_kzalloc(&client->dev, sizeof(struct led_info) * NUM_LEDS, GFP_KERNEL);
+
+	if (!tca_leds)
+		return NULL;
+
+
+	for_each_child_of_node(np, child) {
+		struct led_info led;
+		u32 reg;
+		int ret;
+
+		led.name = of_get_property(child, "label", NULL) ? : child->name;
+		led.default_trigger =
+			of_get_property(child, "linux,default-trigger", NULL);
+
+		ret = of_property_read_u32(child, "reg", &reg);
+
+		if (ret != 0)
+			continue;
+		tca_leds[reg] = led;
+	}
+	pdata = devm_kzalloc(&client->dev, sizeof(struct tca6507_platform_data), GFP_KERNEL);
+	if (!pdata) {
+		kfree(tca_leds);
+		return NULL;
+	}
+
+	pdata->leds.leds = tca_leds;
+	pdata->leds.num_leds = NUM_LEDS;
+
+	return pdata;
+}
+
+static const struct of_device_id of_tca6507_leds_match[] = {
+	{ .compatible = "leds-tca6507", },
+	{},
+};
+
+#else
+static int __devinit tca6507_led_dt_init(struct i2c_client *client, struct tca6507_platform_data *data)
+{
+	return -1;
+}
+
+#define of_tca6507_leds_match NULL
+#endif
+
 static int __devinit tca6507_probe(struct i2c_client *client,
 				   const struct i2c_device_id *id)
 {
@@ -683,9 +746,12 @@ static int __devinit tca6507_probe(struct i2c_client *client,
 		return -EIO;
 
 	if (!pdata || pdata->leds.num_leds != NUM_LEDS) {
-		dev_err(&client->dev, "Need %d entries in platform-data list\n",
-			NUM_LEDS);
-		return -ENODEV;
+		pdata = tca6507_led_dt_init(client);
+		if (!pdata) {
+			dev_err(&client->dev, "Need %d entries in platform-data list\n",
+				NUM_LEDS);
+			return -ENODEV;
+		}
 	}
 	tca = devm_kzalloc(&client->dev, sizeof(*tca), GFP_KERNEL);
 	if (!tca)
@@ -750,6 +816,7 @@ static struct i2c_driver tca6507_driver = {
 	.driver   = {
 		.name    = "leds-tca6507",
 		.owner   = THIS_MODULE,
+		.of_match_table = of_tca6507_leds_match,
 	},
 	.probe    = tca6507_probe,
 	.remove   = __devexit_p(tca6507_remove),
