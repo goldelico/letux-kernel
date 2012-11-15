@@ -186,6 +186,8 @@ enum rx_ctrl_state{
 #define B_NOTIFICATION  (0x20)
 #define W_VALUE         (0x0)
 #define W_INDEX         (0x2)
+/* alternate value observed on GTM601 with firmware 1.7.4.0 */
+#define W_INDEX_601		(0x6)
 #define W_LENGTH        (0x2)
 
 #define B_OVERRUN       (0x1<<6)
@@ -1503,7 +1505,8 @@ static void tiocmget_intr_callback(struct urb *urb)
 	if (serial_state_notification->bmRequestType != BM_REQUEST_TYPE ||
 	    serial_state_notification->bNotification != B_NOTIFICATION ||
 	    le16_to_cpu(serial_state_notification->wValue) != W_VALUE ||
-	    le16_to_cpu(serial_state_notification->wIndex) != W_INDEX ||
+	    (le16_to_cpu(serial_state_notification->wIndex) != W_INDEX &&
+	     le16_to_cpu(serial_state_notification->wIndex) != W_INDEX_601) ||
 	    le16_to_cpu(serial_state_notification->wLength) != W_LENGTH) {
 		dev_warn(&usb->dev,
 			 "hso received invalid serial state notification\n");
