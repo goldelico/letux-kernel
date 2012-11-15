@@ -1503,7 +1503,8 @@ static void tiocmget_intr_callback(struct urb *urb)
 	if (serial_state_notification->bmRequestType != BM_REQUEST_TYPE ||
 	    serial_state_notification->bNotification != B_NOTIFICATION ||
 	    le16_to_cpu(serial_state_notification->wValue) != W_VALUE ||
-	    le16_to_cpu(serial_state_notification->wIndex) != W_INDEX ||
+		/* fix problem with GTM601 and 1.7 firmware; see http://lists.goldelico.com/pipermail/gta04-owner/2012-February/001643.html */
+	    (le16_to_cpu(serial_state_notification->wIndex) & ~0x4) != W_INDEX ||
 	    le16_to_cpu(serial_state_notification->wLength) != W_LENGTH) {
 		dev_warn(&usb->dev,
 			 "hso received invalid serial state notification\n");
