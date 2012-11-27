@@ -80,6 +80,8 @@
 #define GPMC_CS0_BASE  0x60
 #define GPMC_CS_SIZE   0x30
 
+#define MAX_12BIT		((1 << 12) - 1)
+
 #define NAND_BLOCK_SIZE		SZ_128K
 
 #define	AUX_BUTTON_GPIO		7
@@ -911,6 +913,12 @@ static void tsc2007_exit(void)
 struct tsc2007_platform_data tsc2007_info = {
 	.model			= 2007,
 	.x_plate_ohms		= 600,	// range: 250 .. 900
+	.min_x			= 0x100,
+	.min_y			= 0xc0,
+	.min_z			= 0,
+	.max_x			= 0xf00,
+	.max_y			= 0xf00,
+	.max_z			= MAX_12BIT,
 	.get_pendown_state	= ts_get_pendown_state,
 	.init_platform_hw	= tsc2007_init,
 	.exit_platform_hw	= tsc2007_exit,
