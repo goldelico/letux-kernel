@@ -72,6 +72,12 @@ struct tsc2007 {
 
 	u16			model;
 	u16			x_plate_ohms;
+	int			min_x;
+	int			min_y;
+	int			min_z;
+	int			max_x;
+	int			max_y;
+	int			max_z;
 	u16			max_rt;
 	unsigned long		poll_delay;
 	unsigned long		poll_period;
@@ -152,6 +158,29 @@ static void tsc2007_send_up_event(struct tsc2007 *tsc)
 	input_sync(input);
 }
 
+static void tsc2007_range_values(struct tsc2007 *ts, struct ts_event *tc, u32 *rt)
+{
+	/* Get the read values in the correct calibrated range. */
+
+	/* X */
+	if(tc->x > ts->max_x)
+		tc->x = ts->max_x;
+	else if(tc->x < ts->min_x)
+		tc->x = ts->min_x;
+
+	/* Y */
+	if(tc->y > ts->max_y)
+		tc->y = ts->max_y;
+	else if(tc->y < ts->min_y)
+		tc->y = ts->min_y;
+
+	/* Z */
+	if(*rt > ts->max_z)
+		*rt = ts->max_z;
+	else if(*rt < ts->min_z)
+		*rt = ts->min_z;
+}
+
 static void tsc2007_work(struct work_struct *work)
 {
 	struct tsc2007 *ts =
@@ -206,6 +235,8 @@ static void tsc2007_work(struct work_struct *work)
 			input_report_key(input, BTN_TOUCH, 1);
 			ts->pendown = true;
 		}
+
+		tsc2007_range_values(ts, &tc, &rt);
 
 		input_report_abs(input, ABS_X, tc.x);
 		input_report_abs(input, ABS_Y, tc.y);
@@ -294,6 +325,12 @@ static int __devinit tsc2007_probe(struct i2c_client *client,
 
 	ts->model             = pdata->model;
 	ts->x_plate_ohms      = pdata->x_plate_ohms;
+	ts->min_x             = pdata->min_x ? : 0;
+	ts->min_y             = pdata->min_y ? : 0;
+	ts->min_z             = pdata->min_z ? : 0;
+	ts->max_x             = pdata->max_x ? : MAX_12BIT;
+	ts->max_y             = pdata->max_y ? : MAX_12BIT;
+	ts->max_z             = pdata->max_z ? : MAX_12BIT;
 	ts->max_rt            = pdata->max_rt ? : MAX_12BIT;
 	ts->poll_delay        = pdata->poll_delay ? : 1;
 	ts->poll_period       = pdata->poll_period ? : 1;
@@ -310,10 +347,9 @@ static int __devinit tsc2007_probe(struct i2c_client *client,
 	input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
 	input_dev->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
 
-	input_set_abs_params(input_dev, ABS_X, 0, MAX_12BIT, pdata->fuzzx, 0);
-	input_set_abs_params(input_dev, ABS_Y, 0, MAX_12BIT, pdata->fuzzy, 0);
-	input_set_abs_params(input_dev, ABS_PRESSURE, 0, MAX_12BIT,
-			pdata->fuzzz, 0);
+	input_set_abs_params(input_dev, ABS_X, pdata->min_x, pdata->max_x, pdata->fuzz_x, 0);
+	input_set_abs_params(input_dev, ABS_Y, pdata->min_y, pdata->max_y, pdata->fuzz_y, 0);
+	input_set_abs_params(input_dev, ABS_PRESSURE, pdata->min_z, pdata->max_z, pdata->fuzz_z, 0);
 
 	if (pdata->init_platform_hw)
 		pdata->init_platform_hw();
