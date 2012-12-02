@@ -131,7 +131,7 @@ int vmw_present_ioctl(struct drm_device *dev, void *data,
 	struct vmw_master *vmaster = vmw_master(file_priv->master);
 	struct drm_vmw_rect __user *clips_ptr;
 	struct drm_vmw_rect *clips = NULL;
-	struct drm_mode_object *obj;
+	struct drm_framebuffer *fb;
 	struct vmw_framebuffer *vfb;
 	struct vmw_resource *res;
 	uint32_t num_clips;
@@ -220,7 +220,7 @@ int vmw_present_readback_ioctl(struct drm_device *dev, void *data,
 	struct vmw_master *vmaster = vmw_master(file_priv->master);
 	struct drm_vmw_rect __user *clips_ptr;
 	struct drm_vmw_rect *clips = NULL;
-	struct drm_mode_object *obj;
+	struct drm_framebuffer *fb;
 	struct vmw_framebuffer *vfb;
 	uint32_t num_clips;
 	int ret;
