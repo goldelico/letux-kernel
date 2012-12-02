@@ -34,13 +34,20 @@
 static struct omap_video_timings td028ttec1_panel_timings = {
 .x_res		= 480,
 .y_res		= 640,
-.pixel_clock	= 22000,
+.pixel_clock	= 22153,
 .hfp		= 24,
 .hsw		= 8,
 .hbp		= 8,
 .vfp		= 4,
 .vsw		= 2,
 .vbp		= 2,
+
+.vsync_level	= OMAPDSS_SIG_ACTIVE_LOW,
+.hsync_level	= OMAPDSS_SIG_ACTIVE_LOW,
+
+.data_pclk_edge	= OMAPDSS_DRIVE_SIG_FALLING_EDGE,
+.de_level	= OMAPDSS_SIG_ACTIVE_HIGH,
+.sync_pclk_edge	= OMAPDSS_DRIVE_SIG_OPPOSITE_EDGES,
 };
 
 struct jbt_info {
@@ -147,8 +154,6 @@ int jbt_reg_write16(struct jbt_info *jbt, u_int8_t reg, u_int16_t data)
 
 int jbt_reg_init(void)
 {
-	int i;
-	int failed=0;
 	int r;
 	
 	printk("jbt_reg_init()\n");
@@ -261,7 +266,6 @@ static int td028ttec1_panel_probe(struct omap_dss_device *dssdev)
 	int rc;
 	
 	printk("td028ttec1_panel_probe()\n");
-	dssdev->panel.config = OMAP_DSS_LCD_TFT | OMAP_DSS_LCD_ONOFF | OMAP_DSS_LCD_IPC | OMAP_DSS_LCD_IVS | OMAP_DSS_LCD_IHS;
 	dssdev->panel.acb = 0x28;
 	dssdev->panel.timings = td028ttec1_panel_timings;
 	
@@ -284,7 +288,7 @@ static int td028ttec1_panel_suspend(struct omap_dss_device *dssdev)
 	printk("td028ttec1_panel_suspend()\n");
 
 	if (dssdev->state != OMAP_DSS_DISPLAY_ACTIVE)
-		return;
+		return 0;
 
 	omapdss_dpi_display_disable(dssdev);
 
@@ -377,6 +381,8 @@ static int td028ttec1_panel_resume(struct omap_dss_device *dssdev)
 	
 	jbt_reg_write_nodata(jbt, JBT_REG_DISPLAY_ON);
 
+	omapdss_dpi_set_timings(dssdev, &dssdev->panel.timings);
+	omapdss_dpi_set_data_lines(dssdev, dssdev->phy.dpi.data_lines);
 	rc = omapdss_dpi_display_enable(dssdev);
 	if(rc)
 		return -EIO;
@@ -444,7 +450,8 @@ static void td028ttec1_panel_disable(struct omap_dss_device *dssdev)
 static void td028ttec1_panel_set_timings(struct omap_dss_device *dssdev,
 		struct omap_video_timings *timings)
 {
-	dpi_set_timings(dssdev, timings);
+	omapdss_dpi_set_timings(dssdev, timings);
+	dssdev->panel.timings = *timings;
 }
 
 static void td028ttec1_panel_get_timings(struct omap_dss_device *dssdev,
