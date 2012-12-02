@@ -49,22 +49,21 @@
 
 #include <linux/sysfs.h>
 
-#include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 #include <asm/mach/flash.h>
 
-#include <plat/board.h>
 #include "common.h"
 #include <video/omapdss.h>
 #include <video/omap-panel-generic-dpi.h>
 #include <plat/gpmc.h>
-#include <plat/nand.h>
+#include <linux/platform_data/mtd-nand-omap2.h>
 #include <plat/usb.h>
 #include <plat/clock.h>
 #include <plat/omap-pm.h>
-#include <plat/mcspi.h>
+#include <linux/platform_data/gpio-omap.h>
+#include <linux/platform_data/spi-omap2-mcspi.h>
 #include <plat/omap-serial.h>
 #include <plat/pwm.h>
 
@@ -404,9 +403,6 @@ static struct regulator_consumer_supply gta04_vsim_supply[] = {
 };
 
 static struct twl4030_gpio_platform_data gta04_gpio_data = {
-	.gpio_base	= OMAP_MAX_GPIO_LINES,
-	.irq_base	= TWL4030_GPIO_IRQ_BASE,
-	.irq_end	= TWL4030_GPIO_IRQ_END,
 	.use_leds	= true,
 	.pullups	= BIT(1),
 	.pulldowns	= BIT(2) | BIT(6) | BIT(7) | BIT(8) | BIT(13)
@@ -828,9 +824,6 @@ static struct twl4030_bci_platform_data gta04_bci_data = {
 
 
 static struct twl4030_platform_data gta04_twldata = {
-	.irq_base	= TWL4030_IRQ_BASE,
-	.irq_end	= TWL4030_IRQ_END,
-
 	/* platform_data for children goes here */
 	.bci		= &gta04_bci_data,
 	.gpio		= &gta04_gpio_data,
@@ -1068,7 +1061,7 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 
 static int __init gta04_i2c_init(void)
 {
-	omap_pmic_init(1, 2600, "twl4030", INT_34XX_SYS_NIRQ,
+	omap_pmic_init(1, 2600, "twl4030", 7 + OMAP_INTC_START,
 		       &gta04_twldata);
 #ifdef CONFIG_TOUCHSCREEN_TSC2007
 	tsc2007_boardinfo.irq = gpio_to_irq(TS_PENIRQ_GPIO);
@@ -1292,8 +1285,6 @@ static void gta04_serial_init(void)
 
 static void __init gta04_init(void)
 {
-	int err;
-
 	printk("running gta04_init()\n");
 	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);
 	gta04_init_rev();
