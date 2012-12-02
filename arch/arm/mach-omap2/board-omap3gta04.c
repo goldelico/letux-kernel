@@ -25,6 +25,7 @@
 #include <linux/input.h>
 #include <linux/gpio_keys.h>
 #include <linux/backlight.h>
+#include <linux/pwm.h>
 #include <linux/pwm_backlight.h>
 #include <linux/rfkill-regulator.h>
 #include <linux/gpio-reg.h>
@@ -64,8 +65,8 @@
 #include <plat/omap-pm.h>
 #include <linux/platform_data/gpio-omap.h>
 #include <linux/platform_data/spi-omap2-mcspi.h>
+#include <linux/platform_data/omap-pwm.h>
 #include <plat/omap-serial.h>
-#include <plat/pwm.h>
 
 #include "mux.h"
 #include "hsmmc.h"
@@ -224,16 +225,19 @@ static struct omap_dss_device gta04_dvi_device = {
 	.platform_disable = gta04_disable_dvi,
 };
 
+static struct omap_pwm_pdata pwm_pdata = {
+	.timer_id = 11,
+};
 
-static struct omap2_pwm_platform_config pwm_config = {
-	.timer_id           = 11,   // GPT11_PWM_EVT
-	.polarity           = 1     // Active-high
+static struct pwm_lookup board_pwm_lookup[] = {
+	// GPT11_PWM_EVT - Active High
+	PWM_LOOKUP("omap-pwm", 0, "pwm-backlight", NULL),
 };
 
 static struct platform_device pwm_device = {
-	.name               = "omap-pwm",
-	.id                 = 0,
-	.dev.platform_data  = &pwm_config,
+	.name           = "omap-pwm",
+	.id		= 0,
+	.dev.platform_data = &pwm_pdata,
 };
 
 static struct platform_pwm_backlight_data pwm_backlight = {
@@ -259,7 +263,6 @@ static int gta04_enable_lcd(struct omap_dss_device *dssdev)
 		/* Cannot do this in gta04_init() as clocks aren't
 		 * initialised yet, so do it here.
 		 */
-		platform_device_register(&pwm_device);
 		platform_device_register(&backlight_device);
 		did_reg = 1;
 	}
@@ -1176,6 +1179,7 @@ static struct platform_device gta04_vaux3_virtual_regulator_device = {
 #endif
 
 static struct platform_device *gta04_devices[] __initdata = {
+	&pwm_device,
 //	&leds_gpio,
 	&keys_gpio,
 	&keys_3G_gpio,
@@ -1363,6 +1367,8 @@ static void __init gta04_init(void)
 	if (err)
 		printk("Failed to init 3G wake interrupt: %d\n", err);
 #endif
+
+	pwm_add_table(board_pwm_lookup, ARRAY_SIZE(board_pwm_lookup));
 
 	usb_musb_init(NULL);
 	usbhs_init(&usbhs_bdata);
