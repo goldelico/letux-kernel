@@ -91,7 +91,7 @@ static int _pwrdm_register(struct powerdomain *pwrdm)
 
 	if (_pwrdm_lookup(pwrdm->name))
 		return -EEXIST;
-
+#ifndef CONFIG_SOC_DRA7XX
 	voltdm = voltdm_lookup(pwrdm->voltdm.name);
 	if (!voltdm) {
 		pr_err("powerdomain: %s: voltagedomain %s does not exist\n",
@@ -101,7 +101,7 @@ static int _pwrdm_register(struct powerdomain *pwrdm)
 	pwrdm->voltdm.ptr = voltdm;
 	INIT_LIST_HEAD(&pwrdm->voltdm_node);
 	voltdm_add_pwrdm(voltdm, pwrdm);
-
+#endif
 	list_add(&pwrdm->node, &pwrdm_list);
 
 	/* Initialize the powerdomain's state counter */

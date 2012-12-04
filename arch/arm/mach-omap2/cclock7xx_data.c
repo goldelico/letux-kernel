@@ -1957,8 +1957,10 @@ static struct omap_clk dra7xx_clks[] = {
 	CLK(NULL,	"dcan1_sys_clk_mux",		&dcan1_sys_clk_mux,	CK_7XX),
 	CLK(NULL,	"gmac_gmii_ref_clk_div",	&gmac_gmii_ref_clk_div,	CK_7XX),
 	CLK(NULL,	"gmac_rft_clk_mux",		&gmac_rft_clk_mux,	CK_7XX),
+#ifndef CONFIG_SOC_DRA7XX
 	CLK(NULL,	"gpu_core_gclk_mux",		&gpu_core_gclk_mux,	CK_7XX),
 	CLK(NULL,	"gpu_hyd_gclk_mux",		&gpu_hyd_gclk_mux,	CK_7XX),
+#endif
 	CLK(NULL,	"ipu1_gfclk_mux",		&ipu1_gfclk_mux,	CK_7XX),
 	CLK(NULL,	"l3instr_ts_gclk_div",		&l3instr_ts_gclk_div,	CK_7XX),
 	CLK(NULL,	"mcasp1_ahclkr_mux",		&mcasp1_ahclkr_mux,	CK_7XX),
