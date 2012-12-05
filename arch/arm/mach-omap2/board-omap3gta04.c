@@ -39,7 +39,9 @@
 #include <linux/regulator/machine.h>
 #include <linux/regulator/fixed.h>
 #include <linux/i2c/twl.h>
+#ifdef CONFIG_TOUCHSCREEN_TSC2007
 #include <linux/i2c/tsc2007.h>
+#endif
 #ifdef CONFIG_BMP085
 #include <linux/i2c/bmp085.h>
 #endif
@@ -86,8 +88,10 @@
 
 #define	AUX_BUTTON_GPIO		7
 #define TWL4030_MSECURE_GPIO	22
-#define	TS_PENIRQ_GPIO		160
 #define	WO3G_GPIO		(gta04_version >= 4 ? 10 : 176)
+
+#define GTA04_TSC2007_GPIO	160
+#define GTA04_TSC2007_IRQ	OMAP_GPIO_IRQ(GTA04_TSC2007_GPIO)
 
 /* see: https://patchwork.kernel.org/patch/120449/
  * OMAP3 gta04 revision
@@ -858,56 +862,40 @@ static struct platform_device gta04_w2cbw003_codec_audio_device = {
 #endif
 
 #ifdef CONFIG_TOUCHSCREEN_TSC2007
-
-// TODO: see also http://e2e.ti.com/support/arm174_microprocessors/omap_applications_processors/f/42/t/33262.aspx for an example...
-// and http://www.embedded-bits.co.uk/?tag=struct-i2c_board_info for a description of how struct i2c_board_info works
-
-/* TouchScreen */
-
-static int ts_get_pendown_state(void)
+static int tsc2007_get_pendown_state(void)
 {
-#if 1
-	int val = 0;
-	//	gpio_free(GPIO_FN_INTC_IRQ0);	// what does this change or not change on the board we have copied the code from?
-//	gpio_request(TS_PENIRQ_GPIO, "tsc2007_pen_down");
-//	gpio_direction_input(TS_PENIRQ_GPIO);
-
-	val = gpio_get_value(TS_PENIRQ_GPIO);
-
-//	gpio_free(TS_PENIRQ_GPIO);
-	//	gpio_request(GPIO_FN_INTC_IRQ0, NULL);
-//	printk("ts_get_pendown_state() -> %d\n", val);
-	return val ? 0 : 1;
-#else
-	return 0;
-#endif
+	printk(KERN_ERR "tsc2007 get pendown state\n");
+	return gpio_get_value(GTA04_TSC2007_GPIO) ? 0 : 1;
 }
 
 static int __init tsc2007_init(void)
 {
 	printk("tsc2007_init()\n");
-	omap_mux_init_gpio(TS_PENIRQ_GPIO, OMAP_PIN_INPUT_PULLUP);
-	if (gpio_request(TS_PENIRQ_GPIO, "tsc2007_pen_down")) {
-		printk(KERN_ERR "Failed to request GPIO %d for "
-			   "TSC2007 pen down IRQ\n", TS_PENIRQ_GPIO);
-		return  -ENODEV;
+
+	omap_mux_init_gpio(GTA04_TSC2007_GPIO, OMAP_PIN_INPUT_PULLUP);
+
+	if (gpio_request(GTA04_TSC2007_GPIO, "tsc2007_irq")) {
+		printk(KERN_ERR "Failed to request TSC2007 GPIO (%d)\n",
+			GTA04_TSC2007_GPIO);
+		return -ENODEV;
 	}
 
-	if (gpio_direction_input(TS_PENIRQ_GPIO)) {
-		printk(KERN_WARNING "GPIO#%d cannot be configured as "
-			   "input\n", TS_PENIRQ_GPIO);
+	if (gpio_direction_input(GTA04_TSC2007_GPIO)) {
+		printk(KERN_ERR "Failed to set TSC2007 GPIO (%d) as input\n",
+			GTA04_TSC2007_GPIO);
 		return -ENXIO;
 	}
-//	debounce isn't handled properly when power-saving and we lose
-//	interrupts, so don't bother for now.
-//	gpio_set_debounce(TS_PENIRQ_GPIO, (0x0a+1)*31);
-	irq_set_irq_type(OMAP_GPIO_IRQ(TS_PENIRQ_GPIO), IRQ_TYPE_EDGE_FALLING);
+
+	irq_set_irq_type(GTA04_TSC2007_IRQ, IRQF_TRIGGER_FALLING);
+
 	return 0;
 }
 
 static void tsc2007_exit(void)
 {
-	gpio_free(TS_PENIRQ_GPIO);
+	printk("tsc2007_exit()\n");
+
+	gpio_free(GTA04_TSC2007_GPIO);
 }
 
 struct tsc2007_platform_data tsc2007_info = {
@@ -919,11 +907,10 @@ struct tsc2007_platform_data tsc2007_info = {
 	.max_x			= 0xf00,
 	.max_y			= 0xf00,
 	.max_z			= MAX_12BIT,
-	.get_pendown_state	= ts_get_pendown_state,
+	.get_pendown_state	= tsc2007_get_pendown_state,
 	.init_platform_hw	= tsc2007_init,
 	.exit_platform_hw	= tsc2007_exit,
 };
-
 #endif
 
 
@@ -961,7 +948,7 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 	I2C_BOARD_INFO("tsc2007", 0x48),
 	.type		= "tsc2007",
 	.platform_data	= &tsc2007_info,
-	.irq		=  OMAP_GPIO_IRQ(TS_PENIRQ_GPIO),
+	.irq		= GTA04_TSC2007_IRQ,
 },
 #endif
 #ifdef CONFIG_BMP085
@@ -1066,7 +1053,6 @@ static void __init gta04_init_early(void)
 }
 
 #if defined(CONFIG_REGULATOR_VIRTUAL_CONSUMER)
-
 static struct platform_device gta04_vaux1_virtual_regulator_device = {
 	.name		= "reg-virt-consumer",
 	.id			= 1,
@@ -1215,19 +1201,17 @@ static void __init gta04_init(void)
 {
 	int err;
 
-	printk("running gta04_init()\n");
+	printk("gta04_init()\n");
+
 	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);
 	gta04_init_rev();
 	gta04_i2c_init();
-#ifdef GTA04_MISSING
-	regulator_has_full_constraints_listed(all_reg_data);
-#endif
-	omap_serial_init();
 
+	omap_serial_init();
 	omap_display_init(&gta04_dss_data);
 
-	platform_add_devices(gta04_devices,
-						ARRAY_SIZE(gta04_devices));
+	platform_add_devices(gta04_devices, ARRAY_SIZE(gta04_devices));
+
 	omap2_hsmmc_init(mmc);
 
 // #ifdef CONFIG_OMAP_MUX
@@ -1313,8 +1297,6 @@ static void __init gta04_init(void)
 
 MACHINE_START(GTA04, "GTA04")
 	/* Maintainer: Nikolaus Schaller - http://www.gta04.org */
-// 	.phys_io	= 0x48000000,
-// 	.io_pg_offst	= ((0xfa000000) >> 18) & 0xfffc,
 	.boot_params	=	0x80000100,
 	.reserve	=	omap_reserve,
 	.map_io		=	omap3_map_io,
