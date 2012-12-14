@@ -38,6 +38,7 @@
 #include <linux/i2c/twl.h>
 #include <linux/regulator/consumer.h>
 #include <linux/err.h>
+#include <linux/notifier.h>
 #include <linux/slab.h>
 
 /* Register defines */
@@ -388,6 +389,28 @@ static void twl4030_phy_power(struct twl4030_usb *twl, int on)
 	}
 }
 
+static void do_notify(struct twl4030_usb *twl,
+		      enum omap_musb_vbus_id_status status)
+{
+	enum usb_phy_events event;
+
+	switch (status) {
+	case OMAP_MUSB_UNKNOWN:
+		event = USB_EVENT_NONE; break;
+	case OMAP_MUSB_ID_GROUND:
+		event = USB_EVENT_ID; break;
+	case OMAP_MUSB_ID_FLOAT:
+		event = USB_EVENT_NONE; break;
+	case OMAP_MUSB_VBUS_VALID:
+		event = USB_EVENT_VBUS; break;
+	case OMAP_MUSB_VBUS_OFF:
+		event = USB_EVENT_NONE; break;
+	}
+
+	atomic_notifier_call_chain(&twl->phy.notifier, event,
+				   twl->phy.otg->gadget);
+}
+
 static void twl4030_phy_suspend(struct twl4030_usb *twl, int controller_off)
 {
 	if (twl->asleep)
@@ -514,6 +537,7 @@ static irqreturn_t twl4030_usb_irq(int irq, void *_twl)
 			twl4030_phy_suspend(twl, 0);
 		else
 			twl4030_phy_resume(twl);
+		do_notify(twl, status);
 
 		omap_musb_mailbox(twl->linkstat);
 	}
@@ -537,6 +561,7 @@ static void twl4030_usb_phy_init(struct twl4030_usb *twl)
 			twl->asleep = 0;
 		}
 
+		do_notify(twl, status);
 		omap_musb_mailbox(twl->linkstat);
 	}
 	sysfs_notify(&twl->dev->kobj, NULL, "vbus");
@@ -633,6 +658,8 @@ static int __devinit twl4030_usb_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, twl);
 	if (device_create_file(&pdev->dev, &dev_attr_vbus))
 		dev_warn(&pdev->dev, "could not create sysfs file\n");
+
+	ATOMIC_INIT_NOTIFIER_HEAD(&twl->phy.notifier);
 
 	/* Our job is to use irqs and status from the power module
 	 * to keep the transceiver disabled when nothing's connected.
