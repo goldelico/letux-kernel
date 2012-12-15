@@ -889,7 +889,6 @@ static int lbs_init_adapter(struct lbs_private *priv)
 	priv->is_host_sleep_configured = 0;
 	priv->is_host_sleep_activated = 0;
 	init_waitqueue_head(&priv->host_sleep_q);
-	init_waitqueue_head(&priv->fw_waitq);
 	mutex_init(&priv->lock);
 
 	setup_timer(&priv->command_timer, lbs_cmd_timeout_handler,
@@ -1048,8 +1047,6 @@ void lbs_remove_card(struct lbs_private *priv)
 
 	if (priv->wiphy_registered)
 		lbs_scan_deinit(priv);
-
-	lbs_wait_for_firmware_load(priv);
 
 	/* worker thread destruction blocks on the in-flight command which
 	 * should have been cleared already in lbs_stop_card().

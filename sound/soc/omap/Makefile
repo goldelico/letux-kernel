@@ -21,6 +21,8 @@ snd-soc-sdp3430-objs := sdp3430.o
 snd-soc-omap-abe-twl6040-objs := omap-abe-twl6040.o
 snd-soc-omap-twl4030-objs := omap-twl4030.o
 snd-soc-omap3pandora-objs := omap3pandora.o
+snd-soc-gta04-objs := gta04-audio.o gta04-voice.o gta04-headset.o 
+# gta04-fm.o
 snd-soc-zoom2-objs := zoom2.o
 snd-soc-omap-hdmi-card-objs := omap-hdmi-card.o
 
@@ -34,5 +36,6 @@ obj-$(CONFIG_SND_OMAP_SOC_SDP3430) += snd-soc-sdp3430.o
 obj-$(CONFIG_SND_OMAP_SOC_OMAP_ABE_TWL6040) += snd-soc-omap-abe-twl6040.o
 obj-$(CONFIG_SND_OMAP_SOC_OMAP_TWL4030) += snd-soc-omap-twl4030.o
 obj-$(CONFIG_SND_OMAP_SOC_OMAP3_PANDORA) += snd-soc-omap3pandora.o
+obj-$(CONFIG_SND_OMAP_SOC_GTA04) += snd-soc-gta04.o
 obj-$(CONFIG_SND_OMAP_SOC_ZOOM2) += snd-soc-zoom2.o
 obj-$(CONFIG_SND_OMAP_SOC_OMAP_HDMI) += snd-soc-omap-hdmi-card.o
