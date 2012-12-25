@@ -69,6 +69,7 @@
 #include <linux/platform_data/gpio-omap.h>
 #include <linux/platform_data/spi-omap2-mcspi.h>
 #include <linux/platform_data/omap-pwm.h>
+#include <linux/platform_data/omap-twl4030.h>
 #include <linux/platform_data/serial-omap.h>
 #include "omap_device.h"
 
@@ -260,6 +261,30 @@ static struct platform_device backlight_device = {
 	},
 	.id = -1,
 };
+
+static struct omap_tw4030_pdata audio_pdata = {
+//	.voice_connected = true,
+	.custom_routing = true,
+
+	.has_hs		= OMAP_TWL4030_LEFT | OMAP_TWL4030_RIGHT,
+	.has_hf		= OMAP_TWL4030_LEFT | OMAP_TWL4030_RIGHT,
+	.has_ear	= true,
+
+	.has_mainmic	= true,
+	.has_submic	= false,
+	.has_hsmic	= true,
+	.has_linein	= OMAP_TWL4030_LEFT | OMAP_TWL4030_RIGHT,
+
+	.card_name = "gta04",
+};
+static struct platform_device twl4030_audio_device = {
+	.name = "omap-twl4030",
+	.dev = {
+		.platform_data = &audio_pdata,
+	},
+	.id = -1,
+};
+
 
 static int gta04_enable_lcd(struct omap_dss_device *dssdev)
 {
@@ -1171,6 +1196,7 @@ static struct platform_device madc_hwmon = {
 
 static struct platform_device *gta04_devices[] __initdata = {
 	&pwm_device,
+	&twl4030_audio_device,
 //	&leds_gpio,
 	&keys_gpio,
 	&keys_3G_gpio,
