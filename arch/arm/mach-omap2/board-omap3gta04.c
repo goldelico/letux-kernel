@@ -31,6 +31,7 @@
 #include <linux/gpio-reg.h>
 #include <linux/gpio-w2sg0004.h>
 #include <linux/extcon/extcon_gpio.h>
+#include <linux/opp.h>
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
@@ -67,6 +68,7 @@
 #include <linux/platform_data/spi-omap2-mcspi.h>
 #include <linux/platform_data/omap-pwm.h>
 #include <plat/omap-serial.h>
+#include <plat/omap_device.h>
 
 #include "mux.h"
 #include "hsmmc.h"
@@ -933,7 +935,7 @@ static void tsc2007_exit(void)
 	gpio_free(TS_PENIRQ_GPIO);
 }
 
-struct tsc2007_platform_data tsc2007_info = {
+struct tsc2007_platform_data __initdata tsc2007_info = {
 	.model			= 2007,
 	.x_plate_ohms		= 600,	// range: 250 .. 900
 	.get_pendown_state	= ts_get_pendown_state,
@@ -948,37 +950,8 @@ struct tsc2007_platform_data tsc2007_info = {
 
 #define BMP085_EOC_IRQ_GPIO		113	/* BMP085 end of conversion GPIO */
 
-static int __init bmp085_init(void)
-{
-	printk("bmp085_init()\n");
-	omap_mux_init_gpio(BMP085_EOC_IRQ_GPIO, OMAP_PIN_INPUT_PULLUP);
-	if (gpio_request(BMP085_EOC_IRQ_GPIO, "bmp085_eoc_irq")) {
-		printk(KERN_ERR "Failed to request GPIO %d for "
-			   "BMP085 EOC IRQ\n", BMP085_EOC_IRQ_GPIO);
-		return  -ENODEV;
-	}
-
-	if (gpio_direction_input(BMP085_EOC_IRQ_GPIO)) {
-		printk(KERN_WARNING "GPIO#%d cannot be configured as "
-			   "input\n", BMP085_EOC_IRQ_GPIO);
-		return -ENXIO;
-	}
-//	gpio_export(BMP085_EOC_IRQ_GPIO, 0);
-// 	omap_set_gpio_debounce(BMP085_EOC_IRQ_GPIO, 1);
-// 	omap_set_gpio_debounce_time(BMP085_EOC_IRQ_GPIO, 0xa);
-	gpio_set_debounce(BMP085_EOC_IRQ_GPIO, (0xa+1)*31);
-	irq_set_irq_type(gpio_to_irq(BMP085_EOC_IRQ_GPIO), IRQ_TYPE_EDGE_FALLING);
-	return 0;
-}
-
-static void bmp085_exit(void)
-{
-	gpio_free(BMP085_EOC_IRQ_GPIO);
-}
-
-struct bmp085_platform_data bmp085_info = {
-	.init_platform_hw	= bmp085_init,
-	.exit_platform_hw	= bmp085_exit,
+struct bmp085_platform_data __initdata bmp085_info = {
+	.gpio = BMP085_EOC_IRQ_GPIO,
 };
 
 #endif
@@ -1009,7 +982,7 @@ static struct tca6507_platform_data tca6507_info = {
 #endif
 
 #ifdef CONFIG_TOUCHSCREEN_TSC2007
-static struct i2c_board_info tsc2007_boardinfo =
+static struct i2c_board_info __initdata tsc2007_boardinfo =
 {
 	I2C_BOARD_INFO("tsc2007", 0x48),
 	.type		= "tsc2007",
@@ -1017,7 +990,7 @@ static struct i2c_board_info tsc2007_boardinfo =
 };
 #endif
 #ifdef CONFIG_BMP085
-static struct i2c_board_info bmp085_boardinfo =
+static struct i2c_board_info __initdata bmp085_boardinfo =
 {
 	I2C_BOARD_INFO("bmp085", 0x77),
 	.type		= "bmp085",
@@ -1071,7 +1044,6 @@ static int __init gta04_i2c_init(void)
 	i2c_register_board_info(2, &tsc2007_boardinfo, 1);
 #endif
 #ifdef CONFIG_BMP085
-	bmp085_boardinfo.irq = gpio_to_irq(BMP085_EOC_IRQ_GPIO);
 	i2c_register_board_info(2, &bmp085_boardinfo, 1);
 #endif
 	omap_register_i2c_bus(2, 400,  gta04_i2c2_boardinfo,
@@ -1178,6 +1150,12 @@ static struct platform_device gta04_vaux3_virtual_regulator_device = {
 };
 #endif
 
+
+static struct platform_device madc_hwmon = {
+	.name	= "twl4030_madc_hwmon",
+	.id	= -1,
+};
+
 static struct platform_device *gta04_devices[] __initdata = {
 	&pwm_device,
 //	&leds_gpio,
@@ -1203,6 +1181,7 @@ static struct platform_device *gta04_devices[] __initdata = {
 #if defined(CONFIG_SND_SOC_W2CBW003)
 	&gta04_w2cbw003_codec_audio_device,
 #endif
+	&madc_hwmon,
 };
 
 static const struct usbhs_omap_board_data usbhs_bdata __initconst = {
@@ -1285,6 +1264,48 @@ static void gta04_serial_init(void)
 
 	bdata.id = 2;
 	omap_serial_init_port(&bdata, NULL);
+}
+
+static void __init gta04_opp_init(void)
+{
+	int r = 0;
+
+	/* Initialize the omap3 opp table */
+	if (omap3_opp_init()) {
+		pr_err("%s: opp default init failed\n", __func__);
+		return;
+	}
+
+	/* Custom OPP enabled for all xM versions */
+	if (cpu_is_omap3630()) {
+		struct device *mpu_dev, *iva_dev;
+
+		mpu_dev = omap_device_get_by_hwmod_name("mpu");
+		iva_dev = omap_device_get_by_hwmod_name("iva");
+
+		if (!mpu_dev || !iva_dev) {
+			pr_err("%s: Aiee.. no mpu/dsp devices? %p %p\n",
+				__func__, mpu_dev, iva_dev);
+			return;
+		}
+		/* Enable MPU 1GHz and lower opps */
+		r = opp_enable(mpu_dev, 800000000);
+		/* TODO: MPU 1GHz needs SR and ABB */
+
+		/* Enable IVA 800MHz and lower opps */
+		r |= opp_enable(iva_dev, 660000000);
+		/* TODO: DSP 800MHz needs SR and ABB */
+		if (r) {
+			pr_err("%s: failed to enable higher opp %d\n",
+				__func__, r);
+			/*
+			 * Cleanup - disable the higher freqs - we dont care
+			 * about the results
+			 */
+			opp_disable(mpu_dev, 800000000);
+			opp_disable(iva_dev, 660000000);
+		}
+	}
 }
 
 static void __init gta04_init(void)
@@ -1383,6 +1404,8 @@ static void __init gta04_init(void)
 	omap_mux_init_gpio(TWL4030_MSECURE_GPIO, OMAP_PIN_OUTPUT);	// this needs CONFIG_OMAP_MUX!
 	gpio_request(TWL4030_MSECURE_GPIO, "mSecure");
 	gpio_direction_output(TWL4030_MSECURE_GPIO, true);
+
+	gta04_opp_init();
 
 	printk("gta04_init done...\n");
 }
