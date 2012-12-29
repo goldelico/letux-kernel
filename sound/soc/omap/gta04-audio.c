@@ -23,14 +23,18 @@
 #include <linux/clk.h>
 #include <linux/platform_device.h>
 #include <linux/module.h>
+#include <linux/input.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
+#include <sound/jack.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 
 #include <asm/mach-types.h>
 #include <mach/hardware.h>
 #include <mach/gpio.h>
+
+#include <linux/i2c/twl4030-madc.h>
 
 #include "omap-mcbsp.h"
 #include "omap-pcm.h"
@@ -135,6 +139,105 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	 */
 };
 
+static struct {
+	struct snd_soc_jack hs_jack;
+	struct delayed_work jack_work;
+	struct snd_soc_codec *codec;
+	int open;
+	/* When any jack is present, we:
+	 * - poll more quickly to catch button presses
+	 * - assume a 'short' is 'button press', not 'headset has
+	 *   no mic
+	 * 'present' stores SND_JACK_HEADPHONE and SND_JACK_MICROPHONE
+	 * indication what we thing is present.
+	 */
+	int present;
+} jack;
+
+static void gta04_audio_jack_work(struct work_struct *work)
+{
+	long val;
+	long delay = msecs_to_jiffies(500);
+	int jackbits;
+
+	/* choose delay *before* checking presence so we still get
+	 * one long delay on first insertion to help with debounce.
+	 */
+	if (jack.present)
+		delay = msecs_to_jiffies(50);
+
+	val = twl4030_get_madc_conversion(7);
+	/* On my device:
+	 * open circuit = around 20
+	 * short circuit = around 800
+	 * microphone   = around 830-840 !!!
+	 */
+	if (val < 100) {
+		/* open circuit */
+		jackbits = 0;
+		jack.present = 0;
+		/* debounce */
+		delay = msecs_to_jiffies(500);
+	} else if (val < 820) {
+		/* short */
+		if (jack.present == 0) {
+			/* Inserted headset with no mic */
+			jack.present = SND_JACK_HEADPHONE;
+			jackbits = jack.present;
+		} else if (jack.present & SND_JACK_MICROPHONE) {
+			/* mic shorter == button press */
+			jackbits = SND_JACK_BTN_0 | jack.present;
+		} else {
+			/* headphones still present */
+			jackbits = jack.present;
+		}
+	} else {
+		/* There is a microphone there */
+		jack.present = SND_JACK_HEADSET;
+		jackbits = jack.present;
+	}
+	snd_soc_jack_report(&jack.hs_jack, jackbits,
+			    SND_JACK_HEADSET | SND_JACK_BTN_0);
+
+	if (jack.open)
+		schedule_delayed_work(&jack.jack_work, delay);
+}
+
+static int gta04_audio_suspend(struct snd_soc_card *card)
+{
+	if (jack.codec) {
+		snd_soc_dapm_disable_pin(&jack.codec->dapm, "Headset Mic Bias");
+		snd_soc_dapm_sync(&jack.codec->dapm);
+	}
+	return 0;
+}
+
+static int gta04_audio_resume(struct snd_soc_card *card)
+{
+	if (jack.codec && jack.open) {
+		snd_soc_dapm_force_enable_pin(&jack.codec->dapm, "Headset Mic Bias");
+		snd_soc_dapm_sync(&jack.codec->dapm);
+	}
+	return 0;
+}
+
+static int gta04_jack_open(struct input_dev *dev)
+{
+	snd_soc_dapm_force_enable_pin(&jack.codec->dapm, "Headset Mic Bias");
+	snd_soc_dapm_sync(&jack.codec->dapm);
+	jack.open = 1;
+	schedule_delayed_work(&jack.jack_work, msecs_to_jiffies(100));
+	return 0;
+}
+
+static void gta04_jack_close(struct input_dev *dev)
+{
+	jack.open = 0;
+	cancel_delayed_work_sync(&jack.jack_work);
+	snd_soc_dapm_disable_pin(&jack.codec->dapm, "Headset Mic Bias");
+	snd_soc_dapm_sync(&jack.codec->dapm);
+}
+
 static int omap3gta04_init(struct snd_soc_pcm_runtime *runtime)
 {
 	int ret;
@@ -171,6 +274,19 @@ static int omap3gta04_init(struct snd_soc_pcm_runtime *runtime)
 	//	snd_soc_dapm_nc_pin(codec, "HSMIC");
 	snd_soc_dapm_nc_pin(dapm, "DIGIMIC0");
 	snd_soc_dapm_nc_pin(dapm, "DIGIMIC1");
+
+	/* We can detect when something is plugged in,
+	 * but we need to poll :-(
+	 */
+	ret = snd_soc_jack_new(codec, "Headset Jack",
+			       SND_JACK_HEADSET | SND_JACK_BTN_0,
+			       &jack.hs_jack);
+	if (ret)
+		return ret;
+	INIT_DELAYED_WORK(&jack.jack_work, gta04_audio_jack_work);
+	jack.codec = codec;
+	jack.hs_jack.jack->input_dev->open = gta04_jack_open;
+	jack.hs_jack.jack->input_dev->close = gta04_jack_close;
 		
 	return snd_soc_dapm_sync(dapm);
 }
@@ -199,6 +315,8 @@ static struct snd_soc_card snd_soc_omap3gta04 = {
 	.owner = THIS_MODULE,
 	.dai_link = &omap3gta04_dai,
 	.num_links = 1,
+	.suspend_pre = gta04_audio_suspend,
+	.resume_post = gta04_audio_resume,
 };
 
 static struct platform_device *omap3gta04_snd_device;
