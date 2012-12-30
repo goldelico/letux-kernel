@@ -314,7 +314,11 @@ static void gta04_disable_lcd(struct omap_dss_device *dssdev)
 static struct omap_dss_device gta04_lcd_device = {
 	.type = OMAP_DISPLAY_TYPE_DPI,
 	.name = "lcd",
-	.driver_name = "td028ttec1_panel",
+#if defined(CONFIG_PANEL_ORTUS_COM37H3M05DTC)
+    .driver_name = "com37h3m05dtc_panel",           // GTA04b2
+#elif defined(CONFIG_PANEL_TPO_TD028TTEC1)
+    .driver_name = "td028ttec1_panel",              // GTA04
+#endif
 	.phy.dpi.data_lines = 24,
 	.platform_enable = gta04_enable_lcd,
 	.platform_disable = gta04_disable_lcd,
