@@ -22,7 +22,8 @@
 #include <linux/delay.h>
 #include <asm/mach-types.h>
 
-#include <plat/display.h>
+//#include <plat/display.h>
+#include <video/omapdss.h>
 #include <linux/gpio.h>
 
 static struct omap_video_timings com37h3m05dtc_panel_timings = {
@@ -37,6 +38,13 @@ static struct omap_video_timings com37h3m05dtc_panel_timings = {
 	.vfp		= 4,
 	.vsw		= 3,
 	.vbp		= 3,
+	
+	.vsync_level	= OMAPDSS_SIG_ACTIVE_LOW,	// OMAP_DSS_LCD_IVS
+	.hsync_level	= OMAPDSS_SIG_ACTIVE_LOW,	// OMAP_DSS_LCD_IHS
+	
+	.data_pclk_edge	= OMAPDSS_DRIVE_SIG_FALLING_EDGE,
+	.de_level	= OMAPDSS_SIG_ACTIVE_HIGH,
+	.sync_pclk_edge	= OMAPDSS_DRIVE_SIG_OPPOSITE_EDGES,	
 };
 
 
@@ -49,7 +57,7 @@ static int com37h3m05dtc_panel_probe(struct omap_dss_device *dssdev)
 	int rc = 0;
 	printk("com37h3m05dtc_panel_probe()\n");
 	/* not set: OMAP_DSS_LCD_IEO, OMAP_DSS_LCD_IPC, ACBI */
-	dssdev->panel.config = OMAP_DSS_LCD_TFT | OMAP_DSS_LCD_ONOFF | OMAP_DSS_LCD_RF | OMAP_DSS_LCD_IVS | OMAP_DSS_LCD_IHS;
+//	dssdev->panel.config = OMAP_DSS_LCD_TFT | OMAP_DSS_LCD_ONOFF | OMAP_DSS_LCD_RF | OMAP_DSS_LCD_IVS | OMAP_DSS_LCD_IHS;
 	dssdev->panel.acb = 0x28;
 	dssdev->panel.timings = com37h3m05dtc_panel_timings;
 	rc = gpio_request(GPIO_STBY, "COM37_STBY");
