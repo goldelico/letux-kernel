@@ -1420,6 +1420,14 @@ static void __init gta04_init(void)
 	printk("gta04_init done...\n");
 }
 
+static void __init gta04_init_late(void)
+{
+	omap3630_init_late();
+
+	omap_pm_enable_off_mode();
+	omap3_pm_off_mode_enable(1);
+}
+
 MACHINE_START(GTA04, "GTA04")
 	/* Maintainer: Nikolaus Schaller - http://www.gta04.org */
 // 	.phys_io	= 0x48000000,
@@ -1432,7 +1440,7 @@ MACHINE_START(GTA04, "GTA04")
 	.handle_irq	=	omap3_intc_handle_irq,
 	.init_early	=	gta04_init_early,
 	.init_machine	=	gta04_init,
-	.init_late	=	omap3630_init_late,
+	.init_late	=	gta04_init_late,
 	.timer		=	&omap3_secure_timer,
 	.restart	=	omap_prcm_restart,
 MACHINE_END
