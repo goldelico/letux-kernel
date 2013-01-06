@@ -232,32 +232,10 @@ static int omap_pwm_remove(struct platform_device *pdev)
 
 	return 0;
 }
-
-#if CONFIG_PM
-static int omap_pwm_suspend(struct device *dev)
-{
-	struct platform_device *pdev = to_platform_device(dev);
-	struct omap_chip *omap = platform_get_drvdata(pdev);
-	/*
-	 * No one preserve these values during suspend so reset them,
-	 * otherwise driver leaves PWM unconfigured if same values
-	 * passed to pwm_config.
-	 */
-	omap->period_ns = 0;
-	omap->duty_ns = 0;
-
-	return 0;
-}
-#else
-#define omap_pwm_suspend	NULL
-#endif
-
-static SIMPLE_DEV_PM_OPS(omap_pwm_pm, omap_pwm_suspend, NULL);
 static struct platform_driver omap_pwm_driver = {
 	.driver = {
 		.name	= "omap-pwm",
 		.owner	= THIS_MODULE,
-		.pm	= &omap_pwm_pm,
 	},
 	.probe		= omap_pwm_probe,
 	.remove		= omap_pwm_remove,
