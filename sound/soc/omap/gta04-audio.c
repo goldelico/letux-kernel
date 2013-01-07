@@ -166,6 +166,8 @@ static void gta04_audio_jack_work(struct work_struct *work)
 		delay = msecs_to_jiffies(50);
 
 	val = twl4030_get_madc_conversion(7);
+	if (val < 0)
+		goto out;
 	/* On my device:
 	 * open circuit = around 20
 	 * short circuit = around 800
@@ -198,6 +200,7 @@ static void gta04_audio_jack_work(struct work_struct *work)
 	snd_soc_jack_report(&jack.hs_jack, jackbits,
 			    SND_JACK_HEADSET | SND_JACK_BTN_0);
 
+out:
 	if (jack.open)
 		schedule_delayed_work(&jack.jack_work, delay);
 }
