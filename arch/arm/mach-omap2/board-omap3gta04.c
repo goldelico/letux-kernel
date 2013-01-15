@@ -1351,7 +1351,8 @@ static void __init gta04_init(void)
 	gpio_export(170, 0);	// no direction change
 #endif
 
-	omap_mux_init_gpio(145, OMAP_PIN_OUTPUT);
+	gpio_request(13, "IrDA_select");
+	gpio_direction_output(13, true);
 #if 0
 	omap_mux_init_gpio(144, OMAP_PIN_INPUT);
 	gpio_request(144, "EXT_ANT");
@@ -1406,6 +1407,12 @@ static void __init gta04_init(void)
 	gpio_direction_output(TWL4030_MSECURE_GPIO, true);
 
 	gta04_opp_init();
+
+	omap_mux_init_gpio(145, OMAP_PIN_OUTPUT);
+	omap_mux_init_gpio(174, OMAP_PIN_OUTPUT);
+	omap_mux_init_gpio(23, OMAP_PIN_OUTPUT); // enable TV out
+	omap_mux_init_gpio(55, OMAP_PIN_OUTPUT);
+	omap_mux_init_gpio(13, OMAP_PIN_OUTPUT);
 
 	printk("gta04_init done...\n");
 }
