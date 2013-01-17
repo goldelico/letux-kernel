@@ -1322,6 +1322,7 @@ static void __init gta04_init(void)
 
 	omap_display_init(&gta04_dss_data);
 
+	omap_mux_init_gpio(WO3G_GPIO, OMAP_PIN_INPUT | OMAP_WAKEUP_EN);
 	gpio_3G_buttons[0].gpio = WO3G_GPIO;
 	platform_add_devices(gta04_devices,
 			     ARRAY_SIZE(gta04_devices));
