@@ -703,7 +703,7 @@ static struct twl4030_madc_platform_data gta04_madc_data = {
 
 static struct twl4030_ins __initdata sleep_on_seq[] = {
 	/* Turn off HFCLKOUT */
-//	{MSG_SINGULAR(DEV_GRP_P3, RES_HFCLKOUT, RES_STATE_OFF), 2},
+	{MSG_SINGULAR(DEV_GRP_P3, RES_HFCLKOUT, RES_STATE_OFF), 2},
 	/* Turn OFF VDD1 */
 	{MSG_SINGULAR(DEV_GRP_P1, RES_VDD1, RES_STATE_OFF), 2},
 	/* Turn OFF VDD2 */
@@ -714,6 +714,8 @@ static struct twl4030_ins __initdata sleep_on_seq[] = {
 	{MSG_SINGULAR(DEV_GRP_P1, RES_VINTANA1, RES_STATE_OFF), 2},
 	{MSG_SINGULAR(DEV_GRP_P1, RES_VINTANA2, RES_STATE_OFF), 2},
 	{MSG_SINGULAR(DEV_GRP_P1, RES_VINTDIG, RES_STATE_OFF), 2},
+
+//	{MSG_SINGULAR(DEV_GRP_P1, RES_REGEN, RES_STATE_OFF), 2},
 
 };
 
@@ -729,7 +731,7 @@ static struct twl4030_ins wakeup_p12_seq[] __initdata = {
 	{MSG_SINGULAR(DEV_GRP_P1, RES_VINTDIG, RES_STATE_ACTIVE), 2},
 
 	/* Turn on HFCLKOUT */
-//	{MSG_SINGULAR(DEV_GRP_P1, RES_HFCLKOUT, RES_STATE_ACTIVE), 2},
+	{MSG_SINGULAR(DEV_GRP_P1, RES_HFCLKOUT, RES_STATE_ACTIVE), 2},
 	/* Turn ON VDD1 */
 	{MSG_SINGULAR(DEV_GRP_P1, RES_VDD1, RES_STATE_ACTIVE), 2},
 	/* Turn ON VDD2 */
