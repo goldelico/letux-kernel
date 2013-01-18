@@ -151,7 +151,7 @@ static void kvp_update_file(int pool)
 	 */
 	kvp_acquire_lock(pool);
 
-	filep = fopen(kvp_file_info[pool].fname, "w");
+	filep = fopen(kvp_file_info[pool].fname, "we");
 	if (!filep) {
 		kvp_release_lock(pool);
 		syslog(LOG_ERR, "Failed to open file, pool: %d", pool);
@@ -182,7 +182,7 @@ static void kvp_update_mem_state(int pool)
 
 	kvp_acquire_lock(pool);
 
-	filep = fopen(kvp_file_info[pool].fname, "r");
+	filep = fopen(kvp_file_info[pool].fname, "re");
 	if (!filep) {
 		kvp_release_lock(pool);
 		syslog(LOG_ERR, "Failed to open file, pool: %d", pool);
@@ -234,9 +234,9 @@ static int kvp_file_init(void)
 	int i;
 	int alloc_unit = sizeof(struct kvp_record) * ENTRIES_PER_BLOCK;
 
-	if (access("/var/opt/hyperv", F_OK)) {
-		if (mkdir("/var/opt/hyperv", S_IRUSR | S_IWUSR | S_IROTH)) {
-			syslog(LOG_ERR, " Failed to create /var/opt/hyperv");
+	if (access(KVP_CONFIG_LOC, F_OK)) {
+		if (mkdir(KVP_CONFIG_LOC, 0755 /* rwxr-xr-x */)) {
+			syslog(LOG_ERR, " Failed to create %s", KVP_CONFIG_LOC);
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -245,14 +245,14 @@ static int kvp_file_init(void)
 		fname = kvp_file_info[i].fname;
 		records_read = 0;
 		num_blocks = 1;
-		sprintf(fname, "/var/opt/hyperv/.kvp_pool_%d", i);
-		fd = open(fname, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IROTH);
+		sprintf(fname, "%s/.kvp_pool_%d", KVP_CONFIG_LOC, i);
+		fd = open(fname, O_RDWR | O_CREAT | O_CLOEXEC, 0644 /* rw-r--r-- */);
 
 		if (fd == -1)
 			return 1;
 
 
-		filep = fopen(fname, "r");
+		filep = fopen(fname, "re");
 		if (!filep)
 			return 1;
 
