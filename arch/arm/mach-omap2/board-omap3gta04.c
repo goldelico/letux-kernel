@@ -279,7 +279,11 @@ static void gta04_disable_lcd(struct omap_dss_device *dssdev)
 static struct omap_dss_device gta04_lcd_device = {
 	.type = OMAP_DISPLAY_TYPE_DPI,
 	.name = "lcd",
-	.driver_name = "td028ttec1_panel",
+#if defined(CONFIG_PANEL_ORTUS_COM37H3M05DTC)
+    .driver_name = "com37h3m05dtc_panel",           // GTA04b2
+#elif defined(CONFIG_PANEL_TPO_TD028TTEC1)
+    .driver_name = "td028ttec1_panel",              // GTA04
+#endif
 	.phy.dpi.data_lines = 24,
 	.platform_enable = gta04_enable_lcd,
 	.platform_disable = gta04_disable_lcd,
@@ -703,7 +707,7 @@ static struct twl4030_madc_platform_data gta04_madc_data = {
 
 static struct twl4030_ins __initdata sleep_on_seq[] = {
 	/* Turn off HFCLKOUT */
-//	{MSG_SINGULAR(DEV_GRP_P3, RES_HFCLKOUT, RES_STATE_OFF), 2},
+	{MSG_SINGULAR(DEV_GRP_P3, RES_HFCLKOUT, RES_STATE_OFF), 2},
 	/* Turn OFF VDD1 */
 	{MSG_SINGULAR(DEV_GRP_P1, RES_VDD1, RES_STATE_OFF), 2},
 	/* Turn OFF VDD2 */
@@ -714,6 +718,8 @@ static struct twl4030_ins __initdata sleep_on_seq[] = {
 	{MSG_SINGULAR(DEV_GRP_P1, RES_VINTANA1, RES_STATE_OFF), 2},
 	{MSG_SINGULAR(DEV_GRP_P1, RES_VINTANA2, RES_STATE_OFF), 2},
 	{MSG_SINGULAR(DEV_GRP_P1, RES_VINTDIG, RES_STATE_OFF), 2},
+
+//	{MSG_SINGULAR(DEV_GRP_P1, RES_REGEN, RES_STATE_OFF), 2},
 
 };
 
@@ -729,7 +735,7 @@ static struct twl4030_ins wakeup_p12_seq[] __initdata = {
 	{MSG_SINGULAR(DEV_GRP_P1, RES_VINTDIG, RES_STATE_ACTIVE), 2},
 
 	/* Turn on HFCLKOUT */
-//	{MSG_SINGULAR(DEV_GRP_P1, RES_HFCLKOUT, RES_STATE_ACTIVE), 2},
+	{MSG_SINGULAR(DEV_GRP_P1, RES_HFCLKOUT, RES_STATE_ACTIVE), 2},
 	/* Turn ON VDD1 */
 	{MSG_SINGULAR(DEV_GRP_P1, RES_VDD1, RES_STATE_ACTIVE), 2},
 	/* Turn ON VDD2 */
@@ -964,11 +970,15 @@ void tca6507_setup(unsigned gpio_base, unsigned ngpio)
 }
 
 static struct led_info tca6507_leds[] = {
+#if defined(CONFIG_PANEL_TPO_TD028TTEC1)	/* 2804 */
 	[0] = { .name = "gta04:red:aux" },
 	[1] = { .name = "gta04:green:aux" },
 	[3] = { .name = "gta04:red:power", .default_trigger = "default-on" },
 	[4] = { .name = "gta04:green:power" },
-
+#elif defined(CONFIG_PANEL_ORTUS_COM37H3M05DTC)	/* 3704 */
+	[0] = { .name = "gta04:left" },
+	[1] = { .name = "gta04:right", .default_trigger = "default-on" },
+#endif
 	[6] = { .name = "gta04:wlan:reset", .flags = TCA6507_MAKE_GPIO },
 };
 static struct tca6507_platform_data tca6507_info = {
@@ -1322,6 +1332,7 @@ static void __init gta04_init(void)
 
 	omap_display_init(&gta04_dss_data);
 
+	omap_mux_init_gpio(WO3G_GPIO, OMAP_PIN_INPUT | OMAP_WAKEUP_EN);
 	gpio_3G_buttons[0].gpio = WO3G_GPIO;
 	platform_add_devices(gta04_devices,
 			     ARRAY_SIZE(gta04_devices));
@@ -1351,7 +1362,8 @@ static void __init gta04_init(void)
 	gpio_export(170, 0);	// no direction change
 #endif
 
-	omap_mux_init_gpio(145, OMAP_PIN_OUTPUT);
+	gpio_request(13, "IrDA_select");
+	gpio_direction_output(13, true);
 #if 0
 	omap_mux_init_gpio(144, OMAP_PIN_INPUT);
 	gpio_request(144, "EXT_ANT");
@@ -1407,7 +1419,21 @@ static void __init gta04_init(void)
 
 	gta04_opp_init();
 
+	omap_mux_init_gpio(145, OMAP_PIN_OUTPUT);
+	omap_mux_init_gpio(174, OMAP_PIN_OUTPUT);
+	omap_mux_init_gpio(23, OMAP_PIN_OUTPUT); // enable TV out
+	omap_mux_init_gpio(55, OMAP_PIN_OUTPUT);
+	omap_mux_init_gpio(13, OMAP_PIN_OUTPUT);
+
 	printk("gta04_init done...\n");
+}
+
+static void __init gta04_init_late(void)
+{
+	omap3630_init_late();
+
+	omap_pm_enable_off_mode();
+	omap3_pm_off_mode_enable(1);
 }
 
 MACHINE_START(GTA04, "GTA04")
@@ -1422,7 +1448,7 @@ MACHINE_START(GTA04, "GTA04")
 	.handle_irq	=	omap3_intc_handle_irq,
 	.init_early	=	gta04_init_early,
 	.init_machine	=	gta04_init,
-	.init_late	=	omap3630_init_late,
+	.init_late	=	gta04_init_late,
 	.timer		=	&omap3_secure_timer,
 	.restart	=	omap_prcm_restart,
 MACHINE_END
