@@ -30,7 +30,7 @@ static struct omap_video_timings com37h3m05dtc_panel_timings = {
 	.x_res		= 480,
 	.y_res		= 640,
 	/* could be lowered to reduce noise */
-	.pixel_clock	= 22400,
+	.pixel_clock	= 22153,
 	/* this is short but long enough to work with both COM37H3M05DTC and COM37H3M99DTC */
 	.hfp		= 8,
 	.hsw		= 10,
@@ -75,16 +75,45 @@ static void com37h3m05dtc_panel_remove(struct omap_dss_device *dssdev)
 }
 
 static int com37h3m05dtc_panel_suspend(struct omap_dss_device *dssdev)
-{ // set STBY to 1
+{ // set STBYB to 0
 	printk("com37h3m05dtc_panel_suspend()\n");
+
+	if (dssdev->state != OMAP_DSS_DISPLAY_ACTIVE)
+		return 0;
+	
+	omapdss_dpi_display_disable(dssdev);
+	
+	/* turn off backlight */
+	if (dssdev->platform_disable)
+		dssdev->platform_disable(dssdev);
+
 	gpio_set_value(GPIO_STBY, 0);
+	
+	dssdev->state = OMAP_DSS_DISPLAY_SUSPENDED;
+
 	return 0;
 }
 
 static int com37h3m05dtc_panel_resume(struct omap_dss_device *dssdev)
-{ // set STBY to 0
+{ // set STBYB to 1
+	int rc;
+	
 	printk("com37h3m05dtc_panel_resume()\n");
+	
 	gpio_set_value(GPIO_STBY, 1);
+	
+	omapdss_dpi_set_timings(dssdev, &dssdev->panel.timings);
+	omapdss_dpi_set_data_lines(dssdev, dssdev->phy.dpi.data_lines);
+	rc = omapdss_dpi_display_enable(dssdev);
+	if(rc)
+		return -EIO;
+	
+	// turn on backlight
+	if (dssdev->platform_enable)
+		dssdev->platform_enable(dssdev);
+	
+	dssdev->state = OMAP_DSS_DISPLAY_ACTIVE;
+
 	return 0;
 }
 
@@ -92,7 +121,11 @@ static int com37h3m05dtc_panel_enable(struct omap_dss_device *dssdev)
 {
 	int rc = 0;
 	
+	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE)
+		return 0;
+
 	printk("com37h3m05dtc_panel_enable()\n");
+
 	if (dssdev->platform_enable)
 		rc = dssdev->platform_enable(dssdev);	// enable e.g. power, backlight
 
@@ -120,8 +153,29 @@ static void com37h3m05dtc_panel_disable(struct omap_dss_device *dssdev)
 	com37h3m05dtc_panel_suspend(dssdev);
 
 	// 2. sleep_to_standby()
-	
-	// FIXME
+
+	/* nothing to do */
+
+	dssdev->state=OMAP_DSS_DISPLAY_DISABLED;
+}
+
+static void com37h3m05dtc_panel_set_timings(struct omap_dss_device *dssdev,
+										 struct omap_video_timings *timings)
+{
+	omapdss_dpi_set_timings(dssdev, timings);
+	dssdev->panel.timings = *timings;
+}
+
+static void com37h3m05dtc_panel_get_timings(struct omap_dss_device *dssdev,
+										 struct omap_video_timings *timings)
+{
+	*timings = dssdev->panel.timings;
+}
+
+static int com37h3m05dtc_panel_check_timings(struct omap_dss_device *dssdev,
+										  struct omap_video_timings *timings)
+{
+	return dpi_check_timings(dssdev, timings);
 }
 
 static struct omap_dss_driver com37h3m05dtc_driver = {
@@ -133,6 +187,10 @@ static struct omap_dss_driver com37h3m05dtc_driver = {
 	.suspend	= com37h3m05dtc_panel_suspend,
 	.resume		= com37h3m05dtc_panel_resume,
 
+	.set_timings	= com37h3m05dtc_panel_set_timings,
+	.get_timings	= com37h3m05dtc_panel_get_timings,
+	.check_timings	= com37h3m05dtc_panel_check_timings,
+	
 	.driver         = {
 		.name   = "com37h3m05dtc_panel",
 		.owner  = THIS_MODULE,
