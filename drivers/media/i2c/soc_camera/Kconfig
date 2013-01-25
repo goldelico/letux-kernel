@@ -68,6 +68,13 @@ config SOC_CAMERA_OV9640
 	help
 	  This is a ov9640 camera driver
 
+config SOC_CAMERA_OV9655
+	tristate "ov9655 camera support"
+	depends on SOC_CAMERA && I2C
+	help
+	  This is a SoC camera driver for the OmniVision
+	  OV9655 image sensor.
+
 config SOC_CAMERA_OV9740
 	tristate "ov9740 camera support"
 	depends on SOC_CAMERA && I2C
