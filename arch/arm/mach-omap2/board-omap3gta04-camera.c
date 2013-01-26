@@ -52,7 +52,7 @@
 
 static struct regulator *cam_2v5_reg;
 
-#if defined(CONFIG_VIDEO_OV9655) || defined(CONFIG_VIDEO_OV9655_MODULE)
+#if defined(SOC_CAMERA_OV9655) || defined(SOC_CAMERA_OV9655_MODULE)
 #include <media/ov9655.h>
 
 #define ISP_OV9655_MCLK	(216*1000000)
@@ -209,7 +209,7 @@ struct ov9655_platform_data ov9655_pdata = {
 	.ifparm		= ov9655_ifparm,
 };
 
-#endif				/* #ifdef CONFIG_VIDEO_OV9655 */
+#endif				/* #ifdef SOC_CAMERA_OV9655 */
 
 static int gta04_cam_probe(struct platform_device *pdev)
 {
