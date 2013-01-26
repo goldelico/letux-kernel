@@ -51,6 +51,11 @@
 #ifdef CONFIG_LEDS_TCA6507
 #include <linux/leds-tca6507.h>
 #endif
+#if defined(SOC_CAMERA_OV9655) || defined(SOC_CAMERA_OV9655_MODULE)
+#include <media/v4l2-int-device.h>
+#include <media/ov9655.h>
+extern struct ov9655_platform_data ov9655_pdata;
+#endif
 
 #include <linux/sysfs.h>
 
@@ -1077,7 +1082,15 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 },
 #endif
 
-	/* FIXME: add other drivers for BMA180, Si472x, Camera */
+	/* FIXME: add other drivers for BMA180, Si472x */
+#if defined(SOC_CAMERA_OV9655) || defined(SOC_CAMERA_OV9655_MODULE)
+	{
+	I2C_BOARD_INFO("ov9655", OV9655_I2C_ADDR),
+	.type		= "ov9655",
+	.platform_data	= &ov9655_pdata,
+	.irq		= -EINVAL,
+	},
+#endif	
 };
 
 static int __init gta04_i2c_init(void)
