@@ -1453,6 +1453,94 @@ static struct platform_device madc_hwmon = {
 	.id	= -1,
 };
 
+#if defined(CONFIG_SOC_CAMERA_OV9655) || defined(CONFIG_SOC_CAMERA_OV9655_MODULE)
+
+static struct i2c_board_info gta04_i2c_camera = {
+	I2C_BOARD_INFO("ov9655", 0x30),
+};
+
+#define CAMERA_RESET_GPIO	98	/* CAM_FLD */
+#define CAMERA_PWDN_GPIO	165	/* CAM_WEN */
+#define CAMERA_STROBE_GPIO	126	/* CAM_STROBE */
+
+static int gta04_camera_power(struct device *dev, int mode)
+{
+	int ret = 0;
+
+	printk("gta04_camera_power(%d)\n", mode);
+	
+	if (mode) {
+#if NEEDS_TO_BE_WORKED_OUT
+
+		// XCLKA must be available - before I2C works
+		// is this called before or after trying to probe the ov9655 driver?
+
+		// enabel xlcka for ca. 24 MHz (?)
+		
+		/* Set RESET_BAR to 0 (this assumes the polarity for the Rev 5 camera chip!) */
+		gpio_set_value(CAMERA_RESET_GPIO, 0);
+		/* remove powerdown signal */
+		gpio_set_value(CAMERA_PWDN_GPIO, 0);
+		
+		/* turn on VDD */
+		// FIXME whould already be done by gta04_camera_regulators
+		regulator_enable(cam_2v5_reg);
+		mdelay(50);
+		
+		/* Enable EXTCLK */
+		isp_set_xclk(vdev->cam->isp, OV9655_CLK_MIN*2, CAM_USE_XCLKA);
+		/*
+		 * Wait at least 70 CLK cycles (w/EXTCLK = 6MHz, or CLK_MIN):
+		 * ((1000000 * 70) / 6000000) = aprox 12 us.
+		 */
+		udelay(12);
+		/* Set RESET_BAR to 1 */
+		gpio_set_value(CAMERA_RESET_GPIO, 1);
+		/*
+		 * Wait at least 1 ms
+		 */
+		mdelay(1000);
+#endif
+		ret = 0;
+	} else {
+		/* assert powerdown signal */
+		gpio_set_value(CAMERA_PWDN_GPIO, 1);
+		mdelay(50);
+		ret = 0;
+	}
+
+	return ret;
+}
+
+#if 0	// we currently have no ov9655_pdata - and this is a fragment from a board file we try to copy
+static struct ov9655_pdata ov9655_priv = {
+	.mclk_freq      = CEU_MCLK_FREQ,
+	.ioctl_high     = false,
+};
+#endif
+
+static struct regulator_bulk_data gta04_camera_regulators[] = {
+	{ .supply = "vaux3" },
+};
+
+static struct soc_camera_link ov9655_link = {
+	.power          = gta04_camera_power,
+	.board_info     = &gta04_i2c_camera,
+	.i2c_adapter_id = 1,
+	.regulators		= gta04_camera_regulators,
+	.num_regulators	= ARRAY_SIZE(gta04_camera_regulators),
+	//	.priv           = &ov9655_priv, --- could pass settings for prescaler etc.
+};
+
+static struct platform_device gta04_camera_device = {
+	.name   = "soc-camera-pdrv",
+	.id     = 0,
+	.dev    = {
+		.platform_data = &ov9655_link,
+	},
+};
+#endif
+
 static struct platform_device *gta04_devices[] __initdata = {
 	&pwm_device,
 	&twl4030_audio_device,
