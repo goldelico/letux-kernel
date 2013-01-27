@@ -23,7 +23,7 @@ source "drivers/gpu/drm/Kconfig"
 
 source "drivers/gpu/host1x/Kconfig"
 
-source "drivers/gpu/pvr/Kconfig"
+source "drivers/gpu/pvr/omap3/Kconfig"
 
 config VGASTATE
        tristate
