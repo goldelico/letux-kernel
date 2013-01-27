@@ -1,4 +1,4 @@
-# derived from some SDK4 Makefile
+# derived from some SDK4 Makefiles
 DATE := $(shell date "+%Y%m%d%H%M%S" )
 
 # these options must match the compiled binary pvrsrvinit or you will see e.g.
@@ -62,6 +62,14 @@ ccflags-y = -Iinclude \
 	-DSGX_CLK_CORE_DIV5 \
 	-DSUPPORT_SGX_NEW_STATUS_VALS \
 
+# for drm
+ccflags-y += -Iinclude/drm \
+	-DCONFIG_PCI \
+	-DSYS_USING_INTERRUPTS \
+	-DSUPPORT_OMAP3430_OMAPFB3 \
+	-DPVR_LINUX_USING_WORKQUEUES \
+	-DPVR_DISPLAY_CONTROLLER_DRM_IOCTL \
+
 
 #	-DSGX_DYNAMIC_TIMING_INFO \
 #	-DSUPPORT_XWS \
@@ -77,14 +85,14 @@ ccflags-y = -Iinclude \
 #	-DSYS_SGX_ACTIVE_POWER_LATENCY_MS=100 \
 
 
+ccflags-$(CONFIG_SGX530) +=  -Idrivers/gpu/pvr/omap3  -Idrivers/gpu/pvr/sgx \
+	-DSGX530 \
+	-DSUPPORT_SGX530
+
 #ccflags-$(CONFIG_SGX540) +=  -Idrivers/gpu/pvr/omap4  -Idrivers/gpu/pvr/sgx \
 #	-DNO_OMAP_TIMER \
 #	-DSGX_CLK_CORE_DIV5 \
 #	-DSGX540 -DSUPPORT_SGX540
-
-ccflags-$(CONFIG_SGX530) +=  -Idrivers/gpu/pvr/omap3  -Idrivers/gpu/pvr/sgx \
-	-DSGX530 \
-	-DSUPPORT_SGX530
 
 ccflags-$(CONFIG_SGX_REV110) += -DSGX_CORE_REV=110
 ccflags-$(CONFIG_SGX_REV120) += -DSGX_CORE_REV=120
@@ -165,17 +173,17 @@ pvr_common-y := \
 	services4/srvkm/bridged/bridged_support.o \
 	services4/srvkm/bridged/bridged_pvr_bridge.o
 
-#pvr540-$(CONFIG_SGX540) := \
-#	omap4/sysconfig.o \
-#	omap4/sysutils.o
-
 pvr530-$(CONFIG_SGX_REV121) := \
-	services4/system/omap3430/sysconfig.o \
-	services4/system/omap3430/sysutils.o
+	services4/system/omap3/sysconfig.o \
+	services4/system/omap3/sysutils.o
 
 pvr530-$(CONFIG_SGX_REV125) := \
 	services4/system/omap3630/sysconfig.o \
 	services4/system/omap3630/sysutils.o
+
+pvr540-$(CONFIG_SGX540) := \
+	services4/system/omap4/sysconfig.o \
+	services4/system/omap4/sysutils.o
 
 sgx-y :=  \
 	services4/srvkm/bridged/sgx/bridged_sgx_bridge.o \
@@ -187,17 +195,20 @@ sgx-y :=  \
 	services4/srvkm/devices/sgx/sgxtransfer.o \
 	services4/srvkm/devices/sgx/mmu.o \
 	services4/srvkm/devices/sgx/pb.o \
-	../drm/drm_vm.o
 
-#sgx_displayclass-y := \
-#	display/omap_sgx_displayclass.o \
-#	display/omap_display.o
+drm-y :=  \
+	services4/3rdparty/linux_drm/pvr_drm_stubs.o \
 
 omaplfb-y := \
 	services4/3rdparty/dc_omapfb3_linux/omaplfb_displayclass.o \
 	services4/3rdparty/dc_omapfb3_linux/omaplfb_linux.o
 
-obj-$(CONFIG_SGX540) := pvr_common.o sgx.o omaplfb.o pvr540.o
 obj-$(CONFIG_SGX530) := pvr_common.o sgx.o omaplfb.o pvr530.o
+obj-$(CONFIG_SGX540) := pvr_common.o sgx.o omaplfb.o pvr540.o
+
+# this should add PCI DRM stub but it does not compile
+# so we simply configure the full PCI subsystem (through Kconfig)
+# obj-$(CONFIG_SGX530) += drm.o
+# obj-$(CONFIG_SGX540) += drm.o
+
 #obj-$(CONFIG_VIRTUAL_DISPLAY_SUPPORT) := pvr_common.o sgx.o \
-#	sgx_displayclass.o pvr540.o
