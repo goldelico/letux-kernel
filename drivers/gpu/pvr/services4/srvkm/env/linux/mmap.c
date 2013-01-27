@@ -1063,7 +1063,9 @@ PVRMMap(struct file* pFile, struct vm_area_struct* ps_vma)
     PVR_DPF((PVR_DBG_MESSAGE, "%s: Mapped psLinuxMemArea 0x%p\n",
          __FUNCTION__, psOffsetStruct->psLinuxMemArea));
 
+#if !(LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0))	/* added by hns for GTA04, because constant VM_RESERVED has disappeared */
     ps_vma->vm_flags |= VM_RESERVED;
+#endif
     ps_vma->vm_flags |= VM_IO;
 
     /*

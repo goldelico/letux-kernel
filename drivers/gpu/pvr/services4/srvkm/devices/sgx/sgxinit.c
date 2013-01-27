@@ -41,6 +41,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include <stddef.h>
 
+#include <plat/cpu.h>
+
 #include "sgxdefs.h"
 #include "sgxmmu.h"
 #include "services_headers.h"
@@ -572,6 +574,12 @@ PVRSRV_ERROR SGXInitialise(PVRSRV_SGXDEV_INFO	*psDevInfo,
 		return eError;
 	}
 	PDUMPCOMMENTWITHFLAGS(PDUMP_FLAGS_CONTINUOUS, "End of SGX initialisation script part 2\n");
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0))	/* added by hns for GTA04, because cpu_is_omap35**() has been removed */
+#define cpu_is_omap3530()		(cpu_is_omap343x())
+#define cpu_is_omap3517()		(soc_is_am35xx())
+#endif
+
 	if(!(cpu_is_omap3530() || cpu_is_omap3517()))
         {
                OSWriteHWReg(psDevInfo->pvRegsBaseKM, 0xFF08, 0x80000000);//OCP Bypass mode
