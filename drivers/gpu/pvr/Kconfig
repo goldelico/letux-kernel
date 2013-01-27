@@ -1,12 +1,16 @@
 config SGX540
 	tristate "PowerVR SGX"
 	depends on ARCH_OMAP4
+	select DRM
+	select PCI
 	---help---
 	  Support for the PowerVR SGX 3D core.
 
 config SGX530
 	tristate "PowerVR SGX"
 	depends on ARCH_OMAP3
+	select DRM
+	select PCI
 	---help---
 	  Support for the PowerVR SGX 3D core.
 
