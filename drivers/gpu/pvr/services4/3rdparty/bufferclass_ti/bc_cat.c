@@ -28,18 +28,33 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/fs.h>
+#include <linux/version.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <img_defs.h>
 #include <servicesext.h>
 #include <kernelbuffer.h>
 #include "bc_cat.h"
-
+#include <linux/slab.h>
 #include <linux/dma-mapping.h>
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36))
+#include <linux/mutex.h>
+#endif
+
+#if defined(BC_DISCONTIG_BUFFERS)
+#include <linux/vmalloc.h>
+#endif
 
 #define DEVNAME             "bccat"
 #define DRVNAME             DEVNAME
-#define DEVICE_COUNT        1
+#define DEVICE_COUNT        10
+#define BC_EXAMPLE_NUM_BUFFERS  3
+#define BUFFERCLASS_DEVICE_NAME "Example Bufferclass Device (SW)"
+
+#ifndef UNREFERENCED_PARAMETER
+#define UNREFERENCED_PARAMETER(param) (param) = (param)
+#endif
+
 
 MODULE_SUPPORTED_DEVICE(DEVNAME);
 
@@ -47,10 +62,15 @@ MODULE_SUPPORTED_DEVICE(DEVNAME);
 
 typedef struct BC_CAT_BUFFER_TAG
 {
-    IMG_UINT32                   ui32Size;
+    unsigned long                   ulSize;
     IMG_HANDLE                   hMemHandle;
+#if defined(BC_DISCONTIG_BUFFERS)
+        IMG_SYS_PHYADDR                         *psSysAddr;
+#else
+
     IMG_SYS_PHYADDR              sSysAddr;
     IMG_SYS_PHYADDR              sPageAlignSysAddr;
+#endif
     IMG_CPU_VIRTADDR             sCPUVAddr;
     PVRSRV_SYNC_DATA            *psSyncData;
     struct BC_CAT_BUFFER_TAG    *psNext;
@@ -58,18 +78,34 @@ typedef struct BC_CAT_BUFFER_TAG
 
 
 typedef struct BC_CAT_DEVINFO_TAG
-{
-    int                       ref;
-    IMG_UINT32                ui32DeviceID;
+{ 
+    int ref;
+    unsigned long                ulDeviceID;
     BC_CAT_BUFFER            *psSystemBuffer;
-    BUFFER_INFO               sBufferInfo;
-    IMG_UINT32                ui32NumBuffers;
+    unsigned long                ulNumBuffers;
     PVRSRV_BC_BUFFER2SRV_KMJTABLE    sPVRJTable;
     PVRSRV_BC_SRV2BUFFER_KMJTABLE    sBCJTable;
     IMG_HANDLE                hPVRServices;
-    IMG_UINT32                ui32RefCount;
+    unsigned long                ulRefCount;
+    BUFFER_INFO               sBufferInfo;
     enum BC_memory            buf_type;
 } BC_CAT_DEVINFO;
+
+
+typedef enum _BCE_ERROR_
+{
+        BCE_OK                             =  0,
+        BCE_ERROR_GENERIC                  =  1,
+        BCE_ERROR_OUT_OF_MEMORY            =  2,
+        BCE_ERROR_TOO_FEW_BUFFERS          =  3,
+        BCE_ERROR_INVALID_PARAMS           =  4,
+        BCE_ERROR_INIT_FAILURE             =  5,
+        BCE_ERROR_CANT_REGISTER_CALLBACK   =  6,
+        BCE_ERROR_INVALID_DEVICE           =  7,
+        BCE_ERROR_DEVICE_REGISTER_FAILED   =  8,
+        BCE_ERROR_NO_PRIMARY               =  9
+} BCE_ERROR;
+
 
 
 extern IMG_IMPORT IMG_BOOL PVRGetBufferClassJTable(
@@ -77,8 +113,18 @@ extern IMG_IMPORT IMG_BOOL PVRGetBufferClassJTable(
 
 static int bc_open(struct inode *i, struct file *f);
 static int bc_release(struct inode *i, struct file *f);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,36)
 static int bc_ioctl(struct inode *inode, struct file *file,
                     unsigned int cmd, unsigned long arg);
+#else
+static long bc_ioctl(struct file *file,
+                    unsigned int cmd, unsigned long arg);
+static long bc_ioctl_unlocked(struct file *file,
+                    unsigned int cmd, unsigned long arg);
+#endif
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36))
+static DEFINE_MUTEX(sBCExampleBridgeMutex);
+#endif
 static int bc_mmap(struct file *filp, struct vm_area_struct *vma);
 
 static int BC_CreateBuffers(int id, bc_buf_params_t *p);
@@ -89,14 +135,14 @@ static PVRSRV_ERROR BC_Unregister(int id);
 static PVRSRV_ERROR BCOpenPVRServices(IMG_HANDLE *phPVRServices);
 static PVRSRV_ERROR BCClosePVRServices(IMG_HANDLE hPVRServices);
 
-static IMG_VOID *BCAllocKernelMem(IMG_UINT32 ui32Size);
+static IMG_VOID *BCAllocKernelMem(unsigned long ulSize);
 static IMG_VOID BCFreeKernelMem(IMG_VOID *pvMem);
 
-static PVRSRV_ERROR BCAllocContigMemory(IMG_UINT32 ui32Size,
+static BCE_ERROR BCAllocContigMemory(unsigned long ulSize,
                                IMG_HANDLE * phMemHandle,
                                IMG_CPU_VIRTADDR *pLinAddr,
                                IMG_CPU_PHYADDR *pPhysAddr);
-static IMG_VOID BCFreeContigMemory(IMG_UINT32 ui32Size, 
+static IMG_VOID BCFreeContigMemory(unsigned long ulSize, 
                           IMG_HANDLE hMemHandle,
                           IMG_CPU_VIRTADDR LinAddr, 
                           IMG_CPU_PHYADDR PhysAddr);
@@ -119,8 +165,15 @@ static int width_align;
 static struct file_operations bc_cat_fops = {
     .open =  bc_open,
     .release = bc_release,
-    .ioctl = bc_ioctl,
-    .mmap =  bc_mmap,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,36)
+	.ioctl = bc_ioctl,
+#else
+	.unlocked_ioctl = bc_ioctl_unlocked,
+#ifdef CONFIG_COMPAT
+       .compat_ioctl = bc_ioctl,
+#endif
+#endif
+	.mmap =  bc_mmap,
 };
 
 
@@ -154,9 +207,10 @@ static PVRSRV_ERROR OpenBCDevice(IMG_HANDLE *phDevice)
 #else
 
 #define OPEN_FXN(id)                   \
-static PVRSRV_ERROR OpenBCDevice##id(IMG_HANDLE *phDevice)\
+static PVRSRV_ERROR OpenBCDevice##id(IMG_UINT32 ui32DeviceID, IMG_HANDLE *phDevice)\
 {                                      \
     BC_CAT_DEVINFO *psDevInfo;           \
+UNREFERENCED_PARAMETER(ui32DeviceID);    \
     psDevInfo = GetAnchorPtr (id);       \
     *phDevice = (IMG_HANDLE) psDevInfo;  \
     return PVRSRV_OK;                    \
@@ -174,7 +228,7 @@ OPEN_FXN(8)
 OPEN_FXN(9)
 #endif
 
-static PVRSRV_ERROR CloseBCDevice(IMG_HANDLE hDevice)
+static PVRSRV_ERROR CloseBCDevice(IMG_UINT32 handle , IMG_HANDLE hDevice)
 {
     PVR_UNREFERENCED_PARAMETER(hDevice);
 
@@ -224,20 +278,30 @@ static PVRSRV_ERROR GetBCBufferAddr(IMG_HANDLE        hDevice,
                                     IMG_UINT32        *pui32ByteSize,
                                     IMG_VOID        **ppvCpuVAddr,
                                     IMG_HANDLE        *phOSMapInfo,
-                                    IMG_BOOL        *pbIsContiguous)
+                                    IMG_BOOL        *pbIsContiguous,
+                                    IMG_UINT32      *pui32TilingStride)
 {
     BC_CAT_BUFFER *psBuffer;
+    PVR_UNREFERENCED_PARAMETER(pui32TilingStride);
 
     if (!hDevice || !hBuffer || !ppsSysAddr || !pui32ByteSize)
         return PVRSRV_ERROR_INVALID_PARAMS;
 
     psBuffer = (BC_CAT_BUFFER *) hBuffer;
-    *ppsSysAddr = &psBuffer->sPageAlignSysAddr;
-    *ppvCpuVAddr = psBuffer->sCPUVAddr;
-    *pui32ByteSize = psBuffer->ui32Size;
 
-    *phOSMapInfo = IMG_NULL;
-    *pbIsContiguous = IMG_TRUE;
+     *ppvCpuVAddr = psBuffer->sCPUVAddr;
+
+        *phOSMapInfo    = IMG_NULL;
+        *pui32ByteSize = (IMG_UINT32)psBuffer->ulSize;
+
+#if defined(BC_DISCONTIG_BUFFERS)
+        *ppsSysAddr = psBuffer->psSysAddr;
+        *pbIsContiguous = IMG_FALSE;
+#else
+        *ppsSysAddr = &psBuffer->sPageAlignSysAddr;
+        *pbIsContiguous = IMG_TRUE;
+#endif
+
 
     return PVRSRV_OK;
 }
@@ -246,10 +310,13 @@ static PVRSRV_ERROR GetBCBufferAddr(IMG_HANDLE        hDevice,
 static int BC_CreateBuffers(int id, bc_buf_params_t *p)
 {
     BC_CAT_DEVINFO  *psDevInfo;
+#if !defined(BC_DISCONTIG_BUFFERS)
     IMG_CPU_PHYADDR  paddr;
-    IMG_UINT32       i, stride, size;
+#endif
+    IMG_UINT32       i, stride;
+    unsigned long ulSize;
     PVRSRV_PIXEL_FORMAT pixel_fmt;
-
+//IMG_UINT32 ui32MaxWidth = 320 * 4;
     if (p->count <= 0)
         return -EINVAL;
 
@@ -257,6 +324,15 @@ static int BC_CreateBuffers(int id, bc_buf_params_t *p)
         return -EINVAL;
 
     switch (p->fourcc) {
+    case BC_PIX_FMT_YV12:
+        pixel_fmt = PVRSRV_PIXEL_FORMAT_YV12;
+        stride = p->width;
+        break;
+    case BC_PIX_FMT_I420:
+        pixel_fmt = PVRSRV_PIXEL_FORMAT_I420;
+        stride = p->width;
+        break;
+
     case BC_PIX_FMT_NV12:
         pixel_fmt = PVRSRV_PIXEL_FORMAT_NV12;
         stride = p->width;
@@ -273,6 +349,12 @@ static int BC_CreateBuffers(int id, bc_buf_params_t *p)
         pixel_fmt = PVRSRV_PIXEL_FORMAT_FOURCC_ORG_YUYV;
         stride = p->width << 1;
         break;
+    
+    case BC_PIX_FMT_ARGB:
+        pixel_fmt = PVRSRV_PIXEL_FORMAT_ARGB8888;
+        stride = p->width << 2;
+        break;
+
     default:
         return -EINVAL;
         break;
@@ -281,11 +363,19 @@ static int BC_CreateBuffers(int id, bc_buf_params_t *p)
     if (p->type != BC_MEMORY_MMAP && p->type != BC_MEMORY_USERPTR)
         return -EINVAL;
 
-    if ((psDevInfo = GetAnchorPtr(id)) == IMG_NULL)
-        return -ENODEV;
+      psDevInfo = GetAnchorPtr(id);
+        if (psDevInfo == NULL)
+        {
 
-    if (psDevInfo->ui32NumBuffers)
-        BC_DestroyBuffers(id);
+                return (BCE_ERROR_DEVICE_REGISTER_FAILED);
+        }
+        if (psDevInfo->ulNumBuffers)
+        {
+
+                return (BCE_ERROR_GENERIC);
+        }
+
+
 
     psDevInfo->buf_type = p->type;
     psDevInfo->psSystemBuffer =
@@ -296,30 +386,50 @@ static int BC_CreateBuffers(int id, bc_buf_params_t *p)
 
     memset(psDevInfo->psSystemBuffer, 0, sizeof(BC_CAT_BUFFER) * p->count);
 
-    size = p->height * stride;
+    ulSize = p->height * stride;
     if (pixel_fmt == PVRSRV_PIXEL_FORMAT_NV12)
-        size += (stride >> 1) * (p->height >> 1) << 1;
+        ulSize += (stride >> 1) * (p->height >> 1) << 1;
+
+    if ((pixel_fmt == PVRSRV_PIXEL_FORMAT_I420) || (pixel_fmt == PVRSRV_PIXEL_FORMAT_YV12) )
+    {
+        ulSize += (stride >> 1) * (p->height >> 1);
+        ulSize += (stride >> 1) * (p->height >> 1);
+    }
 
     for (i=0; i < p->count; i++) {
         if (psDevInfo->buf_type == BC_MEMORY_MMAP) {
-            if (BCAllocContigMemory(size,
+
+#if defined(BC_DISCONTIG_BUFFERS)
+                if (BCAllocDiscontigMemory(ulSize,
+                                                                        &psDevInfo->psSystemBuffer[i].hMemHandle,
+                                                                        &psDevInfo->psSystemBuffer[i].sCPUVAddr,
+                                                                        &psDevInfo->psSystemBuffer[i].psSysAddr) != BCE_OK)
+                {
+                        break;
+                }
+#else
+
+            if (BCAllocContigMemory(ulSize,
                                   &psDevInfo->psSystemBuffer[i].hMemHandle,
                                   &psDevInfo->psSystemBuffer[i].sCPUVAddr,
-                                  &paddr) != PVRSRV_OK)
+                                  &paddr) != BCE_OK)
+{
                 /*TODO should free() and return failure*/
                 break;
+}
 
             psDevInfo->psSystemBuffer[i].sSysAddr = CpuPAddrToSysPAddrBC(paddr);
             psDevInfo->psSystemBuffer[i].sPageAlignSysAddr.uiAddr =
                     psDevInfo->psSystemBuffer[i].sSysAddr.uiAddr & 0xFFFFF000;
         }
-        psDevInfo->ui32NumBuffers++;
-        psDevInfo->psSystemBuffer[i].ui32Size = size;
-        psDevInfo->psSystemBuffer[i].psSyncData = IMG_NULL;
+#endif
+        psDevInfo->ulNumBuffers++;
+        psDevInfo->psSystemBuffer[i].ulSize = ulSize;
+        psDevInfo->psSystemBuffer[i].psSyncData = NULL;
     }
-    p->count = psDevInfo->ui32NumBuffers;
+    p->count = psDevInfo->ulNumBuffers;
 
-    psDevInfo->sBufferInfo.ui32BufferCount = psDevInfo->ui32NumBuffers;
+    psDevInfo->sBufferInfo.ui32BufferCount = (IMG_UINT32)psDevInfo->ulNumBuffers;
     psDevInfo->sBufferInfo.pixelformat = pixel_fmt;
     psDevInfo->sBufferInfo.ui32Width = p->width;
     psDevInfo->sBufferInfo.ui32Height = p->height;
@@ -327,7 +437,58 @@ static int BC_CreateBuffers(int id, bc_buf_params_t *p)
     psDevInfo->sBufferInfo.ui32BufferDeviceID = id;
     psDevInfo->sBufferInfo.ui32Flags = PVRSRV_BC_FLAGS_YUVCSC_FULL_RANGE |
                                        PVRSRV_BC_FLAGS_YUVCSC_BT601;
-    return 0;
+
+psDevInfo->sBCJTable.ui32TableSize    = sizeof(PVRSRV_BC_SRV2BUFFER_KMJTABLE);
+        psDevInfo->sBCJTable.pfnOpenBCDevice  = OpenBCDevice0;
+        psDevInfo->sBCJTable.pfnCloseBCDevice = CloseBCDevice;
+        psDevInfo->sBCJTable.pfnGetBCBuffer   = GetBCBuffer;
+        psDevInfo->sBCJTable.pfnGetBCInfo     = GetBCInfo;
+        psDevInfo->sBCJTable.pfnGetBufferAddr = GetBCBufferAddr;
+/*
+if (psDevInfo->sBufferInfo.ui32Width < ui32MaxWidth)
+	{
+		switch(pixel_fmt)
+		{
+		    case PVRSRV_PIXEL_FORMAT_NV12:
+		    case PVRSRV_PIXEL_FORMAT_I420:
+			{
+			    psDevInfo->sBufferInfo.ui32Width += 320;
+				psDevInfo->sBufferInfo.ui32Height += 160;
+				psDevInfo->sBufferInfo.ui32ByteStride = psDevInfo->sBufferInfo.ui32Width;
+				break;
+			}
+		    case PVRSRV_PIXEL_FORMAT_FOURCC_ORG_VYUY:
+		    case PVRSRV_PIXEL_FORMAT_FOURCC_ORG_UYVY:
+		    case PVRSRV_PIXEL_FORMAT_FOURCC_ORG_YUYV:
+		    case PVRSRV_PIXEL_FORMAT_FOURCC_ORG_YVYU:
+			{
+			    psDevInfo->sBufferInfo.ui32Width += 320;
+				psDevInfo->sBufferInfo.ui32Height += 160;
+				psDevInfo->sBufferInfo.ui32ByteStride = ui32Width*2;
+				break;
+			}
+		    case PVRSRV_PIXEL_FORMAT_RGB565:
+			{
+			    psDevInfo->sBufferInfo.ui32Width += 320;
+				psDevInfo->sBufferInfo.ui32Height += 160;
+				psDevInfo->sBufferInfo.ui32ByteStride = ui32Width*2;
+				break;
+			}
+		    default:
+			{
+				return (BCE_ERROR_INVALID_PARAMS);
+			}
+		}
+	}
+	else
+	{
+		psDevInfo->sBufferInfo.ui32Width      = BC_EXAMPLE_WIDTH;
+		psDevInfo->sBufferInfo.ui32Height     = BC_EXAMPLE_HEIGHT;
+		psDevInfo->sBufferInfo.ui32ByteStride = BC_EXAMPLE_STRIDE;
+	}
+*/
+        return (BCE_OK);
+
 }
 
 
@@ -336,30 +497,42 @@ static PVRSRV_ERROR BC_DestroyBuffers(int id)
     BC_CAT_DEVINFO *psDevInfo;
     IMG_UINT32 i;
     
-    if ((psDevInfo = GetAnchorPtr(id)) == IMG_NULL)
-        return PVRSRV_ERROR_DEVICE_REGISTER_FAILED;
-    
-    if (!psDevInfo->ui32NumBuffers)
-        return PVRSRV_OK;
+ psDevInfo = GetAnchorPtr(id);
+
+
+        if (psDevInfo == NULL)
+        {
+
+
+                return (BCE_ERROR_DEVICE_REGISTER_FAILED);
+        }
 
     if (psDevInfo->buf_type == BC_MEMORY_MMAP)
-        for (i = 0; i < psDevInfo->ui32NumBuffers; i++) {
-            BCFreeContigMemory(psDevInfo->psSystemBuffer[i].ui32Size,
+        for (i = 0; i < psDevInfo->ulNumBuffers; i++) {
+#if defined(BC_DISCONTIG_BUFFERS)
+                BCFreeDiscontigMemory(psDevInfo->psSystemBuffer[i].ulSize,
+                         psDevInfo->psSystemBuffer[i].hMemHandle,
+                         psDevInfo->psSystemBuffer[i].sCPUVAddr,
+                         psDevInfo->psSystemBuffer[i].psSysAddr);
+#else
+
+            BCFreeContigMemory(psDevInfo->psSystemBuffer[i].ulSize,
                     psDevInfo->psSystemBuffer[i].hMemHandle,
                     psDevInfo->psSystemBuffer[i].sCPUVAddr,
                     SysPAddrToCpuPAddrBC(psDevInfo->psSystemBuffer[i].sSysAddr));
+#endif
         }
 
-    BCFreeKernelMem(psDevInfo->psSystemBuffer);
+  //  BCFreeKernelMem(psDevInfo->psSystemBuffer);
     
-    psDevInfo->ui32NumBuffers = 0;
+    psDevInfo->ulNumBuffers = 0;
     psDevInfo->sBufferInfo.pixelformat = PVRSRV_PIXEL_FORMAT_UNKNOWN;
     psDevInfo->sBufferInfo.ui32Width = 0;
     psDevInfo->sBufferInfo.ui32Height = 0;
     psDevInfo->sBufferInfo.ui32ByteStride = 0;    
     psDevInfo->sBufferInfo.ui32BufferDeviceID = id;
     psDevInfo->sBufferInfo.ui32Flags = 0;
-    psDevInfo->sBufferInfo.ui32BufferCount = psDevInfo->ui32NumBuffers;
+    psDevInfo->sBufferInfo.ui32BufferCount = (IMG_UINT32)psDevInfo->ulNumBuffers;
 
     return PVRSRV_OK;
 }
@@ -369,20 +542,18 @@ static PVRSRV_ERROR BC_Register(id)
 {
     BC_CAT_DEVINFO  *psDevInfo;
     
-    psDevInfo = GetAnchorPtr(id);
+//psDevInfo = GetAnchorPtr();
+   psDevInfo = GetAnchorPtr(id);
 
-    if (psDevInfo) {
-        psDevInfo->ui32RefCount++;
-        return PVRSRV_OK;
-    }
-
+     if (psDevInfo == NULL)
+ { 
     psDevInfo = (BC_CAT_DEVINFO *)BCAllocKernelMem(sizeof(BC_CAT_DEVINFO));
 
     if (!psDevInfo)
         return PVRSRV_ERROR_OUT_OF_MEMORY;
     
     psDevInfo->ref = 0;
-    psDevInfo->ui32RefCount = 0;
+    psDevInfo->ulRefCount = 0;
     SetAnchorPtr(id, (IMG_VOID*)psDevInfo);
 
     if (BCOpenPVRServices(&psDevInfo->hPVRServices) != PVRSRV_OK)
@@ -395,7 +566,9 @@ static PVRSRV_ERROR BC_Register(id)
     if (!(*pfnGetPVRJTable)(&psDevInfo->sPVRJTable))
         return PVRSRV_ERROR_INIT_FAILURE;
 
-    psDevInfo->ui32NumBuffers = 0;
+    psDevInfo->ulNumBuffers = 0;
+
+    psDevInfo->psSystemBuffer = BCAllocKernelMem(sizeof(BC_CAT_BUFFER) * BC_EXAMPLE_NUM_BUFFERS);
 
     psDevInfo->sBufferInfo.pixelformat = PVRSRV_PIXEL_FORMAT_UNKNOWN;
     psDevInfo->sBufferInfo.ui32Width = 0;
@@ -403,9 +576,11 @@ static PVRSRV_ERROR BC_Register(id)
     psDevInfo->sBufferInfo.ui32ByteStride = 0;    
     psDevInfo->sBufferInfo.ui32BufferDeviceID = id;
     psDevInfo->sBufferInfo.ui32Flags = 0;
-    psDevInfo->sBufferInfo.ui32BufferCount = psDevInfo->ui32NumBuffers;
+    psDevInfo->sBufferInfo.ui32BufferCount = (IMG_UINT32)psDevInfo->ulNumBuffers;
 
     psDevInfo->sBCJTable.ui32TableSize = sizeof(PVRSRV_BC_SRV2BUFFER_KMJTABLE);
+
+strncpy(psDevInfo->sBufferInfo.szDeviceName, BUFFERCLASS_DEVICE_NAME, MAX_BUFFER_DEVICE_NAME_SIZE);
 #if 0
     psDevInfo->sBCJTable.pfnOpenBCDevice = OpenBCDevice;
 #else
@@ -441,10 +616,10 @@ static PVRSRV_ERROR BC_Register(id)
     
     if (psDevInfo->sPVRJTable.pfnPVRSRVRegisterBCDevice(
                 &psDevInfo->sBCJTable,
-                &psDevInfo->ui32DeviceID) != PVRSRV_OK)
+              (IMG_UINT32*)&psDevInfo->ulDeviceID) != PVRSRV_OK)
         return PVRSRV_ERROR_DEVICE_REGISTER_FAILED;
-
-    psDevInfo->ui32RefCount++;
+}
+    psDevInfo->ulRefCount++;
     
     return PVRSRV_OK;
 }
@@ -453,29 +628,40 @@ static PVRSRV_ERROR BC_Register(id)
 static PVRSRV_ERROR BC_Unregister(int id)
 {
     BC_CAT_DEVINFO *psDevInfo;
-    PVRSRV_BC_BUFFER2SRV_KMJTABLE *psJTable;
+//    PVRSRV_BC_BUFFER2SRV_KMJTABLE *psJTable;
     
     if ((psDevInfo = GetAnchorPtr(id)) == IMG_NULL)
         return PVRSRV_ERROR_DEVICE_REGISTER_FAILED;
     
-    psDevInfo->ui32RefCount--;
+    psDevInfo->ulRefCount--;
 
-    if (psDevInfo->ui32RefCount)
+    if (psDevInfo->ulRefCount)
         return PVRSRV_ERROR_RETRY;
 
-    psJTable = &psDevInfo->sPVRJTable;
-    
-    if (psJTable->pfnPVRSRVRemoveBCDevice(psDevInfo->ui32DeviceID) != PVRSRV_OK)
-        return PVRSRV_ERROR_GENERIC;
+
+  if (psDevInfo->ulRefCount == 0)
+        {
+
+                PVRSRV_BC_BUFFER2SRV_KMJTABLE   *psJTable = &psDevInfo->sPVRJTable;
+
+
+    if (psJTable->pfnPVRSRVRemoveBCDevice(psDevInfo->ulDeviceID) != PVRSRV_OK)
+        //return PVRSRV_ERROR_GENERIC;
+        return 1;
 
     if (BCClosePVRServices(psDevInfo->hPVRServices) != PVRSRV_OK) {
         psDevInfo->hPVRServices = IMG_NULL;
-        return PVRSRV_ERROR_GENERIC;
+        //return PVRSRV_ERROR_GENERIC;
+        return 1;
     }
+if (psDevInfo->psSystemBuffer)
+                {
+                        BCFreeKernelMem(psDevInfo->psSystemBuffer);
+                }
 
     BCFreeKernelMem(psDevInfo);
     SetAnchorPtr(id, IMG_NULL);
-    
+}    
     return PVRSRV_OK;
 }
 
@@ -487,8 +673,14 @@ static int __init bc_cat_init(void)
 
     /* texture buffer width should be multiple of 8 for OMAP3 ES3.x,
      * or 32 for ES2.x */
-    width_align = omap_rev_lt_3_0() ? 32 : 8;
-    
+
+#ifdef PLAT_TI8168
+     width_align = 8;
+#else
+     width_align = 8;
+     //width_align = cpu_is_omap3530() && ( omap_rev() < OMAP3430_REV_ES3_0 ) ? 32 : 8; 
+#endif   
+ 
     major = register_chrdev(0, DEVNAME, &bc_cat_fops);
 
     if (major <= 0) {
@@ -536,9 +728,17 @@ ExitDisable:
 
 static void __exit bc_cat_cleanup(void)
 {    
-    int id;
+    int id=0;
 
     for (id = 0; id < DEVICE_COUNT; id++) {
+device_destroy(bc_class, MKDEV(major, id));
+}
+
+    class_destroy(bc_class);
+
+    unregister_chrdev(major, DEVNAME);
+  
+  for (id = 0; id < DEVICE_COUNT; id++) {
         if (BC_DestroyBuffers(id) != PVRSRV_OK) {
             printk(KERN_ERR DRVNAME ": can't free texture buffers\n");
             return;
@@ -547,16 +747,13 @@ static void __exit bc_cat_cleanup(void)
             printk(KERN_ERR DRVNAME ": can't un-register BC service\n");
             return;
         }
-        device_destroy(bc_class, MKDEV(major, id));
     }
-    class_destroy(bc_class);
-    unregister_chrdev(major, DEVNAME);
 } 
 
 
-static IMG_VOID *BCAllocKernelMem(IMG_UINT32 ui32Size)
+static IMG_VOID *BCAllocKernelMem(unsigned long ulSize)
 {
-    return kmalloc(ui32Size, GFP_KERNEL);
+    return kmalloc(ulSize, GFP_KERNEL);
 }
 
 static IMG_VOID BCFreeKernelMem(IMG_VOID *pvMem)
@@ -564,16 +761,105 @@ static IMG_VOID BCFreeKernelMem(IMG_VOID *pvMem)
     kfree(pvMem);
 }
 
-static PVRSRV_ERROR BCAllocContigMemory(IMG_UINT32 ui32Size,
+#if defined(BC_DISCONTIG_BUFFERS)
+
+#define RANGE_TO_PAGES(range) (((range) + (PAGE_SIZE - 1)) >> PAGE_SHIFT)
+#define VMALLOC_TO_PAGE_PHYS(vAddr) page_to_phys(vmalloc_to_page(vAddr))
+
+BCE_ERROR BCAllocDiscontigMemory(unsigned long ulSize,
+                              BCE_HANDLE unref__ *phMemHandle,
+                              IMG_CPU_VIRTADDR *pLinAddr,
+                              IMG_SYS_PHYADDR **ppPhysAddr)
+{
+        unsigned long ulPages = RANGE_TO_PAGES(ulSize);
+        IMG_SYS_PHYADDR *pPhysAddr;
+        unsigned long ulPage;
+        IMG_CPU_VIRTADDR LinAddr;
+
+        LinAddr = __vmalloc(ulSize, GFP_KERNEL | __GFP_HIGHMEM, pgprot_noncached(PAGE_KERNEL));
+        if (!LinAddr)
+        {
+                return BCE_ERROR_OUT_OF_MEMORY;
+        }
+
+        pPhysAddr = kmalloc(ulPages * sizeof(IMG_SYS_PHYADDR), GFP_KERNEL);
+        if (!pPhysAddr)
+        {
+                vfree(LinAddr);
+                return BCE_ERROR_OUT_OF_MEMORY;
+        }
+
+        *pLinAddr = LinAddr;
+
+        for (ulPage = 0; ulPage < ulPages; ulPage++)
+        {
+                pPhysAddr[ulPage].uiAddr = VMALLOC_TO_PAGE_PHYS(LinAddr);
+
+                LinAddr += PAGE_SIZE;
+        }
+
+        *ppPhysAddr = pPhysAddr;
+
+        return BCE_OK;
+}
+
+void BCFreeDiscontigMemory(unsigned long ulSize,
+                         BCE_HANDLE unref__ hMemHandle,
+                         IMG_CPU_VIRTADDR LinAddr,
+                         IMG_SYS_PHYADDR *pPhysAddr)
+{
+        kfree(pPhysAddr);
+
+        vfree(LinAddr);
+}
+#else
+
+BCE_ERROR BCAllocContigMemory(unsigned long ulSize,
                                  IMG_HANDLE unref__ *phMemHandle, 
                                  IMG_CPU_VIRTADDR *pLinAddr, 
                                  IMG_CPU_PHYADDR *pPhysAddr)
 {
+
+#if defined(BCE_USE_SET_MEMORY)
+        void *pvLinAddr;
+        unsigned long ulAlignedSize = PAGE_ALIGN(ulSize);
+        int iPages = (int)(ulAlignedSize >> PAGE_SHIFT);
+        int iError;
+
+        pvLinAddr = kmalloc(ulAlignedSize, GFP_KERNEL);
+        BUG_ON(((unsigned long)pvLinAddr)  & ~PAGE_MASK);
+
+        iError = set_memory_wc((unsigned long)pvLinAddr, iPages);
+        if (iError != 0)
+        {
+                printk(KERN_ERR DRVNAME ": BCAllocContigMemory:  set_memory_wc failed (%d)\n", iError);
+                return (BCE_ERROR_OUT_OF_MEMORY);
+        }
+
+        pPhysAddr->uiAddr = virt_to_phys(pvLinAddr);
+        *pLinAddr = pvLinAddr;
+
+        return (BCE_OK);
+#else
+        dma_addr_t dma;
+        void *pvLinAddr;
+
+        pvLinAddr = dma_alloc_coherent(NULL, ulSize, &dma, GFP_KERNEL);
+        if (pvLinAddr == NULL)
+        {
+                return (BCE_ERROR_OUT_OF_MEMORY);
+        }
+
+        pPhysAddr->uiAddr = dma;
+        *pLinAddr = pvLinAddr;
+
+        return (BCE_OK);
+#endif
+#if 0
     IMG_VOID *pvLinAddr;
     gfp_t mask = GFP_KERNEL;
     
     pvLinAddr = alloc_pages_exact(ui32Size, mask);
-/*    printk("pvLinAddr=%p, ui32Size=%ld\n", pvLinAddr, ui32Size);*/
     
     if (pvLinAddr == IMG_NULL)
         return PVRSRV_ERROR_OUT_OF_MEMORY;
@@ -581,18 +867,34 @@ static PVRSRV_ERROR BCAllocContigMemory(IMG_UINT32 ui32Size,
     pPhysAddr->uiAddr = virt_to_phys(pvLinAddr);
 
     *pLinAddr = pvLinAddr;
-
-    return PVRSRV_OK;
+#endif
+ //   return PVRSRV_OK;
 }
 
-static IMG_VOID BCFreeContigMemory(IMG_UINT32 ui32Size,
+static IMG_VOID BCFreeContigMemory(unsigned long ulSize,
                         IMG_HANDLE unref__ hMemHandle, 
                         IMG_CPU_VIRTADDR LinAddr, 
                         IMG_CPU_PHYADDR PhysAddr)
 {
-    free_pages_exact(LinAddr, ui32Size);
+ //   free_pages_exact(LinAddr, ui32Size);
+#if defined(BCE_USE_SET_MEMORY)
+        unsigned long ulAlignedSize = PAGE_ALIGN(ulSize);
+        int iError;
+        int iPages = (int)(ulAlignedSize >> PAGE_SHIFT);
+
+        iError = set_memory_wb((unsigned long)LinAddr, iPages);
+        if (iError != 0)
+        {
+                printk(KERN_ERR DRVNAME ": BCFreeContigMemory:  set_memory_wb failed (%d)\n", iError);
+        }
+        kfree(LinAddr);
+#else
+        dma_free_coherent(NULL, ulSize, LinAddr, (dma_addr_t)PhysAddr.uiAddr);
+#endif
+ 
 }
 
+#endif
 static IMG_SYS_PHYADDR CpuPAddrToSysPAddrBC(IMG_CPU_PHYADDR cpu_paddr)
 {
     IMG_SYS_PHYADDR sys_paddr;
@@ -661,6 +963,12 @@ static int bc_release(struct inode *i, struct file *f)
     if ((devinfo = GetAnchorPtr(id)) == IMG_NULL)
         return -ENODEV;
 
+    for (id = 0; id < DEVICE_COUNT; id++) {
+        if (BC_DestroyBuffers(id) != PVRSRV_OK) {
+            printk(KERN_ERR DRVNAME ": can't free texture buffer \n");
+        }
+    }
+
     if (devinfo->ref)
         devinfo->ref--;
     return 0;
@@ -685,10 +993,47 @@ static int bc_mmap(struct file *filp, struct vm_area_struct *vma)
     return 0;
 }
 
+int ReconfigureBuffer(int id, bc_buf_params_t *p, unsigned int *uiSucceed)
+{
+        BCE_ERROR eError;
+
+
+        eError = BC_DestroyBuffers(id);
+
+        if (eError != BCE_OK)
+        {
+            *uiSucceed = 0;
+                return -1;
+        }
+
+
+
+
+
+        eError = BC_CreateBuffers(id,p);
+
+        if (eError != BCE_OK)
+        {
+            *uiSucceed = 0;
+                return -1;
+        }
+
+
+        *uiSucceed = 1;
+        return 0;
+}
+
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,36)
 static int bc_ioctl(struct inode *inode, struct file *file,
                     unsigned int cmd, unsigned long arg)
+#else
+static long  bc_ioctl(struct file *file,
+                    unsigned int cmd, unsigned long arg)
+#endif
 {
     BC_CAT_DEVINFO *devinfo;
+//PVR_UNREFERENCED_PARAMETER(inode);
     int id = file_to_id (file);
 
     if ((devinfo = GetAnchorPtr(id)) == IMG_NULL)
@@ -714,7 +1059,7 @@ static int bc_ioctl(struct inode *inode, struct file *file,
                 return -EFAULT;
 
             idx = params->input;
-            if (idx < 0 || idx > devinfo->ui32NumBuffers) {
+            if (idx < 0 || idx > devinfo->ulNumBuffers) {
                 printk(KERN_ERR DRVNAME
                         ": BCIOGET_BUFFERADDR - idx out of range\n");
                 return -EINVAL;
@@ -731,7 +1076,7 @@ static int bc_ioctl(struct inode *inode, struct file *file,
             if (!access_ok(VERIFY_WRITE, params, sizeof(BCIO_package)))
                 return -EFAULT;
 
-            for (idx = 0; idx < devinfo->ui32NumBuffers; idx++) {
+            for (idx = 0; idx < devinfo->ulNumBuffers; idx++) {
                 buffer = &devinfo->psSystemBuffer[idx];
 
                 if (params->input == (int)buffer->sSysAddr.uiAddr) {
@@ -761,7 +1106,7 @@ static int bc_ioctl(struct inode *inode, struct file *file,
             if (copy_from_user(&p, (void __user *)arg, sizeof(p)))
                 return -EFAULT;
 
-            if (p.index >= devinfo->ui32NumBuffers || !p.pa)
+            if (p.index >= devinfo->ulNumBuffers || !p.pa)
                 return -EINVAL;
             
             /*TODO check buffer size*/
@@ -776,11 +1121,35 @@ static int bc_ioctl(struct inode *inode, struct file *file,
                     0xFFFFF000;
             break;
         }
+	case _IOC_NR(BCIORECONFIGURE_BUFFERS):
+	{
+		unsigned int outputparam;
+		bc_buf_params_t *p = (bc_buf_params_t *) arg;
+			if(ReconfigureBuffer(id,p,&outputparam) == -1)
+			{
+				return -EFAULT; 
+			}
+			break;
+	}
         default:
             return -EFAULT;
     }
     return 0;
 }
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36))
+static long bc_ioctl_unlocked(struct file *file, unsigned int cmd, unsigned long arg)
+{
+        int res;
+
+        mutex_lock(&sBCExampleBridgeMutex);
+        res = bc_ioctl(file, cmd, arg);
+        mutex_unlock(&sBCExampleBridgeMutex);
+
+        return res;
+}
+#endif
+
 
 module_init(bc_cat_init);
 module_exit(bc_cat_cleanup);
