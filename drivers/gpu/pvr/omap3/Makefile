@@ -3,26 +3,26 @@ DATE := $(shell date "+%Y%m%d%H%M%S" )
 
 # these options must match the compiled binary pvrsrvinit or you will see e.g.
 # SGXInit: Mismatch in driver and microkernel build options; extra options present in driver: (0x1)
-# SGXInit: Mismatch in driver and microkernel build options; extra options present in microkernel: (0x210008) [1297, drivers/gpu/pvr/services4/srvkm/devices/sgx/sgxinit.c]
+# SGXInit: Mismatch in driver and microkernel build options; extra options present in microkernel: (0x210008) [1297, drivers/gpu/pvr/omap3/services4/srvkm/devices/sgx/sgxinit.c]
 # other options depend on the kernel version (here 3.7) and CPU (here: DM3730=OMAP3630)
 
 ccflags-y = -Iinclude \
 	-Idrivers/video/omap2 \
-	-Idrivers/gpu/pvr \
-	-Idrivers/gpu/pvr/include4 \
-	-Idrivers/gpu/pvr/services4/include \
-	-Idrivers/gpu/pvr/services4/include/env/linux \
-	-Idrivers/gpu/pvr/services4/system/include \
-	-Idrivers/gpu/pvr/services4/system/omap3630 \
-	-Idrivers/gpu/pvr/services4/srvkm/bridged \
-	-Idrivers/gpu/pvr/services4/srvkm/bridged/sgx \
-	-Idrivers/gpu/pvr/services4/srvkm/devices/sgx \
-	-Idrivers/gpu/pvr/services4/srvkm/env/linux \
-	-Idrivers/gpu/pvr/services4/srvkm/hwdefs \
-	-Idrivers/gpu/pvr/services4/srvkm/include \
-	-Idrivers/gpu/pvr/services4/3rdparty/bufferclass_ti \
-	-Idrivers/gpu/pvr/services4/3rdparty/dc_omapfb3_linux \
-	-Idrivers/gpu/pvr/services4/3rdparty/linux_drm \
+	-Idrivers/gpu/pvr/omap3/ \
+	-Idrivers/gpu/pvr/omap3/include4 \
+	-Idrivers/gpu/pvr/omap3/services4/include \
+	-Idrivers/gpu/pvr/omap3/services4/include/env/linux \
+	-Idrivers/gpu/pvr/omap3/services4/system/include \
+	-Idrivers/gpu/pvr/omap3/services4/system/omap3630 \
+	-Idrivers/gpu/pvr/omap3/services4/srvkm/bridged \
+	-Idrivers/gpu/pvr/omap3/services4/srvkm/bridged/sgx \
+	-Idrivers/gpu/pvr/omap3/services4/srvkm/devices/sgx \
+	-Idrivers/gpu/pvr/omap3/services4/srvkm/env/linux \
+	-Idrivers/gpu/pvr/omap3/services4/srvkm/hwdefs \
+	-Idrivers/gpu/pvr/omap3/services4/srvkm/include \
+	-Idrivers/gpu/pvr/omap3/services4/3rdparty/bufferclass_ti \
+	-Idrivers/gpu/pvr/omap3/services4/3rdparty/dc_omapfb3_linux \
+	-Idrivers/gpu/pvr/omap3/services4/3rdparty/linux_drm \
 	-DLINUX -D__linux__ \
 	-DPVR_BUILD_DIR="\"omap_sgx\"" \
 	-DPVR_BUILD_DATE="\"$(DATE)\"" \
@@ -85,11 +85,11 @@ ccflags-y += -Iinclude/drm \
 #	-DSYS_SGX_ACTIVE_POWER_LATENCY_MS=100 \
 
 
-ccflags-$(CONFIG_SGX530) +=  -Idrivers/gpu/pvr/omap3  -Idrivers/gpu/pvr/sgx \
+ccflags-$(CONFIG_SGX530) +=  -Idrivers/gpu/pvr/omap3/omap3  -Idrivers/gpu/pvr/omap3/sgx \
 	-DSGX530 \
 	-DSUPPORT_SGX530
 
-#ccflags-$(CONFIG_SGX540) +=  -Idrivers/gpu/pvr/omap4  -Idrivers/gpu/pvr/sgx \
+#ccflags-$(CONFIG_SGX540) +=  -Idrivers/gpu/pvr/omap3/omap4  -Idrivers/gpu/pvr/omap3/sgx \
 #	-DNO_OMAP_TIMER \
 #	-DSGX_CLK_CORE_DIV5 \
 #	-DSGX540 -DSUPPORT_SGX540
