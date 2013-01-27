@@ -152,7 +152,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 MODULE_SUPPORTED_DEVICE(DEVNAME);
 
 #if !defined(PVR_OMAPLFB_DRM_FB)
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,34))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0))	/* added by hns for GTA04, because new struct omap_dss_output was introduced */
+#define OMAP_DSS_DRIVER(drv, dev) struct omap_dss_driver *drv = (dev) != NULL ? (dev)->driver : NULL
+#define OMAP_DSS_MANAGER(man, dev) struct omap_overlay_manager *man = (dev) != NULL ? (dev)->output->manager : NULL
+#define	WAIT_FOR_VSYNC(man)	((man)->wait_for_vsync)
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,34))
 #define OMAP_DSS_DRIVER(drv, dev) struct omap_dss_driver *drv = (dev) != NULL ? (dev)->driver : NULL
 #define OMAP_DSS_MANAGER(man, dev) struct omap_overlay_manager *man = (dev) != NULL ? (dev)->manager : NULL
 #define	WAIT_FOR_VSYNC(man)	((man)->wait_for_vsync)
@@ -281,7 +285,11 @@ OMAPLFB_ERROR OMAPLFBCreateSwapQueue(OMAPLFB_SWAPCHAIN *psSwapChain)
 	 * conditions, preventing the driver from holding on to
 	 * resources longer than it needs to.
 	 */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38))
+	psSwapChain->psWorkQueue = alloc_ordered_workqueue(DEVNAME, WQ_FREEZABLE | WQ_MEM_RECLAIM);
+#else
 	psSwapChain->psWorkQueue = alloc_ordered_workqueue(DEVNAME, WQ_FREEZEABLE | WQ_MEM_RECLAIM);
+#endif
 #else
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36))
 	psSwapChain->psWorkQueue = create_freezable_workqueue(DEVNAME);
@@ -417,6 +425,8 @@ void OMAPLFBFlip(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_BUFFER *psBuffer)
 	OMAPLFB_CONSOLE_UNLOCK();
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,1,0)
+
 #if !defined(PVR_OMAPLFB_DRM_FB) || defined(DEBUG)
 static OMAPLFB_BOOL OMAPLFBValidateDSSUpdateMode(enum omap_dss_update_mode eMode)
 {
@@ -512,6 +522,8 @@ static const char *OMAPLFBDSSUpdateModeToString(enum omap_dss_update_mode eMode)
 
 	return OMAPLFBUpdateModeToString(OMAPLFBFromDSSUpdateMode(eMode));
 }
+
+#endif // LINUX_VERSION_CODE < KERNEL_VERSION(3,1,0)
 
 void OMAPLFBPrintInfo(OMAPLFB_DEVINFO *psDevInfo)
 {

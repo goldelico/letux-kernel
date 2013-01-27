@@ -3699,6 +3699,10 @@ PVRSRV_ERROR OSAcquirePhysPageAddr(IMG_VOID *pvCPUVAddr,
         goto error;
     }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0))	/* added by hns for GTA04, because constant VM_RESERVED has disappeared */
+#define VM_RESERVED 0
+#endif
+
     /* Does the region represent memory mapped I/O? */
     if ((psVMArea->vm_flags & (VM_IO | VM_RESERVED)) != (VM_IO | VM_RESERVED))
     {
