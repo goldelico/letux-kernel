@@ -33,10 +33,13 @@
 #define BC_FOURCC(a,b,c,d) \
     ((unsigned long) ((a) | (b)<<8 | (c)<<16 | (d)<<24))
 
+#define BC_PIX_FMT_I420     BC_FOURCC('I', '4', '2', '0') /*YUV 4:2:0*/
+#define BC_PIX_FMT_YV12     BC_FOURCC('Y', 'V', '1', '2') /*YUV 4:2:0*/
 #define BC_PIX_FMT_NV12     BC_FOURCC('N', 'V', '1', '2') /*YUV 4:2:0*/
 #define BC_PIX_FMT_UYVY     BC_FOURCC('U', 'Y', 'V', 'Y') /*YUV 4:2:2*/
 #define BC_PIX_FMT_YUYV     BC_FOURCC('Y', 'U', 'Y', 'V') /*YUV 4:2:2*/
 #define BC_PIX_FMT_RGB565   BC_FOURCC('R', 'G', 'B', 'P') /*RGB 5:6:5*/
+#define BC_PIX_FMT_ARGB     BC_FOURCC('A', 'R', 'G', 'B') /*ARGB 8:8:8:8*/
 
 enum BC_memory {
     BC_MEMORY_MMAP          = 1,
@@ -68,6 +71,7 @@ typedef struct bc_buf_ptr {
     int size;
     unsigned long pa;
 } bc_buf_ptr_t;
+int ReconfigureBuffer(int id, bc_buf_params_t *p,unsigned int *uiSucceed);
 
 #define BCIO_GID                    'g'
 #define BC_IOWR(INDEX)            _IOWR(BCIO_GID, INDEX, BCIO_package)
@@ -79,6 +83,7 @@ typedef struct bc_buf_ptr {
 
 #define BCIOREQ_BUFFERS           BC_IOWR(3)
 #define BCIOSET_BUFFERPHYADDR     BC_IOWR(4)
+#define BCIORECONFIGURE_BUFFERS     BC_IOWR(5)
 
 #endif 
 
