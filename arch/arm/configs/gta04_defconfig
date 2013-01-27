@@ -1984,6 +1984,7 @@ CONFIG_SOC_CAMERA_OV9655=m
 # Graphics support
 #
 # CONFIG_DRM is not set
+# CONFIG_SGX530 is not set
 # CONFIG_VGASTATE is not set
 # CONFIG_VIDEO_OUTPUT_CONTROL is not set
 CONFIG_FB=y
