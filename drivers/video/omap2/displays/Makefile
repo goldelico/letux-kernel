@@ -11,3 +11,4 @@ obj-$(CONFIG_PANEL_ACX565AKM) += panel-acx565akm.o
 obj-$(CONFIG_PANEL_N8X0) += panel-n8x0.o
 obj-$(CONFIG_PANEL_TPO_TD028TTEC1) += panel-tpo-td028ttec1.o
 obj-$(CONFIG_PANEL_ORTUS_COM37H3M05DTC) += panel-ortus-com37h3m05dtc.o
+obj-$(CONFIG_PANEL_SHARP_LQ070V3DG3B) += panel-sharp-lq070y3dg3b.o

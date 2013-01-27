@@ -318,9 +318,11 @@ static struct omap_dss_device gta04_lcd_device = {
 	.type = OMAP_DISPLAY_TYPE_DPI,
 	.name = "lcd",
 #if defined(CONFIG_PANEL_ORTUS_COM37H3M05DTC)
-    .driver_name = "com37h3m05dtc_panel",           // GTA04b2
+    .driver_name = "com37h3m05dtc_panel",           // GTA04b2 - OpenPhoenux 3704
+#elif defined(CONFIG_PANEL_SHARP_LQ070V3DG3B)
+    .driver_name = "lq070y3dg3b_panel",             // GTA04b3 - OpenPhoenux 7004
 #elif defined(CONFIG_PANEL_TPO_TD028TTEC1)
-    .driver_name = "td028ttec1_panel",              // GTA04
+    .driver_name = "td028ttec1_panel",              // GTA04 - OpenPhoenux 2804
 #endif
 	.phy.dpi.data_lines = 24,
 	.platform_enable = gta04_enable_lcd,
@@ -1016,6 +1018,13 @@ static struct led_info tca6507_leds[] = {
 #elif defined(CONFIG_PANEL_ORTUS_COM37H3M05DTC)	/* 3704 */
 	[0] = { .name = "gta04:left" },
 	[1] = { .name = "gta04:right", .default_trigger = "default-on" },
+#elif defined(CONFIG_PANEL_SHARP_LQ070V3DG3B)	/* 7004 */
+	[0] = { .name = "gta04:red:aux" },
+	[1] = { .name = "gta04:green:aux" },
+	[2] = { .name = "gta04:blue:aux" },
+	[3] = { .name = "gta04:red:power", .default_trigger = "default-on" },
+	[4] = { .name = "gta04:green:power" },
+	[5] = { .name = "gta04:blue:power" },
 #endif
 	[6] = { .name = "gta04:wlan:reset", .flags = TCA6507_MAKE_GPIO },
 };
