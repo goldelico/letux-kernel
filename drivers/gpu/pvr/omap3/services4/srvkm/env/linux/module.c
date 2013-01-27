@@ -915,13 +915,13 @@ static int __init PVRCore_Init(void)
 #endif
 {
 	int error;
-// hns@computer.org
-//#if !defined(PVR_LDM_MODULE)
+#if !defined(PVR_LDM_MODULE)
 	PVRSRV_ERROR eError;
-//#endif
+#endif
 #if !defined(SUPPORT_DRI_DRM) && defined(PVR_LDM_DEVICE_CLASS)
 	struct device *psDev;
 #endif
+
 #if !defined(SUPPORT_DRI_DRM)
 	/*
 	 * Must come before attempting to print anything via Services.
@@ -992,9 +992,7 @@ static int __init PVRCore_Init(void)
 #endif /* PVR_LDM_PCI_MODULE */
 #endif /* defined(PVR_LDM_MODULE) */
 
-// hns@computer.org
-// makes problems if we postpone initialization and have omaplfb compiled into the kernel
-// #if !defined(PVR_LDM_MODULE)
+#if !defined(PVR_LDM_MODULE)
 	/*
 	 * Drivers using LDM, will call SysInitialise in the probe/attach code
 	 */
@@ -1010,7 +1008,7 @@ static int __init PVRCore_Init(void)
 #endif
 		goto init_failed;
 	}
-// #endif /* !defined(PVR_LDM_MODULE) */
+#endif /* !defined(PVR_LDM_MODULE) */
 
 #if !defined(SUPPORT_DRI_DRM)
 	AssignedMajorNumber = register_chrdev(0, DEVNAME, &pvrsrv_fops);
