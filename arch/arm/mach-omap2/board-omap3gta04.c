@@ -1712,31 +1712,6 @@ static void __init gta04_init(void)
 	omap_display_init(&gta04_dss_data);
 
 	omap_mux_init_gpio(WO3G_GPIO, OMAP_PIN_INPUT | OMAP_WAKEUP_EN);
-#if 1	// needed during hw-test to find out if the modem can generate an interrupt
-	{
-	int err;
-	
-	printk("wake_3G_init() for GPIO %d\n", WO3G_GPIO);
-	
-	err = gpio_request(WO3G_GPIO, "3G_wakeup");
-	if (err)
-		printk("Failed to request 3G wake interrupt: %d\n", err);	
-	
-	err = gpio_direction_input(WO3G_GPIO);
-	if (err)
-		printk("Failed to set direction of 3G wake interrupt: %d\n", err);	
-	
-	gpio_export(WO3G_GPIO, 0);
-	gpio_set_debounce(WO3G_GPIO, 350);
-	irq_set_irq_wake(gpio_to_irq(WO3G_GPIO), 1);
-	
-	err = request_irq(gpio_to_irq(WO3G_GPIO),
-					  wake_3G_irq, IRQF_SHARED|IRQF_TRIGGER_RISING,
-					  "wake_3G", NULL /* handle */);
-	if (err)
-		printk("Failed to init irq 3G wake interrupt: %d\n", err);	
-	}
-#else	
 	gpio_3G_buttons[0].gpio = WO3G_GPIO;
 #endif
 	
