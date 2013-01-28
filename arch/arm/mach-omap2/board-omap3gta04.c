@@ -51,6 +51,7 @@
 #ifdef CONFIG_SOC_CAMERA_OV9655
 #include <media/soc_camera.h>
 #endif
+#include <linux/input/tca8418_keypad.h>
 
 #include <linux/sysfs.h>
 
@@ -84,27 +85,26 @@
 
 #define NAND_BLOCK_SIZE		SZ_128K
 
+/* hardware specific GPIO assignments - may depend on board version and variant */
+
 #define	AUX_BUTTON_GPIO		7
 #define TWL4030_MSECURE_GPIO	22
 #define	TS_PENIRQ_GPIO		160
-#define	WO3G_GPIO		(gta04_version >= 4 ? 10 : 176)
+#define	WO3G_GPIO		(gta04_version >= 4 ? 10 : 176)	/* changed on A4 boards */
+#define KEYIRQ_GPIO	(gta04_version >= 4 ? 176 : 10)	/* changed on A4 boards */
+#define BMP085_EOC_IRQ_GPIO		113	/* BMP085 end of conversion GPIO */
+#define TV_OUT_GPIO	23
+#define ANTENNA_SWITCH_GPIO	144
+#define CAMERA_RESET_GPIO	98	/* CAM_FLD */
+#define CAMERA_PWDN_GPIO	165	/* CAM_WEN */
+#define CAMERA_STROBE_GPIO	126	/* CAM_STROBE */
+#define AUX_HEADSET_GPIO	55
+
 
 /* see: https://patchwork.kernel.org/patch/120449/
  * OMAP3 gta04 revision
  * Run time detection of gta04 revision is done by reading GPIO.
- * GPIO ID -
- *	AXBX	= GPIO173, GPIO172, GPIO171: 1 1 1
- *	C1_3	= GPIO173, GPIO172, GPIO171: 1 1 0
- *	C4	= GPIO173, GPIO172, GPIO171: 1 0 1
- *	XM	= GPIO173, GPIO172, GPIO171: 0 0 0
  */
-enum {
-	gta04_BOARD_UNKN = 0,
-	gta04_BOARD_AXBX,
-	gta04_BOARD_C1_3,
-	gta04_BOARD_C4,
-	gta04_BOARD_XM,
-};
 
 static u8 gta04_version;	/* counts 2..9 */
 
@@ -318,14 +318,14 @@ static int gta04_panel_enable_tv(struct omap_dss_device *dssdev)
 	reg = omap_ctrl_readl(OMAP343X_CONTROL_DEVCONF1);
 //	printk(KERN_INFO "Value of DEVCONF1 now: %08x\n", reg);
 
-	gpio_set_value(23, 1);	// enable output driver (OPA362)
+	gpio_set_value(TV_OUT_GPIO, 1);	// enable output driver (OPA362)
 
 	return 0;
 }
 
 static void gta04_panel_disable_tv(struct omap_dss_device *dssdev)
 {
-	gpio_set_value(23, 0);	// disable output driver (and re-enable microphone)
+	gpio_set_value(TV_OUT_GPIO, 0);	// disable output driver (and re-enable microphone)
 
 	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x00,
 			TWL4030_VDAC_DEDICATED);
@@ -345,23 +345,15 @@ static struct omap_dss_device gta04_tv_device = {
 };
 
 static struct omap_dss_device *gta04_dss_devices[] = {
-// 	&gta04_dvi_device,
-// 	&gta04_tv_device,
+ 	&gta04_dvi_device,
+ 	&gta04_tv_device,
 	&gta04_lcd_device,
 };
 
 static struct omap_dss_board_info gta04_dss_data = {
 	.num_devices = ARRAY_SIZE(gta04_dss_devices),
 	.devices = gta04_dss_devices,
-// 	.default_device = &gta04_lcd_device,
-};
-
-static struct platform_device gta04_dss_device = {
-	.name          = "omapdss",
-	.id            = 0,
-	.dev            = {
-		.platform_data = &gta04_dss_data,
-	},
+ 	.default_device = &gta04_lcd_device,
 };
 
 static struct regulator_consumer_supply gta04_vdac_supply =
@@ -674,7 +666,7 @@ static struct platform_device gps_gpio_device = {
 
 static struct gpio_extcon_platform_data antenna_extcon_data = {
 	.name = "gps_antenna",
-	.gpio = 144,
+	.gpio = ANTENNA_SWITCH_GPIO,
 	.debounce = 10,
 	.irq_flags = IRQF_TRIGGER_RISING|IRQF_TRIGGER_FALLING,
 	.state_on = "external",
@@ -789,7 +781,7 @@ static struct twl4030_script wrst_script __initdata = {
 	.flags  = TWL4030_WRST_SCRIPT,
 };
 
-static struct twl4030_script *twl4030_scripts[] __initdata = {
+static struct twl4030_script *twl4030_scripts[] __initdata = {	// not used
 	&wakeup_p12_script,
 	&wakeup_p3_script,
 	&sleep_on_script,
@@ -902,21 +894,12 @@ static struct platform_device gta04_w2cbw003_codec_audio_device = {
 
 static int ts_get_pendown_state(void)
 {
-#if 1
 	int val = 0;
-	//	gpio_free(GPIO_FN_INTC_IRQ0);	// what does this change or not change on the board we have copied the code from?
-//	gpio_request(TS_PENIRQ_GPIO, "tsc2007_pen_down");
-//	gpio_direction_input(TS_PENIRQ_GPIO);
 
 	val = gpio_get_value(TS_PENIRQ_GPIO);
 
-//	gpio_free(TS_PENIRQ_GPIO);
-	//	gpio_request(GPIO_FN_INTC_IRQ0, NULL);
 //	printk("ts_get_pendown_state() -> %d\n", val);
 	return val ? 0 : 1;
-#else
-	return 0;
-#endif
 }
 
 static int __init tsc2007_init(void)
@@ -958,8 +941,6 @@ struct tsc2007_platform_data __initdata tsc2007_info = {
 
 
 #ifdef CONFIG_BMP085
-
-#define BMP085_EOC_IRQ_GPIO		113	/* BMP085 end of conversion GPIO */
 
 struct bmp085_platform_data __initdata bmp085_info = {
 	.gpio = BMP085_EOC_IRQ_GPIO,
@@ -1003,33 +984,156 @@ static struct tca6507_platform_data tca6507_info = {
 };
 #endif
 
+#ifdef CONFIG_KEYBOARD_TCA8418
+
+static int __init tca8418_init(void)
+{
+	omap_mux_init_gpio(KEYIRQ_GPIO, OMAP_PIN_INPUT_PULLUP);	// gpio 10 or 176
+	
+	if (gpio_request(KEYIRQ_GPIO, "keyirq")) {
+		printk(KERN_ERR "Failed to request GPIO %d for "
+			   "KEYIRQ\n", KEYIRQ_GPIO);
+	}
+	
+	if (gpio_direction_input(KEYIRQ_GPIO)) {
+		printk(KERN_WARNING "GPIO#%d cannot be configured as "
+			   "input\n", KEYIRQ_GPIO);
+	}
+	gpio_set_debounce(KEYIRQ_GPIO, (0xa+1)*31);
+	irq_set_irq_type(gpio_to_irq(KEYIRQ_GPIO), IRQ_TYPE_EDGE_FALLING);
+
+	return 0;
+
+}
+
+const uint32_t gta04_keymap[] = {
+	/* KEY(row, col, val) - see include/linux/input.h */
+	KEY(0, 0, KEY_LEFTCTRL),
+	KEY(0, 1, KEY_RIGHTCTRL),
+	KEY(0, 2, KEY_Y),
+	KEY(0, 3, KEY_A),
+	KEY(0, 4, KEY_Q),
+	KEY(0, 5, KEY_1),
+	//	KEY(0, 6, KEY_RESERVED),
+	//	KEY(0, 7, KEY_RESERVED),
+	KEY(0, 8, KEY_SPACE),
+	KEY(0, 9, KEY_OK),
+	
+	KEY(1, 0, KEY_LEFTALT),
+	KEY(1, 1, KEY_FN),
+	KEY(1, 2, KEY_SPACE),
+	KEY(1, 3, KEY_SPACE),
+	KEY(1, 4, KEY_COMMA),
+	KEY(1, 5, KEY_DOT),
+	KEY(1, 6, KEY_PAGEDOWN),
+	KEY(1, 7, KEY_END),
+	KEY(1, 8, KEY_LEFT),
+	KEY(1, 9, KEY_RIGHT),
+	
+	KEY(2, 0, KEY_DELETE),
+	//	KEY(2, 1, KEY_RESERVED),
+	KEY(2, 2, KEY_TAB),
+	KEY(2, 3, KEY_BACKSPACE),
+	KEY(2, 4, KEY_ENTER),
+	KEY(2, 5, KEY_GRAVE),
+	KEY(2, 6, KEY_PAGEUP),
+	KEY(2, 7, KEY_HOME),
+	KEY(2, 8, KEY_UP),
+	KEY(2, 9, KEY_DOWN),
+	
+	KEY(3, 0, KEY_RIGHTALT),
+	KEY(3, 1, KEY_CAPSLOCK),
+	KEY(3, 2, KEY_ESC),
+	//	KEY(3, 3, KEY_RESERVED),
+	//	KEY(3, 4, KEY_RESERVED),
+	//	KEY(3, 5, KEY_RESERVED),
+	KEY(3, 6, KEY_LEFTBRACE),
+	KEY(3, 7, KEY_RIGHTBRACE),
+	KEY(3, 8, KEY_SEMICOLON),
+	KEY(3, 9, KEY_APOSTROPHE),
+	
+	KEY(4, 0, KEY_LEFTSHIFT),
+	KEY(4, 1, KEY_X),
+	KEY(4, 2, KEY_C),
+	KEY(4, 3, KEY_V),
+	KEY(4, 4, KEY_B),
+	KEY(4, 5, KEY_N),
+	KEY(4, 6, KEY_M),
+	KEY(4, 7, KEY_MINUS),
+	KEY(4, 8, KEY_EQUAL),
+	KEY(4, 9, KEY_KPASTERISK),
+	
+	KEY(5, 0, KEY_RIGHTSHIFT),
+	KEY(5, 1, KEY_S),
+	KEY(5, 2, KEY_D),
+	KEY(5, 3, KEY_F),
+	KEY(5, 4, KEY_G),
+	KEY(5, 5, KEY_H),
+	KEY(5, 6, KEY_J),
+	KEY(5, 7, KEY_K),
+	KEY(5, 8, KEY_L),
+	KEY(5, 9, KEY_APOSTROPHE),
+	
+	KEY(6, 0, KEY_LEFTMETA),
+	KEY(6, 1, KEY_W),
+	KEY(6, 2, KEY_E),
+	KEY(6, 3, KEY_R),
+	KEY(6, 4, KEY_T),
+	KEY(6, 5, KEY_Z),
+	KEY(6, 6, KEY_U),
+	KEY(6, 7, KEY_I),
+	KEY(6, 8, KEY_O),
+	KEY(6, 9, KEY_P),
+	
+	KEY(7, 0, KEY_RIGHTMETA),
+	KEY(7, 1, KEY_2),
+	KEY(7, 2, KEY_3),
+	KEY(7, 3, KEY_4),
+	KEY(7, 4, KEY_5),
+	KEY(7, 5, KEY_6),
+	KEY(7, 6, KEY_7),
+	KEY(7, 7, KEY_8),
+	KEY(7, 8, KEY_9),
+	KEY(7, 9, KEY_0),
+};
+
+struct matrix_keymap_data tca8418_keymap = {
+	.keymap = gta04_keymap,
+	.keymap_size = ARRAY_SIZE(gta04_keymap),
+};
+
+struct tca8418_keypad_platform_data tca8418_pdata = {
+	.keymap_data = &tca8418_keymap,
+	.rows = 8,
+	.cols = 10,
+	.rep = 1,
+	.irq_is_gpio = 1,
+};
+
+#endif
+
+static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 #ifdef CONFIG_TOUCHSCREEN_TSC2007
-static struct i2c_board_info __initdata tsc2007_boardinfo =
 {
 	I2C_BOARD_INFO("tsc2007", 0x48),
-	.type		= "tsc2007",
 	.platform_data	= &tsc2007_info,
-};
+	.irq		= -EINVAL,	// will be modified dynamically by code
+},
 #endif
 #ifdef CONFIG_BMP085
-static struct i2c_board_info __initdata bmp085_boardinfo =
 {
 	I2C_BOARD_INFO("bmp085", 0x77),
-	.type		= "bmp085",
 	.platform_data	= &bmp085_info,
-};
+},
 #endif
-static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 #ifdef CONFIG_LIS302
 {
-	I2C_BOARD_INFO("lis302top", 0x1c),
-	.type		= "lis302",
+	I2C_BOARD_INFO("lis302", 0x1c),
 	.platform_data	= &lis302_info,
 	.irq		=  -EINVAL,
 },
 {
-	I2C_BOARD_INFO("lis302bottom", 0x1d),
-	.type		= "lis302",
+	I2C_BOARD_INFO("lis302", 0x1d),
 	.platform_data	= &lis302_info,
 	.irq		=  114,
 },
@@ -1037,42 +1141,69 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 #if defined(CONFIG_LEDS_TCA6507)
 {
 	I2C_BOARD_INFO("tca6507", 0x45),
-	.type		= "tca6507",
 	.platform_data	= &tca6507_info,
 },
 #endif
 #ifdef CONFIG_INPUT_BMA150
 {
-	I2C_BOARD_INFO("bma150", 0x41),
-	.type		= "bma150",
+	I2C_BOARD_INFO("bma150", 0x41),	/* supports our bma180 */
 },
 #endif
 #ifdef CONFIG_SENSORS_HMC5843
 {
-	I2C_BOARD_INFO("hmc5843", 0x1e),
-	.type		= "hmc5883",
+	I2C_BOARD_INFO("hmc5843", 0x1e),	/* supports our hmc5883l */
 },
 #endif
+#ifdef CONFIG_SENSORS_ITG3200
+	{
+	I2C_BOARD_INFO("itg3200", 0x68),
+	},
+#endif
+#ifdef CONFIG_BMA250
+	{
+	I2C_BOARD_INFO("bma250", 0x18),
+	.irq		= 115,
+	},	
+#endif
+#ifdef CONFIG_BMC050
+	{
+	I2C_BOARD_INFO("bmc050", 0x10),
+	.irq		= 111,
+	},	
+#endif
+#ifdef CONFIG_TPS61050
+	{
+	I2C_BOARD_INFO("tps61050", 0x33),
+	.irq		= -EINVAL,
+	},	
+#endif
+#ifdef CONFIG_EEPROM_AT24
+	{
+	I2C_BOARD_INFO("24c64", 0x50),	/* supports our mt24lr64 RFID EEPROM */
+	},	
+#endif
+#ifdef CONFIG_KEYBOARD_TCA8418
+	{
+	I2C_BOARD_INFO("tca8418", 0x34),	/* /sys/.../name */
+	.platform_data	= &tca8418_pdata,
+	.irq		= -EINVAL,	// will be modified dynamically by code
+	},	
+#endif
+};
 
-	/* FIXME: add other drivers for BMA180, Si472x */
+static struct i2c_board_info __initdata gta04_i2c3_boardinfo[] = {
+	/* Bus 3 is currently not used */
+	/* add your I2C_BOARD_INFO records here */
 };
 
 static int __init gta04_i2c_init(void)
 {
 	omap_pmic_init(1, 2600, "twl4030", 7 + OMAP_INTC_START,
-		       &gta04_twldata);
-#ifdef CONFIG_TOUCHSCREEN_TSC2007
-	tsc2007_boardinfo.irq = gpio_to_irq(TS_PENIRQ_GPIO);
-	i2c_register_board_info(2, &tsc2007_boardinfo, 1);
-#endif
-#ifdef CONFIG_BMP085
-	i2c_register_board_info(2, &bmp085_boardinfo, 1);
-#endif
+		       &gta04_twldata);	
 	omap_register_i2c_bus(2, 400,  gta04_i2c2_boardinfo,
 				ARRAY_SIZE(gta04_i2c2_boardinfo));
-	/* Bus 3 is attached to the DVI port where devices like the pico DLP
-	 * projector don't work reliably with 400kHz */
-	omap_register_i2c_bus(3, 100, NULL, 0);
+	omap_register_i2c_bus(3, 100, gta04_i2c3_boardinfo,
+						  ARRAY_SIZE(gta04_i2c3_boardinfo));
 	return 0;
 }
 
@@ -1109,7 +1240,7 @@ static struct gpio_keys_button gpio_buttons[] = {
 static struct gpio_keys_button gpio_3G_buttons[] = {
 	{
 		.code			= KEY_UNKNOWN,
-		.gpio			= -1/*WO3G_GPIO*/,
+		.gpio			= -1	/* WO3G_GPIO will be inserted dynamically */,
 		.desc			= "Option",
 		.wakeup			= 1,
 	},
@@ -1184,10 +1315,6 @@ static struct i2c_board_info gta04_i2c_camera = {
 	I2C_BOARD_INFO("ov9655", 0x30),
 };
 
-#define CAMERA_RESET_GPIO	98	/* CAM_FLD */
-#define CAMERA_PWDN_GPIO	165	/* CAM_WEN */
-#define CAMERA_STROBE_GPIO	126	/* CAM_STROBE */
-
 static int gta04_camera_power(struct device *dev, int mode)
 {
 	int ret = 0;
@@ -1195,7 +1322,7 @@ static int gta04_camera_power(struct device *dev, int mode)
 	printk("gta04_camera_power(%d)\n", mode);
 	
 	if (mode) {
-#if NEEDS_TO_BE_WORKED_OUT
+#ifdef NEEDS_TO_BE_WORKED_OUT
 
 		// XCLKA must be available - before I2C works
 		// is this called before or after trying to probe the ov9655 driver?
@@ -1319,29 +1446,8 @@ static struct omap_board_mux board_mux[] __initdata = {
 
 static irqreturn_t wake_3G_irq(int irq, void *handle)
 {
-	printk("3G Wakeup\n");
+	printk("3G Wakeup received :)\n");
 	return IRQ_HANDLED;
-}
-
-static int __init wake_3G_init(void)
-{
-	int err;
-
-	omap_mux_init_gpio(WO3G_GPIO, OMAP_PIN_INPUT | OMAP_WAKEUP_EN);
-	if (gpio_request(WO3G_GPIO, "3G_wakeup"))
-		return -ENODEV;
-
-	if (gpio_direction_input(WO3G_GPIO))
-		return -ENXIO;
-
-	gpio_export(WO3G_GPIO, 0);
-	gpio_set_debounce(WO3G_GPIO, 350);
-	irq_set_irq_wake(gpio_to_irq(WO3G_GPIO), 1);
-
-	err = request_irq(gpio_to_irq(WO3G_GPIO),
-			  wake_3G_irq, IRQF_SHARED|IRQF_TRIGGER_RISING,
-			  "wake_3G", (void*)wake_3G_init);
-	return err;
 }
 
 #define DEFAULT_RXDMA_POLLRATE		1	/* RX DMA polling rate (us) */
@@ -1423,11 +1529,27 @@ static void __init gta04_opp_init(void)
 
 static void __init gta04_init(void)
 {
+	int i;
 	printk("running gta04_init()\n");
 	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);
 	gta04_init_rev();
+	
+	/* insert the correct IRQ numbers which aren't known at compile time */
+	
+	for(i=0; i<ARRAY_SIZE(gta04_i2c2_boardinfo); i++) {			
+#ifdef CONFIG_TOUCHSCREEN_TSC2007
+		if(gta04_i2c2_boardinfo[i].addr == 0x48)
+			gta04_i2c2_boardinfo[i].irq = gpio_to_irq(TS_PENIRQ_GPIO);
+#endif
+#ifdef CONFIG_KEYBOARD_TCA8418
+		if(gta04_i2c2_boardinfo[i].addr == 0x34)
+			gta04_i2c2_boardinfo[i].irq = gpio_to_irq(KEYIRQ_GPIO);
+#endif
+	}
+	
+	tca8418_init();
 	gta04_i2c_init();
-
+	
 	regulator_has_full_constraints/*_listed*/(/*all_reg_data*/);
 	gta04_serial_init();
 	omap_sdrc_init(mt46h32m32lf6_sdrc_params,
@@ -1436,7 +1558,34 @@ static void __init gta04_init(void)
 	omap_display_init(&gta04_dss_data);
 
 	omap_mux_init_gpio(WO3G_GPIO, OMAP_PIN_INPUT | OMAP_WAKEUP_EN);
+#if 1	// needed during hw-test to find out if the modem can generate an interrupt
+	{
+	int err;
+	
+	printk("wake_3G_init() for GPIO %d\n", WO3G_GPIO);
+	
+	err = gpio_request(WO3G_GPIO, "3G_wakeup");
+	if (err)
+		printk("Failed to request 3G wake interrupt: %d\n", err);	
+	
+	err = gpio_direction_input(WO3G_GPIO);
+	if (err)
+		printk("Failed to set direction of 3G wake interrupt: %d\n", err);	
+	
+	gpio_export(WO3G_GPIO, 0);
+	gpio_set_debounce(WO3G_GPIO, 350);
+	irq_set_irq_wake(gpio_to_irq(WO3G_GPIO), 1);
+	
+	err = request_irq(gpio_to_irq(WO3G_GPIO),
+					  wake_3G_irq, IRQF_SHARED|IRQF_TRIGGER_RISING,
+					  "wake_3G", NULL /* handle */);
+	if (err)
+		printk("Failed to init irq 3G wake interrupt: %d\n", err);	
+	}
+#else	
 	gpio_3G_buttons[0].gpio = WO3G_GPIO;
+#endif
+
 	platform_add_devices(gta04_devices,
 			     ARRAY_SIZE(gta04_devices));
 	omap_hsmmc_init(mmc);
@@ -1487,21 +1636,15 @@ static void __init gta04_init(void)
 #else
 
 	// enable AUX out/Headset switch
-	gpio_request(55, "AUX_OUT");
-	gpio_direction_output(55, true);
-	gpio_export(55, 0);	// no direction change
+	gpio_request(AUX_HEADSET_GPIO, "AUX_OUT");
+	gpio_direction_output(AUX_HEADSET_GPIO, true);
+	gpio_export(AUX_HEADSET_GPIO, 0);	// no direction change
 
 	// disable Video out switch
-	gpio_request(23, "VIDEO_OUT");
-	gpio_direction_output(23, false);
-	gpio_export(23, 0);	// no direction change
+	gpio_request(TV_OUT_GPIO, "VIDEO_OUT");
+	gpio_direction_output(TV_OUT_GPIO, false);
+	gpio_export(TV_OUT_GPIO, 0);	// no direction change
 
-#endif
-
-#if 0
-	err = wake_3G_init();
-	if (err)
-		printk("Failed to init 3G wake interrupt: %d\n", err);
 #endif
 
 	pwm_add_table(board_pwm_lookup, ARRAY_SIZE(board_pwm_lookup));
@@ -1524,8 +1667,8 @@ static void __init gta04_init(void)
 
 	omap_mux_init_gpio(145, OMAP_PIN_OUTPUT);
 	omap_mux_init_gpio(174, OMAP_PIN_OUTPUT);
-	omap_mux_init_gpio(23, OMAP_PIN_OUTPUT); // enable TV out
-	omap_mux_init_gpio(55, OMAP_PIN_OUTPUT);
+	omap_mux_init_gpio(TV_OUT_GPIO, OMAP_PIN_OUTPUT); // enable TV out
+	omap_mux_init_gpio(AUX_HEADSET_GPIO, OMAP_PIN_OUTPUT);
 	omap_mux_init_gpio(13, OMAP_PIN_OUTPUT);
 
 	printk("gta04_init done...\n");
