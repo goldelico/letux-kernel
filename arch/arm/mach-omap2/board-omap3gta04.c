@@ -1374,30 +1374,19 @@ static int gta04_camera_power(struct device *dev, int mode)
 
 		// enabel xlcka for ca. 24 MHz (?)
 		
-		/* Set RESET_BAR to 0 (this assumes the polarity for the Rev 5 camera chip!) */
-		gpio_set_value(CAMERA_RESET_GPIO, 0);
-		/* remove powerdown signal */
-		gpio_set_value(CAMERA_PWDN_GPIO, 0);
-		
 		/* turn on VDD */
-		// FIXME whould already be done by gta04_camera_regulators
+		// FIXME whould already be done by gta04_camera_regulators?
 		regulator_enable(cam_2v5_reg);
 		mdelay(50);
-		
+
 		/* Enable EXTCLK */
 		isp_set_xclk(vdev->cam->isp, OV9655_CLK_MIN*2, CAM_USE_XCLKA);
-		/*
-		 * Wait at least 70 CLK cycles (w/EXTCLK = 6MHz, or CLK_MIN):
-		 * ((1000000 * 70) / 6000000) = aprox 12 us.
-		 */
-		udelay(12);
-		/* Set RESET_BAR to 1 */
-		gpio_set_value(CAMERA_RESET_GPIO, 1);
-		/*
-		 * Wait at least 1 ms
-		 */
-		mdelay(1000);
+
+		/* remove powerdown signal */
+		gpio_set_value(CAMERA_PWDN_GPIO, 0);		
+		
 #endif
+		gta04_camera_reset(dev);
 		ret = 0;
 	} else {
 		/* assert powerdown signal */
@@ -1406,6 +1395,30 @@ static int gta04_camera_power(struct device *dev, int mode)
 		ret = 0;
 	}
 
+	return ret;
+}
+
+static int gta04_camera_reset(struct device *dev)
+{
+	int ret = 0;
+	
+	printk("gta04_camera_reset\n");
+	
+	/* Set RESET_BAR to 0 (this assumes the polarity for the Rev 5 camera chip!) */
+	gpio_set_value(CAMERA_RESET_GPIO, 0);
+	/*
+	 * Wait at least 70 CLK cycles (w/EXTCLK = 6MHz, or CLK_MIN):
+	 * ((1000000 * 70) / 6000000) = aprox 12 us.
+	 */
+	udelay(12);
+	/* Set RESET_BAR to 1 */
+	gpio_set_value(CAMERA_RESET_GPIO, 1);
+	/*
+	 * Wait at least 1 ms
+	 */
+	mdelay(1000);
+	ret = 0;
+	
 	return ret;
 }
 
@@ -1422,6 +1435,7 @@ static struct regulator_bulk_data gta04_camera_regulators[] = {
 
 static struct soc_camera_link ov9655_link = {
 	.power          = gta04_camera_power,
+	.reset          = gta04_camera_reset,
 	.board_info     = &gta04_i2c_camera,
 	.i2c_adapter_id = 2,	/* connected to I2C2 */
 	.regulators		= gta04_camera_regulators,
