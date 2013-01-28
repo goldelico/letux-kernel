@@ -83,6 +83,12 @@ config PANEL_ORTUS_COM37H3M05DTC
 	tristate "Ortustech COM37H3M05DTC Panel"
 	depends on OMAP2_DSS_DSI
 	help
-	  Ortustech panel used by GTA04 Custom variant.
+	  Ortustech panel used by OpenPhoenux 3704 variant.
+
+config PANEL_SHARP_LQ070V3DG3B
+	tristate "Sharp LQ070V3DG3B Panel"
+	depends on OMAP2_DSS_DSI
+	help
+	  Ortustech panel used by OpenPhoenux 7004 variant.
 
 endmenu

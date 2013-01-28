@@ -22,7 +22,6 @@
 #include <linux/delay.h>
 #include <asm/mach-types.h>
 
-//#include <plat/display.h>
 #include <video/omapdss.h>
 #include <linux/gpio.h>
 
