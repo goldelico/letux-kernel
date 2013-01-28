@@ -122,7 +122,6 @@
 #define CAMERA_EXT_FREQ		21000000
 #define CAMERA_TARGET_FREQ	48000000
 
-
 /* see: https://patchwork.kernel.org/patch/120449/
  * OMAP3 gta04 revision
  * Run time detection of gta04 revision is done by reading GPIO.
@@ -995,8 +994,6 @@ struct tsc2007_platform_data __initdata tsc2007_info = {
 
 #ifdef CONFIG_BMP085
 
-#define BMP085_EOC_IRQ_GPIO		113	/* BMP085 end of conversion GPIO */
-
 struct bmp085_platform_data __initdata bmp085_info = {
 	.gpio = BMP085_EOC_IRQ_GPIO,
 };
@@ -1459,10 +1456,6 @@ static struct i2c_board_info gta04_i2c_camera = {
 	I2C_BOARD_INFO("ov9655", 0x30),
 };
 
-#define CAMERA_RESET_GPIO	98	/* CAM_FLD */
-#define CAMERA_PWDN_GPIO	165	/* CAM_WEN */
-#define CAMERA_STROBE_GPIO	126	/* CAM_STROBE */
-
 static int gta04_camera_power(struct device *dev, int mode)
 {
 	int ret = 0;
@@ -1470,7 +1463,7 @@ static int gta04_camera_power(struct device *dev, int mode)
 	printk("gta04_camera_power(%d)\n", mode);
 	
 	if (mode) {
-#if NEEDS_TO_BE_WORKED_OUT
+#ifdef NEEDS_TO_BE_WORKED_OUT
 
 		// XCLKA must be available - before I2C works
 		// is this called before or after trying to probe the ov9655 driver?
