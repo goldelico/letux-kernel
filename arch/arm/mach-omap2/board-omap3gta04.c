@@ -97,7 +97,10 @@
 #define TWL4030_MSECURE_GPIO	22
 #define	TS_PENIRQ_GPIO		160
 #define	WO3G_GPIO		(gta04_version >= 4 ? 10 : 176)	/* changed on A4 boards */
-#define KEYIRQ_GPIO	(gta04_version >= 4 ? 176 : 10)	/* changed on A4 boards */
+#define KEYIRQ_GPIO		(gta04_version >= 4 ? 176 : 10)	/* changed on A4 boards */
+#define WWAN_RESET_GPIO (gta04_version >= 4 ? 186 : -1)	/* introduced on A4 boards */
+#define	RS232_ENABLE_GPIO		13
+#define	IRDA_SHUTDOWN_GPIO		(gta04_version >= 5 ? 175 : RS232_ENABLE_GPIO)	/* separated on A5 boards */
 #define BMP085_EOC_IRQ_GPIO		113	/* BMP085 end of conversion GPIO */
 #define TV_OUT_GPIO	23
 #define ANTENNA_SWITCH_GPIO	144
@@ -1209,7 +1212,6 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 #ifdef CONFIG_TPS61050
 	{
 	I2C_BOARD_INFO("tps61050", 0x33),
-	.irq		= -EINVAL,
 	},	
 #endif
 #ifdef CONFIG_EEPROM_AT24
@@ -1219,7 +1221,7 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 #endif
 #ifdef CONFIG_KEYBOARD_TCA8418
 	{
-	I2C_BOARD_INFO("tca8418", 0x34),	/* /sys/.../name */
+	I2C_BOARD_INFO("tca8418_keyboard", 0x34),	/* /sys/.../name */
 	.platform_data	= &tca8418_pdata,
 	.irq		= -EINVAL,	// will be modified dynamically by code
 	},	
@@ -1281,7 +1283,8 @@ static struct gpio_keys_button gpio_3G_buttons[] = {
 	{
 		.code			= KEY_UNKNOWN,
 		.gpio			= -1	/* WO3G_GPIO will be inserted dynamically */,
-		.desc			= "Option",
+		.debounce_interval	= 0,
+		.desc			= "3G_WOE",
 		.wakeup			= 1,
 	},
 };
@@ -1489,12 +1492,6 @@ static struct omap_board_mux board_mux[] __initdata = {
 	{ .reg_offset = OMAP_MUX_TERMINATOR },
 };
 
-static irqreturn_t wake_3G_irq(int irq, void *handle)
-{
-	printk("3G Wakeup received :)\n");
-	return IRQ_HANDLED;
-}
-
 #define DEFAULT_RXDMA_POLLRATE		1	/* RX DMA polling rate (us) */
 #define DEFAULT_RXDMA_BUFSIZE		4096	/* RX DMA buffer size */
 #define DEFAULT_RXDMA_TIMEOUT		(3 * HZ)/* RX DMA timeout (jiffies) */
@@ -1616,33 +1613,7 @@ static void __init gta04_init(void)
 	omap_display_init(&gta04_dss_data);
 
 	omap_mux_init_gpio(WO3G_GPIO, OMAP_PIN_INPUT | OMAP_WAKEUP_EN);
-#if 1	// needed during hw-test to find out if the modem can generate an interrupt
-	{
-	int err;
-	
-	printk("wake_3G_init() for GPIO %d\n", WO3G_GPIO);
-	
-	err = gpio_request(WO3G_GPIO, "3G_wakeup");
-	if (err)
-		printk("Failed to request 3G wake interrupt: %d\n", err);	
-	
-	err = gpio_direction_input(WO3G_GPIO);
-	if (err)
-		printk("Failed to set direction of 3G wake interrupt: %d\n", err);	
-	
-	gpio_export(WO3G_GPIO, 0);
-	gpio_set_debounce(WO3G_GPIO, 350);
-	irq_set_irq_wake(gpio_to_irq(WO3G_GPIO), 1);
-	
-	err = request_irq(gpio_to_irq(WO3G_GPIO),
-					  wake_3G_irq, IRQF_SHARED|IRQF_TRIGGER_RISING,
-					  "wake_3G", NULL /* handle */);
-	if (err)
-		printk("Failed to init irq 3G wake interrupt: %d\n", err);	
-	}
-#else	
 	gpio_3G_buttons[0].gpio = WO3G_GPIO;
-#endif
 
 	platform_add_devices(gta04_devices,
 			     ARRAY_SIZE(gta04_devices));
@@ -1664,7 +1635,7 @@ static void __init gta04_init(void)
 	printk(KERN_INFO "Revision GTA04A%d\n", gta04_version);
 	// gpio_export() allows to access through /sys/devices/virtual/gpio/gpio*/value
 
-#if 0
+#if 0	// available on beagleboard only
 	//	omap_mux_init_gpio(170, OMAP_PIN_INPUT);
 	omap_mux_init_gpio(170, OMAP_PIN_OUTPUT);
 	gpio_request(170, "DVI_nPD");
@@ -1672,24 +1643,18 @@ static void __init gta04_init(void)
 	gpio_export(170, 0);	// no direction change
 #endif
 
-	gpio_request(13, "IrDA_select");
-	gpio_direction_output(13, true);
-#if 0
-	omap_mux_init_gpio(144, OMAP_PIN_INPUT);
-	gpio_request(144, "EXT_ANT");
-	gpio_direction_input(144);
-	gpio_export(144, 0);	// no direction change
-#endif
+	gpio_request(IRDA_SHUTDOWN_GPIO, "IrDA_select");
+	gpio_direction_output(IRDA_SHUTDOWN_GPIO, true);
 
-	if(gta04_version >= 4) { /* feature of GTA04A4 */
-		omap_mux_init_gpio(186, OMAP_PIN_OUTPUT);    // this needs CONFIG_OMAP_MUX!
-		gpio_request(186, "WWAN_RESET");
-		gpio_direction_output(186, 0); // keep initial value 
-		gpio_export(186, 0);    // no direction change
+	if(WWAN_RESET_GPIO >= 0) { /* feature of GTA04A4 and later */
+		omap_mux_init_gpio(WWAN_RESET_GPIO, OMAP_PIN_OUTPUT);
+		gpio_request(WWAN_RESET_GPIO, "WWAN_RESET");
+		gpio_direction_output(WWAN_RESET_GPIO, 0); // keep initial value 
+		gpio_export(WWAN_RESET_GPIO, 0);    // no direction change
         }
 
 #ifdef GTA04A2
-	// has different pins but neither chips are installed
+	// has different pins but relevant chips have never been installed
 
 #else
 
@@ -1722,7 +1687,7 @@ static void __init gta04_init(void)
 	omap_mux_init_signal("sdrc_cke1", OMAP_PIN_OUTPUT);
 
 	/* TPS65950 mSecure initialization for write access enabling to RTC registers */
-	omap_mux_init_gpio(TWL4030_MSECURE_GPIO, OMAP_PIN_OUTPUT);	// this needs CONFIG_OMAP_MUX!
+	omap_mux_init_gpio(TWL4030_MSECURE_GPIO, OMAP_PIN_OUTPUT);
 	gpio_request(TWL4030_MSECURE_GPIO, "mSecure");
 	gpio_direction_output(TWL4030_MSECURE_GPIO, true);
 
