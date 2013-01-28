@@ -969,7 +969,15 @@ static void tsc2007_exit(void)
 
 struct tsc2007_platform_data __initdata tsc2007_info = {
 	.model			= 2007,
-	.x_plate_ohms		= 600,	// range: 250 .. 900
+#if defined(CONFIG_PANEL_ORTUS_COM37H3M05DTC)
+	.x_plate_ohms		= 600,		// GTA04b2: 200 - 900
+#elif defined(CONFIG_PANEL_TPO_TD028TTEC1)
+	.x_plate_ohms		= 550,			// GTA04: 250 - 900
+#elif defined(CONFIG_PANEL_SHARP_LQ070Y3DG3B)
+	.x_plate_ohms		= 450,			// GTA04b3: 100 - 900
+#elif defined(CONFIG_PANEL_SHARP_LQ050W1LC1B)
+	.x_plate_ohms		= 400,			// GTA04b4: 100 - 850 (very asymmetric between X and Y!)
+#endif
 	.get_pendown_state	= ts_get_pendown_state,
 	.init_platform_hw	= tsc2007_init,
 	.exit_platform_hw	= tsc2007_exit,
