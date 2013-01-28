@@ -51,7 +51,7 @@
 #ifdef CONFIG_LEDS_TCA6507
 #include <linux/leds-tca6507.h>
 #endif
-#if defined(CONFIG_SOC_CAMERA_OV9655) || defined(CONFIG_SOC_CAMERA_OV9655_MODULE)
+#ifdef CONFIG_SOC_CAMERA_OV9655
 #include <media/soc_camera.h>
 #endif
 #include <linux/input/tca8418_keypad.h>
@@ -1351,7 +1351,7 @@ static struct platform_device madc_hwmon = {
 	.id	= -1,
 };
 
-#if defined(CONFIG_SOC_CAMERA_OV9655) || defined(CONFIG_SOC_CAMERA_OV9655_MODULE)
+#ifdef CONFIG_SOC_CAMERA_OV9655
 
 static struct i2c_board_info gta04_i2c_camera = {
 	I2C_BOARD_INFO("ov9655", 0x30),
@@ -1420,7 +1420,7 @@ static struct regulator_bulk_data gta04_camera_regulators[] = {
 static struct soc_camera_link ov9655_link = {
 	.power          = gta04_camera_power,
 	.board_info     = &gta04_i2c_camera,
-	.i2c_adapter_id = 1,
+	.i2c_adapter_id = 2,	/* connected to I2C2 */
 	.regulators		= gta04_camera_regulators,
 	.num_regulators	= ARRAY_SIZE(gta04_camera_regulators),
 	//	.priv           = &ov9655_priv, --- could pass settings for prescaler etc.
@@ -1461,7 +1461,7 @@ static struct platform_device *gta04_devices[] __initdata = {
 #if defined(CONFIG_SND_SOC_W2CBW003)
 	&gta04_w2cbw003_codec_audio_device,
 #endif
-#if defined(CONFIG_SOC_CAMERA_OV9655) || defined(CONFIG_SOC_CAMERA_OV9655_MODULE)
+#ifdef CONFIG_SOC_CAMERA_OV9655
 	&gta04_camera_device,
 #endif
 	&madc_hwmon,
