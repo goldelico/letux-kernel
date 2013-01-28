@@ -1436,6 +1436,15 @@ static void __init gta04_init_late(void)
 	omap3_pm_off_mode_enable(1);
 }
 
+/* see http://elinux.org/images/4/48/Experiences_With_Device_Tree_Support_Development_For_ARM-Based_SOC's.pdf */
+
+static char const *gta04_dt_compat[] __initdata = {
+	"goldelico,gta04",
+	"goldelico,gta04b2",
+	"goldelico,gta04b3",
+	NULL
+};
+
 MACHINE_START(GTA04, "GTA04")
 	/* Maintainer: Nikolaus Schaller - http://www.gta04.org */
 // 	.phys_io	= 0x48000000,
@@ -1450,5 +1459,6 @@ MACHINE_START(GTA04, "GTA04")
 	.init_machine	=	gta04_init,
 	.init_late	=	gta04_init_late,
 	.timer		=	&omap3_secure_timer,
+	.dt_compat	=	gta04_dt_compat,
 	.restart	=	omap_prcm_restart,
 MACHINE_END
