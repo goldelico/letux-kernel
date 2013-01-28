@@ -54,6 +54,7 @@
 #if defined(CONFIG_SOC_CAMERA_OV9655) || defined(CONFIG_SOC_CAMERA_OV9655_MODULE)
 #include <media/soc_camera.h>
 #endif
+#include <linux/input/tca8418_keypad.h>
 
 #include <linux/sysfs.h>
 
@@ -90,27 +91,26 @@
 
 #define NAND_BLOCK_SIZE		SZ_128K
 
+/* hardware specific GPIO assignments - may depend on board version and variant */
+
 #define	AUX_BUTTON_GPIO		7
 #define TWL4030_MSECURE_GPIO	22
 #define	TS_PENIRQ_GPIO		160
-#define	WO3G_GPIO		(gta04_version >= 4 ? 10 : 176)
+#define	WO3G_GPIO		(gta04_version >= 4 ? 10 : 176)	/* changed on A4 boards */
+#define KEYIRQ_GPIO	(gta04_version >= 4 ? 176 : 10)	/* changed on A4 boards */
+#define BMP085_EOC_IRQ_GPIO		113	/* BMP085 end of conversion GPIO */
+#define TV_OUT_GPIO	23
+#define ANTENNA_SWITCH_GPIO	144
+#define CAMERA_RESET_GPIO	98	/* CAM_FLD */
+#define CAMERA_PWDN_GPIO	165	/* CAM_WEN */
+#define CAMERA_STROBE_GPIO	126	/* CAM_STROBE */
+#define AUX_HEADSET_GPIO	55
+
 
 /* see: https://patchwork.kernel.org/patch/120449/
  * OMAP3 gta04 revision
  * Run time detection of gta04 revision is done by reading GPIO.
- * GPIO ID -
- *	AXBX	= GPIO173, GPIO172, GPIO171: 1 1 1
- *	C1_3	= GPIO173, GPIO172, GPIO171: 1 1 0
- *	C4	= GPIO173, GPIO172, GPIO171: 1 0 1
- *	XM	= GPIO173, GPIO172, GPIO171: 0 0 0
  */
-enum {
-	gta04_BOARD_UNKN = 0,
-	gta04_BOARD_AXBX,
-	gta04_BOARD_C1_3,
-	gta04_BOARD_C4,
-	gta04_BOARD_XM,
-};
 
 static u8 gta04_version;	/* counts 2..9 */
 
@@ -353,14 +353,14 @@ static int gta04_panel_enable_tv(struct omap_dss_device *dssdev)
 	reg = omap_ctrl_readl(OMAP343X_CONTROL_DEVCONF1);
 //	printk(KERN_INFO "Value of DEVCONF1 now: %08x\n", reg);
 
-	gpio_set_value(23, 1);	// enable output driver (OPA362)
+	gpio_set_value(TV_OUT_GPIO, 1);	// enable output driver (OPA362)
 
 	return 0;
 }
 
 static void gta04_panel_disable_tv(struct omap_dss_device *dssdev)
 {
-	gpio_set_value(23, 0);	// disable output driver (and re-enable microphone)
+	gpio_set_value(TV_OUT_GPIO, 0);	// disable output driver (and re-enable microphone)
 
 	twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER, 0x00,
 			TWL4030_VDAC_DEDICATED);
@@ -709,7 +709,7 @@ static struct platform_device gps_gpio_device = {
 
 static struct gpio_extcon_platform_data antenna_extcon_data = {
 	.name = "gps_antenna",
-	.gpio = 144,
+	.gpio = ANTENNA_SWITCH_GPIO,
 	.debounce = 10,
 	.irq_flags = IRQF_TRIGGER_RISING|IRQF_TRIGGER_FALLING,
 	.state_on = "external",
@@ -937,21 +937,12 @@ static struct platform_device gta04_w2cbw003_codec_audio_device = {
 
 static int ts_get_pendown_state(void)
 {
-#if 1
 	int val = 0;
-	//	gpio_free(GPIO_FN_INTC_IRQ0);	// what does this change or not change on the board we have copied the code from?
-//	gpio_request(TS_PENIRQ_GPIO, "tsc2007_pen_down");
-//	gpio_direction_input(TS_PENIRQ_GPIO);
 
 	val = gpio_get_value(TS_PENIRQ_GPIO);
 
-//	gpio_free(TS_PENIRQ_GPIO);
-	//	gpio_request(GPIO_FN_INTC_IRQ0, NULL);
 //	printk("ts_get_pendown_state() -> %d\n", val);
 	return val ? 0 : 1;
-#else
-	return 0;
-#endif
 }
 
 static int __init tsc2007_init(void)
@@ -993,8 +984,6 @@ struct tsc2007_platform_data __initdata tsc2007_info = {
 
 
 #ifdef CONFIG_BMP085
-
-#define BMP085_EOC_IRQ_GPIO		113	/* BMP085 end of conversion GPIO */
 
 struct bmp085_platform_data __initdata bmp085_info = {
 	.gpio = BMP085_EOC_IRQ_GPIO,
@@ -1038,6 +1027,114 @@ static struct tca6507_platform_data tca6507_info = {
 };
 #endif
 
+#ifdef CONFIG_KEYBOARD_TCA8418
+
+const uint32_t gta04_keymap[] = {
+	/* KEY(row, col, val) - see include/linux/input.h */
+	KEY(0, 0, KEY_LEFTCTRL),
+	KEY(0, 1, KEY_RIGHTCTRL),
+	KEY(0, 2, KEY_Y),
+	KEY(0, 3, KEY_A),
+	KEY(0, 4, KEY_Q),
+	KEY(0, 5, KEY_1),
+	//	KEY(0, 6, KEY_RESERVED),
+	//	KEY(0, 7, KEY_RESERVED),
+	KEY(0, 8, KEY_SPACE),
+	KEY(0, 9, KEY_OK),
+	
+	KEY(1, 0, KEY_LEFTALT),
+	KEY(1, 1, KEY_FN),
+	KEY(1, 2, KEY_SPACE),
+	KEY(1, 3, KEY_SPACE),
+	KEY(1, 4, KEY_COMMA),
+	KEY(1, 5, KEY_DOT),
+	KEY(1, 6, KEY_PAGEDOWN),
+	KEY(1, 7, KEY_END),
+	KEY(1, 8, KEY_LEFT),
+	KEY(1, 9, KEY_RIGHT),
+	
+	KEY(2, 0, KEY_DELETE),
+	//	KEY(2, 1, KEY_RESERVED),
+	KEY(2, 2, KEY_TAB),
+	KEY(2, 3, KEY_BACKSPACE),
+	KEY(2, 4, KEY_ENTER),
+	KEY(2, 5, KEY_GRAVE),
+	KEY(2, 6, KEY_PAGEUP),
+	KEY(2, 7, KEY_HOME),
+	KEY(2, 8, KEY_UP),
+	KEY(2, 9, KEY_DOWN),
+	
+	KEY(3, 0, KEY_RIGHTALT),
+	KEY(3, 1, KEY_CAPSLOCK),
+	KEY(3, 2, KEY_ESC),
+	//	KEY(3, 3, KEY_RESERVED),
+	//	KEY(3, 4, KEY_RESERVED),
+	//	KEY(3, 5, KEY_RESERVED),
+	KEY(3, 6, KEY_LEFTBRACE),
+	KEY(3, 7, KEY_RIGHTBRACE),
+	KEY(3, 8, KEY_SEMICOLON),
+	KEY(3, 9, KEY_APOSTROPHE),
+	
+	KEY(4, 0, KEY_LEFTSHIFT),
+	KEY(4, 1, KEY_X),
+	KEY(4, 2, KEY_C),
+	KEY(4, 3, KEY_V),
+	KEY(4, 4, KEY_B),
+	KEY(4, 5, KEY_N),
+	KEY(4, 6, KEY_M),
+	KEY(4, 7, KEY_MINUS),
+	KEY(4, 8, KEY_EQUAL),
+	KEY(4, 9, KEY_KPASTERISK),
+	
+	KEY(5, 0, KEY_RIGHTSHIFT),
+	KEY(5, 1, KEY_S),
+	KEY(5, 2, KEY_D),
+	KEY(5, 3, KEY_F),
+	KEY(5, 4, KEY_G),
+	KEY(5, 5, KEY_H),
+	KEY(5, 6, KEY_J),
+	KEY(5, 7, KEY_K),
+	KEY(5, 8, KEY_L),
+	KEY(5, 9, KEY_APOSTROPHE),
+	
+	KEY(6, 0, KEY_LEFTMETA),
+	KEY(6, 1, KEY_W),
+	KEY(6, 2, KEY_E),
+	KEY(6, 3, KEY_R),
+	KEY(6, 4, KEY_T),
+	KEY(6, 5, KEY_Z),
+	KEY(6, 6, KEY_U),
+	KEY(6, 7, KEY_I),
+	KEY(6, 8, KEY_O),
+	KEY(6, 9, KEY_P),
+	
+	KEY(7, 0, KEY_RIGHTMETA),
+	KEY(7, 1, KEY_2),
+	KEY(7, 2, KEY_3),
+	KEY(7, 3, KEY_4),
+	KEY(7, 4, KEY_5),
+	KEY(7, 5, KEY_6),
+	KEY(7, 6, KEY_7),
+	KEY(7, 7, KEY_8),
+	KEY(7, 8, KEY_9),
+	KEY(7, 9, KEY_0),
+};
+
+struct matrix_keymap_data tca8418_keymap = {
+	.keymap = gta04_keymap,
+	.keymap_size = ARRAY_SIZE(gta04_keymap),
+};
+
+struct tca8418_keypad_platform_data tca8418_pdata = {
+	.keymap_data = &tca8418_keymap,
+	.rows = 8,
+	.cols = 10,
+	.rep = 1,
+	.irq_is_gpio = 1,
+};
+
+#endif
+
 #ifdef CONFIG_TOUCHSCREEN_TSC2007
 static struct i2c_board_info __initdata tsc2007_boardinfo =
 {
@@ -1078,18 +1175,62 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 #endif
 #ifdef CONFIG_INPUT_BMA150
 {
-	I2C_BOARD_INFO("bma150", 0x41),
+	I2C_BOARD_INFO("bma180", 0x41),
 	.type		= "bma150",
 },
 #endif
 #ifdef CONFIG_SENSORS_HMC5843
 {
-	I2C_BOARD_INFO("hmc5843", 0x1e),
-	.type		= "hmc5883",
+	I2C_BOARD_INFO("hmc5883l", 0x1e),
+	.type		= "hmc5843",
 },
 #endif
-
-	/* FIXME: add other drivers for BMA180, Si472x */
+#ifdef CONFIG_SENSORS_ITG3200
+	{
+	I2C_BOARD_INFO("itg3200", 0x68),
+	.type		= "itg3200",
+	},
+#endif
+#ifdef CONFIG_BMA250
+	{
+	I2C_BOARD_INFO("bma250", 0x18),
+	.type		= "bma250",
+	.platform_data	= NULL,
+	.irq		= 115,
+	},	
+#endif
+#ifdef CONFIG_BMC050
+	{
+	I2C_BOARD_INFO("bmc050", 0x10),
+	.type		= "bmc050",
+	.platform_data	= NULL,
+	.irq		= 111,
+	},	
+#endif
+#ifdef CONFIG_TPS61050
+	{
+	I2C_BOARD_INFO("tps61050", 0x33),
+	.type		= "tps61050",
+	.platform_data	= NULL,
+	.irq		= -EINVAL,
+	},	
+#endif
+#ifdef CONFIG_EEPROM_AT24
+	{
+	I2C_BOARD_INFO("24c64", 0x50),
+	.type		= "mt24lr64",
+	.platform_data	= NULL,
+	.irq		= -EINVAL,
+	},	
+#endif
+#ifdef CONFIG_KEYBOARD_TCA8418
+	{
+	I2C_BOARD_INFO("tca8418", 0x34),	/* /sys/.../name */
+	.type		= "tca8418_keypad",	/* driver name */
+	.platform_data	= &tca8418_pdata,
+	.irq		= -EINVAL,	// will be modified dynamically by code
+	},	
+#endif
 };
 
 static int __init gta04_i2c_init(void)
@@ -1226,10 +1367,6 @@ static struct i2c_board_info gta04_i2c_camera = {
 	I2C_BOARD_INFO("ov9655", 0x30),
 };
 
-#define CAMERA_RESET_GPIO	98	/* CAM_FLD */
-#define CAMERA_PWDN_GPIO	165	/* CAM_WEN */
-#define CAMERA_STROBE_GPIO	126	/* CAM_STROBE */
-
 static int gta04_camera_power(struct device *dev, int mode)
 {
 	int ret = 0;
@@ -1237,7 +1374,7 @@ static int gta04_camera_power(struct device *dev, int mode)
 	printk("gta04_camera_power(%d)\n", mode);
 	
 	if (mode) {
-#if NEEDS_TO_BE_WORKED_OUT
+#ifdef NEEDS_TO_BE_WORKED_OUT
 
 		// XCLKA must be available - before I2C works
 		// is this called before or after trying to probe the ov9655 driver?
@@ -1515,6 +1652,28 @@ static void __init gta04_init(void)
 	printk(KERN_INFO "Revision GTA04A%d\n", gta04_version);
 	// gpio_export() allows to access through /sys/devices/virtual/gpio/gpio*/value
 
+#ifdef CONFIG_KEYBOARD_TCA8418
+	{ /* dynamically insert the correct IRQ number */
+		int i;
+		for(i=0; i<ARRAY_SIZE(gta04_i2c2_boardinfo); i++)
+			if(strcmp(gta04_i2c2_boardinfo[i].type, "tca8418") == 0)
+				gta04_i2c2_boardinfo[i].irq = KEYIRQ_GPIO;
+	}
+	omap_mux_init_gpio(KEYIRQ_GPIO, OMAP_PIN_INPUT_PULLUP);	// gpio 10 or 176
+	
+	if (gpio_request(KEYIRQ_GPIO, "keyirq")) {
+		printk(KERN_ERR "Failed to request GPIO %d for "
+			   "KEYIRQ\n", KEYIRQ_GPIO);
+	}
+	
+	if (gpio_direction_input(KEYIRQ_GPIO)) {
+		printk(KERN_WARNING "GPIO#%d cannot be configured as "
+			   "input\n", KEYIRQ_GPIO);
+	}
+	gpio_set_debounce(KEYIRQ_GPIO, (0xa+1)*31);
+	irq_set_irq_type(gpio_to_irq(KEYIRQ_GPIO), IRQ_TYPE_EDGE_FALLING);
+#endif
+	
 #if 0
 	//	omap_mux_init_gpio(170, OMAP_PIN_INPUT);
 	omap_mux_init_gpio(170, OMAP_PIN_OUTPUT);
@@ -1545,14 +1704,14 @@ static void __init gta04_init(void)
 #else
 
 	// enable AUX out/Headset switch
-	gpio_request(55, "AUX_OUT");
-	gpio_direction_output(55, true);
-	gpio_export(55, 0);	// no direction change
+	gpio_request(AUX_HEADSET_GPIO, "AUX_OUT");
+	gpio_direction_output(AUX_HEADSET_GPIO, true);
+	gpio_export(AUX_HEADSET_GPIO, 0);	// no direction change
 
 	// disable Video out switch
-	gpio_request(23, "VIDEO_OUT");
-	gpio_direction_output(23, false);
-	gpio_export(23, 0);	// no direction change
+	gpio_request(TV_OUT_GPIO, "VIDEO_OUT");
+	gpio_direction_output(TV_OUT_GPIO, false);
+	gpio_export(TV_OUT_GPIO, 0);	// no direction change
 
 #endif
 
@@ -1585,8 +1744,8 @@ static void __init gta04_init(void)
 
 	omap_mux_init_gpio(145, OMAP_PIN_OUTPUT);
 	omap_mux_init_gpio(174, OMAP_PIN_OUTPUT);
-	omap_mux_init_gpio(23, OMAP_PIN_OUTPUT); // enable TV out
-	omap_mux_init_gpio(55, OMAP_PIN_OUTPUT);
+	omap_mux_init_gpio(TV_OUT_GPIO, OMAP_PIN_OUTPUT); // enable TV out
+	omap_mux_init_gpio(AUX_HEADSET_GPIO, OMAP_PIN_OUTPUT);
 	omap_mux_init_gpio(13, OMAP_PIN_OUTPUT);
 
 	pm_set_vt_switch(0);
