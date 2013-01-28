@@ -1211,7 +1211,7 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 #endif
 #ifdef CONFIG_TPS61050
 	{
-	I2C_BOARD_INFO("tps61050", 0x33),
+	I2C_BOARD_INFO("tps6105x", 0x33),
 	},	
 #endif
 #ifdef CONFIG_EEPROM_AT24
@@ -1602,7 +1602,9 @@ static void __init gta04_init(void)
 #endif
 	}
 	
+#ifdef CONFIG_KEYBOARD_TCA8418
 	tca8418_init();
+#endif
 	gta04_i2c_init();
 	
 	regulator_has_full_constraints/*_listed*/(/*all_reg_data*/);
