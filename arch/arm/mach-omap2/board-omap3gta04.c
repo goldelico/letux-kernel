@@ -1760,6 +1760,15 @@ gta04_fixup(struct tag *tags, char **cmdline, struct meminfo *mi)
 			mpu1GHz = 1;
 }
 
+/* see http://elinux.org/images/4/48/Experiences_With_Device_Tree_Support_Development_For_ARM-Based_SOC's.pdf */
+
+static char const *gta04_dt_compat[] __initdata = {
+	"goldelico,gta04",
+	"goldelico,gta04b2",
+	"goldelico,gta04b3",
+	NULL
+};
+
 MACHINE_START(GTA04, "GTA04")
 	/* Maintainer: Nikolaus Schaller - http://www.gta04.org */
 // 	.phys_io	= 0x48000000,
@@ -1776,4 +1785,5 @@ MACHINE_START(GTA04, "GTA04")
 	.init_time	=	omap3_secure_sync32k_timer_init,
 	.restart	=	omap3xxx_restart,
 	.fixup		=	gta04_fixup,
+	.dt_compat	=	gta04_dt_compat,
 MACHINE_END
