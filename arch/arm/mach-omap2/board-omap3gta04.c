@@ -1293,7 +1293,7 @@ static struct gpio_keys_button gpio_buttons[] = {
 };
 static struct gpio_keys_button gpio_3G_buttons[] = {
 	{
-		.code			= KEY_UNKNOWN,
+		.code			= KEY_WAKEUP,
 		.gpio			= -1	/* WO3G_GPIO will be inserted dynamically */,
 		.debounce_interval	= 0,
 		.desc			= "3G_WOE",
