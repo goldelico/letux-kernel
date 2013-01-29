@@ -41,9 +41,9 @@ static struct omap_video_timings com37h3m05dtc_panel_timings = {
 	.vsync_level	= OMAPDSS_SIG_ACTIVE_LOW,	// OMAP_DSS_LCD_IVS
 	.hsync_level	= OMAPDSS_SIG_ACTIVE_LOW,	// OMAP_DSS_LCD_IHS
 	
-	.data_pclk_edge	= OMAPDSS_DRIVE_SIG_FALLING_EDGE,
+	.data_pclk_edge	= OMAPDSS_DRIVE_SIG_RISING_EDGE,
 	.de_level	= OMAPDSS_SIG_ACTIVE_HIGH,
-	.sync_pclk_edge	= OMAPDSS_DRIVE_SIG_OPPOSITE_EDGES,	
+	.sync_pclk_edge	= OMAPDSS_DRIVE_SIG_RISING_EDGE,	
 };
 
 
