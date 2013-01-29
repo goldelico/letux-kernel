@@ -1098,10 +1098,12 @@ static struct gpio_keys_button gpio_3G_buttons[] = {
 static struct gpio_keys_platform_data gpio_key_info = {
 	.buttons	= gpio_buttons,
 	.nbuttons	= ARRAY_SIZE(gpio_buttons),
+	.name		= "Phone button",
 };
 static struct gpio_keys_platform_data gpio_3G_info = {
 	.buttons	= gpio_3G_buttons,
 	.nbuttons	= ARRAY_SIZE(gpio_3G_buttons),
+	.name		= "3G Wakeup",
 };
 
 static struct platform_device keys_gpio = {
