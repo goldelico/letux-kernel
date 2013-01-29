@@ -86,6 +86,10 @@
 #include "common-board-devices.h"
 #include "control.h"
 
+#if CONFIG_TOUCHSCREEN_TSC2007_GTA04
+#define CONFIG_TOUCHSCREEN_TSC2007
+#endif
+
 #define GPMC_CS0_BASE  0x60
 #define GPMC_CS_SIZE   0x30
 
