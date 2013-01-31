@@ -2645,7 +2645,7 @@ CONFIG_STAGING=y
 # CONFIG_ADIS16130 is not set
 # CONFIG_ADIS16260 is not set
 # CONFIG_ADXRS450 is not set
-CONFIG_ITG3200=y
+CONFIG_ITG3200=m
 
 #
 # Network Analyzer, Impedance Converters
@@ -2670,7 +2670,7 @@ CONFIG_ITG3200=y
 # Magnetometer sensors
 #
 # CONFIG_SENSORS_AK8975 is not set
-CONFIG_SENSORS_HMC5843=y
+CONFIG_SENSORS_HMC5843=m
 
 #
 # Active energy metering IC
