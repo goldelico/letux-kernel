@@ -38,6 +38,11 @@
 #include <sound/initval.h>
 #include <sound/tlv.h>
 /* ouch, should not be inclueded here! */
+/* rather we should use
+ * int snd_soc_dai_set_tristate(struct snd_soc_dai *dai, int tristate);
+ * on the conflicting DAI link
+ * it may not be known here but in the GTA04 sound board file
+ */
 #include "../../../arch/arm/mach-omap2/mux.h"
 /* Register descriptions are here */
 #include <linux/mfd/twl4030-audio.h>
@@ -1116,6 +1121,11 @@ static int twl4030_voice_route_put(struct snd_kcontrol *kcontrol,
 			 * need to find a better place for this,
 			 * disables mcbsp4_dx, so that it can be used by
 			 * the twl4030_codec
+			 */
+			/* rather we should use
+			 * int snd_soc_dai_set_tristate(struct snd_soc_dai *dai, int tristate);
+			 * on the conflicting DAI link
+			 * it may not be known here but in the GTA04 sound board file
 			 */
 			omap_mux_set_gpio(OMAP_MUX_MODE7, 154);
 			twl4030_write(codec, TWL4030_REG_VOICE_IF,
