@@ -37,7 +37,8 @@
 #include <sound/soc.h>
 #include <sound/initval.h>
 #include <sound/tlv.h>
-
+/* ouch, should not be inclueded here! */
+#include "../../../arch/arm/mach-omap2/mux.h"
 /* Register descriptions are here */
 #include <linux/mfd/twl4030-audio.h>
 
@@ -71,6 +72,7 @@ struct twl4030_priv {
 	u8 predrivel_enabled, predriver_enabled;
 	u8 carkitl_enabled, carkitr_enabled;
 	u8 ctl_cache[TWL4030_REG_PRECKR_CTL - TWL4030_REG_EAR_CTL + 1];
+<ben_deering@swissmail.org> http://lists.goldelico.com/pipermail/gta04-owner/2013-January/003860.html
 
 	struct twl4030_codec_data *pdata;
 };
@@ -341,13 +343,17 @@ static void twl4030_init_chip(struct snd_soc_codec *codec)
 
 	/* Make sure that the reg_cache has the same value as the HW */
 	twl4030_write_reg_cache(codec, TWL4030_REG_ANAMICL, byte);
-	twl_i2c_write_u8(TWL4030_MODULE_AUDIO_VOICE,
-                                        TWL4030_VIF_TRI_EN,
-                                        TWL4030_REG_VOICE_IF);
-        printk("TPS Voice IF set to tristate\n");
-
 
 	twl4030_codec_enable(codec, 0);
+	twl4030_write(codec,
+		TWL4030_VIF_TRI_EN,
+		TWL4030_REG_VOICE_IF);
+	twl4030_voice_enable(codec, SNDRV_PCM_STREAM_PLAYBACK, 1);
+	twl4030_voice_enable(codec, SNDRV_PCM_STREAM_CAPTURE, 1);
+	printk("TPS Voice IF is tristated\n");
+
+
+	twl4030_codec_enable(codec, 1);
 }
 
 static void twl4030_apll_enable(struct snd_soc_codec *codec, int enable)
@@ -835,6 +841,39 @@ static int digimic_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+/* is for some reason never reached */
+static int voice_input_event(struct snd_soc_dapm_widget *w,
+	struct snd_kcontrol *kcontrol,
+	int event)
+{
+	dev_dbg(w->codec->dev, "GSMIN event");
+	switch(event) {
+	case SND_SOC_DAPM_POST_PMU:
+		dev_dbg(w->codec->dev, "GSMIN power up");
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		dev_dbg(w->codec->dev, "GSMIN power down");
+		break;
+	}
+	return 0;
+}
+
+/* is for some reason never reached */
+static int voice_output_event(struct snd_soc_dapm_widget *w,
+	struct snd_kcontrol *kcontrol, int event)
+{
+	dev_dbg(w->codec->dev,"GSMOUT event");
+	switch(event) {
+	case SND_SOC_DAPM_POST_PMU:
+		dev_dbg(w->codec->dev, "GSMOUT power up");
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		dev_dbg(w->codec->dev, "GSMOUT power down");
+		break;
+	}
+	return 0;
+}
+
 /*
  * Some of the gain controls in TWL (mostly those which are associated with
  * the outputs) are implemented in an interesting way:
@@ -1037,6 +1076,68 @@ static DECLARE_TLV_DB_SCALE(digital_capture_tlv, 0, 100, 0);
  */
 static DECLARE_TLV_DB_SCALE(input_gain_tlv, 0, 600, 0);
 
+/*
+ * switch GSM audio signal between SoC"
+ * and twl4030 voice input
+ */
+static const char *twl4030_voice_route_texts[] = {
+	"Voice to SoC", "Voice to twl4030"
+};
+
+static const struct soc_enum twl4030_voice_route_enum =
+	SOC_ENUM_SINGLE(0xff,0,
+			ARRAY_SIZE(twl4030_voice_route_texts),
+			twl4030_voice_route_texts);
+
+static int twl4030_voice_route_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct twl4030_priv *twl4030 = snd_soc_codec_get_drvdata(codec);
+	ucontrol->value.enumerated.item[0] = twl4030->voice_enabled;
+	return 0;
+}
+
+static int twl4030_voice_route_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct twl4030_priv *twl4030 = snd_soc_codec_get_drvdata(codec);
+	dev_dbg(codec->dev, "voice ctl route: %u\n",
+		ucontrol->value.enumerated.item[0]);
+        if (ucontrol->value.enumerated.item[0] != twl4030->voice_enabled) {
+		int powered = twl4030->codec_powered;
+		twl4030->voice_enabled = ucontrol->value.enumerated.item[0];
+		if (powered)
+			twl4030_codec_enable(codec, 0);
+
+		if (twl4030->voice_enabled) {
+			/*
+			 * need to find a better place for this,
+			 * disables mcbsp4_dx, so that it can be used by
+			 * the twl4030_codec
+			 */
+			omap_mux_set_gpio(OMAP_MUX_MODE7, 154);
+			twl4030_write(codec, TWL4030_REG_VOICE_IF,
+				TWL4030_VIF_SLAVE_EN | TWL4030_VIF_DIN_EN |
+				TWL4030_VIF_DOUT_EN | TWL4030_VIF_EN);
+		} else {
+			twl4030_write(codec, TWL4030_REG_VOICE_IF,
+				TWL4030_VIF_TRI_EN);
+			/*
+			 * need to find a better place for this,
+			 * enables mcbsp4_dx, so that it can be used by
+			 * the mcbsp4 interface
+			 */
+			omap_mux_set_gpio(OMAP_MUX_MODE0 | OMAP_PIN_OUTPUT, 154);
+		}
+		if (powered)
+			twl4030_codec_enable(codec, 1);
+		return 1;
+        }
+	return 0;
+}
+
 /* AVADC clock priority */
 static const char *twl4030_avadc_clk_priority_texts[] = {
 	"Voice high priority", "HiFi high priority"
@@ -1159,6 +1260,10 @@ static const struct snd_kcontrol_new twl4030_snd_controls[] = {
 
 	SOC_ENUM("AVADC Clock Priority", twl4030_avadc_clk_priority_enum),
 
+	SOC_ENUM_EXT("Voice route", twl4030_voice_route_enum,
+		twl4030_voice_route_get,
+		twl4030_voice_route_put),
+
 	SOC_ENUM("HS ramp delay", twl4030_rampdelay_enum),
 
 	SOC_ENUM("Vibra H-bridge mode", twl4030_vibradirmode_enum),
@@ -1179,6 +1284,7 @@ static const struct snd_soc_dapm_widget twl4030_dapm_widgets[] = {
 	/* Digital microphones (Stereo) */
 	SND_SOC_DAPM_INPUT("DIGIMIC0"),
 	SND_SOC_DAPM_INPUT("DIGIMIC1"),
+	SND_SOC_DAPM_INPUT("GSMIN"),
 
 	/* Outputs */
 	SND_SOC_DAPM_OUTPUT("EARPIECE"),
@@ -1191,6 +1297,7 @@ static const struct snd_soc_dapm_widget twl4030_dapm_widgets[] = {
 	SND_SOC_DAPM_OUTPUT("HFL"),
 	SND_SOC_DAPM_OUTPUT("HFR"),
 	SND_SOC_DAPM_OUTPUT("VIBRA"),
+	SND_SOC_DAPM_OUTPUT("GSMOUT"),
 
 	/* AIF and APLL clocks for running DAIs (including loopback) */
 	SND_SOC_DAPM_OUTPUT("Virtual HiFi OUT"),
@@ -1218,6 +1325,17 @@ static const struct snd_soc_dapm_widget twl4030_dapm_widgets[] = {
 			&twl4030_dapm_abypassl2_control),
 	SND_SOC_DAPM_SWITCH("Voice Analog Loopback", SND_SOC_NOPM, 0, 0,
 			&twl4030_dapm_abypassv_control),
+
+	/* PGA is a lie here */
+        SND_SOC_DAPM_MIC("Voice DigiInput", voice_input_event),
+
+	SND_SOC_DAPM_PGA_E("Voice DigiInput", SND_SOC_NOPM,
+			0, 0, NULL, 0, voice_input_event,
+			SND_SOC_DAPM_POST_PMU|SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_PGA_E("Voice DigiOutput", SND_SOC_NOPM,
+			0, 0, NULL, 0, voice_output_event,
+			SND_SOC_DAPM_POST_PMU|SND_SOC_DAPM_POST_PMD),
 
 	/* Master analog loopback switch */
 	SND_SOC_DAPM_SUPPLY("FM Loop Enable", TWL4030_REG_MISC_SET_1, 5, 0,
@@ -1413,6 +1531,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 
 	/* Supply for the digital part (APLL) */
 	{"Digital Voice Playback Mixer", NULL, "APLL Enable"},
+	{"Digital Voice Playback Mixer", NULL, "Voice DigiInput"},
 
 	{"DAC Left1", NULL, "AIF Enable"},
 	{"DAC Right1", NULL, "AIF Enable"},
