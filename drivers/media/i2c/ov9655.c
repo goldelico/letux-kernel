@@ -3,6 +3,7 @@
  *
  * Based on mt9v113 decoder driver
  *
+ * by H. N. Schaller <hns@computer.org>
  *
  * This package is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -19,6 +20,9 @@
  *
  */
 
+#include <linux/module.h>
+#include <linux/moduleparam.h>
+#include <linux/export.h>
 #include <linux/i2c.h>
 #include <linux/delay.h>
 #include <linux/videodev2.h>
@@ -1317,7 +1321,7 @@ static int ioctl_g_ifparm(struct v4l2_int_device *s, struct v4l2_ifparm *p)
 		default:
 			return -EINVAL;
 	}
-	printk("xclk = %lu\n", p->u.bt656.clock_curr);
+	printk("xclk = %u\n", p->u.bt656.clock_curr);
 	return 0;
 }
 
