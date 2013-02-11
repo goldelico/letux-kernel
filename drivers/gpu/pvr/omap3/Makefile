@@ -64,7 +64,6 @@ ccflags-y = -Iinclude \
 
 # for drm
 ccflags-y += -Iinclude/drm \
-	-DCONFIG_PCI \
 	-DSYS_USING_INTERRUPTS \
 	-DSUPPORT_OMAP3430_OMAPFB3 \
 	-DPVR_LINUX_USING_WORKQUEUES \
@@ -196,19 +195,63 @@ sgx-y :=  \
 	services4/srvkm/devices/sgx/mmu.o \
 	services4/srvkm/devices/sgx/pb.o \
 
+# compile from drivers/gpu/drm what we need
+
 drm-y :=  \
 	services4/3rdparty/linux_drm/pvr_drm_stubs.o \
+	../../drm/drm_auth.o \
+	../../drm/drm_bufs.o \
+	../../drm/drm_cache.o \
+	../../drm/drm_context.o \
+	../../drm/drm_dma.o \
+	../../drm/drm_drv.o \
+	../../drm/drm_fops.o \
+	../../drm/drm_gem.o \
+	../../drm/drm_ioctl.o \
+	../../drm/drm_irq.o \
+	../../drm/drm_lock.o \
+	../../drm/drm_memory.o \
+	../../drm/drm_proc.o \
+	../../drm/drm_stub.o \
+	../../drm/drm_vm.o \
+	../../drm/drm_agpsupport.o \
+	../../drm/drm_scatter.o \
+	../../drm/ati_pcigart.o \
+	../../drm/drm_pci.o \
+	../../drm/drm_sysfs.o \
+	../../drm/drm_hashtab.o \
+	../../drm/drm_mm.o \
+	../../drm/drm_crtc.o \
+	../../drm/drm_modes.o \
+	../../drm/drm_edid.o \
+	../../drm/drm_info.o \
+	../../drm/drm_debugfs.o \
+	../../drm/drm_encoder_slave.o \
+
+# not available in Linux 3.7
+#	../../drm/drm_drawable.o \
+#	../../drm/drm_sman.o \
+
+# needed in Linux 3.7
+drm-y += ../../drm/drm_prime.o \
+	../../drm/drm_global.o
+
+# extra flags for some files
+CFLAGS_pvr_drm_stubs.o := -DCONFIG_PCI
+CFLAGS_drm_drv.o := -DCONFIG_PCI
+CFLAGS_drm_stub.o := -DCONFIG_PCI
+CFLAGS_ati_pcigart.o := -DCONFIG_PCI
 
 omaplfb-y := \
 	services4/3rdparty/dc_omapfb3_linux/omaplfb_displayclass.o \
 	services4/3rdparty/dc_omapfb3_linux/omaplfb_linux.o
 
-obj-$(CONFIG_SGX530) := pvr_common.o sgx.o omaplfb.o pvr530.o
+obj-$(CONFIG_SGX530) := pvr_common.o sgx.o omaplfb.o drm.o pvr530.o
 obj-$(CONFIG_SGX540) := pvr_common.o sgx.o omaplfb.o pvr540.o
 
 # this should add PCI DRM stub but it does not compile
 # so we simply configure the full PCI subsystem (through Kconfig)
-# obj-$(CONFIG_SGX530) += drm.o
-# obj-$(CONFIG_SGX540) += drm.o
+obj-$(CONFIG_SGX530) += drm.o
+obj-$(CONFIG_SGX540) += drm.o
 
 #obj-$(CONFIG_VIRTUAL_DISPLAY_SUPPORT) := pvr_common.o sgx.o \
