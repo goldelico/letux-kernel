@@ -1907,7 +1907,7 @@ CONFIG_VIDEO_OMAP3_DEBUG=y
 #
 # Supported MMC/SDIO adapters
 #
-CONFIG_MEDIA_SUBDRV_AUTOSELECT=y
+# CONFIG_MEDIA_SUBDRV_AUTOSELECT is not set
 
 #
 # Media ancillary drivers (tuners, sensors, i2c, frontends)
@@ -1920,6 +1920,7 @@ CONFIG_MEDIA_SUBDRV_AUTOSELECT=y
 #
 # RDS decoders
 #
+# CONFIG_VIDEO_SAA6588 is not set
 
 #
 # Video decoders
