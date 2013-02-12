@@ -523,7 +523,11 @@ static const char *OMAPLFBDSSUpdateModeToString(enum omap_dss_update_mode eMode)
 	return OMAPLFBUpdateModeToString(OMAPLFBFromDSSUpdateMode(eMode));
 }
 
+#endif	/* defined(DEBUG) */
+
 #endif // LINUX_VERSION_CODE < KERNEL_VERSION(3,1,0)
+
+#if defined(DEBUG)
 
 void OMAPLFBPrintInfo(OMAPLFB_DEVINFO *psDevInfo)
 {
@@ -552,15 +556,21 @@ void OMAPLFBPrintInfo(OMAPLFB_DEVINFO *psDevInfo)
 	{
 		enum omap_dss_update_mode eMode = omap_connector_get_update_mode(psConnector);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,1,0)
 		DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": Device %u: Screen %u: %s (%d)\n", psDevInfo->uiFBDevID, uConnector, OMAPLFBDSSUpdateModeToString(eMode), (int)eMode));
+#else
+		DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": Device %u: Screen %u: (%d)\n", psDevInfo->uiFBDevID, uConnector, (int)eMode));
+#endif // LINUX_VERSION_CODE < KERNEL_VERSION(3,1,0)
 
 	}
 #else	/* defined(PVR_OMAPLFB_DRM_FB) */
-	OMAPLFB_UPDATE_MODE eMode = OMAPLFBGetUpdateMode(psDevInfo);
 
 	DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": Device %u: non-DRM framebuffer\n", psDevInfo->uiFBDevID));
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,1,0)
+	OMAPLFB_UPDATE_MODE eMode = OMAPLFBGetUpdateMode(psDevInfo);
 	DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": Device %u: %s\n", psDevInfo->uiFBDevID, OMAPLFBUpdateModeToString(eMode)));
+#endif // LINUX_VERSION_CODE < KERNEL_VERSION(3,1,0)
 #endif	/* defined(PVR_OMAPLFB_DRM_FB) */
 }
 #endif	/* defined(DEBUG) */

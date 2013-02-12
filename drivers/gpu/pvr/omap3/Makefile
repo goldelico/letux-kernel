@@ -6,7 +6,8 @@ DATE := $(shell date "+%Y%m%d%H%M%S" )
 # SGXInit: Mismatch in driver and microkernel build options; extra options present in microkernel: (0x210008) [1297, drivers/gpu/pvr/omap3/services4/srvkm/devices/sgx/sgxinit.c]
 # other options depend on the kernel version (here 3.7) and CPU (here: DM3730=OMAP3630)
 
-ccflags-y = -Iinclude \
+ccflags-y = \
+	-Iinclude \
 	-Idrivers/video/omap2 \
 	-Idrivers/gpu/pvr/omap3/ \
 	-Idrivers/gpu/pvr/omap3/include4 \
@@ -40,7 +41,6 @@ ccflags-y = -Iinclude \
 	-DSUPPORT_PVRSRV_GET_DC_SYSTEM_BUFFER \
 	-DSUPPORT_LINUX_X86_WRITECOMBINE \
 	-DTRANSFER_QUEUE \
-	-DSUPPORT_DRI_DRM \
 	-DPVR_DRI_DRM_NOT_PCI \
 	-DSYS_USING_INTERRUPTS \
 	-DSUPPORT_HW_RECOVERY \
@@ -62,13 +62,18 @@ ccflags-y = -Iinclude \
 	-DSGX_CLK_CORE_DIV5 \
 	-DSUPPORT_SGX_NEW_STATUS_VALS \
 
+# has been disabled because otherwise modules are not loaded automatically
+# but need support through X-server (AFAIK)
+# and - we must compile as loadable module
+#	-DSUPPORT_DRI_DRM \
+
+
 # for drm
 ccflags-y += -Iinclude/drm \
 	-DSYS_USING_INTERRUPTS \
 	-DSUPPORT_OMAP3430_OMAPFB3 \
 	-DPVR_LINUX_USING_WORKQUEUES \
 	-DPVR_DISPLAY_CONTROLLER_DRM_IOCTL \
-
 
 #	-DSGX_DYNAMIC_TIMING_INFO \
 #	-DSUPPORT_XWS \
@@ -83,22 +88,18 @@ ccflags-y += -Iinclude/drm \
 #	-DSUPPORT_ANDROID_PLATFORM \
 #	-DSYS_SGX_ACTIVE_POWER_LATENCY_MS=100 \
 
-
-ccflags-$(CONFIG_SGX530) +=  -Idrivers/gpu/pvr/omap3/omap3  -Idrivers/gpu/pvr/omap3/sgx \
-	-DSGX530 \
-	-DSUPPORT_SGX530
-
-#ccflags-$(CONFIG_SGX540) +=  -Idrivers/gpu/pvr/omap3/omap4  -Idrivers/gpu/pvr/omap3/sgx \
-#	-DNO_OMAP_TIMER \
-#	-DSGX_CLK_CORE_DIV5 \
-#	-DSGX540 -DSUPPORT_SGX540
+# revision specific flags (only one can be choosen as y)
 
 ccflags-$(CONFIG_SGX_REV110) += -DSGX_CORE_REV=110
 ccflags-$(CONFIG_SGX_REV120) += -DSGX_CORE_REV=120
 ccflags-$(CONFIG_SGX_REV121) += -DSGX_CORE_REV=121
 ccflags-$(CONFIG_SGX_REV125) += -DSGX_CORE_REV=125
 
+# build specific flags (only one can be choosen as y)
 ccflags-$(CONFIG_SGX_530_BUILD_RELEASE) += \
+	-Idrivers/gpu/pvr/omap3/omap3  -Idrivers/gpu/pvr/omap3/sgx \
+	-DSGX530 \
+	-DSUPPORT_SGX530 \
 	-DPVR_BUILD_TYPE="\"release\"" \
 	-DRELEASE \
 	-g -Os \
@@ -107,6 +108,9 @@ ccflags-$(CONFIG_SGX_530_BUILD_RELEASE) += \
 #	-DSGX_EARLYSUSPEND \
 
 ccflags-$(CONFIG_SGX_530_BUILD_DEBUG) += \
+	-Idrivers/gpu/pvr/omap3/omap3  -Idrivers/gpu/pvr/omap3/sgx \
+	-DSGX530 \
+	-DSUPPORT_SGX530 \
 	-O0 \
 	-DPVR_BUILD_TYPE="\"debug\"" \
 	-DDEBUG \
@@ -126,6 +130,10 @@ ccflags-$(CONFIG_SGX_530_BUILD_DEBUG) += \
 #	-DRELEASE \
 #	-DSUPPORT_ACTIVE_POWER_MANAGEMENT \
 #	-DSUPPORT_SGX_LOW_LATENCY_SCHEDULING
+#	-Idrivers/gpu/pvr/omap3/omap4  -Idrivers/gpu/pvr/omap3/sgx \
+#	-DNO_OMAP_TIMER \
+#	-DSGX_CLK_CORE_DIV5 \
+#	-DSGX540 -DSUPPORT_SGX540
 
 #ccflags-$(CONFIG_SGX_540_BUILD_DEBUG) += \
 #	-DPVR_BUILD_TYPE="\"debug\""  -DDEBUG \
@@ -147,6 +155,7 @@ pvr_common-y := \
 	services4/srvkm/env/linux/proc.o \
 	services4/srvkm/env/linux/pvr_bridge_k.o \
 	services4/srvkm/env/linux/pvr_debug.o \
+	services4/srvkm/env/linux/pvr_drm.o \
 	services4/srvkm/env/linux/mm.o \
 	services4/srvkm/env/linux/mutex.o \
 	services4/srvkm/env/linux/event.o \
@@ -232,7 +241,7 @@ drm-y :=  \
 #	../../drm/drm_drawable.o \
 #	../../drm/drm_sman.o \
 
-# needed in Linux 3.7
+# needed for Linux 3.7
 drm-y += ../../drm/drm_prime.o \
 	../../drm/drm_global.o
 
@@ -246,12 +255,9 @@ omaplfb-y := \
 	services4/3rdparty/dc_omapfb3_linux/omaplfb_displayclass.o \
 	services4/3rdparty/dc_omapfb3_linux/omaplfb_linux.o
 
-obj-$(CONFIG_SGX530) := pvr_common.o sgx.o omaplfb.o drm.o pvr530.o
-obj-$(CONFIG_SGX540) := pvr_common.o sgx.o omaplfb.o pvr540.o
-
-# this should add PCI DRM stub but it does not compile
-# so we simply configure the full PCI subsystem (through Kconfig)
-obj-$(CONFIG_SGX530) += drm.o
-obj-$(CONFIG_SGX540) += drm.o
+# build into kernel (y) or module (m)
+# omaplfb must be the last because it requires the others to be initialized before
+obj-$(CONFIG_SGX530) := pvr_common.o sgx.o drm.o pvr530.o omaplfb.o
+obj-$(CONFIG_SGX540) := pvr_common.o sgx.o drm.o pvr540.o omaplfb.o
 
 #obj-$(CONFIG_VIRTUAL_DISPLAY_SUPPORT) := pvr_common.o sgx.o \
