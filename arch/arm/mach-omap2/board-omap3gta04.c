@@ -1152,6 +1152,10 @@ struct tca8418_keypad_platform_data tca8418_pdata = {
 
 #endif
 
+#ifdef CONFIG_VIDEO_OV9655
+struct ov9655_platform_data ov9655_pdata;
+#endif
+
 static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 #ifdef CONFIG_TOUCHSCREEN_TSC2007
 {
@@ -1229,6 +1233,12 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 	.irq		= -EINVAL,	// will be modified dynamically by code
 	},	
 #endif
+#ifdef CONFIG_VIDEO_OV9655
+    {
+    I2C_BOARD_INFO("ov9655", 0x30),
+    .platform_data  = &ov9655_pdata,
+    },
+#endif 
 };
 
 #if defined(CONFIG_VIDEO_OV9655) || defined(CONFIG_VIDEO_OV9655_MODULE)
