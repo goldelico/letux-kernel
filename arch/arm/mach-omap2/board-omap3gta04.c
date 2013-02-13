@@ -51,8 +51,9 @@
 #ifdef CONFIG_LEDS_TCA6507
 #include <linux/leds-tca6507.h>
 #endif
-#ifdef CONFIG_SOC_CAMERA_OV9655
-#include <media/soc_camera.h>
+#ifdef CONFIG_VIDEO_OV9655
+#include <media/v4l2-int-device.h>
+#include <media/i2c/ov9655.h>
 #endif
 #include <linux/input/tca8418_keypad.h>
 
@@ -1162,6 +1163,10 @@ struct tca8418_keypad_platform_data tca8418_pdata = {
 
 #endif
 
+#ifdef CONFIG_VIDEO_OV9655
+struct ov9655_platform_data ov9655_pdata;
+#endif
+
 static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 #ifdef CONFIG_TOUCHSCREEN_TSC2007
 {
@@ -1238,6 +1243,12 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 	.irq		= -EINVAL,	// will be modified dynamically by code
 	},	
 #endif
+#ifdef CONFIG_VIDEO_OV9655
+    {
+    I2C_BOARD_INFO("ov9655", 0x30),
+    .platform_data  = &ov9655_pdata,
+    },
+#endif 
 };
 
 static struct i2c_board_info __initdata gta04_i2c3_boardinfo[] = {
