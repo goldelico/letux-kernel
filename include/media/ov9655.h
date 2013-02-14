@@ -62,6 +62,12 @@ struct ov9655_platform_data {
 	bool clk_polarity;
 	bool hs_polarity;
 	bool vs_polarity;
+	
+	/* new - needs driver to be rewritten */
+	int (*set_xclk)(struct v4l2_subdev *subdev, int hz);
+	int reset;	/* GPIO */
+	int ext_freq;
+	int target_freq;
 };
 
 #endif				/* ifndef _OV9655_H */
