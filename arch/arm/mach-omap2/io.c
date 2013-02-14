@@ -451,6 +451,7 @@ void __init omap2430_init_late(void)
 {
 	omap_mux_late_init();
 	omap2_common_pm_late_init();
+	omap_soc_device_init();
 	omap2_pm_init();
 	omap2_clk_enable_autoidle_all();
 }
@@ -524,6 +525,7 @@ void __init omap3_init_late(void)
 {
 	omap_mux_late_init();
 	omap2_common_pm_late_init();
+	omap_soc_device_init();
 	omap3_pm_init();
 	omap2_clk_enable_autoidle_all();
 }
@@ -532,6 +534,7 @@ void __init omap3430_init_late(void)
 {
 	omap_mux_late_init();
 	omap2_common_pm_late_init();
+	omap_soc_device_init();
 	omap3_pm_init();
 	omap2_clk_enable_autoidle_all();
 }
@@ -540,6 +543,7 @@ void __init omap35xx_init_late(void)
 {
 	omap_mux_late_init();
 	omap2_common_pm_late_init();
+	omap_soc_device_init();
 	omap3_pm_init();
 	omap2_clk_enable_autoidle_all();
 }
@@ -548,6 +552,7 @@ void __init omap3630_init_late(void)
 {
 	omap_mux_late_init();
 	omap2_common_pm_late_init();
+	omap_soc_device_init();
 	omap3_pm_init();
 	omap2_clk_enable_autoidle_all();
 }
@@ -556,6 +561,7 @@ void __init am35xx_init_late(void)
 {
 	omap_mux_late_init();
 	omap2_common_pm_late_init();
+	omap_soc_device_init();
 	omap3_pm_init();
 	omap2_clk_enable_autoidle_all();
 }
@@ -564,6 +570,7 @@ void __init ti81xx_init_late(void)
 {
 	omap_mux_late_init();
 	omap2_common_pm_late_init();
+	omap_soc_device_init();
 	omap3_pm_init();
 	omap2_clk_enable_autoidle_all();
 }
@@ -592,6 +599,7 @@ void __init am33xx_init_late(void)
 {
 	omap_mux_late_init();
 	omap2_common_pm_late_init();
+	omap_soc_device_init();
 	am33xx_pm_init();
 }
 #endif
@@ -624,6 +632,7 @@ void __init omap4430_init_late(void)
 {
 	omap_mux_late_init();
 	omap2_common_pm_late_init();
+	omap_soc_device_init();
 	omap4_pm_init();
 	omap2_clk_enable_autoidle_all();
 }
@@ -657,6 +666,7 @@ void __init omap5_init_late(void)
 {
 	omap_mux_late_init();
 	omap2_common_pm_late_init();
+	omap_soc_device_init();
 	omap4_pm_init();
 	omap2_clk_enable_autoidle_all();
 }
@@ -687,6 +697,7 @@ void __init dra7xx_init_early(void)
 void __init dra7xx_init_late(void)
 {
 	omap2_common_pm_late_init();
+	omap_soc_device_init();
 	omap4_pm_init();
 	omap2_clk_enable_autoidle_all();
 }
