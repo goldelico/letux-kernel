@@ -51,9 +51,13 @@
 #ifdef CONFIG_LEDS_TCA6507
 #include <linux/leds-tca6507.h>
 #endif
-#ifdef CONFIG_VIDEO_OV9655
+#if defined(CONFIG_VIDEO_OV9655) || defined(CONFIG_VIDEO_OV9655_MODULE)
+#include <media/ov9655.h>
+#include <media/omap3isp.h>
 #include <media/v4l2-int-device.h>
-#include <media/i2c/ov9655.h>
+/* needed for: v4l2_dev_to_isp_device */
+#include <../../../drivers/media/platform/omap3isp/isp.h>
+#include "devices.h"	/* omap3_init_camera */
 #endif
 #include <linux/input/tca8418_keypad.h>
 
@@ -113,6 +117,10 @@
 #define CAMERA_PWDN_GPIO	165	/* CAM_WEN */
 #define CAMERA_STROBE_GPIO	126	/* CAM_STROBE */
 #define AUX_HEADSET_GPIO	55
+
+#define CAMERA_XCLK		ISP_XCLK_A
+#define CAMERA_EXT_FREQ		21000000
+#define CAMERA_TARGET_FREQ	48000000
 
 
 /* see: https://patchwork.kernel.org/patch/120449/
@@ -558,10 +566,10 @@ static struct regulator_init_data gta04_vaux3 = {
 		.name			= "VAUX3",
 		.min_uV			= 2500000,
 		.max_uV			= 2500000,
+		.apply_uV		= true,
 		.valid_modes_mask	= (REGULATOR_MODE_NORMAL
 					   | REGULATOR_MODE_STANDBY),
-		.valid_ops_mask		= (REGULATOR_CHANGE_VOLTAGE
-					   | REGULATOR_CHANGE_MODE
+		.valid_ops_mask		= (REGULATOR_CHANGE_MODE
 					   | REGULATOR_CHANGE_STATUS),
 	},
 	.num_consumer_supplies	= 1,
@@ -1163,10 +1171,6 @@ struct tca8418_keypad_platform_data tca8418_pdata = {
 
 #endif
 
-#ifdef CONFIG_VIDEO_OV9655
-struct ov9655_platform_data ov9655_pdata;
-#endif
-
 static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 #ifdef CONFIG_TOUCHSCREEN_TSC2007
 {
@@ -1243,14 +1247,102 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 	.irq		= -EINVAL,	// will be modified dynamically by code
 	},	
 #endif
-#ifdef CONFIG_VIDEO_OV9655
-    {
-    I2C_BOARD_INFO("ov9655", 0x30),
-    .platform_data  = &ov9655_pdata,
-    },
-#endif 
 };
 
+#if defined(CONFIG_VIDEO_OV9655) || defined(CONFIG_VIDEO_OV9655_MODULE)
+
+static int gta04_cam_set_xclk(struct v4l2_subdev *subdev, int hz)
+{
+	struct isp_device *isp = v4l2_dev_to_isp_device(subdev->v4l2_dev);
+	return isp->platform_cb.set_xclk(isp, hz, CAMERA_XCLK);
+}
+
+struct ov9655_platform_data ov9655_pdata = {
+	.set_xclk	= gta04_cam_set_xclk,
+	.reset		= CAMERA_RESET_GPIO,
+	.ext_freq	= CAMERA_EXT_FREQ,
+	.target_freq	= CAMERA_TARGET_FREQ,	
+};
+
+static struct i2c_board_info gta04_camera_i2c_device[] = {
+	{  
+		I2C_BOARD_INFO("ov9655", 0x30),
+		.platform_data = &ov9655_pdata,		
+	},
+	/* add more records for secondary camera */
+};
+
+static struct isp_subdev_i2c_board_info gta04_camera_subdevs[] = {
+	{
+	.board_info = &gta04_camera_i2c_device[0],
+	.i2c_adapter_id = 2,	/* connected to I2C2 */
+	},
+	/* add more records for secondary camera */
+	{ NULL, 0, },
+};
+
+static struct isp_v4l2_subdevs_group gta04_camera_subdevs_group[] = {
+	{
+		.subdevs = gta04_camera_subdevs,
+		.interface = ISP_INTERFACE_PARALLEL,
+		.bus = {
+			.parallel = {
+				.data_lane_shift = 0,
+				.clk_pol = 1,
+			}
+		},
+	},
+	/* add more records for secondary camera */
+	{ },
+};
+
+static struct isp_platform_data gta04_isp_platform_data = {
+	.subdevs = gta04_camera_subdevs_group,
+};
+
+// FIXME: move this to the ov9655 driver
+
+static int gta04_camera_reset(void) {
+	int ret = 0;
+	
+	printk("gta04_camera_reset\n");
+	
+	/* Set RESET_BAR to 0 (this assumes the polarity for the Rev 5 camera chip!) */
+	gpio_set_value(CAMERA_RESET_GPIO, 0);
+	/*
+	 * Wait at least 70 CLK cycles (w/EXTCLK = 6MHz, or CLK_MIN):
+	 * ((1000000 * 70) / 6000000) = aprox 12 us.
+	 */
+	udelay(12);
+	/* Set RESET_BAR to 1 */
+	gpio_set_value(CAMERA_RESET_GPIO, 1);
+	/*
+	 * Wait at least 1 ms
+	 */
+	mdelay(1000);
+	ret = 0;
+	
+	return ret;
+}
+
+static void __init gta04_camera_setup(void) {
+	static struct regulator *reg;
+	// FIXME: can we postpone enabling camera power until someone opens the /dev/video0 file?
+	// may not be required if CAMERA_RESET_GPIO is controlled correctly
+	pr_info("GTA04 camera: setup\n");
+	reg = regulator_get(NULL, "vaux3");
+	if(IS_ERR(reg))
+		pr_err("%s: cannot get vaux3 regulator\n", __func__);
+	else {
+		regulator_enable(reg);
+		gta04_camera_reset();
+        if (omap3_init_camera(&gta04_isp_platform_data) < 0)
+			pr_warn("%s: failed registering camera device!\n", __func__);
+	}
+}
+
+#endif 
+	
 static struct i2c_board_info __initdata gta04_i2c3_boardinfo[] = {
 	/* Bus 3 is currently not used */
 	/* add your I2C_BOARD_INFO records here */
@@ -1376,104 +1468,6 @@ static struct platform_device madc_hwmon = {
 	.name	= "twl4030_madc_hwmon",
 	.id	= -1,
 };
-
-#ifdef CONFIG_SOC_CAMERA_OV9655
-
-static struct i2c_board_info gta04_i2c_camera = {
-	I2C_BOARD_INFO("ov9655", 0x30),
-};
-
-static int gta04_camera_power(struct device *dev, int mode)
-{
-	int ret = 0;
-
-	printk("gta04_camera_power(%d)\n", mode);
-	
-	if (mode) {
-#ifdef NEEDS_TO_BE_WORKED_OUT
-
-		// XCLKA must be available - before I2C works
-		// is this called before or after trying to probe the ov9655 driver?
-
-		// enabel xlcka for ca. 24 MHz (?)
-		
-		/* turn on VDD */
-		// FIXME whould already be done by gta04_camera_regulators?
-		regulator_enable(cam_2v5_reg);
-		mdelay(50);
-
-		/* Enable EXTCLK */
-		isp_set_xclk(vdev->cam->isp, OV9655_CLK_MIN*2, CAM_USE_XCLKA);
-
-		/* remove powerdown signal */
-		gpio_set_value(CAMERA_PWDN_GPIO, 0);		
-		
-#endif
-		gta04_camera_reset(dev);
-		ret = 0;
-	} else {
-		/* assert powerdown signal */
-		gpio_set_value(CAMERA_PWDN_GPIO, 1);
-		mdelay(50);
-		ret = 0;
-	}
-
-	return ret;
-}
-
-static int gta04_camera_reset(struct device *dev)
-{
-	int ret = 0;
-	
-	printk("gta04_camera_reset\n");
-	
-	/* Set RESET_BAR to 0 (this assumes the polarity for the Rev 5 camera chip!) */
-	gpio_set_value(CAMERA_RESET_GPIO, 0);
-	/*
-	 * Wait at least 70 CLK cycles (w/EXTCLK = 6MHz, or CLK_MIN):
-	 * ((1000000 * 70) / 6000000) = aprox 12 us.
-	 */
-	udelay(12);
-	/* Set RESET_BAR to 1 */
-	gpio_set_value(CAMERA_RESET_GPIO, 1);
-	/*
-	 * Wait at least 1 ms
-	 */
-	mdelay(1000);
-	ret = 0;
-	
-	return ret;
-}
-
-#if 0	// we currently have no ov9655_pdata - and this is a fragment from a board file we try to copy
-static struct ov9655_pdata ov9655_priv = {
-	.mclk_freq      = CEU_MCLK_FREQ,
-	.ioctl_high     = false,
-};
-#endif
-
-static struct regulator_bulk_data gta04_camera_regulators[] = {
-	{ .supply = "vaux3" },
-};
-
-static struct soc_camera_link ov9655_link = {
-	.power          = gta04_camera_power,
-	.reset          = gta04_camera_reset,
-	.board_info     = &gta04_i2c_camera,
-	.i2c_adapter_id = 2,	/* connected to I2C2 */
-	.regulators		= gta04_camera_regulators,
-	.num_regulators	= ARRAY_SIZE(gta04_camera_regulators),
-	//	.priv           = &ov9655_priv, --- could pass settings for prescaler etc.
-};
-
-static struct platform_device gta04_camera_device = {
-	.name   = "soc-camera-pdrv",
-	.id     = 0,
-	.dev    = {
-		.platform_data = &ov9655_link,
-	},
-};
-#endif
 
 static struct platform_device *gta04_devices[] __initdata = {
 	&pwm_device,
@@ -1746,6 +1740,9 @@ static void __init gta04_init_late(void)
 
 	omap_pm_enable_off_mode();
 	omap3_pm_off_mode_enable(1);
+#if defined(CONFIG_VIDEO_OV9655) || defined(CONFIG_VIDEO_OV9655_MODULE)
+	gta04_camera_setup();
+#endif
 }
 
 static void __init
