@@ -1152,10 +1152,6 @@ struct tca8418_keypad_platform_data tca8418_pdata = {
 
 #endif
 
-#ifdef CONFIG_VIDEO_OV9655
-struct ov9655_platform_data ov9655_pdata;
-#endif
-
 static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 #ifdef CONFIG_TOUCHSCREEN_TSC2007
 {
@@ -1233,12 +1229,6 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 	.irq		= -EINVAL,	// will be modified dynamically by code
 	},	
 #endif
-#ifdef CONFIG_VIDEO_OV9655
-    {
-    I2C_BOARD_INFO("ov9655", 0x30),
-    .platform_data  = &ov9655_pdata,
-    },
-#endif 
 };
 
 #if defined(CONFIG_VIDEO_OV9655) || defined(CONFIG_VIDEO_OV9655_MODULE)
@@ -1460,104 +1450,6 @@ static struct platform_device madc_hwmon = {
 	.name	= "twl4030_madc_hwmon",
 	.id	= -1,
 };
-
-#ifdef CONFIG_SOC_CAMERA_OV9655
-
-static struct i2c_board_info gta04_i2c_camera = {
-	I2C_BOARD_INFO("ov9655", 0x30),
-};
-
-static int gta04_camera_power(struct device *dev, int mode)
-{
-	int ret = 0;
-
-	printk("gta04_camera_power(%d)\n", mode);
-	
-	if (mode) {
-#ifdef NEEDS_TO_BE_WORKED_OUT
-
-		// XCLKA must be available - before I2C works
-		// is this called before or after trying to probe the ov9655 driver?
-
-		// enabel xlcka for ca. 24 MHz (?)
-		
-		/* turn on VDD */
-		// FIXME whould already be done by gta04_camera_regulators?
-		regulator_enable(cam_2v5_reg);
-		mdelay(50);
-
-		/* Enable EXTCLK */
-		isp_set_xclk(vdev->cam->isp, OV9655_CLK_MIN*2, CAM_USE_XCLKA);
-
-		/* remove powerdown signal */
-		gpio_set_value(CAMERA_PWDN_GPIO, 0);		
-		
-#endif
-		gta04_camera_reset(dev);
-		ret = 0;
-	} else {
-		/* assert powerdown signal */
-		gpio_set_value(CAMERA_PWDN_GPIO, 1);
-		mdelay(50);
-		ret = 0;
-	}
-
-	return ret;
-}
-
-static int gta04_camera_reset(struct device *dev)
-{
-	int ret = 0;
-	
-	printk("gta04_camera_reset\n");
-	
-	/* Set RESET_BAR to 0 (this assumes the polarity for the Rev 5 camera chip!) */
-	gpio_set_value(CAMERA_RESET_GPIO, 0);
-	/*
-	 * Wait at least 70 CLK cycles (w/EXTCLK = 6MHz, or CLK_MIN):
-	 * ((1000000 * 70) / 6000000) = aprox 12 us.
-	 */
-	udelay(12);
-	/* Set RESET_BAR to 1 */
-	gpio_set_value(CAMERA_RESET_GPIO, 1);
-	/*
-	 * Wait at least 1 ms
-	 */
-	mdelay(1000);
-	ret = 0;
-	
-	return ret;
-}
-
-#if 0	// we currently have no ov9655_pdata - and this is a fragment from a board file we try to copy
-static struct ov9655_pdata ov9655_priv = {
-	.mclk_freq      = CEU_MCLK_FREQ,
-	.ioctl_high     = false,
-};
-#endif
-
-static struct regulator_bulk_data gta04_camera_regulators[] = {
-	{ .supply = "vaux3" },
-};
-
-static struct soc_camera_link ov9655_link = {
-	.power          = gta04_camera_power,
-	.reset          = gta04_camera_reset,
-	.board_info     = &gta04_i2c_camera,
-	.i2c_adapter_id = 2,	/* connected to I2C2 */
-	.regulators		= gta04_camera_regulators,
-	.num_regulators	= ARRAY_SIZE(gta04_camera_regulators),
-	//	.priv           = &ov9655_priv, --- could pass settings for prescaler etc.
-};
-
-static struct platform_device gta04_camera_device = {
-	.name   = "soc-camera-pdrv",
-	.id     = 0,
-	.dev    = {
-		.platform_data = &ov9655_link,
-	},
-};
-#endif
 
 static struct platform_device *gta04_devices[] __initdata = {
 	&pwm_device,
