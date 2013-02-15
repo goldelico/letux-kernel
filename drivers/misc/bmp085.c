@@ -66,7 +66,7 @@
 #define BMP085_CONVERSION_REGISTER_MSB	0xF6
 #define BMP085_CONVERSION_REGISTER_LSB	0xF7
 #define BMP085_CONVERSION_REGISTER_XLSB	0xF8
-#define BMP085_TEMP_CONVERSION_TIME	5
+#define BMP085_TEMP_CONVERSION_TIME	8
 
 struct bmp085_calibration_data {
 	s16 AC1, AC2, AC3;
@@ -206,12 +206,14 @@ static s32 bmp085_get_temperature(struct bmp085_data *data, int *temperature)
 	if (status < 0)
 		goto exit;
 
+	mutex_lock(&data->lock);
 	x1 = ((data->raw_temperature - cali->AC6) * cali->AC5) >> 15;
 	x2 = (cali->MC << 11) / (x1 + cali->MD);
 	data->b6 = x1 + x2 - 4000;
 	/* if NULL just update b6. Used for pressure only measurements */
 	if (temperature != NULL)
 		*temperature = (x1+x2+8) >> 4;
+	mutex_unlock(&data->lock);
 
 exit:
 	return status;
@@ -245,6 +247,7 @@ static s32 bmp085_get_pressure(struct bmp085_data *data, int *pressure)
 	if (status < 0)
 		return status;
 
+	mutex_lock(&data->lock);
 	x1 = (data->b6 * data->b6) >> 12;
 	x1 *= cali->B2;
 	x1 >>= 11;
@@ -272,6 +275,7 @@ static s32 bmp085_get_pressure(struct bmp085_data *data, int *pressure)
 	x2 = (-7357 * p) >> 16;
 	p += (x1 + x2 + 3791) >> 4;
 
+	mutex_unlock(&data->lock);
 	*pressure = p;
 
 	return 0;
