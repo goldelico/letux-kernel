@@ -425,6 +425,11 @@ static void twl4030_init_chip(struct snd_soc_codec *codec)
 
 	/* Make sure that the reg_cache has the same value as the HW */
 	twl4030_write_reg_cache(codec, TWL4030_REG_ANAMICL, byte);
+	twl_i2c_write_u8(TWL4030_MODULE_AUDIO_VOICE,
+                                        TWL4030_VIF_TRI_EN,
+                                        TWL4030_REG_VOICE_IF);
+        printk("TPS Voice IF set to tristate\n");
+
 
 	twl4030_codec_enable(codec, 0);
 }
@@ -2200,6 +2205,7 @@ static int twl4030_voice_set_tristate(struct snd_soc_dai *dai, int tristate)
 {
 	struct snd_soc_codec *codec = dai->codec;
 	u8 reg = twl4030_read_reg_cache(codec, TWL4030_REG_VOICE_IF);
+	printk("twl4030_voice_set_tristate codec=%p\n", codec);
 
 	if (tristate)
 		reg |= TWL4030_VIF_TRI_EN;

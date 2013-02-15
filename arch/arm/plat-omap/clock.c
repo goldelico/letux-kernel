@@ -320,7 +320,9 @@ int omap_clk_enable_autoidle_all(void)
 	spin_lock_irqsave(&clockfw_lock, flags);
 
 	list_for_each_entry(c, &clocks, node)
-		if (c->ops->allow_idle)
+		if (c->flags & SWSUP_ICLK_IDLE && c->ops->deny_idle)
+			c->ops->deny_idle(c);
+		else if (c->ops->allow_idle)
 			c->ops->allow_idle(c);
 
 	spin_unlock_irqrestore(&clockfw_lock, flags);
