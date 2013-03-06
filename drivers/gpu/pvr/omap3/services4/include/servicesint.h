@@ -49,7 +49,6 @@ extern "C" {
 
 #include "services.h"
 #include "sysinfo.h"
-#include "sysconfig.h"
 
 #define HWREC_DEFAULT_TIMEOUT	(500)
 
@@ -138,9 +137,7 @@ typedef struct _PVRSRV_KERNEL_MEM_INFO_
       To activate the "share mem workaround", add PVRSRV_MEM_XPROC to
       the flags for the allocation.  This will cause the "map" API to
       call use Alloc Device Mem but will share the underlying memory
-      block and sync data.  Note that this is a workaround for a bug
-      exposed by a specific use-case on a particular platform.  Do not
-      use this functionality generally.
+      block and sync data.
     */
 	struct {
         /* Record whether the workaround is active for this

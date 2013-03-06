@@ -1485,7 +1485,7 @@ IMG_IMPORT IMG_VOID  IMG_CALLCONV PVRSRVFreeUserModeMemTracking(IMG_VOID *pvMem)
 
 IMG_IMPORT IMG_PVOID IMG_CALLCONV PVRSRVReallocUserModeMemTracking(IMG_VOID *pvMem, IMG_SIZE_T ui32NewSize, 
 													  IMG_CHAR *pszFileName, IMG_UINT32 ui32LineNumber);
-#endif /* defined(DEBUG) && (defined(__linux__) || defined(_UITRON_)) */
+#endif
 
 /******************************************************************************
  * PVR Event Object API(s)

@@ -104,6 +104,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define ON_EACH_CPU(func, info, wait) on_each_cpu(func, info, 0, wait)
 #endif
 
+#if 0
 #if defined(PVR_LINUX_USING_WORKQUEUES) && !defined(CONFIG_PREEMPT)
 /* 
  * Services spins at certain points waiting for events (e.g. swap
@@ -112,7 +113,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  * Removing the need for CONFIG_PREEMPT will require adding preemption
  * points at various points in Services.
  */
-//#error "A preemptible Linux kernel is required when using workqueues"
+#error "A preemptible Linux kernel is required when using workqueues"
+#endif
 #endif
 
 #if defined(EMULATOR)
@@ -4007,7 +4009,14 @@ IMG_BOOL CheckExecuteCacheOp(IMG_HANDLE hOSMemHandle,
 	psMMapOffsetStructList = &psLinuxMemArea->sMMapOffsetStructList;
 	ui32AreaLength = psLinuxMemArea->ui32ByteSize;
 
-	PVR_ASSERT(ui32Length <= ui32AreaLength);
+	/*
+		Don't check the length in the case of sparse mappings as
+		we only know the physical length not the virtual
+	*/
+	if (!psLinuxMemArea->hBMHandle)
+	{
+		PVR_ASSERT(ui32Length <= ui32AreaLength);
+	}
 
 	if(psLinuxMemArea->eAreaType == LINUX_MEM_AREA_SUB_ALLOC)
 	{

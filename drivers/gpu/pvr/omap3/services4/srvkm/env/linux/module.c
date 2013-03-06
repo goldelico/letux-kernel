@@ -922,6 +922,7 @@ static int __init PVRCore_Init(void)
 #if !defined(SUPPORT_DRI_DRM) && defined(PVR_LDM_DEVICE_CLASS)
 	struct device *psDev;
 #endif
+
 #if !defined(SUPPORT_DRI_DRM)
 	/*
 	 * Must come before attempting to print anything via Services.
