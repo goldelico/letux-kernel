@@ -171,6 +171,12 @@ AllocMemory (BM_CONTEXT			*pBMContext,
 									   ui32PrivDataLength,
 									   IMG_NULL);	/* We allocate VM space */
 
+			if (!bSuccess)
+			{
+				PVR_DPF((PVR_DBG_ERROR, "AllocMemory: BM_ImportMemory failed"));
+				return IMG_FALSE;
+			}
+
 			if (puiActualSize != ui32ChunkSize * ui32NumPhysChunks)
 			{
 				/*
