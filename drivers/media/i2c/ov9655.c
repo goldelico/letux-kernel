@@ -335,6 +335,20 @@ enum ov9655_model {
 #define OV9655_COLUMS			1520
 #define OV9655_ROWS			1050
 
+/* Number of pixels and number of lines per frame for different standards */
+#define VGA_NUM_ACTIVE_PIXELS           (4*160) /* 4:3 */
+#define VGA_NUM_ACTIVE_LINES            (3*160)
+#define QVGA_NUM_ACTIVE_PIXELS          (VGA_NUM_ACTIVE_PIXELS/2)       /* 4:3 */
+#define QVGA_NUM_ACTIVE_LINES           (VGA_NUM_ACTIVE_LINES/2)
+#define SXGA_NUM_ACTIVE_PIXELS          (5*256) /* 5:4 */
+#define SXGA_NUM_ACTIVE_LINES           (4*256)
+#define CIF_NUM_ACTIVE_PIXELS           (11*32) /* 11:9 ~ 5:4 */
+#define CIF_NUM_ACTIVE_LINES            (9*32)
+
+#define IS_SXGA(WIDTH, HEIGHT) (WIDTH == SXGA_NUM_ACTIVE_PIXELS && HEIGHT == SXGA_NUM_ACTIVE_LINES)
+#define IS_VGA(WIDTH, HEIGHT) (WIDTH == VGA_NUM_ACTIVE_PIXELS && HEIGHT == VGA_NUM_ACTIVE_LINES)
+#define IS_QVGA(WIDTH, HEIGHT) (WIDTH == QVGA_NUM_ACTIVE_PIXELS && HEIGHT == QVGA_NUM_ACTIVE_LINES)
+#define IS_CIF(WIDTH, HEIGHT) (WIDTH == CIF_NUM_ACTIVE_PIXELS && HEIGHT == CIF_NUM_ACTIVE_LINES)
 
 /* FIXME: adapt to what we need for the OV9655 */
 
@@ -347,17 +361,17 @@ struct ov9655 {
 	struct mutex power_lock; /* lock to protect power_count */
 	int power_count;
 
-	enum ov9655_model model;
-//	struct aptina_pll pll;
 	int reset;
 
 	struct v4l2_ctrl_handler ctrls;
 	struct v4l2_ctrl *blc_auto;
 	struct v4l2_ctrl *blc_offset;
 
+#if 0	// OV9655 needs different registers to be cached
 	/* Registers cache */
 	u16 output_control;
 	u16 mode2;
+#endif
 };
 
 static struct ov9655 *to_ov9655(struct v4l2_subdev *sd)
@@ -365,133 +379,146 @@ static struct ov9655 *to_ov9655(struct v4l2_subdev *sd)
 	return container_of(sd, struct ov9655, subdev);
 }
 
-static int ov9655_read(struct i2c_client *client, u8 reg)
+static int  ov9655_read(struct i2c_client *client, u8 reg)
 {
 	return i2c_smbus_read_byte_data(client, reg);
 }
 
-/* FIXME: adapt to what we need for the OV9655 */
-
-static int ov9655_write(struct i2c_client *client, u8 reg, u16 data)
+static int  ov9655_write(struct i2c_client *client, u8 reg, u8 data)
 {
-	// disable writing to any register until we have fixed the register definitions
-	return 0;
-	
-	return i2c_smbus_write_word_swapped(client, reg, data);
+	dev_info(&client->dev, "OV9655 write %02x to register %02x\n", data, reg);
+	return i2c_smbus_write_byte_data(client, reg, data);
 }
 
-static int ov9655_set_output_control(struct ov9655 *ov9655, u16 clear,
+#if 0	// stubs to fulfill old driver code
+
+static int  mt9p031_read(struct i2c_client *client, u8 reg)
+{
+	// disable reading anything
+	return 0;
+	return i2c_smbus_read_byte_data(client, reg);
+}
+
+#endif
+
+#if 1
+
+static int  mt9p031_write(struct i2c_client *client, u8 reg, u16 data)
+{
+	// disable writing to anything
+	return 0;	
+	return i2c_smbus_write_word_swapped(client, reg, data);
+}
+#endif
+
+#if 1	// replace since the OV9655 has different registers for that purpose
+
+static int ov9655_set_output_control(struct ov9655 *ov9655, u16 clear,	// appears to control enable/disable
 				      u16 set)
 {
+#if 0
 	struct i2c_client *client = v4l2_get_subdevdata(&ov9655->subdev);
 	u16 value = (ov9655->output_control & ~clear) | set;
 	int ret;
 
-	ret = ov9655_write(client, MT9P031_OUTPUT_CONTROL, value);
+//	printk("ov9655_set_output_control\n");
+
+	ret =  mt9p031_write(client, MT9P031_OUTPUT_CONTROL, value);
 	if (ret < 0)
 		return ret;
 
 	ov9655->output_control = value;
+#endif
 	return 0;
 }
 
-static int ov9655_set_mode2(struct ov9655 *ov9655, u16 clear, u16 set)
+static int ov9655_set_mode2(struct ov9655 *ov9655, u16 clear, u16 set)	// appears to control black level compensation and mirroring
 {
+#if 0
 	struct i2c_client *client = v4l2_get_subdevdata(&ov9655->subdev);
 	u16 value = (ov9655->mode2 & ~clear) | set;
 	int ret;
 
-	ret = ov9655_write(client, MT9P031_READ_MODE_2, value);
+//	printk("ov9655_set_mode2\n");
+
+	ret =  mt9p031_write(client, MT9P031_READ_MODE_2, value);
 	if (ret < 0)
 		return ret;
 
 	ov9655->mode2 = value;
+#endif
 	return 0;
 }
+
+#endif
 
 static int ov9655_reset(struct ov9655 *ov9655)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&ov9655->subdev);
 	int ret;
 
-	/* Disable chip output, synchronous option update */
-	ret = ov9655_write(client, MT9P031_RST, MT9P031_RST_ENABLE);
+	printk("ov9655_reset\n");
+	dev_info(&client->dev, "ov9655_reset\n");
+
+	ret =  ov9655_write(client, OV9655_COM7, 0x82);	/* reset to chip defaults */
+	if (ret < 0)
+		{
+		printk("write failed err=%d\n", ret);
+		dev_info(&client->dev, "write failed err=%d\n", ret);
+		return ret;
+		}
+	usleep_range(1000, 2000);
+	
+	/*
+	 * some assumptions for the interface settings
+	 * 1. we are connected to a TI OMAP3530 CAM interface at 1.8V through short wires
+	 * 2. XCLKA up to 48 MHz so that we can reach 15 fps @ SXGA
+	 * 3. the interface expects VSYNC and HSYNC at positive impulses (not HREF)
+	 * 4. PCLK is XCLK scaled up by PLL (DBLV=1x,4x,6x,8x) and divided down by CLKRC
+	 */
+		
+	ret =  ov9655_write(client, OV9655_COM2, 0x01);	/* drive outputs at 2x; disable soft sleep */
 	if (ret < 0)
 		return ret;
-	ret = ov9655_write(client, MT9P031_RST, MT9P031_RST_DISABLE);
+	
+	ret =  ov9655_write(client, OV9655_COM10, OV9655_COM10_HREF2HSYNC | OV9655_COM10_HSYNC_NEG);	/* define pin polarity and functions as default (VSYNC, HSYNC as positive pulses) */
 	if (ret < 0)
 		return ret;
 
-	return ov9655_set_output_control(ov9655, MT9P031_OUTPUT_CONTROL_CEN,
-					  0);
-}
-
-static int ov9655_pll_setup(struct ov9655 *ov9655)
-{
+	ret =  ov9655_write(client, OV9655_CLKRC, 1);	/* compensate for PLL_4X */
+	if (ret < 0)
+		return ret;
+	
+	ret =  ov9655_write(client, OV9655_DBLV, OV9655_DBLV_PLL_4X | OV9655_DBLV_BANDGAP);
+	if (ret < 0)
+		return ret;
+	
+	ret =  ov9655_write(client, OV9655_TSLB, 0x0c);	/* pixel clock delay and UYVY byte order */
+	if (ret < 0)
+		return ret;
+	
+	
 #if 0
-	static const struct aptina_pll_limits limits = {
-		.ext_clock_min = 6000000,
-		.ext_clock_max = 27000000,
-		.int_clock_min = 2000000,
-		.int_clock_max = 13500000,
-		.out_clock_min = 180000000,
-		.out_clock_max = 360000000,
-		.pix_clock_max = 96000000,
-		.n_min = 1,
-		.n_max = 64,
-		.m_min = 16,
-		.m_max = 255,
-		.p1_min = 1,
-		.p1_max = 128,
-	};
 
-	struct i2c_client *client = v4l2_get_subdevdata(&ov9655->subdev);
-	struct ov9655_platform_data *pdata = ov9655->pdata;
-
-	ov9655->pll.ext_clock = pdata->ext_freq;
-	ov9655->pll.pix_clock = pdata->target_freq;
-
-	return aptina_pll_calculate(&client->dev, &limits, &ov9655->pll);
-#endif
-	return 0;
-}
-
-static int ov9655_pll_enable(struct ov9655 *ov9655)
-{
-#if 0
-	struct i2c_client *client = v4l2_get_subdevdata(&ov9655->subdev);
-	int ret;
-
-	ret = ov9655_write(client, MT9P031_PLL_CONTROL,
+	ret =  mt9p031_write(client, MT9P031_PLL_CONTROL,
 			    MT9P031_PLL_CONTROL_PWRON);
 	if (ret < 0)
 		return ret;
 
-	ret = ov9655_write(client, MT9P031_PLL_CONFIG_1,
+	ret =  mt9p031_write(client, MT9P031_PLL_CONFIG_1,
 			    (ov9655->pll.m << 8) | (ov9655->pll.n - 1));
 	if (ret < 0)
 		return ret;
 
-	ret = ov9655_write(client, MT9P031_PLL_CONFIG_2, ov9655->pll.p1 - 1);
+	ret =  mt9p031_write(client, MT9P031_PLL_CONFIG_2, ov9655->pll.p1 - 1);
 	if (ret < 0)
 		return ret;
 
 	usleep_range(1000, 2000);
-	ret = ov9655_write(client, MT9P031_PLL_CONTROL,
+	ret =  mt9p031_write(client, MT9P031_PLL_CONTROL,
 			    MT9P031_PLL_CONTROL_PWRON |
 			    MT9P031_PLL_CONTROL_USEPLL);
 	return ret;
-#endif
-	return 0;
-}
-
-static inline int ov9655_pll_disable(struct ov9655 *ov9655)
-{
-#if 0
-	struct i2c_client *client = v4l2_get_subdevdata(&ov9655->subdev);
-
-	return ov9655_write(client, MT9P031_PLL_CONTROL,
-			     MT9P031_PLL_CONTROL_PWROFF);
 #endif
 	return 0;
 }
@@ -508,10 +535,19 @@ static int ov9655_power_on(struct ov9655 *ov9655)
 		usleep_range(1000, 2000);
 	}
 
-	/* Emable clock */
+	/* Enable clock */
+	
+	// FIXME: should NOT be provided by pdata but derived from resolution and prescaling
+	// but for I2C to work we need a clock with approx. 20 MHz
+	
+	/*
+	 *   XCLK = fps * width * height * bytespersample / prescaler (OV9655_CLKRC and PLL_4X)
+	 */
 	if (ov9655->pdata->set_xclk)
 		ov9655->pdata->set_xclk(&ov9655->subdev,
-					 ov9655->pdata->ext_freq);
+				//	30*1520*1050*2/4	// SXGA clock
+					30*800*500*2/1	// VGA clock
+							/* ov9655->pdata->ext_freq */);
 
 	/* Now RESET_BAR must be high */
 	if (ov9655->reset != -1) {
@@ -577,22 +613,44 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 
 	dev_info(&client->dev, "ov9655_set_params\n");
 	
+	// FIXME: should we also set/change the pixel clock here?
+
+	if(IS_SXGA(ov9655->format.width, ov9655->format.height)) {
+		
+	}
+	else if(IS_VGA(ov9655->format.width, ov9655->format.height)) {
+		
+	}
+	else if(IS_QVGA(ov9655->format.width, ov9655->format.height)) {
+		
+	}
+	else if(IS_CIF(ov9655->format.width, ov9655->format.height)) {
+		
+	}
+	else {
+		dev_info(&client->dev, "ov9655_set_params unknown format width=%u height=%u\n", ov9655->format.width, ov9655->format.height);
+//		return -EINVAL;	// unknown format
+		// returing -EINVAL ends up in a kernel panic
+	}
+
+	
+	
 	/* Windows position and size.
 	 *
 	 * TODO: Make sure the start coordinates and window size match the
 	 * skipping, binning and mirroring (see description of registers 2 and 4
 	 * in table 13, and Binning section on page 41).
 	 */
-	ret = ov9655_write(client, MT9P031_COLUMN_START, crop->left);
+	ret =  mt9p031_write(client, MT9P031_COLUMN_START, crop->left);
 	if (ret < 0)
 		return ret;
-	ret = ov9655_write(client, MT9P031_ROW_START, crop->top);
+	ret =  mt9p031_write(client, MT9P031_ROW_START, crop->top);
 	if (ret < 0)
 		return ret;
-	ret = ov9655_write(client, MT9P031_WINDOW_WIDTH, crop->width - 1);
+	ret =  mt9p031_write(client, MT9P031_WINDOW_WIDTH, crop->width - 1);
 	if (ret < 0)
 		return ret;
-	ret = ov9655_write(client, MT9P031_WINDOW_HEIGHT, crop->height - 1);
+	ret =  mt9p031_write(client, MT9P031_WINDOW_HEIGHT, crop->height - 1);
 	if (ret < 0)
 		return ret;
 
@@ -604,11 +662,11 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 	xbin = 1 << (ffs(xskip) - 1);
 	ybin = 1 << (ffs(yskip) - 1);
 
-	ret = ov9655_write(client, MT9P031_COLUMN_ADDRESS_MODE,
+	ret =  mt9p031_write(client, MT9P031_COLUMN_ADDRESS_MODE,
 			    ((xbin - 1) << 4) | (xskip - 1));
 	if (ret < 0)
 		return ret;
-	ret = ov9655_write(client, MT9P031_ROW_ADDRESS_MODE,
+	ret =  mt9p031_write(client, MT9P031_ROW_ADDRESS_MODE,
 			    ((ybin - 1) << 4) | (yskip - 1));
 	if (ret < 0)
 		return ret;
@@ -619,10 +677,10 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 	hblank = 346 * ybin + 64 + (80 >> min_t(unsigned int, xbin, 3));
 	vblank = MT9P031_VERTICAL_BLANK_DEF;
 
-	ret = ov9655_write(client, MT9P031_HORIZONTAL_BLANK, hblank - 1);
+	ret =  mt9p031_write(client, MT9P031_HORIZONTAL_BLANK, hblank - 1);
 	if (ret < 0)
 		return ret;
-	ret = ov9655_write(client, MT9P031_VERTICAL_BLANK, vblank - 1);
+	ret =  mt9p031_write(client, MT9P031_VERTICAL_BLANK, vblank - 1);
 	if (ret < 0)
 		return ret;
 
@@ -635,6 +693,7 @@ static int ov9655_s_stream(struct v4l2_subdev *subdev, int enable)
 	int ret;
 
 	struct i2c_client *client = v4l2_get_subdevdata(&ov9655->subdev);
+	
 	dev_info(&client->dev, "ov9655_s_stream(%d)\n", enable);
 	
 	if (!enable) {
@@ -644,7 +703,7 @@ static int ov9655_s_stream(struct v4l2_subdev *subdev, int enable)
 		if (ret < 0)
 			return ret;
 
-		return ov9655_pll_disable(ov9655);
+		return 0;
 	}
 
 	ret = ov9655_set_params(ov9655);
@@ -657,7 +716,7 @@ static int ov9655_s_stream(struct v4l2_subdev *subdev, int enable)
 	if (ret < 0)
 		return ret;
 
-	return ov9655_pll_enable(ov9655);
+	return 0;
 }
 
 static int ov9655_enum_mbus_code(struct v4l2_subdev *subdev,
@@ -666,6 +725,7 @@ static int ov9655_enum_mbus_code(struct v4l2_subdev *subdev,
 {
 	struct ov9655 *ov9655 = to_ov9655(subdev);
 
+	printk("ov9655_enum_mbus_code\n");
 	if (code->pad || code->index)
 		return -EINVAL;
 
@@ -679,6 +739,7 @@ static int ov9655_enum_frame_size(struct v4l2_subdev *subdev,
 {
 	struct ov9655 *ov9655 = to_ov9655(subdev);
 
+	printk("ov9655_enum_frame_size\n");
 	if (fse->index >= 8 || fse->code != ov9655->format.code)
 		return -EINVAL;
 
@@ -695,6 +756,7 @@ static struct v4l2_mbus_framefmt *
 __ov9655_get_pad_format(struct ov9655 *ov9655, struct v4l2_subdev_fh *fh,
 			 unsigned int pad, u32 which)
 {
+	printk("__ov9655_get_pad_format\n");
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
 		return v4l2_subdev_get_try_format(fh, pad);
@@ -709,6 +771,7 @@ static struct v4l2_rect *
 __ov9655_get_pad_crop(struct ov9655 *ov9655, struct v4l2_subdev_fh *fh,
 		     unsigned int pad, u32 which)
 {
+	printk("__ov9655_get_pad_crop\n");
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
 		return v4l2_subdev_get_try_crop(fh, pad);
@@ -725,6 +788,7 @@ static int ov9655_get_format(struct v4l2_subdev *subdev,
 {
 	struct ov9655 *ov9655 = to_ov9655(subdev);
 
+	printk("ov9655_get_format\n");
 	fmt->format = *__ov9655_get_pad_format(ov9655, fh, fmt->pad,
 						fmt->which);
 	return 0;
@@ -742,6 +806,7 @@ static int ov9655_set_format(struct v4l2_subdev *subdev,
 	unsigned int hratio;
 	unsigned int vratio;
 
+	printk("ov9655_set_format width=%u height=%u\n", format->format.width, format->format.height);
 	__crop = __ov9655_get_pad_crop(ov9655, fh, format->pad,
 					format->which);
 
@@ -772,6 +837,7 @@ static int ov9655_get_crop(struct v4l2_subdev *subdev,
 {
 	struct ov9655 *ov9655 = to_ov9655(subdev);
 
+	printk("ov9655_get_crop\n");
 	crop->rect = *__ov9655_get_pad_crop(ov9655, fh, crop->pad,
 					     crop->which);
 	return 0;
@@ -786,6 +852,7 @@ static int ov9655_set_crop(struct v4l2_subdev *subdev,
 	struct v4l2_rect *__crop;
 	struct v4l2_rect rect;
 
+	printk("ov9655_set_crop\n");
 	/* Clamp the crop rectangle boundaries and align them to a multiple of 2
 	 * pixels to ensure a GRBG Bayer pattern.
 	 */
@@ -840,15 +907,17 @@ static int ov9655_s_ctrl(struct v4l2_ctrl *ctrl)
 
 	switch (ctrl->id) {
 	case V4L2_CID_EXPOSURE:
-		ret = ov9655_write(client, MT9P031_SHUTTER_WIDTH_UPPER,
+			printk("ov9655_s_ctrl V4L2_CID_EXPOSURE %08x\n", ctrl->val);
+		ret =  mt9p031_write(client, MT9P031_SHUTTER_WIDTH_UPPER,
 				    (ctrl->val >> 16) & 0xffff);
 		if (ret < 0)
 			return ret;
 
-		return ov9655_write(client, MT9P031_SHUTTER_WIDTH_LOWER,
+		return  mt9p031_write(client, MT9P031_SHUTTER_WIDTH_LOWER,
 				     ctrl->val & 0xffff);
 
 	case V4L2_CID_GAIN:
+			printk("ov9655_s_ctrl V4L2_CID_GAIN %u\n", ctrl->val);
 		/* Gain is controlled by 2 analog stages and a digital stage.
 		 * Valid values for the 3 stages are
 		 *
@@ -873,9 +942,10 @@ static int ov9655_s_ctrl(struct v4l2_ctrl *ctrl)
 			data = ((ctrl->val - 64) << 5) | (1 << 6) | 32;
 		}
 
-		return ov9655_write(client, MT9P031_GLOBAL_GAIN, data);
+		return  mt9p031_write(client, MT9P031_GLOBAL_GAIN, data);
 
 	case V4L2_CID_HFLIP:
+			printk("ov9655_s_ctrl V4L2_CID_HFLIP %u\n", ctrl->val);
 		if (ctrl->val)
 			return ov9655_set_mode2(ov9655,
 					0, MT9P031_READ_MODE_2_COL_MIR);
@@ -884,6 +954,7 @@ static int ov9655_s_ctrl(struct v4l2_ctrl *ctrl)
 					MT9P031_READ_MODE_2_COL_MIR, 0);
 
 	case V4L2_CID_VFLIP:
+			printk("ov9655_s_ctrl V4L2_CID_VFLIP %u\n", ctrl->val);
 		if (ctrl->val)
 			return ov9655_set_mode2(ov9655,
 					0, MT9P031_READ_MODE_2_ROW_MIR);
@@ -892,6 +963,7 @@ static int ov9655_s_ctrl(struct v4l2_ctrl *ctrl)
 					MT9P031_READ_MODE_2_ROW_MIR, 0);
 
 	case V4L2_CID_TEST_PATTERN:
+			printk("ov9655_s_ctrl V4L2_CID_TEST_PATTERN %u\n", ctrl->val);
 		if (!ctrl->val) {
 			/* Restore the black level compensation settings. */
 			if (ov9655->blc_auto->cur.val != 0) {
@@ -904,17 +976,17 @@ static int ov9655_s_ctrl(struct v4l2_ctrl *ctrl)
 				if (ret < 0)
 					return ret;
 			}
-			return ov9655_write(client, MT9P031_TEST_PATTERN,
+			return  mt9p031_write(client, MT9P031_TEST_PATTERN,
 					     MT9P031_TEST_PATTERN_DISABLE);
 		}
 
-		ret = ov9655_write(client, MT9P031_TEST_PATTERN_GREEN, 0x05a0);
+		ret =  mt9p031_write(client, MT9P031_TEST_PATTERN_GREEN, 0x05a0);
 		if (ret < 0)
 			return ret;
-		ret = ov9655_write(client, MT9P031_TEST_PATTERN_RED, 0x0a50);
+		ret =  mt9p031_write(client, MT9P031_TEST_PATTERN_RED, 0x0a50);
 		if (ret < 0)
 			return ret;
-		ret = ov9655_write(client, MT9P031_TEST_PATTERN_BLUE, 0x0aa0);
+		ret =  mt9p031_write(client, MT9P031_TEST_PATTERN_BLUE, 0x0aa0);
 		if (ret < 0)
 			return ret;
 
@@ -926,44 +998,48 @@ static int ov9655_s_ctrl(struct v4l2_ctrl *ctrl)
 		if (ret < 0)
 			return ret;
 
-		ret = ov9655_write(client, MT9P031_ROW_BLACK_DEF_OFFSET, 0);
+		ret =  mt9p031_write(client, MT9P031_ROW_BLACK_DEF_OFFSET, 0);
 		if (ret < 0)
 			return ret;
 
-		return ov9655_write(client, MT9P031_TEST_PATTERN,
+		return  mt9p031_write(client, MT9P031_TEST_PATTERN,
 				((ctrl->val - 1) << MT9P031_TEST_PATTERN_SHIFT)
 				| MT9P031_TEST_PATTERN_ENABLE);
 
 	case V4L2_CID_BLC_AUTO:
+			printk("ov9655_s_ctrl V4L2_CID_BLC_AUTO %d\n", ctrl->val);
 		ret = ov9655_set_mode2(ov9655,
 				ctrl->val ? 0 : MT9P031_READ_MODE_2_ROW_BLC,
 				ctrl->val ? MT9P031_READ_MODE_2_ROW_BLC : 0);
 		if (ret < 0)
 			return ret;
 
-		return ov9655_write(client, MT9P031_BLACK_LEVEL_CALIBRATION,
+		return  mt9p031_write(client, MT9P031_BLACK_LEVEL_CALIBRATION,
 				     ctrl->val ? 0 : MT9P031_BLC_MANUAL_BLC);
 
 	case V4L2_CID_BLC_TARGET_LEVEL:
-		return ov9655_write(client, MT9P031_ROW_BLACK_TARGET,
+			printk("ov9655_s_ctrl V4L2_CID_BLC_TARGET_LEVEL %08x\n", ctrl->val);
+		return  mt9p031_write(client, MT9P031_ROW_BLACK_TARGET,
 				     ctrl->val);
 
 	case V4L2_CID_BLC_ANALOG_OFFSET:
+			printk("ov9655_s_ctrl V4L2_CID_BLC_ANALOG_OFFSET %08x\n", ctrl->val);
 		data = ctrl->val & ((1 << 9) - 1);
 
-		ret = ov9655_write(client, MT9P031_GREEN1_OFFSET, data);
+		ret =  mt9p031_write(client, MT9P031_GREEN1_OFFSET, data);
 		if (ret < 0)
 			return ret;
-		ret = ov9655_write(client, MT9P031_GREEN2_OFFSET, data);
+		ret =  mt9p031_write(client, MT9P031_GREEN2_OFFSET, data);
 		if (ret < 0)
 			return ret;
-		ret = ov9655_write(client, MT9P031_RED_OFFSET, data);
+		ret =  mt9p031_write(client, MT9P031_RED_OFFSET, data);
 		if (ret < 0)
 			return ret;
-		return ov9655_write(client, MT9P031_BLUE_OFFSET, data);
+		return  mt9p031_write(client, MT9P031_BLUE_OFFSET, data);
 
 	case V4L2_CID_BLC_DIGITAL_OFFSET:
-		return ov9655_write(client, MT9P031_ROW_BLACK_DEF_OFFSET,
+			printk("ov9655_s_ctrl V4L2_CID_BLC_DIGITAL_OFFSET %08x\n", ctrl->val);
+		return  mt9p031_write(client, MT9P031_ROW_BLACK_DEF_OFFSET,
 				     ctrl->val & ((1 << 12) - 1));
 	}
 
@@ -1078,7 +1154,7 @@ static int ov9655_registered(struct v4l2_subdev *subdev)
 	}
 
 	/* Read chip manufacturer register */
-	data = (ov9655_read(client, OV9655_MIDH) << 8) + ov9655_read(client, OV9655_MIDL);
+	data = ( ov9655_read(client, OV9655_MIDH) << 8) +  ov9655_read(client, OV9655_MIDL);
 	
 	if (data < 0) {
 		dev_err(&client->dev, "OV9655 not detected, can't read manufacturer id\n");
@@ -1091,14 +1167,14 @@ static int ov9655_registered(struct v4l2_subdev *subdev)
 		return -ENODEV;
 	}
 	
-	data = ov9655_read(client, OV9655_PID);
+	data =  ov9655_read(client, OV9655_PID);
 	if (data != OV9655_CHIP_PID) {
 		dev_err(&client->dev, "OV9655 not detected, wrong part "
 				"0x%02x\n", (unsigned) data);
 		return -ENODEV;
 	}
 	
-	data = ov9655_read(client, OV9655_VER);
+	data =  ov9655_read(client, OV9655_VER);
 	if (data != OV9655_CHIP_VER4 && data != OV9655_CHIP_VER5) {
 		dev_err(&client->dev, "OV9655 not detected, wrong version "
 				"0x%02x\n", (unsigned) data);
@@ -1115,10 +1191,11 @@ static int ov9655_registered(struct v4l2_subdev *subdev)
 
 static int ov9655_open(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh)
 {
-	struct ov9655 *ov9655 = to_ov9655(subdev);
 	struct v4l2_mbus_framefmt *format;
 	struct v4l2_rect *crop;
 
+	printk("ov9655_open\n");
+	
 	crop = v4l2_subdev_get_try_crop(fh, 0);
 	crop->left = MT9P031_COLUMN_START_DEF;
 	crop->top = MT9P031_ROW_START_DEF;
@@ -1127,10 +1204,7 @@ static int ov9655_open(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh)
 
 	format = v4l2_subdev_get_try_format(fh, 0);
 
-	if (ov9655->model == MT9P031_MODEL_MONOCHROME)
-		format->code = V4L2_MBUS_FMT_Y12_1X12;
-	else
-		format->code = V4L2_MBUS_FMT_SGRBG12_1X12;
+	format->code = V4L2_MBUS_FMT_SGRBG12_1X12;
 
 	format->width = MT9P031_WINDOW_WIDTH_DEF;
 	format->height = MT9P031_WINDOW_HEIGHT_DEF;
@@ -1142,6 +1216,7 @@ static int ov9655_open(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh)
 
 static int ov9655_close(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh)
 {
+	printk("ov9655_close\n");
 	return ov9655_set_power(subdev, 0);
 }
 
@@ -1203,13 +1278,14 @@ static int ov9655_probe(struct i2c_client *client,
 		return -ENOMEM;
 
 	ov9655->pdata = pdata;
-	ov9655->output_control	= MT9P031_OUTPUT_CONTROL_DEF;
-	ov9655->mode2 = MT9P031_READ_MODE_2_ROW_BLC;
-	ov9655->model = did->driver_data;
+//	ov9655->output_control	= MT9P031_OUTPUT_CONTROL_DEF;
+//	ov9655->mode2 = MT9P031_READ_MODE_2_ROW_BLC;
+//	ov9655->model = did->driver_data;	// second paramter from ov9655_id[]
 	ov9655->reset = -1;
 
 	v4l2_ctrl_handler_init(&ov9655->ctrls, ARRAY_SIZE(ov9655_ctrls) + 6);
 
+	/* register custom controls */
 	v4l2_ctrl_new_std(&ov9655->ctrls, &ov9655_ctrl_ops,
 			  V4L2_CID_EXPOSURE, MT9P031_SHUTTER_WIDTH_MIN,
 			  MT9P031_SHUTTER_WIDTH_MAX, 1,
@@ -1261,10 +1337,7 @@ static int ov9655_probe(struct i2c_client *client,
 	ov9655->crop.left = MT9P031_COLUMN_START_DEF;
 	ov9655->crop.top = MT9P031_ROW_START_DEF;
 
-	if (ov9655->model == MT9P031_MODEL_MONOCHROME)
-		ov9655->format.code = V4L2_MBUS_FMT_Y12_1X12;
-	else
-		ov9655->format.code = V4L2_MBUS_FMT_SGRBG12_1X12;
+	ov9655->format.code = V4L2_MBUS_FMT_SGRBG12_1X12;
 
 	ov9655->format.width = MT9P031_WINDOW_WIDTH_DEF;
 	ov9655->format.height = MT9P031_WINDOW_HEIGHT_DEF;
@@ -1280,7 +1353,7 @@ static int ov9655_probe(struct i2c_client *client,
 		ov9655->reset = pdata->reset;
 	}
 
-	ret = ov9655_pll_setup(ov9655);
+	ret = 0;
 
 done:
 	if (ret < 0) {
@@ -1311,8 +1384,7 @@ static int ov9655_remove(struct i2c_client *client)
 }
 
 static const struct i2c_device_id ov9655_id[] = {
-	{ "ov9655", MT9P031_MODEL_COLOR },
-	{ "ov9655m", MT9P031_MODEL_MONOCHROME },
+	{ "ov9655", 0 },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, ov9655_id);
