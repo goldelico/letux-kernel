@@ -23,6 +23,8 @@
 #include <linux/clk.h>
 #include <linux/err.h>
 #include <linux/delay.h>
+#include <linux/of.h>
+#include <linux/of_platform.h>
 
 #include <video/omapdss.h>
 #include "omap_hwmod.h"
@@ -551,4 +553,78 @@ int omap_dss_reset(struct omap_hwmod *oh)
 	r = (c == MAX_MODULE_SOFTRESET_WAIT) ? -ETIMEDOUT : 0;
 
 	return r;
+}
+
+int __init omapdss_init_of(void)
+{
+	int r;
+	enum omapdss_version ver;
+	struct device_node *node;
+
+	static struct omap_dss_board_info board_data = {
+		.dsi_enable_pads = omap_dsi_enable_pads,
+		.dsi_disable_pads = omap_dsi_disable_pads,
+		.get_context_loss_count = omap_pm_get_dev_context_loss_count,
+		.set_min_bus_tput = omap_dss_set_min_bus_tput,
+	};
+
+	/* only create dss helper devices if dss is enabled in the .dts */
+
+	node = of_find_compatible_node(NULL, NULL, "ti,omap2-dss");
+	if (!node)
+		node = of_find_compatible_node(NULL, NULL, "ti,omap3-dss");
+	if (!node)
+		node = of_find_compatible_node(NULL, NULL, "ti,omap4-dss");
+	if (!node)
+		return 0;
+
+	if (!of_device_is_available(node))
+		return 0;
+
+	ver = omap_display_get_version();
+
+	if (ver == OMAPDSS_VER_UNKNOWN) {
+		pr_err("DSS not supported on this SoC\n");
+		return -ENODEV;
+	}
+
+	board_data.version = ver;
+
+	omap_display_device.dev.platform_data = &board_data;
+
+	r = platform_device_register(&omap_display_device);
+	if (r < 0) {
+		pr_err("Unable to register omapdss device\n");
+		return r;
+	}
+
+	/* create DRM device */
+	r = omap_init_drm();
+	if (r < 0) {
+		pr_err("Unable to register omapdrm device\n");
+		return r;
+	}
+
+	/* create vrfb device */
+	r = omap_init_vrfb();
+	if (r < 0) {
+		pr_err("Unable to register omapvrfb device\n");
+		return r;
+	}
+
+	/* create FB device */
+	r = omap_init_fb();
+	if (r < 0) {
+		pr_err("Unable to register omapfb device\n");
+		return r;
+	}
+
+	/* create V4L2 display device */
+	r = omap_init_vout();
+	if (r < 0) {
+		pr_err("Unable to register omap_vout device\n");
+		return r;
+	}
+
+	return 0;
 }
