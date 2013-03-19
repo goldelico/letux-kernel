@@ -387,7 +387,7 @@ struct ov9655_reg {
 static const struct ov9655_reg ov9655_init_hardware[] = {
 	/* here we write only registers that must match our hardware interface */
 	{ OV9655_COM2, 0x01 },	/* drive outputs at 2x; disable soft sleep */
-	{ OV9655_COM10, OV9655_COM10_HREF2HSYNC | OV9655_COM10_HSYNC_NEG },	/* define pin polarity and functions as default (VSYNC, HSYNC as positive pulses) */
+	{ OV9655_COM10, /*OV9655_COM10_HREF2HSYNC | */ OV9655_COM10_HSYNC_NEG },	/* define pin polarity and functions as default (VSYNC, HSYNC as positive pulses) */
 	{ OV9655_CLKRC, 1 },	/* compensate for PLL_4X */
 	{ OV9655_DBLV, OV9655_DBLV_PLL_4X | OV9655_DBLV_BANDGAP },
 	{ OV9655_TSLB, 0x0c },	// pixel clock delay and UYVY byte order
@@ -817,6 +817,10 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 
 	dev_info(&client->dev, "ov9655_set_params\n");
 	
+	// format as set by user space command
+	//    media-ctl -V '"ov9655 2-0030":0 [SGRBG8 1024x1024]'
+	//
+	
 	// FIXME: should we also set/change the pixel clock here?
 
 	if(IS_SXGA(ov9655->format.width, ov9655->format.height)) {
@@ -837,6 +841,9 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 		// returing -EINVAL ends up in a kernel panic
 	}
 
+	// handle format->code == V4L2_MBUS_FMT_BGR565_2X8_BE etc.
+	// format->field could set some interlacing thing
+	
 	ov9655_write_regs(client, ov9655_init_regs, ARRAY_SIZE(ov9655_init_regs));
 //	ov9655_write_regs(client, ov9655_sxga, ARRAY_SIZE(ov9655_sxga));
 	
