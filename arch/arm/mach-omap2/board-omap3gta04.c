@@ -60,6 +60,7 @@
 #include "devices.h"	/* omap3_init_camera */
 #endif
 #include <linux/input/tca8418_keypad.h>
+#include <linux/mfd/tps6105x.h>
 
 #include <linux/sysfs.h>
 
@@ -992,7 +993,7 @@ struct tsc2007_platform_data __initdata tsc2007_info = {
 #endif
 
 
-#ifdef CONFIG_BMP085
+#if defined(CONFIG_BMP085) || defined(CONFIG_BMP085_MODULE)
 
 struct bmp085_platform_data __initdata bmp085_info = {
 	.gpio = BMP085_EOC_IRQ_GPIO,
@@ -1024,7 +1025,15 @@ static struct tca6507_platform_data tca6507_info = {
 };
 #endif
 
-#ifdef CONFIG_KEYBOARD_TCA8418
+#if defined(CONFIG_TPS6105X) || defined(CONFIG_TPS6105X_MODULE)
+
+static struct tps6105x_platform_data tps6105x_info = {
+	.mode = TPS6105X_MODE_TORCH_FLASH,	/* unsupported by driver! */
+};
+
+#endif
+
+#if defined(CONFIG_KEYBOARD_TCA8418) || defined(CONFIG_KEYBOARD_TCA8418_MODULE)
 
 static int __init tca8418_init(void)
 {
@@ -1160,22 +1169,10 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 	.irq		= -EINVAL,	// will be modified dynamically by code
 },
 #endif
-#ifdef CONFIG_BMP085
+#if defined(CONFIG_BMP085) || defined(CONFIG_BMP085_MODULE)
 {
 	I2C_BOARD_INFO("bmp085", 0x77),
 	.platform_data	= &bmp085_info,
-},
-#endif
-#ifdef CONFIG_LIS302
-{
-	I2C_BOARD_INFO("lis302", 0x1c),
-	.platform_data	= &lis302_info,
-	.irq		=  -EINVAL,
-},
-{
-	I2C_BOARD_INFO("lis302", 0x1d),
-	.platform_data	= &lis302_info,
-	.irq		=  114,
 },
 #endif
 #if defined(CONFIG_LEDS_TCA6507)
@@ -1184,34 +1181,34 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 	.platform_data	= &tca6507_info,
 },
 #endif
-#ifdef CONFIG_INPUT_BMA150
+#if defined(CONFIG_INPUT_BMA150) || defined(CONFIG_INPUT_BMA150_MODULE)
 {
 	I2C_BOARD_INFO("bma150", 0x41),	/* supports our bma180 */
 },
 #endif
-#ifdef CONFIG_SENSORS_HMC5843
+#if defined(CONFIG_SENSORS_HMC5843) || defined(CONFIG_SENSORS_HMC5843_MODULE)
 {
 	I2C_BOARD_INFO("hmc5843", 0x1e),	/* supports our hmc5883l */
 },
 #endif
-#ifdef CONFIG_SENSORS_ITG3200
+#if defined(CONFIG_ITG3200) || defined(CONFIG_ITG3200_MODULE)
 	{
 	I2C_BOARD_INFO("itg3200", 0x68),
 	},
 #endif
-#ifdef CONFIG_BMA250
+#if defined(CONFIG_BMA250) || defined(CONFIG_BMA250_MODULE)
 	{
 	I2C_BOARD_INFO("bma250", 0x18),
 	.irq		= 115,
 	},	
 #endif
-#ifdef CONFIG_BMC050
+#if defined(CONFIG_BMC050) || defined(CONFIG_BMC050_MODULE)
 	{
 	I2C_BOARD_INFO("bmc050", 0x10),
 	.irq		= 111,
 	},	
 #endif
-#ifdef CONFIG_TPS61050
+#if defined(CONFIG_TPS6105X) || defined(CONFIG_TPS6105X_MODULE)
 	{
 	I2C_BOARD_INFO("tps6105x", 0x33),
 	.platform_data = &tps6105x_info,
@@ -1222,7 +1219,7 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 	I2C_BOARD_INFO("24c64", 0x50),	/* supports our mt24lr64 RFID EEPROM */
 	},	
 #endif
-#ifdef CONFIG_KEYBOARD_TCA8418
+#if defined(CONFIG_KEYBOARD_TCA8418) || defined(CONFIG_KEYBOARD_TCA8418_MODULE)
 	{
 	I2C_BOARD_INFO("tca8418_keyboard", 0x34),	/* /sys/.../name */
 	.platform_data	= &tca8418_pdata,
@@ -1268,9 +1265,13 @@ static struct isp_v4l2_subdevs_group gta04_camera_subdevs_group[] = {
 		.subdevs = gta04_camera_subdevs,
 		.interface = ISP_INTERFACE_PARALLEL,
 		.bus = {
+			/* see http://lxr.free-electrons.com/source/include/media/omap3isp.h?a=arm#L30 */
 			.parallel = {
-				.data_lane_shift = 0,
-				.clk_pol = 1,
+				.data_lane_shift = ISP_LANE_SHIFT_0,	/* CAMEXT[13:0] -> CAM[13:0] */
+				.clk_pol = 1,	/* sample on falling edge */
+				.hs_pol = 0,	/* active high */
+				.vs_pol = 0,	/* axctive high */
+				.data_pol = 0,	/* normal */
 			}
 		},
 	},
