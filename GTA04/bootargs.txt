@@ -42,10 +42,13 @@ setenv mmcroot "/dev/mmcblk0p${PARTITION} rw"
 setenv mmcrootfstype "ext4,ext3 rootwait";
 fi
 
-# setenv mmcargs 'setenv bootargs console=${console} mpurate=${mpurate} vram=${vram} omapfb.vram='0:8M,1:4M' omapfb.mode=dvi:${dvimode} omapfb.debug=y omapdss.def_disp=${defaultdisplay} root=${mmcroot} rootfstype=${mmcrootfstype}; echo using mmc rootfs'
+# overwrite boot args for this specific kernel setup
+setenv vram 12M
+setenv omapfbvram 0:8M,1:4M
 
-# please pass along some variables from the environment
-setenv bootargs "console=ttyO2,115200n8 mpurate=${mpurate} vram=12M omapfb.vram=0:8M,1:4M omapfb.mode=dvi:${dvimode} omapfb.debug=y omapdss.def_disp=${defaultdisplay} root=${mmcroot} rootfstype=${mmcrootfstype}"
+# compile boot args
+
+setenv bootargs "console=${console} mpurate=${mpurate} vram=${vram} omapfb.vram=${omapfbvram} omapfb.mode=dvi:${dvimode} omapfb.debug=y omapdss.def_disp=${defaultdisplay} ubi.mtd=${nand} root=${mmcroot} rootfstype=${mmcrootfstype}"
 
 # echo after: $bootargs
 # echo root: $mmcroot
