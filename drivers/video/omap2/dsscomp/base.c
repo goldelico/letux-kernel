@@ -214,8 +214,8 @@ int set_dss_ovl_info(struct dss2_ovl_info *oi)
 	crop.r = cfg->crop;
 	win.r = cfg->win;
 	vis.x = vis.y = 0;
-	vis.w = ovl->manager->device->panel.timings.x_res;
-	vis.h = ovl->manager->device->panel.timings.y_res;
+	vis.w = ovl->manager->output->device->panel.timings.x_res;
+	vis.h = ovl->manager->output->device->panel.timings.y_res;
 
 	if (crop_to_rect(&crop, &win, &vis, cfg->rotation, cfg->mirror) ||
 								vis.w < 2)
@@ -377,7 +377,7 @@ struct omap_overlay_manager *find_dss_mgr(int display_ix)
 
 	for (i = 0; i < omap_dss_get_num_overlay_managers(); i++) {
 		mgr = omap_dss_get_overlay_manager(i);
-		if (mgr->device && !strcmp(name, dev_name(&mgr->device->dev)))
+		if (mgr->output->device && !strcmp(name, dev_name(&mgr->output->device->dev)))
 			return mgr;
 	}
 	return NULL;

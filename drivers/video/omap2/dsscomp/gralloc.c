@@ -251,7 +251,7 @@ int dsscomp_gralloc_queue(struct dsscomp_setup_dispc_data *d,
 					d->mgrs[i].ix);
 			continue;
 		}
-		mgr = dev->manager;
+		mgr = dev->output->manager;
 		if (!mgr) {
 			dev_warn(DEV(cdev), "no manager for display%d\n",
 					d->mgrs[i].ix);

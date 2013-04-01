@@ -143,12 +143,12 @@ static u32 get_display_ix(struct omap_overlay_manager *mgr)
 	u32 i;
 
 	/* handle if manager is not attached to a display */
-	if (!mgr || !mgr->device)
+	if (!mgr || !mgr->output->device)
 		return cdev->num_displays;
 
 	/* find manager's display */
 	for (i = 0; i < cdev->num_displays; i++)
-		if (cdev->displays[i] == mgr->device)
+		if (cdev->displays[i] == mgr->output->device)
 			break;
 
 	return i;
@@ -481,7 +481,7 @@ static int dsscomp_apply(struct dsscomp *comp)
 		goto done;
 
 	drv = dssdev->driver;
-	mgr = dssdev->manager;
+	mgr = dssdev->output->manager;
 	if (!mgr || !drv || mgr->id >= cdev->num_mgrs)
 		goto done;
 
@@ -637,7 +637,7 @@ int dsscomp_state_notifier(struct notifier_block *nb,
 {
 	struct omap_dss_device *dssdev = ptr;
 	enum omap_dss_display_state state = arg;
-	struct omap_overlay_manager *mgr = dssdev->manager;
+	struct omap_overlay_manager *mgr = dssdev->output->manager;
 	if (mgr) {
 		mutex_lock(&mtx);
 		if (state == OMAP_DSS_DISPLAY_DISABLED) {
@@ -761,7 +761,7 @@ void dsscomp_dbg_comps(struct seq_file *s)
 		list_for_each_entry(c, &dbg_comps, dbg_q) {
 			struct dss2_mgr_info *mi = &c->frm.mgr;
 			if (mi->ix < cdev->num_displays &&
-			    cdev->displays[mi->ix]->manager == mgr)
+			    cdev->displays[mi->ix]->output->manager == mgr)
 				seq_print_comp(s, c);
 		}
 

@@ -216,7 +216,7 @@ static long setup_mgr(struct dsscomp_dev *cdev,
 	dev = cdev->displays[d->mgr.ix];
 	if (!dev)
 		return -EINVAL;
-	mgr = dev->manager;
+	mgr = dev->output->manager;
 	if (!mgr)
 		return -ENODEV;
 
@@ -303,7 +303,7 @@ static long query_display(struct dsscomp_dev *cdev,
 	dev = cdev->displays[dis->ix];
 	if (!dev)
 		return -EINVAL;
-	mgr = dev->manager;
+	mgr = dev->output->manager;
 
 	/* fill out display information */
 	dis->channel = dev->channel;
@@ -379,7 +379,7 @@ static long check_ovl(struct dsscomp_dev *cdev,
 	dev = cdev->displays[chk->mgr.ix];
 	if (!dev)
 		return -EINVAL;
-	mgr = dev->manager;
+	mgr = dev->output->manager;
 
 	/* we support alpha-enabled only if we have free zorder */
 	/* :FIXME: for now DSS has this as an ovl cap */
