@@ -186,7 +186,7 @@ int set_dss_ovl_info(struct dss2_ovl_info *oi)
 	union rect crop, win, vis;
 	int c;
 	int bpp;
-	/* enum tiler_fmt fmt */
+	enum tiler_fmt fmt;
 
 	/* check overlay number */
 	if (!oi || oi->cfg.ix >= omap_dss_get_num_overlays())
@@ -258,12 +258,11 @@ int set_dss_ovl_info(struct dss2_ovl_info *oi)
 	info.p_uv_addr = (info.color_mode == OMAP_DSS_COLOR_NV12) ? oi->uv : 0;
 
 	/* check for TILER 2D buffer */
-	/*
 	if (tiler_get_fmt(info.paddr, &fmt) && fmt >= TILFMT_8BIT &&
 			fmt <= TILFMT_32BIT) {
 		int bpp = 1 << (fmt - TILFMT_8BIT);
 		struct tiler_view_t t;
-	*/
+
 		/* crop to top-left */
 
 		/*
@@ -272,7 +271,6 @@ int set_dss_ovl_info(struct dss2_ovl_info *oi)
 		 * Also RGB24-888 is 3 bytes-per-pixel even though no
 		 * tiler pixel format matches this.
 		 */
-		 /*
 		if (cfg->color_mode &
 				(OMAP_DSS_COLOR_YUV2 | OMAP_DSS_COLOR_UYVY))
 			bpp = 2;
@@ -286,9 +284,7 @@ int set_dss_ovl_info(struct dss2_ovl_info *oi)
 
 		info.rotation_type = OMAP_DSS_ROT_TILER;
 		info.screen_width = 0;
-		*/
 		/* for NV12 format also crop NV12 */
-	/*
 		if (info.color_mode == OMAP_DSS_COLOR_NV12) {
 			tilview_create(&t, info.p_uv_addr,
 					cfg->width >> 1, cfg->height >> 1);
@@ -297,8 +293,7 @@ int set_dss_ovl_info(struct dss2_ovl_info *oi)
 								crop.h >> 1);
 			info.p_uv_addr += t.tsptr + bpp * crop.x;
 		}
-	} else {
-	*/
+	}else {
 		/* program tiler 1D as SDMA */
 
 		bpp = color_mode_to_bpp(cfg->color_mode);
@@ -321,7 +316,7 @@ int set_dss_ovl_info(struct dss2_ovl_info *oi)
 			return -EINVAL;
 
 		info.rotation_type = OMAP_DSS_ROT_DMA;
-	/*} */
+	}
 
 	info.max_x_decim = cfg->decim.max_x ? : 255;
 	info.max_y_decim = cfg->decim.max_y ? : 255;
