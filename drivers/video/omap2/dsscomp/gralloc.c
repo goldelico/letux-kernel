@@ -529,6 +529,7 @@ static void dsscomp_early_suspend(struct early_suspend *h)
 		if (dssdev && dssdev->state == OMAP_DSS_DISPLAY_ACTIVE) {
 			d.num_mgrs++;
 			d.mgrs[mgr_ix].ix = mgr_ix;
+			d.mgrs[mgr_ix].alpha_blending = true;
 		}
 	}
 
