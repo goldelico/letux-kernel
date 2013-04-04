@@ -451,7 +451,7 @@ static int abe_engine_probe(struct platform_device *pdev)
 	abe->dev->coherent_dma_mask = omap_abe_dmamask;
 	put_device(abe->dev);
 
-	ret = request_firmware_nowait(THIS_MODULE, 1, "omap4_abe_new", abe->dev,
+	ret = request_firmware_nowait(THIS_MODULE, 1, "omap_abe.bin", abe->dev,
 		GFP_KERNEL, pdev, abe_fw_ready);
 	if (ret != 0) {
 		dev_err(abe->dev, "Failed to load firmware %d\n", ret);
