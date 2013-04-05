@@ -344,6 +344,10 @@ enum ov9655_model {
 #define OV9655_BD60MAX			0xC5
 #define OV9655_COM24			0xC7
 
+#define CAMERA_TARGET_FREQ	48000000	/* pixel clock frequency for 15 fps SXGA (2 clocks per pixel for byte multiplexing) */
+#define CAMERA_EXT_FREQ		24000000	/* must be between 10 and 48 MHz or I2C does not work */
+
+/* do we need these constants? */
 #define OV9655_MAX_WIDTH		1280
 #define OV9655_MIN_WIDTH		2
 #define OV9655_MAX_HEIGHT		1024
@@ -371,24 +375,25 @@ enum ov9655_model {
 #define IS_QVGA(WIDTH, HEIGHT) (WIDTH == QVGA_NUM_ACTIVE_PIXELS && HEIGHT == QVGA_NUM_ACTIVE_LINES)
 #define IS_CIF(WIDTH, HEIGHT) (WIDTH == CIF_NUM_ACTIVE_PIXELS && HEIGHT == CIF_NUM_ACTIVE_LINES)
 
-/*
- * some assumptions for the interface settings
- * 1. we are connected to a TI OMAP3530 CAM interface at 1.8V through short wires
- * 2. XCLKA up to 48 MHz so that we can reach 15 fps @ SXGA
- * 3. the interface expects VSYNC and HSYNC at positive impulses (not HREF)
- * 4. PCLK is XCLK scaled up by PLL (DBLV=1x,4x,6x,8x) and divided down by CLKRC
- */
-
 struct ov9655_reg {
 	u8 addr;
 	u8 value;
 };
 
+/* we assume that the camera is operated as follows:
+ * XCLK is 24 MHz (required to be between 10 MHz and 48 MHz to operate I2C)
+ * PCLK is 48 MHz for SXGA 15 fps and VGA 30 fps
+ * HSYNC and VSYNC are positive impulses
+ * please make sure that the capture interface is configured accordingly
+ * data format is programmable
+ * SXGA/VGA/QVGA/CIF is detected by tracking the capture interface
+ */
+
 static const struct ov9655_reg ov9655_init_hardware[] = {
-	/* here we write only registers that must match our hardware interface */
+	/* here we write only registers for the hardware interface - must be matched by the hardware interface in the board file */
 	{ OV9655_COM2, 0x01 },	/* drive outputs at 2x; disable soft sleep */
-	{ OV9655_COM10, /*OV9655_COM10_HREF2HSYNC | */ OV9655_COM10_HSYNC_NEG },	/* define pin polarity and functions as default (VSYNC, HSYNC as positive pulses) */
-	{ OV9655_CLKRC, 1 },	/* compensate for PLL_4X */
+//	{ OV9655_COM10, /*OV9655_COM10_HREF2HSYNC | */ OV9655_COM10_HSYNC_NEG },	/* define pin polarity and functions as default (VSYNC, HSYNC as positive pulses) */
+	{ OV9655_CLKRC, 0 },	/* compensate for PLL_4X (note this means: PCLK = XCLK x 4 / 2) */
 	{ OV9655_DBLV, OV9655_DBLV_PLL_4X | OV9655_DBLV_BANDGAP },
 	{ OV9655_TSLB, 0x0c },	// pixel clock delay and UYVY byte order
 };
@@ -748,10 +753,7 @@ static int ov9655_power_on(struct ov9655 *ov9655)
 	 *   XCLK = fps * width * height * bytespersample / prescaler (OV9655_CLKRC and PLL_4X)
 	 */
 	if (ov9655->pdata->set_xclk)
-		ov9655->pdata->set_xclk(&ov9655->subdev,
-				//	30*1520*1050*2/4	// SXGA clock
-					30*800*500*2/1	// VGA clock
-							/* ov9655->pdata->ext_freq */);
+		ov9655->pdata->set_xclk(&ov9655->subdev, CAMERA_EXT_FREQ);
 
 	/* Now RESET_BAR must be high */
 	if (ov9655->reset != -1) {
@@ -823,20 +825,20 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 	
 	// FIXME: should we also set/change the pixel clock here?
 
-	if(IS_SXGA(ov9655->format.width, ov9655->format.height)) {
+	if(IS_SXGA(format->width, format->height)) {
 		
 	}
-	else if(IS_VGA(ov9655->format.width, ov9655->format.height)) {
+	else if(IS_VGA(format->width, format->height)) {
 		
 	}
-	else if(IS_QVGA(ov9655->format.width, ov9655->format.height)) {
+	else if(IS_QVGA(format->width, format->height)) {
 		
 	}
-	else if(IS_CIF(ov9655->format.width, ov9655->format.height)) {
+	else if(IS_CIF(format->width, format->height)) {
 		
 	}
 	else {
-		dev_info(&client->dev, "ov9655_set_params unknown format width=%u height=%u\n", ov9655->format.width, ov9655->format.height);
+		dev_info(&client->dev, "ov9655_set_params unknown format width=%u height=%u\n", format->width, format->height);
 //		return -EINVAL;	// unknown format
 		// returing -EINVAL ends up in a kernel panic
 	}
@@ -1511,8 +1513,8 @@ static int ov9655_probe(struct i2c_client *client,
 	v4l2_ctrl_new_std(&ov9655->ctrls, &ov9655_ctrl_ops,
 			  V4L2_CID_VFLIP, 0, 1, 1, 0);
 	v4l2_ctrl_new_std(&ov9655->ctrls, &ov9655_ctrl_ops,
-			  V4L2_CID_PIXEL_RATE, pdata->target_freq,
-			  pdata->target_freq, 1, pdata->target_freq);
+			  V4L2_CID_PIXEL_RATE, CAMERA_TARGET_FREQ,
+			  CAMERA_TARGET_FREQ, 1, CAMERA_TARGET_FREQ);
 	v4l2_ctrl_new_std_menu_items(&ov9655->ctrls, &ov9655_ctrl_ops,
 			  V4L2_CID_TEST_PATTERN,
 			  ARRAY_SIZE(ov9655_test_pattern_menu) - 1, 0,

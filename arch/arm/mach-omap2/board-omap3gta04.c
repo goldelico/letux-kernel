@@ -120,8 +120,6 @@
 #define AUX_HEADSET_GPIO	55
 
 #define CAMERA_XCLK		ISP_XCLK_A
-#define CAMERA_EXT_FREQ		21000000
-#define CAMERA_TARGET_FREQ	48000000
 
 /* see: https://patchwork.kernel.org/patch/120449/
  * OMAP3 gta04 revision
@@ -1233,14 +1231,13 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 static int gta04_cam_set_xclk(struct v4l2_subdev *subdev, int hz)
 {
 	struct isp_device *isp = v4l2_dev_to_isp_device(subdev->v4l2_dev);
+	printk("gta04_cam_set_xclk %d\n", hz);
 	return isp->platform_cb.set_xclk(isp, hz, CAMERA_XCLK);
 }
 
 struct ov9655_platform_data ov9655_pdata = {
 	.set_xclk	= gta04_cam_set_xclk,
 	.reset		= CAMERA_RESET_GPIO,
-	.ext_freq	= CAMERA_EXT_FREQ,
-	.target_freq	= CAMERA_TARGET_FREQ,	
 };
 
 static struct i2c_board_info gta04_camera_i2c_device[] = {
@@ -1268,7 +1265,7 @@ static struct isp_v4l2_subdevs_group gta04_camera_subdevs_group[] = {
 			/* see http://lxr.free-electrons.com/source/include/media/omap3isp.h?a=arm#L30 */
 			.parallel = {
 				.data_lane_shift = ISP_LANE_SHIFT_0,	/* CAMEXT[13:0] -> CAM[13:0] */
-				.clk_pol = 1,	/* sample on falling edge */
+				.clk_pol = 0,	/* sample on rising edge */
 				.hs_pol = 0,	/* active high */
 				.vs_pol = 0,	/* axctive high */
 				.data_pol = 0,	/* normal */
@@ -1283,34 +1280,9 @@ static struct isp_platform_data gta04_isp_platform_data = {
 	.subdevs = gta04_camera_subdevs_group,
 };
 
-// FIXME: move this to the ov9655 driver
-
-static int gta04_camera_reset(void) {
-	int ret = 0;
-	
-	printk("gta04_camera_reset\n");
-	
-	/* Set RESET_BAR to 0 (this assumes the polarity for the Rev 5 camera chip!) */
-	gpio_set_value(CAMERA_RESET_GPIO, 0);
-	/*
-	 * Wait at least 70 CLK cycles (w/EXTCLK = 6MHz, or CLK_MIN):
-	 * ((1000000 * 70) / 6000000) = aprox 12 us.
-	 */
-	udelay(12);
-	/* Set RESET_BAR to 1 */
-	gpio_set_value(CAMERA_RESET_GPIO, 1);
-	/*
-	 * Wait at least 1 ms
-	 */
-	mdelay(1000);
-	ret = 0;
-	
-	return ret;
-}
-
 static void __init gta04_camera_setup(void) {
 	static struct regulator *reg;
-	// FIXME: can we postpone enabling camera power until someone opens the /dev/video0 file?
+	// FIXME: can we postpone enabling camera power until someone opens the /dev/video files?
 	// may not be required if CAMERA_RESET_GPIO is controlled correctly
 	pr_info("GTA04 camera: setup\n");
 	reg = regulator_get(NULL, "vaux3");
@@ -1318,7 +1290,6 @@ static void __init gta04_camera_setup(void) {
 		pr_err("%s: cannot get vaux3 regulator\n", __func__);
 	else {
 		regulator_enable(reg);
-		gta04_camera_reset();
         if (omap3_init_camera(&gta04_isp_platform_data) < 0)
 			pr_warn("%s: failed registering camera device!\n", __func__);
 	}
