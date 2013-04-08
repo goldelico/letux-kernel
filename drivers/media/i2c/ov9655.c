@@ -436,6 +436,7 @@ enum ov9655_model {
 struct ov9655_reg {
 	u8 addr;
 	u8 value;
+	u8 clear;	/* mask all bits with this value before setting the (new) value: newbit = (oldbit & clear) | value; if clear != 0 this is a read-modify-write command, otherwise (i.e. not explicitly initialized) a direct write */
 };
 
 /* we assume that the camera is operated as follows:
@@ -455,7 +456,7 @@ static const struct ov9655_reg ov9655_init_hardware[] = {
 	{ OV9655_COM10, OV9655_COM10_HREF2HSYNC /* | OV9655_COM10_HSYNC_NEG */ },	/* define pin polarity and functions as default (VSYNC, HSYNC as positive pulses) */
 	{ OV9655_CLKRC, 0 },	/* compensate for PLL_4X (note this means: PCLK = XCLK x 4) */
 	{ OV9655_DBLV, OV9655_DBLV_PLL_4X | OV9655_DBLV_BANDGAP },
-	{ OV9655_TSLB, 0x0c },	// pixel clock delay and UYVY byte order
+	{ OV9655_TSLB, OV9655_TSLB_VYUY, ~OV9655_TSLB_YUV_MASK },	// VYUY byte order
 };
 
 static const struct ov9655_reg ov9655_init_regs[] = {
@@ -466,10 +467,18 @@ static const struct ov9655_reg ov9655_init_regs[] = {
 #else
 	{ OV9655_COM3, 0x00 },	// don't swap MSB and LSB
 #endif
+	{ OV9655_COM6, 0x40 },	/* manually update window size and timing */
+
+	//	{ OV9655_COM7, OV9655_COM7_RAW, },	/* choose RGB */
+	{ OV9655_COM7, OV9655_COM7_YUV, },	/* choose YUV */
+	
+	{ OV9655_COM15, 0xc0 /*| OV9655_COM15_RGB555*/ },	// full scale output range and RGB555
+	{ OV9655_COM11, 0x05 }, // no night mode
+
+	//	{ OV9655_COM19, 0x0c },	// UV
+
 	//	{ OV9655_COM1, 0x03 },	// AEC low bits
 	//	{ OV9655_COM5, 0x61 },	// slam mode & exposure
-	{ OV9655_COM6, 0x40 },	/* manually update window size and timing */
-	//	{ OV9655_COM7, 0x02 },	// default
 	//	{ OV9655_COM8, 0xe0 | OV9655_COM8_AGC | OV9655_COM8_AWB | OV9655_COM8_AEC },
 	//	{ OV9655_COM9, 0x2a },	// agc
 	//	{ OV9655_REG16, 0x24 },
@@ -487,14 +496,9 @@ static const struct ov9655_reg ov9655_init_regs[] = {
 	//	{ OV9655_AREF2, 0x00 },
 	//	{ OV9655_ADC2, 0x72 },
 	//	{ OV9655_AREF4, 0x57 },
-	{ OV9655_COM11, 0x05 }, // no night mode
 	//	{ OV9655_COM13, 0x99 },
 	//	{ OV9655_EDGE, 0x02 },	// edge enhancement factor
 	
-	{ OV9655_COM7, 0x00, },	/* choose RGB */
-//	{ OV9655_COM7, OV9655_COM7_YUV, },	/* choose YUV */
-	
-	{ OV9655_COM15, 0xc0 /*| OV9655_COM15_RGB555*/ },	// full scale output range and RGB555
 	//	{ OV9655_COM17, 0xc1 },	// denoise, edge enhancement, 50 Hz banding filter
 	
 	//	{ OV9655_DNSTH, 0x21 },	// denoise threshold
@@ -535,7 +539,6 @@ static const struct ov9655_reg ov9655_init_regs[] = {
 	 
 	 */
 	
-	{ OV9655_COM19, 0x0c },	// UV
 	//	{ OV9655_COM21, 0x50 },	// digital gain
 	
 	/* other values that can be changed
@@ -566,6 +569,7 @@ static const struct ov9655_reg ov9655_init_regs[] = {
 	 */
 };
 
+// ot sure if we can do everything with constant register-value lists or if we have to mix some bits (clear + set mask)
 /* Register values for SXGA format */
 static const struct ov9655_reg ov9655_sxga[] = {
 	/* COM7 is set through code since it is shared with color encoding format */
@@ -705,7 +709,14 @@ static int ov9655_write_regs(struct i2c_client *client,
 {
 	int i, ret;
 	for (i = 0; i < n; i++) {
-		ret = ov9655_write(client, regs->addr, regs->value);
+		u8 val = regs->value;
+		if(regs->clear != 0) { /* modify only some bits */
+			ret = ov9655_read(client, regs->addr);
+			if(ret < 0)
+				return ret;
+			val |= (ret & regs->clear);
+		}
+		ret = ov9655_write(client, regs->addr, val);
 		if (ret < 0)
 			return ret;
 		regs++;
@@ -892,15 +903,19 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 
 	ov9655_write_regs(client, ov9655_init_regs, ARRAY_SIZE(ov9655_init_regs));
 	if(IS_SXGA(format->width, format->height)) {
+		printk("SXGA\n");
 		//	ov9655_write_regs(client, ov9655_sxga, ARRAY_SIZE(ov9655_sxga));		
 	}
 	else if(IS_VGA(format->width, format->height)) {
+		printk("VGA\n");
 		
 	}
 	else if(IS_QVGA(format->width, format->height)) {
+		printk("QVGA\n");
 		
 	}
 	else if(IS_CIF(format->width, format->height)) {
+		printk("CIF\n");
 		
 	}
 	else {
@@ -909,9 +924,16 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 		// returing -EINVAL ends up in a kernel panic
 	}
 
+	printk("format->code=%08x\n", format->code);
+
 	// handle format->code == V4L2_MBUS_FMT_BGR565_2X8_BE etc.
-	// format->field could set some interlacing thing
+	// to set COM3[2], COM7[1:0], TSLB[4:2], COM15[5:4], 
+
+	printk("format->field=%08x\n", format->field);
+
+	// format->field could ask for some interlacing
 	
+	// we should also handle the crop rect
 	
 #if 0
 	/* Windows position and size.
@@ -1110,7 +1132,7 @@ static int ov9655_set_format(struct v4l2_subdev *subdev,
 
 	printk("ov9655_set_format\n");
 	printmbusfmt(&format->format);
-#if 1
+
 	__crop = __ov9655_get_pad_crop(ov9655, fh, format->pad,
 					format->which);
 
@@ -1131,13 +1153,6 @@ static int ov9655_set_format(struct v4l2_subdev *subdev,
 	__format->width = __crop->width / hratio;
 	__format->height = __crop->height / vratio;
 	printmbusfmt(__format);
-#else
-	__format = __ov9655_get_pad_format(ov9655, fh, format->pad,
-									   format->which);
-
-	__format->width=format->format.width;
-	__format->height=format->format.height;
-#endif
 
 	format->format = *__format;
 	printmbusfmt(&format->format);
