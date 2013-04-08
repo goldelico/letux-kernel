@@ -375,6 +375,64 @@ enum ov9655_model {
 #define IS_QVGA(WIDTH, HEIGHT) (WIDTH == QVGA_NUM_ACTIVE_PIXELS && HEIGHT == QVGA_NUM_ACTIVE_LINES)
 #define IS_CIF(WIDTH, HEIGHT) (WIDTH == CIF_NUM_ACTIVE_PIXELS && HEIGHT == CIF_NUM_ACTIVE_LINES)
 
+/* this is to compile the code to handle crop (no idea if and for what we need it) */
+
+#define OV9655_PIXEL_ARRAY_WIDTH	OV9655_MAX_WIDTH
+#define OV9655_PIXEL_ARRAY_HEIGHT	OV9655_MAX_HEIGHT
+#define	OV9655_WINDOW_HEIGHT_MIN	2
+#define	OV9655_WINDOW_HEIGHT_MAX	OV9655_MAX_HEIGHT
+#define	OV9655_WINDOW_HEIGHT_DEF	OV9655_MAX_HEIGHT
+#define	OV9655_WINDOW_WIDTH_MIN		2
+#define	OV9655_WINDOW_WIDTH_MAX		OV9655_MAX_WIDTH
+#define	OV9655_WINDOW_WIDTH_DEF		OV9655_MAX_WIDTH
+#define	OV9655_ROW_START_MIN		0
+#define	OV9655_ROW_START_MAX		OV9655_MAX_HEIGHT
+#define	OV9655_ROW_START_DEF		0
+#define	OV9655_COLUMN_START_MIN		0
+#define	OV9655_COLUMN_START_MAX		OV9655_MAX_WIDTH
+#define	OV9655_COLUMN_START_DEF		0
+
+/* make this match the camera format settings in the registers */
+// see http://lxr.free-electrons.com/source/include/uapi/linux/v4l2-mediabus.h#L37
+
+/* media-ctl only knows these:
+ { "Y8", V4L2_MBUS_FMT_Y8_1X8},
+ { "Y10", V4L2_MBUS_FMT_Y10_1X10 },
+ { "Y12", V4L2_MBUS_FMT_Y12_1X12 },
+ { "YUYV", V4L2_MBUS_FMT_YUYV8_1X16 },
+ { "YUYV1_5X8", V4L2_MBUS_FMT_YUYV8_1_5X8 },
+ { "YUYV2X8", V4L2_MBUS_FMT_YUYV8_2X8 },
+ { "UYVY", V4L2_MBUS_FMT_UYVY8_1X16 },
+ { "UYVY1_5X8", V4L2_MBUS_FMT_UYVY8_1_5X8 },
+ { "UYVY2X8", V4L2_MBUS_FMT_UYVY8_2X8 },
+ { "SBGGR8", V4L2_MBUS_FMT_SBGGR8_1X8 },
+ { "SGBRG8", V4L2_MBUS_FMT_SGBRG8_1X8 },
+ { "SGRBG8", V4L2_MBUS_FMT_SGRBG8_1X8 },
+ { "SRGGB8", V4L2_MBUS_FMT_SRGGB8_1X8 },
+ { "SBGGR10", V4L2_MBUS_FMT_SBGGR10_1X10 },
+ { "SGBRG10", V4L2_MBUS_FMT_SGBRG10_1X10 },
+ { "SGRBG10", V4L2_MBUS_FMT_SGRBG10_1X10 },
+ { "SRGGB10", V4L2_MBUS_FMT_SRGGB10_1X10 },
+ { "SBGGR10_DPCM8", V4L2_MBUS_FMT_SBGGR10_DPCM8_1X8 },
+ { "SGBRG10_DPCM8", V4L2_MBUS_FMT_SGBRG10_DPCM8_1X8 },
+ { "SGRBG10_DPCM8", V4L2_MBUS_FMT_SGRBG10_DPCM8_1X8 },
+ { "SRGGB10_DPCM8", V4L2_MBUS_FMT_SRGGB10_DPCM8_1X8 },
+ { "SBGGR12", V4L2_MBUS_FMT_SBGGR12_1X12 },
+ { "SGBRG12", V4L2_MBUS_FMT_SGBRG12_1X12 },
+ { "SGRBG12", V4L2_MBUS_FMT_SGRBG12_1X12 },
+ { "SRGGB12", V4L2_MBUS_FMT_SRGGB12_1X12 },
+*/ 
+
+// #define OV9655_FORMAT 	 V4L2_MBUS_FMT_SGRBG12_1X12	// this was ok for MT9P031
+// #define OV9655_FORMAT 	V4L2_MBUS_FMT_SBGGR10_2X8_PADHI_LE
+#define OV9655_FORMAT 	V4L2_MBUS_FMT_UYVY8_2X8
+// #define OV9655_FORMAT 	V4L2_MBUS_FMT_YUYV8_2X8
+// #define OV9655_FORMAT	V4L2_MBUS_FMT_UYVY8_1X16
+// #define OV9655_FORMAT 	 V4L2_MBUS_FMT_RGB565_2X8_BE
+
+
+/* to bulk program camera registers */
+
 struct ov9655_reg {
 	u8 addr;
 	u8 value;
@@ -382,18 +440,20 @@ struct ov9655_reg {
 
 /* we assume that the camera is operated as follows:
  * XCLK is 24 MHz (required to be between 10 MHz and 48 MHz to operate I2C)
- * PCLK is 48 MHz for SXGA 15 fps and VGA 30 fps
+ * PCLK is 48 MHz for SXGA 15 fps and VGA 30 fps, no delay
  * HSYNC and VSYNC are positive impulses
+ * HSYNC is HSYNC and not HREF
+ * data polarity is not inverted
  * please make sure that the capture interface is configured accordingly
- * data format is programmable
- * SXGA/VGA/QVGA/CIF is detected by tracking the capture interface
+ * data format is YUV
+ * SXGA/VGA/QVGA/CIF is asjusted by the format settings
  */
 
 static const struct ov9655_reg ov9655_init_hardware[] = {
 	/* here we write only registers for the hardware interface - must be matched by the hardware interface in the board file */
 	{ OV9655_COM2, 0x01 },	/* drive outputs at 2x; disable soft sleep */
-//	{ OV9655_COM10, /*OV9655_COM10_HREF2HSYNC | */ OV9655_COM10_HSYNC_NEG },	/* define pin polarity and functions as default (VSYNC, HSYNC as positive pulses) */
-	{ OV9655_CLKRC, 0 },	/* compensate for PLL_4X (note this means: PCLK = XCLK x 4 / 2) */
+	{ OV9655_COM10, OV9655_COM10_HREF2HSYNC /* | OV9655_COM10_HSYNC_NEG */ },	/* define pin polarity and functions as default (VSYNC, HSYNC as positive pulses) */
+	{ OV9655_CLKRC, 0 },	/* compensate for PLL_4X (note this means: PCLK = XCLK x 4) */
 	{ OV9655_DBLV, OV9655_DBLV_PLL_4X | OV9655_DBLV_BANDGAP },
 	{ OV9655_TSLB, 0x0c },	// pixel clock delay and UYVY byte order
 };
@@ -413,7 +473,7 @@ static const struct ov9655_reg ov9655_init_regs[] = {
 	//	{ OV9655_COM8, 0xe0 | OV9655_COM8_AGC | OV9655_COM8_AWB | OV9655_COM8_AEC },
 	//	{ OV9655_COM9, 0x2a },	// agc
 	//	{ OV9655_REG16, 0x24 },
-	//	{ OV9655_MVFP, 0 },	// mirror&flip - depends on GTA04 board
+	//	{ OV9655_MVFP, 0 },	// mirror&flip
 	//	{ OV9655_AEW, 0x3c },
 	//	{ OV9655_AEB, 0x36 },
 	//	{ OV9655_VPT, 0x72 },
@@ -430,8 +490,11 @@ static const struct ov9655_reg ov9655_init_regs[] = {
 	{ OV9655_COM11, 0x05 }, // no night mode
 	//	{ OV9655_COM13, 0x99 },
 	//	{ OV9655_EDGE, 0x02 },	// edge enhancement factor
+	
 	{ OV9655_COM7, 0x00, },	/* choose RGB */
-	{ OV9655_COM15, 0xc0 | OV9655_COM15_RGB555 },	// full scale output range and RGB555
+//	{ OV9655_COM7, OV9655_COM7_YUV, },	/* choose YUV */
+	
+	{ OV9655_COM15, 0xc0 /*| OV9655_COM15_RGB555*/ },	// full scale output range and RGB555
 	//	{ OV9655_COM17, 0xc1 },	// denoise, edge enhancement, 50 Hz banding filter
 	
 	//	{ OV9655_DNSTH, 0x21 },	// denoise threshold
@@ -671,7 +734,7 @@ static int  mt9p031_write(struct i2c_client *client, u8 reg, u16 data)
 }
 #endif
 
-#if 1	// replace since the OV9655 has different registers for that purpose
+#if 1	// remove since the OV9655 has different registers for that purpose
 
 static int ov9655_set_output_control(struct ov9655 *ov9655, u16 clear,	// appears to control enable/disable
 				      u16 set)
@@ -710,7 +773,7 @@ static int ov9655_set_mode2(struct ov9655 *ov9655, u16 clear, u16 set)	// appear
 	return 0;
 }
 
-#endif
+#endif	// remove
 
 static int ov9655_reset(struct ov9655 *ov9655)
 {
@@ -720,13 +783,15 @@ static int ov9655_reset(struct ov9655 *ov9655)
 	printk("ov9655_reset\n");
 	dev_info(&client->dev, "ov9655_reset\n");
 
-//	ret =  ov9655_write(client, OV9655_COM7, 0x82);	/* reset to chip defaults */
+#if 0
+	ret =  ov9655_write(client, OV9655_COM7, 0x82);	/* reset to chip defaults */
 	if (ret < 0)
 		{
 		printk("write failed err=%d\n", ret);
 		dev_info(&client->dev, "write failed err=%d\n", ret);
 		return ret;
 		}
+#endif
 	usleep_range(1000, 2000);
 	
 	return ov9655_write_regs(client, ov9655_init_hardware, ARRAY_SIZE(ov9655_init_hardware));
@@ -819,14 +884,15 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 
 	dev_info(&client->dev, "ov9655_set_params\n");
 	
-	// format as set by user space command
+	// format as set by user space command e.g.
 	//    media-ctl -V '"ov9655 2-0030":0 [SGRBG8 1024x1024]'
 	//
 	
 	// FIXME: should we also set/change the pixel clock here?
 
+	ov9655_write_regs(client, ov9655_init_regs, ARRAY_SIZE(ov9655_init_regs));
 	if(IS_SXGA(format->width, format->height)) {
-		
+		//	ov9655_write_regs(client, ov9655_sxga, ARRAY_SIZE(ov9655_sxga));		
 	}
 	else if(IS_VGA(format->width, format->height)) {
 		
@@ -846,10 +912,8 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 	// handle format->code == V4L2_MBUS_FMT_BGR565_2X8_BE etc.
 	// format->field could set some interlacing thing
 	
-	ov9655_write_regs(client, ov9655_init_regs, ARRAY_SIZE(ov9655_init_regs));
-//	ov9655_write_regs(client, ov9655_sxga, ARRAY_SIZE(ov9655_sxga));
 	
-	
+#if 0
 	/* Windows position and size.
 	 *
 	 * TODO: Make sure the start coordinates and window size match the
@@ -898,7 +962,7 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 	ret =  mt9p031_write(client, MT9P031_VERTICAL_BLANK, vblank - 1);
 	if (ret < 0)
 		return ret;
-
+#endif
 	return ret;
 }
 
@@ -908,16 +972,17 @@ static int ov9655_s_stream(struct v4l2_subdev *subdev, int enable)
 	int ret;
 
 	struct i2c_client *client = v4l2_get_subdevdata(&ov9655->subdev);
-	
+	printk("ov9655_s_stream %d\n", enable);
 	dev_info(&client->dev, "ov9655_s_stream(%d)\n", enable);
-	
+
 	if (!enable) {
 		/* Stop sensor readout */
+#if 0
 		ret = ov9655_set_output_control(ov9655,
 						 MT9P031_OUTPUT_CONTROL_CEN, 0);
 		if (ret < 0)
 			return ret;
-
+#endif
 		return 0;
 	}
 
@@ -925,12 +990,13 @@ static int ov9655_s_stream(struct v4l2_subdev *subdev, int enable)
 	if (ret < 0)
 		return ret;
 
+#if 0
 	/* Switch to master "normal" mode */
 	ret = ov9655_set_output_control(ov9655, 0,
 					 MT9P031_OUTPUT_CONTROL_CEN);
 	if (ret < 0)
 		return ret;
-
+#endif
 	return 0;
 }
 
@@ -958,10 +1024,10 @@ static int ov9655_enum_frame_size(struct v4l2_subdev *subdev,
 	if (fse->index >= 8 || fse->code != ov9655->format.code)
 		return -EINVAL;
 
-	fse->min_width = MT9P031_WINDOW_WIDTH_DEF
+	fse->min_width = OV9655_WINDOW_WIDTH_DEF
 		       / min_t(unsigned int, 7, fse->index + 1);
 	fse->max_width = fse->min_width;
-	fse->min_height = MT9P031_WINDOW_HEIGHT_DEF / (fse->index + 1);
+	fse->min_height = OV9655_WINDOW_HEIGHT_DEF / (fse->index + 1);
 	fse->max_height = fse->min_height;
 
 	return 0;
@@ -971,7 +1037,7 @@ static struct v4l2_mbus_framefmt *
 __ov9655_get_pad_format(struct ov9655 *ov9655, struct v4l2_subdev_fh *fh,
 			 unsigned int pad, u32 which)
 {
-	printk("__ov9655_get_pad_format\n");
+	printk("__ov9655_get_pad_format pad=%u which=%u %s\n", pad, which, which==V4L2_SUBDEV_FORMAT_TRY?"V4L2_SUBDEV_FORMAT_TRY":"V4L2_SUBDEV_FORMAT_ACTIVE");
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
 		return v4l2_subdev_get_try_format(fh, pad);
@@ -986,7 +1052,7 @@ static struct v4l2_rect *
 __ov9655_get_pad_crop(struct ov9655 *ov9655, struct v4l2_subdev_fh *fh,
 		     unsigned int pad, u32 which)
 {
-	printk("__ov9655_get_pad_crop\n");
+	printk("__ov9655_get_pad_crop pad=%u which=%u %s\n", pad, which, which==V4L2_SUBDEV_FORMAT_TRY?"V4L2_SUBDEV_FORMAT_TRY":"V4L2_SUBDEV_FORMAT_ACTIVE");
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
 		return v4l2_subdev_get_try_crop(fh, pad);
@@ -995,6 +1061,26 @@ __ov9655_get_pad_crop(struct ov9655 *ov9655, struct v4l2_subdev_fh *fh,
 	default:
 		return NULL;
 	}
+}
+
+void printfmt(struct v4l2_format *format)
+{
+	printk("fmt=%d h=%u w=%u bpl=%u size=%u\n", format->fmt.pix.pixelformat,
+		   format->fmt.pix.height,
+		   format->fmt.pix.width,
+		   format->fmt.pix.bytesperline,
+		   format->fmt.pix.sizeimage);
+	
+}
+
+void printmbusfmt(struct v4l2_mbus_framefmt *format)
+{
+	printk("h=%u w=%u code=%u field=%u csp=%u\n", format->height,
+		   format->width,
+		   format->code,
+		   format->field,
+		   format->colorspace);
+	
 }
 
 static int ov9655_get_format(struct v4l2_subdev *subdev,
@@ -1006,6 +1092,7 @@ static int ov9655_get_format(struct v4l2_subdev *subdev,
 	printk("ov9655_get_format\n");
 	fmt->format = *__ov9655_get_pad_format(ov9655, fh, fmt->pad,
 						fmt->which);
+	printmbusfmt(&fmt->format);
 	return 0;
 }
 
@@ -1021,16 +1108,18 @@ static int ov9655_set_format(struct v4l2_subdev *subdev,
 	unsigned int hratio;
 	unsigned int vratio;
 
-	printk("ov9655_set_format width=%u height=%u\n", format->format.width, format->format.height);
+	printk("ov9655_set_format\n");
+	printmbusfmt(&format->format);
+#if 1
 	__crop = __ov9655_get_pad_crop(ov9655, fh, format->pad,
 					format->which);
 
 	/* Clamp the width and height to avoid dividing by zero. */
 	width = clamp_t(unsigned int, ALIGN(format->format.width, 2),
-			max(__crop->width / 7, MT9P031_WINDOW_WIDTH_MIN),
+			max(__crop->width / 7, OV9655_WINDOW_WIDTH_MIN),
 			__crop->width);
 	height = clamp_t(unsigned int, ALIGN(format->format.height, 2),
-			max(__crop->height / 8, MT9P031_WINDOW_HEIGHT_MIN),
+			max(__crop->height / 8, OV9655_WINDOW_HEIGHT_MIN),
 			__crop->height);
 
 	hratio = DIV_ROUND_CLOSEST(__crop->width, width);
@@ -1038,10 +1127,20 @@ static int ov9655_set_format(struct v4l2_subdev *subdev,
 
 	__format = __ov9655_get_pad_format(ov9655, fh, format->pad,
 					    format->which);
+	printmbusfmt(__format);
 	__format->width = __crop->width / hratio;
 	__format->height = __crop->height / vratio;
+	printmbusfmt(__format);
+#else
+	__format = __ov9655_get_pad_format(ov9655, fh, format->pad,
+									   format->which);
+
+	__format->width=format->format.width;
+	__format->height=format->format.height;
+#endif
 
 	format->format = *__format;
+	printmbusfmt(&format->format);
 
 	return 0;
 }
@@ -1071,19 +1170,19 @@ static int ov9655_set_crop(struct v4l2_subdev *subdev,
 	/* Clamp the crop rectangle boundaries and align them to a multiple of 2
 	 * pixels to ensure a GRBG Bayer pattern.
 	 */
-	rect.left = clamp(ALIGN(crop->rect.left, 2), MT9P031_COLUMN_START_MIN,
-			  MT9P031_COLUMN_START_MAX);
-	rect.top = clamp(ALIGN(crop->rect.top, 2), MT9P031_ROW_START_MIN,
-			 MT9P031_ROW_START_MAX);
+	rect.left = clamp(ALIGN(crop->rect.left, 2), OV9655_COLUMN_START_MIN,
+			  OV9655_COLUMN_START_MAX);
+	rect.top = clamp(ALIGN(crop->rect.top, 2), OV9655_ROW_START_MIN,
+			 OV9655_ROW_START_MAX);
 	rect.width = clamp(ALIGN(crop->rect.width, 2),
-			   MT9P031_WINDOW_WIDTH_MIN,
-			   MT9P031_WINDOW_WIDTH_MAX);
+			   OV9655_WINDOW_WIDTH_MIN,
+			   OV9655_WINDOW_WIDTH_MAX);
 	rect.height = clamp(ALIGN(crop->rect.height, 2),
-			    MT9P031_WINDOW_HEIGHT_MIN,
-			    MT9P031_WINDOW_HEIGHT_MAX);
+			    OV9655_WINDOW_HEIGHT_MIN,
+			    OV9655_WINDOW_HEIGHT_MAX);
 
-	rect.width = min(rect.width, MT9P031_PIXEL_ARRAY_WIDTH - rect.left);
-	rect.height = min(rect.height, MT9P031_PIXEL_ARRAY_HEIGHT - rect.top);
+	rect.width = min(rect.width, OV9655_PIXEL_ARRAY_WIDTH - rect.left);
+	rect.height = min(rect.height, OV9655_PIXEL_ARRAY_HEIGHT - rect.top);
 
 	__crop = __ov9655_get_pad_crop(ov9655, fh, crop->pad, crop->which);
 
@@ -1412,17 +1511,17 @@ static int ov9655_open(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh)
 	printk("ov9655_open\n");
 	
 	crop = v4l2_subdev_get_try_crop(fh, 0);
-	crop->left = MT9P031_COLUMN_START_DEF;
-	crop->top = MT9P031_ROW_START_DEF;
-	crop->width = MT9P031_WINDOW_WIDTH_DEF;
-	crop->height = MT9P031_WINDOW_HEIGHT_DEF;
+	crop->left = OV9655_COLUMN_START_DEF;
+	crop->top = OV9655_ROW_START_DEF;
+	crop->width = OV9655_WINDOW_WIDTH_DEF;
+	crop->height = OV9655_WINDOW_HEIGHT_DEF;
 
 	format = v4l2_subdev_get_try_format(fh, 0);
 
-	format->code = V4L2_MBUS_FMT_SGRBG12_1X12;
+	format->code = OV9655_FORMAT;
 
-	format->width = MT9P031_WINDOW_WIDTH_DEF;
-	format->height = MT9P031_WINDOW_HEIGHT_DEF;
+	format->width = OV9655_WINDOW_WIDTH_DEF;
+	format->height = OV9655_WINDOW_HEIGHT_DEF;
 	format->field = V4L2_FIELD_NONE;
 	format->colorspace = V4L2_COLORSPACE_SRGB;
 
@@ -1547,15 +1646,15 @@ static int ov9655_probe(struct i2c_client *client,
 
 	ov9655->subdev.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 
-	ov9655->crop.width = MT9P031_WINDOW_WIDTH_DEF;
-	ov9655->crop.height = MT9P031_WINDOW_HEIGHT_DEF;
-	ov9655->crop.left = MT9P031_COLUMN_START_DEF;
-	ov9655->crop.top = MT9P031_ROW_START_DEF;
+	ov9655->crop.width = OV9655_WINDOW_WIDTH_DEF;
+	ov9655->crop.height = OV9655_WINDOW_HEIGHT_DEF;
+	ov9655->crop.left = OV9655_COLUMN_START_DEF;
+	ov9655->crop.top = OV9655_ROW_START_DEF;
 
-	ov9655->format.code = V4L2_MBUS_FMT_SGRBG12_1X12;
+	ov9655->format.code = OV9655_FORMAT;
 
-	ov9655->format.width = MT9P031_WINDOW_WIDTH_DEF;
-	ov9655->format.height = MT9P031_WINDOW_HEIGHT_DEF;
+	ov9655->format.width = OV9655_WINDOW_WIDTH_DEF;
+	ov9655->format.height = OV9655_WINDOW_HEIGHT_DEF;
 	ov9655->format.field = V4L2_FIELD_NONE;
 	ov9655->format.colorspace = V4L2_COLORSPACE_SRGB;
 
