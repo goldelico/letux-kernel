@@ -370,10 +370,12 @@ enum ov9655_model {
 #define CIF_NUM_ACTIVE_PIXELS           (11*32) /* 11:9 ~ 5:4 */
 #define CIF_NUM_ACTIVE_LINES            (9*32)
 
-#define IS_SXGA(WIDTH, HEIGHT) (WIDTH == SXGA_NUM_ACTIVE_PIXELS && HEIGHT == SXGA_NUM_ACTIVE_LINES)
-#define IS_VGA(WIDTH, HEIGHT) (WIDTH == VGA_NUM_ACTIVE_PIXELS && HEIGHT == VGA_NUM_ACTIVE_LINES)
-#define IS_QVGA(WIDTH, HEIGHT) (WIDTH == QVGA_NUM_ACTIVE_PIXELS && HEIGHT == QVGA_NUM_ACTIVE_LINES)
-#define IS_CIF(WIDTH, HEIGHT) (WIDTH == CIF_NUM_ACTIVE_PIXELS && HEIGHT == CIF_NUM_ACTIVE_LINES)
+#define WH(WIDTH, HEIGHT) ((((u32) HEIGHT)<<16)+((u32) WIDTH))
+
+#define VGA		WH(VGA_NUM_ACTIVE_PIXELS, VGA_NUM_ACTIVE_LINES)
+#define QVGA	WH(QVGA_NUM_ACTIVE_PIXELS, QVGA_NUM_ACTIVE_LINES)
+#define SXGA	WH(SXGA_NUM_ACTIVE_PIXELS, SXGA_NUM_ACTIVE_LINES)
+#define CIF		WH(CIF_NUM_ACTIVE_PIXELS, CIF_NUM_ACTIVE_LINES)
 
 /* this is to compile the code to handle crop (no idea if and for what we need it) */
 
@@ -456,7 +458,6 @@ static const struct ov9655_reg ov9655_init_hardware[] = {
 	{ OV9655_COM10, OV9655_COM10_HREF2HSYNC /* | OV9655_COM10_HSYNC_NEG */ },	/* define pin polarity and functions as default (VSYNC, HSYNC as positive pulses) */
 	{ OV9655_CLKRC, 0 },	/* compensate for PLL_4X (note this means: PCLK = XCLK x 4) */
 	{ OV9655_DBLV, OV9655_DBLV_PLL_4X | OV9655_DBLV_BANDGAP },
-	{ OV9655_TSLB, OV9655_TSLB_VYUY, ~OV9655_TSLB_YUV_MASK },	// VYUY byte order
 };
 
 static const struct ov9655_reg ov9655_init_regs[] = {
@@ -465,16 +466,13 @@ static const struct ov9655_reg ov9655_init_regs[] = {
 	{ OV9655_COM3, 0x80 },	// color bar for testing
 	{ OV9655_COM20, 0x10 },	// color bar for testing
 #else
-	{ OV9655_COM3, 0x00 },	// don't swap MSB and LSB
+	{ OV9655_COM3, 0x00, ~OV9655_COM3_SWAP },	// don't swap MSB and LSB
 #endif
 	{ OV9655_COM6, 0x40 },	/* manually update window size and timing */
-
-	//	{ OV9655_COM7, OV9655_COM7_RAW, },	/* choose RGB */
-	{ OV9655_COM7, OV9655_COM7_YUV, },	/* choose YUV */
+	{ OV9655_COM7, OV9655_COM7_YUV, ~OV9655_COM7_FMT_MASK },	/* choose YUV */
+	{ OV9655_COM11, 0x05 }, // no night mode	
+	{ OV9655_COM15, 0xc0 },	// full scale output range and RGB555
 	
-	{ OV9655_COM15, 0xc0 /*| OV9655_COM15_RGB555*/ },	// full scale output range and RGB555
-	{ OV9655_COM11, 0x05 }, // no night mode
-
 	//	{ OV9655_COM19, 0x0c },	// UV
 
 	//	{ OV9655_COM1, 0x03 },	// AEC low bits
@@ -569,11 +567,12 @@ static const struct ov9655_reg ov9655_init_regs[] = {
 	 */
 };
 
-// ot sure if we can do everything with constant register-value lists or if we have to mix some bits (clear + set mask)
 /* Register values for SXGA format */
 static const struct ov9655_reg ov9655_sxga[] = {
 	/* COM7 is set through code since it is shared with color encoding format */
-	//	{ OV9655_COM7, OV9655_COM7_SXGA | OV9655_COM7_YUV }, 
+	{ OV9655_COM7, OV9655_COM7_SXGA, ~OV9655_COM7_RES_MASK }, 
+	{ OV9655_HSYEN, 0x50 }	/* adjust sync */
+#if 0	// stuff from other driver without knowing if that is good or bad
 	// fixme: define macros that split a 11 bit row/col position into higher bytes and HREF/VREF
 	{ OV9655_HSTART, 0x1d },
 	{ OV9655_HSTOP, 0xbd },
@@ -587,12 +586,14 @@ static const struct ov9655_reg ov9655_sxga[] = {
 	{ OV9655_PCKDV, 0x00 },	// pixel clock divisor (48 MHz)
 	{ OV9655_XINDX, 0x3a },	// scale down
 	{ OV9655_YINDX, 0x35 },	// scale down
-	{ OV9655_COM24, 0x80 },	// pixel clock frequency	
+	{ OV9655_COM24, 0x80 },	// pixel clock frequency
+#endif
 };
 
 /* Register values for VGA format */
 static const struct ov9655_reg ov9655_vga[] = {
-	//	{ OV9655_COM7, OV9655_COM7_VGA | OV9655_COM7_YUV },
+	{ OV9655_COM7, OV9655_COM7_VGA, ~OV9655_COM7_RES_MASK },
+#if 0	// stuff from other driver without knowing if that is good or bad
 	{ OV9655_HSTART, 0x16 },
 	{ OV9655_HSTOP, 0x02 },
 	{ OV9655_HREF, 0xff },
@@ -606,11 +607,13 @@ static const struct ov9655_reg ov9655_vga[] = {
 	{ OV9655_XINDX, 0x3a },	// scale down
 	{ OV9655_YINDX, 0x35 },	// scale down
 	{ OV9655_COM24, 0x80 },	// pixel clock frequency
+#endif
 };
 
 /* Register values for QVGA format */
 static const struct ov9655_reg ov9655_qvga[] = {
-	//	{ OV9655_COM7, OV9655_COM7_VGA | OV9655_COM7_YUV },
+	{ OV9655_COM7, OV9655_COM7_VGA, ~OV9655_COM7_RES_MASK },
+#if 0	// stuff from other driver without knowing if that is good or bad
 	{ OV9655_HSTART, 0x18 },
 	{ OV9655_HSTOP, 0x04 },
 	{ OV9655_HREF, 0x2a },	// lower bits of hstart/stop
@@ -624,12 +627,14 @@ static const struct ov9655_reg ov9655_qvga[] = {
 	{ OV9655_XINDX, 0x10 },	// scale down
 	{ OV9655_YINDX, 0x10 },	// scale down
 	{ OV9655_COM24, 0x81 },	// pixel clock frequency
+#endif
 };
 
 /* Register values for CIF format */
 static const struct ov9655_reg ov9655_cif[] = {
 	/* fixme: this is QQVGA and not CIF */
-	//	{ OV9655_COM7, OV9655_COM7_VGA | OV9655_COM7_YUV },
+	{ OV9655_COM7, OV9655_COM7_VGA, ~OV9655_COM7_RES_MASK },
+#if 0	// stuff from other driver without knowing if that is good or bad
 	{ OV9655_HSTART, 0x18 },
 	{ OV9655_HSTOP, 0x04 },
 	{ OV9655_HREF, 0xa4 },
@@ -643,13 +648,15 @@ static const struct ov9655_reg ov9655_cif[] = {
 	{ OV9655_XINDX, 0x10 },	// scale down
 	{ OV9655_YINDX, 0x10 },	// scale down
 	{ OV9655_COM24, 0x82 },	// pixel clock frequency
+#endif
 };
 
 /* Register values for YUV format */
-static const struct ov9655_reg ov9655_yuv_regs[] = {
+static const struct ov9655_reg ov9655_uyvy_regs[] = {
 	/* merge value with VGA/SXGA setting! */
-	{ OV9655_COM7, 0x00 | OV9655_COM7_YUV, },	/* choose YUV */
-	{ OV9655_COM15, 0xc0 },	// full scale output range
+	{ OV9655_COM7, OV9655_COM7_YUV, ~OV9655_COM7_FMT_MASK },	/* choose YUV */
+	{ OV9655_TSLB, OV9655_TSLB_VYUY, ~OV9655_TSLB_YUV_MASK },	/* VYUY byte order */
+#if 0	// stuff from other driver without knowing if that is good or bad
 	{ OV9655_MTX1, 0x80 },
 	{ OV9655_MTX2, 0x80 },
 	{ OV9655_MTX3, 0x00 },
@@ -657,12 +664,14 @@ static const struct ov9655_reg ov9655_yuv_regs[] = {
 	{ OV9655_MTX5, 0x5e },
 	{ OV9655_MTX6, 0x80 },
 	{ OV9655_MTXS, 0x1e },
+#endif
 };
 
 /* Register values for RGB format */
 static const struct ov9655_reg ov9655_rgb_regs[] = {
-	{ OV9655_COM7, 0x00, },	/* choose RGB */
+	{ OV9655_COM7, OV9655_COM7_RGB, OV9655_COM7_FMT_MASK },	/* choose RGB */
 	{ OV9655_COM15, 0xc0 | OV9655_COM15_RGB555 },	// full scale output range and RGB555
+#if 0	// stuff from other driver without knowing if that is good or bad
 	//	{ OV9655_MTX1, 0x98 },
 	{ OV9655_MTX2, 0x98 },
 	{ OV9655_MTX3, 0x00 },
@@ -670,6 +679,22 @@ static const struct ov9655_reg ov9655_rgb_regs[] = {
 	{ OV9655_MTX5, 0x70 },
 	{ OV9655_MTX6, 0x98 },
 	{ OV9655_MTXS, 0x1a },
+#endif
+};
+
+/* Register values for RGB-RAW format */
+static const struct ov9655_reg ov9655_raw_regs[] = {
+	{ OV9655_COM7, OV9655_COM7_RAW, OV9655_COM7_FMT_MASK },	/* choose RGB */
+	{ OV9655_COM15, 0xc0 | OV9655_COM15_RGB555 },	// full scale output range and RGB555
+#if 0	// stuff from other driver without knowing if that is good or bad
+	//	{ OV9655_MTX1, 0x98 },
+	{ OV9655_MTX2, 0x98 },
+	{ OV9655_MTX3, 0x00 },
+	{ OV9655_MTX4, 0x28,},
+	{ OV9655_MTX5, 0x70 },
+	{ OV9655_MTX6, 0x98 },
+	{ OV9655_MTXS, 0x1a },
+#endif
 };
 
 struct ov9655 {
@@ -695,6 +720,7 @@ static struct ov9655 *to_ov9655(struct v4l2_subdev *sd)
 
 static int  ov9655_read(struct i2c_client *client, u8 reg)
 {
+	dev_info(&client->dev, "OV9655 read register %02x\n", reg);
 	return i2c_smbus_read_byte_data(client, reg);
 }
 
@@ -715,6 +741,8 @@ static int ov9655_write_regs(struct i2c_client *client,
 			if(ret < 0)
 				return ret;
 			val |= (ret & regs->clear);
+			if(val == (u8) ret)
+				return 0;	/* no need to write */
 		}
 		ret = ov9655_write(client, regs->addr, val);
 		if (ret < 0)
@@ -880,6 +908,28 @@ static int __ov9655_set_power(struct ov9655 *ov9655, bool on)
  * V4L2 subdev video operations
  */
 
+#if 1	// our private development testing code because dev_info can't be controlled that easily
+
+void printfmt(struct v4l2_format *format)
+{
+	printk("fmt=%d h=%u w=%u bpl=%u size=%u\n", format->fmt.pix.pixelformat,
+		   format->fmt.pix.height,
+		   format->fmt.pix.width,
+		   format->fmt.pix.bytesperline,
+		   format->fmt.pix.sizeimage);
+}
+
+void printmbusfmt(struct v4l2_mbus_framefmt *format)
+{
+	printk("h=%u w=%u code=%u field=%u csp=%u\n", format->height,
+		   format->width,
+		   format->code,
+		   format->field,
+		   format->colorspace);
+}
+
+#endif
+
 static int ov9655_set_params(struct ov9655 *ov9655)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&ov9655->subdev);
@@ -895,39 +945,53 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 
 	dev_info(&client->dev, "ov9655_set_params\n");
 	
-	// format as set by user space command e.g.
-	//    media-ctl -V '"ov9655 2-0030":0 [SGRBG8 1024x1024]'
-	//
-	
-	// FIXME: should we also set/change the pixel clock here?
+	printk("ov9655_set_params\n");
+	printmbusfmt(format);
 
+	/* generic initialization */
 	ov9655_write_regs(client, ov9655_init_regs, ARRAY_SIZE(ov9655_init_regs));
-	if(IS_SXGA(format->width, format->height)) {
-		printk("SXGA\n");
-		//	ov9655_write_regs(client, ov9655_sxga, ARRAY_SIZE(ov9655_sxga));		
-	}
-	else if(IS_VGA(format->width, format->height)) {
-		printk("VGA\n");
-		
-	}
-	else if(IS_QVGA(format->width, format->height)) {
-		printk("QVGA\n");
-		
-	}
-	else if(IS_CIF(format->width, format->height)) {
-		printk("CIF\n");
-		
-	}
-	else {
-		dev_info(&client->dev, "ov9655_set_params unknown format width=%u height=%u\n", format->width, format->height);
-//		return -EINVAL;	// unknown format
-		// returing -EINVAL ends up in a kernel panic
+
+	/* format specific initializations */
+	
+	switch(WH(format->width, format->height)) {
+
+			// FIXME: should we also set/change the pixel clock here?
+
+		case SXGA:
+			printk("SXGA\n");
+			ov9655_write_regs(client, ov9655_sxga, ARRAY_SIZE(ov9655_sxga));
+			break;
+		case VGA:
+			printk("VGA\n");
+			ov9655_write_regs(client, ov9655_vga, ARRAY_SIZE(ov9655_vga));
+		case QVGA:
+			printk("QVGA\n");
+			ov9655_write_regs(client, ov9655_qvga, ARRAY_SIZE(ov9655_qvga));
+			break;
+		case CIF:
+			printk("CIF\n");
+			ov9655_write_regs(client, ov9655_cif, ARRAY_SIZE(ov9655_cif));
+			break;
 	}
 
 	printk("format->code=%08x\n", format->code);
 
-	// handle format->code == V4L2_MBUS_FMT_BGR565_2X8_BE etc.
-	// to set COM3[2], COM7[1:0], TSLB[4:2], COM15[5:4], 
+	switch(format->code) {
+			// handle format->code == V4L2_MBUS_FMT_BGR565_2X8_BE etc.
+			// to set COM3[2], COM7[1:0], TSLB[4:2], COM15[5:4], 			
+		case V4L2_MBUS_FMT_UYVY8_2X8:
+			ov9655_write_regs(client, ov9655_uyvy_regs, ARRAY_SIZE(ov9655_uyvy_regs));
+			break;
+		case V4L2_MBUS_FMT_RGB565_2X8_BE:
+			ov9655_write_regs(client, ov9655_rgb_regs, ARRAY_SIZE(ov9655_rgb_regs));
+			break;
+		case V4L2_MBUS_FMT_SGRBG12_1X12:
+			ov9655_write_regs(client, ov9655_raw_regs, ARRAY_SIZE(ov9655_raw_regs));
+			break;
+		default:
+			// should have been rejected in ov9655_set_format()
+			break;
+	}
 
 	printk("format->field=%08x\n", format->field);
 
@@ -1085,26 +1149,6 @@ __ov9655_get_pad_crop(struct ov9655 *ov9655, struct v4l2_subdev_fh *fh,
 	}
 }
 
-void printfmt(struct v4l2_format *format)
-{
-	printk("fmt=%d h=%u w=%u bpl=%u size=%u\n", format->fmt.pix.pixelformat,
-		   format->fmt.pix.height,
-		   format->fmt.pix.width,
-		   format->fmt.pix.bytesperline,
-		   format->fmt.pix.sizeimage);
-	
-}
-
-void printmbusfmt(struct v4l2_mbus_framefmt *format)
-{
-	printk("h=%u w=%u code=%u field=%u csp=%u\n", format->height,
-		   format->width,
-		   format->code,
-		   format->field,
-		   format->colorspace);
-	
-}
-
 static int ov9655_get_format(struct v4l2_subdev *subdev,
 			      struct v4l2_subdev_fh *fh,
 			      struct v4l2_subdev_format *fmt)
@@ -1147,6 +1191,11 @@ static int ov9655_set_format(struct v4l2_subdev *subdev,
 	hratio = DIV_ROUND_CLOSEST(__crop->width, width);
 	vratio = DIV_ROUND_CLOSEST(__crop->height, height);
 
+	/* take what has been defined for the pad
+	 * by user space command e.g.
+	 *    media-ctl -V '"ov9655 2-0030":0 [UYVY2x8 1024x1024]'
+	 */
+
 	__format = __ov9655_get_pad_format(ov9655, fh, format->pad,
 					    format->which);
 	printmbusfmt(__format);
@@ -1156,6 +1205,27 @@ static int ov9655_set_format(struct v4l2_subdev *subdev,
 
 	format->format = *__format;
 	printmbusfmt(&format->format);
+	
+	switch(WH(__format->width, __format->height)) {
+		case SXGA:
+		case VGA:
+		case QVGA:
+		case CIF:
+			break;	/* ok */
+		default:
+			printk("ov9655_set_format unknown format width=%u height=%u\n", __format->width, __format->height);
+			return -EINVAL;	// unknown format
+	}
+
+	switch(__format->code) {
+		case V4L2_MBUS_FMT_UYVY8_2X8:
+		case V4L2_MBUS_FMT_RGB565_2X8_BE:
+		case V4L2_MBUS_FMT_SGRBG12_1X12:
+			break;
+		default:
+			printk("ov9655_set_format unknown format code=%08x\n", __format->code);
+			return -EINVAL;	// unknown format
+	}
 
 	return 0;
 }
