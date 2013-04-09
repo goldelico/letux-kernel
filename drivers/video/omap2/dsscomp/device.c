@@ -363,14 +363,14 @@ static long check_ovl(struct dsscomp_dev *cdev,
 					struct dsscomp_check_ovl_data *chk)
 {
 	u16 x_decim, y_decim;
-	bool five_taps;
+	/* bool five_taps; */
 	struct omap_dss_device *dev;
 	struct omap_overlay_manager *mgr;
 	int i;
 	long allowed = 0;
 	bool checked_vid = false, scale_ok = false;
 	struct dss2_ovl_cfg *c = &chk->ovl.cfg;
-	enum tiler_fmt fmt;
+	/* enum tiler_fmt fmt; */
 
 	/* get display */
 	if (chk->mgr.ix >= cdev->num_displays)
@@ -404,6 +404,7 @@ static long check_ovl(struct dsscomp_dev *cdev,
 
 		/* verify scaling on GFX and VID pipes */
 		if (!i || !checked_vid) {
+			/*
 			struct omap_overlay_info info = {
 				.out_width = c->win.w,
 				.out_height = c->win.h,
@@ -416,10 +417,12 @@ static long check_ovl(struct dsscomp_dev *cdev,
 				.min_y_decim = c->decim.min_y,
 				.max_y_decim = c->decim.max_y,
 			};
+			*/
 			u32 ba = (unsigned int) &chk->ovl.address;
 
 			ba = hwc_virt_to_phys(ba);
 			/* check for valid tiler container */
+			/*
 			if (tiler_get_fmt(ba, &fmt) && fmt >= TILFMT_8BIT &&
 					fmt <= TILFMT_32BIT)
 				info.rotation_type = OMAP_DSS_ROT_TILER;
@@ -428,7 +431,7 @@ static long check_ovl(struct dsscomp_dev *cdev,
 
 			scale_ok = !dispc_scaling_decision(i, &info, mgr->id,
 					&x_decim, &y_decim, &five_taps);
-
+			*/
 			/* update minimum decimation needs to support ovl */
 			if (scale_ok) {
 				if (x_decim > c->decim.min_x)

@@ -156,10 +156,12 @@ int dsscomp_gralloc_queue_ioctl(struct dsscomp_setup_dispc_data *d)
 		oi->ba = tiler_virt2phys(addr);
 
 		/* map non-TILER buffers to 1D */
+		/*
 		if (oi->ba && !is_tiler_addr(oi->ba))
 			pas[i] = user_block_to_pa(addr & PAGE_MASK,
 				PAGE_ALIGN(oi->cfg.height * oi->cfg.stride +
 					(addr & ~PAGE_MASK)) >> PAGE_SHIFT);
+		*/
 	}
 	ret = dsscomp_gralloc_queue(d, pas, false, NULL, NULL);
 	for (i = 0; i < d->num_ovls; i++)
@@ -423,6 +425,7 @@ skip_map1d:
 			ovl_set_mask |= 1 << oi->cfg.ix;
 	}
 
+	/*
 	if (slot && slot_used) {
 		r = tiler_pin_phys(slot->block_handle, slot->page_map,
 						slot_used);
@@ -431,7 +434,7 @@ skip_map1d:
 					"slots (%d)\n", slot_used,
 					TILER1D_SLOT_SIZE >> PAGE_SHIFT, r);
 	}
-
+	*/
 	for (ch = 0; ch < MAX_MANAGERS; ch++) {
 		/* disable all overlays not specifically set from prior frame */
 		u32 mask = ovl_use_mask[ch] & ~ovl_set_mask;
