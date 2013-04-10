@@ -1034,12 +1034,24 @@ static const struct dev_pm_ops omap_dmm_pm_ops = {
 };
 #endif
 
+#if defined (CONFIG_OF)
+static const struct of_device_id dmm_of_match[] = {
+	{
+		.compatible = "ti,dmm",
+	},
+	{},
+};
+#else
+#define dmm_of_match NULL
+#endif
+
 struct platform_driver omap_dmm_driver = {
 	.probe = omap_dmm_probe,
 	.remove = omap_dmm_remove,
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = DMM_DRIVER_NAME,
+		.of_match_table = dmm_of_match,
 #ifdef CONFIG_PM
 		.pm = &omap_dmm_pm_ops,
 #endif
