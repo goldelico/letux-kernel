@@ -380,6 +380,13 @@
 			ti,hwmods = "wd_timer2";
 		};
 
+		dmm: dmm@4e000000 {
+			compatible = "ti,dmm";
+			reg = <0x4e000000 0x800>;
+			interrupts = <0 113 0x4>;
+			ti,hwmods = "dmm";
+		};
+
 		aess: aess@0x401f1000 {
 			compatible = "ti,omap4-aess";
 			reg = <0x401f1000 0x3ff>, /* MPU private access */
