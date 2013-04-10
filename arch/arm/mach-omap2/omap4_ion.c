@@ -18,7 +18,7 @@
 #include "omap4_ion.h"
 
 static struct ion_platform_data omap4_ion_data = {
-	.nr = 5,
+	.nr = 4,
 	.heaps = {
 		{
 			.type = ION_HEAP_TYPE_CARVEOUT,
@@ -46,12 +46,7 @@ static struct ion_platform_data omap4_ion_data = {
 			.type = ION_HEAP_TYPE_SYSTEM,
 			.id = OMAP_ION_HEAP_SYSTEM,
 			.name = "system",
-		},
-		{
-			.type = OMAP_ION_HEAP_TYPE_TILER_RESERVATION,
-			.id = OMAP_ION_HEAP_TILER_RESERVATION,
-			.name = "tiler_reservation",
-		},
+		}
 	},
 };
 
