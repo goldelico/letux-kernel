@@ -36,7 +36,7 @@
 #ifndef _DRM_H_
 #define _DRM_H_
 
-#if defined(__linux__)
+#if 1
 
 #include <linux/types.h>
 #include <asm/ioctl.h>
