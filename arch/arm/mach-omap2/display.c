@@ -128,17 +128,23 @@ static int omapdrm_init(void)
 {
 	struct omap_hwmod *oh;
 	struct platform_device *dmm_pdev;
+	struct device_node *node;
 	int r = 0;
 
 	/* create DMM and DRM device */
 	if (omap_drm_device != NULL) {
-		oh = omap_hwmod_lookup("dmm");
-		if (oh) {
-			dmm_pdev = omap_device_build(oh->name, -1, oh, NULL, 0,
-					NULL, 0, false);
-			WARN(IS_ERR(dmm_pdev),
-				"Could not build omap_device for %s\n",
-				oh->name);
+
+		/* search for DT node, if not present, use hwmod */
+		node = of_find_compatible_node(NULL, NULL, "ti,dmm");
+		if (!node) {
+			oh = omap_hwmod_lookup("dmm");
+			if (oh) {
+				dmm_pdev = omap_device_build(oh->name, -1, oh,
+						NULL, 0, NULL, 0, false);
+				WARN(IS_ERR(dmm_pdev),
+					"Could not build omap_device for %s\n",
+					oh->name);
+			}
 		}
 
 		platform_drm_data.omaprev = GET_OMAP_TYPE;
