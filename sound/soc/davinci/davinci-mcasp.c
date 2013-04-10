@@ -803,13 +803,27 @@ static void davinci_hw_dit_param(struct davinci_audio_dev *dev)
 	mcasp_set_bits(dev->base + DAVINCI_MCASP_TXDITCTL_REG, DITEN);
 }
 
+static void davinci_mcasp_set_dma_params(struct snd_pcm_substream *substream,
+					 struct davinci_audio_dev *dev,
+					 int word_length, u8 fifo_level)
+{
+	struct davinci_pcm_dma_params *dma_params =
+					dev->dma_params[substream->stream];
+
+	dma_params->data_type = word_length >> 3;
+	dma_params->fifo_level = fifo_level;
+
+	if (dev->version == MCASP_VERSION_2 && !fifo_level)
+		dma_params->acnt = 4;
+	else
+		dma_params->acnt = dma_params->data_type;
+}
+
 static int davinci_mcasp_hw_params(struct snd_pcm_substream *substream,
 					struct snd_pcm_hw_params *params,
 					struct snd_soc_dai *cpu_dai)
 {
 	struct davinci_audio_dev *dev = snd_soc_dai_get_drvdata(cpu_dai);
-	struct davinci_pcm_dma_params *dma_params =
-					dev->dma_params[substream->stream];
 	int word_length;
 	u8 fifo_level;
 
@@ -827,19 +841,16 @@ static int davinci_mcasp_hw_params(struct snd_pcm_substream *substream,
 	switch (params_format(params)) {
 	case SNDRV_PCM_FORMAT_U8:
 	case SNDRV_PCM_FORMAT_S8:
-		dma_params->data_type = 1;
 		word_length = 8;
 		break;
 
 	case SNDRV_PCM_FORMAT_U16_LE:
 	case SNDRV_PCM_FORMAT_S16_LE:
-		dma_params->data_type = 2;
 		word_length = 16;
 		break;
 
 	case SNDRV_PCM_FORMAT_U24_3LE:
 	case SNDRV_PCM_FORMAT_S24_3LE:
-		dma_params->data_type = 3;
 		word_length = 24;
 		break;
 
@@ -847,7 +858,6 @@ static int davinci_mcasp_hw_params(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_FORMAT_S24_LE:
 	case SNDRV_PCM_FORMAT_U32_LE:
 	case SNDRV_PCM_FORMAT_S32_LE:
-		dma_params->data_type = 4;
 		word_length = 32;
 		break;
 
@@ -856,12 +866,7 @@ static int davinci_mcasp_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
-	if (dev->version == MCASP_VERSION_2 && !fifo_level)
-		dma_params->acnt = 4;
-	else
-		dma_params->acnt = dma_params->data_type;
-
-	dma_params->fifo_level = fifo_level;
+	davinci_mcasp_set_dma_params(substream, dev, word_length, fifo_level);
 	davinci_config_channel_size(dev, word_length);
 
 	return 0;
