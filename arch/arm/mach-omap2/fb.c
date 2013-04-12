@@ -110,7 +110,7 @@ static struct platform_device omap_fb_device = {
 
 void omapfb_set_platform_data(struct omapfb_platform_data *data)
 {
-	omapfb_config = *data;
+	//omapfb_config = *data;
 }
 
 static int __init omap_init_fb(void)
