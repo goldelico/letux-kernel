@@ -121,7 +121,7 @@ static struct platform_device drm_device = {
 
 static struct platform_device *omap_drm_device = &drm_device;
 #else
-static struct platform_device *omap_drm_device = NULL
+static struct platform_device *omap_drm_device = NULL;
 #endif
 
 static int omapdrm_init(void)
