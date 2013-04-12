@@ -185,6 +185,9 @@ static int __init omap_clk_setup(char *str)
 	if (!mpurate)
 		return 1;
 
+	if (mpurate == 1000)
+		mpurate=800;
+
 	if (mpurate < 1000)
 		mpurate *= 1000000;
 
