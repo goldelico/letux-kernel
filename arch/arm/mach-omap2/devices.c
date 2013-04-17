@@ -17,7 +17,6 @@
 #include <linux/err.h>
 #include <linux/slab.h>
 #include <linux/of.h>
-#include <linux/mm.h>
 #include <linux/pinctrl/machine.h>
 #include <linux/platform_data/omap4-keypad.h>
 #include <linux/platform_data/omap_ocp2scp.h>
@@ -484,7 +483,6 @@ static void __init omap_init_gpu(void)
 	pdata->device_shutdown = omap_device_shutdown;
 	pdata->opp_get_opp_count = opp_get_opp_count;
 	pdata->opp_find_freq_ceil = opp_find_freq_ceil;
-	pdata->access_process_vm = access_process_vm;
 
 	pdev = omap_device_build(name, 0, oh, pdata,
 			     sizeof(struct gpu_platform_data),
