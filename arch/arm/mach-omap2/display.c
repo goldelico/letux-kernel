@@ -131,21 +131,20 @@ static int omapdrm_init(void)
 	struct device_node *node;
 	int r = 0;
 
+	/* search for DT node, if not present, use hwmod */
+	node = of_find_compatible_node(NULL, NULL, "ti,dmm");
+	if (!node) {
+		oh = omap_hwmod_lookup("dmm");
+		if (oh) {
+			dmm_pdev = omap_device_build(oh->name, -1, oh,
+					NULL, 0, NULL, 0, false);
+			WARN(IS_ERR(dmm_pdev),
+				"Could not build omap_device for %s\n",
+				oh->name);
+		}
+	}
 	/* create DMM and DRM device */
 	if (omap_drm_device != NULL) {
-
-		/* search for DT node, if not present, use hwmod */
-		node = of_find_compatible_node(NULL, NULL, "ti,dmm");
-		if (!node) {
-			oh = omap_hwmod_lookup("dmm");
-			if (oh) {
-				dmm_pdev = omap_device_build(oh->name, -1, oh,
-						NULL, 0, NULL, 0, false);
-				WARN(IS_ERR(dmm_pdev),
-					"Could not build omap_device for %s\n",
-					oh->name);
-			}
-		}
 
 		platform_drm_data.omaprev = GET_OMAP_TYPE;
 
@@ -428,6 +427,13 @@ int __init omap_display_init(struct omap_dss_board_info *board_data)
 		return -ENODEV;
 	}
 
+	/* create DMM and DRM device */
+	r = omapdrm_init();
+	if (r < 0) {
+		pr_err("Unable to register omapdrm/dmm device\n");
+		return r;
+	}
+
 	board_data->version = ver;
 	board_data->dsi_enable_pads = omap_dsi_enable_pads;
 	board_data->dsi_disable_pads = omap_dsi_disable_pads;
@@ -535,13 +541,6 @@ int __init omap_display_init(struct omap_dss_board_info *board_data)
 			return PTR_ERR(au_pdev);
 		}
 
-	}
-
-	/* create DMM and DRM device */
-	r = omapdrm_init();
-	if (r < 0) {
-		pr_err("Unable to register omapdrm device\n");
-		return r;
 	}
 
 	return 0;
@@ -740,6 +739,13 @@ int __init omapdss_init_of(void)
 		return -ENODEV;
 	}
 
+	/* create omapdrm devices */
+	r = omapdrm_init();
+	if (r < 0) {
+		pr_err("Unable to create omapdrm/dmm device\n");
+		return r;
+	}
+
 	board_data.version = ver;
 
 	/* find the main dss node  */
@@ -768,13 +774,6 @@ int __init omapdss_init_of(void)
 	}
 
 	hdmi_init_of();
-
-	/* create omapdrm devices */
-	r = omapdrm_init();
-	if (r < 0) {
-		pr_err("Unable to create omapdrm device\n");
-		return r;
-	}
 
 	return 0;
 }
