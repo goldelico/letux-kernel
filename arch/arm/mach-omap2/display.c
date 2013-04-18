@@ -106,9 +106,9 @@ static const struct omap_dss_hwmod_data omap4_dss_hwmod_data[] __initconst = {
 	{ "dss_hdmi", "omapdss_hdmi", -1 },
 };
 
-#if defined(CONFIG_DRM_OMAP) || (CONFIG_DRM_OMAP_MODULE)
-
 static struct omap_drm_platform_data platform_drm_data;
+
+#if defined(CONFIG_DRM_OMAP) || defined(CONFIG_DRM_OMAP_MODULE)
 
 static struct platform_device drm_device = {
 	.dev = {
@@ -121,7 +121,7 @@ static struct platform_device drm_device = {
 
 static struct platform_device *omap_drm_device = &drm_device;
 #else
-static struct platform_device *omap_drm_device = NULL;
+static struct platform_device *omap_drm_device;
 #endif
 
 static int omapdrm_init(void)
