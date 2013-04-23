@@ -809,7 +809,7 @@ static int davinci_mcasp_hw_params(struct snd_pcm_substream *substream,
 {
 	struct davinci_audio_dev *dev = snd_soc_dai_get_drvdata(cpu_dai);
 	struct davinci_pcm_dma_params *dma_params =
-					&dev->dma_params[substream->stream];
+					dev->dma_params[substream->stream];
 	int word_length;
 	u8 fifo_level;
 
@@ -1135,7 +1135,15 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 	dev->rxnumevt = pdata->rxnumevt;
 	dev->dev = &pdev->dev;
 
-	dma_data = &dev->dma_params[SNDRV_PCM_STREAM_PLAYBACK];
+	dma_data = devm_kzalloc(&pdev->dev,
+				sizeof(struct davinci_pcm_dma_params),
+				GFP_KERNEL);
+	if (!dma_data) {
+		ret = -ENOMEM;
+		goto err_release_clk;
+	}
+
+	dev->dma_params[SNDRV_PCM_STREAM_PLAYBACK] = dma_data;
 	dma_data->asp_chan_q = pdata->asp_chan_q;
 	dma_data->ram_chan_q = pdata->ram_chan_q;
 	dma_data->sram_pool = pdata->sram_pool;
@@ -1153,7 +1161,15 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 
 	dma_data->channel = res->start;
 
-	dma_data = &dev->dma_params[SNDRV_PCM_STREAM_CAPTURE];
+	dma_data = devm_kzalloc(&pdev->dev,
+				sizeof(struct davinci_pcm_dma_params),
+				GFP_KERNEL);
+	if (!dma_data) {
+		ret = -ENOMEM;
+		goto err_release_clk;
+	}
+
+	dev->dma_params[SNDRV_PCM_STREAM_CAPTURE] = dma_data;
 	dma_data->asp_chan_q = pdata->asp_chan_q;
 	dma_data->ram_chan_q = pdata->ram_chan_q;
 	dma_data->sram_pool = pdata->sram_pool;
