@@ -331,6 +331,7 @@ static struct of_device_id of_palmas_match_tbl[] = {
 	{ .compatible = "ti,tps80032-rtc", },
 	{ .compatible = "ti,palmas-rtc", },
 	{ .compatible = "ti,palmas-charger-rtc", },
+	{ .compatible = "ti,tps659038-rtc", },
 	{ /* end */ },
 };
 

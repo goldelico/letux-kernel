@@ -161,4 +161,8 @@
 			};
 		};
 	};
+
+	tps659038_rtc {
+		compatible = "ti,tps659038-rtc";
+        };
 };

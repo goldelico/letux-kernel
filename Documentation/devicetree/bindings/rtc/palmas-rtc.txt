@@ -8,6 +8,7 @@ Required properties:
   ti,tps65913-rtc
   ti,tps65914-rtc
   ti,tps80036-rtc
+  ti,tps659038-rtc
 and also the generic series names
   ti,palmas-rtc
 
