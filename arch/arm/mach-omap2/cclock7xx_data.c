@@ -107,9 +107,7 @@ DEFINE_CLK_MUX(sys_clkin1, sys_clkin1_parents, NULL, 0x0, DRA7XX_CM_CLKSEL_SYS,
 	       0x0, NULL);
 
 
-DEFINE_CLK_MUX(sys_clkin2, sys_clkin1_parents, NULL, 0x0, DRA7XX_CM_CLKSEL_SYS,
-	       DRA7XX_SYS_CLKSEL_SHIFT, DRA7XX_SYS_CLKSEL_WIDTH,
-	       0x0, NULL);
+DEFINE_CLK_FIXED_RATE(sys_clkin2, CLK_IS_ROOT, 22579200, 0x0);
 
 DEFINE_CLK_FIXED_RATE(usb_otg_clkin_ck, CLK_IS_ROOT, 0, 0x0);
 
