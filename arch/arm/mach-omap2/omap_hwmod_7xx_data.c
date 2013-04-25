@@ -609,6 +609,10 @@ static struct omap_hwmod_dma_info dra7xx_dss_hdmi_sdma_reqs[] = {
 	{ .dma_req = -1 }
 };
 
+static struct omap_hwmod_opt_clk dss_hdmi_opt_clks[] = {
+	{ .role = "sys_clk", .clk = "dss_hdmi_clk" },
+};
+
 static struct omap_hwmod dra7xx_dss_hdmi_hwmod = {
 	.name		= "dss_hdmi",
 	.class		= &dra7xx_hdmi_hwmod_class,
@@ -622,6 +626,8 @@ static struct omap_hwmod dra7xx_dss_hdmi_hwmod = {
 			.flags = HWMOD_OMAP4_NO_CONTEXT_LOSS_BIT,
 		},
 	},
+	.opt_clks	= dss_hdmi_opt_clks,
+	.opt_clks_cnt	= ARRAY_SIZE(dss_hdmi_opt_clks),
 };
 
 /*
