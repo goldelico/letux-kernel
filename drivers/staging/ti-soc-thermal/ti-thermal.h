@@ -20,32 +20,36 @@
  * 02110-1301 USA
  *
  */
-#ifndef __OMAP_THERMAL_H
-#define __OMAP_THERMAL_H
+#ifndef __TI_THERMAL_H
+#define __TI_THERMAL_H
 
-#include "omap-bandgap.h"
+#include "ti-bandgap.h"
 
 /* sensors gradient and offsets */
+#define OMAP_GRADIENT_SLOPE_4430				0
+#define OMAP_GRADIENT_CONST_4430				20000
 #define OMAP_GRADIENT_SLOPE_4460				348
 #define OMAP_GRADIENT_CONST_4460				-9301
 #define OMAP_GRADIENT_SLOPE_4470				308
 #define OMAP_GRADIENT_CONST_4470				-7896
 
-#define OMAP_GRADIENT_SLOPE_5430_CPU				196
-#define OMAP_GRADIENT_CONST_5430_CPU				-6822
-#define OMAP_GRADIENT_SLOPE_5430_GPU				64
-#define OMAP_GRADIENT_CONST_5430_GPU				978
+#define OMAP_GRADIENT_SLOPE_5430_CPU				65
+#define OMAP_GRADIENT_CONST_5430_CPU				-1791
+#define OMAP_GRADIENT_SLOPE_5430_GPU				117
+#define OMAP_GRADIENT_CONST_5430_GPU				-2992
 
 /* PCB sensor calculation constants */
+#define OMAP_GRADIENT_SLOPE_W_PCB_4430				0
+#define OMAP_GRADIENT_CONST_W_PCB_4430				20000
 #define OMAP_GRADIENT_SLOPE_W_PCB_4460				1142
 #define OMAP_GRADIENT_CONST_W_PCB_4460				-393
 #define OMAP_GRADIENT_SLOPE_W_PCB_4470				1063
 #define OMAP_GRADIENT_CONST_W_PCB_4470				-477
 
-#define OMAP_GRADIENT_SLOPE_W_PCB_5430_CPU			469
-#define OMAP_GRADIENT_CONST_W_PCB_5430_CPU			-1272
-#define OMAP_GRADIENT_SLOPE_W_PCB_5430_GPU			378
-#define OMAP_GRADIENT_CONST_W_PCB_5430_GPU			154
+#define OMAP_GRADIENT_SLOPE_W_PCB_5430_CPU			100
+#define OMAP_GRADIENT_CONST_W_PCB_5430_CPU			484
+#define OMAP_GRADIENT_SLOPE_W_PCB_5430_GPU			464
+#define OMAP_GRADIENT_CONST_W_PCB_5430_GPU			-5102
 
 /* trip points of interest in milicelsius (at hotspot level) */
 #define OMAP_TRIP_COLD						100000
@@ -60,47 +64,45 @@
 
 /* helper macros */
 /**
- * omap_thermal_get_trip_value - returns trip temperature based on index
+ * ti_thermal_get_trip_value - returns trip temperature based on index
  * @i:	trip index
  */
-#define omap_thermal_get_trip_value(i)					\
+#define ti_thermal_get_trip_value(i)					\
 	(OMAP_TRIP_HOT + ((i) * OMAP_TRIP_STEP))
 
 /**
- * omap_thermal_is_valid_trip - check for trip index
+ * ti_thermal_is_valid_trip - check for trip index
  * @i:	trip index
  */
-#define omap_thermal_is_valid_trip(trip)				\
+#define ti_thermal_is_valid_trip(trip)				\
 	((trip) >= 0 && (trip) < OMAP_TRIP_NUMBER)
 
-#ifdef CONFIG_OMAP_THERMAL
-int omap_thermal_expose_sensor(struct omap_bandgap *bg_ptr, int id,
-			       char *domain);
-int omap_thermal_remove_sensor(struct omap_bandgap *bg_ptr, int id);
-int omap_thermal_register_cpu_cooling(struct omap_bandgap *bg_ptr, int id);
-int omap_thermal_unregister_cpu_cooling(struct omap_bandgap *bg_ptr, int id);
+#ifdef CONFIG_TI_THERMAL
+int ti_thermal_expose_sensor(struct ti_bandgap *bgp, int id, char *domain);
+int ti_thermal_remove_sensor(struct ti_bandgap *bgp, int id);
+int ti_thermal_register_cpu_cooling(struct ti_bandgap *bgp, int id);
+int ti_thermal_unregister_cpu_cooling(struct ti_bandgap *bgp, int id);
 #else
 static inline
-int omap_thermal_expose_sensor(struct omap_bandgap *bg_ptr, int id,
-			       char *domain)
+int ti_thermal_expose_sensor(struct ti_bandgap *bgp, int id, char *domain)
 {
 	return 0;
 }
 
 static inline
-int omap_thermal_remove_sensor(struct omap_bandgap *bg_ptr, int id)
+int ti_thermal_remove_sensor(struct ti_bandgap *bgp, int id)
 {
 	return 0;
 }
 
 static inline
-int omap_thermal_register_cpu_cooling(struct omap_bandgap *bg_ptr, int id)
+int ti_thermal_register_cpu_cooling(struct ti_bandgap *bgp, int id)
 {
 	return 0;
 }
 
 static inline
-int omap_thermal_unregister_cpu_cooling(struct omap_bandgap *bg_ptr, int id)
+int ti_thermal_unregister_cpu_cooling(struct ti_bandgap *bgp, int id)
 {
 	return 0;
 }

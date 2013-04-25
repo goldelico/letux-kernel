@@ -36,6 +36,16 @@
 	cpus {
 		cpu@0 {
 			compatible = "arm,cortex-a15";
+			operating-points = <
+				/* kHz    uV */
+				/* Only for Nominal Samples */
+				500000	880000
+				1000000	1060000
+				1500000	1250000
+			>;
+			clocks = <&dpll_mpu>;
+			clock-names = "cpu";
+			clock-latency = <300000>; /* From omap-cpufreq driver */
 		};
 		cpu@1 {
 			compatible = "arm,cortex-a15";
@@ -92,6 +102,11 @@
 			compatible = "ti,omap-counter32k";
 			reg = <0x4ae04000 0x40>;
 			ti,hwmods = "counter_32k";
+		};
+
+		dpll_mpu: dpll_mpu {
+			#clock-cells = <0>;
+			compatible = "ti,omap-clock";
 		};
 
 		omap5_pmx_core: pinmux@4a002840 {
@@ -599,6 +614,14 @@
 			reg = <0x4ae14000 0x80>;
 			interrupts = <0 80 0x4>;
 			ti,hwmods = "wd_timer2";
+		};
+		bandgap {
+			reg = <0x4a0021e0 0xc
+				0x4a00232c 0xc
+				0x4a002380 0x2c
+				0x4a0023C0 0x3c>;
+				interrupts = <0 126 4>; /* talert */
+			compatible = "ti,omap5430-bandgap";
 		};
 	};
 };
