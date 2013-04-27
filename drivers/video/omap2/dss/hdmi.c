@@ -36,6 +36,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/of_gpio.h>
+#include <linux/fb.h>
 #include <video/omapdss.h>
 
 #include "ti_hdmi.h"
@@ -325,6 +326,74 @@ static const struct hdmi_config s3d_timings[] = {
 		{ 32, HDMI_HDMI },
 	},
 };
+
+static int relaxed_fb_mode_is_equal(const struct fb_videomode *mode1,
+					const struct fb_videomode *mode2)
+{
+	u32 ratio1 = mode1->flag & (FB_FLAG_RATIO_4_3 | FB_FLAG_RATIO_16_9);
+	u32 ratio2 = mode2->flag & (FB_FLAG_RATIO_4_3 | FB_FLAG_RATIO_16_9);
+	return (mode1->xres         == mode2->xres &&
+		mode1->yres         == mode2->yres &&
+		mode1->pixclock     <= mode2->pixclock * 201 / 200 &&
+		mode1->pixclock     >= mode2->pixclock * 200 / 201 &&
+		mode1->hsync_len + mode1->left_margin + mode1->right_margin ==
+		mode2->hsync_len + mode2->left_margin + mode2->right_margin &&
+		mode1->vsync_len + mode1->upper_margin + mode1->lower_margin ==
+		mode2->vsync_len + mode2->upper_margin + mode2->lower_margin &&
+		(!ratio1 || !ratio2 || ratio1 == ratio2) &&
+		(mode1->vmode & FB_VMODE_INTERLACED) ==
+		(mode2->vmode & FB_VMODE_INTERLACED));
+
+}
+
+static int hdmi_set_timings(struct fb_videomode *vm, bool check_only)
+{
+	int i = 0;
+	int r = 0;
+	DSSDBG("hdmi_set_timings\n");
+
+	if (!vm->xres || !vm->yres || !vm->pixclock)
+		goto fail;
+
+	for (i = 0; i < CEA_MODEDB_SIZE; i++) {
+		if (relaxed_fb_mode_is_equal(cea_modes + i, vm)) {
+			*vm = cea_modes[i];
+			if (check_only)
+				return 1;
+			hdmi.ip_data.cfg.cm.code = i;
+			hdmi.ip_data.cfg.cm.mode = HDMI_HDMI;
+			hdmi.ip_data.cfg.timingsfb =
+			cea_modes[hdmi.ip_data.cfg.cm.code];
+			goto done;
+		}
+	}
+	for (i = 0; i < VESA_MODEDB_SIZE; i++) {
+		if (relaxed_fb_mode_is_equal(vesa_modes + i, vm)) {
+			*vm = vesa_modes[i];
+			if (check_only)
+				return 1;
+			hdmi.ip_data.cfg.cm.code = i;
+			hdmi.ip_data.cfg.cm.mode = HDMI_DVI;
+			hdmi.ip_data.cfg.timingsfb =
+			vesa_modes[hdmi.ip_data.cfg.cm.code];
+			goto done;
+		}
+	}
+fail:
+	if (check_only)
+		return 0;
+	hdmi.ip_data.cfg.cm.code = 1;
+	hdmi.ip_data.cfg.cm.mode = HDMI_HDMI;
+	hdmi.ip_data.cfg.timingsfb = cea_modes[hdmi.ip_data.cfg.cm.code];
+	i = -1;
+done:
+	DSSDBG("%s-%d\n", hdmi.ip_data.cfg.cm.mode ? "CEA" : "VESA",
+		hdmi.ip_data.cfg.cm.code);
+
+	r = i >= 0 ? 1 : 0;
+	return r;
+
+}
 
 static int hdmi_runtime_get(void)
 {
