@@ -26,6 +26,7 @@
 
 #include <linux/export.h>
 #include <linux/opp.h>
+#include <linux/pm_runtime.h>
 
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -172,7 +173,9 @@ int abe_mixer_enable_mono(struct omap_abe *abe, int id, int enable)
 		return -EINVAL;
 	}
 
+	pm_runtime_get_sync(abe->dev);
 	omap_aess_mono_mixer(abe->aess, mixer, enable);
+	pm_runtime_put_sync(abe->dev);
 
 	return 0;
 }
@@ -240,6 +243,8 @@ static int ul_mux_put_route(struct snd_kcontrol *kcontrol,
 		return 0;
 	}
 
+	pm_runtime_get_sync(abe->dev);
+
 	/* TODO: remove the gap */
 	if (reg < 6) {
 		/* 0  .. 5   = MM_UL */
@@ -258,6 +263,8 @@ static int ul_mux_put_route(struct snd_kcontrol *kcontrol,
 		abe->opp.widget[e->reg] = 0;
 
 	snd_soc_dapm_mux_update_power(widget, kcontrol, mux, e);
+
+	pm_runtime_put_sync(abe->dev);
 
 	return 1;
 }
@@ -422,8 +429,12 @@ int abe_mixer_set_equ_profile(struct omap_abe *abe,
 	src_coeff += profile * params.equ_length;
 	memcpy(params.coef.type1, src_coeff, params.equ_length);
 
+	pm_runtime_get_sync(abe->dev);
+
 	omap_aess_write_equalizer(abe->aess, id,
 		(struct omap_aess_equ *)&params); //align types on this API
+
+	pm_runtime_put_sync(abe->dev);
 
 	return 0;
 }
