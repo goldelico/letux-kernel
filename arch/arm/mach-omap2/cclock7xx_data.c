@@ -97,14 +97,14 @@ static const struct clksel_rate div_1_8_rates[] = {
 
 
 static const char *sys_clkin1_parents[] = {
-	"virt_20000000_ck", "virt_12000000_ck", "virt_13000000_ck",
+	"virt_12000000_ck", "virt_20000000_ck",
 	"virt_16800000_ck", "virt_19200000_ck", "virt_26000000_ck",
 	"virt_27000000_ck", "virt_38400000_ck",
 };
 
 DEFINE_CLK_MUX(sys_clkin1, sys_clkin1_parents, NULL, 0x0, DRA7XX_CM_CLKSEL_SYS,
 	       DRA7XX_SYS_CLKSEL_SHIFT, DRA7XX_SYS_CLKSEL_WIDTH,
-	       0x0, NULL);
+	       CLK_MUX_INDEX_ONE, NULL);
 
 
 DEFINE_CLK_FIXED_RATE(sys_clkin2, CLK_IS_ROOT, 22579200, 0x0);
