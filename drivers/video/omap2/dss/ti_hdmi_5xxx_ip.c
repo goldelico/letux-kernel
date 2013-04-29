@@ -27,6 +27,7 @@
 #include <linux/delay.h>
 #include <linux/string.h>
 #include <linux/seq_file.h>
+#include <drm/drm_edid.h>
 #if defined(CONFIG_OMAP5_DSS_HDMI_AUDIO)
 #include <sound/asound.h>
 #include <sound/asoundef.h>
@@ -179,7 +180,8 @@ static int hdmi_core_ddc_edid(struct hdmi_ip_data *ip_data,
 int ti_hdmi_5xxx_read_edid(struct hdmi_ip_data *ip_data,
 				u8 *edid, int len)
 {
-	int r, l;
+	int r, n, i;
+	int max_ext_blocks = (len / 128) - 1;
 
 	if (len < 128)
 		return -EINVAL;
@@ -189,17 +191,19 @@ int ti_hdmi_5xxx_read_edid(struct hdmi_ip_data *ip_data,
 	r = hdmi_core_ddc_edid(ip_data, edid, 0);
 	if (r)
 		return r;
+	else {
+		/*Multiblock read*/
+		n = edid[0x7e];
 
-	l = 128;
-
-	if (len >= 128 * 2 && edid[0x7e] > 0) {
-		r = hdmi_core_ddc_edid(ip_data, edid + 0x80, 1);
-		if (r)
-			return r;
-		l += 128;
+		if (n > max_ext_blocks)
+			n = max_ext_blocks;
+		for (i = 1; i <= n; i++) {
+			r = hdmi_core_ddc_edid(ip_data, edid + i*EDID_LENGTH, i);
+			if (r)
+				return r;
+		}
 	}
-
-	return l;
+	return 0;
 }
 void ti_hdmi_5xxx_core_dump(struct hdmi_ip_data *ip_data, struct seq_file *s)
 {
