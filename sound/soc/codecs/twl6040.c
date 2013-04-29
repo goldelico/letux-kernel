@@ -26,6 +26,8 @@
 #include <linux/pm.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
+#include <linux/switch.h>
+#include <linux/wakelock.h>
 #include <linux/mfd/twl6040.h>
 
 #include <sound/core.h>
@@ -54,6 +56,7 @@
 #define TWL6040_EAR_PATH_ENABLE	0x01
 
 struct twl6040_jack_data {
+        struct switch_dev sdev;
 	struct snd_soc_jack *jack;
 	struct delayed_work work;
 	int report;
@@ -72,6 +75,7 @@ struct twl6040_data {
 	struct twl6040_jack_data hs_jack;
 	struct snd_soc_codec *codec;
 	struct mutex mutex;
+	struct wake_lock wake_lock;
 };
 
 /*
@@ -356,16 +360,18 @@ static void twl6040_hs_jack_report(struct snd_soc_codec *codec,
 				   struct snd_soc_jack *jack, int report)
 {
 	struct twl6040_data *priv = snd_soc_codec_get_drvdata(codec);
-	int status;
+	int status, state = 0;
 
 	mutex_lock(&priv->mutex);
 
 	/* Sync status */
-	status = twl6040_read_reg_volatile(codec, TWL6040_REG_STATUS);
-	if (status & TWL6040_PLUGCOMP)
-		snd_soc_jack_report(jack, report, report);
-	else
-		snd_soc_jack_report(jack, 0, report);
+        status = twl6040_read_reg_volatile(codec, TWL6040_REG_STATUS);
+        if (status & TWL6040_PLUGCOMP)
+                state = report;
+
+        snd_soc_jack_report(jack, state, report);
+        if (&priv->hs_jack.sdev)
+                switch_set_state(&priv->hs_jack.sdev, !!state);
 
 	mutex_unlock(&priv->mutex);
 }
@@ -399,6 +405,8 @@ static irqreturn_t twl6040_audio_handler(int irq, void *data)
 	struct snd_soc_codec *codec = data;
 	struct twl6040_data *priv = snd_soc_codec_get_drvdata(codec);
 
+        /* let userspace process the h2w insertion/removal event */
+        wake_lock_timeout(&priv->wake_lock, 2 * HZ);
 	schedule_delayed_work(&priv->hs_jack.work, msecs_to_jiffies(200));
 
 	return IRQ_HANDLED;
@@ -1122,6 +1130,7 @@ static int twl6040_probe(struct snd_soc_codec *codec)
 	struct twl6040_data *priv;
 	struct platform_device *pdev = container_of(codec->dev,
 						   struct platform_device, dev);
+	struct twl6040_jack_data *jack;
 	int ret = 0;
 
 	priv = devm_kzalloc(codec->dev, sizeof(*priv), GFP_KERNEL);
@@ -1143,23 +1152,50 @@ static int twl6040_probe(struct snd_soc_codec *codec)
 
 	mutex_init(&priv->mutex);
 
+	wake_lock_init(&priv->wake_lock, WAKE_LOCK_SUSPEND, "twl6040");
+
+	jack = &priv->hs_jack;
+        jack->sdev.name = "h2w";
+        ret = switch_dev_register(&jack->sdev);
+        if (ret) {
+                dev_err(codec->dev, "error registering switch device %d\n", ret);
+		goto sdev_err;
+        }
+
 	ret = devm_request_threaded_irq(codec->dev, priv->plug_irq, NULL,
 					twl6040_audio_handler, IRQF_NO_SUSPEND,
 					"twl6040_irq_plug", codec);
 	if (ret) {
 		dev_err(codec->dev, "PLUG IRQ request failed: %d\n", ret);
-		return ret;
+		goto irq_err;
 	}
 
 	twl6040_init_chip(codec);
 
 	/* power on device */
-	return twl6040_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
+	ret = twl6040_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
+	if (ret) {
+		dev_err(codec->dev, "set bias level failed: %d\n", ret);
+		goto irq_err;
+	}
+
+	return 0;
+
+sdev_err:
+	wake_lock_destroy(&priv->wake_lock);
+irq_err:
+	switch_dev_unregister(&jack->sdev);
+	return ret;
 }
 
 static int twl6040_remove(struct snd_soc_codec *codec)
 {
+        struct twl6040_data *priv = snd_soc_codec_get_drvdata(codec);
+        struct twl6040_jack_data *jack = &priv->hs_jack;
+
 	twl6040_set_bias_level(codec, SND_SOC_BIAS_OFF);
+	switch_dev_unregister(&jack->sdev);
+	wake_lock_destroy(&priv->wake_lock);
 
 	return 0;
 }
