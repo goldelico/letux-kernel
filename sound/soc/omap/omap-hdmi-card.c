@@ -22,6 +22,7 @@
  */
 
 #include <linux/module.h>
+#include <linux/switch.h>
 #include <linux/of.h>
 #include <sound/pcm.h>
 #include <sound/soc.h>
@@ -48,6 +49,10 @@ static struct snd_soc_card snd_soc_omap_hdmi = {
 	.owner = THIS_MODULE,
 	.dai_link = &omap_hdmi_dai,
 	.num_links = 1,
+};
+
+static struct switch_dev omap_hdmi_sdev = {
+	.name = "hdmi_audio",
 };
 
 static int omap_hdmi_probe(struct platform_device *pdev)
@@ -104,6 +109,14 @@ static int omap_hdmi_probe(struct platform_device *pdev)
 		goto err_register_card;
 	}
 
+	ret = switch_dev_register(&omap_hdmi_sdev);
+	if (ret) {
+		dev_err(&pdev->dev, "switch_dev_register failed (%d)\n", ret);
+		goto err_register_card;
+	}
+
+	switch_set_state(&omap_hdmi_sdev, 1);
+
 	return 0;
 
 err_register_card:
@@ -121,6 +134,7 @@ static int omap_hdmi_remove(struct platform_device *pdev)
 	if (!IS_ERR(card_data->codec_pdev))
 		platform_device_unregister(card_data->codec_pdev);
 	snd_soc_unregister_card(card);
+	switch_dev_unregister(&omap_hdmi_sdev);
 	card->dev = NULL;
 	return 0;
 }
