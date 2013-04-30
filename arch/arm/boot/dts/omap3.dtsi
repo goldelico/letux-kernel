@@ -278,12 +278,28 @@
 			dma-names = "tx0", "rx0";
 		};
 
+		omap_control_mmc1: omap-hsmmc-control@48002520 {
+			compatible = "ti,omap-hsmmc-control";
+			reg = <0x48002520 0x4>,
+			      <0x48002274 0x4>;
+			reg-names = "pbias", "devconf0";
+			ctrl-type = <3>;
+		};
+
 		mmc1: mmc@4809c000 {
 			compatible = "ti,omap3-hsmmc";
 			ti,hwmods = "mmc1";
 			ti,dual-volt;
 			dmas = <&sdma 61>, <&sdma 62>;
 			dma-names = "tx", "rx";
+			ctrl-module = <&omap_control_mmc1>;
+		};
+
+		omap_control_mmc2: omap-hsmmc-control@480022D8 {
+			compatible = "ti,omap-hsmmc-control";
+			reg = <0x480022D8 0x4>;
+			reg-names = "devconf1";
+			ctrl-type = <2>;
 		};
 
 		mmc2: mmc@480b4000 {
