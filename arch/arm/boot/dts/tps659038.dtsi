@@ -42,16 +42,16 @@
 
 			smps6_reg: smps6 {
 				regulator-name = "smps6";
-				regulator-min-microvolt = <1200000>;
-				regulator-max-microvolt = <1200000>;
+				regulator-min-microvolt = <600000>;
+				regulator-max-microvolt = <1310000>;
 				regulator-always-on;
 				regulator-boot-on;
 			};
 
 			smps7_reg: smps7 {
 				regulator-name = "smps7";
-				regulator-min-microvolt = <1800000>;
-				regulator-max-microvolt = <1800000>;
+				regulator-min-microvolt = <1030000>;
+				regulator-max-microvolt = <1030000>;
 				regulator-always-on;
 				regulator-boot-on;
 			};
@@ -66,16 +66,16 @@
 
 			smps9_reg: smps9 {
 				regulator-name = "smps9";
-				regulator-min-microvolt = <2100000>;
-				regulator-max-microvolt = <2100000>;
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
 				regulator-always-on;
 				regulator-boot-on;
 			};
 
 			ldo1_reg: ldo1 {
 				regulator-name = "ldo1";
-				regulator-min-microvolt = <2800000>;
-				regulator-max-microvolt = <2800000>;
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
 				regulator-always-on;
 				regulator-boot-on;
 			};
@@ -90,8 +90,8 @@
 
 			ldo3_reg: ldo3 {
 				regulator-name = "ldo3";
-				regulator-min-microvolt = <3000000>;
-				regulator-max-microvolt = <3000000>;
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
 				regulator-always-on;
 				regulator-boot-on;
 			};
@@ -138,8 +138,8 @@
 
 			ldo9_reg: ldo9 {
 				regulator-name = "ldo9";
-				regulator-min-microvolt = <1800000>;
-				regulator-max-microvolt = <3300000>;
+				regulator-min-microvolt = <1050000>;
+				regulator-max-microvolt = <1050000>;
 				regulator-always-on;
 				regulator-boot-on;
 			};
@@ -161,8 +161,4 @@
 			};
 		};
 	};
-
-	tps659038_rtc {
-		compatible = "ti,tps659038-rtc";
-        };
 };
