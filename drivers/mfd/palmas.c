@@ -484,18 +484,23 @@ static int palmas_i2c_probe(struct i2c_client *i2c,
 		}
 	}
 
-	/* Change IRQ into clear on read mode for efficiency */
-	slave = PALMAS_BASE_TO_SLAVE(PALMAS_INTERRUPT_BASE);
-	addr = PALMAS_BASE_TO_REG(PALMAS_INTERRUPT_BASE, PALMAS_INT_CTRL);
-	reg = PALMAS_INT_CTRL_INT_CLEAR;
+	/* HACK to avoid irq requesting for TOS659038 as the IRQ line
+		is only connected to a test point */
+	if (palmas->palmas_id != TPS659038) {
+		/* Change IRQ into clear on read mode for efficiency */
+		slave = PALMAS_BASE_TO_SLAVE(PALMAS_INTERRUPT_BASE);
+		addr = PALMAS_BASE_TO_REG(PALMAS_INTERRUPT_BASE,
+					  PALMAS_INT_CTRL);
+		reg = PALMAS_INT_CTRL_INT_CLEAR;
 
-	regmap_write(palmas->regmap[slave], addr, reg);
+		regmap_write(palmas->regmap[slave], addr, reg);
 
-	ret = regmap_add_irq_chip(palmas->regmap[slave], palmas->irq,
-			IRQF_ONESHOT, 0, pmic_data->irq_chip,
-			&palmas->irq_data);
-	if (ret < 0)
-		goto err;
+		ret = regmap_add_irq_chip(palmas->regmap[slave], palmas->irq,
+				IRQF_ONESHOT, 0, pmic_data->irq_chip,
+				&palmas->irq_data);
+		if (ret < 0)
+			goto err;
+	}
 
 	slave = PALMAS_BASE_TO_SLAVE(PALMAS_PU_PD_OD_BASE);
 	addr = PALMAS_BASE_TO_REG(PALMAS_PU_PD_OD_BASE,
