@@ -77,6 +77,8 @@
 			ti,hwmods = "mmc1";
 			ti,dual-volt;
 			ti,needs-special-reset;
+			dmas = <&sdma 61>, <&sdma 62>;
+			dma-names = "tx", "rx";
 		};
 
 		mmc2: mmc@480b4000 {
@@ -85,6 +87,8 @@
 			interrupts = <0 86 0x4>;
 			ti,hwmods = "mmc2";
 			ti,needs-special-reset;
+			dmas = <&sdma 47>, <&sdma 48>;
+			dma-names = "tx", "rx";
 		};
 
 		mmc3: mmc@480ad000 {
@@ -93,6 +97,8 @@
 			interrupts = <0 94 0x4>;
 			ti,hwmods = "mmc3";
 			ti,needs-special-reset;
+			dmas = <&sdma 77>, <&sdma 78>;
+			dma-names = "tx", "rx";
 		};
 
 		mmc4: mmc@480d1000 {
@@ -101,6 +107,8 @@
 			interrupts = <0 96 0x4>;
 			ti,hwmods = "mmc4";
 			ti,needs-special-reset;
+			dmas = <&sdma 57>, <&sdma 58>;
+			dma-names = "tx", "rx";
 		};
 
 	};
