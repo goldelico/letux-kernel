@@ -30,3 +30,23 @@
 &i2c3 {
 	clock-frequency = <400000>;
 };
+
+&omap_control_mmc1 {
+	compatible = "ti,omap-hsmmc-control";
+	ctrl-type = <0>;
+};
+
+omap_control_mmc2: omap-hsmmc-control@480022D8 {
+	compatible = "ti,omap-hsmmc-control";
+	reg = <0x480022D8 0x4>;
+	reg-names = "devconf1";
+	ctrl-type = <2>;
+};
+
+&mmc1 {
+	bus-width = <8>;
+};
+
+&mmc2 {
+	status = "disabled";
+};
