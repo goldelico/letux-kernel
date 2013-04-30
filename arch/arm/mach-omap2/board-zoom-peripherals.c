@@ -205,6 +205,8 @@ static struct omap2_hsmmc_info mmc[] = {
 		.gpio_wp	= -EINVAL,
 		.power_saving	= true,
 		.deferred	= true,
+		.needs_vmmc	= 1,
+		.needs_vmmc_aux = 1,
 	},
 	{
 		.name		= "internal",
@@ -214,6 +216,7 @@ static struct omap2_hsmmc_info mmc[] = {
 		.gpio_wp	= -EINVAL,
 		.nonremovable	= true,
 		.power_saving	= true,
+		.needs_vmmc	= 1,
 	},
 	{
 		.name		= "wl1271",
@@ -222,6 +225,7 @@ static struct omap2_hsmmc_info mmc[] = {
 		.gpio_wp	= -EINVAL,
 		.gpio_cd	= -EINVAL,
 		.nonremovable	= true,
+		.needs_vmmc	= 1,
 	},
 	{}      /* Terminator */
 };
