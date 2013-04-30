@@ -659,6 +659,7 @@
 				interrupts = <0 92 4>;
 				usb-phy = <&usb2_phy>, <&usb3_phy>;
 				tx-fifo-resize;
+				mode = <0>;
 			};
 		};
 

@@ -371,7 +371,7 @@ static int dwc3_probe(struct platform_device *pdev)
 	void __iomem		*regs;
 	void			*mem;
 
-	u8			mode;
+	u32			mode;
 
 	mem = devm_kzalloc(dev, sizeof(*dwc) + DWC3_ALIGN_MASK, GFP_KERNEL);
 	if (!mem) {
@@ -479,14 +479,7 @@ static int dwc3_probe(struct platform_device *pdev)
 		dev_err(dev, "failed to initialize core\n");
 		goto err0;
 	}
-
-	if (IS_ENABLED(CONFIG_USB_DWC3_HOST))
-		mode = DWC3_MODE_HOST;
-	else if (IS_ENABLED(CONFIG_USB_DWC3_GADGET))
-		mode = DWC3_MODE_DEVICE;
-	else
-		mode = DWC3_MODE_DRD;
-
+	of_property_read_u32(node, "mode", &mode);
 	switch (mode) {
 	case DWC3_MODE_DEVICE:
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
