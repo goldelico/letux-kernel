@@ -1305,7 +1305,17 @@ static struct i2c_driver twl_driver = {
 	.remove		= twl_remove,
 };
 
-module_i2c_driver(twl_driver);
+static int __init twl_init(void)
+{
+	return i2c_add_driver(&twl_driver);
+}
+subsys_initcall(twl_init);
+
+static void __exit twl_exit(void)
+{
+	i2c_del_driver(&twl_driver);
+}
+module_exit(twl_exit);
 
 MODULE_AUTHOR("Texas Instruments, Inc.");
 MODULE_DESCRIPTION("I2C Core interface for TWL");
