@@ -46,3 +46,23 @@
 &i2c5 {
 	clock-frequency = <400000>;
 };
+
+&mmc1 {
+	bus-width = <4>;
+};
+
+&mmc2 {
+	bus-width = <8>;
+	ti,non-removable;
+};
+
+&mmc3 {
+	bus-width = <8>;
+	ti,non-removable;
+	status = "disabled";
+};
+
+&mmc4 {
+	bus-width = <4>;
+	status = "disabled";
+};
