@@ -178,7 +178,6 @@ struct omap_hsmmc_host {
 	int			context_loss;
 	int			protect_card;
 	int			reqs_blocked;
-	int			use_reg;
 	int			req_in_progress;
 	struct omap_hsmmc_next	next_data;
 
@@ -1961,7 +1960,6 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 		ret = omap_hsmmc_reg_get(host);
 		if (ret)
 			goto err_irq_cd;
-		host->use_reg = 1;
 	}
 
 	mmc->ocr_avail = mmc_slot(host).ocr_mask;
@@ -2015,8 +2013,7 @@ err_slot_name:
 	mmc_remove_host(mmc);
 	free_irq(mmc_slot(host).card_detect_irq, host);
 err_irq_cd:
-	if (host->use_reg)
-		omap_hsmmc_reg_put(host);
+	omap_hsmmc_reg_put(host);
 	if (host->pdata->cleanup)
 		host->pdata->cleanup(&pdev->dev);
 err_irq_cd_init:
@@ -2053,8 +2050,7 @@ static int omap_hsmmc_remove(struct platform_device *pdev)
 
 	pm_runtime_get_sync(host->dev);
 	mmc_remove_host(host->mmc);
-	if (host->use_reg)
-		omap_hsmmc_reg_put(host);
+	omap_hsmmc_reg_put(host);
 	if (host->pdata->cleanup)
 		host->pdata->cleanup(&pdev->dev);
 	free_irq(host->irq, host);
