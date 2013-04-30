@@ -3448,6 +3448,7 @@ static struct omap_hwmod_class dra7xx_wd_timer_hwmod_class = {
 	.name		= "wd_timer",
 	.sysc		= &dra7xx_wd_timer_sysc,
 	.pre_shutdown	= &omap2_wd_timer_disable,
+	.reset		= &omap2_wd_timer_reset,
 };
 
 /* wd_timer2 */
