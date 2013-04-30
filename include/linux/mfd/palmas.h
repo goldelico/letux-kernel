@@ -35,7 +35,10 @@ struct palmas {
 
 	/* Stored chip id */
 	int id;
+	int designrev;
+	int sw_revision;
 
+	int palmas_id;
 	/* IRQ Data */
 	int irq;
 	u32 irq_mask;
@@ -128,6 +131,13 @@ struct palmas_reg_init {
 	 */
 	u8 vsel;
 
+};
+
+enum pmic_ids {
+	TWL6035,
+	TWL6037,
+	TPS65913,
+	TPS659038,
 };
 
 enum palmas_regulators {
@@ -359,6 +369,26 @@ struct palmas_usb {
 	u8 linkstat;
 };
 
+/**
+ * struct palmas_pmic_data -	Maintains the specific data for PMICs of PALMAS
+ *				family
+ * @irq_chip:			regmap_irq_chip specific to individual members
+ *				of PALMAS family.
+ * @regmap_config:		regmap_config specific to the individual members
+ *				of PALMAS family.
+ * @mfd_cell:			mfd cell  specific to the individual members of
+ *				PALMAS family.
+ * @id:				Id of the member of the PALMAS family.
+ * @has_usb:			Flag indicating whether PMIC supports USB
+ */
+struct palmas_pmic_data {
+	struct regmap_irq_chip *irq_chip;
+	const struct regmap_config *regmap_config;
+	const struct mfd_cell *mfd_cell;
+	int id;
+	int has_usb;
+};
+
 #define comparator_to_palmas(x) container_of((x), struct palmas_usb, comparator)
 
 enum usb_irq_events {
@@ -427,11 +457,13 @@ enum usb_irq_events {
 #define PALMAS_PU_PD_OD_BASE					0x1F4
 #define PALMAS_LED_BASE						0x200
 #define PALMAS_INTERRUPT_BASE					0x210
+#define PALMAS_ID_BASE						0x24F
 #define PALMAS_USB_OTG_BASE					0x250
 #define PALMAS_VIBRATOR_BASE					0x270
 #define PALMAS_GPIO_BASE					0x280
 #define PALMAS_USB_BASE						0x290
 #define PALMAS_GPADC_BASE					0x2C0
+#define PALMAS_DESIGNREV_BASE					0x357
 #define PALMAS_TRIM_GPADC_BASE					0x3CD
 
 /* Registers for function RTC */
@@ -2149,6 +2181,28 @@ enum usb_irq_events {
 #define PALMAS_INT_CTRL_INT_CLEAR				0x01
 #define PALMAS_INT_CTRL_INT_CLEAR_SHIFT				0
 
+/* Registers for function ID */
+#define PALMAS_VENDOR_ID_LSB					0x0
+#define PALMAS_VENDOR_ID_MSB					0x1
+#define PALMAS_PRODUCT_ID_LSB					0x2
+#define PALMAS_PRODUCT_ID_MSB					0x3
+
+/* Bit definitions for VENDOR_ID_LSB */
+#define PALMAS_VENDOR_ID_LSB_VENDOR_ID_MASK			0xff
+#define PALMAS_VENDOR_ID_LSB_VENDOR_ID_SHIFT			0
+
+/* Bit definitions for VENDOR_ID_MSB */
+#define PALMAS_VENDOR_ID_MSB_VENDOR_ID_MASK			0xff
+#define PALMAS_VENDOR_ID_MSB_VENDOR_ID_SHIFT			0
+
+/* Bit definitions for PRODUCT_ID_LSB */
+#define PALMAS_PRODUCT_ID_LSB_PRODUCT_ID_MASK			0xff
+#define PALMAS_PRODUCT_ID_LSB_PRODUCT_ID_SHIFT			0
+
+/* Bit definitions for PRODUCT_ID_MSB */
+#define PALMAS_PRODUCT_ID_MSB_PRODUCT_ID_MASK			0xff
+#define PALMAS_PRODUCT_ID_MSB_PRODUCT_ID_SHIFT			0
+
 /* Registers for function USB_OTG */
 #define PALMAS_USB_WAKEUP					0x3
 #define PALMAS_USB_VBUS_CTRL_SET				0x4
@@ -2771,6 +2825,13 @@ enum usb_irq_events {
 #define PALMAS_GPADC_SMPS_VSEL_MONITORING_SMPS_VSEL_MONITORING_MASK	0x7f
 #define PALMAS_GPADC_SMPS_VSEL_MONITORING_SMPS_VSEL_MONITORING_SHIFT	0
 
+/* Registers for function DESIGNREV */
+#define PALMAS_DESIGNREV                                        0x0
+
+/* Bit definitions for DESIGNREV */
+#define PALMAS_DESIGNREV_DESIGNREV_MASK                         0x0f
+#define PALMAS_DESIGNREV_DESIGNREV_SHIFT                        0
+
 /* Registers for function GPADC */
 #define PALMAS_GPADC_TRIM1					0x0
 #define PALMAS_GPADC_TRIM2					0x1
@@ -2788,5 +2849,57 @@ enum usb_irq_events {
 #define PALMAS_GPADC_TRIM14					0xD
 #define PALMAS_GPADC_TRIM15					0xE
 #define PALMAS_GPADC_TRIM16					0xF
+
+static inline int palmas_read(struct palmas *palmas, unsigned int base,
+		unsigned int reg, unsigned int *val)
+{
+	unsigned int addr =  PALMAS_BASE_TO_REG(base, reg);
+	int slave_id = PALMAS_BASE_TO_SLAVE(base);
+
+	return regmap_read(palmas->regmap[slave_id], addr, val);
+}
+
+static inline int palmas_write(struct palmas *palmas, unsigned int base,
+		unsigned int reg, unsigned int value)
+{
+	unsigned int addr = PALMAS_BASE_TO_REG(base, reg);
+	int slave_id = PALMAS_BASE_TO_SLAVE(base);
+
+	return regmap_write(palmas->regmap[slave_id], addr, value);
+}
+
+static inline int palmas_bulk_write(struct palmas *palmas, unsigned int base,
+	unsigned int reg, const void *val, size_t val_count)
+{
+	unsigned int addr = PALMAS_BASE_TO_REG(base, reg);
+	int slave_id = PALMAS_BASE_TO_SLAVE(base);
+
+	return regmap_bulk_write(palmas->regmap[slave_id], addr,
+			val, val_count);
+}
+
+static inline int palmas_bulk_read(struct palmas *palmas, unsigned int base,
+		unsigned int reg, void *val, size_t val_count)
+{
+	unsigned int addr = PALMAS_BASE_TO_REG(base, reg);
+	int slave_id = PALMAS_BASE_TO_SLAVE(base);
+
+	return regmap_bulk_read(palmas->regmap[slave_id], addr,
+		val, val_count);
+}
+
+static inline int palmas_update_bits(struct palmas *palmas, unsigned int base,
+	unsigned int reg, unsigned int mask, unsigned int val)
+{
+	unsigned int addr = PALMAS_BASE_TO_REG(base, reg);
+	int slave_id = PALMAS_BASE_TO_SLAVE(base);
+
+	return regmap_update_bits(palmas->regmap[slave_id], addr, mask, val);
+}
+
+static inline int palmas_irq_get_virq(struct palmas *palmas, int irq)
+{
+	return regmap_irq_get_virq(palmas->irq_data, irq);
+}
 
 #endif /*  __LINUX_MFD_PALMAS_H */

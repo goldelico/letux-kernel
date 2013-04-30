@@ -74,6 +74,8 @@ enum thermal_trend {
 	THERMAL_TREND_STABLE, /* temperature is stable */
 	THERMAL_TREND_RAISING, /* temperature is raising */
 	THERMAL_TREND_DROPPING, /* temperature is dropping */
+	THERMAL_TREND_RAISE_FULL, /* apply highest cooling action */
+	THERMAL_TREND_DROP_FULL, /* apply lowest cooling action */
 };
 
 /* Events supported by Thermal Netlink */
@@ -121,6 +123,7 @@ struct thermal_zone_device_ops {
 	int (*set_trip_hyst) (struct thermal_zone_device *, int,
 			      unsigned long);
 	int (*get_crit_temp) (struct thermal_zone_device *, unsigned long *);
+	int (*set_emul_temp) (struct thermal_zone_device *, unsigned long);
 	int (*get_trend) (struct thermal_zone_device *, int,
 			  enum thermal_trend *);
 	int (*notify) (struct thermal_zone_device *, int,
@@ -163,6 +166,7 @@ struct thermal_zone_device {
 	int polling_delay;
 	int temperature;
 	int last_temperature;
+	int emul_temperature;
 	int passive;
 	unsigned int forced_passive;
 	const struct thermal_zone_device_ops *ops;
@@ -233,6 +237,8 @@ void thermal_zone_device_update(struct thermal_zone_device *);
 struct thermal_cooling_device *thermal_cooling_device_register(char *, void *,
 		const struct thermal_cooling_device_ops *);
 void thermal_cooling_device_unregister(struct thermal_cooling_device *);
+struct thermal_zone_device *thermal_zone_get_zone_by_name(const char *name);
+int thermal_zone_get_temp(struct thermal_zone_device *tz, unsigned long *temp);
 
 int get_tz_trend(struct thermal_zone_device *, int);
 struct thermal_instance *get_thermal_instance(struct thermal_zone_device *,
@@ -244,9 +250,11 @@ int thermal_register_governor(struct thermal_governor *);
 void thermal_unregister_governor(struct thermal_governor *);
 
 #ifdef CONFIG_NET
-extern int thermal_generate_netlink_event(u32 orig, enum events event);
+extern int thermal_generate_netlink_event(struct thermal_zone_device *tz,
+						enum events event);
 #else
-static inline int thermal_generate_netlink_event(u32 orig, enum events event)
+static int thermal_generate_netlink_event(struct thermal_zone_device *tz,
+						enum events event)
 {
 	return 0;
 }

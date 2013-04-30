@@ -14,6 +14,12 @@
 	model = "TI OMAP5 uEVM board";
 	compatible = "ti,omap5-uevm", "ti,omap5";
 
+	cpus {
+		cpu@0 {
+			cpu0-supply = <&smps123_reg>;
+		};
+	};
+
 	memory {
 		device_type = "memory";
 		reg = <0x80000000 0x7F000000>; /* 2032 MB */
@@ -36,6 +42,7 @@
 			&dmic_pins
 			&mcbsp1_pins
 			&mcbsp2_pins
+			&palmas_pins
 	>;
 
 	twl6040_pins: pinmux_twl6040_pins {
@@ -80,6 +87,12 @@
 			0x15a 0x100	/* abemcbsp2_clkx.abemcbsp2_clkx INPUT | MODE0 */
 		>;
 	};
+
+	palmas_pins: pinmux_palmas_pins {
+		pinctrl-single,pins = <
+			0x140 0x11f	/* MSLEEP INPUT | PULLUP | MODE7 */
+		>;
+	};
 };
 
 &mmc1 {
@@ -109,3 +122,27 @@
 &mcbsp3 {
 	status = "disabled";
 };
+
+&emif1 {
+	cs1-used;
+	device-handle = <&samsung_K3PE0E000B>;
+};
+
+&emif2 {
+	cs1-used;
+	device-handle = <&samsung_K3PE0E000B>;
+};
+
+&i2c1 {
+	clock-frequency = <400000>;
+
+	palmas: palmas@48 {
+		reg = <0x48>;
+		/* SPI = 0, IRQ# = 7, 4 = active high level-sensitive */
+		interrupts = <0 7 4>; /* IRQ_SYS_1N cascaded to gic */
+		interrupt-parent = <&gic>;
+	};
+
+};
+
+/include/ "palmas.dtsi"

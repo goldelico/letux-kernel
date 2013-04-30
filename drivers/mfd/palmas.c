@@ -39,6 +39,14 @@ enum palmas_ids {
 	PALMAS_USB_ID,
 };
 
+static struct resource palmas_rtc_resources[] = {
+	{
+		.start  = PALMAS_RTC_ALARM_IRQ,
+		.end    = PALMAS_RTC_ALARM_IRQ,
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
 static const struct mfd_cell palmas_children[] = {
 	{
 		.name = "palmas-pmic",
@@ -59,6 +67,8 @@ static const struct mfd_cell palmas_children[] = {
 	{
 		.name = "palmas-rtc",
 		.id = PALMAS_RTC_ID,
+		.resources = &palmas_rtc_resources[0],
+		.num_resources = ARRAY_SIZE(palmas_rtc_resources),
 	},
 	{
 		.name = "palmas-pwrbutton",
@@ -83,6 +93,49 @@ static const struct mfd_cell palmas_children[] = {
 	{
 		.name = "palmas-usb",
 		.id = PALMAS_USB_ID,
+	}
+};
+
+static const struct mfd_cell tps659038_children[] = {
+	{
+		.name = "tps659038-pmic",
+		.id = PALMAS_PMIC_ID,
+	},
+	{
+		.name = "tps659038-gpio",
+		.id = PALMAS_GPIO_ID,
+	},
+	{
+		.name = "tps659038-leds",
+		.id = PALMAS_LEDS_ID,
+	},
+	{
+		.name = "tps659038-wdt",
+		.id = PALMAS_WDT_ID,
+	},
+	{
+		.name = "tps659038-rtc",
+		.id = PALMAS_RTC_ID,
+	},
+	{
+		.name = "tps659038-pwrbutton",
+		.id = PALMAS_PWRBUTTON_ID,
+	},
+	{
+		.name = "tps659038-gpadc",
+		.id = PALMAS_GPADC_ID,
+	},
+	{
+		.name = "tps659038-resource",
+		.id = PALMAS_RESOURCE_ID,
+	},
+	{
+		.name = "tps659038-clk",
+		.id = PALMAS_CLK_ID,
+	},
+	{
+		.name = "tps659038-pwm",
+		.id = PALMAS_PWM_ID,
 	}
 };
 
@@ -275,6 +328,92 @@ static void palmas_dt_to_pdata(struct device_node *node,
 					PALMAS_POWER_CTRL_ENABLE2_MASK;
 }
 
+static int palmas_print_info(struct palmas *palmas)
+{
+	int ret;
+	unsigned int reg, addr;
+	int slave;
+
+	/* Read varient info from the device */
+	slave = PALMAS_BASE_TO_SLAVE(PALMAS_ID_BASE);
+	addr = PALMAS_BASE_TO_REG(PALMAS_ID_BASE, PALMAS_PRODUCT_ID_LSB);
+	ret = regmap_read(palmas->regmap[slave], addr, &reg);
+	if (ret < 0) {
+		dev_err(palmas->dev, "Unable to read ID err: %d\n", ret);
+		goto err;
+	}
+
+	palmas->id = reg;
+
+	slave = PALMAS_BASE_TO_SLAVE(PALMAS_ID_BASE);
+	addr = PALMAS_BASE_TO_REG(PALMAS_ID_BASE, PALMAS_PRODUCT_ID_MSB);
+	ret = regmap_read(palmas->regmap[slave], addr, &reg);
+	if (ret < 0) {
+		dev_err(palmas->dev, "Unable to read ID err: %d\n", ret);
+		goto err;
+	}
+
+	palmas->id |= reg << 8;
+
+	dev_info(palmas->dev, "Product ID %x\n", palmas->id);
+
+	slave = PALMAS_BASE_TO_SLAVE(PALMAS_DESIGNREV_BASE);
+	addr = PALMAS_BASE_TO_REG(PALMAS_DESIGNREV_BASE, PALMAS_DESIGNREV);
+	ret = regmap_read(palmas->regmap[slave], addr, &reg);
+	if (ret < 0) {
+		dev_err(palmas->dev, "Unable to read DESIGNREV err: %d\n", ret);
+		goto err;
+	}
+
+	palmas->designrev = reg & PALMAS_DESIGNREV_DESIGNREV_MASK;
+
+	dev_info(palmas->dev, "Product Design Rev %x\n", palmas->designrev);
+
+	slave = PALMAS_BASE_TO_SLAVE(PALMAS_PMU_CONTROL_BASE);
+	addr = PALMAS_BASE_TO_REG(PALMAS_PMU_CONTROL_BASE, PALMAS_SW_REVISION);
+	ret = regmap_read(palmas->regmap[slave], addr, &reg);
+	if (ret < 0) {
+		dev_err(palmas->dev, "Unable to read SW_REVISION err: %d\n",
+			ret);
+		goto err;
+	}
+
+	palmas->sw_revision = reg;
+
+	dev_info(palmas->dev, "Product SW Rev %x\n", palmas->sw_revision);
+	return 0;
+err:
+	return ret;
+}
+
+static struct palmas_pmic_data palmas_data = {
+	.irq_chip = &palmas_irq_chip,
+	.regmap_config = palmas_regmap_config,
+	.mfd_cell = palmas_children,
+	.id = TWL6035,
+	.has_usb = 1,
+};
+
+static struct palmas_pmic_data tps659038_data = {
+	.irq_chip = &palmas_irq_chip,
+	.regmap_config = palmas_regmap_config,
+	.mfd_cell = tps659038_children,
+	.id = TPS659038,
+	.has_usb = 0,
+};
+
+static const struct of_device_id of_palmas_match_tbl[] = {
+	{
+		.compatible = "ti,palmas",
+		.data = &palmas_data,
+	},
+	{
+		.compatible = "ti,tps659038",
+		.data = &tps659038_data,
+	},
+	{ },
+};
+
 static int palmas_i2c_probe(struct i2c_client *i2c,
 			    const struct i2c_device_id *id)
 {
@@ -285,6 +424,8 @@ static int palmas_i2c_probe(struct i2c_client *i2c,
 	unsigned int reg, addr;
 	int slave;
 	struct mfd_cell *children;
+	const struct of_device_id *match;
+	const struct palmas_pmic_data *pmic_data;
 
 	pdata = dev_get_platdata(&i2c->dev);
 
@@ -306,8 +447,17 @@ static int palmas_i2c_probe(struct i2c_client *i2c,
 
 	i2c_set_clientdata(i2c, palmas);
 	palmas->dev = &i2c->dev;
-	palmas->id = id->driver_data;
+	palmas->palmas_id = id->driver_data;
 	palmas->irq = i2c->irq;
+
+	match = of_match_device(of_match_ptr(of_palmas_match_tbl), &i2c->dev);
+
+	if (match) {
+		pmic_data = match->data;
+		palmas->palmas_id = pmic_data->id;
+	} else {
+		return -ENODATA;
+	}
 
 	for (i = 0; i < PALMAS_NUM_CLIENTS; i++) {
 		if (i == 0)
@@ -324,7 +474,7 @@ static int palmas_i2c_probe(struct i2c_client *i2c,
 			}
 		}
 		palmas->regmap[i] = devm_regmap_init_i2c(palmas->i2c_clients[i],
-				&palmas_regmap_config[i]);
+				pmic_data->regmap_config + i);
 		if (IS_ERR(palmas->regmap[i])) {
 			ret = PTR_ERR(palmas->regmap[i]);
 			dev_err(palmas->dev,
@@ -334,18 +484,23 @@ static int palmas_i2c_probe(struct i2c_client *i2c,
 		}
 	}
 
-	/* Change IRQ into clear on read mode for efficiency */
-	slave = PALMAS_BASE_TO_SLAVE(PALMAS_INTERRUPT_BASE);
-	addr = PALMAS_BASE_TO_REG(PALMAS_INTERRUPT_BASE, PALMAS_INT_CTRL);
-	reg = PALMAS_INT_CTRL_INT_CLEAR;
+	/* HACK to avoid irq requesting for TOS659038 as the IRQ line
+		is only connected to a test point */
+	if (palmas->palmas_id != TPS659038) {
+		/* Change IRQ into clear on read mode for efficiency */
+		slave = PALMAS_BASE_TO_SLAVE(PALMAS_INTERRUPT_BASE);
+		addr = PALMAS_BASE_TO_REG(PALMAS_INTERRUPT_BASE,
+					  PALMAS_INT_CTRL);
+		reg = PALMAS_INT_CTRL_INT_CLEAR;
 
-	regmap_write(palmas->regmap[slave], addr, reg);
+		regmap_write(palmas->regmap[slave], addr, reg);
 
-	ret = regmap_add_irq_chip(palmas->regmap[slave], palmas->irq,
-			IRQF_ONESHOT | IRQF_TRIGGER_LOW, 0, &palmas_irq_chip,
-			&palmas->irq_data);
-	if (ret < 0)
-		goto err;
+		ret = regmap_add_irq_chip(palmas->regmap[slave], palmas->irq,
+				IRQF_ONESHOT, 0, pmic_data->irq_chip,
+				&palmas->irq_data);
+		if (ret < 0)
+			goto err;
+	}
 
 	slave = PALMAS_BASE_TO_SLAVE(PALMAS_PU_PD_OD_BASE);
 	addr = PALMAS_BASE_TO_REG(PALMAS_PU_PD_OD_BASE,
@@ -419,6 +574,8 @@ static int palmas_i2c_probe(struct i2c_client *i2c,
 	if (ret)
 		goto err_irq;
 
+	palmas_print_info(palmas);
+
 	/*
 	 * If we are probing with DT do this the DT way and return here
 	 * otherwise continue and add devices using mfd helpers.
@@ -431,6 +588,10 @@ static int palmas_i2c_probe(struct i2c_client *i2c,
 			return ret;
 	}
 
+	/*
+	 * For now all PMICs belonging to palmas family are assumed to get the
+	 * same childern as PALMAS
+	 */
 	children = kmemdup(palmas_children, sizeof(palmas_children),
 			   GFP_KERNEL);
 	if (!children) {
@@ -448,16 +609,20 @@ static int palmas_i2c_probe(struct i2c_client *i2c,
 	children[PALMAS_RESOURCE_ID].pdata_size =
 			sizeof(*pdata->resource_pdata);
 
-	children[PALMAS_USB_ID].platform_data = pdata->usb_pdata;
-	children[PALMAS_USB_ID].pdata_size = sizeof(*pdata->usb_pdata);
+	/* TPS659038 does not have USB */
+	if (pmic_data->has_usb) {
+		children[PALMAS_USB_ID].platform_data = pdata->usb_pdata;
+		children[PALMAS_USB_ID].pdata_size = sizeof(*pdata->usb_pdata);
+	}
 
 	children[PALMAS_CLK_ID].platform_data = pdata->clk_pdata;
 	children[PALMAS_CLK_ID].pdata_size = sizeof(*pdata->clk_pdata);
 
 	ret = mfd_add_devices(palmas->dev, -1,
 			      children, ARRAY_SIZE(palmas_children),
-			      NULL, regmap_irq_chip_get_base(palmas->irq_data),
-			      NULL);
+			      NULL, 0,
+			      regmap_irq_get_domain(palmas->irq_data));
+
 	kfree(children);
 
 	if (ret < 0)
@@ -484,18 +649,14 @@ static int palmas_i2c_remove(struct i2c_client *i2c)
 }
 
 static const struct i2c_device_id palmas_i2c_id[] = {
-	{ "palmas", },
-	{ "twl6035", },
-	{ "twl6037", },
-	{ "tps65913", },
+	{ "palmas", TWL6035},
+	{ "twl6035", TWL6035},
+	{ "twl6037", TWL6037},
+	{ "tps65913", TPS65913},
+	{ "tps659038", TPS659038},
 	{ /* end */ }
 };
 MODULE_DEVICE_TABLE(i2c, palmas_i2c_id);
-
-static struct of_device_id of_palmas_match_tbl[] = {
-	{ .compatible = "ti,palmas", },
-	{ /* end */ }
-};
 
 static struct i2c_driver palmas_i2c_driver = {
 	.driver = {
