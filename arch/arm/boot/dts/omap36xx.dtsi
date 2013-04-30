@@ -36,3 +36,10 @@
 		};
 	};
 };
+&omap_control_mmc1 {
+	compatible = "ti,omap-hsmmc-control";
+	reg = <0x48002520 0x4>,
+	      <0x48002448 0x4>;
+	reg-names = "pbias", "prog_io1";
+	ctrl-type = <4>;
+};
