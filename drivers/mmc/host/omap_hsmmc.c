@@ -256,13 +256,6 @@ static int omap_hsmmc_set_power(struct device *dev, int slot, int power_on,
 	 */
 	if (!host->vcc && !host->vcc_aux)
 		return 0;
-	/*
-	 * With DT, never turn OFF the regulator. This is because
-	 * the pbias cell programming support is still missing when
-	 * booting with Device tree
-	 */
-	if (dev->of_node && !vdd)
-		return 0;
 
 	if (mmc_slot(host).before_set_reg)
 		mmc_slot(host).before_set_reg(dev, slot, power_on, vdd);
@@ -1528,13 +1521,7 @@ static void omap_hsmmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		 * of external transceiver; but they all handle 1.8V.
 		 */
 		if ((OMAP_HSMMC_READ(host->base, HCTL) & SDVSDET) &&
-			(ios->vdd == DUAL_VOLT_OCR_BIT) &&
-			/*
-			 * With pbias cell programming missing, this
-			 * can't be allowed when booting with device
-			 * tree.
-			 */
-			!host->dev->of_node) {
+			(ios->vdd == DUAL_VOLT_OCR_BIT)) {
 				/*
 				 * The mmc_select_voltage fn of the core does
 				 * not seem to set the power_mode to
