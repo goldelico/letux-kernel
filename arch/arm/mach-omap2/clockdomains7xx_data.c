@@ -360,7 +360,7 @@ static struct clockdomain coreaon_7xx_clkdm = {
 	.prcm_partition	  = DRA7XX_CM_CORE_PARTITION,
 	.cm_inst	  = DRA7XX_CM_CORE_COREAON_INST,
 	.clkdm_offs	  = DRA7XX_CM_CORE_COREAON_COREAON_CDOFFS,
-	.flags		  = CLKDM_CAN_HWSUP_SWSUP,
+	.flags		  = CLKDM_CAN_FORCE_WAKEUP | CLKDM_CAN_HWSUP,
 };
 
 static struct clockdomain ipu1_7xx_clkdm = {
@@ -418,7 +418,7 @@ static struct clockdomain l3main1_7xx_clkdm = {
 	.cm_inst	  = DRA7XX_CM_CORE_CORE_INST,
 	.clkdm_offs	  = DRA7XX_CM_CORE_CORE_L3MAIN1_CDOFFS,
 	.dep_bit	  = DRA7XX_L3MAIN1_STATDEP_SHIFT,
-	.flags		  = CLKDM_CAN_HWSUP_SWSUP,
+	.flags		  = CLKDM_CAN_HWSUP,
 };
 
 static struct clockdomain vpe_7xx_clkdm = {
@@ -441,7 +441,7 @@ static struct clockdomain mpu_7xx_clkdm = {
 	.clkdm_offs	  = DRA7XX_CM_CORE_AON_MPU_MPU_CDOFFS,
 	.wkdep_srcs	  = mpu_wkup_sleep_deps,
 	.sleepdep_srcs	  = mpu_wkup_sleep_deps,
-	.flags		  = CLKDM_CAN_HWSUP_SWSUP,
+	.flags		  = CLKDM_CAN_FORCE_WAKEUP | CLKDM_CAN_HWSUP,
 };
 
 static struct clockdomain custefuse_7xx_clkdm = {
@@ -450,7 +450,7 @@ static struct clockdomain custefuse_7xx_clkdm = {
 	.prcm_partition	  = DRA7XX_CM_CORE_PARTITION,
 	.cm_inst	  = DRA7XX_CM_CORE_CUSTEFUSE_INST,
 	.clkdm_offs	  = DRA7XX_CM_CORE_CUSTEFUSE_CUSTEFUSE_CDOFFS,
-	.flags		  = CLKDM_CAN_HWSUP_SWSUP,
+	.flags		  = CLKDM_CAN_FORCE_WAKEUP | CLKDM_CAN_HWSUP,
 };
 
 static struct clockdomain ipu_7xx_clkdm = {
@@ -491,7 +491,7 @@ static struct clockdomain l4cfg_7xx_clkdm = {
 	.cm_inst	  = DRA7XX_CM_CORE_CORE_INST,
 	.clkdm_offs	  = DRA7XX_CM_CORE_CORE_L4CFG_CDOFFS,
 	.dep_bit	  = DRA7XX_L4CFG_STATDEP_SHIFT,
-	.flags		  = CLKDM_CAN_HWSUP_SWSUP,
+	.flags		  = CLKDM_CAN_HWSUP,
 };
 
 static struct clockdomain dma_7xx_clkdm = {
@@ -502,7 +502,7 @@ static struct clockdomain dma_7xx_clkdm = {
 	.clkdm_offs	  = DRA7XX_CM_CORE_CORE_DMA_CDOFFS,
 	.wkdep_srcs	  = dma_wkup_sleep_deps,
 	.sleepdep_srcs	  = dma_wkup_sleep_deps,
-	.flags		  = CLKDM_CAN_HWSUP_SWSUP,
+	.flags		  = CLKDM_CAN_FORCE_WAKEUP | CLKDM_CAN_HWSUP,
 };
 
 static struct clockdomain rtc_7xx_clkdm = {
@@ -511,7 +511,7 @@ static struct clockdomain rtc_7xx_clkdm = {
 	.prcm_partition	  = DRA7XX_CM_CORE_AON_PARTITION,
 	.cm_inst	  = DRA7XX_CM_CORE_AON_RTC_INST,
 	.clkdm_offs	  = DRA7XX_CM_CORE_AON_RTC_RTC_CDOFFS,
-	.flags		  = CLKDM_CAN_HWSUP_SWSUP,
+	.flags		  = CLKDM_CAN_FORCE_WAKEUP | CLKDM_CAN_HWSUP,
 };
 
 static struct clockdomain pcie_7xx_clkdm = {
@@ -533,7 +533,7 @@ static struct clockdomain atl_7xx_clkdm = {
 	.cm_inst	  = DRA7XX_CM_CORE_CORE_INST,
 	.clkdm_offs	  = DRA7XX_CM_CORE_CORE_ATL_CDOFFS,
 	.dep_bit	  = DRA7XX_ATL_STATDEP_SHIFT,
-	.flags		  = CLKDM_CAN_HWSUP_SWSUP,
+	.flags		  = CLKDM_CAN_FORCE_WAKEUP | CLKDM_CAN_HWSUP,
 };
 
 static struct clockdomain l3instr_7xx_clkdm = {
@@ -542,7 +542,6 @@ static struct clockdomain l3instr_7xx_clkdm = {
 	.prcm_partition	  = DRA7XX_CM_CORE_PARTITION,
 	.cm_inst	  = DRA7XX_CM_CORE_CORE_INST,
 	.clkdm_offs	  = DRA7XX_CM_CORE_CORE_L3INSTR_CDOFFS,
-	.flags		  = CLKDM_CAN_HWSUP,
 };
 
 static struct clockdomain dss_7xx_clkdm = {
@@ -564,7 +563,7 @@ static struct clockdomain emif_7xx_clkdm = {
 	.cm_inst	  = DRA7XX_CM_CORE_CORE_INST,
 	.clkdm_offs	  = DRA7XX_CM_CORE_CORE_EMIF_CDOFFS,
 	.dep_bit	  = DRA7XX_EMIF_STATDEP_SHIFT,
-	.flags		  = CLKDM_CAN_HWSUP_SWSUP,
+	.flags		  = CLKDM_CAN_FORCE_WAKEUP | CLKDM_CAN_HWSUP,
 };
 
 static struct clockdomain emu_7xx_clkdm = {
@@ -573,7 +572,7 @@ static struct clockdomain emu_7xx_clkdm = {
 	.prcm_partition	  = DRA7XX_PRM_PARTITION,
 	.cm_inst	  = DRA7XX_PRM_EMU_CM_INST,
 	.clkdm_offs	  = DRA7XX_PRM_EMU_CM_EMU_CDOFFS,
-	.flags		  = CLKDM_CAN_HWSUP_SWSUP,
+	.flags		  = CLKDM_CAN_FORCE_WAKEUP | CLKDM_CAN_HWSUP,
 };
 
 static struct clockdomain dsp2_7xx_clkdm = {
@@ -677,7 +676,7 @@ static struct clockdomain wkupaon_7xx_clkdm = {
 	.cm_inst	  = DRA7XX_PRM_WKUPAON_CM_INST,
 	.clkdm_offs	  = DRA7XX_PRM_WKUPAON_CM_WKUPAON_CDOFFS,
 	.dep_bit	  = DRA7XX_WKUPAON_STATDEP_SHIFT,
-	.flags		  = CLKDM_CAN_HWSUP_SWSUP,
+	.flags		  = CLKDM_CAN_FORCE_WAKEUP | CLKDM_CAN_HWSUP,
 };
 
 static struct clockdomain eve1_7xx_clkdm = {
