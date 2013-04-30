@@ -182,6 +182,7 @@ struct omap_hsmmc_host {
 	struct omap_hsmmc_next	next_data;
 
 	struct	omap_mmc_platform_data	*pdata;
+	struct omap_hsmmc_control	*ctrl_mmc;
 	int needs_vmmc:1;
 	int needs_vmmc_aux:1;
 };
@@ -265,6 +266,8 @@ static int omap_hsmmc_set_power(struct device *dev, int slot, int power_on,
 
 	if (mmc_slot(host).before_set_reg)
 		mmc_slot(host).before_set_reg(dev, slot, power_on, vdd);
+	if (host->ctrl_mmc && host->ctrl_mmc->before)
+		host->ctrl_mmc->before(host->ctrl_mmc->dev, power_on, vdd);
 
 	/*
 	 * Assume Vcc regulator is used only to power the card ... OMAP
@@ -302,6 +305,8 @@ static int omap_hsmmc_set_power(struct device *dev, int slot, int power_on,
 
 	if (mmc_slot(host).after_set_reg)
 		mmc_slot(host).after_set_reg(dev, slot, power_on, vdd);
+	if (host->ctrl_mmc && host->ctrl_mmc->after)
+		host->ctrl_mmc->after(host->ctrl_mmc->dev, power_on, vdd);
 
 	return ret;
 }
@@ -1760,6 +1765,33 @@ static struct omap_mmc_platform_data *of_get_hsmmc_pdata(struct device *dev)
 
 	return pdata;
 }
+
+static int omap_hsmmc_get_ctrl_mmc(struct omap_hsmmc_host *host)
+{
+	struct device_node *np = host->dev->of_node;
+	struct device_node *ctrl_np;
+	struct platform_device *ctrl_mmc_pdev;
+	struct omap_hsmmc_control *ctl_mmc;
+
+	ctrl_np = of_parse_phandle(np, "ctrl-module", 0);
+	if (!ctrl_np)
+		return 0;
+
+	ctrl_mmc_pdev = of_find_device_by_node(ctrl_np);
+	if (ctrl_mmc_pdev) {
+		ctl_mmc = platform_get_drvdata(ctrl_mmc_pdev);
+		if (ctl_mmc &&
+		    try_module_get(ctrl_mmc_pdev->dev.driver->owner)) {
+			host->ctrl_mmc = ctl_mmc;
+		} else {
+			dev_err(mmc_dev(host->mmc),
+				"defer probe for omap-hsmmc-control\n");
+			return -EPROBE_DEFER;
+		}
+	}
+
+	return 0;
+}
 #else
 static inline struct omap_mmc_platform_data
 			*of_get_hsmmc_pdata(struct device *dev)
@@ -1834,6 +1866,9 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 	host->needs_vmmc_aux = pdata->needs_vmmc_aux;
 
 	platform_set_drvdata(pdev, host);
+	ret = omap_hsmmc_get_ctrl_mmc(host);
+	if (ret)
+		goto err_alloc;
 
 	mmc->ops	= &omap_hsmmc_ops;
 
@@ -1955,6 +1990,9 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 			goto err_irq_cd_init;
 		}
 	}
+
+	if (host->ctrl_mmc && host->ctrl_mmc->init)
+		host->ctrl_mmc->init(host->ctrl_mmc->dev);
 
 	if (omap_hsmmc_have_reg() && !mmc_slot(host).set_power) {
 		ret = omap_hsmmc_reg_get(host);
