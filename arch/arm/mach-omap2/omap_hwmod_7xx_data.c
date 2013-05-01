@@ -1452,7 +1452,6 @@ static struct omap_hwmod dra7xx_mailbox13_hwmod = {
  * 'mcasp' class
  *
  */
-#ifndef CONFIG_SOC_DRA7XX
 static struct omap_hwmod_class_sysconfig dra7xx_mcasp_sysc = {
 	.sysc_offs	= 0x0004,
 	.sysc_flags	= SYSC_HAS_SIDLEMODE,
@@ -1584,7 +1583,7 @@ static struct omap_hwmod dra7xx_mcasp8_hwmod = {
 		},
 	},
 };
-#endif
+
 /*
  * 'mcspi' class
  *
@@ -2060,7 +2059,6 @@ static struct omap_hwmod dra7xx_ocp2scp1_hwmod = {
  * 'pruss' class
  *
  */
-#ifndef CONFIG_SOC_DRA7XX
 static struct omap_hwmod_class dra7xx_pruss_hwmod_class = {
 	.name	= "pruss",
 };
@@ -2094,7 +2092,7 @@ static struct omap_hwmod dra7xx_pruss2_hwmod = {
 		},
 	},
 };
-#endif
+
 /*
  * 'pwmss' class
  *
@@ -4410,7 +4408,6 @@ static struct omap_hwmod_ocp_if dra7xx_l4_per3__mailbox13 = {
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
-#ifndef CONFIG_SOC_DRA7XX
 /* l3_main_1 -> mcasp1 */
 static struct omap_hwmod_ocp_if dra7xx_l3_main_1__mcasp1 = {
 	.master		= &dra7xx_l3_main_1_hwmod,
@@ -4562,7 +4559,7 @@ static struct omap_hwmod_ocp_if dra7xx_l4_per2__mcasp8 = {
 	.addr		= dra7xx_mcasp8_addrs,
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
-#endif
+
 static struct omap_hwmod_addr_space dra7xx_mcspi1_addrs[] = {
 	{
 		.pa_start	= 0x48098000,
@@ -4774,7 +4771,6 @@ static struct omap_hwmod_ocp_if dra7xx_l4_cfg__ocp2scp1 = {
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
-#ifndef CONFIG_SOC_DRA7XX
 static struct omap_hwmod_addr_space dra7xx_pruss1_addrs[] = {
 	{
 		.name		= "u_intc",
@@ -4910,7 +4906,7 @@ static struct omap_hwmod_ocp_if dra7xx_l3_main_1__pruss2 = {
 	.addr		= dra7xx_pruss2_addrs,
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
-#endif
+
 /* l4_per2 -> pwmss1 */
 static struct omap_hwmod_ocp_if dra7xx_l4_per2__pwmss1 = {
 	.master		= &dra7xx_l4_per2_hwmod,
@@ -6014,7 +6010,6 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l4_per3__mailbox11,
 	&dra7xx_l4_per3__mailbox12,
 	&dra7xx_l4_per3__mailbox13,
-#ifndef CONFIG_SOC_DRA7XX
 	&dra7xx_l3_main_1__mcasp1,
 	&dra7xx_l4_per2__mcasp1,
 	&dra7xx_l3_main_1__mcasp2,
@@ -6024,7 +6019,6 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l4_per2__mcasp6,
 	&dra7xx_l4_per2__mcasp7,
 	&dra7xx_l4_per2__mcasp8,
-#endif
 	&dra7xx_l4_per1__mcspi1,
 	&dra7xx_l4_per1__mcspi2,
 	&dra7xx_l4_per1__mcspi3,
@@ -6039,10 +6033,8 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l4_per3__ocmc_ram3,
 	&dra7xx_l3_main_1__ocmc_rom,
 	&dra7xx_l4_cfg__ocp2scp1,
-#ifndef CONFIG_SOC_DRA7XX
 	&dra7xx_l3_main_1__pruss1,
 	&dra7xx_l3_main_1__pruss2,
-#endif
 	&dra7xx_l4_per2__pwmss1,
 	&dra7xx_l4_per2__pwmss2,
 	&dra7xx_l4_per2__pwmss3,
