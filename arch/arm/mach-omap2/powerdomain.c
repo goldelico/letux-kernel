@@ -121,9 +121,9 @@ static int _pwrdm_register(struct powerdomain *pwrdm)
 	pwrdm->voltdm.ptr = voltdm;
 	INIT_LIST_HEAD(&pwrdm->voltdm_node);
 	voltdm_add_pwrdm(voltdm, pwrdm);
-	spin_lock_init(&pwrdm->_lock);
 
 skip_voltdm:
+	spin_lock_init(&pwrdm->_lock);
 	list_add(&pwrdm->node, &pwrdm_list);
 
 	/* Initialize the powerdomain's state counter */
