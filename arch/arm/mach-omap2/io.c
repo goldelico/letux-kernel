@@ -676,11 +676,7 @@ void __init dra7xx_init_late(void)
 	/* Fix me: Add mux late init, once we add the mux data */
 	omap2_common_pm_late_init();
 
-	/* 
-	 * Fix me: Enabling this is aborting. So requires fixing for
-	 * dra7
-	 */
-	//omap4_pm_init();
+	omap4_pm_init();
 	omap2_clk_enable_autoidle_all();
 }
 #endif
