@@ -652,18 +652,19 @@ static struct twl4030_usb_data gta04_usb_data = {
 	.usb_mode	= T2_USB_MODE_ULPI,
 };
 
-static struct twl4030_codec_data omap3_codec;
 #ifdef GTA04_MISSING
 static struct twl4030_vibra_data gta04_vibra_data = {
 	.coexist	=	0,
 };
-
-static struct twl4030_audio_data omap3_audio_pdata = {
-	.audio_mclk = 26000000,
-	.codec = &omap3_codec,
-	.vibra = &gta04_vibra_data,
-};
 #endif
+
+static struct twl4030_codec_audio_data gta04_audio_data;
+
+static struct twl4030_codec_data gta04_codec_data = {
+	.audio_mclk = 26000000,
+	.audio = &gta04_audio_data,
+};
+
 static struct twl4030_madc_platform_data gta04_madc_data = {
 	.irq_line	= 1,
 };
@@ -812,9 +813,7 @@ static struct twl4030_platform_data gta04_twldata = {
 	.madc		= &gta04_madc_data,
 	.power		= &gta04_power_scripts,	/* empty but if not present, pm_power_off is not initialized */
 	.usb		= &gta04_usb_data,
-#ifdef GTA04_MISSING
-	.audio		= &omap3_audio_pdata,
-#endif
+	.codec		= &gta04_codec_data,
 	.clock		= &gta04_clock,
 
 	.vaux1		= &gta04_vaux1,
@@ -864,7 +863,6 @@ static struct platform_device gta04_w2cbw003_codec_audio_device = {
 #ifdef CONFIG_TOUCHSCREEN_TSC2007
 static int tsc2007_get_pendown_state(void)
 {
-	printk(KERN_ERR "tsc2007 get pendown state\n");
 	return gpio_get_value(GTA04_TSC2007_GPIO) ? 0 : 1;
 }
 
