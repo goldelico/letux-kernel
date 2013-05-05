@@ -775,9 +775,7 @@ struct twl4030_power_data gta04_power_scripts = {
 //	.scripts	= twl4030_scripts,
 //	.num		= ARRAY_SIZE(twl4030_scripts),
 	.resource_config = twl4030_rconfig,
-#ifdef GTA04_MISSING
 	.use_poweroff	= 1,
-#endif
 };
 
 /* override TWL defaults */
