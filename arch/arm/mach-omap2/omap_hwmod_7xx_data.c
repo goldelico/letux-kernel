@@ -2055,6 +2055,7 @@ static struct omap_hwmod dra7xx_ocp2scp1_hwmod = {
 	},
 };
 
+#if 0
 /*
  * 'pruss' class
  *
@@ -2092,6 +2093,8 @@ static struct omap_hwmod dra7xx_pruss2_hwmod = {
 		},
 	},
 };
+
+#endif
 
 /*
  * 'pwmss' class
@@ -4781,6 +4784,7 @@ static struct omap_hwmod_ocp_if dra7xx_l4_cfg__ocp2scp1 = {
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
+#if 0
 static struct omap_hwmod_addr_space dra7xx_pruss1_addrs[] = {
 	{
 		.name		= "u_intc",
@@ -4916,6 +4920,7 @@ static struct omap_hwmod_ocp_if dra7xx_l3_main_1__pruss2 = {
 	.addr		= dra7xx_pruss2_addrs,
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
+#endif
 
 /* l4_per2 -> pwmss1 */
 static struct omap_hwmod_ocp_if dra7xx_l4_per2__pwmss1 = {
