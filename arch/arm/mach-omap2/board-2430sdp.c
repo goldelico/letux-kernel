@@ -242,6 +242,7 @@ static struct omap2_hsmmc_info mmc[] __initdata = {
 		.gpio_cd	= -EINVAL,
 		.gpio_wp	= -EINVAL,
 		.ext_clock	= 1,
+		.needs_vmmc	= 1,
 	},
 	{}	/* Terminator */
 };

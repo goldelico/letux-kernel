@@ -419,12 +419,14 @@ int __init omap4_mpuss_init(void)
 	mpuss_clear_prev_logic_pwrst();
 
 	/* Save device type on scratchpad for low level code to use */
-	if (omap_type() != OMAP2_DEVICE_TYPE_GP)
-		__raw_writel(1, sar_base + OMAP_TYPE_OFFSET);
-	else
-		__raw_writel(0, sar_base + OMAP_TYPE_OFFSET);
-
-	save_l2x0_context();
+	if (sar_base) {
+		if (omap_type() != OMAP2_DEVICE_TYPE_GP)
+			__raw_writel(1, sar_base + OMAP_TYPE_OFFSET);
+		else
+			__raw_writel(0, sar_base + OMAP_TYPE_OFFSET);
+	
+		save_l2x0_context();
+	}
 
 	if (cpu_is_omap44xx()) {
 		omap_pm_ops.finish_suspend = omap4_finish_suspend;
@@ -432,7 +434,7 @@ int __init omap4_mpuss_init(void)
 		omap_pm_ops.resume = omap4_cpu_resume;
 		omap_pm_ops.scu_prepare = scu_pwrst_prepare;
 		cpu_context_offset = OMAP4_RM_CPU0_CPU0_CONTEXT_OFFSET;
-	} else if (soc_is_omap54xx()) {
+	} else if (soc_is_omap54xx() || soc_is_dra7xx()) {
 		omap_pm_ops.finish_suspend = omap5_finish_suspend;
 		omap_pm_ops.hotplug_restart = omap5_secondary_startup;
 		omap_pm_ops.resume = omap5_cpu_resume;

@@ -254,6 +254,7 @@ static struct omap2_hsmmc_info mmc[] = {
 		.caps		= MMC_CAP_4_BIT_DATA | MMC_CAP_8_BIT_DATA,
 		.gpio_wp	= -EINVAL,
 		.gpio_cd	= -EINVAL,
+		.needs_vmmc	= 1,
 	},
 	{
 		.name		= "wl1271",
@@ -263,6 +264,7 @@ static struct omap2_hsmmc_info mmc[] = {
 		.gpio_cd	= -EINVAL,
 		.ocr_mask	= MMC_VDD_165_195,
 		.nonremovable	= true,
+		.needs_vmmc	= 1,
 	},
 	{}	/* Terminator */
 };

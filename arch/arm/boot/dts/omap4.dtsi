@@ -382,6 +382,14 @@
 			dma-names = "tx0", "rx0";
 		};
 
+		omap_control_mmc1: omap-hsmmc-control@4A100600 {
+			compatible = "ti,omap-hsmmc-control";
+			reg = <0x4A100600 0x4>,
+			      <0x4A100628 0x4>;
+			reg-names = "pbias", "mmc1";
+			ctrl-type = <5>;
+		};
+
 		mmc1: mmc@4809c000 {
 			compatible = "ti,omap4-hsmmc";
 			reg = <0x4809c000 0x400>;
@@ -391,6 +399,7 @@
 			ti,needs-special-reset;
 			dmas = <&sdma 61>, <&sdma 62>;
 			dma-names = "tx", "rx";
+			ctrl-module = <&omap_control_mmc1>;
 		};
 
 		mmc2: mmc@480b4000 {

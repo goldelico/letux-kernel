@@ -309,6 +309,8 @@ static struct omap2_hsmmc_info mmc[] = {
 		.gpio_cd	= -EINVAL,
 		.gpio_wp	= 63,
 		.deferred	= true,
+		.needs_vmmc	= 1,
+		.needs_vmmc_aux = 1,
 	},
 #ifdef CONFIG_WILINK_PLATFORM_DATA
 	{
@@ -318,6 +320,7 @@ static struct omap2_hsmmc_info mmc[] = {
 		.gpio_wp	= -EINVAL,
 		.gpio_cd	= -EINVAL,
 		.nonremovable	= true,
+		.needs_vmmc	= 1,
 	},
 #endif
 	{}	/* Terminator */

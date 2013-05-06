@@ -54,3 +54,37 @@ Examples:
 			&edma 25>;
 		dma-names = "tx", "rx";
 	};
+
+OMAP HSMMC CONTROL
+
+Required properties:
+- compatible: Should be "ti,omap-hsmmc-control"
+- reg : Address and length of the register set for the device. It contains
+ the address of "pbias" and/or "prog_io1" and/or "ctrl_mmc1" and/or "devconf1"
+ and/or "devconf0"
+- reg-names: The names of the register addresses corresponding to the registers
+ filled in "reg".
+- ti,ctrl-type: This is used to differentiate mmc1, mmc2 on different
+ omap SOCs like 2430, omap3, omap3630, omap4, omap5.
+ MMC1 pbias programming is same for omap2430 and omap3 but differs across
+ omap3,4,5.
+ Should be "0" for no control mmc module configuration
+ Should be "1" for MMC1 on OMAP2430 for MMC1 pbias, loopback
+  and speed mode configuration
+ Should be "2" for MMC2 on OMAP2430, OMAP3 for loopback clock configuration
+ Should be "3" for MMC1 on OMAP3430 for MMC1 pbias, loopback
+  and speed mode configuration
+ Should be "4" for MMC1 on OMAP3630 for MMC1 pbias, loopback
+  and speed mode configuration
+ Should be "5" for MMC1 on OMAP4 for MMC1 pbias configuration
+ Should be "6" for MMC2 on OMAP4 for loopback clock configuration
+ Should be "7" for MMC1 on OMAP5 for MMC1 pbias configuration
+
+Example:
+omap_control_mmc1: omap-hsmmc-control@4A100600 {
+	compatible = "ti,omap-hsmmc-control";
+	reg = <0x4A100600 0x4>,
+	      <0x4A100628 0x4>;
+	reg-names = "pbias", "mmc1";
+	ctrl-type = <5>;
+};

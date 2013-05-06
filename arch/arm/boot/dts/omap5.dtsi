@@ -390,6 +390,13 @@
 			clock-frequency = <48000000>;
 		};
 
+		omap_control_mmc1: omap-hsmmc-control@4a002E00 {
+			compatible = "ti,omap-hsmmc-control";
+			reg = <0x4a002E00 0x4>;
+			reg-names = "pbias";
+			ctrl-type = <7>;
+		};
+
 		mmc1: mmc@4809c000 {
 			compatible = "ti,omap4-hsmmc";
 			reg = <0x4809c000 0x400>;
@@ -399,6 +406,7 @@
 			ti,needs-special-reset;
 			dmas = <&sdma 61>, <&sdma 62>;
 			dma-names = "tx", "rx";
+			ctrl-module = <&omap_control_mmc1>;
 		};
 
 		mmc2: mmc@480b4000 {

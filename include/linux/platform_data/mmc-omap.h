@@ -35,6 +35,24 @@ struct omap_mmc_dev_attr {
 	u8 flags;
 };
 
+struct omap_hsmmc_control {
+	struct device *dev;
+
+	u32 __iomem *pbias;
+	u32 __iomem *prog_io1;
+	u32 __iomem *devconf0;
+	u32 __iomem *devconf1;
+	u32 __iomem *ctrl_mmc1;
+
+	unsigned external_clock:1;
+	u32 ctrl_type;
+
+	void (*before)(struct device *dev, int power_on, int vdd);
+	void (*after) (struct device *dev, int power_on, int vdd);
+	void (*init) (struct device *dev);
+	void (*exit) (struct device *dev);
+};
+
 struct omap_mmc_platform_data {
 	/* back-link to device */
 	struct device *dev;
@@ -66,6 +84,8 @@ struct omap_mmc_platform_data {
 
 	/* Register offset deviation */
 	u16 reg_offset;
+	unsigned needs_vmmc:1;
+	unsigned needs_vmmc_aux:1;
 
 	struct omap_mmc_slot_data {
 

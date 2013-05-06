@@ -438,12 +438,14 @@ static struct omap2_hsmmc_info mmc[] = {
 		.nonremovable   = true,
 		.ocr_mask	= MMC_VDD_29_30,
 		.no_off_init	= true,
+		.needs_vmmc	= 1,
 	},
 	{
 		.mmc		= 1,
 		.caps		= MMC_CAP_4_BIT_DATA | MMC_CAP_8_BIT_DATA,
 		.gpio_cd	= -EINVAL,
 		.gpio_wp	= -EINVAL,
+		.needs_vmmc	= 1,
 	},
 	{
 		.mmc		= 5,
@@ -453,6 +455,7 @@ static struct omap2_hsmmc_info mmc[] = {
 		.gpio_wp	= -EINVAL,
 		.ocr_mask	= MMC_VDD_165_195,
 		.nonremovable	= true,
+		.needs_vmmc	= 1,
 	},
 	{}	/* Terminator */
 };

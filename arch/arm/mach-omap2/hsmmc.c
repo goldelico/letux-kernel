@@ -313,6 +313,8 @@ static int __init omap_hsmmc_pdata_init(struct omap2_hsmmc_info *c,
 								c->mmc, 1);
 	mmc->slots[0].name = hc_name;
 	mmc->nr_slots = 1;
+	mmc->needs_vmmc = c->needs_vmmc;
+	mmc->needs_vmmc_aux = c->needs_vmmc_aux;
 	mmc->slots[0].caps = c->caps;
 	mmc->slots[0].pm_caps = c->pm_caps;
 	mmc->slots[0].internal_clock = !c->ext_clock;

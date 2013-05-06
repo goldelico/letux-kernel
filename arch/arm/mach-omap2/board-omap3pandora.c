@@ -279,6 +279,7 @@ static struct omap2_hsmmc_info omap3pandora_mmc[] = {
 		.gpio_wp	= 126,
 		.ext_clock	= 0,
 		.deferred	= true,
+		.needs_vmmc	= 1,
 	},
 	{
 		.mmc		= 2,
@@ -288,6 +289,7 @@ static struct omap2_hsmmc_info omap3pandora_mmc[] = {
 		.ext_clock	= 1,
 		.transceiver	= true,
 		.deferred	= true,
+		.needs_vmmc	= 1,
 	},
 	{
 		.mmc		= 3,
@@ -295,6 +297,7 @@ static struct omap2_hsmmc_info omap3pandora_mmc[] = {
 		.gpio_cd	= -EINVAL,
 		.gpio_wp	= -EINVAL,
 		.init_card	= pandora_wl1251_init_card,
+		.needs_vmmc	= 1,
 	},
 	{}	/* Terminator */
 };

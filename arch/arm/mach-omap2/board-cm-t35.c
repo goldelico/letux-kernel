@@ -407,6 +407,8 @@ static struct omap2_hsmmc_info mmc[] = {
 		.gpio_cd	= -EINVAL,
 		.gpio_wp	= -EINVAL,
 		.deferred	= true,
+		.needs_vmmc	= 1,
+		.needs_vmmc_aux = 1,
 	},
 	{
 		.mmc		= 2,
