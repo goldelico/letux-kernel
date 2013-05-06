@@ -334,6 +334,12 @@
 			ti,timer-pwm;
 		};
 
+		gpu: gpu@0x56000000 {
+			compatible = "ti,omap4-gpu";
+			reg = <0x56000000 0xffff>;
+			ti,hwmods = "gpu";
+		};
+
 		bandgap {
 			reg = <0x4a0021e0 0xc
 				0x4a00232c 0xc
