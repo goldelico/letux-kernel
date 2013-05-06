@@ -101,6 +101,18 @@
 			pinctrl-single,function-mask = <0x3fffffff>;
 		};
 
+		sdma: dma-controller@4a056000 {
+			compatible = "ti,omap4430-sdma";
+			reg = <0x4a056000 0x1000>;
+			interrupts = <0 12 0x4>,
+				     <0 13 0x4>,
+				     <0 14 0x4>,
+				     <0 15 0x4>;
+			#dma-cells = <1>;
+			#dma-channels = <32>;
+			#dma-requests = <127>;
+		};
+
 		gpio1: gpio@4ae10000 {
 			compatible = "ti,omap4-gpio";
 			reg = <0x4ae10000 0x200>;
@@ -392,6 +404,8 @@
 			ti,hwmods = "mmc1";
 			ti,dual-volt;
 			ti,needs-special-reset;
+			dmas = <&sdma 61>, <&sdma 62>;
+			dma-names = "tx", "rx";
 			ctrl-module = <&omap_control_mmc1>;
 		};
 
@@ -401,6 +415,8 @@
 			interrupts = <0 86 0x4>;
 			ti,hwmods = "mmc2";
 			ti,needs-special-reset;
+			dmas = <&sdma 47>, <&sdma 48>;
+			dma-names = "tx", "rx";
 		};
 
 		mmc3: mmc@480ad000 {
