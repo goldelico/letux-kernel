@@ -33,7 +33,7 @@ CONFIG_SMP=y
 CONFIG_NR_CPUS=2
 CONFIG_ZBOOT_ROM_TEXT=0x0
 CONFIG_ZBOOT_ROM_BSS=0x0
-CONFIG_CMDLINE="root=/dev/mmcblk0p2 rw rootwait console=ttyO2,115200 androidboot.console=ttyO2 vmalloc=496M init=/init omapfb.fb_opt=-1,-1,-1,1,1280,720 cma=64M no_console_suspend"
+CONFIG_CMDLINE="root=/dev/mmcblk1p2 rw rootwait console=ttyO0,115200 androidboot.console=ttyO2 vmalloc=496M init=/init omapfb.fb_opt=-1,-1,-1,1,1280,720 cma=64M no_console_suspend"
 CONFIG_CMDLINE_FORCE=y
 CONFIG_KEXEC=y
 CONFIG_CPU_FREQ=y
@@ -320,3 +320,6 @@ CONFIG_CMA=y
 CONFIG_TI_DAVINCI_MDIO=y
 CONFIG_TI_DAVINCI_CPDMA=y
 CONFIG_SOC_DRA7XX=y
+CONFIG_ARM_APPENDED_DTB=y
+CONFIG_DEBUG_LL=y
+CONFIG_EARLY_PRINTK=y
