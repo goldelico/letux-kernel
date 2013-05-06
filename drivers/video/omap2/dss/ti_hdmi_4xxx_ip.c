@@ -287,7 +287,7 @@ static int hdmi_check_hpd_state(struct hdmi_ip_data *ip_data)
 		goto err;
 	}
 #endif
-
+	r = 0;
 #if 0
 err:
 #endif

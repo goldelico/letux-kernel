@@ -737,6 +737,8 @@ static void hdmi_compute_pll(struct omap_dss_device *dssdev, int phy,
 static int hdmi_power_on_core(struct omap_dss_device *dssdev)
 {
 	int r;
+	
+	sel_i2c();
 
 	if (gpio_cansleep(hdmi.ct_cp_hpd_gpio))
 		gpio_set_value_cansleep(hdmi.ct_cp_hpd_gpio, 1);
@@ -747,6 +749,8 @@ static int hdmi_power_on_core(struct omap_dss_device *dssdev)
 		gpio_set_value_cansleep(hdmi.ls_oe_gpio, 1);
 	else
 		gpio_set_value(hdmi.ls_oe_gpio, 1);
+
+	sel_hdmi();
 
 	/* wait 300us after CT_CP_HPD for the 5V power output to reach 90% */
 	udelay(300);
@@ -864,7 +868,7 @@ static int hdmi_power_on_full(struct omap_dss_device *dssdev)
 	r = hdmi.ip_data.ops->phy_enable(&hdmi.ip_data);
 	if (r) {
 		DSSDBG("Failed to start PHY\n");
-		goto err_phy_enable;
+		//goto err_phy_enable;
 	}
 
 	hdmi.ip_data.cfg.cm.mode = hdmi.can_do_hdmi ? hdmi.mode : HDMI_DVI;
@@ -1617,6 +1621,65 @@ static void __init hdmi_probe_pdata(struct platform_device *pdev)
 	}
 }
 
+static void init_sel_i2c_hdmi(void)
+{
+	void __iomem *clk_base = ioremap(0x4A009000, SZ_4K);
+	void __iomem *mcasp2_base = ioremap(0x48464000, SZ_1K);
+	void __iomem *pinmux = ioremap(0x4a003600, SZ_1K);
+	u32 val;
+
+	if (!clk_base || !mcasp2_base || !pinmux)
+		DSSERR("couldn't ioremap for clk or mcasp2\n");
+
+	__raw_writel(0x40000, pinmux + 0xfc);
+	/* sw supervised wkup */
+	__raw_writel(0x2, clk_base + 0x8fc);
+
+	/* enable clock domain */
+	__raw_writel(0x2, clk_base + 0x860);
+
+	/* see what status looks like */
+	val = __raw_readl(clk_base + 0x8fc);
+	printk("CM_L4PER2_CLKSTCTRL %x\n", val);
+
+	/*
+	 * mcasp2 regs should be hopefully accessible, make mcasp2_aclkr
+	 * a gpio, write necessary stuff to MCASP_PFUNC and PDIR
+	 */
+	__raw_writel(0x1 << 29, mcasp2_base + 0x10);
+	__raw_writel(0x1 << 29, mcasp2_base + 0x14);
+
+	iounmap(clk_base);
+	iounmap(mcasp2_base);
+	iounmap(pinmux);
+}
+
+/* use this to configure the pcf8575@22 to set LS_OE and CT_HPD */
+void sel_i2c(void)
+{
+	void __iomem *base = ioremap(0x48464000, SZ_1K);
+
+	/* PDOUT */
+	__raw_writel(0x0, base + 0x18);
+
+	DSSDBG("PDOUT sel_i2c  %x\n", __raw_readl(base + 0x18));
+
+	iounmap(base);
+}
+
+/* use this to read edid and detect hpd ? */
+void sel_hdmi(void)
+{
+	void __iomem *base = ioremap(0x48464000, SZ_1K);
+
+	/* PDOUT */
+	__raw_writel(0x20000000, base + 0x18);
+
+	DSSDBG("PDOUT sel_hdmi %x\n", __raw_readl(base + 0x18));
+
+	iounmap(base);
+}
+
 static void __init hdmi_probe_of(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
@@ -1824,6 +1887,13 @@ static int __init omapdss_hdmihw_probe(struct platform_device *pdev)
 		hdmi_probe_of(pdev);
 	else if (pdev->dev.platform_data)
 		hdmi_probe_pdata(pdev);
+
+	/*
+	 * hack: so this is vayu, and we have this SEL_I2C_HDMI switch
+	 * which is connected to a mcasp2 pin on Vayu
+	 */
+	init_sel_i2c_hdmi();
+	sel_i2c();
 
 #if defined(CONFIG_OMAP4_DSS_HDMI_AUDIO) || \
 	defined(CONFIG_OMAP5_DSS_HDMI_AUDIO)
