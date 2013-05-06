@@ -1449,6 +1449,34 @@ DEFINE_CLK_GATE(sata_ref_clk, "sys_clkin1", &sys_clkin1, 0x0,
 		DRA7XX_CM_L3INIT_SATA_CLKCTRL, DRA7XX_OPTFCLKEN_REF_CLK_SHIFT,
 		0x0, NULL);
 
+DEFINE_CLK_GATE(usb_otg_ss1_refclk960m, "dpll_usb_clkdcoldo",
+		&dpll_usb_clkdcoldo, 0x0, DRA7XX_CM_L3INIT_USB_OTG_SS1_CLKCTRL,
+		DRA7XX_OPTFCLKEN_REFCLK960M_SHIFT, 0x0, NULL);
+
+DEFINE_CLK_GATE(usb_otg_ss2_refclk960m, "dpll_usb_clkdcoldo",
+		&dpll_usb_clkdcoldo, 0x0, DRA7XX_CM_L3INIT_USB_OTG_SS2_CLKCTRL,
+		DRA7XX_OPTFCLKEN_REFCLK960M_SHIFT, 0x0, NULL);
+
+DEFINE_CLK_GATE(usb_otg_ss3_refclk960m, "dpll_usb_clkdcoldo",
+		&dpll_usb_clkdcoldo, 0x0, DRA7XX_CM_L3INIT_USB_OTG_SS3_CLKCTRL,
+		DRA7XX_OPTFCLKEN_REFCLK960M_SHIFT, 0x0, NULL);
+
+DEFINE_CLK_GATE(usb_otg_ss4_refclk960m, "dpll_usb_clkdcoldo",
+		&dpll_usb_clkdcoldo, 0x0, DRA7XX_CM_L3INIT_USB_OTG_SS4_CLKCTRL,
+		DRA7XX_OPTFCLKEN_REFCLK960M_SHIFT, 0x0, NULL);
+
+DEFINE_CLK_GATE(usb_phy1_cm_clk32k, "sys_32k_ck", &sys_32k_ck, 0x0,
+		DRA7XX_CM_COREAON_USB_PHY1_CORE_CLKCTRL,
+		DRA7XX_OPTFCLKEN_CLK32K_SHIFT, 0x0, NULL);
+
+DEFINE_CLK_GATE(usb_phy2_cm_clk32k, "sys_32k_ck", &sys_32k_ck, 0x0,
+		DRA7XX_CM_COREAON_USB_PHY2_CORE_CLKCTRL,
+		DRA7XX_OPTFCLKEN_CLK32K_SHIFT, 0x0, NULL);
+
+DEFINE_CLK_GATE(usb_phy3_cm_clk32k, "sys_32k_ck", &sys_32k_ck, 0x0,
+		DRA7XX_CM_COREAON_USB_PHY3_CORE_CLKCTRL,
+		DRA7XX_OPTFCLKEN_CLK32K_SHIFT, 0x0, NULL);
+
 /* Remaining optional clocks */
 static const char *atl_dpll_clk_mux_parents[] = {
 	"sys_32k_ck", "video1_clkin", "video2_clkin",
@@ -1886,6 +1914,13 @@ static struct omap_clk dra7xx_clks[] = {
 	CLK(NULL,	"dpll_usb_m2_ck",		&dpll_usb_m2_ck,	CK_7XX),
 	CLK(NULL,	"l3init_480m_dclk_div",		&l3init_480m_dclk_div,	CK_7XX),
 	CLK(NULL,	"usb_otg_dclk_div",		&usb_otg_dclk_div,	CK_7XX),
+	CLK(NULL,	"usb_otg_ss1_refclk960m",	&usb_otg_ss1_refclk960m,	CK_7XX),
+	CLK(NULL,	"usb_otg_ss2_refclk960m",	&usb_otg_ss2_refclk960m,	CK_7XX),
+	CLK(NULL,	"usb_otg_ss3_refclk960m",	&usb_otg_ss3_refclk960m,	CK_7XX),
+	CLK(NULL,	"usb_otg_ss4_refclk960m",	&usb_otg_ss4_refclk960m,	CK_7XX),
+	CLK(NULL,	"usb_phy1_cm_clk32k",		&usb_phy1_cm_clk32k,	CK_7XX),
+	CLK(NULL,	"usb_phy2_cm_clk32k",		&usb_phy2_cm_clk32k,	CK_7XX),
+	CLK(NULL,	"usb_phy3_cm_clk32k",		&usb_phy3_cm_clk32k,	CK_7XX),
 	CLK(NULL,	"sata_dclk_div",		&sata_dclk_div,	CK_7XX),
 	CLK(NULL,	"dpll_pcie_ref_m2_ck",		&dpll_pcie_ref_m2_ck,	CK_7XX),
 	CLK(NULL,	"pcie2_dclk_div",		&pcie2_dclk_div,	CK_7XX),
