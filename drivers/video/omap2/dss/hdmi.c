@@ -1622,6 +1622,8 @@ static void __init hdmi_probe_of(struct platform_device *pdev)
 	struct device_node *node = pdev->dev.of_node;
 	struct device_node *child;
 	struct omap_dss_device *dssdev;
+	struct device_node *adapter_node;
+	struct i2c_adapter *adapter;
 	int r, gpio;
 	enum omap_channel channel;
 	u32 v;
