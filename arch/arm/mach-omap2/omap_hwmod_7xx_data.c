@@ -6043,8 +6043,10 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l4_per3__ocmc_ram3,
 	&dra7xx_l3_main_1__ocmc_rom,
 	&dra7xx_l4_cfg__ocp2scp1,
+#if 0
 	&dra7xx_l3_main_1__pruss1,
 	&dra7xx_l3_main_1__pruss2,
+#endif
 	&dra7xx_l4_per2__pwmss1,
 	&dra7xx_l4_per2__pwmss2,
 	&dra7xx_l4_per2__pwmss3,
