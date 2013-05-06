@@ -102,7 +102,7 @@ MODULE_SUPPORTED_DEVICE(DEVNAME);
 #if !defined(PVR_OMAPLFB_DRM_FB)
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,34))
 #define OMAP_DSS_DRIVER(drv, dev) struct omap_dss_driver *drv = (dev) != NULL ? (dev)->driver : NULL
-#define OMAP_DSS_MANAGER(man, dev) struct omap_overlay_manager *man = (dev) != NULL ? (dev)->output : NULL
+#define OMAP_DSS_MANAGER(man, dev) struct omap_overlay_manager *man = (dev) != NULL ? (dev)->output->manager : NULL
 #define	WAIT_FOR_VSYNC(man)	((man)->wait_for_vsync)
 #else
 #define OMAP_DSS_DRIVER(drv, dev) struct omap_dss_device *drv = (dev)
@@ -702,7 +702,7 @@ OMAPLFB_BOOL OMAPLFBWaitForVSync(OMAPLFB_DEVINFO *psDevInfo)
 	}
 
 	return OMAPLFB_TRUE;
-#else	
+#else
 	struct omap_dss_device *psDSSDev = fb2display(psDevInfo->psLINFBInfo);
 	OMAP_DSS_MANAGER(psDSSMan, psDSSDev);
 
