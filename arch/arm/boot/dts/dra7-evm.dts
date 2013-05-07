@@ -37,6 +37,14 @@
 		/*15 MB*/
 		ti,omap_ion_heap_nonsecure_tiler_size = <0xF00000>;
 	};
+
+	sound_hdmi {
+		compatible = "ti,omap-hdmi-tpd12s015-audio";
+		ti,model = "OMAP5HDMI";
+
+		ti,hdmi_audio = <&hdmi>;
+		ti,level_shifter = <&tpd12s015>;
+	};
 };
 
 &i2c1 {
@@ -109,14 +117,6 @@
 &mmc4 {
 	bus-width = <4>;
 	status = "disabled";
-};
-
-&dpi1 {
-	lcd {
-		compatible = "ti,tfc_s9700";
-		tlc = <&tlc59108>;
-		data-lines = <24>;
-	};
 };
 
 &hdmi {
