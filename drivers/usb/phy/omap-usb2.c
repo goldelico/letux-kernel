@@ -159,14 +159,14 @@ static int omap_usb2_probe(struct platform_device *pdev)
 	otg->start_srp		= omap_usb_start_srp;
 	otg->phy		= &phy->phy;
 
-	phy->wkupclk = devm_clk_get(phy->dev, "usb_phy_cm_clk32k");
+	phy->wkupclk = devm_clk_get(phy->dev, "usb_phy1_cm_clk32k");
 	if (IS_ERR(phy->wkupclk)) {
-		dev_err(&pdev->dev, "unable to get usb_phy_cm_clk32k\n");
+		dev_err(&pdev->dev, "unable to get usb_phy1_cm_clk32k\n");
 		return PTR_ERR(phy->wkupclk);
 	}
 	clk_prepare(phy->wkupclk);
 
-	phy->optclk = devm_clk_get(phy->dev, "usb_otg_ss_refclk960m");
+	phy->optclk = devm_clk_get(phy->dev, "usb_otg_ss1_refclk960m");
 	if (IS_ERR(phy->optclk))
 		dev_vdbg(&pdev->dev, "unable to get refclk960m\n");
 	else
