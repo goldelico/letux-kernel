@@ -62,7 +62,10 @@ static int omap4_pm_suspend(void)
 	 * domain CSWR is not supported by hardware.
 	 * More details can be found in OMAP4430 TRM section 4.3.4.2.
 	 */
-	omap4_mpuss_enter_lowpower(cpu_id, PWRDM_FUNC_PWRST_OFF);
+	if (soc_is_dra7xx()) /* Do a wfi on DRA7 for now */
+		omap_do_wfi();
+	else
+		omap4_mpuss_enter_lowpower(cpu_id, PWRDM_FUNC_PWRST_OFF);
 
 	/* Restore next powerdomain state */
 	list_for_each_entry(pwrst, &pwrst_list, node) {
