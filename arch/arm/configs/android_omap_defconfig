@@ -33,7 +33,7 @@ CONFIG_SMP=y
 CONFIG_NR_CPUS=2
 CONFIG_ZBOOT_ROM_TEXT=0x0
 CONFIG_ZBOOT_ROM_BSS=0x0
-CONFIG_CMDLINE="root=/dev/mmcblk1p2 rw rootwait console=ttyO0,115200 androidboot.console=ttyO0 vmalloc=496M init=/init omapfb.fb_opt=-1,-1,-1,1,1280,720 cma=64M no_console_suspend"
+CONFIG_CMDLINE="root=/dev/mmcblk1p2 rw rootwait console=ttyO0,115200 androidboot.console=ttyO0 vmalloc=496M init=/init omapfb.fb_opt=0,1920,1080 cma=64M no_console_suspend omapdss.def_disp=hdmi-monitor"
 CONFIG_CMDLINE_FORCE=y
 CONFIG_KEXEC=y
 CONFIG_CPU_FREQ=y
