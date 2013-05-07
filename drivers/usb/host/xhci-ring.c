@@ -2712,7 +2712,6 @@ irqreturn_t xhci_irq(struct usb_hcd *hcd)
 	u64 temp_64;
 	union xhci_trb *event_ring_deq;
 	dma_addr_t deq;
-
 	spin_lock(&xhci->lock);
 	trb = xhci->event_ring->dequeue;
 	/* Check if the xHC generated the interrupt, or the irq is shared */

@@ -27,7 +27,7 @@
 #include <linux/delay.h>
 #include <linux/usb/omap_control_usb.h>
 
-#define	NUM_SYS_CLKS		5
+#define	NUM_SYS_CLKS		1
 #define	PLL_STATUS		0x00000004
 #define	PLL_GO			0x00000008
 #define	PLL_CONFIGURATION1	0x0000000C
@@ -59,19 +59,25 @@
 
 enum sys_clk_rate {
 	CLK_RATE_UNDEFINED = -1,
+	CLK_RATE_20MHZ
+#if 0
 	CLK_RATE_12MHZ,
 	CLK_RATE_16MHZ,
 	CLK_RATE_19MHZ,
 	CLK_RATE_26MHZ,
 	CLK_RATE_38MHZ
+#endif
 };
 
 static struct usb_dpll_params omap_usb3_dpll_params[NUM_SYS_CLKS] = {
+#if 0
 	{1250, 5, 4, 20, 0},		/* 12 MHz */
 	{3125, 20, 4, 20, 0},		/* 16.8 MHz */
 	{1172, 8, 4, 20, 65537},	/* 19.2 MHz */
 	{1250, 12, 4, 20, 0},		/* 26 MHz */
 	{3125, 47, 4, 20, 92843},	/* 38.4 MHz */
+#endif
+	{1000, 7, 4, 10, 0},	/* 38.4 MHz */
 };
 
 static int omap_usb3_suspend(struct usb_phy *x, int suspend)
@@ -116,6 +122,7 @@ static int omap_usb3_suspend(struct usb_phy *x, int suspend)
 static inline enum sys_clk_rate __get_sys_clk_index(unsigned long rate)
 {
 	switch (rate) {
+#if 0
 	case 12000000:
 		return CLK_RATE_12MHZ;
 	case 16800000:
@@ -126,6 +133,10 @@ static inline enum sys_clk_rate __get_sys_clk_index(unsigned long rate)
 		return CLK_RATE_26MHZ;
 	case 38400000:
 		return CLK_RATE_38MHZ;
+#endif
+	case 20000000:
+		return CLK_RATE_20MHZ;
+
 	default:
 		return CLK_RATE_UNDEFINED;
 	}
@@ -151,12 +162,13 @@ static int omap_usb_dpll_lock(struct omap_usb *phy)
 	u32			val;
 	unsigned long		rate;
 	enum sys_clk_rate	clk_index;
-
+	printk("%s #RK \n",__func__);
 	rate		= clk_get_rate(phy->sys_clk);
 	clk_index	= __get_sys_clk_index(rate);
 
+	printk("%s #RK rate %d, clk_index %d \n",__func__, rate, clk_index);
 	if (clk_index == CLK_RATE_UNDEFINED) {
-		pr_err("dpll cannot be locked for sys clk freq:%luHz\n", rate);
+		pr_err("#RK:ERROR:dpll cannot be locked for sys clk freq:%luHz\n", rate);
 		return -EINVAL;
 	}
 
@@ -204,7 +216,7 @@ static int omap_usb3_probe(struct platform_device *pdev)
 {
 	struct omap_usb			*phy;
 	struct resource			*res;
-
+	printk("%s #RK:1 Probe \n", __func__);
 	phy = devm_kzalloc(&pdev->dev, sizeof(*phy), GFP_KERNEL);
 	if (!phy) {
 		dev_err(&pdev->dev, "unable to alloc mem for OMAP USB3 PHY\n");
@@ -261,6 +273,7 @@ static int omap_usb3_probe(struct platform_device *pdev)
 	pm_runtime_enable(phy->dev);
 	pm_runtime_get(&pdev->dev);
 
+	printk("%s #RK:2 Probe \n", __func__);
 	return 0;
 }
 

@@ -3393,7 +3393,7 @@ static struct omap_hwmod omap7xx_usb_otg_ss_hwmod = {
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = DRA7XX_CM_L3INIT_USB_OTG_SS1_CLKCTRL_OFFSET,
-			.context_offs = 0,//OMAP54XX_RM_L3INIT_USB_OTG_SS_CONTEXT_OFFSET,
+			.context_offs = DRA7XX_RM_L3INIT_USB_OTG_SS1_CONTEXT_OFFSET,
 			.modulemode   = MODULEMODE_HWCTRL,
 		},
 	},

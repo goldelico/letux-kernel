@@ -44,11 +44,13 @@ int omap_usb2_set_comparator(struct phy_companion *comparator)
 	struct omap_usb	*phy;
 	struct usb_phy	*x = usb_get_phy(USB_PHY_TYPE_USB2);
 
+	printk("%s #RK1: \n",__func__);
 	if (IS_ERR(x))
 		return -ENODEV;
 
 	phy = phy_to_omapusb(x);
 	phy->comparator = comparator;
+	printk("%s #RK2: \n",__func__);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(omap_usb2_set_comparator);
@@ -57,9 +59,11 @@ static int omap_usb_set_vbus(struct usb_otg *otg, bool enabled)
 {
 	struct omap_usb *phy = phy_to_omapusb(otg->phy);
 
+	printk("%s #RK1: \n",__func__);
 	if (!phy->comparator)
 		return -ENODEV;
 
+	printk("%s #RK2: \n",__func__);
 	return phy->comparator->set_vbus(phy->comparator, enabled);
 }
 
@@ -67,9 +71,11 @@ static int omap_usb_start_srp(struct usb_otg *otg)
 {
 	struct omap_usb *phy = phy_to_omapusb(otg->phy);
 
+	printk("%s #RK1: \n",__func__);
 	if (!phy->comparator)
 		return -ENODEV;
 
+	printk("%s #RK2: \n",__func__);
 	return phy->comparator->start_srp(phy->comparator);
 }
 
@@ -77,10 +83,12 @@ static int omap_usb_set_host(struct usb_otg *otg, struct usb_bus *host)
 {
 	struct usb_phy	*phy = otg->phy;
 
+	printk("%s #RK1: \n",__func__);
 	otg->host = host;
 	if (!host)
 		phy->state = OTG_STATE_UNDEFINED;
 
+	printk("%s #RK2: \n",__func__);
 	return 0;
 }
 
@@ -101,6 +109,7 @@ static int omap_usb2_suspend(struct usb_phy *x, int suspend)
 	u32 ret;
 	struct omap_usb *phy = phy_to_omapusb(x);
 
+	printk("%s #RK1: \n",__func__);
 	if (suspend && !phy->is_suspended) {
 		omap_control_usb_phy_power(phy->control_dev, 0);
 		pm_runtime_put_sync(phy->dev);
@@ -115,6 +124,7 @@ static int omap_usb2_suspend(struct usb_phy *x, int suspend)
 		omap_control_usb_phy_power(phy->control_dev, 1);
 		phy->is_suspended = 0;
 	}
+	printk("%s #RK2: \n",__func__);
 
 	return 0;
 }
@@ -124,6 +134,7 @@ static int omap_usb2_probe(struct platform_device *pdev)
 	struct omap_usb			*phy;
 	struct usb_otg			*otg;
 
+	printk("%s #RK:1 Probe  \n", __func__);
 	phy = devm_kzalloc(&pdev->dev, sizeof(*phy), GFP_KERNEL);
 	if (!phy) {
 		dev_err(&pdev->dev, "unable to allocate memory for USB2 PHY\n");
@@ -177,6 +188,7 @@ static int omap_usb2_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, phy);
 
 	pm_runtime_enable(phy->dev);
+	printk("%s #RK:2 Probe  \n", __func__);
 
 	return 0;
 }
@@ -200,10 +212,12 @@ static int omap_usb2_runtime_suspend(struct device *dev)
 	struct platform_device	*pdev = to_platform_device(dev);
 	struct omap_usb	*phy = platform_get_drvdata(pdev);
 
+	printk("%s #RK1: \n",__func__);
 	clk_disable(phy->wkupclk);
 	if (!IS_ERR(phy->optclk))
 		clk_disable(phy->optclk);
 
+	printk("%s #RK2: \n",__func__);
 	return 0;
 }
 
@@ -213,6 +227,7 @@ static int omap_usb2_runtime_resume(struct device *dev)
 	struct platform_device	*pdev = to_platform_device(dev);
 	struct omap_usb	*phy = platform_get_drvdata(pdev);
 
+	printk("%s #RK1: \n",__func__);
 	ret = clk_enable(phy->wkupclk);
 	if (ret < 0) {
 		dev_err(phy->dev, "Failed to enable wkupclk %d\n", ret);
@@ -226,6 +241,7 @@ static int omap_usb2_runtime_resume(struct device *dev)
 			goto err1;
 		}
 	}
+	printk("%s #RK2: \n",__func__);
 
 	return 0;
 

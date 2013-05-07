@@ -63,10 +63,11 @@ void omap_control_usb3_phy_power(struct device *dev, bool on)
 		return;
 
 	rate = clk_get_rate(control_usb->sys_clk);
+	printk("%s :#RK:  rate is %ld \n", __func__ , rate);
 	rate = rate/1000000;
 
 	val = readl(control_usb->phy_power);
-
+	printk("#RK: value of phy_power is %x \n", val); 
 	if (on) {
 		val &= ~(OMAP_CTRL_USB_PWRCTL_CLK_CMD_MASK |
 			OMAP_CTRL_USB_PWRCTL_CLK_FREQ_MASK);

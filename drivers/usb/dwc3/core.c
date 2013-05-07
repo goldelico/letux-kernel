@@ -287,6 +287,7 @@ static int dwc3_core_init(struct dwc3 *dwc)
 	int			ret;
 
 	reg = dwc3_readl(dwc->regs, DWC3_GSNPSID);
+	printk("%s: register GSNPSID read as %x\n",__func__, reg);
 	/* This should read as U3 followed by revision number */
 	if ((reg & DWC3_GSNPSID_MASK) != 0x55330000) {
 		dev_err(dwc->dev, "this is not a DesignWare USB3 DRD Core\n");
@@ -318,6 +319,7 @@ static int dwc3_core_init(struct dwc3 *dwc)
 	reg &= ~DWC3_GCTL_SCALEDOWN_MASK;
 	reg &= ~DWC3_GCTL_DISSCRAMBLE;
 
+	printk("%s: register GCTL read as %x\n", __func__, reg);
 	switch (DWC3_GHWPARAMS1_EN_PWROPT(dwc->hwparams.hwparams1)) {
 	case DWC3_GHWPARAMS1_EN_PWROPT_CLK:
 		reg &= ~DWC3_GCTL_DSBLCLKGTNG;
@@ -372,6 +374,7 @@ static int dwc3_probe(struct platform_device *pdev)
 	void			*mem;
 
 	u32			mode;
+	printk("%s #RK:1 Probe \n", __func__);
 
 	mem = devm_kzalloc(dev, sizeof(*dwc) + DWC3_ALIGN_MASK, GFP_KERNEL);
 	if (!mem) {
@@ -490,6 +493,7 @@ static int dwc3_probe(struct platform_device *pdev)
 		}
 		break;
 	case DWC3_MODE_HOST:
+		printk("%s :setting mode to host \n", __func__);
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_HOST);
 		ret = dwc3_host_init(dwc);
 		if (ret) {
@@ -524,6 +528,7 @@ static int dwc3_probe(struct platform_device *pdev)
 	}
 
 	pm_runtime_allow(dev);
+	printk("%s #RK:2 Probe \n", __func__);
 
 	return 0;
 
