@@ -91,7 +91,6 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	int			ret;
 	int			irq;
 
-	printk("%s #RK:1 Probe started \n", __func__);
 	if (usb_disabled())
 		return -ENODEV;
 
@@ -149,7 +148,6 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	ret = usb_add_hcd(xhci->shared_hcd, irq, IRQF_SHARED);
 	if (ret)
 		goto put_usb3_hcd;
-	printk("%s #RK:2 Probe started \n", __func__);
 
 	return 0;
 

@@ -146,7 +146,7 @@ int dwc3_omap_mailbox(enum omap_dwc3_vbus_id_status status)
 
 	if (!omap)
 		return -EPROBE_DEFER;
-	printk("%s #RK1: \n",__func__);
+
 	switch (status) {
 	case OMAP_DWC3_ID_GROUND:
 		dev_dbg(omap->dev, "ID GND\n");
@@ -188,7 +188,6 @@ int dwc3_omap_mailbox(enum omap_dwc3_vbus_id_status status)
 	default:
 		dev_dbg(omap->dev, "ID float\n");
 	}
-	printk("%s #RK2: \n",__func__);
 
 	return IRQ_HANDLED;
 }
@@ -200,9 +199,8 @@ static irqreturn_t dwc3_omap_interrupt(int irq, void *_omap)
 	u32			reg;
 
 	spin_lock(&omap->lock);
-	printk("%s #RK: \n",__func__);
+
 	reg = dwc3_omap_readl(omap->base, USBOTGSS_IRQSTATUS_1);
-	printk("%s #RK: read IRQstatus %x \n",__func__, reg);
 
 	if (reg & USBOTGSS_IRQ1_DMADISABLECLR) {
 		dev_dbg(omap->dev, "DMA Disable was Cleared\n");
@@ -281,7 +279,6 @@ static int dwc3_omap_probe(struct platform_device *pdev)
 	void __iomem		*base;
 	void			*context;
 
-	printk("%s #RK:1  \n", __func__);
 	if (!node) {
 		dev_err(dev, "device node not found\n");
 		return -EINVAL;
@@ -393,7 +390,6 @@ static int dwc3_omap_probe(struct platform_device *pdev)
 
 	device_for_each_child(&pdev->dev, NULL, dwc3_omap_set_dmamask);
 
-	printk("%s #RK:2 Probe \n", __func__);
 	return 0;
 }
 
