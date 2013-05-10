@@ -227,14 +227,14 @@ static int omap_usb3_probe(struct platform_device *pdev)
 	phy->phy.type		= USB_PHY_TYPE_USB3;
 
 	phy->is_suspended	= 1;
-	phy->wkupclk = devm_clk_get(phy->dev, "usb_phy1_cm_clk32k");
+	phy->wkupclk = devm_clk_get(phy->dev, "usb_phy_cm_clk32k");
 	if (IS_ERR(phy->wkupclk)) {
-		dev_err(&pdev->dev, "unable to get usb_phy1_cm_clk32k\n");
+		dev_err(&pdev->dev, "unable to get usb_phy_cm_clk32k\n");
 		return PTR_ERR(phy->wkupclk);
 	}
 	clk_prepare(phy->wkupclk);
 
-	phy->optclk = devm_clk_get(phy->dev, "usb_otg_ss1_refclk960m");
+	phy->optclk = devm_clk_get(phy->dev, "usb_otg_ss_refclk960m");
 	if (IS_ERR(phy->optclk)) {
 		dev_err(&pdev->dev, "unable to get usb_otg_ss_refclk960m\n");
 		return PTR_ERR(phy->optclk);
