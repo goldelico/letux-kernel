@@ -1521,7 +1521,8 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 	dwc->start_config_issued = false;
 
 	/* Start with SuperSpeed Default */
-	dwc3_gadget_ep0_desc.wMaxPacketSize = cpu_to_le16(512);
+	dwc3_gadget_ep0_desc.wMaxPacketSize = (dwc->maximum_speed ==
+		DWC3_DCFG_SUPERSPEED) ? cpu_to_le16(512) : cpu_to_le16(64);
 
 	dep = dwc->eps[0];
 	ret = __dwc3_gadget_ep_enable(dep, &dwc3_gadget_ep0_desc, NULL, false);
@@ -1609,7 +1610,8 @@ static int dwc3_gadget_init_endpoints(struct dwc3 *dwc)
 		dep->direction = (epnum & 1);
 
 		if (epnum == 0 || epnum == 1) {
-			dep->endpoint.maxpacket = 512;
+			dep->endpoint.maxpacket = (dwc->maximum_speed ==
+					DWC3_DCFG_SUPERSPEED) ? 512 : 64;
 			dep->endpoint.maxburst = 1;
 			dep->endpoint.ops = &dwc3_gadget_ep0_ops;
 			if (!epnum)
@@ -1617,7 +1619,8 @@ static int dwc3_gadget_init_endpoints(struct dwc3 *dwc)
 		} else {
 			int		ret;
 
-			dep->endpoint.maxpacket = 1024;
+			dep->endpoint.maxpacket = (dwc->maximum_speed ==
+					DWC3_DCFG_SUPERSPEED) ? 1024 : 512;
 			dep->endpoint.max_streams = 15;
 			dep->endpoint.ops = &dwc3_gadget_ep_ops;
 			list_add_tail(&dep->endpoint.ep_list,

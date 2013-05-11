@@ -450,6 +450,9 @@ static int dwc3_probe(struct platform_device *pdev)
 	dwc->regs_size	= resource_size(res);
 	dwc->dev	= dev;
 
+	of_property_read_string(node, "maximum_speed", &maximum_speed);
+	dev_dbg(dwc->dev, "maximum_speed from dt node is %s\n", maximum_speed);
+
 	if (!strncmp("super", maximum_speed, 5))
 		dwc->maximum_speed = DWC3_DCFG_SUPERSPEED;
 	else if (!strncmp("high", maximum_speed, 4))
