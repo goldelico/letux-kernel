@@ -100,7 +100,8 @@ static void dwc3_core_soft_reset(struct dwc3 *dwc)
 	dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(0), reg);
 
 	usb_phy_init(dwc->usb2_phy);
-	usb_phy_init(dwc->usb3_phy);
+	 if (!(IS_ERR_OR_NULL(dwc->usb3_phy)))
+		usb_phy_init(dwc->usb3_phy);
 	mdelay(100);
 
 	/* Clear USB3 PHY reset */
@@ -354,7 +355,8 @@ static void dwc3_core_exit(struct dwc3 *dwc)
 	dwc3_event_buffers_cleanup(dwc);
 
 	usb_phy_shutdown(dwc->usb2_phy);
-	usb_phy_shutdown(dwc->usb3_phy);
+	 if (!(IS_ERR_OR_NULL(dwc->usb3_phy)))
+		usb_phy_shutdown(dwc->usb3_phy);
 }
 
 #define DWC3_ALIGN_MASK		(16 - 1)
@@ -434,12 +436,12 @@ static int dwc3_probe(struct platform_device *pdev)
 	}
 
 	if (IS_ERR_OR_NULL(dwc->usb3_phy)) {
-		dev_err(dev, "no usb3 phy configured\n");
-		return -EPROBE_DEFER;
+		dev_dbg(dev, "no usb3 phy configured possibly absent,go on\n");
 	}
 
 	usb_phy_set_suspend(dwc->usb2_phy, 0);
-	usb_phy_set_suspend(dwc->usb3_phy, 0);
+	 if (!(IS_ERR_OR_NULL(dwc->usb3_phy)))
+		usb_phy_set_suspend(dwc->usb3_phy, 0);
 
 	spin_lock_init(&dwc->lock);
 	platform_set_drvdata(pdev, dwc);
@@ -558,7 +560,8 @@ static int dwc3_remove(struct platform_device *pdev)
 	struct dwc3	*dwc = platform_get_drvdata(pdev);
 
 	usb_phy_set_suspend(dwc->usb2_phy, 1);
-	usb_phy_set_suspend(dwc->usb3_phy, 1);
+	 if (!(IS_ERR_OR_NULL(dwc->usb3_phy)))
+		usb_phy_set_suspend(dwc->usb3_phy, 1);
 
 	pm_runtime_put(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);

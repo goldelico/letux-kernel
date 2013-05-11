@@ -2086,7 +2086,8 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 	if (dwc->revision < DWC3_REVISION_194A) {
 		/* Resume PHYs */
 		dwc3_gadget_usb2_phy_suspend(dwc, false);
-		dwc3_gadget_usb3_phy_suspend(dwc, false);
+		 if (!(IS_ERR_OR_NULL(dwc->usb3_phy)))
+			dwc3_gadget_usb3_phy_suspend(dwc, false);
 	}
 
 	if (dwc->gadget.speed != USB_SPEED_UNKNOWN)
@@ -2141,7 +2142,8 @@ static void dwc3_gadget_phy_suspend(struct dwc3 *dwc, u8 speed)
 	case USB_SPEED_HIGH:
 	case USB_SPEED_FULL:
 	case USB_SPEED_LOW:
-		dwc3_gadget_usb3_phy_suspend(dwc, true);
+		 if (!(IS_ERR_OR_NULL(dwc->usb3_phy)))
+			dwc3_gadget_usb3_phy_suspend(dwc, true);
 		break;
 	}
 }
@@ -2530,7 +2532,8 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 	/* automatic phy suspend only on recent versions */
 	if (dwc->revision >= DWC3_REVISION_194A) {
 		dwc3_gadget_usb2_phy_suspend(dwc, false);
-		dwc3_gadget_usb3_phy_suspend(dwc, false);
+		 if (!(IS_ERR_OR_NULL(dwc->usb3_phy)))
+			dwc3_gadget_usb3_phy_suspend(dwc, false);
 	}
 
 	ret = device_register(&dwc->gadget.dev);
