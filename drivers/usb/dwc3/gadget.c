@@ -1458,12 +1458,14 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 	struct dwc3		*dwc = gadget_to_dwc(g);
 	unsigned long		flags;
 	int			ret;
+	struct device		*parent;
 
 	is_on = !!is_on;
 
 #if defined(CONFIG_SOC_DRA7XX)
 	if (is_on) {
-		if (dwc3_omap_mailbox(OMAP_DWC3_VBUS_VALID))
+		parent = dwc->dev->parent;
+		if (dwc3_omap_mailbox(parent, OMAP_DWC3_VBUS_VALID))
 			dev_err(dwc->dev, "Error wrapper may not be initilized\n");
 	}
 #endif

@@ -127,8 +127,6 @@ struct dwc3_omap {
 	u32			dma_status:1;
 };
 
-struct dwc3_omap		*_omap;
-
 static inline u32 dwc3_omap_readl(void __iomem *base, u32 offset)
 {
 	return readl(base + offset);
@@ -139,10 +137,11 @@ static inline void dwc3_omap_writel(void __iomem *base, u32 offset, u32 value)
 	writel(value, base + offset);
 }
 
-int dwc3_omap_mailbox(enum omap_dwc3_vbus_id_status status)
+int dwc3_omap_mailbox(struct device *dev, enum omap_dwc3_vbus_id_status status)
 {
 	u32			val;
-	struct dwc3_omap	*omap = _omap;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct dwc3_omap       *omap = platform_get_drvdata(pdev);
 
 	if (!omap) {
 		dev_dbg(omap->dev, "not ready , deferring\n");
@@ -262,6 +261,22 @@ static int dwc3_omap_set_dmamask(struct device *dev, void *c)
 	return 0;
 }
 
+static u64 dwc3_omap_dma_mask1 = DMA_BIT_MASK(32);
+
+static int dwc3_omap_set_dmamask1(struct device *dev, void *c)
+{
+	dev->dma_mask = &dwc3_omap_dma_mask1;
+	return 0;
+}
+
+static u64 dwc3_omap_dma_mask2 = DMA_BIT_MASK(32);
+
+static int dwc3_omap_set_dmamask2(struct device *dev, void *c)
+{
+	dev->dma_mask = &dwc3_omap_dma_mask2;
+	return 0;
+}
+
 static int dwc3_omap_probe(struct platform_device *pdev)
 {
 	struct device_node	*node = pdev->dev.of_node;
@@ -325,12 +340,6 @@ static int dwc3_omap_probe(struct platform_device *pdev)
 	omap->irq	= irq;
 	omap->base	= base;
 
-	/*
-	 * REVISIT if we ever have two instances of the wrapper, we will be
-	 * in big trouble
-	 */
-	_omap	= omap;
-
 	pm_runtime_enable(dev);
 	ret = pm_runtime_get_sync(dev);
 	if (ret < 0) {
@@ -389,7 +398,14 @@ static int dwc3_omap_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	device_for_each_child(&pdev->dev, NULL, dwc3_omap_set_dmamask);
+	if (strstr(dev_name(dev), "omap_dwc31") != NULL)
+		device_for_each_child(&pdev->dev, NULL, dwc3_omap_set_dmamask1);
+	else
+	if (strstr(dev_name(dev), "omap_dwc32") != NULL)
+		device_for_each_child(&pdev->dev, NULL, dwc3_omap_set_dmamask2);
+	else
+	if (strstr(dev_name(dev), "omap_dwc3") != NULL)
+		device_for_each_child(&pdev->dev, NULL, dwc3_omap_set_dmamask);
 
 	return 0;
 }
