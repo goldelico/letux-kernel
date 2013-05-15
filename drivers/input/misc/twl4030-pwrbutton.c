@@ -27,7 +27,7 @@
 #include <linux/input.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
-#include <linux/mfd/twl.h>
+#include <linux/i2c/twl.h>
 
 #define PWR_PWRON_IRQ (1 << 0)
 
@@ -64,14 +64,14 @@ static int twl4030_pwrbutton_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	input_set_capability(pwr, EV_KEY, KEY_POWER);
+	pwr->evbit[0] = BIT_MASK(EV_KEY);
+	pwr->keybit[BIT_WORD(KEY_POWER)] = BIT_MASK(KEY_POWER);
 	pwr->name = "twl4030_pwrbutton";
 	pwr->phys = "twl4030_pwrbutton/input0";
 	pwr->dev.parent = &pdev->dev;
 
-	err = devm_request_threaded_irq(&pdev->dev, irq, NULL, powerbutton_irq,
-			IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING |
-			IRQF_ONESHOT,
+	err = devm_request_threaded_irq(&pwr->dev, irq, NULL, powerbutton_irq,
+			IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING,
 			"twl4030_pwrbutton", pwr);
 	if (err < 0) {
 		dev_err(&pdev->dev, "Can't get IRQ for pwrbutton: %d\n", err);
@@ -84,7 +84,7 @@ static int twl4030_pwrbutton_probe(struct platform_device *pdev)
 		return err;
 	}
 
-	device_init_wakeup(&pdev->dev, true);
+	platform_set_drvdata(pdev, pwr);
 
 	return 0;
 }
@@ -101,6 +101,7 @@ static struct platform_driver twl4030_pwrbutton_driver = {
 	.probe		= twl4030_pwrbutton_probe,
 	.driver		= {
 		.name	= "twl4030_pwrbutton",
+		.owner	= THIS_MODULE,
 		.of_match_table = of_match_ptr(twl4030_pwrbutton_dt_match_table),
 	},
 };
