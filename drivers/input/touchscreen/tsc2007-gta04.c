@@ -33,6 +33,8 @@
 #define TS_AUX_POLL_PERIOD		100 /* ms delay between samples of AUX, TEMP1, TEMP2 */
 #define TS_VREF					1800 /* in mV - should have been defined in the board file! */
 
+#define JITTER_HISTO			10 /* number of historic values to keep */
+
 #define TSC2007_MEASURE_TEMP0		(0x0 << 4)
 #define TSC2007_MEASURE_AUX		(0x2 << 4)
 #define TSC2007_MEASURE_TEMP1		(0x4 << 4)
@@ -77,6 +79,11 @@ struct ts_event {
 	u16	z1, z2;
 };
 
+struct jitterbug {
+	s32 val;	/* history of input values */
+	s32 out;	/* history of output values */
+};
+
 struct tsc2007 {
 	struct input_dev	*input;
 	char			phys[32];
@@ -88,11 +95,11 @@ struct tsc2007 {
 	u16			model;
 	u16			x_plate_ohms;
 
-	bool			pendown;
+	bool		pendown;
 	int			irq;
 
 	int			(*get_pendown_state)(void);
-	void			(*clear_penirq)(void);
+	void		(*clear_penirq)(void);
 
 	struct ts_event tc;
 
@@ -104,6 +111,10 @@ struct tsc2007 {
 	u16			temp1;
 	u16			aux;
 	u16			pressure;
+	
+	struct jitterbug jitterbufx[JITTER_HISTO];
+	struct jitterbug jitterbufy[JITTER_HISTO];
+
 };
 
 /* /sys extension to access TEMP and AUX and many other values */
@@ -213,6 +224,43 @@ static u16 tsc2007_calculate_pressure(struct tsc2007 *ts)
 	return rt;
 }
 
+static s32 dejitter(s32 value, struct jitterbug *history, int histlen, bool first)
+{ // dejitter a single coordinate
+	int i;
+	s32 out;
+	
+	/* dejitter algorithm based on new value and history of old values */
+	
+#if 0
+	out = value;	/* no dejitter */
+#elif 0
+	out = (value + history[0].val) / 2;	/* average with previous input value (FIR filter) */
+#elif 0
+	out = (value + history[0].out) / 2;	/* average with previous output value (IIR filter) */
+#elif 1
+	if(first)
+		out = history[0].val = history[1].val = history[2].val = value;	/* overwrite history */
+	else
+		out = (8*value + 4*history[0].val + 3*history[1].val + 2*history[2].val + 1*history[3].val) / (8+4+3+2+1);
+#elif 0
+	/* more to come */
+#endif
+
+	/* update history */
+	for(i=histlen-1; i>0; i--)
+		history[i]=history[i-1];	/* move */
+	history[0].val = value;
+	history[0].out = out;
+	return out;
+}
+
+static void tsc2007_dejitter(struct tsc2007 *ts, bool first)
+{ /* dejitter all relevant channels */
+	ts->tc.x = dejitter(ts->tc.x, ts->jitterbufx, JITTER_HISTO, first);
+	ts->tc.y = dejitter(ts->tc.y, ts->jitterbufy, JITTER_HISTO, first);
+	/* dejitter pressure ? */
+}
+		 
 static void tsc2007_send_up_event(struct tsc2007 *ts)
 {
 	struct input_dev *input = ts->input;
@@ -274,9 +322,9 @@ static void tsc2007_work(struct work_struct *work)
 
 	tsc2007_read_values(ts);
 
-	ts->pressure = rt = tsc2007_calculate_pressure(ts);
+	ts->pressure = tsc2007_calculate_pressure(ts);
 
-	if (rt) {
+	if (ts->pressure > 0) {
 		struct input_dev *input = ts->input;
 
 		if (!ts->pendown) {
@@ -284,16 +332,19 @@ static void tsc2007_work(struct work_struct *work)
 
 			input_report_key(input, BTN_TOUCH, 1);
 			ts->pendown = true;
+			tsc2007_dejitter(ts, true);
+		} else {
+			tsc2007_dejitter(ts, false);
 		}
-
+		
 		input_report_abs(input, ABS_X, ts->tc.x);
 		input_report_abs(input, ABS_Y, ts->tc.y);
-		input_report_abs(input, ABS_PRESSURE, rt);
+		input_report_abs(input, ABS_PRESSURE, ts->pressure);
 
 		input_sync(input);
-
+			
 		dev_dbg(&ts->client->dev, "point(%4d,%4d), pressure (%4u)\n",
-			ts->tc.x, ts->tc.y, rt);
+					ts->tc.x, ts->tc.y, ts->pressure);
 
 	} else if (!ts->get_pendown_state && ts->pendown) {
 		/*
