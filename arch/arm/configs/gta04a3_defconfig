@@ -1,8 +1,9 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm 3.2.0-rc2 Kernel Configuration
+# Linux/arm 3.2.0-rc3 Kernel Configuration
 #
 CONFIG_ARM=y
+CONFIG_HAVE_PWM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
 CONFIG_HAVE_SCHED_CLOCK=y
 CONFIG_GENERIC_GPIO=y
@@ -372,7 +373,6 @@ CONFIG_ARM_DMA_MEM_BUFFERABLE=y
 #
 # CONFIG_PCI_SYSCALL is not set
 # CONFIG_ARCH_SUPPORTS_MSI is not set
-# CONFIG_PCI_PRI is not set
 # CONFIG_PCCARD is not set
 
 #
@@ -429,7 +429,7 @@ CONFIG_USE_OF=y
 CONFIG_ZBOOT_ROM_TEXT=0x0
 CONFIG_ZBOOT_ROM_BSS=0x0
 # CONFIG_ARM_APPENDED_DTB is not set
-CONFIG_CMDLINE="console=ttyO2,115200n8 mpurate=800 vram=12M omapfb.mode=lcd:640x480 omapfb.rotate_type=0 omapdss.def_disp=lcd root=/dev/mmcblk0p2 rw rootfstype=ext3 rootwait twl4030_charger.allow_usb=1 log_buf_len=8M ignore_loglevel"
+CONFIG_CMDLINE="console=ttyO2,115200n8 mpurate=800 vram=12M omapfb.rotate_type=0 omapdss.def_disp=lcd root=/dev/mmcblk0p2 rw rootfstype=ext3 rootwait twl4030_charger.allow_usb=1 log_buf_len=8M ignore_loglevel"
 # CONFIG_CMDLINE_FROM_BOOTLOADER is not set
 # CONFIG_CMDLINE_EXTEND is not set
 CONFIG_CMDLINE_FORCE=y
@@ -1287,6 +1287,7 @@ CONFIG_INPUT_TWL4030_PWRBUTTON=y
 # CONFIG_INPUT_TWL6040_VIBRA is not set
 CONFIG_INPUT_UINPUT=y
 # CONFIG_INPUT_PCF8574 is not set
+# CONFIG_INPUT_PWM_BEEPER is not set
 # CONFIG_INPUT_GPIO_ROTARY_ENCODER is not set
 # CONFIG_INPUT_ADXL34X is not set
 # CONFIG_INPUT_CMA3000 is not set
@@ -1803,6 +1804,7 @@ CONFIG_LCD_PLATFORM=y
 # CONFIG_LCD_AMS369FG06 is not set
 CONFIG_BACKLIGHT_CLASS_DEVICE=y
 CONFIG_BACKLIGHT_GENERIC=y
+CONFIG_BACKLIGHT_PWM=y
 # CONFIG_BACKLIGHT_ADP8860 is not set
 # CONFIG_BACKLIGHT_ADP8870 is not set
 
@@ -2099,10 +2101,12 @@ CONFIG_LEDS_GPIO=y
 # CONFIG_LEDS_LP5523 is not set
 # CONFIG_LEDS_PCA955X is not set
 # CONFIG_LEDS_DAC124S085 is not set
+# CONFIG_LEDS_PWM is not set
 # CONFIG_LEDS_REGULATOR is not set
 # CONFIG_LEDS_BD2802 is not set
 # CONFIG_LEDS_LT3593 is not set
 # CONFIG_LEDS_RENESAS_TPU is not set
+CONFIG_LEDS_TCA6507=y
 CONFIG_LEDS_TRIGGERS=y
 
 #
@@ -2237,6 +2241,7 @@ CONFIG_CLKSRC_MMIO=y
 CONFIG_IOMMU_SUPPORT=y
 # CONFIG_OMAP_IOMMU is not set
 # CONFIG_VIRT_DRIVERS is not set
+# CONFIG_PM_DEVFREQ is not set
 
 #
 # File systems
