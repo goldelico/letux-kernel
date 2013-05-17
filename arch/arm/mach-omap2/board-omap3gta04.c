@@ -371,6 +371,7 @@ static struct omap2_hsmmc_info mmc[] = {
 	{ // this is the WiFi SDIO interface
 		.mmc		= 2,
 		.caps		= (MMC_CAP_4_BIT_DATA // only 4 wires are connected
+				   |MMC_CAP_NONREMOVABLE
 				   |MMC_CAP_POWER_OFF_CARD),
 		.gpio_cd	= -EINVAL, // virtual card detect
 		.gpio_wp	= -EINVAL,	// no write protect
