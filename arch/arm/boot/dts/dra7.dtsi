@@ -448,6 +448,18 @@
 			ti,needs-special-reset;
 		};
 
+		mcasp3: mcasp@48468000 {
+			compatible = "ti,dra7-mcasp-audio";
+			reg = <0x48468000 0x3000>;
+			interrupts = <0 150 0x4>, /* AREVT */
+				     <0 151 0x4>; /* TXEVT */
+			ti,hwmods = "mcasp3";
+			op-mode = <0>;		/* MCASP_IIS_MODE */
+			tdm-slots = <2>;
+			num-serializer = <4>;
+			serial-dir = <1 2 0 0>;	/* 0:INACTIVE, 1:TX, 2:RX */
+		};
+
 		wdt2: wdt@4ae14000 {
 			compatible = "ti,omap4-wdt";
 			reg = <0x4ae14000 0x80>;
