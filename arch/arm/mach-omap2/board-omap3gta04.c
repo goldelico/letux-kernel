@@ -26,6 +26,7 @@
 #include <linux/gpio_keys.h>
 #include <linux/backlight.h>
 #include <linux/pwm_backlight.h>
+#include <linux/rfkill-regulator.h>
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
@@ -382,8 +383,8 @@ static struct regulator_consumer_supply gta04_vmmc1_supply[] = {
 // 	.supply			= "vmmc",
 };
 
-static struct regulator_consumer_supply gta04_vsim_supply = {
-	.supply			= "vsim",
+static struct regulator_consumer_supply gta04_vsim_supply[] = {
+	REGULATOR_SUPPLY("vrfkill", "rfkill-regulator.0"),
 };
 
 static int gta04_twl_gpio_setup(struct device *dev,
@@ -486,6 +487,7 @@ static struct platform_device gta04_vwlan_device = {
 /* VAUX4 powers Bluetooth and WLAN */
 
 static struct regulator_consumer_supply gta04_vaux4_supply[] = {
+	REGULATOR_SUPPLY("vrfkill", "rfkill-regulator.1"), // bluetooth
 };
 
 static struct regulator_init_data gta04_vaux4 = {
@@ -579,8 +581,8 @@ static struct regulator_init_data gta04_vsim = {
 					| REGULATOR_CHANGE_MODE
 					| REGULATOR_CHANGE_STATUS,
 	},
-	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &gta04_vsim_supply,	// vsim
+	.num_consumer_supplies	= ARRAY_SIZE(gta04_vsim_supply),
+	.consumer_supplies	= gta04_vsim_supply,
 };
 
 /* VDAC for DSS driving S-Video (8 mA unloaded, max 65 mA) */
@@ -611,6 +613,30 @@ static struct regulator_init_data gta04_vpll2 = {
 	},
 	.num_consumer_supplies	= 1,
 	.consumer_supplies	= &gta04_vdvi_supply,
+};
+
+/* rfkill devices for GPS and Bluetooth to control regulators */
+
+static struct rfkill_regulator_platform_data gps_rfkill_data = {
+	.name = "GPS",
+	.type = RFKILL_TYPE_GPS,
+};
+
+static struct rfkill_regulator_platform_data bt_rfkill_data = {
+	.name = "Bluetooth",
+	.type = RFKILL_TYPE_BLUETOOTH,
+};
+
+static struct platform_device gps_rfkill_device = {
+	.name = "rfkill-regulator",
+	.id = 0,
+	.dev.platform_data = &gps_rfkill_data,
+};
+
+static struct platform_device bt_rfkill_device = {
+	.name = "rfkill-regulator",
+	.id = 1,
+	.dev.platform_data = &bt_rfkill_data,
 };
 
 static struct twl4030_usb_data gta04_usb_data = {
@@ -780,7 +806,11 @@ void tca_setup(unsigned gpio_base, unsigned ngpio)
 {
 	/* Now that reset line is available we can create
 	 * the virtual regulator and register the mmc devices.
+	 * This is after twl is probed to, so the regulators for the
+	 * rfkill devices are available
 	 */
+	platform_device_register(&gps_rfkill_device);
+	platform_device_register(&bt_rfkill_device);
 	platform_device_register(&gta04_vwlan_device);
 	omap2_hsmmc_init(mmc);
 }
@@ -931,15 +961,6 @@ static struct platform_device gta04_vaux3_virtual_regulator_device = {
 		.platform_data	= "vaux3",
 	},
 };
-
-static struct platform_device gta04_vsim_virtual_regulator_device = {
-       .name           = "reg-virt-consumer",
-       .id                     = 5,
-       .dev            = {
-               .platform_data  = "vsim",
-       },
-};
-
 #endif
 
 static struct platform_device *gta04_devices[] __initdata = {
@@ -951,7 +972,6 @@ static struct platform_device *gta04_devices[] __initdata = {
 	&gta04_vaux1_virtual_regulator_device,
 	&gta04_vaux2_virtual_regulator_device,
 	&gta04_vaux3_virtual_regulator_device,
-       &gta04_vsim_virtual_regulator_device,
 #endif
 };
 
