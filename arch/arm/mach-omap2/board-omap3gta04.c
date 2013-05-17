@@ -358,8 +358,6 @@ static struct regulator_consumer_supply gta04_vdvi_supply = {
 
 #include "sdram-micron-mt46h32m32lf-6.h"
 
-static void wlan_reset(struct device *dev, int slow, int power_on);
-
 static struct omap2_hsmmc_info mmc[] = {
 	{
 		.mmc		= 1,
@@ -636,10 +634,110 @@ static struct twl4030_madc_platform_data gta04_madc_data = {
 
 // FIXME: we could copy more scripts from board-sdp3430.c if we understand what they do... */
 
+
+static struct twl4030_ins __initdata sleep_on_seq[] = {
+	/* Turn off HFCLKOUT */
+//	{MSG_SINGULAR(DEV_GRP_P3, RES_HFCLKOUT, RES_STATE_OFF), 2},
+	/* Turn OFF VDD1 */
+	{MSG_SINGULAR(DEV_GRP_P1, RES_VDD1, RES_STATE_OFF), 2},
+	/* Turn OFF VDD2 */
+	{MSG_SINGULAR(DEV_GRP_P1, RES_VDD2, RES_STATE_OFF), 2},
+	/* Turn OFF VPLL1 */
+	{MSG_SINGULAR(DEV_GRP_P1, RES_VPLL1, RES_STATE_OFF), 2},
+
+	{MSG_SINGULAR(DEV_GRP_P1, RES_VINTANA1, RES_STATE_OFF), 2},
+	{MSG_SINGULAR(DEV_GRP_P1, RES_VINTANA2, RES_STATE_OFF), 2},
+	{MSG_SINGULAR(DEV_GRP_P1, RES_VINTDIG, RES_STATE_OFF), 2},
+
+};
+
+static struct twl4030_script sleep_on_script __initdata = {
+	.script	= sleep_on_seq,
+	.size	= ARRAY_SIZE(sleep_on_seq),
+	.flags	= TWL4030_SLEEP_SCRIPT,
+};
+
+static struct twl4030_ins wakeup_p12_seq[] __initdata = {
+	{MSG_SINGULAR(DEV_GRP_P1, RES_VINTANA1, RES_STATE_ACTIVE), 2},
+	{MSG_SINGULAR(DEV_GRP_P1, RES_VINTANA2, RES_STATE_ACTIVE), 2},
+	{MSG_SINGULAR(DEV_GRP_P1, RES_VINTDIG, RES_STATE_ACTIVE), 2},
+
+	/* Turn on HFCLKOUT */
+//	{MSG_SINGULAR(DEV_GRP_P1, RES_HFCLKOUT, RES_STATE_ACTIVE), 2},
+	/* Turn ON VDD1 */
+	{MSG_SINGULAR(DEV_GRP_P1, RES_VDD1, RES_STATE_ACTIVE), 2},
+	/* Turn ON VDD2 */
+	{MSG_SINGULAR(DEV_GRP_P1, RES_VDD2, RES_STATE_ACTIVE), 2},
+	/* Turn ON VPLL1 */
+	{MSG_SINGULAR(DEV_GRP_P1, RES_VPLL1, RES_STATE_ACTIVE), 2},
+};
+
+static struct twl4030_script wakeup_p12_script __initdata = {
+	.script	= wakeup_p12_seq,
+	.size	= ARRAY_SIZE(wakeup_p12_seq),
+	.flags	= TWL4030_WAKEUP12_SCRIPT,
+};
+
+/* Turn the HFCLK on when CPU asks for it. */
+static struct twl4030_ins wakeup_p3_seq[] __initdata = {
+	{MSG_SINGULAR(DEV_GRP_P1, RES_HFCLKOUT, RES_STATE_ACTIVE), 2},
+};
+
+static struct twl4030_script wakeup_p3_script __initdata = {
+	.script = wakeup_p3_seq,
+	.size   = ARRAY_SIZE(wakeup_p3_seq),
+	.flags  = TWL4030_WAKEUP3_SCRIPT,
+};
+
+static struct twl4030_ins wrst_seq[] __initdata = {
+/*
+ * Reset twl4030.
+ * Reset VDD1 regulator.
+ * Reset VDD2 regulator.
+ * Reset VPLL1 regulator.
+ * Enable sysclk output.
+ * Reenable twl4030.
+ */
+	{MSG_SINGULAR(DEV_GRP_NULL, RES_RESET, RES_STATE_OFF), 2},
+	{MSG_SINGULAR(DEV_GRP_P1, RES_VDD1, RES_STATE_WRST), 15},
+	{MSG_SINGULAR(DEV_GRP_P1, RES_VDD2, RES_STATE_WRST), 15},
+	{MSG_SINGULAR(DEV_GRP_P1, RES_VPLL1, RES_STATE_WRST), 0x60},
+	{MSG_SINGULAR(DEV_GRP_P1, RES_HFCLKOUT, RES_STATE_ACTIVE), 2},
+	{MSG_SINGULAR(DEV_GRP_NULL, RES_RESET, RES_STATE_ACTIVE), 2},
+};
+
+static struct twl4030_script wrst_script __initdata = {
+	.script = wrst_seq,
+	.size   = ARRAY_SIZE(wrst_seq),
+	.flags  = TWL4030_WRST_SCRIPT,
+};
+
+static struct twl4030_script *twl4030_scripts[] __initdata = {
+	&wakeup_p12_script,
+	&wakeup_p3_script,
+	&sleep_on_script,
+	&wrst_script,
+};
+
+#define TWL_RES_CFG(_res, _devg) { .resource = _res, .devgroup = _devg, \
+	.type = TWL4030_RESCONFIG_UNDEF, .type2 = TWL4030_RESCONFIG_UNDEF,}
+
+#define DEV_GRP_ALL (DEV_GRP_P1|DEV_GRP_P2|DEV_GRP_P3)
+static struct twl4030_resconfig twl4030_rconfig[] = {
+	TWL_RES_CFG(RES_HFCLKOUT, DEV_GRP_P3),
+	TWL_RES_CFG(RES_VINTANA1, DEV_GRP_ALL),
+	TWL_RES_CFG(RES_VINTANA1, DEV_GRP_P1),
+	TWL_RES_CFG(RES_VINTANA2, DEV_GRP_ALL),
+	TWL_RES_CFG(RES_VINTANA2, DEV_GRP_P1),
+	TWL_RES_CFG(RES_VINTDIG, DEV_GRP_ALL),
+	TWL_RES_CFG(RES_VINTDIG, DEV_GRP_P1),
+	{ 0, 0},
+};
+
 struct twl4030_power_data gta04_power_scripts = {
-/*	.scripts	= NULL,	*/
-	.num		= 0,
-/*	.resource_config	= NULL; */
+	.scripts	= twl4030_scripts,
+	.num		= ARRAY_SIZE(twl4030_scripts),
+	.resource_config = twl4030_rconfig,
 	.use_poweroff	= 1,
 };
 
