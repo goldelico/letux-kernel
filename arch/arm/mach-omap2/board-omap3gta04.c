@@ -102,7 +102,8 @@ static void __init gta04_init_rev(void)
 {
 	int ret;
 	u16 gta04_rev = 0;
-	static char revision[8] = {	/* revision table defined by pull-down R305, R306, R307 */
+	static char revision[8] = {	/* revision table defined by pull-down
+					 * R305, R306, R307 */
 		9,
 		6,
 		7,
@@ -387,34 +388,6 @@ static struct regulator_consumer_supply gta04_vsim_supply[] = {
 	REGULATOR_SUPPLY("vrfkill", "rfkill-regulator.0"),
 };
 
-static int gta04_twl_gpio_setup(struct device *dev,
-		unsigned gpio, unsigned ngpio)
-{
-// 	int ret, gpio_32khz;
-
-	// we should keep enabling mmc, vmmc1, nEN_USB_PWR, maybe CAM_EN
-// 	mmc[0].gpio_cd = gpio + 0;
-// 	mmc[1].gpio_cd = gpio + 1;
-
-	/* gpio + 13 drives 32kHz buffer for wifi module */
-// 	gpio_32khz = gpio + 13;
-// 	ret = gpio_request_one(gpio_32khz, GPIOF_OUT_INIT_HIGH, "wifi 32kHz");
-// 	if (ret < 0) {
-// 		pr_err("Cannot get GPIO line %d, ret=%d\n", gpio_32khz, ret);
-// 		return -ENODEV;
-// 	}
-	/* link regulators to MMC adapters */
-// 	gta04_vmmc1_supply.dev = mmc[0].dev;
-//	gta04_vsim_supply.dev = mmc[0].dev;	/* supply for upper 4 bits */
-
-#ifdef OLD
-	// this should enable power control for WLAN/BT
-//	gta04_vmmc2_supply.dev = mmc[1].dev;
-#endif
-
-	return 0;
-}
-
 static struct twl4030_gpio_platform_data gta04_gpio_data = {
 	.gpio_base	= OMAP_MAX_GPIO_LINES,
 	.irq_base	= TWL4030_GPIO_IRQ_BASE,
@@ -423,7 +396,6 @@ static struct twl4030_gpio_platform_data gta04_gpio_data = {
 	.pullups	= BIT(1),
 	.pulldowns	= BIT(2) | BIT(6) | BIT(7) | BIT(8) | BIT(13)
 				| BIT(15) | BIT(16) | BIT(17),
-	.setup		= gta04_twl_gpio_setup,
 };
 
 /* VMMC1 for MMC1 pins CMD, CLK, DAT0..DAT3 (20 mA, plus card == max 220 mA) */
@@ -494,12 +466,14 @@ static struct regulator_init_data gta04_vaux4 = {
 	.constraints = {
 		.name			= "VAUX4",
 		.min_uV			= 2800000,
-		.max_uV			= 3150000,	// FIXME: this is a HW issue - 3.15V or 3.3V isn't supported officially - set CONFIG_TWL4030_ALLOW_UNSUPPORTED
-		.valid_modes_mask	= REGULATOR_MODE_NORMAL
-		| REGULATOR_MODE_STANDBY,
-		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE
-		| REGULATOR_CHANGE_MODE
-		| REGULATOR_CHANGE_STATUS,
+		/* FIXME: this is a HW issue - 3.15V or 3.3V isn't supported
+		 * officially - set CONFIG_TWL4030_ALLOW_UNSUPPORTED */
+		.max_uV			= 3150000,
+		.valid_modes_mask	= (REGULATOR_MODE_NORMAL
+					   | REGULATOR_MODE_STANDBY),
+		.valid_ops_mask		= (REGULATOR_CHANGE_VOLTAGE
+					   | REGULATOR_CHANGE_MODE
+					   | REGULATOR_CHANGE_STATUS),
 	},
 	.num_consumer_supplies	= ARRAY_SIZE(gta04_vaux4_supply),
 	.consumer_supplies	= gta04_vaux4_supply,
@@ -516,11 +490,11 @@ static struct regulator_init_data gta04_vaux3 = {
 		.name			= "VAUX3",
 		.min_uV			= 2500000,
 		.max_uV			= 2500000,
-		.valid_modes_mask	= REGULATOR_MODE_NORMAL
-		| REGULATOR_MODE_STANDBY,
-		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE
-		| REGULATOR_CHANGE_MODE
-		| REGULATOR_CHANGE_STATUS,
+		.valid_modes_mask	= (REGULATOR_MODE_NORMAL
+					   | REGULATOR_MODE_STANDBY),
+		.valid_ops_mask		= (REGULATOR_CHANGE_VOLTAGE
+					   | REGULATOR_CHANGE_MODE
+					   | REGULATOR_CHANGE_STATUS),
 	},
 	.num_consumer_supplies	= 1,
 	.consumer_supplies	= &gta04_vaux3_supply,
@@ -537,11 +511,11 @@ static struct regulator_init_data gta04_vaux2 = {
 		.name			= "VAUX2",
 		.min_uV			= 2800000,
 		.max_uV			= 2800000,
-		.valid_modes_mask	= REGULATOR_MODE_NORMAL
-		| REGULATOR_MODE_STANDBY,
-		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE
-		| REGULATOR_CHANGE_MODE
-		| REGULATOR_CHANGE_STATUS,
+		.valid_modes_mask	= (REGULATOR_MODE_NORMAL
+					   | REGULATOR_MODE_STANDBY),
+		.valid_ops_mask		= (REGULATOR_CHANGE_VOLTAGE
+					   | REGULATOR_CHANGE_MODE
+					   | REGULATOR_CHANGE_STATUS),
 	},
 	.num_consumer_supplies	= 1,
 	.consumer_supplies	= &gta04_vaux2_supply,
