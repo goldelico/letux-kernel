@@ -789,6 +789,40 @@ static struct twl4030_platform_data gta04_twldata = {
 	.vpll2		= &gta04_vpll2,
 };
 
+
+#if defined(CONFIG_SND_SOC_GTM601)
+
+static struct platform_device gta04_gtm601_codec_audio_device = {
+	.name	= "gtm601_codec_audio",
+	.id	= -1,
+	.dev	= {
+		.platform_data	= NULL,
+	},
+};
+#endif
+
+#if defined(CONFIG_SND_SOC_SI47XX)
+
+static struct platform_device gta04_si47xx_codec_audio_device = {
+	.name	= "si47xx_codec_audio",
+	.id	= -1,
+	.dev	= {
+		.platform_data	= NULL,
+	},
+};
+#endif
+
+#if defined(CONFIG_SND_SOC_W2CBW003)
+
+static struct platform_device gta04_w2cbw003_codec_audio_device = {
+	.name	= "w2cbw003_codec_audio",
+	.id	= -1,
+	.dev	= {
+		.platform_data	= NULL,
+	},
+};
+#endif
+
 #ifdef CONFIG_TOUCHSCREEN_TSC2007
 
 // TODO: see also http://e2e.ti.com/support/arm174_microprocessors/omap_applications_processors/f/42/t/33262.aspx for an example...
@@ -1052,6 +1086,15 @@ static struct platform_device *gta04_devices[] __initdata = {
 	&gta04_vaux1_virtual_regulator_device,
 	&gta04_vaux2_virtual_regulator_device,
 	&gta04_vaux3_virtual_regulator_device,
+#endif
+#if defined(CONFIG_SND_SOC_GTM601)
+	&gta04_gtm601_codec_audio_device,
+#endif
+#if defined(CONFIG_SND_SOC_SI47XX)
+	&gta04_si47xx_codec_audio_device,
+#endif
+#if defined(CONFIG_SND_SOC_W2CBW003)
+	&gta04_w2cbw003_codec_audio_device,
 #endif
 };
 
