@@ -38,6 +38,7 @@
 #include <linux/regulator/fixed.h>
 #include <linux/i2c/twl.h>
 #include <linux/i2c/tsc2007.h>
+#include <linux/gpio-inout.h>
 
 #include <linux/i2c/bmp085.h>
 #ifdef CONFIG_LEDS_TCA6507
@@ -227,9 +228,7 @@ static struct omap2_pwm_platform_config pwm_config = {
 static struct platform_device pwm_device = {
 	.name               = "omap-pwm",
 	.id                 = 0,
-	.dev                = {
-	        .platform_data  = &pwm_config
-	}
+	.dev.platform_data  = &pwm_config,
 };
 
 static struct platform_pwm_backlight_data pwm_backlight = {
@@ -358,29 +357,19 @@ static struct regulator_consumer_supply gta04_vdvi_supply = {
 
 #include "sdram-micron-mt46h32m32lf-6.h"
 
-static struct gpio_led gpio_leds[];
-
-static void gta04_init_wifi_card(struct mmc_card *card)
-{
-	printk("%s: trying to detect the wifi card\n",__func__);
-	mmc_detect_change(card->host, msecs_to_jiffies(100));
-}
-
 static struct omap2_hsmmc_info mmc[] = {
 	{
 		.mmc		= 1,
 		.caps		= MMC_CAP_4_BIT_DATA, // only 4 wires are connected
 		.gpio_cd	= -EINVAL,	// no card detect
-//		.gpio_wp	= 29,
 		.gpio_wp	= -EINVAL,	// no write protect
 	},
 	{ // this is the WiFi SDIO interface
 		.mmc		= 2,
-		.caps		= MMC_CAP_4_BIT_DATA | MMC_CAP_POWER_OFF_CARD, // only 4 wires are connected
-		.gpio_cd	= -EINVAL,	// no card detect
+		.caps		= MMC_CAP_4_BIT_DATA, // only 4 wires are connected
+		.gpio_cd	= -EINVAL, // virtual card detect
 		.gpio_wp	= -EINVAL,	// no write protect
 		.transceiver	= true,	// external transceiver
-		.init_card	= gta04_init_wifi_card,
 // 		.ocr_mask	= 0x00100000,	/* fixed 3.3V */
 	},
 	{}	/* Terminator */
@@ -408,7 +397,6 @@ static int gta04_twl_gpio_setup(struct device *dev,
 	// we should keep enabling mmc, vmmc1, nEN_USB_PWR, maybe CAM_EN
 // 	mmc[0].gpio_cd = gpio + 0;
 // 	mmc[1].gpio_cd = gpio + 1;
-	omap2_hsmmc_init(mmc);
 
 	/* gpio + 13 drives 32kHz buffer for wifi module */
 // 	gpio_32khz = gpio + 13;
@@ -786,12 +774,14 @@ struct bmp085_platform_data bmp085_info = {
 #endif
 
 #ifdef CONFIG_LEDS_TCA6507
+
 /* "+2" because TWL4030 adds 2 LED drives as gpio outputs */
 #define GPIO_WIFI_RESET (OMAP_MAX_GPIO_LINES + TWL4030_GPIO_MAX + 2)
+
 void tca_setup(unsigned gpio_base, unsigned ngpio)
 {
 	gpio_request(GPIO_WIFI_RESET, "WIFI_RESET");
-	gpio_direction_output(GPIO_WIFI_RESET, false);
+	gpio_direction_output(GPIO_WIFI_RESET, true);
 	gpio_export(GPIO_WIFI_RESET, 0);
 }
 
@@ -801,7 +791,7 @@ static struct led_info tca6507_leds[] = {
 	[3] = { .name = "gta04:red:power" },
 	[4] = { .name = "gta04:green:power" },
 
-	[6] = { .name = "WiFi-Reset", .flags = TCA6507_MAKE_GPIO },
+	[6] = { .name = "gta04:wlan:reset", .flags = TCA6507_MAKE_GPIO },
 };
 static struct tca6507_platform_data tca6507_info = {
 	.leds = {
@@ -813,6 +803,30 @@ static struct tca6507_platform_data tca6507_info = {
 };
 #endif
 
+#define GPIO_WIFI_CD_OUT (GPIO_WIFI_RESET + 1)
+#define GPIO_WIFI_CD_IN (GPIO_WIFI_RESET + 2)
+
+void inout_setup_gpio(unsigned gpio_base)
+{
+	gpio_request(GPIO_WIFI_CD_OUT, "WIFI_CARD_INSERT");
+	gpio_direction_output(GPIO_WIFI_CD_OUT, 0);
+	gpio_export(GPIO_WIFI_CD_OUT, 0);
+	mmc[1].gpio_cd = gpio_base + 1;
+	omap2_hsmmc_init(mmc);
+}
+const char *inout_names[] = { "gta04:wlan:cd", NULL };
+static struct gpio_inout_platform_data inout_info =  {
+	.npairs = 1,
+	.gpio_base = GPIO_WIFI_CD_OUT,
+	.irq_base = TWL4030_GPIO_IRQ_END,
+	.names = inout_names,
+	.setup = inout_setup_gpio,
+};
+
+static struct platform_device gta04_inout_device = {
+	.name			= "gpio-inout",
+	.dev.platform_data	 = &inout_info,
+};
 
 static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 #ifdef CONFIG_TOUCHSCREEN_TSC2007
@@ -966,6 +980,7 @@ static struct platform_device *gta04_devices[] __initdata = {
 	&keys_gpio,
 // 	&gta04_dss_device,
 	&gta04_vwlan_device,
+	&gta04_inout_device,
 #if defined(CONFIG_REGULATOR_VIRTUAL_CONSUMER)
 	&gta04_vaux1_virtual_regulator_device,
 	&gta04_vaux2_virtual_regulator_device,
@@ -1001,6 +1016,7 @@ static void __init gta04_init(void)
 	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);
 	gta04_init_rev();
 	gta04_i2c_init();
+
 	omap_serial_init();
 	omap_sdrc_init(mt46h32m32lf6_sdrc_params,
 		       mt46h32m32lf6_sdrc_params);
