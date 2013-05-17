@@ -397,7 +397,7 @@ static struct regulator_consumer_supply gta04_vmmc2_supply[] = {
 };
 
 static struct regulator_consumer_supply gta04_vsim_supply = {
-	.supply			= "vmmc_aux",
+	.supply			= "vsim",
 };
 
 static int gta04_twl_gpio_setup(struct device *dev,
@@ -582,7 +582,7 @@ static struct regulator_init_data gta04_vsim = {
 					| REGULATOR_CHANGE_STATUS,
 	},
 	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &gta04_vsim_supply,	// vmmc_aux
+	.consumer_supplies	= &gta04_vsim_supply,	// vsim
 };
 
 /* VDAC for DSS driving S-Video (8 mA unloaded, max 65 mA) */
@@ -951,6 +951,14 @@ static struct platform_device gta04_vaux4_virtual_regulator_device = {
 	},
 };
 
+static struct platform_device gta04_vsim_virtual_regulator_device = {
+       .name           = "reg-virt-consumer",
+       .id                     = 5,
+       .dev            = {
+               .platform_data  = "vsim",
+       },
+};
+
 #endif
 
 static struct platform_device *gta04_devices[] __initdata = {
@@ -963,6 +971,7 @@ static struct platform_device *gta04_devices[] __initdata = {
 	&gta04_vaux2_virtual_regulator_device,
 	&gta04_vaux3_virtual_regulator_device,
 	&gta04_vaux4_virtual_regulator_device,
+       &gta04_vsim_virtual_regulator_device,
 #endif
 };
 
