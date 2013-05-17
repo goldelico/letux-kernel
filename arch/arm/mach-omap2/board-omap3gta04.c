@@ -362,7 +362,8 @@ static void wlan_reset(struct device *dev, int slow, int power_on);
 static struct omap2_hsmmc_info mmc[] = {
 	{
 		.mmc		= 1,
-		.caps		= MMC_CAP_4_BIT_DATA, // only 4 wires are connected
+		 // only 4 wires are connected, and they cannot be removed...
+		.caps		= MMC_CAP_4_BIT_DATA|MMC_CAP_NONREMOVABLE,
 		.gpio_cd	= -EINVAL,	// no card detect
 		.gpio_wp	= -EINVAL,	// no write protect
 	},
