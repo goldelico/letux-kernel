@@ -237,6 +237,7 @@ static struct platform_pwm_backlight_data pwm_backlight = {
 	.max_brightness = 100,
 	.dft_brightness = 100,
 	.pwm_period_ns  = 2000000, /* 500 Hz */
+	.lth_brightness = 11, /* Below 11% display appears as off */
 };
 static struct platform_device backlight_device = {
 	.name = "pwm-backlight",
