@@ -362,13 +362,16 @@ static struct omap2_hsmmc_info mmc[] = {
 	{
 		.mmc		= 1,
 		 // only 4 wires are connected, and they cannot be removed...
-		.caps		= MMC_CAP_4_BIT_DATA|MMC_CAP_NONREMOVABLE,
+		.caps		= (MMC_CAP_4_BIT_DATA
+				   |MMC_CAP_NONREMOVABLE
+				   |MMC_CAP_POWER_OFF_CARD),
 		.gpio_cd	= -EINVAL,	// no card detect
 		.gpio_wp	= -EINVAL,	// no write protect
 	},
 	{ // this is the WiFi SDIO interface
 		.mmc		= 2,
-		.caps		= MMC_CAP_4_BIT_DATA, // only 4 wires are connected
+		.caps		= (MMC_CAP_4_BIT_DATA // only 4 wires are connected
+				   |MMC_CAP_POWER_OFF_CARD),
 		.gpio_cd	= -EINVAL, // virtual card detect
 		.gpio_wp	= -EINVAL,	// no write protect
 		.transceiver	= true,	// external transceiver
