@@ -166,3 +166,26 @@
 		};
 	};
 };
+
+&dra7_pmx_core {
+	pinctrl-names = "default";
+	pinctrl-0 = <
+			&mcasp3_pins
+			&atl2_pins
+	>;
+
+	mcasp3_pins: pinmux_mcasp3_pins {
+		pinctrl-single,pins = <
+			0x324 0x00040000	/* mcasp3_aclkx.mcasp_aclkx INPUT | MODE0 */
+			0x328 0x00040000	/* mcasp3_fsx.mcasp_fsx INPUT | MODE0 */
+			0x32c 0x00000000	/* mcasp3_axr0.mcasp_axr0 OUTPUT | MODE0 */
+			0x330 0x00040000	/* mcasp3_axr1.mcasp_axr1 INPUT | MODE0 */
+		>;
+	};
+
+	atl2_pins: pinmux_atl2_pins {
+		pinctrl-single,pins = <
+			0x29c 0x00000005	/* xref_clk2.atl_clk2 OUTPUT | MODE5 */
+		>;
+	};
+};
