@@ -38,6 +38,29 @@
 		ti,omap_ion_heap_nonsecure_tiler_size = <0xF00000>;
 	};
 
+	sound {
+		compatible = "ti,dra7-evm-sound";
+		ti,model = "Vayu-EVM";
+
+		/* Audio routing */
+		ti,audio-routing =
+			"LINE1L", "Line In",
+			"LINE1R", "Line In",
+			"MIC3L", "Mic Bias 2V",
+			"MIC3R", "Mic Bias 2V",
+			"Mic Bias 2V", "Main Mic",
+			"Headphone", "HPLOUT",
+			"Headphone", "HPROUT",
+			"Line Out", "LLOUT",
+			"Line Out", "RLOUT";
+
+		ti,mclk-freq = <36126720>;
+
+		/* Media DAI link */
+		ti,media-cpu = <&mcasp3>;
+		ti,media-codec = <&tlv320aic3106>;
+	};
+
 	sound_hdmi {
 		compatible = "ti,omap-hdmi-tpd12s015-audio";
 		ti,model = "OMAP5HDMI";
@@ -69,6 +92,15 @@
 		compatible = "ti,tlc59108";
 		reg = <0x40>;
 		gpios = <&pcf_lcd 15 0>; /* P15, CON_LCD_PWR_DN */
+	};
+
+	tlv320aic3106: tlv320aic3106@30 {
+		compatible = "ti,tlv320aic3x";
+		reg = <0x18>;
+		IOVDD-supply = <&smps7_reg>;	/* replace by VDAC_3V3 */
+		DVDD-supply = <&smps7_reg>;	/* replace by VDAC_3V3 */
+		AVDD-supply = <&smps7_reg>;	/* replace by VDAC_3V3 */
+		DRVDD-supply = <&smps7_reg>;	/* replace by VDAC_3V3 */
 	};
 };
 
