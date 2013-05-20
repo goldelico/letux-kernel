@@ -22,6 +22,7 @@
 #include <linux/platform_device.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/io.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/soc.h>
@@ -144,6 +145,15 @@ static int dra7_snd_probe(struct platform_device *pdev)
 	struct snd_soc_card *card = &dra7_snd_card;
 	struct dra7_snd_data *card_data;
 	int ret;
+
+	/*
+	 * HACK: DMA CROSSBAR (CTRL_CORE_DMA_SYSTEM_DREQ_78_79)
+	 *  McASP3 TX: DREQ_133 -> sDMA_78
+	 *  McASP3 RX: DREQ_132 -> sDMA_79
+	 */
+	void __iomem *dreq_78_79 = ioremap(0x4A002C14, SZ_1K);
+	__raw_writel(0x00840085, dreq_78_79);
+	iounmap(dreq_78_79);
 
 	card->dev = &pdev->dev;
 

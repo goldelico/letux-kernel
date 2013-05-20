@@ -1541,12 +1541,20 @@ static struct omap_hwmod dra7xx_mcasp2_hwmod = {
 	},
 };
 
+/* HACK: Taken from UART5 in the meantime since it's not used in VayuEVM */
+static struct omap_hwmod_dma_info dra7xx_mcasp3_sdma_reqs[] = {
+	{ .name = "tx", .dma_req = 78 + DRA7XX_DMA_REQ_START },
+	{ .name = "rx", .dma_req = 79 + DRA7XX_DMA_REQ_START },
+	{ .dma_req = -1 }
+};
+
 /* mcasp3 */
 static struct omap_hwmod dra7xx_mcasp3_hwmod = {
 	.name		= "mcasp3",
 	.class		= &dra7xx_mcasp_hwmod_class,
 	.clkdm_name	= "l4per2_clkdm",
 	.main_clk	= "mcasp3_ahclkx_mux",
+	.sdma_reqs	= dra7xx_mcasp3_sdma_reqs,
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = DRA7XX_CM_L4PER2_MCASP3_CLKCTRL_OFFSET,
