@@ -27,7 +27,7 @@ snd-soc-omap-abe-twl6040-objs := omap-abe-twl6040.o
 snd-soc-omap-twl4030-objs := omap-twl4030.o
 snd-soc-omap3pandora-objs := omap3pandora.o
 snd-soc-omap-hdmi-card-objs := omap-hdmi-card.o
-snd-soc-dra7-evm-objs := dra7-evm.o
+snd-soc-dra7-evm-objs := dra7-evm.o dra7-atl.o
 
 obj-$(CONFIG_SND_OMAP_SOC_N810) += snd-soc-n810.o
 obj-$(CONFIG_SND_OMAP_SOC_RX51) += snd-soc-rx51.o
