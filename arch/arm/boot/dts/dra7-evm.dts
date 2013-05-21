@@ -77,9 +77,9 @@
 &i2c2 {
 	clock-frequency = <400000>;
 
-	pcf_hdmi: pcf8575@22 {
+	pcf_hdmi: pcf8575@26 {
 		compatible = "ti,pcf8575";
-		reg = <0x22>;
+		reg = <0x26>;
 		gpio-controller;
 		#gpio-cells = <2>;
 	};
