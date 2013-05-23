@@ -448,6 +448,13 @@
 			ti,needs-special-reset;
 		};
 
+		atl: atl@0x4843c000 {
+			compatible = "ti,dra7-atl";
+			reg = <0x4843c000 0x3ff>;
+			ti,hwmods = "atl";
+			ti,atclk2-freq = <36126720>;
+		};
+
 		mcasp3: mcasp@48468000 {
 			compatible = "ti,dra7-mcasp-audio";
 			reg = <0x48468000 0x3000>;
