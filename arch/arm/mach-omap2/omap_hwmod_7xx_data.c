@@ -1555,6 +1555,7 @@ static struct omap_hwmod dra7xx_mcasp3_hwmod = {
 	.clkdm_name	= "l4per2_clkdm",
 	.main_clk	= "mcasp3_ahclkx_mux",
 	.sdma_reqs	= dra7xx_mcasp3_sdma_reqs,
+	.flags		= HWMOD_SWSUP_SIDLE,
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = DRA7XX_CM_L4PER2_MCASP3_CLKCTRL_OFFSET,
