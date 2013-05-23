@@ -533,7 +533,7 @@ static struct clockdomain atl_7xx_clkdm = {
 	.cm_inst	  = DRA7XX_CM_CORE_CORE_INST,
 	.clkdm_offs	  = DRA7XX_CM_CORE_CORE_ATL_CDOFFS,
 	.dep_bit	  = DRA7XX_ATL_STATDEP_SHIFT,
-	.flags		  = CLKDM_CAN_FORCE_WAKEUP | CLKDM_CAN_HWSUP,
+	.flags		  = CLKDM_CAN_FORCE_WAKEUP | CLKDM_CAN_SWSUP,
 };
 
 static struct clockdomain l3instr_7xx_clkdm = {
