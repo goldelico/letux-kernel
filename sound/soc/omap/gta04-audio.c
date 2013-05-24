@@ -31,13 +31,10 @@
 #include <sound/soc-dapm.h>
 
 #include <asm/mach-types.h>
-#include <mach/hardware.h>
-#include <mach/gpio.h>
 
 #include <linux/i2c/twl4030-madc.h>
 
 #include "omap-mcbsp.h"
-#include "omap-pcm.h"
 #include "../codecs/twl4030.h"
 
 static int omap3gta04_hw_params(struct snd_pcm_substream *substream,

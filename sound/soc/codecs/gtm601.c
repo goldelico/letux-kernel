@@ -56,13 +56,13 @@ struct snd_soc_dai_driver gtm601_dai = {
 
 struct snd_soc_codec_driver soc_codec_dev_gtm601;
 
-static __devinit int gtm601_platform_probe(struct platform_device *pdev)
+static int gtm601_platform_probe(struct platform_device *pdev)
 {
 	return snd_soc_register_codec(&pdev->dev,
 			&soc_codec_dev_gtm601, &gtm601_dai, 1);
 }
 
-static int __devexit gtm601_platform_remove(struct platform_device *pdev)
+static int gtm601_platform_remove(struct platform_device *pdev)
 {
 	snd_soc_unregister_codec(&pdev->dev);
 	return 0;
@@ -77,7 +77,7 @@ static struct platform_driver gtm601_codec_driver = {
 	},
 
 	.probe = gtm601_platform_probe,
-	.remove = __devexit_p(gtm601_platform_remove),
+	.remove = gtm601_platform_remove,
 };
 
 static int __init gtm601_init(void)
