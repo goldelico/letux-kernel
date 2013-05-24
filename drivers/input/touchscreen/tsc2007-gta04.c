@@ -202,7 +202,7 @@ static u16 tsc2007_calculate_pressure(struct tsc2007 *ts)
 	if (likely(ts->tc.x && ts->tc.z1 && ts->tc.z2 > ts->tc.z1)) {
 		/* compute touch pressure resistance using equation #1 */
 		/* and translate into increasing pressure for decreasing resistance */
-		
+
 		rt = ((u32) ts->tc.z1) << (32 - 12);	/* shift to maximum precision */
 		rt /= (ts->tc.x * (u32)(ts->tc.z2 - ts->tc.z1));
 #if 0
@@ -222,7 +222,7 @@ static void tsc2007_send_up_event(struct tsc2007 *ts)
 	input_report_key(input, BTN_TOUCH, 0);
 	input_report_abs(input, ABS_PRESSURE, 0);
 	input_sync(input);
-	
+
 	ts->pressure = 0;
 }
 
@@ -233,10 +233,10 @@ static void tsc2007_aux_work(struct work_struct *aux_work)
 //	printk("tsc2007_aux_work\n");
 
 	tsc2007_read_temp(ts);
-	
+
 	/* Prepare for next touch reading - power down ADC, enable PENIRQ */
 	tsc2007_xfer(ts, PWRDOWN);
-	
+
 	schedule_delayed_work(&ts->aux_work,
 						  msecs_to_jiffies(TS_AUX_POLL_PERIOD));
 //	printk("tsc2007_aux_work done\n");
@@ -247,7 +247,7 @@ static void tsc2007_work(struct work_struct *work)
 	struct tsc2007 *ts =
 		container_of(to_delayed_work(work), struct tsc2007, work);
 	u16 rt;	/* range: 0 .. 4095 */
-	
+
 //	printk("tsc2007_work\n");
 
 	/*
@@ -353,7 +353,7 @@ static void tsc2007_free_irq(struct tsc2007 *ts)
 	}
 }
 
-static int __devinit tsc2007_probe(struct i2c_client *client,
+static int tsc2007_probe(struct i2c_client *client,
 				   const struct i2c_device_id *id)
 {
 	struct tsc2007 *ts;
@@ -376,7 +376,7 @@ static int __devinit tsc2007_probe(struct i2c_client *client,
 		dev_err(&client->dev, "registering with sysfs failed!\n");
 		return err;
 	}
-	
+
 	ts = kzalloc(sizeof(struct tsc2007), GFP_KERNEL);
 	input_dev = input_allocate_device();
 	if (!ts || !input_dev) {
@@ -429,7 +429,7 @@ static int __devinit tsc2007_probe(struct i2c_client *client,
 		goto err_free_irq;
 
 	i2c_set_clientdata(client, ts);
-	
+
 	/* schedule AUX and TEMP readings */
 	schedule_delayed_work(&ts->aux_work,
 						  msecs_to_jiffies(TS_AUX_POLL_PERIOD));
@@ -446,7 +446,7 @@ static int __devinit tsc2007_probe(struct i2c_client *client,
 	return err;
 }
 
-static int __devexit tsc2007_remove(struct i2c_client *client)
+static int tsc2007_remove(struct i2c_client *client)
 {
 	struct tsc2007	*ts = i2c_get_clientdata(client);
 	struct tsc2007_platform_data *pdata = client->dev.platform_data;
@@ -457,7 +457,7 @@ static int __devexit tsc2007_remove(struct i2c_client *client)
 		pdata->exit_platform_hw();
 
 	sysfs_remove_group(&client->dev.kobj, &tsc2007_attr_group);
-	
+
 	input_unregister_device(ts->input);
 	kfree(ts);
 
@@ -478,7 +478,7 @@ static struct i2c_driver tsc2007_driver = {
 	},
 	.id_table	= tsc2007_idtable,
 	.probe		= tsc2007_probe,
-	.remove		= __devexit_p(tsc2007_remove),
+	.remove		= tsc2007_remove,
 };
 
 static int __init tsc2007_init(void)
