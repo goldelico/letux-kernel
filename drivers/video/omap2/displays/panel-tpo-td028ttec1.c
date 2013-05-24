@@ -266,7 +266,6 @@ static int td028ttec1_panel_probe(struct omap_dss_device *dssdev)
 	int rc;
 	
 	printk("td028ttec1_panel_probe()\n");
-	dssdev->panel.acb = 0x28;
 	dssdev->panel.timings = td028ttec1_panel_timings;
 	
 	rc = jbt_reg_init();
@@ -281,52 +280,54 @@ static void td028ttec1_panel_remove(struct omap_dss_device *dssdev)
 	// disable GPIOs?
 }
 
-static int td028ttec1_panel_suspend(struct omap_dss_device *dssdev)
-{ // normal_to_sleep()
-	int rc;
-	
-	printk("td028ttec1_panel_suspend()\n");
 
-	if (dssdev->state != OMAP_DSS_DISPLAY_ACTIVE)
-		return 0;
+static int td028ttec1_panel_enable(struct omap_dss_device *dssdev)
+{
+	int rc = 0;
+	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE)
+		return rc;
 
-	omapdss_dpi_display_disable(dssdev);
+	printk("td028ttec1_panel_enable()\n");
 
-	rc = jbt_reg_write_nodata(jbt, JBT_REG_DISPLAY_OFF);
-	rc |= jbt_reg_write16(jbt, JBT_REG_OUTPUT_CONTROL, 0x8002);
-	rc |= jbt_reg_write_nodata(jbt, JBT_REG_SLEEP_IN);
-	
-	// turn off backlight
-	if (dssdev->platform_disable)
-		dssdev->platform_disable(dssdev);
+	if (dssdev->platform_enable)
+		rc = dssdev->platform_enable(dssdev);	// enable e.g. power, backlight
 
-	dssdev->state = OMAP_DSS_DISPLAY_SUSPENDED;
+	if(rc)
+		return rc;
 
-	return rc ? -EIO : 0;
-}
+	// 1. standby_to_sleep()
 
-static int td028ttec1_panel_resume(struct omap_dss_device *dssdev)
-{ // sleep_to_normal()
-	int rc;
-	
+	/* three times command zero */
+	rc = jbt_reg_write_nodata(jbt, 0x00);
+	udelay(1000);
+	rc = jbt_reg_write_nodata(jbt, 0x00);
+	udelay(1000);
+	rc = jbt_reg_write_nodata(jbt, 0x00);
+	udelay(1000);
+
+	/* deep standby out */
+	rc |= jbt_reg_write(jbt, JBT_REG_POWER_ON_OFF, 0x17);
+
+	// 2. sleep_to_normal()
+
 	printk("td028ttec1_panel_resume()\n");
 	/* RGB I/F on, RAM write off, QVGA through, SIGCON enable */
 	rc = jbt_reg_write(jbt, JBT_REG_DISPLAY_MODE, 0x80);
-	
+
 	/* Quad mode off */
 	rc |= jbt_reg_write(jbt, JBT_REG_QUAD_RATE, 0x00);
-	
+
 	/* AVDD on, XVDD on */
 	rc |= jbt_reg_write(jbt, JBT_REG_POWER_ON_OFF, 0x16);
-	
+
 	/* Output control */
 	rc |= jbt_reg_write16(jbt, JBT_REG_OUTPUT_CONTROL, 0xfff9);
-	
+
 	/* Sleep mode off */
 	rc |= jbt_reg_write_nodata(jbt, JBT_REG_SLEEP_OUT);
-	
+
 	/* at this point we have like 50% grey */
-	
+
 	/* initialize register set */
 	rc = jbt_reg_write(jbt, JBT_REG_DISPLAY_MODE1, 0x01);
 	rc |= jbt_reg_write(jbt, JBT_REG_DISPLAY_MODE2, 0x00);
@@ -347,7 +348,7 @@ static int td028ttec1_panel_resume(struct omap_dss_device *dssdev)
 	 */
 	rc |= jbt_reg_write(jbt, JBT_REG_ASW_SLEW, 0x04);
 	rc |= jbt_reg_write(jbt, JBT_REG_DUMMY_DISPLAY, 0x00);
-	
+
 	rc |= jbt_reg_write(jbt, JBT_REG_SLEEP_OUT_FR_A, 0x11);
 	rc |= jbt_reg_write(jbt, JBT_REG_SLEEP_OUT_FR_B, 0x11);
 	rc |= jbt_reg_write(jbt, JBT_REG_SLEEP_OUT_FR_C, 0x11);
@@ -355,30 +356,30 @@ static int td028ttec1_panel_resume(struct omap_dss_device *dssdev)
 	rc |= jbt_reg_write16(jbt, JBT_REG_SLEEP_IN_LCCNT_E, 0x60c0);
 	rc |= jbt_reg_write16(jbt, JBT_REG_SLEEP_IN_LCCNT_F, 0x1020);
 	rc |= jbt_reg_write16(jbt, JBT_REG_SLEEP_IN_LCCNT_G, 0x60c0);
-	
+
 	rc |= jbt_reg_write16(jbt, JBT_REG_GAMMA1_FINE_1, 0x5533);
 	rc |= jbt_reg_write(jbt, JBT_REG_GAMMA1_FINE_2, 0x00);
 	rc |= jbt_reg_write(jbt, JBT_REG_GAMMA1_INCLINATION, 0x00);
 	rc |= jbt_reg_write(jbt, JBT_REG_GAMMA1_BLUE_OFFSET, 0x00);
 	rc |= jbt_reg_write(jbt, JBT_REG_GAMMA1_BLUE_OFFSET, 0x00);
-	
+
 	rc |= jbt_reg_write16(jbt, JBT_REG_HCLOCK_VGA, 0x1f0);
 	rc |= jbt_reg_write(jbt, JBT_REG_BLANK_CONTROL, 0x02);
 	rc |= jbt_reg_write16(jbt, JBT_REG_BLANK_TH_TV, 0x0804);
 	rc |= jbt_reg_write16(jbt, JBT_REG_BLANK_TH_TV, 0x0804);
-	
+
 	rc |= jbt_reg_write(jbt, JBT_REG_CKV_ON_OFF, 0x01);
 	rc |= jbt_reg_write16(jbt, JBT_REG_CKV_1_2, 0x0000);
-	
+
 	rc |= jbt_reg_write16(jbt, JBT_REG_OEV_TIMING, 0x0d0e);
 	rc |= jbt_reg_write16(jbt, JBT_REG_ASW_TIMING_1, 0x11a4);
 	rc |= jbt_reg_write(jbt, JBT_REG_ASW_TIMING_2, 0x0e);
-	
+
 #if 0
 	rc |= jbt_reg_write16(jbt, JBT_REG_HCLOCK_QVGA, 0x00ff);
 	rc |= jbt_reg_write16(jbt, JBT_REG_HCLOCK_QVGA, 0x00ff);
 #endif
-	
+
 	jbt_reg_write_nodata(jbt, JBT_REG_DISPLAY_ON);
 
 	omapdss_dpi_set_timings(dssdev, &dssdev->panel.timings);
@@ -392,40 +393,6 @@ static int td028ttec1_panel_resume(struct omap_dss_device *dssdev)
 		dssdev->platform_enable(dssdev);
 
 	dssdev->state = OMAP_DSS_DISPLAY_ACTIVE;
-	
-	return rc ? -EIO : 0;
-}
-
-static int td028ttec1_panel_enable(struct omap_dss_device *dssdev)
-{
-	int rc = 0;
-	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE)
-		return rc;
-
-	printk("td028ttec1_panel_enable()\n");
-	
-	if (dssdev->platform_enable)
-		rc = dssdev->platform_enable(dssdev);	// enable e.g. power, backlight
-
-	if(rc)
-		return rc;
-
-	// 1. standby_to_sleep()
-	
-	/* three times command zero */
-	rc = jbt_reg_write_nodata(jbt, 0x00);
-	udelay(1000);
-	rc = jbt_reg_write_nodata(jbt, 0x00);
-	udelay(1000);
-	rc = jbt_reg_write_nodata(jbt, 0x00);
-	udelay(1000);
-	
-	/* deep standby out */
-	rc |= jbt_reg_write(jbt, JBT_REG_POWER_ON_OFF, 0x17);
-	
-	// 2. sleep_to_normal()
-	
-	td028ttec1_panel_resume(dssdev);
 
 	return rc ? -EIO : 0;
 }
@@ -438,7 +405,17 @@ static void td028ttec1_panel_disable(struct omap_dss_device *dssdev)
 
 	// 1. normal_to_sleep()
 
-	td028ttec1_panel_suspend(dssdev);
+	printk("td028ttec1_panel_suspend()\n");
+
+	omapdss_dpi_display_disable(dssdev);
+
+	jbt_reg_write_nodata(jbt, JBT_REG_DISPLAY_OFF);
+	jbt_reg_write16(jbt, JBT_REG_OUTPUT_CONTROL, 0x8002);
+	jbt_reg_write_nodata(jbt, JBT_REG_SLEEP_IN);
+
+	// turn off backlight
+	if (dssdev->platform_disable)
+		dssdev->platform_disable(dssdev);
 
 	// 2. sleep_to_standby()
 
@@ -472,8 +449,6 @@ static struct omap_dss_driver td028ttec1_driver = {
 
 	.enable		= td028ttec1_panel_enable,
 	.disable	= td028ttec1_panel_disable,
-	.suspend	= td028ttec1_panel_suspend,
-	.resume		= td028ttec1_panel_resume,
 
 	.set_timings	= td028ttec1_panel_set_timings,
 	.get_timings	= td028ttec1_panel_get_timings,
