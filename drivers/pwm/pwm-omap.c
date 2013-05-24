@@ -26,7 +26,7 @@
 #include <linux/module.h>
 #include <linux/platform_data/omap-pwm.h>
 
-#include <plat/dmtimer.h>
+#include <../arch/arm/plat-omap/include/plat/dmtimer.h>
 
 #define DM_TIMER_LOAD_MIN		0xFFFFFFFE
 
