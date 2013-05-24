@@ -30,8 +30,11 @@
 #include <linux/rfkill-regulator.h>
 #include <linux/gpio-reg.h>
 #include <linux/gpio-w2sg0004.h>
-#include <linux/extcon/extcon_gpio.h>
+#include <linux/extcon/extcon-gpio.h>
 #include <linux/opp.h>
+#include <linux/cpu.h>
+
+#include <linux/usb/phy.h>
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
@@ -58,21 +61,22 @@
 
 #include "common.h"
 #include <video/omapdss.h>
-#include <video/omap-panel-generic-dpi.h>
-#include <plat/gpmc.h>
+#include <video/omap-panel-data.h>
+#include "gpmc.h"
 #include <linux/platform_data/mtd-nand-omap2.h>
-#include <plat/usb.h>
-#include <plat/clock.h>
-#include <plat/omap-pm.h>
+#include "clock.h"
+#include "omap-pm.h"
 #include <linux/platform_data/gpio-omap.h>
 #include <linux/platform_data/spi-omap2-mcspi.h>
 #include <linux/platform_data/omap-pwm.h>
-#include <plat/omap-serial.h>
-#include <plat/omap_device.h>
+#include <linux/platform_data/serial-omap.h>
+#include "omap_device.h"
 
+#include "soc.h"
 #include "mux.h"
 #include "hsmmc.h"
 #include "pm.h"
+#include "board-flash.h"
 #include "common-board-devices.h"
 #include "control.h"
 
@@ -294,10 +298,10 @@ static int gta04_panel_enable_tv(struct omap_dss_device *dssdev)
 #define OMAP2_TVACEN				(1 << 11)
 #define OMAP2_TVOUTBYPASS			(1 << 18)
 
-	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
+	twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
 			ENABLE_VDAC_DEDICATED,
 			TWL4030_VDAC_DEDICATED);
-	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
+	twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
 			ENABLE_VDAC_DEV_GRP, TWL4030_VDAC_DEV_GRP);
 
 	/* taken from https://e2e.ti.com/support/dsp/omap_applications_processors/f/447/p/94072/343691.aspx */
@@ -318,9 +322,9 @@ static void gta04_panel_disable_tv(struct omap_dss_device *dssdev)
 {
 	gpio_set_value(23, 0);	// disable output driver (and re-enable microphone)
 
-	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x00,
+	twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER, 0x00,
 			TWL4030_VDAC_DEDICATED);
-	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x00,
+	twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER, 0x00,
 			TWL4030_VDAC_DEV_GRP);
 }
 
@@ -1188,17 +1192,19 @@ static struct platform_device *gta04_devices[] __initdata = {
 	&madc_hwmon,
 };
 
-static const struct usbhs_omap_board_data usbhs_bdata __initconst = {
+static struct usbhs_phy_data phy_data[] __initdata = {
+	{
+		.port = 2,
+		.reset_gpio = 174,
+		.vcc_gpio = -EINVAL,
+	},
+};
+
+static struct usbhs_omap_platform_data usbhs_bdata __initconst = {
 
 	/* HSUSB0 - is not a EHCI port; TPS65950 configured by twl4030.c and musb driver */
-	.port_mode[0] = OMAP_USBHS_PORT_MODE_UNUSED,	/* HSUSB1 - n/a */
 	.port_mode[1] = OMAP_EHCI_PORT_MODE_PHY,		/* HSUSB2 - USB3322C <-> WWAN */
-	.port_mode[2] = OMAP_USBHS_PORT_MODE_UNUSED,	/* HSUSB3 - n/a */
 
-	.phy_reset  = true,
-	.reset_gpio_port[0]  = -EINVAL,
-	.reset_gpio_port[1]  = 174,
-	.reset_gpio_port[2]  = -EINVAL
 };
 
 static struct omap_board_mux board_mux[] __initdata = {
@@ -1270,30 +1276,35 @@ static void gta04_serial_init(void)
 	omap_serial_init_port(&bdata, NULL);
 }
 
-static void __init gta04_opp_init(void)
+static int __init gta04_opp_init(void)
 {
 	int r = 0;
 
+	if (!machine_is_gta04())
+		return 0;
+
 	/* Initialize the omap3 opp table */
-	if (omap3_opp_init()) {
+	r = omap3_opp_init();
+	if (r < 0 && r != -EEXIST) {
 		pr_err("%s: opp default init failed\n", __func__);
-		return;
+		return r;
 	}
 
 	/* Custom OPP enabled for all xM versions */
 	if (cpu_is_omap3630()) {
 		struct device *mpu_dev, *iva_dev;
 
-		mpu_dev = omap_device_get_by_hwmod_name("mpu");
+		mpu_dev = get_cpu_device(0);
 		iva_dev = omap_device_get_by_hwmod_name("iva");
 
 		if (!mpu_dev || !iva_dev) {
 			pr_err("%s: Aiee.. no mpu/dsp devices? %p %p\n",
 				__func__, mpu_dev, iva_dev);
-			return;
+			return -ENODEV;
 		}
 		/* Enable MPU 1GHz and lower opps */
-		r = opp_enable(mpu_dev, 800000000);
+		r  = opp_enable(mpu_dev,  800000000);
+//		r |= opp_enable(mpu_dev, 1000000000);
 		/* TODO: MPU 1GHz needs SR and ABB */
 
 		/* Enable IVA 800MHz and lower opps */
@@ -1306,11 +1317,14 @@ static void __init gta04_opp_init(void)
 			 * Cleanup - disable the higher freqs - we dont care
 			 * about the results
 			 */
+			opp_disable(mpu_dev,1000000000);
 			opp_disable(mpu_dev, 800000000);
 			opp_disable(iva_dev, 660000000);
 		}
 	}
+	return 0;
 }
+device_initcall(gta04_opp_init);
 
 static void __init gta04_init(void)
 {
@@ -1397,10 +1411,15 @@ static void __init gta04_init(void)
 
 	pwm_add_table(board_pwm_lookup, ARRAY_SIZE(board_pwm_lookup));
 
+	usb_bind_phy("musb-hdrc.1.auto", 0, "twl4030_usb");
 	usb_musb_init(NULL);
+
+	usbhs_init_phys(phy_data, ARRAY_SIZE(phy_data));
 	usbhs_init(&usbhs_bdata);
-	omap_nand_flash_init(NAND_BUSWIDTH_16, gta04_nand_partitions,
-		ARRAY_SIZE(gta04_nand_partitions));
+
+	board_nand_init(gta04_nand_partitions,
+			ARRAY_SIZE(gta04_nand_partitions), 0,
+			NAND_BUSWIDTH_16, NULL);
 
 	/* Ensure SDRC pins are mux'd for self-refresh */
 	omap_mux_init_signal("sdrc_cke0", OMAP_PIN_OUTPUT);
@@ -1410,8 +1429,6 @@ static void __init gta04_init(void)
 	omap_mux_init_gpio(TWL4030_MSECURE_GPIO, OMAP_PIN_OUTPUT);	// this needs CONFIG_OMAP_MUX!
 	gpio_request(TWL4030_MSECURE_GPIO, "mSecure");
 	gpio_direction_output(TWL4030_MSECURE_GPIO, true);
-
-	gta04_opp_init();
 
 	omap_mux_init_gpio(145, OMAP_PIN_OUTPUT);
 	omap_mux_init_gpio(174, OMAP_PIN_OUTPUT);
@@ -1443,6 +1460,6 @@ MACHINE_START(GTA04, "GTA04")
 	.init_early	=	gta04_init_early,
 	.init_machine	=	gta04_init,
 	.init_late	=	gta04_init_late,
-	.timer		=	&omap3_secure_timer,
-	.restart	=	omap_prcm_restart,
+	.init_time	=	omap3_secure_sync32k_timer_init,
+	.restart	=	omap3xxx_restart,
 MACHINE_END
