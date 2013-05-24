@@ -72,6 +72,7 @@
 #include <linux/serial_core.h>
 #include <linux/serial.h>
 
+#include <linux/pm_runtime.h>
 
 #define MOD_AUTHOR			"Option Wireless"
 #define MOD_DESCRIPTION			"USB High Speed Option driver"
@@ -1503,7 +1504,8 @@ static void tiocmget_intr_callback(struct urb *urb)
 	if (serial_state_notification->bmRequestType != BM_REQUEST_TYPE ||
 	    serial_state_notification->bNotification != B_NOTIFICATION ||
 	    le16_to_cpu(serial_state_notification->wValue) != W_VALUE ||
-	    le16_to_cpu(serial_state_notification->wIndex) != W_INDEX ||
+		/* fix problem with GTM601 and 1.7 firmware; see http://lists.goldelico.com/pipermail/gta04-owner/2012-February/001643.html */
+	    (le16_to_cpu(serial_state_notification->wIndex) & ~0x4) != W_INDEX ||
 	    le16_to_cpu(serial_state_notification->wLength) != W_LENGTH) {
 		dev_warn(&usb->dev,
 			 "hso received invalid serial state notification\n");
@@ -2959,6 +2961,8 @@ static int hso_probe(struct usb_interface *interface,
 
 	/* save our data pointer in this device */
 	usb_set_intfdata(interface, hso_dev);
+
+	pm_runtime_allow(&hso_dev->usb->dev);
 
 	/* done */
 	return 0;
