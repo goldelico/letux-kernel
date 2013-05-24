@@ -463,8 +463,8 @@ static const struct iio_info itg3200_info = {
 		.type		= IIO_ANGL_VEL,			\
 		.modified	= 1,				\
 		.channel2	= IIO_MOD_##axis,		\
-		.info_mask	= IIO_CHAN_INFO_RAW_SEPARATE_BIT,\
-		.address	= add,			 	\
+		.info_mask	= BIT(IIO_CHAN_INFO_RAW),	\
+		.address	= add,				\
 	}
 
 static const struct iio_chan_spec itg3200_channels[] = {
