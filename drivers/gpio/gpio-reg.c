@@ -49,7 +49,7 @@ static int gpio_reg_direction_output(struct gpio_chip *gc,
 }
 
 
-static int __devinit gpio_reg_probe(struct platform_device *pdev)
+static int gpio_reg_probe(struct platform_device *pdev)
 {
 	struct gpio_reg_data *pdata = pdev->dev.platform_data;
 	struct gpio_reg *greg;
@@ -85,7 +85,7 @@ out:
 	return err;
 }
 
-static int __devexit gpio_reg_remove(struct platform_device *pdev)
+static int gpio_reg_remove(struct platform_device *pdev)
 {
 	struct gpio_reg *greg = platform_get_drvdata(pdev);
 	int ret;
@@ -104,7 +104,7 @@ static struct platform_driver gpio_reg_driver = {
 	.driver.name	= "regulator-gpio",
 	.driver.owner	= THIS_MODULE,
 	.probe		= gpio_reg_probe,
-	.remove		= __devexit_p(gpio_reg_remove),
+	.remove		= gpio_reg_remove,
 };
 
 static int __init gpio_reg_init(void)

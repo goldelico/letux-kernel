@@ -163,7 +163,7 @@ static int gpio_w2sg_direction_output(struct gpio_chip *gc,
 	return 0;
 }
 
-static int __devinit gpio_w2sg_probe(struct platform_device *pdev)
+static int gpio_w2sg_probe(struct platform_device *pdev)
 {
 	struct gpio_w2sg_data *pdata = pdev->dev.platform_data;
 	struct gpio_w2sg *gw2sg;
@@ -234,7 +234,7 @@ out:
 	return err;
 }
 
-static int __devexit gpio_w2sg_remove(struct platform_device *pdev)
+static int gpio_w2sg_remove(struct platform_device *pdev)
 {
 	struct gpio_w2sg *gw2sg = platform_get_drvdata(pdev);
 	int ret;
@@ -304,7 +304,7 @@ static struct platform_driver gpio_w2sg_driver = {
 	.driver.owner	= THIS_MODULE,
 	.driver.pm	= &w2sg_pm_ops,
 	.probe		= gpio_w2sg_probe,
-	.remove		= __devexit_p(gpio_w2sg_remove),
+	.remove		= gpio_w2sg_remove,
 };
 
 static int __init gpio_w2sg_init(void)
