@@ -32,6 +32,7 @@
 #include <linux/gpio-w2sg0004.h>
 #include <linux/extcon/extcon_gpio.h>
 #include <linux/opp.h>
+#include <linux/cpu.h>
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
@@ -1039,6 +1040,13 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 
 static int __init gta04_i2c_init(void)
 {
+	omap3_pmic_get_config(&gta04_twldata,
+			      (TWL_COMMON_PDATA_USB |
+			       TWL_COMMON_PDATA_MADC |
+			       TWL_COMMON_PDATA_AUDIO),
+			      (TWL_COMMON_REGULATOR_VDAC |
+			       TWL_COMMON_REGULATOR_VPLL2));
+
 	omap_pmic_init(1, 2600, "twl4030", 7 + OMAP_INTC_START,
 		       &gta04_twldata);
 #ifdef CONFIG_TOUCHSCREEN_TSC2007
@@ -1270,27 +1278,31 @@ static void gta04_serial_init(void)
 	omap_serial_init_port(&bdata, NULL);
 }
 
-static void __init gta04_opp_init(void)
+static int __init gta04_opp_init(void)
 {
 	int r = 0;
 
+	if (!machine_is_gta04())
+		return 0;
+
 	/* Initialize the omap3 opp table */
-	if (omap3_opp_init()) {
+	r = omap3_opp_init();
+	if (r < 0 && r != -EEXIST) {
 		pr_err("%s: opp default init failed\n", __func__);
-		return;
+		return r;
 	}
 
 	/* Custom OPP enabled for all xM versions */
 	if (cpu_is_omap3630()) {
 		struct device *mpu_dev, *iva_dev;
 
-		mpu_dev = omap_device_get_by_hwmod_name("mpu");
+		mpu_dev = get_cpu_device(0);
 		iva_dev = omap_device_get_by_hwmod_name("iva");
 
 		if (!mpu_dev || !iva_dev) {
 			pr_err("%s: Aiee.. no mpu/dsp devices? %p %p\n",
 				__func__, mpu_dev, iva_dev);
-			return;
+			return -ENODEV;
 		}
 		/* Enable MPU 1GHz and lower opps */
 		r = opp_enable(mpu_dev, 800000000);
@@ -1310,7 +1322,9 @@ static void __init gta04_opp_init(void)
 			opp_disable(iva_dev, 660000000);
 		}
 	}
+	return 0;
 }
+device_initcall(gta04_opp_init);
 
 static void __init gta04_init(void)
 {
@@ -1410,8 +1424,6 @@ static void __init gta04_init(void)
 	omap_mux_init_gpio(TWL4030_MSECURE_GPIO, OMAP_PIN_OUTPUT);	// this needs CONFIG_OMAP_MUX!
 	gpio_request(TWL4030_MSECURE_GPIO, "mSecure");
 	gpio_direction_output(TWL4030_MSECURE_GPIO, true);
-
-	gta04_opp_init();
 
 	omap_mux_init_gpio(145, OMAP_PIN_OUTPUT);
 	omap_mux_init_gpio(174, OMAP_PIN_OUTPUT);
