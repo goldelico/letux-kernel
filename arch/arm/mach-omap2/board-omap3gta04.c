@@ -1043,6 +1043,11 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 
 static int __init gta04_i2c_init(void)
 {
+	omap3_pmic_get_config(&gta04_twldata,
+			TWL_COMMON_PDATA_USB | TWL_COMMON_PDATA_MADC |
+			TWL_COMMON_PDATA_AUDIO,
+			TWL_COMMON_REGULATOR_VDAC | TWL_COMMON_REGULATOR_VPLL2);
+
 	omap_pmic_init(1, 2600, "twl4030", 7 + OMAP_INTC_START,
 		       &gta04_twldata);
 #ifdef CONFIG_TOUCHSCREEN_TSC2007
@@ -1304,11 +1309,12 @@ static int __init gta04_opp_init(void)
 		}
 		/* Enable MPU 1GHz and lower opps */
 		r  = opp_enable(mpu_dev,  800000000);
-//		r |= opp_enable(mpu_dev, 1000000000);
+		r |= opp_enable(mpu_dev, 1000000000);
 		/* TODO: MPU 1GHz needs SR and ABB */
 
 		/* Enable IVA 800MHz and lower opps */
 		r |= opp_enable(iva_dev, 660000000);
+		r |= opp_enable(iva_dev, 800000000);
 		/* TODO: DSP 800MHz needs SR and ABB */
 		if (r) {
 			pr_err("%s: failed to enable higher opp %d\n",
@@ -1319,6 +1325,7 @@ static int __init gta04_opp_init(void)
 			 */
 			opp_disable(mpu_dev,1000000000);
 			opp_disable(mpu_dev, 800000000);
+			opp_disable(iva_dev, 800000000);
 			opp_disable(iva_dev, 660000000);
 		}
 	}

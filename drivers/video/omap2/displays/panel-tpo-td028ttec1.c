@@ -310,7 +310,6 @@ static int td028ttec1_panel_enable(struct omap_dss_device *dssdev)
 
 	// 2. sleep_to_normal()
 
-	printk("td028ttec1_panel_resume()\n");
 	/* RGB I/F on, RAM write off, QVGA through, SIGCON enable */
 	rc = jbt_reg_write(jbt, JBT_REG_DISPLAY_MODE, 0x80);
 
@@ -384,17 +383,12 @@ static int td028ttec1_panel_enable(struct omap_dss_device *dssdev)
 
 	omapdss_dpi_set_timings(dssdev, &dssdev->panel.timings);
 	omapdss_dpi_set_data_lines(dssdev, dssdev->phy.dpi.data_lines);
-	rc = omapdss_dpi_display_enable(dssdev);
+	rc |= omapdss_dpi_display_enable(dssdev);
 	if(rc)
 		return -EIO;
-
-	// turn on backlight
-	if (dssdev->platform_enable)
-		dssdev->platform_enable(dssdev);
-
 	dssdev->state = OMAP_DSS_DISPLAY_ACTIVE;
 
-	return rc ? -EIO : 0;
+	return 0;
 }
 
 static void td028ttec1_panel_disable(struct omap_dss_device *dssdev)
@@ -412,10 +406,6 @@ static void td028ttec1_panel_disable(struct omap_dss_device *dssdev)
 	jbt_reg_write_nodata(jbt, JBT_REG_DISPLAY_OFF);
 	jbt_reg_write16(jbt, JBT_REG_OUTPUT_CONTROL, 0x8002);
 	jbt_reg_write_nodata(jbt, JBT_REG_SLEEP_IN);
-
-	// turn off backlight
-	if (dssdev->platform_disable)
-		dssdev->platform_disable(dssdev);
 
 	// 2. sleep_to_standby()
 
