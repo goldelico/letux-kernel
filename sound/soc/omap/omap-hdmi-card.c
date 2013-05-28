@@ -55,6 +55,32 @@ static struct switch_dev omap_hdmi_sdev = {
 	.name = "hdmi_audio",
 };
 
+static ssize_t omap_hdmi_sdev_show(struct device *dev,
+				   struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%u\n", switch_get_state(&omap_hdmi_sdev));
+}
+
+static ssize_t omap_hdmi_sdev_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t count)
+{
+	int state;
+
+	if (sscanf(buf, "%u", &state) != 1)
+		return -EINVAL;
+
+	if ((state != 1) && (state != 0))
+		return -EINVAL;
+
+	switch_set_state(&omap_hdmi_sdev, state);
+
+	return strnlen(buf, count);
+}
+
+static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR,
+		   omap_hdmi_sdev_show, omap_hdmi_sdev_store);
+
 static int omap_hdmi_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &snd_soc_omap_hdmi;
@@ -116,6 +142,8 @@ static int omap_hdmi_probe(struct platform_device *pdev)
 	}
 
 	switch_set_state(&omap_hdmi_sdev, 1);
+
+	device_create_file(&pdev->dev, &dev_attr_enable);
 
 	return 0;
 
