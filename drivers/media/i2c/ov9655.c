@@ -735,19 +735,18 @@ static int ov9655_write_regs(struct i2c_client *client,
 {
 	int i, ret;
 	for (i = 0; i < n; i++) {
-		u8 val = regs->value;
-		if(regs->clear != 0) { /* modify only some bits */
-			ret = ov9655_read(client, regs->addr);
+		u8 val = regs[i].value;
+		if(regs[i].clear != 0) { /* modify only some bits */
+			ret = ov9655_read(client, regs[i].addr);
 			if(ret < 0)
 				return ret;
-			val |= (ret & regs->clear);
+			val |= (ret & regs[i].clear);
 			if(val == (u8) ret)
-				return 0;	/* no need to write */
+				continue;	/* no need to write */
 		}
-		ret = ov9655_write(client, regs->addr, val);
+		ret = ov9655_write(client, regs[i].addr, val);
 		if (ret < 0)
 			return ret;
-		regs++;
 	}
 	return 0;
 }
