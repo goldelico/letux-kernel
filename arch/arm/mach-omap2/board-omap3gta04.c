@@ -1171,6 +1171,7 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 #if defined(CONFIG_SENSORS_HMC5843) || defined(CONFIG_SENSORS_HMC5843_MODULE)
 {
 	I2C_BOARD_INFO("hmc5843", 0x1e),	/* supports our hmc5883l */
+	.type = "hmc5883l",
 },
 #endif
 #if defined(CONFIG_ITG3200) || defined(CONFIG_ITG3200_MODULE)
