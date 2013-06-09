@@ -1100,7 +1100,7 @@ static void soc_set_name_prefix(struct snd_soc_card *card,
 
 	for (i = 0; i < card->num_configs; i++) {
 		struct snd_soc_codec_conf *map = &card->codec_conf[i];
-		if (map->dev_name && !strcmp(codec->name, map->dev_name)) {
+		if (map->codec == codec) {
 			codec->name_prefix = map->name_prefix;
 			break;
 		}
@@ -1622,6 +1622,42 @@ static int snd_soc_init_codec_cache(struct snd_soc_codec *codec)
 	return 0;
 }
 
+static int snd_soc_init_codec_conf(struct snd_soc_card *card, int num)
+{
+	struct snd_soc_codec *codec;
+	struct snd_soc_codec_conf *codec_conf;
+
+	codec_conf = &card->codec_conf[num];
+	if (!!codec_conf->dev_name == !!codec_conf->codec_of_node) {
+		dev_err(card->dev,
+			"ASoC: Neither/both codec name/of_node are set for %s\n",
+			codec_conf->name_prefix);
+		return -EINVAL;
+	}
+
+	list_for_each_entry(codec, &codec_list, list) {
+		if (codec_conf->codec_of_node) {
+			if (codec->dev->of_node != codec_conf->codec_of_node)
+				continue;
+		} else {
+			if (codec_conf->dev_name &&
+			    strcmp(codec->name, codec_conf->dev_name))
+				continue;
+		}
+
+		codec_conf->codec = codec;
+	}
+
+	if (!codec_conf->codec) {
+		dev_err(card->dev,
+			"ASoC: CODEC for conf %s is not registered\n",
+			codec_conf->name_prefix);
+		return -EPROBE_DEFER;
+	}
+
+	return 0;
+}
+
 static int snd_soc_instantiate_card(struct snd_soc_card *card)
 {
 	struct snd_soc_codec *codec;
@@ -1642,6 +1678,13 @@ static int snd_soc_instantiate_card(struct snd_soc_card *card)
 	for (i = 0; i < card->num_aux_devs; i++) {
 		ret = soc_check_aux_dev(card, i);
 		if (ret != 0)
+			goto base_error;
+	}
+
+	/* resolve codec configuration */
+	for (i = 0; i < card->num_configs; i++) {
+		snd_soc_init_codec_conf(card, i);
+		if (ret)
 			goto base_error;
 	}
 
