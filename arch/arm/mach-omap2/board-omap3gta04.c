@@ -587,6 +587,7 @@ static struct regulator_init_data gta04_vsim = {
 		.name			= "VSIM",
 		.min_uV			= 2800000,
 		.max_uV			= 2800000,
+		.apply_uV		= 1,
 		.valid_modes_mask	= REGULATOR_MODE_NORMAL
 					| REGULATOR_MODE_STANDBY,
 		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE
