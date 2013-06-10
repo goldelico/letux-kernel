@@ -40,6 +40,8 @@
 #include "omap-mcbsp.h"
 #include "omap-pcm.h"
 
+#include "../../../arch/arm/mach-omap2/mux.h"
+
 #define OMAP_MCBSP_RATES	(SNDRV_PCM_RATE_8000_96000)
 
 #define OMAP_MCBSP_SOC_SINGLE_S16_EXT(xname, xmin, xmax, \
@@ -540,6 +542,36 @@ static int omap_mcbsp_dai_set_dai_sysclk(struct snd_soc_dai *cpu_dai,
 	return err;
 }
 
+/* tristate the McBSP-DX line so that we can build a PCM bus
+   with several sources (e.g. McBSP4, TPS65950 and a Modem) */
+
+static int omap_mcbsp_dai_set_tristate(struct snd_soc_dai *dai,
+									   int tristate)
+{
+	int mode = OMAP_MUX_MODE0;
+	int gpio;	/* the GPIO name of the McBSP-DX line so that we can reference it */
+	
+	// check for OMAP3 (no need to support OMAP1/2 any more - and for OMAP4 we don't care yet)
+
+	/* unfortunately the mapping between McBSP channels and GPIO pins
+	   is not fixed, it depends on how the hardware is set up. */
+
+	switch(dai->id + 1) {
+		case 1: gpio=158; break;
+		case 2: gpio=119; break;
+		case 3: gpio=140; break;	/* may also be GPIO 144 or 158 in different modes! */
+		case 4: gpio=154; break;	/* may also be on GPIO 57 in different mode! */
+		case 5: gpio=20; mode = OMAP_MUX_MODE1; break;
+		default: -EIO;
+	}
+	
+	/* should check for errors */
+	
+	omap_mux_set_gpio((tristate ? OMAP_MUX_MODE7 : (mode | OMAP_PIN_OUTPUT)), gpio);
+	
+	return 0;
+}
+
 static const struct snd_soc_dai_ops mcbsp_dai_ops = {
 	.startup	= omap_mcbsp_dai_startup,
 	.shutdown	= omap_mcbsp_dai_shutdown,
@@ -549,6 +581,7 @@ static const struct snd_soc_dai_ops mcbsp_dai_ops = {
 	.set_fmt	= omap_mcbsp_dai_set_dai_fmt,
 	.set_clkdiv	= omap_mcbsp_dai_set_clkdiv,
 	.set_sysclk	= omap_mcbsp_dai_set_dai_sysclk,
+	.set_tristate = omap_mcbsp_dai_set_tristate,
 };
 
 static int omap_mcbsp_probe(struct snd_soc_dai *dai)
