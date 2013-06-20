@@ -1,7 +1,5 @@
 /*
- * FIXME: this is a blueprint for the GTM601 Voice PCM interface
- * needs to be adapted for GTA04
- * CHECKME: can we use the generic AC97 or SPDIF driver instead of defining our own?
+ * This is a simple driver for the GTM601 Voice PCM interface
  *
  * gtm601.c
  *
