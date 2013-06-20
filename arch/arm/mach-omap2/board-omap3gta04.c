@@ -909,11 +909,19 @@ static struct platform_device gta04_gtm601_codec_audio_device = {
 
 #if defined(CONFIG_SND_SOC_SI47XX)
 
+#if 0	// this is what I assume should be in the .platform data - but in a different format
+static struct si47xx_setup_data gta04_fm_soc_data = {
+	.i2c_bus	 = 2,
+	.i2c_address	 = 0x11,
+};
+#endif
+
 static struct platform_device gta04_si47xx_codec_audio_device = {
 	.name	= "si47xx_codec_audio",
 	.id	= -1,
 	.dev	= {
 		.platform_data	= NULL,
+//		.platform_data	= gta04_fm_soc_data,
 	},
 };
 #endif
