@@ -881,11 +881,19 @@ static struct platform_device gta04_gtm601_codec_audio_device = {
 
 #if defined(CONFIG_SND_SOC_SI47XX)
 
+#if 0	// this is what I assume should be in the .platform data - but in a different format
+static struct si47xx_setup_data gta04_fm_soc_data = {
+	.i2c_bus	 = 2,
+	.i2c_address	 = 0x11,
+};
+#endif
+
 static struct platform_device gta04_si47xx_codec_audio_device = {
 	.name	= "si47xx_codec_audio",
 	.id	= -1,
 	.dev	= {
 		.platform_data	= NULL,
+//		.platform_data	= gta04_fm_soc_data,
 	},
 };
 #endif
@@ -1656,6 +1664,17 @@ static void __init gta04_init(void)
 	omap_mux_init_gpio(TV_OUT_GPIO, OMAP_PIN_OUTPUT); // enable TV out
 	omap_mux_init_gpio(AUX_HEADSET_GPIO, OMAP_PIN_OUTPUT);
 	omap_mux_init_gpio(13, OMAP_PIN_OUTPUT);
+
+	{ /* disconnect CLKR from McBSP1 and drive from CLKX
+	   * see https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/commit/sound/soc/omap/omap-mcbsp.c?id=8fef6263ea68f6160637f370a5864d0a455c620d
+	   */
+		u32 devconf0;
+		devconf0 = omap_ctrl_readl(OMAP2_CONTROL_DEVCONF0);
+		devconf0 |= OMAP2_MCBSP1_CLKR_MASK;
+		omap_ctrl_writel(devconf0, OMAP2_CONTROL_DEVCONF0);
+		printk("CONTROL_DEVCONF0 = %08lx\n", devconf0);
+		
+	}
 
 	printk("gta04_init done...\n");
 }
