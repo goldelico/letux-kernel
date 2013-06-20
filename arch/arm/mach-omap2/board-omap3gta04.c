@@ -1665,6 +1665,11 @@ static void __init gta04_init(void)
 	omap_mux_init_gpio(AUX_HEADSET_GPIO, OMAP_PIN_OUTPUT);
 	omap_mux_init_gpio(13, OMAP_PIN_OUTPUT);
 
+	/* handle special wiring of our Si47xx
+	 * FSX, CLKX, DX, DR are wired as usual for 4-wire
+	 * FSR must be the 6-wire FSR output and have the same signal as FSX
+	 * CLKR must be ignored (Interrupt GPIO!) and be internally driven by CLKX
+	 */
 	{ /* disconnect CLKR from McBSP1 and drive from CLKX
 	   * see https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/commit/sound/soc/omap/omap-mcbsp.c?id=8fef6263ea68f6160637f370a5864d0a455c620d
 	   */
