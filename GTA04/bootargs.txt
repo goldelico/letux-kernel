@@ -48,7 +48,7 @@ setenv omapfbvram 0:8M,1:4M
 
 # compile boot args
 
-setenv bootargs "console=${console} mpurate=${mpurate} vram=${vram} omapfb.vram=${omapfbvram} omapfb.mode=dvi:${dvimode} omapfb.debug=y omapdss.def_disp=${defaultdisplay} ubi.mtd=${nand} root=${mmcroot} rootfstype=${mmcrootfstype}"
+setenv bootargs "console=${console} mux=${mux} mpurate=${mpurate} vram=${vram} omapfb.vram=${omapfbvram} omapfb.mode=dvi:${dvimode} omapfb.debug=y omapdss.def_disp=${defaultdisplay} ubi.mtd=${nand} root=${mmcroot} rootfstype=${mmcrootfstype}"
 
 # echo after: $bootargs
 # echo root: $mmcroot
