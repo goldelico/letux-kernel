@@ -138,7 +138,7 @@ static void __init gta04_init_rev(void)
 		5,
 		2
 	};
-	printk("Running gta04_init_rev()\n");
+//	printk("Running gta04_init_rev()\n");
 
 	omap_mux_init_gpio(171, OMAP_PIN_INPUT_PULLUP);
 	omap_mux_init_gpio(172, OMAP_PIN_INPUT_PULLUP);
@@ -170,7 +170,7 @@ static void __init gta04_init_rev(void)
 				| (gpio_get_value(172) << 1)
 				| (gpio_get_value(173) << 2);
 
-	printk("gta04_rev %u\n", gta04_rev);
+//	printk("gta04_rev %u\n", gta04_rev);
 
 	gta04_version = revision[gta04_rev];
 
@@ -297,13 +297,25 @@ static void gta04_disable_lcd(struct omap_dss_device *dssdev)
 static struct omap_dss_device gta04_lcd_device = {
 	.type = OMAP_DISPLAY_TYPE_DPI,
 	.name = "lcd",
-#if defined(CONFIG_PANEL_ORTUS_COM37H3M05DTC)
-    .driver_name = "com37h3m05dtc_panel",           // GTA04b2 - OpenPhoenux 3704
-#elif defined(CONFIG_PANEL_SHARP_LQ070V3DG3B)
-    .driver_name = "lq070y3dg3b_panel",             // GTA04b3 - OpenPhoenux 7004
-#elif defined(CONFIG_PANEL_TPO_TD028TTEC1)
     .driver_name = "td028ttec1_panel",              // GTA04 - OpenPhoenux 2804
-#endif
+	.phy.dpi.data_lines = 24,
+	.platform_enable = gta04_enable_lcd,
+	.platform_disable = gta04_disable_lcd,
+};
+
+static struct omap_dss_device gta04_lcd_device_b2 = {
+	.type = OMAP_DISPLAY_TYPE_DPI,
+	.name = "lcd",
+    .driver_name = "com37h3m05dtc_panel",           // GTA04b2 - OpenPhoenux 3704
+	.phy.dpi.data_lines = 24,
+	.platform_enable = gta04_enable_lcd,
+	.platform_disable = gta04_disable_lcd,
+};
+
+static struct omap_dss_device gta04_lcd_device_b3 = {
+	.type = OMAP_DISPLAY_TYPE_DPI,
+	.name = "lcd",
+    .driver_name = "lq070y3dg3b_panel",             // GTA04b3 - OpenPhoenux 7004
 	.phy.dpi.data_lines = 24,
 	.platform_enable = gta04_enable_lcd,
 	.platform_disable = gta04_disable_lcd,
@@ -742,6 +754,7 @@ static struct twl4030_script sleep_on_script __initdata = {
 	.flags	= TWL4030_SLEEP_SCRIPT,
 };
 
+#ifdef UNUSED
 static struct twl4030_ins wakeup_p12_seq[] __initdata = {
 	{MSG_SINGULAR(DEV_GRP_P1, RES_VINTANA1, RES_STATE_ACTIVE), 2},
 	{MSG_SINGULAR(DEV_GRP_P1, RES_VINTANA2, RES_STATE_ACTIVE), 2},
@@ -803,6 +816,7 @@ static struct twl4030_script *twl4030_scripts[] __initdata = {	// not used
 	&sleep_on_script,
 	&wrst_script,
 };
+#endif
 
 #define TWL_RES_CFG(_res, _devg) { .resource = _res, .devgroup = _devg, \
 	.type = TWL4030_RESCONFIG_UNDEF, .type2 = TWL4030_RESCONFIG_UNDEF,}
@@ -955,15 +969,7 @@ static void tsc2007_exit(void)
 
 struct tsc2007_platform_data __initdata tsc2007_info = {
 	.model			= 2007,
-#if defined(CONFIG_PANEL_ORTUS_COM37H3M05DTC)
-	.x_plate_ohms		= 600,		// GTA04b2: 200 - 900
-#elif defined(CONFIG_PANEL_TPO_TD028TTEC1)
 	.x_plate_ohms		= 550,			// GTA04: 250 - 900
-#elif defined(CONFIG_PANEL_SHARP_LQ070Y3DG3B)
-	.x_plate_ohms		= 450,			// GTA04b3: 100 - 900
-#elif defined(CONFIG_PANEL_SHARP_LQ050W1LC1B)
-	.x_plate_ohms		= 400,			// GTA04b4: 100 - 850 (very asymmetric between X and Y!)
-#endif
 	.get_pendown_state	= ts_get_pendown_state,
 	.init_platform_hw	= tsc2007_init,
 	.exit_platform_hw	= tsc2007_exit,
@@ -988,24 +994,29 @@ void tca6507_setup(unsigned gpio_base, unsigned ngpio)
 }
 
 static struct led_info tca6507_leds[] = {
-#if defined(CONFIG_PANEL_TPO_TD028TTEC1)	/* 2804 */
 	[0] = { .name = "gta04:red:aux" },
 	[1] = { .name = "gta04:green:aux" },
 	[3] = { .name = "gta04:red:power", .default_trigger = "default-on" },
 	[4] = { .name = "gta04:green:power" },
-#elif defined(CONFIG_PANEL_ORTUS_COM37H3M05DTC)	/* 3704 */
+	[6] = { .name = "gta04:wlan:reset", .flags = TCA6507_MAKE_GPIO },
+};
+
+static struct led_info tca6507_leds_b2[] = {
 	[0] = { .name = "gta04:left" },
 	[1] = { .name = "gta04:right", .default_trigger = "default-on" },
-#elif defined(CONFIG_PANEL_SHARP_LQ070V3DG3B)	/* 7004 */
+	[6] = { .name = "gta04:wlan:reset", .flags = TCA6507_MAKE_GPIO },
+};
+
+static struct led_info tca6507_leds_b3[] = {
 	[0] = { .name = "gta04:red:aux" },
 	[1] = { .name = "gta04:green:aux" },
 	[2] = { .name = "gta04:blue:aux" },
 	[3] = { .name = "gta04:red:power", .default_trigger = "default-on" },
 	[4] = { .name = "gta04:green:power" },
 	[5] = { .name = "gta04:blue:power" },
-#endif
 	[6] = { .name = "gta04:wlan:reset", .flags = TCA6507_MAKE_GPIO },
 };
+
 static struct tca6507_platform_data tca6507_info = {
 	.leds = {
 		.num_leds = 7,
@@ -1677,7 +1688,7 @@ static void __init gta04_init(void)
 		devconf0 = omap_ctrl_readl(OMAP2_CONTROL_DEVCONF0);
 		devconf0 |= OMAP2_MCBSP1_CLKR_MASK;
 		omap_ctrl_writel(devconf0, OMAP2_CONTROL_DEVCONF0);
-		printk("CONTROL_DEVCONF0 = %08lx\n", devconf0);
+		printk("CONTROL_DEVCONF0 = %08lx\n", (unsigned long int) devconf0);
 		
 	}
 
@@ -1695,6 +1706,54 @@ static void __init gta04_init_late(void)
 #endif
 }
 
+/*
+ * for the GTA04 custom based devices we may have different
+ * displays and other peripherals which also need different
+ * pinmux. This has been delegated to U-Boot which passes
+ * us the pinmux configuration in the 'mux=' command line
+ * argument.
+ * We now configure the right display driver and adapt for
+ * the leds and touch screen.
+ * The defaults of all these configs are for the standard
+ * GTA04 so that this kernel works without a mux= argument
+ * on these devices.
+ */
+
+static int __init gta04_init_bymux(char *str)
+{
+	printk("gta04_init_bymux: %s", str);
+	if(strcmp(str, "GTA04") == 0 || strcmp(str, "GTA04A2") == 0 || strcmp(str, "GTA04A3+") == 0) {
+		// configure for TPO display (2804) - also the default
+		tsc2007_info.x_plate_ohms = 550;			// GTA04: 250 - 900
+		tca6507_info.leds.leds = tca6507_leds;
+		gta04_dss_data.default_device=gta04_dss_devices[2]=&gta04_lcd_device;
+	}
+	else if(strcmp(str, "GTA04B2") == 0) {
+		// configure for Ortus display (3704)
+		tsc2007_info.x_plate_ohms = 600;		// GTA04b2: 200 - 900
+		tca6507_info.leds.leds = tca6507_leds_b2;
+		gta04_dss_data.default_device=gta04_dss_devices[2]=&gta04_lcd_device_b2;
+		// FIXME: configure RFID driver
+	}
+	else if(strcmp(str, "GTA04B3") == 0) {
+		// configure for 7" Sharp display (7004)
+		tsc2007_info.x_plate_ohms = 450;			// GTA04b3: 100 - 900
+		tca6507_info.leds.leds = tca6507_leds_b3;
+		gta04_dss_data.default_device=gta04_dss_devices[2]=&gta04_lcd_device_b3;
+	}
+	else if(strcmp(str, "GTA04B4") == 0) {
+		// configure for 5" Sharp display (5004)
+		tsc2007_info.x_plate_ohms = 400;			// GTA04b4: 100 - 850 (very asymmetric between X and Y!)
+		// FIXME: configure display and LEDs
+	}
+	else {
+		printk("UNKNOWN PINMUX!\n");
+		// maybe we should stop booting here before we risk to damage some hardware!
+	}
+	return 1;
+}
+__setup("mux=", gta04_init_bymux);
+
 /* see http://elinux.org/images/4/48/Experiences_With_Device_Tree_Support_Development_For_ARM-Based_SOC's.pdf */
 
 static char const *gta04_dt_compat[] __initdata = {
@@ -1706,9 +1765,6 @@ static char const *gta04_dt_compat[] __initdata = {
 
 MACHINE_START(GTA04, "GTA04")
 	/* Maintainer: Nikolaus Schaller - http://www.gta04.org */
-// 	.phys_io	= 0x48000000,
-// 	.io_pg_offst	= ((0xfa000000) >> 18) & 0xfffc,
-//	.boot_params	=	0x80000100,
 	.atag_offset	=	0x100,
 	.reserve	=	omap_reserve,
 	.map_io		=	omap3_map_io,
