@@ -2194,12 +2194,8 @@ int snd_soc_dapm_mixer_update_power(struct snd_soc_dapm_context *dapm,
 }
 EXPORT_SYMBOL_GPL(snd_soc_dapm_mixer_update_power);
 
-/* show dapm widget status in sys fs */
-static ssize_t dapm_widget_show(struct device *dev,
-	struct device_attribute *attr, char *buf)
+static ssize_t dapm_widget_show_codec(struct snd_soc_codec *codec, char *buf)
 {
-	struct snd_soc_pcm_runtime *rtd = dev_get_drvdata(dev);
-	struct snd_soc_codec *codec =rtd->codec;
 	struct snd_soc_dapm_widget *w;
 	int count = 0;
 	char *state = "not set";
@@ -2248,6 +2244,22 @@ static ssize_t dapm_widget_show(struct device *dev,
 		break;
 	}
 	count += sprintf(buf + count, "PM State: %s\n", state);
+
+	return count;
+}
+
+/* show dapm widget status in sys fs */
+static ssize_t dapm_widget_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct snd_soc_pcm_runtime *rtd = dev_get_drvdata(dev);
+	struct snd_soc_codec *codec;
+	int i, count = 0;
+
+	for (i = 0; i < rtd->num_codecs; i++) {
+		codec = rtd->codecs[i].codec;
+		count += dapm_widget_show_codec(codec, buf + count);
+	}
 
 	return count;
 }
@@ -3634,31 +3646,23 @@ int snd_soc_dapm_link_dai_widgets(struct snd_soc_card *card)
 	return 0;
 }
 
-void snd_soc_dapm_connect_dai_link_widgets(struct snd_soc_card *card)
+static void multicodec_dai_link_widgets(struct snd_soc_card *card,
+					struct snd_soc_pcm_runtime *rtd)
 {
-	struct snd_soc_pcm_runtime *rtd = card->rtd;
 	struct snd_soc_dai *cpu_dai, *codec_dai;
 	struct snd_soc_dapm_route r;
-	int i;
+	int j;
+
+	cpu_dai = rtd->cpu_dai;
 
 	memset(&r, 0, sizeof(r));
 
-	/* for each BE DAI link... */
-	for (i = 0; i < card->num_rtd; i++) {
-		rtd = &card->rtd[i];
-		cpu_dai = rtd->cpu_dai;
-		codec_dai = rtd->codec_dai;
+	for (j = 0; j < rtd->num_codecs; j++) {
+		codec_dai = rtd->codecs[j].codec_dai;
 
-		/*
-		 * dynamic FE links have no fixed DAI mapping.
-		 * CODEC<->CODEC links have no direct connection.
-		 */
-		if (rtd->dai_link->dynamic || rtd->dai_link->params)
-			continue;
-
-		/* there is no point in connecting BE DAI links with dummies */
+		 /* there is no point in connecting BE DAI links with dummies */
 		if (snd_soc_dai_is_dummy(codec_dai) ||
-			snd_soc_dai_is_dummy(cpu_dai))
+				snd_soc_dai_is_dummy(cpu_dai))
 			continue;
 
 		/* connect BE DAI playback if widgets are valid */
@@ -3666,8 +3670,8 @@ void snd_soc_dapm_connect_dai_link_widgets(struct snd_soc_card *card)
 			r.source = cpu_dai->playback_widget->name;
 			r.sink = codec_dai->playback_widget->name;
 			dev_dbg(rtd->dev, "connected DAI link %s:%s -> %s:%s\n",
-				cpu_dai->codec->name, r.source,
-				codec_dai->platform->name, r.sink);
+					cpu_dai->codec->name, r.source,
+					codec_dai->platform->name, r.sink);
 
 			snd_soc_dapm_add_route(&card->dapm, &r, true);
 		}
@@ -3677,22 +3681,39 @@ void snd_soc_dapm_connect_dai_link_widgets(struct snd_soc_card *card)
 			r.source = codec_dai->capture_widget->name;
 			r.sink = cpu_dai->capture_widget->name;
 			dev_dbg(rtd->dev, "connected DAI link %s:%s -> %s:%s\n",
-				codec_dai->codec->name, r.source,
-				cpu_dai->platform->name, r.sink);
+					codec_dai->codec->name, r.source,
+					cpu_dai->platform->name, r.sink);
 
 			snd_soc_dapm_add_route(&card->dapm, &r, true);
 		}
-
 	}
 }
 
-static void soc_dapm_stream_event(struct snd_soc_pcm_runtime *rtd, int stream,
-	int event)
+void snd_soc_dapm_connect_dai_link_widgets(struct snd_soc_card *card)
 {
+	struct snd_soc_pcm_runtime *rtd = card->rtd;
+	int i;
 
+	/* for each BE DAI link... */
+	for (i = 0; i < card->num_rtd; i++) {
+		rtd = &card->rtd[i];
+		/*
+		 * dynamic FE links have no fixed DAI mapping.
+		 * CODEC<->CODEC links have no direct connection.
+		 */
+		if (rtd->dai_link->dynamic || rtd->dai_link->params)
+			continue;
+
+		multicodec_dai_link_widgets(card, rtd);
+	}
+}
+
+static void soc_dapm_stream_event(struct snd_soc_pcm_runtime *rtd,
+				  struct snd_soc_dai *cpu_dai,
+				  struct snd_soc_dai *codec_dai,
+				  int stream, int event)
+{
 	struct snd_soc_dapm_widget *w_cpu, *w_codec;
-	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 
 	if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		w_cpu = cpu_dai->playback_widget;
@@ -3758,9 +3779,15 @@ void snd_soc_dapm_stream_event(struct snd_soc_pcm_runtime *rtd, int stream,
 			      int event)
 {
 	struct snd_soc_card *card = rtd->card;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct snd_soc_dai *codec_dai;
+	int i;
 
 	mutex_lock_nested(&card->dapm_mutex, SND_SOC_DAPM_CLASS_RUNTIME);
-	soc_dapm_stream_event(rtd, stream, event);
+	for (i = 0; i < rtd->num_codecs; i++) {
+		codec_dai = rtd->codecs[i].codec_dai;
+		soc_dapm_stream_event(rtd, cpu_dai, codec_dai, stream, event);
+	}
 	mutex_unlock(&card->dapm_mutex);
 }
 
