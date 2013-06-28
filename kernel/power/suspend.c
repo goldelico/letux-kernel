@@ -137,7 +137,7 @@ static int suspend_prepare(suspend_state_t state)
 	if (need_suspend_ops(state) && (!suspend_ops || !suspend_ops->enter))
 		return -EPERM;
 
-//	pm_prepare_console();
+	pm_prepare_console();
 
 	error = pm_notifier_call_chain(PM_SUSPEND_PREPARE);
 	if (error)
@@ -151,7 +151,7 @@ static int suspend_prepare(suspend_state_t state)
 	dpm_save_failed_step(SUSPEND_FREEZE);
  Finish:
 	pm_notifier_call_chain(PM_POST_SUSPEND);
-//	pm_restore_console();
+	pm_restore_console();
 	return error;
 }
 
@@ -309,7 +309,7 @@ static void suspend_finish(void)
 {
 	suspend_thaw_processes();
 	pm_notifier_call_chain(PM_POST_SUSPEND);
-//	pm_restore_console();
+	pm_restore_console();
 }
 
 /**
@@ -333,9 +333,9 @@ static int enter_state(suspend_state_t state)
 	if (state == PM_SUSPEND_FREEZE)
 		freeze_begin();
 
-	printk(KERN_INFO "PM: NOT Syncing filesystems ... ");
-//	sys_sync();
-//	printk("done.\n");
+	printk(KERN_INFO "PM: Syncing filesystems ... ");
+	sys_sync();
+	printk("done.\n");
 
 	pr_debug("PM: Preparing system for %s sleep\n", pm_states[state]);
 	error = suspend_prepare(state);
