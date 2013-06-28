@@ -1443,6 +1443,7 @@ static void __init gta04_init(void)
 	omap_mux_init_gpio(55, OMAP_PIN_OUTPUT);
 	omap_mux_init_gpio(13, OMAP_PIN_OUTPUT);
 
+	pm_set_vt_switch(0);
 	printk("gta04_init done...\n");
 }
 
