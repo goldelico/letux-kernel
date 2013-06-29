@@ -446,6 +446,11 @@ static struct twl4030_clock_init_data gta04_clock = {
 	.ck32k_lowpwr_enable = 1, /* Reduce power when on backup battery */
 };
 
+struct platform_device fey_bat = {
+        .name = "fey_battery",
+        .id = -1,
+};
+
 /* VMMC1 for MMC1 pins CMD, CLK, DAT0..DAT3 (20 mA, plus card == max 220 mA) */
 static struct regulator_init_data gta04_vmmc1 = {
 	.constraints = {
@@ -1691,6 +1696,9 @@ static void __init gta04_init(void)
 		printk("CONTROL_DEVCONF0 = %08lx\n", (unsigned long int) devconf0);
 		
 	}
+
+    //TODO: assure this runs after twl4030_madc is ready
+    platform_device_register(&fey_bat);
 
 	printk("gta04_init done...\n");
 }
