@@ -307,7 +307,7 @@ static void transmit_chars(struct uart_omap_port *up, unsigned int lsr)
 	}
 	if (uart_circ_empty(xmit) || uart_tx_stopped(&up->port)) {
 		serial_omap_stop_tx(&up->port);
-		serial_omap_set_forceidle(up);
+		//serial_omap_set_forceidle(up);
 		return;
 	}
 	count = up->port.fifosize / 4;
