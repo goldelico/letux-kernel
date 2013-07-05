@@ -20,7 +20,7 @@ snd-soc-am3517evm-objs := am3517evm.o
 snd-soc-omap-abe-twl6040-objs := omap-abe-twl6040.o
 snd-soc-omap-twl4030-objs := omap-twl4030.o
 snd-soc-omap3pandora-objs := omap3pandora.o
-snd-soc-gta04-objs := gta04-voice.o gta04-headset.o
+snd-soc-gta04-objs := gta04-voice.o gta04-headset.o gta04-jack.o
 # gta04-fm.o gta04-audio.o
 snd-soc-omap-hdmi-card-objs := omap-hdmi-card.o
 

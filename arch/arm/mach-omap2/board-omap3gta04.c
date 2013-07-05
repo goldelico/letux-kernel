@@ -263,6 +263,8 @@ static struct platform_device backlight_device = {
 	.id = -1,
 };
 
+extern int gta04_jack_probe(struct snd_soc_codec *codec);
+extern void gta04_jack_remove(struct snd_soc_codec *codec);
 static struct omap_tw4030_pdata audio_pdata = {
 //	.voice_connected = true,
 	.custom_routing = true,
@@ -277,6 +279,9 @@ static struct omap_tw4030_pdata audio_pdata = {
 	.has_linein	= OMAP_TWL4030_LEFT | OMAP_TWL4030_RIGHT,
 
 	.card_name = "gta04",
+
+	.jack_init	= gta04_jack_probe,
+	.jack_remove	= gta04_jack_remove,
 };
 static struct platform_device twl4030_audio_device = {
 	.name = "omap-twl4030",
@@ -1499,7 +1504,6 @@ gta04_fixup(struct tag *tags, char **cmdline, struct meminfo *mi)
 		if (tags->hdr.tag == ATAG_CMDLINE &&
 		    strstr(tags->u.cmdline.cmdline, "mpurate=1000"))
 			mpu1GHz = 1;
-	}
 }
 
 MACHINE_START(GTA04, "GTA04")
