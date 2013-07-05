@@ -24,7 +24,6 @@
 #include <sound/soc-dapm.h>
 
 #include "omap-mcbsp.h"
-#include "omap-pcm.h"
 #include "../codecs/w2cbw003-bt.h"
 
 static int gta04_headset_hw_params(struct snd_pcm_substream *substream,
