@@ -58,6 +58,7 @@
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 #include <asm/mach/flash.h>
+#include <asm/setup.h>
 
 #include "common.h"
 #include <video/omapdss.h>
@@ -1307,6 +1308,8 @@ static void gta04_serial_init(void)
 	omap_serial_init_port(&bdata, NULL);
 }
 
+static int mpu1GHz = 0;
+
 static int __init gta04_opp_init(void)
 {
 	int r = 0;
@@ -1335,13 +1338,14 @@ static int __init gta04_opp_init(void)
 		}
 		/* Enable MPU 1GHz and lower opps */
 		r  = opp_enable(mpu_dev,  800000000);
-		r |= opp_enable(mpu_dev, 1000000000);
-		/* TODO: MPU 1GHz needs SR and ABB */
+		if (mpu1GHz)
+			r |= opp_enable(mpu_dev, 1000000000);
 
 		/* Enable IVA 800MHz and lower opps */
 		r |= opp_enable(iva_dev, 660000000);
-		r |= opp_enable(iva_dev, 800000000);
-		/* TODO: DSP 800MHz needs SR and ABB */
+		if (mpu1GHz)
+			r |= opp_enable(iva_dev, 800000000);
+
 		if (r) {
 			pr_err("%s: failed to enable higher opp %d\n",
 				__func__, r);
@@ -1481,6 +1485,23 @@ static void __init gta04_init_late(void)
 	omap3_pm_off_mode_enable(1);
 }
 
+static void __init
+gta04_fixup(struct tag *tags, char **cmdline, struct meminfo *mi)
+{
+	/* uboot puts an "mpurate=" option on the command line.
+	 * Unfortunately it also puts other things that make
+	 * a mess of the display, and the "mpurate=" setting is
+	 * ignored.
+	 * So search for it here and remember if it existed
+	 * for later.
+	 */
+	for (; tags && tags->hdr.size; tags = tag_next(tags))
+		if (tags->hdr.tag == ATAG_CMDLINE &&
+		    strstr(tags->u.cmdline.cmdline, "mpurate=1000"))
+			mpu1GHz = 1;
+	}
+}
+
 MACHINE_START(GTA04, "GTA04")
 	/* Maintainer: Nikolaus Schaller - http://www.gta04.org */
 // 	.phys_io	= 0x48000000,
@@ -1496,4 +1517,5 @@ MACHINE_START(GTA04, "GTA04")
 	.init_late	=	gta04_init_late,
 	.init_time	=	omap3_secure_sync32k_timer_init,
 	.restart	=	omap3xxx_restart,
+	.fixup		=	gta04_fixup,
 MACHINE_END
