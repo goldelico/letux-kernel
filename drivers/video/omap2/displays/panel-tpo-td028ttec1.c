@@ -77,6 +77,10 @@ static struct jbt_info _jbt, *jbt = &_jbt;
 
 #define SPI_DELAY()	udelay(200)
 
+struct panel_drv_data {
+	struct mutex lock;
+};
+
 static int jbt_spi_xfer(int wordnum, int bitlen, u_int16_t *dout)
 {
 	u_int16_t tmpdout = 0;
@@ -264,7 +268,13 @@ enum jbt_register {
 static int td028ttec1_panel_probe(struct omap_dss_device *dssdev)
 {
 	int rc;
-	
+	struct panel_drv_data *drv_data = NULL;
+
+	drv_data = devm_kzalloc(&dssdev->dev, sizeof(*drv_data), GFP_KERNEL);
+	if (!drv_data)
+		return -ENOMEM;
+	mutex_init(&drv_data->lock);
+
 	printk("td028ttec1_panel_probe()\n");
 	dssdev->panel.timings = td028ttec1_panel_timings;
 	
@@ -280,20 +290,24 @@ static void td028ttec1_panel_remove(struct omap_dss_device *dssdev)
 	// disable GPIOs?
 }
 
-
 static int td028ttec1_panel_enable(struct omap_dss_device *dssdev)
 {
+	struct panel_drv_data *drv_data = dev_get_drvdata(&dssdev->dev);
 	int rc = 0;
-	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE)
+	printk("td028ttec1_panel_enable() - state %d\n", dssdev->state);
+	mutex_lock(&drv_data->lock);
+	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE) {
+		mutex_unlock(&drv_data->lock);
 		return rc;
-
-	printk("td028ttec1_panel_enable()\n");
+	}
 
 	if (dssdev->platform_enable)
 		rc = dssdev->platform_enable(dssdev);	// enable e.g. power, backlight
 
-	if(rc)
+	if(rc) {
+		mutex_unlock(&drv_data->lock);
 		return rc;
+	}
 
 	// 1. standby_to_sleep()
 
@@ -384,16 +398,25 @@ static int td028ttec1_panel_enable(struct omap_dss_device *dssdev)
 	omapdss_dpi_set_timings(dssdev, &dssdev->panel.timings);
 	omapdss_dpi_set_data_lines(dssdev, dssdev->phy.dpi.data_lines);
 	rc |= omapdss_dpi_display_enable(dssdev);
-	if(rc)
+	if(rc) {
+		mutex_unlock(&drv_data->lock);
 		return -EIO;
+	}
 	dssdev->state = OMAP_DSS_DISPLAY_ACTIVE;
+	mutex_unlock(&drv_data->lock);
 
 	return 0;
 }
 
 static void td028ttec1_panel_disable(struct omap_dss_device *dssdev)
 {
+	struct panel_drv_data *drv_data = dev_get_drvdata(&dssdev->dev);
 	printk("td028ttec1_panel_disable()\n");
+	mutex_lock(&drv_data->lock);
+	if (dssdev->state == OMAP_DSS_DISPLAY_DISABLED) {
+		mutex_unlock(&drv_data->lock);
+		return;
+	}
 	if (dssdev->platform_disable)
 		dssdev->platform_disable(dssdev);
 
@@ -412,6 +435,7 @@ static void td028ttec1_panel_disable(struct omap_dss_device *dssdev)
 	jbt_reg_write(jbt, JBT_REG_POWER_ON_OFF, 0x00);
 
 	dssdev->state=OMAP_DSS_DISPLAY_DISABLED;
+	mutex_unlock(&drv_data->lock);
 }
 
 static void td028ttec1_panel_set_timings(struct omap_dss_device *dssdev,
