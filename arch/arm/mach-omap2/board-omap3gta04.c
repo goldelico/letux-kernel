@@ -1765,12 +1765,12 @@ gta04_fixup(struct tag *tags, char **cmdline, struct meminfo *mi)
  * the leds and touch screen.
  * The defaults of all these configs are for the standard
  * GTA04 so that this kernel works without a mux= argument
- * on these devices.
+ * (older U-Boot) on such devices.
  */
 
 static int __init gta04_init_bymux(char *str)
 {
-	printk("gta04_init_bymux: %s", str);
+	printk(KERN_INFO "gta04_init_bymux: %s", str);
 	if(strcmp(str, "GTA04") == 0 || strcmp(str, "GTA04A2") == 0 || strcmp(str, "GTA04A3+") == 0) {
 		// configure for TPO display (2804) - also the default
 		tsc2007_info.x_plate_ohms = 550;			// GTA04: 250 - 900
@@ -1796,7 +1796,7 @@ static int __init gta04_init_bymux(char *str)
 		// FIXME: configure display and LEDs
 	}
 	else {
-		printk("UNKNOWN PINMUX!\n");
+		printk(KERN_EMERG "UNKNOWN PINMUX %s!\n", str);
 		// maybe we should stop booting here before we risk to damage some hardware!
 	}
 	return 1;
