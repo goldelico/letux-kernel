@@ -63,6 +63,7 @@
 #include "common.h"
 #include <video/omapdss.h>
 #include <video/omap-panel-data.h>
+#include <video/omap-panel-tpo-td028ttec1.h>
 #include "gpmc.h"
 #include <linux/platform_data/mtd-nand-omap2.h>
 #include "clock.h"
@@ -311,6 +312,13 @@ static void gta04_disable_lcd(struct omap_dss_device *dssdev)
 	printk("gta04_disable_lcd()\n");
 }
 
+static struct panel_td028ttec1_data panel_data = {
+	.gpio_cs = 19,
+	.gpio_scl = 12,
+	.gpio_din = 18,
+	.gpio_dout = 20,
+};
+
 static struct omap_dss_device gta04_lcd_device = {
 	.type = OMAP_DISPLAY_TYPE_DPI,
 	.name = "lcd",
@@ -318,6 +326,7 @@ static struct omap_dss_device gta04_lcd_device = {
 	.phy.dpi.data_lines = 24,
 	.platform_enable = gta04_enable_lcd,
 	.platform_disable = gta04_disable_lcd,
+	.data = &panel_data,
 };
 
 static int gta04_panel_enable_tv(struct omap_dss_device *dssdev)
