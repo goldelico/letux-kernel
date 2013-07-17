@@ -283,7 +283,12 @@ static int td028ttec1_panel_probe(struct omap_dss_device *dssdev)
 	dev_set_drvdata(dssdev->dev, drv_data);
 	printk("td028ttec1_panel_probe()\n");
 	dssdev->panel.timings = td028ttec1_panel_timings;
-	
+
+	if(!panel_data) {
+		printk("td028ttec1_panel_probe(): missing panel data to initialize GPIOs\n");
+		return -ENODEV;
+	}
+
 	jbt->gpio_cs = panel_data->gpio_cs;
 	jbt->gpio_scl = panel_data->gpio_scl;
 	jbt->gpio_din = panel_data->gpio_din;
