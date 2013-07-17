@@ -29,6 +29,7 @@
 
 //#include <plat/display.h>
 #include <video/omapdss.h>
+#include <video/omap-panel-tpo-td028ttec1.h>
 #include <linux/gpio.h>
 
 static struct omap_video_timings td028ttec1_panel_timings = {
@@ -54,6 +55,10 @@ struct jbt_info {
 	u_int16_t tx_buf[4];
 	struct spi_device *spi_dev;
 	int state;
+	int gpio_cs;
+	int gpio_scl;
+	int gpio_din;
+	int gpio_dout;
 };
 
 static struct jbt_info _jbt, *jbt = &_jbt;
@@ -61,16 +66,10 @@ static struct jbt_info _jbt, *jbt = &_jbt;
 #define JBT_COMMAND	0x000
 #define JBT_DATA	0x100
 
-// FIXME: this should be passed from the board initialization structure or should be set by driver parameters
-#define GPIO_CS		(machine_is_gta04()?19:161)
-#define GPIO_SCL	(machine_is_gta04()?12:162)
-#define GPIO_DIN	(machine_is_gta04()?18:159)
-#define GPIO_DOUT	(machine_is_gta04()?20:158)
-
-#define SPI_READ()      (gpio_get_value(GPIO_DIN))
-#define SPI_CS(bit) 	(gpio_set_value(GPIO_CS, bit))
-#define SPI_SDA(bit)    (gpio_set_value(GPIO_DOUT, bit))
-#define SPI_SCL(bit)    (gpio_set_value(GPIO_SCL, bit))
+#define SPI_READ()      (gpio_get_value(jbt->gpio_din))
+#define SPI_CS(bit) 	(gpio_set_value(jbt->gpio_cs, bit))
+#define SPI_SDA(bit)    (gpio_set_value(jbt->gpio_dout, bit))
+#define SPI_SCL(bit)    (gpio_set_value(jbt->gpio_scl, bit))
 
 /* 150uS minimum clock cycle, we have two of this plus our other
  * instructions */
@@ -152,33 +151,33 @@ int jbt_reg_write16(struct jbt_info *jbt, u_int8_t reg, u_int16_t data)
 	return rc;
 }
 
-int jbt_reg_init(void)
+static int jbt_reg_init(struct jbt_info *jbt)
 {
 	int r;
 	
 	printk("jbt_reg_init()\n");
 	
+	r = gpio_request(jbt->gpio_cs, "TD028_CS");
+	if(r < 0)
+		printk(KERN_ERR "Unable to get TD028_CS GPIO %d\n", jbt->gpio_cs);
+	r = gpio_request(jbt->gpio_scl, "TD028_SCL");
+	if(r < 0)
+		printk(KERN_ERR "Unable to get TD028_SCL GPIO %d\n", jbt->gpio_scl);
+	r = gpio_request(jbt->gpio_dout, "TD028_DOUT");
+	if(r < 0)
+		printk(KERN_ERR "Unable to get TD028_DOUT GPIO %d\n", jbt->gpio_dout);
+	r = gpio_request(jbt->gpio_din, "TD028_DIN");
+	if(r < 0)
+		printk(KERN_ERR "Unable to get TD028_DIN GPIO %d\n", jbt->gpio_din);
+
+	gpio_direction_output(jbt->gpio_cs, true);
+	gpio_direction_output(jbt->gpio_scl, true);
+	gpio_direction_output(jbt->gpio_dout, true);
+	gpio_direction_input(jbt->gpio_din);
+
 	SPI_CS(1);	// unselect
 	SPI_SCL(1);	// inactive
 	SPI_SDA(0);	// default
-	
-	r = gpio_request(GPIO_CS, "TD028_CS");
-	if(r < 0)
-		printk(KERN_ERR "Unable to get TD028_CS GPIO %d\n", GPIO_CS);
-	r = gpio_request(GPIO_SCL, "TD028_SCL");
-	if(r < 0)
-		printk(KERN_ERR "Unable to get TD028_SCL GPIO %d\n", GPIO_SCL);
-	r = gpio_request(GPIO_DOUT, "TD028_DOUT");
-	if(r < 0)
-		printk(KERN_ERR "Unable to get TD028_DOUT GPIO %d\n", GPIO_DOUT);
-	r = gpio_request(GPIO_DIN, "TD028_DIN");
-	if(r < 0)
-		printk(KERN_ERR "Unable to get TD028_DIN GPIO %d\n", GPIO_DIN);
-
-	gpio_direction_output(GPIO_CS, true);
-	gpio_direction_output(GPIO_SCL, true);
-	gpio_direction_output(GPIO_DOUT, true);
-	gpio_direction_input(GPIO_DIN);
 
 	/* according to data sheet: wait 50ms (Tpos of LCM). However, 50ms
 	 * seems unreliable with later LCM batches, increasing to 90ms */
@@ -261,15 +260,27 @@ enum jbt_register {
 	
 };
 
+static struct panel_td028ttec1_data
+*get_panel_data(struct omap_dss_device *dssdev)
+{
+	return (struct panel_td028ttec1_data *) dssdev->data;
+}
+
 static int td028ttec1_panel_probe(struct omap_dss_device *dssdev)
 {
+	struct panel_td028ttec1_data *panel_data = get_panel_data(dssdev);
 	int rc;
 	
 	printk("td028ttec1_panel_probe()\n");
 	dssdev->panel.acb = 0x28;
 	dssdev->panel.timings = td028ttec1_panel_timings;
 	
-	rc = jbt_reg_init();
+	jbt->gpio_cs = panel_data->gpio_cs;
+	jbt->gpio_scl = panel_data->gpio_scl;
+	jbt->gpio_din = panel_data->gpio_din;
+	jbt->gpio_dout = panel_data->gpio_dout;
+
+	rc = jbt_reg_init(jbt);
 	
 	return 0;
 	return rc ? -ENODEV : 0;
