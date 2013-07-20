@@ -96,59 +96,27 @@ static int twl4030_madc_bat_get_temp(void)
     return madc_read(BTEMP) * 10;
 }
 
-static int twl4030_madc_bat_voltscale(int volt)
+static int twl4030_madc_bat_voltscale(struct twl4030_madc_battery *bat, int volt)
 {
-    int lut[8][2];
-    /* Charging curve */
-    if (twl4030_madc_bat_get_charging_status())
-    {
-        lut[0][0] = 4200;
-        lut[0][1] = 100;
-        lut[1][0] = 4100;
-        lut[1][1] = 75;
-        lut[2][0] = 4000;
-        lut[2][1] = 55;
-        lut[3][0] = 3900;
-        lut[3][1] = 25;
-        lut[4][0] = 3800;
-        lut[4][1] = 5;
-        lut[5][0] = 3700;
-        lut[5][1] = 2;
-        lut[6][0] = 3600;
-        lut[6][1] = 1;
-        lut[7][0] = 3300;
-        lut[7][1] = 0;
-    }
-    /* Discharging curve */
-    else
-    {
-        lut[0][0] = 4200;
-        lut[0][1] = 100;
-        lut[1][0] = 4100;
-        lut[1][1] = 95;
-        lut[2][0] = 4000;
-        lut[2][1] = 70;
-        lut[3][0] = 3900;
-        lut[3][1] = 60;
-        lut[4][0] = 3800;
-        lut[4][1] = 50;
-        lut[5][0] = 3700;
-        lut[5][1] = 10;
-        lut[6][0] = 3600;
-        lut[6][1] = 5;
-        lut[7][0] = 3300;
-        lut[7][1] = 0;
-    }
+	struct twl4030_madc_bat_calibration *calibration;
 	int i, res = 0;
 
-	if (volt > lut[0][0])
-		res = lut[0][1];
+    /* choose charging curve */
+    if (twl4030_madc_bat_get_charging_status())
+		calibration = bat->pdata->charging;
 	else
-		for (i = 0; lut[i][1]; i++) {
-			if (volt <= lut[i][0] && volt >= lut[i+1][0]) {
-				res = lut[i][1] - (lut[i][0]-volt)*
-					(lut[i][1]-lut[i+1][1])/
-					(lut[i][0]-lut[i+1][0]);
+		calibration = bat->pdata->discharging;
+
+	/* FIXME: this assumes that the first entry is the largest one */
+	if (volt > calibration[0].voltage)
+		res = calibration[0].level;
+	else
+		for (i = 0; calibration[i+1].voltage >= 0; i++) {
+			if (volt <= calibration[i].voltage && volt >= calibration[i+1].voltage) {
+				/* interval found - interpolate within range */
+				res = calibration[i].level - ((calibration[i].voltage - volt)*
+					(calibration[i].level - calibration[i+1].level))/
+					(calibration[i].voltage - calibration[i+1].voltage);
 				break;
 			}
 		}
@@ -164,7 +132,7 @@ static int twl4030_madc_bat_get_property(struct power_supply *psy,
 	switch(psp) {
 
 	case POWER_SUPPLY_PROP_STATUS:
-        if (twl4030_madc_bat_voltscale(twl4030_madc_bat_get_voltage()/1000) > 95)
+        if (twl4030_madc_bat_voltscale(bat, twl4030_madc_bat_get_voltage()/1000) > 95)
             val->intval = POWER_SUPPLY_STATUS_FULL;
         else
         {
@@ -184,16 +152,17 @@ static int twl4030_madc_bat_get_property(struct power_supply *psy,
 		val->intval = twl4030_madc_bat_get_current();
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
-		val->intval = 1; // Most likely the device will not run without battery.
+			/* val->intval = twl4030_madc_bat_get_temp() < 560; /* madc appears to report 56C for a missing battery (i.e. no thermistor connected) */
+			/* but only during charging! */
+			val->intval = 1;	/* assume battery is always present */
 		break;
-	case POWER_SUPPLY_PROP_CHARGE_NOW:
-		{
-		int perc = twl4030_madc_bat_voltscale(twl4030_madc_bat_get_voltage()/1000);
-		val->intval = perc * bat->pdata->capacity / 100;
+	case POWER_SUPPLY_PROP_CHARGE_NOW: {
+			int percent = twl4030_madc_bat_voltscale(bat, twl4030_madc_bat_get_voltage()/1000);
+			val->intval = (percent * bat->pdata->capacity) / 100;
+			break;
 		}
-		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
-		val->intval = twl4030_madc_bat_voltscale(twl4030_madc_bat_get_voltage()/1000);
+		val->intval = twl4030_madc_bat_voltscale(bat, twl4030_madc_bat_get_voltage()/1000);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
 		val->intval = bat->pdata->capacity;
@@ -222,7 +191,7 @@ static int twl4030_madc_battery_probe(struct platform_device *pdev)
 	if (!twl4030_madc_bat)
 		return -ENOMEM;
 
-	twl4030_madc_bat->psy.name = "battery";
+	twl4030_madc_bat->psy.name = "twl4030_battery";
 	twl4030_madc_bat->psy.type = POWER_SUPPLY_TYPE_BATTERY;
 	twl4030_madc_bat->psy.properties = twl4030_madc_bat_props;
 	twl4030_madc_bat->psy.num_properties = ARRAY_SIZE(twl4030_madc_bat_props);
