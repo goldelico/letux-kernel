@@ -62,6 +62,8 @@
 #include <linux/input/tca8418_keypad.h>
 #include <linux/mfd/tps6105x.h>
 
+#include <linux/power/twl4030_madc_battery.h>
+
 #include <linux/sysfs.h>
 
 #include <asm/mach-types.h>
@@ -480,9 +482,34 @@ static struct twl4030_clock_init_data gta04_clock = {
 	.ck32k_lowpwr_enable = 1, /* Reduce power when on backup battery */
 };
 
-static struct twl4030_madc_bat_platform_data {
-	.capacity = 1200000;	/* total capacity in uAh */
-} gta04_battery_data;
+static struct twl4030_madc_bat_calibration gta04_battery_charging_data[] = {
+	{ 4200, 100 },
+	{ 4100, 75 },
+	{ 4000, 55 },
+	{ 3900, 25 },
+	{ 3800, 5 },
+	{ 3700, 2 },
+	{ 3600, 1 },
+	{ 3300, 0 },
+	{ -1, 0 }
+};
+
+static struct twl4030_madc_bat_calibration gta04_battery_discharging_data[] = {
+	{ 4200, 100 },
+	{ 4100, 95 },
+	{ 4000, 70 },
+	{ 3800, 50 },
+	{ 3700, 10 },
+	{ 3600, 5 },
+	{ 3300, 0 },
+	{ -1, 0 }
+};
+
+static struct twl4030_madc_bat_platform_data gta04_battery_data = {
+	.capacity = 1200000,	/* total capacity in uAh */
+	.charging = gta04_battery_charging_data,
+	.discharging = gta04_battery_discharging_data,
+};
 
 static struct platform_device twl4030_madc_bat = {
         .name = "twl4030_madc_battery",

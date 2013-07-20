@@ -18,9 +18,17 @@
 #ifndef __TWL4030_MADC_BATTERY_H
 #define __TWL4030_MADC_BATTERY_H
 
-struct twl4030_madc_bat_platform_data {
-	unsigned int capacity;	/* total capacity in uAh */
+/* usually we can assume 100% @ 4.15V and 0% @ 3.3V but curves differ for charging and discharging! */
+
+struct twl4030_madc_bat_calibration {
+	short voltage;	/* in mV - specify -1 for end of list */
+	short level;	/* in percent (0 .. 100%) */
 };
 
+struct twl4030_madc_bat_platform_data {
+	unsigned int capacity;	/* total capacity in uAh */
+	struct twl4030_madc_bat_calibration *charging;
+	struct twl4030_madc_bat_calibration *discharging;
+};
 
 #endif
