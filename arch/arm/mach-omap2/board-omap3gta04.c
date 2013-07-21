@@ -1822,6 +1822,7 @@ static int __init gta04_init_bymux(char *str)
 	}
 	else if(strcmp(str, "GTA04B2") == 0) {
 		// configure for Ortus display (3704)
+		gta04_battery_data.capacity = 3900000;
 		tsc2007_info.x_plate_ohms = 600;		// GTA04b2: 200 - 900
 		tca6507_info.leds.leds = tca6507_leds_b2;
 		gta04_dss_data.default_device=gta04_dss_devices[2]=&gta04_lcd_device_b2;
@@ -1829,6 +1830,7 @@ static int __init gta04_init_bymux(char *str)
 	}
 	else if(strcmp(str, "GTA04B3") == 0) {
 		// configure for 7" Sharp display (7004)
+		gta04_battery_data.capacity = 3900000;
 		tsc2007_info.x_plate_ohms = 450;			// GTA04b3: 100 - 900
 		tca6507_info.leds.leds = tca6507_leds_b3;
 		gta04_dss_data.default_device=gta04_dss_devices[2]=&gta04_lcd_device_b3;
