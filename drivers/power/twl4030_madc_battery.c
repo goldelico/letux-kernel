@@ -34,6 +34,7 @@ static enum power_supply_property twl4030_madc_bat_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_CHARGE_NOW,
 	POWER_SUPPLY_PROP_TEMP,
+	POWER_SUPPLY_PROP_TIME_TO_EMPTY_NOW,
 };
 
 /*  MADC channels
@@ -170,6 +171,13 @@ static int twl4030_madc_bat_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_TEMP:
 		val->intval = twl4030_madc_bat_get_temp();
 		break;
+	case POWER_SUPPLY_PROP_TIME_TO_EMPTY_NOW: {
+			/* take care against numeric overflows! */
+			int percent = twl4030_madc_bat_voltscale(bat, twl4030_madc_bat_get_voltage()/1000);
+			int charge = (percent * (bat->pdata->capacity / 1000)) /100;	/* in mAh */
+			val->intval = (3600l * charge) / 400;	/* assume discharge with 400 mA (ca. 1.5W) */
+			break;
+		}
 	default:
 		return -EINVAL;
 	}
