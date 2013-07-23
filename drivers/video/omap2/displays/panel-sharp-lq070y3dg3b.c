@@ -64,7 +64,7 @@ static int lq070y3dg3b_panel_probe(struct omap_dss_device *dssdev)
 		return -ENOMEM;
 	mutex_init(&drv_data->lock);
 	
-	// FIXME: where do we store drv_data?
+	dev_set_drvdata(&dssdev->dev, drv_data);
 	
 	printk("lq070y3dg3b_panel_probe()\n");
 	dssdev->panel.timings = lq070y3dg3b_panel_timings;
@@ -81,6 +81,7 @@ static void lq070y3dg3b_panel_remove(struct omap_dss_device *dssdev)
 	printk("lq070y3dg3b_panel_remove()\n");
 	gpio_free(GPIO_STBY);
 	// release mutex?
+	dev_set_drvdata(&dssdev->dev, NULL);
 }
 
 static void lq070y3dg3b_panel_disable(struct omap_dss_device *dssdev)
