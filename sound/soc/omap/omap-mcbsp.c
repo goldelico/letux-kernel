@@ -559,7 +559,7 @@ static int omap_mcbsp_dai_set_tristate(struct snd_soc_dai *dai,
 		case 3: gpio=140; break;	/* may also be GPIO 144 or 158 in different modes! */
 		case 4: gpio=154; break;	/* may also be on GPIO 57 in different mode! */
 		case 5: gpio=20; mode = OMAP_MUX_MODE1; break;
-		default: -EIO;
+		default: return -EIO;
 	}
 	
 	/* should check for errors */

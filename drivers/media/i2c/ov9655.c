@@ -940,7 +940,7 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 	unsigned int yskip;
 	unsigned int xbin;
 	unsigned int ybin;
-	int ret;
+	int ret = 0;
 
 	dev_info(&client->dev, "ov9655_set_params\n");
 	

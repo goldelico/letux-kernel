@@ -44,6 +44,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include <linux/version.h>
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,1,0))
+#warning /procfs has been changed from 3.9 to 3.10 and this code is broken
+#define FIXME
+#endif
+
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,38))
 #ifndef AUTOCONF_INCLUDED
 #include <linux/config.h>
@@ -249,10 +254,11 @@ static IMG_INT pvr_proc_open(struct inode *inode,struct file *file)
 	IMG_INT ret = seq_open(file, &pvr_proc_seq_operations);
 
 	struct seq_file *seq = (struct seq_file*)file->private_data;
+#ifndef FIXME
 	struct proc_dir_entry* pvr_proc_entry = PDE(inode);
-
 	/* Add pointer to handlers to seq_file structure */
 	seq->private = pvr_proc_entry->data;
+#endif
 	return ret;
 }
 
@@ -274,12 +280,14 @@ static ssize_t pvr_proc_write(struct file *file, const char __user *buffer,
 	struct proc_dir_entry * dp;
 
 	PVR_UNREFERENCED_PARAMETER(ppos);
+#ifndef FIXME
 	dp = PDE(inode);
 
 	if (!dp->write_proc)
 		return -EIO;
 
 	return dp->write_proc(file, buffer, count, dp->data);
+#endif
 }
 
 
@@ -449,9 +457,8 @@ static struct proc_dir_entry* CreateProcEntryInDirSeq(
     {
 		mode |= S_IWUSR;
     }
-
+#ifndef FIXME
 	file=create_proc_entry(name, mode, pdir);
-
     if (file)
     {
 		PVR_PROC_SEQ_HANDLERS *seq_handlers;
@@ -477,6 +484,7 @@ static struct proc_dir_entry* CreateProcEntryInDirSeq(
         	return file;
 		}
     }
+#endif
 
     PVR_DPF((PVR_DBG_ERROR, "CreateProcEntryInDirSeq: cannot make proc entry /proc/%s/%s: no memory", PVRProcDirRoot, name));
     return NULL;
@@ -693,6 +701,7 @@ struct proc_dir_entry* CreatePerProcessProcEntrySeq (
 *****************************************************************************/
 IMG_VOID RemoveProcEntrySeq( struct proc_dir_entry* proc_entry )
 {
+#ifndef FIXME
     if (dir)
     {
 		void* data = proc_entry->data ;
@@ -703,6 +712,7 @@ IMG_VOID RemoveProcEntrySeq( struct proc_dir_entry* proc_entry )
 			kfree( data );
 
     }
+#endif
 }
 
 /*!
@@ -736,7 +746,7 @@ IMG_VOID RemovePerProcessProcEntrySeq(struct proc_dir_entry* proc_entry)
             return;
         }
     }
-
+#ifndef FIXME
     if (psPerProc->psProcDir)
     {
 		void* data = proc_entry->data ;
@@ -746,6 +756,7 @@ IMG_VOID RemovePerProcessProcEntrySeq(struct proc_dir_entry* proc_entry)
 		if(data)
 			kfree( data );
     }
+#endif
 }
 
 /*!
@@ -854,7 +865,7 @@ static IMG_INT CreateProcEntryInDir(struct proc_dir_entry *pdir, const IMG_CHAR 
     {
 	mode |= S_IWUSR;
     }
-
+#ifndef FIXME
     file = create_proc_entry(name, mode, pdir);
 
     if (file)
@@ -870,7 +881,7 @@ static IMG_INT CreateProcEntryInDir(struct proc_dir_entry *pdir, const IMG_CHAR 
 
         return 0;
     }
-
+#endif
     PVR_DPF((PVR_DBG_ERROR, "CreateProcEntry: cannot create proc entry %s in %s", name, pdir->name));
 
     return -ENOMEM;
@@ -1005,7 +1016,7 @@ IMG_INT CreateProcReadEntry(const IMG_CHAR * name, pvr_read_proc_t handler)
 
         return -ENOMEM;
     }
-
+#ifndef FIXME
 	/* PRQA S 0307 1 */ /* ignore warning about casting to different pointer type */
     file = create_proc_read_entry (name, S_IFREG | S_IRUGO, dir, pvr_read_proc, (IMG_VOID *)handler);
 
@@ -1016,7 +1027,7 @@ IMG_INT CreateProcReadEntry(const IMG_CHAR * name, pvr_read_proc_t handler)
 #endif
         return 0;
     }
-
+#endif
     PVR_DPF((PVR_DBG_ERROR, "CreateProcReadEntry: cannot make proc entry /proc/%s/%s: no memory", PVRProcDirRoot, name));
 
     return -ENOMEM;
@@ -1173,6 +1184,7 @@ IMG_VOID RemovePerProcessProcEntry(const IMG_CHAR *name)
 *****************************************************************************/
 IMG_VOID RemovePerProcessProcDir(PVRSRV_ENV_PER_PROCESS_DATA *psPerProc)
 {
+#ifndef FIXME
     if (psPerProc->psProcDir)
     {
         while (psPerProc->psProcDir->subdir)
@@ -1183,6 +1195,7 @@ IMG_VOID RemovePerProcessProcDir(PVRSRV_ENV_PER_PROCESS_DATA *psPerProc)
         }
         RemoveProcEntry(psPerProc->psProcDir->name);
     }
+#endif
 }
 
 /*!
@@ -1202,6 +1215,7 @@ IMG_VOID RemovePerProcessProcDir(PVRSRV_ENV_PER_PROCESS_DATA *psPerProc)
 *****************************************************************************/
 IMG_VOID RemoveProcEntries(IMG_VOID)
 {
+#ifndef FIXME
 #ifdef DEBUG
 	RemoveProcEntrySeq( g_pProcDebugLevel );
 #ifdef PVR_MANUAL_POWER_CONTROL
@@ -1221,6 +1235,7 @@ IMG_VOID RemoveProcEntries(IMG_VOID)
 	}
 
 	remove_proc_entry(PVRProcDirRoot, NULL);
+#endif
 }
 
 /*****************************************************************************

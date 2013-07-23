@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2008 Texas Instruments
  *
- * Modified from mach-omap2/board-omap3gta04.c
+ * Modified from mach-omap2/board-omap3beagle.c
  *
  * Initial code: Syed Mohammed Khasim
  *
@@ -1311,7 +1311,9 @@ static int gta04_cam_set_xclk(struct v4l2_subdev *subdev, int hz)
 {
 	struct isp_device *isp = v4l2_dev_to_isp_device(subdev->v4l2_dev);
 	printk("gta04_cam_set_xclk %d\n", hz);
-	return isp->platform_cb.set_xclk(isp, hz, CAMERA_XCLK);
+#warning Camera does not set XCLK frequency doe to API changed from 3.7 to 3.10
+//	return isp->platform_cb.set_xclk(isp, hz, CAMERA_XCLK);
+	return -EINVAL;
 }
 
 struct ov9655_platform_data ov9655_pdata = {
@@ -1368,8 +1370,9 @@ static void __init gta04_camera_setup(void) {
 	if(IS_ERR(reg))
 		pr_err("%s: cannot get vaux3 regulator\n", __func__);
 	else {
-		regulator_enable(reg);
-        if (omap3_init_camera(&gta04_isp_platform_data) < 0)
+		if (regulator_enable(reg) < 0)
+			pr_warn("%s: failed enabling vaux3 regulator!\n", __func__);
+        else if (omap3_init_camera(&gta04_isp_platform_data) < 0)
 			pr_warn("%s: failed registering camera device!\n", __func__);
 	}
 }
@@ -1680,7 +1683,6 @@ static void __init gta04_init(void)
 
 	omap_mux_init_gpio(WO3G_GPIO, OMAP_PIN_INPUT | OMAP_WAKEUP_EN);
 	gpio_3G_buttons[0].gpio = WO3G_GPIO;
-#endif
 	
 	platform_add_devices(gta04_devices,
 			     ARRAY_SIZE(gta04_devices));
@@ -1846,12 +1848,16 @@ static int __init gta04_init_bymux(char *str)
 	}
 	return 1;
 }
-__setup("mux=", gta04_init_bymux);
+
+// FIXME:
+#warning __setup("mux=", gta04_init_bymux);
+#warning results in arch/arm/mach-omap2/board-omap3gta04.c:1851:1: error: __setup_str_gta04_init_bymux causes a section type conflict
 
 /* see http://elinux.org/images/4/48/Experiences_With_Device_Tree_Support_Development_For_ARM-Based_SOC's.pdf */
 
 static char const *gta04_dt_compat[] __initdata = {
 	"goldelico,gta04",
+	// FIXME: do we still need this?
 	"goldelico,gta04b2",
 	"goldelico,gta04b3",
 	NULL

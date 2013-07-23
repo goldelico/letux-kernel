@@ -25,7 +25,6 @@
 
 #include "mcbsp.h"
 #include "omap-mcbsp.h"
-#include "omap-pcm.h"
 #include "../codecs/si47xx.h"
 
 /* FCLK is 96 MHz and is divided by the CLOCK_DIVISOR to generate the McBSP CLKX signal

@@ -205,6 +205,8 @@ sgx-y :=  \
 	services4/srvkm/devices/sgx/pb.o \
 
 # compile from drivers/gpu/drm what we need
+# this should be replaced by setting CONFIG_DRM=y
+# but when we tried it failed to compile
 
 drm-y :=  \
 	services4/3rdparty/linux_drm/pvr_drm_stubs.o \
@@ -233,6 +235,7 @@ drm-y :=  \
 	../../drm/drm_crtc.o \
 	../../drm/drm_modes.o \
 	../../drm/drm_edid.o \
+	../../../video/hdmi.o \
 	../../drm/drm_info.o \
 	../../drm/drm_debugfs.o \
 	../../drm/drm_encoder_slave.o \

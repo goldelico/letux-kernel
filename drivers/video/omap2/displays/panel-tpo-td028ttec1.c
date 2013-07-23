@@ -275,6 +275,8 @@ static int td028ttec1_panel_probe(struct omap_dss_device *dssdev)
 		return -ENOMEM;
 	mutex_init(&drv_data->lock);
 
+	// FIXME: where do we store drv_data?
+
 	printk("td028ttec1_panel_probe()\n");
 	dssdev->panel.timings = td028ttec1_panel_timings;
 	
@@ -288,6 +290,7 @@ static void td028ttec1_panel_remove(struct omap_dss_device *dssdev)
 {
 	printk("td028ttec1_panel_remove()\n");
 	// disable GPIOs?
+	// release mutex?
 }
 
 static int td028ttec1_panel_enable(struct omap_dss_device *dssdev)
@@ -434,7 +437,7 @@ static void td028ttec1_panel_disable(struct omap_dss_device *dssdev)
 
 	jbt_reg_write(jbt, JBT_REG_POWER_ON_OFF, 0x00);
 
-	dssdev->state=OMAP_DSS_DISPLAY_DISABLED;
+	dssdev->state = OMAP_DSS_DISPLAY_DISABLED;
 	mutex_unlock(&drv_data->lock);
 }
 

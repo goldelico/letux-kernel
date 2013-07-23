@@ -50,16 +50,23 @@ static struct omap_video_timings lq070y3dg3b_panel_timings = {
 
 #define GPIO_STBY (machine_is_gta04()?12:162)		/* 3.3V LDO controlled through McBSP5-CLKX of GTA04 */
 
+struct panel_drv_data {
+	struct mutex lock;
+};
+
 static int lq070y3dg3b_panel_probe(struct omap_dss_device *dssdev)
 {
 	int rc = 0;
+	struct panel_drv_data *drv_data = NULL;
+	
+	drv_data = devm_kzalloc(&dssdev->dev, sizeof(*drv_data), GFP_KERNEL);
+	if (!drv_data)
+		return -ENOMEM;
+	mutex_init(&drv_data->lock);
+	
+	// FIXME: where do we store drv_data?
+	
 	printk("lq070y3dg3b_panel_probe()\n");
-	/* not set: OMAP_DSS_LCD_IEO, OMAP_DSS_LCD_IPC, ACBI */
-	
-	// FIXME: match polarity
-	
-//	dssdev->panel.config = OMAP_DSS_LCD_TFT | OMAP_DSS_LCD_ONOFF | OMAP_DSS_LCD_RF | OMAP_DSS_LCD_IVS | OMAP_DSS_LCD_IHS;
-	dssdev->panel.acb = 0x28;
 	dssdev->panel.timings = lq070y3dg3b_panel_timings;
 	rc = gpio_request(GPIO_STBY, "LQ070_STBY");
 	if(rc < 0)
@@ -73,91 +80,64 @@ static void lq070y3dg3b_panel_remove(struct omap_dss_device *dssdev)
 {
 	printk("lq070y3dg3b_panel_remove()\n");
 	gpio_free(GPIO_STBY);
+	// release mutex?
 }
 
-static int lq070y3dg3b_panel_suspend(struct omap_dss_device *dssdev)
+static void lq070y3dg3b_panel_disable(struct omap_dss_device *dssdev)
 { // set STBY to 1
-	printk("lq070y3dg3b_panel_suspend()\n");
-	
-	if (dssdev->state != OMAP_DSS_DISPLAY_ACTIVE)
-		return 0;
-	
-	omapdss_dpi_display_disable(dssdev);
-	
+	struct panel_drv_data *drv_data = dev_get_drvdata(&dssdev->dev);
+	printk("lq070y3dg3b_panel_disable()\n");
+	mutex_lock(&drv_data->lock);
+	if (dssdev->state == OMAP_DSS_DISPLAY_DISABLED) {
+		mutex_unlock(&drv_data->lock);
+		return;
+	}	
+
 	/* turn off backlight */
 	if (dssdev->platform_disable)
 		dssdev->platform_disable(dssdev);
-	
-	gpio_set_value(GPIO_STBY, 0);	// disable 3.3V LDO
 
-	dssdev->state = OMAP_DSS_DISPLAY_SUSPENDED;
+	omapdss_dpi_display_disable(dssdev);
+
+	gpio_set_value(GPIO_STBY, 0);	// disable 3.3V LDO
 	
-	return 0;
+	dssdev->state = OMAP_DSS_DISPLAY_DISABLED;
+	mutex_unlock(&drv_data->lock);
 }
 
-static int lq070y3dg3b_panel_resume(struct omap_dss_device *dssdev)
+static int lq070y3dg3b_panel_enable(struct omap_dss_device *dssdev)
 { // set STBY to 0
-	int rc;
+	struct panel_drv_data *drv_data = dev_get_drvdata(&dssdev->dev);
+	int rc = 0;	
+	printk("lq070y3dg3b_panel_enable() - state %d\n", dssdev->state);
+	mutex_lock(&drv_data->lock);
+	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE) {
+		mutex_unlock(&drv_data->lock);
+		return rc;
+	}
 	
-	printk("lq070y3dg3b_panel_resume()\n");
+	// turn on backlight
+	if (dssdev->platform_enable)
+		rc = dssdev->platform_enable(dssdev);
+
+	if(rc) {
+		mutex_unlock(&drv_data->lock);
+		return rc;
+	}
 	
 	gpio_set_value(GPIO_STBY, 1);	// enable 3.3V LDO
 	
 	omapdss_dpi_set_timings(dssdev, &dssdev->panel.timings);
 	omapdss_dpi_set_data_lines(dssdev, dssdev->phy.dpi.data_lines);
-	rc = omapdss_dpi_display_enable(dssdev);
-	if(rc)
+	rc |= omapdss_dpi_display_enable(dssdev);
+	if(rc) {
+		mutex_unlock(&drv_data->lock);
 		return -EIO;
-	
-	// turn on backlight
-	if (dssdev->platform_enable)
-		dssdev->platform_enable(dssdev);
-	
+	}
 	dssdev->state = OMAP_DSS_DISPLAY_ACTIVE;
+	mutex_unlock(&drv_data->lock);
 	
 	return 0;
-}
-
-static int lq070y3dg3b_panel_enable(struct omap_dss_device *dssdev)
-{
-	int rc = 0;
-	
-	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE)
-		return 0;
-	
-	printk("lq070y3dg3b_panel_enable()\n");
-
-	if (dssdev->platform_enable)
-		rc = dssdev->platform_enable(dssdev);	// enable e.g. power, backlight
-
-	if(rc)
-		return rc;
-
-	// 1. standby_to_sleep()
-	
-	// 2. sleep_to_normal()
-	
-	lq070y3dg3b_panel_resume(dssdev);
-	
-	return rc ? -EIO : 0;
-}
-
-static void lq070y3dg3b_panel_disable(struct omap_dss_device *dssdev)
-{
-	
-	printk("lq070y3dg3b_panel_disable()\n");
-	if (dssdev->platform_disable)
-		dssdev->platform_disable(dssdev);
-	
-	// 1. normal_to_sleep()
-	
-	lq070y3dg3b_panel_suspend(dssdev);
-
-	// 2. sleep_to_standby()
-	
-	/* nothing to do */
-	
-	dssdev->state=OMAP_DSS_DISPLAY_DISABLED;
 }
 
 static void lq070y3dg3b_panel_set_timings(struct omap_dss_device *dssdev,
@@ -185,8 +165,6 @@ static struct omap_dss_driver lq070y3dg3b_driver = {
 
 	.enable		= lq070y3dg3b_panel_enable,
 	.disable	= lq070y3dg3b_panel_disable,
-	.suspend	= lq070y3dg3b_panel_suspend,
-	.resume		= lq070y3dg3b_panel_resume,
 
 	.set_timings	= lq070y3dg3b_panel_set_timings,
 	.get_timings	= lq070y3dg3b_panel_get_timings,

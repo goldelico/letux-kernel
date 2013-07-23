@@ -51,13 +51,23 @@ static struct omap_video_timings com37h3m05dtc_panel_timings = {
 // #define GPIO_STBY 158	/* V1 adapter board for BeagleBoard */
 #define GPIO_STBY 20		/* V2,V3,V4 adapter board for GTA04 */
 
+struct panel_drv_data {
+	struct mutex lock;
+};
+
 static int com37h3m05dtc_panel_probe(struct omap_dss_device *dssdev)
 {
 	int rc = 0;
+	struct panel_drv_data *drv_data = NULL;
+	
+	drv_data = devm_kzalloc(&dssdev->dev, sizeof(*drv_data), GFP_KERNEL);
+	if (!drv_data)
+		return -ENOMEM;
+	mutex_init(&drv_data->lock);
+	
+	// FIXME: where do we store drv_data?
+	
 	printk("com37h3m05dtc_panel_probe()\n");
-	/* not set: OMAP_DSS_LCD_IEO, OMAP_DSS_LCD_IPC, ACBI */
-//	dssdev->panel.config = OMAP_DSS_LCD_TFT | OMAP_DSS_LCD_ONOFF | OMAP_DSS_LCD_RF | OMAP_DSS_LCD_IVS | OMAP_DSS_LCD_IHS;
-	dssdev->panel.acb = 0x28;
 	dssdev->panel.timings = com37h3m05dtc_panel_timings;
 	rc = gpio_request(GPIO_STBY, "COM37_STBY");
 	if(rc < 0)
@@ -71,91 +81,64 @@ static void com37h3m05dtc_panel_remove(struct omap_dss_device *dssdev)
 {
 	printk("com37h3m05dtc_panel_remove()\n");
 	gpio_free(GPIO_STBY);
+	// release mutex?
 }
 
-static int com37h3m05dtc_panel_suspend(struct omap_dss_device *dssdev)
+static void com37h3m05dtc_panel_disable(struct omap_dss_device *dssdev)
 { // set STBYB to 0
-	printk("com37h3m05dtc_panel_suspend()\n");
-
-	if (dssdev->state != OMAP_DSS_DISPLAY_ACTIVE)
-		return 0;
-	
-	omapdss_dpi_display_disable(dssdev);
+	struct panel_drv_data *drv_data = dev_get_drvdata(&dssdev->dev);
+	printk("com37h3m05dtc_panel_disable()\n");
+	mutex_lock(&drv_data->lock);
+	if (dssdev->state == OMAP_DSS_DISPLAY_DISABLED) {
+		mutex_unlock(&drv_data->lock);
+		return;
+	}	
 	
 	/* turn off backlight */
 	if (dssdev->platform_disable)
 		dssdev->platform_disable(dssdev);
-
-	gpio_set_value(GPIO_STBY, 0);
 	
-	dssdev->state = OMAP_DSS_DISPLAY_SUSPENDED;
-
-	return 0;
-}
-
-static int com37h3m05dtc_panel_resume(struct omap_dss_device *dssdev)
-{ // set STBYB to 1
-	int rc;
-	
-	printk("com37h3m05dtc_panel_resume()\n");
+	omapdss_dpi_display_disable(dssdev);
 	
 	gpio_set_value(GPIO_STBY, 1);
 	
-	omapdss_dpi_set_timings(dssdev, &dssdev->panel.timings);
-	omapdss_dpi_set_data_lines(dssdev, dssdev->phy.dpi.data_lines);
-	rc = omapdss_dpi_display_enable(dssdev);
-	if(rc)
-		return -EIO;
-	
-	// turn on backlight
-	if (dssdev->platform_enable)
-		dssdev->platform_enable(dssdev);
-	
-	dssdev->state = OMAP_DSS_DISPLAY_ACTIVE;
-
-	return 0;
+	dssdev->state = OMAP_DSS_DISPLAY_DISABLED;
+	mutex_unlock(&drv_data->lock);
 }
 
 static int com37h3m05dtc_panel_enable(struct omap_dss_device *dssdev)
-{
-	int rc = 0;
-	
-	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE)
-		return 0;
-
-	printk("com37h3m05dtc_panel_enable()\n");
-
-	if (dssdev->platform_enable)
-		rc = dssdev->platform_enable(dssdev);	// enable e.g. power, backlight
-
-	if(rc)
+{ // set STBYB to 1
+	struct panel_drv_data *drv_data = dev_get_drvdata(&dssdev->dev);
+	int rc = 0;	
+	printk("lq070y3dg3b_panel_enable() - state %d\n", dssdev->state);
+	mutex_lock(&drv_data->lock);
+	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE) {
+		mutex_unlock(&drv_data->lock);
 		return rc;
-
-	// 1. standby_to_sleep()
+	}
 	
-	// 2. sleep_to_normal()
+	// turn on backlight
+	if (dssdev->platform_enable)
+		rc = dssdev->platform_enable(dssdev);
 	
-	com37h3m05dtc_panel_resume(dssdev);
+	if(rc) {
+		mutex_unlock(&drv_data->lock);
+		return rc;
+	}
 	
-	return rc ? -EIO : 0;
-}
-
-static void com37h3m05dtc_panel_disable(struct omap_dss_device *dssdev)
-{
+	gpio_set_value(GPIO_STBY, 0);
 	
-	printk("com37h3m05dtc_panel_disable()\n");
-	if (dssdev->platform_disable)
-		dssdev->platform_disable(dssdev);
+	omapdss_dpi_set_timings(dssdev, &dssdev->panel.timings);
+	omapdss_dpi_set_data_lines(dssdev, dssdev->phy.dpi.data_lines);
+	rc |= omapdss_dpi_display_enable(dssdev);
+	if(rc) {
+		mutex_unlock(&drv_data->lock);
+		return -EIO;
+	}
+	dssdev->state = OMAP_DSS_DISPLAY_ACTIVE;
+	mutex_unlock(&drv_data->lock);
 	
-	// 1. normal_to_sleep()
-	
-	com37h3m05dtc_panel_suspend(dssdev);
-
-	// 2. sleep_to_standby()
-
-	/* nothing to do */
-
-	dssdev->state=OMAP_DSS_DISPLAY_DISABLED;
+	return 0;
 }
 
 static void com37h3m05dtc_panel_set_timings(struct omap_dss_device *dssdev,
@@ -183,8 +166,6 @@ static struct omap_dss_driver com37h3m05dtc_driver = {
 
 	.enable		= com37h3m05dtc_panel_enable,
 	.disable	= com37h3m05dtc_panel_disable,
-	.suspend	= com37h3m05dtc_panel_suspend,
-	.resume		= com37h3m05dtc_panel_resume,
 
 	.set_timings	= com37h3m05dtc_panel_set_timings,
 	.get_timings	= com37h3m05dtc_panel_get_timings,

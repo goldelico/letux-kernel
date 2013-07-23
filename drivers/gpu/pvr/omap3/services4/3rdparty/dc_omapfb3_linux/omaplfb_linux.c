@@ -108,7 +108,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #endif
 
 #if defined(PVR_OMAPFB3_NEEDS_PLAT_VRFB_H)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,8,0))
+#include <video/omapvrfb.h>
+#else
 #include <plat/vrfb.h>
+#endif
 #else
 #if defined(PVR_OMAPFB3_NEEDS_MACH_VRFB_H)
 #include <mach/vrfb.h>
