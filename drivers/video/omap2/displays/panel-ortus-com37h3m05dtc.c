@@ -180,6 +180,7 @@ static struct omap_dss_driver com37h3m05dtc_driver = {
 
 static int __init com37h3m05dtc_panel_drv_init(void)
 {
+	printk("com37h3m05dtc_panel_drv_init()\n");
 	return omap_dss_register_driver(&com37h3m05dtc_driver);
 }
 

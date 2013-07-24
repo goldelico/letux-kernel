@@ -480,6 +480,7 @@ static struct omap_dss_driver td028ttec1_driver = {
 
 static int __init td028ttec1_panel_drv_init(void)
 {
+	printk("td028ttec1_panel_drv_init()\n");
 	return omap_dss_register_driver(&td028ttec1_driver);
 }
 
