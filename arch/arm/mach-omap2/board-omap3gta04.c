@@ -121,8 +121,6 @@
 #define CAMERA_STROBE_GPIO	126	/* CAM_STROBE */
 #define AUX_HEADSET_GPIO	55
 
-#define CAMERA_XCLK		ISP_XCLK_A
-
 /* see: https://patchwork.kernel.org/patch/120449/
  * OMAP3 gta04 revision
  * Run time detection of gta04 revision is done by reading GPIO.
@@ -1307,17 +1305,7 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 
 #if defined(CONFIG_VIDEO_OV9655) || defined(CONFIG_VIDEO_OV9655_MODULE)
 
-static int gta04_cam_set_xclk(struct v4l2_subdev *subdev, int hz)
-{
-	struct isp_device *isp = v4l2_dev_to_isp_device(subdev->v4l2_dev);
-	printk("gta04_cam_set_xclk %d\n", hz);
-#warning Camera does not set XCLK frequency doe to API changed from 3.7 to 3.10
-//	return isp->platform_cb.set_xclk(isp, hz, CAMERA_XCLK);
-	return -EINVAL;
-}
-
 struct ov9655_platform_data ov9655_pdata = {
-	.set_xclk	= gta04_cam_set_xclk,
 	.reset		= CAMERA_RESET_GPIO,
 };
 
@@ -1359,6 +1347,12 @@ static struct isp_v4l2_subdevs_group gta04_camera_subdevs_group[] = {
 
 static struct isp_platform_data gta04_isp_platform_data = {
 	.subdevs = gta04_camera_subdevs_group,
+	.xclks[0] = { /* XCLK_A */
+#warning what names/ids should we provide here?
+		.con_id = "cam_xclka?",
+		.dev_id = "cam_xclka?",
+	},
+	/* .set_constraints = & void (*set_constraints)(struct isp_device *isp, bool enable) */
 };
 
 static void __init gta04_camera_setup(void) {
