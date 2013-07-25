@@ -280,7 +280,7 @@ static int td028ttec1_panel_probe(struct omap_dss_device *dssdev)
 	if (!drv_data)
 		return -ENOMEM;
 	mutex_init(&drv_data->lock);
-
+	dev_set_drvdata(&dssdev->dev, drv_data);
 	printk("td028ttec1_panel_probe()\n");
 	dssdev->panel.timings = td028ttec1_panel_timings;
 	
@@ -297,8 +297,10 @@ static int td028ttec1_panel_probe(struct omap_dss_device *dssdev)
 
 static void td028ttec1_panel_remove(struct omap_dss_device *dssdev)
 {
+	struct panel_drv_data *drv_data = dev_get_drvdata(&dssdev->dev);
 	printk("td028ttec1_panel_remove()\n");
 	// disable GPIOs?
+	dev_set_drvdata(&dssdev->dev, NULL);
 }
 
 static int td028ttec1_panel_enable(struct omap_dss_device *dssdev)
