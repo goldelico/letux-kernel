@@ -297,7 +297,13 @@ static void gta04_disable_lcd(struct omap_dss_device *dssdev)
 	printk("gta04_disable_lcd()\n");
 }
 
-static struct panel_td028ttec1_data panel_data = {
+static struct panel_td028ttec1_data gta04_panel_data = {
+	/* FIXME: modify GPIOs for BeagleHybrid! It was:
+		#define GPIO_CS        (machine_is_gta04()?19:161)
+		#define GPIO_SCL       (machine_is_gta04()?12:162)
+		#define GPIO_DIN       (machine_is_gta04()?18:159)
+		#define GPIO_DOUT      (machine_is_gta04()?20:158)
+		*/
 	.gpio_cs = 19,
 	.gpio_scl = 12,
 	.gpio_din = 18,
@@ -311,6 +317,7 @@ static struct omap_dss_device gta04_lcd_device = {
 	.phy.dpi.data_lines = 24,
 	.platform_enable = gta04_enable_lcd,
 	.platform_disable = gta04_disable_lcd,
+	.data = &gta04_panel_data,
 };
 
 static struct omap_dss_device gta04_lcd_device_b2 = {
@@ -329,7 +336,6 @@ static struct omap_dss_device gta04_lcd_device_b3 = {
 	.phy.dpi.data_lines = 24,
 	.platform_enable = gta04_enable_lcd,
 	.platform_disable = gta04_disable_lcd,
-	.data = &panel_data,
 };
 
 static int gta04_panel_enable_tv(struct omap_dss_device *dssdev)
