@@ -60,6 +60,8 @@
 #include <linux/input/tca8418_keypad.h>
 #include <linux/mfd/tps6105x.h>
 
+#include <linux/power/twl4030_madc_battery.h>
+
 #include <linux/sysfs.h>
 
 #include <asm/mach-types.h>
@@ -454,6 +456,44 @@ static struct twl4030_gpio_platform_data gta04_gpio_data = {
 static struct twl4030_clock_init_data gta04_clock = {
 	.ck32k_lowpwr_enable = 1, /* Reduce power when on backup battery */
 };
+
+static struct twl4030_madc_bat_calibration gta04_battery_charging_data[] = {
+	{ 4200, 100 },
+	{ 4100, 75 },
+	{ 4000, 55 },
+	{ 3900, 25 },
+	{ 3800, 5 },
+	{ 3700, 2 },
+	{ 3600, 1 },
+	{ 3300, 0 },
+	{ -1, 0 }
+};
+
+static struct twl4030_madc_bat_calibration gta04_battery_discharging_data[] = {
+	{ 4200, 100 },
+	{ 4100, 95 },
+	{ 4000, 70 },
+	{ 3800, 50 },
+	{ 3700, 10 },
+	{ 3600, 5 },
+	{ 3300, 0 },
+	{ -1, 0 }
+};
+
+static struct twl4030_madc_bat_platform_data gta04_battery_data = {
+	.capacity = 1200000,	/* total capacity in uAh */
+	.charging = gta04_battery_charging_data,
+	.discharging = gta04_battery_discharging_data,
+};
+
+static struct platform_device twl4030_madc_bat = {
+        .name = "twl4030_madc_battery",
+        .id = -1,
+	.dev            = {
+		.platform_data = &gta04_battery_data,
+	},
+};
+
 
 /* VMMC1 for MMC1 pins CMD, CLK, DAT0..DAT3 (20 mA, plus card == max 220 mA) */
 static struct regulator_init_data gta04_vmmc1 = {
@@ -1701,6 +1741,9 @@ static void __init gta04_init(void)
 		
 	}
 
+    //TODO: assure this runs after twl4030_madc is ready
+    platform_device_register(&twl4030_madc_bat);
+
 	printk("gta04_init done...\n");
 }
 
@@ -1739,6 +1782,7 @@ static int __init gta04_init_bymux(char *str)
 	}
 	else if(strcmp(str, "GTA04B2") == 0) {
 		// configure for Ortus display (3704)
+		gta04_battery_data.capacity = 3900000;
 		tsc2007_info.x_plate_ohms = 600;		// GTA04b2: 200 - 900
 		tca6507_info.leds.leds = tca6507_leds_b2;
 		gta04_dss_data.default_device=gta04_dss_devices[2]=&gta04_lcd_device_b2;
@@ -1746,6 +1790,7 @@ static int __init gta04_init_bymux(char *str)
 	}
 	else if(strcmp(str, "GTA04B3") == 0) {
 		// configure for 7" Sharp display (7004)
+		gta04_battery_data.capacity = 3900000;
 		tsc2007_info.x_plate_ohms = 450;			// GTA04b3: 100 - 900
 		tca6507_info.leds.leds = tca6507_leds_b3;
 		gta04_dss_data.default_device=gta04_dss_devices[2]=&gta04_lcd_device_b3;
