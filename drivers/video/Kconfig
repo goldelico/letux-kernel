@@ -25,8 +25,6 @@ source "drivers/gpu/host1x/Kconfig"
 
 source "drivers/gpu/pvr/omap3/Kconfig"
 
-source "drivers/gpu/pvr/omap3/Kconfig"
-
 config VGASTATE
        tristate
        default n
