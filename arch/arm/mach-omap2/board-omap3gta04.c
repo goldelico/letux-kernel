@@ -317,8 +317,6 @@ static struct omap_dss_device gta04_lcd_device = {
 	.name = "lcd",
     .driver_name = "td028ttec1_panel",              // GTA04 - OpenPhoenux 2804
 	.phy.dpi.data_lines = 24,
-	.platform_enable = gta04_enable_lcd,
-	.platform_disable = gta04_disable_lcd,
 	.data = &gta04_panel_data,
 };
 
@@ -327,8 +325,6 @@ static struct omap_dss_device gta04_lcd_device_b2 = {
 	.name = "lcd",
     .driver_name = "com37h3m05dtc_panel",           // GTA04b2 - OpenPhoenux 3704
 	.phy.dpi.data_lines = 24,
-	.platform_enable = gta04_enable_lcd,
-	.platform_disable = gta04_disable_lcd,
 };
 
 static struct omap_dss_device gta04_lcd_device_b3 = {
@@ -821,7 +817,6 @@ static struct twl4030_script sleep_on_script __initdata = {
 	.flags	= TWL4030_SLEEP_SCRIPT,
 };
 
-#ifdef UNUSED
 static struct twl4030_ins wakeup_p12_seq[] __initdata = {
 	{MSG_SINGULAR(DEV_GRP_P1, RES_VINTANA1, RES_STATE_ACTIVE), 2},
 	{MSG_SINGULAR(DEV_GRP_P1, RES_VINTANA2, RES_STATE_ACTIVE), 2},

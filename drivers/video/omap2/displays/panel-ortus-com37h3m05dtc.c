@@ -60,12 +60,12 @@ static int com37h3m05dtc_panel_probe(struct omap_dss_device *dssdev)
 	int rc = 0;
 	struct panel_drv_data *drv_data = NULL;
 	
-	drv_data = devm_kzalloc(&dssdev->dev, sizeof(*drv_data), GFP_KERNEL);
+	drv_data = devm_kzalloc(dssdev->dev, sizeof(*drv_data), GFP_KERNEL);
 	if (!drv_data)
 		return -ENOMEM;
 	mutex_init(&drv_data->lock);
 	
-	dev_set_drvdata(&dssdev->dev, drv_data);
+	dev_set_drvdata(dssdev->dev, drv_data);
 	
 	printk("com37h3m05dtc_panel_probe()\n");
 	dssdev->panel.timings = com37h3m05dtc_panel_timings;
@@ -82,22 +82,18 @@ static void com37h3m05dtc_panel_remove(struct omap_dss_device *dssdev)
 	printk("com37h3m05dtc_panel_remove()\n");
 	gpio_free(GPIO_STBY);
 	// release mutex?
-	dev_set_drvdata(&dssdev->dev, NULL);
+	dev_set_drvdata(dssdev->dev, NULL);
 }
 
 static void com37h3m05dtc_panel_disable(struct omap_dss_device *dssdev)
 { // set STBYB to 0
-	struct panel_drv_data *drv_data = dev_get_drvdata(&dssdev->dev);
+	struct panel_drv_data *drv_data = dev_get_drvdata(dssdev->dev);
 	printk("com37h3m05dtc_panel_disable()\n");
 	mutex_lock(&drv_data->lock);
 	if (dssdev->state == OMAP_DSS_DISPLAY_DISABLED) {
 		mutex_unlock(&drv_data->lock);
 		return;
 	}	
-	
-	/* turn off backlight */
-	if (dssdev->platform_disable)
-		dssdev->platform_disable(dssdev);
 	
 	omapdss_dpi_display_disable(dssdev);
 	
@@ -109,20 +105,11 @@ static void com37h3m05dtc_panel_disable(struct omap_dss_device *dssdev)
 
 static int com37h3m05dtc_panel_enable(struct omap_dss_device *dssdev)
 { // set STBYB to 1
-	struct panel_drv_data *drv_data = dev_get_drvdata(&dssdev->dev);
+	struct panel_drv_data *drv_data = dev_get_drvdata(dssdev->dev);
 	int rc = 0;	
 	printk("lq070y3dg3b_panel_enable() - state %d\n", dssdev->state);
 	mutex_lock(&drv_data->lock);
 	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE) {
-		mutex_unlock(&drv_data->lock);
-		return rc;
-	}
-	
-	// turn on backlight
-	if (dssdev->platform_enable)
-		rc = dssdev->platform_enable(dssdev);
-	
-	if(rc) {
 		mutex_unlock(&drv_data->lock);
 		return rc;
 	}
