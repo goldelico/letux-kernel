@@ -225,31 +225,14 @@ static struct mtd_partition gta04_nand_partitions[] = {
 };
 
 /* DSS */
-
-static int gta04_enable_dvi(struct omap_dss_device *dssdev)
-{
-	if (dssdev->reset_gpio != -1)
-		gpio_set_value(dssdev->reset_gpio, 1);
-
-	return 0;
-}
-
-static void gta04_disable_dvi(struct omap_dss_device *dssdev)
-{
-	if (dssdev->reset_gpio != -1)
-		gpio_set_value(dssdev->reset_gpio, 0);
-}
-
+#if 0
 static struct omap_dss_device gta04_dvi_device = {
 	.type = OMAP_DISPLAY_TYPE_DPI,
 	.name = "dvi",
 	.driver_name = "generic_panel",
 	.phy.dpi.data_lines = 24,
-//	.reset_gpio = 170,
-	.reset_gpio = -1,
-	.platform_enable = gta04_enable_dvi,
-	.platform_disable = gta04_disable_dvi,
 };
+#endif
 
 static struct omap_pwm_pdata pwm_pdata = {
 	.timer_id = 11,
@@ -309,25 +292,12 @@ static struct platform_device twl4030_audio_device = {
 	.id = -1,
 };
 
-
-static int gta04_enable_lcd(struct omap_dss_device *dssdev)
-{
-	static int did_reg = 0;
-	printk("gta04_enable_lcd()\n");
-	if (!did_reg) {
-		/* Cannot do this in gta04_init() as clocks aren't
-		 * initialised yet, so do it here.
-		 */
-		platform_device_register(&backlight_device);
-		did_reg = 1;
-	}
-	return 0;
-}
-
-static void gta04_disable_lcd(struct omap_dss_device *dssdev)
-{
-	printk("gta04_disable_lcd()\n");
-}
+static struct panel_td028ttec1_data panel_data = {
+	.gpio_cs = 19,
+	.gpio_scl = 12,
+	.gpio_din = 18,
+	.gpio_dout = 20,
+};
 
 static struct panel_td028ttec1_data gta04_panel_data = {
 	/* FIXME: modify GPIOs for BeagleHybrid! It was:
@@ -366,10 +336,10 @@ static struct omap_dss_device gta04_lcd_device_b3 = {
 	.name = "lcd",
     .driver_name = "lq070y3dg3b_panel",             // GTA04b3 - OpenPhoenux 7004
 	.phy.dpi.data_lines = 24,
-	.platform_enable = gta04_enable_lcd,
-	.platform_disable = gta04_disable_lcd,
+	.data = &panel_data,
 };
 
+#if 0
 static int gta04_panel_enable_tv(struct omap_dss_device *dssdev)
 {
 	u32 reg;
@@ -419,18 +389,28 @@ static struct omap_dss_device gta04_tv_device = {
 	.platform_enable = gta04_panel_enable_tv,
 	.platform_disable = gta04_panel_disable_tv,
 };
-
+#endif
 static struct omap_dss_device *gta04_dss_devices[] = {
- 	&gta04_dvi_device,
- 	&gta04_tv_device,
+// 	&gta04_dvi_device,
+// 	&gta04_tv_device,
 	&gta04_lcd_device,
 };
 
 static struct omap_dss_board_info gta04_dss_data = {
 	.num_devices = ARRAY_SIZE(gta04_dss_devices),
 	.devices = gta04_dss_devices,
- 	.default_device = &gta04_lcd_device,
+// 	.default_device = &gta04_lcd_device,
 };
+
+#if 0
+static struct platform_device gta04_dss_device = {
+	.name          = "omapdss",
+	.id            = 0,
+	.dev            = {
+		.platform_data = &gta04_dss_data,
+	},
+};
+#endif
 
 static struct regulator_consumer_supply gta04_vdac_supply =
 	REGULATOR_SUPPLY("vdda_dac","omapdss.0");
@@ -463,7 +443,7 @@ static struct omap2_hsmmc_info mmc[] = {
 	{ // this is the WiFi SDIO interface
 		.mmc		= 2,
 		.caps		= (MMC_CAP_4_BIT_DATA // only 4 wires are connected
-				   |MMC_CAP_NONREMOVABLE
+				   // |MMC_CAP_NONREMOVABLE
 				   |MMC_CAP_POWER_OFF_CARD),
 		.gpio_cd	= -EINVAL, // virtual card detect
 		.gpio_wp	= -EINVAL,	// no write protect
@@ -816,7 +796,7 @@ static struct twl4030_madc_platform_data gta04_madc_data = {
 
 // FIXME: we could copy more scripts from board-sdp3430.c if we understand what they do... */
 
-
+#if 0
 static struct twl4030_ins __initdata sleep_on_seq[] = {
 	/* Turn off HFCLKOUT */
 	{MSG_SINGULAR(DEV_GRP_P3, RES_HFCLKOUT, RES_STATE_OFF), 2},
@@ -1516,6 +1496,7 @@ static struct platform_device madc_hwmon = {
 
 static struct platform_device *gta04_devices[] __initdata = {
 	&pwm_device,
+	&backlight_device,
 	&twl4030_audio_device,
 //	&leds_gpio,
 	&keys_gpio,

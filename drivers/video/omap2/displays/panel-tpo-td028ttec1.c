@@ -276,13 +276,11 @@ static int td028ttec1_panel_probe(struct omap_dss_device *dssdev)
 	int rc;
 	struct panel_drv_data *drv_data = NULL;
 
-	drv_data = devm_kzalloc(&dssdev->dev, sizeof(*drv_data), GFP_KERNEL);
+	drv_data = devm_kzalloc(dssdev->dev, sizeof(*drv_data), GFP_KERNEL);
 	if (!drv_data)
 		return -ENOMEM;
 	mutex_init(&drv_data->lock);
-
-	dev_set_drvdata(&dssdev->dev, drv_data);
-
+	dev_set_drvdata(dssdev->dev, drv_data);
 	printk("td028ttec1_panel_probe()\n");
 	dssdev->panel.timings = td028ttec1_panel_timings;
 
@@ -306,13 +304,12 @@ static void td028ttec1_panel_remove(struct omap_dss_device *dssdev)
 {
 	printk("td028ttec1_panel_remove()\n");
 	// disable GPIOs?
-	// release mutex?
-	dev_set_drvdata(&dssdev->dev, NULL);
+	dev_set_drvdata(dssdev->dev, NULL);
 }
 
 static int td028ttec1_panel_enable(struct omap_dss_device *dssdev)
 {
-	struct panel_drv_data *drv_data = dev_get_drvdata(&dssdev->dev);
+	struct panel_drv_data *drv_data = dev_get_drvdata(dssdev->dev);
 	int rc = 0;
 	printk("td028ttec1_panel_enable() - state %d\n", dssdev->state);
 	mutex_lock(&drv_data->lock);
@@ -320,9 +317,6 @@ static int td028ttec1_panel_enable(struct omap_dss_device *dssdev)
 		mutex_unlock(&drv_data->lock);
 		return rc;
 	}
-
-	if (dssdev->platform_enable)
-		rc = dssdev->platform_enable(dssdev);	// enable e.g. power, backlight
 
 	if(rc) {
 		mutex_unlock(&drv_data->lock);
@@ -430,16 +424,13 @@ static int td028ttec1_panel_enable(struct omap_dss_device *dssdev)
 
 static void td028ttec1_panel_disable(struct omap_dss_device *dssdev)
 {
-	struct panel_drv_data *drv_data = dev_get_drvdata(&dssdev->dev);
+	struct panel_drv_data *drv_data = dev_get_drvdata(dssdev->dev);
 	printk("td028ttec1_panel_disable()\n");
 	mutex_lock(&drv_data->lock);
 	if (dssdev->state == OMAP_DSS_DISPLAY_DISABLED) {
 		mutex_unlock(&drv_data->lock);
 		return;
 	}
-	if (dssdev->platform_disable)
-		dssdev->platform_disable(dssdev);
-
 	// 1. normal_to_sleep()
 
 	printk("td028ttec1_panel_suspend()\n");
