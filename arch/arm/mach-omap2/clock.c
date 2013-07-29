@@ -474,6 +474,8 @@ static int __init omap_clk_setup(char *str)
 {
 	get_option(&str, &mpurate);
 
+	mpurate = 0;
+
 	if (!mpurate)
 		return 1;
 
