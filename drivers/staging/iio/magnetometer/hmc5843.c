@@ -637,6 +637,7 @@ static int hmc5843_detect(struct i2c_client *client,
 	if (0 != strncmp(id_str, HMC5843_ID_STRING, HMC5843_ID_REG_LENGTH))
 		return -ENODEV;
 
+	strlcpy(info->type, "hmc5843", I2C_NAME_SIZE);
 	return 0;
 }
 
@@ -758,6 +759,7 @@ static struct i2c_driver hmc5843_driver = {
 	.remove		= hmc5843_remove,
 	.detect		= hmc5843_detect,
 	.address_list	= normal_i2c,
+	.class		= I2C_CLASS_HWMON,
 };
 module_i2c_driver(hmc5843_driver);
 

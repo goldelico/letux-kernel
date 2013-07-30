@@ -333,9 +333,9 @@ static char *pm_verb(int event)
 	}
 }
 
-static void pm_dev_dbg(struct device *dev, pm_message_t state, char *info)
+static void pm_dev_dbg(struct device *dev, pm_message_t state, char *info, void *cb)
 {
-	dev_dbg(dev, "%s%s%s\n", info, pm_verb(state.event),
+	dev_dbg(dev, "%s%s %pf%s\n", info, pm_verb(state.event), cb,
 		((state.event & PM_EVENT_SLEEP) && device_may_wakeup(dev)) ?
 		", may wakeup" : "");
 }
@@ -375,7 +375,7 @@ static int dpm_run_callback(pm_callback_t cb, struct device *dev,
 
 	calltime = initcall_debug_start(dev);
 
-	pm_dev_dbg(dev, state, info);
+	pm_dev_dbg(dev, state, info, cb);
 	error = cb(dev);
 	suspend_report_result(cb, error);
 
@@ -750,7 +750,7 @@ static void device_complete(struct device *dev, pm_message_t state)
 	}
 
 	if (callback) {
-		pm_dev_dbg(dev, state, info);
+		pm_dev_dbg(dev, state, info, callback);
 		callback(dev);
 	}
 
@@ -1096,7 +1096,7 @@ static int __device_suspend(struct device *dev, pm_message_t state, bool async)
 			callback = pm_op(dev->class->pm, state);
 			goto Run;
 		} else if (dev->class->suspend) {
-			pm_dev_dbg(dev, state, "legacy class ");
+			pm_dev_dbg(dev, state, "legacy class ", dev->class->suspend);
 			error = legacy_suspend(dev, state, dev->class->suspend);
 			goto End;
 		}
@@ -1107,7 +1107,7 @@ static int __device_suspend(struct device *dev, pm_message_t state, bool async)
 			info = "bus ";
 			callback = pm_op(dev->bus->pm, state);
 		} else if (dev->bus->suspend) {
-			pm_dev_dbg(dev, state, "legacy bus ");
+			pm_dev_dbg(dev, state, "legacy bus ", dev->bus->suspend);
 			error = legacy_suspend(dev, state, dev->bus->suspend);
 			goto End;
 		}

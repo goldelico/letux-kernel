@@ -865,6 +865,17 @@ config TOUCHSCREEN_TSC2007
 	  To compile this driver as a module, choose M here: the
 	  module will be called tsc2007.
 
+config TOUCHSCREEN_TSC2007_GTA04
+	tristate "TSC2007 based touchscreens with extensions for GTA04"
+	depends on I2C
+	help
+	  Say Y here if you have a TSC2007 based touchscreen.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called tsc2007.
+
 config TOUCHSCREEN_W90X900
 	tristate "W90P910 touchscreen driver"
 	depends on HAVE_CLK

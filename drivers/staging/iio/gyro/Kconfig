@@ -22,4 +22,16 @@ config ADIS16260
 	  This driver can also be built as a module.  If so, the module
 	  will be called adis16260.
 
+config ITG3200
+	tristate "InvenSence ITG3200 3-axis gyroscope"
+	depends on I2C
+	help
+	  Support for 3-axis gyroscope as IIO device
+
+config ITG3200
+	tristate "InvenSence ITG3200 3-axis gyroscope"
+	depends on I2C
+	help
+	  Support for 3-axis gyroscope as IIO device
+
 endmenu

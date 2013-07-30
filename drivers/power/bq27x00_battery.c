@@ -62,6 +62,8 @@
 #define BQ27000_FLAG_FC			BIT(5)
 #define BQ27000_FLAG_CHGS		BIT(7) /* Charge state flag */
 
+#define BQ27000_FLAGS_IMPORTANT		(BQ27000_FLAG_FC|BQ27000_FLAG_CHGS|BIT(31))
+
 #define BQ27500_REG_SOC			0x2C
 #define BQ27500_REG_DCAP		0x3C /* Design capacity */
 #define BQ27500_FLAG_DSC		BIT(0)
@@ -73,6 +75,8 @@
 /* bq27425 register addresses are same as bq27x00 addresses minus 4 */
 #define BQ27425_REG_OFFSET		0x04
 #define BQ27425_REG_SOC			0x18 /* Register address plus offset */
+
+#define BQ27500_FLAGS_IMPORTANT		(BQ27500_FLAG_FC|BQ27500_FLAG_DSC|BIT(31))
 
 #define BQ27000_RS			20 /* Resistor sense */
 #define BQ27x00_POWER_CONSTANT		(256 * 29200 / 1000)
@@ -413,12 +417,16 @@ static void bq27x00_update(struct bq27x00_device_info *di)
 	struct bq27x00_reg_cache cache = {0, };
 	bool is_bq27500 = di->chip == BQ27500;
 	bool is_bq27425 = di->chip == BQ27425;
+	int flags_changed;
 
 	cache.flags = bq27x00_read(di, BQ27x00_REG_FLAGS, !is_bq27500);
+	if ((cache.flags & 0xff) == 0xff)
+		/* read error */
+		cache.flags = -1;
 	if (cache.flags >= 0) {
 		if (!is_bq27500 && !is_bq27425
 				&& (cache.flags & BQ27000_FLAG_CI)) {
-			dev_info(di->dev, "battery is not calibrated! ignoring capacity values\n");
+			dev_dbg(di->dev, "battery is not calibrated! ignoring capacity values\n");
 			cache.capacity = -ENODATA;
 			cache.energy = -ENODATA;
 			cache.time_to_empty = -ENODATA;
@@ -454,10 +462,14 @@ static void bq27x00_update(struct bq27x00_device_info *di)
 			di->charge_design_full = bq27x00_battery_read_ilmd(di);
 	}
 
-	if (memcmp(&di->cache, &cache, sizeof(cache)) != 0) {
-		di->cache = cache;
+	flags_changed = di->cache.flags ^ cache.flags;
+	di->cache = cache;
+	if (is_bq27500)
+		flags_changed &= BQ27500_FLAGS_IMPORTANT;
+	else
+		flags_changed &= BQ27000_FLAGS_IMPORTANT;
+	if (flags_changed)
 		power_supply_changed(&di->bat);
-	}
 
 	di->last_update = jiffies;
 }

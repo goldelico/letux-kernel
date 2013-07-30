@@ -172,6 +172,10 @@ static inline void omap_hsmmc_mux(struct omap_mmc_platform_data *mmc_controller,
 		(mmc_controller->slots[0].gpio_wp < OMAP_MAX_GPIO_LINES))
 		omap_mux_init_gpio(mmc_controller->slots[0].gpio_wp,
 					OMAP_PIN_INPUT_PULLUP);
+	if (gpio_is_valid(mmc_controller->slots[0].gpio_reset) &&
+		(mmc_controller->slots[0].gpio_reset < OMAP_MAX_GPIO_LINES))
+		omap_mux_init_gpio(mmc_controller->slots[0].gpio_reset,
+					OMAP_PIN_OUTPUT);
 	if (cpu_is_omap34xx()) {
 		if (controller_nr == 0) {
 			omap_mux_init_signal("sdmmc1_clk",
@@ -270,6 +274,7 @@ static int __init omap_hsmmc_pdata_init(struct omap2_hsmmc_info *c,
 
 	mmc->slots[0].switch_pin = c->gpio_cd;
 	mmc->slots[0].gpio_wp = c->gpio_wp;
+	mmc->slots[0].gpio_reset = c->gpio_reset;
 
 	mmc->slots[0].remux = c->remux;
 	mmc->slots[0].init_card = c->init_card;
@@ -389,7 +394,7 @@ void omap_hsmmc_late_init(struct omap2_hsmmc_info *c)
 			continue;
 
 		mmc_pdata->slots[0].switch_pin = c->gpio_cd;
-		mmc_pdata->slots[0].gpio_wp = c->gpio_wp;
+		mmc_pdata->slots[0].gpio_reset = c->gpio_reset;
 
 		res = omap_device_register(pdev);
 		if (res)

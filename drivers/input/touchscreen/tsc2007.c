@@ -130,13 +130,17 @@ static u32 tsc2007_calculate_pressure(struct tsc2007 *tsc, struct ts_event *tc)
 	if (tc->x == MAX_12BIT)
 		tc->x = 0;
 
-	if (likely(tc->x && tc->z1)) {
+	if (likely(tc->x && tc->z1 && tc->z2 > tc->z1)) {
 		/* compute touch pressure resistance using equation #1 */
 		rt = tc->z2 - tc->z1;
 		rt *= tc->x;
+#if 0
 		rt *= tsc->x_plate_ohms;
 		rt /= tc->z1;
 		rt = (rt + 2047) >> 12;
+#else
+		rt = (tc->z1 << (32-12)) / rt * 2048 / tsc->x_plate_ohms;
+#endif
 	}
 
 	return rt;

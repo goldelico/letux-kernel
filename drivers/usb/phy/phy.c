@@ -28,7 +28,8 @@ static struct usb_phy *__usb_find_phy(struct list_head *list,
 	struct usb_phy  *phy = NULL;
 
 	list_for_each_entry(phy, list, head) {
-		if (phy->type != type)
+		if (phy->type != type ||
+		    strcmp(phy->label, "nop-xceiv") == 0)
 			continue;
 
 		return phy;

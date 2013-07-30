@@ -308,6 +308,7 @@ static void transmit_chars(struct uart_omap_port *up, unsigned int lsr)
 	}
 	if (uart_circ_empty(xmit) || uart_tx_stopped(&up->port)) {
 		serial_omap_stop_tx(&up->port);
+		//serial_omap_set_forceidle(up);
 		return;
 	}
 	count = up->port.fifosize / 4;
@@ -325,8 +326,6 @@ static void transmit_chars(struct uart_omap_port *up, unsigned int lsr)
 		spin_lock(&up->port.lock);
 	}
 
-	if (uart_circ_empty(xmit))
-		serial_omap_stop_tx(&up->port);
 }
 
 static inline void serial_omap_enable_ier_thri(struct uart_omap_port *up)
@@ -691,6 +690,7 @@ static int serial_omap_startup(struct uart_port *port)
 	return 0;
 }
 
+static struct uart_driver serial_omap_reg;
 static void serial_omap_shutdown(struct uart_port *port)
 {
 	struct uart_omap_port *up = to_uart_omap_port(port);
@@ -705,10 +705,15 @@ static void serial_omap_shutdown(struct uart_port *port)
 	up->ier = 0;
 	serial_out(up, UART_IER, 0);
 
-	spin_lock_irqsave(&up->port.lock, flags);
-	up->port.mctrl &= ~TIOCM_OUT2;
-	serial_omap_set_mctrl(&up->port, up->port.mctrl);
-	spin_unlock_irqrestore(&up->port.lock, flags);
+	{
+		struct uart_state *state = serial_omap_reg.state + port->line;
+	if (!test_bit(ASYNCB_SUSPENDED, &state->port.flags)) {
+		spin_lock_irqsave(&up->port.lock, flags);
+		up->port.mctrl &= ~TIOCM_OUT2;
+		serial_omap_set_mctrl(&up->port, up->port.mctrl);
+		spin_unlock_irqrestore(&up->port.lock, flags);
+	}
+	}
 
 	/*
 	 * Disable break condition and FIFOs
@@ -745,28 +750,37 @@ serial_omap_set_termios(struct uart_port *port, struct ktermios *termios,
 	struct uart_omap_port *up = to_uart_omap_port(port);
 	unsigned char cval = 0;
 	unsigned long flags = 0;
-	unsigned int baud, quot;
+	unsigned int baud, quot, bits;
 
 	switch (termios->c_cflag & CSIZE) {
 	case CS5:
 		cval = UART_LCR_WLEN5;
+		bits = 5;
 		break;
 	case CS6:
 		cval = UART_LCR_WLEN6;
+		bits = 6;
 		break;
 	case CS7:
 		cval = UART_LCR_WLEN7;
+		bits = 7;
 		break;
 	default:
 	case CS8:
 		cval = UART_LCR_WLEN8;
+		bits = 8;
 		break;
 	}
 
-	if (termios->c_cflag & CSTOPB)
+	bits += 2; /* start bit plus stop bit */
+	if (termios->c_cflag & CSTOPB) {
 		cval |= UART_LCR_STOP;
-	if (termios->c_cflag & PARENB)
+		bits++;
+	}
+	if (termios->c_cflag & PARENB) {
 		cval |= UART_LCR_PARITY;
+		bits++;
+	}
 	if (!(termios->c_cflag & PARODD))
 		cval |= UART_LCR_EPAR;
 	if (termios->c_cflag & CMSPAR)
@@ -780,7 +794,10 @@ serial_omap_set_termios(struct uart_port *port, struct ktermios *termios,
 	quot = serial_omap_get_divisor(port, baud);
 
 	/* calculate wakeup latency constraint */
-	up->calc_latency = (USEC_PER_SEC * up->port.fifosize) / (baud / 8);
+	if (termios->c_cflag & CRTSCTS)
+		up->calc_latency = PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE;
+	else
+		up->calc_latency = (USEC_PER_SEC * up->port.fifosize) / (baud / bits);
 	up->latency = up->calc_latency;
 	schedule_work(&up->qos_work);
 
@@ -1149,7 +1166,6 @@ out:
 
 static struct uart_omap_port *serial_omap_console_ports[OMAP_MAX_HSUART_PORTS];
 
-static struct uart_driver serial_omap_reg;
 
 static void serial_omap_console_putchar(struct uart_port *port, int ch)
 {
