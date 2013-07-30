@@ -1830,6 +1830,7 @@ static int __init gta04_init_bymux(char *str)
 		// configure for 7" Sharp display (7004)
 		gta04_battery_data.capacity = 3900000;
 		tsc2007_info.x_plate_ohms = 450;			// GTA04b3: 100 - 900
+		tsc2007_info.swap_xy = 1,	/* x and y axes are swapped */
 		tca6507_info.leds.leds = tca6507_leds_b3;
 		gta04_dss_data.default_device=gta04_dss_devices[2]=&gta04_lcd_device_b3;
 	}
