@@ -1541,7 +1541,7 @@ static struct usbhs_phy_data phy_data[] __initdata = {
 	},
 };
 
-static struct usbhs_omap_platform_data usbhs_bdata __initconst = {
+static struct usbhs_omap_platform_data usbhs_bdata __initdata = {
 
 	/* HSUSB0 - is not a EHCI port; TPS65950 configured by twl4030.c and musb driver */
 	.port_mode[1] = OMAP_EHCI_PORT_MODE_PHY,		/* HSUSB2 - USB3322C <-> WWAN */
@@ -1846,9 +1846,7 @@ static int __init gta04_init_bymux(char *str)
 	return 1;
 }
 
-// FIXME:
-#warning __setup("mux=", gta04_init_bymux);
-#warning results in arch/arm/mach-omap2/board-omap3gta04.c:1851:1: error: __setup_str_gta04_init_bymux causes a section type conflict
+__setup("mux=", gta04_init_bymux);
 
 /* see http://elinux.org/images/4/48/Experiences_With_Device_Tree_Support_Development_For_ARM-Based_SOC's.pdf */
 
