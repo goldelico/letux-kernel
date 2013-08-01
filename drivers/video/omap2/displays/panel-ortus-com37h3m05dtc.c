@@ -97,7 +97,7 @@ static void com37h3m05dtc_panel_disable(struct omap_dss_device *dssdev)
 	
 	omapdss_dpi_display_disable(dssdev);
 	
-	gpio_set_value(GPIO_STBY, 1);
+	gpio_set_value(GPIO_STBY, 0);
 	
 	dssdev->state = OMAP_DSS_DISPLAY_DISABLED;
 	mutex_unlock(&drv_data->lock);
@@ -114,7 +114,7 @@ static int com37h3m05dtc_panel_enable(struct omap_dss_device *dssdev)
 		return rc;
 	}
 	
-	gpio_set_value(GPIO_STBY, 0);
+	gpio_set_value(GPIO_STBY, 1);
 	
 	omapdss_dpi_set_timings(dssdev, &dssdev->panel.timings);
 	omapdss_dpi_set_data_lines(dssdev, dssdev->phy.dpi.data_lines);
