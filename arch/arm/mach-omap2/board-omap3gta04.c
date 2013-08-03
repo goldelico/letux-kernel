@@ -43,6 +43,7 @@
 #include <linux/mmc/card.h>
 #include <linux/mmc/sdio.h>
 
+#include <linux/regulator/fixed.h>
 #include <linux/regulator/machine.h>
 #include <linux/i2c/twl.h>
 #include <linux/i2c/tsc2007.h>
@@ -598,8 +599,8 @@ static struct regulator_init_data gta04_vaux4 = {
 
 /* VAUX3 for Camera */
 
-static struct regulator_consumer_supply gta04_vaux3_supply = {
-	.supply			= "vaux3",
+static struct regulator_consumer_supply gta04_vaux3_supply[] = {
+	REGULATOR_SUPPLY("vaux3", "2-0030"),
 };
 
 static struct regulator_init_data gta04_vaux3 = {
@@ -613,14 +614,14 @@ static struct regulator_init_data gta04_vaux3 = {
 		.valid_ops_mask		= (REGULATOR_CHANGE_MODE
 					   | REGULATOR_CHANGE_STATUS),
 	},
-	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &gta04_vaux3_supply,
+	.num_consumer_supplies	= ARRAY_SIZE(gta04_vaux3_supply),
+	.consumer_supplies	= gta04_vaux3_supply,
 };
 
 /* VAUX2 for Sensors ITG3200 (and LIS302/LSM303) */
 
-static struct regulator_consumer_supply gta04_vaux2_supply = {
-	.supply			= "vaux2",
+static struct regulator_consumer_supply gta04_vaux2_supply[] = {
+	REGULATOR_SUPPLY("vaux2", "2-0068"),
 };
 
 static struct regulator_init_data gta04_vaux2 = {
@@ -632,8 +633,8 @@ static struct regulator_init_data gta04_vaux2 = {
 		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
 		.valid_ops_mask		= 0,
 	},
-	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &gta04_vaux2_supply,
+	.num_consumer_supplies	= ARRAY_SIZE(gta04_vaux2_supply),
+	.consumer_supplies	= gta04_vaux2_supply,
 };
 
 /* VAUX1 unused */
@@ -1308,6 +1309,7 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 
 struct ov9655_platform_data ov9655_pdata = {
 	.reset		= CAMERA_RESET_GPIO,
+	.ext_freq	= 24000000,
 };
 
 static struct i2c_board_info gta04_camera_i2c_device[] = {
@@ -1349,27 +1351,20 @@ static struct isp_v4l2_subdevs_group gta04_camera_subdevs_group[] = {
 static struct isp_platform_data gta04_isp_platform_data = {
 	.subdevs = gta04_camera_subdevs_group,
 	.xclks[0] = { /* XCLK_A */
-#warning what names/ids should we provide here?
-		.con_id = "cam_xclka?",
-		.dev_id = "cam_xclka?",
+		.dev_id = "2-0030",
 	},
 	/* .set_constraints = & void (*set_constraints)(struct isp_device *isp, bool enable) */
 };
 
 static void __init gta04_camera_setup(void) {
-	static struct regulator *reg;
-	// FIXME: can we postpone enabling camera power until someone opens the /dev/video files?
-	// may not be required if CAMERA_RESET_GPIO is controlled correctly
+	struct platform_device *r;
 	pr_info("GTA04 camera: setup\n");
-	reg = regulator_get(NULL, "vaux3");
-	if(IS_ERR(reg))
-		pr_err("%s: cannot get vaux3 regulator\n", __func__);
-	else {
-		if (regulator_enable(reg) < 0)
-			pr_warn("%s: failed enabling vaux3 regulator!\n", __func__);
-        else if (omap3_init_camera(&gta04_isp_platform_data) < 0)
-			pr_warn("%s: failed registering camera device!\n", __func__);
-	}
+	clk_add_alias(NULL, "2-0030", "cam_xclka", NULL);
+	r = regulator_register_fixed(0, gta04_vaux3_supply, ARRAY_SIZE(gta04_vaux3_supply));
+	if(IS_ERR(r))
+		pr_err("%s: cannot register vaux3 regulator\n", __func__);
+	else if (omap3_init_camera(&gta04_isp_platform_data) < 0)
+		pr_warn("%s: failed registering camera device!\n", __func__);
 }
 
 #endif 

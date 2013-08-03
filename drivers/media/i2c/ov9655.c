@@ -39,6 +39,7 @@
  
 #define DEBUG
 
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/gpio.h>
@@ -46,6 +47,7 @@
 #include <linux/i2c.h>
 #include <linux/log2.h>
 #include <linux/pm.h>
+#include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/videodev2.h>
 
@@ -707,6 +709,9 @@ struct ov9655 {
 	int power_count;
 	int reset;	/* reset GPIO number */
 
+	struct clk *clk;
+	struct regulator *vdd;
+
 	struct v4l2_ctrl_handler ctrls;
 	struct v4l2_ctrl *blc_auto;
 	struct v4l2_ctrl *blc_offset;
@@ -838,6 +843,7 @@ static int ov9655_reset(struct ov9655 *ov9655)
 
 static int ov9655_power_on(struct ov9655 *ov9655)
 {
+	int ret;
 	struct i2c_client *client = v4l2_get_subdevdata(&ov9655->subdev);
 	dev_info(&client->dev, "OV9655 power on\n");
 	/* Ensure RESET_BAR is low */
@@ -846,16 +852,17 @@ static int ov9655_power_on(struct ov9655 *ov9655)
 		usleep_range(1000, 2000);
 	}
 
+	/* Bring up the supplies */
+    ret = regulator_enable(ov9655->vdd);
+	if (ret < 0) {
+		dev_info(&client->dev, "regulator_enable failed err=%d\n", ret);
+		return ret;
+	}
+
 	/* Enable clock */
 	
-	// FIXME: should NOT be provided by pdata but derived from resolution and prescaling
-	// but for I2C to work we need a clock with approx. 20 MHz
-	
-	/*
-	 *   XCLK = fps * width * height * bytespersample / prescaler (OV9655_CLKRC and PLL_4X)
-	 */
-	if (ov9655->pdata->set_xclk)
-		ov9655->pdata->set_xclk(&ov9655->subdev, CAMERA_EXT_FREQ);
+	if (ov9655->clk)
+		clk_prepare_enable(ov9655->clk);
 
 	/* Now RESET_BAR must be high */
 	if (ov9655->reset != -1) {
@@ -875,8 +882,10 @@ static void ov9655_power_off(struct ov9655 *ov9655)
 		usleep_range(1000, 2000);
 	}
 
-	if (ov9655->pdata->set_xclk)
-		ov9655->pdata->set_xclk(&ov9655->subdev, 0);
+	regulator_disable(ov9655->vdd);
+
+	if (ov9655->clk)
+		clk_disable_unprepare(ov9655->clk);
 }
 
 static int __ov9655_set_power(struct ov9655 *ov9655, bool on)
@@ -1680,6 +1689,13 @@ static int ov9655_probe(struct i2c_client *client,
 //	ov9655->model = did->driver_data;	// second paramter from ov9655_id[]
 	ov9655->reset = -1;
 
+    ov9655->vdd = devm_regulator_get(&client->dev, "vaux3");
+
+	if (IS_ERR(ov9655->vdd)) {
+		dev_err(&client->dev, "Unable to get regulator\n");
+		return -ENODEV;
+	}
+
 	v4l2_ctrl_handler_init(&ov9655->ctrls, ARRAY_SIZE(ov9655_ctrls) + 6);
 
 	/* register custom controls */
@@ -1749,6 +1765,12 @@ static int ov9655_probe(struct i2c_client *client,
 
 		ov9655->reset = pdata->reset;
 	}
+
+	ov9655->clk = devm_clk_get(&client->dev, NULL);
+	if (IS_ERR(ov9655->clk))
+		return PTR_ERR(ov9655->clk);
+
+	clk_set_rate(ov9655->clk, CAMERA_EXT_FREQ /* pdata->ext_freq */);
 
 	ret = 0;
 

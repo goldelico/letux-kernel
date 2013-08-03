@@ -5,14 +5,12 @@ struct v4l2_subdev;
 
 struct ov9655_platform_data {
 	/*
-	* struct mt9p031_platform_data - MT9P031 platform data
-	* @set_xclk: Clock frequency set callback
-	* @reset: Chip reset GPIO (set to -1 if not used)
-	* @ext_freq: Input clock frequency
-	* @target_freq: Pixel clock frequency
-	*/
-	int (*set_xclk)(struct v4l2_subdev *subdev, int hz);
-	int reset;	/* reset GPIO */
-};
+	 * struct ov9655_platform_data - OV9655 platform data
+	 * @reset: Chip reset GPIO (set to -1 if not used)
+	 * @ext_freq: Input clock frequency --- not used OV9655 is running at fixed 24 MHz
+	 */
+		int reset;
+		int ext_freq;
+	};
 
 #endif
