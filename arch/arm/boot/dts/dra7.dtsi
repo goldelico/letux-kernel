@@ -410,7 +410,7 @@
                                 interrupts = <0 76 4>;
                                 usb-phy = <&usb2_phy1>, <&usb3_phy>;
                                 tx-fifo-resize;
-                                dr_mode = "peripheral";
+                                dr_mode = "host";
 				maximum-speed = "superspeed";
                         };
                 };
