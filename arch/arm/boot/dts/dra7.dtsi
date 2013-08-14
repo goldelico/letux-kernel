@@ -777,5 +777,13 @@
 			ti,tx-inactive-mode = <2>; /* 0: Hi-Z, 2: Low, 3: High */
 			ti,rx-inactive-mode = <2>; /* 0: Hi-Z, 2: Low, 3: High */
 		};
+
+		vpe {
+			compatible = "ti,vpe";
+			ti,hwmods = "vpe";
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
 	};
 };
