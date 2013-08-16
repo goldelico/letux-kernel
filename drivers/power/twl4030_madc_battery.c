@@ -55,55 +55,66 @@ static enum power_supply_property twl4030_madc_bat_props[] = {
 14      Reserved
 15      VRUSB Supply/Speaker left/Speaker right polarization level
 */
-enum channel { BTYPE=0, BTEMP=1, VBUS=8, VBKP=9, ICHG=10, VCHG=11, VBAT=12, VRUSB=15 };
+enum channel {
+	BTYPE = 0,
+	BTEMP = 1,
+	VBUS = 8,
+	VBKP = 9,
+	ICHG = 10,
+	VCHG = 11,
+	VBAT = 12,
+	VRUSB = 15
+};
 
 static int madc_read(int index)
 {
-    struct twl4030_madc_request req;
-    int val;
+	struct twl4030_madc_request req = {
+		.channels = 1 << index,
+		.method = TWL4030_MADC_SW2,
+		.type = TWL4030_MADC_WAIT,
+	};
+	int val;
 
-    req.channels = (1 << index);
-    req.method = TWL4030_MADC_SW2;
-    req.func_cb = NULL;
-    val = twl4030_madc_conversion(&req);
-    if (val < 0)
-        return val;
+	val = twl4030_madc_conversion(&req);
+	if (val < 0)
+		return val;
 
-    return req.rbuf[index];
+	return req.rbuf[index];
 }
 
 static int twl4030_madc_bat_get_charging_status(void)
 {
-    int curr;
-    curr = madc_read(ICHG);
-    if (curr > 0)
-        return 1;
-    else
-        return 0;
+	int curr;
+	curr = madc_read(ICHG);
+	if (curr > 0)
+		return 1;
+	else
+		return 0;
 }
 
 static int twl4030_madc_bat_get_voltage(void)
 {
-    return madc_read(VBAT) * 1000;
+	return madc_read(VBAT) * 1000;
 }
 
 static int twl4030_madc_bat_get_current(void)
 {
-    return madc_read(ICHG) * 1000;
+	return madc_read(ICHG) * 1000;
 }
 
 static int twl4030_madc_bat_get_temp(void)
 {
-    return madc_read(BTEMP) * 10;
+	return madc_read(BTEMP) * 10;
 }
 
-static int twl4030_madc_bat_voltscale(struct twl4030_madc_battery *bat, int volt)
+static int twl4030_madc_bat_voltscale(
+				struct twl4030_madc_battery *bat, int volt)
 {
 	struct twl4030_madc_bat_calibration *calibration;
 	int i, res = 0;
 
-    /* choose charging curve */
-    if (twl4030_madc_bat_get_charging_status())
+	/* choose charging curve */
+	if (twl4030_madc_bat_get_charging_status())
 		calibration = bat->pdata->charging;
 	else
 		calibration = bat->pdata->discharging;
@@ -113,11 +124,15 @@ static int twl4030_madc_bat_voltscale(struct twl4030_madc_battery *bat, int volt
 		res = calibration[0].level;
 	else
 		for (i = 0; calibration[i+1].voltage >= 0; i++) {
-			if (volt <= calibration[i].voltage && volt >= calibration[i+1].voltage) {
+			if (volt <= calibration[i].voltage &&
+				volt >= calibration[i+1].voltage) {
 				/* interval found - interpolate within range */
-				res = calibration[i].level - ((calibration[i].voltage - volt)*
-					(calibration[i].level - calibration[i+1].level))/
-					(calibration[i].voltage - calibration[i+1].voltage);
+				res = calibration[i].level -
+					((calibration[i].voltage - volt)*
+					(calibration[i].level -
+					calibration[i+1].level))/
+					(calibration[i].voltage -
+					calibration[i+1].voltage);
 				break;
 			}
 		}
@@ -125,23 +140,24 @@ static int twl4030_madc_bat_voltscale(struct twl4030_madc_battery *bat, int volt
 }
 
 static int twl4030_madc_bat_get_property(struct power_supply *psy,
-				       enum power_supply_property psp,
-				       union power_supply_propval *val)
+						enum power_supply_property psp,
+						union power_supply_propval *val)
 {
-	struct twl4030_madc_battery *bat = container_of(psy, struct twl4030_madc_battery, psy);
-	
-	switch(psp) {
+	struct twl4030_madc_battery *bat = container_of(psy,
+					struct twl4030_madc_battery, psy);
+
+	switch (psp) {
 
 	case POWER_SUPPLY_PROP_STATUS:
-        if (twl4030_madc_bat_voltscale(bat, twl4030_madc_bat_get_voltage()/1000) > 95)
-            val->intval = POWER_SUPPLY_STATUS_FULL;
-        else
-        {
-		    if (twl4030_madc_bat_get_charging_status())
-		    	val->intval = POWER_SUPPLY_STATUS_CHARGING;
-		    else
-		    	val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
-        }
+		if (twl4030_madc_bat_voltscale(bat,
+				twl4030_madc_bat_get_voltage()/1000) > 95)
+			val->intval = POWER_SUPPLY_STATUS_FULL;
+		else {
+			if (twl4030_madc_bat_get_charging_status())
+				val->intval = POWER_SUPPLY_STATUS_CHARGING;
+			else
+				val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+		}
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		val->intval = twl4030_madc_bat_get_voltage();
@@ -153,17 +169,22 @@ static int twl4030_madc_bat_get_property(struct power_supply *psy,
 		val->intval = twl4030_madc_bat_get_current();
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
-			/* val->intval = twl4030_madc_bat_get_temp() < 560; /* madc appears to report 56C for a missing battery (i.e. no thermistor connected) */
-			/* but only during charging! */
-			val->intval = 1;	/* assume battery is always present */
+		/* val->intval = twl4030_madc_bat_get_temp() < 560; */
+		/* madc appears to report 56C for a missing battery
+		(i.e. no thermistor connected) but only during charging! */
+
+		/* assume battery is always present */
+		val->intval = 1;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_NOW: {
-			int percent = twl4030_madc_bat_voltscale(bat, twl4030_madc_bat_get_voltage()/1000);
+			int percent = twl4030_madc_bat_voltscale(bat,
+					twl4030_madc_bat_get_voltage()/1000);
 			val->intval = (percent * bat->pdata->capacity) / 100;
 			break;
 		}
 	case POWER_SUPPLY_PROP_CAPACITY:
-		val->intval = twl4030_madc_bat_voltscale(bat, twl4030_madc_bat_get_voltage()/1000);
+		val->intval = twl4030_madc_bat_voltscale(bat,
+					twl4030_madc_bat_get_voltage()/1000);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
 		val->intval = bat->pdata->capacity;
@@ -173,9 +194,13 @@ static int twl4030_madc_bat_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_TIME_TO_EMPTY_NOW: {
 			/* take care against numeric overflows! */
-			int percent = twl4030_madc_bat_voltscale(bat, twl4030_madc_bat_get_voltage()/1000);
-			int charge = (percent * (bat->pdata->capacity / 1000)) /100;	/* in mAh */
-			val->intval = (3600l * charge) / 400;	/* assume discharge with 400 mA (ca. 1.5W) */
+			int percent = twl4030_madc_bat_voltscale(bat,
+					twl4030_madc_bat_get_voltage()/1000);
+
+			/* in mAh */
+			int chg = (percent * (bat->pdata->capacity/1000))/100;
+			/* assume discharge with 400 mA (ca. 1.5W) */
+			val->intval = (3600l * chg) / 400;
 			break;
 		}
 	default:
@@ -187,7 +212,8 @@ static int twl4030_madc_bat_get_property(struct power_supply *psy,
 
 static void twl4030_madc_bat_ext_changed(struct power_supply *psy)
 {
-	struct twl4030_madc_battery *bat = container_of(psy, struct twl4030_madc_battery, psy);
+	struct twl4030_madc_battery *bat = container_of(psy,
+					struct twl4030_madc_battery, psy);
 	power_supply_changed(&bat->psy);
 }
 
@@ -202,9 +228,11 @@ static int twl4030_madc_battery_probe(struct platform_device *pdev)
 	twl4030_madc_bat->psy.name = "twl4030_battery";
 	twl4030_madc_bat->psy.type = POWER_SUPPLY_TYPE_BATTERY;
 	twl4030_madc_bat->psy.properties = twl4030_madc_bat_props;
-	twl4030_madc_bat->psy.num_properties = ARRAY_SIZE(twl4030_madc_bat_props);
+	twl4030_madc_bat->psy.num_properties =
+					ARRAY_SIZE(twl4030_madc_bat_props);
 	twl4030_madc_bat->psy.get_property = twl4030_madc_bat_get_property;
-	twl4030_madc_bat->psy.external_power_changed = twl4030_madc_bat_ext_changed;
+	twl4030_madc_bat->psy.external_power_changed =
+					twl4030_madc_bat_ext_changed;
 
 	twl4030_madc_bat->pdata = pdev->dev.platform_data;
 	platform_set_drvdata(pdev, twl4030_madc_bat);
@@ -227,8 +255,8 @@ static struct platform_driver twl4030_madc_battery_driver = {
 	.driver = {
 		.name = "twl4030_madc_battery",
 	},
-	.probe	  = twl4030_madc_battery_probe,
-	.remove   = twl4030_madc_battery_remove,
+	.probe  = twl4030_madc_battery_probe,
+	.remove = twl4030_madc_battery_remove,
 };
 
 static int __init twl4030_madc_battery_init(void)
