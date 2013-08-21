@@ -18,7 +18,8 @@
 #ifndef __TWL4030_MADC_BATTERY_H
 #define __TWL4030_MADC_BATTERY_H
 
-/* usually we can assume 100% @ 4.15V and 0% @ 3.3V but curves differ for charging and discharging! */
+/* usually we can assume 100% @ 4.15V and 0% @ 3.3V but curves differ for
+   charging and discharging! */
 
 struct twl4030_madc_bat_calibration {
 	short voltage;	/* in mV - specify -1 for end of list */
