@@ -107,6 +107,33 @@ static struct panel_config generic_dpi_panels[] = {
 		.name			= "sharp_ls",
 	},
 
+	/* Sharp LQ070Y3DG3B */
+	{
+		{
+		.x_res		= 800,
+		.y_res		= 480,
+
+		.pixel_clock	= 33260,
+
+		.hsw		= 128,
+		.hfp		= 64,
+		.hbp		= 64,
+
+		.vsw		= 2,
+		.vfp		= 8,
+		.vbp		= 35,
+
+		.vsync_level	= OMAPDSS_SIG_ACTIVE_LOW,
+		.hsync_level	= OMAPDSS_SIG_ACTIVE_LOW,
+		.data_pclk_edge	= OMAPDSS_DRIVE_SIG_RISING_EDGE,
+		.de_level	= OMAPDSS_SIG_ACTIVE_HIGH,
+		.sync_pclk_edge	= OMAPDSS_DRIVE_SIG_RISING_EDGE,
+		},
+	.power_on_delay		= 50,
+	.power_off_delay	= 100,
+	.name			= "sharp_lq070y3dg3b",
+	},
+
 	/* Toppoly TDO35S */
 	{
 		{
@@ -367,6 +394,31 @@ static struct panel_config generic_dpi_panels[] = {
 			.sync_pclk_edge	= OMAPDSS_DRIVE_SIG_OPPOSITE_EDGES,
 		},
 		.name			= "ortustech_com43h4m10xtc",
+	},
+
+	/* OrtusTech COM37H3M05DTC and COM37H3M99DTC */
+	{
+		{
+		.x_res		= 480,
+		.y_res		= 640,
+
+		.pixel_clock	= 22153,	/* could be lowered to reduce noise */
+
+		.hsw		= 10,
+		.hfp		= 8,
+		.hbp		= 10,
+
+		.vsw		= 3,
+		.vfp		= 4,
+		.vbp		= 4,
+
+		.vsync_level	= OMAPDSS_SIG_ACTIVE_LOW,
+		.hsync_level	= OMAPDSS_SIG_ACTIVE_LOW,
+		.data_pclk_edge	= OMAPDSS_DRIVE_SIG_RISING_EDGE,
+		.de_level	= OMAPDSS_SIG_ACTIVE_HIGH,
+		.sync_pclk_edge	= OMAPDSS_DRIVE_SIG_RISING_EDGE,
+		},
+	.name			= "ortustech_com37h3m05dtc",
 	},
 
 	/* Innolux AT080TN52 */
