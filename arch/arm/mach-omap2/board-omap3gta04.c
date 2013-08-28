@@ -295,13 +295,6 @@ static struct platform_device twl4030_audio_device = {
 	.id = -1,
 };
 
-static struct panel_td028ttec1_data panel_data = {
-	.gpio_cs = 19,
-	.gpio_scl = 12,
-	.gpio_din = 18,
-	.gpio_dout = 20,
-};
-
 static struct panel_td028ttec1_data gta04_panel_data = {
 	/* FIXME: modify GPIOs for BeagleHybrid! It was:
 		#define GPIO_CS        (machine_is_gta04()?19:161)
@@ -323,19 +316,36 @@ static struct omap_dss_device gta04_lcd_device = {
 	.data = &gta04_panel_data,
 };
 
+static struct panel_generic_dpi_data gta04b2_panel_data = {
+	.name = "ortustech_com37h3m05dtc",           // GTA04b2 - OpenPhoenux 3704
+	.num_gpios = 1,
+	// #define GPIO_STBY 158	/* V1 adapter board for BeagleBoard */
+	.gpios = { 20 },	/* STBY */
+	.gpio_invert = { 0, },
+};
+
 static struct omap_dss_device gta04_lcd_device_b2 = {
 	.type = OMAP_DISPLAY_TYPE_DPI,
 	.name = "lcd",
-    .driver_name = "com37h3m05dtc_panel",           // GTA04b2 - OpenPhoenux 3704
+	.driver_name = "generic_dpi_panel",
 	.phy.dpi.data_lines = 24,
+	.data = &gta04b2_panel_data,
+};
+
+static struct panel_generic_dpi_data gta04b3_panel_data = {
+	.name = "sharp_lq070y3dg3b",           // GTA04b3 - OpenPhoenux 7004
+	.num_gpios = 1,
+	// #define GPIO_STBY (machine_is_gta04()?12:162)		/* 3.3V LDO controlled through McBSP5-CLKX of GTA04 */
+	.gpios = { 12 },	/* McBSP5-CLKX */
+	.gpio_invert = { 0, },
 };
 
 static struct omap_dss_device gta04_lcd_device_b3 = {
 	.type = OMAP_DISPLAY_TYPE_DPI,
 	.name = "lcd",
-    .driver_name = "lq070y3dg3b_panel",             // GTA04b3 - OpenPhoenux 7004
+    .driver_name = "generic_dpi_panel",             // GTA04b3 - OpenPhoenux 7004
 	.phy.dpi.data_lines = 24,
-	.data = &panel_data,
+	.data = &gta04b3_panel_data,
 };
 
 #if 0
