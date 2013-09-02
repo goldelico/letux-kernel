@@ -316,34 +316,72 @@ static struct omap_dss_device gta04_lcd_device = {
 	.data = &gta04_panel_data,
 };
 
-static struct panel_generic_dpi_data gta04b2_panel_data = {
+static struct display_timing gta04b2_panel_timing = {
+	.pixelclock	= { 0, 22153000, 0 },	/* min, typ, max */
+
+	.hactive = { 0, 480, 0 },
+	.hfront_porch = { 0, 8, 0 },
+	.hback_porch = { 0, 10, 0 },
+	.hsync_len = { 0, 10, 0 },
+
+	.vactive = { 0, 640, 0 },
+	.vfront_porch = { 0, 4, 0 },
+	.vback_porch = { 0, 4, 0 },
+	.vsync_len = { 0, 3, 0 },
+
+	.flags = DISPLAY_FLAGS_HSYNC_LOW | DISPLAY_FLAGS_VSYNC_LOW |
+			DISPLAY_FLAGS_DE_HIGH | DISPLAY_FLAGS_PIXDATA_POSEDGE,
+};
+
+static struct panel_dpi_platform_data gta04b2_panel_data = {
 	.name = "ortustech_com37h3m05dtc",           // GTA04b2 - OpenPhoenux 3704
-	.num_gpios = 1,
+	.source = "dpi.0",
+	.data_lines = 24,
+	.display_timing = &gta04b2_panel_timing,
 	// #define GPIO_STBY 158	/* V1 adapter board for BeagleBoard */
-	.gpios = { 20 },	/* STBY */
-	.gpio_invert = { 0, },
+	.backlight_gpio = -1,
+	.enable_gpio = 20,	/* STBY */
 };
 
 static struct omap_dss_device gta04_lcd_device_b2 = {
 	.type = OMAP_DISPLAY_TYPE_DPI,
 	.name = "lcd",
-	.driver_name = "generic_dpi_panel",
+	.driver_name = "panel-dpi",
 	.phy.dpi.data_lines = 24,
 	.data = &gta04b2_panel_data,
 };
 
-static struct panel_generic_dpi_data gta04b3_panel_data = {
+static struct display_timing gta04b3_panel_timing = {
+	.pixelclock	= { 0, 33260000, 0 },
+
+	.hactive = { 0, 800, 0 },
+	.hfront_porch = { 0, 64, 0 },
+	.hback_porch = { 0, 64, 0 },
+	.hsync_len = { 0, 128, 0 },
+
+	.vactive = { 0, 480, 0 },
+	.vfront_porch = { 0, 8, 0 },
+	.vback_porch = { 0, 35, 0 },
+	.vsync_len = { 0, 2, 0 },
+
+	.flags = DISPLAY_FLAGS_HSYNC_LOW | DISPLAY_FLAGS_VSYNC_LOW |
+			DISPLAY_FLAGS_DE_HIGH | DISPLAY_FLAGS_PIXDATA_POSEDGE,
+};
+
+static struct panel_dpi_platform_data gta04b3_panel_data = {
 	.name = "sharp_lq070y3dg3b",           // GTA04b3 - OpenPhoenux 7004
-	.num_gpios = 1,
+	.source = "dpi.0",
+	.data_lines = 24,
+	.display_timing = &gta04b3_panel_timing,
 	// #define GPIO_STBY (machine_is_gta04()?12:162)		/* 3.3V LDO controlled through McBSP5-CLKX of GTA04 */
-	.gpios = { 12 },	/* McBSP5-CLKX */
-	.gpio_invert = { 0, },
+	.backlight_gpio = -1,
+	.enable_gpio = 12,	/* McBSP5-CLKX */
 };
 
 static struct omap_dss_device gta04_lcd_device_b3 = {
 	.type = OMAP_DISPLAY_TYPE_DPI,
 	.name = "lcd",
-    .driver_name = "generic_dpi_panel",             // GTA04b3 - OpenPhoenux 7004
+    .driver_name = "panel-dpi",             // GTA04b3 - OpenPhoenux 7004
 	.phy.dpi.data_lines = 24,
 	.data = &gta04b3_panel_data,
 };
