@@ -869,7 +869,7 @@ int omapdss_hdmi_display_check_timing(struct omap_dss_device *dssdev,
 
 	cm = hdmi_get_code(timings);
 	if (cm.code == -1) {
-		return -EINVAL;
+		DSSDBG("not a standard cea/vesa/s3d timing\n");
 	}
 
 	return 0;
@@ -982,8 +982,13 @@ void omapdss_hdmi_display_set_timing(struct omap_dss_device *dssdev,
 	hdmi.ip_data.cfg.cm = cm;
 
 	t = hdmi_get_timings();
-	if (t != NULL)
+	if (t != NULL) {
 		hdmi.ip_data.cfg = *t;
+	} else {
+		hdmi.ip_data.cfg.timings = *timings;
+		hdmi.ip_data.cfg.cm.code = 0;
+		hdmi.ip_data.cfg.cm.mode = HDMI_HDMI;
+	}
 
 	mutex_unlock(&hdmi.lock);
 }
