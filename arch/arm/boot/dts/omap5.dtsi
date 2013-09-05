@@ -786,7 +786,6 @@
 				compatible = "ti,omap4-dsi";
 				ti,hwmods = "dss_dsi1_a";
 				reg = <0>;
-				vdds_dsi-supply = <&ldo7_reg>;
 				video-source = <0>;
 			};
 
@@ -794,15 +793,15 @@
 				compatible = "ti,omap4-dsi";
 				ti,hwmods = "dss_dsi1_c";
 				reg = <1>;
-				vdds_dsi-supply = <&ldo7_reg>;
 				video-source = <2>;
 			};
 
 			hdmi: hdmi {
 				compatible = "ti,omap4-hdmi", "simple-bus";
 				ti,hwmods = "dss_hdmi";
-				vdda_hdmi_dac-supply = <&ldo7_reg>;
 				video-source = <1>;
+				vdda_hdmi_microvolt_min = <1500000>;
+				vdda_hdmi_microvolt_max = <1800000>;
 			};
 		};
 
