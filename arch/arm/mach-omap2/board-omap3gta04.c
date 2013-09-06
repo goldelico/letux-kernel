@@ -227,16 +227,6 @@ static struct mtd_partition gta04_nand_partitions[] = {
 	},
 };
 
-/* DSS */
-#if 0
-static struct omap_dss_device gta04_dvi_device = {
-	.type = OMAP_DISPLAY_TYPE_DPI,
-	.name = "dvi",
-	.driver_name = "generic_panel",
-	.phy.dpi.data_lines = 24,
-};
-#endif
-
 static struct omap_pwm_pdata pwm_pdata = {
 	.timer_id = 11,
 };
@@ -295,7 +285,15 @@ static struct platform_device twl4030_audio_device = {
 	.id = -1,
 };
 
-static struct panel_td028ttec1_data gta04_panel_data = {
+// FIXME:
+static struct panel_td028ttec1_data gta04_panel_data = { // GTA04 - panel-toppoly-td028ttec1 - OpenPhoenux 2804
+
+	// FIXME to match new driver's expectations
+
+    // .name = "td028ttec1_panel",
+	// .source = "dpi.0",
+	// .data_lines = 24,
+
 	/* FIXME: modify GPIOs for BeagleHybrid! It was:
 		#define GPIO_CS        (machine_is_gta04()?19:161)
 		#define GPIO_SCL       (machine_is_gta04()?12:162)
@@ -306,17 +304,18 @@ static struct panel_td028ttec1_data gta04_panel_data = {
 	.gpio_scl = 12,
 	.gpio_din = 18,
 	.gpio_dout = 20,
+
 };
 
-static struct omap_dss_device gta04_lcd_device = {
-	.type = OMAP_DISPLAY_TYPE_DPI,
+static struct platform_device gta04_lcd_device = {
 	.name = "lcd",
-    .driver_name = "td028ttec1_panel",              // GTA04 - OpenPhoenux 2804
-	.phy.dpi.data_lines = 24,
-	.data = &gta04_panel_data,
+	.id = 0,
+	.dev.platform_data = &gta04_panel_data,
 };
 
-static struct display_timing gta04b2_panel_timing = {
+static struct platform_device *gta04_panel = &gta04_lcd_device;
+
+static struct display_timing gta04b2_panel_timing = { // GTA04b2 - ortustech_com37h3m05dtc/ortustech_com37h3m099dtc - OpenPhoenux 3704
 	.pixelclock	= { 0, 22153000, 0 },	/* min, typ, max */
 
 	.hactive = { 0, 480, 0 },
@@ -334,7 +333,7 @@ static struct display_timing gta04b2_panel_timing = {
 };
 
 static struct panel_dpi_platform_data gta04b2_panel_data = {
-	.name = "ortustech_com37h3m05dtc",           // GTA04b2 - OpenPhoenux 3704
+	.name = "lcd",
 	.source = "dpi.0",
 	.data_lines = 24,
 	.display_timing = &gta04b2_panel_timing,
@@ -343,15 +342,14 @@ static struct panel_dpi_platform_data gta04b2_panel_data = {
 	.enable_gpio = 20,	/* STBY */
 };
 
-static struct omap_dss_device gta04_lcd_device_b2 = {
-	.type = OMAP_DISPLAY_TYPE_DPI,
-	.name = "lcd",
-	.driver_name = "panel-dpi",
-	.phy.dpi.data_lines = 24,
-	.data = &gta04b2_panel_data,
+static struct platform_device gta04b2_lcd_device = {
+	.name = "panel-dpi",
+	.id = 0,
+	.dev.platform_data = &gta04b2_panel_data,
 };
 
-static struct display_timing gta04b3_panel_timing = {
+static struct display_timing gta04b3_panel_timing = { // GTA04b3 - sharp_lq070y3dg3b - OpenPhoenux 7004
+
 	.pixelclock	= { 0, 33260000, 0 },
 
 	.hactive = { 0, 800, 0 },
@@ -369,7 +367,7 @@ static struct display_timing gta04b3_panel_timing = {
 };
 
 static struct panel_dpi_platform_data gta04b3_panel_data = {
-	.name = "sharp_lq070y3dg3b",           // GTA04b3 - OpenPhoenux 7004
+	.name = "lcd",
 	.source = "dpi.0",
 	.data_lines = 24,
 	.display_timing = &gta04b3_panel_timing,
@@ -378,12 +376,10 @@ static struct panel_dpi_platform_data gta04b3_panel_data = {
 	.enable_gpio = 12,	/* McBSP5-CLKX */
 };
 
-static struct omap_dss_device gta04_lcd_device_b3 = {
-	.type = OMAP_DISPLAY_TYPE_DPI,
-	.name = "lcd",
-    .driver_name = "panel-dpi",             // GTA04b3 - OpenPhoenux 7004
-	.phy.dpi.data_lines = 24,
-	.data = &gta04b3_panel_data,
+static struct platform_device gta04b3_lcd_device = {
+	.name = "panel-dpi",
+	.id = 0,
+	.dev.platform_data = &gta04b3_panel_data,
 };
 
 #if 0
@@ -436,31 +432,28 @@ static struct omap_dss_device gta04_tv_device = {
 	.platform_enable = gta04_panel_enable_tv,
 	.platform_disable = gta04_panel_disable_tv,
 };
-#endif
-static struct omap_dss_device *gta04_dss_devices[] = {
-// 	&gta04_dvi_device,
-// 	&gta04_tv_device,
-	&gta04_lcd_device,
+
+static struct connector_atv_platform_data gta04_tv_pdata = {
+	.name = "tv",
+	.source = "venc.0",
+	.connector_type = OMAP_DSS_VENC_TYPE_COMPOSITE,
+	.invert_polarity = true,
 };
+
+static struct platform_device gta04_tv_connector_device = {
+	.name                   = "connector-analog-tv",
+	.id                     = 0,
+	.dev.platform_data      = &gta04_tv_pdata,
+};
+
+#endif
 
 static struct omap_dss_board_info gta04_dss_data = {
-	.num_devices = ARRAY_SIZE(gta04_dss_devices),
-	.devices = gta04_dss_devices,
-// 	.default_device = &gta04_lcd_device,
+	.default_display_name = "lcd",
 };
-
-#if 0
-static struct platform_device gta04_dss_device = {
-	.name          = "omapdss",
-	.id            = 0,
-	.dev            = {
-		.platform_data = &gta04_dss_data,
-	},
-};
-#endif
 
 static struct regulator_consumer_supply gta04_vdac_supply =
-	REGULATOR_SUPPLY("vdda_dac","omapdss.0");
+	REGULATOR_SUPPLY("vdda_dac", "omapdss.0");
 
 static struct regulator_consumer_supply gta04_vdvi_supplies[] = {
 	REGULATOR_SUPPLY("vdds_sdi", "omapdss"),
@@ -1550,12 +1543,14 @@ static struct platform_device *gta04_devices[] __initdata = {
 //	&leds_gpio,
 	&keys_gpio,
 	&keys_3G_gpio,
-// 	&gta04_dss_device,
-//	&gta04_vwlan_device,
+//	&gta04_tv_connector_device,
+//	&gta04b2_lcd_device,
+	//	&gta04_vwlan_device,
 	&gps_rfkill_device,
 	&bt_gpio_reg_device,
 	&gps_gpio_device,
 	&antenna_extcon_dev,
+
 #if defined(CONFIG_REGULATOR_VIRTUAL_CONSUMER)
 	&gta04_vaux1_virtual_regulator_device,
 	&gta04_vaux2_virtual_regulator_device,
@@ -1574,6 +1569,7 @@ static struct platform_device *gta04_devices[] __initdata = {
 	&gta04_camera_device,
 #endif
 	&madc_hwmon,
+    &twl4030_madc_bat,
 };
 
 static struct usbhs_phy_data phy_data[] __initdata = {
@@ -1718,13 +1714,16 @@ static void __init gta04_init(void)
 	omap_sdrc_init(mt46h32m32lf6_sdrc_params,
 		       mt46h32m32lf6_sdrc_params);
 
-	omap_display_init(&gta04_dss_data);
-
 	omap_mux_init_gpio(WO3G_GPIO, OMAP_PIN_INPUT | OMAP_WAKEUP_EN);
 	gpio_3G_buttons[0].gpio = WO3G_GPIO;
 	
 	platform_add_devices(gta04_devices,
 			     ARRAY_SIZE(gta04_devices));
+
+	platform_device_register(gta04_panel);
+
+	omap_display_init(&gta04_dss_data);
+
 	omap_hsmmc_init(mmc);
 
 // #ifdef CONFIG_OMAP_MUX
@@ -1806,8 +1805,6 @@ static void __init gta04_init(void)
 	omap_mux_init_gpio(13, OMAP_PIN_OUTPUT);
 
 	pm_set_vt_switch(0);
-    //TODO: assure this runs after twl4030_madc is ready
-    platform_device_register(&twl4030_madc_bat);
 
 	printk("gta04_init done...\n");
 }
@@ -1859,14 +1856,14 @@ static int __init gta04_init_bymux(char *str)
 		// configure for TPO display (2804) - also the default
 		tsc2007_info.x_plate_ohms = 550;			// GTA04: 250 - 900
 		tca6507_info.leds.leds = tca6507_leds;
-		gta04_dss_data.default_device=gta04_dss_devices[0]=&gta04_lcd_device;
+		gta04_panel = &gta04_lcd_device;
 	}
-	else if(strcmp(str, "GTA04B2") == 0) {
+	else if(strcmp(str, "GTA04B2") == 0 || strcmp(str, "GTA04B6") == 0) {
 		// configure for Ortus display (3704)
 		gta04_battery_data.capacity = 3900000;
 		tsc2007_info.x_plate_ohms = 600;		// GTA04b2: 200 - 900
 		tca6507_info.leds.leds = tca6507_leds_b2;
-		gta04_dss_data.default_device=gta04_dss_devices[0]=&gta04_lcd_device_b2;
+		gta04_panel = &gta04b2_lcd_device;
 		// FIXME: configure RFID driver
 	}
 	else if(strcmp(str, "GTA04B3") == 0) {
@@ -1875,13 +1872,21 @@ static int __init gta04_init_bymux(char *str)
 		tsc2007_info.x_plate_ohms = 450;			// GTA04b3: 100 - 900
 		tsc2007_info.swap_xy = 1,	/* x and y axes are swapped */
 		tca6507_info.leds.leds = tca6507_leds_b3;
-		gta04_dss_data.default_device=gta04_dss_devices[0]=&gta04_lcd_device_b3;
+		gta04_panel = &gta04b3_lcd_device;
 	}
 	else if(strcmp(str, "GTA04B4") == 0) {
 		// configure for 5" Sharp display (5004)
 		tsc2007_info.x_plate_ohms = 400;			// GTA04b4: 100 - 850 (very asymmetric between X and Y!)
 		// FIXME: configure display and LEDs
 	}
+	/*
+	 else if(strcmp(str, "GTA04B5") == 0) {
+	 }
+	 else if(strcmp(str, "GTA04B7") == 0) {
+	 }
+	 else if(strcmp(str, "GTA04B8") == 0) {
+	 }
+	 */
 	else {
 		printk(KERN_EMERG "UNKNOWN PINMUX %s!\n", str);
 		// maybe we should stop booting here before we risk to damage some hardware!
