@@ -426,18 +426,24 @@ static struct omap_dss_device gta04_tv_device = {
 	.name = "tv",
 	.driver_name = "venc",
 	.type = OMAP_DISPLAY_TYPE_VENC,
-	/* GTA04 has a single composite output (with external video driver) */
 	.phy.venc.type = OMAP_DSS_VENC_TYPE_COMPOSITE, /*OMAP_DSS_VENC_TYPE_SVIDEO, */
 	.phy.venc.invert_polarity = true,	/* needed if we use external video driver */
 	.platform_enable = gta04_panel_enable_tv,
 	.platform_disable = gta04_panel_disable_tv,
 };
 
+#endif
+
 static struct connector_atv_platform_data gta04_tv_pdata = {
+	/* GTA04 has a single composite output (with external video driver) */
 	.name = "tv",
 	.source = "venc.0",
 	.connector_type = OMAP_DSS_VENC_TYPE_COMPOSITE,
-	.invert_polarity = true,
+	.invert_polarity = true,	/* needed if we use external video driver */
+	/*
+	 .platform_enable = gta04_panel_enable_tv,
+	 .platform_disable = gta04_panel_disable_tv,
+	 */
 };
 
 static struct platform_device gta04_tv_connector_device = {
@@ -446,18 +452,17 @@ static struct platform_device gta04_tv_connector_device = {
 	.dev.platform_data      = &gta04_tv_pdata,
 };
 
-#endif
-
 static struct omap_dss_board_info gta04_dss_data = {
 	.default_display_name = "lcd",
 };
 
+// candidate for cleanup?
 static struct regulator_consumer_supply gta04_vdac_supply =
 	REGULATOR_SUPPLY("vdda_dac", "omapdss.0");
 
 static struct regulator_consumer_supply gta04_vdvi_supplies[] = {
 	REGULATOR_SUPPLY("vdds_sdi", "omapdss"),
-	REGULATOR_SUPPLY("vdds_dsi", "omapdss"),
+	REGULATOR_SUPPLY("vdds_dsi", "omapdss_dpi.0"),
 	REGULATOR_SUPPLY("vdds_dsi", "omapdss_dsi.0"),
 };
 
@@ -569,46 +574,6 @@ static struct regulator_init_data gta04_vmmc1 = {
 	.consumer_supplies	= gta04_vmmc1_supply,
 };
 
-#if 0
-/* Pseudo Fixed regulator to provide reset toggle to Wifi module */
-static struct regulator_consumer_supply gta04_vwlan_supply[] = {
-	REGULATOR_SUPPLY("vmmc", "omap_hsmmc.1"), // wlan
-};
-
-static struct regulator_init_data gta04_vwlan_data = {
-	.supply_regulator = "VAUX4",
-	.constraints = {
-		.name			= "VWLAN",
-		.min_uV			= 2800000,
-		.max_uV			= 3150000,
-		.valid_modes_mask	= (REGULATOR_MODE_NORMAL
-					   | REGULATOR_MODE_STANDBY),
-		.valid_ops_mask		= (REGULATOR_CHANGE_VOLTAGE
-					   | REGULATOR_CHANGE_MODE
-					   | REGULATOR_CHANGE_STATUS),
-	},
-	.num_consumer_supplies	= ARRAY_SIZE(gta04_vwlan_supply),
-	.consumer_supplies	= gta04_vwlan_supply,
-};
-
-static struct fixed_voltage_config gta04_vwlan = {
-	.supply_name		= "vwlan",
-	.microvolts		= 3150000, /* 3.15V */
-	.gpio			= GPIO_WIFI_RESET,
-	.startup_delay		= 10000, /* 10ms */
-	.enable_high		= 1,
-	.enabled_at_boot	= 0,
-	.init_data		= &gta04_vwlan_data,
-};
-
-static struct platform_device gta04_vwlan_device = {
-	.name		= "reg-fixed-voltage",
-	.id		= 1,
-	.dev = {
-		.platform_data = &gta04_vwlan,
-	},
-};
-#endif
 /* VAUX4 powers Bluetooth and WLAN */
 
 static struct regulator_consumer_supply gta04_vaux4_supply[] = {
@@ -732,6 +697,8 @@ static struct regulator_init_data gta04_vdac = {
 	.consumer_supplies	= &gta04_vdac_supply,
 };
 
+// CHECKME: the devkit8000 uses VPLL1 for this purpose?
+
 /* VPLL2 for digital video outputs */
 static struct regulator_init_data gta04_vpll2 = {
 	.constraints = {
@@ -747,10 +714,12 @@ static struct regulator_init_data gta04_vpll2 = {
 	.consumer_supplies	= gta04_vdvi_supplies,
 };
 
+// CHECKME: if we don't need this array any more - why do we need
+// all the refrenced structures?
+
 #if 0
 static struct regulator_init_data *all_reg_data[] = {
 	&gta04_vmmc1,
-//	&gta04_vwlan_data,
 	&gta04_vaux4,
 	&gta04_vaux3,
 	&gta04_vaux2,
@@ -834,96 +803,6 @@ static struct twl4030_madc_platform_data gta04_madc_data = {
 	.irq_line	= 1,
 };
 
-// FIXME: we could copy more scripts from board-sdp3430.c if we understand what they do... */
-
-#if 0
-static struct twl4030_ins __initdata sleep_on_seq[] = {
-	/* Turn off HFCLKOUT */
-	{MSG_SINGULAR(DEV_GRP_P3, RES_HFCLKOUT, RES_STATE_OFF), 2},
-	/* Turn OFF VDD1 */
-	{MSG_SINGULAR(DEV_GRP_P1, RES_VDD1, RES_STATE_OFF), 2},
-	/* Turn OFF VDD2 */
-	{MSG_SINGULAR(DEV_GRP_P1, RES_VDD2, RES_STATE_OFF), 2},
-	/* Turn OFF VPLL1 */
-	{MSG_SINGULAR(DEV_GRP_P1, RES_VPLL1, RES_STATE_OFF), 2},
-
-	{MSG_SINGULAR(DEV_GRP_P1, RES_VINTANA1, RES_STATE_OFF), 2},
-	{MSG_SINGULAR(DEV_GRP_P1, RES_VINTANA2, RES_STATE_OFF), 2},
-	{MSG_SINGULAR(DEV_GRP_P1, RES_VINTDIG, RES_STATE_OFF), 2},
-
-//	{MSG_SINGULAR(DEV_GRP_P1, RES_REGEN, RES_STATE_OFF), 2},
-
-};
-
-static struct twl4030_script sleep_on_script __initdata = {
-	.script	= sleep_on_seq,
-	.size	= ARRAY_SIZE(sleep_on_seq),
-	.flags	= TWL4030_SLEEP_SCRIPT,
-};
-
-static struct twl4030_ins wakeup_p12_seq[] __initdata = {
-	{MSG_SINGULAR(DEV_GRP_P1, RES_VINTANA1, RES_STATE_ACTIVE), 2},
-	{MSG_SINGULAR(DEV_GRP_P1, RES_VINTANA2, RES_STATE_ACTIVE), 2},
-	{MSG_SINGULAR(DEV_GRP_P1, RES_VINTDIG, RES_STATE_ACTIVE), 2},
-
-	/* Turn on HFCLKOUT */
-	{MSG_SINGULAR(DEV_GRP_P1, RES_HFCLKOUT, RES_STATE_ACTIVE), 2},
-	/* Turn ON VDD1 */
-	{MSG_SINGULAR(DEV_GRP_P1, RES_VDD1, RES_STATE_ACTIVE), 2},
-	/* Turn ON VDD2 */
-	{MSG_SINGULAR(DEV_GRP_P1, RES_VDD2, RES_STATE_ACTIVE), 2},
-	/* Turn ON VPLL1 */
-	{MSG_SINGULAR(DEV_GRP_P1, RES_VPLL1, RES_STATE_ACTIVE), 2},
-};
-
-static struct twl4030_script wakeup_p12_script __initdata = {
-	.script	= wakeup_p12_seq,
-	.size	= ARRAY_SIZE(wakeup_p12_seq),
-	.flags	= TWL4030_WAKEUP12_SCRIPT,
-};
-
-/* Turn the HFCLK on when CPU asks for it. */
-static struct twl4030_ins wakeup_p3_seq[] __initdata = {
-	{MSG_SINGULAR(DEV_GRP_P1, RES_HFCLKOUT, RES_STATE_ACTIVE), 2},
-};
-
-static struct twl4030_script wakeup_p3_script __initdata = {
-	.script = wakeup_p3_seq,
-	.size   = ARRAY_SIZE(wakeup_p3_seq),
-	.flags  = TWL4030_WAKEUP3_SCRIPT,
-};
-
-static struct twl4030_ins wrst_seq[] __initdata = {
-/*
- * Reset twl4030.
- * Reset VDD1 regulator.
- * Reset VDD2 regulator.
- * Reset VPLL1 regulator.
- * Enable sysclk output.
- * Reenable twl4030.
- */
-	{MSG_SINGULAR(DEV_GRP_NULL, RES_RESET, RES_STATE_OFF), 2},
-	{MSG_SINGULAR(DEV_GRP_P1, RES_VDD1, RES_STATE_WRST), 15},
-	{MSG_SINGULAR(DEV_GRP_P1, RES_VDD2, RES_STATE_WRST), 15},
-	{MSG_SINGULAR(DEV_GRP_P1, RES_VPLL1, RES_STATE_WRST), 0x60},
-	{MSG_SINGULAR(DEV_GRP_P1, RES_HFCLKOUT, RES_STATE_ACTIVE), 2},
-	{MSG_SINGULAR(DEV_GRP_NULL, RES_RESET, RES_STATE_ACTIVE), 2},
-};
-
-static struct twl4030_script wrst_script __initdata = {
-	.script = wrst_seq,
-	.size   = ARRAY_SIZE(wrst_seq),
-	.flags  = TWL4030_WRST_SCRIPT,
-};
-
-static struct twl4030_script *twl4030_scripts[] __initdata = {	// not used
-	&wakeup_p12_script,
-	&wakeup_p3_script,
-	&sleep_on_script,
-	&wrst_script,
-};
-#endif
-
 #define TWL_RES_CFG(_res, _devg) { .resource = _res, .devgroup = _devg, \
 	.type = TWL4030_RESCONFIG_UNDEF, .type2 = TWL4030_RESCONFIG_UNDEF,}
 
@@ -940,8 +819,6 @@ static struct twl4030_resconfig twl4030_rconfig[] = {
 };
 
 struct twl4030_power_data gta04_power_scripts = {
-//	.scripts	= twl4030_scripts,
-//	.num		= ARRAY_SIZE(twl4030_scripts),
 	.resource_config = twl4030_rconfig,
 	.use_poweroff	= 1,
 };
@@ -1431,8 +1308,7 @@ static int __init gta04_i2c_init(void)
 	return 0;
 }
 
-#if 0
-// FIXME: initialize SPIs and McBSPs
+#if 0	// FIXME: initialize spare SPIs and McBSPs
 
 static struct spi_board_info gta04fpga_mcspi_board_info[] = {
 	// spi 4.0
@@ -1531,7 +1407,7 @@ static struct platform_device gta04_vaux3_virtual_regulator_device = {
 #endif
 
 
-static struct platform_device madc_hwmon = {
+static struct platform_device twl4030_madc_hwmon = {
 	.name	= "twl4030_madc_hwmon",
 	.id	= -1,
 };
@@ -1543,18 +1419,16 @@ static struct platform_device *gta04_devices[] __initdata = {
 //	&leds_gpio,
 	&keys_gpio,
 	&keys_3G_gpio,
-//	&gta04_tv_connector_device,
-//	&gta04b2_lcd_device,
-	//	&gta04_vwlan_device,
+	&gta04_tv_connector_device,
 	&gps_rfkill_device,
 	&bt_gpio_reg_device,
 	&gps_gpio_device,
 	&antenna_extcon_dev,
 
 #if defined(CONFIG_REGULATOR_VIRTUAL_CONSUMER)
-	&gta04_vaux1_virtual_regulator_device,
-	&gta04_vaux2_virtual_regulator_device,
-	&gta04_vaux3_virtual_regulator_device,
+//	&gta04_vaux1_virtual_regulator_device,
+//	&gta04_vaux2_virtual_regulator_device,
+//	&gta04_vaux3_virtual_regulator_device,
 #endif
 #if defined(CONFIG_SND_SOC_GTM601)
 	&gta04_gtm601_codec_audio_device,
@@ -1568,7 +1442,7 @@ static struct platform_device *gta04_devices[] __initdata = {
 #ifdef CONFIG_SOC_CAMERA_OV9655
 	&gta04_camera_device,
 #endif
-	&madc_hwmon,
+	&twl4030_madc_hwmon,
     &twl4030_madc_bat,
 };
 
