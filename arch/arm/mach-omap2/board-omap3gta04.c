@@ -76,7 +76,6 @@
 #include "common.h"
 #include <video/omapdss.h>
 #include <video/omap-panel-data.h>
-#include <video/omap-panel-tpo-td028ttec1.h>
 #include "gpmc.h"
 #include <linux/platform_data/mtd-nand-omap2.h>
 #include "clock.h"
@@ -285,30 +284,19 @@ static struct platform_device twl4030_audio_device = {
 	.id = -1,
 };
 
-// FIXME:
-static struct panel_td028ttec1_data gta04_panel_data = { // GTA04 - panel-toppoly-td028ttec1 - OpenPhoenux 2804
+static struct panel_tpo_td028tec1_platform_data gta04_panel_data = {
+	.cs_gpio = 19,
+	.scl_gpio = 12,
+	.din_gpio = 18,
+	.dout_gpio = 20,
 
-	// FIXME to match new driver's expectations
-
-    // .name = "td028ttec1_panel",
-	// .source = "dpi.0",
-	// .data_lines = 24,
-
-	/* FIXME: modify GPIOs for BeagleHybrid! It was:
-		#define GPIO_CS        (machine_is_gta04()?19:161)
-		#define GPIO_SCL       (machine_is_gta04()?12:162)
-		#define GPIO_DIN       (machine_is_gta04()?18:159)
-		#define GPIO_DOUT      (machine_is_gta04()?20:158)
-		*/
-	.gpio_cs = 19,
-	.gpio_scl = 12,
-	.gpio_din = 18,
-	.gpio_dout = 20,
-
+	.name = "lcd",
+	.source = "dpi.0",
+	.data_lines = 24,
 };
 
 static struct platform_device gta04_lcd_device = {
-	.name = "lcd",
+	.name = "panel-tpo-td028ttec1",
 	.id = 0,
 	.dev.platform_data = &gta04_panel_data,
 };
