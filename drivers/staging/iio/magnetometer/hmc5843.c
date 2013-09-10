@@ -611,26 +611,6 @@ static const struct hmc5843_chip_info hmc5843_chip_info_tbl[] = {
 	},
 };
 
-static int hmc5843_detect(struct i2c_client *client,
-			  struct i2c_board_info *info)
-{
-	unsigned char id_str[HMC5843_ID_REG_LENGTH];
-
-	if (client->addr != HMC5843_I2C_ADDRESS)
-		return -ENODEV;
-
-	if (i2c_smbus_read_i2c_block_data(client, HMC5843_ID_REG_A,
-				HMC5843_ID_REG_LENGTH, id_str)
-			!= HMC5843_ID_REG_LENGTH)
-		return -ENODEV;
-
-	if (0 != strncmp(id_str, HMC5843_ID_STRING, HMC5843_ID_REG_LENGTH))
-		return -ENODEV;
-
-	strlcpy(info->type, "hmc5843", I2C_NAME_SIZE);
-	return 0;
-}
-
 /* Called when we have found a new HMC58X3 */
 static void hmc5843_init_client(struct i2c_client *client,
 				const struct i2c_device_id *id)
@@ -747,9 +727,6 @@ static struct i2c_driver hmc5843_driver = {
 	.id_table	= hmc5843_id,
 	.probe		= hmc5843_probe,
 	.remove		= hmc5843_remove,
-	.detect		= hmc5843_detect,
-	.address_list	= normal_i2c,
-	.class		= I2C_CLASS_HWMON,
 };
 module_i2c_driver(hmc5843_driver);
 

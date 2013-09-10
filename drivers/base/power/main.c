@@ -341,7 +341,7 @@ static pm_callback_t pm_noirq_op(const struct dev_pm_ops *ops, pm_message_t stat
 
 static void pm_dev_dbg(struct device *dev, pm_message_t state, char *info)
 {
-	dev_dbg(dev, "%s%s %pf%s\n", info, pm_verb(state.event), cb,
+	dev_dbg(dev, "%s%s%s\n", info, pm_verb(state.event),
 		((state.event & PM_EVENT_SLEEP) && device_may_wakeup(dev)) ?
 		", may wakeup" : "");
 }
@@ -381,7 +381,7 @@ static int dpm_run_callback(pm_callback_t cb, struct device *dev,
 
 	calltime = initcall_debug_start(dev);
 
-	pm_dev_dbg(dev, state, info, cb);
+	pm_dev_dbg(dev, state, info);
 	error = cb(dev);
 	suspend_report_result(cb, error);
 
@@ -756,7 +756,7 @@ static void device_complete(struct device *dev, pm_message_t state)
 	}
 
 	if (callback) {
-		pm_dev_dbg(dev, state, info, callback);
+		pm_dev_dbg(dev, state, info);
 		callback(dev);
 	}
 

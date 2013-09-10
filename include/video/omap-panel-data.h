@@ -238,4 +238,26 @@ struct panel_nec_nl8048hl11_platform_data {
 	int qvga_gpio;
 };
 
+/**
+ * panel-tpo-td028tec1 platform data
+ * @name: name for display netity
+ * @source: name of the display entity used as a video source
+ * @data_lines: number of DPI datalines
+ * @cs_gpio: CS gpio
+ * @scl_gpio: CLK gpio
+ * @din_gpio: input data gpio
+ * @dout_gpio: output data gpio
+ */
+struct panel_tpo_td028tec1_platform_data {
+	const char *name;
+	const char *source;
+
+	int data_lines;
+
+	int cs_gpio;
+	int scl_gpio;
+	int din_gpio;
+	int dout_gpio;
+};
+
 #endif /* __OMAP_PANEL_DATA_H */
