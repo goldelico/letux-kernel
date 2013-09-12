@@ -167,6 +167,18 @@
 		dr_mode = "host";
 	};
 
+	kim {
+		compatible = "kim";
+		nshutdown_gpio = <132>;
+		dev_name = "/dev/ttyO2";
+		flow_cntrl = <1>;
+		baud_rate = <3686400>;
+		gpios = <&pcf_lcd3 14 0>; /* pcf8575@21 P16 */
+	};
+
+	btwilink {
+		compatible = "btwilink";
+	};
 
 };
 
@@ -182,6 +194,7 @@
 		&usb_pins
 		&wl_pins
 		&wlirq_pins
+		&bt_uart3_pins
 	>;
 
 	i2c1_pins: pinmux_i2c1_pins {
@@ -234,6 +247,16 @@
 	wlirq_pins: pinmux_wlirq_pins {
 		pinctrl-single,pins = <
 			0x2c8 0x106000E /* WLAN_IRQ: INPUT | WAKEUP_ENABLE | MODE 14 */
+		>;
+	};
+
+	bt_uart3_pins: pinmux_bt_uart3_pins {
+		pinctrl-single,pins = <
+			0x3c0 0x60001       /* uart3_rx.spi2_sclk:  INPUT | PULLUP | MODE 1 */
+			0x3c4 0x1           /* uart3_tx.spi2.d1:    OUTPUT |  MODE 1 */
+			0x3c8 0x40001       /* uart3_rts.spi2.c0:   OUTPUT | PULLUP | MODE 1 */
+			0x3cc 0x60001       /* uart3_cts.spi2.d0:   INPUT | MODE 1 */
+			0x2bc 0xE           /* BT_EN.gp5_4:         OUTPUT | MODE 14 */
 		>;
 	};
 
