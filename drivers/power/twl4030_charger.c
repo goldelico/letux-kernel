@@ -249,8 +249,13 @@ static int twl4030_charger_enable_usb(struct twl4030_bci *bci, bool enable)
 
 		/* Need to keep regulator on */
 		if (!bci->usb_enabled) {
-			if (regulator_enable(bci->usb_reg) == 0)
-				bci->usb_enabled = 1;
+			ret = regulator_enable(bci->usb_reg);
+			if (ret) {
+				dev_err(bci->dev,
+					"Failed to enable regulator\n");
+				return ret;
+			}
+			bci->usb_enabled = 1;
 		}
 
 		if (allow_usb)
