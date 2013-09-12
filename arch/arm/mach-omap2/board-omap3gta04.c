@@ -517,7 +517,6 @@ static struct twl4030_madc_bat_calibration gta04_battery_charging_data[] = {
 	{ 3700, 2 },
 	{ 3600, 1 },
 	{ 3300, 0 },
-	{ -1, 0 }
 };
 
 static struct twl4030_madc_bat_calibration gta04_battery_discharging_data[] = {
@@ -528,13 +527,14 @@ static struct twl4030_madc_bat_calibration gta04_battery_discharging_data[] = {
 	{ 3700, 10 },
 	{ 3600, 5 },
 	{ 3300, 0 },
-	{ -1, 0 }
 };
 
 static struct twl4030_madc_bat_platform_data gta04_battery_data = {
 	.capacity = 1200000,	/* total capacity in uAh */
 	.charging = gta04_battery_charging_data,
+	.charging_size = ARRAY_SIZE(gta04_battery_charging_data),
 	.discharging = gta04_battery_discharging_data,
+	.discharging_size = ARRAY_SIZE(gta04_battery_discharging_data),
 };
 
 static struct platform_device twl4030_madc_bat = {
