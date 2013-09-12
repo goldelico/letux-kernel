@@ -553,6 +553,26 @@ struct snd_soc_dapm_context *snd_soc_dapm_kcontrol_dapm(
 }
 EXPORT_SYMBOL_GPL(snd_soc_dapm_kcontrol_dapm);
 
+/**
+ * snd_soc_dapm_kcontrol_platform() - Returns the platform associated to a kcontrol
+ * @kcontrol: The kcontrol
+ */
+struct snd_soc_platform *snd_soc_dapm_kcontrol_platform(struct snd_kcontrol *kcontrol)
+{
+	return dapm_kcontrol_get_wlist(kcontrol)->widgets[0]->platform;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dapm_kcontrol_platform);
+
+/**
+ * snd_soc_dapm_kcontrol_dapm() - Returns the dapm context associated to a kcontrol
+ * @kcontrol: The kcontrol
+ */
+struct snd_soc_dapm_context *snd_soc_dapm_kcontrol_dapm(struct snd_kcontrol *kcontrol)
+{
+	return dapm_kcontrol_get_wlist(kcontrol)->widgets[0]->dapm;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dapm_kcontrol_dapm);
+
 static void dapm_reset(struct snd_soc_card *card)
 {
 	struct snd_soc_dapm_widget *w;
