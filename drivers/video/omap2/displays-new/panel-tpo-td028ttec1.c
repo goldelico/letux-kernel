@@ -117,6 +117,8 @@ int jbt_reg_write_nodata(struct panel_drv_data *ddata, u_int8_t reg)
 	ddata->tx_buf[0] = JBT_COMMAND | reg;
 
 	rc = jbt_spi_xfer(ddata, 1, 9);
+	if (rc)
+		dev_warn(ddata->dssdev.dev, "Failed to write to reg: %x\n", reg);
 
 	return rc;
 }
@@ -129,6 +131,8 @@ int jbt_reg_write(struct panel_drv_data *ddata, u_int8_t reg, u_int8_t data)
 	ddata->tx_buf[1] = JBT_DATA | data;
 
 	rc = jbt_spi_xfer(ddata, 2, 9);
+	if (rc)
+		dev_warn(ddata->dssdev.dev, "Failed to write to reg: %x\n", reg);
 
 	return rc;
 }
@@ -142,6 +146,8 @@ int jbt_reg_write16(struct panel_drv_data *ddata, u_int8_t reg, u_int16_t data)
 	ddata->tx_buf[2] = JBT_DATA | (data & 0xff);
 
 	rc = jbt_spi_xfer(ddata, 3, 9);
+	if (rc)
+		dev_warn(ddata->dssdev.dev, "Failed to write to reg: %x\n", reg);
 
 	return rc;
 }
@@ -250,18 +256,18 @@ static int td028ttec1_panel_enable(struct omap_dss_device *dssdev)
 		dssdev->state);
 
 	/* three times command zero */
-	r = jbt_reg_write_nodata(ddata, 0x00);
+	r |= jbt_reg_write_nodata(ddata, 0x00);
 	udelay(1000);
-	r = jbt_reg_write_nodata(ddata, 0x00);
+	r |= jbt_reg_write_nodata(ddata, 0x00);
 	udelay(1000);
-	r = jbt_reg_write_nodata(ddata, 0x00);
+	r |= jbt_reg_write_nodata(ddata, 0x00);
 	udelay(1000);
 
 	/* deep standby out */
 	r |= jbt_reg_write(ddata, JBT_REG_POWER_ON_OFF, 0x17);
 
 	/* RGB I/F on, RAM write off, QVGA through, SIGCON enable */
-	r = jbt_reg_write(ddata, JBT_REG_DISPLAY_MODE, 0x80);
+	r |= jbt_reg_write(ddata, JBT_REG_DISPLAY_MODE, 0x80);
 
 	/* Quad mode off */
 	r |= jbt_reg_write(ddata, JBT_REG_QUAD_RATE, 0x00);
@@ -278,7 +284,7 @@ static int td028ttec1_panel_enable(struct omap_dss_device *dssdev)
 	/* at this point we have like 50% grey */
 
 	/* initialize register set */
-	r = jbt_reg_write(ddata, JBT_REG_DISPLAY_MODE1, 0x01);
+	r |= jbt_reg_write(ddata, JBT_REG_DISPLAY_MODE1, 0x01);
 	r |= jbt_reg_write(ddata, JBT_REG_DISPLAY_MODE2, 0x00);
 	r |= jbt_reg_write(ddata, JBT_REG_RGB_FORMAT, 0x60);
 	r |= jbt_reg_write(ddata, JBT_REG_DRIVE_SYSTEM, 0x10);
@@ -324,11 +330,11 @@ static int td028ttec1_panel_enable(struct omap_dss_device *dssdev)
 	r |= jbt_reg_write16(ddata, JBT_REG_ASW_TIMING_1, 0x11a4);
 	r |= jbt_reg_write(ddata, JBT_REG_ASW_TIMING_2, 0x0e);
 
-	jbt_reg_write_nodata(ddata, JBT_REG_DISPLAY_ON);
+	r |= jbt_reg_write_nodata(ddata, JBT_REG_DISPLAY_ON);
 
 	dssdev->state = OMAP_DSS_DISPLAY_ACTIVE;
 
-	return 0;
+	return r;
 }
 
 static void td028ttec1_panel_disable(struct omap_dss_device *dssdev)
