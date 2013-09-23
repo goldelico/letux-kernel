@@ -1715,7 +1715,7 @@ static int __init gta04_init_bymux(char *str)
 {
 	printk(KERN_INFO "gta04_init_bymux: %s", str);
 	if(strcmp(str, "GTA04") == 0 || strcmp(str, "GTA04A2") == 0 || strcmp(str, "GTA04A3+") == 0) {
-		// configure for TPO display (2804) - also the default
+		// configure for TPO display (2804) - also the default (could have been called GTA04B1)
 		tsc2007_info.x_plate_ohms = 550;			// GTA04: 250 - 900
 		tca6507_info.leds.leds = tca6507_leds;
 		gta04_panel = &gta04_lcd_device;
@@ -1747,6 +1747,27 @@ static int __init gta04_init_bymux(char *str)
 	 else if(strcmp(str, "GTA04B7") == 0) {
 	 }
 	 else if(strcmp(str, "GTA04B8") == 0) {
+	 }
+	 else if(strcmp(str, "BeagleBoardB1") == 0) {
+		// configure for TPO display (2804)
+		tsc2007_info.x_plate_ohms = 550;			// GTA04: 250 - 900
+		tca6507_info.leds.leds = tca6507_leds;
+		gta04_panel = &gta04_lcd_device;
+	 }
+	 else if(strcmp(str, "BeagleBoardB2") == 0) {
+	 // configure for Ortus display (3704)
+		gta04_battery_data.capacity = 3900000;
+		tsc2007_info.x_plate_ohms = 600;		// GTA04b2: 200 - 900
+		tca6507_info.leds.leds = tca6507_leds_b2;
+		gta04_panel = &gta04b2_lcd_device;
+	 // FIXME: configure RFID driver
+	 }
+	 else if(strcmp(str, "BeagleBoardB4") == 0) {
+		// configure for 5" Sharp display (5004)
+		tsc2007_info.x_plate_ohms = 400;			// GTA04b4: 100 - 850 (very asymmetric between X and Y!)
+		// FIXME: configure display and LEDs
+	 }
+	 else if(strcmp(str, "PandaBoardB1") == 0) {
 	 }
 	 */
 	else {
