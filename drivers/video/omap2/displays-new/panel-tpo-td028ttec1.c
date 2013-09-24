@@ -8,7 +8,8 @@
  * Copyright (C) 2006-2007 by OpenMoko, Inc.
  * Author: Harald Welte <laforge@openmoko.org>
  *
- * Ported and adapted from Neo 1973 U-Boot by H. Nikolaus Schaller <hns@goldelico.com>
+ * Ported and adapted from Neo 1973 U-Boot by:
+ * H. Nikolaus Schaller <hns@goldelico.com>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -77,14 +78,12 @@ static int jbt_spi_xfer(struct panel_drv_data *data, int wordnum, int bitlen)
 {
 	u_int16_t tmpdout = 0;
 	int   i, j;
-	
-// 	printk("jbt_spi_xfer: dout %08X wordnum %u bitlen %d\n", *(uint *)dout, wordnum, bitlen);
-	
+
 	gpio_set_value(data->cs_gpio, 0);
-	
-	for (i = 0; i < wordnum; i ++) {
+
+	for (i = 0; i < wordnum; i++) {
 		tmpdout = data->tx_buf[i];
-		
+
 		for (j = 0; j < bitlen; j++) {
 			gpio_set_value(data->scl_gpio, 0);
 			if (tmpdout & (1 << (bitlen-1))) {
@@ -93,7 +92,7 @@ static int jbt_spi_xfer(struct panel_drv_data *data, int wordnum, int bitlen)
 					return 1;
 			} else {
 				gpio_set_value(data->dout_gpio, 0);
-				if(gpio_get_value(data->din_gpio) != 0)
+				if (gpio_get_value(data->din_gpio) != 0)
 					return 1;
 			}
 			SPI_DELAY();
@@ -102,9 +101,9 @@ static int jbt_spi_xfer(struct panel_drv_data *data, int wordnum, int bitlen)
 			tmpdout <<= 1;
 		}
 	}
-	
+
 	gpio_set_value(data->cs_gpio, 1);
-	
+
 	return 0;
 }
 
@@ -114,50 +113,55 @@ static int jbt_spi_xfer(struct panel_drv_data *data, int wordnum, int bitlen)
 int jbt_reg_write_nodata(struct panel_drv_data *ddata, u_int8_t reg)
 {
 	int rc;
-	
+
 	ddata->tx_buf[0] = JBT_COMMAND | reg;
-	
+
 	rc = jbt_spi_xfer(ddata, 1, 9);
-	
+	if (rc)
+		dev_warn(ddata->dssdev.dev, "Failed to write to reg: %x\n", reg);
+
 	return rc;
 }
-
 
 int jbt_reg_write(struct panel_drv_data *ddata, u_int8_t reg, u_int8_t data)
 {
 	int rc;
-	
+
 	ddata->tx_buf[0] = JBT_COMMAND | reg;
 	ddata->tx_buf[1] = JBT_DATA | data;
-	
+
 	rc = jbt_spi_xfer(ddata, 2, 9);
-	
+	if (rc)
+		dev_warn(ddata->dssdev.dev, "Failed to write to reg: %x\n", reg);
+
 	return rc;
 }
 
 int jbt_reg_write16(struct panel_drv_data *ddata, u_int8_t reg, u_int16_t data)
 {
 	int rc;
-	
+
 	ddata->tx_buf[0] = JBT_COMMAND | reg;
 	ddata->tx_buf[1] = JBT_DATA | (data >> 8);
 	ddata->tx_buf[2] = JBT_DATA | (data & 0xff);
-	
+
 	rc = jbt_spi_xfer(ddata, 3, 9);
-	
+	if (rc)
+		dev_warn(ddata->dssdev.dev, "Failed to write to reg: %x\n", reg);
+
 	return rc;
 }
 
 enum jbt_register {
 	JBT_REG_SLEEP_IN		= 0x10,
 	JBT_REG_SLEEP_OUT		= 0x11,
-	
+
 	JBT_REG_DISPLAY_OFF		= 0x28,
 	JBT_REG_DISPLAY_ON		= 0x29,
-	
+
 	JBT_REG_RGB_FORMAT		= 0x3a,
 	JBT_REG_QUAD_RATE		= 0x3b,
-	
+
 	JBT_REG_POWER_ON_OFF		= 0xb0,
 	JBT_REG_BOOSTER_OP		= 0xb1,
 	JBT_REG_BOOSTER_MODE		= 0xb2,
@@ -174,7 +178,7 @@ enum jbt_register {
 	JBT_REG_ASW_SLEW		= 0xbd,
 	JBT_REG_DUMMY_DISPLAY		= 0xbe,
 	JBT_REG_DRIVE_SYSTEM		= 0xbf,
-	
+
 	JBT_REG_SLEEP_OUT_FR_A		= 0xc0,
 	JBT_REG_SLEEP_OUT_FR_B		= 0xc1,
 	JBT_REG_SLEEP_OUT_FR_C		= 0xc2,
@@ -182,12 +186,12 @@ enum jbt_register {
 	JBT_REG_SLEEP_IN_LCCNT_E	= 0xc4,
 	JBT_REG_SLEEP_IN_LCCNT_F	= 0xc5,
 	JBT_REG_SLEEP_IN_LCCNT_G	= 0xc6,
-	
+
 	JBT_REG_GAMMA1_FINE_1		= 0xc7,
 	JBT_REG_GAMMA1_FINE_2		= 0xc8,
 	JBT_REG_GAMMA1_INCLINATION	= 0xc9,
 	JBT_REG_GAMMA1_BLUE_OFFSET	= 0xca,
-	
+
 	JBT_REG_BLANK_CONTROL		= 0xcf,
 	JBT_REG_BLANK_TH_TV		= 0xd0,
 	JBT_REG_CKV_ON_OFF		= 0xd1,
@@ -195,10 +199,9 @@ enum jbt_register {
 	JBT_REG_OEV_TIMING		= 0xd3,
 	JBT_REG_ASW_TIMING_1		= 0xd4,
 	JBT_REG_ASW_TIMING_2		= 0xd5,
-	
+
 	JBT_REG_HCLOCK_VGA		= 0xec,
 	JBT_REG_HCLOCK_QVGA		= 0xed,
-	
 };
 
 #define to_panel_data(p) container_of(p, struct panel_drv_data, dssdev)
@@ -249,25 +252,22 @@ static int td028ttec1_panel_enable(struct omap_dss_device *dssdev)
 	if (r)
 		return r;
 
-	printk("td028ttec1_panel_enable() - state %d\n", dssdev->state);
-
-	// 1. standby_to_sleep()
+	dev_dbg(dssdev->dev, "td028ttec1_panel_enable() - state %d\n",
+		dssdev->state);
 
 	/* three times command zero */
-	r = jbt_reg_write_nodata(ddata, 0x00);
+	r |= jbt_reg_write_nodata(ddata, 0x00);
 	udelay(1000);
-	r = jbt_reg_write_nodata(ddata, 0x00);
+	r |= jbt_reg_write_nodata(ddata, 0x00);
 	udelay(1000);
-	r = jbt_reg_write_nodata(ddata, 0x00);
+	r |= jbt_reg_write_nodata(ddata, 0x00);
 	udelay(1000);
 
 	/* deep standby out */
 	r |= jbt_reg_write(ddata, JBT_REG_POWER_ON_OFF, 0x17);
 
-	// 2. sleep_to_normal()
-
 	/* RGB I/F on, RAM write off, QVGA through, SIGCON enable */
-	r = jbt_reg_write(ddata, JBT_REG_DISPLAY_MODE, 0x80);
+	r |= jbt_reg_write(ddata, JBT_REG_DISPLAY_MODE, 0x80);
 
 	/* Quad mode off */
 	r |= jbt_reg_write(ddata, JBT_REG_QUAD_RATE, 0x00);
@@ -284,7 +284,7 @@ static int td028ttec1_panel_enable(struct omap_dss_device *dssdev)
 	/* at this point we have like 50% grey */
 
 	/* initialize register set */
-	r = jbt_reg_write(ddata, JBT_REG_DISPLAY_MODE1, 0x01);
+	r |= jbt_reg_write(ddata, JBT_REG_DISPLAY_MODE1, 0x01);
 	r |= jbt_reg_write(ddata, JBT_REG_DISPLAY_MODE2, 0x00);
 	r |= jbt_reg_write(ddata, JBT_REG_RGB_FORMAT, 0x60);
 	r |= jbt_reg_write(ddata, JBT_REG_DRIVE_SYSTEM, 0x10);
@@ -330,16 +330,11 @@ static int td028ttec1_panel_enable(struct omap_dss_device *dssdev)
 	r |= jbt_reg_write16(ddata, JBT_REG_ASW_TIMING_1, 0x11a4);
 	r |= jbt_reg_write(ddata, JBT_REG_ASW_TIMING_2, 0x0e);
 
-#if 0
-	rc |= jbt_reg_write16(jbt, JBT_REG_HCLOCK_QVGA, 0x00ff);
-	rc |= jbt_reg_write16(jbt, JBT_REG_HCLOCK_QVGA, 0x00ff);
-#endif
-
-	jbt_reg_write_nodata(ddata, JBT_REG_DISPLAY_ON);
+	r |= jbt_reg_write_nodata(ddata, JBT_REG_DISPLAY_ON);
 
 	dssdev->state = OMAP_DSS_DISPLAY_ACTIVE;
 
-	return 0;
+	return r;
 }
 
 static void td028ttec1_panel_disable(struct omap_dss_device *dssdev)
@@ -350,20 +345,13 @@ static void td028ttec1_panel_disable(struct omap_dss_device *dssdev)
 	if (!omapdss_device_is_enabled(dssdev))
 		return;
 
-	printk("td028ttec1_panel_disable()\n");
-
-	// 1. normal_to_sleep()
-
-	printk("td028ttec1_panel_suspend()\n");
+	dev_dbg(dssdev->dev, "td028ttec1_panel_disable()\n");
 
 	in->ops.dpi->disable(in);
 
 	jbt_reg_write_nodata(ddata, JBT_REG_DISPLAY_OFF);
 	jbt_reg_write16(ddata, JBT_REG_OUTPUT_CONTROL, 0x8002);
 	jbt_reg_write_nodata(ddata, JBT_REG_SLEEP_IN);
-
-	// 2. sleep_to_standby()
-
 	jbt_reg_write(ddata, JBT_REG_POWER_ON_OFF, 0x00);
 
 	dssdev->state = OMAP_DSS_DISPLAY_DISABLED;
@@ -437,7 +425,6 @@ static int td028ttec1_panel_probe_pdata(struct platform_device *pdev)
 	ddata->din_gpio = pdata->din_gpio;
 	ddata->dout_gpio = pdata->dout_gpio;
 
-	printk("td028ttec1_panel_probe()\n");
 	return 0;
 }
 
@@ -523,8 +510,6 @@ static int __exit td028ttec1_panel_remove(struct platform_device *pdev)
 	struct omap_dss_device *dssdev = &ddata->dssdev;
 	struct omap_dss_device *in = ddata->in;
 
-	printk("td028ttec1_panel_remove()\n");
-
 	omapdss_unregister_display(dssdev);
 
 	td028ttec1_panel_disable(dssdev);
@@ -546,4 +531,7 @@ static struct platform_driver td028ttec1_driver = {
 };
 
 module_platform_driver(td028ttec1_driver);
+
+MODULE_AUTHOR("H. Nikolaus Schaller <hns@goldelico.com>");
+MODULE_DESCRIPTION("Toppoly TD028TTEC1 panel driver");
 MODULE_LICENSE("GPL");

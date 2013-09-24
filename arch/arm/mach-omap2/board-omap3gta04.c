@@ -447,10 +447,6 @@ static struct omap_dss_board_info gta04_dss_data = {
 	.default_display_name = "lcd",
 };
 
-// candidate for cleanup?
-static struct regulator_consumer_supply gta04_vdac_supply =
-	REGULATOR_SUPPLY("vdda_dac", "omapdss.0");
-
 static struct regulator_consumer_supply gta04_vdvi_supplies[] = {
 	REGULATOR_SUPPLY("vdds_sdi", "omapdss"),
 	REGULATOR_SUPPLY("vdds_dsi", "omapdss_dpi.0"),
@@ -673,21 +669,6 @@ static struct regulator_init_data gta04_vsim = {
 	.consumer_supplies	= gta04_vsim_supply,
 };
 
-/* VDAC for DSS driving S-Video (8 mA unloaded, max 65 mA) */
-static struct regulator_init_data gta04_vdac = {
-	.constraints = {
-		.name			= "VDAC",
-		.min_uV			= 1800000,
-		.max_uV			= 1800000,
-		.valid_modes_mask	= REGULATOR_MODE_NORMAL
-					| REGULATOR_MODE_STANDBY,
-		.valid_ops_mask		= REGULATOR_CHANGE_MODE
-					| REGULATOR_CHANGE_STATUS,
-	},
-	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &gta04_vdac_supply,
-};
-
 // CHECKME: the devkit8000 uses VPLL1 for this purpose?
 
 /* VPLL2 for digital video outputs */
@@ -851,7 +832,6 @@ static struct twl4030_platform_data gta04_twldata = {
 	.vaux4		= &gta04_vaux4,
 	.vmmc1		= &gta04_vmmc1,
 	.vsim		= &gta04_vsim,
-	.vdac		= &gta04_vdac,
 	.vpll2		= &gta04_vpll2,
 };
 
