@@ -370,6 +370,8 @@ static struct platform_device gta04b3_lcd_device = {
 	.dev.platform_data = &gta04b3_panel_data,
 };
 
+// FIXME: make this code run when enabling/disabling the TVout
+
 #if 0
 static int gta04_panel_enable_tv(struct omap_dss_device *dssdev)
 {
@@ -410,6 +412,7 @@ static void gta04_panel_disable_tv(struct omap_dss_device *dssdev)
 			TWL4030_VDAC_DEV_GRP);
 }
 
+// old
 static struct omap_dss_device gta04_tv_device = {
 	.name = "tv",
 	.driver_name = "venc",
@@ -1579,10 +1582,11 @@ static void __init gta04_init(void)
 	omap_mux_init_gpio(WO3G_GPIO, OMAP_PIN_INPUT | OMAP_WAKEUP_EN);
 	gpio_3G_buttons[0].gpio = WO3G_GPIO;
 	
+	/* add the panel first so that it becomes display0 and tvout becomes display1 */
+	platform_device_register(gta04_panel);
+
 	platform_add_devices(gta04_devices,
 			     ARRAY_SIZE(gta04_devices));
-
-	platform_device_register(gta04_panel);
 
 	omap_display_init(&gta04_dss_data);
 
