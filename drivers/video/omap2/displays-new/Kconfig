@@ -1,6 +1,11 @@
 menu "OMAP Display Device Drivers (new device model)"
         depends on OMAP2_DSS
 
+config CONFIG_DISPLAY_AMPLIFIER_ANALOG
+        tristate "external analog amplifier with output disable"
+	help
+	  Driver for a GPIO controlled external analog TV amplifier (e.g. OPA362).
+
 config DISPLAY_ENCODER_TFP410
         tristate "TFP410 DPI to DVI Encoder"
 	help
