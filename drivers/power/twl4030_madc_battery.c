@@ -40,6 +40,23 @@ static enum power_supply_property twl4030_madc_bat_props[] = {
 
 static int madc_read(int index)
 {
+        struct twl4030_madc_request req = {
+                .channels = 1 << index,
+                .method = TWL4030_MADC_SW2,
+                .type = TWL4030_MADC_WAIT,
+        };
+        int val;
+
+        val = twl4030_madc_conversion(&req);
+        if (val < 0)
+                return val;
+
+        return req.rbuf[index];
+}
+
+/*
+static int madc_read(int index)
+{
 	struct twl4030_madc_request req;
 	int val;
 
@@ -56,6 +73,7 @@ static int madc_read(int index)
 
 	return req.rbuf[ffs(index) - 1];
 }
+*/
 
 static int twl4030_madc_bat_get_charging_status(void)
 {
