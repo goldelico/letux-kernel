@@ -489,7 +489,6 @@ static struct omap2_hsmmc_info mmc[] = {
 
 static struct regulator_consumer_supply gta04_vmmc1_supply[] = {
 	REGULATOR_SUPPLY("vmmc", "omap_hsmmc.0"),
-// 	.supply			= "vmmc",
 };
 
 static struct regulator_consumer_supply gta04_vsim_supply[] = {
@@ -564,8 +563,8 @@ static struct regulator_init_data gta04_vmmc1 = {
 /* VAUX4 powers Bluetooth and WLAN */
 
 static struct regulator_consumer_supply gta04_vaux4_supply[] = {
-	REGULATOR_SUPPLY("vgpio","regulator-gpio.0"),
-	REGULATOR_SUPPLY("vmmc","omap_hsmmc.1")
+	REGULATOR_SUPPLY("vgpio", "regulator-gpio.0"),
+	REGULATOR_SUPPLY("vmmc", "omap_hsmmc.1")
 };
 
 static struct twl_regulator_driver_data vaux4_data = {
@@ -611,10 +610,11 @@ static struct regulator_init_data gta04_vaux3 = {
 	.consumer_supplies	= gta04_vaux3_supply,
 };
 
-/* VAUX2 for Sensors ITG3200 (and LIS302/LSM303) */
+/* VAUX2 for Sensors ITG3200 (and LIS302/LSM303) and HMC5883L */
 
 static struct regulator_consumer_supply gta04_vaux2_supply[] = {
 	REGULATOR_SUPPLY("vaux2", "2-0068"),
+	REGULATOR_SUPPLY("vaux2", "2-001e"),
 };
 
 static struct regulator_init_data gta04_vaux2 = {
@@ -685,23 +685,6 @@ static struct regulator_init_data gta04_vpll2 = {
 	.num_consumer_supplies	= ARRAY_SIZE(gta04_vdvi_supplies),
 	.consumer_supplies	= gta04_vdvi_supplies,
 };
-
-// CHECKME: if we don't need this array any more - why do we need
-// all the refrenced structures?
-
-#if 0
-static struct regulator_init_data *all_reg_data[] = {
-	&gta04_vmmc1,
-	&gta04_vaux4,
-	&gta04_vaux3,
-	&gta04_vaux2,
-	&gta04_vaux1,
-	&gta04_vsim,
-	&gta04_vdac,
-	&gta04_vpll2,
-	NULL
-};
-#endif
 
 /* rfkill devices for GPS and Bluetooth to control regulators */
 
@@ -1360,21 +1343,6 @@ static struct platform_device gta04_vaux1_virtual_regulator_device = {
 	},
 };
 
-static struct platform_device gta04_vaux2_virtual_regulator_device = {
-	.name		= "reg-virt-consumer",
-	.id			= 2,
-	.dev		= {
-		.platform_data	= "vaux2",
-	},
-};
-
-static struct platform_device gta04_vaux3_virtual_regulator_device = {
-	.name		= "reg-virt-consumer",
-	.id			= 3,
-	.dev		= {
-		.platform_data	= "vaux3",
-	},
-};
 #endif
 
 
@@ -1397,9 +1365,7 @@ static struct platform_device *gta04_devices[] __initdata = {
 	&antenna_extcon_dev,
 
 #if defined(CONFIG_REGULATOR_VIRTUAL_CONSUMER)
-//	&gta04_vaux1_virtual_regulator_device,
-//	&gta04_vaux2_virtual_regulator_device,
-//	&gta04_vaux3_virtual_regulator_device,
+	&gta04_vaux1_virtual_regulator_device,
 #endif
 #if defined(CONFIG_SND_SOC_GTM601)
 	&gta04_gtm601_codec_audio_device,
