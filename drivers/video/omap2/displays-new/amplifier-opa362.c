@@ -1,5 +1,5 @@
 /*
- * TFP410 DPI-to-DVI encoder driver
+ * OPA362 analog video amplifier with output/power control
  *
  * Copyright (C) 2013 Texas Instruments
  * Author: Tomi Valkeinen <tomi.valkeinen@ti.com>
@@ -22,14 +22,13 @@ struct panel_drv_data {
 	struct omap_dss_device *in;
 
 	int pd_gpio;
-	int data_lines;
 
 	struct omap_video_timings timings;
 };
 
 #define to_panel_data(x) container_of(x, struct panel_drv_data, dssdev)
 
-static int tfp410_connect(struct omap_dss_device *dssdev,
+static int opa362_connect(struct omap_dss_device *dssdev,
 		struct omap_dss_device *dst)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
@@ -49,7 +48,7 @@ static int tfp410_connect(struct omap_dss_device *dssdev,
 	return 0;
 }
 
-static void tfp410_disconnect(struct omap_dss_device *dssdev,
+static void opa362_disconnect(struct omap_dss_device *dssdev,
 		struct omap_dss_device *dst)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
@@ -69,7 +68,7 @@ static void tfp410_disconnect(struct omap_dss_device *dssdev,
 	in->ops.dpi->disconnect(in, &ddata->dssdev);
 }
 
-static int tfp410_enable(struct omap_dss_device *dssdev)
+static int opa362_enable(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
@@ -82,7 +81,8 @@ static int tfp410_enable(struct omap_dss_device *dssdev)
 		return 0;
 
 	in->ops.dpi->set_timings(in, &ddata->timings);
-	in->ops.dpi->set_data_lines(in, ddata->data_lines);
+	/* fixme: should we receive the invert from our consumer, i.e. the connector? */
+	in->ops.atv->invert_vid_out_polarity(in, true);
 
 	r = in->ops.dpi->enable(in);
 	if (r)
@@ -96,7 +96,7 @@ static int tfp410_enable(struct omap_dss_device *dssdev)
 	return 0;
 }
 
-static void tfp410_disable(struct omap_dss_device *dssdev)
+static void opa362_disable(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
@@ -112,7 +112,7 @@ static void tfp410_disable(struct omap_dss_device *dssdev)
 	dssdev->state = OMAP_DSS_DISPLAY_DISABLED;
 }
 
-static void tfp410_set_timings(struct omap_dss_device *dssdev,
+static void opa362_set_timings(struct omap_dss_device *dssdev,
 		struct omap_video_timings *timings)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
@@ -124,7 +124,7 @@ static void tfp410_set_timings(struct omap_dss_device *dssdev,
 	in->ops.dpi->set_timings(in, timings);
 }
 
-static void tfp410_get_timings(struct omap_dss_device *dssdev,
+static void opa362_get_timings(struct omap_dss_device *dssdev,
 		struct omap_video_timings *timings)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
@@ -132,7 +132,7 @@ static void tfp410_get_timings(struct omap_dss_device *dssdev,
 	*timings = ddata->timings;
 }
 
-static int tfp410_check_timings(struct omap_dss_device *dssdev,
+static int opa362_check_timings(struct omap_dss_device *dssdev,
 		struct omap_video_timings *timings)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
@@ -141,29 +141,27 @@ static int tfp410_check_timings(struct omap_dss_device *dssdev,
 	return in->ops.dpi->check_timings(in, timings);
 }
 
-static const struct omapdss_dvi_ops tfp410_dvi_ops = {
-	.connect	= tfp410_connect,
-	.disconnect	= tfp410_disconnect,
+static const struct omapdss_dvi_ops opa362_dvi_ops = {
+	.connect	= opa362_connect,
+	.disconnect	= opa362_disconnect,
 
-	.enable		= tfp410_enable,
-	.disable	= tfp410_disable,
+	.enable		= opa362_enable,
+	.disable	= opa362_disable,
 
-	.check_timings	= tfp410_check_timings,
-	.set_timings	= tfp410_set_timings,
-	.get_timings	= tfp410_get_timings,
+	.check_timings	= opa362_check_timings,
+	.set_timings	= opa362_set_timings,
+	.get_timings	= opa362_get_timings,
 };
 
-static int tfp410_probe_pdata(struct platform_device *pdev)
+static int opa362_probe_pdata(struct platform_device *pdev)
 {
 	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
-	struct encoder_tfp410_platform_data *pdata;
+	struct amplifier_opa362_platform_data *pdata;
 	struct omap_dss_device *dssdev, *in;
 
 	pdata = dev_get_platdata(&pdev->dev);
 
-	ddata->pd_gpio = pdata->power_down_gpio;
-
-	ddata->data_lines = pdata->data_lines;
+	ddata->pd_gpio = pdata->enable_gpio;
 
 	in = omap_dss_find_output(pdata->source);
 	if (in == NULL) {
@@ -179,7 +177,7 @@ static int tfp410_probe_pdata(struct platform_device *pdev)
 	return 0;
 }
 
-static int tfp410_probe(struct platform_device *pdev)
+static int opa362_probe(struct platform_device *pdev)
 {
 	struct panel_drv_data *ddata;
 	struct omap_dss_device *dssdev;
@@ -192,7 +190,7 @@ static int tfp410_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, ddata);
 
 	if (dev_get_platdata(&pdev->dev)) {
-		r = tfp410_probe_pdata(pdev);
+		r = opa362_probe_pdata(pdev);
 		if (r)
 			return r;
 	} else {
@@ -201,7 +199,7 @@ static int tfp410_probe(struct platform_device *pdev)
 
 	if (gpio_is_valid(ddata->pd_gpio)) {
 		r = devm_gpio_request_one(&pdev->dev, ddata->pd_gpio,
-				GPIOF_OUT_INIT_LOW, "tfp410 PD");
+				GPIOF_OUT_INIT_LOW, "opa362 PD");
 		if (r) {
 			dev_err(&pdev->dev, "Failed to request PD GPIO %d\n",
 					ddata->pd_gpio);
@@ -210,12 +208,11 @@ static int tfp410_probe(struct platform_device *pdev)
 	}
 
 	dssdev = &ddata->dssdev;
-	dssdev->ops.dvi = &tfp410_dvi_ops;
+	dssdev->ops.dvi = &opa362_dvi_ops;
 	dssdev->dev = &pdev->dev;
 	dssdev->type = OMAP_DISPLAY_TYPE_DPI;
 	dssdev->output_type = OMAP_DISPLAY_TYPE_DVI;
 	dssdev->owner = THIS_MODULE;
-	dssdev->phy.dpi.data_lines = ddata->data_lines;
 
 	r = omapdss_register_output(dssdev);
 	if (r) {
@@ -230,7 +227,7 @@ err_gpio:
 	return r;
 }
 
-static int __exit tfp410_remove(struct platform_device *pdev)
+static int __exit opa362_remove(struct platform_device *pdev)
 {
 	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
 	struct omap_dss_device *dssdev = &ddata->dssdev;
@@ -240,28 +237,28 @@ static int __exit tfp410_remove(struct platform_device *pdev)
 
 	WARN_ON(omapdss_device_is_enabled(dssdev));
 	if (omapdss_device_is_enabled(dssdev))
-		tfp410_disable(dssdev);
+		opa362_disable(dssdev);
 
 	WARN_ON(omapdss_device_is_connected(dssdev));
 	if (omapdss_device_is_connected(dssdev))
-		tfp410_disconnect(dssdev, dssdev->dst);
+		opa362_disconnect(dssdev, dssdev->dst);
 
 	omap_dss_put_device(in);
 
 	return 0;
 }
 
-static struct platform_driver tfp410_driver = {
-	.probe	= tfp410_probe,
-	.remove	= __exit_p(tfp410_remove),
+static struct platform_driver opa362_driver = {
+	.probe	= opa362_probe,
+	.remove	= __exit_p(opa362_remove),
 	.driver	= {
-		.name	= "tfp410",
+		.name	= "opa362",
 		.owner	= THIS_MODULE,
 	},
 };
 
-module_platform_driver(tfp410_driver);
+module_platform_driver(opa362_driver);
 
 MODULE_AUTHOR("Tomi Valkeinen <tomi.valkeinen@ti.com>");
-MODULE_DESCRIPTION("TFP410 DPI to DVI encoder driver");
+MODULE_DESCRIPTION("OPA362 analog video amplifier with output/power control");
 MODULE_LICENSE("GPL");
