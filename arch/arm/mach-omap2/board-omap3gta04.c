@@ -370,60 +370,30 @@ static struct platform_device gta04b3_lcd_device = {
 	.dev.platform_data = &gta04b3_panel_data,
 };
 
-// FIXME: make this code run when enabling/disabling the TVout
+/* this modification of the DEVCONF1 regiater should be done by the VENC driver */
+/* and it is not optimal for power management - there is a CAUTION note to turn off bypass mode to reduce leakage */
 
-#if 0
-static int gta04_panel_enable_tv(struct omap_dss_device *dssdev)
+static void gta04_panel_enable_tv(void)
 {
 	u32 reg;
 
-#define ENABLE_VDAC_DEDICATED           0x03
-#define ENABLE_VDAC_DEV_GRP             0x20
 #define OMAP2_TVACEN				(1 << 11)
 #define OMAP2_TVOUTBYPASS			(1 << 18)
 
-	twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
-			ENABLE_VDAC_DEDICATED,
-			TWL4030_VDAC_DEDICATED);
-	twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
-			ENABLE_VDAC_DEV_GRP, TWL4030_VDAC_DEV_GRP);
-
-	/* taken from https://e2e.ti.com/support/dsp/omap_applications_processors/f/447/p/94072/343691.aspx */
+	/* based on https://e2e.ti.com/support/dsp/omap_applications_processors/f/447/p/94072/343691.aspx */
 	reg = omap_ctrl_readl(OMAP343X_CONTROL_DEVCONF1);
-//	printk(KERN_INFO "Value of DEVCONF1 was: %08x\n", reg);
+	printk(KERN_INFO "Value of DEVCONF1 was: %08x\n", reg);
 	reg |= OMAP2_TVOUTBYPASS;	/* enable TV bypass mode for external video driver (for OPA362 driver) */
 	reg |= OMAP2_TVACEN;		/* assume AC coupling to remove DC offset */
 	omap_ctrl_writel(reg, OMAP343X_CONTROL_DEVCONF1);
 	reg = omap_ctrl_readl(OMAP343X_CONTROL_DEVCONF1);
-//	printk(KERN_INFO "Value of DEVCONF1 now: %08x\n", reg);
-
-	gpio_set_value(TV_OUT_GPIO, 1);	// enable output driver (OPA362)
-
-	return 0;
+	printk(KERN_INFO "Value of DEVCONF1 now: %08x\n", reg);
 }
 
-static void gta04_panel_disable_tv(struct omap_dss_device *dssdev)
+static void gta04_panel_disable_tv(void)
 {
 	gpio_set_value(TV_OUT_GPIO, 0);	// disable output driver (and re-enable microphone)
-
-	twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER, 0x00,
-			TWL4030_VDAC_DEDICATED);
-	twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER, 0x00,
-			TWL4030_VDAC_DEV_GRP);
 }
-
-// old
-static struct omap_dss_device gta04_tv_device = {
-	.name = "tv",
-	.driver_name = "venc",
-	.type = OMAP_DISPLAY_TYPE_VENC,
-	.phy.venc.type = OMAP_DSS_VENC_TYPE_COMPOSITE, /*OMAP_DSS_VENC_TYPE_SVIDEO, */
-	.phy.venc.invert_polarity = true,	/* needed if we use external video driver */
-	.platform_enable = gta04_panel_enable_tv,
-	.platform_disable = gta04_panel_disable_tv,
-};
-
-#endif
 
 /* DSS */
 /* currently not used on GTA04 but BeagleBoard hardware */
@@ -1655,6 +1625,8 @@ static void __init gta04_init(void)
 	omap_mux_init_gpio(13, OMAP_PIN_OUTPUT);
 
 	pm_set_vt_switch(0);
+
+	gta04_panel_enable_tv();	// should be enabled on demand by the VENC driver
 
 	printk("gta04_init done...\n");
 }
