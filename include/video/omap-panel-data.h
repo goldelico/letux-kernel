@@ -33,12 +33,12 @@
 struct omap_dss_device;
 
 /**
- * amplifier_analog_platform_data platform data
+ * amplifier_opa362_platform_data platform data
  * @name: name for this display entity
  * @source: name of the display entity used as a video source
- * enable_gpio: gpio number for enable pin (or -1 if not available - but then you don't need this driver)
+ * @enable_gpio: gpio number for enable pin (or -1 if not available - but then you don't need this driver)
  */
-struct amplifier_analog_platform_data {
+struct amplifier_opa362_platform_data {
 	const char *name;
 	const char *source;
 	int enable_gpio;
