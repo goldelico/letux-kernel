@@ -36,12 +36,30 @@ struct omap_dss_device;
  * amplifier_analog_platform_data platform data
  * @name: name for this display entity
  * @source: name of the display entity used as a video source
- * enable_gpio: gpio number for enable pin (or -1 if not available - but then you don't need this driver)
+ * @enable_gpio: gpio number for enable pin (or -1 if not available - but then you don't need this driver)
  */
 struct amplifier_analog_platform_data {
 	const char *name;
 	const char *source;
 	int enable_gpio;
+};
+
+/**
+ * omap3_dac_stage_platform_data platform data
+ * @name: name for this display entity
+ * @source: name of the display entity used as a video source
+ * @invert: invert the video signal (isn't this a property of the VENC?)
+ * @bypass: bypass this stage to drive an external amplifier
+ * @acen: enable ac-coupling
+ * @connector_type: composite/svideo
+*/
+struct omap3_dac_stage_platform_data {
+	const char *name;
+	const char *source;
+	int invert;
+	int bypass;
+	int acen;
+	enum omap_dss_venc_type connector_type;
 };
 
 /**
