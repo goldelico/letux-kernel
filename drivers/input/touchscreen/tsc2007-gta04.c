@@ -33,7 +33,7 @@
 #define TS_AUX_POLL_PERIOD		100 /* ms delay between samples of AUX, TEMP1, TEMP2 */
 #define TS_VREF					1800 /* in mV - should have been defined in the board file! */
 
-#define JITTER_HISTO			10 /* number of historic values to keep */
+#define JITTER_HISTO			5 /* number of historic values to keep */
 
 #define TSC2007_MEASURE_TEMP0		(0x0 << 4)
 #define TSC2007_MEASURE_AUX		(0x2 << 4)
@@ -115,13 +115,13 @@ struct tsc2007 {
 
 	int			aux_counter;
 
-	s16			temperature;	// in degrees C
+	s16			temperature;	/* in degrees C */
 
 	u16			temp0;
 	u16			temp1;
 	u16			aux;
 	u16			pressure;
-	
+
 	struct jitterbug jitterbufx[JITTER_HISTO];
 	struct jitterbug jitterbufy[JITTER_HISTO];
 
@@ -182,12 +182,12 @@ static inline int tsc2007_xfer(struct tsc2007 *ts, u8 cmd)
 }
 
 static void tsc2007_read_temp(struct tsc2007 *ts) {
-	u32 v1, v2;	// voltage in mV
+	u32 v1, v2;	/* voltage in mV */
 	ts->temp0 = tsc2007_xfer(ts, READ_TEMP0);
 	ts->temp1 = tsc2007_xfer(ts, READ_TEMP1);
 	v1 = (TS_VREF * (u32)ts->temp0) / 4096;
 	v2 = (TS_VREF * (u32)ts->temp1) / 4096;
-	ts->temperature = (2573 * (v2-v1)) / 100 - 2730; // in tenths of degrees C
+	ts->temperature = (2573 * (v2-v1)) / 100 - 2730; /* in tenths of degrees C */
 	ts->aux = tsc2007_xfer(ts, READ_AUX);
 	ts->aux_counter=0;
 }
@@ -235,25 +235,27 @@ static u16 tsc2007_calculate_pressure(struct tsc2007 *ts)
 }
 
 static s32 dejitter(s32 value, struct jitterbug *history, int histlen, bool first)
-{ // dejitter a single coordinate
+{ /* dejitter a single coordinate */
 	int i;
 	s32 out;
-	
+
+#define CONFIG_TSC2007_GTA04_DEJITTER_FIR_RESET
+
 	/* dejitter algorithm based on new value and history of old values */
-	
-#if 0
+
+#if defined(CONFIG_TSC2007_GTA04_DEJITTER_NONE)
 	out = value;	/* no dejitter */
-#elif 0
+#elif defined(CONFIG_TSC2007_GTA04_DEJITTER_FIR)
 	out = (value + history[0].val) / 2;	/* average with previous input value (FIR filter) */
-#elif 0
+#elif defined(CONFIG_TSC2007_GTA04_DEJITTER_IIR)
 	out = (value + history[0].out) / 2;	/* average with previous output value (IIR filter) */
-#elif 1
+#elif defined(CONFIG_TSC2007_GTA04_DEJITTER_FIR_RESET)
 	if(first)
 		out = history[0].val = history[1].val = history[2].val = value;	/* overwrite history */
 	else
 		out = (8*value + 4*history[0].val + 3*history[1].val + 2*history[2].val + 1*history[3].val) / (8+4+3+2+1);
-#elif 0
-	/* more to come */
+#elif defined(CONFIG_TSC2007_GTA04_DEJITTER_NEW)
+	/* more algorithms can be tested */
 #endif
 
 	/* update history */
@@ -270,7 +272,7 @@ static void tsc2007_dejitter(struct tsc2007 *ts, bool first)
 	ts->tc.y = dejitter(ts->tc.y, ts->jitterbufy, JITTER_HISTO, first);
 	/* dejitter pressure ? */
 }
-		 
+
 static void tsc2007_shape_values(struct tsc2007 *ts)
 {
 	/* Get the read values in the correct calibrated range. */
@@ -324,7 +326,7 @@ static void tsc2007_aux_work(struct work_struct *aux_work)
 { /* read TEMP0, TEMP1, AUX */
 	struct tsc2007 *ts =
 	container_of(to_delayed_work(aux_work), struct tsc2007, aux_work);
-//	printk("tsc2007_aux_work\n");
+/*	printk("tsc2007_aux_work\n"); */
 
 	tsc2007_read_temp(ts);
 
@@ -333,7 +335,7 @@ static void tsc2007_aux_work(struct work_struct *aux_work)
 
 	schedule_delayed_work(&ts->aux_work,
 						  msecs_to_jiffies(TS_AUX_POLL_PERIOD));
-//	printk("tsc2007_aux_work done\n");
+/*	printk("tsc2007_aux_work done\n"); */
 }
 
 static void tsc2007_work(struct work_struct *work)
@@ -341,7 +343,7 @@ static void tsc2007_work(struct work_struct *work)
 	struct tsc2007 *ts =
 		container_of(to_delayed_work(work), struct tsc2007, work);
 
-//	printk("tsc2007_work\n");
+/*	printk("tsc2007_work\n"); */
 
 	/*
 	 * NOTE: We can't rely on the pressure to determine the pen down
@@ -389,7 +391,7 @@ static void tsc2007_work(struct work_struct *work)
 		input_report_abs(input, ABS_PRESSURE, ts->pressure);
 
 		input_sync(input);
-			
+
 		dev_dbg(&ts->client->dev, "point(%4d,%4d), pressure (%4u)\n",
 					ts->tc.x, ts->tc.y, ts->pressure);
 
@@ -413,21 +415,16 @@ static void tsc2007_work(struct work_struct *work)
 		ts->aux_counter = 0;
 		enable_irq(ts->irq);
 	}
-//	printk("tsc2007_work done\n");
+/*	printk("tsc2007_work done\n"); */
 }
 
 static irqreturn_t tsc2007_irq(int irq, void *handle)
 {
 	struct tsc2007 *ts = handle;
-//	printk("tsc2007_irq\n");
+/*	printk("tsc2007_irq\n"); */
 	if (!ts->get_pendown_state || likely(ts->get_pendown_state())) {
 		disable_irq_nosync(ts->irq);
-#if 0
-		if (!cancel_delayed_work(&ts->aux_work))
-			printk("aux_work wasn't scheduled!\n");
-#else
 		cancel_delayed_work(&ts->aux_work);
-#endif
 		schedule_delayed_work(&ts->work,
 				      msecs_to_jiffies(TS_POLL_DELAY));
 	}
