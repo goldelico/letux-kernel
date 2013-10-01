@@ -370,8 +370,14 @@ static struct platform_device gta04b3_lcd_device = {
 	.dev.platform_data = &gta04b3_panel_data,
 };
 
-/* this modification of the DEVCONF1 regiater should be done by the VENC driver */
-/* and it is not optimal for power management - there is a CAUTION note to turn off bypass mode to reduce leakage */
+/* this modification of the DEVCONF1 regiater should be done by the VENC driver
+ * either by providing additional pdata for the VENC driver
+ * or by a callback that *can* be called by the next stage (opa362 driver)
+ * It is not optimal for power management to do this even if we don't use the TVout
+ * there is a CAUTION note in the TRM how to turn off bypass
+ * mode to reduce leakage on suspend, i.e. the venc driver should properly power down
+ * its output(s)
+ */
 
 static void gta04_panel_enable_tv(void)
 {
@@ -1363,8 +1369,9 @@ static struct platform_device *gta04_devices[] __initdata = {
 //	&leds_gpio,
 	&keys_gpio,
 	&keys_3G_gpio,
-	&gta04_dvi_connector_device,
 	&gta04_tfp410_device,
+	&gta04_dvi_connector_device,
+	&gta04_opa362_device,
 	&gta04_tv_connector_device,
 	&gta04_opa362_device,
 	&gps_rfkill_device,
