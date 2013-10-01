@@ -142,8 +142,6 @@ source "drivers/staging/lustre/Kconfig"
 
 source "drivers/staging/btmtk_usb/Kconfig"
 
-source "drivers/staging/ccg/Kconfig"
-
 source "drivers/staging/xillybus/Kconfig"
 
 source "drivers/staging/dgnc/Kconfig"
