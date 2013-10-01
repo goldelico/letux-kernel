@@ -28,6 +28,9 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <asm/types.h>	// get definitins for __u16 etc.
+#define __ASSEMBLY__	// would conflict over fd_set, dev_t etc. from sys/types of HOSTCC
+
 #include <tools/be_byteshift.h>
 #include <tools/le_byteshift.h>
 
@@ -63,14 +66,6 @@ fail_file(void)
 	cleanup();
 	longjmp(jmpenv, SJ_FAIL);
 }
-
-static void __attribute__((noreturn))
-succeed_file(void)
-{
-	cleanup();
-	longjmp(jmpenv, SJ_SUCCEED);
-}
-
 
 /*
  * Get the whole file as a programming convenience in order to avoid
