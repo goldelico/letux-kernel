@@ -433,6 +433,8 @@ static struct amplifier_opa362_platform_data gta04_opa362_pdata = {
 	.name                   = "opa362.0",
 	.source                 = "venc.0",
 	.enable_gpio            = TV_OUT_GPIO,
+	.bypass			= true,
+	.acbias			= true,
 };
 
 static struct platform_device gta04_opa362_device = {
@@ -1633,7 +1635,7 @@ static void __init gta04_init(void)
 
 	pm_set_vt_switch(0);
 
-	gta04_panel_enable_tv();	// should be enabled on demand by the VENC driver
+	//gta04_panel_enable_tv();	// should be enabled on demand by the VENC driver
 
 	printk("gta04_init done...\n");
 }
