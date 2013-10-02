@@ -22,6 +22,8 @@ struct panel_drv_data {
 	struct omap_dss_device *in;
 
 	int pd_gpio;
+	bool bypass;
+	bool acbias;
 
 	struct omap_video_timings timings;
 };
@@ -83,6 +85,7 @@ static int opa362_enable(struct omap_dss_device *dssdev)
 	in->ops.dpi->set_timings(in, &ddata->timings);
 	/* fixme: should we receive the invert from our consumer, i.e. the connector? */
 	in->ops.atv->invert_vid_out_polarity(in, true);
+	in->ops.atv->bypass_ac_bias(in, ddata->bypass, ddata->acbias);
 
 	r = in->ops.dpi->enable(in);
 	if (r)
@@ -162,6 +165,8 @@ static int opa362_probe_pdata(struct platform_device *pdev)
 	pdata = dev_get_platdata(&pdev->dev);
 
 	ddata->pd_gpio = pdata->enable_gpio;
+	ddata->bypass = pdata->bypass;
+	ddata->acbias = pdata->acbias;
 
 	in = omap_dss_find_output(pdata->source);
 	if (in == NULL) {
