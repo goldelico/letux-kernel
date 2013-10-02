@@ -34,6 +34,7 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 #include <linux/pm_runtime.h>
+#include <linux/omap-tvout.h>
 
 #include <video/omapdss.h>
 
@@ -303,6 +304,8 @@ static struct {
 	struct omap_video_timings timings;
 	enum omap_dss_venc_type type;
 	bool invert_polarity;
+	bool bypass;
+	bool acbias;
 
 	struct omap_dss_device output;
 } venc;
@@ -455,6 +458,17 @@ static int venc_power_on(struct omap_dss_device *dssdev)
 
 	venc_write_reg(VENC_OUTPUT_CONTROL, l);
 
+	/* apply bypass and acbias */
+	l = tvout_read();
+
+	if (venc.bypass == true)
+		l |= 1 << 18;
+
+	if (venc.acbias == true)
+		l |= 1 << 11;
+
+	tvout_write(l);
+
 	dss_mgr_set_timings(mgr, &venc.timings);
 
 	r = regulator_enable(venc.vdda_dac_reg);
@@ -481,9 +495,18 @@ err0:
 static void venc_power_off(struct omap_dss_device *dssdev)
 {
 	struct omap_overlay_manager *mgr = venc.output.manager;
+	int reg;
 
 	venc_write_reg(VENC_OUTPUT_CONTROL, 0);
 	dss_set_dac_pwrdn_bgz(0);
+
+	/* clear bypass and acbias */
+	reg = tvout_read();
+
+	reg &= ~(1 << 18);
+	reg &= ~(1 << 11);
+
+	tvout_write(reg);
 
 	dss_mgr_disable(mgr);
 
@@ -625,6 +648,17 @@ static void venc_invert_vid_out_polarity(struct omap_dss_device *dssdev,
 	mutex_lock(&venc.venc_lock);
 
 	venc.invert_polarity = invert_polarity;
+
+	mutex_unlock(&venc.venc_lock);
+}
+
+static void venc_bypass_and_acbias(struct omap_dss_device *dssdev,
+		bool bypass, bool acbias)
+{
+	mutex_lock(&venc.venc_lock);
+
+	venc.bypass = bypass;
+	venc.acbias = acbias;
 
 	mutex_unlock(&venc.venc_lock);
 }
@@ -777,6 +811,7 @@ static const struct omapdss_atv_ops venc_ops = {
 
 	.set_type = venc_set_type,
 	.invert_vid_out_polarity = venc_invert_vid_out_polarity,
+	.bypass_and_acbias = venc_bypass_and_acbias,
 
 	.set_wss = venc_set_wss,
 	.get_wss = venc_get_wss,
