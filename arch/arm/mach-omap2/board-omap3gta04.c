@@ -1375,7 +1375,6 @@ static struct platform_device *gta04_devices[] __initdata = {
 	&gta04_dvi_connector_device,
 	&gta04_opa362_device,
 	&gta04_tv_connector_device,
-	&gta04_opa362_device,
 	&gps_rfkill_device,
 	&bt_gpio_reg_device,
 	&gps_gpio_device,
