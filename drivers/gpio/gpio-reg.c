@@ -33,6 +33,7 @@ static void gpio_reg_set_value(struct gpio_chip *gc,
 			       unsigned offset, int val)
 {
 	struct gpio_reg *greg = container_of(gc, struct gpio_reg, virtual_chip);
+	printk("gpio_reg_set_value(%d)\n", val);
 	if (val) {
 		if (!greg->set && greg->reg)
 			if (regulator_enable(greg->reg) == 0)
@@ -58,6 +59,7 @@ static int gpio_reg_probe(struct platform_device *pdev)
 	struct gpio_reg_data *pdata = pdev->dev.platform_data;
 	struct gpio_reg *greg;
 	int err;
+	printk("gpio_reg_probe()\n");
 
 	greg = kzalloc(sizeof(*greg), GFP_KERNEL);
 	if (greg == NULL)
@@ -66,6 +68,7 @@ static int gpio_reg_probe(struct platform_device *pdev)
 	if (IS_ERR(greg->reg)) {
 		err = PTR_ERR(greg->reg);
 		greg->reg = NULL;
+		printk("gpio_reg_probe: can't get vgpio\n");
 		goto out;
 	}
 	if (pdata->uV)
@@ -80,7 +83,10 @@ static int gpio_reg_probe(struct platform_device *pdev)
 	greg->virtual_chip.can_sleep = 1;
 	err = gpiochip_add(&greg->virtual_chip);
 	if (err)
-		regulator_put(greg->reg);
+		{
+		printk("gpio_reg_probe: can't gpiochip_add\n");
+		regulator_put(greg->reg);		
+		}
 	else
 		platform_set_drvdata(pdev, greg);
 out:
