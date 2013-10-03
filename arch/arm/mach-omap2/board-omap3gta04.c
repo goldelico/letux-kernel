@@ -1566,12 +1566,6 @@ static void __init gta04_init(void)
 	gpio_request(AUX_HEADSET_GPIO, "AUX_OUT");
 	gpio_direction_output(AUX_HEADSET_GPIO, true);
 	gpio_export(AUX_HEADSET_GPIO, 0);	// no direction change
-
-	// disable Video out switch
-	gpio_request(TV_OUT_GPIO, "VIDEO_OUT");
-	gpio_direction_output(TV_OUT_GPIO, false);
-	gpio_export(TV_OUT_GPIO, 0);	// no direction change
-
 #endif
 
 	pwm_add_table(board_pwm_lookup, ARRAY_SIZE(board_pwm_lookup));
