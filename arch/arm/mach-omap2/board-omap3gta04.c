@@ -370,37 +370,6 @@ static struct platform_device gta04b3_lcd_device = {
 	.dev.platform_data = &gta04b3_panel_data,
 };
 
-/* this modification of the DEVCONF1 regiater should be done by the VENC driver
- * either by providing additional pdata for the VENC driver
- * or by a callback that *can* be called by the next stage (opa362 driver)
- * It is not optimal for power management to do this even if we don't use the TVout
- * there is a CAUTION note in the TRM how to turn off bypass
- * mode to reduce leakage on suspend, i.e. the venc driver should properly power down
- * its output(s)
- */
-
-static void gta04_panel_enable_tv(void)
-{
-	u32 reg;
-
-#define OMAP2_TVACEN				(1 << 11)
-#define OMAP2_TVOUTBYPASS			(1 << 18)
-
-	/* based on https://e2e.ti.com/support/dsp/omap_applications_processors/f/447/p/94072/343691.aspx */
-	reg = omap_ctrl_readl(OMAP343X_CONTROL_DEVCONF1);
-	printk(KERN_INFO "Value of DEVCONF1 was: %08x\n", reg);
-	reg |= OMAP2_TVOUTBYPASS;	/* enable TV bypass mode for external video driver (for OPA362 driver) */
-	reg |= OMAP2_TVACEN;		/* assume AC coupling to remove DC offset */
-	omap_ctrl_writel(reg, OMAP343X_CONTROL_DEVCONF1);
-	reg = omap_ctrl_readl(OMAP343X_CONTROL_DEVCONF1);
-	printk(KERN_INFO "Value of DEVCONF1 now: %08x\n", reg);
-}
-
-static void gta04_panel_disable_tv(void)
-{
-	gpio_set_value(TV_OUT_GPIO, 0);	// disable output driver (and re-enable microphone)
-}
-
 /* DSS */
 /* currently not used on GTA04 but BeagleBoard hardware */
 
@@ -1633,8 +1602,6 @@ static void __init gta04_init(void)
 	omap_mux_init_gpio(13, OMAP_PIN_OUTPUT);
 
 	pm_set_vt_switch(0);
-
-	//gta04_panel_enable_tv();	// should be enabled on demand by the VENC driver
 
 	printk("gta04_init done...\n");
 }
