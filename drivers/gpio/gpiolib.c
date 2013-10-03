@@ -1398,6 +1398,8 @@ static int gpiod_request(struct gpio_desc *desc, const char *label)
 	int			status = -EPROBE_DEFER;
 	unsigned long		flags;
 
+	if(desc && !desc->chip) return -EPROBE_DEFER;
+
 	if (!desc || !desc->chip) {
 		pr_warn("%s: invalid GPIO\n", __func__);
 		return -EINVAL;
