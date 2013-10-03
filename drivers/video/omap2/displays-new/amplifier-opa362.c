@@ -215,8 +215,8 @@ static int opa362_probe(struct platform_device *pdev)
 	dssdev = &ddata->dssdev;
 	dssdev->ops.dvi = &opa362_dvi_ops;
 	dssdev->dev = &pdev->dev;
-	dssdev->type = OMAP_DISPLAY_TYPE_DPI;
-	dssdev->output_type = OMAP_DISPLAY_TYPE_DVI;
+	dssdev->type = OMAP_DISPLAY_TYPE_VENC;
+	dssdev->output_type = OMAP_DISPLAY_TYPE_VENC;
 	dssdev->owner = THIS_MODULE;
 
 	r = omapdss_register_output(dssdev);
