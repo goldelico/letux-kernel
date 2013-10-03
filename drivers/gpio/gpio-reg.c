@@ -22,14 +22,17 @@
 
 struct gpio_reg {
 	struct regulator	*reg;
-	struct gpio_chip	gpio;
+	/* there is no chip behind, but we need an address
+	 * of this wrapped struct to handle the set_value call
+	 */
+	struct gpio_chip	virtual_chip;
 	int			set;
 };
 
 static void gpio_reg_set_value(struct gpio_chip *gc,
 			       unsigned offset, int val)
 {
-	struct gpio_reg *greg = container_of(gc, struct gpio_reg, gpio);
+	struct gpio_reg *greg = container_of(gc, struct gpio_reg, virtual_chip);
 	if (val) {
 		if (!greg->set && greg->reg)
 			if (regulator_enable(greg->reg) == 0)
@@ -44,6 +47,7 @@ static void gpio_reg_set_value(struct gpio_chip *gc,
 static int gpio_reg_direction_output(struct gpio_chip *gc,
 				     unsigned offset, int val)
 {
+	/* output => reg_enable, input => reg_disable */
 	gpio_reg_set_value(gc, offset, val);
 	return 0;
 }
@@ -67,14 +71,14 @@ static int gpio_reg_probe(struct platform_device *pdev)
 	if (pdata->uV)
 		regulator_set_voltage(greg->reg, pdata->uV, pdata->uV);
 	greg->set = 0;
-	greg->gpio.label = "gpio-regulator";
-	greg->gpio.ngpio = 1;
-	greg->gpio.base = pdata->gpio;
-	greg->gpio.owner = THIS_MODULE;
-	greg->gpio.direction_output = gpio_reg_direction_output;
-	greg->gpio.set = gpio_reg_set_value;
-	greg->gpio.can_sleep = 1;
-	err = gpiochip_add(&greg->gpio);
+	greg->virtual_chip.label = "gpio-regulator";
+	greg->virtual_chip.ngpio = 1;
+	greg->virtual_chip.base = pdata->gpio;
+	greg->virtual_chip.owner = THIS_MODULE;
+	greg->virtual_chip.direction_output = gpio_reg_direction_output;
+	greg->virtual_chip.set = gpio_reg_set_value;
+	greg->virtual_chip.can_sleep = 1;
+	err = gpiochip_add(&greg->virtual_chip);
 	if (err)
 		regulator_put(greg->reg);
 	else
@@ -94,7 +98,7 @@ static int gpio_reg_remove(struct platform_device *pdev)
 		regulator_put(greg->reg);
 		greg->reg = NULL;
 	}
-	ret = gpiochip_remove(&greg->gpio);
+	ret = gpiochip_remove(&greg->virtual_chip);
 	if (ret == 0)
 		kfree(greg);
 	return 0;
