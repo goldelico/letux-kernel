@@ -393,7 +393,7 @@ static struct encoder_tfp410_platform_data gta04_tfp410_pdata = {
 };
 
 static struct platform_device gta04_tfp410_device = {
-	.name                   = "encoder-tfp410",
+	.name                   = "tfp410",
 	.id                     = 0,
 	.dev.platform_data      = &gta04_tfp410_pdata,
 };
