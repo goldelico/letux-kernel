@@ -942,6 +942,7 @@ struct bmp085_platform_data __initdata bmp085_info = {
 
 void tca6507_setup(unsigned gpio_base, unsigned ngpio)
 {
+	// do it as early as we have the reset wire fo the WiFi chip
 	omap_hsmmc_late_init(mmc);
 }
 
@@ -1641,6 +1642,7 @@ static void __init gta04_init_late(void)
 
 	omap_pm_enable_off_mode();
 	omap3_pm_off_mode_enable(1);
+//	omap_hsmmc_late_init(mmc);	// if we do it here, we must comment out the other call in the led setup
 #if defined(CONFIG_VIDEO_OV9655) || defined(CONFIG_VIDEO_OV9655_MODULE)
 	gta04_camera_setup();
 #endif
