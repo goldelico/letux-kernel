@@ -1,6 +1,11 @@
 /*
  * OPA362 analog video amplifier with output/power control
  *
+ * Copyright (C) 2013 Golden Delicious Computers
+ * Author: H. Nikolaus Schaller <hns@goldelico.com>
+ *
+ * based on encoder-tfp410
+ *
  * Copyright (C) 2013 Texas Instruments
  * Author: Tomi Valkeinen <tomi.valkeinen@ti.com>
  *
@@ -21,7 +26,7 @@ struct panel_drv_data {
 	struct omap_dss_device dssdev;
 	struct omap_dss_device *in;
 
-	int pd_gpio;
+	int enable_gpio;
 	bool bypass;
 	bool acbias;
 
@@ -40,7 +45,7 @@ static int opa362_connect(struct omap_dss_device *dssdev,
 	if (omapdss_device_is_connected(dssdev))
 		return -EBUSY;
 
-	r = in->ops.dpi->connect(in, dssdev);
+	r = in->ops.atv->connect(in, dssdev);
 	if (r)
 		return r;
 
@@ -67,7 +72,7 @@ static void opa362_disconnect(struct omap_dss_device *dssdev,
 	dst->src = NULL;
 	dssdev->dst = NULL;
 
-	in->ops.dpi->disconnect(in, &ddata->dssdev);
+	in->ops.atv->disconnect(in, &ddata->dssdev);
 }
 
 static int opa362_enable(struct omap_dss_device *dssdev)
@@ -82,17 +87,17 @@ static int opa362_enable(struct omap_dss_device *dssdev)
 	if (omapdss_device_is_enabled(dssdev))
 		return 0;
 
-	in->ops.dpi->set_timings(in, &ddata->timings);
+	in->ops.atv->set_timings(in, &ddata->timings);
 	/* fixme: should we receive the invert from our consumer, i.e. the connector? */
 	in->ops.atv->invert_vid_out_polarity(in, true);
 	in->ops.atv->bypass_and_acbias(in, ddata->bypass, ddata->acbias);
 
-	r = in->ops.dpi->enable(in);
+	r = in->ops.atv->enable(in);
 	if (r)
 		return r;
 
-	if (gpio_is_valid(ddata->pd_gpio))
-		gpio_set_value_cansleep(ddata->pd_gpio, 1);
+	if (gpio_is_valid(ddata->enable_gpio))
+		gpio_set_value_cansleep(ddata->enable_gpio, 1);
 
 	dssdev->state = OMAP_DSS_DISPLAY_ACTIVE;
 
@@ -107,10 +112,10 @@ static void opa362_disable(struct omap_dss_device *dssdev)
 	if (!omapdss_device_is_enabled(dssdev))
 		return;
 
-	if (gpio_is_valid(ddata->pd_gpio))
-		gpio_set_value_cansleep(ddata->pd_gpio, 0);
+	if (gpio_is_valid(ddata->enable_gpio))
+		gpio_set_value_cansleep(ddata->enable_gpio, 0);
 
-	in->ops.dpi->disable(in);
+	in->ops.atv->disable(in);
 
 	dssdev->state = OMAP_DSS_DISPLAY_DISABLED;
 }
@@ -124,7 +129,7 @@ static void opa362_set_timings(struct omap_dss_device *dssdev,
 	ddata->timings = *timings;
 	dssdev->panel.timings = *timings;
 
-	in->ops.dpi->set_timings(in, timings);
+	in->ops.atv->set_timings(in, timings);
 }
 
 static void opa362_get_timings(struct omap_dss_device *dssdev,
@@ -141,10 +146,28 @@ static int opa362_check_timings(struct omap_dss_device *dssdev,
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
 
-	return in->ops.dpi->check_timings(in, timings);
+	return in->ops.atv->check_timings(in, timings);
 }
 
-static const struct omapdss_dvi_ops opa362_dvi_ops = {
+static void opa362_set_type(struct omap_dss_device *dssdev,
+		enum omap_dss_venc_type type)
+{
+	/* we can only drive a COMPOSITE output */
+	WARN_ON(type != OMAP_DSS_VENC_TYPE_COMPOSITE);
+
+}
+
+static void opa362_invert_vid_out_polarity(struct omap_dss_device *dssdev,
+		bool invert_polarity)
+{
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+	struct omap_dss_device *in = ddata->in;
+
+	/* OPA362 inverts the polarity */
+	in->ops.atv->invert_vid_out_polarity(in, !invert_polarity);
+}
+
+static const struct omapdss_atv_ops opa362_atv_ops = {
 	.connect	= opa362_connect,
 	.disconnect	= opa362_disconnect,
 
@@ -154,6 +177,9 @@ static const struct omapdss_dvi_ops opa362_dvi_ops = {
 	.check_timings	= opa362_check_timings,
 	.set_timings	= opa362_set_timings,
 	.get_timings	= opa362_get_timings,
+
+	.set_type	= opa362_set_type,
+	.invert_vid_out_polarity	= opa362_invert_vid_out_polarity,
 };
 
 static int opa362_probe_pdata(struct platform_device *pdev)
@@ -164,7 +190,7 @@ static int opa362_probe_pdata(struct platform_device *pdev)
 
 	pdata = dev_get_platdata(&pdev->dev);
 
-	ddata->pd_gpio = pdata->enable_gpio;
+	ddata->enable_gpio = pdata->enable_gpio;
 	ddata->bypass = pdata->bypass;
 	ddata->acbias = pdata->acbias;
 
@@ -202,18 +228,18 @@ static int opa362_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	if (gpio_is_valid(ddata->pd_gpio)) {
-		r = devm_gpio_request_one(&pdev->dev, ddata->pd_gpio,
-				GPIOF_OUT_INIT_LOW, "opa362 PD");
+	if (gpio_is_valid(ddata->enable_gpio)) {
+		r = devm_gpio_request_one(&pdev->dev, ddata->enable_gpio,
+				GPIOF_OUT_INIT_LOW, "opa362 enable");
 		if (r) {
-			dev_err(&pdev->dev, "Failed to request PD GPIO %d\n",
-					ddata->pd_gpio);
+			dev_err(&pdev->dev, "Failed to request enable GPIO %d\n",
+					ddata->enable_gpio);
 			goto err_gpio;
 		}
 	}
 
 	dssdev = &ddata->dssdev;
-	dssdev->ops.dvi = &opa362_dvi_ops;
+	dssdev->ops.atv = &opa362_atv_ops;
 	dssdev->dev = &pdev->dev;
 	dssdev->type = OMAP_DISPLAY_TYPE_VENC;
 	dssdev->output_type = OMAP_DISPLAY_TYPE_VENC;
@@ -264,6 +290,6 @@ static struct platform_driver opa362_driver = {
 
 module_platform_driver(opa362_driver);
 
-MODULE_AUTHOR("Tomi Valkeinen <tomi.valkeinen@ti.com>");
+MODULE_AUTHOR("H. Nikolaus Schaller <hns@goldelico.com>");
 MODULE_DESCRIPTION("OPA362 analog video amplifier with output/power control");
 MODULE_LICENSE("GPL");
