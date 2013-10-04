@@ -279,6 +279,8 @@
 
 /* CONTROL_DEVCONF1 bits */
 #define OMAP243X_MMC1_ACTIVE_OVERWRITE	(1 << 31)
+#define OMAP2_TVOUTBYPASS		(1 << 18)
+#define OMAP2_TVACEN			(1 << 11)
 #define OMAP2_MMCSDIO2ADPCLKISEL	(1 << 6) /* MMC2 loop back clock */
 #define OMAP2_MCBSP5_CLKS_MASK		(1 << 4) /* > 242x */
 #define OMAP2_MCBSP4_CLKS_MASK		(1 << 2) /* > 242x */

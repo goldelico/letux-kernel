@@ -370,71 +370,53 @@ static struct platform_device gta04b3_lcd_device = {
 	.dev.platform_data = &gta04b3_panel_data,
 };
 
-// FIXME: make this code run when enabling/disabling the TVout
+/* DSS */
+/* currently not used on GTA04 but BeagleBoard hardware */
 
-#if 0
-static int gta04_panel_enable_tv(struct omap_dss_device *dssdev)
-{
-	u32 reg;
-
-#define ENABLE_VDAC_DEDICATED           0x03
-#define ENABLE_VDAC_DEV_GRP             0x20
-#define OMAP2_TVACEN				(1 << 11)
-#define OMAP2_TVOUTBYPASS			(1 << 18)
-
-	twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
-			ENABLE_VDAC_DEDICATED,
-			TWL4030_VDAC_DEDICATED);
-	twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
-			ENABLE_VDAC_DEV_GRP, TWL4030_VDAC_DEV_GRP);
-
-	/* taken from https://e2e.ti.com/support/dsp/omap_applications_processors/f/447/p/94072/343691.aspx */
-	reg = omap_ctrl_readl(OMAP343X_CONTROL_DEVCONF1);
-//	printk(KERN_INFO "Value of DEVCONF1 was: %08x\n", reg);
-	reg |= OMAP2_TVOUTBYPASS;	/* enable TV bypass mode for external video driver (for OPA362 driver) */
-	reg |= OMAP2_TVACEN;		/* assume AC coupling to remove DC offset */
-	omap_ctrl_writel(reg, OMAP343X_CONTROL_DEVCONF1);
-	reg = omap_ctrl_readl(OMAP343X_CONTROL_DEVCONF1);
-//	printk(KERN_INFO "Value of DEVCONF1 now: %08x\n", reg);
-
-	gpio_set_value(TV_OUT_GPIO, 1);	// enable output driver (OPA362)
-
-	return 0;
-}
-
-static void gta04_panel_disable_tv(struct omap_dss_device *dssdev)
-{
-	gpio_set_value(TV_OUT_GPIO, 0);	// disable output driver (and re-enable microphone)
-
-	twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER, 0x00,
-			TWL4030_VDAC_DEDICATED);
-	twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER, 0x00,
-			TWL4030_VDAC_DEV_GRP);
-}
-
-// old
-static struct omap_dss_device gta04_tv_device = {
-	.name = "tv",
-	.driver_name = "venc",
-	.type = OMAP_DISPLAY_TYPE_VENC,
-	.phy.venc.type = OMAP_DSS_VENC_TYPE_COMPOSITE, /*OMAP_DSS_VENC_TYPE_SVIDEO, */
-	.phy.venc.invert_polarity = true,	/* needed if we use external video driver */
-	.platform_enable = gta04_panel_enable_tv,
-	.platform_disable = gta04_panel_disable_tv,
+static struct connector_dvi_platform_data gta04_dvi_connector_pdata = {
+	.name                   = "dvi",
+	.source                 = "tfp410.0",
+	.i2c_bus_num            = 3,
 };
 
-#endif
+static struct platform_device gta04_dvi_connector_device = {
+	.name                   = "connector-dvi",
+	.id                     = 0,
+	.dev.platform_data      = &gta04_dvi_connector_pdata,
+};
+
+static struct encoder_tfp410_platform_data gta04_tfp410_pdata = {
+	.name                   = "tfp410.0",
+	.source                 = "dpi.0",
+	.data_lines             = 24,
+	.power_down_gpio        = -1,
+};
+
+static struct platform_device gta04_tfp410_device = {
+	.name                   = "tfp410",
+	.id                     = 0,
+	.dev.platform_data      = &gta04_tfp410_pdata,
+};
+
+static struct amplifier_opa362_platform_data gta04_opa362_pdata = {
+	.name                   = "opa362.0",
+	.source                 = "venc.0",
+	.enable_gpio            = TV_OUT_GPIO,
+	.bypass			= true,
+	.acbias			= true,
+};
+
+static struct platform_device gta04_opa362_device = {
+	.name                   = "amplifier-opa362",
+	.id                     = 0,
+	.dev.platform_data      = &gta04_opa362_pdata,
+};
 
 static struct connector_atv_platform_data gta04_tv_pdata = {
-	/* GTA04 has a single composite output (with external video driver) */
-	.name = "tv",
-	.source = "venc.0",
-	.connector_type = OMAP_DSS_VENC_TYPE_COMPOSITE,
-	.invert_polarity = true,	/* needed if we use external video driver */
-	/*
-	 .platform_enable = gta04_panel_enable_tv,
-	 .platform_disable = gta04_panel_disable_tv,
-	 */
+	.name                   = "tv",
+	.source                 = "opa362.0",
+	.connector_type         = OMAP_DSS_VENC_TYPE_COMPOSITE,
+	.invert_polarity        = true,	/* needed if we use external video driver */
 };
 
 static struct platform_device gta04_tv_connector_device = {
@@ -1358,6 +1340,9 @@ static struct platform_device *gta04_devices[] __initdata = {
 //	&leds_gpio,
 	&keys_gpio,
 	&keys_3G_gpio,
+	&gta04_tfp410_device,
+	&gta04_dvi_connector_device,
+	&gta04_opa362_device,
 	&gta04_tv_connector_device,
 	&gps_rfkill_device,
 	&bt_gpio_reg_device,
@@ -1581,12 +1566,6 @@ static void __init gta04_init(void)
 	gpio_request(AUX_HEADSET_GPIO, "AUX_OUT");
 	gpio_direction_output(AUX_HEADSET_GPIO, true);
 	gpio_export(AUX_HEADSET_GPIO, 0);	// no direction change
-
-	// disable Video out switch
-	gpio_request(TV_OUT_GPIO, "VIDEO_OUT");
-	gpio_direction_output(TV_OUT_GPIO, false);
-	gpio_export(TV_OUT_GPIO, 0);	// no direction change
-
 #endif
 
 	pwm_add_table(board_pwm_lookup, ARRAY_SIZE(board_pwm_lookup));
@@ -1703,6 +1682,9 @@ static int __init gta04_init_bymux(char *str)
 		tsc2007_info.x_plate_ohms = 550;			// GTA04: 250 - 900
 		tca6507_info.leds.leds = tca6507_leds;
 		gta04_panel = &gta04_lcd_device;
+		gta04_tv_pdata.connector_type = OMAP_DSS_VENC_TYPE_SVIDEO;
+		gta04_tv_pdata.invert = false;
+		beagle_tfp410_pdata.power_down_gpio = -1;
 	 }
 	 else if(strcmp(str, "BeagleBoardB2") == 0) {
 	 // configure for Ortus display (3704)
@@ -1710,11 +1692,15 @@ static int __init gta04_init_bymux(char *str)
 		tsc2007_info.x_plate_ohms = 600;		// GTA04b2: 200 - 900
 		tca6507_info.leds.leds = tca6507_leds_b2;
 		gta04_panel = &gta04b2_lcd_device;
+		gta04_tv_pdata.connector_type = OMAP_DSS_VENC_TYPE_SVIDEO;
+		gta04_tv_pdata.invert = false;
 	 // FIXME: configure RFID driver
 	 }
 	 else if(strcmp(str, "BeagleBoardB4") == 0) {
 		// configure for 5" Sharp display (5004)
 		tsc2007_info.x_plate_ohms = 400;			// GTA04b4: 100 - 850 (very asymmetric between X and Y!)
+		gta04_tv_pdata.connector_type = OMAP_DSS_VENC_TYPE_SVIDEO;
+		gta04_tv_pdata.invert = false;
 		// FIXME: configure display and LEDs
 	 }
 	 else if(strcmp(str, "PandaBoardB1") == 0) {

@@ -607,6 +607,8 @@ struct omapdss_atv_ops {
 		enum omap_dss_venc_type type);
 	void (*invert_vid_out_polarity)(struct omap_dss_device *dssdev,
 		bool invert_polarity);
+	void (*bypass_and_acbias)(struct omap_dss_device *dssdev,
+		bool bypass, bool acbias);
 
 	int (*set_wss)(struct omap_dss_device *dssdev, u32 wss);
 	u32 (*get_wss)(struct omap_dss_device *dssdev);
