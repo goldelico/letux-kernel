@@ -124,6 +124,27 @@
 #define CAMERA_STROBE_GPIO	126	/* CAM_STROBE */
 #define AUX_HEADSET_GPIO	55
 
+/*
+ * Board peripheral code name passed through a "mux="
+ * argument on the command line.
+ * It mainly describes which Pinmux variant has been
+ * used for U-Boot.
+ * This can be used to differently configure the platform
+ * devices, e.g. switch gpio numbers, drivers etc.
+ * mainly this is used to differentiate between GTA04
+ * GTA04b2 (Letux 3704), GTA04b3 (Letux 7004) etc. and
+ * the BeagleBoard.
+ * So this is sort of a "major board version" name
+ * while the gta04_revision is a number to denote
+ * different wiring of the core GTA04 board (A2, A3, A4,
+ * ...)
+ *
+ * Maybe we can replace this functionality with different
+ * Device Tree files that the U-Boot is providing.
+ */
+
+static char gta04_bymux[20];
+
 /* see: https://patchwork.kernel.org/patch/120449/
  * OMAP3 gta04 revision
  * Run time detection of gta04 revision is done by reading GPIO.
@@ -359,16 +380,30 @@ static struct panel_dpi_platform_data gta04b3_panel_data = {
 	.source = "dpi.0",
 	.data_lines = 24,
 	.display_timing = &gta04b3_panel_timing,
-	// #define GPIO_STBY (machine_is_gta04()?12:162)		/* 3.3V LDO controlled through McBSP5-CLKX of GTA04 */
 	.backlight_gpio = -1,
-	.enable_gpio = 12,	/* McBSP5-CLKX */
+	// switch to GPIO162 on BeagleBoardB3 */
+	.enable_gpio = 12,	/* 3.3V LDO controlled through McBSP5-CLKX of GTA04 */
 };
 
 static struct platform_device gta04b3_lcd_device = {
-	.name = "panel-dpi",
+	.name = "panel-acx565akm",
 	.id = 0,
 	.dev.platform_data = &gta04b3_panel_data,
 };
+
+/* for GTA04b7 = Neo900
+ static struct panel_acx565akm_platform_data acx_pdata = {
+	.name		= "lcd",
+	.source		= "sdi.0",
+	.reset_gpio	= RX51_LCD_RESET_GPIO,
+	.datapairs	= 2,
+ };
+
+ static struct platform_device gta04b7_lcd_device = {
+	.name = "panel-acx565akm",
+	.id = 0,
+	.dev.platform_data = &acx_pdata,
+}; */
 
 /* DSS */
 /* currently not used on GTA04 but BeagleBoard hardware */
@@ -861,7 +896,9 @@ static int ts_get_pendown_state(void)
 
 static int __init tsc2007_init(void)
 {
+#if 0
 	printk("tsc2007_init()\n");
+#endif
 	omap_mux_init_gpio(TS_PENIRQ_GPIO, OMAP_PIN_INPUT_PULLUP);
 	if (gpio_request(TS_PENIRQ_GPIO, "tsc2007_pen_down")) {
 		printk(KERN_ERR "Failed to request GPIO %d for "
@@ -1425,14 +1462,9 @@ static void gta04_serial_init(void)
 	omap_serial_init_port(&bdata, NULL);
 }
 
-static int mpu1GHz = 0;
-
 static int __init gta04_opp_init(void)
 {
 	int r = 0;
-
-	if (!machine_is_gta04())
-		return 0;
 
 	/* Initialize the omap3 opp table */
 	r = omap3_opp_init();
@@ -1445,6 +1477,13 @@ static int __init gta04_opp_init(void)
 	if (cpu_is_omap3630()) {
 		struct device *mpu_dev, *iva_dev;
 
+		u32 status;
+		int mpu1GHz = 0;
+
+		status = omap_ctrl_readl(OMAP3_CONTROL_OMAP_STATUS);
+
+		printk("gta04_opp_init %08x\n", status);
+
 		mpu_dev = get_cpu_device(0);
 		iva_dev = omap_device_get_by_hwmod_name("iva");
 
@@ -1453,6 +1492,14 @@ static int __init gta04_opp_init(void)
 				__func__, mpu_dev, iva_dev);
 			return -ENODEV;
 		}
+
+		/* check the "Speed Binned" bit for AM/DM37xx
+		 in the Control Device Status Register */
+		mpu1GHz = (status & (1<<9)) != 0;
+
+		if(mpu1GHz)
+			printk("Enable MPU 1GHz and lower opps\n");
+
 		/* Enable MPU 1GHz and lower opps */
 		r  = opp_enable(mpu_dev,  800000000);
 		if (mpu1GHz)
@@ -1474,6 +1521,10 @@ static int __init gta04_opp_init(void)
 			opp_disable(mpu_dev, 800000000);
 			opp_disable(iva_dev, 800000000);
 			opp_disable(iva_dev, 660000000);
+		}
+		else {
+			/* OMAP3530 like we find it in BeagleBoard C4 */
+			/* may be 600 or 720 mHz variant */
 		}
 	}
 	return 0;
@@ -1611,22 +1662,6 @@ static void __init gta04_init_late(void)
 #endif
 }
 
-static void __init
-gta04_fixup(struct tag *tags, char **cmdline, struct meminfo *mi)
-{
-	/* uboot puts an "mpurate=" option on the command line.
-	 * Unfortunately it also puts other things that make
-	 * a mess of the display, and the "mpurate=" setting is
-	 * ignored.
-	 * So search for it here and remember if it existed
-	 * for later.
-	 */
-	for (; tags && tags->hdr.size; tags = tag_next(tags))
-		if (tags->hdr.tag == ATAG_CMDLINE &&
-		    strstr(tags->u.cmdline.cmdline, "mpurate=1000"))
-			mpu1GHz = 1;
-}
-
 /*
  * for the GTA04 custom based devices we may have different
  * displays and other peripherals which also need different
@@ -1640,16 +1675,18 @@ gta04_fixup(struct tag *tags, char **cmdline, struct meminfo *mi)
  * (older U-Boot) on such devices.
  */
 
-static int __init gta04_init_bymux(char *str)
+static int __init gta04_init_mux(char *str)
 {
-	printk(KERN_INFO "gta04_init_bymux: %s", str);
-	if(strcmp(str, "GTA04") == 0 || strcmp(str, "GTA04A2") == 0 || strcmp(str, "GTA04A3+") == 0) {
+	printk(KERN_INFO "gta04_init_bymux: %s\n", str);
+	strncpy(gta04_bymux, str, sizeof(gta04_bymux)-1);
+
+	if(strcmp(gta04_bymux, "GTA04") == 0 || strcmp(gta04_bymux, "GTA04A2") == 0 || strcmp(gta04_bymux, "GTA04A3+") == 0) {
 		// configure for TPO display (2804) - also the default (could have been called GTA04B1)
 		tsc2007_info.x_plate_ohms = 550;			// GTA04: 250 - 900
 		tca6507_info.leds.leds = tca6507_leds;
 		gta04_panel = &gta04_lcd_device;
 	}
-	else if(strcmp(str, "GTA04B2") == 0 || strcmp(str, "GTA04B6") == 0) {
+	else if(strcmp(gta04_bymux, "GTA04B2") == 0 || strcmp(gta04_bymux, "GTA04B6") == 0) {
 		// configure for Ortus display (3704)
 		gta04_battery_data.capacity = 3900000;
 		tsc2007_info.x_plate_ohms = 600;		// GTA04b2: 200 - 900
@@ -1657,7 +1694,7 @@ static int __init gta04_init_bymux(char *str)
 		gta04_panel = &gta04b2_lcd_device;
 		// FIXME: configure RFID driver
 	}
-	else if(strcmp(str, "GTA04B3") == 0) {
+	else if(strcmp(gta04_bymux, "GTA04B3") == 0) {
 		// configure for 7" Sharp display (7004)
 		gta04_battery_data.capacity = 3900000;
 		tsc2007_info.x_plate_ohms = 450;			// GTA04b3: 100 - 900
@@ -1665,28 +1702,29 @@ static int __init gta04_init_bymux(char *str)
 		tca6507_info.leds.leds = tca6507_leds_b3;
 		gta04_panel = &gta04b3_lcd_device;
 	}
-	else if(strcmp(str, "GTA04B4") == 0) {
+	else if(strcmp(gta04_bymux, "GTA04B4") == 0) {
 		// configure for 5" Sharp display (5004)
 		tsc2007_info.x_plate_ohms = 400;			// GTA04b4: 100 - 850 (very asymmetric between X and Y!)
 		// FIXME: configure display and LEDs
 	}
 	/*
-	 else if(strcmp(str, "GTA04B5") == 0) {
+	 else if(strcmp(gta04_bymux, "GTA04B5") == 0) {
 	 }
-	 else if(strcmp(str, "GTA04B7") == 0) {
+	 else if(strcmp(gta04_bymux, "GTA04B7") == 0) {
 	 }
-	 else if(strcmp(str, "GTA04B8") == 0) {
+	 else if(strcmp(gta04_bymux, "GTA04B8") == 0) {
 	 }
-	 else if(strcmp(str, "BeagleBoardB1") == 0) {
+	 else if(strcmp(gta04_bymux, "BeagleBoardB1") == 0) {
 		// configure for TPO display (2804)
 		tsc2007_info.x_plate_ohms = 550;			// GTA04: 250 - 900
 		tca6507_info.leds.leds = tca6507_leds;
 		gta04_panel = &gta04_lcd_device;
+	 // FIXME: move this to gta04_init and differentiate by gta04_bymux
 		gta04_tv_pdata.connector_type = OMAP_DSS_VENC_TYPE_SVIDEO;
 		gta04_tv_pdata.invert = false;
 		beagle_tfp410_pdata.power_down_gpio = -1;
 	 }
-	 else if(strcmp(str, "BeagleBoardB2") == 0) {
+	 else if(strcmp(gta04_bymux, "BeagleBoardB2") == 0) {
 	 // configure for Ortus display (3704)
 		gta04_battery_data.capacity = 3900000;
 		tsc2007_info.x_plate_ohms = 600;		// GTA04b2: 200 - 900
@@ -1696,24 +1734,24 @@ static int __init gta04_init_bymux(char *str)
 		gta04_tv_pdata.invert = false;
 	 // FIXME: configure RFID driver
 	 }
-	 else if(strcmp(str, "BeagleBoardB4") == 0) {
+	 else if(strcmp(gta04_bymux, "BeagleBoardB4") == 0) {
 		// configure for 5" Sharp display (5004)
 		tsc2007_info.x_plate_ohms = 400;			// GTA04b4: 100 - 850 (very asymmetric between X and Y!)
 		gta04_tv_pdata.connector_type = OMAP_DSS_VENC_TYPE_SVIDEO;
 		gta04_tv_pdata.invert = false;
 		// FIXME: configure display and LEDs
 	 }
-	 else if(strcmp(str, "PandaBoardB1") == 0) {
+	 else if(strcmp(gta04_bymux, "PandaBoardB1") == 0) {
 	 }
 	 */
 	else {
-		printk(KERN_EMERG "UNKNOWN PINMUX %s!\n", str);
-		// maybe we should stop booting here before we risk to damage some hardware!
+		printk(KERN_EMERG "UNKNOWN U-Boot PINMUX %s!\n", str);
+		// maybe we should stop booting here before we risk to damage some unidentified hardware!
 	}
 	return 1;
 }
 
-__setup("mux=", gta04_init_bymux);
+__setup("mux=", gta04_init_mux);
 
 /* see http://elinux.org/images/4/48/Experiences_With_Device_Tree_Support_Development_For_ARM-Based_SOC's.pdf */
 
@@ -1737,6 +1775,5 @@ MACHINE_START(GTA04, "GTA04")
 	.init_late	=	gta04_init_late,
 	.init_time	=	omap3_secure_sync32k_timer_init,
 	.restart	=	omap3xxx_restart,
-	.fixup		=	gta04_fixup,
 	.dt_compat	=	gta04_dt_compat,
 MACHINE_END
