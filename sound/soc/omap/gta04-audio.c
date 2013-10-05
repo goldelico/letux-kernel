@@ -327,12 +327,6 @@ static int __init omap3gta04_soc_init(void)
 {
 	int ret;
 
-#if 0
-	if (!machine_is_gta04() && !machine_is_omap3_gta04()) {
-		pr_debug("Not GTA04!\n");
-		return -ENODEV;
-	}
-#endif
 	pr_info("GTA04 OMAP3 SoC snd init\n");
 	
 	// FIXME: set any GPIOs i.e. enable Audio in/out switch
