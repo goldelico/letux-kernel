@@ -267,7 +267,7 @@ static int omap_hsmmc_set_power(struct device *dev, int slot, int power_on,
 	if (gpio_is_valid(mmc_slot(host).gpio_reset))
 		{
 		printk("omap_hsmmc_set_power setting gpio_reset = 0\n");
-		gpio_set_value_cansleep(mmc_slot(host).gpio_reset, !power_on);
+		gpio_set_value_cansleep(mmc_slot(host).gpio_reset, 0);
 		
 		}
 	if (mmc_slot(host).before_set_reg)
