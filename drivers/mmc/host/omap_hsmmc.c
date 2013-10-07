@@ -249,7 +249,7 @@ static int omap_hsmmc_set_power(struct device *dev, int slot, int power_on,
 	struct omap_hsmmc_host *host =
 		platform_get_drvdata(to_platform_device(dev));
 	int ret = 0;
-
+	printk("omap_hsmmc_set_power slot=%d power_on=%d vdd=%d\n", slot, power_on, vdd);
 	/*
 	 * If we don't see a Vcc regulator, assume it's a fixed
 	 * voltage always-on regulator.
@@ -265,7 +265,11 @@ static int omap_hsmmc_set_power(struct device *dev, int slot, int power_on,
 		return 0;
 
 	if (gpio_is_valid(mmc_slot(host).gpio_reset))
+		{
+		printk("omap_hsmmc_set_power setting gpio_reset = 0\n");
 		gpio_set_value_cansleep(mmc_slot(host).gpio_reset, 0);
+		
+		}
 	if (mmc_slot(host).before_set_reg)
 		mmc_slot(host).before_set_reg(dev, slot, power_on, vdd);
 
@@ -305,7 +309,10 @@ static int omap_hsmmc_set_power(struct device *dev, int slot, int power_on,
 	if (mmc_slot(host).after_set_reg)
 		mmc_slot(host).after_set_reg(dev, slot, power_on, vdd);
 	if (gpio_is_valid(mmc_slot(host).gpio_reset))
-		gpio_set_value_cansleep(mmc_slot(host).gpio_reset, 1);
+		{
+		printk("omap_hsmmc_set_power setting gpio_reset = 1\n");
+		gpio_set_value_cansleep(mmc_slot(host).gpio_reset, 1);			
+		}
 
 	return ret;
 }

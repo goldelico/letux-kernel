@@ -193,7 +193,7 @@ static int twl4030reg_enable(struct regulator_dev *rdev)
 	struct twlreg_info	*info = rdev_get_drvdata(rdev);
 	int			grp;
 	int			ret;
-
+	printk("twl4030reg_enable %s\n", info->desc.name);
 	grp = twlreg_grp(rdev);
 	if (grp < 0)
 		return grp;
@@ -228,6 +228,7 @@ static int twl4030reg_disable(struct regulator_dev *rdev)
 	int			grp;
 	int			ret;
 
+	printk("twl4030reg_disable %s\n", info->desc.name);
 	grp = twlreg_grp(rdev);
 	if (grp < 0)
 		return grp;

@@ -123,6 +123,12 @@
 #define CAMERA_PWDN_GPIO	165	/* CAM_WEN */
 #define CAMERA_STROBE_GPIO	126	/* CAM_STROBE */
 #define AUX_HEADSET_GPIO	55
+#define USB_PHY_RESET_GPIO	174
+#define GPS_ON_OFF_GPIO	145
+#define GPS_RX_GPIO 147
+#define BOARD_VERSION_0_GPIO 171
+#define BOARD_VERSION_1_GPIO 172
+#define BOARD_VERSION_2_GPIO 173
 
 /*
  * Board peripheral code name passed through a "mux="
@@ -169,35 +175,35 @@ static void __init gta04_init_rev(void)
 	};
 //	printk("Running gta04_init_rev()\n");
 
-	omap_mux_init_gpio(171, OMAP_PIN_INPUT_PULLUP);
-	omap_mux_init_gpio(172, OMAP_PIN_INPUT_PULLUP);
-	omap_mux_init_gpio(173, OMAP_PIN_INPUT_PULLUP);
+	omap_mux_init_gpio(BOARD_VERSION_0_GPIO, OMAP_PIN_INPUT_PULLUP);
+	omap_mux_init_gpio(BOARD_VERSION_1_GPIO, OMAP_PIN_INPUT_PULLUP);
+	omap_mux_init_gpio(BOARD_VERSION_2_GPIO, OMAP_PIN_INPUT_PULLUP);
 
 	udelay(100);
 
-	ret = gpio_request(171, "rev_id_0");
+	ret = gpio_request(BOARD_VERSION_0_GPIO, "rev_id_0");
 	if (ret < 0)
 		goto fail0;
 
-	ret = gpio_request(172, "rev_id_1");
+	ret = gpio_request(BOARD_VERSION_1_GPIO, "rev_id_1");
 	if (ret < 0)
 		goto fail1;
 
-	ret = gpio_request(173, "rev_id_2");
+	ret = gpio_request(BOARD_VERSION_2_GPIO, "rev_id_2");
 	if (ret < 0)
 		goto fail2;
 
 	udelay(100);
 
-	gpio_direction_input(171);
-	gpio_direction_input(172);
-	gpio_direction_input(173);
+	gpio_direction_input(BOARD_VERSION_0_GPIO);
+	gpio_direction_input(BOARD_VERSION_1_GPIO);
+	gpio_direction_input(BOARD_VERSION_2_GPIO);
 
 	udelay(100);
 
-	gta04_rev = gpio_get_value(171)
-				| (gpio_get_value(172) << 1)
-				| (gpio_get_value(173) << 2);
+	gta04_rev = gpio_get_value(BOARD_VERSION_0_GPIO)
+				| (gpio_get_value(BOARD_VERSION_1_GPIO) << 1)
+				| (gpio_get_value(BOARD_VERSION_2_GPIO) << 2);
 
 //	printk("gta04_rev %u\n", gta04_rev);
 
@@ -206,9 +212,9 @@ static void __init gta04_init_rev(void)
 	return;
 
 fail2:
-	gpio_free(172);
+	gpio_free(BOARD_VERSION_1_GPIO);
 fail1:
-	gpio_free(171);
+	gpio_free(BOARD_VERSION_0_GPIO);
 fail0:
 	printk(KERN_ERR "Unable to get revision detection GPIO pins\n");
 	gta04_version = 0;
@@ -474,8 +480,8 @@ static struct regulator_consumer_supply gta04_vdvi_supplies[] = {
 
 /* "+2" because TWL4030 adds 2 LED drives as gpio outputs */
 #define GPIO_WIFI_RESET (OMAP_MAX_GPIO_LINES + TWL4030_GPIO_MAX + 2)
-#define GPIO_BT_REG (GPIO_WIFI_RESET + 1)
-#define GPIO_GPS_CTRL (GPIO_BT_REG + 1)
+#define GPIO_BT_REG (GPIO_WIFI_RESET + 1)	// regulator-gpio.0
+#define GPIO_GPS_CTRL (GPIO_BT_REG + 1)	// regulator-gpio.1
 
 
 static struct omap2_hsmmc_info mmc[] = {
@@ -577,7 +583,7 @@ static struct regulator_init_data gta04_vmmc1 = {
 	.consumer_supplies	= gta04_vmmc1_supply,
 };
 
-/* VAUX4 powers Bluetooth and WLAN */
+/* VAUX4 is enabled if Bluetooth /or/ WLAN needs it */
 
 static struct regulator_consumer_supply gta04_vaux4_supply[] = {
 	REGULATOR_SUPPLY("vgpio", "regulator-gpio.0"),
@@ -721,15 +727,15 @@ static struct gpio_reg_data bt_gpio_data = {
 };
 
 static struct platform_device bt_gpio_reg_device = {
-	.name = "regulator-gpio",
+	.name = "regulator-gpio",	// enables VAUX4 if we connect to /dev/ttyO0
 	.id = 0,
 	.dev.platform_data = &bt_gpio_data,
 };
 
 static struct gpio_w2sg_data gps_gpio_data = {
-	.ctrl_gpio	= GPIO_GPS_CTRL,
-	.on_off_gpio	= 145,
-	.rx_gpio	= 147,
+	.ctrl_gpio	= GPIO_GPS_CTRL,	// powers the LNA
+	.on_off_gpio	= GPS_ON_OFF_GPIO,	// allows to reset the GPS module
+	.rx_gpio	= GPS_RX_GPIO,	// used to check for feedback from the GPS module
 	.on_state	= OMAP_PIN_INPUT_PULLUP | OMAP_MUX_MODE0,
 	.off_state	= OMAP_PIN_INPUT_PULLUP | OMAP_MUX_MODE4,
 };
@@ -955,6 +961,7 @@ struct bmp085_platform_data __initdata bmp085_info = {
 
 void tca6507_setup(unsigned gpio_base, unsigned ngpio)
 {
+	// do it as early as we have the reset wire fo the WiFi chip
 	omap_hsmmc_late_init(mmc);
 }
 
@@ -1408,7 +1415,7 @@ static struct platform_device *gta04_devices[] __initdata = {
 static struct usbhs_phy_data phy_data[] __initdata = {
 	{
 		.port = 2,
-		.reset_gpio = 174,
+		.reset_gpio = USB_PHY_RESET_GPIO,
 		.vcc_gpio = -EINVAL,
 	},
 };
@@ -1447,6 +1454,10 @@ static void gta04_serial_init(void)
 	bdata.flags = 0;
 	bdata.pads = NULL;
 
+	/*
+	 * BT port.  modem lines are used for on/off management
+	 * of the WLAN/BT chip
+	 */
 	bdata.id = 0;
 	info.DTR_gpio = GPIO_BT_REG;
 	omap_serial_init_port(&bdata, &info);
@@ -1458,6 +1469,10 @@ static void gta04_serial_init(void)
 	info.DTR_gpio = GPIO_GPS_CTRL;
 	omap_serial_init_port(&bdata, &info);
 
+	/*
+	 * Console/IrDA port.
+	 * not additional info
+	 */
 	bdata.id = 2;
 	omap_serial_init_port(&bdata, NULL);
 }
@@ -1657,6 +1672,7 @@ static void __init gta04_init_late(void)
 
 	omap_pm_enable_off_mode();
 	omap3_pm_off_mode_enable(1);
+//	omap_hsmmc_late_init(mmc);	// if we do it here, we must comment out the other call in the led setup
 #if defined(CONFIG_VIDEO_OV9655) || defined(CONFIG_VIDEO_OV9655_MODULE)
 	gta04_camera_setup();
 #endif
