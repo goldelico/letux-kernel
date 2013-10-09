@@ -14,6 +14,9 @@
 / {
 	model = "OMAP3 GTA04";
 	compatible = "ti,omap3-gta04", "ti,omap3";
+	chosen {
+		bootargs = "console=ttyO2,115200n8 vram=12M omapfb.rotate_type=0 omapdss.def_disp=lcd root=/dev/mmcblk0p2 rw rootfstype=ext3 rootwait twl4030_charger.allow_usb=1 musb_hdrc.preserve_vbus=1 log_buf_len=8M ignore_loglevel no_console_suspend";
+	};
 
 	cpus {
 		cpu@0 {
@@ -83,7 +86,6 @@
 };
 
 #include "twl4030.dtsi"
-#include "twl4030_omap3.dtsi"
 
 &i2c2 {
 	clock-frequency = <400000>;
@@ -136,8 +138,6 @@
 };
 
 &mmc1 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&mmc1_pins>;
 	vmmc-supply = <&vmmc1>;
 	vmmc_aux-supply = <&vsim>;
 	bus-width = <4>;
@@ -150,19 +150,3 @@
 &mmc3 {
 	status = "disabled";
 };
-
-&uart1 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart1_pins>;
-};
-
-&uart2 {
-       pinctrl-names = "default";
-       pinctrl-0 = <&uart2_pins>;
-};
-
-&uart3 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart3_pins>;
-};
-
