@@ -23,6 +23,12 @@
 		compatible = "ti,twl4030-power";
 	};
 
+	charger: bci {
+		compatible = "ti,twl4030-bci";
+		interrupts = <9>, <2>;
+		bci3v1-supply = <&vusb3v1>;
+	};
+
 	pwrbutton {
 		compatible = "ti,twl4030-pwrbutton";
 		interrupts = <8>;
