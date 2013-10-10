@@ -39,6 +39,18 @@
 			gpio-key,wakeup;
 		};
 	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+
+		incoming-button {
+			label = "Option";
+			linux,code = <240>;
+			/* 176 for A3, 10 for A4 */
+			gpios = <&gpio6 16 GPIO_ACTIVE_HIGH>;
+			gpio-key,wakeup;
+		};
+	};
 };
 
 &omap3_pmx_core {
