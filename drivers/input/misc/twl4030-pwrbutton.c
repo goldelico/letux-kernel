@@ -106,11 +106,20 @@ static int __exit twl4030_pwrbutton_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_OF
+static const struct of_device_id twl_pwrbutton_of_match[] = {
+	{.compatible = "ti,twl4030-pwrbutton", },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, twl_pwrbutton_of_match);
+#endif
+
 static struct platform_driver twl4030_pwrbutton_driver = {
 	.remove		= __exit_p(twl4030_pwrbutton_remove),
 	.driver		= {
 		.name	= "twl4030_pwrbutton",
 		.owner	= THIS_MODULE,
+		.of_match_table = of_match_ptr(twl_pwrbutton_of_match),
 	},
 };
 

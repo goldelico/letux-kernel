@@ -23,6 +23,11 @@
 		compatible = "ti,twl4030-power";
 	};
 
+	pwrbutton {
+		compatible = "ti,twl4030-pwrbutton";
+		interrupts = <8>;
+	};
+
 	watchdog {
 		compatible = "ti,twl4030-wdt";
 	};
