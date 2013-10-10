@@ -400,7 +400,7 @@ static struct omap_dss_driver td028ttec1_ops = {
 
 static int td028ttec1_panel_probe_pdata(struct platform_device *pdev)
 {
-	const struct panel_tpo_td028tec1_platform_data *pdata;
+	const struct panel_tpo_td028ttec1_platform_data *pdata;
 	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
 	struct omap_dss_device *dssdev, *in;
 

@@ -239,8 +239,8 @@ struct panel_nec_nl8048hl11_platform_data {
 };
 
 /**
- * panel-tpo-td028tec1 platform data
- * @name: name for display netity
+ * panel-tpo-td028ttec1 platform data
+ * @name: name for display entity
  * @source: name of the display entity used as a video source
  * @data_lines: number of DPI datalines
  * @cs_gpio: CS gpio
@@ -248,7 +248,7 @@ struct panel_nec_nl8048hl11_platform_data {
  * @din_gpio: input data gpio
  * @dout_gpio: output data gpio
  */
-struct panel_tpo_td028tec1_platform_data {
+struct panel_tpo_td028ttec1_platform_data {
 	const char *name;
 	const char *source;
 
