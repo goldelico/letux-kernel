@@ -121,6 +121,17 @@
 &i2c2 {
 	clock-frequency = <400000>;
 
+	/* touch screen */
+	tsc2007: tsc2007@48 {
+		compatible = "tsc2007";
+		reg = <0x48>;
+		interrupt-parent = <&gpio6>;
+		interrupts = <0 IRQ_TYPE_EDGE_FALLING>;
+		model-number = <2007>;
+		x-plate-ohms = <600>;
+		pen-gpio = <&gpio6 0 GPIO_ACTIVE_LOW>;
+	};
+
 	/* pressure sensor */
 	bmp085@77 {
 		compatible = "bosch,bmp085";
