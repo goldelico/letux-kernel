@@ -87,6 +87,7 @@ struct regulator_init_data *of_get_regulator_init_data(struct device *dev,
 						struct device_node *node)
 {
 	struct regulator_init_data *init_data;
+	const char *devn, *supply;
 
 	if (!node)
 		return NULL;
@@ -96,6 +97,18 @@ struct regulator_init_data *of_get_regulator_init_data(struct device *dev,
 		return NULL; /* Out of memory? */
 
 	of_get_regulation_constraints(node, &init_data);
+
+	/* Hack until all devices can request their own
+	 * supplies via devicetree
+	 */
+	if (of_property_read_string(node, "supply-dev", &devn) == 0 &&
+	    of_property_read_string(node, "supply", &supply) == 0) {
+		init_data->num_consumer_supplies = 1;
+		init_data->consumer_supplies =
+			devm_kzalloc(dev, sizeof(struct regulator_consumer_supply), GFP_KERNEL);
+		init_data->consumer_supplies[0].supply = supply;
+		init_data->consumer_supplies[0].dev_name = devn;
+	}
 	return init_data;
 }
 EXPORT_SYMBOL_GPL(of_get_regulator_init_data);

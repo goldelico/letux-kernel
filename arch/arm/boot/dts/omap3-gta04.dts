@@ -222,3 +222,8 @@
 &twl_power {
 	ti,use_poweroff;
 };
+
+&vpll2 {
+	supply-dev = "omapdss_dpi.0";
+	supply = "vdds_dsi";
+};
