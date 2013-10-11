@@ -59,6 +59,17 @@
 		ti,mcbsp = <&mcbsp2>;
 		ti,codec = <&twl_audio>;
 	};
+
+	panel {
+		compatible = "tpo,td028ttec1";
+		display-name = "lcd";
+		source     = "dpi.0";
+		data-lines = <24>;
+		cs-gpio    = <&gpio1 19 0>;
+		scl-gpio   = <&gpio1 12 0>;
+		din-gpio   = <&gpio1 18 0>;
+		dout-gpio  = <&gpio1 20 0>;
+	};
 };
 
 &omap3_pmx_core {
