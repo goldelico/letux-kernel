@@ -3748,13 +3748,8 @@ static int __init regulator_init(void)
 /* init early to allow our consumers to complete system booting */
 core_initcall(regulator_init);
 
-static int __init regulator_init_complete(void)
+static int __init regulator_init_early(void)
 {
-	struct regulator_dev *rdev;
-	struct regulator_ops *ops;
-	struct regulation_constraints *c;
-	int enabled, ret;
-
 	/*
 	 * Since DT doesn't provide an idiomatic mechanism for
 	 * enabling full constraints and since it's much more natural
@@ -3763,6 +3758,16 @@ static int __init regulator_init_complete(void)
 	 */
 	if (of_have_populated_dt())
 		has_full_constraints = true;
+	return 0;
+}
+early_initcall(regulator_init_early);
+
+static int __init regulator_init_complete(void)
+{
+	struct regulator_dev *rdev;
+	struct regulator_ops *ops;
+	struct regulation_constraints *c;
+	int enabled, ret;
 
 	mutex_lock(&regulator_list_mutex);
 
