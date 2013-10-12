@@ -62,6 +62,7 @@ static int omap_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 	struct omap_chip *omap = to_omap_chip(chip);
 
 	omap_dm_timer_start(omap->dm_timer);
+	omap_dm_timer_write_counter(omap->dm_timer, DM_TIMER_LOAD_MIN);
 
 	return 0;
 }
@@ -148,23 +149,9 @@ static struct pwm_ops omap_pwm_ops = {
 	.owner		= THIS_MODULE,
 };
 
-static int omap_pwm_probe(struct platform_device *pdev)
+static int omap_pwm_from_pdata(struct omap_chip *omap,
+			       struct omap_pwm_pdata *pdata)
 {
-	struct device *dev = &pdev->dev;
-	struct omap_chip *omap;
-	int status = 0;
-	struct omap_pwm_pdata *pdata = dev->platform_data;
-
-	if (!pdata) {
-		dev_err(dev, "No platform data provided\n");
-		return -ENODEV;
-	}
-
-	omap = kzalloc(sizeof(struct pwm_device), GFP_KERNEL);
-	if (omap == NULL) {
-		dev_err(dev, "Could not allocate memory.\n");
-		return -ENOMEM;
-	}
 
 	/*
 	 * Request the OMAP dual-mode timer that will be bound to and
@@ -172,10 +159,8 @@ static int omap_pwm_probe(struct platform_device *pdev)
 	 */
 
 	omap->dm_timer = omap_dm_timer_request_specific(pdata->timer_id);
-	if (omap->dm_timer == NULL) {
-		status = -EPROBE_DEFER;
-		goto err_free;
-	}
+	if (omap->dm_timer == NULL)
+		return -EPROBE_DEFER;
 
 	/*
 	 * Configure the source for the dual-mode timer backing this
@@ -187,8 +172,54 @@ static int omap_pwm_probe(struct platform_device *pdev)
 	 * system-clock source as appropriate for the desired PWM period.
 	 */
 
-	omap_dm_timer_set_source(omap->dm_timer, OMAP_TIMER_SRC_SYS_CLK);
+	return 0;
+}
 
+#ifdef CONFIG_OF
+static inline int omap_pwm_from_dt(struct omap_chip *omap,
+				  struct device *dev)
+{
+	struct device_node *np = dev->of_node;
+	struct device_node *timer;
+	if (!np)
+		return -ENODEV;
+	timer = of_parse_phandle(np, "timers", 0);
+	if (!timer)
+		return -ENODEV;
+
+	omap->dm_timer = omap_dm_timer_request_by_node(timer);
+	if (!omap->dm_timer)
+		return -EPROBE_DEFER;
+	return 0;
+}
+#else
+static inline in omap_pwm_from_dt(struct omap_chip *omap,
+				  struct device *dev)
+{
+	return -ENODEV;
+}
+#endif
+
+static int omap_pwm_probe(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct omap_chip *omap;
+	int status = 0;
+	struct omap_pwm_pdata *pdata = dev->platform_data;
+
+	omap = devm_kzalloc(dev, sizeof(*omap), GFP_KERNEL);
+	if (omap == NULL) {
+		dev_err(dev, "Could not allocate memory.\n");
+		return -ENOMEM;
+	}
+	if (pdata)
+		status = omap_pwm_from_pdata(omap, pdata);
+	else
+		status = omap_pwm_from_dt(omap, dev);
+	if (status)
+		return status;
+
+	omap_dm_timer_set_source(omap->dm_timer, OMAP_TIMER_SRC_SYS_CLK);
 	/*
 	 * Cache away other miscellaneous driver-private data and state
 	 * information and add the driver-private data to the platform
@@ -205,16 +236,12 @@ static int omap_pwm_probe(struct platform_device *pdev)
 	if (status < 0) {
 		dev_err(dev, "failed to register PWM\n");
 		omap_dm_timer_free(omap->dm_timer);
-		goto err_free;
+		return status;
 	}
 
 	platform_set_drvdata(pdev, omap);
 
 	return 0;
-
- err_free:
-	kfree(omap);
-	return status;
 }
 
 static int omap_pwm_remove(struct platform_device *pdev)
@@ -228,14 +255,23 @@ static int omap_pwm_remove(struct platform_device *pdev)
 		return status;
 
 	omap_dm_timer_free(omap->dm_timer);
-	kfree(omap);
 
 	return 0;
 }
+
+#ifdef CONFIG_OF
+static const struct of_device_id omap_pwm_of_match[] = {
+	{.compatible = "ti,omap-pwm"},
+	{}
+};
+MODULE_DEVICE_TABLE(of, omap_pwm_of_match);
+#endif
+
 static struct platform_driver omap_pwm_driver = {
 	.driver = {
 		.name	= "omap-pwm",
 		.owner	= THIS_MODULE,
+		.of_match_table = of_match_ptr(omap_pwm_of_match),
 	},
 	.probe		= omap_pwm_probe,
 	.remove		= omap_pwm_remove,

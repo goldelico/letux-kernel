@@ -7,14 +7,23 @@
 #include "common-board-devices.h"
 #include <video/omapdss.h>
 #include <asm/mach/arch.h>
+#include "mux.h"
 
 static struct omap_dss_board_info omap3_dss_data = {
 	.default_display_name = "lcd",
 };
 
+static struct omap_board_mux board_mux[] __initdata = {
+	/* Enable GPT11_PWM_EVT instead of GPIO-57 */
+	OMAP3_MUX(GPMC_NCS6, OMAP_MUX_MODE3),
+
+	{ .reg_offset = OMAP_MUX_TERMINATOR },
+};
+
 void __init omap_generic_init(void);
 static void __init omap_gta04_init(void)
 {
+	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);
 	omap_generic_init();
 	omap_display_init(&omap3_dss_data);
 }
