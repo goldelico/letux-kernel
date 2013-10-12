@@ -205,6 +205,12 @@
 		compatible = "invensense,itg3200";
 		reg = <0x68>;
 	};
+
+	/* compass aka magnetometer */
+	hmc5843@1e {
+		compatible = "honeywell,hmc5843";
+		reg = <0x1e>;
+	};
 };
 
 &i2c3 {
