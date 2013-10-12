@@ -769,6 +769,19 @@ static int if_sdio_prog_firmware(struct if_sdio_card *card)
 		return 0;
 	}
 
+	/* This is missing in lbs_get_firmware_async()
+	 * and therefore a second call using the same priv structure
+	 * may find a stale helper_fw entry that has already been
+	 * released by release_firmware(helper) in
+	 * if_sdio_do_prog_firmware().
+	 * Or doing that release in if_sdio_do_prog_firmware()
+	 * is a duplicate and should not be there.
+	 * Anyways, this can happen if a ifconfig up / down / up
+	 * sequence is issued.
+	 */
+
+	card->priv->helper_fw = NULL;
+
 	ret = lbs_get_firmware_async(card->priv, &card->func->dev, card->model,
 				     fw_table, if_sdio_do_prog_firmware);
 
