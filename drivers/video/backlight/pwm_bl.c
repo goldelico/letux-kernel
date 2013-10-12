@@ -95,7 +95,8 @@ static const struct backlight_ops pwm_backlight_ops = {
 
 #ifdef CONFIG_OF
 static int pwm_backlight_parse_dt(struct device *dev,
-				  struct platform_pwm_backlight_data *data)
+				  struct platform_pwm_backlight_data *data,
+				  const char **label)
 {
 	struct device_node *node = dev->of_node;
 	struct property *prop;
@@ -138,6 +139,8 @@ static int pwm_backlight_parse_dt(struct device *dev,
 		data->max_brightness--;
 	}
 
+	of_property_read_string(node, "label", label);
+
 	/*
 	 * TODO: Most users of this driver use a number of GPIOs to control
 	 *       backlight power. Support for specifying these needs to be
@@ -155,7 +158,8 @@ static struct of_device_id pwm_backlight_of_match[] = {
 MODULE_DEVICE_TABLE(of, pwm_backlight_of_match);
 #else
 static int pwm_backlight_parse_dt(struct device *dev,
-				  struct platform_pwm_backlight_data *data)
+				  struct platform_pwm_backlight_data *data,
+				  const char **label)
 {
 	return -ENODEV;
 }
@@ -170,9 +174,10 @@ static int pwm_backlight_probe(struct platform_device *pdev)
 	struct pwm_bl_data *pb;
 	unsigned int max;
 	int ret;
+	const char *label = dev_name(&pdev->dev);
 
 	if (!data) {
-		ret = pwm_backlight_parse_dt(&pdev->dev, &defdata);
+		ret = pwm_backlight_parse_dt(&pdev->dev, &defdata, &label);
 		if (ret < 0) {
 			dev_err(&pdev->dev, "failed to find platform data\n");
 			return ret;
@@ -234,7 +239,7 @@ static int pwm_backlight_probe(struct platform_device *pdev)
 	memset(&props, 0, sizeof(struct backlight_properties));
 	props.type = BACKLIGHT_RAW;
 	props.max_brightness = data->max_brightness;
-	bl = backlight_device_register(dev_name(&pdev->dev), &pdev->dev, pb,
+	bl = backlight_device_register(label, &pdev->dev, pb,
 				       &pwm_backlight_ops, &props);
 	if (IS_ERR(bl)) {
 		dev_err(&pdev->dev, "failed to register backlight\n");
