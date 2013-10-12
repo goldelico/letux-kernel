@@ -199,6 +199,12 @@
 			reg = <0x4>;
 		};
 	};
+
+	/* gyroscope */
+	itg3200@68 {
+		compatible = "invensense,itg3200";
+		reg = <0x68>;
+	};
 };
 
 &i2c3 {
