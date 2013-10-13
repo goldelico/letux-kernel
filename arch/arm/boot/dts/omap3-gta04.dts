@@ -84,6 +84,15 @@
 		timers = <&timer11>;
 		#pwm-cells = <2>;
 	};
+
+	/* need to connect uart1 DTR line to vaux4 */
+	btdtr: gpio-reg.bt {
+		compatible = "gpio_regulator";
+		vgpio-supply = <&vaux4>;
+		microvolt = <3150000>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
 };
 
 &omap3_pmx_core {
@@ -137,6 +146,7 @@
 			compatible = "ti,twl4030-vaux4";
 			regulator-min-microvolt = <2800000>;
 			regulator-max-microvolt = <3150000>;
+			ti,allow_unsupported;
 		};
 	};
 };
@@ -252,4 +262,9 @@
 &vpll2 {
 	supply-dev = "omapdss_dpi.0";
 	supply = "vdds_dsi";
+};
+
+/* uart1 is bluetooth - need to connect DTR */
+&uart1 {
+	dtr = <&btdtr 0 GPIO_ACTIVE_HIGH>;
 };

@@ -1530,6 +1530,8 @@ static struct omap_uart_port_info *of_get_uart_port_info(struct device *dev)
 					 &omap_up_info->uartclk);
 	omap_up_info->DTR_gpio = of_get_named_gpio_flags(dev->of_node,
 							 "dtr", 0, &flags);
+	if (omap_up_info->DTR_gpio == -EPROBE_DEFER)
+		return ERR_PTR(-EPROBE_DEFER);
 	if (omap_up_info->DTR_gpio >= 0) {
 		omap_up_info->DTR_present = 1;
 		omap_up_info->DTR_inverted = flags & OF_GPIO_ACTIVE_LOW;
@@ -1593,6 +1595,8 @@ static int serial_omap_probe(struct platform_device *pdev)
 
 	if (pdev->dev.of_node) {
 		omap_up_info = of_get_uart_port_info(&pdev->dev);
+		if (IS_ERR(omap_up_info))
+			return PTR_ERR(omap_up_info);
 		pdev->dev.platform_data = omap_up_info;
 	}
 
