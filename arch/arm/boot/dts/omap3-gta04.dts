@@ -8,7 +8,7 @@
  * published by the Free Software Foundation.
  */
 /dts-v1/;
-
+#define RFKILL_TYPE_GPS 6
 #include "omap36xx.dtsi"
 
 / {
@@ -92,6 +92,13 @@
 		microvolt = <3150000>;
 		gpio-controller;
 		#gpio-cells = <2>;
+	};
+
+	gps-rfkill {
+		compatible = "rfkill-regulator";
+		label = "GPS";
+		type = <RFKILL_TYPE_GPS>;
+		vrfkill-supply = <&vsim>;
 	};
 };
 
@@ -267,4 +274,9 @@
 /* uart1 is bluetooth - need to connect DTR */
 &uart1 {
 	dtr = <&btdtr 0 GPIO_ACTIVE_HIGH>;
+};
+
+&vsim {
+	regulator-min-microvolt = <2800000>;
+	regulator-max-microvolt = <2800000>;
 };
