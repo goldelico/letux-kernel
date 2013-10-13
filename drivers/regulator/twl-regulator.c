@@ -1098,6 +1098,7 @@ static int twlreg_probe(struct platform_device *pdev)
 	struct twl_regulator_driver_data	*drvdata;
 	const struct of_device_id	*match;
 	struct regulator_config		config = { };
+	int of_features = 0;
 
 	match = of_match_device(twl_of_match, &pdev->dev);
 	if (match) {
@@ -1106,6 +1107,8 @@ static int twlreg_probe(struct platform_device *pdev)
 		initdata = of_get_regulator_init_data(&pdev->dev,
 						      pdev->dev.of_node);
 		drvdata = NULL;
+		if (of_property_read_bool(pdev->dev.of_node, "ti,allow_unsupported"))
+			of_features |= TWL4030_ALLOW_UNSUPPORTED;
 	} else {
 		id = pdev->id;
 		initdata = dev_get_platdata(&pdev->dev);
@@ -1138,7 +1141,8 @@ static int twlreg_probe(struct platform_device *pdev)
 		info->data = drvdata->data;
 		info->set_voltage = drvdata->set_voltage;
 		info->get_voltage = drvdata->get_voltage;
-	}
+	} else
+		info->features |= of_features;
 
 	/* Constrain board-specific capabilities according to what
 	 * this driver and the chip itself can actually do.

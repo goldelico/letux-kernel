@@ -51,7 +51,7 @@ static void __init legacy_init_ehci_clk(char *clkname)
 	}
 }
 
-static void __init omap_generic_init(void)
+/*static*/ void __init omap_generic_init(void)
 {
 	omap_sdrc_init(NULL, NULL);
 

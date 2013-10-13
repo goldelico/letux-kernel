@@ -36,6 +36,7 @@
 #include <linux/platform_device.h>
 #include <linux/gpio-w2sg0004.h>
 #include <linux/workqueue.h>
+#include <linux/of_gpio.h>
 
 /*
  * There seems to restrictions on how quickly we can toggle the
@@ -163,11 +164,49 @@ static int gpio_w2sg_direction_output(struct gpio_chip *gc,
 	return 0;
 }
 
+#ifdef CONFIG_OF
+static struct gpio_w2sg_data *gpio_w2sg_parse(struct device *dev)
+{
+	struct gpio_w2sg_data *pdata;
+	struct device_node *np = dev->of_node;
+	int num;
+
+	if (!np)
+		return NULL;
+	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata)
+		return NULL;
+	pdata->ctrl_gpio = -1;
+	pdata->on_off_gpio = of_get_named_gpio(np, "gpios", 0);
+	if (pdata->on_off_gpio < 0)
+		return ERR_PTR(pdata->on_off_gpio);
+	pdata->rx_gpio = of_get_named_gpio(np, "gpios", 1);
+	if (pdata->rx_gpio < 0)
+		return ERR_PTR(pdata->rx_gpio);
+	if (of_property_read_u32(np, "on-state", &num))
+		pdata->on_state = num;
+	if (of_property_read_u32(np, "off-state", &num))
+		pdata->off_state = num;
+	return pdata;
+}
+#else
+static inline struct gpio_w2sg_data *gpio_w2sg_parse(struct device *dev)
+{
+	return NULL;
+}
+#endif
+
 static int gpio_w2sg_probe(struct platform_device *pdev)
 {
 	struct gpio_w2sg_data *pdata = pdev->dev.platform_data;
 	struct gpio_w2sg *gw2sg;
 	int err;
+
+	if (!pdata) {
+		pdata = gpio_w2sg_parse(&pdev->dev);
+		if (IS_ERR(pdata))
+			return PTR_ERR(pdata);
+	}
 
 	gw2sg = kzalloc(sizeof(*gw2sg), GFP_KERNEL);
 	if (gw2sg == NULL)
@@ -217,6 +256,9 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 		goto out2;
 	}
 	disable_irq(gw2sg->rx_irq);
+#ifdef CONFIG_OF_GPIO
+        gw2sg->gpio.of_node = of_node_get(pdev->dev.of_node);
+#endif
 	err = gpiochip_add(&gw2sg->gpio);
 	if (err)
 		goto out3;
@@ -299,10 +341,19 @@ static int gpio_w2sg_resume(struct device *dev)
 
 SIMPLE_DEV_PM_OPS(w2sg_pm_ops, gpio_w2sg_suspend, gpio_w2sg_resume);
 
+#ifdef CONFIG_OF
+static const struct of_device_id gpio_w2sg_match[] = {
+	{.compatible = "gpio-w2sg0004"},
+	{}
+};
+MODULE_DEVICE_TABLE(of, gpio_w2sg_match);
+#endif
+
 static struct platform_driver gpio_w2sg_driver = {
 	.driver.name	= "w2s-gpio",
 	.driver.owner	= THIS_MODULE,
 	.driver.pm	= &w2sg_pm_ops,
+	.driver.of_match_table = of_match_ptr(gpio_w2sg_match),
 	.probe		= gpio_w2sg_probe,
 	.remove		= gpio_w2sg_remove,
 };

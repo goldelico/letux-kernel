@@ -28,6 +28,8 @@
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
+#include <linux/of_platform.h>
+#include <linux/of_gpio.h>
 #include <video/omapdss.h>
 #include <video/omap-panel-data.h>
 
@@ -398,13 +400,53 @@ static struct omap_dss_driver td028ttec1_ops = {
 	.check_timings	= td028ttec1_panel_check_timings,
 };
 
+#ifdef CONFIG_OF
+static struct panel_tpo_td028ttec1_platform_data *
+td028ttec1_parse_dt(struct device *dev,
+		    struct panel_tpo_td028ttec1_platform_data *pdata)
+{
+	struct device_node *np = dev->of_node;
+	u32 num;
+
+	if (!np)
+		return NULL;
+
+	memset(pdata, 0, sizeof(*pdata));
+
+	if (of_property_read_u32(np, "data-lines", &num) == 0)
+		pdata->data_lines = num;
+	pdata->cs_gpio = of_get_named_gpio(np, "cs-gpio", 0);
+	pdata->scl_gpio = of_get_named_gpio(np, "scl-gpio", 0);
+	pdata->din_gpio = of_get_named_gpio(np, "din-gpio", 0);
+	pdata->dout_gpio = of_get_named_gpio(np, "dout-gpio", 0);
+	of_property_read_string(np, "display-name", &pdata->name);
+	of_property_read_string(np, "source", &pdata->source);
+
+	return pdata;
+}
+#else
+static inline struct panel_tpo_td028ttec1_platform_data *
+td028ttec1_parse_dt(struct device *dev)
+{
+	return NULL;
+}
+#endif
+
 static int td028ttec1_panel_probe_pdata(struct platform_device *pdev)
 {
-	const struct panel_tpo_td028tec1_platform_data *pdata;
+	struct panel_tpo_td028ttec1_platform_data *pdata, pdbuf;
 	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
 	struct omap_dss_device *dssdev, *in;
 
 	pdata = dev_get_platdata(&pdev->dev);
+
+	if (!pdata)
+		pdata = td028ttec1_parse_dt(&pdev->dev, &pdbuf);
+
+	if (!pdata) {
+		dev_err(&pdev->dev, "No platform data or devicetree node\n");
+		return -ENODEV;
+	}
 
 	in = omap_dss_find_output(pdata->source);
 	if (in == NULL) {
@@ -440,13 +482,9 @@ static int td028ttec1_panel_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, ddata);
 
-	if (dev_get_platdata(&pdev->dev)) {
-		r = td028ttec1_panel_probe_pdata(pdev);
-		if (r)
-			return r;
-	} else {
-		return -ENODEV;
-	}
+	r = td028ttec1_panel_probe_pdata(pdev);
+	if (r)
+		return r;
 
 	if (gpio_is_valid(ddata->cs_gpio)) {
 		r = devm_gpio_request_one(&pdev->dev, ddata->cs_gpio,
@@ -520,6 +558,14 @@ static int __exit td028ttec1_panel_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_OF
+static const struct of_device_id td028ttec1_of_match[] = {
+	{.compatible = "tpo,td028ttec1", },
+	{}
+};
+MODULE_DEVICE_TABLE(of, td028ttec1_of_match);
+#endif
+
 static struct platform_driver td028ttec1_driver = {
 	.probe		= td028ttec1_panel_probe,
 	.remove		= __exit_p(td028ttec1_panel_remove),
@@ -527,6 +573,7 @@ static struct platform_driver td028ttec1_driver = {
 	.driver         = {
 		.name   = "panel-tpo-td028ttec1",
 		.owner  = THIS_MODULE,
+		.of_match_table = of_match_ptr(td028ttec1_of_match),
 	},
 };
 

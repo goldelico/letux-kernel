@@ -23,6 +23,8 @@ struct tsc2007_platform_data {
 	int	fuzz_y;
 	int	fuzz_z;
 
+	int	gpio;
+	int	gpio_active_low;
 	int	(*get_pendown_state)(void);
 	void	(*clear_penirq)(void);		/* If needed, clear 2nd level
 						   interrupt source */

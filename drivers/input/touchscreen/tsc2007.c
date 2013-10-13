@@ -26,6 +26,9 @@
 #include <linux/interrupt.h>
 #include <linux/i2c.h>
 #include <linux/i2c/tsc2007.h>
+#include <linux/of_platform.h>
+#include <linux/of_gpio.h>
+#include <linux/irq.h>
 
 #define TSC2007_MEASURE_TEMP0		(0x0 << 4)
 #define TSC2007_MEASURE_AUX		(0x2 << 4)
@@ -80,7 +83,10 @@ struct tsc2007 {
 	wait_queue_head_t	wait;
 	bool			stopped;
 
-	int			(*get_pendown_state)(void);
+	int	gpio;	/* May be used by following */
+	int	gpio_active_low;
+	int			(*get_pendown_state)(struct tsc2007*);
+	int			(*ext_get_pendown_state)(void);
 	void			(*clear_penirq)(void);
 };
 
@@ -161,7 +167,7 @@ static bool tsc2007_is_pen_down(struct tsc2007 *ts)
 	if (!ts->get_pendown_state)
 		return true;
 
-	return ts->get_pendown_state();
+	return ts->get_pendown_state(ts);
 }
 
 static irqreturn_t tsc2007_soft_irq(int irq, void *handle)
@@ -228,7 +234,7 @@ static irqreturn_t tsc2007_hard_irq(int irq, void *handle)
 {
 	struct tsc2007 *ts = handle;
 
-	if (!ts->get_pendown_state || likely(ts->get_pendown_state()))
+	if (!ts->get_pendown_state || likely(ts->get_pendown_state(ts)))
 		return IRQ_WAKE_THREAD;
 
 	if (ts->clear_penirq)
@@ -273,22 +279,89 @@ static void tsc2007_close(struct input_dev *input_dev)
 	tsc2007_stop(ts);
 }
 
+#ifdef CONFIG_OF
+static const struct tsc2007_platform_data *
+tsc2007_parse_dt(struct device *dev)
+{
+	struct device_node *np = dev->of_node;
+	struct tsc2007_platform_data *pdata;
+	u32 num;
+
+	if (!np)
+		return ERR_PTR(-EINVAL);
+	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata)
+		return ERR_PTR(-ENOMEM);
+
+	/* model is unused... */
+	if (of_property_read_u32(np, "model-number", &num) == 0)
+		pdata->model = num;
+	if (of_property_read_u32(np, "x-plate-ohms", &num) == 0)
+		pdata->x_plate_ohms = num;
+	if (of_property_read_u32(np, "max-rt", &num) == 0)
+		pdata->max_rt = num;
+	if (of_property_read_u32(np, "poll-delay", &num) == 0)
+		pdata->poll_delay = num;
+	if (of_property_read_u32(np, "poll-period", &num) == 0)
+		pdata->poll_period = num;
+
+	/* GPIO for get_pendown_state and clear_penirq */
+	if (of_find_property(np, "pen-gpio", NULL)) {
+		enum of_gpio_flags flags;
+		pdata->gpio = of_get_named_gpio_flags(np, "pen-gpio", 0, &flags);
+		if (pdata->gpio < 0)
+			return ERR_PTR(pdata->gpio);
+		if (flags & OF_GPIO_ACTIVE_LOW)
+			pdata->gpio_active_low = 1;
+	}
+
+	if (of_property_read_u32(np, "fuzz-x", &num) == 0)
+		pdata->fuzzx = num;
+	if (of_property_read_u32(np, "fuzz-y", &num) == 0)
+		pdata->fuzzy = num;
+	if (of_property_read_u32(np, "fuzz-z", &num) == 0)
+		pdata->fuzzz = num;
+
+	return pdata;
+}
+#else
+static inline const struct tsc2007_platform_data *
+tsc2007_parse_dt(struct device *dev)
+{
+	return ERR_PTR(-EINVAL);
+}
+#endif
+
+static int tsc2007_get_ext_pendown(struct tsc2007 *ts)
+{
+	return ts->ext_get_pendown_state();
+}
+static int tsc2007_get_gpio_pendown(struct tsc2007 *ts)
+{
+	return (!gpio_get_value(ts->gpio)) == ts->gpio_active_low;
+}
+
 static int tsc2007_probe(struct i2c_client *client,
 				   const struct i2c_device_id *id)
 {
 	struct tsc2007 *ts;
-	struct tsc2007_platform_data *pdata = client->dev.platform_data;
+	const struct tsc2007_platform_data *pdata = client->dev.platform_data;
 	struct input_dev *input_dev;
 	int err;
-
-	if (!pdata) {
-		dev_err(&client->dev, "platform data is required!\n");
-		return -EINVAL;
-	}
+	int no_gpio = 1;
 
 	if (!i2c_check_functionality(client->adapter,
 				     I2C_FUNC_SMBUS_READ_WORD_DATA))
 		return -EIO;
+
+	if (!pdata) {
+		pdata = tsc2007_parse_dt(&client->dev);
+		if (IS_ERR(pdata)) {
+			dev_err(&client->dev, "platform data or device-tree is required!\n");
+			return PTR_ERR(pdata);
+		}
+		no_gpio = 0;
+	}
 
 	ts = kzalloc(sizeof(struct tsc2007), GFP_KERNEL);
 	input_dev = input_allocate_device();
@@ -307,7 +380,16 @@ static int tsc2007_probe(struct i2c_client *client,
 	ts->max_rt            = pdata->max_rt ? : MAX_12BIT;
 	ts->poll_delay        = pdata->poll_delay ? : 1;
 	ts->poll_period       = pdata->poll_period ? : 1;
-	ts->get_pendown_state = pdata->get_pendown_state;
+	if (no_gpio)
+		ts->gpio = -EINVAL;
+	else
+		ts->gpio              = pdata->gpio;
+	ts->gpio_active_low   = pdata->gpio_active_low;
+	ts->ext_get_pendown_state = pdata->get_pendown_state;
+	if (ts->ext_get_pendown_state)
+		ts->get_pendown_state = tsc2007_get_ext_pendown;
+	else if (ts->gpio >= 0)
+		ts->get_pendown_state = tsc2007_get_gpio_pendown;
 	ts->clear_penirq      = pdata->clear_penirq;
 
 	if (pdata->x_plate_ohms == 0) {
@@ -338,6 +420,11 @@ static int tsc2007_probe(struct i2c_client *client,
 
 	if (pdata->init_platform_hw)
 		pdata->init_platform_hw();
+	else if (pdata->gpio >= 0) {
+		gpio_request_one(pdata->gpio, GPIOF_IN, "tsc2007_pen_down");
+		irq_set_irq_type(gpio_to_irq(pdata->gpio),
+				 IRQ_TYPE_EDGE_FALLING);
+	}
 
 	err = request_threaded_irq(ts->irq, tsc2007_hard_irq, tsc2007_soft_irq,
 				   IRQF_ONESHOT, client->dev.driver->name, ts);
@@ -360,6 +447,9 @@ static int tsc2007_probe(struct i2c_client *client,
 	free_irq(ts->irq, ts);
 	if (pdata->exit_platform_hw)
 		pdata->exit_platform_hw();
+	else if (ts->gpio >= 0)
+		gpio_free(ts->gpio);
+
  err_free_mem:
 	input_free_device(input_dev);
 	kfree(ts);
@@ -389,10 +479,19 @@ static const struct i2c_device_id tsc2007_idtable[] = {
 
 MODULE_DEVICE_TABLE(i2c, tsc2007_idtable);
 
+#ifdef CONFIG_OF
+static const struct of_device_id tsc2007_of_match[] = {
+	{.compatible = "tsc2007", },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, tsc2007_of_match);
+#endif
+
 static struct i2c_driver tsc2007_driver = {
 	.driver = {
 		.owner	= THIS_MODULE,
-		.name	= "tsc2007"
+		.name	= "tsc2007",
+		.of_match_table = of_match_ptr(tsc2007_of_match),
 	},
 	.id_table	= tsc2007_idtable,
 	.probe		= tsc2007_probe,
