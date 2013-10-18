@@ -90,10 +90,13 @@
 #define BCE			(1 << 1)
 #define FOUR_BIT		(1 << 1)
 #define DDR			(1 << 19)
+#define CTPL			(1 << 11)
+#define CLKEXTFREE		(1 << 16)
 #define DW8			(1 << 5)
 #define CC			0x1
 #define TC			0x02
 #define OD			0x1
+#define CIRQ_EN			(1 << 8)
 #define ERR			(1 << 15)
 #define CMD_TIMEOUT		(1 << 16)
 #define DATA_TIMEOUT		(1 << 20)
@@ -171,6 +174,9 @@ struct omap_hsmmc_host {
 	int			reqs_blocked;
 	int			use_reg;
 	int			req_in_progress;
+	int			sdio_int;
+	int			irq_requested;/* Keep fclk going if interrupt
+					       * handler is registered */
 	struct omap_hsmmc_next	next_data;
 
 	struct	omap_mmc_platform_data	*pdata;
@@ -470,27 +476,37 @@ static void omap_hsmmc_stop_clock(struct omap_hsmmc_host *host)
 static void omap_hsmmc_enable_irq(struct omap_hsmmc_host *host,
 				  struct mmc_command *cmd)
 {
-	unsigned int irq_mask;
+	unsigned int irq_mask = INT_EN_MASK;
+	unsigned long flags;
 
+	spin_lock_irqsave(&host->irq_lock, flags);
 	if (host->use_dma)
-		irq_mask = INT_EN_MASK & ~(BRR_ENABLE | BWR_ENABLE);
-	else
-		irq_mask = INT_EN_MASK;
+		irq_mask &= ~(BRR_ENABLE | BWR_ENABLE);
+	if (host->sdio_int)
+		irq_mask |= CIRQ_EN;
 
 	/* Disable timeout for erases */
-	if (cmd->opcode == MMC_ERASE)
+	if (cmd && cmd->opcode == MMC_ERASE)
 		irq_mask &= ~DTO_ENABLE;
 
 	OMAP_HSMMC_WRITE(host->base, STAT, STAT_CLEAR);
 	OMAP_HSMMC_WRITE(host->base, ISE, irq_mask);
 	OMAP_HSMMC_WRITE(host->base, IE, irq_mask);
+	spin_unlock_irqrestore(&host->irq_lock, flags);
 }
 
 static void omap_hsmmc_disable_irq(struct omap_hsmmc_host *host)
 {
-	OMAP_HSMMC_WRITE(host->base, ISE, 0);
-	OMAP_HSMMC_WRITE(host->base, IE, 0);
+	unsigned int irq_mask = 0;
+	unsigned long flags;
+
+	spin_lock_irqsave(&host->irq_lock, flags);
+	if (host->sdio_int)
+		irq_mask |= CIRQ_EN;
+	OMAP_HSMMC_WRITE(host->base, ISE, irq_mask);
+	OMAP_HSMMC_WRITE(host->base, IE, irq_mask);
 	OMAP_HSMMC_WRITE(host->base, STAT, STAT_CLEAR);
+	spin_unlock_irqrestore(&host->irq_lock, flags);
 }
 
 /* Calculate divisor for the given clock frequency */
@@ -626,7 +642,7 @@ static int omap_hsmmc_context_restore(struct omap_hsmmc_host *host)
 		&& time_before(jiffies, timeout))
 		;
 
-	omap_hsmmc_disable_irq(host);
+	omap_hsmmc_enable_irq(host, NULL);
 
 	/* Do not initialize card-specific things if the power is off */
 	if (host->power_mode == MMC_POWER_OFF)
@@ -685,10 +701,10 @@ static void send_init_stream(struct omap_hsmmc_host *host)
 
 	if (host->protect_card)
 		return;
-
 	disable_irq(host->irq);
 
-	OMAP_HSMMC_WRITE(host->base, IE, INT_EN_MASK);
+	OMAP_HSMMC_WRITE(host->base, IE, INT_EN_MASK | CIRQ_EN);
+	OMAP_HSMMC_WRITE(host->base, ISE, INT_EN_MASK | CIRQ_EN);
 	OMAP_HSMMC_WRITE(host->base, CON,
 		OMAP_HSMMC_READ(host->base, CON) | INIT_STREAM);
 	OMAP_HSMMC_WRITE(host->base, CMD, INIT_STREAM_CMD);
@@ -1006,6 +1022,13 @@ static void omap_hsmmc_do_irq(struct omap_hsmmc_host *host, int status)
 	data = host->data;
 	dev_vdbg(mmc_dev(host->mmc), "IRQ Status is %x\n", status);
 
+	if (status & CIRQ_EN &&
+	    host->mmc->caps & MMC_CAP_SDIO_IRQ &&
+	    host->sdio_int) {
+		dev_dbg(mmc_dev(host->mmc), "SDIO Card Interrupt\n");
+		mmc_signal_sdio_irq(host->mmc);
+	}
+
 	if (status & ERR) {
 		omap_hsmmc_dbg_report_irq(host, status);
 		if (status & (CMD_TIMEOUT | DATA_TIMEOUT))
@@ -1034,14 +1057,20 @@ static irqreturn_t omap_hsmmc_irq(int irq, void *dev_id)
 	struct omap_hsmmc_host *host = dev_id;
 	int status;
 
-	status = OMAP_HSMMC_READ(host->base, STAT);
-	while (status & INT_EN_MASK && host->req_in_progress) {
-		omap_hsmmc_do_irq(host, status);
+	pm_runtime_get_sync(host->dev);
+	while (1) {
+		unsigned int irqm = INT_EN_MASK;
 
-		/* Flush posted write */
-		OMAP_HSMMC_WRITE(host->base, STAT, status);
+		if (host->sdio_int)
+			irqm |= CIRQ_EN;
 		status = OMAP_HSMMC_READ(host->base, STAT);
+		if (status & irqm)
+			omap_hsmmc_do_irq(host, status);
+		else
+			break;
+		OMAP_HSMMC_WRITE(host->base, STAT, status);
 	}
+	pm_runtime_put(host->dev);
 
 	return IRQ_HANDLED;
 }
@@ -1552,6 +1581,28 @@ static void omap_hsmmc_init_card(struct mmc_host *mmc, struct mmc_card *card)
 		mmc_slot(host).init_card(card);
 }
 
+static void omap_hsmmc_enable_sdio_irq(struct mmc_host *mmc, int enable)
+{
+	struct omap_hsmmc_host *host = mmc_priv(mmc);
+	unsigned long flags;
+
+	spin_lock_irqsave(&host->irq_lock, flags);
+	host->sdio_int = enable;
+	if (enable) {
+		OMAP_HSMMC_WRITE(host->base, ISE,
+			(OMAP_HSMMC_READ(host->base, ISE) | CIRQ_EN));
+		OMAP_HSMMC_WRITE(host->base, IE,
+			(OMAP_HSMMC_READ(host->base, IE) | CIRQ_EN));
+	} else {
+		OMAP_HSMMC_WRITE(host->base, IE,
+			(OMAP_HSMMC_READ(host->base, IE) & (~CIRQ_EN)));
+		OMAP_HSMMC_WRITE(host->base, ISE,
+			(OMAP_HSMMC_READ(host->base, ISE) & (~CIRQ_EN)));
+	}
+	spin_unlock_irqrestore(&host->irq_lock, flags);
+
+}
+
 static void omap_hsmmc_conf_bus_power(struct omap_hsmmc_host *host)
 {
 	u32 hctl, capa, value;
@@ -1588,6 +1639,19 @@ static int omap_hsmmc_disable_fclk(struct mmc_host *mmc)
 {
 	struct omap_hsmmc_host *host = mmc_priv(mmc);
 
+	if (mmc->sdio_irqs && !host->irq_requested) {
+		/* Skip one 'disable' while irq is requested */
+		host->irq_requested = 1;
+		return 0;
+	}
+	if (!mmc->sdio_irqs && host->irq_requested) {
+		/* irqs no longer requested, so can drop the
+		 * ref
+		 */
+		pm_runtime_put_noidle(host->dev);
+		host->irq_requested = 0;
+	}
+
 	pm_runtime_mark_last_busy(host->dev);
 	pm_runtime_put_autosuspend(host->dev);
 
@@ -1604,7 +1668,7 @@ static const struct mmc_host_ops omap_hsmmc_ops = {
 	.get_cd = omap_hsmmc_get_cd,
 	.get_ro = omap_hsmmc_get_ro,
 	.init_card = omap_hsmmc_init_card,
-	/* NYET -- enable_sdio_irq */
+	.enable_sdio_irq = omap_hsmmc_enable_sdio_irq,
 };
 
 #ifdef CONFIG_DEBUG_FS
@@ -1794,6 +1858,7 @@ static int __devinit omap_hsmmc_probe(struct platform_device *pdev)
 	host->mapbase	= res->start + pdata->reg_offset;
 	host->base	= ioremap(host->mapbase, SZ_4K);
 	host->power_mode = MMC_POWER_OFF;
+	host->sdio_int	= 0;
 	host->next_data.cookie = 1;
 
 	platform_set_drvdata(pdev, host);
@@ -1866,6 +1931,10 @@ static int __devinit omap_hsmmc_probe(struct platform_device *pdev)
 
 	if (mmc_slot(host).nonremovable)
 		mmc->caps |= MMC_CAP_NONREMOVABLE;
+
+	mmc->caps |= MMC_CAP_SDIO_IRQ;
+	OMAP_HSMMC_WRITE(host->base, CON,
+			OMAP_HSMMC_READ(host->base, CON) | (CTPL | CLKEXTFREE));
 
 	mmc->pm_caps = mmc_slot(host).pm_caps;
 
