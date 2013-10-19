@@ -30,6 +30,8 @@
 #include <linux/gpio.h>
 #include <linux/extcon.h>
 #include <linux/extcon/extcon-gpio.h>
+#include <linux/of_platform.h>
+#include <linux/of_gpio.h>
 
 struct gpio_extcon_data {
 	struct extcon_dev edev;
@@ -79,6 +81,40 @@ static ssize_t extcon_gpio_print_state(struct extcon_dev *edev, char *buf)
 	return -EINVAL;
 }
 
+#ifdef CONFIG_OF
+static struct gpio_extcon_platform_data *
+gpio_extcon_parse(struct device *dev)
+{
+	struct gpio_extcon_platform_data *pdata;
+	struct device_node *np = dev->of_node;
+	u32 num;
+
+	if (!np)
+		return NULL;
+	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata)
+		return NULL;
+	pdata->name = dev_name(dev);
+	of_property_read_string(np, "label", &pdata->name);
+	pdata->gpio = of_get_named_gpio(np, "gpios", 0);
+	if (pdata->gpio < 0)
+		return ERR_PTR(pdata->gpio);
+	if (of_property_read_u32(np, "irq-flags", &num) == 0)
+		pdata->irq_flags = num;
+	if (of_property_read_u32(np, "debounce-delay-ms", &num) == 0)
+		pdata->debounce = num;
+	of_property_read_string(np, "state-on", &pdata->state_on);
+	of_property_read_string(np, "state-off", &pdata->state_off);
+	return pdata;
+}
+#else
+static inline struct gpio_extcon_platform_data *
+gpio_extcon_parse(struct device *dev)
+{
+	return NULL;
+}
+#endif
+
 static int gpio_extcon_probe(struct platform_device *pdev)
 {
 	struct gpio_extcon_platform_data *pdata = dev_get_platdata(&pdev->dev);
@@ -86,7 +122,11 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 	int ret;
 
 	if (!pdata)
+		pdata = gpio_extcon_parse(&pdev->dev);
+	if (!pdata)
 		return -EBUSY;
+	if (IS_ERR(pdata))
+		return PTR_ERR(pdata);
 	if (!pdata->irq_flags) {
 		dev_err(&pdev->dev, "IRQ flag is not specified.\n");
 		return -EINVAL;
@@ -159,12 +199,21 @@ static int gpio_extcon_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_OF
+static const struct of_device_id gpio_extcon_match[] = {
+	{ .compatible = "linux,extcon-gpio" },
+	{}
+};
+MODULE_DEVICE_TABLE(of, gpio_extcon_mastch);
+#endif
+
 static struct platform_driver gpio_extcon_driver = {
 	.probe		= gpio_extcon_probe,
 	.remove		= gpio_extcon_remove,
 	.driver		= {
 		.name	= "extcon-gpio",
 		.owner	= THIS_MODULE,
+		.of_match_table = gpio_extcon_match,
 	},
 };
 
