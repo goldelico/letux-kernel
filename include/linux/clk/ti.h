@@ -36,7 +36,27 @@ struct ti_dt_clk {
 		.node_name = name,	\
 	}
 
+/* Maximum number of clock memmaps */
+#define CLK_MAX_MEMMAPS			4
 
+typedef void (*ti_of_clk_init_cb_t)(struct clk_hw *, struct device_node *);
+
+/**
+ * struct clk_omap_reg - OMAP register declaration
+ * @offset: offset from the master IP module base address
+ * @index: index of the master IP module
+ */
+struct clk_omap_reg {
+	u16 offset;
+	u16 index;
+};
+
+extern struct clk_ll_ops *ti_clk_ll_ops;
+
+void __iomem *ti_clk_get_reg_addr(struct device_node *node, int index);
 void ti_dt_clocks_register(struct ti_dt_clk *oclks);
+void ti_dt_clk_init_provider(struct device_node *np, int index);
+int ti_clk_retry_init(struct device_node *node, struct clk_hw *hw,
+		      ti_of_clk_init_cb_t func);
 
 #endif
