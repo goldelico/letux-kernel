@@ -1663,6 +1663,21 @@ static void __init gta04_init(void)
 
 	pm_set_vt_switch(0);
 
+	/* handle special wiring of our Si47xx
+	 * FSX, CLKX, DX, DR are wired as usual for 4-wire
+	 * FSR must be the 6-wire FSR output and have the same signal as FSX
+	 * CLKR must be ignored (Interrupt GPIO!) and be internally driven by CLKX
+	 */
+	{ /* disconnect CLKR from McBSP1 and drive from CLKX
+	   * see https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/commit/sound/soc/omap/omap-mcbsp.c?id=8fef6263ea68f6160637f370a5864d 0a455c620d
+	   */
+		u32 devconf0;
+		devconf0 = omap_ctrl_readl(OMAP2_CONTROL_DEVCONF0);
+		devconf0 |= OMAP2_MCBSP1_CLKR_MASK;
+		omap_ctrl_writel(devconf0, OMAP2_CONTROL_DEVCONF0);
+		printk("CONTROL_DEVCONF0 = %08lx\n", (unsigned long int) devconf0);
+	}
+
 	printk("gta04_init done...\n");
 }
 
