@@ -89,6 +89,102 @@ static int rproc_iommu_fault(struct iommu_domain *domain, struct device *dev,
 	return -ENOSYS;
 }
 
+#define DSP1_MMU_CFG		0x40d00000
+#define DSP2_MMU_CFG		0x41500000
+
+#define DSP_SYS_MMU_CONFIG	0x18
+
+#define DSP_MMU0_REGS		0x1000
+#define DSP_MMU1_REGS		0x2000
+
+#define MMU1_REVISION		((DSP_MMU1_REGS) + 0x00)
+#define MMU1_SYSCONFIG		((DSP_MMU1_REGS) + 0x10)
+#define MMU1_SYSSTATUS		((DSP_MMU1_REGS) + 0x14)
+#define MMU1_IRQSTATUS		((DSP_MMU1_REGS) + 0x18)
+#define MMU1_IRQENABLE		((DSP_MMU1_REGS) + 0x1c)
+#define MMU1_WALKING_ST		((DSP_MMU1_REGS) + 0x40)
+#define MMU1_CNTL		    ((DSP_MMU1_REGS) + 0x44)
+#define MMU1_FAULT_AD		((DSP_MMU1_REGS) + 0x48)
+#define MMU1_TTB		    ((DSP_MMU1_REGS) + 0x4c)
+#define MMU1_LOCK		    ((DSP_MMU1_REGS) + 0x50)
+#define MMU1_LD_TLB		    ((DSP_MMU1_REGS) + 0x54)
+#define MMU1_CAM		    ((DSP_MMU1_REGS) + 0x58)
+#define MMU1_RAM		    ((DSP_MMU1_REGS) + 0x5c)
+#define MMU1_GFLUSH		    ((DSP_MMU1_REGS) + 0x60)
+#define MMU1_FLUSH_ENTRY	((DSP_MMU1_REGS) + 0x64)
+#define MMU1_READ_CAM		((DSP_MMU1_REGS) + 0x68)
+#define MMU1_READ_RAM		((DSP_MMU1_REGS) + 0x6c)
+#define MMU1_EMU_FAULT_AD	((DSP_MMU1_REGS) + 0x70)
+
+#define MMU0_TTB		    ((DSP_MMU0_REGS) + 0x4c)
+
+static int _enable_mmu1_dsp(struct device *dev, const char *name)
+{
+	void __iomem *dsp_mmu_cfg;
+	unsigned int dsp_sys_mmu_config;
+	unsigned int dsp_mmu_cfg_phys;
+	unsigned int reg;
+	unsigned int ttb;
+
+	if (!strcmp(name, "dsp1")) {
+		dsp_mmu_cfg_phys = DSP1_MMU_CFG;
+	} else if (!strcmp(name, "dsp2")) {
+		dsp_mmu_cfg_phys = DSP2_MMU_CFG;
+	} else {
+		dev_err(dev, "unknown name '%s'\n", name);
+		return -EINVAL;
+	}
+
+	dsp_mmu_cfg = ioremap_nocache(dsp_mmu_cfg_phys, 0x4000);
+	if (!dsp_mmu_cfg) {
+		dev_err(dev, "failed to ioremap 0x%x\n", dsp_mmu_cfg_phys);
+		return -EFAULT;
+	}
+
+	dev_info(dev, "dsp_mmu_cfg=0x%p\n", dsp_mmu_cfg);
+
+	dev_info(dev, "writing 0x2 to MMU1_SYSCONFIG (0x%p)\n",
+				dsp_mmu_cfg + MMU1_SYSCONFIG);
+	__raw_writel(0x2, dsp_mmu_cfg + MMU1_SYSCONFIG);
+
+	reg = __raw_readl(dsp_mmu_cfg + MMU1_SYSSTATUS);
+	while ((reg & 0x1) != 0x1)
+		reg = __raw_readl(dsp_mmu_cfg + MMU1_SYSSTATUS);
+
+	dev_info(dev, "writing 0x11 to MMU1_SYSCONFIG (0x%p)\n",
+				dsp_mmu_cfg + MMU1_SYSCONFIG);
+	__raw_writel(0x11, dsp_mmu_cfg + MMU1_SYSCONFIG);
+
+	ttb = __raw_readl(dsp_mmu_cfg + MMU0_TTB);
+	dev_info(dev, "writing mmu0's TTB (0x%x) to mmu1's TTB\n", ttb);
+	__raw_writel(ttb, dsp_mmu_cfg + MMU1_TTB);
+
+	dev_info(dev, "writing 0x6 to MMU1_CNTL (0x%p)\n",
+				dsp_mmu_cfg + MMU1_CNTL);
+	__raw_writel(0x6, dsp_mmu_cfg + MMU1_CNTL);
+
+	reg = __raw_readl(dsp_mmu_cfg + MMU1_CNTL);
+	dev_info(dev, "MMU1_CNTL=0x%x\n", reg);
+	reg = __raw_readl(dsp_mmu_cfg + MMU1_SYSCONFIG);
+	dev_info(dev, "MMU1_SYSCONFIG=0x%x\n", reg);
+
+	dev_info(dev, "reading DSP_SYS_MMU_CONFIG...\n");
+	dsp_sys_mmu_config = __raw_readl(dsp_mmu_cfg + DSP_SYS_MMU_CONFIG);
+	dsp_sys_mmu_config |= 0x10;
+	dev_info(dev, "writing 0x%x to DSP_SYS_MMU_CONFIG...\n",
+				dsp_sys_mmu_config);
+	__raw_writel(dsp_sys_mmu_config, dsp_mmu_cfg + DSP_SYS_MMU_CONFIG);
+
+	dsp_sys_mmu_config = __raw_readl(dsp_mmu_cfg + DSP_SYS_MMU_CONFIG);
+	dev_info(dev, "DSP_SYS_MMU_CONFIG=0x%x\n", dsp_sys_mmu_config);
+
+	dev_info(dev, "enabled mmu1_%s\n", name);
+
+	iounmap(dsp_mmu_cfg);
+
+	return 0;
+}
+
 static int rproc_enable_iommu(struct rproc *rproc)
 {
 	struct iommu_domain *domain;
@@ -124,6 +220,9 @@ static int rproc_enable_iommu(struct rproc *rproc)
 		dev_err(dev, "can't attach iommu device: %d\n", ret);
 		goto free_domain;
 	}
+
+	if (!strncmp(rproc->name, "dsp", 3))
+		_enable_mmu1_dsp(dev, rproc->name);
 
 	rproc->domain = domain;
 
