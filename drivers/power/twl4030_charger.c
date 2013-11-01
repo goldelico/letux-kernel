@@ -108,6 +108,9 @@ struct twl4030_bci {
 	unsigned long		event;
 };
 
+static struct twl4030_bci *bci_glob;
+
+
 /*
  * clear and set bits on an given register on a given module
  */
@@ -306,6 +309,13 @@ static int twl4030_charger_enable_usb(struct twl4030_bci *bci, bool enable)
 	}
 
 	return ret;
+}
+
+/* ugly, pass bci_glob in another way */
+void twl4030_charger_enable_usb_ext(bool enable)
+{
+	if (bci_glob)
+		twl4030_charger_enable_usb(bci_glob, enable);
 }
 
 /*
@@ -683,6 +693,8 @@ static int __init twl4030_bci_probe(struct platform_device *pdev)
 	bci->irq_bci = platform_get_irq(pdev, 1);
 
 	platform_set_drvdata(pdev, bci);
+
+	bci_glob = bci;
 
 	bci->ac.name = "twl4030_ac";
 	bci->ac.type = POWER_SUPPLY_TYPE_MAINS;
