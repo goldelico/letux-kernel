@@ -198,6 +198,23 @@ struct clk_hw {
 	const struct clk_init_data *init;
 };
 
+/**
+ * struct clk_ll_ops - low-level register access ops for a clock
+ * @clk_readl: pointer to register read function
+ * @clk_writel: pointer to register write function
+ *
+ * Low-level register access ops are generally used by the basic clock types
+ * (clk-gate, clk-mux, clk-divider etc.) to provide support for various
+ * low-level hardware interfaces (direct MMIO, regmap etc.), but can also be
+ * used by other hardware-specific clock drivers if needed.
+ */
+struct clk_ll_ops {
+	u32	(*clk_readl)(void __iomem *reg);
+	void	(*clk_writel)(u32 val, void __iomem *reg);
+};
+
+extern struct clk_ll_ops clk_ll_ops_default;
+
 /*
  * DOC: Basic clock implementations common to many platforms
  *
