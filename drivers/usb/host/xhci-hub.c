@@ -29,6 +29,27 @@
 #define	PORT_RWC_BITS	(PORT_CSC | PORT_PEC | PORT_WRC | PORT_OCC | \
 			 PORT_RC | PORT_PLC | PORT_PE)
 
+#ifdef CONFIG_USB_OTG
+int xhci_start_port_reset(struct usb_hcd *hcd, unsigned port)
+{
+	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
+	u32 status;
+
+	if (!port)
+		return -EINVAL;
+	port--;
+
+	/* start port reset before HNP protocol times out */
+	status = xhci_readl(xhci, &xhci->op_regs->port_status_base + port * 16);
+	status |= PORT_RESET;
+
+	/* khubd will finish the reset later */
+	xhci_writel(xhci, status, &xhci->op_regs->port_status_base + port * 16);
+
+	return 0;
+}
+#endif
+
 /* USB 3.0 BOS descriptor and a capability descriptor, combined */
 static u8 usb_bos_descriptor [] = {
 	USB_DT_BOS_SIZE,		/*  __u8 bLength, 5 bytes */
