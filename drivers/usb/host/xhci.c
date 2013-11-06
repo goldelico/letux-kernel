@@ -3505,10 +3505,12 @@ void xhci_free_dev(struct usb_hcd *hcd, struct usb_device *udev)
 
 	virt_dev = xhci->devs[udev->slot_id];
 
-	/* Stop any wayward timer functions (which may grab the lock) */
-	for (i = 0; i < 31; ++i) {
-		virt_dev->eps[i].ep_state &= ~EP_HALT_PENDING;
-		del_timer_sync(&virt_dev->eps[i].stop_cmd_timer);
+	if (virt_dev) {
+		/* Stop any wayward timer functions (which may grab the lock) */
+		for (i = 0; i < 31; ++i) {
+			virt_dev->eps[i].ep_state &= ~EP_HALT_PENDING;
+			del_timer_sync(&virt_dev->eps[i].stop_cmd_timer);
+		}
 	}
 
 	if (udev->usb2_hw_lpm_enabled) {
