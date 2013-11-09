@@ -49,6 +49,7 @@
 #include <linux/device.h>
 #include <linux/init.h>
 #include <linux/slab.h>
+#include <linux/delay.h>
 #include <linux/of.h>
 #include "bmp085.h"
 #include <linux/interrupt.h>
@@ -66,7 +67,7 @@
 #define BMP085_CONVERSION_REGISTER_MSB	0xF6
 #define BMP085_CONVERSION_REGISTER_LSB	0xF7
 #define BMP085_CONVERSION_REGISTER_XLSB	0xF8
-#define BMP085_TEMP_CONVERSION_TIME	8
+#define BMP085_TEMP_CONVERSION_TIME	5
 
 struct bmp085_calibration_data {
 	s16 AC1, AC2, AC3;
@@ -129,7 +130,8 @@ static s32 bmp085_update_raw_temperature(struct bmp085_data *data)
 	s32 status;
 
 	mutex_lock(&data->lock);
-	init_completion(&data->done);
+	if(data->irq)
+		init_completion(&data->done);
 	status = regmap_write(data->regmap, BMP085_CTRL_REG,
 			      BMP085_TEMP_MEASUREMENT);
 	if (status < 0) {
@@ -137,8 +139,11 @@ static s32 bmp085_update_raw_temperature(struct bmp085_data *data)
 			"Error while requesting temperature measurement.\n");
 		goto exit;
 	}
-	wait_for_completion_timeout(&data->done, msecs_to_jiffies(
-					    BMP085_TEMP_CONVERSION_TIME));
+	if(data->irq)
+		wait_for_completion_timeout(&data->done, 1+msecs_to_jiffies(
+								BMP085_TEMP_CONVERSION_TIME));
+	else
+		msleep(BMP085_TEMP_CONVERSION_TIME);
 
 	status = regmap_bulk_read(data->regmap, BMP085_CONVERSION_REGISTER_MSB,
 				 &tmp, sizeof(tmp));
@@ -162,7 +167,8 @@ static s32 bmp085_update_raw_pressure(struct bmp085_data *data)
 	s32 status;
 
 	mutex_lock(&data->lock);
-	init_completion(&data->done);
+	if(data->irq)
+		init_completion(&data->done);
 	status = regmap_write(data->regmap, BMP085_CTRL_REG,
 			BMP085_PRESSURE_MEASUREMENT +
 			(data->oversampling_setting << 6));
@@ -173,8 +179,12 @@ static s32 bmp085_update_raw_pressure(struct bmp085_data *data)
 	}
 
 	/* wait for the end of conversion */
-	wait_for_completion_timeout(&data->done, msecs_to_jiffies(
+	if(data->irq)
+		wait_for_completion_timeout(&data->done, 1+msecs_to_jiffies(
 					    2+(3 << data->oversampling_setting)));
+	else
+		msleep(2+(3 << data->oversampling_setting));
+
 	/* copy data into a u32 (4 bytes), but skip the first byte. */
 	status = regmap_bulk_read(data->regmap, BMP085_CONVERSION_REGISTER_MSB,
 				 ((u8 *)&tmp)+1, 3);
@@ -456,8 +466,6 @@ int bmp085_probe(struct device *dev, struct regmap *regmap)
 	data->dev = dev;
 	data->regmap = regmap;
 
-	init_completion(&data->done);
-
 	if (pdata && gpio_is_valid(pdata->gpio)) {
 		err = devm_gpio_request(dev, pdata->gpio, "bmp085_eoc_irq");
 		if (err)
@@ -479,6 +487,7 @@ int bmp085_probe(struct device *dev, struct regmap *regmap)
 					      IRQF_TRIGGER_RISING, "bmp085", data);
 		if (err < 0)
 			goto exit_free;
+		init_completion(&data->done);
 	} else
 		data->irq = 0;
 
