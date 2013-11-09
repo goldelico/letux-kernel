@@ -88,8 +88,8 @@ struct bmp085_data {
 	unsigned long last_temp_measurement;
 	u8	chip_id;
 	s32	b6; /* calculated temperature correction coefficient */
-	int irq;
-	int gpio;
+	int eoc_irq;
+	int eoc_gpio;
 	struct completion done;
 };
 
@@ -130,7 +130,7 @@ static s32 bmp085_update_raw_temperature(struct bmp085_data *data)
 	s32 status;
 
 	mutex_lock(&data->lock);
-	if(data->irq)
+	if(data->eoc_irq)
 		init_completion(&data->done);
 	status = regmap_write(data->regmap, BMP085_CTRL_REG,
 			      BMP085_TEMP_MEASUREMENT);
@@ -139,7 +139,7 @@ static s32 bmp085_update_raw_temperature(struct bmp085_data *data)
 			"Error while requesting temperature measurement.\n");
 		goto exit;
 	}
-	if(data->irq)
+	if(data->eoc_irq)
 		wait_for_completion_timeout(&data->done, 1+msecs_to_jiffies(
 								BMP085_TEMP_CONVERSION_TIME));
 	else
@@ -167,7 +167,7 @@ static s32 bmp085_update_raw_pressure(struct bmp085_data *data)
 	s32 status;
 
 	mutex_lock(&data->lock);
-	if(data->irq)
+	if(data->eoc_irq)
 		init_completion(&data->done);
 	status = regmap_write(data->regmap, BMP085_CTRL_REG,
 			BMP085_PRESSURE_MEASUREMENT +
@@ -179,7 +179,7 @@ static s32 bmp085_update_raw_pressure(struct bmp085_data *data)
 	}
 
 	/* wait for the end of conversion */
-	if(data->irq)
+	if(data->eoc_irq)
 		wait_for_completion_timeout(&data->done, 1+msecs_to_jiffies(
 					    2+(3 << data->oversampling_setting)));
 	else
@@ -466,30 +466,30 @@ int bmp085_probe(struct device *dev, struct regmap *regmap)
 	data->dev = dev;
 	data->regmap = regmap;
 
-	if (pdata && gpio_is_valid(pdata->gpio)) {
-		err = devm_gpio_request(dev, pdata->gpio, "bmp085_eoc_irq");
+	if (pdata && gpio_is_valid(pdata->eoc_gpio)) {
+		err = devm_gpio_request(dev, pdata->eoc_gpio, "bmp085_eoc_irq");
 		if (err)
 			goto exit_free;
-		err = gpio_direction_input(pdata->gpio);
+		err = gpio_direction_input(pdata->eoc_gpio);
 		if (err)
 			goto exit_free;
-		data->irq = gpio_to_irq(pdata->gpio);
-		data->gpio = pdata->gpio;
+		data->eoc_irq = gpio_to_irq(pdata->eoc_gpio);
+		data->eoc_gpio = pdata->eoc_gpio;
 	} else {
 		if (pdata)
-			data->irq = pdata->irq;
+			data->eoc_irq = pdata->eoc_irq;
 		else
-			data->irq = 0;
-		data->gpio = -EINVAL;
+			data->eoc_irq = 0;
+		data->eoc_gpio = -EINVAL;
 	}
-	if (data->irq > 0) {
-		err = request_any_context_irq(data->irq, bmp085_eoc_isr,
+	if (data->eoc_irq > 0) {
+		err = request_any_context_irq(data->eoc_irq, bmp085_eoc_isr,
 					      IRQF_TRIGGER_RISING, "bmp085", data);
 		if (err < 0)
 			goto exit_free;
 		init_completion(&data->done);
 	} else
-		data->irq = 0;
+		data->eoc_irq = 0;
 
 	/* Initialize the BMP085 chip */
 	err = bmp085_init_client(data);
@@ -512,8 +512,8 @@ int bmp085_probe(struct device *dev, struct regmap *regmap)
 	return 0;
 
 exit_free_irq:
-	if (data->irq)
-		free_irq(data->irq, data);
+	if (data->eoc_irq)
+		free_irq(data->eoc_irq, data);
 exit_free:
 	kfree(data);
 exit:
@@ -525,8 +525,8 @@ int bmp085_remove(struct device *dev)
 {
 	struct bmp085_data *data = dev_get_drvdata(dev);
 
-	if (data->irq)
-		free_irq(data->irq, data);
+	if (data->eoc_irq)
+		free_irq(data->eoc_irq, data);
 
 	sysfs_remove_group(&data->dev->kobj, &bmp085_attr_group);
 	kfree(data);

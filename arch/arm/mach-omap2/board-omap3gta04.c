@@ -952,7 +952,7 @@ struct tsc2007_platform_data __initdata tsc2007_info = {
 #if defined(CONFIG_BMP085) || defined(CONFIG_BMP085_MODULE)
 
 struct bmp085_platform_data __initdata bmp085_info = {
-	.gpio = BMP085_EOC_IRQ_GPIO,
+	.eoc_gpio = BMP085_EOC_IRQ_GPIO,
 };
 
 #endif
