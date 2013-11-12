@@ -152,8 +152,9 @@
 /* OTG Registers */
 #define DWC3_OCFG		0xcc00
 #define DWC3_OCTL		0xcc04
-#define DWC3_OEVTEN		0xcc08
-#define DWC3_OSTS		0xcc0C
+#define DWC3_OEVT		0xcc08
+#define DWC3_OEVTEN		0xcc0C
+#define DWC3_OSTS		0xcc10
 
 /* Bit fields */
 
@@ -717,6 +718,10 @@ struct dwc3 {
 
 	u8			test_mode;
 	u8			test_mode_nr;
+	u8			drd_state;
+	u32			oevt;
+	u8			xhci_loaded;
+	u8			gadget_loaded;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -860,11 +865,14 @@ void dwc3_gadget_stop_peripheral(struct dwc3 *dwc);
 #if IS_ENABLED(CONFIG_USB_DWC3_HOST) || IS_ENABLED(CONFIG_USB_DWC3_DUAL_ROLE)
 int dwc3_host_init(struct dwc3 *dwc);
 void dwc3_host_exit(struct dwc3 *dwc);
+int dwc3_otg_init(struct dwc3 *dwc);
 #else
 static inline int dwc3_host_init(struct dwc3 *dwc)
 { return 0; }
 static inline void dwc3_host_exit(struct dwc3 *dwc)
 { }
+static inline int dwc3_otg_init(struct dwc3 *dwc)
+{ return 0; }
 #endif
 
 int dwc3_event_buffers_setup(struct dwc3 *dwc);
