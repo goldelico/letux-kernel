@@ -116,3 +116,11 @@ config SND_OMAP_SOC_OMAP3_PANDORA
 	select SND_SOC_TWL4030
 	help
 	  Say Y if you want to add support for SoC audio on the OMAP3 Pandora.
+
+config SND_OMAP_SOC_GTA04
+	tristate "SoC Audio support for GTA04"
+	depends on TWL4030_CORE && SND_OMAP_SOC && (MACH_GTA04 || MACH_OMAP3_BEAGLE)
+	select SND_OMAP_SOC_MCBSP
+	select SND_SOC_TWL4030
+	help
+	  Say Y if you want to add support for SoC audio on the GTA04.
