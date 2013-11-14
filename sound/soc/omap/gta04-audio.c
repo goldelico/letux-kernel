@@ -4,6 +4,8 @@
  * Author: Steve Sakoman <steve@sakoman.com>
  * Author: Nikolaus Schaller <hns@goldelico.com>
  *
+ * FIXME: harmonize with latest developments of omap-twl4030.c
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * version 2 as published by the Free Software Foundation.
@@ -31,8 +33,6 @@
 #include <sound/soc-dapm.h>
 
 #include <asm/mach-types.h>
-
-#include <linux/i2c/twl4030-madc.h>
 
 #include <linux/i2c/twl4030-madc.h>
 
@@ -327,12 +327,6 @@ static int __init omap3gta04_soc_init(void)
 {
 	int ret;
 
-#if 0
-	if (!machine_is_gta04() && !machine_is_omap3_gta04()) {
-		pr_debug("Not GTA04!\n");
-		return -ENODEV;
-	}
-#endif
 	pr_info("GTA04 OMAP3 SoC snd init\n");
 
 	// FIXME: set any GPIOs i.e. enable Audio in/out switch
