@@ -1135,6 +1135,7 @@ static int twl4030_voice_route_put(struct snd_kcontrol *kcontrol,
 		struct snd_soc_dai dai = {
 			.codec = codec
 		};
+		u8 reg;
 		twl4030->voice_enabled = ucontrol->value.enumerated.item[0];
 		if (powered)
 			twl4030_codec_enable(codec, 0);
@@ -1144,20 +1145,32 @@ static int twl4030_voice_route_put(struct snd_kcontrol *kcontrol,
 			 * need to find a better place for this,
 			 * disables mcbsp4_dx, so that it can be used by
 			 * the twl4030_codec
+			 *
+			 * we should look up the DAI link we are connected to and
+			 * do a tristate on the other end
 			 */
 			/* set McBSP4-DX to tristate (safe mode) */
 			omap_mux_set_gpio(OMAP_MUX_MODE7, 154);
+			// TWL4030_VIF_SLAVE_EN can be done through twl4030_voice_set_dai_fmt()
+			reg = twl4030_read_reg_cache(codec, TWL4030_REG_VOICE_IF);
+			reg |= TWL4030_VIF_SLAVE_EN | TWL4030_VIF_DIN_EN |
+					TWL4030_VIF_DOUT_EN | TWL4030_VIF_EN;
+			twl4030_write(codec, TWL4030_REG_VOICE_IF, reg);
 			twl4030_voice_set_tristate(&dai, 0);
-/*			twl4030_write(codec, TWL4030_REG_VOICE_IF,
-				TWL4030_VIF_SLAVE_EN | TWL4030_VIF_DIN_EN |
-				TWL4030_VIF_DOUT_EN | TWL4030_VIF_EN);
- */
 		} else {
+			// TWL4030_VIF_SLAVE_EN can be done through twl4030_voice_set_dai_fmt()
 			twl4030_voice_set_tristate(&dai, 1);
+			reg = twl4030_read_reg_cache(codec, TWL4030_REG_VOICE_IF);
+			reg &= ~(TWL4030_VIF_SLAVE_EN | TWL4030_VIF_DIN_EN |
+					 TWL4030_VIF_DOUT_EN | TWL4030_VIF_EN);
+			twl4030_write(codec, TWL4030_REG_VOICE_IF, reg);
 			/*
 			 * need to find a better place for this,
 			 * enables mcbsp4_dx, so that it can be used by
 			 * the mcbsp4 interface
+			 *
+			 * we should look up the DAI link we are connected to and
+			 * do a tristate on the other end
 			 */
 			omap_mux_set_gpio(OMAP_MUX_MODE0 | OMAP_PIN_OUTPUT, 154);
 		}
