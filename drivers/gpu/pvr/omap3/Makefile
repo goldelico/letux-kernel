@@ -222,12 +222,10 @@ drm-y :=  \
 	../../drm/drm_irq.o \
 	../../drm/drm_lock.o \
 	../../drm/drm_memory.o \
-	../../drm/drm_proc.o \
 	../../drm/drm_stub.o \
 	../../drm/drm_vm.o \
 	../../drm/drm_agpsupport.o \
 	../../drm/drm_scatter.o \
-	../../drm/ati_pcigart.o \
 	../../drm/drm_pci.o \
 	../../drm/drm_sysfs.o \
 	../../drm/drm_hashtab.o \
@@ -235,10 +233,10 @@ drm-y :=  \
 	../../drm/drm_crtc.o \
 	../../drm/drm_modes.o \
 	../../drm/drm_edid.o \
-	../../../video/hdmi.o \
 	../../drm/drm_info.o \
 	../../drm/drm_debugfs.o \
 	../../drm/drm_encoder_slave.o \
+	../../../video/hdmi.o \
 
 # not available in Linux 3.7
 #	../../drm/drm_drawable.o \
