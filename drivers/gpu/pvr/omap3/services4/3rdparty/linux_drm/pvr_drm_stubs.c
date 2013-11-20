@@ -84,6 +84,14 @@ release_device(struct device *dev)
 {
 }
 
+int pci_bus_read_config_dword(struct pci_bus *bus, unsigned int devfn,int where, u32 *val) 
+{ 
+	return 0;
+ 
+}
+
+
+
 int
 drm_pvr_dev_add(void)
 {

@@ -338,7 +338,7 @@ PVRDRMUnprivCmd(struct drm_device *dev, void *arg, struct drm_file *pFile)
 {
 	int ret = 0;
 
-	LinuxLockMutex(&gPVRSRVLock);
+	LinuxLockMutexNested(&gPVRSRVLock, PVRSRV_LOCK_CLASS_BRIDGE);
 
 	if (arg == NULL)
 	{
@@ -373,7 +373,7 @@ PVRDRM_Display_ioctl(struct drm_device *dev, void *arg, struct drm_file *pFile)
 {
 	int res;
 
-	LinuxLockMutex(&gPVRSRVLock);
+	LinuxLockMutexNested(&gPVRSRVLock, PVRSRV_LOCK_CLASS_BRIDGE);
 
 	res = PVR_DRM_MAKENAME(DISPLAY_CONTROLLER, _Ioctl)(dev, arg, pFile);
 
@@ -389,7 +389,11 @@ PVRSRVPciProbe(struct pci_dev *dev, const struct pci_device_id *id)
 {
 	PVR_TRACE(("PVRSRVPciProbe"));
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36))
+	return drm_get_pci_dev(dev, id, &sPVRDrmDriver);
+#else
 	return drm_get_dev(dev, id, &sPVRDrmDriver);
+#endif
 }
 
 static void
@@ -467,6 +471,24 @@ static PVRSRV_DRM_PLUGIN sPVRDrmPlugin =
 	.ioctl_start = 0
 };
 #else	/* defined(SUPPORT_DRI_DRM_PLUGIN) */
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0))
+static const struct file_operations sPVRFileOps = 
+{
+	.owner = THIS_MODULE,
+	.open = drm_open,
+#if defined(PVR_DRI_DRM_USE_POST_CLOSE)
+	.release = drm_release,
+#else
+	.release = PVRSRVDrmRelease,
+#endif
+	PVR_DRM_FOPS_IOCTL = drm_ioctl,
+	.mmap = PVRMMap,
+	.poll = drm_poll,
+	.fasync = drm_fasync,
+};
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0)) */
+
 static struct drm_driver sPVRDrmDriver = 
 {
 #if defined(PVR_OLD_STYLE_DRM_PLATFORM_DEV)
@@ -490,6 +512,9 @@ static struct drm_driver sPVRDrmDriver =
 	.get_reg_ofs = drm_core_get_reg_ofs,
 #endif
 	.ioctls = sPVRDrmIoctls,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0))
+	.fops = &sPVRFileOps,
+#else
 	.fops = 
 	{
 		.owner = THIS_MODULE,
@@ -504,6 +529,7 @@ static struct drm_driver sPVRDrmDriver =
 		.poll = drm_poll,
 		.fasync = drm_fasync,
 	},
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0)) */
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,39))
 #if defined(PVR_OLD_STYLE_DRM_PLATFORM_DEV)
 	.platform_driver =
@@ -549,6 +575,8 @@ static struct pci_driver sPVRPCIDriver =
 #if defined(SUPPORT_DRM_MODESET)
 		.probe = PVRSRVPciProbe,
 		.remove = PVRSRVPciRemove,
+		.suspend = PVRSRVDriverSuspend,
+		.resume = PVRSRVDriverResume,
 #endif
 };
 #endif

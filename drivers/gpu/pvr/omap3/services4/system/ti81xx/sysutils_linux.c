@@ -174,7 +174,6 @@ PVRSRV_ERROR EnableSGXClocks(SYS_DATA *psSysData)
 #if !defined(NO_HARDWARE)
 	SYS_SPECIFIC_DATA *psSysSpecData = (SYS_SPECIFIC_DATA *) psSysData->pvSysSpecificData;
 	IMG_INT res;
-	long lRate,lNewRate;
 	
 	if (atomic_read(&psSysSpecData->sSGXClocksEnabled) != 0)
 	{
@@ -189,6 +188,7 @@ PVRSRV_ERROR EnableSGXClocks(SYS_DATA *psSysData)
                 PVR_DPF((PVR_DBG_ERROR, "EnableSGXClocks: Couldn't enable SGX functional clock (%d)", res));
                 return PVRSRV_ERROR_UNABLE_TO_ENABLE_CLOCK;
         }
+#if 0
 if(cpu_is_ti816x())	
 	lNewRate = clk_round_rate(psSysSpecData->psSGX_FCK, SYS_389x_SGX_CLOCK_SPEED + ONE_MHZ);
 else
@@ -210,6 +210,24 @@ else
 			return PVRSRV_ERROR_UNABLE_TO_SET_CLOCK_RATE;
                 }
         }
+#endif
+
+                if(cpu_is_ti816x())
+                    res = clk_set_rate(psSysSpecData->psSGX_FCK,SYS_389x_SGX_CLOCK_SPEED);
+                else
+                    res = clk_set_rate(psSysSpecData->psSGX_FCK,SYS_387x_SGX_CLOCK_SPEED);
+
+                if(res != 0)
+                {
+                        PVR_DPF((PVR_DBG_ERROR, "EnableSsystemClocks: Couldn't set SGX Functional Clock rate"));
+                        return PVRSRV_ERROR_UNABLE_TO_SET_CLOCK_RATE;
+                }
+                else
+                {
+                        res = clk_get_rate(psSysSpecData->psSGX_FCK);
+                        PVR_TRACE(("SGX clock rate is %dMHz", HZ_TO_MHZ(res)));
+                }
+
 
 #if defined(DEBUG)
         {
@@ -332,7 +350,6 @@ static PVRSRV_ERROR AcquireGPTimer(SYS_SPECIFIC_DATA *psSysSpecData)
 #if defined(PVR_OMAP3_TIMING_PRCM)
 	struct clk *psCLK;
 	IMG_INT res;
-	struct clk *sys_ck;
 	IMG_INT rate;
 #endif
 	PVRSRV_ERROR eError;
