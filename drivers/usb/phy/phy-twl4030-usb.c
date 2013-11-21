@@ -171,6 +171,7 @@ struct twl4030_usb {
 /* internal define on top of container_of */
 #define phy_to_twl(x)		container_of((x), struct twl4030_usb, phy)
 
+static int fake_host;
 /*-------------------------------------------------------------------------*/
 
 static int twl4030_i2c_write_u8_verify(struct twl4030_usb *twl,
@@ -544,6 +545,76 @@ static int twl4030_usb_ldo_init(struct twl4030_usb *twl)
 	return 0;
 }
 
+static ssize_t twl4030_usb_vbus_out_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t n)
+{
+	struct twl4030_usb *twl = dev_get_drvdata(dev);
+	/* hack, should probably not be called directly this way */
+	extern void twl4030_charger_enable_usb_ext(bool);
+
+	if (sysfs_streq(buf, "on")) {
+		twl4030_charger_enable_usb_ext(0);
+		twl4030_i2c_access(twl, 1);
+		twl4030_usb_set_bits(twl, ULPI_OTG_CTRL, ULPI_OTG_CTRL_DRVVBUS);
+		twl4030_i2c_access(twl, 0);
+	} else if (sysfs_streq(buf, "off")) {
+		twl4030_i2c_access(twl, 1);
+		twl4030_usb_clear_bits(twl, ULPI_OTG_CTRL,
+			ULPI_OTG_CTRL_DRVVBUS);
+		twl4030_i2c_access(twl, 0);
+		twl4030_charger_enable_usb_ext(1);
+	} else
+		return -EINVAL;
+	return n;
+}
+
+static ssize_t twl4030_usb_fake_host_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t n)
+{
+	struct twl4030_usb *twl = dev_get_drvdata(dev);
+	if (sysfs_streq(buf, "on"))
+		fake_host = 1;
+	else if (sysfs_streq(buf, "off"))
+		fake_host = 0;
+	else
+		return -EINVAL;
+	twl4030_i2c_access(twl, 1);
+	if (fake_host)
+		twl4030_usb_set_bits(twl, ULPI_OTG_CTRL,
+				ULPI_OTG_DP_PULLDOWN_DIS);
+	else
+		twl4030_usb_clear_bits(twl, ULPI_OTG_CTRL,
+			ULPI_OTG_DP_PULLDOWN_DIS);
+	twl4030_i2c_access(twl, 0);
+	return n;
+}
+
+static ssize_t twl4030_usb_fake_host_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int ret;
+	ret = sprintf(buf, "%s\n", fake_host ? "on" : "off");
+	return ret;
+}
+
+static ssize_t twl4030_usb_vbus_out_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int ret;
+	struct twl4030_usb *twl = dev_get_drvdata(dev);
+	int otg_ctrl = twl4030_usb_read(twl, ULPI_OTG_CTRL);
+	ret = sprintf(buf, "%s\n",
+		(otg_ctrl & ULPI_OTG_CTRL_DRVVBUS) ? "on" : "off");
+	return ret;
+}
+
+static DEVICE_ATTR(vbus_out, 0644, twl4030_usb_vbus_out_show,
+	twl4030_usb_vbus_out_store);
+
+static DEVICE_ATTR(fake_host, 0644, twl4030_usb_fake_host_show,
+	twl4030_usb_fake_host_store);
+
 static ssize_t twl4030_usb_vbus_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -781,6 +852,11 @@ static int twl4030_usb_probe(struct platform_device *pdev)
 		dev_warn(&pdev->dev, "could not create sysfs file\n");
 	if (device_create_file(&pdev->dev, &dev_attr_id))
 		dev_warn(&pdev->dev, "could not create sysfs file\n");
+	if (device_create_file(&pdev->dev, &dev_attr_vbus_out))
+		dev_warn(&pdev->dev, "could not create sysfs file\n");
+	if (device_create_file(&pdev->dev, &dev_attr_fake_host))
+		dev_warn(&pdev->dev, "could not create sysfs file\n");
+
 
 	ATOMIC_INIT_NOTIFIER_HEAD(&twl->phy.notifier);
 
@@ -814,6 +890,8 @@ static int twl4030_usb_remove(struct platform_device *pdev)
 	cancel_delayed_work(&twl->id_workaround_work);
 	device_remove_file(twl->dev, &dev_attr_id);
 	device_remove_file(twl->dev, &dev_attr_vbus);
+	device_remove_file(twl->dev, &dev_attr_vbus_out);
+	device_remove_file(twl->dev, &dev_attr_fake_host);
 
 	/* set transceiver mode to power on defaults */
 	twl4030_usb_set_mode(twl, -1);

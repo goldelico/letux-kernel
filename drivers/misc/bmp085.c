@@ -49,6 +49,7 @@
 #include <linux/device.h>
 #include <linux/init.h>
 #include <linux/slab.h>
+#include <linux/delay.h>
 #include <linux/of.h>
 #include "bmp085.h"
 #include <linux/interrupt.h>
@@ -66,7 +67,7 @@
 #define BMP085_CONVERSION_REGISTER_MSB	0xF6
 #define BMP085_CONVERSION_REGISTER_LSB	0xF7
 #define BMP085_CONVERSION_REGISTER_XLSB	0xF8
-#define BMP085_TEMP_CONVERSION_TIME	8
+#define BMP085_TEMP_CONVERSION_TIME	5
 
 struct bmp085_calibration_data {
 	s16 AC1, AC2, AC3;
@@ -87,8 +88,8 @@ struct bmp085_data {
 	unsigned long last_temp_measurement;
 	u8	chip_id;
 	s32	b6; /* calculated temperature correction coefficient */
-	int irq;
-	int gpio;
+	int eoc_irq;
+	int eoc_gpio;
 	struct completion done;
 };
 
@@ -129,7 +130,8 @@ static s32 bmp085_update_raw_temperature(struct bmp085_data *data)
 	s32 status;
 
 	mutex_lock(&data->lock);
-	init_completion(&data->done);
+	if(data->eoc_irq)
+		init_completion(&data->done);
 	status = regmap_write(data->regmap, BMP085_CTRL_REG,
 			      BMP085_TEMP_MEASUREMENT);
 	if (status < 0) {
@@ -137,8 +139,11 @@ static s32 bmp085_update_raw_temperature(struct bmp085_data *data)
 			"Error while requesting temperature measurement.\n");
 		goto exit;
 	}
-	wait_for_completion_timeout(&data->done, msecs_to_jiffies(
-					    BMP085_TEMP_CONVERSION_TIME));
+	if(data->eoc_irq)
+		wait_for_completion_timeout(&data->done, 1+msecs_to_jiffies(
+								BMP085_TEMP_CONVERSION_TIME));
+	else
+		msleep(BMP085_TEMP_CONVERSION_TIME);
 
 	status = regmap_bulk_read(data->regmap, BMP085_CONVERSION_REGISTER_MSB,
 				 &tmp, sizeof(tmp));
@@ -162,7 +167,8 @@ static s32 bmp085_update_raw_pressure(struct bmp085_data *data)
 	s32 status;
 
 	mutex_lock(&data->lock);
-	init_completion(&data->done);
+	if(data->eoc_irq)
+		init_completion(&data->done);
 	status = regmap_write(data->regmap, BMP085_CTRL_REG,
 			BMP085_PRESSURE_MEASUREMENT +
 			(data->oversampling_setting << 6));
@@ -173,8 +179,12 @@ static s32 bmp085_update_raw_pressure(struct bmp085_data *data)
 	}
 
 	/* wait for the end of conversion */
-	wait_for_completion_timeout(&data->done, msecs_to_jiffies(
+	if(data->eoc_irq)
+		wait_for_completion_timeout(&data->done, 1+msecs_to_jiffies(
 					    2+(3 << data->oversampling_setting)));
+	else
+		msleep(2+(3 << data->oversampling_setting));
+
 	/* copy data into a u32 (4 bytes), but skip the first byte. */
 	status = regmap_bulk_read(data->regmap, BMP085_CONVERSION_REGISTER_MSB,
 				 ((u8 *)&tmp)+1, 3);
@@ -456,31 +466,30 @@ int bmp085_probe(struct device *dev, struct regmap *regmap)
 	data->dev = dev;
 	data->regmap = regmap;
 
-	init_completion(&data->done);
-
-	if (pdata && gpio_is_valid(pdata->gpio)) {
-		err = devm_gpio_request(dev, pdata->gpio, "bmp085_eoc_irq");
+	if (pdata && gpio_is_valid(pdata->eoc_gpio)) {
+		err = devm_gpio_request(dev, pdata->eoc_gpio, "bmp085_eoc_irq");
 		if (err)
 			goto exit_free;
-		err = gpio_direction_input(pdata->gpio);
+		err = gpio_direction_input(pdata->eoc_gpio);
 		if (err)
 			goto exit_free;
-		data->irq = gpio_to_irq(pdata->gpio);
-		data->gpio = pdata->gpio;
+		data->eoc_irq = gpio_to_irq(pdata->eoc_gpio);
+		data->eoc_gpio = pdata->eoc_gpio;
 	} else {
 		if (pdata)
-			data->irq = pdata->irq;
+			data->eoc_irq = pdata->eoc_irq;
 		else
-			data->irq = 0;
-		data->gpio = -EINVAL;
+			data->eoc_irq = 0;
+		data->eoc_gpio = -EINVAL;
 	}
-	if (data->irq > 0) {
-		err = request_any_context_irq(data->irq, bmp085_eoc_isr,
+	if (data->eoc_irq > 0) {
+		err = request_any_context_irq(data->eoc_irq, bmp085_eoc_isr,
 					      IRQF_TRIGGER_RISING, "bmp085", data);
 		if (err < 0)
 			goto exit_free;
+		init_completion(&data->done);
 	} else
-		data->irq = 0;
+		data->eoc_irq = 0;
 
 	/* Initialize the BMP085 chip */
 	err = bmp085_init_client(data);
@@ -503,8 +512,8 @@ int bmp085_probe(struct device *dev, struct regmap *regmap)
 	return 0;
 
 exit_free_irq:
-	if (data->irq)
-		free_irq(data->irq, data);
+	if (data->eoc_irq)
+		free_irq(data->eoc_irq, data);
 exit_free:
 	kfree(data);
 exit:
@@ -516,8 +525,8 @@ int bmp085_remove(struct device *dev)
 {
 	struct bmp085_data *data = dev_get_drvdata(dev);
 
-	if (data->irq)
-		free_irq(data->irq, data);
+	if (data->eoc_irq)
+		free_irq(data->eoc_irq, data);
 
 	sysfs_remove_group(&data->dev->kobj, &bmp085_attr_group);
 	kfree(data);
