@@ -367,7 +367,7 @@ static int omap3_pm_suspend(void)
 		pwrst->saved_state = pwrdm_read_next_pwrst(pwrst->pwrdm);
 	/* Set ones wanted by suspend */
 	list_for_each_entry(pwrst, &pwrst_list, node) {
-#if OFF_MODE_IS_STABLE
+#ifdef OFF_MODE_IS_STABLE
 		if (strcmp(pwrst->pwrdm->name, "core_pwrdm") == 0) {
 			static int times = 0;
 			times++;

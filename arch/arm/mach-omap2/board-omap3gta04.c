@@ -1684,7 +1684,7 @@ static void __init gta04_init(void)
 static void __init gta04_init_late(void)
 {
 	omap3630_init_late();
-#if OFF_MODE_IS_STABLE
+#ifdef OFF_MODE_IS_STABLE
 	omap_pm_enable_off_mode();
 	omap3_pm_off_mode_enable(1);
 #endif
