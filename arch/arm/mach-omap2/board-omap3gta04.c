@@ -31,8 +31,9 @@
 #include <linux/gpio-reg.h>
 #include <linux/gpio-w2sg0004.h>
 #include <linux/extcon/extcon-gpio.h>
-#include <linux/opp.h>
+#include <linux/pm_opp.h>
 #include <linux/cpu.h>
+#include <linux/spi/spi_gpio.h>
 
 #include <linux/usb/phy.h>
 
@@ -311,24 +312,39 @@ static struct platform_device twl4030_audio_device = {
 	.id = -1,
 };
 
-static struct panel_tpo_td028tec1_platform_data gta04_panel_data = {
-	.cs_gpio = 19,
-	.scl_gpio = 12,
-	.din_gpio = 18,
-	.dout_gpio = 20,
+static struct spi_gpio_platform_data gta04_panel_spi_gpio_data = {
+	.sck    = 12,
+	.mosi   = 20,
+	.miso   = 18,
+	.num_chipselect = 1,
+};
 
+static struct platform_device gta04_panel_spi = {
+	.name   = "spi_gpio",
+	.id     = 5,
+	.dev    = {
+		.platform_data  = &gta04_panel_spi_gpio_data,
+	},
+};
+
+static struct panel_tpo_td028ttec1_platform_data gta04_panel_data = {
 	.name = "lcd",
 	.source = "dpi.0",
 	.data_lines = 24,
+	};
+
+static struct spi_board_info spi_board_info[] __initdata = {
+	{
+		.modalias       = "panel-tpo-td028ttec1",
+		.platform_data  = &gta04_panel_data,
+		.bus_num        = 5,
+		.chip_select    = 0,
+		.mode           = SPI_MODE_3,
+		.controller_data = (void *)19, /* DISPLAY_CS */
+	},
 };
 
-static struct platform_device gta04_lcd_device = {
-	.name = "panel-tpo-td028ttec1",
-	.id = 0,
-	.dev.platform_data = &gta04_panel_data,
-};
-
-static struct platform_device *gta04_panel = &gta04_lcd_device;
+static struct platform_device *gta04_panel = &gta04_panel_spi;
 
 static struct display_timing gta04b2_panel_timing = { // GTA04b2 - ortustech_com37h3m05dtc/ortustech_com37h3m099dtc - OpenPhoenux 3704
 	.pixelclock	= { 0, 22153000, 0 },	/* min, typ, max */
@@ -1516,14 +1532,14 @@ static int __init gta04_opp_init(void)
 			printk("Enable MPU 1GHz and lower opps\n");
 
 		/* Enable MPU 1GHz and lower opps */
-		r  = opp_enable(mpu_dev,  800000000);
+		r  = dev_pm_opp_enable(mpu_dev,  800000000);
 		if (mpu1GHz)
-			r |= opp_enable(mpu_dev, 1000000000);
+			r |= dev_pm_opp_enable(mpu_dev, 1000000000);
 
 		/* Enable IVA 800MHz and lower opps */
-		r |= opp_enable(iva_dev, 660000000);
+		r |= dev_pm_opp_enable(iva_dev, 660000000);
 		if (mpu1GHz)
-			r |= opp_enable(iva_dev, 800000000);
+			r |= dev_pm_opp_enable(iva_dev, 800000000);
 
 		if (r) {
 			pr_err("%s: failed to enable higher opp %d\n",
@@ -1532,10 +1548,10 @@ static int __init gta04_opp_init(void)
 			 * Cleanup - disable the higher freqs - we dont care
 			 * about the results
 			 */
-			opp_disable(mpu_dev,1000000000);
-			opp_disable(mpu_dev, 800000000);
-			opp_disable(iva_dev, 800000000);
-			opp_disable(iva_dev, 660000000);
+			dev_pm_opp_disable(mpu_dev,1000000000);
+			dev_pm_opp_disable(mpu_dev, 800000000);
+			dev_pm_opp_disable(iva_dev, 800000000);
+			dev_pm_opp_disable(iva_dev, 660000000);
 		}
 		else {
 			/* OMAP3530 like we find it in BeagleBoard C4 */
@@ -1578,8 +1594,9 @@ static void __init gta04_init(void)
 
 	omap_mux_init_gpio(WO3G_GPIO, OMAP_PIN_INPUT | OMAP_WAKEUP_EN);
 	gpio_3G_buttons[0].gpio = WO3G_GPIO;
-	
-	/* add the panel first so that it becomes display0 and tvout becomes display1 */
+
+	if(gta04_panel == &gta04_panel_spi)
+		spi_register_board_info(spi_board_info, ARRAY_SIZE(spi_board_info));
 	platform_device_register(gta04_panel);
 
 	platform_add_devices(gta04_devices,
@@ -1715,7 +1732,7 @@ static int __init gta04_init_mux(char *str)
 		// configure for TPO display (2804) - also the default (could have been called GTA04B1)
 		tsc2007_info.x_plate_ohms = 550;			// GTA04: 250 - 900
 		tca6507_info.leds.leds = tca6507_leds;
-		gta04_panel = &gta04_lcd_device;
+		gta04_panel = &gta04_panel_spi;	/* use SPI based driver */
 	}
 	else if(strcmp(gta04_bymux, "GTA04B2") == 0 || strcmp(gta04_bymux, "GTA04B6") == 0) {
 		// configure for Ortus display (3704)
