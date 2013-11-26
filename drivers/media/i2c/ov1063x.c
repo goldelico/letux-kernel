@@ -41,6 +41,9 @@
 #include <linux/of_i2c.h>
 #include <linux/of_device.h>
 
+#include <linux/i2c/lvds-serlink.h>
+#include <linux/i2c/lvds-de-serlink.h>
+
 /* Register definitions */
 #define	OV1063X_VFLIP			0x381c
 #define	 OV1063X_VFLIP_ON		(0x3 << 6)
@@ -1477,9 +1480,9 @@ static int ov1063x_init_sensor(struct i2c_client *client)
 			"mux1_sel0" },
 		{ priv->mux1_sel1_gpio, GPIOF_OUT_INIT_LOW,
 			"mux1_sel1" },
-		{ priv->mux2_sel0_gpio, GPIOF_OUT_INIT_HIGH,
+		{ priv->mux2_sel0_gpio, GPIOF_OUT_INIT_LOW,
 			"mux2_sel0" },
-		{ priv->mux2_sel1_gpio, GPIOF_OUT_INIT_LOW,
+		{ priv->mux2_sel1_gpio, GPIOF_OUT_INIT_HIGH,
 			"mux2_sel1" },
 		{ priv->ov_pwdn_gpio, GPIOF_OUT_INIT_LOW,
 			"ov_pwdn" },
@@ -1526,17 +1529,13 @@ static int sensor_get_gpios(struct device_node *node, struct i2c_client *client)
 	}
 	sensor = (const char *)of_dev_id->data;
 	if (strcmp(sensor, "ov10635") == 0)
-		node = of_find_compatible_node(node, NULL, "ti,camera-ov10635");
+		node = of_find_compatible_node(NULL, NULL, "ti,camera-ov10635");
 	else if (strcmp(sensor, "ov10633") == 0)
-		node = of_find_compatible_node(node, NULL, "ti,camera-ov10633");
+		node = of_find_compatible_node(NULL, NULL, "ti,camera-ov10633");
 	else
 		dev_err(&client->dev, "Invalid sensor\n");
 
-	err = of_property_read_string(node, "sensor", &priv->sensor_name);
-	if (err) {
-		dev_err(&client->dev, "failed to parse sensor name\n");
-		return err;
-	}
+	priv->sensor_name = sensor;
 
 	if (strcmp(priv->sensor_name, "ov10635") == 0) {
 		gpio = of_get_gpio(node, 0);
@@ -1610,12 +1609,93 @@ static int sensor_get_gpios(struct device_node *node, struct i2c_client *client)
 	return 0;
 }
 
+static int send_i2c_cmd(struct i2c_client *client, int cmd, void *arg)
+{
+	int status = 0;
+	if (client && client->driver && client->driver->command)
+		status = client->driver->command(client, cmd, arg);
+
+	return status;
+}
+
+static int setup_deserializer(struct i2c_client *client)
+{
+	struct device_node *node = NULL;
+	struct i2c_client *deser_i2c_client = NULL;
+	int r;
+
+	node = of_parse_phandle(client->dev.of_node, "deserializer", 0);
+	if (node)
+		deser_i2c_client = of_find_i2c_device_by_node(node);
+	else {
+		dev_err(&client->dev, "No deserializer node found");
+		return 0;
+	}
+
+	dev_err(&client->dev, "deserializer client addr = %x",
+		deser_i2c_client->addr);
+
+	r = send_i2c_cmd(deser_i2c_client, DSER_SETUP_MULTIDES, NULL);
+	if (r < 0) {
+		dev_err(&client->dev, "failed to setup deserializer");
+		goto err;
+	}
+
+	return 0;
+err:
+	return r;
+}
+
+static int setup_serializer(struct i2c_client *client)
+{
+	struct device_node *node = NULL;
+	struct i2c_client *ser_i2c_client = NULL;
+	int r;
+
+	node = of_parse_phandle(client->dev.of_node, "serializer", 0);
+	if (node)
+		ser_i2c_client = of_find_i2c_device_by_node(node);
+	else {
+		dev_err(&client->dev, "No serializer node found");
+		return 0;
+	}
+
+	dev_err(&client->dev, "serializer client addr = %x",
+		ser_i2c_client->addr);
+
+	r = send_i2c_cmd(ser_i2c_client, SER_SETUP_MULTIDES, NULL);
+	if (r < 0) {
+		dev_err(&client->dev, "failed to setup serializer");
+		goto err;
+	}
+
+	return 0;
+err:
+	return r;
+}
+
 static int ov1063x_video_probe(struct i2c_client *client)
 {
 	struct ov1063x_priv *priv = to_ov1063x(client);
 	u8 pid, ver;
 	u16 id;
 	int ret;
+
+	if (client->dev.of_node) {
+		ret = setup_deserializer(client);
+		if (ret)
+			return ret;
+	}
+
+	ret = ov1063x_init_sensor(client);
+	if (ret) {
+		dev_err(&client->dev, "failed to initialize the sensor\n");
+		return ret;
+	}
+
+	ret = setup_serializer(client);
+	if (ret)
+		return ret;
 
 	ret = ov1063x_set_regs(client, ov1063x_regs_default,
 		ARRAY_SIZE(ov1063x_regs_default));
@@ -1712,21 +1792,15 @@ static int ov1063x_probe(struct i2c_client *client,
 	if (priv->hdl.error)
 		return priv->hdl.error;
 
-	ret = ov1063x_video_probe(client);
-	if (ret) {
-		v4l2_ctrl_handler_free(&priv->hdl);
-		return ret;
-	}
-
 	ret = sensor_get_gpios(node, client);
 	if (ret) {
 		dev_err(&client->dev, "Unable to get gpios\n");
 		return ret;
 	}
 
-	ret = ov1063x_init_sensor(client);
+	ret = ov1063x_video_probe(client);
 	if (ret) {
-		dev_err(&client->dev, "failed to initialize the sensor\n");
+		v4l2_ctrl_handler_free(&priv->hdl);
 		return ret;
 	}
 
