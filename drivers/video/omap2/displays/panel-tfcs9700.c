@@ -24,6 +24,7 @@
 #include <linux/of_i2c.h>
 #include <linux/of.h>
 #include <linux/regmap.h>
+#include <linux/of_device.h>
 
 #include <video/omapdss.h>
 #include <video/omap-panel-tfcs9700.h>
@@ -42,7 +43,8 @@ struct tlc_data {
 	int p_gpio;
 };
 
-static const struct omap_video_timings tfc_s9700_default_timings = {
+static struct omap_video_timings tfc_s9700_default_timings[] = {
+	{
 	.x_res		= 800,
 	.y_res		= 480,
 
@@ -61,6 +63,28 @@ static const struct omap_video_timings tfc_s9700_default_timings = {
 	.data_pclk_edge	= OMAPDSS_DRIVE_SIG_RISING_EDGE,
 	.de_level	= OMAPDSS_SIG_ACTIVE_HIGH,
 	.sync_pclk_edge	= OMAPDSS_DRIVE_SIG_RISING_EDGE,
+	},
+	{
+	/* 1280 x 800 @ 60 Hz Reduced blanking VESA CVT 0.31M3-R */
+	.x_res          = 1280,
+	.y_res          = 800,
+
+	.pixel_clock    = 67333,
+
+	.hfp            = 32,
+	.hsw            = 48,
+	.hbp            = 80,
+
+	.vfp            = 4,
+	.vsw            = 3,
+	.vbp            = 7,
+
+	.vsync_level    = OMAPDSS_SIG_ACTIVE_LOW,
+	.hsync_level    = OMAPDSS_SIG_ACTIVE_LOW,
+	.data_pclk_edge = OMAPDSS_DRIVE_SIG_RISING_EDGE,
+	.de_level       = OMAPDSS_SIG_ACTIVE_HIGH,
+	.sync_pclk_edge = OMAPDSS_DRIVE_SIG_RISING_EDGE,
+	},
 };
 
 struct panel_drv_data {
@@ -149,6 +173,23 @@ static void tfc_s9700_power_off(struct omap_dss_device *dssdev)
 	omapdss_dpi_display_disable(dssdev);
 }
 
+#if defined(CONFIG_OF)
+static const struct of_device_id tfc_s9700_of_match[] = {
+	{
+		.compatible = "ti,tfc_s9700",
+		.data = &tfc_s9700_default_timings[0],
+
+		.compatible = "ti,tfc_lp101",
+		.data = &tfc_s9700_default_timings[1],
+	},
+	{},
+};
+
+MODULE_DEVICE_TABLE(of, tfc_s9700_of_match);
+#else
+#define dss_of_match NULL
+#endif
+
 static int tfc_s9700_probe_of(struct omap_dss_device *dssdev,
 		struct panel_drv_data *ddata)
 {
@@ -156,6 +197,19 @@ static int tfc_s9700_probe_of(struct omap_dss_device *dssdev,
 	struct device_node *tlc;
 	struct i2c_client *client;
 	int r, datalines;
+	const struct of_device_id *of_dev_id;
+	struct omap_video_timings *timings;
+
+	of_dev_id = of_match_device(tfc_s9700_of_match, &dssdev->dev);
+	if (!of_dev_id) {
+		/* We do not expect this to happen */
+		r = -ENODEV;
+		dev_err(&dssdev->dev, "%s: Unable to match device\n",
+				__func__);
+		return r;
+	}
+	timings = (struct omap_video_timings *)of_dev_id->data;
+	dssdev->panel.timings = *timings;
 
 	r = of_property_read_u32(node, "data-lines", &datalines);
 	if (r) {
@@ -191,12 +245,13 @@ static int tfc_s9700_probe(struct omap_dss_device *dssdev)
 	struct panel_drv_data *ddata;
 	struct device *i2c_dev;
 	int r;
+	dev_err(&dssdev->dev, "tfc_s9700_probe probe\n");
 
 	ddata = devm_kzalloc(&dssdev->dev, sizeof(*ddata), GFP_KERNEL);
 	if (!ddata)
 		return -ENOMEM;
 
-	dssdev->panel.timings = tfc_s9700_default_timings;
+	dssdev->panel.timings = tfc_s9700_default_timings[0];
 
 	ddata->dssdev = dssdev;
 	mutex_init(&ddata->lock);
@@ -323,19 +378,6 @@ static int tfc_s9700_check_timings(struct omap_dss_device *dssdev,
 
 	return r;
 }
-
-#if defined(CONFIG_OF)
-static const struct of_device_id tfc_s9700_of_match[] = {
-	{
-		.compatible = "ti,tfc_s9700",
-	},
-	{},
-};
-
-MODULE_DEVICE_TABLE(of, tfc_s9700_of_match);
-#else
-#define dss_of_match NULL
-#endif
 
 static struct omap_dss_driver tfc_s9700_driver = {
 	.probe		= tfc_s9700_probe,
