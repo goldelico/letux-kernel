@@ -29,6 +29,7 @@
 #include <linux/module.h>
 #include <linux/spinlock.h>
 #include <linux/workqueue.h>
+#include <linux/delay.h>
 #include "lvds-serlink_reg.h"
 
 static const struct i2c_device_id serlink_id[] = {
@@ -296,6 +297,32 @@ error_config:
 
 }
 
+static int serlink_setup_multides(struct i2c_client *client, void *arg)
+{
+	u8 val = (1 << SERLINK_RESET0 | 1 << SERLINK_RESET1);
+	int ret;
+
+	ret = i2c_write_le8(client, SERLINK_RESET, val);
+	if (ret < 0)
+		goto error_setup;
+	udelay(2000);
+
+	/* Setup config0 register - varies for ds90ub913aq
+	   RX CRC check EN, TX parity gen EN, I2C pass through EN
+	   clk2pll is via MODE pin, Rising clock edge */
+	ret = i2c_write_le8(client, SERLINK_CONFIG_0, 0xc5);
+	if (ret < 0)
+		goto error_setup;
+
+	/* GPIO1 - GPIOF_OUT_INIT_HIGH, GPIO0 - GPIOF_OUT_INIT_LOW remote en */
+	ret = i2c_write_le8(client, SERLINK_ID_GPIO0, 0x95);
+	if (ret < 0)
+		goto error_setup;
+
+	return 0;
+error_setup:
+	return ret;
+}
 
 static int serlink_dump_reg(struct i2c_client *client)
 {
@@ -355,6 +382,11 @@ static int serlink_command(struct i2c_client *client,
 	case SER_GET_DES_I2C_ADDR:
 		/* Read auto populated Deserializer i2c ID*/
 		status = serlink_read_deserializer(client, arg);
+	break;
+
+	case SER_SETUP_MULTIDES:
+		/* Setup remote serializer connected to multides board */
+		status = serlink_setup_multides(client, arg);
 	break;
 
 	case SER_READ:
@@ -437,6 +469,7 @@ static int serlink_remove(struct i2c_client *client)
 
 static const struct of_device_id serlink_dt_ids[] = {
 	{.compatible = "ti,ds90uh925q", },
+	{.compatible = "ti,ds90ub913aq", },
 	{ }
 };
 
