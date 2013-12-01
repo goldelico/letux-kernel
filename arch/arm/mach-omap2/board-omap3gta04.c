@@ -777,10 +777,6 @@ static struct platform_device antenna_extcon_dev = {
 	.dev.platform_data = &antenna_extcon_data,
 };
 
-static struct twl4030_usb_data gta04_usb_data = {
-	.usb_mode	= T2_USB_MODE_ULPI,
-};
-
 static struct twl4030_codec_data omap3_codec;
 
 static struct twl4030_vibra_data gta04_vibra_data = {
@@ -844,7 +840,6 @@ static struct twl4030_platform_data gta04_twldata = {
 	.gpio		= &gta04_gpio_data,
 	.madc		= &gta04_madc_data,
 	.power		= &gta04_power_scripts,	/* empty but if not present, pm_power_off is not initialized */
-	.usb		= &gta04_usb_data,
 	.audio		= &omap3_audio_pdata,
 	.clock		= &gta04_clock,
 
