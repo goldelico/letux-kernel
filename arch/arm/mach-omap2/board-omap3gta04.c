@@ -1667,7 +1667,7 @@ static void __init gta04_init(void)
 
 	pwm_add_table(board_pwm_lookup, ARRAY_SIZE(board_pwm_lookup));
 
-	usb_bind_phy("musb-hdrc.1.auto", 0, "twl4030_usb");
+	usb_bind_phy("musb-hdrc.0.auto", 0, "twl4030_usb");
 	usb_musb_init(NULL);
 
 	usbhs_init_phys(phy_data, ARRAY_SIZE(phy_data));
