@@ -269,6 +269,11 @@ static struct platform_device pwm_device = {
 	.dev.platform_data = &pwm_pdata,
 };
 
+/* Dummy regulator for pwm-backlight driver */
+static struct regulator_consumer_supply backlight_supply =
+       REGULATOR_SUPPLY("power", "pwm-backlight");
+
+
 static struct platform_pwm_backlight_data pwm_backlight = {
 	.pwm_id		= 0,
 	.max_brightness = 100,
@@ -1593,6 +1598,8 @@ static void __init gta04_init(void)
 	if(gta04_panel == &gta04_panel_spi)
 		spi_register_board_info(spi_board_info, ARRAY_SIZE(spi_board_info));
 	platform_device_register(gta04_panel);
+
+	regulator_register_always_on(-1, "bl-enable", &backlight_supply, 1, 0);
 
 	platform_add_devices(gta04_devices,
 			     ARRAY_SIZE(gta04_devices));
