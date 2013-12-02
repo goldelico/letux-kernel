@@ -1595,9 +1595,12 @@ static void __init gta04_init(void)
 	omap_mux_init_gpio(WO3G_GPIO, OMAP_PIN_INPUT | OMAP_WAKEUP_EN);
 	gpio_3G_buttons[0].gpio = WO3G_GPIO;
 
-	if(gta04_panel == &gta04_panel_spi)
+	if(gta04_panel == &gta04_panel_spi) {
+		/* register spi gpio bitbang and spi panel */
+		platform_device_register(&gta04_panel_spi);
 		spi_register_board_info(spi_board_info, ARRAY_SIZE(spi_board_info));
-	platform_device_register(gta04_panel);
+	} else
+		platform_device_register(gta04_panel);
 
 	regulator_register_always_on(-1, "bl-enable", &backlight_supply, 1, 0);
 
