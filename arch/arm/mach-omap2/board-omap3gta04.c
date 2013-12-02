@@ -95,6 +95,7 @@
 #include "board-flash.h"
 #include "common-board-devices.h"
 #include "control.h"
+#include "gpmc-nand.h"
 
 #if CONFIG_TOUCHSCREEN_TSC2007_GTA04
 #define CONFIG_TOUCHSCREEN_TSC2007
@@ -252,6 +253,14 @@ static struct mtd_partition gta04_nand_partitions[] = {
 		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x680000 */
 		.size		= MTDPART_SIZ_FULL,
 	},
+};
+
+static struct omap_nand_platform_data gta04_nand_data = {
+	.cs		= 0,
+	.devsize	= NAND_BUSWIDTH_16,
+	.parts		= gta04_nand_partitions,
+	.ecc_opt	= OMAP_ECC_BCH8_CODE_HW_DETECTION_SW,
+	.nr_parts	= ARRAY_SIZE(gta04_nand_partitions),
 };
 
 static struct omap_pwm_pdata pwm_pdata = {
@@ -1664,9 +1673,7 @@ static void __init gta04_init(void)
 	usbhs_init_phys(phy_data, ARRAY_SIZE(phy_data));
 	usbhs_init(&usbhs_bdata);
 
-	board_nand_init(gta04_nand_partitions,
-			ARRAY_SIZE(gta04_nand_partitions), 0,
-			NAND_BUSWIDTH_16, NULL);
+	gpmc_nand_init(&gta04_nand_data, NULL);
 
 	/* Ensure SDRC pins are mux'd for self-refresh */
 	omap_mux_init_signal("sdrc_cke0", OMAP_PIN_OUTPUT);
