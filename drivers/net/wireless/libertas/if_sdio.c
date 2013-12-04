@@ -1350,7 +1350,7 @@ static int if_sdio_suspend(struct device *dev)
 	/* If we're powered off anyway, just let the mmc layer remove the
 	 * card. */
 	if (!lbs_iface_active(card->priv))
-		return -ENOSYS;
+		return 0/*-ENOSYS*/;
 
 	dev_info(dev, "%s: suspend: PM flags = 0x%x\n",
 		 sdio_func_id(func), flags);
@@ -1360,13 +1360,13 @@ static int if_sdio_suspend(struct device *dev)
 	 */
 	if (card->priv->wol_criteria == EHS_REMOVE_WAKEUP) {
 		dev_info(dev, "Suspend without wake params -- powering down card\n");
-		return -ENOSYS;
+		return 0/*-ENOSYS*/;
 	}
 
 	if (!(flags & MMC_PM_KEEP_POWER)) {
 		dev_err(dev, "%s: cannot remain alive while host is suspended\n",
 			sdio_func_id(func));
-		return -ENOSYS;
+		return 0/*-ENOSYS*/;
 	}
 
 	ret = sdio_set_host_pm_flags(func, MMC_PM_KEEP_POWER);
