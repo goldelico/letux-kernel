@@ -57,6 +57,8 @@ struct omap_rproc_pdata {
 	struct omap_rproc_timers_info *timers;
 	u32 timers_cnt;
 	u32 late_attach;
+	struct rproc_mem_entry *carveouts;
+	u32 carveouts_cnt;
 
 	int (*device_enable) (struct platform_device *pdev);
 	int (*device_shutdown) (struct platform_device *pdev);
