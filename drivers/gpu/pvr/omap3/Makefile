@@ -8,6 +8,7 @@ DATE := $(shell date "+%Y%m%d%H%M%S" )
 
 ccflags-y = \
 	-Iinclude \
+	-Iarch/arm/mach-omap2 \
 	-Idrivers/video/omap2 \
 	-Idrivers/gpu/pvr/omap3/ \
 	-Idrivers/gpu/pvr/omap3/include4 \
@@ -224,6 +225,7 @@ drm-y :=  \
 	../../drm/drm_memory.o \
 	../../drm/drm_stub.o \
 	../../drm/drm_vm.o \
+	../../drm/drm_vma_manager.o \
 	../../drm/drm_agpsupport.o \
 	../../drm/drm_scatter.o \
 	../../drm/drm_pci.o \
