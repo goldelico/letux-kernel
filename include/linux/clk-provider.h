@@ -322,10 +322,32 @@ struct clk_divider {
 	spinlock_t	*lock;
 };
 
+/**
+ * struct clk_divider_desc - init descriptor for divider clock
+ * @desc:	handle between common and hardware-specific interfaces
+ * @reg:	register containing the divider
+ * @shift:	shift to the divider bit field
+ * @width:	width of the divider bit field
+ * @table:	array of value/divider pairs, last entry should have div = 0
+ * @lock:	register lock
+ */
+struct clk_divider_desc {
+	struct clk_desc	desc;
+	void __iomem	*reg;
+	u8		shift;
+	u8		width;
+	u8		flags;
+	const struct clk_div_table	*table;
+	spinlock_t	*lock;
+};
+
 #define CLK_DIVIDER_ONE_BASED		BIT(0)
 #define CLK_DIVIDER_POWER_OF_TWO	BIT(1)
 #define CLK_DIVIDER_ALLOW_ZERO		BIT(2)
 #define CLK_DIVIDER_HIWORD_MASK		BIT(3)
+
+struct clk_hw *clk_register_divider_desc(struct device *dev,
+					 struct clk_desc *desc);
 
 extern const struct clk_ops clk_divider_ops;
 struct clk *clk_register_divider(struct device *dev, const char *name,
