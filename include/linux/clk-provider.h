@@ -218,6 +218,21 @@ struct clk_fixed_rate {
 	u8		flags;
 };
 
+/**
+ * struct clk_fixed_rate_desc - fixed-rate clock description
+ * @desc:	handle between common and hardware-specific interfaces
+ * @fixed_rate: constant frequency of clock
+ * @flags:	hardware-specific flags
+ */
+struct clk_fixed_rate_desc {
+	struct clk_desc	desc;
+	unsigned long	fixed_rate;
+	u8		flags;
+};
+
+struct clk_hw *clk_register_fixed_rate_desc(struct device *dev,
+					    struct clk_desc *desc);
+
 extern const struct clk_ops clk_fixed_rate_ops;
 struct clk *clk_register_fixed_rate(struct device *dev, const char *name,
 		const char *parent_name, unsigned long flags,
