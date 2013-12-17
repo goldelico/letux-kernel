@@ -2359,6 +2359,17 @@ static void dwc3_gadget_linksts_change_interrupt(struct dwc3 *dwc,
 	 * STAR#9000446952: RTL: Device SS : if U1/U2 ->U0 takes >128us
 	 * core send LGO_Ux entering U0
 	 */
+	if (next == DWC3_LINK_STATE_U3 &&
+		dwc->link_state == DWC3_LINK_STATE_RX_DET) {
+		if (dwc->gadget_driver) {
+			if (dwc->gadget_driver->suspend && dwc->gadget_loaded
+				&& dwc->drd_state) {
+				dev_vdbg(dwc->dev, "gadget: bus suspended");
+				dwc->gadget_driver->suspend(&dwc->gadget);
+			}
+		}
+	}
+
 	if (dwc->revision < DWC3_REVISION_183A) {
 		if (next == DWC3_LINK_STATE_U0) {
 			u32	u1u2;
