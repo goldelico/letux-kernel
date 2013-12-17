@@ -1905,6 +1905,77 @@ fail_out:
 EXPORT_SYMBOL_GPL(clk_register);
 
 /**
+ * clk_register_desc - register a new clock from its description
+ * @dev: device that is registering this clock
+ * @desc: description of the clock, may be __initdata or otherwise discarded
+ *
+ * clk_register_desc is the primary interface for populating the clock tree
+ * with new clock nodes. In time it will replace the various hardware-specific
+ * registration functions (e.g. clk_register_gate). clk_register_desc returns a
+ * pointer to the newly allocated struct clk which is an opaque cookie. Drivers
+ * must not dereference it except to check with IS_ERR.
+ */
+struct clk *clk_register_desc(struct device *dev, struct clk_desc *desc)
+{
+	int ret, i;
+	struct clk *clk;
+
+	clk = kzalloc(sizeof(*clk), GFP_KERNEL);
+
+	if (!clk)
+		return ERR_PTR(-ENOMEM);
+
+	clk->hw = desc->register_func(dev, desc);
+	clk->hw->clk = clk;
+
+	/* _clk_register */
+	clk->name = kstrdup(desc->name, GFP_KERNEL);
+	if (!clk->name) {
+		ret = -ENOMEM;
+		goto fail_name;
+	}
+
+	clk->ops = desc->ops;
+	clk->flags = desc->flags;
+	clk->num_parents = desc->num_parents;
+
+	/* allocate local copy in case parent_names is __initdata */
+	clk->parent_names = kcalloc(clk->num_parents, sizeof(char *),
+				    GFP_KERNEL);
+
+	if (!clk->parent_names) {
+		ret = -ENOMEM;
+		goto fail_parent_names;
+	}
+
+	/* copy each string name in case parent_names is __initdata */
+	for (i = 0; i < clk->num_parents; i++) {
+		clk->parent_names[i] = kstrdup(desc->parent_names[i],
+					       GFP_KERNEL);
+
+		if (!clk->parent_names[i]) {
+			ret = -ENOMEM;
+			goto fail_parent_names_copy;
+		}
+	}
+
+	ret = __clk_init(dev, clk);
+
+	if (!ret)
+		return clk;
+
+fail_parent_names_copy:
+	while (--i >= 0)
+		kfree(clk->parent_names[i]);
+	kfree(clk->parent_names);
+fail_parent_names:
+	kfree(clk->name);
+fail_name:
+	kfree(clk);
+	return ERR_PTR(ret);
+}
+
+/**
  * clk_unregister - unregister a currently registered clock
  * @clk: clock to unregister
  *

@@ -161,6 +161,27 @@ struct clk_init_data {
 };
 
 /**
+ * struct clk_desc - clock init descriptor for providing init time parameters
+ * for a clock.
+ * @name: clock name
+ * @ops: clock ops
+ * @parent_names: array of string names for all possible parents
+ * @num_parents: number of possible parents
+ * @flags: framework-level hints and quirks
+ * @register_func: function for parsing the clock descriptor and providing
+ *		   ready-to-register clk_hw
+ */
+struct clk_desc {
+	const char		*name;
+	const struct clk_ops	*ops;
+	const char		**parent_names;
+	u8			num_parents;
+	unsigned long		flags;
+	struct clk_hw *(*register_func)(struct device *dev,
+					struct clk_desc *desc);
+};
+
+/**
  * struct clk_hw - handle for traversing from a struct clk to its corresponding
  * hardware-specific structure.  struct clk_hw should be declared within struct
  * clk_foo and then referenced by the struct clk instance that uses struct
@@ -419,6 +440,7 @@ struct clk *clk_register_composite(struct device *dev, const char *name,
  * error code; drivers must test for an error code after calling clk_register.
  */
 struct clk *clk_register(struct device *dev, struct clk_hw *hw);
+struct clk *clk_register_desc(struct device *dev, struct clk_desc *desc);
 struct clk *devm_clk_register(struct device *dev, struct clk_hw *hw);
 
 void clk_unregister(struct clk *clk);
