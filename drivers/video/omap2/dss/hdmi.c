@@ -2107,7 +2107,7 @@ void sel_i2c(void)
 	 * CM_L4PER2_MCASP8_CLKCTRL[1:0]: 0x2 - Enable explicitly
 	 */
 	__raw_writel(0x400002, clk_base + 0x890);
-	DSSINFO("%s: CM_L4PER2_CLKSTCTRL 0x%8x\n",
+	DSSDBG("%s: CM_L4PER2_CLKSTCTRL 0x%8x\n",
 		__func__, __raw_readl(clk_base + 0x8fc));
 
 	/* drive MCASP8_PDOUT to low to select I2C2*/
