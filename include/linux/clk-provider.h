@@ -391,6 +391,25 @@ struct clk_mux {
 	spinlock_t	*lock;
 };
 
+/**
+ * struct clk_mux_desc - init descriptor for multiplexer clock
+ * @desc:	handle between common and hardware-specific interfaces
+ * @reg:	register controlling multiplexer
+ * @shift:	shift to multiplexer bit field
+ * @width:	width of multiplexer bit field
+ * @flags:	hardware-specific flags
+ * @lock:	register lock
+ */
+struct clk_mux_desc {
+	struct clk_desc	desc;
+	void __iomem	*reg;
+	u32		*table;
+	u32		mask;
+	u8		shift;
+	u8		flags;
+	spinlock_t	*lock;
+};
+
 #define CLK_MUX_INDEX_ONE		BIT(0)
 #define CLK_MUX_INDEX_BIT		BIT(1)
 #define CLK_MUX_HIWORD_MASK		BIT(2)
@@ -399,6 +418,7 @@ struct clk_mux {
 extern const struct clk_ops clk_mux_ops;
 extern const struct clk_ops clk_mux_ro_ops;
 
+struct clk_hw *clk_register_mux_desc(struct device *dev, struct clk_desc *desc);
 struct clk *clk_register_mux(struct device *dev, const char *name,
 		const char **parent_names, u8 num_parents, unsigned long flags,
 		void __iomem *reg, u8 shift, u8 width,
