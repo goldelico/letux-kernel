@@ -204,6 +204,7 @@ static int palmas_enable_irq(struct palmas_usb *palmas_usb)
 
 	ret = palmas_vbus_wakeup_irq(palmas_usb->irq4, palmas_usb);
 
+	msleep(30);
 	if (palmas_usb->linkstat == OMAP_DWC3_UNKNOWN)
 		ret = palmas_id_wakeup_irq(palmas_usb->irq2, palmas_usb);
 
