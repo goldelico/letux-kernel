@@ -46,7 +46,12 @@ static u8 clk_mux_get_parent(struct clk_hw *hw)
 	 * OTOH, pmd_trace_clk_mux_ck uses a separate bit for each clock, so
 	 * val = 0x4 really means "bit 2, index starts at bit 0"
 	 */
-	val = clk_readl(mux->reg) >> mux->shift;
+	if (mux->ll_ops)
+		val = mux->ll_ops->clk_readl(mux->reg);
+	else
+		val = clk_readl(mux->reg);
+
+	val >>= mux->shift;
 	val &= mux->mask;
 
 	if (mux->table) {
@@ -93,11 +98,19 @@ static int clk_mux_set_parent(struct clk_hw *hw, u8 index)
 	if (mux->flags & CLK_MUX_HIWORD_MASK) {
 		val = mux->mask << (mux->shift + 16);
 	} else {
-		val = clk_readl(mux->reg);
+		if (mux->ll_ops)
+			val = mux->ll_ops->clk_readl(mux->reg);
+		else
+			val = clk_readl(mux->reg);
+
 		val &= ~(mux->mask << mux->shift);
 	}
 	val |= index << mux->shift;
-	clk_writel(val, mux->reg);
+
+	if (mux->ll_ops)
+		mux->ll_ops->clk_writel(val, mux->reg);
+	else
+		clk_writel(val, mux->reg);
 
 	if (mux->lock)
 		spin_unlock_irqrestore(mux->lock, flags);
@@ -159,6 +172,7 @@ struct clk *clk_register_mux_table(struct device *dev, const char *name,
 	mux->lock = lock;
 	mux->table = table;
 	mux->hw.init = &init;
+	mux->ll_ops = &clk_ll_ops_default;
 
 	clk = clk_register(dev, &mux->hw);
 
@@ -201,6 +215,10 @@ struct clk_hw *clk_register_mux_desc(struct device *dev, struct clk_desc *desc)
 	mux->shift = hw_desc->shift;
 	mux->flags = hw_desc->flags;
 	mux->lock = hw_desc->lock;
+	mux->ll_ops = hw_desc->ll_ops;
+
+	if (!mux->ll_ops)
+		mux->ll_ops = &clk_ll_ops_default;
 
 	if (!desc->ops) {
 		if (mux->flags & CLK_MUX_READ_ONLY)
