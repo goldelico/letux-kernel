@@ -26,7 +26,11 @@
  * parent - fixed parent.  No clk_set_parent support
  */
 
+/* resolve struct clk_gate from inner struct clk_hw member */
 #define to_clk_gate(_hw) container_of(_hw, struct clk_gate, hw)
+
+/* resolve struct clk_gate_desc from inner struct clk_desc member */
+#define to_hw_desc(_desc) container_of(_desc, struct clk_gate_desc, desc)
 
 /*
  * It works on following logic:
@@ -162,3 +166,30 @@ struct clk *clk_register_gate(struct device *dev, const char *name,
 	return clk;
 }
 EXPORT_SYMBOL_GPL(clk_register_gate);
+
+struct clk_hw *clk_register_gate_desc(struct device *dev, struct clk_desc *desc)
+{
+	struct clk_gate *gate;
+	struct clk_gate_desc *hw_desc;
+
+	hw_desc = to_hw_desc(desc);
+
+	/* allocate mux clock */
+	gate = kzalloc(sizeof(*gate), GFP_KERNEL);
+	if (!gate)
+		return ERR_PTR(-ENOMEM);
+
+	/* populate struct clk_gate assignments */
+	gate->reg = hw_desc->reg;
+	gate->bit_idx = hw_desc->bit_idx;
+	gate->flags = hw_desc->flags;
+	gate->lock = hw_desc->lock;
+
+	if (!desc->ops)
+		desc->ops = &clk_gate_ops;
+
+	desc->flags |= CLK_IS_BASIC;
+
+	return &gate->hw;
+}
+EXPORT_SYMBOL_GPL(clk_register_gate_desc);

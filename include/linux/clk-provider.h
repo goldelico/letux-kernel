@@ -268,10 +268,28 @@ struct clk_gate {
 	spinlock_t	*lock;
 };
 
+/**
+ * struct clk_gate_desc - init descriptor for gating clock
+ * @desc:	handle between common and hardware-specific interfaces
+ * @reg:	register controlling gate
+ * @bit_idx:	single bit controlling gate
+ * @flags:	hardware-specific flags
+ * @lock:	register lock
+ */
+struct clk_gate_desc {
+	struct clk_desc	desc;
+	void __iomem	*reg;
+	u8		bit_idx;
+	u8		flags;
+	spinlock_t	*lock;
+};
+
 #define CLK_GATE_SET_TO_DISABLE		BIT(0)
 #define CLK_GATE_HIWORD_MASK		BIT(1)
 
 extern const struct clk_ops clk_gate_ops;
+struct clk_hw *clk_register_gate_desc(struct device *dev,
+				      struct clk_desc *desc);
 struct clk *clk_register_gate(struct device *dev, const char *name,
 		const char *parent_name, unsigned long flags,
 		void __iomem *reg, u8 bit_idx,
