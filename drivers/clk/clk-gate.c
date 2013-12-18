@@ -62,7 +62,10 @@ static void clk_gate_endisable(struct clk_hw *hw, int enable)
 		if (set)
 			reg |= BIT(gate->bit_idx);
 	} else {
-		reg = clk_readl(gate->reg);
+		if (gate->ll_ops)
+			reg = gate->ll_ops->clk_readl(gate->reg);
+		else
+			reg = clk_readl(gate->reg);
 
 		if (set)
 			reg |= BIT(gate->bit_idx);
@@ -70,7 +73,10 @@ static void clk_gate_endisable(struct clk_hw *hw, int enable)
 			reg &= ~BIT(gate->bit_idx);
 	}
 
-	clk_writel(reg, gate->reg);
+	if (gate->ll_ops)
+		gate->ll_ops->clk_writel(reg, gate->reg);
+	else
+		clk_writel(reg, gate->reg);
 
 	if (gate->lock)
 		spin_unlock_irqrestore(gate->lock, flags);
@@ -93,7 +99,10 @@ static int clk_gate_is_enabled(struct clk_hw *hw)
 	u32 reg;
 	struct clk_gate *gate = to_clk_gate(hw);
 
-	reg = clk_readl(gate->reg);
+	if (gate->ll_ops)
+		reg = gate->ll_ops->clk_readl(gate->reg);
+	else
+		reg = clk_readl(gate->reg);
 
 	/* if a set bit disables this clk, flip it before masking */
 	if (gate->flags & CLK_GATE_SET_TO_DISABLE)
@@ -157,6 +166,7 @@ struct clk *clk_register_gate(struct device *dev, const char *name,
 	gate->flags = clk_gate_flags;
 	gate->lock = lock;
 	gate->hw.init = &init;
+	gate->ll_ops = &clk_ll_ops_default;
 
 	clk = clk_register(dev, &gate->hw);
 
@@ -184,6 +194,10 @@ struct clk_hw *clk_register_gate_desc(struct device *dev, struct clk_desc *desc)
 	gate->bit_idx = hw_desc->bit_idx;
 	gate->flags = hw_desc->flags;
 	gate->lock = hw_desc->lock;
+	gate->ll_ops = hw_desc->ll_ops;
+
+	if (!gate->ll_ops)
+		gate->ll_ops = &clk_ll_ops_default;
 
 	if (!desc->ops)
 		desc->ops = &clk_gate_ops;

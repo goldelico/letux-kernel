@@ -262,6 +262,7 @@ void of_fixed_clk_setup(struct device_node *np);
  *
  * @hw:		handle between common and hardware-specific interfaces
  * @reg:	register controlling gate
+ * @ll_ops:	low-level ops for accessing the register
  * @bit_idx:	single bit controlling gate
  * @flags:	hardware-specific flags
  * @lock:	register lock
@@ -280,6 +281,7 @@ void of_fixed_clk_setup(struct device_node *np);
 struct clk_gate {
 	struct clk_hw hw;
 	void __iomem	*reg;
+	struct clk_ll_ops	*ll_ops;
 	u8		bit_idx;
 	u8		flags;
 	spinlock_t	*lock;
@@ -289,6 +291,7 @@ struct clk_gate {
  * struct clk_gate_desc - init descriptor for gating clock
  * @desc:	handle between common and hardware-specific interfaces
  * @reg:	register controlling gate
+ * @ll_ops:	low-level ops for accessing the register
  * @bit_idx:	single bit controlling gate
  * @flags:	hardware-specific flags
  * @lock:	register lock
@@ -296,6 +299,7 @@ struct clk_gate {
 struct clk_gate_desc {
 	struct clk_desc	desc;
 	void __iomem	*reg;
+	struct clk_ll_ops	*ll_ops;
 	u8		bit_idx;
 	u8		flags;
 	spinlock_t	*lock;
