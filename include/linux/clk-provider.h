@@ -322,6 +322,7 @@ struct clk_div_table {
  *
  * @hw:		handle between common and hardware-specific interfaces
  * @reg:	register containing the divider
+ * @ll_ops:	low-level ops for accessing the register
  * @shift:	shift to the divider bit field
  * @width:	width of the divider bit field
  * @table:	array of value/divider pairs, last entry should have div = 0
@@ -350,6 +351,7 @@ struct clk_div_table {
 struct clk_divider {
 	struct clk_hw	hw;
 	void __iomem	*reg;
+	struct clk_ll_ops	*ll_ops;
 	u8		shift;
 	u8		width;
 	u8		flags;
@@ -361,6 +363,7 @@ struct clk_divider {
  * struct clk_divider_desc - init descriptor for divider clock
  * @desc:	handle between common and hardware-specific interfaces
  * @reg:	register containing the divider
+ * @ll_ops:	low-level ops for accessing the register
  * @shift:	shift to the divider bit field
  * @width:	width of the divider bit field
  * @table:	array of value/divider pairs, last entry should have div = 0
@@ -369,6 +372,7 @@ struct clk_divider {
 struct clk_divider_desc {
 	struct clk_desc	desc;
 	void __iomem	*reg;
+	struct clk_ll_ops	*ll_ops;
 	u8		shift;
 	u8		width;
 	u8		flags;
