@@ -609,7 +609,7 @@ EXPORT_SYMBOL(tiler_get_fmt);
 
 void tilview_create(struct tiler_view_t *view, u32 phys, u32 width, u32 height)
 {
-	enum tiler_fmt fmt = TILER_FMT(view->tsptr);
+	enum tiler_fmt fmt = TILER_FMT(phys);
 	BUG_ON(!is_tiler_addr(phys));
 
 	view->tsptr = phys & ~MASK_VIEW;
