@@ -1379,12 +1379,6 @@ static struct platform_device keys_3G_gpio = {
 	},
 };
 
-static void __init gta04_init_early(void)
-{
-// 	printk("Doing gta04_init_early()\n");
-	omap3_init_early();
-}
-
 #if defined(CONFIG_REGULATOR_VIRTUAL_CONSUMER)
 
 static struct platform_device gta04_vaux1_virtual_regulator_device = {
@@ -1816,12 +1810,4 @@ static int __init gta04_init_mux(char *str)
 __setup("mux=", gta04_init_mux);
 
 /* see http://elinux.org/images/4/48/Experiences_With_Device_Tree_Support_Development_For_ARM-Based_SOC's.pdf */
-
-static char const *gta04_dt_compat[] __initdata = {
-	"goldelico,gta04",
-	// FIXME: do we still need this?
-	"goldelico,gta04b2",
-	"goldelico,gta04b3",
-	NULL
-};
 
