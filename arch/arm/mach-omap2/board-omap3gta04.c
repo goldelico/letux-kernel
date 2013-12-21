@@ -1592,7 +1592,7 @@ void __init gta04_init(void)
 	gta04_i2c_init();
 	
 	regulator_has_full_constraints/*_listed*/(/*all_reg_data*/);
-	gta04_serial_init();
+	//gta04_serial_init();
 	omap_sdrc_init(mt46h32m32lf6_sdrc_params,
 		       mt46h32m32lf6_sdrc_params);
 
