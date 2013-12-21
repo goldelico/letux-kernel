@@ -34,6 +34,7 @@
 #include <linux/pm_opp.h>
 #include <linux/cpu.h>
 #include <linux/spi/spi_gpio.h>
+#include <linux/spi/spi.h>
 
 #include <linux/usb/phy.h>
 
@@ -1571,7 +1572,7 @@ static int __init gta04_opp_init(void)
 }
 device_initcall(gta04_opp_init);
 
-static void __init gta04_init(void)
+void __init gta04_init(void)
 {
 	int i;
 	printk("running gta04_init()\n");
@@ -1824,17 +1825,3 @@ static char const *gta04_dt_compat[] __initdata = {
 	NULL
 };
 
-MACHINE_START(GTA04, "GTA04")
-	/* Maintainer: Nikolaus Schaller - http://www.gta04.org */
-	.atag_offset	=	0x100,
-	.reserve	=	omap_reserve,
-	.map_io		=	omap3_map_io,
-	.init_irq	=	omap3_init_irq,
-	.handle_irq	=	omap3_intc_handle_irq,
-	.init_early	=	gta04_init_early,
-	.init_machine	=	gta04_init,
-	.init_late	=	gta04_init_late,
-	.init_time	=	omap3_secure_sync32k_timer_init,
-	.restart	=	omap3xxx_restart,
-	.dt_compat	=	gta04_dt_compat,
-MACHINE_END
