@@ -36,6 +36,10 @@ static struct of_device_id omap_dt_match_table[] __initdata = {
 static void __init omap_generic_init(void)
 {
 	pdata_quirks_init(omap_dt_match_table);
+
+	if (of_machine_is_compatible("ti,omap3-gta04")) {
+		gta04_init();
+	}
 }
 
 #ifdef CONFIG_SOC_OMAP2420
