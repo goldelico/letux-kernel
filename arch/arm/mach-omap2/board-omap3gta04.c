@@ -988,7 +988,7 @@ struct bmp085_platform_data __initdata bmp085_info = {
 void tca6507_setup(unsigned gpio_base, unsigned ngpio)
 {
 	// do it as early as we have the reset wire fo the WiFi chip
-	omap_hsmmc_late_init(mmc);
+	//omap_hsmmc_late_init(mmc);
 }
 
 static struct led_info tca6507_leds[] = {
@@ -1569,6 +1569,7 @@ device_initcall(gta04_opp_init);
 void __init gta04_init(void)
 {
 	int i;
+
 	printk("running gta04_init()\n");
 	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);
 	gta04_init_rev();
@@ -1589,7 +1590,7 @@ void __init gta04_init(void)
 #ifdef CONFIG_KEYBOARD_TCA8418
 	tca8418_init();
 #endif
-	gta04_i2c_init();
+	//gta04_i2c_init();
 	
 	regulator_has_full_constraints/*_listed*/(/*all_reg_data*/);
 	//gta04_serial_init();
@@ -1613,7 +1614,7 @@ void __init gta04_init(void)
 
 	omap_display_init(&gta04_dss_data);
 
-	omap_hsmmc_init(mmc);
+	//omap_hsmmc_init(mmc);
 
 // #ifdef CONFIG_OMAP_MUX
 
@@ -1662,11 +1663,11 @@ void __init gta04_init(void)
 
 	pwm_add_table(board_pwm_lookup, ARRAY_SIZE(board_pwm_lookup));
 
-	usb_bind_phy("musb-hdrc.0.auto", 0, "twl4030_usb");
-	usb_musb_init(NULL);
+	//usb_bind_phy("musb-hdrc.0.auto", 0, "twl4030_usb");
+	//usb_musb_init(NULL);
 
-	usbhs_init_phys(phy_data, ARRAY_SIZE(phy_data));
-	usbhs_init(&usbhs_bdata);
+	//usbhs_init_phys(phy_data, ARRAY_SIZE(phy_data));
+	//usbhs_init(&usbhs_bdata);
 
 	gpmc_nand_init(&gta04_nand_data, NULL);
 
