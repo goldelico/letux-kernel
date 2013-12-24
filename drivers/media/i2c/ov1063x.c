@@ -1002,12 +1002,19 @@ static int ov1063x_get_pclk(int xvclk, int *htsmin, int *vtsmin,
 static int ov1063x_set_regs(struct i2c_client *client,
 	const struct ov1063x_reg *regs, int nr_regs)
 {
+	struct ov1063x_priv *priv = to_ov1063x(client);
 	int i, ret;
+	u8 val;
 
 	for (i = 0; i < nr_regs; i++) {
 		if (regs[i].reg == 0x300c) {
-			ret = ov1063x_reg_write(client, regs[i].reg,
-					((client->addr * 2) | 0x1));
+			if (priv->sensor_connector == BASE_LI ||
+				priv->sensor_connector == VIS_LI)
+				val = ((client->addr * 2) | 0x1);
+			else
+				val = 0x61;
+
+			ret = ov1063x_reg_write(client, regs[i].reg, val);
 			if (ret)
 				return ret;
 		} else {
