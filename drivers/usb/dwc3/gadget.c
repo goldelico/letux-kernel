@@ -810,8 +810,7 @@ static void dwc3_prepare_one_trb(struct dwc3_ep *dep,
 		if (chain)
 			trb->ctrl |= DWC3_TRB_CTRL_CHN;
 
-		if (last)
-			trb->ctrl |= DWC3_TRB_CTRL_LST;
+		trb->ctrl |= DWC3_TRB_CTRL_LST;
 	}
 
 	if (usb_endpoint_xfer_bulk(dep->endpoint.desc) && dep->stream_capable)
