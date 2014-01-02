@@ -2874,7 +2874,7 @@ module_param_named(mirror, def_mirror, bool, 0);
 /* late_initcall to let panel/ctrl drivers loaded first.
  * I guess better option would be a more dynamic approach,
  * so that omapfb reacts to new panels when they are loaded */
-late_initcall(omapfb_init);
+module_init(omapfb_init);
 /*module_init(omapfb_init);*/
 module_exit(omapfb_exit);
 
