@@ -420,6 +420,28 @@ int vpdma_submit_descs(struct vpdma_data *vpdma, struct vpdma_desc_list *list)
 }
 EXPORT_SYMBOL(vpdma_submit_descs);
 
+void vpdma_update_dma_addr(struct vpdma_data *vpdma,
+		struct vpdma_desc_list *list, dma_addr_t dma_addr, int drop)
+{
+	struct vpdma_dtd *dtd = list->buf.addr;
+	unsigned int write_desc_addr;
+
+	vpdma_buf_unmap(vpdma, &list->buf);
+
+	dtd_set_start_addr(dtd, dma_addr);
+
+	if (drop) {
+		write_desc_addr = virt_to_phys(
+			(struct vpdma_dtd *)list->buf.dma_addr + 2);
+
+		dtd_set_desc_write_addr(dtd, write_desc_addr, 1, 1, 0);
+	} else
+		dtd_set_desc_write_addr(dtd, 0, 0, 0, 0);
+
+	vpdma_buf_map(vpdma, &list->buf);
+}
+EXPORT_SYMBOL(vpdma_update_dma_addr);
+
 void vpdma_vip_set_max_size(struct vpdma_data *vpdma, int vip_num)
 {
 	u32 val = 0;
