@@ -64,6 +64,8 @@ struct vip_srce_info {
 	u8	vb_part;	/* identifies section of co-planar formats */
 };
 
+#define VIP_VPDMA_FIFO_SIZE	2
+
 /*
  * Define indices into the srce_info tables
  */
@@ -673,9 +675,8 @@ static int add_out_dtd(struct vip_stream *stream, int srce_type)
 /*
  * add_stream_dtds - prepares and starts DMA for pending transfers
  */
-static void add_vb_dtds(struct vb2_buffer *vb)
+static void add_stream_dtds(struct vip_stream *stream)
 {
-	struct vip_stream *stream = vb2_get_drv_priv(vb->vb2_queue);
 	struct vip_port *port = stream->port;
 	int srce_type;
 
@@ -710,81 +711,98 @@ static void disable_irqs(struct vip_dev *dev)
 	vpdma_enable_list_complete_irq(dev->shared->vpdma, 0, false);
 }
 
+static void populate_desc_list(struct vip_stream *stream)
+{
+	struct vip_port *port = stream->port;
+	struct vip_dev *dev = port->dev;
+	unsigned int list_length;
+
+	dev->desc_next = dev->desc_list.buf.addr;
+	add_stream_dtds(stream);
+
+	list_length = dev->desc_next - dev->desc_list.buf.addr;
+	vpdma_buf_map(dev->shared->vpdma, &dev->desc_list.buf);
+}
+
 /*
  * start_dma - adds descriptors to the dma list and submits them.
  * Should be called after a new vb is queued and on a vpdma list
  * completion interrupt.
  */
-static void start_dma(struct vip_dev *dev)
+static void start_dma(struct vip_dev *dev, struct vip_buffer *buf)
 {
 	struct vpdma_data *vpdma = dev->shared->vpdma;
-	struct vip_buffer *buf;
-	unsigned int list_length;
-	unsigned long flags;
+	dma_addr_t dma_addr;
+	int drop_data;
 
-	spin_lock_irqsave(&dev->slock, flags);
-	if (list_empty(&dev->vip_bufs) || vpdma_list_busy(vpdma, 0)) {
-		spin_unlock_irqrestore(&dev->slock, flags);
+	if (vpdma_list_busy(vpdma, 0)) {
+		v4l2_err(&dev->v4l2_dev, "vpdma list busy, cannot post");
 		return;				/* nothing to do */
 	}
 
-	dev->desc_next = dev->desc_list.buf.addr;
-
-	for (;;) {
-		buf = list_entry(dev->vip_bufs.next, struct vip_buffer, list);
-		list_del(&buf->list);
-		spin_unlock_irqrestore(&dev->slock, flags);
-		add_vb_dtds(&buf->vb);
-		if (list_empty(&dev->vip_bufs)) {
-			break;
-		}
-		spin_lock_irqsave(&dev->slock, flags);
+	if (buf) {
+		dma_addr = vb2_dma_contig_plane_dma_addr(&buf->vb, 0);
+		drop_data = 0;
+	} else {
+		dma_addr = NULL;
+		drop_data = 1;
 	}
-
-	list_length = dev->desc_next - dev->desc_list.buf.addr;
-
-	vpdma_add_sync_on_channel_ctd(&dev->desc_list, VIP1_CHAN_NUM_PORT_B_LUMA);
 
 	enable_irqs(dev);
 
-	vpdma_buf_map(dev->shared->vpdma, &dev->desc_list.buf);
-
+	vpdma_update_dma_addr(dev->shared->vpdma, &dev->desc_list,
+				dma_addr, drop_data);
 	vpdma_submit_descs(dev->shared->vpdma, &dev->desc_list);
 }
 
-static void vip_active_buf_next(struct vb2_buffer *vb)
+static void vip_active_buf_next(struct vip_stream *stream)
 {
-	struct vip_stream *stream = vb2_get_drv_priv(vb->vb2_queue);
 	struct vip_dev *dev = stream->port->dev;
-
+	struct vip_buffer *buf;
 	unsigned long flags;
 
 	spin_lock_irqsave(&dev->slock, flags);
 	if (list_empty(&stream->vidq)) {
 		spin_unlock(&dev->slock);
+		v4l2_err(&dev->v4l2_dev, "%s No buffers to queue, dropping frame, Queue faster or increase no of buffers");
 		return;
 	}
-	stream->cur_buf = list_first_entry(&stream->vidq,
-					struct vip_buffer,
-					list);
+
 	spin_unlock_irqrestore(&dev->slock, flags);
 	if (vb2_is_streaming(&stream->vb_vidq)) {
-		list_move_tail(&stream->cur_buf->list, &dev->vip_bufs);
-		start_dma(dev);
+		spin_lock_irqsave(&dev->slock, flags);
+		buf = list_entry(stream->vidq.next,
+				struct vip_buffer, list);
+		list_move_tail(&buf->list, &dev->vip_bufs);
+		spin_unlock_irqrestore(&dev->slock, flags);
+		start_dma(dev, buf);
 	}
+
+	if (list_empty(&dev->vip_bufs))
+		stream->cur_buf = NULL;
+	else
+		stream->cur_buf = list_first_entry(&dev->vip_bufs,
+				struct vip_buffer, list);
 }
 
 static void vip_process_buffer_complete(struct vip_stream *stream)
 {
-	struct vb2_buffer *vb = &stream->cur_buf->vb;
+	struct vip_dev *dev = stream->port->dev;
+	struct vb2_buffer *vb = NULL;
+	unsigned long flags;
 
-	if (!stream->cur_buf && !vb)
-		return;
-	do_gettimeofday(&stream->cur_buf->vb.v4l2_buf.timestamp);
-	vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
-	dma_addr_global_complete = dma_addr_global;
-	stream->cur_buf = NULL;
-	vip_active_buf_next(vb);
+	if (stream->cur_buf) {
+		vb = &stream->cur_buf->vb;
+		do_gettimeofday(&vb->v4l2_buf.timestamp);
+
+		spin_lock_irqsave(&dev->slock, flags);
+		list_del(&stream->cur_buf->list);
+		spin_unlock_irqrestore(&dev->slock, flags);
+
+		vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
+	}
+
+	vip_active_buf_next(stream);
 }
 
 static irqreturn_t vip_irq(int irq_vip, void *data)
@@ -809,11 +827,12 @@ static irqreturn_t vip_irq(int irq_vip, void *data)
 		irqst0 &= ~(VIP_INT0_LIST0_COMPLETE);
 	}
 
-	disable_irqs(dev);
+	if (dev->num_skip_irq) {
+		dev->num_skip_irq--;
+		return IRQ_HANDLED;
+	}
 
-	vpdma_buf_unmap(dev->shared->vpdma, &dev->desc_list.buf);
-
-	vpdma_reset_desc_list(&dev->desc_list);
+	/* disable_irqs(dev); */
 
 	vip_process_buffer_complete(dev->ports[0]->cap_streams[0]);
 
@@ -1384,19 +1403,11 @@ static void vip_buf_queue(struct vb2_buffer *vb)
 	struct vip_stream *stream = vb2_get_drv_priv(vb->vb2_queue);
 	struct vip_dev *dev = stream->port->dev;
 	struct vip_buffer *buf = container_of(vb, struct vip_buffer, vb);
+	unsigned long flags;
 
-	spin_lock(&dev->lock);
+	spin_lock_irqsave(&dev->slock, flags);
 	list_add_tail(&buf->list, &stream->vidq);
-	if (!stream->cur_buf) {
-		stream->cur_buf = list_first_entry(&stream->vidq,
-							struct vip_buffer,
-							list);
-		if (vb2_is_streaming(&stream->vb_vidq)) {
-			list_move_tail(&stream->cur_buf->list, &dev->vip_bufs);
-			start_dma(dev);
-		}
-	}
-	spin_unlock(&dev->lock);
+	spin_unlock_irqrestore(&dev->slock, flags);
 }
 
 static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
@@ -1404,23 +1415,44 @@ static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
 	struct vip_stream *stream = vb2_get_drv_priv(vq);
 	struct vip_port *port = stream->port;
 	struct vip_dev *dev = port->dev;
-	unsigned long flags;
+	struct vip_buffer *buf;
+	unsigned long flags, i;
 
-	if (list_empty(&stream->vidq)) {
-		vip_dprintk(dev, "buffer queue is empty\n");
+	if (count <= VIP_VPDMA_FIFO_SIZE) {
+		vip_dprintk(dev, "Less buffers queued, at least %d needed\n",
+				VIP_VPDMA_FIFO_SIZE + 1);
 		return -EIO;
 	}
 
-	stream->cur_buf = list_entry(stream->vidq.next, struct vip_buffer,
-				     list);
-	spin_lock_irqsave(&dev->slock, flags);
-	list_move_tail(&stream->cur_buf->list, &dev->vip_bufs);
+	stream->cur_buf = list_entry(stream->vidq.next,
+				struct vip_buffer, list);
 	stream->cur_buf->vb.state = VB2_BUF_STATE_ACTIVE;
 	stream->field = V4L2_FIELD_TOP;
-	spin_unlock_irqrestore(&dev->slock, flags);
 
-	if (count)
-		start_dma(dev);
+	populate_desc_list(stream);
+	dev->num_skip_irq = VIP_VPDMA_FIFO_SIZE;
+
+	for (i = 0; i < count; i++) {
+
+		spin_lock_irqsave(&dev->slock, flags);
+		if (!vpdma_list_busy(dev->shared->vpdma, 0)) {
+
+			buf = list_entry(stream->vidq.next,
+					struct vip_buffer, list);
+			list_move_tail(&buf->list, &dev->vip_bufs);
+			spin_unlock_irqrestore(&dev->slock, flags);
+
+			if (!stream->cur_buf)
+				stream->cur_buf = buf;
+			start_dma(dev, buf);
+
+			if (i == VIP_VPDMA_FIFO_SIZE)
+				break;
+			while (vpdma_list_busy(dev->shared->vpdma, 0))
+				;
+		} else
+			spin_unlock_irqrestore(&dev->slock, flags);
+	}
 
 	return 0;
 }
@@ -1438,13 +1470,21 @@ static int vip_stop_streaming(struct vb2_queue *vq)
 	if (!vb2_is_streaming(vq))
 		return 0;
 
+	vpdma_buf_unmap(dev->shared->vpdma, &dev->desc_list.buf);
+	vpdma_reset_desc_list(&dev->desc_list);
+
+	disable_irqs(dev);
 	/* release all active buffers */
+	while (!list_empty(&dev->vip_bufs)) {
+		buf = list_entry(dev->vip_bufs.next, struct vip_buffer, list);
+		list_del(&buf->list);
+		vb2_buffer_done(&buf->vb, VB2_BUF_STATE_ERROR);
+	}
 	while (!list_empty(&stream->vidq)) {
 		buf = list_entry(stream->vidq.next, struct vip_buffer, list);
 		list_del(&buf->list);
 		vb2_buffer_done(&buf->vb, VB2_BUF_STATE_ERROR);
 	}
-	disable_irqs(dev);
 	return 0;
 }
 
@@ -1500,7 +1540,6 @@ done:
 
 static void vip_release_dev(struct vip_dev *dev)
 {
-	vpdma_buf_unmap(dev->shared->vpdma, &dev->desc_list.buf);
 	vpdma_buf_free(&dev->desc_list.buf);
 	vpdma_free_desc_list(&dev->desc_list);
 
