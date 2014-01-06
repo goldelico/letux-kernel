@@ -697,7 +697,7 @@ static const struct ov1063x_reg ov1063x_regs_default[] = {
 		 * 0x6706[3:0] :: 8 = 24MHz
 		 * 0x6706[3:0] :: 9 = 27MHz
 		 */
-		{0x6706, 0x71},
+		{0x6706, 0x78},
 		{0x6708, 0x5},
 		{0x3822, 0x50},
 		{0x6f06, 0x6f},
@@ -1105,6 +1105,10 @@ static int ov1063x_set_params(struct i2c_client *client, u32 *width,
 	dev_dbg(&client->dev, "pclk=%d, hts=%d, vts=%d\n", pclk, hts, vts);
 	dev_dbg(&client->dev, "r3003=0x%X r3004=0x%X\n", r3003, r3004);
 
+	r3003 = 0x20;
+	r3004 = 0x3;
+	dev_err(&client->dev, "r3003 = %x , r3004 = %x\n", r3003, r3004);
+
 	/* Disable ISP & program all registers that we might modify */
 	ret = ov1063x_set_regs(client, ov1063x_regs_change_mode,
 		ARRAY_SIZE(ov1063x_regs_change_mode));
@@ -1190,6 +1194,8 @@ static int ov1063x_set_params(struct i2c_client *client, u32 *width,
 	if (ret)
 		return ret;
 
+	dev_err(&client->dev, "width x height = %x x %x\n",
+			priv->width, priv->height);
 	/* Output size */
 	ret = ov1063x_reg_write16(client, 0x3808, priv->width);
 	if (ret)
@@ -1197,6 +1203,10 @@ static int ov1063x_set_params(struct i2c_client *client, u32 *width,
 	ret = ov1063x_reg_write16(client, 0x380a, priv->height);
 	if (ret)
 		return ret;
+
+	hts = 0x6f6;
+	vts = 0x380;
+	dev_err(&client->dev, "hts x vts = %x x %x\n", hts, vts);
 
 	ret = ov1063x_reg_write16(client, 0x380c, hts);
 	if (ret)
