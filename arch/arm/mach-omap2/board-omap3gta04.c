@@ -98,7 +98,7 @@
 #include "control.h"
 #include "gpmc-nand.h"
 
-#if CONFIG_TOUCHSCREEN_TSC2007_GTA04
+#ifdef CONFIG_TOUCHSCREEN_TSC2007_GTA04
 #define CONFIG_TOUCHSCREEN_TSC2007
 #endif
 
@@ -299,6 +299,7 @@ static struct platform_device backlight_device = {
 	.id = -1,
 };
 
+#ifdef CONFIG_SND_OMAP_SOC_GTA04
 extern int gta04_jack_probe(struct snd_soc_codec *codec);
 extern void gta04_jack_remove(struct snd_soc_codec *codec);
 static struct omap_tw4030_pdata audio_pdata = {
@@ -326,6 +327,7 @@ static struct platform_device twl4030_audio_device = {
 	},
 	.id = -1,
 };
+#endif
 
 static struct spi_gpio_platform_data gta04_panel_spi_gpio_data = {
 	.sck    = 12,
@@ -1400,7 +1402,9 @@ static struct platform_device twl4030_madc_hwmon = {
 static struct platform_device *gta04_devices[] __initdata = {
 	&pwm_device,
 	&backlight_device,
+#ifdef CONFIG_SND_OMAP_SOC_GTA04
 	&twl4030_audio_device,
+#endif
 //	&leds_gpio,
 	&keys_gpio,
 	&keys_3G_gpio,
@@ -1709,7 +1713,7 @@ void __init gta04_init(void)
 static void __init gta04_init_late(void)
 {
 	omap3630_init_late();
-#if OFF_MODE_IS_STABLE
+#ifdef OFF_MODE_IS_STABLE
 	omap_pm_enable_off_mode();
 	omap3_pm_off_mode_enable(1);
 #endif
@@ -1739,30 +1743,46 @@ static int __init gta04_init_mux(char *str)
 
 	if(strcmp(gta04_bymux, "GTA04") == 0 || strcmp(gta04_bymux, "GTA04A2") == 0 || strcmp(gta04_bymux, "GTA04A3+") == 0) {
 		// configure for TPO display (2804) - also the default (could have been called GTA04B1)
+#ifdef CONFIG_TOUCHSCREEN_TSC2007
 		tsc2007_info.x_plate_ohms = 550;			// GTA04: 250 - 900
+#endif
+#ifdef CONFIG_LEDS_TCA6507
 		tca6507_info.leds.leds = tca6507_leds;
+#endif
 		gta04_panel = &gta04_panel_spi;	/* use SPI based driver */
 	}
 	else if(strcmp(gta04_bymux, "GTA04B2") == 0 || strcmp(gta04_bymux, "GTA04B6") == 0) {
 		// configure for Ortus display (3704)
 		gta04_battery_data.capacity = 3900000;
+#ifdef CONFIG_TOUCHSCREEN_TSC2007
 		tsc2007_info.x_plate_ohms = 600;		// GTA04b2: 200 - 900
+#endif
+#ifdef CONFIG_LEDS_TCA6507
 		tca6507_info.leds.leds = tca6507_leds_b2;
+#endif
 		gta04_panel = &gta04b2_lcd_device;
 		// FIXME: configure RFID driver
 	}
 	else if(strcmp(gta04_bymux, "GTA04B3") == 0) {
 		// configure for 7" Sharp display (7004)
 		gta04_battery_data.capacity = 3900000;
+#ifdef CONFIG_TOUCHSCREEN_TSC2007
 		tsc2007_info.x_plate_ohms = 450;			// GTA04b3: 100 - 900
 		tsc2007_info.swap_xy = 1,	/* x and y axes are swapped */
+#endif
+#ifdef CONFIG_LEDS_TCA6507
 		tca6507_info.leds.leds = tca6507_leds_b3;
+#endif
 		gta04_panel = &gta04b3_lcd_device;
 	}
 	else if(strcmp(gta04_bymux, "GTA04B4") == 0) {
 		// configure for 5" Sharp display (5004)
+#ifdef CONFIG_TOUCHSCREEN_TSC2007
 		tsc2007_info.x_plate_ohms = 400;			// GTA04b4: 100 - 850 (very asymmetric between X and Y!)
+#endif
+#ifdef CONFIG_LEDS_TCA6507
 		// FIXME: configure display and LEDs
+#endif
 	}
 	/*
 	 else if(strcmp(gta04_bymux, "GTA04B5") == 0) {
