@@ -569,8 +569,9 @@ static int omap_mcbsp_dai_set_tristate(struct snd_soc_dai *dai,
 	
 	/* should check for errors */
 	
+#ifdef FIXME	// this is not available for kernel modules!!!
 	omap_mux_set_gpio((tristate ? OMAP_MUX_MODE7 : (mode | OMAP_PIN_OUTPUT)), gpio);
-	
+#endif	
 	return 0;
 }
 
