@@ -27,7 +27,11 @@
  * parent - parent is adjustable through clk_set_parent
  */
 
+/* resolve struct clk_mux from inner struct clk_hw member */
 #define to_clk_mux(_hw) container_of(_hw, struct clk_mux, hw)
+
+/* resolve struct clk_mux_desc from inner struct clk_desc member */
+#define to_hw_desc(_desc) container_of(_desc, struct clk_mux_desc, desc)
 
 static u8 clk_mux_get_parent(struct clk_hw *hw)
 {
@@ -42,7 +46,12 @@ static u8 clk_mux_get_parent(struct clk_hw *hw)
 	 * OTOH, pmd_trace_clk_mux_ck uses a separate bit for each clock, so
 	 * val = 0x4 really means "bit 2, index starts at bit 0"
 	 */
-	val = clk_readl(mux->reg) >> mux->shift;
+	if (mux->ll_ops)
+		val = mux->ll_ops->clk_readl(mux->reg);
+	else
+		val = clk_readl(mux->reg);
+
+	val >>= mux->shift;
 	val &= mux->mask;
 
 	if (mux->table) {
@@ -89,11 +98,19 @@ static int clk_mux_set_parent(struct clk_hw *hw, u8 index)
 	if (mux->flags & CLK_MUX_HIWORD_MASK) {
 		val = mux->mask << (mux->shift + 16);
 	} else {
-		val = clk_readl(mux->reg);
+		if (mux->ll_ops)
+			val = mux->ll_ops->clk_readl(mux->reg);
+		else
+			val = clk_readl(mux->reg);
+
 		val &= ~(mux->mask << mux->shift);
 	}
 	val |= index << mux->shift;
-	clk_writel(val, mux->reg);
+
+	if (mux->ll_ops)
+		mux->ll_ops->clk_writel(val, mux->reg);
+	else
+		clk_writel(val, mux->reg);
 
 	if (mux->lock)
 		spin_unlock_irqrestore(mux->lock, flags);
@@ -155,6 +172,7 @@ struct clk *clk_register_mux_table(struct device *dev, const char *name,
 	mux->lock = lock;
 	mux->table = table;
 	mux->hw.init = &init;
+	mux->ll_ops = &clk_ll_ops_default;
 
 	clk = clk_register(dev, &mux->hw);
 
@@ -177,3 +195,40 @@ struct clk *clk_register_mux(struct device *dev, const char *name,
 				      NULL, lock);
 }
 EXPORT_SYMBOL_GPL(clk_register_mux);
+
+struct clk_hw *clk_register_mux_desc(struct device *dev, struct clk_desc *desc)
+{
+	struct clk_mux *mux;
+	struct clk_mux_desc *hw_desc;
+
+	hw_desc = to_hw_desc(desc);
+
+	/* allocate mux clock */
+	mux = kzalloc(sizeof(*mux), GFP_KERNEL);
+	if (!mux)
+		return ERR_PTR(-ENOMEM);
+
+	/* populate struct clk_mux assignments */
+	mux->reg = hw_desc->reg;
+	mux->table = hw_desc->table;
+	mux->mask = hw_desc->mask;
+	mux->shift = hw_desc->shift;
+	mux->flags = hw_desc->flags;
+	mux->lock = hw_desc->lock;
+	mux->ll_ops = hw_desc->ll_ops;
+
+	if (!mux->ll_ops)
+		mux->ll_ops = &clk_ll_ops_default;
+
+	if (!desc->ops) {
+		if (mux->flags & CLK_MUX_READ_ONLY)
+			desc->ops = &clk_mux_ro_ops;
+		else
+			desc->ops = &clk_mux_ops;
+	}
+
+	desc->flags |= CLK_IS_BASIC;
+
+	return &mux->hw;
+}
+EXPORT_SYMBOL_GPL(clk_register_mux_desc);

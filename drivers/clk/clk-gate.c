@@ -26,7 +26,11 @@
  * parent - fixed parent.  No clk_set_parent support
  */
 
+/* resolve struct clk_gate from inner struct clk_hw member */
 #define to_clk_gate(_hw) container_of(_hw, struct clk_gate, hw)
+
+/* resolve struct clk_gate_desc from inner struct clk_desc member */
+#define to_hw_desc(_desc) container_of(_desc, struct clk_gate_desc, desc)
 
 /*
  * It works on following logic:
@@ -58,7 +62,10 @@ static void clk_gate_endisable(struct clk_hw *hw, int enable)
 		if (set)
 			reg |= BIT(gate->bit_idx);
 	} else {
-		reg = clk_readl(gate->reg);
+		if (gate->ll_ops)
+			reg = gate->ll_ops->clk_readl(gate->reg);
+		else
+			reg = clk_readl(gate->reg);
 
 		if (set)
 			reg |= BIT(gate->bit_idx);
@@ -66,7 +73,10 @@ static void clk_gate_endisable(struct clk_hw *hw, int enable)
 			reg &= ~BIT(gate->bit_idx);
 	}
 
-	clk_writel(reg, gate->reg);
+	if (gate->ll_ops)
+		gate->ll_ops->clk_writel(reg, gate->reg);
+	else
+		clk_writel(reg, gate->reg);
 
 	if (gate->lock)
 		spin_unlock_irqrestore(gate->lock, flags);
@@ -89,7 +99,10 @@ static int clk_gate_is_enabled(struct clk_hw *hw)
 	u32 reg;
 	struct clk_gate *gate = to_clk_gate(hw);
 
-	reg = clk_readl(gate->reg);
+	if (gate->ll_ops)
+		reg = gate->ll_ops->clk_readl(gate->reg);
+	else
+		reg = clk_readl(gate->reg);
 
 	/* if a set bit disables this clk, flip it before masking */
 	if (gate->flags & CLK_GATE_SET_TO_DISABLE)
@@ -153,6 +166,7 @@ struct clk *clk_register_gate(struct device *dev, const char *name,
 	gate->flags = clk_gate_flags;
 	gate->lock = lock;
 	gate->hw.init = &init;
+	gate->ll_ops = &clk_ll_ops_default;
 
 	clk = clk_register(dev, &gate->hw);
 
@@ -162,3 +176,34 @@ struct clk *clk_register_gate(struct device *dev, const char *name,
 	return clk;
 }
 EXPORT_SYMBOL_GPL(clk_register_gate);
+
+struct clk_hw *clk_register_gate_desc(struct device *dev, struct clk_desc *desc)
+{
+	struct clk_gate *gate;
+	struct clk_gate_desc *hw_desc;
+
+	hw_desc = to_hw_desc(desc);
+
+	/* allocate mux clock */
+	gate = kzalloc(sizeof(*gate), GFP_KERNEL);
+	if (!gate)
+		return ERR_PTR(-ENOMEM);
+
+	/* populate struct clk_gate assignments */
+	gate->reg = hw_desc->reg;
+	gate->bit_idx = hw_desc->bit_idx;
+	gate->flags = hw_desc->flags;
+	gate->lock = hw_desc->lock;
+	gate->ll_ops = hw_desc->ll_ops;
+
+	if (!gate->ll_ops)
+		gate->ll_ops = &clk_ll_ops_default;
+
+	if (!desc->ops)
+		desc->ops = &clk_gate_ops;
+
+	desc->flags |= CLK_IS_BASIC;
+
+	return &gate->hw;
+}
+EXPORT_SYMBOL_GPL(clk_register_gate_desc);

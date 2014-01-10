@@ -305,7 +305,7 @@ struct omap_hwmod;
 extern int omap_dss_reset(struct omap_hwmod *);
 
 /* SoC specific clock initializer */
-extern int (*omap_clk_init)(void);
+int omap_clk_init(void);
 
 extern void __init gta04_init(void);
 

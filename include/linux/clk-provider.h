@@ -161,6 +161,27 @@ struct clk_init_data {
 };
 
 /**
+ * struct clk_desc - clock init descriptor for providing init time parameters
+ * for a clock.
+ * @name: clock name
+ * @ops: clock ops
+ * @parent_names: array of string names for all possible parents
+ * @num_parents: number of possible parents
+ * @flags: framework-level hints and quirks
+ * @register_func: function for parsing the clock descriptor and providing
+ *		   ready-to-register clk_hw
+ */
+struct clk_desc {
+	const char		*name;
+	const struct clk_ops	*ops;
+	const char		**parent_names;
+	u8			num_parents;
+	unsigned long		flags;
+	struct clk_hw *(*register_func)(struct device *dev,
+					struct clk_desc *desc);
+};
+
+/**
  * struct clk_hw - handle for traversing from a struct clk to its corresponding
  * hardware-specific structure.  struct clk_hw should be declared within struct
  * clk_foo and then referenced by the struct clk instance that uses struct
@@ -176,6 +197,23 @@ struct clk_hw {
 	struct clk *clk;
 	const struct clk_init_data *init;
 };
+
+/**
+ * struct clk_ll_ops - low-level register access ops for a clock
+ * @clk_readl: pointer to register read function
+ * @clk_writel: pointer to register write function
+ *
+ * Low-level register access ops are generally used by the basic clock types
+ * (clk-gate, clk-mux, clk-divider etc.) to provide support for various
+ * low-level hardware interfaces (direct MMIO, regmap etc.), but can also be
+ * used by other hardware-specific clock drivers if needed.
+ */
+struct clk_ll_ops {
+	u32	(*clk_readl)(void __iomem *reg);
+	void	(*clk_writel)(u32 val, void __iomem *reg);
+};
+
+extern struct clk_ll_ops clk_ll_ops_default;
 
 /*
  * DOC: Basic clock implementations common to many platforms
@@ -197,6 +235,21 @@ struct clk_fixed_rate {
 	u8		flags;
 };
 
+/**
+ * struct clk_fixed_rate_desc - fixed-rate clock description
+ * @desc:	handle between common and hardware-specific interfaces
+ * @fixed_rate: constant frequency of clock
+ * @flags:	hardware-specific flags
+ */
+struct clk_fixed_rate_desc {
+	struct clk_desc	desc;
+	unsigned long	fixed_rate;
+	u8		flags;
+};
+
+struct clk_hw *clk_register_fixed_rate_desc(struct device *dev,
+					    struct clk_desc *desc);
+
 extern const struct clk_ops clk_fixed_rate_ops;
 struct clk *clk_register_fixed_rate(struct device *dev, const char *name,
 		const char *parent_name, unsigned long flags,
@@ -209,6 +262,7 @@ void of_fixed_clk_setup(struct device_node *np);
  *
  * @hw:		handle between common and hardware-specific interfaces
  * @reg:	register controlling gate
+ * @ll_ops:	low-level ops for accessing the register
  * @bit_idx:	single bit controlling gate
  * @flags:	hardware-specific flags
  * @lock:	register lock
@@ -227,6 +281,25 @@ void of_fixed_clk_setup(struct device_node *np);
 struct clk_gate {
 	struct clk_hw hw;
 	void __iomem	*reg;
+	struct clk_ll_ops	*ll_ops;
+	u8		bit_idx;
+	u8		flags;
+	spinlock_t	*lock;
+};
+
+/**
+ * struct clk_gate_desc - init descriptor for gating clock
+ * @desc:	handle between common and hardware-specific interfaces
+ * @reg:	register controlling gate
+ * @ll_ops:	low-level ops for accessing the register
+ * @bit_idx:	single bit controlling gate
+ * @flags:	hardware-specific flags
+ * @lock:	register lock
+ */
+struct clk_gate_desc {
+	struct clk_desc	desc;
+	void __iomem	*reg;
+	struct clk_ll_ops	*ll_ops;
 	u8		bit_idx;
 	u8		flags;
 	spinlock_t	*lock;
@@ -236,6 +309,8 @@ struct clk_gate {
 #define CLK_GATE_HIWORD_MASK		BIT(1)
 
 extern const struct clk_ops clk_gate_ops;
+struct clk_hw *clk_register_gate_desc(struct device *dev,
+				      struct clk_desc *desc);
 struct clk *clk_register_gate(struct device *dev, const char *name,
 		const char *parent_name, unsigned long flags,
 		void __iomem *reg, u8 bit_idx,
@@ -251,6 +326,7 @@ struct clk_div_table {
  *
  * @hw:		handle between common and hardware-specific interfaces
  * @reg:	register containing the divider
+ * @ll_ops:	low-level ops for accessing the register
  * @shift:	shift to the divider bit field
  * @width:	width of the divider bit field
  * @table:	array of value/divider pairs, last entry should have div = 0
@@ -279,6 +355,28 @@ struct clk_div_table {
 struct clk_divider {
 	struct clk_hw	hw;
 	void __iomem	*reg;
+	struct clk_ll_ops	*ll_ops;
+	u8		shift;
+	u8		width;
+	u8		flags;
+	const struct clk_div_table	*table;
+	spinlock_t	*lock;
+};
+
+/**
+ * struct clk_divider_desc - init descriptor for divider clock
+ * @desc:	handle between common and hardware-specific interfaces
+ * @reg:	register containing the divider
+ * @ll_ops:	low-level ops for accessing the register
+ * @shift:	shift to the divider bit field
+ * @width:	width of the divider bit field
+ * @table:	array of value/divider pairs, last entry should have div = 0
+ * @lock:	register lock
+ */
+struct clk_divider_desc {
+	struct clk_desc	desc;
+	void __iomem	*reg;
+	struct clk_ll_ops	*ll_ops;
 	u8		shift;
 	u8		width;
 	u8		flags;
@@ -290,6 +388,9 @@ struct clk_divider {
 #define CLK_DIVIDER_POWER_OF_TWO	BIT(1)
 #define CLK_DIVIDER_ALLOW_ZERO		BIT(2)
 #define CLK_DIVIDER_HIWORD_MASK		BIT(3)
+
+struct clk_hw *clk_register_divider_desc(struct device *dev,
+					 struct clk_desc *desc);
 
 extern const struct clk_ops clk_divider_ops;
 struct clk *clk_register_divider(struct device *dev, const char *name,
@@ -307,6 +408,7 @@ struct clk *clk_register_divider_table(struct device *dev, const char *name,
  *
  * @hw:		handle between common and hardware-specific interfaces
  * @reg:	register controlling multiplexer
+ * @ll_ops:	low-level ops for accessing the register
  * @shift:	shift to multiplexer bit field
  * @width:	width of mutliplexer bit field
  * @flags:	hardware-specific flags
@@ -326,6 +428,28 @@ struct clk *clk_register_divider_table(struct device *dev, const char *name,
 struct clk_mux {
 	struct clk_hw	hw;
 	void __iomem	*reg;
+	struct clk_ll_ops	*ll_ops;
+	u32		*table;
+	u32		mask;
+	u8		shift;
+	u8		flags;
+	spinlock_t	*lock;
+};
+
+/**
+ * struct clk_mux_desc - init descriptor for multiplexer clock
+ * @desc:	handle between common and hardware-specific interfaces
+ * @reg:	register controlling multiplexer
+ * @ll_ops:	low-level ops for accesing the register
+ * @shift:	shift to multiplexer bit field
+ * @width:	width of multiplexer bit field
+ * @flags:	hardware-specific flags
+ * @lock:	register lock
+ */
+struct clk_mux_desc {
+	struct clk_desc	desc;
+	void __iomem	*reg;
+	struct clk_ll_ops	*ll_ops;
 	u32		*table;
 	u32		mask;
 	u8		shift;
@@ -341,6 +465,7 @@ struct clk_mux {
 extern const struct clk_ops clk_mux_ops;
 extern const struct clk_ops clk_mux_ro_ops;
 
+struct clk_hw *clk_register_mux_desc(struct device *dev, struct clk_desc *desc);
 struct clk *clk_register_mux(struct device *dev, const char *name,
 		const char **parent_names, u8 num_parents, unsigned long flags,
 		void __iomem *reg, u8 shift, u8 width,
@@ -419,6 +544,7 @@ struct clk *clk_register_composite(struct device *dev, const char *name,
  * error code; drivers must test for an error code after calling clk_register.
  */
 struct clk *clk_register(struct device *dev, struct clk_hw *hw);
+struct clk *clk_register_desc(struct device *dev, struct clk_desc *desc);
 struct clk *devm_clk_register(struct device *dev, struct clk_hw *hw);
 
 void clk_unregister(struct clk *clk);
@@ -457,6 +583,8 @@ struct clk_onecell_data {
 	struct clk **clks;
 	unsigned int clk_num;
 };
+
+extern struct of_device_id __clk_of_table;
 
 #define CLK_OF_DECLARE(name, compat, fn)			\
 	static const struct of_device_id __clk_of_table_##name	\

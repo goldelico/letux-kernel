@@ -34,6 +34,34 @@ static HLIST_HEAD(clk_root_list);
 static HLIST_HEAD(clk_orphan_list);
 static LIST_HEAD(clk_notifier_list);
 
+/**
+ * clk_readl_default - default clock register read support function
+ * @reg: register to read
+ *
+ * Default implementation for reading a clock register.
+ */
+static u32 clk_readl_default(void __iomem *reg)
+{
+	return readl(reg);
+}
+
+/**
+ * clk_writel_default - default clock register write support function
+ * @val: value to write
+ * @reg: register to write to
+ *
+ * Default implementation for writing a clock register.
+ */
+static void clk_writel_default(u32 val, void __iomem *reg)
+{
+	writel(val, reg);
+}
+
+struct clk_ll_ops clk_ll_ops_default = {
+	.clk_readl = clk_readl_default,
+	.clk_writel = clk_writel_default
+};
+
 /***           locking             ***/
 static void clk_prepare_lock(void)
 {
@@ -1905,6 +1933,77 @@ fail_out:
 EXPORT_SYMBOL_GPL(clk_register);
 
 /**
+ * clk_register_desc - register a new clock from its description
+ * @dev: device that is registering this clock
+ * @desc: description of the clock, may be __initdata or otherwise discarded
+ *
+ * clk_register_desc is the primary interface for populating the clock tree
+ * with new clock nodes. In time it will replace the various hardware-specific
+ * registration functions (e.g. clk_register_gate). clk_register_desc returns a
+ * pointer to the newly allocated struct clk which is an opaque cookie. Drivers
+ * must not dereference it except to check with IS_ERR.
+ */
+struct clk *clk_register_desc(struct device *dev, struct clk_desc *desc)
+{
+	int ret, i;
+	struct clk *clk;
+
+	clk = kzalloc(sizeof(*clk), GFP_KERNEL);
+
+	if (!clk)
+		return ERR_PTR(-ENOMEM);
+
+	clk->hw = desc->register_func(dev, desc);
+	clk->hw->clk = clk;
+
+	/* _clk_register */
+	clk->name = kstrdup(desc->name, GFP_KERNEL);
+	if (!clk->name) {
+		ret = -ENOMEM;
+		goto fail_name;
+	}
+
+	clk->ops = desc->ops;
+	clk->flags = desc->flags;
+	clk->num_parents = desc->num_parents;
+
+	/* allocate local copy in case parent_names is __initdata */
+	clk->parent_names = kcalloc(clk->num_parents, sizeof(char *),
+				    GFP_KERNEL);
+
+	if (!clk->parent_names) {
+		ret = -ENOMEM;
+		goto fail_parent_names;
+	}
+
+	/* copy each string name in case parent_names is __initdata */
+	for (i = 0; i < clk->num_parents; i++) {
+		clk->parent_names[i] = kstrdup(desc->parent_names[i],
+					       GFP_KERNEL);
+
+		if (!clk->parent_names[i]) {
+			ret = -ENOMEM;
+			goto fail_parent_names_copy;
+		}
+	}
+
+	ret = __clk_init(dev, clk);
+
+	if (!ret)
+		return clk;
+
+fail_parent_names_copy:
+	while (--i >= 0)
+		kfree(clk->parent_names[i]);
+	kfree(clk->parent_names);
+fail_parent_names:
+	kfree(clk->name);
+fail_name:
+	kfree(clk);
+	return ERR_PTR(ret);
+}
+
+/**
  * clk_unregister - unregister a currently registered clock
  * @clk: clock to unregister
  *
@@ -2104,8 +2203,6 @@ struct of_clk_provider {
 	void *data;
 };
 
-extern struct of_device_id __clk_of_table[];
-
 static const struct of_device_id __clk_of_table_sentinel
 	__used __section(__clk_of_table_end);
 
@@ -2245,7 +2342,7 @@ void __init of_clk_init(const struct of_device_id *matches)
 	struct device_node *np;
 
 	if (!matches)
-		matches = __clk_of_table;
+		matches = &__clk_of_table;
 
 	for_each_matching_node_and_match(np, matches, &match) {
 		of_clk_init_cb_t clk_init_cb = match->data;

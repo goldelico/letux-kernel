@@ -28,7 +28,11 @@
  * parent - fixed parent.  No clk_set_parent support
  */
 
+/* resolve struct clk_divider from inner struct clk_hw member */
 #define to_clk_divider(_hw) container_of(_hw, struct clk_divider, hw)
+
+/* resolve struct clk_divider_desc from inner struct clk_desc member */
+#define to_hw_desc(_desc) container_of(_desc, struct clk_divider_desc, desc)
 
 #define div_mask(d)	((1 << ((d)->width)) - 1)
 
@@ -104,7 +108,12 @@ static unsigned long clk_divider_recalc_rate(struct clk_hw *hw,
 	struct clk_divider *divider = to_clk_divider(hw);
 	unsigned int div, val;
 
-	val = clk_readl(divider->reg) >> divider->shift;
+	if (divider->ll_ops)
+		val = divider->ll_ops->clk_readl(divider->reg);
+	else
+		val = clk_readl(divider->reg);
+
+	val >>= divider->shift;
 	val &= div_mask(divider);
 
 	div = _get_div(divider, val);
@@ -230,11 +239,17 @@ static int clk_divider_set_rate(struct clk_hw *hw, unsigned long rate,
 	if (divider->flags & CLK_DIVIDER_HIWORD_MASK) {
 		val = div_mask(divider) << (divider->shift + 16);
 	} else {
-		val = clk_readl(divider->reg);
+		if (divider->ll_ops)
+			val = divider->ll_ops->clk_readl(divider->reg);
+		else
+			val = clk_readl(divider->reg);
 		val &= ~(div_mask(divider) << divider->shift);
 	}
 	val |= value << divider->shift;
-	clk_writel(val, divider->reg);
+	if (divider->ll_ops)
+		divider->ll_ops->clk_writel(val, divider->reg);
+	else
+		clk_writel(val, divider->reg);
 
 	if (divider->lock)
 		spin_unlock_irqrestore(divider->lock, flags);
@@ -287,6 +302,7 @@ static struct clk *_register_divider(struct device *dev, const char *name,
 	div->lock = lock;
 	div->hw.init = &init;
 	div->table = table;
+	div->ll_ops = &clk_ll_ops_default;
 
 	/* register the clock */
 	clk = clk_register(dev, &div->hw);
@@ -343,3 +359,37 @@ struct clk *clk_register_divider_table(struct device *dev, const char *name,
 			width, clk_divider_flags, table, lock);
 }
 EXPORT_SYMBOL_GPL(clk_register_divider_table);
+
+struct clk_hw *clk_register_divider_desc(struct device *dev,
+					 struct clk_desc *desc)
+{
+	struct clk_divider *divider;
+	struct clk_divider_desc *hw_desc;
+
+	hw_desc = to_hw_desc(desc);
+
+	/* allocate divider clock */
+	divider = kzalloc(sizeof(*divider), GFP_KERNEL);
+	if (!divider)
+		return ERR_PTR(-ENOMEM);
+
+	/* populate struct clk_divider assignments */
+	divider->reg = hw_desc->reg;
+	divider->shift = hw_desc->shift;
+	divider->width = hw_desc->width;
+	divider->flags = hw_desc->flags;
+	divider->table = hw_desc->table;
+	divider->lock = hw_desc->lock;
+	divider->ll_ops = hw_desc->ll_ops;
+
+	if (!divider->ll_ops)
+		divider->ll_ops = &clk_ll_ops_default;
+
+	if (!desc->ops)
+		desc->ops = &clk_divider_ops;
+
+	desc->flags |= CLK_IS_BASIC;
+
+	return &divider->hw;
+}
+EXPORT_SYMBOL_GPL(clk_register_divider_desc);
