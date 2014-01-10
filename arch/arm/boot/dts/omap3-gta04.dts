@@ -110,6 +110,12 @@
 			regulator-max-microvolt = <3150000>;
 		};
 	};
+
+	/* compass aka magnetometer */
+	hmc5843@1e {
+		compatible = "honeywell,hmc5843";
+		reg = <0x1e>;
+	};
 };
 
 #include "twl4030.dtsi"
