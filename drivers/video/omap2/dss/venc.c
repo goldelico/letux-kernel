@@ -459,8 +459,8 @@ static int venc_power_on(struct omap_dss_device *dssdev)
 	venc_write_reg(VENC_OUTPUT_CONTROL, l);
 
 	/* apply bypass and acbias */
+#ifdef FIXME
 	l = tvout_read();
-
 	if (venc.bypass == true)
 		l |= 1 << 18;
 
@@ -468,6 +468,7 @@ static int venc_power_on(struct omap_dss_device *dssdev)
 		l |= 1 << 11;
 
 	tvout_write(l);
+#endif
 
 	dss_mgr_set_timings(mgr, &venc.timings);
 
@@ -501,13 +502,14 @@ static void venc_power_off(struct omap_dss_device *dssdev)
 	dss_set_dac_pwrdn_bgz(0);
 
 	/* clear bypass and acbias */
+#ifdef FIXME
 	reg = tvout_read();
 
 	reg &= ~(1 << 18);
 	reg &= ~(1 << 11);
 
 	tvout_write(reg);
-
+#endif
 	dss_mgr_disable(mgr);
 
 	regulator_disable(venc.vdda_dac_reg);
