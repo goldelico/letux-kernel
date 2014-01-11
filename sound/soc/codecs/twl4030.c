@@ -162,6 +162,8 @@ struct twl4030_priv {
 	struct twl4030_codec_data *pdata;
 };
 
+static int twl4030_voice_set_tristate(struct snd_soc_dai *dai, int tristate);
+
 static void twl4030_voice_enable(struct snd_soc_codec *codec, int direction,
 				int enable);
 /*
@@ -446,13 +448,15 @@ static void twl4030_init_chip(struct snd_soc_codec *codec)
 	twl4030_write_reg_cache(codec, TWL4030_REG_ANAMICL, byte);
 
 	twl4030_codec_enable(codec, 0);
-	twl4030_write(codec,
-		TWL4030_VIF_TRI_EN,
-		TWL4030_REG_VOICE_IF);
+	{
+		struct snd_soc_dai dai = {
+		.codec = codec
+		};
+		twl4030_voice_set_tristate(&dai, 1);
+	}
 	twl4030_voice_enable(codec, SNDRV_PCM_STREAM_PLAYBACK, 1);
 	twl4030_voice_enable(codec, SNDRV_PCM_STREAM_CAPTURE, 1);
 	printk("TPS Voice IF is tristated\n");
-
 
 	twl4030_codec_enable(codec, 1);
 }
@@ -956,7 +960,7 @@ static int voice_input_event(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		dev_dbg(w->codec->dev, "GSMIN power down");
-		break;	
+		break;
 	}
 	return 0;
 }
@@ -972,7 +976,7 @@ static int voice_output_event(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		dev_dbg(w->codec->dev, "GSMOUT power down");
-		break;	
+		break;
 	}
 	return 0;
 }
@@ -1217,6 +1221,8 @@ static int twl4030_voice_route_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int twl4030_voice_set_tristate(struct snd_soc_dai *dai, int tristate);
+
 static int twl4030_voice_route_put(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
@@ -1224,35 +1230,54 @@ static int twl4030_voice_route_put(struct snd_kcontrol *kcontrol,
 	struct twl4030_priv *twl4030 = snd_soc_codec_get_drvdata(codec);
 	dev_dbg(codec->dev, "voice ctl route: %u\n",
 		ucontrol->value.enumerated.item[0]);
-        if (ucontrol->value.enumerated.item[0] != twl4030->voice_enabled) {
+	printk("voice ctl route: %u\n", ucontrol->value.enumerated.item[0]);
+	if (ucontrol->value.enumerated.item[0] != twl4030->voice_enabled) {
 		int powered = twl4030->codec_powered;
+		struct snd_soc_dai dai = {
+			.codec = codec
+		};
+		u8 reg;
 		twl4030->voice_enabled = ucontrol->value.enumerated.item[0];
-		if (powered)	
+		if (powered)
 			twl4030_codec_enable(codec, 0);
-		
+
 		if (twl4030->voice_enabled) {
-			/* 
-		 	 * need to find a better place for this,
+			/*
+			 * need to find a better place for this,
 			 * disables mcbsp4_dx, so that it can be used by
 			 * the twl4030_codec
+			 *
+			 * we should look up the DAI link we are connected to and
+			 * do a tristate on the other end
 			 */
+			/* set McBSP4-DX to tristate (safe mode) */
 			omap_mux_set_gpio(OMAP_MUX_MODE7, 154);
-			twl4030_write(codec, TWL4030_REG_VOICE_IF,
-				TWL4030_VIF_SLAVE_EN | TWL4030_VIF_DIN_EN |
-				TWL4030_VIF_DOUT_EN | TWL4030_VIF_EN);
+			// TWL4030_VIF_SLAVE_EN can be done through twl4030_voice_set_dai_fmt()
+			reg = twl4030_read_reg_cache(codec, TWL4030_REG_VOICE_IF);
+			reg |= TWL4030_VIF_SLAVE_EN | TWL4030_VIF_DIN_EN |
+					TWL4030_VIF_DOUT_EN | TWL4030_VIF_EN;
+			twl4030_write(codec, TWL4030_REG_VOICE_IF, reg);
+			twl4030_voice_set_tristate(&dai, 0);
 		} else {
-			twl4030_write(codec, TWL4030_REG_VOICE_IF,
-				TWL4030_VIF_TRI_EN);
-			/* 
-		 	 * need to find a better place for this,
+			// TWL4030_VIF_SLAVE_EN can be done through twl4030_voice_set_dai_fmt()
+			twl4030_voice_set_tristate(&dai, 1);
+			reg = twl4030_read_reg_cache(codec, TWL4030_REG_VOICE_IF);
+			reg &= ~(TWL4030_VIF_SLAVE_EN | TWL4030_VIF_DIN_EN |
+					 TWL4030_VIF_DOUT_EN | TWL4030_VIF_EN);
+			twl4030_write(codec, TWL4030_REG_VOICE_IF, reg);
+			/*
+			 * need to find a better place for this,
 			 * enables mcbsp4_dx, so that it can be used by
 			 * the mcbsp4 interface
+			 *
+			 * we should look up the DAI link we are connected to and
+			 * do a tristate on the other end
 			 */
 			omap_mux_set_gpio(OMAP_MUX_MODE0 | OMAP_PIN_OUTPUT, 154);
 		}
 		if (powered)
 			twl4030_codec_enable(codec, 1);
-		return 1; 
+		return 1;
         }
 	return 0;
 }
@@ -2354,7 +2379,7 @@ static int twl4030_voice_set_tristate(struct snd_soc_dai *dai, int tristate)
 {
 	struct snd_soc_codec *codec = dai->codec;
 	u8 reg = twl4030_read_reg_cache(codec, TWL4030_REG_VOICE_IF);
-	printk("twl4030_voice_set_tristate codec=%p\n", codec);
+	printk("twl4030_voice_set_tristate codec=%p %d\n", codec, tristate);
 
 	if (tristate)
 		reg |= TWL4030_VIF_TRI_EN;

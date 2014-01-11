@@ -4,6 +4,8 @@
  * Author: Steve Sakoman <steve@sakoman.com>
  * Author: Nikolaus Schaller <hns@goldelico.com>
  *
+ * FIXME: harmonize with latest developments of omap-twl4030.c
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * version 2 as published by the Free Software Foundation.
@@ -31,8 +33,6 @@
 #include <sound/soc-dapm.h>
 
 #include <asm/mach-types.h>
-
-#include <linux/i2c/twl4030-madc.h>
 
 #include <linux/i2c/twl4030-madc.h>
 

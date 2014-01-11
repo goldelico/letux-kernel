@@ -9,8 +9,8 @@
  * GPIO.
  */
 struct bmp085_platform_data {
-	int	gpio;
-	int	irq;
+	int	eoc_gpio;
+	int	eoc_irq;
 };
 
 #endif

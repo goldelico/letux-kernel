@@ -952,7 +952,7 @@ struct tsc2007_platform_data __initdata tsc2007_info = {
 #if defined(CONFIG_BMP085) || defined(CONFIG_BMP085_MODULE)
 
 struct bmp085_platform_data __initdata bmp085_info = {
-	.gpio = BMP085_EOC_IRQ_GPIO,
+	.eoc_gpio = BMP085_EOC_IRQ_GPIO,
 };
 
 #endif
@@ -1684,9 +1684,10 @@ static void __init gta04_init(void)
 static void __init gta04_init_late(void)
 {
 	omap3630_init_late();
-
+#if OFF_MODE_IS_STABLE
 	omap_pm_enable_off_mode();
 	omap3_pm_off_mode_enable(1);
+#endif
 //	omap_hsmmc_late_init(mmc);	// if we do it here, we must comment out the other call in the led setup
 #if defined(CONFIG_VIDEO_OV9655) || defined(CONFIG_VIDEO_OV9655_MODULE)
 	gta04_camera_setup();
