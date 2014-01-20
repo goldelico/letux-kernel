@@ -187,7 +187,6 @@
 			regulator-max-microvolt = <3150000>;
 		};
 	};
-
 };
 
 #include "twl4030.dtsi"
