@@ -369,7 +369,7 @@ static void vip_set_vsync_polarity(struct vip_port *port, int polarity)
 		if (polarity)
 			val |= VIP_VSYNC_POLARITY;
 		else
-			val |= ~VIP_VSYNC_POLARITY;
+			val &= ~VIP_VSYNC_POLARITY;
 
 		write_vreg(port->dev, VIP1_PARSER_REG_OFFSET + VIP_PARSER_PORTA_0, val);
 	} else if (port->port_id == 0 && port->dev->slice_id == VIP_SLICE2) {
@@ -377,21 +377,21 @@ static void vip_set_vsync_polarity(struct vip_port *port, int polarity)
 		if (polarity)
 			val |= VIP_VSYNC_POLARITY;
 		else
-			val |= ~VIP_VSYNC_POLARITY;
+			val &= ~VIP_VSYNC_POLARITY;
 		write_vreg(port->dev, VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTA_0, val);
 	} else if (port->port_id == 1 && port->dev->slice_id == VIP_SLICE1) {
 		val = read_vreg(port->dev, VIP1_PARSER_REG_OFFSET + VIP_PARSER_PORTB_0);
 		if (polarity)
 			val |= VIP_VSYNC_POLARITY;
 		else
-			val |= ~VIP_VSYNC_POLARITY;
+			val &= ~VIP_VSYNC_POLARITY;
 		write_vreg(port->dev, VIP1_PARSER_REG_OFFSET + VIP_PARSER_PORTB_0, val);
 	} else if (port->port_id == 1 && port->dev->slice_id == VIP_SLICE2) {
 		val = read_vreg(port->dev, VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTB_0);
 		if (polarity)
 			val |= VIP_VSYNC_POLARITY;
 		else
-			val |= ~VIP_VSYNC_POLARITY;
+			val &= ~VIP_VSYNC_POLARITY;
 
 		write_vreg(port->dev,  VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTB_0, val);
 	}
@@ -406,7 +406,7 @@ static void vip_set_hsync_polarity(struct vip_port *port, int polarity)
 		if (polarity)
 			val |= VIP_HSYNC_POLARITY;
 		else
-			val |= ~VIP_HSYNC_POLARITY;
+			val &= ~VIP_HSYNC_POLARITY;
 
 		write_vreg(port->dev, VIP1_PARSER_REG_OFFSET + VIP_PARSER_PORTA_0, val);
 	} else if (port->port_id == 0 && port->dev->slice_id == VIP_SLICE2) {
@@ -414,22 +414,21 @@ static void vip_set_hsync_polarity(struct vip_port *port, int polarity)
 		if (polarity)
 			val |= VIP_HSYNC_POLARITY;
 		else
-			val |= ~VIP_HSYNC_POLARITY;
+			val &= ~VIP_HSYNC_POLARITY;
 		write_vreg(port->dev, VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTA_0, val);
 	} else if (port->port_id == 1 && port->dev->slice_id == VIP_SLICE1) {
 		val = read_vreg(port->dev, VIP1_PARSER_REG_OFFSET + VIP_PARSER_PORTB_0);
 		if (polarity)
 			val |= VIP_HSYNC_POLARITY;
 		else
-			val |= ~VIP_HSYNC_POLARITY;
+			val &= ~VIP_HSYNC_POLARITY;
 		write_vreg(port->dev, VIP1_PARSER_REG_OFFSET + VIP_PARSER_PORTB_0, val);
 	} else if (port->port_id == 1 && port->dev->slice_id == VIP_SLICE2) {
 		val = read_vreg(port->dev, VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTB_0);
 		if (polarity)
 			val |= VIP_HSYNC_POLARITY;
 		else
-			val |= ~VIP_HSYNC_POLARITY;
-
+			val &= ~VIP_HSYNC_POLARITY;
 		write_vreg(port->dev, VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTB_0, val);
 	}
 }
@@ -443,7 +442,7 @@ static void vip_set_actvid_polarity(struct vip_port *port, int polarity)
 		if (polarity)
 			val |= VIP_ACTVID_POLARITY;
 		else
-			val |= ~VIP_ACTVID_POLARITY;
+			val &= ~VIP_ACTVID_POLARITY;
 
 		write_vreg(port->dev, VIP1_PARSER_REG_OFFSET + VIP_PARSER_PORTA_0, val);
 	} else if (port->port_id == 0 && port->dev->slice_id == VIP_SLICE2) {
@@ -451,21 +450,21 @@ static void vip_set_actvid_polarity(struct vip_port *port, int polarity)
 		if (polarity)
 			val |= VIP_ACTVID_POLARITY;
 		else
-			val |= ~VIP_ACTVID_POLARITY;
+			val &= ~VIP_ACTVID_POLARITY;
 		write_vreg(port->dev, VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTA_0, val);
 	} else if (port->port_id == 1 && port->dev->slice_id == VIP_SLICE1) {
 		val = read_vreg(port->dev, VIP1_PARSER_REG_OFFSET + VIP_PARSER_PORTB_0);
 		if (polarity)
 			val |= VIP_ACTVID_POLARITY;
 		else
-			val |= ~VIP_ACTVID_POLARITY;
+			val &= ~VIP_ACTVID_POLARITY;
 		write_vreg(port->dev,  VIP1_PARSER_REG_OFFSET + VIP_PARSER_PORTB_0, val);
 	} else if (port->port_id == 1 && port->dev->slice_id == VIP_SLICE2) {
 		val = read_vreg(port->dev, VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTB_0);
 		if (polarity)
 			val |= VIP_ACTVID_POLARITY;
 		else
-			val |= ~VIP_ACTVID_POLARITY;
+			val &= ~VIP_ACTVID_POLARITY;
 
 		write_vreg(port->dev,  VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTB_0, val);
 	}
