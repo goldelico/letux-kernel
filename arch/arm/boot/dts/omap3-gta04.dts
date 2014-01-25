@@ -90,6 +90,33 @@
 			};
 		};
 	};
+
+	backlight {
+		compatible = "pwm-backlight";
+		pwms = <&pwm 0 2000000>;
+		brightness-levels = <0 11 20 30 40 50 60 70 80 90 100>;
+		default-brightness-level = <10>;
+		pinctrl-names = "default";
+		pintcrl-0 = <&backlight_pins>;
+		power-supply = <&power>;
+	};
+
+	pwm: omap-pwm {
+		compatible = "ti,omap-pwm";
+		timers = <&timer11>;
+		#pwm-cells = <2>;
+	};
+
+	power: fixed_regulator@0 {
+	       compatible = "regulator-fixed";
+	       regulator-name = "bl-enable";
+	       regulator-boot-on;
+	       regulator-always-on;
+	       regulator-min-microvolt = "1000000";
+	       regulator-max-microvolt = "1000000";
+	       gpio = <&gpio2 25 0>;
+	       enable-active-high;
+	};
 };
 
 &omap3_pmx_core {
@@ -165,6 +192,9 @@
 		>;
 	};
 
+	backlight_pins: backlight_pins_pimnux {
+		pinctrl-single,pins = <0x8a MUX_MODE4>;
+	};
 };
 
 &i2c1 {
@@ -180,7 +210,6 @@
 			codec {
 			};
 		};
-
 		vaux4: regulator-vaux4 {
 			compatible = "ti,twl4030-vaux4";
 			regulator-min-microvolt = <2800000>;
