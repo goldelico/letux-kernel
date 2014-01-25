@@ -38,6 +38,8 @@
 
 #include "c_can.h"
 
+#include <plat/cpu.h>
+
 #define CAN_DEFAULT_RAMINIT_START_BIT	0
 #define CAN_DEFAULT_RAMINIT_DONE_BIT	8
 
@@ -97,15 +99,18 @@ static void c_can_hw_raminit_dra7(const struct c_can_priv *priv, bool enable)
 	start_clr &= ~(CAN_RAMINIT_BIT_MASK(priv->raminit_bits.start));
 
 	if (enable) {
-		/* Disable interrupts */
-		spin_lock_irqsave(&raminit_lock, flags);
-
+		if (omap_rev() == DRA752_REV_ES1_0) {
+			/* Disable interrupts */
+			spin_lock_irqsave(&raminit_lock, flags);
+		}
 		/* Trigger the RAM initialization */
 		writel(start_set, priv->raminit_ctrlreg);
 		writel(start_clr, priv->raminit_ctrlreg);
 
-		/* Restore interrupts */
-		spin_unlock_irqrestore(&raminit_lock, flags);
+		if (omap_rev() == DRA752_REV_ES1_0) {
+			/* Restore interrupts */
+			spin_unlock_irqrestore(&raminit_lock, flags);
+		}
 	}
 	else {
 		writel(start_clr, priv->raminit_ctrlreg);
