@@ -184,11 +184,6 @@
 	btwilink {
 		compatible = "btwilink";
 	};
-
-	display_skipinit {
-		skip_init =<1>;
-	};
-
 };
 
 &dra7_pmx_core {
