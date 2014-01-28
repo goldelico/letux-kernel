@@ -20,6 +20,11 @@
 #define SAR_BANK4_OFFSET		0x3000
 
 /* Scratch pad memory offsets from SAR_BANK1 */
+#define OMAP4_REBOOT_REASON_OFFSET             0xa0c
+#define OMAP5_REBOOT_REASON_OFFSET             0xfe0
+#define DRA7XX_REBOOT_REASON_OFFSET            0xfe0
+#define OMAP_REBOOT_REASON_SIZE                0xf
+
 #define SCU_OFFSET0				0xfe4
 #define SCU_OFFSET1				0xfe8
 #define OMAP_TYPE_OFFSET			0xfec
