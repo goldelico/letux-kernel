@@ -583,7 +583,7 @@
                         dwc3@48890000 {
                                 compatible = "synopsys,dra7xx-dwc3";
                                 reg = <0x48890000 0xcfff>;
-                                interrupts = <0 76 4>;
+				interrupts = <0 76 4>, <0 77 4>;
                                 usb-phy = <&usb2_phy1>, <&usb3_phy>;
                                 tx-fifo-resize;
                                 dr_mode = "peripheral";
@@ -606,12 +606,12 @@
                         interrupts = <0 92 4>;
                         #address-cells = <1>;
                         #size-cells = <1>;
-                        utmi-mode = <1>;
+                        utmi-mode = <2>;
                         ranges;
                         dwc3@488d0000 {
                                 compatible = "synopsys,dra7xx-dwc3";
                                 reg = <0x488d0000 0xcfff>;
-                                interrupts = <0 78 4>;
+				interrupts = <0 78 4>, <0 92 4>;
                                 usb-phy = <&usb2_phy2>;
                                 tx-fifo-resize;
                                 dr_mode = "host";
