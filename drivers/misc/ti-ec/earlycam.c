@@ -27,24 +27,29 @@
 #include <linux/err.h>
 #include <linux/i2c.h>
 #include <linux/delay.h>
+#include <linux/gpio.h>
+#include <linux/module.h>
+#include <linux/of.h>
+#include <linux/of_gpio.h>
 
 #include <../drivers/media/platform/ti-vps/vip.h>
 #include "earlycam.h"
 
-#define EARLYCAM_IRQ_MASK  (DISPC_IRQ_VSYNC | DISPC_IRQ_EVSYNC_EVEN \
-				| DISPC_IRQ_EVSYNC_ODD | DISPC_IRQ_VSYNC2)
+#define EARLYCAM_IRQ_MASK  (DISPC_IRQ_VSYNC)
 
 /* Early Camera display context */
-struct earlycam_disp {
+struct earlycam_device {
 	int num_displays;
 	struct omap_dss_device *displays[EARLYCAM_MAX_DISPLAYS];
 	int num_overlays;
 	struct omap_overlay *overlays[EARLYCAM_MAX_OVLS];
 	int num_managers;
 	struct omap_overlay_manager *managers[EARLYCAM_MAX_MANAGERS];
+
+	int reverse_gpio;
 };
 
-static struct earlycam_disp *vid_dev;
+static struct earlycam_device *earlycam_dev;
 static struct task_struct *main_thread;
 static struct omap_overlay_info info;
 static int once = 1;
@@ -77,13 +82,7 @@ int display_init()
 		return ret;
 	}
 
-	vid_dev = kzalloc(sizeof(struct earlycam_disp), GFP_KERNEL);
-	if (vid_dev == NULL) {
-		ret = -ENOMEM;
-		goto err_dss_init;
-	}
-
-	vid_dev->num_displays = 0;
+	earlycam_dev->num_displays = 0;
 	for_each_dss_dev(dssdev) {
 		omap_dss_get_device(dssdev);
 
@@ -93,21 +92,22 @@ int display_init()
 			continue;
 		}
 
-		vid_dev->displays[vid_dev->num_displays++] = dssdev;
+		earlycam_dev->displays[earlycam_dev->num_displays++] = dssdev;
 	}
 
-	if (vid_dev->num_displays == 0) {
+	if (earlycam_dev->num_displays == 0) {
 		pr_warn("\nno displays\n");
 		ret = -EINVAL;
+		goto err_dss_init;
 	}
 
-	vid_dev->num_overlays = omap_dss_get_num_overlays();
-	for (i = 0; i < vid_dev->num_overlays; i++)
-		vid_dev->overlays[i] = omap_dss_get_overlay(i);
+	earlycam_dev->num_overlays = omap_dss_get_num_overlays();
+	for (i = 0; i < earlycam_dev->num_overlays; i++)
+		earlycam_dev->overlays[i] = omap_dss_get_overlay(i);
 
-	vid_dev->num_managers = omap_dss_get_num_overlay_managers();
-	for (i = 0; i < vid_dev->num_managers; i++)
-		vid_dev->managers[i] = omap_dss_get_overlay_manager(i);
+	earlycam_dev->num_managers = omap_dss_get_num_overlay_managers();
+	for (i = 0; i < earlycam_dev->num_managers; i++)
+		earlycam_dev->managers[i] = omap_dss_get_overlay_manager(i);
 
 	return ret;
 
@@ -119,15 +119,13 @@ err_dss_init:
 int display_disable(struct earlycam_setup_dispc_data data)
 {
 	struct omap_overlay *ovl;
-	ovl = vid_dev->overlays[data.ovls[0].cfg.ix];
+	ovl = earlycam_dev->overlays[data.ovls[0].cfg.ix];
 
 	if (ovl->is_enabled(ovl)) {
-		ovl->disable(ovl);
 		omap_dispc_unregister_isr(earlycam_isr,
 					  &info, EARLYCAM_IRQ_MASK);
+		ovl->disable(ovl);
 	}
-
-	kfree(vid_dev);
 
 	return 0;
 }
@@ -138,7 +136,10 @@ static void earlycam_isr(void *arg, unsigned int irqstatus)
 	struct omap_overlay *ovl;
 	struct omap_overlay_info info = *((struct omap_overlay_info *)arg);
 
-	ovl = vid_dev->overlays[EARLYCAM_OVERLAY_IDX];
+	if (!earlycam_dev)
+		return;
+
+	ovl = earlycam_dev->overlays[EARLYCAM_OVERLAY_IDX];
 	if (ovl && ovl->is_enabled(ovl)) {
 		ret = ovl->set_overlay_info(ovl, &info);
 		if (ret)
@@ -156,11 +157,10 @@ int display_queue(struct earlycam_setup_dispc_data data)
 	int retry;
 	struct omap_overlay *ovl;
 
-	ovl = vid_dev->overlays[data.ovls[0].cfg.ix];
+	if (!data.ovls[0].cfg.enabled)
+		return ret;
 
-	if (once)
-		ovl->set_manager(ovl,
-			vid_dev->managers[data.ovls[0].cfg.mgr_ix]);
+	ovl = earlycam_dev->overlays[data.ovls[0].cfg.ix];
 
 	memset(&info, 0, sizeof(info));
 
@@ -202,10 +202,15 @@ int display_queue(struct earlycam_setup_dispc_data data)
 		retry = 50;
 		while (ovl->is_enabled(ovl) && (retry-- > 0))
 			msleep(20);
-	}
 
-	if (!ovl->is_enabled(ovl) && once && data.ovls[0].cfg.enabled) {
+		if (ovl->is_enabled(ovl))
+			return -1;
+
 		once = 0;
+
+		ovl->set_manager(ovl,
+			earlycam_dev->managers[data.ovls[0].cfg.mgr_ix]);
+
 		ret = ovl->set_overlay_info(ovl, &info);
 		if (ret) {
 			pr_err("set_overlay_info failed with error %d", ret);
@@ -291,7 +296,10 @@ int capture_image(int init)
 
 int main_fn(void *arg)
 {
-	int i, ret, init = 1;
+	int i;
+	int ret;
+	int cam_init = 1;
+	int val;
 
 	/* need base address for in-page offset */
 	struct earlycam_setup_dispc_data comp = {
@@ -338,13 +346,72 @@ int main_fn(void *arg)
 		return ret;
 	}
 
-	for (i = 0; i < EARLYCAM_LOOP_LENGTH; i++) {
-		ret = capture_image(init);
+	while (1) {
+		while ((val =
+			   gpio_get_value_cansleep(
+			   earlycam_dev->reverse_gpio)) ==
+			   1) {
+			/* Spin inside this loop, sleeping for 100 mS
+			  * everytime until the user presses the gpio.
+			  * This should be replaced by interrupt based
+			  * mechanism to avoid waking up the cpu
+			  * frequently
+			  */
+			if (!once) {
+				display_disable(comp);
+				early_release();
+				/* Set a special code for init flag to signal
+				  * that the init apis have to be called again
+				  * after gpio release
+				  */
+				cam_init = 2;
+				/* Signal to the display that it needs to
+				  * re-acquire the pipes and enable
+				  * interrupts again next time when gpio
+				  * is pressed
+				  */
+				once = 1;
+				/* HACK: The VIP driver is currently taking
+				  * around 1-2 sec to completely de-initialize
+				  * before the camera could be launched back.
+				  * If the camera is launched within this
+				  * interval, it hangs and no longer provides
+				  * any valid frames. Hence slipping in this
+				  * delay until this issue is fixed in the
+				  * driver
+				  */
+				msleep(500);
+			}
+			msleep(100);
+		}
+
+		/* So we got a gpio press, start by initializing camera first */
+		if (cam_init == 2) {
+			ret = early_vip_open();
+			if (ret) {
+				pr_err("early_vip_open failed with error %d",
+					ret);
+				return ret;
+			}
+
+			ret = init_mmap();
+			if (ret) {
+				pr_err("init_mmap failed with error %d", ret);
+				return ret;
+			}
+
+			/* okay now reset this flag to 1 inorder to signal to
+			 * capture_image that it needs to call stream ON
+			 */
+			cam_init = 1;
+		}
+
+		ret = capture_image(cam_init);
 		if (ret) {
 			pr_err("capture_image failed with error %d", ret);
 			return ret;
 	    }
-		init = 0;
+		cam_init = 0;
 
 	    comp.ovls[0].ba = (u32) dma_addr_global_complete;
 		if (comp.ovls[0].ba != 0) {
@@ -353,7 +420,7 @@ int main_fn(void *arg)
 				pr_err("display_queue failed with error %d",
 					   ret);
 		}
-		msleep(30);
+		msleep(33);
 	}
 
 	ret = early_release();
@@ -371,10 +438,42 @@ int main_fn(void *arg)
 	return ret;
 }
 
-
-static int __init earlycam_init(void)
+static int ealycam_probe(struct platform_device *pdev)
 {
 	int ret;
+	struct device_node *node = pdev->dev.of_node;
+	int gpio_count;
+	int gpio;
+
+	/* Create early cam device structure */
+	earlycam_dev = devm_kzalloc(&pdev->dev, sizeof(struct earlycam_device),
+			   GFP_KERNEL);
+	if (earlycam_dev == NULL) {
+		ret = -ENOMEM;
+		return ret;
+	}
+
+	gpio_count = of_gpio_count(node);
+	if (gpio_count != 1) {
+		pr_err("Wrong number of GPIOs for early cam, exiting..\n");
+		return -1;
+	}
+
+	gpio = of_get_gpio(node, 0);
+	if (gpio_is_valid(gpio)) {
+		earlycam_dev->reverse_gpio = gpio;
+	} else {
+		earlycam_dev->reverse_gpio = 0;
+		pr_err("failed to parse reverse gpio\n");
+		return -1;
+	}
+
+	ret = devm_gpio_request_one(&pdev->dev, earlycam_dev->reverse_gpio,
+			  GPIOF_IN, "reverse_gpio");
+	if (ret) {
+		pr_err("failed to request reverse gpio %d\n", ret);
+		return ret;
+	}
 
 	ret = thread_init();
 	if (ret)
@@ -383,9 +482,37 @@ static int __init earlycam_init(void)
 	return ret;
 }
 
+static int earlycam_remove(struct platform_device *pdev)
+{
+	omapdss_compat_uninit();
+
+	kthread_stop(main_thread);
+
+	return 0;
+}
+
+static const struct of_device_id earlycam_of_match[] = {
+	{.compatible = "ti,earlycam_mpu", },
+	{ },
+};
+
+
+static struct platform_driver earlycam_driver = {
+	.probe = ealycam_probe,
+	.remove = earlycam_remove,
+	.driver = { .name = "earlycam",
+				.of_match_table = earlycam_of_match
+	}
+};
+
+static int __init earlycam_init(void)
+{
+	return platform_driver_register(&earlycam_driver);
+}
+
 static void __exit earlycam_exit(void)
 {
-	kthread_stop(main_thread);
+	platform_driver_unregister(&earlycam_driver);
 }
 
 MODULE_DESCRIPTION("TI Early Camera Driver");

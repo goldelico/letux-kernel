@@ -31,6 +31,11 @@
 		regulator-max-microvolt = <3000000>;
 	};
 
+	earlycam_config {
+		compatible = "ti,earlycam_mpu";
+		gpios = <&pcf_lcd 0 0>; /* P0, CON_LCD_PWR_DN */
+	};
+
 	ocp {
 		gpu: gpu@0x56000000 {
 			gpu-supply = <&avs_gpu>;

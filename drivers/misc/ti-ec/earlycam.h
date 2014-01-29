@@ -20,7 +20,7 @@
 
 #define EARLYCAM_MAX_OVLS	4
 #define EARLYCAM_MAX_DISPLAYS	10
-#define EARLYCAM_MAX_MANAGERS	3
+#define EARLYCAM_MAX_MANAGERS	4
 
 /* Early Camera pipeline and manager selections */
 #define EARLYCAM_OVERLAY_IDX 3
