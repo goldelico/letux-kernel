@@ -314,6 +314,12 @@ int main_fn(void *arg)
 		.ovls[0].ba = (u32) dma_addr_global_complete,
 	};
 
+	if (!early_sensor_detect()) {
+		pr_err("early_sensor_detect failed with error %d",
+			 ret);
+		return ret;
+	}
+
 	ret = display_init();
 	if (ret) {
 		pr_err("display_init failed with error %d", ret);
