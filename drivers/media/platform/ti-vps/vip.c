@@ -1623,6 +1623,7 @@ int early_release()
 	vip_dprintk(dev, "Releasing stream instance %p\n", stream);
 
 	mutex_lock(&dev->mutex);
+	disable_irqs(dev);
 	vip_release_port(stream->port);
 
 	vb2_queue_release(q);
@@ -1708,6 +1709,8 @@ static int vip_release(struct file *file)
 	vip_dprintk(dev, "Releasing stream instance %p\n", stream);
 
 	mutex_lock(&dev->mutex);
+
+	disable_irqs(dev);
 	vip_release_port(stream->port);
 
 	v4l2_fh_del(&stream->fh);
