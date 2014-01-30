@@ -142,6 +142,7 @@ struct vip_stream {
 	struct list_head	vidq;		/* incoming vip_bufs queue */
 	struct vb2_queue	vb_vidq;
 	struct video_device	vdev;
+	int                 open;
 };
 
 extern struct vip_dev *early_dev;
