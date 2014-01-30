@@ -1554,6 +1554,15 @@ EXPORT_SYMBOL(early_stream);
 void *mem_priv;
 EXPORT_SYMBOL(mem_priv);
 
+bool early_sensor_detect()
+{
+	if (early_dev && early_dev->sensor)
+		return true;
+	else
+		return false;
+}
+EXPORT_SYMBOL(early_sensor_detect);
+
 int early_vip_open() {
 	struct vip_stream *stream = video_get_drvdata(early_stream->vfd);
 	struct vip_port *port = stream->port;
