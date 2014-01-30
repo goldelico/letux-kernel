@@ -259,6 +259,8 @@ static int __init omap4_sar_ram_init(void)
 		sar_base = OMAP44XX_SAR_RAM_BASE;
 	else if (soc_is_omap54xx())
 		sar_base = OMAP54XX_SAR_RAM_BASE;
+	else if (soc_is_dra7xx())
+		sar_base = DRA7XX_SAR_RAM_BASE;
 	else
 		return -ENOMEM;
 
@@ -369,7 +371,23 @@ int __init omap4_twl6030_hsmmc_init(struct omap2_hsmmc_info *controllers)
  */
 void omap44xx_restart(char mode, const char *cmd)
 {
-	/* XXX Should save 'cmd' into scratchpad for use after reboot */
+	int offset = 0;
+	char *reason = "normal";
+	if (cpu_is_omap44xx())
+		offset = OMAP4_REBOOT_REASON_OFFSET;
+	else if (soc_is_omap54xx())
+		offset = OMAP5_REBOOT_REASON_OFFSET;
+	else if (soc_is_dra7xx())
+		offset = DRA7XX_REBOOT_REASON_OFFSET;
+	else
+		WARN("undefined chip, %s", __func__);
+
+	if (cmd != NULL && *(char *)cmd)
+		reason = (char *)cmd;
+
+	strlcpy(sar_ram_base + offset, reason, min((int)strlen(reason) + 1,
+				OMAP_REBOOT_REASON_SIZE - 1));
+
 	omap4_prminst_global_warm_sw_reset(); /* never returns */
 	while (1);
 }
