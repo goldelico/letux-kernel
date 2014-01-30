@@ -308,6 +308,9 @@ static long query_display(struct dsscomp_dev *cdev,
 	dev = cdev->displays[dis->ix];
 	if (!dev)
 		return -EINVAL;
+	if (!dev->output->manager)
+		return -EINVAL;
+
 	mgr = dev->output->manager;
 
 	/* fill out display information */
