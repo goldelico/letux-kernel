@@ -1,3 +1,168 @@
+#include <linux/videodev2.h>
+#include <media/v4l2-async.h>
+#include <media/v4l2-common.h>
+#include <media/v4l2-ctrls.h>
+#include <media/v4l2-device.h>
+#include <media/v4l2-event.h>
+#include <media/v4l2-ioctl.h>
+#include <media/v4l2-mem2mem.h>
+#include <media/videobuf2-core.h>
+#include <media/videobuf2-dma-contig.h>
+#include <media/videobuf2-memops.h>
+
+#include "vpdma.h"
+#include "vpdma_priv.h"
+
+#define VIP_SLICE1	0
+#define VIP_SLICE2	1
+#define VIP_NUM_SLICES	2
+
+#define VIP_PORTA	0
+#define VIP_PORTB	1
+#define VIP_NUM_PORTS	2
+
+#define VIP_MAX_PLANES	2
+#define	VIP_LUMA	0
+#define VIP_CHROMA	1
+
+#define VIP_CAP_STREAMS_PER_PORT	16
+#define VIP_VBI_STREAMS_PER_PORT	16
+
+/* buffer for one video frame */
+struct vip_buffer {
+	/* common v4l buffer stuff */
+	struct vb2_buffer	vb;
+	struct list_head	list;
+};
+
+/*
+ * The vip_shared structure contains data that is shared by both
+ * the VIP1 and VIP2 slices.
+ */
+struct vip_shared {
+	struct list_head	list;
+	struct resource		*res;
+	void __iomem		*base;
+	atomic_t		devs_allocated;	/* count of devs being shared */
+	struct vpdma_data	*vpdma;
+	struct vpdma_data	vpdma_storage;
+	struct vip_dev		*devs[VIP_NUM_SLICES];
+};
+
+/*
+ * There are two vip_dev structure, one for each vip slice: VIP1 & VIP2.
+ */
+
+struct vip_subdev_info {
+	const char *name;
+	struct i2c_board_info board_info;
+};
+
+struct vip_config {
+	struct vip_subdev_info *subdev_info;
+	int subdev_count;
+	const char *card_name;
+	struct v4l2_async_subdev **asd;
+	int asd_sizes;
+};
+
+
+struct vip_dev {
+	struct v4l2_async_notifier notifier;
+	struct vip_config	*config;
+	struct v4l2_subdev	*sensor;
+	struct v4l2_device	v4l2_dev;
+	struct platform_device *pdev;
+	struct vip_shared	*shared;
+	struct resource *res;
+	int			slice_id;
+	int			num_ports;	/* count of open ports */
+	struct mutex		mutex;
+	spinlock_t		slock;
+	spinlock_t		lock; /* used in videobuf2 callback */
+
+	int			irq;
+	void __iomem		*base;
+
+	struct vpdma_desc_list	desc_list;	/* DMA descriptor list */
+	void			*desc_next;	/* next unused desc_list addr */
+	struct list_head	vip_bufs;	/* vip_bufs to be DMAed */
+	struct vb2_alloc_ctx	*alloc_ctx;
+	struct vip_port		*ports[VIP_NUM_PORTS];
+
+	int			mux_gpio;
+	int			mux1_sel0_gpio;
+	int			mux1_sel1_gpio;
+	int			mux2_sel0_gpio;
+	int			mux2_sel1_gpio;
+	int			cam_fpd_mux_s0_gpio;
+	int			vin2_s0_gpio;
+	int			ov_pwdn_gpio;
+
+	struct video_device	 *early_vdev;
+};
+
+/*
+ * There are two vip_port structures for each vip_dev, one for port A
+ * and one for port B.
+ */
+struct vip_port {
+	struct vip_dev		*dev;
+	int			port_id;
+
+	enum v4l2_colorspace	src_colorspace;
+	unsigned int		flags;
+	unsigned int		src_width;
+	unsigned int		src_height;
+	struct v4l2_rect	c_rect;		/* crop rectangle */
+	struct vip_fmt		*fmt;		/* format info */
+	int			num_streams;	/* count of open streams */
+	struct vip_stream	*cap_streams[VIP_CAP_STREAMS_PER_PORT];
+	struct vip_stream	*vbi_streams[VIP_VBI_STREAMS_PER_PORT];
+};
+
+/*
+ * When handling multiplexed video, there can be multiple streams for each
+ * port.  The vip_stream structure holds per-stream data.
+ */
+struct vip_stream {
+	struct v4l2_fh		fh;
+	struct video_device	*vfd;
+	struct vip_port		*port;
+	int			stream_id;
+	int			vfl_type;
+	enum v4l2_field		field;		/* current field */
+	unsigned int		sequence;	/* current frame/field seq */
+	enum v4l2_field		sup_field;	/* supported field value */
+	unsigned int		width;		/* frame width */
+	unsigned int		height;		/* frame height */
+	unsigned int		bytesperline;	/* bytes per line in memory */
+	unsigned int		sizeimage;	/* image size in memory */
+	struct vip_buffer	*cur_buf;	/* buffer being DMAed */
+	struct list_head	vidq;		/* incoming vip_bufs queue */
+	struct vb2_queue	vb_vidq;
+	struct video_device	vdev;
+};
+
+extern struct vip_dev *early_dev;
+extern struct vip_stream *early_stream;
+extern dma_addr_t dma_addr_global;
+extern dma_addr_t dma_addr_global_complete;
+extern void *mem_priv;
+
+extern bool early_sensor_detect();
+extern int early_vip_open();
+extern int early_release();
+extern int early_reqbufs(struct v4l2_requestbuffers *p);
+extern int early_querybuf(struct v4l2_buffer *p);
+extern int early_qbuf(struct v4l2_buffer *p);
+extern int early_dqbuf(struct v4l2_buffer *p);
+extern int early_streamon(enum v4l2_buf_type i);
+extern int early_querycap(struct v4l2_capability *cap);
+extern int early_enum_fmt(struct v4l2_fmtdesc *f);
+extern int early_s_fmt(struct v4l2_format *f);
+extern int early_try_fmt(struct v4l2_format *f);
+
 /*
  * VIP Enumerations
  */
@@ -31,7 +196,6 @@ enum sync_types {
 	EMBEDDED_SYNC_SINGLE_RGB_OR_YUV444 = 5,
 	DISCRETE_SYNC_SINGLE_RGB_24B = 10,
 };
-
 
 /*
  * Register offsets and field selectors
@@ -471,3 +635,4 @@ enum sync_types {
 #define VIP_OFF_W_SHFT			16
 
 #define VIP_VPDMA_REG_OFFSET		0xd000
+
