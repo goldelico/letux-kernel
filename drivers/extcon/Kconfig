@@ -53,4 +53,9 @@ config EXTCON_ARIZONA
 	  with Wolfson Arizona devices. These are audio CODECs with
 	  advanced audio accessory detection support.
 
+config EXTCON_GPIO_USBVID
+	tristate "Generic USB VBUS/ID detection using GPIO EXTCON support"
+	help
+	  Say Y here to enable support for USB VBUS/ID deetction by GPIO.
+
 endif # MULTISTATE_SWITCH
