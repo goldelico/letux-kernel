@@ -56,7 +56,7 @@
 #if defined(CONFIG_VIDEO_OV9655) || defined(CONFIG_VIDEO_OV9655_MODULE)
 #include <media/ov9655.h>
 #include <media/omap3isp.h>
-#include <media/v4l2-int-device.h>
+#include <media/v4l2-device.h>
 /* needed for: v4l2_dev_to_isp_device */
 #include <../../../drivers/media/platform/omap3isp/isp.h>
 #include "devices.h"	/* omap3_init_camera */
@@ -915,7 +915,7 @@ static struct platform_device gta04_w2cbw003_codec_audio_device = {
 
 /* TouchScreen */
 
-static int ts_get_pendown_state(void)
+static int ts_get_pendown_state(struct device *device)
 {
 	int val = 0;
 

@@ -440,7 +440,7 @@ static void twl4030_phy_power(struct twl4030_usb *twl, int on)
 static void do_notify(struct twl4030_usb *twl,
 		      enum omap_musb_vbus_id_status status)
 {
-	enum usb_phy_events event;
+	enum usb_phy_events event = USB_EVENT_NONE;
 
 	switch (status) {
 	case OMAP_MUSB_UNKNOWN:
