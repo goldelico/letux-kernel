@@ -35,11 +35,14 @@ struct omap_iommu_arch_data {
  * @da_end:		device address where the va space ends.
  * @nr_tlb_entries:	number of entries supported by the translation
  *			look-aside buffer (TLB).
+ * @has_bus_err_back:	flag to indicate if the mmu has bus-error back
+ *			response enable functionality.
  */
 struct omap_mmu_dev_attr {
 	u32 da_start;
 	u32 da_end;
 	int nr_tlb_entries;
+	int has_bus_err_back;
 };
 
 struct iommu_platform_data {
@@ -48,6 +51,7 @@ struct iommu_platform_data {
 	int nr_tlb_entries;
 	u32 da_start;
 	u32 da_end;
+	int has_bus_err_back;
 
 	int (*assert_reset)(struct platform_device *pdev, const char *name);
 	int (*deassert_reset)(struct platform_device *pdev, const char *name);
