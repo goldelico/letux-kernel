@@ -143,6 +143,7 @@ obj-$(CONFIG_MFD_PALMAS)	+= palmas.o
 obj-$(CONFIG_MFD_PALMAS_GPADC) += palmas-gpadc.o
 obj-$(CONFIG_MFD_PALMAS_PWM) += palmas-pwm.o
 obj-$(CONFIG_MFD_PALMAS_RESOURCE) += palmas-resource.o
+obj-$(CONFIG_MFD_TPS65917)	+= tps65917.o
 obj-$(CONFIG_MFD_VIPERBOARD)    += viperboard.o
 obj-$(CONFIG_MFD_RC5T583)	+= rc5t583.o rc5t583-irq.o
 obj-$(CONFIG_MFD_SEC_CORE)	+= sec-core.o sec-irq.o
