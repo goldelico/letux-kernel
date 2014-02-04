@@ -334,7 +334,7 @@ static int omap_crtc_page_flip_locked(struct drm_crtc *crtc,
 	bo = omap_framebuffer_bo(fb, 0);
 	drm_gem_object_reference(bo);
 
-	omap_gem_op_async(bo, OMAP_GEM_READ, page_flip_cb, crtc);
+	omap_gem_op_async(bo, OMAP_GEM_READ | OMAP_GEM_WRITE, page_flip_cb, crtc);
 
 	return 0;
 }
