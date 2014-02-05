@@ -2098,6 +2098,7 @@ static const char *enable_init_clks[] = {
 
 static struct reparent_init_clks reparent_clks[] = {
 	{ .name = "abe_dpll_sys_clk_mux", .parent = "sys_clkin2" },
+	{ .name = "ipu1_gfclk_mux", .parent = "dpll_core_h22x2_ck" },
 };
 
 static struct rate_init_clks rate_clks[] = {
