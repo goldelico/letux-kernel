@@ -2528,6 +2528,7 @@ static struct omap_mmu_dev_attr mmu_ipu_dev_attr = {
 	.da_start	= 0x0,
 	.da_end		= 0xfffff000,
 	.nr_tlb_entries = 32,
+	.has_bus_err_back = 1,
 };
 
 static struct omap_hwmod omap44xx_mmu_ipu_hwmod;

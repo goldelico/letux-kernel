@@ -102,6 +102,7 @@ static void __iommu_set_twl(struct omap_iommu *obj, bool on)
 static int omap2_iommu_enable(struct omap_iommu *obj)
 {
 	u32 l, pa;
+	struct iommu_platform_data *pdata = obj->dev->platform_data;
 
 	if (!obj->iopgd || !IS_ALIGNED((u32)obj->iopgd,  SZ_16K))
 		return -EINVAL;
@@ -117,6 +118,8 @@ static int omap2_iommu_enable(struct omap_iommu *obj)
 	iommu_write_reg(obj, pa, MMU_TTB);
 
 	dra7_cfg_dspsys_mmu(obj, true);
+	if (pdata->has_bus_err_back)
+		iommu_write_reg(obj, MMU_GP_REG_BUS_ERR_BACK_EN, MMU_GP_REG);
 	__iommu_set_twl(obj, true);
 
 	return 0;
