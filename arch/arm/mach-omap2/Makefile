@@ -239,7 +239,7 @@ obj-$(CONFIG_SOC_OMAP2420)		+= msdi.o
 # Specific board support
 obj-$(CONFIG_MACH_OMAP_GENERIC)		+= board-generic.o pdata-quirks.o
 obj-$(CONFIG_MACH_OMAP3_BEAGLE)		+= board-omap3beagle.o
-obj-$(CONFIG_MACH_GTA04)		+= board-omap3gta04.o
+#obj-$(CONFIG_MACH_GTA04)		+= board-omap3gta04.o
 obj-$(CONFIG_MACH_DEVKIT8000)		+= board-devkit8000.o
 obj-$(CONFIG_MACH_OMAP_LDP)		+= board-ldp.o
 obj-$(CONFIG_MACH_OMAP3530_LV_SOM)      += board-omap3logic.o
