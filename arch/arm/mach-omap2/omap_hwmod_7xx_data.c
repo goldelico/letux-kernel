@@ -1323,7 +1323,7 @@ static struct omap_hwmod dra7xx_ipu1_hwmod = {
 	.clkdm_name	= "ipu1_clkdm",
 	.rst_lines	= dra7xx_ipu_resets,
 	.rst_lines_cnt	= ARRAY_SIZE(dra7xx_ipu_resets),
-	.main_clk	= "dpll_core_h22x2_ck",
+	.main_clk	= "ipu1_gfclk_mux",
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = DRA7XX_CM_IPU1_IPU1_CLKCTRL_OFFSET,
@@ -2049,6 +2049,7 @@ static struct omap_mmu_dev_attr dra7xx_mmu_ipu_dev_attr = {
 	.da_start	= 0x0,
 	.da_end		= 0xfffff000,
 	.nr_tlb_entries = 32,
+	.has_bus_err_back = 1,
 };
 
 static struct omap_hwmod_rst_info dra7xx_mmu_ipu_resets[] = {
@@ -2068,7 +2069,7 @@ static struct omap_hwmod dra7xx_mmu_ipu1_hwmod = {
 	.mpu_irqs	= dra7xx_mmu_ipu1_irqs,
 	.rst_lines	= dra7xx_mmu_ipu_resets,
 	.rst_lines_cnt	= ARRAY_SIZE(dra7xx_mmu_ipu_resets),
-	.main_clk	= "dpll_core_h22x2_ck",
+	.main_clk	= "ipu1_gfclk_mux",
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = DRA7XX_CM_IPU1_IPU1_CLKCTRL_OFFSET,
