@@ -1,0 +1,5 @@
+config EARLYCAMERA_MPU
+	tristate "Early Camera Driver"
+	default n
+	help
+           Early Camera Driver.
