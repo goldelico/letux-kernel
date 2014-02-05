@@ -371,16 +371,6 @@ int main_fn(void *arg)
 				  * is pressed
 				  */
 				once = 1;
-				/* HACK: The VIP driver is currently taking
-				  * around 1-2 sec to completely de-initialize
-				  * before the camera could be launched back.
-				  * If the camera is launched within this
-				  * interval, it hangs and no longer provides
-				  * any valid frames. Hence slipping in this
-				  * delay until this issue is fixed in the
-				  * driver
-				  */
-				msleep(500);
 			}
 			msleep(100);
 		}
