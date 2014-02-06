@@ -696,18 +696,24 @@ static void add_stream_dtds(struct vip_stream *stream)
 	}
 }
 
-static void enable_irqs(struct vip_dev *dev)
+static void enable_irqs(struct vip_dev *dev, int irq_num)
 {
-	write_sreg(dev->shared, VIP_INT0_ENABLE0_SET, VIP_INT0_LIST0_COMPLETE);
+	u32 reg_addr = VIP_INT0_ENABLE0_SET +
+			VIP_INTC_INTX_OFFSET * irq_num;
 
-	vpdma_enable_list_complete_irq(dev->shared->vpdma, 0, true);
+	write_sreg(dev->shared, reg_addr, VIP_INT0_LIST0_COMPLETE);
+
+	vpdma_enable_list_complete_irq(dev->shared->vpdma, irq_num, 0, true);
 }
 
-static void disable_irqs(struct vip_dev *dev)
+static void disable_irqs(struct vip_dev *dev, int irq_num)
 {
-	write_sreg(dev->shared, VIP_INT0_ENABLE0_CLR, 0xffffffff);
+	u32 reg_addr = VIP_INT0_ENABLE0_CLR +
+			VIP_INTC_INTX_OFFSET * irq_num;
 
-	vpdma_enable_list_complete_irq(dev->shared->vpdma, 0, false);
+	write_sreg(dev->shared, reg_addr, 0xffffffff);
+
+	vpdma_enable_list_complete_irq(dev->shared->vpdma, irq_num, 0, false);
 }
 
 static void populate_desc_list(struct vip_stream *stream)
@@ -748,7 +754,7 @@ static void start_dma(struct vip_dev *dev, struct vip_buffer *buf)
 	}
 
         dma_addr_global_complete = dma_addr;
-	enable_irqs(dev);
+	enable_irqs(dev, dev->slice_id);
 
 	vpdma_update_dma_addr(dev->shared->vpdma, &dev->desc_list,
 				dma_addr, drop_data);
@@ -829,7 +835,7 @@ static irqreturn_t vip_irq(int irq_vip, void *data)
 
 	if (irqst0) {
 		if (irqst0 & VIP_INT0_LIST0_COMPLETE) {
-			vpdma_clear_list_stat(dev->shared->vpdma);
+			vpdma_clear_list_stat(dev->shared->vpdma, 0);
 		}
 
 		irqst0 &= ~(VIP_INT0_LIST0_COMPLETE);
@@ -1481,7 +1487,7 @@ static int vip_stop_streaming(struct vb2_queue *vq)
 	vpdma_buf_unmap(dev->shared->vpdma, &dev->desc_list.buf);
 	vpdma_reset_desc_list(&dev->desc_list);
 
-	disable_irqs(dev);
+	disable_irqs(dev, dev->slice_id);
 	/* release all active buffers */
 	while (!list_empty(&dev->vip_bufs)) {
 		buf = list_entry(dev->vip_bufs.next, struct vip_buffer, list);

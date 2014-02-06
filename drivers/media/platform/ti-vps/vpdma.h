@@ -184,9 +184,9 @@ void vpdma_enable_channel_3_irq(struct vpdma_data *vpdma, bool enable);
 void vpdma_vip_set_max_size(struct vpdma_data *vpdma, int vip_num);
 
 
-void vpdma_enable_list_complete_irq(struct vpdma_data *vpdma, int list_num,
-		bool enable);
-void vpdma_clear_list_stat(struct vpdma_data *vpdma);
+void vpdma_enable_list_complete_irq(struct vpdma_data *vpdma, int irq_num,
+		int list_num, bool enable);
+void vpdma_clear_list_stat(struct vpdma_data *vpdma, int irq_num);
 void vpdma_set_line_mode(struct vpdma_data *vpdma, int line_mode, int client);
 void vpdma_set_frame_start_event(struct vpdma_data *data,
 		enum vpdma_frame_start_event fs_event, int client);
