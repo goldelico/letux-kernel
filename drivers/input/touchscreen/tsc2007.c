@@ -353,9 +353,9 @@ static int tsc2007_probe_pdev(struct i2c_client *client, struct tsc2007 *ts,
 	ts->poll_period       = pdata->poll_period ? : 1;
 	ts->get_pendown_state = pdata->get_pendown_state;
 	ts->clear_penirq      = pdata->clear_penirq;
-	ts->fuzzx             = pdata->fuzzx;
-	ts->fuzzy             = pdata->fuzzy;
-	ts->fuzzz             = pdata->fuzzz;
+	ts->fuzzx             = pdata->fuzz_x;
+	ts->fuzzy             = pdata->fuzz_y;
+	ts->fuzzz             = pdata->fuzz_z;
 
 	if (pdata->x_plate_ohms == 0) {
 		dev_err(&client->dev, "x_plate_ohms is not set up in platform data");
