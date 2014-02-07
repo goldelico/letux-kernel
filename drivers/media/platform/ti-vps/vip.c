@@ -1961,8 +1961,22 @@ static int vip_async_bound(struct v4l2_async_notifier *notifier,
 			struct v4l2_async_subdev *asd)
 {
 	struct vip_dev *dev = notifier_to_vip_dev(notifier);
-	dev->sensor = subdev;
 
+	if (dev->sensor) {
+		if (asd < dev->sensor->asdl.asd) {
+			/* Notified of a subdev earlier in the array */
+			v4l2_info(&dev->v4l2_dev, "Switching to subdev i2c address %x (High priority)",
+				asd->match.i2c.address);
+		} else {
+			v4l2_info(&dev->v4l2_dev, "Rejecting subdev i2c address %x (Low priority)",
+				asd->match.i2c.address);
+			return 0;
+		}
+	}
+
+	dev->sensor = subdev;
+	dev_notice(&dev->pdev->dev, "Using sensor i2c addr %x for capture\n",
+		asd->match.i2c.address);
 	return 0;
 }
 
@@ -1972,31 +1986,12 @@ static int vip_async_complete(struct v4l2_async_notifier *notifier)
 	return 0;
 }
 
-static struct v4l2_async_subdev ov10635_sd = {
+static struct v4l2_async_subdev vip_sensor_subdev = {
 	.bus_type = V4L2_ASYNC_BUS_I2C,
 	.match.i2c = {
 		.adapter_id = 1,
 		.address = 0x30,
-	},
-};
-
-static struct v4l2_async_subdev ov10633_sd = {
-	.bus_type = V4L2_ASYNC_BUS_I2C,
-	.match.i2c = {
-		.adapter_id = 1,
-		.address = 0x37,
-	},
-};
-
-static struct v4l2_async_subdev *vip_async_subdevs[] = {
-	&ov10635_sd,
-	&ov10633_sd,
-};
-
-static struct vip_config dra7xx_vip_config = {
-	.card_name	= "DRA7XX VIP Driver",
-	.asd		= vip_async_subdevs,
-	.asd_sizes	= sizeof(vip_async_subdevs)/sizeof(vip_async_subdevs[0]),
+	}
 };
 
 static void ov10635_uninit_sensor(struct vip_dev *dev)
@@ -2008,6 +2003,62 @@ static void ov10635_uninit_sensor(struct vip_dev *dev)
 	gpio_free(dev->mux2_sel0_gpio);
 	gpio_free(dev->mux2_sel1_gpio);
 	gpio_free(dev->ov_pwdn_gpio);
+}
+
+static int vip_of_probe(struct platform_device *pdev, struct vip_dev *dev)
+{
+	struct device_node *node = NULL;
+	struct i2c_client *sensor_i2c_client = NULL;
+	u8 sensor_addr = -1; /* Will be updated from device tree */
+	int ret, i = 0;
+
+	dev->config = kzalloc(sizeof(struct vip_config), GFP_KERNEL);
+	if (!dev->config)
+		return -ENOMEM;
+
+	dev->config->card_name = "DRA7XX VIP Driver";
+
+	for (i = 0; i < VIP_MAX_SUBDEV; i++) {
+		node = of_parse_phandle(pdev->dev.of_node, "sensor0", i);
+		if (node)
+			sensor_i2c_client = of_find_i2c_device_by_node(node);
+		else
+			break;
+
+		if (sensor_i2c_client) {
+			sensor_addr = sensor_i2c_client->addr;
+			dev_err(&pdev->dev, "Waiting for sensor I2C %x",
+				sensor_addr);
+
+			dev->config->asd[i] = vip_sensor_subdev;
+			dev->config->asd[i].match.i2c.address = sensor_addr;
+			dev->config->asd_list[i] = &dev->config->asd[i];
+		}
+	}
+
+	if (sensor_addr == -1) {
+		dev_err(&pdev->dev, "Sensor node not found");
+		ret = -EINVAL;
+		goto free_config;
+	}
+
+	dev->config->asd_sizes = i;
+	dev->notifier.subdev = dev->config->asd_list;
+	dev->notifier.num_subdevs = dev->config->asd_sizes;
+	dev->notifier.bound = vip_async_bound;
+	dev->notifier.complete = vip_async_complete;
+
+	ret = v4l2_async_notifier_register(&dev->v4l2_dev, &dev->notifier);
+	if (ret) {
+		vip_dprintk(dev, "Error registering async notifier\n");
+		ret = -EINVAL;
+		goto free_config;
+	}
+
+	return 0;
+free_config:
+	kfree(dev->config);
+	return ret;
 }
 
 static int vip_probe(struct platform_device *pdev)
@@ -2077,19 +2128,11 @@ static int vip_probe(struct platform_device *pdev)
 	if (ret)
 		goto dev_unreg;
 
-	dev->config = &dra7xx_vip_config;
-
-	dev->notifier.subdev = dev->config->asd;
-	dev->notifier.num_subdevs = dev->config->asd_sizes;
-	dev->notifier.bound = vip_async_bound;
-	dev->notifier.complete = vip_async_complete;
-
 	early_dev = dev;
-	ret = v4l2_async_notifier_register(&dev->v4l2_dev, &dev->notifier);
-	if (ret) {
-		vip_dprintk(dev, "Error registering async notifier\n");
-		ret = -EINVAL;
-		goto free_port;
+	if (dev->pdev->dev.of_node) {
+		ret = vip_of_probe(pdev, dev);
+		if (ret)
+			goto free_port;
 	}
 
 	return 0;

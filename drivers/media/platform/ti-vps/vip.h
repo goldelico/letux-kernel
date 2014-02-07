@@ -28,6 +28,8 @@
 #define VIP_CAP_STREAMS_PER_PORT	16
 #define VIP_VBI_STREAMS_PER_PORT	16
 
+#define VIP_MAX_SUBDEV	5
+
 /* buffer for one video frame */
 struct vip_buffer {
 	/* common v4l buffer stuff */
@@ -62,7 +64,8 @@ struct vip_config {
 	struct vip_subdev_info *subdev_info;
 	int subdev_count;
 	const char *card_name;
-	struct v4l2_async_subdev **asd;
+	struct v4l2_async_subdev *asd_list[VIP_MAX_SUBDEV];
+	struct v4l2_async_subdev asd[VIP_MAX_SUBDEV];
 	int asd_sizes;
 };
 
