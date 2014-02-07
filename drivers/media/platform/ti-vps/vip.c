@@ -14,6 +14,7 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 
+#include <linux/pinctrl/consumer.h>
 #include <linux/of_gpio.h>
 #include <linux/of_i2c.h>
 
@@ -29,11 +30,6 @@ MODULE_DESCRIPTION("TI DRA7xx VIP driver");
 MODULE_AUTHOR("Dale Farnsworth, <dale@farnsworth.org>");
 MODULE_LICENSE("GPL");
 MODULE_VERSION("0.1");
-
-/*
- * Global static variables
- */
-static int once = 1;
 
 /*
  * Minimum and maximum frame sizes
@@ -1434,6 +1430,8 @@ static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
 static int vip_stop_streaming(struct vb2_queue *vq)
 {
 	struct vip_stream *stream = vb2_get_drv_priv(vq);
+	struct vip_port *port = stream->port;
+	struct vip_dev *dev = port->dev;
 	struct vip_buffer *buf;
 
 	if (!vb2_is_streaming(vq))
@@ -1445,7 +1443,7 @@ static int vip_stop_streaming(struct vb2_queue *vq)
 		list_del(&buf->list);
 		vb2_buffer_done(&buf->vb, VB2_BUF_STATE_ERROR);
 	}
-
+	disable_irqs(dev);
 	return 0;
 }
 
@@ -1576,7 +1574,7 @@ int early_vip_open() {
 		return -EBUSY;
 	}
 
-	if (once) {
+	if (!dev->setup_done) {
 		vip_top_reset(dev);
 		ret = find_or_alloc_shared(pdev, dev, dev->res);
 		if (ret)
@@ -1600,7 +1598,7 @@ int early_vip_open() {
 		vip_set_actvid_polarity(dev->ports[0], 1);
 		vip_set_discrete_basic_mode(dev->ports[0]);
 
-		once = 0;
+		dev->setup_done = 1;
 	}
 
 	ret = vip_init_port(port);
@@ -1635,7 +1633,8 @@ int early_release()
 	vip_dprintk(dev, "Releasing stream instance %p\n", stream);
 
 	mutex_lock(&dev->mutex);
-	disable_irqs(dev);
+
+	vip_stop_streaming(q);
 	vip_release_port(stream->port);
 
 	vb2_queue_release(q);
@@ -1664,7 +1663,7 @@ static int vip_open(struct file *file)
 		return -EBUSY;
 	}
 
-	if (once) {
+	if (!dev->setup_done) {
 		vip_top_reset(dev);
 		ret = find_or_alloc_shared(pdev, dev, dev->res);
 		if (ret)
@@ -1688,7 +1687,7 @@ static int vip_open(struct file *file)
 		vip_set_actvid_polarity(dev->ports[0], 1);
 		vip_set_discrete_basic_mode(dev->ports[0]);
 
-		once = 0;
+		dev->setup_done = 1;
 	}
 
 	ret = vip_init_port(port);
@@ -1727,7 +1726,7 @@ static int vip_release(struct file *file)
 
 	mutex_lock(&dev->mutex);
 
-	disable_irqs(dev);
+	vip_stop_streaming(q);
 	vip_release_port(stream->port);
 
 	v4l2_fh_del(&stream->fh);
@@ -2014,6 +2013,7 @@ static void ov10635_uninit_sensor(struct vip_dev *dev)
 static int vip_probe(struct platform_device *pdev)
 {
 	struct vip_dev *dev;
+	struct pinctrl *pinctrl;
 	int ret;
 	int irq;
 
@@ -2041,6 +2041,12 @@ static int vip_probe(struct platform_device *pdev)
 	if (irq < 0 || dev->res == NULL) {
 		dev_err(&pdev->dev, "Missing platform resources data\n");
 		ret = -ENODEV;
+	}
+
+	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
+	if (IS_ERR(pinctrl)) {
+		ret = PTR_ERR(pinctrl);
+		goto err_runtime_get;
 	}
 
 	ret = v4l2_device_register(&pdev->dev, &dev->v4l2_dev);
@@ -2122,10 +2128,10 @@ static const struct of_device_id vip_of_match[] = {
 	{
 		.compatible = "ti,vip2",
 	},
+#endif
 	{
 		.compatible = "ti,vip3",
 	},
-#endif
 	{},
 };
 #else

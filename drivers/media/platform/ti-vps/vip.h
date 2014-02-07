@@ -77,6 +77,7 @@ struct vip_dev {
 	struct resource *res;
 	int			slice_id;
 	int			num_ports;	/* count of open ports */
+	int			setup_done;
 	struct mutex		mutex;
 	spinlock_t		slock;
 	spinlock_t		lock; /* used in videobuf2 callback */
