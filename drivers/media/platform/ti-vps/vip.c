@@ -6,7 +6,6 @@
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/ioctl.h>
-#include <linux/gpio.h>
 #include <linux/i2c.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -15,7 +14,6 @@
 #include <linux/slab.h>
 
 #include <linux/pinctrl/consumer.h>
-#include <linux/of_gpio.h>
 #include <linux/of_i2c.h>
 #include <linux/of_device.h>
 
@@ -108,7 +106,7 @@ struct vip_fmt {
 	u32	fourcc;			/* The standard format identifier */
 	enum v4l2_colorspace colorspace;/* Colorspace: YPE_YUV or YPE_RGB */
 	u8	coplanar;		/* set for unpacked Luma and Chroma */
-	struct vpdma_data_format *vpdma_fmt[VIP_MAX_PLANES];
+	const struct vpdma_data_format *vpdma_fmt[VIP_MAX_PLANES];
 };
 
 static struct vip_fmt vip_formats[] = {
@@ -517,6 +515,7 @@ static void vip_set_data_interface(struct vip_port *port, enum data_interface_mo
 	}
 }
 
+#if 0
 static void vip_reset_port(struct vip_port *port)
 {
 	u32 val = 0;
@@ -556,6 +555,7 @@ static void vip_reset_port(struct vip_port *port)
 		write_vreg(port->dev, VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTB_0, 0);
 	}
 }
+#endif
 
 static void vip_set_port_enable(struct vip_port *port, bool on)
 {
@@ -1640,8 +1640,8 @@ int early_release()
 
 	vb2_queue_release(q);
 
-	dma_addr_global_complete = NULL;
-	dma_addr_global = NULL;
+	dma_addr_global_complete = (dma_addr_t)NULL;
+	dma_addr_global = (dma_addr_t)NULL;
 
 	early_stream->open = 0;
 
@@ -1999,17 +1999,6 @@ static struct v4l2_async_subdev vip_sensor_subdev = {
 	}
 };
 
-static void ov10635_uninit_sensor(struct vip_dev *dev)
-{
-	gpio_free(dev->vin2_s0_gpio);
-	gpio_free(dev->cam_fpd_mux_s0_gpio);
-	gpio_free(dev->mux1_sel0_gpio);
-	gpio_free(dev->mux1_sel1_gpio);
-	gpio_free(dev->mux2_sel0_gpio);
-	gpio_free(dev->mux2_sel1_gpio);
-	gpio_free(dev->ov_pwdn_gpio);
-}
-
 static int vip_of_probe(struct platform_device *pdev, struct vip_dev *dev)
 {
 	struct device_node *node = NULL;
@@ -2170,7 +2159,6 @@ static int vip_remove(struct platform_device *pdev)
 
 	v4l2_info(&dev->v4l2_dev, "Removing " VIP_MODULE_NAME);
 	free_port(dev->ports[0]);
-	ov10635_uninit_sensor(dev);
 	v4l2_async_notifier_unregister(&dev->notifier);
 	vb2_dma_contig_cleanup_ctx(dev->alloc_ctx);
 	free_irq(dev->irq, dev);

@@ -166,11 +166,11 @@ void vpdma_add_cfd_adb(struct vpdma_desc_list *list, int client,
 		struct vpdma_buf *adb);
 void vpdma_add_sync_on_channel_ctd(struct vpdma_desc_list *list, int channel);
 int vpdma_add_out_dtd(struct vpdma_desc_list *list, struct v4l2_rect *c_rect,
-		struct vpdma_data_format *fmt, dma_addr_t dma_addr, int channel,
-		u32 flags);
+		const struct vpdma_data_format *fmt, dma_addr_t dma_addr,
+		int channel, u32 flags);
 void vpdma_add_in_dtd(struct vpdma_desc_list *list, int frame_width,
 		int frame_height, struct v4l2_rect *c_rect,
-		struct vpdma_data_format *fmt, dma_addr_t dma_addr,
+		const struct vpdma_data_format *fmt, dma_addr_t dma_addr,
 		int channel, int field, u32 flags);
 int vpdma_list_busy(struct vpdma_data *vpdma, int list_num);
 int vpdma_create_desc_list(struct vpdma_desc_list *list, size_t size, int type);
