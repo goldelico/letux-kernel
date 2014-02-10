@@ -104,6 +104,7 @@ struct vip_dev {
 	int			ov_pwdn_gpio;
 
 	struct video_device	 *early_vdev;
+	const char		*vip_name;
 };
 
 /*

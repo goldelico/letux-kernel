@@ -17,6 +17,7 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/of_gpio.h>
 #include <linux/of_i2c.h>
+#include <linux/of_device.h>
 
 #include <media/dra7xx_vip.h>
 
@@ -1733,7 +1734,7 @@ static int vip_release(struct file *file)
 	v4l2_fh_exit(&stream->fh);
 	vb2_queue_release(q);
 
-	if (early_stream->open)
+	if (early_stream->open && (strcmp(dev->vip_name, "vip1") == 0))
 		early_release();
 	else
 		mutex_unlock(&dev->mutex);
@@ -1770,9 +1771,11 @@ static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
 	if (!stream)
 		return -ENOMEM;
 
-	early_stream = kzalloc (sizeof(*stream), GFP_KERNEL);
+	if (strcmp(dev->vip_name, "vip1") == 0) {
+		early_stream = kzalloc(sizeof(*stream), GFP_KERNEL);
 		if (!stream)
 			return -ENOMEM;
+	}
 
 	stream->port = port;
 	stream->stream_id = stream_id;
@@ -1816,7 +1819,9 @@ static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
 
 	snprintf(vfd->name, sizeof(vfd->name), "%s", vip_videodev.name);
 	stream->vfd = vfd;
-	early_stream = stream;
+	if (strcmp(dev->vip_name, "vip1") == 0)
+		early_stream = stream;
+
 	v4l2_info(&dev->v4l2_dev, VIP_MODULE_NAME
 			" Device registered as /dev/video%d\n", vfd->num);
 	return 0;
@@ -2061,9 +2066,12 @@ free_config:
 	return ret;
 }
 
+static const struct of_device_id vip_of_match[];
+
 static int vip_probe(struct platform_device *pdev)
 {
 	struct vip_dev *dev;
+	const struct of_device_id *of_dev_id;
 	struct pinctrl *pinctrl;
 	int ret;
 	int irq;
@@ -2072,9 +2080,18 @@ static int vip_probe(struct platform_device *pdev)
 	if (!dev)
 		return -ENOMEM;
 
-	early_dev = kzalloc(sizeof *early_dev, GFP_KERNEL);
-	if (!early_dev)
-		return -ENOMEM;
+	of_dev_id = of_match_device(vip_of_match, &pdev->dev);
+	if (!of_dev_id) {
+		dev_err(&pdev->dev, "%s: Unable to match device\n", __func__);
+		return -ENODEV;
+	}
+	dev->vip_name = (const char *)of_dev_id->data;
+
+	if (strcmp(dev->vip_name, "vip1") == 0) {
+		early_dev = kzalloc(sizeof(*early_dev), GFP_KERNEL);
+		if (!early_dev)
+			return -ENOMEM;
+	}
 
 	spin_lock_init(&dev->slock);
 	spin_lock_init(&dev->lock);
@@ -2128,7 +2145,8 @@ static int vip_probe(struct platform_device *pdev)
 	if (ret)
 		goto dev_unreg;
 
-	early_dev = dev;
+	if (strcmp(dev->vip_name, "vip1") == 0)
+		early_dev = dev;
 	if (dev->pdev->dev.of_node) {
 		ret = vip_of_probe(pdev, dev);
 		if (ret)
@@ -2165,15 +2183,15 @@ static int vip_remove(struct platform_device *pdev)
 #if defined (CONFIG_OF)
 static const struct of_device_id vip_of_match[] = {
 	{
-		.compatible = "ti,vip1",
+		.compatible = "ti,vip1", .data = "vip1",
 	},
 #if 0
 	{
-		.compatible = "ti,vip2",
+		.compatible = "ti,vip2", .data = "vip2",
 	},
 #endif
 	{
-		.compatible = "ti,vip3",
+		.compatible = "ti,vip3", .data = "vip3",
 	},
 	{},
 };
