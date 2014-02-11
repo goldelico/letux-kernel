@@ -111,11 +111,6 @@
 		};
 	};
 
-	/* compass aka magnetometer */
-	hmc5843@1e {
-		compatible = "honeywell,hmc5843";
-		reg = <0x1e>;
-	};
 };
 
 #include "twl4030.dtsi"
@@ -175,6 +170,12 @@
 		interrupts = <0 IRQ_TYPE_EDGE_FALLING>;
 		gpios = <&gpio6 0 GPIO_ACTIVE_LOW>;
 		ti,x-plate-ohms = <600>;
+	};
+
+	/* compass aka magnetometer */
+	hmc5843@1e {
+		compatible = "honeywell,hmc5843";
+		reg = <0x1e>;
 	};
 };
 
