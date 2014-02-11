@@ -1,0 +1,63 @@
+/*
+ * Copyright (C) 2014 H. Nikolaus Schaller <hns@goldelico.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/* we start with the omap3-gta04 tree and modify only what is really different */
+
+#include "omap3-gta04.dts"
+
+/ {
+
+	/* overwrite device model */
+	model = "Goldelico GTA04b3";
+
+	/* add additional regulators etc. */
+
+};
+
+/*
+&dpi1 {
+	lcd {
+		compatible = "sharp,l???";
+	};
+};
+*/
+
+/* FIXME: handle optional USB Host output */
+
+&i2c2 {
+	/* we have a different set of LEDs */
+	tca6507@45 {
+		compatible = "ti,tca6507";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x45>;
+
+/* FIXME */
+
+		gta04_led0: red_aux@0 {
+			label = "gta04:red:aux";
+			reg = <0x0>;
+		};
+
+		gta04_led1: green_aux@1 {
+			label = "gta04:green:aux";
+			reg = <0x1>;
+		};
+
+		gta04_led3: red_power@3 {
+			label = "gta04:red:power";
+			reg = <0x3>;
+			linux,default-trigger = "default-on";
+		};
+
+		gta04_led4: green_power@4 {
+			label = "gta04:green:power";
+			reg = <0x4>;
+		};
+	};
+};
