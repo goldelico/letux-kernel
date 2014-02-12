@@ -342,6 +342,7 @@
 &dss {
 	pinctrl-names = "default";
 	pinctrl-0 = < &dss_dpi_pins >;
+	status = "okay";
 
 	vdds_dsi-supply = <&vpll2>;
 
