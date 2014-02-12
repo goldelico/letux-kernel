@@ -54,6 +54,13 @@ static u8 twl4030_start_script_address = 0x2b;
 
 #define LVL_WAKEUP	0x08
 
+#define	STARTON_PWON	BIT(0)	/* power-on button */
+#define	STARTON_CHG	BIT(1)	/* charger inserted */
+#define	STARTON_USB	BIT(2)	/* USB plug-in */
+#define	STARTON_RTC	BIT(3)	/* RTC alarm */
+#define	STARTON_VBAT	BIT(4)	/* Battery plugged in */
+#define	STARTON_VBUS	BIT(5)	/* voltage detection */
+
 #define ENABLE_WARMRESET (1<<4)
 
 #define END_OF_SCRIPT		0x3f
@@ -233,13 +240,13 @@ static int twl4030_config_wakeup12_sequence(u8 address)
 	if (err)
 		goto out;
 
-	if (machine_is_omap_3430sdp() || machine_is_omap_ldp()) {
+	if (1) {
 		/* Disabling AC charger effect on sleep-active transitions */
 		err = twl_i2c_read_u8(TWL_MODULE_PM_MASTER, &data,
 				      R_CFG_P1_TRANSITION);
 		if (err)
 			goto out;
-		data &= ~(1<<1);
+		data &= ~(STARTON_CHG|STARTON_VBUS|STARTON_VBAT|STARTON_USB);
 		err = twl_i2c_write_u8(TWL_MODULE_PM_MASTER, data,
 				       R_CFG_P1_TRANSITION);
 		if (err)
