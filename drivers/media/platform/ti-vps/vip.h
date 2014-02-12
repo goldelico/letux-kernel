@@ -28,6 +28,8 @@
 #define VIP_CAP_STREAMS_PER_PORT	16
 #define VIP_VBI_STREAMS_PER_PORT	16
 
+#define VIP_MAX_SUBDEV	5
+
 /* buffer for one video frame */
 struct vip_buffer {
 	/* common v4l buffer stuff */
@@ -62,7 +64,8 @@ struct vip_config {
 	struct vip_subdev_info *subdev_info;
 	int subdev_count;
 	const char *card_name;
-	struct v4l2_async_subdev **asd;
+	struct v4l2_async_subdev *asd_list[VIP_MAX_SUBDEV];
+	struct v4l2_async_subdev asd[VIP_MAX_SUBDEV];
 	int asd_sizes;
 };
 
@@ -77,6 +80,7 @@ struct vip_dev {
 	struct resource *res;
 	int			slice_id;
 	int			num_ports;	/* count of open ports */
+	int			setup_done;
 	struct mutex		mutex;
 	spinlock_t		slock;
 	spinlock_t		lock; /* used in videobuf2 callback */
@@ -100,6 +104,7 @@ struct vip_dev {
 	int			ov_pwdn_gpio;
 
 	struct video_device	 *early_vdev;
+	const char		*vip_name;
 };
 
 /*
@@ -151,9 +156,9 @@ extern dma_addr_t dma_addr_global;
 extern dma_addr_t dma_addr_global_complete;
 extern void *mem_priv;
 
-extern bool early_sensor_detect();
-extern int early_vip_open();
-extern int early_release();
+extern bool early_sensor_detect(void);
+extern int early_vip_open(void);
+extern int early_release(void);
 extern int early_reqbufs(struct v4l2_requestbuffers *p);
 extern int early_querybuf(struct v4l2_buffer *p);
 extern int early_qbuf(struct v4l2_buffer *p);
