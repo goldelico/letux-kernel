@@ -271,6 +271,8 @@ static void vip_set_standby_mode(struct vip_shared *shared, int mode)
 	write_sreg(shared, VIP_SYSCONFIG, reg);
 }
 
+static struct mutex		vip_driver_mutex;
+
 /*
  * Enable or disable the VIP clocks
  */
@@ -1938,12 +1940,14 @@ static int find_or_alloc_shared(struct platform_device *pdev, struct vip_dev *de
 	u32 tmp;
 	int ret;
 
+	mutex_lock(&vip_driver_mutex);
 	shared = platform_get_drvdata(pdev);
 	if (shared) {
 		/* Use existing shared structure */
 		dev->shared = shared;
 		shared->devs[atomic_read(&shared->devs_allocated)] = dev;
 		atomic_inc(&shared->devs_allocated);
+		mutex_unlock(&vip_driver_mutex);
 		return 0;
 	}
 
@@ -1952,7 +1956,6 @@ static int find_or_alloc_shared(struct platform_device *pdev, struct vip_dev *de
 		ret = -ENOMEM;
 		goto unlock;
 	}
-	platform_set_drvdata(pdev, shared);
 
 	shared->res = res;
 
@@ -1993,6 +1996,10 @@ static int find_or_alloc_shared(struct platform_device *pdev, struct vip_dev *de
 	atomic_set(&shared->devs_allocated, 1);
 
 	list_add_tail(&shared->list, &vip_shared_list);
+
+	platform_set_drvdata(pdev, shared);
+	mutex_unlock(&vip_driver_mutex);
+
 	ret = 0;
 	goto unlock;
 
@@ -2132,6 +2139,7 @@ static int vip_probe(struct platform_device *pdev)
 	void __iomem *base;
 	int ret, slice = VIP_SLICE1;
 
+	mutex_init(&vip_driver_mutex);
 	pm_runtime_enable(&pdev->dev);
 
 	ret = vip_runtime_get(pdev);
