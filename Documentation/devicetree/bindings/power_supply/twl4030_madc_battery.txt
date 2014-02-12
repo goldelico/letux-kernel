@@ -1,0 +1,15 @@
+twl4030_madc_battery
+
+Required properties:
+ - compatible : "ti,twl4030-madc-battery"
+ - capacity : battery capacity in uAh
+ - charging-calibration-data : list of voltage(mV):level(%) values for charging calibration (see example)
+ - discharging-calibration-data : list of voltage(mV):level(%) values for discharging calibration (see example)
+
+Example:
+	madc-battery {
+		compatible = "ti,twl4030-madc-battery";
+		capacity = <1200000>;
+		charging-calibration-data = <4200 100 4100 75 4000 55 3900 25 3800 5 3700 2 3600 1 3300 0>;
+		discharging-calibration-data = <4200 100 4100 95 4000 70 3800 50 3700 10 3600 5 3300 0>;
+	};
