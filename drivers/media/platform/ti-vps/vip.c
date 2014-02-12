@@ -1712,6 +1712,7 @@ static int vip_open(struct file *file)
 	}
 
 	if (!dev->setup_done) {
+		dev->setup_done = 1;
 		vip_top_reset(dev);
 		ret = find_or_alloc_shared(pdev, dev, dev->res);
 		if (ret)
@@ -1734,8 +1735,6 @@ static int vip_open(struct file *file)
 		vip_set_hsync_polarity(dev->ports[0], 1);
 		vip_set_actvid_polarity(dev->ports[0], 1);
 		vip_set_discrete_basic_mode(dev->ports[0]);
-
-		dev->setup_done = 1;
 	}
 
 	ret = vip_init_port(port);
@@ -1932,20 +1931,30 @@ static int find_or_alloc_shared(struct platform_device *pdev, struct vip_dev *de
 	u32 tmp;
 	int ret;
 
+	shared = platform_get_drvdata(pdev);
+	if (shared) {
+		/* Use existing shared structure */
+		dev->shared = shared;
+		shared->devs[atomic_read(&shared->devs_allocated)] = dev;
+		atomic_inc(&shared->devs_allocated);
+		return 0;
+	}
+
 	shared = kzalloc (sizeof(*shared), GFP_KERNEL);
 	if (!shared) {
 		ret = -ENOMEM;
 		goto unlock;
 	}
+	platform_set_drvdata(pdev, shared);
 
 	shared->res = res;
 
-	if (devm_request_mem_region(dev->v4l2_dev.dev, res->start,
+	if (devm_request_mem_region(&pdev->dev, res->start,
 	    resource_size(res), VIP_MODULE_NAME) == NULL) {
 		ret = -ENOMEM;
 		goto free_shared;
 	}
-	shared->base = devm_ioremap(dev->v4l2_dev.dev, res->start,
+	shared->base = devm_ioremap(&pdev->dev, res->start,
 				    resource_size(res));
 
 	if (!shared->base) {
@@ -1973,6 +1982,7 @@ static int find_or_alloc_shared(struct platform_device *pdev, struct vip_dev *de
 
 	ret = vpdma_init(pdev, &shared->vpdma);
 
+	shared->devs[0] = dev;
 	atomic_set(&shared->devs_allocated, 1);
 
 	list_add_tail(&shared->list, &vip_shared_list);
@@ -2051,6 +2061,7 @@ static int vip_of_probe(struct platform_device *pdev, struct vip_dev *dev)
 	struct device_node *node = NULL;
 	struct i2c_client *sensor_i2c_client = NULL;
 	u8 sensor_addr = -1; /* Will be updated from device tree */
+	char *sensor_list;
 	int ret, i = 0;
 
 	dev->config = kzalloc(sizeof(struct vip_config), GFP_KERNEL);
@@ -2058,9 +2069,10 @@ static int vip_of_probe(struct platform_device *pdev, struct vip_dev *dev)
 		return -ENOMEM;
 
 	dev->config->card_name = "DRA7XX VIP Driver";
+	sensor_list = dev->slice_id == VIP_SLICE1 ? "sensor0" : "sensor1";
 
 	for (i = 0; i < VIP_MAX_SUBDEV; i++) {
-		node = of_parse_phandle(pdev->dev.of_node, "sensor0", i);
+		node = of_parse_phandle(pdev->dev.of_node, sensor_list, i);
 		if (node)
 			sensor_i2c_client = of_find_i2c_device_by_node(node);
 		else
@@ -2107,32 +2119,11 @@ static const struct of_device_id vip_of_match[];
 static int vip_probe(struct platform_device *pdev)
 {
 	struct vip_dev *dev;
+	struct resource *res;
 	const struct of_device_id *of_dev_id;
 	struct pinctrl *pinctrl;
-	int ret;
-	int irq;
-
-	dev = kzalloc(sizeof *dev, GFP_KERNEL);
-	if (!dev)
-		return -ENOMEM;
-
-	of_dev_id = of_match_device(vip_of_match, &pdev->dev);
-	if (!of_dev_id) {
-		dev_err(&pdev->dev, "%s: Unable to match device\n", __func__);
-		return -ENODEV;
-	}
-	dev->vip_name = (const char *)of_dev_id->data;
-
-	if (strcmp(dev->vip_name, "vip1") == 0) {
-		early_dev = kzalloc(sizeof(*early_dev), GFP_KERNEL);
-		if (!early_dev)
-			return -ENOMEM;
-	}
-
-	spin_lock_init(&dev->slock);
-	spin_lock_init(&dev->lock);
-
-	INIT_LIST_HEAD(&dev->vip_bufs);
+	void __iomem *base;
+	int ret, slice = VIP_SLICE1;
 
 	pm_runtime_enable(&pdev->dev);
 
@@ -2140,9 +2131,14 @@ static int vip_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_runtime_get;
 
-	irq = platform_get_irq(pdev, 0);
-	dev->res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (irq < 0 || dev->res == NULL) {
+	of_dev_id = of_match_device(vip_of_match, &pdev->dev);
+	if (!of_dev_id) {
+		dev_err(&pdev->dev, "%s: Unable to match device\n", __func__);
+		return -ENODEV;
+	}
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (res == NULL) {
 		dev_err(&pdev->dev, "Missing platform resources data\n");
 		ret = -ENODEV;
 	}
@@ -2153,41 +2149,69 @@ static int vip_probe(struct platform_device *pdev)
 		goto err_runtime_get;
 	}
 
-	ret = v4l2_device_register(&pdev->dev, &dev->v4l2_dev);
-	if (ret)
-		goto err_runtime_get;
-
-	mutex_init(&dev->mutex);
-
-	platform_set_drvdata(pdev, dev);
-
-	dev->base = devm_ioremap(&pdev->dev, dev->res->start, SZ_64K);
-	if (!dev->base)
+	base = devm_ioremap(&pdev->dev, res->start, SZ_64K);
+	if (!base)
 		ret = -ENOMEM;
 
-	dev->irq = irq;
+	for (slice = VIP_SLICE1; slice < VIP_NUM_SLICES; slice++) {
+		dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+		if (!dev)
+			return -ENOMEM;
 
-	if (devm_request_irq(&pdev->dev, dev->irq, vip_irq,
-			     0, VIP_MODULE_NAME, dev) < 0) {
-		ret = -ENOMEM;
-		goto dev_unreg;
-	}
+		dev->irq = platform_get_irq(pdev, slice);
+		if (!dev->irq) {
+			dev_err(&pdev->dev, "Could not get IRQ");
+			goto err_runtime_get;
+		}
 
-	dev->slice_id = VIP_SLICE1;
+		if (devm_request_irq(&pdev->dev, dev->irq, vip_irq,
+				     0, VIP_MODULE_NAME, dev) < 0) {
+			ret = -ENOMEM;
+			goto dev_unreg;
+		}
 
-	dev->pdev = pdev;
+		spin_lock_init(&dev->slock);
+		spin_lock_init(&dev->lock);
 
-	ret = alloc_port(dev, 0);
-	if (ret)
-		goto dev_unreg;
+		INIT_LIST_HEAD(&dev->vip_bufs);
 
-	if (strcmp(dev->vip_name, "vip1") == 0)
-		early_dev = dev;
-	if (dev->pdev->dev.of_node) {
-		ret = vip_of_probe(pdev, dev);
+		dev->vip_name = (const char *)of_dev_id->data;
+
+		if (strcmp(dev->vip_name, "vip1") == 0) {
+			early_dev = kzalloc(sizeof(*early_dev), GFP_KERNEL);
+			if (!early_dev)
+				return -ENOMEM;
+		}
+
+		snprintf(dev->v4l2_dev.name, sizeof(dev->v4l2_dev.name),
+			"%s %s-%d", VIP_MODULE_NAME, dev->vip_name, slice);
+
+		ret = v4l2_device_register(&pdev->dev, &dev->v4l2_dev);
 		if (ret)
-			goto free_port;
+			goto err_runtime_get;
+
+		mutex_init(&dev->mutex);
+
+		dev->slice_id = slice;
+		dev->pdev = pdev;
+		dev->res = res;
+		dev->base = base;
+
+		if (strcmp(dev->vip_name, "vip1") == 0)
+			early_dev = dev;
+
+		ret = alloc_port(dev, 0);
+		if (ret)
+			goto dev_unreg;
+
+		if (dev->pdev->dev.of_node) {
+			ret = vip_of_probe(pdev, dev);
+			if (ret)
+				goto free_port;
+		}
 	}
+
+	platform_set_drvdata(pdev, NULL);
 
 	return 0;
 
@@ -2196,21 +2220,31 @@ free_port:
 dev_unreg:
 	v4l2_device_unregister(&dev->v4l2_dev);
 err_runtime_get:
-	pm_runtime_disable(&pdev->dev);
-	return ret;
+	if (slice == VIP_SLICE1) {
+		pm_runtime_disable(&pdev->dev);
+		return ret;
+	} else
+		return 0;
 }
 
 static int vip_remove(struct platform_device *pdev)
 {
-	struct vip_dev *dev = (struct vip_dev *)platform_get_drvdata(pdev);
+	struct vip_shared *shared = platform_get_drvdata(pdev);
+	struct vip_dev *dev;
+	int slice;
 
-	v4l2_info(&dev->v4l2_dev, "Removing " VIP_MODULE_NAME);
-	free_port(dev->ports[0]);
-	v4l2_async_notifier_unregister(&dev->notifier);
-	vb2_dma_contig_cleanup_ctx(dev->alloc_ctx);
-	free_irq(dev->irq, dev);
-	remove_shared(dev->shared);
-	kfree(dev);
+	for (slice = 0; slice < atomic_read(&shared->devs_allocated); slice++) {
+		dev = shared->devs[slice];
+		if (!dev)
+			continue;
+		v4l2_info(&dev->v4l2_dev, "Removing " VIP_MODULE_NAME);
+		free_port(dev->ports[0]);
+		v4l2_async_notifier_unregister(&dev->notifier);
+		vb2_dma_contig_cleanup_ctx(dev->alloc_ctx);
+		free_irq(dev->irq, dev);
+		kfree(dev);
+	}
+	remove_shared(shared);
 
 	return 0;
 }
