@@ -702,10 +702,12 @@ static void enable_irqs(struct vip_dev *dev, int irq_num)
 {
 	u32 reg_addr = VIP_INT0_ENABLE0_SET +
 			VIP_INTC_INTX_OFFSET * irq_num;
+	int list_num = dev->slice_id;
 
-	write_sreg(dev->shared, reg_addr, VIP_INT0_LIST0_COMPLETE);
+	write_sreg(dev->shared, reg_addr, 1 << (list_num * 2));
 
-	vpdma_enable_list_complete_irq(dev->shared->vpdma, irq_num, 0, true);
+	vpdma_enable_list_complete_irq(dev->shared->vpdma,
+		irq_num, list_num, true);
 }
 
 static void disable_irqs(struct vip_dev *dev, int irq_num)
@@ -715,7 +717,8 @@ static void disable_irqs(struct vip_dev *dev, int irq_num)
 
 	write_sreg(dev->shared, reg_addr, 0xffffffff);
 
-	vpdma_enable_list_complete_irq(dev->shared->vpdma, irq_num, 0, false);
+	vpdma_enable_list_complete_irq(dev->shared->vpdma,
+		irq_num, 0, false);
 }
 
 static void populate_desc_list(struct vip_stream *stream)
@@ -824,23 +827,28 @@ static void vip_process_buffer_complete(struct vip_stream *stream)
 static irqreturn_t vip_irq(int irq_vip, void *data)
 {
 	struct vip_dev *dev = (struct vip_dev *)data;
-	u32 irqst0;
+	int list_num = dev->slice_id;
+	int irq_num = dev->slice_id;
+	u32 irqst, reg_addr;
 
 	if (!dev->shared)
 		return IRQ_HANDLED;
 
-	irqst0 = read_sreg(dev->shared, VIP_INT0_STATUS0);
+	reg_addr = VIP_INT0_STATUS0 +
+			VIP_INTC_INTX_OFFSET * irq_num;
+	irqst = read_sreg(dev->shared, reg_addr);
 
-	if (irqst0) {
-		write_sreg(dev->shared, VIP_INT0_STATUS0_CLR, irqst0);
+	if (irqst) {
+		reg_addr = VIP_INT0_STATUS0_CLR +
+			VIP_INTC_INTX_OFFSET * irq_num;
+		write_sreg(dev->shared, reg_addr, irqst);
 	}
 
-	if (irqst0) {
-		if (irqst0 & VIP_INT0_LIST0_COMPLETE) {
-			vpdma_clear_list_stat(dev->shared->vpdma, 0);
-		}
+	if (irqst) {
+		if (irqst & 1 << (list_num * 2))
+			vpdma_clear_list_stat(dev->shared->vpdma, list_num);
 
-		irqst0 &= ~(VIP_INT0_LIST0_COMPLETE);
+		irqst &= ~((1 << list_num * 2));
 	}
 
 	if (dev->num_skip_irq) {
