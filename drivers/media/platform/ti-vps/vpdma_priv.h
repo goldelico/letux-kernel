@@ -216,6 +216,7 @@ struct vpdma_dtd {
 #define DTD_V_START_MASK	0xffff
 #define DTD_V_START_SHFT	0
 
+#define DTD_DESC_START_MASK	0xffe0
 #define DTD_DESC_START_SHIFT	5
 #define DTD_WRITE_DESC_MASK	0x01
 #define DTD_WRITE_DESC_SHIFT	2
@@ -296,7 +297,7 @@ struct vpdma_dtd {
 	((width << DTD_FRAME_WIDTH_SHFT) | height)
 
 #define DTD_O_W4(addr, write, drop, use)			\
-	((addr << DTD_DESC_START_SHIFT) |			\
+	((addr & DTD_DESC_START_MASK) |				\
 	(write << DTD_WRITE_DESC_SHIFT) |			\
 	(drop << DTD_DROP_DATA_SHIFT)	|			\
 	use)
@@ -468,7 +469,7 @@ static inline int dtd_get_frame_height(struct vpdma_dtd *dtd)
 
 static inline int dtd_get_desc_write_addr(struct vpdma_dtd *dtd)
 {
-	return dtd->desc_write_addr >> DTD_DESC_START_SHIFT;
+	return dtd->desc_write_addr & DTD_DESC_START_MASK;
 }
 
 static inline bool dtd_get_write_desc(struct vpdma_dtd *dtd)
