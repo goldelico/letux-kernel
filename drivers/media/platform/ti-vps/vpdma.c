@@ -397,10 +397,9 @@ EXPORT_SYMBOL(vpdma_list_busy);
 /*
  * submit a list of DMA descriptors to the VPE VPDMA, do not wait for completion
  */
-int vpdma_submit_descs(struct vpdma_data *vpdma, struct vpdma_desc_list *list)
+int vpdma_submit_descs(struct vpdma_data *vpdma,
+	struct vpdma_desc_list *list, int list_num)
 {
-	/* we always use the first list */
-	int list_num = 0;
 	int list_size;
 
 	if (vpdma_list_busy(vpdma, list_num))

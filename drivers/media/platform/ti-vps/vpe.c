@@ -1084,7 +1084,7 @@ static void device_run(void *priv)
 	enable_irqs(ctx);
 
 	vpdma_buf_map(ctx->dev->vpdma, &ctx->desc_list.buf);
-	vpdma_submit_descs(ctx->dev->vpdma, &ctx->desc_list);
+	vpdma_submit_descs(ctx->dev->vpdma, &ctx->desc_list, 0);
 }
 
 static void dei_error(struct vpe_ctx *ctx)

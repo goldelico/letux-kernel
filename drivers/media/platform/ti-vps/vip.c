@@ -740,7 +740,7 @@ static void start_dma(struct vip_dev *dev, struct vip_buffer *buf)
 	dma_addr_t dma_addr;
 	int drop_data;
 
-	if (vpdma_list_busy(vpdma, 0)) {
+	if (vpdma_list_busy(vpdma, dev->slice_id)) {
 		v4l2_err(&dev->v4l2_dev, "vpdma list busy, cannot post");
 		return;				/* nothing to do */
 	}
@@ -758,7 +758,7 @@ static void start_dma(struct vip_dev *dev, struct vip_buffer *buf)
 
 	vpdma_update_dma_addr(dev->shared->vpdma, &dev->desc_list,
 				dma_addr, drop_data);
-	vpdma_submit_descs(dev->shared->vpdma, &dev->desc_list);
+	vpdma_submit_descs(dev->shared->vpdma, &dev->desc_list, dev->slice_id);
 }
 
 static void vip_active_buf_next(struct vip_stream *stream)
@@ -1449,7 +1449,7 @@ static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
 	for (i = 0; i < count; i++) {
 
 		spin_lock_irqsave(&dev->slock, flags);
-		if (!vpdma_list_busy(dev->shared->vpdma, 0)) {
+		if (!vpdma_list_busy(dev->shared->vpdma, dev->slice_id)) {
 
 			buf = list_entry(stream->vidq.next,
 					struct vip_buffer, list);
@@ -1462,7 +1462,8 @@ static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
 
 			if (i == VIP_VPDMA_FIFO_SIZE)
 				break;
-			while (vpdma_list_busy(dev->shared->vpdma, 0))
+			while (vpdma_list_busy(dev->shared->vpdma,
+					dev->slice_id))
 				;
 		} else
 			spin_unlock_irqrestore(&dev->slock, flags);
