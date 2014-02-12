@@ -6,7 +6,6 @@
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/ioctl.h>
-#include <linux/gpio.h>
 #include <linux/i2c.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -14,8 +13,9 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 
-#include <linux/of_gpio.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/of_i2c.h>
+#include <linux/of_device.h>
 
 #include <media/dra7xx_vip.h>
 
@@ -29,11 +29,6 @@ MODULE_DESCRIPTION("TI DRA7xx VIP driver");
 MODULE_AUTHOR("Dale Farnsworth, <dale@farnsworth.org>");
 MODULE_LICENSE("GPL");
 MODULE_VERSION("0.1");
-
-/*
- * Global static variables
- */
-static int once = 1;
 
 /*
  * Minimum and maximum frame sizes
@@ -111,7 +106,7 @@ struct vip_fmt {
 	u32	fourcc;			/* The standard format identifier */
 	enum v4l2_colorspace colorspace;/* Colorspace: YPE_YUV or YPE_RGB */
 	u8	coplanar;		/* set for unpacked Luma and Chroma */
-	struct vpdma_data_format *vpdma_fmt[VIP_MAX_PLANES];
+	const struct vpdma_data_format *vpdma_fmt[VIP_MAX_PLANES];
 };
 
 static struct vip_fmt vip_formats[] = {
@@ -520,6 +515,7 @@ static void vip_set_data_interface(struct vip_port *port, enum data_interface_mo
 	}
 }
 
+#if 0
 static void vip_reset_port(struct vip_port *port)
 {
 	u32 val = 0;
@@ -559,6 +555,7 @@ static void vip_reset_port(struct vip_port *port)
 		write_vreg(port->dev, VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTB_0, 0);
 	}
 }
+#endif
 
 static void vip_set_port_enable(struct vip_port *port, bool on)
 {
@@ -1434,6 +1431,8 @@ static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
 static int vip_stop_streaming(struct vb2_queue *vq)
 {
 	struct vip_stream *stream = vb2_get_drv_priv(vq);
+	struct vip_port *port = stream->port;
+	struct vip_dev *dev = port->dev;
 	struct vip_buffer *buf;
 
 	if (!vb2_is_streaming(vq))
@@ -1445,7 +1444,7 @@ static int vip_stop_streaming(struct vb2_queue *vq)
 		list_del(&buf->list);
 		vb2_buffer_done(&buf->vb, VB2_BUF_STATE_ERROR);
 	}
-
+	disable_irqs(dev);
 	return 0;
 }
 
@@ -1576,7 +1575,7 @@ int early_vip_open() {
 		return -EBUSY;
 	}
 
-	if (once) {
+	if (!dev->setup_done) {
 		vip_top_reset(dev);
 		ret = find_or_alloc_shared(pdev, dev, dev->res);
 		if (ret)
@@ -1600,7 +1599,7 @@ int early_vip_open() {
 		vip_set_actvid_polarity(dev->ports[0], 1);
 		vip_set_discrete_basic_mode(dev->ports[0]);
 
-		once = 0;
+		dev->setup_done = 1;
 	}
 
 	ret = vip_init_port(port);
@@ -1635,13 +1634,14 @@ int early_release()
 	vip_dprintk(dev, "Releasing stream instance %p\n", stream);
 
 	mutex_lock(&dev->mutex);
-	disable_irqs(dev);
+
+	vip_stop_streaming(q);
 	vip_release_port(stream->port);
 
 	vb2_queue_release(q);
 
-	dma_addr_global_complete = NULL;
-	dma_addr_global = NULL;
+	dma_addr_global_complete = (dma_addr_t)NULL;
+	dma_addr_global = (dma_addr_t)NULL;
 
 	early_stream->open = 0;
 
@@ -1664,7 +1664,7 @@ static int vip_open(struct file *file)
 		return -EBUSY;
 	}
 
-	if (once) {
+	if (!dev->setup_done) {
 		vip_top_reset(dev);
 		ret = find_or_alloc_shared(pdev, dev, dev->res);
 		if (ret)
@@ -1688,7 +1688,7 @@ static int vip_open(struct file *file)
 		vip_set_actvid_polarity(dev->ports[0], 1);
 		vip_set_discrete_basic_mode(dev->ports[0]);
 
-		once = 0;
+		dev->setup_done = 1;
 	}
 
 	ret = vip_init_port(port);
@@ -1727,14 +1727,14 @@ static int vip_release(struct file *file)
 
 	mutex_lock(&dev->mutex);
 
-	disable_irqs(dev);
+	vip_stop_streaming(q);
 	vip_release_port(stream->port);
 
 	v4l2_fh_del(&stream->fh);
 	v4l2_fh_exit(&stream->fh);
 	vb2_queue_release(q);
 
-	if (early_stream->open)
+	if (early_stream->open && (strcmp(dev->vip_name, "vip1") == 0))
 		early_release();
 	else
 		mutex_unlock(&dev->mutex);
@@ -1771,9 +1771,11 @@ static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
 	if (!stream)
 		return -ENOMEM;
 
-	early_stream = kzalloc (sizeof(*stream), GFP_KERNEL);
+	if (strcmp(dev->vip_name, "vip1") == 0) {
+		early_stream = kzalloc(sizeof(*stream), GFP_KERNEL);
 		if (!stream)
 			return -ENOMEM;
+	}
 
 	stream->port = port;
 	stream->stream_id = stream_id;
@@ -1817,7 +1819,9 @@ static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
 
 	snprintf(vfd->name, sizeof(vfd->name), "%s", vip_videodev.name);
 	stream->vfd = vfd;
-	early_stream = stream;
+	if (strcmp(dev->vip_name, "vip1") == 0)
+		early_stream = stream;
+
 	v4l2_info(&dev->v4l2_dev, VIP_MODULE_NAME
 			" Device registered as /dev/video%d\n", vfd->num);
 	return 0;
@@ -1962,8 +1966,22 @@ static int vip_async_bound(struct v4l2_async_notifier *notifier,
 			struct v4l2_async_subdev *asd)
 {
 	struct vip_dev *dev = notifier_to_vip_dev(notifier);
-	dev->sensor = subdev;
 
+	if (dev->sensor) {
+		if (asd < dev->sensor->asdl.asd) {
+			/* Notified of a subdev earlier in the array */
+			v4l2_info(&dev->v4l2_dev, "Switching to subdev i2c address %x (High priority)",
+				asd->match.i2c.address);
+		} else {
+			v4l2_info(&dev->v4l2_dev, "Rejecting subdev i2c address %x (Low priority)",
+				asd->match.i2c.address);
+			return 0;
+		}
+	}
+
+	dev->sensor = subdev;
+	dev_notice(&dev->pdev->dev, "Using sensor i2c addr %x for capture\n",
+		asd->match.i2c.address);
 	return 0;
 }
 
@@ -1973,47 +1991,77 @@ static int vip_async_complete(struct v4l2_async_notifier *notifier)
 	return 0;
 }
 
-static struct v4l2_async_subdev ov10635_sd = {
+static struct v4l2_async_subdev vip_sensor_subdev = {
 	.bus_type = V4L2_ASYNC_BUS_I2C,
 	.match.i2c = {
 		.adapter_id = 1,
 		.address = 0x30,
-	},
+	}
 };
 
-static struct v4l2_async_subdev ov10633_sd = {
-	.bus_type = V4L2_ASYNC_BUS_I2C,
-	.match.i2c = {
-		.adapter_id = 1,
-		.address = 0x37,
-	},
-};
-
-static struct v4l2_async_subdev *vip_async_subdevs[] = {
-	&ov10635_sd,
-	&ov10633_sd,
-};
-
-static struct vip_config dra7xx_vip_config = {
-	.card_name	= "DRA7XX VIP Driver",
-	.asd		= vip_async_subdevs,
-	.asd_sizes	= sizeof(vip_async_subdevs)/sizeof(vip_async_subdevs[0]),
-};
-
-static void ov10635_uninit_sensor(struct vip_dev *dev)
+static int vip_of_probe(struct platform_device *pdev, struct vip_dev *dev)
 {
-	gpio_free(dev->vin2_s0_gpio);
-	gpio_free(dev->cam_fpd_mux_s0_gpio);
-	gpio_free(dev->mux1_sel0_gpio);
-	gpio_free(dev->mux1_sel1_gpio);
-	gpio_free(dev->mux2_sel0_gpio);
-	gpio_free(dev->mux2_sel1_gpio);
-	gpio_free(dev->ov_pwdn_gpio);
+	struct device_node *node = NULL;
+	struct i2c_client *sensor_i2c_client = NULL;
+	u8 sensor_addr = -1; /* Will be updated from device tree */
+	int ret, i = 0;
+
+	dev->config = kzalloc(sizeof(struct vip_config), GFP_KERNEL);
+	if (!dev->config)
+		return -ENOMEM;
+
+	dev->config->card_name = "DRA7XX VIP Driver";
+
+	for (i = 0; i < VIP_MAX_SUBDEV; i++) {
+		node = of_parse_phandle(pdev->dev.of_node, "sensor0", i);
+		if (node)
+			sensor_i2c_client = of_find_i2c_device_by_node(node);
+		else
+			break;
+
+		if (sensor_i2c_client) {
+			sensor_addr = sensor_i2c_client->addr;
+			dev_err(&pdev->dev, "Waiting for sensor I2C %x",
+				sensor_addr);
+
+			dev->config->asd[i] = vip_sensor_subdev;
+			dev->config->asd[i].match.i2c.address = sensor_addr;
+			dev->config->asd_list[i] = &dev->config->asd[i];
+		}
+	}
+
+	if (sensor_addr == -1) {
+		dev_err(&pdev->dev, "Sensor node not found");
+		ret = -EINVAL;
+		goto free_config;
+	}
+
+	dev->config->asd_sizes = i;
+	dev->notifier.subdev = dev->config->asd_list;
+	dev->notifier.num_subdevs = dev->config->asd_sizes;
+	dev->notifier.bound = vip_async_bound;
+	dev->notifier.complete = vip_async_complete;
+
+	ret = v4l2_async_notifier_register(&dev->v4l2_dev, &dev->notifier);
+	if (ret) {
+		vip_dprintk(dev, "Error registering async notifier\n");
+		ret = -EINVAL;
+		goto free_config;
+	}
+
+	return 0;
+free_config:
+	kfree(dev->config);
+	return ret;
 }
+
+static const struct of_device_id vip_of_match[];
 
 static int vip_probe(struct platform_device *pdev)
 {
 	struct vip_dev *dev;
+	const struct of_device_id *of_dev_id;
+	struct pinctrl *pinctrl;
 	int ret;
 	int irq;
 
@@ -2021,9 +2069,18 @@ static int vip_probe(struct platform_device *pdev)
 	if (!dev)
 		return -ENOMEM;
 
-	early_dev = kzalloc(sizeof *early_dev, GFP_KERNEL);
-	if (!early_dev)
-		return -ENOMEM;
+	of_dev_id = of_match_device(vip_of_match, &pdev->dev);
+	if (!of_dev_id) {
+		dev_err(&pdev->dev, "%s: Unable to match device\n", __func__);
+		return -ENODEV;
+	}
+	dev->vip_name = (const char *)of_dev_id->data;
+
+	if (strcmp(dev->vip_name, "vip1") == 0) {
+		early_dev = kzalloc(sizeof(*early_dev), GFP_KERNEL);
+		if (!early_dev)
+			return -ENOMEM;
+	}
 
 	spin_lock_init(&dev->slock);
 	spin_lock_init(&dev->lock);
@@ -2041,6 +2098,12 @@ static int vip_probe(struct platform_device *pdev)
 	if (irq < 0 || dev->res == NULL) {
 		dev_err(&pdev->dev, "Missing platform resources data\n");
 		ret = -ENODEV;
+	}
+
+	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
+	if (IS_ERR(pinctrl)) {
+		ret = PTR_ERR(pinctrl);
+		goto err_runtime_get;
 	}
 
 	ret = v4l2_device_register(&pdev->dev, &dev->v4l2_dev);
@@ -2071,19 +2134,12 @@ static int vip_probe(struct platform_device *pdev)
 	if (ret)
 		goto dev_unreg;
 
-	dev->config = &dra7xx_vip_config;
-
-	dev->notifier.subdev = dev->config->asd;
-	dev->notifier.num_subdevs = dev->config->asd_sizes;
-	dev->notifier.bound = vip_async_bound;
-	dev->notifier.complete = vip_async_complete;
-
-	early_dev = dev;
-	ret = v4l2_async_notifier_register(&dev->v4l2_dev, &dev->notifier);
-	if (ret) {
-		vip_dprintk(dev, "Error registering async notifier\n");
-		ret = -EINVAL;
-		goto free_port;
+	if (strcmp(dev->vip_name, "vip1") == 0)
+		early_dev = dev;
+	if (dev->pdev->dev.of_node) {
+		ret = vip_of_probe(pdev, dev);
+		if (ret)
+			goto free_port;
 	}
 
 	return 0;
@@ -2103,7 +2159,6 @@ static int vip_remove(struct platform_device *pdev)
 
 	v4l2_info(&dev->v4l2_dev, "Removing " VIP_MODULE_NAME);
 	free_port(dev->ports[0]);
-	ov10635_uninit_sensor(dev);
 	v4l2_async_notifier_unregister(&dev->notifier);
 	vb2_dma_contig_cleanup_ctx(dev->alloc_ctx);
 	free_irq(dev->irq, dev);
@@ -2116,16 +2171,16 @@ static int vip_remove(struct platform_device *pdev)
 #if defined (CONFIG_OF)
 static const struct of_device_id vip_of_match[] = {
 	{
-		.compatible = "ti,vip1",
+		.compatible = "ti,vip1", .data = "vip1",
 	},
 #if 0
 	{
-		.compatible = "ti,vip2",
-	},
-	{
-		.compatible = "ti,vip3",
+		.compatible = "ti,vip2", .data = "vip2",
 	},
 #endif
+	{
+		.compatible = "ti,vip3", .data = "vip3",
+	},
 	{},
 };
 #else

@@ -29,6 +29,7 @@
 #include <linux/module.h>
 #include <linux/spinlock.h>
 #include <linux/workqueue.h>
+#include <linux/delay.h>
 #include "lvds-de-serlink_reg.h"
 
 static const struct i2c_device_id dserlink_id[] = {
@@ -89,6 +90,22 @@ struct dserlink {
 	int (*read)(struct i2c_client *client);
 };
 
+struct dserlink_setup_data {
+	u8 deser_addr;
+	u8 serial_id;
+	u8 sensor_id;
+	u8 serial_alias;
+	u8 sensor_alias;
+};
+
+static struct dserlink_setup_data dserlink_config_data[] = {
+	{ 0x60, 0xb0, 0x60, 0xe8, 0x70 },
+	{ 0x64, 0xb0, 0x60, 0xea, 0x72 },
+	{ 0x68, 0xb0, 0x60, 0xec, 0x74 },
+	{ 0x6c, 0xb0, 0x60, 0xee, 0x76 },
+	{ 0x61, 0xb0, 0x60, 0xf0, 0x78 },
+	{ 0x69, 0xb0, 0x60, 0xf2, 0x7a },
+};
 
 /*-------------------------------------------------------------------------*/
 
@@ -97,6 +114,7 @@ struct dserlink {
 static int i2c_write_le8(struct i2c_client *client, unsigned addr,
 							unsigned data)
 {
+	dev_err(&client->dev, "Writing addr = %x, data = %x", addr, data);
 	return i2c_smbus_write_byte_data(client, addr, data);
 }
 
@@ -246,6 +264,60 @@ error_config:
 
 }
 
+static int dserlink_setup_multides(struct i2c_client *client, void *arg)
+{
+	struct dserlink_setup_data *data = NULL;
+	int i, ret;
+
+	for (i = 0; i < ARRAY_SIZE(dserlink_config_data); i++) {
+		if (client->addr == dserlink_config_data[i].deser_addr) {
+			data = &dserlink_config_data[i];
+			break;
+		}
+	}
+
+	if (NULL == data) {
+		dev_err(&client->dev, "Not a valid deserializer device");
+		return -EINVAL;
+	}
+
+	ret = i2c_write_le8(client, DSERLINK_RESET, 1 << DSERLINK_BC_EN);
+	if (ret < 0)
+		goto error_setup;
+
+	/* Setup config1 register - varies for ds90ub914aq
+	   Parity check EN, TX CRC check EN, Auto Voltage ctrl Vddio = 1.8V
+	   I2C passthrogh EN, Auto ack, Rising clock edge */
+	ret = i2c_write_le8(client, DSERLINK_CONFIG1, 0xec);
+	if (ret < 0)
+		goto error_setup;
+
+	/* Freeze serializer ID, Prevent auto loading */
+	ret = i2c_write_le8(client, DSERLINK_I2C_CTRL2, data->serial_id);
+	if (ret < 0)
+		goto error_setup;
+
+	/* All the transactions to sensor alias will be
+	performed to this id at remote side */
+	ret = i2c_write_le8(client, DSERLINK_SLAVE_ID0, data->sensor_id);
+	if (ret < 0)
+		goto error_setup;
+
+	ret = i2c_write_le8(client, DSERLINK_SER_I2C_ID, data->serial_alias);
+	if (ret < 0)
+		goto error_setup;
+
+	ret = i2c_write_le8(client, DSERLINK_SLAVE_AL_ID0, data->sensor_alias);
+	if (ret < 0)
+		goto error_setup;
+
+	udelay(2000);
+	return 0;
+error_setup:
+	dev_err(&client->dev, "Failed setup for Camera %d", i);
+	return ret;
+}
+
 static int dserlink_dump_reg(struct i2c_client *client)
 {
 	u8 val;
@@ -299,6 +371,11 @@ static int dserlink_command(struct i2c_client *client,
 	case DSER_GET_SER_I2C_ADDR:
 		/* Read auto populated serializer i2c ID*/
 		status = dserlink_read_serializer_id(client, arg);
+	break;
+
+	case DSER_SETUP_MULTIDES:
+		/* Setup deserializer on multi deserializer board */
+		status = dserlink_setup_multides(client, arg);
 	break;
 
 	case DSER_READ:
@@ -381,6 +458,7 @@ static int dserlink_remove(struct i2c_client *client)
 
 static const struct of_device_id dserlink_dt_ids[] = {
 	{.compatible = "ti,ds90uh928q", },
+	{.compatible = "ti,ds90ub914aq", },
 	{ }
 };
 

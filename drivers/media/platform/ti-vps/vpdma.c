@@ -645,8 +645,8 @@ static void dump_dtd(struct vpdma_dtd *dtd)
  * this sets up a 'client to memory' VPDMA transfer for the given VPDMA channel
  */
 int vpdma_add_out_dtd(struct vpdma_desc_list *list, struct v4l2_rect *c_rect,
-		struct vpdma_data_format *fmt, dma_addr_t dma_addr, int channel,
-		u32 flags)
+		const struct vpdma_data_format *fmt, dma_addr_t dma_addr,
+		int channel, u32 flags)
 {
 	int priority = 0;
 	int field = 0;
@@ -699,7 +699,7 @@ EXPORT_SYMBOL(vpdma_add_out_dtd);
  */
 void vpdma_add_in_dtd(struct vpdma_desc_list *list, int frame_width,
 		int frame_height, struct v4l2_rect *c_rect,
-		struct vpdma_data_format *fmt, dma_addr_t dma_addr,
+		const struct vpdma_data_format *fmt, dma_addr_t dma_addr,
 		int channel, int field, u32 flags)
 {
 	int priority = 0;
