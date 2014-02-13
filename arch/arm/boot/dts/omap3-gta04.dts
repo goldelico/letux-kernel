@@ -55,6 +55,10 @@
 		ti,codec = <&twl_audio>;
 	};
 
+	madc-hwmon {
+		compatible = "ti,twl4030-madc-hwmon";
+	};
+
 	battery {
 		compatible = "ti,twl4030-madc-battery";
 		capacity = <1200000>;
