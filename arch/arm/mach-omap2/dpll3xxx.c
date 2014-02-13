@@ -672,6 +672,68 @@ unsigned long omap3_clkoutx2_recalc(struct clk_hw *hw,
 	return rate;
 }
 
+int omap3_clkoutx2_set_rate(struct clk_hw *hw, unsigned long rate,
+					unsigned long parent_rate)
+{
+	return 0;
+}
+
+long omap3_clkoutx2_round_rate(struct clk_hw *hw, unsigned long rate,
+		unsigned long *prate)
+{
+	const struct dpll_data *dd;
+	u32 v;
+	struct clk_hw_omap *pclk = NULL;
+	struct clk *parent;
+
+	if (!*prate)
+		return 0;
+
+	/* Walk up the parents of clk, looking for a DPLL */
+	do {
+		do {
+			parent = __clk_get_parent(hw->clk);
+			hw = __clk_get_hw(parent);
+		} while (hw && (__clk_get_flags(hw->clk) & CLK_IS_BASIC));
+		if (!hw)
+			break;
+		pclk = to_clk_hw_omap(hw);
+	} while (pclk && !pclk->dpll_data);
+
+	/* clk does not have a DPLL as a parent?  error in the clock data */
+	if (!pclk) {
+		WARN_ON(1);
+		return 0;
+	}
+
+	dd = pclk->dpll_data;
+
+	/* TYPE J does not have a clkoutx2 */
+	if (dd->flags & DPLL_J_TYPE) {
+		*prate = __clk_round_rate(__clk_get_parent(pclk->hw.clk), rate);
+		return *prate;
+	}
+
+	WARN_ON(!dd->enable_mask);
+
+	v = omap2_clk_readl(pclk, dd->control_reg) & dd->enable_mask;
+	v >>= __ffs(dd->enable_mask);
+
+	/* If in bypass, the rate is fixed to the bypass rate*/
+	if (v != OMAP3XXX_EN_DPLL_LOCKED)
+		return *prate;
+
+	if (__clk_get_flags(hw->clk) & CLK_SET_RATE_PARENT) {
+		unsigned long best_parent;
+
+		best_parent = (rate / 2);
+		*prate = __clk_round_rate(__clk_get_parent(hw->clk),
+				best_parent);
+	}
+
+	return *prate * 2;
+}
+
 /* OMAP3/4 non-CORE DPLL clkops */
 const struct clk_hw_omap_ops clkhwops_omap3_dpll = {
 	.allow_idle	= omap3_dpll_allow_idle,
