@@ -695,6 +695,29 @@ static int twl4030_madc_set_power(struct twl4030_madc_data *madc, int on)
 	return 0;
 }
 
+#ifdef CONFIG_OF
+static struct twl4030_madc_platform_data *
+	twl4030_madc_of_parse(struct platform_device *pdev)
+{
+	struct twl4030_madc_platform_data *pdata;
+
+	pdata = devm_kzalloc(&pdev->dev,
+			sizeof(struct twl4030_madc_platform_data), GFP_KERNEL);
+	if (!pdata)
+		return ERR_PTR(-ENOMEM);
+`
+	pdata->irq_line = platform_get_irq(pdev, 0);
+
+	return pdata;
+}
+
+static const struct of_device_id twl4030_madc_dt_match_table[] = {
+	{ .compatible = "ti,twl4030-madc" },
+	{},
+};
+
+#endif
+
 /*
  * Initialize MADC and request for threaded irq
  */
@@ -706,8 +729,11 @@ static int twl4030_madc_probe(struct platform_device *pdev)
 	u8 regval;
 
 	if (!pdata) {
-		dev_err(&pdev->dev, "platform_data not available\n");
-		return -EINVAL;
+		pdata = twl4030_madc_of_parse(pdev);
+		if (!pdata) {
+			dev_err(&pdev->dev, "platform_data not available\n");
+			return -EINVAL;
+		}
 	}
 	madc = kzalloc(sizeof(*madc), GFP_KERNEL);
 	if (!madc)
@@ -807,6 +833,7 @@ static struct platform_driver twl4030_madc_driver = {
 	.driver = {
 		   .name = "twl4030_madc",
 		   .owner = THIS_MODULE,
+		   .of_match_table = of_match_ptr(twl4030_madc_dt_match_table),
 		   },
 };
 
