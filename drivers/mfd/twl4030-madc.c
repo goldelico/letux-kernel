@@ -705,7 +705,7 @@ static struct twl4030_madc_platform_data *
 			sizeof(struct twl4030_madc_platform_data), GFP_KERNEL);
 	if (!pdata)
 		return ERR_PTR(-ENOMEM);
-`
+
 	pdata->irq_line = platform_get_irq(pdev, 0);
 
 	return pdata;
