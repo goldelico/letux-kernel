@@ -247,7 +247,7 @@
 		compatible = "bosch,bma180";
 		reg = <0x41>;
 		interrupt-parent = <&gpio3>;
-		interrupts = <19 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <19 (IRQ_TYPE_LEVEL_HIGH | IRQ_TYPE_EDGE_RISING)>;
 	};
 
 	/* leds */
