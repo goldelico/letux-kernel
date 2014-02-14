@@ -96,6 +96,15 @@ static const struct attribute_group twl4030_madc_group = {
 	.attrs = twl4030_madc_attributes,
 };
 
+#ifdef CONFIG_OF
+
+static const struct of_device_id of_twl4030_madc_hwmon_match[] = {
+	{ .compatible = "ti,twl4030-madc-hwmon", },
+	{},
+};
+
+#endif
+
 static int twl4030_madc_hwmon_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -134,6 +143,7 @@ static struct platform_driver twl4030_madc_hwmon_driver = {
 	.driver = {
 		   .name = "twl4030_madc_hwmon",
 		   .owner = THIS_MODULE,
+		   .of_match_table = of_match_ptr(of_twl4030_madc_hwmon_match),
 		   },
 };
 
