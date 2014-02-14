@@ -300,6 +300,12 @@
 		compatible = "at,24c64";
 		reg = <0x50>;
 	};
+
+	/* flash/torch (driver not available) */
+	tps61050@33 {
+		compatible = "ti,tps61050";
+		reg = <0x33>;
+	};
 };
 
 &i2c3 {
