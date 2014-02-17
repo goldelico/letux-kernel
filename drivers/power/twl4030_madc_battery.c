@@ -233,7 +233,7 @@ static struct twl4030_madc_bat_platform_data *
 				sizeof(struct twl4030_madc_bat_calibration) * (sz / 2),
 				GFP_KERNEL);
 
-		for (i = 0; i < sz; i+=2) {
+		for (i = 0; i < sz; i += 2) {
 			pdata->charging[j].voltage = data[i];
 			pdata->charging[j].level = data[i+1];
 			j++;
@@ -268,7 +268,7 @@ static struct twl4030_madc_bat_platform_data *
 				sizeof(struct twl4030_madc_bat_calibration) * (sz / 2),
 				GFP_KERNEL);
 
-		for (i = 0; i < sz; i+=2) {
+		for (i = 0; i < sz; i += 2) {
 			pdata->discharging[j].voltage = data[i];
 			pdata->discharging[j].level = data[i+1];
 			j++;
@@ -302,9 +302,8 @@ static int twl4030_madc_battery_probe(struct platform_device *pdev)
 	if (!twl4030_madc_bat)
 		return -ENOMEM;
 
-	if (!pdata) {
+	if (!pdata)
 		pdata = twl4030_madc_dt_probe(pdev);
-	}
 
 	twl4030_madc_bat->psy.name = "twl4030_battery";
 	twl4030_madc_bat->psy.type = POWER_SUPPLY_TYPE_BATTERY;
