@@ -737,9 +737,6 @@ static int serial_omap_startup(struct uart_port *port)
 			return retval;
 		}
 		disable_irq(up->wakeirq);
-	} else {
-		dev_info(up->port.dev, "no wakeirq for uart%d\n",
-			 up->port.line);
 	}
 
 	dev_dbg(up->port.dev, "serial_omap_startup+%d\n", up->port.line);
@@ -1620,8 +1617,11 @@ static int serial_omap_probe_rs485(struct uart_omap_port *up,
 					    flags & SER_RS485_RTS_AFTER_SEND);
 		if (ret < 0)
 			return ret;
-	} else
+	} else if (up->rts_gpio == -EPROBE_DEFER) {
+		return -EPROBE_DEFER;
+	} else {
 		up->rts_gpio = -EINVAL;
+	}
 
 	if (of_property_read_u32_array(np, "rs485-rts-delay",
 				    rs485_delay, 2) == 0) {
@@ -1703,6 +1703,9 @@ static int serial_omap_probe(struct platform_device *pdev)
 	up->port.iotype = UPIO_MEM;
 	up->port.irq = uartirq;
 	up->wakeirq = wakeirq;
+	if (!up->wakeirq)
+		dev_info(up->port.dev, "no wakeirq for uart%d\n",
+			 up->port.line);
 
 	up->port.regshift = 2;
 	up->port.fifosize = 64;
