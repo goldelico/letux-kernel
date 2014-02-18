@@ -1787,10 +1787,10 @@ static struct v4l2_async_subdev vip_sensor_subdev = {
 
 static int vip_of_probe(struct platform_device *pdev, struct vip_dev *dev)
 {
-	struct device_node *node = NULL;
-	struct i2c_client *sensor_i2c_client = NULL;
-	u8 sensor_addr = -1; /* Will be updated from device tree */
-	char *sensor_list;
+	struct device_node *ep_node = NULL, *port, *remote_ep, *sensor_node;
+	struct v4l2_of_endpoint *endpoint;
+	struct v4l2_async_subdev *asd;
+	u32 sensor_addr, regval = 0;
 	int ret, i = 0;
 
 	dev->config = kzalloc(sizeof(struct vip_config), GFP_KERNEL);
@@ -1798,30 +1798,39 @@ static int vip_of_probe(struct platform_device *pdev, struct vip_dev *dev)
 		return -ENOMEM;
 
 	dev->config->card_name = "DRA7XX VIP Driver";
-	sensor_list = dev->slice_id == VIP_SLICE1 ? "sensor0" : "sensor1";
 
-	for (i = 0; i < VIP_MAX_SUBDEV; i++) {
-		node = of_parse_phandle(pdev->dev.of_node, sensor_list, i);
-		if (node)
-			sensor_i2c_client = of_find_i2c_device_by_node(node);
-		else
+	while (i < VIP_MAX_SUBDEV) {
+
+		asd = &dev->config->asd[i];
+		endpoint = &dev->config->endpoints[i];
+		*asd = vip_sensor_subdev;
+
+		ep_node = v4l2_of_get_next_endpoint(pdev->dev.of_node, ep_node);
+		if (!ep_node)
 			break;
 
-		if (sensor_i2c_client) {
-			sensor_addr = sensor_i2c_client->addr;
-			dev_err(&pdev->dev, "Waiting for sensor I2C %x",
+		/* Check wheather the endpoint belongs to correct slice */
+		port = of_get_next_parent(ep_node);
+		of_property_read_u32(port, "reg", &regval);
+		if (regval != dev->slice_id)
+			continue;
+
+		sensor_node = v4l2_of_get_remote_port_parent(ep_node);
+		if (!sensor_node)
+			continue;
+
+		of_property_read_u32(sensor_node, "reg", &sensor_addr);
+		v4l2_err(&dev->v4l2_dev, "Waiting for I2C subdevice %x",
 				sensor_addr);
+		asd->match.i2c.address = sensor_addr;
 
-			dev->config->asd[i] = vip_sensor_subdev;
-			dev->config->asd[i].match.i2c.address = sensor_addr;
-			dev->config->asd_list[i] = &dev->config->asd[i];
-		}
-	}
+		remote_ep = of_parse_phandle(ep_node, "remote-endpoint", 0);
+		if (!remote_ep)
+			continue;
 
-	if (sensor_addr == -1) {
-		dev_err(&pdev->dev, "Sensor node not found");
-		ret = -EINVAL;
-		goto free_config;
+		v4l2_of_parse_endpoint(remote_ep, endpoint);
+
+		dev->config->asd_list[i++] = asd;
 	}
 
 	dev->config->asd_sizes = i;

@@ -9,6 +9,7 @@
 #include <media/videobuf2-core.h>
 #include <media/videobuf2-dma-contig.h>
 #include <media/videobuf2-memops.h>
+#include <media/v4l2-of.h>
 
 #include "vpdma.h"
 #include "vpdma_priv.h"
@@ -67,6 +68,7 @@ struct vip_config {
 	const char *card_name;
 	struct v4l2_async_subdev *asd_list[VIP_MAX_SUBDEV];
 	struct v4l2_async_subdev asd[VIP_MAX_SUBDEV];
+	struct v4l2_of_endpoint endpoints[VIP_MAX_SUBDEV];
 	int asd_sizes;
 };
 
