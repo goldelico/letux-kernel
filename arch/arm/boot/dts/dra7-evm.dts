@@ -453,56 +453,120 @@
 		ovnode = <&i2c2>;
 	};
 
-	onboardLI: ov10633@37 {
+	ov10633@37 {
 		compatible = "omnivision,ov10633";
 		reg = <0x37>;
+
+		port {
+			onboardLI: endpoint {
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <1>;
+			};
+		};
 	};
 
-        vis_ovcam: ov10635@30 {
+        ov10635@30 {
 		compatible = "omnivision,ov10635";
 		reg = <0x30>;
+
+		port {
+			vis_ovcam: endpoint {
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <1>;
+			};
+		};
 	};
 
-        cam1: ov10635@38 {
+        ov10635@38 {
 		compatible = "omnivision,ov10635";
 		reg = <0x38>;
 		deserializer = <&vis_des1>;
 		serializer = <&vis_ser1>;
+
+		port {
+			cam1: endpoint {
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <1>;
+			};
+		};
 	};
 
-	cam2: ov10635@39 {
+	ov10635@39 {
 		compatible = "omnivision,ov10635";
 		reg = <0x39>;
 		deserializer = <&vis_des2>;
 		serializer = <&vis_ser2>;
+
+		port {
+			cam2: endpoint {
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <1>;
+			};
+		};
 	};
 
-	cam3: ov10635@3a {
+	ov10635@3a {
 		compatible = "omnivision,ov10635";
 		reg = <0x3a>;
 		deserializer = <&vis_des3>;
 		serializer = <&vis_ser3>;
+
+		port {
+			cam3: endpoint {
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <1>;
+			};
+		};
 	};
 
-	cam4: ov10635@3b {
+	ov10635@3b {
 		compatible = "omnivision,ov10635";
 		reg = <0x3b>;
 		deserializer = <&vis_des4>;
 		serializer = <&vis_ser4>;
+
+		port {
+			cam4: endpoint {
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <1>;
+			};
+		};
 	};
 
-	cam5: ov10635@3c {
+	ov10635@3c {
 		compatible = "omnivision,ov10635";
 		reg = <0x3c>;
 		deserializer = <&vis_des5>;
 		serializer = <&vis_ser5>;
+
+		port {
+			cam5: endpoint {
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <1>;
+			};
+		};
 	};
 
-	cam6: ov10635@3d {
+	ov10635@3d {
 		compatible = "omnivision,ov10635";
 		reg = <0x3d>;
 		deserializer = <&vis_des6>;
 		serializer = <&vis_ser6>;
+
+		port {
+			cam6: endpoint {
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <1>;
+			};
+		};
 	};
 
 	hdmirec: hdmirec@31 {
@@ -646,23 +710,67 @@
 &vip1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&vin1a_pins &vin2a_pins>;
-	sensor0 = <&onboardLI &vis_ovcam &cam1>;
-	sensor1 = <&cam2>;
 };
 
 &vip2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&vin3a_pins>;
-	sensor0 = <&cam3>;
-	sensor1 = <&cam5>;
 };
 
 &vip3 {
 	pinctrl-names = "default";
 	//pinctrl-0 = <&vin5a_pins &vin6a_pins>;
 	pinctrl-0 = <&vin5a_pins>;
-	sensor0 = <&cam4>;
-	sensor1 = <&cam6>;
+};
+
+&vin1a {
+	endpoint@0 {
+		slave-mode;
+		remote-endpoint = <&onboardLI>;
+	};
+	endpoint@1 {
+		slave-mode;
+		remote-endpoint = <&vis_ovcam>;
+	};
+	endpoint@2 {
+		slave-mode;
+		remote-endpoint = <&cam1>;
+	};
+};
+
+&vin2a {
+	endpoint@0 {
+		slave-mode;
+		remote-endpoint = <&cam2>;
+	};
+};
+
+&vin3a {
+	endpoint@0 {
+		slave-mode;
+		remote-endpoint = <&cam3>;
+	};
+};
+
+&vin4a {
+	endpoint@0 {
+		slave-mode;
+		remote-endpoint = <&cam5>;
+	};
+};
+
+&vin5a {
+	endpoint@0 {
+		slave-mode;
+		remote-endpoint = <&cam4>;
+	};
+};
+
+&vin6a {
+	endpoint@0 {
+		slave-mode;
+		remote-endpoint = <&cam6>;
+	};
 };
 
 &dpi1 {

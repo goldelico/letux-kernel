@@ -933,6 +933,17 @@
 				     <0 153 0x4>;
                         #address-cells = <1>;
                         #size-cells = <0>;
+
+			vin1a: port@0A {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+			};
+			vin2a: port@1A {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <1>;
+			};
 		};
 
 		vip2: vip@0x48990000 {
@@ -945,6 +956,17 @@
 				     <0 151 0x4>;
                         #address-cells = <1>;
                         #size-cells = <0>;
+
+			vin3a: port@0A {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+			};
+			vin4a: port@1A {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <1>;
+			};
                 };
 
 		vip3: vip@0x489b0000 {
@@ -957,6 +979,17 @@
 				     <0 149 0x4>;
                         #address-cells = <1>;
                         #size-cells = <0>;
+
+			vin5a: port@0A {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+			};
+			vin6a: port@1A {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <1>;
+			};
 		};
 
 		vpe {
