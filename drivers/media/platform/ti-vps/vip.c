@@ -807,7 +807,8 @@ static int add_out_dtd(struct vip_stream *stream, int srce_type)
 	}
 
 	vpdma_vip_set_max_size(dev->shared->vpdma, 1);
-	vpdma_add_out_dtd(&dev->desc_list, c_rect, fmt->vpdma_fmt[plane], dma_addr, channel, flags);
+	vpdma_add_out_dtd(&dev->desc_list, c_rect->width,
+		fmt->vpdma_fmt[plane], dma_addr, channel, flags);
 
 	return 0;
 }
