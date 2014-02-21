@@ -479,8 +479,8 @@ void dss_dpll_set_control_mux(enum omap_channel channel, enum dss_dpll dpll)
 			return;
 		}
 	} else {
-		start = 7;
-		end = 8;
+		start = 8;
+		end = 7;
 
 		switch (dpll) {
 		case DSS_DPLL_VIDEO1:

@@ -622,6 +622,11 @@ void __init dra7xx_check_revision(void)
 	case 0xb990:
 		switch (rev) {
 		case 0:
+			omap_revision = DRA752_REV_ES1_0;
+			break;
+		case 1:
+			omap_revision = DRA752_REV_ES1_1;
+			break;
 		default:
 			omap_revision = DRA752_REV_ES1_0;
 		}

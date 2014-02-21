@@ -6,33 +6,21 @@
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/ioctl.h>
-#include <linux/gpio.h>
 #include <linux/i2c.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
-#include <linux/videodev2.h>
 
-#include <linux/of_gpio.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/of_i2c.h>
+#include <linux/of_device.h>
 
 #include <media/dra7xx_vip.h>
 
 #include <linux/of_i2c.h>
-#include <media/v4l2-async.h>
-#include <media/v4l2-common.h>
-#include <media/v4l2-ctrls.h>
-#include <media/v4l2-device.h>
-#include <media/v4l2-event.h>
-#include <media/v4l2-ioctl.h>
-#include <media/v4l2-mem2mem.h>
-#include <media/videobuf2-core.h>
-#include <media/videobuf2-dma-contig.h>
 #include "vip.h"
-#include "vpdma.h"
-#include "vpdma_priv.h"
 
 #define VIP_MODULE_NAME "dra7xx-vip"
 #define VIP_INPUT_NAME "Vin0"
@@ -41,26 +29,6 @@ MODULE_DESCRIPTION("TI DRA7xx VIP driver");
 MODULE_AUTHOR("Dale Farnsworth, <dale@farnsworth.org>");
 MODULE_LICENSE("GPL");
 MODULE_VERSION("0.1");
-
-#define VIP_SLICE1	0
-#define VIP_SLICE2	1
-#define VIP_NUM_SLICES	2
-
-#define VIP_PORTA	0
-#define VIP_PORTB	1
-#define VIP_NUM_PORTS	2
-
-#define VIP_MAX_PLANES	2
-#define	VIP_LUMA	0
-#define VIP_CHROMA	1
-
-#define VIP_CAP_STREAMS_PER_PORT	16
-#define VIP_VBI_STREAMS_PER_PORT	16
-
-/*
- * Global static variables
- */
-static int once = 1;
 
 /*
  * Minimum and maximum frame sizes
@@ -138,7 +106,7 @@ struct vip_fmt {
 	u32	fourcc;			/* The standard format identifier */
 	enum v4l2_colorspace colorspace;/* Colorspace: YPE_YUV or YPE_RGB */
 	u8	coplanar;		/* set for unpacked Luma and Chroma */
-	struct vpdma_data_format *vpdma_fmt[VIP_MAX_PLANES];
+	const struct vpdma_data_format *vpdma_fmt[VIP_MAX_PLANES];
 };
 
 static struct vip_fmt vip_formats[] = {
@@ -220,103 +188,12 @@ static struct vip_fmt *find_format(struct v4l2_format *f)
 	return NULL;
 }
 
-/* buffer for one video frame */
-struct vip_buffer {
-	/* common v4l buffer stuff */
-	struct vb2_buffer	vb;
-	struct list_head	list;
-};
-
 static LIST_HEAD(vip_shared_list);
-
-/*
- * The vip_shared structure contains data that is shared by both
- * the VIP1 and VIP2 slices.
- */
-struct vip_shared {
-	struct list_head	list;
-	struct resource		*res;
-	void __iomem		*base;
-	atomic_t		devs_allocated;	/* count of devs being shared */
-	struct vpdma_data	*vpdma;
-	struct vpdma_data	vpdma_storage;
-	struct vip_dev		*devs[VIP_NUM_SLICES];
-};
-
-/*
- * There are two vip_dev structure, one for each vip slice: VIP1 & VIP2.
- */
-
-struct vip_subdev_info {
-	const char *name;
-	struct i2c_board_info board_info;
-};
-
-struct vip_config {
-	struct vip_subdev_info *subdev_info;
-	int subdev_count;
-	const char *card_name;
-	struct v4l2_async_subdev **asd;
-	int asd_sizes;
-};
-
-
-struct vip_dev {
-	struct v4l2_async_notifier notifier;
-	struct vip_config	*config;
-	struct v4l2_subdev	*sensor;
-	struct v4l2_device	v4l2_dev;
-	struct platform_device *pdev;
-	struct vip_shared	*shared;
-	struct resource *res;
-	int			slice_id;
-	int			num_ports;	/* count of open ports */
-	struct mutex		mutex;
-	spinlock_t		slock;
-	spinlock_t		lock; /* used in videobuf2 callback */
-
-	int			irq;
-	void __iomem		*base;
-
-	struct vpdma_desc_list	desc_list;	/* DMA descriptor list */
-	void			*desc_next;	/* next unused desc_list addr */
-	struct list_head	vip_bufs;	/* vip_bufs to be DMAed */
-	struct vb2_alloc_ctx	*alloc_ctx;
-	struct vip_port		*ports[VIP_NUM_PORTS];
-
-	int			mux_gpio;
-	int			mux1_sel0_gpio;
-	int			mux1_sel1_gpio;
-	int			mux2_sel0_gpio;
-	int			mux2_sel1_gpio;
-	int			cam_fpd_mux_s0_gpio;
-	int			vin2_s0_gpio;
-	int			ov_pwdn_gpio;
-};
 
 static inline struct vip_dev *notifier_to_vip_dev(struct v4l2_async_notifier *n)
 {
 	return container_of(n, struct vip_dev, notifier);
 }
-
-/*
- * There are two vip_port structures for each vip_dev, one for port A
- * and one for port B.
- */
-struct vip_port {
-	struct vip_dev		*dev;
-	int			port_id;
-
-	enum v4l2_colorspace	src_colorspace;
-	unsigned int		flags;
-	unsigned int		src_width;
-	unsigned int		src_height;
-	struct v4l2_rect	c_rect;		/* crop rectangle */
-	struct vip_fmt		*fmt;		/* format info */
-	int			num_streams;	/* count of open streams */
-	struct vip_stream	*cap_streams[VIP_CAP_STREAMS_PER_PORT];
-	struct vip_stream	*vbi_streams[VIP_VBI_STREAMS_PER_PORT];
-};
 
 /*
  * port flag bits
@@ -329,29 +206,6 @@ struct vip_port {
 #define FLAG_MULTIPLEXED	(1 << 5)
 #define FLAG_MULT_PORT		(1 << 6)
 #define FLAG_MULT_ANC		(1 << 7)
-
-/*
- * When handling multiplexed video, there can be multiple streams for each
- * port.  The vip_stream structure holds per-stream data.
- */
-struct vip_stream {
-	struct v4l2_fh		fh;
-	struct video_device	*vfd;
-	struct vip_port		*port;
-	int			stream_id;
-	int			vfl_type;
-	enum v4l2_field		field;		/* current field */
-	unsigned int		sequence;	/* current frame/field seq */
-	enum v4l2_field		sup_field;	/* supported field value */
-	unsigned int		width;		/* frame width */
-	unsigned int		height;		/* frame height */
-	unsigned int		bytesperline;	/* bytes per line in memory */
-	unsigned int		sizeimage;	/* image size in memory */
-	struct vip_buffer	*cur_buf;	/* buffer being DMAed */
-	struct list_head	vidq;		/* incoming vip_bufs queue */
-	struct vb2_queue	vb_vidq;
-	struct video_device	vdev;
-};
 
 /*
  * Function prototype declarations
@@ -661,6 +515,7 @@ static void vip_set_data_interface(struct vip_port *port, enum data_interface_mo
 	}
 }
 
+#if 0
 static void vip_reset_port(struct vip_port *port)
 {
 	u32 val = 0;
@@ -700,6 +555,7 @@ static void vip_reset_port(struct vip_port *port)
 		write_vreg(port->dev, VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTB_0, 0);
 	}
 }
+#endif
 
 static void vip_set_port_enable(struct vip_port *port, bool on)
 {
@@ -805,6 +661,8 @@ static int add_out_dtd(struct vip_stream *stream, int srce_type)
 		v4l2_err(&dev->v4l2_dev, "Acquiring buffer dma_addr failed\n");
 		return -1;
 	}
+
+	dma_addr_global = dma_addr;
 
 	vpdma_vip_set_max_size(dev->shared->vpdma, 1);
 	vpdma_add_out_dtd(&dev->desc_list, c_rect, fmt->vpdma_fmt[plane], dma_addr, channel, flags);
@@ -924,6 +782,7 @@ static void vip_process_buffer_complete(struct vip_stream *stream)
 		return;
 	do_gettimeofday(&stream->cur_buf->vb.v4l2_buf.timestamp);
 	vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
+	dma_addr_global_complete = dma_addr_global;
 	stream->cur_buf = NULL;
 	vip_active_buf_next(vb);
 }
@@ -1271,6 +1130,186 @@ static long vip_ioctl_default(struct file *file, void *fh, bool valid_prio,
 	}
 }
 
+int early_querycap(struct v4l2_capability *cap)
+{
+	strncpy(cap->driver, VIP_MODULE_NAME, sizeof(cap->driver) - 1);
+	strncpy(cap->card, VIP_MODULE_NAME, sizeof(cap->card) - 1);
+	strlcpy(cap->bus_info, VIP_MODULE_NAME, sizeof(cap->bus_info));
+	cap->device_caps  = V4L2_CAP_STREAMING | V4L2_CAP_VIDEO_CAPTURE;
+	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
+	return 0;
+}
+EXPORT_SYMBOL_GPL(early_querycap);
+
+int early_enum_fmt(struct v4l2_fmtdesc *f)
+{
+	struct vip_fmt *fmt;
+
+	if (f->index >= ARRAY_SIZE(vip_formats))
+		return -EINVAL;
+
+	fmt = &vip_formats[f->index];
+
+	strncpy(f->description, fmt->name, sizeof(f->description) - 1);
+	f->pixelformat = fmt->fourcc;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(early_enum_fmt);
+
+int early_try_fmt(struct v4l2_format *f)
+{
+	struct vip_stream *stream = early_stream;
+	struct vip_dev *dev = stream->port->dev;
+	struct vip_fmt *fmt = find_format(f);
+	enum v4l2_field field;
+	int depth;
+
+	if (!fmt) {
+		v4l2_err(&dev->v4l2_dev,
+			 "Fourcc format (0x%08x) invalid.\n",
+			 f->fmt.pix.pixelformat);
+		return -EINVAL;
+	}
+
+	field = f->fmt.pix.field;
+
+	if (field == V4L2_FIELD_ANY)
+		field = V4L2_FIELD_NONE;
+	else if (V4L2_FIELD_NONE != field)
+		return -EINVAL;
+
+	f->fmt.pix.field = field;
+
+	v4l_bound_align_image(&f->fmt.pix.width, MIN_W, MAX_W, W_ALIGN,
+			      &f->fmt.pix.height, MIN_H, MAX_H, H_ALIGN,
+			      S_ALIGN);
+
+	if (fmt->coplanar)
+		depth = 8;
+
+	f->fmt.pix.bytesperline = round_up((f->fmt.pix.width * fmt->vpdma_fmt[0]->depth) >> 3,
+					   1 << L_ALIGN);
+	f->fmt.pix.sizeimage = f->fmt.pix.height * f->fmt.pix.width * \
+		(fmt->vpdma_fmt[0]->depth + (fmt->coplanar ? fmt->vpdma_fmt[1]->depth : 0)) >> 3;
+	f->fmt.pix.colorspace = fmt->colorspace;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(early_try_fmt);
+
+int early_s_fmt(struct v4l2_format *f)
+{
+	struct vip_stream *stream = early_stream;
+	struct vip_port *port = stream->port;
+	struct vip_dev *dev = port->dev;
+	struct vb2_queue *vq = &stream->vb_vidq;
+	struct v4l2_subdev_format sfmt;
+	struct v4l2_mbus_framefmt *mf;
+	int ret;
+
+	ret = early_try_fmt(f);
+	if (ret)
+		return ret;
+
+	if (vb2_is_busy(vq)) {
+		v4l2_err(&dev->v4l2_dev, "%s queue busy\n", __func__);
+		return -EBUSY;
+	}
+
+	port->fmt		= find_format(f);
+	stream->width		= f->fmt.pix.width;
+	stream->height		= f->fmt.pix.height;
+	port->fmt->colorspace	= f->fmt.pix.colorspace;
+	stream->bytesperline	= f->fmt.pix.bytesperline;
+	stream->sizeimage	= f->fmt.pix.sizeimage;
+	stream->sup_field	= f->fmt.pix.field;
+
+	port->c_rect.left	= 0;
+	port->c_rect.top	= 0;
+	port->c_rect.width	= stream->width;
+	port->c_rect.height	= stream->height;
+
+	if (stream->sup_field == V4L2_FIELD_ALTERNATE)
+		port->flags |= FLAG_INTERLACED;
+	else
+		port->flags &= ~FLAG_INTERLACED;
+
+	vip_dprintk(dev,
+		"Setting format for type %d, wxh: %dx%d, fmt: %d\n",
+		f->type, stream->width, stream->height, port->fmt->fourcc);
+
+	set_fmt_params(stream);
+
+	mf = vip_video_pix_to_mbus(&f->fmt.pix, &sfmt.format);
+
+	ret = v4l2_subdev_call(dev->sensor, video, try_mbus_fmt, mf);
+	if (ret) {
+		vip_dprintk(dev, "try_mbus_fmt failed in subdev\n");
+		return ret;
+	}
+	ret = v4l2_subdev_call(dev->sensor, video, s_mbus_fmt, mf);
+	if (ret) {
+		vip_dprintk(dev, "s_mbus_fmt failed in subdev\n");
+		return ret;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(early_s_fmt);
+
+int early_reqbufs(struct v4l2_requestbuffers *p)
+{
+	struct video_device *vdev = early_stream->vfd;
+	int ret;
+	/*
+	if (vb2_queue_is_busy(vdev, file))
+		return -EBUSY;
+	*/
+	ret = vb2_reqbufs(vdev->queue, p);
+	/* If count == 0, then the owner has released all buffers and he
+	   is no longer owner of the queue. Otherwise we have a new owner. */
+	/*
+	if (res == 0)
+		vdev->queue->owner = p->count ? file->private_data : NULL;
+	*/
+	return ret;
+}
+EXPORT_SYMBOL_GPL(early_reqbufs);
+
+int early_querybuf(struct v4l2_buffer *p)
+{
+	struct video_device *vdev = early_stream->vfd;
+
+	/* No need to call vb2_queue_is_busy(), anyone can query buffers. */
+	return vb2_querybuf(vdev->queue, p);
+}
+EXPORT_SYMBOL_GPL(early_querybuf);
+
+int early_qbuf(struct v4l2_buffer *p)
+{
+	struct video_device *vdev = early_stream->vfd;
+
+	return vb2_qbuf(vdev->queue, p);
+}
+EXPORT_SYMBOL_GPL(early_qbuf);
+
+int early_dqbuf(struct v4l2_buffer *p)
+{
+	struct video_device *vdev = early_stream->vfd;
+
+	return vb2_dqbuf(vdev->queue, p, O_NONBLOCK);
+}
+EXPORT_SYMBOL_GPL(early_dqbuf);
+
+int early_streamon(enum v4l2_buf_type i)
+{
+	struct video_device *vdev = early_stream->vfd;
+
+	return vb2_streamon(vdev->queue, i);
+}
+EXPORT_SYMBOL_GPL(early_streamon);
+
 static const struct v4l2_ioctl_ops vip_ioctl_ops = {
 	.vidioc_querycap	= vip_querycap,
 	.vidioc_enum_input	= vip_enuminput,
@@ -1334,6 +1373,7 @@ static int vip_buf_prepare(struct vb2_buffer *vb)
 		return -EINVAL;
 	}
 
+	mdelay(33);
 	vb2_set_plane_payload(vb, 0, stream->sizeimage);
 
 	return 0;
@@ -1391,6 +1431,8 @@ static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
 static int vip_stop_streaming(struct vb2_queue *vq)
 {
 	struct vip_stream *stream = vb2_get_drv_priv(vq);
+	struct vip_port *port = stream->port;
+	struct vip_dev *dev = port->dev;
 	struct vip_buffer *buf;
 
 	if (!vb2_is_streaming(vq))
@@ -1402,7 +1444,7 @@ static int vip_stop_streaming(struct vb2_queue *vq)
 		list_del(&buf->list);
 		vb2_buffer_done(&buf->vb, VB2_BUF_STATE_ERROR);
 	}
-
+	disable_irqs(dev);
 	return 0;
 }
 
@@ -1460,6 +1502,7 @@ static void vip_release_dev(struct vip_dev *dev)
 {
 	vpdma_buf_unmap(dev->shared->vpdma, &dev->desc_list.buf);
 	vpdma_buf_free(&dev->desc_list.buf);
+	vpdma_free_desc_list(&dev->desc_list);
 
 	/*
 	 * On last close, disable clocks to conserve power
@@ -1496,20 +1539,43 @@ static void vip_release_port(struct vip_port *port)
 		vip_release_dev(port->dev);
 }
 
-static int vip_open(struct file *file)
+dma_addr_t dma_addr_global;
+EXPORT_SYMBOL(dma_addr_global);
+
+dma_addr_t dma_addr_global_complete;
+EXPORT_SYMBOL(dma_addr_global_complete);
+
+struct vip_dev *early_dev;
+EXPORT_SYMBOL(early_dev);
+
+struct vip_stream *early_stream;
+EXPORT_SYMBOL(early_stream);
+
+void *mem_priv;
+EXPORT_SYMBOL(mem_priv);
+
+bool early_sensor_detect()
 {
-	struct vip_stream *stream = video_drvdata(file);
+	if (early_dev && early_dev->sensor)
+		return true;
+	else
+		return false;
+}
+EXPORT_SYMBOL(early_sensor_detect);
+
+int early_vip_open() {
+	struct vip_stream *stream = video_get_drvdata(early_stream->vfd);
 	struct vip_port *port = stream->port;
 	struct vip_dev *dev = port->dev;
 	struct platform_device *pdev = dev->pdev;
 	int ret;
 
+	early_stream->open = 1;
 	if (vb2_is_busy(&stream->vb_vidq)) {
-		v4l2_err(&dev->v4l2_dev, "%s queue busy\n", __func__);
 		return -EBUSY;
 	}
 
-	if (once) {
+	if (!dev->setup_done) {
 		vip_top_reset(dev);
 		ret = find_or_alloc_shared(pdev, dev, dev->res);
 		if (ret)
@@ -1533,7 +1599,96 @@ static int vip_open(struct file *file)
 		vip_set_actvid_polarity(dev->ports[0], 1);
 		vip_set_discrete_basic_mode(dev->ports[0]);
 
-		once = 0;
+		dev->setup_done = 1;
+	}
+
+	ret = vip_init_port(port);
+	if (ret)
+		goto done;
+
+	stream->width = 1280;
+	stream->height = 720;
+	stream->sizeimage = stream->width * stream->height *
+			(port->fmt->vpdma_fmt[0]->depth + (port->fmt->coplanar ?
+				port->fmt->vpdma_fmt[1]->depth : 0)) >> 3;
+	stream->sup_field = V4L2_FIELD_NONE;
+	port->c_rect.width = stream->width;
+	port->c_rect.height = stream->height;
+
+	vip_dprintk(dev, "Created stream instance %p\n", stream);
+
+	return 0;
+
+done:
+	return ret;
+}
+EXPORT_SYMBOL(early_vip_open);
+
+int early_release()
+{
+	struct vip_stream *stream = video_get_drvdata(early_stream->vfd);
+	struct vip_port *port = stream->port;
+	struct vip_dev *dev = port->dev;
+	struct vb2_queue *q = &stream->vb_vidq;
+
+	vip_dprintk(dev, "Releasing stream instance %p\n", stream);
+
+	mutex_lock(&dev->mutex);
+
+	vip_stop_streaming(q);
+	vip_release_port(stream->port);
+
+	vb2_queue_release(q);
+
+	dma_addr_global_complete = (dma_addr_t)NULL;
+	dma_addr_global = (dma_addr_t)NULL;
+
+	early_stream->open = 0;
+
+	mutex_unlock(&dev->mutex);
+
+	return 0;
+}
+EXPORT_SYMBOL(early_release);
+
+static int vip_open(struct file *file)
+{
+	struct vip_stream *stream = video_drvdata(file);
+	struct vip_port *port = stream->port;
+	struct vip_dev *dev = port->dev;
+	struct platform_device *pdev = dev->pdev;
+	int ret;
+
+	if (vb2_is_busy(&stream->vb_vidq)) {
+		v4l2_err(&dev->v4l2_dev, "%s queue busy\n", __func__);
+		return -EBUSY;
+	}
+
+	if (!dev->setup_done) {
+		vip_top_reset(dev);
+		ret = find_or_alloc_shared(pdev, dev, dev->res);
+		if (ret)
+			goto done;
+
+		dev->alloc_ctx = vb2_dma_contig_init_ctx(&pdev->dev);
+		if (IS_ERR(dev->alloc_ctx)) {
+			v4l2_err(&dev->v4l2_dev, "Failed to alloc vb2 context\n");
+			ret = PTR_ERR(dev->alloc_ctx);
+			goto done;
+		}
+
+		vip_set_idle_mode(dev->shared, VIP_SMART_IDLE_MODE);
+		vip_set_standby_mode(dev->shared, VIP_SMART_STANDBY_MODE);
+		vip_set_slice_path(dev, VIP_MULTI_CHANNEL_DATA_SELECT);
+		vip_set_port_enable(dev->ports[0], 1);
+		vip_set_data_interface(dev->ports[0], DUAL_8B_INTERFACE);
+		vip_sync_type(dev->ports[0], DISCRETE_SYNC_SINGLE_YUV422);
+		vip_set_vsync_polarity(dev->ports[0], 1);
+		vip_set_hsync_polarity(dev->ports[0], 1);
+		vip_set_actvid_polarity(dev->ports[0], 1);
+		vip_set_discrete_basic_mode(dev->ports[0]);
+
+		dev->setup_done = 1;
 	}
 
 	ret = vip_init_port(port);
@@ -1571,13 +1726,18 @@ static int vip_release(struct file *file)
 	vip_dprintk(dev, "Releasing stream instance %p\n", stream);
 
 	mutex_lock(&dev->mutex);
+
+	vip_stop_streaming(q);
 	vip_release_port(stream->port);
 
 	v4l2_fh_del(&stream->fh);
 	v4l2_fh_exit(&stream->fh);
 	vb2_queue_release(q);
 
-	mutex_unlock(&dev->mutex);
+	if (early_stream->open && (strcmp(dev->vip_name, "vip1") == 0))
+		early_release();
+	else
+		mutex_unlock(&dev->mutex);
 
 	return 0;
 }
@@ -1610,6 +1770,12 @@ static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
 	stream = kzalloc (sizeof(*stream), GFP_KERNEL);
 	if (!stream)
 		return -ENOMEM;
+
+	if (strcmp(dev->vip_name, "vip1") == 0) {
+		early_stream = kzalloc(sizeof(*stream), GFP_KERNEL);
+		if (!stream)
+			return -ENOMEM;
+	}
 
 	stream->port = port;
 	stream->stream_id = stream_id;
@@ -1653,12 +1819,16 @@ static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
 
 	snprintf(vfd->name, sizeof(vfd->name), "%s", vip_videodev.name);
 	stream->vfd = vfd;
+	if (strcmp(dev->vip_name, "vip1") == 0)
+		early_stream = stream;
+
 	v4l2_info(&dev->v4l2_dev, VIP_MODULE_NAME
 			" Device registered as /dev/video%d\n", vfd->num);
 	return 0;
 
 do_free_stream:
 	kfree(stream);
+	kfree(early_stream);
 	return ret;
 }
 
@@ -1796,8 +1966,22 @@ static int vip_async_bound(struct v4l2_async_notifier *notifier,
 			struct v4l2_async_subdev *asd)
 {
 	struct vip_dev *dev = notifier_to_vip_dev(notifier);
-	dev->sensor = subdev;
 
+	if (dev->sensor) {
+		if (asd < dev->sensor->asdl.asd) {
+			/* Notified of a subdev earlier in the array */
+			v4l2_info(&dev->v4l2_dev, "Switching to subdev i2c address %x (High priority)",
+				asd->match.i2c.address);
+		} else {
+			v4l2_info(&dev->v4l2_dev, "Rejecting subdev i2c address %x (Low priority)",
+				asd->match.i2c.address);
+			return 0;
+		}
+	}
+
+	dev->sensor = subdev;
+	dev_notice(&dev->pdev->dev, "Using sensor i2c addr %x for capture\n",
+		asd->match.i2c.address);
 	return 0;
 }
 
@@ -1807,53 +1991,96 @@ static int vip_async_complete(struct v4l2_async_notifier *notifier)
 	return 0;
 }
 
-static struct v4l2_async_subdev ov10635_sd = {
+static struct v4l2_async_subdev vip_sensor_subdev = {
 	.bus_type = V4L2_ASYNC_BUS_I2C,
 	.match.i2c = {
 		.adapter_id = 1,
 		.address = 0x30,
-	},
+	}
 };
 
-static struct v4l2_async_subdev ov10633_sd = {
-	.bus_type = V4L2_ASYNC_BUS_I2C,
-	.match.i2c = {
-		.adapter_id = 1,
-		.address = 0x37,
-	},
-};
-
-static struct v4l2_async_subdev *vip_async_subdevs[] = {
-	&ov10635_sd,
-	&ov10633_sd,
-};
-
-static struct vip_config dra7xx_vip_config = {
-	.card_name	= "DRA7XX VIP Driver",
-	.asd		= vip_async_subdevs,
-	.asd_sizes	= sizeof(vip_async_subdevs)/sizeof(vip_async_subdevs[0]),
-};
-
-static void ov10635_uninit_sensor(struct vip_dev *dev)
+static int vip_of_probe(struct platform_device *pdev, struct vip_dev *dev)
 {
-	gpio_free(dev->vin2_s0_gpio);
-	gpio_free(dev->cam_fpd_mux_s0_gpio);
-	gpio_free(dev->mux1_sel0_gpio);
-	gpio_free(dev->mux1_sel1_gpio);
-	gpio_free(dev->mux2_sel0_gpio);
-	gpio_free(dev->mux2_sel1_gpio);
-	gpio_free(dev->ov_pwdn_gpio);
+	struct device_node *node = NULL;
+	struct i2c_client *sensor_i2c_client = NULL;
+	u8 sensor_addr = -1; /* Will be updated from device tree */
+	int ret, i = 0;
+
+	dev->config = kzalloc(sizeof(struct vip_config), GFP_KERNEL);
+	if (!dev->config)
+		return -ENOMEM;
+
+	dev->config->card_name = "DRA7XX VIP Driver";
+
+	for (i = 0; i < VIP_MAX_SUBDEV; i++) {
+		node = of_parse_phandle(pdev->dev.of_node, "sensor0", i);
+		if (node)
+			sensor_i2c_client = of_find_i2c_device_by_node(node);
+		else
+			break;
+
+		if (sensor_i2c_client) {
+			sensor_addr = sensor_i2c_client->addr;
+			dev_err(&pdev->dev, "Waiting for sensor I2C %x",
+				sensor_addr);
+
+			dev->config->asd[i] = vip_sensor_subdev;
+			dev->config->asd[i].match.i2c.address = sensor_addr;
+			dev->config->asd_list[i] = &dev->config->asd[i];
+		}
+	}
+
+	if (sensor_addr == -1) {
+		dev_err(&pdev->dev, "Sensor node not found");
+		ret = -EINVAL;
+		goto free_config;
+	}
+
+	dev->config->asd_sizes = i;
+	dev->notifier.subdev = dev->config->asd_list;
+	dev->notifier.num_subdevs = dev->config->asd_sizes;
+	dev->notifier.bound = vip_async_bound;
+	dev->notifier.complete = vip_async_complete;
+
+	ret = v4l2_async_notifier_register(&dev->v4l2_dev, &dev->notifier);
+	if (ret) {
+		vip_dprintk(dev, "Error registering async notifier\n");
+		ret = -EINVAL;
+		goto free_config;
+	}
+
+	return 0;
+free_config:
+	kfree(dev->config);
+	return ret;
 }
+
+static const struct of_device_id vip_of_match[];
 
 static int vip_probe(struct platform_device *pdev)
 {
 	struct vip_dev *dev;
+	const struct of_device_id *of_dev_id;
+	struct pinctrl *pinctrl;
 	int ret;
 	int irq;
 
 	dev = kzalloc(sizeof *dev, GFP_KERNEL);
 	if (!dev)
 		return -ENOMEM;
+
+	of_dev_id = of_match_device(vip_of_match, &pdev->dev);
+	if (!of_dev_id) {
+		dev_err(&pdev->dev, "%s: Unable to match device\n", __func__);
+		return -ENODEV;
+	}
+	dev->vip_name = (const char *)of_dev_id->data;
+
+	if (strcmp(dev->vip_name, "vip1") == 0) {
+		early_dev = kzalloc(sizeof(*early_dev), GFP_KERNEL);
+		if (!early_dev)
+			return -ENOMEM;
+	}
 
 	spin_lock_init(&dev->slock);
 	spin_lock_init(&dev->lock);
@@ -1871,6 +2098,12 @@ static int vip_probe(struct platform_device *pdev)
 	if (irq < 0 || dev->res == NULL) {
 		dev_err(&pdev->dev, "Missing platform resources data\n");
 		ret = -ENODEV;
+	}
+
+	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
+	if (IS_ERR(pinctrl)) {
+		ret = PTR_ERR(pinctrl);
+		goto err_runtime_get;
 	}
 
 	ret = v4l2_device_register(&pdev->dev, &dev->v4l2_dev);
@@ -1901,18 +2134,12 @@ static int vip_probe(struct platform_device *pdev)
 	if (ret)
 		goto dev_unreg;
 
-	dev->config = &dra7xx_vip_config;
-
-	dev->notifier.subdev = dev->config->asd;
-	dev->notifier.num_subdevs = dev->config->asd_sizes;
-	dev->notifier.bound = vip_async_bound;
-	dev->notifier.complete = vip_async_complete;
-
-	ret = v4l2_async_notifier_register(&dev->v4l2_dev, &dev->notifier);
-	if (ret) {
-		vip_dprintk(dev, "Error registering async notifier\n");
-		ret = -EINVAL;
-		goto free_port;
+	if (strcmp(dev->vip_name, "vip1") == 0)
+		early_dev = dev;
+	if (dev->pdev->dev.of_node) {
+		ret = vip_of_probe(pdev, dev);
+		if (ret)
+			goto free_port;
 	}
 
 	return 0;
@@ -1932,7 +2159,6 @@ static int vip_remove(struct platform_device *pdev)
 
 	v4l2_info(&dev->v4l2_dev, "Removing " VIP_MODULE_NAME);
 	free_port(dev->ports[0]);
-	ov10635_uninit_sensor(dev);
 	v4l2_async_notifier_unregister(&dev->notifier);
 	vb2_dma_contig_cleanup_ctx(dev->alloc_ctx);
 	free_irq(dev->irq, dev);
@@ -1945,16 +2171,16 @@ static int vip_remove(struct platform_device *pdev)
 #if defined (CONFIG_OF)
 static const struct of_device_id vip_of_match[] = {
 	{
-		.compatible = "ti,vip1",
+		.compatible = "ti,vip1", .data = "vip1",
 	},
 #if 0
 	{
-		.compatible = "ti,vip2",
-	},
-	{
-		.compatible = "ti,vip3",
+		.compatible = "ti,vip2", .data = "vip2",
 	},
 #endif
+	{
+		.compatible = "ti,vip3", .data = "vip3",
+	},
 	{},
 };
 #else
@@ -1983,3 +2209,4 @@ static int __init vip_init(void)
 
 module_init(vip_init);
 module_exit(vip_exit);
+

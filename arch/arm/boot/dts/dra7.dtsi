@@ -1071,6 +1071,7 @@
 			reg = <0x48468000 0x2000>;
 			interrupts = <0 155 0x4>, /* AREVT */
 				     <0 154 0x4>; /* TXEVT */
+			interrupt-names = "rx", "tx";
 			ti,hwmods = "mcasp3";
 			op-mode = <0>;		/* MCASP_IIS_MODE */
 			tdm-slots = <2>;
@@ -1087,6 +1088,7 @@
 			reg-names = "cfg","dat";
 			interrupts = <0 156 0x4>, /* AREVT */
 				     <0 157 0x4>; /* TXEVT */
+			interrupt-names = "rx", "tx";
 			ti,hwmods = "mcasp6";
 			op-mode = <0>;		/* MCASP_IIS_MODE */
 			tdm-slots = <8>;
@@ -1105,6 +1107,7 @@
 			reg-names = "cfg","dat";
 			interrupts = <0 146 0x4>, /* AREVT */
 				     <0 147 0x4>; /* TXEVT */
+			interrupt-names = "rx", "tx";
 			ti,hwmods = "mcasp7";
 			op-mode = <0>;		/* MCASP_IIS_MODE */
 			tdm-slots = <2>;
@@ -1130,20 +1133,24 @@
 
 		vip2: vip@0x48990000 {
                         compatible = "ti,vip2";
-			reg = <0x48990000 0x10000>;
+			reg = <0x48990000 0x10000>,
+			      <0x4899d000 0x1000>;
+			reg-names = "vip","vpdma";
                         ti,hwmods = "vip2";
-			interrupts = <0 154 0x4>,
-				     <0 155 0x4>;
+			interrupts = <0 150 0x4>,
+				     <0 151 0x4>;
                         #address-cells = <1>;
                         #size-cells = <0>;
                 };
 
 		vip3: vip@0x489b0000 {
                         compatible = "ti,vip3";
-			reg = <0x489b0000 0x10000>;
+			reg = <0x489b0000 0x10000>,
+			      <0x489bd000 0x1000>;
+			reg-names = "vip","vpdma";
                         ti,hwmods = "vip3";
-			interrupts = <0 156 0x4>,
-				     <0 157 0x4>;
+			interrupts = <0 148 0x4>,
+				     <0 149 0x4>;
                         #address-cells = <1>;
                         #size-cells = <0>;
 		};

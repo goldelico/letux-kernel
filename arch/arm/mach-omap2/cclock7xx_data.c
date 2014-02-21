@@ -47,8 +47,13 @@
 #define DRA7_DPLL_DSP_GFCLK_NOMFREQ		600000000
 #define DRA7_DPLL_EVE_GCLK_NOMFREQ		400000000
 
+#ifdef CONFIG_IVA_HIGH_OPP
+#define DRA7_DPLL_IVA_DEFFREQ				1064000000
+#define DRA7_IVA_GCLK_NOMFREQ				532000000
+#else
 #define DRA7_DPLL_IVA_DEFFREQ				1165000000
 #define DRA7_IVA_GCLK_NOMFREQ				388333333
+#endif
 
 /* Root clocks */
 
@@ -2128,6 +2133,7 @@ static const char *enable_init_clks[] = {
 
 static struct reparent_init_clks reparent_clks[] = {
 	{ .name = "abe_dpll_sys_clk_mux", .parent = "sys_clkin2" },
+	{ .name = "ipu1_gfclk_mux", .parent = "dpll_core_h22x2_ck" },
 };
 
 static struct rate_init_clks rate_clks[] = {

@@ -761,7 +761,10 @@ static struct ti_st_plat_data *get_platform_data(struct device *dev)
 	return dt_pdata;
 }
 
+#ifdef CONFIG_DEBUG_FS
 static struct dentry *kim_debugfs_dir;
+#endif
+
 static int kim_probe(struct platform_device *pdev)
 {
 	struct kim_data_s	*kim_gdata;
@@ -846,6 +849,7 @@ static int kim_probe(struct platform_device *pdev)
 	kim_gdata->baud_rate = pdata->baud_rate;
 	pr_info("sysfs entries created\n");
 
+#ifdef CONFIG_DEBUG_FS
 	kim_debugfs_dir = debugfs_create_dir("ti-st", NULL);
 	if (IS_ERR(kim_debugfs_dir)) {
 		pr_err(" debugfs entries creation failed ");
@@ -858,10 +862,13 @@ static int kim_probe(struct platform_device *pdev)
 	debugfs_create_file("protocols", S_IRUGO, kim_debugfs_dir,
 				kim_gdata, &list_debugfs_fops);
 	pr_info(" debugfs entries created ");
+#endif
 	return 0;
 
+#ifdef CONFIG_DEBUG_FS
 err_debugfs_dir:
 	sysfs_remove_group(&pdev->dev.kobj, &uim_attr_grp);
+#endif
 
 err_sysfs_group:
 	st_core_exit(kim_gdata->core_data);
@@ -897,7 +904,9 @@ static int kim_remove(struct platform_device *pdev)
 	gpio_free(pdata->nshutdown_gpio);
 	pr_info("nshutdown GPIO Freed");
 
+#ifdef CONFIG_DEBUG_FS
 	debugfs_remove_recursive(kim_debugfs_dir);
+#endif
 	sysfs_remove_group(&pdev->dev.kobj, &uim_attr_grp);
 	pr_info("sysfs entries removed");
 

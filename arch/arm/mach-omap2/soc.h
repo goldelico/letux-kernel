@@ -456,16 +456,17 @@ IS_OMAP_TYPE(3430, 0x3430)
 
 #define DRA7XX_CLASS		0x07000007
 #define DRA752_REV_ES1_0	(DRA7XX_CLASS | (0x52 << 16) | (0x10 << 8))
+#define DRA752_REV_ES1_1	(DRA7XX_CLASS | (0x52 << 16) | (0x11 << 8))
 
 void omap2xxx_check_revision(void);
 void omap3xxx_check_revision(void);
 void omap4xxx_check_revision(void);
 void omap5xxx_check_revision(void);
+void dra7xx_check_revision(void);
 void omap3xxx_check_features(void);
 void ti81xx_check_features(void);
 void am33xx_check_features(void);
 void omap4xxx_check_features(void);
-void dra7xx_check_revision(void);
 
 /*
  * Runtime detection of OMAP3 features
