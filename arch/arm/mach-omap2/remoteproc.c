@@ -149,6 +149,9 @@ static struct omap_rproc_pdata dra7_rproc_data[] = {
 		.oh_name	= "ipu2",
 		.timers		= ipu_timers,
 		.timers_cnt	= ARRAY_SIZE(ipu_timers),
+#ifdef CONFIG_OMAP_REMOTEPROC_LATE_ATTACH_IPU2
+		.late_attach	= 1,
+#endif
 	},
 	{
 		.name		= "dsp2",
@@ -166,6 +169,9 @@ static struct omap_rproc_pdata dra7_rproc_data[] = {
 		.oh_name	= "ipu1",
 		.timers		= ipu1_timers,
 		.timers_cnt	= ARRAY_SIZE(ipu1_timers),
+#ifdef CONFIG_OMAP_REMOTEPROC_LATE_ATTACH_IPU1
+		.late_attach	= 1,
+#endif
 	},
 };
 
@@ -325,6 +331,9 @@ static int omap_rproc_device_enable(struct platform_device *pdev)
 	int ret = -EINVAL;
 	struct omap_rproc_pdata *pdata = pdev->dev.platform_data;
 
+	if (pdata->late_attach)
+		goto dev_enable;
+
 	if (strstarts(pdata->name, "dsp")) {
 		ret = omap_device_deassert_hardreset(pdev, "dsp");
 		if (ret)
@@ -342,6 +351,7 @@ static int omap_rproc_device_enable(struct platform_device *pdev)
 		goto out;
 	}
 
+dev_enable:
 	ret = omap_device_enable(pdev);
 
 out:
