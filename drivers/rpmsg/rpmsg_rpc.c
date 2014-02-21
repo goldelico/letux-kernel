@@ -616,6 +616,8 @@ static int rppc_release(struct inode *inode, struct file *filp)
 
 	mutex_lock(&rpc->lock);
 	idr_for_each(&rpc->dma_idr, rppc_free_dmabuf, rpc);
+	idr_remove_all(&rpc->dma_idr);
+	idr_destroy(&rpc->dma_idr);
 	mutex_unlock(&rpc->lock);
 
 	mutex_lock(&rppcdev->lock);
