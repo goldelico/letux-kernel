@@ -673,6 +673,16 @@ static int __init omap_rproc_init(void)
 
 		pdev->dev.archdata.iommu = &rproc_iommu[i];
 
+		/*
+		 * Set custom dma ops whose .alloc doesn't zero memory.
+		 * This is necessary for code/data memory that was early
+		 * loaded, but may present a problem for vring buffers
+		 * that might expect to be zeroed (vrings themselves are
+		 * OK since they are specifically zero initialized).
+		 */
+		if (rproc_data[i].late_attach)
+			set_dma_ops(&pdev->dev, &arm_dma_m_ops);
+
 		ret = omap_device_register(pdev);
 		if (ret) {
 			dev_err(&pdev->dev, "omap_device_register failed\n");
