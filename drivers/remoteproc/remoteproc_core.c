@@ -528,7 +528,7 @@ static int rproc_handle_devmem(struct rproc *rproc, struct fw_rsc_devmem *rsc,
 	int ret;
 
 	/* no point in handling this resource without a valid iommu domain */
-	if (!rproc->domain)
+	if (!rproc->domain && !rproc->late_attach)
 		return -EINVAL;
 
 	if (sizeof(*rsc) > avail) {
@@ -548,10 +548,15 @@ static int rproc_handle_devmem(struct rproc *rproc, struct fw_rsc_devmem *rsc,
 		return -ENOMEM;
 	}
 
-	ret = iommu_map(rproc->domain, rsc->da, rsc->pa, rsc->len, rsc->flags);
-	if (ret) {
-		dev_err(dev, "failed to map devmem: %d\n", ret);
-		goto out;
+	if (!rproc->late_attach) {
+		ret = iommu_map(rproc->domain, rsc->da, rsc->pa, rsc->len,
+				rsc->flags);
+		if (ret) {
+			dev_err(dev, "failed to map devmem: %d\n", ret);
+			goto out;
+		}
+	} else {
+		dev_dbg(dev, "late attach - not iommu_map()ing\n");
 	}
 
 	/*
@@ -652,7 +657,7 @@ static int rproc_handle_carveout(struct rproc *rproc,
 	 * to use the iommu-based DMA API: we expect 'dma' to contain the
 	 * physical address in this case.
 	 */
-	if (rproc->domain) {
+	if (rproc->domain || rproc->late_attach) {
 		mapping = kzalloc(sizeof(*mapping), GFP_KERNEL);
 		if (!mapping) {
 			dev_err(dev, "kzalloc mapping failed\n");
@@ -660,11 +665,15 @@ static int rproc_handle_carveout(struct rproc *rproc,
 			goto dma_free;
 		}
 
-		ret = iommu_map(rproc->domain, rsc->da, dma, rsc->len,
-								rsc->flags);
-		if (ret) {
-			dev_err(dev, "iommu_map failed: %d\n", ret);
-			goto free_mapping;
+		if (!rproc->late_attach && rproc->domain) {
+			ret = iommu_map(rproc->domain, rsc->da, dma, rsc->len,
+					rsc->flags);
+			if (ret) {
+				dev_err(dev, "iommu_map failed: %d\n", ret);
+				goto free_mapping;
+			}
+		} else {
+			dev_dbg(dev, "late attach - not iommu_map()ing\n");
 		}
 
 		/*
@@ -824,11 +833,14 @@ static void rproc_resource_cleanup(struct rproc *rproc)
 	list_for_each_entry_safe(entry, tmp, &rproc->mappings, node) {
 		size_t unmapped;
 
-		unmapped = iommu_unmap(rproc->domain, entry->da, entry->len);
-		if (unmapped != entry->len) {
-			/* nothing much to do besides complaining */
-			dev_err(dev, "failed to unmap %u/%zu\n", entry->len,
-								unmapped);
+		if (!rproc->late_attach) {
+			unmapped = iommu_unmap(rproc->domain, entry->da,
+						entry->len);
+			if (unmapped != entry->len) {
+				/* nothing much to do besides complaining */
+				dev_err(dev, "failed to unmap %u/%zu\n",
+					entry->len, unmapped);
+			}
 		}
 
 		list_del(&entry->node);
@@ -871,10 +883,14 @@ static int rproc_fw_boot(struct rproc *rproc, const struct firmware *fw)
 	 * if enabling an IOMMU isn't relevant for this rproc, this is
 	 * just a nop
 	 */
-	ret = rproc_enable_iommu(rproc);
-	if (ret) {
-		dev_err(dev, "can't enable iommu: %d\n", ret);
-		return ret;
+	if (!rproc->late_attach) {
+		ret = rproc_enable_iommu(rproc);
+		if (ret) {
+			dev_err(dev, "can't enable iommu: %d\n", ret);
+			return ret;
+		}
+	} else {
+		dev_dbg(dev, "late attach - skipping rproc_enable_iommu()\n");
 	}
 
 	rproc->bootaddr = rproc_get_boot_addr(rproc, fw);
@@ -910,11 +926,16 @@ static int rproc_fw_boot(struct rproc *rproc, const struct firmware *fw)
 		}
 	}
 
-	/* load the ELF segments to memory */
-	ret = rproc_load_segments(rproc, fw);
-	if (ret) {
-		dev_err(dev, "Failed to load program segments: %d\n", ret);
-		goto clean_up;
+	if (!rproc->late_attach) {
+		/* load the ELF segments to memory */
+		ret = rproc_load_segments(rproc, fw);
+		if (ret) {
+			dev_err(dev, "Failed to load program segments: %d\n",
+				ret);
+			goto clean_up;
+		}
+	} else {
+		dev_dbg(dev, "late attach - skipping segment load\n");
 	}
 
 	/*
