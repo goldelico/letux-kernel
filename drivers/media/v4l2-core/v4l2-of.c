@@ -100,6 +100,9 @@ static void v4l2_of_parse_parallel_bus(const struct device_node *node,
 	if (!of_property_read_u32(node, "data-shift", &v))
 		bus->data_shift = v;
 
+	if (!of_property_read_u32(node, "num-channels", &v))
+		bus->num_channels = v;
+
 	bus->flags = flags;
 
 }
