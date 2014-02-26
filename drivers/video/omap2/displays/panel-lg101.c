@@ -71,25 +71,12 @@ static int send_i2c_cmd(struct i2c_client *client, int cmd, void *arg)
 
 	return status;
 }
-static int lg101_power_on(struct omap_dss_device *dssdev)
+
+static int lg101_setup_link(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = dev_get_drvdata(&dssdev->dev);
 	int r;
 	u8 data;
-
-	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE)
-		return 0;
-
-	dev_dbg(&dssdev->dev, "lg101_power_on");
-
-	gpio_set_value_cansleep(ddata->p_gpio, 0); /* S0-0 S1-1 S2-0 A1 -> B2*/
-
-	omapdss_dpi_set_timings(dssdev, &dssdev->panel.timings);
-	omapdss_dpi_set_data_lines(dssdev, dssdev->phy.dpi.data_lines);
-
-	r = omapdss_dpi_display_enable(dssdev);
-	if (r)
-		goto err0;
 
 	r = send_i2c_cmd(ddata->ser_i2c_client, SER_RESET, NULL);
 	if (r < 0) {
@@ -165,6 +152,7 @@ static int lg101_power_on(struct omap_dss_device *dssdev)
 	}
 	dev_err(&dssdev->dev, "Deserializer i2c addr %x ...", r);
 
+#if 0
 	r = send_i2c_cmd(ddata->deser_i2c_client, DSER_GET_SER_I2C_ADDR,
 								(void *)&data);
 	if ((r < 0) || (data != ddata->ser_i2c_client->addr)) {
@@ -172,6 +160,7 @@ static int lg101_power_on(struct omap_dss_device *dssdev)
 		goto err0;
 	}
 	dev_err(&dssdev->dev, "Serilizer i2c addr %x\n", data);
+#endif
 
 	r = send_i2c_cmd(ddata->deser_i2c_client, DSER_CONFIGURE,
 								NULL);
@@ -191,7 +180,28 @@ static int lg101_power_on(struct omap_dss_device *dssdev)
 
 	return 0;
 err0:
-	return r;
+	return -EINVAL;
+}
+
+static int lg101_power_on(struct omap_dss_device *dssdev)
+{
+	struct panel_drv_data *ddata = dev_get_drvdata(&dssdev->dev);
+	int r;
+
+	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE)
+		return 0;
+
+	dev_dbg(&dssdev->dev, "lg101_power_on");
+
+	gpio_set_value_cansleep(ddata->p_gpio, 0); /* S0-0 S1-1 S2-0 A1 -> B2*/
+
+	omapdss_dpi_set_timings(dssdev, &dssdev->panel.timings);
+	omapdss_dpi_set_data_lines(dssdev, dssdev->phy.dpi.data_lines);
+
+	r = omapdss_dpi_display_enable(dssdev);
+	if (r)
+		return r;
+	return 0;
 }
 
 static void lg101_power_off(struct omap_dss_device *dssdev)
@@ -306,6 +316,11 @@ static int lg101_probe(struct omap_dss_device *dssdev)
 		return r;
 
 	dev_set_drvdata(&dssdev->dev, ddata);
+
+	/* Check the ser/deser and setup the link */
+	r = lg101_setup_link(dssdev);
+	if (r < 0)
+		return r;
 
 	dev_err(&dssdev->dev, "lg101_probe probe sucessful..\n");
 
