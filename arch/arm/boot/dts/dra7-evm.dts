@@ -121,6 +121,7 @@
 		ti,multichannel-codec-c = <&tlv320aic3106c>;
 		ti,multichannel-slots = <8>;
 		ti,multichannel-mclk-freq = <11289600>;
+		ti,multichannel-shared;
 
 		/* Bluetooth */
 		ti,bt-cpu = <&mcasp7>;
@@ -141,12 +142,6 @@
 		radio_helper1 {
 			compatible = "ti,dra7xx_radio_subdev";
 			ti,hwmods = "mcasp2";
-			status = "okay";
-		};
-
-		radio_helper2 {
-			compatible = "ti,dra7xx_radio_subdev";
-			ti,hwmods = "mcasp6";
 			status = "okay";
 		};
 	};
