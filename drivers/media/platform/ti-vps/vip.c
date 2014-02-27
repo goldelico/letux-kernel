@@ -748,6 +748,7 @@ static void start_dma(struct vip_dev *dev, struct vip_buffer *buf)
 		drop_data = 1;
 	}
 
+        dma_addr_global_complete = dma_addr;
 	enable_irqs(dev);
 
 	vpdma_update_dma_addr(dev->shared->vpdma, &dev->desc_list,
