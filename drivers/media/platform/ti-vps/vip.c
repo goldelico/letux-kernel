@@ -216,6 +216,7 @@ static int alloc_port(struct vip_dev *, int);
 static void free_port(struct vip_port *);
 static int find_or_alloc_shared(struct platform_device *, struct vip_dev *,
 		struct resource *);
+static int vip_setup_parser(struct vip_port *port);
 
 static u32 read_sreg(struct vip_shared *shared, int offset)
 {
@@ -1170,6 +1171,8 @@ static int vip_s_fmt_vid_cap(struct file *file, void *priv,
 		return ret;
 	}
 
+	vip_setup_parser(dev->ports[0]);
+
 	return 0;
 }
 
@@ -1472,6 +1475,83 @@ static void vip_release_dev(struct vip_dev *dev)
 		vip_set_clock_enable(dev, 0);
 }
 
+static int vip_setup_parser(struct vip_port *port)
+{
+	struct vip_dev *dev = port->dev;
+	struct v4l2_of_endpoint *endpoint = dev->endpoint;
+	int iface = DUAL_8B_INTERFACE;
+	int sync_type;
+	unsigned int flags;
+
+	vip_set_port_enable(port, 1);
+
+	if (endpoint->bus_type == V4L2_MBUS_BT656) {
+		iface = DUAL_8B_INTERFACE;
+
+		/* Ideally, this should come from sensor
+		   port->fmt can be anything once CSC is enabled */
+		if (port->fmt->colorspace == V4L2_COLORSPACE_SRGB)
+			sync_type = EMBEDDED_SYNC_SINGLE_RGB_OR_YUV444;
+		else {
+			switch (endpoint->bus.parallel.num_channels) {
+			case 4:
+				sync_type = EMBEDDED_SYNC_4X_MULTIPLEXED_YUV422;
+			break;
+			case 2:
+				sync_type = EMBEDDED_SYNC_2X_MULTIPLEXED_YUV422;
+			break;
+			case 1:
+			default:
+				sync_type = EMBEDDED_SYNC_SINGLE_YUV422;
+			}
+		}
+
+	} else if (endpoint->bus_type == V4L2_MBUS_PARALLEL) {
+		switch (endpoint->bus.parallel.bus_width) {
+		case 24:
+			iface = SINGLE_24B_INTERFACE;
+		break;
+		case 16:
+			iface = SINGLE_16B_INTERFACE;
+		break;
+		case 8:
+		default:
+			iface = DUAL_8B_INTERFACE;
+		}
+
+		if (port->fmt->colorspace == V4L2_COLORSPACE_SRGB)
+			sync_type = DISCRETE_SYNC_SINGLE_RGB_24B;
+		else
+			sync_type = DISCRETE_SYNC_SINGLE_YUV422;
+
+		flags = endpoint->bus.parallel.flags;
+		if (flags & (V4L2_MBUS_HSYNC_ACTIVE_HIGH |
+			V4L2_MBUS_HSYNC_ACTIVE_LOW))
+			vip_set_vsync_polarity(port,
+				flags & V4L2_MBUS_HSYNC_ACTIVE_HIGH ? 1 : 0);
+
+		if (flags & (V4L2_MBUS_VSYNC_ACTIVE_HIGH |
+			V4L2_MBUS_VSYNC_ACTIVE_LOW))
+			vip_set_hsync_polarity(port,
+				flags & V4L2_MBUS_VSYNC_ACTIVE_HIGH ? 1 : 0);
+
+		if (flags & (V4L2_MBUS_PCLK_SAMPLE_RISING |
+			V4L2_MBUS_PCLK_SAMPLE_FALLING))
+			vip_set_pclk_polarity(port,
+				flags & V4L2_MBUS_PCLK_SAMPLE_RISING ? 1 : 0);
+
+		vip_set_actvid_polarity(port, 1);
+		vip_set_discrete_basic_mode(port);
+
+	} else {
+		v4l2_err(&port->dev->v4l2_dev, "Device doesn't support CSI2");
+		return -EINVAL;
+	}
+
+	vip_set_data_interface(port, iface);
+	vip_sync_type(port, sync_type);
+}
+
 static int vip_init_port(struct vip_port *port)
 {
 	int ret;
@@ -1535,13 +1615,6 @@ int vip_open(struct file *file)
 		vip_set_idle_mode(dev->shared, VIP_SMART_IDLE_MODE);
 		vip_set_standby_mode(dev->shared, VIP_SMART_STANDBY_MODE);
 		vip_set_slice_path(dev, VIP_MULTI_CHANNEL_DATA_SELECT);
-		vip_set_port_enable(dev->ports[0], 1);
-		vip_set_data_interface(dev->ports[0], DUAL_8B_INTERFACE);
-		vip_sync_type(dev->ports[0], DISCRETE_SYNC_SINGLE_YUV422);
-		vip_set_vsync_polarity(dev->ports[0], 1);
-		vip_set_hsync_polarity(dev->ports[0], 1);
-		vip_set_actvid_polarity(dev->ports[0], 1);
-		vip_set_discrete_basic_mode(dev->ports[0]);
 	}
 
 	ret = vip_init_port(port);
@@ -1828,6 +1901,10 @@ static int vip_async_bound(struct v4l2_async_notifier *notifier,
 			struct v4l2_async_subdev *asd)
 {
 	struct vip_dev *dev = notifier_to_vip_dev(notifier);
+	unsigned int idx = asd - &dev->config->asd[0];
+
+	if (idx > dev->config->asd_sizes)
+		return -EINVAL;
 
 	if (dev->sensor) {
 		if (asd < dev->sensor->asdl.asd) {
@@ -1842,7 +1919,8 @@ static int vip_async_bound(struct v4l2_async_notifier *notifier,
 	}
 
 	dev->sensor = subdev;
-	dev_notice(&dev->pdev->dev, "Using sensor i2c addr %x for capture\n",
+	dev->endpoint = &dev->config->endpoints[idx];
+	v4l2_info(&dev->v4l2_dev, "Using sensor i2c addr %x for capture\n",
 		asd->match.i2c.address);
 	return 0;
 }

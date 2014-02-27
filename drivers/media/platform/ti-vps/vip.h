@@ -57,14 +57,7 @@ struct vip_shared {
  * There are two vip_dev structure, one for each vip slice: VIP1 & VIP2.
  */
 
-struct vip_subdev_info {
-	const char *name;
-	struct i2c_board_info board_info;
-};
-
 struct vip_config {
-	struct vip_subdev_info *subdev_info;
-	int subdev_count;
 	const char *card_name;
 	struct v4l2_async_subdev *asd_list[VIP_MAX_SUBDEV];
 	struct v4l2_async_subdev asd[VIP_MAX_SUBDEV];
@@ -77,6 +70,7 @@ struct vip_dev {
 	struct v4l2_async_notifier notifier;
 	struct vip_config	*config;
 	struct v4l2_subdev	*sensor;
+	struct v4l2_of_endpoint *endpoint;
 	struct v4l2_device	v4l2_dev;
 	struct platform_device *pdev;
 	struct vip_shared	*shared;
