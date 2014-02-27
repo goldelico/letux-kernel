@@ -3,13 +3,41 @@ twl4030_madc_battery
 Required properties:
  - compatible : "ti,twl4030-madc-battery"
  - capacity : battery capacity in uAh
- - charging-calibration-data : list of voltage(mV):level(%) values for charging calibration (see example)
- - discharging-calibration-data : list of voltage(mV):level(%) values for discharging calibration (see example)
+ - charging-calibration-data : list of voltage(mV):level(%) values
+	for charging calibration (see example)
+ - discharging-calibration-data : list of voltage(mV):level(%) values
+	for discharging calibration (see example)
+ - io-channels: Should contain IIO channel specifiers
+	for each element in io-channel-names.
+- io-channel-names: Should contain the following values:
+ * "temp" - The ADC channel for temperature reading
+ * "ichg" - The ADC channel for battery charging status
+ * "vbat" - The ADC channel to measure the battery voltage
 
 Example:
 	madc-battery {
 		compatible = "ti,twl4030-madc-battery";
 		capacity = <1200000>;
-		charging-calibration-data = <4200 100 4100 75 4000 55 3900 25 3800 5 3700 2 3600 1 3300 0>;
-		discharging-calibration-data = <4200 100 4100 95 4000 70 3800 50 3700 10 3600 5 3300 0>;
+		charging-calibration-data = <4200 100
+					     4100 75
+					     4000 55
+					     3900 25
+					     3800 5
+					     3700 2
+					     3600 1
+					     3300 0>;
+
+		discharging-calibration-data = <4200 100
+						4100 95
+						4000 70
+						3800 50
+						3700 10
+						3600 5
+						3300 0>;
+		io-channels = <&twl_madc 1>,
+	                      <&twl_madc 10>,
+			      <&twl_madc 12>;
+		io-channel-names = "temp",
+		                   "ichg",
+		                   "vbat";
 	};
