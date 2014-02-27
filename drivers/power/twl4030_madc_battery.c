@@ -20,6 +20,7 @@
 #include <linux/i2c/twl4030-madc.h>
 #include <linux/power/twl4030_madc_battery.h>
 #include <linux/iio/consumer.h>
+#include <linux/of.h>
 
 struct twl4030_madc_battery {
 	struct power_supply psy;
@@ -189,9 +190,8 @@ static struct twl4030_madc_bat_platform_data *
 {
 	struct twl4030_madc_bat_platform_data *pdata;
 	struct device_node *np = pdev->dev.of_node;
-	struct property *prop;
 	int ret;
-	int sz, i, j = 0;
+	int i, proplen;
 
 	pdata = devm_kzalloc(&pdev->dev,
 			sizeof(struct twl4030_madc_bat_platform_data),
@@ -204,71 +204,44 @@ static struct twl4030_madc_bat_platform_data *
 		return ERR_PTR(-EINVAL);
 
 	/* parse and prepare charging data */
-	prop = of_find_property(np, "charging-calibration-data", &sz);
-	if (!prop)
-		return ERR_PTR(-EINVAL);
-
-	if (sz % 2) {
-		dev_warn(&pdev->dev, "Count of charging-calibration-data must be even!\n");
+	proplen = of_property_count_u32_elems(np, "charging-calibration-data");
+	if (proplen < 0) {
+		dev_warn(&pdev->dev, "No 'charging-calibration-data' property found\n");
 		return ERR_PTR(-EINVAL);
 	}
 
-	sz /= sizeof(u32);
+	pdata->charging = devm_kzalloc(&pdev->dev,
+		sizeof(struct twl4030_madc_bat_calibration) * (proplen / 2),
+		GFP_KERNEL);
 
-	{
-		u32 data[sz];
-
-		ret = of_property_read_u32_array(np,
-				"charging-calibration-data", &data[0], sz);
-		if (ret)
-			return ERR_PTR(ret);
-
-		pdata->charging = devm_kzalloc(&pdev->dev,
-				sizeof(struct twl4030_madc_bat_calibration) * (sz / 2),
-				GFP_KERNEL);
-
-		for (i = 0; i < sz; i += 2) {
-			pdata->charging[j].voltage = data[i];
-			pdata->charging[j].level = data[i+1];
-			j++;
-		}
-
-		pdata->charging_size = sz / 2;
+	for (i = 0; i < proplen / 2; i++) {
+		of_property_read_u32_index(np, "charging-calibration-data",
+					   i * 2,
+					   (u32 *)&pdata->charging[i].voltage);
+		of_property_read_u32_index(np, "charging-calibration-data",
+					  i * 2 + 1,
+					  (u32 *)&pdata->charging[i].level);
 	}
 
 	/* parse and prepare discharging data */
-	prop = of_find_property(np, "discharging-calibration-data", &sz);
-	if (!prop)
-		return ERR_PTR(-EINVAL);
-
-	if (sz % 2) {
-		dev_warn(&pdev->dev, "Count of discharging-calibration-data must be even!\n");
+	proplen = of_property_count_u32_elems(np,
+			"discharging-calibration-data");
+	if (proplen < 0) {
+		dev_warn(&pdev->dev, "No 'discharging-calibration-data' property found\n");
 		return ERR_PTR(-EINVAL);
 	}
 
-	sz /= sizeof(u32);
+	pdata->discharging = devm_kzalloc(&pdev->dev,
+		sizeof(struct twl4030_madc_bat_calibration) * (proplen / 2),
+		GFP_KERNEL);
 
-	{
-		u32 data[sz];
-
-		ret = of_property_read_u32_array(np,
-				"discharging-calibration-data", &data[0], sz);
-		if (ret)
-			return ERR_PTR(ret);
-
-		j = 0;
-
-		pdata->discharging = devm_kzalloc(&pdev->dev,
-				sizeof(struct twl4030_madc_bat_calibration) * (sz / 2),
-				GFP_KERNEL);
-
-		for (i = 0; i < sz; i += 2) {
-			pdata->discharging[j].voltage = data[i];
-			pdata->discharging[j].level = data[i+1];
-			j++;
-		}
-
-		pdata->discharging_size = sz / 2;
+	for (i = 0; i < proplen / 2; i++) {
+		of_property_read_u32_index(np, "discharging-calibration-data",
+					   i * 2,
+					   (u32 *)&pdata->discharging[i].voltage);
+		of_property_read_u32_index(np, "discharging-calibration-data",
+					   i * 2 + 1,
+					   (u32 *)&pdata->discharging[i].level);
 	}
 
 	return pdata;
@@ -278,7 +251,6 @@ static const struct of_device_id of_twl4030_madc_match[] = {
 	{ .compatible = "ti,twl4030-madc-battery", },
 	{},
 };
-MODULE_DEVICE_TABLE(of, of_twl4030_madc_match);
 
 #else
 static struct twl4030_madc_bat_platform_data *
