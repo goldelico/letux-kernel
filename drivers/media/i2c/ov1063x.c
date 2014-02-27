@@ -1360,6 +1360,9 @@ static int ov1063x_s_fmt(struct v4l2_subdev *sd,
 		return ret;
 	}
 
+        if (priv->sensor_connector == VIS_SERDES)
+            client->addr = 0x30;
+
 	ret = ov1063x_set_params(client, &mf->width, &mf->height,
 				    mf->code);
 	if (!ret)
