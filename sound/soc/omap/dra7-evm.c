@@ -667,6 +667,11 @@ static int dra7_snd_probe(struct platform_device *pdev)
 	if (card_data == NULL)
 		return -ENOMEM;
 
+	if (!node) {
+		dev_err(card->dev, "missing of_node\n");
+		return -ENODEV;
+	}
+
 	gpio = of_get_gpio(node, 0);
 	if (gpio_is_valid(gpio)) {
 		ret = devm_gpio_request_one(card->dev, gpio,
@@ -679,11 +684,6 @@ static int dra7_snd_probe(struct platform_device *pdev)
 	}
 
 	snd_soc_register_dais(&pdev->dev, &dummy_cpu_dai, 1);
-
-	if (!node) {
-		dev_err(card->dev, "missing of_node\n");
-		return -ENODEV;
-	}
 
 	ret = snd_soc_of_parse_card_name(card, "ti,model");
 	if (ret) {
