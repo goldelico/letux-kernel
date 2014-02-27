@@ -763,20 +763,25 @@ static void vip_active_buf_next(struct vip_stream *stream)
 
 	spin_lock_irqsave(&dev->slock, flags);
 	if (list_empty(&stream->vidq)) {
-		spin_unlock(&dev->slock);
 		v4l2_err(&dev->v4l2_dev, "%s No buffers to queue, dropping frame, Queue faster or increase no of buffers");
-		return;
-	}
-
-	spin_unlock_irqrestore(&dev->slock, flags);
-	if (vb2_is_streaming(&stream->vb_vidq)) {
-		spin_lock_irqsave(&dev->slock, flags);
+		buf = kzalloc(sizeof(*buf), GFP_KERNEL);
+                if (!buf) {
+                    v4l2_err(&dev->v4l2_dev, "No memory!!");
+                    spin_unlock_irqrestore(&dev->slock, flags);
+                    return;
+                }
+                buf->drop = true;
+                list_add_tail(&buf->list, &dev->vip_bufs);
+                spin_unlock_irqrestore(&dev->slock, flags);
+                start_dma(dev, NULL);
+        } else if (vb2_is_streaming(&stream->vb_vidq)) {
 		buf = list_entry(stream->vidq.next,
 				struct vip_buffer, list);
 		list_move_tail(&buf->list, &dev->vip_bufs);
 		spin_unlock_irqrestore(&dev->slock, flags);
 		start_dma(dev, buf);
-	}
+	} else
+            spin_unlock_irqrestore(&dev->slock, flags);
 
 	if (list_empty(&dev->vip_bufs))
 		stream->cur_buf = NULL;
@@ -799,8 +804,11 @@ static void vip_process_buffer_complete(struct vip_stream *stream)
 		list_del(&stream->cur_buf->list);
 		spin_unlock_irqrestore(&dev->slock, flags);
 
-		vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
-	}
+		if (stream->cur_buf->drop)
+                    kfree(stream->cur_buf);
+                else
+                    vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
+        }
 
 	vip_active_buf_next(stream);
 }

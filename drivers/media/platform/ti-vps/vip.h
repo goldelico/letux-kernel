@@ -35,6 +35,7 @@ struct vip_buffer {
 	/* common v4l buffer stuff */
 	struct vb2_buffer	vb;
 	struct list_head	list;
+        bool                    drop;
 };
 
 /*
