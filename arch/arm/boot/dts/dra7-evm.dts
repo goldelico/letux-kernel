@@ -181,6 +181,7 @@
 		&wl_pins
 		&wlirq_pins
 		&radio_pins
+		&mmc1_pins
 	>;
 
 	atl_pins: pinmux_atl_pins {
@@ -511,6 +512,11 @@
 			0x0334	 0x70004	/* I2C4_SDA: MODE4 */
 			0x0338	 0x70004	/* I2C4_SCL: MODE4 */
 			0x02A0	 0x5000e	/* GPIO6_20: MODE14 */
+		>;
+	};
+	mmc1_pins: pinmux_mmc1_pins {
+		pinctrl-single,pins = <
+			0x026C	 0x0004000E	/* GPIO6_27: MODE14 | INPUTENABLE */
 		>;
 	};
 
@@ -911,6 +917,7 @@
 &mmc1 {
 	vmmc-supply = <&ldo1_reg>;
 	bus-width = <4>;
+	cd-gpios = <&gpio6 27 0>;
 };
 
 &mmc2 {
