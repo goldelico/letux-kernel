@@ -188,6 +188,8 @@ int vpdma_create_desc_list(struct vpdma_desc_list *list, size_t size, int type);
 void vpdma_reset_desc_list(struct vpdma_desc_list *list);
 void vpdma_free_desc_list(struct vpdma_desc_list *list);
 int vpdma_submit_descs(struct vpdma_data *vpdma, struct vpdma_desc_list *list);
+void vpdma_update_dma_addr(struct vpdma_data *vpdma,
+		struct vpdma_desc_list *list, dma_addr_t dma_addr, int drop);
 
 void vpdma_enable_channel_3_irq(struct vpdma_data *vpdma, bool enable);
 void vpdma_vip_set_max_size(struct vpdma_data *vpdma, int vip_num);
