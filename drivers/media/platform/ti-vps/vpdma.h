@@ -176,13 +176,14 @@ void vpdma_add_cfd_block(struct vpdma_desc_list *list, int client,
 void vpdma_add_cfd_adb(struct vpdma_desc_list *list, int client,
 		struct vpdma_buf *adb);
 void vpdma_add_sync_on_channel_ctd(struct vpdma_desc_list *list, int channel);
-int vpdma_add_out_dtd(struct vpdma_desc_list *list, struct v4l2_rect *c_rect,
+int vpdma_add_out_dtd(struct vpdma_desc_list *list, int width,
 		const struct vpdma_data_format *fmt, dma_addr_t dma_addr,
 		int channel, u32 flags);
-void vpdma_add_in_dtd(struct vpdma_desc_list *list, int frame_width,
-		int frame_height, struct v4l2_rect *c_rect,
+void vpdma_add_in_dtd(struct vpdma_desc_list *list, int width,
+		const struct v4l2_rect *c_rect,
 		const struct vpdma_data_format *fmt, dma_addr_t dma_addr,
-		int channel, int field, u32 flags);
+		int channel, int field, u32 flags, int frame_width,
+		int frame_height, int start_h, int start_v);
 int vpdma_list_busy(struct vpdma_data *vpdma, int list_num);
 int vpdma_create_desc_list(struct vpdma_desc_list *list, size_t size, int type);
 void vpdma_reset_desc_list(struct vpdma_desc_list *list);
