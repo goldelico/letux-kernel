@@ -665,8 +665,15 @@ static void dump_dtd(struct vpdma_dtd *dtd)
 /*
  * append an outbound data transfer descriptor to the given descriptor list,
  * this sets up a 'client to memory' VPDMA transfer for the given VPDMA channel
+ *
+ * @list: vpdma desc list to which we add this decriptor
+ * @width: width of the image in pixels in memory
+ * @fmt: vpdma data format of the buffer
+ * dma_addr: dma address as seen by VPDMA
+ * chan: VPDMA channel
+ * flags: VPDMA flags to configure some descriptor fileds
  */
-int vpdma_add_out_dtd(struct vpdma_desc_list *list, struct v4l2_rect *c_rect,
+int vpdma_add_out_dtd(struct vpdma_desc_list *list, int width,
 		const struct vpdma_data_format *fmt, dma_addr_t dma_addr,
 		int channel, u32 flags)
 {
@@ -682,8 +689,7 @@ int vpdma_add_out_dtd(struct vpdma_desc_list *list, struct v4l2_rect *c_rect,
 			fmt->data_type == DATA_TYPE_C420)
 		depth = 8;
 
-	stride = ALIGN((depth * c_rect->width) >> 3, VPDMA_DESC_ALIGN);
-	dma_addr += (c_rect->left * depth) >> 3;
+	stride = ALIGN((depth * width) >> 3, VPDMA_DESC_ALIGN);
 
 	dtd = list->next;
 	WARN_ON((void *)(dtd + 1) > (list->buf.addr + list->buf.size));
@@ -718,29 +724,47 @@ EXPORT_SYMBOL(vpdma_add_out_dtd);
 /*
  * append an inbound data transfer descriptor to the given descriptor list,
  * this sets up a 'memory to client' VPDMA transfer for the given VPDMA channel
+ *
+ * @list: vpdma desc list to which we add this decriptor
+ * @width: width of the image in pixels in memory(not the cropped width)
+ * @c_rect: crop params of input image
+ * @fmt: vpdma data format of the buffer
+ * dma_addr: dma address as seen by VPDMA
+ * chan: VPDMA channel
+ * field: top or bottom field info of the input image
+ * flags: VPDMA flags to configure some descriptor fileds
+ * frame_width/height: the complete width/height of the image presented to the
+ *			client (this makes sense when multiple channels are
+ *			connected to the same client, forming a larger frame)
+ * start_h, start_v: position where the given channel starts providing pixel
+ *			data to the client (makes sense when multiple channels
+ *			contribute to the client)
  */
-void vpdma_add_in_dtd(struct vpdma_desc_list *list, int frame_width,
-		int frame_height, struct v4l2_rect *c_rect,
+void vpdma_add_in_dtd(struct vpdma_desc_list *list, int width,
+		const struct v4l2_rect *c_rect,
 		const struct vpdma_data_format *fmt, dma_addr_t dma_addr,
-		int channel, int field, u32 flags)
+		int channel, int field, u32 flags, int frame_width,
+		int frame_height, int start_h, int start_v)
 {
 	int priority = 0;
 	int notify = 1;
 	int depth = fmt->depth;
 	int next_chan = channel;
+	struct v4l2_rect rect = *c_rect;
 	int stride;
-	int height = c_rect->height;
 	struct vpdma_dtd *dtd;
 
 	if (fmt->type == VPDMA_DATA_FMT_TYPE_YUV &&
 			fmt->data_type == DATA_TYPE_C420) {
-		height >>= 1;
-		frame_height >>= 1;
+		rect.height >>= 1;
+		rect.top >>= 1;
 		depth = 8;
 	}
 
-	stride = ALIGN((depth * c_rect->width) >> 3, VPDMA_DESC_ALIGN);
-	dma_addr += (c_rect->left * depth) >> 3;
+	stride = ALIGN((depth * width) >> 3, VPDMA_DESC_ALIGN);
+
+	dma_addr += rect.top * stride + (rect.left * depth >> 3);
+
 
 	dtd = list->next;
 	WARN_ON((void *)(dtd + 1) > (list->buf.addr + list->buf.size));
@@ -754,12 +778,12 @@ void vpdma_add_in_dtd(struct vpdma_desc_list *list, int frame_width,
 				!!(flags & VPDMA_DATA_ODD_LINE_SKIP),
 				stride);
 
-	dtd_set_xfer_length_height(dtd, c_rect->width, height);
+	dtd_set_xfer_length_height(dtd, rect.width, rect.height);
 	dtd_set_start_addr(dtd, dma_addr);
 	dtd_set_pkt_ctl(dtd, !!(flags & VPDMA_DATA_MODE_TILED), DTD_DIR_IN,
 			channel, priority, next_chan);
 	dtd_set_frame_width_height(dtd, frame_width, frame_height);
-	dtd_set_start_h_v(dtd, c_rect->left, c_rect->top);
+	dtd_set_start_h_v(dtd, start_h, start_v);
 	dtd_set_client_attr0(dtd, 0);
 	dtd_set_client_attr1(dtd, 0);
 
