@@ -35,6 +35,7 @@ struct vip_buffer {
 	/* common v4l buffer stuff */
 	struct vb2_buffer	vb;
 	struct list_head	list;
+        bool                    drop;
 };
 
 /*
@@ -86,6 +87,7 @@ struct vip_dev {
 	spinlock_t		lock; /* used in videobuf2 callback */
 
 	int			irq;
+	int			num_skip_irq;
 	void __iomem		*base;
 
 	struct vpdma_desc_list	desc_list;	/* DMA descriptor list */
