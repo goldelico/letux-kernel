@@ -421,6 +421,10 @@ config VIDEO_OV7670
 	  OV7670 VGA camera.  It currently only works with the M88ALP01
 	  controller.
 
+config VIDEO_TI_LVDS
+	bool "Enable LVDS Usecase"
+	default n
+
 config VIDEO_OV1063X
 	tristate "OmniVision OV1063X sensor support"
 	depends on I2C && VIDEO_V4L2
