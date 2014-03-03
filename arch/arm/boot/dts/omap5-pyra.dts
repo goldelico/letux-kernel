@@ -1,0 +1,477 @@
+/*
+ * Copyright (C) 2014 OpenPandora - http://www.pyra-handheld.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/* we atart with the omap5-uevm tree */
+
+/include/ "omap5-uevm.dts"
+
+/* overwrite device model */
+
+/ {
+	model = "Pyra-Handheld";
+
+	/* DC/DC converter for LCD panel */
+	dsi1_panel_power: dsi1_panel_power_reg {
+		compatible = "regulator-fixed";
+		regulator-name = "dsi1_panel_power";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+/*		gpio = <&gpio3 18 0>;	/* gpio3_82 = display-enable */
+		startup-delay-us = <70000>;
+		enable-active-high;
+	};
+
+};
+
+/* LCD panel - MIPI */
+
+&dsi1 {
+	lcd {
+		compatible = "ti,r63311";
+		lanes = <
+			0       /* lane0+ = clk + */
+			1       /* lane0- = clk - */
+			2       /* lane1+ = data1 + */
+			3       /* lane1- = data1 - */
+			4       /* lane2+ = data2 + */
+			5       /* lane2- = data2 - */
+			6       /* lane3+ = data3 + */
+			7       /* lane3- = data3 - */
+			8       /* lane4+ = data4 + */
+			9       /* lane4- = data4 - */
+		>;
+
+/* there is no ldo2_reg!		vdds_foo-supply = <&ldo2_reg>; */
+/* does not work as expected:	vdds_foo-supply = <&dsi1_panel_power>;
+
+/*		gpios = <&gpio6 30 0>;	/* gpio6_190 = backlight enable */
+
+		gpios =
+/*			<&gpio8 23 0>,	/* goip8_230 = display reset */
+			<&gpio6 16 0>,	/* goip6_176 = display reset */
+			<&gpio3 18 0>;	/* gpio3_18 = enable DC/DC */
+	};
+};
+
+
+/* add overlay pimmux for pyra on 5432evm */
+
+&omap5_pmx_core {
+
+	pinctrl-0 = <
+			/* copied from original */
+			&twl6040_pins
+			&mcpdm_pins
+			&dmic_pins
+			&mcbsp1_pins
+			&mcbsp2_pins
+			&usbhost_pins
+			&dss_hdmi_pins
+			&tpd12s015_pins
+			&tca6424a_pins
+			&palmas_pins
+			&led_gpio_pins
+			&wl_pins
+
+			/* new entries */
+			&pyra_button_pins
+			&pyra_display_pins
+			&pyra_other_pins
+			&i2c2_pins
+			&i2c3_pins
+			&i2c4_pins
+			&pyra_dsi_a
+	>;
+
+/*
+// inputs
+#define GPIO_AUX 83				// BTN1 on EVM motherboard (gpio3_83)
+#define GPIO_VSYNC 189			// VSYNC input (gpio6_189 in: comes from panel)
+#define GPIO_LSH_TOP 184		// left top shoulder button - gpio6-184 - closes to GND
+#define GPIO_LSH_BOT 183		// left bottom shoulder button - gpio6-183 - closes to GND
+#define GPIO_RSH_TOP 180		// right top shoulder button - gpio6-180 - closes to GND
+#define GPIO_RSH_BOT 179		// right bottom shoulder button - gpio6-179 - closes to GND
+#define GPIO_LNUB 182			// left nub center button - gpio6-182 - closes to GND
+#define GPIO_RNUB 181			// right nub center button - gpio6-181 - closes to GND
+#define GPIO_LNUB_IRQ -1		// left nub IRQ - n/a
+#define GPIO_RNUB_IRQ -1		// right nub IRQ - n/a
+#define GPIO_LID 160			// lid close sensor - gpio6-160 - open collector output
+#define GPIO_WAKEUP 161			// wakeup from modem - gpio6-161
+#define GPIO_KEYIRQ 177			// keyboard controller IRQ - gpio6-177
+// outputs
+#define GPIO_DISPEN 82			// enable (active high) +/-5 V TPS65133 - gpio3_82
+#define GPIO_PWM 190			// enable 18V backlight (active high) - timer9/gpio6_190 (out) - or input to track what the panel is doing
+#define GPIO_DISPLAY_RESET 176	// panel and devices reset (active low)/enable - gpio6_176
+#define GPIO_3G_IGNITE 178		// start modem (active high pulse) - gpio6-178
+*/
+
+/* to find pinmux register offsets, see section A.7.2 in TRM
+
+   note: offsets in the table are relative to 0x4a00 2800
+   but reg = <0x4a002840 0x01b6> for omap5_pmx_core
+
+   Therefore gpio5_153 with Address Offset 0x1D4
+   translates into 0x194 (0xd0-0x40 => 0x90)
+   and because it has [31:16] we have to add 0x02
+   giving a result of 0x196.
+
+   Definitions for bit patterns:
+   0x0007	MODE0 .. MODE7
+   0x0008	enable pull up/down
+   0x0010	select pull up
+   0x0020	disable power for I/O cell
+   0x0100	enable input buffer (there is no explicit "enable output buffer" because that is defined by the GPIO direction)
+   0x4000	enable wakeup detection
+*/
+
+	pyra_button_pins: pinmux_button_gpio_pins {
+		pinctrl-single,pins = <
+			0x76 0x11e	/* (INPUTENABLE | PULLUP | MODE6)	/* 0x0B4:[31:16] gpio3_83  -- pullup is not really necessary since there is an external pullup */
+			0xec 0x11e	/* (INPUTENABLE | PULLUP | MODE6)	/* 0x12C:[15:0]  gpio6_160 */
+			0xee 0x11e	/* (INPUTENABLE | PULLUP | MODE6)	/* 0x12C:[31:16] gpio6_161 */
+			0xcc 0x11e	/* (INPUTENABLE | PULLUP | MODE6)	/* 0x10C:[15:0]  gpio6_177 */
+			0xc8 0x11e	/* (INPUTENABLE | PULLUP | MODE6)	/* 0x108:[15:0]  gpio6_179 */
+			0xc6 0x11e	/* (INPUTENABLE | PULLUP | MODE6)	/* 0x104:[31:16] gpio6_180 */
+			0xc4 0x11e	/* (INPUTENABLE | PULLUP | MODE6)	/* 0x104:[15:0]  gpio6_181 */
+			0xf0 0x11e	/* (INPUTENABLE | PULLUP | MODE6)	/* 0x130:[15:0]  gpio6_182 */
+			0xf2 0x11e	/* (INPUTENABLE | PULLUP | MODE6)	/* 0x130:[31:16] gpio6_183 */
+			0xf4 0x11e	/* (INPUTENABLE | PULLUP | MODE6)	/* 0x134:[15:0]  gpio6_184 */
+		>;
+	};
+
+	pyra_display_pins: pinmux_display_gpio_pins {
+		pinctrl-single,pins = <
+			0x74 0x00e	/* (OUTPUT | PULLDOWN | MODE6)	/* 0x0B4:[15:0]  gpio3_82 - enable panel DC/DC */
+			0x8a 0x10f	/* (INPUTENABLE | PULLDOWN | MODE6)	/* 0x0C8:[31:16] gpio6_189 - VSYNC input */
+			0xb6 0x10f	/* (INPUTENABLE | PULLDOWN | MODE7)	/* 0x0F4:[31:16] gpio6_190 - choose MODE0 for PWM_TIMER9 - choose MODE7 if panel outputs the PWM */
+			0xce 0x00e	/* (OUTPUT | PULLDOWN | MODE6)	/* 0x178:[31:16] gpio6_176 - panel reset */
+		>;
+	};
+
+	pyra_other_pins: pinmux_other_gpio_pins {
+		pinctrl-single,pins = <
+			0xca 0x00e	/* (OUTPUT | PULLDOWN | MODE6)	/* 0x108:[31:16] gpio6_178 - start modem */
+		>;
+	};
+
+/* enable I2C pinmux */
+
+	i2c2_pins: pinmux_i2c2_pins {
+		pinctrl-single,pins = <
+			0x178 0x118	/* (INPUTENABLE | PULLUP | MUX_MODE0)		/* i2c2_scl */
+			0x17a 0x118	/* (INPUTENABLE | PULLUP | MUX_MODE0)		/* i2c2_sda */
+		>;
+	};
+
+	i2c3_pins: pinmux_i2c3_pins {
+		pinctrl-single,pins = <
+			0x13a 0x118	/* (INPUTENABLE | PULLUP | MUX_MODE0)		/* i2c3_scl */
+			0x13c 0x118	/* (INPUTENABLE | PULLUP | MUX_MODE0)		/* i2c3_sda */
+		>;
+	};
+
+	i2c4_pins: pinmux_i2c4_pins {
+		pinctrl-single,pins = <
+			0xb8 0x118	/* (INPUTENABLE | PULLUP | MUX_MODE0)		/* i2c4_scl (gpio7_200) */
+			0xba 0x118	/* (INPUTENABLE | PULLUP | MUX_MODE0)		/* i2c4_sda (gpio7_201) */
+		>;
+	};
+
+/* enable MIPI pinmux - we may not really need this because the PinMux only has MODE0 */
+
+	pyra_dsi_a: pinmux_dsi_a_pins {
+		pinctrl-single,pins = <
+			0x8c 0x0	/* (OUTPUT | MODE0)	/* 0x0cc:[15:0]  dsiporta_lane0x */
+			0x8e 0x0	/* (OUTPUT | MODE0)	/* 0x0cc:[31:16] dsiporta_lane0y */
+			0x90 0x0	/* (OUTPUT | MODE0)	/* 0x0d0:[15:0]  dsiporta_lane1x */
+			0x92 0x0	/* (OUTPUT | MODE0)	/* 0x0d0:[31:16] dsiporta_lane1y */
+			0x94 0x0	/* (OUTPUT | MODE0)	/* 0x0d4:[15:0]  dsiporta_lane2x */
+			0x96 0x0	/* (OUTPUT | MODE0)	/* 0x0d4:[31:16] dsiporta_lane2y */
+			0x98 0x0	/* (OUTPUT | MODE0)	/* 0x0d8:[15:0]  dsiporta_lane3x */
+			0x9a 0x0	/* (OUTPUT | MODE0)	/* 0x0d8:[31:16] dsiporta_lane3y */
+			0x9c 0x0	/* (OUTPUT | MODE0)	/* 0x0dc:[15:0]  dsiporta_lane4x */
+			0x9e 0x0	/* (OUTPUT | MODE0)	/* 0x0dc:[31:16] dsiporta_lane4y */
+		>;
+	};
+};
+
+/* register devices connected to I2C4 */
+&i2c4 {
+
+	clock-frequency = <400000>;
+
+/*
+ * note: we should think about not having all these devices on the same I2C4 bus
+ * done:
+ * AS5013 left + right:		0x40, 0x41
+ * TCA6507:	0x45
+ * TCA8417:	0x34
+ * BMPx85:	0x77
+ *
+ * tbd (can partially be copied from omap3-gta04.dts)
+ * BMG160:	0x69
+ * BMPx50:	0x12, 0x19
+ * TSC2007:	0x48
+ * TCRTOUCH: 0x49/0x4b
+ */
+
+	/* pressure sensor */
+	bmp085@77 {
+		compatible = "bosch,bmp085";
+		reg = <0x77>;
+	};
+
+	/* leds */
+	tca6507@45 {
+		compatible = "ti,tca6507";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x45>;
+
+		pyra_led0: red_aux@0 {
+			label = "test::led-l-red";
+			reg = <0x0>;
+			linux,default-trigger = "mmc0";
+		};
+
+		pyra_led1: green_aux@1 {
+			label = "test::led-l-green";
+			reg = <0x1>;
+			linux,default-trigger = "heartbeat";
+		};
+
+		pyra_led2: blue_aux@2 {
+			label = "test::led-l-blue";
+			reg = <0x2>;
+			linux,default-trigger = "timer";
+		};
+
+		pyra_led3: set1@3 {
+			label = "test::led-kbd1";
+			reg = <0x3>;
+			linux,default-trigger = "default-on";
+		};
+
+		pyra_led4: set2@4 {
+			label = "test::led-kbd2";
+			reg = <0x4>;
+			linux,default-trigger = "timer";
+		};
+
+		pyra_led5: set3@5 {
+			label = "test::led-kbd3";
+			reg = <0x5>;
+			linux,default-trigger = "mmc0";
+		};
+
+		pyra_led6: set4@6 {
+			label = "test::led-kbd4";
+			reg = <0x6>;
+			linux,default-trigger = "heartbeat";
+		};
+
+	};
+
+	/* left nub */
+	as5013@40 {
+		compatible = "ams,as5013";
+		reg = <0x40>;
+	};
+
+	/* right nub */
+	as5013@41 {
+		compatible = "ams,as5013";
+		reg = <0x41>;
+	};
+
+	/* keyboard scanner */
+	tca8418@34 {
+		compatible = "ti,tca8418";	/* this translates into request_module("i2c:tca8418")
+									   so it must be known as a MODULE_ALIAS to modprobe -c */
+		reg = <0x34>;
+		/* the interrupt is specified as:
+			The first cell is the GPIO number.
+			The second cell is used to specify flags:
+			bits[3:0] trigger type and level flags:
+				1 = low-to-high edge triggered.
+				2 = high-to-low edge triggered.
+				4 = active high level-sensitive.
+				8 = active low level-sensitive.
+		 */
+		interrupt-parent = <&gpio6>;
+		interrupts = <17 1>;	/* gpio6_177 low-to-high edge */
+		keypad,num-rows = <8>;
+		keypad,num-columns = <10>;
+		linux,keymap = <
+	/* The 32-bit big endian cell is packed as: row << 24 | column << 16 | key-code */
+
+			0x0306003b
+			0x0203003c
+			0x02040057
+			0x01080058
+			0x0102003d
+			0x0701003e
+			0x07030002
+			0x06070003
+			0x06010004
+			0x05050005
+			0x06060006
+			0x04030007
+			0x03070008
+			0x03050009
+			0x0205000a
+			0x0107000b
+			0x0702000e
+			0x0503000f
+			0x06040010
+			0x05080011
+			0x05020012
+			0x04060013
+			0x06020014
+			0x03040015
+			0x02080016
+			0x02020017
+			0x01060018
+			0x00050019
+			0x0004001c
+			0x0400002a
+			0x0506001e
+			0x0401001f
+			0x04040020
+			0x03080021
+			0x03020022
+			0x02060023
+			0x01030024
+			0x01040025
+			0x00080026
+			0x00020036
+			0x07060033
+			0x06030034
+			0x0507002c
+			0x0501002d
+			0x0405002e
+			0x0407002f
+			0x03030030
+			0x02070031
+			0x07040032
+			0x01050039
+			0x00070039
+			0x00000064
+			0x01090069
+			0x0309006a
+			0x00090067
+			0x0209006c
+			0x05090066
+			0x0709006b
+			0x04090068
+			0x0609006d
+			0x03000038
+			0x0200001d
+			0x01000001
+			0x00010036
+			0x0101004e
+			0x03010061
+			0x0201004a
+			0x07000110
+			0x06000111
+		>;
+	};
+
+};
+
+/ {
+
+gpio-keys@1 {
+		compatible = "gpio-keys";
+
+		#address-cells = <7>;
+		#size-cells = <0>;
+
+		BTN1 {
+			label = "BTN1";
+			linux,code = <169>;
+			gpios = <&gpio3 19 1>;	/* gpio3_83 is BTN1 */
+			gpio-key,wakeup;
+			autorepeat;
+			debounce_interval = <50>;
+		};
+
+		left_shoulder_top {
+			label = "Left-Shoulder-Top";
+			linux,code = <16>;	/* KEY_Q */
+			gpios = <&gpio6 24 1>;	/* gpio6_184 */
+			gpio-key,wakeup;
+		};
+
+		left_shoulder_bottom {
+			label = "Left-Shoulder-Bottom";
+			linux,code = <44>;	/* KEY_Z */
+			gpios = <&gpio6 23 1>;	/* gpio6_183 */
+			gpio-key,wakeup;
+		};
+
+		right_shoulder_top {
+			label = "Right-Shoulder-Top";
+			linux,code = <25>;	/* KEY_P */
+			gpios = <&gpio6 20 1>;	/* gpio6_180 */
+			gpio-key,wakeup;
+		};
+
+		right_shoulder_bottom {
+			label = "Right-Shoulder-Bottom";
+			linux,code = <50>;	/* KEY_M */
+			gpios = <&gpio6 19 1>;	/* gpio6_179 */
+			gpio-key,wakeup;
+		};
+
+		left_nub {
+			label = "Left-Nub";
+			linux,code = <38>;	/* KEY_L */
+			gpios = <&gpio6 22 1>;	/* gpio6_182 */
+			gpio-key,wakeup;
+		};
+
+		right_nub {
+			label = "Right-Nub";
+			linux,code = <19>;	/* KEY_R */
+			gpios = <&gpio6 21 1>;	/* gpio6_181 */
+			gpio-key,wakeup;
+		};
+
+	};
+
+gpio-keys@2 {
+		compatible = "gpio-keys";
+
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		wwan_wakeup {
+			label = "3G WOE";
+			linux,code = <17>;	/* KEY_W */
+			gpios = <&gpio6 1 0>;	/* gpio6_161 */
+			gpio-key,wakeup;
+			/* debounce-interval */
+		};
+
+		display_lid {
+			label = "Display Lid";
+			linux,code = <45>;	/* KEY_X */
+			gpios = <&gpio6 0 1>;	/* gpio6_160 */
+			gpio-key,wakeup;
+		};
+
+	};
+
+};
+
+/* more things to do
+* add a rfkill driver for turning the UMTS modem on/off
+* add a regulator-gpio for the LCD
+* configure WLAN/Bluetooth module
+*/
