@@ -1270,6 +1270,14 @@ int omap_gem_op_async(struct drm_gem_object *obj, enum omap_gem_op op,
 			return 0;
 		}
 
+		/*
+		 * if a waiter is not put to the list, it needs to be freed.
+		 * if added, it will be taken care of in sync_op_update.
+		 * also, if added, the function will return, so this part is
+		 * not reached.
+		 */
+		kfree(waiter);
+
 		spin_unlock(&sync_lock);
 	}
 

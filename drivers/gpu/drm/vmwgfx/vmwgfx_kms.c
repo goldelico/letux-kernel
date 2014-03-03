@@ -180,16 +180,29 @@ int vmw_du_crtc_cursor_set(struct drm_crtc *crtc, struct drm_file *file_priv,
 	struct vmw_dma_buffer *dmabuf = NULL;
 	int ret;
 
+	/*
+	 * FIXME: Unclear whether there's any global state touched by the
+	 * cursor_set function, especially vmw_cursor_update_position looks
+	 * suspicious. For now take the easy route and reacquire all locks. We
+	 * can do this since the caller in the drm core doesn't check anything
+	 * which is protected by any looks.
+	 */
+	mutex_unlock(&crtc->mutex);
+	drm_modeset_lock_all(dev_priv->dev);
+
 	/* A lot of the code assumes this */
-	if (handle && (width != 64 || height != 64))
-		return -EINVAL;
+	if (handle && (width != 64 || height != 64)) {
+		ret = -EINVAL;
+		goto out;
+	}
 
 	if (handle) {
 		ret = vmw_user_lookup_handle(dev_priv, tfile,
 					     handle, &surface, &dmabuf);
 		if (ret) {
 			DRM_ERROR("failed to find surface or dmabuf: %i\n", ret);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto out;
 		}
 	}
 
@@ -197,7 +210,8 @@ int vmw_du_crtc_cursor_set(struct drm_crtc *crtc, struct drm_file *file_priv,
 	if (surface && !surface->snooper.image) {
 		DRM_ERROR("surface not suitable for cursor\n");
 		vmw_surface_unreference(&surface);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto out;
 	}
 
 	/* takedown old cursor */
@@ -225,14 +239,20 @@ int vmw_du_crtc_cursor_set(struct drm_crtc *crtc, struct drm_file *file_priv,
 					       du->hotspot_x, du->hotspot_y);
 	} else {
 		vmw_cursor_update_position(dev_priv, false, 0, 0);
-		return 0;
+		ret = 0;
+		goto out;
 	}
 
 	vmw_cursor_update_position(dev_priv, true,
 				   du->cursor_x + du->hotspot_x,
 				   du->cursor_y + du->hotspot_y);
 
-	return 0;
+	ret = 0;
+out:
+	drm_modeset_unlock_all(dev_priv->dev);
+	mutex_lock(&crtc->mutex);
+
+	return ret;
 }
 
 int vmw_du_crtc_cursor_move(struct drm_crtc *crtc, int x, int y)
@@ -244,9 +264,22 @@ int vmw_du_crtc_cursor_move(struct drm_crtc *crtc, int x, int y)
 	du->cursor_x = x + crtc->x;
 	du->cursor_y = y + crtc->y;
 
+	/*
+	 * FIXME: Unclear whether there's any global state touched by the
+	 * cursor_set function, especially vmw_cursor_update_position looks
+	 * suspicious. For now take the easy route and reacquire all locks. We
+	 * can do this since the caller in the drm core doesn't check anything
+	 * which is protected by any looks.
+	 */
+	mutex_unlock(&crtc->mutex);
+	drm_modeset_lock_all(dev_priv->dev);
+
 	vmw_cursor_update_position(dev_priv, shown,
 				   du->cursor_x + du->hotspot_x,
 				   du->cursor_y + du->hotspot_y);
+
+	drm_modeset_unlock_all(dev_priv->dev);
+	mutex_lock(&crtc->mutex);
 
 	return 0;
 }
@@ -372,16 +405,6 @@ void vmw_kms_cursor_post_execbuf(struct vmw_private *dev_priv)
 /*
  * Generic framebuffer code
  */
-
-int vmw_framebuffer_create_handle(struct drm_framebuffer *fb,
-				  struct drm_file *file_priv,
-				  unsigned int *handle)
-{
-	if (handle)
-		*handle = 0;
-
-	return 0;
-}
 
 /*
  * Surface framebuffer code
@@ -610,7 +633,6 @@ int vmw_framebuffer_surface_dirty(struct drm_framebuffer *framebuffer,
 static struct drm_framebuffer_funcs vmw_framebuffer_surface_funcs = {
 	.destroy = vmw_framebuffer_surface_destroy,
 	.dirty = vmw_framebuffer_surface_dirty,
-	.create_handle = vmw_framebuffer_create_handle,
 };
 
 static int vmw_kms_new_framebuffer_surface(struct vmw_private *dev_priv,
@@ -960,7 +982,6 @@ int vmw_framebuffer_dmabuf_dirty(struct drm_framebuffer *framebuffer,
 static struct drm_framebuffer_funcs vmw_framebuffer_dmabuf_funcs = {
 	.destroy = vmw_framebuffer_dmabuf_destroy,
 	.dirty = vmw_framebuffer_dmabuf_dirty,
-	.create_handle = vmw_framebuffer_create_handle,
 };
 
 /**

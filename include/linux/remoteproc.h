@@ -405,6 +405,7 @@ enum rproc_crash_type {
  * @cached_table: copy of the resource table
  * @table_csum: checksum of the resource table
  * @fw_version: human readable version information extracted from f/w
+ * @late_attach: flag indicating remote core has been externally pre-loaded
  */
 struct rproc {
 	struct klist_node node;
@@ -437,6 +438,7 @@ struct rproc {
 	struct resource_table *cached_table;
 	u32 table_csum;
 	char *fw_version;
+	u32 late_attach;
 };
 
 /* we currently support only two vrings per rvdev */
