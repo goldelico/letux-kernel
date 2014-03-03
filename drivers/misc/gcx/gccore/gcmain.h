@@ -17,6 +17,7 @@
 
 #include <linux/gcx.h>
 #include <linux/gccore.h>
+#include <linux/idr.h>
 #include "gcmmu.h"
 
 #define GC_DEV_NAME	"gccore"
@@ -91,6 +92,9 @@ struct gccorecontext {
 	int opp_count;
 	unsigned long *opp_freqs;
 	unsigned long  cur_freq;
+
+	struct idr idr;
+	struct mutex idr_mutex;
 };
 
 

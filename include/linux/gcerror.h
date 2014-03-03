@@ -203,6 +203,22 @@ enum gcerror {
 
 	GCERR_IOCTL_FIXUP_ALLOC		/* Fixup buffer allocation. */
 	= GCERR_GROUP(0x11020),
+
+	/**** DMA buffer errors. */
+	GCERR_DMBUF_GETBUF_FAIL		/* Failed to get dmabuf from fd. */
+	= GCERR_GROUP(0x12000),
+
+	GCERR_DMABUF_ATTACH_FAIL	/* Failed to attach dmabuf. */
+	= GCERR_GROUP(0x12010),
+
+	GCERR_DMABUF_MAP_FAIL           /* Failed to map dmabuf attachment. */
+	= GCERR_GROUP(0x12020),
+
+	GCERR_DMABUF_GETIDR_FAIL        /* Failed to get idr. */
+	= GCERR_GROUP(0x12030),
+
+	GCERR_DMABUF_OOM                /* Out of memory in dmabuf module. */
+	= GCERR_GROUP(0x12040),
 };
 
 #endif
