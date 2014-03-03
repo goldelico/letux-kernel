@@ -1460,7 +1460,8 @@ static struct omap_hwmod dra7xx_ipu1_hwmod = {
 			.modulemode   = MODULEMODE_HWCTRL,
 		},
 	},
-#if defined CONFIG_EARLYCAMERA_IPU || CONFIG_OMAP_REMOTEPROC_LATE_ATTACH_IPU1
+#if defined(CONFIG_OMAP_REMOTEPROC_LATE_ATTACH_IPU1) || \
+		defined(CONFIG_EARLYCAMERA_IPU)
 	.flags		= HWMOD_INIT_NO_RESET | HWMOD_INIT_NO_IDLE,
 #endif
 };
@@ -2234,7 +2235,8 @@ static struct omap_hwmod dra7xx_mmu_ipu1_hwmod = {
 		},
 	},
 	.dev_attr	= &dra7xx_mmu_ipu_dev_attr,
-#if defined CONFIG_EARLYCAMERA_IPU || CONFIG_OMAP_REMOTEPROC_LATE_ATTACH_IPU1
+#if defined(CONFIG_OMAP_REMOTEPROC_LATE_ATTACH_IPU1) || \
+		defined(CONFIG_EARLYCAMERA_IPU)
 	.flags		= HWMOD_INIT_NO_RESET | HWMOD_INIT_NO_IDLE,
 #endif
 };
