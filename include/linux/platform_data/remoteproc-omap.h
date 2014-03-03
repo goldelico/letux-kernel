@@ -41,6 +41,7 @@ struct omap_rproc_timers_info {
  * @ops: start/stop rproc handlers
  * @timers: timer(s) info rproc needs
  * @timers_cnt: number of rproc timer(s)
+ * @late_attach: flag indicating remote core has been externally pre-loaded
  * @device_enable: omap-specific handler for enabling a device
  * @device_shutdown: omap-specific handler for shutting down a device
  * @set_bootaddr: omap-specific handler for setting the rproc boot address
@@ -55,6 +56,7 @@ struct omap_rproc_pdata {
 	const struct rproc_ops *ops;
 	struct omap_rproc_timers_info *timers;
 	u32 timers_cnt;
+	u32 late_attach;
 
 	int (*device_enable) (struct platform_device *pdev);
 	int (*device_shutdown) (struct platform_device *pdev);

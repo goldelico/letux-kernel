@@ -44,6 +44,22 @@ config OMAP_REMOTEPROC_IPU
 	  It's safe to say n here if you're not interested in multimedia
 	  offloading (by IPU) or just want a bare minimum kernel.
 
+config OMAP_REMOTEPROC_LATE_ATTACH_IPU2
+	bool "Attach to already-running IPU2 (DRA7xx only)"
+	depends on SOC_DRA7XX && OMAP_REMOTEPROC_IPU
+	default n
+	help
+	  Say Y here if you want remoteproc to attach to the IPU2 dual
+	  Cortex-M4 processor subsystem on DRA7xx that has already been
+	  pre-loaded and started by an external entity prior to kernel boot.
+
+	  Remoteproc will normally load the executable into its memory,
+	  program any associated IOMMUs, and release the processor reset.
+	  When this option is selected, remoteproc will perform all of its
+	  duties except those mentioned. IPC with the remote processor won't
+	  be enabled until remoteproc has been invoked, but the remote
+	  processors can be performing other activities until that time.
+
 config OMAP_REMOTEPROC_DSP
 	bool "OMAP remoteproc support for DSP"
 	depends on OMAP_REMOTEPROC
@@ -69,6 +85,22 @@ config OMAP_REMOTEPROC_IPU1
 
 	  It's safe to say n here if you're not interested in enabling IPU1
 	  or just want a bare minimum kernel.
+
+config OMAP_REMOTEPROC_LATE_ATTACH_IPU1
+	bool "Attach to already-running IPU1 (DRA7xx only)"
+	depends on SOC_DRA7XX && OMAP_REMOTEPROC_IPU1
+	default n
+	help
+	  Say Y here if you want remoteproc to attach to the IPU1 dual
+	  Cortex-M4 processor subsystem on DRA7xx that has already been
+	  pre-loaded and started by an external entity prior to kernel boot.
+
+	  Remoteproc will normally load the executable into its memory,
+	  program any associated IOMMUs, and release the processor reset.
+	  When this option is selected, remoteproc will perform all of its
+	  duties except those mentioned. IPC with the remote processor won't
+	  be enabled until remoteproc has been invoked, but the remote
+	  processors can be performing other activities until that time.
 
 config OMAP_REMOTEPROC_DSP2
 	bool "OMAP remoteproc support for DSP2 (DRA7xx only)"
