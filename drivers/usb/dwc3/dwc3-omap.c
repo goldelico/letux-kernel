@@ -52,6 +52,7 @@
 #include <linux/of_platform.h>
 
 #include <linux/usb/otg.h>
+#include <linux/usb/dwc3-omap.h>
 
 /*
  * All these registers belong to OMAP's Wrapper around the
@@ -140,7 +141,8 @@ static inline void dwc3_omap_writel(void __iomem *base, u32 offset, u32 value)
 	writel(value, base + offset);
 }
 
-int dwc3_omap_vbus_connect(struct device *dev)
+int dwc3_omap_usbvbus_id_handler(struct device *dev,
+	enum omap_dwc3_vbus_id_status status)
 {
 	u32			val;
 	struct dwc3_omap	*omap;
@@ -157,61 +159,55 @@ int dwc3_omap_vbus_connect(struct device *dev)
 		return -ENODEV;
 
 	val = dwc3_omap_readl(omap->base, USBOTGSS_UTMI_OTG_STATUS);
-	val &= ~USBOTGSS_UTMI_OTG_STATUS_SESSEND;
-	val |= USBOTGSS_UTMI_OTG_STATUS_IDDIG
-			| USBOTGSS_UTMI_OTG_STATUS_VBUSVALID
-			| USBOTGSS_UTMI_OTG_STATUS_SESSVALID
-			| USBOTGSS_UTMI_OTG_STATUS_POWERPRESENT;
-	dwc3_omap_writel(omap->base, USBOTGSS_UTMI_OTG_STATUS, val);
 
-	return 0;
-}
-EXPORT_SYMBOL_GPL(dwc3_omap_vbus_connect);
-
-int dwc3_omap_mailbox(enum omap_dwc3_vbus_id_status status)
-{
-	u32			val;
-	struct dwc3_omap	*omap = _omap;
-
-	if (!omap) {
-		dev_dbg(omap->dev, "not ready , deferring\n");
-		return -EPROBE_DEFER;
-	}
 	switch (status) {
 	case OMAP_DWC3_ID_GROUND:
 		dev_dbg(omap->dev, "ID GND\n");
-
-		val = dwc3_omap_readl(omap->base, USBOTGSS_UTMI_OTG_STATUS);
 		val &= ~(USBOTGSS_UTMI_OTG_STATUS_IDDIG
 				| USBOTGSS_UTMI_OTG_STATUS_VBUSVALID
 				| USBOTGSS_UTMI_OTG_STATUS_SESSEND);
 		val |= USBOTGSS_UTMI_OTG_STATUS_SESSVALID
 				| USBOTGSS_UTMI_OTG_STATUS_POWERPRESENT;
-		dwc3_omap_writel(omap->base, USBOTGSS_UTMI_OTG_STATUS, val);
 		break;
 
 	case OMAP_DWC3_VBUS_VALID:
-		dwc3_omap_vbus_connect(omap->dev);
+		dev_dbg(omap->dev, "VBUS Connect\n");
+		val &= ~USBOTGSS_UTMI_OTG_STATUS_SESSEND;
+		val |= USBOTGSS_UTMI_OTG_STATUS_IDDIG
+				| USBOTGSS_UTMI_OTG_STATUS_VBUSVALID
+				| USBOTGSS_UTMI_OTG_STATUS_SESSVALID
+				| USBOTGSS_UTMI_OTG_STATUS_POWERPRESENT;
 		break;
 
 	case OMAP_DWC3_ID_FLOAT:
 	case OMAP_DWC3_VBUS_OFF:
 		dev_dbg(omap->dev, "VBUS Disconnect\n");
 
-		val = dwc3_omap_readl(omap->base, USBOTGSS_UTMI_OTG_STATUS);
 		val &= ~(USBOTGSS_UTMI_OTG_STATUS_SESSVALID
 				| USBOTGSS_UTMI_OTG_STATUS_VBUSVALID
 				| USBOTGSS_UTMI_OTG_STATUS_POWERPRESENT);
 		val |= USBOTGSS_UTMI_OTG_STATUS_SESSEND
 				| USBOTGSS_UTMI_OTG_STATUS_IDDIG;
-		dwc3_omap_writel(omap->base, USBOTGSS_UTMI_OTG_STATUS, val);
 		break;
 
 	default:
 		dev_dbg(omap->dev, "ID float\n");
 	}
 
+	dwc3_omap_writel(omap->base, USBOTGSS_UTMI_OTG_STATUS, val);
 	return 0;
+}
+EXPORT_SYMBOL_GPL(dwc3_omap_usbvbus_id_handler);
+
+int dwc3_omap_mailbox(enum omap_dwc3_vbus_id_status status)
+{
+	struct dwc3_omap	*omap = _omap;
+
+	if (!omap) {
+		dev_dbg(omap->dev, "not ready , deferring\n");
+		return -EPROBE_DEFER;
+	}
+	return dwc3_omap_usbvbus_id_handler(omap->dev, status);
 }
 EXPORT_SYMBOL_GPL(dwc3_omap_mailbox);
 

@@ -525,8 +525,10 @@ static int dwc3_probe(struct platform_device *pdev)
 		 * vbus change event, hence set vbus and session
 		 * to cause connect to host-machine
 		 */
-		if (of_device_is_compatible(node, "synopsys,dra7xx-dwc3"))
-			dwc3_omap_vbus_connect(dwc->dev->parent);
+		if (of_device_is_compatible(node, "synopsys,dra7xx-dwc3")) {
+			dwc3_omap_usbvbus_id_handler(dwc->dev->parent,
+				OMAP_DWC3_VBUS_VALID);
+		}
 
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
 		ret = dwc3_gadget_init(dwc);
