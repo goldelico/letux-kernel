@@ -59,6 +59,7 @@ config EXTCON_ARIZONA
 
 config EXTCON_GPIO_USBVID
 	tristate "Generic USB VBUS/ID detection using GPIO EXTCON support"
+	depends on USB_DWC3
 	help
 	  Say Y here to enable support for USB VBUS/ID deetction by GPIO.
 

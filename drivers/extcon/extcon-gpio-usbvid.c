@@ -28,6 +28,11 @@
 #include <linux/of_gpio.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
+#include <linux/delay.h>
+#include <linux/kthread.h>
+#include <linux/usb/of.h>
+
+#define USBVID_POLL_MILLISEC  2000
 
 struct gpio_usbvid {
 	struct device *dev;
@@ -41,6 +46,8 @@ struct gpio_usbvid {
 	int id_irq;
 	int vbus_irq;
 	int type;
+	int id_current;
+	struct task_struct *usbid_thread;
 };
 
 static const char *dra7xx_extcon_cable[] = {
@@ -148,6 +155,43 @@ static void gpio_usbvid_set_initial_state(struct gpio_usbvid *gpio_usbvid)
 	}
 }
 
+static int poll_usbvbus_id_task(void *data)
+{
+	struct gpio_usbvid *gpio_usbvid = (struct gpio_usbvid *)data;
+	int id_current;
+
+	while (1) {
+
+		id_current = gpio_get_value_cansleep(gpio_usbvid->id_gpio);
+
+		if (id_current == gpio_usbvid->id_current) {
+			msleep(USBVID_POLL_MILLISEC);
+			continue;
+		}
+
+		dev_info(gpio_usbvid->dev, "id change event from %d to %d\n",
+			gpio_usbvid->id_current, id_current);
+
+		if (id_current == ID_GND) {
+			if (gpio_usbvid->type == ID_DETECT)
+				extcon_set_cable_state(&gpio_usbvid->edev,
+							"USB", false);
+			extcon_set_cable_state(&gpio_usbvid->edev,
+				"USB-HOST", true);
+		} else {
+			extcon_set_cable_state(&gpio_usbvid->edev, "USB-HOST",
+				false);
+			if (gpio_usbvid->type == ID_DETECT)
+				extcon_set_cable_state(&gpio_usbvid->edev,
+						"USB", true);
+		}
+		gpio_usbvid->id_current = id_current;
+		msleep(USBVID_POLL_MILLISEC);
+	}
+
+	return 0;
+}
+
 static int gpio_usbvid_request_irq(struct gpio_usbvid *gpio_usbvid)
 {
 	int ret;
@@ -182,6 +226,19 @@ static int gpio_usbvid_probe(struct platform_device *pdev)
 	struct device_node *node = pdev->dev.of_node;
 	struct gpio_usbvid *gpio_usbvid;
 	int ret, gpio;
+	int intr_mode;
+	u8 mode;
+
+	if (!node)
+		return -EINVAL;
+
+	mode = of_usb_get_dr_mode(node);
+	if (mode != USB_DR_MODE_OTG)
+		return -EINVAL;
+
+	of_property_read_u32(node, "interrupt-mode", &intr_mode);
+	if (intr_mode > 1)
+		return -EINVAL;
 
 	gpio_usbvid = devm_kzalloc(&pdev->dev, sizeof(*gpio_usbvid),
 				GFP_KERNEL);
@@ -231,9 +288,17 @@ static int gpio_usbvid_probe(struct platform_device *pdev)
 		}
 	}
 
-	ret = gpio_usbvid_request_irq(gpio_usbvid);
-	if (ret)
-		return ret;
+	if (intr_mode) {
+		ret = gpio_usbvid_request_irq(gpio_usbvid);
+		if (ret)
+			return ret;
+	} else {
+		gpio_usbvid->id_current = -1;
+		gpio_usbvid->usbid_thread = kthread_run(poll_usbvbus_id_task,
+						 gpio_usbvid, "extcon-usbid");
+		if (IS_ERR(gpio_usbvid->usbid_thread))
+			return -1;
+	}
 
 	ret = extcon_dev_register(&gpio_usbvid->edev, gpio_usbvid->dev);
 	if (ret) {
