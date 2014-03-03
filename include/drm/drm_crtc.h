@@ -254,6 +254,10 @@ struct drm_framebuffer {
 	 * userspace perspective.
 	 */
 	struct kref refcount;
+	/*
+	 * Place on the dev->mode_config.fb_list, access protected by
+	 * dev->mode_config.fb_lock.
+	 */
 	struct list_head head;
 	struct drm_mode_object base;
 	const struct drm_framebuffer_funcs *funcs;
@@ -390,10 +394,23 @@ struct drm_crtc {
 	struct drm_device *dev;
 	struct list_head head;
 
+	/**
+	 * crtc mutex
+	 *
+	 * This provides a read lock for the overall crtc state (mode, dpms
+	 * state, ...) and a write lock for everything which can be update
+	 * without a full modeset (fb, cursor data, ...)
+	 */
+	struct mutex mutex;
+
 	struct drm_mode_object base;
 
 	/* framebuffer the connector is currently bound to */
 	struct drm_framebuffer *fb;
+
+	/* Temporary tracking of the old fb while a modeset is ongoing. Used
+	 * by drm_mode_set_config_internal to implement correct refcounting. */
+	struct drm_framebuffer *old_fb;
 
 	bool enabled;
 
@@ -540,7 +557,6 @@ enum drm_connector_force {
  * @probed_modes: list of modes derived directly from the display
  * @display_info: information about attached display (e.g. from EDID)
  * @funcs: connector control functions
- * @user_modes: user added mode list
  * @edid_blob_ptr: DRM property containing EDID if present
  * @properties: property tracking for this connector
  * @polled: a %DRM_CONNECTOR_POLL_<foo> value for core driven polling
@@ -584,7 +600,6 @@ struct drm_connector {
 	struct drm_display_info display_info;
 	const struct drm_connector_funcs *funcs;
 
-	struct list_head user_modes;
 	struct drm_property_blob *edid_blob_ptr;
 	struct drm_object_properties properties;
 
@@ -771,8 +786,18 @@ struct drm_mode_config {
 	struct mutex idr_mutex; /* for IDR management */
 	struct idr crtc_idr; /* use this idr for all IDs, fb, crtc, connector, modes - just makes life easier */
 	/* this is limited to one for now */
+
+
+	/**
+	 * fb_lock - mutex to protect fb state
+	 *
+	 * Besides the global fb list his also protects the fbs list in the
+	 * file_priv
+	 */
+	struct mutex fb_lock;
 	int num_fb;
 	struct list_head fb_list;
+
 	int num_connector;
 	struct list_head connector_list;
 	int num_encoder;
@@ -842,6 +867,9 @@ struct drm_prop_enum_list {
 	char *name;
 };
 
+extern void drm_modeset_lock_all(struct drm_device *dev);
+extern void drm_modeset_unlock_all(struct drm_device *dev);
+
 extern int drm_crtc_init(struct drm_device *dev,
 			 struct drm_crtc *crtc,
 			 const struct drm_crtc_funcs *funcs);
@@ -868,6 +896,7 @@ extern int drm_plane_init(struct drm_device *dev,
 			  const uint32_t *formats, uint32_t format_count,
 			  bool priv);
 extern void drm_plane_cleanup(struct drm_plane *plane);
+extern void drm_plane_force_disable(struct drm_plane *plane);
 
 extern void drm_encoder_cleanup(struct drm_encoder *encoder);
 
@@ -898,11 +927,6 @@ extern int drm_mode_width(const struct drm_display_mode *mode);
 extern int drm_mode_height(const struct drm_display_mode *mode);
 
 /* for us by fb module */
-extern int drm_mode_attachmode_crtc(struct drm_device *dev,
-				    struct drm_crtc *crtc,
-				    const struct drm_display_mode *mode);
-extern int drm_mode_detachmode_crtc(struct drm_device *dev, struct drm_display_mode *mode);
-
 extern struct drm_display_mode *drm_mode_create(struct drm_device *dev);
 extern void drm_mode_destroy(struct drm_device *dev, struct drm_display_mode *mode);
 extern void drm_mode_list_concat(struct list_head *head,
@@ -910,6 +934,9 @@ extern void drm_mode_list_concat(struct list_head *head,
 extern void drm_mode_validate_size(struct drm_device *dev,
 				   struct list_head *mode_list,
 				   int maxX, int maxY, int maxPitch);
+extern void drm_mode_validate_clocks(struct drm_device *dev,
+				     struct list_head *mode_list,
+				     int *min, int *max, int n_ranges);
 extern void drm_mode_prune_invalid(struct drm_device *dev,
 				   struct list_head *mode_list, bool verbose);
 extern void drm_mode_sort(struct list_head *mode_list);
@@ -932,10 +959,13 @@ extern void drm_framebuffer_set_object(struct drm_device *dev,
 extern int drm_framebuffer_init(struct drm_device *dev,
 				struct drm_framebuffer *fb,
 				const struct drm_framebuffer_funcs *funcs);
+extern struct drm_framebuffer *drm_framebuffer_lookup(struct drm_device *dev,
+						      uint32_t id);
 extern void drm_framebuffer_unreference(struct drm_framebuffer *fb);
 extern void drm_framebuffer_reference(struct drm_framebuffer *fb);
 extern void drm_framebuffer_remove(struct drm_framebuffer *fb);
 extern void drm_framebuffer_cleanup(struct drm_framebuffer *fb);
+extern void drm_framebuffer_unregister_private(struct drm_framebuffer *fb);
 extern int drmfb_probe(struct drm_device *dev, struct drm_crtc *crtc);
 extern int drmfb_remove(struct drm_device *dev, struct drm_framebuffer *fb);
 extern void drm_crtc_probe_connector_modes(struct drm_device *dev, int maxX, int maxY);
@@ -985,6 +1015,7 @@ extern int drm_mode_getcrtc(struct drm_device *dev,
 			    void *data, struct drm_file *file_priv);
 extern int drm_mode_getconnector(struct drm_device *dev,
 			      void *data, struct drm_file *file_priv);
+extern int drm_mode_set_config_internal(struct drm_mode_set *set);
 extern int drm_mode_setcrtc(struct drm_device *dev,
 			    void *data, struct drm_file *file_priv);
 extern int drm_mode_getplane(struct drm_device *dev,
@@ -1004,14 +1035,6 @@ extern int drm_mode_getfb(struct drm_device *dev,
 			  void *data, struct drm_file *file_priv);
 extern int drm_mode_dirtyfb_ioctl(struct drm_device *dev,
 				  void *data, struct drm_file *file_priv);
-extern int drm_mode_addmode_ioctl(struct drm_device *dev,
-				  void *data, struct drm_file *file_priv);
-extern int drm_mode_rmmode_ioctl(struct drm_device *dev,
-				 void *data, struct drm_file *file_priv);
-extern int drm_mode_attachmode_ioctl(struct drm_device *dev,
-				     void *data, struct drm_file *file_priv);
-extern int drm_mode_detachmode_ioctl(struct drm_device *dev,
-				     void *data, struct drm_file *file_priv);
 
 extern int drm_mode_getproperty_ioctl(struct drm_device *dev,
 				      void *data, struct drm_file *file_priv);
