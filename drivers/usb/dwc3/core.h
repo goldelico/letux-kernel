@@ -722,6 +722,8 @@ struct dwc3 {
 	u32			oevt;
 	u8			xhci_loaded;
 	u8			gadget_loaded;
+	u8			gpio_count;
+	u32			gpio;
 };
 
 /* -------------------------------------------------------------------------- */

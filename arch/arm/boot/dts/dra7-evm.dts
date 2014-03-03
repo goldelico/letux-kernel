@@ -231,8 +231,8 @@
 
 	usb_pins: pinmux_usb_pins {
                 pinctrl-single,pins = <
-			0x280	0xc0000	/* DRV1_VBUS SLEW | PULLDEN | MODE0 */
-			0x284	0xc0000	/* DRV2_VBUS SLEW | PULLDEN | MODE0 */
+			0x280	0xc000e	/* DRV1_VBUS SLEW | PULLDEN | MODE14 */
+			0x284	0xc000e	/* DRV2_VBUS SLEW | PULLDEN | MODE14 */
                 >;
         };
 

@@ -23,6 +23,8 @@
 #include "core.h"
 #include "io.h"
 #include "../host/xhci.h"
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
 
 #define DWC3_GSTS_OTG_IP	(1 << 10)
 #define DWC3_OSTS_CONID_STS	(1 << 0)
@@ -116,6 +118,9 @@ int dwc3_otg_role_switch(void *_dwc, int mode)
 		dwc3_writel(dwc->regs, DWC3_OCTL, 0x20);
 		dwc->drd_state = 0;
 	}
+	/* drive vbus always ON */
+	gpio_request(dwc->gpio, NULL);
+	gpio_set_value(dwc->gpio, 1);
 
 	return IRQ_HANDLED;
 }
