@@ -1,7 +1,7 @@
 /*
  * Remote processor machine-specific module for OMAP4+ SoCs
  *
- * Copyright (C) 2011-2013 Texas Instruments, Inc.
+ * Copyright (C) 2011-2014 Texas Instruments, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -37,6 +37,7 @@
  * @pdev: platform device handle
  * @cma_addr: Base CMA address to use for the platform device
  * @cma_size: CMA pool size to reserve starting from cma_addr
+ * @iommu: IOMMU archdata information
  *
  * This structure is mainly used to decide to create a platform
  * device or not. The enabled flag for each device is conditionally
@@ -47,6 +48,7 @@ struct omap_rproc_pdev_data {
 	phys_addr_t cma_addr;
 	unsigned long cma_size;
 	struct platform_device *pdev;
+	struct omap_iommu_arch_data *iommu;
 };
 
 /* forward declarations */
@@ -171,19 +173,30 @@ static struct omap_rproc_pdata dra7_rproc_data[] = {
 
 /*
  * These data structures define the necessary iommu binding information
- * for the respective processor. The listing order should match the
- * order of the platform device and data.
+ * needed for each supported processor.
  */
-static struct omap_iommu_arch_data omap4_rproc_iommu[] = {
-	{ .name = "mmu_dsp" },
-	{ .name = "mmu_ipu" },
+static struct omap_iommu_arch_data omap4_dsp_iommu = {
+	.name = "mmu_dsp",
 };
 
-static struct omap_iommu_arch_data dra7_rproc_iommu[] = {
-	{ .name = "mmu0_dsp1" },
-	{ .name = "mmu_ipu2" },
-	{ .name = "mmu0_dsp2" },
-	{ .name = "mmu_ipu1" },
+static struct omap_iommu_arch_data omap4_ipu_iommu = {
+	.name = "mmu_ipu",
+};
+
+static struct omap_iommu_arch_data dra7_dsp1_iommu = {
+	.name = "mmu0_dsp1",
+};
+
+static struct omap_iommu_arch_data dra7_ipu2_iommu = {
+	.name = "mmu_ipu2",
+};
+
+static struct omap_iommu_arch_data dra7_dsp2_iommu = {
+	.name = "mmu0_dsp2",
+};
+
+static struct omap_iommu_arch_data dra7_ipu1_iommu = {
+	.name = "mmu_ipu1",
 };
 
 /*
@@ -224,6 +237,7 @@ static struct omap_rproc_pdev_data omap4_rproc_pdev_data[] = {
 		.enabled = 1,
 #endif
 		.pdev = &omap4_dsp,
+		.iommu = &omap4_dsp_iommu,
 		.cma_addr = OMAP4_RPROC_CMA_BASE_DSP,
 		.cma_size = OMAP_RPROC_CMA_SIZE_DSP,
 	},
@@ -232,6 +246,7 @@ static struct omap_rproc_pdev_data omap4_rproc_pdev_data[] = {
 		.enabled = 1,
 #endif
 		.pdev = &omap4_ipu,
+		.iommu = &omap4_ipu_iommu,
 		.cma_addr = OMAP4_RPROC_CMA_BASE_IPU,
 		.cma_size = OMAP4_RPROC_CMA_SIZE_IPU,
 	},
@@ -243,6 +258,7 @@ static struct omap_rproc_pdev_data omap5_rproc_pdev_data[] = {
 		.enabled = 1,
 #endif
 		.pdev = &omap4_dsp,
+		.iommu = &omap4_dsp_iommu,
 		.cma_addr = OMAP5_RPROC_CMA_BASE_DSP,
 		.cma_size = OMAP_RPROC_CMA_SIZE_DSP,
 	},
@@ -251,6 +267,7 @@ static struct omap_rproc_pdev_data omap5_rproc_pdev_data[] = {
 		.enabled = 1,
 #endif
 		.pdev = &omap4_ipu,
+		.iommu = &omap4_ipu_iommu,
 		.cma_addr = OMAP5_RPROC_CMA_BASE_IPU,
 		.cma_size = OMAP5_RPROC_CMA_SIZE_IPU,
 	},
@@ -262,6 +279,7 @@ static struct omap_rproc_pdev_data dra7_rproc_pdev_data[] = {
 		.enabled = 1,
 #endif
 		.pdev = &omap4_dsp,
+		.iommu = &dra7_dsp1_iommu,
 		.cma_addr = DRA7_RPROC_CMA_BASE_DSP1,
 		.cma_size = DRA7_RPROC_CMA_SIZE_DSP1,
 	},
@@ -270,6 +288,7 @@ static struct omap_rproc_pdev_data dra7_rproc_pdev_data[] = {
 		.enabled = 1,
 #endif
 		.pdev = &omap4_ipu,
+		.iommu = &dra7_ipu2_iommu,
 		.cma_addr = DRA7_RPROC_CMA_BASE_IPU2,
 		.cma_size = DRA7_RPROC_CMA_SIZE_IPU2,
 	},
@@ -278,6 +297,7 @@ static struct omap_rproc_pdev_data dra7_rproc_pdev_data[] = {
 		.enabled = 1,
 #endif
 		.pdev = &dra7_dsp2,
+		.iommu = &dra7_dsp2_iommu,
 		.cma_addr = DRA7_RPROC_CMA_BASE_DSP2,
 		.cma_size = OMAP_RPROC_CMA_SIZE_DSP,
 	},
@@ -286,6 +306,7 @@ static struct omap_rproc_pdev_data dra7_rproc_pdev_data[] = {
 		.enabled = 1,
 #endif
 		.pdev = &dra7_ipu1,
+		.iommu = &dra7_ipu1_iommu,
 		.cma_addr = DRA7_RPROC_CMA_BASE_IPU1,
 		.cma_size = DRA7_RPROC_CMA_SIZE_IPU1,
 	},
@@ -590,7 +611,6 @@ static int __init omap_rproc_init(void)
 	struct omap_device *od;
 	int i, ret = 0, oh_count;
 	struct omap_rproc_pdata *rproc_data = NULL;
-	struct omap_iommu_arch_data *rproc_iommu = NULL;
 	struct omap_rproc_pdev_data *rproc_pdev_data = NULL;
 	int rproc_size = 0;
 
@@ -598,17 +618,14 @@ static int __init omap_rproc_init(void)
 		rproc_pdev_data = omap4_rproc_pdev_data;
 		rproc_size = ARRAY_SIZE(omap4_rproc_pdev_data);
 		rproc_data = omap4_rproc_data;
-		rproc_iommu = omap4_rproc_iommu;
 	} else if (soc_is_omap54xx()) {
 		rproc_pdev_data = omap5_rproc_pdev_data;
 		rproc_size = ARRAY_SIZE(omap5_rproc_pdev_data);
 		rproc_data = omap4_rproc_data;
-		rproc_iommu = omap4_rproc_iommu;
 	} else if (soc_is_dra7xx()) {
 		rproc_pdev_data = dra7_rproc_pdev_data;
 		rproc_size = ARRAY_SIZE(dra7_rproc_pdev_data);
 		rproc_data = dra7_rproc_data;
-		rproc_iommu = dra7_rproc_iommu;
 	} else {
 		return 0;
 	}
@@ -661,7 +678,7 @@ static int __init omap_rproc_init(void)
 			continue;
 		}
 
-		pdev->dev.archdata.iommu = &rproc_iommu[i];
+		pdev->dev.archdata.iommu = rproc_pdev_data[i].iommu;
 
 		ret = omap_device_register(pdev);
 		if (ret) {
