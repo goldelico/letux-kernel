@@ -944,6 +944,7 @@ static int omap_iommu_probe(struct platform_device *pdev)
 	obj->ctx = (void *)obj + sizeof(*obj);
 	obj->da_start = pdata->da_start;
 	obj->da_end = pdata->da_end;
+	obj->id = pdata->index;
 
 	spin_lock_init(&obj->iommu_lock);
 	mutex_init(&obj->mmap_lock);
