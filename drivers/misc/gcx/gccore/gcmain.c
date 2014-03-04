@@ -14,6 +14,7 @@
 
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/dma-buf.h>
 #include <linux/uaccess.h>
 #include <linux/pm_runtime.h>
 #include <linux/delay.h>
@@ -672,6 +673,180 @@ exit:
 }
 EXPORT_SYMBOL(gc_commit);
 
+/* Descriptor of a dma_buf imported. */
+struct gc_dma_buf {
+	struct dma_buf *dmabuf;
+	struct dma_buf_attachment *attachment;
+	struct sg_table *sgtable;
+	unsigned long *pagearray;
+	int handle;
+	int fd;
+};
+
+static int idr_alloc(struct idr *idr, void *ptr)
+{
+	int id;
+	int ret;
+
+	do {
+		if (!idr_pre_get(idr, GFP_KERNEL))
+			return -ENOMEM;
+
+		ret = idr_get_new(idr, ptr, &id);
+		if (!ret)
+			return id;
+	} while (ret == -EAGAIN);
+
+	return ret;
+}
+
+static int find_dma_by_handle(int handle, void *p, void *data)
+{
+	struct gc_dma_buf *gcdmabuf = p;
+
+	if (gcdmabuf->fd == (int)data)
+		return (int)p;
+
+	return 0;
+}
+
+static int _import_dma_buf(int fd, struct gcmmuphysmem *mem)
+{
+	struct dma_buf *dmabuf = NULL;
+	struct sg_table *sgt = NULL;
+	struct dma_buf_attachment *attachment = NULL;
+	struct scatterlist *s;
+	int i, j, k = 0;
+	int npages = 0;
+	unsigned long *pagearray = NULL;
+	struct gc_dma_buf *gcdmabuf = NULL;
+	int id;
+	int retval;
+
+	/* Check if this fd has already been mapped*/
+	mutex_lock(&g_context.idr_mutex);
+	gcdmabuf = (struct gc_dma_buf *)
+			idr_for_each(&g_context.idr, &find_dma_by_handle,
+						(void *)fd);
+	mutex_unlock(&g_context.idr_mutex);
+	if (gcdmabuf != NULL) {
+		/* Already mapped */
+		mem->base = 0;
+		mem->offset = 0;
+		mem->pages = (pte_t *) gcdmabuf->pagearray;
+		return GCERR_NONE;
+	}
+
+	dmabuf = dma_buf_get(fd);
+	if (!dmabuf) {
+		retval = GCERR_DMBUF_GETBUF_FAIL;
+		goto exit;
+	}
+
+	attachment = dma_buf_attach(dmabuf, g_context.device);
+	if (!attachment) {
+		retval = GCERR_DMABUF_ATTACH_FAIL;
+		goto attach_fail;
+	}
+
+	sgt = dma_buf_map_attachment(attachment, DMA_BIDIRECTIONAL);
+	if (!sgt) {
+		retval = GCERR_DMABUF_MAP_FAIL;
+		goto map_fail;
+	}
+
+	/* Prepare page array. */
+	/* Get number of pages. */
+	for_each_sg(sgt->sgl, s, sgt->orig_nents, i) {
+		npages += (sg_dma_len(s) + PAGE_SIZE - 1) / PAGE_SIZE;
+	}
+
+	/* Allocate page arrary. */
+	pagearray = kmalloc(npages * sizeof(*pagearray), GFP_KERNEL);
+	if (!pagearray) {
+		retval = GCERR_DMABUF_OOM;
+		goto alloc_array_fail;
+	}
+
+	/* Fill page arrary. */
+	for_each_sg(sgt->sgl, s, sgt->orig_nents, i)
+		for (j = 0; j < (sg_dma_len(s) + PAGE_SIZE - 1) / PAGE_SIZE;
+						j++)
+			pagearray[k++] = sg_dma_address(s) + j * PAGE_SIZE;
+
+
+	/* Fill gcmmuphysmem for GPU mapping. */
+	mem->base = 0;
+	mem->offset = 0;
+	mem->pages = (pte_t *) pagearray;
+
+	/* Prepare descriptor. */
+	gcdmabuf = kmalloc(sizeof(struct gc_dma_buf), GFP_KERNEL);
+	if (!gcdmabuf) {
+		retval = GCERR_DMABUF_OOM;
+		goto alloc_gcdmabuf_fail;
+	}
+
+	gcdmabuf->fd = fd;
+	gcdmabuf->dmabuf = dmabuf;
+	gcdmabuf->pagearray = pagearray;
+	gcdmabuf->attachment = attachment;
+	gcdmabuf->sgtable = sgt;
+
+	mutex_lock(&g_context.idr_mutex);
+	id = idr_alloc(&g_context.idr, gcdmabuf);
+	mutex_unlock(&g_context.idr_mutex);
+	if (id < 0) {
+		retval = GCERR_DMABUF_GETIDR_FAIL;
+		goto get_id_fail;
+	} else
+		gcdmabuf->handle = id;
+
+	return GCERR_NONE;
+
+get_id_fail:
+	kfree(gcdmabuf);
+alloc_gcdmabuf_fail:
+	kfree(pagearray);
+alloc_array_fail:
+	dma_buf_unmap_attachment(attachment, sgt, DMA_BIDIRECTIONAL);
+map_fail:
+	dma_buf_detach(dmabuf, attachment);
+attach_fail:
+	dma_buf_put(dmabuf);
+exit:
+	return retval;
+}
+
+void _detach_dma_buf(int handle)
+{
+	struct gc_dma_buf *gcdmabuf;
+
+	mutex_lock(&g_context.idr_mutex);
+	gcdmabuf = (struct gc_dma_buf *)
+			idr_for_each(&g_context.idr, &find_dma_by_handle,
+						(void *)handle);
+	mutex_unlock(&g_context.idr_mutex);
+
+	if (gcdmabuf) {
+		dma_buf_unmap_attachment(gcdmabuf->attachment,
+							gcdmabuf->sgtable,
+							DMA_BIDIRECTIONAL);
+
+		dma_buf_detach(gcdmabuf->dmabuf, gcdmabuf->attachment);
+
+		dma_buf_put(gcdmabuf->dmabuf);
+
+		mutex_lock(&g_context.idr_mutex);
+		idr_remove(&g_context.idr, gcdmabuf->handle);
+		mutex_unlock(&g_context.idr_mutex);
+
+		kfree(gcdmabuf->pagearray);
+
+		kfree(gcdmabuf);
+	}
+}
+
 void gc_map(struct gcimap *gcimap, bool fromuser)
 {
 	struct gccorecontext *gccorecontext = &g_context;
@@ -693,7 +868,11 @@ void gc_map(struct gcimap *gcimap, bool fromuser)
 	GCDBG(GCZONE_MAPPING, "map client buffer\n");
 
 	/* Initialize the mapping parameters. */
-	if (gcimap->pagearray == NULL) {
+	if (gcimap->dmabuf_handle) {
+		gcimap->gcerror = _import_dma_buf(gcimap->dmabuf_handle, &mem);
+		if (gcimap->gcerror != GCERR_NONE)
+			goto exit;
+	} else if (gcimap->pagearray == NULL) {
 		mem.base = ((u32) gcimap->buf.logical) & ~(PAGE_SIZE - 1);
 		mem.offset = ((u32) gcimap->buf.logical) & (PAGE_SIZE - 1);
 		mem.pages = NULL;
@@ -741,6 +920,10 @@ void gc_unmap(struct gcimap *gcimap, bool fromuser)
 	GCENTER(GCZONE_MAPPING);
 
 	GCLOCK(&gccorecontext->mmucontextlock);
+
+	/* If handle is not get from a dma_buf, this function does nothing. */
+	if (gcimap->dmabuf_handle)
+		_detach_dma_buf(gcimap->dmabuf_handle);
 
 	/* Locate the client entry. */
 	gcimap->gcerror = find_context(gccorecontext,
@@ -1045,6 +1228,9 @@ static int gc_init(struct gccorecontext *gccorecontext)
 		result = -EINVAL;
 		goto fail;
 	}
+
+	idr_init(&gccorecontext->idr);
+	mutex_init(&gccorecontext->idr_mutex);
 
 	/* Create debugfs entry. */
 	gc_debug_init();

@@ -120,8 +120,8 @@ enum bverror do_map(struct bvbuffdesc *bvbuffdesc,
 		 * that the buffer starts at a location that is supported by
 		 * the hw. If it is not, offset is computed and the buffer is
 		 * extended by the value of the offset. */
+		memset(&gcimap, 0, sizeof(gcimap));
 		gcimap.gcerror = GCERR_NONE;
-		gcimap.handle = 0;
 
 		if (bvbuffdesc->auxtype == BVAT_PHYSDESC) {
 			bvphysdesc = (struct bvphysdesc *) bvbuffdesc->auxptr;
