@@ -64,14 +64,13 @@
 
 static void dra7_cfg_dspsys_mmu(struct omap_iommu *obj, bool enable)
 {
-	u32 val, mask, id = 0;
+	u32 val, mask;
 
 	if (!obj->syscfgbase)
 		return;
 
 	val = __raw_readl(obj->syscfgbase + DSP_SYS_MMU_CONFIG);
-	/* TODO: Need to adjust the logic for MMU1 in each DSP */
-	mask = (1 << (id * DSP_SYS_MMU_EN_SHIFT));
+	mask = (1 << (obj->id * DSP_SYS_MMU_EN_SHIFT));
 	if (enable)
 		val |= mask;
 	else
