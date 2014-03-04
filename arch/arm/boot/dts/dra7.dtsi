@@ -580,7 +580,7 @@
                         #size-cells = <1>;
                         utmi-mode = <2>;
                         ranges;
-                        dwc3@48890000 {
+                        usb1: dwc3@48890000 {
                                 compatible = "synopsys,dra7xx-dwc3";
                                 reg = <0x48890000 0xcfff>;
 				interrupts = <0 76 4>, <0 77 4>;
@@ -609,7 +609,7 @@
                         #size-cells = <1>;
                         utmi-mode = <2>;
                         ranges;
-                        dwc3@488d0000 {
+                        usb2: dwc3@488d0000 {
                                 compatible = "synopsys,dra7xx-dwc3";
                                 reg = <0x488d0000 0xcfff>;
 				interrupts = <0 78 4>, <0 92 4>;
