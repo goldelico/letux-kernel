@@ -1173,186 +1173,6 @@ static long vip_ioctl_default(struct file *file, void *fh, bool valid_prio,
 	}
 }
 
-int early_querycap(struct v4l2_capability *cap)
-{
-	strncpy(cap->driver, VIP_MODULE_NAME, sizeof(cap->driver) - 1);
-	strncpy(cap->card, VIP_MODULE_NAME, sizeof(cap->card) - 1);
-	strlcpy(cap->bus_info, VIP_MODULE_NAME, sizeof(cap->bus_info));
-	cap->device_caps  = V4L2_CAP_STREAMING | V4L2_CAP_VIDEO_CAPTURE;
-	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
-	return 0;
-}
-EXPORT_SYMBOL_GPL(early_querycap);
-
-int early_enum_fmt(struct v4l2_fmtdesc *f)
-{
-	struct vip_fmt *fmt;
-
-	if (f->index >= ARRAY_SIZE(vip_formats))
-		return -EINVAL;
-
-	fmt = &vip_formats[f->index];
-
-	strncpy(f->description, fmt->name, sizeof(f->description) - 1);
-	f->pixelformat = fmt->fourcc;
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(early_enum_fmt);
-
-int early_try_fmt(struct v4l2_format *f)
-{
-	struct vip_stream *stream = early_stream;
-	struct vip_dev *dev = stream->port->dev;
-	struct vip_fmt *fmt = find_format(f);
-	enum v4l2_field field;
-	int depth;
-
-	if (!fmt) {
-		v4l2_err(&dev->v4l2_dev,
-			 "Fourcc format (0x%08x) invalid.\n",
-			 f->fmt.pix.pixelformat);
-		return -EINVAL;
-	}
-
-	field = f->fmt.pix.field;
-
-	if (field == V4L2_FIELD_ANY)
-		field = V4L2_FIELD_NONE;
-	else if (V4L2_FIELD_NONE != field)
-		return -EINVAL;
-
-	f->fmt.pix.field = field;
-
-	v4l_bound_align_image(&f->fmt.pix.width, MIN_W, MAX_W, W_ALIGN,
-			      &f->fmt.pix.height, MIN_H, MAX_H, H_ALIGN,
-			      S_ALIGN);
-
-	if (fmt->coplanar)
-		depth = 8;
-
-	f->fmt.pix.bytesperline = round_up((f->fmt.pix.width * fmt->vpdma_fmt[0]->depth) >> 3,
-					   1 << L_ALIGN);
-	f->fmt.pix.sizeimage = f->fmt.pix.height * f->fmt.pix.width * \
-		(fmt->vpdma_fmt[0]->depth + (fmt->coplanar ? fmt->vpdma_fmt[1]->depth : 0)) >> 3;
-	f->fmt.pix.colorspace = fmt->colorspace;
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(early_try_fmt);
-
-int early_s_fmt(struct v4l2_format *f)
-{
-	struct vip_stream *stream = early_stream;
-	struct vip_port *port = stream->port;
-	struct vip_dev *dev = port->dev;
-	struct vb2_queue *vq = &stream->vb_vidq;
-	struct v4l2_subdev_format sfmt;
-	struct v4l2_mbus_framefmt *mf;
-	int ret;
-
-	ret = early_try_fmt(f);
-	if (ret)
-		return ret;
-
-	if (vb2_is_busy(vq)) {
-		v4l2_err(&dev->v4l2_dev, "%s queue busy\n", __func__);
-		return -EBUSY;
-	}
-
-	port->fmt		= find_format(f);
-	stream->width		= f->fmt.pix.width;
-	stream->height		= f->fmt.pix.height;
-	port->fmt->colorspace	= f->fmt.pix.colorspace;
-	stream->bytesperline	= f->fmt.pix.bytesperline;
-	stream->sizeimage	= f->fmt.pix.sizeimage;
-	stream->sup_field	= f->fmt.pix.field;
-
-	port->c_rect.left	= 0;
-	port->c_rect.top	= 0;
-	port->c_rect.width	= stream->width;
-	port->c_rect.height	= stream->height;
-
-	if (stream->sup_field == V4L2_FIELD_ALTERNATE)
-		port->flags |= FLAG_INTERLACED;
-	else
-		port->flags &= ~FLAG_INTERLACED;
-
-	vip_dprintk(dev,
-		"Setting format for type %d, wxh: %dx%d, fmt: %d\n",
-		f->type, stream->width, stream->height, port->fmt->fourcc);
-
-	set_fmt_params(stream);
-
-	mf = vip_video_pix_to_mbus(&f->fmt.pix, &sfmt.format);
-
-	ret = v4l2_subdev_call(dev->sensor, video, try_mbus_fmt, mf);
-	if (ret) {
-		vip_dprintk(dev, "try_mbus_fmt failed in subdev\n");
-		return ret;
-	}
-	ret = v4l2_subdev_call(dev->sensor, video, s_mbus_fmt, mf);
-	if (ret) {
-		vip_dprintk(dev, "s_mbus_fmt failed in subdev\n");
-		return ret;
-	}
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(early_s_fmt);
-
-int early_reqbufs(struct v4l2_requestbuffers *p)
-{
-	struct video_device *vdev = early_stream->vfd;
-	int ret;
-	/*
-	if (vb2_queue_is_busy(vdev, file))
-		return -EBUSY;
-	*/
-	ret = vb2_reqbufs(vdev->queue, p);
-	/* If count == 0, then the owner has released all buffers and he
-	   is no longer owner of the queue. Otherwise we have a new owner. */
-	/*
-	if (res == 0)
-		vdev->queue->owner = p->count ? file->private_data : NULL;
-	*/
-	return ret;
-}
-EXPORT_SYMBOL_GPL(early_reqbufs);
-
-int early_querybuf(struct v4l2_buffer *p)
-{
-	struct video_device *vdev = early_stream->vfd;
-
-	/* No need to call vb2_queue_is_busy(), anyone can query buffers. */
-	return vb2_querybuf(vdev->queue, p);
-}
-EXPORT_SYMBOL_GPL(early_querybuf);
-
-int early_qbuf(struct v4l2_buffer *p)
-{
-	struct video_device *vdev = early_stream->vfd;
-
-	return vb2_qbuf(vdev->queue, p);
-}
-EXPORT_SYMBOL_GPL(early_qbuf);
-
-int early_dqbuf(struct v4l2_buffer *p)
-{
-	struct video_device *vdev = early_stream->vfd;
-
-	return vb2_dqbuf(vdev->queue, p, O_NONBLOCK);
-}
-EXPORT_SYMBOL_GPL(early_dqbuf);
-
-int early_streamon(enum v4l2_buf_type i)
-{
-	struct video_device *vdev = early_stream->vfd;
-
-	return vb2_streamon(vdev->queue, i);
-}
-EXPORT_SYMBOL_GPL(early_streamon);
-
 static const struct v4l2_ioctl_ops vip_ioctl_ops = {
 	.vidioc_querycap	= vip_querycap,
 	.vidioc_enum_input	= vip_enuminput,
@@ -1609,113 +1429,7 @@ EXPORT_SYMBOL(dma_addr_global);
 dma_addr_t dma_addr_global_complete;
 EXPORT_SYMBOL(dma_addr_global_complete);
 
-struct vip_dev *early_dev;
-EXPORT_SYMBOL(early_dev);
-
-struct vip_stream *early_stream;
-EXPORT_SYMBOL(early_stream);
-
-void *mem_priv;
-EXPORT_SYMBOL(mem_priv);
-
-bool early_sensor_detect()
-{
-	if (early_dev && early_dev->sensor)
-		return true;
-	else
-		return false;
-}
-EXPORT_SYMBOL(early_sensor_detect);
-
-int early_vip_open() {
-	struct vip_stream *stream = video_get_drvdata(early_stream->vfd);
-	struct vip_port *port = stream->port;
-	struct vip_dev *dev = port->dev;
-	struct platform_device *pdev = dev->pdev;
-	int ret;
-
-	early_stream->open = 1;
-	if (vb2_is_busy(&stream->vb_vidq)) {
-		return -EBUSY;
-	}
-
-	if (!dev->setup_done) {
-		vip_top_reset(dev);
-		ret = find_or_alloc_shared(pdev, dev, dev->res);
-		if (ret)
-			goto done;
-
-		dev->alloc_ctx = vb2_dma_contig_init_ctx(&pdev->dev);
-		if (IS_ERR(dev->alloc_ctx)) {
-			v4l2_err(&dev->v4l2_dev, "Failed to alloc vb2 context\n");
-			ret = PTR_ERR(dev->alloc_ctx);
-			goto done;
-		}
-
-		vip_set_idle_mode(dev->shared, VIP_SMART_IDLE_MODE);
-		vip_set_standby_mode(dev->shared, VIP_SMART_STANDBY_MODE);
-		vip_set_slice_path(dev, VIP_MULTI_CHANNEL_DATA_SELECT);
-		vip_set_port_enable(dev->ports[0], 1);
-		vip_set_data_interface(dev->ports[0], DUAL_8B_INTERFACE);
-		vip_sync_type(dev->ports[0], DISCRETE_SYNC_SINGLE_YUV422);
-		vip_set_vsync_polarity(dev->ports[0], 1);
-		vip_set_hsync_polarity(dev->ports[0], 1);
-		vip_set_actvid_polarity(dev->ports[0], 1);
-		vip_set_discrete_basic_mode(dev->ports[0]);
-
-		dev->setup_done = 1;
-	}
-
-	ret = vip_init_port(port);
-	if (ret)
-		goto done;
-
-	stream->width = 1280;
-	stream->height = 720;
-	stream->sizeimage = stream->width * stream->height *
-			(port->fmt->vpdma_fmt[0]->depth + (port->fmt->coplanar ?
-				port->fmt->vpdma_fmt[1]->depth : 0)) >> 3;
-	stream->sup_field = V4L2_FIELD_NONE;
-	port->c_rect.width = stream->width;
-	port->c_rect.height = stream->height;
-
-	vip_dprintk(dev, "Created stream instance %p\n", stream);
-
-	return 0;
-
-done:
-	return ret;
-}
-EXPORT_SYMBOL(early_vip_open);
-
-int early_release()
-{
-	struct vip_stream *stream = video_get_drvdata(early_stream->vfd);
-	struct vip_port *port = stream->port;
-	struct vip_dev *dev = port->dev;
-	struct vb2_queue *q = &stream->vb_vidq;
-
-	vip_dprintk(dev, "Releasing stream instance %p\n", stream);
-
-	mutex_lock(&dev->mutex);
-
-	vip_stop_streaming(q);
-	vip_release_port(stream->port);
-
-	vb2_queue_release(q);
-
-	dma_addr_global_complete = (dma_addr_t)NULL;
-	dma_addr_global = (dma_addr_t)NULL;
-
-	early_stream->open = 0;
-
-	mutex_unlock(&dev->mutex);
-
-	return 0;
-}
-EXPORT_SYMBOL(early_release);
-
-static int vip_open(struct file *file)
+int vip_open(struct file *file)
 {
 	struct vip_stream *stream = video_drvdata(file);
 	struct vip_port *port = stream->port;
@@ -1778,8 +1492,9 @@ static int vip_open(struct file *file)
 done:
 	return ret;
 }
+EXPORT_SYMBOL(vip_open);
 
-static int vip_release(struct file *file)
+int vip_release(struct file *file)
 {
 	struct vip_stream *stream = video_drvdata(file);
 	struct vip_port *port = stream->port;
@@ -1797,13 +1512,14 @@ static int vip_release(struct file *file)
 	v4l2_fh_exit(&stream->fh);
 	vb2_queue_release(q);
 
-	if (early_stream->open && (strcmp(dev->vip_name, "vip1") == 0))
-		early_release();
-	else
-		mutex_unlock(&dev->mutex);
+	dma_addr_global_complete = (dma_addr_t)NULL;
+	dma_addr_global = (dma_addr_t)NULL;
+
+	mutex_unlock(&dev->mutex);
 
 	return 0;
 }
+EXPORT_SYMBOL(vip_release);
 
 static const struct v4l2_file_operations vip_fops = {
 	.owner		= THIS_MODULE,
@@ -1833,12 +1549,6 @@ static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
 	stream = kzalloc (sizeof(*stream), GFP_KERNEL);
 	if (!stream)
 		return -ENOMEM;
-
-	if (strcmp(dev->vip_name, "vip1") == 0) {
-		early_stream = kzalloc(sizeof(*stream), GFP_KERNEL);
-		if (!stream)
-			return -ENOMEM;
-	}
 
 	stream->port = port;
 	stream->stream_id = stream_id;
@@ -1882,8 +1592,6 @@ static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
 
 	snprintf(vfd->name, sizeof(vfd->name), "%s", vip_videodev.name);
 	stream->vfd = vfd;
-	if (strcmp(dev->vip_name, "vip1") == 0)
-		early_stream = stream;
 
 	v4l2_info(&dev->v4l2_dev, VIP_MODULE_NAME
 			" Device registered as /dev/video%d\n", vfd->num);
@@ -1891,7 +1599,6 @@ static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
 
 do_free_stream:
 	kfree(stream);
-	kfree(early_stream);
 	return ret;
 }
 
@@ -2200,12 +1907,6 @@ static int vip_probe(struct platform_device *pdev)
 
 		dev->vip_name = (const char *)of_dev_id->data;
 
-		if (strcmp(dev->vip_name, "vip1") == 0) {
-			early_dev = kzalloc(sizeof(*early_dev), GFP_KERNEL);
-			if (!early_dev)
-				return -ENOMEM;
-		}
-
 		snprintf(dev->v4l2_dev.name, sizeof(dev->v4l2_dev.name),
 			"%s %s-%d", VIP_MODULE_NAME, dev->vip_name, slice);
 
@@ -2220,12 +1921,7 @@ static int vip_probe(struct platform_device *pdev)
 		dev->res = res;
 		dev->base = base;
 
-		if (strcmp(dev->vip_name, "vip1") == 0)
-			early_dev = dev;
-
 		ret = alloc_port(dev, 0);
-		if (ret)
-			goto dev_unreg;
 
 		if (dev->pdev->dev.of_node) {
 			ret = vip_of_probe(pdev, dev);
