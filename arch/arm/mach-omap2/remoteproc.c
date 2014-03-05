@@ -175,28 +175,34 @@ static struct omap_rproc_pdata dra7_rproc_data[] = {
  * These data structures define the necessary iommu binding information
  * needed for each supported processor.
  */
-static struct omap_iommu_arch_data omap4_dsp_iommu = {
-	.name = "mmu_dsp",
+static struct omap_iommu_arch_data omap4_dsp_iommu[] = {
+	{ .name = "mmu_dsp", },
+	{ .name = NULL, },
 };
 
-static struct omap_iommu_arch_data omap4_ipu_iommu = {
-	.name = "mmu_ipu",
+static struct omap_iommu_arch_data omap4_ipu_iommu[] = {
+	{ .name = "mmu_ipu", },
+	{ .name = NULL, },
 };
 
-static struct omap_iommu_arch_data dra7_dsp1_iommu = {
-	.name = "mmu0_dsp1",
+static struct omap_iommu_arch_data dra7_dsp1_iommu[] = {
+	{ .name = "mmu0_dsp1", },
+	{ .name = NULL, },
 };
 
-static struct omap_iommu_arch_data dra7_ipu2_iommu = {
-	.name = "mmu_ipu2",
+static struct omap_iommu_arch_data dra7_ipu2_iommu[] = {
+	{ .name = "mmu_ipu2", },
+	{ .name = NULL, },
 };
 
-static struct omap_iommu_arch_data dra7_dsp2_iommu = {
-	.name = "mmu0_dsp2",
+static struct omap_iommu_arch_data dra7_dsp2_iommu[] = {
+	{ .name = "mmu0_dsp2", },
+	{ .name = NULL, },
 };
 
-static struct omap_iommu_arch_data dra7_ipu1_iommu = {
-	.name = "mmu_ipu1",
+static struct omap_iommu_arch_data dra7_ipu1_iommu[] = {
+	{ .name = "mmu_ipu1", },
+	{ .name = NULL, },
 };
 
 /*
@@ -237,7 +243,7 @@ static struct omap_rproc_pdev_data omap4_rproc_pdev_data[] = {
 		.enabled = 1,
 #endif
 		.pdev = &omap4_dsp,
-		.iommu = &omap4_dsp_iommu,
+		.iommu = omap4_dsp_iommu,
 		.cma_addr = OMAP4_RPROC_CMA_BASE_DSP,
 		.cma_size = OMAP_RPROC_CMA_SIZE_DSP,
 	},
@@ -246,7 +252,7 @@ static struct omap_rproc_pdev_data omap4_rproc_pdev_data[] = {
 		.enabled = 1,
 #endif
 		.pdev = &omap4_ipu,
-		.iommu = &omap4_ipu_iommu,
+		.iommu = omap4_ipu_iommu,
 		.cma_addr = OMAP4_RPROC_CMA_BASE_IPU,
 		.cma_size = OMAP4_RPROC_CMA_SIZE_IPU,
 	},
@@ -258,7 +264,7 @@ static struct omap_rproc_pdev_data omap5_rproc_pdev_data[] = {
 		.enabled = 1,
 #endif
 		.pdev = &omap4_dsp,
-		.iommu = &omap4_dsp_iommu,
+		.iommu = omap4_dsp_iommu,
 		.cma_addr = OMAP5_RPROC_CMA_BASE_DSP,
 		.cma_size = OMAP_RPROC_CMA_SIZE_DSP,
 	},
@@ -267,7 +273,7 @@ static struct omap_rproc_pdev_data omap5_rproc_pdev_data[] = {
 		.enabled = 1,
 #endif
 		.pdev = &omap4_ipu,
-		.iommu = &omap4_ipu_iommu,
+		.iommu = omap4_ipu_iommu,
 		.cma_addr = OMAP5_RPROC_CMA_BASE_IPU,
 		.cma_size = OMAP5_RPROC_CMA_SIZE_IPU,
 	},
@@ -279,7 +285,7 @@ static struct omap_rproc_pdev_data dra7_rproc_pdev_data[] = {
 		.enabled = 1,
 #endif
 		.pdev = &omap4_dsp,
-		.iommu = &dra7_dsp1_iommu,
+		.iommu = dra7_dsp1_iommu,
 		.cma_addr = DRA7_RPROC_CMA_BASE_DSP1,
 		.cma_size = DRA7_RPROC_CMA_SIZE_DSP1,
 	},
@@ -288,7 +294,7 @@ static struct omap_rproc_pdev_data dra7_rproc_pdev_data[] = {
 		.enabled = 1,
 #endif
 		.pdev = &omap4_ipu,
-		.iommu = &dra7_ipu2_iommu,
+		.iommu = dra7_ipu2_iommu,
 		.cma_addr = DRA7_RPROC_CMA_BASE_IPU2,
 		.cma_size = DRA7_RPROC_CMA_SIZE_IPU2,
 	},
@@ -297,7 +303,7 @@ static struct omap_rproc_pdev_data dra7_rproc_pdev_data[] = {
 		.enabled = 1,
 #endif
 		.pdev = &dra7_dsp2,
-		.iommu = &dra7_dsp2_iommu,
+		.iommu = dra7_dsp2_iommu,
 		.cma_addr = DRA7_RPROC_CMA_BASE_DSP2,
 		.cma_size = OMAP_RPROC_CMA_SIZE_DSP,
 	},
@@ -306,7 +312,7 @@ static struct omap_rproc_pdev_data dra7_rproc_pdev_data[] = {
 		.enabled = 1,
 #endif
 		.pdev = &dra7_ipu1,
-		.iommu = &dra7_ipu1_iommu,
+		.iommu = dra7_ipu1_iommu,
 		.cma_addr = DRA7_RPROC_CMA_BASE_IPU1,
 		.cma_size = DRA7_RPROC_CMA_SIZE_IPU1,
 	},
