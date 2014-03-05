@@ -441,6 +441,18 @@
 		ovnode = <&i2c2>;
 	};
 
+	camera_tvp5158: camera_tvp5158 {
+		compatible = "ti,tvp5158";
+		reg = <0x58>;
+		gpios = <&pcf_hdmi 3 0>,
+		       <&pcf_lcd3 8 0>;
+		port {
+			tvp5158: endpoint {
+			// No props incase of BT656
+			};
+		};
+       };
+
 	camera_ov10635: camera_ov10635 {
 		compatible = "ti,camera-ov10635";
 		gpios = <&pcf_hdmi 2 0>,
@@ -736,6 +748,10 @@
 		slave-mode;
 		remote-endpoint = <&cam1>;
 	};
+	endpoint@3 {
+                slave-mode;
+                remote-endpoint = <&tvp5158>;
+        };
 };
 
 &vin2a {
