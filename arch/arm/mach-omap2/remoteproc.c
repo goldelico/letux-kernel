@@ -187,6 +187,7 @@ static struct omap_iommu_arch_data omap4_ipu_iommu[] = {
 
 static struct omap_iommu_arch_data dra7_dsp1_iommu[] = {
 	{ .name = "mmu0_dsp1", },
+	{ .name = "mmu1_dsp1", },
 	{ .name = NULL, },
 };
 
@@ -197,6 +198,7 @@ static struct omap_iommu_arch_data dra7_ipu2_iommu[] = {
 
 static struct omap_iommu_arch_data dra7_dsp2_iommu[] = {
 	{ .name = "mmu0_dsp2", },
+	{ .name = "mmu1_dsp2", },
 	{ .name = NULL, },
 };
 
