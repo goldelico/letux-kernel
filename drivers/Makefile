@@ -48,6 +48,12 @@ obj-$(CONFIG_REGULATOR)		+= regulator/
 obj-y				+= tty/
 obj-y				+= char/
 
+#Initialize the i2c devices earlier
+obj-y				+= i2c/ media/
+
+#Initialize misc drivers which contain early camera
+obj-y				+= base/ block/ misc/ mfd/ nfc/
+
 # gpu/ comes after char for AGP vs DRM startup
 obj-y				+= gpu/
 
