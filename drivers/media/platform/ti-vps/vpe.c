@@ -1060,7 +1060,7 @@ static void enable_irqs(struct vpe_ctx *ctx)
 	write_reg(ctx->dev, VPE_INT0_ENABLE1_SET, VPE_DEI_ERROR_INT |
 				VPE_DS1_UV_ERROR_INT);
 
-	vpdma_enable_list_complete_irq(ctx->dev->vpdma, 0, true);
+	vpdma_enable_list_complete_irq(ctx->dev->vpdma, 0, 0, true);
 }
 
 static void disable_irqs(struct vpe_ctx *ctx)
@@ -1068,7 +1068,7 @@ static void disable_irqs(struct vpe_ctx *ctx)
 	write_reg(ctx->dev, VPE_INT0_ENABLE0_CLR, 0xffffffff);
 	write_reg(ctx->dev, VPE_INT0_ENABLE1_CLR, 0xffffffff);
 
-	vpdma_enable_list_complete_irq(ctx->dev->vpdma, 0, false);
+	vpdma_enable_list_complete_irq(ctx->dev->vpdma, 0, 0, false);
 }
 
 /* device_run() - prepares and starts the device
@@ -1186,7 +1186,7 @@ static void device_run(void *priv)
 	enable_irqs(ctx);
 
 	vpdma_buf_map(ctx->dev->vpdma, &ctx->desc_list.buf);
-	vpdma_submit_descs(ctx->dev->vpdma, &ctx->desc_list);
+	vpdma_submit_descs(ctx->dev->vpdma, &ctx->desc_list, 0);
 }
 
 static void dei_error(struct vpe_ctx *ctx)
@@ -1242,7 +1242,7 @@ static irqreturn_t vpe_irq(int irq_vpe, void *data)
 
 	if (irqst0) {
 		if (irqst0 & VPE_INT0_LIST0_COMPLETE)
-			vpdma_clear_list_stat(ctx->dev->vpdma);
+			vpdma_clear_list_stat(ctx->dev->vpdma, 0);
 
 		irqst0 &= ~(VPE_INT0_LIST0_COMPLETE);
 	}

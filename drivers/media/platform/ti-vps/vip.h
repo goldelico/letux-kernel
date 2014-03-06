@@ -152,24 +152,11 @@ struct vip_stream {
 	int                 open;
 };
 
-extern struct vip_dev *early_dev;
-extern struct vip_stream *early_stream;
 extern dma_addr_t dma_addr_global;
 extern dma_addr_t dma_addr_global_complete;
-extern void *mem_priv;
 
-extern bool early_sensor_detect(void);
-extern int early_vip_open(void);
-extern int early_release(void);
-extern int early_reqbufs(struct v4l2_requestbuffers *p);
-extern int early_querybuf(struct v4l2_buffer *p);
-extern int early_qbuf(struct v4l2_buffer *p);
-extern int early_dqbuf(struct v4l2_buffer *p);
-extern int early_streamon(enum v4l2_buf_type i);
-extern int early_querycap(struct v4l2_capability *cap);
-extern int early_enum_fmt(struct v4l2_fmtdesc *f);
-extern int early_s_fmt(struct v4l2_format *f);
-extern int early_try_fmt(struct v4l2_format *f);
+extern int vip_open(struct file *file);
+extern int vip_release(struct file *file);
 
 /*
  * VIP Enumerations
@@ -237,6 +224,8 @@ enum sync_types {
 #define VIP_NO_STANDBY_MODE             1
 #define VIP_SMART_STANDBY_MODE          2
 #define VIP_SMART_STANDBY_WAKEUP_MODE   3
+
+#define VIP_INTC_INTX_OFFSET		0x0020
 
 #define VIP_INT0_STATUS0_RAW_SET	0x0020
 #define VIP_INT0_STATUS0_RAW		VIP_INT0_STATUS0_RAW_SET
