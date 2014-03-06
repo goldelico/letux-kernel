@@ -427,10 +427,9 @@ EXPORT_SYMBOL(vpdma_list_busy);
 /*
  * submit a list of DMA descriptors to the VPE VPDMA, do not wait for completion
  */
-int vpdma_submit_descs(struct vpdma_data *vpdma, struct vpdma_desc_list *list)
+int vpdma_submit_descs(struct vpdma_data *vpdma,
+	struct vpdma_desc_list *list, int list_num)
 {
-	/* we always use the first list */
-	int list_num = 0;
 	int list_size;
 
 	if (vpdma_list_busy(vpdma, list_num))
@@ -796,25 +795,27 @@ void vpdma_add_in_dtd(struct vpdma_desc_list *list, int width,
 EXPORT_SYMBOL(vpdma_add_in_dtd);
 
 /* set or clear the mask for list complete interrupt */
-void vpdma_enable_list_complete_irq(struct vpdma_data *vpdma, int list_num,
-		bool enable)
+void vpdma_enable_list_complete_irq(struct vpdma_data *vpdma, int irq_num,
+		int list_num, bool enable)
 {
+	u32 reg_addr = VPDMA_INT_LIST0_MASK + VPDMA_INTX_OFFSET * irq_num;
 	u32 val;
 
-	val = read_reg(vpdma, VPDMA_INT_LIST0_MASK);
+	val = read_reg(vpdma, reg_addr);
 	if (enable)
 		val |= (1 << (list_num * 2));
 	else
 		val &= ~(1 << (list_num * 2));
-	write_reg(vpdma, VPDMA_INT_LIST0_MASK, val);
+	write_reg(vpdma, reg_addr, val);
 }
 EXPORT_SYMBOL(vpdma_enable_list_complete_irq);
 
 /* clear previosuly occured list intterupts in the LIST_STAT register */
-void vpdma_clear_list_stat(struct vpdma_data *vpdma)
+void vpdma_clear_list_stat(struct vpdma_data *vpdma, int irq_num)
 {
-	write_reg(vpdma, VPDMA_INT_LIST0_STAT,
-		read_reg(vpdma, VPDMA_INT_LIST0_STAT));
+	u32 reg_addr = VPDMA_INT_LIST0_STAT + VPDMA_INTX_OFFSET * irq_num;
+	write_reg(vpdma, reg_addr,
+		read_reg(vpdma, reg_addr));
 }
 EXPORT_SYMBOL(vpdma_clear_list_stat);
 

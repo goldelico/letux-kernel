@@ -26,6 +26,7 @@
 #include <linux/gpio.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <linux/pm_runtime.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/soc.h>
@@ -43,6 +44,8 @@ struct dra7_snd_data {
 	unsigned int bt_rate;
 	int bt_is_master;
 	int always_on;
+	int media_shared;
+	int multichannel_shared;
 };
 
 static int dra7_mcasp_reparent(struct snd_soc_card *card,
@@ -253,16 +256,44 @@ static int dra7_multichannel_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
-static int dra7_dai_init(struct snd_soc_pcm_runtime *rtd)
+static int dra7_snd_media_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_card *card = rtd->card;
 	struct dra7_snd_data *card_data = snd_soc_card_get_drvdata(card);
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 
 	/* Minimize artifacts as much as possible if can be afforded */
 	if (card_data->always_on)
 		rtd->pmdown_time = INT_MAX;
 	else
 		rtd->pmdown_time = 0;
+
+	/* Forbid runtime PM if the DAI is shared with radio */
+	if (card_data->media_shared) {
+		dev_info(card->dev, "%s is shared with radio\n", cpu_dai->name);
+		pm_runtime_forbid(cpu_dai->dev);
+	}
+
+	return 0;
+}
+
+static int dra7_snd_multichannel_init(struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_soc_card *card = rtd->card;
+	struct dra7_snd_data *card_data = snd_soc_card_get_drvdata(card);
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+
+	/* Minimize artifacts as much as possible if can be afforded */
+	if (card_data->always_on)
+		rtd->pmdown_time = INT_MAX;
+	else
+		rtd->pmdown_time = 0;
+
+	/* Forbid runtime PM if the DAI is shared with radio */
+	if (card_data->multichannel_shared) {
+		dev_info(card->dev, "%s is shared with radio\n", cpu_dai->name);
+		pm_runtime_forbid(cpu_dai->dev);
+	}
 
 	return 0;
 }
@@ -368,7 +399,7 @@ static struct snd_soc_dai_link dra7_snd_dai[] = {
 		.codec_dai_name = "tlv320aic3x-hifi",
 		.platform_name = "omap-pcm-audio",
 		.ops = &dra7_snd_media_ops,
-		.init = dra7_dai_init,
+		.init = dra7_snd_media_init,
 	},
 	{
 		/* Multichannel: McASP6 + 3 * tlv320aic3106 */
@@ -377,7 +408,7 @@ static struct snd_soc_dai_link dra7_snd_dai[] = {
 		.ops = &dra7_snd_multichannel_ops,
 		.codecs = dra7_snd_multichannel_codecs,
 		.num_codecs = ARRAY_SIZE(dra7_snd_multichannel_codecs),
-		.init = dra7_dai_init,
+		.init = dra7_snd_multichannel_init,
 	},
 	{
 		/* Bluetooth: McASP7 + dummy codec */
@@ -485,6 +516,10 @@ static int dra7_snd_add_dai_link(struct snd_soc_card *card,
 		return ret;
 	}
 
+	snprintf(prop, sizeof(prop), "%s-shared", prefix);
+	if (of_find_property(node, prop, NULL))
+		card_data->media_shared = 1;
+
 	return 0;
 }
 
@@ -513,10 +548,8 @@ static int dra7_snd_add_multichannel_dai_link(struct snd_soc_card *card,
 	snprintf(prop, sizeof(prop), "%s-cpu", prefix);
 	dai_node = of_parse_phandle(node, prop, 0);
 	if (!dai_node) {
-		dev_info(card->dev, "no cpu dai node, will be hostless\n");
-		dai_link->cpu_dai_name = "snd-soc-dummy-cpu-dai";
-		dai_link->platform_name = NULL; /* unspecified to use dummy */
-		dai_link->no_host_mode = 1;
+		dev_err(card->dev, "cpu dai node is invalid\n");
+		return -EINVAL;
 	}
 
 	dai_link->cpu_of_node = dai_node;
@@ -571,6 +604,10 @@ static int dra7_snd_add_multichannel_dai_link(struct snd_soc_card *card,
 			dai_link->name);
 		return ret;
 	}
+
+	snprintf(prop, sizeof(prop), "%s-shared", prefix);
+	if (of_find_property(node, prop, NULL))
+		card_data->multichannel_shared = 1;
 
 	return 0;
 }
@@ -635,49 +672,6 @@ static const struct snd_soc_dapm_widget dra7_snd_dapm_widgets[] = {
 	SND_SOC_DAPM_LINE("JAMR3 Line Out 3", NULL),
 };
 
-
-static int dummy_cpu_dai_set_sysclk(struct snd_soc_dai *dai,
-				    int clk_id, unsigned int freq, int dir)
-{
-	return 0;
-}
-
-static int dummy_cpu_dai_set_clkdiv(struct snd_soc_dai *dai,
-				    int div_id, int div)
-{
-	return 0;
-}
-
-static int dummy_cpu_dai_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
-{
-	return 0;
-}
-
-static struct snd_soc_dai_ops dummy_cpu_dai_ops = {
-	.set_clkdiv = dummy_cpu_dai_set_clkdiv,
-	.set_sysclk = dummy_cpu_dai_set_sysclk,
-	.set_fmt = dummy_cpu_dai_set_fmt,
-};
-
-static struct snd_soc_dai_driver dummy_cpu_dai = {
-	.name = "snd-soc-dummy-cpu-dai",
-	.playback = {
-		.channels_min	= 1,
-		.channels_max	= 8,
-		.rates		= SNDRV_PCM_RATE_44100,
-		.formats	= (SNDRV_PCM_FMTBIT_S16_LE |
-				   SNDRV_PCM_FMTBIT_S32_LE),
-	},
-	.capture = {
-		.channels_min	= 1,
-		.channels_max	= 8,
-		.rates		= SNDRV_PCM_RATE_44100,
-		.formats	= (SNDRV_PCM_FMTBIT_S16_LE |
-				   SNDRV_PCM_FMTBIT_S32_LE),
-	},
-	.ops = &dummy_cpu_dai_ops,
-};
-
 /* Audio machine driver */
 static struct snd_soc_card dra7_snd_card = {
 	.owner = THIS_MODULE,
@@ -701,6 +695,11 @@ static int dra7_snd_probe(struct platform_device *pdev)
 	if (card_data == NULL)
 		return -ENOMEM;
 
+	if (!node) {
+		dev_err(card->dev, "missing of_node\n");
+		return -ENODEV;
+	}
+
 	gpio = of_get_gpio(node, 0);
 	if (gpio_is_valid(gpio)) {
 		ret = devm_gpio_request_one(card->dev, gpio,
@@ -710,13 +709,6 @@ static int dra7_snd_probe(struct platform_device *pdev)
 				gpio);
 			return ret;
 		}
-	}
-
-	snd_soc_register_dais(&pdev->dev, &dummy_cpu_dai, 1);
-
-	if (!node) {
-		dev_err(card->dev, "missing of_node\n");
-		return -ENODEV;
 	}
 
 	ret = snd_soc_of_parse_card_name(card, "ti,model");
@@ -799,7 +791,6 @@ static int dra7_snd_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 
-	snd_soc_unregister_dai(&pdev->dev);
 	snd_soc_unregister_card(card);
 	snd_soc_card_reset_dai_links(card);
 

@@ -147,6 +147,7 @@
 		ti,multichannel-codec-c = <&tlv320aic3106c>;
 		ti,multichannel-slots = <8>;
 		ti,multichannel-mclk-freq = <11289600>;
+		ti,multichannel-shared;
 
 		/* Bluetooth */
 		ti,bt-cpu = <&mcasp7>;
@@ -167,12 +168,6 @@
 		radio_helper1 {
 			compatible = "ti,dra7xx_radio_subdev";
 			ti,hwmods = "mcasp2";
-			status = "okay";
-		};
-
-		radio_helper2 {
-			compatible = "ti,dra7xx_radio_subdev";
-			ti,hwmods = "mcasp6";
 			status = "okay";
 		};
 	};
@@ -369,6 +364,22 @@
 		>;
 	};
 
+	vin2a_pins: pinmux_vin2a_pins {
+		pinctrl-single,pins = <
+			0x154	0x00040000 /* vin2a_clk0 OUTPUT | MODE0 */
+			0x160	0x00040000 /* vin2a_hsync0 OUTPUT | MODE0 */
+			0x164	0x00040000 /* vin2a_vsync0 OUTPUT | MODE0 */
+			0x168	0x00040000 /* vin2a_d0	OUTPUT | MODE0 */
+			0x16c	0x00040000 /* vin2a_d1	OUTPUT | MODE0 */
+			0x170	0x00040000 /* vin2a_d2	OUTPUT | MODE0 */
+			0x174	0x00040000 /* vin2a_d3	OUTPUT | MODE0 */
+			0x178	0x00040000 /* vin2a_d4	OUTPUT | MODE0 */
+			0x17c	0x00040000 /* vin2a_d5	OUTPUT | MODE0 */
+			0x180	0x00040000 /* vin2a_d6	OUTPUT | MODE0 */
+			0x184	0x00040000 /* vin2a_d7	OUTPUT | MODE0 */
+		>;
+	};
+
         vin3a_pins: pinmux_vin3a_pins {
 		pinctrl-single,pins = <
 			0x0E0	0x00040006 /* vin3a_clk0 OUTPUT | MODE0 */
@@ -400,6 +411,22 @@
 			0x37c	0x00040009 /* vin5a_d7	OUTPUT | MODE0 */
                 >;
         };
+
+	vin6a_pins: pinmux_vin6a_pins {
+		pinctrl-single,pins = <
+			0x298	0x00040007 /* vin6a_clk0 OUTPUT | MODE0 */
+			0x2B8	0x00040007 /* vin6a_hsync0 OUTPUT | MODE0 */
+			0x2B4	0x00040007 /* vin6a_vsync0 OUTPUT | MODE0 */
+			0x330	0x00040007 /* vin6a_d0	OUTPUT | MODE0 */
+			0x32C	0x00040007 /* vin6a_d1	OUTPUT | MODE0 */
+			0x328	0x00040007 /* vin6a_d2	OUTPUT | MODE0 */
+			0x324	0x00040007 /* vin6a_d3	OUTPUT | MODE0 */
+			0x310	0x00040007 /* vin6a_d4	OUTPUT | MODE0 */
+			0x30C	0x00040007 /* vin6a_d5	OUTPUT | MODE0 */
+			0x2F8	0x00040007 /* vin6a_d6	OUTPUT | MODE0 */
+			0x2F4	0x00040007 /* vin6a_d7	OUTPUT | MODE0 */
+		>;
+	};
 
 	cpsw_default_pins: pinmux_cpsw_default_pins {
 		pinctrl-single,pins = <
@@ -852,20 +879,24 @@
 
 &vip1 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&vin1a_pins>;
+	pinctrl-0 = <&vin1a_pins &vin2a_pins>;
 	sensor0 = <&onboardLI &vis_ovcam &cam1>;
+	sensor1 = <&cam2>;
 };
 
 &vip2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&vin3a_pins>;
 	sensor0 = <&cam3>;
+	sensor1 = <&cam5>;
 };
 
 &vip3 {
 	pinctrl-names = "default";
+	//pinctrl-0 = <&vin5a_pins &vin6a_pins>;
 	pinctrl-0 = <&vin5a_pins>;
 	sensor0 = <&cam4>;
+	sensor1 = <&cam6>;
 };
 
 &dpi1 {
