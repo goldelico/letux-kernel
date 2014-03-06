@@ -7,8 +7,7 @@ Required properties:
 - ti,media-codec: phandle for the analog codec in media link
 - ti,media-mclk-freq: MCLK frequency for the analog codec in media link
 - ti,media-slots: Number of slots
-- ti,multichannel-cpu: phandle for the McASP node in multichannel link.
-  It can be omitted for cpu dailess mode (DSP-based radio).
+- ti,multichannel-cpu: phandle for the McASP node in multichannel link
 - ti,multichannel-codec-a: phandle for the analog codec instance A
 - ti,multichannel-codec-b: phandle for the analog codec instance B
 - ti,multichannel-codec-c: phandle for the analog codec instance C
@@ -21,6 +20,10 @@ Required properties:
 Optional properties:
 - ti,always-on: Keep analog codecs always on to minimize artifacts. Use it
   if power is not a concern.
+- ti,media-shared: Media's CPU DAI is shared with radio. The CPU DAI's device
+  will not be power managed at runtime.
+- ti,multichannel-shared: Multichannel's CPU DAI is shared with radio. The CPU
+  DAI's device will not be power managed at runtime.
 - ti,bt-cpu: phandle for the McASP node used for bluetooth.
 - ti,bt-bclk-freq: Bit clock frequency provided by bluetooth chip.
 - gpios: selects/enables the DAI pins (Media, Bluetooth)
