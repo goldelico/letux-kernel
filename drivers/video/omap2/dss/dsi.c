@@ -5588,6 +5588,14 @@ static int omap_dsihw_probe(struct platform_device *dsidev)
 	if (r)
 		goto err_runtime_get;
 
+	{
+		dsi_write_reg(dsidev, DSI_SYSCONFIG, 1<<1);
+		mdelay(100);
+		REG_FLD_MOD(dsidev, DSI_SYSCONFIG, 1, 2, 2);
+		REG_FLD_MOD(dsidev, DSI_SYSCONFIG, 1, 4, 3);
+		REG_FLD_MOD(dsidev, DSI_SYSCONFIG, 3, 9, 8);
+	}
+
 	rev = dsi_read_reg(dsidev, DSI_REVISION);
 	dev_dbg(&dsidev->dev, "OMAP DSI rev %d.%d\n",
 	       FLD_GET(rev, 7, 4), FLD_GET(rev, 3, 0));
