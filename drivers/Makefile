@@ -18,12 +18,6 @@ obj-$(CONFIG_RAPIDIO)		+= rapidio/
 obj-y				+= video/
 obj-y				+= idle/
 
-#Initialize the i2c devices earlier
-obj-y				+= i2c/ media/
-
-#Initialize misc drivers which contain early camera
-obj-y				+= base/ block/ misc/ mfd/ nfc/
-
 # IPMI must come before ACPI in order to provide IPMI opregion support
 obj-$(CONFIG_IPMI_HANDLER)	+= char/ipmi/
 
