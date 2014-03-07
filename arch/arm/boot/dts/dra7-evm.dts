@@ -225,6 +225,20 @@
 		>;
 	};
 
+	vin1a_d16_d23_pins: pinmux_vin1a_d16_d23_pins {
+		pinctrl-single,pins = <
+			0x134   0x00040000 /* vin1a_d16 OUTPUT | MODE0 */
+			0x138   0x00040000 /* vin1a_d17 OUTPUT | MODE0 */
+			0x13C   0x00040000 /* vin1a_d18 OUTPUT | MODE0 */
+			0x140   0x00040000 /* vin1a_d19 OUTPUT | MODE0 */
+			0x144   0x00040000 /* vin1a_d20 OUTPUT | MODE0 */
+			0x148   0x00040000 /* vin1a_d21 OUTPUT | MODE0 */
+			0x14C   0x00040000 /* vin1a_d22 OUTPUT | MODE0 */
+			0x150   0x00040000 /* vin1a_d23 OUTPUT | MODE0 */
+
+		>;
+	};
+
 	vin2a_pins: pinmux_vin2a_pins {
 		pinctrl-single,pins = <
 			0x154	0x00040000 /* vin2a_clk0 OUTPUT | MODE0 */
@@ -721,6 +735,12 @@
 
 &vip1 {
 	pinctrl-names = "default";
+	/*
+		Pinmux conflict between 1a:16-23 & 2a:0-8
+		Either use full 32bit of vin1a or use 16bit vin1a and 8bitvin2a
+		TO enable RGB camera, uncomment this
+		pinctrl-0 = <&vin1a_pins &vin1a_d16_d23_pins>;
+	*/
 	pinctrl-0 = <&vin1a_pins &vin2a_pins>;
 };
 
