@@ -1150,7 +1150,9 @@ static int twl4030_voice_route_put(struct snd_kcontrol *kcontrol,
 			 * do a tristate on the other end
 			 */
 			/* set McBSP4-DX to tristate (safe mode) */
+#if FIXME
 			omap_mux_set_gpio(OMAP_MUX_MODE7, 154);
+#endif
 			// TWL4030_VIF_SLAVE_EN can be done through twl4030_voice_set_dai_fmt()
 			reg = twl4030_read_reg_cache(codec, TWL4030_REG_VOICE_IF);
 			reg |= TWL4030_VIF_SLAVE_EN | TWL4030_VIF_DIN_EN |
@@ -1172,7 +1174,9 @@ static int twl4030_voice_route_put(struct snd_kcontrol *kcontrol,
 			 * we should look up the DAI link we are connected to and
 			 * do a tristate on the other end
 			 */
+#if FIXME
 			omap_mux_set_gpio(OMAP_MUX_MODE0 | OMAP_PIN_OUTPUT, 154);
+#endif
 		}
 		if (powered)
 			twl4030_codec_enable(codec, 1);
