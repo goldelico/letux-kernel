@@ -55,6 +55,24 @@
 		ti,codec = <&twl_audio>;
 	};
 
+	/* HS USB Port 2 Power */
+	/* to be adapted to GTA04 GPIOs
+	hsusb2_power: hsusb2_power_reg {
+		compatible = "regulator-fixed";
+		regulator-name = "hsusb2_vbus";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&twl_gpio 18 0>;	/* GPIO LEDA */
+		startup-delay-us = <70000>;
+	};
+*/
+	/* HS USB Host PHY on PORT 2 */
+/*	hsusb2_phy: hsusb2_phy {
+		compatible = "usb-nop-xceiv";
+		reset-gpios = <&gpio5 19 GPIO_ACTIVE_LOW>; /* gpio_147 */
+		vcc-supply = <&hsusb2_power>;
+	};
+*/
 	madc-hwmon {
 		compatible = "ti,twl4030-madc-hwmon";
 	};
@@ -364,7 +382,7 @@
 &dss {
 	pinctrl-names = "default";
 	pinctrl-0 = < &dss_dpi_pins >;
-	status = "okay";
+	status = "ok";
 
 	vdds_dsi-supply = <&vpll2>;
 
