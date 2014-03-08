@@ -556,7 +556,9 @@ static int omap_mcbsp_dai_set_tristate(struct snd_soc_dai *dai,
 	// check for OMAP3 (no need to support OMAP1/2 any more - and for OMAP4 we don't care yet)
 
 	/* unfortunately the mapping between McBSP channels and GPIO pins
-	   is not fixed, it depends on how the hardware is set up. */
+	   is not fixed, it depends on how the hardware is set up.
+	   We may need help of the pinmux framework and Device Tree.
+	*/
 
 	switch(dai->id + 1) {
 		case 1: gpio=158; break;
@@ -568,9 +570,9 @@ static int omap_mcbsp_dai_set_tristate(struct snd_soc_dai *dai,
 	}
 	
 	/* should check for errors */
-	
+#if FIXME
 	omap_mux_set_gpio((tristate ? OMAP_MUX_MODE7 : (mode | OMAP_PIN_OUTPUT)), gpio);
-	
+#endif	
 	return 0;
 }
 
