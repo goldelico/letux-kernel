@@ -266,7 +266,7 @@
 		pyra_led5: set3@5 {
 			label = "test::led-kbd3";
 			reg = <0x5>;
-			linux,default-trigger = "mmc0";
+			linux,default-trigger = "mmc1";
 		};
 
 		pyra_led6: set4@6 {
@@ -382,6 +382,26 @@
 		>;
 	};
 
+};
+
+/* eMMC +/
+
+&mmc1 {
+	vmmc-supply = <&ldo9_reg>;
+	bus-width = <4>;
+};
+
+/* standard SD slots */
+
+&mmc2 {
+	vmmc-supply = <&vmmcsd_fixed>;
+	bus-width = <8>;
+	ti,non-removable;
+};
+
+&mmc4 {
+	status = "disabled";
+	bus-width = <8>;
 };
 
 / {
