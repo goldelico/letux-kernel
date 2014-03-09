@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm 3.14.0-rc2 Kernel Configuration
+# Linux/arm 3.14.0-rc5 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -1373,6 +1373,7 @@ CONFIG_USB_NET_CDCETHER=m
 # CONFIG_USB_NET_CDC_MBIM is not set
 # CONFIG_USB_NET_DM9601 is not set
 # CONFIG_USB_NET_SR9700 is not set
+# CONFIG_USB_NET_SR9800 is not set
 # CONFIG_USB_NET_SMSC75XX is not set
 # CONFIG_USB_NET_SMSC95XX is not set
 # CONFIG_USB_NET_GL620A is not set
