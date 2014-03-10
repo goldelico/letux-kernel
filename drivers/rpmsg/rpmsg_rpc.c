@@ -1311,6 +1311,7 @@ static void rppc_remove(struct rpmsg_channel *rpdev)
 	mutex_lock(&rppc_devices_lock);
 
 	rppc_remove_sysfs(rppcdev);
+	rppcdev->cur_func = 0;
 	kfree(rppcdev->signatures);
 
 	/* if there are no instances in the list, just teardown */
