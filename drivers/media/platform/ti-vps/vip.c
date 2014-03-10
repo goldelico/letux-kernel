@@ -98,7 +98,7 @@ static struct vip_srce_info srce_info[5] = {
 		.vb_part	= VIP_CHROMA,
 	},
 	[VIP_SRCE_RGB] = {
-		.base_channel	= VIP1_CHAN_NUM_PORT_A_RGB,
+		.base_channel	= VIP1_CHAN_NUM_PORT_B_RGB,
 		.vb_part	= VIP_LUMA,
 	},
 };
@@ -169,6 +169,14 @@ static struct vip_fmt vip_formats[] = {
 		.colorspace	= V4L2_COLORSPACE_SRGB,
 		.coplanar	= 0,
 		.vpdma_fmt	= { &vpdma_rgb_fmts[VPDMA_DATA_FMT_RGB24],
+				  },
+	},
+	{
+		.name		= "ARGB888 packed",
+		.fourcc		= V4L2_PIX_FMT_RGB32,
+		.colorspace	= V4L2_COLORSPACE_SRGB,
+		.coplanar	= 0,
+		.vpdma_fmt	= { &vpdma_rgb_fmts[VPDMA_DATA_FMT_ARGB32],
 				  },
 	},
 };
@@ -335,6 +343,33 @@ static void vip_top_vpdma_reset(struct vip_shared *shared)
 	insert_field(&val, 0, VIP_VPDMA_CLK_RESET_MASK,
 		VIP_VPDMA_CLK_RESET_SHIFT);
 	write_sreg(shared, VIP_CLK_RESET, val);
+}
+
+static void vip_xtra_set_repack_sel(struct vip_port *port, int repack_mode)
+{
+	u32 val;
+
+	if (port->port_id == 0 && port->dev->slice_id == VIP_SLICE1) {
+		val = read_vreg(port->dev, VIP1_PARSER_REG_OFFSET + VIP_PARSER_PORTA_1);
+		insert_field(&val, repack_mode, VIP_REPACK_SEL_MASK, VIP_REPACK_SEL_SHFT);
+
+		write_vreg(port->dev, VIP1_PARSER_REG_OFFSET + VIP_PARSER_PORTA_1, val);
+	} else if (port->port_id == 0 && port->dev->slice_id == VIP_SLICE2) {
+		val = read_vreg(port->dev, VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTA_1);
+		insert_field(&val, repack_mode, VIP_REPACK_SEL_MASK, VIP_REPACK_SEL_SHFT);
+
+		write_vreg(port->dev, VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTA_1, val);
+	} else if (port->port_id == 1 && port->dev->slice_id == VIP_SLICE1) {
+		val = read_vreg(port->dev, VIP1_PARSER_REG_OFFSET + VIP_PARSER_PORTB_1);
+		insert_field(&val, repack_mode, VIP_REPACK_SEL_MASK, VIP_REPACK_SEL_SHFT);
+
+		write_vreg(port->dev, VIP1_PARSER_REG_OFFSET + VIP_PARSER_PORTB_1, val);
+	} else if (port->port_id == 1 && port->dev->slice_id == VIP_SLICE2) {
+		val = read_vreg(port->dev, VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTB_1);
+		insert_field(&val, repack_mode, VIP_REPACK_SEL_MASK, VIP_REPACK_SEL_SHFT);
+
+		write_vreg(port->dev, VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTB_1, val);
+	}
 }
 
 static void vip_set_discrete_basic_mode(struct vip_port *port)
@@ -673,6 +708,19 @@ static void vip_set_slice_path(struct vip_dev *dev, enum data_path_select data_p
 			write_vreg(dev, VIP_VIP1_DATA_PATH_SELECT, val);
 		} else if (dev->slice_id == VIP_SLICE2) {
 			val |= VIP_MULTI_CHANNEL_SELECT;
+			insert_field(&val, data_path, VIP_DATAPATH_SELECT_MASK, VIP_DATAPATH_SELECT_SHFT);
+
+			write_vreg(dev, VIP_VIP2_DATA_PATH_SELECT, val);
+		}
+		break;
+	case VIP_RGB_OUT_LO_DATA_SELECT:
+		if (dev->slice_id == VIP_SLICE1) {
+			val |= VIP_RGB_OUT_LO_SRC_SELECT;
+			insert_field(&val, data_path, VIP_DATAPATH_SELECT_MASK, VIP_DATAPATH_SELECT_SHFT);
+
+			write_vreg(dev, VIP_VIP1_DATA_PATH_SELECT, val);
+		} else if (dev->slice_id == VIP_SLICE2) {
+			val |= VIP_RGB_OUT_LO_SRC_SELECT;
 			insert_field(&val, data_path, VIP_DATAPATH_SELECT_MASK, VIP_DATAPATH_SELECT_SHFT);
 
 			write_vreg(dev, VIP_VIP2_DATA_PATH_SELECT, val);
@@ -1110,8 +1158,17 @@ static int vip_try_fmt_vid_cap(struct file *file, void *priv,
  */
 static void set_fmt_params(struct vip_stream *stream)
 {
+	struct vip_dev *dev = stream->port->dev;
+
 	stream->sequence = 0;
 	stream->field = V4L2_FIELD_TOP;
+
+	if (stream->port->fmt->colorspace == V4L2_COLORSPACE_SRGB) {
+		vip_set_slice_path(dev, VIP_RGB_OUT_LO_DATA_SELECT);
+		/* Set alpha component in background color */
+		vpdma_set_bg_color(dev->shared->vpdma,
+			stream->port->fmt->vpdma_fmt[0], 0xff);
+	}
 }
 
 static int vip_s_fmt_vid_cap(struct file *file, void *priv,

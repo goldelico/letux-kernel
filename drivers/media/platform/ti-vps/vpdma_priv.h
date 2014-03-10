@@ -128,6 +128,7 @@
 #define VIP1_CHAN_NUM_PORT_B_LUMA	104
 #define VIP1_CHAN_NUM_PORT_B_CHROMA	105
 #define VIP1_CHAN_NUM_PORT_A_RGB	106
+#define VIP1_CHAN_NUM_PORT_B_RGB	107
 
 /*
  * a VPDMA address data block payload for a configuration descriptor needs to
