@@ -8,7 +8,7 @@
 
 /* we atart with the omap5-uevm tree */
 
-/include/ "omap5-uevm.dts"
+#include "omap5-uevm.dts"
 
 /* overwrite device model */
 
@@ -28,11 +28,20 @@
 
 };
 
-/* LCD panel - MIPI */
+/* LCD panel - MIPI-DSI */
+
+&dss {
+	status = "ok";
+};
 
 &dsi1 {
-	lcd {
-		compatible = "ti,r63311";
+
+	status = "ok";
+
+	vdd-supply = <&ldo4_reg>;
+
+	dsi1_out_ep: endpoint {
+		remote-endpoint = <&lcd_in>;
 		lanes = <
 			0       /* lane0+ = clk + */
 			1       /* lane0- = clk - */
@@ -45,16 +54,23 @@
 			8       /* lane4+ = data4 + */
 			9       /* lane4- = data4 - */
 		>;
+	};
 
-/* there is no ldo2_reg!		vdds_foo-supply = <&ldo2_reg>; */
-/* does not work as expected:	vdds_foo-supply = <&dsi1_panel_power>;
+	lcd {
+		compatible = "lg,lh500wf1";
 
-/*		gpios = <&gpio6 30 0>;	/* gpio6_190 = backlight enable */
+		label = "lcd";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pyra_display_pins>;
 
 		gpios =
-/*			<&gpio8 23 0>,	/* goip8_230 = display reset */
 			<&gpio6 16 0>,	/* goip6_176 = display reset */
 			<&gpio3 18 0>;	/* gpio3_18 = enable DC/DC */
+
+		lcd_in: endpoint {
+			remote-endpoint = <&dsi1_out_ep>;
+		};
 	};
 };
 
@@ -62,21 +78,24 @@
 /* add overlay pimmux for pyra on 5432evm */
 
 &omap5_pmx_core {
-
+	pinctrl-names = "default";
 	pinctrl-0 = <
 			/* copied from original */
 			&twl6040_pins
 			&mcpdm_pins
-			&dmic_pins
 			&mcbsp1_pins
 			&mcbsp2_pins
 			&usbhost_pins
+			&led_gpio_pins
+
+			/* n/a in 3.14 DT (but were in 3.8 kernel) - check if we need them or can re-introduce them
+			&dmic_pins
 			&dss_hdmi_pins
 			&tpd12s015_pins
 			&tca6424a_pins
 			&palmas_pins
-			&led_gpio_pins
 			&wl_pins
+			*/
 
 			/* new entries */
 			&pyra_button_pins

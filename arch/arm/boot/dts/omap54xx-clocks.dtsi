@@ -861,6 +861,14 @@
 		reg = <0x1420>;
 	};
 
+	dss_modmode_clk: dss_modmode_clk {
+		#clock-cells = <0>;
+		compatible = "ti,gate-clock";
+		clocks = <&dss_syc_gfclk_div>;
+		ti,bit-shift = <1>;
+		reg = <0x1420>;
+	};
+
 	gpio2_dbclk: gpio2_dbclk {
 		#clock-cells = <0>;
 		compatible = "ti,gate-clock";

@@ -5588,6 +5588,14 @@ static int omap_dsihw_probe(struct platform_device *dsidev)
 	if (r)
 		goto err_runtime_get;
 
+	{
+		dsi_write_reg(dsidev, DSI_SYSCONFIG, 1<<1);
+		mdelay(100);
+		REG_FLD_MOD(dsidev, DSI_SYSCONFIG, 1, 2, 2);
+		REG_FLD_MOD(dsidev, DSI_SYSCONFIG, 1, 4, 3);
+		REG_FLD_MOD(dsidev, DSI_SYSCONFIG, 3, 9, 8);
+	}
+
 	rev = dsi_read_reg(dsidev, DSI_REVISION);
 	dev_dbg(&dsidev->dev, "OMAP DSI rev %d.%d\n",
 	       FLD_GET(rev, 7, 4), FLD_GET(rev, 3, 0));
@@ -5703,9 +5711,16 @@ static const struct dsi_module_id_data dsi_of_data_omap4[] = {
 	{ },
 };
 
+static const struct dsi_module_id_data dsi_of_data_omap5[] = {
+	{ .address = 0x58004000, .id = 0, },
+	{ .address = 0x58009000, .id = 1, },
+	{ },
+};
+
 static const struct of_device_id dsi_of_match[] = {
 	{ .compatible = "ti,omap3-dsi", .data = dsi_of_data_omap3, },
 	{ .compatible = "ti,omap4-dsi", .data = dsi_of_data_omap4, },
+	{ .compatible = "ti,omap5-dsi", .data = dsi_of_data_omap5, },
 	{},
 };
 

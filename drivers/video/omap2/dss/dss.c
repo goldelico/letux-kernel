@@ -651,6 +651,8 @@ static int dss_get_clocks(void)
 
 	dss.dss_clk = clk;
 
+	clk_prepare_enable(clk);
+
 	if (dss.feat->parent_clk_name) {
 		clk = clk_get(NULL, dss.feat->parent_clk_name);
 		if (IS_ERR(clk)) {
@@ -663,6 +665,29 @@ static int dss_get_clocks(void)
 
 	dss.parent_clk = clk;
 
+	clk = devm_clk_get(&dss.pdev->dev, "c1");
+	if (IS_ERR(clk))
+		printk("C1 FAILED\n");
+	else
+		clk_prepare_enable(clk);
+
+	clk = devm_clk_get(&dss.pdev->dev, "c2");
+	if (IS_ERR(clk))
+		printk("C2 FAILED\n");
+	else
+		clk_prepare_enable(clk);
+
+	clk = devm_clk_get(&dss.pdev->dev, "c3");
+	if (IS_ERR(clk))
+		printk("C3 FAILED\n");
+	else
+		clk_prepare_enable(clk);
+
+	clk = devm_clk_get(&dss.pdev->dev, "mod");
+	if (IS_ERR(clk))
+		printk("MOD FAILED\n");
+	else
+		clk_prepare_enable(clk);
 	return 0;
 }
 
