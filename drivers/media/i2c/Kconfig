@@ -433,6 +433,17 @@ config VIDEO_OV1063X
 	  This is a Video4Linux2 sensor-level driver for the OmniVision
 	  OV1063X Sensor.
 
+config VIDEO_CAM_FPDLINK
+        tristate "FPDLink display camera"
+        depends on I2C && VIDEO_V4L2
+        depends on MEDIA_CAMERA_SUPPORT
+        ---help---
+          This is not a camera, it is the fpdlink display loopbacked
+	  using deserializer.
+
+	  This is a dummy driver which just allows to connect the fpdlink
+	  display output as a camera device.
+
 config VIDEO_TVP5158
         tristate "Analog video decoder TVP5158 support NTSC/PAL"
         depends on I2C && VIDEO_V4L2

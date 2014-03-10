@@ -479,6 +479,19 @@
 		ovnode = <&i2c2>;
 	};
 
+	fpdlink_camera {
+		compatible = "ti,fpdlink";
+		reg = <0x20>;
+		port {
+			cam_fpdlink: endpoint {
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <0>;
+				bus-width = <24>;
+			};
+		};
+       };
+
 	ov10633@37 {
 		compatible = "omnivision,ov10633";
 		reg = <0x37>;
@@ -741,7 +754,7 @@
 		TO enable RGB camera, uncomment this
 		pinctrl-0 = <&vin1a_pins &vin1a_d16_d23_pins>;
 	*/
-	pinctrl-0 = <&vin1a_pins &vin2a_pins>;
+	pinctrl-0 = <&vin1a_pins &vin1a_d16_d23_pins>;
 };
 
 &vip2 {
@@ -756,6 +769,10 @@
 };
 
 &vin1a {
+	endpoint@4 {
+		slave-mode;
+		remote-endpoint = <&cam_fpdlink>;
+	};
 	endpoint@0 {
 		slave-mode;
 		remote-endpoint = <&onboardLI>;
