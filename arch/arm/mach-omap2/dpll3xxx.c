@@ -623,24 +623,11 @@ void omap3_dpll_deny_idle(struct clk_hw_omap *clk)
 
 /* Clock control for DPLL outputs */
 
-/**
- * omap3_clkoutx2_recalc - recalculate DPLL X2 output virtual clock rate
- * @clk: DPLL output struct clk
- *
- * Using parent clock DPLL data, look up DPLL state.  If locked, set our
- * rate to the dpll_clk * 2; otherwise, just use dpll_clk.
- */
-unsigned long omap3_clkoutx2_recalc(struct clk_hw *hw,
-				    unsigned long parent_rate)
+/* Find the parent DPLL for the given clkoutx2 clock */
+static struct clk_hw_omap *omap3_find_clkoutx2_dpll(struct clk_hw *hw)
 {
-	const struct dpll_data *dd;
-	unsigned long rate;
-	u32 v;
 	struct clk_hw_omap *pclk = NULL;
 	struct clk *parent;
-
-	if (!parent_rate)
-		return 0;
 
 	/* Walk up the parents of clk, looking for a DPLL */
 	do {
@@ -656,8 +643,34 @@ unsigned long omap3_clkoutx2_recalc(struct clk_hw *hw,
 	/* clk does not have a DPLL as a parent?  error in the clock data */
 	if (!pclk) {
 		WARN_ON(1);
-		return 0;
+		return NULL;
 	}
+
+	return pclk;
+}
+
+/**
+ * omap3_clkoutx2_recalc - recalculate DPLL X2 output virtual clock rate
+ * @clk: DPLL output struct clk
+ *
+ * Using parent clock DPLL data, look up DPLL state.  If locked, set our
+ * rate to the dpll_clk * 2; otherwise, just use dpll_clk.
+ */
+unsigned long omap3_clkoutx2_recalc(struct clk_hw *hw,
+				    unsigned long parent_rate)
+{
+	const struct dpll_data *dd;
+	unsigned long rate;
+	u32 v;
+	struct clk_hw_omap *pclk = NULL;
+
+	if (!parent_rate)
+		return 0;
+
+	pclk = omap3_find_clkoutx2_dpll(hw);
+
+	if (!pclk)
+		return 0;
 
 	dd = pclk->dpll_data;
 
@@ -684,27 +697,14 @@ long omap3_clkoutx2_round_rate(struct clk_hw *hw, unsigned long rate,
 	const struct dpll_data *dd;
 	u32 v;
 	struct clk_hw_omap *pclk = NULL;
-	struct clk *parent;
 
 	if (!*prate)
 		return 0;
 
-	/* Walk up the parents of clk, looking for a DPLL */
-	do {
-		do {
-			parent = __clk_get_parent(hw->clk);
-			hw = __clk_get_hw(parent);
-		} while (hw && (__clk_get_flags(hw->clk) & CLK_IS_BASIC));
-		if (!hw)
-			break;
-		pclk = to_clk_hw_omap(hw);
-	} while (pclk && !pclk->dpll_data);
+	pclk = omap3_find_clkoutx2_dpll(hw);
 
-	/* clk does not have a DPLL as a parent?  error in the clock data */
-	if (!pclk) {
-		WARN_ON(1);
+	if (!pclk)
 		return 0;
-	}
 
 	dd = pclk->dpll_data;
 
