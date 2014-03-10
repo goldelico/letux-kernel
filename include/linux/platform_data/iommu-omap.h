@@ -37,12 +37,14 @@ struct omap_iommu_arch_data {
  *			look-aside buffer (TLB).
  * @has_bus_err_back:	flag to indicate if the mmu has bus-error back
  *			response enable functionality.
+ * @index:		index of the IOMMU within a sub-system
  */
 struct omap_mmu_dev_attr {
 	u32 da_start;
 	u32 da_end;
 	int nr_tlb_entries;
 	int has_bus_err_back;
+	u32 index;
 };
 
 struct iommu_platform_data {
@@ -52,6 +54,7 @@ struct iommu_platform_data {
 	u32 da_start;
 	u32 da_end;
 	int has_bus_err_back;
+	u32 index;
 
 	int (*assert_reset)(struct platform_device *pdev, const char *name);
 	int (*deassert_reset)(struct platform_device *pdev, const char *name);
