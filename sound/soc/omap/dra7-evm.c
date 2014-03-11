@@ -631,11 +631,8 @@ static int dra7_snd_probe(struct platform_device *pdev)
 	if (gpio_is_valid(gpio)) {
 		ret = devm_gpio_request_one(card->dev, gpio,
 					    GPIOF_OUT_INIT_LOW, "snd_gpio");
-		if (ret) {
-			dev_err(card->dev, "failed to request DAI sel gpio %d\n",
-				gpio);
-			return ret;
-		}
+		if (ret)
+			dev_warn(card->dev, "DAI sel gpio is not available\n");
 	}
 
 	ret = snd_soc_of_parse_card_name(card, "ti,model");
