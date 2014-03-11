@@ -266,6 +266,13 @@ int capture_image(struct file *fp, int init)
 	struct v4l2_buffer buf = {0};
 	int i;
 
+	struct v4l2_format fmt = {0};
+	fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	fmt.fmt.pix.width = 1280;
+	fmt.fmt.pix.height = 720;
+	fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_VYUY;
+	fmt.fmt.pix.field = V4L2_FIELD_NONE;
+
 	buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	buf.memory = V4L2_MEMORY_MMAP;
 	buf.index = 0;
@@ -278,6 +285,12 @@ int capture_image(struct file *fp, int init)
 		buf.index++;
 	}
 	buf.index = 0;
+	if ((-1 == (vip_s_fmt_vid_cap(fp,
+		(void *)VIDIOC_S_FMT, &fmt) && init))) {
+		pr_err("early vidioc_s_fmt failed");
+		return -1;
+	}
+
 	if ((-1 == (vb2_ioctl_streamon(fp,
 		(void *)VIDIOC_STREAMON, buf.type) && init))) {
 		pr_err("early_streamon failed");
