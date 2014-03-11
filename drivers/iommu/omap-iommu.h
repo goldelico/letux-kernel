@@ -53,6 +53,7 @@ struct omap_iommu {
 	void *ctx; /* iommu context: registres saved area */
 	u32 da_start;
 	u32 da_end;
+	u32 id;
 };
 
 struct cr_regs {
