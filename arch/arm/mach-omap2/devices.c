@@ -229,14 +229,15 @@ static struct platform_device omap3isp_device = {
 	.resource	= omap3isp_resources,
 };
 
-static struct omap_iommu_arch_data omap3_isp_iommu = {
-	.name = "mmu_isp",
+static struct omap_iommu_arch_data omap3_isp_iommu[] = {
+	{ .name = "mmu_isp", },
+	{ .name = NULL, },
 };
 
 int omap3_init_camera(struct isp_platform_data *pdata)
 {
 	omap3isp_device.dev.platform_data = pdata;
-	omap3isp_device.dev.archdata.iommu = &omap3_isp_iommu;
+	omap3isp_device.dev.archdata.iommu = omap3_isp_iommu;
 
 	return platform_device_register(&omap3isp_device);
 }
