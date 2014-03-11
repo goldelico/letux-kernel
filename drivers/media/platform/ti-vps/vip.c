@@ -1171,7 +1171,7 @@ static void set_fmt_params(struct vip_stream *stream)
 	}
 }
 
-static int vip_s_fmt_vid_cap(struct file *file, void *priv,
+int vip_s_fmt_vid_cap(struct file *file, void *priv,
 			     struct v4l2_format *f)
 {
 	struct vip_stream *stream = file2stream(file);
@@ -1186,11 +1186,12 @@ static int vip_s_fmt_vid_cap(struct file *file, void *priv,
 	if (ret)
 		return ret;
 
+#if 0
 	if (vb2_is_busy(vq)) {
 		v4l2_err(&dev->v4l2_dev, "%s queue busy\n", __func__);
 		return -EBUSY;
 	}
-
+#endif
 	port->fmt		= find_format(f);
 	stream->width		= f->fmt.pix.width;
 	stream->height		= f->fmt.pix.height;
@@ -1232,6 +1233,7 @@ static int vip_s_fmt_vid_cap(struct file *file, void *priv,
 
 	return 0;
 }
+EXPORT_SYMBOL(vip_s_fmt_vid_cap);
 
 static int vip_g_selection(struct file *file, void *fh,
 			   struct v4l2_selection *s)

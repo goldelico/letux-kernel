@@ -153,6 +153,8 @@ extern dma_addr_t dma_addr_global_complete;
 
 extern int vip_open(struct file *file);
 extern int vip_release(struct file *file);
+extern int vip_s_fmt_vid_cap(struct file *file, void *priv,
+			     struct v4l2_format *f);
 
 /*
  * VIP Enumerations
