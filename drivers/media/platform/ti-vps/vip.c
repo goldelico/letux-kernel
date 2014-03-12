@@ -98,7 +98,7 @@ static struct vip_srce_info srce_info[5] = {
 		.vb_part	= VIP_CHROMA,
 	},
 	[VIP_SRCE_RGB] = {
-		.base_channel	= VIP1_CHAN_NUM_PORT_A_RGB,
+		.base_channel	= VIP1_CHAN_NUM_PORT_B_RGB,
 		.vb_part	= VIP_LUMA,
 	},
 };
@@ -171,6 +171,14 @@ static struct vip_fmt vip_formats[] = {
 		.vpdma_fmt	= { &vpdma_rgb_fmts[VPDMA_DATA_FMT_RGB24],
 				  },
 	},
+	{
+		.name		= "ARGB888 packed",
+		.fourcc		= V4L2_PIX_FMT_RGB32,
+		.colorspace	= V4L2_COLORSPACE_SRGB,
+		.coplanar	= 0,
+		.vpdma_fmt	= { &vpdma_rgb_fmts[VPDMA_DATA_FMT_ARGB32],
+				  },
+	},
 };
 
 /*
@@ -216,6 +224,7 @@ static int alloc_port(struct vip_dev *, int);
 static void free_port(struct vip_port *);
 static int find_or_alloc_shared(struct platform_device *, struct vip_dev *,
 		struct resource *);
+static int vip_setup_parser(struct vip_port *port);
 
 static u32 read_sreg(struct vip_shared *shared, int offset)
 {
@@ -336,6 +345,33 @@ static void vip_top_vpdma_reset(struct vip_shared *shared)
 	write_sreg(shared, VIP_CLK_RESET, val);
 }
 
+static void vip_xtra_set_repack_sel(struct vip_port *port, int repack_mode)
+{
+	u32 val;
+
+	if (port->port_id == 0 && port->dev->slice_id == VIP_SLICE1) {
+		val = read_vreg(port->dev, VIP1_PARSER_REG_OFFSET + VIP_PARSER_PORTA_1);
+		insert_field(&val, repack_mode, VIP_REPACK_SEL_MASK, VIP_REPACK_SEL_SHFT);
+
+		write_vreg(port->dev, VIP1_PARSER_REG_OFFSET + VIP_PARSER_PORTA_1, val);
+	} else if (port->port_id == 0 && port->dev->slice_id == VIP_SLICE2) {
+		val = read_vreg(port->dev, VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTA_1);
+		insert_field(&val, repack_mode, VIP_REPACK_SEL_MASK, VIP_REPACK_SEL_SHFT);
+
+		write_vreg(port->dev, VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTA_1, val);
+	} else if (port->port_id == 1 && port->dev->slice_id == VIP_SLICE1) {
+		val = read_vreg(port->dev, VIP1_PARSER_REG_OFFSET + VIP_PARSER_PORTB_1);
+		insert_field(&val, repack_mode, VIP_REPACK_SEL_MASK, VIP_REPACK_SEL_SHFT);
+
+		write_vreg(port->dev, VIP1_PARSER_REG_OFFSET + VIP_PARSER_PORTB_1, val);
+	} else if (port->port_id == 1 && port->dev->slice_id == VIP_SLICE2) {
+		val = read_vreg(port->dev, VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTB_1);
+		insert_field(&val, repack_mode, VIP_REPACK_SEL_MASK, VIP_REPACK_SEL_SHFT);
+
+		write_vreg(port->dev, VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTB_1, val);
+	}
+}
+
 static void vip_set_discrete_basic_mode(struct vip_port *port)
 {
 	u32 val;
@@ -362,6 +398,44 @@ static void vip_set_discrete_basic_mode(struct vip_port *port)
 		write_vreg(port->dev, VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTB_0, val);
 	}
 }
+
+static void vip_set_pclk_polarity(struct vip_port *port, int polarity)
+{
+	u32 val;
+
+	if (port->port_id == 0 && port->dev->slice_id == VIP_SLICE1) {
+		val = read_vreg(port->dev, VIP1_PARSER_REG_OFFSET + VIP_PARSER_PORTA_0);
+		if (polarity)
+			val |= VIP_PIXCLK_EDGE_POLARITY;
+		else
+			val &= ~VIP_PIXCLK_EDGE_POLARITY;
+
+		write_vreg(port->dev, VIP1_PARSER_REG_OFFSET + VIP_PARSER_PORTA_0, val);
+	} else if (port->port_id == 0 && port->dev->slice_id == VIP_SLICE2) {
+		val = read_vreg(port->dev, VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTA_0);
+		if (polarity)
+			val |= VIP_PIXCLK_EDGE_POLARITY;
+		else
+			val &= ~VIP_PIXCLK_EDGE_POLARITY;
+		write_vreg(port->dev, VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTA_0, val);
+	} else if (port->port_id == 1 && port->dev->slice_id == VIP_SLICE1) {
+		val = read_vreg(port->dev, VIP1_PARSER_REG_OFFSET + VIP_PARSER_PORTB_0);
+		if (polarity)
+			val |= VIP_PIXCLK_EDGE_POLARITY;
+		else
+			val &= ~VIP_PIXCLK_EDGE_POLARITY;
+		write_vreg(port->dev, VIP1_PARSER_REG_OFFSET + VIP_PARSER_PORTB_0, val);
+	} else if (port->port_id == 1 && port->dev->slice_id == VIP_SLICE2) {
+		val = read_vreg(port->dev, VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTB_0);
+		if (polarity)
+			val |= VIP_PIXCLK_EDGE_POLARITY;
+		else
+			val &= ~VIP_PIXCLK_EDGE_POLARITY;
+
+		write_vreg(port->dev,  VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTB_0, val);
+	}
+}
+
 static void vip_set_vsync_polarity(struct vip_port *port, int polarity)
 {
 	u32 val;
@@ -471,6 +545,44 @@ static void vip_set_actvid_polarity(struct vip_port *port, int polarity)
 		write_vreg(port->dev,  VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTB_0, val);
 	}
 }
+
+static void vip_set_actvid_hsync_n(struct vip_port *port, int enable)
+{
+	u32 val;
+
+	if (port->port_id == 0 && port->dev->slice_id == VIP_SLICE1) {
+		val = read_vreg(port->dev, VIP1_PARSER_REG_OFFSET + VIP_PARSER_PORTA_0);
+		if (enable)
+			val |= VIP_USE_ACTVID_HSYNC_ONLY;
+		else
+			val &= ~VIP_USE_ACTVID_HSYNC_ONLY;
+
+		write_vreg(port->dev, VIP1_PARSER_REG_OFFSET + VIP_PARSER_PORTA_0, val);
+	} else if (port->port_id == 0 && port->dev->slice_id == VIP_SLICE2) {
+		val = read_vreg(port->dev, VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTA_0);
+		if (enable)
+			val |= VIP_USE_ACTVID_HSYNC_ONLY;
+		else
+			val &= ~VIP_USE_ACTVID_HSYNC_ONLY;
+		write_vreg(port->dev, VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTA_0, val);
+	} else if (port->port_id == 1 && port->dev->slice_id == VIP_SLICE1) {
+		val = read_vreg(port->dev, VIP1_PARSER_REG_OFFSET + VIP_PARSER_PORTB_0);
+		if (enable)
+			val |= VIP_USE_ACTVID_HSYNC_ONLY;
+		else
+			val &= ~VIP_USE_ACTVID_HSYNC_ONLY;
+		write_vreg(port->dev,  VIP1_PARSER_REG_OFFSET + VIP_PARSER_PORTB_0, val);
+	} else if (port->port_id == 1 && port->dev->slice_id == VIP_SLICE2) {
+		val = read_vreg(port->dev, VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTB_0);
+		if (enable)
+			val |= VIP_USE_ACTVID_HSYNC_ONLY;
+		else
+			val &= ~VIP_USE_ACTVID_HSYNC_ONLY;
+
+		write_vreg(port->dev,  VIP2_PARSER_REG_OFFSET + VIP_PARSER_PORTB_0, val);
+	}
+}
+
 
 static void vip_sync_type(struct vip_port *port, enum sync_types sync)
 {
@@ -596,6 +708,19 @@ static void vip_set_slice_path(struct vip_dev *dev, enum data_path_select data_p
 			write_vreg(dev, VIP_VIP1_DATA_PATH_SELECT, val);
 		} else if (dev->slice_id == VIP_SLICE2) {
 			val |= VIP_MULTI_CHANNEL_SELECT;
+			insert_field(&val, data_path, VIP_DATAPATH_SELECT_MASK, VIP_DATAPATH_SELECT_SHFT);
+
+			write_vreg(dev, VIP_VIP2_DATA_PATH_SELECT, val);
+		}
+		break;
+	case VIP_RGB_OUT_LO_DATA_SELECT:
+		if (dev->slice_id == VIP_SLICE1) {
+			val |= VIP_RGB_OUT_LO_SRC_SELECT;
+			insert_field(&val, data_path, VIP_DATAPATH_SELECT_MASK, VIP_DATAPATH_SELECT_SHFT);
+
+			write_vreg(dev, VIP_VIP1_DATA_PATH_SELECT, val);
+		} else if (dev->slice_id == VIP_SLICE2) {
+			val |= VIP_RGB_OUT_LO_SRC_SELECT;
 			insert_field(&val, data_path, VIP_DATAPATH_SELECT_MASK, VIP_DATAPATH_SELECT_SHFT);
 
 			write_vreg(dev, VIP_VIP2_DATA_PATH_SELECT, val);
@@ -1034,11 +1159,20 @@ static int vip_try_fmt_vid_cap(struct file *file, void *priv,
  */
 static void set_fmt_params(struct vip_stream *stream)
 {
+	struct vip_dev *dev = stream->port->dev;
+
 	stream->sequence = 0;
 	stream->field = V4L2_FIELD_TOP;
+
+	if (stream->port->fmt->colorspace == V4L2_COLORSPACE_SRGB) {
+		vip_set_slice_path(dev, VIP_RGB_OUT_LO_DATA_SELECT);
+		/* Set alpha component in background color */
+		vpdma_set_bg_color(dev->shared->vpdma,
+			stream->port->fmt->vpdma_fmt[0], 0xff);
+	}
 }
 
-static int vip_s_fmt_vid_cap(struct file *file, void *priv,
+int vip_s_fmt_vid_cap(struct file *file, void *priv,
 			     struct v4l2_format *f)
 {
 	struct vip_stream *stream = file2stream(file);
@@ -1053,11 +1187,12 @@ static int vip_s_fmt_vid_cap(struct file *file, void *priv,
 	if (ret)
 		return ret;
 
+#if 0
 	if (vb2_is_busy(vq)) {
 		v4l2_err(&dev->v4l2_dev, "%s queue busy\n", __func__);
 		return -EBUSY;
 	}
-
+#endif
 	port->fmt		= find_format(f);
 	stream->width		= f->fmt.pix.width;
 	stream->height		= f->fmt.pix.height;
@@ -1095,8 +1230,11 @@ static int vip_s_fmt_vid_cap(struct file *file, void *priv,
 		return ret;
 	}
 
+	vip_setup_parser(dev->ports[0]);
+
 	return 0;
 }
+EXPORT_SYMBOL(vip_s_fmt_vid_cap);
 
 static int vip_g_selection(struct file *file, void *fh,
 			   struct v4l2_selection *s)
@@ -1397,6 +1535,83 @@ static void vip_release_dev(struct vip_dev *dev)
 		vip_set_clock_enable(dev, 0);
 }
 
+static int vip_setup_parser(struct vip_port *port)
+{
+	struct vip_dev *dev = port->dev;
+	struct v4l2_of_endpoint *endpoint = dev->endpoint;
+	int iface = DUAL_8B_INTERFACE;
+	int sync_type;
+	unsigned int flags;
+
+	vip_set_port_enable(port, 1);
+
+	if (endpoint->bus_type == V4L2_MBUS_BT656) {
+		iface = DUAL_8B_INTERFACE;
+
+		/* Ideally, this should come from sensor
+		   port->fmt can be anything once CSC is enabled */
+		if (port->fmt->colorspace == V4L2_COLORSPACE_SRGB)
+			sync_type = EMBEDDED_SYNC_SINGLE_RGB_OR_YUV444;
+		else {
+			switch (endpoint->bus.parallel.num_channels) {
+			case 4:
+				sync_type = EMBEDDED_SYNC_4X_MULTIPLEXED_YUV422;
+			break;
+			case 2:
+				sync_type = EMBEDDED_SYNC_2X_MULTIPLEXED_YUV422;
+			break;
+			case 1:
+			default:
+				sync_type = EMBEDDED_SYNC_SINGLE_YUV422;
+			}
+		}
+
+	} else if (endpoint->bus_type == V4L2_MBUS_PARALLEL) {
+		switch (endpoint->bus.parallel.bus_width) {
+		case 24:
+			iface = SINGLE_24B_INTERFACE;
+		break;
+		case 16:
+			iface = SINGLE_16B_INTERFACE;
+		break;
+		case 8:
+		default:
+			iface = DUAL_8B_INTERFACE;
+		}
+
+		if (port->fmt->colorspace == V4L2_COLORSPACE_SRGB)
+			sync_type = DISCRETE_SYNC_SINGLE_RGB_24B;
+		else
+			sync_type = DISCRETE_SYNC_SINGLE_YUV422;
+
+		flags = endpoint->bus.parallel.flags;
+		if (flags & (V4L2_MBUS_HSYNC_ACTIVE_HIGH |
+			V4L2_MBUS_HSYNC_ACTIVE_LOW))
+			vip_set_vsync_polarity(port,
+				flags & V4L2_MBUS_HSYNC_ACTIVE_HIGH ? 1 : 0);
+
+		if (flags & (V4L2_MBUS_VSYNC_ACTIVE_HIGH |
+			V4L2_MBUS_VSYNC_ACTIVE_LOW))
+			vip_set_hsync_polarity(port,
+				flags & V4L2_MBUS_VSYNC_ACTIVE_HIGH ? 1 : 0);
+
+		if (flags & (V4L2_MBUS_PCLK_SAMPLE_RISING |
+			V4L2_MBUS_PCLK_SAMPLE_FALLING))
+			vip_set_pclk_polarity(port,
+				flags & V4L2_MBUS_PCLK_SAMPLE_RISING ? 1 : 0);
+
+		vip_set_actvid_polarity(port, 1);
+		vip_set_discrete_basic_mode(port);
+
+	} else {
+		v4l2_err(&port->dev->v4l2_dev, "Device doesn't support CSI2");
+		return -EINVAL;
+	}
+
+	vip_set_data_interface(port, iface);
+	vip_sync_type(port, sync_type);
+}
+
 static int vip_init_port(struct vip_port *port)
 {
 	int ret;
@@ -1460,13 +1675,6 @@ int vip_open(struct file *file)
 		vip_set_idle_mode(dev->shared, VIP_SMART_IDLE_MODE);
 		vip_set_standby_mode(dev->shared, VIP_SMART_STANDBY_MODE);
 		vip_set_slice_path(dev, VIP_MULTI_CHANNEL_DATA_SELECT);
-		vip_set_port_enable(dev->ports[0], 1);
-		vip_set_data_interface(dev->ports[0], DUAL_8B_INTERFACE);
-		vip_sync_type(dev->ports[0], DISCRETE_SYNC_SINGLE_YUV422);
-		vip_set_vsync_polarity(dev->ports[0], 1);
-		vip_set_hsync_polarity(dev->ports[0], 1);
-		vip_set_actvid_polarity(dev->ports[0], 1);
-		vip_set_discrete_basic_mode(dev->ports[0]);
 	}
 
 	ret = vip_init_port(port);
@@ -1753,6 +1961,10 @@ static int vip_async_bound(struct v4l2_async_notifier *notifier,
 			struct v4l2_async_subdev *asd)
 {
 	struct vip_dev *dev = notifier_to_vip_dev(notifier);
+	unsigned int idx = asd - &dev->config->asd[0];
+
+	if (idx > dev->config->asd_sizes)
+		return -EINVAL;
 
 	if (dev->sensor) {
 		if (asd < dev->sensor->asdl.asd) {
@@ -1767,7 +1979,8 @@ static int vip_async_bound(struct v4l2_async_notifier *notifier,
 	}
 
 	dev->sensor = subdev;
-	dev_notice(&dev->pdev->dev, "Using sensor i2c addr %x for capture\n",
+	dev->endpoint = &dev->config->endpoints[idx];
+	v4l2_info(&dev->v4l2_dev, "Using sensor i2c addr %x for capture\n",
 		asd->match.i2c.address);
 	return 0;
 }
@@ -1788,10 +2001,10 @@ static struct v4l2_async_subdev vip_sensor_subdev = {
 
 static int vip_of_probe(struct platform_device *pdev, struct vip_dev *dev)
 {
-	struct device_node *node = NULL;
-	struct i2c_client *sensor_i2c_client = NULL;
-	u8 sensor_addr = -1; /* Will be updated from device tree */
-	char *sensor_list;
+	struct device_node *ep_node = NULL, *port, *remote_ep, *sensor_node;
+	struct v4l2_of_endpoint *endpoint;
+	struct v4l2_async_subdev *asd;
+	u32 sensor_addr, regval = 0;
 	int ret, i = 0;
 
 	dev->config = kzalloc(sizeof(struct vip_config), GFP_KERNEL);
@@ -1799,30 +2012,39 @@ static int vip_of_probe(struct platform_device *pdev, struct vip_dev *dev)
 		return -ENOMEM;
 
 	dev->config->card_name = "DRA7XX VIP Driver";
-	sensor_list = dev->slice_id == VIP_SLICE1 ? "sensor0" : "sensor1";
 
-	for (i = 0; i < VIP_MAX_SUBDEV; i++) {
-		node = of_parse_phandle(pdev->dev.of_node, sensor_list, i);
-		if (node)
-			sensor_i2c_client = of_find_i2c_device_by_node(node);
-		else
+	while (i < VIP_MAX_SUBDEV) {
+
+		asd = &dev->config->asd[i];
+		endpoint = &dev->config->endpoints[i];
+		*asd = vip_sensor_subdev;
+
+		ep_node = v4l2_of_get_next_endpoint(pdev->dev.of_node, ep_node);
+		if (!ep_node)
 			break;
 
-		if (sensor_i2c_client) {
-			sensor_addr = sensor_i2c_client->addr;
-			dev_err(&pdev->dev, "Waiting for sensor I2C %x",
+		/* Check wheather the endpoint belongs to correct slice */
+		port = of_get_next_parent(ep_node);
+		of_property_read_u32(port, "reg", &regval);
+		if (regval != dev->slice_id)
+			continue;
+
+		sensor_node = v4l2_of_get_remote_port_parent(ep_node);
+		if (!sensor_node)
+			continue;
+
+		of_property_read_u32(sensor_node, "reg", &sensor_addr);
+		v4l2_err(&dev->v4l2_dev, "Waiting for I2C subdevice %x",
 				sensor_addr);
+		asd->match.i2c.address = sensor_addr;
 
-			dev->config->asd[i] = vip_sensor_subdev;
-			dev->config->asd[i].match.i2c.address = sensor_addr;
-			dev->config->asd_list[i] = &dev->config->asd[i];
-		}
-	}
+		remote_ep = of_parse_phandle(ep_node, "remote-endpoint", 0);
+		if (!remote_ep)
+			continue;
 
-	if (sensor_addr == -1) {
-		dev_err(&pdev->dev, "Sensor node not found");
-		ret = -EINVAL;
-		goto free_config;
+		v4l2_of_parse_endpoint(remote_ep, endpoint);
+
+		dev->config->asd_list[i++] = asd;
 	}
 
 	dev->config->asd_sizes = i;

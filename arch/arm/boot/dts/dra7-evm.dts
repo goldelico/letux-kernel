@@ -337,6 +337,20 @@
 		>;
 	};
 
+	vin1a_d16_d23_pins: pinmux_vin1a_d16_d23_pins {
+		pinctrl-single,pins = <
+			0x134   0x00040000 /* vin1a_d16 OUTPUT | MODE0 */
+			0x138   0x00040000 /* vin1a_d17 OUTPUT | MODE0 */
+			0x13C   0x00040000 /* vin1a_d18 OUTPUT | MODE0 */
+			0x140   0x00040000 /* vin1a_d19 OUTPUT | MODE0 */
+			0x144   0x00040000 /* vin1a_d20 OUTPUT | MODE0 */
+			0x148   0x00040000 /* vin1a_d21 OUTPUT | MODE0 */
+			0x14C   0x00040000 /* vin1a_d22 OUTPUT | MODE0 */
+			0x150   0x00040000 /* vin1a_d23 OUTPUT | MODE0 */
+
+		>;
+	};
+
 	vin2a_pins: pinmux_vin2a_pins {
 		pinctrl-single,pins = <
 			0x154	0x00040000 /* vin2a_clk0 OUTPUT | MODE0 */
@@ -623,6 +637,18 @@
 		ovnode = <&i2c2>;
 	};
 
+	camera_tvp5158: camera_tvp5158 {
+		compatible = "ti,tvp5158";
+		reg = <0x58>;
+		gpios = <&pcf_hdmi 3 0>,
+		       <&pcf_lcd3 8 0>;
+		port {
+			tvp5158: endpoint {
+			// No props incase of BT656
+			};
+		};
+       };
+
 	camera_ov10635: camera_ov10635 {
 		compatible = "ti,camera-ov10635";
 		gpios = <&pcf_hdmi 2 0>,
@@ -635,56 +661,133 @@
 		ovnode = <&i2c2>;
 	};
 
-	onboardLI: ov10633@37 {
+	fpdlink_camera {
+		compatible = "ti,fpdlink";
+		reg = <0x20>;
+		port {
+			cam_fpdlink: endpoint {
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <0>;
+				bus-width = <24>;
+			};
+		};
+       };
+
+	ov10633@37 {
 		compatible = "omnivision,ov10633";
 		reg = <0x37>;
+
+		port {
+			onboardLI: endpoint {
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <1>;
+			};
+		};
 	};
 
-        vis_ovcam: ov10635@30 {
+        ov10635@30 {
 		compatible = "omnivision,ov10635";
 		reg = <0x30>;
+
+		port {
+			vis_ovcam: endpoint {
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <1>;
+			};
+		};
 	};
 
-        cam1: ov10635@38 {
+        ov10635@38 {
 		compatible = "omnivision,ov10635";
 		reg = <0x38>;
 		deserializer = <&vis_des1>;
 		serializer = <&vis_ser1>;
+
+		port {
+			cam1: endpoint {
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <1>;
+			};
+		};
 	};
 
-	cam2: ov10635@39 {
+	ov10635@39 {
 		compatible = "omnivision,ov10635";
 		reg = <0x39>;
 		deserializer = <&vis_des2>;
 		serializer = <&vis_ser2>;
+
+		port {
+			cam2: endpoint {
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <1>;
+			};
+		};
 	};
 
-	cam3: ov10635@3a {
+	ov10635@3a {
 		compatible = "omnivision,ov10635";
 		reg = <0x3a>;
 		deserializer = <&vis_des3>;
 		serializer = <&vis_ser3>;
+
+		port {
+			cam3: endpoint {
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <1>;
+			};
+		};
 	};
 
-	cam4: ov10635@3b {
+	ov10635@3b {
 		compatible = "omnivision,ov10635";
 		reg = <0x3b>;
 		deserializer = <&vis_des4>;
 		serializer = <&vis_ser4>;
+
+		port {
+			cam4: endpoint {
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <1>;
+			};
+		};
 	};
 
-	cam5: ov10635@3c {
+	ov10635@3c {
 		compatible = "omnivision,ov10635";
 		reg = <0x3c>;
 		deserializer = <&vis_des5>;
 		serializer = <&vis_ser5>;
+
+		port {
+			cam5: endpoint {
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <1>;
+			};
+		};
 	};
 
-	cam6: ov10635@3d {
+	ov10635@3d {
 		compatible = "omnivision,ov10635";
 		reg = <0x3d>;
 		deserializer = <&vis_des6>;
 		serializer = <&vis_ser6>;
+
+		port {
+			cam6: endpoint {
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <1>;
+			};
+		};
 	};
 
 	hdmirec: hdmirec@31 {
@@ -852,24 +955,82 @@
 
 &vip1 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&vin1a_pins &vin2a_pins>;
-	sensor0 = <&onboardLI &vis_ovcam &cam1>;
-	sensor1 = <&cam2>;
+	/*
+		Pinmux conflict between 1a:16-23 & 2a:0-8
+		Either use full 32bit of vin1a or use 16bit vin1a and 8bitvin2a
+		TO enable RGB camera, uncomment this
+		pinctrl-0 = <&vin1a_pins &vin1a_d16_d23_pins>;
+	*/
+	pinctrl-0 = <&vin1a_pins &vin1a_d16_d23_pins>;
 };
 
 &vip2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&vin3a_pins>;
-	sensor0 = <&cam3>;
-	sensor1 = <&cam5>;
 };
 
 &vip3 {
 	pinctrl-names = "default";
 	//pinctrl-0 = <&vin5a_pins &vin6a_pins>;
 	pinctrl-0 = <&vin5a_pins>;
-	sensor0 = <&cam4>;
-	sensor1 = <&cam6>;
+};
+
+&vin1a {
+	endpoint@4 {
+		slave-mode;
+		remote-endpoint = <&cam_fpdlink>;
+	};
+	endpoint@0 {
+		slave-mode;
+		remote-endpoint = <&onboardLI>;
+	};
+	endpoint@1 {
+		slave-mode;
+		remote-endpoint = <&vis_ovcam>;
+	};
+	endpoint@2 {
+		slave-mode;
+		remote-endpoint = <&cam1>;
+	};
+	endpoint@3 {
+                slave-mode;
+                remote-endpoint = <&tvp5158>;
+        };
+};
+
+&vin2a {
+	endpoint@0 {
+		slave-mode;
+		remote-endpoint = <&cam2>;
+	};
+};
+
+&vin3a {
+	endpoint@0 {
+		slave-mode;
+		remote-endpoint = <&cam3>;
+	};
+};
+
+&vin4a {
+	endpoint@0 {
+		slave-mode;
+		remote-endpoint = <&cam5>;
+	};
+};
+
+&vin5a {
+	endpoint@0 {
+		slave-mode;
+		remote-endpoint = <&cam4>;
+	};
+};
+
+&vin6a {
+	endpoint@0 {
+		slave-mode;
+		remote-endpoint = <&cam6>;
+	};
 };
 
 &dpi1 {
