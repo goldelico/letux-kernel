@@ -4584,7 +4584,7 @@ static int dsi_enable_te(struct omap_dss_device *dssdev, bool enable)
 	dsi->te_enabled = enable;
 	return 0;
 }
-
+#define PRINT_VERBOSE_VM_TIMINGS
 #ifdef PRINT_VERBOSE_VM_TIMINGS
 static void print_dsi_vm(const char *str,
 		const struct omap_dss_dsi_videomode_timings *t)
