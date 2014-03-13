@@ -917,9 +917,17 @@ static int aic3x_hw_params(struct snd_pcm_substream *substream,
 				    PLL_ENABLE, PLL_ENABLE);
 	}
 
-	/* Route Left DAC to left channel input and
-	 * right DAC to right channel input */
-	data = (LDAC2LCH | RDAC2RCH);
+	if (params_channels(params) == 1) {
+		/* Route Left DAC to left channel input and
+		 * right DAC to left channel input (for single channel input)
+		 */
+		data = (LDAC2LCH | RDAC2LCH);
+	} else {
+		/* Route Left DAC to left channel input and
+		 * right DAC to right channel input
+		 */
+		data = (LDAC2LCH | RDAC2RCH);
+	}
 	data |= (fsref == 44100) ? FSREF_44100 : FSREF_48000;
 	if (params_rate(params) >= 64000)
 		data |= DUAL_RATE_MODE;
