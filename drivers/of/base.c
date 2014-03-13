@@ -339,6 +339,7 @@ struct device_node *of_get_next_parent(struct device_node *node)
 	read_unlock(&devtree_lock);
 	return parent;
 }
+EXPORT_SYMBOL(of_get_next_parent);
 
 /**
  *	of_get_next_child - Iterate a node childs
