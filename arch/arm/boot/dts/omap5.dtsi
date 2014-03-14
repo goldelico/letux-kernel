@@ -694,7 +694,8 @@
 			dwc3@4a030000 {
 				compatible = "synopsys,dwc3";
 				reg = <0x4a030000 0xcfff>;
-				interrupts = <0 92 4>;
+				interrupts = <0 92 4>,
+					     <0 93 4>;
 				usb-phy = <&usb2_phy>, <&usb3_phy>;
 				tx-fifo-resize;
 				dr_mode = "host";

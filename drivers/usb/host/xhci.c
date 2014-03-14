@@ -164,11 +164,12 @@ int xhci_reset(struct xhci_hcd *xhci)
 
 	xhci_dbg(xhci, "// Reset the HC\n");
 	command = xhci_readl(xhci, &xhci->op_regs->command);
-	command |= CMD_RESET;
+	command |= (xhci->quirks & XHCI_DWC3_OTG) ? CMD_LRESET : CMD_RESET;
 	xhci_writel(xhci, command, &xhci->op_regs->command);
 
 	ret = xhci_handshake(xhci, &xhci->op_regs->command,
-			CMD_RESET, 0, 10 * 1000 * 1000);
+			(xhci->quirks & XHCI_DWC3_OTG) ? CMD_LRESET : CMD_RESET,
+			0, 10 * 1000 * 1000);
 	if (ret)
 		return ret;
 
@@ -711,7 +712,8 @@ void xhci_stop(struct usb_hcd *hcd)
 	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
 
 	if (!usb_hcd_is_primary_hcd(hcd)) {
-		xhci_only_stop_hcd(xhci->shared_hcd);
+		if (!(xhci->quirks & XHCI_DWC3_OTG))
+			xhci_only_stop_hcd(xhci->shared_hcd);
 		return;
 	}
 
@@ -3505,10 +3507,12 @@ void xhci_free_dev(struct usb_hcd *hcd, struct usb_device *udev)
 
 	virt_dev = xhci->devs[udev->slot_id];
 
-	/* Stop any wayward timer functions (which may grab the lock) */
-	for (i = 0; i < 31; ++i) {
-		virt_dev->eps[i].ep_state &= ~EP_HALT_PENDING;
-		del_timer_sync(&virt_dev->eps[i].stop_cmd_timer);
+	if (virt_dev) {
+		/* Stop any wayward timer functions (which may grab the lock) */
+		for (i = 0; i < 31; ++i) {
+			virt_dev->eps[i].ep_state &= ~EP_HALT_PENDING;
+			del_timer_sync(&virt_dev->eps[i].stop_cmd_timer);
+		}
 	}
 
 	if (udev->usb2_hw_lpm_enabled) {
@@ -4607,6 +4611,7 @@ int xhci_gen_setup(struct usb_hcd *hcd, xhci_get_quirks_t get_quirks)
 	struct device		*dev = hcd->self.controller;
 	int			retval;
 	u32			temp;
+	bool			allocated = false;
 
 	/* Accept arbitrarily long scatter-gather lists */
 	hcd->self.sg_tablesize = ~0;
@@ -4614,10 +4619,15 @@ int xhci_gen_setup(struct usb_hcd *hcd, xhci_get_quirks_t get_quirks)
 	hcd->self.no_stop_on_short = 1;
 
 	if (usb_hcd_is_primary_hcd(hcd)) {
-		xhci = kzalloc(sizeof(struct xhci_hcd), GFP_KERNEL);
-		if (!xhci)
-			return -ENOMEM;
-		*((struct xhci_hcd **) hcd->hcd_priv) = xhci;
+		if (*((struct xhci_hcd **) hcd->hcd_priv) == NULL) {
+			xhci = kzalloc(sizeof(struct xhci_hcd), GFP_KERNEL);
+			if (!xhci)
+				return -ENOMEM;
+			*((struct xhci_hcd **) hcd->hcd_priv) = xhci;
+			allocated = true;
+		} else {
+			xhci = *((struct xhci_hcd **) hcd->hcd_priv);
+		}
 		xhci->main_hcd = hcd;
 		/* Mark the first roothub as being USB 2.0.
 		 * The xHCI driver will register the USB 3.0 roothub.
@@ -4696,7 +4706,10 @@ int xhci_gen_setup(struct usb_hcd *hcd, xhci_get_quirks_t get_quirks)
 	xhci_dbg(xhci, "Called HCD init\n");
 	return 0;
 error:
-	kfree(xhci);
+	if (allocated) {
+		*((struct xhci_hcd **) hcd->hcd_priv) = NULL;
+		kfree(xhci);
+	}
 	return retval;
 }
 

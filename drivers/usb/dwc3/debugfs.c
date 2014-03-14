@@ -52,6 +52,7 @@
 #include "gadget.h"
 #include "io.h"
 #include "debug.h"
+#include <linux/usb/dwc3-omap.h>
 
 #define dump_register(nm)				\
 {							\
@@ -372,6 +373,7 @@ static const struct debugfs_reg32 dwc3_regs[] = {
 
 	dump_register(OCFG),
 	dump_register(OCTL),
+	dump_register(OEVT),
 	dump_register(OEVTEN),
 	dump_register(OSTS),
 };
@@ -415,7 +417,8 @@ static int dwc3_mode_show(struct seq_file *s, void *unused)
 		seq_printf(s, "device\n");
 		break;
 	case DWC3_GCTL_PRTCAP_OTG:
-		seq_printf(s, "OTG\n");
+		seq_printf(s, "OTG DRD %s\n",
+			dwc->drd_state ? "device" : "host");
 		break;
 	default:
 		seq_printf(s, "UNKNOWN %08x\n", DWC3_GCTL_PRTCAP(reg));
@@ -452,7 +455,15 @@ static ssize_t dwc3_mode_write(struct file *file,
 
 	if (mode) {
 		spin_lock_irqsave(&dwc->lock, flags);
-		dwc3_set_mode(dwc, mode);
+		if (mode & DWC3_GCTL_PRTCAP_HOST) {
+			dwc3_omap_usbvbus_id_handler(dwc->dev->parent,
+				OMAP_DWC3_ID_GROUND);
+			mode = 0;
+		} else if (mode & DWC3_GCTL_PRTCAP_DEVICE) {
+			dwc3_omap_usbvbus_id_handler(dwc->dev->parent,
+				OMAP_DWC3_VBUS_VALID);
+			mode = 1;
+		}
 		spin_unlock_irqrestore(&dwc->lock, flags);
 	}
 	return count;
@@ -673,7 +684,6 @@ int dwc3_debugfs_init(struct dwc3 *dwc)
 		goto err1;
 	}
 
-#if IS_ENABLED(CONFIG_USB_DWC3_GADGET)
 	file = debugfs_create_file("mode", S_IRUGO | S_IWUSR, root,
 			dwc, &dwc3_mode_fops);
 	if (!file) {
@@ -694,7 +704,6 @@ int dwc3_debugfs_init(struct dwc3 *dwc)
 		ret = -ENOMEM;
 		goto err1;
 	}
-#endif
 
 	return 0;
 

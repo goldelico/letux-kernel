@@ -650,6 +650,7 @@ void usb_kick_khubd(struct usb_device *hdev)
 	if (hub)
 		kick_khubd(hub);
 }
+EXPORT_SYMBOL_GPL(usb_kick_khubd);
 
 /*
  * Let the USB core know that a USB 3.0 device has sent a Function Wake Device

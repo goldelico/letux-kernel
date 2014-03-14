@@ -811,6 +811,9 @@ static void xhci_free_tt_info(struct xhci_hcd *xhci,
 		return;
 	}
 
+	if (!xhci->rh_bw)
+		return;
+
 	tt_list_head = &(xhci->rh_bw[virt_dev->real_port - 1].tts);
 	list_for_each_entry_safe(tt_info, next, tt_list_head, tt_list) {
 		/* Multi-TT hubs will have more than one entry */
@@ -878,7 +881,8 @@ void xhci_free_virt_device(struct xhci_hcd *xhci, int slot_id)
 		return;
 
 	dev = xhci->devs[slot_id];
-	xhci->dcbaa->dev_context_ptrs[slot_id] = 0;
+	if (xhci->dcbaa)
+		xhci->dcbaa->dev_context_ptrs[slot_id] = 0;
 	if (!dev)
 		return;
 
@@ -888,9 +892,11 @@ void xhci_free_virt_device(struct xhci_hcd *xhci, int slot_id)
 	for (i = 0; i < 31; ++i) {
 		if (dev->eps[i].ring)
 			xhci_ring_free(xhci, dev->eps[i].ring);
+		dev->eps[i].ring = NULL;
 		if (dev->eps[i].stream_info)
 			xhci_free_stream_info(xhci,
 					dev->eps[i].stream_info);
+		dev->eps[i].stream_info = NULL;
 		/* Endpoints on the TT/root port lists should have been removed
 		 * when usb_disable_device() was called for the device.
 		 * We can't drop them anyway, because the udev might have gone
@@ -910,12 +916,15 @@ void xhci_free_virt_device(struct xhci_hcd *xhci, int slot_id)
 		for (i = 0; i < dev->num_rings_cached; i++)
 			xhci_ring_free(xhci, dev->ring_cache[i]);
 		kfree(dev->ring_cache);
+		dev->ring_cache = NULL;
 	}
 
 	if (dev->in_ctx)
 		xhci_free_container_ctx(xhci, dev->in_ctx);
+	dev->in_ctx = NULL;
 	if (dev->out_ctx)
 		xhci_free_container_ctx(xhci, dev->out_ctx);
+	dev->out_ctx = NULL;
 
 	kfree(xhci->devs[slot_id]);
 	xhci->devs[slot_id] = NULL;
@@ -1798,6 +1807,7 @@ void xhci_mem_cleanup(struct xhci_hcd *xhci)
 
 	if (xhci->lpm_command)
 		xhci_free_command(xhci, xhci->lpm_command);
+	xhci->lpm_command = NULL;
 	xhci->cmd_ring_reserved_trbs = 0;
 	if (xhci->cmd_ring)
 		xhci_ring_free(xhci, xhci->cmd_ring);
@@ -1868,9 +1878,13 @@ void xhci_mem_cleanup(struct xhci_hcd *xhci)
 	xhci->num_usb3_ports = 0;
 	xhci->num_active_eps = 0;
 	kfree(xhci->usb2_ports);
+	xhci->usb2_ports = NULL;
 	kfree(xhci->usb3_ports);
+	xhci->usb3_ports = NULL;
 	kfree(xhci->port_array);
+	xhci->port_array = NULL;
 	kfree(xhci->rh_bw);
+	xhci->rh_bw = NULL;
 
 	xhci->page_size = 0;
 	xhci->page_shift = 0;

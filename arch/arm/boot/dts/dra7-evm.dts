@@ -163,6 +163,19 @@
 		skip_init =<1>;
 	};
 
+	extcon1: gpio_usbvid_extcon1 {
+		compatible = "ti,gpio-usb-id";
+		gpios = <&pcf_lcd3 1 0>;
+		interrupt_mode = <0>;
+		dr_mode = "peripheral";
+	};
+
+	extcon2: gpio_usbvid_extcon2 {
+		compatible = "ti,gpio-usb-id";
+		gpios = <&pcf_lcd3 2 0>;
+		interrupt_mode = <0>;
+		dr_mode = "host";
+	};
 };
 
 &dra7_pmx_core {
@@ -182,6 +195,13 @@
 		&wlirq_pins
 		&radio_pins
 	>;
+
+	i2c1_pins: pinmux_i2c1_pins {
+		pinctrl-single,pins = <
+			0x400 0x60000	/* i2c1_sda */
+			0x404 0x60000	/* i2c1_scl */
+		>;
+	};
 
 	atl_pins: pinmux_atl_pins {
 		pinctrl-single,pins = <
@@ -231,8 +251,8 @@
 
 	usb_pins: pinmux_usb_pins {
                 pinctrl-single,pins = <
-			0x280	0xc0000	/* DRV1_VBUS SLEW | PULLDEN | MODE0 */
-			0x284	0xc0000	/* DRV2_VBUS SLEW | PULLDEN | MODE0 */
+			0x280	0xc000e	/* DRV1_VBUS SLEW | PULLDEN | MODE14 */
+			0x284	0xc000e	/* DRV2_VBUS SLEW | PULLDEN | MODE14 */
                 >;
         };
 
@@ -543,6 +563,8 @@
 
 &i2c1 {
 	clock-frequency = <400000>;
+        pinctrl-0 = <&i2c1_pins>;
+	status = "okay";
 
 	tps659038: tps659038@58 {
 		reg = <0x58>;
@@ -555,6 +577,10 @@
 		#gpio-cells = <2>;
 		/* HACK: Using n_latch in pcf8575 driver to "drive P10/11" to not hold ETH0/1 in reset */
 		n_latch = <0xfcfe>;
+		interrupt-parent = <&gpio6>;
+		interrupts = <11 2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
 	};
 
 	pcf_lcd3: pcf8575@21 {
@@ -563,6 +589,10 @@
 		gpio-controller;
 		#gpio-cells = <2>;
 		n_latch = <0x1408>;
+		interrupt-parent = <&gpio6>;
+		interrupts = <14 2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
 	};
 
 	/* TLC chip for LCD panel power and backlight */
@@ -911,6 +941,22 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&dcan2_pins>;
 	status = "okay";
+};
+
+&usb1 {
+	dr_mode = "peripheral";
+};
+
+&usb2 {
+	dr_mode = "host";
+};
+
+&omap_dwc31 {
+	extcon = <&extcon1>;
+};
+
+&omap_dwc32 {
+	extcon = <&extcon2>;
 };
 
 &mmc1 {
