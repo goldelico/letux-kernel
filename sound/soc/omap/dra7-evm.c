@@ -44,6 +44,13 @@ struct dra7_snd_data {
 	int always_on;
 	int media_shared;
 	int multichannel_shared;
+	const int *rates;
+	int num_rates;
+};
+
+static const int dra7_snd_rates[] = {
+	 5512,  8000, 11025, 16000, 22050,
+	32000, 44100, 48000, 88200, 96000,
 };
 
 static int dra7_mcasp_reparent(struct snd_soc_card *card,
@@ -88,6 +95,40 @@ static unsigned int dra7_get_bclk(struct snd_pcm_hw_params *params, int slots)
 	return sample_size * slots * rate;
 }
 
+static int dra7_snd_media_hwrule_rates(struct snd_pcm_hw_params *params,
+				       struct snd_pcm_hw_rule *rule)
+{
+	struct dra7_snd_data *card_data = rule->private;
+	unsigned int slots = card_data->media_slots;
+	unsigned int mclk_freq = card_data->media_mclk_freq;
+	unsigned int bclk_freq;
+	int width = snd_pcm_format_physical_width(params_format(params));
+	int rates[10], count = 0;
+	int i;
+
+	for (i = 0; i < card_data->num_rates; i++) {
+		bclk_freq = slots * card_data->rates[i] * width;
+		if ((mclk_freq % bclk_freq) == 0)
+			rates[count++] = card_data->rates[i];
+	}
+
+	return snd_interval_list(hw_param_interval(params, rule->var),
+				 count, rates, 0);
+}
+
+static int dra7_snd_media_startup(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_card *card = rtd->card;
+	struct dra7_snd_data *card_data = snd_soc_card_get_drvdata(card);
+
+	snd_pcm_hw_rule_add(substream->runtime, 0, SNDRV_PCM_HW_PARAM_RATE,
+			    dra7_snd_media_hwrule_rates, card_data,
+			    SNDRV_PCM_HW_PARAM_RATE, -1);
+
+	return 0;
+}
+
 static int dra7_snd_media_hw_params(struct snd_pcm_substream *substream,
 				    struct snd_pcm_hw_params *params)
 {
@@ -101,10 +142,6 @@ static int dra7_snd_media_hw_params(struct snd_pcm_substream *substream,
 	int ret;
 
 	bclk_freq = dra7_get_bclk(params, card_data->media_slots);
-	if (card_data->media_mclk_freq % bclk_freq) {
-		dev_err(card->dev, "can't produce exact sample freq\n");
-		return -EPERM;
-	}
 
 	/* McASP driver requires inverted frame for I2S */
 	ret = snd_soc_dai_set_fmt(cpu_dai, fmt | SND_SOC_DAIFMT_NB_IF);
@@ -147,14 +184,44 @@ static int dra7_snd_media_hw_params(struct snd_pcm_substream *substream,
 }
 
 static struct snd_soc_ops dra7_snd_media_ops = {
+	.startup = dra7_snd_media_startup,
 	.hw_params = dra7_snd_media_hw_params,
 };
 
+static int dra7_snd_multichannel_hwrule_rates(struct snd_pcm_hw_params *params,
+					      struct snd_pcm_hw_rule *rule)
+{
+	struct dra7_snd_data *card_data = rule->private;
+	unsigned int slots = card_data->multichannel_slots;
+	unsigned int mclk_freq = card_data->multichannel_mclk_freq;
+	unsigned int bclk_freq;
+	int width = snd_pcm_format_physical_width(params_format(params));
+	int rates[10], count = 0;
+	int i;
+
+	for (i = 0; i < card_data->num_rates; i++) {
+		bclk_freq = slots * card_data->rates[i] * width;
+		if ((mclk_freq % bclk_freq) == 0)
+			rates[count++] = card_data->rates[i];
+	}
+
+	return snd_interval_list(hw_param_interval(params, rule->var),
+				 count, rates, 0);
+}
+
 static int dra7_snd_multichannel_startup(struct snd_pcm_substream *substream)
 {
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_card *card = rtd->card;
+	struct dra7_snd_data *card_data = snd_soc_card_get_drvdata(card);
+
 	/* CODEC's TDM slot mask is always 2, aligned on 2-ch boundaries */
 	snd_pcm_hw_constraint_step(substream->runtime, 0,
 				   SNDRV_PCM_HW_PARAM_CHANNELS, 2);
+
+	snd_pcm_hw_rule_add(substream->runtime, 0, SNDRV_PCM_HW_PARAM_RATE,
+			    dra7_snd_multichannel_hwrule_rates, card_data,
+			    SNDRV_PCM_HW_PARAM_RATE, -1);
 
 	return 0;
 }
@@ -175,10 +242,6 @@ static int dra7_snd_multichannel_hw_params(struct snd_pcm_substream *substream,
 	int i, ret;
 
 	bclk_freq = dra7_get_bclk(params, card_data->multichannel_slots);
-	if (card_data->multichannel_mclk_freq % bclk_freq) {
-		dev_err(card->dev, "can't produce exact sample freq\n");
-		return -EPERM;
-	}
 
 	ret = snd_soc_dai_set_fmt(cpu_dai, fmt);
 	if (ret < 0) {
@@ -627,15 +690,15 @@ static int dra7_snd_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	card_data->rates = dra7_snd_rates;
+	card_data->num_rates = ARRAY_SIZE(dra7_snd_rates);
+
 	gpio = of_get_gpio(node, 0);
 	if (gpio_is_valid(gpio)) {
 		ret = devm_gpio_request_one(card->dev, gpio,
 					    GPIOF_OUT_INIT_LOW, "snd_gpio");
-		if (ret) {
-			dev_err(card->dev, "failed to request DAI sel gpio %d\n",
-				gpio);
-			return ret;
-		}
+		if (ret)
+			dev_warn(card->dev, "DAI sel gpio is not available\n");
 	}
 
 	ret = snd_soc_of_parse_card_name(card, "ti,model");
