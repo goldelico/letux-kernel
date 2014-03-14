@@ -55,6 +55,9 @@
 #include <linux/usb/gadget.h>
 #include <linux/usb/of.h>
 #include <linux/usb/dwc3-omap.h>
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
+
 
 #include "core.h"
 #include "gadget.h"
@@ -215,7 +218,7 @@ static int dwc3_alloc_event_buffers(struct dwc3 *dwc, unsigned length)
  *
  * Returns 0 on success otherwise negative errno.
  */
-static int dwc3_event_buffers_setup(struct dwc3 *dwc)
+int dwc3_event_buffers_setup(struct dwc3 *dwc)
 {
 	struct dwc3_event_buffer	*evt;
 	int				n;
@@ -240,7 +243,7 @@ static int dwc3_event_buffers_setup(struct dwc3 *dwc)
 	return 0;
 }
 
-static void dwc3_event_buffers_cleanup(struct dwc3 *dwc)
+void dwc3_event_buffers_cleanup(struct dwc3 *dwc)
 {
 	struct dwc3_event_buffer	*evt;
 	int				n;
@@ -519,14 +522,27 @@ static int dwc3_probe(struct platform_device *pdev)
 		dev_warn(dev, "dwc3 mode set to otg default\n");
 	}
 
+	if (mode != USB_DR_MODE_PERIPHERAL) {
+		dwc->gpio_count = of_gpio_count(node);
+		if (dwc->gpio_count < 1) {
+			dev_err(dev, "No gpio to configure\n");
+			goto err1;
+		}
+		dwc->gpio = of_get_gpio(node, 0);
+		if (gpio_is_valid(dwc->gpio)) {
+			gpio_request(dwc->gpio, NULL);
+			gpio_direction_output(dwc->gpio, 1);
+		}
+	}
+
 	switch (mode) {
 	case USB_DR_MODE_PERIPHERAL:
 		/* dra7xx-dwc3 in peripheral mode does not detect
 		 * vbus change event, hence set vbus and session
 		 * to cause connect to host-machine
 		 */
-		if (of_device_is_compatible(node, "synopsys,dra7xx-dwc3"))
-			dwc3_omap_vbus_connect(dwc->dev->parent);
+		dwc3_omap_usbvbus_id_handler(dwc->dev->parent,
+				OMAP_DWC3_VBUS_VALID);
 
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
 		ret = dwc3_gadget_init(dwc);
@@ -536,6 +552,8 @@ static int dwc3_probe(struct platform_device *pdev)
 		}
 		break;
 	case USB_DR_MODE_HOST:
+		dwc3_omap_usbvbus_id_handler(dwc->dev->parent,
+			OMAP_DWC3_ID_GROUND);
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_HOST);
 		ret = dwc3_host_init(dwc);
 		if (ret) {
@@ -545,15 +563,9 @@ static int dwc3_probe(struct platform_device *pdev)
 		break;
 	case USB_DR_MODE_OTG:
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_OTG);
-		ret = dwc3_host_init(dwc);
+		ret = dwc3_otg_init(dwc);
 		if (ret) {
-			dev_err(dev, "failed to initialize host\n");
-			goto err1;
-		}
-
-		ret = dwc3_gadget_init(dwc);
-		if (ret) {
-			dev_err(dev, "failed to initialize gadget\n");
+			dev_err(dev, "failed to initialize otg\n");
 			goto err1;
 		}
 		break;
