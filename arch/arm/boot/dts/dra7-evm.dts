@@ -202,7 +202,6 @@
 		&wl_pins
 		&wlirq_pins
 		&radio_pins
-		&mmc1_pins
 	>;
 
 	atl_pins: pinmux_atl_pins {
