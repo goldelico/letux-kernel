@@ -125,7 +125,8 @@
 // outputs
 #define GPIO_DISPEN 82			// enable (active high) +/-5 V TPS65133 - gpio3_82
 #define GPIO_PWM 190			// enable 18V backlight (active high) - timer9/gpio6_190 (out) - or input to track what the panel is doing
-#define GPIO_DISPLAY_RESET 176	// panel and devices reset (active low)/enable - gpio6_176
+#define GPIO_DISPLAY_RESET 176         // panel reset (active low)/enable - gpio6_176
+#define GPIO_DISPLAY_RESET 230         // device reset (active low)/enable - gpio8_230
 #define GPIO_3G_IGNITE 178		// start modem (active high pulse) - gpio6-178
 */
 
@@ -174,7 +175,8 @@
 
 	pyra_other_pins: pinmux_other_gpio_pins {
 		pinctrl-single,pins = <
-			0xca 0x00e	/* (OUTPUT | PULLDOWN | MODE6)	/* 0x108:[31:16] gpio6_178 - start modem */
+                       0xca 0x00e      /* (OUTPUT | PULLDOWN | MODE6)          /* 0x108:[31:16] gpio6_178 - start modem */
+                       0x138 0x11e     /* (INPUTENABLE | PULLUP | MODE6)       /* 0x178:[15:0]  gpio8_230 - reset I2C peripherals */
 		>;
 	};
 
