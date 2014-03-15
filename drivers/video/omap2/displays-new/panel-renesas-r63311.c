@@ -84,6 +84,7 @@
 /* horizontal * vertical * refresh */
 #define R63311_PIXELCLOCK		((1080+120) * (1920+80) * 60)	// Full HD * 60 fps
 /* panel has 16.7M colors = RGB888 = 3*8 bit per pixel */
+#define R63311_PIXELFORMAT		OMAP_DSS_DSI_FMT_RGB888	// 16.7M color = RGB888
 #define R63311_BIT_PER_PIXEL	(3*8)
 /* the panel can handle 4 lanes */
 #define R63311_LANES			4
@@ -110,9 +111,21 @@ static struct omap_video_timings r63311_timings = {
 	.vbp		= 60,
 };
 
+/*
+ * The DSI port needs its own hsync and vsync timing (to insert the sync
+ * packets at the right moments and protect the link from congestions or drain)
+ * or we will see loss of SYNC interrupts
+ *
+ * There is a timing calculator spreadsheet
+ * <http://e2e.ti.com/cfs-file.ashx/__key/communityserver-discussions-components-files/849/2555.Demistify-DSI-IF-_2D00_-Video-mode-registers-settings.xlsx, http://e2e.ti.com/support/omap/f/849/p/289189/1013573.aspx>
+ * linked by this  * discussion: <http://e2e.ti.com/support/omap/f/849/p/289189/1013573.aspx>
+ *
+ * It must be used to verify the clock settings (compare with cat /sys/kernel/debug/omapdss/clk)
+ * and to adjust the .h?? and .v?? values so that DISPC and DSI run at the same speed
+ */
 static struct omap_dss_dsi_config r63311_dsi_config = {
 	.mode = OMAP_DSS_DSI_VIDEO_MODE,
-	.pixel_format = OMAP_DSS_DSI_FMT_RGB888,
+	.pixel_format = R63311_PIXELFORMAT,
 	.timings = &r63311_timings,
 	.hs_clk_min = R63311_HS_CLOCK - 10000,
 	.hs_clk_max = R63311_HS_CLOCK + 10000,
@@ -130,9 +143,11 @@ struct panel_drv_data {
 
 	struct mutex lock;
 
+	struct backlight_device *bldev;
+	int bl;
+
 	int	reset_gpio;
 	int	regulator_gpio;
-	int	bl_gpio;
 
 	bool enabled;
 
@@ -282,8 +297,14 @@ static struct r63311_reg init_seq[] = {
 		}, 8
 	},
 #endif
-	//	{ { DCS_CTRL_DISPLAY, 0x24}, 2 },	// LEDPWM ON
-	//	{ { DCS_WRITE_CABC, 0x00}, 2 },		// CABC off
+#if 1
+	{ {	0xce,
+		0x00, 0x01, 0x40, 0xc1, 0x00,
+		0x00, 0x00
+	}, 8 },
+	{ { DCS_CTRL_DISPLAY, 0x24}, 2 },	// LEDPWM ON
+	{ { DCS_WRITE_CABC, 0x00}, 2 },		// CABC off
+#endif
 #if 0	/* switch panel to test mode */
 	{	{
 			MCS_IFACESET,
@@ -298,9 +319,31 @@ static struct r63311_reg init_seq[] = {
 			0x77
 		}, 7
 	},
+	{ {	MIPI_DCS_NOP }, 1 },
 	{ { MIPI_DCS_SET_DISPLAY_ON, }, 1 },
+	{ {	MIPI_DCS_NOP }, 1 },
 	{ { MIPI_DCS_EXIT_SLEEP_MODE, }, 1 },
 #endif
+};
+
+static struct r63311_reg test_image[] = {
+	/* switch panel to test mode */
+	{ { MIPI_DCS_ENTER_SLEEP_MODE, }, 1 },
+	{ { MIPI_DCS_SET_DISPLAY_OFF, }, 1 },
+	{ {	MIPI_DCS_NOP }, 1 },
+	{ {	MCS_IFACESET,
+		// test pattern needs internal oscillator
+		0x04, 0x00, 0x00, 0x00, 0x00,
+		0x00
+	}, 7 },
+	{ {	0xde,
+		0x01, 0xff, 0x07, 0x10, 0x00,
+		0x77
+	}, 7 },
+	{ {	MIPI_DCS_NOP }, 1 },
+	{ { MIPI_DCS_SET_DISPLAY_ON, }, 1 },
+	{ {	MIPI_DCS_NOP }, 1 },
+	{ { MIPI_DCS_EXIT_SLEEP_MODE, }, 1 },
 };
 
 static struct r63311_reg sleep_out[] = {
@@ -545,6 +588,242 @@ static int r63311_update_brightness(struct omap_dss_device *dssdev, int level)
 	return 0;
 }
 
+static int r63311_set_brightness(struct backlight_device *bd)
+{
+	struct omap_dss_device *dssdev = dev_get_drvdata(&bd->dev);
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+	int bl = bd->props.brightness;
+	int r = 0;
+	printk("dsi: r63311_set_brightness(%d)\n", bl);
+
+	if (bl == ddata->bl)
+		return 0;
+
+	mutex_lock(&ddata->lock);
+
+	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE) {
+		struct omap_dss_device *in = ddata->in;
+		in->ops.dsi->bus_lock(in);
+
+		r = r63311_update_brightness(dssdev, bl);
+		if (!r)
+			ddata->bl = bl;
+
+		in->ops.dsi->bus_unlock(in);
+	}
+
+	mutex_unlock(&ddata->lock);
+
+	return r;
+}
+
+static int r63311_get_brightness(struct backlight_device *bd)
+{
+	struct omap_dss_device *dssdev = dev_get_drvdata(&bd->dev);
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+	u8 data[16];
+	u16 brightness = 0;
+	int r = 0;
+	printk("dsi: r63311_get_brightness()\n");
+	if (dssdev->state != OMAP_DSS_DISPLAY_ACTIVE) {
+		printk("dsi: display is not active\n");
+		return 0;
+	}
+
+	mutex_lock(&ddata->lock);
+
+	if (ddata->enabled) {
+		struct omap_dss_device *in = ddata->in;
+		in->ops.dsi->bus_lock(in);
+		r = r63311_read(dssdev, DCS_READ_BRIGHTNESS, data, 2);
+		brightness = (data[0]<<4) + (data[1]>>4);
+
+		in->ops.dsi->bus_unlock(in);
+	}
+
+	mutex_unlock(&ddata->lock);
+
+	if(r < 0) {
+		printk("dsi: read error\n");
+		return bd->props.brightness;
+	}
+	printk("dsi: read %d\n", brightness);
+	return brightness>>4;	// get to range 0..255
+}
+
+static const struct backlight_ops r63311_backlight_ops  = {
+	.get_brightness = r63311_get_brightness,
+	.update_status = r63311_set_brightness,
+};
+
+/* sysfs callbacks */
+
+static int r63311_start(struct omap_dss_device *dssdev);
+static void r63311_stop(struct omap_dss_device *dssdev);
+
+static ssize_t set_dcs(struct device *dev,
+					   struct device_attribute *attr,
+					   const char *buf, size_t count)
+{
+	int r = 0;
+#if 0	// we need to find out how to get the omap_dss_device from the struct device
+	u8 data[24];
+	u8 d = 0;
+	int argc = 0;
+	int second = 0;
+	int read = 0;
+	struct omap_dss_device *dssdev = to_dss_device(dev);
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+	const char *p;
+
+	if(strncmp(buf, "start", 5) == 0)
+		{
+		int r = r63311_start(dssdev);
+		return r < 0 ? r : count;
+		}
+	if(strncmp(buf, "stop", 4) == 0)
+		{
+		r63311_stop(dssdev);
+		return count;
+		}
+	if(strncmp(buf, "reset", 5) == 0)
+		{
+		r63311_reset(dssdev, 0);
+		return count;
+		}
+	if(strncmp(buf, "noreset", 7) == 0)
+		{
+		r63311_reset(dssdev, 1);
+		return count;
+		}
+	if(strncmp(buf, "power", 5) == 0)
+		{
+		r63311_regulator(dssdev, 1);
+		return count;
+		}
+	if(strncmp(buf, "nopower", 7) == 0)
+		{
+		r63311_regulator(dssdev, 0);
+		return count;
+		}
+	if(strncmp(buf, "status", 6) == 0) {
+		mutex_lock(&ddata->lock);
+		if (ddata->enabled) {
+			struct omap_dss_device *in = ddata->in;
+			in->ops.dsi->bus_lock(in);
+			r = r63311_read(dssdev, 0xbf, data, 5);	// R63311 chip ID
+			r = r63311_read(dssdev, 0xb0, data, 1);	// MCS access protection
+			r = r63311_read(dssdev, 0xb5, data, 3);	// checksum and ECC errors
+			r = r63311_read(dssdev, 0x04, data, 16);	// should end in 0xff and be Supplier ID and Effective Data (i.e. some serial number)
+			r = r63311_read(dssdev, DCS_READ_NUM_ERRORS, data, 1);	// dsi errors
+			//		r = r63311_read(dssdev, 0x06, data, 1);	// red
+			//		r = r63311_read(dssdev, 0x07, data, 1);	// green
+			//		r = r63311_read(dssdev, 0x08, data, 1);	// blue
+			r = r63311_read(dssdev, 0x0a, data, 1);	// power mode 0x10=sleep off; 0x04=display on
+			//		r = r63311_read(dssdev, 0x0b, data, 1);	// address mode
+			r = r63311_read(dssdev, MIPI_DCS_GET_PIXEL_FORMAT, data, 1);	// pixel format 0x70 = RGB888
+			r = r63311_read(dssdev, 0x0d, data, 1);	// display mode	0x80 = command 0x34/0x35
+			r = r63311_read(dssdev, 0x0e, data, 1);	// signal mode
+			r = r63311_read(dssdev, MIPI_DCS_GET_DIAGNOSTIC_RESULT, data, 1);	// diagnostic 0x40 = functional
+			r = r63311_read(dssdev, 0x45, data, 2);	// get scanline
+			r = r63311_read(dssdev, 0x52, data, 2);	// brightness
+			r = r63311_read(dssdev, 0x56, data, 1);	// adaptive brightness
+			r = r63311_read(dssdev, 0x5f, data, 2);	// CABC minimum
+			r = r63311_read(dssdev, 0x68, data, 1);	// auto brightness
+			r = r63311_read(dssdev, 0xa1, data, 16);	// should end in 0xff and be Supplier ID and Effective Data (i.e. some serial number)
+			r = r63311_read(dssdev, 0xda, data, 1);	// ID1
+			r = r63311_read(dssdev, 0xdb, data, 1);	// ID2
+			r = r63311_read(dssdev, 0xdc, data, 1);	// ID3
+			in->ops.dsi->bus_unlock(in);
+		}
+		mutex_unlock(&ddata->lock);
+		return r < 0 ? r : count;
+	}
+	if(strncmp(buf, "test", 4) == 0)
+		{
+		mutex_lock(&ddata->lock);
+		if (ddata->enabled) {
+			struct omap_dss_device *in = ddata->in;
+			in->ops.dsi->bus_lock(in);
+			r = r63311_write_sequence(dssdev, test_image, ARRAY_SIZE(test_image));
+			in->ops.dsi->bus_unlock(in);
+		}
+		mutex_unlock(&ddata->lock);
+		return r < 0 ? r : count;
+		}
+
+	for(p = buf; p < buf + count && argc < sizeof(data); p++)
+		{
+
+//		printk("  2nd:%d argc:%d read:%d %c\n", second, argc, read, *p);
+
+		if(!second && (*p == ' ' || *p == '\t' || *p == '\n'))
+			continue;
+		if(!second && argc >= 1 && *p == 'r')	// r must follow the address (or another r)
+			{
+			data[argc++]=0;
+			read = 1;
+			continue;
+			}
+		if(read && argc > 1)
+			return -EIO;	// no hex digits after the first r
+		if(*p >= '0' && *p <= '9')
+			d=(d<<4) + (*p-'0');
+		else if(*p >= 'a' && *p <= 'f')
+			d=(d<<4) + (*p-'a') + 10;
+		else if(*p >= 'A' && *p <= 'F')
+			d=(d<<4) + (*p-'A') + 10;
+		else
+			return -EIO;
+		if(second)
+			data[argc++]=d;	// store every second digit
+		second ^= 1;
+		}
+
+//	printk("  2nd:%d argc:%d ---\n", second, argc);
+
+	if(second)
+		return -EIO;	// not an even number of digits
+
+	if(argc == 0)
+		return -EIO;	// missing address
+
+	mutex_lock(&ddata->lock);
+	if (lg_d->enabled) {
+		struct omap_dss_device *in = ddata->in;
+		in->ops.dsi->bus_lock(in);
+
+		if(read)
+			r = r63311_read(dssdev, data[0], &data[1], argc-1);
+		else
+			r = r63311_write(dssdev, data, argc);
+
+		in->ops.dsi->bus_unlock(in);
+	} else
+		r=-EIO;	// not enabled
+	mutex_unlock(&ddata->lock);
+
+#endif
+	return r < 0 ? r : count;
+}
+static ssize_t show_dcs(struct device *dev,
+						struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "XX XX ... | XX r ... | test | status | start | stop | reset | noreset | regulator | noregulator\n");
+}
+
+static DEVICE_ATTR(dcs, S_IWUSR | S_IRUGO,
+				   show_dcs, set_dcs);
+
+static struct attribute *r63311_attributes[] = {
+	&dev_attr_dcs.attr,
+	NULL
+};
+
+static const struct attribute_group r63311_attr_group = {
+	.attrs = r63311_attributes,
+};
+
 static int r63311_power_on(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
@@ -606,9 +885,6 @@ static int r63311_power_on(struct omap_dss_device *dssdev)
 	if (r)
 		goto err;
 #endif
-
-	gpio_set_value(ddata->bl_gpio, 1);
-
 	ddata->enabled = true;
 	printk("dsi: powered on()\n");
 
@@ -638,9 +914,7 @@ static void r63311_power_off(struct omap_dss_device *dssdev)
 
 	printk("dsi: r63311_power_off()\n");
 
-	gpio_set_value(ddata->bl_gpio, 0);
-
-	ddata->enabled = 0;
+	ddata->enabled = false;
 	in->ops.dsi->disable_video_output(in, ddata->pixel_channel);
 	in->ops.dsi->disable(in, false, false);
 	mdelay(10);
@@ -649,9 +923,6 @@ static void r63311_power_off(struct omap_dss_device *dssdev)
 	mdelay(20);
 	/* here we can also power off IOVCC */
 }
-
-// this driver API has been simplified in later (Linux 3.12ff) DSS implementations
-// so there is no point to improve this e.g. to send the display to sleep mode
 
 static int r63311_start(struct omap_dss_device *dssdev)
 {
@@ -756,13 +1027,6 @@ static int r63311_probe_of(struct platform_device *pdev,
 	}
 	ddata->regulator_gpio = r;
 
-	r = of_get_gpio(node, 2);
-	if (!gpio_is_valid(r)) {
-		dev_err(&pdev->dev, "failed to parse bl gpio\n");
-		return r;
-	}
-	ddata->bl_gpio = r;
-
 	in = omapdss_of_find_source_for_first_ep(node);
 	if (IS_ERR(in)) {
 		dev_err(&pdev->dev, "failed to find video source\n");
@@ -814,13 +1078,6 @@ static int r63311_probe(struct platform_device *pdev)
 				  GPIOF_DIR_OUT, "lcd DC/DC regulator");
 	if (r) {
 		dev_err(dev, "failed to request regulator gpio\n");
-		return r;
-	}
-
-	r = devm_gpio_request_one(dev, ddata->bl_gpio,
-				  GPIOF_DIR_OUT, "lcd BL regulator");
-	if (r) {
-		dev_err(dev, "failed to request BL gpio\n");
 		return r;
 	}
 
