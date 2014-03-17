@@ -251,6 +251,10 @@
 			codec {
 			};
 		};
+		twl_power: power {
+			compatible = "ti,twl4030-power";
+			ti,use_poweroff;
+		};
 		vaux4: regulator-vaux4 {
 			compatible = "ti,twl4030-vaux4";
 			regulator-min-microvolt = <2800000>;
