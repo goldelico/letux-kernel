@@ -25,6 +25,10 @@
 #define VIP_MODULE_NAME "dra7xx-vip"
 #define VIP_INPUT_NAME "Vin0"
 
+static int debug;
+module_param(debug, int, 0644);
+MODULE_PARM_DESC(debug, "debug level (0-2)");
+
 MODULE_DESCRIPTION("TI DRA7xx VIP driver");
 MODULE_AUTHOR("Dale Farnsworth, <dale@farnsworth.org>");
 MODULE_LICENSE("GPL");
@@ -900,7 +904,7 @@ static void vip_active_buf_next(struct vip_stream *stream)
 
 	spin_lock_irqsave(&dev->slock, flags);
 	if (list_empty(&stream->vidq)) {
-		v4l2_err(&dev->v4l2_dev, "%s No buffers to queue, dropping frame, Queue faster or increase no of buffers");
+		v4l2_dbg(1, debug, &dev->v4l2_dev, "%s No buffers to queue, dropping frame, Queue faster or increase no of buffers");
 		buf = kzalloc(sizeof(*buf), GFP_KERNEL);
                 if (!buf) {
                     v4l2_err(&dev->v4l2_dev, "No memory!!");
