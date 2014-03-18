@@ -1720,8 +1720,7 @@ int vip_release(struct file *file)
 	vip_stop_streaming(q);
 	vip_release_port(stream->port);
 
-	v4l2_fh_del(&stream->fh);
-	v4l2_fh_exit(&stream->fh);
+	v4l2_fh_release(&stream->fh);
 	vb2_queue_release(q);
 
 	dma_addr_global_complete = (dma_addr_t)NULL;
