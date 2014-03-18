@@ -951,11 +951,17 @@ static int cpsw_ndo_open(struct net_device *ndev)
 
 static void cpsw_slave_stop(struct cpsw_slave *slave, struct cpsw_priv *priv)
 {
+	u32 slave_port;
+
+	slave_port = cpsw_get_slave_port(priv, slave->slave_num);
+
 	if (!slave->phy)
 		return;
 	phy_stop(slave->phy);
 	phy_disconnect(slave->phy);
 	slave->phy = NULL;
+	cpsw_ale_control_set(priv->ale, slave_port,
+			     ALE_PORT_STATE, ALE_PORT_STATE_DISABLE);
 }
 
 static int cpsw_ndo_stop(struct net_device *ndev)

@@ -227,7 +227,7 @@ static int gpio_usbvid_probe(struct platform_device *pdev)
 	struct gpio_usbvid *gpio_usbvid;
 	int ret, gpio;
 	int intr_mode;
-	u8 mode;
+	enum usb_dr_mode  mode;
 
 	if (!node)
 		return -EINVAL;
@@ -288,10 +288,17 @@ static int gpio_usbvid_probe(struct platform_device *pdev)
 		}
 	}
 
+	ret = extcon_dev_register(&gpio_usbvid->edev, gpio_usbvid->dev);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to register extcon device\n");
+		return ret;
+	}
+
 	if (intr_mode) {
 		ret = gpio_usbvid_request_irq(gpio_usbvid);
 		if (ret)
 			return ret;
+		gpio_usbvid_set_initial_state(gpio_usbvid);
 	} else {
 		gpio_usbvid->id_current = -1;
 		gpio_usbvid->usbid_thread = kthread_run(poll_usbvbus_id_task,
@@ -300,16 +307,7 @@ static int gpio_usbvid_probe(struct platform_device *pdev)
 			return -1;
 	}
 
-	ret = extcon_dev_register(&gpio_usbvid->edev, gpio_usbvid->dev);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to register extcon device\n");
-		return ret;
-	}
-
-	gpio_usbvid_set_initial_state(gpio_usbvid);
-
 	return 0;
-
 }
 
 static int gpio_usbvid_remove(struct platform_device *pdev)
