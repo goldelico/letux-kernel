@@ -67,10 +67,14 @@
  * M & N divider values. The output clock values are based on the OPP_NOM
  * frequencies for DSP and IVAHD subsystems.
  */
+#ifdef CONFIG_IVA_HIGH_OPP
+#define OMAP5_DPLL_IVA_DEFFREQ				1062400000
+#define OMAP5_IVA_GCLK_NOMFREQ				531200000
+#else
 #define OMAP5_DPLL_IVA_DEFFREQ				1164800000
-#define OMAP5_DSP_GCLK_NOMFREQ				466000000
 #define OMAP5_IVA_GCLK_NOMFREQ				388300000
-
+#endif
+#define OMAP5_DSP_GCLK_NOMFREQ				466000000
 /* Root clocks */
 
 DEFINE_CLK_FIXED_RATE(pad_clks_src_ck, CLK_IS_ROOT, 12000000, 0x0);
