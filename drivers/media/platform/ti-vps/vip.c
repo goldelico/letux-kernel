@@ -1792,21 +1792,13 @@ static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
 	*vfd = vip_videodev;
 	vfd->v4l2_dev = &dev->v4l2_dev;
 	vfd->queue = q;
+	vfd->num = -1;
 
 	vfd->lock = &dev->mutex;
 	video_set_drvdata(vfd, stream);
 
-	ret = video_register_device(vfd, vfl_type, -1);
-	if (ret) {
-		v4l2_err(&dev->v4l2_dev, "Failed to register video device\n");
-		goto do_free_stream;
-	}
-
-	snprintf(vfd->name, sizeof(vfd->name), "%s", vip_videodev.name);
 	stream->vfd = vfd;
 
-	v4l2_info(&dev->v4l2_dev, VIP_MODULE_NAME
-			" Device registered as /dev/video%d\n", vfd->num);
 	return 0;
 
 do_free_stream:
@@ -1965,6 +1957,8 @@ static int vip_async_bound(struct v4l2_async_notifier *notifier,
 {
 	struct vip_dev *dev = notifier_to_vip_dev(notifier);
 	unsigned int idx = asd - &dev->config->asd[0];
+	struct video_device *vfd;
+	int ret;
 
 	if (idx > dev->config->asd_sizes)
 		return -EINVAL;
@@ -1979,6 +1973,21 @@ static int vip_async_bound(struct v4l2_async_notifier *notifier,
 				asd->match.i2c.address);
 			return 0;
 		}
+	}
+
+	vfd = dev->ports[0]->cap_streams[0]->vfd;
+	if (((u16)-1) == vfd->num) {
+		ret = video_register_device(vfd, VFL_TYPE_GRABBER, -1);
+		if (ret) {
+			v4l2_err(&dev->v4l2_dev, "Failed to register video device\n");
+			return 0;
+		}
+
+		snprintf(vfd->name, sizeof(vfd->name), "%s", vip_videodev.name);
+
+		v4l2_info(&dev->v4l2_dev, VIP_MODULE_NAME
+				" Device registered as /dev/video%d\n",
+				vfd->num);
 	}
 
 	dev->sensor = subdev;
