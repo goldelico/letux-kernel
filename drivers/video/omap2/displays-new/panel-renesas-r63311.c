@@ -442,15 +442,12 @@ static int r63311_write_sequence(struct omap_dss_device *dssdev,
 			return -EINVAL;
 		}
 
-		/* TODO: Figure out why this is needed for OMAP5 */
+		/* TODO: Figure out if and why this is needed for OMAP5 */
 		msleep(1);
 	}
 
 	return 0;
 }
-
-
-
 
 static int r63311_connect(struct omap_dss_device *dssdev)
 {
@@ -666,14 +663,15 @@ static ssize_t set_dcs(struct device *dev,
 					   const char *buf, size_t count)
 {
 	int r = 0;
-#if 0	// we need to find out how to get the omap_dss_device from the struct device
 	u8 data[24];
 	u8 d = 0;
 	int argc = 0;
 	int second = 0;
 	int read = 0;
-	struct omap_dss_device *dssdev = to_dss_device(dev);
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
+	struct platform_device *pdev = to_platform_device(dev);
+	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
+	struct omap_dss_device *dssdev = &ddata->dssdev;
+
 	const char *p;
 
 	if(strncmp(buf, "start", 5) == 0)
@@ -789,7 +787,7 @@ static ssize_t set_dcs(struct device *dev,
 		return -EIO;	// missing address
 
 	mutex_lock(&ddata->lock);
-	if (lg_d->enabled) {
+	if (ddata->enabled) {
 		struct omap_dss_device *in = ddata->in;
 		in->ops.dsi->bus_lock(in);
 
@@ -803,9 +801,9 @@ static ssize_t set_dcs(struct device *dev,
 		r=-EIO;	// not enabled
 	mutex_unlock(&ddata->lock);
 
-#endif
 	return r < 0 ? r : count;
 }
+
 static ssize_t show_dcs(struct device *dev,
 						struct device_attribute *attr, char *buf)
 {
