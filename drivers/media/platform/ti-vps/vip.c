@@ -1656,8 +1656,17 @@ int vip_open(struct file *file)
 	struct platform_device *pdev = dev->pdev;
 	int ret;
 
+	mutex_lock(&dev->mutex);
+	if (stream->open) {
+		v4l2_warn(&dev->v4l2_dev,
+			    "%s stream is already open\n", __func__);
+		mutex_unlock(&dev->mutex);
+		return -EBUSY;
+	}
+
 	if (vb2_is_busy(&stream->vb_vidq)) {
 		v4l2_err(&dev->v4l2_dev, "%s queue busy\n", __func__);
+		mutex_unlock(&dev->mutex);
 		return -EBUSY;
 	}
 
@@ -1697,11 +1706,16 @@ int vip_open(struct file *file)
 	file->private_data = &stream->fh;
 
 	v4l2_fh_add(&stream->fh);
+
 	vip_dprintk(dev, "Created stream instance %p\n", stream);
+
+	stream->open = 1;
+	mutex_unlock(&dev->mutex);
 
 	return 0;
 
 done:
+	mutex_unlock(&dev->mutex);
 	return ret;
 }
 EXPORT_SYMBOL(vip_open);
@@ -1720,13 +1734,16 @@ int vip_release(struct file *file)
 	vip_stop_streaming(q);
 	vip_release_port(stream->port);
 
-	v4l2_fh_del(&stream->fh);
-	v4l2_fh_exit(&stream->fh);
+	if (file->private_data) {
+		v4l2_fh_del((struct v4l2_fh *)file->private_data);
+		v4l2_fh_exit((struct v4l2_fh *)file->private_data);
+	}
 	vb2_queue_release(q);
 
 	dma_addr_global_complete = (dma_addr_t)NULL;
 	dma_addr_global = (dma_addr_t)NULL;
 
+	stream->open = 0;
 	mutex_unlock(&dev->mutex);
 
 	return 0;
