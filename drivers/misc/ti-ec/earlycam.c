@@ -53,6 +53,8 @@ static struct earlycam_device *earlycam_dev;
 static struct task_struct *main_thread;
 static struct omap_overlay_info info;
 static int once = 1;
+static int display_enabled;
+static int buffer_index;
 
 static int main_fn(void *);
 static int init_mmap(struct file *fp);
@@ -127,6 +129,7 @@ int display_disable(struct earlycam_setup_dispc_data data)
 		ovl->disable(ovl);
 	}
 
+	display_enabled = 0;
 	return 0;
 }
 
@@ -198,15 +201,14 @@ int display_queue(struct earlycam_setup_dispc_data data)
 #endif
 
 	/* Re-try for vid pipe if unavailable */
-	if (once) {
+	if (!display_enabled) {
 		retry = 50;
 		while (ovl->is_enabled(ovl) && (retry-- > 0))
 			msleep(20);
 
 		if (ovl->is_enabled(ovl))
 			return -1;
-
-		once = 0;
+		display_enabled = 1;
 
 		ovl->set_manager(ovl,
 			earlycam_dev->managers[data.ovls[0].cfg.mgr_ix]);
@@ -277,34 +279,42 @@ int capture_image(struct file *fp, int init)
 	buf.memory = V4L2_MEMORY_MMAP;
 	buf.index = 0;
 
-	for (i = 0; i < EARLYCAM_VIP_NUM_BUFS; i++) {
+	if (init) {
+		for (i = 0; i < EARLYCAM_VIP_NUM_BUFS; i++) {
+				if (-1 == vb2_ioctl_qbuf(fp,
+						(void *)VIDIOC_QBUF, &buf)) {
+					pr_err("early_qbuf failed");
+					return -1;
+				}
+				buf.index++;
+			}
+			buf.index = 0;
+
+		if (-1 == (vip_s_fmt_vid_cap(fp,
+			(void *)VIDIOC_S_FMT, &fmt))) {
+			pr_err("early vidioc_s_fmt failed");
+			return -1;
+		}
+
+		if (-1 == (vb2_ioctl_streamon(fp,
+			(void *)VIDIOC_STREAMON, buf.type))) {
+			pr_err("early_streamon failed");
+			return -1;
+		}
+		msleep(100);
+	} else {
+		buf.index = buffer_index;
 		if (-1 == vb2_ioctl_qbuf(fp, (void *)VIDIOC_QBUF, &buf)) {
 			pr_err("early_qbuf failed");
 			return -1;
 		}
-		buf.index++;
-	}
-	buf.index = 0;
-	if ((-1 == (vip_s_fmt_vid_cap(fp,
-		(void *)VIDIOC_S_FMT, &fmt) && init))) {
-		pr_err("early vidioc_s_fmt failed");
-		return -1;
 	}
 
-	if ((-1 == (vb2_ioctl_streamon(fp,
-		(void *)VIDIOC_STREAMON, buf.type) && init))) {
-		pr_err("early_streamon failed");
-		return -1;
+	while (-EAGAIN == vb2_ioctl_dqbuf(fp, (void *)VIDIOC_DQBUF, &buf)) {
+		pr_err("Waiting for buffers..");
+		msleep(100);
 	}
-
-	for (i = 0; i < EARLYCAM_VIP_NUM_BUFS; i++) {
-		if (-1 == vb2_ioctl_dqbuf(fp, (void *)VIDIOC_DQBUF, &buf)) {
-			pr_err("early_dqbuf failed");
-			return -1;
-		}
-		buf.index++;
-	}
-
+	buffer_index = buf.index;
 	return 0;
 }
 
@@ -347,7 +357,7 @@ int main_fn(void *arg)
 			.zorder = EARLYCAM_WINDOW_ZORDER,
 			.enabled = (u8) 1,
 		},
-		.ovls[0].ba = (u32) dma_addr_global_complete,
+		.ovls[0].ba = (u32) dma_addr_global_complete[buffer_index],
 	};
 
 	ret = display_init();
@@ -370,7 +380,9 @@ int main_fn(void *arg)
 			  * frequently
 			  */
 			if (!once) {
-				display_disable(comp);
+				if (display_enabled)
+					display_disable(comp);
+
 				vip_release(&fp);
 				/* Set a special code for init flag to signal
 				  * that the init apis have to be called again
@@ -415,13 +427,14 @@ int main_fn(void *arg)
 	    }
 		cam_init = 0;
 
-	    comp.ovls[0].ba = (u32) dma_addr_global_complete;
+	    comp.ovls[0].ba = (u32) dma_addr_global_complete[buffer_index];
 		if (comp.ovls[0].ba != 0) {
 			ret = display_queue(comp);
 			if (ret)
 				pr_err("display_queue failed with error %d",
 					   ret);
 		}
+		once = 0;
 		msleep(33);
 	}
 
