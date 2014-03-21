@@ -31,6 +31,8 @@
 
 #define VIP_MAX_SUBDEV	5
 
+#define VIP_VPDMA_MAX_BUFFER_COUNT 15
+
 /* buffer for one video frame */
 struct vip_buffer {
 	/* common v4l buffer stuff */
@@ -148,8 +150,7 @@ struct vip_stream {
 	int                 open;
 };
 
-extern dma_addr_t dma_addr_global;
-extern dma_addr_t dma_addr_global_complete;
+extern dma_addr_t dma_addr_global_complete[VIP_VPDMA_MAX_BUFFER_COUNT];
 
 extern int vip_open(struct file *file);
 extern int vip_release(struct file *file);
