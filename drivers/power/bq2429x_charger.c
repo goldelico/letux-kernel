@@ -402,13 +402,16 @@ static void usb_detect_work_func(struct work_struct *work)
 				}else{
 				#endif
 				// connect to pc	
-				bq24296_update_input_current_limit(bq24296_di->usb_input_current);
+				bq24296_update_input_current_limit(bq24296_di->adp_input_current);
 				bq24296_set_charge_current(CHARGE_CURRENT_512MA);
 				bq24296_charge_mode_config(0);
 				DBG("bq24296: detect normal usb charger\n");
 			//	}
 			break;
 			default:
+				bq24296_update_input_current_limit(bq24296_di->adp_input_current);
+                                bq24296_set_charge_current(CHARGE_CURRENT_512MA);
+                                bq24296_charge_mode_config(0);
 				DBG("bq24296: detect no usb \n");			
 			break;
 		}
@@ -535,6 +538,7 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 	schedule_delayed_work(&di->usb_detect_work, 0);
 	bq24296_init_registers();
 
+
 	if (gpio_is_valid(pdev->chg_irq_pin)){
 		irq = gpio_to_irq(pdev->chg_irq_pin);
 		ret = request_threaded_irq(irq, NULL,chg_irq_func, IRQF_TRIGGER_FALLING| IRQF_ONESHOT, "bq24296_chg_irq", di);
@@ -561,7 +565,10 @@ err_chgirq_failed:
 
 static void bq24296_battery_shutdown(struct i2c_client *client)
 {
+
+	if (gpio_is_valid(bq24296_pdata->chg_irq_pin)){
 	free_irq(gpio_to_irq(bq24296_pdata->chg_irq_pin), NULL);
+	}
 	
 }
 static int bq24296_battery_remove(struct i2c_client *client)
