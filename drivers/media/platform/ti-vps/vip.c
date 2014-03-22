@@ -1378,7 +1378,6 @@ static int vip_buf_prepare(struct vb2_buffer *vb)
 		return -EINVAL;
 	}
 
-	mdelay(33);
 	vb2_set_plane_payload(vb, 0, stream->sizeimage);
 
 	return 0;
