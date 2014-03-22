@@ -282,12 +282,16 @@ static int tiavs_class0_probe(struct platform_device *pdev)
 		return reg_v;
 	}
 
-	for (i = 0; i < desc->n_voltages; i++)
+	for (i = 0; i < desc->n_voltages; i++) {
+		u32 tol = DIV_ROUND_UP(data->volt_set_table[i] *
+				       data->voltage_tolerance, 100);
 		if (data->volt_set_table[i] < best_val &&
-		    data->volt_set_table[i] >= reg_v) {
+		    data->volt_set_table[i] - tol <= reg_v &&
+		    data->volt_set_table[i] + tol >= reg_v) {
 			best_val = data->volt_set_table[i];
 			choice = i;
 		}
+	}
 
 	if (choice == -EINVAL) {
 		dev_err(&pdev->dev, "No match regulator V=%d\n", reg_v);

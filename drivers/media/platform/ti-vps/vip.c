@@ -794,8 +794,6 @@ static int add_out_dtd(struct vip_stream *stream, int srce_type)
 		return -1;
 	}
 
-	dma_addr_global = dma_addr;
-
 	vpdma_vip_set_max_size(dev->shared->vpdma, 1);
 	vpdma_add_out_dtd(&dev->desc_list, c_rect->width,
 		fmt->vpdma_fmt[plane], dma_addr, channel, flags);
@@ -888,7 +886,9 @@ static void start_dma(struct vip_dev *dev, struct vip_buffer *buf)
 		drop_data = 1;
 	}
 
-        dma_addr_global_complete = dma_addr;
+	if (buf)
+		dma_addr_global_complete[buf->vb.v4l2_buf.index] = dma_addr;
+
 	enable_irqs(dev, dev->slice_id);
 
 	vpdma_update_dma_addr(dev->shared->vpdma, &dev->desc_list,
@@ -1643,10 +1643,7 @@ static void vip_release_port(struct vip_port *port)
 		vip_release_dev(port->dev);
 }
 
-dma_addr_t dma_addr_global;
-EXPORT_SYMBOL(dma_addr_global);
-
-dma_addr_t dma_addr_global_complete;
+dma_addr_t dma_addr_global_complete[VIP_VPDMA_MAX_BUFFER_COUNT];
 EXPORT_SYMBOL(dma_addr_global_complete);
 
 int vip_open(struct file *file)
@@ -1657,8 +1654,17 @@ int vip_open(struct file *file)
 	struct platform_device *pdev = dev->pdev;
 	int ret;
 
+	mutex_lock(&dev->mutex);
+	if (stream->open) {
+		v4l2_warn(&dev->v4l2_dev,
+			    "%s stream is already open\n", __func__);
+		mutex_unlock(&dev->mutex);
+		return -EBUSY;
+	}
+
 	if (vb2_is_busy(&stream->vb_vidq)) {
 		v4l2_err(&dev->v4l2_dev, "%s queue busy\n", __func__);
+		mutex_unlock(&dev->mutex);
 		return -EBUSY;
 	}
 
@@ -1698,11 +1704,16 @@ int vip_open(struct file *file)
 	file->private_data = &stream->fh;
 
 	v4l2_fh_add(&stream->fh);
+
 	vip_dprintk(dev, "Created stream instance %p\n", stream);
+
+	stream->open = 1;
+	mutex_unlock(&dev->mutex);
 
 	return 0;
 
 done:
+	mutex_unlock(&dev->mutex);
 	return ret;
 }
 EXPORT_SYMBOL(vip_open);
@@ -1713,6 +1724,7 @@ int vip_release(struct file *file)
 	struct vip_port *port = stream->port;
 	struct vip_dev *dev = port->dev;
 	struct vb2_queue *q = &stream->vb_vidq;
+	int i;
 
 	vip_dprintk(dev, "Releasing stream instance %p\n", stream);
 
@@ -1721,12 +1733,16 @@ int vip_release(struct file *file)
 	vip_stop_streaming(q);
 	vip_release_port(stream->port);
 
-	v4l2_fh_release(&stream->fh);
+	if (file->private_data) {
+		v4l2_fh_del((struct v4l2_fh *)file->private_data);
+		v4l2_fh_exit((struct v4l2_fh *)file->private_data);
+	}
 	vb2_queue_release(q);
 
-	dma_addr_global_complete = (dma_addr_t)NULL;
-	dma_addr_global = (dma_addr_t)NULL;
+	for (i = 0; i < VIP_VPDMA_MAX_BUFFER_COUNT; i++)
+		dma_addr_global_complete[i] = (dma_addr_t)NULL;
 
+	stream->open = 0;
 	mutex_unlock(&dev->mutex);
 
 	return 0;

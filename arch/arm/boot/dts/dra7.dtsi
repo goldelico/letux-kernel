@@ -23,6 +23,7 @@
 		d_can0 = &dcan1;
 		d_can1 = &dcan2;
 		ethernet0 = &cpsw_emac0;
+		ethernet1 = &cpsw_emac1;
 	};
 
 	cpus {
@@ -814,6 +815,7 @@
 			efuse-settings = <1055000 8
 			1150000 12
 			1250000 16>;
+			voltage-tolerance = <1>;
 		};
 
 		avs_iva: regulator-avs@0x4A0025C4 {
@@ -822,6 +824,7 @@
 			efuse-settings = <1055000 8
 			1150000 12
 			1250000 16>;
+			voltage-tolerance = <1>;
 		};
 
 
@@ -1036,7 +1039,6 @@
 				     <0 52 0x4>,
 				     <0 53 0x4>;
 			ranges;
-			status = "disabled";
 
 			davinci_mdio: mdio@48485000 {
 				compatible = "ti,davinci_mdio";
