@@ -755,6 +755,7 @@
 		reg = <0x39>;
 		deserializer = <&vis_des2>;
 		serializer = <&vis_ser2>;
+		status = "disabled";
 
 		port {
 			cam2: endpoint {
