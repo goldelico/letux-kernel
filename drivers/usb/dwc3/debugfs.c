@@ -440,6 +440,15 @@ static ssize_t dwc3_mode_write(struct file *file,
 	unsigned long		flags;
 	u32			mode = 0;
 	char			buf[32];
+	u32			reg;
+
+	spin_lock_irqsave(&dwc->lock, flags);
+	reg = dwc3_readl(dwc->regs, DWC3_GCTL);
+	spin_unlock_irqrestore(&dwc->lock, flags);
+
+	/* mode change is valid for DRD/otg mode only */
+	if (DWC3_GCTL_PRTCAP(reg) != DWC3_GCTL_PRTCAP_OTG)
+		return -EFAULT;
 
 	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
 		return -EFAULT;
