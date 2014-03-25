@@ -1039,6 +1039,7 @@
 				     <0 52 0x4>,
 				     <0 53 0x4>;
 			ranges;
+			status = "disabled";
 
 			davinci_mdio: mdio@48485000 {
 				compatible = "ti,davinci_mdio";
