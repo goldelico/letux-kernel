@@ -1629,10 +1629,10 @@ static int ov1063x_init_sensor(struct i2c_client *client)
 		ret = ov1063x_set_gpios(client, X, 1, 1, 0, 0, 0, 1);
 	break;
 	case VIS_SERDES:
-		if (client->addr == 0x38 || client->addr == 0x3a || client->addr == 0x3b)
-			ret = ov1063x_set_gpios(client, X, 1, X, X, 0, 1, 1);
-		else if (client->addr == 0x39)
+		if (client->addr == 0x39)
 			ret = ov1063x_set_gpios(client, 0, 1, X, X, X, X, 1);
+		else
+			ret = ov1063x_set_gpios(client, X, 1, X, X, 0, 1, 1);
 	break;
 	case VIS_LI:
 		ret = ov1063x_set_gpios(client, X, 1, 0, 0, 1, 0, 1);
