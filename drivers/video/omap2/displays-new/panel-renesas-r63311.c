@@ -106,9 +106,9 @@ static struct omap_video_timings r63311_timings = {
 	.hfp		= 10,
 	.hsw		= 10,
 	.hbp		= 100,
-	.vfp		= 10,
+	.vfp		= 62,
 	.vsw		= 10,
-	.vbp		= 60,
+	.vbp		= 8,
 };
 
 /*
