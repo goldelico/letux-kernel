@@ -93,7 +93,7 @@ static int show_stat(struct seq_file *p, void *v)
 	guest = guest_nice = 0;
 	getboottime(&boottime);
 	jif = boottime.tv_sec;
-
+	if(jif == 0) jif = 1;	// work around a problem by glibc: "missing btime in /proc/stat"
 	for_each_possible_cpu(i) {
 		user += kcpustat_cpu(i).cpustat[CPUTIME_USER];
 		nice += kcpustat_cpu(i).cpustat[CPUTIME_NICE];
