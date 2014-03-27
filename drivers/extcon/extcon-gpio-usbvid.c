@@ -228,6 +228,7 @@ static int gpio_usbvid_probe(struct platform_device *pdev)
 	int ret, gpio;
 	int intr_mode;
 	enum usb_dr_mode  mode;
+	int id_current;
 
 	if (!node)
 		return -EINVAL;
@@ -300,7 +301,8 @@ static int gpio_usbvid_probe(struct platform_device *pdev)
 			return ret;
 		gpio_usbvid_set_initial_state(gpio_usbvid);
 	} else {
-		gpio_usbvid->id_current = -1;
+		id_current = gpio_get_value_cansleep(gpio_usbvid->id_gpio);
+		gpio_usbvid->id_current = id_current;
 		gpio_usbvid->usbid_thread = kthread_run(poll_usbvbus_id_task,
 						 gpio_usbvid, "extcon-usbid");
 		if (IS_ERR(gpio_usbvid->usbid_thread))
