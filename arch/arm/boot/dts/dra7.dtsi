@@ -631,7 +631,7 @@
                         ranges;
                         ti,hwmods = "ocp2scp1";
 			usb2_phy1: usb2_phy1@4a084000 {
-				compatible = "ti,omap-usb2";
+				compatible = "ti,dra7x-usb2";
 				reg = <0x4a084000 0x7c>;
 				ctrl-module = <&omap_control_usb1>;
 				wkupclk =  "usb_phy1_always_on_clk32k";
@@ -650,7 +650,7 @@
                         };
 
 			usb2_phy2: usb2_phy2@4a085000 {
-				compatible = "ti,omap-usb2";
+				compatible = "ti,dra7x-usb2";
 				reg = <0x4a085000 0x7c>;
 				ctrl-module = <&omap_control_usb2>;
 				wkupclk =  "usb_phy2_always_on_clk32k";
