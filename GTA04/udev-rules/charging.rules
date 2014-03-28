@@ -1,6 +1,24 @@
-# 500 mA charger
-SUBSYSTEM=="power_supply", ACTION=="change", DEVPATH=="*power_supply/twl4030_usb" ATTRS{1-0048/twl4030_usb/id}=="floating", ATTR{../../max_current}="500000"
-# 1A charger
-SUBSYSTEM=="power_supply", ACTION=="change", DEVPATH=="*power_supply/twl4030_usb" ATTRS{1-0048/twl4030_usb/id}=="102k", ATTR{../../max_current}="851000"
-# 2A charger
-SUBSYSTEM=="power_supply", ACTION=="change", DEVPATH=="*power_supply/twl4030_usb" ATTRS{1-0048/twl4030_usb/id}=="GND", ATTR{../../max_current}="851000"
+# default to 500 mA at boot
+ACTION=="add", SUBSYSTEM=="power_supply", KERNEL=="twl4030_usb", ATTR{type}=="USB", ATTR{../../max_current}="500000"
+
+# unfortunately this does not work
+# because ATTR{} can not reference arbitrary files relative to root (ATTR is relative to /sys/%p)
+# and udev can't create new symlinks within the /sysfs
+
+# provide stable name to access the id pin of the USB connector
+#ACTION=="add", SUBSYSTEM=="platform", KERNEL=="twl4030-usb.*", DRIVER=="twl4030_usb", RUN+="/bin/ln -s /sys%p/id /dev/usb_id"
+# 500 mA charger plugged in
+#ACTION=="change", SUBSYSTEM=="power_supply", KERNEL=="twl4030_usb", ATTR{type}=="USB", ATTR{/dev/usb_id}=="floating", ATTR{../../max_current}="500000"
+# 1A charger plugged in
+#ACTION=="change", SUBSYSTEM=="power_supply", KERNEL=="twl4030_usb", ATTR{type}=="USB", ATTR{/dev/usb_id}=="102k", ATTR{../../max_current}="851000"
+# 2A charger plugged in
+#ACTION=="change", SUBSYSTEM=="power_supply", KERNEL=="twl4030_usb", ATTR{type}=="USB", ATTR{/dev/usb_id}=="GND", ATTR{../../max_current}="851000"
+
+# so we have to hard-code twl4030-usb.36 until we find a better solution
+
+# 500 mA charger plugged in
+ACTION=="change", SUBSYSTEM=="power_supply", KERNEL=="twl4030_usb", ATTR{type}=="USB", ATTR{../../../twl4030-usb.36/id}=="floating", ATTR{../../max_current}="500000"
+# 1A charger plugged in
+ACTION=="change", SUBSYSTEM=="power_supply", KERNEL=="twl4030_usb", ATTR{type}=="USB", ATTR{../../../twl4030-usb.36/id}=="102k", ATTR{../../max_current}="851000"
+# 2A charger plugged in
+ACTION=="change", SUBSYSTEM=="power_supply", KERNEL=="twl4030_usb", ATTR{type}=="USB", ATTR{../../../twl4030-usb.36/id}=="GND", ATTR{../../max_current}="851000"
