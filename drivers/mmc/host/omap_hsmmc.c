@@ -431,6 +431,7 @@ static int omap_hsmmc_gpio_init(struct omap_mmc_platform_data *pdata)
 		pdata->slots[0].gpio_wp = -EINVAL;
 
 	if (gpio_is_valid(pdata->slots[0].gpio_reset)) {
+
 		ret = gpio_request(pdata->slots[0].gpio_reset, "mmc_reset");
 		if (ret)
 			goto err_free_wp;
@@ -1723,7 +1724,8 @@ static struct omap_mmc_platform_data *of_get_hsmmc_pdata(struct device *dev)
 	cd_gpio = of_get_named_gpio(np, "cd-gpios", 0);
 	wp_gpio = of_get_named_gpio(np, "wp-gpios", 0);
 	reset_gpio = of_get_named_gpio(np, "reset-gpios", 0);
-	if (cd_gpio == -EPROBE_DEFER || wp_gpio == -EPROBE_DEFER)
+	if (cd_gpio == -EPROBE_DEFER || wp_gpio == -EPROBE_DEFER ||
+			reset_gpio == -EPROBE_DEFER)
 		return ERR_PTR(-EPROBE_DEFER);
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
