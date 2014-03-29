@@ -8,7 +8,7 @@
 
 /* we atart with the omap5-uevm tree */
 
-/include/ "omap5-uevm.dts"
+#include "omap5-uevm.dts"
 
 /* overwrite device model */
 
@@ -28,11 +28,20 @@
 
 };
 
-/* LCD panel - MIPI */
+/* LCD panel - MIPI-DSI */
+
+&dss {
+	status = "ok";
+};
 
 &dsi1 {
-	lcd {
-		compatible = "ti,r63311";
+
+	status = "ok";
+
+	vdd-supply = <&ldo4_reg>;
+
+	dsi1_out_ep: endpoint {
+		remote-endpoint = <&lcd_in>;
 		lanes = <
 			0       /* lane0+ = clk + */
 			1       /* lane0- = clk - */
@@ -45,16 +54,23 @@
 			8       /* lane4+ = data4 + */
 			9       /* lane4- = data4 - */
 		>;
+	};
 
-/* there is no ldo2_reg!		vdds_foo-supply = <&ldo2_reg>; */
-/* does not work as expected:	vdds_foo-supply = <&dsi1_panel_power>;
+	lcd {
+		compatible = "lg,lh500wf1";
 
-/*		gpios = <&gpio6 30 0>;	/* gpio6_190 = backlight enable */
+		label = "lcd";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pyra_display_pins>;
 
 		gpios =
-/*			<&gpio8 23 0>,	/* goip8_230 = display reset */
 			<&gpio6 16 0>,	/* goip6_176 = display reset */
 			<&gpio3 18 0>;	/* gpio3_18 = enable DC/DC */
+
+		lcd_in: endpoint {
+			remote-endpoint = <&dsi1_out_ep>;
+		};
 	};
 };
 
@@ -62,21 +78,28 @@
 /* add overlay pimmux for pyra on 5432evm */
 
 &omap5_pmx_core {
-
+	pinctrl-names = "default";
 	pinctrl-0 = <
 			/* copied from original */
 			&twl6040_pins
 			&mcpdm_pins
-			&dmic_pins
 			&mcbsp1_pins
 			&mcbsp2_pins
 			&usbhost_pins
+			&led_gpio_pins
+
+			/* n/a in 3.14 DT (but were in 3.8 kernel) - check if we need them or can re-introduce them
+			&dmic_pins
+			&tca6424a_pins -> replaced by i2c5_pins
+			*/
+
 			&dss_hdmi_pins
 			&tpd12s015_pins
-			&tca6424a_pins
 			&palmas_pins
-			&led_gpio_pins
 			&wl_pins
+
+			&i2c1_pins
+			&i2c5_pins
 
 			/* new entries */
 			&pyra_button_pins
@@ -87,6 +110,40 @@
 			&i2c4_pins
 			&pyra_dsi_a
 	>;
+
+	/* these were in omap5-uevm.dts for the 3.8 kernel but are msising in 3.14 mainline */
+
+        dss_hdmi_pins: pinmux_dss_hdmi_pins {
+                 pinctrl-single,pins = <
+                         0x0fc 0x118     /* hdmi_cec.hdmi_cec INPUT PULLUP | MODE 0 */
+                         0x100 0x100     /* hdmi_ddc_scl, DDC-SCL, INPUT ENABLE | MODE 0 */
+                         0x102 0x100     /* hdmi_ddc_sda, DDC-SDA, INPUT ENABLE | MODE 0 */
+                 >;
+         };
+
+         tpd12s015_pins: pinmux_tpd12s015_pins {
+                 pinctrl-single,pins = <
+                         0x0fe 0x116     /* hdmi_hpd.gpio7_193 INPUT PULLDOWN | MODE6 */
+                 >;
+         };
+
+         palmas_pins: pinmux_palmas_pins {
+                 pinctrl-single,pins = <
+                         0x140 0x11f     /* MSLEEP INPUT | PULLUP | MODE7 */
+                 >;
+         };
+
+         wl_pins: pinmux_wl_pins {
+                 pinctrl-single,pins = <
+                         0x164 0x118     /* WLSDIO_CLK: PIN_INPUT_PULLUP | MODE0 */
+                         0x166 0x118     /* WLSDIO_CMD: PIN_INPUT_PULLUP | MODE0 */
+                         0x168 0x118     /* WLSDIO_DAT0: PIN_INPUT_PULLUP | MODE0 */
+                         0x16a 0x118     /* WLSDIO_DAT1: PIN_INPUT_PULLUP | MODE0 */
+                         0x16c 0x118     /* WLSDIO_DAT2: PIN_INPUT_PULLUP | MODE0 */
+                         0x16e 0x118     /* WLSDIO_DAT3: PIN_INPUT_PULLUP | MODE0 */
+                         0x17c 0x6       /* WLAN_EN: PIN_OUTPUT | MODE6 */
+                 >;
+         };
 
 /*
 // inputs
@@ -100,13 +157,14 @@
 #define GPIO_RNUB 181			// right nub center button - gpio6-181 - closes to GND
 #define GPIO_LNUB_IRQ -1		// left nub IRQ - n/a
 #define GPIO_RNUB_IRQ -1		// right nub IRQ - n/a
-#define GPIO_LID 160			// lid close sensor - gpio6-160 - open collector output
+#define GPIO_LID 160			// lid close sensor - gpio6-160 - driven by open collector output
 #define GPIO_WAKEUP 161			// wakeup from modem - gpio6-161
 #define GPIO_KEYIRQ 177			// keyboard controller IRQ - gpio6-177
-// outputs
+// PIN_OUTPUTs
 #define GPIO_DISPEN 82			// enable (active high) +/-5 V TPS65133 - gpio3_82
 #define GPIO_PWM 190			// enable 18V backlight (active high) - timer9/gpio6_190 (out) - or input to track what the panel is doing
-#define GPIO_DISPLAY_RESET 176	// panel and devices reset (active low)/enable - gpio6_176
+#define GPIO_DISPLAY_RESET 176         // panel reset (active low)/enable - gpio6_176
+#define GPIO_DISPLAY_RESET 230         // device reset (active low)/enable - gpio8_230
 #define GPIO_3G_IGNITE 178		// start modem (active high pulse) - gpio6-178
 */
 
@@ -131,31 +189,32 @@
 
 	pyra_button_pins: pinmux_button_gpio_pins {
 		pinctrl-single,pins = <
-			0x76 0x11e	/* (INPUTENABLE | PULLUP | MODE6)	/* 0x0B4:[31:16] gpio3_83  -- pullup is not really necessary since there is an external pullup */
-			0xec 0x11e	/* (INPUTENABLE | PULLUP | MODE6)	/* 0x12C:[15:0]  gpio6_160 */
-			0xee 0x11e	/* (INPUTENABLE | PULLUP | MODE6)	/* 0x12C:[31:16] gpio6_161 */
-			0xcc 0x11e	/* (INPUTENABLE | PULLUP | MODE6)	/* 0x10C:[15:0]  gpio6_177 */
-			0xc8 0x11e	/* (INPUTENABLE | PULLUP | MODE6)	/* 0x108:[15:0]  gpio6_179 */
-			0xc6 0x11e	/* (INPUTENABLE | PULLUP | MODE6)	/* 0x104:[31:16] gpio6_180 */
-			0xc4 0x11e	/* (INPUTENABLE | PULLUP | MODE6)	/* 0x104:[15:0]  gpio6_181 */
-			0xf0 0x11e	/* (INPUTENABLE | PULLUP | MODE6)	/* 0x130:[15:0]  gpio6_182 */
-			0xf2 0x11e	/* (INPUTENABLE | PULLUP | MODE6)	/* 0x130:[31:16] gpio6_183 */
-			0xf4 0x11e	/* (INPUTENABLE | PULLUP | MODE6)	/* 0x134:[15:0]  gpio6_184 */
+			0x76 0x11e	/* (PIN_INPUT_PULLUP | MODE6)	/* 0x0B4:[31:16] gpio3_83  -- pullup is not really necessary since there is an external pullup */
+			0xec 0x11e	/* (PIN_INPUT_PULLUP | MODE6)	/* 0x12C:[15:0]  gpio6_160 */
+			0xee 0x11e	/* (PIN_INPUT_PULLUP | MODE6)	/* 0x12C:[31:16] gpio6_161 */
+			0xcc 0x11e	/* (PIN_INPUT_PULLUP | MODE6)	/* 0x10C:[15:0]  gpio6_177 */
+			0xc8 0x11e	/* (PIN_INPUT_PULLUP | MODE6)	/* 0x108:[15:0]  gpio6_179 */
+			0xc6 0x11e	/* (PIN_INPUT_PULLUP | MODE6)	/* 0x104:[31:16] gpio6_180 */
+			0xc4 0x11e	/* (PIN_INPUT_PULLUP | MODE6)	/* 0x104:[15:0]  gpio6_181 */
+			0xf0 0x11e	/* (PIN_INPUT_PULLUP | MODE6)	/* 0x130:[15:0]  gpio6_182 */
+			0xf2 0x11e	/* (PIN_INPUT_PULLUP | MODE6)	/* 0x130:[31:16] gpio6_183 */
+			0xf4 0x11e	/* (PIN_INPUT_PULLUP | MODE6)	/* 0x134:[15:0]  gpio6_184 */
 		>;
 	};
 
 	pyra_display_pins: pinmux_display_gpio_pins {
 		pinctrl-single,pins = <
-			0x74 0x00e	/* (OUTPUT | PULLDOWN | MODE6)	/* 0x0B4:[15:0]  gpio3_82 - enable panel DC/DC */
-			0x8a 0x10f	/* (INPUTENABLE | PULLDOWN | MODE6)	/* 0x0C8:[31:16] gpio6_189 - VSYNC input */
-			0xb6 0x10f	/* (INPUTENABLE | PULLDOWN | MODE7)	/* 0x0F4:[31:16] gpio6_190 - choose MODE0 for PWM_TIMER9 - choose MODE7 if panel outputs the PWM */
-			0xce 0x00e	/* (OUTPUT | PULLDOWN | MODE6)	/* 0x178:[31:16] gpio6_176 - panel reset */
+			0x74 0x00e	/* (PIN_PIN_OUTPUT_PULLDOWN | MODE6)	/* 0x0B4:[15:0]  gpio3_82 - enable panel DC/DC */
+			0x8a 0x10f	/* (PIN_INPUT_PULLDOWN | MODE6)	/* 0x0C8:[31:16] gpio6_189 - VSYNC input */
+			0xb6 0x10f	/* (PIN_INPUT_PULLDOWN | MODE7)	/* 0x0F4:[31:16] gpio6_190 - choose MODE0 for PWM_TIMER9 - choose MODE7 if panel outputs the PWM */
+			0xce 0x00e	/* (PIN_PIN_OUTPUT_PULLDOWN | MODE6)	/* 0x178:[31:16] gpio6_176 - panel reset */
 		>;
 	};
 
 	pyra_other_pins: pinmux_other_gpio_pins {
 		pinctrl-single,pins = <
-			0xca 0x00e	/* (OUTPUT | PULLDOWN | MODE6)	/* 0x108:[31:16] gpio6_178 - start modem */
+                       0xca 0x00e      /* (PIN_PIN_OUTPUT_PULLDOWN | MODE6)          /* 0x108:[31:16] gpio6_178 - start modem */
+                       0x138 0x11e     /* (PIN_INPUT_PULLUP | MODE6)       /* 0x178:[15:0]  gpio8_230 - reset I2C peripherals */
 		>;
 	};
 
@@ -163,22 +222,29 @@
 
 	i2c2_pins: pinmux_i2c2_pins {
 		pinctrl-single,pins = <
-			0x178 0x118	/* (INPUTENABLE | PULLUP | MUX_MODE0)		/* i2c2_scl */
-			0x17a 0x118	/* (INPUTENABLE | PULLUP | MUX_MODE0)		/* i2c2_sda */
+			0x178 0x118	/* (PIN_INPUT_PULLUP | MUX_MODE0)		/* i2c2_scl */
+			0x17a 0x118	/* (PIN_INPUT_PULLUP | MUX_MODE0)		/* i2c2_sda */
 		>;
 	};
 
 	i2c3_pins: pinmux_i2c3_pins {
 		pinctrl-single,pins = <
-			0x13a 0x118	/* (INPUTENABLE | PULLUP | MUX_MODE0)		/* i2c3_scl */
-			0x13c 0x118	/* (INPUTENABLE | PULLUP | MUX_MODE0)		/* i2c3_sda */
+			0x13a 0x118	/* (PIN_INPUT_PULLUP | MUX_MODE0)		/* i2c3_scl */
+			0x13c 0x118	/* (PIN_INPUT_PULLUP | MUX_MODE0)		/* i2c3_sda */
 		>;
 	};
 
 	i2c4_pins: pinmux_i2c4_pins {
 		pinctrl-single,pins = <
-			0xb8 0x118	/* (INPUTENABLE | PULLUP | MUX_MODE0)		/* i2c4_scl (gpio7_200) */
-			0xba 0x118	/* (INPUTENABLE | PULLUP | MUX_MODE0)		/* i2c4_sda (gpio7_201) */
+			0xb8 0x118	/* (PIN_INPUT_PULLUP | MUX_MODE0)		/* i2c4_scl (gpio7_200) */
+			0xba 0x118	/* (PIN_INPUT_PULLUP | MUX_MODE0)		/* i2c4_sda (gpio7_201) */
+		>;
+	};
+
+	i2c5_pins: pinmux_i2c5_pins {
+		pinctrl-single,pins = <
+			0x184 (PIN_INPUT_PULLUP | MUX_MODE0)		/* i2c5_scl */
+			0x186 (PIN_INPUT_PULLUP | MUX_MODE0)		/* i2c5_sda */
 		>;
 	};
 
@@ -186,16 +252,16 @@
 
 	pyra_dsi_a: pinmux_dsi_a_pins {
 		pinctrl-single,pins = <
-			0x8c 0x0	/* (OUTPUT | MODE0)	/* 0x0cc:[15:0]  dsiporta_lane0x */
-			0x8e 0x0	/* (OUTPUT | MODE0)	/* 0x0cc:[31:16] dsiporta_lane0y */
-			0x90 0x0	/* (OUTPUT | MODE0)	/* 0x0d0:[15:0]  dsiporta_lane1x */
-			0x92 0x0	/* (OUTPUT | MODE0)	/* 0x0d0:[31:16] dsiporta_lane1y */
-			0x94 0x0	/* (OUTPUT | MODE0)	/* 0x0d4:[15:0]  dsiporta_lane2x */
-			0x96 0x0	/* (OUTPUT | MODE0)	/* 0x0d4:[31:16] dsiporta_lane2y */
-			0x98 0x0	/* (OUTPUT | MODE0)	/* 0x0d8:[15:0]  dsiporta_lane3x */
-			0x9a 0x0	/* (OUTPUT | MODE0)	/* 0x0d8:[31:16] dsiporta_lane3y */
-			0x9c 0x0	/* (OUTPUT | MODE0)	/* 0x0dc:[15:0]  dsiporta_lane4x */
-			0x9e 0x0	/* (OUTPUT | MODE0)	/* 0x0dc:[31:16] dsiporta_lane4y */
+			0x8c 0x0	/* (PIN_OUTPUT | MODE0)	/* 0x0cc:[15:0]  dsiporta_lane0x */
+			0x8e 0x0	/* (PIN_OUTPUT | MODE0)	/* 0x0cc:[31:16] dsiporta_lane0y */
+			0x90 0x0	/* (PIN_OUTPUT | MODE0)	/* 0x0d0:[15:0]  dsiporta_lane1x */
+			0x92 0x0	/* (PIN_OUTPUT | MODE0)	/* 0x0d0:[31:16] dsiporta_lane1y */
+			0x94 0x0	/* (PIN_OUTPUT | MODE0)	/* 0x0d4:[15:0]  dsiporta_lane2x */
+			0x96 0x0	/* (PIN_OUTPUT | MODE0)	/* 0x0d4:[31:16] dsiporta_lane2y */
+			0x98 0x0	/* (PIN_OUTPUT | MODE0)	/* 0x0d8:[15:0]  dsiporta_lane3x */
+			0x9a 0x0	/* (PIN_OUTPUT | MODE0)	/* 0x0d8:[31:16] dsiporta_lane3y */
+			0x9c 0x0	/* (PIN_OUTPUT | MODE0)	/* 0x0dc:[15:0]  dsiporta_lane4x */
+			0x9e 0x0	/* (PIN_OUTPUT | MODE0)	/* 0x0dc:[31:16] dsiporta_lane4y */
 		>;
 	};
 };
@@ -217,7 +283,7 @@
  * BMG160:	0x69
  * BMPx50:	0x12, 0x19
  * TSC2007:	0x48
- * TCRTOUCH: 0x49/0x4b
+ * CRTOUCH: 0x49/0x4b
  */
 
 	/* pressure sensor */
@@ -266,7 +332,7 @@
 		pyra_led5: set3@5 {
 			label = "test::led-kbd3";
 			reg = <0x5>;
-			linux,default-trigger = "mmc0";
+			linux,default-trigger = "mmc1";
 		};
 
 		pyra_led6: set4@6 {
@@ -382,6 +448,35 @@
 		>;
 	};
 
+};
+
+/* eMMC +/
+
+&mmc1 {
+	vmmc-supply = <&ldo9_reg>;
+	bus-width = <4>;
+};
+
+/* standard SD slots */
+
+&mmc2 {
+	vmmc-supply = <&vmmcsd_fixed>;
+	bus-width = <8>;
+	ti,non-removable;
+};
+
+&mmc3 {
+	bus-width = <4>;
+	ti,non-removable;
+};
+
+&mmc4 {
+	status = "disabled";
+	bus-width = <8>;
+};
+
+&mmc5 { /* n/a on OMAP5432 */
+	status = "disabled";
 };
 
 / {
