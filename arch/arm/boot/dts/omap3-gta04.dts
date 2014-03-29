@@ -232,6 +232,24 @@
 		};
 	};
 
+	w2cbw003: w2cbw003 { /* presents a single gpio to be plumbed to uart1 dts */
+		compatible = "wi2wi,w2cbw003";	/* drivers/goip/gpio-reg.c is not yet OF compatible */
+		gpio-controller;
+		#gpio-cells = <2>;
+
+		consumers = <&vaux4>;
+	};
+
+	w2sg0004: w2sg0004 { /* presents a single gpio to be plumbed to uart2 dts */
+		compatible = "wi2wi,w2sg0004";	/* drivers/goip/gpio-reg.c is not yet OF compatible */
+		gpio-controller;
+		#gpio-cells = <2>;
+
+		lna-power = <&vsim>;
+		on_off-gpio = <&gpio5 17 0>;	/* GPIO_145: trigger for w2sg0004 */
+		rx-gpio = <&gpio5 19 0>;	/* GPIO_147: RX */
+	};
+
 };
 
 &omap3_pmx_core2 {
@@ -466,19 +484,19 @@
 	status = "disabled";
 };
 
-&uart1 {
+&uart1 { /* Bluetooth */
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart1_pins>;
-/*	ti,dts = <&gpio1 12 0>;	gpio-regulator to connect to vaux4 */
+	dtr-gpio = <&w2cbw003 0 0>;	/* w2cbw bluetooth power control through virtual gpio */
 };
 
-&uart2 {
+&uart2 { /* GPS */
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart2_pins>;
-/*	ti,cts = <&gpio1 12 0>;	special driver for w2sg0004 */
+	dtr-gpio = <&w2sg0004 0 0>;	/* w2sg0004 GPS power control through virtual gpio */
 };
 
-&uart3 {
+&uart3 { /* Console and IrDA */
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart3_pins>;
 };
