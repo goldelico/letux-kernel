@@ -465,6 +465,14 @@
 	pinctrl-0 = <&uart3_pins>;
 };
 
+&usbhshost {
+	port2-mode = "ehci-phy";
+};
+
+&usbhsehci {
+	phys = <0 &hsusb2_phy>;
+};
+
 &charger {
 	bb_uvolt = <3200000>;
 	bb_uamp = <150>;
@@ -483,6 +491,19 @@
        };
 
 };
+
+/* this has changed/will change in new DSS - wait until 3.15/3.16 where new config appears in omap3-beagle-xm.dts
+&venc {
+	status = "ok";
+
+	vdda-supply = <&vdac>;
+
+	venc_out: endpoint {
+		remote-endpoint = <&tv_connector_in>;
+		ti,channels = <2>;
+	};
+};
+*/
 
 &gpmc {
 	ranges = <0 0 0x30000000 0x04>;       /* CS0: NAND */
