@@ -26,6 +26,11 @@
 		reg = <0x80000000 0x20000000>; /* 512 MB */
 	};
 
+	aliases {
+		display0 = &lcd;
+		display1 = &tv0;
+	};
+
 	gpio-keys {
 		compatible = "gpio-keys";
 
@@ -39,7 +44,7 @@
 
 	hsusb2_phy: hsusb2_phy {
 		compatible = "usb-nop-xceiv";
-		reset-gpios = <&gpio6 14 GPIO_ACTIVE_LOW>; /* gpio_174 */
+		reset-gpios = <&gpio6 14 GPIO_ACTIVE_LOW>; /* gpio_174 = reset for USB3322 */
 /*		vcc-supply = <&hsusb2_power>; */
 	};
 
@@ -214,6 +219,19 @@
 			OMAP3_CORE1_IOPAD(0x21de, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi2_cs1.hsusb2_data3 */
 		>;
 	};
+
+	/* FIXME: add OPA362 for composite video */
+	tv0: connector@1 {
+		compatible = "svideo-connector";
+		label = "tv";
+
+		port {
+			tv_connector_in: endpoint {
+				remote-endpoint = <&venc_out>;
+			};
+		};
+	};
+
 };
 
 &omap3_pmx_core2 {
@@ -492,18 +510,18 @@
 
 };
 
-/* this has changed/will change in new DSS - wait until 3.15/3.16 where new config appears in omap3-beagle-xm.dts
 &venc {
 	status = "ok";
 
 	vdda-supply = <&vdac>;
 
-	venc_out: endpoint {
-		remote-endpoint = <&tv_connector_in>;
-		ti,channels = <2>;
+	port {
+		venc_out: endpoint {
+			remote-endpoint = <&tv_connector_in>;
+			ti,channels = <2>;
+		};
 	};
 };
-*/
 
 &gpmc {
 	ranges = <0 0 0x30000000 0x04>;       /* CS0: NAND */
