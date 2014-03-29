@@ -1578,6 +1578,7 @@ static void omap_serial_fill_features_erratas(struct uart_omap_port *up)
 static struct omap_uart_port_info *of_get_uart_port_info(struct device *dev)
 {
 	struct omap_uart_port_info *omap_up_info;
+	enum of_gpio_flags flags;
 
 	omap_up_info = devm_kzalloc(dev, sizeof(*omap_up_info), GFP_KERNEL);
 	if (!omap_up_info)
@@ -1585,6 +1586,10 @@ static struct omap_uart_port_info *of_get_uart_port_info(struct device *dev)
 
 	of_property_read_u32(dev->of_node, "clock-frequency",
 					 &omap_up_info->uartclk);
+
+	omap_up_info->DTR_gpio = of_get_named_gpio_flags(dev->of_node, "dtr-gpio", 0, &flags);
+	omap_up_info->DTR_inverted = (flags & OF_GPIO_ACTIVE_LOW) != 0;
+
 	return omap_up_info;
 }
 
@@ -1652,6 +1657,8 @@ static int serial_omap_probe(struct platform_device *pdev)
 			return -EPROBE_DEFER;
 		wakeirq = irq_of_parse_and_map(pdev->dev.of_node, 1);
 		omap_up_info = of_get_uart_port_info(&pdev->dev);
+		if (omap_up_info->DTR_gpio == -EPROBE_DEFER)
+			return -EPROBE_DEFER;
 		pdev->dev.platform_data = omap_up_info;
 	} else {
 		irq = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
