@@ -220,7 +220,6 @@
 		>;
 	};
 
-	/* FIXME: add OPA362 for composite video */
 	tv0: connector@1 {
 		compatible = "svideo-connector";
 		label = "tv";
@@ -232,8 +231,14 @@
 		};
 	};
 
+	opa362 {
+		compatible = "ti,opa362";
+		gpio = <&gpio0 23 0>;	/* GPIO to enable */
+		/* needs some endpoint plumbing into the VENC signal chain */
+	};
+
 	w2cbw003: w2cbw003 { /* presents a single gpio to be plumbed to uart1 dts */
-		compatible = "wi2wi,w2cbw003";	/* drivers/goip/gpio-reg.c is not yet OF compatible */
+		compatible = "wi2wi,w2cbw003";
 		gpio-controller;
 		#gpio-cells = <2>;
 
@@ -241,13 +246,21 @@
 	};
 
 	w2sg0004: w2sg0004 { /* presents a single gpio to be plumbed to uart2 dts */
-		compatible = "wi2wi,w2sg0004";	/* drivers/goip/gpio-reg.c is not yet OF compatible */
+		compatible = "wi2wi,w2sg0004";
 		gpio-controller;
 		#gpio-cells = <2>;
 
 		lna-power = <&vsim>;
-		on_off-gpio = <&gpio5 17 0>;	/* GPIO_145: trigger for w2sg0004 */
+		on-off-gpio = <&gpio5 17 0>;	/* GPIO_145: trigger for w2sg0004 */
 		rx-gpio = <&gpio5 19 0>;	/* GPIO_147: RX */
+	};
+
+	modem: modem { /* control modem power through rfkill */
+		compatible = "option,gtm601";
+		/* compatible = "gemalto,phs8" for Neo900/GTA04b7 */
+
+		on-off-gpio = <&gpio6 26 0>;	/* GPIO_186: trigger for power on */
+	/*	power-on-gpio = <&gpio5 19 0>;	/* n/a */
 	};
 
 };
