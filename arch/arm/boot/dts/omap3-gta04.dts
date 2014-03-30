@@ -127,6 +127,7 @@
 		#pwm-cells = <2>;
 	};
 
+	/* should be a PWM */
 	power: fixed_regulator@0 {
 	       compatible = "regulator-fixed";
 	       regulator-name = "bl-enable";
@@ -134,9 +135,55 @@
 	       regulator-always-on;
 	       regulator-min-microvolt = "1000000";
 	       regulator-max-microvolt = "1000000";
-	       gpio = <&gpio2 25 0>;
+	       gpio = <&gpio2 25 0>;	/* GPT11/PWM */
 	       enable-active-high;
 	};
+
+	tv0: connector@1 {
+		compatible = "svideo-connector";
+		label = "tv";
+
+		port {
+			tv_connector_in: endpoint {
+				remote-endpoint = <&venc_out>;
+			};
+		};
+	};
+
+	opa362 {
+		compatible = "ti,opa362";
+		gpio = <&gpio1 23 0>;	/* GPIO to enable */
+		/* needs some endpoint plumbing into the VENC signal chain */
+	};
+
+	w2cbw003: w2cbw003 { /* presents a single gpio to be plumbed to uart1 dts */
+		compatible = "wi2wi,w2cbw003";
+		gpio-controller;
+		#gpio-cells = <2>;
+
+		vgpio-supply = <&vaux4>;
+	};
+
+	w2sg0004: w2sg0004 { /* presents a single gpio to be plumbed to uart2 dts */
+		compatible = "wi2wi,w2sg0004";
+		gpio-controller;
+		#gpio-cells = <2>;
+
+		lna-power = <&vsim>;
+		on-off-gpio = <&gpio5 17 0>;	/* GPIO_145: trigger for w2sg0004 */
+		rx-gpio = <&gpio5 19 0>;	/* GPIO_147: RX */
+		rx-on-mux = < (PIN_INPUT_PULLUP | MUX_MODE0) >;
+		rx-off-mux = < (PIN_INPUT_PULLUP | MUX_MODE4) >;
+	};
+
+	modem: modem { /* control modem power through rfkill */
+		compatible = "option,gtm601";
+		/* compatible = "gemalto,phs8" for Neo900/GTA04b7 */
+
+		on-off-gpio = <&gpio6 26 0>;	/* GPIO_186: trigger for power on */
+	/*	power-on-gpio = <&gpio5 19 0>;	/* n/a */
+	};
+
 };
 
 &omap3_pmx_core {
@@ -144,6 +191,7 @@
 		pinctrl-single,pins = <
 			0x152 (PIN_INPUT | MUX_MODE0)		/* uart1_rx.uart1_rx */
 			0x14c (PIN_OUTPUT |MUX_MODE0)		/* uart1_tx.uart1_tx */
+			/* what about rts/cts? */
 		>;
 	};
 
@@ -151,13 +199,15 @@
 		pinctrl-single,pins = <
 			0x14a (PIN_INPUT | MUX_MODE0)		/* uart2_rx.uart2_rx */
 			0x148 (PIN_OUTPUT | MUX_MODE0)		/* uart2_tx.uart2_tx */
+			/* what about rts/cts? */
 		>;
 	};
 
 	uart3_pins: pinmux_uart3_pins {
 		pinctrl-single,pins = <
-			0x16e (PIN_INPUT | MUX_MODE0)		/* uart3_rx.uart3_rx */
+			0x16e (PIN_INPUT /* | PIN_OFF_WAKEUPENABLE */ | MUX_MODE0)		/* uart3_rx.uart3_rx */
 			0x170 (PIN_OUTPUT | MUX_MODE0)		/* uart3_tx.uart3_tx */
+			/* what about rts/cts etc.? */
 		>;
 	};
 
@@ -220,47 +270,25 @@
 		>;
 	};
 
-	tv0: connector@1 {
-		compatible = "svideo-connector";
-		label = "tv";
-
-		port {
-			tv_connector_in: endpoint {
-				remote-endpoint = <&venc_out>;
-			};
-		};
+	i2c1_pins: pinmux_i2c1_pins {
+		pinctrl-single,pins = <
+			0x18a (PIN_INPUT_PULLUP | MUX_MODE0)   /* i2c1_scl.i2c1_scl */
+			0x18c (PIN_INPUT_PULLUP | MUX_MODE0)   /* i2c1_sda.i2c1_sda */
+		>;
 	};
 
-	opa362 {
-		compatible = "ti,opa362";
-		gpio = <&gpio0 23 0>;	/* GPIO to enable */
-		/* needs some endpoint plumbing into the VENC signal chain */
+	i2c2_pins: pinmux_i2c2_pins {
+		pinctrl-single,pins = <
+			0x18e (PIN_INPUT_PULLUP | MUX_MODE0)   /* i2c2_scl.i2c2_scl */
+			0x190 (PIN_INPUT_PULLUP | MUX_MODE0)   /* i2c2_sda.i2c2_sda */
+		>;
 	};
 
-	w2cbw003: w2cbw003 { /* presents a single gpio to be plumbed to uart1 dts */
-		compatible = "wi2wi,w2cbw003";
-		gpio-controller;
-		#gpio-cells = <2>;
-
-		consumers = <&vaux4>;
-	};
-
-	w2sg0004: w2sg0004 { /* presents a single gpio to be plumbed to uart2 dts */
-		compatible = "wi2wi,w2sg0004";
-		gpio-controller;
-		#gpio-cells = <2>;
-
-		lna-power = <&vsim>;
-		on-off-gpio = <&gpio5 17 0>;	/* GPIO_145: trigger for w2sg0004 */
-		rx-gpio = <&gpio5 19 0>;	/* GPIO_147: RX */
-	};
-
-	modem: modem { /* control modem power through rfkill */
-		compatible = "option,gtm601";
-		/* compatible = "gemalto,phs8" for Neo900/GTA04b7 */
-
-		on-off-gpio = <&gpio6 26 0>;	/* GPIO_186: trigger for power on */
-	/*	power-on-gpio = <&gpio5 19 0>;	/* n/a */
+	i2c3_pins: pinmux_i2c3_pins {
+		pinctrl-single,pins = <
+			0x192 (PIN_INPUT_PULLUP | MUX_MODE0)   /* i2c3_scl.i2c3_scl */
+			0x194 (PIN_INPUT_PULLUP | MUX_MODE0)   /* i2c3_sda.i2c3_sda */
+		>;
 	};
 
 };
