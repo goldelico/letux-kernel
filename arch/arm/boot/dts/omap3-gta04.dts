@@ -164,12 +164,20 @@
 		vgpio-supply = <&vaux4>;
 	};
 
+	gps_lna: gps-lna { /* presents a single gpio to be plumbed to w2sg0004 lna control */
+		compatible = "regulator-gpio";
+		gpio-controller;
+		#gpio-cells = <2>;
+
+		vgpio-supply = <&vsim>;
+	};
+
 	w2sg0004: w2sg0004 { /* presents a single gpio to be plumbed to uart2 dts */
 		compatible = "wi2wi,w2sg0004";
 		gpio-controller;
 		#gpio-cells = <2>;
 
-		lna-power = <&vsim>;
+		lna-gpio = <&gps_lna 0 0>;	/* rfkill controllable lna gpio/regulator */
 		on-off-gpio = <&gpio5 17 0>;	/* GPIO_145: trigger for w2sg0004 */
 		rx-gpio = <&gpio5 19 0>;	/* GPIO_147: RX */
 		rx-on-mux = < (PIN_INPUT_PULLUP | MUX_MODE0) >;
@@ -181,7 +189,7 @@
 		/* compatible = "gemalto,phs8" for Neo900/GTA04b7 */
 
 		on-off-gpio = <&gpio6 26 0>;	/* GPIO_186: trigger for power on */
-	/*	power-on-gpio = <&gpio5 19 0>;	/* n/a */
+	/*	on-indicator-gpio = <&gpio5 19 0>;	/* n/a */
 	};
 
 };
@@ -366,6 +374,13 @@
 			regulator-min-microvolt = <2800000>;
 			regulator-max-microvolt = <3150000>;
 		};
+		/* GPS LNA */
+		vsim: regulator-vsim {
+			compatible = "ti,twl4030-vsim";
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <3150000>;
+		};
+		/* backup battery charger */
 		charger: bci {
 			ti,bb-uvolt = <3200000>;
 			ti,bb-uamp = <150>;
