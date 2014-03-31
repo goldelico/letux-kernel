@@ -763,7 +763,7 @@ static struct platform_device bt_gpio_reg_device = {
 };
 
 static struct gpio_w2sg_data gps_gpio_data = {
-	.ctrl_gpio	= GPIO_GPS_CTRL,	// powers the LNA
+	.lna_gpio	= GPIO_GPS_CTRL,	// powers the LNA
 	.on_off_gpio	= GPS_ON_OFF_GPIO,	// allows to reset the GPS module
 	.rx_gpio	= GPS_RX_GPIO,	// used to check for feedback from the GPS module
 	.on_state	= OMAP_PIN_INPUT_PULLUP | OMAP_MUX_MODE0,
