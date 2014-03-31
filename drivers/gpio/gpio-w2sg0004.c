@@ -32,10 +32,14 @@
 #include <linux/slab.h>
 #include <linux/err.h>
 #include <linux/delay.h>
+#include <linux/of.h>
+#include <linux/of_irq.h>
 #include <linux/gpio.h>
+#include <linux/of_gpio.h>
 #include <linux/platform_device.h>
 #include <linux/gpio-w2sg0004.h>
 #include <linux/workqueue.h>
+#include <linux/rfkill.h>
 
 /*
  * There seems to restrictions on how quickly we can toggle the
@@ -50,6 +54,9 @@
  */
 
 struct gpio_w2sg {
+	struct rfkill *rf_kill;
+	int		lna_gpio;
+	int		lna_blocked;
 	int		is_on;
 	unsigned long	last_toggle;
 	unsigned long	backoff;	/* time to wait since last_toggle */
@@ -60,7 +67,7 @@ struct gpio_w2sg {
 	u16		on_state;  /* Mux state when GPS is on */
 	u16		off_state; /* Mux state when GPS is off */
 
-	enum {idle, down, up} state;
+	enum {W2SG_IDLE, W2SG_DOWN, W2SG_UP} state;
 	int		requested;
 	int		suspended;
 	int		rx_redirected;
@@ -69,16 +76,19 @@ struct gpio_w2sg {
 	struct delayed_work work;
 };
 
+/* this requires this driver to be compiled into the kernel! */
+
 void omap_mux_set_gpio(u16 val, int gpio);
+
 static void toggle_work(struct work_struct *work)
 {
 	struct gpio_w2sg *gw2sg = container_of(
 		work, struct gpio_w2sg, work.work);
 	switch (gw2sg->state) {
-	case up:
-		gw2sg->state = idle;
+	case W2SG_UP:
+		gw2sg->state = W2SG_IDLE;
 		printk("GPS idle\n");
-	case idle:
+	case W2SG_IDLE:
 		spin_lock_irq(&gw2sg->lock);
 		if (gw2sg->requested == gw2sg->is_on) {
 			if (!gw2sg->is_on && !gw2sg->rx_redirected) {
@@ -93,13 +103,13 @@ static void toggle_work(struct work_struct *work)
 		spin_unlock_irq(&gw2sg->lock);
 		gpio_set_value_cansleep(gw2sg->on_off_gpio, 0);
 		printk("GPS down\n");
-		gw2sg->state = down;
+		gw2sg->state = W2SG_DOWN;
 		schedule_delayed_work(&gw2sg->work,
 				      msecs_to_jiffies(10));
 		break;
-	case down:
+	case W2SG_DOWN:
 		gpio_set_value_cansleep(gw2sg->on_off_gpio, 1);
-		gw2sg->state = up;
+		gw2sg->state = W2SG_UP;
 		gw2sg->last_toggle = jiffies;
 		printk("GPS up\n");
 		gw2sg->is_on = !gw2sg->is_on;
@@ -116,7 +126,7 @@ static irqreturn_t gpio_w2sg_isr(int irq, void *dev_id)
 	printk("!");
 	if (!gw2sg->requested &&
 	    !gw2sg->is_on &&
-	    gw2sg->state == idle &&
+	    gw2sg->state == W2SG_IDLE &&
 	    time_after(jiffies,
 		       gw2sg->last_toggle + gw2sg->backoff)) {
 		/* Should be off by now, time to toggle again */
@@ -163,11 +173,52 @@ static int gpio_w2sg_direction_output(struct gpio_chip *gc,
 	return 0;
 }
 
+static int gpio_w2sg_rfkill_set_block(void *data, bool blocked)
+{
+	struct gpio_w2sg *rfkill_data = data;
+	int ret = 0;
+
+	pr_debug("%s: blocked: %d\n", __func__, blocked);
+
+	rfkill_data -> lna_blocked = blocked;
+
+	// forward !lna_blocked && is_on to lna_gpio state
+
+	return ret;
+}
+
+static struct rfkill_ops gpio_w2sg_rfkill_regulator_ops = {
+	.set_block = gpio_w2sg_rfkill_set_block,
+};
+
 static int gpio_w2sg_probe(struct platform_device *pdev)
 {
-	struct gpio_w2sg_data *pdata = pdev->dev.platform_data;
+	struct gpio_w2sg_data *pdata = dev_get_platdata(&pdev->dev);
 	struct gpio_w2sg *gw2sg;
+	struct rfkill *rf_kill;
 	int err;
+	printk("gpio_w2sg_probe()\n");
+
+	if (pdev->dev.of_node) {
+		struct device *dev = &pdev->dev;
+		enum of_gpio_flags flags;
+		pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+		if (!pdata)
+			return -ENOMEM;
+		pdata->lna_gpio = of_get_named_gpio_flags(dev->of_node, "lna-gpio", 0, &flags);
+		pdata->on_off_gpio = of_get_named_gpio_flags(dev->of_node, "on-off-gpio", 0, &flags);
+		pdata->rx_gpio = of_get_named_gpio_flags(dev->of_node, "rx-gpio", 0, &flags);
+
+		/*
+		 * missing: rx-on-mux, rx-off-mux
+		 */
+
+		if (pdata->on_off_gpio == -EPROBE_DEFER ||
+			pdata->rx_gpio == -EPROBE_DEFER)
+			return -EPROBE_DEFER;
+		pdev->dev.platform_data = pdata;
+		printk("gpio_w2sg_probe() pdata=%p\n", pdata);
+	}
 
 	gw2sg = kzalloc(sizeof(*gw2sg), GFP_KERNEL);
 	if (gw2sg == NULL)
@@ -179,13 +230,13 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 
 	gw2sg->is_on = 0;
 	gw2sg->requested = 1;
-	gw2sg->state = idle;
+	gw2sg->state = W2SG_IDLE;
 	gw2sg->last_toggle = jiffies;
 	gw2sg->backoff = HZ;
 
 	gw2sg->gpio.label = "gpio-w2sg0004";
 	gw2sg->gpio.ngpio = 1;
-	gw2sg->gpio.base = pdata->ctrl_gpio;
+	gw2sg->gpio.base = -1;
 	gw2sg->gpio.owner = THIS_MODULE;
 	gw2sg->gpio.direction_output = gpio_w2sg_direction_output;
 	gw2sg->gpio.set = gpio_w2sg_set_value;
@@ -220,11 +271,34 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 	err = gpiochip_add(&gw2sg->gpio);
 	if (err)
 		goto out3;
+
+	rf_kill = rfkill_alloc("GPS", &pdev->dev,
+						   RFKILL_TYPE_GPS,
+						   &gpio_w2sg_rfkill_regulator_ops, gw2sg);
+	if (rf_kill == NULL) {
+		err = -ENOMEM;
+		goto out4;
+	}
+
+	err = rfkill_register(rf_kill);
+	if (err) {
+		dev_err(&pdev->dev, "Cannot register rfkill device\n");
+		goto out5;
+	}
+
+	gw2sg->rf_kill = rf_kill;
+
 	platform_set_drvdata(pdev, gw2sg);
+	printk("w2sg0004 probed\n");
 	return 0;
 
+out5:
+	rfkill_destroy(rf_kill);
+out4:
+	(void) gpiochip_remove(&gw2sg->gpio);
 out3:
 	free_irq(gw2sg->rx_irq, gw2sg);
+	/* undo the gpiochip_add() ? */
 out2:
 	gpio_free(gw2sg->rx_gpio);
 out1:
@@ -264,16 +338,16 @@ static int gpio_w2sg_suspend(struct device *dev)
 	spin_unlock_irq(&gw2sg->lock);
 
 	cancel_delayed_work_sync(&gw2sg->work);
-	if (gw2sg->state == down) {
+	if (gw2sg->state == W2SG_DOWN) {
 		msleep(10);
 		gpio_set_value_cansleep(gw2sg->on_off_gpio, 1);
 		gw2sg->last_toggle = jiffies;
 		gw2sg->is_on = !gw2sg->is_on;
-		gw2sg->state = up;
+		gw2sg->state = W2SG_UP;
 	}
-	if (gw2sg->state == up) {
+	if (gw2sg->state == W2SG_UP) {
 		msleep(10);
-		gw2sg->state = idle;
+		gw2sg->state = W2SG_IDLE;
 	}
 	if (gw2sg->is_on) {
 		printk("GPS off for suspend %d %d\n", gw2sg->requested, gw2sg->is_on);
@@ -318,6 +392,16 @@ static void __exit gpio_w2sg_exit(void)
 	platform_driver_unregister(&gpio_w2sg_driver);
 }
 module_exit(gpio_w2sg_exit);
+
+#if defined(CONFIG_OF)
+static const struct of_device_id w2sg0004_of_match[] = {
+	{ .compatible = "wi2wi,w2sg0004" },
+	{},
+};
+MODULE_DEVICE_TABLE(of, w2sg0004_of_match);
+#endif
+
+MODULE_ALIAS("w2sg0004");
 
 MODULE_AUTHOR("NeilBrown <neilb@suse.de>");
 MODULE_DESCRIPTION("w2sg0004 GPS virtual GPIO driver");
