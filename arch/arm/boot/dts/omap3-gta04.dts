@@ -150,17 +150,18 @@
 		};
 	};
 
-	opa362 {
+	tv_amp: opa362 {
 		compatible = "ti,opa362";
 		gpio = <&gpio1 23 0>;	/* GPIO to enable */
 		/* needs some endpoint plumbing into the VENC signal chain */
 	};
 
-	w2cbw003: w2cbw003 { /* presents a single gpio to be plumbed to uart1 dts */
+	bt_en: w2cbw003 { /* presents a single gpio to be plumbed to uart1 dts */
 		compatible = "wi2wi,w2cbw003";
 		gpio-controller;
 		#gpio-cells = <2>;
 
+		microvolt = <3150000>;
 		vgpio-supply = <&vaux4>;
 	};
 
@@ -172,19 +173,19 @@
 		vgpio-supply = <&vsim>;
 	};
 
-	w2sg0004: w2sg0004 { /* presents a single gpio to be plumbed to uart2 dts */
+	gps_en: w2sg0004 { /* presents a single gpio to be plumbed to uart2 dts */
 		compatible = "wi2wi,w2sg0004";
 		gpio-controller;
 		#gpio-cells = <2>;
 
-		lna-gpio = <&gps_lna 0 0>;	/* rfkill controllable lna gpio/regulator */
+		lna-gpio = <&gps_lna 0 0>;	/* rfkill controllable LNA gpio/regulator */
 		on-off-gpio = <&gpio5 17 0>;	/* GPIO_145: trigger for w2sg0004 */
 		rx-gpio = <&gpio5 19 0>;	/* GPIO_147: RX */
 		rx-on-mux = < (PIN_INPUT_PULLUP | MUX_MODE0) >;
 		rx-off-mux = < (PIN_INPUT_PULLUP | MUX_MODE4) >;
 	};
 
-	modem: modem { /* control modem power through rfkill */
+	modem_en: modem { /* control modem power through rfkill */
 		compatible = "option,gtm601";
 		/* compatible = "gemalto,phs8" for Neo900/GTA04b7 */
 
@@ -543,13 +544,13 @@
 &uart1 { /* Bluetooth */
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart1_pins>;
-	dtr-gpio = <&w2cbw003 0 0>;	/* w2cbw bluetooth power control through virtual gpio */
+	dtr-gpio = <&bt_en 0 0>;	/* w2cbw bluetooth power control through virtual gpio */
 };
 
 &uart2 { /* GPS */
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart2_pins>;
-	dtr-gpio = <&w2sg0004 0 0>;	/* w2sg0004 GPS power control through virtual gpio */
+	dtr-gpio = <&gps_en 0 0>;	/* w2sg0004 GPS power control through virtual gpio */
 };
 
 &uart3 { /* Console and IrDA */
