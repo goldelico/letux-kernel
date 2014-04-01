@@ -68,7 +68,7 @@ static int gpio_reg_probe(struct platform_device *pdev)
 	struct gpio_reg *greg;
 	int err;
 	printk("gpio_reg_probe()\n");
-
+#ifdef CONFIG_OF
 	if (pdev->dev.of_node) {
 		struct device *dev = &pdev->dev;
 		enum of_gpio_flags flags;
@@ -86,6 +86,7 @@ static int gpio_reg_probe(struct platform_device *pdev)
 		// FIXME: loop over multiple regulators and end if no more are found
 
 		for (i=0; i < MAX_REGULATORS; i++) {
+			u32 uV;
 			greg->reg[i] = regulator_get(&pdev->dev, "vgpio");
 			printk("gpio_reg_probe() reg=%p\n", greg->reg[i]);
 
@@ -94,7 +95,8 @@ static int gpio_reg_probe(struct platform_device *pdev)
 				greg->reg[i] = NULL;
 				goto out2;
 			}
-
+			if (of_property_read_u32(pdev->dev.of_node, "microvolt", &uV) == 0)
+				regulator_set_voltage(greg->reg[0], uV, uV);
 			greg->set[i] = 0;
 		}
 		greg->virtual_chip.ngpio = i;
@@ -104,6 +106,7 @@ static int gpio_reg_probe(struct platform_device *pdev)
 		greg->virtual_chip.direction_output = gpio_reg_direction_output;
 		greg->virtual_chip.set = gpio_reg_set_value;
 		greg->virtual_chip.can_sleep = 1;
+        greg->virtual_chip.of_node = of_node_get(pdev->dev.of_node);
 		err = gpiochip_add(&greg->virtual_chip);
 		printk("gpio_reg_probe() gpiochip_add()=%d\n", err);
 
@@ -117,7 +120,7 @@ static int gpio_reg_probe(struct platform_device *pdev)
 
 		goto out;
 	}
-
+#endif
 	greg = kzalloc(sizeof(*greg), GFP_KERNEL);
 	if (greg == NULL)
 		return -ENOMEM;
