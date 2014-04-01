@@ -202,20 +202,21 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 	if (pdev->dev.of_node) {
 		struct device *dev = &pdev->dev;
 		enum of_gpio_flags flags;
+		int mux_state;
 		pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 		if (!pdata)
 			return -ENOMEM;
 		pdata->lna_gpio = of_get_named_gpio_flags(dev->of_node, "lna-gpio", 0, &flags);
 		pdata->on_off_gpio = of_get_named_gpio_flags(dev->of_node, "on-off-gpio", 0, &flags);
 		pdata->rx_gpio = of_get_named_gpio_flags(dev->of_node, "rx-gpio", 0, &flags);
-
-		/*
-		 * missing: rx-on-mux, rx-off-mux
-		 */
-
+		if (of_property_read_u32(dev->of_node, "rx-on-mux", &mux_state))
+			pdata->on_state = mux_state;
+		if (of_property_read_u32(dev->of_node, "rx-off-mux", &mux_state))
+			pdata->off_state = mux_state;
 		if (pdata->on_off_gpio == -EPROBE_DEFER ||
 			pdata->rx_gpio == -EPROBE_DEFER)
 			return -EPROBE_DEFER;
+		pdata->ctrl_gpio = -1;
 		pdev->dev.platform_data = pdata;
 		printk("gpio_w2sg_probe() pdata=%p\n", pdata);
 	}
@@ -223,6 +224,7 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 	gw2sg = kzalloc(sizeof(*gw2sg), GFP_KERNEL);
 	if (gw2sg == NULL)
 		return -ENOMEM;
+	gw2sg->lna_gpio = pdata->lna_gpio;
 	gw2sg->on_off_gpio = pdata->on_off_gpio;
 	gw2sg->rx_gpio = pdata->rx_gpio;
 	gw2sg->on_state = pdata->on_state;
@@ -236,7 +238,7 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 
 	gw2sg->gpio.label = "gpio-w2sg0004";
 	gw2sg->gpio.ngpio = 1;
-	gw2sg->gpio.base = -1;
+	gw2sg->gpio.base = pdata->ctrl_gpio;
 	gw2sg->gpio.owner = THIS_MODULE;
 	gw2sg->gpio.direction_output = gpio_w2sg_direction_output;
 	gw2sg->gpio.set = gpio_w2sg_set_value;
