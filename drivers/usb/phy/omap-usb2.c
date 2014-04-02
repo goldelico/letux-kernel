@@ -210,7 +210,8 @@ static int omap_usb2_probe(struct platform_device *pdev)
 	omap_control_usb_node   = of_parse_phandle(node, "ctrl-module", 0);
 	phy->phy.init		= omap_usb_init;
 
-	if (phy_data->flags & OMAP_USB2_CALIBRATE_FALSE_DISCONNECT)
+	if (phy_data &&
+		phy_data->flags & OMAP_USB2_CALIBRATE_FALSE_DISCONNECT)
 		phy->flags |= OMAP_USB2_CALIBRATE_FALSE_DISCONNECT;
 
 	if (IS_ERR(omap_control_usb_node)) {
