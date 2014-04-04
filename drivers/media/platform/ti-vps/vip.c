@@ -926,52 +926,47 @@ static void vip_active_buf_next(struct vip_stream *stream)
 
 	spin_lock_irqsave(&dev->slock, flags);
 	if (list_empty(&stream->vidq)) {
-		v4l2_dbg(1, debug, &dev->v4l2_dev, "%s No buffers to queue, dropping frame, Queue faster or increase no of buffers");
-		buf = kzalloc(sizeof(*buf), GFP_KERNEL);
-                if (!buf) {
-                    v4l2_err(&dev->v4l2_dev, "No memory!!");
-                    spin_unlock_irqrestore(&dev->slock, flags);
-                    return;
-                }
-                buf->drop = true;
-                list_add_tail(&buf->list, &dev->vip_bufs);
-                spin_unlock_irqrestore(&dev->slock, flags);
-                start_dma(dev, NULL);
-        } else if (vb2_is_streaming(&stream->vb_vidq)) {
-		buf = list_entry(stream->vidq.next,
-				struct vip_buffer, list);
+		vip_dprintk(dev, "Dropping frame");
+		/* Increment drop_count for last buffer in the list */
+		buf = list_entry(dev->vip_bufs.prev, struct vip_buffer, list);
+		buf->drop_count++;
+		buf = NULL;
+
+	} else if (vb2_is_streaming(&stream->vb_vidq)) {
+		buf = list_entry(stream->vidq.next, struct vip_buffer, list);
+		buf->drop_count = 0;
 		list_move_tail(&buf->list, &dev->vip_bufs);
-		spin_unlock_irqrestore(&dev->slock, flags);
-		start_dma(dev, buf);
-	} else
-            spin_unlock_irqrestore(&dev->slock, flags);
+	}
 
 	if (list_empty(&dev->vip_bufs))
 		stream->cur_buf = NULL;
 	else
 		stream->cur_buf = list_first_entry(&dev->vip_bufs,
 				struct vip_buffer, list);
+
+	spin_unlock_irqrestore(&dev->slock, flags);
+	start_dma(dev, buf);
 }
 
 static void vip_process_buffer_complete(struct vip_stream *stream)
 {
 	struct vip_dev *dev = stream->port->dev;
 	struct vb2_buffer *vb = NULL;
+	struct vip_buffer *buf = stream->cur_buf;
 	unsigned long flags;
 
-	if (stream->cur_buf) {
-		vb = &stream->cur_buf->vb;
+	if (buf) {
+		vb = &buf->vb;
 		do_gettimeofday(&vb->v4l2_buf.timestamp);
 
-		spin_lock_irqsave(&dev->slock, flags);
-		list_del(&stream->cur_buf->list);
-		spin_unlock_irqrestore(&dev->slock, flags);
+		if (buf->drop_count-- == 0) {
+			spin_lock_irqsave(&dev->slock, flags);
+			list_del(&buf->list);
+			spin_unlock_irqrestore(&dev->slock, flags);
+		}
 
-		if (stream->cur_buf->drop)
-                    kfree(stream->cur_buf);
-                else
-                    vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
-        }
+		vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
+	}
 
 	vip_active_buf_next(stream);
 }
