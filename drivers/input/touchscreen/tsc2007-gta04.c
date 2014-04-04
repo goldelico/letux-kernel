@@ -502,7 +502,7 @@ static int tsc2007_probe(struct i2c_client *client,
 	snprintf(ts->phys, sizeof(ts->phys),
 		 "%s/input0", dev_name(&client->dev));
 
-	input_dev->name = "tsc2007";
+	input_dev->name = "TSC2007 Touchscreen";
 	input_dev->phys = ts->phys;
 	input_dev->id.bustype = BUS_I2C;
 
