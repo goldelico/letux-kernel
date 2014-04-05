@@ -181,7 +181,8 @@ void vpdma_update_dma_addr(struct vpdma_data *vpdma,
 		struct vpdma_desc_list *list, dma_addr_t dma_addr, int drop);
 
 void vpdma_enable_channel_3_irq(struct vpdma_data *vpdma, bool enable);
-void vpdma_vip_set_max_size(struct vpdma_data *vpdma, int vip_num);
+void vpdma_set_max_size(struct vpdma_data *vpdma, int reg_addr,
+		u32 width, u32 height);
 
 
 void vpdma_enable_list_complete_irq(struct vpdma_data *vpdma, int irq_num,

@@ -441,17 +441,24 @@ void vpdma_update_dma_addr(struct vpdma_data *vpdma,
 }
 EXPORT_SYMBOL(vpdma_update_dma_addr);
 
-void vpdma_vip_set_max_size(struct vpdma_data *vpdma, int vip_num)
+void vpdma_set_max_size(struct vpdma_data *vpdma, int reg_addr,
+		u32 width, u32 height)
 {
 	u32 val = 0;
 
-	if (vip_num == 1) {
-		insert_field(&val, 1919, VPDMA_MAX_SIZE_WIDTH_MASK, VPDMA_MAX_SIZE_WIDTH_SHFT);
-		insert_field(&val, 1079, VPDMA_MAX_SIZE_HEIGHT_MASK, VPDMA_MAX_SIZE_HEIGHT_SHFT);
-		write_reg(vpdma, VPDMA_MAX_SIZE1, val);
-	}
+	insert_field(&val, width - 1 ,
+		VPDMA_MAX_SIZE_WIDTH_MASK, VPDMA_MAX_SIZE_WIDTH_SHFT);
+
+	insert_field(&val, height - 1 ,
+		VPDMA_MAX_SIZE_HEIGHT_MASK, VPDMA_MAX_SIZE_HEIGHT_SHFT);
+
+	if (reg_addr != VPDMA_MAX_SIZE1 || reg_addr != VPDMA_MAX_SIZE2
+		|| reg_addr != VPDMA_MAX_SIZE3)
+			reg_addr = VPDMA_MAX_SIZE1;
+
+	write_reg(vpdma, reg_addr, val);
 }
-EXPORT_SYMBOL(vpdma_vip_set_max_size);
+EXPORT_SYMBOL(vpdma_set_max_size);
 
 #ifdef VPDMA_DEBUG
 static void dump_cfd(struct vpdma_cfd *cfd)

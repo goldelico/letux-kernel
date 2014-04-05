@@ -755,6 +755,7 @@ static int add_out_dtd(struct vip_stream *stream, int srce_type)
 	struct vb2_buffer *vb = &stream->cur_buf->vb;
 	struct v4l2_rect *c_rect = &port->c_rect;
 	struct vip_fmt *fmt = port->fmt;
+	struct vpdma_dtd *dtd;
 	int channel, plane = 0;
 	dma_addr_t dma_addr;
 	u32 flags;
@@ -794,8 +795,30 @@ static int add_out_dtd(struct vip_stream *stream, int srce_type)
 		return -1;
 	}
 
-	vpdma_vip_set_max_size(dev->shared->vpdma, 1);
-	vpdma_add_out_dtd(&dev->desc_list, c_rect, fmt->vpdma_fmt[plane], dma_addr, channel, flags);
+	vpdma_add_out_dtd(&dev->desc_list, c_rect->width,
+		fmt->vpdma_fmt[plane], dma_addr, channel, flags);
+
+	/*
+	 * add_out_dtd sets the max WIDTH and HEIGHT to be 1920x1080
+	 * Change this later so that max WIDTH and HEIGHT are taken from
+	 * VPDMA_MAX_SIZE1 or VPDMA_MAX_SIZE2 register
+	 * This allows to use different sets for different slices
+	 */
+
+	dtd = dev->desc_list.buf.addr;
+	if (dev->slice_id == VIP_SLICE1) {
+		vpdma_set_max_size(dev->shared->vpdma, VPDMA_MAX_SIZE1,
+			stream->width, stream->height);
+
+		dtd_set_max_width_height(dtd,
+			MAX_OUT_WIDTH_REG1, MAX_OUT_HEIGHT_REG1);
+	} else {
+		vpdma_set_max_size(dev->shared->vpdma, VPDMA_MAX_SIZE2,
+			stream->width, stream->height);
+
+		dtd_set_max_width_height(dtd,
+			MAX_OUT_WIDTH_REG2, MAX_OUT_HEIGHT_REG2);
+	}
 
 	return 0;
 }
