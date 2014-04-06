@@ -941,14 +941,11 @@ static void vip_active_buf_next(struct vip_stream *stream)
 		buf->drop_count = 0;
 		buf->allow_dq = true;
 		list_move_tail(&buf->list, &dev->vip_bufs);
-	} else
+	} else {
+		v4l2_err(&dev->v4l2_dev, "IRQ occurred when not streaming");
+		spin_unlock_irqrestore(&dev->slock, flags);
 		return;
-
-	if (list_empty(&dev->vip_bufs))
-		stream->cur_buf = NULL;
-	else
-		stream->cur_buf = list_first_entry(&dev->vip_bufs,
-				struct vip_buffer, list);
+	}
 
 	spin_unlock_irqrestore(&dev->slock, flags);
 	start_dma(dev, buf);
@@ -958,8 +955,10 @@ static void vip_process_buffer_complete(struct vip_stream *stream)
 {
 	struct vip_dev *dev = stream->port->dev;
 	struct vb2_buffer *vb = NULL;
-	struct vip_buffer *buf = stream->cur_buf;
+	struct vip_buffer *buf;
 	unsigned long flags, fld;
+
+	buf = list_first_entry(&dev->vip_bufs, struct vip_buffer, list);
 
 	if (stream->port->flags & FLAG_INTERLACED) {
 		vpdma_buf_unmap(dev->shared->vpdma, &dev->desc_list.buf);
@@ -985,14 +984,15 @@ static void vip_process_buffer_complete(struct vip_stream *stream)
 			vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
 			buf->allow_dq = false;
 		}
+	} else {
+		BUG();
 	}
-
-	vip_active_buf_next(stream);
 }
 
 static irqreturn_t vip_irq(int irq_vip, void *data)
 {
 	struct vip_dev *dev = (struct vip_dev *)data;
+	struct vip_stream *stream;
 	int list_num = dev->slice_id;
 	int irq_num = dev->slice_id;
 	u32 irqst, reg_addr;
@@ -1017,14 +1017,17 @@ static irqreturn_t vip_irq(int irq_vip, void *data)
 		irqst &= ~((1 << list_num * 2));
 	}
 
+	disable_irqs(dev, dev->slice_id);
+
+	stream = dev->ports[0]->cap_streams[0];
+
 	if (dev->num_skip_irq) {
 		dev->num_skip_irq--;
-		return IRQ_HANDLED;
+	} else {
+		vip_process_buffer_complete(stream);
 	}
 
-	 disable_irqs(dev, dev->slice_id);
-
-	vip_process_buffer_complete(dev->ports[0]->cap_streams[0]);
+	vip_active_buf_next(stream);
 
 	return IRQ_HANDLED;
 }
@@ -1512,38 +1515,28 @@ static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
 		return -EIO;
 	}
 
-	stream->cur_buf = list_entry(stream->vidq.next,
-				struct vip_buffer, list);
-	stream->cur_buf->vb.state = VB2_BUF_STATE_ACTIVE;
-	stream->cur_buf->drop_count = 0;
-	stream->cur_buf->allow_dq = true;
+	buf = list_entry(stream->vidq.next, struct vip_buffer, list);
+	buf->drop_count = 0;
+	buf->allow_dq = true;
+
+	stream->cur_buf = buf;
 	stream->field = V4L2_FIELD_TOP;
 
 	populate_desc_list(stream);
 	dev->num_skip_irq = VIP_VPDMA_FIFO_SIZE;
 
-	for (i = 0; i < count; i++) {
-
-		spin_lock_irqsave(&dev->slock, flags);
-		if (!vpdma_list_busy(dev->shared->vpdma, dev->slice_id)) {
-
-			buf = list_entry(stream->vidq.next,
-					struct vip_buffer, list);
-			list_move_tail(&buf->list, &dev->vip_bufs);
-			spin_unlock_irqrestore(&dev->slock, flags);
-
-			if (!stream->cur_buf)
-				stream->cur_buf = buf;
-			start_dma(dev, buf);
-
-			if (i == VIP_VPDMA_FIFO_SIZE)
-				break;
-			while (vpdma_list_busy(dev->shared->vpdma,
-					dev->slice_id))
-				;
-		} else
-			spin_unlock_irqrestore(&dev->slock, flags);
+	spin_lock_irqsave(&dev->slock, flags);
+	if (vpdma_list_busy(dev->shared->vpdma, dev->slice_id)) {
+		spin_unlock_irqrestore(&dev->slock, flags);
+		vpdma_buf_unmap(dev->shared->vpdma, &dev->desc_list.buf);
+		vpdma_reset_desc_list(&dev->desc_list);
+		return -EBUSY;
 	}
+
+	list_move_tail(&buf->list, &dev->vip_bufs);
+	spin_unlock_irqrestore(&dev->slock, flags);
+
+	start_dma(dev, buf);
 
 	return 0;
 }
