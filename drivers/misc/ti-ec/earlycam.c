@@ -60,7 +60,7 @@ static int main_fn(void *);
 static int init_mmap(struct file *fp);
 static void earlycam_isr(void *arg, unsigned int irqstatus);
 
-int thread_init(void)
+static int thread_init(void)
 {
 	char our_thread[16] = "earlycam_thread";
 
@@ -73,7 +73,7 @@ int thread_init(void)
 	return 0;
 }
 
-int display_init()
+static int display_init(void)
 {
 	int ret = 0, i;
 	struct omap_dss_device *dssdev = NULL;
@@ -118,7 +118,7 @@ err_dss_init:
 	return ret;
 }
 
-int display_disable(struct earlycam_setup_dispc_data data)
+static int display_disable(struct earlycam_setup_dispc_data data)
 {
 	struct omap_overlay *ovl;
 	ovl = earlycam_dev->overlays[data.ovls[0].cfg.ix];
@@ -154,7 +154,7 @@ static void earlycam_isr(void *arg, unsigned int irqstatus)
 	}
 }
 
-int display_queue(struct earlycam_setup_dispc_data data)
+static int display_queue(struct earlycam_setup_dispc_data data)
 {
 	int ret = 0;
 	int retry;
@@ -235,7 +235,7 @@ int display_queue(struct earlycam_setup_dispc_data data)
 	return ret;
 }
 
-int init_mmap(struct file *fp)
+static int init_mmap(struct file *fp)
 {
 	int i;
 	struct v4l2_requestbuffers req = {0};
@@ -263,7 +263,7 @@ int init_mmap(struct file *fp)
 	return 0;
 }
 
-int capture_image(struct file *fp, int init)
+static int capture_image(struct file *fp, int init)
 {
 	struct v4l2_buffer buf = {0};
 	int i;
@@ -321,23 +321,12 @@ int capture_image(struct file *fp, int init)
 
 int main_fn(void *arg)
 {
-	int i;
 	int ret;
 	int cam_init = 1;
 	int val;
 	struct inode in;
 	struct dentry dtr;
 	struct file fp;
-
-	/*
-	 * Creates a file pointer to the VIP video device
-	 * This is hardcoded to open up the first instance
-	 * of the VIP which should be registered as /dev/video1
-	 * since the VPE module will be registered as /dev/video0
-	 */
-	in.i_rdev = MKDEV(VIDEO_MAJOR, 1);
-	dtr.d_inode = &in;
-	fp.f_path.dentry = &dtr;
 
 	/* need base address for in-page offset */
 	struct earlycam_setup_dispc_data comp = {
@@ -359,6 +348,16 @@ int main_fn(void *arg)
 		},
 		.ovls[0].ba = (u32) dma_addr_global_complete[buffer_index],
 	};
+
+	/*
+	 * Creates a file pointer to the VIP video device
+	 * This is hardcoded to open up the first instance
+	 * of the VIP which should be registered as /dev/video1
+	 * since the VPE module will be registered as /dev/video0
+	 */
+	in.i_rdev = MKDEV(VIDEO_MAJOR, 1);
+	dtr.d_inode = &in;
+	fp.f_path.dentry = &dtr;
 
 	ret = display_init();
 	if (ret) {
