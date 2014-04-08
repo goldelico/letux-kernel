@@ -11,6 +11,8 @@ Required properties:
 - compatible: "ti,omap4-dss"
 - reg: address and length of the register space
 - ti,hwmods: "dss_core"
+- clocks: handle to fclk
+- clock-names: "fck"
 
 Required nodes:
 - DISPC
@@ -31,6 +33,8 @@ Required properties:
 - reg: address and length of the register space
 - ti,hwmods: "dss_dispc"
 - interrupts: the DISPC interrupt
+- clocks: handle to fclk
+- clock-names: "fck"
 
 
 RFBI
@@ -40,6 +44,8 @@ Required properties:
 - compatible: "ti,omap4-rfbi"
 - reg: address and length of the register space
 - ti,hwmods: "dss_rfbi"
+- clocks: handles to fclk and iclk
+- clock-names: "fck", "ick"
 
 Optional nodes:
 - Video port for RFBI output
@@ -54,6 +60,8 @@ Required properties:
 - reg: address and length of the register space
 - ti,hwmods: "dss_venc"
 - vdda-supply: power supply for DAC
+- clocks: handle to fclk
+- clock-names: "fck"
 
 Optional nodes:
 - Video port for VENC output
@@ -73,6 +81,8 @@ Required properties:
 - interrupts: the DSI interrupt line
 - ti,hwmods: "dss_dsi1" or "dss_dsi2"
 - vdd-supply: power supply for DSI
+- clocks: handles to fclk and pll clock
+- clock-names: "fck", "sys_clk"
 
 Optional nodes:
 - Video port for DSI output
@@ -94,6 +104,8 @@ Required properties:
 - interrupts: the HDMI interrupt line
 - ti,hwmods: "dss_hdmi"
 - vdda-supply: vdda power supply
+- clocks: handles to fclk and pll clock
+- clock-names: "fck", "sys_clk"
 
 Optional nodes:
 - Video port for HDMI output

@@ -46,10 +46,12 @@ A shortened example of the DSS description for OMAP4, with non-relevant parts
 removed, defined in omap4.dtsi:
 
 dss: dss@58000000 {
-	compatible = "ti,omap4-dss", "simple-bus";
+	compatible = "ti,omap4-dss";
 	reg = <0x58000000 0x80>;
 	status = "disabled";
 	ti,hwmods = "dss_core";
+	clocks = <&dss_dss_clk>;
+	clock-names = "fck";
 	#address-cells = <1>;
 	#size-cells = <1>;
 	ranges;
@@ -59,6 +61,8 @@ dss: dss@58000000 {
 		reg = <0x58001000 0x1000>;
 		interrupts = <GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>;
 		ti,hwmods = "dss_dispc";
+		clocks = <&dss_dss_clk>;
+		clock-names = "fck";
 	};
 
 	hdmi: encoder@58006000 {
@@ -71,6 +75,8 @@ dss: dss@58000000 {
 		interrupts = <GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>;
 		status = "disabled";
 		ti,hwmods = "dss_hdmi";
+		clocks = <&dss_48mhz_clk>, <&dss_sys_clk>;
+		clock-names = "fck", "sys_clk";
 	};
 };
 
@@ -82,7 +88,7 @@ chip (MIPI DPI to DVI encoder) and a TPD12S015 chip (HDMI ESD protection & level
 shifter). The video pipelines for the connectors are formed as follows:
 
 DSS Core --(MIPI DPI)--> TFP410 --(DVI)--> DVI Connector
-OMAP HDMI --(HDMI)--> TPD12S015 --(HDMI)--> HDMI COnnector
+OMAP HDMI --(HDMI)--> TPD12S015 --(HDMI)--> HDMI Connector
 
 / {
 	aliases {
@@ -125,8 +131,10 @@ OMAP HDMI --(HDMI)--> TPD12S015 --(HDMI)--> HDMI COnnector
 
 		i2c-bus = <&i2c3>;
 
-		dvi_connector_in: endpoint {
-			remote-endpoint = <&tfp410_out>;
+		port {
+			dvi_connector_in: endpoint {
+				remote-endpoint = <&tfp410_out>;
+			};
 		};
 	};
 
@@ -166,8 +174,10 @@ OMAP HDMI --(HDMI)--> TPD12S015 --(HDMI)--> HDMI COnnector
 		compatible = "hdmi-connector";
 		label = "hdmi";
 
-		hdmi_connector_in: endpoint {
-			remote-endpoint = <&tpd12s015_out>;
+		port {
+			hdmi_connector_in: endpoint {
+				remote-endpoint = <&tpd12s015_out>;
+			};
 		};
 	};
 };
@@ -178,9 +188,11 @@ OMAP HDMI --(HDMI)--> TPD12S015 --(HDMI)--> HDMI COnnector
 	pinctrl-names = "default";
 	pinctrl-0 = <&dss_dpi_pins>;
 
-	dpi_out: endpoint {
-		remote-endpoint = <&tfp410_in>;
-		data-lines = <24>;
+	port {
+		dpi_out: endpoint {
+			remote-endpoint = <&tfp410_in>;
+			data-lines = <24>;
+		};
 	};
 };
 
@@ -191,7 +203,9 @@ OMAP HDMI --(HDMI)--> TPD12S015 --(HDMI)--> HDMI COnnector
 	pinctrl-names = "default";
 	pinctrl-0 = <&dss_hdmi_pins>;
 
-	hdmi_out: endpoint {
-		remote-endpoint = <&tpd12s015_in>;
+	port {
+		hdmi_out: endpoint {
+			remote-endpoint = <&tpd12s015_in>;
+		};
 	};
 };

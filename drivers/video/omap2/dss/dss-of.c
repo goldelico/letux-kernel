@@ -114,16 +114,16 @@ omapdss_of_get_remote_device_node(const struct device_node *node)
 struct device_node *
 omapdss_of_get_first_endpoint(const struct device_node *parent)
 {
-	struct device_node *port;
-	struct device_node *ep;
+	struct device_node *port, *ep;
 
 	port = omapdss_of_get_next_port(parent, NULL);
-	if (port) {
-		ep = omapdss_of_get_next_endpoint(port, NULL);
-		of_node_put(port);
-	} else {
-		ep = omapdss_of_get_next_endpoint(parent, NULL);
-	}
+
+	if (!port)
+		return NULL;
+
+	ep = omapdss_of_get_next_endpoint(port, NULL);
+
+	of_node_put(port);
 
 	return ep;
 }

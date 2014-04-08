@@ -156,22 +156,6 @@ static void dss_restore_context(void)
 #undef SR
 #undef RR
 
-int dss_get_ctx_loss_count(void)
-{
-	struct platform_device *core_pdev = dss_get_core_pdev();
-	struct omap_dss_board_info *board_data = core_pdev->dev.platform_data;
-	int cnt;
-
-	if (!board_data->get_context_loss_count)
-		return -ENOENT;
-
-	cnt = board_data->get_context_loss_count(&dss.pdev->dev);
-
-	WARN_ONCE(cnt < 0, "get_context_loss_count failed: %d\n", cnt);
-
-	return cnt;
-}
-
 void dss_sdi_init(int datapairs)
 {
 	u32 l;
@@ -473,7 +457,7 @@ bool dss_div_calc(unsigned long pck, unsigned long fck_min,
 	fckd_stop = max(DIV_ROUND_UP(prate * m, fck_hw_max), 1ul);
 
 	for (fckd = fckd_start; fckd >= fckd_stop; --fckd) {
-		fck = DIV_ROUND_UP(prate, fckd) * m;
+		fck = prate / fckd * m;
 
 		if (func(fck, data))
 			return true;
@@ -522,7 +506,7 @@ static int dss_setup_default_clock(void)
 
 		fck_div = DIV_ROUND_UP(prate * dss.feat->dss_fck_multiplier,
 				max_dss_fck);
-		fck = DIV_ROUND_UP(prate, fck_div) * dss.feat->dss_fck_multiplier;
+		fck = prate / fck_div * dss.feat->dss_fck_multiplier;
 	}
 
 	r = dss_set_fck_rate(fck);
@@ -790,11 +774,14 @@ static int __init dss_init_features(struct platform_device *pdev)
 	return 0;
 }
 
-static int dss_init_ports(struct platform_device *pdev)
+static int __init dss_init_ports(struct platform_device *pdev)
 {
 	struct device_node *parent = pdev->dev.of_node;
 	struct device_node *port;
 	int r;
+
+	if (parent == NULL)
+		return 0;
 
 	port = omapdss_of_get_next_port(parent, NULL);
 	if (!port) {

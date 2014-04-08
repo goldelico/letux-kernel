@@ -5,7 +5,7 @@ Required properties:
 - compatible: "ti,tfp410"
 
 Optional properties:
-- gpios: power-down gpio
+- powerdown-gpios: power-down gpio
 
 Required nodes:
 - Video port 0 for DPI input
@@ -16,7 +16,7 @@ Example
 
 tfp410: encoder@0 {
 	compatible = "ti,tfp410";
-	gpios = <&twl_gpio 2 GPIO_ACTIVE_LOW>;
+	powerdown-gpios = <&twl_gpio 2 GPIO_ACTIVE_LOW>;
 
 	ports {
 		#address-cells = <1>;

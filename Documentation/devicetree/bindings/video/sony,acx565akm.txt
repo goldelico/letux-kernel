@@ -6,7 +6,7 @@ Required properties:
 
 Optional properties:
 - label: a symbolic name for the panel
-- gpios: panel reset gpio
+- reset-gpios: panel reset gpio
 
 Required nodes:
 - Video port for SDI input
@@ -20,9 +20,11 @@ acx565akm@2 {
 	reg = <2>;
 
 	label = "lcd";
-	gpios = <&gpio3 26 GPIO_ACTIVE_HIGH>; /* 90 */
+	reset-gpios = <&gpio3 26 GPIO_ACTIVE_HIGH>; /* 90 */
 
-	lcd_in: endpoint {
-		remote-endpoint = <&sdi_out>;
+	port {
+		lcd_in: endpoint {
+			remote-endpoint = <&sdi_out>;
+		};
 	};
 };

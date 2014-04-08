@@ -34,7 +34,6 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 #include <linux/pm_runtime.h>
-#include <linux/omap-tvout.h>
 #include <linux/of.h>
 
 #include <video/omapdss.h>
@@ -266,7 +265,7 @@ static const struct venc_config venc_config_pal_bdghi = {
 const struct omap_video_timings omap_dss_pal_timings = {
 	.x_res		= 720,
 	.y_res		= 574,
-	.pixel_clock	= 13500,
+	.pixelclock	= 13500000,
 	.hsw		= 64,
 	.hfp		= 12,
 	.hbp		= 68,
@@ -281,7 +280,7 @@ EXPORT_SYMBOL(omap_dss_pal_timings);
 const struct omap_video_timings omap_dss_ntsc_timings = {
 	.x_res		= 720,
 	.y_res		= 482,
-	.pixel_clock	= 13500,
+	.pixelclock	= 13500000,
 	.hsw		= 64,
 	.hfp		= 16,
 	.hbp		= 58,
@@ -305,8 +304,6 @@ static struct {
 	struct omap_video_timings timings;
 	enum omap_dss_venc_type type;
 	bool invert_polarity;
-	bool bypass;
-	bool acbias;
 
 	struct omap_dss_device output;
 } venc;
@@ -459,18 +456,6 @@ static int venc_power_on(struct omap_dss_device *dssdev)
 
 	venc_write_reg(VENC_OUTPUT_CONTROL, l);
 
-#if FIXME
-	/* apply bypass and acbias */
-	l = tvout_read();
-
-	if (venc.bypass == true)
-		l |= 1 << 18;
-
-	if (venc.acbias == true)
-		l |= 1 << 11;
-
-	tvout_write(l);
-#endif
 	dss_mgr_set_timings(mgr, &venc.timings);
 
 	r = regulator_enable(venc.vdda_dac_reg);
@@ -497,20 +482,10 @@ err0:
 static void venc_power_off(struct omap_dss_device *dssdev)
 {
 	struct omap_overlay_manager *mgr = venc.output.manager;
-	int reg;
 
 	venc_write_reg(VENC_OUTPUT_CONTROL, 0);
 	dss_set_dac_pwrdn_bgz(0);
 
-	/* clear bypass and acbias */
-#if FIXME
-	reg = tvout_read();
-
-	reg &= ~(1 << 18);
-	reg &= ~(1 << 11);
-
-	tvout_write(reg);
-#endif
 	dss_mgr_disable(mgr);
 
 	regulator_disable(venc.vdda_dac_reg);
@@ -655,17 +630,6 @@ static void venc_invert_vid_out_polarity(struct omap_dss_device *dssdev,
 	mutex_unlock(&venc.venc_lock);
 }
 
-static void venc_bypass_and_acbias(struct omap_dss_device *dssdev,
-		bool bypass, bool acbias)
-{
-	mutex_lock(&venc.venc_lock);
-
-	venc.bypass = bypass;
-	venc.acbias = acbias;
-
-	mutex_unlock(&venc.venc_lock);
-}
-
 static int venc_init_regulator(void)
 {
 	struct regulator *vdda_dac;
@@ -673,9 +637,9 @@ static int venc_init_regulator(void)
 	if (venc.vdda_dac_reg != NULL)
 		return 0;
 
-	vdda_dac = devm_regulator_get(&venc.pdev->dev, "vdda");
-
-	if (IS_ERR(vdda_dac))
+	if (venc.pdev->dev.of_node)
+		vdda_dac = devm_regulator_get(&venc.pdev->dev, "vdda");
+	else
 		vdda_dac = devm_regulator_get(&venc.pdev->dev, "vdda_dac");
 
 	if (IS_ERR(vdda_dac)) {
@@ -818,7 +782,6 @@ static const struct omapdss_atv_ops venc_ops = {
 
 	.set_type = venc_set_type,
 	.invert_vid_out_polarity = venc_invert_vid_out_polarity,
-	.bypass_and_acbias = venc_bypass_and_acbias,
 
 	.set_wss = venc_set_wss,
 	.get_wss = venc_get_wss,

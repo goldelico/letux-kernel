@@ -64,10 +64,7 @@
 
 	tfp410: encoder@0 {
 		compatible = "ti,tfp410";
-		gpios = <&gpio6 10 GPIO_ACTIVE_LOW>; /* 170, power-down */
-
-		pinctrl-names = "default";
-		pinctrl-0 = <&tfp410_pins>;
+		powerdown-gpios = <&gpio6 10 GPIO_ACTIVE_LOW>; /* gpio_170 */
 
 		ports {
 			#address-cells = <1>;
@@ -95,15 +92,24 @@
 		compatible = "dvi-connector";
 		label = "dvi";
 
-		i2c-bus = <&i2c3>;
+		digital;
 
-		dvi_connector_in: endpoint {
-			remote-endpoint = <&tfp410_out>;
+		ddc-i2c-bus = <&i2c3>;
+
+		port {
+			dvi_connector_in: endpoint {
+				remote-endpoint = <&tfp410_out>;
+			};
 		};
 	};
 };
 
 &omap3_pmx_core {
+	pinctrl-names = "default";
+	pinctrl-0 = <
+		&tfp410_pins
+		&dss_dpi_pins
+	>;
 
 	tfp410_pins: pinmux_tfp410_pins {
 		pinctrl-single,pins = <
@@ -257,14 +263,18 @@
 	phys = <&hsusb1_phy>;
 };
 
+&vpll2 {
+        /* Needed for DSS */
+        regulator-name = "vdds_dsi";
+};
+
 &dss {
 	status = "ok";
 
-	pinctrl-names = "default";
-	pinctrl-0 = <&dss_dpi_pins>;
-
-	dpi_out: endpoint {
-		remote-endpoint = <&tfp410_in>;
-		data-lines = <24>;
+	port {
+		dpi_out: endpoint {
+			remote-endpoint = <&tfp410_in>;
+			data-lines = <24>;
+		};
 	};
 };

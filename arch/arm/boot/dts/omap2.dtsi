@@ -273,7 +273,7 @@
 		};
 
 		dss: dss@48050000 {
-			compatible = "ti,omap2-dss", "simple-bus";
+			compatible = "ti,omap2-dss";
 			reg = <0x48050000 0x400>;
 			status = "disabled";
 			ti,hwmods = "dss_core";

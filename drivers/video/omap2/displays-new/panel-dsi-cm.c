@@ -1168,24 +1168,19 @@ static int dsicm_probe_of(struct platform_device *pdev)
 	struct omap_dss_device *in;
 	int gpio;
 
-	gpio = of_get_gpio(node, 0);
+	gpio = of_get_named_gpio(node, "reset-gpios", 0);
 	if (!gpio_is_valid(gpio)) {
 		dev_err(&pdev->dev, "failed to parse reset gpio\n");
 		return gpio;
 	}
 	ddata->reset_gpio = gpio;
 
-	if (of_gpio_count(node) > 1) {
-		gpio = of_get_gpio(node, 1);
-
-		if (gpio_is_valid(gpio) || gpio == -ENOENT) {
-			ddata->ext_te_gpio = gpio;
-		} else {
-			dev_err(&pdev->dev, "failed to parse TE gpio\n");
-			return gpio;
-		}
+	gpio = of_get_named_gpio(node, "te-gpios", 0);
+	if (gpio_is_valid(gpio) || gpio == -ENOENT) {
+		ddata->ext_te_gpio = gpio;
 	} else {
-		ddata->ext_te_gpio = -1;
+		dev_err(&pdev->dev, "failed to parse TE gpio\n");
+		return gpio;
 	}
 
 	in = omapdss_of_find_source_for_first_ep(node);
@@ -1233,7 +1228,7 @@ static int dsicm_probe(struct platform_device *pdev)
 
 	ddata->timings.x_res = 864;
 	ddata->timings.y_res = 480;
-	ddata->timings.pixel_clock = DIV_ROUND_UP(864 * 480 * 60, 1000);
+	ddata->timings.pixelclock = 864 * 480 * 60;
 
 	dssdev = &ddata->dssdev;
 	dssdev->dev = dev;

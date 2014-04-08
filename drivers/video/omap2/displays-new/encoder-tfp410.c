@@ -188,7 +188,7 @@ static int tfp410_probe_of(struct platform_device *pdev)
 	struct omap_dss_device *in;
 	int gpio;
 
-	gpio = of_get_gpio(node, 0);
+	gpio = of_get_named_gpio(node, "powerdown-gpios", 0);
 
 	if (gpio_is_valid(gpio) || gpio == -ENOENT) {
 		ddata->pd_gpio = gpio;

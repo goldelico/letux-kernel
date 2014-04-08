@@ -95,7 +95,7 @@ struct panel_drv_data {
 static const struct omap_video_timings acx565akm_panel_timings = {
 	.x_res		= 800,
 	.y_res		= 480,
-	.pixel_clock	= 24000,
+	.pixelclock	= 24000000,
 	.hfp		= 28,
 	.hsw		= 4,
 	.hbp		= 24,
@@ -735,7 +735,7 @@ static int acx565akm_probe_of(struct spi_device *spi)
 	struct panel_drv_data *ddata = dev_get_drvdata(&spi->dev);
 	struct device_node *np = spi->dev.of_node;
 
-	ddata->reset_gpio = of_get_gpio(np, 0);
+	ddata->reset_gpio = of_get_named_gpio(np, "reset-gpios", 0);
 
 	ddata->in = omapdss_of_find_source_for_first_ep(np);
 	if (IS_ERR(ddata->in)) {

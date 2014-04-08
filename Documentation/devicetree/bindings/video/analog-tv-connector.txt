@@ -17,7 +17,9 @@ tv: connector {
 	compatible = "composite-connector";
 	label = "tv";
 
-	tv_connector_in: endpoint {
-		remote-endpoint = <&venc_out>;
+	port {
+		tv_connector_in: endpoint {
+			remote-endpoint = <&venc_out>;
+		};
 	};
 };

@@ -23,7 +23,7 @@ static const struct omap_video_timings dvic_default_timings = {
 	.x_res		= 640,
 	.y_res		= 480,
 
-	.pixel_clock	= 23500,
+	.pixelclock	= 23500000,
 
 	.hfp		= 48,
 	.hsw		= 32,
@@ -293,11 +293,11 @@ static int dvic_probe_of(struct platform_device *pdev)
 
 	ddata->in = in;
 
-	adapter_node = of_parse_phandle(node, "i2c-bus", 0);
+	adapter_node = of_parse_phandle(node, "ddc-i2c-bus", 0);
 	if (adapter_node) {
 		adapter = of_find_i2c_adapter_by_node(adapter_node);
 		if (adapter == NULL) {
-			dev_err(&pdev->dev, "failed to parse i2c-bus\n");
+			dev_err(&pdev->dev, "failed to parse ddc-i2c-bus\n");
 			omap_dss_put_device(ddata->in);
 			return -EPROBE_DEFER;
 		}

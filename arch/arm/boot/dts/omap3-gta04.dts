@@ -337,15 +337,6 @@
 		interrupts = <7>; /* SYS_NIRQ cascaded to intc */
 		interrupt-parent = <&intc>;
 
-		twl_audio: audio {
-			compatible = "ti,twl4030-audio";
-
-			ti,enable-vibra = <1>;
-
-			codec {
-				ti,ramp_delay_value = <3>;
-			};
-		};
 		twl_power: power {
 			compatible = "ti,twl4030-power";
 			ti,use_poweroff;
@@ -387,6 +378,16 @@
 			ti,bb-uamp = <150>;
 		};
 	};
+
+	twl_audio: audio {
+		compatible = "ti,twl4030-audio";
+
+		ti,enable-vibra = <1>;
+
+		codec {
+			ti,ramp_delay_value = <3>;
+		};
+	};
 };
 
 #include "twl4030.dtsi"
@@ -406,7 +407,7 @@
 	/* accelerometer */
 	bma180@41 {
 		/* we use the BMA150 Input (CONFIG_INPUT_BMA150) driver */
-		compatible = "bosch,bma150";
+		compatible = "bosch,bma180";
 		reg = <0x41>;
 		interrupt-parent = <&gpio3>;
 		interrupts = <19 (IRQ_TYPE_LEVEL_HIGH | IRQ_TYPE_EDGE_RISING)>;

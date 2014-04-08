@@ -137,42 +137,11 @@ static int omap4_dsi_mux_pads(int dsi_id, unsigned lanes)
 	return 0;
 }
 
-#define CONTROL_PAD_BASE	0x4A002800
-#define CONTROL_DSIPHY		0x614
-
-static int omap5_dsi_mux_pads(int dsi_id, unsigned lanes)
-{
-	u32 enable_mask, enable_shift, reg;
-	void __iomem *ctrl_pad_base = NULL;
-
-	ctrl_pad_base = ioremap(CONTROL_PAD_BASE, SZ_4K);
-	if (!ctrl_pad_base)
-		return -ENXIO;
-
-	if (dsi_id == 0) {
-		enable_mask = OMAP4_DSI1_LANEENABLE_MASK;
-		enable_shift = OMAP4_DSI1_LANEENABLE_SHIFT;
-	} else if (dsi_id == 1) {
-		enable_mask = OMAP4_DSI2_LANEENABLE_MASK;
-		enable_shift = OMAP4_DSI2_LANEENABLE_SHIFT;
-	} else {
-		return -ENODEV;
-	}
-
-	reg = __raw_readl(ctrl_pad_base + CONTROL_DSIPHY);
-	reg &= ~enable_mask;
-	reg |= (lanes << enable_shift) & enable_mask;
-	__raw_writel(reg, ctrl_pad_base + CONTROL_DSIPHY);
-
-	return 0;
-}
-
 static int omap_dsi_enable_pads(int dsi_id, unsigned lane_mask)
 {
 	if (cpu_is_omap44xx())
 		return omap4_dsi_mux_pads(dsi_id, lane_mask);
-	else if (soc_is_omap54xx())
-                return omap5_dsi_mux_pads(dsi_id, lane_mask);
+
 	return 0;
 }
 
@@ -180,8 +149,6 @@ static void omap_dsi_disable_pads(int dsi_id, unsigned lane_mask)
 {
 	if (cpu_is_omap44xx())
 		omap4_dsi_mux_pads(dsi_id, 0);
-	else if (soc_is_omap54xx())
-		omap5_dsi_mux_pads(dsi_id, 0);
 }
 
 static int omap_dss_set_min_bus_tput(struct device *dev, unsigned long tput)
@@ -337,7 +304,6 @@ int __init omap_display_init(struct omap_dss_board_info *board_data)
 	board_data->version = ver;
 	board_data->dsi_enable_pads = omap_dsi_enable_pads;
 	board_data->dsi_disable_pads = omap_dsi_disable_pads;
-	board_data->get_context_loss_count = omap_pm_get_dev_context_loss_count;
 	board_data->set_min_bus_tput = omap_dss_set_min_bus_tput;
 
 	omap_display_device.dev.platform_data = board_data;
@@ -650,26 +616,41 @@ void __init omapdss_early_init_of(void)
 	}
 }
 
+struct device_node * __init omapdss_find_dss_of_node(void)
+{
+	struct device_node *node;
+
+	node = of_find_compatible_node(NULL, NULL, "ti,omap2-dss");
+	if (node)
+		return node;
+
+	node = of_find_compatible_node(NULL, NULL, "ti,omap3-dss");
+	if (node)
+		return node;
+
+	node = of_find_compatible_node(NULL, NULL, "ti,omap4-dss");
+	if (node)
+		return node;
+
+	return NULL;
+}
+
 int __init omapdss_init_of(void)
 {
 	int r;
 	enum omapdss_version ver;
 	struct device_node *node;
+	struct platform_device *pdev;
 
 	static struct omap_dss_board_info board_data = {
 		.dsi_enable_pads = omap_dsi_enable_pads,
 		.dsi_disable_pads = omap_dsi_disable_pads,
-		.get_context_loss_count = omap_pm_get_dev_context_loss_count,
 		.set_min_bus_tput = omap_dss_set_min_bus_tput,
 	};
 
 	/* only create dss helper devices if dss is enabled in the .dts */
 
-	node = of_find_compatible_node(NULL, NULL, "ti,omap2-dss");
-	if (!node)
-		node = of_find_compatible_node(NULL, NULL, "ti,omap3-dss");
-	if (!node)
-		node = of_find_compatible_node(NULL, NULL, "ti,omap4-dss");
+	node = omapdss_find_dss_of_node();
 	if (!node)
 		return 0;
 
@@ -681,6 +662,19 @@ int __init omapdss_init_of(void)
 	if (ver == OMAPDSS_VER_UNKNOWN) {
 		pr_err("DSS not supported on this SoC\n");
 		return -ENODEV;
+	}
+
+	pdev = of_find_device_by_node(node);
+
+	if (!pdev) {
+		pr_err("Unable to find DSS platform device\n");
+		return -ENODEV;
+	}
+
+	r = of_platform_populate(node, NULL, NULL, &pdev->dev);
+	if (r) {
+		pr_err("Unable to populate DSS submodule devices\n");
+		return r;
 	}
 
 	board_data.version = ver;

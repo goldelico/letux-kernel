@@ -88,7 +88,7 @@
 
 	tfp410: encoder@0 {
 		compatible = "ti,tfp410";
-		gpios = <&gpio6 10 GPIO_ACTIVE_LOW>;	/* 170, power-down */
+		powerdown-gpios = <&gpio6 10 GPIO_ACTIVE_LOW>;	/* gpio_170 */
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&tfp410_pins>;
@@ -119,10 +119,14 @@
 		compatible = "dvi-connector";
 		label = "dvi";
 
-		i2c-bus = <&i2c3>;
+		digital;
 
-		dvi_connector_in: endpoint {
-			remote-endpoint = <&tfp410_out>;
+		ddc-i2c-bus = <&i2c3>;
+
+		port {
+			dvi_connector_in: endpoint {
+				remote-endpoint = <&tfp410_out>;
+			};
 		};
 	};
 
@@ -130,8 +134,10 @@
 		compatible = "svideo-connector";
 		label = "tv";
 
-		tv_connector_in: endpoint {
-			remote-endpoint = <&venc_out>;
+		port {
+			tv_connector_in: endpoint {
+				remote-endpoint = <&venc_out>;
+			};
 		};
 	};
 };
@@ -245,6 +251,10 @@
 #include "twl4030.dtsi"
 #include "twl4030_omap3.dtsi"
 
+&i2c3 {
+	clock-frequency = <100000>;
+};
+
 &mmc1 {
 	vmmc-supply = <&vmmc1>;
 	vmmc_aux-supply = <&vsim>;
@@ -305,15 +315,26 @@
 	regulator-always-on;
 };
 
+&mcbsp2 {
+	status = "okay";
+};
+
+/* Needed to power the DPI pins */
+&vpll2 {
+	regulator-always-on;
+};
+
 &dss {
 	status = "ok";
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&dss_dpi_pins>;
 
-	dpi_out: endpoint {
-		remote-endpoint = <&tfp410_in>;
-		data-lines = <24>;
+	port {
+		dpi_out: endpoint {
+			remote-endpoint = <&tfp410_in>;
+			data-lines = <24>;
+		};
 	};
 };
 
@@ -322,8 +343,10 @@
 
 	vdda-supply = <&vdac>;
 
-	venc_out: endpoint {
-		remote-endpoint = <&tv_connector_in>;
-		ti,channels = <2>;
+	port {
+		venc_out: endpoint {
+			remote-endpoint = <&tv_connector_in>;
+			ti,channels = <2>;
+		};
 	};
 };

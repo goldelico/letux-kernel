@@ -671,15 +671,16 @@ static int vsense_probe(struct i2c_client *client,
 	if (ddata == NULL)
 		return -ENOMEM;
 
-	ret = idr_pre_get(&vsense_proc_id, GFP_KERNEL);
+#warning fixme idr_pre_get -> ida_pre_get
+//	ret = idr_pre_get(&vsense_proc_id, GFP_KERNEL);
 	if (ret == 0) {
 		ret = -ENOMEM;
 		goto err_idr;
 	}
 
 	mutex_lock(&vsense_mutex);
-
-	ret = idr_get_new(&vsense_proc_id, client, &ddata->proc_id);
+#warning fixme idr_get_new -> ida_get_new
+//	ret = idr_get_new(&vsense_proc_id, client, &ddata->proc_id);
 	if (ret < 0) {
 		mutex_unlock(&vsense_mutex);
 		goto err_idr;

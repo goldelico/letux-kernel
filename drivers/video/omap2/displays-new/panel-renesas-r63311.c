@@ -100,7 +100,7 @@
 static struct omap_video_timings r63311_timings = {
 	.x_res		= 1080,
 	.y_res		= 1920,
-	.pixel_clock	= R63311_PIXELCLOCK / 1000,	// specified in kHz
+	.pixelclock	= R63311_PIXELCLOCK / 1000,	// specified in kHz
 	// the following values are choosen arbitrarily since there is no spec in the data sheet
 	// they are choosen to round up to 1200x2000 pixels giving a pixel clock of 144 MHz
 	.hfp		= 10,
@@ -528,7 +528,7 @@ static void r63311_set_timings(struct omap_dss_device *dssdev,
 {
 	dssdev->panel.timings.x_res = timings->x_res;
 	dssdev->panel.timings.y_res = timings->y_res;
-	dssdev->panel.timings.pixel_clock = timings->pixel_clock;
+	dssdev->panel.timings.pixelclock = timings->pixelclock;
 	dssdev->panel.timings.hsw = timings->hsw;
 	dssdev->panel.timings.hfp = timings->hfp;
 	dssdev->panel.timings.hbp = timings->hbp;

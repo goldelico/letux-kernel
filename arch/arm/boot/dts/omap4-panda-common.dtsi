@@ -88,12 +88,8 @@
 		compatible = "usb-nop-xceiv";
 		reset-gpios = <&gpio2 30 GPIO_ACTIVE_LOW>;   /* gpio_62 */
 		vcc-supply = <&hsusb1_power>;
-	/**
-	 * FIXME:
-	 * put the right clock phandle here when available
-	 *	clocks = <&auxclk3>;
-	 *	clock-names = "main_clk";
-	 */
+		clocks = <&auxclk3_ck>;
+		clock-names = "main_clk";
 		clock-frequency = <19200000>;
 	};
 
@@ -112,10 +108,7 @@
 
 	tfp410: encoder@0 {
 		compatible = "ti,tfp410";
-		gpios = <&gpio1 0 GPIO_ACTIVE_LOW>;	/* 0, power-down */
-
-		pinctrl-names = "default";
-		pinctrl-0 = <&tfp410_pins>;
+		powerdown-gpios = <&gpio1 0 GPIO_ACTIVE_LOW>;	/* gpio_0 */
 
 		ports {
 			#address-cells = <1>;
@@ -143,18 +136,19 @@
 		compatible = "dvi-connector";
 		label = "dvi";
 
-		i2c-bus = <&i2c3>;
+		digital;
 
-		dvi_connector_in: endpoint {
-			remote-endpoint = <&tfp410_out>;
+		ddc-i2c-bus = <&i2c3>;
+
+		port {
+			dvi_connector_in: endpoint {
+				remote-endpoint = <&tfp410_out>;
+			};
 		};
 	};
 
 	tpd12s015: encoder@1 {
 		compatible = "ti,tpd12s015";
-
-		pinctrl-names = "default";
-		pinctrl-0 = <&tpd12s015_pins>;
 
 		gpios = <&gpio2 28 GPIO_ACTIVE_HIGH>,	/* 60, CT CP HPD */
 			<&gpio2 9 GPIO_ACTIVE_HIGH>,	/* 41, LS OE */
@@ -186,8 +180,12 @@
 		compatible = "hdmi-connector";
 		label = "hdmi";
 
-		hdmi_connector_in: endpoint {
-			remote-endpoint = <&tpd12s015_out>;
+		type = "a";
+
+		port {
+			hdmi_connector_in: endpoint {
+				remote-endpoint = <&tpd12s015_out>;
+			};
 		};
 	};
 };
@@ -195,9 +193,10 @@
 &omap4_pmx_core {
 	pinctrl-names = "default";
 	pinctrl-0 = <
-			&twl6040_pins
-			&mcpdm_pins
-			&mcbsp1_pins
+			&dss_dpi_pins
+			&tfp410_pins
+			&dss_hdmi_pins
+			&tpd12s015_pins
 			&hsusbb1_pins
 	>;
 
@@ -382,6 +381,10 @@
 	twl6040: twl@4b {
 		compatible = "ti,twl6040";
 		reg = <0x4b>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&twl6040_pins>;
+
 		/* IRQ# = 119 */
 		interrupts = <GIC_SPI 119 IRQ_TYPE_LEVEL_HIGH>; /* IRQ_SYS_2N cascaded to gic */
 		interrupt-parent = <&gic>;
@@ -462,16 +465,16 @@
 	device-handle = <&elpida_ECB240ABACN>;
 };
 
-&mcbsp2 {
-	status = "disabled";
+&mcbsp1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcbsp1_pins>;
+	status = "okay";
 };
 
-&mcbsp3 {
-	status = "disabled";
-};
-
-&dmic {
-	status = "disabled";
+&mcpdm {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcpdm_pins>;
+	status = "okay";
 };
 
 &twl_usb_comparator {
@@ -495,12 +498,11 @@
 &dss {
 	status = "ok";
 
-	pinctrl-names = "default";
-	pinctrl-0 = <&dss_dpi_pins>;
-
-	dpi_out: endpoint {
-		remote-endpoint = <&tfp410_in>;
-		data-lines = <24>;
+	port {
+		dpi_out: endpoint {
+			remote-endpoint = <&tfp410_in>;
+			data-lines = <24>;
+		};
 	};
 };
 
@@ -513,10 +515,9 @@
 	status = "ok";
 	vdda-supply = <&vdac>;
 
-	pinctrl-names = "default";
-	pinctrl-0 = <&dss_hdmi_pins>;
-
-	hdmi_out: endpoint {
-		remote-endpoint = <&tpd12s015_in>;
+	port {
+		hdmi_out: endpoint {
+			remote-endpoint = <&tpd12s015_in>;
+		};
 	};
 };
