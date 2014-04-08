@@ -133,7 +133,7 @@ static struct st_proto_s ti_st_proto[MAX_BT_CHNL_IDS] = {
  *  Returns  0 -  on success
  *           else suitable error code
  */
-int hci_tty_open(struct inode *inod, struct file *file)
+static int hci_tty_open(struct inode *inod, struct file *file)
 {
 	int i = 0, err = 0;
 	unsigned long timeleft;
@@ -229,7 +229,7 @@ error:
  *  Returns  0 -  on success
  *           else suitable error code
  */
-int hci_tty_release(struct inode *inod, struct file *file)
+static int hci_tty_release(struct inode *inod, struct file *file)
 {
 	int err, i;
 	struct ti_st *hst = file->private_data;
@@ -259,7 +259,7 @@ int hci_tty_release(struct inode *inod, struct file *file)
  *  Returns  Size of packet received -  on success
  *           else suitable error code
  */
-ssize_t hci_tty_read(struct file *file, char __user *data, size_t size,
+static ssize_t hci_tty_read(struct file *file, char __user *data, size_t size,
 		loff_t *offset)
 {
 	int len = 0, tout;
@@ -343,7 +343,7 @@ ssize_t hci_tty_read(struct file *file, char __user *data, size_t size,
  *  Returns  Size of packet on success
  *           else suitable error code
  */
-ssize_t hci_tty_write(struct file *file, const char __user *data,
+static ssize_t hci_tty_write(struct file *file, const char __user *data,
 		size_t size, loff_t *offset)
 {
 	struct ti_st *hst = file->private_data;
