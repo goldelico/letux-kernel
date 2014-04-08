@@ -144,7 +144,7 @@ static irqreturn_t omap_dmm_irq_handler(int irq, void *arg)
 		if (status & DMM_IRQSTAT_LST) {
 			wake_up_interruptible(&dmm->engines[i].wait_for_refill);
 
-			if (dmm->engines[i].async)
+			if (xchg(&dmm->engines[i].async, false))
 				release_engine(&dmm->engines[i]);
 		}
 
@@ -266,7 +266,7 @@ static int dmm_txn_commit(struct dmm_txn *txn, bool wait)
 	}
 
 	/* mark whether it is async to denote list management in IRQ handler */
-	engine->async = wait ? false : true;
+	(void)xchg(&engine->async, wait ? false : true);
 
 	/* kick reload */
 	writel(engine->refill_pa,
