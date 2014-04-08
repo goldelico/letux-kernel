@@ -399,7 +399,7 @@ static struct omap_dss_driver tfc_s9700_driver = {
 	},
 };
 
-struct regmap_config tlc59108_regmap_config = {
+static struct regmap_config tlc59108_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
 };
