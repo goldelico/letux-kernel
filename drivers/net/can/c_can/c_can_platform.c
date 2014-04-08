@@ -92,7 +92,7 @@ static void c_can_hw_raminit_dra7(const struct c_can_priv *priv, bool enable)
 {
 	u32 start_set, start_clr;
 	DEFINE_SPINLOCK(raminit_lock);
-	unsigned long flags;
+	unsigned long flags = 0;
 
 	start_set = start_clr = readl(priv->raminit_ctrlreg);
 	start_set |= CAN_RAMINIT_BIT_MASK(priv->raminit_bits.start);
