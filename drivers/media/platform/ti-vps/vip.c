@@ -935,8 +935,10 @@ static void vip_active_buf_next(struct vip_stream *stream)
 	} else if (vb2_is_streaming(&stream->vb_vidq)) {
 		buf = list_entry(stream->vidq.next, struct vip_buffer, list);
 		buf->drop_count = 0;
+		buf->allow_dq = true;
 		list_move_tail(&buf->list, &dev->vip_bufs);
-	}
+	} else
+		return;
 
 	if (list_empty(&dev->vip_bufs))
 		stream->cur_buf = NULL;
@@ -965,7 +967,10 @@ static void vip_process_buffer_complete(struct vip_stream *stream)
 			spin_unlock_irqrestore(&dev->slock, flags);
 		}
 
-		vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
+		if (buf->allow_dq) {
+			vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
+			buf->allow_dq = false;
+		}
 	}
 
 	vip_active_buf_next(stream);
@@ -1003,7 +1008,7 @@ static irqreturn_t vip_irq(int irq_vip, void *data)
 		return IRQ_HANDLED;
 	}
 
-	/* disable_irqs(dev); */
+	 disable_irqs(dev, dev->slice_id);
 
 	vip_process_buffer_complete(dev->ports[0]->cap_streams[0]);
 
@@ -1496,6 +1501,8 @@ static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
 	stream->cur_buf = list_entry(stream->vidq.next,
 				struct vip_buffer, list);
 	stream->cur_buf->vb.state = VB2_BUF_STATE_ACTIVE;
+	stream->cur_buf->drop_count = 0;
+	stream->cur_buf->allow_dq = true;
 	stream->field = V4L2_FIELD_TOP;
 
 	populate_desc_list(stream);

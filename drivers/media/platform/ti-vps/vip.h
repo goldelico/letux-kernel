@@ -40,6 +40,8 @@ struct vip_buffer {
 	struct list_head	list;
 	/* Number of buffers to drop after this */
 	int			drop_count;
+	/* To make sure same buffer isn't dequeued again */
+	bool			allow_dq;
 };
 
 /*
