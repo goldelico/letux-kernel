@@ -2181,6 +2181,8 @@ static int vpe_release(struct file *file)
 	free_mv_buffers(ctx);
 	vpdma_free_desc_list(&ctx->desc_list);
 	vpdma_buf_free(&ctx->mmr_adb);
+	vpdma_buf_free(&ctx->sc_coeff_v);
+	vpdma_buf_free(&ctx->sc_coeff_h);
 
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
