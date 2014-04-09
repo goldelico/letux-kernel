@@ -169,16 +169,17 @@ void omap_android_display_setup(struct omap_dss_board_info *dss,
 		num_configs = sgx->num_configs;
 
 	for (i = 0; i < num_configs; ++i) {
-		if (!sgx || !sgx->configs)
-			p_sgx_config = sgx_omaplfb_get(i);
-		else
-			p_sgx_config = &(sgx->configs[i]);
 
 		struct omap_android_display_data mem = {
 			.bpp = 4,
 			.width = 1280,
 			.height = 720,
 		};
+
+		if (!sgx || !sgx->configs)
+			p_sgx_config = sgx_omaplfb_get(i);
+		else
+			p_sgx_config = &(sgx->configs[i]);
 
 		if (i == 0 && i < dss->num_devices)
 			get_display_size(dss->devices[i], &mem);
