@@ -2179,6 +2179,10 @@ static int vpe_release(struct file *file)
 	mutex_lock(&dev->dev_mutex);
 	free_vbs(ctx);
 	free_mv_buffers(ctx);
+	vpdma_buf_unmap(dev->vpdma, &ctx->desc_list.buf);
+	vpdma_buf_unmap(dev->vpdma, &ctx->mmr_adb);
+	vpdma_buf_unmap(dev->vpdma, &ctx->sc_coeff_h);
+	vpdma_buf_unmap(dev->vpdma, &ctx->sc_coeff_v);
 	vpdma_free_desc_list(&ctx->desc_list);
 	vpdma_buf_free(&ctx->mmr_adb);
 	vpdma_buf_free(&ctx->sc_coeff_v);
