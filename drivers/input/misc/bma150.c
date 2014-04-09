@@ -644,6 +644,7 @@ static UNIVERSAL_DEV_PM_OPS(bma150_pm, bma150_suspend, bma150_resume, NULL);
 
 static const struct i2c_device_id bma150_id[] = {
 	{ "bma150", 0 },
+	{ "bma180", 0 },
 	{ "smb380", 0 },
 	{ "bma023", 0 },
 	{ }
