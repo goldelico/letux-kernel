@@ -377,15 +377,14 @@
 			ti,bb-uvolt = <3200000>;
 			ti,bb-uamp = <150>;
 		};
-	};
+		twl_audio: audio {
+			compatible = "ti,twl4030-audio";
 
-	twl_audio: audio {
-		compatible = "ti,twl4030-audio";
+			ti,enable-vibra = <1>;
 
-		ti,enable-vibra = <1>;
-
-		codec {
-			ti,ramp_delay_value = <3>;
+			codec {
+				ti,ramp_delay_value = <3>;
+			};
 		};
 	};
 };
