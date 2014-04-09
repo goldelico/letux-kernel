@@ -1293,7 +1293,7 @@ afunc_setup(struct usb_function *fn, const struct usb_ctrlrequest *cr)
 	return value;
 }
 
-static int __init audio_bind_config(struct usb_configuration *cfg)
+static int audio_bind_config(struct usb_configuration *cfg)
 {
 	int res;
 
