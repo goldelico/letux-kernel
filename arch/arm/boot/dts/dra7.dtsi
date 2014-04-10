@@ -100,11 +100,14 @@
 	 * hierarchy.
 	 */
 	ocp {
-		compatible = "ti,omap4-l3-noc", "simple-bus";
+		compatible = "ti,dra7-l3-noc", "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
 		ti,hwmods = "l3_main_1", "l3_main_2";
+		reg = <0x44000000 0x1000000>,
+		      <0x45000000 0x1000>;
+		
 
 		counter32k: counter@4ae04000 {
 			compatible = "ti,omap-counter32k";
