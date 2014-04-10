@@ -391,10 +391,12 @@ static const struct of_device_id tca8418_dt_ids[] = {
 	{ .compatible = "ti,tca8418", },
 	{ }
 };
-//MODULE_DEVICE_TABLE(of, tca8418_dt_ids);	// not needed but:
+MODULE_DEVICE_TABLE(of, tca8418_dt_ids);
+/* the device tree based i2c loader looks for
+ * "i2c:" + second_component_of(property("compatible"))
+ * and therefore we need an alias to be found.
+ */
 MODULE_ALIAS("i2c:tca8418");
-// the reason is that the i2c loader looks for
-// "i2c:" + second_component_of(property("compatible"))
 #endif
 
 static struct i2c_driver tca8418_keypad_driver = {
