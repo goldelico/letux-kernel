@@ -622,6 +622,7 @@
 		gpmc,wr-cycle-ns = <82>;
 		gpmc,wr-access-ns = <40>;
 		gpmc,wr-data-mux-bus-ns = <0>;
+		gpmc,device-width = <2>;
 
 		#address-cells = <1>;
 		#size-cells = <1>;
