@@ -423,7 +423,7 @@ static struct vpe_q_data *get_q_data(struct vpe_ctx *ctx,
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		return &ctx->q_data[Q_DATA_DST];
 	default:
-		BUG();
+		return NULL;
 	}
 	return NULL;
 }
@@ -1454,7 +1454,7 @@ static int vpe_querycap(struct file *file, void *priv,
 	strncpy(cap->driver, VPE_MODULE_NAME, sizeof(cap->driver) - 1);
 	strncpy(cap->card, VPE_MODULE_NAME, sizeof(cap->card) - 1);
 	strlcpy(cap->bus_info, VPE_MODULE_NAME, sizeof(cap->bus_info));
-	cap->device_caps  = V4L2_CAP_VIDEO_M2M | V4L2_CAP_STREAMING;
+	cap->device_caps  = V4L2_CAP_VIDEO_M2M_MPLANE | V4L2_CAP_STREAMING;
 	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
 	return 0;
 }
@@ -2179,8 +2179,14 @@ static int vpe_release(struct file *file)
 	mutex_lock(&dev->dev_mutex);
 	free_vbs(ctx);
 	free_mv_buffers(ctx);
+	vpdma_buf_unmap(dev->vpdma, &ctx->desc_list.buf);
+	vpdma_buf_unmap(dev->vpdma, &ctx->mmr_adb);
+	vpdma_buf_unmap(dev->vpdma, &ctx->sc_coeff_h);
+	vpdma_buf_unmap(dev->vpdma, &ctx->sc_coeff_v);
 	vpdma_free_desc_list(&ctx->desc_list);
 	vpdma_buf_free(&ctx->mmr_adb);
+	vpdma_buf_free(&ctx->sc_coeff_v);
+	vpdma_buf_free(&ctx->sc_coeff_h);
 
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
