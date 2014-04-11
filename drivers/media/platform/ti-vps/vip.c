@@ -959,10 +959,20 @@ static void vip_process_buffer_complete(struct vip_stream *stream)
 	struct vip_dev *dev = stream->port->dev;
 	struct vb2_buffer *vb = NULL;
 	struct vip_buffer *buf = stream->cur_buf;
-	unsigned long flags;
+	unsigned long flags, fld;
+
+	if (stream->port->flags & FLAG_INTERLACED) {
+		vpdma_buf_unmap(dev->shared->vpdma, &dev->desc_list.buf);
+
+		fld = dtd_get_field(dev->write_desc);
+		stream->field = fld ? V4L2_FIELD_TOP : V4L2_FIELD_BOTTOM;
+
+		vpdma_buf_map(dev->shared->vpdma, &dev->desc_list.buf);
+	}
 
 	if (buf) {
 		vb = &buf->vb;
+		vb->v4l2_buf.field = stream->field;
 		do_gettimeofday(&vb->v4l2_buf.timestamp);
 
 		if (buf->drop_count-- == 0) {
@@ -1219,7 +1229,7 @@ static int vip_try_fmt_vid_cap(struct file *file, void *priv,
 
 	if (field == V4L2_FIELD_ANY)
 		field = V4L2_FIELD_NONE;
-	else if (V4L2_FIELD_NONE != field)
+	else if (V4L2_FIELD_NONE != field && V4L2_FIELD_ALTERNATE != field)
 		return -EINVAL;
 
 	f->fmt.pix.field = field;
