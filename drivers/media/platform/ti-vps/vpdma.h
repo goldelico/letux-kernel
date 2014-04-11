@@ -28,7 +28,7 @@ struct vpdma_buf {
 
 struct vpdma_desc_list {
 	struct vpdma_buf buf;
-	void *next;
+	void *next, *current_desc;
 	int type;
 };
 
@@ -203,7 +203,8 @@ void vpdma_free_desc_list(struct vpdma_desc_list *list);
 int vpdma_submit_descs(struct vpdma_data *vpdma,
 	struct vpdma_desc_list *list, int list_num);
 void vpdma_update_dma_addr(struct vpdma_data *vpdma,
-		struct vpdma_desc_list *list, dma_addr_t dma_addr, int drop);
+	struct vpdma_desc_list *list, dma_addr_t dma_addr,
+	struct vpdma_dtd *write_dtd, int drop);
 
 void vpdma_enable_channel_3_irq(struct vpdma_data *vpdma, bool enable);
 void vpdma_set_max_size(struct vpdma_data *vpdma, int reg_addr,

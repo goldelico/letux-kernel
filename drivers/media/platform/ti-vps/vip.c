@@ -52,7 +52,7 @@ MODULE_VERSION("0.1");
 
 /*
  * Need a descriptor entry for each of up to 15 outputs,
- * and up to 2 control transfers.
+ * and up to 2 write descriptor.
  */
 #define VIP_DESC_LIST_SIZE	(17 * sizeof(struct vpdma_dtd))
 
@@ -891,6 +891,7 @@ static void populate_desc_list(struct vip_stream *stream)
 static void start_dma(struct vip_dev *dev, struct vip_buffer *buf)
 {
 	struct vpdma_data *vpdma = dev->shared->vpdma;
+	struct vpdma_dtd *write_dtd;
 	dma_addr_t dma_addr;
 	int drop_data;
 
@@ -912,8 +913,12 @@ static void start_dma(struct vip_dev *dev, struct vip_buffer *buf)
 
 	enable_irqs(dev, dev->slice_id);
 
+	vpdma_buf_unmap(dev->shared->vpdma, &dev->desc_list.buf);
+
 	vpdma_update_dma_addr(dev->shared->vpdma, &dev->desc_list,
-				dma_addr, drop_data);
+		dma_addr, dev->write_desc, drop_data);
+	vpdma_buf_map(dev->shared->vpdma, &dev->desc_list.buf);
+
 	vpdma_submit_descs(dev->shared->vpdma, &dev->desc_list, dev->slice_id);
 }
 
@@ -1607,6 +1612,8 @@ static int vip_init_dev(struct vip_dev *dev)
 	if (ret != 0)
 		return ret;
 
+	dev->write_desc = (struct vpdma_dtd *)dev->desc_list.buf.addr
+				+ 15;
 	vip_set_clock_enable(dev, 1);
 done:
 	dev->num_ports++;

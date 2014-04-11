@@ -219,7 +219,7 @@ struct vpdma_dtd {
 #define DTD_V_START_MASK	0xffff
 #define DTD_V_START_SHFT	0
 
-#define DTD_DESC_START_MASK	0xffe0
+#define DTD_DESC_START_MASK	0xffffffe0
 #define DTD_DESC_START_SHIFT	5
 #define DTD_WRITE_DESC_MASK	0x01
 #define DTD_WRITE_DESC_SHIFT	2

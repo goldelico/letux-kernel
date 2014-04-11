@@ -92,6 +92,7 @@ struct vip_dev {
 	void __iomem		*base;
 
 	struct vpdma_desc_list	desc_list;	/* DMA descriptor list */
+	struct vpdma_dtd	*write_desc;
 	void			*desc_next;	/* next unused desc_list addr */
 	struct list_head	vip_bufs;	/* vip_bufs to be DMAed */
 	struct vb2_alloc_ctx	*alloc_ctx;
