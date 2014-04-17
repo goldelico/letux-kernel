@@ -2181,17 +2181,20 @@ static int vip_of_probe(struct platform_device *pdev, struct vip_dev *dev)
 		dev->config->asd_list[i++] = asd;
 	}
 
-	dev->config->asd_sizes = i;
-	dev->notifier.subdev = dev->config->asd_list;
-	dev->notifier.num_subdevs = dev->config->asd_sizes;
-	dev->notifier.bound = vip_async_bound;
-	dev->notifier.complete = vip_async_complete;
+	if (i > 0) {
+		dev->config->asd_sizes = i;
+		dev->notifier.subdev = dev->config->asd_list;
+		dev->notifier.num_subdevs = dev->config->asd_sizes;
+		dev->notifier.bound = vip_async_bound;
+		dev->notifier.complete = vip_async_complete;
 
-	ret = v4l2_async_notifier_register(&dev->v4l2_dev, &dev->notifier);
-	if (ret) {
-		vip_dprintk(dev, "Error registering async notifier\n");
-		ret = -EINVAL;
-		goto free_config;
+		ret = v4l2_async_notifier_register(&dev->v4l2_dev,
+					&dev->notifier);
+		if (ret) {
+			vip_dprintk(dev, "Error registering async notifier\n");
+			ret = -EINVAL;
+			goto free_config;
+		}
 	}
 
 	return 0;
