@@ -963,9 +963,9 @@ struct tsc2007_platform_data __initdata tsc2007_info = {
 	.max_x			= 0x0f00,
 	.max_y			= 0x0f00,
 	.max_z			= 0x0fff,
-	.flip_x			= 0,
-	.flip_y			= 1,
-	.swap_xy		= 0,
+	.flip_x			= false,
+	.flip_y			= true,
+	.swap_xy		= false,
 	.get_pendown_state	= ts_get_pendown_state,
 	.init_platform_hw	= tsc2007_init,
 	.exit_platform_hw	= tsc2007_exit,
@@ -1759,7 +1759,8 @@ static int __init gta04_init_mux(char *str)
 		// configure for 7" Sharp display (7004)
 		gta04_battery_data.capacity = 3900000;
 		tsc2007_info.x_plate_ohms = 450;			// GTA04b3: 100 - 900
-		tsc2007_info.swap_xy = 1,	/* x and y axes are swapped */
+		tsc2007_info.swap_xy = 1,		/* x and y axes are swapped */
+		tsc2007_info.flip_y = false;	/* don't flip y axis */
 		tca6507_info.leds.leds = tca6507_leds_b3;
 		gta04_panel = &gta04b3_lcd_device;
 	}
