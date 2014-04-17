@@ -422,7 +422,7 @@ static struct panel_dpi_platform_data gta04b3_panel_data = {
 };
 
 static struct platform_device gta04b3_lcd_device = {
-	.name = "panel-acx565akm",
+	.name = "panel-dpi",
 	.id = 0,
 	.dev.platform_data = &gta04b3_panel_data,
 };
