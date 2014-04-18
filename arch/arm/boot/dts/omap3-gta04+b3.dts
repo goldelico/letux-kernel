@@ -45,7 +45,7 @@
 
 	.flags = DISPLAY_FLAGS_HSYNC_LOW | DISPLAY_FLAGS_VSYNC_LOW |
 			DISPLAY_FLAGS_DE_HIGH | DISPLAY_FLAGS_PIXDATA_POSEDGE,
-	.enable_gpio = 12,	/* 3.3V LDO controlled through McBSP5-CLKX of GTA04 */
+	.enable_gpio = 12,	/* 3.3V LDO controlled through McBSP5-CLKX of GTA04 * /
 	};
 };
 */
@@ -94,12 +94,12 @@
 		interrupts = <0 IRQ_TYPE_EDGE_FALLING>;
 		gpios = <&gpio6 0 GPIO_ACTIVE_LOW>;
 		ti,x-plate-ohms = <450>;
+		ti,rng_x = <123 456>;
+		ti,rng_y = <123 456>;
+		ti,rng_z = <123 456>;
 		ti,flip_x = <0>;
 		ti,flip_y = <0>;
 		ti,swap_xy = <1>;
-		ti,rng_x = 123 456>;
-		ti,rng_y = 123 456>;
-		ti,rng_z = 123 456>;
 	};
 
 };

@@ -264,7 +264,10 @@ dtb-$(CONFIG_ARCH_OMAP2PLUS) += omap2420-h4.dtb \
 	omap3-overo-storm-summit.dtb \
 	omap3-overo-tobi.dtb \
 	omap3-overo-storm-tobi.dtb \
+	omap3-gta04a2.dtb \
+	omap3-gta04a3.dtb \
 	omap3-gta04.dtb \
+	omap3-gta04a5.dtb \
 	omap3-gta04+b2.dtb \
 	omap3-gta04+b3.dtb \
 	omap3-neo900.dtb \

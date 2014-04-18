@@ -30,7 +30,7 @@
 		compatible = "ortustech,com37";
 		// define parameters
 		// and control GPIOs
-	.pixelclock	= { 0, 22153000, 0 },	/* min, typ, max */
+	.pixelclock	= { 0, 22153000, 0 },	/* min, typ, max * /
 
 	.hactive = { 0, 480, 0 },
 	.hfront_porch = { 0, 8, 0 },
@@ -44,7 +44,7 @@
 
 	.flags = DISPLAY_FLAGS_HSYNC_LOW | DISPLAY_FLAGS_VSYNC_LOW |
 			DISPLAY_FLAGS_DE_HIGH | DISPLAY_FLAGS_PIXDATA_POSEDGE,
-	.enable_gpio = 20,	/* STBY */
+	.enable_gpio = 20,	/* STBY * /
 
 	};
 };
@@ -94,12 +94,12 @@
 		interrupts = <0 IRQ_TYPE_EDGE_FALLING>;
 		gpios = <&gpio6 0 GPIO_ACTIVE_LOW>;
 		ti,x-plate-ohms = <600>;
+		ti,rng_x = <123 456>;
+		ti,rng_y = <123 456>;
+		ti,rng_z = <123 456>;
 		ti,flip_x = <0>;
 		ti,flip_y = <1>;
 		ti,swap_xy = <0>;
-		ti,rng_x = 123 456>;
-		ti,rng_y = 123 456>;
-		ti,rng_z = 123 456>;
 	};
 
 
