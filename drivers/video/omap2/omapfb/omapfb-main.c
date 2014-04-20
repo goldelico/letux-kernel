@@ -1776,21 +1776,7 @@ static int omapfb_fb_init(struct omapfb2_device *fbdev, struct fb_info *fbi)
 
 		var->xres_virtual = var->xres;
 		var->yres_virtual = var->yres;
-
-		if (!var->bits_per_pixel) {
-			switch (omapfb_get_recommended_bpp(fbdev, display)) {
-			case 16:
-				var->bits_per_pixel = 16;
-				break;
-			case 24:
-				var->bits_per_pixel = 32;
-				break;
-			default:
-				dev_err(fbdev->dev, "illegal display "
-						"bpp\n");
-				return -EINVAL;
-			}
-		}
+		var->bits_per_pixel = 16;
 	} else {
 		/* if there's no display, let's just guess some basic values */
 		var->xres = 320;
