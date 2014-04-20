@@ -819,6 +819,13 @@ static struct twl4030_bci_platform_data gta04_bci_data = {
 	.tblsize                = ARRAY_SIZE(gta04_batt_table),
 	.bb_uvolt		= 3200000,
 	.bb_uamp		= 150,
+#if defined(CONFIG_BATTERY_BQ27x00)
+	.supplied_to		= (char *[]) { "bq27000-battery" },
+	.num_supplicants	= 1,
+#else
+	.supplied_to		= NULL,
+	.num_supplicants	= 0,
+#endif
 };
 
 
