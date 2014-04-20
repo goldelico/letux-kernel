@@ -110,6 +110,7 @@ struct bq27x00_device_info {
 	struct delayed_work work;
 
 	struct power_supply	bat;
+	int not_charging;
 
 	struct bq27x00_access_methods bus;
 
@@ -455,6 +456,21 @@ static void bq27x00_update(struct bq27x00_device_info *di)
 		/* We only have to read charge design full once */
 		if (di->charge_design_full <= 0)
 			di->charge_design_full = bq27x00_battery_read_ilmd(di);
+
+		/* Power supply is connected but battery is not charging. */
+		if (!bq27xxx_is_chip_version_higher(di)
+				&& power_supply_am_i_supplied(&di->bat)
+				&& !(cache.flags & BQ27000_FLAG_FC)
+				&& !(cache.flags & BQ27000_FLAG_CHGS))
+			di->not_charging++;
+		/* Power supply is not connected but battery is charging. */
+		else if (!bq27xxx_is_chip_version_higher(di)
+				&& !power_supply_am_i_supplied(&di->bat)
+				&& ((cache.flags & BQ27000_FLAG_FC)
+				|| (cache.flags & BQ27000_FLAG_CHGS)))
+			di->not_charging++;
+		else if (di->not_charging)
+			di->not_charging = 0;
 	}
 
 	if (memcmp(&di->cache, &cache, sizeof(cache)) != 0) {
@@ -472,7 +488,12 @@ static void bq27x00_battery_poll(struct work_struct *work)
 
 	bq27x00_update(di);
 
-	if (poll_interval > 0) {
+	/* Only retry 10 times when not charging. */
+	if (di->not_charging > 0 && di->not_charging < 10) {
+		/* Try more often if the battery is not charging. */
+		set_timer_slack(&di->work.timer, 2 * HZ / 4);
+		schedule_delayed_work(&di->work, 2 * HZ);
+	} else if (poll_interval > 0) {
 		/* The timer does not have to be accurate. */
 		set_timer_slack(&di->work.timer, poll_interval * HZ / 4);
 		schedule_delayed_work(&di->work, poll_interval * HZ);
@@ -710,6 +731,8 @@ static int bq27x00_powersupply_init(struct bq27x00_device_info *di)
 
 	INIT_DELAYED_WORK(&di->work, bq27x00_battery_poll);
 	mutex_init(&di->lock);
+
+	di->not_charging = 0;
 
 	ret = power_supply_register(di->dev, &di->bat);
 	if (ret) {
