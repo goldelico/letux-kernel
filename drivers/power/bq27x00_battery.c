@@ -77,6 +77,8 @@
 #define BQ27000_RS			20 /* Resistor sense */
 #define BQ27x00_POWER_CONSTANT		(256 * 29200 / 1000)
 
+#define BQ27000_CHARGE_REPORT_ALWAYS	1 /* Always report charge information */
+
 struct bq27x00_device_info;
 struct bq27x00_access_methods {
 	int (*read)(struct bq27x00_device_info *di, u8 reg, bool single);
@@ -236,7 +238,8 @@ static inline int bq27x00_battery_read_nac(struct bq27x00_device_info *di)
 	bool is_higher = bq27xxx_is_chip_version_higher(di);
 
 	flags = bq27x00_read(di, BQ27x00_REG_FLAGS, !is_bq27500);
-	if (flags >= 0 && !is_higher && (flags & BQ27000_FLAG_CI))
+	if (flags >= 0 && !is_higher && (flags & BQ27000_FLAG_CI)
+			&& !BQ27000_CHARGE_REPORT_ALWAYS)
 		return -ENODATA;
 
 	return bq27x00_battery_read_charge(di, BQ27x00_REG_NAC);
@@ -421,7 +424,8 @@ static void bq27x00_update(struct bq27x00_device_info *di)
 		cache.flags = -1;
 	if (cache.flags >= 0) {
 		if (!is_bq27500 && !is_bq27425
-				&& (cache.flags & BQ27000_FLAG_CI)) {
+				&& (cache.flags & BQ27000_FLAG_CI)
+				&& !BQ27000_CHARGE_REPORT_ALWAYS) {
 			dev_dbg(di->dev, "battery is not calibrated! ignoring capacity values\n");
 			cache.capacity = -ENODATA;
 			cache.energy = -ENODATA;
