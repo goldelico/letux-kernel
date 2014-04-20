@@ -701,6 +701,8 @@ static int __init twl4030_bci_probe(struct platform_device *pdev)
 	bci->ac.properties = twl4030_charger_props;
 	bci->ac.num_properties = ARRAY_SIZE(twl4030_charger_props);
 	bci->ac.get_property = twl4030_bci_get_property;
+	bci->ac.supplied_to = pdata->supplied_to;
+	bci->ac.num_supplicants = pdata->num_supplicants;
 
 	ret = power_supply_register(&pdev->dev, &bci->ac);
 	if (ret) {
@@ -713,6 +715,8 @@ static int __init twl4030_bci_probe(struct platform_device *pdev)
 	bci->usb.properties = twl4030_charger_props;
 	bci->usb.num_properties = ARRAY_SIZE(twl4030_charger_props);
 	bci->usb.get_property = twl4030_bci_get_property;
+	bci->usb.supplied_to = pdata->supplied_to;
+	bci->usb.num_supplicants = pdata->num_supplicants;
 
 	bci->usb_reg = regulator_get(bci->dev, "bci3v1");
 

@@ -563,6 +563,9 @@ struct twl4030_bci_platform_data {
 	unsigned int tblsize;
 	int	bb_uvolt;	/* voltage to charge backup battery */
 	int	bb_uamp;	/* current for backup battery charging */
+
+	char **supplied_to;
+	size_t num_supplicants;
 };
 
 /* TWL4030_GPIO_MAX (18) GPIOs, with interrupts */
