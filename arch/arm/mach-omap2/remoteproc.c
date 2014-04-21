@@ -110,72 +110,6 @@ static struct omap_rproc_timers_info dsp2_timers[] = {
 	{ .name = "timer6", .id = 6, },
 };
 
-#define DRA7_RPROC_L2RAM_BASE_DSP			0x00800000
-#define DRA7_RPROC_L1PRAM_BASE_DSP			0x00e00000
-#define DRA7_RPROC_L1DRAM_BASE_DSP			0x00f00000
-
-#define DRA7_RPROC_GLOBAL_L2RAM_BASE_DSP1	0x40800000
-#define DRA7_RPROC_GLOBAL_L1PRAM_BASE_DSP1  0x40e00000
-#define DRA7_RPROC_GLOBAL_L1DRAM_BASE_DSP1  0x40f00000
-#define DRA7_RPROC_GLOBAL_L2RAM_BASE_DSP2   0x41000000
-#define DRA7_RPROC_GLOBAL_L1PRAM_BASE_DSP2  0x41600000
-#define DRA7_RPROC_GLOBAL_L1DRAM_BASE_DSP2  0x41700000
-#define DRA7_RPROC_L2RAM_SIZE_DSP1			0x00040000
-#define DRA7_RPROC_L1PRAM_SIZE_DSP1			0x00008000
-#define DRA7_RPROC_L1DRAM_SIZE_DSP1			0x00008000
-#define DRA7_RPROC_L2RAM_SIZE_DSP2			0x00040000
-#define DRA7_RPROC_L1PRAM_SIZE_DSP2			0x00008000
-#define DRA7_RPROC_L1DRAM_SIZE_DSP2			0x00008000
-
-/*
- * The following "carveouts" are handled in the arch-specific remoteproc
- * driver code, e.g., drivers/remoteproc/omap_remoteproc.c.
- *
- * They are not "carveouts" in the true remoteproc sense, in that they
- * don't get allocated from CMA (no allocation done at all).  They just
- * get ioremap_nocache()ed so the remoteproc loader can write to them.
- */
-static struct rproc_mem_entry dsp1_carveouts[] = {
-	{
-		.dma		= DRA7_RPROC_GLOBAL_L2RAM_BASE_DSP1,
-		.da			= DRA7_RPROC_L2RAM_BASE_DSP,
-		.len		= DRA7_RPROC_L2RAM_SIZE_DSP1,
-		.priv		= (void *)1,
-	},
-	{
-		.dma		= DRA7_RPROC_GLOBAL_L1PRAM_BASE_DSP1,
-		.da			= DRA7_RPROC_L1PRAM_BASE_DSP,
-		.len		= DRA7_RPROC_L1PRAM_SIZE_DSP1,
-		.priv		= (void *)1,
-	},
-	{
-		.dma		= DRA7_RPROC_GLOBAL_L1DRAM_BASE_DSP1,
-		.da			= DRA7_RPROC_L1DRAM_BASE_DSP,
-		.len		= DRA7_RPROC_L1DRAM_SIZE_DSP1,
-		.priv		= (void *)1,
-	},
-};
-static struct rproc_mem_entry dsp2_carveouts[] = {
-	{
-		.dma		= DRA7_RPROC_GLOBAL_L2RAM_BASE_DSP2,
-		.da			= DRA7_RPROC_L2RAM_BASE_DSP,
-		.len		= DRA7_RPROC_L2RAM_SIZE_DSP2,
-		.priv		= (void *)1,
-	},
-	{
-		.dma		= DRA7_RPROC_GLOBAL_L1PRAM_BASE_DSP2,
-		.da			= DRA7_RPROC_L1PRAM_BASE_DSP,
-		.len		= DRA7_RPROC_L1PRAM_SIZE_DSP2,
-		.priv		= (void *)1,
-	},
-	{
-		.dma		= DRA7_RPROC_GLOBAL_L1DRAM_BASE_DSP2,
-		.da			= DRA7_RPROC_L1DRAM_BASE_DSP,
-		.len		= DRA7_RPROC_L1DRAM_SIZE_DSP2,
-		.priv		= (void *)1,
-	},
-};
-
 /*
  * These data structures define platform-specific information
  * needed for each supported remote processor.
@@ -209,8 +143,6 @@ static struct omap_rproc_pdata dra7_rproc_data[] = {
 		.timers		= dsp_timers,
 		.timers_cnt	= ARRAY_SIZE(dsp_timers),
 		.set_bootaddr	= dra7_ctrl_write_dsp1_boot_addr,
-		.carveouts	= dsp1_carveouts,
-		.carveouts_cnt	= ARRAY_SIZE(dsp1_carveouts),
 	},
 	{
 		.name		= "ipu2",
@@ -231,8 +163,6 @@ static struct omap_rproc_pdata dra7_rproc_data[] = {
 		.timers		= dsp2_timers,
 		.timers_cnt	= ARRAY_SIZE(dsp2_timers),
 		.set_bootaddr	= dra7_ctrl_write_dsp2_boot_addr,
-		.carveouts	= dsp2_carveouts,
-		.carveouts_cnt	= ARRAY_SIZE(dsp2_carveouts),
 	},
 	{
 		.name		= "ipu1",
@@ -542,7 +472,7 @@ static struct device_node *of_dev_timer_lookup(struct device_node *np,
  * initialization) or to just start a timer (during a resume operation).
  */
 static int omap_rproc_enable_timers(struct platform_device *pdev,
-					bool configure)
+				    bool configure)
 {
 	int i;
 	int ret = 0;
@@ -616,7 +546,7 @@ free_timers:
  * or to just stop a timer (during a suspend operation).
  */
 static int omap_rproc_disable_timers(struct platform_device *pdev,
-					 bool configure)
+				     bool configure)
 {
 	int i;
 	struct omap_rproc_pdata *pdata = pdev->dev.platform_data;
@@ -758,7 +688,7 @@ static int __init omap_rproc_init(void)
 		}
 
 		ret = platform_device_add_data(pdev, &rproc_data[i],
-					   sizeof(struct omap_rproc_pdata));
+					       sizeof(struct omap_rproc_pdata));
 		if (ret) {
 			dev_err(&pdev->dev, "can't add pdata\n");
 			omap_device_delete(od);

@@ -849,9 +849,8 @@ static void rproc_resource_cleanup(struct rproc *rproc)
 
 	/* clean up carveout allocations */
 	list_for_each_entry_safe(entry, tmp, &rproc->carveouts, node) {
-		if (!entry->priv)
-			dma_free_coherent(dev->parent, entry->len, entry->va,
-					entry->dma);
+		dma_free_coherent(dev->parent, entry->len, entry->va,
+								entry->dma);
 		list_del(&entry->node);
 		kfree(entry);
 	}

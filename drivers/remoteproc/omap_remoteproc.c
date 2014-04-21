@@ -211,11 +211,6 @@ static int omap_rproc_probe(struct platform_device *pdev)
 	struct omap_rproc_pdata *pdata = pdev->dev.platform_data;
 	struct omap_rproc *oproc;
 	struct rproc *rproc;
-	struct rproc_mem_entry *carveout;
-	dma_addr_t dma;
-	void *va;
-	int len;
-	int i;
 	int ret;
 
 	ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
@@ -230,25 +225,6 @@ static int omap_rproc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	rproc->late_attach = pdata->late_attach;
-
-	for (i = 0; i < pdata->carveouts_cnt; i++) {
-		carveout = &pdata->carveouts[i];
-
-		dma = pdata->carveouts[i].dma;
-		len = pdata->carveouts[i].len;
-		pr_info("omap_rproc_probe: ioremap_nocache(0x%llx, 0x%x)\n",
-				(unsigned long long)dma, len);
-		va = ioremap_nocache(dma, len);
-		if (!va) {
-			dev_err(&pdev->dev, "ioremap_nocache err: %d\n", len);
-			ret = -ENOMEM;
-			goto free_rproc;
-		}
-
-		carveout->va = va;
-
-		list_add_tail(&carveout->node, &rproc->carveouts);
-	}
 	oproc = rproc->priv;
 	oproc->rproc = rproc;
 
@@ -269,12 +245,6 @@ static int omap_rproc_remove(struct platform_device *pdev)
 {
 	struct rproc *rproc = platform_get_drvdata(pdev);
 
-	struct rproc_mem_entry *carveout;
-
-	list_for_each_entry(carveout, &rproc->carveouts, node) {
-		if (carveout->priv)
-			iounmap(carveout->va);
-	}
 	rproc_del(rproc);
 	rproc_put(rproc);
 
