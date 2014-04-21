@@ -30,10 +30,14 @@ struct usb_dpll_params {
 	u32	mf;
 };
 
+struct usb_phy_data {
+	const char *label;
+	u32 flags;
+};
+
 struct omap_usb {
 	struct usb_phy		phy;
 	struct phy_companion	*comparator;
-	void __iomem		*ocp2scp_base;
 	void __iomem		*pll_ctrl_base;
 	struct device		*dev;
 	struct device		*control_dev;
@@ -42,7 +46,14 @@ struct omap_usb {
 	struct clk		*optclk;
 	u8			is_suspended:1;
 	struct device_node	*control_node;
+	void __iomem		*phy_base;
+	u32			flags;
 };
+
+/* Driver Flags */
+#define OMAP_USB2_HAS_START_SRP (1 << 0)
+#define OMAP_USB2_HAS_SET_VBUS (1 << 1)
+#define OMAP_USB2_CALIBRATE_FALSE_DISCONNECT (1 << 2)
 
 #define	phy_to_omapusb(x)	container_of((x), struct omap_usb, phy)
 

@@ -580,7 +580,7 @@
                         #address-cells = <1>;
                         #size-cells = <1>;
                         utmi-mode = <2>;
-                        dr_mode = "peripheral";
+                        dr_mode = "host";
                         ranges;
                         usb1: dwc3@48890000 {
                                 compatible = "synopsys,dra7xx-dwc3";
@@ -588,7 +588,7 @@
 				interrupts = <0 76 4>, <0 77 4>;
                                 usb-phy = <&usb2_phy1>, <&usb3_phy>;
                                 tx-fifo-resize;
-                                dr_mode = "peripheral";
+                                dr_mode = "host";
 				maximum-speed = "superspeed";
 				gpios = <&gpio6 12 0>;
                         };
@@ -610,7 +610,7 @@
                         #address-cells = <1>;
                         #size-cells = <1>;
                         utmi-mode = <2>;
-                        dr_mode = "host";
+                        dr_mode = "otg";
                         ranges;
                         usb2: dwc3@488d0000 {
                                 compatible = "synopsys,dra7xx-dwc3";
@@ -618,7 +618,7 @@
 				interrupts = <0 78 4>, <0 92 4>;
                                 usb-phy = <&usb2_phy2>;
                                 tx-fifo-resize;
-                                dr_mode = "host";
+                                dr_mode = "otg";
 				maximum-speed = "highspeed";
 				gpios = <&gpio6 13 0>;
                         };
@@ -631,7 +631,7 @@
                         ranges;
                         ti,hwmods = "ocp2scp1";
 			usb2_phy1: usb2_phy1@4a084000 {
-				compatible = "ti,omap-usb2";
+				compatible = "ti,dra7x-usb2";
 				reg = <0x4a084000 0x7c>;
 				ctrl-module = <&omap_control_usb1>;
 				wkupclk =  "usb_phy1_always_on_clk32k";
@@ -650,7 +650,7 @@
                         };
 
 			usb2_phy2: usb2_phy2@4a085000 {
-				compatible = "ti,omap-usb2";
+				compatible = "ti,dra7x-usb2";
 				reg = <0x4a085000 0x7c>;
 				ctrl-module = <&omap_control_usb2>;
 				wkupclk =  "usb_phy2_always_on_clk32k";
@@ -1039,6 +1039,7 @@
 				     <0 52 0x4>,
 				     <0 53 0x4>;
 			ranges;
+			status = "disabled";
 
 			davinci_mdio: mdio@48485000 {
 				compatible = "ti,davinci_mdio";

@@ -755,6 +755,7 @@ static int add_out_dtd(struct vip_stream *stream, int srce_type)
 	struct vb2_buffer *vb = &stream->cur_buf->vb;
 	struct v4l2_rect *c_rect = &port->c_rect;
 	struct vip_fmt *fmt = port->fmt;
+	struct vpdma_dtd *dtd;
 	int channel, plane = 0;
 	dma_addr_t dma_addr;
 	u32 flags;
@@ -794,9 +795,30 @@ static int add_out_dtd(struct vip_stream *stream, int srce_type)
 		return -1;
 	}
 
-	vpdma_vip_set_max_size(dev->shared->vpdma, 1);
 	vpdma_add_out_dtd(&dev->desc_list, c_rect->width,
 		fmt->vpdma_fmt[plane], dma_addr, channel, flags);
+
+	/*
+	 * add_out_dtd sets the max WIDTH and HEIGHT to be 1920x1080
+	 * Change this later so that max WIDTH and HEIGHT are taken from
+	 * VPDMA_MAX_SIZE1 or VPDMA_MAX_SIZE2 register
+	 * This allows to use different sets for different slices
+	 */
+
+	dtd = dev->desc_list.buf.addr;
+	if (dev->slice_id == VIP_SLICE1) {
+		vpdma_set_max_size(dev->shared->vpdma, VPDMA_MAX_SIZE1,
+			stream->width, stream->height);
+
+		dtd_set_max_width_height(dtd,
+			MAX_OUT_WIDTH_REG1, MAX_OUT_HEIGHT_REG1);
+	} else {
+		vpdma_set_max_size(dev->shared->vpdma, VPDMA_MAX_SIZE2,
+			stream->width, stream->height);
+
+		dtd_set_max_width_height(dtd,
+			MAX_OUT_WIDTH_REG2, MAX_OUT_HEIGHT_REG2);
+	}
 
 	return 0;
 }
@@ -1035,6 +1057,62 @@ static int vip_enuminput(struct file *file, void *priv,
 		return -EINVAL;
 	strncpy(inp->name, VIP_INPUT_NAME, sizeof(inp->name) - 1);
 	inp->type = V4L2_INPUT_TYPE_CAMERA;
+	return 0;
+}
+
+static int vip_g_input(struct file *file, void *priv, unsigned int *i)
+{
+	*i = 0;
+	return 0;
+}
+
+static int vip_s_input(struct file *file, void *priv, unsigned int i)
+{
+	if (i != 0)
+		return -EINVAL;
+	return 0;
+}
+
+static int vip_querystd(struct file *file, void *fh, v4l2_std_id *std)
+{
+	struct vip_stream *stream = file2stream(file);
+	struct vip_dev *dev = stream->port->dev;
+
+	v4l2_subdev_call(dev->sensor, video, querystd, std);
+	return 0;
+}
+
+static int vip_g_std(struct file *file, void *fh, v4l2_std_id *std)
+{
+	struct vip_stream *stream = file2stream(file);
+	struct vip_dev *dev = stream->port->dev;
+
+	*std = 0;
+	v4l2_subdev_call(dev->sensor, video, g_std_output, std);
+	return 0;
+}
+
+static int vip_s_std(struct file *file, void *fh, v4l2_std_id *std)
+{
+	struct vip_stream *stream = file2stream(file);
+	struct vip_dev *dev = stream->port->dev;
+
+	v4l2_subdev_call(dev->sensor, video, s_std_output, *std);
+	return 0;
+}
+
+static int vip_queryctrl(struct file *file, void *fh, struct v4l2_queryctrl *a)
+{
+	return 0;
+}
+
+static int vip_g_ctrl(struct file *file, void *fh, struct v4l2_control *a)
+{
+	return 0;
+}
+
+static int vip_s_ctrl(struct file *file, void *fh, struct v4l2_control *a)
+{
 	return 0;
 }
 
@@ -1319,6 +1397,16 @@ static long vip_ioctl_default(struct file *file, void *fh, bool valid_prio,
 static const struct v4l2_ioctl_ops vip_ioctl_ops = {
 	.vidioc_querycap	= vip_querycap,
 	.vidioc_enum_input	= vip_enuminput,
+	.vidioc_g_input		= vip_g_input,
+	.vidioc_s_input		= vip_s_input,
+
+	.vidioc_querystd	= vip_querystd,
+	.vidioc_g_std		= vip_g_std,
+	.vidioc_s_std		= vip_s_std,
+
+	.vidioc_queryctrl	= vip_queryctrl,
+	.vidioc_g_ctrl		= vip_g_ctrl,
+	.vidioc_s_ctrl		= vip_s_ctrl,
 
 	.vidioc_enum_fmt_vid_cap = vip_enum_fmt_vid_cap,
 	.vidioc_g_fmt_vid_cap	= vip_g_fmt_vid_cap,
@@ -1379,7 +1467,6 @@ static int vip_buf_prepare(struct vb2_buffer *vb)
 		return -EINVAL;
 	}
 
-	mdelay(33);
 	vb2_set_plane_payload(vb, 0, stream->sizeimage);
 
 	return 0;
@@ -1808,13 +1895,21 @@ static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
 	*vfd = vip_videodev;
 	vfd->v4l2_dev = &dev->v4l2_dev;
 	vfd->queue = q;
-	vfd->num = -1;
 
 	vfd->lock = &dev->mutex;
 	video_set_drvdata(vfd, stream);
 
+	ret = video_register_device(vfd, vfl_type, -1);
+	if (ret) {
+		v4l2_err(&dev->v4l2_dev, "Failed to register video device\n");
+		goto do_free_stream;
+	}
+
+	snprintf(vfd->name, sizeof(vfd->name), "%s", vip_videodev.name);
 	stream->vfd = vfd;
 
+	v4l2_info(&dev->v4l2_dev, VIP_MODULE_NAME
+			" Device registered as /dev/video%d\n", vfd->num);
 	return 0;
 
 do_free_stream:
@@ -1973,8 +2068,6 @@ static int vip_async_bound(struct v4l2_async_notifier *notifier,
 {
 	struct vip_dev *dev = notifier_to_vip_dev(notifier);
 	unsigned int idx = asd - &dev->config->asd[0];
-	struct video_device *vfd;
-	int ret;
 
 	if (idx > dev->config->asd_sizes)
 		return -EINVAL;
@@ -1989,22 +2082,8 @@ static int vip_async_bound(struct v4l2_async_notifier *notifier,
 				asd->match.i2c.address);
 			return 0;
 		}
-	}
-
-	vfd = dev->ports[0]->cap_streams[0]->vfd;
-	if (((u16)-1) == vfd->num) {
-		ret = video_register_device(vfd, VFL_TYPE_GRABBER, -1);
-		if (ret) {
-			v4l2_err(&dev->v4l2_dev, "Failed to register video device\n");
-			return 0;
-		}
-
-		snprintf(vfd->name, sizeof(vfd->name), "%s", vip_videodev.name);
-
-		v4l2_info(&dev->v4l2_dev, VIP_MODULE_NAME
-				" Device registered as /dev/video%d\n",
-				vfd->num);
-	}
+	} else
+		alloc_port(dev, 0);
 
 	dev->sensor = subdev;
 	dev->endpoint = &dev->config->endpoints[idx];
@@ -2171,8 +2250,6 @@ static int vip_probe(struct platform_device *pdev)
 		dev->pdev = pdev;
 		dev->res = res;
 		dev->base = base;
-
-		ret = alloc_port(dev, 0);
 
 		if (dev->pdev->dev.of_node) {
 			ret = vip_of_probe(pdev, dev);

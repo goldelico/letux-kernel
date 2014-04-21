@@ -38,8 +38,6 @@
 #include <linux/of.h>
 #include <linux/of_platform.h>
 
-#ifdef CONFIG_PALMAS_USB
-
 static int palmas_usb_read(struct palmas *palmas, unsigned int reg,
 		unsigned int *dest)
 {
@@ -204,6 +202,7 @@ static int palmas_enable_irq(struct palmas_usb *palmas_usb)
 
 	ret = palmas_vbus_wakeup_irq(palmas_usb->irq4, palmas_usb);
 
+	msleep(30);
 	if (palmas_usb->linkstat == OMAP_DWC3_UNKNOWN)
 		ret = palmas_id_wakeup_irq(palmas_usb->irq2, palmas_usb);
 
@@ -409,4 +408,3 @@ MODULE_AUTHOR("Graeme Gregory <gg@slimlogic.co.uk>");
 MODULE_DESCRIPTION("Palmas USB transceiver driver");
 MODULE_LICENSE("GPL");
 MODULE_DEVICE_TABLE(of, of_palmas_match_tbl);
-#endif

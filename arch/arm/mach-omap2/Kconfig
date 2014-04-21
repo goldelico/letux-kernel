@@ -471,6 +471,12 @@ config IVA_HIGH_OPP
 	help
 	  Lock IVA DPLL for HIGH OPP (532 MHz)
 
+config RADIO_CMEM_BUF
+	bool "CMEM buffers for Radio"
+	depends on SOC_DRA7XX && OMAP_REMOTEPROC_DSP
+	default y
+	help
+	  Use CMEM Allocator for large buffer sharing in Radio
 endmenu
 
 endif

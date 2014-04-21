@@ -336,8 +336,6 @@ static int tvp5158_g_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *parms)
 	if (parms->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
 		/* only capture is supported */
 		return -EINVAL;
-	tvp5158_set_default(client, TVP_DECODER_1);
-	tvp5158_get_video_std(client, TVP_DECODER_1);
 	if (priv->current_std == STD_INVALID)
 		return -EINVAL;
 	/* get the current standard */
@@ -402,9 +400,6 @@ static int tvp5158_g_fmt(struct v4l2_subdev *sd,
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct tvp5158_priv *priv = to_tvp5158(client);
 	enum tvp5158_std current_std;
-
-	tvp5158_set_default(client, TVP_DECODER_1);
-	tvp5158_get_video_std(client, TVP_DECODER_1);
 
 	if (priv->current_std == STD_INVALID)
 		return -EINVAL;
@@ -635,13 +630,28 @@ static int tvp5158_probe(struct i2c_client *client,
 		tvp5158_write(client, REG_DEC_WR_EN, TVP_DECODER_1);
 		tvp5158_write(client, REG_OFM_CTRL,
 		(TVP_VIDEO_PORT_ENABLE | TVP_OUT_CLK_P_EN));
-		/* V4l2 asyn subdev register */
-		sd->dev = &client->dev;
-		ret = v4l2_async_register_subdev(sd);
-		if (!ret)
-			v4l2_info(&priv->subdev, "Camera sensor driver registered\n");
-		pm_runtime_enable(&client->dev);
+	} else {
+		dev_err(&client->dev, "ERROR: Chip id is not TVP5158");
+		return -ENODEV;
 	}
+
+	tvp5158_set_default(client, TVP_DECODER_1);
+	tvp5158_get_video_std(client, TVP_DECODER_1);
+
+	if (priv->signal_present != TVP5158_SIGNAL_PRESENT) {
+		dev_err(&client->dev, "Camera not connected");
+		return -ENODEV;
+	}
+
+	/* V4l2 asyn subdev register */
+	sd->dev = &client->dev;
+	ret = v4l2_async_register_subdev(sd);
+	if (!ret)
+		v4l2_info(&priv->subdev, "Camera sensor driver registered\n");
+	else
+		return ret;
+
+	pm_runtime_enable(&client->dev);
 
 	return ret;
 }

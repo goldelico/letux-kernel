@@ -231,24 +231,6 @@ static int omap_rproc_probe(struct platform_device *pdev)
 
 	rproc->late_attach = pdata->late_attach;
 
-	for (i = 0; i < pdata->carveouts_cnt; i++) {
-		carveout = &pdata->carveouts[i];
-
-		dma = pdata->carveouts[i].dma;
-		len = pdata->carveouts[i].len;
-		pr_info("omap_rproc_probe: ioremap_nocache(0x%llx, 0x%x)\n",
-				(unsigned long long)dma, len);
-		va = ioremap_nocache(dma, len);
-		if (!va) {
-			dev_err(&pdev->dev, "ioremap_nocache err: %d\n", len);
-			ret = -ENOMEM;
-			goto free_rproc;
-		}
-
-		carveout->va = va;
-
-		list_add_tail(&carveout->node, &rproc->carveouts);
-	}
 	oproc = rproc->priv;
 	oproc->rproc = rproc;
 

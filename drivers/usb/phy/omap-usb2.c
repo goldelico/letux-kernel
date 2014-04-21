@@ -30,8 +30,40 @@
 #include <linux/usb/omap_control_usb.h>
 #include <linux/of_platform.h>
 
-#define USB2PHY_ANA_CONFIG1		(0x4C)
-#define DISCON_BYP_LATCH		(1<<31)
+#define USB2PHY_DISCON_BYP_LATCH (1 << 31)
+#define	USB2PHY_ANA_CONFIG1	0x4c
+
+static int omap_usb_init(struct usb_phy *x)
+{
+	struct omap_usb *phy = phy_to_omapusb(x);
+	struct resource *res;
+	struct platform_device *pdev = to_platform_device(phy->dev);
+	u32 val;
+
+	if (phy->flags & OMAP_USB2_CALIBRATE_FALSE_DISCONNECT) {
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+		if (!res) {
+			dev_err(&pdev->dev, "memory resource not available\n");
+			return -ENODEV;
+		}
+		phy->phy_base = devm_request_and_ioremap(&pdev->dev, res);
+		if (!phy->phy_base)
+			return -ENOMEM;
+		/*
+		 *
+		 * Reduce the sensitivity of internal PHY by enabling the
+		 * DISCON_BYP_LATCH of the USB2PHY_ANA_CONFIG1 register. This
+		 * resolves issues with certain devices which can otherwise
+		 * be prone to false disconnects.
+		 *
+		 */
+		val = omap_usb_readl(phy->phy_base, USB2PHY_ANA_CONFIG1);
+		val |= USB2PHY_DISCON_BYP_LATCH;
+		omap_usb_writel(phy->phy_base, USB2PHY_ANA_CONFIG1, val);
+	}
+
+	return 0;
+}
 
 /**
  * omap_usb2_set_comparator - links the comparator present in the sytem with
@@ -122,41 +154,39 @@ static int omap_usb2_suspend(struct usb_phy *x, int suspend)
 
 	return 0;
 }
-static int omap_usb2_init(struct usb_phy *x)
-{
-	struct omap_usb *phy = phy_to_omapusb(x);
-	u32              val;
 
-	/*
-	 *
-	 * Reduce the sensitivity of internal PHY by enabling the
-	 * DISCON_BYP_LATCH of the USB2PHY_ANA_CONFIG1 register. This resolves
-	 * issues with certain devices which can otherwise be prone to false
-	 * disconnects.
-	 *
-	 * This should be qualified with a runtime check for ensuring the issue
-	 * is applicable, but at this time all devices including the USB2PHY IP
-	 * are impacted by this issue. Once there is a HW fix for this issue,
-	 * the runtime check should be added.
-	 *
-	 */
-	val = omap_usb_readl(phy->ocp2scp_base, USB2PHY_ANA_CONFIG1);
-	val |= DISCON_BYP_LATCH;
-	omap_usb_writel(phy->ocp2scp_base, USB2PHY_ANA_CONFIG1,
-			val);
+static const struct usb_phy_data dra7x_usb2_data = {
+	.label = "dra7x-usb2",
+	.flags = OMAP_USB2_CALIBRATE_FALSE_DISCONNECT,
+};
 
-	return 0;
-}
+static const struct of_device_id omap_usb2_id_table[] = {
+	{ .compatible = "ti,omap-usb2" },
+	{
+		.compatible = "ti,dra7x-usb2",
+		.data = &dra7x_usb2_data,
+	},
+	{}
+};
+MODULE_DEVICE_TABLE(of, omap_usb2_id_table);
 
 static int omap_usb2_probe(struct platform_device *pdev)
 {
 	struct omap_usb			*phy;
-	struct resource			*res;
 	struct usb_otg			*otg;
 	struct device_node		*node = pdev->dev.of_node;
 	struct device_node		*omap_control_usb_node;
 	struct platform_device		*pdev_control_usb;
 	const char   			*clk_name;
+	const struct of_device_id *of_id;
+	struct usb_phy_data *phy_data;
+
+	of_id = of_match_device(of_match_ptr(omap_usb2_id_table), &pdev->dev);
+
+	if (!of_id)
+		return -EINVAL;
+
+	phy_data = (struct usb_phy_data *)of_id->data;
 
 	phy = devm_kzalloc(&pdev->dev, sizeof(*phy), GFP_KERNEL);
 	if (!phy) {
@@ -170,22 +200,19 @@ static int omap_usb2_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	phy->ocp2scp_base = devm_request_and_ioremap(&pdev->dev, res);
-	if (!phy->ocp2scp_base) {
-		dev_err(&pdev->dev, "ioremap of ocp2scp_base failed\n");
-		return -ENOMEM;
-	}
-
 	phy->dev		= &pdev->dev;
 
 	phy->phy.dev		= phy->dev;
 	phy->phy.label		= "omap-usb2";
-	phy->phy.init		= omap_usb2_init;
 	phy->phy.set_suspend	= omap_usb2_suspend;
 	phy->phy.otg		= otg;
 	phy->phy.type		= USB_PHY_TYPE_USB2;
 	omap_control_usb_node   = of_parse_phandle(node, "ctrl-module", 0);
+	phy->phy.init		= omap_usb_init;
+
+	if (phy_data &&
+		phy_data->flags & OMAP_USB2_CALIBRATE_FALSE_DISCONNECT)
+		phy->flags |= OMAP_USB2_CALIBRATE_FALSE_DISCONNECT;
 
 	if (IS_ERR(omap_control_usb_node)) {
 		dev_err(&pdev->dev, "Failed to find ctrl-module\n");
@@ -317,14 +344,6 @@ static const struct dev_pm_ops omap_usb2_pm_ops = {
 #define DEV_PM_OPS     (&omap_usb2_pm_ops)
 #else
 #define DEV_PM_OPS     NULL
-#endif
-
-#ifdef CONFIG_OF
-static const struct of_device_id omap_usb2_id_table[] = {
-	{ .compatible = "ti,omap-usb2" },
-	{}
-};
-MODULE_DEVICE_TABLE(of, omap_usb2_id_table);
 #endif
 
 static struct platform_driver omap_usb2_driver = {

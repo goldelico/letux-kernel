@@ -51,8 +51,8 @@
 /* minimum and maximum frame sizes */
 #define MIN_W		128
 #define MIN_H		128
-#define MAX_W		1920
-#define MAX_H		1080
+#define MAX_W		2048
+#define MAX_H		1184
 
 /* required alignments */
 #define S_ALIGN		0	/* multiple of 1 */
@@ -318,9 +318,13 @@ struct vpe_q_data {
 };
 
 /* vpe_q_data flag bits */
-#define	Q_DATA_FRAME_1D		(1 << 0)
-#define	Q_DATA_MODE_TILED	(1 << 1)
-#define	Q_DATA_INTERLACED	(1 << 2)
+#define	Q_DATA_FRAME_1D			(1 << 0)
+#define	Q_DATA_MODE_TILED		(1 << 1)
+#define	Q_DATA_INTERLACED_ALTERNATE	(1 << 2)
+#define	Q_DATA_INTERLACED_SEQ_TB	(1 << 3)
+
+#define Q_IS_INTERLACED		(Q_DATA_INTERLACED_ALTERNATE |\
+						Q_DATA_INTERLACED_SEQ_TB)
 
 enum {
 	Q_DATA_SRC = 0,
@@ -419,7 +423,7 @@ static struct vpe_q_data *get_q_data(struct vpe_ctx *ctx,
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		return &ctx->q_data[Q_DATA_DST];
 	default:
-		BUG();
+		return NULL;
 	}
 	return NULL;
 }
@@ -498,6 +502,14 @@ struct vpe_mmr_adb {
 
 #define VPE_SET_MMR_ADB_HDR(ctx, hdr, regs, offset_a)	\
 	VPDMA_SET_MMR_ADB_HDR(ctx->mmr_adb, vpe_mmr_adb, hdr, regs, offset_a)
+
+static inline dma_addr_t vb2_dma_addr_plus_data_offset(struct vb2_buffer *vb,
+	unsigned int plane_no)
+{
+	return vb2_dma_contig_plane_dma_addr(vb, plane_no) +
+		vb->v4l2_planes[plane_no].data_offset;
+}
+
 /*
  * Set the headers for all of the address/data block structures.
  */
@@ -579,16 +591,29 @@ static void free_mv_buffers(struct vpe_ctx *ctx)
 static void free_vbs(struct vpe_ctx *ctx)
 {
 	struct vpe_dev *dev = ctx->dev;
+	struct vpe_q_data *s_q_data = &ctx->q_data[Q_DATA_SRC];
 	unsigned long flags;
 
-	if (ctx->src_vbs[2] == NULL)
-		return;
+	if (s_q_data->flags & Q_DATA_INTERLACED_ALTERNATE) {
+		if (ctx->src_vbs[2] == NULL)
+			return;
+	} else {
+		if (ctx->src_vbs[1] == NULL)
+			return;
+	}
 
 	spin_lock_irqsave(&dev->lock, flags);
-	if (ctx->src_vbs[2]) {
-		v4l2_m2m_buf_done(ctx->src_vbs[2], VB2_BUF_STATE_DONE);
-		v4l2_m2m_buf_done(ctx->src_vbs[1], VB2_BUF_STATE_DONE);
+
+	if (s_q_data->flags & Q_DATA_INTERLACED_ALTERNATE) {
+		if (ctx->src_vbs[2]) {
+			v4l2_m2m_buf_done(ctx->src_vbs[2], VB2_BUF_STATE_DONE);
+			v4l2_m2m_buf_done(ctx->src_vbs[1], VB2_BUF_STATE_DONE);
+		}
+	} else {
+		if (ctx->src_vbs[1])
+			v4l2_m2m_buf_done(ctx->src_vbs[1], VB2_BUF_STATE_DONE);
 	}
+
 	spin_unlock_irqrestore(&dev->lock, flags);
 }
 
@@ -641,7 +666,7 @@ static void set_us_coefficients(struct vpe_ctx *ctx)
 
 	cp = &us_coeffs[0].anchor_fid0_c0;
 
-	if (s_q_data->flags & Q_DATA_INTERLACED)	/* interlaced */
+	if (s_q_data->flags & Q_IS_INTERLACED)	/* interlaced */
 		cp += sizeof(us_coeffs[0]) / sizeof(*cp);
 
 	end_cp = cp + sizeof(us_coeffs[0]) / sizeof(*cp);
@@ -768,8 +793,8 @@ static void set_dei_regs(struct vpe_ctx *ctx)
 	 * for both progressive and interlace content in interlace bypass mode.
 	 * It has been recommended not to use progressive bypass mode.
 	 */
-	if ((!ctx->deinterlacing && (s_q_data->flags & Q_DATA_INTERLACED)) ||
-			!(s_q_data->flags & Q_DATA_INTERLACED)) {
+	if ((!ctx->deinterlacing && (s_q_data->flags & Q_IS_INTERLACED)) ||
+			!(s_q_data->flags & Q_IS_INTERLACED)) {
 		deinterlace = false;
 		val = VPE_DEI_INTERLACE_BYPASS;
 	}
@@ -804,8 +829,8 @@ static int set_srcdst_params(struct vpe_ctx *ctx)
 	ctx->sequence = 0;
 	ctx->field = V4L2_FIELD_TOP;
 
-	if ((s_q_data->flags & Q_DATA_INTERLACED) &&
-			!(d_q_data->flags & Q_DATA_INTERLACED)) {
+	if ((s_q_data->flags & Q_IS_INTERLACED) &&
+			!(d_q_data->flags & Q_IS_INTERLACED)) {
 		int bytes_per_line;
 		const struct vpdma_data_format *mv =
 			&vpdma_misc_fmts[VPDMA_DATA_FMT_MV];
@@ -868,10 +893,23 @@ static struct vpe_ctx *file2ctx(struct file *file)
 static int job_ready(void *priv)
 {
 	struct vpe_ctx *ctx = priv;
+	struct vpe_q_data *s_q_data = &ctx->q_data[Q_DATA_SRC];
 	int needed = ctx->bufs_per_job;
 
-	if (ctx->deinterlacing && ctx->src_vbs[2] == NULL)
-		needed += 2;	/* need additional two most recent fields */
+	if (ctx->deinterlacing) {
+
+		if ((s_q_data->flags & Q_DATA_INTERLACED_ALTERNATE) &&
+				ctx->src_vbs[2] == NULL)
+			/* need additional two most recent fields */
+			needed += 2;
+		else if ((s_q_data->flags & Q_DATA_INTERLACED_SEQ_TB) &&
+				ctx->src_vbs[1] == NULL)
+			/*
+			 * need additional two most recent fields, which are in
+			 * one buffer
+			 */
+			needed += 1;
+	}
 
 	if (v4l2_m2m_num_src_bufs_ready(ctx->m2m_ctx) < needed)
 		return 0;
@@ -986,7 +1024,7 @@ static void add_out_dtd(struct vpe_ctx *ctx, int port)
 		int plane = fmt->coplanar ? p_data->vb_part : 0;
 
 		vpdma_fmt = fmt->vpdma_fmt[plane];
-		dma_addr = vb2_dma_contig_plane_dma_addr(vb, plane);
+		dma_addr = vb2_dma_addr_plus_data_offset(vb, plane);
 		if (!dma_addr) {
 			vpe_err(ctx->dev,
 				"acquiring output buffer(%d) dma_addr failed\n",
@@ -1008,11 +1046,10 @@ static void add_in_dtd(struct vpe_ctx *ctx, int port)
 {
 	struct vpe_q_data *q_data = &ctx->q_data[Q_DATA_SRC];
 	const struct vpe_port_data *p_data = &port_data[port];
-	struct vb2_buffer *vb = ctx->src_vbs[p_data->vb_index];
 	struct vpe_fmt *fmt = q_data->fmt;
 	const struct vpdma_data_format *vpdma_fmt;
 	int mv_buf_selector = ctx->src_mv_buf_selector;
-	int field = vb->v4l2_buf.field == V4L2_FIELD_BOTTOM;
+	int field = 0;
 	int frame_width, frame_height;
 	dma_addr_t dma_addr;
 	u32 flags = 0;
@@ -1023,10 +1060,58 @@ static void add_in_dtd(struct vpe_ctx *ctx, int port)
 	} else {
 		/* to incorporate interleaved formats */
 		int plane = fmt->coplanar ? p_data->vb_part : 0;
+		struct vb2_buffer *vb;
 
 		vpdma_fmt = fmt->vpdma_fmt[plane];
 
-		dma_addr = vb2_dma_contig_plane_dma_addr(vb, plane);
+		if (q_data->flags & Q_DATA_INTERLACED_SEQ_TB) {
+			bool tbt = ctx->sequence % 2 == 0;
+			int field_id = p_data->vb_index;
+			int bpp = fmt->fourcc == V4L2_PIX_FMT_NV12 ?
+					1 : (vpdma_fmt->depth >> 3);
+			int height = q_data->height / 2;
+
+			if (tbt) {
+				if (field_id == 0) {
+					/* f */
+					vb = ctx->src_vbs[0];
+					field = 0;
+				} else if (field_id == 1) {
+					/* f - 1 */
+					vb = ctx->src_vbs[1];
+					field = 1;
+				} else {
+					/* f - 2 */
+					vb = ctx->src_vbs[1];
+					field = 0;
+				}
+			} else {
+				if (field_id == 0) {
+					/* f */
+					vb = ctx->src_vbs[0];
+					field = 1;
+				} else if (field_id == 1) {
+					/* f - 1 */
+					vb = ctx->src_vbs[0];
+					field = 0;
+				} else {
+					/* f - 2 */
+					vb = ctx->src_vbs[1];
+					field = 1;
+				}
+			}
+
+			dma_addr = vb2_dma_addr_plus_data_offset(vb, plane);
+
+			if (plane)
+				height /= 2;
+
+			dma_addr += field ? q_data->width * height * bpp : 0;
+		} else {
+			vb = ctx->src_vbs[p_data->vb_index];
+			field = vb->v4l2_buf.field == V4L2_FIELD_BOTTOM;
+			dma_addr = vb2_dma_addr_plus_data_offset(vb, plane);
+		}
 		if (!dma_addr) {
 			vpe_err(ctx->dev,
 				"acquiring input buffer(%d) dma_addr failed\n",
@@ -1081,16 +1166,35 @@ static void device_run(void *priv)
 	struct vpe_ctx *ctx = priv;
 	struct sc_data *sc = ctx->dev->sc;
 	struct vpe_q_data *d_q_data = &ctx->q_data[Q_DATA_DST];
+	struct vpe_q_data *s_q_data = &ctx->q_data[Q_DATA_SRC];
 
-	if (ctx->deinterlacing && ctx->src_vbs[2] == NULL) {
-		ctx->src_vbs[2] = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
-		WARN_ON(ctx->src_vbs[2] == NULL);
-		ctx->src_vbs[1] = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
-		WARN_ON(ctx->src_vbs[1] == NULL);
+	if (ctx->deinterlacing) {
+		if (s_q_data->flags & Q_DATA_INTERLACED_ALTERNATE) {
+			if (ctx->src_vbs[2] == NULL) {
+				ctx->src_vbs[2] =
+					v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
+				WARN_ON(ctx->src_vbs[2] == NULL);
+				ctx->src_vbs[1] =
+					v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
+				WARN_ON(ctx->src_vbs[1] == NULL);
+			}
+		/* SEQ_TB */
+		} else {
+			if (ctx->src_vbs[1] == NULL) {
+				ctx->src_vbs[1] =
+					v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
+				WARN_ON(ctx->src_vbs[1] == NULL);
+			}
+		}
 	}
 
-	ctx->src_vbs[0] = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
-	WARN_ON(ctx->src_vbs[0] == NULL);
+	if (!ctx->deinterlacing || ((s_q_data->flags &
+		Q_DATA_INTERLACED_SEQ_TB) && (ctx->sequence % 2 == 0)) ||
+			(s_q_data->flags & Q_DATA_INTERLACED_ALTERNATE)) {
+		ctx->src_vbs[0] = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
+		WARN_ON(ctx->src_vbs[0] == NULL);
+	}
+
 	ctx->dst_vb = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
 	WARN_ON(ctx->dst_vb == NULL);
 
@@ -1206,6 +1310,7 @@ static irqreturn_t vpe_irq(int irq_vpe, void *data)
 	struct vpe_dev *dev = (struct vpe_dev *)data;
 	struct vpe_ctx *ctx;
 	struct vpe_q_data *d_q_data;
+	struct vpe_q_data *s_q_data;
 	struct vb2_buffer *s_vb, *d_vb;
 	struct v4l2_buffer *s_buf, *d_buf;
 	unsigned long flags;
@@ -1282,7 +1387,7 @@ static irqreturn_t vpe_irq(int irq_vpe, void *data)
 	d_buf->field = ctx->field;
 
 	d_q_data = &ctx->q_data[Q_DATA_DST];
-	if (d_q_data->flags & Q_DATA_INTERLACED) {
+	if (d_q_data->flags & Q_IS_INTERLACED) {
 		if (ctx->field == V4L2_FIELD_BOTTOM) {
 			ctx->sequence++;
 			ctx->field = V4L2_FIELD_TOP;
@@ -1294,17 +1399,36 @@ static irqreturn_t vpe_irq(int irq_vpe, void *data)
 		ctx->sequence++;
 	}
 
-	if (ctx->deinterlacing)
-		s_vb = ctx->src_vbs[2];
+	s_q_data = &ctx->q_data[Q_DATA_SRC];
+
+	if (ctx->deinterlacing) {
+		if (s_q_data->flags & Q_DATA_INTERLACED_ALTERNATE)
+			s_vb = ctx->src_vbs[2];
+		else
+			s_vb = ctx->src_vbs[1];
+	}
 
 	spin_lock_irqsave(&dev->lock, flags);
-	v4l2_m2m_buf_done(s_vb, VB2_BUF_STATE_DONE);
+
+	if (s_q_data->flags & Q_DATA_INTERLACED_SEQ_TB) {
+		if (((ctx->sequence % 2) == 0))
+			v4l2_m2m_buf_done(s_vb, VB2_BUF_STATE_DONE);
+	} else {
+		v4l2_m2m_buf_done(s_vb, VB2_BUF_STATE_DONE);
+	}
+
 	v4l2_m2m_buf_done(d_vb, VB2_BUF_STATE_DONE);
+
 	spin_unlock_irqrestore(&dev->lock, flags);
 
 	if (ctx->deinterlacing) {
-		ctx->src_vbs[2] = ctx->src_vbs[1];
-		ctx->src_vbs[1] = ctx->src_vbs[0];
+		if (s_q_data->flags & Q_DATA_INTERLACED_ALTERNATE) {
+			ctx->src_vbs[2] = ctx->src_vbs[1];
+			ctx->src_vbs[1] = ctx->src_vbs[0];
+		} else {
+			if (((ctx->sequence % 2) == 0))
+				ctx->src_vbs[1] = ctx->src_vbs[0];
+		}
 	}
 
 	ctx->bufs_completed++;
@@ -1330,7 +1454,7 @@ static int vpe_querycap(struct file *file, void *priv,
 	strncpy(cap->driver, VPE_MODULE_NAME, sizeof(cap->driver) - 1);
 	strncpy(cap->card, VPE_MODULE_NAME, sizeof(cap->card) - 1);
 	strlcpy(cap->bus_info, VPE_MODULE_NAME, sizeof(cap->bus_info));
-	cap->device_caps  = V4L2_CAP_VIDEO_M2M | V4L2_CAP_STREAMING;
+	cap->device_caps  = V4L2_CAP_VIDEO_M2M_MPLANE | V4L2_CAP_STREAMING;
 	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
 	return 0;
 }
@@ -1403,7 +1527,7 @@ static int __vpe_try_fmt(struct vpe_ctx *ctx, struct v4l2_format *f,
 	struct v4l2_pix_format_mplane *pix = &f->fmt.pix_mp;
 	struct v4l2_plane_pix_format *plane_fmt;
 	unsigned int w_align;
-	int i, depth, depth_bytes;
+	int i, depth, depth_bytes, height;
 
 	if (!fmt || !(fmt->types & type)) {
 		vpe_err(ctx->dev, "Fourcc format (0x%08x) invalid.\n",
@@ -1411,7 +1535,8 @@ static int __vpe_try_fmt(struct vpe_ctx *ctx, struct v4l2_format *f,
 		return -EINVAL;
 	}
 
-	if (pix->field != V4L2_FIELD_NONE && pix->field != V4L2_FIELD_ALTERNATE)
+	if (pix->field != V4L2_FIELD_NONE && pix->field != V4L2_FIELD_ALTERNATE
+			&& pix->field != V4L2_FIELD_SEQ_TB)
 		pix->field = V4L2_FIELD_NONE;
 
 	depth = fmt->vpdma_fmt[VPE_LUMA]->depth;
@@ -1445,6 +1570,14 @@ static int __vpe_try_fmt(struct vpe_ctx *ctx, struct v4l2_format *f,
 	pix->num_planes = fmt->coplanar ? 2 : 1;
 	pix->pixelformat = fmt->fourcc;
 
+	/* for the actual image parameters, we need to consider the field height
+	 * of the image for SEQ_TB buffers.
+	 */
+	if (pix->field == V4L2_FIELD_SEQ_TB)
+		height = pix->height / 2;
+	else
+		height = pix->height;
+
 	if (!pix->colorspace) {
 		if (fmt->fourcc == V4L2_PIX_FMT_RGB24 ||
 				fmt->fourcc == V4L2_PIX_FMT_BGR24 ||
@@ -1452,7 +1585,7 @@ static int __vpe_try_fmt(struct vpe_ctx *ctx, struct v4l2_format *f,
 				fmt->fourcc == V4L2_PIX_FMT_BGR32) {
 			pix->colorspace = V4L2_COLORSPACE_SRGB;
 		} else {
-			if (pix->height > 1280)	/* HD */
+			if (height > 1280)	/* HD */
 				pix->colorspace = V4L2_COLORSPACE_REC709;
 			else			/* SD */
 				pix->colorspace = V4L2_COLORSPACE_SMPTE170M;
@@ -1468,8 +1601,7 @@ static int __vpe_try_fmt(struct vpe_ctx *ctx, struct v4l2_format *f,
 		else
 			plane_fmt->bytesperline = pix->width;
 
-		plane_fmt->sizeimage =
-				(pix->height * pix->width * depth) >> 3;
+		plane_fmt->sizeimage = (pix->height * pix->width * depth) >> 3;
 	}
 
 	return 0;
@@ -1526,9 +1658,15 @@ static int __vpe_s_fmt(struct vpe_ctx *ctx, struct v4l2_format *f)
 	q_data->c_rect.height	= q_data->height;
 
 	if (q_data->field == V4L2_FIELD_ALTERNATE)
-		q_data->flags |= Q_DATA_INTERLACED;
+		q_data->flags |= Q_DATA_INTERLACED_ALTERNATE;
+	else if (q_data->field == V4L2_FIELD_SEQ_TB)
+		q_data->flags |= Q_DATA_INTERLACED_SEQ_TB;
 	else
-		q_data->flags &= ~Q_DATA_INTERLACED;
+		q_data->flags &= ~Q_IS_INTERLACED;
+
+	/* the crop height is halved for the case of SEQ_TB buffers */
+	if (q_data->flags & Q_DATA_INTERLACED_SEQ_TB)
+		q_data->c_rect.height /= 2;
 
 	vpe_dbg(ctx->dev, "Setting format for type %d, wxh: %dx%d, fmt: %d bpl_y %d",
 		f->type, q_data->width, q_data->height, q_data->fmt->fourcc,
@@ -1564,6 +1702,7 @@ static int vpe_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 static int __vpe_try_crop(struct vpe_ctx *ctx, struct v4l2_crop *cr)
 {
 	struct vpe_q_data *q_data;
+	int height;
 
 	q_data = get_q_data(ctx, cr->type);
 	if (!q_data)
@@ -1577,13 +1716,22 @@ static int __vpe_try_crop(struct vpe_ctx *ctx, struct v4l2_crop *cr)
 		return 0;
 	}
 
+	/*
+	 * For SEQ_TB buffers, crop height should be less than the height of
+	 * the field height, not the buffer height
+	 */
+	if (q_data->flags & Q_DATA_INTERLACED_SEQ_TB)
+		height = q_data->height / 2;
+	else
+		height = q_data->height;
+
 	if (cr->c.top < 0 || cr->c.left < 0) {
 		vpe_err(ctx->dev, "negative values for top and left\n");
 		cr->c.top = cr->c.left = 0;
 	}
 
 	v4l_bound_align_image(&cr->c.width, MIN_W, q_data->width, 1,
-		&cr->c.height, MIN_H, q_data->height, H_ALIGN, S_ALIGN);
+		&cr->c.height, MIN_H, height, H_ALIGN, S_ALIGN);
 
 	/* adjust left/top if cropping rectangle is out of bounds */
 	if (cr->c.left + cr->c.width > q_data->width)
@@ -1606,7 +1754,10 @@ static int vpe_cropcap(struct file *file, void *priv, struct v4l2_cropcap *cr)
 	cr->bounds.left = 0;
 	cr->bounds.top = 0;
 	cr->bounds.width = q_data->width;
-	cr->bounds.height = q_data->height;
+	if (q_data->flags & Q_DATA_INTERLACED_SEQ_TB)
+		cr->bounds.height = q_data->height / 2;
+	else
+		cr->bounds.height = q_data->height;
 	cr->defrect = cr->bounds;
 
 	return 0;
@@ -2028,8 +2179,14 @@ static int vpe_release(struct file *file)
 	mutex_lock(&dev->dev_mutex);
 	free_vbs(ctx);
 	free_mv_buffers(ctx);
+	vpdma_buf_unmap(dev->vpdma, &ctx->desc_list.buf);
+	vpdma_buf_unmap(dev->vpdma, &ctx->mmr_adb);
+	vpdma_buf_unmap(dev->vpdma, &ctx->sc_coeff_h);
+	vpdma_buf_unmap(dev->vpdma, &ctx->sc_coeff_v);
 	vpdma_free_desc_list(&ctx->desc_list);
 	vpdma_buf_free(&ctx->mmr_adb);
+	vpdma_buf_free(&ctx->sc_coeff_v);
+	vpdma_buf_free(&ctx->sc_coeff_h);
 
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);

@@ -43,8 +43,6 @@
 #include "musb_core.h"
 #include "omap2430.h"
 
-#ifdef CONFIG_USB_MUSB_OMAP2PLUS
-
 struct omap2430_glue {
 	struct device		*dev;
 	struct platform_device	*musb;
@@ -698,4 +696,3 @@ static void __exit omap2430_exit(void)
 	platform_driver_unregister(&omap2430_driver);
 }
 module_exit(omap2430_exit);
-#endif

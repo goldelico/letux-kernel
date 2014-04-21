@@ -34,8 +34,6 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 
-#ifdef CONFIG_TWL6030_USB
-
 /* usb register definitions */
 #define USB_VENDOR_ID_LSB		0x00
 #define USB_VENDOR_ID_MSB		0x01
@@ -446,4 +444,3 @@ MODULE_ALIAS("platform:twl6030_usb");
 MODULE_AUTHOR("Hema HK <hemahk@ti.com>");
 MODULE_DESCRIPTION("TWL6030 USB transceiver driver");
 MODULE_LICENSE("GPL");
-#endif

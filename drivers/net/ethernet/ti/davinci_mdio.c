@@ -51,6 +51,8 @@
 
 #define DEF_OUT_FREQ		2200000		/* 2.2 MHz */
 
+#define GMAC_CLK_DIV		2
+
 struct davinci_mdio_regs {
 	u32	version;
 	u32	control;
@@ -100,7 +102,7 @@ static void __davinci_mdio_reset(struct davinci_mdio_data *data)
 {
 	u32 mdio_in, div, mdio_out_khz, access_time;
 
-	mdio_in = clk_get_rate(data->clk);
+	mdio_in = clk_get_rate(data->clk)/GMAC_CLK_DIV;
 	div = (mdio_in / data->pdata.bus_freq) - 1;
 	if (div > CONTROL_MAX_DIV)
 		div = CONTROL_MAX_DIV;
@@ -351,7 +353,7 @@ static int davinci_mdio_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
-	data->clk = clk_get(&pdev->dev, "fck");
+	data->clk = clk_get(&pdev->dev, "dpll_gmac_m2_ck");
 	if (IS_ERR(data->clk)) {
 		dev_err(dev, "failed to get device clock\n");
 		ret = PTR_ERR(data->clk);

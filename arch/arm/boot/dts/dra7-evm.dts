@@ -193,14 +193,14 @@
 		compatible = "ti,gpio-usb-id";
 		gpios = <&pcf_lcd3 1 0>;
 		interrupt_mode = <0>;
-		dr_mode = "peripheral";
+		dr_mode = "host";
 	};
 
 	extcon2: gpio_usbvid_extcon2 {
 		compatible = "ti,gpio-usb-id";
 		gpios = <&pcf_lcd3 2 0>;
 		interrupt_mode = <0>;
-		dr_mode = "host";
+		dr_mode = "otg";
 	};
 };
 
@@ -787,6 +787,7 @@
 		reg = <0x39>;
 		deserializer = <&vis_des2>;
 		serializer = <&vis_ser2>;
+		status = "disabled";
 
 		port {
 			cam2: endpoint {
@@ -976,11 +977,11 @@
 };
 
 &usb1 {
-	dr_mode = "peripheral";
+	dr_mode = "host";
 };
 
 &usb2 {
-	dr_mode = "host";
+	dr_mode = "otg";
 };
 
 &omap_dwc31 {

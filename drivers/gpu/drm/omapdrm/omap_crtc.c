@@ -196,13 +196,35 @@ static bool omap_crtc_mode_fixup(struct drm_crtc *crtc,
 	return true;
 }
 
+int crtc_wait_vsync(struct drm_crtc *crtc)
+{
+	struct drm_device *dev = crtc->dev;
+	struct omap_crtc *omap_crtc = to_omap_crtc(crtc);
+	enum omap_channel channel = omap_crtc->channel;
+	struct omap_irq_wait *wait = NULL;
+	int r = 0;
+
+	dispc_runtime_get();
+
+	if (dispc_mgr_is_enabled(channel)) {
+		wait = omap_irq_wait_init(dev, dispc_mgr_get_vsync_irq(channel), 1);
+		r = omap_irq_wait(dev, wait, msecs_to_jiffies(100));
+	}
+
+	dispc_runtime_put();
+
+	return r;
+}
+
 static int omap_crtc_mode_set(struct drm_crtc *crtc,
 		struct drm_display_mode *mode,
 		struct drm_display_mode *adjusted_mode,
 		int x, int y,
 		struct drm_framebuffer *old_fb)
 {
+	struct drm_device *dev = crtc->dev;
 	struct omap_crtc *omap_crtc = to_omap_crtc(crtc);
+	int r;
 
 	mode = adjusted_mode;
 
@@ -218,11 +240,19 @@ static int omap_crtc_mode_set(struct drm_crtc *crtc,
 	copy_timings_drm_to_omap(&omap_crtc->timings, mode);
 	omap_crtc->full_update = true;
 
-	return omap_plane_mode_set(omap_crtc->plane, crtc, crtc->fb,
+	r = omap_plane_mode_set(omap_crtc->plane, crtc, crtc->fb,
 			0, 0, mode->hdisplay, mode->vdisplay,
 			x << 16, y << 16,
 			mode->hdisplay << 16, mode->vdisplay << 16,
 			NULL, NULL);
+	if (r)
+		return r;
+
+	r = crtc_wait_vsync(crtc);
+	if (r)
+		dev_err(dev->dev, "didn't get a vsync\n");
+
+	return r;
 }
 
 static void omap_crtc_prepare(struct drm_crtc *crtc)
@@ -242,15 +272,25 @@ static void omap_crtc_commit(struct drm_crtc *crtc)
 static int omap_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
 		struct drm_framebuffer *old_fb)
 {
+	struct drm_device *dev = crtc->dev;
 	struct omap_crtc *omap_crtc = to_omap_crtc(crtc);
 	struct drm_plane *plane = omap_crtc->plane;
 	struct drm_display_mode *mode = &crtc->mode;
+	int r;
 
-	return omap_plane_mode_set(plane, crtc, crtc->fb,
+	r = omap_plane_mode_set(plane, crtc, crtc->fb,
 			0, 0, mode->hdisplay, mode->vdisplay,
 			x << 16, y << 16,
 			mode->hdisplay << 16, mode->vdisplay << 16,
 			NULL, NULL);
+	if (r)
+		return r;
+
+	r = crtc_wait_vsync(crtc);
+	if (r)
+		dev_err(dev->dev, "didn't get a vsync\n");
+
+	return r;
 }
 
 static void omap_crtc_load_lut(struct drm_crtc *crtc)
@@ -314,6 +354,7 @@ static int omap_crtc_page_flip_locked(struct drm_crtc *crtc,
 	struct drm_device *dev = crtc->dev;
 	struct omap_crtc *omap_crtc = to_omap_crtc(crtc);
 	struct drm_gem_object *bo;
+	unsigned long flags;
 
 	DBG("%d -> %d (event=%p)", crtc->fb ? crtc->fb->base.id : -1,
 			fb->base.id, event);
@@ -323,9 +364,12 @@ static int omap_crtc_page_flip_locked(struct drm_crtc *crtc,
 		return -EINVAL;
 	}
 
-	omap_crtc->event = event;
-	crtc->fb = fb;
+	spin_lock_irqsave(&dev->event_lock, flags);
 
+	omap_crtc->event = event;
+	omap_crtc->old_fb = crtc->fb = fb;
+
+	spin_unlock_irqrestore(&dev->event_lock, flags);
 	/*
 	 * Hold a reference temporarily until the crtc is updated
 	 * and takes the reference to the bo.  This avoids it

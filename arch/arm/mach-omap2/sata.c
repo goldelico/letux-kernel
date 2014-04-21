@@ -120,10 +120,14 @@
 /* Enable Tx and Rx phys */
 #define SATA_PWRCTL_CLK_CMD					3
 
+/* skip idle during suspend */
+#define SATA_SKIP_IDLE_WHILE_SUSPEND				(1 << 0)
+
 struct omap_sata_platdata {
 	void __iomem		*ocp2scp3, *phyrx, *pll;
 	struct omap_ocp2scp_dev *dev_attr;
 	struct clk	*ref_clk;
+	u32	flags;
 };
 
 static struct omap_sata_platdata	omap_sata_data;
@@ -422,6 +426,9 @@ static int sata_phy_init(struct device *dev)
 		goto rx_err_end;
 	}
 
+	/* Fix for Errata, SATA DPLL unlock/lock issue during resume */
+	spdata->flags = SATA_SKIP_IDLE_WHILE_SUSPEND;
+
 	clk_enable(spdata->ref_clk);
 
 	omap_ocp2scp_init(dev, spdata->ocp2scp3);
@@ -503,6 +510,14 @@ static int omap_sata_suspend(struct device *dev)
 		return -EPERM;
 	}
 
+	/* Fix for Errata, SATA DPLL unlock/lock issue during resume.
+	 * SATA DPLL cannot be powerdown during suspend.
+	 * SATA controller does not interop with devices during
+	 * resume, when dpll powerdown during suspend operation.
+	 */
+	if (spdata->flags & SATA_SKIP_IDLE_WHILE_SUSPEND)
+		goto skip_idle;
+
 	reg  = omap_sata_readl(spdata->pll, OMAP_SATA_PLL_CFG2);
 	reg &= ~OMAP_SATA_PLL_CFG2_IDLE_MASK;
 	reg |= OMAP_SATA_PLL_CFG2_IDLE;
@@ -522,6 +537,7 @@ static int omap_sata_suspend(struct device *dev)
 		}
 	} while (!reg);
 
+skip_idle:
 #ifdef OMAP_SATA_PHY_PWR
 	sataphy_pwr_off();
 #endif
@@ -558,8 +574,14 @@ static int omap_sata_resume(struct device *dev)
 		omap_sata_writel(spdata->pll, OMAP_SATA_PLL_CFG2, reg);
 	} else {
 		dev_err(dev, "sata pll not in idle, so reconfigure pll\n");
-		omap_sataphyrx_init(dev, spdata->phyrx);
-		sata_dpll_config(dev, spdata->pll);
+
+		/* reconfigure pll if pll not locked */
+		reg = omap_sata_readl(spdata->pll, OMAP_SATA_PLL_STATUS);
+		if (!(reg & (OMAP_SATA_PLL_STATUS_LOCK
+			<< OMAP_SATA_PLL_STATUS_LOCK_SHIFT))) {
+			omap_sataphyrx_init(dev, spdata->phyrx);
+			sata_dpll_config(dev, spdata->pll);
+		}
 	}
 	sata_dpll_wait_lock(dev, spdata->pll);
 
