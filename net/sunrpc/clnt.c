@@ -1117,6 +1117,31 @@ const char *rpc_peeraddr2str(struct rpc_clnt *clnt,
 }
 EXPORT_SYMBOL_GPL(rpc_peeraddr2str);
 
+/**
+ * rpc_is_foreign - report is rpc client was recently connected to
+ *                  remote host
+ * @clnt: RPC client structure
+ *
+ * If the client is not connected, or connected to the local host
+ * (any IP address), then return 0.  Only return non-zero if the
+ * most recent state was a connection to a remote host.
+ * For UDP the client always appears to be connected, and the
+ * remoteness of the host is of the destination of the last transmission.
+ */
+int rpc_is_foreign(struct rpc_clnt *clnt)
+{
+	struct rpc_xprt *xprt;
+	int conn_foreign;
+
+	rcu_read_lock();
+	xprt = rcu_dereference(clnt->cl_xprt);
+	conn_foreign = (xprt && xprt_connected(xprt)
+			&& !test_bit(XPRT_LOCAL, &xprt->state));
+	rcu_read_unlock();
+	return conn_foreign;
+}
+EXPORT_SYMBOL_GPL(rpc_is_foreign);
+
 static const struct sockaddr_in rpc_inaddr_loopback = {
 	.sin_family		= AF_INET,
 	.sin_addr.s_addr	= htonl(INADDR_ANY),

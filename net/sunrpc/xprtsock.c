@@ -643,6 +643,11 @@ static int xs_udp_send_request(struct rpc_task *task)
 			xdr->len - req->rq_bytes_sent, status);
 
 	if (status >= 0) {
+		if (sock_is_loopback(transport->sock->sk))
+			set_bit(XPRT_LOCAL, &xprt->state);
+		else
+			clear_bit(XPRT_LOCAL, &xprt->state);
+
 		req->rq_xmit_bytes_sent += status;
 		if (status >= req->rq_slen)
 			return 0;
@@ -1550,6 +1555,10 @@ static void xs_tcp_state_change(struct sock *sk)
 
 			xprt_wake_pending_tasks(xprt, -EAGAIN);
 		}
+		if (sock_is_loopback(sk))
+			set_bit(XPRT_LOCAL, &xprt->state);
+		else
+			clear_bit(XPRT_LOCAL, &xprt->state);
 		spin_unlock(&xprt->transport_lock);
 		break;
 	case TCP_FIN_WAIT1:
