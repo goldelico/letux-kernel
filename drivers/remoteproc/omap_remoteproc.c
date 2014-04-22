@@ -231,6 +231,7 @@ static int omap_rproc_probe(struct platform_device *pdev)
 	oproc = rproc->priv;
 	oproc->rproc = rproc;
 
+	pdata->report_watchdog = rproc_report_crash;
 	platform_set_drvdata(pdev, rproc);
 
 	ret = rproc_add(rproc);

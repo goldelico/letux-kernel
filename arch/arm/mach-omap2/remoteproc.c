@@ -18,6 +18,7 @@
 #include <linux/kernel.h>
 #include <linux/err.h>
 #include <linux/remoteproc.h>
+#include <linux/interrupt.h>
 #include <linux/dma-contiguous.h>
 #include <linux/dma-mapping.h>
 #include <linux/of.h>
@@ -428,6 +429,62 @@ out:
 }
 
 /**
+ * omap_rproc_watchdog_isr - Watchdog ISR handler for remoteproc device
+ * @irq: IRQ number associated with a watchdog timer
+ * @data: IRQ handler data
+ *
+ * This ISR routine executes the required necessary low-level code to
+ * acknowledge a watchdog timer interrupt. There can be multiple watchdog
+ * timers associated with a rproc (like IPUs which have 2 watchdog timers,
+ * one per Cortex M3/M4 core), so a lookup has to be performed to identify
+ * the timer to acknowledge its interrupt.
+ *
+ * The function also invokes a report watchdog ops, plugged in by the OMAP
+ * remoteproc driver code to be able to report this watchdog error to trigger
+ * a recovery. Ideally, this ISR should be present with the OMAP remoteproc
+ * driver code, but is implemented here because of the dependencies against
+ * the omap_dmtimer API which can only be invoked through some platform data
+ * functions ops.
+ *
+ * Return: IRQ_HANDLED or IRQ_NONE
+ */
+static irqreturn_t omap_rproc_watchdog_isr(int irq, void *data)
+{
+	struct platform_device *pdev = data;
+	struct rproc *rproc = platform_get_drvdata(pdev);
+	struct device *dev = &pdev->dev;
+	struct omap_rproc_pdata *pdata = dev->platform_data;
+	struct omap_rproc_timers_info *timers = pdata->timers;
+	struct omap_dm_timer *timer = NULL;
+	int i;
+
+	for (i = 0; i < pdata->timers_cnt; i++) {
+		if (irq == omap_dm_timer_get_irq(timers[i].odt)) {
+			timer = timers[i].odt;
+			break;
+		}
+	}
+
+	if (!timer) {
+		dev_err(dev, "invalid timer\n");
+		return IRQ_NONE;
+	}
+	omap_dm_timer_write_status(timer, OMAP_TIMER_INT_OVERFLOW);
+
+	/*
+	 * rproc_report_crash needs to be invoked to recover a triggery, but
+	 * since remoteproc core can be built as a module, use a platform
+	 * data ops to break the dependency. This usage is non-standard, but
+	 * given the dependencies, is the best possible solution to minimize
+	 * adding more code.
+	 */
+	if (pdata->report_watchdog)
+		pdata->report_watchdog(rproc, RPROC_WATCHDOG);
+
+	return IRQ_HANDLED;
+}
+
+/**
  * of_dev_timer_lookup - look up needed timer node from dt blob
  * @np: parent device_node of all the searchable nodes
  * @hwmod_name: hwmod name of the desired timer
@@ -517,6 +574,21 @@ check_timer:
 			goto free_timers;
 		}
 		omap_dm_timer_set_source(timers[i].odt, OMAP_TIMER_SRC_SYS_CLK);
+
+		if (timers[i].is_wdt) {
+			ret = request_irq(omap_dm_timer_get_irq(timers[i].odt),
+					omap_rproc_watchdog_isr, IRQF_SHARED,
+					"rproc-wdt", pdev);
+			if (ret) {
+				dev_err(&pdev->dev, "error requesting irq for timer %s\n",
+					timers[i].name);
+				omap_dm_timer_free(timers[i].odt);
+				timers[i].odt = NULL;
+				goto free_timers;
+			}
+			/* clean counter, remoteproc code will set the value */
+			omap_dm_timer_set_load(timers[i].odt, 0, 0);
+		}
 	}
 
 start_timers:
@@ -526,6 +598,9 @@ start_timers:
 
 free_timers:
 	while (i--) {
+		if (timers[i].is_wdt)
+			free_irq(omap_dm_timer_get_irq(timers[i].odt), pdev);
+
 		omap_dm_timer_free(timers[i].odt);
 		timers[i].odt = NULL;
 	}
@@ -553,6 +628,10 @@ static int omap_rproc_disable_timers(struct platform_device *pdev,
 	for (i = 0; i < pdata->timers_cnt; i++) {
 		omap_dm_timer_stop(timers[i].odt);
 		if (configure) {
+			if (timers[i].is_wdt) {
+				free_irq(omap_dm_timer_get_irq(timers[i].odt),
+					 pdev);
+			}
 			omap_dm_timer_free(timers[i].odt);
 			timers[i].odt = NULL;
 		}
