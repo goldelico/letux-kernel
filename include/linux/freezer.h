@@ -193,6 +193,16 @@ static inline long freezable_schedule_timeout(long timeout)
 	return __retval;
 }
 
+/* DO NOT ADD ANY NEW CALLERS OF THIS FUNCTION */
+static inline long freezable_schedule_timeout_unsafe(long timeout)
+{
+	long __retval;
+	freezer_do_not_count();
+	__retval = schedule_timeout(timeout);
+	freezer_count_unsafe();
+	return __retval;
+}
+
 /*
  * Like schedule_timeout_interruptible(), but should not block the freezer.  Do not
  * call this with locks held.

@@ -35,6 +35,9 @@
 #define FLUSH_HIGHPRI		16	/* high priority memory reclaim flush */
 #define FLUSH_COND_STABLE	32	/* conditional stable write - only stable
 					 * if everything fits in one RPC */
+#define FLUSH_COND_CONNECTED   64	/* Don't wait for COMMIT unless client
+					 * is connected to a remote host.
+					 */
 
 
 /*

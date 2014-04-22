@@ -473,7 +473,7 @@ static int nfs_release_page(struct page *page, gfp_t gfp)
 	 */
 	if (mapping && (gfp & GFP_KERNEL) == GFP_KERNEL &&
 	    !(current->flags & PF_FSTRANS)) {
-		int how = FLUSH_SYNC;
+		int how = FLUSH_SYNC | FLUSH_COND_CONNECTED;
 
 		/* Don't let kswapd deadlock waiting for OOM RPC calls */
 		if (current_is_kswapd())
