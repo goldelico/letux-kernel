@@ -580,7 +580,7 @@
                         #address-cells = <1>;
                         #size-cells = <1>;
                         utmi-mode = <2>;
-                        dr_mode = "host";
+                        dr_mode = "peripheral";
                         ranges;
                         usb1: dwc3@48890000 {
                                 compatible = "synopsys,dra7xx-dwc3";
@@ -610,7 +610,7 @@
                         #address-cells = <1>;
                         #size-cells = <1>;
                         utmi-mode = <2>;
-                        dr_mode = "otg";
+                        dr_mode = "host";
                         ranges;
                         usb2: dwc3@488d0000 {
                                 compatible = "synopsys,dra7xx-dwc3";
@@ -618,7 +618,7 @@
 				interrupts = <0 78 4>, <0 92 4>;
                                 usb-phy = <&usb2_phy2>;
                                 tx-fifo-resize;
-                                dr_mode = "otg";
+                                dr_mode = "host";
 				maximum-speed = "highspeed";
 				gpios = <&gpio6 13 0>;
                         };
