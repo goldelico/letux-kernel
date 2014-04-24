@@ -484,8 +484,8 @@ void vpdma_set_max_size(struct vpdma_data *vpdma, int reg_addr,
 	insert_field(&val, height - 1 ,
 		VPDMA_MAX_SIZE_HEIGHT_MASK, VPDMA_MAX_SIZE_HEIGHT_SHFT);
 
-	if (reg_addr != VPDMA_MAX_SIZE1 || reg_addr != VPDMA_MAX_SIZE2
-		|| reg_addr != VPDMA_MAX_SIZE3)
+	if (reg_addr != VPDMA_MAX_SIZE1 && reg_addr != VPDMA_MAX_SIZE2
+		&& reg_addr != VPDMA_MAX_SIZE3)
 			reg_addr = VPDMA_MAX_SIZE1;
 
 	write_reg(vpdma, reg_addr, val);
