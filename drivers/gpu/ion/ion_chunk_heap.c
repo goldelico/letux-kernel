@@ -116,13 +116,13 @@ static void ion_chunk_heap_free(struct ion_buffer *buffer)
 	kfree(table);
 }
 
-struct sg_table *ion_chunk_heap_map_dma(struct ion_heap *heap,
+static struct sg_table *ion_chunk_heap_map_dma(struct ion_heap *heap,
 					 struct ion_buffer *buffer)
 {
 	return buffer->priv_virt;
 }
 
-void ion_chunk_heap_unmap_dma(struct ion_heap *heap,
+static void ion_chunk_heap_unmap_dma(struct ion_heap *heap,
 			       struct ion_buffer *buffer)
 {
 	return;
@@ -162,7 +162,7 @@ struct ion_heap *ion_chunk_heap_create(struct ion_platform_heap *heap_data)
 	gen_pool_add(chunk_heap->pool, chunk_heap->base, heap_data->size, -1);
 	chunk_heap->heap.ops = &chunk_heap_ops;
 	chunk_heap->heap.type = ION_HEAP_TYPE_CHUNK;
-	pr_info("%s: base %lu size %ld align %ld\n", __func__, chunk_heap->base,
+	pr_info("%s: base %lu size %u align %ld\n", __func__, chunk_heap->base,
 		heap_data->size, heap_data->align);
 
 	return &chunk_heap->heap;

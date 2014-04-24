@@ -378,7 +378,7 @@ static void sg_free(struct scatterlist *sg, unsigned int nents)
 
 
 
-struct sg_table *omap_tiler_heap_map_dma(struct ion_heap *heap,
+static struct sg_table *omap_tiler_heap_map_dma(struct ion_heap *heap,
 					      struct ion_buffer *buffer)
 {
 	int ret, i;
@@ -420,13 +420,13 @@ struct sg_table *omap_tiler_heap_map_dma(struct ion_heap *heap,
 	return table;
 }
 
-void omap_tiler_heap_unmap_dma(struct ion_heap *heap,
+static void omap_tiler_heap_unmap_dma(struct ion_heap *heap,
 				 struct ion_buffer *buffer)
 {
 	__sg_free_table(buffer->sg_table, -1, sg_free);
 }
 
-void *ion_tiler_heap_map_kernel(struct ion_heap *heap,
+static void *ion_tiler_heap_map_kernel(struct ion_heap *heap,
 				   struct ion_buffer *buffer)
 {
 	/* todo: Need to see how to implement this api. Seems like it is
@@ -435,7 +435,7 @@ void *ion_tiler_heap_map_kernel(struct ion_heap *heap,
 	return NULL;
 }
 
-void ion_tiler_heap_unmap_kernel(struct ion_heap *heap,
+static void ion_tiler_heap_unmap_kernel(struct ion_heap *heap,
 				    struct ion_buffer *buffer)
 {
 	/* todo: Need to see how to implement this api. Seems like it is

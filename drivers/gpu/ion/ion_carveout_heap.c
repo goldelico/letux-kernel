@@ -84,7 +84,7 @@ static void ion_carveout_heap_free(struct ion_buffer *buffer)
 	buffer->priv_phys = ION_CARVEOUT_ALLOCATE_FAIL;
 }
 
-struct sg_table *ion_carveout_heap_map_dma(struct ion_heap *heap,
+static struct sg_table *ion_carveout_heap_map_dma(struct ion_heap *heap,
 					      struct ion_buffer *buffer)
 {
 	struct sg_table *table;
@@ -103,13 +103,13 @@ struct sg_table *ion_carveout_heap_map_dma(struct ion_heap *heap,
 	return table;
 }
 
-void ion_carveout_heap_unmap_dma(struct ion_heap *heap,
+static void ion_carveout_heap_unmap_dma(struct ion_heap *heap,
 				 struct ion_buffer *buffer)
 {
 	sg_free_table(buffer->sg_table);
 }
 
-void *ion_carveout_heap_map_kernel(struct ion_heap *heap,
+static void *ion_carveout_heap_map_kernel(struct ion_heap *heap,
 				   struct ion_buffer *buffer)
 {
 	int mtype = MT_MEMORY_NONCACHED;
@@ -121,7 +121,7 @@ void *ion_carveout_heap_map_kernel(struct ion_heap *heap,
 			      mtype);
 }
 
-void ion_carveout_heap_unmap_kernel(struct ion_heap *heap,
+static void ion_carveout_heap_unmap_kernel(struct ion_heap *heap,
 				    struct ion_buffer *buffer)
 {
 	__arm_iounmap(buffer->vaddr);
@@ -129,8 +129,9 @@ void ion_carveout_heap_unmap_kernel(struct ion_heap *heap,
 	return;
 }
 
-int ion_carveout_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
-			       struct vm_area_struct *vma)
+static int ion_carveout_heap_map_user(struct ion_heap *heap,
+					struct ion_buffer *buffer,
+					struct vm_area_struct *vma)
 {
 	return remap_pfn_range(vma, vma->vm_start,
 			       __phys_to_pfn(buffer->priv_phys) + vma->vm_pgoff,
