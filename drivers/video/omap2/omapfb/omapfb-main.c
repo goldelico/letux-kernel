@@ -814,7 +814,7 @@ int check_fb_var(struct fb_info *fbi, struct fb_var_screeninfo *var)
 }
 
 
-bool check_fb_scale(struct omap_dss_device *dssdev)
+static bool check_fb_scale(struct omap_dss_device *dssdev)
 {
 	u16 fb_w, fb_h , pn_w , pn_h;
 	struct omap_dss_driver *dssdrv;
