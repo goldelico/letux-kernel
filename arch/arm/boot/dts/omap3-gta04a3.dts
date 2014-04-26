@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 H. Nikolaus Schaller <marek@goldelico.com>
+ * Copyright (C) 2014 H. Nikolaus Schaller <hns@goldelico.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -19,10 +19,10 @@
 	/* overwrite device model */
 	model = "Goldelico GTA04A3";
 
-
 };
 
 /* FIXME:
  * the A3 board has several GPIOs swapped
- * and can't turn off the modem (i.e. disable the rfkill driver for the modem)
+ * and can't turn off the modem (i.e. disable/remove the rfkill driver for the modem)
+ * it may also have a LIS302 instead of the BMA180 - so take care of the I2C bus address
  */
