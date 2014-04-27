@@ -1731,7 +1731,6 @@ static int __init gta04_init_mux(char *str)
 		gta04_battery_data.capacity = 3900000;
 		tsc2007_info.x_plate_ohms = 450;			// GTA04b3: 100 - 900
 		tsc2007_info.swap_xy = 1,		/* x and y axes are swapped */
-		tsc2007_info.flip_y = false;	/* don't flip y axis */
 		tca6507_info.leds.leds = tca6507_leds_b3;
 		gta04_panel = &gta04b3_lcd_device;
 	}
