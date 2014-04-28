@@ -932,7 +932,8 @@ static void vip_active_buf_next(struct vip_stream *stream)
 	if (list_empty(&stream->vidq)) {
 		vip_dprintk(dev, "Dropping frame");
 		/* Increment drop_count for last buffer in the list */
-		buf = list_entry(dev->vip_bufs.prev, struct vip_buffer, list);
+		buf = list_entry(dev->vip_bufs.prev,
+				struct vip_buffer, dq_list);
 		buf->drop_count++;
 		buf = NULL;
 
@@ -940,7 +941,8 @@ static void vip_active_buf_next(struct vip_stream *stream)
 		buf = list_entry(stream->vidq.next, struct vip_buffer, list);
 		buf->drop_count = 0;
 		buf->allow_dq = true;
-		list_move_tail(&buf->list, &dev->vip_bufs);
+		list_del(&buf->list);
+		list_add_tail(&buf->dq_list, &dev->vip_bufs);
 	} else {
 		v4l2_err(&dev->v4l2_dev, "IRQ occurred when not streaming");
 		spin_unlock_irqrestore(&dev->slock, flags);
@@ -958,7 +960,7 @@ static void vip_process_buffer_complete(struct vip_stream *stream)
 	struct vip_buffer *buf;
 	unsigned long flags, fld;
 
-	buf = list_first_entry(&dev->vip_bufs, struct vip_buffer, list);
+	buf = list_first_entry(&dev->vip_bufs, struct vip_buffer, dq_list);
 
 	if (stream->port->flags & FLAG_INTERLACED) {
 		vpdma_buf_unmap(dev->shared->vpdma, &dev->desc_list.buf);
@@ -977,7 +979,7 @@ static void vip_process_buffer_complete(struct vip_stream *stream)
 
 		if (buf->drop_count-- == 0) {
 			spin_lock_irqsave(&dev->slock, flags);
-			list_del(&buf->list);
+			list_del(&buf->dq_list);
 			spin_unlock_irqrestore(&dev->slock, flags);
 		}
 
@@ -1537,7 +1539,8 @@ static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
 		return -EBUSY;
 	}
 
-	list_move_tail(&buf->list, &dev->vip_bufs);
+	list_del(&buf->list);
+	list_add_tail(&buf->dq_list, &dev->vip_bufs);
 	spin_unlock_irqrestore(&dev->slock, flags);
 
 	start_dma(dev, buf);
@@ -1564,8 +1567,9 @@ static int vip_stop_streaming(struct vb2_queue *vq)
 	disable_irqs(dev, dev->slice_id);
 	/* release all active buffers */
 	while (!list_empty(&dev->vip_bufs)) {
-		buf = list_entry(dev->vip_bufs.next, struct vip_buffer, list);
-		list_del(&buf->list);
+		buf = list_entry(dev->vip_bufs.next,
+				struct vip_buffer, dq_list);
+		list_del(&buf->dq_list);
 		vb2_buffer_done(&buf->vb, VB2_BUF_STATE_ERROR);
 	}
 	while (!list_empty(&stream->vidq)) {

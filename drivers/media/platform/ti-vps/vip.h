@@ -38,6 +38,7 @@ struct vip_buffer {
 	/* common v4l buffer stuff */
 	struct vb2_buffer	vb;
 	struct list_head	list;
+	struct list_head	dq_list;
 	/* Number of buffers to drop after this */
 	int			drop_count;
 	/* To make sure same buffer isn't dequeued again */
