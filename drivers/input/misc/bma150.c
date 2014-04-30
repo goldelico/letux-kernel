@@ -650,6 +650,13 @@ static const struct i2c_device_id bma150_id[] = {
 	{ }
 };
 
+#ifdef CONFIG_OF
+static const struct of_device_id of_bma150_match[] = {
+	{ .compatible = "bosch,bma180", },
+	{},
+};
+#endif
+
 MODULE_DEVICE_TABLE(i2c, bma150_id);
 
 static struct i2c_driver bma150_driver = {
@@ -657,6 +664,7 @@ static struct i2c_driver bma150_driver = {
 		.owner	= THIS_MODULE,
 		.name	= BMA150_DRIVER,
 		.pm	= &bma150_pm,
+		.of_match_table = of_match_ptr(of_bma150_match),
 	},
 	.class		= I2C_CLASS_HWMON,
 	.id_table	= bma150_id,
