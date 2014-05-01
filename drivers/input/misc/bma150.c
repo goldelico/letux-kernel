@@ -231,12 +231,14 @@ static int bma150_soft_reset(struct bma150_data *bma150)
 
 static int bma150_set_range(struct bma150_data *bma150, u8 range)
 {
+	printk("bma150_set_range = %u\n", range);
 	return bma150_set_reg_bits(bma150->client, range, BMA150_RANGE_POS,
 				BMA150_RANGE_MSK, BMA150_RANGE_REG);
 }
 
 static int bma150_set_bandwidth(struct bma150_data *bma150, u8 bw)
 {
+	printk("bma150_set_bandwidth = %u\n", bw);
 	return bma150_set_reg_bits(bma150->client, bw, BMA150_BANDWIDTH_POS,
 				BMA150_BANDWIDTH_MSK, BMA150_BANDWIDTH_REG);
 }
@@ -246,6 +248,7 @@ static int bma150_set_low_g_interrupt(struct bma150_data *bma150,
 {
 	int error;
 
+	printk("bma150_set_low_g_interrupt = %u %u %u %u\n", enable, hyst, dur, thres);
 	error = bma150_set_reg_bits(bma150->client, hyst,
 				BMA150_LOW_G_HYST_POS, BMA150_LOW_G_HYST_MSK,
 				BMA150_LOW_G_HYST_REG);
@@ -331,7 +334,7 @@ static void bma150_report_xyz(struct bma150_data *bma150)
 			BMA150_ACC_X_LSB_REG, BMA150_XYZ_DATA_SIZE, data);
 	if (ret != BMA150_XYZ_DATA_SIZE)
 		{
-		printk("data size error %d\n", ret;		
+		printk("data size error %d\n", ret);		
 		return;
 		}
 
@@ -343,7 +346,7 @@ static void bma150_report_xyz(struct bma150_data *bma150)
 	x = (s16) (x << 6) >> 6;
 	y = (s16) (y << 6) >> 6;
 	z = (s16) (z << 6) >> 6;
-
+	printk("x=%d y=%d z=%d\n", (int)x, (int)y, (int)z);
 	input_report_abs(bma150->input, ABS_X, x);
 	input_report_abs(bma150->input, ABS_Y, y);
 	input_report_abs(bma150->input, ABS_Z, z);
@@ -424,6 +427,7 @@ static int bma150_initialize(struct bma150_data *bma150,
 {
 	int error;
 
+	printk("cfg = %p\n", cfg);
 	error = bma150_soft_reset(bma150);
 	if (error)
 		return error;
