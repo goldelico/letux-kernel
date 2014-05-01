@@ -1039,6 +1039,7 @@ static void add_out_dtd(struct vpe_ctx *ctx, int port)
 		flags |= VPDMA_DATA_MODE_TILED;
 
 	vpdma_add_out_dtd(&ctx->desc_list, q_data->width, vpdma_fmt, dma_addr,
+		MAX_OUT_WIDTH_1920, MAX_OUT_HEIGHT_1080,
 		p_data->channel, flags);
 }
 

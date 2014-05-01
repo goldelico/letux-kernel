@@ -1,5 +1,6 @@
 #include <linux/i2c.h>
 #include <linux/init.h>
+#include <linux/gpio.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
@@ -12,6 +13,8 @@
 #include <media/v4l2-ctrls.h>
 
 #include <linux/pm_runtime.h>
+#include <linux/of_gpio.h>
+
 
 struct fpdlink_color_format {
 	enum v4l2_mbus_pixelcode code;
@@ -24,6 +27,57 @@ static const struct fpdlink_color_format fpdlink_cfmts[] = {
 		.colorspace     = V4L2_COLORSPACE_SRGB,
 	},
 };
+
+struct fpdlink_priv {
+	struct v4l2_subdev              subdev;
+	int				cam_fpd_mux_s0_gpio;
+	int				sel_tvp_fpd_s0;
+};
+
+static int fpdlink_set_gpios(struct i2c_client *client)
+{
+	struct fpdlink_priv *priv = i2c_get_clientdata(client);
+	struct gpio gpios[] = {
+		{ priv->sel_tvp_fpd_s0, GPIOF_OUT_INIT_HIGH,
+			"tvp_fpd_mux_s0" },
+		{ priv->cam_fpd_mux_s0_gpio, GPIOF_OUT_INIT_HIGH,
+			"cam_fpd_mux_s0" },
+	};
+	int ret = -1;
+
+	ret = gpio_request_array(gpios, ARRAY_SIZE(gpios));
+	if (ret)
+		return ret;
+
+	gpio_free_array(gpios, ARRAY_SIZE(gpios));
+
+	return 0;
+}
+
+static int fpdlink_parse_gpios(struct i2c_client *client,
+		struct device_node *node)
+{
+
+	struct fpdlink_priv *priv = i2c_get_clientdata(client);
+	int gpio;
+
+	gpio = of_get_gpio(node, 0);
+	if (gpio_is_valid(gpio)) {
+		priv->cam_fpd_mux_s0_gpio = gpio;
+	} else {
+		dev_err(&client->dev, "failed to parse CAM_FPD_MUX_S0 gpio\n");
+		return -EINVAL;
+	}
+	gpio = of_get_gpio(node, 1);
+	if (gpio_is_valid(gpio)) {
+		priv->sel_tvp_fpd_s0 = gpio;
+	} else {
+		dev_err(&client->dev, "failed to parse TVP_FPD_MUX_S0 gpio\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
 
 static int fpdlink_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 			enum v4l2_mbus_pixelcode *code)
@@ -51,6 +105,9 @@ static int fpdlink_try_fmt(struct v4l2_subdev *sd,
 static int fpdlink_s_fmt(struct v4l2_subdev *sd,
 		struct v4l2_mbus_framefmt *mf)
 {
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+
+	fpdlink_set_gpios(client);
 	return 0;
 }
 
@@ -88,20 +145,25 @@ static const struct of_device_id fpdlink_dt_id[] = {
 static int fpdlink_probe(struct i2c_client *client,
 			 const struct i2c_device_id *did)
 {
+	struct fpdlink_priv *priv;
 	struct v4l2_subdev *sd;
 	int ret = -1;
 
-	sd = devm_kzalloc(&client->dev, sizeof(*sd), GFP_KERNEL);
-	if (!sd)
+	priv = devm_kzalloc(&client->dev, sizeof(*priv), GFP_KERNEL);
+	if (!priv)
 		return -ENOMEM;
+	i2c_set_clientdata(client, priv);
 
+	fpdlink_parse_gpios(client, client->dev.of_node);
+	fpdlink_set_gpios(client);
+
+	sd = &priv->subdev;
 	v4l2_i2c_subdev_init(sd, client, &fpdlink_subdev_ops);
 
 	/* V4l2 asyn subdev register */
 	sd->dev = &client->dev;
 	ret = v4l2_async_register_subdev(sd);
 	if (!ret) {
-		i2c_set_clientdata(client, sd);
 		v4l2_info(sd, "Camera sensor driver registered\n");
 		pm_runtime_enable(&client->dev);
 	}

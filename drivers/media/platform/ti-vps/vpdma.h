@@ -28,7 +28,7 @@ struct vpdma_buf {
 
 struct vpdma_desc_list {
 	struct vpdma_buf buf;
-	void *next;
+	void *next, *current_desc;
 	int type;
 };
 
@@ -119,6 +119,30 @@ enum vpdma_frame_start_event {
 	VPDMA_FSEVENT_CHANNEL_ACTIVE,
 };
 
+/* max width configurations */
+enum vpdma_max_width {
+	MAX_OUT_WIDTH_UNLIMITED = 0,
+	MAX_OUT_WIDTH_REG1,
+	MAX_OUT_WIDTH_REG2,
+	MAX_OUT_WIDTH_REG3,
+	MAX_OUT_WIDTH_352,
+	MAX_OUT_WIDTH_768,
+	MAX_OUT_WIDTH_1280,
+	MAX_OUT_WIDTH_1920,
+};
+
+/* max height configurations */
+enum vpdma_max_height {
+	MAX_OUT_HEIGHT_UNLIMITED = 0,
+	MAX_OUT_HEIGHT_REG1,
+	MAX_OUT_HEIGHT_REG2,
+	MAX_OUT_HEIGHT_REG3,
+	MAX_OUT_HEIGHT_288,
+	MAX_OUT_HEIGHT_576,
+	MAX_OUT_HEIGHT_720,
+	MAX_OUT_HEIGHT_1080,
+};
+
 #define VIP_CHAN_VIP2_OFFSET		70
 #define VIP_CHAN_MULT_PORTB_OFFSET	16
 #define VIP_CHAN_YUV_PORTB_OFFSET	2
@@ -177,6 +201,7 @@ void vpdma_add_cfd_adb(struct vpdma_desc_list *list, int client,
 void vpdma_add_sync_on_channel_ctd(struct vpdma_desc_list *list, int channel);
 int vpdma_add_out_dtd(struct vpdma_desc_list *list, int width,
 		const struct vpdma_data_format *fmt, dma_addr_t dma_addr,
+		enum vpdma_max_width max_w, enum vpdma_max_height max_h,
 		int channel, u32 flags);
 void vpdma_add_in_dtd(struct vpdma_desc_list *list, int width,
 		const struct v4l2_rect *c_rect,
@@ -190,7 +215,8 @@ void vpdma_free_desc_list(struct vpdma_desc_list *list);
 int vpdma_submit_descs(struct vpdma_data *vpdma,
 	struct vpdma_desc_list *list, int list_num);
 void vpdma_update_dma_addr(struct vpdma_data *vpdma,
-		struct vpdma_desc_list *list, dma_addr_t dma_addr, int drop);
+	struct vpdma_desc_list *list, dma_addr_t dma_addr,
+	struct vpdma_dtd *write_dtd, int drop);
 
 void vpdma_enable_channel_3_irq(struct vpdma_data *vpdma, bool enable);
 void vpdma_set_max_size(struct vpdma_data *vpdma, int reg_addr,
