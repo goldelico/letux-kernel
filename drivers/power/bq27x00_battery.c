@@ -415,6 +415,7 @@ static void bq27x00_update(struct bq27x00_device_info *di)
 	bool is_bq27425 = di->chip == BQ27425;
 
 	cache.flags = bq27x00_read(di, BQ27x00_REG_FLAGS, !is_bq27500);
+	printk("flags=%0x\n", cache.flags);
 	if ((cache.flags & 0xff) == 0xff)
 		/* read error */
 		cache.flags = -1;

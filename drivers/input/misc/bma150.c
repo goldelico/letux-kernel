@@ -23,6 +23,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+
+#define DEBUG
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/i2c.h>
@@ -323,11 +326,14 @@ static void bma150_report_xyz(struct bma150_data *bma150)
 	u8 data[BMA150_XYZ_DATA_SIZE];
 	s16 x, y, z;
 	s32 ret;
-
+	printk("bma150_report_xyz\n");
 	ret = i2c_smbus_read_i2c_block_data(bma150->client,
 			BMA150_ACC_X_LSB_REG, BMA150_XYZ_DATA_SIZE, data);
 	if (ret != BMA150_XYZ_DATA_SIZE)
+		{
+		printk("data size error %d\n", ret;		
 		return;
+		}
 
 	x = ((0xc0 & data[0]) >> 6) | (data[1] << 2);
 	y = ((0xc0 & data[2]) >> 6) | (data[3] << 2);
@@ -430,7 +436,7 @@ static int bma150_initialize(struct bma150_data *bma150,
 	if (error)
 		return error;
 
-	if (bma150->client->irq) {
+	if (bma150->client->irq > 0) {
 		error = bma150_set_any_motion_interrupt(bma150,
 					cfg->any_motion_int,
 					cfg->any_motion_dur,
@@ -569,8 +575,8 @@ static int bma150_probe(struct i2c_client *client,
 	error = bma150_initialize(bma150, cfg);
 	if (error)
 		goto err_free_mem;
-
-	if (client->irq > 0) {
+	printk("client->irq = %d\n", client->irq);
+	if (0 && client->irq > 0) {
 		error = bma150_register_input_device(bma150);
 		if (error)
 			goto err_free_mem;
