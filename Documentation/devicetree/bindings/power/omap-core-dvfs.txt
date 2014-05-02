@@ -1,0 +1,48 @@
+Core dynamic voltage and frequency scaling driver for Texas Instruments OMAP SoC
+It allows to save power during active system state by changing core voltage and
+frequency based on CPU performance.
+
+Required Properties:
+- compatible: Should be "ti,omap-core-dvfs"
+- l3_clkname: An clock name of core L3 interconnect clock
+- dpll_clkname: An clock name of DPLL output clock
+- core_dvfs-supply: An reference node of core voltage regulator
+- operating-points: An array of 2-tuples items, and each item consists
+    of frequency and voltage like <freq-kHz vol-uV>. Physical frequency value
+    my be different from value in this array becasue of rounding to closest
+    possible value based on integer divider. For example if DPLL output clock
+    value is 332Mhz and value in array is 200Mhz then physical frequency will
+    be 166Mhz because divider is integer. You have to use frequency values,
+    which are multiple of DPLL output frequency to avoid rounding.
+- map: An array of 2-tuples items, and each item consists
+    of CPU frequency and matching core frequency in kHz.
+    CPU frequency values should be used from CPU operating-points array
+
+Optional Properties:
+- voltage-tolerance: percent value, which voltage in operating-points array
+    may deviate from its value
+
+Example:
+	dvfs {
+		compatible = "simple-bus";
+
+		core_dvfs: core_dvfs {
+			compatible = "ti,omap-core-dvfs";
+
+			l3_clkname = "l3_ick";
+			dpll_clkname = "dpll3_m2_ck";
+			core_dvfs-supply = <&omap_tps65912_dcdc4>;
+
+			operating-points = <
+				/* kHz    uV */
+				100000   950000
+				200000  1150000
+			>;
+			map = <
+				/* cpu freq, core freq*/
+				300000 100000
+				600000 200000
+				800000 200000
+			>;
+		};
+	};
