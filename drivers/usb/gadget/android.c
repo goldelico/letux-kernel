@@ -940,7 +940,7 @@ static struct android_usb_function audio_source_function = {
 
 static struct android_usb_function *supported_functions[] = {
         &ffs_function,
-        /*&acm_function,*/
+        &acm_function,
         &mtp_function,
         &ptp_function,
         &rndis_function,
