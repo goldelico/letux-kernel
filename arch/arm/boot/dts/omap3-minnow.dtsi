@@ -202,17 +202,46 @@
 		mot,mic_bias3_en = <&gpio3 20 0>; /* gpio-084 */
 	};
 
-	omap_pimic {
+	regulators {
+		compatible = "simple-bus";
+
 		omap_tps65912_dcdc1: omap_vdd1 {
 			compatible = "ti,omap-tps65912-dcdc1";
 			ti,boot-voltage-micro-volts = <1275000>;
 			ti,vp = <&vp_mpu>;
+			regulator-name = "omap_vdd1";
 		};
 
 		omap_tps65912_dcdc4: omap_vdd2 {
 			compatible = "ti,omap-tps65912-dcdc4";
 			ti,boot-voltage-micro-volts = <1200000>;
 			ti,vp = <&vp_core>;
+			regulator-name = "omap_vdd2";
+		};
+	};
+
+	dvfs {
+		compatible = "simple-bus";
+
+		core_dvfs: core_dvfs {
+			compatible = "ti,omap-core-dvfs";
+
+			l3_clkname = "l3_ick";
+			dpll_clkname = "dpll3_m2_ck";
+			core_dvfs-supply = <&omap_tps65912_dcdc4>;
+
+			operating-points = <
+				/* kHz    uV */
+				100000   950000
+				200000  1150000
+			>;
+			map = <
+				/* cpu freq, core freq*/
+				300000 100000
+				600000 200000
+				800000 200000
+				1000000 200000
+			>;
 		};
 	};
 
@@ -273,10 +302,6 @@
 	ti,i2c-pad-load = <3>;
 	vc_mpu{
 		ti,master-channel;
-	};
-
-	vc_core{
-		ti,use-master-slave-addr;
 	};
 };
 
