@@ -261,6 +261,13 @@ static int tiavs_class0_probe(struct platform_device *pdev)
 		    readl(base + efuse_offset) :
 		    readw(base + efuse_offset) * 1000;
 
+		/* Handle efuse == 0 Case */
+		if (data->volt_set_table[i] == 0) {
+			dev_err(&pdev->dev, "efuse=0 @ 0x%08x reverting to device tree bindings volt_table=%d\n",
+					(base + efuse_offset), volt_table[i]);
+			data->volt_set_table[i] = volt_table[i];
+		}
+
 		/* Find min/max for the voltage sets */
 		if (min_uV > volt_table[i])
 			min_uV = volt_table[i];
