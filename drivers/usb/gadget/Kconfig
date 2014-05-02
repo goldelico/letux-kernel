@@ -959,8 +959,6 @@ config USB_G_PRINTER
 
 config USB_G_ANDROID
 	boolean "Android Composite Gadget"
-	select USB_LIBCOMPOSITE
-	select USB_U_ETHER
 	help
 	  The Android Composite Gadget supports multiple USB
 	  functions: adb, acm, mass storage, mtp, accessory

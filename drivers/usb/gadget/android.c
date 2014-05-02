@@ -35,11 +35,10 @@
 #include "f_mass_storage.c"
 #include "f_mtp.c"
 #include "f_accessory.c"
-//#define USB_ETH_RNDIS y
+#define USB_ETH_RNDIS y
 #include "f_rndis.c"
 #include "rndis.c"
-//#include "u_ether.c"
-#include "u_ether.h"
+#include "u_ether.c"
 
 MODULE_AUTHOR("Mike Lockwood");
 MODULE_DESCRIPTION("Android Composite USB Driver");
@@ -561,7 +560,7 @@ struct rndis_function_config {
         char    manufacturer[256];
         /* "Wireless" RNDIS; auto-detected by Windows */
         bool    wceis;
-        struct  eth_dev *dev;
+        struct eth_dev *dev;
 };
 
 static int
@@ -585,8 +584,7 @@ rndis_function_bind_config(struct android_usb_function *f,
                 struct usb_configuration *c)
 {
         int ret;
-        //struct eth_dev *dev;
-        struct net_device *dev;
+        struct eth_dev *dev;
         struct rndis_function_config *rndis = f->config;
 
         if (!rndis) {
@@ -598,19 +596,13 @@ rndis_function_bind_config(struct android_usb_function *f,
                 rndis->ethaddr[0], rndis->ethaddr[1], rndis->ethaddr[2],
                 rndis->ethaddr[3], rndis->ethaddr[4], rndis->ethaddr[5]);
 
-        //TODO
-		//USB_ETHERNET_MODULE_PARAMETERS();
-		//dev = gether_setup(cdev->gadget, dev_addr, host_addr, gfs_host_mac, qmult);
-        dev = gether_setup_name_default("rndis");
-        gether_set_gadget(dev, c->cdev->gadget);
-        gether_set_dev_addr(dev, rndis->ethaddr);
-        //dev = gether_setup_name(c->cdev->gadget, rndis->ethaddr, "rndis");
+        dev = gether_setup_name(c->cdev->gadget, rndis->ethaddr, "rndis");
         if (IS_ERR(dev)) {
                 ret = PTR_ERR(dev);
                 pr_err("%s: gether_setup failed\n", __func__);
                 return ret;
         }
-        rndis->dev = netdev_priv(dev);
+        rndis->dev = dev;
 
         if (rndis->wceis) {
                 /* "Wireless" RNDIS; auto-detected by Windows */
