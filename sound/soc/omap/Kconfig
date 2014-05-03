@@ -73,7 +73,7 @@ config SND_OMAP_SOC_AM3517EVM
 
 config SND_OMAP_SOC_OMAP_TWL4030
 	tristate "SoC Audio support for TI SoC based boards with twl4030 codec"
-	depends on TWL4030_CORE && SND_OMAP_SOC
+	depends on TWL4030_CORE && SND_OMAP_SOC && !SND_OMAP_SOC_GTA04
 	select SND_OMAP_SOC_MCBSP
 	select SND_SOC_TWL4030
 	help
@@ -117,3 +117,11 @@ config SND_OMAP_SOC_OMAP3_PANDORA
 	select SND_SOC_TWL4030
 	help
 	  Say Y if you want to add support for SoC audio on the OMAP3 Pandora.
+
+config SND_OMAP_SOC_GTA04
+	tristate "SoC Audio support for GTA04"
+	depends on TWL4030_CORE && SND_OMAP_SOC && (MACH_GTA04 || MACH_OMAP3_BEAGLE)
+	select SND_OMAP_SOC_MCBSP
+	select SND_SOC_TWL4030
+	help
+	  Say Y if you want to add support for SoC audio on the GTA04.
