@@ -199,6 +199,8 @@ static int bma150_set_mode(struct bma150_data *bma150, u8 mode)
 {
 	int error;
 
+	printk("bma150_set_mode = %u\n", mode);
+
 	error = bma150_set_reg_bits(bma150->client, mode, BMA150_WAKE_UP_POS,
 				BMA150_WAKE_UP_MSK, BMA150_WAKE_UP_REG);
 	if (error)
@@ -220,6 +222,7 @@ static int bma150_soft_reset(struct bma150_data *bma150)
 {
 	int error;
 
+	printk("bma150_soft_reset\n");
 	error = bma150_set_reg_bits(bma150->client, 1, BMA150_SW_RES_POS,
 				BMA150_SW_RES_MSK, BMA150_SW_RES_REG);
 	if (error)
@@ -273,6 +276,7 @@ static int bma150_set_high_g_interrupt(struct bma150_data *bma150,
 {
 	int error;
 
+	printk("bma150_set_high_g_interrupt = %u %u %u %u\n", enable, hyst, dur, thres);
 	error = bma150_set_reg_bits(bma150->client, hyst,
 				BMA150_HIGH_G_HYST_POS, BMA150_HIGH_G_HYST_MSK,
 				BMA150_HIGH_G_HYST_REG);
@@ -300,6 +304,7 @@ static int bma150_set_any_motion_interrupt(struct bma150_data *bma150,
 {
 	int error;
 
+	printk("bma150_set_any_motion_interrupt = %u %u %u %u\n", enable, hyst, dur, thres);
 	error = bma150_set_reg_bits(bma150->client, dur,
 				BMA150_ANY_MOTION_DUR_POS,
 				BMA150_ANY_MOTION_DUR_MSK,
