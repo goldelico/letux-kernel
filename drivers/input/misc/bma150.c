@@ -82,26 +82,48 @@
 #define BMA150_SLEEP_MSK	0x01
 #define BMA150_SLEEP_REG	BMA150_CTRL_0_REG
 
+#define BMA180_SLEEP_POS	1
+#define BMA180_SLEEP_MSK	0x02
+#define BMA180_SLEEP_REG	0x0d	// BMA180_CTRL_REG0
+
 #define BMA150_BANDWIDTH_POS	0
 #define BMA150_BANDWIDTH_MSK	0x07
 #define BMA150_BANDWIDTH_REG	BMA150_CTRL_2_REG
+
+#define BMA180_BANDWIDTH_POS	0
+#define BMA180_BANDWIDTH_MSK	0x07
+#define BMA180_BANDWIDTH_REG	BMA150_CTRL_2_REG
 
 #define BMA150_RANGE_POS	3
 #define BMA150_RANGE_MSK	0x18
 #define BMA150_RANGE_REG	BMA150_CTRL_2_REG
 
+#define BMA180_RANGE_POS	1
+#define BMA180_RANGE_MSK	0x0e
+#define BMA180_RANGE_REG	0x35	// BMA180_OFFSET_LSB1
+
 #define BMA150_WAKE_UP_POS	0
 #define BMA150_WAKE_UP_MSK	0x01
 #define BMA150_WAKE_UP_REG	BMA150_CTRL_3_REG
+
+#define BMA180_WAKE_UP_POS	0
+#define BMA180_WAKE_UP_MSK	0x01
+#define BMA180_WAKE_UP_REG	0x34	// GAIN_Z
 
 #define BMA150_SW_RES_POS	1
 #define BMA150_SW_RES_MSK	0x02
 #define BMA150_SW_RES_REG	BMA150_CTRL_0_REG
 
+#define BMA180_SW_RES_REG	0x10
+
 /* Any-motion interrupt register fields */
 #define BMA150_ANY_MOTION_EN_POS	6
 #define BMA150_ANY_MOTION_EN_MSK	0x40
 #define BMA150_ANY_MOTION_EN_REG	BMA150_CTRL_1_REG
+
+#define BMA180_ANY_MOTION_EN_POS	2
+#define BMA180_ANY_MOTION_EN_MSK	0x02
+#define BMA180_ANY_MOTION_EN_REG	0x21
 
 #define BMA150_ANY_MOTION_DUR_POS	6
 #define BMA150_ANY_MOTION_DUR_MSK	0xC0
@@ -142,6 +164,7 @@ struct bma150_data {
 	struct i2c_client *client;
 	struct input_polled_dev *input_polled;
 	struct input_dev *input;
+	int chip_id;
 	u8 mode;
 };
 
@@ -169,7 +192,7 @@ static struct bma150_cfg default_cfg = {
 static int bma150_write_byte(struct i2c_client *client, u8 reg, u8 val)
 {
 	s32 ret;
-
+//	printk("bma150_write_byte %02x %02x\n", reg, val);
 	/* As per specification, disable irq in between register writes */
 	if (client->irq)
 		disable_irq_nosync(client->irq);
@@ -200,16 +223,28 @@ static int bma150_set_mode(struct bma150_data *bma150, u8 mode)
 	int error;
 
 	printk("bma150_set_mode = %u\n", mode);
+	if (bma150->chip_id == BMA180_CHIP_ID) {
+		error = bma150_set_reg_bits(bma150->client, mode, BMA180_WAKE_UP_POS,
+									BMA180_WAKE_UP_MSK, BMA180_WAKE_UP_REG);
+		if (error)
+			return error;
 
-	error = bma150_set_reg_bits(bma150->client, mode, BMA150_WAKE_UP_POS,
-				BMA150_WAKE_UP_MSK, BMA150_WAKE_UP_REG);
-	if (error)
-		return error;
+		error = bma150_set_reg_bits(bma150->client, mode, BMA180_SLEEP_POS,
+									BMA180_SLEEP_MSK, BMA180_SLEEP_REG);
+		if (error)
+			return error;
+	}
+	else {
+		error = bma150_set_reg_bits(bma150->client, mode, BMA150_WAKE_UP_POS,
+									BMA150_WAKE_UP_MSK, BMA150_WAKE_UP_REG);
+		if (error)
+			return error;
 
-	error = bma150_set_reg_bits(bma150->client, mode, BMA150_SLEEP_POS,
-				BMA150_SLEEP_MSK, BMA150_SLEEP_REG);
-	if (error)
-		return error;
+		error = bma150_set_reg_bits(bma150->client, mode, BMA150_SLEEP_POS,
+									BMA150_SLEEP_MSK, BMA150_SLEEP_REG);
+		if (error)
+			return error;
+	}
 
 	if (mode == BMA150_MODE_NORMAL)
 		msleep(2);
@@ -223,7 +258,10 @@ static int bma150_soft_reset(struct bma150_data *bma150)
 	int error;
 
 	printk("bma150_soft_reset\n");
-	error = bma150_set_reg_bits(bma150->client, 1, BMA150_SW_RES_POS,
+	if (bma150->chip_id == BMA180_CHIP_ID)
+		error = bma150_write_byte(bma150->client, BMA180_SW_RES_REG, 0xb6);
+	else
+		error = bma150_set_reg_bits(bma150->client, 1, BMA150_SW_RES_POS,
 				BMA150_SW_RES_MSK, BMA150_SW_RES_REG);
 	if (error)
 		return error;
@@ -235,6 +273,17 @@ static int bma150_soft_reset(struct bma150_data *bma150)
 static int bma150_set_range(struct bma150_data *bma150, u8 range)
 {
 	printk("bma150_set_range = %u\n", range);
+	if (bma150->chip_id == BMA180_CHIP_ID)
+		{
+		// NOTE: range is 3 bit for BMA180! Translate...
+		switch (range) {
+			case 0: range = 0x2; break;
+			case 1: range = 0x4; break;
+			case 2: range = 0x5; break;
+		}
+		return bma150_set_reg_bits(bma150->client, range, BMA180_RANGE_POS,
+								   BMA180_RANGE_MSK, BMA180_RANGE_REG);
+		}
 	return bma150_set_reg_bits(bma150->client, range, BMA150_RANGE_POS,
 				BMA150_RANGE_MSK, BMA150_RANGE_REG);
 }
@@ -242,6 +291,13 @@ static int bma150_set_range(struct bma150_data *bma150, u8 range)
 static int bma150_set_bandwidth(struct bma150_data *bma150, u8 bw)
 {
 	printk("bma150_set_bandwidth = %u\n", bw);
+	if (bma150->chip_id == BMA180_CHIP_ID)
+		{
+		// NOTE: bandwidth is 4 bit for BMA180!
+		bw += 1;	// translate roughly...
+		return bma150_set_reg_bits(bma150->client, bw, BMA180_BANDWIDTH_POS,
+								   BMA180_BANDWIDTH_MSK, BMA180_BANDWIDTH_REG);
+		}
 	return bma150_set_reg_bits(bma150->client, bw, BMA150_BANDWIDTH_POS,
 				BMA150_BANDWIDTH_MSK, BMA150_BANDWIDTH_REG);
 }
@@ -252,6 +308,10 @@ static int bma150_set_low_g_interrupt(struct bma150_data *bma150,
 	int error;
 
 	printk("bma150_set_low_g_interrupt = %u %u %u %u\n", enable, hyst, dur, thres);
+	if (bma150->chip_id == BMA180_CHIP_ID)
+		{
+		return 0;
+		}
 	error = bma150_set_reg_bits(bma150->client, hyst,
 				BMA150_LOW_G_HYST_POS, BMA150_LOW_G_HYST_MSK,
 				BMA150_LOW_G_HYST_REG);
@@ -277,6 +337,10 @@ static int bma150_set_high_g_interrupt(struct bma150_data *bma150,
 	int error;
 
 	printk("bma150_set_high_g_interrupt = %u %u %u %u\n", enable, hyst, dur, thres);
+	if (bma150->chip_id == BMA180_CHIP_ID)
+		{
+		return 0;
+		}
 	error = bma150_set_reg_bits(bma150->client, hyst,
 				BMA150_HIGH_G_HYST_POS, BMA150_HIGH_G_HYST_MSK,
 				BMA150_HIGH_G_HYST_REG);
@@ -304,29 +368,39 @@ static int bma150_set_any_motion_interrupt(struct bma150_data *bma150,
 {
 	int error;
 
-	printk("bma150_set_any_motion_interrupt = %u %u %u %u\n", enable, hyst, dur, thres);
-	error = bma150_set_reg_bits(bma150->client, dur,
-				BMA150_ANY_MOTION_DUR_POS,
-				BMA150_ANY_MOTION_DUR_MSK,
-				BMA150_ANY_MOTION_DUR_REG);
-	if (error)
-		return error;
+	printk("bma150_set_any_motion_interrupt = %u %u %u\n", enable, dur, thres);
+	if (bma150->chip_id == BMA180_CHIP_ID) {
+		/* FIXME: set duration, threshold, ADV_INT */
 
-	error = bma150_write_byte(bma150->client,
-				BMA150_ANY_MOTION_THRES_REG, thres);
-	if (error)
-		return error;
+		return bma150_set_reg_bits(bma150->client, !!enable,
+								   BMA180_ANY_MOTION_EN_POS,
+								   BMA180_ANY_MOTION_EN_MSK,
+								   BMA180_ANY_MOTION_EN_REG);
+	}
+	else {
+		error = bma150_set_reg_bits(bma150->client, dur,
+									BMA150_ANY_MOTION_DUR_POS,
+									BMA150_ANY_MOTION_DUR_MSK,
+									BMA150_ANY_MOTION_DUR_REG);
+		if (error)
+			return error;
 
-	error = bma150_set_reg_bits(bma150->client, !!enable,
-				BMA150_ADV_INT_EN_POS, BMA150_ADV_INT_EN_MSK,
-				BMA150_ADV_INT_EN_REG);
-	if (error)
-		return error;
+		error = bma150_write_byte(bma150->client,
+								  BMA150_ANY_MOTION_THRES_REG, thres);
+		if (error)
+			return error;
 
-	return bma150_set_reg_bits(bma150->client, !!enable,
-				BMA150_ANY_MOTION_EN_POS,
-				BMA150_ANY_MOTION_EN_MSK,
-				BMA150_ANY_MOTION_EN_REG);
+		error = bma150_set_reg_bits(bma150->client, !!enable,
+									BMA150_ADV_INT_EN_POS, BMA150_ADV_INT_EN_MSK,
+									BMA150_ADV_INT_EN_REG);
+		if (error)
+			return error;
+
+		return bma150_set_reg_bits(bma150->client, !!enable,
+								   BMA150_ANY_MOTION_EN_POS,
+								   BMA150_ANY_MOTION_EN_MSK,
+								   BMA150_ANY_MOTION_EN_REG);
+	}
 }
 
 static void bma150_report_xyz(struct bma150_data *bma150)
@@ -334,7 +408,7 @@ static void bma150_report_xyz(struct bma150_data *bma150)
 	u8 data[BMA150_XYZ_DATA_SIZE];
 	s16 x, y, z;
 	s32 ret;
-	printk("bma150_report_xyz\n");
+//	printk("bma150_report_xyz\n");
 	ret = i2c_smbus_read_i2c_block_data(bma150->client,
 			BMA150_ACC_X_LSB_REG, BMA150_XYZ_DATA_SIZE, data);
 	if (ret != BMA150_XYZ_DATA_SIZE)
@@ -343,15 +417,32 @@ static void bma150_report_xyz(struct bma150_data *bma150)
 		return;
 		}
 
-	x = ((0xc0 & data[0]) >> 6) | (data[1] << 2);
-	y = ((0xc0 & data[2]) >> 6) | (data[3] << 2);
-	z = ((0xc0 & data[4]) >> 6) | (data[5] << 2);
+	if (bma150->chip_id == BMA180_CHIP_ID) { /* BMA has 14 bit resolution by default */
+		/* Hm. We might not need to handle it differently
+		 * since the BMA180 is +/-16g while the BMA150 is +/-2g which accounts for the additional bits
+		 */
 
-	/* sign extension */
-	x = (s16) (x << 6) >> 6;
-	y = (s16) (y << 6) >> 6;
-	z = (s16) (z << 6) >> 6;
-	printk("x=%d y=%d z=%d\n", (int)x, (int)y, (int)z);
+		x = ((0xc0 & data[0]) >> 6) | (data[1] << 2);
+		y = ((0xc0 & data[2]) >> 6) | (data[3] << 2);
+		z = ((0xc0 & data[4]) >> 6) | (data[5] << 2);
+
+		/* sign extension */
+		x = (s16) (x << 6) >> 6;
+		y = (s16) (y << 6) >> 6;
+		z = (s16) (z << 6) >> 6;
+	}
+	else { /* BMA150 has 10 bit accuracy */
+
+		x = ((0xc0 & data[0]) >> 6) | (data[1] << 2);
+		y = ((0xc0 & data[2]) >> 6) | (data[3] << 2);
+		z = ((0xc0 & data[4]) >> 6) | (data[5] << 2);
+
+		/* sign extension */
+		x = (s16) (x << 6) >> 6;
+		y = (s16) (y << 6) >> 6;
+		z = (s16) (z << 6) >> 6;
+	}
+//	printk("x=%d y=%d z=%d\n", (int)x, (int)y, (int)z);
 	input_report_abs(bma150->input, ABS_X, x);
 	input_report_abs(bma150->input, ABS_Y, y);
 	input_report_abs(bma150->input, ABS_Z, z);
@@ -395,8 +486,12 @@ static void bma150_close(struct bma150_data *bma150)
 {
 	pm_runtime_put_sync(&bma150->client->dev);
 
-	if (bma150->mode != BMA150_MODE_SLEEP)
-		bma150_set_mode(bma150, BMA150_MODE_SLEEP);
+	if (bma150->chip_id == BMA180_CHIP_ID)
+		{ /* clear new_data_int */
+		bma150_set_reg_bits(bma150->client, 0, /* bit*/1,
+								   0x02, 0x21);
+		}
+
 }
 
 static int bma150_irq_open(struct input_dev *input)
@@ -433,6 +528,10 @@ static int bma150_initialize(struct bma150_data *bma150,
 	int error;
 
 	printk("cfg = %p\n", cfg);
+	if(!cfg) {
+		printk("bma150_initialize: missing cfg\n");
+		return -EINVAL;
+	}
 	error = bma150_soft_reset(bma150);
 	if (error)
 		return error;
@@ -564,6 +663,7 @@ static int bma150_probe(struct i2c_client *client,
 	if (!bma150)
 		return -ENOMEM;
 
+	bma150->chip_id = chip_id;
 	bma150->client = client;
 
 	if (pdata) {
@@ -667,7 +767,10 @@ static const struct i2c_device_id bma150_id[] = {
 
 #ifdef CONFIG_OF
 static const struct of_device_id of_bma150_match[] = {
+	{ .compatible = "bosch,bma150", },
 	{ .compatible = "bosch,bma180", },
+	{ .compatible = "bosch,smb380", },
+	{ .compatible = "bosch,bma023", },
 	{},
 };
 #endif
