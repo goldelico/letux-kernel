@@ -81,6 +81,16 @@
 		gta04,cpu-dai = <&mcbsp2>;
 	};
 
+	gtm601_codec: voice_codec {
+		compatible = "gtm601-codec";
+	};
+
+	sound_voice {
+		compatible = "goldelico,gta04-voice";
+		gta04,cpu-dai = <&mcbsp4>;
+		gta04,codec = <&gtm601_codec>;
+	};
+
 	madc-hwmon {
 		compatible = "ti,twl4030-madc-hwmon";
 	};
@@ -672,5 +682,9 @@
 };
 
 &mcbsp2 {
+	status = "okay";
+};
+
+&mcbsp4 {
 	status = "okay";
 };
