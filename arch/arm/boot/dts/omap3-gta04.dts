@@ -91,6 +91,16 @@
 		gta04,codec = <&gtm601_codec>;
 	};
 
+	w2cbw003_codec: headset_codec {
+		compatible = "w2cbw003-codec";
+	};
+
+	sound_headset {
+		compatible = "goldelico,gta04-headset";
+		gta04,cpu-dai = <&mcbsp3>;
+		gta04,codec = <&w2cbw003_codec>;
+	};
+
 	madc-hwmon {
 		compatible = "ti,twl4030-madc-hwmon";
 	};
@@ -682,6 +692,10 @@
 };
 
 &mcbsp2 {
+	status = "okay";
+};
+
+&mcbsp3 {
 	status = "okay";
 };
 
