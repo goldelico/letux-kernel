@@ -68,10 +68,19 @@ static int gtm601_platform_remove(struct platform_device *pdev)
 
 MODULE_ALIAS("platform:gtm601_codec_audio");
 
+#if defined(CONFIG_OF)
+static const struct of_device_id gtm601_codec_of_match[] = {
+	{ .compatible = "gtm601-codec", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, gtm601_codec_of_match);
+#endif
+
 static struct platform_driver gtm601_codec_driver = {
 	.driver = {
 			.name = "gtm601_codec_audio",
 			.owner = THIS_MODULE,
+			.of_match_table = of_match_ptr(gtm601_codec_of_match),
 	},
 
 	.probe = gtm601_platform_probe,
