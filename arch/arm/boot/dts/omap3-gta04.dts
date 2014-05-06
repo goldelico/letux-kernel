@@ -101,6 +101,12 @@
 		gta04,codec = <&w2cbw003_codec>;
 	};
 
+	sound_fm {
+		compatible = "goldelico,gta04-fm";
+		gta04,cpu-dai = <&mcbsp1>;
+		gta04,codec = <&si4721_codec>;
+	};
+
 	madc-hwmon {
 		compatible = "ti,twl4030-madc-hwmon";
 	};
@@ -538,7 +544,7 @@
 	};
 
 	/* FM Radio (no kernel driver) */
-	si4721@11 {
+	si4721_codec: si4721@11 {
 		compatible = "silicon-labs,si4721";
 		reg = <0x11>;
 	};
@@ -689,6 +695,10 @@
 			reg = <0x680000 0xf980000>;
 		};
 	};
+};
+
+&mcbsp1 {
+	status = "okay";
 };
 
 &mcbsp2 {
