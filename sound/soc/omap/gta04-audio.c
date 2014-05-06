@@ -301,7 +301,7 @@ static struct snd_soc_ops omap3gta04_ops = {
 static struct snd_soc_dai_link omap3gta04_dai = {
 		.name = "TWL4030",
 		.stream_name = "TWL4030",
-		.cpu_dai_name	= "49022000.mcbsp",
+		.cpu_dai_name	= "omap-mcbsp.2",
 		.platform_name = "omap-pcm-audio",
 		.codec_dai_name = "twl4030-hifi",
 		.codec_name = "twl4030-codec",
@@ -321,45 +321,63 @@ static struct snd_soc_card snd_soc_omap3gta04 = {
 	.resume_post = gta04_audio_resume,
 };
 
-static struct platform_device *omap3gta04_snd_device;
-
-static int __init omap3gta04_soc_init(void)
+static int gta04_soc_probe(struct platform_device *pdev)
 {
-	int ret;
+	struct device_node *np = pdev->dev.of_node;
+	struct snd_soc_card *card = &snd_soc_omap3gta04;
+	int err;
 
-	pr_info("GTA04 OMAP3 SoC snd init\n");
+	if (!machine_is_gta04() && !of_machine_is_compatible("ti,omap3-gta04"))
+		return -ENODEV;
 
-	// FIXME: set any GPIOs i.e. enable Audio in/out switch
-	// microphone power etc.
+	card->dev = &pdev->dev;
 
-	omap3gta04_snd_device = platform_device_alloc("soc-audio", 0);
-	if (!omap3gta04_snd_device) {
-		printk(KERN_ERR "Platform device allocation failed\n");
-		return -ENOMEM;
+	if (np) {
+		struct device_node *dai_node;
+
+		dai_node = of_parse_phandle(np, "gta04,cpu-dai", 0);
+		if (!dai_node) {
+			dev_err(&pdev->dev, "McBSP node is not provided\n");
+			return -EINVAL;
+		}
+		omap3gta04_dai.cpu_dai_name = NULL;
+		omap3gta04_dai.platform_name = NULL;
+		omap3gta04_dai.cpu_of_node = dai_node;
 	}
 
-	platform_set_drvdata(omap3gta04_snd_device, &snd_soc_omap3gta04);
-
-	ret = platform_device_add(omap3gta04_snd_device);
-	if (ret)
-		goto err1;
+	err = devm_snd_soc_register_card(card->dev, card);
+	if (err) {
+		dev_err(&pdev->dev, "snd_soc_register_card failed (%d)\n", err);
+		return err;
+	}
 
 	return 0;
-
-err1:
-	printk(KERN_ERR "Unable to add platform device\n");
-	platform_device_put(omap3gta04_snd_device);
-
-	return ret;
 }
 
-static void __exit omap3gta04_soc_exit(void)
+static int gta04_soc_remove(struct platform_device *pdev)
 {
-	platform_device_unregister(omap3gta04_snd_device);
+	return 0;
 }
 
-module_init(omap3gta04_soc_init);
-module_exit(omap3gta04_soc_exit);
+#if defined(CONFIG_OF)
+static const struct of_device_id gta04_audio_of_match[] = {
+	{ .compatible = "goldelico,gta04-audio", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, gta04_audio_of_match);
+#endif
+
+static struct platform_driver gta04_soc_driver = {
+	.driver = {
+		.name = "gta04-audio",
+		.owner = THIS_MODULE,
+		.of_match_table = of_match_ptr(gta04_audio_of_match),
+	},
+	.probe = gta04_soc_probe,
+	.remove = gta04_soc_remove,
+};
+
+module_platform_driver(gta04_soc_driver);
 
 MODULE_AUTHOR("Steve Sakoman <steve@sakoman.com>");
 MODULE_DESCRIPTION("ALSA SoC OMAP3 GTA04");
