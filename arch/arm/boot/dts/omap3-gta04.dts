@@ -76,6 +76,11 @@
 				 specify list of audio routings */
 	};
 
+	sound_card {
+		compatible = "goldelico,gta04-audio";
+		gta04,cpu-dai = <&mcbsp2>;
+	};
+
 	madc-hwmon {
 		compatible = "ti,twl4030-madc-hwmon";
 	};
