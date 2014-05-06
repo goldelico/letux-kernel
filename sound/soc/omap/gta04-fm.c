@@ -23,6 +23,8 @@
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 
+#include <asm/mach-types.h>
+
 #include "mcbsp.h"
 #include "omap-mcbsp.h"
 #include "../codecs/si47xx.h"
@@ -146,41 +148,72 @@ static struct snd_soc_device gta04_fm_devdata = {
 };
 #endif
 
-static struct platform_device *gta04_fm_snd_device;
-
-static int __init gta04_fm_soc_init(void)
+static int gta04_fm_soc_probe(struct platform_device *pdev)
 {
-	struct device *dev;
-	int ret;
+	struct device_node *np = pdev->dev.of_node;
+	struct snd_soc_card *card = &gta04_fm_card;
+	int err;
 
-	pr_info("gta04-fm SoC init\n");
+	if (!machine_is_gta04() && !of_machine_is_compatible("ti,omap3-gta04"))
+		return -ENODEV;
 
-	gta04_fm_snd_device = platform_device_alloc("soc-audio", 3);
-	if (!gta04_fm_snd_device) {
-		printk(KERN_ERR "platform device allocation failed\n");
-		return -ENOMEM;
+	card->dev = &pdev->dev;
+
+	if (np) {
+		struct device_node *dai_node;
+
+		dai_node = of_parse_phandle(np, "gta04,cpu-dai", 0);
+		if (!dai_node) {
+			dev_err(&pdev->dev, "McBSP node is not provided\n");
+			return -EINVAL;
+		}
+		gta04_fm_dai.cpu_dai_name = NULL;
+		gta04_fm_dai.platform_name = NULL;
+		gta04_fm_dai.cpu_of_node = dai_node;
+
+		dai_node = of_parse_phandle(np, "gta04,codec", 0);
+		if (!dai_node) {
+			dev_err(&pdev->dev, "Codec node is not provided\n");
+			return -EINVAL;
+		}
+
+		gta04_fm_dai.codec_name = NULL;
+		gta04_fm_dai.codec_of_node = dai_node;
 	}
 
-	dev = &gta04_fm_snd_device->dev;
-
-	platform_set_drvdata(gta04_fm_snd_device, &gta04_fm_card);
-
-	ret = platform_device_add(gta04_fm_snd_device);
-	if (ret) {
-		printk(KERN_ERR "unable to add platform device\n");
-		platform_device_put(gta04_fm_snd_device);
+	err = devm_snd_soc_register_card(card->dev, card);
+	if (err) {
+		dev_err(&pdev->dev, "snd_soc_register_card failed (%d)\n", err);
+		return err;
 	}
 
-	return ret;
+	return 0;
 }
 
-static void __exit gta04_fm_soc_exit(void)
+static int gta04_fm_soc_remove(struct platform_device *pdev)
 {
-	platform_device_unregister(gta04_fm_snd_device);
+	return 0;
 }
 
-module_init(gta04_fm_soc_init);
-module_exit(gta04_fm_soc_exit);
+#if defined(CONFIG_OF)
+static const struct of_device_id gta04_fm_of_match[] = {
+	{ .compatible = "goldelico,gta04-fm", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, gta04_fm_of_match);
+#endif
+
+static struct platform_driver gta04_fm_soc_driver = {
+	.driver = {
+		.name = "gta04-fm",
+		.owner = THIS_MODULE,
+		.of_match_table = of_match_ptr(gta04_fm_of_match),
+	},
+	.probe = gta04_fm_soc_probe,
+	.remove = gta04_fm_soc_remove,
+};
+
+module_platform_driver(gta04_fm_soc_driver);
 
 MODULE_AUTHOR("John Ogness <john.ogness@linutronix.de>");
 MODULE_DESCRIPTION("ALSA SoC GTA04 FM");
