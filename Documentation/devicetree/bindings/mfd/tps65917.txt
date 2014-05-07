@@ -1,0 +1,35 @@
+* TPS65917 device tree bindings
+
+The TI TPS65917 family of PMICs.
+
+Required properties:
+- compatible : Should be from the list
+  ti,tps65917
+- interrupt-controller : TPS65917 has its own internal IRQs
+- #interrupt-cells : should be set to 2 for IRQ number and flags
+  The first cell is the IRQ number.
+  The second cell is the flags, encoded as the trigger masks from
+  Documentation/devicetree/bindings/interrupts.txt
+- interrupt-parent : The parent interrupt controller.
+
+Optional properties:
+  ti,mux-padX : set the pad register X (1-2) to the correct muxing for the
+		hardware, if not set will use muxing in OTP.
+
+Example:
+
+tps65917 {
+	compatible = "ti,tps65917";
+	reg = <0x58>
+	interrupt-parent = <&intc>;
+	interrupt-controller;
+	#interrupt-cells = <2>;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	pmic {
+		compatible = "ti,tps65917-pmic";
+		....
+	};
+}
