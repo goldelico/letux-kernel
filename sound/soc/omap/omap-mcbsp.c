@@ -559,6 +559,8 @@ static int omap_mcbsp_probe(struct snd_soc_dai *dai)
 
 	pm_runtime_enable(mcbsp->dev);
 
+	snd_soc_dapm_new_dai_widgets(&dai->dapm, dai);
+
 	return 0;
 }
 
