@@ -38,8 +38,11 @@
 #include <linux/pm_runtime.h>
 #include <linux/bma150.h>
 
-#define ABSMAX_ACC_VAL		0x01FF
-#define ABSMIN_ACC_VAL		-(ABSMAX_ACC_VAL)
+#define BMA150_ABSMAX_ACC_VAL		(1<<9) /* 10 bit */
+#define BMA150_ABSMIN_ACC_VAL		-(BMA150_ABSMAX_ACC_VAL)
+
+#define BMA180_ABSMAX_ACC_VAL		(1<<13) /* 14 bit */
+#define BMA180_ABSMIN_ACC_VAL		-(BMA180_ABSMAX_ACC_VAL)
 
 /* Each axis is represented by a 2-byte data word */
 #define BMA150_XYZ_DATA_SIZE	6
@@ -270,16 +273,18 @@ static int bma150_soft_reset(struct bma150_data *bma150)
 	return 0;
 }
 
+/* FIXME: add some /sys nodes so that user space can change defaults */
+
 static int bma150_set_range(struct bma150_data *bma150, u8 range)
 {
 	printk("bma150_set_range = %u\n", range);
 	if (bma150->chip_id == BMA180_CHIP_ID)
 		{
-		// NOTE: range is 3 bit for BMA180! Translate...
+		/* NOTE: range is 3 bit for BMA180! Translate... */
 		switch (range) {
-			case 0: range = 0x2; break;
-			case 1: range = 0x4; break;
-			case 2: range = 0x5; break;
+			case BMA150_RANGE_2G: range = 0x2; break;
+			case BMA150_RANGE_4G: range = 0x4; break;
+			case BMA150_RANGE_8G: range = 0x5; break;
 		}
 		return bma150_set_reg_bits(bma150->client, range, BMA180_RANGE_POS,
 								   BMA180_RANGE_MSK, BMA180_RANGE_REG);
@@ -417,27 +422,25 @@ static void bma150_report_xyz(struct bma150_data *bma150)
 		return;
 		}
 
-	if (bma150->chip_id == BMA180_CHIP_ID) { /* BMA has 14 bit resolution by default */
-		/* Hm. We might not need to handle it differently
-		 * since the BMA180 is +/-16g while the BMA150 is +/-2g which accounts for the additional bits
-		 */
+	if (bma150->chip_id == BMA180_CHIP_ID) {
+		/* BMA180 has 14 bit resolution */
 
-		x = ((0xc0 & data[0]) >> 6) | (data[1] << 2);
-		y = ((0xc0 & data[2]) >> 6) | (data[3] << 2);
-		z = ((0xc0 & data[4]) >> 6) | (data[5] << 2);
+		x = ((0xfc & data[0]) >> 2) | (data[1] << 6);
+		y = ((0xfc & data[2]) >> 2) | (data[3] << 6);
+		z = ((0xfc & data[4]) >> 2) | (data[5] << 6);
 
-		/* sign extension */
-		x = (s16) (x << 6) >> 6;
-		y = (s16) (y << 6) >> 6;
-		z = (s16) (z << 6) >> 6;
+		/* 14 bit sign extension (2 = 16 - 14) */
+		x = (s16) (x << 2) >> 2;
+		y = (s16) (y << 2) >> 2;
+		z = (s16) (z << 2) >> 2;
 	}
-	else { /* BMA150 has 10 bit accuracy */
+	else { /* BMA150 has 10 bit resolution */
 
 		x = ((0xc0 & data[0]) >> 6) | (data[1] << 2);
 		y = ((0xc0 & data[2]) >> 6) | (data[3] << 2);
 		z = ((0xc0 & data[4]) >> 6) | (data[5] << 2);
 
-		/* sign extension */
+		/* 10 bit sign extension (6 = 16 - 2) */
 		x = (s16) (x << 6) >> 6;
 		y = (s16) (y << 6) >> 6;
 		z = (s16) (z << 6) >> 6;
@@ -486,8 +489,8 @@ static void bma150_close(struct bma150_data *bma150)
 {
 	pm_runtime_put_sync(&bma150->client->dev);
 
-	if (bma150->chip_id == BMA180_CHIP_ID)
-		{ /* clear new_data_int */
+	if (bma150->chip_id == BMA180_CHIP_ID) {
+		/* clear new_data_int */
 		bma150_set_reg_bits(bma150->client, 0, /* bit*/1,
 								   0x02, 0x21);
 		}
@@ -577,9 +580,16 @@ static void bma150_init_input_device(struct bma150_data *bma150,
 	idev->dev.parent = &bma150->client->dev;
 
 	idev->evbit[0] = BIT_MASK(EV_ABS);
-	input_set_abs_params(idev, ABS_X, ABSMIN_ACC_VAL, ABSMAX_ACC_VAL, 0, 0);
-	input_set_abs_params(idev, ABS_Y, ABSMIN_ACC_VAL, ABSMAX_ACC_VAL, 0, 0);
-	input_set_abs_params(idev, ABS_Z, ABSMIN_ACC_VAL, ABSMAX_ACC_VAL, 0, 0);
+	if (bma150->chip_id == BMA180_CHIP_ID) {
+		input_set_abs_params(idev, ABS_X, BMA180_ABSMIN_ACC_VAL, BMA180_ABSMAX_ACC_VAL, 0, 0);
+		input_set_abs_params(idev, ABS_Y, BMA180_ABSMIN_ACC_VAL, BMA180_ABSMAX_ACC_VAL, 0, 0);
+		input_set_abs_params(idev, ABS_Z, BMA180_ABSMIN_ACC_VAL, BMA180_ABSMAX_ACC_VAL, 0, 0);
+	}
+	else {
+		input_set_abs_params(idev, ABS_X, BMA150_ABSMIN_ACC_VAL, BMA150_ABSMAX_ACC_VAL, 0, 0);
+		input_set_abs_params(idev, ABS_Y, BMA150_ABSMIN_ACC_VAL, BMA150_ABSMAX_ACC_VAL, 0, 0);
+		input_set_abs_params(idev, ABS_Z, BMA150_ABSMIN_ACC_VAL, BMA150_ABSMAX_ACC_VAL, 0, 0);
+	}
 }
 
 static int bma150_register_input_device(struct bma150_data *bma150)
@@ -666,6 +676,7 @@ static int bma150_probe(struct i2c_client *client,
 	bma150->chip_id = chip_id;
 	bma150->client = client;
 
+	/* fixme: if (!pdata) check with device tree and define cfg */
 	if (pdata) {
 		if (pdata->irq_gpio_cfg) {
 			error = pdata->irq_gpio_cfg();
