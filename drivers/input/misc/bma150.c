@@ -38,10 +38,10 @@
 #include <linux/pm_runtime.h>
 #include <linux/bma150.h>
 
-#define BMA150_ABSMAX_ACC_VAL		(1<<9) /* 10 bit */
+#define BMA150_ABSMAX_ACC_VAL		((1<<9)-1) /* 10 bit */
 #define BMA150_ABSMIN_ACC_VAL		-(BMA150_ABSMAX_ACC_VAL)
 
-#define BMA180_ABSMAX_ACC_VAL		(1<<13) /* 14 bit */
+#define BMA180_ABSMAX_ACC_VAL		((1<<13)-1) /* 14 bit */
 #define BMA180_ABSMIN_ACC_VAL		-(BMA180_ABSMAX_ACC_VAL)
 
 /* Each axis is represented by a 2-byte data word */
