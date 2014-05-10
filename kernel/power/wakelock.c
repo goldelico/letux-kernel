@@ -189,8 +189,14 @@ int pm_wake_lock(const char *buf)
 	size_t len;
 	int ret = 0;
 
-	if (!capable(CAP_BLOCK_SUSPEND))
-		return -EPERM;
+	//FIXME: This is a workaround, to get wakelocks work on Replicant/GTA04.
+	//The real fix would be to set correct process capabilities (CAP_BLOCK_SUSPEND) in libcore.
+	//We don't want to fork libcore, so we just workaround this problem and wait for a
+	//newer version of libcore, which might already include the correct capabilities.
+	//======================================================================
+	//if (!capable(CAP_BLOCK_SUSPEND))
+	//	return -EPERM;
+	//======================================================================
 
 	while (*str && !isspace(*str))
 		str++;
@@ -235,8 +241,14 @@ int pm_wake_unlock(const char *buf)
 	size_t len;
 	int ret = 0;
 
-	if (!capable(CAP_BLOCK_SUSPEND))
-		return -EPERM;
+	//FIXME: This is a workaround, to get wakelocks work on Replicant/GTA04.
+	//The real fix would be to set correct process capabilities (CAP_BLOCK_SUSPEND) in libcore.
+	//We don't want to fork libcore, so we just workaround this problem and wait for a
+	//newer version of libcore, which might already include the correct capabilities.
+	//======================================================================
+	//if (!capable(CAP_BLOCK_SUSPEND))
+	//	return -EPERM;
+	//======================================================================
 
 	len = strlen(buf);
 	if (!len)
