@@ -151,52 +151,63 @@ static struct {
 	 * indication what we thing is present.
 	 */
 	int present;
+	int reliable;
+
+	int open_threshold;
+	int short_threshold;
 } jack;
 
 static void gta04_audio_jack_work(struct work_struct *work)
 {
 	long val;
 	long delay = msecs_to_jiffies(500);
+	int present;
 	int jackbits;
-
-	/* choose delay *before* checking presence so we still get
-	 * one long delay on first insertion to help with debounce.
-	 */
-	if (jack.present)
-		delay = msecs_to_jiffies(50);
 
 	val = twl4030_get_madc_conversion(7);
 	if (val < 0)
 		goto out;
-	/* On my device:
-	 * open circuit = around 20
-	 * short circuit = around 800
-	 * microphone   = around 830-840 !!!
-	 */
-	if (val < 100) {
+
+	if (val < jack.open_threshold) {
 		/* open circuit */
 		jackbits = 0;
 		jack.present = 0;
+		jack.reliable = 0;
+
 		/* debounce */
 		delay = msecs_to_jiffies(500);
-	} else if (val < 820) {
-		/* short */
-		if (jack.present == 0) {
-			/* Inserted headset with no mic */
-			jack.present = SND_JACK_HEADPHONE;
-			jackbits = jack.present;
-		} else if (jack.present & SND_JACK_MICROPHONE) {
-			/* mic shorter == button press */
-			jackbits = SND_JACK_BTN_0 | jack.present;
-		} else {
-			/* headphones still present */
-			jackbits = jack.present;
+	} else if (jack.present & SND_JACK_MICROPHONE && jack.reliable) {
+		jackbits = jack.present;
+
+		if (val > jack.short_threshold)
+			jackbits |= SND_JACK_BTN_0;
+
+		delay = msecs_to_jiffies(50);
+	} else if (!jack.present || !jack.reliable) {
+		if (val > jack.short_threshold)
+			present = SND_JACK_HEADPHONE;
+		else
+			present = SND_JACK_HEADSET;
+
+		if (!jack.reliable) {
+			if (jack.present && present == jack.present)
+				jack.reliable = 1;
+			else
+				jack.reliable = 0;
+
+			delay = msecs_to_jiffies(250);
+
+			jack.present = present;
+			goto out;
 		}
+
+		jack.present = present;
+		jackbits = jack.present;
 	} else {
-		/* There is a microphone there */
-		jack.present = SND_JACK_HEADSET;
+		/* nothing has changed */
 		jackbits = jack.present;
 	}
+
 	snd_soc_jack_report(&jack.hs_jack, jackbits,
 			    SND_JACK_HEADSET | SND_JACK_BTN_0);
 
@@ -289,7 +300,13 @@ static int omap3gta04_init(struct snd_soc_pcm_runtime *runtime)
 	jack.codec = codec;
 	jack.hs_jack.jack->input_dev->open = gta04_jack_open;
 	jack.hs_jack.jack->input_dev->close = gta04_jack_close;
-		
+
+	jack.present = 0;
+	jack.reliable = 0;
+
+	jack.open_threshold = 50;
+	jack.short_threshold = 300;
+
 	return snd_soc_dapm_sync(dapm);
 }
 
