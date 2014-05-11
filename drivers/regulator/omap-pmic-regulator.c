@@ -661,7 +661,22 @@ static struct platform_driver omap_pmic_driver = {
 		   },
 	.probe = omap_pmic_probe,
 };
-module_platform_driver(omap_pmic_driver);
+
+static int __init omap_pmic_init(void)
+{
+	int ret;
+	ret = platform_driver_register(&omap_pmic_driver);
+	if (ret)
+		pr_err("driver register failed for omap_pmic (%d)\n", ret);
+	return ret;
+}
+device_initcall_sync(omap_pmic_init);
+
+static void __exit omap_pmic_exit(void)
+{
+	platform_driver_unregister(&omap_pmic_driver);
+}
+module_exit(omap_pmic_exit);
 
 MODULE_DESCRIPTION("OMAP Generic PMIC Regulator");
 MODULE_LICENSE("GPL v2");
