@@ -309,13 +309,6 @@ int __init omap2_common_pm_late_init(void)
 		/* Smartreflex device init */
 		omap_devinit_smartreflex();
 
-	} else {
-		struct device_node *np;
-		np = of_find_node_by_name(NULL, "omap_pimic");
-		if (np) {
-			of_platform_populate(np, NULL, NULL, NULL);
-			of_node_put(np);
-		}
 	}
 
 	/* cpufreq dummy device instantiation */

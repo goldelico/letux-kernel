@@ -137,6 +137,10 @@ DEFINE_CLK_DIVIDER(dpll3_m2_ck, "dpll3_ck", &dpll3_ck, 0x0,
 		   OMAP3430_CORE_DPLL_CLKOUT_DIV_WIDTH,
 		   CLK_DIVIDER_ONE_BASED, NULL);
 
+/* placeholder for ops substitution */
+static struct clk_ops dpll3_m2_ck_subops = {
+};
+
 static struct clk core_ck;
 
 static const char *core_ck_parent_names[] = {
@@ -3566,6 +3570,11 @@ int __init omap3xxx_clk_init(void)
 		dpll4_m4x2_ck = dpll4_m4x2_ck_3630;
 		dpll4_m5x2_ck = dpll4_m5x2_ck_3630;
 		dpll4_m6x2_ck = dpll4_m6x2_ck_3630;
+		memcpy(
+		&dpll3_m2_ck_subops, dpll3_m2_ck.ops, sizeof(struct clk_ops));
+
+		dpll3_m2_ck_subops.set_rate = omap3_core_dpll_m2_set_rate;
+		dpll3_m2_ck.ops = &dpll3_m2_ck_subops;
 	}
 
 	/*

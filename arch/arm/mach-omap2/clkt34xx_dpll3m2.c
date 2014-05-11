@@ -55,15 +55,16 @@ int omap3_core_dpll_m2_set_rate(struct clk_hw *hw, unsigned long rate,
 	struct omap_sdrc_params *sdrc_cs0;
 	struct omap_sdrc_params *sdrc_cs1;
 	int ret;
-	unsigned long clkrate;
+	unsigned long clkrate, flags;
 
 	if (!clk || !rate)
 		return -EINVAL;
 
-	validrate = omap2_clksel_round_rate_div(clk, rate, &new_div);
+	validrate = clk_round_rate(hw->clk, rate);
 	if (validrate != rate)
 		return -EINVAL;
 
+	new_div = parent_rate / validrate;
 	sdrcrate = __clk_get_rate(sdrc_ick_p);
 	clkrate = __clk_get_rate(hw->clk);
 	if (rate > clkrate)
@@ -101,6 +102,7 @@ int omap3_core_dpll_m2_set_rate(struct clk_hw *hw, unsigned long rate,
 			 sdrc_cs1->rfr_ctrl, sdrc_cs1->actim_ctrla,
 			 sdrc_cs1->actim_ctrlb, sdrc_cs1->mr);
 
+	local_irq_save(flags);
 	if (sdrc_cs1)
 		omap3_configure_core_dpll(
 				  new_div, unlock_dll, c, rate > clkrate,
@@ -114,6 +116,7 @@ int omap3_core_dpll_m2_set_rate(struct clk_hw *hw, unsigned long rate,
 				  sdrc_cs0->rfr_ctrl, sdrc_cs0->actim_ctrla,
 				  sdrc_cs0->actim_ctrlb, sdrc_cs0->mr,
 				  0, 0, 0, 0);
+	local_irq_restore(flags);
 	return 0;
 }
 
