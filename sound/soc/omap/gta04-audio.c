@@ -179,9 +179,12 @@ static void gta04_audio_jack_work(struct work_struct *work)
 	} else if (jack.present & SND_JACK_MICROPHONE && jack.reliable) {
 		jackbits = jack.present;
 
-		if (val > jack.short_threshold)
-			jackbits |= SND_JACK_BTN_0;
-
+		if (val > jack.short_threshold) {
+			jack.present |= SND_JACK_BTN_0;
+		} else if (jack.present & SND_JACK_BTN_0) {
+			jack.present &= ~(SND_JACK_BTN_0);
+			jackbits = jack.present;
+		}
 		delay = msecs_to_jiffies(50);
 	} else if (!jack.present || !jack.reliable) {
 		if (val > jack.short_threshold)
