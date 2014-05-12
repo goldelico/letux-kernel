@@ -299,3 +299,23 @@
 	vdda_video-supply = <&ldo3_reg>;
 };
 
+&avs_mpu {
+	avs-supply = <&smps1_reg>;
+};
+
+&avs_core {
+	avs-supply = <&smps2_reg>;
+};
+
+&avs_gpu {
+	avs-supply = <&smps3_reg>;
+};
+
+&avs_dspeve {
+	avs-supply = <&smps3_reg>;
+};
+
+&avs_iva {
+	avs-supply = <&smps3_reg>;
+};
+
