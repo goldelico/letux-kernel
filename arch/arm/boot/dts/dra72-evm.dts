@@ -75,6 +75,32 @@
 	pinctrl-0 = <&i2c1_pins>;
 	clock-frequency = <400000>;
 
+	pcf_lcd: pcf8575@20 {
+		compatible = "ti,pcf8575";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		/* HACK: Using n_latch in pcf8575 driver to "drive P10/11" to not hold ETH0/1 in reset */
+		n_latch = <0xfcfe>;
+		interrupt-parent = <&gpio6>;
+		interrupts = <11 2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	/* TLC chip for LCD panel power and backlight */
+	tlc59108: tlc59108@40 {
+		compatible = "ti,tlc59108";
+		reg = <0x40>;
+		gpios = <&pcf_lcd 15 0>; /* P15, CON_LCD_PWR_DN */
+	};
+
+ 	ldc3001:ldc3001@18 {
+ 		reg = <0x18>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <15 1>;
+ 	};
+
 	tps65917: tps65917@58 {
 		compatible = "ti,tps65917";
 		reg = <0x58>;
@@ -166,7 +192,24 @@
 	};
 };
 
+&i2c5 {
+        pinctrl-names = "default";
+        pinctrl-0 = <&i2c5_pins>;
 
+	clock-frequency = <400000>;
+
+
+
+	pcf_hdmi: pcf8575@26 {
+		compatible = "ti,pcf8575";
+		reg = <0x26>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		n_latch = <0xfffb>;
+	};
+
+
+};
 
 &i2c3 {
 	clock-frequency = <400000>;
@@ -210,3 +253,37 @@
 &uart1 {
 	status = "okay";
 };
+
+&dpi1 {
+	lcd {
+		compatible = "ti,tfc_s9700";
+		tlc = <&tlc59108>;
+		data-lines = <24>;
+	};
+};
+
+&ldc3001 {
+	compatible = "lgphilips,ldc3001";
+};
+
+&hdmi {
+	vdda_hdmi_dac-supply = <&ldo3_reg>;
+	tpd12s015: tpd12s015 {
+		compatible = "ti,tpd12s015";
+
+		gpios = <&pcf_hdmi 4 0>,	/* pcf8575@22 P4, CT_CP_HDP */
+			<&pcf_hdmi 5 0>,	/* pcf8575@22 P5, LS_OE */
+			<&gpio7 12 0>;		/* gpio7_12/sp1_cs2, HPD */
+
+		hdmi_ddc = <&i2c5>;
+
+		hdmi-monitor {
+			compatible = "ti,hdmi_panel";
+		};
+	};
+};
+
+&dss {
+	vdda_video-supply = <&ldo3_reg>;
+};
+
