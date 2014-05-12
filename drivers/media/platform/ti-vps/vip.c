@@ -2130,7 +2130,8 @@ static int vip_of_probe(struct platform_device *pdev, struct vip_dev *dev)
 	struct device_node *ep_node = NULL, *port, *remote_ep, *sensor_node;
 	struct v4l2_of_endpoint *endpoint;
 	struct v4l2_async_subdev *asd;
-	u32 sensor_addr, regval = 0;
+	struct i2c_client *sensor;
+	u32 sensor_addr, adapter_id, regval = 0;
 	int ret, i = 0;
 
 	dev->config = kzalloc(sizeof(struct vip_config), GFP_KERNEL);
@@ -2159,10 +2160,17 @@ static int vip_of_probe(struct platform_device *pdev, struct vip_dev *dev)
 		if (!sensor_node)
 			continue;
 
-		of_property_read_u32(sensor_node, "reg", &sensor_addr);
-		v4l2_err(&dev->v4l2_dev, "Waiting for I2C subdevice %x",
-				sensor_addr);
+		sensor = of_find_i2c_device_by_node(sensor_node);
+		if (!sensor)
+			continue;
+
+		sensor_addr = sensor->addr;
+		adapter_id = i2c_adapter_id(sensor->adapter);
+		v4l2_err(&dev->v4l2_dev, "Waiting for I2C subdevice %d-0x%x",
+				adapter_id, sensor_addr);
+
 		asd->match.i2c.address = sensor_addr;
+		asd->match.i2c.adapter_id = adapter_id;
 
 		remote_ep = of_parse_phandle(ep_node, "remote-endpoint", 0);
 		if (!remote_ep)
