@@ -178,7 +178,9 @@ static const struct of_device_id tfc_s9700_of_match[] = {
 	{
 		.compatible = "ti,tfc_s9700",
 		.data = &tfc_s9700_default_timings[0],
+	},
 
+	{
 		.compatible = "ti,tfc_lp101",
 		.data = &tfc_s9700_default_timings[1],
 	},
