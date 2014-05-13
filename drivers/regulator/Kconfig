@@ -455,6 +455,18 @@ config REGULATOR_TPS80031
 	  converters, 11 general purpose LDOs, VBUS generator and digital
 	  output to control regulators.
 
+config REGULATOR_TPS65917
+	tristate "TI TPS65917 PMIC Regulators"
+	depends on MFD_TPS65917
+	help
+	  If you wish to control the regulators on the TPS65917 series of
+	  chips say Y here. This will enable support for all the software
+	  controllable SMPS/LDO regulators.
+
+	  The regulators available on TPS65917 series chips vary depending
+	  on the muxing. This is handled automatically in the driver by
+	  reading the mux info from OTP.
+
 config REGULATOR_TWL4030
 	bool "TI TWL4030/TWL5030/TWL6030/TPS659x0 PMIC"
 	depends on TWL4030_CORE

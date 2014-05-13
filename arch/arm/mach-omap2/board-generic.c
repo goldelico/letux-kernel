@@ -120,7 +120,7 @@ static void __init omap_generic_init(void)
 }
 
 #ifdef CONFIG_SOC_OMAP2420
-static const char *omap242x_boards_compat[] __initdata = {
+static const char *omap242x_boards_compat[] __initconst = {
 	"ti,omap2420",
 	NULL,
 };
@@ -139,7 +139,7 @@ MACHINE_END
 #endif
 
 #ifdef CONFIG_SOC_OMAP2430
-static const char *omap243x_boards_compat[] __initdata = {
+static const char *omap243x_boards_compat[] __initconst = {
 	"ti,omap2430",
 	NULL,
 };
@@ -158,7 +158,7 @@ MACHINE_END
 #endif
 
 #ifdef CONFIG_ARCH_OMAP3
-static const char *omap3_boards_compat[] __initdata = {
+static const char *omap3_boards_compat[] __initconst = {
 	"ti,omap3",
 	NULL,
 };
@@ -176,7 +176,7 @@ DT_MACHINE_START(OMAP3_DT, "Generic OMAP3 (Flattened Device Tree)")
 	.restart	= omap3xxx_restart,
 MACHINE_END
 
-static const char *omap3_gp_boards_compat[] __initdata = {
+static const char *omap3_gp_boards_compat[] __initconst = {
 	"ti,omap3-beagle",
 	NULL,
 };
@@ -196,7 +196,7 @@ MACHINE_END
 #endif
 
 #ifdef CONFIG_SOC_AM33XX
-static const char *am33xx_boards_compat[] __initdata = {
+static const char *am33xx_boards_compat[] __initconst = {
 	"ti,am33xx",
 	NULL,
 };
@@ -216,7 +216,7 @@ MACHINE_END
 #endif
 
 #ifdef CONFIG_ARCH_OMAP4
-static const char *omap4_boards_compat[] __initdata = {
+static const char *omap4_boards_compat[] __initconst = {
 	"ti,omap4",
 	NULL,
 };
@@ -237,7 +237,7 @@ MACHINE_END
 #endif
 
 #ifdef CONFIG_SOC_OMAP5
-static const char *omap5_boards_compat[] __initdata = {
+static const char *omap5_boards_compat[] __initconst = {
 	"ti,omap5",
 	NULL,
 };
@@ -258,12 +258,13 @@ MACHINE_END
 #endif
 
 #ifdef CONFIG_SOC_DRA7XX
-static const char *dra7xx_boards_compat[] __initdata = {
+static const char *dra74x_boards_compat[] __initconst = {
+	"ti,dra742",
 	"ti,dra7",
 	NULL,
 };
 
-DT_MACHINE_START(DRA7XX_DT, "Jacinto6 evm board")
+DT_MACHINE_START(DRA74X_DT, "Jacinto6 evm board")
 	.reserve	= dra7_reserve,
 	.smp		= smp_ops(omap4_smp_ops),
 	.map_io		= omap5_map_io,
@@ -273,7 +274,25 @@ DT_MACHINE_START(DRA7XX_DT, "Jacinto6 evm board")
 	.init_machine	= omap_generic_init,
 	.init_late	= dra7xx_init_late,
 	.timer		= &omap5_timer,
-	.dt_compat	= dra7xx_boards_compat,
+	.dt_compat	= dra74x_boards_compat,
+	.restart	= omap44xx_restart,
+MACHINE_END
+
+static const char *dra72x_boards_compat[] __initconst = {
+	"ti,dra722",
+	NULL,
+};
+
+DT_MACHINE_START(DRA72X_DT, "Jacinto6 evm board")
+	.reserve	= dra7_reserve,
+	.map_io		= omap5_map_io,
+	.init_early	= dra7xx_init_early,
+	.init_irq	= omap_gic_of_init,
+	.handle_irq	= gic_handle_irq,
+	.init_machine	= omap_generic_init,
+	.init_late	= dra7xx_init_late,
+	.timer		= &omap5_timer,
+	.dt_compat	= dra72x_boards_compat,
 	.restart	= omap44xx_restart,
 MACHINE_END
 #endif
