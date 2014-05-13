@@ -1,0 +1,471 @@
+/*
+ * Copyright (C) 2014 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+
+/include/ "dra72x.dtsi"
+
+/ {
+	model = "TI DRA722";
+	compatible = "ti,dra72-evm", "ti,dra722", "ti,dra72", "ti,dra7";
+	cpus {
+		cpu@0 {
+			cpu0-supply = <&abb_mpu>;
+		};
+	};
+
+
+	memory {
+		device_type = "memory";
+		reg = <0x80000000 0x40000000>; /* 1024 MB */
+	};
+
+
+	vmmc2_fixed: fixedregulator-mmc2 {
+		compatible = "regulator-fixed";
+		regulator-name = "vmmc2_fixed";
+		regulator-min-microvolt = <3000000>;
+		regulator-max-microvolt = <3000000>;
+	};
+
+	vmmcwl_fixed: fixedregulator-mmcwl {
+		compatible = "regulator-fixed";
+		regulator-name = "vmmcwl_fixed";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <&gpio5 8 0>;	/* gpio5_8 */
+		startup-delay-us = <70000>;
+		enable-active-high;
+	};
+
+	vaudio_1v8: fixedregulator-vaudio-dig {
+		compatible = "regulator-fixed";
+		regulator-name = "vdac_fixed";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-boot-on;
+	};
+
+	vaudio_3v3: fixedregulator-vaudio-anlg {
+		compatible = "regulator-fixed";
+		regulator-name = "vdac_fixed";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-boot-on;
+	};
+
+	sound {
+		compatible = "ti,dra7-evm-sound";
+		ti,model = "dra7evm";
+		ti,always-on;
+
+		gpios = <&pcf_hdmi 1 0>;
+
+		/* Audio routing */
+		ti,audio-routing =
+			"LINE1L", "Line In",
+			"LINE1R", "Line In",
+			"MIC3L", "Mic Bias 2V",
+			"MIC3R", "Mic Bias 2V",
+			"Mic Bias 2V", "Main Mic",
+			"Headphone", "HPLOUT",
+			"Headphone", "HPROUT",
+			"Line Out", "LLOUT",
+			"Line Out", "RLOUT",
+			"J3A LINE1L", "JAMR3 Stereo Aux In",
+			"J3A LINE1R", "JAMR3 Stereo Aux In",
+			"J3B LINE1L", "JAMR3 Mono Mic 1",
+			"J3B LINE1R", "JAMR3 Mono Mic 2",
+			"JAMR3 Line Out 1", "J3A LLOUT",
+			"JAMR3 Line Out 1", "J3A RLOUT",
+			"JAMR3 Line Out 2", "J3B LLOUT",
+			"JAMR3 Line Out 2", "J3B RLOUT",
+			"JAMR3 Line Out 3", "J3C LLOUT",
+			"JAMR3 Line Out 3", "J3C RLOUT";
+
+		/* Media DAI link */
+		ti,media-cpu = <&mcasp3>;
+		ti,media-codec = <&tlv320aic3106>;
+		ti,media-mclk-freq = <5644800>;
+		ti,media-slots = <2>;
+
+		/* Multichannel DAI link */
+		ti,multichannel-cpu = <&mcasp6>;
+		ti,multichannel-codec-a = <&tlv320aic3106a>;
+		ti,multichannel-codec-b = <&tlv320aic3106b>;
+		ti,multichannel-codec-c = <&tlv320aic3106c>;
+		ti,multichannel-slots = <8>;
+		ti,multichannel-mclk-freq = <11289600>;
+		ti,multichannel-shared;
+
+		/* Bluetooth */
+		ti,bt-cpu = <&mcasp7>;
+		ti,bt-bclk-freq = <512000>;
+	};
+
+	sound_hdmi {
+		compatible = "ti,omap-hdmi-tpd12s015-audio";
+		ti,model = "OMAP5HDMI";
+		ti,hdmi_audio = <&hdmi>;
+		ti,level_shifter = <&tpd12s015>;
+	};
+
+};
+
+
+&dra7_pmx_core {
+        pinctrl-names = "default";
+        pinctrl-0 = <
+		&atl_pins
+		&mcasp3_pins
+		&mcasp6_pins
+		&mcasp7_pins
+	>;
+
+	i2c1_pins: pinmux_i2c1_pins {
+		pinctrl-single,pins = <
+			0x400 0x60000	/* i2c1_sda */
+			0x404 0x60000	/* i2c1_scl */
+		>;
+	};
+
+	i2c3_pins: pinmux_i2c3_pins {
+		pinctrl-single,pins = <
+			0x410	0x60000	/* i2c3_sda INPUT | MODE0 */
+			0x414	0x60000	/* i2c3_scl INPUT | MODE0 */
+		>;
+	};
+
+	i2c5_pins: pinmux_i2c5_pins {
+		pinctrl-single,pins = <
+			0x408	0x60000	/* i2c5_sda INPUT | MODE0 */
+			0x40C	0x60000	/* i2c5_scl INPUT | MODE0 */
+		>;
+	};
+
+	atl_pins: pinmux_atl_pins {
+		pinctrl-single,pins = <
+			0x298 0x00000005	/* xref_clk1.atl_clk1 OUTPUT | MODE5 */
+			0x29c 0x00000005	/* xref_clk2.atl_clk2 OUTPUT | MODE5 */
+		>;
+	};
+
+	mcasp3_pins: pinmux_mcasp3_pins {
+		pinctrl-single,pins = <
+			0x324 0x00000180	/* mcasp3_aclkx.mcasp3_aclkx OUTPUT | MODE0 */
+			0x328 0x00000180	/* mcasp3_fsx.mcasp3_fsx OUTPUT | MODE0 */
+			0x32c 0x00000180	/* mcasp3_axr0.mcasp3_axr0 OUTPUT | MODE0 */
+			0x330 0x00040160	/* mcasp3_axr1.mcasp3_axr1 INPUT | MODE0 */
+		>;
+	};
+
+	mcasp6_pins: pinmux_mcasp6_pins {
+		pinctrl-single,pins = <
+			0x2d4 0x000001a1	/* mcasp1_axr8.mcasp6_axr0 OUTPUT | MODE1 */
+			0x2d8 0x000401a1	/* mcasp1_axr9.mcasp6_axr1 INPUT | MODE 1 */
+			0x2dc 0x000001a1	/* mcasp1_axr10.mcasp6_clkx OUTPUT | MODE1 */
+			0x2e0 0x000001a1	/* mcasp1_axr11.mcasp6_fsx OUTPUT | MODE1 */
+		>;
+	};
+
+	mcasp7_pins: pinmux_mcasp7_pins {
+		pinctrl-single,pins = <
+			0x2e4 0x000401a1	/* mcasp1_axr12.mcasp7_axr0 INPUT | MODE 1 */
+			0x2e8 0x000001a1	/* mcasp1_axr13.mcasp7_axr1 OUTPUT | MODE 1 */
+			0x2ec 0x000401a1	/* mcasp1_axr14.mcasp7_clkx INPUT | MODE1 */
+			0x2f0 0x000401a1	/* mcasp1_axr15.mcasp7_fsx INPUT | MODE1 */
+		>;
+	};
+
+};
+
+&i2c1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_pins>;
+	clock-frequency = <400000>;
+
+	pcf_lcd: pcf8575@20 {
+		compatible = "ti,pcf8575";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		/* HACK: Using n_latch in pcf8575 driver to "drive P10/11" to not hold ETH0/1 in reset */
+		n_latch = <0xfcfe>;
+		interrupt-parent = <&gpio6>;
+		interrupts = <11 2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	pcf_lcd3: pcf8575@21 {
+		compatible = "ti,pcf8575";
+		reg = <0x21>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		n_latch = <0x1408>;
+		interrupt-parent = <&gpio6>;
+		interrupts = <14 2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	/* TLC chip for LCD panel power and backlight */
+	tlc59108: tlc59108@40 {
+		compatible = "ti,tlc59108";
+		reg = <0x40>;
+		gpios = <&pcf_lcd 15 0>; /* P15, CON_LCD_PWR_DN */
+	};
+
+	tlv320aic3106: tlv320aic3106@19 {
+		compatible = "ti,tlv320aic3x";
+		reg = <0x19>;
+		adc-settle-ms = <40>;
+		IOVDD-supply = <&vaudio_3v3>;
+		DVDD-supply = <&vaudio_1v8>;
+		AVDD-supply = <&vaudio_3v3>;
+		DRVDD-supply = <&vaudio_3v3>;
+	};
+
+ 	ldc3001:ldc3001@18 {
+ 		reg = <0x18>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <15 1>;
+ 	};
+
+	tps65917: tps65917@58 {
+		compatible = "ti,tps65917";
+		reg = <0x58>;
+		interrupts = <0 7 0x0>; /* IRQ_SYS_1N */
+		interrupt-parent = <&gic>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+
+		tps65917_pmic {
+			compatible = "ti,tps65917-pmic";
+
+			regulators {
+				smps1_reg: smps1 {
+					/* VDD_MPU */
+					regulator-name = "smps1";
+					regulator-min-microvolt = <850000>;
+					regulator-max-microvolt = <1250000>;
+					regulator-always-on;
+					regulator-boot-on;
+				};
+
+				smps2_reg: smps2 {
+					/* VDD_CORE */
+					regulator-name = "smps2";
+					regulator-min-microvolt = <850000>;
+					regulator-max-microvolt = <1030000>;
+					regulator-boot-on;
+				};
+
+				smps3_reg: smps3 {
+					/* VDD_GPU IVA DSPEVE */
+					regulator-name = "smps3";
+					regulator-min-microvolt = <850000>;
+					regulator-max-microvolt = <1250000>;
+					regulator-boot-on;
+				};
+
+				smps4_reg: smps4 {
+					/* VDDS1V8 */
+					regulator-name = "smps4";
+					regulator-min-microvolt = <1800000>;
+					regulator-max-microvolt = <1800000>;
+					regulator-always-on;
+					regulator-boot-on;
+				};
+
+				smps5_reg: smps5 {
+					/* VDD_DDR */
+						regulator-name = "smps5";
+						regulator-min-microvolt = <1350000>;
+						regulator-max-microvolt = <1350000>;
+						regulator-boot-on;
+				};
+
+				ldo1_reg: ldo1 {
+					/* LDO1_OUT --> SDIO  */
+					regulator-name = "ldo1";
+					regulator-min-microvolt = <3300000>;
+					regulator-max-microvolt = <3300000>;
+					regulator-boot-on;
+				};
+
+				ldo3_reg: ldo3 {
+					/* VDDA_1V8_PHY */
+					regulator-name = "ldo3";
+					regulator-min-microvolt = <1800000>;
+					regulator-max-microvolt = <1800000>;
+					regulator-boot-on;
+				};
+
+				ldo5_reg: ldo5 {
+					/* VDDA_1V8_PLL */
+					regulator-name = "ldo5";
+					regulator-min-microvolt = <1800000>;
+					regulator-max-microvolt = <1800000>;
+					regulator-always-on;
+					regulator-boot-on;
+				};
+
+				ldo4_reg: ldo4 {
+					/* VDDA_3V_USB: VDDA_USBHS33 */
+					regulator-name = "ldo4";
+					regulator-min-microvolt = <3300000>;
+					regulator-max-microvolt = <3300000>;
+					regulator-boot-on;
+				};
+			};
+		};
+	};
+};
+
+&i2c5 {
+        pinctrl-names = "default";
+        pinctrl-0 = <&i2c5_pins>;
+
+	clock-frequency = <400000>;
+
+
+
+	pcf_hdmi: pcf8575@26 {
+		compatible = "ti,pcf8575";
+		reg = <0x26>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		n_latch = <0xfffb>;
+	};
+
+	tlv320aic3106a: tlv320aic3106@18 {
+		compatible = "ti,tlv320aic3x";
+		reg = <0x18>;
+		IOVDD-supply = <&vaudio_3v3>;
+		DVDD-supply = <&vaudio_1v8>;
+		AVDD-supply = <&vaudio_3v3>;
+		DRVDD-supply = <&vaudio_3v3>;
+	};
+
+	tlv320aic3106b: tlv320aic3106@19 {
+		compatible = "ti,tlv320aic3x";
+		reg = <0x19>;
+		IOVDD-supply = <&vaudio_3v3>;
+		DVDD-supply = <&vaudio_1v8>;
+		AVDD-supply = <&vaudio_3v3>;
+		DRVDD-supply = <&vaudio_3v3>;
+	};
+
+	tlv320aic3106c: tlv320aic3106@1a {
+		compatible = "ti,tlv320aic3x";
+		reg = <0x1a>;
+		IOVDD-supply = <&vaudio_3v3>;
+		DVDD-supply = <&vaudio_1v8>;
+		AVDD-supply = <&vaudio_3v3>;
+		DRVDD-supply = <&vaudio_3v3>;
+	};
+
+};
+
+&i2c3 {
+	clock-frequency = <400000>;
+};
+
+&i2c4 {
+	clock-frequency = <400000>;
+};
+
+&i2c5 {
+	clock-frequency = <400000>;
+};
+
+
+&mmc1 {
+	vmmc-supply = <&ldo1_reg>;
+	bus-width = <4>;
+	cd-gpios = <&gpio6 27 0>;
+};
+
+&mmc2 {
+	vmmc-supply = <&vmmc2_fixed>;
+	bus-width = <8>;
+	ti,non-removable;
+};
+
+&mmc3 {
+	bus-width = <8>;
+	ti,non-removable;
+	status = "disabled";
+};
+
+&mmc4 {
+	vmmc-supply = <&vmmcwl_fixed>;
+	bus-width = <4>;
+	cap-power-off-card;
+	keep-power-in-suspend;
+	ti,non-removable;
+};
+
+&uart1 {
+	status = "okay";
+};
+
+&dpi1 {
+	lcd {
+		compatible = "ti,tfc_lp101";
+		tlc = <&tlc59108>;
+		data-lines = <24>;
+	};
+};
+
+&ldc3001 {
+	compatible = "lgphilips,ldc3001";
+};
+
+&hdmi {
+	vdda_hdmi_dac-supply = <&ldo3_reg>;
+	tpd12s015: tpd12s015 {
+		compatible = "ti,tpd12s015";
+
+		gpios = <&pcf_hdmi 4 0>,	/* pcf8575@22 P4, CT_CP_HDP */
+			<&pcf_hdmi 5 0>,	/* pcf8575@22 P5, LS_OE */
+			<&gpio7 12 0>;		/* gpio7_12/sp1_cs2, HPD */
+
+		hdmi_ddc = <&i2c5>;
+
+		hdmi-monitor {
+			compatible = "ti,hdmi_panel";
+		};
+	};
+};
+
+&dss {
+	vdda_video-supply = <&ldo3_reg>;
+};
+
+&avs_mpu {
+	avs-supply = <&smps1_reg>;
+};
+
+&avs_core {
+	avs-supply = <&smps2_reg>;
+};
+
+&avs_gpu {
+	avs-supply = <&smps3_reg>;
+};
+
+&avs_dspeve {
+	avs-supply = <&smps3_reg>;
+};
+
+&avs_iva {
+	avs-supply = <&smps3_reg>;
+};
+

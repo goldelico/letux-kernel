@@ -414,40 +414,6 @@ static int _set_gpio_triggering(struct gpio_bank *bank, int gpio,
 	return 0;
 }
 
-static int gpio_irq_type(struct irq_data *d, unsigned type)
-{
-	struct gpio_bank *bank = irq_data_get_irq_chip_data(d);
-	unsigned gpio = 0;
-	int retval;
-	unsigned long flags;
-
-#ifdef CONFIG_ARCH_OMAP1
-	if (d->irq > IH_MPUIO_BASE)
-		gpio = OMAP_MPUIO(d->irq - IH_MPUIO_BASE);
-#endif
-
-	if (!gpio)
-		gpio = irq_to_gpio(bank, d->irq);
-
-	if (type & ~IRQ_TYPE_SENSE_MASK)
-		return -EINVAL;
-
-	if (!bank->regs->leveldetect0 &&
-		(type & (IRQ_TYPE_LEVEL_LOW|IRQ_TYPE_LEVEL_HIGH)))
-		return -EINVAL;
-
-	spin_lock_irqsave(&bank->lock, flags);
-	retval = _set_gpio_triggering(bank, GPIO_INDEX(bank, gpio), type);
-	spin_unlock_irqrestore(&bank->lock, flags);
-
-	if (type & (IRQ_TYPE_LEVEL_LOW | IRQ_TYPE_LEVEL_HIGH))
-		__irq_set_handler_locked(d->irq, handle_level_irq);
-	else if (type & (IRQ_TYPE_EDGE_FALLING | IRQ_TYPE_EDGE_RISING))
-		__irq_set_handler_locked(d->irq, handle_edge_irq);
-
-	return retval;
-}
-
 static void _clear_gpio_irqbank(struct gpio_bank *bank, int gpio_mask)
 {
 	void __iomem *reg = bank->base;
@@ -585,9 +551,10 @@ static int gpio_wake_enable(struct irq_data *d, unsigned int enable)
 	return _set_gpio_wakeup(bank, gpio, enable);
 }
 
-static int omap_gpio_request(struct gpio_chip *chip, unsigned offset)
+static int _omap_gpio_init(struct gpio_bank *bank, unsigned offset,
+								unsigned type)
 {
-	struct gpio_bank *bank = container_of(chip, struct gpio_bank, chip);
+	int retval;
 	unsigned long flags;
 
 	/*
@@ -601,7 +568,7 @@ static int omap_gpio_request(struct gpio_chip *chip, unsigned offset)
 	/* Set trigger to none. You need to enable the desired trigger with
 	 * request_irq() or set_irq_type().
 	 */
-	_set_gpio_triggering(bank, offset, IRQ_TYPE_NONE);
+	retval = _set_gpio_triggering(bank, offset, flags);
 
 	if (bank->regs->pinctrl) {
 		void __iomem *reg = bank->base + bank->regs->pinctrl;
@@ -625,12 +592,12 @@ static int omap_gpio_request(struct gpio_chip *chip, unsigned offset)
 
 	spin_unlock_irqrestore(&bank->lock, flags);
 
-	return 0;
+	return retval;
 }
 
-static void omap_gpio_free(struct gpio_chip *chip, unsigned offset)
+
+static void _omap_gpio_deinit(struct gpio_bank *bank, unsigned offset)
 {
-	struct gpio_bank *bank = container_of(chip, struct gpio_bank, chip);
 	void __iomem *base = bank->base;
 	unsigned long flags;
 
@@ -665,6 +632,58 @@ static void omap_gpio_free(struct gpio_chip *chip, unsigned offset)
 	 */
 	if (!bank->mod_usage)
 		pm_runtime_put(bank->dev);
+
+}
+
+
+
+static int omap_gpio_request(struct gpio_chip *chip, unsigned offset)
+{
+	struct gpio_bank *bank = container_of(chip, struct gpio_bank, chip);
+
+	/* Set trigger to none. You need to enable the desired trigger with
+	 * request_irq() or set_irq_type().
+	 */
+	return _omap_gpio_init(bank, offset, IRQ_TYPE_NONE);
+}
+
+static void omap_gpio_free(struct gpio_chip *chip, unsigned offset)
+{
+	struct gpio_bank *bank = container_of(chip, struct gpio_bank, chip);
+
+	_omap_gpio_deinit(bank, offset);
+
+}
+
+static int gpio_irq_type(struct irq_data *d, unsigned type)
+{
+	struct gpio_bank *bank = irq_data_get_irq_chip_data(d);
+	unsigned gpio = 0;
+	int retval;
+
+#ifdef CONFIG_ARCH_OMAP1
+	if (d->irq > IH_MPUIO_BASE)
+		gpio = OMAP_MPUIO(d->irq - IH_MPUIO_BASE);
+#endif
+
+	if (!gpio)
+		gpio = irq_to_gpio(bank, d->irq);
+
+	if (type & ~IRQ_TYPE_SENSE_MASK)
+		return -EINVAL;
+
+	if (!bank->regs->leveldetect0 &&
+		(type & (IRQ_TYPE_LEVEL_LOW|IRQ_TYPE_LEVEL_HIGH)))
+		return -EINVAL;
+
+	retval = _omap_gpio_init(bank, GPIO_INDEX(bank, gpio), type);
+
+	if (type & (IRQ_TYPE_LEVEL_LOW | IRQ_TYPE_LEVEL_HIGH))
+		__irq_set_handler_locked(d->irq, handle_level_irq);
+	else if (type & (IRQ_TYPE_EDGE_FALLING | IRQ_TYPE_EDGE_RISING))
+		__irq_set_handler_locked(d->irq, handle_edge_irq);
+
+	return retval;
 }
 
 /*
@@ -757,11 +776,8 @@ static void gpio_irq_shutdown(struct irq_data *d)
 {
 	struct gpio_bank *bank = irq_data_get_irq_chip_data(d);
 	unsigned int gpio = irq_to_gpio(bank, d->irq);
-	unsigned long flags;
 
-	spin_lock_irqsave(&bank->lock, flags);
-	_reset_gpio(bank, gpio);
-	spin_unlock_irqrestore(&bank->lock, flags);
+	_omap_gpio_deinit(bank, GPIO_INDEX(bank, gpio));
 }
 
 static void gpio_ack_irq(struct irq_data *d)

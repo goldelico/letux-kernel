@@ -38,6 +38,7 @@
 #include "i2c.h"
 #include "mmc.h"
 #include "wd_timer.h"
+#include "soc.h"
 
 /* Base offset for all DRA7XX interrupts external to MPUSS */
 #define DRA7XX_IRQ_GIC_START	32
@@ -7016,8 +7017,25 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 	NULL,
 };
 
+static struct omap_hwmod_ocp_if *dra74x_hwmod_ocp_ifs[] __initdata = {
+	NULL,
+};
+
+static struct omap_hwmod_ocp_if *dra72x_hwmod_ocp_ifs[] __initdata = {
+	NULL,
+};
+
 int __init dra7xx_hwmod_init(void)
 {
+	int ret;
+
 	omap_hwmod_init();
-	return omap_hwmod_register_links(dra7xx_hwmod_ocp_ifs);
+	ret = omap_hwmod_register_links(dra7xx_hwmod_ocp_ifs);
+
+	if (!ret && soc_is_dra74x())
+		return omap_hwmod_register_links(dra74x_hwmod_ocp_ifs);
+	else if (!ret && soc_is_dra72x())
+		return omap_hwmod_register_links(dra72x_hwmod_ocp_ifs);
+
+	return ret;
 }

@@ -26,52 +26,6 @@
 		ethernet1 = &cpsw_emac1;
 	};
 
-	cpus {
-		cpu@0 {
-			compatible = "arm,cortex-a15";
-			operating-points = <
-				/* kHz    uV */
-				/* The OPP_HIGH Only for DVFS enabled Samples */
-				/* OPP_OD need to be enabled only for Refreshed poly fixed Samples */
-				/* dieID reg: 0x4AE0C20C FT_Rev bits[15:8] should be 5 or more to enable OPP_OD */
-				1000000	1090000
-				1176000	1210000
-				1500000 1280000
-				>;
-				clocks = <&dpll_mpu_ck>;
-				clock-names = "cpu";
-				/*
-				 * Transition latency reference from omap5.
-				 * TBD: to be instrumented and use the actual
-				 * value at later point of time
-				 */
-				clock-latency = <300000>;
-			timer {
-				compatible = "arm,armv7-timer";
-				/*
-				 * PPI secure/nonsecure IRQ,
-				 * active low level-sensitive
-				 */
-				interrupts = <1 13 0x308>,
-					     <1 14 0x308>;
-				clock-frequency = <6144000>;
-			};
-		};
-		cpu@1 {
-			compatible = "arm,cortex-a15";
-			timer {
-				compatible = "arm,armv7-timer";
-				/*
-				 * PPI secure/nonsecure IRQ,
-				 * active low level-sensitive
-				 */
-				interrupts = <1 13 0x308>,
-					     <1 14 0x308>;
-				clock-frequency = <6144000>;
-			};
-		};
-	};
-
 	gic: interrupt-controller@48211000 {
 		compatible = "arm,cortex-a15-gic";
 		interrupt-controller;
@@ -100,11 +54,14 @@
 	 * hierarchy.
 	 */
 	ocp {
-		compatible = "ti,omap4-l3-noc", "simple-bus";
+		compatible = "ti,dra7-l3-noc", "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
 		ti,hwmods = "l3_main_1", "l3_main_2";
+		reg = <0x44000000 0x1000000>,
+		      <0x45000000 0x1000>;
+		
 
 		counter32k: counter@4ae04000 {
 			compatible = "ti,omap-counter32k";
@@ -968,12 +925,11 @@
                         ti,spi-num-cs = <4>;
 		};
 
-		dss {
+		dss: dss {
 			compatible = "ti,omap4-dss";
 			ti,hwmods = "dss_core";
 			#address-cells = <1>;
 			#size-cells = <0>;
-			vdda_video-supply = <&ldoln_reg>;
 
             dispc {
 				compatible = "ti,omap4-dispc";

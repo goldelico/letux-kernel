@@ -26,15 +26,56 @@
 /memreserve/ 0x8E000000 0x1000000;
 /memreserve/ 0xA0000000 0x1800000;
 
-/include/ "dra7.dtsi"
+/include/ "dra74x.dtsi"
 
 / {
-	model = "TI DRA7";
-	compatible = "ti,dra7-evm", "ti,dra7";
+	model = "TI DRA742";
+	compatible = "ti,dra7-evm", "ti,dra742", "ti,dra74", "ti,dra7";
 
 	cpus {
 		cpu@0 {
+			compatible = "arm,cortex-a15";
 			cpu0-supply = <&abb_mpu>;
+			operating-points = <
+				/* kHz    uV */
+				/* The OPP_HIGH Only for DVFS enabled Samples */
+				/* OPP_OD need to be enabled only for Refreshed poly fixed Samples */
+				/* dieID reg: 0x4AE0C20C FT_Rev bits[15:8] should be 5 or more to enable OPP_OD */
+				1000000	1090000
+				1176000	1210000
+				1500000 1280000
+				>;
+				clocks = <&dpll_mpu_ck>;
+				clock-names = "cpu";
+				/*
+				 * Transition latency reference from omap5.
+				 * TBD: to be instrumented and use the actual
+				 * value at later point of time
+				 */
+				clock-latency = <300000>;
+			timer {
+				compatible = "arm,armv7-timer";
+				/*
+				 * PPI secure/nonsecure IRQ,
+				 * active low level-sensitive
+				 */
+				interrupts = <1 13 0x308>,
+					     <1 14 0x308>;
+				clock-frequency = <6144000>;
+			};
+		};
+		cpu@1 {
+			compatible = "arm,cortex-a15";
+			timer {
+				compatible = "arm,armv7-timer";
+				/*
+				 * PPI secure/nonsecure IRQ,
+				 * active low level-sensitive
+				 */
+				interrupts = <1 13 0x308>,
+					     <1 14 0x308>;
+				clock-frequency = <6144000>;
+			};
 		};
 	};
 
@@ -1217,3 +1258,8 @@
 		spi-cpha;
 	};
 };
+
+&dss {
+	vdda_video-supply = <&ldoln_reg>;
+};
+
