@@ -418,7 +418,7 @@
 
 &dpi1 {
 	lcd {
-		compatible = "ti,tfc_s9700";
+		compatible = "ti,tfc_lp101";
 		tlc = <&tlc59108>;
 		data-lines = <24>;
 	};
