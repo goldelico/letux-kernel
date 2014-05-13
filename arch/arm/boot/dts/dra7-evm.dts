@@ -772,6 +772,8 @@
 	fpdlink_camera {
 		compatible = "ti,fpdlink";
 		reg = <0x20>;
+		gpios =	<&pcf_hdmi 3 0>,
+			<&pcf_lcd3 8 0>;
 		port {
 			cam_fpdlink: endpoint {
 				hsync-active = <1>;

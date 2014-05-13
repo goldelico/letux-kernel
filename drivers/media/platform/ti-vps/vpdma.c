@@ -343,7 +343,7 @@ void vpdma_buf_map(struct vpdma_data *vpdma, struct vpdma_buf *buf)
 
 	WARN_ON(buf->mapped != 0);
 	buf->dma_addr = dma_map_single(dev, buf->addr, buf->size,
-				DMA_TO_DEVICE);
+				DMA_BIDIRECTIONAL);
 	buf->mapped = 1;
 	WARN_ON(dma_mapping_error(dev, buf->dma_addr));
 }
@@ -363,7 +363,8 @@ void vpdma_buf_unmap(struct vpdma_data *vpdma, struct vpdma_buf *buf)
 	}
 
 	if (buf->mapped)
-		dma_unmap_single(dev, buf->dma_addr, buf->size, DMA_TO_DEVICE);
+		dma_unmap_single(dev, buf->dma_addr, buf->size,
+			DMA_BIDIRECTIONAL);
 
 	buf->mapped = 0;
 }
@@ -450,24 +451,25 @@ int vpdma_submit_descs(struct vpdma_data *vpdma,
 EXPORT_SYMBOL(vpdma_submit_descs);
 
 void vpdma_update_dma_addr(struct vpdma_data *vpdma,
-		struct vpdma_desc_list *list, dma_addr_t dma_addr, int drop)
+	struct vpdma_desc_list *list, dma_addr_t dma_addr,
+	struct vpdma_dtd *write_dtd, int drop)
 {
 	struct vpdma_dtd *dtd = list->buf.addr;
-	unsigned int write_desc_addr;
-
-	vpdma_buf_unmap(vpdma, &list->buf);
+	dma_addr_t write_desc_addr;
+	int offset;
 
 	dtd_set_start_addr(dtd, dma_addr);
 
-	if (drop) {
-		write_desc_addr = virt_to_phys(
-			(struct vpdma_dtd *)list->buf.dma_addr + 2);
+	/* Calculate write address from the offset of write_dtd from start
+	 * of the list->buf
+	 */
+	offset = (void *)write_dtd - list->buf.addr;
+	write_desc_addr = list->buf.dma_addr + offset;
 
+	if (drop)
 		dtd_set_desc_write_addr(dtd, write_desc_addr, 1, 1, 0);
-	} else
-		dtd_set_desc_write_addr(dtd, 0, 0, 0, 0);
-
-	vpdma_buf_map(vpdma, &list->buf);
+	else
+		dtd_set_desc_write_addr(dtd, write_desc_addr, 1, 0, 0);
 }
 EXPORT_SYMBOL(vpdma_update_dma_addr);
 
@@ -676,11 +678,14 @@ static void dump_dtd(struct vpdma_dtd *dtd)
  * @width: width of the image in pixels in memory
  * @fmt: vpdma data format of the buffer
  * dma_addr: dma address as seen by VPDMA
+ * max_width: enum for maximum width of data transfer
+ * max_height: enum for maximum height of data transfer
  * chan: VPDMA channel
  * flags: VPDMA flags to configure some descriptor fileds
  */
 int vpdma_add_out_dtd(struct vpdma_desc_list *list, int width,
 		const struct vpdma_data_format *fmt, dma_addr_t dma_addr,
+		enum vpdma_max_width max_w, enum vpdma_max_height max_h,
 		int channel, u32 flags)
 {
 	int priority = 0;
@@ -714,7 +719,7 @@ int vpdma_add_out_dtd(struct vpdma_desc_list *list, int width,
 			channel, priority, next_chan);
 
 	dtd_set_desc_write_addr(dtd, 0, 0, 0, 0);
-	dtd_set_max_width_height(dtd, MAX_OUT_WIDTH_1920, MAX_OUT_HEIGHT_1080);
+	dtd_set_max_width_height(dtd, max_w, max_h);
 	dtd_set_client_attr0(dtd, 0);
 	dtd_set_client_attr1(dtd, 0);
 

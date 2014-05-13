@@ -38,7 +38,11 @@ struct vip_buffer {
 	/* common v4l buffer stuff */
 	struct vb2_buffer	vb;
 	struct list_head	list;
-        bool                    drop;
+	struct list_head	dq_list;
+	/* Number of buffers to drop after this */
+	int			drop_count;
+	/* To make sure same buffer isn't dequeued again */
+	bool			allow_dq;
 };
 
 /*
@@ -89,6 +93,7 @@ struct vip_dev {
 	void __iomem		*base;
 
 	struct vpdma_desc_list	desc_list;	/* DMA descriptor list */
+	struct vpdma_dtd	*write_desc;
 	void			*desc_next;	/* next unused desc_list addr */
 	struct list_head	vip_bufs;	/* vip_bufs to be DMAed */
 	struct vb2_alloc_ctx	*alloc_ctx;
