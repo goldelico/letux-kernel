@@ -7,6 +7,19 @@
  */
 /dts-v1/;
 
+/*
+ * Following are the carveout addresses and the sizes for ION. SMC is not reserved for now
+ * C0000000 - SDRAM+1G
+ * BFD00000 - SMC (3MB)
+ * BA300000 - ION (90MB)
+ * B4300000 - TILER SECURE (81 MB)
+ * B3400000 - TILER NONSECURE (15 MB)
+*/
+
+/memreserve/ 0xba300000 0x5a00000;
+/memreserve/ 0xb5200000 0x5100000;
+/memreserve/ 0xb4300000 0xf00000;
+
 /include/ "dra72x.dtsi"
 
 / {
@@ -24,12 +37,24 @@
 		reg = <0x80000000 0x40000000>; /* 1024 MB */
 	};
 
-
 	vmmc2_fixed: fixedregulator-mmc2 {
 		compatible = "regulator-fixed";
 		regulator-name = "vmmc2_fixed";
 		regulator-min-microvolt = <3000000>;
 		regulator-max-microvolt = <3000000>;
+	};
+
+	ion_config {
+		compatible = "ti,ion-omap";
+		ti,omap_ion_heap_secure_input_base = <0xba300000>;
+		ti,omap_ion_heap_tiler_base = <0xb5200000>;
+		ti,omap_ion_heap_nonsecure_tiler_base = <0xb4300000>;
+		/*90 MB*/
+		ti,omap_ion_heap_secure_input_size = <0x5A00000>;
+		/*81MB*/
+		ti,omap_ion_heap_tiler_size = <0x5100000>;
+		/*15 MB*/
+		ti,omap_ion_heap_nonsecure_tiler_size = <0xF00000>;
 	};
 
 	vmmcwl_fixed: fixedregulator-mmcwl {
