@@ -6881,8 +6881,6 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l4_per1__elm,
 	&dra7xx_emif_ocp_fw__emif1,
 	&dra7xx_mpu__emif1,
-	&dra7xx_emif_ocp_fw__emif2,
-	&dra7xx_mpu__emif2,
 	&dra7xx_l4_wkup__gpio1,
 	&dra7xx_l4_per1__gpio2,
 	&dra7xx_l4_per1__gpio3,
@@ -7018,6 +7016,8 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 };
 
 static struct omap_hwmod_ocp_if *dra74x_hwmod_ocp_ifs[] __initdata = {
+	&dra7xx_emif_ocp_fw__emif2,
+	&dra7xx_mpu__emif2,
 	NULL,
 };
 
