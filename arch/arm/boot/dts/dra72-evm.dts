@@ -259,7 +259,7 @@
 	tlc59108: tlc59108@40 {
 		compatible = "ti,tlc59108";
 		reg = <0x40>;
-		gpios = <&pcf_lcd 15 0>; /* P15, CON_LCD_PWR_DN */
+		gpios = <&pcf_lcd 13 0>; /* P15, CON_LCD_PWR_DN */
 	};
 
 	tlv320aic3106: tlv320aic3106@19 {
