@@ -295,6 +295,7 @@
 					regulator-name = "smps2";
 					regulator-min-microvolt = <850000>;
 					regulator-max-microvolt = <1030000>;
+					regulator-always-on;
 					regulator-boot-on;
 				};
 
@@ -303,6 +304,7 @@
 					regulator-name = "smps3";
 					regulator-min-microvolt = <850000>;
 					regulator-max-microvolt = <1250000>;
+					regulator-always-on;
 					regulator-boot-on;
 				};
 
@@ -320,6 +322,7 @@
 						regulator-name = "smps5";
 						regulator-min-microvolt = <1350000>;
 						regulator-max-microvolt = <1350000>;
+						regulator-always-on;
 						regulator-boot-on;
 				};
 
@@ -353,6 +356,20 @@
 					regulator-name = "ldo4";
 					regulator-min-microvolt = <3300000>;
 					regulator-max-microvolt = <3300000>;
+					regulator-boot-on;
+				};
+
+				regen1_reg: regen1 {
+					/* GPIO0-> 3V3 ON */
+					regulator-name = "regen1";
+					regulator-always-on;
+					regulator-boot-on;
+				};
+
+				regen3_reg: regen3 {
+					/* GPIO5-> DDR ON */
+					regulator-name = "regen3";
+					regulator-always-on;
 					regulator-boot-on;
 				};
 			};
