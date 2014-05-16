@@ -148,6 +148,21 @@
 		ti,level_shifter = <&tpd12s015>;
 	};
 
+	extcon1: gpio_usbvid_extcon1 {
+		compatible = "ti,gpio-usb-id";
+		gpios = <&pcf_lcd3 1 0>;
+		interrupt_mode = <0>;
+		dr_mode = "peripheral";
+	};
+
+	extcon2: gpio_usbvid_extcon2 {
+		compatible = "ti,gpio-usb-id";
+		gpios = <&pcf_lcd3 2 0>;
+		interrupt_mode = <0>;
+		dr_mode = "host";
+	};
+
+
 };
 
 
@@ -159,6 +174,7 @@
 		&mcasp6_pins
 		&mcasp7_pins
 		&vout1_pins
+		&usb_pins
 	>;
 
 	i2c1_pins: pinmux_i2c1_pins {
@@ -181,6 +197,13 @@
 			0x2b8	0x6000a	/* i2c5_scl INPUT | MODE10 */
 		>;
 	};
+
+	usb_pins: pinmux_usb_pins {
+                pinctrl-single,pins = <
+			0x280	0xc0000	/* DRV1_VBUS SLEW | PULLDEN | MODE14 */
+			0x284	0xc0000	/* DRV2_VBUS SLEW | PULLDEN | MODE14 */
+                >;
+        };
 
 	vout1_pins: pinmux_vout1_pins {
 		pinctrl-single,pins = <
