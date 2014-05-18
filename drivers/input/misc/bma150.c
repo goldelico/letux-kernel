@@ -63,6 +63,7 @@
 
 /* Control register addresses */
 #define BMA150_CTRL_0_REG	0x0A
+#define BMA180_CTRL_0_REG	0x0D
 #define BMA150_CTRL_1_REG	0x0B
 #define BMA150_CTRL_2_REG	0x14
 #define BMA150_CTRL_3_REG	0x15
@@ -74,6 +75,9 @@
 #define BMA150_CFG_3_REG	0x0F
 #define BMA150_CFG_4_REG	0x10
 #define BMA150_CFG_5_REG	0x11
+
+#define BMA180_GAIN_Z		0x34
+#define BMA180_OFFSET_LSB1	0x35
 
 #define BMA150_CHIP_ID		2
 #define BMA180_CHIP_ID		3
@@ -87,7 +91,7 @@
 
 #define BMA180_SLEEP_POS	1
 #define BMA180_SLEEP_MSK	0x02
-#define BMA180_SLEEP_REG	0x0d	// BMA180_CTRL_REG0
+#define BMA180_SLEEP_REG	BMA180_CTRL_0_REG
 
 #define BMA150_BANDWIDTH_POS	0
 #define BMA150_BANDWIDTH_MSK	0x07
@@ -103,7 +107,7 @@
 
 #define BMA180_RANGE_POS	1
 #define BMA180_RANGE_MSK	0x0e
-#define BMA180_RANGE_REG	0x35	// BMA180_OFFSET_LSB1
+#define BMA180_RANGE_REG	BMA180_OFFSET_LSB1
 
 #define BMA150_WAKE_UP_POS	0
 #define BMA150_WAKE_UP_MSK	0x01
@@ -111,7 +115,7 @@
 
 #define BMA180_WAKE_UP_POS	0
 #define BMA180_WAKE_UP_MSK	0x01
-#define BMA180_WAKE_UP_REG	0x34	// GAIN_Z
+#define BMA180_WAKE_UP_REG	BMA180_GAIN_Z
 
 #define BMA150_SW_RES_POS	1
 #define BMA150_SW_RES_MSK	0x02
@@ -418,7 +422,7 @@ static void bma150_report_xyz(struct bma150_data *bma150)
 			BMA150_ACC_X_LSB_REG, BMA150_XYZ_DATA_SIZE, data);
 	if (ret != BMA150_XYZ_DATA_SIZE)
 		{
-		printk("data size error %d\n", ret);		
+		printk("data size error %d\n", ret);
 		return;
 		}
 
