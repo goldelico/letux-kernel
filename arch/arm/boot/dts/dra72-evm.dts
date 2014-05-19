@@ -191,6 +191,13 @@
 		>;
 	};
 
+	i2c2_pins: pinmux_i2c2_pins {
+                pinctrl-single,pins = <
+			0x408	0x60001	/* hdmi_sda INPUT | MODE1 */
+			0x40C	0x60001	/* hdmi_scl INPUT | MODE1 */
+                >;
+	};
+
 	i2c3_pins: pinmux_i2c3_pins {
 		pinctrl-single,pins = <
 			0x410	0x60000	/* i2c3_sda INPUT | MODE0 */
@@ -601,6 +608,12 @@
 
 };
 
+&i2c2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c2_pins>;
+	clock-frequency = <400000>;
+};
+
 &i2c3 {
 	clock-frequency = <400000>;
 };
@@ -677,7 +690,7 @@
 			<&pcf_hdmi 5 0>,	/* pcf8575@22 P5, LS_OE */
 			<&gpio7 12 0>;		/* gpio7_12/sp1_cs2, HPD */
 
-		hdmi_ddc = <&i2c5>;
+		hdmi_ddc = <&i2c2>;
 
 		hdmi-monitor {
 			compatible = "ti,hdmi_panel";
