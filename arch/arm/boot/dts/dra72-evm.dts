@@ -684,6 +684,20 @@
 		};
 	};
 
+	camera_tvp5158: camera_tvp5158 {
+		compatible = "ti,tvp5158";
+		reg = <0x58>;
+		gpios = <&pcf_hdmi 3 0>,
+			<&pcf_lcd3 8 0>,
+			<&pcf_hdmi 2 0>,
+			<&pcf_hdmi 6 0>;
+		port {
+			tvp5158: endpoint {
+			// No props incase of BT656
+			};
+		};
+       };
+
 };
 
 &i2c2 {
@@ -720,6 +734,11 @@
 	endpoint@0 {
 		slave-mode;
 		remote-endpoint = <&onboardLI>;
+	};
+
+	endpoint@1 {
+		slave-mode;
+		remote-endpoint = <&tvp5158>;
 	};
 };
 
