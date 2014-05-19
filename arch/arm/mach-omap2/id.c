@@ -650,6 +650,19 @@ void __init dra7xx_check_revision(void)
 			omap_revision = DRA752_REV_ES1_0;
 		}
 		break;
+
+	case 0xb9bc:
+		switch (rev) {
+		case 0:
+			omap_revision = DRA722_REV_ES1_0;
+			break;
+		default:
+			/* If we have no new revisions */
+			omap_revision = DRA722_REV_ES1_0;
+			break;
+		}
+		break;
+
 	default:
 		/* Unknown. Default to latest silicon revision */
 		omap_revision = DRA752_REV_ES1_0;
