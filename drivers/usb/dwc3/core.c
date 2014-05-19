@@ -469,7 +469,6 @@ static int dwc3_probe(struct platform_device *pdev)
 		}
 	}
 
-	usb_phy_init(dwc->usb2_phy);
 	usb_phy_set_suspend(dwc->usb2_phy, 0);
 	usb_phy_set_suspend(dwc->usb3_phy, 0);
 

@@ -38,7 +38,7 @@
 /* #define TS_POLL */
 
 #define MAX_TOUCH_POINTS	10 /* max touch points handled by the TSC */
-#define X_SIZE			1028 /* X size of the TSC */
+#define X_SIZE			1280 /* X size of the TSC */
 #define Y_SIZE			800 /* Y size of the TSC */
 #define TP_READ_SIZE		3 /* co-ordinates size in bytes */
 #define DEFAULT_READ_LEN	2 /* corresponds to the ID bit-field */
