@@ -755,6 +755,7 @@
 			compatible = "ti,avsclass0";
 			reg = <0x4A0025EC 0x20>;
 			efuse-settings = <1030000 8>;
+			voltage-tolerance = <1>;
 		};
 
 		avs_gpu: regulator-avs@0x4A003B00 {
