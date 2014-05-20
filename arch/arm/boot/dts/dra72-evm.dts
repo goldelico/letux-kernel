@@ -92,6 +92,12 @@
 		ti,omap_ion_heap_nonsecure_tiler_size = <0xF00000>;
 	};
 
+	display_layout {
+		compatible = "ti, omap4-dsscomp";
+		ti,num_displays = <3>;
+		ti,default_display = "lcd";
+	};
+
 	vmmcwl_fixed: fixedregulator-mmcwl {
 		compatible = "regulator-fixed";
 		regulator-name = "vmmcwl_fixed";
