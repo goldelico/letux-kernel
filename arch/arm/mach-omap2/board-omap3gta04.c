@@ -49,6 +49,7 @@
 #include <linux/i2c/tsc2007.h>
 
 #include <linux/i2c/bmp085.h>
+#include <linux/lis3lv02d.h>
 #ifdef CONFIG_LEDS_TCA6507
 #include <linux/leds-tca6507.h>
 #endif
@@ -638,6 +639,8 @@ static struct regulator_init_data gta04_vaux3 = {
 static struct regulator_consumer_supply gta04_vaux2_supply[] = {
 	REGULATOR_SUPPLY("vaux2", "2-0068"),
 	REGULATOR_SUPPLY("vaux2", "2-001e"),
+	REGULATOR_SUPPLY("Vdd", "2-001d"),
+	REGULATOR_SUPPLY("Vdd_IO", "2-001d"),
 };
 
 static struct regulator_init_data gta04_vaux2 = {
@@ -1142,6 +1145,77 @@ struct tca8418_keypad_platform_data tca8418_pdata = {
 
 #endif
 
+#if defined(CONFIG_SENSORS_LIS3_I2C) || defined(CONFIG_SENSORS_LIS3_I2C_MODULE)
+static int lis302_setup(void)
+{
+        int err;
+        int irq1 = LIS302_IRQ1_GPIO;
+        int irq2 = LIS302_IRQ2_GPIO;
+
+        /* gpio for interrupt pin 1 */
+        err = gpio_request(irq1, "lis3lv02dl_irq1");
+        if (err) {
+                printk(KERN_ERR "lis3lv02dl: gpio request failed\n");
+                goto out;
+        }
+
+        /* gpio for interrupt pin 2 */
+        err = gpio_request(irq2, "lis3lv02dl_irq2");
+        if (err) {
+                gpio_free(irq1);
+                printk(KERN_ERR "lis3lv02dl: gpio request failed\n");
+                goto out;
+        }
+
+        gpio_direction_input(irq1);
+        gpio_direction_input(irq2);
+
+out:
+        return err;
+}
+
+static int lis302_release(void)
+{
+        gpio_free(LIS302_IRQ1_GPIO);
+        gpio_free(LIS302_IRQ2_GPIO);
+
+        return 0;
+}
+
+static struct lis3lv02d_platform_data lis302_info = {
+        .click_flags    = LIS3_CLICK_SINGLE_X | LIS3_CLICK_SINGLE_Y |
+                          LIS3_CLICK_SINGLE_Z,
+        /* Limits are 0.5g * value */
+        .click_thresh_x = 8,
+        .click_thresh_y = 8,
+        .click_thresh_z = 10,
+        /* Click must be longer than time limit */
+        .click_time_limit = 9,
+        .click_time_limit = 9,
+        /* Kind of debounce filter */
+        .click_latency    = 50,
+
+        /* Limits for all axis. millig-value / 18 to get HW values */
+        .wakeup_flags = LIS3_WAKEUP_X_HI | LIS3_WAKEUP_Y_HI,
+        .wakeup_thresh = 800 / 18,
+        .wakeup_flags2 = LIS3_WAKEUP_Z_HI ,
+        .wakeup_thresh2 = 900 / 18,
+
+        .hipass_ctrl = LIS3_HIPASS1_DISABLE | LIS3_HIPASS2_DISABLE,
+
+        /* Interrupt line 2 for click detection, line 1 for thresholds */
+        .irq_cfg = LIS3_IRQ2_CLICK | LIS3_IRQ1_FF_WU_12,
+
+        .axis_x = LIS3_DEV_X,
+        .axis_y = LIS3_INV_DEV_Y,
+        .axis_z = LIS3_INV_DEV_Z,
+        .setup_resources = lis302_setup,
+        .release_resources = lis302_release,
+        .st_min_limits = {-32, 3, 3},
+        .st_max_limits = {-3, 32, 32},
+};
+#endif
+
 static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 #ifdef CONFIG_TOUCHSCREEN_TSC2007
 {
@@ -1165,6 +1239,12 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 #if defined(CONFIG_INPUT_BMA150) || defined(CONFIG_INPUT_BMA150_MODULE)
 {
 	I2C_BOARD_INFO("bma150", 0x41),	/* supports our bma180 */
+},
+#endif
+#if defined(CONFIG_SENSORS_LIS3_I2C) || defined(CONFIG_SENSORS_LIS3_I2C_MODULE)
+{
+	I2C_BOARD_INFO("lis3lv02d", 0x1d),      /* supports our lis302
+	 .platform_data = &lis302_info,
 },
 #endif
 #if defined(CONFIG_SENSORS_HMC5843) || defined(CONFIG_SENSORS_HMC5843_MODULE)
