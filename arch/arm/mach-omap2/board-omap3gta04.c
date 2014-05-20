@@ -130,6 +130,8 @@
 #define BOARD_VERSION_0_GPIO 171
 #define BOARD_VERSION_1_GPIO 172
 #define BOARD_VERSION_2_GPIO 173
+#define LIS302_IRQ1_GPIO 114
+#define LIS302_IRQ2_GPIO -EINVAL  /* Not yet in use */
 
 /*
  * Board peripheral code name passed through a "mux="
@@ -1141,71 +1143,78 @@ struct tca8418_keypad_platform_data tca8418_pdata = {
 #if defined(CONFIG_SENSORS_LIS3_I2C) || defined(CONFIG_SENSORS_LIS3_I2C_MODULE)
 static int lis302_setup(void)
 {
-        int err;
-        int irq1 = LIS302_IRQ1_GPIO;
-        int irq2 = LIS302_IRQ2_GPIO;
+	int err;
+	int irq1 = LIS302_IRQ1_GPIO;
+	int irq2 = LIS302_IRQ2_GPIO;
 
+	if (gpio_is_valid(irq1)) {
         /* gpio for interrupt pin 1 */
         err = gpio_request(irq1, "lis3lv02dl_irq1");
         if (err) {
-                printk(KERN_ERR "lis3lv02dl: gpio request failed\n");
-                goto out;
+			printk(KERN_ERR "lis3lv02dl: gpio request failed\n");
+			goto out;
         }
 
-        /* gpio for interrupt pin 2 */
-        err = gpio_request(irq2, "lis3lv02dl_irq2");
-        if (err) {
-                gpio_free(irq1);
-                printk(KERN_ERR "lis3lv02dl: gpio request failed\n");
-                goto out;
-        }
+		gpio_direction_input(irq1);
+	}
 
-        gpio_direction_input(irq1);
-        gpio_direction_input(irq2);
+	if (gpio_is_valid(irq2)) {
+		/* gpio for interrupt pin 2 */
+		err = gpio_request(irq2, "lis3lv02dl_irq2");
+		if (err) {
+			gpio_free(irq1);
+			printk(KERN_ERR "lis3lv02dl: gpio request failed\n");
+			goto out;
+		}
+
+		gpio_direction_input(irq2);
+	}
 
 out:
-        return err;
+	return err;
 }
 
 static int lis302_release(void)
 {
-        gpio_free(LIS302_IRQ1_GPIO);
-        gpio_free(LIS302_IRQ2_GPIO);
+	if (gpio_is_valid(LIS302_IRQ1_GPIO))
+		gpio_free(LIS302_IRQ1_GPIO);
+	if (gpio_is_valid(LIS302_IRQ2_GPIO))
+		gpio_free(LIS302_IRQ2_GPIO);
 
-        return 0;
+	return 0;
 }
 
 static struct lis3lv02d_platform_data lis302_info = {
-        .click_flags    = LIS3_CLICK_SINGLE_X | LIS3_CLICK_SINGLE_Y |
-                          LIS3_CLICK_SINGLE_Z,
-        /* Limits are 0.5g * value */
-        .click_thresh_x = 8,
-        .click_thresh_y = 8,
-        .click_thresh_z = 10,
-        /* Click must be longer than time limit */
-        .click_time_limit = 9,
-        .click_time_limit = 9,
-        /* Kind of debounce filter */
-        .click_latency    = 50,
+	.click_flags    = LIS3_CLICK_SINGLE_X | LIS3_CLICK_SINGLE_Y |
+	LIS3_CLICK_SINGLE_Z,
+	/* Limits are 0.5g * value */
+	.click_thresh_x = 8,
+	.click_thresh_y = 8,
+	.click_thresh_z = 10,
+	/* Click must be longer than time limit */
+	.click_time_limit = 9,
+	.click_time_limit = 9,
+	/* Kind of debounce filter */
+	.click_latency    = 50,
 
-        /* Limits for all axis. millig-value / 18 to get HW values */
-        .wakeup_flags = LIS3_WAKEUP_X_HI | LIS3_WAKEUP_Y_HI,
-        .wakeup_thresh = 800 / 18,
-        .wakeup_flags2 = LIS3_WAKEUP_Z_HI ,
-        .wakeup_thresh2 = 900 / 18,
+	/* Limits for all axis. millig-value / 18 to get HW values */
+	.wakeup_flags = LIS3_WAKEUP_X_HI | LIS3_WAKEUP_Y_HI,
+	.wakeup_thresh = 800 / 18,
+	.wakeup_flags2 = LIS3_WAKEUP_Z_HI ,
+	.wakeup_thresh2 = 900 / 18,
 
-        .hipass_ctrl = LIS3_HIPASS1_DISABLE | LIS3_HIPASS2_DISABLE,
+	.hipass_ctrl = LIS3_HIPASS1_DISABLE | LIS3_HIPASS2_DISABLE,
 
-        /* Interrupt line 2 for click detection, line 1 for thresholds */
-        .irq_cfg = LIS3_IRQ2_CLICK | LIS3_IRQ1_FF_WU_12,
+	/* Interrupt line 2 for click detection, line 1 for thresholds */
+	.irq_cfg = LIS3_IRQ2_CLICK | LIS3_IRQ1_FF_WU_12,
 
-        .axis_x = LIS3_DEV_X,
-        .axis_y = LIS3_INV_DEV_Y,
-        .axis_z = LIS3_INV_DEV_Z,
-        .setup_resources = lis302_setup,
-        .release_resources = lis302_release,
-        .st_min_limits = {-32, 3, 3},
-        .st_max_limits = {-3, 32, 32},
+	.axis_x = LIS3_DEV_X,
+	.axis_y = LIS3_INV_DEV_Y,
+	.axis_z = LIS3_INV_DEV_Z,
+	.setup_resources = lis302_setup,
+	.release_resources = lis302_release,
+	.st_min_limits = {-32, 3, 3},
+	.st_max_limits = {-3, 32, 32},
 };
 #endif
 
@@ -1236,7 +1245,7 @@ static struct i2c_board_info __initdata gta04_i2c2_boardinfo[] = {
 #endif
 #if defined(CONFIG_SENSORS_LIS3_I2C) || defined(CONFIG_SENSORS_LIS3_I2C_MODULE)
 {
-	I2C_BOARD_INFO("lis3lv02d", 0x1d),      /* supports our lis302
+	I2C_BOARD_INFO("lis3lv02d", 0x1d),      /* supports our lis302 */
 	 .platform_data = &lis302_info,
 },
 #endif
