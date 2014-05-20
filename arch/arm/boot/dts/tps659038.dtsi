@@ -50,8 +50,8 @@
 
 			smps7_reg: smps7 {
 				regulator-name = "smps7";
-				regulator-min-microvolt = <1030000>;
-				regulator-max-microvolt = <1030000>;
+				regulator-min-microvolt = <850000>;
+				regulator-max-microvolt = <1060000>;
 				regulator-always-on;
 				regulator-boot-on;
 			};
