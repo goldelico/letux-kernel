@@ -132,6 +132,8 @@
 #define BOARD_VERSION_0_GPIO 171
 #define BOARD_VERSION_1_GPIO 172
 #define BOARD_VERSION_2_GPIO 173
+#define LIS302_IRQ1_GPIO 114
+#define LIS302_IRQ2_GPIO -EINVAL  /* Not yet in use */
 
 /*
  * Board peripheral code name passed through a "mux="
