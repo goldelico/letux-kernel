@@ -1608,8 +1608,8 @@ static struct omap_uart_port_info *of_get_uart_port_info(struct device *dev)
 	of_property_read_u32(dev->of_node, "clock-frequency",
 					 &omap_up_info->uartclk);
 
-	omap_up_info->DTR_gpio = of_get_named_gpio_flags(dev->of_node, "dtr-gpio", 0, &flags);
-	omap_up_info->DTR_inverted = (flags & OF_GPIO_ACTIVE_LOW) != 0;
+//	omap_up_info->DTR_gpio = of_get_named_gpio_flags(dev->of_node, "dtr-gpio", 0, &flags);
+//	omap_up_info->DTR_inverted = (flags & OF_GPIO_ACTIVE_LOW) != 0;
 
 	return omap_up_info;
 }
