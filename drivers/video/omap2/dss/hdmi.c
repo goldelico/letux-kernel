@@ -43,6 +43,7 @@
 #include <linux/i2c.h>
 #include <linux/i2c-algo-bit.h>
 
+#include <mach-omap2/soc.h>
 #include "ti_hdmi_4xxx_ip.h"
 #include "ti_hdmi.h"
 #include "dss.h"
@@ -2021,7 +2022,8 @@ static void init_sel_i2c_hdmi(void)
 	void __iomem *clk_base = ioremap(0x4A009000, SZ_4K);
 	void __iomem *mcasp8_base = ioremap(0x4847C000, SZ_1K);
 
-	if (omapdss_get_version() != OMAPDSS_VER_DRA7xx)
+	if (omapdss_get_version() != OMAPDSS_VER_DRA7xx ||
+	    soc_is_dra72x())
 		goto err;
 
 	if (!clk_base || !mcasp8_base)
@@ -2057,7 +2059,8 @@ void sel_i2c(void)
 	void __iomem *mcasp8_base = ioremap(0x4847C000, SZ_1K);
 	void __iomem *core_base = ioremap(0x4a003400, SZ_1K);
 
-	if (omapdss_get_version() != OMAPDSS_VER_DRA7xx)
+	if (omapdss_get_version() != OMAPDSS_VER_DRA7xx ||
+	    soc_is_dra72x())
 		goto err;
 
 	/* set CM_L4PER2_CLKSTCTRL to sw supervised wkup */
@@ -2095,7 +2098,8 @@ void sel_hdmi(void)
 	void __iomem *mcasp8_base = ioremap(0x4847C000, SZ_1K);
 	void __iomem *core_base = ioremap(0x4a003400, SZ_1K);
 
-	if (omapdss_get_version() != OMAPDSS_VER_DRA7xx)
+	if (omapdss_get_version() != OMAPDSS_VER_DRA7xx ||
+	    soc_is_dra72x())
 		goto err;
 
 	/* drive MCASP8_PDOUT to high to select HDMI*/
