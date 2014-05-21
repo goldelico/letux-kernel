@@ -1198,7 +1198,7 @@ CONFIG_BLK_DEV_RAM_SIZE=8192
 #
 # Misc devices
 #
-# CONFIG_SENSORS_LIS3LV02D is not set
+CONFIG_SENSORS_LIS3LV02D=y
 # CONFIG_AD525X_DPOT is not set
 # CONFIG_ATMEL_PWM is not set
 # CONFIG_DUMMY_IRQ is not set
@@ -1238,7 +1238,7 @@ CONFIG_EEPROM_93CX6=y
 #
 # CONFIG_TI_ST is not set
 # CONFIG_SENSORS_LIS3_SPI is not set
-# CONFIG_SENSORS_LIS3_I2C is not set
+CONFIG_SENSORS_LIS3_I2C=y
 
 #
 # Altera FPGA firmware download module
