@@ -1058,17 +1058,53 @@
 		pinctrl-0 = <&vin1a_pins &vin1a_d16_d23_pins>;
 	*/
 	pinctrl-0 = <&vin1a_pins &vin1a_d16_d23_pins>;
+
+	vin1a: port@0A {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0>;
+	};
+
+	vin2a: port@1A {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <1>;
+	};
 };
 
 &vip2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&vin3a_pins>;
+
+	vin3a: port@0A {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0>;
+	};
+
+	vin4a: port@1A {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <1>;
+	};
 };
 
 &vip3 {
 	pinctrl-names = "default";
 	//pinctrl-0 = <&vin5a_pins &vin6a_pins>;
 	pinctrl-0 = <&vin5a_pins>;
+
+	vin5a: port@0A {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0>;
+	};
+
+	vin6a: port@1A {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <1>;
+	};
 };
 
 &vin1a {

@@ -708,6 +708,12 @@
 &vip1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&vin1a_pins &vin2a_pins>;
+
+	vin2a: port@1A {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <1>;
+	};
 };
 
 &vin2a {
