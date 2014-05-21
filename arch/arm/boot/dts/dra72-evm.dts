@@ -146,6 +146,17 @@
 		ti,bt-bclk-freq = <512000>;
 	};
 
+	radio {
+		compatible = "ti,dra7xx_radio";
+		gpios = <&gpio6 20 0>;
+
+		radio_helper1 {
+			compatible = "ti,dra7xx_radio_subdev";
+			ti,hwmods = "mcasp2";
+			status = "okay";
+		};
+	};
+
 	sound_hdmi {
 		compatible = "ti,omap-hdmi-tpd12s015-audio";
 		ti,model = "OMAP5HDMI";
@@ -195,6 +206,7 @@
 		&wl_pins
 		&wlirq_pins
 		&bt_uart3_pins
+		&radio_pins
 	>;
 
 	i2c1_pins: pinmux_i2c1_pins {
@@ -257,6 +269,24 @@
 			0x3c8 0x40001       /* uart3_rts.spi2.c0:   OUTPUT | PULLUP | MODE 1 */
 			0x3cc 0x60001       /* uart3_cts.spi2.d0:   INPUT | MODE 1 */
 			0x2bc 0xE           /* BT_EN.gp5_4:         OUTPUT | MODE 14 */
+		>;
+	};
+
+	radio_pins: pinmux_radio_pins {
+		pinctrl-single,pins = <
+			0x02F4   0x40000        /* MCASP2_ACLKX: MODE0 */
+			0x02F8   0xc0000        /* MCASP2_AFSX: MODE0 */
+			0x0304   0x40000        /* MCASP2_AXR0: MODE0 */
+			0x0308   0x40000        /* MCASP2_AXR1: MODE0 */
+			0x030C   0xc0000        /* MCASP2_AXR2: MODE0 */
+			0x0310   0xc0000        /* MCASP2_AXR3: MODE0 */
+			0x0314   0x40000        /* MCASP2_AXR4: MODE0 */
+			0x0318   0x40000        /* MCASP2_AXR5: MODE0 */
+			0x031c   0x40000        /* MCASP2_AXR6: MODE0 */
+			0x0320   0x40000        /* MCASP2_AXR7: MODE0 */
+			0x0334   0x70004        /* I2C4_SDA: MODE4 */
+			0x0338   0x70004        /* I2C4_SCL: MODE4 */
+			0x02A0   0x5000e        /* GPIO6_20: MODE14 */
 		>;
 	};
 
