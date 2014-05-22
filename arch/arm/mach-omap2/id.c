@@ -655,8 +655,11 @@ void __init dra7xx_check_revision(void)
 		omap_revision = DRA752_REV_ES1_0;
 	}
 
-	pr_info("DRA%03x ES%d.%d\n", omap_rev() >> 16,
-		((omap_rev() >> 12) & 0xf), ((omap_rev() >> 8) & 0xf));
+	sprintf(soc_name, "DRA%03x", omap_rev() >> 16);
+	sprintf(soc_rev, "ES%d.%d", (omap_rev() >> 12) & 0xf,
+		(omap_rev() >> 8) & 0xf);
+
+	pr_info("%s %s\n", soc_name, soc_rev);
 }
 
 /*
@@ -698,6 +701,8 @@ static const char * __init omap_get_family(void)
 		return kasprintf(GFP_KERNEL, "OMAP4");
 	else if (soc_is_omap54xx())
 		return kasprintf(GFP_KERNEL, "OMAP5");
+	else if (soc_is_dra7xx())
+		return kasprintf(GFP_KERNEL, "DRA7");
 	else
 		return kasprintf(GFP_KERNEL, "Unknown");
 }
