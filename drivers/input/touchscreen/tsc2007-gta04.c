@@ -330,6 +330,11 @@ static void tsc2007_aux_work(struct work_struct *aux_work)
 
 	tsc2007_read_temp(ts);
 
+	/* Report AUX value (TEPT4400 Ambient Light Sensor on GTA04) to the input event */
+	struct input_dev *input = ts->input;
+	input_report_abs(input, ABS_MISC, ts->aux);
+	input_sync(input);
+
 	/* Prepare for next touch reading - power down ADC, enable PENIRQ */
 	tsc2007_xfer(ts, PWRDOWN);
 
@@ -512,6 +517,7 @@ static int tsc2007_probe(struct i2c_client *client,
 	input_set_abs_params(input_dev, ABS_X, pdata->min_x, pdata->max_x, pdata->fuzz_x, 0);
 	input_set_abs_params(input_dev, ABS_Y, pdata->min_y, pdata->max_y, pdata->fuzz_y, 0);
 	input_set_abs_params(input_dev, ABS_PRESSURE, pdata->min_z, pdata->max_z, pdata->fuzz_z, 0);
+	input_set_abs_params(input_dev, ABS_MISC, 0, 4095, 0, 0);
 
 	if (pdata->init_platform_hw)
 		pdata->init_platform_hw();
