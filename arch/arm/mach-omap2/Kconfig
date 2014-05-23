@@ -12,6 +12,7 @@ config ARCH_OMAP2PLUS_TYPICAL
 	select MENELAUS if ARCH_OMAP2
 	select NEON if CPU_V7
 	select PM_RUNTIME
+	select SOC_BUS
 	select REGULATOR
 	select SERIAL_OMAP
 	select SERIAL_OMAP_CONSOLE
