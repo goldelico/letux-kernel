@@ -307,8 +307,8 @@ static int omap3gta04_init(struct snd_soc_pcm_runtime *runtime)
 	jack.present = 0;
 	jack.reliable = 0;
 
-	jack.open_threshold = 50;
-	jack.short_threshold = 300;
+	jack.open_threshold = 122;
+	jack.short_threshold = 733;
 
 	return snd_soc_dapm_sync(dapm);
 }
