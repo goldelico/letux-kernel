@@ -23,9 +23,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-
-#define DEBUG
-
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/i2c.h>
@@ -199,7 +196,6 @@ static struct bma150_cfg default_cfg = {
 static int bma150_write_byte(struct i2c_client *client, u8 reg, u8 val)
 {
 	s32 ret;
-//	printk("bma150_write_byte %02x %02x\n", reg, val);
 	/* As per specification, disable irq in between register writes */
 	if (client->irq)
 		disable_irq_nosync(client->irq);
@@ -229,7 +225,6 @@ static int bma150_set_mode(struct bma150_data *bma150, u8 mode)
 {
 	int error;
 
-	printk("bma150_set_mode = %u\n", mode);
 	if (bma150->chip_id == BMA180_CHIP_ID) {
 		error = bma150_set_reg_bits(bma150->client, mode, BMA180_WAKE_UP_POS,
 									BMA180_WAKE_UP_MSK, BMA180_WAKE_UP_REG);
@@ -264,7 +259,6 @@ static int bma150_soft_reset(struct bma150_data *bma150)
 {
 	int error;
 
-	printk("bma150_soft_reset\n");
 	if (bma150->chip_id == BMA180_CHIP_ID)
 		error = bma150_write_byte(bma150->client, BMA180_SW_RES_REG, 0xb6);
 	else
@@ -281,9 +275,7 @@ static int bma150_soft_reset(struct bma150_data *bma150)
 
 static int bma150_set_range(struct bma150_data *bma150, u8 range)
 {
-	printk("bma150_set_range = %u\n", range);
-	if (bma150->chip_id == BMA180_CHIP_ID)
-		{
+	if (bma150->chip_id == BMA180_CHIP_ID) {
 		/* NOTE: range is 3 bit for BMA180! Translate... */
 		switch (range) {
 			case BMA150_RANGE_2G: range = 0x2; break;
@@ -292,21 +284,19 @@ static int bma150_set_range(struct bma150_data *bma150, u8 range)
 		}
 		return bma150_set_reg_bits(bma150->client, range, BMA180_RANGE_POS,
 								   BMA180_RANGE_MSK, BMA180_RANGE_REG);
-		}
+	}
 	return bma150_set_reg_bits(bma150->client, range, BMA150_RANGE_POS,
 				BMA150_RANGE_MSK, BMA150_RANGE_REG);
 }
 
 static int bma150_set_bandwidth(struct bma150_data *bma150, u8 bw)
 {
-	printk("bma150_set_bandwidth = %u\n", bw);
-	if (bma150->chip_id == BMA180_CHIP_ID)
-		{
+	if (bma150->chip_id == BMA180_CHIP_ID) {
 		// NOTE: bandwidth is 4 bit for BMA180!
 		bw += 1;	// translate roughly...
 		return bma150_set_reg_bits(bma150->client, bw, BMA180_BANDWIDTH_POS,
 								   BMA180_BANDWIDTH_MSK, BMA180_BANDWIDTH_REG);
-		}
+	}
 	return bma150_set_reg_bits(bma150->client, bw, BMA150_BANDWIDTH_POS,
 				BMA150_BANDWIDTH_MSK, BMA150_BANDWIDTH_REG);
 }
@@ -316,11 +306,9 @@ static int bma150_set_low_g_interrupt(struct bma150_data *bma150,
 {
 	int error;
 
-	printk("bma150_set_low_g_interrupt = %u %u %u %u\n", enable, hyst, dur, thres);
-	if (bma150->chip_id == BMA180_CHIP_ID)
-		{
+	if (bma150->chip_id == BMA180_CHIP_ID) {
 		return 0;
-		}
+	}
 	error = bma150_set_reg_bits(bma150->client, hyst,
 				BMA150_LOW_G_HYST_POS, BMA150_LOW_G_HYST_MSK,
 				BMA150_LOW_G_HYST_REG);
@@ -345,11 +333,9 @@ static int bma150_set_high_g_interrupt(struct bma150_data *bma150,
 {
 	int error;
 
-	printk("bma150_set_high_g_interrupt = %u %u %u %u\n", enable, hyst, dur, thres);
-	if (bma150->chip_id == BMA180_CHIP_ID)
-		{
+	if (bma150->chip_id == BMA180_CHIP_ID) {
 		return 0;
-		}
+	}
 	error = bma150_set_reg_bits(bma150->client, hyst,
 				BMA150_HIGH_G_HYST_POS, BMA150_HIGH_G_HYST_MSK,
 				BMA150_HIGH_G_HYST_REG);
@@ -377,7 +363,6 @@ static int bma150_set_any_motion_interrupt(struct bma150_data *bma150,
 {
 	int error;
 
-	printk("bma150_set_any_motion_interrupt = %u %u %u\n", enable, dur, thres);
 	if (bma150->chip_id == BMA180_CHIP_ID) {
 		/* FIXME: set duration, threshold, ADV_INT */
 
@@ -417,11 +402,9 @@ static void bma150_report_xyz(struct bma150_data *bma150)
 	u8 data[BMA150_XYZ_DATA_SIZE];
 	s16 x, y, z;
 	s32 ret;
-//	printk("bma150_report_xyz\n");
 	ret = i2c_smbus_read_i2c_block_data(bma150->client,
 			BMA150_ACC_X_LSB_REG, BMA150_XYZ_DATA_SIZE, data);
-	if (ret != BMA150_XYZ_DATA_SIZE)
-		{
+	if (ret != BMA150_XYZ_DATA_SIZE) {
 		printk("data size error %d\n", ret);
 		return;
 		}
@@ -449,7 +432,7 @@ static void bma150_report_xyz(struct bma150_data *bma150)
 		y = (s16) (y << 6) >> 6;
 		z = (s16) (z << 6) >> 6;
 	}
-//	printk("x=%d y=%d z=%d\n", (int)x, (int)y, (int)z);
+
 	input_report_abs(bma150->input, ABS_X, x);
 	input_report_abs(bma150->input, ABS_Y, y);
 	input_report_abs(bma150->input, ABS_Z, z);
@@ -497,7 +480,7 @@ static void bma150_close(struct bma150_data *bma150)
 		/* clear new_data_int */
 		bma150_set_reg_bits(bma150->client, 0, /* bit*/1,
 								   0x02, 0x21);
-		}
+	}
 
 }
 
@@ -534,7 +517,6 @@ static int bma150_initialize(struct bma150_data *bma150,
 {
 	int error;
 
-	printk("cfg = %p\n", cfg);
 	if(!cfg) {
 		printk("bma150_initialize: missing cfg\n");
 		return -EINVAL;
@@ -551,7 +533,7 @@ static int bma150_initialize(struct bma150_data *bma150,
 	if (error)
 		return error;
 
-	if (bma150->client->irq > 0) {
+	if (bma150->client->irq) {
 		error = bma150_set_any_motion_interrupt(bma150,
 					cfg->any_motion_int,
 					cfg->any_motion_dur,
@@ -699,8 +681,8 @@ static int bma150_probe(struct i2c_client *client,
 	error = bma150_initialize(bma150, cfg);
 	if (error)
 		goto err_free_mem;
-	printk("client->irq = %d\n", client->irq);
-	if (0 && client->irq > 0) {
+
+	if (client->irq > 0) {
 		error = bma150_register_input_device(bma150);
 		if (error)
 			goto err_free_mem;
