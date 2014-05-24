@@ -513,6 +513,7 @@ static void lis302dl_interrupt_handle_click(struct lis3lv02d *lis3)
 	struct input_dev *dev = lis3->idev->input;
 	u8 click_src;
 
+/* Disable key events, so it doesn't grab wakelocks in android and keeps the device awake.
 	mutex_lock(&lis3->mutex);
 	lis3->read(lis3, CLICK_SRC, &click_src);
 
@@ -532,6 +533,7 @@ static void lis302dl_interrupt_handle_click(struct lis3lv02d *lis3)
 	}
 	input_sync(dev);
 	mutex_unlock(&lis3->mutex);
+*/
 }
 
 static inline void lis302dl_data_ready(struct lis3lv02d *lis3, int index)
@@ -907,12 +909,14 @@ static void lis3lv02d_8b_configure(struct lis3lv02d *lis3,
 			(p->click_thresh_x & 0xf) |
 			(p->click_thresh_y << 4));
 
+/* Disable key events, so it doesn't grab wakelocks in android and keeps the device awake.
 		if (lis3->idev) {
 			struct input_dev *input_dev = lis3->idev->input;
 			input_set_capability(input_dev, EV_KEY, BTN_X);
 			input_set_capability(input_dev, EV_KEY, BTN_Y);
 			input_set_capability(input_dev, EV_KEY, BTN_Z);
 		}
+*/
 	}
 
 	if (p->wakeup_flags) {
