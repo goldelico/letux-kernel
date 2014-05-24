@@ -14,13 +14,13 @@ ACTION=="add", SUBSYSTEM=="power_supply", KERNEL=="twl4030_usb", ATTR{type}=="US
 # 2A charger plugged in
 #ACTION=="change", SUBSYSTEM=="power_supply", KERNEL=="twl4030_usb", ATTR{type}=="USB", ATTR{/dev/usb_id}=="GND", ATTR{device/max_current}="851000"
 
-# so we have to hard-code twl4030-usb.36 until we find a better solution
-# FIXME: the .36 also depends on the device tree! Thus it needs verification after each kernel modification!
+# so we have to hard-code twl4030-usb.48 until we find a better solution
+# FIXME: the .48 also depends on the device tree! Thus it needs verification after each kernel modification!
 
 # 500 mA charger plugged in
-ACTION=="change", SUBSYSTEM=="power_supply", KERNEL=="twl4030_usb", ATTR{type}=="USB", ATTR{../../../twl4030-usb.36/id}=="floating", ATTR{device/max_current}="500000"
+ACTION=="change", SUBSYSTEM=="power_supply", KERNEL=="twl4030_usb", ATTR{type}=="USB", ATTR{../../../twl4030-usb.48/id}=="floating", ATTR{device/max_current}="500000"
 # 1A charger plugged in
-ACTION=="change", SUBSYSTEM=="power_supply", KERNEL=="twl4030_usb", ATTR{type}=="USB", ATTR{../../../twl4030-usb.36/id}=="102k", ATTR{device/max_current}="851000"
+ACTION=="change", SUBSYSTEM=="power_supply", KERNEL=="twl4030_usb", ATTR{type}=="USB", ATTR{../../../twl4030-usb.48/id}=="102k", ATTR{device/max_current}="851000"
 # 2A charger plugged in
-ACTION=="change", SUBSYSTEM=="power_supply", KERNEL=="twl4030_usb", ATTR{type}=="USB", ATTR{../../../twl4030-usb.36/id}=="GND", ATTR{device/max_current}="851000"
-# FIXME: we should probably have a "capture all" rule if the id attr can't be identified
+ACTION=="change", SUBSYSTEM=="power_supply", KERNEL=="twl4030_usb", ATTR{type}=="USB", ATTR{../../../twl4030-usb.48/id}=="GND", ATTR{device/max_current}="851000"
+# FIXME: we should probably have a "capture all" rule if the id value can't be identified
