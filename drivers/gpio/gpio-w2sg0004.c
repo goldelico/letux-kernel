@@ -297,10 +297,9 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 out5:
 	rfkill_destroy(rf_kill);
 out4:
-	(void) gpiochip_remove(&gw2sg->gpio);
+	err = gpiochip_remove(&gw2sg->gpio);
 out3:
 	free_irq(gw2sg->rx_irq, gw2sg);
-	/* undo the gpiochip_add() ? */
 out2:
 	gpio_free(gw2sg->rx_gpio);
 out1:

@@ -871,12 +871,6 @@ config GPIO_W2SG0004
 	depends on GPIOLIB
 	help
 	  Enable on/off control of W2SG0004 GPS using a virtual GPIO.
-
-config GPIO_REG
-	tristate "Virtual GPIO for controlling a regulator"
-	depends on GPIOLIB
-	help
-	  If your board needs to control a regulator using a
-	  virtual GPIO, this is the driver for you.  Otherwise don't bother.
+	  NOTE: can't currently be compiled as module, so please choose Y.
 
 endif
