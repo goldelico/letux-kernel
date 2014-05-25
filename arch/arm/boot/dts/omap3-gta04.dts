@@ -225,9 +225,12 @@
 	modem_en: modem { /* control modem power through rfkill */
 		compatible = "option,gtm601";
 		/* compatible = "gemalto,phs8" for Neo900/GTA04b7 */
+	/*	gpio-controller;
+		#gpio-cells = <2>;  */
 
+		usb-port = &hsusb2_phy;
 		on-off-gpio = <&gpio6 26 0>;	/* GPIO_186: trigger for power on */
-	/*	on-indicator-gpio = <&gpio5 19 0>;	/* n/a */
+	/*	on-indicator-gpio = <&gpio5 19 0>;	/* n/a on GTA04A4 */
 	};
 
 };
@@ -594,13 +597,13 @@
 &uart1 { /* Bluetooth */
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart1_pins>;
-	dtr-gpio = <&bt_en 0 0>;	/* w2cbw bluetooth power control through virtual gpio */
+/*	dtr-gpio = <&bt_en 0 GPIO_ACTIVE_LOW>;	/* w2cbw bluetooth power control through virtual gpio */
 };
 
 &uart2 { /* GPS */
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart2_pins>;
-	dtr-gpio = <&gps_en 0 0>;	/* w2sg0004 GPS power control through virtual gpio */
+/*	dtr-gpio = <&gps_en 0 GPIO_ACTIVE_HIGH>;	/* w2sg0004 GPS power control through virtual gpio */
 };
 
 &uart3 { /* Console and IrDA */
