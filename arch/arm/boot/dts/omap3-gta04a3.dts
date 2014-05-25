@@ -19,12 +19,11 @@
 	/* overwrite device model */
 	model = "Goldelico GTA04A3";
 
-};
+	modem_en: modem { /* can't control modem power through rfkill */
+		on-off-gpio = <0>;	/* overwrite as n/a */
+	};
 
-/* FIXME:
- * the A3 board has several GPIOs swapped
- * and can't turn off the modem (i.e. disable/remove the rfkill driver for the modem)
- */
+};
 
 &i2c2 {
 	clock-frequency = <400000>;
