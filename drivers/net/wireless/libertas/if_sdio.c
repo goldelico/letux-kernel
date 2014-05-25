@@ -695,33 +695,10 @@ out:
 	return ret;
 }
 
-static void if_sdio_do_prog_firmware(struct lbs_private *priv, int ret,
-				     const struct firmware *helper,
-				     const struct firmware *mainfw)
-{
-	struct if_sdio_card *card = priv->card;
-
-	if (ret) {
-		pr_err("failed to find firmware (%d)\n", ret);
-		return;
-	}
-
-	ret = if_sdio_prog_helper(card, helper);
-	if (ret)
-		return;
-
-	lbs_deb_sdio("Helper firmware loaded\n");
-
-	ret = if_sdio_prog_real(card, mainfw);
-	if (ret)
-		return;
-
-	lbs_deb_sdio("Firmware loaded\n");
-	if_sdio_finish_power_on(card);
-}
-
 static int if_sdio_prog_firmware(struct if_sdio_card *card)
 {
+	const struct firmware *helper = NULL;
+	const struct firmware *mainfw = NULL;
 	int ret;
 	u16 scratch;
 
@@ -765,8 +742,27 @@ static int if_sdio_prog_firmware(struct if_sdio_card *card)
 		return 0;
 	}
 
-	ret = lbs_get_firmware_async(card->priv, &card->func->dev, card->model,
-				     fw_table, if_sdio_do_prog_firmware);
+	ret = lbs_get_firmware(&card->func->dev, card->model, fw_table,
+			       &helper, &mainfw);
+	if (ret) {
+		pr_err("failed to find firmware (%d)\n", ret);
+		return ret;
+	}
+
+	ret = if_sdio_prog_helper(card, helper);
+	if (ret)
+		return ret;
+
+	lbs_deb_sdio("Helper firmware loaded\n");
+
+	ret = if_sdio_prog_real(card, mainfw);
+	if (ret)
+		return ret;
+
+	lbs_deb_sdio("Firmware loaded\n");
+	if_sdio_finish_power_on(card);
+
+	ret = 0;
 
 out:
 	lbs_deb_leave_args(LBS_DEB_SDIO, "ret %d", ret);
@@ -906,10 +902,8 @@ static int if_sdio_power_on(struct if_sdio_card *card)
 
 	sdio_release_host(func);
 	ret = if_sdio_prog_firmware(card);
-	if (ret) {
-		sdio_disable_func(func);
+	if (ret)
 		return ret;
-	}
 
 	return 0;
 
@@ -1269,8 +1263,10 @@ static int if_sdio_probe(struct sdio_func *func,
 	priv->power_restore = if_sdio_power_restore;
 
 	ret = if_sdio_power_on(card);
-	if (ret)
+	if (ret) {
+		ret = -ENODEV;
 		goto err_activate_card;
+	}
 
 out:
 	lbs_deb_leave_args(LBS_DEB_SDIO, "ret %d", ret);
