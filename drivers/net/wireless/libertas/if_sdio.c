@@ -129,6 +129,7 @@ struct if_sdio_card {
 	struct work_struct	packet_worker;
 
 	u8			rx_unit;
+	struct wakeup_source	wakelock;
 };
 
 static void if_sdio_finish_power_on(struct if_sdio_card *card);
@@ -697,8 +698,8 @@ out:
 
 static int if_sdio_prog_firmware(struct if_sdio_card *card)
 {
-	const struct firmware *helper = NULL;
-	const struct firmware *mainfw = NULL;
+	struct firmware *helper = NULL;
+	struct firmware *mainfw = NULL;
 	int ret;
 	u16 scratch;
 
@@ -1268,6 +1269,10 @@ static int if_sdio_probe(struct sdio_func *func,
 		goto err_activate_card;
 	}
 
+	wakeup_source_init(&card->wakelock, "libertas_sdio");
+
+	__pm_stay_awake(&card->wakelock);
+
 out:
 	lbs_deb_leave_args(LBS_DEB_SDIO, "ret %d", ret);
 
@@ -1330,6 +1335,10 @@ static void if_sdio_remove(struct sdio_func *func)
 		card->packets = card->packets->next;
 		kfree(packet);
 	}
+
+	__pm_relax(&card->wakelock);
+
+	wakeup_source_trash(&card->wakelock);
 
 	kfree(card);
 	lbs_deb_leave(LBS_DEB_SDIO);
