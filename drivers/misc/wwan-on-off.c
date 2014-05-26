@@ -34,7 +34,7 @@
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
 #include <linux/platform_device.h>
-#include <linux/gpio-w2sg0004.h>
+#include <linux/gpio-wwan-on-off.h>
 #include <linux/workqueue.h>
 #include <linux/rfkill.h>
 
@@ -52,25 +52,26 @@
 
 struct gpio_gtm601 {
 	struct rfkill *rf_kill;
-	int		lna_gpio;
-	int		lna_blocked;
-	int		is_on;
-	unsigned long	last_toggle;
-	unsigned long	backoff;	/* time to wait since last_toggle */
 	int		on_off_gpio;
-	int		rx_gpio;
-	int		rx_irq;
-
-	u16		on_state;  /* Mux state when GPS is on */
-	u16		off_state; /* Mux state when GPS is off */
+	int		feedback_gpio;
 
 	enum {W2SG_IDLE, W2SG_DOWN, W2SG_UP} state;
 	int		requested;
 	int		suspended;
-	int		rx_redirected;
 	spinlock_t	lock;
 	struct gpio_chip gpio;
 	struct delayed_work work;
+	/* what we should not need and therefore should get rid of */
+	int		is_on;
+	unsigned long	last_toggle;
+	unsigned long	backoff;	/* time to wait since last_toggle */
+	int		lna_gpio;
+	int		lna_blocked;
+	int		rx_irq;
+
+	u16		on_state;  /* Mux state when WWAN is on */
+	u16		off_state; /* Mux state when WWAN is off */
+	int		rx_redirected;
 };
 
 /* this requires this driver to be compiled into the kernel! */
@@ -84,14 +85,14 @@ static void toggle_work(struct work_struct *work)
 	switch (gw2sg->state) {
 	case W2SG_UP:
 		gw2sg->state = W2SG_IDLE;
-		printk("GPS idle\n");
+		printk("WWAN idle\n");
 	case W2SG_IDLE:
 		spin_lock_irq(&gw2sg->lock);
 		if (gw2sg->requested == gw2sg->is_on) {
 			if (!gw2sg->is_on && !gw2sg->rx_redirected) {
 				gw2sg->rx_redirected = 1;
 				omap_mux_set_gpio(gw2sg->off_state,
-						  gw2sg->rx_gpio);
+						  gw2sg->feedback_gpio);
 				enable_irq(gw2sg->rx_irq);
 			}
 			spin_unlock_irq(&gw2sg->lock);
@@ -99,7 +100,7 @@ static void toggle_work(struct work_struct *work)
 		}
 		spin_unlock_irq(&gw2sg->lock);
 		gpio_set_value_cansleep(gw2sg->on_off_gpio, 0);
-		printk("GPS down\n");
+		printk("WWAN down\n");
 		gw2sg->state = W2SG_DOWN;
 		schedule_delayed_work(&gw2sg->work,
 				      msecs_to_jiffies(10));
@@ -108,7 +109,7 @@ static void toggle_work(struct work_struct *work)
 		gpio_set_value_cansleep(gw2sg->on_off_gpio, 1);
 		gw2sg->state = W2SG_UP;
 		gw2sg->last_toggle = jiffies;
-		printk("GPS up\n");
+		printk("WWAN up\n");
 		gw2sg->is_on = !gw2sg->is_on;
 		schedule_delayed_work(&gw2sg->work,
 				      msecs_to_jiffies(10));
@@ -143,13 +144,13 @@ static void gpio_gtm601_set_value(struct gpio_chip *gc,
 	unsigned long flags;
 	struct gpio_gtm601 *gw2sg = container_of(gc, struct gpio_gtm601,
 					       gpio);
-	printk("GPS SET to %d\n", val);
+	printk("WWAN SET to %d\n", val);
 	spin_lock_irqsave(&gw2sg->lock, flags);
 	if (val && !gw2sg->requested) {
 		if (gw2sg->rx_redirected) {
 			gw2sg->rx_redirected = 0;
 			disable_irq(gw2sg->rx_irq);
-			omap_mux_set_gpio(gw2sg->on_state, gw2sg->rx_gpio);
+			omap_mux_set_gpio(gw2sg->on_state, gw2sg->feedback_gpio);
 		}
 		gw2sg->requested = 1;
 	} else if (!val && gw2sg->requested) {
@@ -205,13 +206,13 @@ static int gpio_gtm601_probe(struct platform_device *pdev)
 			return -ENOMEM;
 		pdata->lna_gpio = of_get_named_gpio_flags(dev->of_node, "lna-gpio", 0, &flags);
 		pdata->on_off_gpio = of_get_named_gpio_flags(dev->of_node, "on-off-gpio", 0, &flags);
-		pdata->rx_gpio = of_get_named_gpio_flags(dev->of_node, "rx-gpio", 0, &flags);
+		pdata->feedback_gpio = of_get_named_gpio_flags(dev->of_node, "rx-gpio", 0, &flags);
 		if (of_property_read_u32(dev->of_node, "rx-on-mux", &mux_state))
 			pdata->on_state = mux_state;
 		if (of_property_read_u32(dev->of_node, "rx-off-mux", &mux_state))
 			pdata->off_state = mux_state;
 		if (pdata->on_off_gpio == -EPROBE_DEFER ||
-			pdata->rx_gpio == -EPROBE_DEFER)
+			pdata->feedback_gpio == -EPROBE_DEFER)
 			return -EPROBE_DEFER;
 		pdata->ctrl_gpio = -1;
 		pdev->dev.platform_data = pdata;
@@ -223,7 +224,7 @@ static int gpio_gtm601_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	gw2sg->lna_gpio = pdata->lna_gpio;
 	gw2sg->on_off_gpio = pdata->on_off_gpio;
-	gw2sg->rx_gpio = pdata->rx_gpio;
+	gw2sg->feedback_gpio = pdata->feedback_gpio;
 	gw2sg->on_state = pdata->on_state;
 	gw2sg->off_state = pdata->off_state;
 
@@ -233,7 +234,7 @@ static int gpio_gtm601_probe(struct platform_device *pdev)
 	gw2sg->last_toggle = jiffies;
 	gw2sg->backoff = HZ;
 
-	gw2sg->gpio.label = "gpio-w2sg0004";
+	gw2sg->gpio.label = "gpio-wwan-on-off";
 	gw2sg->gpio.ngpio = 1;
 	gw2sg->gpio.base = pdata->ctrl_gpio;
 	gw2sg->gpio.owner = THIS_MODULE;
@@ -243,17 +244,17 @@ static int gpio_gtm601_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&gw2sg->work, toggle_work);
 	spin_lock_init(&gw2sg->lock);
 
-	err = gpio_request(gw2sg->on_off_gpio, "gpio-w2sg0004-on-off");
+	err = gpio_request(gw2sg->on_off_gpio, "gpio-on-key");
 	if (err < 0)
 		goto out;
 	gpio_direction_output(gw2sg->on_off_gpio, false);
 
-	err = gpio_request(gw2sg->rx_gpio, "gpio-w2sg0004-rx");
+	err = gpio_request(gw2sg->feedback_gpio, "gpio-power-on");
 	if (err < 0)
 		goto out1;
-	gpio_direction_input(gw2sg->rx_gpio);
+	gpio_direction_input(gw2sg->feedback_gpio);
 
-	gw2sg->rx_irq = gpio_to_irq(gw2sg->rx_gpio);
+	gw2sg->rx_irq = gpio_to_irq(gw2sg->feedback_gpio);
 	if (gw2sg->rx_irq < 0)
 		goto out2;
 
@@ -271,8 +272,8 @@ static int gpio_gtm601_probe(struct platform_device *pdev)
 	if (err)
 		goto out3;
 
-	rf_kill = rfkill_alloc("GPS", &pdev->dev,
-						   RFKILL_TYPE_GPS,
+	rf_kill = rfkill_alloc("WWAN", &pdev->dev,
+						   RFKILL_TYPE_WWAN,
 						   &gpio_gtm601_rfkill_regulator_ops, gw2sg);
 	if (rf_kill == NULL) {
 		err = -ENOMEM;
@@ -298,7 +299,7 @@ out4:
 out3:
 	free_irq(gw2sg->rx_irq, gw2sg);
 out2:
-	gpio_free(gw2sg->rx_gpio);
+	gpio_free(gw2sg->feedback_gpio);
 out1:
 	gpio_free(gw2sg->on_off_gpio);
 out:
@@ -316,7 +317,7 @@ static int gpio_gtm601_remove(struct platform_device *pdev)
 	if (ret)
 		return ret;
 	free_irq(gw2sg->rx_irq, gw2sg);
-	gpio_free(gw2sg->rx_gpio);
+	gpio_free(gw2sg->feedback_gpio);
 	gpio_free(gw2sg->on_off_gpio);
 	kfree(gw2sg);
 	return 0;
@@ -348,7 +349,7 @@ static int gpio_gtm601_suspend(struct device *dev)
 		gw2sg->state = W2SG_IDLE;
 	}
 	if (gw2sg->is_on) {
-		printk("GPS off for suspend %d %d\n", gw2sg->requested, gw2sg->is_on);
+		printk("WWAN off for suspend %d %d\n", gw2sg->requested, gw2sg->is_on);
 		gpio_set_value_cansleep(gw2sg->on_off_gpio, 0);
 		msleep(10);
 		gpio_set_value_cansleep(gw2sg->on_off_gpio, 1);
@@ -364,7 +365,7 @@ static int gpio_gtm601_resume(struct device *dev)
 	spin_lock_irq(&gw2sg->lock);
 	gw2sg->suspended = 0;
 	spin_unlock_irq(&gw2sg->lock);
-	printk("GPS resuming %d %d\n", gw2sg->requested, gw2sg->is_on);
+	printk("WWAN resuming %d %d\n", gw2sg->requested, gw2sg->is_on);
 	schedule_delayed_work(&gw2sg->work, 0);
 	return 0;
 }
@@ -381,6 +382,7 @@ static struct platform_driver gpio_gtm601_driver = {
 
 static int __init gpio_gtm601_init(void)
 {
+	printk("gpio_gtm601_init\n");
 	return platform_driver_register(&gpio_gtm601_driver);
 }
 module_init(gpio_gtm601_init);
