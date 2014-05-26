@@ -5,10 +5,22 @@
 menu "Misc devices"
 
 config SENSORS_LIS3LV02D
-	tristate
+	tristate "LIS3LV02D"
 	depends on INPUT
 	select INPUT_POLLDEV
 	default n
+
+config WWAN_ON_OFF
+	tristate "WWAN ON/OFF"
+	default n
+	help
+	  If you say yes here you can control the power of a
+	  WWAN module that has some power-on GPIO through
+	  rfkill wwan. The driver can also sense either some
+	  other GPIO to read back the real status or inspect
+	  the state of some USB PHY port where the modem module
+	  is connected to. Typical devices that can be controlled
+	  are OPTION GTM601, Gemalto PHS8.
 
 config AD525X_DPOT
 	tristate "Analog Devices Digital Potentiometers"
