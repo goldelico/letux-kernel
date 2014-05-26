@@ -23,6 +23,17 @@
 		on-off-gpio = <0>;	/* overwrite as n/a */
 	};
 
+	gpio-keys-wwan {
+		compatible = "gpio-keys";
+
+		wwan-button {
+			label = "3G_WOE";
+			linux,code = <240>;
+			gpios = <&gpio6 16 GPIO_ACTIVE_HIGH>;
+			gpio-key,wakeup;
+		};
+	};
+
 };
 
 &i2c2 {
