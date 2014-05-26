@@ -23,6 +23,9 @@
  * will be switched on, and whenever it is closed, the GPS will
  * be switched off.
  *
+ * In addition we register as a rfkill client so that we can
+ * control the LNA GPIO/regulator.
+ *
  */
 
 #include <linux/module.h>
@@ -182,7 +185,7 @@ static int gpio_w2sg_rfkill_set_block(void *data, bool blocked)
 
 	rfkill_data -> lna_blocked = blocked;
 
-	// forward !lna_blocked && is_on to lna_gpio state
+	// FIXME: forward !lna_blocked && is_on to lna_gpio state
 
 	return ret;
 }
@@ -384,6 +387,7 @@ static struct platform_driver gpio_w2sg_driver = {
 
 static int __init gpio_w2sg_init(void)
 {
+	printk("gpio_w2sg_init()\n");
 	return platform_driver_register(&gpio_w2sg_driver);
 }
 module_init(gpio_w2sg_init);
