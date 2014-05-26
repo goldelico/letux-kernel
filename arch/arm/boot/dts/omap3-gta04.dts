@@ -47,6 +47,17 @@
 		};
 	};
 
+	gpio-keys-wwan {
+		compatible = "gpio-keys";
+
+		wwan-button {
+			label = "3G_WOE";
+			linux,code = <240>;
+			gpios = <&gpio1 10 GPIO_ACTIVE_HIGH>;
+			gpio-key,wakeup;
+		};
+	};
+
 	hsusb2_phy: hsusb2_phy {
 		compatible = "usb-nop-xceiv";
 		reset-gpios = <&gpio6 14 GPIO_ACTIVE_LOW>; /* gpio_174 = reset for USB3322 */
