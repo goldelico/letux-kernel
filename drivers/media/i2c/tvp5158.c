@@ -202,6 +202,8 @@ struct tvp5158_priv {
 	const char			*sensor_name;
 	int				cam_fpd_mux_s0_gpio;
 	int				sel_tvp_fpd_s0;
+	int				vin2_s0_gpio;
+	int				vin2_s2_gpio;
 	enum				tvp5158_std current_std;
 	enum				tvp5158_signal_present signal_present;
 	const struct			tvp5158_std_info *std_list;
@@ -448,6 +450,22 @@ static int tvp5158_get_gpios(struct device_node *node,
 		return -EINVAL;
 	}
 
+	gpio = of_get_gpio(node, 2);
+	if (gpio_is_valid(gpio))
+		priv->vin2_s0_gpio = gpio;
+	else {
+		priv->vin2_s0_gpio = -1;
+		dev_err(&client->dev, "failed to parse VIN2_S0 gpio\n");
+	}
+
+	gpio = of_get_gpio(node, 3);
+	if (gpio_is_valid(gpio))
+		priv->vin2_s2_gpio = gpio;
+	else {
+		priv->vin2_s2_gpio = -1;
+		dev_err(&client->dev, "failed to parse VIN2_S2 gpio\n");
+	}
+
 	return 0;
 }
 
@@ -455,19 +473,42 @@ static int tvp5158_set_gpios(struct i2c_client *client)
 {
 
 	struct tvp5158_priv *priv = to_tvp5158(client);
-	struct gpio gpios[] = {
-		{ priv->sel_tvp_fpd_s0, GPIOF_OUT_INIT_LOW,
-			"tvp_fpd_mux_s0" },
-		{ priv->cam_fpd_mux_s0_gpio, GPIOF_OUT_INIT_HIGH,
-			"cam_fpd_mux_s0" },
-	};
-	int ret = -1;
+	struct gpio gpios[10];
+	int ret = -1, i = 0;
 
-	ret = gpio_request_array(gpios, ARRAY_SIZE(gpios));
+	if (gpio_is_valid(priv->sel_tvp_fpd_s0)) {
+		gpios[i].gpio = priv->sel_tvp_fpd_s0;
+		gpios[i].flags = GPIOF_OUT_INIT_LOW;
+		gpios[i].label = "tvp_fpd_mux_s0";
+		i++;
+	}
+
+	if (gpio_is_valid(priv->cam_fpd_mux_s0_gpio)) {
+		gpios[i].gpio = priv->cam_fpd_mux_s0_gpio;
+		gpios[i].flags = GPIOF_OUT_INIT_HIGH;
+		gpios[i].label = "cam_fpd_mux_s0";
+		i++;
+	}
+
+	if (gpio_is_valid(priv->vin2_s0_gpio)) {
+		gpios[i].gpio = priv->vin2_s0_gpio;
+		gpios[i].flags = GPIOF_OUT_INIT_LOW;
+		gpios[i].label = "vin2_s0";
+		i++;
+	}
+
+	if (gpio_is_valid(priv->vin2_s2_gpio)) {
+		gpios[i].gpio = priv->vin2_s2_gpio;
+		gpios[i].flags = GPIOF_OUT_INIT_HIGH;
+		gpios[i].label = "vin2_s2";
+		i++;
+	}
+
+	ret = gpio_request_array(gpios, i);
 	if (ret)
 		return ret;
 
-	gpio_free_array(gpios, ARRAY_SIZE(gpios));
+	gpio_free_array(gpios, i);
 
 	return 0;
 }
