@@ -700,7 +700,8 @@
 			<&gpio4 14 0>,
 			<&gpio4 15 0>,
 			<&gpio4 16 0>,
-			<&gpio6 17 0>;
+			<&gpio6 17 0>,
+			<&pcf_hdmi 6 0>;
 	};
 
 	ov10633@37 {
@@ -715,6 +716,20 @@
 			};
 		};
 	};
+
+	camera_tvp5158: camera_tvp5158 {
+		compatible = "ti,tvp5158";
+		reg = <0x58>;
+		gpios = <&pcf_hdmi 3 0>,
+			<&pcf_lcd3 8 0>,
+			<&pcf_hdmi 2 0>,
+			<&pcf_hdmi 6 0>;
+		port {
+			tvp5158: endpoint {
+			// No props incase of BT656
+			};
+		};
+       };
 
 };
 
@@ -740,12 +755,23 @@
 &vip1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&vin1a_pins &vin2a_pins>;
+
+	vin2a: port@1A {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <1>;
+	};
 };
 
 &vin2a {
 	endpoint@0 {
 		slave-mode;
 		remote-endpoint = <&onboardLI>;
+	};
+
+	endpoint@1 {
+		slave-mode;
+		remote-endpoint = <&tvp5158>;
 	};
 };
 
