@@ -272,6 +272,20 @@
 		>;
 	};
 
+	dcan1_pins: pinmux_dcan1_pins {
+		pinctrl-single,pins = <
+			0x3d0	0x00000000	/* DCAN1_TX: MODE0 */
+			0x418	0x00000001	/* WAKEUP0: MODE1 */
+		>;
+	};
+
+	dcan2_pins: pinmux_dcan2_pins {
+		pinctrl-single,pins = <
+			0x288	0x00000002	/* DCAN2_TX: MODE2 */
+			0x28C	0x00060002	/* DCAN2_RX: MODE2 | INPUTENABLE | PULLUP */
+		>;
+	};
+
 	radio_pins: pinmux_radio_pins {
 		pinctrl-single,pins = <
 			0x02F4   0x40000        /* MCASP2_ACLKX: MODE0 */
@@ -717,6 +731,18 @@
 
 &i2c5 {
 	clock-frequency = <400000>;
+};
+
+&dcan1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&dcan1_pins>;
+	status = "okay";
+};
+
+&dcan2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&dcan2_pins>;
+	status = "okay";
 };
 
 
