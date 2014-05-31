@@ -24,7 +24,7 @@
  * be switched off.
  *
  * In addition we register as a rfkill client so that we can
- * control the LNA GPIO/regulator.
+ * control the LNA power.
  *
  */
 
@@ -58,7 +58,7 @@
 
 struct gpio_w2sg {
 	struct rfkill *rf_kill;
-	int		lna_gpio;
+	struct	regulator *lna_regulator;
 	int		lna_blocked;
 	int		is_on;
 	unsigned long	last_toggle;
@@ -75,7 +75,10 @@ struct gpio_w2sg {
 	int		suspended;
 	int		rx_redirected;
 	spinlock_t	lock;
+#ifdef CONFIG_GPIOLIB
 	struct gpio_chip gpio;
+	const char	*gpio_name[1];
+#endif
 	struct delayed_work work;
 };
 
@@ -146,9 +149,9 @@ static irqreturn_t gpio_w2sg_isr(int irq, void *dev_id)
 static void gpio_w2sg_set_value(struct gpio_chip *gc,
 				unsigned offset, int val)
 {
-	unsigned long flags;
 	struct gpio_w2sg *gw2sg = container_of(gc, struct gpio_w2sg,
 					       gpio);
+	unsigned long flags;
 	printk("GPS SET to %d\n", val);
 	spin_lock_irqsave(&gw2sg->lock, flags);
 	if (val && !gw2sg->requested) {
@@ -178,19 +181,24 @@ static int gpio_w2sg_direction_output(struct gpio_chip *gc,
 
 static int gpio_w2sg_rfkill_set_block(void *data, bool blocked)
 {
-	struct gpio_w2sg *rfkill_data = data;
+	struct gpio_w2sg *gw2sg = data;
 	int ret = 0;
+	printk("%s: blocked: %d\n", __func__, blocked);
 
 	pr_debug("%s: blocked: %d\n", __func__, blocked);
 
-	rfkill_data -> lna_blocked = blocked;
+	gw2sg->lna_blocked = blocked;
 
-	// FIXME: forward !lna_blocked && is_on to lna_gpio state
-
+	if(!IS_ERR_OR_NULL(gw2sg->lna_regulator)) {
+		if(blocked)
+			regulator_disable(gw2sg->lna_regulator);
+		else
+			ret = regulator_enable(gw2sg->lna_regulator);
+	}
 	return ret;
 }
 
-static struct rfkill_ops gpio_w2sg_rfkill_regulator_ops = {
+static struct rfkill_ops gpio_w2sg0004_rfkill_ops = {
 	.set_block = gpio_w2sg_rfkill_set_block,
 };
 
@@ -202,32 +210,41 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 	int err;
 	printk("gpio_w2sg_probe()\n");
 
+#ifdef CONFIG_OF
+
 	if (pdev->dev.of_node) {
 		struct device *dev = &pdev->dev;
 		enum of_gpio_flags flags;
 		int mux_state;
+		printk("gpio_w2sg_probe() found DT\n");
 		pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 		if (!pdata)
 			return -ENOMEM;
-		pdata->lna_gpio = of_get_named_gpio_flags(dev->of_node, "lna-gpio", 0, &flags);
 		pdata->on_off_gpio = of_get_named_gpio_flags(dev->of_node, "on-off-gpio", 0, &flags);
 		pdata->rx_gpio = of_get_named_gpio_flags(dev->of_node, "rx-gpio", 0, &flags);
+		if (pdata->on_off_gpio == -EPROBE_DEFER ||
+			pdata->rx_gpio == -EPROBE_DEFER)
+			return -EPROBE_DEFER;	/* defer until we have all gpios */
 		if (of_property_read_u32(dev->of_node, "rx-on-mux", &mux_state))
 			pdata->on_state = mux_state;
 		if (of_property_read_u32(dev->of_node, "rx-off-mux", &mux_state))
 			pdata->off_state = mux_state;
-		if (pdata->on_off_gpio == -EPROBE_DEFER ||
-			pdata->rx_gpio == -EPROBE_DEFER)
-			return -EPROBE_DEFER;
-		pdata->ctrl_gpio = -1;
+		pdata->lna_regulator = devm_regulator_get_optional(dev, "lna");
+		printk("gpio_w2sg_probe() lna_regulator = %p\n", pdata->lna_regulator);
+		if(IS_ERR(pdata->lna_regulator))
+			return PTR_ERR(pdata->lna_regulator);
+		pdata->gpio_base = -1;
 		pdev->dev.platform_data = pdata;
 		printk("gpio_w2sg_probe() pdata=%p\n", pdata);
 	}
+#endif
 
 	gw2sg = kzalloc(sizeof(*gw2sg), GFP_KERNEL);
 	if (gw2sg == NULL)
 		return -ENOMEM;
-	gw2sg->lna_gpio = pdata->lna_gpio;
+	gw2sg->lna_regulator = pdata->lna_regulator;
+	gw2sg->lna_blocked = 1;
+
 	gw2sg->on_off_gpio = pdata->on_off_gpio;
 	gw2sg->rx_gpio = pdata->rx_gpio;
 	gw2sg->on_state = pdata->on_state;
@@ -239,13 +256,21 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 	gw2sg->last_toggle = jiffies;
 	gw2sg->backoff = HZ;
 
+	gw2sg->gpio_name[0] = "enable";	/* label of controlling GPIO */
+
 	gw2sg->gpio.label = "gpio-w2sg0004";
+	gw2sg->gpio.names = gw2sg->gpio_name;
 	gw2sg->gpio.ngpio = 1;
-	gw2sg->gpio.base = pdata->ctrl_gpio;
+	gw2sg->gpio.base = pdata->gpio_base;
 	gw2sg->gpio.owner = THIS_MODULE;
 	gw2sg->gpio.direction_output = gpio_w2sg_direction_output;
 	gw2sg->gpio.set = gpio_w2sg_set_value;
 	gw2sg->gpio.can_sleep = 0;
+
+#ifdef CONFIG_OF_GPIO
+	gw2sg->gpio.of_node = pdev->dev.of_node;
+#endif
+
 	INIT_DELAYED_WORK(&gw2sg->work, toggle_work);
 	spin_lock_init(&gw2sg->lock);
 
@@ -279,7 +304,7 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 
 	rf_kill = rfkill_alloc("GPS", &pdev->dev,
 						   RFKILL_TYPE_GPS,
-						   &gpio_w2sg_rfkill_regulator_ops, gw2sg);
+						   &gpio_w2sg0004_rfkill_ops, gw2sg);
 	if (rf_kill == NULL) {
 		err = -ENOMEM;
 		goto out4;
@@ -341,6 +366,9 @@ static int gpio_w2sg_suspend(struct device *dev)
 	gw2sg->suspended = 1;
 	spin_unlock_irq(&gw2sg->lock);
 
+	if(!IS_ERR_OR_NULL(gw2sg->lna_regulator))
+		regulator_disable(gw2sg->lna_regulator);
+
 	cancel_delayed_work_sync(&gw2sg->work);
 	if (gw2sg->state == W2SG_DOWN) {
 		msleep(10);
@@ -370,17 +398,31 @@ static int gpio_w2sg_resume(struct device *dev)
 	spin_lock_irq(&gw2sg->lock);
 	gw2sg->suspended = 0;
 	spin_unlock_irq(&gw2sg->lock);
+
 	printk("GPS resuming %d %d\n", gw2sg->requested, gw2sg->is_on);
 	schedule_delayed_work(&gw2sg->work, 0);
+
+	if(!IS_ERR_OR_NULL(gw2sg->lna_regulator) && !gw2sg->lna_blocked)
+		return regulator_enable(gw2sg->lna_regulator);
+
 	return 0;
 }
+
+#if defined(CONFIG_OF)
+static const struct of_device_id w2sg0004_of_match[] = {
+	{ .compatible = "wi2wi,w2sg0004" },
+	{},
+};
+MODULE_DEVICE_TABLE(of, w2sg0004_of_match);
+#endif
 
 SIMPLE_DEV_PM_OPS(w2sg_pm_ops, gpio_w2sg_suspend, gpio_w2sg_resume);
 
 static struct platform_driver gpio_w2sg_driver = {
-	.driver.name	= "w2s-gpio",
+	.driver.name	= "w2sg0004",
 	.driver.owner	= THIS_MODULE,
 	.driver.pm	= &w2sg_pm_ops,
+	.driver.of_match_table = of_match_ptr(w2sg0004_of_match),
 	.probe		= gpio_w2sg_probe,
 	.remove		= gpio_w2sg_remove,
 };
@@ -397,14 +439,6 @@ static void __exit gpio_w2sg_exit(void)
 	platform_driver_unregister(&gpio_w2sg_driver);
 }
 module_exit(gpio_w2sg_exit);
-
-#if defined(CONFIG_OF)
-static const struct of_device_id w2sg0004_of_match[] = {
-	{ .compatible = "wi2wi,w2sg0004" },
-	{},
-};
-MODULE_DEVICE_TABLE(of, w2sg0004_of_match);
-#endif
 
 MODULE_ALIAS("w2sg0004");
 
