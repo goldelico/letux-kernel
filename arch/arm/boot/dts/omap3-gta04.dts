@@ -200,7 +200,7 @@
 
 	tv_amp: opa362 {
 		compatible = "ti,opa362";
-		gpio = <&gpio1 23 0>;	/* GPIO to enable */
+		gpio = <&gpio1 23 0>;	/* GPIO to enable video out amplifier */
 		/* needs some endpoint plumbing into the VENC signal chain */
 	};
 
@@ -209,26 +209,14 @@
 		gpio-controller;
 		#gpio-cells = <2>;
 
-		microvolt = <3150000>;
-		vgpio-supply = <&vaux4>;
+		bluetooth-supply = <&vaux4>;
 	};
-
-/* driver has been removed
-	gps_lna: gps_lna { /* presents a single gpio to be plumbed to w2sg0004 lna control * /
-		compatible = "regulator-gpio";
-		gpio-controller;
-		#gpio-cells = <2>;
-
-		vgpio-supply = <&vsim>;
-	};
-*/
 
 	gps_en: w2sg0004 { /* presents a single gpio to be plumbed to uart2 dts */
 		compatible = "wi2wi,w2sg0004";
 		gpio-controller;
 		#gpio-cells = <2>;
 
-		/* lna-gpio = <&gps_lna 0 0>;	/* rfkill controllable LNA gpio/regulator */
 		lna-supply = <&vsim>;	/* LNA regulator */
 		on-off-gpio = <&gpio5 17 0>;	/* GPIO_145: trigger for turning on/off w2sg0004 */
 		rx-gpio = <&gpio5 19 0>;	/* GPIO_147: RX */
@@ -239,11 +227,12 @@
 	modem_en: modem { /* control modem power through rfkill */
 		compatible = "option,gtm601";
 		/* compatible = "gemalto,phs8" for Neo900/GTA04b7 */
-	/*	gpio-controller;
-		#gpio-cells = <2>;  */
+		gpio-controller;
+		#gpio-cells = <2>;
 
 		usb-port = &hsusb2_phy;
-		on-off-gpio = <&gpio6 26 0>;	/* GPIO_186: trigger for power on */
+		on-off-gpio = <&gpio6 26 0>;	/* GPIO_186: trigger to power on modem */
+		on-indicator-gpio = <0>;
 	/*	on-indicator-gpio = <&gpio5 19 0>;	/* n/a on GTA04A4 */
 	};
 
