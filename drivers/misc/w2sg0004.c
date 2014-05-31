@@ -183,7 +183,6 @@ static int gpio_w2sg_rfkill_set_block(void *data, bool blocked)
 {
 	struct gpio_w2sg *gw2sg = data;
 	int ret = 0;
-	printk("%s: blocked: %d\n", __func__, blocked);
 
 	pr_debug("%s: blocked: %d\n", __func__, blocked);
 

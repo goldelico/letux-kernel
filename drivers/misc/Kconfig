@@ -10,18 +10,6 @@ config SENSORS_LIS3LV02D
 	select INPUT_POLLDEV
 	default n
 
-config WWAN_ON_OFF
-	tristate "WWAN ON/OFF"
-	default n
-	help
-	  If you say yes here you can control the power of a
-	  WWAN module that has some power-on GPIO through
-	  rfkill wwan. The driver can also sense either some
-	  other GPIO to read back the real status or inspect
-	  the state of some USB PHY port where the modem module
-	  is connected to. Typical devices that can be controlled
-	  are OPTION GTM601, Gemalto PHS8.
-
 config AD525X_DPOT
 	tristate "Analog Devices Digital Potentiometers"
 	depends on (I2C || SPI) && SYSFS
@@ -539,4 +527,36 @@ source "drivers/misc/vmw_vmci/Kconfig"
 source "drivers/misc/mic/Kconfig"
 source "drivers/misc/genwqe/Kconfig"
 source "drivers/misc/echo/Kconfig"
+
+config W2SG0004
+	tristate "W2SG0004 on/off control"
+	depends on GPIOLIB
+	help
+	  Enable on/off control of W2SG0004 GPS using a virtual GPIO.
+	  The virtual GPIO can be connected to a DTR line of a serial
+	  interface to allow powering up if the /dev/tty$n is opened.
+	  It also provides a rfkill gps node to control the LNA power.
+	  NOTE: can't currently be compiled as module, so please choose Y.
+
+config W2CBW003
+	tristate "W2CBW003 on/off control"
+	depends on GPIOLIB
+	help
+	  Enable on/off control of W2CBW003 power using a virtual GPIO.
+	  The virtual GPIO can be connected to a DTR line of a serial
+	  interface to allow powering up if the /dev/tty$n is opened.
+	  NOTE: can't currently be compiled as module, so please choose Y.
+
+config WWAN_ON_OFF
+	tristate "WWAN ON/OFF"
+	default n
+	help
+	  If you say yes here you can control the power of a
+	  WWAN module that has some power-on GPIO through
+	  rfkill wwan. The driver can also sense either some
+	  other GPIO to read back the real status or inspect
+	  the state of some USB PHY port where the modem module
+	  is connected to. Typical devices that can be controlled
+	  are OPTION GTM601, Gemalto PHS8.
+
 endmenu

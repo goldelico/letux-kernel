@@ -1108,7 +1108,6 @@ CONFIG_BLK_DEV_RAM_SIZE=16384
 # Misc devices
 #
 CONFIG_SENSORS_LIS3LV02D=m
-CONFIG_WWAN_ON_OFF=y
 # CONFIG_AD525X_DPOT is not set
 # CONFIG_ATMEL_PWM is not set
 # CONFIG_DUMMY_IRQ is not set
@@ -1163,6 +1162,9 @@ CONFIG_SENSORS_LIS3_I2C=m
 # Intel MIC Card Driver
 #
 # CONFIG_ECHO is not set
+CONFIG_W2SG0004=y
+# CONFIG_W2CBW003 is not set
+CONFIG_WWAN_ON_OFF=y
 
 #
 # SCSI device support
@@ -1780,11 +1782,6 @@ CONFIG_GPIO_TWL6040=m
 #
 # USB GPIO expanders:
 #
-
-#
-# virtual GPIOs:
-#
-CONFIG_GPIO_W2SG0004=y
 CONFIG_W1=y
 CONFIG_W1_CON=y
 

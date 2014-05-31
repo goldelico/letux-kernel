@@ -864,13 +864,4 @@ config GPIO_VIPERBOARD
           River Tech's viperboard.h for detailed meaning
           of the module parameters.
 
-comment "virtual GPIOs:"
-
-config GPIO_W2SG0004
-	tristate "W2SG0004 on/off control"
-	depends on GPIOLIB
-	help
-	  Enable on/off control of W2SG0004 GPS using a virtual GPIO.
-	  NOTE: can't currently be compiled as module, so please choose Y.
-
 endif
