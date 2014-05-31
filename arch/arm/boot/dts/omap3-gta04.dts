@@ -169,7 +169,7 @@
 		power-supply = <&power>;
 	};
 
-	pwm: omap-pwm {
+	pwm: omap_pwm {
 		compatible = "ti,omap-pwm";
 		timers = <&timer11>;
 		#pwm-cells = <2>;
@@ -213,21 +213,24 @@
 		vgpio-supply = <&vaux4>;
 	};
 
-	gps_lna: gps-lna { /* presents a single gpio to be plumbed to w2sg0004 lna control */
+/* driver has been removed
+	gps_lna: gps_lna { /* presents a single gpio to be plumbed to w2sg0004 lna control * /
 		compatible = "regulator-gpio";
 		gpio-controller;
 		#gpio-cells = <2>;
 
 		vgpio-supply = <&vsim>;
 	};
+*/
 
 	gps_en: w2sg0004 { /* presents a single gpio to be plumbed to uart2 dts */
 		compatible = "wi2wi,w2sg0004";
 		gpio-controller;
 		#gpio-cells = <2>;
 
-		lna-gpio = <&gps_lna 0 0>;	/* rfkill controllable LNA gpio/regulator */
-		on-off-gpio = <&gpio5 17 0>;	/* GPIO_145: trigger for w2sg0004 */
+		/* lna-gpio = <&gps_lna 0 0>;	/* rfkill controllable LNA gpio/regulator */
+		lna-supply = <&vsim>;	/* LNA regulator */
+		on-off-gpio = <&gpio5 17 0>;	/* GPIO_145: trigger for turning on/off w2sg0004 */
 		rx-gpio = <&gpio5 19 0>;	/* GPIO_147: RX */
 		rx-on-mux = < (PIN_INPUT_PULLUP | MUX_MODE0) >;
 		rx-off-mux = < (PIN_INPUT_PULLUP | MUX_MODE4) >;
@@ -605,19 +608,21 @@
 	status = "disabled";
 };
 
-&uart1 { /* Bluetooth */
+&uart1 { /* Bluetooth /dev/ttyO0 */
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart1_pins>;
 /*	dtr-gpio = <&bt_en 0 GPIO_ACTIVE_LOW>;	/* w2cbw bluetooth power control through virtual gpio */
+/*	dtr-gpio = <&tca_gpios 0 GPIO_ACTIVE_LOW>;	/* W2CBW003 reset through tca6507 */
 };
 
-&uart2 { /* GPS */
+&uart2 { /* GPS /dev/ttyO1 */
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart2_pins>;
-/*	dtr-gpio = <&gps_en 0 GPIO_ACTIVE_HIGH>;	/* w2sg0004 GPS power control through virtual gpio */
+	dtr-gpio = <&gps_en 0 GPIO_ACTIVE_HIGH>;	/* w2sg0004 GPS power control through virtual gpio */
+/*	dtr-gpio = <&gpio5 17 0>;	/* GPIO_145: trigger for w2sg0004 */
 };
 
-&uart3 { /* Console and IrDA */
+&uart3 { /* Console and IrDA /dev/ttyO2 */
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart3_pins>;
 };
