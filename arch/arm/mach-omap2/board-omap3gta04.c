@@ -27,7 +27,6 @@
 #include <linux/backlight.h>
 #include <linux/pwm.h>
 #include <linux/pwm_backlight.h>
-#include <linux/rfkill-regulator.h>
 #include <linux/gpio-reg.h>
 #include <linux/gpio-w2sg0004.h>
 #include <linux/extcon/extcon-gpio.h>
@@ -547,10 +546,6 @@ static struct regulator_consumer_supply gta04_vmmc1_supply[] = {
 	REGULATOR_SUPPLY("vmmc", "omap_hsmmc.0"),
 };
 
-static struct regulator_consumer_supply gta04_vsim_supply[] = {
-	REGULATOR_SUPPLY("vrfkill", "rfkill-regulator.0"),
-};
-
 static struct twl4030_gpio_platform_data gta04_gpio_data = {
 	.use_leds	= true,
 	.pullups	= BIT(1),
@@ -744,19 +739,6 @@ static struct regulator_init_data gta04_vpll2 = {
 	.consumer_supplies	= gta04_vdvi_supplies,
 };
 
-/* rfkill devices for GPS and Bluetooth to control regulators */
-
-static struct rfkill_regulator_platform_data gps_rfkill_data = {
-	.name = "GPS",
-	.type = RFKILL_TYPE_GPS,
-};
-
-static struct platform_device gps_rfkill_device = {
-	.name = "rfkill-regulator",
-	.id = 0,
-	.dev.platform_data = &gps_rfkill_data,
-};
-
 static struct gpio_reg_data bt_gpio_data = {
 	.gpio = GPIO_BT_REG,
 };
@@ -768,7 +750,8 @@ static struct platform_device bt_gpio_reg_device = {
 };
 
 static struct gpio_w2sg_data gps_gpio_data = {
-	.lna_gpio	= GPIO_GPS_CTRL,	// powers the LNA
+/* FIXME: connect to "vsim" regulator */
+/*	.lna_regulator	= GPIO_GPS_CTRL,	// powers the LNA */
 	.on_off_gpio	= GPS_ON_OFF_GPIO,	// allows to reset the GPS module
 	.rx_gpio	= GPS_RX_GPIO,	// used to check for feedback from the GPS module
 	.on_state	= OMAP_PIN_INPUT_PULLUP | OMAP_MUX_MODE0,
@@ -776,7 +759,7 @@ static struct gpio_w2sg_data gps_gpio_data = {
 };
 
 static struct platform_device gps_gpio_device = {
-	.name = "w2s-gpio",
+	.name = "w2sg0004",
 	.id = 0,
 	.dev.platform_data = &gps_gpio_data,
 };
@@ -1502,7 +1485,6 @@ static struct platform_device *gta04_devices[] __initdata = {
 	&gta04_dvi_connector_device,
 	&gta04_opa362_device,
 	&gta04_tv_connector_device,
-	&gps_rfkill_device,
 	&bt_gpio_reg_device,
 	&gps_gpio_device,
 	&antenna_extcon_dev,
