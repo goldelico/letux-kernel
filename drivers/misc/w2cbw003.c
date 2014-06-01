@@ -1,5 +1,6 @@
 /*
- * gpio-reg: create plumbing between a virtual GPIO and a regulator.
+ * w2cbw003: create plumbing between a virtual GPIO and power regulator
+ * of W2CBW003.
  *
  * This module provide a single output GPIO and uses a single regulator.
  * When the GPIO is driven high, the regulator is enabled.
@@ -23,33 +24,36 @@
 #include <linux/of_irq.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
-#include <linux/gpio-reg.h>
+#include <linux/w2cbw003.h>
 #include <linux/regulator/consumer.h>
 #include <linux/platform_device.h>
 
-#define MAX_REGULATORS 1	/* FIXME: add code to really handle multiple regulators */
-
+/* FIXME: rename to struct w2cbw */
 struct gpio_reg {
-	struct regulator	*reg[MAX_REGULATORS];
+	struct regulator	*reg;
+	int	set;	// gpio is "set"
 	/* there is no chip behind, but we need an address
 	 * of this wrapped struct to handle the set_value call
 	 */
-	struct gpio_chip	virtual_chip;
-	char			set[MAX_REGULATORS];
+#ifdef CONFIG_GPIOLIB
+	struct gpio_chip	gpio;
+	const char	*gpio_name[1];
+#endif
 };
 
+/* FIXME: rename function to w2cbw_$$$ */
 static void gpio_reg_set_value(struct gpio_chip *gc,
 			       unsigned offset, int val)
 {
-	struct gpio_reg *greg = container_of(gc, struct gpio_reg, virtual_chip);
+	struct gpio_reg *greg = container_of(gc, struct gpio_reg, gpio);
 	if (val) {
-		if (!greg->set[offset] && greg->reg[offset])
-			if (regulator_enable(greg->reg[offset]) == 0)
-				greg->set[offset] = 1;
+		if (!greg->set && greg->reg)
+			if (regulator_enable(greg->reg) == 0)
+				greg->set = 1;
 	} else {
-		if (greg->set[offset] && greg->reg[offset])
-			if (regulator_disable(greg->reg[offset]) == 0)
-				greg->set[offset] = 0;
+		if (greg->set && greg->reg)
+			if (regulator_disable(greg->reg) == 0)
+				greg->set = 0;
 	}
 }
 
@@ -71,8 +75,7 @@ static int gpio_reg_probe(struct platform_device *pdev)
 #ifdef CONFIG_OF
 	if (pdev->dev.of_node) {
 		struct device *dev = &pdev->dev;
-		enum of_gpio_flags flags;
-		int i;
+		u32 uV;
 		pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 		if (!pdata)
 			return -ENOMEM;
@@ -81,40 +84,38 @@ static int gpio_reg_probe(struct platform_device *pdev)
 		if (greg == NULL)
 			return -ENOMEM;
 
-		greg->virtual_chip.ngpio = 0;
+		greg->gpio.ngpio = 0;
 
-		// FIXME: loop over multiple regulators and end if no more are found
+		greg->reg = regulator_get(&pdev->dev, "vdd");
+		printk("gpio_reg_probe() reg=%p\n", greg->reg);
 
-		for (i=0; i < MAX_REGULATORS; i++) {
-			u32 uV;
-			greg->reg[i] = regulator_get(&pdev->dev, "vgpio");
-			printk("gpio_reg_probe() reg=%p\n", greg->reg[i]);
-
-			if (IS_ERR(greg->reg[i])) {
-				err = PTR_ERR(greg->reg[i]);
-				greg->reg[i] = NULL;
-				goto out2;
-			}
-			if (of_property_read_u32(pdev->dev.of_node, "microvolt", &uV) == 0)
-				regulator_set_voltage(greg->reg[0], uV, uV);
-			greg->set[i] = 0;
+		if (IS_ERR(greg->reg)) {
+			err = PTR_ERR(greg->reg);
+			greg->reg = NULL;
+			goto out2;
 		}
-		greg->virtual_chip.ngpio = i;
-		greg->virtual_chip.label = "gpio-regulator";
-		greg->virtual_chip.base = pdata->gpio;
-		greg->virtual_chip.owner = THIS_MODULE;
-		greg->virtual_chip.direction_output = gpio_reg_direction_output;
-		greg->virtual_chip.set = gpio_reg_set_value;
-		greg->virtual_chip.can_sleep = 1;
-        greg->virtual_chip.of_node = of_node_get(pdev->dev.of_node);
-		err = gpiochip_add(&greg->virtual_chip);
+		if (of_property_read_u32(pdev->dev.of_node, "microvolt", &uV) == 0)
+			regulator_set_voltage(greg->reg, uV, uV);
+	/* FIXME: use the same code as with board file */
+		greg->set = 0;
+
+		greg->gpio_name[0] = "enable";	/* label of controlling GPIO */
+
+		greg->gpio.label = "w2cbw003";
+		greg->gpio.names = greg->gpio_name;
+		greg->gpio.ngpio = 1;
+		greg->gpio.base = -1;
+		greg->gpio.owner = THIS_MODULE;
+		greg->gpio.direction_output = gpio_reg_direction_output;
+		greg->gpio.set = gpio_reg_set_value;
+		greg->gpio.can_sleep = 1;
+        greg->gpio.of_node = of_node_get(pdev->dev.of_node);
+		err = gpiochip_add(&greg->gpio);
 		printk("gpio_reg_probe() gpiochip_add()=%d\n", err);
 
 	out2:
-		if (err) {
-			while (i > 0)
-				regulator_put(greg->reg[--i]);
-		}
+		if (err)
+			regulator_put(greg->reg);
 		else
 			platform_set_drvdata(pdev, greg);
 
@@ -124,25 +125,29 @@ static int gpio_reg_probe(struct platform_device *pdev)
 	greg = kzalloc(sizeof(*greg), GFP_KERNEL);
 	if (greg == NULL)
 		return -ENOMEM;
-	greg->reg[0] = regulator_get(&pdev->dev, "vgpio");
-	if (IS_ERR(greg->reg[0])) {
-		err = PTR_ERR(greg->reg[0]);
-		greg->reg[0] = NULL;
+	greg->reg = regulator_get(&pdev->dev, "vgpio");
+	if (IS_ERR(greg->reg)) {
+		err = PTR_ERR(greg->reg);
+		greg->reg = NULL;
 		goto out;
 	}
 	if (pdata->uV)
-		regulator_set_voltage(greg->reg[0], pdata->uV, pdata->uV);
-	greg->set[0] = 0;
-	greg->virtual_chip.label = "gpio-regulator";
-	greg->virtual_chip.ngpio = 1;
-	greg->virtual_chip.base = pdata->gpio;
-	greg->virtual_chip.owner = THIS_MODULE;
-	greg->virtual_chip.direction_output = gpio_reg_direction_output;
-	greg->virtual_chip.set = gpio_reg_set_value;
-	greg->virtual_chip.can_sleep = 1;
-	err = gpiochip_add(&greg->virtual_chip);
+		regulator_set_voltage(greg->reg, pdata->uV, pdata->uV);
+	greg->set = 0;
+
+	greg->gpio_name[0] = "enable";	/* label of controlling GPIO */
+
+	greg->gpio.label = "w2cbw003";
+	greg->gpio.names = greg->gpio_name;
+	greg->gpio.ngpio = 1;
+	greg->gpio.base = pdata->gpio;
+	greg->gpio.owner = THIS_MODULE;
+	greg->gpio.direction_output = gpio_reg_direction_output;
+	greg->gpio.set = gpio_reg_set_value;
+	greg->gpio.can_sleep = 1;
+	err = gpiochip_add(&greg->gpio);
 	if (err)
-		regulator_put(greg->reg[0]);
+		regulator_put(greg->reg);
 	else
 		platform_set_drvdata(pdev, greg);
 out:
@@ -156,27 +161,35 @@ static int gpio_reg_remove(struct platform_device *pdev)
 	struct gpio_reg *greg = platform_get_drvdata(pdev);
 	int ret;
 
-	if (greg->reg[0]) {
-		regulator_put(greg->reg[0]);
-		greg->reg[0] = NULL;
+	if (greg->reg) {
+		regulator_put(greg->reg);
+		greg->reg = NULL;
 	}
-	ret = gpiochip_remove(&greg->virtual_chip);
+	ret = gpiochip_remove(&greg->gpio);
 	if (ret == 0)
 		kfree(greg);
 	return 0;
 }
 
-// FIXME: rename this to regulator-controlling-virtual-gpio
+#if defined(CONFIG_OF)
+static const struct of_device_id w2cbw003_of_match[] = {
+	{ .compatible = "wi2wi,w2cbw003" },
+	{},
+};
+MODULE_DEVICE_TABLE(of, w2cbw003_of_match);
+#endif
 
 static struct platform_driver gpio_reg_driver = {
-	.driver.name	= "regulator-gpio",
+	.driver.name	= "w2cbw003",
 	.driver.owner	= THIS_MODULE,
+	.driver.of_match_table = of_match_ptr(w2cbw003_of_match),
 	.probe		= gpio_reg_probe,
 	.remove		= gpio_reg_remove,
 };
 
 static int __init gpio_reg_init(void)
 {
+	printk("gpio_w2cbw_init()\n");
 	return platform_driver_register(&gpio_reg_driver);
 }
 module_init(gpio_reg_init);
@@ -186,14 +199,6 @@ static void __exit gpio_reg_exit(void)
 	platform_driver_unregister(&gpio_reg_driver);
 }
 module_exit(gpio_reg_exit);
-
-#if defined(CONFIG_OF)
-static const struct of_device_id gpio_reg_of_match[] = {
-	{ .compatible = "wi2wi,w2cbw003" },
-	{},
-};
-MODULE_DEVICE_TABLE(of, gpio_reg_of_match);
-#endif
 
 MODULE_ALIAS("w2cbw003");	/* should we have a simplified version of this as a separate driver specific for the w2cbw003? */
 
