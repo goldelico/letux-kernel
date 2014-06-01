@@ -1,5 +1,5 @@
 /*
- * gpio-w2sg0004
+ * w2sg0004.c
  * Virtual GPIO of controlling the w2sg0004 GPS receiver.
  *
  * This receiver has an ON/OFF pin which must be toggled to
@@ -40,7 +40,7 @@
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
 #include <linux/platform_device.h>
-#include <linux/gpio-w2sg0004.h>
+#include <linux/w2sg0004.h>
 #include <linux/workqueue.h>
 #include <linux/rfkill.h>
 
@@ -257,7 +257,7 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 
 	gw2sg->gpio_name[0] = "enable";	/* label of controlling GPIO */
 
-	gw2sg->gpio.label = "gpio-w2sg0004";
+	gw2sg->gpio.label = "w2sg0004";
 	gw2sg->gpio.names = gw2sg->gpio_name;
 	gw2sg->gpio.ngpio = 1;
 	gw2sg->gpio.base = pdata->gpio_base;
@@ -273,12 +273,12 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&gw2sg->work, toggle_work);
 	spin_lock_init(&gw2sg->lock);
 
-	err = gpio_request(gw2sg->on_off_gpio, "gpio-w2sg0004-on-off");
+	err = gpio_request(gw2sg->on_off_gpio, "w2sg0004-on-off");
 	if (err < 0)
 		goto out;
 	gpio_direction_output(gw2sg->on_off_gpio, false);
 
-	err = gpio_request(gw2sg->rx_gpio, "gpio-w2sg0004-rx");
+	err = gpio_request(gw2sg->rx_gpio, "w2sg0004-rx");
 	if (err < 0)
 		goto out1;
 	gpio_direction_input(gw2sg->rx_gpio);
@@ -289,7 +289,7 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 
 	err = request_threaded_irq(gw2sg->rx_irq, NULL, gpio_w2sg_isr,
 				   IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
-				   "gpio-w2sg0004-rx",
+				   "w2sg0004-rx",
 				   gw2sg);
 	if (err < 0) {
 		dev_err(&pdev->dev, "Unable to claim irq %d; error %d\n",
