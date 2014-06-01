@@ -1162,8 +1162,12 @@ CONFIG_SENSORS_LIS3_I2C=m
 # Intel MIC Card Driver
 #
 # CONFIG_ECHO is not set
+
+#
+# GTA04 misc hardware support
+#
 CONFIG_W2SG0004=y
-# CONFIG_W2CBW003 is not set
+CONFIG_W2CBW003=y
 CONFIG_WWAN_ON_OFF=y
 
 #
