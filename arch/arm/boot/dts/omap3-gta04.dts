@@ -209,7 +209,7 @@
 		gpio-controller;
 		#gpio-cells = <2>;
 
-		bluetooth-supply = <&vaux4>;
+		vdd-supply = <&vaux4>;
 	};
 
 	gps_en: w2sg0004 { /* presents a single gpio to be plumbed to uart2 dts */
@@ -600,15 +600,13 @@
 &uart1 { /* Bluetooth /dev/ttyO0 */
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart1_pins>;
-/*	dtr-gpio = <&bt_en 0 GPIO_ACTIVE_LOW>;	/* w2cbw bluetooth power control through virtual gpio */
-/*	dtr-gpio = <&tca_gpios 0 GPIO_ACTIVE_LOW>;	/* W2CBW003 reset through tca6507 */
+	dtr-gpio = <&bt_en 0 GPIO_ACTIVE_LOW>;	/* w2cbw bluetooth power control through virtual gpio */
 };
 
 &uart2 { /* GPS /dev/ttyO1 */
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart2_pins>;
 	dtr-gpio = <&gps_en 0 GPIO_ACTIVE_HIGH>;	/* w2sg0004 GPS power control through virtual gpio */
-/*	dtr-gpio = <&gpio5 17 0>;	/* GPIO_145: trigger for w2sg0004 */
 };
 
 &uart3 { /* Console and IrDA /dev/ttyO2 */
