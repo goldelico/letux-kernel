@@ -1,13 +1,13 @@
 /*
  * wwan_on_off
- * driver for controlling some WWAN module like the wwan_on_off
- * or the PHS8.
+ * driver for controlling power states of some WWAN modules
+ * like the GTM601 or the PHS8.
  *
  * Such modules usually have some ON_KEY or IGNITE input
  * that can be triggered to turn the modem power on or off
- * by giving an sufficiently long (200ms) impulse.
+ * by giving a sufficiently long (200ms) impulse.
  *
- * Some modules have a power on feedback that can be fed
+ * Some modules have a power-is-on feedback that can be fed
  * into another GPIO so that the driver knows the real state.
  *
  * If this is not available we can monitor some USB PHY
