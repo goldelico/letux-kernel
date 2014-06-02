@@ -22,7 +22,7 @@
 #define __LINUX_WWAN_ON_OFF_H
 
 
-struct gpio_wwan_on_off_data {
+struct wwan_on_off_data {
 	int	gpio_base;		/* (not used by DT) - defines the gpio.base */
 	int	on_off_gpio;	/* connected to the on-off input of the GPS module */
 	int	feedback_gpio;	/* a status feedback to report module power state */
