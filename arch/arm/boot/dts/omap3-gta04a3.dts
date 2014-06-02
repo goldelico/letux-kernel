@@ -19,14 +19,17 @@
 	/* overwrite device model */
 	model = "Goldelico GTA04A3";
 
+/* could we write &modem_en { ... } ? */
 	modem_en: modem { /* can't control modem power through rfkill */
 		on-off-gpio = <0>;	/* overwrite as n/a */
 	};
 
-	gpio-keys-wwan {
+	gpio-keys-wwan-wakeup {
 		compatible = "gpio-keys";
 
-		wwan-button {
+/* could we write &wwan_wakeup_button { ... } ? */
+
+		wwan-wakeup-button {
 			label = "3G_WOE";
 			linux,code = <240>;
 			gpios = <&gpio6 16 GPIO_ACTIVE_HIGH>;
@@ -37,7 +40,6 @@
 };
 
 &i2c2 {
-	clock-frequency = <400000>;
 
 	/* alternate accelerometer that might be installed on some GTA04A3 boards */
 	lis302@1d {
