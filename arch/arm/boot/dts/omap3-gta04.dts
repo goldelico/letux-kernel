@@ -47,10 +47,10 @@
 		};
 	};
 
-	gpio-keys-wwan {
+	gpio-keys-wwan-wakeup {
 		compatible = "gpio-keys";
 
-		wwan-button {
+		wwan_wakeup_button: wwan-wakeup-button {
 			label = "3G_WOE";
 			linux,code = <240>;
 			gpios = <&gpio1 10 GPIO_ACTIVE_HIGH>;
@@ -230,7 +230,7 @@
 		gpio-controller;
 		#gpio-cells = <2>;
 
-		usb-port = &hsusb2_phy;
+		usb-port = <&hsusb2_phy>;
 		on-off-gpio = <&gpio6 26 0>;	/* GPIO_186: trigger to power on modem */
 		on-indicator-gpio = <0>;
 	/*	on-indicator-gpio = <&gpio5 19 0>;	/* n/a on GTA04A4 */
