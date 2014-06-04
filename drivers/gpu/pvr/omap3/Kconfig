@@ -1,5 +1,5 @@
 config SGX540
-	tristate "PowerVR SGX"
+	tristate "PowerVR SGX540"
 	depends on ARCH_OMAP4
 	select DRM
 	select PCI
@@ -7,7 +7,7 @@ config SGX540
 	  Support for the PowerVR SGX 3D core.
 
 config SGX530
-	tristate "PowerVR SGX"
+	tristate "PowerVR SGX530"
 	depends on ARCH_OMAP3
 	---help---
 	  Support for the PowerVR SGX 3D core.

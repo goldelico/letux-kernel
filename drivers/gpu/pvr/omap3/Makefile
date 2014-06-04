@@ -222,7 +222,6 @@ drm-y :=  \
 	../../drm/drm_irq.o \
 	../../drm/drm_lock.o \
 	../../drm/drm_memory.o \
-	../../drm/drm_proc.o \
 	../../drm/drm_stub.o \
 	../../drm/drm_vm.o \
 	../../drm/drm_agpsupport.o \
