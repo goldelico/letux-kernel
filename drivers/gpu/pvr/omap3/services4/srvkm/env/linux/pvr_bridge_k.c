@@ -95,7 +95,7 @@ static void ProcSeqStartstopBridgeStats(struct seq_file *sfile,IMG_BOOL start);
 extern PVRSRV_LINUX_MUTEX gPVRSRVLock;
 
 #if defined(SUPPORT_MEMINFO_IDS)
-static IMG_UINT64 ui64Stamp;
+IMG_UINT64 g_ui64MemInfoID;
 #endif /* defined(SUPPORT_MEMINFO_IDS) */
 
 PVRSRV_ERROR
@@ -141,7 +141,7 @@ static void ProcSeqStartstopBridgeStats(struct seq_file *sfile,IMG_BOOL start)
 {
 	if(start) 
 	{
-		LinuxLockMutex(&gPVRSRVLock);
+		LinuxLockMutexNested(&gPVRSRVLock, PVRSRV_LOCK_CLASS_BRIDGE);
 	}
 	else
 	{
@@ -253,7 +253,7 @@ PVRSRV_BridgeDispatchKM(struct file *pFile, unsigned int unref__ ioctlCmd, unsig
 	PVRSRV_PER_PROCESS_DATA *psPerProc;
 	IMG_INT err = -EFAULT;
 
-	LinuxLockMutex(&gPVRSRVLock);
+	LinuxLockMutexNested(&gPVRSRVLock, PVRSRV_LOCK_CLASS_BRIDGE);
 
 #if defined(SUPPORT_DRI_DRM)
 	psBridgePackageKM = (PVRSRV_BRIDGE_PACKAGE *)arg;
@@ -474,7 +474,7 @@ PVRSRV_BridgeDispatchKM(struct file *pFile, unsigned int unref__ ioctlCmd, unsig
 
 			psPrivateData->hKernelMemInfo = hMemInfo;
 #if defined(SUPPORT_MEMINFO_IDS)
-			psPrivateData->ui64Stamp = ++ui64Stamp;
+			psPrivateData->ui64Stamp = ++g_ui64MemInfoID;
 
 			psKernelMemInfo->ui64Stamp = psPrivateData->ui64Stamp;
 			if (pvr_put_user(psPrivateData->ui64Stamp, &psExportDeviceMemOUT->ui64Stamp) != 0)
@@ -505,7 +505,7 @@ PVRSRV_BridgeDispatchKM(struct file *pFile, unsigned int unref__ ioctlCmd, unsig
 		{
 			PVRSRV_BRIDGE_OUT_MAP_DEVICECLASS_MEMORY *psDeviceClassMemoryOUT =
 				(PVRSRV_BRIDGE_OUT_MAP_DEVICECLASS_MEMORY *)psBridgePackageKM->pvParamOut;
-			if (pvr_put_user(++ui64Stamp, &psDeviceClassMemoryOUT->sClientMemInfo.ui64Stamp) != 0)
+			if (pvr_put_user(++g_ui64MemInfoID, &psDeviceClassMemoryOUT->sClientMemInfo.ui64Stamp) != 0)
 			{
 				err = -EFAULT;
 				goto unlock_and_return;

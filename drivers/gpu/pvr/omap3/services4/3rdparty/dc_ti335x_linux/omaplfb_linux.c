@@ -37,7 +37,6 @@ PURPOSE AND NONINFRINGEMENT; AND (B) IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-  
 */ /**************************************************************************/
 
 /**************************************************************************
@@ -95,7 +94,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include <video/da8xx-fb.h>
 #if defined(PVR_OMAPLFB_DRM_FB)
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0))
 #include <plat/display.h>
+#else
+#include <video/omapdss.h>
+#endif
 #include <linux/omap_gpu.h>
 #else	/* defined(PVR_OMAPLFB_DRM_FB) */
 /* OmapZoom.org OMAP3 2.6.29 kernel tree	- Needs mach/vrfb.h
@@ -109,7 +112,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #endif
 
 #if defined(PVR_OMAPFB3_NEEDS_PLAT_VRFB_H)
+#ifdef FBDEV_PRESENT
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,8,0))
 #include <plat/vrfb.h>
+#else
+#include <video/omapvrfb.h>
+#endif
+#endif
+
 #else
 #if defined(PVR_OMAPFB3_NEEDS_MACH_VRFB_H)
 #include <mach/vrfb.h>
@@ -120,7 +130,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define	PVR_DEBUG DEBUG
 #undef DEBUG
 #endif
+#ifdef FBDEV_PRESENT
 #include <omapfb/omapfb.h>
+#endif
 #if defined(DEBUG)
 #undef DEBUG
 #endif
@@ -130,11 +142,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #endif
 #endif	/* defined(PVR_OMAPLFB_DRM_FB) */
 
-#if defined(CONFIG_DSSCOMP)
-#include <mach/tiler.h>
-#include <video/dsscomp.h>
-#include <plat/dsscomp.h>
-#endif /* defined(CONFIG_DSSCOMP) */
 
 #include "img_defs.h"
 #include "servicesext.h"
@@ -152,17 +159,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 MODULE_SUPPORTED_DEVICE(DEVNAME);
 
-#if !defined(PVR_OMAPLFB_DRM_FB)
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,34))
-#define OMAP_DSS_DRIVER(drv, dev) struct omap_dss_driver *drv = (dev) != NULL ? (dev)->driver : NULL
-#define OMAP_DSS_MANAGER(man, dev) struct omap_overlay_manager *man = (dev) != NULL ? (dev)->manager : NULL
-#define	WAIT_FOR_VSYNC(man)	((man)->wait_for_vsync)
-#else
-#define OMAP_DSS_DRIVER(drv, dev) struct omap_dss_device *drv = (dev)
-#define OMAP_DSS_MANAGER(man, dev) struct omap_dss_device *man = (dev)
-#define	WAIT_FOR_VSYNC(man)	((man)->wait_vsync)
-#endif
-#endif	/* !defined(PVR_OMAPLFB_DRM_FB) */
 
 void *OMAPLFBAllocKernelMem(unsigned long ulSize)
 {
@@ -273,6 +269,9 @@ static void WorkQueueHandler(struct work_struct *psWork)
 OMAPLFB_ERROR OMAPLFBCreateSwapQueue(OMAPLFB_SWAPCHAIN *psSwapChain)
 {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37))
+#if (LINUX_VERSION_CODE == KERNEL_VERSION(2,6,37))
+#define WQ_FREEZABLE WQ_FREEZEABLE
+#endif
 	/*
 	 * Calling alloc_ordered_workqueue with the WQ_FREEZABLE and
 	 * WQ_MEM_RECLAIM flags set, (currently) has the same effect as
@@ -282,12 +281,7 @@ OMAPLFB_ERROR OMAPLFBCreateSwapQueue(OMAPLFB_SWAPCHAIN *psSwapChain)
 	 * conditions, preventing the driver from holding on to
 	 * resources longer than it needs to.
 	 */
-#if (LINUX_VERSION_CODE == KERNEL_VERSION(2,6,37))
-	psSwapChain->psWorkQueue = alloc_ordered_workqueue(DEVNAME, WQ_FREEZEABLE | WQ_MEM_RECLAIM);
-#else
 	psSwapChain->psWorkQueue = alloc_ordered_workqueue(DEVNAME, WQ_FREEZABLE | WQ_MEM_RECLAIM);
-#endif
-
 #else
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36))
 	psSwapChain->psWorkQueue = create_freezable_workqueue(DEVNAME);
@@ -329,7 +323,14 @@ void OMAPLFBFlip(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_BUFFER *psBuffer)
 {
 	struct fb_var_screeninfo sFBVar;
 	int res;
-	unsigned long ulYResVirtual;
+	
+	if (!lock_fb_info(psDevInfo->psLINFBInfo))
+	{
+		DEBUG_PRINTK((KERN_WARNING DRIVER_PREFIX
+			": %s: Device %u: Couldn't lock FB info\n", __FUNCTION__,  psDevInfo->uiFBDevID));
+		return;
+	}
+
 
 	OMAPLFB_CONSOLE_LOCK();
 
@@ -338,9 +339,26 @@ void OMAPLFBFlip(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_BUFFER *psBuffer)
 	sFBVar.xoffset = 0;
 	sFBVar.yoffset = psBuffer->ulYOffset;
 
-	ulYResVirtual = psBuffer->ulYOffset + sFBVar.yres;
-
 #if defined(CONFIG_DSSCOMP)
+	/*
+	 * If flipping to a NULL buffer, blank the screen to prevent
+	 * warnings/errors from the display subsystem.
+	 */
+	if (psBuffer->sSysAddr.uiAddr == 0)
+	{
+		struct omap_dss_device *psDSSDev = fb2display(psDevInfo->psLINFBInfo);
+		OMAP_DSS_MANAGER(psDSSMan, psDSSDev);
+
+		if (psDSSMan != NULL && psDSSMan->blank != NULL)
+		{
+			res = psDSSMan->blank(psDSSMan, false);
+			if (res != 0)
+			{
+				DEBUG_PRINTK((KERN_WARNING DRIVER_PREFIX ": %s: Device %u: DSS manager blank call failed (Y Offset: %lu, Error: %d)\n", __FUNCTION__, psDevInfo->uiFBDevID, psBuffer->ulYOffset, res));
+			}
+		}
+	}
+
 	{
 		/*
 		 * If using DSSCOMP, we need to use dsscomp queuing for normal
@@ -368,7 +386,7 @@ void OMAPLFBFlip(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_BUFFER *psBuffer)
 					.width = sFBVar.xres_virtual,
 					.height = sFBVar.yres_virtual,
 					.stride = sFBFix.line_length,
-					.enabled = 1,
+					.enabled = (psBuffer->sSysAddr.uiAddr != 0),
 					.global_alpha = 255,
 				},
 			},
@@ -377,54 +395,68 @@ void OMAPLFBFlip(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_BUFFER *psBuffer)
 		/* do not map buffer into TILER1D as it is contiguous */
 		struct tiler_pa_info *pas[] = { NULL };
 
-		d.ovls[0].ba = sFBFix.smem_start;
+		d.ovls[0].ba = (u32) psBuffer->sSysAddr.uiAddr;
+
 		omapfb_mode_to_dss_mode(&sFBVar, &d.ovls[0].cfg.color_mode);
 
 		res = dsscomp_gralloc_queue(&d, pas, true, NULL, NULL);
+		if (res != 0)
+		{
+			DEBUG_PRINTK((KERN_WARNING DRIVER_PREFIX ": %s: Device %u: dsscomp_gralloc_queue failed (Y Offset: %lu, Error: %d)\n", __FUNCTION__, psDevInfo->uiFBDevID, psBuffer->ulYOffset, res));
+		}
 	}
 #else /* defined(CONFIG_DSSCOMP) */
-	/*
-	 * PVR_OMAPLFB_DONT_USE_FB_PAN_DISPLAY should be defined to work
-	 * around flipping problems seen with the Taal LCDs on Blaze.
-	 * The work around is safe to use with other types of screen on Blaze
-	 * (e.g. HDMI) and on other platforms (e.g. Panda board).
-	 */
-#if !defined(PVR_OMAPLFB_DONT_USE_FB_PAN_DISPLAY)
-	/*
-	 * Attempt to change the virtual screen resolution if it is too
-	 * small.  Note that fb_set_var also pans the display.
-	 */
-	if (sFBVar.xres_virtual != sFBVar.xres || sFBVar.yres_virtual < ulYResVirtual)
-#endif /* !defined(PVR_OMAPLFB_DONT_USE_FB_PAN_DISPLAY) */
 	{
-		sFBVar.xres_virtual = sFBVar.xres;
-		sFBVar.yres_virtual = ulYResVirtual;
+		unsigned long ulYResVirtual = psBuffer->ulYOffset + sFBVar.yres;
 
-		sFBVar.activate = FB_ACTIVATE_NOW | FB_ACTIVATE_FORCE;
-
-		res = fb_set_var(psDevInfo->psLINFBInfo, &sFBVar);
-		if (res != 0)
-		{
-			printk(KERN_ERR DRIVER_PREFIX ": %s: Device %u: fb_set_var failed (Y Offset: %lu, Error: %d)\n", __FUNCTION__, psDevInfo->uiFBDevID, psBuffer->ulYOffset, res);
-		}
-	}
+		/*
+		 * PVR_OMAPLFB_DONT_USE_FB_PAN_DISPLAY should be defined to 
+		 * work around flipping problems seen with the Taal LCDs on
+		 * Blaze.
+		 * The work around is safe to use with other types of screen
+		 * on Blaze (e.g. HDMI) and on other platforms (e.g. Panda
+		 * board).
+		 */
 #if !defined(PVR_OMAPLFB_DONT_USE_FB_PAN_DISPLAY)
-	else
-	{
-		res = fb_pan_display(psDevInfo->psLINFBInfo, &sFBVar);
-		if (res != 0)
-		{
-			printk(KERN_ERR DRIVER_PREFIX ": %s: Device %u: fb_pan_display failed (Y Offset: %lu, Error: %d)\n", __FUNCTION__, psDevInfo->uiFBDevID, psBuffer->ulYOffset, res);
-		}
-	}
+		/*
+		 * Attempt to change the virtual screen resolution if it is too
+		 * small.  Note that fb_set_var also pans the display.
+		 */
+		if (sFBVar.xres_virtual != sFBVar.xres || sFBVar.yres_virtual < ulYResVirtual)
 #endif /* !defined(PVR_OMAPLFB_DONT_USE_FB_PAN_DISPLAY) */
+		{
+			sFBVar.xres_virtual = sFBVar.xres;
+			sFBVar.yres_virtual = ulYResVirtual;
+
+			sFBVar.activate = FB_ACTIVATE_NOW | FB_ACTIVATE_FORCE;
+
+			res = fb_set_var(psDevInfo->psLINFBInfo, &sFBVar);
+			if (res != 0)
+			{
+				printk(KERN_ERR DRIVER_PREFIX ": %s: Device %u: fb_set_var failed (Y Offset: %lu, Error: %d)\n", __FUNCTION__, psDevInfo->uiFBDevID, psBuffer->ulYOffset, res);
+			}
+		}
+#if !defined(PVR_OMAPLFB_DONT_USE_FB_PAN_DISPLAY)
+		else
+		{
+			res = fb_pan_display(psDevInfo->psLINFBInfo, &sFBVar);
+			if (res != 0)
+			{
+				printk(KERN_ERR DRIVER_PREFIX ": %s: Device %u: fb_pan_display failed (Y Offset: %lu, Error: %d)\n", __FUNCTION__, psDevInfo->uiFBDevID, psBuffer->ulYOffset, res);
+			}
+		}
+#endif /* !defined(PVR_OMAPLFB_DONT_USE_FB_PAN_DISPLAY) */
+	}
 #endif /* defined(CONFIG_DSSCOMP) */
 
 	OMAPLFB_CONSOLE_UNLOCK();
+	unlock_fb_info(psDevInfo->psLINFBInfo);
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,1,0)
+/* Newer kernels don't have any update mode capability */
+
 #if !defined(PVR_OMAPLFB_DRM_FB) || defined(DEBUG)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,1,0)
 static OMAPLFB_BOOL OMAPLFBValidateDSSUpdateMode(enum omap_dss_update_mode eMode)
 {
 	switch (eMode)
@@ -458,7 +490,6 @@ static OMAPLFB_UPDATE_MODE OMAPLFBFromDSSUpdateMode(enum omap_dss_update_mode eM
 }
 #endif
 #endif
-
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,1,0)
 static OMAPLFB_BOOL OMAPLFBValidateUpdateMode(OMAPLFB_UPDATE_MODE eMode)
 {
@@ -475,24 +506,7 @@ static OMAPLFB_BOOL OMAPLFBValidateUpdateMode(OMAPLFB_UPDATE_MODE eMode)
 	return OMAPLFB_FALSE;
 }
 #endif
-#if 0
-static enum omap_dss_update_mode OMAPLFBToDSSUpdateMode(OMAPLFB_UPDATE_MODE eMode)
-{
-	switch(eMode)
-	{
-		case OMAPLFB_UPDATE_MODE_AUTO:
-			return OMAP_DSS_UPDATE_AUTO;
-		case OMAPLFB_UPDATE_MODE_MANUAL:
-			return OMAP_DSS_UPDATE_MANUAL;
-		case OMAPLFB_UPDATE_MODE_DISABLED:
-			return OMAP_DSS_UPDATE_DISABLED;
-		default:
-			break;
-	}
 
-	return -1;
-}
-#endif
 #if defined(DEBUG)
 static const char *OMAPLFBUpdateModeToString(OMAPLFB_UPDATE_MODE eMode)
 {
@@ -515,7 +529,6 @@ static const char *OMAPLFBUpdateModeToString(OMAPLFB_UPDATE_MODE eMode)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,1,0)
 static const char *OMAPLFBDSSUpdateModeToString(enum omap_dss_update_mode eMode)
 {
-
 	if (!OMAPLFBValidateDSSUpdateMode(eMode))
 	{
 		return "Unknown Update Mode";
@@ -524,45 +537,7 @@ static const char *OMAPLFBDSSUpdateModeToString(enum omap_dss_update_mode eMode)
 	return OMAPLFBUpdateModeToString(OMAPLFBFromDSSUpdateMode(eMode));
 }
 #endif
-void OMAPLFBPrintInfo(OMAPLFB_DEVINFO *psDevInfo)
-{
-#if defined(PVR_OMAPLFB_DRM_FB)
-	struct drm_connector *psConnector;
-	unsigned uConnectors;
-	unsigned uConnector;
-
-	DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": Device %u: DRM framebuffer\n", psDevInfo->uiFBDevID));
-
-	for (psConnector = NULL, uConnectors = 0;
-		(psConnector = omap_fbdev_get_next_connector(psDevInfo->psLINFBInfo, psConnector)) != NULL;)
-	{
-		uConnectors++;
-	}
-
-	DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": Device %u: Number of screens (DRM connectors): %u\n", psDevInfo->uiFBDevID, uConnectors));
-
-	if (uConnectors == 0)
-	{
-		return;
-	}
-
-	for (psConnector = NULL, uConnector = 0;
-		(psConnector = omap_fbdev_get_next_connector(psDevInfo->psLINFBInfo, psConnector)) != NULL; uConnector++)
-	{
-		enum omap_dss_update_mode eMode = omap_connector_get_update_mode(psConnector);
-
-		DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": Device %u: Screen %u: %s (%d)\n", psDevInfo->uiFBDevID, uConnector, OMAPLFBDSSUpdateModeToString(eMode), (int)eMode));
-
-	}
-#else	/* defined(PVR_OMAPLFB_DRM_FB) */
-	OMAPLFB_UPDATE_MODE eMode = OMAPLFBGetUpdateMode(psDevInfo);
-
-	DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": Device %u: non-DRM framebuffer\n", psDevInfo->uiFBDevID));
-
-	DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": Device %u: %s\n", psDevInfo->uiFBDevID, OMAPLFBUpdateModeToString(eMode)));
-#endif	/* defined(PVR_OMAPLFB_DRM_FB) */
-}
-#endif	/* defined(DEBUG) */
+#endif /* defined(DEBUG) */
 
 /* 
  * Get display update mode.
@@ -570,7 +545,6 @@ void OMAPLFBPrintInfo(OMAPLFB_DEVINFO *psDevInfo)
  */
 OMAPLFB_UPDATE_MODE OMAPLFBGetUpdateMode(OMAPLFB_DEVINFO *psDevInfo)
 {
-#if 0
 #if defined(PVR_OMAPLFB_DRM_FB)
 	struct drm_connector *psConnector;
 	OMAPLFB_UPDATE_MODE eMode = OMAPLFB_UPDATE_MODE_UNDEFINED;
@@ -608,45 +582,13 @@ OMAPLFB_UPDATE_MODE OMAPLFBGetUpdateMode(OMAPLFB_DEVINFO *psDevInfo)
 
 	return eMode;
 #else	/* defined(PVR_OMAPLFB_DRM_FB) */
-
-	struct omap_dss_device *psDSSDev = fb2display(psDevInfo->psLINFBInfo);
-	OMAP_DSS_DRIVER(psDSSDrv, psDSSDev);
-
-	enum omap_dss_update_mode eMode;
-
-	if (psDSSDrv == NULL)
-	{
-		DEBUG_PRINTK((KERN_WARNING DRIVER_PREFIX ": %s: Device %u: No DSS device\n", __FUNCTION__, psDevInfo->uiFBDevID));
-		return OMAPLFB_UPDATE_MODE_UNDEFINED;
-	}
-
-	if (psDSSDrv->get_update_mode == NULL)
-	{
-		if (strcmp(psDSSDev->name, "hdmi") == 0)
-		{
-			return OMAPLFB_UPDATE_MODE_AUTO;
-		}
-//		DEBUG_PRINTK((KERN_WARNING DRIVER_PREFIX ": %s: Device %u: No get_update_mode function\n", __FUNCTION__, psDevInfo->uiFBDevID));
-//		return OMAPLFB_UPDATE_MODE_UNDEFINED;
-			return OMAPLFB_UPDATE_MODE_AUTO;
-	}
-
-	eMode = psDSSDrv->get_update_mode(psDSSDev);
-	if (!OMAPLFBValidateDSSUpdateMode(eMode))
-	{
-			DEBUG_PRINTK((KERN_WARNING DRIVER_PREFIX ": %s: Device %u: Unknown update mode (%d)\n", __FUNCTION__, psDevInfo->uiFBDevID, (int)eMode));
-	}
-
-	return OMAPLFBFromDSSUpdateMode(eMode);
-#endif	/* defined(PVR_OMAPLFB_DRM_FB) */
-#endif
 return OMAPLFB_UPDATE_MODE_AUTO;
+#endif	/* defined(PVR_OMAPLFB_DRM_FB) */
 }
 
 /* Set display update mode */
 OMAPLFB_BOOL OMAPLFBSetUpdateMode(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_UPDATE_MODE eMode)
 {
-#if 0
 #if defined(PVR_OMAPLFB_DRM_FB)
 	struct drm_connector *psConnector;
 	enum omap_dss_update_mode eDSSMode;
@@ -697,40 +639,53 @@ OMAPLFB_BOOL OMAPLFBSetUpdateMode(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_UPDATE_MOD
 
 	return OMAPLFB_TRUE;
 #else	/* defined(PVR_OMAPLFB_DRM_FB) */
-	struct omap_dss_device *psDSSDev = fb2display(psDevInfo->psLINFBInfo);
-	OMAP_DSS_DRIVER(psDSSDrv, psDSSDev);
-	enum omap_dss_update_mode eDSSMode;
-	int res;
-
-	if (psDSSDrv == NULL || psDSSDrv->set_update_mode == NULL)
-	{
-		DEBUG_PRINTK((KERN_WARNING DRIVER_PREFIX ": %s: Device %u: Can't set update mode\n", __FUNCTION__, psDevInfo->uiFBDevID));
-		return OMAPLFB_FALSE;
-	}
-
-	if (!OMAPLFBValidateUpdateMode(eMode))
-	{
-			DEBUG_PRINTK((KERN_WARNING DRIVER_PREFIX ": %s: Device %u: Unknown update mode (%d)\n", __FUNCTION__, psDevInfo->uiFBDevID, (int)eMode));
-			return OMAPLFB_FALSE;
-	}
-	eDSSMode = OMAPLFBToDSSUpdateMode(eMode);
-
-	res = psDSSDrv->set_update_mode(psDSSDev, eDSSMode);
-	if (res != 0)
-	{
-		DEBUG_PRINTK((KERN_WARNING DRIVER_PREFIX ": %s: Device %u: set_update_mode (%s) failed (%d)\n", __FUNCTION__, psDevInfo->uiFBDevID, OMAPLFBDSSUpdateModeToString(eDSSMode), res));
-	}
-
-	return (res == 0);
-#endif	/* defined(PVR_OMAPLFB_DRM_FB) */
-#endif
 return 1;
+#endif	/* defined(PVR_OMAPLFB_DRM_FB) */
 }
+
+#if defined(DEBUG)
+void OMAPLFBPrintInfo(OMAPLFB_DEVINFO *psDevInfo)
+{
+#if defined(PVR_OMAPLFB_DRM_FB)
+	struct drm_connector *psConnector;
+	unsigned uConnectors;
+	unsigned uConnector;
+
+	DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": Device %u: DRM framebuffer\n", psDevInfo->uiFBDevID));
+
+	for (psConnector = NULL, uConnectors = 0;
+		(psConnector = omap_fbdev_get_next_connector(psDevInfo->psLINFBInfo, psConnector)) != NULL;)
+	{
+		uConnectors++;
+	}
+
+	DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": Device %u: Number of screens (DRM connectors): %u\n", psDevInfo->uiFBDevID, uConnectors));
+
+	if (uConnectors == 0)
+	{
+		return;
+	}
+
+	for (psConnector = NULL, uConnector = 0;
+		(psConnector = omap_fbdev_get_next_connector(psDevInfo->psLINFBInfo, psConnector)) != NULL; uConnector++)
+	{
+		enum omap_dss_update_mode eMode = omap_connector_get_update_mode(psConnector);
+
+		DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": Device %u: Screen %u: %s (%d)\n", psDevInfo->uiFBDevID, uConnector, OMAPLFBDSSUpdateModeToString(eMode), (int)eMode));
+
+	}
+#else	/* defined(PVR_OMAPLFB_DRM_FB) */
+	OMAPLFB_UPDATE_MODE eMode = OMAPLFBGetUpdateMode(psDevInfo);
+
+	DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": Device %u: non-DRM framebuffer\n", psDevInfo->uiFBDevID));
+
+#endif	/* defined(PVR_OMAPLFB_DRM_FB) */
+}
+#endif	/* defined(DEBUG) */
 
 /* Wait for VSync */
 OMAPLFB_BOOL OMAPLFBWaitForVSync(OMAPLFB_DEVINFO *psDevInfo)
 {
-#if 0
 #if defined(PVR_OMAPLFB_DRM_FB)
 	struct drm_connector *psConnector;
 
@@ -741,33 +696,14 @@ OMAPLFB_BOOL OMAPLFBWaitForVSync(OMAPLFB_DEVINFO *psDevInfo)
 	}
 
 	return OMAPLFB_TRUE;
-#else	/* defined(PVR_OMAPLFB_DRM_FB) */
-	struct omap_dss_device *psDSSDev = fb2display(psDevInfo->psLINFBInfo);
-	OMAP_DSS_MANAGER(psDSSMan, psDSSDev);
-
-	if (psDSSMan != NULL && WAIT_FOR_VSYNC(psDSSMan) != NULL)
-	{
-		int res = WAIT_FOR_VSYNC(psDSSMan)(psDSSMan);
-		if (res != 0)
-		{
-			DEBUG_PRINTK((KERN_WARNING DRIVER_PREFIX ": %s: Device %u: Wait for vsync failed (%d)\n", __FUNCTION__, psDevInfo->uiFBDevID, res));
-			return OMAPLFB_FALSE;
-		}
-	}
-
-	return OMAPLFB_TRUE;
 #endif	/* defined(PVR_OMAPLFB_DRM_FB) */
-#endif
-
 #if FBDEV_PRESENT
       int r;
 
       void grpx_irq_wait_handler(void *data)
       {
-          complete((struct completion *)data);
-//      do_gettimeofday(&tv);
-  //      curtime=tv.tv_usec;
-//printk("The time in handler is %ld\n",curtime);
+        if (data != NULL)
+        complete((struct completion *)data);
       }
       DECLARE_COMPLETION_ONSTACK(completion);
 
@@ -776,10 +712,6 @@ OMAPLFB_BOOL OMAPLFBWaitForVSync(OMAPLFB_DEVINFO *psDevInfo)
           printk (KERN_WARNING DRIVER_PREFIX ": Failed to register for vsync call back\n");
           return OMAPLFB_FALSE;
       }
-//do_gettimeofday(&tv);
-//curtime=tv.tv_usec;
-//printk("The time is %ld\n",curtime);
-//    timeout = wait_for_completion_interruptible_timeout(&completion, timeout);
       r = wait_for_completion_interruptible(&completion);
       if (unregister_vsync_cb((vsync_callback_t)grpx_irq_wait_handler , &completion, psDevInfo->uiFBDevID) != 0)
       {
@@ -789,6 +721,7 @@ OMAPLFB_BOOL OMAPLFBWaitForVSync(OMAPLFB_DEVINFO *psDevInfo)
 #endif
       return OMAPLFB_TRUE;
 
+
 }
 
 /*
@@ -797,7 +730,6 @@ OMAPLFB_BOOL OMAPLFBWaitForVSync(OMAPLFB_DEVINFO *psDevInfo)
  */
 OMAPLFB_BOOL OMAPLFBManualSync(OMAPLFB_DEVINFO *psDevInfo)
 {
-#if 0
 #if defined(PVR_OMAPLFB_DRM_FB)
 	struct drm_connector *psConnector;
 
@@ -813,23 +745,8 @@ OMAPLFB_BOOL OMAPLFBManualSync(OMAPLFB_DEVINFO *psDevInfo)
 
 	return OMAPLFB_TRUE;
 #else	/* defined(PVR_OMAPLFB_DRM_FB) */
-	struct omap_dss_device *psDSSDev = fb2display(psDevInfo->psLINFBInfo);
-	OMAP_DSS_DRIVER(psDSSDrv, psDSSDev);
-
-	if (psDSSDrv != NULL && psDSSDrv->sync != NULL)
-	{
-		int res = psDSSDrv->sync(psDSSDev);
-		if (res != 0)
-		{
-			printk(KERN_ERR DRIVER_PREFIX ": %s: Device %u: Sync failed (%d)\n", __FUNCTION__, psDevInfo->uiFBDevID, res);
-			return OMAPLFB_FALSE;
-		}
-	}
-
 	return OMAPLFB_TRUE;
 #endif	/* defined(PVR_OMAPLFB_DRM_FB) */
-#endif
-return OMAPLFB_TRUE;
 }
 
 /*
@@ -871,23 +788,6 @@ static int OMAPLFBFrameBufferEvents(struct notifier_block *psNotif,
 
 	psDevInfo = OMAPLFBGetDevInfoPtr(psFBInfo->node);
 
-#if 0
-	if (psDevInfo != NULL)
-	{
-		if (bBlanked)
-		{
-			DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": %s: Device %u: Blank event received\n", __FUNCTION__, psDevInfo->uiFBDevID));
-		}
-		else
-		{
-			DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": %s: Device %u: Unblank event received\n", __FUNCTION__, psDevInfo->uiFBDevID));
-		}
-	}
-	else
-	{
-		DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": %s: Device %u: Blank/Unblank event for unknown framebuffer\n", __FUNCTION__, psFBInfo->node));
-	}
-#endif
 
 	if (psDevInfo != NULL)
 	{
@@ -899,14 +799,35 @@ static int OMAPLFBFrameBufferEvents(struct notifier_block *psNotif,
 }
 
 /* Unblank the screen */
-OMAPLFB_ERROR OMAPLFBUnblankDisplay(OMAPLFB_DEVINFO *psDevInfo)
+/*
+ * Blank or Unblank the screen. To be called where the unblank is being done
+ * in user context.
+ */
+static OMAPLFB_ERROR OMAPLFBBlankOrUnblankDisplay(OMAPLFB_DEVINFO *psDevInfo, IMG_BOOL bBlank)
 {
 #ifdef FBDEV_PRESENT
 	int res;
+	if (!lock_fb_info(psDevInfo->psLINFBInfo))
+	{
+		printk(KERN_ERR DRIVER_PREFIX
+			": %s: Device %u: Couldn't lock FB info\n", __FUNCTION__,  psDevInfo->uiFBDevID);
+		return (OMAPLFB_ERROR_GENERIC);
+	}
+
+	/*
+	* FBINFO_MISC_USEREVENT is set to avoid a deadlock resulting from
+	* fb_blank being called recursively due from within the fb_blank event
+	* notification.
+	*/
+
 
 	OMAPLFB_CONSOLE_LOCK();
-	res = fb_blank(psDevInfo->psLINFBInfo, 0);
+	psDevInfo->psLINFBInfo->flags |= FBINFO_MISC_USEREVENT;
+	res = fb_blank(psDevInfo->psLINFBInfo, bBlank ? 1 : 0);
+	psDevInfo->psLINFBInfo->flags &= ~FBINFO_MISC_USEREVENT;
+
 	OMAPLFB_CONSOLE_UNLOCK();
+	unlock_fb_info(psDevInfo->psLINFBInfo);
 	if (res != 0 && res != -EINVAL)
 	{
 		printk(KERN_ERR DRIVER_PREFIX
@@ -917,10 +838,26 @@ OMAPLFB_ERROR OMAPLFBUnblankDisplay(OMAPLFB_DEVINFO *psDevInfo)
 	return (OMAPLFB_OK);
 }
 
+/* Unblank the screen */
+OMAPLFB_ERROR OMAPLFBUnblankDisplay(OMAPLFB_DEVINFO *psDevInfo)
+{
+	return OMAPLFBBlankOrUnblankDisplay(psDevInfo, IMG_FALSE);
+}
+
+
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 
+static void OMAPLFBEarlyUnblankDisplay(OMAPLFB_DEVINFO *psDevInfo)
+{
+	OMAPLFB_CONSOLE_LOCK();
+	fb_blank(psDevInfo->psLINFBInfo, 0);
+	OMAPLFB_CONSOLE_UNLOCK();
+}
+
+
 /* Blank the screen */
-static void OMAPLFBBlankDisplay(OMAPLFB_DEVINFO *psDevInfo)
+static void OMAPLFBEarlyBlankDisplay(OMAPLFB_DEVINFO *psDevInfo)
 {
 	OMAPLFB_CONSOLE_LOCK();
 	fb_blank(psDevInfo->psLINFBInfo, 1);
@@ -939,7 +876,7 @@ static void OMAPLFBEarlySuspendHandler(struct early_suspend *h)
 		if (psDevInfo != NULL)
 		{
 			OMAPLFBAtomicBoolSet(&psDevInfo->sEarlySuspendFlag, OMAPLFB_TRUE);
-			OMAPLFBBlankDisplay(psDevInfo);
+			OMAPLFBEarlyBlankDisplay(psDevInfo);
 		}
 	}
 }
@@ -955,7 +892,7 @@ static void OMAPLFBEarlyResumeHandler(struct early_suspend *h)
 
 		if (psDevInfo != NULL)
 		{
-			OMAPLFBUnblankDisplay(psDevInfo);
+			OMAPLFBEarlyUnblankDisplay(psDevInfo);
 			OMAPLFBAtomicBoolSet(&psDevInfo->sEarlySuspendFlag, OMAPLFB_FALSE);
 		}
 	}
@@ -1157,9 +1094,20 @@ int PVR_DRM_MAKENAME(DISPLAY_CONTROLLER, _Ioctl)(struct drm_device unref__ *dev,
 				flush_workqueue(psDevInfo->psSwapChain->psWorkQueue);
 			}
 
-			OMAPLFB_CONSOLE_LOCK();
-			ret = fb_blank(psDevInfo->psLINFBInfo, iFBMode);
-			OMAPLFB_CONSOLE_UNLOCK();
+			if (!lock_fb_info(psDevInfo->psLINFBInfo))
+			{
+				ret = -ENODEV;
+			}
+			else
+			{
+				OMAPLFB_CONSOLE_LOCK();
+				psDevInfo->psLINFBInfo->flags |= FBINFO_MISC_USEREVENT;
+				ret = fb_blank(psDevInfo->psLINFBInfo, iFBMode);
+				psDevInfo->psLINFBInfo->flags &= ~FBINFO_MISC_USEREVENT;
+				OMAPLFB_CONSOLE_UNLOCK();
+				unlock_fb_info(psDevInfo->psLINFBInfo);
+			}
+
 
 			OMAPLFBCreateSwapChainUnLock(psDevInfo);
 

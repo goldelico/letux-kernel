@@ -43,7 +43,7 @@ $(call must-be-defined,$(SUPPORT_DRI_DRM))
 DRM_SOURCE_DIR := drivers/gpu/drm
 
 ccflags-y += \
-	 -I$(KERNELDIR)/include/drm \
+	 -Iinclude/drm \
 	 -I$(DRM_SOURCE_DIR)
 
 drm-y += \
