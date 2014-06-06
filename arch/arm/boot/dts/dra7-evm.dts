@@ -579,7 +579,7 @@
 	dcan1_pins: pinmux_dcan1_pins {
 		pinctrl-single,pins = <
 			0x3d0	0x00000000	/* DCAN1_TX: MODE0 */
-			0x3d4	0x00060000	/* DCAN1_RX: MODE0 | INPUTENABLE | PULLUP */
+			0x418	0x00000001	/* WAKEUP0: MODE1 */
 		>;
 	};
 
