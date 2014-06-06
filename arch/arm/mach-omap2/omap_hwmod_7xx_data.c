@@ -2118,8 +2118,8 @@ static struct omap_hwmod_irq_info dra7xx_mmc3_irqs[] = {
 };
 
 static struct omap_hwmod_dma_info dra7xx_mmc3_sdma_reqs[] = {
-	{ .name = "77", .dma_req = 76 + DRA7XX_DMA_REQ_START },
-	{ .name = "78", .dma_req = 77 + DRA7XX_DMA_REQ_START },
+	{ .name = "tx", .dma_req = 76 + DRA7XX_DMA_REQ_START },
+	{ .name = "rx", .dma_req = 77 + DRA7XX_DMA_REQ_START },
 	{ .dma_req = -1 }
 };
 
