@@ -1162,18 +1162,15 @@ static int vip_enum_fmt_vid_cap(struct file *file, void *priv,
 static int vip_enum_framesizes(struct file *file, void *priv,
 			struct v4l2_frmsizeenum *f)
 {
-	/* For now, hard coded resolutions for OV10635 sensor */
-	int cam_width[7] =	{ 1280, 1280, 752, 640, 600, 352, 320 };
-	int cam_height[7] =	{  800,  720, 480, 480, 400, 288, 240 };
+	struct vip_stream *stream = file2stream(file);
+	struct vip_dev *dev = stream->port->dev;
+	int ret;
 
-	if (f->index >= 7)
-		return -EINVAL;
+	ret = v4l2_subdev_call(dev->sensor, video, enum_framesizes, f);
+	if (ret)
+		vip_dprintk(dev, "enum_framesizes failed in subdev\n");
 
-	f->type = V4L2_FRMSIZE_TYPE_DISCRETE;
-	f->discrete.width = cam_width[f->index];
-	f->discrete.height = cam_height[f->index];
-
-	return 0;
+	return ret;
 }
 
 static int vip_enum_frameintervals(struct file *file, void *priv,

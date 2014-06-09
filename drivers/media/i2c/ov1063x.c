@@ -1413,6 +1413,22 @@ static int ov1063x_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 	return 0;
 }
 
+static int ov1063x_enum_framesizes(struct v4l2_subdev *sd,
+			   struct v4l2_frmsizeenum *f)
+{
+	/* For now, hard coded resolutions for OV10635 sensor */
+	int cam_width[7] =	{ 1280, 1280, 752, 640, 600, 352, 320 };
+	int cam_height[7] =	{  800,  720, 480, 480, 400, 288, 240 };
+
+	if (f->index >= 7)
+		return -EINVAL;
+
+	f->type = V4L2_FRMSIZE_TYPE_DISCRETE;
+	f->discrete.width = cam_width[f->index];
+	f->discrete.height = cam_height[f->index];
+	return 0;
+}
+
 static int ov1063x_g_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *parms)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
@@ -1869,6 +1885,7 @@ static struct v4l2_subdev_video_ops ov1063x_video_ops = {
 	.s_mbus_fmt	= ov1063x_s_fmt,
 	.try_mbus_fmt	= ov1063x_try_fmt,
 	.enum_mbus_fmt	= ov1063x_enum_fmt,
+	.enum_framesizes = ov1063x_enum_framesizes,
 	.cropcap	= ov1063x_cropcap,
 	.g_crop		= ov1063x_g_crop,
 	.s_crop		= ov1063x_s_crop,

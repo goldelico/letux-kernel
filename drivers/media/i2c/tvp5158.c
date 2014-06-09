@@ -428,6 +428,27 @@ static int tvp5158_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 	return 0;
 }
 
+static int tvp5158_enum_framesizes(struct v4l2_subdev *sd,
+			struct v4l2_frmsizeenum *f)
+{
+
+	/* For now, hard coded resolutions for TVP5158 NTSC decoder */
+	int cam_width[] =	{ 720,	640,};
+	int cam_height[] =	{ 240,	240,};
+
+	if (f->index >= 2)
+		return -EINVAL;
+
+	f->type = V4L2_FRMSIZE_TYPE_DISCRETE;
+	f->discrete.width = cam_width[f->index];
+	/* tvp5158 sensor outputs interlaced data, hence, in the timings
+	* we listed down the field height. In the framesize query we need
+	* to publish the frame height, so multiply the field height by 2 */
+	f->discrete.height = 2 * cam_height[f->index];
+
+	return 0;
+}
+
 static int tvp5158_get_gpios(struct device_node *node,
 			struct i2c_client *client)
 {
@@ -516,6 +537,7 @@ static int tvp5158_set_gpios(struct i2c_client *client)
 static struct v4l2_subdev_video_ops tvp5158_video_ops = {
 	.querystd	= tvp5158_querystd,
 	.enum_mbus_fmt	= tvp5158_enum_fmt,
+	.enum_framesizes = tvp5158_enum_framesizes,
 	.g_parm		= tvp5158_g_parm,
 	.s_parm		= tvp5158_s_parm,
 	.s_stream	= tvp5158_s_stream,
