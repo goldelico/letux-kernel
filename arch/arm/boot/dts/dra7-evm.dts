@@ -180,7 +180,6 @@
 		ti,media-codec = <&tlv320aic3106>;
 		ti,media-mclk-freq = <11289600>;
 		ti,media-slots = <2>;
-		ti,media-shared;
 
 		/* Multichannel DAI link */
 		ti,multichannel-cpu = <&mcasp6>;
@@ -189,6 +188,7 @@
 		ti,multichannel-codec-c = <&tlv320aic3106c>;
 		ti,multichannel-slots = <8>;
 		ti,multichannel-mclk-freq = <11289600>;
+		ti,multichannel-shared;
 
 		/* Bluetooth */
 		ti,bt-cpu = <&mcasp7>;
