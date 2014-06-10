@@ -21,9 +21,10 @@ lcd-panel: td028ttec1@0 {
 	spi-cpha;
 
 	label = "lcd";
-
-	lcd_in: endpoint {
-		remote-endpoint = <&dpi_out>;
+	port {
+		lcd_in: endpoint {
+			remote-endpoint = <&dpi_out>;
+		};
 	};
 };
 

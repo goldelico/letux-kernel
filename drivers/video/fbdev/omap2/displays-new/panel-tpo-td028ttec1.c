@@ -486,7 +486,7 @@ static int td028ttec1_panel_remove(struct spi_device *spi)
 }
 
 static const struct of_device_id td028ttec1_of_match[] = {
-	{ .compatible = "toppoly,td028ttec1", },
+	{ .compatible = "omapdss,toppoly,td028ttec1", },
 	{},
 };
 
@@ -505,8 +505,7 @@ static struct spi_driver td028ttec1_spi_driver = {
 
 module_spi_driver(td028ttec1_spi_driver);
 
-MODULE_ALIAS("spi:td028ttec1");	/* this is "spi:" plus the second component of "compatible=" entry */
-
+MODULE_ALIAS("spi:toppoly,td028ttec1");
 MODULE_AUTHOR("H. Nikolaus Schaller <hns@goldelico.com>");
 MODULE_DESCRIPTION("Toppoly TD028TTEC1 panel driver");
 MODULE_LICENSE("GPL");

@@ -6,7 +6,7 @@ Required properties:
 
 Optional properties:
 - label: a symbolic name for the panel
-- gpios: panel enable gpio and backlight enable gpio
+- enable-gpios: panel enable gpio
 
 Required nodes:
 - "panel-timing" containing video timings
@@ -20,8 +20,10 @@ lcd0: display@0 {
         compatible = "samsung,lte430wq-f0c", "panel-dpi";
         label = "lcd";
 
-        lcd_in: endpoint {
-                remote-endpoint = <&dpi_out>;
+        port {
+            lcd_in: endpoint {
+                    remote-endpoint = <&dpi_out>;
+            };
         };
 
         panel-timing {

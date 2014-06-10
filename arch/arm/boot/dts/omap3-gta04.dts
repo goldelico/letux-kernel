@@ -129,7 +129,7 @@
 		discharging-calibration-data = <4200 100 4100 95 4000 70 3800 50 3700 10 3600 5 3300 0>;
 	};
 
-	gpio_spi {
+	spi_lcd {
 		compatible = "spi-gpio";
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
@@ -273,6 +273,7 @@
 			0x11e (PIN_INPUT_PULLUP | MUX_MODE0)	/* sdmmc1_dat3.sdmmc1_dat3 */
 		>;
 	};
+
 	dss_dpi_pins: pinmux_dss_dpi_pins {
                pinctrl-single,pins = <
                        0x0a4 (PIN_OUTPUT | MUX_MODE0)   /* dss_pclk.dss_pclk */
@@ -303,9 +304,8 @@
                        0x0d6 (PIN_OUTPUT | MUX_MODE0)   /* dss_data21.dss_data21 */
                        0x0d8 (PIN_OUTPUT | MUX_MODE0)   /* dss_data22.dss_data22 */
                        0x0da (PIN_OUTPUT | MUX_MODE0)   /* dss_data23.dss_data23 */
-               >;
-       };
-
+		>;
+	};
 
 	backlight_pins: backlight_pins_pimnux {
 		pinctrl-single,pins = <0x8a MUX_MODE4>;
@@ -724,4 +724,23 @@
 
 &mcbsp4 {
 	status = "okay";
+};
+
+/* Needed to power the DPI pins */
+&vpll2 {
+	regulator-always-on;
+};
+
+&dss {
+	pinctrl-names = "default";
+	pinctrl-0 = < &dss_dpi_pins >;
+
+	status = "okay";
+
+	port {
+		dpi_out: endpoint {
+			remote-endpoint = <&lcd_in>;
+			data-lines = <24>;
+		};
+	};
 };

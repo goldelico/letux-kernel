@@ -28,8 +28,10 @@ struct panel_drv_data {
 
 	struct omap_video_timings videomode;
 
+	/* used for non-DT boot, to be removed */
 	int backlight_gpio;
-	int enable_gpio;
+
+	struct gpio_desc *enable_gpio;
 };
 
 #define to_panel_data(p) container_of(p, struct panel_drv_data, dssdev)
@@ -81,8 +83,8 @@ static int panel_dpi_enable(struct omap_dss_device *dssdev)
 	if (r)
 		return r;
 
-	if (gpio_is_valid(ddata->enable_gpio))
-		gpio_set_value_cansleep(ddata->enable_gpio, 1);
+	if (ddata->enable_gpio)
+		gpiod_set_value_cansleep(ddata->enable_gpio, 1);
 
 	if (gpio_is_valid(ddata->backlight_gpio))
 		gpio_set_value_cansleep(ddata->backlight_gpio, 1);
@@ -100,8 +102,8 @@ static void panel_dpi_disable(struct omap_dss_device *dssdev)
 	if (!omapdss_device_is_enabled(dssdev))
 		return;
 
-	if (gpio_is_valid(ddata->enable_gpio))
-		gpio_set_value_cansleep(ddata->enable_gpio, 0);
+	if (ddata->enable_gpio)
+		gpiod_set_value_cansleep(ddata->enable_gpio, 0);
 
 	if (gpio_is_valid(ddata->backlight_gpio))
 		gpio_set_value_cansleep(ddata->backlight_gpio, 0);
@@ -160,6 +162,7 @@ static int panel_dpi_probe_pdata(struct platform_device *pdev)
 	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
 	struct omap_dss_device *dssdev, *in;
 	struct videomode vm;
+	int r;
 
 	pdata = dev_get_platdata(&pdev->dev);
 
@@ -180,8 +183,63 @@ static int panel_dpi_probe_pdata(struct platform_device *pdev)
 	dssdev = &ddata->dssdev;
 	dssdev->name = pdata->name;
 
-	ddata->enable_gpio = pdata->enable_gpio;
+	r = devm_gpio_request_one(&pdev->dev, pdata->enable_gpio,
+					GPIOF_OUT_INIT_LOW, "panel enable");
+	if (r)
+		goto err_gpio;
+
+	ddata->enable_gpio = gpio_to_desc(pdata->enable_gpio);
+
 	ddata->backlight_gpio = pdata->backlight_gpio;
+
+	return 0;
+
+err_gpio:
+	omap_dss_put_device(ddata->in);
+	return r;
+}
+
+static int panel_dpi_probe_of(struct platform_device *pdev)
+{
+	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
+	struct device_node *node = pdev->dev.of_node;
+	struct omap_dss_device *in;
+	int r;
+	struct display_timing timing;
+	struct videomode vm;
+	struct gpio_desc *gpio;
+
+	gpio = devm_gpiod_get(&pdev->dev, "enable");
+
+	if (IS_ERR(gpio)) {
+		if (PTR_ERR(gpio) != -ENOENT)
+			return PTR_ERR(gpio);
+		else
+			gpio = NULL;
+	} else {
+		gpiod_direction_output(gpio, 0);
+	}
+
+	ddata->enable_gpio = gpio;
+
+	ddata->backlight_gpio = -ENOENT;
+
+	r = of_get_display_timing(node, "panel-timing", &timing);
+	if (r) {
+		dev_err(&pdev->dev, "failed to get video timing\n");
+		return r;
+	}
+
+	videomode_from_timing(&timing, &vm);
+	videomode_to_omap_video_timings(&vm, &ddata->videomode);
+
+	in = omapdss_of_find_source_for_first_ep(node);
+	if (IS_ERR(in)) {
+		dev_err(&pdev->dev, "failed to find video source\n");
+		return PTR_ERR(in);
+	}
+
+	ddata->in = in;
 
 	return 0;
 }
@@ -254,13 +312,6 @@ static int panel_dpi_probe(struct platform_device *pdev)
 			return r;
 	} else {
 		return -ENODEV;
-	}
-
-	if (gpio_is_valid(ddata->enable_gpio)) {
-		r = devm_gpio_request_one(&pdev->dev, ddata->enable_gpio,
-				GPIOF_OUT_INIT_LOW, "panel enable");
-		if (r)
-			goto err_gpio;
 	}
 
 	if (gpio_is_valid(ddata->backlight_gpio)) {

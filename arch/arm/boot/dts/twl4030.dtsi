@@ -155,6 +155,7 @@
 
 	twl_madc: madc {
 		compatible = "ti,twl4030-madc";
-		interrupts = <1>;
+		interrupts = <3>;
+		#io-channel-cells = <1>;
 	};
 };
