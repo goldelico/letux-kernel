@@ -627,20 +627,6 @@
 	bb_uamp = <150>;
 };
 
-&dss {
-	pinctrl-names = "default";
-	pinctrl-0 = < &dss_dpi_pins >;
-	status = "ok";
-
-	vdds_dsi-supply = <&vpll2>;
-
-	dpi_out: endpoint {
-               remote-endpoint = <&lcd_in>;
-               data-lines = <24>;
-       };
-
-};
-
 &venc {
 	status = "ok";
 
