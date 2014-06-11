@@ -244,52 +244,6 @@ static int panel_dpi_probe_of(struct platform_device *pdev)
 	return 0;
 }
 
-static int panel_dpi_probe_of(struct platform_device *pdev)
-{
-	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
-	struct device_node *node = pdev->dev.of_node;
-	struct omap_dss_device *in;
-	int r;
-	struct display_timing timing;
-	struct videomode vm;
-	int gpio;
-
-	gpio = of_get_gpio(node, 0);
-	if (gpio_is_valid(gpio) || gpio == -ENOENT) {
-		ddata->enable_gpio = gpio;
-	} else {
-		dev_err(&pdev->dev, "failed to parse enable gpio\n");
-		return gpio;
-	}
-
-	gpio = of_get_gpio(node, 1);
-	if (gpio_is_valid(gpio) || gpio == -ENOENT) {
-		ddata->backlight_gpio = gpio;
-	} else {
-		dev_err(&pdev->dev, "failed to parse backlight gpio\n");
-		return gpio;
-	}
-
-	r = of_get_display_timing(node, "panel-timing", &timing);
-	if (r) {
-		dev_err(&pdev->dev, "failed to get video timing\n");
-		return r;
-	}
-
-	videomode_from_timing(&timing, &vm);
-	videomode_to_omap_video_timings(&vm, &ddata->videomode);
-
-	in = omapdss_of_find_source_for_first_ep(node);
-	if (IS_ERR(in)) {
-		dev_err(&pdev->dev, "failed to find video source\n");
-		return PTR_ERR(in);
-	}
-
-	ddata->in = in;
-
-	return 0;
-}
-
 static int panel_dpi_probe(struct platform_device *pdev)
 {
 	struct panel_drv_data *ddata;
