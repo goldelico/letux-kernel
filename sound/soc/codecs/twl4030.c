@@ -1114,8 +1114,20 @@ static const struct soc_enum twl4030_voice_route_enum =
 static int twl4030_voice_route_get(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	struct twl4030_priv *twl4030 = snd_soc_codec_get_drvdata(codec);
+	struct snd_soc_codec *codec;
+	struct twl4030_priv *twl4030;
+	printk("kcontrol=%p ucontrol=%p\n", kcontrol, ucontrol);
+	codec = snd_kcontrol_chip(kcontrol);
+	printk("codec=%p\n", codec);
+
+	return -EINVAL;		// snd_soc_codec_get_drvdata(codec) results in kernel NULL pointer dereference
+
+	twl4030 = snd_soc_codec_get_drvdata(codec);
+	printk("twl4030=%p\n", twl4030);
+	if(!ucontrol) {
+		printk("ucontrol == NULL\n");
+		return -EINVAL;
+	}
 	ucontrol->value.enumerated.item[0] = twl4030->voice_enabled;
 	return 0;
 }
@@ -1125,8 +1137,20 @@ static int twl4030_voice_set_tristate(struct snd_soc_dai *dai, int tristate);
 static int twl4030_voice_route_put(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	struct twl4030_priv *twl4030 = snd_soc_codec_get_drvdata(codec);
+	struct snd_soc_codec *codec;
+	struct twl4030_priv *twl4030;
+	printk("kcontrol=%p ucontrol=%p\n", kcontrol, ucontrol);
+	codec = snd_kcontrol_chip(kcontrol);
+	printk("codec=%p\n", codec);
+
+	return -EINVAL;		// snd_soc_codec_get_drvdata(codec) results in kernel NULL pointer dereference
+
+	twl4030 = snd_soc_codec_get_drvdata(codec);
+	printk("twl4030=%p\n", twl4030);
+	if(!ucontrol) {
+		printk("ucontrol == NULL\n");
+		return -EINVAL;
+	}
 	dev_dbg(codec->dev, "voice ctl route: %u\n",
 		ucontrol->value.enumerated.item[0]);
 	printk("voice ctl route: %u\n", ucontrol->value.enumerated.item[0]);
