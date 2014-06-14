@@ -35,6 +35,7 @@
 #include <linux/cpu.h>
 
 #include <linux/usb/phy.h>
+#include <linux/usb/musb.h>
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
@@ -1523,6 +1524,12 @@ static struct usbhs_omap_platform_data usbhs_bdata __initdata = {
 
 };
 
+static struct omap_musb_board_data musb_board_data = {
+	.interface_type		= MUSB_INTERFACE_ULPI,
+	.mode			= MUSB_OTG,
+	.power			= 200,
+};
+
 static struct omap_board_mux board_mux[] __initdata = {
 	/* Enable GPT11_PWM_EVT instead of GPIO-57 */
 	OMAP3_MUX(GPMC_NCS6, OMAP_MUX_MODE3),
@@ -1733,7 +1740,7 @@ static void __init gta04_init(void)
 	pwm_add_table(board_pwm_lookup, ARRAY_SIZE(board_pwm_lookup));
 
 	usb_bind_phy("musb-hdrc.1.auto", 0, "twl4030_usb");
-	usb_musb_init(NULL);
+	usb_musb_init(&musb_board_data);
 
 	usbhs_init_phys(phy_data, ARRAY_SIZE(phy_data));
 	usbhs_init(&usbhs_bdata);
