@@ -966,7 +966,7 @@ static void vip_process_buffer_complete(struct vip_stream *stream)
 		vpdma_buf_unmap(dev->shared->vpdma, &dev->desc_list.buf);
 
 		fld = dtd_get_field(dev->write_desc);
-		stream->field = fld ? V4L2_FIELD_TOP : V4L2_FIELD_BOTTOM;
+		stream->field = fld ? V4L2_FIELD_BOTTOM : V4L2_FIELD_TOP;
 
 		vpdma_buf_map(dev->shared->vpdma, &dev->desc_list.buf);
 	}
