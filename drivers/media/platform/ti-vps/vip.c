@@ -1540,6 +1540,14 @@ static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
 	list_add_tail(&buf->dq_list, &dev->vip_bufs);
 	spin_unlock_irqrestore(&dev->slock, flags);
 
+	/* It can so happen on some HW devices that start_dma completes, and
+	* even generates IRQ before we return from here or before vq->streaming
+	* is updated in videobuf2-core.c. If that happens, the vip_irq
+	* doesn't process the buffer as it thinks there was no stream started.
+	* In order handle this situation, we are updating the streaming status
+	* before starting the dma */
+	vq->streaming = 1;
+
 	start_dma(dev, buf);
 
 	return 0;
