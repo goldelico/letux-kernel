@@ -394,12 +394,9 @@ static int __verify_length(struct vb2_buffer *vb, const struct v4l2_buffer *b)
 			       ? b->m.planes[plane].length
 			       : vb->v4l2_planes[plane].length;
 
-			if (b->m.planes[plane].bytesused > length)
-				return -EINVAL;
-
-			if (b->m.planes[plane].data_offset > 0 &&
-			    b->m.planes[plane].data_offset >=
-			    b->m.planes[plane].bytesused)
+			if (b->m.planes[plane].bytesused > 0 &&
+			    b->m.planes[plane].data_offset +
+			    b->m.planes[plane].bytesused > length)
 				return -EINVAL;
 		}
 	} else {
