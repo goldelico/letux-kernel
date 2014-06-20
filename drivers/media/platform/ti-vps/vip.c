@@ -966,7 +966,7 @@ static void vip_process_buffer_complete(struct vip_stream *stream)
 		vpdma_buf_unmap(dev->shared->vpdma, &dev->desc_list.buf);
 
 		fld = dtd_get_field(dev->write_desc);
-		stream->field = fld ? V4L2_FIELD_TOP : V4L2_FIELD_BOTTOM;
+		stream->field = fld ? V4L2_FIELD_BOTTOM : V4L2_FIELD_TOP;
 
 		vpdma_buf_map(dev->shared->vpdma, &dev->desc_list.buf);
 	}
@@ -1563,12 +1563,6 @@ static int vip_stop_streaming(struct vb2_queue *vq)
 	struct vip_dev *dev = port->dev;
 	struct vip_buffer *buf;
 
-	if (!vb2_is_streaming(vq))
-		return 0;
-
-	vpdma_buf_unmap(dev->shared->vpdma, &dev->desc_list.buf);
-	vpdma_reset_desc_list(&dev->desc_list);
-
 	disable_irqs(dev, dev->slice_id);
 	/* release all active buffers */
 	while (!list_empty(&dev->vip_bufs)) {
@@ -1582,6 +1576,13 @@ static int vip_stop_streaming(struct vb2_queue *vq)
 		list_del(&buf->list);
 		vb2_buffer_done(&buf->vb, VB2_BUF_STATE_ERROR);
 	}
+
+	if (!vb2_is_streaming(vq))
+		return 0;
+
+	vpdma_buf_unmap(dev->shared->vpdma, &dev->desc_list.buf);
+	vpdma_reset_desc_list(&dev->desc_list);
+
 	return 0;
 }
 
