@@ -23,36 +23,57 @@
 
 };
 
-/*
-&dpi1 {
-	// define dpi panel
+/* overwrite panel definitions */
 
-	lcd {
-		compatible = "sharp,l???";
-		// define parameters
-		// and control GPIOs
-	.pixelclock	= { 0, 33260000, 0 },
-
-	.hactive = { 0, 800, 0 },
-	.hfront_porch = { 0, 64, 0 },
-	.hback_porch = { 0, 64, 0 },
-	.hsync_len = { 0, 128, 0 },
-
-	.vactive = { 0, 480, 0 },
-	.vfront_porch = { 0, 8, 0 },
-	.vback_porch = { 0, 35, 0 },
-	.vsync_len = { 0, 2, 0 },
-
-	.flags = DISPLAY_FLAGS_HSYNC_LOW | DISPLAY_FLAGS_VSYNC_LOW |
-			DISPLAY_FLAGS_DE_HIGH | DISPLAY_FLAGS_PIXDATA_POSEDGE,
-	.enable_gpio = 12,	/* 3.3V LDO controlled through McBSP5-CLKX of GTA04 * /
-	};
+&spi_lcd {
+	compatible = "none";
 };
-*/
 
-// MADC battery capacity = 3900000;
+/* FIXME: &spi_gpio_pins: { }; */
 
-/* FIXME: handle optional USB Host output */
+&lcd {
+	compatible =	"sharp,lq070y3dg3b",
+			"panel-dpi";
+	label = "lcd";
+	panel-timing {
+		clock-frequency = <33260000>;
+
+		hback-porch = <64>;
+		hactive = <800>;
+		hfront-porch = <64>;
+		hsync-len = <128>;
+
+		vback-porch = <35>;
+		vactive = <480>;
+		vfront-porch = <8>;
+		vsync-len = <2>;
+
+		hsync-active = <0>;
+		vsync-active = <0>;
+		de-active = <1>;
+		pixelclk-active = <1>;
+
+	};
+
+	port {
+		lcd_in: endpoint {
+			remote-endpoint = <&dpi_out>;
+		};
+	};
+
+/* FIXME:
+ * handle 3.3V LDO controlled by GPIO 12 (McBSP5-CLKX)
+ */
+};
+
+&battery {
+	compatible = "ti,twl4030-madc-battery";
+	capacity = <3900000>;
+	charging-calibration-data = <4200 100 4100 75 4000 55 3900 25 3800 5 3700 2 3600 1 3300 0>;
+	discharging-calibration-data = <4200 100 4100 95 4000 70 3800 50 3700 10 3600 5 3300 0>;
+};
+
+/* FIXME: handle optional USB Host/Ethernet port */
 
 &i2c2 {
 	/* we have a different set of LEDs */
@@ -62,8 +83,6 @@
 		#size-cells = <0>;
 		reg = <0x45>;
 
-/* FIXME */
-
 		gta04_led0: red_aux@0 {
 			label = "gta04:red:aux";
 			reg = <0x0>;
@@ -72,6 +91,11 @@
 		gta04_led1: green_aux@1 {
 			label = "gta04:green:aux";
 			reg = <0x1>;
+		};
+
+		gta04_led2: green_aux@2 {
+			label = "gta04:blue:aux";
+			reg = <0x2>;
 		};
 
 		gta04_led3: red_power@3 {
@@ -84,6 +108,12 @@
 			label = "gta04:green:power";
 			reg = <0x4>;
 		};
+
+		gta04_led5: green_power@5 {
+			label = "gta04:blue:aux";
+			reg = <0x5>;
+		};
+
 	};
 
 	/* touchscreen */
