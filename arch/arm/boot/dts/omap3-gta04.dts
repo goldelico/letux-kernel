@@ -122,14 +122,14 @@
 		compatible = "ti,twl4030-madc-hwmon";
 	};
 
-	battery {
+	battery: battery {
 		compatible = "ti,twl4030-madc-battery";
 		capacity = <1200000>;
 		charging-calibration-data = <4200 100 4100 75 4000 55 3900 25 3800 5 3700 2 3600 1 3300 0>;
 		discharging-calibration-data = <4200 100 4100 95 4000 70 3800 50 3700 10 3600 5 3300 0>;
 	};
 
-	spi_lcd {
+	spi_lcd: spi_lcd {
 		compatible = "spi-gpio";
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
