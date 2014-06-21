@@ -23,36 +23,59 @@
 
 };
 
-/*
-&dpi1 {
-	// define dpi panel
-	lcd {
-		compatible = "ortustech,com37";
-		// define parameters
-		// and control GPIOs
-	.pixelclock	= { 0, 22153000, 0 },	/* min, typ, max * /
+/* overwrite panel definitions */
 
-	.hactive = { 0, 480, 0 },
-	.hfront_porch = { 0, 8, 0 },
-	.hback_porch = { 0, 10, 0 },
-	.hsync_len = { 0, 10, 0 },
+&spi_lcd {
+	compatible = "none";
+};
 
-	.vactive = { 0, 640, 0 },
-	.vfront_porch = { 0, 4, 0 },
-	.vback_porch = { 0, 4, 0 },
-	.vsync_len = { 0, 3, 0 },
+/* FIXME: &spi_gpio_pins: { }; */
 
-	.flags = DISPLAY_FLAGS_HSYNC_LOW | DISPLAY_FLAGS_VSYNC_LOW |
-			DISPLAY_FLAGS_DE_HIGH | DISPLAY_FLAGS_PIXDATA_POSEDGE,
-	.enable_gpio = 20,	/* STBY * /
+&lcd {
+	compatible =	"ortustech,com37h3m05dtc",
+			"ortustech,com37h3m099dtc",
+			"panel-dpi";
+	label = "lcd";
+	panel-timing {
+		clock-frequency = <22153000>;
+
+		hback-porch = <10>;
+		hactive = <480>;
+		hfront-porch = <8>;
+		hsync-len = <10>;
+
+		vback-porch = <4>;
+		vactive = <640>;
+		vfront-porch = <4>;
+		vsync-len = <3>;
+
+		hsync-active = <0>;
+		vsync-active = <0>;
+		de-active = <1>;
+		pixelclk-active = <1>;
 
 	};
+
+	port {
+		lcd_in: endpoint {
+			remote-endpoint = <&dpi_out>;
+		};
+	};
+
+/* FIXME:
+ * handle STBY GPIO 20
+ */
 };
-*/
+
 
 /* FIXME: add optional TRF7970 */
 
-// MADC battery capacity = 3900000;
+&battery {
+	compatible = "ti,twl4030-madc-battery";
+	capacity = <3900000>;
+	charging-calibration-data = <4200 100 4100 75 4000 55 3900 25 3800 5 3700 2 3600 1 3300 0>;
+	discharging-calibration-data = <4200 100 4100 95 4000 70 3800 50 3700 10 3600 5 3300 0>;
+};
 
 &i2c2 {
 	/* we have a different set of LEDs */
@@ -61,8 +84,6 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		reg = <0x45>;
-
-/* FIXME */
 
 		gta04_led0: red_aux@0 {
 			label = "gta04:red:aux";
