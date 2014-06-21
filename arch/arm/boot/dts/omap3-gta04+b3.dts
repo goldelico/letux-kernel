@@ -35,6 +35,8 @@
 	compatible =	"sharp,lq070y3dg3b",
 			"panel-dpi";
 	label = "lcd";
+	enable-gpios = <&gpio1 12 0>;
+
 	panel-timing {
 		clock-frequency = <33260000>;
 
@@ -61,9 +63,6 @@
 		};
 	};
 
-/* FIXME:
- * handle 3.3V LDO controlled by GPIO 12 (McBSP5-CLKX)
- */
 };
 
 &battery {
