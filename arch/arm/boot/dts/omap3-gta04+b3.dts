@@ -21,9 +21,60 @@
 
 	/* add additional regulators etc. */
 
+	/* overwrite panel definitions */
+
+	aliases {
+		display0 = &lcd_b3;
+		display1 = &tv0;
+	};
+
+	lcd_b3: lcd {
+		compatible =	"sharp,lq070y3dg3b",
+				"panel-dpi";
+		label = "lcd";
+		enable-gpios = <&gpio1 12 0>;
+
+		panel-timing {
+			clock-frequency = <33260000>;
+
+			hback-porch = <64>;
+			hactive = <800>;
+			hfront-porch = <64>;
+			hsync-len = <128>;
+
+			vback-porch = <35>;
+			vactive = <480>;
+			vfront-porch = <8>;
+			vsync-len = <2>;
+
+			hsync-active = <0>;
+			vsync-active = <0>;
+			de-active = <1>;
+			pixelclk-active = <1>;
+
+		};
+
+		port {
+			lcd_b3_in: endpoint {
+				remote-endpoint = <&dpi_out>;
+			};
+		};
+	};
 };
 
-/* overwrite panel definitions */
+&dss {
+	pinctrl-names = "default";
+	pinctrl-0 = < &dss_dpi_pins >;
+
+	status = "okay";
+
+	port {
+		dpi_out: endpoint {
+			remote-endpoint = <&lcd_b3_in>;
+			data-lines = <24>;
+		};
+	};
+};
 
 &spi_lcd {
 	compatible = "none";
@@ -31,39 +82,6 @@
 
 /* FIXME: &spi_gpio_pins: { }; */
 
-&lcd {
-	compatible =	"sharp,lq070y3dg3b",
-			"panel-dpi";
-	label = "lcd";
-	enable-gpios = <&gpio1 12 0>;
-
-	panel-timing {
-		clock-frequency = <33260000>;
-
-		hback-porch = <64>;
-		hactive = <800>;
-		hfront-porch = <64>;
-		hsync-len = <128>;
-
-		vback-porch = <35>;
-		vactive = <480>;
-		vfront-porch = <8>;
-		vsync-len = <2>;
-
-		hsync-active = <0>;
-		vsync-active = <0>;
-		de-active = <1>;
-		pixelclk-active = <1>;
-
-	};
-
-	port {
-		lcd_in: endpoint {
-			remote-endpoint = <&dpi_out>;
-		};
-	};
-
-};
 
 &battery {
 	compatible = "ti,twl4030-madc-battery";
@@ -76,7 +94,7 @@
 
 &i2c2 {
 	/* we have a different set of LEDs */
-	tca6507@45 {
+	tca_gpios: tca6507@45 {
 		compatible = "ti,tca6507";
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -113,6 +131,11 @@
 			reg = <0x5>;
 		};
 
+		wifi_reset: wifi_reset@6 { /* reference as <&tca_gpios 0 0> since it is currently the only GPIO */
+			reg = <0x6>;
+			compatible = "gpio";
+		};
+
 	};
 
 	/* touchscreen */
@@ -121,7 +144,7 @@
 		reg = <0x48>;
 		interrupt-parent = <&gpio6>;
 		interrupts = <0 IRQ_TYPE_EDGE_FALLING>;
-		gpios = <&gpio6 0 GPIO_ACTIVE_LOW>;
+		gpios = <&gpio6 0 GPIO_ACTIVE_LOW>;	/* gpio160 */
 		ti,x-plate-ohms = <450>;
 		ti,rng_x = <123 456>;
 		ti,rng_y = <123 456>;
