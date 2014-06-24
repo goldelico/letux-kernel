@@ -17,7 +17,7 @@
 #include "omap36xx.dtsi"
 
 / {
-	model = "Goldelico GTA04A4";
+	model = "Goldelico GTA04A4/Letux 2804";
 	compatible = "ti,omap3-gta04", "ti,omap36xx", "ti,omap3";
 
 	cpus {

@@ -17,7 +17,7 @@
 / {
 
 	/* overwrite device model */
-	model = "Goldelico GTA04b2";
+	model = "Goldelico GTA04b2/Letux 3704";
 
 	/* add additional regulators etc. */
 
@@ -144,6 +144,5 @@
 		ti,flip_y = <1>;
 		ti,swap_xy = <0>;
 	};
-
 
 };

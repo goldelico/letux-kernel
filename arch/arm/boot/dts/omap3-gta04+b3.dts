@@ -17,7 +17,7 @@
 / {
 
 	/* overwrite device model */
-	model = "Goldelico GTA04b3";
+	model = "Goldelico GTA04b3/Letux 7004";
 
 	/* add additional regulators etc. */
 
