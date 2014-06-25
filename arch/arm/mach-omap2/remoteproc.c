@@ -112,6 +112,10 @@ static struct omap_rproc_timers_info omap4_dsp_timers[] = {
 
 static struct omap_rproc_timers_info dra7_ipu2_timers[] = {
 	{ .name = "timer3", .id = 3, },
+#ifdef CONFIG_OMAP_REMOTEPROC_WATCHDOG
+	{ .name = "timer4", .id = 4, .is_wdt = 1, },
+	{ .name = "timer9", .id = 9, .is_wdt = 1, },
+#endif
 };
 
 static struct omap_rproc_timers_info dra7_dsp1_timers[] = {
