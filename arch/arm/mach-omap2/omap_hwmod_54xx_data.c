@@ -631,7 +631,6 @@ static struct omap_hwmod omap54xx_dsp_hwmod = {
 			.clkctrl_offs = OMAP54XX_CM_DSP_DSP_CLKCTRL_OFFSET,
 			.rstctrl_offs = OMAP54XX_RM_DSP_RSTCTRL_OFFSET,
 			.context_offs = OMAP54XX_RM_DSP_DSP_CONTEXT_OFFSET,
-			.modulemode   = MODULEMODE_HWCTRL,
 		},
 	},
 };
@@ -1727,7 +1726,6 @@ static struct omap_hwmod omap54xx_ipu_hwmod = {
 			.clkctrl_offs = OMAP54XX_CM_IPU_IPU_CLKCTRL_OFFSET,
 			.rstctrl_offs = OMAP54XX_RM_IPU_RSTCTRL_OFFSET,
 			.context_offs = OMAP54XX_RM_IPU_IPU_CONTEXT_OFFSET,
-			.modulemode   = MODULEMODE_HWCTRL,
 		},
 	},
 };

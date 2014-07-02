@@ -401,14 +401,18 @@ enum rproc_state {
 /**
  * enum rproc_crash_type - remote processor crash types
  * @RPROC_MMUFAULT:	iommu fault
+ * @RPROC_WATCHDOG:	watchdog error
+ * @RPROC_EXCEPTION:	generic device exception
  *
- * Each element of the enum is used as an array index. So that, the value of
+ * Each element of the enum is used as an array index. So, the value of
  * the elements should be always something sane.
  *
  * Feel free to add more types when needed.
  */
 enum rproc_crash_type {
 	RPROC_MMUFAULT,
+	RPROC_WATCHDOG,
+	RPROC_EXCEPTION,
 };
 
 /**
@@ -427,6 +431,8 @@ enum rproc_crash_type {
  * @dbg_dir: debugfs directory of this rproc device
  * @traces: list of trace buffers
  * @num_traces: number of trace buffers
+ * @last_traces: list of last trace buffers
+ * @num_last_traces: number of last trace buffers
  * @carveouts: list of physically contiguous memory allocations
  * @mappings: list of iommu mappings we initiated, needed on shutdown
  * @firmware_loading_complete: marks e/o asynchronous firmware loading
@@ -460,6 +466,8 @@ struct rproc {
 	struct dentry *dbg_dir;
 	struct list_head traces;
 	int num_traces;
+	struct list_head last_traces;
+	int num_last_traces;
 	struct list_head carveouts;
 	struct list_head mappings;
 	struct completion firmware_loading_complete;
