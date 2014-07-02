@@ -18,6 +18,7 @@
 #include <linux/kernel.h>
 #include <linux/err.h>
 #include <linux/remoteproc.h>
+#include <linux/interrupt.h>
 #include <linux/dma-contiguous.h>
 #include <linux/dma-mapping.h>
 #include <linux/of.h>
@@ -94,19 +95,38 @@ static void dra7_ctrl_write_dsp2_boot_addr(u32 bootaddr);
  * identifying the timer as well as a matching logic to be used
  * to lookup the specific timer device node from the DT blob.
  */
-static struct omap_rproc_timers_info ipu_timers[] = {
+static struct omap_rproc_timers_info omap4_ipu_timers[] = {
 	{ .name = "timer3", .id = 3, },
+#ifdef CONFIG_OMAP_REMOTEPROC_WATCHDOG
+	{ .name = "timer4", .id = 4, .is_wdt = 1, },
+	{ .name = "timer9", .id = 9, .is_wdt = 1, },
+#endif
 };
 
-static struct omap_rproc_timers_info dsp_timers[] = {
+static struct omap_rproc_timers_info omap4_dsp_timers[] = {
 	{ .name = "timer5", .id = 5, },
+#ifdef CONFIG_OMAP_REMOTEPROC_WATCHDOG
+	{ .name = "timer6", .id = 6, .is_wdt = 1, },
+#endif
 };
 
-static struct omap_rproc_timers_info ipu1_timers[] = {
+static struct omap_rproc_timers_info dra7_ipu2_timers[] = {
+	{ .name = "timer3", .id = 3, },
+#ifdef CONFIG_OMAP_REMOTEPROC_WATCHDOG
+	{ .name = "timer4", .id = 4, .is_wdt = 1, },
+	{ .name = "timer9", .id = 9, .is_wdt = 1, },
+#endif
+};
+
+static struct omap_rproc_timers_info dra7_dsp1_timers[] = {
+	{ .name = "timer5", .id = 5},
+};
+
+static struct omap_rproc_timers_info dra7_ipu1_timers[] = {
 	{ .name = "timer11", .id = 11, },
 };
 
-static struct omap_rproc_timers_info dsp2_timers[] = {
+static struct omap_rproc_timers_info dra7_dsp2_timers[] = {
 	{ .name = "timer6", .id = 6, },
 };
 
@@ -186,8 +206,8 @@ static struct omap_rproc_pdata omap4_rproc_data[] = {
 		.firmware	= "tesla-dsp.xe64T",
 		.mbox_name	= "mbox-dsp",
 		.oh_name	= "dsp",
-		.timers		= dsp_timers,
-		.timers_cnt	= ARRAY_SIZE(dsp_timers),
+		.timers		= omap4_dsp_timers,
+		.timers_cnt	= ARRAY_SIZE(omap4_dsp_timers),
 		.set_bootaddr	= omap_ctrl_write_dsp_boot_addr,
 	},
 	{
@@ -195,8 +215,8 @@ static struct omap_rproc_pdata omap4_rproc_data[] = {
 		.firmware	= "ducati-m3-core0.xem3",
 		.mbox_name	= "mbox-ipu",
 		.oh_name	= "ipu",
-		.timers		= ipu_timers,
-		.timers_cnt	= ARRAY_SIZE(ipu_timers),
+		.timers		= omap4_ipu_timers,
+		.timers_cnt	= ARRAY_SIZE(omap4_ipu_timers),
 	},
 };
 
@@ -206,8 +226,8 @@ static struct omap_rproc_pdata dra7_rproc_data[] = {
 		.firmware	= "dra7-dsp1-fw.xe66",
 		.mbox_name	= "mbox-dsp1",
 		.oh_name	= "dsp1",
-		.timers		= dsp_timers,
-		.timers_cnt	= ARRAY_SIZE(dsp_timers),
+		.timers		= dra7_dsp1_timers,
+		.timers_cnt	= ARRAY_SIZE(dra7_dsp1_timers),
 		.set_bootaddr	= dra7_ctrl_write_dsp1_boot_addr,
 		.carveouts	= dsp1_carveouts,
 		.carveouts_cnt	= ARRAY_SIZE(dsp1_carveouts),
@@ -217,10 +237,10 @@ static struct omap_rproc_pdata dra7_rproc_data[] = {
 		.firmware	= "dra7-ipu2-fw.xem4",
 		.mbox_name	= "mbox-ipu2",
 		.oh_name	= "ipu2",
-		.timers		= ipu_timers,
-		.timers_cnt	= ARRAY_SIZE(ipu_timers),
+		.timers		= dra7_ipu2_timers,
+		.timers_cnt	= ARRAY_SIZE(dra7_ipu2_timers),
 #ifdef CONFIG_OMAP_REMOTEPROC_LATE_ATTACH_IPU2
-		.late_attach	= 1,
+		.late_attach    = 1,
 #endif
 	},
 	{
@@ -228,8 +248,8 @@ static struct omap_rproc_pdata dra7_rproc_data[] = {
 		.firmware	= "dra7-dsp2-fw.xe66",
 		.mbox_name	= "mbox-dsp2",
 		.oh_name	= "dsp2",
-		.timers		= dsp2_timers,
-		.timers_cnt	= ARRAY_SIZE(dsp2_timers),
+		.timers		= dra7_dsp2_timers,
+		.timers_cnt	= ARRAY_SIZE(dra7_dsp2_timers),
 		.set_bootaddr	= dra7_ctrl_write_dsp2_boot_addr,
 		.carveouts	= dsp2_carveouts,
 		.carveouts_cnt	= ARRAY_SIZE(dsp2_carveouts),
@@ -239,10 +259,10 @@ static struct omap_rproc_pdata dra7_rproc_data[] = {
 		.firmware	= "dra7-ipu1-fw.xem4",
 		.mbox_name	= "mbox-ipu1",
 		.oh_name	= "ipu1",
-		.timers		= ipu1_timers,
-		.timers_cnt	= ARRAY_SIZE(ipu1_timers),
+		.timers		= dra7_ipu1_timers,
+		.timers_cnt	= ARRAY_SIZE(dra7_ipu1_timers),
 #ifdef CONFIG_OMAP_REMOTEPROC_LATE_ATTACH_IPU1
-		.late_attach	= 1,
+		.late_attach    = 1,
 #endif
 	},
 };
@@ -500,6 +520,62 @@ out:
 }
 
 /**
+ * omap_rproc_watchdog_isr - Watchdog ISR handler for remoteproc device
+ * @irq: IRQ number associated with a watchdog timer
+ * @data: IRQ handler data
+ *
+ * This ISR routine executes the required necessary low-level code to
+ * acknowledge a watchdog timer interrupt. There can be multiple watchdog
+ * timers associated with a rproc (like IPUs which have 2 watchdog timers,
+ * one per Cortex M3/M4 core), so a lookup has to be performed to identify
+ * the timer to acknowledge its interrupt.
+ *
+ * The function also invokes a report watchdog ops, plugged in by the OMAP
+ * remoteproc driver code to be able to report this watchdog error to trigger
+ * a recovery. Ideally, this ISR should be present with the OMAP remoteproc
+ * driver code, but is implemented here because of the dependencies against
+ * the omap_dmtimer API which can only be invoked through some platform data
+ * functions ops.
+ *
+ * Return: IRQ_HANDLED or IRQ_NONE
+ */
+static irqreturn_t omap_rproc_watchdog_isr(int irq, void *data)
+{
+	struct platform_device *pdev = data;
+	struct rproc *rproc = platform_get_drvdata(pdev);
+	struct device *dev = &pdev->dev;
+	struct omap_rproc_pdata *pdata = dev->platform_data;
+	struct omap_rproc_timers_info *timers = pdata->timers;
+	struct omap_dm_timer *timer = NULL;
+	int i;
+
+	for (i = 0; i < pdata->timers_cnt; i++) {
+		if (irq == omap_dm_timer_get_irq(timers[i].odt)) {
+			timer = timers[i].odt;
+			break;
+		}
+	}
+
+	if (!timer) {
+		dev_err(dev, "invalid timer\n");
+		return IRQ_NONE;
+	}
+	omap_dm_timer_write_status(timer, OMAP_TIMER_INT_OVERFLOW);
+
+	/*
+	 * rproc_report_crash needs to be invoked to recover a triggery, but
+	 * since remoteproc core can be built as a module, use a platform
+	 * data ops to break the dependency. This usage is non-standard, but
+	 * given the dependencies, is the best possible solution to minimize
+	 * adding more code.
+	 */
+	if (pdata->report_watchdog)
+		pdata->report_watchdog(rproc, RPROC_WATCHDOG);
+
+	return IRQ_HANDLED;
+}
+
+/**
  * of_dev_timer_lookup - look up needed timer node from dt blob
  * @np: parent device_node of all the searchable nodes
  * @hwmod_name: hwmod name of the desired timer
@@ -589,6 +665,21 @@ check_timer:
 			goto free_timers;
 		}
 		omap_dm_timer_set_source(timers[i].odt, OMAP_TIMER_SRC_SYS_CLK);
+
+		if (timers[i].is_wdt) {
+			ret = request_irq(omap_dm_timer_get_irq(timers[i].odt),
+					omap_rproc_watchdog_isr, IRQF_SHARED,
+					"rproc-wdt", pdev);
+			if (ret) {
+				dev_err(&pdev->dev, "error requesting irq for timer %s\n",
+					timers[i].name);
+				omap_dm_timer_free(timers[i].odt);
+				timers[i].odt = NULL;
+				goto free_timers;
+			}
+			/* clean counter, remoteproc code will set the value */
+			omap_dm_timer_set_load(timers[i].odt, 0, 0);
+		}
 	}
 
 start_timers:
@@ -598,6 +689,9 @@ start_timers:
 
 free_timers:
 	while (i--) {
+		if (timers[i].is_wdt)
+			free_irq(omap_dm_timer_get_irq(timers[i].odt), pdev);
+
 		omap_dm_timer_free(timers[i].odt);
 		timers[i].odt = NULL;
 	}
@@ -625,6 +719,10 @@ static int omap_rproc_disable_timers(struct platform_device *pdev,
 	for (i = 0; i < pdata->timers_cnt; i++) {
 		omap_dm_timer_stop(timers[i].odt);
 		if (configure) {
+			if (timers[i].is_wdt) {
+				free_irq(omap_dm_timer_get_irq(timers[i].odt),
+					 pdev);
+			}
 			omap_dm_timer_free(timers[i].odt);
 			timers[i].odt = NULL;
 		}

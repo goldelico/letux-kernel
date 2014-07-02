@@ -74,8 +74,12 @@ static int omap_rproc_mbox_callback(struct notifier_block *this,
 
 	switch (msg_data) {
 	case RP_MBOX_CRASH:
-		/* just log this for now. later, we'll also do recovery */
+		/*
+		 * remoteproc detected an exception, notify the rproc core.
+		 * The remoteproc core will handle the recovery.
+		 */
 		dev_err(dev, "omap rproc %s crashed\n", name);
+		rproc_report_crash(oproc->rproc, RPROC_EXCEPTION);
 		break;
 	case RP_MBOX_ECHO_REPLY:
 		dev_info(dev, "received echo reply from %s\n", name);
@@ -234,6 +238,7 @@ static int omap_rproc_probe(struct platform_device *pdev)
 	oproc = rproc->priv;
 	oproc->rproc = rproc;
 
+	pdata->report_watchdog = rproc_report_crash;
 	platform_set_drvdata(pdev, rproc);
 
 	ret = rproc_add(rproc);

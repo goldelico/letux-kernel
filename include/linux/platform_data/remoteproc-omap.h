@@ -17,19 +17,25 @@
 #ifndef _PLAT_REMOTEPROC_H
 #define _PLAT_REMOTEPROC_H
 
+struct rproc;
 struct rproc_ops;
 struct platform_device;
+enum rproc_crash_type;
 
 /**
  * struct omap_rproc_timers_info - timers for the omap rproc
  * @name: hwmod name of the timer
  * @id: timer id to use by the remoteproc (only for non-DT and temporary)
  * @odt: timer pointer
+ * @is_wdt: flag to indicate a watchdog timer
+ *		0 - regular timer
+ *		1 - watchdog timer
  */
 struct omap_rproc_timers_info {
 	const char *name;
 	int id;
 	struct omap_dm_timer *odt;
+	int is_wdt;
 };
 
 /**
@@ -47,6 +53,7 @@ struct omap_rproc_timers_info {
  * @set_bootaddr: omap-specific handler for setting the rproc boot address
  * @enable_timers: omap-specific handler for requesting & enabling rproc timers
  * @disable_timers: omap-specific handler for disabling & freeing rproc timers
+ * @report_watchdog: handler to invoke upon a watchdog error
  */
 struct omap_rproc_pdata {
 	const char *name;
@@ -66,6 +73,9 @@ struct omap_rproc_pdata {
 
 	int (*enable_timers)(struct platform_device *pdev, bool configure);
 	int (*disable_timers)(struct platform_device *pdev, bool configure);
+
+	void (*report_watchdog)(struct rproc *rproc,
+				enum rproc_crash_type type);
 };
 
 #if defined(CONFIG_OMAP_REMOTEPROC) || defined(CONFIG_OMAP_REMOTEPROC_MODULE)
