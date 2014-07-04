@@ -2252,7 +2252,7 @@ static struct omap_hwmod_ocp_if __maybe_unused omap54xx_l4_abe__aess = {
 	.master		= &omap54xx_l4_abe_hwmod,
 	.slave		= &omap54xx_aess_hwmod,
 	.clk		= "abe_iclk",
-	.user		= OCP_USER_MPU,
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
 /* l4_abe -> aess (dma) */
@@ -2484,7 +2484,7 @@ static struct omap_hwmod_ocp_if omap54xx_l4_abe__mcpdm = {
 	.master		= &omap54xx_l4_abe_hwmod,
 	.slave		= &omap54xx_mcpdm_hwmod,
 	.clk		= "abe_iclk",
-	.user		= OCP_USER_MPU,
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
 /* l4_per -> mcspi1 */
@@ -2763,7 +2763,6 @@ static struct omap_hwmod_ocp_if *omap54xx_hwmod_ocp_ifs[] __initdata = {
 	&omap54xx_l3_main_2__l3_main_3,
 	&omap54xx_l4_cfg__l3_main_3,
 	&omap54xx_l4_abe__aess,
-	&omap54xx_l4_abe__aess_dma,
 	&omap54xx_aess__l4_abe,
 	&omap54xx_l3_main_1__l4_abe,
 	&omap54xx_mpu__l4_abe,
