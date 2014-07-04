@@ -21,6 +21,7 @@
 
 #include <linux/of_i2c.h>
 #include "vip.h"
+#include "../../../drivers/gpu/drm/omapdrm/omap_dmm_tiler.h"
 
 #define VIP_MODULE_NAME "dra7xx-vip"
 #define VIP_INPUT_NAME "Vin0"
@@ -796,6 +797,8 @@ static int add_out_dtd(struct vip_stream *stream, int srce_type)
 		return -1;
 	}
 
+	if (is_tiler_addr(dma_addr))
+		flags |= VPDMA_DATA_MODE_TILED;
 	/*
 	 * Use VPDMA_MAX_SIZE1 or VPDMA_MAX_SIZE2 register for slice0/1
 	 */
