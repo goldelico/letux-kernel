@@ -25,6 +25,8 @@
 
 #include "vpdma.h"
 #include "vpdma_priv.h"
+#include "../../../drivers/gpu/drm/omapdrm/omap_dmm_tiler.h"
+
 
 #define VPDMA_FIRMWARE	"vpdma-1b8.fw"
 
@@ -700,7 +702,16 @@ int vpdma_add_out_dtd(struct vpdma_desc_list *list, int width,
 			fmt->data_type == DATA_TYPE_C420)
 		depth = 8;
 
-	stride = ALIGN((depth * width) >> 3, VPDMA_DESC_ALIGN);
+	if (!is_tiler_addr(dma_addr))
+		stride = ALIGN((depth * width) >> 3, VPDMA_DESC_ALIGN);
+	else {
+		enum tiler_fmt fmt;
+		tiler_get_fmt(dma_addr, &fmt);
+		if (fmt != TILFMT_PAGE)
+			stride = tiler_stride(fmt, 0);
+		else
+			stride = ALIGN((depth * width) >> 3, VPDMA_DESC_ALIGN);
+	}
 
 	dtd = list->next;
 	WARN_ON((void *)(dtd + 1) > (list->buf.addr + list->buf.size));
@@ -772,7 +783,16 @@ void vpdma_add_in_dtd(struct vpdma_desc_list *list, int width,
 		depth = 8;
 	}
 
-	stride = ALIGN((depth * width) >> 3, VPDMA_DESC_ALIGN);
+	if (!is_tiler_addr(dma_addr))
+		stride = ALIGN((depth * width) >> 3, VPDMA_DESC_ALIGN);
+	else {
+		enum tiler_fmt fmt;
+		tiler_get_fmt(dma_addr, &fmt);
+		if (fmt != TILFMT_PAGE)
+			stride = tiler_stride(fmt, 0);
+		else
+			stride = ALIGN((depth * width) >> 3, VPDMA_DESC_ALIGN);
+	}
 
 	dma_addr += rect.top * stride + (rect.left * depth >> 3);
 
