@@ -651,6 +651,14 @@ static int vb2_dc_map_dmabuf(void *mem_priv)
 
 	/* checking if dmabuf is big enough to store contiguous chunk */
 	contig_size = vb2_dc_get_contiguous_size(sgt);
+
+	/* HACK: In order to allow TILER-2D buffers, which are always
+	* contiguous, lets check the sgt size, and it is of one LINUX PAGE
+	* size, assume it is TILER2D and assign buf size to contig_size
+	*/
+	if (contig_size == 4096)
+		contig_size = buf->size;
+
 	if (contig_size < buf->size) {
 		pr_err("contiguous chunk is too small %lu/%lu b\n",
 			contig_size, buf->size);
