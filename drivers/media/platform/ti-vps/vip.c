@@ -1202,14 +1202,23 @@ static int vip_g_fmt_vid_cap(struct file *file, void *priv,
 {
 	struct vip_stream *stream = file2stream(file);
 	struct vip_port *port = stream->port;
+	struct vip_dev *dev = stream->port->dev;
+	struct v4l2_mbus_framefmt mbus_fmt;
+	int ret;
 
 	f->fmt.pix.width	= stream->width;
 	f->fmt.pix.height	= stream->height;
 	f->fmt.pix.pixelformat	= port->fmt->fourcc;
-	f->fmt.pix.field	= stream->sup_field;
+	f->fmt.pix.field        = stream->sup_field;
 	f->fmt.pix.colorspace	= port->fmt->colorspace;
 	f->fmt.pix.bytesperline	= stream->bytesperline;
 	f->fmt.pix.sizeimage	= stream->sizeimage;
+
+	ret = v4l2_subdev_call(dev->sensor, video, g_mbus_fmt, &mbus_fmt);
+	if (ret)
+		vip_dprintk(dev, "g_mbus_fmt failed in subdev\n");
+
+	f->fmt.pix.field = mbus_fmt.field;
 
 	return 0;
 }
