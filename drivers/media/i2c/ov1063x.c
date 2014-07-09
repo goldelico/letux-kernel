@@ -1649,7 +1649,7 @@ static int ov1063x_detect_sensor(struct i2c_client *client)
 static int ov1063x_init_sensor(struct i2c_client *client)
 {
 	struct ov1063x_priv *priv = to_ov1063x(client);
-	int ret, X = -1;
+	int ret = -EINVAL, X = -1;
 
 	switch (priv->sensor_connector) {
 	case VIS_OVCAM:
@@ -1669,7 +1669,6 @@ static int ov1063x_init_sensor(struct i2c_client *client)
 	break;
 	default:
 		dev_err(&client->dev, "Unknown connector!\n");
-		return -EINVAL;
 	}
 
 	return ret;
