@@ -6,17 +6,9 @@
  * published by the Free Software Foundation.
  */
 
-/*
- * device tree for GTA04A3
- */
-
-/* we start with the omap3-gta04 tree and modify only what is really different for the board revision A3 */
-
 #include "omap3-gta04.dtsi"
 
 / {
-
-	/* overwrite device model */
 	model = "Goldelico GTA04A3";
 
 /* could we write &modem_en { ... } ? */
