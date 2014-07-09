@@ -8,7 +8,7 @@
 
 /* we start with the omap3-gta04 tree and modify only what is really different */
 
-#include "omap3-gta04.dts"
+#include "omap3-gta04.dtsi"
 
 / {
 
