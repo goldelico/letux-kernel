@@ -262,10 +262,9 @@ dtb-$(CONFIG_ARCH_OMAP3) += am3517-craneboard.dtb \
 	omap3-devkit8000.dtb \
 	omap3-evm.dtb \
 	omap3-evm-37xx.dtb \
-	omap3-gta04.dtb \
 	omap3-gta04a2.dtb \
 	omap3-gta04a3.dtb \
-	omap3-gta04.dtb \
+	omap3-gta04a4.dtb \
 	omap3-gta04a5.dtb \
 	omap3-gta04+b2.dtb \
 	omap3-gta04+b3.dtb \
@@ -365,7 +364,7 @@ dtb-$(CONFIG_ARCH_STI)+= stih407-b2120.dtb \
 	stih415-b2020.dtb \
 	stih416-b2000.dtb \
 	stih416-b2020.dtb \
-	stih416-b2020-revE.dtb
+	stih416-b2020e.dtb
 dtb-$(CONFIG_MACH_SUN4I) += \
 	sun4i-a10-a1000.dtb \
 	sun4i-a10-cubieboard.dtb \
