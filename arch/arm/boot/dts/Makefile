@@ -264,6 +264,7 @@ dtb-$(CONFIG_ARCH_OMAP3) += am3517-craneboard.dtb \
 	omap3-evm-37xx.dtb \
 	omap3-gta04a2.dtb \
 	omap3-gta04a3.dtb \
+	omap3-gta04a4.dtb \
 	omap3-gta04a5.dtb \
 	omap3-gta04+b2.dtb \
 	omap3-gta04+b3.dtb \
