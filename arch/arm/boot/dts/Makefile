@@ -339,6 +339,7 @@ dtb-$(CONFIG_SOC_OMAP5) += omap5-cm-t54.dtb \
 	omap5-sbc-t54.dtb \
 	omap5-uevm.dtb \
 	omap5-pyra.dtb
+	omap5-pyra+lg.dtb omap5-pyra+boe.dtb omap5-pyra+succ.dtb \
 dtb-$(CONFIG_SOC_DRA7XX) += dra7-evm.dtb \
 	dra72-evm.dtb
 dtb-$(CONFIG_ARCH_ORION5X) += orion5x-lacie-d2-network.dtb \
