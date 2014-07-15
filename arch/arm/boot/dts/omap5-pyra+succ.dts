@@ -1,0 +1,36 @@
+/*
+ * Copyright (C) 2014 OpenPandora - http://www.pyra-handheld.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/* we atart with the omap5-uevm tree */
+
+/include/ "omap5-pyra.dts"
+
+&dsi1 {
+	lcd {
+		compatible = "success,s90451-di050hd";
+		lanes = <
+			0       /* lane0+ = clk + */
+			1       /* lane0- = clk - */
+			2       /* lane1+ = data1 + */
+			3       /* lane1- = data1 - */
+			4       /* lane2+ = data2 + */
+			5       /* lane2- = data2 - */
+			6       /* lane3+ = data3 + */
+			7       /* lane3- = data3 - */
+			8       /* lane4+ = data4 + */
+			9       /* lane4- = data4 - */
+		>;
+
+/* there is no ldo2_reg!		vdds_foo-supply = <&ldo2_reg>; */
+/* does not work as expected:	vdds_foo-supply = <&dsi1_panel_power>; */
+
+		gpios =
+			<&gpio6 16 0>,	/* goip6_176 = display reset */
+			<&gpio3 18 0>;	/* gpio3_82 = enable DC/DC */
+	};
+};
