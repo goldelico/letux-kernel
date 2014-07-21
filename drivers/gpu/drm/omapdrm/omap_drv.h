@@ -117,6 +117,10 @@ struct omap_drm_private {
 	struct drm_property *zorder_prop;
 	struct drm_property *global_alpha_prop;
 	struct drm_property *pre_mult_alpha_prop;
+	struct drm_property *default_color;
+	struct drm_property *trans_key;
+	struct drm_property *trans_key_type;
+	struct drm_property *trans_enabled;
 
 	/* irq handling: */
 	struct list_head irq_list;    /* list of omap_drm_irq */

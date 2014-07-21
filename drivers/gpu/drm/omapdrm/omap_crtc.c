@@ -395,13 +395,81 @@ static int omap_crtc_set_property(struct drm_crtc *crtc,
 {
 	struct omap_crtc *omap_crtc = to_omap_crtc(crtc);
 	struct omap_drm_private *priv = crtc->dev->dev_private;
+	bool need_plane_update = true;
+	int ret = -EINVAL;
 
 	if (property == priv->rotation_prop) {
 		crtc->invert_dimensions =
 				!!(val & ((1LL << DRM_ROTATE_90) | (1LL << DRM_ROTATE_270)));
+	} else if (property == priv->default_color) {
+		omap_crtc->info.default_color = val;
+		need_plane_update = false;
+	} else if (property == priv->trans_key) {
+		omap_crtc->info.trans_key = val;
+		need_plane_update = false;
+	} else if (property == priv->trans_key_type) {
+		omap_crtc->info.trans_key_type = val;
+		need_plane_update = false;
+	} else if (property == priv->trans_enabled) {
+		omap_crtc->info.trans_enabled = val;
+		need_plane_update = false;
 	}
 
-	return omap_plane_set_property(omap_crtc->plane, property, val);
+	if (need_plane_update)
+		ret = omap_plane_set_property(omap_crtc->plane, property, val);
+	else
+		ret = omap_crtc_apply(crtc, &omap_crtc->apply);
+
+	return ret;
+}
+
+/* helper to install properties which are particular to crtcs */
+void omap_crtc_install_properties(struct drm_crtc *crtc,
+		struct drm_mode_object *obj)
+{
+	struct drm_device *dev = crtc->dev;
+	struct omap_drm_private *priv = dev->dev_private;
+	struct drm_property *prop;
+
+	prop = priv->default_color;
+	if (!prop) {
+		prop = drm_property_create_range(dev, 0, "default_color",
+				0, 0xFFFFFF);
+		if (prop == NULL)
+			return;
+		priv->default_color = prop;
+	}
+	drm_object_attach_property(obj, prop, 0);
+
+	prop = priv->trans_key;
+	if (!prop) {
+		prop = drm_property_create_range(dev, 0, "transparent_color",
+						 0, 0xFFFFFF);
+		if (prop == NULL)
+			return;
+		priv->trans_key = prop;
+	}
+	drm_object_attach_property(obj, prop, 0);
+
+	prop = priv->trans_key_type;
+	if (!prop) {
+		prop = drm_property_create_range(dev, 0, "transparency_type",
+						 0, 1);
+		if (prop == NULL)
+			return;
+		priv->trans_key_type = prop;
+	}
+	drm_object_attach_property(obj, prop, 0);
+
+	prop = priv->trans_enabled;
+	if (!prop) {
+		prop = drm_property_create_range(dev, 0, "transparency",
+						 0, 1);
+		if (prop == NULL)
+			return;
+		priv->trans_enabled = prop;
+	}
+	drm_object_attach_property(obj, prop, 0);
 }
 
 static const struct drm_crtc_funcs omap_crtc_funcs = {
@@ -726,7 +794,6 @@ struct drm_crtc *omap_crtc_init(struct drm_device *dev,
 {
 	struct drm_crtc *crtc = NULL;
 	struct omap_crtc *omap_crtc;
-	struct omap_overlay_manager_info *info;
 
 	DBG("%s", channel_names[channel]);
 
@@ -762,17 +829,11 @@ struct drm_crtc *omap_crtc_init(struct drm_device *dev,
 	/* temporary: */
 	omap_crtc->mgr = omap_dss_get_overlay_manager(channel);
 
-	/* TODO: fix hard-coded setup.. add properties! */
-	info = &omap_crtc->info;
-	info->default_color = 0x00000000;
-	info->trans_key = 0x00000000;
-	info->trans_key_type = OMAP_DSS_COLOR_KEY_GFX_DST;
-	info->trans_enabled = false;
-
 	drm_crtc_init(dev, crtc, &omap_crtc_funcs);
 	drm_crtc_helper_add(crtc, &omap_crtc_helper_funcs);
 
 	omap_plane_install_properties(omap_crtc->plane, &crtc->base);
+	omap_crtc_install_properties(crtc, &crtc->base);
 
 	omap_crtcs[channel] = omap_crtc;
 
