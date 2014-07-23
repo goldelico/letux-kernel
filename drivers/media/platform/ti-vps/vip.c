@@ -907,7 +907,7 @@ static void start_dma(struct vip_dev *dev, struct vip_buffer *buf)
 		dma_addr = vb2_dma_contig_plane_dma_addr(&buf->vb, 0);
 		drop_data = 0;
 	} else {
-		dma_addr = NULL;
+		dma_addr = 0;
 		drop_data = 1;
 	}
 
@@ -1738,6 +1738,8 @@ static int vip_setup_parser(struct vip_port *port)
 
 	vip_set_data_interface(port, iface);
 	vip_sync_type(port, sync_type);
+
+	return 0;
 }
 
 static int vip_init_port(struct vip_port *port)

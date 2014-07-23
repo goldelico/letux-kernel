@@ -589,7 +589,7 @@ static int __adjust_timing(struct device *dev, void *data)
 	return ret;
 }
 
-int omap2_onenand_rephase(void)
+static int omap2_onenand_rephase(void)
 {
 	return driver_for_each_device(&omap2_onenand_driver.driver, NULL,
 				      NULL, __adjust_timing);

@@ -1855,7 +1855,7 @@ static void set_dei_shadow_registers(struct vpe_ctx *ctx)
 {
 	struct vpe_mmr_adb *mmr_adb = ctx->mmr_adb.addr;
 	u32 *dei_mmr = &mmr_adb->dei_regs[0];
-	struct vpe_dei_regs *cur = &dei_regs;
+	struct vpe_dei_regs *cur = (struct vpe_dei_regs *) &dei_regs;
 
 	dei_mmr[2]  = cur->mdt_spacial_freq_thr_reg;
 	dei_mmr[3]  = cur->edi_config_reg;

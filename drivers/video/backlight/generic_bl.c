@@ -58,7 +58,7 @@ static int genericbl_get_intensity(struct backlight_device *bd)
  * Called when the battery is low to limit the backlight intensity.
  * If limit==0 clear any limit, otherwise limit the intensity
  */
-void genericbl_limit_intensity(int limit)
+static void genericbl_limit_intensity(int limit)
 {
 	struct backlight_device *bd = generic_backlight_device;
 
