@@ -1896,6 +1896,7 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto err_alloc;
 	}
+	mmc_of_parse(mmc);
 
 	host		= mmc_priv(mmc);
 	host->mmc	= mmc;
