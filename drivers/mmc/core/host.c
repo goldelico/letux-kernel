@@ -423,6 +423,7 @@ int mmc_of_parse(struct mmc_host *host)
 	if (of_find_property(np, "card-reset-gpios", NULL)) {
 		struct gpio_desc *gpd;
 		for (i = 0; i < ARRAY_SIZE(host->card_reset_gpios); i++) {
+			gpd = devm_gpiod_get_index(host->parent, "card-reset-gpios", i);
 			gpd = devm_gpiod_get_index(host->parent, "card-reset", i);
 			if (IS_ERR(gpd))
 				break;
