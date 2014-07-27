@@ -6,8 +6,6 @@
  * published by the Free Software Foundation.
  */
 
-#include "omap3-gta04.dtsi"
-
 / {
 	model = "Goldelico GTA04b3/Letux 7004";
 
@@ -119,7 +117,7 @@
 		};
 
 		gta04_led5: green_power@5 {
-			label = "gta04:blue:aux";
+			label = "gta04:blue:power";
 			reg = <0x5>;
 		};
 
@@ -138,9 +136,9 @@
 		interrupts = <0 IRQ_TYPE_EDGE_FALLING>;
 		gpios = <&gpio6 0 GPIO_ACTIVE_LOW>;	/* gpio160 */
 		ti,x-plate-ohms = <450>;
-		ti,rng_x = <123 456>;
-		ti,rng_y = <123 456>;
-		ti,rng_z = <123 456>;
+		ti,rng_x = <0 4095>;
+		ti,rng_y = <0 4095>;
+		ti,rng_z = <0 4095>;
 		ti,flip_x = <0>;
 		ti,flip_y = <0>;
 		ti,swap_xy = <1>;

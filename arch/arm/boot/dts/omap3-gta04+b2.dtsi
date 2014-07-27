@@ -6,8 +6,6 @@
  * published by the Free Software Foundation.
  */
 
-#include "omap3-gta04.dtsi"
-
 / {
 	model = "Goldelico GTA04b2/Letux 3704";
 
@@ -93,26 +91,25 @@
 		reg = <0x45>;
 
 		gta04_led0: red_aux@0 {
+			compatible = "led";
 			label = "gta04:red:aux";
 			reg = <0x0>;
 		};
 
-/*		gta04_led1: green_aux@1 {
-			label = "gta04:green:aux";
+		gta04_led1: green_aux@1 {
+			compatible = "led";
+			label = "gta04:green:power";
+			linux,default-trigger = "default-on";
 			reg = <0x1>;
 		};
-*/
+
 		gta04_led3: red_power@3 {
-			label = "gta04:red:power";
-			reg = <0x3>;
-			linux,default-trigger = "default-on";
+			reg = <7>;
 		};
-/*
+
 		gta04_led4: green_power@4 {
-			label = "gta04:green:power";
-			reg = <0x4>;
+			reg = <7>;
 		};
-*/
 
 		wifi_reset: wifi_reset@6 { /* reference as <&tca_gpios 0 0> since it is currently the only GPIO */
 			reg = <0x6>;
@@ -129,9 +126,9 @@
 		interrupts = <0 IRQ_TYPE_EDGE_FALLING>;
 		gpios = <&gpio6 0 GPIO_ACTIVE_LOW>;	/* gpio160 */
 		ti,x-plate-ohms = <600>;
-		ti,rng_x = <123 456>;
-		ti,rng_y = <123 456>;
-		ti,rng_z = <123 456>;
+		ti,rng_x = <0 4095>;
+		ti,rng_y = <0 4095>;
+		ti,rng_z = <0 4095>;
 		ti,flip_x = <0>;
 		ti,flip_y = <1>;
 		ti,swap_xy = <0>;

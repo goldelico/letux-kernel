@@ -6,9 +6,5 @@
  * published by the Free Software Foundation.
  */
 
-#include "omap3-gta04.dtsi"
-
-/ {
-	model = "Goldelico GTA04A4/Letux 2804";
-};
-
+#include "omap3-gta04a4.dts"
+#include "omap3-gta04+b3.dtsi"
