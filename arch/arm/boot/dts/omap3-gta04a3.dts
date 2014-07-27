@@ -9,7 +9,7 @@
 #include "omap3-gta04.dtsi"
 
 / {
-	model = "Goldelico GTA04A3";
+	model = "Goldelico GTA04A3/Letux 2804";
 
 /* could we write &modem_en { ... } ? */
 	modem_en: modem { /* can't control modem power through rfkill */
