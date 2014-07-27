@@ -6,18 +6,10 @@
  * published by the Free Software Foundation.
  */
 
-/*
- * device tree for GTA04A5
- */
-
-/* we start with the omap3-gta04 tree and modify only what is really different for the board revision A5 */
-
 #include "omap3-gta04.dtsi"
 
 / {
-
-	/* overwrite device model */
-	model = "Goldelico GTA04A5";
+	model = "Goldelico GTA04A5/Letux 2804";
 
 	sound {
 		ti,jack-det-gpio = <&twl_gpio 2 0>;    /* GTA04A5 only */
