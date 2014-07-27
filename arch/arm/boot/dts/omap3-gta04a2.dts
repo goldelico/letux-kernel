@@ -20,6 +20,6 @@
  * and needs a very special bitbang driver for I2C1
  *
  * since there was only a single board produced
- * it might not be worht the effort to write a
+ * it might not be worth the effort to write a
  * device tree for it.
  */
