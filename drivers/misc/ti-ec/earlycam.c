@@ -368,12 +368,11 @@ int main_fn(void *arg)
 	cam_init = 2;
 
 	while (1) {
-		while ((val =
-			   gpio_get_value_cansleep(
-			   earlycam_dev->reverse_gpio)) ==
-			   1) {
+
+		do {
 			/* Spin inside this loop, sleeping for 100 mS
-			  * everytime until the user presses the gpio.
+			  * everytime until the user presses the gpio OR
+			  * in case there was an error reading the value.
 			  * This should be replaced by interrupt based
 			  * mechanism to avoid waking up the cpu
 			  * frequently
@@ -396,7 +395,9 @@ int main_fn(void *arg)
 				once = 1;
 			}
 			msleep(100);
-		}
+			val = gpio_get_value_cansleep
+						(earlycam_dev->reverse_gpio);
+		} while (val == 1 || val < 0);
 
 		/* So we got a gpio press, start by initializing camera first */
 		if (cam_init == 2) {
