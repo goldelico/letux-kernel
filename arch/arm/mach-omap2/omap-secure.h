@@ -28,6 +28,7 @@
 
 /* Maximum Secure memory storage size */
 #define OMAP_SECURE_RAM_STORAGE	(88 * SZ_1K)
+#define OMAP_SECURE_RAM_STORAGE_ADDR	0x83020000
 
 /* Secure low power HAL API index */
 #define OMAP4_HAL_SAVESECURERAM_INDEX	0x1a

@@ -59,6 +59,8 @@
 
 #include "pad_wkup.h"
 
+#define OMAP3_SECURE_RAM_CTX_ADDR	0x83036000
+
 /* pm34xx errata defined in pm.h */
 u16 pm34xx_errata;
 bool suspend_debug;
@@ -133,8 +135,7 @@ static void omap3_save_secure_ram_context(void)
 		 * will hang the system.
 		 */
 		pwrdm_set_next_pwrst(mpu_pwrdm, PWRDM_POWER_ON);
-		ret = _omap_save_secure_sram((u32 *)
-				__pa(omap3_secure_ram_storage));
+		ret = _omap_save_secure_sram((u32 *)omap3_secure_ram_context);
 		pwrdm_set_next_pwrst(mpu_pwrdm, mpu_next_state);
 		/* Following is for error tracking, it should not happen */
 		if (ret) {
@@ -855,10 +856,7 @@ int __init omap3_pm_init(void)
 
 	clkdm_add_wkdep(neon_clkdm, mpu_clkdm);
 	if (omap_type() != OMAP2_DEVICE_TYPE_GP) {
-		omap3_secure_ram_storage =
-			kmalloc(0x803F, GFP_KERNEL);
-		if (!omap3_secure_ram_storage)
-			pr_err("Memory allocation failed when allocating for secure sram context\n");
+		omap3_secure_ram_context = OMAP3_SECURE_RAM_CTX_ADDR;
 
 		local_irq_disable();
 
