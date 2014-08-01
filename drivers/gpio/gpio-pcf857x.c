@@ -134,7 +134,7 @@ static int pcf857x_get(struct gpio_chip *chip, unsigned offset)
 	int		value;
 
 	value = gpio->read(gpio->client);
-	return (value < 0) ? 0 : (value & (1 << offset));
+	return (value > 0) ? (value & (1 << offset)) : value;
 }
 
 static int pcf857x_output(struct gpio_chip *chip, unsigned offset, int value)
@@ -178,23 +178,28 @@ static void pcf857x_irq_demux_work(struct work_struct *work)
 	struct pcf857x *gpio = container_of(work,
 					       struct pcf857x,
 					       work);
-	unsigned long change, i, status, flags;
+	unsigned long change, i, flags;
+	int status;
 
 	status = gpio->read(gpio->client);
 
-	spin_lock_irqsave(&gpio->slock, flags);
+	if (status >= 0) {
+		spin_lock_irqsave(&gpio->slock, flags);
 
-	/*
-	 * call the interrupt handler iff gpio is used as
-	 * interrupt source, just to avoid bad irqs
-	 */
+		/*
+		 * call the interrupt handler iff gpio is used as
+		 * interrupt source, just to avoid bad irqs
+		 */
 
-	change = ((gpio->status ^ status) & gpio->irq_mapped);
-	for_each_set_bit(i, &change, gpio->chip.ngpio)
-		generic_handle_irq(irq_find_mapping(gpio->irq_domain, i));
-	gpio->status = status;
+		change = ((gpio->status ^ status) & gpio->irq_mapped);
+		for_each_set_bit(i, &change, gpio->chip.ngpio)
+			generic_handle_irq(
+					irq_find_mapping(gpio->irq_domain, i));
+		gpio->status = status;
 
-	spin_unlock_irqrestore(&gpio->slock, flags);
+		spin_unlock_irqrestore(&gpio->slock, flags);
+	} else
+		pr_err("failed to read gpio status %x\n", status);
 }
 
 static irqreturn_t pcf857x_irq_demux(int irq, void *data)
