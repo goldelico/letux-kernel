@@ -3595,9 +3595,15 @@ int snd_soc_dapm_link_dai_widgets(struct snd_soc_card *card)
 
 	/* For each DAI widget... */
 	list_for_each_entry(dai_w, &card->widgets, list) {
+		bool w_play = false;
+		bool w_cap = false;
+
 		switch (dai_w->id) {
 		case snd_soc_dapm_dai_in:
+			w_play = true;
+			break;
 		case snd_soc_dapm_dai_out:
+			w_cap = true;
 			break;
 		default:
 			continue;
@@ -3618,10 +3624,10 @@ int snd_soc_dapm_link_dai_widgets(struct snd_soc_card *card)
 				break;
 			}
 
-			if (!w->sname || !strstr(w->sname, dai_w->name))
+			if (!w->sname)
 				continue;
 
-			if (dai->driver->playback.stream_name &&
+			if (w_play && dai->driver->playback.stream_name &&
 			    strstr(w->sname,
 				   dai->driver->playback.stream_name)) {
 				dev_dbg(dai->dev, "%s -> %s\n",
@@ -3631,7 +3637,7 @@ int snd_soc_dapm_link_dai_widgets(struct snd_soc_card *card)
 					dai->playback_widget, w, NULL, NULL);
 			}
 
-			if (dai->driver->capture.stream_name &&
+			if (w_cap && dai->driver->capture.stream_name &&
 			    strstr(w->sname,
 				   dai->driver->capture.stream_name)) {
 				dev_dbg(dai->dev, "%s -> %s\n",
