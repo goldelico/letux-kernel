@@ -401,6 +401,11 @@ struct nfs_client *nfs4_init_client(struct nfs_client *clp,
 	}
 	__set_bit(NFS_CS_IDMAP, &clp->cl_res_state);
 
+	error = nfs4_start_state_manager(clp);
+	if (error < 0)
+		goto error;
+	__set_bit(NFS_CS_MANAGER, &clp->cl_res_state);
+
 	error = nfs4_init_client_minor_version(clp);
 	if (error < 0)
 		goto error;

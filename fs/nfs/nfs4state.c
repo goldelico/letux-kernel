@@ -1135,15 +1135,12 @@ static void nfs4_clear_state_manager_bit(struct nfs_client *clp)
 /*
  * Schedule the nfs_client asynchronous state management routine
  */
-void nfs4_schedule_state_manager(struct nfs_client *clp)
+int nfs4_start_state_manager(struct nfs_client *clp)
 {
 	struct task_struct *task;
 	char buf[INET6_ADDRSTRLEN + sizeof("-manager") + 1];
 
-	if (test_and_set_bit(NFS4CLNT_MANAGER_RUNNING, &clp->cl_state) != 0)
-		return;
 	__module_get(THIS_MODULE);
-	atomic_inc(&clp->cl_count);
 
 	/* The rcu_read_lock() is not strictly necessary, as the state
 	 * manager is the only thread that ever changes the rpc_xprt
@@ -1156,10 +1153,18 @@ void nfs4_schedule_state_manager(struct nfs_client *clp)
 	if (IS_ERR(task)) {
 		printk(KERN_ERR "%s: kthread_run: %ld\n",
 			__func__, PTR_ERR(task));
-		nfs4_clear_state_manager_bit(clp);
-		nfs_put_client(clp);
 		module_put(THIS_MODULE);
+		return PTR_ERR(task);
 	}
+	return 0;
+}
+
+void nfs4_schedule_state_manager(struct nfs_client *clp)
+{
+	if (test_and_set_bit(NFS4CLNT_MANAGER_RUNNING, &clp->cl_state) != 0)
+		return;
+	smp_mb__after_atomic();
+	wake_up_bit(&clp->cl_state, NFS4CLNT_MANAGER_RUNNING);
 }
 
 /*
@@ -2313,8 +2318,12 @@ static void nfs4_state_manager(struct nfs_client *clp)
 	int status = 0;
 	const char *section = "", *section_sep = "";
 
-	/* Ensure exclusive access to NFSv4 state */
-	do {
+	while (atomic_read(&clp->cl_count) && clp->cl_state) {
+		/* If we found more work to do, we must ensure the
+		 * bit is set so other code can wait for it.
+		 */
+		set_bit(NFS4CLNT_MANAGER_RUNNING, &clp->cl_state);
+
 		if (test_bit(NFS4CLNT_PURGE_STATE, &clp->cl_state)) {
 			section = "purge state";
 			status = nfs4_purge_lease(clp);
@@ -2408,12 +2417,7 @@ static void nfs4_state_manager(struct nfs_client *clp)
 		}
 
 		nfs4_clear_state_manager_bit(clp);
-		/* Did we race with an attempt to give us more work? */
-		if (clp->cl_state == 0)
-			break;
-		if (test_and_set_bit(NFS4CLNT_MANAGER_RUNNING, &clp->cl_state) != 0)
-			break;
-	} while (atomic_read(&clp->cl_count) > 1);
+	}
 	return;
 out_error:
 	if (strlen(section))
@@ -2429,10 +2433,23 @@ out_error:
 static int nfs4_run_state_manager(void *ptr)
 {
 	struct nfs_client *clp = ptr;
+	struct nfs_net *nn;
 
 	allow_signal(SIGKILL);
-	nfs4_state_manager(clp);
-	nfs_put_client(clp);
+	while (atomic_read(&clp->cl_count)) {
+		if (signal_pending(current))
+			flush_signals(current);
+		wait_event_interruptible(
+			*bit_waitqueue(&clp->cl_state,
+				       NFS4CLNT_MANAGER_RUNNING),
+			test_bit(NFS4CLNT_MANAGER_RUNNING, &clp->cl_state));
+		nfs4_state_manager(clp);
+	}
+	nn = net_generic(clp->cl_net, nfs_net_id);
+	spin_lock(&nn->nfs_client_lock);
+	/* nfs_put_client has definitely stopped using its reference */
+	spin_unlock(&nn->nfs_client_lock);
+	clp->rpc_ops->free_client(clp);
 	module_put_and_exit(0);
 	return 0;
 }

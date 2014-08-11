@@ -275,13 +275,16 @@ void nfs_put_client(struct nfs_client *clp)
 	nn = net_generic(clp->cl_net, nfs_net_id);
 
 	if (atomic_dec_and_lock(&clp->cl_count, &nn->nfs_client_lock)) {
+		int manager_will_free =
+			test_bit(NFS_CS_MANAGER, &clp->cl_res_state);
 		list_del(&clp->cl_share_link);
 		nfs_cb_idr_remove_locked(clp);
-		spin_unlock(&nn->nfs_client_lock);
-
+		if (manager_will_free)
+			nfs4_schedule_state_manager(clp);
 		WARN_ON_ONCE(!list_empty(&clp->cl_superblocks));
-
-		clp->rpc_ops->free_client(clp);
+		spin_unlock(&nn->nfs_client_lock);
+		if (!manager_will_free)
+			clp->rpc_ops->free_client(clp);
 	}
 }
 EXPORT_SYMBOL_GPL(nfs_put_client);
