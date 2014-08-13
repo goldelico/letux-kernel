@@ -551,6 +551,24 @@
 			0x02A0 (PIN_INPUT | MUX_MODE14)		/* gpio6_20 */
 		>;
 	};
+
+	vin1a_pins: pinmux_vin1a_pins {
+		pinctrl-single,pins = <
+			0x0DC	(PIN_INPUT | MUX_MODE0)	/* vin1a_clk0 */
+			0x0E4	(PIN_INPUT | MUX_MODE0)	/* vin1a_de0 */
+			0x0E8	(PIN_INPUT | MUX_MODE0)	/* vin1a_fld0 */
+			0x0EC	(PIN_INPUT | MUX_MODE0)	/* vin1a_hsync0 */
+			0x0F0	(PIN_INPUT | MUX_MODE0)	/* vin1a_vsync0 */
+			0x0F4	(PIN_INPUT | MUX_MODE0)	/* vin1a_d0 */
+			0x0F8	(PIN_INPUT | MUX_MODE0)	/* vin1a_d1 */
+			0x0FC	(PIN_INPUT | MUX_MODE0)	/* vin1a_d2 */
+			0x100	(PIN_INPUT | MUX_MODE0)	/* vin1a_d3 */
+			0x104	(PIN_INPUT | MUX_MODE0)	/* vin1a_d4 */
+			0x108	(PIN_INPUT | MUX_MODE0)	/* vin1a_d5 */
+			0x10C	(PIN_INPUT | MUX_MODE0)	/* vin1a_d6 */
+			0x110	(PIN_INPUT | MUX_MODE0)	/* vin1a_d7 */
+		>;
+	};
 };
 
 &i2c1 {
@@ -719,6 +737,22 @@
 		lines-initial-states = <0xffeb>;
 		gpio-controller;
 		#gpio-cells = <2>;
+	};
+
+	ov10633@37 {
+		compatible = "ov,ov10633";
+		reg = <0x37>;
+		status = "okay";
+
+		gpios = <&pcf_hdmi 3	GPIO_ACTIVE_LOW>;	/* CAM_FPD_MUX_S0 */
+		port {
+			onboardLI: endpoint {
+				remote-endpoint = <&vin1a>;
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <1>;
+			};
+		};
 	};
 };
 
@@ -1172,4 +1206,17 @@
 	>;
 	tx-num-evt = <8>;
 	rx-num-evt = <8>;
+};
+
+&vip1 {
+	pinctrl-names = "default";
+	status = "okay";
+	pinctrl-0 = <&vin1a_pins>;
+};
+
+&vin1a {
+	endpoint {
+		slave-mode;
+		remote-endpoint = <&onboardLI>;
+	};
 };
