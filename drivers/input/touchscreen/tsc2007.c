@@ -29,6 +29,7 @@
 #include <linux/of_device.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
+#include <linux/input/touchscreen.h>
 
 #define TSC2007_MEASURE_TEMP0		(0x0 << 4)
 #define TSC2007_MEASURE_AUX		(0x2 << 4)
@@ -74,6 +75,14 @@ struct tsc2007 {
 
 	u16			model;
 	u16			x_plate_ohms;
+	bool			swap_xy;
+	bool			invert_x;
+	bool			invert_y;
+	bool			report_resistance;
+	u16			min_x;
+	u16			min_y;
+	u16			max_x;
+	u16			max_y;
 	u16			max_rt;
 	unsigned long		poll_period; /* in jiffies */
 	int			fuzzx;
@@ -128,7 +137,8 @@ static void tsc2007_read_values(struct tsc2007 *tsc, struct ts_event *tc)
 	tsc2007_xfer(tsc, PWRDOWN);
 }
 
-static u32 tsc2007_calculate_pressure(struct tsc2007 *tsc, struct ts_event *tc)
+static u32 tsc2007_calculate_resistance(struct tsc2007 *tsc,
+					struct ts_event *tc)
 {
 	u32 rt = 0;
 
@@ -177,12 +187,13 @@ static irqreturn_t tsc2007_soft_irq(int irq, void *handle)
 	struct ts_event tc;
 	u32 rt;
 
+	dev_dbg(&ts->client->dev, "soft irq %d\n", irq);
 	while (!ts->stopped && tsc2007_is_pen_down(ts)) {
 
 		/* pen is down, continue with the measurement */
 		tsc2007_read_values(ts, &tc);
 
-		rt = tsc2007_calculate_pressure(ts, &tc);
+		rt = tsc2007_calculate_resistance(ts, &tc);
 
 		if (!rt && !ts->get_pendown_state) {
 			/*
@@ -194,21 +205,53 @@ static irqreturn_t tsc2007_soft_irq(int irq, void *handle)
 		}
 
 		if (rt <= ts->max_rt) {
+			int x, y;
+
 			dev_dbg(&ts->client->dev,
 				"DOWN point(%4d,%4d), pressure (%4u)\n",
 				tc.x, tc.y, rt);
 
-			input_report_key(input, BTN_TOUCH, 1);
-			input_report_abs(input, ABS_X, tc.x);
-			input_report_abs(input, ABS_Y, tc.y);
+			x = ts->swap_xy ? tc.y : tc.x;
+			y = ts->swap_xy ? tc.x : tc.y;
+
+			dev_dbg(&ts->client->dev,
+					"Swapped point(%4d,%4d), pressure (%4u)\n",
+					x, y, rt);
+
+			/* flip */
+			if (ts->invert_x)
+				x = (ts->max_x - x) + ts->min_x;
+			if (ts->invert_y)
+				y = (ts->max_y - y) + ts->min_y;
+			if (!ts->report_resistance)
+				rt = ts->max_rt - rt;
+
+			dev_dbg(&ts->client->dev,
+					"Flipped point(%4d,%4d), pressure (%4u)\n",
+					x, y, rt);
+
+			/* scale to desired output range */
+			x = (input->absinfo[ABS_X].maximum *
+				(x - ts->min_x)) / (ts->max_x - ts->min_x);
+			y = (input->absinfo[ABS_Y].maximum *
+				(y - ts->min_y)) / (ts->max_y - ts->min_y);
+			rt = (input->absinfo[ABS_PRESSURE].maximum * rt)
+				/ ts->max_rt;
+
+			/* report event */
+			dev_dbg(&ts->client->dev,
+					"shaped point(%4d,%4d), pressure (%4u)\n",
+					x, y, rt);
+			input_report_abs(input, ABS_X, x);
+			input_report_abs(input, ABS_Y, y);
 			input_report_abs(input, ABS_PRESSURE, rt);
 
 			input_sync(input);
 
 		} else {
 			/*
-			 * Sample found inconsistent by debouncing or pressure is
-			 * beyond the maximum. Don't report it to user space,
+			 * Sample found inconsistent by debouncing or resistance
+			 * is beyond the maximum. Don't report it to user space,
 			 * repeat at least once more the measurement.
 			 */
 			dev_dbg(&ts->client->dev, "ignored pressure %d\n", rt);
@@ -233,6 +276,7 @@ static irqreturn_t tsc2007_hard_irq(int irq, void *handle)
 {
 	struct tsc2007 *ts = handle;
 
+	dev_dbg(&ts->client->dev, "hard irq %d\n", irq);
 	if (tsc2007_is_pen_down(ts))
 		return IRQ_WAKE_THREAD;
 
@@ -303,14 +347,25 @@ static int tsc2007_probe_dt(struct i2c_client *client, struct tsc2007 *ts)
 	else
 		ts->max_rt = MAX_12BIT;
 
-	if (!of_property_read_u32(np, "ti,fuzzx", &val32))
-		ts->fuzzx = val32;
+	ts->swap_xy = of_property_read_bool(np, "touchscreen-swapped-x-y");
+	ts->invert_x = of_property_read_bool(np, "touchscreen-inverted-x");
+	ts->invert_y = of_property_read_bool(np, "touchscreen-inverted-y");
+	ts->report_resistance =
+		       of_property_read_bool(np, "ti,report-resistance");
 
-	if (!of_property_read_u32(np, "ti,fuzzy", &val32))
-		ts->fuzzy = val32;
+	if (!of_property_read_u32(np, "ti,min-x", &val32))
+		ts->min_x = val32;
+	if (!of_property_read_u32(np, "ti,max-x", &val32))
+		ts->max_x = val32;
+	else
+		ts->max_x = MAX_12BIT;
 
-	if (!of_property_read_u32(np, "ti,fuzzz", &val32))
-		ts->fuzzz = val32;
+	if (!of_property_read_u32(np, "ti,min-y", &val32))
+		ts->min_y = val32;
+	if (!of_property_read_u32(np, "ti,max-y", &val32))
+		ts->max_y = val32;
+	else
+		ts->max_y = MAX_12BIT;
 
 	if (!of_property_read_u64(np, "ti,poll-period", &val64))
 		ts->poll_period = msecs_to_jiffies(val64);
@@ -324,6 +379,16 @@ static int tsc2007_probe_dt(struct i2c_client *client, struct tsc2007 *ts)
 		return -EINVAL;
 	}
 
+	dev_dbg(&client->dev,
+			"min/max_x (%4d,%4d)\n",
+			ts->min_x, ts->max_x);
+	dev_dbg(&client->dev,
+			"min/max_y (%4d,%4d)\n",
+			ts->min_y, ts->max_y);
+	dev_dbg(&client->dev,
+			"max_rt (%4d)\n",
+			ts->max_rt);
+
 	ts->gpio = of_get_gpio(np, 0);
 	if (gpio_is_valid(ts->gpio))
 		ts->get_pendown_state = tsc2007_get_pendown_state_gpio;
@@ -331,6 +396,10 @@ static int tsc2007_probe_dt(struct i2c_client *client, struct tsc2007 *ts)
 		dev_warn(&client->dev,
 			 "GPIO not specified in DT (of_get_gpio returned %d)\n",
 			 ts->gpio);
+
+	dev_dbg(&client->dev,
+			"ts-gpio: %d\n",
+			ts->gpio);
 
 	return 0;
 }
@@ -349,6 +418,14 @@ static int tsc2007_probe_pdev(struct i2c_client *client, struct tsc2007 *ts,
 	ts->model             = pdata->model;
 	ts->x_plate_ohms      = pdata->x_plate_ohms;
 	ts->max_rt            = pdata->max_rt ? : MAX_12BIT;
+	ts->swap_xy           = pdata->swap_xy;
+	ts->invert_x          = pdata->invert_x;
+	ts->invert_y          = pdata->invert_y;
+	ts->report_resistance = pdata->report_resistance;
+	ts->min_x             = pdata->min_x ? : 0;
+	ts->min_y             = pdata->min_y ? : 0;
+	ts->max_x             = pdata->max_x ? : MAX_12BIT;
+	ts->max_y             = pdata->max_y ? : MAX_12BIT;
 	ts->poll_period       = msecs_to_jiffies(pdata->poll_period ? : 1);
 	ts->get_pendown_state = pdata->get_pendown_state;
 	ts->clear_penirq      = pdata->clear_penirq;
@@ -388,13 +465,6 @@ static int tsc2007_probe(struct i2c_client *client,
 	if (!ts)
 		return -ENOMEM;
 
-	if (pdata)
-		err = tsc2007_probe_pdev(client, ts, pdata, id);
-	else
-		err = tsc2007_probe_dt(client, ts);
-	if (err)
-		return err;
-
 	input_dev = devm_input_allocate_device(&client->dev);
 	if (!input_dev)
 		return -ENOMEM;
@@ -421,10 +491,21 @@ static int tsc2007_probe(struct i2c_client *client,
 	input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
 	input_dev->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
 
-	input_set_abs_params(input_dev, ABS_X, 0, MAX_12BIT, ts->fuzzx, 0);
-	input_set_abs_params(input_dev, ABS_Y, 0, MAX_12BIT, ts->fuzzy, 0);
-	input_set_abs_params(input_dev, ABS_PRESSURE, 0, MAX_12BIT,
-			     ts->fuzzz, 0);
+	if (pdata)
+		err = tsc2007_probe_pdev(client, ts, pdata, id);
+	else
+		err = tsc2007_probe_dt(client, ts);
+	if (err)
+		return err;
+
+	input_set_abs_params(input_dev, ABS_X, 0, ts->max_x-ts->min_x,
+						  ts->fuzzx, 0);
+	input_set_abs_params(input_dev, ABS_Y, 0, ts->max_y-ts->min_y,
+						  ts->fuzzy, 0);
+	input_set_abs_params(input_dev, ABS_PRESSURE, 0, ts->max_rt,
+						  ts->fuzzz, 0);
+
+	touchscreen_parse_properties(input_dev, false);
 
 	if (pdata) {
 		if (pdata->exit_platform_hw) {
@@ -443,6 +524,8 @@ static int tsc2007_probe(struct i2c_client *client,
 			pdata->init_platform_hw();
 	}
 
+	dev_dbg(&client->dev, "request irq %d\n",
+			ts->irq);
 	err = devm_request_threaded_irq(&client->dev, ts->irq,
 					tsc2007_hard_irq, tsc2007_soft_irq,
 					IRQF_ONESHOT,
