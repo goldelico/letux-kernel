@@ -327,7 +327,7 @@ static int gta04_soc_probe(struct platform_device *pdev)
 	struct snd_soc_card *card = &snd_soc_omap3gta04;
 	int err;
 
-	if (!machine_is_gta04() && !of_machine_is_compatible("ti,omap3-gta04"))
+	if (!of_machine_is_compatible("ti,omap3-gta04"))
 		return -ENODEV;
 
 	card->dev = &pdev->dev;
