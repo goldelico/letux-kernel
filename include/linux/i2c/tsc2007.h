@@ -8,18 +8,9 @@ struct tsc2007_platform_data {
 	u16	x_plate_ohms;	/* must be non-zero value */
 	u16	max_rt; /* max. resistance above which samples are ignored */
 	unsigned long poll_period; /* time (in ms) between samples */
-	u16	min_x;
-	u16	min_y;
-	u16	min_z;
-	u16	max_x;
-	u16	max_y;
-	u16	max_z;
-	bool flip_x;
-	bool flip_y;
-	bool swap_xy;	/* swap x and y axis */
-	int	fuzz_x; /* fuzz factor for X, Y and pressure axes */
-	int	fuzz_y;
-	int	fuzz_z;
+	int	fuzzx; /* fuzz factor for X, Y and pressure axes */
+	int	fuzzy;
+	int	fuzzz;
 
 	int	(*get_pendown_state)(struct device *);
 	/* If needed, clear 2nd level interrupt source */
