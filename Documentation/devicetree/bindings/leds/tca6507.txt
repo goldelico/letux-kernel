@@ -10,7 +10,7 @@ Optional properties:
 - gpio-controller: allows lines to be used as output-only GPIOs.
     The gpios are numbered 0, 1, É - but not directly related to the
     led line (reg property).
-- #gpio-cells: if present, must be 0.
+- #gpio-cells: if present, must not be 0.
 
 Each led is represented as a sub-node of the ti,tca6507 device.
 
