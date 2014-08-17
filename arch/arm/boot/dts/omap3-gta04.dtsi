@@ -385,7 +385,7 @@
 		interrupt-parent = <&intc>;
 
 		twl_power: power {
-			compatible = "ti,twl4030-power";
+			compatible = "ti,twl4030-power-reset";
 			ti,use_poweroff;
 		};
 		/* spare */
