@@ -8,7 +8,7 @@
 
 /* we atart with the omap5-uevm tree */
 
-/include/ "omap5-pyra.dts"
+#include "omap5-pyra.dts"
 
 &dsi1 {
 	lcd {
