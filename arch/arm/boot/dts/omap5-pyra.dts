@@ -8,7 +8,7 @@
 
 /* we atart with the omap5-uevm tree */
 
-/include/ "omap5-uevm.dts"
+#include "omap5-uevm.dts"
 
 /* overwrite device model */
 
@@ -64,16 +64,16 @@
 			/* copied from original */
 			&twl6040_pins
 			&mcpdm_pins
-			&dmic_pins
+			// &dmic_pins
 			&mcbsp1_pins
 			&mcbsp2_pins
 			&usbhost_pins
 			&dss_hdmi_pins
 			&tpd12s015_pins
-			&tca6424a_pins
-			&palmas_pins
+			// &tca6424a_pins
+			// &palmas_pins
 			&led_gpio_pins
-			&wl_pins
+			// &wl_pins
 
 			/* new entries */
 			&pyra_button_pins
