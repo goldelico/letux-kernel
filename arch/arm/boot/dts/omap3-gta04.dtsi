@@ -164,7 +164,7 @@
 		brightness-levels = <0 11 20 30 40 50 60 70 80 90 100>;
 		default-brightness-level = <10>;
 		pinctrl-names = "default";
-		pintcrl-0 = <&backlight_pins>;
+		pinctrl-0 = <&backlight_pins>;
 		power-supply = <&power>;
 	};
 
@@ -174,7 +174,7 @@
 		#pwm-cells = <2>;
 	};
 
-	/* should be a PWM */
+	/* this is a workaround because the backlight pwm does not work */
 	power: fixed_regulator@0 {
 	       compatible = "regulator-fixed";
 	       regulator-name = "bl-enable";
@@ -306,10 +306,6 @@
 		>;
 	};
 
-	backlight_pins: backlight_pins_pimnux {
-		pinctrl-single,pins = <0x8a MUX_MODE4>;
-	};
-
 	hsusb2_pins: pinmux_hsusb2_pins {
 		pinctrl-single,pins = <
 			OMAP3_CORE1_IOPAD(0x21d4, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi1_cs3.hsusb2_data2 */
@@ -342,11 +338,29 @@
 		>;
 	};
 
+	backlight_pins: backlight_pins_pimnux {
+		pinctrl-single,pins = <0x8a MUX_MODE4>;	/* gpt11/gpio57 */
+	};
+
+	bmp085_pins: pinmux_bmp085_pins {
+		pinctrl-single,pins = <
+			OMAP3_CORE1_IOPAD(0x2136, PIN_INPUT_PULLUP | MUX_MODE4)   /* gpio113 */
+		>;
+	};
+
 	bma180_pins: pinmux_bma180_pins {
 		pinctrl-single,pins = <
 			OMAP3_CORE1_IOPAD(0x213a, PIN_INPUT_PULLUP | MUX_MODE4)   /* gpio115 */
 		>;
 	};
+
+	penirq_pins: pinmux_penirq_pins {
+		pinctrl-single,pins = <
+			/* here we could enable to wakeup the cpu from suspend by a pen touch */
+			OMAP3_CORE1_IOPAD(0x2194, PIN_INPUT_PULLUP | MUX_MODE4)   /* gpio160 */
+		>;
+	};
+
 };
 
 &omap3_pmx_core2 {
@@ -446,6 +460,10 @@
 	bmp085@77 {
 		compatible = "bosch,bmp085";
 		reg = <0x77>;
+/* here we could enable the EOC interrupt
+		pinctrl-names = "default";
+		pinctrl-0 = <&bmp085_pins>;
+*/
 		interrupt-parent = <&gpio4>;
 		interrupts = <17 IRQ_TYPE_EDGE_RISING>;
 	};
@@ -456,7 +474,7 @@
 		compatible = "bosch,bma180";
 		reg = <0x41>;
 		pinctrl-names = "default";
-		pintcrl-0 = <&bma180_pins>;
+		pinctrl-0 = <&bma180_pins>;
 		interrupt-parent = <&gpio4>;
 		interrupts = <19 (IRQ_TYPE_LEVEL_HIGH | IRQ_TYPE_EDGE_RISING)>;
 	};
@@ -502,16 +520,18 @@
 	tsc2007@48 {
 		compatible = "ti,tsc2007";
 		reg = <0x48>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&penirq_pins>;
 		interrupt-parent = <&gpio6>;
 		interrupts = <0 IRQ_TYPE_EDGE_FALLING>;
 		gpios = <&gpio6 0 GPIO_ACTIVE_LOW>;	/* gpio160 */
 		ti,x-plate-ohms = <550>;
-		ti,rng_x = <0 4095>;
-		ti,rng_y = <0 4095>;
-		ti,rng_z = <0 4095>;
-		ti,flip_x = <0>;
-		ti,flip_y = <1>;
-		ti,swap_xy = <0>;
+		ti,min-x = <0x100>;
+		ti,max-x = <0xf00>;
+		ti,min-y = <0xf00>;
+		ti,max-y = <0x100>;
+		ti,min-rt = <0xfff>;
+		ti,max-rt = <0>;
 	};
 
 	/* compass aka magnetometer */
