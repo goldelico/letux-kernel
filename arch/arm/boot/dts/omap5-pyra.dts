@@ -6,7 +6,7 @@
  * published by the Free Software Foundation.
  */
 
-/* we atart with the omap5-uevm tree */
+/* we start with the omap5-uevm tree */
 
 #include "omap5-uevm.dts"
 
