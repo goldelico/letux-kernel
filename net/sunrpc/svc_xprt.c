@@ -773,7 +773,7 @@ int svc_recv(struct svc_rqst *rqstp, long timeout)
 
 	/* Make sure the task pointer is set! */
 	if (WARN_ON_ONCE(!rqstp->rq_task))
-		rqstp->rq_task = current_task;
+		rqstp->rq_task = current;
 
 	err = svc_alloc_arg(rqstp);
 	if (err)
