@@ -286,7 +286,14 @@ dtb-$(CONFIG_ARCH_OMAP3) += am3517-craneboard.dtb \
 	omap3-devkit8000.dtb \
 	omap3-evm.dtb \
 	omap3-evm-37xx.dtb \
-	omap3-gta04.dtb \
+	omap3-gta04a2.dtb \
+	omap3-gta04a3.dtb \
+	omap3-gta04a4.dtb \
+	omap3-gta04a5.dtb \
+	omap3-gta04a3+b2.dtb \
+	omap3-gta04a4+b2.dtb \
+	omap3-gta04a4+b3.dtb \
+	omap3-gta04+b7.dtb \
 	omap3-igep0020.dtb \
 	omap3-igep0030.dtb \
 	omap3-ldp.dtb \
@@ -321,6 +328,7 @@ dtb-$(CONFIG_ARCH_OMAP4) += omap4-duovero-parlor.dtb \
 	omap4-panda.dtb \
 	omap4-panda-a4.dtb \
 	omap4-panda-es.dtb \
+	omap4-panda-es+gta04.dts \
 	omap4-sdp.dtb \
 	omap4-sdp-es23plus.dtb \
 	omap4-var-dvk-om44.dtb \
@@ -330,7 +338,8 @@ dtb-$(CONFIG_SOC_AM43XX) += am43x-epos-evm.dtb \
 	am437x-gp-evm.dtb
 dtb-$(CONFIG_SOC_OMAP5) += omap5-cm-t54.dtb \
 	omap5-sbc-t54.dtb \
-	omap5-uevm.dtb
+	omap5-uevm.dtb \
+	omap5-pyra.dtb omap5-pyra+lg.dtb omap5-pyra+boe.dtb omap5-pyra+succ.dtb
 dtb-$(CONFIG_SOC_DRA7XX) += dra7-evm.dtb \
 	dra72-evm.dtb
 dtb-$(CONFIG_ARCH_ORION5X) += orion5x-lacie-d2-network.dtb \
