@@ -813,7 +813,7 @@ dtb-$(CONFIG_ARCH_OMAP3) += \
 	omap3-gta04a3+b2.dtb \
 	omap3-gta04a4+b2.dtb \
 	omap3-gta04a4+b3.dtb \
-	omap3-neo900.dtb \
+	omap3-gta04+b7.dtb \
 	omap3-ha.dtb \
 	omap3-ha-lcd.dtb \
 	omap3-igep0020.dtb \
@@ -900,6 +900,7 @@ dtb-$(CONFIG_ARCH_OMAP4) += \
 	omap4-panda.dtb \
 	omap4-panda-a4.dtb \
 	omap4-panda-es.dtb \
+	omap4-panda-es+gta04.dts \
 	omap4-sdp.dtb \
 	omap4-sdp-es23plus.dtb \
 	omap4-var-dvk-om44.dtb \
@@ -919,7 +920,7 @@ dtb-$(CONFIG_SOC_OMAP5) += \
 	omap5-letux-cortex15-v5.1.dtb omap5-letux-cortex15-v5.1+pyra-v5.1.0.dtb omap5-letux-cortex15-v5.1+pyra-v5.1.2.dtb \
 	omap5-letux-cortex15-v5.2.dtb omap5-letux-cortex15-v5.2+pyra-v5.1.2.dtb omap5-letux-cortex15-v5.2+pyra-v5.2.dtb \
 	omap5-letux-cortex15-v5.3.dtb omap5-letux-cortex15-v5.3+pyra-v5.1.2.dtb omap5-letux-cortex15-v5.3+pyra-v5.2.dtb \
-	omap5-uevm.dtb
+	omap5-pyra.dtb omap5-pyra+lg.dtb omap5-pyra+boe.dtb omap5-pyra+succ.dtb
 dtb-$(CONFIG_SOC_DRA7XX) += \
 	am57xx-beagle-x15.dtb \
 	am57xx-beagle-x15-revb1.dtb \
