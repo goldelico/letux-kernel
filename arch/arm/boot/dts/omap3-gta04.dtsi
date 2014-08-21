@@ -235,6 +235,10 @@
 	/*	on-indicator-gpio = <&gpio5 19 0>;	/* n/a on GTA04A4 */
 	};
 
+	control: control@48002270 {
+		compatible = "ti,omap3-devconf1-syscon", "syscon";
+		reg = <0x48002270 0x74>;
+	};
 };
 
 &omap3_pmx_core {
