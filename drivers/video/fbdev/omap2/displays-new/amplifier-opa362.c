@@ -18,6 +18,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
+#include <linux/of_gpio.h>
 
 #include <video/omapdss.h>
 #include <video/omap-panel-data.h>
@@ -208,6 +209,33 @@ static int opa362_probe_pdata(struct platform_device *pdev)
 	return 0;
 }
 
+static int opa362_probe_of(struct platform_device *pdev)
+{
+	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
+	struct device_node *node = pdev->dev.of_node;
+	struct omap_dss_device *in;
+	int gpio;
+
+	gpio = of_get_gpio(node, 0);
+
+	if (gpio_is_valid(gpio) || gpio == -ENOENT) {
+		ddata->enable_gpio = gpio;
+	} else {
+		dev_err(&pdev->dev, "failed to parse enable gpio\n");
+		return gpio;
+	}
+
+	in = omapdss_of_find_source_for_first_ep(node);
+	if (IS_ERR(in)) {
+		dev_err(&pdev->dev, "failed to find video source\n");
+		return PTR_ERR(in);
+	}
+
+	ddata->in = in;
+
+	return 0;
+}
+
 static int opa362_probe(struct platform_device *pdev)
 {
 	struct panel_drv_data *ddata;
@@ -225,7 +253,9 @@ static int opa362_probe(struct platform_device *pdev)
 		if (r)
 			return r;
 	} else {
-		return -ENODEV;
+		r = opa362_probe_of(pdev);
+		if (r)
+			return r;
 	}
 
 	if (gpio_is_valid(ddata->enable_gpio)) {
@@ -279,12 +309,18 @@ static int __exit opa362_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id opa362_of_match[] = {
+	{ .compatible = "ti,opa362", },
+	{},
+};
+
 static struct platform_driver opa362_driver = {
 	.probe	= opa362_probe,
 	.remove	= __exit_p(opa362_remove),
 	.driver	= {
 		.name	= "amplifier-opa362",
 		.owner	= THIS_MODULE,
+		.of_match_table = opa362_of_match,
 	},
 };
 
