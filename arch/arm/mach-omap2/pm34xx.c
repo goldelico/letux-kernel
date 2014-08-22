@@ -742,13 +742,14 @@ static void __init pm_errata_configure(void)
 		/* Enable the l2 cache toggling in sleep logic */
 		enable_omap3630_toggle_l2_on_restore();
 
-		if (omap_rev() < OMAP3630_REV_ES1_2)
+		if (omap_rev() < OMAP3630_REV_ES1_2) {
 			pm34xx_errata |= PM_PER_MEMORIES_ERRATUM_i582;
 #ifndef CONFIG_DISABLE_OMAP_ERRATA_i583
 			pm34xx_errata |= PM_SDRC_WAKEUP_ERRATUM_i583;
 #endif
-		if (meminfo.bank[0].size > 256 * (1024 * 1024))
-			pm34xx_errata |= PM_SDRC_WAKEUP_ERRATUM_i583;
+			if (meminfo.bank[0].size > 256 * (1024 * 1024))
+				pm34xx_errata |= PM_SDRC_WAKEUP_ERRATUM_i583;
+		}
 
 	} else if (cpu_is_omap34xx()) {
 		pm34xx_errata |= PM_PER_MEMORIES_ERRATUM_i582;
@@ -851,8 +852,12 @@ int __init omap3_pm_init(void)
 	 * XXX Technically this workaround is only needed if off-mode
 	 * or OSWR is enabled.
 	 */
-	if (IS_PM34XX_ERRATUM(PM_PER_MEMORIES_ERRATUM_i582))
-		clkdm_add_wkdep(per_clkdm, wkup_clkdm);
+
+	/*
+	 * The PER wake dependency is still needed on ES1.2 which
+	 * has fixed i582
+	 */
+	clkdm_add_wkdep(per_clkdm, wkup_clkdm);
 
 	clkdm_add_wkdep(neon_clkdm, mpu_clkdm);
 	if (omap_type() != OMAP2_DEVICE_TYPE_GP) {
