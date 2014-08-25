@@ -359,6 +359,12 @@ int main_fn(void *arg)
 	dtr.d_inode = &in;
 	fp.f_path.dentry = &dtr;
 
+	ret = video_devdata(&fp);
+	if (ret == NULL) {
+		pr_err("Camera device not connected\n");
+		return ret;
+	}
+
 	ret = display_init();
 	if (ret) {
 		pr_err("display_init failed with error %d", ret);
