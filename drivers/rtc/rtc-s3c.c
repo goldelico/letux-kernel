@@ -121,6 +121,9 @@ static int s3c_rtc_setaie(struct device *dev, unsigned int enabled)
 	struct s3c_rtc *info = dev_get_drvdata(dev);
 	unsigned int tmp;
 
+	if (!info->base)
+		return -EINVAL;
+
 	dev_dbg(info->dev, "%s: aie=%d\n", __func__, enabled);
 
 	clk_enable(info->rtc_clk);
@@ -180,6 +183,9 @@ static int s3c_rtc_gettime(struct device *dev, struct rtc_time *rtc_tm)
 	struct s3c_rtc *info = dev_get_drvdata(dev);
 	unsigned int have_retried = 0;
 
+	if (!info->base)
+		return -EINVAL;
+
 	clk_enable(info->rtc_clk);
  retry_get_time:
 	rtc_tm->tm_min  = readb(info->base + S3C2410_RTCMIN);
@@ -224,6 +230,9 @@ static int s3c_rtc_settime(struct device *dev, struct rtc_time *tm)
 	struct s3c_rtc *info = dev_get_drvdata(dev);
 	int year = tm->tm_year - 100;
 
+	if (!info->base)
+		return -EINVAL;
+
 	dev_dbg(dev, "set time %04d.%02d.%02d %02d:%02d:%02d\n",
 		 1900 + tm->tm_year, tm->tm_mon, tm->tm_mday,
 		 tm->tm_hour, tm->tm_min, tm->tm_sec);
@@ -254,6 +263,9 @@ static int s3c_rtc_getalarm(struct device *dev, struct rtc_wkalrm *alrm)
 	struct s3c_rtc *info = dev_get_drvdata(dev);
 	struct rtc_time *alm_tm = &alrm->time;
 	unsigned int alm_en;
+
+	if (!info->base)
+		return -EINVAL;
 
 	clk_enable(info->rtc_clk);
 	alm_tm->tm_sec  = readb(info->base + S3C2410_ALMSEC);
@@ -317,6 +329,9 @@ static int s3c_rtc_setalarm(struct device *dev, struct rtc_wkalrm *alrm)
 	struct rtc_time *tm = &alrm->time;
 	unsigned int alrm_en;
 
+	if (!info->base)
+		return -EINVAL;
+
 	clk_enable(info->rtc_clk);
 	dev_dbg(dev, "s3c_rtc_setalarm: %d, %04d.%02d.%02d %02d:%02d:%02d\n",
 		 alrm->enabled,
@@ -356,6 +371,9 @@ static int s3c_rtc_proc(struct device *dev, struct seq_file *seq)
 {
 	struct s3c_rtc *info = dev_get_drvdata(dev);
 	unsigned int ticnt;
+
+	if (!info->base)
+		return -EINVAL;
 
 	clk_enable(info->rtc_clk);
 	if (info->cpu_type == TYPE_S3C64XX) {
@@ -548,7 +566,7 @@ static int s3c_rtc_probe(struct platform_device *pdev)
 		rtc_tm.tm_min	= 0;
 		rtc_tm.tm_sec	= 0;
 
-		s3c_rtc_settime(NULL, &rtc_tm);
+		s3c_rtc_settime(&pdev->dev, &rtc_tm);
 
 		dev_warn(&pdev->dev, "warning: invalid RTC value so initializing it\n");
 	}
