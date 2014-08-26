@@ -1703,15 +1703,15 @@ static int validate_prctl_map_locked(struct prctl_mm_map *prctl_map)
 	 * Make sure the members are not somewhere outside
 	 * of allowed address space.
 	 */
-#define __prctl_check_addr_space(__member)					\
-	({									\
-		int __rc;							\
-		if ((unsigned long)prctl_map->__member < mmap_max_addr &&	\
-		    (unsigned long)prctl_map->__member >= mmap_min_addr)	\
-			__rc = 0;						\
-		else								\
-			__rc = -EINVAL;						\
-		__rc;								\
+#define __prctl_check_addr_space(__member)				\
+	({								\
+		int __rc;						\
+		if ((unsigned long)prctl_map->__member < mmap_max_addr &&\
+		    (unsigned long)prctl_map->__member >= mmap_min_addr)\
+			__rc = 0;					\
+		else							\
+			__rc = -EINVAL;					\
+		__rc;							\
 	})
 	error |= __prctl_check_addr_space(start_code);
 	error |= __prctl_check_addr_space(end_code);
@@ -1736,7 +1736,7 @@ static int validate_prctl_map_locked(struct prctl_mm_map *prctl_map)
 		error = -EINVAL;
 		goto out;
 	}
-#define __prctl_check_vma(__member)						\
+#define __prctl_check_vma(__member)					\
 	find_vma(mm, (unsigned long)prctl_map->__member) ? 0 : -EINVAL
 	error |= __prctl_check_vma(start_brk);
 	error |= __prctl_check_vma(brk);
@@ -1751,8 +1751,8 @@ static int validate_prctl_map_locked(struct prctl_mm_map *prctl_map)
 	/*
 	 * Make sure the pairs are ordered.
 	 */
-#define __prctl_check_order(__m1, __op, __m2)					\
-	((unsigned long)prctl_map->__m1 __op					\
+#define __prctl_check_order(__m1, __op, __m2)				\
+	((unsigned long)prctl_map->__m1 __op				\
 	 (unsigned long)prctl_map->__m2) ? 0 : -EINVAL
 	error |= __prctl_check_order(start_code, <, end_code);
 	error |= __prctl_check_order(start_data, <, end_data);
