@@ -119,7 +119,15 @@ static ssize_t itg3200_read_frequency(struct device *dev,
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	int ret, sps;
-	u8 val;
+	u8 val,pwr;
+
+
+	ret = itg3200_read_reg_8(indio_dev, ITG3200_REG_POWER_MANAGEMENT, &pwr);
+	if (ret)
+		return ret;
+	if (pwr & ITG3200_SLEEP) {
+		return sprintf(buf, "0");
+	}
 
 	ret = itg3200_read_reg_8(indio_dev, ITG3200_REG_DLPF, &val);
 	if (ret)
@@ -144,7 +152,7 @@ static ssize_t itg3200_write_frequency(struct device *dev,
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	unsigned val;
 	int ret;
-	u8 t;
+	u8 t, pwr;
 
 	ret = kstrtouint(buf, 10, &val);
 	if (ret)
@@ -152,18 +160,26 @@ static ssize_t itg3200_write_frequency(struct device *dev,
 
 	mutex_lock(&indio_dev->mlock);
 
-	ret = itg3200_read_reg_8(indio_dev, ITG3200_REG_DLPF, &t);
+	ret = itg3200_read_reg_8(indio_dev, ITG3200_REG_POWER_MANAGEMENT, &pwr);
 	if (ret)
 		goto err_ret;
-
 	if (val == 0) {
-		ret = -EINVAL;
-		goto err_ret;
+		ret = itg3200_write_reg_8(indio_dev, ITG3200_REG_POWER_MANAGEMENT, pwr | ITG3200_SLEEP);
+	} else {
+		if (pwr & ITG3200_SLEEP) {
+			ret = itg3200_write_reg_8(indio_dev, ITG3200_REG_POWER_MANAGEMENT, pwr ^ ITG3200_SLEEP);
+			if (ret)
+				goto err_ret;
+		}
+
+		ret = itg3200_read_reg_8(indio_dev, ITG3200_REG_DLPF, &t);
+		if (ret)
+			goto err_ret;
+
+		t = ((t & ITG3200_DLPF_CFG_MASK) ? 1000u : 8000u) / val - 1;
+
+		ret = itg3200_write_reg_8(indio_dev, ITG3200_REG_SAMPLE_RATE_DIV, t);
 	}
-	t = ((t & ITG3200_DLPF_CFG_MASK) ? 1000u : 8000u) / val - 1;
-
-	ret = itg3200_write_reg_8(indio_dev, ITG3200_REG_SAMPLE_RATE_DIV, t);
-
 err_ret:
 	mutex_unlock(&indio_dev->mlock);
 
