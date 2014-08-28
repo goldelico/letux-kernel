@@ -422,7 +422,7 @@ static const struct of_device_id wwan_of_match[] = {
 	{ .compatible = "gemalto,pls8" },
 	{},
 };
-MODULE_DEVICE_TABLE(of, w2sg0004_of_match);
+MODULE_DEVICE_TABLE(of, wwan_of_match);
 #endif
 
 SIMPLE_DEV_PM_OPS(wwan_on_off_pm_ops, wwan_on_off_suspend, wwan_on_off_resume);
