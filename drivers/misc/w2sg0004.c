@@ -84,7 +84,7 @@ struct gpio_w2sg {
 
 /* this requires this driver to be compiled into the kernel! */
 
-void omap_mux_set_gpio(u16 val, int gpio);
+/* FIXME: void omap_mux_set_gpio(u16 val, int gpio); */
 
 static void toggle_work(struct work_struct *work)
 {
@@ -99,8 +99,11 @@ static void toggle_work(struct work_struct *work)
 		if (gw2sg->requested == gw2sg->is_on) {
 			if (!gw2sg->is_on && !gw2sg->rx_redirected) {
 				gw2sg->rx_redirected = 1;
+#if FIXME
+				pinctrl_select_state(..., "wakeup-state");
 				omap_mux_set_gpio(gw2sg->off_state,
 						  gw2sg->rx_gpio);
+#endif
 				enable_irq(gw2sg->rx_irq);
 			}
 			spin_unlock_irq(&gw2sg->lock);
@@ -158,7 +161,10 @@ static void gpio_w2sg_set_value(struct gpio_chip *gc,
 		if (gw2sg->rx_redirected) {
 			gw2sg->rx_redirected = 0;
 			disable_irq(gw2sg->rx_irq);
+#if FIXME
+			pinctrl_select_state(..., "uart-state");
 			omap_mux_set_gpio(gw2sg->on_state, gw2sg->rx_gpio);
+#endif
 		}
 		gw2sg->requested = 1;
 	} else if (!val && gw2sg->requested) {
