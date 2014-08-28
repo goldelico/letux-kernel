@@ -640,7 +640,12 @@ dtb-$(CONFIG_ARCH_OMAP3) += \
 	logicpd-som-lv-37xx-devkit.dtb \
 	omap3430-sdp.dtb \
 	omap3-beagle.dtb \
+	omap3-beagle+gta04.dtb \
+	omap3-beagle+gta04b4.dtb \
 	omap3-beagle-xm.dtb \
+	omap3-beagle-xm+gta04.dtb \
+	omap3-beagle-xm+gta04b1.dtb \
+	omap3-beagle-xm+gta04b7.dtb \
 	omap3-beagle-xm-ab.dtb \
 	omap3-cm-t3517.dtb \
 	omap3-cm-t3530.dtb \
@@ -658,6 +663,7 @@ dtb-$(CONFIG_ARCH_OMAP3) += \
 	omap3-gta04a3+b2.dtb \
 	omap3-gta04a4+b2.dtb \
 	omap3-gta04a4+b3.dtb \
+	omap3-gta04+b6.dtb \
 	omap3-gta04+b7.dtb \
 	omap3-ha.dtb \
 	omap3-ha-lcd.dtb \
@@ -707,6 +713,7 @@ dtb-$(CONFIG_SOC_AM33XX) += \
 	am335x-bone.dtb \
 	am335x-boneblack.dtb \
 	am335x-boneblack-wireless.dtb \
+	am335x-boneblack+gta04.dtb \
 	am335x-boneblue.dtb \
 	am335x-bonegreen.dtb \
 	am335x-bonegreen-wireless.dtb \
@@ -736,7 +743,7 @@ dtb-$(CONFIG_ARCH_OMAP4) += \
 	omap4-panda.dtb \
 	omap4-panda-a4.dtb \
 	omap4-panda-es.dtb \
-	omap4-panda-es+gta04.dts \
+	omap4-panda-es+gta04.dtb \
 	omap4-sdp.dtb \
 	omap4-sdp-es23plus.dtb \
 	omap4-var-dvk-om44.dtb \
