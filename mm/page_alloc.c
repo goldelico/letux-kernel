@@ -2296,57 +2296,71 @@ __alloc_pages_direct_compact(gfp_t gfp_mask, unsigned int order,
 	struct zonelist *zonelist, enum zone_type high_zoneidx,
 	nodemask_t *nodemask, int alloc_flags, struct zone *preferred_zone,
 	int classzone_idx, int migratetype, enum migrate_mode mode,
-	bool *contended_compaction, bool *deferred_compaction,
-	unsigned long *did_some_progress)
+	int *contended_compaction, bool *deferred_compaction)
 {
+	struct zone *last_compact_zone = NULL;
+	unsigned long compact_result;
+	struct page *page;
+
 	if (!order)
 		return NULL;
 
-	if (compaction_deferred(preferred_zone, order)) {
-		*deferred_compaction = true;
-		return NULL;
-	}
-
 	current->flags |= PF_MEMALLOC;
-	*did_some_progress = try_to_compact_pages(zonelist, order, gfp_mask,
+	compact_result = try_to_compact_pages(zonelist, order, gfp_mask,
 						nodemask, mode,
-						contended_compaction);
+						contended_compaction,
+						&last_compact_zone);
 	current->flags &= ~PF_MEMALLOC;
 
-	if (*did_some_progress != COMPACT_SKIPPED) {
-		struct page *page;
-
-		/* Page migration frees to the PCP lists but we want merging */
-		drain_pages(get_cpu());
-		put_cpu();
-
-		page = get_page_from_freelist(gfp_mask, nodemask,
-				order, zonelist, high_zoneidx,
-				alloc_flags & ~ALLOC_NO_WATERMARKS,
-				preferred_zone, classzone_idx, migratetype);
-		if (page) {
-			preferred_zone->compact_blockskip_flush = false;
-			compaction_defer_reset(preferred_zone, order, true);
-			count_vm_event(COMPACTSUCCESS);
-			return page;
-		}
-
-		/*
-		 * It's bad if compaction run occurs and fails.
-		 * The most likely reason is that pages exist,
-		 * but not enough to satisfy watermarks.
-		 */
-		count_vm_event(COMPACTFAIL);
-
-		/*
-		 * As async compaction considers a subset of pageblocks, only
-		 * defer if the failure was a sync compaction failure.
-		 */
-		if (mode != MIGRATE_ASYNC)
-			defer_compaction(preferred_zone, order);
-
-		cond_resched();
+	switch (compact_result) {
+	case COMPACT_DEFERRED:
+		*deferred_compaction = true;
+		/* fall-through */
+	case COMPACT_SKIPPED:
+		return NULL;
+	default:
+		break;
 	}
+
+	/*
+	 * At least in one zone compaction wasn't deferred or skipped, so let's
+	 * count a compaction stall
+	 */
+	count_vm_event(COMPACTSTALL);
+
+	/* Page migration frees to the PCP lists but we want merging */
+	drain_pages(get_cpu());
+	put_cpu();
+
+	page = get_page_from_freelist(gfp_mask, nodemask,
+			order, zonelist, high_zoneidx,
+			alloc_flags & ~ALLOC_NO_WATERMARKS,
+			preferred_zone, classzone_idx, migratetype);
+
+	if (page) {
+		struct zone *zone = page_zone(page);
+
+		zone->compact_blockskip_flush = false;
+		compaction_defer_reset(zone, order, true);
+		count_vm_event(COMPACTSUCCESS);
+		return page;
+	}
+
+	/*
+	 * last_compact_zone is where try_to_compact_pages thought allocation
+	 * should succeed, so it did not defer compaction. But here we know
+	 * that it didn't succeed, so we do the defer.
+	 */
+	if (last_compact_zone && mode != MIGRATE_ASYNC)
+		defer_compaction(last_compact_zone, order);
+
+	/*
+	 * It's bad if compaction run occurs and fails. The most likely reason
+	 * is that pages exist, but not enough to satisfy watermarks.
+	 */
+	count_vm_event(COMPACTFAIL);
+
+	cond_resched();
 
 	return NULL;
 }
@@ -2355,9 +2369,8 @@ static inline struct page *
 __alloc_pages_direct_compact(gfp_t gfp_mask, unsigned int order,
 	struct zonelist *zonelist, enum zone_type high_zoneidx,
 	nodemask_t *nodemask, int alloc_flags, struct zone *preferred_zone,
-	int classzone_idx, int migratetype,
-	enum migrate_mode mode, bool *contended_compaction,
-	bool *deferred_compaction, unsigned long *did_some_progress)
+	int classzone_idx, int migratetype, enum migrate_mode mode,
+	int *contended_compaction, bool *deferred_compaction)
 {
 	return NULL;
 }
@@ -2509,7 +2522,7 @@ gfp_to_alloc_flags(gfp_t gfp_mask)
 			alloc_flags |= ALLOC_NO_WATERMARKS;
 	}
 #ifdef CONFIG_CMA
-	if (allocflags_to_migratetype(gfp_mask) == MIGRATE_MOVABLE)
+	if (gfpflags_to_migratetype(gfp_mask) == MIGRATE_MOVABLE)
 		alloc_flags |= ALLOC_CMA;
 #endif
 	return alloc_flags;
@@ -2533,7 +2546,7 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
 	unsigned long did_some_progress;
 	enum migrate_mode migration_mode = MIGRATE_ASYNC;
 	bool deferred_compaction = false;
-	bool contended_compaction = false;
+	int contended_compaction = COMPACT_CONTENDED_NONE;
 
 	/*
 	 * In the slowpath, we sanity check order to avoid ever trying to
@@ -2633,20 +2646,40 @@ rebalance:
 					preferred_zone,
 					classzone_idx, migratetype,
 					migration_mode, &contended_compaction,
-					&deferred_compaction,
-					&did_some_progress);
+					&deferred_compaction);
 	if (page)
 		goto got_pg;
 
-	/*
-	 * If compaction is deferred for high-order allocations, it is because
-	 * sync compaction recently failed. In this is the case and the caller
-	 * requested a movable allocation that does not heavily disrupt the
-	 * system then fail the allocation instead of entering direct reclaim.
-	 */
-	if ((deferred_compaction || contended_compaction) &&
-						(gfp_mask & __GFP_NO_KSWAPD))
-		goto nopage;
+	/* Checks for THP-specific high-order allocations */
+	if ((gfp_mask & GFP_TRANSHUGE) == GFP_TRANSHUGE) {
+		/*
+		 * If compaction is deferred for high-order allocations, it is
+		 * because sync compaction recently failed. If this is the case
+		 * and the caller requested a THP allocation, we do not want
+		 * to heavily disrupt the system, so we fail the allocation
+		 * instead of entering direct reclaim.
+		 */
+		if (deferred_compaction)
+			goto nopage;
+
+		/*
+		 * In all zones where compaction was attempted (and not
+		 * deferred or skipped), lock contention has been detected.
+		 * For THP allocation we do not want to disrupt the others
+		 * so we fallback to base pages instead.
+		 */
+		if (contended_compaction == COMPACT_CONTENDED_LOCK)
+			goto nopage;
+
+		/*
+		 * If compaction was aborted due to need_resched(), we do not
+		 * want to further increase allocation latency, unless it is
+		 * khugepaged trying to collapse.
+		 */
+		if (contended_compaction == COMPACT_CONTENDED_SCHED
+			&& !(current->flags & PF_KTHREAD))
+			goto nopage;
+	}
 
 	/*
 	 * It can become very expensive to allocate transparent hugepages at
@@ -2726,8 +2759,7 @@ rebalance:
 					preferred_zone,
 					classzone_idx, migratetype,
 					migration_mode, &contended_compaction,
-					&deferred_compaction,
-					&did_some_progress);
+					&deferred_compaction);
 		if (page)
 			goto got_pg;
 	}
@@ -2753,7 +2785,7 @@ __alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order,
 	struct zone *preferred_zone;
 	struct zoneref *preferred_zoneref;
 	struct page *page = NULL;
-	int migratetype = allocflags_to_migratetype(gfp_mask);
+	int migratetype = gfpflags_to_migratetype(gfp_mask);
 	unsigned int cpuset_mems_cookie;
 	int alloc_flags = ALLOC_WMARK_LOW|ALLOC_CPUSET|ALLOC_FAIR;
 	int classzone_idx;
@@ -2775,6 +2807,9 @@ __alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order,
 	if (unlikely(!zonelist->_zonerefs->zone))
 		return NULL;
 
+	if (IS_ENABLED(CONFIG_CMA) && migratetype == MIGRATE_MOVABLE)
+		alloc_flags |= ALLOC_CMA;
+
 retry_cpuset:
 	cpuset_mems_cookie = read_mems_allowed_begin();
 
@@ -2786,10 +2821,6 @@ retry_cpuset:
 		goto out;
 	classzone_idx = zonelist_zone_idx(preferred_zoneref);
 
-#ifdef CONFIG_CMA
-	if (allocflags_to_migratetype(gfp_mask) == MIGRATE_MOVABLE)
-		alloc_flags |= ALLOC_CMA;
-#endif
 	/* First allocation attempt */
 	page = get_page_from_freelist(gfp_mask|__GFP_HARDWALL, nodemask, order,
 			zonelist, high_zoneidx, alloc_flags,
@@ -4976,6 +5007,8 @@ void __paginginit free_area_init_node(int nid, unsigned long *zones_size,
 	pgdat->node_start_pfn = node_start_pfn;
 #ifdef CONFIG_HAVE_MEMBLOCK_NODE_MAP
 	get_pfn_range_for_nid(nid, &start_pfn, &end_pfn);
+	printk(KERN_INFO "Initmem setup node %d [mem %#010Lx-%#010Lx]\n", nid,
+			(u64) start_pfn << PAGE_SHIFT, (u64) (end_pfn << PAGE_SHIFT) - 1);
 #endif
 	calculate_node_totalpages(pgdat, start_pfn, end_pfn,
 				  zones_size, zholes_size);
@@ -6278,8 +6311,7 @@ static int __alloc_contig_migrate_range(struct compact_control *cc,
 
 		if (list_empty(&cc->migratepages)) {
 			cc->nr_migratepages = 0;
-			pfn = isolate_migratepages_range(cc->zone, cc,
-							 pfn, end, true);
+			pfn = isolate_migratepages_range(cc, pfn, end);
 			if (!pfn) {
 				ret = -EINTR;
 				break;
