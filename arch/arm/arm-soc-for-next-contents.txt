@@ -1,0 +1,25 @@
+next/fixes-non-critical
+
+next/cleanup
+
+next/soc
+
+next/boards
+
+next/dt
+
+next/drivers
+
+next/defconfig
+	patch
+		ARM: multi_v7_defconfig: Enable Zynq/Xilinx drivers
+
+fixes
+	<no branch> (3bc4d037c6791c5089a04845995410aac4fdb514)
+		git://git.kernel.org/pub/scm/linux/kernel/git/shawnguo/linux tags/imx-fixes-3.17
+	patch
+		ARM: dts: Enable PMIC interrupts on ODROID
+		ARM: dts: ODROID i2c improvements
+	<no branch> (495bccf3917b04c6727d720b56620e265c693ace)
+		git://git.kernel.org/pub/scm/linux/kernel/git/mripard/linux tags/sunxi-dt-for-3.17-2
+
