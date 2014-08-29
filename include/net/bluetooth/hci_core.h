@@ -553,6 +553,7 @@ enum {
 	HCI_CONN_FIPS,
 	HCI_CONN_STK_ENCRYPT,
 	HCI_CONN_AUTH_INITIATOR,
+	HCI_CONN_DROP,
 };
 
 static inline bool hci_conn_ssp_enabled(struct hci_conn *conn)
@@ -702,7 +703,7 @@ static inline struct hci_conn *hci_conn_hash_lookup_state(struct hci_dev *hdev,
 	return NULL;
 }
 
-void hci_disconnect(struct hci_conn *conn, __u8 reason);
+int hci_disconnect(struct hci_conn *conn, __u8 reason);
 bool hci_setup_sync(struct hci_conn *conn, __u16 handle);
 void hci_sco_setup(struct hci_conn *conn, __u8 status);
 
@@ -756,9 +757,10 @@ void hci_le_conn_failed(struct hci_conn *conn, u8 status);
  * _get()/_drop() in it, but require the caller to have a valid ref (FIXME).
  */
 
-static inline void hci_conn_get(struct hci_conn *conn)
+static inline struct hci_conn *hci_conn_get(struct hci_conn *conn)
 {
 	get_device(&conn->dev);
+	return conn;
 }
 
 static inline void hci_conn_put(struct hci_conn *conn)
@@ -790,7 +792,7 @@ static inline void hci_conn_drop(struct hci_conn *conn)
 				if (!conn->out)
 					timeo *= 2;
 			} else {
-				timeo = msecs_to_jiffies(10);
+				timeo = 0;
 			}
 			break;
 
@@ -799,7 +801,7 @@ static inline void hci_conn_drop(struct hci_conn *conn)
 			break;
 
 		default:
-			timeo = msecs_to_jiffies(10);
+			timeo = 0;
 			break;
 		}
 
