@@ -1192,8 +1192,14 @@ void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 	}
 
 clock_set:
-	if (real_div)
+	if (real_div) {
 		host->mmc->actual_clock = (host->max_clk * clk_mul) / real_div;
+		if (host->quirks & SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK) {
+			host->timeout_clk = host->mmc->actual_clock / 1000;
+			host->mmc->max_busy_timeout =
+				(1 << 27) / host->timeout_clk;
+		}
+	}
 
 	clk |= (div & SDHCI_DIV_MASK) << SDHCI_DIVIDER_SHIFT;
 	clk |= ((div & SDHCI_DIV_HI_MASK) >> SDHCI_DIV_MASK_LEN)
@@ -2304,6 +2310,11 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 		 * above in sdhci_cmd_irq().
 		 */
 		if (host->cmd && (host->cmd->flags & MMC_RSP_BUSY)) {
+			if (intmask & SDHCI_INT_DATA_TIMEOUT) {
+				host->cmd->error = -ETIMEDOUT;
+				tasklet_schedule(&host->finish_tasklet);
+				return;
+			}
 			if (intmask & SDHCI_INT_DATA_END) {
 				sdhci_finish_command(host);
 				return;
@@ -3049,7 +3060,7 @@ int sdhci_add_host(struct sdhci_host *host)
 	 */
 	max_current_caps = sdhci_readl(host, SDHCI_MAX_CURRENT);
 	if (!max_current_caps && !IS_ERR(mmc->supply.vmmc)) {
-		u32 curr = regulator_get_current_limit(mmc->supply.vmmc);
+		int curr = regulator_get_current_limit(mmc->supply.vmmc);
 		if (curr > 0) {
 
 			/* convert to SDHCI_MAX_CURRENT format */
