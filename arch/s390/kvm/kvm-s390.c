@@ -555,6 +555,10 @@ void kvm_arch_vcpu_uninit(struct kvm_vcpu *vcpu)
 	/* Nothing todo */
 }
 
+void kvm_arch_sched_in(struct kvm_vcpu *vcpu, int cpu)
+{
+}
+
 void kvm_arch_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 {
 	save_fp_ctl(&vcpu->arch.host_fpregs.fpc);
@@ -1315,19 +1319,6 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu, struct kvm_run *kvm_run)
 		pr_err_ratelimited("kvm-s390: can't run stopped vcpu %d\n",
 				   vcpu->vcpu_id);
 		return -EINVAL;
-	}
-
-	switch (kvm_run->exit_reason) {
-	case KVM_EXIT_S390_SIEIC:
-	case KVM_EXIT_UNKNOWN:
-	case KVM_EXIT_INTR:
-	case KVM_EXIT_S390_RESET:
-	case KVM_EXIT_S390_UCONTROL:
-	case KVM_EXIT_S390_TSCH:
-	case KVM_EXIT_DEBUG:
-		break;
-	default:
-		BUG();
 	}
 
 	vcpu->arch.sie_block->gpsw.mask = kvm_run->psw_mask;
