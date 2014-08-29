@@ -218,6 +218,8 @@ enum regulator_type {
  * @linear_min_sel: Minimal selector for starting linear mapping
  * @fixed_uV: Fixed voltage of rails.
  * @ramp_delay: Time to settle down after voltage change (unit: uV/us)
+ * @linear_ranges: A constant table of possible voltage ranges.
+ * @n_linear_ranges: Number of entries in the @linear_ranges table.
  * @volt_table: Voltage mapping table (if table based mapping)
  *
  * @vsel_reg: Register for selector when using regulator_regmap_X_voltage_
@@ -238,6 +240,7 @@ enum regulator_type {
  * @bypass_val_off: Disabling value for control when using regmap set_bypass
  *
  * @enable_time: Time taken for initial enable of regulator (in uS).
+ * @off_on_delay: guard time (in uS), before re-enabling a regulator
  */
 struct regulator_desc {
 	const char *name;
@@ -245,7 +248,7 @@ struct regulator_desc {
 	int id;
 	bool continuous_voltage_range;
 	unsigned n_voltages;
-	struct regulator_ops *ops;
+	const struct regulator_ops *ops;
 	int irq;
 	enum regulator_type type;
 	struct module *owner;
@@ -276,6 +279,8 @@ struct regulator_desc {
 	unsigned int bypass_val_off;
 
 	unsigned int enable_time;
+
+	unsigned int off_on_delay;
 };
 
 /**
@@ -348,6 +353,9 @@ struct regulator_dev {
 
 	struct regulator_enable_gpio *ena_pin;
 	unsigned int ena_gpio_state:1;
+
+	/* time when this regulator was disabled last time */
+	unsigned long last_off_jiffy;
 };
 
 struct regulator_dev *
