@@ -172,6 +172,7 @@ struct uart_omap_port {
 	struct pinctrl_state	*pin_default;
 	struct pinctrl_state	*pin_idle;
 	bool			is_suspending;
+	spinlock_t		delayed_rts_lock; /* protect need_delayed_rts*/
 	bool			need_delayed_rts;
 	bool			in_transmit;
 	int			ext_rt_cnt;
@@ -1372,12 +1373,16 @@ static int serial_omap_prepare(struct device *dev)
 static void serial_omap_complete(struct device *dev)
 {
 	struct uart_omap_port *up = dev_get_drvdata(dev);
+	unsigned long flags;
+
+	spin_lock_irqsave(&up->delayed_rts_lock, flags);
 	if (up->need_delayed_rts && up->pin_default && up->pin_idle) {
 		pinctrl_select_state(up->pins, up->pin_default);
 		up->need_delayed_rts = 0;
 	}
 
 	up->is_suspending = false;
+	spin_unlock_irqrestore(&up->delayed_rts_lock, flags);
 }
 
 static int serial_omap_suspend(struct device *dev)
@@ -1747,6 +1752,7 @@ static void serial_omap_restore_context(struct uart_omap_port *up)
 static int serial_omap_runtime_suspend(struct device *dev)
 {
 	struct uart_omap_port *up = dev_get_drvdata(dev);
+	unsigned long flags;
 
 	/*
 	* When using 'no_console_suspend', the console UART must not be
@@ -1762,8 +1768,10 @@ static int serial_omap_runtime_suspend(struct device *dev)
 		return -EINVAL;
 
 	if (up->pin_idle) {
+		spin_lock_irqsave(&up->delayed_rts_lock, flags);
 		pinctrl_select_state(up->pins, up->pin_idle);
 		up->need_delayed_rts = 0;
+		spin_unlock_irqrestore(&up->delayed_rts_lock, flags);
 	}
 	up->context_loss_cnt = serial_omap_get_context_loss_count(up);
 
