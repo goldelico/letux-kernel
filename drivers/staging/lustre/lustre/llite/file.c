@@ -1248,8 +1248,7 @@ static ssize_t ll_file_splice_read(struct file *in_file, loff_t *ppos,
 	return result;
 }
 
-static int ll_lov_recreate(struct inode *inode, struct ost_id *oi,
-			   obd_count ost_idx)
+static int ll_lov_recreate(struct inode *inode, struct ost_id *oi, u32 ost_idx)
 {
 	struct obd_export *exp = ll_i2dtexp(inode);
 	struct obd_trans_info oti = { 0 };
@@ -1314,7 +1313,7 @@ static int ll_lov_recreate_fid(struct inode *inode, unsigned long arg)
 {
 	struct lu_fid	fid;
 	struct ost_id	oi;
-	obd_count	ost_idx;
+	u32		ost_idx;
 
 	if (!capable(CFS_CAP_SYS_ADMIN))
 		return -EPERM;
@@ -1702,37 +1701,38 @@ out:
 	return rc;
 }
 
-int ll_fid2path(struct inode *inode, void *arg)
+int ll_fid2path(struct inode *inode, void __user *arg)
 {
-	struct obd_export	*exp = ll_i2mdexp(inode);
-	struct getinfo_fid2path	*gfout, *gfin;
-	int			 outsize, rc;
+	struct obd_export *exp = ll_i2mdexp(inode);
+	const struct getinfo_fid2path __user *gfin = arg;
+	struct getinfo_fid2path *gfout;
+	u32 pathlen;
+	size_t outsize;
+	int rc;
 
 	if (!capable(CFS_CAP_DAC_READ_SEARCH) &&
 	    !(ll_i2sbi(inode)->ll_flags & LL_SBI_USER_FID2PATH))
 		return -EPERM;
 
-	/* Need to get the buflen */
-	OBD_ALLOC_PTR(gfin);
-	if (gfin == NULL)
-		return -ENOMEM;
-	if (copy_from_user(gfin, arg, sizeof(*gfin))) {
-		OBD_FREE_PTR(gfin);
+	/* Only need to get the buflen */
+	if (get_user(pathlen, &gfin->gf_pathlen))
 		return -EFAULT;
-	}
 
-	outsize = sizeof(*gfout) + gfin->gf_pathlen;
+	if (pathlen > PATH_MAX)
+		return -EINVAL;
+
+	outsize = sizeof(*gfout) + pathlen;
+
 	OBD_ALLOC(gfout, outsize);
-	if (gfout == NULL) {
-		OBD_FREE_PTR(gfin);
+	if (gfout == NULL)
 		return -ENOMEM;
-	}
-	memcpy(gfout, gfin, sizeof(*gfout));
-	OBD_FREE_PTR(gfin);
+
+	if (copy_from_user(gfout, arg, sizeof(*gfout)))
+		GOTO(gf_free, rc = -EFAULT);
 
 	/* Call mdc_iocontrol */
 	rc = obd_iocontrol(OBD_IOC_FID2PATH, exp, outsize, gfout, NULL);
-	if (rc)
+	if (rc != 0)
 		GOTO(gf_free, rc);
 
 	if (copy_to_user(arg, gfout, outsize))
@@ -2116,9 +2116,13 @@ static int ll_hsm_import(struct inode *inode, struct file *file,
 			 ATTR_MTIME | ATTR_MTIME_SET |
 			 ATTR_ATIME | ATTR_ATIME_SET;
 
+	mutex_lock(&inode->i_mutex);
+
 	rc = ll_setattr_raw(file->f_dentry, attr, true);
 	if (rc == -ENODATA)
 		rc = 0;
+
+	mutex_unlock(&inode->i_mutex);
 
 out:
 	if (hss != NULL)
@@ -2888,7 +2892,7 @@ static int __ll_inode_revalidate(struct dentry *dentry, __u64 ibits)
 		ll_lookup_finish_locks(&oit, dentry);
 	} else if (!ll_have_md_lock(dentry->d_inode, &ibits, LCK_MINMODE)) {
 		struct ll_sb_info *sbi = ll_i2sbi(dentry->d_inode);
-		obd_valid valid = OBD_MD_FLGETATTR;
+		u64 valid = OBD_MD_FLGETATTR;
 		struct md_op_data *op_data;
 		int ealen = 0;
 

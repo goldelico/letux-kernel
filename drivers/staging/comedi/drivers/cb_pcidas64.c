@@ -3369,26 +3369,16 @@ static int ao_cancel(struct comedi_device *dev, struct comedi_subdevice *s)
 	return 0;
 }
 
-static int dio_callback(int dir, int port, int data, unsigned long arg)
+static int dio_callback_4020(struct comedi_device *dev,
+			     int dir, int port, int data, unsigned long iobase)
 {
-	void __iomem *iobase = (void __iomem *)arg;
+	struct pcidas64_private *devpriv = dev->private;
 
 	if (dir) {
-		writeb(data, iobase + port);
+		writew(data, devpriv->main_iobase + iobase + 2 * port);
 		return 0;
 	}
-	return readb(iobase + port);
-}
-
-static int dio_callback_4020(int dir, int port, int data, unsigned long arg)
-{
-	void __iomem *iobase = (void __iomem *)arg;
-
-	if (dir) {
-		writew(data, iobase + 2 * port);
-		return 0;
-	}
-	return readw(iobase + 2 * port);
+	return readw(devpriv->main_iobase + iobase + 2 * port);
 }
 
 static int di_rbits(struct comedi_device *dev, struct comedi_subdevice *s,
@@ -3751,7 +3741,6 @@ static int setup_subdevices(struct comedi_device *dev)
 	const struct pcidas64_board *thisboard = comedi_board(dev);
 	struct pcidas64_private *devpriv = dev->private;
 	struct comedi_subdevice *s;
-	void __iomem *dio_8255_iobase;
 	int i;
 	int ret;
 
@@ -3840,13 +3829,11 @@ static int setup_subdevices(struct comedi_device *dev)
 	s = &dev->subdevices[4];
 	if (thisboard->has_8255) {
 		if (thisboard->layout == LAYOUT_4020) {
-			dio_8255_iobase = devpriv->main_iobase + I8255_4020_REG;
 			ret = subdev_8255_init(dev, s, dio_callback_4020,
-					       (unsigned long)dio_8255_iobase);
+					       I8255_4020_REG);
 		} else {
-			dio_8255_iobase = dev->mmio + DIO_8255_OFFSET;
-			ret = subdev_8255_init(dev, s, dio_callback,
-					       (unsigned long)dio_8255_iobase);
+			ret = subdev_8255_mm_init(dev, s, NULL,
+						  DIO_8255_OFFSET);
 		}
 		if (ret)
 			return ret;

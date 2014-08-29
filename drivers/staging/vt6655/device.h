@@ -148,12 +148,6 @@
 
 /*---------------------  Export Types  ------------------------------*/
 
-#define DBG_PRT(l, p, args...)		\
-do {					\
-	if (l <= msglevel)		\
-		printk(p, ##args);	\
-} while (0)
-
 #define PRINT_K(p, args...)		\
 do {					\
 	if (PRIVATE_Message)		\
@@ -337,9 +331,9 @@ typedef struct __device_opt {
 	u32         flags;
 } OPTIONS, *POPTIONS;
 
-typedef struct __device_info {
-	struct __device_info *next;
-	struct __device_info *prev;
+struct vnt_private {
+	struct vnt_private *next;
+	struct vnt_private *prev;
 
 	struct pci_dev *pcid;
 
@@ -566,7 +560,7 @@ typedef struct __device_info {
 	SKeyManagement          sKey;
 	unsigned long dwIVCounter;
 
-	QWORD                   qwPacketNumber; //For CCMP and TKIP as TSC(6 bytes)
+	u64 qwPacketNumber; /* For CCMP and TKIP as TSC(6 bytes) */
 	unsigned int	uCurrentWEPMode;
 
 	RC4Ext                  SBox;
@@ -643,12 +637,10 @@ typedef struct __device_info {
 
 	// command timer
 	struct timer_list       sTimerCommand;
-#ifdef TxInSleep
 	struct timer_list       sTimerTxData;
 	unsigned long nTxDataTimeCout;
 	bool fTxDataInSleep;
 	bool IsTxDataTrigger;
-#endif
 
 #ifdef WPA_SM_Transtatus
 	bool fWPA_Authened;           //is WPA/WPA-PSK or WPA2/WPA2-PSK authen??
@@ -744,9 +736,10 @@ typedef struct __device_info {
 
 	struct iw_statistics	wstats;		// wireless stats
 	bool bCommit;
-} DEVICE_INFO, *PSDevice;
+};
 
-static inline bool device_get_ip(PSDevice pInfo) {
+static inline bool device_get_ip(struct vnt_private *pInfo)
+{
 	struct in_device *in_dev = (struct in_device *)pInfo->dev->ip_ptr;
 	struct in_ifaddr *ifa;
 
@@ -772,7 +765,10 @@ static inline PDEVICE_TD_INFO alloc_td_info(void)
 
 /*---------------------  Export Functions  --------------------------*/
 
-bool device_dma0_xmit(PSDevice pDevice, struct sk_buff *skb, unsigned int uNodeIndex);
-bool device_alloc_frag_buf(PSDevice pDevice, PSDeFragControlBlock pDeF);
-int Config_FileOperation(PSDevice pDevice, bool fwrite, unsigned char *Parameter);
+bool device_dma0_xmit(struct vnt_private *pDevice,
+		      struct sk_buff *skb, unsigned int uNodeIndex);
+bool device_alloc_frag_buf(struct vnt_private *pDevice,
+			   PSDeFragControlBlock pDeF);
+int Config_FileOperation(struct vnt_private *pDevice,
+			 bool fwrite, unsigned char *Parameter);
 #endif

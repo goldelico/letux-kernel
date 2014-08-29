@@ -481,20 +481,9 @@ struct channel_t {
 	wait_queue_head_t ch_sniff_wait;
 };
 
-
-/*************************************************************************
- *
- * Prototypes for non-static functions used in more than one module
- *
- *************************************************************************/
-
-extern int		dgnc_ms_sleep(ulong ms);
-extern char		*dgnc_ioctl_name(int cmd);
-
 /*
  * Our Global Variables.
  */
-extern int		dgnc_driver_state;	/* The state of the driver	*/
 extern uint		dgnc_Major;		/* Our driver/mgmt major	*/
 extern int		dgnc_debug;		/* Debug variable		*/
 extern int		dgnc_rawreadok;		/* Set if user wants rawreads	*/
@@ -503,8 +492,6 @@ extern int		dgnc_trcbuf_size;	/* Size of the ringbuffer	*/
 extern spinlock_t	dgnc_global_lock;	/* Driver global spinlock	*/
 extern uint		dgnc_NumBoards;		/* Total number of boards	*/
 extern struct dgnc_board	*dgnc_Board[MAXBOARDS];	/* Array of board structs	*/
-extern ulong		dgnc_poll_counter;	/* Times the poller has run	*/
 extern char		*dgnc_state_text[];	/* Array of state text		*/
-extern char		*dgnc_driver_state_text[];/* Array of driver state text */
 
 #endif

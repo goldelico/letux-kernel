@@ -586,9 +586,6 @@ struct board_t {
 	struct tty_port *printer_ports;
 	char		print_name[200];
 
-	u32		dgap_major_serial_registered;
-	u32		dgap_major_transparent_print_registered;
-
 	u32		dgap_serial_major;
 	u32		dgap_transparent_print_major;
 
@@ -1175,7 +1172,6 @@ struct cnode {
 			char  *id;	/* tty id		*/
 			long  start;	/* start of tty counting */
 			char  *method;  /* Install method       */
-			char  v_type;
 			char  v_port;
 			char  v_addr;
 			char  v_pcibus;
@@ -1210,7 +1206,6 @@ struct cnode {
 			char  *id;
 			char  *idstr;
 			long  start;
-			char  v_type;
 			char  v_connect;
 			char  v_speed;
 			char  v_nport;
@@ -1224,7 +1219,6 @@ struct cnode {
 			char *id;
 			char *idstr;
 			long start;
-			char v_type;
 			char v_nport;
 			char v_id;
 			char v_start;

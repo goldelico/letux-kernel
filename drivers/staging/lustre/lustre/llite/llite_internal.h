@@ -775,7 +775,7 @@ int ll_dir_getstripe(struct inode *inode, struct lov_mds_md **lmmp,
 		     int *lmm_size, struct ptlrpc_request **request);
 int ll_fsync(struct file *file, loff_t start, loff_t end, int data);
 int ll_merge_lvb(const struct lu_env *env, struct inode *inode);
-int ll_fid2path(struct inode *inode, void *arg);
+int ll_fid2path(struct inode *inode, void __user *arg);
 int ll_data_version(struct inode *inode, __u64 *data_version, int extent_lock);
 int ll_hsm_release(struct inode *inode);
 
@@ -894,6 +894,10 @@ struct vvp_io {
 				 * fault API used bitflags for return code.
 				 */
 				unsigned int    ft_flags;
+				/**
+				 * check that flags are from filemap_fault
+				 */
+				bool		ft_flags_valid;
 			} fault;
 		} fault;
 	} u;
@@ -1124,7 +1128,7 @@ struct eacl_entry {
 	ext_acl_xattr_header *ee_acl;
 };
 
-obd_valid rce_ops2valid(int ops);
+u64 rce_ops2valid(int ops);
 struct rmtacl_ctl_entry *rct_search(struct rmtacl_ctl_table *rct, pid_t key);
 int rct_add(struct rmtacl_ctl_table *rct, pid_t key, int ops);
 int rct_del(struct rmtacl_ctl_table *rct, pid_t key);
@@ -1140,7 +1144,7 @@ void et_search_free(struct eacl_table *et, pid_t key);
 void et_init(struct eacl_table *et);
 void et_fini(struct eacl_table *et);
 #else
-static inline obd_valid rce_ops2valid(int ops)
+static inline u64 rce_ops2valid(int ops)
 {
 	return 0;
 }

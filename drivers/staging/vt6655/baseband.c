@@ -56,10 +56,6 @@
 #include "srom.h"
 #include "rf.h"
 
-/*---------------------  Static Definitions -------------------------*/
-/* static int          msglevel                =MSG_LEVEL_DEBUG; */
-static int msglevel = MSG_LEVEL_INFO;
-
 /*---------------------  Static Classes  ----------------------------*/
 
 /*---------------------  Static Variables  --------------------------*/
@@ -1711,18 +1707,18 @@ static const unsigned short awcFrameTime[MAX_RATE] =
 
 static
 unsigned long
-s_ulGetRatio(PSDevice pDevice);
+s_ulGetRatio(struct vnt_private *pDevice);
 
 static
 void
 s_vChangeAntenna(
-	PSDevice pDevice
+	struct vnt_private *pDevice
 );
 
 static
 void
 s_vChangeAntenna(
-	PSDevice pDevice
+	struct vnt_private *pDevice
 )
 {
 	if (pDevice->dwRxAntennaSel == 0) {
@@ -1827,7 +1823,7 @@ BBuGetFrameTime(
  */
 void
 BBvCalculateParameter(
-	PSDevice pDevice,
+	struct vnt_private *pDevice,
 	unsigned int cbFrameLength,
 	unsigned short wRate,
 	unsigned char byPacketType,
@@ -2009,7 +2005,7 @@ bool BBbReadEmbedded(void __iomem *dwIoBase, unsigned char byBBAddr, unsigned ch
 
 	if (ww == W_MAX_TIMEOUT) {
 		DBG_PORT80(0x30);
-		DBG_PRT(MSG_LEVEL_DEBUG, KERN_INFO " DBG_PORT80(0x30)\n");
+		pr_debug(" DBG_PORT80(0x30)\n");
 		return false;
 	}
 	return true;
@@ -2050,7 +2046,7 @@ bool BBbWriteEmbedded(void __iomem *dwIoBase, unsigned char byBBAddr, unsigned c
 
 	if (ww == W_MAX_TIMEOUT) {
 		DBG_PORT80(0x31);
-		DBG_PRT(MSG_LEVEL_DEBUG, KERN_INFO " DBG_PORT80(0x31)\n");
+		pr_debug(" DBG_PORT80(0x31)\n");
 		return false;
 	}
 	return true;
@@ -2115,7 +2111,7 @@ bool BBbIsRegBitsOff(void __iomem *dwIoBase, unsigned char byBBAddr, unsigned ch
  *
  */
 
-bool BBbVT3253Init(PSDevice pDevice)
+bool BBbVT3253Init(struct vnt_private *pDevice)
 {
 	bool bResult = true;
 	int        ii;
@@ -2310,7 +2306,7 @@ void BBvReadAllRegs(void __iomem *dwIoBase, unsigned char *pbyBBRegs)
  *
  */
 
-void BBvLoopbackOn(PSDevice pDevice)
+void BBvLoopbackOn(struct vnt_private *pDevice)
 {
 	unsigned char byData;
 	void __iomem *dwIoBase = pDevice->PortOffset;
@@ -2363,7 +2359,7 @@ void BBvLoopbackOn(PSDevice pDevice)
  * Return Value: none
  *
  */
-void BBvLoopbackOff(PSDevice pDevice)
+void BBvLoopbackOff(struct vnt_private *pDevice)
 {
 	unsigned char byData;
 	void __iomem *dwIoBase = pDevice->PortOffset;
@@ -2398,7 +2394,7 @@ void BBvLoopbackOff(PSDevice pDevice)
  *
  */
 void
-BBvSetShortSlotTime(PSDevice pDevice)
+BBvSetShortSlotTime(struct vnt_private *pDevice)
 {
 	unsigned char byBBRxConf = 0;
 	unsigned char byBBVGA = 0;
@@ -2418,7 +2414,7 @@ BBvSetShortSlotTime(PSDevice pDevice)
 	BBbWriteEmbedded(pDevice->PortOffset, 0x0A, byBBRxConf); /* CR10 */
 }
 
-void BBvSetVGAGainOffset(PSDevice pDevice, unsigned char byData)
+void BBvSetVGAGainOffset(struct vnt_private *pDevice, unsigned char byData)
 {
 	unsigned char byBBRxConf = 0;
 
@@ -2594,7 +2590,7 @@ BBvExitDeepSleep(void __iomem *dwIoBase, unsigned char byLocalID)
 
 static
 unsigned long
-s_ulGetRatio(PSDevice pDevice)
+s_ulGetRatio(struct vnt_private *pDevice)
 {
 	unsigned long ulRatio = 0;
 	unsigned long ulMaxPacket;
@@ -2689,7 +2685,7 @@ s_ulGetRatio(PSDevice pDevice)
 }
 
 void
-BBvClearAntDivSQ3Value(PSDevice pDevice)
+BBvClearAntDivSQ3Value(struct vnt_private *pDevice)
 {
 	unsigned int ii;
 
@@ -2713,8 +2709,8 @@ BBvClearAntDivSQ3Value(PSDevice pDevice)
  *
  */
 
-void
-BBvAntennaDiversity(PSDevice pDevice, unsigned char byRxRate, unsigned char bySQ3)
+void BBvAntennaDiversity(struct vnt_private *pDevice,
+			 unsigned char byRxRate, unsigned char bySQ3)
 {
 	if ((byRxRate >= MAX_RATE) || (pDevice->wAntDiversityMaxRate >= MAX_RATE))
 		return;
@@ -2725,18 +2721,22 @@ BBvAntennaDiversity(PSDevice pDevice, unsigned char byRxRate, unsigned char bySQ
 
 	if (pDevice->byAntennaState == 0) {
 		if (pDevice->uDiversityCnt > pDevice->ulDiversityNValue) {
-			DBG_PRT(MSG_LEVEL_DEBUG, KERN_INFO "ulDiversityNValue=[%d],54M-[%d]\n",
-				(int)pDevice->ulDiversityNValue, (int)pDevice->uNumSQ3[(int)pDevice->wAntDiversityMaxRate]);
+			pr_debug("ulDiversityNValue=[%d],54M-[%d]\n",
+				 (int)pDevice->ulDiversityNValue,
+				 (int)pDevice->uNumSQ3[(int)pDevice->wAntDiversityMaxRate]);
 
 			if (pDevice->uNumSQ3[pDevice->wAntDiversityMaxRate] < pDevice->uDiversityCnt/2) {
 				pDevice->ulRatio_State0 = s_ulGetRatio(pDevice);
-				DBG_PRT(MSG_LEVEL_DEBUG, KERN_INFO "SQ3_State0, rate = [%08x]\n", (int)pDevice->ulRatio_State0);
+				pr_debug("SQ3_State0, rate = [%08x]\n",
+					 (int)pDevice->ulRatio_State0);
 
 				if (pDevice->byTMax == 0)
 					return;
-				DBG_PRT(MSG_LEVEL_DEBUG, KERN_INFO "1.[%08x], uNumSQ3[%d]=%d, %d\n",
-					(int)pDevice->ulRatio_State0, (int)pDevice->wAntDiversityMaxRate,
-					(int)pDevice->uNumSQ3[(int)pDevice->wAntDiversityMaxRate], (int)pDevice->uDiversityCnt);
+				pr_debug("1.[%08x], uNumSQ3[%d]=%d, %d\n",
+					 (int)pDevice->ulRatio_State0,
+					 (int)pDevice->wAntDiversityMaxRate,
+					 (int)pDevice->uNumSQ3[(int)pDevice->wAntDiversityMaxRate],
+					 (int)pDevice->uDiversityCnt);
 
 				s_vChangeAntenna(pDevice);
 				pDevice->byAntennaState = 1;
@@ -2758,14 +2758,17 @@ BBvAntennaDiversity(PSDevice pDevice, unsigned char byRxRate, unsigned char bySQ
 			del_timer(&pDevice->TimerSQ3Tmax1);
 
 			pDevice->ulRatio_State1 = s_ulGetRatio(pDevice);
-			DBG_PRT(MSG_LEVEL_DEBUG, KERN_INFO "RX:SQ3_State1, rate0 = %08x,rate1 = %08x\n",
-				(int)pDevice->ulRatio_State0, (int)pDevice->ulRatio_State1);
+			pr_debug("RX:SQ3_State1, rate0 = %08x,rate1 = %08x\n",
+				 (int)pDevice->ulRatio_State0,
+				 (int)pDevice->ulRatio_State1);
 
 			if (pDevice->ulRatio_State1 < pDevice->ulRatio_State0) {
-				DBG_PRT(MSG_LEVEL_DEBUG, KERN_INFO "2.[%08x][%08x], uNumSQ3[%d]=%d, %d\n",
-					(int)pDevice->ulRatio_State0, (int)pDevice->ulRatio_State1,
-					(int)pDevice->wAntDiversityMaxRate,
-					(int)pDevice->uNumSQ3[(int)pDevice->wAntDiversityMaxRate], (int)pDevice->uDiversityCnt);
+				pr_debug("2.[%08x][%08x], uNumSQ3[%d]=%d, %d\n",
+					 (int)pDevice->ulRatio_State0,
+					 (int)pDevice->ulRatio_State1,
+					 (int)pDevice->wAntDiversityMaxRate,
+					 (int)pDevice->uNumSQ3[(int)pDevice->wAntDiversityMaxRate],
+					 (int)pDevice->uDiversityCnt);
 
 				s_vChangeAntenna(pDevice);
 				pDevice->TimerSQ3Tmax3.expires =  RUN_AT(pDevice->byTMax3 * HZ);
@@ -2798,12 +2801,14 @@ TimerSQ3CallBack(
 	void *hDeviceContext
 )
 {
-	PSDevice        pDevice = (PSDevice)hDeviceContext;
+	struct vnt_private *pDevice = hDeviceContext;
 
-	DBG_PRT(MSG_LEVEL_DEBUG, KERN_INFO "TimerSQ3CallBack...");
+	pr_debug("TimerSQ3CallBack...\n");
 	spin_lock_irq(&pDevice->lock);
 
-	DBG_PRT(MSG_LEVEL_DEBUG, KERN_INFO "3.[%08x][%08x], %d\n", (int)pDevice->ulRatio_State0, (int)pDevice->ulRatio_State1, (int)pDevice->uDiversityCnt);
+	pr_debug("3.[%08x][%08x], %d\n",
+		 (int)pDevice->ulRatio_State0, (int)pDevice->ulRatio_State1,
+		 (int)pDevice->uDiversityCnt);
 
 	s_vChangeAntenna(pDevice);
 	pDevice->byAntennaState = 0;
@@ -2840,9 +2845,9 @@ TimerState1CallBack(
 	void *hDeviceContext
 )
 {
-	PSDevice        pDevice = (PSDevice)hDeviceContext;
+	struct vnt_private *pDevice = hDeviceContext;
 
-	DBG_PRT(MSG_LEVEL_DEBUG, KERN_INFO "TimerState1CallBack...");
+	pr_debug("TimerState1CallBack...\n");
 
 	spin_lock_irq(&pDevice->lock);
 	if (pDevice->uDiversityCnt < pDevice->ulDiversityMValue/100) {
@@ -2853,14 +2858,17 @@ TimerState1CallBack(
 		add_timer(&pDevice->TimerSQ3Tmax2);
 	} else {
 		pDevice->ulRatio_State1 = s_ulGetRatio(pDevice);
-		DBG_PRT(MSG_LEVEL_DEBUG, KERN_INFO "SQ3_State1, rate0 = %08x,rate1 = %08x\n",
-			(int)pDevice->ulRatio_State0, (int)pDevice->ulRatio_State1);
+		pr_debug("SQ3_State1, rate0 = %08x,rate1 = %08x\n",
+			 (int)pDevice->ulRatio_State0,
+			 (int)pDevice->ulRatio_State1);
 
 		if (pDevice->ulRatio_State1 < pDevice->ulRatio_State0) {
-			DBG_PRT(MSG_LEVEL_DEBUG, KERN_INFO "2.[%08x][%08x], uNumSQ3[%d]=%d, %d\n",
-				(int)pDevice->ulRatio_State0, (int)pDevice->ulRatio_State1,
-				(int)pDevice->wAntDiversityMaxRate,
-				(int)pDevice->uNumSQ3[(int)pDevice->wAntDiversityMaxRate], (int)pDevice->uDiversityCnt);
+			pr_debug("2.[%08x][%08x], uNumSQ3[%d]=%d, %d\n",
+				 (int)pDevice->ulRatio_State0,
+				 (int)pDevice->ulRatio_State1,
+				 (int)pDevice->wAntDiversityMaxRate,
+				 (int)pDevice->uNumSQ3[(int)pDevice->wAntDiversityMaxRate],
+				 (int)pDevice->uDiversityCnt);
 
 			s_vChangeAntenna(pDevice);
 

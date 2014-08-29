@@ -22,15 +22,14 @@
 #include <osdep_service.h>
 #include <drv_types.h>
 #include <rtw_efuse.h>
-
+#include <fw.h>
 #include <rtl8188e_hal.h>
 #include <rtl8188e_led.h>
 #include <rtw_iol.h>
 #include <usb_hal.h>
+#include <phy.h>
 
-#define		HAL_MAC_ENABLE	1
 #define		HAL_BB_ENABLE		1
-#define		HAL_RF_ENABLE		1
 
 static void _ConfigNormalChipOutEP_8188E(struct adapter *adapt, u8 NumOutPipe)
 {
@@ -744,9 +743,9 @@ static u32 rtl8188eu_hal_init(struct adapter *Adapter)
 		Adapter->bFWReady = false;
 		haldata->fw_ractrl = false;
 	} else {
-		status = rtl8188e_FirmwareDownload(Adapter);
+		status = rtl88eu_download_fw(Adapter);
 
-		if (status != _SUCCESS) {
+		if (status) {
 			DBG_88E("%s: Download Firmware failed!!\n", __func__);
 			Adapter->bFWReady = false;
 			haldata->fw_ractrl = false;
@@ -759,35 +758,11 @@ static u32 rtl8188eu_hal_init(struct adapter *Adapter)
 	}
 	rtl8188e_InitializeFirmwareVars(Adapter);
 
-	HAL_INIT_PROFILE_TAG(HAL_INIT_STAGES_MAC);
-#if (HAL_MAC_ENABLE == 1)
-	status = PHY_MACConfig8188E(Adapter);
-	if (status == _FAIL) {
-		DBG_88E(" ### Failed to init MAC ......\n ");
-		goto exit;
-	}
-#endif
+	rtl88eu_phy_mac_config(Adapter);
 
-	/*  */
-	/* d. Initialize BB related configurations. */
-	/*  */
-	HAL_INIT_PROFILE_TAG(HAL_INIT_STAGES_BB);
-#if (HAL_BB_ENABLE == 1)
-	status = PHY_BBConfig8188E(Adapter);
-	if (status == _FAIL) {
-		DBG_88E(" ### Failed to init BB ......\n ");
-		goto exit;
-	}
-#endif
+	rtl88eu_phy_bb_config(Adapter);
 
-	HAL_INIT_PROFILE_TAG(HAL_INIT_STAGES_RF);
-#if (HAL_RF_ENABLE == 1)
-	status = PHY_RFConfig8188E(Adapter);
-	if (status == _FAIL) {
-		DBG_88E(" ### Failed to init RF ......\n ");
-		goto exit;
-	}
-#endif
+	rtl88eu_phy_rf_config(Adapter);
 
 	HAL_INIT_PROFILE_TAG(HAL_INIT_STAGES_EFUSE_PATCH);
 	status = rtl8188e_iol_efuse_patch(Adapter);
