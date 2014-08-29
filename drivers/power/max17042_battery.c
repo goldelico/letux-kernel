@@ -624,8 +624,9 @@ static void max17042_update_capacity_regs(struct max17042_chip *chip)
 
 	max17042_write_verify_reg(chip->client, MAX17042_FullCAP,
 				config->fullcap);
+	/* Set DesignCap to fullcapnom here */
 	max17042_write_reg(chip->client, MAX17042_DesignCap,
-			config->design_cap);
+			config->fullcapnom);
 	max17042_write_verify_reg(chip->client, MAX17042_FullCAPNom,
 				config->fullcapnom);
 }
