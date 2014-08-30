@@ -43,6 +43,7 @@
 #include <linux/w2sg0004.h>
 #include <linux/workqueue.h>
 #include <linux/rfkill.h>
+#include <linux/pinctrl/consumer.h>
 
 /*
  * There seems to restrictions on how quickly we can toggle the
@@ -64,11 +65,13 @@ struct gpio_w2sg {
 	unsigned long	last_toggle;
 	unsigned long	backoff;	/* time to wait since last_toggle */
 	int		on_off_gpio;
+	/* fixme: can be removed if we configure the rx_irq by DT */
 	int		rx_gpio;
 	int		rx_irq;
 
-	u16		on_state;  /* Mux state when GPS is on */
-	u16		off_state; /* Mux state when GPS is off */
+	struct pinctrl *p;
+	struct pinctrl_state *default_state;	/* should be UART mode */
+	struct pinctrl_state *monitor_state;	/* monitor RX as GPIO */
 
 	enum {W2SG_IDLE, W2SG_DOWN, W2SG_UP} state;
 	int		requested;
@@ -99,11 +102,7 @@ static void toggle_work(struct work_struct *work)
 		if (gw2sg->requested == gw2sg->is_on) {
 			if (!gw2sg->is_on && !gw2sg->rx_redirected) {
 				gw2sg->rx_redirected = 1;
-#if FIXME
-				pinctrl_select_state(..., "wakeup-state");
-				omap_mux_set_gpio(gw2sg->off_state,
-						  gw2sg->rx_gpio);
-#endif
+				(void) pinctrl_select_state(gw2sg->p, gw2sg->monitor_state);
 				enable_irq(gw2sg->rx_irq);
 			}
 			spin_unlock_irq(&gw2sg->lock);
@@ -151,7 +150,7 @@ static irqreturn_t gpio_w2sg_isr(int irq, void *dev_id)
 
 static void gpio_w2sg_set_value(struct gpio_chip *gc,
 				unsigned offset, int val)
-{
+{ /* virtual GPIO to enabele GPS has been changed */
 	struct gpio_w2sg *gw2sg = container_of(gc, struct gpio_w2sg,
 					       gpio);
 	unsigned long flags;
@@ -161,10 +160,7 @@ static void gpio_w2sg_set_value(struct gpio_chip *gc,
 		if (gw2sg->rx_redirected) {
 			gw2sg->rx_redirected = 0;
 			disable_irq(gw2sg->rx_irq);
-#if FIXME
-			pinctrl_select_state(..., "uart-state");
-			omap_mux_set_gpio(gw2sg->on_state, gw2sg->rx_gpio);
-#endif
+			(void) pinctrl_select_state(gw2sg->p, gw2sg->default_state);
 		}
 		gw2sg->requested = 1;
 	} else if (!val && gw2sg->requested) {
@@ -220,7 +216,6 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 	if (pdev->dev.of_node) {
 		struct device *dev = &pdev->dev;
 		enum of_gpio_flags flags;
-		int mux_state;
 		printk("gpio_w2sg_probe() found DT\n");
 		pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 		if (!pdata)
@@ -230,10 +225,7 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 		if (pdata->on_off_gpio == -EPROBE_DEFER ||
 			pdata->rx_gpio == -EPROBE_DEFER)
 			return -EPROBE_DEFER;	/* defer until we have all gpios */
-		if (of_property_read_u32(dev->of_node, "rx-on-mux", &mux_state))
-			pdata->on_state = mux_state;
-		if (of_property_read_u32(dev->of_node, "rx-off-mux", &mux_state))
-			pdata->off_state = mux_state;
+
 		pdata->lna_regulator = devm_regulator_get_optional(dev, "lna");
 		printk("gpio_w2sg_probe() lna_regulator = %p\n", pdata->lna_regulator);
 		if(IS_ERR(pdata->lna_regulator))
@@ -252,8 +244,8 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 
 	gw2sg->on_off_gpio = pdata->on_off_gpio;
 	gw2sg->rx_gpio = pdata->rx_gpio;
-	gw2sg->on_state = pdata->on_state;
-	gw2sg->off_state = pdata->off_state;
+//	gw2sg->on_state = pdata->on_state;
+//	gw2sg->off_state = pdata->off_state;
 
 	gw2sg->is_on = 0;
 	gw2sg->requested = 1;
@@ -274,6 +266,36 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_OF_GPIO
 	gw2sg->gpio.of_node = pdev->dev.of_node;
+#endif
+
+#ifdef CONFIG_OF
+	if (pdev->dev.of_node) {
+		gw2sg->p = devm_pinctrl_get(&pdev->dev);
+		if (IS_ERR(gw2sg->p)) {
+			err = PTR_ERR(gw2sg->p);
+			dev_err(&pdev->dev, "Cannot get pinctrl: %d\n", err);
+			goto out;
+		}
+
+		gw2sg->default_state = pinctrl_lookup_state(gw2sg->p, PINCTRL_STATE_DEFAULT);
+		if (IS_ERR(gw2sg->default_state)) {
+			err = PTR_ERR(gw2sg->default_state);
+			dev_err(&pdev->dev, "Cannot look up pinctrl state %s: %d\n", PINCTRL_STATE_DEFAULT, err);
+			goto out;
+		}
+
+		gw2sg->monitor_state = pinctrl_lookup_state(gw2sg->p, "monitor");
+		if (IS_ERR(gw2sg->monitor_state)) {
+			err = PTR_ERR(gw2sg->monitor_state);
+			dev_err(&pdev->dev, "Cannot look up pinctrl state %s: %d\n", "monitor", err);
+			goto out;
+		}
+		/* choose UART state as default */
+		err = pinctrl_select_state(gw2sg->p, gw2sg->default_state);
+		if (err < 0) {
+			goto out;
+		}
+	}
 #endif
 
 	INIT_DELAYED_WORK(&gw2sg->work, toggle_work);
