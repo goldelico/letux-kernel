@@ -216,11 +216,17 @@
 		gpio-controller;
 		#gpio-cells = <2>;
 
+		pinctrl-names = "default", "monitor";
+		pinctrl-0 = <&uart2_pins>;
+		pinctrl-1 = <&uart2_rx_irq_pins>;
+
+/* FIXME: driver currently uses the rx-gpio but we should (could?) simply specify the IRQ */
+		interrupt-parent = <&gpio5>;
+		interrupts = <19 IRQ_TYPE_EDGE_FALLING>;	/* GPIO_147: RX - trigger on arrival of start bit */
+		rx-gpio = <&gpio5 19 0>;	/* GPIO_147: RX */
+
 		lna-supply = <&vsim>;	/* LNA regulator */
 		on-off-gpio = <&gpio5 17 0>;	/* GPIO_145: trigger for turning on/off w2sg0004 */
-		rx-gpio = <&gpio5 19 0>;	/* GPIO_147: RX */
-		rx-on-mux = < (PIN_INPUT_PULLUP | MUX_MODE0) >;
-		rx-off-mux = < (PIN_INPUT_PULLUP | MUX_MODE4) >;
 	};
 
 	modem_en: modem { /* control modem power through rfkill */
@@ -231,8 +237,7 @@
 
 		usb-port = <&hsusb2_phy>;
 		on-off-gpio = <&gpio6 26 0>;	/* GPIO_186: trigger to power on modem */
-		on-indicator-gpio = <0>;
-	/*	on-indicator-gpio = <&gpio5 19 0>;	/* n/a on GTA04A4 */
+		on-indicator-gpio = <0>;		/* n/a on GTA04A3/4 but on A5 */
 	};
 
 };
@@ -241,7 +246,7 @@
 	uart1_pins: pinmux_uart1_pins {
 		pinctrl-single,pins = <
 			0x152 (PIN_INPUT | MUX_MODE0)		/* uart1_rx.uart1_rx */
-			0x14c (PIN_OUTPUT |MUX_MODE0)		/* uart1_tx.uart1_tx */
+			0x14c (PIN_OUTPUT | MUX_MODE0)		/* uart1_tx.uart1_tx */
 			/* what about rts/cts? */
 		>;
 	};
@@ -251,6 +256,14 @@
 			0x14a (PIN_INPUT | MUX_MODE0)		/* uart2_rx.uart2_rx */
 			0x148 (PIN_OUTPUT | MUX_MODE0)		/* uart2_tx.uart2_tx */
 			/* what about rts/cts? */
+		>;
+	};
+
+	uart2_rx_irq_pins: pinmux_uart2_rx_irq_pins {
+		pinctrl-single,pins = <
+			/* switch RX to GPIO so that we can get interrupts by the start bit */
+			0x14a (PIN_INPUT | MUX_MODE4)		/* uart2_rx.uart2_rx */
+			0x148 (PIN_OUTPUT | MUX_MODE0)		/* uart2_tx.uart2_tx */
 		>;
 	};
 
@@ -623,8 +636,8 @@
 };
 
 &uart2 { /* GPS /dev/ttyO1 */
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart2_pins>;
+/*	pinctrl-names = "default";
+	pinctrl-0 = <&uart2_pins>; */
 	dtr-gpio = <&gps_en 0 GPIO_ACTIVE_HIGH>;	/* w2sg0004 GPS power control through virtual gpio */
 };
 
