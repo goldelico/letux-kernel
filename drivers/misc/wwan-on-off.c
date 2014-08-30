@@ -44,7 +44,6 @@ struct wwan_on_off {
 	int		feedback_gpio;	/* may be invalid */
 
 	int		is_power_off;		/* current state */
-	int		should_power_off;	/* expected state */
 	spinlock_t	lock;
 #ifdef CONFIG_GPIOLIB
 	struct gpio_chip gpio;
@@ -55,68 +54,6 @@ struct wwan_on_off {
 /* this requires this driver to be compiled into the kernel! */
 
 void omap_mux_set_gpio(u16 val, int gpio);
-
-#if OLD
-static void toggle_work(struct work_struct *work)
-{
-	struct wwan_on_off *gw2sg = container_of(
-		work, struct wwan_on_off, work.work);
-	switch (gw2sg->state) {
-	case W2SG_UP:
-		gw2sg->state = W2SG_IDLE;
-		printk("WWAN idle\n");
-	case W2SG_IDLE:
-		spin_lock_irq(&gw2sg->lock);
-		if (gw2sg->requested == gw2sg->is_on) {
-			if (!gw2sg->is_on && !gw2sg->rx_redirected) {
-				gw2sg->rx_redirected = 1;
-				omap_mux_set_gpio(gw2sg->off_state,
-						  gw2sg->feedback_gpio);
-				enable_irq(gw2sg->rx_irq);
-			}
-			spin_unlock_irq(&gw2sg->lock);
-			return;
-		}
-		spin_unlock_irq(&gw2sg->lock);
-		gpio_set_value_cansleep(gw2sg->on_off_gpio, 0);
-		printk("WWAN down\n");
-		gw2sg->state = W2SG_DOWN;
-		schedule_delayed_work(&gw2sg->work,
-				      msecs_to_jiffies(10));
-		break;
-	case W2SG_DOWN:
-		gpio_set_value_cansleep(gw2sg->on_off_gpio, 1);
-		gw2sg->state = W2SG_UP;
-		gw2sg->last_toggle = jiffies;
-		printk("WWAN up\n");
-		gw2sg->is_on = !gw2sg->is_on;
-		schedule_delayed_work(&gw2sg->work,
-				      msecs_to_jiffies(10));
-		break;
-	}
-}
-
-static irqreturn_t wwan_on_off_isr(int irq, void *dev_id)
-{
-	struct wwan_on_off *gw2sg = dev_id;
-	unsigned long flags;
-	printk("!");
-	if (!gw2sg->requested &&
-	    !gw2sg->is_on &&
-	    gw2sg->state == W2SG_IDLE &&
-	    time_after(jiffies,
-		       gw2sg->last_toggle + gw2sg->backoff)) {
-		/* Should be off by now, time to toggle again */
-		gw2sg->is_on = 1;
-		gw2sg->backoff *= 2;
-		spin_lock_irqsave(&gw2sg->lock, flags);
-		if (!gw2sg->suspended)
-			schedule_delayed_work(&gw2sg->work, 0);
-		spin_unlock_irqrestore(&gw2sg->lock, flags);
-	}
-	return IRQ_HANDLED;
-}
-#endif
 
 static int is_powered_off(struct wwan_on_off *gw2sg)
 { /* check with physical interfaces if possible */
@@ -130,56 +67,46 @@ static int is_powered_off(struct wwan_on_off *gw2sg)
 
 static void set_power(struct wwan_on_off *gw2sg, int off)
 {
-	int state = is_powered_off(gw2sg);
-	gw2sg->should_power_off = off;
-
+	int state;
 	printk("modem: set_power %d -> %d\n", state, off);
 	if (!gpio_is_valid(gw2sg->on_off_gpio))
 		return;	/* we can't control power */
-	if(state == off)
-		return;	/* already in desired state */
-	printk("modem: send impulse\n");
-	gpio_set_value_cansleep(gw2sg->on_off_gpio, 1);
-	msleep(200);	/* wait 200 ms */
-	gpio_set_value_cansleep(gw2sg->on_off_gpio, 0);
-	msleep(200);	/* wait 200 ms */
-	gw2sg->is_power_off = off;
+
+	spin_lock_irq(&gw2sg->lock);	/* block other processes who want to change the state */
+
+	state = is_powered_off(gw2sg);
+
+	if(state != off) {
+		printk("modem: send impulse\n");
+		gpio_set_value_cansleep(gw2sg->on_off_gpio, 1);
+		// FIXME: check feedback_gpio for early end of impulse
+		msleep(200);	/* wait 200 ms */
+		gpio_set_value_cansleep(gw2sg->on_off_gpio, 0);
+		msleep(500);	/* wait 500 ms */
+		gw2sg->is_power_off = off;
+	}
+	spin_unlock_irq(&gw2sg->lock);
 	printk("modem: done\n");
 }
 
 static void wwan_on_off_set_value(struct gpio_chip *gc,
 				unsigned offset, int val)
 {
-	unsigned long flags;
 	struct wwan_on_off *gw2sg = container_of(gc, struct wwan_on_off,
 					       gpio);
-	printk("WWAN SET to %d\n", val);
+	if(offset > 0)
+		; // error
+	printk("WWAN GPIO set value %d\n", val);
 	set_power(gw2sg, !val);	/* 1 = enable, 0 = disable */
-#if OLD
-	spin_lock_irqsave(&gw2sg->lock, flags);
-	if (val && !gw2sg->requested) {
-		if (gw2sg->rx_redirected) {
-			gw2sg->rx_redirected = 0;
-			disable_irq(gw2sg->rx_irq);
-			omap_mux_set_gpio(gw2sg->on_state, gw2sg->feedback_gpio);
-		}
-		gw2sg->requested = 1;
-	} else if (!val && gw2sg->requested) {
-		gw2sg->backoff = HZ;
-		gw2sg->requested = 0;
-	} else
-		goto unlock;
-	if (!gw2sg->suspended)
-		schedule_delayed_work(&gw2sg->work, 0);
-unlock:
-	spin_unlock_irqrestore(&gw2sg->lock, flags);
-#endif
 }
 
 static int wwan_on_off_direction_output(struct gpio_chip *gc,
 				     unsigned offset, int val)
 {
-	wwan_on_off_set_value(gc, offset, val);
+	printk("WWAN GPIO set output %d\n", val);
+	if(offset > 0)
+		; // error
+//	wwan_on_off_set_value(gc, offset, val);
 	return 0;
 }
 
@@ -253,13 +180,11 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 
 	gw2sg->is_power_off = 1;	/* assume initial power is off */
 
+	spin_lock_init(&gw2sg->lock);
+
 	if (!gpio_is_valid(gw2sg->on_off_gpio))
 		pr_warn("wwan-on-off: I have no control over modem\n");
 
-#if OLD
-	INIT_DELAYED_WORK(&gw2sg->work, toggle_work);
-	spin_lock_init(&gw2sg->lock);
-#endif
 	if (gpio_is_valid(gw2sg->feedback_gpio)) {
 		err = gpio_request(gw2sg->on_off_gpio, "on-off-gpio");
 		if (err < 0)
@@ -272,23 +197,6 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 			goto out1;
 		gpio_direction_input(gw2sg->feedback_gpio);
 	}
-
-#if OLD
-	gw2sg->rx_irq = gpio_to_irq(gw2sg->feedback_gpio);
-	if (gw2sg->rx_irq < 0)
-		goto out2;
-
-	err = request_threaded_irq(gw2sg->rx_irq, NULL, wwan_on_off_isr,
-				   IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
-				   "gpio-w2sg0004-rx",
-				   gw2sg);
-	if (err < 0) {
-		dev_err(&pdev->dev, "Unable to claim irq %d; error %d\n",
-			gw2sg->rx_irq, err);
-		goto out2;
-	}
-	disable_irq(gw2sg->rx_irq);
-#endif
 
 	err = gpiochip_add(&gw2sg->gpio);
 	if (err)
@@ -321,10 +229,6 @@ out5:
 out4:
 	err = gpiochip_remove(&gw2sg->gpio);
 out3:
-#if OLD
-	free_irq(gw2sg->rx_irq, gw2sg);
-#endif
-out2:
 	if (gpio_is_valid(gw2sg->feedback_gpio))
 		gpio_free(gw2sg->feedback_gpio);
 out1:
@@ -339,15 +243,9 @@ static int wwan_on_off_remove(struct platform_device *pdev)
 {
 	struct wwan_on_off *gw2sg = platform_get_drvdata(pdev);
 	int ret;
-#if OLD
-	cancel_delayed_work_sync(&gw2sg->work);
-#endif
 	ret = gpiochip_remove(&gw2sg->gpio);
 	if (ret)
 		return ret;
-#if OLD
-	free_irq(gw2sg->rx_irq, gw2sg);
-#endif
 	if (gpio_is_valid(gw2sg->feedback_gpio))
 		gpio_free(gw2sg->feedback_gpio);
 	if (gpio_is_valid(gw2sg->on_off_gpio))
@@ -358,60 +256,21 @@ static int wwan_on_off_remove(struct platform_device *pdev)
 
 static int wwan_on_off_suspend(struct device *dev)
 {
+	struct wwan_on_off *gw2sg = dev_get_drvdata(dev);
+	printk("WWAN suspend\n");
 	/* we only suspend the driver (i.e. set the gpio in a state
 	 * that it does not harm)
 	 * the reason is that the modem must continue to be powered
 	 * on to receive SMS and incoming calls that wake up the CPU
 	 * through a wakeup GPIO
 	 */
-#if OLD
-	/* Ignore the GPIO and just turn device off.
-	 * we cannot really wait for a separate thread to
-	 * do things, so we disable that and do it all
-	 * here
-	 */
-	struct wwan_on_off *gw2sg = dev_get_drvdata(dev);
-
-	spin_lock_irq(&gw2sg->lock);
-	gw2sg->suspended = 1;
-	spin_unlock_irq(&gw2sg->lock);
-
-	cancel_delayed_work_sync(&gw2sg->work);
-	if (gw2sg->state == W2SG_DOWN) {
-		msleep(10);
-		gpio_set_value_cansleep(gw2sg->on_off_gpio, 1);
-		gw2sg->last_toggle = jiffies;
-		gw2sg->is_on = !gw2sg->is_on;
-		gw2sg->state = W2SG_UP;
-	}
-	if (gw2sg->state == W2SG_UP) {
-		msleep(10);
-		gw2sg->state = W2SG_IDLE;
-	}
-	if (gw2sg->is_on) {
-		printk("WWAN off for suspend %d %d\n", gw2sg->requested, gw2sg->is_on);
-		gpio_set_value_cansleep(gw2sg->on_off_gpio, 0);
-		msleep(10);
-		gpio_set_value_cansleep(gw2sg->on_off_gpio, 1);
-		gw2sg->is_on = 0;
-	}
-#endif
 	return 0;
 }
 
 static int wwan_on_off_resume(struct device *dev)
 {
 	struct wwan_on_off *gw2sg = dev_get_drvdata(dev);
-
-	spin_lock_irq(&gw2sg->lock);
-#if OLD
-	gw2sg->suspended = 0;
-#endif
-	spin_unlock_irq(&gw2sg->lock);
-#if OLD
-	printk("WWAN resuming %d %d\n", gw2sg->requested, gw2sg->is_on);
-	schedule_delayed_work(&gw2sg->work, 0);
-#endif
+	printk("WWAN resume\n");
 	return 0;
 }
 
