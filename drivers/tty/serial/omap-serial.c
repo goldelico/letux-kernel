@@ -692,7 +692,11 @@ static void serial_omap_set_mctrl(struct uart_port *port, unsigned int mctrl)
 	serial_out(up, UART_MCR, up->mcr);
 	pm_runtime_mark_last_busy(up->dev);
 	pm_runtime_put_autosuspend(up->dev);
-
+	printk("serial_omap_set_mctrl %x %d\n", mctrl, up->port.line);
+	printk("  DTR_gpio=%d\n", up->DTR_gpio);
+	printk("    is_valid: %d\n", gpio_is_valid(up->DTR_gpio));
+	if(gpio_is_valid(up->DTR_gpio))
+		printk("    cansleep %d\n", gpio_cansleep(up->DTR_gpio));
 	if (gpio_is_valid(up->DTR_gpio) &&
 	    !!(mctrl & TIOCM_DTR) != up->DTR_active) {
 		up->DTR_active = !up->DTR_active;
