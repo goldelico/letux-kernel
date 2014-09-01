@@ -199,7 +199,7 @@
 
 	tv_amp: opa362 {
 		compatible = "ti,opa362";
-		gpio = <&gpio1 23 0>;	/* GPIO to enable video out amplifier */
+		gpios = <&gpio1 23 0>;	/* GPIO to enable video out amplifier */
 		/* needs some endpoint plumbing into the VENC signal chain */
 	};
 
@@ -240,6 +240,10 @@
 		on-indicator-gpio = <0>;		/* n/a on GTA04A3/4 but on A5 */
 	};
 
+	control: control@48002270 {
+		compatible = "ti,omap3-devconf1-syscon", "syscon";
+		reg = <0x48002270 0x74>;
+	};
 };
 
 &omap3_pmx_core {
