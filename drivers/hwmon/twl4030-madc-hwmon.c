@@ -99,7 +99,7 @@ static const struct of_device_id of_twl4030_madc_hwmon_match[] = {
 	{ .compatible = "ti,twl4030-madc-hwmon", },
 	{},
 };
-
+MODULE_DEVICE_TABLE(of, of_twl4030_madc_hwmon_match);
 #endif
 
 static int twl4030_madc_hwmon_probe(struct platform_device *pdev)
