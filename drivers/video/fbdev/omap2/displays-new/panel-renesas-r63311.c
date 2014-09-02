@@ -1096,7 +1096,14 @@ static int r63311_probe(struct platform_device *pdev)
 		return r;
 	}
 
-	printk("probe ok\n");
+	/* Register sysfs hooks */
+	r = sysfs_create_group(&dev->kobj, &r63311_attr_group);
+	if (r) {
+		dev_err(dev, "failed to create sysfs files\n");
+		return r;
+	}
+
+	printk("r63311_probe ok\n");
 
 	return 0;
 }
@@ -1122,7 +1129,7 @@ static int __exit r63311_remove(struct platform_device *pdev)
 
 static const struct of_device_id r63311_of_match[] = {
 	{
-		.compatible = "lg,lh500wf1",
+		.compatible = "omapdss,lg,lh500wf1",
 	},
 	{},
 };
