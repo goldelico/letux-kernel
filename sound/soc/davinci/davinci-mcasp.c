@@ -104,9 +104,11 @@
 						(n << 2))
 
 /* Transmit Buffer for Serializer n */
-#define DAVINCI_MCASP_TXBUF_REG		0x200
+#define DAVINCI_MCASP_TXBUF_REG(n)	(0x200 + (n << 2))
 /* Receive Buffer for Serializer n */
-#define DAVINCI_MCASP_RXBUF_REG		0x284
+#define DAVINCI_MCASP_RXBUF_REG(n)	(0x280 + (n << 2))
+
+#define INVALID_SERIALIZER		INT_MAX
 
 /* McASP FIFO Registers */
 #define DAVINCI_MCASP_WFIFOCTL		(0x1010)
@@ -385,11 +387,11 @@ static void mcasp_start_rx(struct davinci_audio_dev *dev)
 	}
 
 	mcasp_set_ctl_reg(dev->base + DAVINCI_MCASP_GBLCTLR_REG, RXSERCLR);
-	mcasp_set_reg(dev->base + DAVINCI_MCASP_RXBUF_REG, 0);
+	mcasp_set_reg(dev->base + DAVINCI_MCASP_RXBUF_REG(dev->rx_ser), 0);
 
 	mcasp_set_ctl_reg(dev->base + DAVINCI_MCASP_GBLCTLR_REG, RXSMRST);
 	mcasp_set_ctl_reg(dev->base + DAVINCI_MCASP_GBLCTLR_REG, RXFSRST);
-	mcasp_set_reg(dev->base + DAVINCI_MCASP_RXBUF_REG, 0);
+	mcasp_set_reg(dev->base + DAVINCI_MCASP_RXBUF_REG(dev->rx_ser), 0);
 
 	mcasp_set_ctl_reg(dev->base + DAVINCI_MCASP_GBLCTLR_REG, RXSMRST);
 	mcasp_set_ctl_reg(dev->base + DAVINCI_MCASP_GBLCTLR_REG, RXFSRST);
@@ -404,7 +406,6 @@ static void mcasp_start_rx(struct davinci_audio_dev *dev)
 
 static void mcasp_start_tx(struct davinci_audio_dev *dev)
 {
-	u8 offset = 0, i;
 	u32 cnt;
 
 	mcasp_set_reg(dev->base + DAVINCI_MCASP_TXMASK_REG, dev->bit_mask);
@@ -412,25 +413,20 @@ static void mcasp_start_tx(struct davinci_audio_dev *dev)
 	mcasp_set_ctl_reg(dev->base + DAVINCI_MCASP_GBLCTLX_REG, TXHCLKRST);
 	mcasp_set_ctl_reg(dev->base + DAVINCI_MCASP_GBLCTLX_REG, TXCLKRST);
 	mcasp_set_ctl_reg(dev->base + DAVINCI_MCASP_GBLCTLX_REG, TXSERCLR);
-	mcasp_set_reg(dev->base + DAVINCI_MCASP_TXBUF_REG, 0);
+	mcasp_set_reg(dev->base + DAVINCI_MCASP_TXBUF_REG(dev->tx_ser), 0);
 
 	mcasp_set_ctl_reg(dev->base + DAVINCI_MCASP_GBLCTLX_REG, TXSMRST);
 	mcasp_set_ctl_reg(dev->base + DAVINCI_MCASP_GBLCTLX_REG, TXFSRST);
-	mcasp_set_reg(dev->base + DAVINCI_MCASP_TXBUF_REG, 0);
-	for (i = 0; i < dev->num_serializer; i++) {
-		if (dev->serial_dir[i] == TX_MODE) {
-			offset = i;
-			break;
-		}
-	}
+	mcasp_set_reg(dev->base + DAVINCI_MCASP_TXBUF_REG(dev->tx_ser), 0);
 
 	/* wait for TX ready */
 	cnt = 0;
-	while (!(mcasp_get_reg(dev->base + DAVINCI_MCASP_XRSRCTL_REG(offset)) &
+	while (!(mcasp_get_reg(dev->base +
+			       DAVINCI_MCASP_XRSRCTL_REG(dev->tx_ser)) &
 		 TXSTATE) && (cnt < 100000))
 		cnt++;
 
-	mcasp_set_reg(dev->base + DAVINCI_MCASP_TXBUF_REG, 0);
+	mcasp_set_reg(dev->base + DAVINCI_MCASP_TXBUF_REG(dev->tx_ser), 0);
 
 	/* enable IRQ sources */
 	mcasp_set_bits(dev->base + DAVINCI_MCASP_EVTCTLX_REG, XUNDRN);
@@ -1191,6 +1187,17 @@ static int davinci_mcasp_startup(struct snd_pcm_substream *substream,
 {
 	struct davinci_audio_dev *dev = snd_soc_dai_get_drvdata(dai);
 
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		if (dev->tx_ser == INVALID_SERIALIZER) {
+			dev_err(dev->dev, "No TX serializers available\n");
+			return -ENODEV;
+		}
+	} else {
+		if (dev->rx_ser == INVALID_SERIALIZER) {
+			dev_err(dev->dev, "No RX serializers available\n");
+			return -ENODEV;
+		}
+	}
 
 	if (dev->version == MCASP_VERSION_4) {
 		snd_soc_dai_set_dma_data(dai, substream,
@@ -1321,6 +1328,27 @@ static const struct of_device_id mcasp_dt_ids[] = {
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, mcasp_dt_ids);
+
+static void davinci_mcasp_serializer_offset(struct davinci_audio_dev *dev)
+{
+	int i;
+
+	dev->tx_ser = INVALID_SERIALIZER;
+	dev->rx_ser = INVALID_SERIALIZER;
+
+	for (i = 0; i < dev->num_serializer; i++) {
+		if (dev->serial_dir[i] == TX_MODE)
+			dev->tx_ser = i;
+		else if (dev->serial_dir[i] == RX_MODE)
+			dev->rx_ser = i;
+	}
+
+	if (dev->tx_ser == INVALID_SERIALIZER)
+		dev_info(dev->dev, "No transmit serializers found\n");
+
+	if (dev->rx_ser == INVALID_SERIALIZER)
+		dev_info(dev->dev, "No receive serializers found\n");
+}
 
 static struct snd_platform_data *davinci_mcasp_set_pdata_from_of(
 						struct platform_device *pdev)
@@ -1530,6 +1558,8 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 	dev->rx_dismod = pdata->rx_dismod;
 	dev->dev = &pdev->dev;
 
+	davinci_mcasp_serializer_offset(dev);
+
 	/* first TX, then RX */
 	tx_res = platform_get_resource(pdev, IORESOURCE_DMA, 0);
 	if (!tx_res) {
@@ -1557,7 +1587,8 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 		if (mem_dat)
 			dma_data->port_addr = mem_dat->start;
 		else
-			dma_data->port_addr = mem->start + DAVINCI_MCASP_TXBUF_REG;
+			dma_data->port_addr = mem->start +
+				DAVINCI_MCASP_TXBUF_REG(dev->tx_ser);
 		dma_data->dma_req = tx_res->start;
 
 		dma_data = devm_kzalloc(&pdev->dev, sizeof(*dma_data),
@@ -1571,7 +1602,8 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 		if (mem_dat)
 			dma_data->port_addr = mem_dat->start;
 		else
-			dma_data->port_addr = mem->start + DAVINCI_MCASP_RXBUF_REG;
+			dma_data->port_addr = mem->start +
+				DAVINCI_MCASP_RXBUF_REG(dev->rx_ser);
 		dma_data->dma_req = rx_res->start;
 	} else {
 		struct davinci_pcm_dma_params *dma_data;
