@@ -44,7 +44,7 @@
 
 /* LCD panel - MIPI */
 
-/*&dss {
+&dss {
 	status = "ok";
 
 	pinctrl-names = "default";
@@ -55,7 +55,7 @@
 			remote-endpoint = <&dsi1>;
 		};
 	};
-};*/
+};
 
 &dsi1 {
 	status = "ok";
@@ -111,7 +111,7 @@
 
 			/* new entries */
 			&pyra_button_pins
-			&pyra_display_pins
+			// &pyra_display_pins
 			&pyra_other_pins
 			&i2c2_pins
 			&i2c3_pins
