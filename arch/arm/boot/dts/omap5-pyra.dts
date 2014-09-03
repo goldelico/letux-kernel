@@ -561,8 +561,8 @@
 		reg = <0x12>;
 	};
 	/* barometer sensor */
-	bmp085@77 {
-		compatible = "bosch,bmp085";
+	bmp180@77 {
+		compatible = "bosch,bmp180";
 		reg = <0x77>;
 	};
 	/* 9-axis sensor sensor */
@@ -668,6 +668,120 @@
 		reg = <0x22>;
 		gpio-controller;
 		#gpio-cells = <2>;
+	};
+};
+
+/ {
+	evm_leds { // should be defined in omap5-uevm.dts!
+		compatible = "gpio-leds";
+		led@1 {
+			label = "omap5:red:led";
+			gpios = <&gpio9 17 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			default-state = "off";
+		};
+
+		led@2 {
+			label = "omap5:green:led";
+			gpios = <&gpio9 18 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			default-state = "off";
+		};
+
+		led@3 {
+			label = "omap5:blue:led";
+			gpios = <&gpio9 19 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			default-state = "off";
+		};
+
+		led@4 {
+			label = "omap5:green:led1";
+			gpios = <&gpio9 2 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			default-state = "off";
+		};
+		led@5 {
+			label = "omap5:green:led2";
+			gpios = <&gpio9 3 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			default-state = "off";
+		};
+		led@6 {
+			label = "omap5:green:led3";
+			gpios = <&gpio9 4 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			default-state = "off";
+		};
+		led@7 {
+			label = "omap5:green:led4";
+			gpios = <&gpio9 5 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			default-state = "off";
+		};
+		led@8 {
+			label = "omap5:green:led5";
+			gpios = <&gpio9 6 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			default-state = "off";
+		};
+	};
+
+	pyra_leds {
+		compatible = "gpio-leds";
+		led@1 {
+			label = "pyra:red:left";
+			gpios = <&gpio99 5 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			default-state = "off";
+		};
+
+		led@2 {
+			label = "pyra:green:left";
+			gpios = <&gpio99 6 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			default-state = "off";
+		};
+
+		led@3 {
+			label = "pyra:blue:left";
+			gpios = <&gpio99 7 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			default-state = "off";
+		};
+		// same for mid and right
+
+	};
+
+	keypad_leds {
+		compatible = "gpio-leds";
+		led@1 {
+			label = "keypad1";
+			gpios = <&gpio99 2 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			default-state = "off";
+		};
+
+		led@2 {
+			label = "keypad2";
+			gpios = <&gpio99 3 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			default-state = "off";
+		};
+
+		led@3 {
+			label = "keypad3";
+			gpios = <&gpio99 12 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			default-state = "off";
+		};
+
+		led@4 {
+			label = "keypad4";
+			gpios = <&gpio99 13 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			default-state = "off";
+		};
 	};
 };
 
