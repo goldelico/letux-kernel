@@ -749,7 +749,48 @@
 			linux,default-trigger = "heartbeat";
 			default-state = "off";
 		};
-		// same for mid and right
+
+		led@4 {
+			label = "pyra:red:mid";
+			gpios = <&gpio99 17 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			default-state = "off";
+		};
+
+		led@5 {
+			label = "pyra:green:mid";
+			gpios = <&gpio99 18 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			default-state = "off";
+		};
+
+		led@6 {
+			label = "pyra:blue:mid";
+			gpios = <&gpio99 19 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			default-state = "off";
+		};
+
+		led@7 {
+			label = "pyra:red:right";
+			gpios = <&gpio99 21 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			default-state = "off";
+		};
+
+		led@8 {
+			label = "pyra:green:right";
+			gpios = <&gpio99 22 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			default-state = "off";
+		};
+
+		led@9 {
+			label = "pyra:blue:right";
+			gpios = <&gpio99 23 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			default-state = "off";
+		};
 
 	};
 
