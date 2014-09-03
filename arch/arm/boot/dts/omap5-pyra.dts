@@ -191,7 +191,7 @@
 		pinctrl-single,pins = <
 			0xca 0x00e	/* (PIN_OUTPUT_PULLDOWN | MUX_MODE6)		/* 0x108:[31:16] gpio6_178 - start modem */
 			0xd4 0x11e	/* (PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x114:[15:0] gpio6_173 - touch screen */
-			0x138 0x11e	/* (PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x178:[15:0]  gpio8_230 - reset I2C peripherals */
+			0x138 0x11e	/* (PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x178:[15:0] gpio8_230 - reset I2C peripherals */
 		>;
 	};
 
@@ -400,12 +400,14 @@
 	as5013@40 {
 		compatible = "ams,as5013";
 		reg = <0x40>;
+		// gpios = <&gpio...>, <&gpio>;
 	};
 
 	/* right nub */
 	as5013@41 {
 		compatible = "ams,as5013";
 		reg = <0x41>;
+		// gpios = <&gpio...>, <&gpio>;
 	};
 
 	/* keyboard scanner */
