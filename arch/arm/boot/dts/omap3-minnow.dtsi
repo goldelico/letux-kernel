@@ -311,6 +311,8 @@
 };
 
 &i2c2 {
+
+	clock-frequency = <400000>;
 	m4sensorhub@39 {
 		compatible = "mot,m4sensorhub";
 		status = "ok";
