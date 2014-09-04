@@ -465,6 +465,13 @@ config EARLYCAMERA_IPU
 	help
 	  Enable early rear view camera using IPU on DRA7xx platforms
 
+config DSP_OPP_OD
+        bool "DSP DPLL lock for OPP_OD"
+        depends on  SOC_DRA7XX
+        default n
+        help
+          Lock DSP DPLL for OPP OD (700 MHz)
+
 config IVA_HIGH_OPP
 	bool "IVA DPLL lock for HIGH_OPP"
 	depends on  SOC_DRA7XX
