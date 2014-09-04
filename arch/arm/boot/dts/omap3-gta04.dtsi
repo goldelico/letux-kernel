@@ -64,9 +64,9 @@
 	};
 
 	antenna-detect {
-		compatible = "linux,extcon-gpio";
+		compatible = "extcon-gpio";
 		label = "gps_antenna";
-		gpios = <&gpio5 16 0>; /* GPIO144 */
+		gpios = <&gpio5 16 GPIO_ACTIVE_HIGH>; /* GPIO144 */
 		debounce-delay-ms = <10>;
 		irq-flags = <IRQ_TYPE_EDGE_BOTH>;
 		state-on = "external";
