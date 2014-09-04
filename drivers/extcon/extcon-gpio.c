@@ -25,6 +25,10 @@
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/of.h>
+#include <linux/of_platform.h>
+#include <linux/of_gpio.h>
+#include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
@@ -57,6 +61,9 @@ static irqreturn_t gpio_irq_handler(int irq, void *dev_id)
 {
 	struct gpio_extcon_data *data = dev_id;
 
+#ifdef DEBUG
+	printk("extcon gpio_irq_handler\n");
+#endif
 	queue_delayed_work(system_power_efficient_wq, &data->work,
 			      data->debounce_jiffies);
 	return IRQ_HANDLED;
@@ -95,12 +102,41 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 {
 	struct gpio_extcon_pdata *pdata = dev_get_platdata(&pdev->dev);
 	struct gpio_extcon_data *data;
+	struct device_node *node = pdev->dev.of_node;
 	int ret;
+#ifdef DEBUG
+	printk("gpio_extcon_probe\n");
+#endif
+	if (node && !pdata) {
+		struct gpio_extcon_platform_data of_pdata;
+		enum of_gpio_flags flags;
+		u32 value;
+		pdata = &of_pdata;
 
+		pdata->name="unnamed";
+		pdata->state_on=NULL;
+		pdata->state_off=NULL;
+
+		of_property_read_string(node, "label", &pdata->name);
+		printk("  name=%s\n", pdata->name);
+		pdata->gpio = of_get_gpio_flags(node, 0, &flags);
+		pdata->gpio_active_low = (flags&OF_GPIO_ACTIVE_LOW) != 0;
+		value=0;
+		of_property_read_u32(node, "debounce", &value);
+		pdata->debounce=value;
+		value=0;
+		of_property_read_u32(node, "irq-flags", &value);
+		pdata->irq_flags=value;
+		of_property_read_string(node, "state-on", &pdata->state_on);
+		of_property_read_string(node, "state-off", &pdata->state_off);
+		pdata->check_on_resume=of_property_read_bool(node, "check-on-resume");
+	}
 	if (!pdata)
 		return -EBUSY;
-	if (!pdata->irq_flags || pdata->extcon_id > EXTCON_NONE)
+	if (!pdata->irq_flags || pdata->extcon_id > EXTCON_NONE) {
+		dev_err(&pdev->dev, "IRQ flag is not specified.\n");
 		return -EINVAL;
+	}
 
 	data = devm_kzalloc(&pdev->dev, sizeof(struct gpio_extcon_data),
 				   GFP_KERNEL);
@@ -110,6 +146,15 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 
 	/* Initialize the gpio */
 	ret = gpio_extcon_init(&pdev->dev, data);
+#ifdef DEBUG
+	printk("extcon gpio %d\n", data->gpio);
+	printk("extcon gpio_active_low %d\n", data->gpio_active_low);
+	printk("extcon name %s\n", data->edev->name);
+	printk("extcon on %s\n", data->state_on?data->state_on:"NULL");
+	printk("extcon off %s\n", data->state_off?data->state_off:"NULL");
+	printk("extcon check_on_resume %d\n", data->check_on_resume);
+	printk("extcon debounce %lu\n", pdata->debounce);
+#endif
 	if (ret < 0)
 		return ret;
 
@@ -125,6 +170,16 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 		return ret;
 
 	INIT_DELAYED_WORK(&data->work, gpio_extcon_work);
+
+	if(node) /* try device tree */
+		data->irq = irq_of_parse_and_map(node, 0);
+	else
+		data->irq = gpio_to_irq(data->gpio);
+#ifdef DEBUG
+	printk("extcon irq %d\n", data->irq);
+#endif
+	if (data->irq < 0)
+		return data->irq;
 
 	/*
 	 * Request the interrupt of gpio to detect whether external connector
@@ -168,12 +223,20 @@ static int gpio_extcon_resume(struct device *dev)
 
 static SIMPLE_DEV_PM_OPS(gpio_extcon_pm_ops, NULL, gpio_extcon_resume);
 
+static const struct of_device_id of_extcon_match_tbl[] = {
+	{ .compatible = "extcon-gpio", },
+	{ /* end */ }
+};
+
+MODULE_DEVICE_TABLE(of, of_extcon_match_tbl);
+
 static struct platform_driver gpio_extcon_driver = {
 	.probe		= gpio_extcon_probe,
 	.remove		= gpio_extcon_remove,
 	.driver		= {
 		.name	= "extcon-gpio",
 		.pm	= &gpio_extcon_pm_ops,
+		.of_match_table = of_match_ptr(of_extcon_match_tbl),
 	},
 };
 
@@ -182,3 +245,4 @@ module_platform_driver(gpio_extcon_driver);
 MODULE_AUTHOR("Mike Lockwood <lockwood@android.com>");
 MODULE_DESCRIPTION("GPIO extcon driver");
 MODULE_LICENSE("GPL");
+MODULE_ALIAS("platform:extcon-gpio");
