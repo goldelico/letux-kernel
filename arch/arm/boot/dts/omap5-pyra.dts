@@ -6,7 +6,7 @@
  * published by the Free Software Foundation.
  */
 
-/* we start with the omap5-uevm tree */
+/* we start with the omap5-uevm tree since the Pyra is currently a separate board connected to the EVM expansion connector(s) */
 
 #include "omap5-uevm.dts"
 
@@ -37,7 +37,7 @@
 		regulator-name = "modem_vbus_hdmi_power";
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
-		gpio = <&gpio99 8 0>;
+		gpio = <&gpio99 8 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 		startup-delay-us = <70000>;
 //		vin-supply = <&vsys>;
@@ -54,7 +54,7 @@
 		regulator-name = "host1_vbus_power";
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
-		gpio = <&gpio99 9 0>;
+		gpio = <&gpio99 9 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 		startup-delay-us = <70000>;
 		vin-supply = <&modem_vbus_hdmi_power>;
@@ -66,7 +66,7 @@
 		regulator-name = "host2_vbus_power";
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
-		gpio = <&gpio99 10 0>;
+		gpio = <&gpio99 10 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 		startup-delay-us = <70000>;
 		vin-supply = <&modem_vbus_hdmi_power>;
@@ -79,7 +79,7 @@
 		regulator-name = "modem_vbus_power";
 		regulator-min-microvolt = <3200000>;
 		regulator-max-microvolt = <4200000>;
-		gpio = <&gpio99 15 0>;
+		gpio = <&gpio99 15 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 		startup-delay-us = <100000>;
 //		vin-supply = <&vsys>;
@@ -94,12 +94,26 @@
 	/* FIXME: this does not yet reflect the Pyra hardware setup */
 
 	/*	usb-port = <&hsusb2_phy>; 	/* USB phy where we can check the modem status */
-	/* FIXME:	on-off-gpio = <&gpio6 26 0>;	/* GPIO_186: trigger to power on modem */
-	/*	on-indicator-gpio = <&gpio5 19 0>;	/* Feedback GPIO */
+	/* FIXME:	on-off-gpio = <&gpio6 26 GPIO_ACTIVE_HIGH>;	/* GPIO_186: trigger to power on modem */
+	/*	on-indicator-gpio = <&gpio5 19 GPIO_ACTIVE_HIGH>;	/* Feedback GPIO */
 /*		modem-suppy = <&modem_power>;		/* enable external power regulator */
 		/* VBUS supply should probably be controlled through the USB PHY driver for the modem port */
 /*		vbus-suppy = <&modem_vbus_hdmi_power>;	/* apply VBUS to the modem */
 	};
+
+	mic_presence {
+		compatible = "extcon-gpio";
+		label = "mic_presence";
+		// here we have a problem - the IRQ is passed through the TCA6424!
+		interrupt-parent = <&gpio99>;
+		interrupts = <14 2>;
+		irq-flags = <IRQ_TYPE_EDGE_BOTH>;
+		gpios = <&gpio99 14 GPIO_ACTIVE_LOW>;
+		debounce-delay-ms = <10>;
+		state-on = "present";
+		state-off = "unplugged";
+	};
+
 };
 
 /* LCD panel - MIPI */
@@ -149,7 +163,7 @@
 
 		gpios =
 			<&gpio6 16 0>,	/* goip6_176 = display reset */
-			<&gpio3 18 0>;	/* gpio3_18 = enable DC/DC */
+			<&gpio3 18 0>;	/* gpio3_82 = enable DC/DC */
 
 		port {
 			lcd_in: endpoint {
@@ -249,9 +263,10 @@
 
 	pyra_other_pins: pinmux_other_gpio_pins {
 		pinctrl-single,pins = <
-			0xca 0x00e	/* (PIN_OUTPUT_PULLDOWN | MUX_MODE6)		/* 0x108:[31:16] gpio6_178 - start modem */
-			0xd4 0x11e	/* (PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x114:[15:0] gpio6_173 - touch screen */
-			0x138 0x11e	/* (PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x178:[15:0] gpio8_230 - reset I2C peripherals */
+			0x72 0x00e	/* (PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x0B0:[31:16] gpio3_81 - TCA6424 interrupt */
+			0xca 0x00e	/* (PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x108:[31:16] gpio6_178 - start modem */
+			0xd4 0x11e	/* (PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x114:[15:0]  gpio6_173 - touch screen */
+			0x138 0x11e	/* (PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x178:[15:0]  gpio8_230 - reset I2C peripherals */
 		>;
 	};
 
@@ -338,7 +353,7 @@
 		compatible = "freescale,crtouch";
 		reg = <0x49>;
 		interrupt-parent = <&gpio6>;
-		interrupts = <13 2>;	/* gpio6_173 falling edge */
+		interrupts = <13 IRQ_TYPE_EDGE_FALLING>;	/* gpio6_173 falling edge */
 		gpios = <&gpio6 13 1>;	/* gpio6_173 active low */
 		/* more paramters tbd. */
 	};
@@ -485,7 +500,7 @@
 				8 = active low level-sensitive.
 		 */
 		interrupt-parent = <&gpio6>;
-		interrupts = <17 1>;	/* gpio6_177 low-to-high edge */
+		interrupts = <17 IRQ_TYPE_EDGE_RISING>;	/* gpio6_177 low-to-high edge */
 		keypad,num-rows = <8>;
 		keypad,num-columns = <10>;
 		linux,keymap = <
@@ -659,7 +674,7 @@
 		compatible = "freescale,crtouch";
 		reg = <0x49>;
 		interrupt-parent = <&gpio6>;
-		interrupts = <13 2>;	/* gpio6_173 falling edge */
+		interrupts = <13 IRQ_TYPE_EDGE_FALLING>;	/* gpio6_173 falling edge */
 		gpios = <&gpio6 13 1>;	/* gpio6_173 active low */
 		/* more paramters tbd. */
 	};
@@ -724,15 +739,25 @@
 
 	/* system/keyboard-led */
 	gpio99: tca6424@22 {
+		interrupt-parent = <&gpio3>;
+		interrupts = <17 IRQ_TYPE_LEVEL_HIGH>;	/* gpio3_81 */
 		compatible = "ti,tca6424";
 		reg = <0x22>;
 		gpio-controller;
 		#gpio-cells = <2>;
 	};
+	/* INA231 */
+	/* BQ27200 */
+	/* BQ24297 */
 };
 
 / {
 	evm_leds { // should be defined in omap5-uevm.dts!
+
+/* trigger values
+none nand-disk mmc0 mmc1 timer oneshot [heartbeat] cpu0 cpu1 default-on transient mmc2 bq27200-0-charging-or-full bq27200-0-charging bq27200-0-full bq27200-0-charging-blink-full-solid rfkill0
+*/
+
 		compatible = "gpio-leds";
 		led@1 {
 			label = "omap5:red:led";
@@ -758,31 +783,31 @@
 		led@4 {
 			label = "omap5:green:led1";
 			gpios = <&gpio9 2 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "heartbeat";
+			linux,default-trigger = "cpu0";
 			default-state = "off";
 		};
 		led@5 {
 			label = "omap5:green:led2";
 			gpios = <&gpio9 3 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "heartbeat";
+			linux,default-trigger = "cpu1";
 			default-state = "off";
 		};
 		led@6 {
 			label = "omap5:green:led3";
 			gpios = <&gpio9 4 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "heartbeat";
+			linux,default-trigger = "mmc0";
 			default-state = "off";
 		};
 		led@7 {
 			label = "omap5:green:led4";
 			gpios = <&gpio9 5 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "heartbeat";
+			linux,default-trigger = "mmc1";
 			default-state = "off";
 		};
 		led@8 {
 			label = "omap5:green:led5";
 			gpios = <&gpio9 6 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "heartbeat";
+			linux,default-trigger = "mmc2";
 			default-state = "off";
 		};
 	};
