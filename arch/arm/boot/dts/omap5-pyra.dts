@@ -31,14 +31,74 @@
 		enable-active-high;
 	};
 
+	/* DC/DC converter for USB Host ports, Modem USB and HDMI 5V */
+	modem_vbus_hdmi_power: tps2505_reg {
+		compatible = "regulator-fixed";
+		regulator-name = "modem_vbus_hdmi_power";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <&gpio99 8 0>;
+		enable-active-high;
+		startup-delay-us = <70000>;
+//		vin-supply = <&vsys>;
+// regulator-boot-on;
+	};
+
+	/* this are the DC/DC converters that supply the
+	   5V to USB devices connected to the Host ports.
+	   They should be under the (software) control
+	   of the USB3503A hub on the CPU board */
+
+	host1_vbus_power:host1_vbus_power_reg {
+		compatible = "regulator-fixed";
+		regulator-name = "host1_vbus_power";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <&gpio99 9 0>;
+		enable-active-high;
+		startup-delay-us = <70000>;
+		vin-supply = <&modem_vbus_hdmi_power>;
+// regulator-boot-on;
+	};
+
+	host2_vbus_power: host2_vbus_power_reg {
+		compatible = "regulator-fixed";
+		regulator-name = "host2_vbus_power";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <&gpio99 10 0>;
+		enable-active-high;
+		startup-delay-us = <70000>;
+		vin-supply = <&modem_vbus_hdmi_power>;
+// regulator-boot-on;
+	};
+
+	/* this is the modem power switch (similar to a LDO) */
+	modem_power: modem_power_reg {
+		compatible = "regulator-fixed";
+		regulator-name = "modem_vbus_power";
+		regulator-min-microvolt = <3200000>;
+		regulator-max-microvolt = <4200000>;
+		gpio = <&gpio99 15 0>;
+		enable-active-high;
+		startup-delay-us = <100000>;
+//		vin-supply = <&vsys>;
+// regulator-boot-on;
+	};
+
 	modem_en: modem { /* control modem power through rfkill */
 		compatible = "gemalto,phs8";
 		gpio-controller;
 		#gpio-cells = <2>;
 
-	/*	usb-port = <&hsusb2_phy>; */
+	/* FIXME: this does not yet reflect the Pyra hardware setup */
+
+	/*	usb-port = <&hsusb2_phy>; 	/* USB phy where we can check the modem status */
 	/* FIXME:	on-off-gpio = <&gpio6 26 0>;	/* GPIO_186: trigger to power on modem */
 	/*	on-indicator-gpio = <&gpio5 19 0>;	/* Feedback GPIO */
+/*		modem-suppy = <&modem_power>;		/* enable external power regulator */
+		/* VBUS supply should probably be controlled through the USB PHY driver for the modem port */
+/*		vbus-suppy = <&modem_vbus_hdmi_power>;	/* apply VBUS to the modem */
 	};
 };
 
