@@ -111,7 +111,7 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 		pdata->gpio = of_get_gpio_flags(node, 0, &flags);
 		pdata->gpio_active_low = (flags&OF_GPIO_ACTIVE_LOW) != 0;
 		value=0;
-		of_property_read_u32(node, "debounce", &value);
+		of_property_read_u32(node, "debounce-delay-ms", &value);
 		pdata->debounce=value;
 		value=0;
 		of_property_read_u32(node, "irq-flags", &value);
