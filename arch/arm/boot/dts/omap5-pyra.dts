@@ -132,8 +132,8 @@
 		interrupt-parent = <&gpio3>;
 		interrupts = <19 2>;
 		irq-flags = <IRQ_TYPE_EDGE_BOTH>;
-/*		gpios = <&gpio3 19 1>;	/* gpio3_83 is BTN1 */
-		debounce-delay-ms = <50>;
+		gpios = <&gpio3 19 1>;	/* gpio3_83 is BTN1 */
+/*		debounce-delay-ms = <50>;
 		state-on = "status-on";
 		state-off = "status-off";
 	}; */
@@ -260,6 +260,7 @@
    0x0100	enable input buffer (there is no explicit "enable output buffer" because that is defined by the GPIO direction)
    0x4000	enable wakeup detection
 */
+// FIXME: we can now use the OMAP5_IOPAD() macro to do the conversion */
 
 	pyra_button_pins: pinmux_button_gpio_pins {
 		pinctrl-single,pins = <
