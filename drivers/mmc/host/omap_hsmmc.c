@@ -79,6 +79,7 @@
 #define CEN			(1 << 2)
 #define CLKD_MASK		0x0000FFC0
 #define CLKD_SHIFT		6
+#define CLKD_MAX		1023
 #define DTO_MASK		0x000F0000
 #define DTO_SHIFT		16
 #define INIT_STREAM		(1 << 1)
@@ -525,8 +526,8 @@ static u16 calc_divisor(struct omap_hsmmc_host *host, struct mmc_ios *ios)
 
 	if (ios->clock) {
 		dsor = DIV_ROUND_UP(clk_get_rate(host->fclk), ios->clock);
-		if (dsor > 250)
-			dsor = 250;
+		if (dsor > CLKD_MAX)
+			dsor = CLKD_MAX;
 	}
 
 	return dsor;
