@@ -121,12 +121,10 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 		printk("  name=%s\n", pdata->name);
 		pdata->gpio = of_get_gpio_flags(node, 0, &flags);
 		pdata->gpio_active_low = (flags&OF_GPIO_ACTIVE_LOW) != 0;
-		value=0;
-		of_property_read_u32(node, "debounce", &value);
-		pdata->debounce=value;
-		value=0;
-		of_property_read_u32(node, "irq-flags", &value);
-		pdata->irq_flags=value;
+		if(!of_property_read_u32(node, "debounce-delay-ms", &value))
+			pdata->debounce=value;
+		if(!of_property_read_u32(node, "irq-flags", &value))
+			pdata->irq_flags=value;
 		of_property_read_string(node, "state-on", &pdata->state_on);
 		of_property_read_string(node, "state-off", &pdata->state_off);
 		pdata->check_on_resume=of_property_read_bool(node, "check-on-resume");
