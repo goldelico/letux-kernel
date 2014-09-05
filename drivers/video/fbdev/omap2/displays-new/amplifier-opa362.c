@@ -310,7 +310,7 @@ static int __exit opa362_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id opa362_of_match[] = {
-	{ .compatible = "ti,opa362", },
+	{ .compatible = "omapdss,ti,opa362", },
 	{},
 };
 
