@@ -104,7 +104,6 @@
 	mic_presence {
 		compatible = "extcon-gpio";
 		label = "mic_presence";
-		// here we have a problem - the IRQ is passed through the TCA6424!
 		interrupt-parent = <&gpio99>;
 		interrupts = <14 2>;
 		irq-flags = <IRQ_TYPE_EDGE_BOTH>;
@@ -113,6 +112,31 @@
 		state-on = "present";
 		state-off = "unplugged";
 	};
+
+/* FIXME: having both leads to an irq conflict */
+/*	mic_presence_evm { /* move this to omap5-uevm.dts */
+/*		compatible = "extcon-gpio";
+		label = "mic_presence_evm";
+		interrupt-parent = <&gpio9>;
+		interrupts = <14 2>;
+		irq-flags = <IRQ_TYPE_EDGE_BOTH>;
+		gpios = <&gpio9 14 GPIO_ACTIVE_LOW>;
+		debounce-delay-ms = <10>;
+		state-on = "present";
+		state-off = "unplugged";
+	}; */
+
+/*	extcon_test { /* if enabled, disable BTN1 */
+/*		compatible = "extcon-gpio";
+		label = "user_button";
+		interrupt-parent = <&gpio3>;
+		interrupts = <19 2>;
+		irq-flags = <IRQ_TYPE_EDGE_BOTH>;
+/*		gpios = <&gpio3 19 1>;	/* gpio3_83 is BTN1 */
+		debounce-delay-ms = <50>;
+		state-on = "status-on";
+		state-off = "status-off";
+	}; */
 
 };
 
@@ -739,9 +763,9 @@
 
 	/* system/keyboard-led */
 	gpio99: tca6424@22 {
+		compatible = "ti,tca6424";
 		interrupt-parent = <&gpio3>;
 		interrupts = <17 IRQ_TYPE_LEVEL_HIGH>;	/* gpio3_81 */
-		compatible = "ti,tca6424";
 		reg = <0x22>;
 		gpio-controller;
 		#gpio-cells = <2>;
