@@ -91,7 +91,7 @@ static int opa362_enable(struct omap_dss_device *dssdev)
 	in->ops.atv->set_timings(in, &ddata->timings);
 	/* fixme: should we receive the invert from our consumer, i.e. the connector? */
 	in->ops.atv->invert_vid_out_polarity(in, true);
-	in->ops.atv->bypass_and_acbias(in, ddata->bypass, ddata->acbias);
+	//in->ops.atv->bypass_and_acbias(in, ddata->bypass, ddata->acbias);
 
 	r = in->ops.atv->enable(in);
 	if (r)
