@@ -545,33 +545,17 @@ static int omap_mcbsp_dai_set_dai_sysclk(struct snd_soc_dai *cpu_dai,
 /* tristate the McBSP-DX line so that we can build a PCM bus
    with several sources (e.g. McBSP4, TPS65950 and a Modem) */
 
-static int omap_mcbsp_dai_set_tristate(struct snd_soc_dai *dai,
+static int omap_mcbsp_dai_set_tristate(struct snd_soc_dai *cpu_dai,
 									   int tristate)
 {
-	int mode = OMAP_MUX_MODE0;
-	int gpio;	/* the GPIO name of the McBSP-DX line so that we can reference it */
-	
-	// check for OMAP3 (no need to support OMAP1/2 any more - and for OMAP4 we don't care yet)
-
-	/* unfortunately the mapping between McBSP channels and GPIO pins
-	   is not fixed, it depends on how the hardware is set up.
-	   We may need help of the pinmux framework and Device Tree.
-	*/
-
-	switch(dai->id + 1) {
-		case 1: gpio=158; break;
-		case 2: gpio=119; break;
-		case 3: gpio=140; break;	/* may also be GPIO 144 or 158 in different modes! */
-		case 4: gpio=154; break;	/* may also be on GPIO 57 in different mode! */
-		case 5: gpio=20; mode = OMAP_MUX_MODE1; break;
-		default: return -EIO;
-	}
-	
-	/* should check for errors */
-#if FIXME
-	omap_mux_set_gpio((tristate ? OMAP_MUX_MODE7 : (mode | OMAP_PIN_OUTPUT)), gpio);
-#endif	
-	return 0;
+	struct omap_mcbsp *mcbsp = snd_soc_dai_get_drvdata(cpu_dai);
+	printk("omap_mcbsp_dai_set_tristate: %d\n", tristate);
+	printk("  default_state = %p\n", mcbsp->default_state);
+	printk("  tristate_state = %p\n", mcbsp->tristate_state);
+	if(mcbsp->default_state && mcbsp->tristate_state)
+		return pinctrl_select_state(mcbsp->p, tristate ? mcbsp->tristate_state : mcbsp->default_state);
+	else
+		return -EINVAL;	/* not available */
 }
 
 static const struct snd_soc_dai_ops mcbsp_dai_ops = {
@@ -835,6 +819,36 @@ static int asoc_mcbsp_probe(struct platform_device *pdev)
 	mcbsp->pdata = pdata;
 	mcbsp->dev = &pdev->dev;
 	platform_set_drvdata(pdev, mcbsp);
+
+#ifdef CONFIG_OF
+	if (match) {
+		mcbsp->p = devm_pinctrl_get(&pdev->dev);
+		if (IS_ERR(mcbsp->p)) {
+			ret = PTR_ERR(mcbsp->p);
+			dev_err(&pdev->dev, "Cannot get pinctrl: %d\n", ret);
+			return ret;
+		}
+
+		mcbsp->default_state = pinctrl_lookup_state(mcbsp->p, PINCTRL_STATE_DEFAULT);
+		if (IS_ERR(mcbsp->default_state)) {
+			ret = PTR_ERR(mcbsp->default_state);
+			dev_dbg(&pdev->dev, "Cannot look up pinctrl state %s: %d\n", PINCTRL_STATE_DEFAULT, ret);
+			mcbsp->default_state = NULL;
+		}
+
+		mcbsp->tristate_state = pinctrl_lookup_state(mcbsp->p, "tristate");
+		if (IS_ERR(mcbsp->tristate_state)) {
+			ret = PTR_ERR(mcbsp->tristate_state);
+			dev_dbg(&pdev->dev, "Cannot look up pinctrl state %s: %d\n", "tristate", ret);
+			mcbsp->tristate_state = NULL;
+		}
+
+		ret = pinctrl_select_state(mcbsp->p, mcbsp->default_state);
+		if (ret < 0) {
+			return ret;
+		}
+	}
+#endif
 
 	ret = omap_mcbsp_init(pdev);
 	if (ret)
