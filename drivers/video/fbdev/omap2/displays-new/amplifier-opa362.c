@@ -43,6 +43,7 @@ static int opa362_connect(struct omap_dss_device *dssdev,
 	struct omap_dss_device *in = ddata->in;
 	int r;
 
+	dev_dbg(dssdev->dev, "connect\n");
 	if (omapdss_device_is_connected(dssdev))
 		return -EBUSY;
 
@@ -62,6 +63,7 @@ static void opa362_disconnect(struct omap_dss_device *dssdev,
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
 
+	dev_dbg(dssdev->dev, "disconnect\n");
 	WARN_ON(!omapdss_device_is_connected(dssdev));
 	if (!omapdss_device_is_connected(dssdev))
 		return;
@@ -82,6 +84,7 @@ static int opa362_enable(struct omap_dss_device *dssdev)
 	struct omap_dss_device *in = ddata->in;
 	int r;
 
+	dev_dbg(dssdev->dev, "enable\n");
 	if (!omapdss_device_is_connected(dssdev))
 		return -ENODEV;
 
@@ -110,6 +113,7 @@ static void opa362_disable(struct omap_dss_device *dssdev)
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
 
+	dev_dbg(dssdev->dev, "disable\n");
 	if (!omapdss_device_is_enabled(dssdev))
 		return;
 
@@ -127,6 +131,7 @@ static void opa362_set_timings(struct omap_dss_device *dssdev,
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
 
+	dev_dbg(dssdev->dev, "set_timings\n");
 	ddata->timings = *timings;
 	dssdev->panel.timings = *timings;
 
@@ -138,6 +143,7 @@ static void opa362_get_timings(struct omap_dss_device *dssdev,
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 
+	dev_dbg(dssdev->dev, "get_timings\n");
 	*timings = ddata->timings;
 }
 
@@ -147,6 +153,7 @@ static int opa362_check_timings(struct omap_dss_device *dssdev,
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
 
+	dev_dbg(dssdev->dev, "check_timings\n");
 	return in->ops.atv->check_timings(in, timings);
 }
 
@@ -242,6 +249,7 @@ static int opa362_probe(struct platform_device *pdev)
 	struct omap_dss_device *dssdev;
 	int r;
 
+	dev_dbg(&pdev->dev, "probe\n");
 	ddata = devm_kzalloc(&pdev->dev, sizeof(*ddata), GFP_KERNEL);
 	if (!ddata)
 		return -ENOMEM;
