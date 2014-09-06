@@ -105,7 +105,7 @@
 		compatible = "extcon-gpio";
 		label = "mic_presence";
 		interrupt-parent = <&gpio99>;
-		interrupts = <14 2>;
+		interrupts = <14 IRQ_TYPE_EDGE_BOTH>;
 		irq-flags = <IRQ_TYPE_EDGE_BOTH>;
 		gpios = <&gpio99 14 GPIO_ACTIVE_LOW>;
 		debounce-delay-ms = <10>;
@@ -118,7 +118,7 @@
 /*		compatible = "extcon-gpio";
 		label = "mic_presence_evm";
 		interrupt-parent = <&gpio9>;
-		interrupts = <14 2>;
+		interrupts = <14 IRQ_TYPE_EDGE_BOTH>;
 		irq-flags = <IRQ_TYPE_EDGE_BOTH>;
 		gpios = <&gpio9 14 GPIO_ACTIVE_LOW>;
 		debounce-delay-ms = <10>;
