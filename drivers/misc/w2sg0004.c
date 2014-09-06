@@ -61,7 +61,7 @@ struct gpio_w2sg {
 	struct rfkill *rf_kill;
 	struct	regulator *lna_regulator;
 	int		lna_blocked;
-	int		is_on;
+	int		is_on;	/* current state (0/1) */
 	unsigned long	last_toggle;
 	unsigned long	backoff;	/* time to wait since last_toggle */
 	int		on_off_gpio;
@@ -73,8 +73,12 @@ struct gpio_w2sg {
 	struct pinctrl_state *default_state;	/* should be UART mode */
 	struct pinctrl_state *monitor_state;	/* monitor RX as GPIO */
 
-	enum {W2SG_IDLE, W2SG_DOWN, W2SG_UP} state;
-	int		requested;
+	enum {
+		W2SG_IDLE,	/* is not changing state */
+		W2SG_DOWN,	/* is powering up */
+		W2SG_UP}	/* is powering down */
+			state;
+	int		requested;	/* requested state (0/1) */
 	int		suspended;
 	int		rx_redirected;
 	spinlock_t	lock;
@@ -146,6 +150,14 @@ static irqreturn_t gpio_w2sg_isr(int irq, void *dev_id)
 		spin_unlock_irqrestore(&gw2sg->lock, flags);
 	}
 	return IRQ_HANDLED;
+}
+
+static void gpio_w2sg_get_value(struct gpio_chip *gc,
+								unsigned offset, int val)
+{ /* virtual GPIO to enabele GPS has been changed */
+	struct gpio_w2sg *gw2sg = container_of(gc, struct gpio_w2sg,
+										   gpio);
+	return gw2sg->is_on;
 }
 
 static void gpio_w2sg_set_value(struct gpio_chip *gc,
@@ -253,7 +265,7 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 	gw2sg->last_toggle = jiffies;
 	gw2sg->backoff = HZ;
 
-	gw2sg->gpio_name[0] = "enable";	/* label of controlling GPIO */
+	gw2sg->gpio_name[0] = "gpio-w2sg0004-enable";	/* label of controlling GPIO */
 
 	gw2sg->gpio.label = "w2sg0004";
 	gw2sg->gpio.names = gw2sg->gpio_name;
@@ -261,6 +273,7 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 	gw2sg->gpio.base = pdata->gpio_base;
 	gw2sg->gpio.owner = THIS_MODULE;
 	gw2sg->gpio.direction_output = gpio_w2sg_direction_output;
+	gw2sg->gpio.get = gpio_w2sg_get_value;
 	gw2sg->gpio.set = gpio_w2sg_set_value;
 	gw2sg->gpio.can_sleep = 0;
 
