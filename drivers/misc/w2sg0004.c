@@ -45,6 +45,8 @@
 #include <linux/rfkill.h>
 #include <linux/pinctrl/consumer.h>
 
+#define DEBUG
+
 /*
  * There seems to restrictions on how quickly we can toggle the
  * on/off line.  data sheets says "two rtc ticks", whatever that means.
@@ -60,7 +62,8 @@
 struct gpio_w2sg {
 	struct rfkill *rf_kill;
 	struct	regulator *lna_regulator;
-	int		lna_blocked;
+	int		lna_blocked;	/* rfkill block gps active */
+	int		lna_is_off;		/* LNA is currently off */
 	int		is_on;	/* current state (0/1) */
 	unsigned long	last_toggle;
 	unsigned long	backoff;	/* time to wait since last_toggle */
@@ -75,8 +78,8 @@ struct gpio_w2sg {
 
 	enum {
 		W2SG_IDLE,	/* is not changing state */
-		W2SG_DOWN,	/* is powering up */
-		W2SG_UP}	/* is powering down */
+		W2SG_PULSE,	/* activate on/off impulse */
+		W2SG_NOPULSE}	/* desctivate on/off impulse */
 			state;
 	int		requested;	/* requested state (0/1) */
 	int		suspended;
@@ -89,22 +92,47 @@ struct gpio_w2sg {
 	struct delayed_work work;
 };
 
-/* this requires this driver to be compiled into the kernel! */
-
-/* FIXME: void omap_mux_set_gpio(u16 val, int gpio); */
+static int gpio_w2sg_set_lna_power(struct gpio_w2sg *gw2sg)
+{
+	int ret = 0;
+	int off = gw2sg->suspended || !gw2sg->requested || gw2sg->lna_blocked;
+#ifdef DEBUG
+	printk("gpio_w2sg_set_lna_power: %s\n", off?"off":"on");
+#endif
+	if(off != gw2sg->lna_is_off) {
+		gw2sg->lna_is_off = off;
+		if(!IS_ERR_OR_NULL(gw2sg->lna_regulator)) {
+			if(off)
+#ifdef DEBUG
+				printk("disable lna_regulator\n"),
+#endif
+				regulator_disable(gw2sg->lna_regulator);
+			else
+#ifdef DEBUG
+				printk("enable lna_regulator\n"),
+#endif
+				ret = regulator_enable(gw2sg->lna_regulator);
+		}
+	}
+	return ret;
+}
 
 static void toggle_work(struct work_struct *work)
 {
 	struct gpio_w2sg *gw2sg = container_of(
 		work, struct gpio_w2sg, work.work);
+	gpio_w2sg_set_lna_power(gw2sg);	/* update LNA power state */
 	switch (gw2sg->state) {
-	case W2SG_UP:
+	case W2SG_NOPULSE:
 		gw2sg->state = W2SG_IDLE;
+#ifdef DEBUG
 		printk("GPS idle\n");
+#endif
 	case W2SG_IDLE:
 		spin_lock_irq(&gw2sg->lock);
 		if (gw2sg->requested == gw2sg->is_on) {
 			if (!gw2sg->is_on && !gw2sg->rx_redirected) {
+				/* not yet redirected in off state */
 				gw2sg->rx_redirected = 1;
 				(void) pinctrl_select_state(gw2sg->p, gw2sg->monitor_state);
 				enable_irq(gw2sg->rx_irq);
@@ -114,16 +142,20 @@ static void toggle_work(struct work_struct *work)
 		}
 		spin_unlock_irq(&gw2sg->lock);
 		gpio_set_value_cansleep(gw2sg->on_off_gpio, 0);
-		printk("GPS down\n");
-		gw2sg->state = W2SG_DOWN;
+		gw2sg->state = W2SG_PULSE;
+#ifdef DEBUG
+		printk("GPS pulse\n");
+#endif
 		schedule_delayed_work(&gw2sg->work,
 				      msecs_to_jiffies(10));
 		break;
-	case W2SG_DOWN:
+	case W2SG_PULSE:
 		gpio_set_value_cansleep(gw2sg->on_off_gpio, 1);
-		gw2sg->state = W2SG_UP;
 		gw2sg->last_toggle = jiffies;
-		printk("GPS up\n");
+		gw2sg->state = W2SG_NOPULSE;
+#ifdef DEBUG
+		printk("GPS nopulse\n");
+#endif
 		gw2sg->is_on = !gw2sg->is_on;
 		schedule_delayed_work(&gw2sg->work,
 				      msecs_to_jiffies(10));
@@ -135,7 +167,9 @@ static irqreturn_t gpio_w2sg_isr(int irq, void *dev_id)
 {
 	struct gpio_w2sg *gw2sg = dev_id;
 	unsigned long flags;
-	printk("!");
+#ifdef DEBUG
+	printk("!");	/* we have received a RX signal while GPS should be off */
+#endif
 	if (!gw2sg->requested &&
 	    !gw2sg->is_on &&
 	    gw2sg->state == W2SG_IDLE &&
@@ -152,21 +186,12 @@ static irqreturn_t gpio_w2sg_isr(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static void gpio_w2sg_get_value(struct gpio_chip *gc,
-								unsigned offset, int val)
-{ /* virtual GPIO to enabele GPS has been changed */
-	struct gpio_w2sg *gw2sg = container_of(gc, struct gpio_w2sg,
-										   gpio);
-	return gw2sg->is_on;
-}
-
-static void gpio_w2sg_set_value(struct gpio_chip *gc,
-				unsigned offset, int val)
-{ /* virtual GPIO to enabele GPS has been changed */
-	struct gpio_w2sg *gw2sg = container_of(gc, struct gpio_w2sg,
-					       gpio);
+static void gpio_w2sg_set_power(struct gpio_w2sg *gw2sg, int val)
+{
 	unsigned long flags;
+#ifdef DEBUG
 	printk("GPS SET to %d\n", val);
+#endif
 	spin_lock_irqsave(&gw2sg->lock, flags);
 	if (val && !gw2sg->requested) {
 		if (gw2sg->rx_redirected) {
@@ -186,6 +211,22 @@ unlock:
 	spin_unlock_irqrestore(&gw2sg->lock, flags);
 }
 
+static int gpio_w2sg_get_value(struct gpio_chip *gc,
+								unsigned offset)
+{ /* virtual GPIO to enable GPS has been changed */
+	struct gpio_w2sg *gw2sg = container_of(gc, struct gpio_w2sg,
+										   gpio);
+	return gw2sg->is_on;
+}
+
+static void gpio_w2sg_set_value(struct gpio_chip *gc,
+				unsigned offset, int val)
+{ /* virtual GPIO to enabele GPS has been changed */
+	struct gpio_w2sg *gw2sg = container_of(gc, struct gpio_w2sg,
+					       gpio);
+	gpio_w2sg_set_power(gw2sg, val);
+}
+
 static int gpio_w2sg_direction_output(struct gpio_chip *gc,
 				     unsigned offset, int val)
 {
@@ -196,19 +237,12 @@ static int gpio_w2sg_direction_output(struct gpio_chip *gc,
 static int gpio_w2sg_rfkill_set_block(void *data, bool blocked)
 {
 	struct gpio_w2sg *gw2sg = data;
-	int ret = 0;
 
 	pr_debug("%s: blocked: %d\n", __func__, blocked);
 
 	gw2sg->lna_blocked = blocked;
 
-	if(!IS_ERR_OR_NULL(gw2sg->lna_regulator)) {
-		if(blocked)
-			regulator_disable(gw2sg->lna_regulator);
-		else
-			ret = regulator_enable(gw2sg->lna_regulator);
-	}
-	return ret;
+	return gpio_w2sg_set_lna_power(gw2sg);
 }
 
 static struct rfkill_ops gpio_w2sg0004_rfkill_ops = {
@@ -221,14 +255,18 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 	struct gpio_w2sg *gw2sg;
 	struct rfkill *rf_kill;
 	int err;
+#ifdef DEBUG
 	printk("gpio_w2sg_probe()\n");
+#endif
 
 #ifdef CONFIG_OF
 
 	if (pdev->dev.of_node) {
 		struct device *dev = &pdev->dev;
 		enum of_gpio_flags flags;
+#ifdef DEBUG
 		printk("gpio_w2sg_probe() found DT\n");
+#endif
 		pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 		if (!pdata)
 			return -ENOMEM;
@@ -239,12 +277,16 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 			return -EPROBE_DEFER;	/* defer until we have all gpios */
 
 		pdata->lna_regulator = devm_regulator_get_optional(dev, "lna");
+#ifdef DEBUG
 		printk("gpio_w2sg_probe() lna_regulator = %p\n", pdata->lna_regulator);
+#endif
 		if(IS_ERR(pdata->lna_regulator))
 			return PTR_ERR(pdata->lna_regulator);
 		pdata->gpio_base = -1;
 		pdev->dev.platform_data = pdata;
+#ifdef DEBUG
 		printk("gpio_w2sg_probe() pdata=%p\n", pdata);
+#endif
 	}
 #endif
 
@@ -252,15 +294,16 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 	if (gw2sg == NULL)
 		return -ENOMEM;
 	gw2sg->lna_regulator = pdata->lna_regulator;
-	gw2sg->lna_blocked = 1;
+	gw2sg->lna_blocked = true;
+	gw2sg->lna_is_off = true;
 
 	gw2sg->on_off_gpio = pdata->on_off_gpio;
 	gw2sg->rx_gpio = pdata->rx_gpio;
 //	gw2sg->on_state = pdata->on_state;
 //	gw2sg->off_state = pdata->off_state;
 
-	gw2sg->is_on = 0;
-	gw2sg->requested = 1;
+	gw2sg->is_on = false;
+	gw2sg->requested = true;
 	gw2sg->state = W2SG_IDLE;
 	gw2sg->last_toggle = jiffies;
 	gw2sg->backoff = HZ;
@@ -359,7 +402,9 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 	gw2sg->rf_kill = rf_kill;
 
 	platform_set_drvdata(pdev, gw2sg);
+#ifdef DEBUG
 	printk("w2sg0004 probed\n");
+#endif
 	return 0;
 
 out5:
@@ -406,23 +451,25 @@ static int gpio_w2sg_suspend(struct device *dev)
 	gw2sg->suspended = 1;
 	spin_unlock_irq(&gw2sg->lock);
 
-	if(!IS_ERR_OR_NULL(gw2sg->lna_regulator))
-		regulator_disable(gw2sg->lna_regulator);
-
 	cancel_delayed_work_sync(&gw2sg->work);
-	if (gw2sg->state == W2SG_DOWN) {
+
+	gpio_w2sg_set_lna_power(gw2sg);	/* shut down if needed */
+
+	if (gw2sg->state == W2SG_PULSE) {
 		msleep(10);
 		gpio_set_value_cansleep(gw2sg->on_off_gpio, 1);
 		gw2sg->last_toggle = jiffies;
 		gw2sg->is_on = !gw2sg->is_on;
-		gw2sg->state = W2SG_UP;
+		gw2sg->state = W2SG_NOPULSE;
 	}
-	if (gw2sg->state == W2SG_UP) {
+	if (gw2sg->state == W2SG_NOPULSE) {
 		msleep(10);
 		gw2sg->state = W2SG_IDLE;
 	}
 	if (gw2sg->is_on) {
-		printk("GPS off for suspend %d %d\n", gw2sg->requested, gw2sg->is_on);
+#ifdef DEBUG
+		printk("GPS off for suspend %d %d %d\n", gw2sg->requested, gw2sg->is_on, gw2sg->lna_is_off);
+#endif
 		gpio_set_value_cansleep(gw2sg->on_off_gpio, 0);
 		msleep(10);
 		gpio_set_value_cansleep(gw2sg->on_off_gpio, 1);
@@ -439,11 +486,10 @@ static int gpio_w2sg_resume(struct device *dev)
 	gw2sg->suspended = 0;
 	spin_unlock_irq(&gw2sg->lock);
 
-	printk("GPS resuming %d %d\n", gw2sg->requested, gw2sg->is_on);
-	schedule_delayed_work(&gw2sg->work, 0);
-
-	if(!IS_ERR_OR_NULL(gw2sg->lna_regulator) && !gw2sg->lna_blocked)
-		return regulator_enable(gw2sg->lna_regulator);
+#ifdef DEBUG
+	printk("GPS resuming %d %d %d\n", gw2sg->requested, gw2sg->is_on, gw2sg->lna_is_off);
+#endif
+	schedule_delayed_work(&gw2sg->work, 0);	/* enables LNA if needed */
 
 	return 0;
 }
@@ -469,7 +515,9 @@ static struct platform_driver gpio_w2sg_driver = {
 
 static int __init gpio_w2sg_init(void)
 {
+#ifdef DEBUG
 	printk("gpio_w2sg_init()\n");
+#endif
 	return platform_driver_register(&gpio_w2sg_driver);
 }
 module_init(gpio_w2sg_init);
