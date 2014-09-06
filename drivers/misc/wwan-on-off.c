@@ -57,28 +57,28 @@ struct wwan_on_off {
 
 void omap_mux_set_gpio(u16 val, int gpio);
 
-static int is_powered_off(struct wwan_on_off *gw2sg)
+static int is_powered_off(struct wwan_on_off *wwan)
 { /* check with physical interfaces if possible */
-	if (gpio_is_valid(gw2sg->feedback_gpio))
-		return !gpio_get_value(gw2sg->feedback_gpio);	/* read gpio */
+	if (gpio_is_valid(wwan->feedback_gpio))
+		return !gpio_get_value(wwan->feedback_gpio);	/* read gpio */
 	/* check with PHY if available */
-	if (!gpio_is_valid(gw2sg->on_off_gpio))
+	if (!gpio_is_valid(wwan->on_off_gpio))
 		return 0;	/* we can't even control power, assume it is on */
-	return gw2sg->is_power_off;	/* assume that we know the correct state */
+	return wwan->is_power_off;	/* assume that we know the correct state */
 }
 
-static void set_power(struct wwan_on_off *gw2sg, int off)
+static void set_power(struct wwan_on_off *wwan, int off)
 {
 	int state;
 #ifdef DEBUG
 	printk("modem: set_power %d\n", off);
 #endif
-	if (!gpio_is_valid(gw2sg->on_off_gpio))
+	if (!gpio_is_valid(wwan->on_off_gpio))
 		return;	/* we can't control power */
 
-	spin_lock_irq(&gw2sg->lock);	/* block other processes who want to change the state */
+	spin_lock_irq(&wwan->lock);	/* block other processes who want to change the state */
 
-	state = is_powered_off(gw2sg);
+	state = is_powered_off(wwan);
 
 #ifdef DEBUG
 	printk("  state %d\n", state);
@@ -88,14 +88,14 @@ static void set_power(struct wwan_on_off *gw2sg, int off)
 #ifdef DEBUG
 		printk("modem: send impulse\n");
 #endif
-		gpio_set_value_cansleep(gw2sg->on_off_gpio, 1);
+		gpio_set_value_cansleep(wwan->on_off_gpio, 1);
 		// FIXME: check feedback_gpio for early end of impulse
 		msleep(200);	/* wait 200 ms */
-		gpio_set_value_cansleep(gw2sg->on_off_gpio, 0);
+		gpio_set_value_cansleep(wwan->on_off_gpio, 0);
 		msleep(500);	/* wait 500 ms */
-		gw2sg->is_power_off = off;
+		wwan->is_power_off = off;
 	}
-	spin_unlock_irq(&gw2sg->lock);
+	spin_unlock_irq(&wwan->lock);
 #ifdef DEBUG
 	printk("modem: done\n");
 #endif
@@ -104,26 +104,26 @@ static void set_power(struct wwan_on_off *gw2sg, int off)
 static int wwan_on_off_get_value(struct gpio_chip *gc,
 						   unsigned offset)
 {
-	struct wwan_on_off *gw2sg = container_of(gc, struct wwan_on_off,
+	struct wwan_on_off *wwan = container_of(gc, struct wwan_on_off,
 											 gpio);
 	int state;
-	spin_lock_irq(&gw2sg->lock);	/* block other processes who change the state */
-	state = is_powered_off(gw2sg);
-	spin_unlock_irq(&gw2sg->lock);
+	spin_lock_irq(&wwan->lock);	/* block other processes who change the state */
+	state = is_powered_off(wwan);
+	spin_unlock_irq(&wwan->lock);
 	return !state;
 }
 
 static void wwan_on_off_set_value(struct gpio_chip *gc,
 				unsigned offset, int val)
 {
-	struct wwan_on_off *gw2sg = container_of(gc, struct wwan_on_off,
+	struct wwan_on_off *wwan = container_of(gc, struct wwan_on_off,
 					       gpio);
 	if(offset > 0)
 		; // error
 #ifdef DEBUG
 	printk("WWAN GPIO set value %d\n", val);
 #endif
-	set_power(gw2sg, !val);	/* 1 = enable, 0 = disable */
+	set_power(wwan, !val);	/* 1 = enable, 0 = disable */
 }
 
 static int wwan_on_off_direction_output(struct gpio_chip *gc,
@@ -140,16 +140,16 @@ static int wwan_on_off_direction_output(struct gpio_chip *gc,
 
 static int wwan_on_off_rfkill_set_block(void *data, bool blocked)
 {
-	struct wwan_on_off *gw2sg = data;
+	struct wwan_on_off *wwan = data;
 	int ret = 0;
 #ifdef DEBUG
 	printk("%s: blocked: %d\n", __func__, blocked);
 #endif
 	pr_debug("%s: blocked: %d\n", __func__, blocked);
-	if (!gpio_is_valid(gw2sg->on_off_gpio))
+	if (!gpio_is_valid(wwan->on_off_gpio))
 		return -EIO;	/* can't block if we have no control */
 
-	set_power(gw2sg, blocked);
+	set_power(wwan, blocked);
 	return ret;
 }
 
@@ -161,7 +161,7 @@ static struct rfkill_ops wwan_on_off_rfkill_ops = {
 static int wwan_on_off_probe(struct platform_device *pdev)
 {
 	struct wwan_on_off_data *pdata = dev_get_platdata(&pdev->dev);
-	struct wwan_on_off *gw2sg;
+	struct wwan_on_off *wwan;
 	struct rfkill *rf_kill;
 	int err;
 #ifdef DEBUG
@@ -189,61 +189,61 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 	}
 #endif
 
-	gw2sg = kzalloc(sizeof(*gw2sg), GFP_KERNEL);
-	if (gw2sg == NULL)
+	wwan = kzalloc(sizeof(*wwan), GFP_KERNEL);
+	if (wwan == NULL)
 		return -ENOMEM;
-	gw2sg->on_off_gpio = pdata->on_off_gpio;
-	gw2sg->feedback_gpio = pdata->feedback_gpio;
+	wwan->on_off_gpio = pdata->on_off_gpio;
+	wwan->feedback_gpio = pdata->feedback_gpio;
 
-	gw2sg->gpio_name[0] = "gpio-wwan-enable";	/* label of controlling GPIO */
+	wwan->gpio_name[0] = "gpio-wwan-enable";	/* label of controlling GPIO */
 
-	gw2sg->gpio.label = "gpio-wwan-on-off";
-	gw2sg->gpio.names = gw2sg->gpio_name;
-	gw2sg->gpio.ngpio = 1;
-	gw2sg->gpio.base = pdata->gpio_base;
-	gw2sg->gpio.owner = THIS_MODULE;
-	gw2sg->gpio.direction_output = wwan_on_off_direction_output;
-	gw2sg->gpio.get = wwan_on_off_get_value;
-	gw2sg->gpio.set = wwan_on_off_set_value;
-	gw2sg->gpio.can_sleep = 0;
+	wwan->gpio.label = "gpio-wwan-on-off";
+	wwan->gpio.names = wwan->gpio_name;
+	wwan->gpio.ngpio = 1;
+	wwan->gpio.base = pdata->gpio_base;
+	wwan->gpio.owner = THIS_MODULE;
+	wwan->gpio.direction_output = wwan_on_off_direction_output;
+	wwan->gpio.get = wwan_on_off_get_value;
+	wwan->gpio.set = wwan_on_off_set_value;
+	wwan->gpio.can_sleep = 0;
 
 #ifdef CONFIG_OF_GPIO
-	gw2sg->gpio.of_node = pdev->dev.of_node;
+	wwan->gpio.of_node = pdev->dev.of_node;
 #endif
 
-	gw2sg->is_power_off = 1;	/* assume initial power is off */
+	wwan->is_power_off = 1;	/* assume initial power is off */
 
-	spin_lock_init(&gw2sg->lock);
+	spin_lock_init(&wwan->lock);
 
-	if (!gpio_is_valid(gw2sg->on_off_gpio))
+	if (!gpio_is_valid(wwan->on_off_gpio))
 		pr_warn("wwan-on-off: I have no control over modem\n");
 
-	if (gpio_is_valid(gw2sg->feedback_gpio)) {
-		err = gpio_request(gw2sg->on_off_gpio, "on-off-gpio");
+	if (gpio_is_valid(wwan->feedback_gpio)) {
+		err = gpio_request(wwan->on_off_gpio, "on-off-gpio");
 		if (err < 0)
 			goto out;
-		gpio_direction_output(gw2sg->on_off_gpio, false);
+		gpio_direction_output(wwan->on_off_gpio, false);
 	}
-	if (gpio_is_valid(gw2sg->feedback_gpio)) {
-		err = gpio_request(gw2sg->feedback_gpio, "on-indicator-gpio");
+	if (gpio_is_valid(wwan->feedback_gpio)) {
+		err = gpio_request(wwan->feedback_gpio, "on-indicator-gpio");
 		if (err < 0)
 			goto out1;
-		gpio_direction_input(gw2sg->feedback_gpio);
+		gpio_direction_input(wwan->feedback_gpio);
 	}
 
-	err = gpiochip_add(&gw2sg->gpio);
+	err = gpiochip_add(&wwan->gpio);
 	if (err)
 		goto out3;
 
 	rf_kill = rfkill_alloc("WWAN", &pdev->dev,
 						   RFKILL_TYPE_WWAN,
-						   &wwan_on_off_rfkill_ops, gw2sg);
+						   &wwan_on_off_rfkill_ops, wwan);
 	if (rf_kill == NULL) {
 		err = -ENOMEM;
 		goto out4;
 	}
 
-	rfkill_init_sw_state(rf_kill, is_powered_off(gw2sg));	/* check initial state */
+	rfkill_init_sw_state(rf_kill, is_powered_off(wwan));	/* check initial state */
 
 	err = rfkill_register(rf_kill);
 	if (err) {
@@ -251,9 +251,9 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 		goto out5;
 	}
 
-	gw2sg->rf_kill = rf_kill;
+	wwan->rf_kill = rf_kill;
 
-	platform_set_drvdata(pdev, gw2sg);
+	platform_set_drvdata(pdev, wwan);
 #ifdef DEBUG
 	printk("wwan-on-off probed\n");
 #endif
@@ -262,36 +262,36 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 out5:
 	rfkill_destroy(rf_kill);
 out4:
-	err = gpiochip_remove(&gw2sg->gpio);
+	err = gpiochip_remove(&wwan->gpio);
 out3:
-	if (gpio_is_valid(gw2sg->feedback_gpio))
-		gpio_free(gw2sg->feedback_gpio);
+	if (gpio_is_valid(wwan->feedback_gpio))
+		gpio_free(wwan->feedback_gpio);
 out1:
-	if (gpio_is_valid(gw2sg->on_off_gpio))
-		gpio_free(gw2sg->on_off_gpio);
+	if (gpio_is_valid(wwan->on_off_gpio))
+		gpio_free(wwan->on_off_gpio);
 out:
-	kfree(gw2sg);
+	kfree(wwan);
 	return err;
 }
 
 static int wwan_on_off_remove(struct platform_device *pdev)
 {
-	struct wwan_on_off *gw2sg = platform_get_drvdata(pdev);
+	struct wwan_on_off *wwan = platform_get_drvdata(pdev);
 	int ret;
-	ret = gpiochip_remove(&gw2sg->gpio);
+	ret = gpiochip_remove(&wwan->gpio);
 	if (ret)
 		return ret;
-	if (gpio_is_valid(gw2sg->feedback_gpio))
-		gpio_free(gw2sg->feedback_gpio);
-	if (gpio_is_valid(gw2sg->on_off_gpio))
-		gpio_free(gw2sg->on_off_gpio);
-	kfree(gw2sg);
+	if (gpio_is_valid(wwan->feedback_gpio))
+		gpio_free(wwan->feedback_gpio);
+	if (gpio_is_valid(wwan->on_off_gpio))
+		gpio_free(wwan->on_off_gpio);
+	kfree(wwan);
 	return 0;
 }
 
 static int wwan_on_off_suspend(struct device *dev)
 {
-	struct wwan_on_off *gw2sg = dev_get_drvdata(dev);
+	struct wwan_on_off *wwan = dev_get_drvdata(dev);
 #ifdef DEBUG
 	printk("WWAN suspend\n");
 #endif
@@ -307,7 +307,7 @@ static int wwan_on_off_suspend(struct device *dev)
 
 static int wwan_on_off_resume(struct device *dev)
 {
-	struct wwan_on_off *gw2sg = dev_get_drvdata(dev);
+	struct wwan_on_off *wwan = dev_get_drvdata(dev);
 #ifdef DEBUG
 	printk("WWAN resume\n");
 #endif
