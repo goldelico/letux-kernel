@@ -673,6 +673,7 @@ static void serial_omap_set_mctrl(struct uart_port *port, unsigned int mctrl)
 	unsigned char mcr = 0, old_mcr;
 
 	dev_dbg(up->port.dev, "serial_omap_set_mctrl+%d\n", up->port.line);
+#ifdef DEBUG
 	if(up->port.line == 0 || up->port.line == 1)
 		{
 		printk("serial_omap_set_mctrl %x %d\n", mctrl, up->port.line);
@@ -681,6 +682,7 @@ static void serial_omap_set_mctrl(struct uart_port *port, unsigned int mctrl)
 		if(gpio_is_valid(up->DTR_gpio))
 			printk("    cansleep %d\n", gpio_cansleep(up->DTR_gpio));
 		}
+#endif
 
 	if (mctrl & TIOCM_RTS)
 		mcr |= UART_MCR_RTS;
