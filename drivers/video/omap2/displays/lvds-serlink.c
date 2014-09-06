@@ -444,11 +444,14 @@ static int serlink_probe(struct i2c_client *client,
 
 	/* Register sysfs hooks */
 	status = sysfs_create_group(&client->dev.kobj, &serlink_attr_group);
-	if (status)
-		goto fail;
-
-	dev_err(&client->dev, "probe error %d for '%s'\n",
+	if (status) {
+		dev_err(&client->dev, "probe error %d for '%s'\n",
 			status, client->name);
+		goto fail;
+		}
+	else
+		dev_err(&client->dev, "probe successful for '%s'\n",
+			client->name);
 
 	return status;
 fail:
