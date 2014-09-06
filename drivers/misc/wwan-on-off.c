@@ -38,6 +38,8 @@
 #include <linux/workqueue.h>
 #include <linux/rfkill.h>
 
+#define DEBUG
+
 struct wwan_on_off {
 	struct rfkill *rf_kill;
 	int		on_off_gpio;	/* may be invalid */
@@ -68,7 +70,9 @@ static int is_powered_off(struct wwan_on_off *gw2sg)
 static void set_power(struct wwan_on_off *gw2sg, int off)
 {
 	int state;
+#ifdef DEBUG
 	printk("modem: set_power %d\n", off);
+#endif
 	if (!gpio_is_valid(gw2sg->on_off_gpio))
 		return;	/* we can't control power */
 
@@ -76,10 +80,14 @@ static void set_power(struct wwan_on_off *gw2sg, int off)
 
 	state = is_powered_off(gw2sg);
 
+#ifdef DEBUG
 	printk("  state %d\n", state);
+#endif
 
 	if(state != off) {
+#ifdef DEBUG
 		printk("modem: send impulse\n");
+#endif
 		gpio_set_value_cansleep(gw2sg->on_off_gpio, 1);
 		// FIXME: check feedback_gpio for early end of impulse
 		msleep(200);	/* wait 200 ms */
@@ -88,7 +96,9 @@ static void set_power(struct wwan_on_off *gw2sg, int off)
 		gw2sg->is_power_off = off;
 	}
 	spin_unlock_irq(&gw2sg->lock);
+#ifdef DEBUG
 	printk("modem: done\n");
+#endif
 }
 
 static int wwan_on_off_get_value(struct gpio_chip *gc,
@@ -110,14 +120,18 @@ static void wwan_on_off_set_value(struct gpio_chip *gc,
 					       gpio);
 	if(offset > 0)
 		; // error
+#ifdef DEBUG
 	printk("WWAN GPIO set value %d\n", val);
+#endif
 	set_power(gw2sg, !val);	/* 1 = enable, 0 = disable */
 }
 
 static int wwan_on_off_direction_output(struct gpio_chip *gc,
 				     unsigned offset, int val)
 {
+#ifdef DEBUG
 	printk("WWAN GPIO set output %d\n", val);
+#endif
 	if(offset > 0)
 		; // error
 //	wwan_on_off_set_value(gc, offset, val);
@@ -128,8 +142,9 @@ static int wwan_on_off_rfkill_set_block(void *data, bool blocked)
 {
 	struct wwan_on_off *gw2sg = data;
 	int ret = 0;
+#ifdef DEBUG
 	printk("%s: blocked: %d\n", __func__, blocked);
-
+#endif
 	pr_debug("%s: blocked: %d\n", __func__, blocked);
 	if (!gpio_is_valid(gw2sg->on_off_gpio))
 		return -EIO;	/* can't block if we have no control */
@@ -149,8 +164,9 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 	struct wwan_on_off *gw2sg;
 	struct rfkill *rf_kill;
 	int err;
+#ifdef DEBUG
 	printk("wwan_on_off_probe()\n");
-
+#endif
 #ifdef CONFIG_OF
 
 	if (pdev->dev.of_node) {
@@ -167,7 +183,9 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 		// get optional reference to USB PHY (through "usb-port")
 		pdata->gpio_base = -1;
 		pdev->dev.platform_data = pdata;
+#ifdef DEBUG
 		printk("wwan_on_off_probe() pdata=%p\n", pdata);
+#endif
 	}
 #endif
 
@@ -236,7 +254,9 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 	gw2sg->rf_kill = rf_kill;
 
 	platform_set_drvdata(pdev, gw2sg);
+#ifdef DEBUG
 	printk("wwan-on-off probed\n");
+#endif
 	return 0;
 
 out5:
@@ -272,12 +292,15 @@ static int wwan_on_off_remove(struct platform_device *pdev)
 static int wwan_on_off_suspend(struct device *dev)
 {
 	struct wwan_on_off *gw2sg = dev_get_drvdata(dev);
+#ifdef DEBUG
 	printk("WWAN suspend\n");
+#endif
 	/* we only suspend the driver (i.e. set the gpio in a state
 	 * that it does not harm)
 	 * the reason is that the modem must continue to be powered
 	 * on to receive SMS and incoming calls that wake up the CPU
 	 * through a wakeup GPIO
+	 * what we could do is to decode a system power-off
 	 */
 	return 0;
 }
@@ -285,7 +308,9 @@ static int wwan_on_off_suspend(struct device *dev)
 static int wwan_on_off_resume(struct device *dev)
 {
 	struct wwan_on_off *gw2sg = dev_get_drvdata(dev);
+#ifdef DEBUG
 	printk("WWAN resume\n");
+#endif
 	return 0;
 }
 
