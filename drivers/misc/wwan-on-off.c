@@ -68,13 +68,15 @@ static int is_powered_off(struct wwan_on_off *gw2sg)
 static void set_power(struct wwan_on_off *gw2sg, int off)
 {
 	int state;
-	printk("modem: set_power %d -> %d\n", state, off);
+	printk("modem: set_power %d\n", off);
 	if (!gpio_is_valid(gw2sg->on_off_gpio))
 		return;	/* we can't control power */
 
 	spin_lock_irq(&gw2sg->lock);	/* block other processes who want to change the state */
 
 	state = is_powered_off(gw2sg);
+
+	printk("  state %d\n", state);
 
 	if(state != off) {
 		printk("modem: send impulse\n");
@@ -87,6 +89,18 @@ static void set_power(struct wwan_on_off *gw2sg, int off)
 	}
 	spin_unlock_irq(&gw2sg->lock);
 	printk("modem: done\n");
+}
+
+static int wwan_on_off_get_value(struct gpio_chip *gc,
+						   unsigned offset)
+{
+	struct wwan_on_off *gw2sg = container_of(gc, struct wwan_on_off,
+											 gpio);
+	int state;
+	spin_lock_irq(&gw2sg->lock);	/* block other processes who change the state */
+	state = is_powered_off(gw2sg);
+	spin_unlock_irq(&gw2sg->lock);
+	return !state;
 }
 
 static void wwan_on_off_set_value(struct gpio_chip *gc,
@@ -163,7 +177,7 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 	gw2sg->on_off_gpio = pdata->on_off_gpio;
 	gw2sg->feedback_gpio = pdata->feedback_gpio;
 
-	gw2sg->gpio_name[0] = "enable";	/* label of controlling GPIO */
+	gw2sg->gpio_name[0] = "gpio-wwan-enable";	/* label of controlling GPIO */
 
 	gw2sg->gpio.label = "gpio-wwan-on-off";
 	gw2sg->gpio.names = gw2sg->gpio_name;
@@ -171,6 +185,7 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 	gw2sg->gpio.base = pdata->gpio_base;
 	gw2sg->gpio.owner = THIS_MODULE;
 	gw2sg->gpio.direction_output = wwan_on_off_direction_output;
+	gw2sg->gpio.get = wwan_on_off_get_value;
 	gw2sg->gpio.set = wwan_on_off_set_value;
 	gw2sg->gpio.can_sleep = 0;
 
