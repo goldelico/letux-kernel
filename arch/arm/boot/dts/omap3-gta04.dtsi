@@ -68,6 +68,8 @@
 		label = "gps_antenna";
 		gpios = <&gpio5 16 GPIO_ACTIVE_HIGH>; /* GPIO144 */
 		debounce-delay-ms = <10>;
+		interrupt-parent = <&gpio5>;
+		interrupts = <16 IRQ_TYPE_EDGE_BOTH>;
 		irq-flags = <IRQ_TYPE_EDGE_BOTH>;
 		state-on = "external";
 		state-off = "internal";
@@ -470,42 +472,6 @@
 			compatible = "ti,twl4030-power-reset";
 			ti,use_poweroff;
 		};
-		/* spare */
-		vaux1: regulator-vaux1 {
-			compatible = "ti,twl4030-vaux1";
-			regulator-min-microvolt = <2500000>;
-			regulator-max-microvolt = <3000000>;
-		};
-		/* sensors */
-		vaux2: regulator-vaux2 {
-			compatible = "ti,twl4030-vaux2";
-			regulator-min-microvolt = <2800000>;
-			regulator-max-microvolt = <2800000>;
-			regulator-always-on;	/* we should not switch off while keeping 1V8 on! */
-		};
-		/* camera */
-		vaux3: regulator-vaux3 {
-			compatible = "ti,twl4030-vaux3";
-			regulator-min-microvolt = <2500000>;
-			regulator-max-microvolt = <2500000>;
-		};
-		/* WLAN/BT */
-		vaux4: regulator-vaux4 {
-			compatible = "ti,twl4030-vaux4";
-			regulator-min-microvolt = <2800000>;
-			regulator-max-microvolt = <3150000>;
-		};
-		/* GPS LNA */
-		vsim: regulator-vsim {
-			compatible = "ti,twl4030-vsim";
-			regulator-min-microvolt = <2800000>;
-			regulator-max-microvolt = <3150000>;
-		};
-		/* backup battery charger */
-		charger: bci {
-			ti,bb-uvolt = <3200000>;
-			ti,bb-uamp = <150>;
-		};
 		twl_audio: audio {
 			compatible = "ti,twl4030-audio";
 
@@ -520,6 +486,44 @@
 
 #include "twl4030.dtsi"
 #include "twl4030_omap3.dtsi"
+
+/* modify basic twl settings as needed by GTA04 */
+
+&charger { /* backup battery charger */
+		ti,bb-uvolt = <3200000>;
+		ti,bb-uamp = <150>;
+};
+
+&vaux1 { /* spare */
+		regulator-min-microvolt = <2500000>;
+		regulator-max-microvolt = <3000000>;
+};
+
+&vaux2 { /* Sensors */
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <2800000>;
+		regulator-always-on;	/* we should never switch off while vio is on! */
+};
+
+&vaux3 { /* Camera */
+		regulator-min-microvolt = <2500000>;
+		regulator-max-microvolt = <2500000>;
+};
+
+&vaux4 { /* WLAN/BT */
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <3150000>;
+};
+
+&vsim { /* GPS LNA */
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <3150000>;
+};
+
+&mmc2 { /* spare */
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+};
 
 &i2c2 {
 	clock-frequency = <400000>;
