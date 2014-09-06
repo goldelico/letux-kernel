@@ -431,6 +431,12 @@
 		>;
 	};
 
+	hdq_pins {
+		pinctrl-single,pins = <
+			OMAP3_CORE1_IOPAD(0x21c4, PIN_OUTPUT_PULLDOWN | MUX_MODE0)   /* i2c3_sda.hdq */
+		>;
+	};
+
 };
 
 &omap3_pmx_core2 {
