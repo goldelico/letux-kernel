@@ -1613,6 +1613,7 @@ static struct omap_uart_port_info *of_get_uart_port_info(struct device *dev)
 					 &omap_up_info->uartclk);
 
 	omap_up_info->DTR_gpio = of_get_named_gpio_flags(dev->of_node, "dtr-gpio", 0, &flags);
+	omap_up_info->DTR_present = true;	/* default assumption */
 	omap_up_info->DTR_inverted = (flags & OF_GPIO_ACTIVE_LOW) != 0;
 
 	return omap_up_info;
@@ -1703,6 +1704,8 @@ static int serial_omap_probe(struct platform_device *pdev)
 	if (IS_ERR(base))
 		return PTR_ERR(base);
 
+	printk("DTR_gpio %d inverted %d\n", omap_up_info->DTR_gpio, omap_up_info->DTR_inverted);
+
 	if (gpio_is_valid(omap_up_info->DTR_gpio) &&
 	    omap_up_info->DTR_present) {
 		ret = devm_gpio_request(&pdev->dev, omap_up_info->DTR_gpio,
@@ -1713,15 +1716,15 @@ static int serial_omap_probe(struct platform_device *pdev)
 					    omap_up_info->DTR_inverted);
 		if (ret < 0)
 			return ret;
-	}
-
-	if (gpio_is_valid(omap_up_info->DTR_gpio) &&
-	    omap_up_info->DTR_present) {
 		up->DTR_gpio = omap_up_info->DTR_gpio;
 		up->DTR_inverted = omap_up_info->DTR_inverted;
+	} else if (up->DTR_gpio == -EPROBE_DEFER) {
+		return -EPROBE_DEFER;
 	} else {
 		up->DTR_gpio = -EINVAL;
 	}
+
+	printk("DTR_gpio %d inverted %d\n", up->DTR_gpio, up->DTR_inverted);
 
 	up->DTR_active = 0;
 
