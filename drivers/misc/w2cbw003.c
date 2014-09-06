@@ -42,6 +42,14 @@ struct w2cbw {
 };
 
 /* FIXME: rename function to w2cbw_$$$ */
+static int w2cbw_get_value(struct gpio_chip *gc,
+							unsigned offset)
+{
+	struct w2cbw *greg = container_of(gc, struct w2cbw, gpio);
+	// we could ask the regulator so that multiple consumers are OR'ed
+	return greg->set;
+}
+
 static void w2cbw_set_value(struct gpio_chip *gc,
 			       unsigned offset, int val)
 {
@@ -99,7 +107,7 @@ static int w2cbw_probe(struct platform_device *pdev)
 	/* FIXME: use the same code as with board file */
 		greg->set = 0;
 
-		greg->gpio_name[0] = "enable";	/* label of controlling GPIO */
+		greg->gpio_name[0] = "gpio-w2cbw003-enable";	/* label of controlling GPIO */
 
 		greg->gpio.label = "w2cbw003";
 		greg->gpio.names = greg->gpio_name;
@@ -107,6 +115,7 @@ static int w2cbw_probe(struct platform_device *pdev)
 		greg->gpio.base = -1;
 		greg->gpio.owner = THIS_MODULE;
 		greg->gpio.direction_output = w2cbw_direction_output;
+		greg->gpio.get = w2cbw_get_value;
 		greg->gpio.set = w2cbw_set_value;
 		greg->gpio.can_sleep = 1;
         greg->gpio.of_node = of_node_get(pdev->dev.of_node);
@@ -135,7 +144,7 @@ static int w2cbw_probe(struct platform_device *pdev)
 		regulator_set_voltage(greg->reg, pdata->uV, pdata->uV);
 	greg->set = 0;
 
-	greg->gpio_name[0] = "enable";	/* label of controlling GPIO */
+	greg->gpio_name[0] = "gpio-w2cbw003-enable";	/* label of controlling GPIO */
 
 	greg->gpio.label = "w2cbw003";
 	greg->gpio.names = greg->gpio_name;
