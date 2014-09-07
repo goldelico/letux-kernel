@@ -284,6 +284,7 @@ static const struct of_device_id of_twl4030_madc_match[] = {
 	{ .compatible = "ti,twl4030-madc-battery", },
 	{},
 };
+MODULE_DEVICE_TABLE(of, of_twl4030_madc_match);
 
 #else
 static struct twl4030_madc_bat_platform_data *
