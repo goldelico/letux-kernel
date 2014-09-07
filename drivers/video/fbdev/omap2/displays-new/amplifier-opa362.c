@@ -321,6 +321,7 @@ static const struct of_device_id opa362_of_match[] = {
 	{ .compatible = "omapdss,ti,opa362", },
 	{},
 };
+MODULE_DEVICE_TABLE(of, opa362_of_match);
 
 static struct platform_driver opa362_driver = {
 	.probe	= opa362_probe,
