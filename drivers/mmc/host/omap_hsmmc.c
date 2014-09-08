@@ -18,6 +18,7 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/slab.h>
 #include <linux/debugfs.h>
 #include <linux/dmaengine.h>
 #include <linux/seq_file.h>
@@ -34,6 +35,7 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/core.h>
 #include <linux/mmc/mmc.h>
+#include <linux/mmc/card.h>
 #include <linux/io.h>
 #include <linux/gpio.h>
 #include <linux/regulator/consumer.h>
@@ -44,6 +46,7 @@
 /* OMAP HSMMC Host Controller Registers */
 #define OMAP_HSMMC_SYSSTATUS	0x0014
 #define OMAP_HSMMC_CON		0x002C
+#define OMAP_HSMMC_DLL		0x0034
 #define OMAP_HSMMC_SDMASA	0x0100
 #define OMAP_HSMMC_BLK		0x0104
 #define OMAP_HSMMC_ARG		0x0108
@@ -60,6 +63,7 @@
 #define OMAP_HSMMC_ISE		0x0138
 #define OMAP_HSMMC_AC12		0x013C
 #define OMAP_HSMMC_CAPA		0x0140
+#define OMAP_HSMMC_CAPA2	0x0144
 #define OMAP_HSMMC_REV		0x01FC
 
 #define VS18			(1 << 26)
@@ -79,6 +83,7 @@
 #define CEN			(1 << 2)
 #define CLKD_MASK		0x0000FFC0
 #define CLKD_SHIFT		6
+#define CLKD_MAX		1023
 #define DTO_MASK		0x000F0000
 #define DTO_SHIFT		16
 #define INIT_STREAM		(1 << 1)
@@ -130,10 +135,28 @@
 #define ACTO			(1 << 1)
 #define ACNE			(1 << 0)
 
+#define SCLK_SEL		(1 << 23)
+#define V1V8_SIGEN		(1 << 19)
+#define UHSMS_MASK		(7 << 16)
+#define UHSMS_SDR50		(2 << 16)
+#define UHSMS_SDR104		(3 << 16)
+
+#define TSDR50			(1 << 13)
+#define DDR50			(1 << 2)
+#define SDR104			(1 << 1)
+#define SDR50			(1 << 0)
+
+#define SWT			(1 << 20)
+#define FORCE_SR_C_MASK		(0x7F << 13)
+#define FORCE_SR_C_SHIFT	13
+#define FORCE_VALUE		(1 << 12)
+#define CALIB			(1 << 1)
+
 #define MMC_AUTOSUSPEND_DELAY	100
 #define MMC_TIMEOUT_MS		20
 #define OMAP_MMC_MIN_CLOCK	400000
 #define OMAP_MMC_MAX_CLOCK	52000000
+#define MAX_PHASE_DELAY		0x7F
 #define DRIVER_NAME		"omap_hsmmc"
 
 #define AUTO_CMD12		(1 << 0)	/* Auto CMD12 support */
@@ -172,6 +195,7 @@ struct omap_hsmmc_host {
 	struct	mmc_data	*data;
 	struct	clk		*fclk;
 	struct	clk		*dbclk;
+	struct completion	buf_ready;
 	/*
 	 * vcc == configured supply
 	 * vcc_aux == optional
@@ -202,9 +226,34 @@ struct omap_hsmmc_host {
 	int			req_in_progress;
 	unsigned long		clk_rate;
 	unsigned int		flags;
+	bool			tuning_done;
+	u32			*tuning_data;
+	int			tuning_size;
+	int			tuning_fsrc;
+	u32			tuning_uhsms;
 	struct omap_hsmmc_next	next_data;
 
 	struct	omap_mmc_platform_data	*pdata;
+};
+
+/* Tuning block pattern for 4-bits mode as described in JEDEC standard */
+static const u32 ref_tuning_4bits[] = {
+	0x00FF0FFF, 0xCCC3CCFF, 0xFFCC3CC3, 0xEFFEFFFE,
+	0xDDFFDFFF, 0xFBFFFBFF, 0xFF7FFFBF, 0xEFBDF777,
+	0xF0FFF0FF, 0x3CCCFC0F, 0xCFCC33CC, 0xEEFFEFFF,
+	0xFDFFFDFF, 0xFFBFFFDF, 0xFFF7FFBB, 0xDE7B7FF7
+};
+
+/* Tuning block pattern for 8-bits mode as described in JEDEC standard */
+static const u32 ref_tuning_8bits[] = {
+	0xFF00FFFF, 0x0000FFFF, 0xCCCCFFFF, 0xCCCC33CC,
+	0xCC3333CC, 0xFFFFCCCC, 0xFFFFEEFF, 0xFFEEEEFF,
+	0xFFDDFFFF, 0xDDDDFFFF, 0xBBFFFFFF, 0xBBFFFFFF,
+	0xFFFFFFBB, 0XFFFFFF77, 0x77FF7777, 0xFFEEDDBB,
+	0x00FFFFFF, 0x00FFFFFF, 0xCCFFFF00, 0xCC33CCCC,
+	0x3333CCCC, 0xFFCCCCCC, 0xFFEEFFFF, 0xEEEEFFFF,
+	0xDDFFFFFF, 0xDDFFFFFF, 0xFFFFFFDD, 0XFFFFFFBB,
+	0xFFFFBBBB, 0xFFFF77FF, 0xFF7777FF, 0xEEDDBB77
 };
 
 static int
@@ -497,7 +546,10 @@ static void omap_hsmmc_enable_irq(struct omap_hsmmc_host *host,
 {
 	unsigned int irq_mask;
 
-	if (host->use_dma)
+	if ((cmd->opcode == MMC_SEND_TUNING_BLOCK) ||
+	    (cmd->opcode == MMC_SEND_TUNING_BLOCK_HS200))
+		irq_mask = INT_EN_MASK | BRR_EN;
+	else if (host->use_dma)
 		irq_mask = INT_EN_MASK & ~(BRR_EN | BWR_EN);
 	else
 		irq_mask = INT_EN_MASK;
@@ -525,8 +577,8 @@ static u16 calc_divisor(struct omap_hsmmc_host *host, struct mmc_ios *ios)
 
 	if (ios->clock) {
 		dsor = DIV_ROUND_UP(clk_get_rate(host->fclk), ios->clock);
-		if (dsor > 250)
-			dsor = 250;
+		if (dsor > CLKD_MAX)
+			dsor = CLKD_MAX;
 	}
 
 	return dsor;
@@ -620,6 +672,32 @@ static void omap_hsmmc_set_bus_mode(struct omap_hsmmc_host *host)
 		OMAP_HSMMC_WRITE(host->base, CON, con & ~OD);
 }
 
+static int omap_hsmmc_set_dll(struct omap_hsmmc_host *host, int count)
+{
+	u32 dll;
+	int i;
+
+	dll = OMAP_HSMMC_READ(host->base, DLL) & ~FORCE_SR_C_MASK;
+	dll |= (count << FORCE_SR_C_SHIFT);
+	OMAP_HSMMC_WRITE(host->base, DLL, dll);
+
+	dll |= FORCE_VALUE;
+	OMAP_HSMMC_WRITE(host->base, DLL, dll);
+
+	dll |= CALIB;
+	OMAP_HSMMC_WRITE(host->base, DLL, dll);
+
+	for (i = 0; i < 1000; i++) {
+		if (OMAP_HSMMC_READ(host->base, DLL) & CALIB)
+			break;
+	}
+
+	dll &= ~CALIB;
+	OMAP_HSMMC_WRITE(host->base, DLL, dll);
+
+	return 0;
+}
+
 #ifdef CONFIG_PM
 
 /*
@@ -685,6 +763,12 @@ static int omap_hsmmc_context_restore(struct omap_hsmmc_host *host)
 	omap_hsmmc_set_clock(host);
 
 	omap_hsmmc_set_bus_mode(host);
+
+	OMAP_HSMMC_WRITE(host->base, DLL,
+			 OMAP_HSMMC_READ(host->base, DLL) | SWT);
+
+	if (host->tuning_done)
+		omap_hsmmc_set_dll(host, host->tuning_fsrc);
 
 out:
 	host->context_loss = context_loss;
@@ -842,6 +926,13 @@ omap_hsmmc_start_command(struct omap_hsmmc_host *host, struct mmc_command *cmd,
 
 	if (host->use_dma)
 		cmdreg |= DMAE;
+
+	/* Tuning command is special. Data Present Select should be set */
+	if ((cmd->opcode == MMC_SEND_TUNING_BLOCK) ||
+	    (cmd->opcode == MMC_SEND_TUNING_BLOCK_HS200)) {
+		cmdreg = (cmd->opcode << 24) | (resptype << 16) |
+			(cmdtype << 22) | DP_SELECT | DDIR;
+	}
 
 	host->req_in_progress = 1;
 
@@ -1101,6 +1192,7 @@ static void omap_hsmmc_do_irq(struct omap_hsmmc_host *host, int status)
 	struct mmc_data *data;
 	int end_cmd = 0, end_trans = 0;
 	int error = 0;
+	int i;
 
 	data = host->data;
 	dev_vdbg(mmc_dev(host->mmc), "IRQ Status is %x\n", status);
@@ -1142,6 +1234,15 @@ static void omap_hsmmc_do_irq(struct omap_hsmmc_host *host, int status)
 			end_trans = !end_cmd;
 			host->response_busy = 0;
 		}
+	}
+
+	if (status & BRR_EN) {
+		for (i = 0; i < host->tuning_size / 4; i++)
+			host->tuning_data[i] = OMAP_HSMMC_READ(host->base,
+							       DATA);
+
+		complete(&host->buf_ready);
+		return;
 	}
 
 	if (end_cmd || ((status & CC_EN) && host->cmd))
@@ -1717,6 +1818,181 @@ static int omap_hsmmc_disable_fclk(struct mmc_host *mmc)
 	return 0;
 }
 
+static int omap_hsmmc_execute_tuning(struct mmc_host *mmc, u32 opcode)
+{
+	struct omap_hsmmc_host *host = mmc_priv(mmc);
+	struct mmc_ios *ios = &mmc->ios;
+	const u32 *tuning_ref;
+	int phase_delay = 0;
+	int err = 0;
+	int count = 0;
+	int length = 0;
+	int note_index = 0;
+	int max_index = 0;
+	int max_window = 0;
+	bool previous_match = false;
+	bool current_match;
+	u32 ac12, capa2, dll;
+
+	/*
+	 * Host Controller needs tuning only in case of SDR104 mode
+	 * and for SDR50 mode when Use Tuning for SDR50 is set in
+	 * Capabilities register.
+	 */
+	capa2 = OMAP_HSMMC_READ(host->base, CAPA2);
+	if ((ios->clock < UHS_SDR50_MAX_DTR) ||
+	    ((ios->clock == UHS_SDR50_MAX_DTR) && !(capa2 & TSDR50)))
+		return 0;
+
+	switch (ios->bus_width) {
+	case MMC_BUS_WIDTH_8:
+		tuning_ref = ref_tuning_8bits;
+		host->tuning_size = sizeof(ref_tuning_8bits);
+		break;
+	case MMC_BUS_WIDTH_4:
+		tuning_ref = ref_tuning_4bits;
+		host->tuning_size = sizeof(ref_tuning_4bits);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	host->tuning_data = kzalloc(host->tuning_size, GFP_KERNEL);
+	if (!host->tuning_data)
+		return -ENOMEM;
+
+	host->tuning_done = false;
+
+	/* Enable 1.8V signaling, the transition takes 5ms */
+	ac12 = OMAP_HSMMC_READ(host->base, AC12) | V1V8_SIGEN;
+	OMAP_HSMMC_WRITE(host->base, AC12, ac12);
+
+	/* Enable SDR50 / SDR104 mode */
+	omap_hsmmc_stop_clock(host);
+	ac12 = OMAP_HSMMC_READ(host->base, AC12) & ~UHSMS_MASK;
+
+	if (ios->clock <= UHS_SDR50_MAX_DTR)
+		ac12 |= UHSMS_SDR50;
+	else
+		ac12 |= UHSMS_SDR104;
+
+	OMAP_HSMMC_WRITE(host->base, AC12, ac12);
+	omap_hsmmc_start_clock(host);
+
+	/* Enable software tuning */
+	dll = OMAP_HSMMC_READ(host->base, DLL) | SWT;
+	OMAP_HSMMC_WRITE(host->base, DLL, dll);
+
+	while (phase_delay < MAX_PHASE_DELAY) {
+		struct mmc_command cmd = {0};
+		struct mmc_request mrq = {0};
+
+		omap_hsmmc_set_dll(host, phase_delay);
+
+		cmd.opcode = opcode;
+		cmd.arg = 0;
+		cmd.flags = MMC_RSP_R1 | MMC_CMD_ADTC;
+		cmd.retries = 0;
+		cmd.data = NULL;
+		cmd.error = 0;
+
+		mrq.cmd = &cmd;
+		host->mrq = &mrq;
+
+		OMAP_HSMMC_WRITE(host->base, BLK, host->tuning_size);
+		set_data_timeout(host, 50000000, 0);
+		omap_hsmmc_start_command(host, &cmd, NULL, 0);
+
+		host->cmd = NULL;
+		host->mrq = NULL;
+
+		/* Wait for Buffer Read Ready interrupt */
+		err = wait_for_completion_timeout(&host->buf_ready,
+						  msecs_to_jiffies(5000));
+		omap_hsmmc_disable_irq(host);
+		host->req_in_progress = 0;
+
+		if (err == 0) {
+			dev_err(mmc_dev(host->mmc),
+				"Tuning BRR timeout. phase_delay=%x",
+				phase_delay);
+			err = -ETIMEDOUT;
+			goto tuning_error;
+		}
+
+		if (memcmp(host->tuning_data, tuning_ref, host->tuning_size))
+			current_match = false;
+		else
+			current_match = true;
+
+		if (current_match == true) {
+			if (previous_match == false) {
+				/* new window */
+				note_index = count;
+				length = 1;
+			} else {
+				length++;
+			}
+			previous_match = true;
+			if (length > max_window) {
+				max_index = note_index;
+				max_window = length;
+			}
+		} else {
+			previous_match = false;
+		}
+
+		phase_delay += 4;
+		count++;
+	}
+
+	if (!max_window) {
+		dev_err(mmc_dev(host->mmc), "Unable to find match\n");
+		err = -EIO;
+		goto tuning_error;
+	}
+
+	ac12 = OMAP_HSMMC_READ(host->base, AC12);
+	if (!(ac12 & SCLK_SEL)) {
+		dev_err(mmc_dev(host->mmc),
+			"Tuning failed. Using fixed sampling clock\n");
+		err = -EIO;
+		goto tuning_error;
+	}
+
+	/* Select the center delay of the largest set of successful tries */
+	count = 4 * (max_index + (max_window >> 1));
+
+	dev_info(mmc_dev(host->mmc),
+		 "Selected tuning delay %d (window size %u)\n",
+		 count, max_window);
+	omap_hsmmc_set_dll(host, count);
+	host->tuning_fsrc = count;
+	host->tuning_uhsms = OMAP_HSMMC_READ(host->base, AC12) & UHSMS_MASK;
+	host->tuning_done = true;
+	omap_hsmmc_reset_controller_fsm(host, SRD);
+	omap_hsmmc_reset_controller_fsm(host, SRC);
+	kfree(host->tuning_data);
+
+	return 0;
+
+tuning_error:
+	ac12 = OMAP_HSMMC_READ(host->base, AC12);
+	ac12 &= ~(UHSMS_MASK | SCLK_SEL);
+	OMAP_HSMMC_WRITE(host->base, AC12, ac12);
+
+	dll = OMAP_HSMMC_READ(host->base, DLL);
+	dll &= ~(FORCE_VALUE | SWT);
+	OMAP_HSMMC_WRITE(host->base, DLL, dll);
+
+	omap_hsmmc_reset_controller_fsm(host, SRD);
+	omap_hsmmc_reset_controller_fsm(host, SRC);
+
+	kfree(host->tuning_data);
+
+	return err;
+}
+
 static const struct mmc_host_ops omap_hsmmc_ops = {
 	.enable = omap_hsmmc_enable_fclk,
 	.disable = omap_hsmmc_disable_fclk,
@@ -1727,6 +2003,7 @@ static const struct mmc_host_ops omap_hsmmc_ops = {
 	.get_cd = omap_hsmmc_get_cd,
 	.get_ro = omap_hsmmc_get_ro,
 	.init_card = omap_hsmmc_init_card,
+	.execute_tuning = omap_hsmmc_execute_tuning,
 	/* NYET -- enable_sdio_irq */
 };
 
@@ -1880,7 +2157,7 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 	unsigned tx_req, rx_req;
 	struct dmaengine_chan_caps *dma_chan_caps;
 	struct pinctrl *pinctrl;
-	u32 revision;
+	u32 revision, capa2;
 
 	match = of_match_device(of_match_ptr(omap_mmc_of_match), &pdev->dev);
 	if (match) {
@@ -1952,6 +2229,7 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 		mmc->f_max = OMAP_MMC_MAX_CLOCK;
 
 	spin_lock_init(&host->irq_lock);
+	init_completion(&host->buf_ready);
 
 	host->fclk = clk_get(&pdev->dev, "fck");
 	if (IS_ERR(host->fclk)) {
@@ -2006,6 +2284,18 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 		mmc->caps |= MMC_CAP_NONREMOVABLE;
 
 	mmc->pm_caps = mmc_slot(host).pm_caps;
+	mmc->caps |= MMC_CAP_DRIVER_TYPE_A | MMC_CAP_DRIVER_TYPE_C |
+		     MMC_CAP_DRIVER_TYPE_D;
+
+	capa2 = OMAP_HSMMC_READ(host->base, CAPA2);
+	if (capa2 & SDR104) {
+		mmc->caps |= MMC_CAP_UHS_SDR104 | MMC_CAP_UHS_SDR50;
+		mmc->caps2 |= MMC_CAP2_HS200_1_8V_SDR;
+	}
+	if (capa2 & SDR50)
+		mmc->caps |= MMC_CAP_UHS_SDR50;
+	if (capa2 & DDR50)
+		mmc->caps |= MMC_CAP_UHS_DDR50;
 
 	omap_hsmmc_conf_bus_power(host);
 

@@ -45,6 +45,7 @@
 #define DRA7_DPLL_USB_DEFFREQ			960000000
 #define DRA7_L3INIT_480_GFCLK			480000000
 #define DRA7_DPLL_EVE_GCLK_NOMFREQ		400000000
+#define DRA7_MMC2_DEFFREQ			192000000
 
 #ifdef CONFIG_DSP_OPP_OD
 #define DRA7_DPLL_DSP_DEFFREQ                   700000000
@@ -2157,7 +2158,7 @@ static struct rate_init_clks rate_clks[] = {
 	{ .name = "dpll_dsp_m3x2_ck", .rate = DRA7_DPLL_EVE_GCLK_NOMFREQ },
 	{ .name = "dpll_iva_ck", .rate = DRA7_DPLL_IVA_DEFFREQ },
 	{ .name = "dpll_iva_m2_ck", .rate = DRA7_IVA_GCLK_NOMFREQ },
-
+	{ .name = "mmc2_fclk_div", .rate = DRA7_MMC2_DEFFREQ },
 };
 
 int __init dra7xx_clk_init(void)

@@ -497,6 +497,20 @@
 		>;
 	};
 
+	mmc2_pins: pinmux_mmc2_pins {
+		pinctrl-single,pins = <
+			0x08c 0x000601a1	/* gpmc_a19.mmc2_dat4 INPUT | MODE1 */
+			0x090 0x000601a1	/* gpmc_a20.mmc2_dat5 INPUT | MODE1 */
+			0x094 0x000601a1	/* gpmc_a21.mmc2_dat6 INPUT | MODE1 */
+			0x098 0x000601a1	/* gpmc_a22.mmc2_dat7 INPUT | MODE1 */
+			0x09c 0x000601a1	/* gpmc_a23.mmc2_clk INPUT | MODE1 */
+			0x0a0 0x000601a1	/* gpmc_a24.mmc2_dat0 INPUT | MODE1 */
+			0x0a4 0x000601a1	/* gpmc_a25.mmc2_dat1 INPUT | MODE1 */
+			0x0a8 0x000601a1	/* gpmc_a26.mmc2_dat2 INPUT | MODE1 */
+			0x0ac 0x000601a1	/* gpmc_a27.mmc2_dat3 INPUT | MODE1 */
+			0x0b0 0x000601a1	/* gpmc_cs1.mmc2_cmd INPUT | MODE1 */
+		>;
+	};
 };
 
 &i2c1 {
@@ -829,7 +843,10 @@
 &mmc2 {
 	vmmc-supply = <&vmmc2_fixed>;
 	bus-width = <8>;
+	max-frequency = <192000000>;
 	ti,non-removable;
+	pinctrl-names = "default";
+	pinctrl-0 = <&mmc2_pins>;
 };
 
 &mmc3 {

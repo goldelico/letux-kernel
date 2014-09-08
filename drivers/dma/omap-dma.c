@@ -317,11 +317,21 @@ static struct dma_async_tx_descriptor *omap_dma_prep_slave_sg(
 		dev_width = c->cfg.src_addr_width;
 		burst = c->cfg.src_maxburst;
 		sync_type = OMAP_DMA_SRC_SYNC;
+		if (dma_omap2plus()) {
+			omap_set_dma_dest_burst_mode(c->dma_ch,
+						     OMAP_DMA_DATA_BURST_4);
+			omap_set_dma_dest_data_pack(c->dma_ch, 1);
+		}
 	} else if (dir == DMA_MEM_TO_DEV) {
 		dev_addr = c->cfg.dst_addr;
 		dev_width = c->cfg.dst_addr_width;
 		burst = c->cfg.dst_maxburst;
 		sync_type = OMAP_DMA_DST_SYNC;
+		if (dma_omap2plus()) {
+			omap_set_dma_src_burst_mode(c->dma_ch,
+						    OMAP_DMA_DATA_BURST_4);
+			omap_set_dma_src_data_pack(c->dma_ch, 1);
+		}
 	} else {
 		dev_err(chan->device->dev, "%s: bad direction?\n", __func__);
 		return NULL;
@@ -498,6 +508,9 @@ static int omap_dma_terminate_all(struct omap_chan *c)
 		c->paused = false;
 		omap_dma_unlink_lch(c->dma_ch, c->dma_ch);
 	}
+
+	omap_set_dma_src_data_pack(c->dma_ch, 0);
+	omap_set_dma_dest_data_pack(c->dma_ch, 0);
 
 	vchan_get_all_descriptors(&c->vc, &head);
 	spin_unlock_irqrestore(&c->vc.lock, flags);
