@@ -2288,7 +2288,7 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 		     MMC_CAP_DRIVER_TYPE_D;
 
 	capa2 = OMAP_HSMMC_READ(host->base, CAPA2);
-	if (capa2 & SDR104) {
+	if ((capa2 & SDR104) && (mmc->f_max > (2 * MMC_HIGH_DDR_MAX_DTR))) {
 		mmc->caps |= MMC_CAP_UHS_SDR104 | MMC_CAP_UHS_SDR50;
 		mmc->caps2 |= MMC_CAP2_HS200_1_8V_SDR;
 	}
