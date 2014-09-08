@@ -785,7 +785,7 @@
 	/* BQ24297 */
 };
 
-&i2c1 { // should be defined in omap5-uevm.dts!
+&i2c5 { // should be defined in omap5-uevm.dts! - but the bus is not connected!
 
 	/* usb bridge */
 	usb3503@08 {
@@ -868,64 +868,64 @@ none nand-disk mmc0 mmc1 timer oneshot [heartbeat] cpu0 cpu1 default-on transien
 		compatible = "gpio-leds";
 		led@1 {
 			label = "pyra:red:left";
-			gpios = <&gpio99 5 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "heartbeat";
+			gpios = <&gpio99 5 GPIO_ACTIVE_LOW>;
+			linux,default-trigger = "none";
 			default-state = "off";
 		};
 
 		led@2 {
 			label = "pyra:green:left";
-			gpios = <&gpio99 6 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "heartbeat";
+			gpios = <&gpio99 6 GPIO_ACTIVE_LOW>;
+			linux,default-trigger = "none";
 			default-state = "off";
 		};
 
 		led@3 {
 			label = "pyra:blue:left";
-			gpios = <&gpio99 7 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "heartbeat";
+			gpios = <&gpio99 7 GPIO_ACTIVE_LOW>;
+			linux,default-trigger = "none";
 			default-state = "off";
 		};
 
 		led@4 {
 			label = "pyra:red:mid";
-			gpios = <&gpio99 17 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "heartbeat";
+			gpios = <&gpio99 17 GPIO_ACTIVE_LOW>;
+			linux,default-trigger = "none";
 			default-state = "off";
 		};
 
 		led@5 {
 			label = "pyra:green:mid";
-			gpios = <&gpio99 18 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "heartbeat";
+			gpios = <&gpio99 18 GPIO_ACTIVE_LOW>;
+			linux,default-trigger = "timer";
 			default-state = "off";
 		};
 
 		led@6 {
 			label = "pyra:blue:mid";
-			gpios = <&gpio99 19 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "heartbeat";
+			gpios = <&gpio99 19 GPIO_ACTIVE_LOW>;
+			linux,default-trigger = "none";
 			default-state = "off";
 		};
 
 		led@7 {
 			label = "pyra:red:right";
-			gpios = <&gpio99 21 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "heartbeat";
+			gpios = <&gpio99 21 GPIO_ACTIVE_LOW>;
+			linux,default-trigger = "none";
 			default-state = "off";
 		};
 
 		led@8 {
 			label = "pyra:green:right";
-			gpios = <&gpio99 22 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "heartbeat";
+			gpios = <&gpio99 22 GPIO_ACTIVE_LOW>;
+			linux,default-trigger = "none";
 			default-state = "off";
 		};
 
 		led@9 {
 			label = "pyra:blue:right";
-			gpios = <&gpio99 23 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "heartbeat";
+			gpios = <&gpio99 23 GPIO_ACTIVE_LOW>;
+			linux,default-trigger = "none";
 			default-state = "off";
 		};
 
@@ -935,29 +935,29 @@ none nand-disk mmc0 mmc1 timer oneshot [heartbeat] cpu0 cpu1 default-on transien
 		compatible = "gpio-leds";
 		led@1 {
 			label = "keypad1";
-			gpios = <&gpio99 2 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "heartbeat";
+			gpios = <&gpio99 2 GPIO_ACTIVE_LOW>;
+			linux,default-trigger = "none";
 			default-state = "off";
 		};
 
 		led@2 {
 			label = "keypad2";
-			gpios = <&gpio99 3 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "heartbeat";
+			gpios = <&gpio99 3 GPIO_ACTIVE_LOW>;
+			linux,default-trigger = "none";
 			default-state = "off";
 		};
 
 		led@3 {
 			label = "keypad3";
-			gpios = <&gpio99 12 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "heartbeat";
+			gpios = <&gpio99 12 GPIO_ACTIVE_LOW>;
+			linux,default-trigger = "none";
 			default-state = "off";
 		};
 
 		led@4 {
 			label = "keypad4";
-			gpios = <&gpio99 13 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "heartbeat";
+			gpios = <&gpio99 13 GPIO_ACTIVE_LOW>;
+			linux,default-trigger = "none";
 			default-state = "off";
 		};
 	};
