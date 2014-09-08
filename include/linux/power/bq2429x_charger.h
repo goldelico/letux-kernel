@@ -1,5 +1,5 @@
 /*
- * Definitions for mma8452 compass chip.
+ * Definitions for BQ24296 battery charger.
  */
 #ifndef BQ24296_H
 #define BQ24296_H
@@ -7,7 +7,7 @@
 
 /* I2C register define */
 #define INPUT_SOURCE_CONTROL_REGISTER		0x00
-#define POWE_ON_CONFIGURATION_REGISTER		0x01
+#define POWER_ON_CONFIGURATION_REGISTER		0x01
 #define CHARGE_CURRENT_CONTROL_REGISTER		0x02
 #define PRE_CHARGE_TERMINATION_CURRENT_CONTROL_REGISTER		0x03
 #define CHARGE_VOLTAGE_CONTROL_REGISTER		0x04
@@ -120,8 +120,6 @@
 #define BQ24296_DC_CHG             0x02
 #define BQ24296_USB_CHG            0x01
 
-#define BQ24296_SPEED 			300 * 1000
-
 enum {
 	AC_NOT_INSERT = 0,
 	AC_INSERT = 1,
@@ -141,9 +139,10 @@ struct bq24296_device_info {
 	u8 usb_input_current;
 	u8 adp_input_current;
 	//struct timer_list timer;
+	struct power_supply *usb;
 };
 
-struct bq24296_platform_data {		
+struct bq24296_platform_data {
 	unsigned int otg_usb_pin;
 	unsigned int chg_irq_pin;
 	unsigned int psel_pin;
@@ -162,5 +161,3 @@ struct bq24296_board {
 
  int bq24296_charge_otg_en(int chg_en,int otg_en);
 #endif
-
-
