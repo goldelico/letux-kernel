@@ -1,5 +1,5 @@
 /*
- * Definitions for mma8452 compass chip.
+ * Definitions for BQ24296 battery charger.
  */
 #ifndef BQ24296_H
 #define BQ24296_H
@@ -119,8 +119,6 @@
 
 #define BQ24296_DC_CHG             0x02
 #define BQ24296_USB_CHG            0x01
-
-#define BQ24296_SPEED 			300 * 1000
 
 enum {
 	AC_NOT_INSERT = 0,

@@ -1,5 +1,5 @@
 /*
- * BQ24296 battery driver
+ * BQ24296 battery charger
  *
  * This package is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -23,7 +23,7 @@
 #include <asm/unaligned.h>
 #include <linux/proc_fs.h>
 #include <asm/uaccess.h>
-#include <linux/power/bq24296_charger.h>
+#include <linux/power/bq2429x_charger.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/of_irq.h>
@@ -45,7 +45,7 @@ int bq24296_chag_down ;
 /*
  * Common code for BQ24296 devices read
  */
-static int bq24296_i2c_reg8_read(const struct i2c_client *client, const char reg, char *buf, int count, int scl_rate)
+static int bq24296_i2c_reg8_read(const struct i2c_client *client, const char reg, char *buf, int count)
 {
 	struct i2c_adapter *adap=client->adapter;
 	struct i2c_msg msgs[2];
@@ -56,15 +56,11 @@ static int bq24296_i2c_reg8_read(const struct i2c_client *client, const char reg
 	msgs[0].flags = client->flags;
 	msgs[0].len = 1;
 	msgs[0].buf = &reg_buf;
-	msgs[0].scl_rate = scl_rate;
-//	msgs[0].udelay = client->udelay;
 
 	msgs[1].addr = client->addr;
 	msgs[1].flags = client->flags | I2C_M_RD;
 	msgs[1].len = count;
 	msgs[1].buf = (char *)buf;
-	msgs[1].scl_rate = scl_rate;
-//	msgs[1].udelay = client->udelay;
 
 	ret = i2c_transfer(adap, msgs, 2);
 
@@ -72,7 +68,7 @@ static int bq24296_i2c_reg8_read(const struct i2c_client *client, const char reg
 }
 EXPORT_SYMBOL(bq24296_i2c_reg8_read);
 
-static int bq24296_i2c_reg8_write(const struct i2c_client *client, const char reg, const char *buf, int count, int scl_rate)
+static int bq24296_i2c_reg8_write(const struct i2c_client *client, const char reg, const char *buf, int count)
 {
 	struct i2c_adapter *adap=client->adapter;
 	struct i2c_msg msg;
@@ -87,8 +83,6 @@ static int bq24296_i2c_reg8_write(const struct i2c_client *client, const char re
 	msg.flags = client->flags;
 	msg.len = count + 1;
 	msg.buf = (char *)tx_buf;
-	msg.scl_rate = scl_rate;
-//	msg.udelay = client->udelay;
 
 	ret = i2c_transfer(adap, &msg, 1);
 	kfree(tx_buf);
@@ -100,14 +94,14 @@ EXPORT_SYMBOL(bq24296_i2c_reg8_write);
 static int bq24296_read(struct i2c_client *client, u8 reg, u8 buf[], unsigned len)
 {
 	int ret;
-	ret = bq24296_i2c_reg8_read(client, reg, buf, len, BQ24296_SPEED);
+	ret = bq24296_i2c_reg8_read(client, reg, buf, len);
 	return ret; 
 }
 
 static int bq24296_write(struct i2c_client *client, u8 reg, u8 const buf[], unsigned len)
 {
 	int ret; 
-	ret = bq24296_i2c_reg8_write(client, reg, buf, (int)len, BQ24296_SPEED);
+	ret = bq24296_i2c_reg8_write(client, reg, buf, (int)len);
 	return ret;
 }
 
@@ -365,6 +359,11 @@ static int bq24296_charge_mode_config(int on)
 extern int dwc_otg_check_dpdm(bool wait);
 //extern int get_gadget_connect_flag(void);
 
+int dwc_otg_check_dpdm(bool wait)
+{
+	return 0;
+}
+
 static void usb_detect_work_func(struct work_struct *work)
 {
 	struct delayed_work *delayed_work = (struct delayed_work *)container_of(work, struct delayed_work, work);
@@ -472,8 +471,8 @@ static struct bq24296_board *bq24296_parse_dt(struct bq24296_device_info *di)
 	pdata = devm_kzalloc(di->dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)
 		return NULL;
-	if (of_property_read_u32_array(bq24296_np,"bq24296,chg_current",pdata->chg_current, 3)) {
-		printk("dcdc sleep voltages not specified\n");
+	if (of_property_read_u32_array(bq24296_np,"ti,chg_current",pdata->chg_current, 3)) {
+		printk("charge current not specified\n");
 		return NULL;
 	}
 	
@@ -500,6 +499,7 @@ static struct rk808_board *bq24296_parse_dt(struct bq24296_device_info *di)
 #ifdef CONFIG_OF
 static struct of_device_id bq24296_battery_of_match[] = {
 	{ .compatible = "ti,bq24296"},
+	{ .compatible = "ti,bq24297"},
 	{ },
 };
 MODULE_DEVICE_TABLE(of, bq24296_battery_of_match);
@@ -543,6 +543,8 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 	di->client = client;	
 	if (bq24296_node)
 		pdev = bq24296_parse_dt(di);
+	else
+		pdev = dev_get_platdata(di->dev);
 	
 	bq24296_pdata = pdev;
 	
@@ -615,8 +617,11 @@ static int bq24296_battery_remove(struct i2c_client *client)
 
 static const struct i2c_device_id bq24296_id[] = {
 	{ "bq24296", 0 },
+	{ "bq24297", 1 },
 };
 
+MODULE_ALIAS("i2c:bq2429x");
+												   
 static struct i2c_driver bq24296_battery_driver = {
 	.driver = {
 		.name = "bq24296",
