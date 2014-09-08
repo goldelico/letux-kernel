@@ -1,3 +1,12 @@
+config CHARGER_BQ2429X
+	tristate "TI BQ2429x battery charger support"
+	depends on I2C && GPIOLIB
+	help
+	  Say Y to enable support for the TI BQ2429x battery charger.
+
+	  You'll need this driver to charge batteries on e.g. Pyra
+	  Handheld.
+
 source "drivers/power/avs/Kconfig"
 source "drivers/power/reset/Kconfig"
 source "drivers/power/supply/Kconfig"
