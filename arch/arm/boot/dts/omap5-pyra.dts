@@ -353,7 +353,7 @@
 
 /* register devices connected to EVM-Panel-I2C */
 &i2c2 {
-
+// FIXME: define clock frequencies only once
 	clock-frequency = <400000>;
 
 	/* touchscreen */
@@ -636,8 +636,17 @@
 
 	/* usb bridge */
 	usb3503@08 {
-		compatible = "smsc,usb3503";
+		compatible = "smsc,usb3503a";
 		reg = <0x08>;
+/*
+		refclk	// comes from OMAP5 FREF_CLK1_OUT/GPIO1_W K11
+		refclk-frequency
+		disabled-ports
+		intn-gpios = <&gpio9 22 GPIO_ACTIVE_HIGH>;
+		connect-gpios
+		reset-gpios = <&gpio3 16 GPIO_ACTIVE_HIGH>;	// might be in conflict with reset-gpios of the ususb2_phy
+		initial-mode
+*/
 	};
 };
 
@@ -774,6 +783,24 @@
 	/* INA231 */
 	/* BQ27200 */
 	/* BQ24297 */
+};
+
+&i2c1 { // should be defined in omap5-uevm.dts!
+
+	/* usb bridge */
+	usb3503@08 {
+		compatible = "smsc,usb3503a";
+		reg = <0x08>;
+/*
+	//	refclk	// comes from OMAP5 FREF_CLK1_OUT/GPIO1_W K11
+	//	refclk-frequency
+	//	connect-gpios
+		disabled-ports = <3>;
+		intn-gpios = <&gpio9 22 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&gpio3 16 GPIO_ACTIVE_HIGH>;	// might be in conflict with reset-gpios of the ususb2_phy
+		initial-mode = <1>;
+*/
+	};
 };
 
 / {
