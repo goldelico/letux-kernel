@@ -26,7 +26,7 @@
 		regulator-name = "dsi1_panel_power";
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
-/*		gpio = <&gpio3 18 0>;	/* gpio3_82 = display-enable */
+		gpio = <&gpio3 18 0>;	/* gpio3_82 = display-enable */
 		startup-delay-us = <70000>;
 		enable-active-high;
 	};
@@ -41,7 +41,7 @@
 		enable-active-high;
 		startup-delay-us = <70000>;
 //		vin-supply = <&vsys>;
-// regulator-boot-on;
+ regulator-boot-on;
 	};
 
 	/* this are the DC/DC converters that supply the
@@ -58,7 +58,7 @@
 		enable-active-high;
 		startup-delay-us = <70000>;
 		vin-supply = <&modem_vbus_hdmi_power>;
-// regulator-boot-on;
+ regulator-boot-on;
 	};
 
 	host2_vbus_power: host2_vbus_power_reg {
@@ -70,7 +70,7 @@
 		enable-active-high;
 		startup-delay-us = <70000>;
 		vin-supply = <&modem_vbus_hdmi_power>;
-// regulator-boot-on;
+ regulator-boot-on;
 	};
 
 	/* this is the modem power switch (similar to a LDO) */
@@ -83,7 +83,7 @@
 		enable-active-high;
 		startup-delay-us = <100000>;
 //		vin-supply = <&vsys>;
-// regulator-boot-on;
+ regulator-boot-on;
 	};
 
 	modem_en: modem { /* control modem power through rfkill */
@@ -274,6 +274,7 @@
 			0xf0 0x11e	/* (PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x130:[15:0]  gpio6_182 */
 			0xf2 0x11e	/* (PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x130:[31:16] gpio6_183 */
 			0xf4 0x11e	/* (PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x134:[15:0]  gpio6_184 */
+//			OMAP5_IOPAD(0x122, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x122:[15:0]  gpio6_166 */
 		>;
 	};
 
@@ -607,6 +608,7 @@
 	ina231@4f {
 		compatible = "ti,ina231";
 		reg = <0x4f>;
+		shunt-resistor = <20000>;	/* 20 mOhm */
 	};
 
 	/* fuel gauge */
@@ -974,7 +976,7 @@ gpio-keys@1 {
 		BTN1 {
 			label = "BTN1";
 			linux,code = <169>;
-			gpios = <&gpio3 19 1>;	/* gpio3_83 is BTN1 */
+			gpios = <&gpio3 19 GPIO_ACTIVE_LOW>;	/* gpio3_83 is BTN1 */
 			gpio-key,wakeup;
 			autorepeat;
 			debounce_interval = <50>;
@@ -983,42 +985,43 @@ gpio-keys@1 {
 		left_shoulder_top {
 			label = "Left-Shoulder-Top";
 			linux,code = <16>;	/* KEY_Q */
-			gpios = <&gpio6 24 1>;	/* gpio6_184 */
+			// CHECKME: polarity may change for next revision!
+			gpios = <&gpio6 24 GPIO_ACTIVE_LOW>;	/* gpio6_184 */
 			gpio-key,wakeup;
 		};
 
 		left_shoulder_bottom {
 			label = "Left-Shoulder-Bottom";
 			linux,code = <44>;	/* KEY_Z */
-			gpios = <&gpio6 23 1>;	/* gpio6_183 */
+			gpios = <&gpio6 23 GPIO_ACTIVE_LOW>;	/* gpio6_183 */
 			gpio-key,wakeup;
 		};
 
 		right_shoulder_top {
 			label = "Right-Shoulder-Top";
 			linux,code = <25>;	/* KEY_P */
-			gpios = <&gpio6 20 1>;	/* gpio6_180 */
+			gpios = <&gpio6 20 GPIO_ACTIVE_LOW>;	/* gpio6_180 */
 			gpio-key,wakeup;
 		};
 
 		right_shoulder_bottom {
 			label = "Right-Shoulder-Bottom";
 			linux,code = <50>;	/* KEY_M */
-			gpios = <&gpio6 19 1>;	/* gpio6_179 */
+			gpios = <&gpio6 19 GPIO_ACTIVE_LOW>;	/* gpio6_179 */
 			gpio-key,wakeup;
 		};
 
 		left_nub {
 			label = "Left-Nub";
 			linux,code = <38>;	/* KEY_L */
-			gpios = <&gpio6 22 1>;	/* gpio6_182 */
+			gpios = <&gpio6 22 GPIO_ACTIVE_LOW>;	/* gpio6_182 */
 			gpio-key,wakeup;
 		};
 
 		right_nub {
 			label = "Right-Nub";
 			linux,code = <19>;	/* KEY_R */
-			gpios = <&gpio6 21 1>;	/* gpio6_181 */
+			gpios = <&gpio6 21 GPIO_ACTIVE_LOW>;	/* gpio6_181 */
 			gpio-key,wakeup;
 		};
 
@@ -1033,7 +1036,7 @@ gpio-keys@2 {
 		wwan_wakeup {
 			label = "3G WOE";
 			linux,code = <17>;	/* KEY_W */
-			gpios = <&gpio6 1 0>;	/* gpio6_161 */
+			gpios = <&gpio6 1 GPIO_ACTIVE_HIGH>;	/* gpio6_161 */
 			gpio-key,wakeup;
 			/* debounce-interval */
 		};
@@ -1044,7 +1047,7 @@ gpio-keys@2 {
 			// linux,input-type = <5>; /* EV_SW */
 			// linux,code = <0>; /* SW_LID */
 			linux,code = <45>;	/* KEY_X */
-			gpios = <&gpio6 0 1>;	/* gpio6_160 */
+			gpios = <&gpio6 0 GPIO_ACTIVE_LOW>;	/* gpio6_160 */
 			gpio-key,wakeup;
 		};
 
