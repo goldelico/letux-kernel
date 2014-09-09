@@ -119,6 +119,26 @@ struct max17042_chip {
 	int malicious_online;
 };
 
+#ifdef CONFIG_OF
+const char *get_dts_batt_id(struct device *dev)
+{
+	int lenp;
+	const char *retval = NULL;
+	struct device_node *n = of_find_node_by_path("/chosen");
+
+	if (n) {
+		retval = of_get_property(n, "batt-id", &lenp);
+		if (!retval || !lenp) {
+			dev_err(dev, "%s: batt-id len %d\n", __func__, lenp);
+			retval = NULL;
+		}
+		of_node_put(n);
+	}
+
+	return retval;
+}
+#endif
+
 static int max17042_write_reg(struct i2c_client *client, u8 reg, u16 value)
 {
 	int ret = i2c_smbus_write_word_data(client, reg, value);
@@ -1008,13 +1028,26 @@ static void max17042_cfg_optnl_prop(struct device_node *np,
 static struct max17042_config_data *
 max17042_get_config_data(struct device *dev)
 {
+	char *config_node = NULL;
+	char config_node_path[64];
 	struct max17042_config_data *config_data;
 	struct device_node *np = dev->of_node;
 
 	if (!np)
 		return NULL;
 
-	np = of_get_child_by_name(np, CONFIG_NODE);
+	config_node = (char *)get_dts_batt_id(dev);
+	if (config_node) {
+		snprintf(config_node_path, sizeof(config_node_path),
+			 "%s-%s", CONFIG_NODE, config_node);
+		config_node = config_node_path;
+	} else {
+		config_node = CONFIG_NODE;
+	}
+
+	dev_info(dev, "using %s profile\n", config_node);
+
+	np = of_get_child_by_name(np, config_node);
 	if (!np)
 		return NULL;
 
