@@ -102,9 +102,11 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 		u32 value;
 		pdata = &of_pdata;
 
-		pdata->name="unnamed";
-		pdata->state_on=NULL;
-		pdata->state_off=NULL;
+		pdata->name = "unnamed";
+		pdata->state_on = NULL;
+		pdata->state_off = NULL;
+		pdata->debounce = 0;
+		pdata->irq_flags = 0;
 
 		of_property_read_string(node, "label", &pdata->name);
 #ifdef DEBUG
