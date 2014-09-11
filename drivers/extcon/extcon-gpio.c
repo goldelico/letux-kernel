@@ -113,12 +113,16 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 		u32 value;
 		pdata = &of_pdata;
 
-		pdata->name="unnamed";
-		pdata->state_on=NULL;
-		pdata->state_off=NULL;
+		pdata->name = "unnamed";
+		pdata->state_on = NULL;
+		pdata->state_off = NULL;
+		pdata->debounce = 0;
+		pdata->irq_flags = 0;
 
 		of_property_read_string(node, "label", &pdata->name);
+#ifdef DEBUG
 		printk("  name=%s\n", pdata->name);
+#endif
 		pdata->gpio = of_get_gpio_flags(node, 0, &flags);
 		pdata->gpio_active_low = (flags&OF_GPIO_ACTIVE_LOW) != 0;
 		if(!of_property_read_u32(node, "debounce-delay-ms", &value))
