@@ -102,15 +102,18 @@ static void c_can_hw_raminit_dra7(const struct c_can_priv *priv, bool enable)
 		if (omap_rev() == DRA752_REV_ES1_0) {
 			/* Disable interrupts */
 			spin_lock_irqsave(&raminit_lock, flags);
-		}
-		/* Trigger the RAM initialization */
-		writel(start_set, priv->raminit_ctrlreg);
-		writel(start_clr, priv->raminit_ctrlreg);
 
-		if (omap_rev() == DRA752_REV_ES1_0) {
+			/* erratum specific to DRA75x ES 1.0 */
+			/* Trigger the RAM initialization */
+			writel(start_set, priv->raminit_ctrlreg);
+			writel(start_clr, priv->raminit_ctrlreg);
+
 			/* Restore interrupts */
 			spin_unlock_irqrestore(&raminit_lock, flags);
-		}
+		} else
+			/* Trigger the RAM initialization */
+			writel(start_set, priv->raminit_ctrlreg);
+
 	}
 	else {
 		writel(start_clr, priv->raminit_ctrlreg);
