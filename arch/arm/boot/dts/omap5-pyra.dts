@@ -102,13 +102,14 @@
 	};
 
 	mic_presence {
+/* FIXME: a dedicated TS3A225 driver can reprogram the MIC_PRESENT line through I2C into an INT so we can detect other changes (e.g. mic button pressed) */
 		compatible = "extcon-gpio";
 		label = "mic_presence";
 		interrupt-parent = <&gpio99>;
 		interrupts = <14 IRQ_TYPE_EDGE_BOTH>;
 		irq-flags = <IRQ_TYPE_EDGE_BOTH>;
 		gpios = <&gpio99 14 GPIO_ACTIVE_LOW>;
-		debounce-delay-ms = <10>;
+		// debounce-delay-ms = <10>; -- not available at tca6424
 		state-on = "present";
 		state-off = "unplugged";
 	};
@@ -121,7 +122,7 @@
 		interrupts = <14 IRQ_TYPE_EDGE_BOTH>;
 		irq-flags = <IRQ_TYPE_EDGE_BOTH>;
 		gpios = <&gpio9 14 GPIO_ACTIVE_LOW>;
-		debounce-delay-ms = <10>;
+		// debounce-delay-ms = <10>; -- not available at tca6424
 		state-on = "present";
 		state-off = "unplugged";
 	}; */
@@ -289,7 +290,7 @@
 
 	pyra_other_pins: pinmux_other_gpio_pins {
 		pinctrl-single,pins = <
-			0x72 0x00e	/* (PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x0B0:[31:16] gpio3_81 - TCA6424 interrupt */
+			0x72 0x11e	/* (PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0B0:[31:16] gpio3_81 - TCA6424 active low interrupt */
 			0xca 0x00e	/* (PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x108:[31:16] gpio6_178 - start modem */
 			0xd4 0x11e	/* (PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x114:[15:0]  gpio6_173 - touch screen */
 			0x138 0x11e	/* (PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x178:[15:0]  gpio8_230 - reset I2C peripherals */
@@ -611,16 +612,25 @@
 		shunt-resistor = <20000>;	/* 20 mOhm */
 	};
 
-	/* fuel gauge */
+	/* fuel gauge variant 1 */
 	bq27200@55 {
 		compatible = "ti,bq27200";
 		reg = <0x55>;
 	};
 
+	/* fuel gauge variant 2 */
+	bq27421@55 {
+	//	compatible = "ti,bq27421";
+		reg = <0x55>;
+	};
+
 	/* charger */
 	bq24297@6b {
-		compatible = "ti,bq24297";
+		/* FIXME: driver is quite broken */
+//		compatible = "ti,bq24297";
 		reg = <0x6b>;
+		ti,chg_current = <1000 500 2000>;	// chg_current, usb_input_current, adp_input_current
+//		gpios = <>;	// chg_irq_pin, dc_det_pin
 	};
 
 	/* microphone detect */
@@ -777,7 +787,7 @@
 	gpio99: tca6424@22 {
 		compatible = "ti,tca6424";
 		interrupt-parent = <&gpio3>;
-		interrupts = <17 IRQ_TYPE_LEVEL_HIGH>;	/* gpio3_81 */
+		interrupts = <17 IRQ_TYPE_LEVEL_LOW>;	/* gpio3_81 */
 		reg = <0x22>;
 		gpio-controller;
 		#gpio-cells = <2>;
