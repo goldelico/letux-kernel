@@ -1874,6 +1874,49 @@ static ssize_t minnow_panel_store_interactivemode(struct device *dev,
 	return r ? r : count;
 }
 
+static ssize_t minnow_panel_show_smartambient(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct omap_dss_device *dssdev = to_dss_device(dev);
+	struct minnow_panel_data *mpd = dev_get_drvdata(&dssdev->dev);
+	unsigned t;
+
+	t = mpd->smart_ambient;
+
+	return snprintf(buf, PAGE_SIZE, "%u\n", t);
+}
+
+static ssize_t minnow_panel_store_smartambient(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct omap_dss_device *dssdev = to_dss_device(dev);
+	struct minnow_panel_data *mpd = dev_get_drvdata(&dssdev->dev);
+	unsigned long t;
+	int r;
+	bool enable;
+
+	r = kstrtoul(buf, 10, &t);
+	if (!r) {
+		mutex_lock(&mpd->lock);
+		enable = !!t;
+		if (mpd->state != DISPLAY_ENABLE) {
+			dev_err(&dssdev->dev, "%s failed as display is not enabled\n",
+				__func__);
+			r = -EBUSY;
+		} else if (mpd->smart_ambient != enable) {
+			mpd->smart_ambient = enable;
+		}
+		mutex_unlock(&mpd->lock);
+		if (r)
+			dev_err(&dssdev->dev, "setting smartambient_status to %ld failed %d\n",
+				t, r);
+		else
+			dev_dbg(&dssdev->dev, "setting smartambient_status to %ld succeeded\n",
+				t);
+	}
+
+	return r ? r : count;
+}
 static ssize_t minnow_panel_show_ambient_timeout(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
@@ -2050,6 +2093,9 @@ static DEVICE_ATTR(init_data, S_IRUGO | S_IWUSR,
 static DEVICE_ATTR(interactivemode, S_IRUGO | S_IWUSR,
 		   minnow_panel_show_interactivemode,
 		   minnow_panel_store_interactivemode);
+static DEVICE_ATTR(smartambient, S_IRUSR | S_IWUSR,
+		   minnow_panel_show_smartambient,
+		   minnow_panel_store_smartambient);
 static DEVICE_ATTR(ambient_timeout, S_IRUGO | S_IWUSR,
 		   minnow_panel_show_ambient_timeout,
 		   minnow_panel_store_ambient_timeout);
@@ -2076,6 +2122,7 @@ static struct attribute *minnow_panel_attrs[] = {
 #endif
 #ifdef	CONFIG_HAS_AMBIENTMODE
 	&dev_attr_interactivemode.attr,
+	&dev_attr_smartambient.attr,
 	&dev_attr_ambient_timeout.attr,
 #endif
 #ifdef	PANEL_PERF_TIME
