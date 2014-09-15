@@ -1190,17 +1190,6 @@
 	};
 };
 
-&dpi3 {
-	fpdlink {
-		compatible = "ti,lg101";
-		gpios = <&pcf_lcd3 0 0>; /* pcf8575@21 P0, SEL_GPMC_AD_VID_S0 */
-		data-lines = <24>;
-
-		serializer = <&lvds_fpd>;
-		dserializer = <&lvds_fpd1>;
-	};
-};
-
 &mXT244 {
 	compatible = "atmel,mXT244";
 	interrupts = <0 119 0x4>;
