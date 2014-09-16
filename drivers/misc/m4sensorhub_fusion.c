@@ -126,6 +126,48 @@ static void m4fus_work_func(struct work_struct *work)
 	dd->iiodat[1].type = FUSION_TYPE_ORIENTATION;
 	dd->iiodat[1].timestamp = iio_get_time_ns();
 
+	size = m4sensorhub_reg_getsize(dd->m4, M4SH_REG_FUSION_GRAVITYX);
+	err = m4sensorhub_reg_read(dd->m4, M4SH_REG_FUSION_GRAVITYX,
+		(char *)&(dd->iiodat[2].values[0]));
+	if (err < 0) {
+		m4fus_err("%s: Failed to read gravityX data.\n", __func__);
+		goto m4fus_isr_fail;
+	} else if (err != size) {
+		m4fus_err("%s: Read %d bytes instead of %d for %s.\n",
+			  __func__, err, size, "gravityX");
+		err = -EBADE;
+		goto m4fus_isr_fail;
+	}
+
+	size = m4sensorhub_reg_getsize(dd->m4, M4SH_REG_FUSION_GRAVITYY);
+	err = m4sensorhub_reg_read(dd->m4, M4SH_REG_FUSION_GRAVITYY,
+		(char *)&(dd->iiodat[2].values[1]));
+	if (err < 0) {
+		m4fus_err("%s: Failed to read gravityY data.\n", __func__);
+		goto m4fus_isr_fail;
+	} else if (err != size) {
+		m4fus_err("%s: Read %d bytes instead of %d for %s.\n",
+			  __func__, err, size, "gravityY");
+		err = -EBADE;
+		goto m4fus_isr_fail;
+	}
+
+	size = m4sensorhub_reg_getsize(dd->m4, M4SH_REG_FUSION_GRAVITYZ);
+	err = m4sensorhub_reg_read(dd->m4, M4SH_REG_FUSION_GRAVITYZ,
+		(char *)&(dd->iiodat[2].values[2]));
+	if (err < 0) {
+		m4fus_err("%s: Failed to read gravityZ data.\n", __func__);
+		goto m4fus_isr_fail;
+	} else if (err != size) {
+		m4fus_err("%s: Read %d bytes instead of %d for %s.\n",
+			  __func__, err, size, "gravityZ");
+		err = -EBADE;
+		goto m4fus_isr_fail;
+	}
+
+	dd->iiodat[2].type = FUSION_TYPE_GRAVITY;
+	dd->iiodat[2].timestamp = iio_get_time_ns();
+
 	/*
 	 * For some reason, IIO knows we are sending an array,
 	 * so all FUSION_TYPE_* indicies will be sent
