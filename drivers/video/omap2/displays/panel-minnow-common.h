@@ -18,7 +18,7 @@
 
 #ifndef _MINNOW_PANEL_COMMON_HEADER_
 
-#define	INIT_DATA_VERSION	(0x072314) /*MM/DD/YY*/
+#define	INIT_DATA_VERSION	(0x081214) /*MM/DD/YY*/
 /* This header file is used to sync Bootloader and Kernel Display Initialize
  * Structure/Data, please make sure sync it for both Bootloader/Kernel when
  * it changes some settings for Solomon/Orise. Bootloader should pass
@@ -215,8 +215,8 @@ static u8 panel_init_ssd2848_320x320[] = {
 2, OTM3201_CMD, 0xE9, 0x46,
 /* Display Inversion Control (RB1h) */
 2, OTM3201_CMD, 0xB1, 0x12,
-/* ??? undefined */
-2, OTM3201_CMD, 0xE2, 0xF0,
+/* MIPI RX Delay Setting (RE2h) */
+2, OTM3201_CMD, 0xE2, 0xF5,
 /* Display Waveform Cycle setting (RBAh)  */
 5, OTM3201_CMD, 0xBA, 0x06, 0x15, 0x2B, 0x01,
 /* RGB Interface Blanking Porch setting (RB3h)
