@@ -668,10 +668,24 @@
 		compatible = "omnivision,ov9655";
 		reg = <0x30>;
 		vdd_ana-supply = <&vaux3>;	/* driver should devm_regulator_get_optional("vdd_ana") */
-		/* connect to camera interface to supply clock and capture */
+
+		clock-frequency = <24000000>;
+// FIXME:	clocks = <&mclk 0>;
+// FIXME:	clock-names = "xclk-a";
+
+		port {
+			ov9655_1: endpoint {
+				bus-width = <8>;
+// FIXME:			remote-endpoint = <&isp_1>;
+				hsync-active = <1>;
+				vsync-active = <1>;
+				data-active = <1>;	/* Active High */
+				pclk-sample = <1>;	/* Rising */
+			};
+		};
 	};
 
-	/* FM Radio (no kernel driver) */
+	/* FM Radio (no kernel driver exists) */
 	si4721_codec: si4721@11 {
 		compatible = "silicon-labs,si4721";
 		reg = <0x11>;
