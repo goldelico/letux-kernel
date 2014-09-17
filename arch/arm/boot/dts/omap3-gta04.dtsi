@@ -35,6 +35,69 @@
 		display1 = &tv0;
 	};
 
+	/* we have no compatible driver yet
+	 and parts of this should belong to the omap3.dtsi
+	 so that we only have to define the endpoints
+	*/
+
+	omap3isp: isp@480BC000 {
+		compatible = "ti,omap3isp";
+		reg = <0x480BC000 0x070>, /* base */
+		<0x480BC100 0x078>, /* cbuf */
+		<0x480BC400 0x1F0>, /* cpp2 */
+		<0x480BC600 0x0A8>, /* ccdc */
+		<0x480BCA00 0x048>, /* hist */
+		<0x480BCC00 0x060>, /* h3a*/
+		<0x480BCE00 0x0A0>, /* prev */
+		<0x480BD000 0x0AC>, /* resz */
+		<0x480BD200 0x0FC>, /* sbl*/
+		<0x480BD400 0x070>; /* mmu*/
+
+		clocks = <&cam_ick>,
+			<&cam_mclk>,
+			<&csi2_96m_fck>,
+			<&l3_ick>;
+
+		clock-names = "cam_ick",
+			"cam_mclk",
+			"csi2_96m_fck",
+		"l3_ick";
+
+		interrupts = <24>;
+
+		ti,iommu = <&mmu_isp>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		isp_xclk1: isp-xclk@0 {
+			compatible = "ti,omap3-isp-xclk";
+			reg = <0>;
+			#clock-cells = <0>;
+		};
+
+		isp_xclk2: isp-xclk@1 {
+			compatible = "ti,omap3-isp-xclk";
+			reg = <1>;
+			#clock-cells = <0>;
+		};
+
+		port@0 {
+			reg = <0>;
+			parallel_ep: endpoint {};
+		};
+
+		port@1 {
+			reg = <1>;
+			csi1_ep: endpoint {};
+		};
+
+		port@2 {
+			reg = <2>;
+			csi2_ep: endpoint {};
+		};
+	};
+
 	gpio-keys {
 		compatible = "gpio-keys";
 
@@ -83,7 +146,7 @@
 		ti,codec = <&twl_audio>;
 
 		ti,mcbsp-voice = <&mcbsp4>;
-/*		ti,jack-det-gpio = <&gpio? >;    /* planned for GTA04A5 */
+/*		ti,jack-det-gpio = <&gpio? >;/* planned for GTA04A5 */
 /*		ti,audio-routing = "Headset Mic", "HSMIC",
 				 specify list of audio routings */
 
@@ -179,14 +242,14 @@
 
 	/* this is a workaround because the backlight pwm does not work */
 	power: fixed_regulator@0 {
-	       compatible = "regulator-fixed";
-	       regulator-name = "bl-enable";
-	       regulator-boot-on;
-	       regulator-always-on;
-	       regulator-min-microvolt = "1000000";
-	       regulator-max-microvolt = "1000000";
-	       gpio = <&gpio2 25 0>;	/* GPT11/PWM */
-	       enable-active-high;
+		compatible = "regulator-fixed";
+		regulator-name = "bl-enable";
+		regulator-boot-on;
+		regulator-always-on;
+		regulator-min-microvolt = "1000000";
+		regulator-max-microvolt = "1000000";
+		gpio = <&gpio2 25 0>;	/* GPT11/PWM */
+		enable-active-high;
 	};
 
 	tv0: connector@1 {
@@ -360,35 +423,35 @@
 	};
 
 	dss_dpi_pins: pinmux_dss_dpi_pins {
-               pinctrl-single,pins = <
-                       0x0a4 (PIN_OUTPUT | MUX_MODE0)   /* dss_pclk.dss_pclk */
-                       0x0a6 (PIN_OUTPUT | MUX_MODE0)   /* dss_hsync.dss_hsync */
-                       0x0a8 (PIN_OUTPUT | MUX_MODE0)   /* dss_vsync.dss_vsync */
-                       0x0aa (PIN_OUTPUT | MUX_MODE0)   /* dss_acbias.dss_acbias */
-                       0x0ac (PIN_OUTPUT | MUX_MODE0)   /* dss_data0.dss_data0 */
-                       0x0ae (PIN_OUTPUT | MUX_MODE0)   /* dss_data1.dss_data1 */
-                       0x0b0 (PIN_OUTPUT | MUX_MODE0)   /* dss_data2.dss_data2 */
-                       0x0b2 (PIN_OUTPUT | MUX_MODE0)   /* dss_data3.dss_data3 */
-                       0x0b4 (PIN_OUTPUT | MUX_MODE0)   /* dss_data4.dss_data4 */
-                       0x0b6 (PIN_OUTPUT | MUX_MODE0)   /* dss_data5.dss_data5 */
-                       0x0b8 (PIN_OUTPUT | MUX_MODE0)   /* dss_data6.dss_data6 */
-                       0x0ba (PIN_OUTPUT | MUX_MODE0)   /* dss_data7.dss_data7 */
-                       0x0bc (PIN_OUTPUT | MUX_MODE0)   /* dss_data8.dss_data8 */
-                       0x0be (PIN_OUTPUT | MUX_MODE0)   /* dss_data9.dss_data9 */
-                       0x0c0 (PIN_OUTPUT | MUX_MODE0)   /* dss_data10.dss_data10 */
-                       0x0c2 (PIN_OUTPUT | MUX_MODE0)   /* dss_data11.dss_data11 */
-                       0x0c4 (PIN_OUTPUT | MUX_MODE0)   /* dss_data12.dss_data12 */
-                       0x0c6 (PIN_OUTPUT | MUX_MODE0)   /* dss_data13.dss_data13 */
-                       0x0c8 (PIN_OUTPUT | MUX_MODE0)   /* dss_data14.dss_data14 */
-                       0x0ca (PIN_OUTPUT | MUX_MODE0)   /* dss_data15.dss_data15 */
-                       0x0cc (PIN_OUTPUT | MUX_MODE0)   /* dss_data16.dss_data16 */
-                       0x0ce (PIN_OUTPUT | MUX_MODE0)   /* dss_data17.dss_data17 */
-                       0x0d0 (PIN_OUTPUT | MUX_MODE0)   /* dss_data18.dss_data18 */
-                       0x0d2 (PIN_OUTPUT | MUX_MODE0)   /* dss_data19.dss_data19 */
-                       0x0d4 (PIN_OUTPUT | MUX_MODE0)   /* dss_data20.dss_data20 */
-                       0x0d6 (PIN_OUTPUT | MUX_MODE0)   /* dss_data21.dss_data21 */
-                       0x0d8 (PIN_OUTPUT | MUX_MODE0)   /* dss_data22.dss_data22 */
-                       0x0da (PIN_OUTPUT | MUX_MODE0)   /* dss_data23.dss_data23 */
+		pinctrl-single,pins = <
+			0x0a4 (PIN_OUTPUT | MUX_MODE0) /* dss_pclk.dss_pclk */
+			0x0a6 (PIN_OUTPUT | MUX_MODE0) /* dss_hsync.dss_hsync */
+			0x0a8 (PIN_OUTPUT | MUX_MODE0) /* dss_vsync.dss_vsync */
+			0x0aa (PIN_OUTPUT | MUX_MODE0) /* dss_acbias.dss_acbias */
+			0x0ac (PIN_OUTPUT | MUX_MODE0) /* dss_data0.dss_data0 */
+			0x0ae (PIN_OUTPUT | MUX_MODE0) /* dss_data1.dss_data1 */
+			0x0b0 (PIN_OUTPUT | MUX_MODE0) /* dss_data2.dss_data2 */
+			0x0b2 (PIN_OUTPUT | MUX_MODE0) /* dss_data3.dss_data3 */
+			0x0b4 (PIN_OUTPUT | MUX_MODE0) /* dss_data4.dss_data4 */
+			0x0b6 (PIN_OUTPUT | MUX_MODE0) /* dss_data5.dss_data5 */
+			0x0b8 (PIN_OUTPUT | MUX_MODE0) /* dss_data6.dss_data6 */
+			0x0ba (PIN_OUTPUT | MUX_MODE0) /* dss_data7.dss_data7 */
+			0x0bc (PIN_OUTPUT | MUX_MODE0) /* dss_data8.dss_data8 */
+			0x0be (PIN_OUTPUT | MUX_MODE0) /* dss_data9.dss_data9 */
+			0x0c0 (PIN_OUTPUT | MUX_MODE0) /* dss_data10.dss_data10 */
+			0x0c2 (PIN_OUTPUT | MUX_MODE0) /* dss_data11.dss_data11 */
+			0x0c4 (PIN_OUTPUT | MUX_MODE0) /* dss_data12.dss_data12 */
+			0x0c6 (PIN_OUTPUT | MUX_MODE0) /* dss_data13.dss_data13 */
+			0x0c8 (PIN_OUTPUT | MUX_MODE0) /* dss_data14.dss_data14 */
+			0x0ca (PIN_OUTPUT | MUX_MODE0) /* dss_data15.dss_data15 */
+			0x0cc (PIN_OUTPUT | MUX_MODE0) /* dss_data16.dss_data16 */
+			0x0ce (PIN_OUTPUT | MUX_MODE0) /* dss_data17.dss_data17 */
+			0x0d0 (PIN_OUTPUT | MUX_MODE0) /* dss_data18.dss_data18 */
+			0x0d2 (PIN_OUTPUT | MUX_MODE0) /* dss_data19.dss_data19 */
+			0x0d4 (PIN_OUTPUT | MUX_MODE0) /* dss_data20.dss_data20 */
+			0x0d6 (PIN_OUTPUT | MUX_MODE0) /* dss_data21.dss_data21 */
+			0x0d8 (PIN_OUTPUT | MUX_MODE0) /* dss_data22.dss_data22 */
+			0x0da (PIN_OUTPUT | MUX_MODE0) /* dss_data23.dss_data23 */
 		>;
 	};
 
@@ -405,22 +468,22 @@
 
 	i2c1_pins: pinmux_i2c1_pins {
 		pinctrl-single,pins = <
-			0x18a (PIN_INPUT_PULLUP | MUX_MODE0)   /* i2c1_scl.i2c1_scl */
-			0x18c (PIN_INPUT_PULLUP | MUX_MODE0)   /* i2c1_sda.i2c1_sda */
+			0x18a (PIN_INPUT_PULLUP | MUX_MODE0) /* i2c1_scl.i2c1_scl */
+			0x18c (PIN_INPUT_PULLUP | MUX_MODE0) /* i2c1_sda.i2c1_sda */
 		>;
 	};
 
 	i2c2_pins: pinmux_i2c2_pins {
 		pinctrl-single,pins = <
-			0x18e (PIN_INPUT_PULLUP | MUX_MODE0)   /* i2c2_scl.i2c2_scl */
-			0x190 (PIN_INPUT_PULLUP | MUX_MODE0)   /* i2c2_sda.i2c2_sda */
+			0x18e (PIN_INPUT_PULLUP | MUX_MODE0) /* i2c2_scl.i2c2_scl */
+			0x190 (PIN_INPUT_PULLUP | MUX_MODE0) /* i2c2_sda.i2c2_sda */
 		>;
 	};
 
 	i2c3_pins: pinmux_i2c3_pins {
 		pinctrl-single,pins = <
-			0x192 (PIN_INPUT_PULLUP | MUX_MODE0)   /* i2c3_scl.i2c3_scl */
-			0x194 (PIN_INPUT_PULLUP | MUX_MODE0)   /* i2c3_sda.i2c3_sda */
+			0x192 (PIN_INPUT_PULLUP | MUX_MODE0) /* i2c3_scl.i2c3_scl */
+			0x194 (PIN_INPUT_PULLUP | MUX_MODE0) /* i2c3_sda.i2c3_sda */
 		>;
 	};
 
@@ -432,26 +495,26 @@
 
 	bmp085_pins: pinmux_bmp085_pins {
 		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x2136, PIN_INPUT_PULLUP | MUX_MODE4)   /* gpio113 */
+			OMAP3_CORE1_IOPAD(0x2136, PIN_INPUT_PULLUP | MUX_MODE4) /* gpio113 */
 		>;
 	};
 
 	bma180_pins: pinmux_bma180_pins {
 		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x213a, PIN_INPUT_PULLUP | MUX_MODE4)   /* gpio115 */
+			OMAP3_CORE1_IOPAD(0x213a, PIN_INPUT_PULLUP | MUX_MODE4) /* gpio115 */
 		>;
 	};
 
 	penirq_pins: pinmux_penirq_pins {
 		pinctrl-single,pins = <
 			/* here we could enable to wakeup the cpu from suspend by a pen touch */
-			OMAP3_CORE1_IOPAD(0x2194, PIN_INPUT_PULLUP | MUX_MODE4)   /* gpio160 */
+			OMAP3_CORE1_IOPAD(0x2194, PIN_INPUT_PULLUP | MUX_MODE4) /* gpio160 */
 		>;
 	};
 
 	hdq_pins {
 		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x21c4, PIN_OUTPUT_PULLDOWN | MUX_MODE0)   /* i2c3_sda.hdq */
+			OMAP3_CORE1_IOPAD(0x21c4, PIN_OUTPUT_PULLDOWN | MUX_MODE0) /* i2c3_sda.hdq */
 		>;
 	};
 
@@ -657,8 +720,8 @@
 		reg = <0x33>;
 
 		flash: regulator@0 {
-			regulator-min-microvolt  = <1000000>;
-			regulator-max-microvolt  = <3000000>;
+			regulator-min-microvolt= <1000000>;
+			regulator-max-microvolt= <3000000>;
 		};
 	};
 */
@@ -670,13 +733,13 @@
 		vdd_ana-supply = <&vaux3>;	/* driver should devm_regulator_get_optional("vdd_ana") */
 
 		clock-frequency = <24000000>;
-// FIXME:	clocks = <&mclk 0>;
+// FIXME:	clocks = <&isp_xclk1 0>;
 // FIXME:	clock-names = "xclk-a";
 
 		port {
-			ov9655_1: endpoint {
+			ov9655: endpoint {
 				bus-width = <8>;
-// FIXME:			remote-endpoint = <&isp_1>;
+// FIXME:			remote-endpoint = <&parallel_ep>;
 				hsync-active = <1>;
 				vsync-active = <1>;
 				data-active = <1>;	/* Active High */
@@ -696,6 +759,18 @@
 &i2c3 {
 	clock-frequency = <100000>;
 	/* unused */
+};
+
+&parallel_ep {
+	remote-endpoint = <&ov9655>;
+	ti,isp-clock-divisor = <1>;
+	ti,strobe-mode;
+	bus-width = <8>;/* Used data lines */
+	data-shift = <2>; /* Lines 9:2 are used */
+	hsync-active = <0>; /* Active low */
+	vsync-active = <0>; /* Active low */
+	data-active = <1>;/* Active high */
+	pclk-sample = <1>;/* Rising */
 };
 
 &usb_otg_hs {
@@ -770,7 +845,7 @@
 };
 
 &gpmc {
-	ranges = <0 0 0x30000000 0x04>;       /* CS0: NAND */
+	ranges = <0 0 0x30000000 0x04>; /* CS0: NAND */
 
 	nand@0,0 {
 		reg = <0 0 0>; /* CS0, offset 0 */
