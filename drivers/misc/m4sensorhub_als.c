@@ -28,6 +28,7 @@
 #include <linux/m4sensorhub.h>
 #include <linux/input.h>
 #include <linux/slab.h>
+#include <linux/delay.h>
 
 #define m4als_err(format, args...)  KDEBUG(M4SH_ERROR, format, ## args)
 
@@ -153,6 +154,8 @@ static ssize_t m4als_setrate_store(struct device *dev,
 	int err = 0;
 	struct m4als_driver_data *dd = dev_get_drvdata(dev);
 	int value = 0;
+	int regsize = 0;
+	uint16_t luminosity = 0;
 
 	mutex_lock(&(dd->mutex));
 
@@ -174,6 +177,32 @@ static ssize_t m4als_setrate_store(struct device *dev,
 		m4als_err("%s: Failed to set sample rate.\n", __func__);
 		goto m4als_enable_store_exit;
 	}
+
+	/* Read and send raw value for gesture wakeup */
+	msleep(120);
+	regsize = m4sensorhub_reg_getsize(dd->m4, M4SH_REG_LIGHTSENSOR_SIGNAL);
+	if (regsize < 0) {
+		m4als_err("%s: Reading from invalid register %d.\n",
+			  __func__, regsize);
+		err = regsize;
+		goto m4als_enable_store_exit;
+	}
+
+	err = m4sensorhub_reg_read(dd->m4, M4SH_REG_LIGHTSENSOR_SIGNAL,
+		(char *)&luminosity);
+	if (err < 0) {
+		m4als_err("%s: Failed to read luminosity data.\n", __func__);
+		goto m4als_enable_store_exit;
+	} else if (err != regsize) {
+		m4als_err("%s: Read %d bytes instead of %d.\n",
+			  __func__, err, regsize);
+		goto m4als_enable_store_exit;
+	}
+
+	dd->luminosity = luminosity;
+
+	input_event(dd->indev, EV_MSC, MSC_RAW, dd->luminosity);
+	input_sync(dd->indev);
 
 m4als_enable_store_exit:
 	if (err < 0)
