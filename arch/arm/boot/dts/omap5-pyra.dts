@@ -141,6 +141,25 @@
 
 };
 
+/* Audio routing */
+
+&sound {
+	ti,model = "Pyra-Handheld";
+
+	/* Audio routing */
+	ti,audio-routing =
+		"Headset Stereophone", "HSOL",
+		"Headset Stereophone", "HSOR",
+		"Ext Spk", "HFL",
+		"Ext Spk", "HFR",
+		"Line Out", "AUXL",
+		"Line Out", "AUXR",
+		"AFML", "Line In",
+		"AFMR", "Line In",
+		"HSMIC", "Headset Mic",
+		"Headset Mic", "Headset Mic Bias";
+};
+
 /* LCD panel - MIPI */
 
 &dss {
