@@ -1013,21 +1013,21 @@ static int r63311_probe_of(struct platform_device *pdev,
 
 	r = of_get_gpio(node, 0);
 	if (!gpio_is_valid(r)) {
-		dev_err(&pdev->dev, "failed to parse reset gpio\n");
+		dev_err(&pdev->dev, "failed to parse reset gpio (err=%d)\n", r);
 		return r;
 	}
 	ddata->reset_gpio = r;
 
 	r = of_get_gpio(node, 1);
 	if (!gpio_is_valid(r)) {
-		dev_err(&pdev->dev, "failed to parse regulator gpio\n");
+		dev_err(&pdev->dev, "failed to parse regulator gpio (err=%d)\n", r);
 		return r;
 	}
 	ddata->regulator_gpio = r;
 
 	in = omapdss_of_find_source_for_first_ep(node);
 	if (IS_ERR(in)) {
-		dev_err(&pdev->dev, "failed to find video source\n");
+		dev_err(&pdev->dev, "failed to find video source (err=%ld)\n", PTR_ERR(in));
 		return PTR_ERR(in);
 	}
 
@@ -1068,14 +1068,14 @@ static int r63311_probe(struct platform_device *pdev)
 	r = devm_gpio_request_one(&pdev->dev, ddata->reset_gpio,
 				  GPIOF_DIR_OUT, "lcd reset");
 	if (r) {
-		dev_err(&pdev->dev, "failed to request reset gpio\n");
+		dev_err(&pdev->dev, "failed to request reset gpio (%d err=%d)\n", ddata->reset_gpio, r);
 		return r;
 	}
 
 	r = devm_gpio_request_one(dev, ddata->regulator_gpio,
 				  GPIOF_DIR_OUT, "lcd DC/DC regulator");
 	if (r) {
-		dev_err(dev, "failed to request regulator gpio\n");
+		dev_err(dev, "failed to request regulator gpio (%d err=%d)\n", ddata->regulator_gpio, r);
 		return r;
 	}
 
