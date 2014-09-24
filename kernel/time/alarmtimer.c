@@ -264,6 +264,9 @@ static int alarmtimer_suspend(struct device *dev)
 	if (ret < 0)
 		goto out;
 	now = rtc_tm_to_ktime(tm);
+	dev_dbg(dev, "RTC is %lld next alarm will be in %lld seconds at %lld\n",
+		div64_u64(now.tv64, 1000000000), div64_u64(min.tv64, 1000000000),
+		div64_u64(ktime_to_ns(ktime_add(now, min)), 1000000000));
 	now = ktime_add(now, min);
 
 	/* Set alarm, if in the past reject suspend briefly to handle */

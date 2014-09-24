@@ -223,6 +223,9 @@ static int rtc_sensorhub_rtc_set_time(struct device *p_dev,
 				"set time, but failed to set M4 clock!\n");
 			return -EIO;
 	}
+	dev_dbg(p_dev, "Set RTC time to %d-%02d-%02d %02d:%02d:%02d UTC (%ld)\n",
+			p_tm->tm_year + 1900, p_tm->tm_mon + 1, p_tm->tm_mday,
+			p_tm->tm_hour, p_tm->tm_min, p_tm->tm_sec, sec);
 
 	return 0;
 }
