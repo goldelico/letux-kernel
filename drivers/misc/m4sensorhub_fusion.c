@@ -168,6 +168,48 @@ static void m4fus_work_func(struct work_struct *work)
 	dd->iiodat[2].type = FUSION_TYPE_GRAVITY;
 	dd->iiodat[2].timestamp = iio_get_time_ns();
 
+	size = m4sensorhub_reg_getsize(dd->m4, M4SH_REG_FUSION_LOCALX);
+	err = m4sensorhub_reg_read(dd->m4, M4SH_REG_FUSION_LOCALX,
+		(char *)&(dd->iiodat[3].values[0]));
+	if (err < 0) {
+		m4fus_err("%s: Failed to read localX data.\n", __func__);
+		goto m4fus_isr_fail;
+	} else if (err != size) {
+		m4fus_err("%s: Read %d bytes instead of %d for %s.\n",
+			  __func__, err, size, "localX");
+		err = -EBADE;
+		goto m4fus_isr_fail;
+	}
+
+	size = m4sensorhub_reg_getsize(dd->m4, M4SH_REG_FUSION_LOCALY);
+	err = m4sensorhub_reg_read(dd->m4, M4SH_REG_FUSION_LOCALY,
+		(char *)&(dd->iiodat[3].values[1]));
+	if (err < 0) {
+		m4fus_err("%s: Failed to read localY data.\n", __func__);
+		goto m4fus_isr_fail;
+	} else if (err != size) {
+		m4fus_err("%s: Read %d bytes instead of %d for %s.\n",
+			  __func__, err, size, "localY");
+		err = -EBADE;
+		goto m4fus_isr_fail;
+	}
+
+	size = m4sensorhub_reg_getsize(dd->m4, M4SH_REG_FUSION_LOCALZ);
+	err = m4sensorhub_reg_read(dd->m4, M4SH_REG_FUSION_LOCALZ,
+		(char *)&(dd->iiodat[3].values[2]));
+	if (err < 0) {
+		m4fus_err("%s: Failed to read localZ data.\n", __func__);
+		goto m4fus_isr_fail;
+	} else if (err != size) {
+		m4fus_err("%s: Read %d bytes instead of %d for %s.\n",
+			  __func__, err, size, "localZ");
+		err = -EBADE;
+		goto m4fus_isr_fail;
+	}
+
+	dd->iiodat[3].type = FUSION_TYPE_LINEAR_ACCELERATION;
+	dd->iiodat[3].timestamp = iio_get_time_ns();
+
 	/*
 	 * For some reason, IIO knows we are sending an array,
 	 * so all FUSION_TYPE_* indicies will be sent
