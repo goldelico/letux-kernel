@@ -61,6 +61,8 @@
 
 #define OMAP3_SECURE_RAM_CTX_ADDR	0x83036000
 
+extern bool global_disable_off_mode;
+
 /* pm34xx errata defined in pm.h */
 u16 pm34xx_errata;
 bool suspend_debug;
@@ -820,7 +822,7 @@ int __init omap3_pm_init(void)
 	omap_pm_suspend = omap3_pm_suspend;
 #endif
 
-	if (omap_pm_get_off_mode())
+	if (omap_pm_get_off_mode() && !global_disable_off_mode)
 		omap3_pm_off_mode_enable(true);
 
 	arm_pm_idle = omap3_pm_idle;

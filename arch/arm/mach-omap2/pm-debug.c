@@ -38,7 +38,15 @@
 #include "pm.h"
 #include "pm-debug-regs.h"
 
+/* enable_off_mode is the runtime flag for enable/disable of offmode */
 u32 enable_off_mode;
+
+/*
+ * global_disable_off_mode supercedes enable_off_mode and keeps
+ * offmode disabled as long as it is set
+ */
+bool global_disable_off_mode = 1;
+module_param(global_disable_off_mode, bool, 0644);
 
 #ifdef CONFIG_DEBUG_FS
 #include <linux/debugfs.h>
@@ -236,9 +244,13 @@ static int option_set(void *data, u64 val)
 {
 	u32 *option = data;
 
-	*option = val;
-
 	if (option == &enable_off_mode) {
+		if (global_disable_off_mode) {
+			pr_warn("Disable global_disable_off_mode "
+				"before enabling off mode");
+			return -EINVAL;
+		}
+
 		if (val)
 			omap_pm_enable_off_mode();
 		else
@@ -246,6 +258,8 @@ static int option_set(void *data, u64 val)
 		if (cpu_is_omap34xx())
 			omap3_pm_off_mode_enable(val);
 	}
+
+	*option = val;
 
 	return 0;
 }
