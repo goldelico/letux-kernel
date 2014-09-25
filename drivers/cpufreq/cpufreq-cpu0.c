@@ -150,15 +150,22 @@ out:
 static int cpu0_cpufreq_pm_notify(struct notifier_block *nb,
 	unsigned long event, void *dummy)
 {
+	static unsigned int old_policy_max;
 	mutex_lock(&cpu0_cpufreq_lock);
 	if (event == PM_SUSPEND_PREPARE) {
 		struct cpufreq_policy *policy = cpufreq_cpu_get(0);
 		is_suspended = true;
+		old_policy_max = policy->max;
+		policy->max = policy->cpuinfo.max_freq;
 		pr_debug("cpu0 cpufreq suspend: setting frequency to %d kHz\n",
 			policy->max);
 		__cpu0_set_target(policy, policy->max, CPUFREQ_RELATION_L);
 		cpufreq_cpu_put(policy);
 	} else if (event == PM_POST_SUSPEND) {
+		struct cpufreq_policy *policy = cpufreq_cpu_get(0);
+		policy->max = old_policy_max;
+		__cpu0_set_target(policy, policy->max, CPUFREQ_RELATION_L);
+		cpufreq_cpu_put(policy);
 		is_suspended = false;
 	}
 	mutex_unlock(&cpu0_cpufreq_lock);
@@ -182,6 +189,7 @@ static int cpu0_cpufreq_reboot_notify(struct notifier_block *nb,
 		mutex_lock(&cpu0_cpufreq_lock);
 		policy = cpufreq_cpu_get(0);
 		is_suspended = true;
+		policy->max = policy->cpuinfo.max_freq;
 		pr_info("cpu0 cpufreq shutdown: setting frequency to %d kHz\n",
 				policy->max);
 		__cpu0_set_target(policy, policy->max, CPUFREQ_RELATION_L);
