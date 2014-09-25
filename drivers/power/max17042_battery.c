@@ -705,25 +705,14 @@ static inline void max17042_override_por_values(struct max17042_chip *chip)
 			config->soc_alrt_thresh);
 	max17042_override_por(client, MAX17042_CONFIG, config->config);
 	max17042_override_por(client, MAX17042_SHDNTIMER, config->shdntimer);
-
-	max17042_override_por(client, MAX17042_DesignCap, config->design_cap);
-	max17042_override_por(client, MAX17042_ICHGTerm, config->ichgt_term);
-
 	max17042_override_por(client, MAX17042_AtRate, config->at_rate);
-	max17042_override_por(client, MAX17042_LearnCFG, config->learn_cfg);
-	max17042_override_por(client, MAX17042_FilterCFG, config->filter_cfg);
-	max17042_override_por(client, MAX17042_RelaxCFG, config->relax_cfg);
 	max17042_override_por(client, MAX17042_MiscCFG, config->misc_cfg);
 	max17042_override_por(client, MAX17042_MaskSOC, config->masksoc);
 
-	max17042_override_por(client, MAX17042_FullCAP, config->fullcap);
-	max17042_override_por(client, MAX17042_FullCAPNom, config->fullcapnom);
 	if (chip->chip_type == MAX17042)
 		max17042_override_por(client, MAX17042_SOC_empty,
 						config->socempty);
 	max17042_override_por(client, MAX17042_LAvg_empty, config->lavg_empty);
-	max17042_override_por(client, MAX17042_dQacc, config->dqacc);
-	max17042_override_por(client, MAX17042_dPacc, config->dpacc);
 
 	if (chip->chip_type == MAX17042)
 		max17042_override_por(client, MAX17042_V_empty, config->vempty);
@@ -732,8 +721,6 @@ static inline void max17042_override_por_values(struct max17042_chip *chip)
 	max17042_override_por(client, MAX17042_TempNom, config->temp_nom);
 	max17042_override_por(client, MAX17042_TempLim, config->temp_lim);
 	max17042_override_por(client, MAX17042_FCTC, config->fctc);
-	max17042_override_por(client, MAX17042_RCOMP0, config->rcomp0);
-	max17042_override_por(client, MAX17042_TempCo, config->tcompc0);
 	if (chip->chip_type == MAX17042) {
 		max17042_override_por(client, MAX17042_EmptyTempCo,
 					config->empty_tempco);
