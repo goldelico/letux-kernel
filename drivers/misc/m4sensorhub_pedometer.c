@@ -47,6 +47,7 @@ struct m4ped_driver_data {
 
 	struct m4sensorhub_pedometer_iio_data   iiodat;
 	struct m4sensorhub_pedometer_iio_data   base_dat;
+	struct m4sensorhub_pedometer_iio_data   last_dat;
 	struct delayed_work	m4ped_work;
 	int16_t         samplerate;
 	int16_t         fastest_rate;
@@ -57,6 +58,7 @@ static int m4ped_read_report_data(struct iio_dev *iio,
 				  struct m4ped_driver_data *dd)
 {
 	int err = 0, size = 0;
+	struct m4sensorhub_pedometer_iio_data dat;
 
 	/*input validations */
 	if ((iio == NULL) || (dd == NULL)) {
@@ -80,7 +82,7 @@ static int m4ped_read_report_data(struct iio_dev *iio,
 	size = m4sensorhub_reg_getsize(dd->m4,
 		M4SH_REG_PEDOMETER_TOTALDISTANCE);
 	err = m4sensorhub_reg_read(dd->m4, M4SH_REG_PEDOMETER_TOTALDISTANCE,
-		(char *)&(dd->iiodat.total_distance));
+		(char *)&(dat.total_distance));
 	if (err < 0) {
 		m4ped_err("%s: Failed to read total_distance data.\n",
 			  __func__);
@@ -94,7 +96,7 @@ static int m4ped_read_report_data(struct iio_dev *iio,
 
 	size = m4sensorhub_reg_getsize(dd->m4, M4SH_REG_PEDOMETER_TOTALSTEPS);
 	err = m4sensorhub_reg_read(dd->m4, M4SH_REG_PEDOMETER_TOTALSTEPS,
-		(char *)&(dd->iiodat.total_steps));
+		(char *)&(dat.total_steps));
 	if (err < 0) {
 		m4ped_err("%s: Failed to read total_steps data.\n", __func__);
 		goto m4ped_read_fail;
@@ -121,7 +123,7 @@ static int m4ped_read_report_data(struct iio_dev *iio,
 
 	size = m4sensorhub_reg_getsize(dd->m4, M4SH_REG_METS_HEALTHYMINUTES);
 	err = m4sensorhub_reg_read(dd->m4, M4SH_REG_METS_HEALTHYMINUTES,
-		(char *)&(dd->iiodat.healthy_minutes));
+		(char *)&(dat.healthy_minutes));
 	if (err < 0) {
 		m4ped_err("%s: Failed to read healthy_minutes data.\n",
 			  __func__);
@@ -135,7 +137,7 @@ static int m4ped_read_report_data(struct iio_dev *iio,
 
 	size = m4sensorhub_reg_getsize(dd->m4, M4SH_REG_METS_CALORIES);
 	err = m4sensorhub_reg_read(dd->m4, M4SH_REG_METS_CALORIES,
-		(char *)&(dd->iiodat.calories));
+		(char *)&(dat.calories));
 	if (err < 0) {
 		m4ped_err("%s: Failed to read calories data.\n", __func__);
 		goto m4ped_read_fail;
@@ -148,10 +150,31 @@ static int m4ped_read_report_data(struct iio_dev *iio,
 
 	dd->iiodat.timestamp = iio_get_time_ns();
 
-	dd->iiodat.total_distance += dd->base_dat.total_distance;
-	dd->iiodat.total_steps += dd->base_dat.total_steps;
-	dd->iiodat.healthy_minutes += dd->base_dat.healthy_minutes;
-	dd->iiodat.calories += dd->base_dat.calories;
+	/* Save data if these values decrease (they monotonically increase) */
+	if ((dat.total_distance < dd->last_dat.total_distance) ||
+		(dat.total_steps < dd->last_dat.total_steps) ||
+		(dat.healthy_minutes < dd->last_dat.healthy_minutes) ||
+		(dat.calories < dd->last_dat.calories)) {
+		dd->base_dat.total_distance = dd->iiodat.total_distance;
+		dd->base_dat.total_steps = dd->iiodat.total_steps;
+		dd->base_dat.healthy_minutes = dd->iiodat.healthy_minutes;
+		dd->base_dat.calories = dd->iiodat.calories;
+		m4ped_err("%s: Set pedometer bases = %d %d %d %d", __func__,
+		  dd->base_dat.total_distance, dd->base_dat.total_steps,
+		  dd->base_dat.healthy_minutes, dd->base_dat.calories);
+	}
+
+	dd->last_dat.total_distance = dat.total_distance;
+	dd->last_dat.total_steps = dat.total_steps;
+	dd->last_dat.healthy_minutes = dat.healthy_minutes;
+	dd->last_dat.calories = dat.calories;
+
+	dd->iiodat.total_distance = dat.total_distance +
+		dd->base_dat.total_distance;
+	dd->iiodat.total_steps = dat.total_steps + dd->base_dat.total_steps;
+	dd->iiodat.healthy_minutes = dat.healthy_minutes +
+		dd->base_dat.healthy_minutes;
+	dd->iiodat.calories = dat.calories + dd->base_dat.calories;
 
 	iio_push_to_buffers(iio, (unsigned char *)&(dd->iiodat));
 
@@ -605,14 +628,6 @@ static void m4ped_panic_restore(struct m4sensorhub_data *m4sensorhub,
 	}
 
 	mutex_lock(&(dd->mutex));
-
-	dd->base_dat.total_distance = dd->iiodat.total_distance;
-	dd->base_dat.total_steps = dd->iiodat.total_steps;
-	dd->base_dat.healthy_minutes = dd->iiodat.healthy_minutes;
-	dd->base_dat.calories = dd->iiodat.calories;
-	m4ped_err("%s: Pedometer bases after panic = %d %d %d %d", __func__,
-		  dd->base_dat.total_distance, dd->base_dat.total_steps,
-		  dd->base_dat.healthy_minutes, dd->base_dat.calories);
 
 	if (!(dd->status & (1 << M4PED_FEATURE_ENABLED_BIT))) {
 		err = m4sensorhub_reg_write(dd->m4, M4SH_REG_PEDOMETER_ENABLE,
