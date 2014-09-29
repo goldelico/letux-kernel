@@ -81,6 +81,7 @@ struct pca953x_chip {
 	unsigned gpio_start;
 	u8 reg_output[MAX_BANK];
 	u8 reg_direction[MAX_BANK];
+	u8 reg_open_drain[MAX_BANK];
 	struct mutex i2c_lock;
 
 #ifdef CONFIG_GPIO_PCA953X_IRQ
@@ -208,6 +209,8 @@ static int pca953x_gpio_direction_input(struct gpio_chip *gc, unsigned off)
 	u8 reg_val;
 	int ret, offset = 0;
 
+//	if ((chip->reg_open_drain[off / BANK_SZ] & (1u << (off % BANK_SZ))))
+//		printk("pca953x_gpio_direction_input(%d)\n", off);
 	mutex_lock(&chip->i2c_lock);
 	reg_val = chip->reg_direction[off / BANK_SZ] | (1u << (off % BANK_SZ));
 
@@ -236,6 +239,10 @@ static int pca953x_gpio_direction_output(struct gpio_chip *gc,
 	struct pca953x_chip *chip = to_pca(gc);
 	u8 reg_val;
 	int ret, offset = 0;
+//	if ((chip->reg_open_drain[off / BANK_SZ] & (1u << (off % BANK_SZ))))
+//		printk("pca953x_gpio_direction_output(%d, %d)\n", off, val);
+	if (val && (chip->reg_open_drain[off / BANK_SZ] & (1u << (off % BANK_SZ))))
+		return pca953x_gpio_direction_input(gc, off);	/* high impedance */
 
 	mutex_lock(&chip->i2c_lock);
 	/* set output level */
@@ -314,6 +321,12 @@ static void pca953x_gpio_set_value(struct gpio_chip *gc, unsigned off, int val)
 	struct pca953x_chip *chip = to_pca(gc);
 	u8 reg_val;
 	int ret, offset = 0;
+
+	if ((chip->reg_open_drain[off / BANK_SZ] & (1u << (off % BANK_SZ)))) {
+		/* switch between input (1=High-Z) and output (0=Low) */
+//		printk("pca953x_gpio_set_value(%d, %d)\n", off, val);
+		pca953x_gpio_direction_output(gc, off, val);
+	}
 
 	mutex_lock(&chip->i2c_lock);
 	if (val)
@@ -595,11 +608,12 @@ static int pca953x_irq_setup(struct pca953x_chip *chip,
  * WARNING: This is DEPRECATED and will be removed eventually!
  */
 static void
-pca953x_get_alt_pdata(struct i2c_client *client, int *gpio_base, u32 *invert)
+pca953x_get_alt_pdata(struct i2c_client *client, int *gpio_base, u32 *invert,
+					  struct pca953x_chip *chip)
 {
 	struct device_node *node;
 	const __be32 *val;
-	int size;
+	int size, i;
 
 	*gpio_base = -1;
 
@@ -621,6 +635,19 @@ pca953x_get_alt_pdata(struct i2c_client *client, int *gpio_base, u32 *invert)
 	WARN(val, "%s: device-tree property 'polarity' is deprecated!", __func__);
 	if (val)
 		*invert = *val;
+
+	size = of_property_count_elems_of_size(node, "open-drain-pins", sizeof(u32));
+//	printk("pca953x_get_alt_pdata: %d open-drain-pins\n", size);
+	for (i=0; i < size; i++) { /* negative sizes (errors) are ignored */
+		u32 off;
+		int r = of_property_read_u32_index(node, "open-drain-pins", i, &off);
+//		printk("pca953x_get_alt_pdata: open-drain pin %d (%d)\n", off, r);
+		if(r == 0 && off < (MAX_BANK * BANK_SZ)) {
+//			printk("pca953x_get_alt_pdata: make open-drain: %d\n", off);
+			chip->reg_open_drain[off / BANK_SZ] |= (1u << (off % BANK_SZ));
+		}
+	}
+
 }
 #else
 static void
@@ -697,6 +724,8 @@ static int pca953x_probe(struct i2c_client *client,
 	if (chip == NULL)
 		return -ENOMEM;
 
+	memset(chip->reg_open_drain, 0, NBANK(chip));
+
 	pdata = dev_get_platdata(&client->dev);
 	if (pdata) {
 		irq_base = pdata->irq_base;
@@ -704,7 +733,7 @@ static int pca953x_probe(struct i2c_client *client,
 		invert = pdata->invert;
 		chip->names = pdata->names;
 	} else {
-		pca953x_get_alt_pdata(client, &chip->gpio_start, &invert);
+		pca953x_get_alt_pdata(client, &chip->gpio_start, &invert, chip);
 #ifdef CONFIG_OF_GPIO
 		/* If I2C node has no interrupts property, disable GPIO interrupts */
 		if (of_find_property(client->dev.of_node, "interrupts", NULL) == NULL)
