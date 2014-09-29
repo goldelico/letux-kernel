@@ -21,15 +21,16 @@
 	};
 
 	/* DC/DC converter for LCD panel */
-	dsi1_panel_power: dsi1_panel_power_reg {
+/* disabled because the r63311 driver can control it */
+/*	dsi1_panel_power: dsi1_panel_power_reg {
 		compatible = "regulator-fixed";
 		regulator-name = "dsi1_panel_power";
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
-		gpio = <&gpio3 18 0>;	/* gpio3_82 = display-enable */
+		gpio = <&gpio3 18 0>;	/ * gpio3_82 = display-enable * /
 		startup-delay-us = <70000>;
 		enable-active-high;
-	};
+	}; */
 
 	/* DC/DC converter for USB Host ports, Modem USB and HDMI 5V */
 	modem_vbus_hdmi_power: tps2505_reg {
@@ -810,6 +811,7 @@
 		reg = <0x22>;
 		gpio-controller;
 		#gpio-cells = <2>;
+		open-drain-pins = <5 6 7 17 18 19 21 22 23>;
 	};
 	/* INA231 */
 	/* BQ27200 */
