@@ -83,10 +83,21 @@ config DISPLAY_PANEL_NEC_NL8048HL11
 		This NEC NL8048HL11 panel is TFT LCD used in the
 		Zoom2/3/3630 sdp boards.
 
-config DISPLAY_PANEL_RENESAS_R63311
+config DISPLAY_CONTROLLER_RENESAS_R63311
 	tristate "R63311 based Panels"
 	help
 		This is for Renesas R63311 LCD based panels.
 		* LG LH500WF1 used in the Pyra.
+
+config DISPLAY_CONTROLLER_SAMSUNG_S6D2AA0X01
+	tristate "S6D2AA0X01 based Panels"
+	help
+		This is for Samsung S6D2AA0X01 LCD based panels.
+		* Sharp LS052K3SY54S used in the Pyra.
+
+config DISPLAY_CONTROLLER_SOLOMON_SSD2858
+	tristate "SSD2858 based Panels"
+	help
+		This is for Solomon SSD2858 controlled LCD based panels.
 
 endmenu
