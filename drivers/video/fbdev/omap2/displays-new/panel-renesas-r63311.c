@@ -30,23 +30,26 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <linux/module.h>
+#include <linux/backlight.h>
 #include <linux/delay.h>
-#include <linux/err.h>
-#include <linux/jiffies.h>
-#include <linux/sched.h>
 #include <linux/fb.h>
-#include <linux/interrupt.h>
 #include <linux/gpio.h>
-#include <linux/slab.h>
-#include <linux/regulator/consumer.h>
-#include <linux/mutex.h>
-#include <linux/of_gpio.h>
-#include <linux/device.h>
+#include <linux/interrupt.h>
+#include <linux/jiffies.h>
+#include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/sched.h>
+#include <linux/slab.h>
+#include <linux/workqueue.h>
+#include <linux/of_device.h>
+#include <linux/of_gpio.h>
 
 #include <video/omapdss.h>
+#include <video/omap-panel-data.h>
 #include <video/mipi_display.h>
+
+#include <linux/err.h>
+#include <linux/regulator/consumer.h>
 
 /* extended DCS commands (not defined in mipi_display.h) */
 #define DCS_READ_DDB_START		0x02
@@ -82,7 +85,12 @@
 #define IS_MCS(CMD) (((CMD) >= 0xb0 && (CMD) <= 0xff) && !((CMD) == 0xda || (CMD) == 0xdb || (CMD) == 0xdc))
 
 /* horizontal * vertical * refresh */
-#define R63311_PIXELCLOCK		((1080+120) * (1920+80) * 60)	// Full HD * 60 fps
+#define R63311_W				(1080)
+#define R63311_H				(1920)
+#define R63311_WIDTH			(R63311_W+120)
+#define R63311_HEIGHT			(R63311_H+80)
+#define R63311_FPS				(60ll)
+#define R63311_PIXELCLOCK		(R63311_WIDTH * R63311_HEIGHT * R63311_FPS)	// Full HD * 60 fps
 /* panel has 16.7M colors = RGB888 = 3*8 bit per pixel */
 #define R63311_PIXELFORMAT		OMAP_DSS_DSI_FMT_RGB888	// 16.7M color = RGB888
 #define R63311_BIT_PER_PIXEL	(3*8)
@@ -98,9 +106,9 @@
 #define R63311_LP_CLOCK			10000000	// low power clock
 
 static struct omap_video_timings r63311_timings = {
-	.x_res		= 1080,
-	.y_res		= 1920,
-	.pixelclock	= R63311_PIXELCLOCK / 1000,	// specified in kHz
+	.x_res		= R63311_W,
+	.y_res		= R63311_H,
+	.pixelclock	= R63311_PIXELCLOCK,
 	// the following values are choosen arbitrarily since there is no spec in the data sheet
 	// they are choosen to round up to 1200x2000 pixels giving a pixel clock of 144 MHz
 	.hfp		= 10,
@@ -111,33 +119,11 @@ static struct omap_video_timings r63311_timings = {
 	.vbp		= 8,
 };
 
-/*
- * The DSI port needs its own hsync and vsync timing (to insert the sync
- * packets at the right moments and protect the link from congestions or drain)
- * or we will see loss of SYNC interrupts
- *
- * There is a timing calculator spreadsheet
- * <http://e2e.ti.com/cfs-file.ashx/__key/communityserver-discussions-components-files/849/2555.Demistify-DSI-IF-_2D00_-Video-mode-registers-settings.xlsx, http://e2e.ti.com/support/omap/f/849/p/289189/1013573.aspx>
- * linked by this  * discussion: <http://e2e.ti.com/support/omap/f/849/p/289189/1013573.aspx>
- *
- * It must be used to verify the clock settings (compare with cat /sys/kernel/debug/omapdss/clk)
- * and to adjust the .h?? and .v?? values so that DISPC and DSI run at the same speed
- */
-static struct omap_dss_dsi_config r63311_dsi_config = {
-	.mode = OMAP_DSS_DSI_VIDEO_MODE,
-	.pixel_format = R63311_PIXELFORMAT,
-	.timings = &r63311_timings,
-	.hs_clk_min = R63311_HS_CLOCK - 10000,
-	.hs_clk_max = R63311_HS_CLOCK + 10000,
-	.lp_clk_min = 7000000,
-	.lp_clk_max = 10000000,
-	.ddr_clk_always_on = true,
-	.trans_mode = OMAP_DSS_DSI_BURST_MODE,
-};
-
 struct panel_drv_data {
 	struct omap_dss_device dssdev;
 	struct omap_dss_device *in;
+
+	struct omap_video_timings timings;
 
 	struct platform_device *pdev;
 
@@ -149,12 +135,13 @@ struct panel_drv_data {
 	int	reset_gpio;
 	int	regulator_gpio;
 
+	struct omap_dsi_pin_config pin_config;
+
 	bool enabled;
 
 	int config_channel;
 	int pixel_channel;
 
-	struct omap_video_timings *timings;
 };
 
 #define to_panel_data(p) container_of(p, struct panel_drv_data, dssdev)
@@ -554,7 +541,8 @@ static int r63311_reset(struct omap_dss_device *dssdev, int state)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	printk("dsi: r63311_reset(%d)\n", state);
-	gpio_set_value(ddata->reset_gpio, state);
+	if (gpio_is_valid(ddata->reset_gpio))
+		gpio_set_value(ddata->reset_gpio, state);
 	return 0;
 }
 
@@ -562,7 +550,8 @@ static int r63311_regulator(struct omap_dss_device *dssdev, int state)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	printk("dsi: r63311_regulator(%d)\n", state);
-	gpio_set_value(ddata->regulator_gpio, state);	// switch regulator
+	if (gpio_is_valid(ddata->regulator_gpio))
+		gpio_set_value(ddata->regulator_gpio, state);	// switch regulator
 	return 0;
 }
 
@@ -828,10 +817,32 @@ static int r63311_power_on(struct omap_dss_device *dssdev)
 	struct device *dev = &ddata->pdev->dev;
 	struct omap_dss_device *in = ddata->in;
 	int r;
-
+	struct omap_dss_dsi_config r63311_dsi_config = {
+		.mode = OMAP_DSS_DSI_VIDEO_MODE,
+		.pixel_format = R63311_PIXELFORMAT,
+		.timings = &ddata->timings,
+		.hs_clk_min = 125000000 /*R63311_HS_CLOCK*/,
+		.hs_clk_max = 450000000 /*(12*R63311_HS_CLOCK)/10*/,
+		.lp_clk_min = (7*R63311_LP_CLOCK)/10,
+		.lp_clk_max = R63311_LP_CLOCK,
+		.ddr_clk_always_on = true,
+		.trans_mode = OMAP_DSS_DSI_BURST_MODE,
+	};
+	printk("hs_clk_min=%lu\n", r63311_dsi_config.hs_clk_min);
 	printk("dsi: r63311_power_on()\n");
 
 	r63311_reset(dssdev, 0);	// activate reset
+
+#if 0
+	if (ddata->pin_config.num_pins > 0) {
+		r = in->ops.dsi->configure_pins(in, &ddata->pin_config);
+		if (r) {
+			dev_err(&ddata->pdev->dev,
+					"failed to configure DSI pins\n");
+			goto err0;
+		}
+	}
+#endif
 
 	r = in->ops.dsi->set_config(in, &r63311_dsi_config);
 	if (r) {
@@ -1002,28 +1013,28 @@ static struct omap_dss_driver r63311_ops = {
 	.get_timings	= r63311_get_timings,
 };
 
-static int r63311_probe_of(struct platform_device *pdev,
-			   struct panel_drv_data *ddata)
+static int r63311_probe_of(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
+	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
 	struct omap_dss_device *in;
-	int r;
+	int gpio;
 
 	printk("dsi: r63311_probe_of()\n");
 
-	r = of_get_gpio(node, 0);
-	if (!gpio_is_valid(r)) {
-		dev_err(&pdev->dev, "failed to parse reset gpio (err=%d)\n", r);
-		return r;
+	gpio = of_get_gpio(node, 0);
+	if (!gpio_is_valid(gpio)) {
+		dev_err(&pdev->dev, "failed to parse reset gpio (err=%d)\n", gpio);
+		return gpio;
 	}
-	ddata->reset_gpio = r;
+	ddata->reset_gpio = gpio;
 
-	r = of_get_gpio(node, 1);
-	if (!gpio_is_valid(r)) {
-		dev_err(&pdev->dev, "failed to parse regulator gpio (err=%d)\n", r);
-		return r;
+	gpio = of_get_gpio(node, 1);
+	if (!gpio_is_valid(gpio)) {
+		dev_err(&pdev->dev, "failed to parse regulator gpio (err=%d)\n", gpio);
+		return gpio;
 	}
-	ddata->regulator_gpio = r;
+	ddata->regulator_gpio = gpio;
 
 	in = omapdss_of_find_source_for_first_ep(node);
 	if (IS_ERR(in)) {
@@ -1038,7 +1049,8 @@ static int r63311_probe_of(struct platform_device *pdev,
 
 static int r63311_probe(struct platform_device *pdev)
 {
-	struct device_node *node = pdev->dev.of_node;
+	struct backlight_properties props;
+	struct backlight_device *bldev = NULL;
 	struct panel_drv_data *ddata;
 	struct device *dev = &pdev->dev;
 	struct omap_dss_device *dssdev;
@@ -1047,11 +1059,6 @@ static int r63311_probe(struct platform_device *pdev)
 	printk("dsi: r63311_probe()\n");
 	dev_dbg(dev, "r63311_probe\n");
 
-	if (node == NULL) {
-		dev_err(dev, "no device tree data!\n");
-		return -EINVAL;
-	}
-
 	ddata = devm_kzalloc(dev, sizeof(*ddata), GFP_KERNEL);
 	if (!ddata)
 		return -ENOMEM;
@@ -1059,27 +1066,19 @@ static int r63311_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, ddata);
 	ddata->pdev = pdev;
 
-	r = r63311_probe_of(pdev, ddata);
-	if (r)
-		return r;
-
-	mutex_init(&ddata->lock);
-
-	r = devm_gpio_request_one(&pdev->dev, ddata->reset_gpio,
-				  GPIOF_DIR_OUT, "lcd reset");
-	if (r) {
-		dev_err(&pdev->dev, "failed to request reset gpio (%d err=%d)\n", ddata->reset_gpio, r);
-		return r;
+	if (dev_get_platdata(dev)) {
+		r = -EINVAL /*r63311_probe_pdata(pdev)*/;
+		if (r)
+			return r;
+	} else if (pdev->dev.of_node) {
+		r = r63311_probe_of(pdev);
+		if (r)
+			return r;
+	} else {
+		return -ENODEV;
 	}
 
-	r = devm_gpio_request_one(dev, ddata->regulator_gpio,
-				  GPIOF_DIR_OUT, "lcd DC/DC regulator");
-	if (r) {
-		dev_err(dev, "failed to request regulator gpio (%d err=%d)\n", ddata->regulator_gpio, r);
-		return r;
-	}
-
-	ddata->timings = &r63311_timings;
+	ddata->timings = r63311_timings;
 
 	dssdev = &ddata->dssdev;
 	dssdev->dev = dev;
@@ -1088,30 +1087,59 @@ static int r63311_probe(struct platform_device *pdev)
 	dssdev->type = OMAP_DISPLAY_TYPE_DSI;
 	dssdev->owner = THIS_MODULE;
 
-	dssdev->panel.dsi_pix_fmt = OMAP_DSS_DSI_FMT_RGB888;
+	dssdev->panel.dsi_pix_fmt = R63311_PIXELFORMAT;
 
 	r = omapdss_register_display(dssdev);
 	if (r) {
 		dev_err(dev, "Failed to register panel\n");
-		return r;
+		goto err_reg;
+	}
+
+	mutex_init(&ddata->lock);
+
+	if (gpio_is_valid(ddata->reset_gpio)) {
+		r = devm_gpio_request_one(&pdev->dev, ddata->reset_gpio,
+								  GPIOF_DIR_OUT, "lcd reset");
+		if (r) {
+			dev_err(&pdev->dev, "failed to request reset gpio (%d err=%d)\n", ddata->reset_gpio, r);
+			return r;
+		}
+	}
+
+	if (gpio_is_valid(ddata->regulator_gpio)) {
+		r = devm_gpio_request_one(dev, ddata->regulator_gpio,
+								  GPIOF_DIR_OUT, "lcd DC/DC regulator");
+		if (r) {
+			dev_err(dev, "failed to request regulator gpio (%d err=%d)\n", ddata->regulator_gpio, r);
+			return r;
+		}
 	}
 
 	/* Register sysfs hooks */
 	r = sysfs_create_group(&dev->kobj, &r63311_attr_group);
 	if (r) {
 		dev_err(dev, "failed to create sysfs files\n");
-		return r;
+		goto err_sysfs_create;
 	}
 
 	printk("r63311_probe ok\n");
 
 	return 0;
+
+err_sysfs_create:
+	if (bldev != NULL)
+		backlight_device_unregister(bldev);
+err_bl:
+//	destroy_workqueue(ddata->workqueue);
+err_reg:
+	return r;
 }
 
 static int __exit r63311_remove(struct platform_device *pdev)
 {
 	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
 	struct omap_dss_device *dssdev = &ddata->dssdev;
+	struct backlight_device *bldev;
 
 	printk("dsi: r63311_remove()\n");
 
@@ -1119,6 +1147,8 @@ static int __exit r63311_remove(struct platform_device *pdev)
 
 	r63311_disable(dssdev);
 	r63311_disconnect(dssdev);
+
+	sysfs_remove_group(&pdev->dev.kobj, &r63311_attr_group);
 
 	omap_dss_put_device(ddata->in);
 
