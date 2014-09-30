@@ -200,7 +200,13 @@
 	};
 
 	lcd: lcd {
-		compatible = "lg,lh500wf1";	/* default to be overwritten by specific panel */
+		/* default to be overwritten by specific panel in derived board file
+		   by using the /root/panelselect script
+		   as soon as we have chosen the panel we can substitute the panel driver here
+		   and do the plumbing for the ssd2858
+		   but for the current experiments we boot by default with no panel
+		   */
+		compatible = "none";
 		label = "lcd";
 
 		pinctrl-names = "default";
