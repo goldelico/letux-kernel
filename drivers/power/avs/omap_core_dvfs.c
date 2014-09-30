@@ -49,7 +49,7 @@ struct omap_core_dvfs_data {
 
 static struct omap_core_dvfs_data *core_dvfs_data;
 
-static const struct of_device_id omap_core_dvfs_match_tbl[] __initdata = {
+static const struct of_device_id omap_core_dvfs_match_tbl[] = {
 	{.compatible = "ti,omap-core-dvfs"},
 	{},
 };
