@@ -220,31 +220,6 @@
 		};
 	};
 
-	dvfs {
-		compatible = "simple-bus";
-
-		core_dvfs: core_dvfs {
-			compatible = "ti,omap-core-dvfs";
-
-			l3_clkname = "l3_ick";
-			dpll_clkname = "dpll3_m2_ck";
-			core_dvfs-supply = <&omap_tps65912_dcdc4>;
-
-			operating-points = <
-				/* kHz    uV */
-				100000   950000
-				200000  1150000
-			>;
-			map = <
-				/* cpu freq, core freq*/
-				300000 100000
-				600000 200000
-				800000 200000
-				1000000 200000
-			>;
-		};
-	};
-
 	dock_detect: bq5105x-detect {
 		compatible = "mmi,bq5105x-detect";
 		charge-gpio = <&gpio6 16 0>;	/* gpio-176 */
