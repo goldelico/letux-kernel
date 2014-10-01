@@ -441,6 +441,27 @@ static void minnow_panel_sync_resume_mlocked(struct minnow_panel_data *mpd)
 #endif
 
 #ifdef CONFIG_WAKEUP_SOURCE_NOTIFY
+static char *action_to_str(unsigned long action)
+{
+	switch (action) {
+	case DISPLAY_WAKE_EVENT_POWERKEY:
+		return "power_key";
+	case DISPLAY_WAKE_EVENT_TOUCH:
+		return "touch";
+	case DISPLAY_WAKE_EVENT_GESTURE:
+		return "gesture_wrist";
+	case DISPLAY_WAKE_EVENT_GESTURE_VIEWON:
+		return "gesture_view_on";
+	case DISPLAY_WAKE_EVENT_GESTURE_VIEWOFF:
+		return "gesture_view_off";
+	case DISPLAY_WAKE_EVENT_DOCKON:
+		return "dock_on";
+	case DISPLAY_WAKE_EVENT_DOCKOFF:
+		return "dock_off";
+	}
+	return "unsupported";
+}
+
 static int omapdss_displayenable_notify(struct notifier_block *self,
 			unsigned long action, void *dev)
 {
@@ -450,7 +471,8 @@ static int omapdss_displayenable_notify(struct notifier_block *self,
 	if (GET_WAKEUP_EVENT_TYPE(action) != WAKEUP_DISPLAY)
 		return NOTIFY_OK;
 
-	dev_info(&mpd->dssdev->dev, "%s, action is %lu", __func__, action);
+	dev_info(&mpd->dssdev->dev, "%s, action is %lu-%s",
+		 __func__, action, action_to_str(action));
 
 	switch (action) {
 	case DISPLAY_WAKE_EVENT_POWERKEY:
@@ -3096,8 +3118,9 @@ static int minnow_panel_enable_mlocked(struct minnow_panel_data *mpd)
 	bool update;
 	int r = 0;
 
-	dev_info(&dssdev->dev, "%s: current state = %d\n",
-		 __func__, dssdev->state);
+	dev_info(&dssdev->dev, "%s: current display is %s\n", __func__,
+		 dssdev->state == OMAP_DSS_DISPLAY_DISABLED
+		 ? "disabled" : "enabled");
 
 	if (dssdev->state == OMAP_DSS_DISPLAY_DISABLED) {
 		wake_lock(&mpd->wake_lock);
@@ -3133,8 +3156,9 @@ static void minnow_panel_disable_mlocked(struct minnow_panel_data *mpd)
 {
 	struct omap_dss_device *dssdev = mpd->dssdev;
 
-	dev_info(&dssdev->dev, "%s: current state = %d\n",
-		 __func__, dssdev->state);
+	dev_info(&dssdev->dev, "%s: current display is %s\n", __func__,
+		 dssdev->state == OMAP_DSS_DISPLAY_DISABLED
+		 ? "disabled" : "enabled");
 
 	wake_lock(&mpd->wake_lock);
 	mpd->early_inited = false;
@@ -3211,13 +3235,32 @@ static void led_set_dim_brightness(struct device *dev)
 }
 #endif /* CONFIG_HAS_AMBIENTMODE */
 
+static char *state_to_str(enum display_state state)
+{
+	switch (state) {
+	case DISPLAY_DISABLE:
+		return "normal_off";
+	case DISPLAY_ENABLE:
+		return "normal_on";
+#ifdef	CONFIG_HAS_AMBIENTMODE
+	case DISPLAY_AMBIENT_OFF:
+		return "ambient_off";
+	case DISPLAY_AMBIENT_ON:
+		return "ambient_on";
+#endif
+	}
+	return "unknown???";
+}
+
 static int minnow_panel_change_state_mlocked(struct minnow_panel_data *mpd,
 					     int state)
 {
 	int r = 0;
 
 	dev_info(&mpd->dssdev->dev,
-		 "change state %d ==> %d\n", mpd->state, state);
+		 "change state %d(%s) ==> %d(%s)\n",
+		 mpd->state, state_to_str(mpd->state),
+		 state, state_to_str(state));
 
 	/* already in state, return success */
 	if (state == mpd->state) {
