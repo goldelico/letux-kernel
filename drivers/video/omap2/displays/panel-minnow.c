@@ -302,6 +302,8 @@ struct minnow_panel_data {
 	int id_panel;
 	int x_offset;
 	int y_offset;
+	int xres_um;
+	int yres_um;
 	int reset_ms;
 	int release_ms;
 
@@ -1420,6 +1422,14 @@ static void minnow_panel_get_resolution(struct omap_dss_device *dssdev,
 	*yres = dssdev->panel.timings.y_res;
 }
 
+static void minnow_panel_get_dimensions(struct omap_dss_device *dssdev,
+		u32 *xres, u32 *yres)
+{
+	struct minnow_panel_data *mpd = dev_get_drvdata(&dssdev->dev);
+	*xres = mpd->xres_um;
+	*yres = mpd->yres_um;
+}
+
 static ssize_t minnow_panel_errors_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
@@ -2454,6 +2464,15 @@ static int minnow_panel_dt_init(struct minnow_panel_data *mpd)
 		DTINFO("lp_clk_min = %lu, lp_clk_max = %lu\n", \
 			mpd->dsi_config.lp_clk_min, \
 			mpd->dsi_config.lp_clk_max);
+	}
+
+	mpd->xres_um = 0;
+	mpd->yres_um = 0;
+	if (!of_property_read_u32_array(dt_node, "panel_size_um", range, 2)) {
+		mpd->xres_um = range[0];
+		mpd->yres_um = range[1];
+		DTINFO("physical panel width = %d um, height = %d um\n",
+			mpd->xres_um, mpd->yres_um);
 	}
 
 	return 0;
@@ -3773,6 +3792,7 @@ static struct omap_dss_driver minnow_panel_driver = {
 	.sync		= minnow_panel_sync,
 
 	.get_resolution	= minnow_panel_get_resolution,
+	.get_dimensions	= minnow_panel_get_dimensions,
 	.get_recommended_bpp = omapdss_default_get_recommended_bpp,
 
 	.enable_te	= minnow_panel_enable_te,

@@ -95,6 +95,8 @@
 		//pixel_format = <1>;
 		//hs_clk = <90000000 150000000>;        /* min max*/
 		//lp_clk = <7000000 9000000>;   /* min max*/
+		/* panel dimensions (width and height) in um */
+		panel_size_um = <39744 36020>;
 		pinctrl-names = "viopulldown", "viooutput";
 		pinctrl-0 = <&display_vddio_pulldown>;
 		pinctrl-1 = <&display_vddio_output>;
