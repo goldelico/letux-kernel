@@ -114,13 +114,19 @@ static void m4ges_isr(enum m4sensorhub_irqs int_event, void *handle)
 		/* the GESTURE_VIEW is only effect for kernel now
 		 * do not send gesture to android
 		 */
-		goto m4ges_isr_fail;
+		goto m4ges_no_iio_push;
 	}
 #endif /* CONFIG_WAKEUP_SOURCE_NOTIFY */
 
 	dd->iiodat.timestamp = iio_get_time_ns();
 	iio_push_to_buffers(iio, (unsigned char *)&(dd->iiodat));
 	dd->gesture_count++;
+
+m4ges_no_iio_push:
+	/* Log gestures received  */
+	pr_info("%s: Gesture received: count=%u, type=%hhu, value=%hhd.\n",
+		__func__, dd->gesture_count, dd->iiodat.gesture_type,
+		dd->iiodat.gesture_value);
 
 m4ges_isr_fail:
 	if (err < 0)
