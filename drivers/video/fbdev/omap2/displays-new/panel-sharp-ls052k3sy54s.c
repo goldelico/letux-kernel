@@ -907,7 +907,7 @@ static int s6d2aa0x01_enable(struct omap_dss_device *dssdev)
 #if defined(CONFIG_OF)
 static const struct of_device_id s6d2aa0x01_of_match[] = {
 	{
-		.compatible = "lg,lh500wf1",
+		.compatible = "omapdss,sharp,ls052k3sy54s",
 	},
 	{},
 };

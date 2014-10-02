@@ -987,7 +987,7 @@ static int ssd2858_power_on(struct omap_dss_device *dssdev)
 		.ddr_clk_always_on = true,
 		.trans_mode = OMAP_DSS_DSI_BURST_MODE,
 	};
-	printk("hs_clk_min=%lu\n", ssd2858_dsi_config.hs_clk_min);
+//	printk("hs_clk_min=%lu\n", ssd2858_dsi_config.hs_clk_min);
 	printk("dsi: ssd2858_power_on()\n");
 	
 	ssd2858_reset(dssdev, 0);	// activate reset
