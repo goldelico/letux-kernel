@@ -3169,7 +3169,7 @@ PVRSRV_ERROR OSEventObjectSignalKM(IMG_HANDLE hOSEventKM)
 ******************************************************************************/
 IMG_BOOL OSProcHasPrivSrvInit(IMG_VOID)
 {
-    return (capable(CAP_SYS_MODULE) != 0) ? IMG_TRUE : IMG_FALSE;
+    return (capable(CAP_SYS_ADMIN) != 0) ? IMG_TRUE : IMG_FALSE;
 }
 
 /*!
