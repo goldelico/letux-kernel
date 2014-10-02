@@ -1024,7 +1024,7 @@ static int ssd2858_power_on(struct omap_dss_device *dssdev)
 	
 	
 	in->ops.dsi->enable_hs(in, ddata->pixel_channel, true);
-	
+#if 0
 	r = ssd2858_write_sequence(dssdev, init_seq, ARRAY_SIZE(init_seq));
 	if (r) {
 		dev_err(dev, "failed to configure panel\n");
@@ -1047,7 +1047,7 @@ static int ssd2858_power_on(struct omap_dss_device *dssdev)
 		goto err;
 	
 	msleep(120);
-	
+#endif	
 #if 0	// this is recommended by the latest data sheet
 	r = ssd2858_write_sequence(dssdev, display_on, ARRAY_SIZE(display_on));
 	if (r)
@@ -1329,9 +1329,6 @@ static int __exit ssd2858_remove(struct platform_device *pdev)
 
 static const struct of_device_id ssd2858_of_match[] = {
 	{ .compatible = "omapdss,solomon-systech,ssd2858", },
-	/* these are fake until we can control a panel on the out-endpoint */
-	{ .compatible = "omapdss,success,s90451-di050hd", },
-	{ .compatible = "omapdss,boe,btl507212-w677l", },
 	{},
 };
 

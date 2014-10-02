@@ -828,7 +828,7 @@ static int r63311_power_on(struct omap_dss_device *dssdev)
 		.ddr_clk_always_on = true,
 		.trans_mode = OMAP_DSS_DSI_BURST_MODE,
 	};
-	printk("hs_clk_min=%lu\n", r63311_dsi_config.hs_clk_min);
+//	printk("hs_clk_min=%lu\n", r63311_dsi_config.hs_clk_min);
 	printk("dsi: r63311_power_on()\n");
 
 	r63311_reset(dssdev, 0);	// activate reset
@@ -1101,7 +1101,7 @@ static int r63311_probe(struct platform_device *pdev)
 		r = devm_gpio_request_one(&pdev->dev, ddata->reset_gpio,
 								  GPIOF_DIR_OUT, "lcd reset");
 		if (r) {
-			dev_err(&pdev->dev, "failed to request reset gpio (%d err=%d)\n", ddata->reset_gpio, r);
+			dev_err(dev, "failed to request reset gpio (%d err=%d)\n", ddata->reset_gpio, r);
 			return r;
 		}
 	}
