@@ -44,7 +44,12 @@
 #include <video/omap-panel-data.h>
 #include <video/mipi_display.h>
 #include <linux/notifier.h>
+#ifdef CONFIG_WAKEUP_SOURCE_NOTIFY
 #include <linux/wakeup_source_notify.h>
+#endif
+#ifdef CONFIG_POWER_KEY_OVERRIDE
+#include <linux/display_notify.h>
+#endif
 
 #include "../dss/dss.h"
 
@@ -3281,8 +3286,12 @@ static int minnow_panel_change_state_mlocked(struct minnow_panel_data *mpd,
 
 	switch (state) {
 	case DISPLAY_DISABLE:
-		if (mpd->enabled)
+		if (mpd->enabled) {
 			minnow_panel_disable_mlocked(mpd);
+#ifdef CONFIG_POWER_KEY_OVERRIDE
+			display_notify_subscriber(DISPLAY_EVENT_DISPLAYOFF);
+#endif
+		}
 		break;
 	case DISPLAY_ENABLE:
 		if (!mpd->enabled)
@@ -3293,6 +3302,9 @@ static int minnow_panel_change_state_mlocked(struct minnow_panel_data *mpd,
 		 */
 		else if (mpd->state == DISPLAY_AMBIENT_ON)
 			minnow_panel_set_default_fps(mpd);
+#ifdef CONFIG_POWER_KEY_OVERRIDE
+		display_notify_subscriber(DISPLAY_EVENT_DISPLAYON);
+#endif
 #endif
 		break;
 #ifdef	CONFIG_HAS_AMBIENTMODE
@@ -3307,6 +3319,9 @@ static int minnow_panel_change_state_mlocked(struct minnow_panel_data *mpd,
 			/* Turn off the back light */
 			led_set_brightness(led_get_default_dev(), 0);
 			minnow_panel_disable_mlocked(mpd);
+#ifdef CONFIG_POWER_KEY_OVERRIDE
+			display_notify_subscriber(DISPLAY_EVENT_DISPLAYOFF);
+#endif
 		}
 		break;
 	case DISPLAY_AMBIENT_ON:
@@ -3329,6 +3344,9 @@ static int minnow_panel_change_state_mlocked(struct minnow_panel_data *mpd,
 		if (!mpd->enabled)
 			r = minnow_panel_enable_mlocked(mpd);
 		if (!r) {
+#ifdef CONFIG_POWER_KEY_OVERRIDE
+			display_notify_subscriber(DISPLAY_EVENT_DISPLAYOFF);
+#endif
 			/* switch to lowest refresh rate */
 			minnow_panel_set_lowest_fps(mpd);
 			/* Dim the back light */

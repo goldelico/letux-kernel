@@ -23,12 +23,41 @@
 #include <linux/input.h>
 #include <linux/gpio.h>
 #include <linux/mfd/tps65912.h>
+#ifdef CONFIG_WAKEUP_SOURCE_NOTIFY
 #include <linux/wakeup_source_notify.h>
+#endif
+#ifdef CONFIG_POWER_KEY_OVERRIDE
+#include <linux/charger_notify.h>
+#include <linux/display_notify.h>
+#endif
 
 struct tps65912_key_data {
 	struct input_dev *input_dev;
 	struct tps65912 *tps65912;
 };
+
+#ifdef CONFIG_POWER_KEY_OVERRIDE
+static int charger_notify(struct notifier_block *self,
+		unsigned long action, void *dev)
+{
+	struct tps65912 *tps65912 =
+		container_of(self, struct tps65912, charger_nb);
+	tps65912->dockstatus = (action == EVENT_DOCKON);
+	pr_info("%s: dockstatus is %d\n", __func__, tps65912->dockstatus);
+	return NOTIFY_OK;
+}
+
+static int display_notify(struct notifier_block *self,
+		unsigned long action, void *dev)
+{
+	struct tps65912 *tps65912 =
+		container_of(self, struct tps65912, display_nb);
+
+	tps65912->displaystatus = (action == DISPLAY_EVENT_DISPLAYON);
+	pr_info("%s: displaystatus is %d\n", __func__, tps65912->displaystatus);
+	return NOTIFY_OK;
+}
+#endif
 
 static int tps65912_key_probe(struct platform_device *pdev)
 {
@@ -57,6 +86,9 @@ static int tps65912_key_probe(struct platform_device *pdev)
 
 	set_bit(EV_KEY, key->input_dev->evbit);
 	set_bit(key->tps65912->powerkey_code, key->input_dev->keybit);
+#ifdef CONFIG_POWER_KEY_OVERRIDE
+	set_bit(KEY_SLEEP, key->input_dev->keybit);
+#endif
 
 	key->input_dev->name = "tps65912-key";
 
@@ -68,6 +100,17 @@ static int tps65912_key_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, key);
 	tps65912_set_keydata(key->tps65912, key);
+
+#ifdef CONFIG_POWER_KEY_OVERRIDE
+	key->tps65912->charger_nb.notifier_call = charger_notify;
+	charger_register_notify(&key->tps65912->charger_nb);
+	key->tps65912->dockstatus = false;
+
+	key->tps65912->display_nb.notifier_call = display_notify;
+	display_register_notify(&key->tps65912->display_nb);
+	key->tps65912->displaystatus = true;
+	key->tps65912->lastkeyevent = -1;
+#endif
 
 	dev_info(&pdev->dev, "tps65912 key device probed\n");
 
@@ -86,6 +129,10 @@ static int __exit tps65912_key_remove(struct platform_device *pdev)
 
 	input_unregister_device(key->input_dev);
 	input_free_device(key->input_dev);
+#ifdef CONFIG_POWER_KEY_OVERRIDE
+	charger_unregister_notify(&key->tps65912->charger_nb);
+	display_unregister_notify(&key->tps65912->display_nb);
+#endif
 	kfree(key);
 
 	return 0;

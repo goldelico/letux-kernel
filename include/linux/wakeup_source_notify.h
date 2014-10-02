@@ -14,7 +14,7 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef WAKEUP_SOURCEE_NOTIFY_H
+#ifndef WAKEUP_SOURCE_NOTIFY_H
 #define WAKEUP_SOURCE_NOTIFY_H
 
 #ifdef __KERNEL__

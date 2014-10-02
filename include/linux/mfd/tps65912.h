@@ -15,6 +15,10 @@
 #ifndef __LINUX_MFD_TPS65912_H
 #define __LINUX_MFD_TPS65912_H
 
+#ifdef CONFIG_POWER_KEY_OVERRIDE
+#include <linux/notifier.h>
+#endif
+
 /* TPS regulator type list */
 #define REGULATOR_LDO		0
 #define REGULATOR_DCDC		1
@@ -341,6 +345,13 @@ struct tps65912 {
 	u32 powerkey_up_irq;
 	u32 powerkey_down_irq;
 	struct mutex pm_lock;   /* guard access to spi bus from irq */
+#ifdef CONFIG_POWER_KEY_OVERRIDE
+	struct notifier_block charger_nb;
+	bool dockstatus;
+	struct notifier_block display_nb;
+	bool displaystatus;
+	int lastkeyevent;
+#endif
 };
 
 struct tps65912_platform_data {

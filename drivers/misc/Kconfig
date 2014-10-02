@@ -586,6 +586,11 @@ config WAKEUP_SOURCE_NOTIFY
         help
           Driver to allow early notification of wakeups
 
+config POWER_KEY_OVERRIDE
+        tristate "dynamically switch between generating KEY_SLEEP and KEY_POWER"
+        help
+          controls key code to be generated from power key
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
