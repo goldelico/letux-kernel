@@ -34,7 +34,6 @@ static inline int irq_to_tps65912_irq(struct tps65912 *tps65912,
 static irqreturn_t powerkey_handler(int irq, void *irq_data)
 {
 	struct tps65912 *tps65912 = irq_data;
-	unsigned int code = tps65912->powerkey_code;
 	u32 new_state;
 
 	if (irq - tps65912->irq_base == tps65912->powerkey_up_irq) {
@@ -48,36 +47,9 @@ static irqreturn_t powerkey_handler(int irq, void *irq_data)
 	}
 
 	mutex_lock(&tps65912->irq_lock);
-
-#ifdef CONFIG_POWER_KEY_OVERRIDE
-	/* if we are not on dock, send the sleep key*/
-	/* this logic is a bit tricky, notifier from
-	display driver will trigger on keypress which will
-	interfere with the logic for keyrelease. we will
-	see key press sent for KEY_POWER, but key release
-	for KEY_SLEEP. To fix this, we cache the event code
-	being sent out for keypress and we always send the
-	cached event code for key release */
-
-	if (new_state == PWRKEY_PRESS) {
-		if (tps65912->dockstatus == false &&
-		    tps65912->displaystatus == true)
-				code = KEY_SLEEP;
-
-		tps65912->lastkeyevent = code;
-	}
-
-	if (new_state == PWRKEY_RELEASE) {
-		code = tps65912->lastkeyevent;
-		/* Deliberately setting to -1, to catch
-		errors */
-		tps65912->lastkeyevent = -1;
-	}
-#endif
-
 	if (new_state != tps65912->powerkey_state) {
 		tps65912_broadcast_key_event(tps65912,
-					     code,
+					     tps65912->powerkey_code,
 					     new_state);
 		tps65912->powerkey_state = new_state;
 	}
