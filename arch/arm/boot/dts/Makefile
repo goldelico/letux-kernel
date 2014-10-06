@@ -285,6 +285,8 @@ dtb-$(CONFIG_ARCH_OMAP3) += am3517-craneboard.dtb \
 	omap3-beagle-xm+gta04b1.dtb \
 	omap3-beagle-xm+gta04b7.dtb \
 	omap3-beagle-xm-ab.dtb \
+	omap3-beagle-xm-ab+gta04b1.dtb \
+	omap3-beagle-xm-ab+gta04b7.dtb \
 	omap3-cm-t3517.dtb \
 	omap3-cm-t3530.dtb \
 	omap3-cm-t3730.dtb \
