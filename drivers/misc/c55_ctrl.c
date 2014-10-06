@@ -143,7 +143,6 @@ static ssize_t c55_ctrl_enable(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct c55_ctrl_data *cdata = dev_get_drvdata(dev);
-	struct m4sensorhub_data *m4sensorhub = m4sensorhub_client_get_drvdata();
 	int mode;
 
 	if (kstrtoint(buf, 10, &mode) < 0)
@@ -154,7 +153,7 @@ static ssize_t c55_ctrl_enable(struct device *dev,
 		return -EINVAL;
 	}
 
-	if (m4sensorhub->mode != NORMALMODE) {
+	if (m4sensorhub_get_current_mode() != NORMALMODE) {
 		dev_err(dev, "M4 not ready, Unable to set screen status\n");
 		return -EINVAL;
 	}
@@ -169,9 +168,7 @@ static ssize_t c55_ctrl_enable(struct device *dev,
 
 		gpio_set_value(cdata->ap_c55_int_gpio, 1);
 
-		if (m4sensorhub_reg_write_1byte
-		    (m4sensorhub, M4SH_REG_USERSETTINGS_AUDIOSTATUS,
-		    AUDIO_STATUS_ON, 0xFF) != 1) {
+		if (m4sensorhub_extern_set_audio_status(AUDIO_STATUS_ON) < 0) {
 			dev_err(dev, "Unable to set screen status to 0x01\n");
 			mutex_unlock(&cdata->ctrl_mutex);
 			return -EINVAL;
@@ -189,9 +186,7 @@ static ssize_t c55_ctrl_enable(struct device *dev,
 			cdata->c55_ap_int_enabled = 0;
 		}
 
-		if (m4sensorhub_reg_write_1byte
-		    (m4sensorhub, M4SH_REG_USERSETTINGS_AUDIOSTATUS,
-		    AUDIO_STATUS_OFF, 0xFF) != 1) {
+		if (m4sensorhub_extern_set_audio_status(AUDIO_STATUS_OFF) < 0) {
 			dev_err(dev, "Unable to set screen status to 0x00\n");
 			mutex_unlock(&cdata->ctrl_mutex);
 			return -EINVAL;
@@ -363,7 +358,6 @@ static int c55_ctrl_remove(struct platform_device *pdev)
 static int c55_ctrl_suspend(struct platform_device *dev, pm_message_t state)
 {
 	struct c55_ctrl_data *cdata = dev_get_drvdata(&dev->dev);
-	struct m4sensorhub_data *m4sensorhub = m4sensorhub_client_get_drvdata();
 
 	if (cdata->c55_mode != C55_OFF) {
 		dev_warn(&dev->dev, "C55 still ON when going into suspend\n");
@@ -375,9 +369,7 @@ static int c55_ctrl_suspend(struct platform_device *dev, pm_message_t state)
 			cdata->c55_ap_int_enabled = 0;
 		}
 
-		if (m4sensorhub_reg_write_1byte
-		    (m4sensorhub, M4SH_REG_USERSETTINGS_AUDIOSTATUS,
-		    AUDIO_STATUS_OFF, 0xFF) != 1) {
+		if (m4sensorhub_extern_set_audio_status(AUDIO_STATUS_OFF) < 0) {
 			dev_err(&dev->dev,
 				"Unable to set screen status to 0x00\n");
 		}

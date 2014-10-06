@@ -40,6 +40,8 @@
 #define M4PED_IRQ_ENABLED_BIT       0
 #define M4PED_FEATURE_ENABLED_BIT   1
 
+#define M4PED_USERDATA_SIZE         5
+
 struct m4ped_driver_data {
 	struct platform_device      *pdev;
 	struct m4sensorhub_data     *m4;
@@ -48,9 +50,11 @@ struct m4ped_driver_data {
 	struct m4sensorhub_pedometer_iio_data   iiodat;
 	struct m4sensorhub_pedometer_iio_data   base_dat;
 	struct m4sensorhub_pedometer_iio_data   last_dat;
-	struct delayed_work	m4ped_work;
+	struct delayed_work                     m4ped_work;
+
 	int16_t         samplerate;
 	int16_t         fastest_rate;
+	uint8_t         userdata[M4PED_USERDATA_SIZE];
 	uint16_t        status;
 };
 
@@ -234,6 +238,42 @@ static void m4ped_work_func(struct work_struct *work)
 	return;
 }
 
+static int m4ped_write_userdata(struct m4ped_driver_data *dd)
+{
+	int err;
+
+	err = m4sensorhub_reg_write(dd->m4, M4SH_REG_USERSETTINGS_USERAGE,
+		&(dd->userdata[0]), m4sh_no_mask);
+	if (err < 0) {
+		m4ped_err("%s: Failed to write age.\n", __func__);
+		goto m4ped_write_userdata_fail;
+	}
+
+	err = m4sensorhub_reg_write(dd->m4, M4SH_REG_USERSETTINGS_USERGENDER,
+		&(dd->userdata[1]), m4sh_no_mask);
+	if (err < 0) {
+		m4ped_err("%s: Failed to write gender.\n", __func__);
+		goto m4ped_write_userdata_fail;
+	}
+
+	err = m4sensorhub_reg_write(dd->m4, M4SH_REG_USERSETTINGS_USERHEIGHT,
+		&(dd->userdata[2]), m4sh_no_mask);
+	if (err < 0) {
+		m4ped_err("%s: Failed to write height.\n", __func__);
+		goto m4ped_write_userdata_fail;
+	}
+
+	err = m4sensorhub_reg_write(dd->m4, M4SH_REG_USERSETTINGS_USERWEIGHT,
+		&(dd->userdata[3]), m4sh_no_mask);
+	if (err < 0) {
+		m4ped_err("%s: Failed to write weight.\n", __func__);
+		goto m4ped_write_userdata_fail;
+	}
+
+m4ped_write_userdata_fail:
+	return err;
+}
+
 static int m4ped_set_samplerate(struct iio_dev *iio, int16_t rate)
 {
 	int err = 0;
@@ -352,11 +392,11 @@ static ssize_t m4ped_userdata_show(struct device *dev,
 	struct iio_dev *iio = platform_get_drvdata(pdev);
 	struct m4ped_driver_data *dd = iio_priv(iio);
 	ssize_t size = 0;
-	uint8_t data[5] = {0x00, 0x00, 0x00, 0x00, 0x00};
+	uint8_t data[M4PED_USERDATA_SIZE] = {0x00};
 
 	mutex_lock(&(dd->mutex));
 
-	err = m4sensorhub_reg_read_n(dd->m4, M4SH_REG_USERSETTINGS_SCREENSTATUS,
+	err = m4sensorhub_reg_read_n(dd->m4, M4SH_REG_USERSETTINGS_USERAGE,
 		(char *)&(data[0]), ARRAY_SIZE(data));
 	if (err < 0) {
 		m4ped_err("%s: Failed to read user data.\n", __func__);
@@ -369,11 +409,11 @@ static ssize_t m4ped_userdata_show(struct device *dev,
 	}
 
 	size = snprintf(buf, PAGE_SIZE,
-		"%s%s\n%s%hhu\n%s%hhu\n%s%hhu\n",
-		"Gender (M/F): ", data[2] ? "M" : "F",
-		"Age    (yrs): ", data[1],
-		"Height  (cm): ", data[3],
-		"Weight  (kg): ", data[4]);
+		"%s%s\n%s%hhu\n%s%hhu\n%s%hu\n",
+		"Gender (M/F): ", data[1] ? "M" : "F",
+		"Age    (yrs): ", data[0],
+		"Height  (cm): ", data[2],
+		"Weight  (kg): ", data[3] | (data[4] << 8));
 
 m4ped_userdata_show_fail:
 	mutex_unlock(&(dd->mutex));
@@ -388,6 +428,7 @@ m4ped_userdata_show_fail:
  * Example:
  *    Female, 22, 168cm, 49kg
  *    0x00,0x16,0xA7,0x31\n
+ *    echo 0x00,0x16,0xA7,0x31 > userdata
  */
 static ssize_t m4ped_userdata_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
@@ -398,7 +439,7 @@ static ssize_t m4ped_userdata_store(struct device *dev,
 	struct m4ped_driver_data *dd = iio_priv(iio);
 	unsigned int value = 0;
 	unsigned char convbuf[5] = {0x00, 0x00, 0x00, 0x00, 0x00};
-	unsigned char outbuf[4] = {0x00, 0x00, 0x00, 0x00};
+	unsigned char outbuf[M4PED_USERDATA_SIZE] = {0x00};
 	int i = 0;
 
 	mutex_lock(&(dd->mutex));
@@ -427,31 +468,16 @@ static ssize_t m4ped_userdata_store(struct device *dev,
 		outbuf[i] = (unsigned char) value;
 	}
 
-	err = m4sensorhub_reg_write(dd->m4, M4SH_REG_USERSETTINGS_USERAGE,
-		&(outbuf[1]), m4sh_no_mask);
-	if (err < 0) {
-		m4ped_err("%s: Failed to write user data.\n", __func__);
-		goto m4ped_userdata_store_fail;
-	}
+	for (i = 0; i < M4PED_USERDATA_SIZE; i++)
+		dd->userdata[i] = outbuf[i];
 
-	err = m4sensorhub_reg_write(dd->m4, M4SH_REG_USERSETTINGS_USERGENDER,
-		&(outbuf[0]), m4sh_no_mask);
-	if (err < 0) {
-		m4ped_err("%s: Failed to write user data.\n", __func__);
-		goto m4ped_userdata_store_fail;
-	}
+	dd->userdata[0] = outbuf[1]; /* Age */
+	dd->userdata[1] = outbuf[0]; /* Gender */
 
-	err = m4sensorhub_reg_write(dd->m4, M4SH_REG_USERSETTINGS_USERHEIGHT,
-		&(outbuf[2]), m4sh_no_mask);
+	err = m4ped_write_userdata(dd);
 	if (err < 0) {
-		m4ped_err("%s: Failed to write user data.\n", __func__);
-		goto m4ped_userdata_store_fail;
-	}
-
-	err = m4sensorhub_reg_write_n(dd->m4, M4SH_REG_USERSETTINGS_USERWEIGHT,
-		&(outbuf[3]), m4sh_no_mask, 1);
-	if (err < 0) {
-		m4ped_err("%s: Failed to write user data.\n", __func__);
+		m4ped_err("%s: Failed to write user data (%d).\n",
+			__func__, err);
 		goto m4ped_userdata_store_fail;
 	}
 
@@ -660,6 +686,13 @@ static void m4ped_panic_restore(struct m4sensorhub_data *m4sensorhub,
 
 	mutex_lock(&(dd->mutex));
 
+	err = m4ped_write_userdata(dd);
+	if (err < 0) {
+		m4ped_err("%s: Failed to write user data (%d).\n",
+			__func__, err);
+		goto m4ped_panic_restore_fail;
+	}
+
 	if (!(dd->status & (1 << M4PED_FEATURE_ENABLED_BIT))) {
 		err = m4sensorhub_reg_write(dd->m4, M4SH_REG_PEDOMETER_ENABLE,
 			&disable, m4sh_no_mask);
@@ -750,6 +783,12 @@ static int m4ped_probe(struct platform_device *pdev)
 	dd->samplerate = -1; /* We always start disabled */
 	dd->fastest_rate = 1000; /* in milli secs */
 	dd->status = dd->status | (1 << M4PED_FEATURE_ENABLED_BIT);
+
+	dd->userdata[0] = 0x23; /* Age (35) */
+	dd->userdata[1] = 0x01; /* Gender (Male) */
+	dd->userdata[2] = 0xB2; /* Height (178cm) */
+	dd->userdata[3] = 0x5B; /* Weight (91kg) */
+	dd->userdata[4] = 0x00; /* Weight */
 
 	err = m4ped_create_iiodev(iio); /* iio and dd are freed on fail */
 	if (err < 0) {

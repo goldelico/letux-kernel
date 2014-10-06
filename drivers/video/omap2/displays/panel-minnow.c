@@ -3181,7 +3181,6 @@ static void minnow_panel_disable_mlocked(struct minnow_panel_data *mpd)
 static void minnow_panel_sync_display_status_mlocked(
 	struct minnow_panel_data *mpd)
 {
-	struct m4sensorhub_data *m4sensorhub;
 	enum display_state m4_state = mpd->state;
 	/* special case for dock mode, set to DISPLAY_ENABLE
 	 * to block all wakeup gestures
@@ -3194,21 +3193,19 @@ static void minnow_panel_sync_display_status_mlocked(
 	/* be safety to sync resume states first */
 	minnow_panel_sync_resume_mlocked(mpd);
 
-	m4sensorhub = m4sensorhub_client_get_drvdata();
-	if (m4sensorhub->mode != NORMALMODE) {
+	if (m4sensorhub_get_current_mode() != NORMALMODE) {
 		dev_err(&mpd->dssdev->dev,
 			"M4 is not ready, unable to set screen status(%d)\n",
 			m4_state);
 		return;
 	}
-	if (m4sensorhub_reg_write_1byte(m4sensorhub,
-					M4SH_REG_USERSETTINGS_SCREENSTATUS,
-					m4_state, 0xFF) != 1) {
+
+	if (m4sensorhub_extern_set_display_status(m4_state) < 0) {
 		dev_err(&mpd->dssdev->dev,
-			"Unable to set screen status(%d) to M4\n",
-			m4_state);
+			"Unable to set screen status(%d) to M4\n", m4_state);
 		return;
 	}
+
 	dev_dbg(&mpd->dssdev->dev,
 		"Set screen status(%d) to M4 success!\n", m4_state);
 	mpd->m4_state = m4_state;

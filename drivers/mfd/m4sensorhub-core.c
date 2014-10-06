@@ -90,6 +90,12 @@ static ssize_t m4sensorhub_get_dbg(struct device *dev,
 /* BEGIN BOARD FILE */
 /* TODO: replace with request array */
 
+int m4sensorhub_get_current_mode(void)
+{
+	return m4sensorhub_misc_data.mode;
+}
+EXPORT_SYMBOL_GPL(m4sensorhub_get_current_mode);
+
 int m4sensorhub_set_bootmode(struct m4sensorhub_data *m4sensorhub,
 			 enum m4sensorhub_bootmode bootmode)
 {
@@ -493,6 +499,12 @@ static void m4sensorhub_initialize(const struct firmware *firmware,
 	if (err < 0) {
 		KDEBUG(M4SH_ERROR, "%s: m4sensorhub irq init failed (err=%d)\n",
 			__func__, err);
+		return;
+	}
+
+	err = m4sensorhub_extern_init(&m4sensorhub_misc_data);
+	if (err < 0) {
+		KDEBUG(M4SH_ERROR, "%s: Extern init failed.\n", __func__);
 		return;
 	}
 
