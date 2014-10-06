@@ -29,6 +29,11 @@
 #include <linux/input.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
+#ifdef CONFIG_ALS_WHILE_CHARGING
+#include <linux/notifier.h>
+#include <linux/als_notify.h>
+#include <linux/wakeup_source_notify.h>
+#endif
 
 #define m4als_err(format, args...)  KDEBUG(M4SH_ERROR, format, ## args)
 
@@ -48,7 +53,30 @@ struct m4als_driver_data {
 	int16_t         latest_samplerate;
 	int16_t         fastest_rate;
 	uint16_t        status;
+#ifdef CONFIG_ALS_WHILE_CHARGING
+	struct          notifier_block charger_nb;
+	bool            chargerstatus;
+#endif
 };
+
+#ifdef CONFIG_ALS_WHILE_CHARGING
+static int charger_notify(struct notifier_block *self,
+			unsigned long action, void *dev)
+{
+	struct m4als_driver_data *dd =
+		container_of(self, struct m4als_driver_data, charger_nb);
+	switch (action) {
+	case DISPLAY_WAKE_EVENT_DOCKON:
+	case DISPLAY_WAKE_EVENT_DOCKOFF:
+		dd->chargerstatus = (action == DISPLAY_WAKE_EVENT_DOCKON);
+		pr_info("%s: dd->chargerstatus is %d\n",
+			__func__, dd->chargerstatus);
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+#endif
 
 static void m4als_work_func(struct work_struct *work)
 {
@@ -82,8 +110,18 @@ static void m4als_work_func(struct work_struct *work)
 
 	dd->luminosity = luminosity;
 
-	input_event(dd->indev, EV_MSC, MSC_RAW, dd->luminosity);
-	input_sync(dd->indev);
+#ifdef CONFIG_ALS_WHILE_CHARGING
+	if (dd->chargerstatus == true) {
+		als_notify_subscriber(luminosity);
+	} else {
+		input_event(dd->indev, EV_MSC, MSC_RAW, dd->luminosity);
+		input_sync(dd->indev);
+	}
+#else
+		input_event(dd->indev, EV_MSC, MSC_RAW, dd->luminosity);
+		input_sync(dd->indev);
+#endif
+
 	if (dd->samplerate > 0)
 		queue_delayed_work(system_freezable_wq, &(dd->m4als_work),
 				      msecs_to_jiffies(dd->samplerate));
@@ -101,6 +139,13 @@ static int m4als_set_samplerate(struct m4als_driver_data *dd, int16_t rate)
 {
 	int err = 0;
 	int size = 0;
+
+#ifdef CONFIG_ALS_WHILE_CHARGING
+	if (rate == -1 && dd->chargerstatus == true) {
+		m4als_err("%s: ignoring disable\n", __func__);
+		return err;
+	}
+#endif
 
 	if ((rate >= 0) && (rate <= dd->fastest_rate))
 		rate = dd->fastest_rate;
@@ -388,6 +433,12 @@ static int m4als_probe(struct platform_device *pdev)
 		goto m4als_probe_fail;
 	}
 
+#ifdef CONFIG_ALS_WHILE_CHARGING
+	dd->chargerstatus = false;
+	dd->charger_nb.notifier_call = charger_notify;
+	wakeup_source_register_notify(&dd->charger_nb);
+#endif
+
 	return 0;
 
 m4als_probe_fail:
@@ -406,6 +457,9 @@ static int __exit m4als_remove(struct platform_device *pdev)
 	cancel_delayed_work(&(dd->m4als_work));
 	m4als_remove_sysfs(dd);
 	m4sensorhub_unregister_initcall(m4als_driver_init);
+#ifdef CONFIG_ALS_WHILE_CHARGING
+	wakeup_source_unregister_notify(&dd->charger_nb);
+#endif
 	if (dd->indev != NULL)
 		input_unregister_device(dd->indev);
 	mutex_destroy(&(dd->mutex));

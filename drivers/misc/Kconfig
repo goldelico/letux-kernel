@@ -586,6 +586,13 @@ config WAKEUP_SOURCE_NOTIFY
         help
           Driver to allow early notification of wakeups
 
+config ALS_WHILE_CHARGING
+	tristate "use ALS when on charger"
+	depends on WAKEUP_SOURCE_NOTIFY
+	help
+	  ALS when unit is on charger
+
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
