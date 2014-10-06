@@ -801,6 +801,8 @@ dtb-$(CONFIG_ARCH_OMAP3) += \
 	omap3-beagle-xm+gta04b1.dtb \
 	omap3-beagle-xm+gta04b7.dtb \
 	omap3-beagle-xm-ab.dtb \
+	omap3-beagle-xm-ab+gta04b1.dtb \
+	omap3-beagle-xm-ab+gta04b7.dtb \
 	omap3-cm-t3517.dtb \
 	omap3-cm-t3530.dtb \
 	omap3-cm-t3730.dtb \
@@ -927,7 +929,8 @@ dtb-$(CONFIG_SOC_OMAP5) += \
 	omap5-letux-cortex15-v5.1.dtb omap5-letux-cortex15-v5.1+pyra-v5.1.0.dtb omap5-letux-cortex15-v5.1+pyra-v5.1.2.dtb \
 	omap5-letux-cortex15-v5.2.dtb omap5-letux-cortex15-v5.2+pyra-v5.1.2.dtb omap5-letux-cortex15-v5.2+pyra-v5.2.dtb \
 	omap5-letux-cortex15-v5.3.dtb omap5-letux-cortex15-v5.3+pyra-v5.1.2.dtb omap5-letux-cortex15-v5.3+pyra-v5.2.dtb \
-	omap5-pyra.dtb omap5-pyra+lg.dtb omap5-pyra+boe.dtb omap5-pyra+succ.dtb
+	omap5-pyra.dtb omap5-pyra+lg.dtb omap5-pyra+boe.dtb omap5-pyra+succ.dtb omap5-pyra+ssd.dtb \
+	omap5-uevm.dtb \
 dtb-$(CONFIG_SOC_DRA7XX) += \
 	am57xx-beagle-x15.dtb \
 	am57xx-beagle-x15-revb1.dtb \
