@@ -19,6 +19,15 @@
 
 #ifdef __KERNEL__
 
+#ifndef UINT16_MAX
+#define UINT16_MAX (65535U)
+#endif
+
+enum als_state {
+	ALS_ENABLED = (UINT16_MAX + 1),
+	ALS_DISABLED
+};
+
 extern void als_register_notify(struct notifier_block *nb);
 extern void als_unregister_notify(struct notifier_block *nb);
 extern void als_notify_subscriber(unsigned long event);

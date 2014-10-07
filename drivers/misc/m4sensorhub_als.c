@@ -29,10 +29,12 @@
 #include <linux/input.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
-#ifdef CONFIG_ALS_WHILE_CHARGING
+#ifdef CONFIG_WAKEUP_SOURCE_NOTIFY
 #include <linux/notifier.h>
 #include <linux/als_notify.h>
+#ifdef CONFIG_ALS_WHILE_CHARGING
 #include <linux/wakeup_source_notify.h>
+#endif /* CONFIG_ALS_WHILE_CHARGING */
 #endif
 
 #define m4als_err(format, args...)  KDEBUG(M4SH_ERROR, format, ## args)
@@ -48,6 +50,9 @@ struct m4als_driver_data {
 	struct input_dev            *indev;
 	struct delayed_work         m4als_work;
 
+	/* Beware of changing this from uint16, check als_notify.h
+	since notifier uses values outside luminosity range for
+	conveying enable/disable status */
 	uint16_t        luminosity;
 	int16_t         samplerate;
 	int16_t         latest_samplerate;
@@ -178,9 +183,17 @@ static int m4als_set_samplerate(struct m4als_driver_data *dd, int16_t rate)
 	}
 	cancel_delayed_work(&(dd->m4als_work));
 	dd->samplerate = rate;
-	if (dd->samplerate > 0)
+	if (dd->samplerate > 0) {
 		queue_delayed_work(system_freezable_wq, &(dd->m4als_work),
 				      msecs_to_jiffies(rate));
+#ifdef CONFIG_WAKEUP_SOURCE_NOTIFY
+		als_notify_subscriber(ALS_ENABLED);
+#endif
+	} else {
+#ifdef CONFIG_WAKEUP_SOURCE_NOTIFY
+		als_notify_subscriber(ALS_DISABLED);
+#endif
+	}
 
 m4als_set_samplerate_fail:
 	return err;

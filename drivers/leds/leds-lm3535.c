@@ -52,13 +52,11 @@
 #endif /* CONFIG_LM3535_ESD_RECOVERY */
 #include <linux/notifier.h>
 #ifdef CONFIG_WAKEUP_SOURCE_NOTIFY
+#include <linux/als_notify.h>
 #include <linux/wakeup_source_notify.h>
 #define MIN_DOCK_BVALUE			36
 #include <linux/m4sensorhub.h>
 #include <linux/m4sensorhub/MemMapUserSettings.h>
-#endif
-#ifdef CONFIG_ALS_WHILE_CHARGING
-#include <linux/als_notify.h>
 #endif
 
 #define MODULE_NAME "leds_lm3535"
@@ -276,9 +274,8 @@ struct lm3535 {
 	int prevent_als_read;	/* Whether to prevent als reads for a time */
 #ifdef CONFIG_WAKEUP_SOURCE_NOTIFY
 	atomic_t docked;
+	atomic_t alsstatus;
 	struct notifier_block dock_nb;
-#endif
-#ifdef CONFIG_ALS_WHILE_CHARGING
 	struct notifier_block als_nb;
 #endif
 };
@@ -580,30 +577,34 @@ static uint8_t lm3535_convert_value (unsigned value, unsigned zone)
         reg = res / als_denom;
 
 #ifdef CONFIG_WAKEUP_SOURCE_NOTIFY
-	if (!lm3535_data.prevent_als_read) {
-		/* make sure this is atleast as high as corresponding ambient
-		 * mode value for current ALS condition */
-		m4sensorhub = m4sensorhub_client_get_drvdata();
-		size = m4sensorhub_reg_getsize(m4sensorhub,
-					M4SH_REG_LIGHTSENSOR_SIGNAL);
-		if (size != sizeof(als)) {
-			pr_err("can't get M4 reg size for ALS\n");
-			ambient_als_backlight = 0;
-		} else if (size != m4sensorhub_reg_read(m4sensorhub,
-						M4SH_REG_LIGHTSENSOR_SIGNAL,
-						(char *)&als)) {
-			pr_err("error reading M4 ALS value\n");
-			ambient_als_backlight = 0;
-		} else {
-			adjust_als = true;
-			/* prevent als reads for next 500 ms */
-			lm3535_data.prevent_als_read = 1;
-			schedule_delayed_work(&lm3535_data.als_delayed_work,
-					      msecs_to_jiffies(500));
+	if (atomic_read(&lm3535_data.alsstatus)) {
+		if (!lm3535_data.prevent_als_read) {
+			/* make sure this is atleast as
+			high as corresponding ambient
+			* mode value for current ALS condition */
+			m4sensorhub = m4sensorhub_client_get_drvdata();
+			size = m4sensorhub_reg_getsize(m4sensorhub,
+						M4SH_REG_LIGHTSENSOR_SIGNAL);
+			if (size != sizeof(als)) {
+				pr_err("can't get M4 reg size for ALS\n");
+				ambient_als_backlight = 0;
+			} else if (size != m4sensorhub_reg_read(m4sensorhub,
+					M4SH_REG_LIGHTSENSOR_SIGNAL,
+							(char *)&als)) {
+				pr_err("error reading M4 ALS value\n");
+				ambient_als_backlight = 0;
+			} else {
+				adjust_als = true;
+				/* prevent als reads for next 500 ms */
+				lm3535_data.prevent_als_read = 1;
+				schedule_delayed_work(
+					&lm3535_data.als_delayed_work,
+						      msecs_to_jiffies(500));
+			}
+		} else if (ambient_als_backlight > reg) {
+			/* If valid, use previously read als value */
+			reg = ambient_als_backlight;
 		}
-	} else if (ambient_als_backlight > reg) {
-		/* If valid, use previously read als value */
-		reg = ambient_als_backlight;
 	}
 
 	if (adjust_als) {
@@ -612,7 +613,7 @@ static uint8_t lm3535_convert_value (unsigned value, unsigned zone)
 		if (ambient_als_backlight > reg)
 			reg = ambient_als_backlight;
 	}
-#endif
+#endif /* CONFIG_WAKEUP_SOURCE_NOTIFY*/
 
 	printk_br(KERN_INFO "%s: v=%d, z=%d, res=0x%x, reg=0x%x\n",
 		__func__, value, zone, res, reg);
@@ -667,16 +668,26 @@ static void lm3535_brightness_set_raw_als(struct led_classdev *led_cdev,
 }
 #endif
 
-#ifdef CONFIG_ALS_WHILE_CHARGING
+#ifdef CONFIG_WAKEUP_SOURCE_NOTIFY
 static int lm3535_als_notifier(struct notifier_block *self,
 				unsigned long action, void *dev)
 {
 	pr_info("%s: ALS value is %lu\n", __func__, action);
-	lm3535_brightness_set_raw_als(led_get_default_dev(),
-				      (unsigned int)action);
+	switch (action) {
+	case ALS_ENABLED:
+	case ALS_DISABLED:
+		atomic_set(&lm3535_data.use_als, (action == ALS_ENABLED));
+	break;
+	default:
+#ifdef CONFIG_ALS_WHILE_CHARGING
+		lm3535_brightness_set_raw_als(led_get_default_dev(),
+					      (unsigned int)action);
+#endif
+	break;
+	}
 	return NOTIFY_OK;
 }
-#endif
+#endif /* CONFIG_WAKEUP_SOURCE_NOTIFY */
 
 static void lm3535_brightness_set (struct led_classdev *led_cdev,
                 enum led_brightness value)
@@ -688,13 +699,6 @@ static void lm3535_brightness_set (struct led_classdev *led_cdev,
     unsigned bright_zone;
     unsigned bvalue;
     unsigned do_ramp = 1;
-
-#ifdef CONFIG_ALS_WHILE_CHARGING
-	if (atomic_read(&lm3535_data.docked)) {
-		pr_info("%s: docked, ignoring call\n", __func__);
-		return;
-	}
-#endif /* CONFIG_WAKEUP_SOURCE_NOTIFY */
 
     printk_br ("%s: %s, 0x%x (%d)\n", __FUNCTION__, 
         led_cdev->name, value, value);
@@ -1062,14 +1066,14 @@ static int lm3535_probe (struct i2c_client *client,
     lm3535_data.initialized = 1;
 #ifdef CONFIG_WAKEUP_SOURCE_NOTIFY
 	atomic_set(&lm3535_data.docked, 0);
+	/* default setting for minnow is to use ALS */
+	atomic_set(&lm3535_data.alsstatus, 1);
 	lm3535_data.dock_nb.notifier_call = lm3535_dock_notifier;
 	wakeup_source_register_notify(&lm3535_data.dock_nb);
-#endif /* CONFIG_WAKEUP_SOURCE_NOTIFY */
 
-#ifdef CONFIG_ALS_WHILE_CHARGING
 	lm3535_data.als_nb.notifier_call = lm3535_als_notifier;
 	als_register_notify(&lm3535_data.als_nb);
-#endif
+#endif /* CONFIG_WAKEUP_SOURCE_NOTIFY */
 
 	INIT_DELAYED_WORK(&lm3535_data.als_delayed_work,
 			  lm3535_allow_als_work_func);
@@ -1553,8 +1557,6 @@ static int lm3535_remove (struct i2c_client *client)
 
 #ifdef CONFIG_WAKEUP_SOURCE_NOTIFY
 	wakeup_source_unregister_notify(&lm3535_data.dock_nb);
-#endif
-#ifdef CONFIG_ALS_WHILE_CHARGING
 	als_unregister_notify(&lm3535_data.als_nb);
 #endif
     return 0;
