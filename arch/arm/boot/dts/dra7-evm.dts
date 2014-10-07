@@ -188,7 +188,7 @@
 		ti,always-on;
 		ti,audio-codec = <&tlv320aic3106>;
 		ti,mcasp-controller = <&mcasp3>;
-		ti,codec-clock-rate = <5644800>;
+		ti,codec-clock-rate = <11289600>;
 		clocks = <&atl_clkin2_ck>;
 		clock-names = "mclk";
 		ti,audio-routing =
