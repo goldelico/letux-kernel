@@ -286,40 +286,42 @@
    0x0020	disable power for I/O cell
    0x0100	enable input buffer (there is no explicit "enable output buffer" because that is defined by the GPIO direction)
    0x4000	enable wakeup detection
+
+   or use the OMAP5_IOPAD() macros to do the conversion. You still have to look
+   up the pin and register address offset in the TRM.
 */
-// FIXME: we can now use the OMAP5_IOPAD() macros to do the conversion */
 
 	pyra_button_pins: pinmux_button_gpio_pins {
 		pinctrl-single,pins = <
-			0x76 0x11e	/* (PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0B4:[31:16] gpio3_83  -- pullup is not really necessary since there is an external pullup */
-			0xec 0x11e	/* (PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x12C:[15:0]  gpio6_160 */
-			0xee 0x11e	/* (PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x12C:[31:16] gpio6_161 */
-			0xcc 0x11e	/* (PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x10C:[15:0]  gpio6_177 */
-			0xc8 0x11e	/* (PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x108:[15:0]  gpio6_179 */
-			0xc6 0x11e	/* (PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x104:[31:16] gpio6_180 */
-			0xc4 0x11e	/* (PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x104:[15:0]  gpio6_181 */
-			0xf0 0x11e	/* (PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x130:[15:0]  gpio6_182 */
-			0xf2 0x11e	/* (PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x130:[31:16] gpio6_183 */
-			0xf4 0x11e	/* (PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x134:[15:0]  gpio6_184 */
-//			OMAP5_IOPAD(0x122, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x122:[15:0]  gpio6_166 */
+			OMAP5_IOPAD(0x0b6, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0B4:[31:16] gpio3_83  -- pullup is not really necessary since there is an external pullup */
+			OMAP5_IOPAD(0x12c, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x12C:[15:0]  gpio6_160 */
+			OMAP5_IOPAD(0x12e, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x12C:[31:16] gpio6_161 */
+			OMAP5_IOPAD(0x10c, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x10C:[15:0]  gpio6_177 */
+			OMAP5_IOPAD(0x108, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x108:[15:0]  gpio6_179 */
+			OMAP5_IOPAD(0x106, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x104:[31:16] gpio6_180 */
+			OMAP5_IOPAD(0x104, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x104:[15:0]  gpio6_181 */
+			OMAP5_IOPAD(0x130, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x130:[15:0]  gpio6_182 */
+			OMAP5_IOPAD(0x132, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x130:[31:16] gpio6_183 */
+			OMAP5_IOPAD(0x134, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x134:[15:0]  gpio6_184 */
+//			OMAP5_IOPAD(0x120, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x120:[15:0]  gpio6_166 */
 		>;
 	};
 
 	pyra_display_pins: pinmux_display_gpio_pins {
 		pinctrl-single,pins = <
-			0x74 0x00e	/* (PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x0B4:[15:0]  gpio3_82 - enable panel DC/DC */
-			0x8a 0x10f	/* (PIN_INPUT_PULLDOWN | MUX_MODE6)	/* 0x0C8:[31:16] gpio6_189 - VSYNC input */
-			0xb6 0x10f	/* (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* 0x0F4:[31:16] gpio6_190 - choose MUX_MODE0 for PWM_TIMER9 - choose MUX_MODE7 if panel outputs the PWM */
-			0xce 0x00e	/* (PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x178:[31:16] gpio6_176 - panel reset */
+			OMAP5_IOPAD(0x0b4, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x0B4:[15:0]  gpio3_82 - enable panel DC/DC */
+			OMAP5_IOPAD(0x0ca, PIN_INPUT_PULLDOWN | MUX_MODE7)	/* 0x0C8:[31:16] gpio6_189 - VSYNC input */
+			OMAP5_IOPAD(0x0f6, PIN_INPUT_PULLDOWN | MUX_MODE7)	/* 0x0F4:[31:16] gpio6_190 - choose MUX_MODE0 for PWM_TIMER9 - choose MUX_MODE7 if panel outputs the PWM */
+			OMAP5_IOPAD(0x10e, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x10c:[31:16] gpio6_176 - panel reset */
 		>;
 	};
 
 	pyra_other_pins: pinmux_other_gpio_pins {
 		pinctrl-single,pins = <
-			0x72 0x11e	/* (PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0B0:[31:16] gpio3_81 - TCA6424 active low interrupt */
-			0xca 0x00e	/* (PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x108:[31:16] gpio6_178 - start modem */
-			0xd4 0x11e	/* (PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x114:[15:0]  gpio6_173 - touch screen */
-			0x138 0x11e	/* (PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x178:[15:0]  gpio8_230 - reset I2C peripherals */
+			OMAP5_IOPAD(0x0b2, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0B0:[31:16] gpio3_81 - TCA6424 active low interrupt */
+			OMAP5_IOPAD(0x10a, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x108:[31:16] gpio6_178 - start modem */
+			OMAP5_IOPAD(0x114, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x114:[15:0]  gpio6_173 - touch screen */
+			OMAP5_IOPAD(0x178, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x178:[15:0]  gpio8_230 - reset I2C peripherals */
 		>;
 	};
 
@@ -327,37 +329,30 @@
 
 	i2c2_pins: pinmux_i2c2_pins {
 		pinctrl-single,pins = <
-			0x178 0x118	/* (PIN_INPUT_PULLUP | MUX_MUX_MODE0)		/* i2c2_scl */
-			0x17a 0x118	/* (PIN_INPUT_PULLUP | MUX_MUX_MODE0)		/* i2c2_sda */
+			OMAP5_IOPAD(0x1b8, PIN_INPUT_PULLUP | MUX_MODE0)		/* i2c2_scl */
+			OMAP5_IOPAD(0x1ba, PIN_INPUT_PULLUP | MUX_MODE0)		/* i2c2_sda */
 		>;
 	};
 
 	i2c3_pins: pinmux_i2c3_pins {
 		pinctrl-single,pins = <
-			0x13a 0x118	/* (PIN_INPUT_PULLUP | MUX_MUX_MODE0)		/* i2c3_scl */
-			0x13c 0x118	/* (PIN_INPUT_PULLUP | MUX_MUX_MODE0)		/* i2c3_sda */
+			OMAP5_IOPAD(0x17a, PIN_INPUT_PULLUP | MUX_MODE0)		/* i2c3_scl */
+			OMAP5_IOPAD(0x17c, PIN_INPUT_PULLUP | MUX_MODE0)		/* i2c3_sda */
 		>;
 	};
 
 	i2c4_pins: pinmux_i2c4_pins {
 		pinctrl-single,pins = <
-			0xb8 0x118	/* (PIN_INPUT_PULLUP | MUX_MUX_MODE0)		/* i2c4_scl (gpio7_200) */
-			0xba 0x118	/* (PIN_INPUT_PULLUP | MUX_MUX_MODE0)		/* i2c4_sda (gpio7_201) */
+			OMAP5_IOPAD(0x0f8, PIN_INPUT_PULLUP | MUX_MODE0)		/* i2c4_scl (gpio7_200) */
+			OMAP5_IOPAD(0x0fa, PIN_INPUT_PULLUP | MUX_MODE0)		/* i2c4_sda (gpio7_201) */
 		>;
 	};
 
 /*	i2c5_pins: pinmux_i2c5_pins {
 		pinctrl-single,pins = <
-			0x184 (PIN_INPUT_PULLUP | MUX_MODE0)		/* i2c5_scl * /
-			0x186 (PIN_INPUT_PULLUP | MUX_MODE0)		/* i2c5_sda * /
-		>;
-	};
-
-/*	i2c5_pins: pinmux_i2c5_pins {
-		pinctrl-single,pins = <
-// CHECKME: is this 0x186 + 0x188 or 0x184+0x186 ?
-			0x186 0x118	/* (PIN_INPUT | MUX_MUX_MODE0)		/* i2c5_scl * /
-			0x188 0x118	/* (PIN_INPUT | MUX_MUX_MODE0)		/* i2c5_sda * /
+// CHECKME: is this 0x186 + 0x188 or 0x184+0x186 as defined in omap5.dtsi?
+			OMAP5_IOPAD(0x1c6, PIN_INPUT | MUX_MODE0)		/* i2c5_scl * /
+			OMAP5_IOPAD(0x1c8, PIN_INPUT | MUX_MODE0)		/* i2c5_sda * /
 		>;
 	}; */
 
@@ -365,16 +360,16 @@
 
 	pyra_dsi_a: pinmux_dsi_a_pins {
 		pinctrl-single,pins = <
-			0x8c 0x0	/* (PIN_OUTPUT | MUX_MODE0)	/* 0x0cc:[15:0]  dsiporta_lane0x */
-			0x8e 0x0	/* (PIN_OUTPUT | MUX_MODE0)	/* 0x0cc:[31:16] dsiporta_lane0y */
-			0x90 0x0	/* (PIN_OUTPUT | MUX_MODE0)	/* 0x0d0:[15:0]  dsiporta_lane1x */
-			0x92 0x0	/* (PIN_OUTPUT | MUX_MODE0)	/* 0x0d0:[31:16] dsiporta_lane1y */
-			0x94 0x0	/* (PIN_OUTPUT | MUX_MODE0)	/* 0x0d4:[15:0]  dsiporta_lane2x */
-			0x96 0x0	/* (PIN_OUTPUT | MUX_MODE0)	/* 0x0d4:[31:16] dsiporta_lane2y */
-			0x98 0x0	/* (PIN_OUTPUT | MUX_MODE0)	/* 0x0d8:[15:0]  dsiporta_lane3x */
-			0x9a 0x0	/* (PIN_OUTPUT | MUX_MODE0)	/* 0x0d8:[31:16] dsiporta_lane3y */
-			0x9c 0x0	/* (PIN_OUTPUT | MUX_MODE0)	/* 0x0dc:[15:0]  dsiporta_lane4x */
-			0x9e 0x0	/* (PIN_OUTPUT | MUX_MODE0)	/* 0x0dc:[31:16] dsiporta_lane4y */
+			OMAP5_IOPAD(0x0cc, PIN_OUTPUT | MUX_MODE0)	/* 0x0cc:[15:0]  dsiporta_lane0x */
+			OMAP5_IOPAD(0x0ce, PIN_OUTPUT | MUX_MODE0)	/* 0x0cc:[31:16] dsiporta_lane0y */
+			OMAP5_IOPAD(0x0d0, PIN_OUTPUT | MUX_MODE0)	/* 0x0d0:[15:0]  dsiporta_lane1x */
+			OMAP5_IOPAD(0x0d2, PIN_OUTPUT | MUX_MODE0)	/* 0x0d0:[31:16] dsiporta_lane1y */
+			OMAP5_IOPAD(0x0d4, PIN_OUTPUT | MUX_MODE0)	/* 0x0d4:[15:0]  dsiporta_lane2x */
+			OMAP5_IOPAD(0x0d6, PIN_OUTPUT | MUX_MODE0)	/* 0x0d4:[31:16] dsiporta_lane2y */
+			OMAP5_IOPAD(0x0d8, PIN_OUTPUT | MUX_MODE0)	/* 0x0d8:[15:0]  dsiporta_lane3x */
+			OMAP5_IOPAD(0x0da, PIN_OUTPUT | MUX_MODE0)	/* 0x0d8:[31:16] dsiporta_lane3y */
+			OMAP5_IOPAD(0x0dc, PIN_OUTPUT | MUX_MODE0)	/* 0x0dc:[15:0]  dsiporta_lane4x */
+			OMAP5_IOPAD(0x0de, PIN_OUTPUT | MUX_MODE0)	/* 0x0dc:[31:16] dsiporta_lane4y */
 		>;
 	};
 };
