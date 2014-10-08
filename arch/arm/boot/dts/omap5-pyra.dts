@@ -238,9 +238,9 @@
 			&pyra_button_pins
 			// &pyra_display_pins
 			&pyra_other_pins
-			&i2c2_pins
-			&i2c3_pins
-			&i2c4_pins
+			// &i2c2_pins
+			// &i2c3_pins
+			// &i2c4_pins
 			// &i2c5_pins
 			// &pyra_dsi_a
 	>;
@@ -287,7 +287,7 @@
    0x0100	enable input buffer (there is no explicit "enable output buffer" because that is defined by the GPIO direction)
    0x4000	enable wakeup detection
 */
-// FIXME: we can now use the OMAP5_IOPAD() macro to do the conversion */
+// FIXME: we can now use the OMAP5_IOPAD() macros to do the conversion */
 
 	pyra_button_pins: pinmux_button_gpio_pins {
 		pinctrl-single,pins = <
@@ -323,7 +323,7 @@
 		>;
 	};
 
-/* enable I2C pinmux */
+/* I2C pinmux */
 
 	i2c2_pins: pinmux_i2c2_pins {
 		pinctrl-single,pins = <
@@ -379,11 +379,29 @@
 	};
 };
 
-/* register devices connected to EVM-Panel-I2C */
 &i2c2 {
-// FIXME: define clock frequencies only once
 	clock-frequency = <400000>;
 
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c2_pins>;
+};
+
+&i2c3 {
+	clock-frequency = <400000>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c3_pins>;
+};
+
+&i2c4 {
+	clock-frequency = <400000>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c4_pins>;
+};
+
+/* register devices connected to EVM-Panel-I2C */
+&i2c2 {
 	/* touchscreen */
 	tsc2007@48 {
 		compatible = "ti,tsc2007";
@@ -396,8 +414,8 @@
 		ti,x-plate-ohms = <550>;
 		ti,min-x = <0x100>;
 		ti,max-x = <0xf00>;
-		ti,min-y = <0xf00>;
-		ti,max-y = <0x100>;
+		ti,min-y = <0x100>;
+		ti,max-y = <0xf00>;
 		ti,min-rt = <0xfff>;
 		ti,max-rt = <0>;
 	};
@@ -470,8 +488,6 @@
 
 /* register devices connected to Peripheral-I2C */
 &i2c4 {
-
-	clock-frequency = <400000>;
 
 	/* leds (only on V2 main board) */
 	tca6507@45 {
@@ -670,8 +686,6 @@
 /* register devices connected to System-I2C on CPU board */
 &i2c2 {
 
-	clock-frequency = <400000>;
-
 	/* usb bridge */
 	usb3503@08 {
 		compatible = "smsc,usb3503a";
@@ -690,8 +704,6 @@
 
 /* register devices connected to Sensor-I2C */
 &i2c2 {
-	clock-frequency = <400000>;
-
 	/* gyroscope sensor */
 	bmg160@69 {
 		compatible = "bosch,bmg160";
@@ -719,11 +731,8 @@
 	};
 };
 
-/* register devices connected to Panel-I2C */
+/* register devices connected to Panel-I2C on main board */
 &i2c4 {
-
-	clock-frequency = <400000>;
-
 	/* touchscreen */
 	tsc2007@48 {
 		compatible = "ti,tsc2007";
@@ -806,9 +815,6 @@
 
 /* register devices connected to System-I2C */
 &i2c2 {
-
-	clock-frequency = <400000>;
-
 	/* system/keyboard-led */
 	gpio99: tca6424@22 {
 		compatible = "ti,tca6424";
