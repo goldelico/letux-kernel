@@ -42,6 +42,7 @@
 #define M4ALS_DRIVER_NAME           "m4sensorhub_als"
 
 #define M4ALS_IRQ_ENABLED_BIT       0
+#define ALS_SAMPLERATE_WHILE_DOCKED	10 /* in seconds */
 
 struct m4als_driver_data {
 	struct platform_device      *pdev;
@@ -147,8 +148,7 @@ static int m4als_set_samplerate(struct m4als_driver_data *dd, int16_t rate)
 
 #ifdef CONFIG_ALS_WHILE_CHARGING
 	if (rate == -1 && dd->chargerstatus == true) {
-		m4als_err("%s: ignoring disable\n", __func__);
-		return err;
+		rate = ALS_SAMPLERATE_WHILE_DOCKED * 1000;
 	}
 #endif
 

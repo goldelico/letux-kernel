@@ -275,6 +275,9 @@ struct lm3535 {
 #ifdef CONFIG_WAKEUP_SOURCE_NOTIFY
 	atomic_t docked;
 	atomic_t alsstatus;
+#ifdef CONFIG_ALS_WHILE_CHARGING
+	atomic_t interactive;
+#endif
 	struct notifier_block dock_nb;
 	struct notifier_block als_nb;
 #endif
@@ -680,8 +683,11 @@ static int lm3535_als_notifier(struct notifier_block *self,
 	break;
 	default:
 #ifdef CONFIG_ALS_WHILE_CHARGING
-		lm3535_brightness_set_raw_als(led_get_default_dev(),
-					      (unsigned int)action);
+		if (atomic_read(&lm3535_data.interactive) == 0)
+			lm3535_brightness_set_raw_als(led_get_default_dev(),
+						      (unsigned int)action);
+		else
+			pr_info("%s: ignoring ALS notifications\n", __func__);
 #endif
 	break;
 	}
@@ -952,6 +958,38 @@ static ssize_t lm3535_suspend_store (struct device *dev,
 }
 static DEVICE_ATTR(suspend, 0644, lm3535_suspend_show, lm3535_suspend_store);
 
+#ifdef CONFIG_ALS_WHILE_CHARGING
+static ssize_t lm3535_interactive_show(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	return sprintf(buf, "%d\n", atomic_read(&lm3535_data.interactive));
+}
+
+static ssize_t lm3535_interactive_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t size)
+{
+	unsigned value = 0;
+
+	if (!buf || size == 0) {
+		pr_err("%s: invalid command\n", __func__);
+		return -EINVAL;
+	}
+
+	sscanf(buf, "%d", &value);
+	if (value)
+		atomic_set(&lm3535_data.interactive, 1);
+	else
+		atomic_set(&lm3535_data.interactive, 0);
+
+	return size;
+}
+static DEVICE_ATTR(interactive, S_IRUGO | S_IWUSR,
+					lm3535_interactive_show,
+					lm3535_interactive_store);
+#endif
+
 /* This function is called by i2c_probe */
 static int lm3535_probe (struct i2c_client *client,
     const struct i2c_device_id *id)
@@ -1027,6 +1065,18 @@ static int lm3535_probe (struct i2c_client *client,
         misc_deregister (&als_miscdev);
         return ret;
     }
+#ifdef CONFIG_ALS_WHILE_CHARGING
+	ret = device_create_file(lm3535_led.dev, &dev_attr_interactive);
+	if (ret) {
+		pr_err("err creating interactive file for %s: %d\n",
+		       lm3535_led.name, ret);
+		led_classdev_unregister(&lm3535_led);
+		led_classdev_unregister(&lm3535_led_noramp);
+		device_remove_file(lm3535_led.dev, &dev_attr_suspend);
+		misc_deregister(&als_miscdev);
+		return ret;
+	}
+#endif
     dev_set_drvdata (lm3535_led.dev, &lm3535_led);
 #if 0
     lm3535_data.idev = input_allocate_device();
@@ -1068,6 +1118,9 @@ static int lm3535_probe (struct i2c_client *client,
 	atomic_set(&lm3535_data.docked, 0);
 	/* default setting for minnow is to use ALS */
 	atomic_set(&lm3535_data.alsstatus, 1);
+#ifdef CONFIG_ALS_WHILE_CHARGING
+	atomic_set(&lm3535_data.interactive, 1);
+#endif
 	lm3535_data.dock_nb.notifier_call = lm3535_dock_notifier;
 	wakeup_source_register_notify(&lm3535_data.dock_nb);
 
@@ -1550,6 +1603,9 @@ static int lm3535_remove (struct i2c_client *client)
 /*    led_classdev_unregister (&lm3535_led_noramp); */
     misc_deregister (&als_miscdev);
     device_remove_file (lm3535_led.dev, &dev_attr_suspend);
+#ifdef CONFIG_ALS_WHILE_CHARGING
+	device_remove_file(lm3535_led.dev, &dev_attr_interactive);
+#endif
 #if 0
     input_unregister_device (lm3535_data.idev);
     input_free_device (lm3535_data.idev);
