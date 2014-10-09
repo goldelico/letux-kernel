@@ -331,6 +331,11 @@
 };
 
 &omap3_pmx_core { /* FIXME: base is 0x48002030! convert all to OMAP3_CORE1_IOPAD() */
+	pinctrl-names = "default";
+	pinctrl-0 = <
+			&gps_rx_irq_pins
+	>;
+
 	uart1_pins: pinmux_uart1_pins {
 		pinctrl-single,pins = <
 			0x152 (PIN_INPUT | MUX_MODE0)		/* uart1_cts.uart1_rx */
@@ -518,6 +523,11 @@
 		>;
 	};
 
+	gps_rx_irq_pins: pinmux_gps_rx_irq_pins {
+		pinctrl-single,pins = <
+			OMAP3_CORE1_IOPAD(0x2178, PIN_INPUT | MUX_MODE4) /* gpio147 */
+		>;
+	};
 };
 
 &omap3_pmx_core2 {
