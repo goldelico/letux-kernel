@@ -540,20 +540,27 @@ static DEVICE_ATTR(debug_level, S_IRUSR|S_IWUSR, m4sensorhub_get_dbg,
 static ssize_t m4sensorhub_get_loglevel(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	unsigned long long loglevel;
+	uint32_t logenable[LOG_EN_SIZE], len, i;
 
 	m4sensorhub_reg_read(&m4sensorhub_misc_data,
-		M4SH_REG_LOG_LOGENABLE, (char *)&loglevel);
-	KDEBUG(M4SH_INFO, "M4 loglevel = %llx", loglevel);
-	return sprintf(buf, "%llu\n", loglevel);
+			     M4SH_REG_LOG_LOGENABLE, (char *)&logenable);
+
+	len = sprintf(tempbuf, "M4 log levels = 0x");
+	for (i = 0; i < LOG_EN_SIZE; i++)
+		len += sprintf(buf+len, "%08x", logenable[i]);
+	KDEBUG(M4SH_INFO, "%s\n", buf);
+	return snprintf(buf, PAGE_SIZE, "%s\n", buf);
 }
-void m4sensorhub_update_loglevels(char *tag, char *level,
-			unsigned long long *log_levels)
+void m4sensorhub_update_loglevels(int8_t *tag, int8_t *level,
+			uint32_t *log_level)
 {
-	int i;
-	int levelindex = -1;
-	int tagindex = -1;
-	unsigned long long mask;
+	uint32_t i;
+	int32_t levelindex = -1;
+	int32_t tagindex = -1;
+	uint32_t mask;
+	int32_t logenableindex;
+	int32_t en = LOG_TAGS_PER_ENABLE;
+	int32_t b = LOG_NO_OF_BITS_PER_TAG;
 
 	for (i = 0; i < LOG_LEVELS_MAX; i++) {
 		if (strcmp(acLogLevels[i], level) == 0) {
@@ -568,16 +575,21 @@ void m4sensorhub_update_loglevels(char *tag, char *level,
 			break;
 		}
 	}
-
 	if ((tagindex == -1) || (levelindex == -1))
 		return;
 
+	logenableindex = tagindex/LOG_TAGS_PER_ENABLE;
+
 	/*Clear the revelant bits*/
-	mask = 0x03;
-	*log_levels &= ~(mask << (tagindex * 2));
+	mask = LOG_TAG_MASK;
+	*(log_level+logenableindex) &= ~(mask << ((tagindex % en) * b));
 	/*set debug level for the relevant bits*/
-	*log_levels |= (levelindex << (tagindex * 2));
-	KDEBUG(M4SH_INFO, "New M4 log levels = 0x%llx\n", *log_levels);
+	*(log_level+logenableindex) |= (levelindex << ((tagindex % en) * b));
+
+	KDEBUG(M4SH_DEBUG, "New M4 log levels = ");
+	for (i = 0; i < LOG_EN_SIZE; i++)
+		KDEBUG(M4SH_DEBUG, "enable %d = 0x%08x ", i, *(log_level+i));
+	KDEBUG(M4SH_DEBUG, "\n");
 }
 
 /* Usage: adb shell into the directory of sysinterface log_level and
@@ -585,25 +597,29 @@ void m4sensorhub_update_loglevels(char *tag, char *level,
 static ssize_t m4sensorhub_set_loglevel(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
-	unsigned long long cur_loglevels;
+	uint32_t cur_loglevels[LOG_EN_SIZE];
 	char *tag, *level;
 	char **logbuf = (char **) &buf;
 
 	m4sensorhub_reg_read(&m4sensorhub_misc_data,
-		M4SH_REG_LOG_LOGENABLE, (char *)&cur_loglevels);
+		M4SH_REG_LOG_LOGENABLE, (char *)cur_loglevels);
+
 	while (1) {
 		tag = strsep(logbuf, "=,\n ");
-		if (tag == NULL)
+		if ((tag == NULL) || (logbuf == NULL))
 			break;
 		level = strsep(logbuf, "=,\n ");
-		if (level == NULL)
+		if ((level == NULL) || (logbuf == NULL))
 			break;
-		m4sensorhub_update_loglevels(tag, level, &cur_loglevels);
+		m4sensorhub_update_loglevels(tag, level,
+					     (uint32_t *)cur_loglevels);
 	}
 
-	return m4sensorhub_reg_write(&m4sensorhub_misc_data,
-		M4SH_REG_LOG_LOGENABLE, (char *)&cur_loglevels,
-		m4sh_no_mask);
+	m4sensorhub_reg_write(&m4sensorhub_misc_data,
+			      M4SH_REG_LOG_LOGENABLE, (char *)cur_loglevels,
+			      m4sh_no_mask);
+
+	return count;
 }
 
 static DEVICE_ATTR(log_level, S_IRUSR|S_IWUSR, m4sensorhub_get_loglevel,
