@@ -670,6 +670,12 @@ void omap3_pm_off_mode_enable(int enable)
 			pwrst->next_state = PWRDM_POWER_RET;
 			pr_warn("%s: Core OFF disabled due to errata i583\n",
 				__func__);
+		} else if (global_disable_off_mode &&
+				pwrst->pwrdm == core_pwrdm &&
+				state == PWRDM_POWER_OFF) {
+			pwrst->next_state = PWRDM_POWER_RET;
+			pr_warn("%s: Core OFF disabled due global disable\n",
+				__func__);
 		} else {
 			pwrst->next_state = state;
 		}
@@ -822,8 +828,7 @@ int __init omap3_pm_init(void)
 	omap_pm_suspend = omap3_pm_suspend;
 #endif
 
-	if (omap_pm_get_off_mode() && !global_disable_off_mode)
-		omap3_pm_off_mode_enable(true);
+	omap3_pm_off_mode_enable(omap_pm_get_off_mode());
 
 	arm_pm_idle = omap3_pm_idle;
 	omap3_idle_init();
