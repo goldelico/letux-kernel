@@ -148,26 +148,44 @@ static int m4ped_read_report_data(struct iio_dev *iio,
 		goto m4ped_read_fail;
 	}
 
+	size = m4sensorhub_reg_getsize(dd->m4, M4SH_REG_METS_CALORIES_NO_RMR);
+	err = m4sensorhub_reg_read(dd->m4, M4SH_REG_METS_CALORIES_NO_RMR,
+		(char *)&(dat.calories_normr));
+	if (err < 0) {
+		m4ped_err("%s: Failed to read calories_normr data.\n",
+			__func__);
+		goto m4ped_read_fail;
+	} else if (err != size) {
+		m4ped_err("%s: Read %d bytes instead of %d for %s.\n",
+			  __func__, err, size, "calories_normr");
+		err = -EBADE;
+		goto m4ped_read_fail;
+	}
+
 	dd->iiodat.timestamp = iio_get_time_ns();
 
 	/* Save data if these values decrease (they monotonically increase) */
 	if ((dat.total_distance < dd->last_dat.total_distance) ||
 		(dat.total_steps < dd->last_dat.total_steps) ||
 		(dat.healthy_minutes < dd->last_dat.healthy_minutes) ||
-		(dat.calories < dd->last_dat.calories)) {
+		(dat.calories < dd->last_dat.calories) ||
+		(dat.calories_normr < dd->last_dat.calories_normr)) {
 		dd->base_dat.total_distance = dd->iiodat.total_distance;
 		dd->base_dat.total_steps = dd->iiodat.total_steps;
 		dd->base_dat.healthy_minutes = dd->iiodat.healthy_minutes;
 		dd->base_dat.calories = dd->iiodat.calories;
-		m4ped_err("%s: Set pedometer bases = %d %d %d %d", __func__,
+		dd->base_dat.calories_normr = dd->iiodat.calories_normr;
+		m4ped_err("%s: Set pedometer bases = %d %d %d %d %d", __func__,
 		  dd->base_dat.total_distance, dd->base_dat.total_steps,
-		  dd->base_dat.healthy_minutes, dd->base_dat.calories);
+		  dd->base_dat.healthy_minutes, dd->base_dat.calories,
+		  dd->base_dat.calories_normr);
 	}
 
 	dd->last_dat.total_distance = dat.total_distance;
 	dd->last_dat.total_steps = dat.total_steps;
 	dd->last_dat.healthy_minutes = dat.healthy_minutes;
 	dd->last_dat.calories = dat.calories;
+	dd->last_dat.calories_normr = dat.calories_normr;
 
 	dd->iiodat.total_distance = dat.total_distance +
 		dd->base_dat.total_distance;
@@ -175,6 +193,8 @@ static int m4ped_read_report_data(struct iio_dev *iio,
 	dd->iiodat.healthy_minutes = dat.healthy_minutes +
 		dd->base_dat.healthy_minutes;
 	dd->iiodat.calories = dat.calories + dd->base_dat.calories;
+	dd->iiodat.calories_normr = dat.calories_normr +
+		dd->base_dat.calories_normr;
 
 	iio_push_to_buffers(iio, (unsigned char *)&(dd->iiodat));
 
@@ -301,13 +321,14 @@ static ssize_t m4ped_iiodata_show(struct device *dev,
 
 	mutex_lock(&(dd->mutex));
 	size = snprintf(buf, PAGE_SIZE,
-		"%s%hhu\n%s%u\n%s%u\n%s%hu\n%s%u\n%s%u\n",
+		"%s%hhu\n%s%u\n%s%u\n%s%hu\n%s%u\n%s%u\n%s%u\n",
 		"ped_activity: ", dd->iiodat.ped_activity,
 		"total_distance: ", dd->iiodat.total_distance,
 		"total_steps: ", dd->iiodat.total_steps,
 		"current_speed: ", dd->iiodat.current_speed,
 		"healthy_minutes: ", dd->iiodat.healthy_minutes,
-		"calories: ", dd->iiodat.calories);
+		"calories: ", dd->iiodat.calories,
+		"calories_normr: ", dd->iiodat.calories_normr);
 	mutex_unlock(&(dd->mutex));
 	return size;
 }
