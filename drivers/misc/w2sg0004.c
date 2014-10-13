@@ -162,7 +162,7 @@ static irqreturn_t gpio_w2sg_isr(int irq, void *dev_id)
 	struct gpio_w2sg *gw2sg = dev_id;
 	unsigned long flags;
 
-	pr_debug("%s\n", __func__); /* we have received a RX signal while GPS should be off */
+	pr_debug("!"); /* we have received a RX signal while GPS should be off */
 
 	if (!gw2sg->requested && !gw2sg->is_on &&
 	    (gw2sg->state == W2SG_IDLE) &&

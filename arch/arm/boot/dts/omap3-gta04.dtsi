@@ -304,10 +304,8 @@
 		pinctrl-0 = <&uart2_pins>;
 		pinctrl-1 = <&uart2_rx_irq_pins>;
 
-/* FIXME: driver currently uses the rx-gpio but we should (could?) simply specify the IRQ */
 		interrupt-parent = <&gpio5>;
 		interrupts = <19 IRQ_TYPE_EDGE_FALLING>;	/* GPIO_147: RX - trigger on arrival of start bit */
-		rx-gpio = <&gpio5 19 0>;	/* GPIO_147: RX */
 
 		lna-supply = <&vsim>;	/* LNA regulator */
 		on-off-gpio = <&gpio5 17 0>;	/* GPIO_145: trigger for turning on/off w2sg0004 */
@@ -331,11 +329,6 @@
 };
 
 &omap3_pmx_core { /* FIXME: base is 0x48002030! convert all to OMAP3_CORE1_IOPAD() */
-	pinctrl-names = "default";
-	pinctrl-0 = <
-			&gps_rx_irq_pins
-	>;
-
 	uart1_pins: pinmux_uart1_pins {
 		pinctrl-single,pins = <
 			0x152 (PIN_INPUT | MUX_MODE0)		/* uart1_cts.uart1_rx */
@@ -523,11 +516,6 @@
 		>;
 	};
 
-	gps_rx_irq_pins: pinmux_gps_rx_irq_pins {
-		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x2178, PIN_INPUT | MUX_MODE4) /* gpio147 */
-		>;
-	};
 };
 
 &omap3_pmx_core2 {
