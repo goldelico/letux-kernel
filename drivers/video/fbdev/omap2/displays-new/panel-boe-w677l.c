@@ -1,6 +1,3 @@
-// FIXME: this driver needs cleanup since it has functions from the ssd2858 driver that are not needed
-// so all references to the SSD2858 should refer to the W677L
-
 /*
  * Driver for BOE W677L panel
  *

@@ -18,6 +18,11 @@ config DISPLAY_ENCODER_TPD12S015
 	  Driver for TPD12S015, which offers HDMI ESD protection and level
 	  shifting.
 
+config DISPLAY_ENCODER_SOLOMON_SSD2858
+	tristate "SSD2858 MIPI to MIPI Video Re-Encoder (with scaling and rotation)"
+	help
+		This is for Solomon SSD2858 controlled LCD panels.
+
 config DISPLAY_CONNECTOR_DVI
         tristate "DVI Connector"
 	depends on I2C
@@ -99,10 +104,5 @@ config DISPLAY_PANEL_BOE_W677L
 	tristate "BOE W677L LCD Panel"
 	help
 		This is for BOE W677L Panel.
-
-config DISPLAY_CONTROLLER_SOLOMON_SSD2858
-	tristate "SSD2858 MIPI to MIPI Video Processor"
-	help
-		This is for Solomon SSD2858 controlled LCD panels.
 
 endmenu
