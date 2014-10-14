@@ -170,15 +170,25 @@ static int m4ped_read_report_data(struct iio_dev *iio,
 		(dat.healthy_minutes < dd->last_dat.healthy_minutes) ||
 		(dat.calories < dd->last_dat.calories) ||
 		(dat.calories_normr < dd->last_dat.calories_normr)) {
-		dd->base_dat.total_distance = dd->iiodat.total_distance;
-		dd->base_dat.total_steps = dd->iiodat.total_steps;
-		dd->base_dat.healthy_minutes = dd->iiodat.healthy_minutes;
-		dd->base_dat.calories = dd->iiodat.calories;
-		dd->base_dat.calories_normr = dd->iiodat.calories_normr;
-		m4ped_err("%s: Set pedometer bases = %d %d %d %d %d", __func__,
-		  dd->base_dat.total_distance, dd->base_dat.total_steps,
-		  dd->base_dat.healthy_minutes, dd->base_dat.calories,
-		  dd->base_dat.calories_normr);
+		m4ped_err("%s: Error: Current = %u %u %u %u %u "
+			  "Last = %u %u %u %u %u, Base = %u %u %u %u %u\n",
+			   __func__, dat.total_distance,
+			  dat.total_steps, dat.healthy_minutes,
+			  dat.calories, dat.calories_normr,
+			  dd->last_dat.total_distance,
+			  dd->last_dat.total_steps,
+			  dd->last_dat.healthy_minutes, dd->last_dat.calories,
+			  dd->last_dat.calories_normr,
+			  dd->base_dat.total_distance,
+			  dd->base_dat.total_steps,
+			  dd->base_dat.healthy_minutes, dd->base_dat.calories,
+			  dd->base_dat.calories_normr);
+		m4ped_err("%s: iio = %u %u %u %u %u\n", __func__,
+			  dd->iiodat.total_distance,
+			  dd->iiodat.total_steps,
+			  dd->iiodat.healthy_minutes, dd->iiodat.calories,
+			  dd->iiodat.calories_normr);
+		goto m4ped_read_fail;
 	}
 
 	dd->last_dat.total_distance = dat.total_distance;
@@ -667,6 +677,19 @@ static void m4ped_panic_restore(struct m4sensorhub_data *m4sensorhub,
 			goto m4ped_panic_restore_fail;
 		}
 	}
+	/* Update base and reset last */
+	dd->base_dat.total_distance = dd->iiodat.total_distance;
+	dd->base_dat.total_steps = dd->iiodat.total_steps;
+	dd->base_dat.healthy_minutes = dd->iiodat.healthy_minutes;
+	dd->base_dat.calories = dd->iiodat.calories;
+	dd->base_dat.calories_normr = dd->iiodat.calories_normr;
+
+	dd->last_dat.total_distance = 0;
+	dd->last_dat.total_steps = 0;
+	dd->last_dat.healthy_minutes = 0;
+	dd->last_dat.calories = 0;
+	dd->last_dat.calories_normr = 0;
+
 	cancel_delayed_work(&(dd->m4ped_work));
 	if (dd->samplerate > 0)
 		queue_delayed_work(system_freezable_wq, &(dd->m4ped_work),
