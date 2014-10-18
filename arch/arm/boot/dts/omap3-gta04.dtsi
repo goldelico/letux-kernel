@@ -604,7 +604,7 @@
 
 &vsim { /* GPS LNA */
 		regulator-min-microvolt = <2800000>;
-		regulator-max-microvolt = <3150000>;
+		regulator-max-microvolt = <2800000>;
 };
 
 &mmc2 { /* spare */
