@@ -80,7 +80,7 @@
 /* horizontal * vertical * refresh */
 #define w677l_W				(720)
 #define w677l_H				(1280)
-#define w677l_WIDTH			(w677l_W+280)
+#define w677l_WIDTH			(w677l_W+80+88)
 #define w677l_HEIGHT			(w677l_H+160)
 #define w677l_FPS				(60ll)
 #define w677l_PIXELCLOCK		(w677l_WIDTH * w677l_HEIGHT * w677l_FPS)	// Full HD * 60 fps
@@ -102,13 +102,12 @@ static struct omap_video_timings w677l_timings = {
 	.x_res		= w677l_W,
 	.y_res		= w677l_H,
 	.pixelclock	= w677l_PIXELCLOCK,
-	// they are choosen to round up to XTOTALxYTOTAL pixels giving a pixel clock of 86.400 MHz
-	.hfp		= 20,
-	.hsw		= 20,
-	.hbp		= 240,	// sum must match XTOTAL-XRES
+	.hfp		= 5,
+	.hsw		= 5,
+	.hbp		= w677l_WIDTH-w677l_W-5-5,
 	.vfp		= 50,
-	.vsw		= 60,
-	.vbp		= 50,	// sum must match YTOTAL-YRES
+	.vsw		= w677l_HEIGHT-w677l_H-50-50,
+	.vbp		= 50,
 };
 
 struct panel_drv_data {
