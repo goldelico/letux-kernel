@@ -74,7 +74,7 @@ static int omap_hdq_probe(struct platform_device *pdev);
 static int omap_hdq_remove(struct platform_device *pdev);
 
 static const struct of_device_id omap_hdq_of_match[] = {
-    { .compatible = "ti,omap-hdq", },
+    { .compatible = "ti,omap3-1w", },
     {},
 };
 MODULE_DEVICE_TABLE(of, omap_hdq_of_match);
@@ -207,6 +207,7 @@ static int hdq_write_byte(struct hdq_data *hdq_data, u8 val, u8 *status)
 			" return to zero, %x", tmp_status);
 	}
 
+	printk("hdq_write_byte(%08x) ok\n", val);
 out:
 	return ret;
 }
@@ -397,6 +398,7 @@ static int hdq_read_byte(struct hdq_data *hdq_data, u8 *val)
 	}
 	/* the data is ready. Read it in! */
 	*val = hdq_reg_in(hdq_data, OMAP_HDQ_RX_DATA);
+	printk("hdq_read_byte -> %02x\n", *val);
 out:
 	mutex_unlock(&hdq_data->hdq_mutex);
 rtn:
