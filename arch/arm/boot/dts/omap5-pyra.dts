@@ -102,8 +102,8 @@
 /*		vbus-suppy = <&modem_vbus_hdmi_power>;	/* apply VBUS to the modem */
 	};
 
-	mic_presence {
-/* FIXME: a dedicated TS3A225 driver can reprogram the MIC_PRESENT line through I2C into an INT so we can detect other changes (e.g. mic button pressed) */
+/*	mic_presence {
+/* FIXME: a dedicated TS3A225 driver can reprogram the MIC_PRESENT line through I2C into an INT so we can detect other changes (e.g. mic button pressed) * /
 		compatible = "extcon-gpio";
 		label = "mic_presence";
 		interrupt-parent = <&gpio99>;
@@ -113,7 +113,7 @@
 		// debounce-delay-ms = <10>; -- not available at tca6424
 		state-on = "present";
 		state-off = "unplugged";
-	};
+	}; */
 
 /* FIXME: having both leads to an irq conflict */
 /*	mic_presence_evm { /* move this to omap5-uevm.dts */
@@ -140,6 +140,16 @@
 		state-off = "status-off";
 	}; */
 
+};
+
+&palmas {
+	palmas_pwr_button: pwrbutton {
+		compatible = "ti,palmas-pwrbutton";
+		interrupt-parent = <&palmas>;
+		interrupts = <1 IRQ_TYPE_EDGE_FALLING>;
+		ti,palmas-long-press-seconds = <8>;
+		ti,palmas-pwron-debounce-milli-seconds = <15>;
+	};
 };
 
 /* Audio routing */
@@ -829,7 +839,7 @@
 
 	/* usb bridge */
 	usb3503@08 {
-		compatible = "smsc,usb3503a";
+		// compatible = "smsc,usb3503a";
 		reg = <0x08>;
 /*
 	//	refclk	// comes from OMAP5 FREF_CLK1_OUT/GPIO1_W K11
