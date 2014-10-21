@@ -262,7 +262,7 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 out5:
 	rfkill_destroy(rf_kill);
 out4:
-	err = gpiochip_remove(&wwan->gpio);
+	gpiochip_remove(&wwan->gpio);
 out3:
 	if (gpio_is_valid(wwan->feedback_gpio))
 		gpio_free(wwan->feedback_gpio);
@@ -277,10 +277,7 @@ out:
 static int wwan_on_off_remove(struct platform_device *pdev)
 {
 	struct wwan_on_off *wwan = platform_get_drvdata(pdev);
-	int ret;
-	ret = gpiochip_remove(&wwan->gpio);
-	if (ret)
-		return ret;
+	gpiochip_remove(&wwan->gpio);
 	if (gpio_is_valid(wwan->feedback_gpio))
 		gpio_free(wwan->feedback_gpio);
 	if (gpio_is_valid(wwan->on_off_gpio))

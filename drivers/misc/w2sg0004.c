@@ -412,12 +412,9 @@ out:
 static int gpio_w2sg_remove(struct platform_device *pdev)
 {
 	struct gpio_w2sg *gw2sg = platform_get_drvdata(pdev);
-	int ret;
 
 	cancel_delayed_work_sync(&gw2sg->work);
-	ret = gpiochip_remove(&gw2sg->gpio);
-	if (ret)
-		return ret;
+	gpiochip_remove(&gw2sg->gpio);
 
 	return 0;
 }
