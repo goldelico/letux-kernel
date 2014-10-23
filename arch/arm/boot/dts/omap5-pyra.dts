@@ -885,13 +885,15 @@ none nand-disk mmc0 mmc1 timer oneshot [heartbeat] cpu0 cpu1 default-on transien
 		led@4 {
 			label = "omap5:green:led1";
 			gpios = <&gpio9 2 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "cpu0";
+			linux,default-trigger = /* "cpu0";  <-- this usually breaks LED blinking (independently on which LED we set the trigger to cpu0 */
+						"default-on";
 			default-state = "off";
 		};
 		led@5 {
 			label = "omap5:green:led2";
 			gpios = <&gpio9 3 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "cpu1";
+			linux,default-trigger = /* "cpu1";  <-- this usually breaks LED blinking (independently on which LED we set the trigger to cpu1 */
+						"default-on";
 			default-state = "off";
 		};
 		led@6 {
