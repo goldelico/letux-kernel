@@ -222,6 +222,7 @@ static int tvc_probe_of(struct platform_device *pdev)
 	struct device_node *node = pdev->dev.of_node;
 	struct omap_dss_device *in;
 
+    printk("tvc_probe_of\n");
 	in = omapdss_of_find_source_for_first_ep(node);
 	if (IS_ERR(in)) {
 		dev_err(&pdev->dev, "failed to find video source\n");
@@ -238,7 +239,7 @@ static int tvc_probe(struct platform_device *pdev)
 	struct panel_drv_data *ddata;
 	struct omap_dss_device *dssdev;
 	int r;
-
+    printk("tvc_probe\n");
 	ddata = devm_kzalloc(&pdev->dev, sizeof(*ddata), GFP_KERNEL);
 	if (!ddata)
 		return -ENOMEM;

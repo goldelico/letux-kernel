@@ -764,6 +764,7 @@ static int venc_connect(struct omap_dss_device *dssdev,
 	struct omap_overlay_manager *mgr;
 	int r;
 
+    printk("venc_connect\n");
 	r = venc_init_regulator();
 	if (r)
 		return r;
@@ -823,6 +824,7 @@ static void venc_init_output(struct platform_device *pdev)
 {
 	struct omap_dss_device *out = &venc.output;
 
+    printk("venc_init_output\n");
 	out->dev = &pdev->dev;
 	out->id = OMAP_DSS_OUTPUT_VENC;
 	out->output_type = OMAP_DISPLAY_TYPE_VENC;
@@ -847,7 +849,7 @@ static int venc_probe_of(struct platform_device *pdev)
 	struct device_node *ep;
 	u32 channels;
 	int r;
-
+    printk("venc_probe_of\n");
 	ep = omapdss_of_get_first_endpoint(node);
 	if (!ep)
 		return 0;
@@ -895,6 +897,7 @@ static int omap_venchw_probe(struct platform_device *pdev)
 	struct resource *venc_mem;
 	int r;
 
+    printk("omap_venchw_probe\n");
 	venc.pdev = pdev;
 
 	mutex_init(&venc.venc_lock);
@@ -940,11 +943,13 @@ static int omap_venchw_probe(struct platform_device *pdev)
 	dss_debugfs_create_file("venc", venc_dump_regs);
 
 	venc_init_output(pdev);
+    printk("venc_runtime ok\n");
 
 	return 0;
 
 err_probe_of:
 err_runtime_get:
+    printk("venc_runtime error=%d\n", r);
 	pm_runtime_disable(&pdev->dev);
 	return r;
 }
@@ -960,6 +965,7 @@ static int __exit omap_venchw_remove(struct platform_device *pdev)
 
 static int venc_runtime_suspend(struct device *dev)
 {
+    printk("venc_runtime_suspend\n");
 	if (venc.tv_dac_clk)
 		clk_disable_unprepare(venc.tv_dac_clk);
 
@@ -972,6 +978,7 @@ static int venc_runtime_resume(struct device *dev)
 {
 	int r;
 
+    printk("venc_runtime_resume\n");
 	r = dispc_runtime_get();
 	if (r < 0)
 		return r;

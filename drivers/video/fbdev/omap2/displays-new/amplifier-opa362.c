@@ -83,7 +83,7 @@ static int opa362_enable(struct omap_dss_device *dssdev)
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
 	int r;
-
+    printk("opa362_enable\n");
 	dev_dbg(dssdev->dev, "enable\n");
 	if (!omapdss_device_is_connected(dssdev))
 		return -ENODEV;
@@ -249,6 +249,7 @@ static int opa362_probe(struct platform_device *pdev)
 	struct omap_dss_device *dssdev;
 	int r;
 
+    printk("opa362_probe\n");
 	dev_dbg(&pdev->dev, "probe\n");
 	ddata = devm_kzalloc(&pdev->dev, sizeof(*ddata), GFP_KERNEL);
 	if (!ddata)
@@ -293,6 +294,7 @@ static int opa362_probe(struct platform_device *pdev)
 err_reg:
 err_gpio:
 	omap_dss_put_device(ddata->in);
+    printk("opa362_probe err=%d\n", r);
 	return r;
 }
 

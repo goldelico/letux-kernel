@@ -86,6 +86,7 @@ static int call_modprobe(char *module_name, int wait)
 	};
 
 	char **argv = kmalloc(sizeof(char *[5]), GFP_KERNEL);
+    printk("call_modprobe(%s)\n", module_name);
 	if (!argv)
 		goto out;
 

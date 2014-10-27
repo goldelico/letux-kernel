@@ -135,7 +135,7 @@ int omapdss_register_display(struct omap_dss_device *dssdev)
 {
 	struct omap_dss_driver *drv = dssdev->driver;
 	int id;
-
+    printk("omapdss_register_display\n");
 	/*
 	 * Note: this presumes all the displays are either using DT or non-DT,
 	 * which normally should be the case. This also presumes that all
