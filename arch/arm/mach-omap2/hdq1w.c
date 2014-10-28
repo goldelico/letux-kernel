@@ -52,6 +52,7 @@ int omap_hdq1w_reset(struct omap_hwmod *oh)
 	u32 v;
 	int c = 0;
 
+    printk("omap_hdq1w_reset\n");
 	/* Write to the SOFTRESET bit */
 	omap_hwmod_softreset(oh);
 
@@ -88,7 +89,7 @@ static int __init omap_init_hdq(void)
 	oh = omap_hwmod_lookup(oh_name);
 	if (!oh)
 		return 0;
-
+    printk("omap_init_hdq\n");
 	pdev = omap_device_build(devname, id, oh, NULL, 0);
 	WARN(IS_ERR(pdev), "Can't build omap_device for %s:%s.\n",
 	     devname, oh->name);

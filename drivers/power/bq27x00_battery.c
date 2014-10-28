@@ -440,6 +440,7 @@ static void bq27x00_update(struct bq27x00_device_info *di)
 	bool is_bq27742 = di->chip == BQ27742;
 	bool flags_1b = !(is_bq27500 || is_bq27742);
 
+    printk("bq27x00_update\n");
 	cache.flags = bq27x00_read(di, BQ27x00_REG_FLAGS, flags_1b);
 	if ((cache.flags & 0xff) == 0xff)
 		/* read error */
@@ -505,7 +506,7 @@ static void bq27x00_battery_poll(struct work_struct *work)
 {
 	struct bq27x00_device_info *di =
 		container_of(work, struct bq27x00_device_info, work.work);
-
+    printk("bq27x00_battery_poll\n");
 	bq27x00_update(di);
 
 	if (poll_interval > 0) {
@@ -647,16 +648,20 @@ static int bq27x00_battery_get_property(struct power_supply *psy,
 	int ret = 0;
 	struct bq27x00_device_info *di = to_bq27x00_device_info(psy);
 
+    printk("bq27x00_battery_get_property\n");
 	mutex_lock(&di->lock);
+    printk("bq27x00_battery locked\n");
 	if (time_is_before_jiffies(di->last_update + 5 * HZ)) {
 		cancel_delayed_work_sync(&di->work);
 		bq27x00_battery_poll(&di->work.work);
 	}
+    printk("bq27x00_battery unlocked\n");
 	mutex_unlock(&di->lock);
 
 	if (psp != POWER_SUPPLY_PROP_PRESENT && di->cache.flags < 0)
 		return -ENODEV;
 
+    printk("bq27x00_battery present\n");
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
 		ret = bq27x00_battery_status(di, val);
@@ -832,6 +837,7 @@ static int bq27x00_battery_probe(struct i2c_client *client,
 	int num;
 	int retval = 0;
 
+    printk("bq27x00_battery_probe\n");
 	/* Get new ID for the new battery device */
 	mutex_lock(&battery_mutex);
 	num = idr_alloc(&battery_id, client, 0, 0, GFP_KERNEL);

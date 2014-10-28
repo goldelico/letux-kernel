@@ -49,6 +49,7 @@ static int w1_bq27000_add_slave(struct w1_slave *sl)
 	int ret;
 	struct platform_device *pdev;
 
+    printk("w1_bq27000_add_slave\n");
 	pdev = platform_device_alloc("bq27000-battery", -1);
 	if (!pdev) {
 		ret = -ENOMEM;
@@ -94,6 +95,7 @@ static struct w1_family w1_bq27000_family = {
 
 static int __init w1_bq27000_init(void)
 {
+    printk("w1_bq27000_init\n");
 	if (F_ID)
 		w1_bq27000_family.fid = F_ID;
 

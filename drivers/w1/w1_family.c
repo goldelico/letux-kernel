@@ -40,7 +40,7 @@ int w1_register_family(struct w1_family *newf)
 	struct list_head *ent, *n;
 	struct w1_family *f;
 	int ret = 0;
-
+    printk("w1_register_family");
 	spin_lock(&w1_flock);
 	list_for_each_safe(ent, n, &w1_families) {
 		f = list_entry(ent, struct w1_family, family_entry);

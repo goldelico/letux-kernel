@@ -45,6 +45,7 @@ static struct w1_master *w1_alloc_dev(u32 id, int slave_count, int slave_ttl,
 	struct w1_master *dev;
 	int err;
 
+    printk("w1_alloc_dev\n");
 	/*
 	 * We are in process context(kernel thread), so can sleep.
 	 */
@@ -114,7 +115,7 @@ int w1_add_master_device(struct w1_bus_master *master)
 	int retval = 0;
 	struct w1_netlink_msg msg;
 	int id, found;
-
+    printk("w1_add_master_device\n");
 	/* validate minimum functionality */
 	if (!(master->touch_bit && master->reset_bus) &&
 	    !(master->write_bit && master->read_bit) &&

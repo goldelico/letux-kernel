@@ -153,6 +153,8 @@ int omapdss_register_display(struct omap_dss_device *dssdev)
 
 	snprintf(dssdev->alias, sizeof(dssdev->alias), "display%d", id);
 
+    printk("omapdss_register_display %s\n", dssdev->alias);
+
 	/* Use 'label' property for name, if it exists */
 	if (dssdev->dev->of_node)
 		of_property_read_string(dssdev->dev->of_node, "label",

@@ -18,6 +18,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
+#define DEBUG 1
 
 #include <linux/delay.h>
 #include <linux/kernel.h>
@@ -570,6 +571,7 @@ static struct attribute_group w1_master_defattr_group = {
 
 int w1_create_master_attributes(struct w1_master *master)
 {
+    printk("w1_create_master_attributes\n");
 	return sysfs_create_group(&master->dev.kobj, &w1_master_defattr_group);
 }
 
@@ -585,6 +587,7 @@ static int w1_uevent(struct device *dev, struct kobj_uevent_env *env)
 	char *event_owner, *name;
 	int err = 0;
 
+    printk("w1_uevent\n");
 	if (dev->driver == &w1_master_driver) {
 		md = container_of(dev, struct w1_master, dev);
 		event_owner = "master";
@@ -619,6 +622,7 @@ static int w1_family_notify(unsigned long action, struct w1_slave *sl)
 	struct w1_family_ops *fops;
 	int err;
 
+    printk("w1_family_notify\n");
 	fops = sl->family->fops;
 
 	if (!fops)
@@ -666,7 +670,7 @@ static int __w1_attach_slave_device(struct w1_slave *sl)
 	sl->dev.bus = &w1_bus_type;
 	sl->dev.release = &w1_slave_release;
 	sl->dev.groups = w1_slave_groups;
-
+    printk("__w1_attach_slave_device\n");
 	dev_set_name(&sl->dev, "%02x-%012llx",
 		 (unsigned int) sl->reg_num.family,
 		 (unsigned long long) sl->reg_num.id);
@@ -707,6 +711,7 @@ int w1_attach_slave_device(struct w1_master *dev, struct w1_reg_num *rn)
 	int err;
 	struct w1_netlink_msg msg;
 
+    printk("w1_attach_slave_device\n");
 	sl = kzalloc(sizeof(struct w1_slave), GFP_KERNEL);
 	if (!sl) {
 		dev_err(&dev->dev,
@@ -813,6 +818,7 @@ struct w1_master *w1_search_master_id(u32 id)
 	struct w1_master *dev;
 	int found = 0;
 
+    printk("w1_search_master_id\n");
 	mutex_lock(&w1_mlock);
 	list_for_each_entry(dev, &w1_masters, w1_master_entry) {
 		if (dev->id == id) {
@@ -901,6 +907,7 @@ void w1_slave_found(struct w1_master *dev, u64 rn)
 	struct w1_reg_num *tmp;
 	u64 rn_le = cpu_to_le64(rn);
 
+    printk("w1_slave_found\n");
 	atomic_inc(&dev->refcnt);
 
 	tmp = (struct w1_reg_num *) &rn;
@@ -941,6 +948,7 @@ void w1_search(struct w1_master *dev, u8 search_type, w1_slave_found_callback cb
 	int search_bit, desc_bit;
 	u8  triplet_ret = 0;
 
+    printk("w1_search\n");
 	search_bit = 0;
 	rn = dev->search_id;
 	last_rn = 0;
@@ -1087,6 +1095,7 @@ int w1_process_callbacks(struct w1_master *dev)
 	int ret = 0;
 	struct w1_async_cmd *async_cmd, *async_n;
 
+    printk("w1_process_callbacks\n");
 	/* The list can be added to in another thread, loop until it is empty */
 	while (!list_empty(&dev->async_list)) {
 		list_for_each_entry_safe(async_cmd, async_n, &dev->async_list,
@@ -1111,7 +1120,7 @@ int w1_process(void *data)
 	const unsigned long jtime = msecs_to_jiffies(w1_timeout * 1000);
 	/* remainder if it woke up early */
 	unsigned long jremain = 0;
-
+    printk("w1_process\n");
 	for (;;) {
 
 		if (!jremain && dev->search_count) {
@@ -1162,6 +1171,7 @@ static int __init w1_init(void)
 {
 	int retval;
 
+    printk("w1_init\n");
 	pr_info("Driver for 1-wire Dallas network protocol.\n");
 
 	w1_init_netlink();
@@ -1185,7 +1195,7 @@ static int __init w1_init(void)
 			retval);
 		goto err_out_master_unregister;
 	}
-
+    printk("w1_init ok\n");
 	return 0;
 
 #if 0
