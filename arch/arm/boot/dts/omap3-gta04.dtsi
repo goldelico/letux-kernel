@@ -121,6 +121,13 @@
 		compatible = "ti,twl4030-madc-hwmon";
 	};
 
+	hdq: hdq {
+		compatible = "ti,omap-hdq";
+		ti,hwmods = "hdq1w";	/* do we need that? */
+		pinctrl-names = "default";
+		pinctrl-0 = <&hdq_pins>;
+	};
+
 	battery: battery {
 		compatible = "ti,twl4030-madc-battery";
 		capacity = <1200000>;
@@ -375,6 +382,12 @@
 		pinctrl-single,pins = <
 			/* here we could enable to wakeup the cpu from suspend by a pen touch */
 			OMAP3_CORE1_IOPAD(0x2194, PIN_INPUT_PULLUP | MUX_MODE4)   /* gpio160 */
+		>;
+	};
+
+	hdq_pins: hdq_pins {
+		pinctrl-single,pins = <
+			OMAP3_CORE1_IOPAD(0x21c4, PIN_OUTPUT_PULLDOWN | MUX_MODE0) /* i2c3_sda.hdq */
 		>;
 	};
 
