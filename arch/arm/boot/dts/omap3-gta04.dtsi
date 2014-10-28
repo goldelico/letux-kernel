@@ -350,8 +350,8 @@
 	uart2_rx_irq_pins: pinmux_uart2_rx_irq_pins {
 		pinctrl-single,pins = <
 			/* switch RX to GPIO so that we can get interrupts by the start bit */
-			OMAP3_CORE1_IOPAD(0x219e, PIN_INPUT | MUX_MODE4)                /* uart3_rx.uart3_rx */
-			OMAP3_CORE1_IOPAD(0x21a0, PIN_OUTPUT | MUX_MODE0)               /* uart3_tx.uart3_tx */
+			OMAP3_CORE1_IOPAD(0x217a, PIN_INPUT | MUX_MODE4)                /* uart2_rx.uart2_rx */
+			OMAP3_CORE1_IOPAD(0x2178, PIN_OUTPUT | MUX_MODE0)               /* uart2_tx.uart2_tx */
 		>;
 	};
 
