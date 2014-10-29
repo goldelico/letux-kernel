@@ -98,6 +98,17 @@
 		};
 	};
 
+	/* pinmux for devconf1 */
+	control_devconf1: pinmux@480022d8 {
+		compatible = "pinctrl-single";
+		reg = <0x480022d8 4>;   /* Single register */
+		#address-cells = <1>;
+		#size-cells = <0>;
+		pinctrl-single,bit-per-mux;
+		pinctrl-single,register-width = <32>;
+		pinctrl-single,function-mask = <0xfc0bd5>;
+	};
+
 	gpio-keys {
 		compatible = "gpio-keys";
 
@@ -550,6 +561,17 @@
 			OMAP3630_CORE2_IOPAD(0x25e6, PIN_OUTPUT | MUX_MODE4) /* cs */
 			OMAP3630_CORE2_IOPAD(0x25e8, PIN_OUTPUT | MUX_MODE4) /* tx */
 			OMAP3630_CORE2_IOPAD(0x25e4, PIN_INPUT | MUX_MODE4) /* rx */
+		>;
+	};
+};
+
+&control_devconf1 {
+	pinctrl-name = "default";
+	pinctrl-0 = < &tv_acbias_pins>;
+
+	tv_acbias_pins: pinmux_tv_acbias_pins {
+		pinctrl-single,bits = <
+			0 0x40800 0x40800
 		>;
 	};
 };
