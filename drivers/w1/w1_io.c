@@ -311,7 +311,7 @@ u8 w1_read_block(struct w1_master *dev, u8 *buf, int len)
 {
 	int i;
 	u8 ret;
-
+    printk("w1_read_block()\n");
 	if (dev->bus_master->read_block)
 		ret = dev->bus_master->read_block(dev->bus_master->data, buf, len);
 	else {
@@ -320,6 +320,7 @@ u8 w1_read_block(struct w1_master *dev, u8 *buf, int len)
 		ret = len;
 	}
 
+    printk("w1_read_block() => %d\n", ret);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(w1_read_block);
@@ -380,6 +381,7 @@ EXPORT_SYMBOL_GPL(w1_calc_crc8);
 void w1_search_devices(struct w1_master *dev, u8 search_type, w1_slave_found_callback cb)
 {
 	dev->attempts++;
+    printk("w1_search_devices\n");
 	if (dev->bus_master->search)
 		dev->bus_master->search(dev->bus_master->data, dev,
 			search_type, cb);

@@ -669,7 +669,7 @@ static int __w1_attach_slave_device(struct w1_slave *sl)
 	sl->dev.bus = &w1_bus_type;
 	sl->dev.release = &w1_slave_release;
 	sl->dev.groups = w1_slave_groups;
-    printk("__w1_attach_slave_device\n");
+    printk("__w1_attach_slave_device %012llx\n", (unsigned long long) sl->reg_num.id);
 	dev_set_name(&sl->dev, "%02x-%012llx",
 		 (unsigned int) sl->reg_num.family,
 		 (unsigned long long) sl->reg_num.id);
@@ -906,11 +906,11 @@ void w1_slave_found(struct w1_master *dev, u64 rn)
 	struct w1_reg_num *tmp;
 	u64 rn_le = cpu_to_le64(rn);
 
-    printk("w1_slave_found\n");
+    printk("w1_slave_found %012llx\n", (unsigned long long) rn_le);
 	atomic_inc(&dev->refcnt);
 
 	tmp = (struct w1_reg_num *) &rn;
-
+    printk("family = %02x crc=%02x\n", tmp->family, tmp->crc);
 	sl = w1_slave_search_device(dev, tmp);
 	if (sl) {
 		set_bit(W1_SLAVE_ACTIVE, &sl->flags);
@@ -969,23 +969,26 @@ void w1_search(struct w1_master *dev, u8 search_type, w1_slave_found_callback cb
 		mutex_lock(&dev->bus_mutex);
 		if (w1_reset_bus(dev)) {
 			mutex_unlock(&dev->bus_mutex);
+            printk("w1_search no devices present\n");
 			dev_dbg(&dev->dev, "No devices present on the wire.\n");
 			break;
 		}
 
 		/* Do fast search on single slave bus */
-		if (dev->max_slave_count == 1) {
+        printk("w1_search fast search (%d == 1)\n", dev->max_slave_count);
+        if (dev->max_slave_count == 1) {
 			int rv;
 			w1_write_8(dev, W1_READ_ROM);
 			rv = w1_read_block(dev, (u8 *)&rn, 8);
 			mutex_unlock(&dev->bus_mutex);
-
+            printk("w1_search did w1_read_block => rv = %d\n", rv);
 			if (rv == 8 && rn)
 				cb(dev, rn);
 
 			break;
 		}
 
+        printk("full search\n");
 		/* Start the search */
 		w1_write_8(dev, search_type);
 		for (i = 0; i < 64; ++i) {
@@ -1053,6 +1056,7 @@ void w1_search_process_cb(struct w1_master *dev, u8 search_type,
 {
 	struct w1_slave *sl, *sln;
 
+    printk("w1_search_process_cb() type=%u\n", search_type);
 	mutex_lock(&dev->list_mutex);
 	list_for_each_entry(sl, &dev->slist, w1_slave_entry)
 		clear_bit(W1_SLAVE_ACTIVE, &sl->flags);
@@ -1078,6 +1082,7 @@ void w1_search_process_cb(struct w1_master *dev, u8 search_type,
 
 static void w1_search_process(struct w1_master *dev, u8 search_type)
 {
+    printk("w1_search_process() type=%u\n", search_type);
 	w1_search_process_cb(dev, search_type, w1_slave_found);
 }
 
@@ -1094,7 +1099,7 @@ int w1_process_callbacks(struct w1_master *dev)
 	int ret = 0;
 	struct w1_async_cmd *async_cmd, *async_n;
 
-    printk("w1_process_callbacks\n");
+//    printk("w1_process_callbacks\n");
 	/* The list can be added to in another thread, loop until it is empty */
 	while (!list_empty(&dev->async_list)) {
 		list_for_each_entry_safe(async_cmd, async_n, &dev->async_list,

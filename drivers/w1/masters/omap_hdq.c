@@ -241,7 +241,7 @@ static void omap_w1_search_bus(void *_hdq, struct w1_master *master_dev,
 		u8 search_type, w1_slave_found_callback slave_found)
 {
 	u64 module_id, rn_le, cs, id;
-
+    printk("omap_w1_search_bus");
 	if (w1_id)
 		module_id = w1_id;
 	else
