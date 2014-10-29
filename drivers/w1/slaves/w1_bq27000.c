@@ -95,9 +95,9 @@ static struct w1_family w1_bq27000_family = {
 
 static int __init w1_bq27000_init(void)
 {
-    printk("w1_bq27000_init\n");
 	if (F_ID)
 		w1_bq27000_family.fid = F_ID;
+    printk("w1_bq27000_init as family %x\n", w1_bq27000_family.fid);
 
 	return w1_register_family(&w1_bq27000_family);
 }
