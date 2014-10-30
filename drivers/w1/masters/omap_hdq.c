@@ -184,6 +184,7 @@ static int hdq_write_byte(struct hdq_data *hdq_data, u8 val, u8 *status)
 	if (ret == 0) {
 		dev_dbg(hdq_data->dev, "TX wait elapsed\n");
 		ret = -ETIMEDOUT;
+        printk("hdq_write_byte timeout\n");
 		goto out;
 	}
 
@@ -193,6 +194,7 @@ static int hdq_write_byte(struct hdq_data *hdq_data, u8 val, u8 *status)
 		dev_dbg(hdq_data->dev, "timeout waiting for"
 			" TXCOMPLETE/RXCOMPLETE, %x", *status);
 		ret = -ETIMEDOUT;
+        printk("hdq_write_byte timeout\n");
 		goto out;
 	}
 
@@ -389,6 +391,7 @@ static int hdq_read_byte(struct hdq_data *hdq_data, u8 *val)
 			dev_dbg(hdq_data->dev, "timeout waiting for"
 				" RXCOMPLETE, %x", status);
 			ret = -ETIMEDOUT;
+            printk("hdq_read_byte timeout\n");
 			goto out;
 		}
 	}
