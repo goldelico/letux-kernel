@@ -1109,11 +1109,11 @@ static int lm3535_probe (struct i2c_client *client,
     register_early_suspend (&early_suspend_data);
 #endif
 
-    lm3535_led.brightness = 255;
-    lm3535_led_noramp.brightness = 255;
-    //lm3535_brightness_set (&lm3535_led_noramp, 255);
-    lm3535_write_reg (LM3535_BRIGHTNESS_CTRL_REG_A, 0x79, __FUNCTION__);
-    lm3535_data.initialized = 1;
+	lm3535_led.brightness = 84;
+	lm3535_led_noramp.brightness = 84;
+	/* lm3535_brightness_set (&lm3535_led_noramp, 255); */
+	lm3535_write_reg(LM3535_BRIGHTNESS_CTRL_REG_A, 87, __func__);
+	lm3535_data.initialized = 1;
 #ifdef CONFIG_WAKEUP_SOURCE_NOTIFY
 	atomic_set(&lm3535_data.docked, 0);
 	/* default setting for minnow is to use ALS */
