@@ -866,11 +866,16 @@ static void max17042_malicious_removed_worker(struct work_struct *work)
 {
 	struct max17042_chip *chip = container_of(work,
 				struct max17042_chip, work_malicious_removed);
+	int ret;
 
 	mutex_lock(&chip->lock);
 
 	max17042_perform_soft_POR(chip);
-	max17042_init_chip(chip);
+	ret = max17042_init_chip(chip);
+	if (!ret && chip->chip_type == MAX17047)
+		max17042_write_reg(chip->client, MAX17047_Config_Ver,
+				   chip->pdata->config_data->version);
+
 	dev_info(&chip->client->dev, "malicious ps removed, chip re-inited\n");
 
 	mutex_unlock(&chip->lock);
@@ -986,6 +991,7 @@ static int max17042_cfg_rqrd_prop(struct device *dev,
 {
 	if (of_property_read_u16(np, VERSION_PROPERTY,
 				 &config_data->version))
+		return -EINVAL;
 
 	if (of_property_read_u16(np, CONFIG_PROPERTY,
 				 &config_data->config))
