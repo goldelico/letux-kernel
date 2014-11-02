@@ -2529,6 +2529,25 @@ static int omapfb_probe(struct platform_device *pdev)
 			d->update_mode = OMAPFB_AUTO_UPDATE;
 	}
 
+{
+	struct device_node *of_aliases = of_find_node_by_path("/aliases");
+
+	if (of_aliases) {
+		int number_of_display_aliases = 0;
+		struct property *pp;
+		for_each_property_of_node(of_aliases, pp) {
+			if (!strncmp(pp->name, "display", 7))
+				number_of_display_aliases++;
+		}
+		if (fbdev->num_displays < number_of_display_aliases) {
+			dev_err(&pdev->dev, "not all displays running (%d of %d)\n",
+					fbdev->num_displays, number_of_display_aliases);
+			r = -EPROBE_DEFER;
+			goto cleanup;
+		}
+	}
+}
+
 	if (fbdev->num_displays == 0) {
 		dev_err(&pdev->dev, "no displays\n");
 		r = -EPROBE_DEFER;
