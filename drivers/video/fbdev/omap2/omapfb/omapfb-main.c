@@ -2325,7 +2325,7 @@ static int omapfb_init_display(struct omapfb2_device *fbdev,
 	struct omap_dss_driver *dssdrv = dssdev->driver;
 	struct omapfb_display_data *d;
 	int r;
-
+	printk("omapfb_init_display\n");
 	r = dssdrv->enable(dssdev);
 	if (r) {
 		dev_warn(fbdev->dev, "Failed to enable display '%s'\n",
@@ -2513,7 +2513,7 @@ static int omapfb_probe(struct platform_device *pdev)
 		struct omapfb_display_data *d;
 
 		omap_dss_get_device(dssdev);
-
+		printk("display %d: %s\n", fbdev->num_displays, dssdev->name);
 		if (!dssdev->driver) {
 			dev_warn(&pdev->dev, "no driver for display: %s\n",
 				dssdev->name);
@@ -2536,10 +2536,11 @@ static int omapfb_probe(struct platform_device *pdev)
 		int number_of_display_aliases = 0;
 		struct property *pp;
 		for_each_property_of_node(of_aliases, pp) {
+			printk("alias %s\n", pp->name);
 			if (!strncmp(pp->name, "display", 7))
 				number_of_display_aliases++;
 		}
-		if (fbdev->num_displays < number_of_display_aliases) {
+		if (number_of_display_aliases > 0 && fbdev->num_displays < number_of_display_aliases) {
 			dev_err(&pdev->dev, "not all displays running (%d of %d)\n",
 					fbdev->num_displays, number_of_display_aliases);
 			r = -EPROBE_DEFER;
@@ -2577,7 +2578,7 @@ static int omapfb_probe(struct platform_device *pdev)
 
 	if (def_mode && strlen(def_mode) > 0) {
 		if (omapfb_parse_def_modes(fbdev))
-			dev_warn(&pdev->dev, "cannot parse default modes\n");
+			dev_warn(&pdev->dev, "cannot parse default modes %s\n", def_mode);
 	} else if (def_display && def_display->driver->set_timings &&
 			def_display->driver->check_timings) {
 		struct omap_video_timings t;
