@@ -391,12 +391,6 @@ static int m4als_driver_init(struct init_calldata *p_arg)
 		goto m4als_driver_init_fail;
 	}
 
-	err = m4als_create_sysfs(dd);
-	if (err < 0) {
-		m4als_err("%s: Failed to create sysfs.\n", __func__);
-		goto m4als_driver_init_sysfs_fail;
-	}
-
 	INIT_DELAYED_WORK(&(dd->m4als_work), m4als_work_func);
 
 	err = m4sensorhub_panic_register(dd->m4, PANICHDL_ALS_RESTORE,
@@ -405,8 +399,6 @@ static int m4als_driver_init(struct init_calldata *p_arg)
 		KDEBUG(M4SH_ERROR, "Als panic callback register failed\n");
 	goto m4als_driver_init_exit;
 
-m4als_driver_init_sysfs_fail:
-	input_unregister_device(dd->indev);
 m4als_driver_init_fail:
 	m4als_err("%s: Init failed with error code %d.\n", __func__, err);
 m4als_driver_init_exit:
@@ -446,6 +438,12 @@ static int m4als_probe(struct platform_device *pdev)
 		goto m4als_probe_fail;
 	}
 
+	err = m4als_create_sysfs(dd);
+	if (err < 0) {
+		m4als_err("%s: Failed to create sysfs.\n", __func__);
+		goto m4als_driver_init_sysfs_fail;
+	}
+
 #ifdef CONFIG_ALS_WHILE_CHARGING
 	dd->chargerstatus = false;
 	dd->charger_nb.notifier_call = charger_notify;
@@ -454,6 +452,8 @@ static int m4als_probe(struct platform_device *pdev)
 
 	return 0;
 
+m4als_driver_init_sysfs_fail:
+	m4sensorhub_unregister_initcall(m4als_driver_init);
 m4als_probe_fail:
 	mutex_destroy(&(dd->mutex));
 	kfree(dd);
