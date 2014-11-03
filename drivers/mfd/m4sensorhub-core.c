@@ -545,7 +545,7 @@ static ssize_t m4sensorhub_get_loglevel(struct device *dev,
 	m4sensorhub_reg_read(&m4sensorhub_misc_data,
 			     M4SH_REG_LOG_LOGENABLE, (char *)&logenable);
 
-	len = sprintf(tempbuf, "M4 log levels = 0x");
+	len = sprintf(buf, "M4 log levels = 0x");
 	for (i = 0; i < LOG_EN_SIZE; i++)
 		len += sprintf(buf+len, "%08x", logenable[i]);
 	KDEBUG(M4SH_INFO, "%s\n", buf);
