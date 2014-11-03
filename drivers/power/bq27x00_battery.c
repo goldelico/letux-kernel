@@ -648,7 +648,7 @@ static int bq27x00_battery_get_property(struct power_supply *psy,
 	int ret = 0;
 	struct bq27x00_device_info *di = to_bq27x00_device_info(psy);
 
-    printk("bq27x00_battery_get_property\n");
+	//    printk("bq27x00_battery_get_property\n");
 	mutex_lock(&di->lock);
 	//    printk("bq27x00_battery locked\n");
 	if (time_is_before_jiffies(di->last_update + 5 * HZ)) {
