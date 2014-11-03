@@ -1697,13 +1697,13 @@ static int serial_omap_probe(struct platform_device *pdev)
 
 	/* The optional wakeirq may be specified in the board dts file */
 	if (pdev->dev.of_node) {
+		omap_up_info = of_get_uart_port_info(&pdev->dev);
+		if (omap_up_info->DTR_gpio == -EPROBE_DEFER)
+			return -EPROBE_DEFER;
 		uartirq = irq_of_parse_and_map(pdev->dev.of_node, 0);
 		if (!uartirq)
 			return -EPROBE_DEFER;
 		wakeirq = irq_of_parse_and_map(pdev->dev.of_node, 1);
-		omap_up_info = of_get_uart_port_info(&pdev->dev);
-		if (omap_up_info->DTR_gpio == -EPROBE_DEFER)
-			return -EPROBE_DEFER;
 		pdev->dev.platform_data = omap_up_info;
 	} else {
 		uartirq = platform_get_irq(pdev, 0);
@@ -1722,8 +1722,8 @@ static int serial_omap_probe(struct platform_device *pdev)
 
 	printk("DTR_gpio %d inverted %d\n", omap_up_info->DTR_gpio, omap_up_info->DTR_inverted);
 
-	if (gpio_is_valid(omap_up_info->DTR_gpio) &&
-	    omap_up_info->DTR_present) {
+	if (omap_up_info->DTR_present &&
+		gpio_is_valid(omap_up_info->DTR_gpio)) {
 		ret = devm_gpio_request(&pdev->dev, omap_up_info->DTR_gpio,
 				"omap-serial");
 		if (ret < 0)
@@ -1769,7 +1769,7 @@ static int serial_omap_probe(struct platform_device *pdev)
 	if (!up->wakeirq)
 		dev_info(up->port.dev, "no wakeirq for uart%d\n",
 				 up->port.line);
-	
+
 	ret = serial_omap_probe_rs485(up, pdev->dev.of_node);
 	if (ret < 0)
 		goto err_rs485;
@@ -1817,6 +1817,7 @@ static int serial_omap_probe(struct platform_device *pdev)
 
 	pm_runtime_mark_last_busy(up->dev);
 	pm_runtime_put_autosuspend(up->dev);
+	printk("UART%d probed\n", up->port.line);
 	return 0;
 
 err_add_port:
