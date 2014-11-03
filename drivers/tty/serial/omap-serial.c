@@ -1734,7 +1734,7 @@ static int serial_omap_probe(struct platform_device *pdev)
 			return ret;
 		up->DTR_gpio = omap_up_info->DTR_gpio;
 		up->DTR_inverted = omap_up_info->DTR_inverted;
-	} else if (up->DTR_gpio == -EPROBE_DEFER) {
+	} else if (omap_up_info->DTR_gpio == -EPROBE_DEFER) {
 		return -EPROBE_DEFER;
 	} else {
 		up->DTR_gpio = -EINVAL;
