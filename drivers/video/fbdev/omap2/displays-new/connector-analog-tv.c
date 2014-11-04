@@ -310,6 +310,7 @@ static struct platform_driver tvc_connector_driver = {
 		.name	= "connector-analog-tv",
 		.owner	= THIS_MODULE,
 		.of_match_table = tvc_of_match,
+		.suppress_bind_attrs = true,
 	},
 };
 
