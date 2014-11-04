@@ -74,7 +74,7 @@ static int omap_hdq_probe(struct platform_device *pdev);
 static int omap_hdq_remove(struct platform_device *pdev);
 
 static const struct of_device_id omap_hdq_of_match[] = {
-    { .compatible = "ti,omap-hdq", },
+    { .compatible = "ti,omap3-1w", },
     {},
 };
 MODULE_DEVICE_TABLE(of, omap_hdq_of_match);

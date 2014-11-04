@@ -198,13 +198,6 @@
 		compatible = "ti,twl4030-madc-hwmon";
 	};
 
-	hdq: hdq {
-		compatible = "ti,omap-hdq";
-		ti,hwmods = "hdq1w";	/* do we need that? */
-		pinctrl-names = "default";
-		pinctrl-0 = <&hdq_pins>;
-	};
-
 	battery: battery {
 		compatible = "ti,twl4030-madc-battery";
 		capacity = <1200000>;
@@ -246,7 +239,7 @@
 		compatible = "pwm-backlight";
 		pwms = <&pwm 0 2000000>;
 		brightness-levels = <0 11 20 30 40 50 60 70 80 90 100>;
-		default-brightness-level = <10>;
+		default-brightness-level = <80>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&backlight_pins>;
 		power-supply = <&power>;
@@ -640,6 +633,12 @@
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
 };
+
+/* this breaks hdq operation
+&hdqw1w {
+	pinctrl-names = "default";
+	pinctrl-0 = <&hdq_pins>;
+}; */
 
 &i2c2 {
 	clock-frequency = <400000>;

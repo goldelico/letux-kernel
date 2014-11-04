@@ -1734,7 +1734,7 @@ static int serial_omap_probe(struct platform_device *pdev)
 			return ret;
 		up->DTR_gpio = omap_up_info->DTR_gpio;
 		up->DTR_inverted = omap_up_info->DTR_inverted;
-	} else if (up->DTR_gpio == -EPROBE_DEFER) {
+	} else if (omap_up_info->DTR_gpio == -EPROBE_DEFER) {
 		return -EPROBE_DEFER;
 	} else {
 		up->DTR_gpio = -EINVAL;
@@ -1750,10 +1750,6 @@ static int serial_omap_probe(struct platform_device *pdev)
 	up->port.iotype = UPIO_MEM;
 	up->port.irq = uartirq;
 	up->wakeirq = wakeirq;
-	if (!up->wakeirq)
-		dev_info(up->port.dev, "no wakeirq for uart%d\n",
-			 up->port.line);
-
 	up->port.regshift = 2;
 	up->port.fifosize = 64;
 	up->port.ops = &serial_omap_pops;
@@ -1770,6 +1766,10 @@ static int serial_omap_probe(struct platform_device *pdev)
 		goto err_port_line;
 	}
 
+	if (!up->wakeirq)
+		dev_info(up->port.dev, "no wakeirq for uart%d\n",
+				 up->port.line);
+	
 	ret = serial_omap_probe_rs485(up, pdev->dev.of_node);
 	if (ret < 0)
 		goto err_rs485;
