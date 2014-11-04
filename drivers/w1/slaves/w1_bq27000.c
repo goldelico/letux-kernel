@@ -113,6 +113,8 @@ module_exit(w1_bq27000_exit);
 module_param(F_ID, int, S_IRUSR);
 MODULE_PARM_DESC(F_ID, "1-wire slave FID for BQ device");
 
+MODULE_ALIAS("w1-family-0x1");
+
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Texas Instruments Ltd");
 MODULE_DESCRIPTION("HDQ/1-wire slave driver bq27000 battery monitor chip");
