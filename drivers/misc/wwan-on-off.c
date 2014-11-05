@@ -218,7 +218,7 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 	if (!gpio_is_valid(wwan->on_off_gpio))
 		pr_warn("wwan-on-off: I have no control over modem\n");
 
-	if (gpio_is_valid(wwan->feedback_gpio)) {
+	if (gpio_is_valid(wwan->on_off_gpio)) {
 		err = gpio_request(wwan->on_off_gpio, "on-off-gpio");
 		if (err < 0)
 			goto out;
