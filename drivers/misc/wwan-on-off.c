@@ -177,6 +177,7 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 			return -ENOMEM;
 		pdata->on_off_gpio = of_get_named_gpio_flags(dev->of_node, "on-off-gpio", 0, &flags);
 		pdata->feedback_gpio = of_get_named_gpio_flags(dev->of_node, "on-indicator-gpio", 0, &flags);
+		printk("onoff = %d indicator = %d\n", pdata->on_off_gpio, pdata->feedback_gpio);
 		if (pdata->on_off_gpio == -EPROBE_DEFER ||
 			pdata->feedback_gpio == -EPROBE_DEFER)
 			return -EPROBE_DEFER;
