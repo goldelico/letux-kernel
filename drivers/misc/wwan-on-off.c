@@ -39,6 +39,7 @@
 #include <linux/rfkill.h>
 
 #define DEBUG
+#define CONFIG_PRESENT_GPIO
 
 struct wwan_on_off {
 	struct rfkill *rf_kill;
@@ -47,15 +48,13 @@ struct wwan_on_off {
 
 	int		is_power_off;		/* current state */
 	spinlock_t	lock;
+#ifdef CONFIG_PRESENT_GPIO
 #ifdef CONFIG_GPIOLIB
 	struct gpio_chip gpio;
 	const char	*gpio_name[1];
 #endif
+#endif
 };
-
-/* this requires this driver to be compiled into the kernel! */
-
-void omap_mux_set_gpio(u16 val, int gpio);
 
 static int is_powered_off(struct wwan_on_off *wwan)
 { /* check with physical interfaces if possible */
@@ -101,6 +100,7 @@ static void set_power(struct wwan_on_off *wwan, int off)
 #endif
 }
 
+#ifdef CONFIG_PRESENT_GPIO
 static int wwan_on_off_get_value(struct gpio_chip *gc,
 						   unsigned offset)
 {
@@ -137,6 +137,7 @@ static int wwan_on_off_direction_output(struct gpio_chip *gc,
 //	wwan_on_off_set_value(gc, offset, val);
 	return 0;
 }
+#endif
 
 static int wwan_on_off_rfkill_set_block(void *data, bool blocked)
 {
@@ -196,6 +197,7 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 	wwan->on_off_gpio = pdata->on_off_gpio;
 	wwan->feedback_gpio = pdata->feedback_gpio;
 
+#ifdef CONFIG_PRESENT_GPIO
 	wwan->gpio_name[0] = "gpio-wwan-enable";	/* label of controlling GPIO */
 
 	wwan->gpio.label = "gpio-wwan-on-off";
@@ -210,6 +212,7 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_OF_GPIO
 	wwan->gpio.of_node = pdev->dev.of_node;
+#endif
 #endif
 
 	wwan->is_power_off = 1;	/* assume initial power is off */
@@ -234,10 +237,11 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 		gpio_direction_input(wwan->feedback_gpio);
 	}
 
+#ifdef CONFIG_PRESENT_GPIO
 	err = gpiochip_add(&wwan->gpio);
 	if (err)
 		goto out3;
-
+#endif
 	rf_kill = rfkill_alloc("WWAN", &pdev->dev,
 						   RFKILL_TYPE_WWAN,
 						   &wwan_on_off_rfkill_ops, wwan);
@@ -265,7 +269,9 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 out5:
 	rfkill_destroy(rf_kill);
 out4:
+#ifdef CONFIG_PRESENT_GPIO
 	gpiochip_remove(&wwan->gpio);
+#endif
 out3:
 	if (gpio_is_valid(wwan->feedback_gpio))
 		gpio_free(wwan->feedback_gpio);
@@ -280,7 +286,9 @@ out:
 static int wwan_on_off_remove(struct platform_device *pdev)
 {
 	struct wwan_on_off *wwan = platform_get_drvdata(pdev);
+#ifdef CONFIG_PRESENT_GPIO
 	gpiochip_remove(&wwan->gpio);
+#endif
 	if (gpio_is_valid(wwan->feedback_gpio))
 		gpio_free(wwan->feedback_gpio);
 	if (gpio_is_valid(wwan->on_off_gpio))
