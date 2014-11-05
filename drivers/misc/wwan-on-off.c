@@ -1,7 +1,9 @@
 /*
  * wwan_on_off
  * driver for controlling power states of some WWAN modules
- * like the GTM601 or the PHS8.
+ * like the GTM601 or the PHS8 which are independently powered
+ * from the APU so that they can continue to run during suspend
+ * and potentially during power-off.
  *
  * Such modules usually have some ON_KEY or IGNITE input
  * that can be triggered to turn the modem power on or off
@@ -12,15 +14,10 @@
  *
  * If this is not available we can monitor some USB PHY
  * port which becomes active if the modem is powered on.
- * (not implemented)
  *
  * The driver is based on the w2sg0004 driver developed
  * by Neil Brown.
  */
-
-/// NOTE: this driver code is only a first draft and needs
-/// some work (rename function, correctly handle GPIOs and
-/// USB PHY
 
 #include <linux/module.h>
 #include <linux/interrupt.h>
@@ -37,6 +34,7 @@
 #include <linux/wwan-on-off.h>
 #include <linux/workqueue.h>
 #include <linux/rfkill.h>
+#include <linux/usb/phy.h>
 
 #define DEBUG
 #define CONFIG_PRESENT_GPIO
@@ -45,7 +43,7 @@ struct wwan_on_off {
 	struct rfkill *rf_kill;
 	int		on_off_gpio;	/* may be invalid */
 	int		feedback_gpio;	/* may be invalid */
-
+	struct usb_phy *usb_phy;	/* USB PHY to monitor for modem activity */
 	int		is_power_off;		/* current state */
 	spinlock_t	lock;
 #ifdef CONFIG_PRESENT_GPIO
@@ -60,6 +58,8 @@ static int is_powered_off(struct wwan_on_off *wwan)
 { /* check with physical interfaces if possible */
 	if (gpio_is_valid(wwan->feedback_gpio))
 		return !gpio_get_value(wwan->feedback_gpio);	/* read gpio */
+	if (wwan->usb_phy != NULL && !IS_ERR(wwan->usb_phy))
+		printk("USB phy event %d\n", wwan->usb_phy->last_event);
 	/* check with PHY if available */
 	if (!gpio_is_valid(wwan->on_off_gpio))
 		return 0;	/* we can't even control power, assume it is on */
@@ -93,6 +93,8 @@ static void set_power(struct wwan_on_off *wwan, int off)
 		gpio_set_value_cansleep(wwan->on_off_gpio, 0);
 		msleep(500);	/* wait 500 ms */
 		wwan->is_power_off = off;
+		if (is_powered_off(wwan) != off)
+			printk("modem: failed to change modem state\n");	/* warning only! using USB feedback might not be immediate */
 	}
 	spin_unlock_irq(&wwan->lock);
 #ifdef DEBUG
@@ -178,9 +180,11 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 			return -ENOMEM;
 		pdata->on_off_gpio = of_get_named_gpio_flags(dev->of_node, "on-off-gpio", 0, &flags);
 		pdata->feedback_gpio = of_get_named_gpio_flags(dev->of_node, "on-indicator-gpio", 0, &flags);
-		printk("onoff = %d indicator = %d\n", pdata->on_off_gpio, pdata->feedback_gpio);
+		pdata->usb_phy = devm_usb_get_phy_by_phandle(dev, "usb-port", 0);
+		printk("onoff = %d indicator = %d usb_phy = %ld\n", pdata->on_off_gpio, pdata->feedback_gpio, PTR_ERR(pdata->usb_phy));
 		if (pdata->on_off_gpio == -EPROBE_DEFER ||
-			pdata->feedback_gpio == -EPROBE_DEFER)
+			pdata->feedback_gpio == -EPROBE_DEFER ||
+			PTR_ERR(pdata->usb_phy) == -EPROBE_DEFER)
 			return -EPROBE_DEFER;
 		// get optional reference to USB PHY (through "usb-port")
 		pdata->gpio_base = -1;
@@ -196,6 +200,7 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	wwan->on_off_gpio = pdata->on_off_gpio;
 	wwan->feedback_gpio = pdata->feedback_gpio;
+	wwan->usb_phy = pdata->usb_phy;
 
 #ifdef CONFIG_PRESENT_GPIO
 	wwan->gpio_name[0] = "gpio-wwan-enable";	/* label of controlling GPIO */
@@ -297,28 +302,46 @@ static int wwan_on_off_remove(struct platform_device *pdev)
 	return 0;
 }
 
+/* we only suspend the driver (i.e. set the gpio in a state
+ * that it does not harm)
+ * the reason is that the modem must continue to be powered
+ * on to receive SMS and incoming calls that wake up the CPU
+ * through a wakeup GPIO
+ */
+
 static int wwan_on_off_suspend(struct device *dev)
 {
-	struct wwan_on_off *wwan = dev_get_drvdata(dev);
 #ifdef DEBUG
+	struct wwan_on_off *wwan = dev_get_drvdata(dev);
 	printk("WWAN suspend\n");
 #endif
-	/* we only suspend the driver (i.e. set the gpio in a state
-	 * that it does not harm)
-	 * the reason is that the modem must continue to be powered
-	 * on to receive SMS and incoming calls that wake up the CPU
-	 * through a wakeup GPIO
-	 * what we could do is to decode a system power-off
-	 */
+	/* set gpio to harmless mode */
 	return 0;
 }
 
 static int wwan_on_off_resume(struct device *dev)
 {
-	struct wwan_on_off *wwan = dev_get_drvdata(dev);
 #ifdef DEBUG
+	struct wwan_on_off *wwan = dev_get_drvdata(dev);
 	printk("WWAN resume\n");
 #endif
+	/* restore gpio */
+	return 0;
+}
+
+/* on system power off we must turn off the
+ * modem (which has a separate connection to
+ * the battery).
+ */
+
+static int wwan_on_off_poweroff(struct device *dev)
+{
+	struct wwan_on_off *wwan = dev_get_drvdata(dev);
+#ifdef DEBUG
+	printk("WWAN poweroff\n");
+#endif
+	set_power(wwan, 0);	/* turn off modem */
+	printk("WWAN powered off\n");
 	return 0;
 }
 
@@ -332,7 +355,14 @@ static const struct of_device_id wwan_of_match[] = {
 MODULE_DEVICE_TABLE(of, wwan_of_match);
 #endif
 
-SIMPLE_DEV_PM_OPS(wwan_on_off_pm_ops, wwan_on_off_suspend, wwan_on_off_resume);
+const struct dev_pm_ops wwan_on_off_pm_ops = {
+	.suspend = wwan_on_off_suspend,
+	.resume = wwan_on_off_resume,
+	.freeze = wwan_on_off_suspend,
+	.thaw = wwan_on_off_resume,
+	.poweroff = wwan_on_off_poweroff,
+	.restore = wwan_on_off_resume,
+	};
 
 static struct platform_driver wwan_on_off_driver = {
 	.driver.name	= "wwan-on-off",
@@ -360,5 +390,5 @@ module_exit(wwan_on_off_exit);
 MODULE_ALIAS("wwan_on_off");
 
 MODULE_AUTHOR("Nikolaus Schaller <hns@goldelico.com>");
-MODULE_DESCRIPTION("3G Modem virtual GPIO and rfkill driver");
+MODULE_DESCRIPTION("3G Modem rfkill and virtual GPIO driver");
 MODULE_LICENSE("GPL v2");
