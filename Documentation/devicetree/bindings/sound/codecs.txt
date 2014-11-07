@@ -1,0 +1,7 @@
+Codecs:
+
+Generic properties for any audio codec handled directly by ASoC core.
+
+Optional properties:
+- name-prefix		: Name prefix to avoid kcontrol name collisions
+			  in cards with multiple instances of the same codec
