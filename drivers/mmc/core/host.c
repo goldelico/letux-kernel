@@ -312,6 +312,8 @@ int mmc_of_parse(struct mmc_host *host)
 	u32 bus_width;
 	int len, ret;
 	bool cap_invert, gpio_invert;
+	int gpio;
+	enum of_gpio_flags flags;
 
 	if (!host->parent || !host->parent->of_node)
 		return 0;
