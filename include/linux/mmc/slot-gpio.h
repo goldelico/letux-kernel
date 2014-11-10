@@ -20,6 +20,9 @@ void mmc_gpio_free_ro(struct mmc_host *host);
 int mmc_gpio_get_cd(struct mmc_host *host);
 int mmc_gpio_request_cd(struct mmc_host *host, unsigned int gpio,
 			unsigned int debounce);
+int mmc_gpio_request_cd_isr(struct mmc_host *host,
+			    irqreturn_t (*isr)(int irq, void *dev_id));
+
 void mmc_gpio_free_cd(struct mmc_host *host);
 
 int mmc_gpiod_request_cd(struct mmc_host *host, const char *con_id,
