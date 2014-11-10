@@ -453,17 +453,6 @@ static int omap_hsmmc_gpio_init(struct mmc_host *mmc,
 	} else
 		pdata->slots[0].gpio_wp = -EINVAL;
 
-	if (gpio_is_valid(pdata->slots[0].gpio_reset)) {
-
-		ret = gpio_request(pdata->slots[0].gpio_reset, "mmc_reset");
-		if (ret)
-			goto err_free_wp;
-		ret = gpio_direction_output(pdata->slots[0].gpio_reset, 1);
-		if (ret)
-			goto err_free_reset;
-	} else
-		pdata->slots[0].gpio_reset = -EINVAL;
-
 	return 0;
 }
 
