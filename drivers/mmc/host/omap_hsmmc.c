@@ -268,8 +268,6 @@ static int omap_hsmmc_set_power(struct device *dev, int slot, int power_on,
 	if (!host->vcc)
 		return 0;
 
-	if (gpio_is_valid(mmc_slot(host).gpio_reset))
-		gpio_set_value_cansleep(mmc_slot(host).gpio_reset, 0);
 	if (mmc_slot(host).before_set_reg)
 		mmc_slot(host).before_set_reg(dev, slot, power_on, vdd);
 
@@ -335,8 +333,6 @@ static int omap_hsmmc_set_power(struct device *dev, int slot, int power_on,
 
 	if (mmc_slot(host).after_set_reg)
 		mmc_slot(host).after_set_reg(dev, slot, power_on, vdd);
-	if (gpio_is_valid(mmc_slot(host).gpio_reset))
-		gpio_set_value_cansleep(mmc_slot(host).gpio_reset, 1);
 
 error_set_power:
 	return ret;
@@ -458,8 +454,6 @@ static int omap_hsmmc_gpio_init(struct mmc_host *mmc,
 
 static void omap_hsmmc_gpio_free(struct omap_mmc_platform_data *pdata)
 {
-	if (gpio_is_valid(pdata->slots[0].gpio_reset))
-		gpio_free(pdata->slots[0].gpio_reset);
 	if (gpio_is_valid(pdata->slots[0].gpio_wp))
 		gpio_free(pdata->slots[0].gpio_wp);
 	if (gpio_is_valid(pdata->slots[0].switch_pin))
@@ -1939,7 +1933,6 @@ static struct omap_mmc_platform_data *of_get_hsmmc_pdata(struct device *dev)
 	pdata->nr_slots = 1;
 	pdata->slots[0].switch_pin = -EINVAL;
 	pdata->slots[0].gpio_wp = -EINVAL;
-	pdata->slots[0].gpio_reset = reset_gpio;
 
 	if (of_find_property(np, "ti,non-removable", NULL)) {
 		pdata->slots[0].nonremovable = true;
