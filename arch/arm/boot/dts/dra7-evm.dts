@@ -202,6 +202,14 @@
 			"LINE1L",               "Line In",
 			"LINE1R",               "Line In";
 	};
+
+	radio {
+		compatible = "ti,dra7xx_radio";
+		gpios = <&gpio6 20 0>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&radio_pins>;
+	};
 };
 
 &dra7_pmx_core {
@@ -487,6 +495,21 @@
 		>;
 	};
 
+	mcasp2_pins: pinmux_mcasp2_pins {
+		pinctrl-single,pins = <
+			0x02F4 (PIN_INPUT_PULLDOWN | MUX_MODE0)	/* mcasp2_aclkx */
+			0x02F8 (PIN_INPUT_SLEW | MUX_MODE0)	/* mcasp2_afsx */
+			0x0304 (PIN_INPUT_PULLDOWN | MUX_MODE0)	/* mcasp2_axr0 */
+			0x0308 (PIN_INPUT_PULLDOWN | MUX_MODE0)	/* mcasp2_axr1 */
+			0x030C (PIN_INPUT_SLEW | MUX_MODE0)	/* mcasp2_axr2 */
+			0x0310 (PIN_INPUT_SLEW | MUX_MODE0)	/* mcasp2_axr3 */
+			0x0314 (PIN_INPUT_PULLDOWN | MUX_MODE0)	/* mcasp2_axr4 */
+			0x0318 (PIN_INPUT_PULLDOWN | MUX_MODE0)	/* mcasp2_axr5 */
+			0x031c (PIN_INPUT_PULLDOWN | MUX_MODE0)	/* mcasp2_axr6 */
+			0x0320 (PIN_INPUT_PULLDOWN | MUX_MODE0)	/* mcasp2_axr7 */
+		>;
+	};
+
 	mcasp3_pins: pinmux_mcasp3_pins {
 		pinctrl-single,pins = <
 			0x324 (PIN_OUTPUT_PULLDOWN | MUX_MODE0)	/* mcasp3_aclkx */
@@ -502,6 +525,23 @@
 			0x328 (PIN_OFF_NONE)
 			0x32c (PIN_OFF_NONE)
 			0x330 (PIN_OFF_NONE)
+		>;
+	};
+
+	mcasp6_pins: pinmux_mcasp6_pins {
+		pinctrl-single,pins = <
+			0x2d4 (PIN_OUTPUT_PULLDOWN | MUX_MODE1)	/* mcasp6_axr0 */
+			0x2d8 (PIN_INPUT_PULLDOWN | MUX_MODE1)	/* mcasp6_axr1 */
+			0x2dc (PIN_OUTPUT_PULLDOWN | MUX_MODE1)	/* mcasp6_clkx */
+			0x2e0 (PIN_INPUT_PULLDOWN | MUX_MODE1)	/* mcasp6_fsx */
+		>;
+	};
+
+	radio_pins: pinmux_radio_pins {
+		pinctrl-single,pins = <
+			0x0334 (PIN_INPUT | MUX_MODE4)		/* i2c4_sda */
+			0x0338 (PIN_INPUT | MUX_MODE4)		/* i2c4_scl */
+			0x02A0 (PIN_INPUT | MUX_MODE14)		/* gpio6_20 */
 		>;
 	};
 };
@@ -1065,10 +1105,31 @@
 
 	status = "okay";
 
+	atl1 {
+		bws = <DRA7_ATL_WS_MCASP2_FSX>;
+		aws = <DRA7_ATL_WS_MCASP6_FSX>;
+	};
+
 	atl2 {
 		bws = <DRA7_ATL_WS_MCASP2_FSX>;
 		aws = <DRA7_ATL_WS_MCASP3_FSX>;
 	};
+};
+
+&mcasp2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcasp2_pins>;
+
+	fck_parent = "atl_clkin2_ck";
+
+	status = "okay";
+
+	op-mode = <0>;	/* MCASP_IIS_MODE */
+	tdm-slots = <2>;
+	/* 8 serializer */
+	serial-dir = <	/* 0: INACTIVE, 1: TX, 2: RX */
+		1 1 1 1 1 1 1 1
+	>;
 };
 
 &mcasp3 {
@@ -1086,4 +1147,22 @@
 	serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
 		1 2 0 0
 	>;
+};
+
+&mcasp6 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcasp6_pins>;
+
+	fck_parent = "atl_clkin1_ck";
+
+	status = "okay";
+
+	op-mode = <0>;	/* MCASP_IIS_MODE */
+	tdm-slots = <8>;
+	/* 4 serializer */
+	serial-dir = <	/* 0: INACTIVE, 1: TX, 2: RX */
+		1 2 0 0
+	>;
+	tx-num-evt = <8>;
+	rx-num-evt = <8>;
 };
