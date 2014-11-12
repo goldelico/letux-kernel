@@ -239,6 +239,25 @@ MACHINE_END
 #endif
 
 #ifdef CONFIG_SOC_DRA7XX
+
+static const char *x15_android_compat[] __initconst = {
+	"ti,am572x-beagle-x15",
+	NULL,
+};
+
+DT_MACHINE_START(DRA74X_X15_DT, "Beagle X15 Board")
+	.reserve	= omap_reserve,
+	.smp		= smp_ops(omap4_smp_ops),
+	.map_io		= omap5_map_io,
+	.init_early	= dra7xx_init_early,
+	.init_late	= dra7xx_init_late,
+	.init_irq	= omap_gic_of_init,
+	.init_machine	= omap_generic_init,
+	.init_time	= omap5_realtime_timer_init,
+	.dt_compat	= x15_android_compat,
+	.restart	= omap44xx_restart,
+MACHINE_END
+
 static const char *dra74x_boards_compat[] __initconst = {
 	"ti,am5728",
 	"ti,am5726",
