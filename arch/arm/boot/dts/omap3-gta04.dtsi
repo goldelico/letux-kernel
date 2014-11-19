@@ -111,6 +111,7 @@
 
 	gpio-keys {
 		compatible = "gpio-keys";
+		// FIXME: pinmux
 
 		aux-button {
 			label = "aux";
@@ -122,6 +123,7 @@
 
 	gpio-keys-wwan-wakeup {
 		compatible = "gpio-keys";
+		// FIXME: pinmux
 
 		wwan_wakeup_button: wwan-wakeup-button {
 			label = "3G_WOE";
@@ -140,6 +142,7 @@
 	antenna-detect {
 		compatible = "extcon-gpio";
 		label = "gps_antenna";
+		// FIXME: pinmux
 		gpios = <&gpio5 16 GPIO_ACTIVE_HIGH>; /* GPIO144 */
 		debounce-delay-ms = <10>;
 		interrupt-parent = <&gpio5>;
@@ -277,8 +280,6 @@
 	tv_amp: opa362 {
 		compatible = "ti,opa362";
 		enable-gpios = <&gpio1 23 0>;	/* GPIO to enable video out amplifier */
-		/* needs some endpoint plumbing into the VENC signal chain */
-		label = "opa362";
 		ports {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -318,7 +319,7 @@
 /* FIXME: driver currently uses the rx-gpio but we should (could?) simply specify the IRQ */
 		interrupt-parent = <&gpio5>;
 		interrupts = <19 IRQ_TYPE_EDGE_FALLING>;	/* GPIO_147: RX - trigger on arrival of start bit */
-		rx-gpio = <&gpio5 19 0>;	/* GPIO_147: RX */
+//		rx-gpio = <&gpio5 19 0>;	/* GPIO_147: RX */
 
 		lna-supply = <&vsim>;	/* LNA regulator */
 		on-off-gpio = <&gpio5 17 0>;	/* GPIO_145: trigger for turning on/off w2sg0004 */
@@ -329,6 +330,7 @@
 		/* compatible = "gemalto,phs8" for Neo900/GTA04b7 */
 		gpio-controller;
 		#gpio-cells = <2>;
+		// FIXME: pinmux
 
 		usb-port = <&hsusb2_phy>;
 		on-off-gpio = <&gpio6 26 0>;	/* GPIO_186: trigger to power on modem */
@@ -354,6 +356,7 @@
 		pinctrl-single,pins = <
 			OMAP3_CORE1_IOPAD(0x217a, PIN_INPUT | MUX_MODE0)                /* uart2_rx.uart2_rx */
 			OMAP3_CORE1_IOPAD(0x2178, PIN_OUTPUT | MUX_MODE0)               /* uart2_tx.uart2_tx */
+/* FIXME: should also define gpio145 as output */
 			/* what about rts/cts? */
 		>;
 	};
@@ -371,6 +374,7 @@
 			OMAP3_CORE1_IOPAD(0x219e, PIN_INPUT | MUX_MODE0)                /* uart3_rx.uart3_rx */
 			OMAP3_CORE1_IOPAD(0x21a0, PIN_OUTPUT | MUX_MODE0)               /* uart3_tx.uart3_tx */
 			/* what about rts/cts etc.? */
+			/* enable gpio21 as output for DTR */
 		>;
 	};
 
@@ -710,7 +714,7 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&penirq_pins>;
 		interrupt-parent = <&gpio6>;
-		interrupts = <0 IRQ_TYPE_EDGE_FALLING>;
+		interrupts = <0 IRQ_TYPE_EDGE_FALLING>;	/* gpio160 */
 		gpios = <&gpio6 0 GPIO_ACTIVE_LOW>;	/* gpio160 */
 		ti,x-plate-ohms = <550>;
 		ti,min-x = <0x100>;
