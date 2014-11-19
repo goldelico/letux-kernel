@@ -848,6 +848,7 @@
 &uart3 { /* Console and IrDA /dev/ttyO2 */
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart3_pins>;
+	dtr-gpio = <&gpio1 21 GPIO_ACTIVE_HIGH>;	/* DTR line on external RS232 interface */
 };
 
 &usbhshost {
