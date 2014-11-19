@@ -276,7 +276,7 @@
 
 	tv_amp: opa362 {
 		compatible = "ti,opa362";
-		gpios = <&gpio1 23 0>;	/* GPIO to enable video out amplifier */
+		enable-gpios = <&gpio1 23 0>;	/* GPIO to enable video out amplifier */
 		/* needs some endpoint plumbing into the VENC signal chain */
 		label = "opa362";
 		ports {
