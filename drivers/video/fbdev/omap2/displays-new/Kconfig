@@ -1,10 +1,10 @@
 menu "OMAP Display Device Drivers (new device model)"
         depends on OMAP2_DSS
 
-config DISPLAY_AMPLIFIER_OPA362
-        tristate "external analog amplifier with output disable/high-Z (e.g. OPA362)"
+config DISPLAY_ENCODER_OPA362
+        tristate "External analog amplifier with output disable/high-Z (e.g. OPA362)"
 	help
-	  Driver to enable an external analog TV amplifier (e.g. OPA362)
+	  1Driver to enable an external analog TV amplifier (e.g. OPA362)
 	  through a GPIO.
 
 config DISPLAY_ENCODER_TFP410

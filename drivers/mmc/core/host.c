@@ -312,6 +312,8 @@ int mmc_of_parse(struct mmc_host *host)
 	u32 bus_width;
 	int len, ret;
 	bool cap_invert, gpio_invert;
+	int gpio;
+	enum of_gpio_flags flags;
 
 	if (!host->parent || !host->parent->of_node)
 		return 0;
@@ -416,6 +418,18 @@ int mmc_of_parse(struct mmc_host *host)
 	/* See the comment on CD inversion above */
 	if (cap_invert ^ gpio_invert)
 		host->caps2 |= MMC_CAP2_RO_ACTIVE_HIGH;
+
+	gpio = of_get_named_gpio_flags(np, "reset-gpios", 0, &flags);
+	if (gpio == -EPROBE_DEFER) {
+		ret = -EPROBE_DEFER;
+		goto out;
+	}
+	if (gpio_is_valid(gpio)) {
+		ret = mmc_gpio_request_rs(host, gpio,
+					  flags & OF_GPIO_ACTIVE_LOW);
+		if (ret < 0)
+			goto out;
+	}
 
 	if (of_find_property(np, "cap-sd-highspeed", &len))
 		host->caps |= MMC_CAP_SD_HIGHSPEED;

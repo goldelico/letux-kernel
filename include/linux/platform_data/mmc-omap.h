@@ -55,10 +55,6 @@ struct omap_mmc_platform_data {
 	void (*cleanup)(struct device *dev);
 	void (*shutdown)(struct device *dev);
 
-	/* To handle board related suspend/resume functionality for MMC */
-	int (*suspend)(struct device *dev, int slot);
-	int (*resume)(struct device *dev, int slot);
-
 	/* Return context loss count due to PM states changing */
 	int (*get_context_loss_count)(struct device *dev);
 
@@ -116,7 +112,6 @@ struct omap_mmc_platform_data {
 
 		int switch_pin;			/* gpio (card detect) */
 		int gpio_wp;			/* gpio (write protect) */
-		int gpio_reset;			/* gpio (reset) */
 
 		int (*set_bus_mode)(struct device *dev, int slot, int bus_mode);
 		int (*set_power)(struct device *dev, int slot,
