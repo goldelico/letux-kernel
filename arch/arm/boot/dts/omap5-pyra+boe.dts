@@ -6,31 +6,17 @@
  * published by the Free Software Foundation.
  */
 
-/* we atart with the omap5-uevm tree */
+/* we atart with the omap5-pyra tree */
 
 #include "omap5-pyra.dts"
 
-&dsi1 {
-	lcd {
-		compatible = "boe,btl507212-w677l";
-		lanes = <
-			0       /* lane0+ = clk + */
-			1       /* lane0- = clk - */
-			2       /* lane1+ = data1 + */
-			3       /* lane1- = data1 - */
-			4       /* lane2+ = data2 + */
-			5       /* lane2- = data2 - */
-			6       /* lane3+ = data3 + */
-			7       /* lane3- = data3 - */
-			8       /* lane4+ = data4 + */
-			9       /* lane4- = data4 - */
-		>;
+&lcd {
+	compatible = "boe,btl507212-w677l";
 
-/* there is no ldo2_reg!		vdds_foo-supply = <&ldo2_reg>; */
+/* there is no ldo2_reg!	vdds_foo-supply = <&ldo2_reg>; */
 /* does not work as expected:	vdds_foo-supply = <&dsi1_panel_power>; */
 
-		gpios =
-			<&gpio6 16 0>,	/* goip6_176 = display reset */
-			<&gpio3 18 0>;	/* gpio3_82 = enable DC/DC */
-	};
+	gpios =
+		<&gpio6 16 0>,	/* goip6_176 = display reset */
+		<&gpio3 18 0>;	/* gpio3_82 = enable DC/DC */
 };
