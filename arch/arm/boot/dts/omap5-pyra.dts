@@ -157,6 +157,9 @@
 &sound {
 	ti,model = "Pyra-Handheld";
 
+	pinctrl-names = "default";
+	pinctrl-0 = <&ckobuffer>;
+
 	/* Audio routing */
 	ti,audio-routing =
 		"Headset Stereophone", "HSOL",
@@ -169,6 +172,31 @@
 		"AFMR", "Line In",
 		"HSMIC", "Headset Mic",
 		"Headset Mic", "Headset Mic Bias";
+};
+
+/* Audio needs clock enabled */
+
+/ { /* should better be moved to omap5.dtsi because it is of general interest */
+	ocp {
+		omap5_control_ckobuffer: pinmux@4ae0cdb4 {
+			compatible = "ti,omap4-padconf", "pinctrl-single";
+			reg = <0x4ae0cdb4 4>;   /* Single register */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			pinctrl-single,register-width = <32>;
+			pinctrl-single,function-mask = <0xf0000000>;
+			pinctrl-single,bit-per-mux;
+		};
+	};
+};
+
+&omap5_control_ckobuffer {
+	ckobuffer: pinmux_ckobuffer {
+		pinctrl-single,pins = <
+		/* same as devmem2 0x4AE0CDB4 w 0x10000000 */
+		0x0 0x10000000  /* CONTROL.CONTROL_CKOBUFFER[28] CKOBUFFER_CLK_EN := 1 */
+		>;
+        };
 };
 
 /* LCD panel - MIPI */
@@ -211,11 +239,7 @@
 
 	lcd: lcd {
 		/* default to be overwritten by specific panel in derived board file
-		   by using the /root/panelselect script
-		   as soon as we have chosen the panel we can substitute the panel driver here
-		   and do the plumbing for the ssd2858
-		   but for the current experiments we boot by default with no panel
-		   */
+		   by using the /root/panelselect script */
 		compatible = "none";
 		label = "lcd";
 
