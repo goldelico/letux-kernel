@@ -72,8 +72,6 @@ struct gpio_w2sg {
 	unsigned long	last_toggle;
 	unsigned long	backoff;	/* time to wait since last_toggle */
 	int		on_off_gpio;
-	/* fixme: can be removed if we configure the rx_irq by DT */
-	int		rx_gpio;
 	int		rx_irq;
 
 	struct pinctrl *p;
@@ -164,7 +162,7 @@ static irqreturn_t gpio_w2sg_isr(int irq, void *dev_id)
 	struct gpio_w2sg *gw2sg = dev_id;
 	unsigned long flags;
 
-	pr_debug("%s\n", __func__); /* we have received a RX signal while GPS should be off */
+	pr_debug("!"); /* we have received a RX signal while GPS should be off */
 
 	if (!gw2sg->requested && !gw2sg->is_on &&
 	    (gw2sg->state == W2SG_IDLE) &&
@@ -265,9 +263,14 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 			return -ENOMEM;
 
 		pdata->on_off_gpio = of_get_named_gpio_flags(dev->of_node, "on-off-gpio", 0, &flags);
-		pdata->rx_gpio = of_get_named_gpio_flags(dev->of_node, "rx-gpio", 0, &flags);
-		if (pdata->on_off_gpio == -EPROBE_DEFER ||
-			pdata->rx_gpio == -EPROBE_DEFER)
+
+		pdata->rx_irq = irq_of_parse_and_map(dev->of_node, 0);
+		if (!pdata->rx_irq) {
+			dev_err(dev, "no IRQ found\n");
+			return -ENODEV;
+		}
+
+		if (pdata->on_off_gpio == -EPROBE_DEFER)
 			return -EPROBE_DEFER;	/* defer until we have all gpios */
 
 		pdata->lna_regulator = devm_regulator_get_optional(dev, "lna");
@@ -291,7 +294,6 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 	gw2sg->lna_is_off = true;
 
 	gw2sg->on_off_gpio = pdata->on_off_gpio;
-	gw2sg->rx_gpio = pdata->rx_gpio;
 
 	gw2sg->is_on = false;
 	gw2sg->requested = true;
@@ -310,6 +312,7 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 	gw2sg->gpio.get = gpio_w2sg_get_value;
 	gw2sg->gpio.set = gpio_w2sg_set_value;
 	gw2sg->gpio.can_sleep = 0;
+	gw2sg->rx_irq = pdata->rx_irq;
 
 #ifdef CONFIG_OF_GPIO
 	gw2sg->gpio.of_node = pdev->dev.of_node;
@@ -354,16 +357,6 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 		goto out;
 
 	gpio_direction_output(gw2sg->on_off_gpio, false);
-
-	err = devm_gpio_request(&pdev->dev, gw2sg->rx_gpio, "w2sg0004-rx");
-	if (err < 0)
-		goto out;
-
-	gpio_direction_input(gw2sg->rx_gpio);
-
-	gw2sg->rx_irq = gpio_to_irq(gw2sg->rx_gpio);
-	if (gw2sg->rx_irq < 0)
-		goto out;
 
 	err = devm_request_threaded_irq(&pdev->dev, gw2sg->rx_irq, NULL, gpio_w2sg_isr,
 				   IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
@@ -412,6 +405,7 @@ out:
 static int gpio_w2sg_remove(struct platform_device *pdev)
 {
 	struct gpio_w2sg *gw2sg = platform_get_drvdata(pdev);
+	int ret;
 
 	cancel_delayed_work_sync(&gw2sg->work);
 	gpiochip_remove(&gw2sg->gpio);

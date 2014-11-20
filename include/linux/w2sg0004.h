@@ -29,7 +29,7 @@ struct gpio_w2sg_data {
 	int	gpio_base;		/* (not used by DT) - defines the gpio.base */
 	struct regulator *lna_regulator;	/* enable LNA power */
 	int	on_off_gpio;	/* connected to the on-off input of the GPS module */
-	int	rx_gpio;		/* the rx data we track to check for module activity */
+	int	rx_irq;		/* the rx irq - we track to check for module activity */
 	unsigned short	on_state;  /* Mux state when GPS is on */
 	unsigned short	off_state; /* Mux state when GPS is off */
 };
