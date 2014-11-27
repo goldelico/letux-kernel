@@ -138,6 +138,7 @@
 	primary_sound: primary_sound {
 		compatible = "ti,dra7xx-evm-audio";
 		ti,model = "DRA7xx-EVM";
+		ti,always-on;
 		ti,audio-codec = <&tlv320aic3106>;
 		ti,mcasp-controller = <&mcasp3>;
 		ti,codec-clock-rate = <5644800>;
