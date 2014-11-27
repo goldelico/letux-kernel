@@ -19,6 +19,8 @@ Optional properties:
 - Either codec-clock-rate or the codec-clock reference has to be defined. If
   the both are defined the driver attempts to set referenced clock to the
   defined rate and takes the rate from the clock reference.
+- ti,always-on: Keep analog codec always on to minimize artifacts. Use it
+  if power is not a concern.
 
   Board connectors:
 
