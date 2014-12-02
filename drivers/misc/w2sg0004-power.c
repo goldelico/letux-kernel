@@ -1,6 +1,6 @@
 /*
- * w2sg0004.c
- * Virtual GPIO of controlling the w2sg0004 GPS receiver.
+ * w2sg0004-power.c
+ * Power control driver for the w2sg0004 GPS receiver.
  *
  * This receiver has an ON/OFF pin which must be toggled to
  * turn the device 'on' of 'off'.  A high->low->high toggle
@@ -496,5 +496,5 @@ module_platform_driver(gpio_w2sg_driver);
 MODULE_ALIAS("w2sg0004");
 
 MODULE_AUTHOR("NeilBrown <neilb@suse.de>");
-MODULE_DESCRIPTION("w2sg0004 GPS virtual GPIO driver");
+MODULE_DESCRIPTION("w2sg0004 GPS power control driver");
 MODULE_LICENSE("GPL v2");
