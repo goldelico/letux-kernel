@@ -44,6 +44,9 @@
 #include <linux/workqueue.h>
 #include <linux/rfkill.h>
 #include <linux/pinctrl/consumer.h>
+#include <linux/regulator/driver.h>
+#include <linux/regulator/machine.h>
+#include <linux/regulator/of_regulator.h>
 
 /*
  * There seems to restrictions on how quickly we can toggle the
@@ -64,6 +67,8 @@ enum w2sg_state {
 };
 
 struct gpio_w2sg {
+	struct regulator_desc desc;
+	struct regulator_dev *dev;
 	struct		rfkill *rf_kill;
 	struct		regulator *lna_regulator;
 	int		lna_blocked;	/* rfkill block gps active */
@@ -206,6 +211,42 @@ static void gpio_w2sg_set_power(struct gpio_w2sg *gw2sg, int val)
 unlock:
 	spin_unlock_irqrestore(&gw2sg->lock, flags);
 }
+
+/* regulator accessor functions */
+
+static int w2sg_regulator_get_value(struct regulator_dev *dev)
+{
+	struct gpio_w2sg *gw2sg = rdev_get_drvdata(dev);
+
+	return gw2sg->is_on;
+}
+
+static int w2sg_regulator_set_voltage(struct regulator_dev *dev,
+					int min_uV, int max_uV,
+					unsigned *selector)
+{
+	struct gpio_w2sg *gw2sg = rdev_get_drvdata(dev);
+
+	/* how to translate min/max/selector into a power on/off? */
+	gpio_w2sg_set_power(gw2sg, 1);
+	return 0;
+}
+
+static int w2sg_regulator_list_voltage(struct regulator_dev *dev,
+				      unsigned selector)
+{
+	struct gpio_w2sg *gw2sg = rdev_get_drvdata(dev);
+	/* should we return 0V / 3.3V? */
+	return -EINVAL;
+}
+
+static struct regulator_ops w2sg_regulator_voltage_ops = {
+	.get_voltage = w2sg_regulator_get_value,
+	.set_voltage = w2sg_regulator_set_voltage,
+	.list_voltage = w2sg_regulator_list_voltage,
+};
+
+/* gpio accessor functions */
 
 static int gpio_w2sg_get_value(struct gpio_chip *gc, unsigned offset)
 {
