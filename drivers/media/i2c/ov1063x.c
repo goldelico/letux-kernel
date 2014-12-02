@@ -46,6 +46,7 @@
 #include <linux/of_gpio.h>
 #include <linux/of_device.h>
 
+#include <media/v4l2-ioctl.h>
 
 /* Register definitions */
 #define	OV1063X_VFLIP			0x381c
@@ -94,6 +95,8 @@ struct ov1063x_priv {
 
 	struct gpio             mux_gpios[MAX_NUM_GPIOS];
 	int                     num_gpios;
+
+	bool				export_devnode;
 };
 
 static int ov1063x_init_gpios(struct i2c_client *client);
@@ -919,6 +922,131 @@ static struct v4l2_subdev_ops ov1063x_subdev_ops = {
 	.video	= &ov1063x_video_ops,
 };
 
+#define MAX_NUM_DEV	10
+static struct v4l2_subdev *ov1063x_subdevs[MAX_NUM_DEV];
+
+static ssize_t ov1063x_read(struct file *filp, char __user *buf,
+			size_t sz, loff_t *off)
+{
+	struct v4l2_subdev *sd =  (struct v4l2_subdev *)filp->private_data;
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	dev_dbg(&client->dev, "%s:", __func__);
+
+	return -ENOTTY;
+}
+static ssize_t ov1063x_write(struct file *filp, const char __user *buf,
+			size_t sz, loff_t *off)
+{
+	struct v4l2_subdev *sd =  (struct v4l2_subdev *)filp->private_data;
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	dev_dbg(&client->dev, "%s:", __func__);
+
+	return -ENOTTY;
+}
+
+static int ov1063x_open(struct inode *inode, struct file *filp)
+{
+	int minor_num = iminor(inode);
+	struct v4l2_subdev *sd =  ov1063x_subdevs[minor_num];
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	dev_dbg(&client->dev, "%s", __func__);
+
+	filp->private_data = sd;
+	return 0;
+}
+
+static int ov1063x_release(struct inode *inode, struct file *filp)
+{
+	struct v4l2_subdev *sd =  (struct v4l2_subdev *)filp->private_data;
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	dev_dbg(&client->dev, "%s", __func__);
+
+	return 0;
+}
+
+static long ov1063x_do_ioctl(struct file *filp, unsigned int cmd, void *arg)
+{
+	struct v4l2_subdev *sd =  (struct v4l2_subdev *)filp->private_data;
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	dev_dbg(&client->dev, "%s cmd=%d", __func__, cmd);
+
+	switch (cmd) {
+	case VIDIOC_SUBDEV_G_FMT: {
+		struct v4l2_subdev_format *format = arg;
+		return ov1063x_g_fmt(sd, &format->format);
+	}
+	case VIDIOC_SUBDEV_S_FMT: {
+		struct v4l2_subdev_format *format = arg;
+		return ov1063x_s_fmt(sd, &format->format);
+	}
+	case VIDIOC_SUBDEV_ENUM_MBUS_CODE: {
+		struct v4l2_subdev_mbus_code_enum *code = arg;
+		return ov1063x_enum_fmt(sd, code->index, &code->code);
+	}
+	case VIDIOC_G_PARM:
+		return ov1063x_g_parm(sd, arg);
+	case VIDIOC_S_PARM:
+		return ov1063x_s_parm(sd, arg);
+	case VIDIOC_G_CROP:
+		return ov1063x_g_crop(sd, arg);
+	case VIDIOC_S_CROP:
+		return ov1063x_s_crop(sd, arg);
+	case VIDIOC_CROPCAP:
+		return ov1063x_cropcap(sd, arg);
+	case VIDIOC_STREAMON:
+		return ov1063x_s_stream(sd, 1);
+	case VIDIOC_STREAMOFF:
+		return ov1063x_s_stream(sd, 0);
+	}
+
+	return -ENOTTY;
+}
+
+static long ov1063x_ioctl(struct file *filp, unsigned int cmd,
+					unsigned long arg)
+{
+	return video_usercopy(filp, cmd, arg, ov1063x_do_ioctl);
+}
+
+static const struct file_operations ov1063x_cdev_fops = {
+	.owner = THIS_MODULE,
+	.read = ov1063x_read,
+	.write = ov1063x_write,
+	.open = ov1063x_open,
+	.release = ov1063x_release,
+	.unlocked_ioctl = ov1063x_ioctl,
+
+};
+
+
+static int ov1063x_register_chardev(struct v4l2_subdev *sd)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	static int major_num = 1, minor_num = 1;
+	struct cdev *cdev;
+	dev_t dev;
+	int ret = 0;
+
+	if (major_num == 0) {
+		alloc_chrdev_region(&dev, 0, MAX_NUM_DEV, "cam");
+		major_num = MAJOR(dev);
+	}
+
+	cdev = cdev_alloc();
+	cdev->owner = THIS_MODULE;
+	cdev->ops = &ov1063x_cdev_fops;
+
+	dev = MKDEV(major_num, minor_num);
+	ret = cdev_add(cdev, dev, 1);
+	ov1063x_subdevs[minor_num] = sd;
+
+	minor_num++;
+	dev_err(&client->dev, "Camera registered as /dev/cam%d (%d:%d)",
+			MINOR(dev), MAJOR(dev), MINOR(dev));
+
+	return ret;
+}
+
 /*
  * i2c_driver function
  */
@@ -946,6 +1074,11 @@ static int ov1063x_of_probe(struct i2c_client *client,
 			return gpio;
 	}
 	priv->num_gpios = i;
+
+	if (of_find_property(node, "export-devnode", NULL))
+		priv->export_devnode = true;
+	else
+		priv->export_devnode = false;
 
 	return 0;
 }
@@ -1004,6 +1137,14 @@ static int ov1063x_probe(struct i2c_client *client,
 
 	sd->dev = &client->dev;
 	ret = v4l2_async_register_subdev(sd);
+	if (ret)
+		goto err;
+
+	if (priv->export_devnode) {
+		ret = ov1063x_register_chardev(sd);
+		if (ret)
+			goto err;
+	}
 
 	pm_runtime_enable(&client->dev);
 
