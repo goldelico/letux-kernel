@@ -573,11 +573,12 @@ int drm_prime_handle_to_fd_ioctl(struct drm_device *dev, void *data,
 		return -ENOSYS;
 
 	/* check flags are valid */
-	if (args->flags & ~DRM_CLOEXEC)
+	if (args->flags & ~(DRM_CLOEXEC|DRM_RDWR))
 		return -EINVAL;
 
-	/* we only want to pass DRM_CLOEXEC which is == O_CLOEXEC */
-	flags = args->flags & DRM_CLOEXEC;
+	/* we only want to pass DRM_CLOEXEC which is == O_CLOEXEC
+	and DRM_RDWR which is O_RDWR */
+	flags = args->flags & (DRM_CLOEXEC|DRM_RDWR);
 
 	return dev->driver->prime_handle_to_fd(dev, file_priv,
 			args->handle, flags, &args->fd);
