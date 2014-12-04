@@ -2541,6 +2541,7 @@ static int minnow_panel_probe(struct omap_dss_device *dssdev)
 	mpd->dssdev = dssdev;
 	mpd->first_enable = true;
 	mpd->m4_state = DISPLAY_ENABLE;
+	mpd->interactive = true;
 
 	r = minnow_panel_dt_init(mpd);
 	if (r)
@@ -3470,7 +3471,7 @@ static void minnow_panel_te_timeout_work_callback(struct work_struct *work)
 static int minnow_panel_enable(struct omap_dss_device *dssdev)
 {
 	struct minnow_panel_data *mpd = dev_get_drvdata(&dssdev->dev);
-	int r;
+	int r, state;
 
 	mutex_lock(&mpd->lock);
 #ifdef	CONFIG_WAKEUP_SOURCE_NOTIFY
@@ -3480,7 +3481,12 @@ static int minnow_panel_enable(struct omap_dss_device *dssdev)
 		cancel_delayed_work(&mpd->early_init_timeout_work);
 	}
 #endif
-	r = minnow_panel_change_state_mlocked(mpd, DISPLAY_ENABLE);
+	state = DISPLAY_ENABLE;
+#ifdef	CONFIG_HAS_AMBIENTMODE
+	if (!mpd->interactive)
+		state = DISPLAY_AMBIENT_ON;
+#endif
+	r = minnow_panel_change_state_mlocked(mpd, state);
 	mutex_unlock(&mpd->lock);
 	return r;
 }
