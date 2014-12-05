@@ -25,6 +25,7 @@
 #include <linux/hdmi.h>
 #include <video/omapdss.h>
 #include <video/omapdss_hdmi_audio_data.h>
+#include <linux/extcon.h>
 
 #include "dss.h"
 
@@ -330,6 +331,8 @@ struct omap_hdmi {
 	struct omap_dss_device output;
 
 	int wp_idlemode;
+
+	struct extcon_dev edev;
 };
 
 #endif

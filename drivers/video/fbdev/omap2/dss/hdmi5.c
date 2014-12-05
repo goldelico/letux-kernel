@@ -109,8 +109,10 @@ static irqreturn_t hdmi_irq_handler(int irq, void *data)
 
 	} else if (irqstatus & HDMI_IRQ_LINK_CONNECT) {
 		hdmi_wp_set_phy_pwr(wp, HDMI_PHYPWRCMD_TXON);
+		extcon_set_state(&hdmi.edev, 1);
 	} else if (irqstatus & HDMI_IRQ_LINK_DISCONNECT) {
 		hdmi_wp_set_phy_pwr(wp, HDMI_PHYPWRCMD_LDOON);
+		extcon_set_state(&hdmi.edev, 0);
 	}
 
 	return IRQ_HANDLED;
@@ -733,6 +735,16 @@ static int omapdss_hdmihw_probe(struct platform_device *pdev)
 		return r;
 	}
 
+	hdmi.edev.name = "hdmi";
+	hdmi.edev.print_state = NULL;
+
+	r = extcon_dev_register(&hdmi.edev);
+	if (r)
+		return r;
+
+	/* Init extcon state to zero */
+	extcon_set_state(&hdmi.edev, 0);
+
 	pm_runtime_enable(&pdev->dev);
 
 	hdmi_init_output(pdev);
@@ -742,6 +754,7 @@ static int omapdss_hdmihw_probe(struct platform_device *pdev)
 		DSSERR("Registering HDMI audio failed\n");
 		hdmi_uninit_output(pdev);
 		pm_runtime_disable(&pdev->dev);
+		extcon_dev_unregister(&hdmi.edev);
 		return r;
 	}
 
@@ -757,6 +770,8 @@ static int __exit omapdss_hdmihw_remove(struct platform_device *pdev)
 	hdmi_uninit_output(pdev);
 
 	pm_runtime_disable(&pdev->dev);
+
+	extcon_dev_unregister(&hdmi.edev);
 
 	return 0;
 }
