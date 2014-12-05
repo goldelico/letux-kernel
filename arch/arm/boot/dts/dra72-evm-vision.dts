@@ -1,0 +1,28 @@
+#include "dra7-evm.dts"
+
+i2cexp: &i2c5 {
+};
+
+#include "dra7xx-vision.dtsi"
+
+&vip1 {
+	status = "okay";
+};
+
+&vin1a {
+	endpoint@cam1 {
+		slave-mode;
+		remote-endpoint = <&cam1>;
+	};
+	endpoint@ovcam {
+		slave-mode;
+		remote-endpoint = <&ovcam>;
+	};
+};
+
+&vin2a {
+	endpoint@0 {
+		slave-mode;
+		remote-endpoint = <&cam2>;
+	};
+};
