@@ -1,0 +1,42 @@
+Video serializer and de serializer
+==================================
+
+Video serializers and de serializers are the devices which are used to
+interface parallel port video imaging or display devices using serial
+medium.
+
+Video serializer are used at the transmit side to convert the parallel data
+and the control signals to serial data and send it at high frequency
+using fewer cables.
+Video de serializer are used at the receive side to convert the serial data
+into parallel port video and recreate the same control signals.
+
+Typical video serializer/de serializer (serdes) uses data lines as well as
+pixel clock, hsync, vsync, etc.
+
+The video serdes devices are controlled via I2C interface and they are always
+used in pairs. One end is connected to the video peripheral and other is
+connected to the CPU/ SoC. In this way, only one of the device is actually
+connected to the I2C bus while other device is controllable remotely.
+
+In case of camera, serializer and camera are remotely connected to the
+system and are controllable via deserializer.
+First, the deserializer needs to be configured before accessing the
+serialzer or the camera.
+
+In case of display, de serializer and display are remotely connected to the
+system and are controllable via serializer.
+First, the serializer needs to be configured before accessing the
+deserializer of the display.
+
+When serdes devices are to be controlled remotely, the device which is
+connected to the system registers it's counterpart as an alias.
+So that all the accesses done to the alias are reproduced at the remote end.
+
+
+Linux kernel has driver support for following video devices:
+===========================================================
+
+"drivers/video/serdes/fpd3_serdes.c" supports video (de)serializers.
+See Documentation/devicetree/bindings/video/fpd3-serdes.txt
+for more information on the devices supported and the device tree bindings
