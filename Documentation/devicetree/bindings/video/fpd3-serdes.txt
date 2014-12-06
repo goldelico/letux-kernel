@@ -1,0 +1,132 @@
+Texas instruments video serializer de serializer
+================================================
+
+See Documentation/video-serdes.txt for generic information about
+video serializer / de serializers.
+
+FPDlink3 video serdes devices are I2C slave devices. They are always
+used in pairs where one device is connected to the CPU/SoC which is
+called local device and the other one is called remote device.
+
+FPDlink3 video serdes devices have some gpios which can be controlled
+over I2C. Also, the FPDlink supports gpio forwarding. Which means that
+the remote device can copy the gpio values from it's remote device.
+
+Also, each of the remote device is an I2C master itself, so it can
+interface some I2C slaves at remote end. For e.g, a backlight LCD chip
+connected to the de serializer or the camera connected to a serializer.
+So these slaves can be accessed from local devices via I2C aliases.
+
+A pair of serializer/deserializer can be used for tunneling the i2c
+transactions over LVDS channel. The one of the device is connected to
+the system i2c bus in slave mode and the other one acts as a master
+at the remote end. But, the slave device can register dummy aliases
+remote master and for each of the remote slaves.
+As this is acting like a i2c bridge driver, we need a method for
+configuring the address translations.
+
+Required Properties:
+
+  - compatible: should be one of the following.
+    - "ti,ds90ub913aq": For TI FPDlink3 12bit video serializer
+    - "ti,ds90ub914aq": For TI FPDlink3 12bit video de serializer
+    - "ti,ds90uh925q": For TI FPDlink3 24bit video serializer
+    - "ti,ds90uh928q": For TI FPDlink3 24bit video de serializer
+
+  - reg: I2C slave address
+	This would be the alias adress for remote device. The CPU side
+	ser/des would address the remote device using this address.
+
+Optional Properties:
+
+  - gpio-controller: Marks the device node as a gpio controller.
+  - #gpio-cells: Should be 1. The first cell is the GPIO number.
+
+  - ranges: This is the address translation table for mapping i2c devices
+	on the remote bus to the i2c address(alias) on parent bus.
+	The first entry in the ranges property has to of the corresponding
+	remote ser/des device.
+	For dynamic address mapping, keep the remote slave address as 0x0
+	The corresponding alias would be used if the remote slave doesn't
+	have an address already mapped.
+
+  - slave-mode: This property marks the ser/des as remote device.
+	For a device where 'slave-mode' property is absent, it is considered
+	as master device and 'ranges' and 'i2c-bus-num' properties are
+	compulsory.
+
+Example:
+
+Following example demonstrates device node structure for a camera connected
+using FPDlink3 ser/des. Here the deserializer and serializer are connected
+only via the LVDS link. The camera is connected on the serializer i2c bus.
+Here, serializer and camera are not connected to the system i2c bus, but it
+can be accessed from the system i2c bus. The deserializer maps each of the
+remote slave onto the system i2c bus and acts as a bridge to transfer any
+messages addressed to the remote devices.
+
+=======================================
++-------+
+|I2C bus|
++-------+
+  |
+  |0x60<real> +------------+
+  +-----------|Deserializer|0x60
+  |           +------------+
+  |                X
+  |                X
+  |                X <LVDS link>
+  |                X
+  |                X
+  |           +----------+
+  |           |  Remote  |
+  |           |  i2c bus |
+  |           +----------+
+  |              |
+  |0x74<alias>   |      +----------+
+  | <-  -  -  -  +------|Serializer| 0x58
+  |              |      +----------+
+  |              |
+  |0x38<alias>   |      +---------+
+  | <-  -  -  -  +------|OV Camera| 0x30
+  |              |      +---------+
+  |
+  |
+=======================================
+
+i2cbus {
+	lvds_des: deserializer@60 {
+		compatible = "ti,ds90ub914aq";
+		reg = <0x60>;
+
+		gpio-controller;
+		#gpio-cells=1;
+
+		i2c-bus-num = <5>;
+	};
+};
+
+&lvds_des {
+
+	ranges = <0x58 0x74>,
+		 <0x38 0x30>;
+
+	lvds_ser: serializer@58 {
+		compatible = "ti,ds90ub913aq";
+		reg = <0x58>;
+		remote-device = <&lvds_des>;
+
+		gpio-controller;
+		#gpio-cells=1;
+
+		slave-mode;
+	};
+
+	lvds_cam: camera@30 {
+		compatible = "ov10635"
+		reg = <0x30>;
+
+		gpios = <&lvds_ser 0>;
+		/* power pin controlled by serializer local gpio */
+	};
+};
