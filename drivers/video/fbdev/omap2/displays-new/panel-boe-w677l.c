@@ -74,8 +74,7 @@
 #define MCS_POWERSET	0xd3
 #define MCS_VCOMSET		0xd5
 
-// #define IS_MCS(CMD) (((CMD) >= 0xb0 && (CMD) <= 0xff) && !((CMD) == 0xda || (CMD) == 0xdb || (CMD) == 0xdc))
-#define IS_MCS(CMD) (0)
+#define IS_MCS(CMD) (((CMD) >= 0xb0 && (CMD) <= 0xff) && !((CMD) == 0xda || (CMD) == 0xdb || (CMD) == 0xdc))
 
 /* horizontal * vertical * refresh */
 #define w677l_W				(720)

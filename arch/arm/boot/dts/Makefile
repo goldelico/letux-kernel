@@ -289,6 +289,7 @@ dtb-$(CONFIG_ARCH_OMAP3) += am3517-craneboard.dtb \
 	omap3430-sdp.dtb \
 	omap3-beagle.dtb \
 	omap3-beagle+gta04.dtb \
+	omap3-beagle+gta04b1.dtb \
 	omap3-beagle+gta04b4.dtb \
 	omap3-beagle-xm.dtb \
 	omap3-beagle-xm+gta04.dtb \
@@ -361,7 +362,7 @@ dtb-$(CONFIG_SOC_AM43XX) += am43x-epos-evm.dtb \
 dtb-$(CONFIG_SOC_OMAP5) += omap5-cm-t54.dtb \
 	omap5-sbc-t54.dtb \
 	omap5-uevm.dtb \
-	omap5-pyra.dtb omap5-pyra+lg.dtb omap5-pyra+boe.dtb omap5-pyra+succ.dtb omap5-pyra+ssd.dtb
+	omap5-pyra.dtb omap5-pyra+lg.dtb omap5-pyra+boe.dtb omap5-pyra+succ.dtb omap5-pyra+ssd+boe.dtb omap5-pyra+ssd+succ.dtb
 dtb-$(CONFIG_SOC_DRA7XX) += dra7-evm.dtb \
 	dra72-evm.dtb
 dtb-$(CONFIG_ARCH_ORION5X) += orion5x-lacie-d2-network.dtb \

@@ -103,6 +103,13 @@ config DISPLAY_PANEL_SHARP_LS052K3SY54S
 config DISPLAY_PANEL_BOE_W677L
 	tristate "BOE W677L LCD Panel"
 	help
-		This is for BOE W677L Panel.
+		This is for OTM1283A based panels.
+		* BOE W677L used in the Pyra.
+
+config DISPLAY_PANEL_SUCCESS_S90451
+	tristate "SUCCESS S90451 LCD Panel"
+	help
+		This is for NT35590 based panels.
+		* SUCCESS S90451 used in the Pyra.
 
 endmenu
