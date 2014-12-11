@@ -848,6 +848,16 @@
 			clock-names = "core", "per", "gpu", "gpu_core", "gpu_hyd";
 		};
 
+		bb2d {
+			compatible = "ti,bb2d";
+			ti,hwmods = "bb2d";
+			clocks = <&dpll_core_h24x2_ck>;
+			clock-names = "fck";
+			reg = <0x59000000 0x0700>;
+			/* check reg-names */
+			interrupts = <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
 		i2c1: i2c@48070000 {
 			compatible = "ti,omap4-i2c";
 			reg = <0x48070000 0x100>;
