@@ -4,6 +4,7 @@ snd-soc-edma-objs := edma-pcm.o
 snd-soc-davinci-i2s-objs := davinci-i2s.o
 snd-soc-davinci-mcasp-objs:= davinci-mcasp.o
 snd-soc-davinci-vcif-objs:= davinci-vcif.o
+snd-soc-jamr3-objs := dra7xx-jamr3-card.o
 
 obj-$(CONFIG_SND_DAVINCI_SOC) += snd-soc-davinci.o
 obj-$(CONFIG_SND_EDMA_SOC) += snd-soc-edma.o
@@ -15,3 +16,4 @@ obj-$(CONFIG_SND_DAVINCI_SOC_VCIF) += snd-soc-davinci-vcif.o
 snd-soc-evm-objs := davinci-evm.o
 
 obj-$(CONFIG_SND_DAVINCI_SOC_GENERIC_EVM) += snd-soc-evm.o
+obj-$(CONFIG_SND_OMAP_SOC_JAMR3) += snd-soc-jamr3.o
