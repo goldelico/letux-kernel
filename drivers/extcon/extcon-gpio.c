@@ -243,7 +243,6 @@ static struct platform_driver gpio_extcon_driver = {
 	.remove		= gpio_extcon_remove,
 	.driver		= {
 		.name	= "extcon-gpio",
-		.owner	= THIS_MODULE,
 		.pm	= &gpio_extcon_pm_ops,
 		.of_match_table = of_match_ptr(of_extcon_match_tbl),
 	},

@@ -56,6 +56,14 @@
 #include <media/v4l2-device.h>
 #include <media/v4l2-subdev.h>
 
+#ifndef FIXED
+/* these constants have disappeared in 3.19-rc1 - so we have to find a replacement */
+
+#define V4L2_MBUS_FMT_UYVY8_2X8 0
+#define V4L2_MBUS_FMT_RGB565_2X8_BE 1
+#define V4L2_MBUS_FMT_SGRBG12_1X12 2
+#endif
+
 #if 1	// still needed since we have not yet updated the code to control an OV9655
 
 // #include "aptina-pll.h"

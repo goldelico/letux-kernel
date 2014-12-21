@@ -116,8 +116,6 @@ static struct platform_driver twl4030_madc_hwmon_driver = {
 	.probe = twl4030_madc_hwmon_probe,
 	.driver = {
 		   .name = "twl4030_madc_hwmon",
-		   .owner = THIS_MODULE,
-		   .of_match_table = of_match_ptr(of_twl4030_madc_hwmon_match),
 		   },
 };
 
