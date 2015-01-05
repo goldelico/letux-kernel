@@ -357,6 +357,10 @@
 	pinctrl-0 = <&uart3_pins>;
 };
 
+&uart4 {
+	status = "disabled";
+};
+
 &charger {
 	ti,bb-uvolt = <3200000>;
 	ti,bb-uamp = <150>;
