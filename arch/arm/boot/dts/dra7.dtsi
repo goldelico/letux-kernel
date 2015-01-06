@@ -40,6 +40,10 @@
 		d_can1 = &dcan2;
 	};
 
+	chosen {
+		bootargs = "elevator=noop console=ttyO0,115200n8 root=/dev/mmcblk1p2 rw rootwait earlyprintk fixrtc omapdrm.num_crtc=2 consoleblank=0 cma=64M rootfstype=ext4";
+	};
+
 	timer {
 		compatible = "arm,armv7-timer";
 		interrupts = <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(2) | IRQ_TYPE_LEVEL_LOW)>,
