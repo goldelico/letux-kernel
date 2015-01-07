@@ -247,7 +247,7 @@ static const char *dra74x_boards_compat[] __initconst = {
 	NULL,
 };
 
-DT_MACHINE_START(DRA74X_DT, "Generic DRA74X (Flattened Device Tree)")
+DT_MACHINE_START(DRA74X_DT, "Jacinto6 evm board")
 	.reserve	= omap_reserve,
 	.smp		= smp_ops(omap4_smp_ops),
 	.map_io		= omap5_map_io,
@@ -267,7 +267,7 @@ static const char *dra72x_boards_compat[] __initconst = {
 	NULL,
 };
 
-DT_MACHINE_START(DRA72X_DT, "Generic DRA72X (Flattened Device Tree)")
+DT_MACHINE_START(DRA72X_DT, "Jacinto6 evm board")
 	.reserve	= omap_reserve,
 	.map_io		= omap5_map_io,
 	.init_early	= dra7xx_init_early,
