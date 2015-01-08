@@ -32,7 +32,7 @@
 
 	aliases {
 		display0 = &lcd;
-		display1 = &tv0;
+	//	display1 = &tv0;	// disable because there is a problem with Xorg.conf
 	};
 
 	/* we have no compatible driver yet
