@@ -170,6 +170,8 @@ unsigned long dev_pm_opp_get_voltage(struct dev_pm_opp *opp)
 	struct dev_pm_opp *tmp_opp;
 	unsigned long v = 0;
 
+	opp_rcu_lockdep_assert();
+
 	tmp_opp = rcu_dereference(opp);
 	if (unlikely(IS_ERR_OR_NULL(tmp_opp)) || !tmp_opp->available)
 		pr_err("%s: Invalid parameters\n", __func__);
@@ -199,6 +201,8 @@ unsigned long dev_pm_opp_get_freq(struct dev_pm_opp *opp)
 {
 	struct dev_pm_opp *tmp_opp;
 	unsigned long f = 0;
+
+	opp_rcu_lockdep_assert();
 
 	tmp_opp = rcu_dereference(opp);
 	if (unlikely(IS_ERR_OR_NULL(tmp_opp)) || !tmp_opp->available)
