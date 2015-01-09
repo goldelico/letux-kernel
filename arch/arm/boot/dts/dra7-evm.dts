@@ -176,6 +176,12 @@
 		};
 	};
 
+    ocp {
+        gpu: gpu@0x56000000 {
+            gpu0-voltdm = <&voltdm_gpu>;
+        };
+    };
+
 	primary_sound: primary_sound {
 		compatible = "ti,dra7xx-evm-audio";
 		ti,model = "DRA7xx-EVM";
