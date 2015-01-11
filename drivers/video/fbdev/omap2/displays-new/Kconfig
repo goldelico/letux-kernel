@@ -112,4 +112,15 @@ config DISPLAY_PANEL_SUCCESS_S90451
 		This is for NT35590 based panels.
 		* SUCCESS S90451 used in the Pyra.
 
+config DISPLAY_PANEL_MIPI_DEBUG
+	tristate "MIPI Panel Debug Driver"
+	help
+		This is a driver that does not initialize
+		any panel but provides a /sys file where
+		echo commands from user space can send
+		and read DCS and Generic packets as well
+		as switch on/off the video strem. This allows
+		to initialize and test a panel by a shell
+		script.
+
 endmenu
