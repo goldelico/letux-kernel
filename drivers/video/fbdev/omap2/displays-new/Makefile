@@ -16,4 +16,5 @@ obj-$(CONFIG_DISPLAY_PANEL_LG_LH500WF1) += panel-lg-lh500wf1.o
 obj-$(CONFIG_DISPLAY_PANEL_BOE_W677L) += panel-boe-w677l.o
 obj-$(CONFIG_DISPLAY_PANEL_SHARP_LS052K3SY54S) += panel-sharp-ls052k3sy54s.o
 obj-$(CONFIG_DISPLAY_PANEL_SUCCESS_S90451) += panel-success-s90451.o
+obj-$(CONFIG_DISPLAY_PANEL_MIPI_DEBUG) += panel-mipi-debug.o
 obj-$(CONFIG_DISPLAY_ENCODER_SOLOMON_SSD2858) += encoder-solomon-ssd2858.o
