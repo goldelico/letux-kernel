@@ -240,7 +240,7 @@
 	lcd: lcd {
 		/* default to be overwritten by specific panel in derived board file
 		   by using the /root/panelselect script */
-		compatible = "none";
+		compatible = "mipi,debug";
 		label = "lcd";
 
 		pinctrl-names = "default";
