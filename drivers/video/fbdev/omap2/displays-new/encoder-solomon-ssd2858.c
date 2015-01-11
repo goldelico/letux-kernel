@@ -2,14 +2,13 @@
  * Driver for panels through Solomon Systech SSD2858 rotator chip
  *
  * Device Tree FIXME:
- *   this chip should be defined with some "port {}" elements
+ *   this chip should is defined with a pair "port {}" elements
  *   to keep the panel separated from the DSI interface
- *   so it is not really a "panel" driver but should be treated as
- *   an "transcoder"
+ *   so it is an "encoder" with an input and an output port
  *   Device Tree could config bypass, rotation and some other paramters
  *   that are used to initialize the chip.
- *   The current implementation is a mix of SSD2858 plus Panel specific
- *   code.
+ *   The current implementation is still a mix of SSD2858 plus Panel specific
+ *   code and needs a lot of work to be finialised.
  *
  *
  * Copyright 2011 Texas Instruments, Inc.
@@ -17,7 +16,6 @@
  * Author: Tomi Valkeinen <tomi.valkeinen@ti.com>
  *
  * based on d2l panel driver by Jerry Alexander <x0135174@ti.com>
- *
  * based on lg4591 panel driver by H. Nikolaus Schaller <hns@goldelico.com>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -125,9 +123,7 @@ static struct omap_video_timings ssd2858_timings = {
 struct panel_drv_data {
 	struct omap_dss_device dssdev;
 	struct omap_dss_device *in;
-#if FUTURE
 	struct omap_dss_device *out;	/* should be the real panel connected to the SSD */
-#endif
 
 	struct omap_video_timings timings;
 	
@@ -315,6 +311,8 @@ static struct ssd2858_reg display_off[] = {
 static struct ssd2858_reg sleep_in[] = {
 	{ { MIPI_DCS_ENTER_SLEEP_MODE, }, 1},
 };
+
+/* communication with the SSD chip */
 
 static int mode=0;	// starts in non-bypass mode
 
@@ -523,7 +521,8 @@ static int ssd2858_connect(struct omap_dss_device *dssdev)
 		dev_err(dev, "failed to set VC_ID\n");
 		goto err_vc_id1;
 	}
-	
+	// FIXME: forward connect to panel
+
 	return 0;
 	
 err_vc_id1:
@@ -543,7 +542,8 @@ static void ssd2858_disconnect(struct omap_dss_device *dssdev)
 	
 	if (!omapdss_device_is_connected(dssdev))
 		return;
-	
+	// FIXME: forward disconnect to panel
+
 	in->ops.dsi->release_vc(in, ddata->pixel_channel);
 	in->ops.dsi->release_vc(in, ddata->config_channel);
 	in->ops.dsi->disconnect(in, dssdev);
@@ -568,6 +568,7 @@ static void ssd2858_set_timings(struct omap_dss_device *dssdev,
 	dssdev->panel.timings.vsw = timings->vsw;
 	dssdev->panel.timings.vfp = timings->vfp;
 	dssdev->panel.timings.vbp = timings->vbp;
+	// FIXME: forward to panel
 }
 
 static int ssd2858_check_timings(struct omap_dss_device *dssdev,
@@ -581,6 +582,7 @@ static void ssd2858_get_resolution(struct omap_dss_device *dssdev,
 {
 	*xres = dssdev->panel.timings.x_res;
 	*yres = dssdev->panel.timings.y_res;
+	// FIXME: forward to panel?
 }
 
 static int ssd2858_reset(struct omap_dss_device *dssdev, int state)
@@ -589,6 +591,7 @@ static int ssd2858_reset(struct omap_dss_device *dssdev, int state)
 	printk("dsi: ssd2858_reset(%d)\n", state);
 	if (gpio_is_valid(ddata->reset_gpio))
 		gpio_set_value(ddata->reset_gpio, state);
+	// FIXME: forward to panel
 	return 0;
 }
 
@@ -598,6 +601,7 @@ static int ssd2858_regulator(struct omap_dss_device *dssdev, int state)
 	printk("dsi: ssd2858_regulator(%d)\n", state);
 	if (gpio_is_valid(ddata->regulator_gpio))
 		gpio_set_value(ddata->regulator_gpio, state);	// switch regulator
+	// FIXME: forward to panel regulator
 	return 0;
 }
 
@@ -695,273 +699,26 @@ static const struct backlight_ops ssd2858_backlight_ops  = {
 static int ssd2858_start(struct omap_dss_device *dssdev);
 static void ssd2858_stop(struct omap_dss_device *dssdev);
 
-static ssize_t set_dcs(struct device *dev,
+static ssize_t set_control(struct device *dev,
 					   struct device_attribute *attr,
 					   const char *buf, size_t count)
 {
 	int r = 0;
-	u8 data[24];
-	u8 d = 0;
-	int topanel=0;
-	int argc = 0;
-	int second = 0;
-	int read = 0;
-	struct platform_device *pdev = to_platform_device(dev);
-	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
-	struct omap_dss_device *dssdev = &ddata->dssdev;
-	struct omap_dss_device *in = ddata->in;
-	const char *p;
-
-	if(strncmp(buf, "start", 5) == 0)
-		{
-		int r = ssd2858_start(dssdev);
-		return r < 0 ? r : count;
-		}
-	if(strncmp(buf, "stop", 4) == 0)
-		{
-		ssd2858_stop(dssdev);
-		return count;
-		}
-	if(strncmp(buf, "stream", 6) == 0)
-		{
-		in->ops.dsi->bus_lock(in);
-		in->ops.dsi->enable_video_output(in, ddata->pixel_channel);
-		in->ops.dsi->bus_unlock(in);
-		return count;
-		}
-	if(strncmp(buf, "nostream", 8) == 0)
-		{
-		in->ops.dsi->bus_lock(in);
-		in->ops.dsi->disable_video_output(in, ddata->pixel_channel);
-		in->ops.dsi->bus_unlock(in);
-		return count;
-		}
-	if(strncmp(buf, "reset", 5) == 0)
-		{
-		ssd2858_reset(dssdev, 0);
-		return count;
-		}
-	if(strncmp(buf, "noreset", 7) == 0)
-		{
-		ssd2858_reset(dssdev, 1);
-		return count;
-		}
-	if(strncmp(buf, "power", 5) == 0)
-		{
-		ssd2858_regulator(dssdev, 1);
-		return count;
-		}
-	if(strncmp(buf, "nopower", 7) == 0)
-		{
-		ssd2858_regulator(dssdev, 0);
-		return count;
-		}
-	if(strncmp(buf, "status", 6) == 0) {
-		mutex_lock(&ddata->lock);
-		if (ddata->enabled) {
-			in->ops.dsi->bus_lock(in);
-			ssd2858_pass_to_panel(dssdev, 0);	// send to ssd2858
-//			r = ssd2858_read(dssdev, 0x0a, data, 1);	// power mode 0x10=sleep off; 0x04=display on
-			r = ssd2858_read(dssdev, 0x0b, data, 1);	// address mode
-			r = ssd2858_read(dssdev, MIPI_DCS_GET_PIXEL_FORMAT, data, 1);	// pixel format 0x70 = RGB888
-//			r = ssd2858_read(dssdev, 0x0d, data, 1);	// display mode	0x80 = command 0x34/0x35
-//			r = ssd2858_read(dssdev, 0x0e, data, 1);	// signal mode
-//			r = ssd2858_read(dssdev, MIPI_DCS_GET_DIAGNOSTIC_RESULT, data, 1);	// diagnostic 0x40 = functional
-			r = ssd2858_read(dssdev, 0x45, data, 2);	// get scanline
-			in->ops.dsi->bus_unlock(in);
-		}
-		mutex_unlock(&ddata->lock);
-		return r < 0 ? r : count;
-	}
-	if(strncmp(buf, "pstatus", 6) == 0) {
-		mutex_lock(&ddata->lock);
-		if (ddata->enabled) {
-			in->ops.dsi->bus_lock(in);
-			ssd2858_pass_to_panel(dssdev, 1);	// send to panel
-			//			r = ssd2858_read(dssdev, 0xbf, data, 5);	// SSD2858 chip ID
-			//			r = ssd2858_read(dssdev, 0xb0, data, 1);	// MCS access protection
-			//			r = ssd2858_read(dssdev, 0xb5, data, 3);	// checksum and ECC errors
-			//			r = ssd2858_read(dssdev, 0x04, data, 16);	// should end in 0xff and be Supplier ID and Effective Data (i.e. some serial number)
-			//			r = ssd2858_read(dssdev, DCS_READ_NUM_ERRORS, data, 1);	// dsi errors
-			//		r = ssd2858_read(dssdev, 0x06, data, 1);	// red
-			//		r = ssd2858_read(dssdev, 0x07, data, 1);	// green
-			//		r = ssd2858_read(dssdev, 0x08, data, 1);	// blue
-			//			r = ssd2858_read(dssdev, 0x0a, data, 1);	// power mode 0x10=sleep off; 0x04=display on
-			r = ssd2858_read(dssdev, 0x0b, data, 1);	// address mode
-			r = ssd2858_read(dssdev, MIPI_DCS_GET_PIXEL_FORMAT, data, 1);	// pixel format 0x70 = RGB888
-			//			r = ssd2858_read(dssdev, 0x0d, data, 1);	// display mode	0x80 = command 0x34/0x35
-			//			r = ssd2858_read(dssdev, 0x0e, data, 1);	// signal mode
-			//			r = ssd2858_read(dssdev, MIPI_DCS_GET_DIAGNOSTIC_RESULT, data, 1);	// diagnostic 0x40 = functional
-			r = ssd2858_read(dssdev, 0x45, data, 2);	// get scanline
-			//			r = ssd2858_read(dssdev, 0x52, data, 2);	// brightness
-			//			r = ssd2858_read(dssdev, 0x56, data, 1);	// adaptive brightness
-			//			r = ssd2858_read(dssdev, 0x5f, data, 2);	// CABC minimum
-			//			r = ssd2858_read(dssdev, 0x68, data, 1);	// auto brightness
-			//			r = ssd2858_read(dssdev, 0xa1, data, 16);	// should end in 0xff and be Supplier ID and Effective Data (i.e. some serial number)
-			//			r = ssd2858_read(dssdev, 0xda, data, 1);	// ID1
-			//			r = ssd2858_read(dssdev, 0xdb, data, 1);	// ID2
-			//			r = ssd2858_read(dssdev, 0xdc, data, 1);	// ID3
-			in->ops.dsi->bus_unlock(in);
-		}
-		mutex_unlock(&ddata->lock);
-		return r < 0 ? r : count;
-	}
-	if(strncmp(buf, "test", 4) == 0)
-		{
-		mutex_lock(&ddata->lock);
-		if (ddata->enabled) {
-			in->ops.dsi->bus_lock(in);
-			r = ssd2858_write_sequence(dssdev, test_image, ARRAY_SIZE(test_image));
-			in->ops.dsi->bus_unlock(in);
-		}
-		mutex_unlock(&ddata->lock);
-		return r < 0 ? r : count;
-		}
-
-	for(p = buf; p < buf + count && argc < sizeof(data); p++)
-		{
-
-//		printk("  2nd:%d argc:%d read:%d %c\n", second, argc, read, *p);
-
-		if(!second && (*p == ' ' || *p == '\t' || *p == '\n'))
-			continue;
-		if(argc == 0 && !second && *p == 'p')
-		   { // 'panel' prefix for address
-		   topanel=1;
-		   continue;
-		   }
-		if(!second && argc >= 1 && *p == 'r')	// r must follow the address (or another r)
-			{
-			data[argc++]=0;
-			read = 1;
-			continue;
-			}
-		if(read && argc > 1)
-			return -EIO;	// no hex digits after the first r
-		if(*p >= '0' && *p <= '9')
-			d=(d<<4) + (*p-'0');
-		else if(*p >= 'a' && *p <= 'f')
-			d=(d<<4) + (*p-'a') + 10;
-		else if(*p >= 'A' && *p <= 'F')
-			d=(d<<4) + (*p-'A') + 10;
-		else
-			return -EIO;
-		if(second)
-			data[argc++]=d;	// store every second digit
-		second ^= 1;
-		}
-
-//	printk("  2nd:%d argc:%d ---\n", second, argc);
-
-	if(second)
-		return -EIO;	// not an even number of digits
-
-	if(argc == 0)
-		return -EIO;	// missing address
-
-	mutex_lock(&ddata->lock);
-	if (ddata->enabled) {
-		in->ops.dsi->bus_lock(in);
-
-		ssd2858_pass_to_panel(dssdev, topanel);	// send to ssd or panel
-		if(read)
-			r = ssd2858_read(dssdev, data[0], &data[1], argc-1);
-		else
-			r = ssd2858_write(dssdev, data, argc);
-
-		in->ops.dsi->bus_unlock(in);
-	} else
-		r=-EIO;	// not enabled
-	mutex_unlock(&ddata->lock);
-
+	// decode some commands like setting the rotation etc.
 	return r < 0 ? r : count;
 }
 
-static ssize_t show_dcs(struct device *dev,
+static ssize_t show_control(struct device *dev,
 						struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "[p]aa dd dd ... | [p]aa r ... | test | [p]status | start | stop | reset | noreset | power | nopower | stream | nostream\n");
+	return sprintf(buf, "control the SSD chip\n");
 }
 
-static DEVICE_ATTR(dcs, S_IWUSR | S_IRUGO,
-				   show_dcs, set_dcs);
-
-static ssize_t set_reg(struct device *dev,
-					   struct device_attribute *attr,
-					   const char *buf, size_t count)
-{
-	int r = 0;
-	struct platform_device *pdev = to_platform_device(dev);
-	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
-	struct omap_dss_device *dssdev = &ddata->dssdev;
-	struct omap_dss_device *in = ddata->in;
-	const char *p;
-	unsigned short address=0;	// 16 bit
-	unsigned long data=0;		// 32 bit
-	int ad=0;
-	int read=0;
-
-	for(p = buf; p < buf + count; p++)
-		{
-		int d;
-		if((*p == ' ' || *p == '\t' || *p == '\n'))
-			{
-			ad=1;
-			continue;	// skip whitespace and switch to data
-			}
-		if(*p == 'r')	// r must follow the address
-			{
-			read = 1;
-			continue;
-			}
-		if(read)
-			return -EIO;	// no more digits after the first r
-		if(*p >= '0' && *p <= '9')
-			d=(*p-'0');
-		else if(*p >= 'a' && *p <= 'f')
-			d=(*p-'a') + 10;
-		else if(*p >= 'A' && *p <= 'F')
-			d=(*p-'A') + 10;
-		else
-			return -EIO;
-		if(p == buf + 4)
-			ad=1;	// switch to data
-		if(ad)
-			data=(data<<4) + d;
-		else
-			address=(address<<4) + d;
-		}
-
-	mutex_lock(&ddata->lock);
-	if (ddata->enabled) {
-		in->ops.dsi->bus_lock(in);
-
-		ssd2858_pass_to_panel(dssdev, 0);	// send to SSD2858 directly
-		if(read)
-			r = ssd2858_read_reg(dssdev, address, &data);
-		else
-			r = ssd2858_write_reg(dssdev, address, data);
-
-		in->ops.dsi->bus_unlock(in);
-	} else
-		r=-EIO;	// not enabled
-	mutex_unlock(&ddata->lock);
-
-	return r < 0 ? r : count;
-}
-
-static ssize_t show_reg(struct device *dev,
-						struct device_attribute *attr, char *buf)
-{
-	return sprintf(buf, "aaaa dddddddddddd | aaaa r\n");
-}
-
-static DEVICE_ATTR(reg, S_IWUSR | S_IRUGO,
-				   show_reg, set_reg);
+static DEVICE_ATTR(control, S_IWUSR | S_IRUGO,
+				   show_control, set_control);
 
 static struct attribute *ssd2858_attributes[] = {
-	&dev_attr_dcs.attr,
-	&dev_attr_reg.attr,
+	&dev_attr_control.attr,
 	NULL
 };
 
@@ -969,12 +726,75 @@ static const struct attribute_group ssd2858_attr_group = {
 	.attrs = ssd2858_attributes,
 };
 
+/* out ops available to be called by attached panel */
+
+/* a panel driver may call these operations and we must either
+ * - translate them into SSD2858 register settings or
+ * - forward to in->ops i.e. the video source
+ */
+
+/* here is a sketch how DCS and generic packet commands requested by the panel driver should be handled */
+ 
+static int from_panel_gen_write(struct omap_dss_device *dssdev, int channel, u8 *buf, int len)
+{ // panel driver wants us to send a generic packet to the panel
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+	struct omap_dss_device *in = ddata->in;
+	ssd2858_pass_to_panel(dssdev, true);	// switch SSD2858 to pass-through mode
+	// check for 0xff escape and handle specially
+	return in->ops.dsi->gen_write(in, channel, buf, len);
+}
+
+static int from_panel_dcs_write_nosync(struct omap_dss_device *dssdev, int channel, u8 *buf, int len)
+{ // panel driver wants us to send a DCS packet to the panel
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+	struct omap_dss_device *in = ddata->in;
+	ssd2858_pass_to_panel(dssdev, true);	// switch SSD2858 to pass-through mode
+	// check for 0xff escape and handle specially
+	return in->ops.dsi->dcs_write_nosync(in, channel, buf, len);
+}
+
+static struct omapdss_dsi_ops ssd2858_out_ops = {
+	/* we must support at least (used in BOE driver)
+	 *
+	 * disable_video_output
+	 * disable
+	 * enable_hs
+	 * connect
+	 * disconnect
+	 * request_vc
+	 * set_vc_id
+	 * release_vc
+	 * bus_lock
+	 * bus_unlock
+	 * gen_write
+	 * dcs_write_nosync
+	 * set_max_rx_packet_size
+	 * gen_read
+	 * dcs_read
+	 * set_config
+	 ? configure_pins
+
+	 */
+
+	/*
+	.connect	= from_panel_connect,
+	.disconnect	= from_panel_disconnect,
+
+	.enable		= from_panel_enable,
+	.disable	= from_panel_disable,
+	 */
+	.dcs_write_nosync	= from_panel_dcs_write_nosync,
+	.gen_write		= from_panel_gen_write,
+};
+
+/* in ops available to be called by dss video source */
 
 static int ssd2858_power_on(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct device *dev = &ddata->pdev->dev;
 	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *out = ddata->out;
 	int r;
 	struct omap_dss_dsi_config ssd2858_dsi_config = {
 		.mode = OMAP_DSS_DSI_VIDEO_MODE,
@@ -1021,9 +841,10 @@ static int ssd2858_power_on(struct omap_dss_device *dssdev)
 	
 	ssd2858_reset(dssdev, 1);	// release reset
 	msleep(10);
-	
-	
+
+
 	in->ops.dsi->enable_hs(in, ddata->pixel_channel, true);
+
 #if 0
 	r = ssd2858_write_sequence(dssdev, init_seq, ARRAY_SIZE(init_seq));
 	if (r) {
@@ -1055,7 +876,9 @@ static int ssd2858_power_on(struct omap_dss_device *dssdev)
 #endif
 	ddata->enabled = true;
 	printk("dsi: powered on()\n");
-	
+
+	out->ops.dsi->enable(out);	// power on the panel (will call some out ops)
+
 	return r;
 err:
 	printk("dsi: power on error\n");
@@ -1158,7 +981,7 @@ static int ssd2858_enable(struct omap_dss_device *dssdev)
 	return ssd2858_start(dssdev);
 }
 
-static struct omap_dss_driver ssd2858_ops = {
+static struct omap_dss_driver ssd2858_in_ops = {
 	.connect	= ssd2858_connect,
 	.disconnect	= ssd2858_disconnect,
 	
@@ -1170,6 +993,9 @@ static struct omap_dss_driver ssd2858_ops = {
 	.check_timings	= ssd2858_check_timings,
 	.set_timings	= ssd2858_set_timings,
 	.get_timings	= ssd2858_get_timings,
+	/*
+	 * can we handle get_rotate and set_rotate?
+	 */
 };
 
 static int ssd2858_probe_of(struct platform_device *pdev)
@@ -1203,7 +1029,6 @@ static int ssd2858_probe_of(struct platform_device *pdev)
 	
 	ddata->in = ep;
 	
-#if FUTURE
 	ep = omapdss_of_find_source_for_first_ep(node);
 	if (IS_ERR(ep)) {
 		dev_err(&pdev->dev, "failed to find video sink (err=%ld)\n", PTR_ERR(ep));
@@ -1211,7 +1036,13 @@ static int ssd2858_probe_of(struct platform_device *pdev)
 	}
 	
 	ddata->out = ep;
-#endif
+
+	/*
+	 * parse additional dt properties like
+	 * rotation angle (0, 90, 180, 270 degrees)
+	 * type of compression (e.g. optimal, lossy)
+	 * those are to be reflected by different register settings of the SSD2858 chip
+	 */
 
 	return 0;
 }
@@ -1236,7 +1067,7 @@ static int ssd2858_probe(struct platform_device *pdev)
 	ddata->pdev = pdev;
 	
 	if (dev_get_platdata(dev)) {
-		r = -EINVAL /*ssd2858_probe_pdata(pdev)*/;
+		r = -EINVAL /* could call ssd2858_probe_pdata(pdev) */;
 		if (r)
 			return r;
 	} else if (pdev->dev.of_node) {
@@ -1251,7 +1082,7 @@ static int ssd2858_probe(struct platform_device *pdev)
 	
 	dssdev = &ddata->dssdev;
 	dssdev->dev = dev;
-	dssdev->driver = &ssd2858_ops;
+	dssdev->driver = &ssd2858_in_ops;
 	dssdev->panel.timings = ssd2858_timings;
 	dssdev->type = OMAP_DISPLAY_TYPE_DSI;
 	dssdev->owner = THIS_MODULE;
