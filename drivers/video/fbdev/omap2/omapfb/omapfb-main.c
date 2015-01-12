@@ -273,16 +273,16 @@ static struct omapfb_colormode omapfb_colormodes[] = {
 	},
 };
 
+static bool cmp_component(struct fb_bitfield *f1, struct fb_bitfield *f2)
+{
+	return f1->length == f2->length &&
+		f1->offset == f2->offset &&
+		f1->msb_right == f2->msb_right;
+}
+
 static bool cmp_var_to_colormode(struct fb_var_screeninfo *var,
 		struct omapfb_colormode *color)
 {
-	bool cmp_component(struct fb_bitfield *f1, struct fb_bitfield *f2)
-	{
-		return f1->length == f2->length &&
-			f1->offset == f2->offset &&
-			f1->msb_right == f2->msb_right;
-	}
-
 	if (var->bits_per_pixel == 0 ||
 			var->red.length == 0 ||
 			var->blue.length == 0 ||
@@ -1833,14 +1833,13 @@ static void omapfb_free_resources(struct omapfb2_device *fbdev)
 	if (fbdev == NULL)
 		return;
 
-	for (i = 0; i < fbdev->num_fbs; i++) {
-		struct omapfb_info *ofbi = FB2OFB(fbdev->fbs[i]);
-		int j;
+	for (i = 0; i < fbdev->num_overlays; i++) {
+		struct omap_overlay *ovl = fbdev->overlays[i];
 
-		for (j = 0; j < ofbi->num_overlays; j++) {
-			struct omap_overlay *ovl = ofbi->overlays[j];
-			ovl->disable(ovl);
-		}
+		ovl->disable(ovl);
+
+		if (ovl->manager)
+			ovl->unset_manager(ovl);
 	}
 
 	for (i = 0; i < fbdev->num_fbs; i++)
@@ -2325,7 +2324,7 @@ static int omapfb_init_display(struct omapfb2_device *fbdev,
 	struct omap_dss_driver *dssdrv = dssdev->driver;
 	struct omapfb_display_data *d;
 	int r;
-
+	printk("omapfb_init_display\n");
 	r = dssdrv->enable(dssdev);
 	if (r) {
 		dev_warn(fbdev->dev, "Failed to enable display '%s'\n",
@@ -2374,8 +2373,9 @@ static int omapfb_init_connections(struct omapfb2_device *fbdev,
 {
 	int i, r;
 	struct omap_overlay_manager *mgr;
-
+	printk("omapfb_init_connections()\n");
 	r = def_dssdev->driver->connect(def_dssdev);
+	printk("omapfb_init_connections connect %s\n", def_dssdev->name);
 	if (r) {
 		dev_err(fbdev->dev, "failed to connect default display\n");
 		return r;
@@ -2391,6 +2391,7 @@ static int omapfb_init_connections(struct omapfb2_device *fbdev,
 		 * We don't care if the connect succeeds or not. We just want to
 		 * connect as many displays as possible.
 		 */
+		printk("omapfb_init_connections connect %s\n", dssdev->name);
 		dssdev->driver->connect(dssdev);
 	}
 
@@ -2403,7 +2404,7 @@ static int omapfb_init_connections(struct omapfb2_device *fbdev,
 
 	for (i = 0; i < fbdev->num_overlays; i++) {
 		struct omap_overlay *ovl = fbdev->overlays[i];
-
+		printk("omapfb_init_connections(): set manager for default display for overlay %d\n", i);
 		if (ovl->manager)
 			ovl->unset_manager(ovl);
 
@@ -2427,6 +2428,7 @@ omapfb_find_default_display(struct omapfb2_device *fbdev)
 	 * Search with the display name from the user or the board file,
 	 * comparing to display names and aliases
 	 */
+	printk("omapfb_find_default_display()\n");
 
 	def_name = omapdss_get_default_display_name();
 
@@ -2463,6 +2465,7 @@ omapfb_find_default_display(struct omapfb2_device *fbdev)
 	}
 
 	/* return the first display we have in the list */
+	printk("omapfb_find_default_display() -> %s\n", fbdev->displays[0].dssdev->name);
 	return fbdev->displays[0].dssdev;
 }
 
@@ -2484,6 +2487,41 @@ static int omapfb_probe(struct platform_device *pdev)
 		r = -ENODEV;
 		goto err0;
 	}
+
+{
+	struct device_node *of_aliases = of_find_node_by_path("/aliases");
+
+	if (of_aliases) {
+		int num_displays = 0;
+		int number_of_display_aliases = 0;
+		struct property *pp;
+		dssdev = NULL;
+		/* count the displays */
+		for_each_dss_dev(dssdev) {
+			omap_dss_get_device(dssdev);
+			printk("display %d: %s\n", num_displays, dssdev->name);
+			if (!dssdev->driver) {
+				dev_warn(&pdev->dev, "no driver for display: %s\n",
+						 dssdev->name);
+				omap_dss_put_device(dssdev);
+				continue;
+			}
+			num_displays++;
+		}
+		/* count the aliases */
+		for_each_property_of_node(of_aliases, pp) {
+			printk("alias %s\n", pp->name);
+			if (!strncmp(pp->name, "display", 7))
+				number_of_display_aliases++;
+		}
+		if (number_of_display_aliases > 0 && num_displays < number_of_display_aliases) {
+			dev_err(&pdev->dev, "not all displays running (%d of %d)\n",
+					num_displays, number_of_display_aliases);
+			r = -EPROBE_DEFER;	/* wait until all aliased displays show up */
+			goto err0;
+		}
+	}
+}
 
 	fbdev = devm_kzalloc(&pdev->dev, sizeof(struct omapfb2_device),
 			GFP_KERNEL);
@@ -2513,7 +2551,7 @@ static int omapfb_probe(struct platform_device *pdev)
 		struct omapfb_display_data *d;
 
 		omap_dss_get_device(dssdev);
-
+		printk("display %d: %s\n", fbdev->num_displays, dssdev->name);
 		if (!dssdev->driver) {
 			dev_warn(&pdev->dev, "no driver for display: %s\n",
 				dssdev->name);
@@ -2537,10 +2575,12 @@ static int omapfb_probe(struct platform_device *pdev)
 
 	fbdev->num_overlays = omap_dss_get_num_overlays();
 	for (i = 0; i < fbdev->num_overlays; i++)
+		printk("omap_dss_get_overlay(%d)\n", i),
 		fbdev->overlays[i] = omap_dss_get_overlay(i);
 
 	fbdev->num_managers = omap_dss_get_num_overlay_managers();
 	for (i = 0; i < fbdev->num_managers; i++)
+		printk("omap_dss_get_overlay_manager(%d)\n", i),
 		fbdev->managers[i] = omap_dss_get_overlay_manager(i);
 
 	def_display = omapfb_find_default_display(fbdev);
@@ -2549,6 +2589,7 @@ static int omapfb_probe(struct platform_device *pdev)
 		r = -EPROBE_DEFER;
 		goto cleanup;
 	}
+	printk("omapfb_find_default_display() -> %s\n", def_display->name);
 
 	r = omapfb_init_connections(fbdev, def_display);
 	if (r) {
@@ -2558,7 +2599,7 @@ static int omapfb_probe(struct platform_device *pdev)
 
 	if (def_mode && strlen(def_mode) > 0) {
 		if (omapfb_parse_def_modes(fbdev))
-			dev_warn(&pdev->dev, "cannot parse default modes\n");
+			dev_warn(&pdev->dev, "cannot parse default modes %s\n", def_mode);
 	} else if (def_display && def_display->driver->set_timings &&
 			def_display->driver->check_timings) {
 		struct omap_video_timings t;
@@ -2576,6 +2617,7 @@ static int omapfb_probe(struct platform_device *pdev)
 	for (i = 0; i < fbdev->num_managers; i++) {
 		struct omap_overlay_manager *mgr;
 		mgr = fbdev->managers[i];
+		printk("apply for manager %d\n", i);
 		r = mgr->apply(mgr);
 		if (r)
 			dev_warn(fbdev->dev, "failed to apply dispc config\n");
@@ -2584,6 +2626,7 @@ static int omapfb_probe(struct platform_device *pdev)
 	DBG("mgr->apply'ed\n");
 
 	if (def_display) {
+		printk("call omapfb_init_display for def_display\n");
 		r = omapfb_init_display(fbdev, def_display);
 		if (r) {
 			dev_err(fbdev->dev,
@@ -2603,6 +2646,7 @@ static int omapfb_probe(struct platform_device *pdev)
 	if (def_display) {
 		u16 w, h;
 
+		printk("call get_resolution for def_display\n");
 		def_display->driver->get_resolution(def_display, &w, &h);
 
 		dev_info(fbdev->dev, "using display '%s' mode %dx%d\n",
@@ -2619,7 +2663,7 @@ err0:
 	return r;
 }
 
-static int __exit omapfb_remove(struct platform_device *pdev)
+static int omapfb_remove(struct platform_device *pdev)
 {
 	struct omapfb2_device *fbdev = platform_get_drvdata(pdev);
 
@@ -2636,10 +2680,9 @@ static int __exit omapfb_remove(struct platform_device *pdev)
 
 static struct platform_driver omapfb_driver = {
 	.probe		= omapfb_probe,
-	.remove         = __exit_p(omapfb_remove),
+	.remove         = omapfb_remove,
 	.driver         = {
 		.name   = "omapfb",
-		.owner  = THIS_MODULE,
 	},
 };
 
@@ -2651,6 +2694,7 @@ module_param_named(mirror, def_mirror, bool, 0);
 
 module_platform_driver(omapfb_driver);
 
+MODULE_ALIAS("platform:omapfb");
 MODULE_AUTHOR("Tomi Valkeinen <tomi.valkeinen@nokia.com>");
 MODULE_DESCRIPTION("OMAP2/3 Framebuffer");
 MODULE_LICENSE("GPL v2");

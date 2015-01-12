@@ -1,10 +1,10 @@
 menu "OMAP Display Device Drivers (new device model)"
         depends on OMAP2_DSS
 
-config DISPLAY_AMPLIFIER_OPA362
-        tristate "external analog amplifier with output disable/high-Z (e.g. OPA362)"
+config DISPLAY_ENCODER_OPA362
+        tristate "External analog amplifier with output disable/high-Z (e.g. OPA362)"
 	help
-	  Driver to enable an external analog TV amplifier (e.g. OPA362)
+	  1Driver to enable an external analog TV amplifier (e.g. OPA362)
 	  through a GPIO.
 
 config DISPLAY_ENCODER_TFP410
@@ -103,6 +103,24 @@ config DISPLAY_PANEL_SHARP_LS052K3SY54S
 config DISPLAY_PANEL_BOE_W677L
 	tristate "BOE W677L LCD Panel"
 	help
-		This is for BOE W677L Panel.
+		This is for OTM1283A based panels.
+		* BOE W677L used in the Pyra.
+
+config DISPLAY_PANEL_SUCCESS_S90451
+	tristate "SUCCESS S90451 LCD Panel"
+	help
+		This is for NT35590 based panels.
+		* SUCCESS S90451 used in the Pyra.
+
+config DISPLAY_PANEL_MIPI_DEBUG
+	tristate "MIPI Panel Debug Driver"
+	help
+		This is a driver that does not initialize
+		any panel but provides a /sys file where
+		echo commands from user space can send
+		and read DCS and Generic packets as well
+		as switch on/off the video strem. This allows
+		to initialize and test a panel by a shell
+		script.
 
 endmenu

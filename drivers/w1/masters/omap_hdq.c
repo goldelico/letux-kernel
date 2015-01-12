@@ -16,6 +16,7 @@
 #include <linux/err.h>
 #include <linux/io.h>
 #include <linux/sched.h>
+#include <linux/of.h>
 #include <linux/pm_runtime.h>
 
 #include "../w1.h"
@@ -72,11 +73,17 @@ struct hdq_data {
 static int omap_hdq_probe(struct platform_device *pdev);
 static int omap_hdq_remove(struct platform_device *pdev);
 
+static struct of_device_id omap_hdq_dt_ids[] = {
+	{ .compatible = "ti,omap3-1w" },
+	{}
+};
+
 static struct platform_driver omap_hdq_driver = {
 	.probe =	omap_hdq_probe,
 	.remove =	omap_hdq_remove,
 	.driver =	{
 		.name =	"omap_hdq",
+		.of_match_table = omap_hdq_dt_ids,
 	},
 };
 
@@ -157,7 +164,6 @@ static int hdq_write_byte(struct hdq_data *hdq_data, u8 val, u8 *status)
 	unsigned long irqflags;
 
 	*status = 0;
-
 	spin_lock_irqsave(&hdq_data->hdq_spinlock, irqflags);
 	/* clear interrupt flags via a dummy read */
 	hdq_reg_in(hdq_data, OMAP_HDQ_INT_STATUS);

@@ -100,10 +100,10 @@ static int tvc_enable(struct omap_dss_device *dssdev)
 
 	if (!ddata->dev->of_node) {
 		in->ops.atv->set_type(in, ddata->connector_type);
-
-		in->ops.atv->invert_vid_out_polarity(in,
-			ddata->invert_polarity);
 	}
+
+	in->ops.atv->invert_vid_out_polarity(in,
+		ddata->invert_polarity);
 
 	r = in->ops.atv->enable(in);
 	if (r)
@@ -229,6 +229,8 @@ static int tvc_probe_of(struct platform_device *pdev)
 	}
 
 	ddata->in = in;
+	ddata->invert_polarity = of_property_read_bool(node,
+		"ti,invert-polarity");	/* missing is false */
 
 	return 0;
 }
@@ -301,13 +303,15 @@ static const struct of_device_id tvc_of_match[] = {
 	{},
 };
 
+MODULE_DEVICE_TABLE(of, tvc_of_match);
+
 static struct platform_driver tvc_connector_driver = {
 	.probe	= tvc_probe,
 	.remove	= __exit_p(tvc_remove),
 	.driver	= {
 		.name	= "connector-analog-tv",
-		.owner	= THIS_MODULE,
 		.of_match_table = tvc_of_match,
+		.suppress_bind_attrs = true,
 	},
 };
 

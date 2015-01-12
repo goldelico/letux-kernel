@@ -899,11 +899,14 @@ static const struct of_device_id acx565akm_of_match[] = {
 	{},
 };
 
+MODULE_DEVICE_TABLE(of, acx565akm_of_match);
+
 static struct spi_driver acx565akm_driver = {
 	.driver = {
 		.name	= "acx565akm",
 		.owner	= THIS_MODULE,
 		.of_match_table = acx565akm_of_match,
+		.suppress_bind_attrs = true,
 	},
 	.probe	= acx565akm_probe,
 	.remove	= acx565akm_remove,

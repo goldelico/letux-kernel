@@ -102,8 +102,8 @@
 /*		vbus-suppy = <&modem_vbus_hdmi_power>;	/* apply VBUS to the modem */
 	};
 
-	mic_presence {
-/* FIXME: a dedicated TS3A225 driver can reprogram the MIC_PRESENT line through I2C into an INT so we can detect other changes (e.g. mic button pressed) */
+/*	mic_presence {
+/* FIXME: a dedicated TS3A225 driver can reprogram the MIC_PRESENT line through I2C into an INT so we can detect other changes (e.g. mic button pressed) * /
 		compatible = "extcon-gpio";
 		label = "mic_presence";
 		interrupt-parent = <&gpio99>;
@@ -113,7 +113,7 @@
 		// debounce-delay-ms = <10>; -- not available at tca6424
 		state-on = "present";
 		state-off = "unplugged";
-	};
+	}; */
 
 /* FIXME: having both leads to an irq conflict */
 /*	mic_presence_evm { /* move this to omap5-uevm.dts */
@@ -142,10 +142,23 @@
 
 };
 
+&palmas {
+	palmas_pwr_button: pwrbutton {
+		compatible = "ti,palmas-pwrbutton";
+		interrupt-parent = <&palmas>;
+		interrupts = <1 IRQ_TYPE_EDGE_FALLING>;
+		ti,palmas-long-press-seconds = <8>;
+		ti,palmas-pwron-debounce-milli-seconds = <15>;
+	};
+};
+
 /* Audio routing */
 
 &sound {
 	ti,model = "Pyra-Handheld";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&ckobuffer>;
 
 	/* Audio routing */
 	ti,audio-routing =
@@ -159,6 +172,31 @@
 		"AFMR", "Line In",
 		"HSMIC", "Headset Mic",
 		"Headset Mic", "Headset Mic Bias";
+};
+
+/* Audio needs clock enabled */
+
+/ { /* should better be moved to omap5.dtsi because it is of general interest */
+	ocp {
+		omap5_control_ckobuffer: pinmux@4ae0cdb4 {
+			compatible = "ti,omap4-padconf", "pinctrl-single";
+			reg = <0x4ae0cdb4 4>;   /* Single register */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			pinctrl-single,register-width = <32>;
+			pinctrl-single,function-mask = <0xf0000000>;
+			pinctrl-single,bit-per-mux;
+		};
+	};
+};
+
+&omap5_control_ckobuffer {
+	ckobuffer: pinmux_ckobuffer {
+		pinctrl-single,pins = <
+		/* same as devmem2 0x4AE0CDB4 w 0x10000000 */
+		0x0 0x10000000  /* CONTROL.CONTROL_CKOBUFFER[28] CKOBUFFER_CLK_EN := 1 */
+		>;
+        };
 };
 
 /* LCD panel - MIPI */
@@ -201,12 +239,8 @@
 
 	lcd: lcd {
 		/* default to be overwritten by specific panel in derived board file
-		   by using the /root/panelselect script
-		   as soon as we have chosen the panel we can substitute the panel driver here
-		   and do the plumbing for the ssd2858
-		   but for the current experiments we boot by default with no panel
-		   */
-		compatible = "none";
+		   by using the /root/panelselect script */
+		compatible = "mipi,debug";
 		label = "lcd";
 
 		pinctrl-names = "default";
@@ -829,7 +863,7 @@
 
 	/* usb bridge */
 	usb3503@08 {
-		compatible = "smsc,usb3503a";
+		// compatible = "smsc,usb3503a";
 		reg = <0x08>;
 /*
 	//	refclk	// comes from OMAP5 FREF_CLK1_OUT/GPIO1_W K11
@@ -875,13 +909,15 @@ none nand-disk mmc0 mmc1 timer oneshot [heartbeat] cpu0 cpu1 default-on transien
 		led@4 {
 			label = "omap5:green:led1";
 			gpios = <&gpio9 2 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "cpu0";
+			linux,default-trigger = /* "cpu0";  <-- this usually breaks LED blinking (independently on which LED we set the trigger to cpu0 */
+						"default-on";
 			default-state = "off";
 		};
 		led@5 {
 			label = "omap5:green:led2";
 			gpios = <&gpio9 3 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "cpu1";
+			linux,default-trigger = /* "cpu1";  <-- this usually breaks LED blinking (independently on which LED we set the trigger to cpu1 */
+						"default-on";
 			default-state = "off";
 		};
 		led@6 {

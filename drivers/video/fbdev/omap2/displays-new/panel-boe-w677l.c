@@ -56,31 +56,14 @@
 #define MCS_READID2		0xdb
 #define MCS_READID3		0xdc
 
-/* manufacturer specific commands */
-#define MCS_MANUFPROT	0xb0
-#define MCS_SETDEEPSTBY	0xb1
-#define MCS_IFACESET	0xb3
-#define MCS_MIPISPEED	0xb6
-#define MCS_DISPLSET1	0xc1
-#define MCS_DISPLSET2	0xc2
-#define MCS_VSYNCEN		0xc3
-#define MCS_SRCTIMING	0xc4
-#define MCS_LPTSTIMING	0xc6
-#define MCS_GAMMA_A		0xc7
-#define MCS_GAMMA_B		0xc8
-#define MCS_GAMMA_C		0xc9
-#define MCS_PANELIFACE	0xcc
-#define MCS_CHARGEPUMP	0xd0
-#define MCS_POWERSET	0xd3
-#define MCS_VCOMSET		0xd5
+/* DCS NOP is 1-byte 0x00 while 2-byte 0x00 is address shift function of this controller */
 
-// #define IS_MCS(CMD) (((CMD) >= 0xb0 && (CMD) <= 0xff) && !((CMD) == 0xda || (CMD) == 0xdb || (CMD) == 0xdc))
-#define IS_MCS(CMD) (0)
+#define IS_MCS(CMD, LEN) (((CMD) == 0) && (LEN) == 2 || ((CMD) >= 0xb0 && (CMD) < 0xda) || ((CMD) > 0xdc))
 
 /* horizontal * vertical * refresh */
 #define w677l_W				(720)
 #define w677l_H				(1280)
-#define w677l_WIDTH			(w677l_W+280)
+#define w677l_WIDTH			(w677l_W+80+88)
 #define w677l_HEIGHT			(w677l_H+160)
 #define w677l_FPS				(60ll)
 #define w677l_PIXELCLOCK		(w677l_WIDTH * w677l_HEIGHT * w677l_FPS)	// Full HD * 60 fps
@@ -102,13 +85,12 @@ static struct omap_video_timings w677l_timings = {
 	.x_res		= w677l_W,
 	.y_res		= w677l_H,
 	.pixelclock	= w677l_PIXELCLOCK,
-	// they are choosen to round up to XTOTALxYTOTAL pixels giving a pixel clock of 86.400 MHz
-	.hfp		= 20,
-	.hsw		= 20,
-	.hbp		= 240,	// sum must match XTOTAL-XRES
+	.hfp		= 5,
+	.hsw		= 5,
+	.hbp		= w677l_WIDTH-w677l_W-5-5,
 	.vfp		= 50,
-	.vsw		= 60,
-	.vbp		= 50,	// sum must match YTOTAL-YRES
+	.vsw		= w677l_HEIGHT-w677l_H-50-50,
+	.vbp		= 50,
 };
 
 struct panel_drv_data {
@@ -139,167 +121,208 @@ struct panel_drv_data {
 #define to_panel_data(p) container_of(p, struct panel_drv_data, dssdev)
 
 struct w677l_reg {
-	/* Address and register value */
-	u8 data[50];
 	int len;
+	u8 data[50];
 };
 
 static struct w677l_reg init_seq[] = {
-	/* see Table 3.9.2 Display Initial Set */
-	/* we should define some macros... */
-#if 0
-	{ {	MIPI_DCS_NOP }, 1 },
-	{ {	MCS_MANUFPROT,
-		0x00	// remove access protect (except NVM)
-	}, 2 },
-	{ {	MIPI_DCS_NOP }, 1 },
-	{ {	MIPI_DCS_NOP }, 1 },
-	{ {	MCS_IFACESET,
-		0x14, 0x00, 0x00, 0x00, 0x00,
-		0x00
-	}, 7 },
-	{ {	MCS_MIPISPEED,
-		0x3A, 0xD3 }, 3 },
-	{ {	MCS_DISPLSET1,
-		0x84, 0x60, 0x40, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x0C,
-		0x01, 0x58, 0x73, 0xAE, 0x31,
-		0x20, 0x06, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x10, 0x10,
-		0x10, 0x10, 0x00, 0x00, 0x00,
-		0x22, 0x02, 0x02, 0x00
-	}, 35 },
-	{ {	MCS_DISPLSET2,
-		0x31, 0xF7, 0x80, 0x0A, 0x08,
-		0x00, 0x00
-	}, 8 },
-	{ {	MCS_VSYNCEN,
-		0x01, 0x00, 0x00,
-	}, 4 },
-	{ {	MCS_SRCTIMING,
-		0x70, 0x00, 0x00, 0x00, 0x07,
-		0x05, 0x05, 0x09, 0x09, 0x0c,
-		0x06, 0x00, 0x00, 0x00, 0x00,
-		0x07, 0x05, 0x05, 0x09, 0x09,
-		0x0c, 0x06
-	}, 23 },
-	{ {	MCS_LPTSTIMING,
-		0x00, 0x69, 0x00, 0x69, 0x00,
-		0x69, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x69, 0x00, 0x69, 0x00,
-		0x69, 0x10, 0x19, 0x07, 0x00,
-		0x01, 0x00, 0x69, 0x00, 0x69,
-		0x00, 0x69, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x69, 0x00, 0x69,
-		0x00, 0x69, 0x10, 0x19, 0x07
-	}, 41 },
-	{ {	MCS_GAMMA_A,
-		0x00, 0x09, 0x14, 0x26, 0x31,
-		0x48, 0x3B, 0x52, 0x5F, 0x67,
-		0x6B, 0x70, 0x00, 0x09, 0x14,
-		0x26, 0x31, 0x48, 0x3B, 0x52,
-		0x5F, 0x67, 0x6B, 0x70
-	}, 25 },
-	{ {	MCS_GAMMA_B,
-		0x00, 0x09, 0x14, 0x26, 0x31,
-		0x48, 0x3B, 0x52, 0x5F, 0x67,
-		0x6B, 0x70, 0x00, 0x09, 0x14,
-		0x26, 0x31, 0x48, 0x3B, 0x52,
-		0x5F, 0x67, 0x6B, 0x70
-	}, 25 },
-	{ {	MCS_GAMMA_C,
-		0x00, 0x09, 0x14, 0x26, 0x31,
-		0x48, 0x3B, 0x52, 0x5F, 0x67,
-		0x6B, 0x70, 0x00, 0x09, 0x14,
-		0x26, 0x31, 0x48, 0x3B, 0x52,
-		0x5F, 0x67, 0x6B, 0x70
-	}, 25 },
-	{ {	MCS_PANELIFACE,
-		0x09 }, 2 },
-#endif
-#if 0
-	{ {	MCS_CHARGEPUMP,
-		0x00, 0x00, 0x19, 0x18, 0x99,
-		0x99, 0x19, 0x01, 0x89, 0x00,
-		0x55, 0x19, 0x99, 0x01,
-	}, 15 },
-#endif
-#if 0
-	{ {	MCS_POWERSET,
-		0x1B, 0x33, 0xBB, 0xCC, 0xC4,
-		0x33, 0x33, 0x33, 0x00, 0x01,
-		0x00, 0xA0, 0xD8, 0xA0, 0x0D,
-		0x37, 0x33, 0x44, 0x22, 0x70,
-		0x02, 0x37, 0x03, 0x3D, 0xBF,
-		0x00
-	}, 27 },
-	{ {	MCS_VCOMSET,
-		0x06, 0x00, 0x00, 0x01, 0x39,
-		0x01, 0x39
-	}, 8 },
-	{ {	MCS_VCOMSET,	/* second time */
-		0x06, 0x00, 0x00, 0x01, 0x39,
-		0x01, 0x39
-	}, 8 },
-#endif
-#if 0
-	{ {	0xce,
-		0x00, 0x01, 0x40, 0xc1, 0x00,
-		0x00, 0x00
-	}, 8 },
-	{ { DCS_CTRL_DISPLAY, 0x24}, 2 },	// LEDPWM ON
-	{ { DCS_WRITE_CABC, 0x00}, 2 },		// CABC off
-#endif
-};
+	{ 2, 0x00, 0x00, },
+	{ 4, 0xff, 0x12, 0x83, 0x01, },	//EXTC=1
+	{ 2, 0x00, 0x80, },	            //Orise mode enable
+	{ 3, 0xff, 0x12, 0x83, },
 
-static struct w677l_reg test_image[] = {
-	/* switch panel to test mode */
+
+//-------------------- panel setting --------------------//
+	{ 2, 0x00, 0x80, },              //TCON Setting
+	{ 10, 0xc0, 0x00, 0x64, 0x00, 0x0f, 0x11, 0x00, 0x64, 0x0f, 0x11, },
+
+	{ 2, 0x00, 0x90, },             //Panel Timing Setting
+	{ 7, 0xc0, 0x00, 0x5c, 0x00, 0x01, 0x00, 0x04, },
+
+	{ 2, 0x00, 0x87, },
+	{ 2, 0xc4, 0x18, },
+
+	{ 2, 0x00, 0xb3, },            //Interval Scan Frame: 0 frame,  column inversion
+	{ 3, 0xc0, 0x00, 0x50, },
+
+	{ 2, 0x00, 0x81, },              //frame rate:60Hz
+	{ 2, 0xc1, 0x66, },
+
+	{ 2, 0x00, 0x81, },
+	{ 3, 0xc4, 0x82, 0x02, },
+
+	{ 2, 0x00, 0x90, },
+	{ 2, 0xc4, 0x49, },
+
+	{ 2, 0x00, 0xc6, },
+	{ 2, 0xb0, 0x03, },
+
+	{ 2, 0x00, 0x90, },             //Mode-3
+	{ 5, 0xf5, 0x02, 0x11, 0x02, 0x11, },
+
+	{ 2, 0x00, 0x90, },              //2xVPNL,  1.5*=00,  2*=50,  3*=a0
+	{ 2, 0xc5, 0x50, },
+
+	{ 2, 0x00, 0x94, },             //Frequency
+	{ 2, 0xc5, 0x66, },
+
+	{ 2, 0x00, 0xb2, },             //VGLO1 setting
+	{ 3, 0xf5, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xb4, },             //VGLO1_S setting
+	{ 3, 0xf5, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xb6, },              //VGLO2 setting
+	{ 3, 0xf5, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xb8, },             //VGLO2_S setting
+	{ 3, 0xf5, 0x00, 0x00, },
+
+	{ 2, 0x00, 0x94, },             //VCL ON
+	{ 2, 0xf5, 0x02, },
+
+	{ 2, 0x00, 0xBA, },             //VSP ON
+	{ 2, 0xf5, 0x03, },
+
+	{ 2, 0x00, 0xb2, },             //VGHO Option
+	{ 2, 0xc5, 0x40, },
+
+	{ 2, 0x00, 0xb4, },             //VGLO Option
+	{ 2, 0xc5, 0xC0, },
+
+//-------------------- power setting --------------------//
+	{ 2, 0x00, 0xa0, },             //dcdc setting
+	{ 15, 0xc4, 0x05, 0x10, 0x06, 0x02, 0x05, 0x15, 0x10, 0x05, 0x10, 0x07, 0x02, 0x05, 0x15, 0x10, },
+
+	{ 2, 0x00, 0xb0, },             //clamp voltage setting
+	{ 3, 0xc4, 0x00, 0x00, },
+
+	{ 2, 0x00, 0x91, },             //VGH=13V,  VGL=-12V,  pump ratio:VGH=6x,  VGL=-5x
+	{ 3, 0xc5, 0x19, 0x50, },
+
+	{ 2, 0x00, 0x00, },             //GVDD=4.87V,  NGVDD=-4.87V
+	{ 3, 0xd8, 0xbc, 0xbc, },
+
+	{ 2, 0x00, 0x00, },             //VCOMDC=-1.1
+	{ 2, 0xd9, 0x5a, },  //5d  6f
+
+	{ 2, 0x00, 0x00, },
+	{ 17, 0xE1, 0x01, 0x07, 0x0b, 0x0d, 0x06, 0x0d, 0x0b, 0x0a, 0x04, 0x07, 0x10, 0x08, 0x0f, 0x11, 0x0a, 0x01, },
+
+	{ 2, 0x00, 0x00, },
+	{ 17, 0xE2, 0x01, 0x07, 0x0b, 0x0d, 0x06, 0x0d, 0x0b, 0x0a, 0x04, 0x07, 0x10, 0x08, 0x0f, 0x11, 0x0a, 0x01, },
+
+	{ 2, 0x00, 0xb0, },             //VDD_18V=1.7V,  LVDSVDD=1.55V
+	{ 3, 0xc5, 0x04, 0xB8, },
+
+	{ 2, 0x00, 0xbb, },              //LVD voltage level setting
+	{ 2, 0xc5, 0x80, },
+
+//	{ 2, 0x00, 0xc3, },              //Sample / Hold All on
+//	{ 2, 0xf5, 0x81, },
+
+
+
+//-------------------- panel timing state control --------------------//
+	{ 2, 0x00, 0x80, },             //panel timing state control
+	{ 12, 0xcb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
+
+	{ 2, 0x00, 0x90, },             //panel timing state control
+	{ 16, 0xcb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xa0, },             //panel timing state control
+	{ 16, 0xcb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xb0, },             //panel timing state control
+	{ 16, 0xcb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xc0, },             //panel timing state control
+	{ 16, 0xcb, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xd0, },             //panel timing state control
+	{ 16, 0xcb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xe0, },             //panel timing state control
+	{ 15, 0xcb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x05, },
+
+	{ 2, 0x00, 0xf0, },             //panel timing state control
+	{ 12, 0xcb, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, },
+
+//-------------------- panel pad mapping control --------------------//
+	{ 2, 0x00, 0x80, },             //panel pad mapping control
+	{ 16, 0xcc, 0x0a, 0x0c, 0x0e, 0x10, 0x02, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
+
+	{ 2, 0x00, 0x90, },             //panel pad mapping control
+	{ 16, 0xcc, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2e, 0x2d, 0x09, 0x0b, 0x0d, 0x0f, 0x01, 0x03, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xa0, },             //panel pad mapping control
+	{ 15, 0xcc, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2e, 0x2d, },
+
+	{ 2, 0x00, 0xb0, },             //panel pad mapping control
+	{ 16, 0xcc, 0x0F, 0x0D, 0x0B, 0x09, 0x03, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xc0, },             //panel pad mapping control
+	{ 16, 0xcc, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2d, 0x2e, 0x10, 0x0E, 0x0C, 0x0A, 0x04, 0x02, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xd0, },             //panel pad mapping control
+	{ 15, 0xcc, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2d, 0x2e, },
+
+//-------------------- panel timing setting --------------------//
+	{ 2, 0x00, 0x80, },             //panel VST setting
+	{ 13, 0xce, 0x8D, 0x03, 0x00, 0x8C, 0x03, 0x00, 0x8B, 0x03, 0x00, 0x8A, 0x03, 0x00, },
+
+	{ 2, 0x00, 0x90, },             //panel VEND setting
+	{ 15, 0xce, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xa0, },             //panel CLKA1/2 setting
+	{ 15, 0xce, 0x38, 0x0B, 0x04, 0xFC, 0x00, 0x00, 0x00, 0x38, 0x0A, 0x04, 0xFD, 0x00, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xb0, },             //panel CLKA3/4 setting
+	{ 15, 0xce, 0x38,  0x09,  0x04, 0xFE,  0x00, 0x00,  0x00,  0x38, 0x08,  0x04, 0xFF,  0x00,  0x00, 0x00, },
+
+	{ 2, 0x00, 0xc0, },             //panel CLKb1/2 setting
+	{ 15, 0xce, 0x38,  0x07,  0x05, 0x00,  0x00, 0x00,  0x00,  0x38, 0x06,  0x05, 0x01,  0x00,  0x00, 0x00, },
+
+	{ 2, 0x00, 0xd0, },             //panel CLKb3/4 setting
+	{ 15, 0xce, 0x38,  0x05,  0x05, 0x02,  0x00, 0x00,  0x00,  0x38, 0x04,  0x05, 0x03,  0x00,  0x00, 0x00, },
+
+	{ 2, 0x00, 0x80, },             //panel CLKc1/2 setting
+	{ 15, 0xcf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
+
+	{ 2, 0x00, 0x90, },             //panel CLKc3/4 setting
+	{ 15, 0xcf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xa0, },             //panel CLKd1/2 setting
+	{ 15, 0xcf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xb0, },             //panel CLKd3/4 setting
+	{ 15, 0xcf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xc0, },             //panel ECLK setting
+	{ 12, 0xcf, 0x01, 0x01, 0x20, 0x20, 0x00, 0x00, 0x01, 0x02, 0x00, 0x00, 0x08, },
+
+	{ 2, 0x00, 0xb5, },             //TCON_GOA_OUT Setting
+	{ 7, 0xc5, 0x33, 0xf1, 0xff, 0x33, 0xf1, 0xff, },  //normal output with VGH/VGL
+
+	{ 2, 0x00, 0xa0, },
+	{ 2, 0xc1, 0x02, },
+
+	{ 2, 0x00, 0xb1, },
+	{ 2, 0xc6, 0x04, },
+
+	{ 2, 0x00, 0x00, },             //Orise mode disable
+	// this might not go through the SSD2858!
+	{ 3, 0xff, 0xff, 0xff, 0xff, },
+
 #if 0
-	{ { MIPI_DCS_ENTER_SLEEP_MODE, }, 1 },
-	{ { MIPI_DCS_SET_DISPLAY_OFF, }, 1 },
-	{ {	MIPI_DCS_NOP }, 1 },
-	{ {	MCS_IFACESET,
-	// test pattern needs internal oscillator
-		0x04, 0x00, 0x00, 0x00, 0x00,
-		0x00
-	}, 7 },
-	{ {	0xde,
-		0x01, 0xff, 0x07, 0x10, 0x00,
-		0x77
-	}, 7 },
-	{ {	MIPI_DCS_NOP }, 1 },
-	{ { MIPI_DCS_SET_DISPLAY_ON, }, 1 },
-	{ {	MIPI_DCS_NOP }, 1 },
-	{ { MIPI_DCS_EXIT_SLEEP_MODE, }, 1 },
+	{ 2, { DCS_CTRL_DISPLAY, 0x24}, },	// LEDPWM ON
+	{ 2, { DCS_WRITE_CABC, 0x00}, },	// CABC off
 #endif
 };
 
 static struct w677l_reg sleep_out[] = {
-	{ { MIPI_DCS_SET_DISPLAY_ON, }, 1 },
-	{ { MIPI_DCS_EXIT_SLEEP_MODE, }, 1 },
-};
-
-static struct w677l_reg display_on[] = {
-#if 0
-	{ {	MCS_VCOMSET,
-		0x06, 0x00, 0x00, 0x01, 0x2c,
-		0x01, 0x2c
-	}, 8 },
-	{ {	MCS_VCOMSET,	/* second time */
-		0x06, 0x00, 0x00, 0x01, 0x2c,
-		0x01, 0x2c
-	}, 8 },
-#endif
-};
-
-/* not used - needs also MCS_VCOMSET and some delays */
-
-static struct w677l_reg display_off[] = {
-	{ { MIPI_DCS_SET_DISPLAY_OFF, }, 1},
-};
-
-static struct w677l_reg sleep_in[] = {
-	{ { MIPI_DCS_ENTER_SLEEP_MODE, }, 1},
+	{ 1, { MIPI_DCS_SET_DISPLAY_ON, }, },
+	{ 1, { MIPI_DCS_EXIT_SLEEP_MODE, }, },
 };
 
 static int w677l_write(struct omap_dss_device *dssdev, u8 *buf, int len)
@@ -309,9 +332,9 @@ static int w677l_write(struct omap_dss_device *dssdev, u8 *buf, int len)
 	int r;
 	int i;
 
-	printk("dsi: w677l_write("); for(i=0; i<len; i++) printk("%02x%s", buf[i], i+1 == len?")\n":" ");
+	printk("dsi: w677l_write(%s", IS_MCS(buf[0], len)?"g":""); for(i=0; i<len; i++) printk("%02x%s", buf[i], i+1 == len?")\n":" ");
 
-	if(IS_MCS(buf[0]))
+	if(IS_MCS(buf[0], len))
 		{ // this is a "manufacturer command" that must be sent as a "generic write command"
 			r = in->ops.dsi->gen_write(in, ddata->config_channel, buf, len);
 		}
@@ -340,7 +363,7 @@ static int w677l_read(struct omap_dss_device *dssdev, u8 dcs_cmd, u8 *buf, int l
 		return -EIO;
 	}
 
-	if(IS_MCS(dcs_cmd))
+	if(IS_MCS(dcs_cmd, len))
 		{ // this is a "manufacturer command" that must be sent as a "generic read command"
 			r = in->ops.dsi->gen_read(in, ddata->config_channel, &dcs_cmd, 1, buf, len);
 		}
@@ -584,171 +607,6 @@ static const struct backlight_ops w677l_backlight_ops  = {
 	.get_brightness = w677l_get_brightness,
 	.update_status = w677l_set_brightness,
 };
-
-/* sysfs callbacks */
-
-static int w677l_start(struct omap_dss_device *dssdev);
-static void w677l_stop(struct omap_dss_device *dssdev);
-
-static ssize_t set_dcs(struct device *dev,
-					   struct device_attribute *attr,
-					   const char *buf, size_t count)
-{
-	int r = 0;
-	u8 data[24];
-	u8 d = 0;
-	int argc = 0;
-	int second = 0;
-	int read = 0;
-	struct platform_device *pdev = to_platform_device(dev);
-	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
-	struct omap_dss_device *dssdev = &ddata->dssdev;
-	struct omap_dss_device *in = ddata->in;
-	const char *p;
-
-	if(strncmp(buf, "start", 5) == 0)
-		{
-		int r = w677l_start(dssdev);
-		return r < 0 ? r : count;
-		}
-	if(strncmp(buf, "stop", 4) == 0)
-		{
-		w677l_stop(dssdev);
-		return count;
-		}
-	if(strncmp(buf, "stream", 6) == 0)
-		{
-		in->ops.dsi->bus_lock(in);
-		in->ops.dsi->enable_video_output(in, ddata->pixel_channel);
-		in->ops.dsi->bus_unlock(in);
-		return count;
-		}
-	if(strncmp(buf, "nostream", 8) == 0)
-		{
-		in->ops.dsi->bus_lock(in);
-		in->ops.dsi->disable_video_output(in, ddata->pixel_channel);
-		in->ops.dsi->bus_unlock(in);
-		return count;
-		}
-	if(strncmp(buf, "reset", 5) == 0)
-		{
-		w677l_reset(dssdev, 0);
-		return count;
-		}
-	if(strncmp(buf, "noreset", 7) == 0)
-		{
-		w677l_reset(dssdev, 1);
-		return count;
-		}
-	if(strncmp(buf, "power", 5) == 0)
-		{
-		w677l_regulator(dssdev, 1);
-		return count;
-		}
-	if(strncmp(buf, "nopower", 7) == 0)
-		{
-		w677l_regulator(dssdev, 0);
-		return count;
-		}
-	if(strncmp(buf, "status", 6) == 0) {
-		mutex_lock(&ddata->lock);
-		if (ddata->enabled) {
-			in->ops.dsi->bus_lock(in);
-//			r = w677l_read(dssdev, 0x0a, data, 1);	// power mode 0x10=sleep off; 0x04=display on
-			r = w677l_read(dssdev, 0x0b, data, 1);	// address mode
-			r = w677l_read(dssdev, MIPI_DCS_GET_PIXEL_FORMAT, data, 1);	// pixel format 0x70 = RGB888
-//			r = w677l_read(dssdev, 0x0d, data, 1);	// display mode	0x80 = command 0x34/0x35
-//			r = w677l_read(dssdev, 0x0e, data, 1);	// signal mode
-//			r = w677l_read(dssdev, MIPI_DCS_GET_DIAGNOSTIC_RESULT, data, 1);	// diagnostic 0x40 = functional
-			r = w677l_read(dssdev, 0x45, data, 2);	// get scanline
-			in->ops.dsi->bus_unlock(in);
-		}
-		mutex_unlock(&ddata->lock);
-		return r < 0 ? r : count;
-	}
-	if(strncmp(buf, "test", 4) == 0)
-		{
-		mutex_lock(&ddata->lock);
-		if (ddata->enabled) {
-			in->ops.dsi->bus_lock(in);
-			r = w677l_write_sequence(dssdev, test_image, ARRAY_SIZE(test_image));
-			in->ops.dsi->bus_unlock(in);
-		}
-		mutex_unlock(&ddata->lock);
-		return r < 0 ? r : count;
-		}
-
-	for(p = buf; p < buf + count && argc < sizeof(data); p++)
-		{
-
-//		printk("  2nd:%d argc:%d read:%d %c\n", second, argc, read, *p);
-
-		if(!second && (*p == ' ' || *p == '\t' || *p == '\n'))
-			continue;
-		if(!second && argc >= 1 && *p == 'r')	// r must follow the address (or another r)
-			{
-			data[argc++]=0;
-			read = 1;
-			continue;
-			}
-		if(read && argc > 1)
-			return -EIO;	// no hex digits after the first r
-		if(*p >= '0' && *p <= '9')
-			d=(d<<4) + (*p-'0');
-		else if(*p >= 'a' && *p <= 'f')
-			d=(d<<4) + (*p-'a') + 10;
-		else if(*p >= 'A' && *p <= 'F')
-			d=(d<<4) + (*p-'A') + 10;
-		else
-			return -EIO;
-		if(second)
-			data[argc++]=d;	// store every second digit
-		second ^= 1;
-		}
-
-//	printk("  2nd:%d argc:%d ---\n", second, argc);
-
-	if(second)
-		return -EIO;	// not an even number of digits
-
-	if(argc == 0)
-		return -EIO;	// missing address
-
-	mutex_lock(&ddata->lock);
-	if (ddata->enabled) {
-		in->ops.dsi->bus_lock(in);
-
-		if(read)
-			r = w677l_read(dssdev, data[0], &data[1], argc-1);
-		else
-			r = w677l_write(dssdev, data, argc);
-
-		in->ops.dsi->bus_unlock(in);
-	} else
-		r=-EIO;	// not enabled
-	mutex_unlock(&ddata->lock);
-
-	return r < 0 ? r : count;
-}
-
-static ssize_t show_dcs(struct device *dev,
-						struct device_attribute *attr, char *buf)
-{
-	return sprintf(buf, "[p]aa dd dd ... | [p]aa r ... | test | [p]status | start | stop | reset | noreset | power | nopower | stream | nostream\n");
-}
-
-static DEVICE_ATTR(dcs, S_IWUSR | S_IRUGO,
-				   show_dcs, set_dcs);
-
-static struct attribute *w677l_attributes[] = {
-	&dev_attr_dcs.attr,
-	NULL
-};
-
-static const struct attribute_group w677l_attr_group = {
-	.attrs = w677l_attributes,
-};
-
 
 static int w677l_power_on(struct omap_dss_device *dssdev)
 {
@@ -1054,20 +912,10 @@ static int w677l_probe(struct platform_device *pdev)
 		}
 	}
 	
-	/* Register sysfs hooks */
-	r = sysfs_create_group(&dev->kobj, &w677l_attr_group);
-	if (r) {
-		dev_err(dev, "failed to create sysfs files\n");
-		goto err_sysfs_create;
-	}
-	
 	printk("w677l_probe ok\n");
 	
 	return 0;
 	
-err_sysfs_create:
-	if (bldev != NULL)
-		backlight_device_unregister(bldev);
 err_bl:
 	//	destroy_workqueue(ddata->workqueue);
 err_reg:
@@ -1087,13 +935,11 @@ static int __exit w677l_remove(struct platform_device *pdev)
 	
 	w677l_disable(dssdev);
 	w677l_disconnect(dssdev);
-	
-	sysfs_remove_group(&pdev->dev.kobj, &w677l_attr_group);
-	
+
 	omap_dss_put_device(ddata->in);
-	
+
 	mutex_destroy(&ddata->lock);
-	
+
 	return 0;
 }
 

@@ -174,9 +174,8 @@ static int w2cbw_remove(struct platform_device *pdev)
 		regulator_put(greg->reg);
 		greg->reg = NULL;
 	}
-	ret = gpiochip_remove(&greg->gpio);
-	if (ret == 0)
-		kfree(greg);
+	gpiochip_remove(&greg->gpio);
+	kfree(greg);
 	return 0;
 }
 

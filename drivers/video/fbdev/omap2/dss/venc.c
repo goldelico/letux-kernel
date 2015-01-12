@@ -35,9 +35,6 @@
 #include <linux/regulator/consumer.h>
 #include <linux/pm_runtime.h>
 #include <linux/of.h>
-#include <linux/regmap.h>
-#include <linux/mfd/syscon.h>
-#include <linux/mfd/syscon/omap3-control.h>
 
 #include <video/omapdss.h>
 
@@ -89,11 +86,6 @@
 #define VENC_OUTPUT_CONTROL			0xC4
 #define VENC_OUTPUT_TEST			0xC8
 #define VENC_DAC_B__DAC_C			0xC8
-
-enum venc_tvoutbypass_acen {
-	OMAP_VENC_TVOUTBYPASS = 1,
-	OMAP_VENC_TVACEN,
-};
 
 struct venc_config {
 	u32 f_control;
@@ -314,8 +306,6 @@ static struct {
 	bool invert_polarity;
 
 	struct omap_dss_device output;
-
-	struct regmap *syscon;
 } venc;
 
 static inline void venc_write_reg(int idx, u32 val)
@@ -438,24 +428,6 @@ static const struct venc_config *venc_timings_to_config(
 	return NULL;
 }
 
-static void venc_bypass_acbias(int val)
-{
-	int bypass = 0;
-	int acen = 0;
-
-	if (venc.syscon == NULL)
-		return;
-
-	if (val & OMAP_VENC_TVOUTBYPASS)
-		bypass = DEVCONF1_TVOUTBYPASS;
-
-	if (val & OMAP_VENC_TVACEN)
-		acen = DEVCONF1_TVACEN;
-
-	regmap_update_bits(venc.syscon, CONTROL_DEVCONF1, DEVCONF1_TVOUTBYPASS, bypass);
-	regmap_update_bits(venc.syscon, CONTROL_DEVCONF1, DEVCONF1_TVACEN, acen);
-}
-
 static int venc_power_on(struct omap_dss_device *dssdev)
 {
 	struct omap_overlay_manager *mgr = venc.output.manager;
@@ -490,8 +462,6 @@ static int venc_power_on(struct omap_dss_device *dssdev)
 	if (r)
 		goto err1;
 
-	venc_bypass_acbias(OMAP_VENC_TVOUTBYPASS | OMAP_VENC_TVACEN);
-
 	r = dss_mgr_enable(mgr);
 	if (r)
 		goto err2;
@@ -515,8 +485,6 @@ static void venc_power_off(struct omap_dss_device *dssdev)
 
 	venc_write_reg(VENC_OUTPUT_CONTROL, 0);
 	dss_set_dac_pwrdn_bgz(0);
-
-	venc_bypass_acbias(0);
 
 	dss_mgr_disable(mgr);
 
@@ -874,11 +842,6 @@ static int venc_probe_of(struct platform_device *pdev)
 		goto err;
 	}
 
-	venc.syscon = syscon_regmap_lookup_by_compatible("ti,omap3-devconf1-syscon");
-	if (IS_ERR(venc.syscon)) {
-		venc.syscon = NULL;
-	}
-
 	of_node_put(ep);
 
 	return 0;
@@ -1000,9 +963,9 @@ static struct platform_driver omap_venchw_driver = {
 	.remove         = __exit_p(omap_venchw_remove),
 	.driver         = {
 		.name   = "omapdss_venc",
-		.owner  = THIS_MODULE,
 		.pm	= &venc_pm_ops,
 		.of_match_table = venc_of_match,
+		.suppress_bind_attrs = true,
 	},
 };
 
