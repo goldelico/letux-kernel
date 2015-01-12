@@ -583,171 +583,6 @@ static const struct backlight_ops w677l_backlight_ops  = {
 	.update_status = w677l_set_brightness,
 };
 
-/* sysfs callbacks */
-
-static int w677l_start(struct omap_dss_device *dssdev);
-static void w677l_stop(struct omap_dss_device *dssdev);
-
-static ssize_t set_dcs(struct device *dev,
-					   struct device_attribute *attr,
-					   const char *buf, size_t count)
-{
-	int r = 0;
-	u8 data[24];
-	u8 d = 0;
-	int argc = 0;
-	int second = 0;
-	int read = 0;
-	struct platform_device *pdev = to_platform_device(dev);
-	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
-	struct omap_dss_device *dssdev = &ddata->dssdev;
-	struct omap_dss_device *in = ddata->in;
-	const char *p;
-
-	if(strncmp(buf, "start", 5) == 0)
-		{
-		int r = w677l_start(dssdev);
-		return r < 0 ? r : count;
-		}
-	if(strncmp(buf, "stop", 4) == 0)
-		{
-		w677l_stop(dssdev);
-		return count;
-		}
-	if(strncmp(buf, "stream", 6) == 0)
-		{
-		in->ops.dsi->bus_lock(in);
-		in->ops.dsi->enable_video_output(in, ddata->pixel_channel);
-		in->ops.dsi->bus_unlock(in);
-		return count;
-		}
-	if(strncmp(buf, "nostream", 8) == 0)
-		{
-		in->ops.dsi->bus_lock(in);
-		in->ops.dsi->disable_video_output(in, ddata->pixel_channel);
-		in->ops.dsi->bus_unlock(in);
-		return count;
-		}
-	if(strncmp(buf, "reset", 5) == 0)
-		{
-		w677l_reset(dssdev, 0);
-		return count;
-		}
-	if(strncmp(buf, "noreset", 7) == 0)
-		{
-		w677l_reset(dssdev, 1);
-		return count;
-		}
-	if(strncmp(buf, "power", 5) == 0)
-		{
-		w677l_regulator(dssdev, 1);
-		return count;
-		}
-	if(strncmp(buf, "nopower", 7) == 0)
-		{
-		w677l_regulator(dssdev, 0);
-		return count;
-		}
-	if(strncmp(buf, "status", 6) == 0) {
-		mutex_lock(&ddata->lock);
-		if (ddata->enabled) {
-			in->ops.dsi->bus_lock(in);
-//			r = w677l_read(dssdev, 0x0a, data, 1);	// power mode 0x10=sleep off; 0x04=display on
-			r = w677l_read(dssdev, 0x0b, data, 1);	// address mode
-			r = w677l_read(dssdev, MIPI_DCS_GET_PIXEL_FORMAT, data, 1);	// pixel format 0x70 = RGB888
-//			r = w677l_read(dssdev, 0x0d, data, 1);	// display mode	0x80 = command 0x34/0x35
-//			r = w677l_read(dssdev, 0x0e, data, 1);	// signal mode
-//			r = w677l_read(dssdev, MIPI_DCS_GET_DIAGNOSTIC_RESULT, data, 1);	// diagnostic 0x40 = functional
-			r = w677l_read(dssdev, 0x45, data, 2);	// get scanline
-			in->ops.dsi->bus_unlock(in);
-		}
-		mutex_unlock(&ddata->lock);
-		return r < 0 ? r : count;
-	}
-	if(strncmp(buf, "test", 4) == 0)
-		{
-		mutex_lock(&ddata->lock);
-		if (ddata->enabled) {
-			in->ops.dsi->bus_lock(in);
-			r = w677l_write_sequence(dssdev, test_image, ARRAY_SIZE(test_image));
-			in->ops.dsi->bus_unlock(in);
-		}
-		mutex_unlock(&ddata->lock);
-		return r < 0 ? r : count;
-		}
-
-	for(p = buf; p < buf + count && argc < sizeof(data); p++)
-		{
-
-//		printk("  2nd:%d argc:%d read:%d %c\n", second, argc, read, *p);
-
-		if(!second && (*p == ' ' || *p == '\t' || *p == '\n'))
-			continue;
-		if(!second && argc >= 1 && *p == 'r')	// r must follow the address (or another r)
-			{
-			data[argc++]=0;
-			read = 1;
-			continue;
-			}
-		if(read && argc > 1)
-			return -EIO;	// no hex digits after the first r
-		if(*p >= '0' && *p <= '9')
-			d=(d<<4) + (*p-'0');
-		else if(*p >= 'a' && *p <= 'f')
-			d=(d<<4) + (*p-'a') + 10;
-		else if(*p >= 'A' && *p <= 'F')
-			d=(d<<4) + (*p-'A') + 10;
-		else
-			return -EIO;
-		if(second)
-			data[argc++]=d;	// store every second digit
-		second ^= 1;
-		}
-
-//	printk("  2nd:%d argc:%d ---\n", second, argc);
-
-	if(second)
-		return -EIO;	// not an even number of digits
-
-	if(argc == 0)
-		return -EIO;	// missing address
-
-	mutex_lock(&ddata->lock);
-	if (ddata->enabled) {
-		in->ops.dsi->bus_lock(in);
-
-		if(read)
-			r = w677l_read(dssdev, data[0], &data[1], argc-1);
-		else
-			r = w677l_write(dssdev, data, argc);
-
-		in->ops.dsi->bus_unlock(in);
-	} else
-		r=-EIO;	// not enabled
-	mutex_unlock(&ddata->lock);
-
-	return r < 0 ? r : count;
-}
-
-static ssize_t show_dcs(struct device *dev,
-						struct device_attribute *attr, char *buf)
-{
-	return sprintf(buf, "[p]aa dd dd ... | [p]aa r ... | test | [p]status | start | stop | reset | noreset | power | nopower | stream | nostream\n");
-}
-
-static DEVICE_ATTR(dcs, S_IWUSR | S_IRUGO,
-				   show_dcs, set_dcs);
-
-static struct attribute *w677l_attributes[] = {
-	&dev_attr_dcs.attr,
-	NULL
-};
-
-static const struct attribute_group w677l_attr_group = {
-	.attrs = w677l_attributes,
-};
-
-
 static int w677l_power_on(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
@@ -1052,20 +887,10 @@ static int w677l_probe(struct platform_device *pdev)
 		}
 	}
 	
-	/* Register sysfs hooks */
-	r = sysfs_create_group(&dev->kobj, &w677l_attr_group);
-	if (r) {
-		dev_err(dev, "failed to create sysfs files\n");
-		goto err_sysfs_create;
-	}
-	
 	printk("w677l_probe ok\n");
 	
 	return 0;
 	
-err_sysfs_create:
-	if (bldev != NULL)
-		backlight_device_unregister(bldev);
 err_bl:
 	//	destroy_workqueue(ddata->workqueue);
 err_reg:
@@ -1085,13 +910,11 @@ static int __exit w677l_remove(struct platform_device *pdev)
 	
 	w677l_disable(dssdev);
 	w677l_disconnect(dssdev);
-	
-	sysfs_remove_group(&pdev->dev.kobj, &w677l_attr_group);
-	
+
 	omap_dss_put_device(ddata->in);
-	
+
 	mutex_destroy(&ddata->lock);
-	
+
 	return 0;
 }
 
