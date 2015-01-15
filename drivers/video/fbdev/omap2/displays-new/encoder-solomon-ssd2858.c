@@ -83,8 +83,7 @@
 #define MCS_POWERSET	0xd3
 #define MCS_VCOMSET		0xd5
 
-// #define IS_MCS(CMD) (((CMD) >= 0xb0 && (CMD) <= 0xff) && !((CMD) == 0xda || (CMD) == 0xdb || (CMD) == 0xdc))
-#define IS_MCS(CMD) (0)
+#define IS_MCS(CMD) (((CMD) >= 0xb0 && (CMD) <= 0xff) && !((CMD) == 0xda || (CMD) == 0xdb || (CMD) == 0xdc))
 
 /* horizontal * vertical * refresh */
 #define SSD2858_W				(720)
@@ -316,27 +315,6 @@ static struct ssd2858_reg sleep_in[] = {
 
 static int mode=0;	// starts in non-bypass mode
 
-static int ssd2858_pass_to_panel(struct omap_dss_device *dssdev, int enable)
-{ // choose destination of further commands: SSD chip or panel
-	int r = 0;
-	if(mode != enable)
-		{ // write a "special packet"
-			u8 buf[2];
-			struct panel_drv_data *ddata = to_panel_data(dssdev);
-			struct omap_dss_device *in = ddata->in;
-			int i;
-			int len=sizeof(buf);
-			buf[0]=0xff;
-			buf[1]=mode=enable;
-			printk("dsi: ssd2858_pass_to_panel("); for(i=0; i<len; i++) printk("%02x%s", buf[i], i+1 == len?")\n":" ");
-			r = in->ops.dsi->gen_write(in, ddata->config_channel, buf, len);
-			if (r)
-				dev_err(&ddata->pdev->dev, "write cmd/reg(%x %x) failed: %d\n",
-						buf[0], buf[1], r);
-		}
-	return r;
-}
-
 static int ssd2858_write(struct omap_dss_device *dssdev, u8 *buf, int len)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
@@ -344,17 +322,8 @@ static int ssd2858_write(struct omap_dss_device *dssdev, u8 *buf, int len)
 	int r;
 	int i;
 
-	printk("dsi: ssd2858_write("); for(i=0; i<len; i++) printk("%02x%s", buf[i], i+1 == len?")\n":" ");
+	printk("dsi: ssd2858_write(%s", IS_MCS(buf[0])?"g":""); for(i=0; i<len; i++) printk("%02x%s", buf[i], i+1 == len?")\n":" ");
 
-	if(mode == 1 && len > 0 && buf[0] == 0xff)
-		{
-		/*
-		 * FIXME: if a generic packet goes to the panel
-		 * and starts with 0xff we have to send a 0xff,0xff,...
-		 * packet instead (without switching)
-		 */
-		return -EINVAL;
-		}
 	if(IS_MCS(buf[0]))
 		{ // this is a "manufacturer command" that must be sent as a "generic write command"
 			r = in->ops.dsi->gen_write(in, ddata->config_channel, buf, len);
@@ -368,6 +337,19 @@ static int ssd2858_write(struct omap_dss_device *dssdev, u8 *buf, int len)
 		dev_err(&ddata->pdev->dev, "write cmd/reg(%x) failed: %d\n",
 				buf[0], r);
 
+	return r;
+}
+
+static int ssd2858_pass_to_panel(struct omap_dss_device *dssdev, int enable)
+{ // choose destination of further commands: SSD chip or panel
+	int r = 0;
+	if(mode != enable)
+		{ // write a "special control packet" to switch pass through modes
+			u8 buf[2];
+			buf[0]=0xff;
+			buf[1]=mode=enable;
+			r=ssd2858_write(dssdev, buf, sizeof(buf));
+		}
 	return r;
 }
 
@@ -407,6 +389,8 @@ static int ssd2858_write_sequence(struct omap_dss_device *dssdev,
 	int r, i;
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 
+	ssd2858_pass_to_panel(dssdev, false);	// initialization for the SSD
+
 	for (i = 0; i < len; i++) {
 		r = ssd2858_write(dssdev, seq[i].data, seq[i].len);
 		if (r) {
@@ -433,11 +417,11 @@ static int ssd2858_write_reg(struct omap_dss_device *dssdev, unsigned short addr
 	buf[3] = data >> 16;
 	buf[4] = data >> 8;
 	buf[5] = data >> 0;
-#if 1
+
+	ssd2858_pass_to_panel(dssdev, false);	// initialization for the SSD
+
 	r = in->ops.dsi->gen_write(in, ddata->config_channel, buf, 6);
-#else
-	r = 0;
-#endif
+
 #if 1
 	printk("ssd2858_write_reg: %04x <- %08lx (r=%d)\n", address, data, r);
 #endif
@@ -450,6 +434,9 @@ static int ssd2858_read_reg(struct omap_dss_device *dssdev, unsigned short addre
 	struct omap_dss_device *in = ddata->in;
 	int r;
 	u8 buf[6];
+
+	ssd2858_pass_to_panel(dssdev, false);	// initialization for the SSD
+
 	r = in->ops.dsi->set_max_rx_packet_size(in, ddata->config_channel, 4);	// tell panel how much we expect
 	if (r) {
 		dev_err(&ddata->pdev->dev, "can't set max rx packet size\n");
@@ -473,8 +460,7 @@ static int ssd2858_read_reg(struct omap_dss_device *dssdev, unsigned short addre
 	return r;
 }
 
-static int ssd2858_write_reg_sequence(struct omap_dss_device *dssdev,
-									  void *seq, int len)
+static int ssd2858_write_reg_sequence(struct omap_dss_device *dssdev, void *seq, int len)
 {
 	// tbd.
 	return -EINVAL;
@@ -736,20 +722,26 @@ static const struct attribute_group ssd2858_attr_group = {
 /* here is a sketch how DCS and generic packet commands requested by the panel driver should be handled */
  
 static int from_panel_gen_write(struct omap_dss_device *dssdev, int channel, u8 *buf, int len)
-{ // panel driver wants us to send a generic packet to the panel
+{ // panel driver wants us to send a generic packet to the panel through the SSD
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
 	ssd2858_pass_to_panel(dssdev, true);	// switch SSD2858 to pass-through mode
-	// check for 0xff escape and handle specially
-	return in->ops.dsi->gen_write(in, channel, buf, len);
+	if(buf[0] == 0xff) {
+		u8 nbuf[5];
+		if(len > 4)
+			return -EIO;	// can't forward longer packets
+		memcpy(&nbuf[1], buf, len);
+		nbuf[0]=0xff;	// we need to prefix with 0xff
+		return in->ops.dsi->gen_write(in, channel, nbuf, len+1);
+	} else
+		return in->ops.dsi->gen_write(in, channel, buf, len);
 }
 
 static int from_panel_dcs_write_nosync(struct omap_dss_device *dssdev, int channel, u8 *buf, int len)
-{ // panel driver wants us to send a DCS packet to the panel
+{ // panel driver wants us to send a DCS packet to the panel through the SSD
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
 	ssd2858_pass_to_panel(dssdev, true);	// switch SSD2858 to pass-through mode
-	// check for 0xff escape and handle specially
 	return in->ops.dsi->dcs_write_nosync(in, channel, buf, len);
 }
 
