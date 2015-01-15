@@ -929,7 +929,7 @@
 
 		filesystem@a80000 {
 			label = "File System";
-			reg = <0xa80000 0>;	/* 0 = MTDPART_SIZ_FULL */
+			reg = <0x880000 0>;	/* 0 = MTDPART_SIZ_FULL */
 		};
 	};
 };
