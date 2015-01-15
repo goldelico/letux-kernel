@@ -644,6 +644,7 @@ struct drm_set_client_cap {
 };
 
 #define DRM_CLOEXEC O_CLOEXEC
+#define DRM_RDWR O_RDWR
 struct drm_prime_handle {
 	__u32 handle;
 

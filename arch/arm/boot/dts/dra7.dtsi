@@ -818,6 +818,22 @@
 			status = "disabled";
 		};
 
+		gpu: gpu@0x56000000 {
+			compatible = "ti,omap4-gpu";
+			reg = <0x56000000 0xffff>;
+			interrupts = <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>;
+			ti,hwmods = "gpu";
+			operating-points = <
+				/* kHz    uV */
+				425600  1090000
+				532000  1280000
+				>;
+			clocks = <&dpll_core_h14x2_ck>, <&dpll_per_h14x2_ck>,
+					<&dpll_gpu_m2_ck>, <&gpu_core_gclk_mux>,
+					<&gpu_hyd_gclk_mux>;
+			clock-names = "core", "per", "gpu", "gpu_core", "gpu_hyd";
+		};
+
 		i2c1: i2c@48070000 {
 			compatible = "ti,omap4-i2c";
 			reg = <0x48070000 0x100>;
@@ -1844,6 +1860,7 @@
                         ti,hwmods = "vip1";
 			interrupts = <GIC_SPI 351 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 392 IRQ_TYPE_LEVEL_HIGH>;
+			syscon = <&dra7_ctrl_core>;
                         #address-cells = <1>;
                         #size-cells = <0>;
 			status = "disabled";
@@ -1867,6 +1884,7 @@
                         ti,hwmods = "vip2";
 			interrupts = <GIC_SPI 352 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH>;
+			syscon = <&dra7_ctrl_core>;
                         #address-cells = <1>;
                         #size-cells = <0>;
 			status = "disabled";
@@ -1890,6 +1908,7 @@
                         ti,hwmods = "vip3";
 			interrupts = <GIC_SPI 353 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 394 IRQ_TYPE_LEVEL_HIGH>;
+			syscon = <&dra7_ctrl_core>;
                         #address-cells = <1>;
                         #size-cells = <0>;
 			status = "disabled";
