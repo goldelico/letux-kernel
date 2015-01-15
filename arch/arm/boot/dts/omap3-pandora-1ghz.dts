@@ -9,18 +9,18 @@
  */
 
 /*
- * device tree for OpenPandora with OMAP3530
+ * device tree for OpenPandora 1GHz with DM3730
  */
 
 /dts-v1/;
 
-#include "omap34xx.dtsi"
+#include "omap36xx.dtsi"
 #include "omap3-pandora.dtsi"
 
 / {
-	model = "Pandora Handheld Console";
+	model = "Pandora Handheld Console 1GHz";
 
-	compatible = "ti,omap3-gta04", "ti,omap3";
+	compatible = "ti,omap3-gta04", "ti,omap36xx", "ti,omap3";
 
 	cpus {
 		cpu@0 {
