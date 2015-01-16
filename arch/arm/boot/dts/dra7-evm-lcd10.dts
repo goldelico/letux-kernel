@@ -9,3 +9,15 @@
 #include "dra7-evm.dts"
 #include "dra7xx-evm-lcd10.dtsi"
 
+/* override pinmux for tsc irq line on dra74x */
+&tsc_pins {
+	pinctrl-single,pins = <
+		0x420 (PIN_INPUT_PULLDOWN | MUX_MODE14) /* gpio1_2 */
+	>;
+};
+
+&ldc3001 {
+	interrupt-parent = <&gpio1>;
+	interrupts = <2 IRQ_TYPE_LEVEL_HIGH>;
+	pinctrl-0 = <&tsc_pins>;
+};
