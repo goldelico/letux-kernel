@@ -29,6 +29,7 @@
 #include <linux/of_device.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
+#include <linux/input/touchscreen.h>
 
 #define TSC2007_MEASURE_TEMP0		(0x0 << 4)
 #define TSC2007_MEASURE_AUX		(0x2 << 4)
@@ -344,36 +345,36 @@ static int tsc2007_probe_dt(struct i2c_client *client, struct tsc2007 *ts)
 		return -EINVAL;
 	}
 
-	ts->swap_xy = of_property_read_bool(np, "ti,swap-xy");
+	ts->swap_xy = of_property_read_bool(np, "touchscreen-swap-xy");
 
-	if (!of_property_read_u32(np, "ti,min-x", &val32))
+	if (!of_property_read_u32(np, "touchscreen-start-x", &val32))
 		ts->min_x = val32;
-	if (!of_property_read_u32(np, "ti,max-x", &val32))
+	if (!of_property_read_u32(np, "touchscreen-size-x", &val32))
 		ts->max_x = val32;
 	else
 		ts->max_x = MAX_12BIT;
 
-	if (!of_property_read_u32(np, "ti,min-y", &val32))
+	if (!of_property_read_u32(np, "touchscreen-start-y", &val32))
 		ts->min_y = val32;
-	if (!of_property_read_u32(np, "ti,max-y", &val32))
+	if (!of_property_read_u32(np, "touchscreen-size-y", &val32))
 		ts->max_y = val32;
 	else
 		ts->max_y = MAX_12BIT;
 
-	if (!of_property_read_u32(np, "ti,min-rt", &val32))
+	if (!of_property_read_u32(np, "touchscreen-min-pressure", &val32))
 		ts->min_rt = val32;
-	if (!of_property_read_u32(np, "ti,max-rt", &val32))
+	if (!of_property_read_u32(np, "touchscreen-max-pressure", &val32))
 		ts->max_rt = val32;
 	else
 		ts->max_rt = MAX_12BIT;
 
-	if (!of_property_read_u32(np, "ti,fuzzx", &val32))
+	if (!of_property_read_u32(np, "touchscreen-fuzz-x", &val32))
 		ts->fuzzx = val32;
 
-	if (!of_property_read_u32(np, "ti,fuzzy", &val32))
+	if (!of_property_read_u32(np, "touchscreen-fuzz-y", &val32))
 		ts->fuzzy = val32;
 
-	if (!of_property_read_u32(np, "ti,fuzzz", &val32))
+	if (!of_property_read_u32(np, "touchscreen-fuzz-pressure", &val32))
 		ts->fuzzz = val32;
 
 	if (!of_property_read_u64(np, "ti,poll-period", &val64))
@@ -384,7 +385,7 @@ static int tsc2007_probe_dt(struct i2c_client *client, struct tsc2007 *ts)
 	if (!of_property_read_u32(np, "ti,x-plate-ohms", &val32)) {
 		ts->x_plate_ohms = val32;
 	} else {
-		dev_err(&client->dev, "missing ti,x-plate-ohms devicetree property.");
+		dev_err(&client->dev, "missing touchscreen-x-plate-ohms devicetree property.");
 		return -EINVAL;
 	}
 

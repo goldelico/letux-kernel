@@ -13,23 +13,23 @@ Optional properties:
   (see interrupt binding[0]).
 - interrupts: (gpio) interrupt to which the chip is connected
   (see interrupt binding[0]).
-- ti,swap-xy: if present, swap x and y values. Rotation left/right is
+- touchscreen-swap-xy: if present, swap x and y values. Rotation left/right is
   achieved by combination with flipping of x or y.
-- ti,min-x: minimum x (default 0). Use this for a coarse calibration of the
+- touchscreen-start-x: minimum x (default 0). Use this for a coarse calibration of the
   touch if there is no user space option (e.g. Android, X11).
-- ti,max-x: maximum x (default 4095). If max-x is smaller than min-x the
+- touchscreen-size-x: maximum x (default 4095). If max-x is smaller than min-x the
   axis is swapped.
-- ti,min-y: minimum y (default 0).
-- ti,max-y: maximum y (default 4095).
-- ti,min-rt: minimum pressure (default 0).
-- ti,max-rt: maximum pressure (default 4095). Depending on your needs, you
+- touchscreen-start-y: minimum y (default 0).
+- touchscreen-size-y: maximum y (default 4095).
+- touchscreen-min-pressure: minimum pressure (default 0).
+- touchscreen-max-pressure: maximum pressure (default 4095). Depending on your needs, you
   can also invert the pressure value since the raw rt value  reports the
   resistance and not the "pressure" (i.e. becomes lower for higher pressure).
-- ti,fuzzx: specifies the absolute input fuzz x value.
+- touchscreen-fuzz-x: specifies the absolute input fuzz x value.
   If set, it will permit noise in the data up to +- the value given to the fuzz
   parameter, that is used to filter noise from the event stream (default 0).
-- ti,fuzzy: specifies the absolute input fuzz y value.
-- ti,fuzzz: specifies the absolute input fuzz z value.
+- touchscreen-fuzz-y: specifies the absolute input fuzz y value.
+- touchscreen-fuzz-pressure: specifies the absolute input fuzz z value.
 - ti,poll-period: how much time to wait (in milliseconds) before reading again the
   values from the tsc2007 (default 1).
 
