@@ -441,12 +441,12 @@
 		interrupts = <13 IRQ_TYPE_EDGE_FALLING>;	/* gpio6_173 falling edge */
 		gpios = <&gpio6 13 GPIO_ACTIVE_LOW>;	/* gpio6_173 active low */
 		ti,x-plate-ohms = <550>;
-		ti,min-x = <0x100>;
-		ti,max-x = <0xf00>;
-		ti,min-y = <0x100>;
-		ti,max-y = <0xf00>;
-		ti,min-rt = <0xfff>;
-		ti,max-rt = <0>;
+		touchscreen-start-x = <0x020>;
+		touchscreen-size-x = <0xfe0>;
+		touchscreen-start-y = <0x020>;
+		touchscreen-size-y = <0xfe0>;
+		touchscreen-min-pressure = <0xfff>;
+		touchscreen-max-pressure = <0>;
 	};
 
 	crtouch@49 {
@@ -761,6 +761,12 @@
 };
 
 /* register devices connected to Panel-I2C on main board */
+
+/* note: there are currently some duplicates because we can
+ * connect the panel either directly to the EVM or through the Pyra mainboard
+ * but they are on different busses
+ */
+
 &i2c4 {
 	/* touchscreen */
 	tsc2007@48 {
@@ -772,12 +778,12 @@
 		interrupts = <13 IRQ_TYPE_EDGE_FALLING>;	/* gpio6_173 falling edge */
 		gpios = <&gpio6 13 GPIO_ACTIVE_LOW>;	/* gpio6_173 active low */
 		ti,x-plate-ohms = <550>;
-		ti,min-x = <0x100>;
-		ti,max-x = <0xf00>;
-		ti,min-y = <0xf00>;
-		ti,max-y = <0x100>;
-		ti,min-rt = <0xfff>;
-		ti,max-rt = <0>;
+		touchscreen-start-x = <0x020>;
+		touchscreen-size-x = <0xfe0>;
+		touchscreen-start-y = <0x020>;
+		touchscreen-size-y = <0xfe0>;
+		touchscreen-min-pressure = <0xfff>;
+		touchscreen-max-pressure = <0>;
 	};
 
 	crtouch@49 {
