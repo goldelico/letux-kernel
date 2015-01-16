@@ -718,12 +718,12 @@
 		interrupts = <0 IRQ_TYPE_EDGE_FALLING>;	/* gpio160 */
 		gpios = <&gpio6 0 GPIO_ACTIVE_LOW>;	/* gpio160 */
 		ti,x-plate-ohms = <550>;
-		ti,min-x = <0x100>;
-		ti,max-x = <0xf00>;
-		ti,min-y = <0xf00>;
-		ti,max-y = <0x100>;
-		ti,min-rt = <0xfff>;
-		ti,max-rt = <0>;
+		touchscreen-start-x = <0x100>;
+		touchscreen-size-x = <0xf00>;
+		touchscreen-start-y = <0xf00>;
+		touchscreen-size-y = <0x100>;
+		touchscreen-min-pressure = <0xfff>;
+		touchscreen-max-pressure = <0>;
 	};
 
 	/* compass aka magnetometer */
