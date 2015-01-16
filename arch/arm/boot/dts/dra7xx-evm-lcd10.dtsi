@@ -28,6 +28,11 @@
 	};
 };
 
+/* audio codec i2c address moved to 0x19 for 10" display config */
+&tlv320aic3106 {
+      reg = <0x19>;
+};
+
 &dss {
 	pinctrl-names = "default";
 	pinctrl-0 = <&vout1_pins>;
