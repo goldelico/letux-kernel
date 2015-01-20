@@ -331,7 +331,7 @@ static int omap_rproc_start(struct rproc *rproc)
 	int ret;
 	struct mbox_client *client = &oproc->client;
 
-	if (pdata->set_bootaddr)
+	if (pdata->set_bootaddr && !rproc->late_attach)
 		pdata->set_bootaddr(rproc->bootaddr);
 
 	client->dev = dev;
@@ -367,10 +367,12 @@ static int omap_rproc_start(struct rproc *rproc)
 		goto put_mbox;
 	}
 
-	ret = pdata->device_enable(pdev);
-	if (ret) {
-		dev_err(dev, "omap_device_enable failed: %d\n", ret);
-		goto reset_timers;
+	if (!rproc->late_attach) {
+		ret = pdata->device_enable(pdev);
+		if (ret) {
+			dev_err(dev, "omap_device_enable failed: %d\n", ret);
+			goto reset_timers;
+		}
 	}
 
 	return 0;
@@ -526,6 +528,9 @@ static int omap_rproc_probe(struct platform_device *pdev)
 		rproc->late_attach = 1;
 	else
 		rproc->late_attach = 0;
+
+	if (rproc->late_attach)
+		set_dma_ops(&pdev->dev, &arm_dma_m_ops);
 
 	oproc = rproc->priv;
 	oproc->rproc = rproc;
