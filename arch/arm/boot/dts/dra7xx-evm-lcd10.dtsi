@@ -26,6 +26,25 @@
 			};
 		};
 	};
+
+	ldc3001:ldc3001@18 {
+		compatible = "lgphilips,ldc3001";
+		status = "okay";
+		reg = <0x18>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <15 IRQ_TYPE_LEVEL_HIGH>;
+		pinctrl-0 = <&tsc_pins>;
+		max-touch-points = <10>;
+		res-x = <1280>;
+		res-y = <800>;
+	};
+
+
+};
+
+/* audio codec i2c address moved to 0x19 for 10" display config */
+&tlv320aic3106 {
+      reg = <0x19>;
 };
 
 &dss {

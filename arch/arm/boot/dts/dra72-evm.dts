@@ -340,6 +340,12 @@
                 >;
         };
 
+	tsc_pins: pinmux_tsc_pins {
+		pinctrl-single,pins = <
+			0x3D4 (PIN_INPUT_PULLUP | MUX_MODE14) /* dcan1_rx -> gpio1_15 */
+		>;
+	};
+
 	qspi1_pins: pinmux_qspi1_pins {
 		pinctrl-single,pins = <
 			0x74 (PIN_OUTPUT | MUX_MODE1)	/* gpmc_a13.qspi1_rtclk */
