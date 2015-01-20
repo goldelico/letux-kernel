@@ -344,6 +344,10 @@ static int omap_rproc_start(struct rproc *rproc)
 	int ret;
 	struct mbox_client *client = &oproc->client;
 
+	/*
+	 * We set boot address irrespective of the value of the late attach flag
+	 * as boot address takes effect only on a deassert of remoteproc reset.
+	 */
 	if (pdata->set_bootaddr)
 		pdata->set_bootaddr(rproc->bootaddr);
 
@@ -380,10 +384,12 @@ static int omap_rproc_start(struct rproc *rproc)
 		goto put_mbox;
 	}
 
-	ret = pdata->device_enable(pdev);
-	if (ret) {
-		dev_err(dev, "omap_device_enable failed: %d\n", ret);
-		goto reset_timers;
+	if (!rproc->late_attach) {
+		ret = pdata->device_enable(pdev);
+		if (ret) {
+			dev_err(dev, "omap_device_enable failed: %d\n", ret);
+			goto reset_timers;
+		}
 	}
 
 	return 0;
@@ -411,6 +417,16 @@ static int omap_rproc_stop(struct rproc *rproc)
 	ret = omap_rproc_disable_timers(pdev, true);
 	if (ret)
 		return ret;
+
+	/*
+	 * During late attach, we use non-zeroing dma ops to prevent the kernel
+	 * from overwriting already loaded code and data segments. When
+	 * shutting down the processor, we restore the normal zeroing dma ops.
+	 * This allows the kernel to clear memory when loading a new remoteproc
+	 * binary or during error recovery with the current remoteproc binary.
+	 */
+	if (rproc->late_attach)
+		set_dma_ops(dev, &arm_dma_ops);
 
 	mbox_free_channel(oproc->mbox);
 
@@ -692,6 +708,7 @@ static int omap_rproc_probe(struct platform_device *pdev)
 	u32 standby_addr = 0;
 	int num_timers;
 	int ret;
+	struct property *prop;
 
 	if (!np) {
 		dev_err(&pdev->dev, "only DT-based devices are supported\n");
@@ -717,6 +734,21 @@ static int omap_rproc_probe(struct platform_device *pdev)
 			    firmware, sizeof(*oproc));
 	if (!rproc)
 		return -ENOMEM;
+
+	prop = of_find_property(np, "ti,late-attach", NULL);
+	if (prop) {
+		rproc->late_attach = 1;
+		set_dma_ops(&pdev->dev, &arm_dma_m_ops);
+		dev_dbg(&pdev->dev, "device will be late-attached\n");
+
+		/*
+		 * Clear the late attach property in device tree for
+		 * subsequent probes.
+		 */
+		ret = of_remove_property(np, prop);
+		if (ret)
+			dev_err(&pdev->dev, "Unable to remove late-attach property\n");
+	}
 
 	oproc = rproc->priv;
 	oproc->rproc = rproc;
@@ -802,6 +834,8 @@ static int omap_rproc_probe(struct platform_device *pdev)
 	return 0;
 
 free_rproc:
+	if (rproc->late_attach)
+		set_dma_ops(&pdev->dev, &arm_dma_ops);
 	rproc_put(rproc);
 	return ret;
 }

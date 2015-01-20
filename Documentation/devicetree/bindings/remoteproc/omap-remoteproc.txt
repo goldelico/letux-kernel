@@ -105,6 +105,25 @@ The following are the optional properties:
 			 remoteprocs, and should contain the address containing
 			 the module standby status.
 
+Required properties when doing "late attach":
+---------------------------------------------
+The following three properties are required to support "late attach" (external
+entity has already booted the remote processor prior to kernel boot) of a
+remote processor. These three properties should also be set on all the IOMMU
+and timer nodes used by the remote processor.
+
+- ti,late-attach:	Flag to Indicate that the remote processor has already
+			been configured by boot loader. This property is only
+			relevant for initial boot, so is removed by the driver
+			during the first probe.
+
+- ti,no-reset-on-init:	Flag to let the hwmod layer not reset the remoteproc
+			device at init.
+
+- ti,no-idle-on-init:	Flag to let the hwmod layer not idle and disable the
+			remoteproc device at init
+
+
 Example:
 --------
 
