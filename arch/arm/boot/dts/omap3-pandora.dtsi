@@ -12,7 +12,11 @@
  * common device tree include for OpenPandora
  */
 
-/* you must include some OMAP CPU before this */
+/* you must include some OMAP CPU before this
+	#include "omap34xx.dtsi"
+   or
+	#include "omap36xx.dtsi"
+*/
 
 / {
 	aliases {
