@@ -35,8 +35,9 @@
 		display1 = &tv0;
 	};
 
-	/* we have no compatible driver yet
-	 and parts of this should belong to the omap3.dtsi
+	/* there is no "compatible" DT driver yet
+	 see https://www.mail-archive.com/linux-media@vger.kernel.org/msg80048.html
+	 and parts of this should likely go to the omap3.dtsi
 	 so that we only have to define the endpoints
 	*/
 
@@ -928,7 +929,7 @@
 
 		filesystem@a80000 {
 			label = "File System";
-			reg = <0xa80000 0>;	/* 0 = MTDPART_SIZ_FULL */
+			reg = <0x880000 0>;	/* 0 = MTDPART_SIZ_FULL */
 		};
 	};
 };
