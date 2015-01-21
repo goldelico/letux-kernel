@@ -331,6 +331,8 @@
 };
 
 &i2c3 {
+	clock-frequency = <100000>;
+
 	bq27500@55 {
 		compatible = "ti,bq27500";
 		reg = <0x55>;
