@@ -883,7 +883,7 @@
 };
 
 &usb1 {
-	dr_mode = "otg";
+	dr_mode = "host";
 	pinctrl-names = "default";
 	pinctrl-0 = <&usb1_pins>;
 };
