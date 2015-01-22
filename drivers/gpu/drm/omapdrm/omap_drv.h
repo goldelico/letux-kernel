@@ -227,8 +227,12 @@ void omap_gem_deinit(struct drm_device *dev);
 
 struct drm_gem_object *omap_gem_new(struct drm_device *dev,
 		union omap_gem_size gsize, uint32_t flags);
+struct drm_gem_object *omap_gem_new_paddr(struct drm_device *dev,
+		union omap_gem_size gsize, uint32_t flags, uint32_t paddr);
 int omap_gem_new_handle(struct drm_device *dev, struct drm_file *file,
 		union omap_gem_size gsize, uint32_t flags, uint32_t *handle);
+int omap_gem_new_paddr_handle(struct drm_device *dev, struct drm_file *file,
+	union omap_gem_size gsize, uint32_t flags, uint32_t paddr, uint32_t *handle);
 void omap_gem_free_object(struct drm_gem_object *obj);
 void *omap_gem_vaddr(struct drm_gem_object *obj);
 int omap_gem_dumb_map_offset(struct drm_file *file, struct drm_device *dev,

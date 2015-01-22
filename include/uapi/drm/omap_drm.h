@@ -69,6 +69,14 @@ struct drm_omap_gem_new {
 	uint32_t __pad;
 };
 
+struct drm_omap_gem_new_paddr {
+	union omap_gem_size size;	/* in */
+	uint32_t flags;			/* in */
+	uint32_t handle;		/* out */
+	uint32_t paddr;			/* in*/
+	uint32_t __pad;
+};
+
 /* mask of operations: */
 enum omap_gem_op {
 	OMAP_GEM_READ = 0x01,
@@ -112,7 +120,8 @@ struct drm_omap_gem_info {
 #define DRM_OMAP_GEM_CPU_PREP		0x04
 #define DRM_OMAP_GEM_CPU_FINI		0x05
 #define DRM_OMAP_GEM_INFO		0x06
-#define DRM_OMAP_NUM_IOCTLS		0x07
+#define DRM_OMAP_GEM_NEW_PADDR		0x07
+#define DRM_OMAP_NUM_IOCTLS		0x08
 
 #define DRM_IOCTL_OMAP_GET_PARAM	DRM_IOWR(DRM_COMMAND_BASE + DRM_OMAP_GET_PARAM, struct drm_omap_param)
 #define DRM_IOCTL_OMAP_SET_PARAM	DRM_IOW (DRM_COMMAND_BASE + DRM_OMAP_SET_PARAM, struct drm_omap_param)
@@ -121,5 +130,6 @@ struct drm_omap_gem_info {
 #define DRM_IOCTL_OMAP_GEM_CPU_PREP	DRM_IOW (DRM_COMMAND_BASE + DRM_OMAP_GEM_CPU_PREP, struct drm_omap_gem_cpu_prep)
 #define DRM_IOCTL_OMAP_GEM_CPU_FINI	DRM_IOW (DRM_COMMAND_BASE + DRM_OMAP_GEM_CPU_FINI, struct drm_omap_gem_cpu_fini)
 #define DRM_IOCTL_OMAP_GEM_INFO		DRM_IOWR(DRM_COMMAND_BASE + DRM_OMAP_GEM_INFO, struct drm_omap_gem_info)
+#define DRM_IOCTL_OMAP_GEM_NEW_PADDR	DRM_IOWR(DRM_COMMAND_BASE + DRM_OMAP_GEM_NEW_PADDR, struct drm_omap_gem_new_paddr)
 
 #endif /* __OMAP_DRM_H__ */

@@ -1373,6 +1373,68 @@ int omap_gem_new_handle(struct drm_device *dev, struct drm_file *file,
 	return 0;
 }
 
+/* convenience method to construct a GEM buffer object, and userspace handle */
+int omap_gem_new_paddr_handle(struct drm_device *dev, struct drm_file *file,
+		union omap_gem_size gsize, uint32_t flags, uint32_t paddr, uint32_t *handle)
+{
+	struct drm_gem_object *obj;
+	int ret;
+
+	obj = omap_gem_new_paddr(dev, gsize, flags, paddr);
+	if (!obj)
+		return -ENOMEM;
+
+	ret = drm_gem_handle_create(file, obj, handle);
+	if (ret) {
+		drm_gem_object_release(obj);
+		kfree(obj); /* TODO isn't there a dtor to call? just copying i915 */
+		return ret;
+	}
+
+	/* drop reference from allocate - handle holds it now */
+	drm_gem_object_unreference_unlocked(obj);
+
+	return 0;
+}
+
+/* GEM buffer object constructor */
+struct drm_gem_object *omap_gem_new_paddr(struct drm_device *dev,
+		union omap_gem_size gsize, uint32_t flags, uint32_t paddr)
+{
+	struct omap_drm_private *priv = dev->dev_private;
+	struct omap_gem_object *omap_obj;
+	struct drm_gem_object *obj = NULL;
+	size_t size;
+
+	if (flags & OMAP_BO_TILED)
+		goto fail;
+
+	if (!paddr)
+		goto fail;
+
+	size = PAGE_ALIGN(gsize.bytes);
+	omap_obj = kzalloc(sizeof(*omap_obj), GFP_KERNEL);
+	if (!omap_obj) {
+		dev_err(dev->dev, "could not allocate GEM object\n");
+		goto fail;
+	}
+
+	list_add(&omap_obj->mm_list, &priv->obj_list);
+
+	obj = &omap_obj->base;
+	omap_obj->flags = flags | OMAP_BO_DMA;
+	omap_obj->paddr = paddr;
+
+	drm_gem_private_object_init(dev, obj, size);
+
+	return obj;
+
+fail:
+	if (obj)
+		omap_gem_free_object(obj);
+	return NULL;
+}
+
 /* GEM buffer object constructor */
 struct drm_gem_object *omap_gem_new(struct drm_device *dev,
 		union omap_gem_size gsize, uint32_t flags)

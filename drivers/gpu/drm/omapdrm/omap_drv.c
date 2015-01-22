@@ -404,6 +404,17 @@ static int ioctl_gem_new(struct drm_device *dev, void *data,
 			args->flags, &args->handle);
 }
 
+static int ioctl_gem_new_paddr(struct drm_device *dev, void *data,
+		struct drm_file *file_priv)
+{
+	struct drm_omap_gem_new_paddr *args = data;
+	VERB("%p:%p: size=0x%08x, flags=%08x, paddr=0x%08x", dev, file_priv,
+			args->size.bytes, args->flags, args->paddr);
+	return omap_gem_new_paddr_handle(dev, file_priv, args->size,
+			args->flags, args->paddr, &args->handle);
+}
+
+
 static int ioctl_gem_cpu_prep(struct drm_device *dev, void *data,
 		struct drm_file *file_priv)
 {
@@ -480,6 +491,7 @@ static struct drm_ioctl_desc ioctls[DRM_COMMAND_END - DRM_COMMAND_BASE] = {
 	DRM_IOCTL_DEF_DRV(OMAP_GEM_CPU_PREP, ioctl_gem_cpu_prep, DRM_UNLOCKED|DRM_AUTH|DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(OMAP_GEM_CPU_FINI, ioctl_gem_cpu_fini, DRM_UNLOCKED|DRM_AUTH|DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(OMAP_GEM_INFO, ioctl_gem_info, DRM_UNLOCKED|DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(OMAP_GEM_NEW_PADDR, ioctl_gem_new_paddr, DRM_UNLOCKED|DRM_AUTH),
 };
 
 /*
