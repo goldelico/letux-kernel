@@ -20,3 +20,7 @@
 	};
 
 };
+
+&twl_power {
+	compatible = "ti,twl4030-power-idle-osc-off";
+};
