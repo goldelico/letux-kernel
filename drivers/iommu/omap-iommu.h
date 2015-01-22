@@ -57,6 +57,8 @@ struct omap_iommu {
 
 	int has_bus_err_back;
 	u32 id;
+
+	u32 late_attach;
 };
 
 struct cr_regs {
