@@ -526,6 +526,8 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
+		/* u-boot uses mtdparts=nand:512k(xloader),1920k(uboot),128k(uboot-env),10m(boot),-(rootfs) */
+
 		x-loader@0 {
 			label = "xloader";
 			reg = <0 0x80000>;
@@ -543,12 +545,12 @@
 
 		kernel@280000 {
 			label = "boot";
-			reg = <0x280000 0x400000>;
+			reg = <0x280000 0xa00000>;
 		};
-// CHECKME!
+
 		filesystem@680000 {
 			label = "rootfs";
-			reg = <0x680000 0>;	/* 0 = MTDPART_SIZ_FULL */
+			reg = <0xc80000 0>;	/* 0 = MTDPART_SIZ_FULL */
 		};
 	};
 };
