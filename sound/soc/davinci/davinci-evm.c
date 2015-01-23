@@ -218,6 +218,12 @@ static int evm_aic3x_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_nc_pin(&codec->dapm, "HPLCOM");
 	snd_soc_dapm_nc_pin(&codec->dapm, "HPRCOM");
 
+	/* Minimize artifacts as much as possible if can be afforded */
+	if (of_find_property(np, "ti,always-on", NULL))
+		rtd->pmdown_time = INT_MAX;
+	else
+		rtd->pmdown_time = 0;
+
 	return 0;
 }
 

@@ -1288,6 +1288,24 @@ static struct davinci_mcasp_pdata *davinci_mcasp_set_pdata_from_of(
 		pdata->serial_dir = of_serial_dir;
 	}
 
+	if (pdata->version == MCASP_VERSION_4) {
+		for (i = 0; i < pdata->num_serializer; i++) {
+			if (pdata->serial_dir[i] == TX_MODE) {
+				pdata->tx_dma_offset =
+					DAVINCI_MCASP_TXBUF_REG(i);
+				break;
+			}
+		}
+
+		for (i = 0; i < pdata->num_serializer; i++) {
+			if (pdata->serial_dir[i] == RX_MODE) {
+				pdata->rx_dma_offset =
+					DAVINCI_MCASP_RXBUF_REG(i);
+				break;
+			}
+		}
+	}
+
 	ret = of_property_match_string(np, "dma-names", "tx");
 	if (ret < 0)
 		goto nodata;

@@ -22,7 +22,7 @@
 #define DRA7_DPLL_DSP_GFCLK_NOMFREQ			600000000
 #define DRA7_DPLL_EVE_GCLK_NOMFREQ			400000000
 
-#define DRA7_ATL_DEFFREQ				5644800
+#define DRA7_ATL_DEFFREQ				11289600
 
 static struct ti_dt_clk dra7xx_clks[] = {
 	DT_CLK(NULL, "atl_clkin0_ck", "atl_clkin0_ck"),
