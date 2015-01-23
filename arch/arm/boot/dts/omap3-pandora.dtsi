@@ -18,6 +18,8 @@
 	#include "omap36xx.dtsi"
 */
 
+#include <dt-bindings/input/input.h>
+
 / {
 	aliases {
 		display0 = &lcd;
@@ -136,30 +138,107 @@
 		compatible = "gpio-keys";
 
 		up-button {
-			label = "btn up";
-			linux,code = <169>;	// KEY_UP
+			label = "up";
+			linux,code = <KEY_UP>;
 			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 110
 			gpio-key,wakeup;
 		};
-/*
-	GPIO_BUTTON_LOW(110,	KEY_UP,		"up"),
-	GPIO_BUTTON_LOW(103,	KEY_DOWN,	"down"),
-	GPIO_BUTTON_LOW(96,	KEY_LEFT,	"left"),
-	GPIO_BUTTON_LOW(98,	KEY_RIGHT,	"right"),
-	GPIO_BUTTON_LOW(109,	KEY_PAGEUP,	"game 1"),
-	GPIO_BUTTON_LOW(111,	KEY_END,	"game 2"),
-	GPIO_BUTTON_LOW(106,	KEY_PAGEDOWN,	"game 3"),
-	GPIO_BUTTON_LOW(101,	KEY_HOME,	"game 4"),
-	GPIO_BUTTON_LOW(102,	KEY_RIGHTSHIFT,	"l"),
-	GPIO_BUTTON_LOW(97,	KEY_KPPLUS,	"l2"),
-	GPIO_BUTTON_LOW(105,	KEY_RIGHTCTRL,	"r"),
-	GPIO_BUTTON_LOW(107,	KEY_KPMINUS,	"r2"),
-	GPIO_BUTTON_LOW(104,	KEY_LEFTCTRL,	"ctrl"),
-	GPIO_BUTTON_LOW(99,	KEY_MENU,	"menu"),
-	GPIO_BUTTON_LOW(176,	KEY_COFFEE,	"hold"),
-	GPIO_BUTTON(100, EV_KEY, KEY_LEFTALT, 0, "alt"),
-	GPIO_BUTTON(108, EV_SW, SW_LID, 1, "lid"),
-*/
+		down-button {
+			label = "down";
+			linux,code = <KEY_DOWN>;
+			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 103
+			gpio-key,wakeup;
+		};
+		left-button {
+			label = "left";
+			linux,code = <KEY_LEFT>;
+			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 96
+			gpio-key,wakeup;
+		};
+		right-button {
+			label = "right";
+			linux,code = <KEY_RIGHT>;
+			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 98
+			gpio-key,wakeup;
+		};
+		pageup-button {
+			label = "game 1";
+			linux,code = <KEY_PAGEUP>;
+			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 109
+			gpio-key,wakeup;
+		};
+		pagedown-button {
+			label = "game 3";
+			linux,code = <KEY_PAGEDOWN>;
+			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 106
+			gpio-key,wakeup;
+		};
+		home-button {
+			label = "game 4";
+			linux,code = <KEY_HOME>;
+			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 101
+			gpio-key,wakeup;
+		};
+		end-button {
+			label = "game 2";
+			linux,code = <KEY_END>;
+			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 111
+			gpio-key,wakeup;
+		};
+		right-shift {
+			label = "l";
+			linux,code = <KEY_RIGHTSHIFT>;
+			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 102
+			gpio-key,wakeup;
+		};
+		kp-plus {
+			label = "l2";
+			linux,code = <KEY_KPPLUS>;
+			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 97
+			gpio-key,wakeup;
+		};
+		right-ctrl {
+			label = "r";
+			linux,code = <KEY_RIGHTCTRL>;
+			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 105
+			gpio-key,wakeup;
+		};
+		kp-minus {
+			label = "r2";
+			linux,code = <KEY_KPMINUS>;
+			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 107
+			gpio-key,wakeup;
+		};
+		left-ctrl {
+			label = "ctrl";
+			linux,code = <KEY_LEFTCTRL>;
+			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 104
+			gpio-key,wakeup;
+		};
+		menu {
+			label = "menu";
+			linux,code = <KEY_MENU>;
+			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 99
+			gpio-key,wakeup;
+		};
+		hold {
+			label = "hold";
+			linux,code = <KEY_COFFEE>;
+			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 176
+			gpio-key,wakeup;
+		};
+		left-alt {
+			label = "alt";
+			linux,code = <KEY_LEFTALT>;
+			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 100
+			gpio-key,wakeup;
+		};
+		lid { /* should send EV_SW (switch event) and not EV_KEY! */
+			label = "lid";
+			linux,code = <0>;   // 0 = SW_LID
+			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 108
+			gpio-key,wakeup;
+		};
 	};
 
 	hsusb2_phy: hsusb2_phy {
