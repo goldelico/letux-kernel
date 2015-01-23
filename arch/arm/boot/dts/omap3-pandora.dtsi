@@ -365,12 +365,8 @@
 	keypad,num-rows = <8>;
 	keypad,num-columns = <6>;
 	linux,keymap = <
-	/* The 32-bit big endian cell is packed as: row << 24 | column << 16 | key-code */
-
-	/* unfortunately there are no macros for Linux KEY codes... */
-
-			0x00030012
-			0x0102003a
+		MATRIX_KEY(1, 1, KEY_A)
+		MATRIX_KEY(2, 2, KEY_B)
 	 >;
 };
 
