@@ -471,13 +471,18 @@
 			label = "boot";
 			reg = <0x280000 0x400000>;
 		};
-
+// CHECKME!
 		filesystem@680000 {
 			label = "rootfs";
-			reg = <0x680000 0xf980000>;
+			reg = <0x680000 0>;	/* 0 = MTDPART_SIZ_FULL */
 		};
 	};
 };
+
+&mcspi1 {
+	// panel SPI
+	// touch screen tsc2046
+}
 
 &mcbsp1 {
 };
