@@ -332,6 +332,8 @@
 };
 
 &i2c2 {
+	clock-frequency = <100000>;
+	/* no clients so we should disable clock */
 };
 
 &i2c3 {
@@ -341,6 +343,11 @@
 		compatible = "ti,bq27500";
 		reg = <0x55>;
 	};
+
+	/*
+	 * 2 nubs
+	 * mma7455
+	 */
 };
 
 &usb_otg_hs {
