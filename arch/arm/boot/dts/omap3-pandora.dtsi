@@ -556,7 +556,7 @@
 &mcspi1 {
 	// panel SPI
 	// touch screen tsc2046
-}
+};
 
 &mcbsp1 {
 };
