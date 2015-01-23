@@ -8,4 +8,5 @@ ti_config_fragments/power.cfg \
 ti_config_fragments/connectivity.cfg \
 ti_config_fragments/ipc.cfg \
 ti_config_fragments/audio_display.cfg \
+ti_config_fragments/radio.cfg \
 ti_config_fragments/wlan.cfg \
