@@ -17,7 +17,7 @@
 / {
 	aliases {
 		display0 = &lcd;
-		display1 = &tv;
+	// makes problems with omapfb and X11	display1 = &tv;
 	};
 
 	lcd: lcd {
@@ -69,31 +69,61 @@
 	gpio-leds { // should be defined in omap5-uevm.dts!
 
 		compatible = "gpio-leds";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&led_pins>;
+
+		led@backlight {
+			label = "pandora::backlight";
+			gpios = <&twl_gpio 6 GPIO_ACTIVE_HIGH>; /* LED.6 */
+			linux,default-trigger = "heartbeat";
+			default-state = "on";
+		};
+
+		led@charger {
+			label = "pandora::charger";
+			gpios = <&twl_gpio 7 GPIO_ACTIVE_HIGH>; /* LED.7 */
+			linux,default-trigger = "heartbeat";
+			default-state = "on";
+		};
+
+		led@keypad {
+			label = "pandora::keypad";
+			gpios = <&twl_gpio 18 GPIO_ACTIVE_HIGH>; /* LEDA */
+		};
+
+		led@power {
+			label = "pandora::power";
+			gpios = <&twl_gpio 19 GPIO_ACTIVE_HIGH>; /* LEDB */
+			linux,default-trigger = "heartbeat";
+			default-state = "on";
+		};
+
 		led@1 {
 			label = "pandora::sd1";
-			gpios = <&gpio5 0 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "mmc0";
+			gpios = <&gpio5 0 GPIO_ACTIVE_HIGH>;	/* GPIO_128 */
+			linux,default-trigger = "heartbeat";
 			default-state = "off";
 		};
 
 		led@2 {
 			label = "pandora::sd2";
 			gpios = <&gpio5 1 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "mmc1";
+			linux,default-trigger = "heartbeat";		/* GPIO_129 */
 			default-state = "off";
 		};
 
 		led@3 {
 			label = "pandora::bluetooth";
 			gpios = <&gpio5 30 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "heartbeat";
+			linux,default-trigger = "heartbeat";	/* GPIO_158 */
 			default-state = "off";
 		};
 
 		led@4 {
 			label = "pandora::wifi";
-			gpios = <&gpio5 31 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "cpu0";
+			gpios = <&gpio5 31 GPIO_ACTIVE_HIGH>;	/* GPIO_159 */
+			linux,default-trigger = "heartbeat";
 			default-state = "off";
 		};
 	};
@@ -167,8 +197,6 @@
 		>;
 	};
 
-/* add missing pinmuxes */
-
 	dss_dpi_pins: pinmux_dss_dpi_pins {
 		pinctrl-single,pins = <
 			0x0a4 (PIN_OUTPUT | MUX_MODE0) /* dss_pclk.dss_pclk */
@@ -199,6 +227,7 @@
 			0x0d6 (PIN_OUTPUT | MUX_MODE0) /* dss_data21.dss_data21 */
 			0x0d8 (PIN_OUTPUT | MUX_MODE0) /* dss_data22.dss_data22 */
 			0x0da (PIN_OUTPUT | MUX_MODE0) /* dss_data23.dss_data23 */
+// make lcd_reset = GPIO157 an output */
 		>;
 	};
 
@@ -206,6 +235,15 @@
 		pinctrl-single,pins = <
 			0x16e (PIN_INPUT | PIN_OFF_WAKEUPENABLE | MUX_MODE0) /* uart3_rx_irrx.uart3_rx_irrx */
 			0x170 (PIN_OUTPUT | MUX_MODE0) /* uart3_tx_irtx.uart3_tx_irtx */
+		>;
+	};
+
+	led_pins: pinmux_leds_pins {
+		pinctrl-single,pins = <
+			OMAP3_CORE1_IOPAD(0x2154, PIN_OUTPUT | MUX_MODE4)	/* gpio_128 */
+			OMAP3_CORE1_IOPAD(0x2156, PIN_OUTPUT | MUX_MODE4)	/* gpio_129 */
+			OMAP3_CORE1_IOPAD(0x2190, PIN_OUTPUT | MUX_MODE4)	/* gpio_158 */
+			OMAP3_CORE1_IOPAD(0x2192, PIN_OUTPUT | MUX_MODE4)	/* gpio_159 */
 		>;
 	};
 
@@ -228,8 +266,6 @@
 		};
 		twl_audio: audio {
 			compatible = "ti,twl4030-audio";
-
-			ti,enable-vibra = <1>;
 
 			codec {
 				ti,ramp_delay_value = <3>;
