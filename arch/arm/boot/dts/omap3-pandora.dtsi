@@ -569,7 +569,7 @@
 	nand@0,0 {
 		reg = <0 0 0>; /* CS0, offset 0 */
 		nand-bus-width = <16>;
-		ti,nand-ecc-opt = "bch8";
+		ti,nand-ecc-opt = "sw";	/* stay compatible with older u-boot (does not support bch8) */
 		/* ti,nand-xfer-type = "polled"; */
 		/* ti,elm-id = <&elm> */
 
