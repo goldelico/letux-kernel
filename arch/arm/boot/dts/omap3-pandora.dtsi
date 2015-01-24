@@ -622,8 +622,28 @@
 };
 
 &mcspi1 {
+
+	tsc2046@0 {
+		reg = <0>;	/* CS0 */
+		compatible = "ti,tsc2046";
+		interrupt-parent = <&gpio3>;
+		interrupts = <30 0>;	/* gpio_94 */
+		spi-max-frequency = <1000000>;
+		pendown-gpio = <&gpio3 30 0>;
+		vcc-supply = <&vaux4>;
+
+		ti,x-min = /bits/ 16 <0>;
+		ti,x-max = /bits/ 16 <8000>;
+		ti,y-min = /bits/ 16 <0>;
+		ti,y-max = /bits/ 16 <4800>;
+		ti,x-plate-ohms = /bits/ 16 <40>;
+		ti,pressure-max = /bits/ 16 <255>;
+
+		linux,wakeup;
+	};
+
 	// panel SPI
-	// touch screen tsc2046
+
 };
 
 &mcbsp1 {
