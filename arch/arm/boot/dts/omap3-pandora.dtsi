@@ -145,97 +145,97 @@
 		down-button {
 			label = "down";
 			linux,code = <KEY_DOWN>;
-			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 103
+			gpios = <&gpio4 7 GPIO_ACTIVE_HIGH>;	// GPIO 103
 			gpio-key,wakeup;
 		};
 		left-button {
 			label = "left";
 			linux,code = <KEY_LEFT>;
-			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 96
+			gpios = <&gpio4 0 GPIO_ACTIVE_HIGH>;	// GPIO 96
 			gpio-key,wakeup;
 		};
 		right-button {
 			label = "right";
 			linux,code = <KEY_RIGHT>;
-			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 98
+			gpios = <&gpio4 2 GPIO_ACTIVE_HIGH>;	// GPIO 98
 			gpio-key,wakeup;
 		};
 		pageup-button {
 			label = "game 1";
 			linux,code = <KEY_PAGEUP>;
-			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 109
+			gpios = <&gpio4 13 GPIO_ACTIVE_HIGH>;	// GPIO 109
 			gpio-key,wakeup;
 		};
 		pagedown-button {
 			label = "game 3";
 			linux,code = <KEY_PAGEDOWN>;
-			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 106
+			gpios = <&gpio4 10 GPIO_ACTIVE_HIGH>;	// GPIO 106
 			gpio-key,wakeup;
 		};
 		home-button {
 			label = "game 4";
 			linux,code = <KEY_HOME>;
-			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 101
+			gpios = <&gpio4 5 GPIO_ACTIVE_HIGH>;	// GPIO 101
 			gpio-key,wakeup;
 		};
 		end-button {
 			label = "game 2";
 			linux,code = <KEY_END>;
-			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 111
+			gpios = <&gpio4 15 GPIO_ACTIVE_HIGH>;	// GPIO 111
 			gpio-key,wakeup;
 		};
 		right-shift {
 			label = "l";
 			linux,code = <KEY_RIGHTSHIFT>;
-			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 102
+			gpios = <&gpio4 6 GPIO_ACTIVE_HIGH>;	// GPIO 102
 			gpio-key,wakeup;
 		};
 		kp-plus {
 			label = "l2";
 			linux,code = <KEY_KPPLUS>;
-			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 97
+			gpios = <&gpio4 1 GPIO_ACTIVE_HIGH>;	// GPIO 97
 			gpio-key,wakeup;
 		};
 		right-ctrl {
 			label = "r";
 			linux,code = <KEY_RIGHTCTRL>;
-			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 105
+			gpios = <&gpio4 9 GPIO_ACTIVE_HIGH>;	// GPIO 105
 			gpio-key,wakeup;
 		};
 		kp-minus {
 			label = "r2";
 			linux,code = <KEY_KPMINUS>;
-			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 107
+			gpios = <&gpio4 11 GPIO_ACTIVE_HIGH>;	// GPIO 107
 			gpio-key,wakeup;
 		};
 		left-ctrl {
 			label = "ctrl";
 			linux,code = <KEY_LEFTCTRL>;
-			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 104
+			gpios = <&gpio4 8 GPIO_ACTIVE_HIGH>;	// GPIO 104
 			gpio-key,wakeup;
 		};
 		menu {
 			label = "menu";
 			linux,code = <KEY_MENU>;
-			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 99
+			gpios = <&gpio4 3 GPIO_ACTIVE_HIGH>;	// GPIO 99
 			gpio-key,wakeup;
 		};
 		hold {
 			label = "hold";
 			linux,code = <KEY_COFFEE>;
-			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 176
+			gpios = <&gpio6 16 GPIO_ACTIVE_HIGH>;	// GPIO 176
 			gpio-key,wakeup;
 		};
 		left-alt {
 			label = "alt";
 			linux,code = <KEY_LEFTALT>;
-			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 100
+			gpios = <&gpio4 4 GPIO_ACTIVE_HIGH>;	// GPIO 100
 			gpio-key,wakeup;
 		};
 		lid { /* should send EV_SW (switch event) and not EV_KEY! */
 			label = "lid";
 			linux,code = <0>;   // 0 = SW_LID
-			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 108
+			gpios = <&gpio4 12 GPIO_ACTIVE_HIGH>;	// GPIO 108
 			gpio-key,wakeup;
 		};
 	};
