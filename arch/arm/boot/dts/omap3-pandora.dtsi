@@ -25,41 +25,6 @@
 	// makes problems with omapfb and X11	display1 = &tv;
 	};
 
-	lcd: lcd {
-// CHECKME: does this panel have SPI?
-// then we have to connect it like the panel of the GTA04
-		compatible =	"panel-tpo-td043mtea1",
-				"panel-dpi";
-		label = "lcd";
-		enable-gpios = <&gpio5 29 0>;	// gpio 157
-		vcc-supply = <&vaux1>;
-		panel-timing {
-			clock-frequency = <37500000>;
-
-			hback-porch = <10>;
-			hactive = <640>;
-			hfront-porch = <8>;
-			hsync-len = <10>;
-
-			vback-porch = <4>;
-			vactive = <480>;
-			vfront-porch = <4>;
-			vsync-len = <3>;
-
-			hsync-active = <0>;
-			vsync-active = <0>;
-			de-active = <1>;
-			pixelclk-active = <1>;
-
-		};
-
-		port {
-			lcd_in: endpoint {
-				remote-endpoint = <&dpi_out>;
-			};
-		};
-	};
-
 	tv: connector@1 {
 		compatible = "connector-analog-tv";
 		label = "tv";
@@ -312,7 +277,7 @@
 			0x0d6 (PIN_OUTPUT | MUX_MODE0) /* dss_data21.dss_data21 */
 			0x0d8 (PIN_OUTPUT | MUX_MODE0) /* dss_data22.dss_data22 */
 			0x0da (PIN_OUTPUT | MUX_MODE0) /* dss_data23.dss_data23 */
-// make lcd_reset = GPIO157 an output */
+			OMAP3_CORE1_IOPAD(0x218e, PIN_OUTPUT | MUX_MODE4)	/* gpio_157 = lcd reset */
 		>;
 	};
 
@@ -642,7 +607,40 @@
 		linux,wakeup;
 	};
 
-	// panel SPI
+	lcd: lcd@1 {
+		reg = <0>;	/* CS1 */
+		compatible =	"toppoly,td043mtea1",
+				"panel-dpi";
+		label = "lcd";
+		enable-gpios = <&gpio5 29 0>;	// gpio 157
+		vcc-supply = <&vaux1>;
+		panel-timing {
+			clock-frequency = <37500000>;
+
+			hback-porch = <10>;
+			hactive = <640>;
+			hfront-porch = <8>;
+			hsync-len = <10>;
+
+			vback-porch = <4>;
+			vactive = <480>;
+			vfront-porch = <4>;
+			vsync-len = <3>;
+
+			hsync-active = <0>;
+			vsync-active = <0>;
+			de-active = <1>;
+			pixelclk-active = <1>;
+
+		};
+
+		port {
+			lcd_in: endpoint {
+				remote-endpoint = <&dpi_out>;
+			};
+		};
+	};
+
 
 };
 
