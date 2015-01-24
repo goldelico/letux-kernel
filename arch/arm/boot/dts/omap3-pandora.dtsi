@@ -319,6 +319,13 @@
 		>;
 	};
 
+	penirq_pins: pinmux_penirq_pins {
+		pinctrl-single,pins = <
+			/* here we could enable to wakeup the cpu from suspend by a pen touch */
+			OMAP3_CORE1_IOPAD(0x210c, PIN_INPUT_PULLUP | MUX_MODE4) /* gpio_94 */
+		>;
+	};
+
 };
 
 &omap3_pmx_core2 {
@@ -591,6 +598,8 @@
 	tsc2046@0 {
 		reg = <0>;	/* CS0 */
 		compatible = "ti,tsc2046";
+		pinctrl-names = "default";
+		pinctrl-0 = <&penirq_pins>;
 		interrupt-parent = <&gpio3>;
 		interrupts = <30 0>;	/* gpio_94 */
 		spi-max-frequency = <1000000>;
