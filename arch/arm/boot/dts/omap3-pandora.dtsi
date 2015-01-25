@@ -210,7 +210,12 @@
 
 	hsusb2_phy: hsusb2_phy {
 		compatible = "usb-nop-xceiv";
-		reset-gpios = <&gpio1 16 GPIO_ACTIVE_LOW>; /* gpio_16 = reset for USB3322 */
+		/* gpio_16 = reset for USB3322
+		 * gpio_163 = !OC_USB5 (over current input)
+		 * gpio_164 = EN_USB_5V
+		*/
+		reset-gpios = <	&gpio1 16 GPIO_ACTIVE_LOW
+				&gpio5 4 GPIO_ACTIVE_LOW>;
 		vcc-supply = <&vaux2>;
 	};
 
