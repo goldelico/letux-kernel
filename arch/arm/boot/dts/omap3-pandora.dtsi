@@ -247,6 +247,21 @@
 		>;
 	};
 
+	mmc2_pins: pinmux_mmc2_pins {
+		pinctrl-single,pins = <
+			OMAP3_CORE1_IOPAD(0x2158, PIN_INPUT_PULLUP | MUX_MODE0)	/* sdmmc2_clk.sdmmc2_clk */
+			OMAP3_CORE1_IOPAD(0x215a, PIN_INPUT_PULLUP | MUX_MODE0)	/* sdmmc2_cmd.sdmmc2_cmd */
+			OMAP3_CORE1_IOPAD(0x215c, PIN_INPUT_PULLUP | MUX_MODE0)	/* sdmmc2_dat0.sdmmc2_dat0 */
+			OMAP3_CORE1_IOPAD(0x215e, PIN_INPUT_PULLUP | MUX_MODE0)	/* sdmmc2_dat1.sdmmc2_dat1 */
+			OMAP3_CORE1_IOPAD(0x2160, PIN_INPUT_PULLUP | MUX_MODE0)	/* sdmmc2_dat2.sdmmc2_dat2 */
+			OMAP3_CORE1_IOPAD(0x2162, PIN_INPUT_PULLUP | MUX_MODE0)	/* sdmmc2_dat3.sdmmc2_dat3 */
+			OMAP3_CORE1_IOPAD(0x2164, PIN_OUTPUT_PULLUP | MUX_MODE1)	/* sdmmc2_dat4.sdmmc2_dirdat0 */
+			OMAP3_CORE1_IOPAD(0x2166, PIN_OUTPUT_PULLUP | MUX_MODE1)	/* sdmmc2_dat5.sdmmc2_dirdat1 */
+			OMAP3_CORE1_IOPAD(0x2168, PIN_OUTPUT_PULLUP | MUX_MODE1)	/* sdmmc2_dat6.sdmmc2_dircmd */
+			OMAP3_CORE1_IOPAD(0x216a, PIN_INPUT_PULLUP | MUX_MODE1)		/* sdmmc2_dat7.sdmmc2_clkin */
+		>;
+	};
+
 	dss_dpi_pins: pinmux_dss_dpi_pins {
 		pinctrl-single,pins = <
 			0x0a4 (PIN_OUTPUT | MUX_MODE0) /* dss_pclk.dss_pclk */
@@ -329,6 +344,9 @@
 };
 
 &omap3_pmx_core2 {
+	/* define in CPU specific file that includes this one
+	 * use either OMAP3430_CORE2_IOPAD() or OMAP3630_CORE2_IOPAD()
+	 */
 };
 
 &i2c1 {
