@@ -499,25 +499,30 @@
 	pinctrl-0 = <&mmc1_pins>;
 	vmmc-supply = <&vmmc1>;
 	bus-width = <4>;
-// WP-GPIO = 126
+// if enabled, tje rootfs is not mounted/found
+//	cd-gpios = <&twl_gpio 0 GPIO_ACTIVE_LOW>;
+	wp-gpios = <&gpio4 30 GPIO_ACTIVE_LOW>;	// gpio_126
 };
 
 &mmc2 {
 	pinctrl-names = "default";
-//	pinctrl-0 = <&mmc1_pins>;
-	vmmc-supply = <&vmmc2>;
+	pinctrl-0 = <&mmc2_pins>;
+	vmmc-supply = <&vmmc2>;	// hm. does not become enabled
 	bus-width = <4>;
-// WP-GPIO = 127
-// transceiver?
+	cd-gpios = <&twl_gpio 1 GPIO_ACTIVE_HIGH>;	// no reaction?
+	wp-gpios = <&gpio4 31 GPIO_ACTIVE_LOW>;	// gpio_127
 };
 
 &mmc3 {
 	pinctrl-names = "default";
-//	pinctrl-0 = <&mmc1_pins>;
-//	vmmc-supply = <&vmmc1>;	// control nreset gpio (23)
+	pinctrl-0 = <&mmc3_pins>;
+//	vmmc-supply = <&vmmc1>;
 	bus-width = <4>;
+        non-removable;
 	ti,non-removable;
-// MMC_CAP_POWER_OFF_CARD
+	cap-power-off-card;
+	reset-gpios = <&gpio1 23 GPIO_ACTIVE_LOW>;	/* gpio_23 = reset means remove enable */
+// interrupt = gpio_21
 };
 
 &uart1 {
