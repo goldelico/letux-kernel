@@ -525,13 +525,14 @@
 // interrupt = gpio_21
 };
 
-&uart1 {
+&uart1 { // bluetooth
 };
 
-&uart2 {
+&uart2 { // spare (expansion connector)
+	// bt-shutdown = gpio1_15
 };
 
-&uart3 {
+&uart3 { // console (expansion connector)
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart3_pins>;
 	interrupts-extended = <&intc 74 &omap3_pmx_core OMAP3_UART3_RX>;
