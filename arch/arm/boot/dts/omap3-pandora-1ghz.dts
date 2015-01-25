@@ -14,7 +14,7 @@
 /dts-v1/;
 
 #include "omap36xx.dtsi"
-#include "omap3-pandora.dtsi"
+#include "omap3-pandora-common.dtsi"
 
 / {
 	model = "Pandora Handheld Console 1GHz";
