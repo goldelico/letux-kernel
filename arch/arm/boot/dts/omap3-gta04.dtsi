@@ -49,6 +49,32 @@
 		ti,codec = <&twl_audio>;
 	};
 
+	battery {
+		compatible = "ti,twl4030-madc-battery";
+		capacity-uah = <1200000>;
+		volt-to-capacity-charging-map = <4200 100>,
+					     <4100 75>,
+					     <4000 55>,
+					     <3900 25>,
+					     <3800 5>,
+					     <3700 2>,
+					     <3600 1>,
+					     <3300 0>;
+		volt-to-capacity-discharging-map = <4200 100>,
+						<4100 95>,
+						<4000 70>,
+						<3800 50>,
+						<3700 10>,
+						<3600 5>,
+						<3300 0>;
+		io-channels = <&twl_madc 1>,
+	                      <&twl_madc 10>,
+			      <&twl_madc 12>;
+		io-channel-names = "temp",
+		                   "ichg",
+		                   "vbat";
+	};
+
 	spi_lcd {
 		compatible = "spi-gpio";
 		#address-cells = <0x1>;
@@ -448,4 +474,8 @@
 			reg = <0x680000 0xf980000>;
 		};
 	};
+};
+
+&twl_madc {
+	ti,system-uses-second-madc-irq;
 };
