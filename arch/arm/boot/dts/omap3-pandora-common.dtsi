@@ -647,31 +647,14 @@
 
 	lcd: lcd@1 {
 		reg = <1>;	/* CS1 */
-		compatible =	"toppoly,td043mtea1",
-				"panel-dpi";
-		spi-max-frequency = <1000000>;
+		compatible =	"omapdss,tpo,td043mtea1";
+		spi-max-frequency = <100000>;
+		spi-cpol;
+		spi-cpha;
+
 		label = "lcd";
-		enable-gpios = <&gpio5 29 0>;	// gpio 157
+		reset-gpios = <&gpio5 29 GPIO_ACTIVE_LOW>;	// gpio 157
 		vcc-supply = <&vaux1>;
-		panel-timing {
-			clock-frequency = <37500000>;
-
-			hback-porch = <10>;
-			hactive = <640>;
-			hfront-porch = <8>;
-			hsync-len = <10>;
-
-			vback-porch = <4>;
-			vactive = <480>;
-			vfront-porch = <4>;
-			vsync-len = <3>;
-
-			hsync-active = <0>;
-			vsync-active = <0>;
-			de-active = <1>;
-			pixelclk-active = <1>;
-
-		};
 
 		port {
 			lcd_in: endpoint {
