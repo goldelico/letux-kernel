@@ -597,24 +597,11 @@ static int dev_unload(struct drm_device *dev)
 static int dev_open(struct drm_device *dev, struct drm_file *file)
 {
 	struct omap_drm_plugin *plugin;
-	bool found_pvr = false;
 	int ret;
 
 	file->driver_priv = kzalloc(sizeof(void *) * MAX_MAPPERS, GFP_KERNEL);
 
 	DBG("open: dev=%p, file=%p", dev, file);
-
-	list_for_each_entry(plugin, &plugin_list, list) {
-		if (!strcmp(DRIVER_NAME "_pvr", plugin->name)) {
-			found_pvr = true;
-			break;
-		}
-	}
-
-	if (!found_pvr) {
-		DBG("open: PVR submodule not loaded.. let's try now");
-		request_module(DRIVER_NAME "_pvr");
-	}
 
 	list_for_each_entry(plugin, &plugin_list, list) {
 		ret = plugin->open(dev, file);
