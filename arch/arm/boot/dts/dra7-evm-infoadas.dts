@@ -1,0 +1,47 @@
+/*
+ * Copyright (C) 2013 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+#include "dra7-evm-vision.dts"
+
+
+&dra7_pmx_core {
+
+	pinctrl-0 = <&vtt_pin &vin1a_pins &vin2a_pins &vin3a_pins &vin5a_pins &vin6a_pins &qspi1_pins>;
+};
+
+/delete-node/ &wdt2;
+
+&vip1 {
+	status = "disabled";
+};
+
+&vip2 {
+	status = "disabled";
+};
+
+&vip3 {
+	status = "disabled";
+};
+
+/delete-node/ &vpe;
+
+&ipu2_cma_pool {
+	reg = <0x95800000 0x3800000>;
+};
+
+&dsp1_cma_pool {
+	reg = <0x99000000 0x4000000>;
+};
+
+&ipu1_cma_pool {
+	reg = <0x9d000000 0x2000000>;
+};
+
+&dsp2_cma_pool {
+	reg = <0x9f000000 0x1000000>;
+};
+
