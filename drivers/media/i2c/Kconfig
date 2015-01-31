@@ -313,6 +313,17 @@ config VIDEO_TVP5150
 	  To compile this driver as a module, choose M here: the
 	  module will be called tvp5150.
 
+config VIDEO_TVP5158
+	tristate "Analog video decoder TVP5158 support NTSC/PAL"
+	depends on I2C && VIDEO_V4L2
+	depends on MEDIA_CAMERA_SUPPORT
+	---help---
+	This is a Video4Linux2 subdevice driver for the TVP5158
+	NTSC/PAL video decoder.
+
+	To compile this driver as a module, choose M here: the
+	module will be called tvp5158.
+
 config VIDEO_TVP7002
 	tristate "Texas Instruments TVP7002 video decoder"
 	depends on VIDEO_V4L2 && I2C
