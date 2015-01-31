@@ -1,0 +1,34 @@
+* Texas Instruments TVP5158 video decoder
+
+The TVP5158 device is high quality, single-chip
+digital video decoder that digitizes and decodes all popular baseband analog
+video formats into digital video component. The tvp5158 decoder supports
+decoding of NTSC, PAL and SECAM composite and S-video.
+
+TVP5158 generates output in BT656 format with embedded sync.
+
+Required Properties :
+- compatible : Must be "ti,tvp5158"
+
+Optional Properties :
+  There are no custom optional properties although the driver supports
+  standard endpoint properties as documented in
+  Documentation/devicetree/bindings/media/video-interfaces.txt
+
+Example:
+
+	&i2c2 {
+		...
+		...
+		tvp5158@5c {
+			compatible = "ti,tvp5158";
+			reg = <0x58>;
+
+			port {
+				tvp_decoder: endpoint {
+					/* No properties for BT 656 */
+				};
+			};
+		};
+		...
+	};
