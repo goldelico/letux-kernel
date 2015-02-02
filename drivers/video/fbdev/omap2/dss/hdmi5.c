@@ -304,9 +304,9 @@ static void hdmi_power_off_full(struct omap_dss_device *dssdev)
 
 	hdmi_wp_clear_irqenable(&hdmi.wp, 0xffffffff);
 
-	dss_mgr_disable(mgr);
-
 	hdmi_wp_video_stop(&hdmi.wp);
+
+	dss_mgr_disable(mgr);
 
 	hdmi_wp_set_phy_pwr(&hdmi.wp, HDMI_PHYPWRCMD_OFF);
 
