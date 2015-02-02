@@ -243,6 +243,7 @@ dtb-$(CONFIG_ARCH_OMAP2PLUS) += omap2420-h4.dtb \
 	dra7-evm-lcd7.dtb \
 	dra7-evm-lcd10.dtb \
 	dra7-evm-jamr3.dtb \
+	dra72-evm-jamr3.dtb \
 	dra72-evm.dtb \
 	dra72-evm-lcd7.dtb \
 	dra72-evm-lcd10.dtb \
