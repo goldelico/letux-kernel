@@ -53,6 +53,13 @@
 			reusable;
 			status = "okay";
 		};
+
+		/* Required by cmem driver used by radio */
+		cmem_radio: cmem@95400000 {
+			reg = <0x95400000 0x400000>;
+			no-map;
+			status = "okay";
+		};
 	};
 
 	extcon1: dra7x_usbid_extcon1 {
@@ -132,7 +139,7 @@
 	};
 
 	hdmi0: connector@1 {
-		compatible = "omapdss,hdmi-connector";
+		compatible = "hdmi-connector";
 		label = "hdmi";
 
 		type = "a";

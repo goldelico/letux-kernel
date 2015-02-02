@@ -27,7 +27,7 @@
 	};
 
 	tpd12s015: encoder@0 {
-		compatible = "omapdss,ti,tpd12s015";
+		compatible = "ti,tpd12s015";
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&hpd_pin>;
@@ -59,7 +59,7 @@
 	};
 
 	hdmi0: connector@0 {
-		compatible = "omapdss,hdmi-connector";
+		compatible = "hdmi-connector";
 		label = "hdmi";
 
 		type = "a";
@@ -94,6 +94,13 @@
 			compatible = "shared-dma-pool";
 			reg = <0x9d000000 0x2000000>;
 			reusable;
+			status = "okay";
+		};
+
+		/* Required by cmem driver used by radio */
+		cmem_radio: cmem@95400000 {
+			reg = <0x95400000 0x400000>;
+			no-map;
 			status = "okay";
 		};
 	};
