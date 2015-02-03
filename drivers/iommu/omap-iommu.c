@@ -169,7 +169,7 @@ static int iommu_enable(struct omap_iommu *obj)
 	if (!arch_iommu)
 		return -ENODEV;
 
-	if (pdata && pdata->deassert_reset) {
+	if ((!obj->late_attach) && pdata && pdata->deassert_reset) {
 		err = pdata->deassert_reset(pdev, pdata->reset_name);
 		if (err) {
 			dev_err(obj->dev, "deassert_reset failed: %d\n", err);
@@ -179,7 +179,8 @@ static int iommu_enable(struct omap_iommu *obj)
 
 	pm_runtime_get_sync(obj->dev);
 
-	err = arch_iommu->enable(obj);
+	if (!obj->late_attach)
+		err = arch_iommu->enable(obj);
 
 	return err;
 }
@@ -908,6 +909,7 @@ err_enable:
  **/
 static void omap_iommu_detach(struct omap_iommu *obj)
 {
+
 	if (!obj || IS_ERR(obj))
 		return;
 
@@ -915,6 +917,7 @@ static void omap_iommu_detach(struct omap_iommu *obj)
 
 	iommu_disable(obj);
 	obj->iopgd = NULL;
+	obj->late_attach = 0;
 
 	spin_unlock(&obj->iommu_lock);
 
@@ -1198,6 +1201,10 @@ static int omap_iommu_attach_init(struct device *dev,
 
 	iommu = odomain->iommus;
 	for (i = 0; i < odomain->num_iommus; i++, iommu++) {
+		/*
+		 * Not necessary for late attach, but there's no easy
+		 * "hook" for querying 'late_attach' flag in this function.
+		 */
 		iommu->pgtable = kzalloc(IOPGD_TABLE_SIZE, GFP_KERNEL);
 		if (!iommu->pgtable)
 			return -ENOMEM;
@@ -1320,7 +1327,8 @@ static void _omap_iommu_detach_dev(struct omap_iommu_domain *omap_domain,
 	arch_data += (omap_domain->num_iommus - 1);
 	for (i = 0; i < omap_domain->num_iommus; i++, iommu--, arch_data--) {
 		oiommu = iommu->iommu_dev;
-		iopgtable_clear_entry_all(oiommu);
+		if (!oiommu->late_attach)
+			iopgtable_clear_entry_all(oiommu);
 
 		omap_iommu_detach(oiommu);
 		iommu->iommu_dev = NULL;
