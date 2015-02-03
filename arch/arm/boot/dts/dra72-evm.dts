@@ -197,18 +197,18 @@
 	cpsw_default: cpsw_default {
 		pinctrl-single,pins = <
 			/* Slave 2 */
-			0x198 (PIN_OUTPUT | MUX_MODE3)	/* rgmii2_tclk */
-			0x19c (PIN_OUTPUT | MUX_MODE3)	/* rgmii2_tctl */
-			0x1a0 (PIN_OUTPUT | MUX_MODE3)	/* rgmii2_td3 */
-			0x1a4 (PIN_OUTPUT | MUX_MODE3)	/* rgmii2_td2 */
-			0x1a8 (PIN_OUTPUT | MUX_MODE3)	/* rgmii2_td1 */
-			0x1ac (PIN_OUTPUT | MUX_MODE3)	/* rgmii2_td0 */
-			0x1b0 (PIN_INPUT | MUX_MODE3)	/* rgmii2_rclk */
-			0x1b4 (PIN_INPUT | MUX_MODE3)	/* rgmii2_rctl */
-			0x1b8 (PIN_INPUT | MUX_MODE3)	/* rgmii2_rd3 */
-			0x1bc (PIN_INPUT | MUX_MODE3)	/* rgmii2_rd2 */
-			0x1c0 (PIN_INPUT | MUX_MODE3)	/* rgmii2_rd1 */
-			0x1c4 (PIN_INPUT | MUX_MODE3)	/* rgmii2_rd0 */
+			0x250 (PIN_OUTPUT | MUX_MODE0)	/* rgmii1_tclk */
+			0x254 (PIN_OUTPUT | MUX_MODE0)	/* rgmii1_tctl */
+			0x258 (PIN_OUTPUT | MUX_MODE0)	/* rgmii1_td3 */
+			0x25c (PIN_OUTPUT | MUX_MODE0)	/* rgmii1_td2 */
+			0x260 (PIN_OUTPUT | MUX_MODE0)	/* rgmii1_td1 */
+			0x264 (PIN_OUTPUT | MUX_MODE0)	/* rgmii1_td0 */
+			0x268 (PIN_INPUT | MUX_MODE0)	/* rgmii1_rclk */
+			0x26c (PIN_INPUT | MUX_MODE0)	/* rgmii1_rctl */
+			0x270 (PIN_INPUT | MUX_MODE0)	/* rgmii1_rd3 */
+			0x274 (PIN_INPUT | MUX_MODE0)	/* rgmii1_rd2 */
+			0x278 (PIN_INPUT | MUX_MODE0)	/* rgmii1_rd1 */
+			0x27c (PIN_INPUT | MUX_MODE0)	/* rgmii1_rd0 */
 		>;
 
 	};
@@ -216,18 +216,18 @@
 	cpsw_sleep: cpsw_sleep {
 		pinctrl-single,pins = <
 			/* Slave 1 */
-			0x198 (PIN_OFF_NONE)
-			0x19c (PIN_OFF_NONE)
-			0x1a0 (PIN_OFF_NONE)
-			0x1a4 (PIN_OFF_NONE)
-			0x1a8 (PIN_OFF_NONE)
-			0x1ac (PIN_OFF_NONE)
-			0x1b0 (PIN_OFF_NONE)
-			0x1b4 (PIN_OFF_NONE)
-			0x1b8 (PIN_OFF_NONE)
-			0x1bc (PIN_OFF_NONE)
-			0x1c0 (PIN_OFF_NONE)
-			0x1c4 (PIN_OFF_NONE)
+			0x250 (PIN_OFF_NONE)
+			0x254 (PIN_OFF_NONE)
+			0x258 (PIN_OFF_NONE)
+			0x25c (PIN_OFF_NONE)
+			0x260 (PIN_OFF_NONE)
+			0x264 (PIN_OFF_NONE)
+			0x268 (PIN_OFF_NONE)
+			0x26c (PIN_OFF_NONE)
+			0x270 (PIN_OFF_NONE)
+			0x274 (PIN_OFF_NONE)
+			0x278 (PIN_OFF_NONE)
+			0x27c (PIN_OFF_NONE)
 		>;
 	};
 
@@ -626,7 +626,8 @@
 		reg = <0x37>;
 		status = "okay";
 
-		gpios = <&pcf_hdmi 3    GPIO_ACTIVE_LOW>;   /* CAM_FPD_MUX_S0 */
+		gpios = <&pcf_hdmi 3    GPIO_ACTIVE_LOW>,	/* CAM_FPD_MUX_S0 */
+			<&pcf_gpio_21 4	GPIO_ACTIVE_LOW>;	/* SEL_ENET_MUX_S0 */
 		port {
 			onboardLI: endpoint {
 				remote-endpoint = <&vin2a>;
@@ -686,13 +687,13 @@
 };
 
 &cpsw_emac0 {
-	phy_id = <&davinci_mdio>, <2>;
+	phy_id = <&davinci_mdio>, <3>;
 	phy-mode = "rgmii";
 	dual_emac_res_vlan = <1>;
 };
 
 &cpsw_emac1 {
-	phy_id = <&davinci_mdio>, <3>;
+	phy_id = <&davinci_mdio>, <2>;
 	phy-mode = "rgmii";
 	dual_emac_res_vlan = <2>;
 };
