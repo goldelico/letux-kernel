@@ -522,6 +522,11 @@ static int omap_rproc_probe(struct platform_device *pdev)
 	if (!rproc)
 		return -ENOMEM;
 
+	if (of_get_property(np, "ti,late-attach", NULL))
+		rproc->late_attach = 1;
+	else
+		rproc->late_attach = 0;
+
 	oproc = rproc->priv;
 	oproc->rproc = rproc;
 	/*
