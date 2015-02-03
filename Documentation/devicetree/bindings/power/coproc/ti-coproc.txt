@@ -1,0 +1,35 @@
+Texas Instruments co-processor driver
+
+A co-processor device is a non-cpu processor found on an SoC.
+
+This document describes the clock and voltage configuration
+used by co-processors/devices typically found on Texas Instrument SoCs.
+
+Required properties
+- compatible: should be
+	"ti,coproc"
+- clocks: <functional clock>, <dpll clock>
+	dpll clock is optional
+- clock-names: "fclk", "dpll"
+	if you change names here, go chnage the driver too
+- clock-target-frequency: Mention your target frequency here
+- operating-points: all OPPs applicable for this device/coprocessor
+- coproc-voltdm: phandle of the Voltage domain associated with this device/coproc
+- voltage-tolerance: Specify a voltage tolerance allowed for this voltage domain
+as per datamanual limits
+
+Example:
+iva_coproc {
+	compatible = "ti,coproc";
+	clocks = <&dpll_iva_m2_ck>, <&dpll_iva_ck>;
+	clock-names = "fclk", "dpll";
+	clock-target-frequency = <532000000>;
+	operating-points = <
+		388200  1055000
+		430000	1150000
+		532000  1250000
+		>;
+	coproc-voltdm = <&voltdm_ivahd>;
+	voltage-tolerance = <1>;
+};
+

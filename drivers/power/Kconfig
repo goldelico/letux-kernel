@@ -395,3 +395,4 @@ endif # POWER_SUPPLY
 
 source "drivers/power/avs/Kconfig"
 source "drivers/power/voltdm/Kconfig"
+source "drivers/power/coproc/Kconfig"
