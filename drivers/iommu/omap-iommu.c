@@ -995,6 +995,11 @@ static int omap_iommu_probe(struct platform_device *pdev)
 		obj->da_end = 0xfffff000;
 		if (of_find_property(of, "ti,iommu-bus-err-back", NULL))
 			obj->has_bus_err_back = MMU_GP_REG_BUS_ERR_BACK_EN;
+
+		if (of_find_property(of, "ti,late-attach", NULL))
+			obj->late_attach = 1;
+		else
+			obj->late_attach = 0;
 	} else {
 		obj->nr_tlb_entries = pdata->nr_tlb_entries;
 		obj->name = pdata->name;
