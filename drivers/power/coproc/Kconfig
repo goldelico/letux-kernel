@@ -1,0 +1,7 @@
+config TI_COPROC
+	tristate "TI Co-processor driversupport"
+	depends on VOLTAGE_DOMAIN_OMAP
+	help
+		TI Coprocessor driver helps initialize a coprocessor to
+		a particular Operating performance point.
+

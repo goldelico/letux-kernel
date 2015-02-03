@@ -584,6 +584,7 @@ static int mcp23s08_probe_one(struct mcp23s08 *mcp, struct device *dev,
 			      unsigned base, unsigned pullups)
 {
 	int status;
+	u32  init_dir = 0, init_val = 0;
 	bool mirror = false;
 
 	mutex_init(&mcp->lock);
@@ -671,6 +672,14 @@ static int mcp23s08_probe_one(struct mcp23s08 *mcp, struct device *dev,
 	status = mcp->ops->write(mcp, MCP_GPPU, pullups);
 	if (status < 0)
 		goto fail;
+
+	if (of_property_read_u32(mcp->chip.of_node,
+		"init-dir", &init_dir) == 0)
+		status = mcp->ops->write(mcp, MCP_IODIR, init_dir);
+
+	if (of_property_read_u32(mcp->chip.of_node,
+		"init-val", &init_val) == 0)
+		status = mcp->ops->write(mcp, MCP_OLAT, init_val);
 
 	status = mcp->ops->read_regs(mcp, 0, mcp->cache, ARRAY_SIZE(mcp->cache));
 	if (status < 0)

@@ -255,6 +255,17 @@ config VIDEO_TI_VPDMA_HELPER
        it provides a mem2mem, mem2device, device2mem DMA specifically
        for transfering and manipulating video data.
 
+config VIDEO_TI_VPDMA_LOAD_FW
+	bool "Load VPDMA F/W from Kernel"
+	depends on VIDEO_TI_VPDMA_HELPER
+	default n
+	---help---
+	TI SoC's Video Port Direct Memory Access module
+	needs a firmware to be loaded. This can be loaded from
+	user space via udev event or it can be loaded from kernel itself
+	Say 'y' if you want the Video devices to be initialized early
+	in the bootup sequence.
+
 menuconfig V4L_TEST_DRIVERS
 	bool "Media test drivers"
 	depends on MEDIA_CAMERA_SUPPORT
