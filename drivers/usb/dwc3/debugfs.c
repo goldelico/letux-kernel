@@ -27,6 +27,7 @@
 #include <linux/uaccess.h>
 
 #include <linux/usb/ch9.h>
+#include <linux/usb/drd.h>
 
 #include "core.h"
 #include "gadget.h"
@@ -412,7 +413,15 @@ static ssize_t dwc3_mode_write(struct file *file,
 
 	if (mode) {
 		spin_lock_irqsave(&dwc->lock, flags);
-		dwc3_set_mode(dwc, mode);
+		if (mode & DWC3_GCTL_PRTCAP_HOST) {
+			dwc3_omap_usbvbus_id_handler(dwc->dev->parent,
+				OMAP_DWC3_ID_GROUND);
+			mode = 0;
+		} else if (mode & DWC3_GCTL_PRTCAP_DEVICE) {
+			dwc3_omap_usbvbus_id_handler(dwc->dev->parent,
+				OMAP_DWC3_VBUS_VALID);
+			mode = 1;
+		}
 		spin_unlock_irqrestore(&dwc->lock, flags);
 	}
 	return count;

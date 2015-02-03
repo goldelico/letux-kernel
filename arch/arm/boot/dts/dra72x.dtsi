@@ -38,6 +38,34 @@
 		};
 	};
 
+	iva_coproc {
+		compatible = "ti,coproc";
+		clocks = <&dpll_iva_m2_ck>, <&dpll_iva_ck>;
+		clock-names = "fclk", "dpll";
+		clock-target-frequency = <532000000>;
+		operating-points = <
+			388200  1055000
+			430000	1150000
+			532000  1250000
+			>;
+		coproc-voltdm = <&voltdm_ivahd>;
+		voltage-tolerance = <1>;
+	};
+
+	dsp_coproc {
+		compatible = "ti,coproc";
+		clocks = <&dpll_dsp_m2_ck>, <&dpll_dsp_ck>;
+		clock-names = "fclk", "dpll";
+		clock-target-frequency = <700000000>;
+		operating-points = <
+			600000  1055000
+			700000	1150000
+			700000  1250000
+			>;
+		coproc-voltdm = <&voltdm_dspeve>;
+		voltage-tolerance = <1>;
+	};
+
 	thermal-zones {
 		#include "omap5-cpu-thermal.dtsi"
 	};
