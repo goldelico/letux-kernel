@@ -16,6 +16,7 @@
 
 #define DMA_ERROR_CODE	(~0)
 extern struct dma_map_ops arm_dma_ops;
+extern const struct dma_map_ops arm_dma_m_ops;
 extern struct dma_map_ops arm_coherent_dma_ops;
 
 static inline struct dma_map_ops *__generic_dma_ops(struct device *dev)
