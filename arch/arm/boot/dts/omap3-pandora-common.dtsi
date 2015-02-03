@@ -43,31 +43,35 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&led_pins>;
 
+/* twl leds are broken?
+
 		led@backlight {
 			label = "pandora::backlight";
-			gpios = <&twl_gpio 6 GPIO_ACTIVE_HIGH>; /* LED.6 */
+			gpios = <&twl_gpio 6 GPIO_ACTIVE_HIGH>; /* LED.6 * /
 			linux,default-trigger = "heartbeat";
 			default-state = "on";
 		};
 
 		led@charger {
 			label = "pandora::charger";
-			gpios = <&twl_gpio 7 GPIO_ACTIVE_HIGH>; /* LED.7 */
+			gpios = <&twl_gpio 7 GPIO_ACTIVE_HIGH>; /* LED.7 * /
 			linux,default-trigger = "heartbeat";
 			default-state = "on";
 		};
 
 		led@keypad {
 			label = "pandora::keypad";
-			gpios = <&twl_gpio 18 GPIO_ACTIVE_HIGH>; /* LEDA */
+			gpios = <&twl_gpio 18 GPIO_ACTIVE_HIGH>; /* LEDA * /
+			linux,default-trigger = "heartbeat";
 		};
 
 		led@power {
 			label = "pandora::power";
-			gpios = <&twl_gpio 19 GPIO_ACTIVE_HIGH>; /* LEDB */
+			gpios = <&twl_gpio 19 GPIO_ACTIVE_HIGH>; /* LEDB * /
 			linux,default-trigger = "heartbeat";
 			default-state = "on";
 		};
+*/
 
 		led@1 {
 			label = "pandora::sd1";
