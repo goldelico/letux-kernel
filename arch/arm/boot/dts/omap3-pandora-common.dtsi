@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-15
+ * Copyright (C) 2015
  *   Nikolaus Schaller <hns@goldelico.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -56,6 +56,7 @@
 			label = "pandora::charger";
 			gpios = <&twl_gpio 7 GPIO_ACTIVE_HIGH>; /* LED.7 * /
 			linux,default-trigger = "heartbeat";
+			linux,default-trigger = "bq27500-0-charging-blink-full-solid";
 			default-state = "on";
 		};
 
@@ -76,28 +77,28 @@
 		led@1 {
 			label = "pandora::sd1";
 			gpios = <&gpio5 0 GPIO_ACTIVE_HIGH>;	/* GPIO_128 */
-			linux,default-trigger = "heartbeat";
+			linux,default-trigger = "mmc0";
 			default-state = "off";
 		};
 
 		led@2 {
 			label = "pandora::sd2";
-			gpios = <&gpio5 1 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "heartbeat";	/* GPIO_129 */
+			gpios = <&gpio5 1 GPIO_ACTIVE_HIGH>;	/* GPIO_129 */
+			linux,default-trigger = "mmc1";
 			default-state = "off";
 		};
 
 		led@3 {
 			label = "pandora::bluetooth";
-			gpios = <&gpio5 30 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "heartbeat";	/* GPIO_158 */
+			gpios = <&gpio5 30 GPIO_ACTIVE_HIGH>;	/* GPIO_158 */
+			linux,default-trigger = "heartbeat";
 			default-state = "off";
 		};
 
 		led@4 {
 			label = "pandora::wifi";
 			gpios = <&gpio5 31 GPIO_ACTIVE_HIGH>;	/* GPIO_159 */
-			linux,default-trigger = "heartbeat";
+			linux,default-trigger = "mmc2";
 			default-state = "off";
 		};
 	};
@@ -111,103 +112,103 @@
 		up-button {
 			label = "up";
 			linux,code = <KEY_UP>;
-			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	// GPIO 110
+			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	/* GPIO 110 */
 			gpio-key,wakeup;
 		};
 		down-button {
 			label = "down";
 			linux,code = <KEY_DOWN>;
-			gpios = <&gpio4 7 GPIO_ACTIVE_HIGH>;	// GPIO 103
+			gpios = <&gpio4 7 GPIO_ACTIVE_HIGH>;	/* GPIO 103 */
 			gpio-key,wakeup;
 		};
 		left-button {
 			label = "left";
 			linux,code = <KEY_LEFT>;
-			gpios = <&gpio4 0 GPIO_ACTIVE_HIGH>;	// GPIO 96
+			gpios = <&gpio4 0 GPIO_ACTIVE_HIGH>;	/* GPIO 96 */
 			gpio-key,wakeup;
 		};
 		right-button {
 			label = "right";
 			linux,code = <KEY_RIGHT>;
-			gpios = <&gpio4 2 GPIO_ACTIVE_HIGH>;	// GPIO 98
+			gpios = <&gpio4 2 GPIO_ACTIVE_HIGH>;	/* GPIO 98 */
 			gpio-key,wakeup;
 		};
 		pageup-button {
 			label = "game 1";
 			linux,code = <KEY_PAGEUP>;
-			gpios = <&gpio4 13 GPIO_ACTIVE_HIGH>;	// GPIO 109
+			gpios = <&gpio4 13 GPIO_ACTIVE_HIGH>;	/* GPIO 109 */
 			gpio-key,wakeup;
 		};
 		pagedown-button {
 			label = "game 3";
 			linux,code = <KEY_PAGEDOWN>;
-			gpios = <&gpio4 10 GPIO_ACTIVE_HIGH>;	// GPIO 106
+			gpios = <&gpio4 10 GPIO_ACTIVE_HIGH>;	/* GPIO 106 */
 			gpio-key,wakeup;
 		};
 		home-button {
 			label = "game 4";
 			linux,code = <KEY_HOME>;
-			gpios = <&gpio4 5 GPIO_ACTIVE_HIGH>;	// GPIO 101
+			gpios = <&gpio4 5 GPIO_ACTIVE_HIGH>;	/* GPIO 101 */
 			gpio-key,wakeup;
 		};
 		end-button {
 			label = "game 2";
 			linux,code = <KEY_END>;
-			gpios = <&gpio4 15 GPIO_ACTIVE_HIGH>;	// GPIO 111
+			gpios = <&gpio4 15 GPIO_ACTIVE_HIGH>;	/* GPIO 111 */
 			gpio-key,wakeup;
 		};
 		right-shift {
 			label = "l";
 			linux,code = <KEY_RIGHTSHIFT>;
-			gpios = <&gpio4 6 GPIO_ACTIVE_HIGH>;	// GPIO 102
+			gpios = <&gpio4 6 GPIO_ACTIVE_HIGH>;	/* GPIO 102 */
 			gpio-key,wakeup;
 		};
 		kp-plus {
 			label = "l2";
 			linux,code = <KEY_KPPLUS>;
-			gpios = <&gpio4 1 GPIO_ACTIVE_HIGH>;	// GPIO 97
+			gpios = <&gpio4 1 GPIO_ACTIVE_HIGH>;	/* GPIO 97 */
 			gpio-key,wakeup;
 		};
 		right-ctrl {
 			label = "r";
 			linux,code = <KEY_RIGHTCTRL>;
-			gpios = <&gpio4 9 GPIO_ACTIVE_HIGH>;	// GPIO 105
+			gpios = <&gpio4 9 GPIO_ACTIVE_HIGH>;	/* GPIO 105 */
 			gpio-key,wakeup;
 		};
 		kp-minus {
 			label = "r2";
 			linux,code = <KEY_KPMINUS>;
-			gpios = <&gpio4 11 GPIO_ACTIVE_HIGH>;	// GPIO 107
+			gpios = <&gpio4 11 GPIO_ACTIVE_HIGH>;	/* GPIO 107 */
 			gpio-key,wakeup;
 		};
 		left-ctrl {
 			label = "ctrl";
 			linux,code = <KEY_LEFTCTRL>;
-			gpios = <&gpio4 8 GPIO_ACTIVE_HIGH>;	// GPIO 104
+			gpios = <&gpio4 8 GPIO_ACTIVE_HIGH>;	/* GPIO 104 */
 			gpio-key,wakeup;
 		};
 		menu {
 			label = "menu";
 			linux,code = <KEY_MENU>;
-			gpios = <&gpio4 3 GPIO_ACTIVE_HIGH>;	// GPIO 99
+			gpios = <&gpio4 3 GPIO_ACTIVE_HIGH>;	/* GPIO 99 */
 			gpio-key,wakeup;
 		};
 		hold {
 			label = "hold";
 			linux,code = <KEY_COFFEE>;
-			gpios = <&gpio6 16 GPIO_ACTIVE_HIGH>;	// GPIO 176
+			gpios = <&gpio6 16 GPIO_ACTIVE_HIGH>;	/* GPIO 176 */
 			gpio-key,wakeup;
 		};
 		left-alt {
 			label = "alt";
 			linux,code = <KEY_LEFTALT>;
-			gpios = <&gpio4 4 GPIO_ACTIVE_HIGH>;	// GPIO 100
+			gpios = <&gpio4 4 GPIO_ACTIVE_HIGH>;	/* GPIO 100 */
 			gpio-key,wakeup;
 		};
-		lid { /* should send EV_SW (switch event) and not EV_KEY! */
+		lid { //* should send EV_SW (switch event) and not EV_KEY! */
 			label = "lid";
 			linux,code = <0>;   // 0 = SW_LID
-			gpios = <&gpio4 12 GPIO_ACTIVE_HIGH>;	// GPIO 108
+			gpios = <&gpio4 12 GPIO_ACTIVE_HIGH>;	/* GPIO 108 */
 			gpio-key,wakeup;
 		};
 	};
@@ -388,7 +389,7 @@
 &twl_keypad {
 	keypad,num-rows = <8>;
 	keypad,num-columns = <6>;
-	linux,keymap = <	// MATRIX_KEY(row, col, code)
+	linux,keymap = < /* MATRIX_KEY(row, col, code) */
 		MATRIX_KEY(0, 0, KEY_9)
 		MATRIX_KEY(0, 1, KEY_8)
 		MATRIX_KEY(0, 2, KEY_I)
@@ -503,24 +504,24 @@
 	pinctrl-0 = <&mmc1_pins>;
 	vmmc-supply = <&vmmc1>;
 	bus-width = <4>;
-// if enabled, tje rootfs is not mounted/found
-//	cd-gpios = <&twl_gpio 0 GPIO_ACTIVE_LOW>;
-	wp-gpios = <&gpio4 30 GPIO_ACTIVE_LOW>;	// gpio_126
+// if enabled, the rootfs is not mounted/found
+	cd-gpios = <&twl_gpio 0 GPIO_ACTIVE_LOW>;
+	wp-gpios = <&gpio4 30 GPIO_ACTIVE_LOW>;	/* gpio_126 */
 };
 
 &mmc2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&mmc2_pins>;
-	vmmc-supply = <&vmmc2>;	// hm. does not become enabled
+	vmmc-supply = <&vmmc2>;
 	bus-width = <4>;
-	cd-gpios = <&twl_gpio 1 GPIO_ACTIVE_HIGH>;	// no reaction?
-	wp-gpios = <&gpio4 31 GPIO_ACTIVE_LOW>;	// gpio_127
+	cd-gpios = <&twl_gpio 1 GPIO_ACTIVE_HIGH>;
+	wp-gpios = <&gpio4 31 GPIO_ACTIVE_LOW>;	/* gpio_127 */
 };
 
 &mmc3 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&mmc3_pins>;
-//	vmmc-supply = <&vmmc1>;
+//	vmmc-supply = <&vmmc1>;	// how can we power up the WiFi module?
 	bus-width = <4>;
         non-removable;
 	ti,non-removable;
@@ -529,14 +530,15 @@
 // interrupt = gpio_21
 };
 
-&uart1 { // bluetooth
-};
-
-&uart2 { // spare (expansion connector)
+&uart1 { /* bluetooth */
+	/* to be defined */
 	// bt-shutdown = gpio1_15
 };
 
-&uart3 { // console (expansion connector)
+&uart2 { /* spare (expansion connector) */
+};
+
+&uart3 { /* console (expansion connector) */
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart3_pins>;
 	interrupts-extended = <&intc 74 &omap3_pmx_core OMAP3_UART3_RX>;
@@ -574,7 +576,7 @@
 	nand@0,0 {
 		reg = <0 0 0>; /* CS0, offset 0 */
 		nand-bus-width = <16>;
-		ti,nand-ecc-opt = "sw";	/* stay compatible with older u-boot (does not support bch8) */
+		ti,nand-ecc-opt = "sw";
 		/* ti,nand-xfer-type = "polled"; */
 		/* ti,elm-id = <&elm> */
 
@@ -657,7 +659,7 @@
 		spi-cpha;
 
 		label = "lcd";
-		reset-gpios = <&gpio5 29 GPIO_ACTIVE_LOW>;	// gpio 157
+		reset-gpios = <&gpio5 29 GPIO_ACTIVE_LOW>;	/* gpio 157 */
 		vcc-supply = <&vaux1>;
 
 		port {
@@ -670,16 +672,16 @@
 
 };
 
-&mcbsp1 {
+&mcbsp1 { /* n/a - used as GPIOs */
 };
 
-&mcbsp2 {
+&mcbsp2 { /* audio DAC */
 };
 
-&mcbsp3 {
+&mcbsp3 { /* bluetooth */
 };
 
-&mcbsp4 {
+&mcbsp4 { /* to twl4030 */
 };
 
 &dss {
