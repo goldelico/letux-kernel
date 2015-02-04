@@ -334,7 +334,7 @@ dtb-$(CONFIG_ARCH_OMAP3) += am3517-craneboard.dtb \
 	omap3-gta04a4+b3.dtb \
 	omap3-gta04+b6.dtb \
 	omap3-gta04+b7.dtb \
-	omap3-pandora.dtb \
+	omap3-pandora-600mhz.dtb \
 	omap3-pandora-1ghz.dtb \
 	omap3-ha.dtb \
 	omap3-ha-lcd.dtb \
