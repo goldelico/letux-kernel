@@ -73,4 +73,24 @@
 		DRVDD-supply = <&evm_3v3_sw>;
 		DVDD-supply = <&aic_dvdd>;
 	};
+
+	tvp5158@58 {
+		compatible= "ti,tvp5158";
+		reg = <0x58>;
+
+		gpios = <&pcf_hdmi 3 0>,
+			<&pcf_gpio_21 8 0>;
+		port {
+			tvp_decoder: endpoint@0 {
+				/* No properties for BT656 */
+			};
+		};
+	};
+};
+
+&vin1a {
+	endpoint {
+		slave-mode;
+		remote-endpoint = <&tvp_decoder>;
+	};
 };
