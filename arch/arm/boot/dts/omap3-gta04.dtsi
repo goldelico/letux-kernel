@@ -32,7 +32,7 @@
 
 	aliases {
 		display0 = &lcd;
-		display1 = &tv0;
+		// makes problems with omapfb and X11:	display1 = &tv0;
 	};
 
 	/* there is no "compatible" DT driver yet
