@@ -9,4 +9,5 @@ ti_config_fragments/ipc.cfg \
 ti_config_fragments/audio_display.cfg \
 ti_config_fragments/radio.cfg \
 ti_config_fragments/wlan.cfg \
-ti_config_fragments/android_omap.cfg
+ti_config_fragments/android_omap.cfg \
+ti_config_fragments/auto.cfg
