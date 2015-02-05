@@ -88,6 +88,9 @@ struct cache_disk_superblock {
 } __packed;
 
 struct dm_cache_metadata {
+	atomic_t ref_count;
+	struct list_head list;
+
 	struct block_device *bdev;
 	struct dm_block_manager *bm;
 	struct dm_space_map *metadata_sm;
@@ -114,6 +117,12 @@ struct dm_cache_metadata {
 	unsigned policy_version[CACHE_POLICY_VERSION_SIZE];
 	size_t policy_hint_size;
 	struct dm_cache_statistics stats;
+
+	/*
+	 * Reading the space map root can fail, so we read it into this
+	 * buffer before the superblock is locked and updated.
+	 */
+	__u8 metadata_space_map_root[SPACE_MAP_ROOT_SIZE];
 };
 
 /*-------------------------------------------------------------------
@@ -242,11 +251,31 @@ static void __setup_mapping_info(struct dm_cache_metadata *cmd)
 	}
 }
 
+static int __save_sm_root(struct dm_cache_metadata *cmd)
+{
+	int r;
+	size_t metadata_len;
+
+	r = dm_sm_root_size(cmd->metadata_sm, &metadata_len);
+	if (r < 0)
+		return r;
+
+	return dm_sm_copy_root(cmd->metadata_sm, &cmd->metadata_space_map_root,
+			       metadata_len);
+}
+
+static void __copy_sm_root(struct dm_cache_metadata *cmd,
+			   struct cache_disk_superblock *disk_super)
+{
+	memcpy(&disk_super->metadata_space_map_root,
+	       &cmd->metadata_space_map_root,
+	       sizeof(cmd->metadata_space_map_root));
+}
+
 static int __write_initial_superblock(struct dm_cache_metadata *cmd)
 {
 	int r;
 	struct dm_block *sblock;
-	size_t metadata_len;
 	struct cache_disk_superblock *disk_super;
 	sector_t bdev_size = i_size_read(cmd->bdev->bd_inode) >> SECTOR_SHIFT;
 
@@ -254,12 +283,16 @@ static int __write_initial_superblock(struct dm_cache_metadata *cmd)
 	if (bdev_size > DM_CACHE_METADATA_MAX_SECTORS)
 		bdev_size = DM_CACHE_METADATA_MAX_SECTORS;
 
-	r = dm_sm_root_size(cmd->metadata_sm, &metadata_len);
+	r = dm_tm_pre_commit(cmd->tm);
 	if (r < 0)
 		return r;
 
-	r = dm_tm_pre_commit(cmd->tm);
-	if (r < 0)
+	/*
+	 * dm_sm_copy_root() can fail.  So we need to do it before we start
+	 * updating the superblock.
+	 */
+	r = __save_sm_root(cmd);
+	if (r)
 		return r;
 
 	r = superblock_lock_zero(cmd, &sblock);
@@ -275,10 +308,7 @@ static int __write_initial_superblock(struct dm_cache_metadata *cmd)
 	memset(disk_super->policy_version, 0, sizeof(disk_super->policy_version));
 	disk_super->policy_hint_size = 0;
 
-	r = dm_sm_copy_root(cmd->metadata_sm, &disk_super->metadata_space_map_root,
-			    metadata_len);
-	if (r < 0)
-		goto bad_locked;
+	__copy_sm_root(cmd, disk_super);
 
 	disk_super->mapping_root = cpu_to_le64(cmd->root);
 	disk_super->hint_root = cpu_to_le64(cmd->hint_root);
@@ -295,10 +325,6 @@ static int __write_initial_superblock(struct dm_cache_metadata *cmd)
 	disk_super->write_misses = cpu_to_le32(0);
 
 	return dm_tm_commit(cmd->tm, sblock);
-
-bad_locked:
-	dm_bm_unlock(sblock);
-	return r;
 }
 
 static int __format_metadata(struct dm_cache_metadata *cmd)
@@ -383,6 +409,15 @@ static int __open_metadata(struct dm_cache_metadata *cmd)
 	}
 
 	disk_super = dm_block_data(sblock);
+
+	/* Verify the data block size hasn't changed */
+	if (le32_to_cpu(disk_super->data_block_size) != cmd->data_block_size) {
+		DMERR("changing the data block size (from %u to %llu) is not supported",
+		      le32_to_cpu(disk_super->data_block_size),
+		      (unsigned long long)cmd->data_block_size);
+		r = -EINVAL;
+		goto bad;
+	}
 
 	r = __check_incompat_features(disk_super, cmd);
 	if (r < 0)
@@ -511,8 +546,9 @@ static int __begin_transaction_flags(struct dm_cache_metadata *cmd,
 	disk_super = dm_block_data(sblock);
 	update_flags(disk_super, mutator);
 	read_superblock_fields(cmd, disk_super);
+	dm_bm_unlock(sblock);
 
-	return dm_bm_flush_and_unlock(cmd->bm, sblock);
+	return dm_bm_flush(cmd->bm);
 }
 
 static int __begin_transaction(struct dm_cache_metadata *cmd)
@@ -540,7 +576,6 @@ static int __commit_transaction(struct dm_cache_metadata *cmd,
 				flags_mutator mutator)
 {
 	int r;
-	size_t metadata_len;
 	struct cache_disk_superblock *disk_super;
 	struct dm_block *sblock;
 
@@ -558,8 +593,8 @@ static int __commit_transaction(struct dm_cache_metadata *cmd,
 	if (r < 0)
 		return r;
 
-	r = dm_sm_root_size(cmd->metadata_sm, &metadata_len);
-	if (r < 0)
+	r = __save_sm_root(cmd);
+	if (r)
 		return r;
 
 	r = superblock_lock(cmd, &sblock);
@@ -586,13 +621,7 @@ static int __commit_transaction(struct dm_cache_metadata *cmd,
 	disk_super->read_misses = cpu_to_le32(cmd->stats.read_misses);
 	disk_super->write_hits = cpu_to_le32(cmd->stats.write_hits);
 	disk_super->write_misses = cpu_to_le32(cmd->stats.write_misses);
-
-	r = dm_sm_copy_root(cmd->metadata_sm, &disk_super->metadata_space_map_root,
-			    metadata_len);
-	if (r < 0) {
-		dm_bm_unlock(sblock);
-		return r;
-	}
+	__copy_sm_root(cmd, disk_super);
 
 	return dm_tm_commit(cmd->tm, sblock);
 }
@@ -624,10 +653,10 @@ static void unpack_value(__le64 value_le, dm_oblock_t *block, unsigned *flags)
 
 /*----------------------------------------------------------------*/
 
-struct dm_cache_metadata *dm_cache_metadata_open(struct block_device *bdev,
-						 sector_t data_block_size,
-						 bool may_format_device,
-						 size_t policy_hint_size)
+static struct dm_cache_metadata *metadata_open(struct block_device *bdev,
+					       sector_t data_block_size,
+					       bool may_format_device,
+					       size_t policy_hint_size)
 {
 	int r;
 	struct dm_cache_metadata *cmd;
@@ -638,6 +667,7 @@ struct dm_cache_metadata *dm_cache_metadata_open(struct block_device *bdev,
 		return NULL;
 	}
 
+	atomic_set(&cmd->ref_count, 1);
 	init_rwsem(&cmd->root_lock);
 	cmd->bdev = bdev;
 	cmd->data_block_size = data_block_size;
@@ -660,10 +690,95 @@ struct dm_cache_metadata *dm_cache_metadata_open(struct block_device *bdev,
 	return cmd;
 }
 
+/*
+ * We keep a little list of ref counted metadata objects to prevent two
+ * different target instances creating separate bufio instances.  This is
+ * an issue if a table is reloaded before the suspend.
+ */
+static DEFINE_MUTEX(table_lock);
+static LIST_HEAD(table);
+
+static struct dm_cache_metadata *lookup(struct block_device *bdev)
+{
+	struct dm_cache_metadata *cmd;
+
+	list_for_each_entry(cmd, &table, list)
+		if (cmd->bdev == bdev) {
+			atomic_inc(&cmd->ref_count);
+			return cmd;
+		}
+
+	return NULL;
+}
+
+static struct dm_cache_metadata *lookup_or_open(struct block_device *bdev,
+						sector_t data_block_size,
+						bool may_format_device,
+						size_t policy_hint_size)
+{
+	struct dm_cache_metadata *cmd, *cmd2;
+
+	mutex_lock(&table_lock);
+	cmd = lookup(bdev);
+	mutex_unlock(&table_lock);
+
+	if (cmd)
+		return cmd;
+
+	cmd = metadata_open(bdev, data_block_size, may_format_device, policy_hint_size);
+	if (cmd) {
+		mutex_lock(&table_lock);
+		cmd2 = lookup(bdev);
+		if (cmd2) {
+			mutex_unlock(&table_lock);
+			__destroy_persistent_data_objects(cmd);
+			kfree(cmd);
+			return cmd2;
+		}
+		list_add(&cmd->list, &table);
+		mutex_unlock(&table_lock);
+	}
+
+	return cmd;
+}
+
+static bool same_params(struct dm_cache_metadata *cmd, sector_t data_block_size)
+{
+	if (cmd->data_block_size != data_block_size) {
+		DMERR("data_block_size (%llu) different from that in metadata (%llu)\n",
+		      (unsigned long long) data_block_size,
+		      (unsigned long long) cmd->data_block_size);
+		return false;
+	}
+
+	return true;
+}
+
+struct dm_cache_metadata *dm_cache_metadata_open(struct block_device *bdev,
+						 sector_t data_block_size,
+						 bool may_format_device,
+						 size_t policy_hint_size)
+{
+	struct dm_cache_metadata *cmd = lookup_or_open(bdev, data_block_size,
+						       may_format_device, policy_hint_size);
+	if (cmd && !same_params(cmd, data_block_size)) {
+		dm_cache_metadata_close(cmd);
+		return NULL;
+	}
+
+	return cmd;
+}
+
 void dm_cache_metadata_close(struct dm_cache_metadata *cmd)
 {
-	__destroy_persistent_data_objects(cmd);
-	kfree(cmd);
+	if (atomic_dec_and_test(&cmd->ref_count)) {
+		mutex_lock(&table_lock);
+		list_del(&cmd->list);
+		mutex_unlock(&table_lock);
+
+		__destroy_persistent_data_objects(cmd);
+		kfree(cmd);
+	}
 }
 
 int dm_cache_resize(struct dm_cache_metadata *cmd, dm_cblock_t new_cache_size)

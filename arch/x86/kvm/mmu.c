@@ -198,16 +198,20 @@ void kvm_mmu_set_mmio_spte_mask(u64 mmio_mask)
 EXPORT_SYMBOL_GPL(kvm_mmu_set_mmio_spte_mask);
 
 /*
- * spte bits of bit 3 ~ bit 11 are used as low 9 bits of generation number,
- * the bits of bits 52 ~ bit 61 are used as high 10 bits of generation
- * number.
+ * the low bit of the generation number is always presumed to be zero.
+ * This disables mmio caching during memslot updates.  The concept is
+ * similar to a seqcount but instead of retrying the access we just punt
+ * and ignore the cache.
+ *
+ * spte bits 3-11 are used as bits 1-9 of the generation number,
+ * the bits 52-61 are used as bits 10-19 of the generation number.
  */
-#define MMIO_SPTE_GEN_LOW_SHIFT		3
+#define MMIO_SPTE_GEN_LOW_SHIFT		2
 #define MMIO_SPTE_GEN_HIGH_SHIFT	52
 
-#define MMIO_GEN_SHIFT			19
-#define MMIO_GEN_LOW_SHIFT		9
-#define MMIO_GEN_LOW_MASK		((1 << MMIO_GEN_LOW_SHIFT) - 1)
+#define MMIO_GEN_SHIFT			20
+#define MMIO_GEN_LOW_SHIFT		10
+#define MMIO_GEN_LOW_MASK		((1 << MMIO_GEN_LOW_SHIFT) - 2)
 #define MMIO_GEN_MASK			((1 << MMIO_GEN_SHIFT) - 1)
 #define MMIO_MAX_GEN			((1 << MMIO_GEN_SHIFT) - 1)
 
@@ -2664,6 +2668,9 @@ static int __direct_map(struct kvm_vcpu *vcpu, gpa_t v, int write,
 	int emulate = 0;
 	gfn_t pseudo_gfn;
 
+	if (!VALID_PAGE(vcpu->arch.mmu.root_hpa))
+		return 0;
+
 	for_each_shadow_entry(vcpu, (u64)gfn << PAGE_SHIFT, iterator) {
 		if (iterator.level == level) {
 			mmu_set_spte(vcpu, iterator.sptep, ACC_ALL,
@@ -2833,6 +2840,9 @@ static bool fast_page_fault(struct kvm_vcpu *vcpu, gva_t gva, int level,
 	struct kvm_shadow_walk_iterator iterator;
 	bool ret = false;
 	u64 spte = 0ull;
+
+	if (!VALID_PAGE(vcpu->arch.mmu.root_hpa))
+		return false;
 
 	if (!page_fault_can_be_fast(error_code))
 		return false;
@@ -3155,7 +3165,7 @@ static void mmu_sync_roots(struct kvm_vcpu *vcpu)
 	if (!VALID_PAGE(vcpu->arch.mmu.root_hpa))
 		return;
 
-	vcpu_clear_mmio_info(vcpu, ~0ul);
+	vcpu_clear_mmio_info(vcpu, MMIO_GVA_ANY);
 	kvm_mmu_audit(vcpu, AUDIT_PRE_SYNC);
 	if (vcpu->arch.mmu.root_level == PT64_ROOT_LEVEL) {
 		hpa_t root = vcpu->arch.mmu.root_hpa;
@@ -3228,6 +3238,9 @@ static u64 walk_shadow_page_get_mmio_spte(struct kvm_vcpu *vcpu, u64 addr)
 {
 	struct kvm_shadow_walk_iterator iterator;
 	u64 spte = 0ull;
+
+	if (!VALID_PAGE(vcpu->arch.mmu.root_hpa))
+		return spte;
 
 	walk_shadow_page_lockless_begin(vcpu);
 	for_each_shadow_entry_lockless(vcpu, addr, iterator, spte)
@@ -4415,8 +4428,8 @@ void kvm_mmu_invalidate_mmio_sptes(struct kvm *kvm)
 	 * The very rare case: if the generation-number is round,
 	 * zap all shadow pages.
 	 */
-	if (unlikely(kvm_current_mmio_generation(kvm) >= MMIO_MAX_GEN)) {
-		printk_ratelimited(KERN_INFO "kvm: zapping shadow pages for mmio generation wraparound\n");
+	if (unlikely(kvm_current_mmio_generation(kvm) == 0)) {
+		printk_ratelimited(KERN_DEBUG "kvm: zapping shadow pages for mmio generation wraparound\n");
 		kvm_mmu_invalidate_zap_all_pages(kvm);
 	}
 }
@@ -4556,6 +4569,9 @@ int kvm_mmu_get_spte_hierarchy(struct kvm_vcpu *vcpu, u64 addr, u64 sptes[4])
 	struct kvm_shadow_walk_iterator iterator;
 	u64 spte;
 	int nr_sptes = 0;
+
+	if (!VALID_PAGE(vcpu->arch.mmu.root_hpa))
+		return nr_sptes;
 
 	walk_shadow_page_lockless_begin(vcpu);
 	for_each_shadow_entry_lockless(vcpu, addr, iterator, spte) {

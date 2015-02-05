@@ -379,12 +379,14 @@ struct nfs_openres {
  * Arguments to the open_confirm call.
  */
 struct nfs_open_confirmargs {
+	struct nfs4_sequence_args	seq_args;
 	const struct nfs_fh *	fh;
 	nfs4_stateid *		stateid;
 	struct nfs_seqid *	seqid;
 };
 
 struct nfs_open_confirmres {
+	struct nfs4_sequence_res	seq_res;
 	nfs4_stateid            stateid;
 	struct nfs_seqid *	seqid;
 };
@@ -465,7 +467,12 @@ struct nfs_lockt_res {
 };
 
 struct nfs_release_lockowner_args {
+	struct nfs4_sequence_args	seq_args;
 	struct nfs_lowner	lock_owner;
+};
+
+struct nfs_release_lockowner_res {
+	struct nfs4_sequence_res	seq_res;
 };
 
 struct nfs4_delegreturnargs {
@@ -1216,10 +1223,21 @@ struct nfs41_free_stateid_res {
 	unsigned int			status;
 };
 
+static inline void
+nfs_free_pnfs_ds_cinfo(struct pnfs_ds_commit_info *cinfo)
+{
+	kfree(cinfo->buckets);
+}
+
 #else
 
 struct pnfs_ds_commit_info {
 };
+
+static inline void
+nfs_free_pnfs_ds_cinfo(struct pnfs_ds_commit_info *cinfo)
+{
+}
 
 #endif /* CONFIG_NFS_V4_1 */
 

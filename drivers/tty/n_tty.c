@@ -319,7 +319,8 @@ static void n_tty_check_unthrottle(struct tty_struct *tty)
 
 static inline void put_tty_queue(unsigned char c, struct n_tty_data *ldata)
 {
-	*read_buf_addr(ldata, ldata->read_head++) = c;
+	*read_buf_addr(ldata, ldata->read_head) = c;
+	ldata->read_head++;
 }
 
 /**
@@ -1210,15 +1211,16 @@ static void n_tty_receive_parity_error(struct tty_struct *tty, unsigned char c)
 {
 	struct n_tty_data *ldata = tty->disc_data;
 
-	if (I_IGNPAR(tty))
-		return;
-	if (I_PARMRK(tty)) {
-		put_tty_queue('\377', ldata);
-		put_tty_queue('\0', ldata);
-		put_tty_queue(c, ldata);
-	} else	if (I_INPCK(tty))
-		put_tty_queue('\0', ldata);
-	else
+	if (I_INPCK(tty)) {
+		if (I_IGNPAR(tty))
+			return;
+		if (I_PARMRK(tty)) {
+			put_tty_queue('\377', ldata);
+			put_tty_queue('\0', ldata);
+			put_tty_queue(c, ldata);
+		} else
+			put_tty_queue('\0', ldata);
+	} else
 		put_tty_queue(c, ldata);
 	wake_up_interruptible(&tty->read_wait);
 }
@@ -2350,8 +2352,12 @@ static ssize_t n_tty_write(struct tty_struct *tty, struct file *file,
 			if (tty->ops->flush_chars)
 				tty->ops->flush_chars(tty);
 		} else {
+			struct n_tty_data *ldata = tty->disc_data;
+
 			while (nr > 0) {
+				mutex_lock(&ldata->output_lock);
 				c = tty->ops->write(tty, b, nr);
+				mutex_unlock(&ldata->output_lock);
 				if (c < 0) {
 					retval = c;
 					goto break_out;
@@ -2405,12 +2411,17 @@ static unsigned int n_tty_poll(struct tty_struct *tty, struct file *file,
 
 	poll_wait(file, &tty->read_wait, wait);
 	poll_wait(file, &tty->write_wait, wait);
-	if (input_available_p(tty, TIME_CHAR(tty) ? 0 : MIN_CHAR(tty)))
-		mask |= POLLIN | POLLRDNORM;
-	if (tty->packet && tty->link->ctrl_status)
-		mask |= POLLPRI | POLLIN | POLLRDNORM;
 	if (test_bit(TTY_OTHER_CLOSED, &tty->flags))
 		mask |= POLLHUP;
+	if (input_available_p(tty, TIME_CHAR(tty) ? 0 : MIN_CHAR(tty)))
+		mask |= POLLIN | POLLRDNORM;
+	else if (mask & POLLHUP) {
+		tty_flush_to_ldisc(tty);
+		if (input_available_p(tty, TIME_CHAR(tty) ? 0 : MIN_CHAR(tty)))
+			mask |= POLLIN | POLLRDNORM;
+	}
+	if (tty->packet && tty->link->ctrl_status)
+		mask |= POLLPRI | POLLIN | POLLRDNORM;
 	if (tty_hung_up_p(file))
 		mask |= POLLHUP;
 	if (!(mask & (POLLHUP | POLLIN | POLLRDNORM))) {

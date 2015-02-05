@@ -323,6 +323,7 @@ struct pci_dev {
 	unsigned int	is_added:1;
 	unsigned int	is_busmaster:1; /* device is busmaster */
 	unsigned int	no_msi:1;	/* device may not use msi */
+	unsigned int	no_64bit_msi:1; /* device may only use 32-bit MSIs */
 	unsigned int	block_cfg_access:1;	/* config space access is blocked */
 	unsigned int	broken_parity_status:1;	/* Device generates false positive parity */
 	unsigned int	irq_reroute_variant:2;	/* device needs IRQ rerouting variant */
@@ -476,6 +477,15 @@ struct pci_bus {
 static inline bool pci_is_root_bus(struct pci_bus *pbus)
 {
 	return !(pbus->parent);
+}
+
+static inline struct pci_dev *pci_upstream_bridge(struct pci_dev *dev)
+{
+	dev = pci_physfn(dev);
+	if (pci_is_root_bus(dev->bus))
+		return NULL;
+
+	return dev->bus->self;
 }
 
 #ifdef CONFIG_PCI_MSI

@@ -1033,7 +1033,6 @@ static int register_root_hub(struct usb_hcd *hcd)
 					dev_name(&usb_dev->dev), retval);
 			return retval;
 		}
-		usb_dev->lpm_capable = usb_device_supports_lpm(usb_dev);
 	}
 
 	retval = usb_new_device (usb_dev);
@@ -2054,6 +2053,8 @@ int usb_alloc_streams(struct usb_interface *interface,
 		return -EINVAL;
 	if (dev->speed != USB_SPEED_SUPER)
 		return -EINVAL;
+	if (dev->state < USB_STATE_CONFIGURED)
+		return -ENODEV;
 
 	/* Streams only apply to bulk endpoints. */
 	for (i = 0; i < num_eps; i++)

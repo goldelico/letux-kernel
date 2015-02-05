@@ -250,6 +250,9 @@ struct mem_cgroup {
 	/* vmpressure notifications */
 	struct vmpressure vmpressure;
 
+	/* css_online() has been completed */
+	int initialized;
+
 	/*
 	 * the counter to account for mem+swap usage.
 	 */
@@ -1079,16 +1082,36 @@ skip_node:
 	 * skipped and we should continue the tree walk.
 	 * last_visited css is safe to use because it is
 	 * protected by css_get and the tree walk is rcu safe.
+	 *
+	 * We do not take a reference on the root of the tree walk
+	 * because we might race with the root removal when it would
+	 * be the only node in the iterated hierarchy and mem_cgroup_iter
+	 * would end up in an endless loop because it expects that at
+	 * least one valid node will be returned. Root cannot disappear
+	 * because caller of the iterator should hold it already so
+	 * skipping css reference should be safe.
 	 */
 	if (next_css) {
-		struct mem_cgroup *mem = mem_cgroup_from_css(next_css);
+		struct mem_cgroup *memcg = mem_cgroup_from_css(next_css);
 
-		if (css_tryget(&mem->css))
-			return mem;
-		else {
-			prev_css = next_css;
-			goto skip_node;
+		if (next_css == &root->css)
+			return memcg;
+
+		if (css_tryget(next_css)) {
+			if (memcg->initialized) {
+				/*
+				 * Make sure the memcg is initialized:
+				 * mem_cgroup_css_online() orders the the
+				 * initialization against setting the flag.
+				 */
+				smp_rmb();
+				return memcg;
+			}
+			css_put(next_css);
 		}
+
+		prev_css = next_css;
+		goto skip_node;
 	}
 
 	return NULL;
@@ -1122,7 +1145,15 @@ mem_cgroup_iter_load(struct mem_cgroup_reclaim_iter *iter,
 	if (iter->last_dead_count == *sequence) {
 		smp_rmb();
 		position = iter->last_visited;
-		if (position && !css_tryget(&position->css))
+
+		/*
+		 * We cannot take a reference to root because we might race
+		 * with root removal and returning NULL would end up in
+		 * an endless loop on the iterator user level when root
+		 * would be returned all the time.
+		 */
+		if (position && position != root &&
+				!css_tryget(&position->css))
 			position = NULL;
 	}
 	return position;
@@ -1131,9 +1162,11 @@ mem_cgroup_iter_load(struct mem_cgroup_reclaim_iter *iter,
 static void mem_cgroup_iter_update(struct mem_cgroup_reclaim_iter *iter,
 				   struct mem_cgroup *last_visited,
 				   struct mem_cgroup *new_position,
+				   struct mem_cgroup *root,
 				   int sequence)
 {
-	if (last_visited)
+	/* root reference counting symmetric to mem_cgroup_iter_load */
+	if (last_visited && last_visited != root)
 		css_put(&last_visited->css);
 	/*
 	 * We store the sequence count from the time @last_visited was
@@ -1208,7 +1241,8 @@ struct mem_cgroup *mem_cgroup_iter(struct mem_cgroup *root,
 		memcg = __mem_cgroup_iter_next(root, last_visited);
 
 		if (reclaim) {
-			mem_cgroup_iter_update(iter, last_visited, memcg, seq);
+			mem_cgroup_iter_update(iter, last_visited, memcg, root,
+					seq);
 
 			if (!memcg)
 				iter->generation++;
@@ -1803,13 +1837,18 @@ static void mem_cgroup_out_of_memory(struct mem_cgroup *memcg, gfp_t gfp_mask,
 				break;
 			};
 			points = oom_badness(task, memcg, NULL, totalpages);
-			if (points > chosen_points) {
-				if (chosen)
-					put_task_struct(chosen);
-				chosen = task;
-				chosen_points = points;
-				get_task_struct(chosen);
-			}
+			if (!points || points < chosen_points)
+				continue;
+			/* Prefer thread group leaders for display purposes */
+			if (points == chosen_points &&
+			    thread_group_leader(chosen))
+				continue;
+
+			if (chosen)
+				put_task_struct(chosen);
+			chosen = task;
+			chosen_points = points;
+			get_task_struct(chosen);
 		}
 		css_task_iter_end(&it);
 	}
@@ -5626,8 +5665,12 @@ static int mem_cgroup_oom_notify_cb(struct mem_cgroup *memcg)
 {
 	struct mem_cgroup_eventfd_list *ev;
 
+	spin_lock(&memcg_oom_lock);
+
 	list_for_each_entry(ev, &memcg->oom_notify, list)
 		eventfd_signal(ev->eventfd, 1);
+
+	spin_unlock(&memcg_oom_lock);
 	return 0;
 }
 
@@ -6305,6 +6348,16 @@ mem_cgroup_css_online(struct cgroup_subsys_state *css)
 
 	error = memcg_init_kmem(memcg, &mem_cgroup_subsys);
 	mutex_unlock(&memcg_create_mutex);
+
+	if (!error) {
+		/*
+		 * Make sure the memcg is initialized: mem_cgroup_iter()
+		 * orders reading memcg->initialized against its callers
+		 * reading the memcg members.
+		 */
+		smp_wmb();
+		memcg->initialized = 1;
+	}
 	return error;
 }
 
@@ -6329,11 +6382,24 @@ static void mem_cgroup_invalidate_reclaim_iterators(struct mem_cgroup *memcg)
 static void mem_cgroup_css_offline(struct cgroup_subsys_state *css)
 {
 	struct mem_cgroup *memcg = mem_cgroup_from_css(css);
+	struct cgroup_subsys_state *iter;
 
 	kmem_cgroup_css_offline(memcg);
 
 	mem_cgroup_invalidate_reclaim_iterators(memcg);
-	mem_cgroup_reparent_charges(memcg);
+
+	/*
+	 * This requires that offlining is serialized.  Right now that is
+	 * guaranteed because css_killed_work_fn() holds the cgroup_mutex.
+	 */
+	rcu_read_lock();
+	css_for_each_descendant_post(iter, css) {
+		rcu_read_unlock();
+		mem_cgroup_reparent_charges(mem_cgroup_from_css(iter));
+		rcu_read_lock();
+	}
+	rcu_read_unlock();
+
 	mem_cgroup_destroy_all_caches(memcg);
 	vmpressure_cleanup(&memcg->vmpressure);
 }

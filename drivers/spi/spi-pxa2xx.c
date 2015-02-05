@@ -1070,6 +1070,8 @@ pxa2xx_spi_acpi_get_pdata(struct platform_device *pdev)
 
 	pdata->num_chipselect = 1;
 	pdata->enable_dma = true;
+	pdata->tx_chan_id = -1;
+	pdata->rx_chan_id = -1;
 
 	return pdata;
 }
@@ -1080,6 +1082,7 @@ static struct acpi_device_id pxa2xx_spi_acpi_match[] = {
 	{ "INT3430", 0 },
 	{ "INT3431", 0 },
 	{ "80860F0E", 0 },
+	{ "8086228E", 0 },
 	{ },
 };
 MODULE_DEVICE_TABLE(acpi, pxa2xx_spi_acpi_match);
@@ -1284,7 +1287,9 @@ static int pxa2xx_spi_suspend(struct device *dev)
 	if (status != 0)
 		return status;
 	write_SSCR0(0, drv_data->ioaddr);
-	clk_disable_unprepare(ssp->clk);
+
+	if (!pm_runtime_suspended(dev))
+		clk_disable_unprepare(ssp->clk);
 
 	return 0;
 }
@@ -1298,7 +1303,8 @@ static int pxa2xx_spi_resume(struct device *dev)
 	pxa2xx_spi_dma_resume(drv_data);
 
 	/* Enable the SSP clock */
-	clk_prepare_enable(ssp->clk);
+	if (!pm_runtime_suspended(dev))
+		clk_prepare_enable(ssp->clk);
 
 	/* Start the queue running */
 	status = spi_master_resume(drv_data->master);

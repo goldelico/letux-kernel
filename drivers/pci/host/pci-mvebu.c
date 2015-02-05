@@ -56,14 +56,6 @@
 #define PCIE_DEBUG_CTRL         0x1a60
 #define  PCIE_DEBUG_SOFT_RESET		BIT(20)
 
-/*
- * This product ID is registered by Marvell, and used when the Marvell
- * SoC is not the root complex, but an endpoint on the PCIe bus. It is
- * therefore safe to re-use this PCI ID for our emulated PCI-to-PCI
- * bridge.
- */
-#define MARVELL_EMULATED_PCI_PCI_BRIDGE_ID 0x7846
-
 /* PCI configuration space of a PCI-to-PCI bridge */
 struct mvebu_sw_pci_bridge {
 	u16 vendor;
@@ -305,7 +297,7 @@ static void mvebu_pcie_handle_iobase_change(struct mvebu_pcie_port *port)
 	port->iowin_base = port->pcie->io.start + iobase;
 	port->iowin_size = ((0xFFF | ((port->bridge.iolimit & 0xF0) << 8) |
 			    (port->bridge.iolimitupper << 16)) -
-			    iobase);
+			    iobase) + 1;
 
 	mvebu_mbus_add_window_remap_by_id(port->io_target, port->io_attr,
 					  port->iowin_base, port->iowin_size,
@@ -339,7 +331,7 @@ static void mvebu_pcie_handle_membase_change(struct mvebu_pcie_port *port)
 	port->memwin_base  = ((port->bridge.membase & 0xFFF0) << 16);
 	port->memwin_size  =
 		(((port->bridge.memlimit & 0xFFF0) << 16) | 0xFFFFF) -
-		port->memwin_base;
+		port->memwin_base + 1;
 
 	mvebu_mbus_add_window_by_id(port->mem_target, port->mem_attr,
 				    port->memwin_base, port->memwin_size);
@@ -357,7 +349,8 @@ static void mvebu_sw_pci_bridge_init(struct mvebu_pcie_port *port)
 
 	bridge->class = PCI_CLASS_BRIDGE_PCI;
 	bridge->vendor = PCI_VENDOR_ID_MARVELL;
-	bridge->device = MARVELL_EMULATED_PCI_PCI_BRIDGE_ID;
+	bridge->device = readl(port->base + PCIE_DEV_ID_OFF) >> 16;
+	bridge->revision = readl(port->base + PCIE_DEV_REV_OFF) & 0xff;
 	bridge->header_type = PCI_HEADER_TYPE_BRIDGE;
 	bridge->cache_line_size = 0x10;
 
@@ -754,9 +747,9 @@ static int mvebu_get_tgt_attr(struct device_node *np, int devfn,
 	rangesz = pna + na + ns;
 	nranges = rlen / sizeof(__be32) / rangesz;
 
-	for (i = 0; i < nranges; i++) {
+	for (i = 0; i < nranges; i++, range += rangesz) {
 		u32 flags = of_read_number(range, 1);
-		u32 slot = of_read_number(range, 2);
+		u32 slot = of_read_number(range + 1, 1);
 		u64 cpuaddr = of_read_number(range + na, pna);
 		unsigned long rtype;
 
@@ -764,14 +757,14 @@ static int mvebu_get_tgt_attr(struct device_node *np, int devfn,
 			rtype = IORESOURCE_IO;
 		else if (DT_FLAGS_TO_TYPE(flags) == DT_TYPE_MEM32)
 			rtype = IORESOURCE_MEM;
+		else
+			continue;
 
 		if (slot == PCI_SLOT(devfn) && type == rtype) {
 			*tgt = DT_CPUADDR_TO_TARGET(cpuaddr);
 			*attr = DT_CPUADDR_TO_ATTR(cpuaddr);
 			return 0;
 		}
-
-		range += rangesz;
 	}
 
 	return -ENOENT;
@@ -873,11 +866,23 @@ static int __init mvebu_pcie_probe(struct platform_device *pdev)
 			continue;
 		}
 
+		port->clk = of_clk_get_by_name(child, NULL);
+		if (IS_ERR(port->clk)) {
+			dev_err(&pdev->dev, "PCIe%d.%d: cannot get clock\n",
+			       port->port, port->lane);
+			continue;
+		}
+
+		ret = clk_prepare_enable(port->clk);
+		if (ret)
+			continue;
+
 		port->base = mvebu_pcie_map_registers(pdev, child, port);
 		if (IS_ERR(port->base)) {
 			dev_err(&pdev->dev, "PCIe%d.%d: cannot map registers\n",
 				port->port, port->lane);
 			port->base = NULL;
+			clk_disable_unprepare(port->clk);
 			continue;
 		}
 
@@ -893,22 +898,9 @@ static int __init mvebu_pcie_probe(struct platform_device *pdev)
 				 port->port, port->lane);
 		}
 
-		port->clk = of_clk_get_by_name(child, NULL);
-		if (IS_ERR(port->clk)) {
-			dev_err(&pdev->dev, "PCIe%d.%d: cannot get clock\n",
-			       port->port, port->lane);
-			iounmap(port->base);
-			port->haslink = 0;
-			continue;
-		}
-
 		port->dn = child;
-
-		clk_prepare_enable(port->clk);
 		spin_lock_init(&port->conf_lock);
-
 		mvebu_sw_pci_bridge_init(port);
-
 		i++;
 	}
 

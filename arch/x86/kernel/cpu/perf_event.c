@@ -118,6 +118,9 @@ static int x86_pmu_extra_regs(u64 config, struct perf_event *event)
 			continue;
 		if (event->attr.config1 & ~er->valid_mask)
 			return -EINVAL;
+		/* Check if the extra msrs can be safely accessed*/
+		if (!er->extra_msr_access)
+			return -ENXIO;
 
 		reg->idx = er->idx;
 		reg->config = event->attr.config1;
@@ -1191,6 +1194,9 @@ static void x86_pmu_del(struct perf_event *event, int flags)
 
 	for (i = 0; i < cpuc->n_events; i++) {
 		if (event == cpuc->event_list[i]) {
+
+			if (i >= cpuc->n_events - cpuc->n_added)
+				--cpuc->n_added;
 
 			if (x86_pmu.put_event_constraints)
 				x86_pmu.put_event_constraints(cpuc, event);

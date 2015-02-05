@@ -57,8 +57,11 @@ void arch_cpu_idle(void)
 {
 	if (tlb_type != hypervisor) {
 		touch_nmi_watchdog();
+		local_irq_enable();
 	} else {
 		unsigned long pstate;
+
+		local_irq_enable();
 
                 /* The sun4v sleeping code requires that we have PSTATE.IE cleared over
                  * the cpu sleep hypervisor call.
@@ -81,7 +84,6 @@ void arch_cpu_idle(void)
 			: "=&r" (pstate)
 			: "i" (PSTATE_IE));
 	}
-	local_irq_enable();
 }
 
 #ifdef CONFIG_HOTPLUG_CPU
@@ -302,6 +304,9 @@ static void __global_pmu_self(int this_cpu)
 {
 	struct global_pmu_snapshot *pp;
 	int i, num;
+
+	if (!pcr_ops)
+		return;
 
 	pp = &global_cpu_snapshot[this_cpu].pmu;
 

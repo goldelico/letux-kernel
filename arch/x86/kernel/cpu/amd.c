@@ -508,6 +508,23 @@ static void early_init_amd(struct cpuinfo_x86 *c)
 			set_cpu_cap(c, X86_FEATURE_EXTD_APICID);
 	}
 #endif
+
+	/*
+	 * This is only needed to tell the kernel whether to use VMCALL
+	 * and VMMCALL.  VMMCALL is never executed except under virt, so
+	 * we can set it unconditionally.
+	 */
+	set_cpu_cap(c, X86_FEATURE_VMMCALL);
+
+	/* F16h erratum 793, CVE-2013-6885 */
+	if (c->x86 == 0x16 && c->x86_model <= 0xf) {
+		u64 val;
+
+		rdmsrl(MSR_AMD64_LS_CFG, val);
+		if (!(val & BIT(15)))
+			wrmsrl(MSR_AMD64_LS_CFG, val | BIT(15));
+	}
+
 }
 
 static const int amd_erratum_383[];

@@ -169,6 +169,7 @@ MODULE_SUPPORTED_DEVICE("{{Intel, ICH6},"
 			 "{Intel, PPT},"
 			 "{Intel, LPT},"
 			 "{Intel, LPT_LP},"
+			 "{Intel, WPT_LP},"
 			 "{Intel, HPT},"
 			 "{Intel, PBG},"
 			 "{Intel, SCH},"
@@ -568,6 +569,7 @@ enum {
 	AZX_DRIVER_ICH,
 	AZX_DRIVER_PCH,
 	AZX_DRIVER_SCH,
+	AZX_DRIVER_HDMI,
 	AZX_DRIVER_ATI,
 	AZX_DRIVER_ATIHDMI,
 	AZX_DRIVER_ATIHDMI_NS,
@@ -647,6 +649,7 @@ static char *driver_short_names[] = {
 	[AZX_DRIVER_ICH] = "HDA Intel",
 	[AZX_DRIVER_PCH] = "HDA Intel PCH",
 	[AZX_DRIVER_SCH] = "HDA Intel MID",
+	[AZX_DRIVER_HDMI] = "HDA Intel HDMI",
 	[AZX_DRIVER_ATI] = "HDA ATI SB",
 	[AZX_DRIVER_ATIHDMI] = "HDA ATI HDMI",
 	[AZX_DRIVER_ATIHDMI_NS] = "HDA ATI HDMI",
@@ -743,6 +746,54 @@ static inline void mark_runtime_wc(struct azx *chip, struct azx_dev *azx_dev,
 				   struct snd_pcm_substream *substream, bool on)
 {
 }
+#endif
+
+#ifdef CONFIG_SND_HDA_I915
+/* Intel HSW/BDW display HDA controller Extended Mode registers.
+ * EM4 (M value) and EM5 (N Value) are used to convert CDClk (Core Display
+ * Clock) to 24MHz BCLK: BCLK = CDCLK * M / N
+ * The values will be lost when the display power well is disabled.
+ */
+#define ICH6_REG_EM4			0x100c
+#define ICH6_REG_EM5			0x1010
+
+static void haswell_set_bclk(struct azx *chip)
+{
+	int cdclk_freq;
+	unsigned int bclk_m, bclk_n;
+
+	cdclk_freq = haswell_get_cdclk();
+	if (cdclk_freq < 0)
+		return;
+
+	switch (cdclk_freq) {
+	case 337500:
+		bclk_m = 16;
+		bclk_n = 225;
+		break;
+
+	case 450000:
+	default: /* default CDCLK 450MHz */
+		bclk_m = 4;
+		bclk_n = 75;
+		break;
+
+	case 540000:
+		bclk_m = 4;
+		bclk_n = 90;
+		break;
+
+	case 675000:
+		bclk_m = 8;
+		bclk_n = 225;
+		break;
+	}
+
+	azx_writew(chip, EM4, bclk_m);
+	azx_writew(chip, EM5, bclk_n);
+}
+#else
+static inline void haswell_set_bclk(struct azx *chip) {}
 #endif
 
 static int azx_acquire_irq(struct azx *chip, int do_disconnect);
@@ -2914,7 +2965,7 @@ static int azx_suspend(struct device *dev)
 	struct azx *chip = card->private_data;
 	struct azx_pcm *p;
 
-	if (chip->disabled)
+	if (chip->disabled || chip->init_failed)
 		return 0;
 
 	snd_power_change_state(card, SNDRV_CTL_POWER_D3hot);
@@ -2945,11 +2996,13 @@ static int azx_resume(struct device *dev)
 	struct snd_card *card = dev_get_drvdata(dev);
 	struct azx *chip = card->private_data;
 
-	if (chip->disabled)
+	if (chip->disabled || chip->init_failed)
 		return 0;
 
-	if (chip->driver_caps & AZX_DCAPS_I915_POWERWELL)
+	if (chip->driver_caps & AZX_DCAPS_I915_POWERWELL) {
 		hda_display_power(true);
+		haswell_set_bclk(chip);
+	}
 	pci_set_power_state(pci, PCI_D0);
 	pci_restore_state(pci);
 	if (pci_enable_device(pci) < 0) {
@@ -2980,7 +3033,7 @@ static int azx_runtime_suspend(struct device *dev)
 	struct snd_card *card = dev_get_drvdata(dev);
 	struct azx *chip = card->private_data;
 
-	if (chip->disabled)
+	if (chip->disabled || chip->init_failed)
 		return 0;
 
 	if (!(chip->driver_caps & AZX_DCAPS_PM_RUNTIME))
@@ -3006,14 +3059,16 @@ static int azx_runtime_resume(struct device *dev)
 	struct hda_codec *codec;
 	int status;
 
-	if (chip->disabled)
+	if (chip->disabled || chip->init_failed)
 		return 0;
 
 	if (!(chip->driver_caps & AZX_DCAPS_PM_RUNTIME))
 		return 0;
 
-	if (chip->driver_caps & AZX_DCAPS_I915_POWERWELL)
+	if (chip->driver_caps & AZX_DCAPS_I915_POWERWELL) {
 		hda_display_power(true);
+		haswell_set_bclk(chip);
+	}
 
 	/* Read STATESTS before controller reset */
 	status = azx_readw(chip, STATESTS);
@@ -3041,7 +3096,7 @@ static int azx_runtime_idle(struct device *dev)
 	struct snd_card *card = dev_get_drvdata(dev);
 	struct azx *chip = card->private_data;
 
-	if (chip->disabled)
+	if (chip->disabled || chip->init_failed)
 		return 0;
 
 	if (!power_save_controller ||
@@ -3741,6 +3796,10 @@ static int azx_first_init(struct azx *chip)
 
 	/* initialize chip */
 	azx_init_pci(chip);
+
+	if (chip->driver_caps & AZX_DCAPS_I915_POWERWELL)
+		haswell_set_bclk(chip);
+
 	azx_init_chip(chip, (probe_only[dev] & 2) == 0);
 
 	/* codec detection */
@@ -3899,8 +3958,12 @@ static int azx_probe_continue(struct azx *chip)
 			snd_printk(KERN_ERR SFX "Error request power-well from i915\n");
 			goto out_free;
 		}
+		err = hda_display_power(true);
+		if (err < 0) {
+			snd_printk(KERN_ERR SFX "Cannot turn on display power on i915\n");
+			goto out_free;
+		}
 #endif
-		hda_display_power(true);
 	}
 
 	err = azx_first_init(chip);
@@ -3983,6 +4046,9 @@ static DEFINE_PCI_DEVICE_TABLE(azx_ids) = {
 	/* Lynx Point */
 	{ PCI_DEVICE(0x8086, 0x8c20),
 	  .driver_data = AZX_DRIVER_PCH | AZX_DCAPS_INTEL_PCH },
+	/* 9 Series */
+	{ PCI_DEVICE(0x8086, 0x8ca0),
+	  .driver_data = AZX_DRIVER_PCH | AZX_DCAPS_INTEL_PCH },
 	/* Wellsburg */
 	{ PCI_DEVICE(0x8086, 0x8d20),
 	  .driver_data = AZX_DRIVER_PCH | AZX_DCAPS_INTEL_PCH },
@@ -3994,13 +4060,19 @@ static DEFINE_PCI_DEVICE_TABLE(azx_ids) = {
 	/* Lynx Point-LP */
 	{ PCI_DEVICE(0x8086, 0x9c21),
 	  .driver_data = AZX_DRIVER_PCH | AZX_DCAPS_INTEL_PCH },
+	/* Wildcat Point-LP */
+	{ PCI_DEVICE(0x8086, 0x9ca0),
+	  .driver_data = AZX_DRIVER_PCH | AZX_DCAPS_INTEL_PCH },
 	/* Haswell */
 	{ PCI_DEVICE(0x8086, 0x0a0c),
-	  .driver_data = AZX_DRIVER_SCH | AZX_DCAPS_INTEL_HASWELL },
+	  .driver_data = AZX_DRIVER_HDMI | AZX_DCAPS_INTEL_HASWELL },
 	{ PCI_DEVICE(0x8086, 0x0c0c),
-	  .driver_data = AZX_DRIVER_SCH | AZX_DCAPS_INTEL_HASWELL },
+	  .driver_data = AZX_DRIVER_HDMI | AZX_DCAPS_INTEL_HASWELL },
 	{ PCI_DEVICE(0x8086, 0x0d0c),
-	  .driver_data = AZX_DRIVER_SCH | AZX_DCAPS_INTEL_HASWELL },
+	  .driver_data = AZX_DRIVER_HDMI | AZX_DCAPS_INTEL_HASWELL },
+	/* Broadwell */
+	{ PCI_DEVICE(0x8086, 0x160c),
+	  .driver_data = AZX_DRIVER_HDMI | AZX_DCAPS_INTEL_HASWELL },
 	/* 5 Series/3400 */
 	{ PCI_DEVICE(0x8086, 0x3b56),
 	  .driver_data = AZX_DRIVER_SCH | AZX_DCAPS_INTEL_PCH_NOPM },
@@ -4013,6 +4085,9 @@ static DEFINE_PCI_DEVICE_TABLE(azx_ids) = {
 	/* BayTrail */
 	{ PCI_DEVICE(0x8086, 0x0f04),
 	  .driver_data = AZX_DRIVER_PCH | AZX_DCAPS_INTEL_PCH_NOPM },
+	/* Braswell */
+	{ PCI_DEVICE(0x8086, 0x2284),
+	  .driver_data = AZX_DRIVER_PCH | AZX_DCAPS_INTEL_PCH },
 	/* ICH */
 	{ PCI_DEVICE(0x8086, 0x2668),
 	  .driver_data = AZX_DRIVER_ICH | AZX_DCAPS_OLD_SSYNC |
@@ -4079,6 +4154,22 @@ static DEFINE_PCI_DEVICE_TABLE(azx_ids) = {
 	{ PCI_DEVICE(0x1002, 0xaa40),
 	  .driver_data = AZX_DRIVER_ATIHDMI | AZX_DCAPS_PRESET_ATI_HDMI },
 	{ PCI_DEVICE(0x1002, 0xaa48),
+	  .driver_data = AZX_DRIVER_ATIHDMI | AZX_DCAPS_PRESET_ATI_HDMI },
+	{ PCI_DEVICE(0x1002, 0xaa50),
+	  .driver_data = AZX_DRIVER_ATIHDMI | AZX_DCAPS_PRESET_ATI_HDMI },
+	{ PCI_DEVICE(0x1002, 0xaa58),
+	  .driver_data = AZX_DRIVER_ATIHDMI | AZX_DCAPS_PRESET_ATI_HDMI },
+	{ PCI_DEVICE(0x1002, 0xaa60),
+	  .driver_data = AZX_DRIVER_ATIHDMI | AZX_DCAPS_PRESET_ATI_HDMI },
+	{ PCI_DEVICE(0x1002, 0xaa68),
+	  .driver_data = AZX_DRIVER_ATIHDMI | AZX_DCAPS_PRESET_ATI_HDMI },
+	{ PCI_DEVICE(0x1002, 0xaa80),
+	  .driver_data = AZX_DRIVER_ATIHDMI | AZX_DCAPS_PRESET_ATI_HDMI },
+	{ PCI_DEVICE(0x1002, 0xaa88),
+	  .driver_data = AZX_DRIVER_ATIHDMI | AZX_DCAPS_PRESET_ATI_HDMI },
+	{ PCI_DEVICE(0x1002, 0xaa90),
+	  .driver_data = AZX_DRIVER_ATIHDMI | AZX_DCAPS_PRESET_ATI_HDMI },
+	{ PCI_DEVICE(0x1002, 0xaa98),
 	  .driver_data = AZX_DRIVER_ATIHDMI | AZX_DCAPS_PRESET_ATI_HDMI },
 	{ PCI_DEVICE(0x1002, 0x9902),
 	  .driver_data = AZX_DRIVER_ATIHDMI_NS | AZX_DCAPS_PRESET_ATI_HDMI },

@@ -82,7 +82,7 @@ ext4_unaligned_aio(struct inode *inode, const struct iovec *iov,
 	size_t count = iov_length(iov, nr_segs);
 	loff_t final_size = pos + count;
 
-	if (pos >= inode->i_size)
+	if (pos >= i_size_read(inode))
 		return 0;
 
 	if ((pos & blockmask) || (final_size & blockmask))
@@ -152,7 +152,7 @@ ext4_file_dio_write(struct kiocb *iocb, const struct iovec *iov,
 	if (ret > 0) {
 		ssize_t err;
 
-		err = generic_write_sync(file, pos, ret);
+		err = generic_write_sync(file, iocb->ki_pos - ret, ret);
 		if (err < 0 && ret > 0)
 			ret = err;
 	}

@@ -1440,17 +1440,19 @@ static int nilfs_segctor_collect(struct nilfs_sc_info *sci,
 
 		nilfs_clear_logs(&sci->sc_segbufs);
 
-		err = nilfs_segctor_extend_segments(sci, nilfs, nadd);
-		if (unlikely(err))
-			return err;
-
 		if (sci->sc_stage.flags & NILFS_CF_SUFREED) {
 			err = nilfs_sufile_cancel_freev(nilfs->ns_sufile,
 							sci->sc_freesegs,
 							sci->sc_nfreesegs,
 							NULL);
 			WARN_ON(err); /* do not happen */
+			sci->sc_stage.flags &= ~NILFS_CF_SUFREED;
 		}
+
+		err = nilfs_segctor_extend_segments(sci, nilfs, nadd);
+		if (unlikely(err))
+			return err;
+
 		nadd = min_t(int, nadd << 1, SC_MAX_SEGDELTA);
 		sci->sc_stage = prev_stage;
 	}
@@ -1831,6 +1833,7 @@ static void nilfs_segctor_complete_write(struct nilfs_sc_info *sci)
 	nilfs_set_next_segment(nilfs, segbuf);
 
 	if (update_sr) {
+		nilfs->ns_flushed_device = 0;
 		nilfs_set_last_segment(nilfs, segbuf->sb_pseg_start,
 				       segbuf->sb_sum.seg_seq, nilfs->ns_cno++);
 
@@ -2214,6 +2217,8 @@ int nilfs_construct_dsync_segment(struct super_block *sb, struct inode *inode,
 	sci->sc_dsync_end = end;
 
 	err = nilfs_segctor_do_construct(sci, SC_LSEG_DSYNC);
+	if (!err)
+		nilfs->ns_flushed_device = 0;
 
 	nilfs_transaction_unlock(sb);
 	return err;

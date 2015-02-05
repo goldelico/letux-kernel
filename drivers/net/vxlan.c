@@ -282,13 +282,15 @@ static inline struct vxlan_rdst *first_remote_rtnl(struct vxlan_fdb *fdb)
 	return list_first_entry(&fdb->remotes, struct vxlan_rdst, list);
 }
 
-/* Find VXLAN socket based on network namespace and UDP port */
-static struct vxlan_sock *vxlan_find_sock(struct net *net, __be16 port)
+/* Find VXLAN socket based on network namespace, address family and UDP port */
+static struct vxlan_sock *vxlan_find_sock(struct net *net,
+					  sa_family_t family, __be16 port)
 {
 	struct vxlan_sock *vs;
 
 	hlist_for_each_entry_rcu(vs, vs_head(net, port), hlist) {
-		if (inet_sk(vs->sock->sk)->inet_sport == port)
+		if (inet_sk(vs->sock->sk)->inet_sport == port &&
+		    inet_sk(vs->sock->sk)->sk.sk_family == family)
 			return vs;
 	}
 	return NULL;
@@ -307,11 +309,12 @@ static struct vxlan_dev *vxlan_vs_find_vni(struct vxlan_sock *vs, u32 id)
 }
 
 /* Look up VNI in a per net namespace table */
-static struct vxlan_dev *vxlan_find_vni(struct net *net, u32 id, __be16 port)
+static struct vxlan_dev *vxlan_find_vni(struct net *net, u32 id,
+					sa_family_t family, __be16 port)
 {
 	struct vxlan_sock *vs;
 
-	vs = vxlan_find_sock(net, port);
+	vs = vxlan_find_sock(net, family, port);
 	if (!vs)
 		return NULL;
 
@@ -781,6 +784,9 @@ static int vxlan_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
 	if (err)
 		return err;
 
+	if (vxlan->default_dst.remote_ip.sa.sa_family != ip.sa.sa_family)
+		return -EAFNOSUPPORT;
+
 	spin_lock_bh(&vxlan->hash_lock);
 	err = vxlan_fdb_create(vxlan, addr, &ip, ndm->ndm_state, flags,
 			       port, vni, ifindex, ndm->ndm_flags);
@@ -1051,6 +1057,15 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
 	if (!vs)
 		goto drop;
 
+	/* If the NIC driver gave us an encapsulated packet
+	 * with the encapsulation mark, the device checksummed it
+	 * for us. Otherwise force the upper layers to verify it.
+	 */
+	if (skb->ip_summed != CHECKSUM_UNNECESSARY || !skb->encapsulation)
+		skb->ip_summed = CHECKSUM_NONE;
+
+	skb->encapsulation = 0;
+
 	vs->rcv(vs, skb, vxh->vx_vni);
 	return 0;
 
@@ -1108,17 +1123,6 @@ static void vxlan_rcv(struct vxlan_sock *vs,
 		goto drop;
 
 	skb_reset_network_header(skb);
-
-	/* If the NIC driver gave us an encapsulated packet with
-	 * CHECKSUM_UNNECESSARY and Rx checksum feature is enabled,
-	 * leave the CHECKSUM_UNNECESSARY, the device checksummed it
-	 * for us. Otherwise force the upper layers to verify it.
-	 */
-	if (skb->ip_summed != CHECKSUM_UNNECESSARY || !skb->encapsulation ||
-	    !(vxlan->dev->features & NETIF_F_RXCSUM))
-		skb->ip_summed = CHECKSUM_NONE;
-
-	skb->encapsulation = 0;
 
 	if (oip6)
 		err = IP6_ECN_decapsulate(oip6, skb);
@@ -1214,6 +1218,9 @@ static int arp_reduce(struct net_device *dev, struct sk_buff *skb)
 
 		neigh_release(n);
 
+		if (reply == NULL)
+			goto out;
+
 		skb_reset_mac_header(reply);
 		__skb_pull(reply, skb_network_offset(reply));
 		reply->ip_summed = CHECKSUM_UNNECESSARY;
@@ -1224,7 +1231,7 @@ static int arp_reduce(struct net_device *dev, struct sk_buff *skb)
 	} else if (vxlan->flags & VXLAN_F_L3MISS) {
 		union vxlan_addr ipa = {
 			.sin.sin_addr.s_addr = tip,
-			.sa.sa_family = AF_INET,
+			.sin.sin_family = AF_INET,
 		};
 
 		vxlan_ip_miss(dev, &ipa);
@@ -1235,40 +1242,126 @@ out:
 }
 
 #if IS_ENABLED(CONFIG_IPV6)
+
+static struct sk_buff *vxlan_na_create(struct sk_buff *request,
+	struct neighbour *n, bool isrouter)
+{
+	struct net_device *dev = request->dev;
+	struct sk_buff *reply;
+	struct nd_msg *ns, *na;
+	struct ipv6hdr *pip6;
+	u8 *daddr;
+	int na_olen = 8; /* opt hdr + ETH_ALEN for target */
+	int ns_olen;
+	int i, len;
+
+	if (dev == NULL)
+		return NULL;
+
+	len = LL_RESERVED_SPACE(dev) + sizeof(struct ipv6hdr) +
+		sizeof(*na) + na_olen + dev->needed_tailroom;
+	reply = alloc_skb(len, GFP_ATOMIC);
+	if (reply == NULL)
+		return NULL;
+
+	reply->protocol = htons(ETH_P_IPV6);
+	reply->dev = dev;
+	skb_reserve(reply, LL_RESERVED_SPACE(request->dev));
+	skb_push(reply, sizeof(struct ethhdr));
+	skb_set_mac_header(reply, 0);
+
+	ns = (struct nd_msg *)skb_transport_header(request);
+
+	daddr = eth_hdr(request)->h_source;
+	ns_olen = request->len - skb_transport_offset(request) - sizeof(*ns);
+	for (i = 0; i < ns_olen-1; i += (ns->opt[i+1]<<3)) {
+		if (ns->opt[i] == ND_OPT_SOURCE_LL_ADDR) {
+			daddr = ns->opt + i + sizeof(struct nd_opt_hdr);
+			break;
+		}
+	}
+
+	/* Ethernet header */
+	memcpy(eth_hdr(reply)->h_dest, daddr, ETH_ALEN);
+	memcpy(eth_hdr(reply)->h_source, n->ha, ETH_ALEN);
+	eth_hdr(reply)->h_proto = htons(ETH_P_IPV6);
+	reply->protocol = htons(ETH_P_IPV6);
+
+	skb_pull(reply, sizeof(struct ethhdr));
+	skb_set_network_header(reply, 0);
+	skb_put(reply, sizeof(struct ipv6hdr));
+
+	/* IPv6 header */
+
+	pip6 = ipv6_hdr(reply);
+	memset(pip6, 0, sizeof(struct ipv6hdr));
+	pip6->version = 6;
+	pip6->priority = ipv6_hdr(request)->priority;
+	pip6->nexthdr = IPPROTO_ICMPV6;
+	pip6->hop_limit = 255;
+	pip6->daddr = ipv6_hdr(request)->saddr;
+	pip6->saddr = *(struct in6_addr *)n->primary_key;
+
+	skb_pull(reply, sizeof(struct ipv6hdr));
+	skb_set_transport_header(reply, 0);
+
+	na = (struct nd_msg *)skb_put(reply, sizeof(*na) + na_olen);
+
+	/* Neighbor Advertisement */
+	memset(na, 0, sizeof(*na)+na_olen);
+	na->icmph.icmp6_type = NDISC_NEIGHBOUR_ADVERTISEMENT;
+	na->icmph.icmp6_router = isrouter;
+	na->icmph.icmp6_override = 1;
+	na->icmph.icmp6_solicited = 1;
+	na->target = ns->target;
+	memcpy(&na->opt[2], n->ha, ETH_ALEN);
+	na->opt[0] = ND_OPT_TARGET_LL_ADDR;
+	na->opt[1] = na_olen >> 3;
+
+	na->icmph.icmp6_cksum = csum_ipv6_magic(&pip6->saddr,
+		&pip6->daddr, sizeof(*na)+na_olen, IPPROTO_ICMPV6,
+		csum_partial(na, sizeof(*na)+na_olen, 0));
+
+	pip6->payload_len = htons(sizeof(*na)+na_olen);
+
+	skb_push(reply, sizeof(struct ipv6hdr));
+
+	reply->ip_summed = CHECKSUM_UNNECESSARY;
+
+	return reply;
+}
+
 static int neigh_reduce(struct net_device *dev, struct sk_buff *skb)
 {
 	struct vxlan_dev *vxlan = netdev_priv(dev);
-	struct neighbour *n;
-	union vxlan_addr ipa;
+	struct nd_msg *msg;
 	const struct ipv6hdr *iphdr;
 	const struct in6_addr *saddr, *daddr;
-	struct nd_msg *msg;
-	struct inet6_dev *in6_dev = NULL;
+	struct neighbour *n;
+	struct inet6_dev *in6_dev;
 
 	in6_dev = __in6_dev_get(dev);
 	if (!in6_dev)
-		goto out;
-
-	if (!pskb_may_pull(skb, skb->len))
 		goto out;
 
 	iphdr = ipv6_hdr(skb);
 	saddr = &iphdr->saddr;
 	daddr = &iphdr->daddr;
 
-	if (ipv6_addr_loopback(daddr) ||
-	    ipv6_addr_is_multicast(daddr))
-		goto out;
-
 	msg = (struct nd_msg *)skb_transport_header(skb);
 	if (msg->icmph.icmp6_code != 0 ||
 	    msg->icmph.icmp6_type != NDISC_NEIGHBOUR_SOLICITATION)
 		goto out;
 
-	n = neigh_lookup(ipv6_stub->nd_tbl, daddr, dev);
+	if (ipv6_addr_loopback(daddr) ||
+	    ipv6_addr_is_multicast(&msg->target))
+		goto out;
+
+	n = neigh_lookup(ipv6_stub->nd_tbl, &msg->target, dev);
 
 	if (n) {
 		struct vxlan_fdb *f;
+		struct sk_buff *reply;
 
 		if (!(n->nud_state & NUD_CONNECTED)) {
 			neigh_release(n);
@@ -1282,13 +1375,23 @@ static int neigh_reduce(struct net_device *dev, struct sk_buff *skb)
 			goto out;
 		}
 
-		ipv6_stub->ndisc_send_na(dev, n, saddr, &msg->target,
-					 !!in6_dev->cnf.forwarding,
-					 true, false, false);
+		reply = vxlan_na_create(skb, n,
+					!!(f ? f->flags & NTF_ROUTER : 0));
+
 		neigh_release(n);
+
+		if (reply == NULL)
+			goto out;
+
+		if (netif_rx_ni(reply) == NET_RX_DROP)
+			dev->stats.rx_dropped++;
+
 	} else if (vxlan->flags & VXLAN_F_L3MISS) {
-		ipa.sin6.sin6_addr = *daddr;
-		ipa.sa.sa_family = AF_INET6;
+		union vxlan_addr ipa = {
+			.sin6.sin6_addr = msg->target,
+			.sin6.sin6_family = AF_INET6,
+		};
+
 		vxlan_ip_miss(dev, &ipa);
 	}
 
@@ -1319,7 +1422,7 @@ static bool route_shortcircuit(struct net_device *dev, struct sk_buff *skb)
 		if (!n && (vxlan->flags & VXLAN_F_L3MISS)) {
 			union vxlan_addr ipa = {
 				.sin.sin_addr.s_addr = pip->daddr,
-				.sa.sa_family = AF_INET,
+				.sin.sin_family = AF_INET,
 			};
 
 			vxlan_ip_miss(dev, &ipa);
@@ -1340,7 +1443,7 @@ static bool route_shortcircuit(struct net_device *dev, struct sk_buff *skb)
 		if (!n && (vxlan->flags & VXLAN_F_L3MISS)) {
 			union vxlan_addr ipa = {
 				.sin6.sin6_addr = pip6->daddr,
-				.sa.sa_family = AF_INET6,
+				.sin6.sin6_family = AF_INET6,
 			};
 
 			vxlan_ip_miss(dev, &ipa);
@@ -1580,6 +1683,8 @@ static void vxlan_encap_bypass(struct sk_buff *skb, struct vxlan_dev *src_vxlan,
 	struct pcpu_tstats *rx_stats = this_cpu_ptr(dst_vxlan->dev->tstats);
 	union vxlan_addr loopback;
 	union vxlan_addr *remote_ip = &dst_vxlan->default_dst.remote_ip;
+	struct net_device *dev = skb->dev;
+	int len = skb->len;
 
 	skb->pkt_type = PACKET_HOST;
 	skb->encapsulation = 0;
@@ -1601,16 +1706,16 @@ static void vxlan_encap_bypass(struct sk_buff *skb, struct vxlan_dev *src_vxlan,
 
 	u64_stats_update_begin(&tx_stats->syncp);
 	tx_stats->tx_packets++;
-	tx_stats->tx_bytes += skb->len;
+	tx_stats->tx_bytes += len;
 	u64_stats_update_end(&tx_stats->syncp);
 
 	if (netif_rx(skb) == NET_RX_SUCCESS) {
 		u64_stats_update_begin(&rx_stats->syncp);
 		rx_stats->rx_packets++;
-		rx_stats->rx_bytes += skb->len;
+		rx_stats->rx_bytes += len;
 		u64_stats_update_end(&rx_stats->syncp);
 	} else {
-		skb->dev->stats.rx_dropped++;
+		dev->stats.rx_dropped++;
 	}
 }
 
@@ -1672,7 +1777,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
 			netdev_dbg(dev, "circular route to %pI4\n",
 				   &dst->sin.sin_addr.s_addr);
 			dev->stats.collisions++;
-			goto tx_error;
+			goto rt_tx_error;
 		}
 
 		/* Bypass encapsulation if the destination is local */
@@ -1681,7 +1786,8 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
 			struct vxlan_dev *dst_vxlan;
 
 			ip_rt_put(rt);
-			dst_vxlan = vxlan_find_vni(dev_net(dev), vni, dst_port);
+			dst_vxlan = vxlan_find_vni(dev_net(dev), vni,
+						   dst->sa.sa_family, dst_port);
 			if (!dst_vxlan)
 				goto tx_error;
 			vxlan_encap_bypass(skb, vxlan, dst_vxlan);
@@ -1734,7 +1840,8 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
 			struct vxlan_dev *dst_vxlan;
 
 			dst_release(ndst);
-			dst_vxlan = vxlan_find_vni(dev_net(dev), vni, dst_port);
+			dst_vxlan = vxlan_find_vni(dev_net(dev), vni,
+						   dst->sa.sa_family, dst_port);
 			if (!dst_vxlan)
 				goto tx_error;
 			vxlan_encap_bypass(skb, vxlan, dst_vxlan);
@@ -1785,7 +1892,8 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
 			return arp_reduce(dev, skb);
 #if IS_ENABLED(CONFIG_IPV6)
 		else if (ntohs(eth->h_proto) == ETH_P_IPV6 &&
-			 skb->len >= sizeof(struct ipv6hdr) + sizeof(struct nd_msg) &&
+			 pskb_may_pull(skb, sizeof(struct ipv6hdr)
+				       + sizeof(struct nd_msg)) &&
 			 ipv6_hdr(skb)->nexthdr == IPPROTO_ICMPV6) {
 				struct nd_msg *msg;
 
@@ -1794,6 +1902,7 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
 				    msg->icmph.icmp6_type == NDISC_NEIGHBOUR_SOLICITATION)
 					return neigh_reduce(dev, skb);
 		}
+		eth = eth_hdr(skb);
 #endif
 	}
 
@@ -1883,6 +1992,7 @@ static int vxlan_init(struct net_device *dev)
 {
 	struct vxlan_dev *vxlan = netdev_priv(dev);
 	struct vxlan_net *vn = net_generic(dev_net(dev), vxlan_net_id);
+	bool ipv6 = vxlan->flags & VXLAN_F_IPV6;
 	struct vxlan_sock *vs;
 
 	dev->tstats = alloc_percpu(struct pcpu_tstats);
@@ -1890,10 +2000,10 @@ static int vxlan_init(struct net_device *dev)
 		return -ENOMEM;
 
 	spin_lock(&vn->sock_lock);
-	vs = vxlan_find_sock(dev_net(dev), vxlan->dst_port);
-	if (vs) {
+	vs = vxlan_find_sock(dev_net(dev), ipv6 ? AF_INET6 : AF_INET,
+			     vxlan->dst_port);
+	if (vs && atomic_add_unless(&vs->refcnt, 1, 0)) {
 		/* If we have a socket with same port already, reuse it */
-		atomic_inc(&vs->refcnt);
 		vxlan_vs_add_dev(vs, vxlan);
 	} else {
 		/* otherwise make new socket outside of RTNL */
@@ -2054,9 +2164,9 @@ static void vxlan_setup(struct net_device *dev)
 	eth_hw_addr_random(dev);
 	ether_setup(dev);
 	if (vxlan->default_dst.remote_ip.sa.sa_family == AF_INET6)
-		dev->hard_header_len = ETH_HLEN + VXLAN6_HEADROOM;
+		dev->needed_headroom = ETH_HLEN + VXLAN6_HEADROOM;
 	else
-		dev->hard_header_len = ETH_HLEN + VXLAN_HEADROOM;
+		dev->needed_headroom = ETH_HLEN + VXLAN_HEADROOM;
 
 	dev->netdev_ops = &vxlan_netdev_ops;
 	dev->destructor = free_netdev;
@@ -2335,13 +2445,10 @@ struct vxlan_sock *vxlan_sock_add(struct net *net, __be16 port,
 		return vs;
 
 	spin_lock(&vn->sock_lock);
-	vs = vxlan_find_sock(net, port);
-	if (vs) {
-		if (vs->rcv == rcv)
-			atomic_inc(&vs->refcnt);
-		else
+	vs = vxlan_find_sock(net, ipv6 ? AF_INET6 : AF_INET, port);
+	if (vs && ((vs->rcv != rcv) ||
+		   !atomic_add_unless(&vs->refcnt, 1, 0)))
 			vs = ERR_PTR(-EBUSY);
-	}
 	spin_unlock(&vn->sock_lock);
 
 	if (!vs)
@@ -2385,9 +2492,10 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
 	vni = nla_get_u32(data[IFLA_VXLAN_ID]);
 	dst->remote_vni = vni;
 
+	/* Unless IPv6 is explicitly requested, assume IPv4 */
+	dst->remote_ip.sa.sa_family = AF_INET;
 	if (data[IFLA_VXLAN_GROUP]) {
 		dst->remote_ip.sin.sin_addr.s_addr = nla_get_be32(data[IFLA_VXLAN_GROUP]);
-		dst->remote_ip.sa.sa_family = AF_INET;
 	} else if (data[IFLA_VXLAN_GROUP6]) {
 		if (!IS_ENABLED(CONFIG_IPV6))
 			return -EPFNOSUPPORT;
@@ -2436,8 +2544,7 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
 		if (!tb[IFLA_MTU])
 			dev->mtu = lowerdev->mtu - (use_ipv6 ? VXLAN6_HEADROOM : VXLAN_HEADROOM);
 
-		/* update header length based on lower device */
-		dev->hard_header_len = lowerdev->hard_header_len +
+		dev->needed_headroom = lowerdev->hard_header_len +
 				       (use_ipv6 ? VXLAN6_HEADROOM : VXLAN_HEADROOM);
 	}
 
@@ -2480,7 +2587,8 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
 	if (data[IFLA_VXLAN_PORT])
 		vxlan->dst_port = nla_get_be16(data[IFLA_VXLAN_PORT]);
 
-	if (vxlan_find_vni(net, vni, vxlan->dst_port)) {
+	if (vxlan_find_vni(net, vni, use_ipv6 ? AF_INET6 : AF_INET,
+			   vxlan->dst_port)) {
 		pr_info("duplicate VNI %u\n", vni);
 		return -EEXIST;
 	}
