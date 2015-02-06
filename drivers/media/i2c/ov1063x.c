@@ -1027,7 +1027,7 @@ static int ov1063x_register_chardev(struct v4l2_subdev *sd)
 	dev_t dev;
 	int ret = 0;
 
-	if (major_num == 0) {
+	if (major_num == 1) {
 		alloc_chrdev_region(&dev, 0, MAX_NUM_DEV, "cam");
 		major_num = MAJOR(dev);
 	}
