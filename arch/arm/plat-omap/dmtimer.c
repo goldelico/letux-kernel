@@ -93,6 +93,13 @@ static void omap_dm_timer_write_reg(struct omap_dm_timer *timer, u32 reg,
 
 static void omap_timer_restore_context(struct omap_dm_timer *timer)
 {
+	/* Do not restore the context during late attach.
+	 * Kernel data structure is not in sync with the register
+	 * settings of the timer.
+	 */
+	if (timer->late_attach == 1)
+		return;
+
 	omap_dm_timer_write_reg(timer, OMAP_TIMER_WAKEUP_EN_REG,
 				timer->context.twer);
 	omap_dm_timer_write_reg(timer, OMAP_TIMER_COUNTER_REG,
@@ -335,7 +342,12 @@ void omap_dm_timer_enable(struct omap_dm_timer *timer)
 {
 	int c;
 
-	pm_runtime_get_sync(&timer->pdev->dev);
+	/* During late attach, pm_runtime_sync is not released
+	 * during probe. Do not take a pm_runtime_sync here to
+	 * match pm_runtime counts with normal operation.
+	 */
+	if (timer->late_attach == 0)
+		pm_runtime_get_sync(&timer->pdev->dev);
 
 	if (!(timer->capability & OMAP_TIMER_ALWON)) {
 		if (timer->get_context_loss_count) {
@@ -353,6 +365,11 @@ EXPORT_SYMBOL_GPL(omap_dm_timer_enable);
 
 void omap_dm_timer_disable(struct omap_dm_timer *timer)
 {
+	/* During late attach, do not disable the timer as this would return
+	 * the pm_runtime sync and may cause the kernel to idle the timer
+	 */
+	if (timer->late_attach)
+		return;
 	pm_runtime_put_sync(&timer->pdev->dev);
 }
 EXPORT_SYMBOL_GPL(omap_dm_timer_disable);
@@ -450,6 +467,8 @@ int omap_dm_timer_start(struct omap_dm_timer *timer)
 
 	/* Save the context */
 	timer->context.tclr = l;
+
+	timer->late_attach = 0;
 	return 0;
 }
 EXPORT_SYMBOL_GPL(omap_dm_timer_start);
@@ -487,6 +506,12 @@ int omap_dm_timer_set_source(struct omap_dm_timer *timer, int source)
 
 	if (unlikely(!timer))
 		return -EINVAL;
+
+	/* During late attach, do not set the timer source as the timer might
+	 * be clocked from a different source.
+	 */
+	if (timer->late_attach)
+		return 0;
 
 	pdata = timer->pdev->dev.platform_data;
 
@@ -542,6 +567,13 @@ int omap_dm_timer_set_load(struct omap_dm_timer *timer, int autoreload,
 
 	if (unlikely(!timer))
 		return -EINVAL;
+
+	/* If late attach is enabled, return without modifying the
+	 * dmtimer registers. The registers would have configured
+	 * already.
+	 */
+	if (timer->late_attach)
+		return 0;
 
 	omap_dm_timer_enable(timer);
 	l = omap_dm_timer_read_reg(timer, OMAP_TIMER_CTRL_REG);
@@ -799,6 +831,7 @@ static int omap_dm_timer_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	const struct of_device_id *match;
 	const struct dmtimer_platform_data *pdata;
+	struct property *late_attach_property;
 
 	match = of_match_device(of_match_ptr(omap_timer_match), dev);
 	pdata = match ? match->data : dev->platform_data;
@@ -840,6 +873,21 @@ static int omap_dm_timer_probe(struct platform_device *pdev)
 			timer->capability |= OMAP_TIMER_HAS_PWM;
 		if (of_find_property(dev->of_node, "ti,timer-secure", NULL))
 			timer->capability |= OMAP_TIMER_SECURE;
+
+		late_attach_property = of_find_property(dev->of_node,
+							"ti,late-attach", NULL);
+		if (late_attach_property) {
+			u32 ret = 0;
+			timer->late_attach = 1;
+			/* Clear the late attach property in device tree for
+			 * subsequent probes.
+			 */
+			ret = of_remove_property(dev->of_node,
+						late_attach_property);
+			if (ret)
+				dev_err(dev,
+					"Unable to remove late-attach property\n");
+		}
 	} else {
 		timer->id = pdev->id;
 		timer->capability = pdata->timer_capability;
@@ -859,10 +907,16 @@ static int omap_dm_timer_probe(struct platform_device *pdev)
 		pm_runtime_irq_safe(dev);
 	}
 
+
 	if (!timer->reserved) {
 		pm_runtime_get_sync(dev);
 		__omap_dm_timer_init_regs(timer);
-		pm_runtime_put(dev);
+
+		/* Keep the pm_runtime sync and prevent kernel power management
+		 * from idling or disabling the timer.
+		 */
+		if (timer->late_attach != 1)
+			pm_runtime_put(dev);
 	}
 
 	/* add the timer element to the list */

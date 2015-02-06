@@ -122,6 +122,9 @@ struct omap_dm_timer {
 	u32 errata;
 	struct platform_device *pdev;
 	struct list_head node;
+	u32 late_attach;		/* flag to indicate if the timer is
+					   preconfigured.
+					   */
 };
 
 int omap_dm_timer_reserve_systimer(int id);

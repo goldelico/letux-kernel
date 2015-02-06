@@ -15,16 +15,19 @@
 };
 
 &timer3 {
+	ti,late-attach;
 	ti,no-idle-on-init;
 	ti,no-reset-on-init;
 };
 
 &timer4 {
+	ti,late-attach;
 	ti,no-idle-on-init;
 	ti,no-reset-on-init;
 };
 
 &timer9 {
+	ti,late-attach;
 	ti,no-idle-on-init;
 	ti,no-reset-on-init;
 };
