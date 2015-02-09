@@ -401,6 +401,15 @@ static int omap_rproc_stop(struct rproc *rproc)
 	if (ret)
 		return ret;
 
+	/* During late attach, we use non-zeroing dma ops to prevent the kernel
+	 * from overwriting already loaded code and data segments. When
+	 * shutting down the processor, we restore the normal zeroing dma ops.
+	 * This allows the kernel to clear memory when loading a new remotecore
+	 * binary or during error recovery with the current remotecore binary.
+	 */
+	if (rproc->late_attach == 1)
+		set_dma_ops(dev, &arm_dma_ops);
+
 	mbox_free_channel(oproc->mbox);
 
 	return 0;
