@@ -507,6 +507,7 @@ static int omap_rproc_probe(struct platform_device *pdev)
 	const char *firmware;
 	int num_timers;
 	int ret;
+	struct property *late_attach_property;
 
 	if (!np) {
 		dev_err(&pdev->dev, "only DT-based devices are supported\n");
@@ -533,10 +534,18 @@ static int omap_rproc_probe(struct platform_device *pdev)
 	if (!rproc)
 		return -ENOMEM;
 
-	if (of_get_property(np, "ti,late-attach", NULL))
+	late_attach_property = of_find_property(np, "ti,late-attach", NULL);
+	if (late_attach_property) {
 		rproc->late_attach = 1;
-	else
+		/* Clear the late attach property in device tree for
+		 * subsequent probes.
+		 */
+		ret = of_remove_property(np, late_attach_property);
+		if (ret)
+			dev_err(&pdev->dev, "Unable to remove late-attach property\n");
+	} else {
 		rproc->late_attach = 0;
+	}
 
 	if (rproc->late_attach)
 		set_dma_ops(&pdev->dev, &arm_dma_m_ops);
