@@ -909,7 +909,6 @@ err_enable:
  **/
 static void omap_iommu_detach(struct omap_iommu *obj)
 {
-
 	if (!obj || IS_ERR(obj))
 		return;
 
@@ -975,6 +974,7 @@ static int omap_iommu_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct iommu_platform_data *pdata = pdev->dev.platform_data;
 	struct device_node *of = pdev->dev.of_node;
+	struct property *late_attach_property;
 
 	obj = devm_kzalloc(&pdev->dev, sizeof(*obj) + MMU_REG_SIZE, GFP_KERNEL);
 	if (!obj)
@@ -999,10 +999,21 @@ static int omap_iommu_probe(struct platform_device *pdev)
 		if (of_find_property(of, "ti,iommu-bus-err-back", NULL))
 			obj->has_bus_err_back = MMU_GP_REG_BUS_ERR_BACK_EN;
 
-		if (of_find_property(of, "ti,late-attach", NULL))
+		late_attach_property = of_find_property(of,
+							"ti,late-attach", NULL);
+		if (late_attach_property) {
+			u32 ret = 0;
 			obj->late_attach = 1;
-		else
+			/* Clear the late attach property in device tree for
+			 * subsequent probes.
+			 */
+			ret = of_remove_property(of, late_attach_property);
+			if (ret)
+				dev_err(&pdev->dev,
+					"Unable to remove late-attach property\n");
+		} else {
 			obj->late_attach = 0;
+		}
 	} else {
 		obj->nr_tlb_entries = pdata->nr_tlb_entries;
 		obj->name = pdata->name;
