@@ -22,7 +22,7 @@
 / {
 	aliases {
 		display0 = &lcd;
-	// makes problems with omapfb and X11	display1 = &tv;
+	// makes problems with omapfb and X11:	display1 = &tv;
 	};
 
 	tv: connector@1 {
@@ -205,9 +205,10 @@
 			gpios = <&gpio4 4 GPIO_ACTIVE_HIGH>;	/* GPIO 100 */
 			gpio-key,wakeup;
 		};
-		lid { //* should send EV_SW (switch event) and not EV_KEY! */
+		lid {
 			label = "lid";
-			linux,code = <0>;   // 0 = SW_LID
+			linux,code = <0x00>;   	/* SW_LID lid shut */
+			linux,input-type = <0x05>;	/* EV_SW */
 			gpios = <&gpio4 12 GPIO_ACTIVE_HIGH>;	/* GPIO 108 */
 			gpio-key,wakeup;
 		};
