@@ -36,6 +36,18 @@
 		};
 	};
 
+/*
+	hsusb2_power: vhost5v_regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "regulator-vhost5v";
+		regulator-boot-on;
+		regulator-always-on;
+		regulator-min-microvolt = "5000000";
+		regulator-max-microvolt = "5000000";
+		gpio = <&gpio5 4 0>;	/* gpio_164 = EN_USB_5V * /
+		enable-active-high;
+	};
+*/
 	gpio-leds {
 
 		compatible = "gpio-leds";
@@ -216,12 +228,7 @@
 
 	hsusb2_phy: hsusb2_phy {
 		compatible = "usb-nop-xceiv";
-		/* gpio_16 = reset for USB3322
-		 * gpio_163 = !OC_USB5 (over current input)
-		 * gpio_164 = EN_USB_5V
-		*/
-		reset-gpios = <	&gpio1 16 GPIO_ACTIVE_LOW
-				&gpio5 4 GPIO_ACTIVE_LOW>;
+		reset-gpios = <	&gpio1 16 GPIO_ACTIVE_LOW>;	/* gpio_16 = reset for USB3322 */
 		vcc-supply = <&vaux2>;
 	};
 
@@ -246,6 +253,12 @@
 };
 
 &omap3_pmx_core {
+
+	pinctrl-names = "default";
+	pinctrl-0 = <
+		&hsusb2_pins
+		&control_pins
+	>;
 
 	mmc1_pins: pinmux_mmc1_pins {
 		pinctrl-single,pins = <
@@ -349,6 +362,19 @@
 		pinctrl-single,pins = <
 			/* here we could enable to wakeup the cpu from suspend by a pen touch */
 			OMAP3_CORE1_IOPAD(0x210c, PIN_INPUT_PULLUP | MUX_MODE4) /* gpio_94 */
+		>;
+	};
+
+	hsusb2_pins: pinmux_h2usb2_pins {
+		pinctrl-single,pins = <
+			OMAP3_CORE1_IOPAD(0x21d4, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi1_cs3.hsusb2_data2 */
+			OMAP3_CORE1_IOPAD(0x21d6, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi2_clk.hsusb2_data7 */
+			OMAP3_CORE1_IOPAD(0x21d8, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi2_simo.hsusb2_data4 */
+			OMAP3_CORE1_IOPAD(0x21da, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi2_somi.hsusb2_data5 */
+			OMAP3_CORE1_IOPAD(0x21dc, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi2_cs0.hsusb2_data6 */
+			OMAP3_CORE1_IOPAD(0x21de, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi2_cs1.hsusb2_data3 */
+			OMAP3_CORE1_IOPAD(0x219a, PIN_INPUT_PULLUP | MUX_MODE4) /* gpio_163 = !OC_USB5 (over current input) */
+			OMAP3_CORE1_IOPAD(0x219c, PIN_OUTPUT | MUX_MODE4) /* gpio_164 = EN_USB_5V */
 		>;
 	};
 
@@ -470,6 +496,7 @@
 &vsim { /* audio DAC */
 	regulator-min-microvolt = <2800000>;
 	regulator-max-microvolt = <2800000>;
+	regulator-always-on;	/* power the LID sensor and the audio DAC */
 };
 
 &i2c2 {
