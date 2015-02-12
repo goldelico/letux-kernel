@@ -564,6 +564,19 @@
 	wp-gpios = <&gpio4 31 GPIO_ACTIVE_LOW>;	/* GPIO_127 */
 };
 
+/* wlan */
+&mmc3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mmc3_pins>;
+//	vmmc-supply = <&vmmc1>; // how can we power up the WiFi module?
+	bus-width = <4>;
+	non-removable;
+	ti,non-removable;
+	cap-power-off-card;
+	reset-gpios = <&gpio1 23 GPIO_ACTIVE_LOW>;      /* gpio_23 = reset means remove enable */
+// interrupt = gpio_21
+};
+
 /* bluetooth*/
 &uart1 {
 };
