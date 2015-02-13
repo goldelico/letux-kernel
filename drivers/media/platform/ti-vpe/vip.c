@@ -1885,6 +1885,13 @@ static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
 	struct vip_dev *dev = port->dev;
 	struct vip_buffer *buf;
 	unsigned long flags;
+	int ret;
+
+	ret = v4l2_subdev_call(dev->sensor, video, s_stream, 1);
+	if (ret) {
+		vip_err(dev, "Could not start camera");
+		return ret;
+	}
 
 	buf = list_entry(stream->vidq.next,
 			 struct vip_buffer, list);
@@ -1942,6 +1949,7 @@ static int vip_stop_streaming(struct vb2_queue *vq)
 	struct vip_dev *dev = port->dev;
 	struct vip_buffer *buf;
 
+	v4l2_subdev_call(dev->sensor, video, s_stream, 0);
 	disable_irqs(dev, dev->slice_id, stream->list_num);
 	clear_irqs(dev, dev->slice_id, stream->list_num);
 	stop_dma(stream);
