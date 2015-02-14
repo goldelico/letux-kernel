@@ -1141,7 +1141,7 @@ static void start_dma(struct vip_stream *stream, struct vip_buffer *buf)
 	}
 
 	vpdma_submit_descs(dev->shared->vpdma,
-			&stream->desc_list, dev->slice_id);
+			&stream->desc_list, stream->list_num);
 }
 
 static void vip_schedule_next_buffer(struct vip_stream *stream)
