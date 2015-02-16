@@ -37,8 +37,6 @@
 #include <sound/soc.h>
 #include <sound/initval.h>
 #include <sound/tlv.h>
-/* ouch, should not be inclueded here! */
-#include "../../../arch/arm/mach-omap2/mux.h"
 /* Register descriptions are here */
 #include <linux/mfd/twl4030-audio.h>
 
@@ -863,39 +861,6 @@ static int digimic_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-/* is for some reason never reached */
-static int voice_input_event(struct snd_soc_dapm_widget *w,
-	struct snd_kcontrol *kcontrol,
-	int event)
-{
-	dev_dbg(w->codec->dev, "GSMIN event");
-	switch(event) {
-	case SND_SOC_DAPM_POST_PMU:
-		dev_dbg(w->codec->dev, "GSMIN power up");
-		break;
-	case SND_SOC_DAPM_POST_PMD:
-		dev_dbg(w->codec->dev, "GSMIN power down");
-		break;
-	}
-	return 0;
-}
-
-/* is for some reason never reached */
-static int voice_output_event(struct snd_soc_dapm_widget *w,
-	struct snd_kcontrol *kcontrol, int event)
-{
-	dev_dbg(w->codec->dev,"GSMOUT event");
-	switch(event) {
-	case SND_SOC_DAPM_POST_PMU:
-		dev_dbg(w->codec->dev, "GSMOUT power up");
-		break;
-	case SND_SOC_DAPM_POST_PMD:
-		dev_dbg(w->codec->dev, "GSMOUT power down");
-		break;
-	}
-	return 0;
-}
-
 /*
  * Some of the gain controls in TWL (mostly those which are associated with
  * the outputs) are implemented in an interesting way:
@@ -1367,17 +1332,6 @@ static const struct snd_soc_dapm_widget twl4030_dapm_widgets[] = {
 			&twl4030_dapm_abypassl2_control),
 	SND_SOC_DAPM_SWITCH("Voice Analog Loopback", SND_SOC_NOPM, 0, 0,
 			&twl4030_dapm_abypassv_control),
-
-	/* PGA is a lie here */
-        SND_SOC_DAPM_MIC("Voice DigiInput", voice_input_event),
-/*
-	SND_SOC_DAPM_PGA_E("Voice DigiInput", SND_SOC_NOPM,
-			0, 0, NULL, 0, voice_input_event,
-			SND_SOC_DAPM_POST_PMU|SND_SOC_DAPM_POST_PMD),
-*/
-	SND_SOC_DAPM_PGA_E("Voice DigiOutput", SND_SOC_NOPM,
-			0, 0, NULL, 0, voice_output_event,
-			SND_SOC_DAPM_POST_PMU|SND_SOC_DAPM_POST_PMD),
 
 	/* Master analog loopback switch */
 	SND_SOC_DAPM_SUPPLY("FM Loop Enable", TWL4030_REG_MISC_SET_1, 5, 0,
