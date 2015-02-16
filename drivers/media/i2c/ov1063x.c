@@ -640,16 +640,11 @@ static int ov1063x_g_fmt(struct v4l2_subdev *sd,
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ov1063x_priv *priv = to_ov1063x(client);
 	enum v4l2_mbus_pixelcode code;
-	int ret;
 
 	if (priv->cfmt)
 		code = priv->cfmt->code;
 	else
 		code = V4L2_MBUS_FMT_YUYV8_2X8;
-
-	ret = ov1063x_set_params(client, &priv->width, &priv->height, code);
-	if (ret < 0)
-		return ret;
 
 	mf->width	= priv->width;
 	mf->height	= priv->height;
