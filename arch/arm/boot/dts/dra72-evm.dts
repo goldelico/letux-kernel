@@ -626,7 +626,8 @@
 		reg = <0x37>;
 		status = "okay";
 
-		gpios = <&pcf_hdmi 3    GPIO_ACTIVE_LOW>,	/* CAM_FPD_MUX_S0 */
+		gpios = <&pcf_hdmi 2    GPIO_ACTIVE_HIGH>,	/* VIN2_S0 */
+			<&pcf_hdmi 6	GPIO_ACTIVE_LOW>,	/* VIN2_S2 */
 			<&pcf_gpio_21 4	GPIO_ACTIVE_LOW>;	/* SEL_ENET_MUX_S0 */
 		port {
 			onboardLI: endpoint {
