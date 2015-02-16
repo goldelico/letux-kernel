@@ -2533,21 +2533,20 @@ static int vip_async_bound(struct v4l2_async_notifier *notifier,
 	if (dev->sensor) {
 		if (asd < dev->sensor->asd) {
 			/* Notified of a subdev earlier in the array */
+			dev->sensor = subdev;
+			dev->endpoint = &dev->config->endpoints[idx];
 			vip_info(dev, "Switching to subdev %s (High priority)",
 				 subdev->name);
-		} else {
+
+		} else
 			vip_info(dev, "Rejecting subdev %s (Low priority)",
 				 subdev->name);
-			return 0;
-		}
-		free_port(dev->ports[0]);
+		return 0;
 	}
 
 	dev->sensor = subdev;
 	dev->endpoint = &dev->config->endpoints[idx];
-	vip_info(dev, "Using sensor %s for capture\n",
-		 subdev->name);
-
+	vip_info(dev, "Using sensor %s for capture\n", subdev->name);
 	alloc_port(dev, 0);
 
 	return 0;
