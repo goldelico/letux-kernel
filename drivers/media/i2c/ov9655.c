@@ -1245,6 +1245,7 @@ static int ov9655_set_format(struct v4l2_subdev *subdev,
 	return 0;
 }
 
+// replace by ov9655_get_selection
 static int ov9655_get_crop(struct v4l2_subdev *subdev,
 			    struct v4l2_subdev_fh *fh,
 			    struct v4l2_subdev_crop *crop)
@@ -1256,6 +1257,8 @@ static int ov9655_get_crop(struct v4l2_subdev *subdev,
 					     crop->which);
 	return 0;
 }
+
+// replace by ov9655_set_selection
 
 static int ov9655_set_crop(struct v4l2_subdev *subdev,
 			    struct v4l2_subdev_fh *fh,
@@ -1647,8 +1650,10 @@ static struct v4l2_subdev_pad_ops ov9655_subdev_pad_ops = {
 	.enum_frame_size = ov9655_enum_frame_size,
 	.get_fmt = ov9655_get_format,
 	.set_fmt = ov9655_set_format,
-	.get_crop = ov9655_get_crop,
-	.set_crop = ov9655_set_crop,
+// should become get_selection/set_selection
+// as of commit 05b9cc3eeffcb2b0d6720930fc144058d4ace1aa
+//	.get_crop = ov9655_get_crop,
+//	.set_crop = ov9655_set_crop,
 };
 
 static struct v4l2_subdev_ops ov9655_subdev_ops = {
