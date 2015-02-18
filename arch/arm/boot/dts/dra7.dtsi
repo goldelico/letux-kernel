@@ -1992,11 +1992,25 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reg = <0>;
+				status = "disabled";
 			};
 			vin2a: port@1 {
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reg = <1>;
+				status = "disabled";
+			};
+			vin1b: port@2 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <2>;
+				status = "disabled";
+			};
+			vin2b: port@3 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <3>;
+				status = "disabled";
 			};
 		};
 
@@ -2016,11 +2030,25 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reg = <0>;
+				status = "disabled";
 			};
 			vin4a: port@1 {
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reg = <1>;
+				status = "disabled";
+			};
+			vin3b: port@2 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <2>;
+				status = "disabled";
+			};
+			vin4b: port@3 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <3>;
+				status = "disabled";
 			};
                 };
 
@@ -2040,11 +2068,13 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reg = <0>;
+				status = "disabled";
 			};
 			vin6a: port@1 {
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reg = <1>;
+				status = "disabled";
 			};
 		};
 

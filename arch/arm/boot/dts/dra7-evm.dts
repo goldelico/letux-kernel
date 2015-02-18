@@ -1083,6 +1083,7 @@ i2c_p3_exp: &i2c2 {
 };
 
 video_in: &vin1a {
+	status = "okay";
 	endpoint@0 {
 		slave-mode;
 		remote-endpoint = <&onboardLI>;
