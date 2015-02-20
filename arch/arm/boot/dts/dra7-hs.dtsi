@@ -1,0 +1,34 @@
+/*
+ * Copyright (C) 2014 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ * Based on "omap4.dtsi"
+ */
+
+/ {
+	reserved-memory	{
+        /* Required by SMC tf_driver */
+        sec_rsvd: sec_rsvd@94C00000 {
+            compatible = "sec-rsvd";
+            reg = <0x94c00000 0x800000>;
+            no-map;
+            status = "okay";
+        };
+	};
+};
+
+/* Alter reserved IRQ mappings to not mess up
+ * secure world FIQs
+ */
+&crossbar_mpu {
+	ti,irqs-skip = <8 10 15 118 133 139 140>;
+};
+
+/* Disable the TRNG since it is owned by the secure world */
+&rng {
+	status = "disabled";
+};
+
+
