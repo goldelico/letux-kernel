@@ -7,16 +7,12 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-
-/*
- * device tree for GTA04A4
- */
-
 /dts-v1/;
 
 #include "omap36xx.dtsi"
 
 / {
+	model = "OMAP3 GTA04";
 	compatible = "ti,omap3-gta04", "ti,omap36xx", "ti,omap3";
 
 	cpus {
@@ -32,87 +28,10 @@
 
 	aliases {
 		display0 = &lcd;
-		// makes problems with omapfb and X11:	display1 = &tv0;
-	};
-
-	/* there is no "compatible" DT driver yet
-	 see https://www.mail-archive.com/linux-media@vger.kernel.org/msg80048.html
-	 and parts of this should likely go to the omap3.dtsi
-	 so that we only have to define the endpoints
-	*/
-
-	omap3isp: isp@480BC000 {
-		compatible = "ti,omap3isp";
-		reg = <0x480BC000 0x070>, /* base */
-		<0x480BC100 0x078>, /* cbuf */
-		<0x480BC400 0x1F0>, /* cpp2 */
-		<0x480BC600 0x0A8>, /* ccdc */
-		<0x480BCA00 0x048>, /* hist */
-		<0x480BCC00 0x060>, /* h3a*/
-		<0x480BCE00 0x0A0>, /* prev */
-		<0x480BD000 0x0AC>, /* resz */
-		<0x480BD200 0x0FC>, /* sbl*/
-		<0x480BD400 0x070>; /* mmu*/
-
-		clocks = <&cam_ick>,
-			<&cam_mclk>,
-			<&csi2_96m_fck>,
-			<&l3_ick>;
-
-		clock-names = "cam_ick",
-			"cam_mclk",
-			"csi2_96m_fck",
-		"l3_ick";
-
-		interrupts = <24>;
-
-		ti,iommu = <&mmu_isp>;
-
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		isp_xclk1: isp-xclk@0 {
-			compatible = "ti,omap3-isp-xclk";
-			reg = <0>;
-			#clock-cells = <0>;
-		};
-
-		isp_xclk2: isp-xclk@1 {
-			compatible = "ti,omap3-isp-xclk";
-			reg = <1>;
-			#clock-cells = <0>;
-		};
-
-		port@0 {
-			reg = <0>;
-			parallel_ep: endpoint {};
-		};
-
-		port@1 {
-			reg = <1>;
-			csi1_ep: endpoint {};
-		};
-
-		port@2 {
-			reg = <2>;
-			csi2_ep: endpoint {};
-		};
-	};
-
-	/* pinmux for devconf1 */
-	control_devconf1: pinmux@480022d8 {
-		compatible = "pinctrl-single";
-		reg = <0x480022d8 4>;   /* Single register */
-		#address-cells = <1>;
-		#size-cells = <0>;
-		pinctrl-single,bit-per-mux;
-		pinctrl-single,register-width = <32>;
-		pinctrl-single,function-mask = <0xfc0bd5>;
 	};
 
 	gpio-keys {
 		compatible = "gpio-keys";
-		// FIXME: pinmux
 
 		aux-button {
 			label = "aux";
@@ -122,94 +41,15 @@
 		};
 	};
 
-	gpio-keys-wwan-wakeup {
-		compatible = "gpio-keys";
-		// FIXME: pinmux
-
-		wwan_wakeup_button: wwan-wakeup-button {
-			label = "3G_WOE";
-			linux,code = <240>;
-			gpios = <&gpio1 10 GPIO_ACTIVE_HIGH>;
-			gpio-key,wakeup;
-		};
-	};
-
-	hsusb2_phy: hsusb2_phy {
-		compatible = "usb-nop-xceiv";
-		reset-gpios = <&gpio6 14 GPIO_ACTIVE_LOW>; /* gpio_174 = reset for USB3322 */
-/*		vcc-supply = <&hsusb2_power>; */
-	};
-
-	antenna-detect {
-		compatible = "extcon-gpio";
-		label = "gps_antenna";
-		// FIXME: pinmux
-		gpios = <&gpio5 16 GPIO_ACTIVE_HIGH>; /* GPIO144 */
-		debounce-delay-ms = <10>;
-		interrupt-parent = <&gpio5>;
-		interrupts = <16 IRQ_TYPE_EDGE_BOTH>;
-		irq-flags = <IRQ_TYPE_EDGE_BOTH>;
-		state-on = "external";
-		state-off = "internal";
-	};
-
 	sound {
 		compatible = "ti,omap-twl4030";
 		ti,model = "gta04";
 
 		ti,mcbsp = <&mcbsp2>;
 		ti,codec = <&twl_audio>;
-
-		ti,mcbsp-voice = <&mcbsp4>;
-/*		ti,jack-det-gpio = <&gpio? >;/* planned for GTA04A5 */
-/*		ti,audio-routing = "Headset Mic", "HSMIC",
-				 specify list of audio routings */
-
 	};
 
-	sound_card {
-		compatible = "goldelico,gta04-audio";
-		gta04,cpu-dai = <&mcbsp2>;
-	};
-
-	gtm601_codec: voice_codec {
-		compatible = "gtm601-codec";
-	};
-
-	sound_voice {
-		compatible = "goldelico,gta04-voice";
-		gta04,cpu-dai = <&mcbsp4>;
-		gta04,codec = <&gtm601_codec>;
-	};
-
-	w2cbw003_codec: headset_codec {
-		compatible = "w2cbw003-codec";
-	};
-
-	sound_headset {
-		compatible = "goldelico,gta04-headset";
-		gta04,cpu-dai = <&mcbsp3>;
-		gta04,codec = <&w2cbw003_codec>;
-	};
-
-	sound_fm {
-		compatible = "goldelico,gta04-fm";
-		gta04,cpu-dai = <&mcbsp1>;
-		gta04,codec = <&si4721_codec>;
-	};
-
-	madc-hwmon {
-		compatible = "ti,twl4030-madc-hwmon";
-	};
-
-	battery: battery {
-		compatible = "ti,twl4030-madc-battery";
-		capacity = <1200000>;
-		charging-calibration-data = <4200 100 4100 75 4000 55 3900 25 3800 5 3700 2 3600 1 3300 0>;
-		discharging-calibration-data = <4200 100 4100 95 4000 70 3800 50 3700 10 3600 5 3300 0>;
-	};
-
-	spi_lcd: spi_lcd {
+	spi_lcd {
 		compatible = "spi-gpio";
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
@@ -239,32 +79,9 @@
 		};
 	};
 
-	backlight {
-		compatible = "pwm-backlight";
-		pwms = <&pwm 0 2000000>;
-		brightness-levels = <0 11 20 30 40 50 60 70 80 90 100>;
-		default-brightness-level = <80>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&backlight_pins>;
-		power-supply = <&power>;
-	};
-
-	pwm: omap_pwm {
-		compatible = "ti,omap-pwm";
-		timers = <&timer11>;
-		#pwm-cells = <2>;
-	};
-
-	/* this is a workaround because the backlight pwm does not work */
-	power: fixed_regulator@0 {
-		compatible = "regulator-fixed";
-		regulator-name = "bl-enable";
-		regulator-boot-on;
-		regulator-always-on;
-		regulator-min-microvolt = "1000000";
-		regulator-max-microvolt = "1000000";
-		gpio = <&gpio2 25 0>;	/* GPT11/PWM */
-		enable-active-high;
+	hsusb2_phy: hsusb2_phy {
+		compatible = "usb-nop-xceiv";
+		reset-gpios = <&gpio6 14 GPIO_ACTIVE_LOW>;
 	};
 
 	tv0: connector@1 {
@@ -280,10 +97,12 @@
 
 	tv_amp: opa362 {
 		compatible = "ti,opa362";
-		enable-gpios = <&gpio1 23 0>;	/* GPIO to enable video out amplifier */
+		enable-gpios = <&gpio1 23 0>;
+
 		ports {
 			#address-cells = <1>;
 			#size-cells = <0>;
+
 			port@0 {
 				reg = <0>;
 				opa_in: endpoint@0 {
@@ -299,147 +118,59 @@
 			};
 		};
 	};
-
-	bt_en: w2cbw003 { /* presents a single gpio to be plumbed to uart1 dts */
-		compatible = "wi2wi,w2cbw003";
-		gpio-controller;
-		#gpio-cells = <2>;
-
-		vdd-supply = <&vaux4>;
-	};
-
-	gps_en: w2sg0004 { /* presents a single gpio to be plumbed to uart2 dts */
-		compatible = "wi2wi,w2sg0004";
-		gpio-controller;
-		#gpio-cells = <2>;
-
-		pinctrl-names = "default", "monitor";
-		pinctrl-0 = <&uart2_pins>;
-		pinctrl-1 = <&uart2_rx_irq_pins>;
-
-/* FIXME: driver currently uses the rx-gpio but we should (could?) simply specify the IRQ */
-		interrupt-parent = <&gpio5>;
-		interrupts = <19 IRQ_TYPE_EDGE_FALLING>;	/* GPIO_147: RX - trigger on arrival of start bit */
-//		rx-gpio = <&gpio5 19 0>;	/* GPIO_147: RX */
-
-		lna-supply = <&vsim>;	/* LNA regulator */
-		on-off-gpio = <&gpio5 17 0>;	/* GPIO_145: trigger for turning on/off w2sg0004 */
-	};
-
-	modem_en: modem { /* control modem power through rfkill */
-		compatible = "option,gtm601";
-		/* compatible = "gemalto,phs8" for Neo900/GTA04b7 */
-		gpio-controller;
-		#gpio-cells = <2>;
-		// FIXME: pinmux
-
-		usb-port = <&hsusb2_phy>;
-		on-off-gpio = <&gpio6 26 0>;	/* GPIO_186: trigger to power on modem */
-		on-indicator-gpio = <0>;		/* n/a on GTA04A3/4 but on A5 */
-	};
-
-	control: control@48002270 {
-		compatible = "ti,omap3-devconf1-syscon", "syscon";
-		reg = <0x48002270 0x74>;
-	};
 };
 
 &omap3_pmx_core {
+	pinctrl-names = "default";
+	pinctrl-0 = <
+			&hsusb2_pins
+	>;
+
+	hsusb2_pins: pinmux_hsusb2_pins {
+		pinctrl-single,pins = <
+			OMAP3_CORE1_IOPAD(0x21d4, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi1_cs3.hsusb2_data2 */
+			OMAP3_CORE1_IOPAD(0x21d6, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi2_clk.hsusb2_data7 */
+			OMAP3_CORE1_IOPAD(0x21d8, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi2_simo.hsusb2_data4 */
+			OMAP3_CORE1_IOPAD(0x21da, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi2_somi.hsusb2_data5 */
+			OMAP3_CORE1_IOPAD(0x21dc, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi2_cs0.hsusb2_data6 */
+			OMAP3_CORE1_IOPAD(0x21de, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi2_cs1.hsusb2_data3 */
+		>;
+	};
+
 	uart1_pins: pinmux_uart1_pins {
 		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x2182, PIN_INPUT | MUX_MODE0)                /* uart1_rx.uart1_rx */
-			OMAP3_CORE1_IOPAD(0x217c, PIN_OUTPUT | MUX_MODE0)               /* uart1_tx.uart1_tx */
-			/* what about rts/cts? */
+			OMAP3_CORE1_IOPAD(0x2182, PIN_INPUT | MUX_MODE0)		/* uart1_rx.uart1_rx */
+			OMAP3_CORE1_IOPAD(0x217c, PIN_OUTPUT | MUX_MODE0)		/* uart1_tx.uart1_tx */
 		>;
 	};
 
 	uart2_pins: pinmux_uart2_pins {
 		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x217a, PIN_INPUT | MUX_MODE0)                /* uart2_rx.uart2_rx */
-			OMAP3_CORE1_IOPAD(0x2178, PIN_OUTPUT | MUX_MODE0)               /* uart2_tx.uart2_tx */
-/* FIXME: should also define gpio145 as output */
-			/* what about rts/cts? */
-		>;
-	};
-
-	uart2_rx_irq_pins: pinmux_uart2_rx_irq_pins {
-		pinctrl-single,pins = <
-			/* switch RX to GPIO so that we can get interrupts by the start bit */
-			OMAP3_CORE1_IOPAD(0x217a, PIN_INPUT | MUX_MODE4)                /* uart2_rx.uart2_rx */
-			OMAP3_CORE1_IOPAD(0x2178, PIN_OUTPUT | MUX_MODE0)               /* uart2_tx.uart2_tx */
+			OMAP3_CORE1_IOPAD(0x217a, PIN_INPUT | MUX_MODE0)		/* uart2_rx.uart2_rx */
+			OMAP3_CORE1_IOPAD(0x2178, PIN_OUTPUT | MUX_MODE0)		/* uart2_tx.uart2_tx */
 		>;
 	};
 
 	uart3_pins: pinmux_uart3_pins {
 		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x219e, PIN_INPUT | MUX_MODE0)                /* uart3_rx.uart3_rx */
-			OMAP3_CORE1_IOPAD(0x21a0, PIN_OUTPUT | MUX_MODE0)               /* uart3_tx.uart3_tx */
-			/* what about rts/cts etc.? */
-			/* enable gpio21 as output for DTR */
-		>;
-	};
-
-	mcbsp1_pins: pinmux_mcbsp1_pins {
-		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x218c, PIN_INPUT | MUX_MODE0)	/* mcbsp1_clkr.mcbsp1_clkr */
-			OMAP3_CORE1_IOPAD(0x218e, PIN_INPUT | MUX_MODE0)	/* mcbsp1_clkr.mcbsp1_fsr */
-			OMAP3_CORE1_IOPAD(0x2190, PIN_OUTPUT | MUX_MODE0)	/* mcbsp1_dx.mcbsp1_dx */
-			OMAP3_CORE1_IOPAD(0x2192, PIN_INPUT | MUX_MODE0)	/* mcbsp1_dx.mcbsp1_dr */
-			OMAP3_CORE1_IOPAD(0x2194, PIN_INPUT | MUX_MODE0)	/* mcbsp_clks.mcbsp_clks */
-			OMAP3_CORE1_IOPAD(0x2196, PIN_INPUT | MUX_MODE0)	/* mcbsp_clks.mcbsp1_fsx */
-			OMAP3_CORE1_IOPAD(0x2198, PIN_INPUT | MUX_MODE0)	/* mcbsp1_clkx.mcbsp1_clkx */
-		>;
-	};
-
-	mcbsp2_pins: pinmux_mcbsp2_pins {
-		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x213c, PIN_INPUT | MUX_MODE0)	/* mcbsp2_fsx.mcbsp2_fsx */
-			OMAP3_CORE1_IOPAD(0x213e, PIN_INPUT | MUX_MODE0)	/* mcbsp2_clkx.mcbsp2_clkx */
-			OMAP3_CORE1_IOPAD(0x2140, PIN_INPUT | MUX_MODE0)	/* mcbsp2_dr.mcbsp2_dr */
-			OMAP3_CORE1_IOPAD(0x2142, PIN_OUTPUT | MUX_MODE0)	/* mcbsp2_dx.mcbsp2_dx */
-		>;
-	};
-
-	mcbsp3_pins: pinmux_mcbsp3_pins {
-		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x216c, PIN_OUTPUT | MUX_MODE0)	/* mcbsp3_dx.mcbsp3_dx */
-			OMAP3_CORE1_IOPAD(0x216e, PIN_INPUT | MUX_MODE0)	/* mcbsp3_dx.mcbsp3_dr */
-			OMAP3_CORE1_IOPAD(0x2170, PIN_INPUT | MUX_MODE0)	/* mcbsp3_clkx.mcbsp3_clkx */
-			OMAP3_CORE1_IOPAD(0x2172, PIN_INPUT | MUX_MODE0)	/* mcbsp3_clkx.mcbsp3_fsx */
-		>;
-	};
-
-	mcbsp4_pins: pinmux_mcbsp4_pins {
-		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x2184, PIN_INPUT | MUX_MODE0)	/* mcbsp4_fsx.mcbsp4_clkx */
-			OMAP3_CORE1_IOPAD(0x2186, PIN_INPUT | MUX_MODE0)	/* mcbsp4_clkx.mcbsp4_dr */
-			OMAP3_CORE1_IOPAD(0x2188, PIN_OUTPUT | MUX_MODE0)	/* mcbsp4_dr.mcbsp4_dx */
-			OMAP3_CORE1_IOPAD(0x218a, PIN_INPUT | MUX_MODE0)	/* mcbsp4_dx.mcbsp4_fsx */
-		>;
-	};
-
-	mcbsp4_tristate_pins: pinmux_mcbsp4_tristate_pins {
-		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x2184, PIN_INPUT | MUX_MODE0)	/* mcbsp4_fsx.mcbsp4_clkx */
-			OMAP3_CORE1_IOPAD(0x2186, PIN_INPUT | MUX_MODE0)	/* mcbsp4_clkx.mcbsp4_dr */
-			OMAP3_CORE1_IOPAD(0x2188, PIN_INPUT | MUX_MODE0)	/* mcbsp4_dr.mcbsp4_dx */
-			OMAP3_CORE1_IOPAD(0x218a, PIN_INPUT | MUX_MODE0)	/* mcbsp4_dx.mcbsp4_fsx */
+			OMAP3_CORE1_IOPAD(0x219e, PIN_INPUT | MUX_MODE0)		/* uart3_rx.uart3_rx */
+			OMAP3_CORE1_IOPAD(0x21a0, PIN_OUTPUT | MUX_MODE0)		/* uart3_tx.uart3_tx */
 		>;
 	};
 
 	mmc1_pins: pinmux_mmc1_pins {
 		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x2144, PIN_INPUT_PULLUP | MUX_MODE0)         /* sdmmc1_clk.sdmmc1_clk */
-			OMAP3_CORE1_IOPAD(0x2146, PIN_INPUT_PULLUP | MUX_MODE0)         /* sdmmc1_cmd.sdmmc1_cmd */
-			OMAP3_CORE1_IOPAD(0x2148, PIN_INPUT_PULLUP | MUX_MODE0)         /* sdmmc1_dat0.sdmmc1_dat0 */
-			OMAP3_CORE1_IOPAD(0x214a, PIN_INPUT_PULLUP | MUX_MODE0)         /* sdmmc1_dat1.sdmmc1_dat1 */
-			OMAP3_CORE1_IOPAD(0x214c, PIN_INPUT_PULLUP | MUX_MODE0)         /* sdmmc1_dat2.sdmmc1_dat2 */
-			OMAP3_CORE1_IOPAD(0x214e, PIN_INPUT_PULLUP | MUX_MODE0)         /* sdmmc1_dat3.sdmmc1_dat3 */
+			OMAP3_CORE1_IOPAD(0x2144, PIN_INPUT_PULLUP | MUX_MODE0)		/* sdmmc1_clk.sdmmc1_clk */
+			OMAP3_CORE1_IOPAD(0x2146, PIN_INPUT_PULLUP | MUX_MODE0)		/* sdmmc1_cmd.sdmmc1_cmd */
+			OMAP3_CORE1_IOPAD(0x2148, PIN_INPUT_PULLUP | MUX_MODE0)		/* sdmmc1_dat0.sdmmc1_dat0 */
+			OMAP3_CORE1_IOPAD(0x214a, PIN_INPUT_PULLUP | MUX_MODE0)		/* sdmmc1_dat1.sdmmc1_dat1 */
+			OMAP3_CORE1_IOPAD(0x214c, PIN_INPUT_PULLUP | MUX_MODE0)		/* sdmmc1_dat2.sdmmc1_dat2 */
+			OMAP3_CORE1_IOPAD(0x214e, PIN_INPUT_PULLUP | MUX_MODE0)		/* sdmmc1_dat3.sdmmc1_dat3 */
 		>;
 	};
 
 	dss_dpi_pins: pinmux_dss_dpi_pins {
-		pinctrl-single,pins = <
+               pinctrl-single,pins = <
 			OMAP3_CORE1_IOPAD(0x20d4, PIN_OUTPUT | MUX_MODE0)   /* dss_pclk.dss_pclk */
 			OMAP3_CORE1_IOPAD(0x20d6, PIN_OUTPUT | MUX_MODE0)   /* dss_hsync.dss_hsync */
 			OMAP3_CORE1_IOPAD(0x20d8, PIN_OUTPUT | MUX_MODE0)   /* dss_vsync.dss_vsync */
@@ -469,71 +200,7 @@
 			OMAP3_CORE1_IOPAD(0x2108, PIN_OUTPUT | MUX_MODE0)   /* dss_data22.dss_data22 */
 			OMAP3_CORE1_IOPAD(0x210a, PIN_OUTPUT | MUX_MODE0)   /* dss_data23.dss_data23 */
 		>;
-	};
-
-	hsusb2_pins: pinmux_hsusb2_pins {
-		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x21d4, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi1_cs3.hsusb2_data2 */
-			OMAP3_CORE1_IOPAD(0x21d6, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi2_clk.hsusb2_data7 */
-			OMAP3_CORE1_IOPAD(0x21d8, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi2_simo.hsusb2_data4 */
-			OMAP3_CORE1_IOPAD(0x21da, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi2_somi.hsusb2_data5 */
-			OMAP3_CORE1_IOPAD(0x21dc, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi2_cs0.hsusb2_data6 */
-			OMAP3_CORE1_IOPAD(0x21de, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi2_cs1.hsusb2_data3 */
-		>;
-	};
-
-	i2c1_pins: pinmux_i2c1_pins {
-		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x21ba, PIN_INPUT_PULLUP | MUX_MODE0) /* i2c1_scl.i2c1_scl */
-			OMAP3_CORE1_IOPAD(0x21bc, PIN_INPUT_PULLUP | MUX_MODE0) /* i2c1_sda.i2c1_sda */
-		>;
-	};
-
-	i2c2_pins: pinmux_i2c2_pins {
-		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x21be, PIN_INPUT_PULLUP | MUX_MODE0) /* i2c2_scl.i2c2_scl */
-			OMAP3_CORE1_IOPAD(0x21c0, PIN_INPUT_PULLUP | MUX_MODE0) /* i2c2_sda.i2c2_sda */
-		>;
-	};
-
-	i2c3_pins: pinmux_i2c3_pins {
-		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x21c2, PIN_INPUT_PULLUP | MUX_MODE0) /* i2c3_scl.i2c3_scl */
-			OMAP3_CORE1_IOPAD(0x21c4, PIN_INPUT_PULLUP | MUX_MODE0) /* i2c3_sda.i2c3_sda */
-		>;
-	};
-
-	backlight_pins: backlight_pins_pimnux {
-		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x20ba, MUX_MODE4)		/* gpt11/gpio57 */
-		>;
-	};
-
-	bmp085_pins: pinmux_bmp085_pins {
-		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x2136, PIN_INPUT_PULLUP | MUX_MODE4) /* gpio113 */
-		>;
-	};
-
-	bma180_pins: pinmux_bma180_pins {
-		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x213a, PIN_INPUT_PULLUP | MUX_MODE4) /* gpio115 */
-		>;
-	};
-
-	penirq_pins: pinmux_penirq_pins {
-		pinctrl-single,pins = <
-			/* here we could enable to wakeup the cpu from suspend by a pen touch */
-			OMAP3_CORE1_IOPAD(0x2194, PIN_INPUT_PULLUP | MUX_MODE4) /* gpio160 */
-		>;
-	};
-
-	hdq_pins: hdq_pins {
-		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x21c4, PIN_OUTPUT_PULLDOWN | MUX_MODE0) /* i2c3_sda.hdq */
-		>;
-	};
-
+       };
 };
 
 &omap3_pmx_core2 {
@@ -563,17 +230,6 @@
 	};
 };
 
-&control_devconf1 {
-	pinctrl-name = "default";
-	pinctrl-0 = < &tv_acbias_pins>;
-
-	tv_acbias_pins: pinmux_tv_acbias_pins {
-		pinctrl-single,bits = <
-			0 0x40800 0x40800
-		>;
-	};
-};
-
 &i2c1 {
 	clock-frequency = <2600000>;
 
@@ -582,68 +238,23 @@
 		interrupts = <7>; /* SYS_NIRQ cascaded to intc */
 		interrupt-parent = <&intc>;
 
-		twl_power: power {
-			compatible = "ti,twl4030-power-reset";
-			ti,use_poweroff;
-		};
 		twl_audio: audio {
 			compatible = "ti,twl4030-audio";
-
 			ti,enable-vibra = <1>;
-
 			codec {
 				ti,ramp_delay_value = <3>;
 			};
+		};
+
+		twl_power: power {
+			compatible = "ti,twl4030-power";
+			ti,use_poweroff;
 		};
 	};
 };
 
 #include "twl4030.dtsi"
 #include "twl4030_omap3.dtsi"
-
-/* modify basic twl settings as needed by GTA04 */
-
-&charger { /* backup battery charger */
-		ti,bb-uvolt = <3200000>;
-		ti,bb-uamp = <150>;
-};
-
-&vaux1 { /* spare */
-		regulator-min-microvolt = <2500000>;
-		regulator-max-microvolt = <3000000>;
-};
-
-&vaux2 { /* Sensors */
-		regulator-min-microvolt = <2800000>;
-		regulator-max-microvolt = <2800000>;
-		regulator-always-on;	/* we should never switch off while vio is on! */
-};
-
-&vaux3 { /* Camera */
-		regulator-min-microvolt = <2500000>;
-		regulator-max-microvolt = <2500000>;
-};
-
-&vaux4 { /* WLAN/BT */
-		regulator-min-microvolt = <2800000>;
-		regulator-max-microvolt = <3150000>;
-};
-
-&vsim { /* GPS LNA */
-		regulator-min-microvolt = <2800000>;
-		regulator-max-microvolt = <2800000>;
-};
-
-&mmc2 { /* spare */
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
-};
-
-/* this breaks hdq operation
-&hdqw1w {
-	pinctrl-names = "default";
-	pinctrl-0 = <&hdq_pins>;
-}; */
 
 &i2c2 {
 	clock-frequency = <400000>;
@@ -652,27 +263,28 @@
 	bmp085@77 {
 		compatible = "bosch,bmp085";
 		reg = <0x77>;
-/* here we could enable the EOC interrupt
-		pinctrl-names = "default";
-		pinctrl-0 = <&bmp085_pins>;
-*/
 		interrupt-parent = <&gpio4>;
-		interrupts = <17 IRQ_TYPE_EDGE_RISING>;
+		interrupts = <17 IRQ_TYPE_EDGE_RISING>; /* GPIO_113 */
 	};
 
 	/* accelerometer */
 	bma180@41 {
-		/* we use the BMA150 Input (CONFIG_INPUT_BMA150) driver */
 		compatible = "bosch,bma180";
 		reg = <0x41>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&bma180_pins>;
 		interrupt-parent = <&gpio4>;
-		interrupts = <19 (IRQ_TYPE_LEVEL_HIGH | IRQ_TYPE_EDGE_RISING)>;
+		interrupts = <19 IRQ_TYPE_LEVEL_HIGH>; /* GPIO_115 */
+	};
+
+	/* gyroscope */
+	itg3200@68 {
+		compatible = "invensense,itg3200";
+		reg = <0x68>;
+		interrupt-parent = <&gpio2>;
+		interrupts = <24 0>; /* GPIO_56 */
 	};
 
 	/* leds */
-	tca_gpios: tca6507@45 {
+	tca6507@45 {
 		compatible = "ti,tca6507";
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -702,108 +314,31 @@
 			reg = <0x4>;
 		};
 
-		wifi_reset: wifi_reset@6 { /* reference as <&tca_gpios 0 0> since it is currently the only GPIO */
+		wifi_reset: wifi_reset@6 {
 			reg = <0x6>;
 			compatible = "gpio";
 		};
-	};
-
-	/* touchscreen */
-	tsc2007@48 {
-		compatible = "ti,tsc2007";
-		reg = <0x48>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&penirq_pins>;
-		interrupt-parent = <&gpio6>;
-		interrupts = <0 IRQ_TYPE_EDGE_FALLING>;	/* gpio160 */
-		gpios = <&gpio6 0 GPIO_ACTIVE_LOW>;	/* gpio160 */
-		ti,x-plate-ohms = <550>;
-		ti,min-x = <0x100>;
-		ti,max-x = <0xf00>;
-		ti,min-y = <0xf00>;
-		ti,max-y = <0x100>;
-		ti,min-rt = <0xfff>;
-		ti,max-rt = <0>;
 	};
 
 	/* compass aka magnetometer */
 	hmc5843@1e {
 		compatible = "honeywell,hmc5883l";
 		reg = <0x1e>;
-		vdd-supply = <&vaux2>;	/* driver should devm_regulator_get_optional("vdd") */
 	};
 
-	/* gyroscope */
-	itg3200@68 {
-		compatible = "invensense,itg3200";
-		reg = <0x68>;
-		vdd-supply = <&vaux2>;	/* driver should devm_regulator_get_optional("vdd") */
+	/* touchscreen */
+	tsc2007@48 {
+		compatible = "ti,tsc2007";
+		reg = <0x48>;
+		interrupt-parent = <&gpio6>;
+		interrupts = <0 IRQ_TYPE_EDGE_FALLING>; /* GPIO_160 */
+		gpios = <&gpio6 0 GPIO_ACTIVE_LOW>;
+		ti,x-plate-ohms = <600>;
 	};
-
-	/* RFID EEPROM */
-	m24lr64@50 {
-		compatible = "at,24c64";
-		reg = <0x50>;
-	};
-
-	/* flash/torch (torch driver not yet available) */
-/* segfaults during modprobe
-	tps61050@33 {
-		compatible = "ti,tps61050";
-		reg = <0x33>;
-
-		flash: regulator@0 {
-			regulator-min-microvolt= <1000000>;
-			regulator-max-microvolt= <3000000>;
-		};
-	};
-*/
-
-	/* camera (driver not yet available) */
-	ov9655@30 {
-		compatible = "omnivision,ov9655";
-		reg = <0x30>;
-		vdd_ana-supply = <&vaux3>;	/* driver should devm_regulator_get_optional("vdd_ana") */
-
-		clock-frequency = <24000000>;
-// FIXME:	clocks = <&isp_xclk1 0>;
-// FIXME:	clock-names = "xclk-a";
-
-		port {
-			ov9655: endpoint {
-				bus-width = <8>;
-// FIXME:			remote-endpoint = <&parallel_ep>;
-				hsync-active = <1>;
-				vsync-active = <1>;
-				data-active = <1>;	/* Active High */
-				pclk-sample = <1>;	/* Rising */
-			};
-		};
-	};
-
-	/* FM Radio (no kernel driver exists) */
-	si4721_codec: si4721@11 {
-		compatible = "silicon-labs,si4721";
-		reg = <0x11>;
-	};
-
 };
 
 &i2c3 {
 	clock-frequency = <100000>;
-	/* unused */
-};
-
-&parallel_ep {
-	remote-endpoint = <&ov9655>;
-	ti,isp-clock-divisor = <1>;
-	ti,strobe-mode;
-	bus-width = <8>;/* Used data lines */
-	data-shift = <2>; /* Lines 9:2 are used */
-	hsync-active = <0>; /* Active low */
-	vsync-active = <0>; /* Active low */
-	data-active = <1>;/* Active high */
-	pclk-sample = <1>;/* Rising */
 };
 
 &usb_otg_hs {
@@ -813,6 +348,14 @@
 	phy-names = "usb2-phy";
 	mode = <3>;
 	power = <50>;
+};
+
+&usbhshost {
+	port2-mode = "ehci-phy";
+};
+
+&usbhsehci {
+	phys = <0 &hsusb2_phy>;
 };
 
 &mmc1 {
@@ -827,46 +370,85 @@
 	vmmc-supply = <&vaux4>;
 	bus-width = <4>;
 	ti,non-removable;
-	reset-gpios = <&tca_gpios 0 GPIO_ACTIVE_LOW>;	/* W2CBW003 reset through tca6507 */
+	cap-power-off-card;
 };
 
 &mmc3 {
 	status = "disabled";
 };
 
-&uart1 { /* Bluetooth /dev/ttyO0 */
+&twl_keypad {
+	status = "disabled";
+};
+
+&uart1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart1_pins>;
-	dtr-gpio = <&bt_en 0 GPIO_ACTIVE_LOW>;	/* w2cbw bluetooth power control through virtual gpio */
 };
 
-&uart2 { /* GPS /dev/ttyO1 */
-/*	pinctrl-names = "default";
-	pinctrl-0 = <&uart2_pins>; */
-	dtr-gpio = <&gps_en 0 GPIO_ACTIVE_HIGH>;	/* w2sg0004 GPS power control through virtual gpio */
+&uart2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart2_pins>;
 };
 
-&uart3 { /* Console and IrDA /dev/ttyO2 */
+&uart3 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart3_pins>;
-	dtr-gpio = <&gpio1 21 GPIO_ACTIVE_HIGH>;	/* DTR line on external RS232 interface */
-};
-
-&usbhshost {
-	port2-mode = "ehci-phy";
-};
-
-&usbhsehci {
-	phys = <0 &hsusb2_phy>;
 };
 
 &charger {
-	bb_uvolt = <3200000>;
-	bb_uamp = <150>;
+	ti,bb-uvolt = <3200000>;
+	ti,bb-uamp = <150>;
+};
+
+/* spare */
+&vaux1 {
+	regulator-min-microvolt = <2500000>;
+	regulator-max-microvolt = <3000000>;
+};
+
+/* sensors */
+&vaux2 {
+	regulator-min-microvolt = <2800000>;
+	regulator-max-microvolt = <2800000>;
+	regulator-always-on;
+};
+
+/* camera */
+&vaux3 {
+	regulator-min-microvolt = <2500000>;
+	regulator-max-microvolt = <2500000>;
+};
+
+/* WLAN/BT */
+&vaux4 {
+	regulator-min-microvolt = <2800000>;
+	regulator-max-microvolt = <3150000>;
+};
+
+/* GPS LNA */
+&vsim {
+	regulator-min-microvolt = <2800000>;
+	regulator-max-microvolt = <3150000>;
+};
+
+&dss {
+	pinctrl-names = "default";
+	pinctrl-0 = < &dss_dpi_pins >;
+
+	status = "okay";
+	vdds_dsi-supply = <&vpll2>;
+
+	port {
+		dpi_out: endpoint {
+			remote-endpoint = <&lcd_in>;
+			data-lines = <24>;
+		};
+	};
 };
 
 &venc {
-	status = "ok";
+	status = "okay";
 
 	vdda-supply = <&vdac>;
 
@@ -874,19 +456,18 @@
 		venc_out: endpoint {
 			remote-endpoint = <&opa_in>;
 			ti,channels = <2>;
+			ti,invert-polarity;
 		};
 	};
 };
 
 &gpmc {
-	ranges = <0 0 0x30000000 0x04>; /* CS0: NAND */
+	ranges = <0 0 0x30000000 0x1000000>; /* CS0: 16MB for NAND */
 
 	nand@0,0 {
-		reg = <0 0 0>; /* CS0, offset 0 */
+		reg = <0 0 4>; /* CS0, offset 0, IO size 4 */
 		nand-bus-width = <16>;
-		ti,nand-ecc-opt = "sw";	/* stay compatible with our old u-boot (does not support bch8) */
-		/* ti,nand-xfer-type = "polled"; */
-		/* ti,elm-id = <&elm> */
+		ti,nand-ecc-opt = "bch8";
 
 		gpmc,sync-clk-ps = <0>;
 		gpmc,cs-on-ns = <0>;
@@ -924,56 +505,16 @@
 
 		kernel@280000 {
 			label = "Kernel";
-			reg = <0x280000 0x600000>;
+			reg = <0x280000 0x400000>;
 		};
 
-		filesystem@a80000 {
+		filesystem@680000 {
 			label = "File System";
-			reg = <0x880000 0>;	/* 0 = MTDPART_SIZ_FULL */
+			reg = <0x680000 0xf980000>;
 		};
 	};
 };
 
-&mcbsp1 { /* FM Transceiver PCM */
-	status = "ok";
-//	pinctrl-names = "default";
-//	pinctrl-0 = <&mcbsp1_pins>;
-};
-
-&mcbsp2 { /* TPS65950 I2S */
-	status = "ok";
-	pinctrl-names = "default";
-	pinctrl-0 = <&mcbsp2_pins>;
-};
-
-&mcbsp3 { /* Bluetooth PCM */
-	status = "ok";
-	pinctrl-names = "default";
-	pinctrl-0 = <&mcbsp3_pins>;
-};
-
-&mcbsp4 { /* GSM voice PCM */
-	status = "ok";
-	pinctrl-names = "default", "tristate";
-	pinctrl-0 = <&mcbsp4_pins>;
-	pinctrl-1 = <&mcbsp4_tristate_pins>;
-};
-
-/* Needed to power the DPI pins */
-&vpll2 {
-	regulator-always-on;
-};
-
-&dss {
-	pinctrl-names = "default";
-	pinctrl-0 = < &dss_dpi_pins >;
-
-	status = "ok";
-
-	port {
-		dpi_out: endpoint {
-			remote-endpoint = <&lcd_in>;
-			data-lines = <24>;
-		};
-	};
+&mcbsp2 {
+	status = "okay";
 };
