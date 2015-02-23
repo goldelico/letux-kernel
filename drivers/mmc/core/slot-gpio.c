@@ -47,10 +47,11 @@ int mmc_gpio_alloc(struct mmc_host *host)
 {
 	size_t len = strlen(dev_name(host->parent)) + 4;
 	struct mmc_gpio *ctx = devm_kzalloc(host->parent,
-				sizeof(*ctx) + 2 * len,	GFP_KERNEL);
+				sizeof(*ctx) + 3 * len,	GFP_KERNEL);
 
 	if (ctx) {
 		ctx->ro_label = ctx->cd_label + len;
+		ctx->rs_label = ctx->ro_label + len;
 		snprintf(ctx->cd_label, len, "%s cd", dev_name(host->parent));
 		snprintf(ctx->ro_label, len, "%s ro", dev_name(host->parent));
 		snprintf(ctx->rs_label, len, "%s rs", dev_name(host->parent));
