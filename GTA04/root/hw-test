@@ -206,7 +206,7 @@ read VAL < <(host www.goldelico.com | fgrep 'goldelico.com has address ' | sed "
 [ "$VAL" = "83.151.26.121" ] && ok "$VAL" || nok "$VAL"
 
 testing "Vibra" "running rumble effect demo"
-vibra.py && ok || nok
+./vibra.py && ok || nok
 
 testing "Sound" "enabling sound"
 killall -9 arecord aplay 2>/dev/null # stop any running audio forwarding (or amixer commands will fail)
