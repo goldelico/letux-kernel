@@ -303,7 +303,6 @@ static DEVICE_ATTR(wss, S_IRUGO|S_IWUSR,
 
 static const struct attribute *display_sysfs_attrs[] = {
 	&dev_attr_display_name.attr,
-	&dev_attr_name.attr,
 	&dev_attr_enabled.attr,
 	&dev_attr_tear_elim.attr,
 	&dev_attr_timings.attr,
