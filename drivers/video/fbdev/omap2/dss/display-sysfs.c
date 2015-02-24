@@ -25,6 +25,15 @@
 #include <linux/platform_device.h>
 #include <linux/sysfs.h>
 
+#if IS_ENABLED(CONFIG_I2C)
+#include <linux/i2c.h>
+#else
+static inline int i2c_verify_client(struct device *dev)
+{
+	return NULL;
+}
+#endif
+
 #include <video/omapdss.h>
 #include "dss.h"
 
@@ -317,6 +326,17 @@ int display_init_sysfs(struct platform_device *pdev)
 			DSSERR("failed to create sysfs files\n");
 			goto err;
 		}
+		if (!i2c_verify_client(dssdev->dev)) {
+			/*
+			 * Add 'name' file - not compatible with i2c, but
+			 * need by Xorg for other devices.
+			 */
+			r = sysfs_create_file(kobj, &dev_attr_name.attr);
+			if (r) {
+				DSSERR("fail to create 'name' sysfs file\n");
+				goto err;
+			}
+		}
 
 		r = sysfs_create_link(&pdev->dev.kobj, kobj, dssdev->alias);
 		if (r) {
@@ -343,5 +363,7 @@ void display_uninit_sysfs(struct platform_device *pdev)
 		sysfs_remove_link(&pdev->dev.kobj, dssdev->alias);
 		sysfs_remove_files(&dssdev->dev->kobj,
 				display_sysfs_attrs);
+		sysfs_remove_file(&dssdev->dev->kobj,
+				  &dev_attr_name.attr);
 	}
 }
