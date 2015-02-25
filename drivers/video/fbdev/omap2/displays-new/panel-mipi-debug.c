@@ -570,7 +570,8 @@ static int mipi_debug_power_on(struct omap_dss_device *dssdev)
 //	printk("hs_clk_min=%lu\n", mipi_debugdsi_config.hs_clk_min);
 	printk("dsi: mipi_debug_power_on()\n");
 	
-	mipi_debug_reset(dssdev, 0);	// activate reset
+//	mipi_debug_reset(dssdev, 0);	// activate reset
+//	mipi_debug_regulator(dssdev, 0);	// switch power off
 	
 #if 0
 	if (ddata->pin_config.num_pins > 0) {
@@ -594,21 +595,21 @@ static int mipi_debug_power_on(struct omap_dss_device *dssdev)
 		dev_err(dev, "failed to enable DSI\n");
 		return r;
 	}
-	
-	
+
+#if 0	// user space must apply "power" + "noreset"
 	mipi_debug_regulator(dssdev, 1);	// switch power on
 	msleep(50);
 	
 	mipi_debug_reset(dssdev, 1);	// release reset
 	msleep(10);
-	
+#endif	
 	
 	in->ops.dsi->enable_hs(in, ddata->pixel_channel, true);
 
 	/* don't initialize the panel */
 
 	ddata->enabled = true;
-	printk("dsi: powered on()\n");
+	printk("dsi: enabled()\n");
 	
 	return r;
 }
@@ -627,11 +628,13 @@ static void mipi_debug_power_off(struct omap_dss_device *dssdev)
 	ddata->enabled = 0;
 	in->ops.dsi->disable_video_output(in, ddata->pixel_channel);
 	in->ops.dsi->disable(in, false, false);
+#if 0
 	mdelay(10);
 	mipi_debug_reset(dssdev, 0);	// activate reset
 	mipi_debug_regulator(dssdev, 0);	// switch power off - after stopping video stream
 	mdelay(20);
 	/* here we can also power off IOVCC */
+#endif
 }
 
 static int mipi_debug_start(struct omap_dss_device *dssdev)
@@ -806,6 +809,8 @@ static int mipi_debug_probe(struct platform_device *pdev)
 			return r;
 		}
 	}
+
+	mipi_debug_reset(dssdev, 0);	// start with active reset
 	
 	if (gpio_is_valid(ddata->regulator_gpio)) {
 		r = devm_gpio_request_one(dev, ddata->regulator_gpio,
@@ -816,13 +821,15 @@ static int mipi_debug_probe(struct platform_device *pdev)
 		}
 	}
 	
+	mipi_debug_regulator(dssdev, 0);	// start with power off
+	
 	/* Register sysfs hooks */
 	r = sysfs_create_group(&dev->kobj, &mipi_debugattr_group);
 	if (r) {
 		dev_err(dev, "failed to create sysfs files\n");
 		goto err_sysfs_create;
 	}
-	
+
 	printk("mipi_debug_probe ok\n");
 	
 	return 0;
