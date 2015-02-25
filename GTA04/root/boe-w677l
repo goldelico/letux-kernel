@@ -11,6 +11,8 @@ then
 fi
 
 # make sure the panel is active before trying to send commands
+echo nopower >dcs	# enable is unused
+sleep .2
 echo start >dcs
 sleep .1
 echo noreset >dcs
