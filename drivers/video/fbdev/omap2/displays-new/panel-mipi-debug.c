@@ -421,16 +421,22 @@ static ssize_t set_dcs(struct device *dev,
 		}
 	if(strncmp(buf, "stream", 6) == 0)
 		{
-		in->ops.dsi->bus_lock(in);
-		in->ops.dsi->enable_video_output(in, ddata->pixel_channel);
-		in->ops.dsi->bus_unlock(in);
+		if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE)
+			{
+			in->ops.dsi->bus_lock(in);
+			in->ops.dsi->enable_video_output(in, ddata->pixel_channel);
+			in->ops.dsi->bus_unlock(in);
+			}
 		return count;
 		}
 	if(strncmp(buf, "nostream", 8) == 0)
 		{
-		in->ops.dsi->bus_lock(in);
-		in->ops.dsi->disable_video_output(in, ddata->pixel_channel);
-		in->ops.dsi->bus_unlock(in);
+		if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE)
+			{
+			in->ops.dsi->bus_lock(in);
+			in->ops.dsi->disable_video_output(in, ddata->pixel_channel);
+			in->ops.dsi->bus_unlock(in);
+			}
 		return count;
 		}
 	if(strncmp(buf, "reset", 5) == 0)
@@ -570,6 +576,9 @@ static int mipi_debug_power_on(struct omap_dss_device *dssdev)
 //	printk("hs_clk_min=%lu\n", mipi_debugdsi_config.hs_clk_min);
 	printk("dsi: mipi_debug_power_on()\n");
 	
+	if(ddata->enabled)
+		return 0;	// already enabled
+
 //	mipi_debug_reset(dssdev, 0);	// activate reset
 //	mipi_debug_regulator(dssdev, 0);	// switch power off
 	
@@ -606,7 +615,7 @@ static int mipi_debug_power_on(struct omap_dss_device *dssdev)
 	
 	in->ops.dsi->enable_hs(in, ddata->pixel_channel, true);
 
-	/* don't initialize the panel */
+	/* don't initialize the panel here - user space has to do */
 
 	ddata->enabled = true;
 	printk("dsi: enabled()\n");
@@ -624,7 +633,8 @@ static void mipi_debug_power_off(struct omap_dss_device *dssdev)
 	struct omap_dss_device *in = ddata->in;
 
 	printk("dsi: mipi_debug_power_off()\n");
-
+	if(!ddata->enabled)
+		return;	// already disabled
 	ddata->enabled = 0;
 	in->ops.dsi->disable_video_output(in, ddata->pixel_channel);
 	in->ops.dsi->disable(in, false, false);
@@ -644,6 +654,9 @@ static int mipi_debug_start(struct omap_dss_device *dssdev)
 	int r = 0;
 
 	printk("dsi: mipi_debug_start()\n");
+	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE)
+		return 0;
+
 	mutex_lock(&ddata->lock);
 
 	in->ops.dsi->bus_lock(in);
@@ -668,6 +681,9 @@ static void mipi_debug_stop(struct omap_dss_device *dssdev)
 	struct omap_dss_device *in = ddata->in;
 
 	printk("dsi: mipi_debug_stop()\n");
+	if (dssdev->state != OMAP_DSS_DISPLAY_ACTIVE)
+		return;
+
 	mutex_lock(&ddata->lock);
 
 	in->ops.dsi->bus_lock(in);
@@ -675,6 +691,7 @@ static void mipi_debug_stop(struct omap_dss_device *dssdev)
 	mipi_debug_power_off(dssdev);
 
 	in->ops.dsi->bus_unlock(in);
+	dssdev->state = OMAP_DSS_DISPLAY_DISABLED;
 
 	mutex_unlock(&ddata->lock);
 }
@@ -685,8 +702,8 @@ static void mipi_debug_disable(struct omap_dss_device *dssdev)
 	printk("dsi: mipi_debug_disable()\n");
 	dev_dbg(&ddata->pdev->dev, "disable\n");
 
-	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE)
-		mipi_debug_stop(dssdev);
+//	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE)
+//		mipi_debug_stop(dssdev);
 
 	dssdev->state = OMAP_DSS_DISPLAY_DISABLED;
 }
@@ -700,7 +717,7 @@ static int mipi_debug_enable(struct omap_dss_device *dssdev)
 	if (dssdev->state != OMAP_DSS_DISPLAY_DISABLED)
 		return -EINVAL;
 
-	return mipi_debug_start(dssdev);
+	return 0;
 }
 
 static struct omap_dss_driver mipi_debugops = {
