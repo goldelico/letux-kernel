@@ -841,12 +841,20 @@ static struct i2c_device_id bma180_ids[] = {
 	{ }
 };
 
+#ifdef CONFIG_OF
+static const struct of_device_id of_bma180_match[] = {
+       { .compatible = "bosch,bma180", },
+       {},
+};
+#endif
+
 MODULE_DEVICE_TABLE(i2c, bma180_ids);
 
 static struct i2c_driver bma180_driver = {
 	.driver = {
 		.name	= "bma180",
 		.owner	= THIS_MODULE,
+		.of_match_table = of_match_ptr(of_bma180_match),
 		.pm	= BMA180_PM_OPS,
 	},
 	.probe		= bma180_probe,
