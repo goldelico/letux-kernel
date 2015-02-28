@@ -215,15 +215,14 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 
 	spin_lock_init(&wwan->lock);
 
-	if (!gpio_is_valid(wwan->on_off_gpio))
-		pr_warn("wwan-on-off: I have no control over modem\n");
-
-	if (gpio_is_valid(wwan->feedback_gpio)) {
+	if (gpio_is_valid(wwan->on_off_gpio)) {
 		err = gpio_request(wwan->on_off_gpio, "on-off-gpio");
 		if (err < 0)
 			goto out;
-		gpio_direction_output(wwan->on_off_gpio, false);
-	}
+		gpio_direction_output(wwan->on_off_gpio, 0);	/* initially off */
+	} else
+		pr_warn("wwan-on-off: I have no control over modem\n");
+
 	if (gpio_is_valid(wwan->feedback_gpio)) {
 		err = gpio_request(wwan->feedback_gpio, "on-indicator-gpio");
 		if (err < 0)
