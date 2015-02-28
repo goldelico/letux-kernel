@@ -331,8 +331,8 @@
 		/* compatible = "gemalto,phs8" for Neo900/GTA04b7 */
 		gpio-controller;
 		#gpio-cells = <2>;
-		// FIXME: pinmux
-
+		pinctrl-names = "default";
+		pinctrl-0 = <&modem_pins>;
 		usb-port = <&hsusb2_phy>;
 		on-off-gpio = <&gpio6 26 0>;	/* GPIO_186: trigger to power on modem */
 		on-indicator-gpio = <0>;		/* n/a on GTA04A3/4 but on A5 */
@@ -530,7 +530,13 @@
 
 	hdq_pins: hdq_pins {
 		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x21c4, PIN_OUTPUT_PULLDOWN | MUX_MODE0) /* i2c3_sda.hdq */
+-			OMAP3_CORE1_IOPAD(0x21c4, PIN_OUTPUT_PULLDOWN | MUX_MODE0) /* i2c3_sda.hdq */
+		>;
+	};
+
+	modem_pins: modem_pins {
+		pinctrl-single,pins = <
+			OMAP3_CORE1_IOPAD(0x21e2, PIN_OUTPUT | MUX_MODE4) /* gpio186 */
 		>;
 	};
 
