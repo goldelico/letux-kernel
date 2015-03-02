@@ -178,12 +178,13 @@
 		};
 	};
 
-	gpio_fan {
+	gpio_fan: gpio_fan {
 		/* Based on 5v 500mA AFB02505HHB */
 		compatible = "gpio-fan";
 		gpios =  <&tps659038_gpio 1 GPIO_ACTIVE_HIGH>;
 		gpio-fan,speed-map = <0    0
 				      13000 1>;
+		#cooling-cells = <2>;
 	};
 
 	primary_sound: primary_sound {
@@ -293,6 +294,17 @@
 		>;
 	};
 
+	mmc1_pins_hs: mmc1_pins_hs {
+		pinctrl-single,pins = <
+			0x354 (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0)	/* mmc1_clk.clk */
+			0x358 (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0)	/* mmc1_cmd.cmd */
+			0x35c (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0)	/* mmc1_dat0.dat0 */
+			0x360 (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0)	/* mmc1_dat1.dat1 */
+			0x364 (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0)	/* mmc1_dat2.dat2 */
+			0x368 (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0)	/* mmc1_dat3.dat3 */
+		>;
+	};
+
 	mmc2_pins_default: mmc2_pins_default {
 		pinctrl-single,pins = <
 			0x9c (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_a23.mmc2_clk */
@@ -320,6 +332,21 @@
 			0x90 (PIN_INPUT | MUX_MODE15)
 			0x94 (PIN_INPUT | MUX_MODE15)
 			0x98 (PIN_INPUT | MUX_MODE15)
+		>;
+	};
+
+	mmc2_pins_hs: mmc2_pins_hs {
+		pinctrl-single,pins = <
+			0x9c (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_a23.mmc2_clk */
+			0xb0 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_cs1.mmc2_cmd */
+			0xa0 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_a24.mmc2_dat0 */
+			0xa4 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_a25.mmc2_dat1 */
+			0xa8 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_a26.mmc2_dat2 */
+			0xac (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_a27.mmc2_dat3 */
+			0x8c (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_a19.mmc2_dat4 */
+			0x90 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_a20.mmc2_dat5 */
+			0x94 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_a21.mmc2_dat6 */
+			0x98 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_a22.mmc2_dat7 */
 		>;
 	};
 
@@ -649,6 +676,7 @@
 		pinctrl-1 = <&tmp102_pins_sleep>;
 		interrupt-parent = <&gpio7>;
 		interrupts = <16 IRQ_TYPE_LEVEL_LOW>;
+		#thermal-sensor-cells = <1>;
 	};
 
 	tlv320aic3104: tlv320aic3104@18 {
@@ -760,9 +788,10 @@
 
 &mmc1 {
 	status = "okay";
-	pinctrl-names = "default", "sleep";
+	pinctrl-names = "default", "sleep", "hs";
 	pinctrl-0 = <&mmc1_pins_default>;
 	pinctrl-1 = <&mmc1_pins_sleep>;
+	pinctrl-2 = <&mmc1_pins_hs>;
 	vmmc-supply = <&ldo1_reg>;
 	vmmc_aux-supply = <&vdd_3v3>;
 	pbias-supply = <&pbias_mmc_reg>;
@@ -772,9 +801,10 @@
 
 &mmc2 {
 	status = "okay";
-	pinctrl-names = "default", "sleep";
+	pinctrl-names = "default", "sleep", "hs";
 	pinctrl-0 = <&mmc2_pins_default>;
 	pinctrl-1 = <&mmc2_pins_sleep>;
+	pinctrl-2 = <&mmc2_pins_hs>;
 	vmmc-supply = <&vdd_3v3>;
 	bus-width = <8>;
 	ti,non-removable;
@@ -893,6 +923,14 @@
 	timers = <&timer6>;
 };
 
+&usb2_phy1 {
+	phy-supply = <&ldousb_reg>;
+};
+
+&usb2_phy2 {
+	phy-supply = <&ldousb_reg>;
+};
+
 &usb1 {
 	dr_mode = "host";
 	pinctrl-names = "default";
@@ -949,6 +987,61 @@
 
 	pru2_1: pru@4b2b8000 {
 		mboxes = <&mailbox4 &mbox_pru2_1>;
+		status = "okay";
+	};
+};
+
+&cpu_trips {
+	cpu_alert1: cpu_alert1 {
+		temperature = <50000>; /* millicelsius */
+		hysteresis = <2000>; /* millicelsius */
+		type = "active";
+	};
+};
+
+&cpu_cooling_maps {
+	map1 {
+		trip = <&cpu_alert1>;
+		cooling-device = <&gpio_fan THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+	};
+};
+
+&thermal_zones {
+	board_thermal: board_thermal {
+		polling-delay-passive = <1250>; /* milliseconds */
+		polling-delay = <1500>; /* milliseconds */
+
+				/* sensor       ID */
+		thermal-sensors = <&tmp102     0>;
+
+		board_trips: trips {
+			board_alert0: board_alert {
+				temperature = <40000>; /* millicelsius */
+				hysteresis = <2000>; /* millicelsius */
+				type = "active";
+			};
+
+			board_crit: board_crit {
+				temperature = <105000>; /* millicelsius */
+				hysteresis = <0>; /* millicelsius */
+				type = "critical";
+			};
+		};
+
+		board_cooling_maps: cooling-maps {
+			map0 {
+				trip = <&board_alert0>;
+				cooling-device =
+				  <&gpio_fan THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+			};
+		};
+	};
+};
+
+&epwmss1 {
+	status = "okay";
+
+	ehrpwm1: ehrpwm@48440200 {
 		status = "okay";
 	};
 };
