@@ -195,6 +195,19 @@ static void __init smp_build_mpidr_hash(void)
 }
 #endif
 
+struct cpuinfo_arm64 {
+	struct cpu	cpu;
+	u32		reg_midr;
+};
+
+static DEFINE_PER_CPU(struct cpuinfo_arm64, cpu_data);
+
+void cpuinfo_store_cpu(void)
+{
+	struct cpuinfo_arm64 *info = this_cpu_ptr(&cpu_data);
+	info->reg_midr = read_cpuid_id();
+}
+
 static void __init setup_processor(void)
 {
 	struct cpu_info *cpu_info;
