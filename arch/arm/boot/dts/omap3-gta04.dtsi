@@ -166,7 +166,7 @@
 				 specify list of audio routings */
 
 	};
-
+/* disable temporarily other sound devices
 	sound_card {
 		compatible = "goldelico,gta04-audio";
 		gta04,cpu-dai = <&mcbsp2>;
@@ -197,7 +197,7 @@
 		gta04,cpu-dai = <&mcbsp1>;
 		gta04,codec = <&si4721_codec>;
 	};
-
+*/
 	madc-hwmon {
 		compatible = "ti,twl4030-madc-hwmon";
 	};
