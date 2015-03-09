@@ -159,17 +159,6 @@
 
 		ti,mcbsp = <&mcbsp2>;
 		ti,codec = <&twl_audio>;
-
-		ti,mcbsp-voice = <&mcbsp4>;
-/*		ti,jack-det-gpio = <&gpio? >;/* planned for GTA04A5 */
-/*		ti,audio-routing = "Headset Mic", "HSMIC",
-				 specify list of audio routings */
-
-	};
-/* disable temporarily other sound devices
-	sound_card {
-		compatible = "goldelico,gta04-audio";
-		gta04,cpu-dai = <&mcbsp2>;
 	};
 
 	gtm601_codec: voice_codec {
@@ -197,7 +186,7 @@
 		gta04,cpu-dai = <&mcbsp1>;
 		gta04,codec = <&si4721_codec>;
 	};
-*/
+
 	madc-hwmon {
 		compatible = "ti,twl4030-madc-hwmon";
 	};
