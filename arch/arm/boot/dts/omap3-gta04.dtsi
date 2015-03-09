@@ -161,30 +161,52 @@
 		ti,codec = <&twl_audio>;
 	};
 
-	gtm601_codec: voice_codec {
-		compatible = "gtm601-codec";
+	sound_gta04 {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "GTA04 audio";
+
+		/* GSM audio */
+		simple-audio-card,dai-link@0 {
+			format = "i2s";
+			cpu {
+				sound-dai = <&mcbsp4>;
+			};
+			codec {
+				sound-dai = <&gtm601_codec>;
+			};
+		};
+
+		/* Bluetooth audio */
+		simple-audio-card,dai-link@1 {
+			format = "i2s";
+			cpu {
+				sound-dai = <&mcbsp3>;
+			};
+			codec {
+				sound-dai = <&w2cbw003_codec>;
+			};
+		};
+
+		/* FM tuner audio */
+		simple-audio-card,dai-link@2 {
+			format = "i2s";
+			cpu {
+				sound-dai = <&mcbsp1>;
+			};
+			codec {
+				sound-dai = <&si4721_codec>;
+			};
+		};
 	};
 
-	sound_voice {
-		compatible = "goldelico,gta04-voice";
-		gta04,cpu-dai = <&mcbsp4>;
-		gta04,codec = <&gtm601_codec>;
+	gtm601_codec: voice_codec {
+		compatible = "gtm601-codec";
+		#sound-dai-cells = <0>;
 	};
 
 	w2cbw003_codec: headset_codec {
 		compatible = "w2cbw003-codec";
-	};
-
-	sound_headset {
-		compatible = "goldelico,gta04-headset";
-		gta04,cpu-dai = <&mcbsp3>;
-		gta04,codec = <&w2cbw003_codec>;
-	};
-
-	sound_fm {
-		compatible = "goldelico,gta04-fm";
-		gta04,cpu-dai = <&mcbsp1>;
-		gta04,codec = <&si4721_codec>;
+		#sound-dai-cells = <0>;
 	};
 
 	madc-hwmon {
@@ -773,6 +795,7 @@
 	/* FM Radio (no kernel driver exists) */
 	si4721_codec: si4721@11 {
 		compatible = "silicon-labs,si4721";
+		#sound-dai-cells = <0>;
 		reg = <0x11>;
 	};
 
@@ -925,6 +948,7 @@
 
 &mcbsp1 { /* FM Transceiver PCM */
 	status = "ok";
+	#sound-dai-cells = <0>;
 //	pinctrl-names = "default";
 //	pinctrl-0 = <&mcbsp1_pins>;
 };
@@ -937,12 +961,14 @@
 
 &mcbsp3 { /* Bluetooth PCM */
 	status = "ok";
+	#sound-dai-cells = <0>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&mcbsp3_pins>;
 };
 
 &mcbsp4 { /* GSM voice PCM */
 	status = "ok";
+	#sound-dai-cells = <0>;
 	pinctrl-names = "default", "tristate";
 	pinctrl-0 = <&mcbsp4_pins>;
 	pinctrl-1 = <&mcbsp4_tristate_pins>;
