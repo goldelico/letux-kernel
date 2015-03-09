@@ -34,4 +34,4 @@ obj-$(CONFIG_SND_OMAP_SOC_AM3517EVM) += snd-soc-am3517evm.o
 obj-$(CONFIG_SND_OMAP_SOC_OMAP_ABE_TWL6040) += snd-soc-omap-abe-twl6040.o
 obj-$(CONFIG_SND_OMAP_SOC_OMAP_TWL4030) += snd-soc-omap-twl4030.o
 obj-$(CONFIG_SND_OMAP_SOC_OMAP3_PANDORA) += snd-soc-omap3pandora.o
-obj-$(CONFIG_SND_OMAP_SOC_GTA04) += snd-soc-gta04-audio.o snd-soc-gta04-voice.o snd-soc-gta04-headset.o snd-soc-gta04-jack.o snd-soc-gta04-fm.o
+obj-$(CONFIG_SND_OMAP_SOC_GTA04) += snd-soc-gta04-voice.o snd-soc-gta04-headset.o snd-soc-gta04-jack.o snd-soc-gta04-fm.o
