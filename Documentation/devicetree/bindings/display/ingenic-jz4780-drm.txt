@@ -1,0 +1,17 @@
+Ingenic JZ4780 DRM master device
+================================
+
+The Ingenic JZ4780 DRM master device is a virtual device needed to list all
+devices or other display interface nodes that comprise the graphics subsystem.
+
+Required properties:
+- compatible: Should be "ingenic,jz4780-display-subsystem"
+- ports: Should contain a list of phandles pointing to display interface port
+  as defined in Documentation/devicetree/bindings/video/rockchip-vop.txt
+
+example:
+
+display-subsystem {
+	compatible = "ingenic,jz4780-display-subsystem";
+	ports = <&jz4780_lcd_out>;
+};
