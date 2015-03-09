@@ -20,6 +20,11 @@ snd-soc-am3517evm-objs := am3517evm.o
 snd-soc-omap-abe-twl6040-objs := omap-abe-twl6040.o
 snd-soc-omap-twl4030-objs := omap-twl4030.o
 snd-soc-omap3pandora-objs := omap3pandora.o
+snd-soc-gta04-audio-objs := gta04-audio.o
+snd-soc-gta04-voice-objs := gta04-voice.o
+snd-soc-gta04-headset-objs := gta04-headset.o
+snd-soc-gta04-jack-objs := gta04-jack.o
+snd-soc-gta04-fm-objs := gta04-fm.o
 
 obj-$(CONFIG_SND_OMAP_SOC_N810) += snd-soc-n810.o
 obj-$(CONFIG_SND_OMAP_SOC_RX51) += snd-soc-rx51.o
@@ -29,3 +34,4 @@ obj-$(CONFIG_SND_OMAP_SOC_AM3517EVM) += snd-soc-am3517evm.o
 obj-$(CONFIG_SND_OMAP_SOC_OMAP_ABE_TWL6040) += snd-soc-omap-abe-twl6040.o
 obj-$(CONFIG_SND_OMAP_SOC_OMAP_TWL4030) += snd-soc-omap-twl4030.o
 obj-$(CONFIG_SND_OMAP_SOC_OMAP3_PANDORA) += snd-soc-omap3pandora.o
+obj-$(CONFIG_SND_OMAP_SOC_GTA04) += snd-soc-gta04-voice.o snd-soc-gta04-headset.o snd-soc-gta04-jack.o snd-soc-gta04-fm.o
