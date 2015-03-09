@@ -146,7 +146,7 @@ static int mipi_debug_write(struct omap_dss_device *dssdev, u8 *buf, int len, in
 	return r;
 }
 
-static int mipi_debug_read(struct omap_dss_device *dssdev, u8 dcs_cmd, u8 *buf, int len, int generic)
+static int mipi_debug_read(struct omap_dss_device *dssdev, u8 *dcs_cmd, int cmdlen, u8 *buf, int len, int generic)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
@@ -161,20 +161,32 @@ static int mipi_debug_read(struct omap_dss_device *dssdev, u8 dcs_cmd, u8 *buf, 
 
 	if(generic)
 		{ // this is a "manufacturer command" that must be sent as a "generic read command"
-			r = in->ops.dsi->gen_read(in, ddata->config_channel, &dcs_cmd, 1, buf, len);
+			r = in->ops.dsi->gen_read(in, ddata->config_channel, dcs_cmd, cmdlen, buf, len);
 		}
 	else
 		{ // this is a "user command" that must be sent as "DCS command"
-			r = in->ops.dsi->dcs_read(in, ddata->config_channel, dcs_cmd, buf, len);
+			if(cmdlen != 1)
+				{
+				printk("dsi: mipi_debug_read() must specify 1 byte for DCS read commands!");
+				return -EIO;
+				}
+			r = in->ops.dsi->dcs_read(in, ddata->config_channel, dcs_cmd[0], buf, len);
 		}
 
+	printk("dsi: mipi_debug_read(%s", generic?"g,":"");
+	for(i=0; i<cmdlen; i++) printk(" %02x", dcs_cmd[i]);
+	printk(") -> ");
+	for(i=0; i<len; i++) printk(" %02x", buf[i]);
 	if (r)
-		dev_err(&ddata->pdev->dev, "read cmd/reg(%02x, %d) failed: %d\n",
-				dcs_cmd, len, r);
-	printk("dsi: mipi_debug_read(%s%02x,", generic?"g,":"", dcs_cmd); for(i=0; i<len; i++) printk(" %02x", buf[i]);
-	printk(") -> %d\n", r);
+		printk(" failed: %d", r);
+	printk("\n");
 	// FIXME: write hex result to some sting buffer that we can read through /sys
 	return r;
+}
+
+static int mipi_debug_read_dcs(struct omap_dss_device *dssdev, u8 dcs_cmd, u8 *buf, int len)
+{
+	return mipi_debug_read(dssdev, &dcs_cmd, 1, buf, len, 0);
 }
 
 static int mipi_debug_connect(struct omap_dss_device *dssdev)
@@ -366,7 +378,7 @@ static int mipi_debug_get_brightness(struct backlight_device *bd)
 
 	if (ddata->enabled) {
 		in->ops.dsi->bus_lock(in);
-		r = mipi_debug_read(dssdev, DCS_READ_BRIGHTNESS, data, 2, 0);
+		r = mipi_debug_read_dcs(dssdev, DCS_READ_BRIGHTNESS, data, 2);
 		brightness = (data[0]<<4) + (data[1]>>4);
 
 		in->ops.dsi->bus_unlock(in);
@@ -398,6 +410,7 @@ static ssize_t set_dcs(struct device *dev,
 {
 	int r = 0;
 	u8 data[24];
+	u8 ret[24];
 	u8 d = 0;
 	int argc = 0;
 	int second = 0;
@@ -464,14 +477,14 @@ static ssize_t set_dcs(struct device *dev,
 		if (ddata->enabled) {
 			in->ops.dsi->bus_lock(in);
 			/* read some registers through DCS commands */
-			r = mipi_debug_read(dssdev, 0x05, data, 1, 0);
-			r = mipi_debug_read(dssdev, 0x0a, data, 1, 0);	// power mode 0x10=sleep off; 0x04=display on
-			r = mipi_debug_read(dssdev, 0x0b, data, 1, 0);	// address mode
-			r = mipi_debug_read(dssdev, MIPI_DCS_GET_PIXEL_FORMAT, data, 1, 0);	// pixel format 0x70 = RGB888
-			r = mipi_debug_read(dssdev, 0x0d, data, 1, 0);	// display mode	0x80 = command 0x34/0x35
-			r = mipi_debug_read(dssdev, 0x0e, data, 1, 0);	// signal mode
-			r = mipi_debug_read(dssdev, MIPI_DCS_GET_DIAGNOSTIC_RESULT, data, 1, 0);	// diagnostic 0x40 = functional
-			r = mipi_debug_read(dssdev, 0x45, data, 2, 0);	// get scanline
+			r = mipi_debug_read_dcs(dssdev, 0x05, ret, 1);
+			r = mipi_debug_read_dcs(dssdev, 0x0a, ret, 1);	// power mode 0x10=sleep off; 0x04=display on
+			r = mipi_debug_read_dcs(dssdev, 0x0b, ret, 1);	// address mode
+			r = mipi_debug_read_dcs(dssdev, MIPI_DCS_GET_PIXEL_FORMAT, ret, 1);	// pixel format 0x70 = RGB888
+			r = mipi_debug_read_dcs(dssdev, 0x0d, ret, 1);	// display mode	0x80 = command 0x34/0x35
+			r = mipi_debug_read_dcs(dssdev, 0x0e, ret, 1);	// signal mode
+			r = mipi_debug_read_dcs(dssdev, MIPI_DCS_GET_DIAGNOSTIC_RESULT, ret, 1);	// diagnostic 0x40 = functional
+			r = mipi_debug_read_dcs(dssdev, 0x45, ret, 2);	// get scanline
 			in->ops.dsi->bus_unlock(in);
 		}
 		mutex_unlock(&ddata->lock);
@@ -486,18 +499,21 @@ static ssize_t set_dcs(struct device *dev,
 		if(!second && (*p == ' ' || *p == '\t' || *p == '\n'))
 			continue;
 		if(!generic && argc == 0 && *p == 'g')
-			{
+			{ // must be first
 			generic=1;
 			continue;
 			}
 		if(!second && argc >= 1 && *p == 'r')	// r must follow the address (or another r)
-			{
-			data[argc++]=0;
-			read = 1;
+			{ // count number of r
+			if(read >= sizeof(ret))
+				return -EIO;
+			read++;
 			continue;
 			}
-		if(read && argc > 1)
+		if(read > 0)
 			return -EIO;	// no hex digits after the first r
+		if(argc == sizeof(data))
+			return -EIO;
 		if(*p >= '0' && *p <= '9')
 			d=(d<<4) + (*p-'0');
 		else if(*p >= 'a' && *p <= 'f')
@@ -525,7 +541,7 @@ static ssize_t set_dcs(struct device *dev,
 
 		// handle DCS vs. Generic
 		if(read)
-			r = mipi_debug_read(dssdev, data[0], &data[1], argc-1, generic);
+			r = mipi_debug_read(dssdev, data, argc, ret, read, generic);
 		else
 			r = mipi_debug_write(dssdev, data, argc, generic);
 
