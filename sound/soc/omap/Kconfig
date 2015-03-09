@@ -48,8 +48,8 @@ config SND_OMAP_SOC_RX51
 	select SND_SOC_TPA6130A2
 	depends on GPIOLIB
 	help
-	  Say Y if you want to add support for SoC audio on Nokia RX-51
-	  hardware. This is also known as Nokia N900 product.
+	  Say Y if you want to add support for SoC audio on Nokia N900
+	  cellphone.
 
 config SND_OMAP_SOC_AMS_DELTA
 	tristate "SoC Audio support for Amstrad E3 (Delta) videophone"
@@ -117,16 +117,6 @@ config SND_OMAP_SOC_OMAP_ABE_TWL6040
 	  - PandaBoard (4430)
 	  - PandaBoardES (4460)
 
-config SND_OMAP_SOC_OMAP_HDMI
-	tristate "SoC Audio support for Texas Instruments OMAP HDMI"
-	depends on SND_OMAP_SOC && OMAP4_DSS_HDMI && OMAP2_DSS
-	select SND_OMAP_SOC_HDMI
-	select SND_SOC_HDMI_CODEC
-	select OMAP4_DSS_HDMI_AUDIO
-	help
-	  Say Y if you want to add support for SoC HDMI audio on Texas Instruments
-	  OMAP4 chips
-
 config SND_OMAP_SOC_OMAP3_PANDORA
 	tristate "SoC Audio support for OMAP3 Pandora"
 	depends on TWL4030_CORE && SND_SDMA_SOC && MACH_OMAP3_PANDORA
@@ -137,8 +127,10 @@ config SND_OMAP_SOC_OMAP3_PANDORA
 
 config SND_OMAP_SOC_GTA04
 	tristate "SoC Audio support for GTA04"
-	depends on TWL4030_CORE && SND_OMAP_SOC && (MACH_GTA04 || MACH_OMAP3_BEAGLE)
+	depends on SND_OMAP_SOC && (MACH_GTA04 || MACH_OMAP3_BEAGLE)
 	select SND_OMAP_SOC_MCBSP
-	select SND_SOC_TWL4030
+	select SND_SOC_GTM601
+	select SND_SOC_SI47XX
+	select SND_SOC_W2CBW003
 	help
 	  Say Y if you want to add support for SoC audio on the GTA04.
