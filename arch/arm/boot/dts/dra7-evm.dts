@@ -212,9 +212,6 @@
 	radio {
 		compatible = "ti,dra7xx_radio";
 		gpios = <&gpio6 20 0>;
-
-		pinctrl-names = "default";
-		pinctrl-0 = <&radio_pins>;
 	};
 };
 
@@ -894,9 +891,6 @@
 };
 
 &mcasp2 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&mcasp2_pins>;
-
 	fck_parent = "atl_clkin2_ck";
 
 	status = "okay";
@@ -923,9 +917,6 @@
 };
 
 &mcasp6 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&mcasp6_pins>;
-
 	fck_parent = "atl_clkin1_ck";
 
 	status = "okay";

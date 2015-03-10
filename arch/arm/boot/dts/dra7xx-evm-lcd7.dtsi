@@ -36,7 +36,6 @@
 		status = "okay";
 		reg = <0x4a>;
 		interrupts = <GIC_SPI 114 IRQ_TYPE_LEVEL_HIGH>;
-		pinctrl-0 = <&tsc_pins>;
 
 		atmel,config = <
 			/* MXT244_GEN_COMMAND(6) */
@@ -91,9 +90,6 @@
 };
 
 &dss {
-	pinctrl-names = "default";
-	pinctrl-0 = <&vout1_pins>;
-
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;
