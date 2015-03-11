@@ -107,11 +107,11 @@ static int ldc3001_i2c_ts_resume(struct device *dev)
 
 	return 0;
 }
+#endif
 
 static SIMPLE_DEV_PM_OPS(ldc3001_dev_pm_ops,
 			 ldc3001_i2c_ts_suspend, ldc3001_i2c_ts_resume);
 
-#endif
 
 #ifdef DEBUG
 static void dump_touch_data(u8 *message, int len)
