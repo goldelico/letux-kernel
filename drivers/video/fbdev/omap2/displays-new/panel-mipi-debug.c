@@ -76,7 +76,7 @@
 /* low power clock is quite arbitrarily choosen to be roughly 10 MHz */
 #define mipi_debugLP_CLOCK			10000000	// low power clock
 
-static struct omap_video_timings mipi_debugtimings = {
+static struct omap_video_timings mipi_timings = {
 	.x_res		= mipi_debugW,
 	.y_res		= mipi_debugH,
 	.pixelclock	= mipi_debugPIXELCLOCK,
@@ -86,6 +86,18 @@ static struct omap_video_timings mipi_debugtimings = {
 	.vfp		= 50,
 	.vsw		= mipi_debugHEIGHT-mipi_debugH-50-50,
 	.vbp		= 50,
+};
+
+static struct omap_dss_dsi_config mipi_dsi_config = {
+	.mode = OMAP_DSS_DSI_VIDEO_MODE,
+	.pixel_format = mipi_debugPIXELFORMAT,
+	.timings = NULL,
+	.hs_clk_min = 125000000 /*mipi_debugHS_CLOCK*/,
+	.hs_clk_max = 450000000 /*(12*mipi_debugHS_CLOCK)/10*/,
+	.lp_clk_min = (7*mipi_debugLP_CLOCK)/10,
+	.lp_clk_max = mipi_debugLP_CLOCK,
+	.ddr_clk_always_on = true,
+	.trans_mode = OMAP_DSS_DSI_BURST_MODE,
 };
 
 struct panel_drv_data {
@@ -424,7 +436,41 @@ static ssize_t set_dcs(struct device *dev,
 
 	if(strncmp(buf, "start", 5) == 0)
 		{
-		int r = mipi_debug_start(dssdev);
+		int r;
+// FIXME: we should be able to modify the timing parameters
+		p = buf+5;
+		while(p < buf + count)
+			{ // parse "start var=value" sequences
+			char *arg;
+			int len;
+			unsigned long val=0;
+			if(*p == ' ') {
+				p++;
+				continue;
+			}
+			arg=p;
+			while(p < buf + count)
+				if(*p == '=')
+					break;
+			if(!(p < buf + count))
+				return -EIO;
+			len=p++ - arg;	// skip =
+			while(p < buf + count) {
+				// collect digits
+				if(*p >= '0' && *p <= '9')
+					d=(d<<4) + (*p-'0');
+				else
+					return -EIO;
+				p++;
+			}
+			if(len == 5 && strncmp(arg, "x_res", len) == 0)
+				mipi_timings.x_res=val;
+			else if(len == 5 && strncmp(arg, "y_res", len) == 0)
+				mipi_timings.y_res=val;
+			else
+				return -EIO;	// invalid parameter name
+		}
+		r = mipi_debug_start(dssdev);
 		return r < 0 ? r : count;
 		}
 	if(strncmp(buf, "stop", 4) == 0)
@@ -578,18 +624,7 @@ static int mipi_debug_power_on(struct omap_dss_device *dssdev)
 	struct device *dev = &ddata->pdev->dev;
 	struct omap_dss_device *in = ddata->in;
 	int r;
-	struct omap_dss_dsi_config mipi_debugdsi_config = {
-		.mode = OMAP_DSS_DSI_VIDEO_MODE,
-		.pixel_format = mipi_debugPIXELFORMAT,
-		.timings = &ddata->timings,
-		.hs_clk_min = 125000000 /*mipi_debugHS_CLOCK*/,
-		.hs_clk_max = 450000000 /*(12*mipi_debugHS_CLOCK)/10*/,
-		.lp_clk_min = (7*mipi_debugLP_CLOCK)/10,
-		.lp_clk_max = mipi_debugLP_CLOCK,
-		.ddr_clk_always_on = true,
-		.trans_mode = OMAP_DSS_DSI_BURST_MODE,
-	};
-//	printk("hs_clk_min=%lu\n", mipi_debugdsi_config.hs_clk_min);
+//	printk("hs_clk_min=%lu\n", mipi_dsi_config.hs_clk_min);
 	printk("dsi: mipi_debug_power_on()\n");
 	
 	if(ddata->enabled)
@@ -609,7 +644,9 @@ static int mipi_debug_power_on(struct omap_dss_device *dssdev)
 	}
 #endif
 	
-	r = in->ops.dsi->set_config(in, &mipi_debugdsi_config);
+	mipi_dsi_config.timings = &ddata->timings,
+
+	r = in->ops.dsi->set_config(in, &mipi_dsi_config);
 	if (r) {
 		dev_err(dev, "failed to configure DSI\n");
 		return r;
@@ -815,12 +852,12 @@ static int mipi_debug_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 	
-	ddata->timings = mipi_debugtimings;
+	ddata->timings = mipi_timings;
 	
 	dssdev = &ddata->dssdev;
 	dssdev->dev = dev;
 	dssdev->driver = &mipi_debugops;
-	dssdev->panel.timings = mipi_debugtimings;
+	dssdev->panel.timings = ddata->timings;
 	dssdev->type = OMAP_DISPLAY_TYPE_DSI;
 	dssdev->owner = THIS_MODULE;
 	
