@@ -124,6 +124,19 @@ testing "TSC2007" "Touch screen values"
 read VAL < <(sed "s/,/ /g" /sys/bus/i2c/devices/1-0048/values 2>/dev/null)
 [ "$VAL" ] && ok "$VAL" || nok "$VAL"
 
+testing "CRTOUCH" "Touch screen values"
+read VAL < <(sed "s/,/ /g" /sys/bus/i2c/devices/1-0049/values 2>/dev/null)
+[ "$VAL" ] && ok "$VAL" || nok "$VAL"
+
+testing "Left Nub" "Exists"
+[ -r "/proc/pandora/nub0" ] && ok "$VAL" || nok "$VAL"
+
+testing "Right Nub" "Exists"
+[ -r "/proc/pandora/nub0" ] && ok "$VAL" || nok "$VAL"
+
+testing "Keyboard" "Exists"
+[ -r "/dev/input/keyboard" ] && ok "$VAL" || nok "$VAL"
+
 testing "OV9655" "Camera device found"
 [ -r /dev/v4l-subdev8 ] && ok || nok
 
@@ -133,7 +146,7 @@ testing "PVR/SGX" "GPU device found"
 testing "TPS61050" "Torch/Flash I2C response"
 [ -r /sys/bus/i2c/devices/1-0033 ] && ok || nok
 
-testing "M24LR64" "RFID-EEPROM found"
+testing "EEPROM" "EEPROM on I2C1 found"
 [ -r /sys/bus/i2c/devices/1-0050/eeprom ] && ok || nok
 
 testing "Si47xx" "FM TRX"
@@ -146,7 +159,7 @@ case "$VAL" in
 esac
 
 testing "TCA6507" "LED controller found"
-[ -d /sys/bus/i2c/devices/1-0045/leds ] && ok || nok
+[ -d /sys/bus/i2c/devices/1-0045/leds -o -d /sys/bus/i2c/devices/3-0045/leds ] && ok || nok
 
 MADC=$(findiio "48070000.i2c:twl@48:madc")
 
