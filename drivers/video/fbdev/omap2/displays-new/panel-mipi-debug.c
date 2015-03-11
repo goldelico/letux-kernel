@@ -437,38 +437,38 @@ static ssize_t set_dcs(struct device *dev,
 	if(strncmp(buf, "start", 5) == 0)
 		{
 		int r;
-// FIXME: we should be able to modify the timing parameters
 		p = buf+5;
 		while(p < buf + count)
 			{ // parse "start var=value" sequences
 			char *arg;
 			int len;
 			unsigned long val=0;
-			if(*p == ' ') {
-				p++;
-				continue;
-			}
-			arg=p;
-			while(p < buf + count)
-				if(*p == '=')
-					break;
-			if(!(p < buf + count))
+			if(!(*p == ' ' || *p == '\t' || *p == '\n')) {
+				arg=p;
+				while(p < buf + count) {
+					if(*p == '=')
+						break;
+					p++;
+					}
+				if(!(p < buf + count))
 				return -EIO;
-			len=p++ - arg;	// skip =
-			while(p < buf + count) {
-				// collect digits
-				if(*p >= '0' && *p <= '9')
-					d=(d<<4) + (*p-'0');
+				len=p++ - arg;	// skip =
+				while(p < buf + count) {
+					// collect digits
+					if(*p >= '0' && *p <= '9')
+						d=(d<<4) + (*p-'0');
+					else
+						return -EIO;
+					p++;
+				}
+				if(len == 5 && strncmp(arg, "x_res", len) == 0)
+					mipi_timings.x_res=val;
+				else if(len == 5 && strncmp(arg, "y_res", len) == 0)
+					mipi_timings.y_res=val;
 				else
-					return -EIO;
-				p++;
-			}
-			if(len == 5 && strncmp(arg, "x_res", len) == 0)
-				mipi_timings.x_res=val;
-			else if(len == 5 && strncmp(arg, "y_res", len) == 0)
-				mipi_timings.y_res=val;
-			else
-				return -EIO;	// invalid parameter name
+					return -EIO;	// invalid parameter name
+				}
+			p++;
 		}
 		r = mipi_debug_start(dssdev);
 		return r < 0 ? r : count;
