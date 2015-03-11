@@ -6,6 +6,8 @@
  * published by the Free Software Foundation.
  */
 
+/* this version is for DragonFly V4 connected to EVM */
+
 /* we start with the omap5-uevm tree since the Pyra is currently a separate board connected to the EVM expansion connector(s) */
 
 #include "omap5-uevm.dts"
@@ -429,8 +431,8 @@
 	pinctrl-0 = <&i2c4_pins>;
 };
 
-/* register devices connected to EVM-Panel-I2C */
-&i2c2 {
+/* register devices connected to Panel-I2C */
+&i2c4 {
 	/* touchscreen */
 	tsc2007@48 {
 		compatible = "ti,tsc2007";
@@ -516,58 +518,7 @@
 };
 
 /* register devices connected to Peripheral-I2C */
-&i2c4 {
-
-	/* leds (only on V2 main board) */
-	tca6507@45 {
-		compatible = "ti,tca6507";
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg = <0x45>;
-
-		pyra_led0: red_aux@0 {
-			label = "test::led-l-red";
-			reg = <0x0>;
-			linux,default-trigger = "mmc0";
-		};
-
-		pyra_led1: green_aux@1 {
-			label = "test::led-l-green";
-			reg = <0x1>;
-			linux,default-trigger = "heartbeat";
-		};
-
-		pyra_led2: blue_aux@2 {
-			label = "test::led-l-blue";
-			reg = <0x2>;
-			linux,default-trigger = "timer";
-		};
-
-		pyra_led3: set1@3 {
-			label = "test::led-kbd1";
-			reg = <0x3>;
-			linux,default-trigger = "default-on";
-		};
-
-		pyra_led4: set2@4 {
-			label = "test::led-kbd2";
-			reg = <0x4>;
-			linux,default-trigger = "timer";
-		};
-
-		pyra_led5: set3@5 {
-			label = "test::led-kbd3";
-			reg = <0x5>;
-			linux,default-trigger = "mmc0";
-		};
-
-		pyra_led6: set4@6 {
-			label = "test::led-kbd4";
-			reg = <0x6>;
-			linux,default-trigger = "heartbeat";
-		};
-
-	};
+&i2c2 {
 
 	/* left nub */
 	as5013@40 {
@@ -684,10 +635,11 @@
 	};
 
 	/* fuel gauge variant 1 */
+/* not installed due to bus speed issue
 	bq27200@55 {
 		compatible = "ti,bq27200";
 		reg = <0x55>;
-	};
+	}; */
 
 	/* fuel gauge variant 2 */
 	bq27421@55 {
@@ -704,31 +656,6 @@
 //		gpios = <>;	// chg_irq_pin, dc_det_pin
 	};
 
-	/* microphone detect */
-	ts3a225@3b {
-		compatible = "ti,ts3a225";
-		reg = <0x3b>;
-	};
-
-};
-
-/* register devices connected to System-I2C on CPU board */
-&i2c2 {
-
-	/* usb bridge */
-	usb3503@08 {
-		compatible = "smsc,usb3503a";
-		reg = <0x08>;
-/*
-		refclk	// comes from OMAP5 FREF_CLK1_OUT/GPIO1_W K11
-		refclk-frequency
-		disabled-ports
-		intn-gpios = <&gpio9 22 GPIO_ACTIVE_HIGH>;
-		connect-gpios
-		reset-gpios = <&gpio3 16 GPIO_ACTIVE_HIGH>;	// might be in conflict with reset-gpios of the ususb2_phy
-		initial-mode
-*/
-	};
 };
 
 /* register devices connected to Sensor-I2C */
@@ -760,90 +687,14 @@
 	};
 };
 
-/* register devices connected to Panel-I2C on main board */
-&i2c4 {
-	/* touchscreen */
-	tsc2007@48 {
-		compatible = "ti,tsc2007";
-		reg = <0x48>;
-		pinctrl-names = "default";
-/* FIXME:		pinctrl-0 = <&penirq_pins>; */
-		interrupt-parent = <&gpio6>;
-		interrupts = <13 IRQ_TYPE_EDGE_FALLING>;	/* gpio6_173 falling edge */
-		gpios = <&gpio6 13 GPIO_ACTIVE_LOW>;	/* gpio6_173 active low */
-		ti,x-plate-ohms = <550>;
-		ti,min-x = <0x100>;
-		ti,max-x = <0xf00>;
-		ti,min-y = <0xf00>;
-		ti,max-y = <0x100>;
-		ti,min-rt = <0xfff>;
-		ti,max-rt = <0>;
-	};
-
-	crtouch@49 {
-		compatible = "freescale,crtouch";
-		reg = <0x49>;
-		interrupt-parent = <&gpio6>;
-		interrupts = <13 IRQ_TYPE_EDGE_FALLING>;	/* gpio6_173 falling edge */
-		gpios = <&gpio6 13 1>;	/* gpio6_173 active low */
-		/* more paramters tbd. */
-	};
-
-	/* leds */
-	tca6507@45 {
-		compatible = "ti,tca6507";
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg = <0x45>;
-
-		panel_led0: red_aux@0 {
-			label = "panel::led-0";
-			reg = <0x0>;
-			linux,default-trigger = "mmc0";
-		};
-
-		panel_led1: green_aux@1 {
-			label = "panel::led-1";
-			reg = <0x1>;
-			linux,default-trigger = "heartbeat";
-		};
-
-		panel_led2: blue_aux@2 {
-			label = "panel::led-2";
-			reg = <0x2>;
-			linux,default-trigger = "timer";
-		};
-
-		panel_led3: set1@3 {
-			label = "panel::led-3";
-			reg = <0x3>;
-			linux,default-trigger = "default-on";
-		};
-
-		panel_led4: set2@4 {
-			label = "panel::led-4";
-			reg = <0x4>;
-			linux,default-trigger = "timer";
-		};
-
-		panel_led5: set3@5 {
-			label = "panel::led-5";
-			reg = <0x5>;
-			linux,default-trigger = "mmc0";
-		};
-
-		panel_led6: set4@6 {
-			label = "panel::led-6";
-			reg = <0x6>;
-			linux,default-trigger = "heartbeat";
-		};
-
-	};
-
-};
-
 /* register devices connected to System-I2C */
-&i2c2 {
+&i2c4 {
+	/* microphone detect */
+	ts3a225@3b {
+		compatible = "ti,ts3a225";
+		reg = <0x3b>;
+	};
+
 	/* system/keyboard-led */
 	gpio99: tca6424@22 {
 		compatible = "ti,tca6424";
@@ -854,16 +705,13 @@
 		#gpio-cells = <2>;
 		open-drain-pins = <5 6 7 17 18 19 21 22 23>;
 	};
-	/* INA231 */
-	/* BQ27200 */
-	/* BQ24297 */
 };
 
-&i2c5 { // should be defined in omap5-uevm.dts! - but the bus is not connected!
+&i2c5 { // should have been defined in omap5-uevm.dts! - but the bus is not connected on the EVM!
 
 	/* usb bridge */
 	usb3503@08 {
-		// compatible = "smsc,usb3503a";
+		compatible = "smsc,usb3503a";
 		reg = <0x08>;
 /*
 	//	refclk	// comes from OMAP5 FREF_CLK1_OUT/GPIO1_W K11
@@ -1115,12 +963,10 @@ gpio-keys@2 {
 			/* debounce-interval */
 		};
 
-		/* FIXME: there is a special switch event code (SW_LID) but I don't know how to configure that for the gpio-keys driver */
 		display_lid {
 			label = "Display Lid";
-			// linux,input-type = <5>; /* EV_SW */
-			// linux,code = <0>; /* SW_LID */
-			linux,code = <45>;	/* KEY_X */
+			linux,input-type = <5>; /* EV_SW */
+			linux,code = <0>; /* SW_LID */
 			gpios = <&gpio6 0 GPIO_ACTIVE_LOW>;	/* gpio6_160 */
 			gpio-key,wakeup;
 		};
