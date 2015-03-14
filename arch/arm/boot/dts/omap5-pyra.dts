@@ -29,7 +29,7 @@
 		regulator-name = "dsi1_panel_power";
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
-		gpio = <&gpio3 18 0>;	/ * gpio3_82 = display-enable * /
+		gpio = <&gpio6 6 0>;	/ * gpio6_166 = display-enable * /
 		startup-delay-us = <70000>;
 		enable-active-high;
 	}; */
@@ -250,7 +250,7 @@
 
 		gpios =
 			<&gpio6 16 0>,	/* goip6_176 = display reset */
-			<&gpio3 18 0>;	/* gpio3_82 = enable DC/DC */
+			<&gpio6 6 0>;	/* gpio6_166 = enable DC/DC */
 
 		port {
 			lcd_in: endpoint {
@@ -281,28 +281,29 @@
 			// &pyra_dsi_a
 	>;
 
-/*
+/* this is for DragonFly V4 connected to EVM through a ribbon acable
 // inputs
+#define GPIO_LID 81			// lid close sensor - gpio3-81 - open collector output
 #define GPIO_AUX 83			// BTN1 on EVM motherboard (gpio3_83)
-#define GPIO_VSYNC 189			// VSYNC input (gpio6_189 in: comes from panel)
-#define GPIO_LSH_TOP 184		// left top shoulder button - gpio6-184 - closes to GND
-#define GPIO_LSH_BOT 183		// left bottom shoulder button - gpio6-183 - closes to GND
-#define GPIO_RSH_TOP 180		// right top shoulder button - gpio6-180 - closes to GND
-#define GPIO_RSH_BOT 179		// right bottom shoulder button - gpio6-179 - closes to GND
-#define GPIO_LNUB 182			// left nub center button - gpio6-182 - closes to GND
-#define GPIO_RNUB 181			// right nub center button - gpio6-181 - closes to GND
-#define GPIO_LNUB_IRQ -1		// left nub IRQ - n/a
-#define GPIO_RNUB_IRQ -1		// right nub IRQ - n/a
-#define GPIO_LID 160			// lid close sensor - gpio6-160 - open collector output
-#define GPIO_WAKEUP 161			// wakeup from modem - gpio6-161
-#define GPIO_KEYIRQ 177			// keyboard controller IRQ - gpio6-177
+#define GPIO_3G_PWR 84			// modem power indication - gpio3-84
+#define GPIO_WAKEUP -1			// wakeup from modem - n/a
 #define GPIO_PENIRQ 173			// touch screen controller IRQ - gpio6-173
+#define GPIO_LNUB_IRQ 174		// left nub IRQ - n/a
+#define GPIO_RNUB_IRQ 175		// right nub IRQ - n/a
+#define GPIO_KEYIRQ 177			// keyboard controller IRQ - gpio6-177
+#define GPIO_RSH_BOT 179		// right bottom shoulder button - gpio6-179 - closes to GND
+#define GPIO_RSH_TOP 180		// right top shoulder button - gpio6-180 - closes to GND
+#define GPIO_RNUB 181			// right nub center button - gpio6-181 - closes to GND
+#define GPIO_LNUB 182			// left nub center button - gpio6-182 - closes to GND
+#define GPIO_LSH_BOT 183		// left bottom shoulder button - gpio6-183 - closes to GND
+#define GPIO_LSH_TOP 184		// left top shoulder button - gpio6-184 - closes to GND
+#define GPIO_VSYNC 189			// VSYNC input (gpio6_189 in: comes from panel)
 // outputs
-#define GPIO_DISPEN 82			// enable (active high) +/-5 V TPS65133 - gpio3_82
-#define GPIO_PWM 190			// enable 18V backlight (active high) - timer9/gpio6_190 (out) - or input to track what the panel is doing
+#define GPIO_3G_IGNITE 82		// start modem (active high pulse) - gpio3-82
+#define GPIO_DISPEN 166			// enable (active high) +/-5 V TPS65133 - gpio6_166
 #define GPIO_DISPLAY_RESET 176		// panel reset (active low)/enable - gpio6_176
+#define GPIO_PWM 190			// enable 18V backlight (active high) - timer9/gpio6_190 (out) - or input to track what the panel is doing
 #define GPIO_PERIPHERAL_RESET 230	// device reset (active low)/enable - gpio8_230
-#define GPIO_3G_IGNITE 178		// start modem (active high pulse) - gpio6-178
 */
 
 /* to find pinmux register offsets, see section A.7.2 in TRM
@@ -329,8 +330,8 @@
 
 	pyra_button_pins: pinmux_button_gpio_pins {
 		pinctrl-single,pins = <
-			OMAP5_IOPAD(0x0b6, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0B4:[31:16] gpio3_83  -- pullup is not really necessary since there is an external pullup */
-			OMAP5_IOPAD(0x12c, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x12C:[15:0]  gpio6_160 */
+			OMAP5_IOPAD(0x0b2, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0B0:[31:16] gpio3_81 - lid */
+//			OMAP5_IOPAD(0x0b6, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0B4:[31:16] gpio3_83  -- pullup is not really necessary since there is an external pullup */
 			OMAP5_IOPAD(0x12e, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x12C:[31:16] gpio6_161 */
 			OMAP5_IOPAD(0x10c, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x10C:[15:0]  gpio6_177 */
 			OMAP5_IOPAD(0x108, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x108:[15:0]  gpio6_179 */
@@ -339,13 +340,12 @@
 			OMAP5_IOPAD(0x130, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x130:[15:0]  gpio6_182 */
 			OMAP5_IOPAD(0x132, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x130:[31:16] gpio6_183 */
 			OMAP5_IOPAD(0x134, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x134:[15:0]  gpio6_184 */
-//			OMAP5_IOPAD(0x120, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x120:[15:0]  gpio6_166 */
 		>;
 	};
 
 	pyra_display_pins: pinmux_display_gpio_pins {
 		pinctrl-single,pins = <
-			OMAP5_IOPAD(0x0b4, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x0B4:[15:0]  gpio3_82 - enable panel DC/DC */
+			OMAP5_IOPAD(0x120, PIN_OUTPUT_PULLUP | MUX_MODE6)	/* 0x120:[15:0]  gpio6_166 - enable panel DC/DC */
 			OMAP5_IOPAD(0x0ca, PIN_INPUT_PULLDOWN | MUX_MODE7)	/* 0x0C8:[31:16] gpio6_189 - VSYNC input */
 			OMAP5_IOPAD(0x0f6, PIN_INPUT_PULLDOWN | MUX_MODE7)	/* 0x0F4:[31:16] gpio6_190 - choose MUX_MODE0 for PWM_TIMER9 - choose MUX_MODE7 if panel outputs the PWM */
 			OMAP5_IOPAD(0x10e, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x10c:[31:16] gpio6_176 - panel reset */
@@ -354,8 +354,9 @@
 
 	pyra_other_pins: pinmux_other_gpio_pins {
 		pinctrl-single,pins = <
-			OMAP5_IOPAD(0x0b2, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0B0:[31:16] gpio3_81 - TCA6424 active low interrupt */
-			OMAP5_IOPAD(0x10a, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x108:[31:16] gpio6_178 - start modem */
+			OMAP5_IOPAD(0x12c, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x12C:[15:0]  gpio6_160 - TCA6424 active low interrupt */
+			OMAP5_IOPAD(0x0b4, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x108:[31:16] gpio3_82 - start modem */
+			OMAP5_IOPAD(0x0b8, PIN_INPUT | MUX_MODE6)	/* 0x108:[31:16] gpio3_84 - modem power ind */
 			OMAP5_IOPAD(0x114, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x114:[15:0]  gpio6_173 - touch screen */
 			OMAP5_IOPAD(0x178, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x178:[15:0]  gpio8_230 - reset I2C peripherals */
 		>;
@@ -698,8 +699,8 @@
 	/* system/keyboard-led */
 	gpio99: tca6424@22 {
 		compatible = "ti,tca6424";
-		interrupt-parent = <&gpio3>;
-		interrupts = <17 IRQ_TYPE_LEVEL_LOW>;	/* gpio3_81 */
+		interrupt-parent = <&gpio6>;
+		interrupts = <0 IRQ_TYPE_LEVEL_LOW>;	/* gpio6_160 */
 		reg = <0x22>;
 		gpio-controller;
 		#gpio-cells = <2>;
@@ -967,7 +968,7 @@ gpio-keys@2 {
 			label = "Display Lid";
 			linux,input-type = <5>; /* EV_SW */
 			linux,code = <0>; /* SW_LID */
-			gpios = <&gpio6 0 GPIO_ACTIVE_LOW>;	/* gpio6_160 */
+			gpios = <&gpio3 17 GPIO_ACTIVE_LOW>;	/* gpio3_81 */
 			gpio-key,wakeup;
 		};
 
