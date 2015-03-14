@@ -93,12 +93,9 @@
 		compatible = "gemalto,phs8";
 		gpio-controller;
 		#gpio-cells = <2>;
-
-	/* FIXME: this does not yet reflect the Pyra hardware setup */
-
 	/*	usb-port = <&hsusb2_phy>; 	/* USB phy where we can check the modem status */
-	/* FIXME:	on-off-gpio = <&gpio6 26 GPIO_ACTIVE_HIGH>;	/* GPIO_186: trigger to power on modem */
-	/*	on-indicator-gpio = <&gpio5 19 GPIO_ACTIVE_HIGH>;	/* Feedback GPIO */
+		on-off-gpio = <&gpio3 18 GPIO_ACTIVE_HIGH>;	/* GPIO3_82: trigger to power on modem */
+		on-indicator-gpio = <&gpio3 20 GPIO_ACTIVE_HIGH>;	/* Feedback GPIO */
 /*		modem-suppy = <&modem_power>;		/* enable external power regulator */
 		/* VBUS supply should probably be controlled through the USB PHY driver for the modem port */
 /*		vbus-suppy = <&modem_vbus_hdmi_power>;	/* apply VBUS to the modem */
