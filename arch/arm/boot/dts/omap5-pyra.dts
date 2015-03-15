@@ -664,9 +664,14 @@
 		reg = <0x69>;
 	};
 	/* accelerometer sensor */
-	bmc150@18 {
-		compatible = "bosch,bmc150";
-		reg = <0x18>;
+	bmc150@10 {
+		compatible = "bosch,bma250";
+		reg = <0x10>;
+/*		pinctrl-names = "default";
+		pinctrl-0 = <&bmc150_pins>;
+		interrupt-parent = <&gpio6>;
+		interrupts = <9 (IRQ_TYPE_LEVEL_HIGH | IRQ_TYPE_EDGE_RISING)>;	/* gpio6_169 * /
+*/
 	};
 	/* compass sensor */
 	bmc150@12 {
@@ -678,10 +683,10 @@
 		compatible = "bosch,bmp180";
 		reg = <0x77>;
 	};
-	/* 9-axis sensor sensor */
-	bno050@28 {
+	/* 9-axis sensor */
+	bno050@29 {
 		compatible = "bosch,bno050";
-		reg = <0x28>;
+		reg = <0x29>;
 	};
 };
 
