@@ -297,7 +297,7 @@
 #define GPIO_VSYNC 189			// VSYNC input (gpio6_189 in: comes from panel)
 // outputs
 #define GPIO_3G_IGNITE 82		// start modem (active high pulse) - gpio3-82
-#define GPIO_DISPEN 166			// enable (active high) +/-5 V TPS65133 - gpio6_166
+#define GPIO_DISPEN 166			// enable TPS65133 or ssd2858 - gpio6_166
 #define GPIO_DISPLAY_RESET 176		// panel reset (active low)/enable - gpio6_176
 #define GPIO_PWM 190			// enable 18V backlight (active high) - timer9/gpio6_190 (out) - or input to track what the panel is doing
 #define GPIO_PERIPHERAL_RESET 230	// device reset (active low)/enable - gpio8_230
@@ -342,7 +342,7 @@
 
 	pyra_display_pins: pinmux_display_gpio_pins {
 		pinctrl-single,pins = <
-			OMAP5_IOPAD(0x120, PIN_OUTPUT_PULLUP | MUX_MODE6)	/* 0x120:[15:0]  gpio6_166 - enable panel DC/DC */
+			OMAP5_IOPAD(0x122, PIN_OUTPUT_PULLUP | MUX_MODE6)	/* 0x120:[31:16] gpio6_166 - enable panel DC/DC */
 			OMAP5_IOPAD(0x0ca, PIN_INPUT_PULLDOWN | MUX_MODE7)	/* 0x0C8:[31:16] gpio6_189 - VSYNC input */
 			OMAP5_IOPAD(0x0f6, PIN_INPUT_PULLDOWN | MUX_MODE7)	/* 0x0F4:[31:16] gpio6_190 - choose MUX_MODE0 for PWM_TIMER9 - choose MUX_MODE7 if panel outputs the PWM */
 			OMAP5_IOPAD(0x10e, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x10c:[31:16] gpio6_176 - panel reset */
@@ -352,8 +352,8 @@
 	pyra_other_pins: pinmux_other_gpio_pins {
 		pinctrl-single,pins = <
 			OMAP5_IOPAD(0x12c, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x12C:[15:0]  gpio6_160 - TCA6424 active low interrupt */
-			OMAP5_IOPAD(0x0b4, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x108:[31:16] gpio3_82 - start modem */
-			OMAP5_IOPAD(0x0b8, PIN_INPUT | MUX_MODE6)	/* 0x108:[31:16] gpio3_84 - modem power ind */
+			OMAP5_IOPAD(0x0b4, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x108:[15:0]  gpio3_82 - start modem */
+			OMAP5_IOPAD(0x0b8, PIN_INPUT | MUX_MODE6)	/* 0x108:[15:0] gpio3_84 - modem power ind */
 			OMAP5_IOPAD(0x114, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x114:[15:0]  gpio6_173 - touch screen */
 			OMAP5_IOPAD(0x178, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x178:[15:0]  gpio8_230 - reset I2C peripherals */
 		>;
@@ -698,7 +698,7 @@
 		reg = <0x3b>;
 	};
 
-	/* system/keyboard-led */
+	/* system/keyboard-led and other controls */
 	gpio99: tca6424@22 {
 		compatible = "ti,tca6424";
 		interrupt-parent = <&gpio6>;
