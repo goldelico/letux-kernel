@@ -77,7 +77,8 @@
 #define BMA180_OFFSET_LSB1	0x35
 
 #define BMA150_CHIP_ID		2
-#define BMA180_CHIP_ID		3
+#define BMA180_CHIP_ID		3	/* same for BMA250, BMC050 */
+#define BMC150_CHIP_ID		250
 #define BMA150_CHIP_ID_REG	BMA150_DATA_0_REG
 
 #define BMA150_ACC_X_LSB_REG	BMA150_DATA_2_REG
@@ -650,7 +651,7 @@ static int bma150_probe(struct i2c_client *client,
 	}
 
 	chip_id = i2c_smbus_read_byte_data(client, BMA150_CHIP_ID_REG);
-	if (chip_id != BMA150_CHIP_ID && chip_id != BMA180_CHIP_ID) {
+	if (chip_id != BMA150_CHIP_ID && chip_id != BMA180_CHIP_ID && chip_id != BMC150_CHIP_ID ) {
 		dev_err(&client->dev, "BMA150 chip id error: %d\n", chip_id);
 		return -EINVAL;
 	}
@@ -757,6 +758,7 @@ static UNIVERSAL_DEV_PM_OPS(bma150_pm, bma150_suspend, bma150_resume, NULL);
 static const struct i2c_device_id bma150_id[] = {
 	{ "bma150", 0 },
 	{ "bma180", 0 },
+	{ "bma250", 0 },
 	{ "smb380", 0 },
 	{ "bma023", 0 },
 	{ }
@@ -766,6 +768,7 @@ static const struct i2c_device_id bma150_id[] = {
 static const struct of_device_id of_bma150_match[] = {
 	{ .compatible = "bosch,bma150", },
 	{ .compatible = "bosch,bma180", },
+	{ .compatible = "bosch,bma250", },
 	{ .compatible = "bosch,smb380", },
 	{ .compatible = "bosch,bma023", },
 	{},
