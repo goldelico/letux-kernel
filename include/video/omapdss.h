@@ -691,6 +691,7 @@ struct omapdss_dsi_ops {
 };
 
 struct omap_dss_device {
+	struct kobject kobj;
 	struct device *dev;
 
 	struct module *owner;
