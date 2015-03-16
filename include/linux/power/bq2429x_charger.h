@@ -139,6 +139,7 @@ struct bq24296_device_info {
 	u8 usb_input_current;
 	u8 adp_input_current;
 	//struct timer_list timer;
+	struct power_supply usb;
 };
 
 struct bq24296_platform_data {		

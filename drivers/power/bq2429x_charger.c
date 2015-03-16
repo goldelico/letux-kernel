@@ -110,6 +110,7 @@ static ssize_t bat_param_read(struct device *dev,struct device_attribute *attr, 
 	u8 buffer;
 	struct bq24296_device_info *di=bq24296_di;
 
+	// FIXME: return as formatted string
 	for(i=0;i<11;i++)
 		{
 		bq24296_read(di->client,i,&buffer,1);
@@ -117,7 +118,7 @@ static ssize_t bat_param_read(struct device *dev,struct device_attribute *attr, 
 		}
 	return 0;
 }
-DEVICE_ATTR(battparam, 0664, bat_param_read,NULL);
+DEVICE_ATTR(battparam, 0444, bat_param_read,NULL);
 
 static int bq24296_update_reg(struct i2c_client *client, int reg, u8 value, u8 mask )
 {
@@ -359,6 +360,8 @@ extern int dwc_otg_check_dpdm(bool wait);
 
 int dwc_otg_check_dpdm(bool wait)
 {
+#ifdef FIXME
+#endif
 	return 0;
 }
 
@@ -503,6 +506,122 @@ static struct of_device_id bq24296_battery_of_match[] = {
 MODULE_DEVICE_TABLE(of, bq24296_battery_of_match);
 #endif
 
+/*
+ * sysfs max_current store
+ */
+static ssize_t
+bq24296_max_current_store(struct device *dev, struct device_attribute *attr,
+	const char *buf, size_t n)
+{
+	int cur = 0;
+	int status = 0;
+	status = kstrtoint(buf, 10, &cur);
+	if (status)
+		return status;
+	if (cur < 0)
+		return -EINVAL;
+#if FIXME
+	// set maximum current in uA
+	status = ...;
+#endif
+	return (status == 0) ? n : status;
+}
+
+/*
+ * sysfs max_current show
+ */
+static ssize_t bq24296_max_current_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	int status = 0;
+	int cur = 1234;	/* in uA */
+	u8 bcictl1;
+#if FIXME
+	// get max current in uA
+	cur = ...;
+	if (cur < 0)
+		return cur;	// read error
+#endif
+	return scnprintf(buf, PAGE_SIZE, "%u\n", cur);
+}
+
+/*
+ * sysfs id show
+ */
+static ssize_t bq24296_id_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	int status = 0;
+	int cur = 1234;	/* in uA */
+	u8 bcictl1;
+#if FIXME
+	// get ID pin status string "floating", 0R
+	cur = ...;
+	if (cur < 0)
+		return cur;	// read error
+#endif
+	return scnprintf(buf, PAGE_SIZE, "floating\n");
+}
+
+static DEVICE_ATTR(max_current, 0644, bq24296_max_current_show,
+			bq24296_max_current_store);
+static DEVICE_ATTR(id, 0444, bq24296_id_show, NULL);
+
+
+static int bq24296_get_property(struct power_supply *psy,
+				    enum power_supply_property psp,
+				    union power_supply_propval *val)
+{
+	val->intval=0;
+
+#if FIXME // convert from twl4030_charger_c to correct bq2429x register read commands for all 4 property codes
+	int is_charging;
+	int state;
+	int ret;
+	// get charging status - or VBUS presence status
+	is_charging = ...;
+	switch (psp) {
+	case POWER_SUPPLY_PROP_STATUS:
+		if (is_charging)
+			val->intval = POWER_SUPPLY_STATUS_CHARGING;
+		else
+			val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+		/* charging must be active for meaningful result */
+		if (!is_charging)
+			return -ENODATA;
+		// get current voltage (if available)
+		ret = ...;
+		if (ret < 0)
+			return ret;
+		val->intval = ret * 9775;
+		}
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_NOW:
+		// get real current (if available)
+		ret = ...;
+		if (ret < 0)
+			return ret;
+		val->intval = ret * 9775;
+		break;
+	case POWER_SUPPLY_PROP_ONLINE:
+		val->intval = is_charging;
+		break;
+	default:
+		return -EINVAL;
+	}
+#endif
+	return 0;
+}
+
+static enum power_supply_property bq24296_charger_props[] = {
+	POWER_SUPPLY_PROP_STATUS,
+	POWER_SUPPLY_PROP_ONLINE,
+	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+	POWER_SUPPLY_PROP_CURRENT_NOW,
+};
+
 #ifdef OLD
 static int bq24296_battery_suspend(struct i2c_client *client, pm_message_t mesg)
 {
@@ -548,6 +667,18 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 
 	bq24296_pdata = pdev;
 
+	di->usb.name = id->driver_data == 1 ?"bq24297":"bq24296";
+	di->usb.type = POWER_SUPPLY_TYPE_USB;
+	di->usb.properties = bq24296_charger_props;
+	di->usb.num_properties = ARRAY_SIZE(bq24296_charger_props);
+	di->usb.get_property = bq24296_get_property;
+
+	ret = power_supply_register(&client->dev, &di->usb);
+	if (ret) {
+		dev_err(&client->dev, "failed to register as USB power_supply: %d\n", ret);
+		goto fail_register_usb;
+	}
+
 	DBG("%s,line=%d chg_current =%d usb_input_current = %d adp_input_current =%d \n", __func__,__LINE__,
 		pdev->chg_current[0],pdev->chg_current[1],pdev->chg_current[2]);
 
@@ -588,6 +719,15 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 		}
 	}
 
+	if (device_create_file(&client->dev, &dev_attr_max_current))
+		dev_warn(&client->dev, "could not create sysfs file\n");
+
+	if (device_create_file(&client->dev, &dev_attr_id))
+		dev_warn(&client->dev, "could not create sysfs file\n");
+
+	if (device_create_file(&client->dev, &dev_attr_battparam))
+		dev_warn(&client->dev, "could not create sysfs file\n");
+
 	bq24296_int =1;
 
 	DBG("bq24296_battery_probe ok");
@@ -596,6 +736,8 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 err_chgirq_failed:
 	free_irq(gpio_to_irq(pdev->chg_irq_pin), NULL);
 batt_failed_2:
+	power_supply_unregister(&di->usb);
+fail_register_usb:
 	return ret;
 }
 
