@@ -36,7 +36,7 @@ struct bq24296_board *bq24296_pdata;
 static int bq24296_int = 0;
 int bq24296_mode = 0;
 int bq24296_chag_down ;
-#if 0
+#if 1
 #define DBG(x...) printk(KERN_INFO x)
 #else
 #define DBG(x...) do { } while (0)
@@ -617,9 +617,10 @@ static int bq24296_battery_remove(struct i2c_client *client)
 static const struct i2c_device_id bq24296_id[] = {
 	{ "bq24296", 0 },
 	{ "bq24297", 1 },
+	{ },
 };
 
-MODULE_ALIAS("i2c:bq2429x");
+MODULE_DEVICE_TABLE(i2c, bq24296_id);
 
 static struct i2c_driver bq24296_battery_driver = {
 	.driver = {
