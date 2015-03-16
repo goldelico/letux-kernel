@@ -93,7 +93,7 @@ CENTIGRADE=$(expr "${CENTIGRADE:=0}" / 10)
 
 testing "ITG3200" "Gyroscope values"
 GYRO=$(findiio itg3200)
-echo 10 >$GYRO/sampling_frequency 2>/dev/null
+[ "$GYRO" ] && echo 10 >$GYRO/sampling_frequency 2>/dev/null
 sleep 0.1
 X=$(cat $GYRO/in_anglvel_x_raw 2>/dev/null)
 Y=$(cat $GYRO/in_anglvel_y_raw 2>/dev/null)
@@ -106,7 +106,7 @@ CENTIGRADE=$(expr "${CENTIGRADE:=0}" / 10)
 
 testing "BMG160" "Gyroscope values"
 GYRO=$(findiio bmg160)
-echo 100 >$GYRO/in_anglvel_sampling_frequency 2>/dev/null
+[ "$GYRO" ] && echo 100 >$GYRO/in_anglvel_sampling_frequency 2>/dev/null
 sleep 0.1
 X=$(cat $GYRO/in_anglvel_x_raw 2>/dev/null)
 Y=$(cat $GYRO/in_anglvel_y_raw 2>/dev/null)
@@ -126,7 +126,7 @@ GMAX=$(expr 300 '*' 300)
 
 testing "HMC5883L" "Compass values"
 COMPASS=$(findiio hmc5843)
-echo 15 >$COMPASS/in_magn_sampling_frequency 2>/dev/null
+[ "$COMPASS" ] && echo 15 >$COMPASS/in_magn_sampling_frequency 2>/dev/null
 sleep 1
 X=$(cat $COMPASS/in_magn_x_raw 2>/dev/null)
 Y=$(cat $COMPASS/in_magn_y_raw 2>/dev/null)
@@ -135,7 +135,7 @@ Z=$(cat $COMPASS/in_magn_z_raw 2>/dev/null)
 
 testing "BMC150-Compass" "Compass values"
 COMPASS=$(findiio bmc150-compass)
-echo 15 >$COMPASS/in_magn_sampling_frequency 2>/dev/null
+[ "$COMPASS" ] && echo 15 >$COMPASS/in_magn_sampling_frequency 2>/dev/null
 sleep 1
 X=$(cat $COMPASS/in_magn_x_raw 2>/dev/null)
 Y=$(cat $COMPASS/in_magn_y_raw 2>/dev/null)
