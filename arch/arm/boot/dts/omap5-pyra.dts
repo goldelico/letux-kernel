@@ -641,7 +641,10 @@
 
 	/* fuel gauge variant 2 */
 	bq27421@55 {
-	//	compatible = "ti,bq27421";
+		compatible = "ti,bq27425";
+	/* FIXME: there are non-mainline updates to directly support the bq27421
+	   and improve chip parameter setup
+	   e.g. https://github.com/aneeshv/linux-bq27xxx/commit/148cbb01358c92a6541d153207a880926182d30e */
 		reg = <0x55>;
 	};
 
