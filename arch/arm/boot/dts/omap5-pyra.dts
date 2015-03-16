@@ -654,8 +654,8 @@
 		compatible = "ti,bq24297";
 		reg = <0x6b>;
 		ti,chg_current = <1000 500 2000>;	// chg_current, usb_input_current, adp_input_current
-		gpios = <&gpio99 11 0>	// chg_irq_pin
-			<0>;	// dc_det_pin - if 0, charger is switched to 2048mA, otherwise 512mA
+		gpios = <&gpio99 11 0>,		// chg_irq_pin
+			<0>;			// dc_det_pin - if 0, charger is switched by driver to 2048mA, otherwise 512mA
 	};
 
 };
