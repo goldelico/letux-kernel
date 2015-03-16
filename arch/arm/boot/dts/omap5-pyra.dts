@@ -710,7 +710,7 @@
 		reg = <0x22>;
 		gpio-controller;
 		#gpio-cells = <2>;
-		open-drain-pins = <5 6 7 17 18 19 21 22 23>;
+		open-drain-pins = <2 3 5 6 7 12 13 17 18 19 21 22 23>;
 	};
 };
 
