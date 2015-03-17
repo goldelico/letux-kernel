@@ -659,7 +659,6 @@ static int audio_enable(struct device *dev, bool enable)
 	if (!enable)
 		hd->audio_abort_cb = NULL;
 
-out:
 	mutex_unlock(&hd->lock);
 
 	return ret;
