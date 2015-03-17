@@ -1,0 +1,80 @@
+* Texas Instruments DR7XX JAMR3 card
+
+Required properties:
+- compatible: "ti,dra7xx-jamr3-snd"
+- ti,model: Name of the sound card
+- ti,mcasp-controller: phandle for the McASP node
+- ti,audio-codec-a: phandle for the analog codec instance A
+- ti,audio-codec-b: phandle for the analog codec instance B
+- ti,audio-codec-c: phandle for the analog codec instance C
+- ti,audio-slots: number of TDM slots
+- ti,audio-routing: List of connections between audio components.
+  Each entry is a pair of strings, the first being the connection's sink,
+  the second being the connection's source.
+
+Optional properties:
+- ti,always-on: Keep analog codecs always on to minimize artifacts. Use it
+  if power is not a concern.
+- clocks : Reference to the master clock
+- clock-names : Master clock name e.g. ti,codec-clock
+- ti,audio-mclk-freq: MCLK frequency for the analog codec
+Note: Must specify a property either "clock-names" with "clock" or directly
+      "ti,audio-mclk-freq" in order to get master clock frequency.
+
+Available audio endpoints for the audio-routing table:
+
+Board connectors:
+ * JAMR3 Stereo Aux In
+ * JAMR3 Mono Mic 1
+ * JAMR3 Mono Mic 2
+ * JAMR3 Line Out 1
+ * JAMR3 Line Out 2
+ * JAMR3 Line Out 3
+
+tlv320aic3x pins:
+ * LLOUT
+ * RLOUT
+ * MONO_LOUT
+ * HPLOUT
+ * HPROUT
+ * HPLCOM
+ * HPCOM
+ * MIC3L
+ * MIC3R
+ * LINE1L
+ * LINE1R
+ * LINE2L
+ * LINE2R
+
+JAMR3 analog codec pins for instances A, B and C are prefixed with
+'J3A', 'J3B' and 'J3C', respectively.
+
+Example:
+
+jamr3_sound {
+	compatible = "ti,dra7xx-jamr3-snd";
+	ti,model = "DRA7xx-JAMR3";
+	ti,always-on;
+	clocks = <&atl_clkin1_ck>;
+	clock-names = "ti,codec-clock";
+
+	ti,audio-routing =
+		"J3A LINE1L",           "JAMR3 Stereo Aux In",
+		"J3A LINE1R",           "JAMR3 Stereo Aux In",
+		"J3B LINE1L",           "JAMR3 Mono Mic 1",
+		"J3B LINE1R",           "JAMR3 Mono Mic 2",
+		"JAMR3 Line Out 1",     "J3A LLOUT",
+		"JAMR3 Line Out 1",     "J3A RLOUT",
+		"JAMR3 Line Out 2",     "J3B LLOUT",
+		"JAMR3 Line Out 2",     "J3B RLOUT",
+		"JAMR3 Line Out 3",     "J3C LLOUT",
+		"JAMR3 Line Out 3",     "J3C RLOUT";
+
+	/* DAI link */
+	ti,mcasp-controller = <&mcasp6>;
+	ti,audio-codec-a = <&tlv320aic3106a>;
+	ti,audio-codec-b = <&tlv320aic3106b>;
+	ti,audio-codec-c = <&tlv320aic3106c>;
+	ti,audio-slots = <8>;
+	ti,audio-mclk-freq = <11289600>;
+};

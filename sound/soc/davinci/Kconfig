@@ -110,3 +110,10 @@ config  SND_DA850_SOC_EVM
 	  Say Y if you want to add support for SoC audio on TI
 	  DA850/OMAP-L138 EVM
 
+config SND_OMAP_SOC_JAMR3
+	  tristate "SoC Audio support for JAMR3 companion board"
+	  depends on SND_OMAP_SOC && SOC_DRA7XX
+	  select SND_DAVINCI_SOC_MCASP
+	  select SND_SOC_TLV320AIC3X
+	  help
+	    Say Y if you want to add support for SoC audio on TI JAMR3 board
