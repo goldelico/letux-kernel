@@ -216,6 +216,13 @@
 };
 
 &dra7_pmx_core {
+	i2c2_pins: pinmux_i2c2_pins {
+		pinctrl-single,pins = <
+			0x408 (PIN_INPUT | MUX_MODE0) /* i2c2_sda */
+			0x40c (PIN_INPUT | MUX_MODE0) /* i2c2_scl */
+		>;
+	};
+
 	dcan1_pins_default: dcan1_pins_default {
 		pinctrl-single,pins = <
 			0x3d0   (PIN_OUTPUT_PULLUP | MUX_MODE0)	/* dcan1_tx */
@@ -469,6 +476,8 @@
 
 &i2c2 {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c2_pins>;
 	clock-frequency = <400000>;
 
 	pcf_hdmi: gpio@26 {
