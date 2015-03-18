@@ -3256,7 +3256,7 @@ static int tcp_is_local(struct net *net, __be32 addr) {
 	return rt->dst.dev && (rt->dst.dev->flags & IFF_LOOPBACK);
 }
 
-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+#if defined(CONFIG_IPV6)
 static int tcp_is_local6(struct net *net, struct in6_addr *addr) {
 	struct rt6_info *rt6 = rt6_lookup(net, addr, addr, 0, 0);
 	return rt6 && rt6->dst.dev && (rt6->dst.dev->flags & IFF_LOOPBACK);
@@ -3313,7 +3313,7 @@ restart:
 					continue;
 			}
 
-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+#if defined(CONFIG_IPV6)
 			if (family == AF_INET6) {
 				struct in6_addr *s6;
 
@@ -3348,3 +3348,4 @@ restart:
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(tcp_nuke_addr);
