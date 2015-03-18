@@ -44,7 +44,6 @@
 		enable-active-high;
 		startup-delay-us = <70000>;
 //		vin-supply = <&vsys>;
- regulator-boot-on;
 	};
 
 	/* this are the DC/DC converters that supply the
@@ -61,7 +60,7 @@
 		enable-active-high;
 		startup-delay-us = <70000>;
 		vin-supply = <&modem_vbus_hdmi_power>;
- regulator-boot-on;
+		regulator-always-on;
 	};
 
 	host2_vbus_power: host2_vbus_power_reg {
@@ -73,20 +72,22 @@
 		enable-active-high;
 		startup-delay-us = <70000>;
 		vin-supply = <&modem_vbus_hdmi_power>;
- regulator-boot-on;
+		regulator-always-on;
 	};
 
 	/* this is the modem power switch (similar to a LDO) */
 	modem_power: modem_power_reg {
 		compatible = "regulator-fixed";
 		regulator-name = "modem_vbus_power";
-		regulator-min-microvolt = <3200000>;
-		regulator-max-microvolt = <4200000>;
+		regulator-min-microvolt = <3700000>;
+		regulator-max-microvolt = <3700000>;
 		gpio = <&gpio99 15 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 		startup-delay-us = <100000>;
-//		vin-supply = <&vsys>;
- regulator-boot-on;
+		/* the real input is vsys but it makes no sense
+		   to power the modem without requesting vbus */
+		vin-supply = <&modem_vbus_hdmi_power>;
+		regulator-always-on;
 	};
 
 	modem_en: modem { /* control modem power through rfkill */
@@ -96,9 +97,9 @@
 	/*	usb-port = <&hsusb2_phy>; 	/* USB phy where we can check the modem status */
 		on-off-gpio = <&gpio3 18 GPIO_ACTIVE_HIGH>;	/* GPIO3_82: trigger to power on modem */
 		on-indicator-gpio = <&gpio3 20 GPIO_ACTIVE_HIGH>;	/* Feedback GPIO */
-/*		modem-suppy = <&modem_power>;		/* enable external power regulator */
+/* NIMP */	modem-suppy = <&modem_power>;		/* enable external power regulator */
 		/* VBUS supply should probably be controlled through the USB PHY driver for the modem port */
-/*		vbus-suppy = <&modem_vbus_hdmi_power>;	/* apply VBUS to the modem */
+/* NIMP */	vbus-suppy = <&modem_vbus_hdmi_power>;	/* apply VBUS to the modem */
 	};
 
 /*	mic_presence {
