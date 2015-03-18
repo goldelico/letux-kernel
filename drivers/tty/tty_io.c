@@ -3077,6 +3077,12 @@ static struct device *tty_get_device(struct tty_struct *tty)
 	return class_find_device(tty_class, NULL, &devt, dev_match_devt);
 }
 
+struct device *tty_find_device(dev_t devt)
+{
+	return class_find_device(tty_class, NULL, &devt, dev_match_devt);
+}
+EXPORT_SYMBOL(tty_find_device);
+
 
 /**
  *	alloc_tty_struct

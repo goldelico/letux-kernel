@@ -461,6 +461,7 @@ extern void tty_vhangup(struct tty_struct *tty);
 extern int tty_hung_up_p(struct file *filp);
 extern void do_SAK(struct tty_struct *tty);
 extern void __do_SAK(struct tty_struct *tty);
+extern struct device *tty_find_device(dev_t devt);
 extern void no_tty(void);
 extern void tty_flush_to_ldisc(struct tty_struct *tty);
 extern void tty_buffer_free_all(struct tty_port *port);

@@ -1960,26 +1960,19 @@ struct uart_match {
 	struct uart_driver *driver;
 };
 
-static int serial_match_port(struct device *dev, void *data)
-{
-	struct uart_match *match = data;
-	struct tty_driver *tty_drv = match->driver->tty_driver;
-	dev_t devt = MKDEV(tty_drv->major, tty_drv->minor_start) +
-		match->port->line;
-
-	return dev->devt == devt; /* Actually, only one tty per port */
-}
 
 int uart_suspend_port(struct uart_driver *drv, struct uart_port *uport)
 {
 	struct uart_state *state = drv->state + uport->line;
 	struct tty_port *port = &state->port;
 	struct device *tty_dev;
-	struct uart_match match = {uport, drv};
+	dev_t devt = MKDEV(drv->tty_driver->major,
+			   drv->tty_driver->minor_start) +
+		uport->line;
 
 	mutex_lock(&port->mutex);
 
-	tty_dev = device_find_child(uport->dev, &match, serial_match_port);
+	tty_dev = tty_find_device(devt);
 	if (device_may_wakeup(tty_dev)) {
 		if (!enable_irq_wake(uport->irq))
 			uport->irq_wake = 1;
@@ -2039,12 +2032,14 @@ int uart_resume_port(struct uart_driver *drv, struct uart_port *uport)
 	struct uart_state *state = drv->state + uport->line;
 	struct tty_port *port = &state->port;
 	struct device *tty_dev;
-	struct uart_match match = {uport, drv};
 	struct ktermios termios;
+	dev_t devt = MKDEV(drv->tty_driver->major,
+			   drv->tty_driver->minor_start) +
+		uport->line;
 
 	mutex_lock(&port->mutex);
 
-	tty_dev = device_find_child(uport->dev, &match, serial_match_port);
+	tty_dev = tty_find_device(devt);
 	if (!uport->suspended && device_may_wakeup(tty_dev)) {
 		if (uport->irq_wake) {
 			disable_irq_wake(uport->irq);
