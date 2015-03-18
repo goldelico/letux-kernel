@@ -5,3 +5,17 @@ menuconfig TTY_SLAVE
 	  Devices which attach via a uart, but need extra
 	  driver support for power management etc.
 
+if TTY_SLAVE
+
+config SERIAL_POWER_MANAGER
+	tristate "Power Management controller for serial-attached devices"
+	default n
+	help
+	  Some devices permanently attached via a UART can benefit from
+	  being power-managed when the tty device is opened or closed.
+	  This driver can support several such devices with simple
+	  power requirements such as enabling a regulator.
+
+	  If in doubt, say 'N'
+
+endif
