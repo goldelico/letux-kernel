@@ -95,6 +95,8 @@
 #include <linux/seq_file.h>
 #include <linux/serial.h>
 #include <linux/ratelimit.h>
+#include <linux/of.h>
+#include <linux/tty_slave.h>
 
 #include <linux/uaccess.h>
 
@@ -3124,6 +3126,7 @@ struct tty_struct *alloc_tty_struct(struct tty_driver *driver, int idx)
 	tty->index = idx;
 	tty_line_name(driver, idx, tty->name);
 	tty->dev = tty_get_device(tty);
+	tty_slave_activate(tty);
 
 	return tty;
 }
@@ -3205,6 +3208,29 @@ static void tty_device_create_release(struct device *dev)
 	kfree(dev);
 }
 
+int tty_register_finalize(struct tty_driver *driver, struct device *dev)
+{
+	int retval;
+	bool cdev = false;
+	int index = dev->devt - MKDEV(driver->major,
+				      driver->minor_start);
+	printk("REGISTER %d %d 0x%x %d\n", driver->major, driver->minor_start, dev->devt, index);
+	if (!(driver->flags & TTY_DRIVER_DYNAMIC_ALLOC)) {
+		retval = tty_cdev_add(driver,
+				      dev->devt,
+				      index, 1);
+		if (retval)
+			return retval;
+		cdev = true;
+	}
+	retval = device_register(dev);
+	if (retval == 0)
+		return 0;
+	if (cdev)
+		cdev_del(&driver->cdevs[index]);
+	return retval;
+}
+EXPORT_SYMBOL(tty_register_finalize);
 /**
  *	tty_register_device_attr - register a tty device
  *	@driver: the tty driver that describes the tty device
@@ -3234,7 +3260,8 @@ struct device *tty_register_device_attr(struct tty_driver *driver,
 	dev_t devt = MKDEV(driver->major, driver->minor_start) + index;
 	struct device *dev = NULL;
 	int retval = -ENODEV;
-	bool cdev = false;
+	struct device_node *node;
+	bool slave_registered = false;
 
 	if (index >= driver->num) {
 		printk(KERN_ERR "Attempt to register invalid tty line number "
@@ -3246,13 +3273,6 @@ struct device *tty_register_device_attr(struct tty_driver *driver,
 		pty_line_name(driver, index, name);
 	else
 		tty_line_name(driver, index, name);
-
-	if (!(driver->flags & TTY_DRIVER_DYNAMIC_ALLOC)) {
-		retval = tty_cdev_add(driver, devt, index, 1);
-		if (retval)
-			goto error;
-		cdev = true;
-	}
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev) {
@@ -3268,16 +3288,24 @@ struct device *tty_register_device_attr(struct tty_driver *driver,
 	dev->groups = attr_grp;
 	dev_set_drvdata(dev, drvdata);
 
-	retval = device_register(dev);
-	if (retval)
-		goto error;
+	if (device && device->of_node)
+		for_each_available_child_of_node(device->of_node, node) {
+			if (tty_slave_register(device, node, dev, driver) == 0)
+				slave_registered = true;
+			if (slave_registered)
+				break;
+		}
+
+	if (!slave_registered) {
+		retval = tty_register_finalize(driver, dev);
+		if (retval)
+			goto error;
+	}
 
 	return dev;
 
 error:
 	put_device(dev);
-	if (cdev)
-		cdev_del(&driver->cdevs[index]);
 	return ERR_PTR(retval);
 }
 EXPORT_SYMBOL_GPL(tty_register_device_attr);

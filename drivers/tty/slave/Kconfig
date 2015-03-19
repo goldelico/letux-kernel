@@ -1,0 +1,7 @@
+menuconfig TTY_SLAVE
+	tristate "TTY slave devices"
+	depends on OF
+	help
+	  Devices which attach via a uart, but need extra
+	  driver support for power management etc.
+

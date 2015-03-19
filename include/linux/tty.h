@@ -373,6 +373,7 @@ extern void proc_clear_tty(struct task_struct *p);
 extern struct tty_struct *get_current_tty(void);
 /* tty_io.c */
 extern int __init tty_init(void);
+extern int tty_register_finalize(struct tty_driver *driver, struct device *dev);
 #else
 static inline void console_init(void)
 { }

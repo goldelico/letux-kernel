@@ -31,3 +31,4 @@ obj-$(CONFIG_GOLDFISH_TTY)	+= goldfish.o
 obj-$(CONFIG_DA_TTY)		+= metag_da.o
 
 obj-y += ipwireless/
+obj-y += slave/
