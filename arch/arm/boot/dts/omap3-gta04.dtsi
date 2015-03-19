@@ -308,24 +308,6 @@
 		vdd-supply = <&vaux4>;
 	};
 
-	gps_en: w2sg0004 { /* presents a single gpio to be plumbed to uart2 dts */
-		compatible = "wi2wi,w2sg0004";
-		gpio-controller;
-		#gpio-cells = <2>;
-
-		pinctrl-names = "default", "monitor";
-		pinctrl-0 = <&uart2_pins>;
-		pinctrl-1 = <&uart2_rx_irq_pins>;
-
-/* FIXME: driver currently uses the rx-gpio but we should (could?) simply specify the IRQ */
-		interrupt-parent = <&gpio5>;
-		interrupts = <19 IRQ_TYPE_EDGE_FALLING>;	/* GPIO_147: RX - trigger on arrival of start bit */
-//		rx-gpio = <&gpio5 19 0>;	/* GPIO_147: RX */
-
-		lna-supply = <&vsim>;	/* LNA regulator */
-		on-off-gpio = <&gpio5 17 0>;	/* GPIO_145: trigger for turning on/off w2sg0004 */
-	};
-
 	modem_en: modem { /* control modem power through rfkill */
 		compatible = "option,gtm601";
 		/* compatible = "gemalto,phs8" for Neo900/GTA04b7 */
@@ -846,10 +828,17 @@
 	dtr-gpio = <&bt_en 0 GPIO_ACTIVE_LOW>;	/* w2cbw bluetooth power control through virtual gpio */
 };
 
-&uart2 { /* GPS /dev/ttyO1 */
-/*	pinctrl-names = "default";
-	pinctrl-0 = <&uart2_pins>; */
-	dtr-gpio = <&gps_en 0 GPIO_ACTIVE_HIGH>;	/* w2sg0004 GPS power control through virtual gpio */
+&uart2 {
+       gps {
+               compatible = "wi2wi,w2sg0004";
+               vdd-supply = <&vsim>;
+               gpios = <&gpio5 17 0>; /* GPIO_145 */
+               interrupts-extended = <&gpio5 19 0>; /* GPIO_147 */
+               /* When off, switch RX to be an interrupt */
+               pinctrl-names = "default", "off";
+               pinctrl-0 = <&uart2_pins>;
+               pinctrl-1 = <&uart2_rx_irq_pins>;
+       };
 };
 
 &uart3 { /* Console and IrDA /dev/ttyO2 */
