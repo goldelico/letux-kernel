@@ -499,7 +499,7 @@ static void usb_detect_work_func(struct work_struct *work)
 		if(ret && !previous_online) { /* VBUS became available */
 			DBG("bq24296: VBUS became available\n");
 			bq24296_update_input_current_limit(bq24296_di->usb_input_current);
-			bq24296_update_charge_mode(CHARGE_MODE_CONFIG_CHARGE_BATTERY);
+//			bq24296_update_charge_mode(CHARGE_MODE_CONFIG_CHARGE_BATTERY);
 		}
 		previous_online = ret;
 #endif
