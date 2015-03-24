@@ -466,11 +466,12 @@ Generic Serial driver
   is required of your device is that it has at least one bulk in endpoint,
   or one bulk out endpoint. 
   
-  To enable the generic driver to recognize your device, build the driver
-  as a module and load it by the following invocation:
-	insmod usbserial vendor=0x#### product=0x####
-  where the #### is replaced with the hex representation of your device's
-  vendor id and product id.
+  To enable the generic driver to recognize your device, configure
+  USB_SERIAL_GENERIC=y. Then load it by the following invocation:
+	modprobe usbserial
+	echo #### #### >/sys/bus/usb-serial/drivers/generic/new_id
+  where the the first #### is replaced with the hex representation of your
+  device's vendor id and the second #### by the product id.
 
   This driver has been successfully used to connect to the NetChip USB
   development board, providing a way to develop USB firmware without
