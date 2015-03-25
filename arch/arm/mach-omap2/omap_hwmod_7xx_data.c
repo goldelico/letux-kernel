@@ -4652,6 +4652,29 @@ int __init dra7xx_hwmod_init(void)
 	int ret;
 
 	omap_hwmod_init();
+
+	if (OMAP2_DEVICE_TYPE_GP != omap_type()) {
+		/* AES, DES, SHAM and RNG HWAs are shared between secure and public
+		   worlds for a HS/EMU device. In this case the module clocks are
+		   already enabled and should not be touched by the kernel driver.
+		*/
+		dra7xx_aes_hwmod_class.sysc = NULL;
+		dra7xx_aes_hwmod_class.rev = 0;
+		dra7xx_aes_hwmod.prcm.omap4.modulemode = 0;
+
+		dra7xx_des_hwmod_class.sysc = NULL;
+		dra7xx_des_hwmod_class.rev = 0;
+		dra7xx_des_hwmod.prcm.omap4.modulemode = 0;
+
+		dra7xx_sha0_hwmod_class.sysc = NULL;
+		dra7xx_sha0_hwmod_class.rev = 0;
+		dra7xx_sha0_hwmod.prcm.omap4.modulemode = 0;
+
+		dra7xx_rng_hwmod_class.sysc = NULL;
+		dra7xx_rng_hwmod_class.rev = 0;
+		dra7xx_rng_hwmod.prcm.omap4.modulemode = 0;
+	}
+
 	ret = omap_hwmod_register_links(dra7xx_hwmod_ocp_ifs);
 
 	if (!ret && soc_is_dra74x())
