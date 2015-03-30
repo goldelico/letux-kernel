@@ -351,6 +351,7 @@
 		reg = <0x0244>;
 		ti,index-starts-at-one;
 		ti,invert-autoidle-bit;
+		ti,set-rate-parent;
 	};
 
 	iva_dpll_hs_clk_div: iva_dpll_hs_clk_div {
@@ -386,6 +387,7 @@
 		reg = <0x01b0>;
 		ti,index-starts-at-one;
 		ti,invert-autoidle-bit;
+		ti,set-rate-parent;
 	};
 
 	iva_dclk: iva_dclk {
@@ -421,6 +423,7 @@
 		reg = <0x02e8>;
 		ti,index-starts-at-one;
 		ti,invert-autoidle-bit;
+		ti,set-rate-parent;
 	};
 
 	dpll_core_m2_ck: dpll_core_m2_ck {
@@ -432,6 +435,7 @@
 		reg = <0x0130>;
 		ti,index-starts-at-one;
 		ti,invert-autoidle-bit;
+		ti,set-rate-parent;
 	};
 
 	core_dpll_out_dclk_div: core_dpll_out_dclk_div {
@@ -466,6 +470,7 @@
 		reg = <0x0220>;
 		ti,index-starts-at-one;
 		ti,invert-autoidle-bit;
+		ti,set-rate-parent;
 	};
 
 	dpll_gmac_byp_mux: dpll_gmac_byp_mux {
@@ -493,6 +498,7 @@
 		reg = <0x02b8>;
 		ti,index-starts-at-one;
 		ti,invert-autoidle-bit;
+		ti,set-rate-parent;
 	};
 
 	video2_dclk_div: video2_dclk_div {
@@ -568,6 +574,7 @@
 		reg = <0x0294>;
 		ti,index-starts-at-one;
 		ti,invert-autoidle-bit;
+		ti,set-rate-parent;
 	};
 
 	eve_dclk_div: eve_dclk_div {
@@ -665,6 +672,7 @@
 		reg = <0x0248>;
 		ti,index-starts-at-one;
 		ti,invert-autoidle-bit;
+		ti,set-rate-parent;
 	};
 
 	dpll_gmac_x2_ck: dpll_gmac_x2_ck {
@@ -1344,6 +1352,7 @@
 		reg = <0x0150>;
 		ti,index-starts-at-one;
 		ti,invert-autoidle-bit;
+		ti,set-rate-parent;
 	};
 
 	func_96m_aon_dclk_div: func_96m_aon_dclk_div {
@@ -1379,6 +1388,7 @@
 		reg = <0x0190>;
 		ti,index-starts-at-one;
 		ti,invert-autoidle-bit;
+		ti,set-rate-parent;
 	};
 
 	dpll_pcie_ref_m2_ck: dpll_pcie_ref_m2_ck {
@@ -1390,6 +1400,7 @@
 		reg = <0x0210>;
 		ti,index-starts-at-one;
 		ti,invert-autoidle-bit;
+		ti,set-rate-parent;
 	};
 
 	dpll_per_x2_ck: dpll_per_x2_ck {
