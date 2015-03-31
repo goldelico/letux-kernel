@@ -61,7 +61,7 @@
 #define mipi_debugWIDTH			(mipi_debugW+80+88)
 #define mipi_debugHEIGHT			(mipi_debugH+160)
 #define mipi_debugFPS				(60ll)
-#define mipi_debugPIXELCLOCK		(mipi_debugWIDTH * mipi_debugHEIGHT * mipi_debugFPS)	// Full HD * 60 fps
+#define mipi_debugPIXELCLOCK		(mipi_debugWIDTH * mipi_debugHEIGHT * mipi_debugFPS)	// Half HD * 60 fps
 /* panel has 16.7M colors = RGB888 = 3*8 bit per pixel */
 #define mipi_debugPIXELFORMAT		OMAP_DSS_DSI_FMT_RGB888	// 16.7M color = RGB888
 #define mipi_debugBIT_PER_PIXEL	(3*8)
@@ -434,45 +434,54 @@ static ssize_t set_dcs(struct device *dev,
 	struct omap_dss_device *in = ddata->in;
 	const char *p;
 
-	if(strncmp(buf, "start", 5) == 0)
-		{
+	if(strncmp(buf, "start", 5) == 0) {
 		int r;
 		p = buf+5;
-		while(p < buf + count)
-			{ // parse "start var=value" sequences
-			char *arg;
-			int len;
-			unsigned long val=0;
+		while(p < buf + count) {
 			if(!(*p == ' ' || *p == '\t' || *p == '\n')) {
-				arg=p;
+				// parse "start var=value" sequences
+				char *arg=p;
+				unsigned long val=0;
+				int len;
 				while(p < buf + count) {
 					if(*p == '=')
 						break;
 					p++;
 					}
-				if(!(p < buf + count))
-				return -EIO;
+				if(!(p < buf + count)) {
+					printk("missing '='\n");
+					return -EIO;
+				}
 				len=p++ - arg;	// skip =
 				while(p < buf + count) {
 					// collect digits
+					if(*p == ' ' || *p == '\t' || *p == '\n')
+						break;	// end of this value
 					if(*p >= '0' && *p <= '9')
-						d=(d<<4) + (*p-'0');
-					else
+						val=10*val + (*p-'0');
+					else {
+						printk("invalid digit for parameter %.*s: %c\n", len, arg, *p);
 						return -EIO;
+					}
 					p++;
 				}
 				if(len == 5 && strncmp(arg, "x_res", len) == 0)
 					mipi_timings.x_res=val;
 				else if(len == 5 && strncmp(arg, "y_res", len) == 0)
 					mipi_timings.y_res=val;
-				else
+				else if(len == 5 && strncmp(arg, "pixelclock", len) == 0)
+					mipi_timings.pixelclock=val;
+// add others here
+				else {
+					printk("unknown parameter: %.*s=%d\n", len, arg, val);
 					return -EIO;	// invalid parameter name
 				}
+			}
 			p++;
 		}
 		r = mipi_debug_start(dssdev);
 		return r < 0 ? r : count;
-		}
+	}
 	if(strncmp(buf, "stop", 4) == 0)
 		{
 		mipi_debug_stop(dssdev);
