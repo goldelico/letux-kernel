@@ -125,6 +125,8 @@ struct panel_drv_data {
 
 	int max_rx_packet_size;
 
+	char response[256];
+
 };
 
 #define to_panel_data(p) container_of(p, struct panel_drv_data, dssdev)
@@ -197,7 +199,6 @@ static int mipi_debug_read(struct omap_dss_device *dssdev, u8 *dcs_cmd, int cmdl
 	if (r)
 		printk(" failed: %d", r);
 	printk("\n");
-	// FIXME: write hex result to some string buffer that we can read through /sys for shell script processing
 	return r;
 }
 
@@ -445,7 +446,7 @@ static ssize_t set_dcs(struct device *dev,
 		while(p < buf + count) {
 			if(!(*p == ' ' || *p == '\t' || *p == '\n')) {
 				// parse "start var=value" sequences
-				char *arg=p;
+				const char *arg=p;
 				unsigned long val=0;
 				int len;
 				while(p < buf + count) {
@@ -482,10 +483,10 @@ static ssize_t set_dcs(struct device *dev,
 					mipi_dsi_config.lp_clk_max=val;
 // add others here
 				else {
-					printk("unknown parameter: %.*s=%d\n", len, arg, val);
+					printk("unknown parameter: %.*s=%lu\n", len, arg, val);
 					return -EIO;	// invalid parameter name
 				}
-				printk("  %.*s=%d\n", len, arg, val);
+				printk("  %.*s=%lu\n", len, arg, val);
 			}
 			p++;
 		}
@@ -606,7 +607,18 @@ static ssize_t set_dcs(struct device *dev,
 
 		// handle DCS vs. Generic
 		if(read)
+			{
 			r = mipi_debug_read(dssdev, data, argc, ret, read, generic);
+			if(r >= 0)
+				{ /* provide response bytes to next cat dcs */
+				char *p=ddata->response;
+				int i;
+				for(i=0; i<read; i++)
+					p+=sprintf(p, "%s%02x", i==0?"":" ", ret[i]);
+				}
+			else
+				sprintf(ddata->response, "error: %d", r);	// failure
+			}
 		else
 			r = mipi_debug_write(dssdev, data, argc, generic);
 
@@ -619,9 +631,17 @@ static ssize_t set_dcs(struct device *dev,
 }
 
 static ssize_t show_dcs(struct device *dev,
-						struct device_attribute *attr, char *buf)
+	struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "[g]aa dd dd ... | [g]aa r ... | status | start | stop | reset | noreset | power | nopower | stream | nostream\n");
+	struct platform_device *pdev = to_platform_device(dev);
+	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
+	if (ddata->response[0])
+		{ /* return hex bytes of last read command */
+		int l=sprintf(buf, "%s\n", ddata->response);
+		ddata->response[0]=0;	/* but return exactly once */
+		return l;
+		}
+	return sprintf(buf, "usage: [g]aa dd dd ... | [g]aa r ... | status | start [ x_res=# | y_res=# | pixelclock=# | lpclock=# ] | stop | reset | noreset | power | nopower | stream | nostream\n");
 }
 
 static DEVICE_ATTR(dcs, S_IWUSR | S_IRUGO,
