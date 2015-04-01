@@ -123,6 +123,8 @@ struct panel_drv_data {
 	int config_channel;
 	int pixel_channel;
 
+	int max_rx_packet_size;
+
 };
 
 #define to_panel_data(p) container_of(p, struct panel_drv_data, dssdev)
@@ -165,12 +167,15 @@ static int mipi_debug_read(struct omap_dss_device *dssdev, u8 *dcs_cmd, int cmdl
 	int r;
 	int i;
 
-	r = in->ops.dsi->set_max_rx_packet_size(in, ddata->config_channel, len);	// tell panel how much we expect
-	if (r) {
-		dev_err(&ddata->pdev->dev, "can't set max rx packet size\n");
-		return -EIO;
+	if(len != ddata->max_rx_packet_size) { /* has changed */
+		r = in->ops.dsi->set_max_rx_packet_size(in, ddata->config_channel, len);	// tell panel how much we expect
+		if (r) {
+			dev_err(&ddata->pdev->dev, "can't set max rx packet size\n");
+			return -EIO;
+		}
+		printk("rx packet size := %d\n", len);
+		ddata->max_rx_packet_size = len;
 	}
-
 	if(generic)
 		{ // this is a "manufacturer command" that must be sent as a "generic read command"
 			r = in->ops.dsi->gen_read(in, ddata->config_channel, dcs_cmd, cmdlen, buf, len);
@@ -192,7 +197,7 @@ static int mipi_debug_read(struct omap_dss_device *dssdev, u8 *dcs_cmd, int cmdl
 	if (r)
 		printk(" failed: %d", r);
 	printk("\n");
-	// FIXME: write hex result to some sting buffer that we can read through /sys
+	// FIXME: write hex result to some string buffer that we can read through /sys for shell script processing
 	return r;
 }
 
@@ -465,12 +470,16 @@ static ssize_t set_dcs(struct device *dev,
 					}
 					p++;
 				}
+				/* let's hope that the timings are really changed... */
 				if(len == 5 && strncmp(arg, "x_res", len) == 0)
 					mipi_timings.x_res=val;
 				else if(len == 5 && strncmp(arg, "y_res", len) == 0)
 					mipi_timings.y_res=val;
-				else if(len == 5 && strncmp(arg, "pixelclock", len) == 0)
+				else if(len == 10 && strncmp(arg, "pixelclock", len) == 0)
 					mipi_timings.pixelclock=val;
+				/* mipi_dsi_config evaluated during mipi_debug_start() */
+				else if(len == 7 && strncmp(arg, "lpclock", len) == 0)
+					mipi_dsi_config.lp_clk_max=val;
 // add others here
 				else {
 					printk("unknown parameter: %.*s=%d\n", len, arg, val);
@@ -715,6 +724,8 @@ static int mipi_debug_start(struct omap_dss_device *dssdev)
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
 	int r = 0;
+
+	ddata->max_rx_packet_size = -1;
 
 	printk("dsi: mipi_debug_start()\n");
 	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE)
