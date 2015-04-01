@@ -476,6 +476,7 @@ static ssize_t set_dcs(struct device *dev,
 					printk("unknown parameter: %.*s=%d\n", len, arg, val);
 					return -EIO;	// invalid parameter name
 				}
+				printk("  %.*s=%d\n", len, arg, val);
 			}
 			p++;
 		}
