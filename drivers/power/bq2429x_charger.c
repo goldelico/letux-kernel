@@ -134,7 +134,7 @@ static int bq24296_update_reg(struct i2c_client *client, int reg, u8 value, u8 m
 		return ret;
 	}
 
-printk("update_reg %02x %02x -> %02x (m=%02x) -> %02x\n", reg, retval, value, mask, ((retval & ~mask) | value) | value);
+printk("bq24296_update_reg %02x %02x -> %02x (m=%02x) -> %02x\n", reg, retval, value, mask, ((retval & ~mask) | value) | value);
 
 	if ((retval & mask) != value) {
 		retval = ((retval & ~mask) | value) | value;
@@ -541,18 +541,18 @@ static struct bq24296_board *bq24296_parse_dt(struct bq24296_device_info *di)
 	if (!pdata)
 		return NULL;
 	if (of_property_read_u32_array(bq24296_np,"ti,chg_current",pdata->chg_current, 3)) {
-		printk("charge current not specified\n");
+		printk("bq24296_parse_dt: charge current not specified\n");
 		return NULL;
 	}
 
 	pdata->chg_irq_pin = of_get_named_gpio(bq24296_np,"gpios",0);
 	if (!gpio_is_valid(pdata->chg_irq_pin)) {
-		printk("invalid gpio: %d\n",  pdata->chg_irq_pin);
+		printk("bq24296_parse_dt: invalid gpio: %d\n",  pdata->chg_irq_pin);
 	}
 
 	pdata->dc_det_pin = of_get_named_gpio(bq24296_np,"gpios",1);
 	if (!gpio_is_valid(pdata->dc_det_pin)) {
-		printk("invalid gpio: %d\n",  pdata->dc_det_pin);
+		printk("bq24296_parse_dt: invalid gpio: %d\n",  pdata->dc_det_pin);
 	}
 
 	return pdata;
@@ -589,7 +589,7 @@ bq24296_max_current_store(struct device *dev, struct device_attribute *attr,
 		return status;
 	if (cur < 0)
 		return -EINVAL;
-	printk("set input max current to %u uA -> %02x\n", cur, bq24296_get_limit_current(cur));
+	printk("bq24296_max_current_store: set input max current to %u uA -> %02x\n", cur, bq24296_get_limit_current(cur));
 	status = bq24296_update_input_current_limit(bq24296_get_limit_current(cur));
 	return (status == 0) ? n : status;
 }
@@ -654,7 +654,7 @@ bq24296_otg_store(struct device *dev, struct device_attribute *attr,
 		return status;
 	if (cur < 0)
 		return -EINVAL;
-	printk("set OTG max current %u uA\n", cur);
+	printk("bq24296_otg_store: set OTG max current %u uA\n", cur);
 	bq24296_update_en_hiz_disable();
 	mdelay(5);
 	if(cur < 500000)
@@ -666,7 +666,7 @@ bq24296_otg_store(struct device *dev, struct device_attribute *attr,
 #if 1
 	u8 retval = 0xff;
 	bq24296_read(bq24296_di->client, POWER_ON_CONFIGURATION_REGISTER, &retval, 1);
-	printk("POWER_ON_CONFIGURATION_REGISTER = %02x\n", retval);
+	printk("bq24296_otg_store: POWER_ON_CONFIGURATION_REGISTER = %02x\n", retval);
 #endif
 	return (status < 0) ? status : n;
 }
