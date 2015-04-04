@@ -509,6 +509,13 @@ config AXP20X_POWER
 	  This driver provides support for the power supply features of
 	  AXP20x PMIC.
 
+config POWER_MINIPC
+	tristate "MIPS MiniPC power controller support"
+	depends on I2C
+	help
+	  This adds support for the MIPS MiniPC (like Letux 400). It provides
+	  battery status and system power off.
+
 endif # POWER_SUPPLY
 
 source "drivers/power/reset/Kconfig"
