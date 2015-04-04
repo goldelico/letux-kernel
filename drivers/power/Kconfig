@@ -427,6 +427,13 @@ config BATTERY_RT5033
 	  The fuelgauge calculates and determines the battery state of charge
 	  according to battery open circuit voltage.
 
+config POWER_MINIPC
+	tristate "MIPS MiniPC power controller support"
+	depends on I2C
+	help
+	  This adds support for the MIPS MiniPC (like Letux 400). It provides
+	  battery status and system power off.
+
 source "drivers/power/reset/Kconfig"
 
 endif # POWER_SUPPLY
