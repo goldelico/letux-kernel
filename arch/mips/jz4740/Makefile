@@ -5,13 +5,14 @@
 # Object file lists.
 
 obj-y += prom.o irq.o time.o reset.o setup.o \
-	gpio.o clock.o platform.o timer.o serial.o
+	clock.o platform.o timer.o serial.o
 
 obj-$(CONFIG_DEBUG_FS) += clock-debugfs.o
 
 # board specific support
 
-obj-$(CONFIG_JZ4740_QI_LB60)	+= board-qi_lb60.o
+obj-$(CONFIG_JZ4740_QI_LB60)	+= board-qi_lb60.o gpio.o
+obj-$(CONFIG_JZ4730_MINIPC)	+= board-minipc.o jz4730_gpio.o
 
 # PM support
 

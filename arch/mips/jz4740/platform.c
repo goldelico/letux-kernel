@@ -155,6 +155,8 @@ struct platform_device jz4740_i2c_device = {
 	.resource	= jz4740_i2c_resources,
 };
 
+#ifndef CONFIG_MACH_JZ4730
+
 /* NAND controller */
 static struct resource jz4740_nand_resources[] = {
 	{
@@ -194,6 +196,8 @@ struct platform_device jz4740_nand_device = {
 	.num_resources = ARRAY_SIZE(jz4740_nand_resources),
 	.resource = jz4740_nand_resources,
 };
+
+#endif
 
 /* LCD controller */
 static struct resource jz4740_framebuffer_resources[] = {
@@ -253,6 +257,8 @@ struct platform_device jz4740_codec_device = {
 	.resource	= jz4740_codec_resources,
 };
 
+#ifndef CONFIG_MACH_JZ4730
+
 /* ADC controller */
 static struct resource jz4740_adc_resources[] = {
 	{
@@ -278,6 +284,8 @@ struct platform_device jz4740_adc_device = {
 	.num_resources	= ARRAY_SIZE(jz4740_adc_resources),
 	.resource	= jz4740_adc_resources,
 };
+
+#endif
 
 /* Serial */
 #define JZ4740_UART_DATA(_id) \

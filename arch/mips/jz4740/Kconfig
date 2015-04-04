@@ -7,3 +7,13 @@ config JZ4740_QI_LB60
 	bool "Qi Hardware Ben NanoNote"
 
 endchoice
+
+choice
+	prompt "Machine type"
+	depends on MACH_JZ4730
+	default JZ4730_MINIPC
+
+config JZ4730_MINIPC
+	bool "JZ4730 Mini PC"
+
+endchoice

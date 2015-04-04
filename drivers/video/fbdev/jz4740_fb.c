@@ -174,8 +174,10 @@ static const struct jz_gpio_bulk_request jz_lcd_data_pins[] = {
 	JZ_GPIO_BULK_PIN(LCD_DATA13),
 	JZ_GPIO_BULK_PIN(LCD_DATA14),
 	JZ_GPIO_BULK_PIN(LCD_DATA15),
+#ifndef CONFIG_MACH_JZ4730
 	JZ_GPIO_BULK_PIN(LCD_DATA16),
 	JZ_GPIO_BULK_PIN(LCD_DATA17),
+#endif
 };
 
 static unsigned int jzfb_num_ctrl_pins(struct jzfb *jzfb)

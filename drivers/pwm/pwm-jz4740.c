@@ -24,17 +24,23 @@
 #include <asm/mach-jz4740/gpio.h>
 #include <asm/mach-jz4740/timer.h>
 
+#ifdef CONFIG_MACH_JZ4730
+#define NUM_PWM 2
+#else
 #define NUM_PWM 8
+#endif
 
 static const unsigned int jz4740_pwm_gpio_list[NUM_PWM] = {
 	JZ_GPIO_PWM0,
 	JZ_GPIO_PWM1,
+#ifndef CONFIG_MACH_JZ4730
 	JZ_GPIO_PWM2,
 	JZ_GPIO_PWM3,
 	JZ_GPIO_PWM4,
 	JZ_GPIO_PWM5,
 	JZ_GPIO_PWM6,
 	JZ_GPIO_PWM7,
+#endif
 };
 
 struct jz4740_pwm_chip {
