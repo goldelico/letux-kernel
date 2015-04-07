@@ -1,0 +1,17 @@
+/dts-v1/;
+
+/include/ "jz4730.dtsi"
+
+/ {
+	compatible = "minipc", "letux,400";
+	model = "jz4730 based Mini PC (minibook)";
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x2000000>;
+	};
+
+	chosen {
+		bootargs = "console=ttyS0,57600";
+	};
+};
