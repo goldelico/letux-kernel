@@ -220,6 +220,9 @@ config TI_EDMA
 	  Enable support for the TI EDMA controller. This DMA
 	  engine is found on TI DaVinci and AM33xx parts.
 
+config TI_DMA_CROSSBAR
+	bool
+
 config ARCH_HAS_ASYNC_TX_FIND_CHANNEL
 	bool
 
@@ -305,6 +308,7 @@ config DMA_OMAP
 	depends on ARCH_OMAP
 	select DMA_ENGINE
 	select DMA_VIRTUAL_CHANNELS
+	select TI_DMA_CROSSBAR if SOC_DRA7XX
 
 config DMA_BCM2835
 	tristate "BCM2835 DMA engine support"
