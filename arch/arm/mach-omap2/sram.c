@@ -37,7 +37,8 @@
 #else
 #define OMAP4_SRAM_PUB_PA	(OMAP4_SRAM_PA + 0x4000)
 #endif
-#define OMAP5_SRAM_PA		0x40300000
+#define OMAP5_SRAM_PUB_PA	(OMAP5_SRAM_PA + OMAP5_HS_SRAM_RSVD)
+#define DRA7XX_SRAM_PUB_PA	(DRA7XX_SRAM_PA + DRA7XX_HS_SRAM_RSVD)
 
 #define SRAM_BOOTLOADER_SZ	0x00
 
@@ -109,8 +110,11 @@ static void __init omap_detect_sram(void)
 			omap_sram_start = OMAP4_SRAM_PUB_PA;
 			omap_sram_size = 0xa000; /* 40K */
 		} else if (soc_is_omap54xx()) {
-			omap_sram_start = OMAP5_SRAM_PA;
-			omap_sram_size = SZ_128K; /* 128KB */
+			omap_sram_start = OMAP5_SRAM_PUB_PA;
+			omap_sram_size = SZ_128K - OMAP5_HS_SRAM_RSVD; /* 64KB */
+		} else if (soc_is_dra7xx()) {
+			omap_sram_start = DRA7XX_SRAM_PUB_PA;
+			omap_sram_size = SZ_512K - DRA7XX_HS_SRAM_RSVD; /* 384KB */
 		} else {
 			omap_sram_start = OMAP2_SRAM_PUB_PA;
 			omap_sram_size = 0x800; /* 2K */
@@ -131,6 +135,9 @@ static void __init omap_detect_sram(void)
 		} else if (soc_is_omap54xx()) {
 			omap_sram_start = OMAP5_SRAM_PA;
 			omap_sram_size = SZ_128K; /* 128KB */
+		} else if (soc_is_dra7xx()) {
+			omap_sram_start = DRA7XX_SRAM_PA;
+			omap_sram_size = SZ_512K; /* 512KB */
 		} else {
 			omap_sram_start = OMAP2_SRAM_PA;
 			if (cpu_is_omap242x())

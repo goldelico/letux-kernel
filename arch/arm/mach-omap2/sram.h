@@ -85,3 +85,8 @@ static inline void am43xx_push_sram_idle(void) {}
 #define OMAP4_SRAM_PA		0x40300000
 #endif
 #define AM33XX_SRAM_PA		0x40300000
+#define OMAP5_SRAM_PA		0x40300000
+#define OMAP5_HS_SRAM_RSVD	0x00010000
+#define DRA7XX_SRAM_PA		0x40300000
+#define DRA7XX_HS_SRAM_RSVD	0x00020000
+
