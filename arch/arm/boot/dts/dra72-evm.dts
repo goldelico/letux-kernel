@@ -706,6 +706,7 @@
 		reg = <2>;
 		interrupt-parent = <&gpio5>;
 		interrupts = <7 IRQ_TYPE_LEVEL_HIGH>;
+		platform-quirks = <1>;
 	};
 };
 
