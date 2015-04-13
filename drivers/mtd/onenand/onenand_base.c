@@ -371,7 +371,7 @@ static int onenand_command(struct mtd_info *mtd, int cmd, loff_t addr, size_t le
 {
 	struct onenand_chip *this = mtd->priv;
 	int value, block, page;
-
+printk("onenand_command cmd=%d\n", cmd);
 	/* Address translation */
 	switch (cmd) {
 	case ONENAND_CMD_UNLOCK:
@@ -578,7 +578,7 @@ static int onenand_wait(struct mtd_info *mtd, int state)
 	}
 
 	if (!(interrupt & ONENAND_INT_MASTER)) {
-		printk(KERN_ERR "%s: timeout! ctrl=0x%04x intr=0x%04x\n",
+		printk(KERN_ERR "%s: timeout4! ctrl=0x%04x intr=0x%04x\n",
 		       __func__, ctrl, interrupt);
 		return -EIO;
 	}
@@ -3763,6 +3763,8 @@ static int onenand_chip_probe(struct mtd_info *mtd)
 	struct onenand_chip *this = mtd->priv;
 	int bram_maf_id, bram_dev_id, maf_id, dev_id;
 	int syscfg;
+
+printk("onenand_chip_probe\n");
 
 	/* Save system configuration 1 */
 	syscfg = this->read_word(this->base + ONENAND_REG_SYS_CFG1);
