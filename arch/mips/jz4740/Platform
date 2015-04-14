@@ -1,3 +1,8 @@
 platform-$(CONFIG_MACH_JZ4740)	+= jz4740/
 cflags-$(CONFIG_MACH_JZ4740)	+= -I$(srctree)/arch/mips/include/asm/mach-jz4740
-load-$(CONFIG_MACH_JZ4740)	+= 0xffffffff80010000
+load-$(CONFIG_MACH_JZ4740)	+= 0x80010000
+
+platform-$(CONFIG_MACH_JZ4730)	+= jz4740/
+cflags-$(CONFIG_MACH_JZ4730)	+= -I$(srctree)/arch/mips/include/asm/mach-jz4740
+cflags-$(CONFIG_MACH_JZ4730)	+= -I$(srctree)/arch/mips/include/asm/mach-jz4740/jz4730
+load-$(CONFIG_MACH_JZ4730)	+= 0x80010000

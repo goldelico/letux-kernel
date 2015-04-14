@@ -245,7 +245,7 @@ config CHARGER_PCF50633
 
 config BATTERY_JZ4740
 	tristate "Ingenic JZ4740 battery"
-	depends on MACH_JZ4740
+	depends on MACH_JZ4740 || MACH_JZ4730
 	depends on MFD_JZ4740_ADC
 	help
 	  Say Y to enable support for the battery on Ingenic JZ4740 based

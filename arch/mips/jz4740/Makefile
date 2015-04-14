@@ -12,6 +12,7 @@ obj-$(CONFIG_DEBUG_FS) += clock-debugfs.o
 # board specific support
 
 obj-$(CONFIG_JZ4740_QI_LB60)	+= board-qi_lb60.o
+obj-$(CONFIG_JZ4740_GENERIC)	+= board-generic.o
 
 # PM support
 
