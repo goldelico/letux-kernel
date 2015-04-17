@@ -58,6 +58,9 @@
 
 #ifndef __ASSEMBLER__
 
+typedef u32 (*omap_secure_dispatcher_t)(u32 idx, u32 flag,
+		u32 nargs, u32 arg1, u32 arg2, u32 arg3, u32 arg4);
+extern int omap_secure_dispatcher_switch(omap_secure_dispatcher_t replacement);
 extern u32 omap_secure_dispatcher(u32 idx, u32 flag, u32 nargs,
 				u32 arg1, u32 arg2, u32 arg3, u32 arg4);
 extern u32 omap_smc2(u32 id, u32 falg, u32 pargs);
