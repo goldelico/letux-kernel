@@ -4639,7 +4639,6 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l4_per1__timer9,
 	&dra7xx_l4_per1__timer10,
 	&dra7xx_l4_per1__timer11,
-	&dra7xx_l4_wkup__timer12,
 	&dra7xx_l4_per3__timer13,
 	&dra7xx_l4_per3__timer14,
 	&dra7xx_l4_per3__timer15,
@@ -4696,6 +4695,11 @@ static struct omap_hwmod_ocp_if *dra72x_hwmod_ocp_ifs[] __initdata = {
 	NULL,
 };
 
+static struct omap_hwmod_ocp_if *dra7xx_gp_hwmod_ocp_ifs[] __initdata = {
+	&dra7xx_l4_wkup__timer12,
+	NULL,
+};
+
 int __init dra7xx_hwmod_init(void)
 {
 	int ret;
@@ -4726,6 +4730,9 @@ int __init dra7xx_hwmod_init(void)
 	}
 
 	ret = omap_hwmod_register_links(dra7xx_hwmod_ocp_ifs);
+
+	if (!ret && OMAP2_DEVICE_TYPE_GP == omap_type())
+		ret = omap_hwmod_register_links(dra7xx_gp_hwmod_ocp_ifs);
 
 	if (!ret && soc_is_dra74x())
 		return omap_hwmod_register_links(dra74x_hwmod_ocp_ifs);
