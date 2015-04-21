@@ -71,7 +71,7 @@
 		};
 	};
 
-	reserved-memory {
+	reserved_mem: reserved-memory {
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
@@ -94,13 +94,6 @@
 			compatible = "shared-dma-pool";
 			reg = <0x9d000000 0x2000000>;
 			reusable;
-			status = "okay";
-		};
-
-		/* Required by cmem driver used by radio */
-		cmem_radio: cmem@95400000 {
-			reg = <0x95400000 0x400000>;
-			no-map;
 			status = "okay";
 		};
 	};
@@ -184,14 +177,6 @@
 		btwilink_codec: simple-audio-card,codec {
 			sound-dai = <&btwilink_sound>;
 		};
-	};
-
-	radio {
-		compatible = "ti,dra7xx_radio";
-		gpios = <&gpio6 20 0>;
-
-		pinctrl-names = "default";
-		pinctrl-0 = <&radio_pins>;
 	};
 
 	vmmcwl_fixed: fixedregulator-mmcwl {
@@ -990,22 +975,6 @@ i2c_p3_exp: &i2c5 {
 		bws = <DRA7_ATL_WS_MCASP2_FSX>;
 		aws = <DRA7_ATL_WS_MCASP3_FSX>;
 	};
-};
-
-&mcasp2 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&mcasp2_pins>;
-
-	fck_parent = "atl_clkin2_ck";
-
-	status = "okay";
-
-	op-mode = <0>;	/* MCASP_IIS_MODE */
-	tdm-slots = <2>;
-	/* 8 serializer */
-	serial-dir = <	/* 0: INACTIVE, 1: TX, 2: RX */
-		1 1 1 1 1 1 1 1
-	>;
 };
 
 &mcasp3 {

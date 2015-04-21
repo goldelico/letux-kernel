@@ -36,6 +36,20 @@
 		ti,audio-slots = <8>;
 		ti,audio-mclk-freq = <11289600>;
 	};
+
+	radio {
+		compatible = "ti,dra7xx_radio";
+		gpios = <&gpio6 20 0>;
+	};
+};
+
+&reserved_mem {
+	/* Required by cmem driver used by radio */
+	cmem_radio: cmem@95400000 {
+		reg = <0x95400000 0x400000>;
+		no-map;
+		status = "okay";
+	};
 };
 
 &atl {
@@ -43,6 +57,19 @@
 		bws = <DRA7_ATL_WS_MCASP2_FSX>;
 		aws = <DRA7_ATL_WS_MCASP6_FSX>;
 	};
+};
+
+&mcasp2 {
+	fck_parent = "atl_clkin2_ck";
+
+	status = "okay";
+
+	op-mode = <0>;	/* MCASP_IIS_MODE */
+	tdm-slots = <2>;
+	/* 8 serializer */
+	serial-dir = <	/* 0: INACTIVE, 1: TX, 2: RX */
+		1 1 1 1 1 1 1 1
+	>;
 };
 
 &mcasp6 {
