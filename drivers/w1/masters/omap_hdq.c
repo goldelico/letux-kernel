@@ -77,6 +77,7 @@ static struct of_device_id omap_hdq_dt_ids[] = {
 	{ .compatible = "ti,omap3-1w" },
 	{}
 };
+MODULE_DEVICE_TABLE(of, omap_hdq_dt_ids);
 
 static struct platform_driver omap_hdq_driver = {
 	.probe =	omap_hdq_probe,
