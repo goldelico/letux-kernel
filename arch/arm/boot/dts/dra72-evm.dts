@@ -728,7 +728,6 @@
 		reg = <2>;
 		interrupt-parent = <&gpio5>;
 		interrupts = <7 IRQ_TYPE_LEVEL_HIGH>;
-		platform-quirks = <1>;
 	};
 };
 
@@ -929,6 +928,7 @@
 	memory-region = <&ipu1_cma_pool>;
 	mboxes = <&mailbox5 &mbox_ipu1_legacy>;
 	timers = <&timer11>;
+	watchdog-timers = <&timer7>, <&timer8>;
 };
 
 &dsp1 {
@@ -936,6 +936,7 @@
 	memory-region = <&dsp1_cma_pool>;
 	mboxes = <&mailbox5 &mbox_dsp1_legacy>;
 	timers = <&timer5>;
+	watchdog-timers = <&timer10>;
 };
 
 &atl {
