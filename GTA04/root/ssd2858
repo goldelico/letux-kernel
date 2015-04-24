@@ -36,14 +36,21 @@ sleep .1
 echo noreset >dcs	# take panel out of reset before starting the clocks
 sleep .1
 
+# parameters should be provided by the panel driver
 PANEL_WIDTH=720
 PANEL_HEIGHT=1280
-PANEL_FPS=60
+PANEL_FPS=60	# frames per second
+PANEL_BPP=24	# bits per lane
+PANEL_LANES=4	# lanes
+PANEL_HFP=5	# front porch
+PANEL_HSA=5	# sync active
+PANEL_HBP=158	# back porch
+PANEL_VFP=50
+PANEL_VSA=60
+PANEL_VBP=50
+PANEL_FRAME_WIDTH=888	# some margin for sync and retrace
+PANEL_FRAME_HEIGHT=1440	# some margin for sync and retrace
 PANEL_LPCLOCK=8000000	# maximum is 9.2 MHz
-PANEL_BPP=24
-PANEL_LANES=4
-PANEL_FRAME_WIDTH=888	# some margin für sync and retrace
-PANEL_FRAME_HEIGHT=1440	# some margin für sync and retrace
 PANEL_PCLK=$(( $PANEL_FRAME_WIDTH * $PANEL_FRAME_HEIGHT * $PANEL_FPS ))
 PANEL_MIN_DDR=$(( $PANEL_PCLK / 2 / $PANEL_LANES * $PANEL_BPP ))
 
@@ -76,7 +83,7 @@ for i in 0b 0c 45
 	do echo $i r >dcs
 done
 
-# now program the ssd chip
+# read out some values after power on
 
 echo g0004 rrrr >dcs
 echo g0008 rrrr >dcs
@@ -90,6 +97,7 @@ echo g0028 rrrr >dcs
 echo g002c rrrr >dcs
 echo g0030 rrrr >dcs
 
+# now program the ssd chip
 # start with SCM
 
 ### FIXME: should we calculate register values or divisors etc?
@@ -116,7 +124,6 @@ echo MAIN_CLK: $MAIN_CLK
 LOCKCNT=$(printf "%.0f" $(echo '1.4 * 30*10^-6 *' $LPCLK | bc -l ))
 echo LOCKCNT: $LOCKCNT
 
-# echo g0008 01f40132 >dcs	# SCM_PLL (01F40132): default = POSTDIV=2 MULT=50 => 600 MHz
 echo g0008 $(printf "%08x" $(( ($LOCKCNT << 16) | (0 << 15) | (0 << 15) | ($POSTDIV << 8) | $MULT << 0)) ) >dcs
 
 MIPITX_BIT_CLK=504000000	# what we would like to have (should be calculated from panel parameters)
@@ -139,18 +146,18 @@ SYS_CLK=$(( $MAIN_CLK / 2 / ($SYSDIV + 1) ))
 echo SYS_CLK: $SYS_CLK
 [ $SYS_CLK -le 150000000 ] || echo SYS_CLK problem: $SYS_CLK
 
-#echo g000c 00000001 >dcs	# SCM_CC (00000003): MTXDIV=1 (=> 600 MHz) SYSDIV=2 (=> 300 MHz)
 echo g000c $(printf "%08x" $(( ($MTXDIV << 4) | ($SYSDIV << 0) )) ) >dcs
 
 echo g0014 $(printf "%08x" $(( 0x0C77800F | (1 << 22) )) ) >dcs	# SCM_MISC2 (0C77800F): MRXEN = enabled
 echo g0020 $(printf "%08x" $(( 0x1592567D | (1 << 22) )) ) >dcs	# SCM_ANACTRL1 (1592567D): CPEN = enabled
-# echo g0020 1592577d >dcs	# SCM_ANACTRL1 (1592567D): CPUNR = enabled (what is this good for?)
 echo g0024 00003000 >dcs	# SCM_ANACTRL2 (00003300): CPPER=24
 echo g0014 rrrr >dcs
 echo g0020 rrrr >dcs
+echo g0024 rrrr >dcs
 
 # some DCS
 echo 11 >dcs
+sleep 0.001
 echo 2a $(printf "%08x" $(( $OMAP_WIDTH - 1 )) ) >dcs
 echo 2b $(printf "%08x" $(( $OMAP_HEIGHT - 1 )) ) >dcs
 
@@ -168,7 +175,6 @@ PCLKNUM=51
 PCLK=$(( ($SYS_CLK * $PCLKNUM) / $PCLKDEN ))
 echo PCLKNUM / PCLKDEN: $PCLKNUM / $PCLKDEN
 echo PCLK: $PCLK
-# echo g2010 00040001 >dcs	# VCTM_PCFRR (00010001): PCLKDEN=4 PCLKNUM=1
 echo g2010 $(printf "%08x" $(( ($PCLKDEN << 16) | ($PCLKNUM << 0) )) ) >dcs	# VCTM_PCFRR (00010001)
 echo g2014 $(printf "%08x" $(( ($PANEL_FRAME_WIDTH << 16) | 0x30 )) ) >dcs
 echo g2018 $(printf "%08x" $(( ($PANEL_FRAME_HEIGHT << 16) | 0x30 )) ) >dcs
@@ -176,38 +182,32 @@ echo g201c $(printf "%08x" $(( ($OMAP_HEIGHT << 16) | $OMAP_WIDTH )) ) >dcs	# MS
 echo g2020 $(printf "%08x" $(( ($PANEL_HEIGHT << 16) | $PANEL_WIDTH )) ) >dcs		# DSZR
 echo g2024 $(printf "%08x" $(( ($PANEL_HEIGHT << 16) | $PANEL_WIDTH )) ) >dcs		# PSZR
 echo g203c $(printf "%08x" $(( ($PANEL_HEIGHT << 16) | $PANEL_WIDTH )) ) >dcs		# ISZR
-echo g2034 00000000 >dcs
+echo g2034 00000000 >dcs	# VCTM_POSR (00000000)
 echo g2038 $(printf "%08x" $(( (($PANEL_HEIGHT - 1) << 16) | ($PANEL_WIDTH - 1) )) ) >dcs >dcs	# POER
-echo g2030 00000015 >dcs
-echo g20a0 00000050 >dcs
+echo g2030 00000015 >dcs	# URAM refresh period
+echo g20a0 00000050 >dcs	# VTCM_QFBCCTRLR (00004151) - no padding, no pixswap, no fbc
 echo g2014 rrrr >dcs
 echo g2038 rrrr >dcs
 
+echo 35 02	# tear on
+echo 44 0500	# tear scan line
+
 # MIPITX
-# echo g6008 00c90008 >dcs	# MIPITX_CTLR (00030008): LS_OUT=4 lanes; LPD=9
-# echo g6008 00c90009 >dcs	# MIPITX_CTLR (00030008): LS_OUT=4 lanes; LPD=9; CKE
-# echo g6008 00c60009 >dcs	# MIPITX_CTLR (00030008): LS_OUT=4 lanes; LPD=6 (63:7 => 9 MHz); CKE
-#echo g6008 00c90009 >dcs	# MIPITX_CTLR (00030008): LS_OUT=4 lanes; LPD=9 (76:9 => 8.4 MHz); CKE
 LPD=$(( (($MIPITX_BYTE_CLK + $PANEL_LPCLOCK - 1) / $PANEL_LPCLOCK) - 1 ))
 [ $LPD -ge 0 -a $LPD -lt 64 ] || echo LPD problem: $LPD
 echo LPD: $LPD
 echo PANEL_LPCLOCK: $(( $MIPITX_BYTE_CLK / ($LPD+1) ))
 CKE=0
 echo g6008 $(printf "%08x" $(( 0x00000008 | (($PANEL_LANES - 1) << 22) | ($LPD << 16) | ($CKE << 0) )) ) >dcs	# MIPITX_CTLR (00030008)
-# echo g600c 02d00500 >dcs	# MIPITX_VTC1R (0214020A):
-### FIXME: calculate from PANEL parameters
-echo g600c 329e3c05 >dcs	# MIPITX_VTC1R (0214020A): HSA=5 VSA=60 HBP=158 VBP=50
-# echo g6010 104c0202 >dcs	# MIPITX_VTC2R (0438020A):
-#echo g6010 05003205 >dcs	# MIPITX_VTC2R (0438020A): HFP=5 VFP=50 VACT=1280
-# FIXME: add VFP, VHFP
-echo g6010 $(printf "%08x" $(( 0x00003205 | ($PANEL_HEIGHT << 16) )) ) >dcs	# MIPITX_VTC2R (0438020A)
+echo g600c $(printf "%08x" $(( ($PANEL_VBP << 24) | ($PANEL_HBP << 16) | ($PANEL_VSA << 8) | ($PANEL_HSA << 0) )) ) >dcs	# MIPITX_VTC1R (0214020A)
+echo g6010 $(printf "%08x" $(( ($PANEL_HEIGHT << 16) | ($PANEL_VFP << 8) | ($PANEL_HFP << 0) )) ) >dcs	# MIPITX_VTC2R (0438020A)
 echo g6014 01000102 >dcs	# MIPITX_VCFR (01000101): VM=burst mode
-#echo g6084 000002d0 >dcs	# MIPITX_DSI0VR (00000400): HACT=720
 echo g6084 $(printf "%08x" $(( $PANEL_WIDTH << 0 )) ) >dcs	# MIPITX_DSI0VR (00000400)
 echo g6010 rrrr >dcs
 
 if [ "$1" = "-d" ]
 then
+# dump all register values
 for r in 0004 0008 000c 0010 0014 001c 0020 0024 0028 002c 0030 \
          1004 1008 100c 1010 1014 1018 101c 1020 1024 1028 102c 1030 \
          2000 2004 2008 200c 2010 2014 2018 201c 2020 2024 2028 202c 2030 2034 2038 203c \
