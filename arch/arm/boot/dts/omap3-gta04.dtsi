@@ -225,13 +225,6 @@
 		compatible = "ti,twl4030-madc-hwmon";
 	};
 
-	hdq: hdq {
-		compatible = "ti,omap-hdq";
-		ti,hwmods = "hdq1w";	/* do we need that? */
-		pinctrl-names = "default";
-		pinctrl-0 = <&hdq_pins>;
-	};
-
 	battery: battery {
 		compatible = "ti,twl4030-madc-battery";
 		capacity = <1200000>;
@@ -560,7 +553,7 @@
 
 	hdq_pins: hdq_pins {
 		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x21c6, PIN_OUTPUT_PULLUP | MUX_MODE0) /* i2c3_sda.hdq */
+			OMAP3_CORE1_IOPAD(0x21c6, PIN_INPUT_PULLUP | MUX_MODE0) /* i2c3_sda.hdq */
 		>;
 	};
 
@@ -675,11 +668,11 @@
 		regulator-max-microvolt = <1800000>;
 };
 
-/* this breaks hdq operation
+/* this breaks hdq operation */
 &hdqw1w {
 	pinctrl-names = "default";
 	pinctrl-0 = <&hdq_pins>;
-}; */
+};
 
 &i2c2 {
 	clock-frequency = <400000>;
