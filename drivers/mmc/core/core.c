@@ -897,6 +897,7 @@ int __mmc_claim_host(struct mmc_host *host, atomic_t *abort)
 	DECLARE_WAITQUEUE(wait, current);
 	unsigned long flags;
 	int stop;
+	bool pm = false;
 
 	might_sleep();
 
@@ -916,15 +917,18 @@ int __mmc_claim_host(struct mmc_host *host, atomic_t *abort)
 		host->claimed = 1;
 		host->claimer = current;
 		host->claim_cnt += 1;
+		if (host->claim_cnt == 1)
+			pm = true;
 	} else
 		wake_up(&host->wq);
 	spin_unlock_irqrestore(&host->lock, flags);
 	remove_wait_queue(&host->wq, &wait);
-	if (host->ops->enable && !stop && host->claim_cnt == 1)
-		host->ops->enable(host);
+
+	if (pm)
+		pm_runtime_get_sync(mmc_dev(host));
+
 	return stop;
 }
-
 EXPORT_SYMBOL(__mmc_claim_host);
 
 /**
@@ -940,9 +944,6 @@ void mmc_release_host(struct mmc_host *host)
 
 	WARN_ON(!host->claimed);
 
-	if (host->ops->disable && host->claim_cnt == 1)
-		host->ops->disable(host);
-
 	spin_lock_irqsave(&host->lock, flags);
 	if (--host->claim_cnt) {
 		/* Release for nested claim */
@@ -952,6 +953,8 @@ void mmc_release_host(struct mmc_host *host)
 		host->claimer = NULL;
 		spin_unlock_irqrestore(&host->lock, flags);
 		wake_up(&host->wq);
+		pm_runtime_mark_last_busy(mmc_dev(host));
+		pm_runtime_put_autosuspend(mmc_dev(host));
 	}
 }
 EXPORT_SYMBOL(mmc_release_host);
@@ -1616,8 +1619,6 @@ void mmc_power_up(struct mmc_host *host, u32 ocr)
 
 	mmc_host_clk_hold(host);
 
-	/* Reset during power-off */
-	mmc_gpio_set_rs(host, 1);
 	mmc_pwrseq_pre_power_on(host);
 
 	host->ios.vdd = fls(ocr) - 1;
@@ -1651,7 +1652,6 @@ void mmc_power_up(struct mmc_host *host, u32 ocr)
 	 * time required to reach a stable voltage.
 	 */
 	mmc_delay(10);
-	mmc_gpio_set_rs(host, 0);
 
 	mmc_host_clk_release(host);
 }
