@@ -264,6 +264,8 @@ static int __init omap4_sar_ram_init(void)
 		sar_base = OMAP44XX_SAR_RAM_BASE;
 	else if (soc_is_omap54xx())
 		sar_base = OMAP54XX_SAR_RAM_BASE;
+	else if (soc_is_dra7xx())
+		sar_base = DRA7XX_SAR_RAM_BASE;
 	else
 		return -ENOMEM;
 
