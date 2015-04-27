@@ -158,7 +158,6 @@
 		ti,model = "gta04";
 
 		ti,mcbsp = <&mcbsp2>;
-		ti,codec = <&twl_audio>;
 	};
 
 	/* GSM audio */
