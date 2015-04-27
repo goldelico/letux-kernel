@@ -2,27 +2,29 @@
  * Copyright (C) 2015
  *   Nikolaus Schaller <hns@goldelico.com>
  *
+ * Common device tree include for OpenPandora devices.
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
 
-/*
- * common device tree include for OpenPandora
- */
-
-/* you must include some OMAP CPU before this
-	#include "omap34xx.dtsi"
-   or
-	#include "omap36xx.dtsi"
-*/
-
 #include <dt-bindings/input/input.h>
 
 / {
+	cpus {
+		cpu@0 {
+			cpu0-supply = <&vcc>;
+		};
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x80000000 0x20000000>; /* 512 MB */
+	};
+
 	aliases {
 		display0 = &lcd;
-	// makes problems with omapfb and X11:	display1 = &tv;
 	};
 
 	tv: connector@1 {
@@ -36,55 +38,12 @@
 		};
 	};
 
-/*
-	hsusb2_power: vhost5v_regulator@0 {
-		compatible = "regulator-fixed";
-		regulator-name = "regulator-vhost5v";
-		regulator-boot-on;
-		regulator-always-on;
-		regulator-min-microvolt = "5000000";
-		regulator-max-microvolt = "5000000";
-		gpio = <&gpio5 4 0>;	/* gpio_164 = EN_USB_5V * /
-		enable-active-high;
-	};
-*/
 	gpio-leds {
 
 		compatible = "gpio-leds";
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&led_pins>;
-
-/* twl leds are broken?
-
-		led@backlight {
-			label = "pandora::backlight";
-			gpios = <&twl_gpio 6 GPIO_ACTIVE_HIGH>; /* LED.6 * /
-			linux,default-trigger = "heartbeat";
-			default-state = "on";
-		};
-
-		led@charger {
-			label = "pandora::charger";
-			gpios = <&twl_gpio 7 GPIO_ACTIVE_HIGH>; /* LED.7 * /
-			linux,default-trigger = "heartbeat";
-			linux,default-trigger = "bq27500-0-charging-blink-full-solid";
-			default-state = "on";
-		};
-
-		led@keypad {
-			label = "pandora::keypad";
-			gpios = <&twl_gpio 18 GPIO_ACTIVE_HIGH>; /* LEDA * /
-			linux,default-trigger = "heartbeat";
-		};
-
-		led@power {
-			label = "pandora::power";
-			gpios = <&twl_gpio 19 GPIO_ACTIVE_HIGH>; /* LEDB * /
-			linux,default-trigger = "heartbeat";
-			default-state = "on";
-		};
-*/
 
 		led@1 {
 			label = "pandora::sd1";
@@ -124,161 +83,177 @@
 		up-button {
 			label = "up";
 			linux,code = <KEY_UP>;
-			gpios = <&gpio4 14 GPIO_ACTIVE_HIGH>;	/* GPIO 110 */
+			gpios = <&gpio4 14 GPIO_ACTIVE_LOW>;	/* GPIO_110 */
 			gpio-key,wakeup;
 		};
+
 		down-button {
 			label = "down";
 			linux,code = <KEY_DOWN>;
-			gpios = <&gpio4 7 GPIO_ACTIVE_HIGH>;	/* GPIO 103 */
+			gpios = <&gpio4 7 GPIO_ACTIVE_LOW>;	/* GPIO_103 */
 			gpio-key,wakeup;
 		};
+
 		left-button {
 			label = "left";
 			linux,code = <KEY_LEFT>;
-			gpios = <&gpio4 0 GPIO_ACTIVE_HIGH>;	/* GPIO 96 */
+			gpios = <&gpio4 0 GPIO_ACTIVE_LOW>;	/* GPIO_96 */
 			gpio-key,wakeup;
 		};
+
 		right-button {
 			label = "right";
 			linux,code = <KEY_RIGHT>;
-			gpios = <&gpio4 2 GPIO_ACTIVE_HIGH>;	/* GPIO 98 */
+			gpios = <&gpio4 2 GPIO_ACTIVE_LOW>;	/* GPIO_98 */
 			gpio-key,wakeup;
 		};
+
 		pageup-button {
 			label = "game 1";
 			linux,code = <KEY_PAGEUP>;
-			gpios = <&gpio4 13 GPIO_ACTIVE_HIGH>;	/* GPIO 109 */
+			gpios = <&gpio4 13 GPIO_ACTIVE_LOW>;	/* GPIO_109 */
 			gpio-key,wakeup;
 		};
+
 		pagedown-button {
 			label = "game 3";
 			linux,code = <KEY_PAGEDOWN>;
-			gpios = <&gpio4 10 GPIO_ACTIVE_HIGH>;	/* GPIO 106 */
+			gpios = <&gpio4 10 GPIO_ACTIVE_LOW>;	/* GPIO_106 */
 			gpio-key,wakeup;
 		};
+
 		home-button {
 			label = "game 4";
 			linux,code = <KEY_HOME>;
-			gpios = <&gpio4 5 GPIO_ACTIVE_HIGH>;	/* GPIO 101 */
+			gpios = <&gpio4 5 GPIO_ACTIVE_LOW>;	/* GPIO_101 */
 			gpio-key,wakeup;
 		};
+
 		end-button {
 			label = "game 2";
 			linux,code = <KEY_END>;
-			gpios = <&gpio4 15 GPIO_ACTIVE_HIGH>;	/* GPIO 111 */
+			gpios = <&gpio4 15 GPIO_ACTIVE_LOW>;	/* GPIO_111 */
 			gpio-key,wakeup;
 		};
+
 		right-shift {
 			label = "l";
 			linux,code = <KEY_RIGHTSHIFT>;
-			gpios = <&gpio4 6 GPIO_ACTIVE_HIGH>;	/* GPIO 102 */
+			gpios = <&gpio4 6 GPIO_ACTIVE_LOW>;	/* GPIO_102 */
 			gpio-key,wakeup;
 		};
+
 		kp-plus {
 			label = "l2";
 			linux,code = <KEY_KPPLUS>;
-			gpios = <&gpio4 1 GPIO_ACTIVE_HIGH>;	/* GPIO 97 */
+			gpios = <&gpio4 1 GPIO_ACTIVE_LOW>;	/* GPIO_97 */
 			gpio-key,wakeup;
 		};
+
 		right-ctrl {
 			label = "r";
 			linux,code = <KEY_RIGHTCTRL>;
-			gpios = <&gpio4 9 GPIO_ACTIVE_HIGH>;	/* GPIO 105 */
+			gpios = <&gpio4 9 GPIO_ACTIVE_LOW>;	/* GPIO_105 */
 			gpio-key,wakeup;
 		};
+
 		kp-minus {
 			label = "r2";
 			linux,code = <KEY_KPMINUS>;
-			gpios = <&gpio4 11 GPIO_ACTIVE_HIGH>;	/* GPIO 107 */
+			gpios = <&gpio4 11 GPIO_ACTIVE_LOW>;	/* GPIO_107 */
 			gpio-key,wakeup;
 		};
+
 		left-ctrl {
 			label = "ctrl";
 			linux,code = <KEY_LEFTCTRL>;
-			gpios = <&gpio4 8 GPIO_ACTIVE_HIGH>;	/* GPIO 104 */
+			gpios = <&gpio4 8 GPIO_ACTIVE_LOW>;	/* GPIO_104 */
 			gpio-key,wakeup;
 		};
+
 		menu {
 			label = "menu";
 			linux,code = <KEY_MENU>;
-			gpios = <&gpio4 3 GPIO_ACTIVE_HIGH>;	/* GPIO 99 */
+			gpios = <&gpio4 3 GPIO_ACTIVE_LOW>;	/* GPIO_99 */
 			gpio-key,wakeup;
 		};
+
 		hold {
 			label = "hold";
 			linux,code = <KEY_COFFEE>;
-			gpios = <&gpio6 16 GPIO_ACTIVE_HIGH>;	/* GPIO 176 */
+			gpios = <&gpio6 16 GPIO_ACTIVE_LOW>;	/* GPIO_176 */
 			gpio-key,wakeup;
 		};
+
 		left-alt {
 			label = "alt";
 			linux,code = <KEY_LEFTALT>;
-			gpios = <&gpio4 4 GPIO_ACTIVE_HIGH>;	/* GPIO 100 */
+			gpios = <&gpio4 4 GPIO_ACTIVE_HIGH>;	/* GPIO_100 */
 			gpio-key,wakeup;
 		};
+
 		lid {
 			label = "lid";
-			linux,code = <0x00>;   	/* SW_LID lid shut */
-			linux,input-type = <0x05>;	/* EV_SW */
-			gpios = <&gpio4 12 GPIO_ACTIVE_HIGH>;	/* GPIO 108 */
-			gpio-key,wakeup;
+			linux,code = <0x00>;    /* SW_LID lid shut */
+			linux,input-type = <0x05>;    /* EV_SW */
+			gpios = <&gpio4 12 GPIO_ACTIVE_HIGH>;   /* GPIO_108 */
 		};
 	};
 
+	/* HS USB Host PHY on PORT 2 */
 	hsusb2_phy: hsusb2_phy {
 		compatible = "usb-nop-xceiv";
-		reset-gpios = <	&gpio1 16 GPIO_ACTIVE_LOW>;	/* gpio_16 = reset for USB3322 */
+		reset-gpios = <&gpio1 16 GPIO_ACTIVE_LOW>; /* GPIO_16 */
 		vcc-supply = <&vaux2>;
 	};
 
-	madc-hwmon {
-		compatible = "ti,twl4030-madc-hwmon";
+	/* HS USB Host VBUS supply
+	 * disabling this regulator causes current leakage, and LCD flicker
+	 * on earlier (CC) board revisions, so keep it always on */
+	usb_host_5v: fixed-regulator-usb_host_5v {
+		compatible = "regulator-fixed";
+		regulator-name = "usb_host_5v";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+		regulator-boot-on;
+		enable-active-high;
+		gpio = <&gpio6 4 0>;	/* GPIO_164 */
 	};
 
-	battery: battery {
-		compatible = "ti,twl4030-madc-battery";
-		capacity = <4000000>;
-		charging-calibration-data = <4200 100 4100 75 4000 55 3900 25 3800 5 3700 2 3600 1 3300 0>;
-		discharging-calibration-data = <4200 100 4100 95 4000 70 3800 50 3700 10 3600 5 3300 0>;
+	/* wg7210 (wifi+bt module) 32k clock buffer */
+	wg7210_32k: fixed-regulator-wg7210_32k {
+		compatible = "regulator-fixed";
+		regulator-name = "wg7210_32k";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+		enable-active-high;
+		gpio = <&twl_gpio 13 GPIO_ACTIVE_HIGH>;
 	};
-
-	control: control@48002270 {
-		compatible = "ti,omap3-devconf1-syscon", "syscon";
-		reg = <0x48002270 0x74>;
-	};
-
-/* add USB + PHY */
-
 };
 
 &omap3_pmx_core {
 
-	pinctrl-names = "default";
-	pinctrl-0 = <
-		&hsusb2_pins
-		&control_pins
-	>;
-
 	mmc1_pins: pinmux_mmc1_pins {
 		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x2144, PIN_INPUT_PULLUP | MUX_MODE0)         /* sdmmc1_clk.sdmmc1_clk */
-			OMAP3_CORE1_IOPAD(0x2146, PIN_INPUT_PULLUP | MUX_MODE0)         /* sdmmc1_cmd.sdmmc1_cmd */
-			OMAP3_CORE1_IOPAD(0x2148, PIN_INPUT_PULLUP | MUX_MODE0)         /* sdmmc1_dat0.sdmmc1_dat0 */
-			OMAP3_CORE1_IOPAD(0x214a, PIN_INPUT_PULLUP | MUX_MODE0)         /* sdmmc1_dat1.sdmmc1_dat1 */
-			OMAP3_CORE1_IOPAD(0x214c, PIN_INPUT_PULLUP | MUX_MODE0)         /* sdmmc1_dat2.sdmmc1_dat2 */
-			OMAP3_CORE1_IOPAD(0x214e, PIN_INPUT_PULLUP | MUX_MODE0)         /* sdmmc1_dat3.sdmmc1_dat3 */
+			OMAP3_CORE1_IOPAD(0x2144, PIN_INPUT_PULLUP | MUX_MODE0)		/* sdmmc1_clk.sdmmc1_clk */
+			OMAP3_CORE1_IOPAD(0x2146, PIN_INPUT_PULLUP | MUX_MODE0)		/* sdmmc1_cmd.sdmmc1_cmd */
+			OMAP3_CORE1_IOPAD(0x2148, PIN_INPUT_PULLUP | MUX_MODE0)		/* sdmmc1_dat0.sdmmc1_dat0 */
+			OMAP3_CORE1_IOPAD(0x214a, PIN_INPUT_PULLUP | MUX_MODE0)		/* sdmmc1_dat1.sdmmc1_dat1 */
+			OMAP3_CORE1_IOPAD(0x214c, PIN_INPUT_PULLUP | MUX_MODE0)		/* sdmmc1_dat2.sdmmc1_dat2 */
+			OMAP3_CORE1_IOPAD(0x214e, PIN_INPUT_PULLUP | MUX_MODE0)		/* sdmmc1_dat3.sdmmc1_dat3 */
 		>;
 	};
 
 	mmc2_pins: pinmux_mmc2_pins {
 		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x2158, PIN_INPUT_PULLUP | MUX_MODE0)	/* sdmmc2_clk.sdmmc2_clk */
-			OMAP3_CORE1_IOPAD(0x215a, PIN_INPUT_PULLUP | MUX_MODE0)	/* sdmmc2_cmd.sdmmc2_cmd */
-			OMAP3_CORE1_IOPAD(0x215c, PIN_INPUT_PULLUP | MUX_MODE0)	/* sdmmc2_dat0.sdmmc2_dat0 */
-			OMAP3_CORE1_IOPAD(0x215e, PIN_INPUT_PULLUP | MUX_MODE0)	/* sdmmc2_dat1.sdmmc2_dat1 */
-			OMAP3_CORE1_IOPAD(0x2160, PIN_INPUT_PULLUP | MUX_MODE0)	/* sdmmc2_dat2.sdmmc2_dat2 */
-			OMAP3_CORE1_IOPAD(0x2162, PIN_INPUT_PULLUP | MUX_MODE0)	/* sdmmc2_dat3.sdmmc2_dat3 */
+			OMAP3_CORE1_IOPAD(0x2158, PIN_INPUT_PULLUP | MUX_MODE0)		/* sdmmc2_clk.sdmmc2_clk */
+			OMAP3_CORE1_IOPAD(0x215a, PIN_INPUT_PULLUP | MUX_MODE0)		/* sdmmc2_cmd.sdmmc2_cmd */
+			OMAP3_CORE1_IOPAD(0x215c, PIN_INPUT_PULLUP | MUX_MODE0)		/* sdmmc2_dat0.sdmmc2_dat0 */
+			OMAP3_CORE1_IOPAD(0x215e, PIN_INPUT_PULLUP | MUX_MODE0)		/* sdmmc2_dat1.sdmmc2_dat1 */
+			OMAP3_CORE1_IOPAD(0x2160, PIN_INPUT_PULLUP | MUX_MODE0)		/* sdmmc2_dat2.sdmmc2_dat2 */
+			OMAP3_CORE1_IOPAD(0x2162, PIN_INPUT_PULLUP | MUX_MODE0)		/* sdmmc2_dat3.sdmmc2_dat3 */
 			OMAP3_CORE1_IOPAD(0x2164, PIN_OUTPUT_PULLUP | MUX_MODE1)	/* sdmmc2_dat4.sdmmc2_dirdat0 */
 			OMAP3_CORE1_IOPAD(0x2166, PIN_OUTPUT_PULLUP | MUX_MODE1)	/* sdmmc2_dat5.sdmmc2_dirdat1 */
 			OMAP3_CORE1_IOPAD(0x2168, PIN_OUTPUT_PULLUP | MUX_MODE1)	/* sdmmc2_dat6.sdmmc2_dircmd */
@@ -316,7 +291,7 @@
 			OMAP3_CORE1_IOPAD(0x2106, PIN_OUTPUT | MUX_MODE0)	/* dss_data21.dss_data21 */
 			OMAP3_CORE1_IOPAD(0x2108, PIN_OUTPUT | MUX_MODE0)	/* dss_data22.dss_data22 */
 			OMAP3_CORE1_IOPAD(0x210a, PIN_OUTPUT | MUX_MODE0)	/* dss_data23.dss_data23 */
-			OMAP3_CORE1_IOPAD(0x218e, PIN_OUTPUT | MUX_MODE4)	/* gpio_157 = lcd reset */
+			OMAP3_CORE1_IOPAD(0x218e, PIN_OUTPUT | MUX_MODE4)	/* GPIO_157 = lcd reset */
 		>;
 	};
 
@@ -329,52 +304,39 @@
 
 	led_pins: pinmux_leds_pins {
 		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x2154, PIN_OUTPUT | MUX_MODE4)	/* gpio_128 */
-			OMAP3_CORE1_IOPAD(0x2156, PIN_OUTPUT | MUX_MODE4)	/* gpio_129 */
-			OMAP3_CORE1_IOPAD(0x2190, PIN_OUTPUT | MUX_MODE4)	/* gpio_158 */
-			OMAP3_CORE1_IOPAD(0x2192, PIN_OUTPUT | MUX_MODE4)	/* gpio_159 */
+			OMAP3_CORE1_IOPAD(0x2154, PIN_OUTPUT | MUX_MODE4)	/* GPIO_128 */
+			OMAP3_CORE1_IOPAD(0x2156, PIN_OUTPUT | MUX_MODE4)	/* GPIO_129 */
+			OMAP3_CORE1_IOPAD(0x2190, PIN_OUTPUT | MUX_MODE4)	/* GPIO_158 */
+			OMAP3_CORE1_IOPAD(0x2192, PIN_OUTPUT | MUX_MODE4)	/* GPIO_159 */
 		>;
 	};
 
 	button_pins: pinmux_button_pins {
 		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x2110, PIN_INPUT_PULLUP | MUX_MODE4)	/* gpio_96 */
-			OMAP3_CORE1_IOPAD(0x2112, PIN_INPUT_PULLUP | MUX_MODE4)	/* gpio_97 */
-			OMAP3_CORE1_IOPAD(0x2114, PIN_INPUT_PULLUP | MUX_MODE4)	/* gpio_98 */
-			OMAP3_CORE1_IOPAD(0x2116, PIN_INPUT_PULLUP | MUX_MODE4)	/* gpio_99 */
-			OMAP3_CORE1_IOPAD(0x2118, PIN_INPUT_PULLUP | MUX_MODE4)	/* gpio_100 */
-			OMAP3_CORE1_IOPAD(0x211a, PIN_INPUT_PULLUP | MUX_MODE4)	/* gpio_101 */
-			OMAP3_CORE1_IOPAD(0x211c, PIN_INPUT_PULLUP | MUX_MODE4)	/* gpio_102 */
-			OMAP3_CORE1_IOPAD(0x211e, PIN_INPUT_PULLUP | MUX_MODE4)	/* gpio_103 */
-			OMAP3_CORE1_IOPAD(0x2120, PIN_INPUT_PULLUP | MUX_MODE4)	/* gpio_104 */
-			OMAP3_CORE1_IOPAD(0x2122, PIN_INPUT_PULLUP | MUX_MODE4)	/* gpio_105 */
-			OMAP3_CORE1_IOPAD(0x2124, PIN_INPUT_PULLUP | MUX_MODE4)	/* gpio_106 */
-			OMAP3_CORE1_IOPAD(0x2126, PIN_INPUT_PULLUP | MUX_MODE4)	/* gpio_107 */
-			OMAP3_CORE1_IOPAD(0x2128, PIN_INPUT_PULLUP | MUX_MODE4)	/* gpio_108 */
-			OMAP3_CORE1_IOPAD(0x212a, PIN_INPUT_PULLUP | MUX_MODE4)	/* gpio_109 */
-			OMAP3_CORE1_IOPAD(0x212c, PIN_INPUT_PULLUP | MUX_MODE4)	/* gpio_110 */
-			OMAP3_CORE1_IOPAD(0x212e, PIN_INPUT_PULLUP | MUX_MODE4)	/* gpio_111 */
-			OMAP3_CORE1_IOPAD(0x21d2, PIN_INPUT_PULLUP | MUX_MODE4)	/* gpio_176 */
+			OMAP3_CORE1_IOPAD(0x2110, PIN_INPUT | MUX_MODE4)	/* GPIO_96 */
+			OMAP3_CORE1_IOPAD(0x2112, PIN_INPUT | MUX_MODE4)	/* GPIO_97 */
+			OMAP3_CORE1_IOPAD(0x2114, PIN_INPUT | MUX_MODE4)	/* GPIO_98 */
+			OMAP3_CORE1_IOPAD(0x2116, PIN_INPUT | MUX_MODE4)	/* GPIO_99 */
+			OMAP3_CORE1_IOPAD(0x2118, PIN_INPUT | MUX_MODE4)	/* GPIO_100 */
+			OMAP3_CORE1_IOPAD(0x211a, PIN_INPUT | MUX_MODE4)	/* GPIO_101 */
+			OMAP3_CORE1_IOPAD(0x211c, PIN_INPUT | MUX_MODE4)	/* GPIO_102 */
+			OMAP3_CORE1_IOPAD(0x211e, PIN_INPUT | MUX_MODE4)	/* GPIO_103 */
+			OMAP3_CORE1_IOPAD(0x2120, PIN_INPUT | MUX_MODE4)	/* GPIO_104 */
+			OMAP3_CORE1_IOPAD(0x2122, PIN_INPUT | MUX_MODE4)	/* GPIO_105 */
+			OMAP3_CORE1_IOPAD(0x2124, PIN_INPUT | MUX_MODE4)	/* GPIO_106 */
+			OMAP3_CORE1_IOPAD(0x2126, PIN_INPUT | MUX_MODE4)	/* GPIO_107 */
+			OMAP3_CORE1_IOPAD(0x2128, PIN_INPUT | MUX_MODE4)	/* GPIO_108 */
+			OMAP3_CORE1_IOPAD(0x212a, PIN_INPUT | MUX_MODE4)	/* GPIO_109 */
+			OMAP3_CORE1_IOPAD(0x212c, PIN_INPUT | MUX_MODE4)	/* GPIO_110 */
+			OMAP3_CORE1_IOPAD(0x212e, PIN_INPUT | MUX_MODE4)	/* GPIO_111 */
+			OMAP3_CORE1_IOPAD(0x21d2, PIN_INPUT | MUX_MODE4)	/* GPIO_176 */
 		>;
 	};
 
 	penirq_pins: pinmux_penirq_pins {
 		pinctrl-single,pins = <
 			/* here we could enable to wakeup the cpu from suspend by a pen touch */
-			OMAP3_CORE1_IOPAD(0x210c, PIN_INPUT_PULLUP | MUX_MODE4) /* gpio_94 */
-		>;
-	};
-
-	hsusb2_pins: pinmux_h2usb2_pins {
-		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x21d4, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi1_cs3.hsusb2_data2 */
-			OMAP3_CORE1_IOPAD(0x21d6, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi2_clk.hsusb2_data7 */
-			OMAP3_CORE1_IOPAD(0x21d8, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi2_simo.hsusb2_data4 */
-			OMAP3_CORE1_IOPAD(0x21da, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi2_somi.hsusb2_data5 */
-			OMAP3_CORE1_IOPAD(0x21dc, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi2_cs0.hsusb2_data6 */
-			OMAP3_CORE1_IOPAD(0x21de, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi2_cs1.hsusb2_data3 */
-			OMAP3_CORE1_IOPAD(0x219a, PIN_INPUT_PULLUP | MUX_MODE4) /* gpio_163 = !OC_USB5 (over current input) */
-			OMAP3_CORE1_IOPAD(0x219c, PIN_OUTPUT | MUX_MODE4) /* gpio_164 = EN_USB_5V */
+			OMAP3_CORE1_IOPAD(0x210c, PIN_INPUT | MUX_MODE4)	/* GPIO_94 */
 		>;
 	};
 
@@ -398,6 +360,7 @@
 			compatible = "ti,twl4030-power-reset";
 			ti,use_poweroff;
 		};
+
 		twl_audio: audio {
 			compatible = "ti,twl4030-audio";
 
@@ -411,12 +374,10 @@
 #include "twl4030.dtsi"
 #include "twl4030_omap3.dtsi"
 
-/* modify basic twl settings as needed by OpenPandora */
-
 &twl_keypad {
 	keypad,num-rows = <8>;
 	keypad,num-columns = <6>;
-	linux,keymap = < /* MATRIX_KEY(row, col, code) */
+	linux,keymap = <
 		MATRIX_KEY(0, 0, KEY_9)
 		MATRIX_KEY(0, 1, KEY_8)
 		MATRIX_KEY(0, 2, KEY_I)
@@ -463,40 +424,47 @@
 	 >;
 };
 
-&charger { /* backup battery charger */
+/* backup battery charger */
+&charger {
 	ti,bb-uvolt = <3200000>;
 	ti,bb-uamp = <150>;
 };
 
-&vmmc2 { /* MMC2 */
+/* MMC2 */
+&vmmc2 {
 	regulator-min-microvolt = <1850000>;
 	regulator-max-microvolt = <3150000>;
 };
 
-&vaux1 { /* LCD */
+/* LCD */
+&vaux1 {
 	regulator-min-microvolt = <3000000>;
 	regulator-max-microvolt = <3000000>;
 };
 
-&vaux2 { /* USB Host PHY */
+/* USB Host PHY */
+&vaux2 {
 	regulator-min-microvolt = <1800000>;
 	regulator-max-microvolt = <1800000>;
 };
 
-&vaux3 { /* available on expansion connector */
+/* available on expansion connector */
+&vaux3 {
 	regulator-min-microvolt = <2800000>;
 	regulator-max-microvolt = <2800000>;
 };
 
-&vaux4 { /* ADS7846 and nubs */
+/* ADS7846 and nubs */
+&vaux4 {
 	regulator-min-microvolt = <2800000>;
 	regulator-max-microvolt = <2800000>;
 };
 
-&vsim { /* audio DAC */
+/* power audio DAC and LID sensor */
+&vsim {
 	regulator-min-microvolt = <2800000>;
 	regulator-max-microvolt = <2800000>;
-	regulator-always-on;	/* power the LID sensor and the audio DAC */
+	regulator-always-on;
 };
 
 &i2c2 {
@@ -512,10 +480,6 @@
 		reg = <0x55>;
 	};
 
-	/*
-	 * 2 nubs
-	 * mma7455
-	 */
 };
 
 &usb_otg_hs {
@@ -527,14 +491,18 @@
 	power = <50>;
 };
 
+/*
+ * Many pandora boards have been produced with defective write-protect switches
+ * on either slot, so it was decided not to use this feature. If you know
+ * your board has good switches, feel free to uncomment wp-gpios below.
+ */
 &mmc1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&mmc1_pins>;
 	vmmc-supply = <&vmmc1>;
 	bus-width = <4>;
-// if enabled, the rootfs is not mounted/found
 	cd-gpios = <&twl_gpio 0 GPIO_ACTIVE_LOW>;
-	wp-gpios = <&gpio4 30 GPIO_ACTIVE_LOW>;	/* gpio_126 */
+	/*wp-gpios = <&gpio4 30 GPIO_ACTIVE_HIGH>;*/	/* GPIO_126 */
 };
 
 &mmc2 {
@@ -542,31 +510,25 @@
 	pinctrl-0 = <&mmc2_pins>;
 	vmmc-supply = <&vmmc2>;
 	bus-width = <4>;
-	cd-gpios = <&twl_gpio 1 GPIO_ACTIVE_HIGH>;
-	wp-gpios = <&gpio4 31 GPIO_ACTIVE_LOW>;	/* gpio_127 */
+	cd-gpios = <&twl_gpio 1 GPIO_ACTIVE_LOW>;
+	/*wp-gpios = <&gpio4 31 GPIO_ACTIVE_HIGH>;*/	/* GPIO_127 */
 };
 
+/* mmc3 is probed using pdata-quirks to pass wl1251 card data */
 &mmc3 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&mmc3_pins>;
-//	vmmc-supply = <&vmmc1>;	// how can we power up the WiFi module?
-	bus-width = <4>;
-        non-removable;
-	ti,non-removable;
-	cap-power-off-card;
-	reset-gpios = <&gpio1 23 GPIO_ACTIVE_LOW>;	/* gpio_23 = reset means remove enable */
-// interrupt = gpio_21
+	status = "disabled";
 };
 
-&uart1 { /* bluetooth */
-	/* to be defined */
-	// bt-shutdown = gpio1_15
+/* bluetooth*/
+&uart1 {
 };
 
-&uart2 { /* spare (expansion connector) */
+/* spare (expansion connector) */
+&uart2 {
 };
 
-&uart3 { /* console (expansion connector) */
+/* console (expansion connector) */
+&uart3 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart3_pins>;
 	interrupts-extended = <&intc 74 &omap3_pmx_core OMAP3_UART3_RX>;
@@ -580,33 +542,13 @@
 	phys = <0 &hsusb2_phy>;
 };
 
-&charger {
-	bb_uvolt = <3200000>;
-	bb_uamp = <150>;
-};
-
-&venc {
-	status = "ok";
-
-	vdda-supply = <&vdac>;
-
-	port {
-		venc_out: endpoint {
-			remote-endpoint = <&tv_connector_in>;
-			ti,channels = <2>;
-		};
-	};
-};
-
 &gpmc {
-	ranges = <0 0 0x30000000 0x04>; /* CS0: NAND */
+	ranges = <0 0 0x30000000 0x1000000>; /* CS0: 16MB for NAND */
 
 	nand@0,0 {
-		reg = <0 0 0>; /* CS0, offset 0 */
+		reg = <0 0 4>; /* CS0, offset 0, IO size 4 */
 		nand-bus-width = <16>;
 		ti,nand-ecc-opt = "sw";
-		/* ti,nand-xfer-type = "polled"; */
-		/* ti,elm-id = <&elm> */
 
 		gpmc,sync-clk-ps = <0>;
 		gpmc,cs-on-ns = <0>;
@@ -649,7 +591,7 @@
 			reg = <0x280000 0xa00000>;
 		};
 
-		filesystem@680000 {
+		filesystem@c80000 {
 			label = "rootfs";
 			reg = <0xc80000 0>;	/* 0 = MTDPART_SIZ_FULL */
 		};
@@ -657,7 +599,6 @@
 };
 
 &mcspi1 {
-
 	tsc2046@0 {
 		reg = <0>;	/* CS0 */
 		compatible = "ti,tsc2046";
@@ -665,7 +606,7 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&penirq_pins>;
 		interrupt-parent = <&gpio3>;
-		interrupts = <30 0>;	/* gpio_94 */
+		interrupts = <30 0>;	/* GPIO_94 */
 		pendown-gpio = <&gpio3 30 0>;
 		vcc-supply = <&vaux4>;
 
@@ -687,7 +628,7 @@
 		spi-cpha;
 
 		label = "lcd";
-		reset-gpios = <&gpio5 29 GPIO_ACTIVE_LOW>;	/* gpio 157 */
+		reset-gpios = <&gpio5 29 GPIO_ACTIVE_LOW>;	/* GPIO_157 */
 		vcc-supply = <&vaux1>;
 
 		port {
@@ -700,16 +641,33 @@
 
 };
 
-&mcbsp1 { /* n/a - used as GPIOs */
+/* n/a - used as GPIOs */
+&mcbsp1 {
 };
 
-&mcbsp2 { /* audio DAC */
+/* audio DAC */
+&mcbsp2 {
 };
 
-&mcbsp3 { /* bluetooth */
+/* bluetooth */
+&mcbsp3 {
 };
 
-&mcbsp4 { /* to twl4030 */
+/* to twl4030*/
+&mcbsp4 {
+};
+
+&venc {
+	status = "ok";
+
+	vdda-supply = <&vdac>;
+
+	port {
+		venc_out: endpoint {
+			remote-endpoint = <&tv_connector_in>;
+			ti,channels = <2>;
+		};
+	};
 };
 
 &dss {
