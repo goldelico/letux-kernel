@@ -168,18 +168,18 @@ echo g$r rrrr >dcs
 echo $r: $(cat dcs)
 done
 
-# turn on omap5 stream
-
-echo stream >dcs
-sleep .1
-echo 29 >dcs
-
 echo gff01 >dcs	# enable forwarding through ssd
 echo 11 >dcs
 sleep .1
 echo 29 >dcs
 
-echo gff00 >dcs	# address the ssd
+# turn on omap5 stream
+
+echo gff00 >dcs	# address the ssd directly
+echo stream >dcs
+sleep .1
+echo 29 >dcs
+
 # all done in this (special) case
 exit
 fi
@@ -344,18 +344,16 @@ fi
 if [ "$1" = "-s" ]
 then	# enable stream
 
-	echo gff00 >dcs	# address the ssd
-
-	echo stream >dcs
-	echo 11 >dcs
-	sleep .1
-	echo 29 >dcs
-
 	echo gff01 >dcs	# enable forwarding through ssd
 	echo 11 >dcs
 	sleep .1
 	echo 29 >dcs
 
-	echo gff00 >dcs	# address the ssd
+	# turn on omap5 stream
+
+	echo gff00 >dcs	# address the ssd directly
+	echo stream >dcs
+	sleep .1
+	echo 29 >dcs
 
 fi
