@@ -74,7 +74,7 @@ static int omap_twl4030_hw_params(struct snd_pcm_substream *substream,
 	return snd_soc_runtime_set_dai_fmt(rtd, fmt);
 }
 
-static struct snd_soc_ops omap_twl4030_ops = {
+static const struct snd_soc_ops omap_twl4030_ops = {
 	.hw_params = omap_twl4030_hw_params,
 };
 
@@ -160,9 +160,8 @@ static inline void twl4030_disconnect_pin(struct snd_soc_dapm_context *dapm,
 
 static int omap_twl4030_init(struct snd_soc_pcm_runtime *rtd)
 {
-	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_card *card = rtd->card;
-	struct snd_soc_dapm_context *dapm = &codec->dapm;
+	struct snd_soc_dapm_context *dapm = &card->dapm;
 	struct omap_tw4030_pdata *pdata = dev_get_platdata(card->dev);
 	struct omap_twl4030 *priv = snd_soc_card_get_drvdata(card);
 	int ret = 0;
@@ -171,14 +170,10 @@ static int omap_twl4030_init(struct snd_soc_pcm_runtime *rtd)
 	if (priv->jack_detect > 0) {
 		hs_jack_gpios[0].gpio = priv->jack_detect;
 
-		ret = snd_soc_jack_new(codec, "Headset Jack", SND_JACK_HEADSET,
-				       &priv->hs_jack);
-		if (ret)
-			return ret;
-
-		ret = snd_soc_jack_add_pins(&priv->hs_jack,
-					    ARRAY_SIZE(hs_jack_pins),
-					    hs_jack_pins);
+		ret = snd_soc_card_jack_new(rtd->card, "Headset Jack",
+					    SND_JACK_HEADSET, &priv->hs_jack,
+					    hs_jack_pins,
+					    ARRAY_SIZE(hs_jack_pins));
 		if (ret)
 			return ret;
 
@@ -212,22 +207,10 @@ static int omap_twl4030_init(struct snd_soc_pcm_runtime *rtd)
 	twl4030_disconnect_pin(dapm, pdata->has_linein, "Line In");
 
 	if (pdata->jack_init &&
-	    pdata->jack_init(codec))
+	    pdata->jack_init(rtd->codec))
 		priv->jack_remove = pdata->jack_remove;
 
 	return ret;
-}
-
-static int omap_twl4030_card_remove(struct snd_soc_card *card)
-{
-	struct omap_twl4030 *priv = snd_soc_card_get_drvdata(card);
-
-	if (priv->jack_detect > 0)
-		snd_soc_jack_free_gpios(&priv->hs_jack,
-					ARRAY_SIZE(hs_jack_gpios),
-					hs_jack_gpios);
-
-	return 0;
 }
 
 /* Digital audio interface glue - connects codec <--> CPU */
@@ -257,7 +240,6 @@ static struct snd_soc_dai_link omap_twl4030_dai_links[] = {
 /* Audio machine driver */
 static struct snd_soc_card omap_twl4030_card = {
 	.owner = THIS_MODULE,
-	.remove = omap_twl4030_card_remove,
 	.dai_link = omap_twl4030_dai_links,
 	.num_links = ARRAY_SIZE(omap_twl4030_dai_links),
 
