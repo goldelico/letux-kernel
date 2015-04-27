@@ -125,8 +125,8 @@ then # test (prefix with -r!)
 # send code sequences verbatim...
 
 echo gff00 >dcs
-echo g0008 01f40132 >dcs
-echo g000c 00000001 >dcs
+echo g0008 01f4012a >dcs
+echo g000c 00000005 >dcs
 echo g0014 0c37800f >dcs
 echo g0020 1592577d >dcs
 echo g0024 00003000 >dcs
@@ -136,7 +136,7 @@ echo 2a 000004ff
 echo 2b 000002cf
 echo g1008 01200445 >dcs
 echo g200c 00000302 >dcs
-echo g2010 00040001 >dcs
+echo g2010 00010001 >dcs
 echo g2014 02ee0014 >dcs
 echo g2018 050e000a >dcs
 echo g201c 02d00500 >dcs
