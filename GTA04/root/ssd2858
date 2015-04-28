@@ -2,11 +2,18 @@
 # initialite Solomon SSD2858 chip with input stream from OMAP5 and panel chained to the output
 # using the panel-mipi-debug driver
 #
+# -b:	BIST mode (test pattern)
 # -r:	program for rotation
-# -d:	dump registers
+# -x:	apply some register value array
+# -d:	dump ssd2858 registers
 # -l:	loop dcs commands 10h and 11h to check LP output to panel
-# -p:	program panel
+# -p:	program panel through DCS
 # -s:	enable stream to ssd and panel
+#
+# typical invocation for operation
+# ./ssd2858 -r -p -s
+# ./ssd2858 -b -d -l
+
 
 if ! [ "$(cat /proc/device-tree/ocp/dss@58000000/encoder@58004000/lcd/compatible)" = "omapdss,mipi,debug" ]
 then
@@ -33,17 +40,24 @@ echo reset >dcs	# reset panel
 echo power >dcs	# enable ssd (should do this only on v4 boards!!! but I have no method to decide between v3 and v4)
 
 sleep .1
-echo noreset >dcs	# take panel out of reset before starting the clocks
-sleep .1
+echo noreset >dcs	# take ssd2858 out of reset before starting the clocks
+sleep .5
 
+# parameters should be provided by the panel driver
 PANEL_WIDTH=720
 PANEL_HEIGHT=1280
-PANEL_FPS=60
+PANEL_FPS=60	# frames per second
+PANEL_BPP=24	# bits per lane
+PANEL_LANES=4	# lanes
+PANEL_HFP=5	# front porch
+PANEL_HSA=5	# sync active
+PANEL_HBP=158	# back porch
+PANEL_VFP=50
+PANEL_VSA=60
+PANEL_VBP=50
+PANEL_FRAME_WIDTH=888	# some margin for sync and retrace
+PANEL_FRAME_HEIGHT=1440	# some margin for sync and retrace
 PANEL_LPCLOCK=8000000	# maximum is 9.2 MHz
-PANEL_BPP=24
-PANEL_LANES=4
-PANEL_FRAME_WIDTH=888	# some margin für sync and retrace
-PANEL_FRAME_HEIGHT=1440	# some margin für sync and retrace
 PANEL_PCLK=$(( $PANEL_FRAME_WIDTH * $PANEL_FRAME_HEIGHT * $PANEL_FPS ))
 PANEL_MIN_DDR=$(( $PANEL_PCLK / 2 / $PANEL_LANES * $PANEL_BPP ))
 
@@ -53,23 +67,67 @@ LPCLK=$(( $XTAL / 2 ))	# we must drive SSD with this LP clock freq.
 echo XTAL: $XTAL
 echo LPCLK: $LPCLK
 
-case "$1" in
-"-r" )
-	echo start x_res=1280 y_res=720 lpclock=$LPCLK >dcs	# start MIPI interface timing for rotation
-	;;
-* )
-	echo start x_res=720 y_res=1280 lpclock=$LPCLK >dcs	# start MIPI interface timing for pass-through
-	;;
-esac
+# default modes
+VB_MODE=0
+VBE=0
+OMAP_WIDTH=$PANEL_WIDTH
+OMAP_HEIGHT=$PANEL_HEIGHT
+ROT90=0
 
-sleep .1
+X_MODE=false
+DUMP_REGS=false
+LOOP_DCS_11_10=false
+PROGRAM_PANEL=false
+STREAM=true
+
+while [ "$1" ]
+do
+	case "$1" in
+	"-b" )
+		VB_MODE=4
+		VBE=3
+		;;
+	"-r" )
+		OMAP_WIDTH=$PANEL_HEIGHT
+		OMAP_HEIGHT=$PANEL_WIDTH
+		ROT90=1
+		;;
+	## if we want to rotate in the other direction, combine with flip horizontal/vertical DCS 36h
+	"-x" )
+		X_MODE=true
+		OMAP_WIDTH=$PANEL_HEIGHT	# currently assumes rotation
+		OMAP_HEIGHT=$PANEL_WIDTH
+		ROT90=1
+		;;
+	"-d" )
+		DUMP_REGS=true
+		;;
+	"-l" )
+		LOOP_DCS_11_10=true
+		;;
+	"-p" )
+		PROGRAM_PANEL=true
+		;;
+	"-s" )
+		STREAM=true
+		;;
+	* )
+		break
+		;;
+	esac
+	shift
+done
+
+echo start x_res=$OMAP_WIDTH y_res=$OMAP_HEIGHT lpclock=$LPCLK >dcs	# start MIPI interface timing
+
+sleep .5
 
 # show some DCS status (don't use echo status >dcs because it reads non-existent registers which makes the communication hang)
 for i in 0b 0c 45
 	do echo $i r >dcs
 done
 
-# now program the ssd chip
+# read out some values after power on
 
 echo g0004 rrrr >dcs
 echo g0008 rrrr >dcs
@@ -83,6 +141,79 @@ echo g0028 rrrr >dcs
 echo g002c rrrr >dcs
 echo g0030 rrrr >dcs
 
+# prepare for getting access to the ssd
+echo 28 >dcs
+echo 10 >dcs
+echo ff00 >dcs
+echo 28 >dcs
+echo 10 >dcs
+
+if $X_MODE
+then
+
+# send code sequences verbatim...
+
+echo gff00 >dcs
+echo g0008 01f4012a >dcs
+echo g000c 00000005 >dcs
+echo g0014 0c37800f >dcs
+echo g0020 1592577d >dcs
+echo g0024 00003000 >dcs
+echo 11 >dcs
+sleep 0.001
+echo 2a 000004ff
+echo 2b 000002cf
+echo g1008 01200445 >dcs
+echo g200c 00000302 >dcs
+echo g2010 00010001 >dcs
+echo g2014 02ee0014 >dcs
+echo g2018 050e000a >dcs
+echo g201c 02d00500 >dcs
+echo g2020 050002d0 >dcs
+echo g2024 050002d0 >dcs
+echo g203c 050002d0 >dcs
+echo g2034 00000000 >dcs
+echo g2038 04ff02cf >dcs
+echo g2030 0000000a >dcs
+echo g20a0 00000050 >dcs
+echo 35 02 >dcs
+echo 44 0500 >dcs
+echo g6008 00c70008 >dcs
+echo g600c 0a14020a >dcs
+echo g6010 0500040a >dcs
+echo g6014 01000101 >dcs
+echo g6084 000002d0 >dcs
+
+# dump all register values
+for r in 0004 0008 000c 0010 0014 001c 0020 0024 0028 002c 0030 \
+         1004 1008 100c 1010 1014 1018 101c 1020 1024 1028 102c 1030 \
+         2000 2004 2008 200c 2010 2014 2018 201c 2020 2024 2028 202c 2030 2034 2038 203c \
+              2040 2044 2048 204c 2050 2054 2058 205c 2060 2064 2068 206c 2070 2074 2078 207c \
+              2080 2084 2088 208c 2090 2094 2098 209c 20a0 20a4 20a8 20ac 20b0 20b4 2ffc \
+         6000 6004 6008 600c 6010 6014 6018 6030 6034 6038 603c 6040 6044 6048 604c 6050 6054 \
+              6084 6088 608c 6090 6094 60a4 60a8 60ac 60b0 60b4
+do
+echo g$r rrrr >dcs
+echo $r: $(cat dcs)
+done
+
+echo gff01 >dcs	# enable forwarding through ssd
+echo 11 >dcs
+sleep .1
+echo 29 >dcs
+
+# turn on omap5 stream
+
+echo gff00 >dcs	# address the ssd directly
+echo stream >dcs
+sleep .1
+echo 29 >dcs
+
+# all done in this (special) case
+exit
+fi
+
+# now program the ssd chip
 # start with SCM
 
 ### FIXME: should we calculate register values or divisors etc?
@@ -92,25 +223,27 @@ echo g0030 rrrr >dcs
 # XTAL: 20 .. 30 MHz
 # PLL = XTAL * MULT: 1-1.5GHz
 # MAIN CLOCK = PLL / POSTDIV
-PLL=1008000000
-[ $PLL -ge 1000000000 -a $PLL -le 1500000000 ] || echo PLL frequency problem: $PLL
-echo PLL: $PLL
-POSTDIV=1 # means 2
-echo POSTDIV: $POSTDIV
-[ $POSTDIV -lt 64 ] || echo POSTDIV problem: $POSTDIV
+## FIXME: find the best combination from MULT and POSTDIV so that PLL is between 1 and 1.5 GHz
+PLL=$((3 * 470000000))	# run a little faster than OMAP (460 MHz)
+echo target PLL: $PLL
 MULT=$(( $PLL / $XTAL ))
 echo MULT: $MULT
 [ $MULT -lt 128 ] || echo MULT problem: $MULT
+PLL=$(($XTAL * $MULT))	# real PLL frequency
+echo real PLL: $PLL
+[ $PLL -ge 1000000000 -a $PLL -le 1500000000 ] || echo PLL frequency problem: $PLL
+POSTDIV=2 # means 3
+echo POSTDIV: $POSTDIV
+[ $POSTDIV -lt 64 ] || echo POSTDIV problem: $POSTDIV
 MAIN_CLK=$(( $PLL / ($POSTDIV + 1) ))
 echo MAIN_CLK: $MAIN_CLK
 # LOCKCNT - at least 30us - this is the number of LPCLK (XTAL / 2); we add 40% safety margin
 LOCKCNT=$(printf "%.0f" $(echo '1.4 * 30*10^-6 *' $LPCLK | bc -l ))
 echo LOCKCNT: $LOCKCNT
 
-# echo g0008 01f40132 >dcs	# SCM_PLL (01F40132): default = POSTDIV=2 MULT=50 => 600 MHz
 echo g0008 $(printf "%08x" $(( ($LOCKCNT << 16) | (0 << 15) | (0 << 15) | ($POSTDIV << 8) | $MULT << 0)) ) >dcs
 
-MIPITX_BIT_CLK=504000000	# what we would like to have (should be calculated from panel parameters)
+MIPITX_BIT_CLK=470000000	# what we would like to have (should be calculated from panel parameters)
 MTXDIV=$(( (($MAIN_CLK + $MIPITX_BIT_CLK - 1 ) / $MIPITX_BIT_CLK) - 1 ))	# get divisor and round up
 echo MTXDIV: $MTXDIV
 [ $MTXDIV -ge 0 -a $MTXDIV -lt 16 ] || echo MTXDIV problem: $MTXDIV
@@ -130,33 +263,27 @@ SYS_CLK=$(( $MAIN_CLK / 2 / ($SYSDIV + 1) ))
 echo SYS_CLK: $SYS_CLK
 [ $SYS_CLK -le 150000000 ] || echo SYS_CLK problem: $SYS_CLK
 
-#echo g000c 00000001 >dcs	# SCM_CC (00000003): MTXDIV=1 (=> 600 MHz) SYSDIV=2 (=> 300 MHz)
 echo g000c $(printf "%08x" $(( ($MTXDIV << 4) | ($SYSDIV << 0) )) ) >dcs
 
 echo g0014 $(printf "%08x" $(( 0x0C77800F | (1 << 22) )) ) >dcs	# SCM_MISC2 (0C77800F): MRXEN = enabled
 echo g0020 $(printf "%08x" $(( 0x1592567D | (1 << 22) )) ) >dcs	# SCM_ANACTRL1 (1592567D): CPEN = enabled
-# echo g0020 1592577d >dcs	# SCM_ANACTRL1 (1592567D): CPUNR = enabled (what is this good for?)
 echo g0024 00003000 >dcs	# SCM_ANACTRL2 (00003300): CPPER=24
 echo g0014 rrrr >dcs
 echo g0020 rrrr >dcs
+echo g0024 rrrr >dcs
 
 # some DCS
 echo 11 >dcs
-echo 2a 000004ff >dcs
-echo 2b 000002cf >dcs
+sleep 0.001
+echo 2a $(printf "%08x" $(( $OMAP_WIDTH - 1 )) ) >dcs
+echo 2b $(printf "%08x" $(( $OMAP_HEIGHT - 1 )) ) >dcs
 
 # MIPIRX
 echo g1008 01200445 >dcs	# MIPIRX_DCR (01200245): HST=4
 
 # VCTM
 
-case "$1" in
-
-"-r" )
-
-# VTCM for rotation
-# echo g200c 00000302 >dcs	# VCTM_CFGR (00000000): SPLIT_MEM=1, ROT90=1, TE_SEL=1
-SPLIT_MEM=1 ROT90=1 TE_SEL=1 VBP=0
+SPLIT_MEM=1 TE_SEL=1 VBP=0
 echo g200c $(printf "%08x" $(( ($SPLIT_MEM << 9) | ($ROT90 << 8) | ($VBP << 2) | ($TE_SEL << 1) )) ) >dcs	# VCTM_CFGR (00000000)
 PCLKDEN=168
 [ $PCLKDEN -lt 256 ] || echo PCLKDEN problem: $PCLKDEN
@@ -165,68 +292,41 @@ PCLKNUM=51
 PCLK=$(( ($SYS_CLK * $PCLKNUM) / $PCLKDEN ))
 echo PCLKNUM / PCLKDEN: $PCLKNUM / $PCLKDEN
 echo PCLK: $PCLK
-# echo g2010 00040001 >dcs	# VCTM_PCFRR (00010001): PCLKDEN=4 PCLKNUM=1
+HDPS=0x30
+VDPS=0x30
 echo g2010 $(printf "%08x" $(( ($PCLKDEN << 16) | ($PCLKNUM << 0) )) ) >dcs	# VCTM_PCFRR (00010001)
-echo g2014 0366004c >dcs
-echo g2018 051e0010 >dcs
-echo g201c 02d00500 >dcs
-echo g2020 050002d0 >dcs
-echo g2024 050002d0 >dcs
-echo g203c 050002d0 >dcs
-echo g2034 00000000 >dcs
-echo g2038 04ff02cf >dcs
-echo g2030 00000015 >dcs
-echo g20a0 00000050 >dcs
+echo g2014 $(printf "%08x" $(( ($PANEL_FRAME_WIDTH << 16) | $HDPS )) ) >dcs	# HDCFGR
+echo g2018 $(printf "%08x" $(( ($PANEL_FRAME_HEIGHT << 16) | $VDPS )) ) >dcs	# VDCFGR
+echo g201c $(printf "%08x" $(( ($OMAP_HEIGHT << 16) | $OMAP_WIDTH )) ) >dcs	# MSZR
+echo g2020 $(printf "%08x" $(( ($PANEL_HEIGHT << 16) | $PANEL_WIDTH )) ) >dcs		# DSZR
+echo g2024 $(printf "%08x" $(( ($PANEL_HEIGHT << 16) | $PANEL_WIDTH )) ) >dcs		# PSZR
+echo g203c $(printf "%08x" $(( ($PANEL_HEIGHT << 16) | $PANEL_WIDTH )) ) >dcs		# ISZR
+echo g2034 00000000 >dcs	# VCTM_POSR (00000000)
+echo g2038 $(printf "%08x" $(( (($PANEL_HEIGHT - 1) << 16) | ($PANEL_WIDTH - 1) )) ) >dcs >dcs	# POER
+echo g2030 00000015 >dcs	# URAM refresh period
+echo g20a0 00000050 >dcs	# VTCM_QFBCCTRLR (00004151) - no padding, no pixswap, no fbc
 echo g2014 rrrr >dcs
 echo g2038 rrrr >dcs
 
-shift	# remove "-r"
-
-;;
-
-* )
-
-# VCTM w/o rotation
-SPLIT_MEM=1 ROT90=0 TE_SEL=1 VBP=1
-# echo g200c 00000006 >dcs	# VCTM_CFGR (00000000): VBP=1, TE_SEL=1
-echo g200c $(printf "%08x" $(( ($SPLIT_MEM << 9) | ($ROT90 << 8) | ($VBP << 2) | ($TE_SEL << 1) )) ) >dcs	# VCTM_CFGR (00000000)
-# FIXME: calculate best approximation by prime factor decomposition of num and den
-PCLKDEN=168
-[ $PCLKDEN -lt 256 ] || echo PCLKDEN problem: $PCLKDEN
-PCLKNUM=51
-[ $PCLKNUM -lt 128 ] || echo PCLKNUM problem: $PCLKNUM
-PCLK=$(( ($SYS_CLK * $PCLKNUM) / $PCLKDEN ))
-echo PCLKNUM / PCLKDEN: $PCLKNUM / $PCLKDEN
-echo PCLK: $PCLK
-# echo g2010 00040001 >dcs	# VCTM_PCFRR (00010001): PCLKDEN=4 PCLKNUM=1
-echo g2010 $(printf "%08x" $(( ($PCLKDEN << 16) | ($PCLKNUM << 0) )) ) >dcs	# VCTM_PCFRR (00010001)
-
-esac
+echo 35 02 >dcs		# tear on
+echo 44 0500 >dcs	# tear scan line
 
 # MIPITX
-# echo g6008 00c90008 >dcs	# MIPITX_CTLR (00030008): LS_OUT=4 lanes; LPD=9
-# echo g6008 00c90009 >dcs	# MIPITX_CTLR (00030008): LS_OUT=4 lanes; LPD=9; CKE
-# echo g6008 00c60009 >dcs	# MIPITX_CTLR (00030008): LS_OUT=4 lanes; LPD=6 (63:7 => 9 MHz); CKE
-#echo g6008 00c90009 >dcs	# MIPITX_CTLR (00030008): LS_OUT=4 lanes; LPD=9 (76:9 => 8.4 MHz); CKE
 LPD=$(( (($MIPITX_BYTE_CLK + $PANEL_LPCLOCK - 1) / $PANEL_LPCLOCK) - 1 ))
 [ $LPD -ge 0 -a $LPD -lt 64 ] || echo LPD problem: $LPD
 echo LPD: $LPD
 echo PANEL_LPCLOCK: $(( $MIPITX_BYTE_CLK / ($LPD+1) ))
 CKE=0
 echo g6008 $(printf "%08x" $(( 0x00000008 | (($PANEL_LANES - 1) << 22) | ($LPD << 16) | ($CKE << 0) )) ) >dcs	# MIPITX_CTLR (00030008)
-# echo g600c 02d00500 >dcs	# MIPITX_VTC1R (0214020A):
-echo g600c 329e3c05 >dcs	# MIPITX_VTC1R (0214020A): HSA=5 VSA=60 HBP=158 VBP=50
-# echo g6010 104c0202 >dcs	# MIPITX_VTC2R (0438020A):
-#echo g6010 05003205 >dcs	# MIPITX_VTC2R (0438020A): HFP=5 VFP=50 VACT=1280
-# FIXME: add VFP, VHFP
-echo g6010 $(printf "%08x" $(( 0x00003205 | ($PANEL_HEIGHT << 16) )) ) >dcs	# MIPITX_VTC2R (0438020A)
-echo g6014 01000102 >dcs	# MIPITX_VCFR (01000101): VM=burst mode
-#echo g6084 000002d0 >dcs	# MIPITX_DSI0VR (00000400): HACT=720
+echo g600c $(printf "%08x" $(( ($PANEL_VBP << 24) | ($PANEL_HBP << 16) | ($PANEL_VSA << 8) | ($PANEL_HSA << 0) )) ) >dcs	# MIPITX_VTC1R (0214020A)
+echo g6010 $(printf "%08x" $(( ($PANEL_HEIGHT << 16) | ($PANEL_VFP << 8) | ($PANEL_HFP << 0) )) ) >dcs	# MIPITX_VTC2R (0438020A)
+echo g6014 $(printf "%08x" $(( 0x01000102 | ($VB_MODE << 13) | ($VBE << 30) )) ) >dcs	# MIPITX_VCFR (01000101): VM=burst mode
 echo g6084 $(printf "%08x" $(( $PANEL_WIDTH << 0 )) ) >dcs	# MIPITX_DSI0VR (00000400)
 echo g6010 rrrr >dcs
 
-if [ "$1" = "-d" ]
+if $DUMP_REGS
 then
+# dump all register values
 for r in 0004 0008 000c 0010 0014 001c 0020 0024 0028 002c 0030 \
          1004 1008 100c 1010 1014 1018 101c 1020 1024 1028 102c 1030 \
          2000 2004 2008 200c 2010 2014 2018 201c 2020 2024 2028 202c 2030 2034 2038 203c \
@@ -241,7 +341,7 @@ done
 shift
 fi
 
-if [ "$1" = "-l" ]
+if $LOOP_DCS_11_10
 then
 
 # this tries to forward DCS commands to the panel
@@ -260,7 +360,7 @@ then
 	shift
 fi
 
-if [ "$1" = "-p" ]
+if $PROGRAM_PANEL
 then	# activate panel
 
 	echo gff01 >dcs	# enable forwarding through ssd
@@ -273,21 +373,19 @@ then	# activate panel
 	shift
 fi
 
-if [ "$1" = "-s" ]
-then	# enable stream
-
-	echo gff00 >dcs	# address the ssd
-
-	echo stream >dcs
-	echo 11 >dcs
-	sleep .1
-	echo 29 >dcs
+if $STREAM
+then	# enable video stream
 
 	echo gff01 >dcs	# enable forwarding through ssd
 	echo 11 >dcs
 	sleep .1
 	echo 29 >dcs
 
-	echo gff00 >dcs	# address the ssd
+	# turn on omap5 stream
+
+	echo gff00 >dcs	# address the ssd directly
+	echo stream >dcs
+	sleep .1
+	echo 29 >dcs
 
 fi
