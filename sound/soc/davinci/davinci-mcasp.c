@@ -1085,7 +1085,7 @@ static int davinci_mcasp_startup(struct snd_pcm_substream *substream,
 
 	snd_pcm_hw_constraint_minmax(substream->runtime,
 				     SNDRV_PCM_HW_PARAM_CHANNELS,
-				     2, max_channels);
+				     1, max_channels);
 
 	if (mcasp->chconstr[substream->stream].count)
 		snd_pcm_hw_constraint_list(substream->runtime,
@@ -1267,13 +1267,13 @@ static struct snd_soc_dai_driver davinci_mcasp_dai[] = {
 		.suspend	= davinci_mcasp_suspend,
 		.resume		= davinci_mcasp_resume,
 		.playback	= {
-			.channels_min	= 2,
+			.channels_min	= 1,
 			.channels_max	= 32 * 16,
 			.rates 		= DAVINCI_MCASP_RATES,
 			.formats	= DAVINCI_MCASP_PCM_FMTS,
 		},
 		.capture 	= {
-			.channels_min 	= 2,
+			.channels_min	= 1,
 			.channels_max	= 32 * 16,
 			.rates 		= DAVINCI_MCASP_RATES,
 			.formats	= DAVINCI_MCASP_PCM_FMTS,
@@ -1527,12 +1527,12 @@ static int davinci_mcasp_ch_constraint(struct davinci_mcasp *mcasp,
 		return 0;
 
 	list = devm_kzalloc(mcasp->dev, sizeof(unsigned int) *
-			    (mcasp->tdm_slots + serializers - 2),
+			    (mcasp->tdm_slots + serializers - 1),
 			    GFP_KERNEL);
 	if (!list)
 		return -ENOMEM;
 
-	for (i = 2; i <= mcasp->tdm_slots; i++)
+	for (i = 1; i <= mcasp->tdm_slots; i++)
 		list[count++] = i;
 
 	for (i = 2; i <= serializers; i++)
