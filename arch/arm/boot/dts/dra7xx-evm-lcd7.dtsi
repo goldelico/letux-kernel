@@ -11,3 +11,7 @@
 &tlc59108 {
 	compatible = "ti,tlc59108-tfcs9700";
 };
+
+&ldc3001 {
+	status = "disabled";
+};
