@@ -829,14 +829,14 @@ none nand-disk mmc0 mmc1 timer oneshot [heartbeat] cpu0 cpu1 default-on transien
 		led@5 {
 			label = "pyra:green:mid";
 			gpios = <&gpio99 18 GPIO_ACTIVE_LOW>;
-			linux,default-trigger = "timer";
+			linux,default-trigger = "none";
 			default-state = "off";
 		};
 
 		led@6 {
 			label = "pyra:blue:mid";
 			gpios = <&gpio99 19 GPIO_ACTIVE_LOW>;
-			linux,default-trigger = "none";
+			linux,default-trigger = "timer";
 			default-state = "off";
 		};
 
