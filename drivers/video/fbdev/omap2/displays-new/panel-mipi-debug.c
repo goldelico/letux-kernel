@@ -478,6 +478,18 @@ static ssize_t set_dcs(struct device *dev,
 					mipi_timings.y_res=val;
 				else if(len == 10 && strncmp(arg, "pixelclock", len) == 0)
 					mipi_timings.pixelclock=val;
+				else if(len == 3 && strncmp(arg, "hfp", len) == 0)
+					mipi_timings.hfp=val;
+				else if(len == 3 && strncmp(arg, "hsw", len) == 0)
+					mipi_timings.hsw=val;
+				else if(len == 3 && strncmp(arg, "hbp", len) == 0)
+					mipi_timings.hbp=val;
+				else if(len == 3 && strncmp(arg, "vfp", len) == 0)
+					mipi_timings.vfp=val;
+				else if(len == 3 && strncmp(arg, "vsw", len) == 0)
+					mipi_timings.vsw=val;
+				else if(len == 3 && strncmp(arg, "vbp", len) == 0)
+					mipi_timings.vbp=val;
 				/* mipi_dsi_config evaluated during mipi_debug_start() */
 				else if(len == 7 && strncmp(arg, "lpclock", len) == 0)
 					mipi_dsi_config.lp_clk_max=val;
