@@ -12,6 +12,7 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/of_device.h>
 
 #include <sound/soc.h>
 
@@ -74,10 +75,17 @@ static struct platform_device_id bt_sco_driver_ids[] = {
 };
 MODULE_DEVICE_TABLE(platform, bt_sco_driver_ids);
 
+static const struct of_device_id bt_sco_of_match[] = {
+	{ .compatible = "linux,bt-sco-audio", },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, bt_sco_of_match);
+
 static struct platform_driver bt_sco_driver = {
 	.driver = {
 		.name = "bt-sco",
 		.owner = THIS_MODULE,
+		.of_match_table = of_match_ptr(bt_sco_of_match),
 	},
 	.probe = bt_sco_probe,
 	.remove = bt_sco_remove,
