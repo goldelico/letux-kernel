@@ -1,0 +1,17 @@
+Device-Tree bindings for dummy Bluetooth SCO codec
+
+Required properties:
+	- compatible: should be "linux,bt-sco-audio".
+
+CODEC output pins:
+  * TX
+
+CODEC input pins:
+  * RX
+
+Example node:
+
+	bt_sco_audio: bt_sco_audio@0 {
+		compatible = "linux,bt-sco-audio";
+		status = "okay";
+	};

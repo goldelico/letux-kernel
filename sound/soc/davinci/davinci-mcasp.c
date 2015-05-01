@@ -27,6 +27,7 @@
 #include <linux/of_platform.h>
 #include <linux/of_device.h>
 #include <linux/math64.h>
+#include <linux/lcm.h>
 
 #include <sound/asoundef.h>
 #include <sound/core.h>
@@ -1044,6 +1045,67 @@ static int davinci_mcasp_hw_rule_format(struct snd_pcm_hw_params *params,
 	return snd_mask_refine(fmt, &nfmt);
 }
 
+static int davinci_mcasp_hwrule_buffersize(struct snd_pcm_hw_params *params,
+					   struct snd_pcm_hw_rule *rule,
+					   int stream)
+{
+	struct snd_interval *buffer_size = hw_param_interval(params,
+			SNDRV_PCM_HW_PARAM_BUFFER_SIZE);
+	struct davinci_mcasp *dev = rule->private;
+	int channels = params_channels(params);
+	int periods = params_periods(params);
+	int i;
+	u8 slots = dev->tdm_slots;
+	u8 max_active_serializers = (channels + slots - 1) / slots;
+	u8 num_ser = 0;
+	u8 num_evt = 0;
+	unsigned long step = 1;
+
+	if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		for (i = 0; i < dev->num_serializer; i++) {
+			if (dev->serial_dir[i] == TX_MODE &&
+					num_ser < max_active_serializers)
+				num_ser++;
+		}
+		num_evt = dev->txnumevt * num_ser;
+	} else {
+		for (i = 0; i < dev->num_serializer; i++) {
+			if (dev->serial_dir[i] == RX_MODE &&
+					num_ser < max_active_serializers)
+				num_ser++;
+		}
+		num_evt = dev->rxnumevt * num_ser;
+	}
+
+	/*
+	 * The buffersize (in samples), must be a multiple of num_evt.  The
+	 * buffersize (in frames) is the product of the period_size and the
+	 * number of periods. Therefore, the buffersize should be a multiple
+	 * of the number of periods. The below finds the least common
+	 * multiple of num_evt and channels (since the number of samples
+	 * per frame is equal to the number of channels). It also makes sure
+	 * that the resulting step value (LCM / channels) is a multiple of the
+	 * number of periods.
+	 */
+	step = lcm((lcm(num_evt, channels) / channels), periods);
+
+	return snd_interval_step(buffer_size, 0, step);
+}
+
+static int davinci_mcasp_hwrule_txbuffersize(struct snd_pcm_hw_params *params,
+					     struct snd_pcm_hw_rule *rule)
+{
+	return davinci_mcasp_hwrule_buffersize(params, rule,
+					       SNDRV_PCM_STREAM_PLAYBACK);
+}
+
+static int davinci_mcasp_hwrule_rxbuffersize(struct snd_pcm_hw_params *params,
+						  struct snd_pcm_hw_rule *rule)
+{
+	return davinci_mcasp_hwrule_buffersize(params, rule,
+					       SNDRV_PCM_STREAM_CAPTURE);
+}
+
 static int davinci_mcasp_startup(struct snd_pcm_substream *substream,
 				 struct snd_soc_dai *cpu_dai)
 {
@@ -1067,6 +1129,24 @@ static int davinci_mcasp_startup(struct snd_pcm_substream *substream,
 	else
 		dir = RX_MODE;
 
+	if (mcasp->version == MCASP_VERSION_4) {
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+			if (mcasp->txnumevt)
+				snd_pcm_hw_rule_add(substream->runtime, 0,
+					SNDRV_PCM_HW_PARAM_BUFFER_SIZE,
+					davinci_mcasp_hwrule_txbuffersize,
+					mcasp,
+					SNDRV_PCM_HW_PARAM_BUFFER_SIZE, -1);
+		} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+			if (mcasp->rxnumevt)
+				snd_pcm_hw_rule_add(substream->runtime, 0,
+					SNDRV_PCM_HW_PARAM_BUFFER_SIZE,
+					davinci_mcasp_hwrule_rxbuffersize,
+					mcasp,
+					SNDRV_PCM_HW_PARAM_BUFFER_SIZE, -1);
+		}
+	}
+
 	for (i = 0; i < mcasp->num_serializer; i++) {
 		if (mcasp->serial_dir[i] == dir)
 			max_channels++;
@@ -1085,7 +1165,7 @@ static int davinci_mcasp_startup(struct snd_pcm_substream *substream,
 
 	snd_pcm_hw_constraint_minmax(substream->runtime,
 				     SNDRV_PCM_HW_PARAM_CHANNELS,
-				     2, max_channels);
+				     1, max_channels);
 
 	if (mcasp->chconstr[substream->stream].count)
 		snd_pcm_hw_constraint_list(substream->runtime,
@@ -1267,13 +1347,13 @@ static struct snd_soc_dai_driver davinci_mcasp_dai[] = {
 		.suspend	= davinci_mcasp_suspend,
 		.resume		= davinci_mcasp_resume,
 		.playback	= {
-			.channels_min	= 2,
+			.channels_min	= 1,
 			.channels_max	= 32 * 16,
 			.rates 		= DAVINCI_MCASP_RATES,
 			.formats	= DAVINCI_MCASP_PCM_FMTS,
 		},
 		.capture 	= {
-			.channels_min 	= 2,
+			.channels_min	= 1,
 			.channels_max	= 32 * 16,
 			.rates 		= DAVINCI_MCASP_RATES,
 			.formats	= DAVINCI_MCASP_PCM_FMTS,
@@ -1527,12 +1607,12 @@ static int davinci_mcasp_ch_constraint(struct davinci_mcasp *mcasp,
 		return 0;
 
 	list = devm_kzalloc(mcasp->dev, sizeof(unsigned int) *
-			    (mcasp->tdm_slots + serializers - 2),
+			    (mcasp->tdm_slots + serializers - 1),
 			    GFP_KERNEL);
 	if (!list)
 		return -ENOMEM;
 
-	for (i = 2; i <= mcasp->tdm_slots; i++)
+	for (i = 1; i <= mcasp->tdm_slots; i++)
 		list[count++] = i;
 
 	for (i = 2; i <= serializers; i++)
