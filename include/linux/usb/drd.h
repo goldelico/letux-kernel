@@ -22,13 +22,6 @@ struct usb_drd_gadget {
 	struct usb_drd_setup *gadget_setup;
 };
 
-enum omap_dwc3_vbus_id_status {
-	OMAP_DWC3_ID_FLOAT,
-	OMAP_DWC3_ID_GROUND,
-	OMAP_DWC3_VBUS_OFF,
-	OMAP_DWC3_VBUS_VALID,
-};
-
 #define DRD_UNREGISTERED	0x0
 #define DRD_DEVICE_REGISTERED	0x1
 #define DRD_HOST_REGISTERED	0x2
@@ -52,8 +45,6 @@ int usb_drd_stop_hcd(struct device *parent);
 int usb_drd_start_udc(struct device *parent);
 int usb_drd_stop_udc(struct device *parent);
 int usb_drd_get_state(struct device *parent);
-int dwc3_omap_usbvbus_id_handler(struct device *dev,
-	enum omap_dwc3_vbus_id_status status);
 #else
 static inline int usb_drd_release(struct device *parent)
 { return 0; }
