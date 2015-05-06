@@ -32,7 +32,6 @@
 #include <linux/regulator/consumer.h>
 
 #include <linux/usb/otg.h>
-#include <linux/usb/drd.h>
 
 /*
  * All these registers belong to OMAP's Wrapper around the
@@ -136,6 +135,13 @@ struct dwc3_omap {
 	struct notifier_block	id_nb;
 
 	struct regulator	*vbus_reg;
+};
+
+enum omap_dwc3_vbus_id_status {
+	OMAP_DWC3_ID_FLOAT,
+	OMAP_DWC3_ID_GROUND,
+	OMAP_DWC3_VBUS_OFF,
+	OMAP_DWC3_VBUS_VALID,
 };
 
 static inline u32 dwc3_omap_readl(void __iomem *base, u32 offset)
@@ -271,28 +277,6 @@ static void dwc3_omap_set_mailbox(struct dwc3_omap *omap,
 		dev_dbg(omap->dev, "invalid state\n");
 	}
 }
-
-int dwc3_omap_usbvbus_id_handler(struct device *dev,
-	enum omap_dwc3_vbus_id_status status)
-{
-	struct dwc3_omap	*omap;
-	struct platform_device	*pdev;
-
-	if (!dev)
-		return -ENODEV;
-
-	dev_dbg(omap->dev, "VBUS Connect\n");
-
-	pdev = to_platform_device(dev);
-	omap =  platform_get_drvdata(pdev);
-	if (!omap)
-		return -ENODEV;
-
-	dwc3_omap_set_mailbox(omap, status);
-
-	return 0;
-}
-EXPORT_SYMBOL(dwc3_omap_usbvbus_id_handler);
 
 static irqreturn_t dwc3_omap_interrupt(int irq, void *_omap)
 {
