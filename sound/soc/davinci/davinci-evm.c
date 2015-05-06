@@ -152,6 +152,8 @@ static int evm_aic3x_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_card *card = rtd->card;
 	struct snd_soc_codec *codec = rtd->codec;
 	struct device_node *np = card->dev->of_node;
+	struct snd_soc_card_drvdata_davinci *drvdata =
+		snd_soc_card_get_drvdata(card);
 	int ret;
 
 	/* Add davinci-evm specific widgets */
@@ -174,10 +176,13 @@ static int evm_aic3x_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_nc_pin(&codec->dapm, "HPRCOM");
 
 	/* Minimize artifacts as much as possible if can be afforded */
-	if (of_find_property(np, "ti,always-on", NULL))
+	if (of_find_property(np, "ti,always-on", NULL)) {
 		rtd->pmdown_time = INT_MAX;
-	else
+		if (drvdata->mclk)
+			clk_prepare_enable(drvdata->mclk);
+	} else {
 		rtd->pmdown_time = 0;
+	}
 
 	return 0;
 }
