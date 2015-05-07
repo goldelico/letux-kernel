@@ -1584,6 +1584,11 @@ static struct davinci_mcasp_pdata *davinci_mcasp_set_pdata_from_of(
 	if (ret >= 0)
 		pdata->sram_size_capture = val;
 
+	if (of_find_property(np, "shared-dai", NULL))
+		pdata->shared_dai = 1;
+	else
+		pdata->shared_dai = 0;
+
 	return  pdata;
 
 nodata:
@@ -1693,6 +1698,15 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 	}
 
 	pm_runtime_enable(&pdev->dev);
+
+	/*
+	 * Forbid runtime PM if the DAI is shared, data transfers will occur
+	 * from a different core (typically DSP).
+	 */
+	if (pdata->shared_dai) {
+		dev_info(&pdev->dev, "DAI is shared\n");
+		pm_runtime_forbid(&pdev->dev);
+	}
 
 	mcasp->base = devm_ioremap(&pdev->dev, mem->start, resource_size(mem));
 	if (!mcasp->base) {

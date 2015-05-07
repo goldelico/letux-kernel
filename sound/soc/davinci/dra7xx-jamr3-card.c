@@ -180,10 +180,13 @@ static int jamr3_snd_init(struct snd_soc_pcm_runtime *rtd)
 	struct jamr3_snd_data *card_data = snd_soc_card_get_drvdata(card);
 
 	/* Minimize artifacts as much as possible if can be afforded */
-	if (card_data->always_on)
+	if (card_data->always_on) {
 		rtd->pmdown_time = INT_MAX;
-	else
+		if (card_data->mclk)
+			clk_prepare_enable(card_data->mclk);
+	} else {
 		rtd->pmdown_time = 0;
+	}
 
 	return 0;
 }
