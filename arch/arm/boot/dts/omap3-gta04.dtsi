@@ -258,28 +258,15 @@
 		};
 	};
 
-	bt_en: w2cbw003 { /* presents a single gpio to be plumbed to uart1 dts */
+	bluetooth: w2cbw003 {
 		compatible = "wi2wi,w2cbw003";
-		gpio-controller;
-		#gpio-cells = <2>;
-
+		uart = <&uart1>;
 		vdd-supply = <&vaux4>;
 	};
 
-	gps_en: w2sg0004 { /* presents a single gpio to be plumbed to uart2 dts */
+	gps: w2sg0004 {
 		compatible = "wi2wi,w2sg0004";
-		gpio-controller;
-		#gpio-cells = <2>;
-
-		pinctrl-names = "default", "monitor";
-		pinctrl-0 = <&uart2_pins>;
-		pinctrl-1 = <&uart2_rx_irq_pins>;
-
-/* FIXME: driver currently uses the rx-gpio but we should (could?) simply specify the IRQ */
-		interrupt-parent = <&gpio5>;
-		interrupts = <19 IRQ_TYPE_EDGE_FALLING>;	/* GPIO_147: RX - trigger on arrival of start bit */
-//		rx-gpio = <&gpio5 19 0>;	/* GPIO_147: RX */
-
+		uart = <&uart2>;
 		lna-supply = <&vsim>;	/* LNA regulator */
 		on-off-gpio = <&gpio5 17 0>;	/* GPIO_145: trigger for turning on/off w2sg0004 */
 	};
@@ -317,14 +304,6 @@
 			OMAP3_CORE1_IOPAD(0x2178, PIN_OUTPUT | MUX_MODE0)               /* uart2_tx.uart2_tx */
 /* FIXME: should also define gpio145 as output */
 			/* what about rts/cts? */
-		>;
-	};
-
-	uart2_rx_irq_pins: pinmux_uart2_rx_irq_pins {
-		pinctrl-single,pins = <
-			/* switch RX to GPIO so that we can get interrupts by the start bit */
-			OMAP3_CORE1_IOPAD(0x217a, PIN_INPUT | MUX_MODE4)                /* uart2_rx.uart2_rx */
-			OMAP3_CORE1_IOPAD(0x2178, PIN_OUTPUT | MUX_MODE0)               /* uart2_tx.uart2_tx */
 		>;
 	};
 
@@ -843,13 +822,11 @@
 &uart1 { /* Bluetooth /dev/ttyO0 */
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart1_pins>;
-	dtr-gpio = <&bt_en 0 GPIO_ACTIVE_LOW>;	/* w2cbw bluetooth power control through virtual gpio */
 };
 
 &uart2 { /* GPS /dev/ttyO1 */
-/*	pinctrl-names = "default";
-	pinctrl-0 = <&uart2_pins>; */
-	dtr-gpio = <&gps_en 0 GPIO_ACTIVE_HIGH>;	/* w2sg0004 GPS power control through virtual gpio */
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart2_pins>;
 };
 
 &uart3 { /* Console and IrDA /dev/ttyO2 */
