@@ -1,27 +1,21 @@
 /*
  * w2sg0004.c
- * Virtual GPIO of controlling the w2sg0004 GPS receiver.
+ * Driver for power controlling the w2sg0004/w2sg0084 GPS receiver.
  *
  * This receiver has an ON/OFF pin which must be toggled to
  * turn the device 'on' of 'off'.  A high->low->high toggle
  * will switch the device on if it is off, and off if it is on.
+ *
+ * To enable receiving on/off requests we register with the
+ * UART power management notifications.
+ *
  * It is not possible to directly detect the state of the device.
  * However when it is on it will send characters on a UART line
  * regularly.
- * On the OMAP3, the UART line can also be programmed as a GPIO
- * on which we can receive interrupts.
- * So when we want the device to be 'off' we can reprogram
- * the line, toggle the ON/OFF pin and hope that it is off.
- * However if an interrupt arrives we know that it is really on
- * and can toggle again.
  *
- * To enable receiving on/off requests we create a gpio_chip
- * with a single 'output' GPIO.  When it is low, the
- * GPS is turned off.  When it is high, it is turned on.
- * This can be configured as the DTR GPIO on the UART which
- * connects the GPS.  Then whenever the tty is open, the GPS
- * will be switched on, and whenever it is closed, the GPS will
- * be switched off.
+ * To detect that the power state is out of sync (e.g. if GPS
+ * was enabled before a reboot), we register for UART data received
+ * notifications.
  *
  * In addition we register as a rfkill client so that we can
  * control the LNA power.
@@ -37,16 +31,154 @@
 #include <linux/delay.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
-#include <linux/gpio.h>
 #include <linux/of_gpio.h>
 #include <linux/platform_device.h>
 #include <linux/w2sg0004.h>
 #include <linux/workqueue.h>
 #include <linux/rfkill.h>
-#include <linux/pinctrl/consumer.h>
+
+// #include something to get this declaration
+
+struct uart {
+	struct device           *dev;
+	struct list_head        head;
+};
+
+extern struct uart *devm_tty_get_uart_by_phandle(struct device *dev,
+		const char *phandle, u8 index);
+
+#if 1	// move this fragment to serial driver code
+
+static LIST_HEAD(uart_list);
+static DEFINE_SPINLOCK(uart_lock);
+
+/* same concept as __of_usb_find_phy */
+static struct uart *__of_tty_find_uart(struct device_node *node)
+{
+        struct uart  *uart;
+
+        if (!of_device_is_available(node))
+                return ERR_PTR(-ENODEV);
+
+        list_for_each_entry(uart, &uart_list, head) {
+                if (node != uart->dev->of_node)
+                        continue;
+
+                return uart;
+        }
+
+        return ERR_PTR(-EPROBE_DEFER);
+}
+
+static void devm_tty_uart_release(struct device *dev, void *res)
+{
+        struct uart *uart = *(struct uart **)res;
+
+  // FIXME:      tty_put_uart(uart);
+}
+
+
+/**
+ * devm_tty_get_uart_by_phandle - find the uart by phandle
+ * @dev - device that requests this uart
+ * @phandle - name of the property holding the uart phandle value
+ * @index - the index of the uart
+ *
+ * Returns the uart driver associated with the given phandle value,
+ * after getting a refcount to it, -ENODEV if there is no such uart or
+ * -EPROBE_DEFER if there is a phandle to the uart, but the device is
+ * not yet loaded. While at that, it also associates the device with
+ * the uart using devres. On driver detach, release function is invoked
+ * on the devres data, then, devres data is freed.
+ *
+ * For use by tty host and peripheral drivers.
+ */
+
+/* same concept as devm_usb_get_phy_by_phandle */
+
+struct uart *devm_tty_get_uart_by_phandle(struct device *dev,
+		const char *phandle, u8 index)
+{
+        struct uart  *uart = ERR_PTR(-ENOMEM), **ptr;
+        unsigned long   flags;
+        struct device_node *node;
+
+        if (!dev->of_node) {
+                dev_dbg(dev, "device does not have a device node entry\n");
+                return ERR_PTR(-EINVAL);
+        }
+
+        node = of_parse_phandle(dev->of_node, phandle, index);
+        if (!node) {
+                dev_dbg(dev, "failed to get %s phandle in %s node\n", phandle,
+                        dev->of_node->full_name);
+                return ERR_PTR(-ENODEV);
+        }
+
+        ptr = devres_alloc(devm_tty_uart_release, sizeof(*ptr), GFP_KERNEL);
+        if (!ptr) {
+                dev_dbg(dev, "failed to allocate memory for devres\n");
+                goto err0;
+        }
+
+        spin_lock_irqsave(&uart_lock, flags);
+
+        uart = __of_tty_find_uart(node);
+        if (IS_ERR(uart)) {
+                devres_free(ptr);
+                goto err1;
+        }
+
+        if (!try_module_get(uart->dev->driver->owner)) {
+                uart = ERR_PTR(-ENODEV);
+                devres_free(ptr);
+                goto err1;
+        }
+
+        *ptr = uart;
+        devres_add(dev, ptr);
+
+        get_device(uart->dev);
+
+err1:
+        spin_unlock_irqrestore(&uart_lock, flags);
+
+err0:
+        of_node_put(node);
+
+        return uart;
+}
+EXPORT_SYMBOL_GPL(devm_tty_get_uart_by_phandle);
+
+void tty_register_power_notifier(void (*function)(void *d, int state), void *data)
+{
+	// call function with parameter data on power state changes
+}
+
+void tty_unregister_power_notifier(void (*function)(void *d, int state), void *data)
+{
+	// no longer call function with parameter data on power state changes
+}
+
+void tty_register_rx_notifier(void (*function)(void *d), void *data)
+{
+	// call function with parameter data each time some data (block) was received
+}
+
+void tty_unregister_rx_notifier(void (*function)(void *d), void *data)
+{
+	// no longer call function with parameter data each time some data (block) was received
+}
+
+EXPORT_SYMBOL_GPL(tty_register_power_notifier);
+EXPORT_SYMBOL_GPL(tty_unregister_power_notifier);
+EXPORT_SYMBOL_GPL(tty_register_rx_notifier);
+EXPORT_SYMBOL_GPL(tty_unregister_rx_notifier);
+
+#endif
 
 /*
- * There seems to restrictions on how quickly we can toggle the
+ * There seems to be restrictions on how quickly we can toggle the
  * on/off line.  data sheets says "two rtc ticks", whatever that means.
  * If we do it too soon it doesn't work.
  * So we have a state machine which uses the common work queue to ensure
@@ -71,21 +203,13 @@ struct gpio_w2sg {
 	int		is_on;		/* current state (0/1) */
 	unsigned long	last_toggle;
 	unsigned long	backoff;	/* time to wait since last_toggle */
-	int		on_off_gpio;
-	int		rx_irq;
-
-	struct pinctrl *p;
-	struct pinctrl_state *default_state;	/* should be UART mode */
-	struct pinctrl_state *monitor_state;	/* monitor RX as GPIO */
+	int		on_off_gpio;	/* the on-off gpio number */
+	struct uart	*uart;		/* the drvdata of the uart or tty */
 	enum w2sg_state	state;
 	int		requested;	/* requested state (0/1) */
 	int		suspended;
-	int		rx_redirected;
+	int		rx_monitored;	/* if we are registered for rx events */
 	spinlock_t	lock;
-#ifdef CONFIG_GPIOLIB
-	struct gpio_chip gpio;
-	const char	*gpio_name[1];
-#endif
 	struct delayed_work work;
 };
 
@@ -109,6 +233,61 @@ static int gpio_w2sg_set_lna_power(struct gpio_w2sg *gw2sg)
 	return ret;
 }
 
+// call this each time a data block is received by the host (i.e. sent by the w2sg0008)
+
+static void rx_notification(void *data)
+{
+	struct gpio_w2sg *gw2sg = (struct gpio_w2sg *) data;
+	unsigned long flags;
+
+	pr_debug("!"); /* we have received a RX signal while GPS should be off */
+
+	if (!gw2sg->requested && !gw2sg->is_on &&
+	    (gw2sg->state == W2SG_IDLE) &&
+	    time_after(jiffies,
+		       gw2sg->last_toggle + gw2sg->backoff)) {
+		/* Should be off by now, time to toggle again */
+		gw2sg->is_on = 1;
+		gw2sg->backoff *= 2;
+		spin_lock_irqsave(&gw2sg->lock, flags);
+		if (!gw2sg->suspended)
+			schedule_delayed_work(&gw2sg->work, 0);
+		spin_unlock_irqrestore(&gw2sg->lock, flags);
+	}
+}
+
+// call this by uart power notifications
+
+static void gpio_w2sg_set_power(void *data, int val)
+{
+	struct gpio_w2sg *gw2sg = (struct gpio_w2sg *) data;
+	unsigned long flags;
+
+	pr_debug("GPS SET to %d\n", val);
+
+	spin_lock_irqsave(&gw2sg->lock, flags);
+
+	if (val && !gw2sg->requested) {
+		if (gw2sg->rx_monitored) {
+			gw2sg->rx_monitored = 0;
+
+			if (gw2sg->uart) {
+				tty_unregister_rx_notifier(rx_notification, (void *) gw2sg);
+			}
+		}
+		gw2sg->requested = 1;
+	} else if (!val && gw2sg->requested) {
+		gw2sg->backoff = HZ;
+		gw2sg->requested = 0;
+	} else
+		goto unlock;
+
+	if (!gw2sg->suspended)
+		schedule_delayed_work(&gw2sg->work, 0);
+unlock:
+	spin_unlock_irqrestore(&gw2sg->lock, flags);
+}
+
 static void toggle_work(struct work_struct *work)
 {
 	struct gpio_w2sg *gw2sg = container_of(work, struct gpio_w2sg, work.work);
@@ -124,11 +303,14 @@ static void toggle_work(struct work_struct *work)
 	case W2SG_IDLE:
 		spin_lock_irq(&gw2sg->lock);
 		if (gw2sg->requested == gw2sg->is_on) {
-			if (!gw2sg->is_on && !gw2sg->rx_redirected) {
+			if (!gw2sg->is_on && !gw2sg->rx_monitored) {
 				/* not yet redirected in off state */
-				gw2sg->rx_redirected = 1;
-				(void) pinctrl_select_state(gw2sg->p, gw2sg->monitor_state);
-				enable_irq(gw2sg->rx_irq);
+				gw2sg->rx_monitored = 1;
+
+				if (gw2sg->uart) {
+					tty_register_rx_notifier(rx_notification, (void *) gw2sg);
+				}
+
 			}
 			spin_unlock_irq(&gw2sg->lock);
 			return;
@@ -157,78 +339,6 @@ static void toggle_work(struct work_struct *work)
 	}
 }
 
-static irqreturn_t gpio_w2sg_isr(int irq, void *dev_id)
-{
-	struct gpio_w2sg *gw2sg = dev_id;
-	unsigned long flags;
-
-	pr_debug("!"); /* we have received a RX signal while GPS should be off */
-
-	if (!gw2sg->requested && !gw2sg->is_on &&
-	    (gw2sg->state == W2SG_IDLE) &&
-	    time_after(jiffies,
-		       gw2sg->last_toggle + gw2sg->backoff)) {
-		/* Should be off by now, time to toggle again */
-		gw2sg->is_on = 1;
-		gw2sg->backoff *= 2;
-		spin_lock_irqsave(&gw2sg->lock, flags);
-		if (!gw2sg->suspended)
-			schedule_delayed_work(&gw2sg->work, 0);
-		spin_unlock_irqrestore(&gw2sg->lock, flags);
-	}
-
-	return IRQ_HANDLED;
-}
-
-static void gpio_w2sg_set_power(struct gpio_w2sg *gw2sg, int val)
-{
-	unsigned long flags;
-
-	pr_debug("GPS SET to %d\n", val);
-
-	spin_lock_irqsave(&gw2sg->lock, flags);
-
-	if (val && !gw2sg->requested) {
-		if (gw2sg->rx_redirected) {
-			gw2sg->rx_redirected = 0;
-			disable_irq(gw2sg->rx_irq);
-			(void) pinctrl_select_state(gw2sg->p, gw2sg->default_state);
-		}
-		gw2sg->requested = 1;
-	} else if (!val && gw2sg->requested) {
-		gw2sg->backoff = HZ;
-		gw2sg->requested = 0;
-	} else
-		goto unlock;
-
-	if (!gw2sg->suspended)
-		schedule_delayed_work(&gw2sg->work, 0);
-unlock:
-	spin_unlock_irqrestore(&gw2sg->lock, flags);
-}
-
-static int gpio_w2sg_get_value(struct gpio_chip *gc, unsigned offset)
-{
-	struct gpio_w2sg *gw2sg = container_of(gc, struct gpio_w2sg, gpio);
-
-	return gw2sg->is_on;
-}
-
-static void gpio_w2sg_set_value(struct gpio_chip *gc, unsigned offset, int val)
-{
-	struct gpio_w2sg *gw2sg = container_of(gc, struct gpio_w2sg, gpio);
-
-	gpio_w2sg_set_power(gw2sg, val);
-}
-
-static int gpio_w2sg_direction_output(struct gpio_chip *gc,
-					unsigned offset, int val)
-{
-	gpio_w2sg_set_value(gc, offset, val);
-
-	return 0;
-}
-
 static int gpio_w2sg_rfkill_set_block(void *data, bool blocked)
 {
 	struct gpio_w2sg *gw2sg = data;
@@ -253,6 +363,8 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 
 	pr_debug("gpio_w2sg_probe()\n");
 
+// FIXME: with uart link, the driver only works with DT - can we remove the CONFIG_OF?
+
 #ifdef CONFIG_OF
 	if (pdev->dev.of_node) {
 		struct device *dev = &pdev->dev;
@@ -264,12 +376,6 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 
 		pdata->on_off_gpio = of_get_named_gpio_flags(dev->of_node, "on-off-gpio", 0, &flags);
 
-		pdata->rx_irq = irq_of_parse_and_map(dev->of_node, 0);
-		if (!pdata->rx_irq) {
-			dev_err(dev, "no IRQ found\n");
-			return -ENODEV;
-		}
-
 		if (pdata->on_off_gpio == -EPROBE_DEFER)
 			return -EPROBE_DEFER;	/* defer until we have all gpios */
 
@@ -277,6 +383,7 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 
 		pr_debug("gpio_w2sg_probe() lna_regulator = %p\n", pdata->lna_regulator);
 
+		// CHECKME: do we have to require the lna_regulator?
 		if (IS_ERR(pdata->lna_regulator))
 			return PTR_ERR(pdata->lna_regulator);
 
@@ -301,52 +408,14 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 	gw2sg->last_toggle = jiffies;
 	gw2sg->backoff = HZ;
 
-	gw2sg->gpio_name[0] = "gpio-w2sg0004-enable";	/* label of controlling GPIO */
-
-	gw2sg->gpio.label = "w2sg0004";
-	gw2sg->gpio.names = gw2sg->gpio_name;
-	gw2sg->gpio.ngpio = 1;
-	gw2sg->gpio.base = pdata->gpio_base;
-	gw2sg->gpio.owner = THIS_MODULE;
-	gw2sg->gpio.direction_output = gpio_w2sg_direction_output;
-	gw2sg->gpio.get = gpio_w2sg_get_value;
-	gw2sg->gpio.set = gpio_w2sg_set_value;
-	gw2sg->gpio.can_sleep = 0;
-	gw2sg->rx_irq = pdata->rx_irq;
-
-#ifdef CONFIG_OF_GPIO
-	gw2sg->gpio.of_node = pdev->dev.of_node;
-#endif
-
 #ifdef CONFIG_OF
-	if (pdev->dev.of_node) {
-		gw2sg->p = devm_pinctrl_get(&pdev->dev);
-		if (IS_ERR(gw2sg->p)) {
-			err = PTR_ERR(gw2sg->p);
-			dev_err(&pdev->dev, "Cannot get pinctrl: %d\n", err);
-			goto out;
+	gw2sg->uart = devm_tty_get_uart_by_phandle(&pdev->dev, "uart", 0);
+	if (IS_ERR(gw2sg->uart)) {
+		if (PTR_ERR(gw2sg->uart) == -EPROBE_DEFER)
+			return -EPROBE_DEFER;	/* we can't probe yet */
+		else
+			gw2sg->uart = NULL;	/* no UART */
 		}
-
-		gw2sg->default_state = pinctrl_lookup_state(gw2sg->p, PINCTRL_STATE_DEFAULT);
-		if (IS_ERR(gw2sg->default_state)) {
-			err = PTR_ERR(gw2sg->default_state);
-			dev_err(&pdev->dev, "Cannot look up pinctrl state %s: %d\n",
-				PINCTRL_STATE_DEFAULT, err);
-			goto out;
-		}
-
-		gw2sg->monitor_state = pinctrl_lookup_state(gw2sg->p, "monitor");
-		if (IS_ERR(gw2sg->monitor_state)) {
-			err = PTR_ERR(gw2sg->monitor_state);
-			dev_err(&pdev->dev, "Cannot look up pinctrl state %s: %d\n", "monitor", err);
-			goto out;
-		}
-		/* choose UART state as default */
-		err = pinctrl_select_state(gw2sg->p, gw2sg->default_state);
-		if (err < 0) {
-			goto out;
-		}
-	}
 #endif
 
 	INIT_DELAYED_WORK(&gw2sg->work, toggle_work);
@@ -358,21 +427,9 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 
 	gpio_direction_output(gw2sg->on_off_gpio, false);
 
-	err = devm_request_threaded_irq(&pdev->dev, gw2sg->rx_irq, NULL, gpio_w2sg_isr,
-				   IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
-				   "w2sg0004-rx",
-				   gw2sg);
-	if (err < 0) {
-		dev_err(&pdev->dev, "Unable to claim irq %d; error %d\n",
-			gw2sg->rx_irq, err);
-		goto out;
+	if (gw2sg->uart) {
+		tty_register_power_notifier(gpio_w2sg_set_power, (void *) gw2sg);
 	}
-
-	disable_irq(gw2sg->rx_irq);
-
-	err = gpiochip_add(&gw2sg->gpio);
-	if (err)
-		goto out;
 
 	rf_kill = rfkill_alloc("GPS", &pdev->dev, RFKILL_TYPE_GPS,
 				&gpio_w2sg0004_rfkill_ops, gw2sg);
@@ -397,7 +454,6 @@ static int gpio_w2sg_probe(struct platform_device *pdev)
 
 err_rfkill:
 	rfkill_destroy(rf_kill);
-	gpiochip_remove(&gw2sg->gpio);
 out:
 	return err;
 }
@@ -405,21 +461,19 @@ out:
 static int gpio_w2sg_remove(struct platform_device *pdev)
 {
 	struct gpio_w2sg *gw2sg = platform_get_drvdata(pdev);
-	int ret;
 
 	cancel_delayed_work_sync(&gw2sg->work);
-	gpiochip_remove(&gw2sg->gpio);
+
+	if (gw2sg->uart) {
+		tty_unregister_power_notifier(gpio_w2sg_set_power, (void *) gw2sg);
+		tty_unregister_rx_notifier(rx_notification, (void *) gw2sg);
+	}
 
 	return 0;
 }
 
 static int gpio_w2sg_suspend(struct device *dev)
 {
-	/* Ignore the GPIO and just turn device off.
-	 * we cannot really wait for a separate thread to
-	 * do things, so we disable that and do it all
-	 * here
-	 */
 	struct gpio_w2sg *gw2sg = dev_get_drvdata(dev);
 
 	spin_lock_irq(&gw2sg->lock);
@@ -428,7 +482,7 @@ static int gpio_w2sg_suspend(struct device *dev)
 
 	cancel_delayed_work_sync(&gw2sg->work);
 
-	gpio_w2sg_set_lna_power(gw2sg);	/* shut down if needed */
+	gpio_w2sg_set_lna_power(gw2sg);	/* shuts down if needed */
 
 	if (gw2sg->state == W2SG_PULSE) {
 		msleep(10);
@@ -473,6 +527,7 @@ static int gpio_w2sg_resume(struct device *dev)
 #if defined(CONFIG_OF)
 static const struct of_device_id w2sg0004_of_match[] = {
 	{ .compatible = "wi2wi,w2sg0004" },
+	{ .compatible = "wi2wi,w2sg0084" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, w2sg0004_of_match);
@@ -496,5 +551,5 @@ module_platform_driver(gpio_w2sg_driver);
 MODULE_ALIAS("w2sg0004");
 
 MODULE_AUTHOR("NeilBrown <neilb@suse.de>");
-MODULE_DESCRIPTION("w2sg0004 GPS virtual GPIO driver");
+MODULE_DESCRIPTION("w2sg0004 GPS power management driver");
 MODULE_LICENSE("GPL v2");
