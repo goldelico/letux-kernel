@@ -133,6 +133,7 @@
 #define BOARD_VERSION_2_GPIO 173
 #define LIS302_IRQ1_GPIO 114
 #define LIS302_IRQ2_GPIO -EINVAL  /* Not yet in use */
+#define ITG3200_IRQ_GPIO 56
 
 /*
  * Board peripheral code name passed through a "mux="
@@ -1666,6 +1667,13 @@ static void __init gta04_init(void)
 #ifdef CONFIG_KEYBOARD_TCA8418
 		if(gta04_i2c2_boardinfo[i].addr == 0x34)
 			gta04_i2c2_boardinfo[i].irq = gpio_to_irq(KEYIRQ_GPIO);
+#endif
+#if defined(CONFIG_ITG3200) || defined(CONFIG_ITG3200_MODULE)
+		if(gta04_i2c2_boardinfo[i].addr == 0x68)
+			gta04_i2c2_boardinfo[i].irq = gpio_to_irq(ITG3200_IRQ_GPIO);
+#endif
+#if defined(CONFIG_SENSORS_HMC5843) || defined(CONFIG_SENSORS_HMC5843_MODULE)
+		//TODO
 #endif
 	}
 	
