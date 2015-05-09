@@ -525,9 +525,21 @@
 		>;
 	};
 
+	itg3200_pins: pinmux_itg3200_pins {
+		pinctrl-single,pins = <
+			OMAP3_CORE1_IOPAD(0x20b8, PIN_INPUT_PULLUP | MUX_MODE4) /* gpio56 */
+		>;
+	};
+
 	backlight_pins: backlight_pins_pimnux {
 		pinctrl-single,pins = <
 			OMAP3_CORE1_IOPAD(0x20ba, MUX_MODE4)		/* gpt11/gpio57 */
+		>;
+	};
+
+	hmc5843_pins: pinmux_hmc5843_pins {
+		pinctrl-single,pins = <
+			OMAP3_CORE1_IOPAD(0x2134, PIN_INPUT_PULLUP | MUX_MODE4) /* gpio112 */
 		>;
 	};
 
@@ -758,6 +770,10 @@
 		compatible = "honeywell,hmc5883l";
 		reg = <0x1e>;
 		vdd-supply = <&vaux2>;	/* driver should devm_regulator_get_optional("vdd") */
+		interrupt-parent = <&gpio4>;
+		interrupts = <16 IRQ_TYPE_EDGE_FALLING>;	/* gpio112 */
+		pinctrl-names = "default";
+		pinctrl-0 = <&hmc5843_pins>;
 	};
 
 	/* gyroscope */
@@ -765,6 +781,10 @@
 		compatible = "invensense,itg3200";
 		reg = <0x68>;
 		vdd-supply = <&vaux2>;	/* driver should devm_regulator_get_optional("vdd") */
+		interrupt-parent = <&gpio2>;
+		interrupts = <24 IRQ_TYPE_EDGE_FALLING>;	/* gpio56 */
+		pinctrl-names = "default";
+		pinctrl-0 = <&itg3200_pins>;
 	};
 
 	/* RFID EEPROM */
