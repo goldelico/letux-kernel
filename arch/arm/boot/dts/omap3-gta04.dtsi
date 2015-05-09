@@ -538,6 +538,12 @@
 		>;
 	};
 
+	hmc5843_pins: pinmux_hmc5843_pins {
+		pinctrl-single,pins = <
+			OMAP3_CORE1_IOPAD(0x2134, PIN_INPUT_PULLUP | MUX_MODE4) /* gpio112 */
+		>;
+	};
+
 	bmp085_pins: pinmux_bmp085_pins {
 		pinctrl-single,pins = <
 			OMAP3_CORE1_IOPAD(0x2136, PIN_INPUT_PULLUP | MUX_MODE4) /* gpio113 */
@@ -765,6 +771,10 @@
 		compatible = "honeywell,hmc5883l";
 		reg = <0x1e>;
 		vdd-supply = <&vaux2>;	/* driver should devm_regulator_get_optional("vdd") */
+		interrupt-parent = <&gpio4>;
+		interrupts = <16 IRQ_TYPE_EDGE_FALLING>;	/* gpio112 */
+		pinctrl-names = "default";
+		pinctrl-0 = <&hmc5843_pins>;
 	};
 
 	/* gyroscope */
