@@ -1141,7 +1141,8 @@ __ov9655_get_pad_format(struct ov9655 *ov9655, struct v4l2_subdev_fh *fh,
 	printk("__ov9655_get_pad_format pad=%u which=%u %s\n", pad, which, which==V4L2_SUBDEV_FORMAT_TRY?"V4L2_SUBDEV_FORMAT_TRY":"V4L2_SUBDEV_FORMAT_ACTIVE");
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		return v4l2_subdev_get_try_format(fh, pad);
+		// FIXME:
+		return v4l2_subdev_get_try_format(fh, NULL, pad);
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
 		return &ov9655->format;
 	default:
@@ -1156,7 +1157,8 @@ __ov9655_get_pad_crop(struct ov9655 *ov9655, struct v4l2_subdev_fh *fh,
 	printk("__ov9655_get_pad_crop pad=%u which=%u %s\n", pad, which, which==V4L2_SUBDEV_FORMAT_TRY?"V4L2_SUBDEV_FORMAT_TRY":"V4L2_SUBDEV_FORMAT_ACTIVE");
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		return v4l2_subdev_get_try_crop(fh, pad);
+		// FIXME:
+		return v4l2_subdev_get_try_crop(fh, NULL, pad);
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
 		return &ov9655->crop;
 	default:
@@ -1613,13 +1615,15 @@ static int ov9655_open(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh)
 
 	printk("ov9655_open\n");
 	
-	crop = v4l2_subdev_get_try_crop(fh, 0);
+	// v4l2_subdev_get_try_crop
+	crop = v4l2_subdev_get_try_crop(fh, NULL, 0);
 	crop->left = OV9655_COLUMN_START_DEF;
 	crop->top = OV9655_ROW_START_DEF;
 	crop->width = OV9655_WINDOW_WIDTH_DEF;
 	crop->height = OV9655_WINDOW_HEIGHT_DEF;
 
-	format = v4l2_subdev_get_try_format(fh, 0);
+	// FIXME
+	format = v4l2_subdev_get_try_format(fh, NULL, 0);
 
 	format->code = OV9655_FORMAT;
 
