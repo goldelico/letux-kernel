@@ -107,8 +107,10 @@ static const struct omap_dss_hwmod_data omap4_dss_hwmod_data[] __initconst = {
 };
 
 #define OMAP4_DSIPHY_SYSCON_OFFSET		0x78
+#define OMAP5_DSIPHY_SYSCON_OFFSET		0x74
 
 static struct regmap *omap4_dsi_mux_syscon;
+static struct regmap *omap5_dsi_mux_syscon;
 
 static int omap4_dsi_mux_pads(int dsi_id, unsigned lanes)
 {
@@ -143,8 +145,6 @@ static int omap4_dsi_mux_pads(int dsi_id, unsigned lanes)
 	return 0;
 }
 
-#define OMAP5_CONTROL_DSIPHY		0x614
-
 static int omap5_dsi_mux_pads(int dsi_id, unsigned lanes)
 {
 	u32 enable_mask, enable_shift, reg;
@@ -158,10 +158,10 @@ static int omap5_dsi_mux_pads(int dsi_id, unsigned lanes)
 
 	enable_mask = 0x1f << enable_shift;
 
-	reg = omap4_ctrl_pad_readl(OMAP5_CONTROL_DSIPHY);
+	regmap_read(omap5_dsi_mux_syscon, OMAP5_DSIPHY_SYSCON_OFFSET, &reg);
 	reg &= ~enable_mask;
 	reg |= (lanes << enable_shift) & enable_mask;
-	omap4_ctrl_pad_writel(reg, OMAP5_CONTROL_DSIPHY);
+	regmap_write(omap5_dsi_mux_syscon, OMAP5_DSIPHY_SYSCON_OFFSET, reg);
 
 	return 0;
 }
@@ -701,6 +701,11 @@ int __init omapdss_init_of(void)
 	node = of_find_node_by_name(NULL, "omap4_padconf_global");
 	if (node)
 		omap4_dsi_mux_syscon = syscon_node_to_regmap(node);
+
+	/* add DSI info for omap5 */
+	node = of_find_node_by_name(NULL, "omap5_padconf_global");
+	if (node)
+		omap5_dsi_mux_syscon = syscon_node_to_regmap(node);
 
 	return 0;
 }
