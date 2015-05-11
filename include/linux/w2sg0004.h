@@ -25,12 +25,9 @@
 
 #include <linux/regulator/consumer.h>
 
-struct gpio_w2sg_data {
+struct w2sg_pdata {
 	int	gpio_base;		/* (not used by DT) - defines the gpio.base */
 	struct regulator *lna_regulator;	/* enable LNA power */
 	int	on_off_gpio;	/* connected to the on-off input of the GPS module */
-	int	rx_irq;		/* the rx irq - we track to check for module activity */
-	unsigned short	on_state;  /* Mux state when GPS is on */
-	unsigned short	off_state; /* Mux state when GPS is off */
 };
 #endif /* __LINUX_W2SG0004_H */
