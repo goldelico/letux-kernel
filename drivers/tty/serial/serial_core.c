@@ -38,6 +38,35 @@
 #include <asm/irq.h>
 #include <asm/uaccess.h>
 
+static LIST_HEAD(uart_list);
+static DEFINE_SPINLOCK(uart_lock);
+
+/* same concept as __of_usb_find_phy */
+static struct uart_port *__of_serial_find_uart(struct device_node *node)
+{
+        struct uart_port  *uart;
+
+        if (!of_device_is_available(node))
+                return ERR_PTR(-ENODEV);
+
+        list_for_each_entry(uart, &uart_list, head) {
+                if (node != uart->dev->of_node)
+                        continue;
+
+                return uart;
+        }
+printk("__of_serial_find_uart(): not found");
+        return ERR_PTR(-EPROBE_DEFER);
+}
+
+static void devm_serial_uart_release(struct device *dev, void *res)
+{
+        struct uart_port *uart = *(struct uart_port **)res;
+
+  // FIXME:      serial_put_uart(uart);
+}
+
+
 /*
  * This is used to lock changes in serial line configuration.
  */
@@ -63,6 +92,129 @@ static int uart_dcd_enabled(struct uart_port *uport)
 {
 	return !!(uport->status & UPSTAT_DCD_ENABLE);
 }
+
+/**
+ * devm_serial_get_uart_by_phandle - find the uart by phandle
+ * @dev - device that requests this uart
+ * @phandle - name of the property holding the uart phandle value
+ * @index - the index of the uart
+ *
+ * Returns the uart driver associated with the given phandle value,
+ * after getting a refcount to it, -ENODEV if there is no such uart or
+ * -EPROBE_DEFER if there is a phandle to the uart, but the device is
+ * not yet loaded. While at that, it also associates the device with
+ * the uart using devres. On driver detach, release function is invoked
+ * on the devres data, then, devres data is freed.
+ *
+ * For use by tty host and peripheral drivers.
+ */
+
+/* same concept as devm_usb_get_phy_by_phandle() */
+
+struct uart_port *devm_serial_get_uart_by_phandle(struct device *dev,
+		const char *phandle, u8 index)
+{
+        struct uart_port  *uart = ERR_PTR(-ENOMEM), **ptr;
+        unsigned long   flags;
+        struct device_node *node;
+
+printk("devm_serial_get_uart_by_phandle(...,%s,%d)\n", phandle, index);
+
+        if (!dev->of_node) {
+                dev_dbg(dev, "device does not have a device node entry\n");
+                return ERR_PTR(-EINVAL);
+        }
+
+        node = of_parse_phandle(dev->of_node, phandle, index);
+        if (!node) {
+                dev_dbg(dev, "failed to get %s phandle in %s node\n", phandle,
+                        dev->of_node->full_name);
+                return ERR_PTR(-ENODEV);
+        }
+
+        ptr = devres_alloc(devm_serial_uart_release, sizeof(*ptr), GFP_KERNEL);
+        if (!ptr) {
+                dev_dbg(dev, "failed to allocate memory for devres\n");
+                goto err0;
+        }
+
+        spin_lock_irqsave(&uart_lock, flags);
+
+        uart = __of_serial_find_uart(node);
+        if (IS_ERR(uart)) {
+                devres_free(ptr);
+                goto err1;
+        }
+
+        if (!try_module_get(uart->dev->driver->owner)) {
+                uart = ERR_PTR(-ENODEV);
+                devres_free(ptr);
+                goto err1;
+        }
+
+        *ptr = uart;
+        devres_add(dev, ptr);
+
+        get_device(uart->dev);
+
+err1:
+        spin_unlock_irqrestore(&uart_lock, flags);
+
+err0:
+        of_node_put(node);
+
+        return uart;
+}
+EXPORT_SYMBOL_GPL(devm_serial_get_uart_by_phandle);
+
+// FIXME: this needs to be elaborated to handle more than one slave device
+
+static struct uart_port *power_notifier_port;
+static void (*power_notifier_function)(void *d, int state);
+static void *power_notifier_data;
+
+void uart_register_power_notifier(struct uart_port *uart, void (*function)(void *d, int state), void *data)
+{
+#if 1
+	printk("uart_register_power_notifier()\n");
+	power_notifier_port = uart;
+	power_notifier_function = function;
+	power_notifier_data = data;
+#else
+	struct notifier_block br_device_notifier = {
+		.notifier_call = function
+	};
+	err = raw_notifier_chain_register(&br_device_notifier);
+#endif
+}
+
+void uart_unregister_power_notifier(struct uart_port *uart, void (*function)(void *d, int state), void *data)
+{
+	printk("uart_unregister_power_notifier()\n");
+	power_notifier_port = NULL;
+	power_notifier_function = NULL;
+	power_notifier_data = NULL;
+	// no longer call function with parameter data on power state changes
+}
+
+void uart_register_rx_notifier(struct uart_port *uart, void (*function)(void *d), void *data)
+{
+	// call function with parameter data each time some data (block) was received
+	printk("uart_register_rx_notifier()\n");
+}
+
+void uart_unregister_rx_notifier(struct uart_port *uart, void (*function)(void *d), void *data)
+{
+	// no longer call function with parameter data each time some data (block) was received
+	printk("uart_unregister_rx_notifier()\n");
+}
+
+// FIXME: power_notifier should be mctrl_notifier
+
+EXPORT_SYMBOL_GPL(uart_register_power_notifier);
+EXPORT_SYMBOL_GPL(uart_unregister_power_notifier);
+EXPORT_SYMBOL_GPL(uart_register_rx_notifier);
+EXPORT_SYMBOL_GPL(uart_unregister_rx_notifier);
 
 /*
  * This routine is used by the interrupt handler to schedule processing in
@@ -121,6 +273,20 @@ uart_update_mctrl(struct uart_port *port, unsigned int set, unsigned int clear)
 	port->mctrl = (old & ~clear) | set;
 	if (old != port->mctrl)
 		port->ops->set_mctrl(port, port->mctrl);
+
+	if(power_notifier_port == port) {
+#if 0
+// maybe we can not printk() here!
+printk("send update_mctrl notification\n");
+#endif
+
+#if 1	// simple hack
+		if (power_notifier_function && power_notifier_data)
+			(*power_notifier_function)(power_notifier_data, port->mctrl);
+#else
+		raw_notifier_call_chain(&port->uart_slave_chain, port->mctrl, port);
+#endif
+		}
 	spin_unlock_irqrestore(&port->lock, flags);
 }
 
@@ -2729,6 +2895,11 @@ int uart_add_one_port(struct uart_driver *drv, struct uart_port *uport)
 	 */
 	uport->flags &= ~UPF_DEAD;
 
+#if 1 // FIXME
+	printk("add to UART list\n");
+	list_add_tail(&uport->head, &uart_list);
+#endif
+
  out:
 	mutex_unlock(&port->mutex);
 	mutex_unlock(&port_mutex);
@@ -2760,6 +2931,10 @@ int uart_remove_one_port(struct uart_driver *drv, struct uart_port *uport)
 
 	mutex_lock(&port_mutex);
 
+#if 1 // FIXME
+	printk("remove from UART list\n");
+	list_del(&uport->head);
+#endif
 	/*
 	 * Mark the port "dead" - this prevents any opens from
 	 * succeeding while we shut down the port.
