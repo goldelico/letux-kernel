@@ -86,6 +86,7 @@ struct davinci_mcasp {
 	u8	bclk_div;
 	u16	bclk_lrclk_ratio;
 	int	streams;
+	u32	revision;
 
 	int	sysclk_freq;
 	bool	bclk_master;
@@ -1759,6 +1760,13 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 	dev_set_drvdata(&pdev->dev, mcasp);
 
 	mcasp_reparent_fck(pdev);
+
+	if (mcasp->version == MCASP_VERSION_4) {
+		pm_runtime_get_sync(mcasp->dev);
+		mcasp->revision = mcasp_get_reg(mcasp, DAVINCI_MCASP_PID_REG) &
+					MCASP_V4_REVISION_MASK;
+		pm_runtime_put(mcasp->dev);
+	}
 
 	ret = devm_snd_soc_register_component(&pdev->dev,
 					&davinci_mcasp_component,
