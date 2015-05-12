@@ -247,7 +247,11 @@ struct uart_port {
 	const struct attribute_group **tty_groups;	/* all attributes (serial core use only) */
 	struct serial_rs485     rs485;
 	void			*private_data;		/* generic platform data pointer */
+	/* UART slave support */
 	struct list_head	head;			/* list of uarts e.g. to look up by phandle */
+	void			*slave;			/* optional slave (there can be only one) */
+	int			(*mctrl_notification)(void *slave, int state);
+	int			(*rx_notification)(void *slave, int c);
 };
 
 static inline int serial_port_in(struct uart_port *up, int offset)
@@ -486,9 +490,8 @@ static inline int uart_handle_break(struct uart_port *port)
 extern struct uart_port *devm_serial_get_uart_by_phandle(struct device *dev,
 		const char *phandle, u8 index);
 /* register to receive notifications */
-extern void uart_register_power_notifier(struct uart_port *uart, void (*function)(void *d, int mctrl), void *data);
-extern void uart_unregister_power_notifier(struct uart_port *uart, void (*function)(void *d, int mctrl), void *data);
-extern void uart_register_rx_notifier(struct uart_port *uart, void (*function)(void *d), void *data);
-extern void uart_unregister_rx_notifier(struct uart_port *uart, void (*function)(void *d), void *data);
+extern void uart_register_slave(struct uart_port *uart, void *slave);
+extern void uart_register_mctrl_notification(struct uart_port *uart, int (*function)(void *slave, int state));
+extern void uart_register_rx_notification(struct uart_port *uart, int (*function)(void *slave, int c));
 
 #endif /* LINUX_SERIAL_CORE_H */
