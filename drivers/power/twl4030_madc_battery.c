@@ -310,14 +310,6 @@ static int twl4030_madc_battery_probe(struct platform_device *pdev)
 	if (!pdata)
 		pdata = twl4030_madc_dt_probe(pdev);
 
-	twl4030_madc_bat->psy.name = "twl4030_battery";
-	twl4030_madc_bat->psy.type = POWER_SUPPLY_TYPE_BATTERY;
-	twl4030_madc_bat->psy.properties = twl4030_madc_bat_props;
-	twl4030_madc_bat->psy.num_properties =
-					ARRAY_SIZE(twl4030_madc_bat_props);
-	twl4030_madc_bat->psy.get_property = twl4030_madc_bat_get_property;
-	twl4030_madc_bat->psy.external_power_changed =
-					twl4030_madc_bat_ext_changed;
 	twl4030_madc_bat->channel_temp = iio_channel_get(&pdev->dev, "temp");
 	if (IS_ERR(twl4030_madc_bat->channel_temp)) {
 		ret = PTR_ERR(twl4030_madc_bat->channel_temp);
