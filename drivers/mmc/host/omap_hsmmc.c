@@ -2681,6 +2681,8 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 		mmc->caps |= MMC_CAP_UHS_SDR104;
 	if (of_property_read_bool(np, "sd-uhs-ddr50"))
 		mmc->caps |= MMC_CAP_UHS_DDR50;
+	if (of_property_read_bool(np, "mmc-ddr-1_8v"))
+		mmc->caps |= MMC_CAP_1_8V_DDR;
 	if (of_property_read_bool(np, "mmc-hs200-1_8v"))
 		mmc->caps2 |= MMC_CAP2_HS200_1_8V_SDR;
 
