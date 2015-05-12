@@ -565,6 +565,7 @@ i2c_p3_exp: &i2c2 {
 	pinctrl-names = "default", "hs";
 	pinctrl-0 = <&mmc2_pins_default>;
 	pinctrl-1 = <&mmc2_pins_hs>;
+	mmc-ddr-1_8v;
 };
 
 &mmc4 {
