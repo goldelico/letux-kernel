@@ -167,54 +167,27 @@ err0:
 }
 EXPORT_SYMBOL_GPL(devm_serial_get_uart_by_phandle);
 
-// FIXME: this needs to be elaborated to handle more than one slave device
-
-static struct uart_port *power_notifier_port;
-static void (*power_notifier_function)(void *d, int state);
-static void *power_notifier_data;
-
-void uart_register_power_notifier(struct uart_port *uart, void (*function)(void *d, int state), void *data)
+void uart_register_slave(struct uart_port *uart, void *slave)
 {
-#if 1
-	printk("uart_register_power_notifier()\n");
-	power_notifier_port = uart;
-	power_notifier_function = function;
-	power_notifier_data = data;
-#else
-	struct notifier_block br_device_notifier = {
-		.notifier_call = function
-	};
-	err = raw_notifier_chain_register(&br_device_notifier);
-#endif
+	printk("uart_register_slave(%p)\n", uart, slave);
+	uart->slave = slave;
 }
 
-void uart_unregister_power_notifier(struct uart_port *uart, void (*function)(void *d, int state), void *data)
+void uart_register_mctrl_notification(struct uart_port *uart, int (*function)(void *slave, int state))
 {
-	printk("uart_unregister_power_notifier()\n");
-	power_notifier_port = NULL;
-	power_notifier_function = NULL;
-	power_notifier_data = NULL;
-	// no longer call function with parameter data on power state changes
+	printk("uart_register_mctrl_notification(%p, %p)\n", uart, function);
+	uart->mctrl_notification = function;
 }
 
-void uart_register_rx_notifier(struct uart_port *uart, void (*function)(void *d), void *data)
+void uart_register_rx_notification(struct uart_port *uart, int (*function)(void *slave, int c))
 {
-	// call function with parameter data each time some data (block) was received
-	printk("uart_register_rx_notifier()\n");
+	printk("uart_register_rx_notification(%p, %p)\n", uart, function);
+	uart->rx_notification = function;
 }
 
-void uart_unregister_rx_notifier(struct uart_port *uart, void (*function)(void *d), void *data)
-{
-	// no longer call function with parameter data each time some data (block) was received
-	printk("uart_unregister_rx_notifier()\n");
-}
-
-// FIXME: power_notifier should be mctrl_notifier
-
-EXPORT_SYMBOL_GPL(uart_register_power_notifier);
-EXPORT_SYMBOL_GPL(uart_unregister_power_notifier);
-EXPORT_SYMBOL_GPL(uart_register_rx_notifier);
-EXPORT_SYMBOL_GPL(uart_unregister_rx_notifier);
+EXPORT_SYMBOL_GPL(uart_register_slave);
+EXPORT_SYMBOL_GPL(uart_register_mctrl_notification);
+EXPORT_SYMBOL_GPL(uart_register_rx_notification);
 
 /*
  * This routine is used by the interrupt handler to schedule processing in
@@ -274,19 +247,9 @@ uart_update_mctrl(struct uart_port *port, unsigned int set, unsigned int clear)
 	if (old != port->mctrl)
 		port->ops->set_mctrl(port, port->mctrl);
 
-	if(power_notifier_port == port) {
-#if 0
-// maybe we can not printk() here!
-printk("send update_mctrl notification\n");
-#endif
+	if(port->slave && port->mctrl_notification)
+		(*port->mctrl_notification)(port->slave, port->mctrl);
 
-#if 1	// simple hack
-		if (power_notifier_function && power_notifier_data)
-			(*power_notifier_function)(power_notifier_data, port->mctrl);
-#else
-		raw_notifier_call_chain(&port->uart_slave_chain, port->mctrl, port);
-#endif
-		}
 	spin_unlock_irqrestore(&port->lock, flags);
 }
 
@@ -2895,10 +2858,8 @@ int uart_add_one_port(struct uart_driver *drv, struct uart_port *uport)
 	 */
 	uport->flags &= ~UPF_DEAD;
 
-#if 1 // FIXME
 	printk("add to UART list\n");
 	list_add_tail(&uport->head, &uart_list);
-#endif
 
  out:
 	mutex_unlock(&port->mutex);
@@ -2931,10 +2892,9 @@ int uart_remove_one_port(struct uart_driver *drv, struct uart_port *uport)
 
 	mutex_lock(&port_mutex);
 
-#if 1 // FIXME
 	printk("remove from UART list\n");
 	list_del(&uport->head);
-#endif
+
 	/*
 	 * Mark the port "dead" - this prevents any opens from
 	 * succeeding while we shut down the port.
@@ -3091,6 +3051,9 @@ void uart_insert_char(struct uart_port *port, unsigned int status,
 		 unsigned int overrun, unsigned int ch, unsigned int flag)
 {
 	struct tty_port *tport = &port->state->port;
+
+	if(port->slave && port->rx_notification)
+		(*port->rx_notification)(port->slave, ch);
 
 	if ((status & port->ignore_status_mask & ~overrun) == 0)
 		if (tty_insert_flip_char(tport, ch, flag) == 0)
