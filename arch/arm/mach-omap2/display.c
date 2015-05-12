@@ -143,22 +143,7 @@ static int omap4_dsi_mux_pads(int dsi_id, unsigned lanes)
 	return 0;
 }
 
-/*
- * by commit 23d34981c7e36fb609d3eaacf0a52a05d75ae008
- *
- * #define OMAP4_CTRL_MODULE_PAD_CORE_CONTROL_DSIPHY       0x0618
- * did become
- * #define OMAP4_DSIPHY_SYSCON_OFFSET		0x78
- *
- * therefore I guess that
- * #define OMAP5_CONTROL_DSIPHY           0x614
- * becomes
- * #define OMAP5_DSIPHY_SYSCON_OFFSET	0x74
- *
- * but I don't know for sure
- */
-
-#define OMAP5_DSIPHY_SYSCON_OFFSET	0x74
+#define OMAP5_CONTROL_DSIPHY		0x614
 
 static int omap5_dsi_mux_pads(int dsi_id, unsigned lanes)
 {
@@ -173,10 +158,10 @@ static int omap5_dsi_mux_pads(int dsi_id, unsigned lanes)
 
 	enable_mask = 0x1f << enable_shift;
 
-	regmap_read(omap4_dsi_mux_syscon, OMAP5_DSIPHY_SYSCON_OFFSET, &reg);
+	reg = omap4_ctrl_pad_readl(OMAP5_CONTROL_DSIPHY);
 	reg &= ~enable_mask;
 	reg |= (lanes << enable_shift) & enable_mask;
-	regmap_write(omap4_dsi_mux_syscon, OMAP5_DSIPHY_SYSCON_OFFSET, reg);
+	omap4_ctrl_pad_writel(reg, OMAP5_CONTROL_DSIPHY);
 
 	return 0;
 }
