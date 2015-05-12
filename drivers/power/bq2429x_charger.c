@@ -664,9 +664,11 @@ bq24296_otg_store(struct device *dev, struct device_attribute *attr,
 	else
 		status = bq24296_update_reg(bq24296_di->client,POWER_ON_CONFIGURATION_REGISTER,((1 << 5)|OTG_MODE_CURRENT_CONFIG_1300MA),((0x01 << 5)|0x01));	// enable 1.5A
 #if 1
+	{
 	u8 retval = 0xff;
 	bq24296_read(bq24296_di->client, POWER_ON_CONFIGURATION_REGISTER, &retval, 1);
 	printk("bq24296_otg_store: POWER_ON_CONFIGURATION_REGISTER = %02x\n", retval);
+	}
 #endif
 	return (status < 0) ? status : n;
 }
@@ -810,12 +812,30 @@ static enum power_supply_property bq24296_charger_props[] = {
 	POWER_SUPPLY_PROP_PRESENT,
 };
 
+static const struct power_supply_desc bq24296_madc_bat_desc[] = {
+	{
+	.name			= "bq24296",
+	.type			= POWER_SUPPLY_TYPE_USB,
+	.properties		= bq24296_charger_props,
+	.num_properties		= ARRAY_SIZE(bq24296_charger_props),
+	.get_property		= bq24296_get_property,
+	},
+	{
+	.name			= "bq24297",
+	.type			= POWER_SUPPLY_TYPE_USB,
+	.properties		= bq24296_charger_props,
+	.num_properties		= ARRAY_SIZE(bq24296_charger_props),
+	.get_property		= bq24296_get_property,
+	},
+};
+
 static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_device_id *id)
 {
 	struct bq24296_device_info *di;
 	u8 retval = 0;
 	struct bq24296_board *pdev;
 	struct device_node *bq24296_node;
+	struct power_supply_config psy_cfg = {};
 	int ret = -EINVAL;
 
 	DBG("%s,line=%d\n", __func__,__LINE__);
@@ -847,12 +867,6 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 	}
 	bq24296_pdata = pdev;
 
-	di->usb.name = id->driver_data == 1 ?"bq24297":"bq24296";
-	di->usb.type = POWER_SUPPLY_TYPE_USB;
-	di->usb.properties = bq24296_charger_props;
-	di->usb.num_properties = ARRAY_SIZE(bq24296_charger_props);
-	di->usb.get_property = bq24296_get_property;
-
 	DBG("%s,line=%d chg_current =%d usb_input_current = %d adp_input_current =%d \n", __func__,__LINE__,
 		pdev->chg_current[0],pdev->chg_current[1],pdev->chg_current[2]);
 
@@ -882,9 +896,13 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 		ret = -EINVAL;
 		goto fail_probe;
 	}
-		
-	ret = power_supply_register(&client->dev, &di->usb);
-	if (ret) {
+
+	psy_cfg.drv_data = bq24296_di;
+	bq24296_di->usb = power_supply_register(&client->dev,
+						&bq24296_madc_bat_desc[id->driver_data],
+						&psy_cfg);
+	if (IS_ERR(bq24296_di->usb)) {
+		ret = PTR_ERR(bq24296_di->usb);
 		dev_err(&client->dev, "failed to register as USB power_supply: %d\n", ret);
 		goto fail_probe;
 	}
@@ -926,7 +944,7 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 err_chgirq_failed:
 	free_irq(gpio_to_irq(pdev->chg_irq_pin), NULL);
 batt_failed_2:
-	power_supply_unregister(&di->usb);
+	power_supply_unregister(di->usb);
 fail_probe:
 	return ret;
 }
