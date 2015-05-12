@@ -38,6 +38,9 @@
 #include <linux/rfkill.h>
 #include <linux/serial_core.h>
 
+#undef pr_debug
+#define pr_debug printk
+
 /*
  * There seems to be restrictions on how quickly we can toggle the
  * on/off line.  data sheets says "two rtc ticks", whatever that means.
@@ -53,7 +56,7 @@
 enum w2sg_state {
 	W2SG_IDLE,	/* is not changing state */
 	W2SG_PULSE,	/* activate on/off impulse */
-	W2SG_NOPULSE	/* desctivate on/off impulse */
+	W2SG_NOPULSE	/* deactivate on/off impulse */
 };
 
 struct w2sg_data {
@@ -94,29 +97,6 @@ static int w2sg_data_set_lna_power(struct w2sg_data *data)
 	return ret;
 }
 
-// call this each time a data block is received by the host (i.e. sent by the w2sg0008)
-
-static void rx_notification(void *pdata)
-{
-	struct w2sg_data *data = (struct w2sg_data *) pdata;
-	unsigned long flags;
-
-	pr_debug("!"); /* we have received a RX signal while GPS should be off */
-
-	if (!data->requested && !data->is_on &&
-	    (data->state == W2SG_IDLE) &&
-	    time_after(jiffies,
-		       data->last_toggle + data->backoff)) {
-		/* Should be off by now, time to toggle again */
-		data->is_on = 1;
-		data->backoff *= 2;
-		spin_lock_irqsave(&data->lock, flags);
-		if (!data->suspended)
-			schedule_delayed_work(&data->work, 0);
-		spin_unlock_irqrestore(&data->lock, flags);
-	}
-}
-
 static void w2sg_data_set_power(void *pdata, int val)
 {
 	struct w2sg_data *data = (struct w2sg_data *) pdata;
@@ -128,10 +108,10 @@ static void w2sg_data_set_power(void *pdata, int val)
 
 	if (val && !data->requested) {
 		if (data->rx_monitored) {
-			data->rx_monitored = 0;
+			data->rx_monitored = false;
 
 			if (data->uart) {
-				uart_unregister_rx_notifier(data->uart, rx_notification, (void *) data);
+				uart_register_rx_notification(data->uart, NULL);
 			}
 		}
 		data->requested = 1;
@@ -147,11 +127,38 @@ unlock:
 	spin_unlock_irqrestore(&data->lock, flags);
 }
 
-// call this by uart modem control line notifications
-static void w2sg_mctrl(void *pdata, int val)
+/* called each time data is received by the host (i.e. sent by the w2sg0008) */
+
+static int rx_notification(void *pdata, int c)
 {
+	struct w2sg_data *data = (struct w2sg_data *) pdata;
+	unsigned long flags;
+printk("!\n");
+	pr_debug("!"); /* we have received a RX signal while GPS should be off */
+
+	if (!data->requested && !data->is_on &&
+	    (data->state == W2SG_IDLE) &&
+	    time_after(jiffies,
+		       data->last_toggle + data->backoff)) {
+		/* Should be off by now, time to toggle again */
+		data->is_on = 1;
+		data->backoff *= 2;
+		spin_lock_irqsave(&data->lock, flags);
+		if (!data->suspended)
+			schedule_delayed_work(&data->work, 0);
+		spin_unlock_irqrestore(&data->lock, flags);
+	}
+	return 0;
+}
+
+/* call by uart modem control line changes (DTR) */
+
+static int w2sg_mctrl(void *pdata, int val)
+{
+printk("w2sg_mctrl(...,%x)\n", val);
 	val = (val & TIOCM_DTR) != 0;	/* DTR controls power on/off */
-	w2sg_data_set_power(pdata, val);
+	w2sg_data_set_power((struct w2sg_data *) pdata, val);
+	return 0;
 }
 
 static void toggle_work(struct work_struct *work)
@@ -161,23 +168,9 @@ static void toggle_work(struct work_struct *work)
 	w2sg_data_set_lna_power(data);	/* update LNA power state */
 
 	switch (data->state) {
-	case W2SG_NOPULSE:
-		data->state = W2SG_IDLE;
-		pr_debug("GPS idle\n");
-		break;
-
 	case W2SG_IDLE:
 		spin_lock_irq(&data->lock);
 		if (data->requested == data->is_on) {
-			if (!data->is_on && !data->rx_monitored) {
-				/* not yet redirected in off state */
-				data->rx_monitored = 1;
-
-				if (data->uart) {
-					uart_register_rx_notifier(data->uart, rx_notification, (void *) data);
-				}
-
-			}
 			spin_unlock_irq(&data->lock);
 			return;
 		}
@@ -195,13 +188,29 @@ static void toggle_work(struct work_struct *work)
 		gpio_set_value_cansleep(data->on_off_gpio, 1);
 		data->last_toggle = jiffies;
 		data->state = W2SG_NOPULSE;
+		data->is_on = !data->is_on;
 
 		pr_debug("GPS nopulse\n");
 
-		data->is_on = !data->is_on;
 		schedule_delayed_work(&data->work,
 				      msecs_to_jiffies(10));
 		break;
+
+	case W2SG_NOPULSE:
+		data->state = W2SG_IDLE;
+		if (!data->is_on && !data->rx_monitored) {
+			/* not yet monitoring */
+			data->rx_monitored = true;
+
+			if (data->uart) {
+				uart_register_rx_notification(data->uart, rx_notification);
+			}
+
+		}
+		pr_debug("GPS idle\n");
+
+		break;
+
 	}
 }
 
@@ -268,7 +277,7 @@ static int w2sg_data_probe(struct platform_device *pdev)
 
 	data->on_off_gpio = pdata->on_off_gpio;
 
-	data->is_on = false;
+	data->is_on = true;	/* assume that it runs after power on */
 	data->requested = true;
 	data->state = W2SG_IDLE;
 	data->last_toggle = jiffies;
@@ -294,7 +303,10 @@ static int w2sg_data_probe(struct platform_device *pdev)
 	gpio_direction_output(data->on_off_gpio, false);
 
 	if (data->uart) {
-		uart_register_power_notifier(data->uart, w2sg_mctrl, (void *) data);
+		uart_register_slave(data->uart, data);
+		uart_register_mctrl_notification(data->uart, w2sg_mctrl);
+//		uart_register_rx_notification(data->uart, rx_notification);
+//		data->rx_monitored = true;
 	}
 
 	rf_kill = rfkill_alloc("GPS", &pdev->dev, RFKILL_TYPE_GPS,
@@ -316,6 +328,16 @@ static int w2sg_data_probe(struct platform_device *pdev)
 
 	pr_debug("w2sg0004 probed\n");
 
+	/* if we have no mctrl, turn on.
+	 * otherwise turn off (by sending a pulse).
+	 * if the module was already off (contrary to the initial assumption,
+	 * it will be turned on by the pulse, but the rx_notification will detect
+	 */
+	if (!data->uart)
+		w2sg_data_set_power(data, true);
+	else
+		w2sg_data_set_power(data, false);
+
 	return 0;
 
 err_rfkill:
@@ -330,10 +352,8 @@ static int w2sg_data_remove(struct platform_device *pdev)
 
 	cancel_delayed_work_sync(&data->work);
 
-	if (data->uart) {
-		uart_unregister_power_notifier(data->uart, w2sg_mctrl, (void *) data);
-		uart_unregister_rx_notifier(data->uart, rx_notification, (void *) data);
-	}
+	if (data->uart)
+		uart_register_slave(data->uart, NULL);
 
 	return 0;
 }
