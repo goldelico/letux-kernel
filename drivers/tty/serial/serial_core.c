@@ -269,7 +269,8 @@ static int uart_port_startup(struct tty_struct *tty, struct uart_state *state,
 
 	if (uport->type == PORT_UNKNOWN)
 		return 1;
-
+	if (uport->slave)
+		printk("uart_port_startup slave %p\n", uport->slave);
 	/*
 	 * Make sure the device is in D0 state.
 	 */
@@ -1662,6 +1663,8 @@ static void uart_port_shutdown(struct tty_port *port)
 	struct uart_state *state = container_of(port, struct uart_state, port);
 	struct uart_port *uport = state->uart_port;
 
+	if (uport->slave)
+		printk("uart_port_shutdown slave %p\n", uport->slave);
 	/*
 	 * clear delta_msr_wait queue to avoid mem leaks: we may free
 	 * the irq here so the queue might never be woken up.  Note
