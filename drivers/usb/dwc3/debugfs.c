@@ -25,6 +25,7 @@
 #include <linux/seq_file.h>
 #include <linux/delay.h>
 #include <linux/uaccess.h>
+#include <linux/extcon.h>
 
 #include <linux/usb/ch9.h>
 
@@ -357,6 +358,61 @@ static const struct debugfs_reg32 dwc3_regs[] = {
 	dump_register(OSTS),
 };
 
+/* List of detectable cables */
+enum {
+	EXTCON_CABLE_USB = 0,
+	EXTCON_CABLE_USB_HOST,
+	EXTCON_CABLE_END,
+};
+
+static void usb_extcon_simulate_cable(struct dwc3 *dwc, enum usb_dr_mode mode)
+{
+	const char *usb_extcon_cable[] = {
+		[EXTCON_CABLE_USB] = "USB",
+		[EXTCON_CABLE_USB_HOST] = "USB-HOST",
+		NULL,
+	};
+	bool id, vbus;
+
+	if (!dwc->edev)
+		return;
+
+	/* set ID and VBUS based on usb-mode and update cable state */
+	switch (mode) {
+	case USB_DR_MODE_HOST:
+		id = false;
+		vbus = false;
+		break;
+	case USB_DR_MODE_PERIPHERAL:
+		id = true;
+		vbus = true;
+		break;
+	case USB_DR_MODE_OTG:
+		id = false;
+		vbus = true;
+		break;
+	default:
+		return;
+	}
+
+	/* at first we clean states which are no longer active */
+	if (id)
+		extcon_set_cable_state(dwc->edev,
+			usb_extcon_cable[EXTCON_CABLE_USB_HOST], false);
+
+	if (!vbus)
+		extcon_set_cable_state(dwc->edev,
+			usb_extcon_cable[EXTCON_CABLE_USB], false);
+
+	if (!id)
+		extcon_set_cable_state(dwc->edev,
+			usb_extcon_cable[EXTCON_CABLE_USB_HOST], true);
+
+	if (vbus)
+		extcon_set_cable_state(dwc->edev,
+			usb_extcon_cable[EXTCON_CABLE_USB], true);
+}
+
 static int dwc3_mode_show(struct seq_file *s, void *unused)
 {
 	struct dwc3		*dwc = s->private;
@@ -410,11 +466,22 @@ static ssize_t dwc3_mode_write(struct file *file,
 	if (!strncmp(buf, "otg", 3))
 		mode |= DWC3_GCTL_PRTCAP_OTG;
 
+	if (dwc->dr_mode == USB_DR_MODE_OTG) {
+		if (mode & DWC3_GCTL_PRTCAP_HOST)
+			usb_extcon_simulate_cable(dwc, USB_DR_MODE_HOST);
+		else if (mode & DWC3_GCTL_PRTCAP_DEVICE)
+			usb_extcon_simulate_cable(dwc, USB_DR_MODE_PERIPHERAL);
+		else if (mode & DWC3_GCTL_PRTCAP_OTG)
+			usb_extcon_simulate_cable(dwc, USB_DR_MODE_OTG);
+		return count;
+	}
+
 	if (mode) {
 		spin_lock_irqsave(&dwc->lock, flags);
 		dwc3_set_mode(dwc, mode);
 		spin_unlock_irqrestore(&dwc->lock, flags);
 	}
+
 	return count;
 }
 
