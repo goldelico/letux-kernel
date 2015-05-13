@@ -1,0 +1,39 @@
+/*
+ * We have a broken OMAP5432EVM where I2C2_SCL output is damaged
+ * Therefore we rewire some gpio to I2C2_SCL and switch I2C2_SDA to GPIO mode as well
+ * And we drive the "new" i2c2 in bitbang mode
+ */
+
+#include "omap5-pyra.dts"
+
+/* make I2C2 bitbanged */
+
+&i2c2 {
+	compatible = "i2c-gpio";
+	gpios = <&gpio5 11 0 /* sda => gpio5_139 */
+		 &gpio5 10 0 /* scl => gpio5_138 */
+	>;
+};
+
+&i2c2_pins {
+	pinctrl-single,pins = <
+		OMAP5_IOPAD(0x1b8, PIN_INPUT_PULLUP | MUX_MODE6)		/* i2c2_scl as gpio5_138 */
+		OMAP5_IOPAD(0x1ba, PIN_INPUT_PULLUP | MUX_MODE6)		/* i2c2_sda as gpio5_139 */
+	>;
+};
+
+/* reconnect broken i2c2_scl to gpio2_33 on the reparied OMAP5432EVM */
+
+&i2c2 {
+	gpios = <&gpio5 11 0 /* sda => gpio5_139 */
+		 &gpio2 1 0 /* scl => gpio2_33 */
+	>;
+};
+
+&i2c2_pins {
+	pinctrl-single,pins = <
+		OMAP5_IOPAD(0x054, PIN_INPUT_PULLUP | MUX_MODE6)		/* c2c_clkout0 as gpio2_33 */
+		OMAP5_IOPAD(0x1b8, PIN_INPUT_PULLUP | MUX_MODE7)		/* i2c2_scl as safe mode */
+		OMAP5_IOPAD(0x1ba, PIN_INPUT_PULLUP | MUX_MODE6)		/* i2c2_sda as gpio5_139 */
+	>;
+};
