@@ -47,7 +47,6 @@ struct omap_chan {
 	struct dma_xbar_device *router;
 
 	unsigned dma_sig;
-	unsigned dma_xbar;
 	bool cyclic;
 	bool paused;
 
@@ -531,11 +530,6 @@ static int omap_dma_alloc_chan_resources(struct dma_chan *chan)
 	struct omap_chan *c = to_omap_dma_chan(chan);
 	int ret;
 
-	if (c->router)
-		c->dma_sig = c->router->ops->map(c->dma_xbar, c->router);
-	else
-		c->dma_sig = c->dma_xbar;
-
 	if (od->legacy) {
 		ret = omap_request_dma(c->dma_sig, "DMA engine",
 				       omap_dma_callback, c, &c->dma_ch);
@@ -545,7 +539,7 @@ static int omap_dma_alloc_chan_resources(struct dma_chan *chan)
 	}
 
 	dev_dbg(od->ddev.dev, "allocating channel %u for %u\n",
-		c->dma_ch, c->dma_xbar);
+		c->dma_ch, c->dma_sig);
 
 	if (ret >= 0) {
 		omap_dma_assign(od, c, c->dma_ch);
@@ -600,14 +594,9 @@ static void omap_dma_free_chan_resources(struct dma_chan *chan)
 	od->lch_map[c->dma_ch] = NULL;
 	vchan_free_chan_resources(&c->vc);
 
-	if (c->router) {
-		c->router->ops->unmap(c->dma_sig, c->router);
-		c->dma_sig = 0;
-	}
-
 	omap_free_dma(c->dma_ch);
 
-	dev_dbg(od->ddev.dev, "freeing channel for %u\n", c->dma_xbar);
+	dev_dbg(od->ddev.dev, "freeing channel for %u\n", c->dma_sig);
 }
 
 static size_t omap_dma_sg_size(struct omap_sg *sg)
@@ -1088,7 +1077,7 @@ static int omap_dma_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 	return ret;
 }
 
-static int omap_dma_chan_init(struct omap_dmadev *od, int dma_xbar)
+static int omap_dma_chan_init(struct omap_dmadev *od, int dma_sig)
 {
 	struct omap_chan *c;
 
@@ -1097,7 +1086,7 @@ static int omap_dma_chan_init(struct omap_dmadev *od, int dma_xbar)
 		return -ENOMEM;
 
 	c->reg_map = od->reg_map;
-	c->dma_xbar = dma_xbar;
+	c->dma_sig = dma_sig;
 	c->vc.desc_free = omap_dma_desc_free;
 	vchan_init(&c->vc, &od->ddev);
 	INIT_LIST_HEAD(&c->node);
@@ -1305,7 +1294,7 @@ bool omap_dma_filter_fn(struct dma_chan *chan, void *param)
 		struct omap_chan *c = to_omap_dma_chan(chan);
 		unsigned req = args->chan;
 
-		if (req == c->dma_xbar) {
+		if (req == c->dma_sig) {
 			c->router = args->router_data;
 			return true;
 		}
