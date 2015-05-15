@@ -742,7 +742,7 @@ i2c_p3_exp: &i2c5 {
 				remote-endpoint = <&vin2a>;
 				hsync-active = <1>;
 				vsync-active = <1>;
-				pclk-sample = <1>;
+				pclk-sample = <0>;
 			};
 		};
 	};
@@ -1181,3 +1181,6 @@ i2c_p3_exp: &i2c5 {
 };
 
 #include "dra7xx-jamr3.dtsi"
+&cal {
+	status = "okay";
+};
