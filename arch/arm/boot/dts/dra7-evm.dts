@@ -564,7 +564,7 @@ i2c_p3_exp: &i2c2 {
 				remote-endpoint = <&vin1a>;
 				hsync-active = <1>;
 				vsync-active = <1>;
-				pclk-sample = <1>;
+				pclk-sample = <0>;
 			};
 		};
 	};
