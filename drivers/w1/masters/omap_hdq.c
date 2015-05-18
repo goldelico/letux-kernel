@@ -16,7 +16,6 @@
 #include <linux/err.h>
 #include <linux/io.h>
 #include <linux/sched.h>
-#include <linux/of.h>
 #include <linux/pm_runtime.h>
 
 #include "../w1.h"
@@ -165,6 +164,7 @@ static int hdq_write_byte(struct hdq_data *hdq_data, u8 val, u8 *status)
 	unsigned long irqflags;
 
 	*status = 0;
+
 	spin_lock_irqsave(&hdq_data->hdq_spinlock, irqflags);
 	/* clear interrupt flags via a dummy read */
 	hdq_reg_in(hdq_data, OMAP_HDQ_INT_STATUS);
