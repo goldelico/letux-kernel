@@ -72,7 +72,6 @@ struct w2sg_data {
 	enum w2sg_state	state;
 	int		requested;	/* requested state (0/1) */
 	int		suspended;
-	int		rx_monitored;	/* if we are registered for rx events */
 	spinlock_t	lock;
 	struct delayed_work work;
 };
@@ -107,13 +106,6 @@ static void w2sg_data_set_power(void *pdata, int val)
 	spin_lock_irqsave(&data->lock, flags);
 
 	if (val && !data->requested) {
-		if (data->rx_monitored) {
-			data->rx_monitored = false;
-
-			if (data->uart) {
-				uart_register_rx_notification(data->uart, NULL);
-			}
-		}
 		data->requested = 1;
 	} else if (!val && data->requested) {
 		data->backoff = HZ;
@@ -129,24 +121,25 @@ unlock:
 
 /* called each time data is received by the host (i.e. sent by the w2sg0008) */
 
-static int rx_notification(void *pdata, int c)
+static int rx_notification(void *pdata, unsigned int *c)
 {
 	struct w2sg_data *data = (struct w2sg_data *) pdata;
 	unsigned long flags;
 printk("!\n");
 	pr_debug("!"); /* we have received a RX signal while GPS should be off */
 
-	if (!data->requested && !data->is_on &&
-	    (data->state == W2SG_IDLE) &&
-	    time_after(jiffies,
-		       data->last_toggle + data->backoff)) {
-		/* Should be off by now, time to toggle again */
-		data->is_on = 1;
-		data->backoff *= 2;
-		spin_lock_irqsave(&data->lock, flags);
-		if (!data->suspended)
-			schedule_delayed_work(&data->work, 0);
-		spin_unlock_irqrestore(&data->lock, flags);
+	if (!data->requested && !data->is_on) {
+		if((data->state == W2SG_IDLE) &&
+		    time_after(jiffies,
+		    data->last_toggle + data->backoff)) {
+			/* Should be off by now, time to toggle again */
+			data->is_on = 1;
+			data->backoff *= 2;
+			spin_lock_irqsave(&data->lock, flags);
+			if (!data->suspended)
+				schedule_delayed_work(&data->work, 0);
+			spin_unlock_irqrestore(&data->lock, flags);
+		}
 	}
 	return 0;
 }
@@ -198,15 +191,6 @@ static void toggle_work(struct work_struct *work)
 
 	case W2SG_NOPULSE:
 		data->state = W2SG_IDLE;
-		if (!data->is_on && !data->rx_monitored) {
-			/* not yet monitoring */
-			data->rx_monitored = true;
-
-			if (data->uart) {
-				uart_register_rx_notification(data->uart, rx_notification);
-			}
-
-		}
 		pr_debug("GPS idle\n");
 
 		break;
@@ -303,10 +287,18 @@ static int w2sg_data_probe(struct platform_device *pdev)
 	gpio_direction_output(data->on_off_gpio, false);
 
 	if (data->uart) {
+		struct ktermios termios = {
+			.c_iflag = IGNBRK,
+			.c_oflag = 0,
+			.c_cflag = B9600 | CS8,
+			.c_lflag = 0,
+			.c_line = 0,
+			.c_ispeed = 9600,
+			.c_ospeed = 9600
+		};
 		uart_register_slave(data->uart, data);
 		uart_register_mctrl_notification(data->uart, w2sg_mctrl);
-//		uart_register_rx_notification(data->uart, rx_notification);
-//		data->rx_monitored = true;
+		uart_register_rx_notification(data->uart, rx_notification, &termios);
 	}
 
 	rf_kill = rfkill_alloc("GPS", &pdev->dev, RFKILL_TYPE_GPS,
@@ -352,9 +344,10 @@ static int w2sg_data_remove(struct platform_device *pdev)
 
 	cancel_delayed_work_sync(&data->work);
 
-	if (data->uart)
+	if (data->uart) {
+		uart_register_rx_notification(data->uart, NULL, NULL);
 		uart_register_slave(data->uart, NULL);
-
+	}
 	return 0;
 }
 
