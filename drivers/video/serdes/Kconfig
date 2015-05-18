@@ -1,0 +1,12 @@
+menu "Video Serializer Deserializer drivers"
+
+config VIDEO_TI_FPD3_SERDES
+	tristate "Texas Instruments FPD link 3 serializer deserializer"
+	depends on I2C
+	help
+		This driver is used for configuring video serializers and
+		deserializers. When capturing video from a remote camera or
+		displaying to a remote display, the camera or display is
+		connected via FPDlink serializer / deserializer.
+
+endmenu

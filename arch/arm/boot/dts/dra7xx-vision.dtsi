@@ -1,0 +1,372 @@
+/*
+ * Copyright (C) 2013 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/ {
+	aliases {
+		i2c11 = &lvds_des1;
+		i2c12 = &lvds_des2;
+		i2c13 = &lvds_des3;
+		i2c14 = &lvds_des4;
+		i2c15 = &lvds_des5;
+		i2c16 = &lvds_des6;
+	};
+};
+
+&i2cexp {
+
+	ovcam_fc: ov10635@30 {
+		compatible = "ovti,ov10635";
+		reg = <0x30>;
+
+		mux-gpios =	<&pcf_hdmi 2	GPIO_ACTIVE_LOW>,	/* VIN2_S0		*/
+			<&pcf_hdmi 3	GPIO_ACTIVE_HIGH>,	/* CAM_FPD_MUX_S0	*/
+			<&gpio4 13	GPIO_ACTIVE_HIGH>,	/* MUX1_SEL0		*/
+			<&gpio4 14	GPIO_ACTIVE_LOW>,	/* MUX1_SEL1		*/
+			<&gpio4 15	GPIO_ACTIVE_LOW>,	/* MUX2_SEL0		*/
+			<&gpio4 16	GPIO_ACTIVE_LOW>,	/* MUX2_SEL1		*/
+			<&gpio2 29	GPIO_ACTIVE_HIGH>,	/* DEMUX_FPD_A		*/
+			<&gpio1 4	GPIO_ACTIVE_LOW>,	/* DEMUX_FPD_B		*/
+			<&gpio6 7	GPIO_ACTIVE_HIGH>,	/* DEMUX_FPD_C		*/
+			<&gpio6 17	GPIO_ACTIVE_HIGH>;	/* OV_PWDN		*/
+		port {
+			ovcam: endpoint {
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <1>;
+			};
+		};
+	};
+
+	/*
+	 * This is a HDMI reciever which conflicts with the I2C addresses
+	 * of I/O expanders. It needs to be configured to use some other
+	 * address.
+	 */
+	hdmirec: hdmirec@31 {
+		reg=<0x31>;
+	};
+
+	/*
+	 * These are I/O expanders which drive some signals of the deserializer
+	 * Each 16bit I/O expander drives two deserializers
+	 * The mapping of I/O expanders and deserializer is as follows:-
+	 * I/O Expander	| Deserializer
+	 * -------------+----------------
+	 * mcp_ioexp1(0x27)	| lvds_des1(0x60)
+	 * mcp_ioexp1(0x27)	| lvds_des2(0x64)
+	 * mcp_ioexp2(0x21)	| lvds_des3(0x68)
+	 * mcp_ioexp2(0x21)	| lvds_des4(0x6c)
+	 * mcp_ioexp3(0x25)	| lvds_des5(0x61)
+	 * mcp_ioexp4(0x25)	| lvds_des6(0x69)
+	 */
+	mcp_ioexp1: ioexp@27 {
+		compatible = "microchip,mcp23017";
+		reg=<0x27>;
+		gpio-controller;
+		#gpio-cells = <2>;
+
+		init-dir = <0x0000>;
+		init-val = <0x6363>;
+		/* 15:pdb, 14:sel, 13:oen, 12:bisten, 11:gpio0, 10-8:mode
+		 *  7:pdb,  6:sel,  5:oen,  4:bisten,  3:gpio0,  2-0:mode */
+	};
+
+	mcp_ioexp2: ioexp@21 {
+		compatible = "microchip,mcp23017";
+		reg=<0x21>;
+		gpio-controller;
+		#gpio-cells = <2>;
+
+		init-dir = <0x0000>;
+		init-val = <0x6363>;
+		/* 15:pdb, 14:sel, 13:oen, 12:bisten, 11:gpio0, 10-8:mode
+		 *  7:pdb,  6:sel,  5:oen,  4:bisten,  3:gpio0,  2-0:mode */
+	};
+
+	mcp_ioexp3: ioexp@25 {
+		compatible = "microchip,mcp23017";
+		reg=<0x25>;
+		gpio-controller;
+		#gpio-cells = <2>;
+
+		init-dir = <0x0000>;
+		init-val = <0x6363>;
+		/* 15:pdb, 14:sel, 13:oen, 12:bisten, 11:gpio0, 10-8:mode
+		 *  7:pdb,  6:sel,  5:oen,  4:bisten,  3:gpio0,  2-0:mode */
+	};
+
+	lvds_des1: deserializer@60 {
+		compatible = "ti,ds90ub914aq";
+		reg = <0x60>;
+
+		gpios =	<&mcp_ioexp1 7 0>;	/* pdb */
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
+	lvds_des2: deserializer@64 {
+		compatible = "ti,ds90ub914aq";
+		reg = <0x64>;
+
+		gpios =	<&mcp_ioexp1 15 0>;	/* pdb */
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
+	lvds_des3: deserializer@68 {
+		compatible = "ti,ds90ub914aq";
+		reg = <0x68>;
+
+		gpios =	<&mcp_ioexp2 7 0>;	/* pdb */
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
+	lvds_des4: deserializer@6c {
+		compatible = "ti,ds90ub914aq";
+		reg = <0x6c>;
+
+		gpios =	<&mcp_ioexp2 15 0>;	/* pdb */
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
+	lvds_des5: deserializer@61 {
+		compatible = "ti,ds90ub914aq";
+		reg = <0x61>;
+
+		gpios =	<&mcp_ioexp3 7 0>;	/* pdb */
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
+	lvds_des6: deserializer@69 {
+		compatible = "ti,ds90ub914aq";
+		reg = <0x69>;
+
+		gpios =	<&mcp_ioexp3 15 0>;	/* pdb */
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+};
+
+&lvds_des1 {
+	ranges = <0x58 0x74>,
+		 <0x30 0x38>;
+
+	lvds_ser1: serializer@74 {
+		compatible = "ti,ds90ub913aq";
+		reg = <0x58>;
+		slave-mode;
+	};
+
+	ovcam1: ov10635@38 {
+		compatible = "ovti,ov10635";
+		reg = <0x30>;
+
+		mux-gpios =	<&pcf_hdmi 1	GPIO_ACTIVE_HIGH>,	/* VIN6_SEL_S0		*/
+			<&pcf_hdmi 2	GPIO_ACTIVE_LOW>,	/* VIN2_S0		*/
+			<&pcf_hdmi 3	GPIO_ACTIVE_HIGH>,	/* CAM_FPD_MUX_S0	*/
+			<&gpio4 13	GPIO_ACTIVE_LOW>,	/* MUX1_SEL0		*/
+			<&gpio4 14	GPIO_ACTIVE_LOW>,	/* MUX1_SEL1		*/
+			<&gpio4 15	GPIO_ACTIVE_LOW>,	/* MUX2_SEL0		*/
+			<&gpio4 16	GPIO_ACTIVE_HIGH>,	/* MUX2_SEL1		*/
+			<&gpio2 29	GPIO_ACTIVE_HIGH>,	/* DEMUX_FPD_A		*/
+			<&gpio1 4	GPIO_ACTIVE_LOW>,	/* DEMUX_FPD_B		*/
+			<&gpio6 7	GPIO_ACTIVE_HIGH>,	/* DEMUX_FPD_C		*/
+			<&gpio6 17	GPIO_ACTIVE_HIGH>;	/* OV_PWDN		*/
+		port {
+			cam1: endpoint {
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <0>;
+			};
+		};
+	};
+};
+
+&lvds_des2 {
+	ranges = <0x58 0x75>,
+		 <0x30 0x39>;
+
+	lvds_ser2: serializer@75 {
+		compatible = "ti,ds90ub913aq";
+		reg = <0x58>;
+		slave-mode;
+	};
+
+	ovcam2: ov10635@39 {
+		compatible = "ovti,ov10635";
+		reg = <0x30>;
+
+		mux-gpios =	<&pcf_hdmi 1	GPIO_ACTIVE_HIGH>,	/* VIN6_SEL_S0		*/
+			<&pcf_hdmi 2	GPIO_ACTIVE_LOW>,	/* VIN2_S0		*/
+			<&pcf_hdmi 3	GPIO_ACTIVE_HIGH>,	/* CAM_FPD_MUX_S0	*/
+			<&gpio4 13	GPIO_ACTIVE_LOW>,	/* MUX1_SEL0		*/
+			<&gpio4 14	GPIO_ACTIVE_LOW>,	/* MUX1_SEL1		*/
+			<&gpio4 15	GPIO_ACTIVE_LOW>,	/* MUX2_SEL0		*/
+			<&gpio4 16	GPIO_ACTIVE_HIGH>,	/* MUX2_SEL1		*/
+			<&gpio2 29	GPIO_ACTIVE_HIGH>,	/* DEMUX_FPD_A		*/
+			<&gpio1 4	GPIO_ACTIVE_LOW>,	/* DEMUX_FPD_B		*/
+			<&gpio6 7	GPIO_ACTIVE_HIGH>,	/* DEMUX_FPD_C		*/
+			<&gpio6 17	GPIO_ACTIVE_HIGH>;	/* OV_PWDN		*/
+		port {
+			cam2: endpoint {
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <0>;
+			};
+		};
+	};
+};
+
+&lvds_des3 {
+	ranges = <0x58 0x76>,
+		 <0x30 0x3a>;
+
+	lvds_ser3: serializer@76 {
+		compatible = "ti,ds90ub913aq";
+		reg = <0x58>;
+		slave-mode;
+	};
+
+	ovcam3: ov10635@3a {
+		compatible = "ovti,ov10635";
+		reg = <0x30>;
+
+		mux-gpios =	<&pcf_hdmi 1	GPIO_ACTIVE_HIGH>,	/* VIN6_SEL_S0		*/
+			<&pcf_hdmi 2	GPIO_ACTIVE_LOW>,	/* VIN2_S0		*/
+			<&pcf_hdmi 3	GPIO_ACTIVE_HIGH>,	/* CAM_FPD_MUX_S0	*/
+			<&gpio4 13	GPIO_ACTIVE_LOW>,	/* MUX1_SEL0		*/
+			<&gpio4 14	GPIO_ACTIVE_LOW>,	/* MUX1_SEL1		*/
+			<&gpio4 15	GPIO_ACTIVE_LOW>,	/* MUX2_SEL0		*/
+			<&gpio4 16	GPIO_ACTIVE_HIGH>,	/* MUX2_SEL1		*/
+			<&gpio2 29	GPIO_ACTIVE_HIGH>,	/* DEMUX_FPD_A		*/
+			<&gpio1 4	GPIO_ACTIVE_LOW>,	/* DEMUX_FPD_B		*/
+			<&gpio6 7	GPIO_ACTIVE_HIGH>,	/* DEMUX_FPD_C		*/
+			<&gpio6 17	GPIO_ACTIVE_HIGH>;	/* OV_PWDN		*/
+		port {
+			cam3: endpoint {
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <0>;
+			};
+		};
+	};
+};
+
+&lvds_des4 {
+	ranges = <0x58 0x77>,
+		 <0x30 0x3b>;
+
+	lvds_ser4: serializer@77 {
+		compatible = "ti,ds90ub913aq";
+		reg = <0x58>;
+		slave-mode;
+	};
+
+	ovcam4: ov10635@3b {
+		compatible = "ovti,ov10635";
+		reg = <0x30>;
+
+		mux-gpios =	<&pcf_hdmi 1	GPIO_ACTIVE_HIGH>,	/* VIN6_SEL_S0		*/
+			<&pcf_hdmi 2	GPIO_ACTIVE_LOW>,	/* VIN2_S0		*/
+			<&pcf_hdmi 3	GPIO_ACTIVE_HIGH>,	/* CAM_FPD_MUX_S0	*/
+			<&gpio4 13	GPIO_ACTIVE_LOW>,	/* MUX1_SEL0		*/
+			<&gpio4 14	GPIO_ACTIVE_LOW>,	/* MUX1_SEL1		*/
+			<&gpio4 15	GPIO_ACTIVE_LOW>,	/* MUX2_SEL0		*/
+			<&gpio4 16	GPIO_ACTIVE_HIGH>,	/* MUX2_SEL1		*/
+			<&gpio2 29	GPIO_ACTIVE_HIGH>,	/* DEMUX_FPD_A		*/
+			<&gpio1 4	GPIO_ACTIVE_LOW>,	/* DEMUX_FPD_B		*/
+			<&gpio6 7	GPIO_ACTIVE_HIGH>,	/* DEMUX_FPD_C		*/
+			<&gpio6 17	GPIO_ACTIVE_HIGH>;	/* OV_PWDN		*/
+		port {
+			cam4: endpoint {
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <0>;
+			};
+		};
+	};
+};
+
+&lvds_des5 {
+	ranges = <0x58 0x78>,
+		 <0x30 0x3c>;
+
+	lvds_ser5: serializer@78 {
+		compatible = "ti,ds90ub913aq";
+		reg = <0x58>;
+		slave-mode;
+	};
+
+	ovcam5: ov10635@3c {
+		compatible = "ovti,ov10635";
+		reg = <0x30>;
+
+		mux-gpios =	<&pcf_hdmi 1	GPIO_ACTIVE_HIGH>,	/* VIN6_SEL_S0		*/
+			<&pcf_hdmi 2	GPIO_ACTIVE_LOW>,	/* VIN2_S0		*/
+			<&pcf_hdmi 3	GPIO_ACTIVE_HIGH>,	/* CAM_FPD_MUX_S0	*/
+			<&gpio4 13	GPIO_ACTIVE_LOW>,	/* MUX1_SEL0		*/
+			<&gpio4 14	GPIO_ACTIVE_LOW>,	/* MUX1_SEL1		*/
+			<&gpio4 15	GPIO_ACTIVE_LOW>,	/* MUX2_SEL0		*/
+			<&gpio4 16	GPIO_ACTIVE_HIGH>,	/* MUX2_SEL1		*/
+			<&gpio2 29	GPIO_ACTIVE_HIGH>,	/* DEMUX_FPD_A		*/
+			<&gpio1 4	GPIO_ACTIVE_LOW>,	/* DEMUX_FPD_B		*/
+			<&gpio6 7	GPIO_ACTIVE_HIGH>,	/* DEMUX_FPD_C		*/
+			<&gpio6 17	GPIO_ACTIVE_HIGH>;	/* OV_PWDN		*/
+		port {
+			cam5: endpoint {
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <0>;
+			};
+		};
+	};
+};
+
+&lvds_des6 {
+	ranges = <0x58 0x79>,
+		 <0x30 0x3d>;
+
+	lvds_ser6: serializer@79 {
+		compatible = "ti,ds90ub913aq";
+		reg = <0x58>;
+		slave-mode;
+	};
+
+	ovcam6: ov10635@3d {
+		compatible = "ovti,ov10635";
+		reg = <0x30>;
+
+		mux-gpios =	<&pcf_hdmi 1	GPIO_ACTIVE_HIGH>,	/* VIN6_SEL_S0		*/
+			<&pcf_hdmi 2	GPIO_ACTIVE_LOW>,	/* VIN2_S0		*/
+			<&pcf_hdmi 3	GPIO_ACTIVE_HIGH>,	/* CAM_FPD_MUX_S0	*/
+			<&gpio4 13	GPIO_ACTIVE_LOW>,	/* MUX1_SEL0		*/
+			<&gpio4 14	GPIO_ACTIVE_LOW>,	/* MUX1_SEL1		*/
+			<&gpio4 15	GPIO_ACTIVE_LOW>,	/* MUX2_SEL0		*/
+			<&gpio4 16	GPIO_ACTIVE_HIGH>,	/* MUX2_SEL1		*/
+			<&gpio2 29	GPIO_ACTIVE_HIGH>,	/* DEMUX_FPD_A		*/
+			<&gpio1 4	GPIO_ACTIVE_LOW>,	/* DEMUX_FPD_B		*/
+			<&gpio6 7	GPIO_ACTIVE_HIGH>,	/* DEMUX_FPD_C		*/
+			<&gpio6 17	GPIO_ACTIVE_HIGH>;	/* OV_PWDN		*/
+		port {
+			cam6: endpoint {
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <0>;
+			};
+		};
+	};
+};
