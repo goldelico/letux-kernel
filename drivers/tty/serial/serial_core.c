@@ -169,7 +169,9 @@ EXPORT_SYMBOL_GPL(devm_serial_get_uart_by_phandle);
 
 void uart_register_slave(struct uart_port *uart, void *slave)
 {
-	printk("uart_register_slave(%p)\n", uart, slave);
+	printk("uart_register_slave(uart %p, slave %p)\n", uart, slave);
+	if (!slave)
+		uart_register_rx_notification(uart, NULL, NULL);
 	uart->slave = slave;
 }
 
@@ -179,10 +181,35 @@ void uart_register_mctrl_notification(struct uart_port *uart, int (*function)(vo
 	uart->mctrl_notification = function;
 }
 
-void uart_register_rx_notification(struct uart_port *uart, int (*function)(void *slave, int c))
+static int uart_port_startup(struct tty_struct *tty, struct uart_state *state,
+		int init_hw);
+
+static void uart_port_shutdown(struct tty_port *port);
+
+void uart_register_rx_notification(struct uart_port *uart, int (*function)(void *slave, unsigned int *c), struct ktermios *termios)
 {
-	printk("uart_register_rx_notification(%p, %p)\n", uart, function);
+	struct uart_state *state;
+	struct tty_port *tty;
+	struct tty_struct *ttys;
+	printk("uart_register_rx_notification(uart: %p, slave: %p, termios: %p)\n", uart, function, termios);
+// lock
 	uart->rx_notification = function;
+	printk("state = %p\n", uart->state);
+	printk("&state->port = %p\n", &uart->state->port);
+/// THIS IS NULL! Which means we can't access it
+/// but we only need to store/reference the termios struct!
+/// we could also pass it directly like uart_change_speed to uart->ops->termios
+	printk("state->port.tty = %p\n", uart->state->port.tty);
+	if (uart->state->port.count == 0) {
+		if (function) {
+			if(termios)
+				uart->state->port.tty->termios = *termios;	/* initialize by slave */
+			uart_port_startup(uart->state->port.tty, uart->state, 0);	/* don't change mctrl */
+		} else
+			uart_port_shutdown(&uart->state->port);
+	}
+
+// unlock
 }
 
 EXPORT_SYMBOL_GPL(uart_register_slave);
@@ -336,6 +363,9 @@ static int uart_startup(struct tty_struct *tty, struct uart_state *state,
 	 */
 	set_bit(TTY_IO_ERROR, &tty->flags);
 
+// lock against slave driver registering in the same moment
+	if (state->uart_port->slave)
+		return 0;	// already open
 	retval = uart_port_startup(tty, state, init_hw);
 	if (!retval) {
 		set_bit(ASYNCB_INITIALIZED, &port->flags);
@@ -369,10 +399,12 @@ static void uart_shutdown(struct tty_struct *tty, struct uart_state *state)
 		if (uart_console(uport) && tty)
 			uport->cons->cflag = tty->termios.c_cflag;
 
-		if (!tty || (tty->termios.c_cflag & HUPCL))
-			uart_clear_mctrl(uport, TIOCM_DTR | TIOCM_RTS);
-
+// lock against slave driver deregistering in the same moment
+		if (!state->uart_port->slave) {
+			if (!tty || (tty->termios.c_cflag & HUPCL))
+				uart_clear_mctrl(uport, TIOCM_DTR | TIOCM_RTS);
 		uart_port_shutdown(port);
+		}
 	}
 
 	/*
@@ -3053,7 +3085,8 @@ void uart_insert_char(struct uart_port *port, unsigned int status,
 	struct tty_port *tport = &port->state->port;
 
 	if(port->slave && port->rx_notification)
-		(*port->rx_notification)(port->slave, ch);
+		if((*port->rx_notification)(port->slave, &ch))
+			return;	/* slave told us to ignore character */
 
 	if ((status & port->ignore_status_mask & ~overrun) == 0)
 		if (tty_insert_flip_char(tport, ch, flag) == 0)

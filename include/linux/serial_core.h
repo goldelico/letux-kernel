@@ -251,7 +251,7 @@ struct uart_port {
 	struct list_head	head;			/* list of uarts e.g. to look up by phandle */
 	void			*slave;			/* optional slave (there can be only one) */
 	int			(*mctrl_notification)(void *slave, int state);
-	int			(*rx_notification)(void *slave, int c);
+	int			(*rx_notification)(void *slave, unsigned int *c);
 };
 
 static inline int serial_port_in(struct uart_port *up, int offset)
@@ -492,6 +492,6 @@ extern struct uart_port *devm_serial_get_uart_by_phandle(struct device *dev,
 /* register to receive notifications */
 extern void uart_register_slave(struct uart_port *uart, void *slave);
 extern void uart_register_mctrl_notification(struct uart_port *uart, int (*function)(void *slave, int state));
-extern void uart_register_rx_notification(struct uart_port *uart, int (*function)(void *slave, int c));
+extern void uart_register_rx_notification(struct uart_port *uart, int (*function)(void *slave, unsigned int *c), struct ktermios *termios);
 
 #endif /* LINUX_SERIAL_CORE_H */
