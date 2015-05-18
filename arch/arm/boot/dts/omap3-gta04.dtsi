@@ -35,70 +35,6 @@
 		// makes problems with omapfb and X11:	display1 = &tv0;
 	};
 
-	/* there is no "compatible" DT driver yet
-	 see https://www.mail-archive.com/linux-media@vger.kernel.org/msg80048.html
-	 and parts of this should likely go to the omap3.dtsi
-	 so that we only have to define the endpoints
-	*/
-
-	omap3isp: isp@480BC000 {
-		compatible = "ti,omap3isp";
-		reg = <0x480BC000 0x070>, /* base */
-		<0x480BC100 0x078>, /* cbuf */
-		<0x480BC400 0x1F0>, /* cpp2 */
-		<0x480BC600 0x0A8>, /* ccdc */
-		<0x480BCA00 0x048>, /* hist */
-		<0x480BCC00 0x060>, /* h3a*/
-		<0x480BCE00 0x0A0>, /* prev */
-		<0x480BD000 0x0AC>, /* resz */
-		<0x480BD200 0x0FC>, /* sbl*/
-		<0x480BD400 0x070>; /* mmu*/
-
-		clocks = <&cam_ick>,
-			<&cam_mclk>,
-			<&csi2_96m_fck>,
-			<&l3_ick>;
-
-		clock-names = "cam_ick",
-			"cam_mclk",
-			"csi2_96m_fck",
-		"l3_ick";
-
-		interrupts = <24>;
-
-		ti,iommu = <&mmu_isp>;
-
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		isp_xclk1: isp-xclk@0 {
-			compatible = "ti,omap3-isp-xclk";
-			reg = <0>;
-			#clock-cells = <0>;
-		};
-
-		isp_xclk2: isp-xclk@1 {
-			compatible = "ti,omap3-isp-xclk";
-			reg = <1>;
-			#clock-cells = <0>;
-		};
-
-		port@0 {
-			reg = <0>;
-			parallel_ep: endpoint {};
-		};
-
-		port@1 {
-			reg = <1>;
-			csi1_ep: endpoint {};
-		};
-
-		port@2 {
-			reg = <2>;
-			csi2_ep: endpoint {};
-		};
-	};
-
 	/* pinmux for devconf1 */
 	control_devconf1: pinmux@480022d8 {
 		compatible = "pinctrl-single";
@@ -813,13 +749,12 @@
 		vdd_ana-supply = <&vaux3>;	/* driver should devm_regulator_get_optional("vdd_ana") */
 
 		clock-frequency = <24000000>;
-// FIXME:	clocks = <&isp_xclk1 0>;
-// FIXME:	clock-names = "xclk-a";
+		clocks = <&isp 0>;	/* cam_clka */
 
 		port {
 			ov9655: endpoint {
 				bus-width = <8>;
-// FIXME:			remote-endpoint = <&parallel_ep>;
+				remote-endpoint = <&parallel_ep>;
 				hsync-active = <1>;
 				vsync-active = <1>;
 				data-active = <1>;	/* Active High */
@@ -842,6 +777,25 @@
 	/* unused */
 };
 
+/* image signal processor within OMAP§ SoC */
+&isp {
+	port@0 {
+		reg = <0>;
+		parallel_ep: endpoint {};
+	};
+/* these ports are not used by GTA04 */
+	port@1 {
+		reg = <1>;
+		csi1_ep: endpoint {};
+	};
+
+	port@2 {
+		reg = <2>;
+		csi2_ep: endpoint {};
+	};
+};
+
+/* parallel camera interface */
 &parallel_ep {
 	remote-endpoint = <&ov9655>;
 	ti,isp-clock-divisor = <1>;
