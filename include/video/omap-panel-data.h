@@ -33,22 +33,6 @@
 struct omap_dss_device;
 
 /**
- * amplifier_opa362_platform_data platform data
- * @name: name for this display entity
- * @source: name of the display entity used as a video source
- * @enable_gpio: gpio number for enable pin (or -1 if not available - but then you don't need this driver)
- * @bypass: enable TV bypass mode for external video driver
- * @acbias: AC coupling to remove DC offset
- */
-struct amplifier_opa362_platform_data {
-	const char *name;
-	const char *source;
-	int enable_gpio;
-	bool bypass;
-	bool acbias;
-};
-
-/**
  * encoder_tfp410 platform data
  * @name: name for this display entity
  * @power_down_gpio: gpio number for PD pin (or -1 if not available)
