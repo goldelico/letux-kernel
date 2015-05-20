@@ -1044,6 +1044,11 @@ i2c_p3_exp: &i2c5 {
 	};
 };
 
+&mcasp2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcasp2_pins>;
+};
+
 &mcasp3 {
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&mcasp3_pins>;
@@ -1059,6 +1064,11 @@ i2c_p3_exp: &i2c5 {
 	serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
 		1 2 0 0
 	>;
+};
+
+&mcasp6 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcasp6_pins>;
 };
 
 &mcasp7 {
@@ -1195,4 +1205,9 @@ i2c_p3_exp: &i2c5 {
 #include "dra7xx-jamr3.dtsi"
 &cal {
 	status = "okay";
+};
+
+&dsp_radio {
+	 pinctrl-names = "default";
+	 pinctrl-0 = <&radio_pins>;
 };
