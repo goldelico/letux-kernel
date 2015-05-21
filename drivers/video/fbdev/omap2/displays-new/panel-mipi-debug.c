@@ -809,7 +809,7 @@ static void mipi_debug_disable(struct omap_dss_device *dssdev)
 //	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE)
 //		mipi_debug_stop(dssdev);
 
-	dssdev->state = OMAP_DSS_DISPLAY_DISABLED;
+//	dssdev->state = OMAP_DSS_DISPLAY_DISABLED;
 }
 
 static int mipi_debug_enable(struct omap_dss_device *dssdev)
