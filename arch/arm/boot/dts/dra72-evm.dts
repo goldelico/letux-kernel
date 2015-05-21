@@ -200,6 +200,16 @@
 };
 
 &dra7_pmx_core {
+	bt_uart3_pins: pinmux_uart3_pins {
+		pinctrl-single,pins = <
+			0x3c0 (PIN_INPUT_PULLUP | MUX_MODE1)	/* uart3_rxd */
+			0x3c4 (PIN_OUTPUT_PULLDOWN | MUX_MODE1)	/* uart3_txd */
+			0x3c8 (PIN_INPUT | MUX_MODE1)		/* uart3_ctsn */
+			0x3cc (PIN_OUTPUT_PULLDOWN | MUX_MODE1)	/* uart3_rtsn */
+			0x2bc (PIN_OUTPUT | MUX_MODE14)		/* gpio5_4 */
+		>;
+	};
+
 	i2c1_pins: pinmux_i2c1_pins {
 		pinctrl-single,pins = <
 			0x400 (PIN_INPUT | MUX_MODE0) /* i2c1_sda.i2c1_sda */
@@ -760,6 +770,8 @@ i2c_p3_exp: &i2c5 {
 &uart3 {
 	status = "okay";
 	gpios = <&pcf_gpio_21 14 GPIO_ACTIVE_LOW>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&bt_uart3_pins>;
 };
 
 &mmc1 {
@@ -1032,6 +1044,11 @@ i2c_p3_exp: &i2c5 {
 	};
 };
 
+&mcasp2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcasp2_pins>;
+};
+
 &mcasp3 {
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&mcasp3_pins>;
@@ -1047,6 +1064,11 @@ i2c_p3_exp: &i2c5 {
 	serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
 		1 2 0 0
 	>;
+};
+
+&mcasp6 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcasp6_pins>;
 };
 
 &mcasp7 {
@@ -1183,4 +1205,9 @@ i2c_p3_exp: &i2c5 {
 #include "dra7xx-jamr3.dtsi"
 &cal {
 	status = "okay";
+};
+
+&dsp_radio {
+	 pinctrl-names = "default";
+	 pinctrl-0 = <&radio_pins>;
 };

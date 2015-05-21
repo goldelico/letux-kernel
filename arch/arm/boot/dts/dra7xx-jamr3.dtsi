@@ -37,7 +37,7 @@
 		ti,audio-mclk-freq = <11289600>;
 	};
 
-	radio {
+	dsp_radio: radio {
 		compatible = "ti,dra7xx_radio";
 		gpios = <&gpio6 20 0>;
 	};
@@ -70,6 +70,7 @@
 	serial-dir = <	/* 0: INACTIVE, 1: TX, 2: RX */
 		1 1 1 1 1 1 1 1
 	>;
+	shared-dai;
 };
 
 &mcasp6 {
