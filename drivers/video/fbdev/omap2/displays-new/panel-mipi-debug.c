@@ -76,7 +76,7 @@
 /* low power clock is quite arbitrarily choosen to be roughly 10 MHz */
 #define mipi_debugLP_CLOCK			10000000	// low power clock
 
-static struct omap_video_timings mipi_timings = {
+static const struct omap_video_timings mipi_default_timings = {
 	.x_res		= mipi_debugW,
 	.y_res		= mipi_debugH,
 	.pixelclock	= mipi_debugPIXELCLOCK,
@@ -104,8 +104,6 @@ struct panel_drv_data {
 	struct omap_dss_device dssdev;
 	struct omap_dss_device *in;
 
-	struct omap_video_timings timings;
-	
 	struct platform_device *pdev;
 
 	struct mutex lock;
@@ -473,23 +471,23 @@ static ssize_t set_dcs(struct device *dev,
 				}
 				/* let's hope that the timings are really changed... */
 				if(len == 5 && strncmp(arg, "x_res", len) == 0)
-					mipi_timings.x_res=val;
+					dssdev->panel.timings.x_res=val;
 				else if(len == 5 && strncmp(arg, "y_res", len) == 0)
-					mipi_timings.y_res=val;
+					dssdev->panel.timings.y_res=val;
 				else if(len == 10 && strncmp(arg, "pixelclock", len) == 0)
-					mipi_timings.pixelclock=val;
+					dssdev->panel.timings.pixelclock=val;
 				else if(len == 3 && strncmp(arg, "hfp", len) == 0)
-					mipi_timings.hfp=val;
+					dssdev->panel.timings.hfp=val;
 				else if(len == 3 && strncmp(arg, "hsw", len) == 0)
-					mipi_timings.hsw=val;
+					dssdev->panel.timings.hsw=val;
 				else if(len == 3 && strncmp(arg, "hbp", len) == 0)
-					mipi_timings.hbp=val;
+					dssdev->panel.timings.hbp=val;
 				else if(len == 3 && strncmp(arg, "vfp", len) == 0)
-					mipi_timings.vfp=val;
+					dssdev->panel.timings.vfp=val;
 				else if(len == 3 && strncmp(arg, "vsw", len) == 0)
-					mipi_timings.vsw=val;
+					dssdev->panel.timings.vsw=val;
 				else if(len == 3 && strncmp(arg, "vbp", len) == 0)
-					mipi_timings.vbp=val;
+					dssdev->panel.timings.vbp=val;
 				/* mipi_dsi_config evaluated during mipi_debug_start() */
 				else if(len == 7 && strncmp(arg, "lpclock", len) == 0)
 					mipi_dsi_config.lp_clk_max=val;
@@ -695,7 +693,7 @@ static int mipi_debug_power_on(struct omap_dss_device *dssdev)
 	}
 #endif
 	
-	mipi_dsi_config.timings = &ddata->timings,
+	mipi_dsi_config.timings = &dssdev->panel.timings;
 
 	r = in->ops.dsi->set_config(in, &mipi_dsi_config);
 	if (r) {
@@ -905,12 +903,10 @@ static int mipi_debug_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 	
-	ddata->timings = mipi_timings;
-	
 	dssdev = &ddata->dssdev;
 	dssdev->dev = dev;
 	dssdev->driver = &mipi_debugops;
-	dssdev->panel.timings = ddata->timings;
+	dssdev->panel.timings = mipi_default_timings;
 	dssdev->type = OMAP_DISPLAY_TYPE_DSI;
 	dssdev->owner = THIS_MODULE;
 	
