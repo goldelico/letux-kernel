@@ -262,6 +262,7 @@ struct omap_hsmmc_host {
 	struct timer_list	timer;
 	unsigned long		data_timeout;
 	unsigned int		need_i834_errata:1;
+	unsigned int		last_cmd;
 };
 
 struct omap_mmc_of_data {
@@ -1074,10 +1075,12 @@ omap_hsmmc_start_command(struct omap_hsmmc_host *host, struct mmc_command *cmd,
 	struct mmc_data *data)
 {
 	int cmdreg = 0, resptype = 0, cmdtype = 0;
+	unsigned long flags;
 
 	dev_vdbg(mmc_dev(host->mmc), "%s: CMD%d, argument 0x%08x\n",
 		mmc_hostname(host->mmc), cmd->opcode, cmd->arg);
 	host->cmd = cmd;
+	host->last_cmd = cmd->opcode;
 
 	omap_hsmmc_enable_irq(host, cmd);
 
@@ -1124,7 +1127,10 @@ omap_hsmmc_start_command(struct omap_hsmmc_host *host, struct mmc_command *cmd,
 		cmdreg = (cmd->opcode << 24) | (resptype << 16) |
 			(cmdtype << 22) | DP_SELECT | DDIR;
 	}
+
+	spin_lock_irqsave(&host->irq_lock, flags);
 	host->req_in_progress = 1;
+	spin_unlock_irqrestore(&host->irq_lock, flags);
 
 	OMAP_HSMMC_WRITE(host->base, ARG, cmd->arg);
 	OMAP_HSMMC_WRITE(host->base, CMD, cmdreg);
@@ -1161,6 +1167,23 @@ static void omap_hsmmc_request_done(struct omap_hsmmc_host *host, struct mmc_req
 		return;
 	host->mrq = NULL;
 	mmc_request_done(host->mmc, mrq);
+}
+
+static void omap_hsmmc_request_clear(struct omap_hsmmc_host *host,
+					struct mmc_request *mrq)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&host->irq_lock, flags);
+	host->req_in_progress = 0;
+	host->dma_ch = -1;
+	spin_unlock_irqrestore(&host->irq_lock, flags);
+
+	omap_hsmmc_disable_irq(host);
+	if (mrq) {
+		host->mrq->done(mrq);
+		host->mrq = NULL;
+	}
 }
 
 /*
@@ -1386,6 +1409,10 @@ static void omap_hsmmc_do_irq(struct omap_hsmmc_host *host, int status)
 			end_trans = !end_cmd;
 			host->response_busy = 0;
 		}
+		if (status & BADA_EN) {
+			hsmmc_command_incomplete(host, -EBADF, end_cmd);
+			end_trans = 1;
+		}
 	}
 
 	OMAP_HSMMC_WRITE(host->base, STAT, status);
@@ -1570,9 +1597,12 @@ static irqreturn_t omap_hsmmc_detect(int irq, void *dev_id)
 	if (carddetect && mrq && host->transfer_incomplete) {
 		dev_info(host->dev,
 			 "card removed during transfer last time\n");
+		dev_dbg(host->dev, "last command was !!! %d !!!\n",
+			host->last_cmd);
 		hsmmc_command_incomplete(host, -ENOMEDIUM, 1);
-		omap_hsmmc_request_done(host, mrq);
+		omap_hsmmc_request_clear(host, mrq);
 		dev_info(host->dev, "recovery done\n");
+		return IRQ_HANDLED;
 	 }
 	host->transfer_incomplete = false;
 
@@ -2068,6 +2098,7 @@ static int omap_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	bool previous_match = false;
 	bool current_match;
 	u32 ac12, capa2, dll = 0;
+	unsigned long flags;
 
 	host  = mmc_priv(mmc);
 	switch (ios->bus_width) {
@@ -2157,7 +2188,9 @@ static int omap_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		err = wait_for_completion_timeout(&host->buf_ready,
 				msecs_to_jiffies(5000));
 		omap_hsmmc_disable_irq(host);
+		spin_lock_irqsave(&host->irq_lock, flags);
 		host->req_in_progress = 0;
+		spin_unlock_irqrestore(&host->irq_lock, flags);
 
 		if (err == 0) {
 			dev_err(mmc_dev(host->mmc),
@@ -2595,6 +2628,7 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 	host->next_data.cookie = 1;
 	host->pbias_enabled = 0;
 	host->regulator_enabled = 0;
+	host->last_cmd = 0;
 	setup_timer(&host->timer, omap_hsmmc_soft_timeout,
 		    (unsigned long) host);
 
