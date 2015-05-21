@@ -52,10 +52,12 @@ PANEL_LANES=4	# lanes
 PANEL_HFP=10	# front porch
 PANEL_HSA=10	# sync active
 PANEL_HBP=100	# back porch
-# NOTE: we must set this to 20,20,20 to get a slightly higher pixel and DDR rate or the panel wouldn't sync properly
-PANEL_VFP=20	# top porch
-PANEL_VSA=20	# sync active
-PANEL_VBP=20	# bottom porch
+# NOTE: we must set this so the sum of V* is < ~70 to get a slightly higher pixel and DDR rate or the panel wouldn't sync properly
+# warning: some VBP values are causing horizontal misalignemt:
+# 12..15, 18..23, 26..?, 34..40, ...?
+PANEL_VFP=10	# top porch
+PANEL_VSA=2	# sync active
+PANEL_VBP=48	# bottom porch
 PANEL_LPCLOCK=8000000	# maximum is 9.2 MHz
 PANEL_MAX_DDR=250000000	# maximum DDR clock (4..25ns) that can be processed by controller
 
@@ -115,6 +117,9 @@ OMAP_HEIGHT=$PANEL_HEIGHT
 OMAP_HFP=$PANEL_HFP
 OMAP_HSA=$PANEL_HSA
 OMAP_HBP=$PANEL_HBP
+OMAP_VFP=$PANEL_VFP
+OMAP_VSA=$PANEL_VSA
+OMAP_VBP=$PANEL_VBP
 OMAP_DDR=$MIPITX_DDR_CLK	# I hope the OMAP DSS calculates what it needs
 
 # default flags
@@ -201,7 +206,9 @@ echo "  LPCLK: $(($XTAL / 2))"
 
 ## now initialize OMAP MIPI Interface ##
 
-echo start x_res=$OMAP_WIDTH y_res=$OMAP_HEIGHT lpclock=$OMAP_LPCLK pixelclock=$OMAP_PCLK hfp=$OMAP_HFP hsw=$OMAP_HSA hbp=$OMAP_HBP >dcs	# start MIPI interface timing
+echo start x_res=$OMAP_WIDTH y_res=$OMAP_HEIGHT lpclock=$OMAP_LPCLK pixelclock=$OMAP_PCLK \
+	hfp=$OMAP_HFP hsw=$OMAP_HSA hbp=$OMAP_HBP \
+	vfp=$OMAP_VFP vsw=$OMAP_VSA vbp=$OMAP_VBP >dcs	# start MIPI interface timing
 
 sleep .5
 
