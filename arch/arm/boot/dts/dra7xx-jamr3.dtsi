@@ -70,6 +70,7 @@
 	serial-dir = <	/* 0: INACTIVE, 1: TX, 2: RX */
 		1 1 1 1 1 1 1 1
 	>;
+	shared-dai;
 };
 
 &mcasp6 {
