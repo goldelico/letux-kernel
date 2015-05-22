@@ -24,6 +24,16 @@
 
 static phys_addr_t omap_secure_memblock_base;
 
+/*
+ * Secure dispatcher switching LOCK - unfortunately, this could
+ * End up serializing dispatcher calls if invoked from two
+ * CPUs simultaneously! but no simplier way to secure
+ * API shifting.
+ */
+static DEFINE_SPINLOCK(_secure_dispatcher_lock);
+/* My alternate dispatcher API */
+static omap_secure_dispatcher_t _alternate_secure_dispatcher;
+
 /**
  * omap_sec_dispatcher: Routine to dispatch low power secure
  * service routines
@@ -39,6 +49,17 @@ u32 omap_secure_dispatcher(u32 idx, u32 flag, u32 nargs, u32 arg1, u32 arg2,
 {
 	u32 ret;
 	u32 param[5];
+	unsigned long flags;
+
+	/* If we have an alternate dispatcher api, use it, else use default */
+	spin_lock_irqsave(&_secure_dispatcher_lock, flags);
+	if (_alternate_secure_dispatcher) {
+		ret = _alternate_secure_dispatcher(idx, flag, nargs, arg1,
+				arg2, arg3, arg4);
+		spin_unlock_irqrestore(&_secure_dispatcher_lock, flags);
+		return ret;
+	}
+	spin_unlock_irqrestore(&_secure_dispatcher_lock, flags);
 
 	param[0] = nargs;
 	param[1] = arg1;
@@ -53,6 +74,38 @@ u32 omap_secure_dispatcher(u32 idx, u32 flag, u32 nargs, u32 arg1, u32 arg2,
 	flush_cache_all();
 	outer_clean_range(__pa(param), __pa(param + 5));
 	ret = omap_smc2(idx, flag, __pa(param));
+
+	return ret;
+}
+
+/**
+ * omap_secure_dispatcher_switch() - replace default dispatcher function
+ * @replacement: Replacement secure-dispatcher - provide NULL to restore
+ *
+ * Calling this function should be careful about the API call sequences
+ * involved. IT IS IMPORTANT TO put in a secure dispatcher ONLY AFTER
+ * required setups are done by caller. the pointer MUST BE VALID at all
+ * times. call this API with NULL parameter to restore back to original
+ * handling prior to making the call pointer invalid (e.g. driver probe
+ * replacement and remove removal).
+ */
+int omap_secure_dispatcher_switch(omap_secure_dispatcher_t replacement)
+{
+	unsigned long flags;
+	int ret = 0;
+
+	spin_lock_irqsave(&_secure_dispatcher_lock, flags);
+	if (_alternate_secure_dispatcher && replacement) {
+		WARN(1, "Already have an alternate dispatcher %pF: %pF\n",
+				_alternate_secure_dispatcher, (void *)_RET_IP_);
+		ret = -EINVAL;
+	} else {
+		pr_debug("%s: alternate secure dispatcher = %pF: %pF\n",
+				__func__, _alternate_secure_dispatcher,
+				(void *)_RET_IP_);
+		_alternate_secure_dispatcher = replacement;
+	}
+	spin_unlock_irqrestore(&_secure_dispatcher_lock, flags);
 
 	return ret;
 }
