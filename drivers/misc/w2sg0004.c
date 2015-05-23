@@ -158,8 +158,6 @@ static void toggle_work(struct work_struct *work)
 {
 	struct w2sg_data *data = container_of(work, struct w2sg_data, work.work);
 
-	w2sg_data_set_lna_power(data);	/* update LNA power state */
-
 	switch (data->state) {
 	case W2SG_IDLE:
 		spin_lock_irq(&data->lock);
@@ -168,6 +166,7 @@ static void toggle_work(struct work_struct *work)
 			return;
 		}
 		spin_unlock_irq(&data->lock);
+		w2sg_data_set_lna_power(data);	/* update LNA power state */
 		gpio_set_value_cansleep(data->on_off_gpio, 0);
 		data->state = W2SG_PULSE;
 
