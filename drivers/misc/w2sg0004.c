@@ -106,10 +106,10 @@ static void w2sg_data_set_power(void *pdata, int val)
 	spin_lock_irqsave(&data->lock, flags);
 
 	if (val && !data->requested) {
-		data->requested = 1;
+		data->requested = true;
 	} else if (!val && data->requested) {
 		data->backoff = HZ;
-		data->requested = 0;
+		data->requested = false;
 	} else
 		goto unlock;
 
@@ -128,12 +128,13 @@ static int rx_notification(void *pdata, unsigned int *c)
 printk("!\n");
 	pr_debug("!"); /* we have received a RX signal while GPS should be off */
 
+	pr_debug("%02x!", *c); /* we have received a RX signal while GPS should be off */
 	if (!data->requested && !data->is_on) {
 		if((data->state == W2SG_IDLE) &&
 		    time_after(jiffies,
 		    data->last_toggle + data->backoff)) {
 			/* Should be off by now, time to toggle again */
-			data->is_on = 1;
+			data->is_on = true;	/* module has still sent data! */
 			data->backoff *= 2;
 			spin_lock_irqsave(&data->lock, flags);
 			if (!data->suspended)
@@ -260,8 +261,8 @@ static int w2sg_data_probe(struct platform_device *pdev)
 
 	data->on_off_gpio = pdata->on_off_gpio;
 
-	data->is_on = true;	/* assume that it runs after power on */
-	data->requested = true;
+	data->is_on = false;
+	data->requested = false;
 	data->state = W2SG_IDLE;
 	data->last_toggle = jiffies;
 	data->backoff = HZ;
@@ -355,7 +356,7 @@ static int w2sg_data_suspend(struct device *dev)
 	struct w2sg_data *data = dev_get_drvdata(dev);
 
 	spin_lock_irq(&data->lock);
-	data->suspended = 1;
+	data->suspended = true;
 	spin_unlock_irq(&data->lock);
 
 	cancel_delayed_work_sync(&data->work);
@@ -392,7 +393,7 @@ static int w2sg_data_resume(struct device *dev)
 	struct w2sg_data *data = dev_get_drvdata(dev);
 
 	spin_lock_irq(&data->lock);
-	data->suspended = 0;
+	data->suspended = false;
 	spin_unlock_irq(&data->lock);
 
 	pr_info("GPS resuming %d %d %d\n", data->requested, data->is_on, data->lna_is_off);
