@@ -101,7 +101,7 @@ static void w2sg_data_set_power(void *pdata, int val)
 	struct w2sg_data *data = (struct w2sg_data *) pdata;
 	unsigned long flags;
 
-	pr_debug("GPS SET to %d\n", val);
+	pr_debug("GPS SET to %d (%d)\n", val, data->requested);
 
 	spin_lock_irqsave(&data->lock, flags);
 
@@ -112,6 +112,8 @@ static void w2sg_data_set_power(void *pdata, int val)
 		data->requested = false;
 	} else
 		goto unlock;
+
+	pr_debug("GPS scheduled for %d\n", data->requested);
 
 	if (!data->suspended)
 		schedule_delayed_work(&data->work, 0);
@@ -125,8 +127,6 @@ static int rx_notification(void *pdata, unsigned int *c)
 {
 	struct w2sg_data *data = (struct w2sg_data *) pdata;
 	unsigned long flags;
-printk("!\n");
-	pr_debug("!"); /* we have received a RX signal while GPS should be off */
 
 	pr_debug("%02x!", *c); /* we have received a RX signal while GPS should be off */
 	if (!data->requested && !data->is_on) {
@@ -142,7 +142,7 @@ printk("!\n");
 			spin_unlock_irqrestore(&data->lock, flags);
 		}
 	}
-	return 0;
+	return 0;	/* forward to tty */
 }
 
 /* call by uart modem control line changes (DTR) */
@@ -222,7 +222,7 @@ static int w2sg_data_probe(struct platform_device *pdev)
 
 	pr_debug("w2sg_data_probe()\n");
 
-// FIXME: with uart link, the driver only works with DT - can we remove the CONFIG_OF?
+/* FIXME: with uart link, the driver only works with DT - can we remove the CONFIG_OF? */
 
 #ifdef CONFIG_OF
 	if (pdev->dev.of_node) {
@@ -242,7 +242,7 @@ static int w2sg_data_probe(struct platform_device *pdev)
 
 		pr_debug("w2sg_data_probe() lna_regulator = %p\n", pdata->lna_regulator);
 
-		// CHECKME: do we have to require the lna_regulator?
+		/* CHECKME: we should not require the lna_regulator? */
 		if (IS_ERR(pdata->lna_regulator))
 			return PTR_ERR(pdata->lna_regulator);
 
