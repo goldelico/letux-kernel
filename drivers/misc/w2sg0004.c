@@ -38,8 +38,10 @@
 #include <linux/rfkill.h>
 #include <linux/serial_core.h>
 
+#ifdef CONFIG_W2SG0004_DEBUG
 #undef pr_debug
 #define pr_debug printk
+#endif
 
 /*
  * There seems to be restrictions on how quickly we can toggle the
@@ -121,20 +123,21 @@ unlock:
 	spin_unlock_irqrestore(&data->lock, flags);
 }
 
-/* called each time data is received by the host (i.e. sent by the w2sg0008) */
+/* called each time data is received by the host (i.e. sent by the w2sg0004) */
 
 static int rx_notification(void *pdata, unsigned int *c)
 {
 	struct w2sg_data *data = (struct w2sg_data *) pdata;
 	unsigned long flags;
 
-	pr_debug("%02x!", *c); /* we have received a RX signal while GPS should be off */
 	if (!data->requested && !data->is_on) {
+		pr_debug("%02x!", *c); /* we have received a RX signal while GPS should be off */
 		if((data->state == W2SG_IDLE) &&
 		    time_after(jiffies,
 		    data->last_toggle + data->backoff)) {
 			/* Should be off by now, time to toggle again */
-			data->is_on = true;	/* module has still sent data! */
+			pr_debug("w2sg0004 has sent data although it should be off!\n");
+			data->is_on = true;
 			data->backoff *= 2;
 			spin_lock_irqsave(&data->lock, flags);
 			if (!data->suspended)
@@ -145,7 +148,7 @@ static int rx_notification(void *pdata, unsigned int *c)
 	return 0;	/* forward to tty */
 }
 
-/* call by uart modem control line changes (DTR) */
+/* called by uart modem control line changes (DTR) */
 
 static int w2sg_mctrl(void *pdata, int val)
 {
@@ -154,6 +157,8 @@ printk("w2sg_mctrl(...,%x)\n", val);
 	w2sg_data_set_power((struct w2sg_data *) pdata, val);
 	return 0;
 }
+
+/* try to toggle the power state by sending a pulse to the on-off GPIO */
 
 static void toggle_work(struct work_struct *work)
 {
@@ -320,15 +325,21 @@ static int w2sg_data_probe(struct platform_device *pdev)
 
 	pr_debug("w2sg0004 probed\n");
 
-	/* if we have no mctrl, turn on.
-	 * otherwise turn off (by sending a pulse).
-	 * if the module was already off (contrary to the initial assumption,
-	 * it will be turned on by the pulse, but the rx_notification will detect
+#ifdef CONFIG_W2SG0004_DEBUG
+	/* turn on for debugging rx notifications */
+	printk("power on test on\n");
+	gpio_set_value_cansleep(data->on_off_gpio, 1);
+	mdelay(100);
+	printk("power on test off\n");
+	gpio_set_value_cansleep(data->on_off_gpio, 0);
+	mdelay(300);
+#endif
+
+	/* if we won't receive mctrl notifications, turn on.
+	 * otherwise keep off until DTR is asserted through mctrl.
 	 */
-	if (!data->uart)
-		w2sg_data_set_power(data, true);
-	else
-		w2sg_data_set_power(data, false);
+
+	w2sg_data_set_power(data, !data->uart);
 
 	return 0;
 
