@@ -152,7 +152,7 @@ static int rx_notification(void *pdata, unsigned int *c)
 
 static int w2sg_mctrl(void *pdata, int val)
 {
-printk("w2sg_mctrl(...,%x)\n", val);
+	pr_debug("w2sg_mctrl(...,%x)\n", val);
 	val = (val & TIOCM_DTR) != 0;	/* DTR controls power on/off */
 	w2sg_data_set_power((struct w2sg_data *) pdata, val);
 	return 0;
@@ -327,10 +327,10 @@ static int w2sg_data_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_W2SG0004_DEBUG
 	/* turn on for debugging rx notifications */
-	printk("power on test on\n");
+	pr_debug("power on test on\n");
 	gpio_set_value_cansleep(data->on_off_gpio, 1);
 	mdelay(100);
-	printk("power on test off\n");
+	pr_debug("power on test off\n");
 	gpio_set_value_cansleep(data->on_off_gpio, 0);
 	mdelay(300);
 #endif
