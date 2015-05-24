@@ -538,7 +538,12 @@ config W2SG0004
 	  Enable on/off control of W2SG0004 GPS using a tty slave to
 	  to allow powering up if the /dev/tty$n is opened.
 	  It also provides a rfkill gps node to control the LNA power.
-	  NOTE: can't currently be compiled as module, so please choose Y.
+
+config W2SG0004_DEBUG
+	bool "W2SG0004 on/off debugging"
+	depends on W2SG0004
+	help
+	  Enable driver debugging mode of W2SG0004 GPS.
 
 config W2CBW003
 	tristate "W2CBW003 on/off control"
