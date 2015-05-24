@@ -218,7 +218,7 @@ printk("uart_change_pm\n");
 			uart_change_pm(state, UART_PM_STATE_ON);
 printk("uport->ops->startup\n");
 			retval = uport->ops->startup(uport);
-			if (0 && retval == 0 && termios) {
+			if (retval == 0 && termios) {
 				int hw_stopped;
 				/*
 				 * Initialise the hardware port settings.
@@ -379,7 +379,7 @@ static int uart_port_startup(struct tty_struct *tty, struct uart_state *state,
 		/*
 		 * Initialise the hardware port settings.
 		 */
-		if (!state->uart_port->rx_notification)
+//		if (!state->uart_port->rx_notification)
 			uart_change_speed(tty, state, NULL);
 
 		if (init_hw) {
