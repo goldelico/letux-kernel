@@ -535,9 +535,8 @@ config W2SG0004
 	tristate "W2SG0004 on/off control"
 	depends on GPIOLIB
 	help
-	  Enable on/off control of W2SG0004 GPS using a virtual GPIO.
-	  The virtual GPIO can be connected to a DTR line of a serial
-	  interface to allow powering up if the /dev/tty$n is opened.
+	  Enable on/off control of W2SG0004 GPS using a tty slave to
+	  to allow powering up if the /dev/tty$n is opened.
 	  It also provides a rfkill gps node to control the LNA power.
 	  NOTE: can't currently be compiled as module, so please choose Y.
 
@@ -545,10 +544,8 @@ config W2CBW003
 	tristate "W2CBW003 on/off control"
 	depends on GPIOLIB
 	help
-	  Enable on/off control of W2CBW003 power using a virtual GPIO.
-	  The virtual GPIO can be connected to a DTR line of a serial
-	  interface to allow powering up if the /dev/tty$n is opened.
-	  NOTE: can't currently be compiled as module, so please choose Y.
+	  Enable on/off control of W2CBW003 power using a tty slave
+	  to allow powering up if the /dev/tty$n is opened.
 
 config WWAN_ON_OFF
 	tristate "WWAN ON/OFF"
@@ -561,10 +558,6 @@ config WWAN_ON_OFF
 	  the state of some USB PHY port where the modem module
 	  is connected to. Typical devices that can be controlled
 	  are OPTION GTM601, Gemalto PHS8.
-	  The driver also presents a virtual GPIO that can be connected
-	  to a DTR line of a serial interface to allow powering up if the
-	  /dev/tty$n is opened.
-	  NOTE: can't currently be compiled as module, so please choose Y.
 
 endmenu
 
