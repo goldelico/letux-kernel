@@ -807,6 +807,9 @@ static void omap_hsmmc_set_clock(struct omap_hsmmc_host *host)
 		mode = kstrdup("hs200", GFP_KERNEL);
 		host->need_i834_errata = true;
 		break;
+	case MMC_TIMING_MMC_DDR52:
+		mode = kstrdup("ddr_3_3v", GFP_KERNEL);
+		break;
 	default:
 		dev_dbg(mmc_dev(host->mmc), "no io delay setting\n");
 		goto no_io_delay;
