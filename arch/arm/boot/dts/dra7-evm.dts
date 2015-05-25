@@ -665,6 +665,9 @@ i2c_p3_exp: &i2c2 {
 	pinctrl-2 = <&mmc1_pins_sdr12>;
 	pinctrl-3 = <&mmc1_pins_sdr25>;
 	pinctrl-4 = <&mmc1_pins_ddr50 &mmc1_iodelay_ddr50_conf>;
+	sd-uhs-ddr50;
+	sd-uhs-sdr25;
+	sd-uhs-sdr12;
 };
 
 &mmc2 {
