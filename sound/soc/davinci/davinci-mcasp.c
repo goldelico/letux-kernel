@@ -1867,6 +1867,13 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 	(IS_MODULE(CONFIG_SND_DAVINCI_SOC_MCASP) && \
 	 IS_MODULE(CONFIG_SND_OMAP_SOC))
 	case MCASP_VERSION_4:
+		ret = edma_pcm_platform_register(&pdev->dev);
+		if (ret) {
+			dev_err(&pdev->dev, "register eDMA PCM failed: %d\n",
+				ret);
+			goto err;
+		}
+
 		ret = omap_pcm_platform_register(&pdev->dev);
 		break;
 #endif
