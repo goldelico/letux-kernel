@@ -912,6 +912,8 @@ i2c_p3_exp: &i2c2 {
 	serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
 		1 2 0 0
 	>;
+	tx-num-evt = <8>;
+	rx-num-evt = <8>;
 };
 
 &mcasp7 {
