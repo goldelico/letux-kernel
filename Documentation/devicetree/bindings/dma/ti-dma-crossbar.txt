@@ -1,7 +1,8 @@
 Texas Instruments DMA Crossbar (DMA request router)
 
 Required properties:
-- compatible:	"ti,dra7-dma-crossbar" for DRA7xx DMA crossbar
+- compatible:	"ti,dra7-dma-crossbar" for DRA7xx sDMA crossbar
+		"ti,dra7-edma-crossbar" for DRA7xx eDMA crossbar
 - reg:		Memory map for accessing module
 - #dma-cells:	Should be set to <1>.
 		Clients should use the crossbar request number (input)

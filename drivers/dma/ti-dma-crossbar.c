@@ -20,6 +20,9 @@
 #define TI_XBAR_OUTPUTS	127
 #define TI_XBAR_INPUTS	256
 
+#define TI_XBAR_SDMA_OFFSET	1
+#define TI_XBAR_EDMA_OFFSET	0
+
 struct ti_dma_xbar_data {
 	void __iomem *iomem;
 
@@ -29,12 +32,15 @@ struct ti_dma_xbar_data {
 	u16 safe_val; /* Value to rest the crossbar lines */
 	u32 xbar_requests; /* number of DMA requests connected to XBAR */
 	u32 dma_requests; /* number of DMA requests forwarded to DMA */
+	u32 dma_offset;
 };
 
 struct ti_dma_xbar_map {
 	u16 xbar_in;
 	int xbar_out;
 };
+
+static const struct of_device_id ti_dma_xbar_match[];
 
 static inline void ti_dma_xbar_write(void __iomem *iomem, int xbar, u16 val)
 {
@@ -84,8 +90,7 @@ static void *ti_dma_xbar_route_allocate(struct of_phandle_args *dma_spec,
 				  GFP_KERNEL);
 	map->xbar_in = (u16)dma_spec->args[0];
 
-	/* The DMA request is 1 based in sDMA */
-	dma_spec->args[0] = map->xbar_out + 1;
+	dma_spec->args[0] = map->xbar_out + xbar->dma_offset;
 
 	dev_dbg(&pdev->dev, "Mapping XBAR%u to DMA%d\n",
 		map->xbar_in, map->xbar_out);
@@ -98,6 +103,7 @@ static void *ti_dma_xbar_route_allocate(struct of_phandle_args *dma_spec,
 static int ti_dma_xbar_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
+	const struct of_device_id *match;
 	struct device_node *dma_node;
 	struct ti_dma_xbar_data *xbar;
 	struct resource *res;
@@ -107,6 +113,10 @@ static int ti_dma_xbar_probe(struct platform_device *pdev)
 
 	if (!node)
 		return -ENODEV;
+
+	match = of_match_device(ti_dma_xbar_match, &pdev->dev);
+	if (!match)
+		return -EINVAL;
 
 	xbar = devm_kzalloc(&pdev->dev, sizeof(*xbar), GFP_KERNEL);
 	if (!xbar)
@@ -151,6 +161,7 @@ static int ti_dma_xbar_probe(struct platform_device *pdev)
 
 	xbar->dmarouter.dev = &pdev->dev;
 	xbar->dmarouter.route_free = ti_dma_xbar_free;
+	xbar->dma_offset = (u32)match->data;
 
 	platform_set_drvdata(pdev, xbar);
 
@@ -170,7 +181,14 @@ static int ti_dma_xbar_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id ti_dma_xbar_match[] = {
-	{ .compatible = "ti,dra7-dma-crossbar" },
+	{
+		.compatible = "ti,dra7-dma-crossbar",
+		.data = (void *)TI_XBAR_SDMA_OFFSET,
+	},
+	{
+		.compatible = "ti,dra7-edma-crossbar",
+		.data = (void *)TI_XBAR_EDMA_OFFSET,
+	},
 	{},
 };
 
