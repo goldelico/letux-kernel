@@ -1,0 +1,39 @@
+/*
+ * Copyright (C) 2015 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include "dra7-evm-lcd7.dts"
+
+&ipu2 {
+	ti,late-attach;
+	ti,no-idle-on-init;
+	ti,no-reset-on-init;
+};
+
+&timer3 {
+	ti,late-attach;
+	ti,no-idle-on-init;
+	ti,no-reset-on-init;
+};
+
+&timer4 {
+	ti,late-attach;
+	ti,no-idle-on-init;
+	ti,no-reset-on-init;
+};
+
+&timer9 {
+	ti,late-attach;
+	ti,no-idle-on-init;
+	ti,no-reset-on-init;
+};
+
+&mmu_ipu2{
+	ti,late-attach;
+	ti,no-idle-on-init;
+	ti,no-reset-on-init;
+};

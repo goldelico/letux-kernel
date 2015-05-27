@@ -22,6 +22,15 @@ Optional properties:
               This property is mandatory for DSP IOMMU instances on DRA7xx
               SoCs, and is optional on other SoCs.
 
+The following optional properties are _required_ only during "late attach":
+- ti,late-attach      : Flag to indicate IOMMU has already been configured by
+                        bootloader. This property is only relevant for initial
+                        boot, so is removed by the driver during the first
+                        probe.
+- ti,no-reset-on-init : Flag to let the hwmod layer not reset the IOMMU at init
+- ti,no-idle-on-init  : Flag to let the hwmod layer not idle and disable IOMMU
+                        at init
+
 Example:
 	/* OMAP3 ISP MMU */
 	mmu_isp: mmu@480bd400 {

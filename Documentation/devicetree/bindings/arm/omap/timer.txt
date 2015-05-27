@@ -32,6 +32,18 @@ Optional properties:
 - ti,timer-secure: 	Indicates the timer is reserved on a secure OMAP device
 			and therefore cannot be used by the kernel.
 
+The following optional properties are _required_ only during "late attach" of
+remote processors, and only for those timers used by those remoteprocs:
+
+- ti,late-attach:	Flag to indicate the timer has already been configure by
+			boot loader. This property is only relevant for initial
+			boot, so is removed by the driver during the first
+			probe.
+- ti,no-reset-on-init:	Flag to let the hwmod layer not reset the timer at init
+- ti,no-idle-on-init:	Flag to let the hwmod layer not idle and disable the
+			timer at init
+
+
 Example:
 
 timer12: timer@48304000 {

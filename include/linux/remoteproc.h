@@ -473,6 +473,7 @@ enum rproc_crash_type {
  * @table_csum: checksum of the resource table
  * @fw_version: human readable version information extracted from f/w
  * @has_iommu: flag to indicate if remote processor is behind an MMU
+ * @late_attach: flag indicating remote core has been externally pre-loaded
  */
 struct rproc {
 	struct klist_node node;
@@ -508,6 +509,7 @@ struct rproc {
 	u32 table_csum;
 	char *fw_version;
 	bool has_iommu;
+	u32 late_attach;
 };
 
 /* we currently support only two vrings per rvdev */
