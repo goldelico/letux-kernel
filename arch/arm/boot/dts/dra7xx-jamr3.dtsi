@@ -50,6 +50,12 @@
 		no-map;
 		status = "okay";
 	};
+
+	dsp1_sr0: dsp1_sr0@bfd00000 {
+		reg = <0xbfd00000 0x100000>;
+		no-map;
+		status = "okay";
+	};
 };
 
 &atl {
