@@ -83,7 +83,7 @@ static int w2sg_data_set_lna_power(struct w2sg_data *data)
 	int ret = 0;
 	int off = data->suspended || !data->requested || data->lna_blocked;
 
-	pr_debug("w2sg_data_set_lna_power: %s\n", off ? "off" : "on");
+	pr_debug("%s: %s\n", __func__, off ? "off" : "on");
 
 	if (off != data->lna_is_off) {
 		data->lna_is_off = off;
@@ -103,7 +103,7 @@ static void w2sg_data_set_power(void *pdata, int val)
 	struct w2sg_data *data = (struct w2sg_data *) pdata;
 	unsigned long flags;
 
-	pr_debug("GPS SET to %d (%d)\n", val, data->requested);
+	pr_debug("%s to %d (%d)\n", __func__, val, data->requested);
 
 	spin_lock_irqsave(&data->lock, flags);
 
@@ -115,7 +115,7 @@ static void w2sg_data_set_power(void *pdata, int val)
 	} else
 		goto unlock;
 
-	pr_debug("GPS scheduled for %d\n", data->requested);
+	pr_debug("w2sg scheduled for %d\n", data->requested);
 
 	if (!data->suspended)
 		schedule_delayed_work(&data->work, 0);
@@ -136,7 +136,7 @@ static int rx_notification(void *pdata, unsigned int *c)
 		    time_after(jiffies,
 		    data->last_toggle + data->backoff)) {
 			/* Should be off by now, time to toggle again */
-			pr_debug("w2sg0004 has sent data although it should be off!\n");
+			pr_debug("w2sg has sent data although it should be off!\n");
 			data->is_on = true;
 			data->backoff *= 2;
 			spin_lock_irqsave(&data->lock, flags);
@@ -152,7 +152,7 @@ static int rx_notification(void *pdata, unsigned int *c)
 
 static int w2sg_mctrl(void *pdata, int val)
 {
-	pr_debug("w2sg_mctrl(...,%x)\n", val);
+	pr_debug("%s(...,%x)\n", __func__, val);
 	val = (val & TIOCM_DTR) != 0;	/* DTR controls power on/off */
 	w2sg_data_set_power((struct w2sg_data *) pdata, val);
 	return 0;
@@ -176,7 +176,7 @@ static void toggle_work(struct work_struct *work)
 		gpio_set_value_cansleep(data->on_off_gpio, 0);
 		data->state = W2SG_PULSE;
 
-		pr_debug("GPS pulse\n");
+		pr_debug("w2sg: power gpio ON\n");
 
 		schedule_delayed_work(&data->work,
 				      msecs_to_jiffies(10));
@@ -188,7 +188,7 @@ static void toggle_work(struct work_struct *work)
 		data->state = W2SG_NOPULSE;
 		data->is_on = !data->is_on;
 
-		pr_debug("GPS nopulse\n");
+		pr_debug("w2sg: power gpio OFF\n");
 
 		schedule_delayed_work(&data->work,
 				      msecs_to_jiffies(10));
@@ -196,7 +196,7 @@ static void toggle_work(struct work_struct *work)
 
 	case W2SG_NOPULSE:
 		data->state = W2SG_IDLE;
-		pr_debug("GPS idle\n");
+		pr_debug("w2sg: idle\n");
 
 		break;
 
@@ -225,7 +225,7 @@ static int w2sg_data_probe(struct platform_device *pdev)
 	struct rfkill *rf_kill;
 	int err;
 
-	pr_debug("w2sg_data_probe()\n");
+	pr_debug("%s()\n", __func__);
 
 /* FIXME: with uart link, the driver only works with DT - can we remove the CONFIG_OF? */
 
@@ -245,7 +245,7 @@ static int w2sg_data_probe(struct platform_device *pdev)
 
 		pdata->lna_regulator = devm_regulator_get_optional(dev, "lna");
 
-		pr_debug("w2sg_data_probe() lna_regulator = %p\n", pdata->lna_regulator);
+		pr_debug("%x() lna_regulator = %p\n", __func__, pdata->lna_regulator);
 
 		/* CHECKME: we should not require the lna_regulator? */
 		if (IS_ERR(pdata->lna_regulator))
@@ -327,10 +327,10 @@ static int w2sg_data_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_W2SG0004_DEBUG
 	/* turn on for debugging rx notifications */
-	pr_debug("power on test on\n");
+	pr_debug("w2sg power gpio ON\n");
 	gpio_set_value_cansleep(data->on_off_gpio, 1);
 	mdelay(100);
-	pr_debug("power on test off\n");
+	pr_debug("w2sg power gpio OFF\n");
 	gpio_set_value_cansleep(data->on_off_gpio, 0);
 	mdelay(300);
 #endif
