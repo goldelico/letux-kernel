@@ -2555,7 +2555,11 @@ CONFIG_DVB_TUNER_DIB0090=m
 # Graphics support
 #
 # CONFIG_SGX540 is not set
-# CONFIG_SGX530 is not set
+CONFIG_SGX530=m
+# CONFIG_SGX_REV121 is not set
+CONFIG_SGX_REV125=y
+CONFIG_SGX_530_BUILD_RELEASE=y
+# CONFIG_SGX_530_BUILD_DEBUG is not set
 
 #
 # Direct Rendering Manager
