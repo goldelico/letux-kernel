@@ -379,7 +379,20 @@ static int uart_port_startup(struct tty_struct *tty, struct uart_state *state,
 		/*
 		 * Initialise the hardware port settings.
 		 */
-//		if (!state->uart_port->rx_notification)
+
+/*
+ * here we intend to change th uart speed only if there is
+ * no tty slave so that the termios provided during registration
+ * of the slave driver persists.
+ * So the idea is that either the tty slave or user space (stty)
+ * provides the uart settings. At least initial settings.
+ * Unfortunately it does not work.
+ * If we include this condition, the receive callback works
+ * but cat </dev/ttyO0 does not.
+ *
+		if (!state->uart_port->rx_notification)
+ */
+
 			uart_change_speed(tty, state, NULL);
 
 		if (init_hw) {
