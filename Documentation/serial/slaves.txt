@@ -1,9 +1,4 @@
-[alternative] UART slave device support - version 1
-
-This patch series adds hooks so that the driver of a device conntected to an UART can
-monitor modem control lines and data activity of the controlled chip.
-
-It contains an example for such a device which needs sophisticated power control: wi2wi,w2sg0004
+UART slave device support
 
 A remote device connected to a RS232 interface is usually power controlled by the DTR line.
 The DTR line is managed automatically by the UART driver for open() and close() syscalls
@@ -12,15 +7,15 @@ and on demand by tcsetattr().
 With embedded devices, the serial peripheral might be directly and always connected to the UART
 and there might be no physical DTR line involved. Power control (on/off) has to be done by some
 chip specific device driver (which we call "UART slave") through some mechanisms (I2C, GPIOs etc.)
-not related to the serial interface. Some devices do not tell their power state except by sending
-or not sending data to the UART. In such a case the device driver must be able to monitor data
-activity. The role of the device driver is to encapsulate such power control in a single place.
+not related to the serial interface. Some devices do not explicitly tell their power state except
+by sending or not sending data to the UART. In such a case the device driver must be able to monitor
+data activity. The role of the device driver is to encapsulate such power control in a single place.
 
 This patch series allows to support such drivers by providing:
 * a mechanism that a slave driver can identify the UART instance it is connected to
 * a mechanism that UART slave drivers can register to be notified
 * notfications for DTR (and other modem control) state changes
-* notifications that the device has sent some data to the UART
+* notifications that the UART has received some data from the UART
 
 A slave device simply adds a phandle reference to the UART it is connected to, e.g.
 
@@ -30,25 +25,12 @@ A slave device simply adds a phandle reference to the UART it is connected to, e
 	};
 
 The slave driver calls devm_serial_get_uart_by_phandle() to identify the uart driver.
-devm_serial_get_uart_by_phandle() follows the concept of devm_usb_get_phy_by_phandle().
+This API follows the concept of devm_usb_get_phy_by_phandle().
 
 A slave device driver registers itself with serial_register_slave() to receive notifications.
-Notification handlers can be registered by serial_register_mctrl_notification() and
-serial_register_rx_notification(). If an UART has a NULL slave or a NULL handler registered,
+Notification handler callbacks can be registered by serial_register_mctrl_notification() and
+serial_register_rx_notification(). If an UART has registered a NULL slave or a NULL handler,
 no notifications are sent.
 
-RX notification handlers can define a ktermios setup and modify or decide to throw away the
-character that is passed upwards.
-
-This all is a follow-up to the w2sg0004 driver submitted in 2014 that did want to add an optional
-GPIO to DTR in omap-serial.c and required the w2sg0004 driver to present itself as a "virtual
-GPIO". The idea of a "virtual GPIO"  is not compatible with the concept that DT must
-describe hardware (and not virtual hardware). So in this solution DT only describes that
-the w2sg0004 is connected to some UART and how the signalling works is left to the driver
-implementation.
-
-The rx data notification also removes the concept of having two different pinmux states
-and make the w2sg0004 driver intercept rx activities by switching the rx line to a GPIO
-interrupt. This was very OMAP3 specific. The new solution is generic and might even be
-extensible that the chip driver could filter or consume the rx data before it is passed
-to the tty layer.
+RX notification handlers can define a ktermios during setup and the handler function can modify
+or decide to throw away each character that is passed upwards.
