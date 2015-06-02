@@ -35,7 +35,7 @@
 #define uart_console(port) \
 	((port)->cons && (port)->cons->index == (port)->line)
 #else
-#define uart_console(port)      ({ (void)port; 0; })
+#define uart_console(port)      (0)
 #endif
 
 struct uart_port;
@@ -248,7 +248,13 @@ struct uart_port {
 	const struct attribute_group **tty_groups;	/* all attributes (serial core use only) */
 	struct serial_rs485     rs485;
 	void			*private_data;		/* generic platform data pointer */
+	/* UART slave support */
 	struct list_head	head;			/* uarts list (lookup by phandle) */
+	void			*slave;			/* optional slave (there can be only one) */
+	void			(*mctrl_notification)(void *slave,
+						      int state);
+	bool			(*rx_notification)(void *slave,
+						      unsigned int *c);
 };
 
 static inline int serial_port_in(struct uart_port *up, int offset)
@@ -491,4 +497,11 @@ static inline int uart_handle_break(struct uart_port *port)
  */
 extern struct uart_port *devm_serial_get_uart_by_phandle(struct device *dev,
 		const char *phandle, u8 index);
+/* register to receive notifications */
+extern void uart_register_slave(struct uart_port *uart, void *slave);
+extern void uart_register_mctrl_notification(struct uart_port *uart,
+		void (*function)(void *slave, int state));
+extern void uart_register_rx_notification(struct uart_port *uart,
+		bool (*function)(void *slave, unsigned int *c), struct ktermios *termios);
+
 #endif /* LINUX_SERIAL_CORE_H */
