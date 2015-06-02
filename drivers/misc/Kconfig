@@ -537,4 +537,22 @@ source "drivers/misc/mic/Kconfig"
 source "drivers/misc/genwqe/Kconfig"
 source "drivers/misc/echo/Kconfig"
 source "drivers/misc/cxl/Kconfig"
+
+menu "GTA04 misc hardware support"
+
+config W2SG0004
+	tristate "W2SG0004 on/off control"
+	depends on GPIOLIB
+	help
+	  Enable on/off control of W2SG0004 GPS to allow powering up/down if
+	  the /dev/tty$n is opened/closed.
+	  It also provides a rfkill gps node to control the LNA power.
+
+config W2SG0004_DEBUG
+	bool "W2SG0004 on/off debugging"
+	depends on W2SG0004
+	help
+	  Enable driver debugging mode of W2SG0004 GPS.
+
+endmenu
 endmenu
