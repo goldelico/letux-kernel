@@ -1,0 +1,36 @@
+UART slave device support
+
+A remote device connected to a RS232 interface is usually power controlled by the DTR line.
+The DTR line is managed automatically by the UART driver for open() and close() syscalls
+and on demand by tcsetattr().
+
+With embedded devices, the serial peripheral might be directly and always connected to the UART
+and there might be no physical DTR line involved. Power control (on/off) has to be done by some
+chip specific device driver (which we call "UART slave") through some mechanisms (I2C, GPIOs etc.)
+not related to the serial interface. Some devices do not explicitly tell their power state except
+by sending or not sending data to the UART. In such a case the device driver must be able to monitor
+data activity. The role of the device driver is to encapsulate such power control in a single place.
+
+This patch series allows to support such drivers by providing:
+* a mechanism that a slave driver can identify the UART instance it is connected to
+* a mechanism that UART slave drivers can register to be notified
+* notfications for DTR (and other modem control) state changes
+* notifications that the UART has received some data from the UART
+
+A slave device simply adds a phandle reference to the UART it is connected to, e.g.
+
+	gps {
+		compatible = "wi2wi,w2sg0004";
+		uart = <&uart1>;
+	};
+
+The slave driver calls devm_serial_get_uart_by_phandle() to identify the uart driver.
+This API follows the concept of devm_usb_get_phy_by_phandle().
+
+A slave device driver registers itself with serial_register_slave() to receive notifications.
+Notification handler callbacks can be registered by serial_register_mctrl_notification() and
+serial_register_rx_notification(). If an UART has registered a NULL slave or a NULL handler,
+no notifications are sent.
+
+RX notification handlers can define a ktermios during setup and the handler function can modify
+or decide to throw away each character that is passed upwards.
