@@ -286,6 +286,7 @@ vivante	Vivante Corporation
 voipac	Voipac Technologies s.r.o.
 wd	Western Digital Corp.
 wexler	Wexler
+wi2wi	Wi2Wi, Inc.
 winbond Winbond Electronics corp.
 wlf	Wolfson Microelectronics
 wm	Wondermedia Technologies, Inc.
