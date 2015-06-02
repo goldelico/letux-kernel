@@ -166,6 +166,86 @@ err0:
 }
 EXPORT_SYMBOL_GPL(devm_serial_get_uart_by_phandle);
 
+void uart_register_slave(struct uart_port *uport, void *slave)
+{
+	if (!slave) {
+		uart_register_mctrl_notification(uport, NULL);
+		uart_register_rx_notification(uport, NULL, NULL);
+	}
+	uport->slave = slave;
+}
+EXPORT_SYMBOL_GPL(uart_register_slave);
+
+void uart_register_mctrl_notification(struct uart_port *uport,
+		void (*function)(void *slave, int state))
+{
+	uport->mctrl_notification = function;
+}
+EXPORT_SYMBOL_GPL(uart_register_mctrl_notification);
+
+static int uart_port_startup(struct tty_struct *tty, struct uart_state *state,
+		int init_hw);
+
+static void uart_port_shutdown(struct tty_port *port);
+
+void uart_register_rx_notification(struct uart_port *uport,
+		bool (*function)(void *slave, unsigned int *c),
+				struct ktermios *termios)
+{
+	struct uart_state *state = uport->state;
+	struct tty_port *tty_port = &state->port;
+
+	if (!uport->slave)
+		return;	/* slave must be registered first */
+
+	uport->rx_notification = function;
+
+	if (tty_port->count == 0) {
+		if (function) {
+			int retval = 0;
+
+			uart_change_pm(state, UART_PM_STATE_ON);
+			retval = uport->ops->startup(uport);
+			if (retval == 0 && termios) {
+				int hw_stopped;
+				/*
+				 * Initialise the hardware port settings.
+				 */
+				uport->ops->set_termios(uport, termios, NULL);
+
+				/*
+				 * Set modem status enables based on termios cflag
+				 */
+				spin_lock_irq(&uport->lock);
+				if (termios->c_cflag & CRTSCTS)
+					uport->status |= UPSTAT_CTS_ENABLE;
+				else
+					uport->status &= ~UPSTAT_CTS_ENABLE;
+
+				if (termios->c_cflag & CLOCAL)
+					uport->status &= ~UPSTAT_DCD_ENABLE;
+				else
+					uport->status |= UPSTAT_DCD_ENABLE;
+
+				/* reset sw-assisted CTS flow control based on (possibly) new mode */
+				hw_stopped = uport->hw_stopped;
+				uport->hw_stopped = uart_softcts_mode(uport) &&
+					!(uport->ops->get_mctrl(uport)
+						& TIOCM_CTS);
+				if (uport->hw_stopped) {
+					if (!hw_stopped)
+						uport->ops->stop_tx(uport);
+				} else {
+					if (hw_stopped)
+						uport->ops->start_tx(uport);
+				}
+				spin_unlock_irq(&uport->lock);
+			}
+		} else
+			uart_port_shutdown(tty_port);
+	}
+}
+EXPORT_SYMBOL_GPL(uart_register_rx_notification);
 
 /*
  * This routine is used by the interrupt handler to schedule processing in
@@ -224,7 +304,11 @@ uart_update_mctrl(struct uart_port *port, unsigned int set, unsigned int clear)
 	port->mctrl = (old & ~clear) | set;
 	if (old != port->mctrl)
 		port->ops->set_mctrl(port, port->mctrl);
+
 	spin_unlock_irqrestore(&port->lock, flags);
+
+	if (port->mctrl_notification)
+		(*port->mctrl_notification)(port->slave, port->mctrl);
 }
 
 #define uart_set_mctrl(port, set)	uart_update_mctrl(port, set, 0)
@@ -263,7 +347,8 @@ static int uart_port_startup(struct tty_struct *tty, struct uart_state *state,
 		uart_circ_clear(&state->xmit);
 	}
 
-	retval = uport->ops->startup(uport);
+	if (!state->uart_port->rx_notification)
+		retval = uport->ops->startup(uport);
 	if (retval == 0) {
 		if (uart_console(uport) && uport->cons->cflag) {
 			tty->termios.c_cflag = uport->cons->cflag;
@@ -297,7 +382,7 @@ static int uart_startup(struct tty_struct *tty, struct uart_state *state,
 		int init_hw)
 {
 	struct tty_port *port = &state->port;
-	int retval;
+	int retval = 0;
 
 	if (port->flags & ASYNC_INITIALIZED)
 		return 0;
@@ -343,8 +428,12 @@ static void uart_shutdown(struct tty_struct *tty, struct uart_state *state)
 
 		if (!tty || C_HUPCL(tty))
 			uart_clear_mctrl(uport, TIOCM_DTR | TIOCM_RTS);
-
-		uart_port_shutdown(port);
+		/*
+		 * if we have a slave that has registered for rx_notifications
+		 * we do not shut down the uart port to be able to monitor the device
+		 */
+		if (!uport->rx_notification)
+			uart_port_shutdown(port);
 	}
 
 	/*
@@ -1492,8 +1581,9 @@ static void uart_close(struct tty_struct *tty, struct file *filp)
 	/*
 	 * At this point, we stop accepting input.  To do this, we
 	 * disable the receive line status interrupts.
+	 * Unless a slave driver wants to keep input running
 	 */
-	if (port->flags & ASYNC_INITIALIZED) {
+	if (!uport->rx_notification && (port->flags & ASYNC_INITIALIZED)) {
 		spin_lock_irq(&uport->lock);
 		uport->ops->stop_rx(uport);
 		spin_unlock_irq(&uport->lock);
@@ -2986,6 +3076,10 @@ void uart_insert_char(struct uart_port *port, unsigned int status,
 		 unsigned int overrun, unsigned int ch, unsigned int flag)
 {
 	struct tty_port *tport = &port->state->port;
+
+	if (port->rx_notification)
+		if ((*port->rx_notification)(port->slave, &ch))
+			return;	/* slave told us to ignore character */
 
 	if ((status & port->ignore_status_mask & ~overrun) == 0)
 		if (tty_insert_flip_char(tport, ch, flag) == 0)
