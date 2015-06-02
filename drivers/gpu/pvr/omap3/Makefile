@@ -1,14 +1,22 @@
 # derived from some SDK4 Makefiles
 DATE := $(shell date "+%Y%m%d%H%M%S" )
 
+# revision specific flags (only one can be choosen as y)
+
+ccflags-$(CONFIG_SGX_REV110) += -DSGX_CORE_REV=110
+ccflags-$(CONFIG_SGX_REV120) += -DSGX_CORE_REV=120
+ccflags-$(CONFIG_SGX_REV121) += -DSGX_CORE_REV=121
+ccflags-$(CONFIG_SGX_REV125) += -DSGX_CORE_REV=125
+
 # these options must match the compiled binary pvrsrvinit or you will see e.g.
 # SGXInit: Mismatch in driver and microkernel build options; extra options present in driver: (0x1)
 # SGXInit: Mismatch in driver and microkernel build options; extra options present in microkernel: (0x210008) [1297, drivers/gpu/pvr/omap3/services4/srvkm/devices/sgx/sgxinit.c]
 # other options depend on the kernel version (here 3.7) and CPU (here: DM3730=OMAP3630)
 
-ccflags-y = \
+ccflags-y += \
 	-Iinclude \
-	-Idrivers/video/omap2 \
+	-Iarch/arm/mach-omap2 \
+	-Idrivers/video/fbdev/omap2 \
 	-Idrivers/gpu/pvr/omap3/ \
 	-Idrivers/gpu/pvr/omap3/include4 \
 	-Idrivers/gpu/pvr/omap3/services4/include \
@@ -23,7 +31,9 @@ ccflags-y = \
 	-Idrivers/gpu/pvr/omap3/services4/srvkm/include \
 	-Idrivers/gpu/pvr/omap3/services4/3rdparty/bufferclass_ti \
 	-Idrivers/gpu/pvr/omap3/services4/3rdparty/dc_omapfb3_linux \
-	-Idrivers/gpu/pvr/omap3/services4/3rdparty/linux_drm \
+	-Idrivers/gpu/pvr/omap3/services4/3rdparty/linux_drm
+
+ccflags-y += \
 	-DLINUX -D__linux__ \
 	-DPVR_BUILD_DIR="\"omap_sgx\"" \
 	-DPVR_BUILD_DATE="\"$(DATE)\"" \
@@ -60,40 +70,41 @@ ccflags-y = \
 	-DSYS_CUSTOM_POWERLOCK_WRAP \
 	-DPVR_NO_FULL_CACHE_OPS \
 	-DSGX_CLK_CORE_DIV5 \
-	-DSUPPORT_SGX_NEW_STATUS_VALS \
+	-DSUPPORT_SGX_NEW_STATUS_VALS
+
+ccflags-n += -DKBUILD_MODNAME="\"pvr_sgx\""
 
 # has been disabled because otherwise modules are not loaded automatically
 # but need support through X-server (AFAIK)
 # and - we must compile as loadable module
-#	-DSUPPORT_DRI_DRM \
 
+ccflags-n += \
+	-DSUPPORT_DRI_DRM
 
 # for drm
 ccflags-y += -Iinclude/drm \
 	-DSYS_USING_INTERRUPTS \
 	-DSUPPORT_OMAP3430_OMAPFB3 \
 	-DPVR_LINUX_USING_WORKQUEUES \
-	-DPVR_DISPLAY_CONTROLLER_DRM_IOCTL \
+	-DPVR_DISPLAY_CONTROLLER_DRM_IOCTL
 
-#	-DSGX_DYNAMIC_TIMING_INFO \
-#	-DSUPPORT_XWS \
-#	-DPVR_SECURE_FD_EXPORT \
-#	-DSYS_CUSTOM_POWERLOCK_WRAP \
-#	-DSUPPORT_MEMINFO_IDS \
-#	-DCLIENT_DRIVER_DEFAULT_WAIT_RETRIES=50 \
-#	-DFLIP_TECHNIQUE_OVERLAY \
-#	-DSUPPORT_SGX_NEW_STATUS_VALS \
+# old
+ccflags-n += \
+	-DSGX_DYNAMIC_TIMING_INFO \
+	-DSUPPORT_XWS \
+	-DPVR_SECURE_FD_EXPORT \
+	-DSYS_CUSTOM_POWERLOCK_WRAP \
+	-DSUPPORT_MEMINFO_IDS \
+	-DCLIENT_DRIVER_DEFAULT_WAIT_RETRIES=50 \
+	-DFLIP_TECHNIQUE_OVERLAY \
+	-DSUPPORT_SGX_NEW_STATUS_VALS \
+	-DSGX_EARLYSUSPEND
 
-# 	-DANDROID \  # we are NOT compiling on Android
-#	-DSUPPORT_ANDROID_PLATFORM \
-#	-DSYS_SGX_ACTIVE_POWER_LATENCY_MS=100 \
-
-# revision specific flags (only one can be choosen as y)
-
-ccflags-$(CONFIG_SGX_REV110) += -DSGX_CORE_REV=110
-ccflags-$(CONFIG_SGX_REV120) += -DSGX_CORE_REV=120
-ccflags-$(CONFIG_SGX_REV121) += -DSGX_CORE_REV=121
-ccflags-$(CONFIG_SGX_REV125) += -DSGX_CORE_REV=125
+ # we are NOT compiling on/for Android
+ccflags-n += \
+	-DANDROID \
+	-DSUPPORT_ANDROID_PLATFORM \
+	-DSYS_SGX_ACTIVE_POWER_LATENCY_MS=100
 
 # build specific flags (only one can be choosen as y)
 ccflags-$(CONFIG_SGX_530_BUILD_RELEASE) += \
@@ -104,8 +115,6 @@ ccflags-$(CONFIG_SGX_530_BUILD_RELEASE) += \
 	-DRELEASE \
 	-g -Os \
 	-fno-strict-aliasing -Wno-pointer-arith -Wno-sign-conversion
-
-#	-DSGX_EARLYSUSPEND \
 
 ccflags-$(CONFIG_SGX_530_BUILD_DEBUG) += \
 	-Idrivers/gpu/pvr/omap3/omap3  -Idrivers/gpu/pvr/omap3/sgx \
@@ -121,9 +130,11 @@ ccflags-$(CONFIG_SGX_530_BUILD_DEBUG) += \
 	-g -O0 -DDLL_METRIC=1 \
 	-fno-strict-aliasing -Wno-pointer-arith -Wno-sign-conversion
 
-#	-DDEBUG_BRIDGE_KM_DISPATCH_TABLE	
-#	-DPVRSRV_USSE_EDM_STATUS_DEBUG \
-#	-DPVRSRV_DUMP_MK_TRACE \
+# old
+ccflags-n += \
+	-DDEBUG_BRIDGE_KM_DISPATCH_TABLE \
+	-DPVRSRV_USSE_EDM_STATUS_DEBUG \
+	-DPVRSRV_DUMP_MK_TRACE
 
 #ccflags-$(CONFIG_SGX_540_BUILD_RELEASE) += \
 #	-DPVR_BUILD_TYPE="\"release\"" \
@@ -146,7 +157,15 @@ ccflags-$(CONFIG_SGX_530_BUILD_DEBUG) += \
 #	-DPVRSRV_DUMP_MK_TRACE \
 #	-DDEBUG_LOG_PATH_TRUNCATE="\"eurasia_km\""
 
-pvr_common-y := \
+# extra flags for some files
+CFLAGS_pvr_drm_stubs.o := -DCONFIG_PCI
+CFLAGS_drm_drv.o := -DCONFIG_PCI
+CFLAGS_drm_stub.o := -DCONFIG_PCI
+CFLAGS_ati_pcigart.o := -DCONFIG_PCI
+
+# put common files into a library
+
+lib-y := \
 	services4/srvkm/env/linux/osfunc.o \
 	services4/srvkm/env/linux/mutils.o \
 	services4/srvkm/env/linux/mmap.o \
@@ -181,19 +200,7 @@ pvr_common-y := \
 	services4/srvkm/bridged/bridged_support.o \
 	services4/srvkm/bridged/bridged_pvr_bridge.o
 
-pvr530-$(CONFIG_SGX_REV121) := \
-	services4/system/omap3/sysconfig.o \
-	services4/system/omap3/sysutils.o
-
-pvr530-$(CONFIG_SGX_REV125) := \
-	services4/system/omap3630/sysconfig.o \
-	services4/system/omap3630/sysutils.o
-
-pvr540-$(CONFIG_SGX540) := \
-	services4/system/omap4/sysconfig.o \
-	services4/system/omap4/sysutils.o
-
-sgx-y :=  \
+lib-y +=  \
 	services4/srvkm/bridged/sgx/bridged_sgx_bridge.o \
 	services4/srvkm/devices/sgx/sgxinit.o \
 	services4/srvkm/devices/sgx/sgxpower.o \
@@ -202,13 +209,13 @@ sgx-y :=  \
 	services4/srvkm/devices/sgx/sgxkick.o \
 	services4/srvkm/devices/sgx/sgxtransfer.o \
 	services4/srvkm/devices/sgx/mmu.o \
-	services4/srvkm/devices/sgx/pb.o \
+	services4/srvkm/devices/sgx/pb.o
 
 # compile from drivers/gpu/drm what we need
 # this should be replaced by setting CONFIG_DRM=y
 # but when we tried it failed to compile
 
-drm-y :=  \
+lib-n +=  \
 	services4/3rdparty/linux_drm/pvr_drm_stubs.o \
 	../../drm/drm_auth.o \
 	../../drm/drm_bufs.o \
@@ -237,29 +244,60 @@ drm-y :=  \
 	../../../video/hdmi.o \
 	../../drm/drm_info.o \
 	../../drm/drm_debugfs.o \
-	../../drm/drm_encoder_slave.o \
+	../../drm/drm_encoder_slave.o
 
 # not available in Linux 3.7
-#	../../drm/drm_drawable.o \
-#	../../drm/drm_sman.o \
+lib-n +=  \
+	../../drm/drm_drawable.o \
+	../../drm/drm_sman.o
 
 # needed for Linux 3.7
-drm-y += ../../drm/drm_prime.o \
+lib-y += ../../drm/drm_prime.o \
 	../../drm/drm_global.o
 
-# extra flags for some files
-CFLAGS_pvr_drm_stubs.o := -DCONFIG_PCI
-CFLAGS_drm_drv.o := -DCONFIG_PCI
-CFLAGS_drm_stub.o := -DCONFIG_PCI
-CFLAGS_ati_pcigart.o := -DCONFIG_PCI
+ccflags-n += \
+	-DFBDEV_PRESENT=0
 
-omaplfb-y := \
-	services4/3rdparty/dc_omapfb3_linux/omaplfb_displayclass.o \
+lib-n += services4/3rdparty/dc_omapfb3_linux/omaplfb_displayclass.o \
 	services4/3rdparty/dc_omapfb3_linux/omaplfb_linux.o
 
-# build into kernel (y) or module (m)
-# omaplfb must be the last because it requires the others to be initialized before
-obj-$(CONFIG_SGX530) := pvr_common.o sgx.o drm.o pvr530.o omaplfb.o
-obj-$(CONFIG_SGX540) := pvr_common.o sgx.o drm.o pvr540.o omaplfb.o
+# build into kernel (y) or as a module (m) depending on CONFIG_SGX_530/540
+# would be nice if we could find a trick to build separate
+# RELEASE and DEBUG variants without reconfiguring
+# and even nicer if we could build them all and not only one
 
-#obj-$(CONFIG_VIRTUAL_DISPLAY_SUPPORT) := pvr_common.o sgx.o \
+# Revision 1.2.1 - Omap 3430
+ifeq ($(CONFIG_SGX_REV121),y)
+pvr_sgx530_rev121-$(CONFIG_SGX530) := \
+	services4/system/omap3/sysconfig.o \
+	services4/system/omap3/sysutils.o \
+	lib.a
+obj-$(CONFIG_SGX530) += pvr_sgx530_rev121.o
+endif
+
+# Revision 1.2.5 - Omap 3630
+ifeq ($(CONFIG_SGX_REV125),y)
+pvr_sgx530_rev125-$(CONFIG_SGX530) := \
+	services4/system/omap3630/sysconfig.o \
+	services4/system/omap3630/sysutils.o \
+	lib.a
+obj-$(CONFIG_SGX530) += pvr_sgx530_rev125.o
+endif
+
+# Revision 1.1.0 - Omap 4430 ES1
+ifeq ($(CONFIG_SGX_REV110),y)
+pvr_sgx540_rev110-$(CONFIG_SGX540) := \
+	services4/system/omap3/sysconfig.o \
+	services4/system/omap3/sysutils.o \
+	lib.a
+obj-$(CONFIG_SGX540) += pvr_sgx540_rev110.o
+endif
+
+# Revision 1.2.0 - Omap 4430 ES2
+ifeq ($(CONFIG_SGX_REV120),y)
+pvr_sgx540_rev120-$(CONFIG_SGX540) := \
+	services4/system/omap4/sysconfig.o \
+	services4/system/omap4/sysutils.o \
+	lib.a
+obj-$(CONFIG_SGX540) += pvr_sgx540_rev120.o
+endif
