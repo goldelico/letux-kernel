@@ -248,6 +248,7 @@ struct uart_port {
 	const struct attribute_group **tty_groups;	/* all attributes (serial core use only) */
 	struct serial_rs485     rs485;
 	void			*private_data;		/* generic platform data pointer */
+	struct list_head	head;			/* uarts list (lookup by phandle) */
 };
 
 static inline int serial_port_in(struct uart_port *up, int offset)
@@ -481,4 +482,13 @@ static inline int uart_handle_break(struct uart_port *port)
 					 (cflag) & CRTSCTS || \
 					 !((cflag) & CLOCAL))
 
+/*
+ * Helper functions for UART slave drivers
+ */
+
+/* find UART by phandle (e.g. with 'uart = <&uart2>;' then call as
+ * devm_serial_get_uart_by_phandle(dev, "uart", 0);
+ */
+extern struct uart_port *devm_serial_get_uart_by_phandle(struct device *dev,
+		const char *phandle, u8 index);
 #endif /* LINUX_SERIAL_CORE_H */
