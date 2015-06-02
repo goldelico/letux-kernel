@@ -38,6 +38,36 @@
 #include <asm/irq.h>
 #include <asm/uaccess.h>
 
+static LIST_HEAD(uart_list);
+static DEFINE_SPINLOCK(uart_lock);
+
+/* same concept as __of_usb_find_phy */
+static struct uart_port *__of_serial_find_uart(struct device_node *node)
+{
+	struct uart_port  *uart;
+
+	if (!of_device_is_available(node))
+		return ERR_PTR(-ENODEV);
+
+	list_for_each_entry(uart, &uart_list, head) {
+		if (node != uart->dev->of_node)
+			continue;
+
+		return uart;
+	}
+
+	return ERR_PTR(-EPROBE_DEFER);
+}
+
+static void devm_serial_uart_release(struct device *dev, void *res)
+{
+	struct uart_port *uart = *(struct uart_port **)res;
+
+	/* FIXME: I don't understand the serial subsystem well enough
+	 * to know if we should call serial_put_uart(uart); here
+	 */
+}
+
 /*
  * This is used to lock changes in serial line configuration.
  */
@@ -63,6 +93,79 @@ static int uart_dcd_enabled(struct uart_port *uport)
 {
 	return !!(uport->status & UPSTAT_DCD_ENABLE);
 }
+
+/**
+ * devm_serial_get_uart_by_phandle - find the uart by phandle
+ * @dev - device that requests this uart
+ * @phandle - name of the property holding the uart phandle value
+ * @index - the index of the uart
+ *
+ * Returns the uart_port associated with the given phandle value,
+ * after getting a refcount to it, -ENODEV if there is no such uart or
+ * -EPROBE_DEFER if there is a phandle to the uart, but the device is
+ * not yet loaded. While at that, it also associates the device with
+ * the uart using devres. On driver detach, release function is invoked
+ * on the devres data, then, devres data is freed.
+ *
+ * For use by tty host and peripheral drivers.
+ */
+
+/* same concept as devm_usb_get_phy_by_phandle() */
+
+struct uart_port *devm_serial_get_uart_by_phandle(struct device *dev,
+		const char *phandle, u8 index)
+{
+	struct uart_port  *uart = ERR_PTR(-ENOMEM), **ptr;
+	unsigned long   flags;
+	struct device_node *node;
+
+	if (!dev->of_node) {
+		dev_err(dev, "device does not have a device node entry\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	node = of_parse_phandle(dev->of_node, phandle, index);
+	if (!node) {
+		dev_err(dev, "failed to get %s phandle in %s node\n", phandle,
+			dev->of_node->full_name);
+		return ERR_PTR(-ENODEV);
+	}
+
+	ptr = devres_alloc(devm_serial_uart_release, sizeof(*ptr), GFP_KERNEL);
+	if (!ptr) {
+		dev_err(dev, "failed to allocate memory for devres\n");
+		goto err0;
+	}
+
+	spin_lock_irqsave(&uart_lock, flags);
+
+	uart = __of_serial_find_uart(node);
+	if (IS_ERR(uart)) {
+		devres_free(ptr);
+		goto err1;
+	}
+
+	if (!try_module_get(uart->dev->driver->owner)) {
+		uart = ERR_PTR(-ENODEV);
+		devres_free(ptr);
+		goto err1;
+	}
+
+	*ptr = uart;
+	devres_add(dev, ptr);
+
+	get_device(uart->dev);
+
+err1:
+	spin_unlock_irqrestore(&uart_lock, flags);
+
+err0:
+	of_node_put(node);
+
+	return uart;
+}
+EXPORT_SYMBOL_GPL(devm_serial_get_uart_by_phandle);
+
 
 /*
  * This routine is used by the interrupt handler to schedule processing in
@@ -2691,6 +2794,8 @@ int uart_add_one_port(struct uart_driver *drv, struct uart_port *uport)
 	 */
 	uport->flags &= ~UPF_DEAD;
 
+	list_add_tail(&uport->head, &uart_list);
+
  out:
 	mutex_unlock(&port->mutex);
 	mutex_unlock(&port_mutex);
@@ -2721,6 +2826,8 @@ int uart_remove_one_port(struct uart_driver *drv, struct uart_port *uport)
 			state->uart_port, uport);
 
 	mutex_lock(&port_mutex);
+
+	list_del(&uport->head);
 
 	/*
 	 * Mark the port "dead" - this prevents any opens from
