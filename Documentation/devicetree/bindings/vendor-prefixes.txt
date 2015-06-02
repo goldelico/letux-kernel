@@ -260,6 +260,7 @@ virtio	Virtual I/O Device Specification, developed by the OASIS consortium
 vivante	Vivante Corporation
 voipac	Voipac Technologies s.r.o.
 wexler	Wexler
+wi2wi	Wi2Wi, Inc.
 winbond Winbond Electronics corp.
 wlf	Wolfson Microelectronics
 wm	Wondermedia Technologies, Inc.
