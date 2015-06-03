@@ -745,24 +745,6 @@
 		on-indicator-gpio = <0>;		/* n/a on GTA04A3/4 but on A5 */
 	};
 
-	gps_en: w2sg0004 { /* presents a single gpio to be plumbed to uart2 dts */
-		compatible = "wi2wi,w2sg0004";
-		gpio-controller;
-		#gpio-cells = <2>;
-
-		pinctrl-names = "default", "monitor";
-		pinctrl-0 = <&uart2_pins>;
-		pinctrl-1 = <&uart2_rx_irq_pins>;
-
-/* FIXME: driver currently uses the rx-gpio but we should (could?) simply specify the IRQ */
-		interrupt-parent = <&gpio5>;
-		interrupts = <19 IRQ_TYPE_EDGE_FALLING>;	/* GPIO_147: RX - trigger on arrival of start bit */
-//		rx-gpio = <&gpio5 19 0>;	/* GPIO_147: RX */
-
-		lna-supply = <&vsim>;	/* LNA regulator */
-		on-off-gpio = <&gpio5 17 0>;	/* GPIO_145: trigger for turning on/off w2sg0004 */
-	};
-
 	control: control@48002270 {
 		compatible = "ti,omap3-devconf1-syscon", "syscon";
 		reg = <0x48002270 0x74>;
@@ -1002,10 +984,6 @@
 
 &uart1 { /* Bluetooth /dev/ttyO0 */
 	dtr-gpio = <&bt_en 0 GPIO_ACTIVE_LOW>;	/* w2cbw bluetooth power control through virtual gpio */
-};
-
-&uart2 { /* GPS /dev/ttyO1 */
-	dtr-gpio = <&gps_en 0 GPIO_ACTIVE_HIGH>;	/* w2sg0004 GPS power control through virtual gpio */
 };
 
 &uart3 { /* Console and IrDA /dev/ttyO2 */
