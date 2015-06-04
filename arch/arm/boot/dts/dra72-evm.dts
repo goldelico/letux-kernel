@@ -1108,7 +1108,7 @@ i2c_p3_exp: &i2c5 {
 };
 
 &usb1 {
-	dr_mode = "otg";
+	dr_mode = "peripheral";
 	pinctrl-names = "default";
 	pinctrl-0 = <&usb1_pins>;
 };
