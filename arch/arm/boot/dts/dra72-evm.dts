@@ -489,7 +489,7 @@
 
 	wlirq_pins: pinmux_wlirq_pins {
 		pinctrl-single,pins = <
-			0x2c8 (PIN_INPUT_PULLUP | WAKEUP_EN | MUX_MODE14 ) /* mcasp1_axr5.gpio5_7 - WLAN_IRQ */
+			0x2c8 (PIN_INPUT_PULLDOWN | MUX_MODE14 ) /* mcasp1_axr5.gpio5_7 - WLAN_IRQ */
 		>;
 	};
 
