@@ -280,17 +280,38 @@
 				     <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
-			#dma-cells = <2>;
-			#dma-channels = <32>;
-			#dma-requests = <203>;
+			#dma-cells = <1>;
+			dma-channels = <32>;
+			dma-requests = <128>;
 		};
 
-		dmacb: dma-crossbar@4a020000 {
-			compatible = "ti,dma-crossbar";
-			reg = <0x4a002b78 0x100>;
-			ti,dma-reqs = <160>;
-			ti,reg-size = <2>;
+		sdma_xbar: dma-crossbar@4a002b78 {
+			compatible = "ti,dra7-dma-crossbar";
+			reg = <0x4a002b78 0xfc>;
+			#dma-cells = <1>;
+			dma-requests = <204>;
 			ti,dma-safe-map = <0>;
+			dma-masters = <&sdma>;
+		};
+
+		edma: edma-controller@43300000 {
+			compatible = "ti,edma3";
+			reg = <0x43300000 0x801c>;
+			interrupts = <GIC_SPI 361 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 360 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 359 IRQ_TYPE_LEVEL_HIGH>;
+			#dma-cells = <1>;
+			ti,hwmods = "tpcc", "tptc0", "tptc1";
+			dma-requests = <64>;
+		};
+
+		edma_xbar: dma-crossbar@4a002c78 {
+			compatible = "ti,dra7-edma-crossbar";
+			reg = <0x4a002c78 0x7c>;
+			#dma-cells = <1>;
+			dma-requests = <204>;
+			ti,dma-safe-map = <0>;
+			dma-masters = <&edma>;
 		};
 
 		gpio1: gpio@4ae10000 {
@@ -388,7 +409,7 @@
 			ti,hwmods = "uart1";
 			clock-frequency = <48000000>;
 			status = "disabled";
-			dmas = <&sdma 49 &dmacb>, <&sdma 50 &dmacb>;
+			dmas = <&sdma_xbar 49>, <&sdma_xbar 50>;
 			dma-names = "tx", "rx";
 		};
 
@@ -399,7 +420,7 @@
 			ti,hwmods = "uart2";
 			clock-frequency = <48000000>;
 			status = "disabled";
-			dmas = <&sdma 51 &dmacb>, <&sdma 52 &dmacb>;
+			dmas = <&sdma_xbar 51>, <&sdma_xbar 52>;
 			dma-names = "tx", "rx";
 		};
 
@@ -410,7 +431,7 @@
 			ti,hwmods = "uart3";
 			clock-frequency = <48000000>;
 			status = "disabled";
-			dmas = <&sdma 53 &dmacb>, <&sdma 54 &dmacb>;
+			dmas = <&sdma_xbar 53>, <&sdma_xbar 54>;
 			dma-names = "tx", "rx";
 		};
 
@@ -421,7 +442,7 @@
 			ti,hwmods = "uart4";
 			clock-frequency = <48000000>;
                         status = "disabled";
-			dmas = <&sdma 55 &dmacb>, <&sdma 56 &dmacb>;
+			dmas = <&sdma_xbar 55>, <&sdma_xbar 56>;
 			dma-names = "tx", "rx";
 		};
 
@@ -432,7 +453,7 @@
 			ti,hwmods = "uart5";
 			clock-frequency = <48000000>;
 			status = "disabled";
-			dmas = <&sdma 63 &dmacb>, <&sdma 64 &dmacb>;
+			dmas = <&sdma_xbar 63>, <&sdma_xbar 64>;
 			dma-names = "tx", "rx";
 		};
 
@@ -443,7 +464,7 @@
 			ti,hwmods = "uart6";
 			clock-frequency = <48000000>;
 			status = "disabled";
-			dmas = <&sdma 79 &dmacb>, <&sdma 80 &dmacb>;
+			dmas = <&sdma_xbar 79>, <&sdma_xbar 80>;
 			dma-names = "tx", "rx";
 		};
 
@@ -918,7 +939,7 @@
 			ti,hwmods = "mmc1";
 			ti,dual-volt;
 			ti,needs-special-reset;
-			dmas = <&sdma 61 &dmacb>, <&sdma 62 &dmacb>;
+			dmas = <&sdma_xbar 61>, <&sdma_xbar 62>;
 			dma-names = "tx", "rx";
 			status = "disabled";
 			pbias-supply = <&pbias_mmc_reg>;
@@ -930,7 +951,7 @@
 			interrupts = <GIC_SPI 81 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "mmc2";
 			ti,needs-special-reset;
-			dmas = <&sdma 47 &dmacb>, <&sdma 48 &dmacb>;
+			dmas = <&sdma_xbar 47>, <&sdma_xbar 48>;
 			dma-names = "tx", "rx";
 			status = "disabled";
 		};
@@ -941,7 +962,7 @@
 			interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "mmc3";
 			ti,needs-special-reset;
-			dmas = <&sdma 77 &dmacb>, <&sdma 78 &dmacb>;
+			dmas = <&sdma_xbar 77>, <&sdma_xbar 78>;
 			dma-names = "tx", "rx";
 			status = "disabled";
 		};
@@ -952,7 +973,7 @@
 			interrupts = <GIC_SPI 91 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "mmc4";
 			ti,needs-special-reset;
-			dmas = <&sdma 57 &dmacb>, <&sdma 58 &dmacb>;
+			dmas = <&sdma_xbar 57>, <&sdma_xbar 58>;
 			dma-names = "tx", "rx";
 			status = "disabled";
 		};
@@ -1284,14 +1305,14 @@
 			#size-cells = <0>;
 			ti,hwmods = "mcspi1";
 			ti,spi-num-cs = <4>;
-			dmas = <&sdma 35 &dmacb>,
-			       <&sdma 36 &dmacb>,
-			       <&sdma 37 &dmacb>,
-			       <&sdma 38 &dmacb>,
-			       <&sdma 39 &dmacb>,
-			       <&sdma 40 &dmacb>,
-			       <&sdma 41 &dmacb>,
-			       <&sdma 42 &dmacb>;
+			dmas = <&sdma_xbar 35>,
+			       <&sdma_xbar 36>,
+			       <&sdma_xbar 37>,
+			       <&sdma_xbar 38>,
+			       <&sdma_xbar 39>,
+			       <&sdma_xbar 40>,
+			       <&sdma_xbar 41>,
+			       <&sdma_xbar 42>;
 			dma-names = "tx0", "rx0", "tx1", "rx1",
 				    "tx2", "rx2", "tx3", "rx3";
 			status = "disabled";
@@ -1305,10 +1326,10 @@
 			#size-cells = <0>;
 			ti,hwmods = "mcspi2";
 			ti,spi-num-cs = <2>;
-			dmas = <&sdma 43 &dmacb>,
-			       <&sdma 44 &dmacb>,
-			       <&sdma 45 &dmacb>,
-			       <&sdma 46 &dmacb>;
+			dmas = <&sdma_xbar 43>,
+			       <&sdma_xbar 44>,
+			       <&sdma_xbar 45>,
+			       <&sdma_xbar 46>;
 			dma-names = "tx0", "rx0", "tx1", "rx1";
 			status = "disabled";
 		};
@@ -1321,7 +1342,7 @@
 			#size-cells = <0>;
 			ti,hwmods = "mcspi3";
 			ti,spi-num-cs = <2>;
-			dmas = <&sdma 15 &dmacb>, <&sdma 16 &dmacb>;
+			dmas = <&sdma_xbar 15>, <&sdma_xbar 16>;
 			dma-names = "tx0", "rx0";
 			status = "disabled";
 		};
@@ -1334,7 +1355,7 @@
 			#size-cells = <0>;
 			ti,hwmods = "mcspi4";
 			ti,spi-num-cs = <1>;
-			dmas = <&sdma 70 &dmacb>, <&sdma 71 &dmacb>;
+			dmas = <&sdma_xbar 70>, <&sdma_xbar 71>;
 			dma-names = "tx0", "rx0";
 			status = "disabled";
 		};
@@ -1801,7 +1822,7 @@
 				ti,hwmods = "dss_hdmi";
 				clocks = <&dss_48mhz_clk>, <&dss_hdmi_clk>;
 				clock-names = "fck", "sys_clk";
-				dmas = <&sdma 76 &dmacb>;
+				dmas = <&sdma_xbar 76>;
 				dma-names = "audio_tx";
 			};
 		};
@@ -1811,7 +1832,7 @@
 			ti,hwmods = "aes1";
 			reg = <0x4b500000 0xa0>;
 			interrupts = <GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>;
-			dmas = <&sdma 111 &dmacb>, <&sdma 110 &dmacb>;
+			dmas = <&sdma_xbar 111>, <&sdma_xbar 110>;
 			dma-names = "tx", "rx";
 			clocks = <&l3_iclk_div>;
 			clock-names = "fck";
@@ -1822,7 +1843,7 @@
 			ti,hwmods = "aes2";
 			reg = <0x4b700000 0xa0>;
 			interrupts = <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>;
-			dmas = <&sdma 114 &dmacb>, <&sdma 113 &dmacb>;
+			dmas = <&sdma_xbar 114>, <&sdma_xbar 113>;
 			dma-names = "tx", "rx";
 			clocks = <&l3_iclk_div>;
 			clock-names = "fck";
@@ -1833,7 +1854,7 @@
 			ti,hwmods = "des";
 			reg = <0x480a5000 0xa0>;
 			interrupts = <GIC_SPI 77 IRQ_TYPE_LEVEL_HIGH>;
-			dmas = <&sdma 117 &dmacb>, <&sdma 116 &dmacb>;
+			dmas = <&sdma_xbar 117>, <&sdma_xbar 116>;
 			dma-names = "tx", "rx";
 			clocks = <&l3_iclk_div>;
 			clock-names = "fck";
@@ -1844,7 +1865,7 @@
 			ti,hwmods = "sham";
 			reg = <0x4b101000 0x300>;
 			interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>;
-			dmas = <&sdma 119 &dmacb>;
+			dmas = <&sdma_xbar 119>;
 			dma-names = "rx";
 			clocks = <&l3_iclk_div>;
 			clock-names = "fck";
@@ -1884,7 +1905,7 @@
 			ti,hwmods = "mcasp2";
 			reg = <0x48464000 0x2000>;
 			reg-names = "mpu";
-			dmas = <&sdma 131 &dmacb>, <&sdma 130 &dmacb>;
+			dmas = <&sdma_xbar 131>, <&sdma_xbar 130>;
 			dma-names = "tx", "rx";
 			clocks = <&mcasp2_ahclkx_mux>;
 			clock-names = "fck";
@@ -1894,12 +1915,13 @@
 		mcasp3: mcasp@48468000 {
 			compatible = "ti,dra7-mcasp-audio";
 			ti,hwmods = "mcasp3";
-			reg = <0x48468000 0x2000>;
-			reg-names = "mpu";
+			reg = <0x48468000 0x2000>,
+			      <0x46000000 0x1000>;
+			reg-names = "mpu", "dat";
 			interrupts = <GIC_SPI 151 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 150 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "tx", "rx";
-			dmas = <&sdma 133 &dmacb>, <&sdma 132 &dmacb>;
+			dmas = <&edma_xbar 133>, <&edma_xbar 132>;
 			dma-names = "tx", "rx";
 			clocks = <&mcasp3_ahclkx_mux>;
 			clock-names = "fck";
@@ -1915,7 +1937,7 @@
 			interrupts = <GIC_SPI 157 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 156 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "tx", "rx";
-			dmas = <&sdma 139 &dmacb>, <&sdma 138 &dmacb>;
+			dmas = <&sdma_xbar 139>, <&sdma_xbar 138>;
 			dma-names = "tx", "rx";
 			clocks = <&mcasp6_ahclkx_mux>;
 			clock-names = "fck";
@@ -1931,7 +1953,7 @@
 			interrupts = <GIC_SPI 159 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 158 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "tx", "rx";
-			dmas = <&sdma 141 &dmacb>, <&sdma 140 &dmacb>;
+			dmas = <&sdma_xbar 141>, <&sdma_xbar 140>;
 			dma-names = "tx", "rx";
 			clocks = <&mcasp7_ahclkx_mux>;
 			clock-names = "fck";
