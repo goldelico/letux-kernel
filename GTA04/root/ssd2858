@@ -1,10 +1,9 @@
 #
-# initialite Solomon SSD2858 chip with input stream from OMAP5 and panel chained to the output
+# initialize Solomon SSD2858 chip with input stream from OMAP5 and panel chained to the output
 # using the panel-mipi-debug driver
 #
 # -b:	BIST mode (test pattern)
 # -r:	program for rotation
-# -x:	apply some register value array
 # -d:	dump ssd2858 registers
 # -l:	loop dcs commands 10h and 11h to check LP output to panel
 # -p:	program panel through DCS
@@ -32,9 +31,11 @@ fi
 
 # make sure the panel is active before trying to send commands
 echo nostream >dcs	# if it was on before
+sleep .5
 echo stop >dcs	# stop if it was already running
 echo nopower >dcs	# enable is unused
 echo reset >dcs	# reset panel
+sleep .5
 # reset panel
 echo reset >dcs	# reset panel
 echo power >dcs	# enable ssd (should do this only on v4 boards!!! but I have no method to decide between v3 and v4)
@@ -73,8 +74,6 @@ CKE=0
 VB_MODE=0
 VBE=0
 ROT90=0
-HDPS=0x30
-VDPS=0x30
 
 # SSD2858 clock divider parameters
 XTAL=24000000	# we have 24 MHz XTAL
@@ -107,6 +106,7 @@ MIPITX_BYTE_CLK=$(( $MIPITX_BIT_CLK / 8 ))
 LP_CLK_DIV=$(( ($MIPITX_BYTE_CLK + $PANEL_LPCLOCK - 1) / $PANEL_LPCLOCK ))	# divider
 SSD_LPCLK=$(( $MIPITX_BYTE_CLK / $LP_CLK_DIV ))	# real LP clock output
 # LOCKCNT - at least 30us - this is the number of LPCLOCK (XTAL / 2); we add 40% safety margin
+[ -x /usr/bin/bc ] || apt-get install bc
 LOCKCNT=$(printf "%.0f" $(echo '1.4 * 30*10^-6 *' $XTAL '/ 2' | bc -l ))
 
 # calculate OMAP parameters
@@ -167,39 +167,39 @@ echo "  LPCLK target: $PANEL_LPCLOCK"
 
 echo "SSD2858:"
 echo "  XTAL CLK: $XTAL"
-[ $XTAL -ge 20000000 -a $XTAL -le 300000000 ] || echo XTAL frequency problem: $XTAL
+[ $XTAL -ge 20000000 -a $XTAL -le 300000000 ] || echo "XTAL frequency problem: $XTAL (20 - 30 MHz)"
 echo "  LPCLK in: $(($XTAL / 2))"
 echo "  target VTCM PIXEL CLK: $TARGET_PIXEL_CLK"
 echo "  target SYS_CLK: $TARGET_SYS_CLK"
 echo "  target MAIN_CLK: $TARGET_MAIN_CLK"
 echo "  target PLL: $TARGET_PLL"
 echo "  PLL_MULT / PLL_POST_DIV: $PLL_MULT / $PLL_POST_DIV"
-[ $PLL_MULT -ge 1 -a $PLL_MULT -le 128 ] || echo PLL_MULT problem: $PLL_MULT
-[ $PLL_POST_DIV -ge 1 -a $PLL_POST_DIV -le 64 ] || echo PLL_POST_DIV problem: $PLL_POST_DIV
+[ $PLL_MULT -ge 1 -a $PLL_MULT -le 128 ] || echo "PLL_MULT problem: $PLL_MULT (1 .. 127)"
+[ $PLL_POST_DIV -ge 1 -a $PLL_POST_DIV -le 64 ] || echo "PLL_POST_DIV problem: $PLL_POST_DIV (1 .. 63)"
 echo "  real PLL: $PLL"
-[ $PLL -ge 1000000000 -a $PLL -le 1500000000 ] || echo PLL frequency problem: $PLL
+[ $PLL -ge 1000000000 -a $PLL -le 1500000000 ] || echo "PLL frequency problem: $PLL (1.000 .. 1.500 GHz)"
 echo "  MAIN_CLK: $MAIN_CLK"
 echo "  SYS_CLK_DIV: $SYS_CLK_DIV"
-[ $SYS_CLK_DIV -ge 1 -a $SYS_CLK_DIV -le 16 ] || echo SYS_CLK_DIV problem: $SYS_CLK_DIV
+[ $SYS_CLK_DIV -ge 1 -a $SYS_CLK_DIV -le 16 ] || echo "SYS_CLK_DIV problem: $SYS_CLK_DIV (1 .. 15)"
 echo "  SYS_CLK: $SYS_CLK"
-[ $SYS_CLK -le 150000000 ] || echo SYS_CLK problem: $SYS_CLK
-[ $PCLK_NUM -ge 1 -a $PCLK_NUM -le 128 ] || echo PCLK_NUM problem: $PCLK_NUM
-[ $PCLK_DEN -ge 1 -a $PCLK_DEN -le 256 ] || echo PCLK_DEN problem: $PCLK_DEN
+[ $SYS_CLK -le 150000000 ] || echo "SYS_CLK problem: $SYS_CLK ( ... 150 MHz)"
+[ $PCLK_NUM -ge 1 -a $PCLK_NUM -le 128 ] || echo "PCLK_NUM problem: $PCLK_NUM (1 .. 127)"
+[ $PCLK_DEN -ge 1 -a $PCLK_DEN -le 256 ] || echo "PCLK_DEN problem: $PCLK_DEN (1 .. 255)"
 echo "  PCLK_NUM / PCLK_DEN: $PCLK_NUM / $PCLK_DEN"
 echo "  VTCM PIXEL_CLK: $PIXEL_CLK"
 echo "  Panel PIXEL_CLK: $(( 2 * $PIXEL_CLK ))"
 echo "  MTX_CLK_DIV: $MTX_CLK_DIV"
-[ $MTX_CLK_DIV -ge 1 -a $MTX_CLK_DIV -le 16 ] || echo MTX_CLK_DIV problem: $MTX_CLK_DIV
-[ $MTX_CLK_DIV -eq 1 -o $((MTX_CLK_DIV % 2)) -eq 0 ] || echo MTX_CLK_DIV problem: $MTX_CLK_DIV
+[ $MTX_CLK_DIV -ge 1 -a $MTX_CLK_DIV -le 16 ] || echo "MTX_CLK_DIV problem: $MTX_CLK_DIV (1 .. 15)"
+[ $MTX_CLK_DIV -eq 1 -o $((MTX_CLK_DIV % 2)) -eq 0 ] || "echo MTX_CLK_DIV problem: $MTX_CLK_DIV (1 or even divider) - ignored"
 echo "  MIPITX_BIT_CLK: $MIPITX_BIT_CLK"
 echo "  MIPITX_DDR_CLK: $MIPITX_DDR_CLK"
-[ $MIPITX_DDR_CLK -ge $PANEL_MIN_DDR ] || echo MIPITX_DDR_CLK vs. PANEL_MIN_DDR problem: $MIPITX_DDR_CLK "<" $PANEL_MIN_DDR
-[ $MIPITX_DDR_CLK -le $PANEL_MAX_DDR ] || echo MIPITX_DDR_CLK vs. PANEL_MAX_DDR problem: $MIPITX_DDR_CLK "<" $PANEL_MAX_DDR
+[ $MIPITX_DDR_CLK -ge $PANEL_MIN_DDR ] || echo "MIPITX_DDR_CLK vs. PANEL_MIN_DDR problem: $MIPITX_DDR_CLK < $PANEL_MIN_DDR"
+[ $MIPITX_DDR_CLK -le $PANEL_MAX_DDR ] || echo "MIPITX_DDR_CLK vs. PANEL_MAX_DDR problem: $MIPITX_DDR_CLK < $PANEL_MAX_DDR"
 echo "  MIPITX_BYTE_CLK: $MIPITX_BYTE_CLK"
 echo "  LPCLK out: $SSD_LPCLK"
-[ $LP_CLK_DIV -gt 0 -a $LP_CLK_DIV -le 64 ] || echo LP_CLK_DIV problem: $LP_CLK_DIV
+[ $LP_CLK_DIV -gt 0 -a $LP_CLK_DIV -le 64 ] || echo "LP_CLK_DIV problem: $LP_CLK_DIV (1 .. 63)"
 echo "  LOCKCNT: $LOCKCNT"
-[ $LOCKCNT -gt 0 -a $LOCKCNT -le 65535 ] || echo LOCKCNT problem: $LOCKCNT
+[ $LOCKCNT -gt 0 -a $LOCKCNT -le 65535 ] || echo "LOCKCNT problem: $LOCKCNT (1 .. 65535)"
 
 echo "OMAP MIPI:"
 echo "  Dimensions: ${OMAP_WIDTH}x${OMAP_HEIGHT} in ${PANEL_FRAME_WIDTH}x${PANEL_FRAME_HEIGHT}"
@@ -208,6 +208,8 @@ echo "  DDR CLK: $OMAP_DDR"
 echo "  LPCLK out: $(($XTAL / 2))"
 
 ## now initialize OMAP MIPI Interface ##
+
+fbset -g $OMAP_WIDTH $OMAP_HEIGHT $OMAP_WIDTH $OMAP_HEIGHT 32
 
 echo start x_res=$OMAP_WIDTH y_res=$OMAP_HEIGHT lpclock=$OMAP_LPCLK pixelclock=$OMAP_PCLK \
 	hfp=$OMAP_HFP hsw=$OMAP_HSA hbp=$OMAP_HBP \
@@ -245,7 +247,7 @@ echo 10 >dcs
 
 echo g0008 $(printf "%08x" $(( ($LOCKCNT << 16) | (0 << 15) | (0 << 15) | (($PLL_POST_DIV-1) << 8) | $PLL_MULT << 0)) ) >dcs
 echo g000c $(printf "%08x" $(( (($MTX_CLK_DIV-1) << 4) | (($SYS_CLK_DIV-1) << 0) )) ) >dcs
-echo g0014 $(printf "%08x" $(( 0x0C77800F | (1 << 22) )) ) >dcs	# SCM_MISC2 (0C77800F): MRXEN = enabled
+echo g0014 $(printf "%08x" $(( 0x0C37800F )) ) >dcs	# SCM_MISC2 (0C77800F): MRXEN = enabled
 echo g0020 $(printf "%08x" $(( 0x1592567D | (1 << 22) )) ) >dcs	# SCM_ANACTRL1 (1592567D): CPEN = enabled
 echo g0024 00003000 >dcs	# SCM_ANACTRL2 (00003300): CPPER=24
 echo g0008 rrrr >dcs
@@ -266,8 +268,8 @@ echo g1008 01200445 >dcs	# MIPIRX_DCR (01200245): HST=4
 # VCTM
 echo g200c $(printf "%08x" $(( ($SPLIT_MEM << 9) | ($ROT90 << 8) | ($VBP << 2) | ($TE_SEL << 1) )) ) >dcs	# VCTM_CFGR (00000000)
 echo g2010 $(printf "%08x" $(( ($PCLK_DEN << 16) | ($PCLK_NUM << 0) )) ) >dcs	# VCTM_PCFRR (00010001)
-echo g2014 $(printf "%08x" $(( ($PANEL_FRAME_WIDTH << 16) | $HDPS )) ) >dcs	# HDCFGR
-echo g2018 $(printf "%08x" $(( ($PANEL_FRAME_HEIGHT << 16) | $VDPS )) ) >dcs	# VDCFGR
+echo g2014 $(printf "%08x" $(( ($PANEL_FRAME_WIDTH << 16) | $PANEL_HBP )) ) >dcs	# HDCFGR
+echo g2018 $(printf "%08x" $(( ($PANEL_FRAME_HEIGHT << 16) | $PANEL_VBP )) ) >dcs	# VDCFGR
 echo g201c $(printf "%08x" $(( ($OMAP_HEIGHT << 16) | $OMAP_WIDTH )) ) >dcs	# MSZR
 echo g2020 $(printf "%08x" $(( ($PANEL_HEIGHT << 16) | $PANEL_WIDTH )) ) >dcs		# DSZR
 echo g2024 $(printf "%08x" $(( ($PANEL_HEIGHT << 16) | $PANEL_WIDTH )) ) >dcs		# PSZR

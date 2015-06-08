@@ -110,7 +110,7 @@ struct panel_drv_data {
 
 	struct backlight_device *bldev;
 	int bl;
-	
+
 	int	reset_gpio;
 	int	regulator_gpio;
 
@@ -211,44 +211,44 @@ static int mipi_debug_connect(struct omap_dss_device *dssdev)
 	struct omap_dss_device *in = ddata->in;
 	struct device *dev = &ddata->pdev->dev;
 	int r;
-	
+
 	if (omapdss_device_is_connected(dssdev))
 		return 0;
-	
+
 	r = in->ops.dsi->connect(in, dssdev);
 	if (r) {
 		dev_err(dev, "Failed to connect to video source\n");
 		return r;
 	}
-	
+
 	/* channel0 used for video packets */
 	r = in->ops.dsi->request_vc(ddata->in, &ddata->pixel_channel);
 	if (r) {
 		dev_err(dev, "failed to get virtual channel\n");
 		goto err_req_vc0;
 	}
-	
+
 	r = in->ops.dsi->set_vc_id(ddata->in, ddata->pixel_channel, 0);
 	if (r) {
 		dev_err(dev, "failed to set VC_ID\n");
 		goto err_vc_id0;
 	}
-	
+
 	/* channel1 used for registers access in LP mode */
 	r = in->ops.dsi->request_vc(ddata->in, &ddata->config_channel);
 	if (r) {
 		dev_err(dev, "failed to get virtual channel\n");
 		goto err_req_vc1;
 	}
-	
+
 	r = in->ops.dsi->set_vc_id(ddata->in, ddata->config_channel, 0);
 	if (r) {
 		dev_err(dev, "failed to set VC_ID\n");
 		goto err_vc_id1;
 	}
-	
+
 	return 0;
-	
+
 err_vc_id1:
 	in->ops.dsi->release_vc(ddata->in, ddata->config_channel);
 err_req_vc1:
@@ -912,6 +912,8 @@ static int mipi_debug_probe(struct platform_device *pdev)
 	
 	dssdev->panel.dsi_pix_fmt = mipi_debugPIXELFORMAT;
 	
+// can we postpone this so that user space can modify the mipi_timings before registration?
+
 	r = omapdss_register_display(dssdev);
 	if (r) {
 		dev_err(dev, "Failed to register controller\n");
