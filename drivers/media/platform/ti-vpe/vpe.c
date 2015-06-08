@@ -234,7 +234,7 @@ struct vpe_fmt {
 
 static struct vpe_fmt vpe_formats[] = {
 	{
-		.name		= "YUV 422 co-planar",
+		.name		= "NV16 YUV 422 co-planar",
 		.fourcc		= V4L2_PIX_FMT_NV16,
 		.types		= VPE_FMT_TYPE_CAPTURE | VPE_FMT_TYPE_OUTPUT,
 		.coplanar	= 1,
@@ -243,7 +243,7 @@ static struct vpe_fmt vpe_formats[] = {
 				  },
 	},
 	{
-		.name		= "YUV 420 co-planar",
+		.name		= "NV12 YUV 420 co-planar",
 		.fourcc		= V4L2_PIX_FMT_NV12,
 		.types		= VPE_FMT_TYPE_CAPTURE | VPE_FMT_TYPE_OUTPUT,
 		.coplanar	= 1,
@@ -2260,6 +2260,9 @@ static int vpe_release(struct file *file)
 	struct vpe_ctx *ctx = file2ctx(file);
 
 	vpe_dbg(dev, "releasing instance %p\n", ctx);
+
+	vpe_streamoff(file, NULL, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
+	vpe_streamoff(file, NULL, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
 
 	mutex_lock(&dev->dev_mutex);
 	free_vbs(ctx);
