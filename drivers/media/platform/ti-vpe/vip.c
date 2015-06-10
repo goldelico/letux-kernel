@@ -1487,6 +1487,9 @@ static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
 	unsigned long flags;
 	int ret;
 
+	if (count <= VIP_VPDMA_FIFO_SIZE)
+		return -EINVAL;
+
 	set_fmt_params(stream);
 	vip_setup_parser(port);
 
