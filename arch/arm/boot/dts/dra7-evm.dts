@@ -797,6 +797,7 @@ i2c_p3_exp: &i2c2 {
 &mac {
 	status = "okay";
 	dual_emac;
+	ti,no-idle;
 };
 
 &cpsw_emac0 {
