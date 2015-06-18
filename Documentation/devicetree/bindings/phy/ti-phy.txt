@@ -30,7 +30,10 @@ omap_control_usb: omap-control-usb@4a002300 {
 OMAP USB2 PHY
 
 Required properties:
- - compatible: Should be "ti,omap-usb2"
+ - compatible: Should be "ti,omap-usb2" for omap platform.
+	       Should be "ti,dra7x-usb2" for dra7xx platform.
+	       Should be "ti,am437x-usb2" for dra7xx platform.
+	       Should be "ti,omap5-usb2" for dra7xx platform.
  - reg : Address and length of the register set for the device.
  - #phy-cells: determine the number of cells that should be given in the
    phandle while referencing this phy.
@@ -53,6 +56,38 @@ usb2phy@4a0ad080 {
 	#phy-cells = <0>;
 	clocks = <&usb_phy_cm_clk32k>, <&usb_otg_ss_refclk960m>;
 	clock-names = "wkupclk", "refclk";
+};
+
+usb2_phy1: phy@4a084000 {
+	compatible = "ti,dra7x-usb2";
+	reg = <0x4a084000 0x400>;
+	ctrl-module = <&omap_control_usb2phy1>;
+	clocks = <&usb_phy1_always_on_clk32k>,
+		 <&usb_otg_ss1_refclk960m>;
+	clock-names =	"wkupclk",
+			"refclk";
+	#phy-cells = <0>;
+};
+
+usb2_phy2: phy@4a085000 {
+	compatible = "ti,dra7x-usb2";
+	reg = <0x4a085000 0x400>;
+	ctrl-module = <&omap_control_usb2phy2>;
+	clocks = <&usb_phy2_always_on_clk32k>,
+	<&usb_otg_ss2_refclk960m>;
+	clock-names =	"wkupclk",
+			"refclk";
+	#phy-cells = <0>;
+};
+
+usb2_phy1: phy@483a8000 {
+	compatible = "ti,am437x-usb2";
+	reg = <0x483a8000 0x8000>;
+	ctrl-module = <&am43xx_control_usb2phy1>;
+	clocks = <&usb_phy0_always_on_clk32k>,
+	<&usb_otg_ss0_refclk960m>;
+	clock-names = "wkupclk", "refclk";
+	#phy-cells = <0>;
 };
 
 TI PIPE3 PHY
