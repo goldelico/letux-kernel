@@ -1527,8 +1527,23 @@ void serial8250_tx_chars(struct uart_8250_port *up)
 		}
 	} while (--count > 0);
 
-	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
+	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS) {
+		bool irqs_were_enabled = false;
+
+		/* make sure irqs are disabled */
+		if (!irqs_disabled()) {
+			irqs_were_enabled = true;
+			local_irq_disable();
+		}
+
+		spin_unlock(&port->lock);
 		uart_write_wakeup(port);
+		spin_lock(&port->lock);
+
+		/* only re-enabled irqs if they were on before */
+		if (irqs_were_enabled)
+			local_irq_enable();
+	}
 
 	DEBUG_INTR("THRE...");
 
