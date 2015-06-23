@@ -562,6 +562,115 @@ err0:
 	return ret;
 }
 
+/* Reset and re-initialize core. Can currently be called only
+ * if dwc->current_mode == USB_DR_MODE_PERIPHERAL
+ */
+int dwc3_core_reinit(struct dwc3 *dwc)
+{
+	unsigned long		timeout;
+	u32			hwparams4 = dwc->hwparams.hwparams4;
+	u32			reg;
+	int			ret;
+
+	if (dwc->current_mode != DWC3_GCTL_PRTCAP_DEVICE) {
+		dev_err(dwc->dev, "%s can't be used for current_mode %d\n",
+			__func__, dwc->current_mode);
+		return -EINVAL;
+	}
+
+	dwc3_free_scratch_buffers(dwc);
+
+	/* issue device SoftReset too */
+	timeout = jiffies + msecs_to_jiffies(500);
+	reg = dwc3_readl(dwc->regs, DWC3_DCTL);
+	reg |= DWC3_DCTL_CSFTRST;
+	dwc3_writel(dwc->regs, DWC3_DCTL, reg);
+	do {
+		reg = dwc3_readl(dwc->regs, DWC3_DCTL);
+		if (!(reg & DWC3_DCTL_CSFTRST))
+			break;
+
+		if (time_after(jiffies, timeout)) {
+			dev_err(dwc->dev, "Reset Timed Out\n");
+			return -ETIMEDOUT;
+		}
+
+		cpu_relax();
+	} while (true);
+
+	reg = dwc3_readl(dwc->regs, DWC3_GCTL);
+	reg &= ~DWC3_GCTL_SCALEDOWN_MASK;
+
+	switch (DWC3_GHWPARAMS1_EN_PWROPT(dwc->hwparams.hwparams1)) {
+	case DWC3_GHWPARAMS1_EN_PWROPT_CLK:
+		/**
+		 * WORKAROUND: DWC3 revisions between 2.10a and 2.50a have an
+		 * issue which would cause xHCI compliance tests to fail.
+		 *
+		 * Because of that we cannot enable clock gating on such
+		 * configurations.
+		 *
+		 * Refers to:
+		 *
+		 * STAR#9000588375: Clock Gating, SOF Issues when ref_clk-Based
+		 * SOF/ITP Mode Used
+		 */
+		if ((dwc->dr_mode == USB_DR_MODE_HOST ||
+				dwc->dr_mode == USB_DR_MODE_OTG) &&
+				(dwc->revision >= DWC3_REVISION_210A &&
+				dwc->revision <= DWC3_REVISION_250A))
+			reg |= DWC3_GCTL_DSBLCLKGTNG | DWC3_GCTL_SOFITPSYNC;
+		else
+			reg &= ~DWC3_GCTL_DSBLCLKGTNG;
+		break;
+	case DWC3_GHWPARAMS1_EN_PWROPT_HIB:
+		/* enable hibernation here */
+		dwc->nr_scratch = DWC3_GHWPARAMS4_HIBER_SCRATCHBUFS(hwparams4);
+		break;
+	default:
+		dev_dbg(dwc->dev, "No power optimization available\n");
+	}
+
+	/* check if current dwc3 is on simulation board */
+	if (dwc->hwparams.hwparams6 & DWC3_GHWPARAMS6_EN_FPGA) {
+		dev_dbg(dwc->dev, "it is on FPGA board\n");
+		dwc->is_fpga = true;
+	}
+
+	WARN_ONCE(dwc->disable_scramble_quirk && !dwc->is_fpga,
+			"disable_scramble cannot be used on non-FPGA builds\n");
+
+	if (dwc->disable_scramble_quirk && dwc->is_fpga)
+		reg |= DWC3_GCTL_DISSCRAMBLE;
+	else
+		reg &= ~DWC3_GCTL_DISSCRAMBLE;
+
+	if (dwc->u2exit_lfps_quirk)
+		reg |= DWC3_GCTL_U2EXIT_LFPS;
+
+	/*
+	 * WORKAROUND: DWC3 revisions <1.90a have a bug
+	 * where the device can fail to connect at SuperSpeed
+	 * and falls back to high-speed mode which causes
+	 * the device to enter a Connect/Disconnect loop
+	 */
+	if (dwc->revision < DWC3_REVISION_190A)
+		reg |= DWC3_GCTL_U2RSTECN;
+
+	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
+
+	ret = dwc3_event_buffers_setup(dwc);
+	if (ret) {
+		dev_err(dwc->dev, "failed to setup event buffers\n");
+		return ret;
+	}
+
+	/* Set portcap. for now we support device only */
+	dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
+
+	return ret;
+}
+
 static void dwc3_core_exit(struct dwc3 *dwc)
 {
 	dwc3_free_scratch_buffers(dwc);
