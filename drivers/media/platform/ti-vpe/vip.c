@@ -173,7 +173,7 @@ static struct vip_fmt vip_formats[] = {
 		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
 		.coplanar	= 0,
 		/* bus order is reversed so flip Y and UV bytes */
-		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_CBY422],
+		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_YCB422],
 				  },
 	},
 	{
