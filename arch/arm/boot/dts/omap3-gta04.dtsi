@@ -96,7 +96,7 @@
 		ti,mcbsp = <&mcbsp2>;
 	};
 
-	/* GSM audio */
+	 /* GSM audio */
 	sound_telephony {
 		compatible = "simple-audio-card";
 		simple-audio-card,name = "GTA04 voice";
@@ -146,11 +146,6 @@
 		};
 	};
 
-	gtm601_codec: voice_codec {
-		compatible = "gtm601-codec";
-		#sound-dai-cells = <0>;
-	};
-
 	w2cbw003_codec: headset_codec {
 		compatible = "w2cbw003-codec";
 		#sound-dai-cells = <0>;
@@ -165,6 +160,11 @@
 		capacity = <1200000>;
 		charging-calibration-data = <4200 100 4100 75 4000 55 3900 25 3800 5 3700 2 3600 1 3300 0>;
 		discharging-calibration-data = <4200 100 4100 95 4000 70 3800 50 3700 10 3600 5 3300 0>;
+	};
+
+	gtm601_codec: gsm_codec {
+		compatible = "option,gtm601";
+		#sound-dai-cells = <0>;
 	};
 
 	spi_lcd: spi_lcd {
@@ -429,6 +429,12 @@
 		>;
 	};
 
+	hdq_pins: hdq_pins {
+		pinctrl-single,pins = <
+			OMAP3_CORE1_IOPAD(0x21c6, PIN_INPUT_PULLUP | MUX_MODE0) /* i2c3_sda.hdq */
+		>;
+	};
+
 	hsusb2_pins: pinmux_hsusb2_pins {
 		pinctrl-single,pins = <
 			OMAP3_CORE1_IOPAD(0x21d4, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi1_cs3.hsusb2_data2 */
@@ -495,12 +501,6 @@
 		pinctrl-single,pins = <
 			/* here we could enable to wakeup the cpu from suspend by a pen touch */
 			OMAP3_CORE1_IOPAD(0x2194, PIN_INPUT_PULLUP | MUX_MODE4) /* gpio160 */
-		>;
-	};
-
-	hdq_pins: hdq_pins {
-		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x21c6, PIN_INPUT_PULLUP | MUX_MODE0) /* i2c3_sda.hdq */
 		>;
 	};
 
@@ -985,4 +985,13 @@
 			data-lines = <24>;
 		};
 	};
+};
+
+&hdqw1w {
+        pinctrl-names = "default";
+        pinctrl-0 = <&hdq_pins>;
+};
+
+&mcbsp4 {
+	status = "okay";
 };

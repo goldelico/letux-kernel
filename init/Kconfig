@@ -924,6 +924,7 @@ config NUMA_BALANCING_DEFAULT_ENABLED
 menuconfig CGROUPS
 	bool "Control Group support"
 	select KERNFS
+	select PERCPU_RWSEM
 	help
 	  This option adds support for grouping sets of processes together, for
 	  use with process control subsystems such as Cpusets, CFS, memory
@@ -1127,10 +1128,16 @@ config DEBUG_BLK_CGROUP
 	Enable some debugging help. Currently it exports additional stat
 	files in a cgroup which can be useful for debugging.
 
+config CGROUP_WRITEBACK
+	bool
+	depends on MEMCG && BLK_CGROUP
+	default y
+
 endif # CGROUPS
 
 config CHECKPOINT_RESTORE
 	bool "Checkpoint/restore support" if EXPERT
+	select PROC_CHILDREN
 	default n
 	help
 	  Enables additional kernel features in a sake of checkpoint/restore.
