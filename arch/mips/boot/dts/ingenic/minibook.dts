@@ -31,13 +31,13 @@
 };
 
 &i2c {
-	power@11 {
+	power@28 {
 		compatible = "minipc,mcu";
-		reg = <11>;
+		reg = <0x28>;
 	};
 
 	rtc@51 {
 		compatible = "nxp,pcf8563";
-		reg = <51>;
+		reg = <0x51>;
 	};
 };
