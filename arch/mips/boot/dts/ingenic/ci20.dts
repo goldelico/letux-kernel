@@ -88,6 +88,11 @@
 			linux,default-trigger = "none";
 		};
 	};
+
+	ir: ir-receiver {
+		compatible = "gpio-ir-receiver";
+		gpios = <&gpe 3 GPIO_ACTIVE_LOW>;
+	};
 };
 
 &ext {
