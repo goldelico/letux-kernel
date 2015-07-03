@@ -2324,7 +2324,7 @@ static int omapfb_init_display(struct omapfb2_device *fbdev,
 	struct omap_dss_driver *dssdrv = dssdev->driver;
 	struct omapfb_display_data *d;
 	int r;
-	printk("omapfb_init_display\n");
+
 	r = dssdrv->enable(dssdev);
 	if (r) {
 		dev_warn(fbdev->dev, "Failed to enable display '%s'\n",
@@ -2373,9 +2373,8 @@ static int omapfb_init_connections(struct omapfb2_device *fbdev,
 {
 	int i, r;
 	struct omap_overlay_manager *mgr;
-	printk("omapfb_init_connections()\n");
+
 	r = def_dssdev->driver->connect(def_dssdev);
-	printk("omapfb_init_connections connect %s\n", def_dssdev->name);
 	if (r) {
 		dev_err(fbdev->dev, "failed to connect default display\n");
 		return r;
@@ -2391,7 +2390,6 @@ static int omapfb_init_connections(struct omapfb2_device *fbdev,
 		 * We don't care if the connect succeeds or not. We just want to
 		 * connect as many displays as possible.
 		 */
-		printk("omapfb_init_connections connect %s\n", dssdev->name);
 		dssdev->driver->connect(dssdev);
 	}
 
@@ -2404,7 +2402,6 @@ static int omapfb_init_connections(struct omapfb2_device *fbdev,
 
 	for (i = 0; i < fbdev->num_overlays; i++) {
 		struct omap_overlay *ovl = fbdev->overlays[i];
-		printk("omapfb_init_connections(): set manager for default display for overlay %d\n", i);
 		if (ovl->manager)
 			ovl->unset_manager(ovl);
 
@@ -2428,8 +2425,6 @@ omapfb_find_default_display(struct omapfb2_device *fbdev)
 	 * Search with the display name from the user or the board file,
 	 * comparing to display names and aliases
 	 */
-	printk("omapfb_find_default_display()\n");
-
 	def_name = omapdss_get_default_display_name();
 
 	if (def_name) {
@@ -2465,7 +2460,6 @@ omapfb_find_default_display(struct omapfb2_device *fbdev)
 	}
 
 	/* return the first display we have in the list */
-	printk("omapfb_find_default_display() -> %s\n", fbdev->displays[0].dssdev->name);
 	return fbdev->displays[0].dssdev;
 }
 
@@ -2499,7 +2493,6 @@ static int omapfb_probe(struct platform_device *pdev)
 		/* count the displays */
 		for_each_dss_dev(dssdev) {
 			omap_dss_get_device(dssdev);
-			printk("display %d: %s\n", num_displays, dssdev->name);
 			if (!dssdev->driver) {
 				dev_warn(&pdev->dev, "no driver for display: %s\n",
 						 dssdev->name);
@@ -2510,7 +2503,6 @@ static int omapfb_probe(struct platform_device *pdev)
 		}
 		/* count the aliases */
 		for_each_property_of_node(of_aliases, pp) {
-			printk("alias %s\n", pp->name);
 			if (!strncmp(pp->name, "display", 7))
 				number_of_display_aliases++;
 		}
@@ -2551,7 +2543,6 @@ static int omapfb_probe(struct platform_device *pdev)
 		struct omapfb_display_data *d;
 
 		omap_dss_get_device(dssdev);
-		printk("display %d: %s\n", fbdev->num_displays, dssdev->name);
 		if (!dssdev->driver) {
 			dev_warn(&pdev->dev, "no driver for display: %s\n",
 				dssdev->name);
@@ -2575,12 +2566,10 @@ static int omapfb_probe(struct platform_device *pdev)
 
 	fbdev->num_overlays = omap_dss_get_num_overlays();
 	for (i = 0; i < fbdev->num_overlays; i++)
-		printk("omap_dss_get_overlay(%d)\n", i),
 		fbdev->overlays[i] = omap_dss_get_overlay(i);
 
 	fbdev->num_managers = omap_dss_get_num_overlay_managers();
 	for (i = 0; i < fbdev->num_managers; i++)
-		printk("omap_dss_get_overlay_manager(%d)\n", i),
 		fbdev->managers[i] = omap_dss_get_overlay_manager(i);
 
 	def_display = omapfb_find_default_display(fbdev);
@@ -2589,7 +2578,6 @@ static int omapfb_probe(struct platform_device *pdev)
 		r = -EPROBE_DEFER;
 		goto cleanup;
 	}
-	printk("omapfb_find_default_display() -> %s\n", def_display->name);
 
 	r = omapfb_init_connections(fbdev, def_display);
 	if (r) {
@@ -2617,7 +2605,6 @@ static int omapfb_probe(struct platform_device *pdev)
 	for (i = 0; i < fbdev->num_managers; i++) {
 		struct omap_overlay_manager *mgr;
 		mgr = fbdev->managers[i];
-		printk("apply for manager %d\n", i);
 		r = mgr->apply(mgr);
 		if (r)
 			dev_warn(fbdev->dev, "failed to apply dispc config\n");
@@ -2626,7 +2613,6 @@ static int omapfb_probe(struct platform_device *pdev)
 	DBG("mgr->apply'ed\n");
 
 	if (def_display) {
-		printk("call omapfb_init_display for def_display\n");
 		r = omapfb_init_display(fbdev, def_display);
 		if (r) {
 			dev_err(fbdev->dev,
@@ -2646,7 +2632,6 @@ static int omapfb_probe(struct platform_device *pdev)
 	if (def_display) {
 		u16 w, h;
 
-		printk("call get_resolution for def_display\n");
 		def_display->driver->get_resolution(def_display, &w, &h);
 
 		dev_info(fbdev->dev, "using display '%s' mode %dx%d\n",
