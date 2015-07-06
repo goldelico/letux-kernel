@@ -28,6 +28,9 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <asm/types.h>	// get definitins for __u16 etc.
+#define __ASSEMBLY__	// would conflict over fd_set, dev_t etc. from sys/types of HOSTCC
+
 #include <tools/be_byteshift.h>
 #include <tools/le_byteshift.h>
 
@@ -45,6 +48,10 @@
 
 #ifndef EM_MICROBLAZE
 #define EM_MICROBLAZE	189
+#endif
+
+#ifndef EM_ARCV2
+#define EM_ARCV2	195
 #endif
 
 static int fd_map;	/* File descriptor for file being modified. */
@@ -281,6 +288,7 @@ do_file(char const *const fname)
 		custom_sort = sort_relative_table;
 		break;
 	case EM_ARCOMPACT:
+	case EM_ARCV2:
 	case EM_ARM:
 	case EM_AARCH64:
 	case EM_MICROBLAZE:
