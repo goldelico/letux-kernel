@@ -234,7 +234,7 @@ struct vpe_fmt {
 
 static struct vpe_fmt vpe_formats[] = {
 	{
-		.name		= "YUV 422 co-planar",
+		.name		= "NV16 YUV 422 co-planar",
 		.fourcc		= V4L2_PIX_FMT_NV16,
 		.types		= VPE_FMT_TYPE_CAPTURE | VPE_FMT_TYPE_OUTPUT,
 		.coplanar	= 1,
@@ -243,7 +243,7 @@ static struct vpe_fmt vpe_formats[] = {
 				  },
 	},
 	{
-		.name		= "YUV 420 co-planar",
+		.name		= "NV12 YUV 420 co-planar",
 		.fourcc		= V4L2_PIX_FMT_NV12,
 		.types		= VPE_FMT_TYPE_CAPTURE | VPE_FMT_TYPE_OUTPUT,
 		.coplanar	= 1,
@@ -381,6 +381,7 @@ struct vpe_dev {
 	struct resource		*res;
 
 	struct vb2_alloc_ctx	*alloc_ctx;
+	struct vpdma_data	vpdma_data;
 	struct vpdma_data	*vpdma;		/* vpdma data handle */
 	struct sc_data		*sc;		/* scaler data handle */
 	struct csc_data		*csc;		/* csc data handle */
@@ -2349,6 +2350,9 @@ static int vpe_release(struct file *file)
 
 	vpe_dbg(dev, "releasing instance %p\n", ctx);
 
+	vpe_streamoff(file, NULL, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
+	vpe_streamoff(file, NULL, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
+
 	mutex_lock(&dev->dev_mutex);
 	free_vbs(ctx);
 	free_mv_buffers(ctx);
@@ -2566,11 +2570,10 @@ static int vpe_probe(struct platform_device *pdev)
 		goto runtime_put;
 	}
 
-	dev->vpdma = vpdma_create(pdev, vpe_fw_cb);
-	if (IS_ERR(dev->vpdma)) {
-		ret = PTR_ERR(dev->vpdma);
+	dev->vpdma = &dev->vpdma_data;
+	ret = vpdma_create(pdev, dev->vpdma, vpe_fw_cb);
+	if (ret)
 		goto runtime_put;
-	}
 
 	return 0;
 

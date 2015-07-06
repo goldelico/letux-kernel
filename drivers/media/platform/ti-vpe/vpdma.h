@@ -74,9 +74,9 @@ enum vpdma_yuv_formats {
 	VPDMA_DATA_FMT_C444,
 	VPDMA_DATA_FMT_C422,
 	VPDMA_DATA_FMT_C420,
-	VPDMA_DATA_FMT_YC422,
+	VPDMA_DATA_FMT_YCR422,
 	VPDMA_DATA_FMT_YC444,
-	VPDMA_DATA_FMT_CY422,
+	VPDMA_DATA_FMT_CRY422,
 	VPDMA_DATA_FMT_CBY422,
 	VPDMA_DATA_FMT_YCB422,
 };
@@ -273,7 +273,7 @@ void vpdma_set_bg_color(struct vpdma_data *vpdma,
 void vpdma_dump_regs(struct vpdma_data *vpdma);
 
 /* initialize vpdma, passed with VPE's platform device pointer */
-struct vpdma_data *vpdma_create(struct platform_device *pdev,
+int vpdma_create(struct platform_device *pdev, struct vpdma_data *vpdma,
 		void (*cb)(struct platform_device *pdev));
 
 #endif

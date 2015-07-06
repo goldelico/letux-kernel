@@ -157,7 +157,7 @@ struct tvp5158_color_format {
 
 static const struct tvp5158_color_format tvp5158_cfmts[] = {
 	{
-		.code           = V4L2_MBUS_FMT_YUYV8_2X8,
+		.code           = V4L2_MBUS_FMT_UYVY8_2X8,
 		.colorspace     = V4L2_COLORSPACE_SMPTE170M,
 	},
 	{
@@ -420,7 +420,7 @@ static int tvp5158_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 	if (index >= ARRAY_SIZE(tvp5158_cfmts))
 		return -EINVAL;
 
-	*code = tvp5158_cfmts[0].code;
+	*code = tvp5158_cfmts[index].code;
 
 	return 0;
 }

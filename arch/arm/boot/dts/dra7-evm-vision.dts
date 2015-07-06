@@ -1,4 +1,4 @@
-#include "dra7-evm-lcd10.dts"
+#include "dra7-evm.dts"
 
 i2cexp: &i2c2 {
 };

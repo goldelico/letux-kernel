@@ -65,6 +65,11 @@
 	};
 };
 
+&i2c4 {
+	status = "okay";
+	clock-frequency = <400000>;
+};
+
 &mcasp2 {
 	fck_parent = "atl_clkin2_ck";
 

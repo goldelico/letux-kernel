@@ -2262,6 +2262,11 @@ static int _enable(struct omap_hwmod *oh)
  */
 static int _idle(struct omap_hwmod *oh)
 {
+	if (oh->flags & HWMOD_NO_IDLE) {
+		oh->_int_flags |= _HWMOD_SKIP_ENABLE;
+		return 0;
+	}
+
 	pr_debug("omap_hwmod: %s: idling\n", oh->name);
 
 	if (oh->_state != _HWMOD_STATE_ENABLED) {
@@ -2582,6 +2587,8 @@ static int __init _init(struct omap_hwmod *oh, void *data)
 			oh->flags |= HWMOD_INIT_NO_IDLE;
 		if (of_find_property(np, "ti,no-init", NULL))
 			oh->flags |= HWMOD_NO_INIT;
+		if (of_find_property(np, "ti,no-idle", NULL))
+			oh->flags |= HWMOD_NO_IDLE;
 	}
 	if (oh->flags & HWMOD_NO_INIT)
 		oh->_state = _HWMOD_STATE_DISABLED;
@@ -2710,7 +2717,7 @@ static void __init _setup_postsetup(struct omap_hwmod *oh)
 	 * XXX HWMOD_INIT_NO_IDLE does not belong in hwmod data -
 	 * it should be set by the core code as a runtime flag during startup
 	 */
-	if ((oh->flags & HWMOD_INIT_NO_IDLE) &&
+	if ((oh->flags & (HWMOD_INIT_NO_IDLE | HWMOD_NO_IDLE)) &&
 	    (postsetup_state == _HWMOD_STATE_IDLE)) {
 		oh->_int_flags |= _HWMOD_SKIP_ENABLE;
 		postsetup_state = _HWMOD_STATE_ENABLED;
@@ -3269,6 +3276,22 @@ static int _am33xx_is_hardreset_asserted(struct omap_hwmod *oh,
 }
 
 /**
+ * _reidle - enable then idle a single hwmod
+ *
+ * enables and then immediately reidles an hwmod, as certain hwmods may
+ * not have their sysconfig registers programmed in an idle friendly state
+ * by default
+ */
+static void _reidle(struct omap_hwmod *oh)
+{
+	pr_debug("omap_hwmod: %s: %s\n", oh->name, __func__);
+
+	omap_hwmod_enable(oh);
+	omap_hwmod_softreset(oh);
+	omap_hwmod_idle(oh);
+}
+
+/**
  * _reidle_all - enable then idle all hwmods in oh_reidle_list
  *
  * Called by pm_notifier to make sure flagged modules do not block suspend
@@ -3279,8 +3302,7 @@ static int _reidle_all(void)
 	struct omap_hwmod_list *oh_list_item = NULL;
 
 	list_for_each_entry(oh_list_item, &oh_reidle_list, oh_list) {
-		omap_hwmod_enable(oh_list_item->oh);
-		omap_hwmod_idle(oh_list_item->oh);
+		_reidle(oh_list_item->oh);
 	}
 
 	return 0;
@@ -4440,14 +4462,16 @@ static int omap_hwmod_restore_context(struct omap_hwmod *oh, void *unused)
 	for (i = 0; i < oh->rst_lines_cnt; i++)
 		if (oh->rst_lines[i].context)
 			_assert_hardreset(oh, oh->rst_lines[i].name);
-		else if (oh->_state == _HWMOD_STATE_ENABLED)
+		else
 			_deassert_hardreset(oh, oh->rst_lines[i].name);
 
 	if (oh->_state == _HWMOD_STATE_ENABLED) {
 		if (soc_ops.enable_module)
 			soc_ops.enable_module(oh);
 	} else {
-		if (soc_ops.disable_module)
+		if (oh->flags & HWMOD_NEEDS_REIDLE)
+			_reidle(oh);
+		else if (soc_ops.disable_module)
 			soc_ops.disable_module(oh);
 	}
 
