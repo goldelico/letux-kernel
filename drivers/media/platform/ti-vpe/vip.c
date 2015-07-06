@@ -1500,7 +1500,9 @@ static int vip_try_fmt_vid_cap(struct file *file, void *priv,
 	struct vip_stream *stream = file2stream(file);
 	struct vip_port *port = stream->port;
 	struct vip_dev *dev = port->dev;
+	struct v4l2_frmsizeenum fsize;
 	struct vip_fmt *fmt;
+	int ret, found;
 
 	vip_dbg(3, dev, "try_fmt fourcc:%s size: %dx%d\n",
 		fourcc_to_str(f->fmt.pix.pixelformat),
@@ -1515,6 +1517,39 @@ static int vip_try_fmt_vid_cap(struct file *file, void *priv,
 		/* Just get the first one enumerated */
 		fmt = dev->active_fmt[0];
 		f->fmt.pix.pixelformat = fmt->fourcc;
+	}
+
+	/* check for/find a valid width/height */
+	ret = 0;
+	found = false;
+	for (fsize.index = 0; ; fsize.index++) {
+		ret = v4l2_subdev_call(dev->sensor, video,
+					enum_framesizes, &fsize);
+		if (ret)
+			break;
+
+		if (fsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) {
+			if ((f->fmt.pix.width == fsize.discrete.width) &&
+			    (f->fmt.pix.height == fsize.discrete.height)) {
+				found = true;
+				break;
+			}
+		} else if ((fsize.type == V4L2_FRMSIZE_TYPE_CONTINUOUS) ||
+			   (fsize.type == V4L2_FRMSIZE_TYPE_STEPWISE)) {
+			if ((f->fmt.pix.width >= fsize.stepwise.min_width) &&
+			    (f->fmt.pix.width <= fsize.stepwise.max_width) &&
+			    (f->fmt.pix.height >= fsize.stepwise.min_height) &&
+			    (f->fmt.pix.height <= fsize.stepwise.max_height)) {
+				found = true;
+				break;
+			}
+		}
+	}
+
+	if (!found) {
+		/* use existing values as default */
+		f->fmt.pix.width = port->mbus_framefmt.width;
+		f->fmt.pix.height =  port->mbus_framefmt.height;
 	}
 
 	/* That we have a fmt calculate imagesize and bytesperline */
