@@ -1768,6 +1768,25 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 		pm_runtime_put(mcasp->dev);
 	}
 
+	/*
+	 * FIFO events to eDMA or sDMA can be lost depending on the
+	 * timing between McASP side activity and DMA side activity,
+	 * causing overflow (capture) or underflow (playback).
+	 * The workaround consists of maximizing the time to avoid
+	 * the boundary condition in hardware.
+	 */
+	if ((mcasp->version == MCASP_VERSION_4) &&
+	    (mcasp->revision < MCASP_V4_REVISION(3, 3))) {
+		if (mcasp->txnumevt || mcasp->rxnumevt)
+			dev_info(&pdev->dev,
+				 "numevt will be ignored due to errata i868\n");
+
+		if (mcasp->txnumevt)
+			mcasp->txnumevt = 32;
+		if (mcasp->rxnumevt)
+			mcasp->rxnumevt = 32;
+	}
+
 	ret = devm_snd_soc_register_component(&pdev->dev,
 					&davinci_mcasp_component,
 					&davinci_mcasp_dai[pdata->op_mode], 1);
