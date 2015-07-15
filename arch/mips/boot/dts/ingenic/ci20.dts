@@ -105,7 +105,7 @@
 
 	leds {
 		compatible = "gpio-leds";
-		led1 {
+		led3 {
 			gpios = <&gpc 0 0>;
 			linux,default-trigger = "cpu0";
 		};
@@ -113,7 +113,7 @@
 			gpios = <&gpc 1 0>;
 			linux,default-trigger = "cpu1";
 		};
-		led3 {
+		led1 {
 			gpios = <&gpc 2 0>;
 			linux,default-trigger = "nand-disk";
 		};
