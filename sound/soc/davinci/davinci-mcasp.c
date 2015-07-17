@@ -27,7 +27,6 @@
 #include <linux/of_platform.h>
 #include <linux/of_device.h>
 #include <linux/math64.h>
-#include <linux/lcm.h>
 
 #include <sound/asoundef.h>
 #include <sound/core.h>
@@ -87,6 +86,7 @@ struct davinci_mcasp {
 	u8	bclk_div;
 	u16	bclk_lrclk_ratio;
 	int	streams;
+	u32	revision;
 
 	int	sysclk_freq;
 	bool	bclk_master;
@@ -1051,67 +1051,6 @@ static int davinci_mcasp_hw_rule_format(struct snd_pcm_hw_params *params,
 	return snd_mask_refine(fmt, &nfmt);
 }
 
-static int davinci_mcasp_hwrule_buffersize(struct snd_pcm_hw_params *params,
-					   struct snd_pcm_hw_rule *rule,
-					   int stream)
-{
-	struct snd_interval *buffer_size = hw_param_interval(params,
-			SNDRV_PCM_HW_PARAM_BUFFER_SIZE);
-	struct davinci_mcasp *dev = rule->private;
-	int channels = params_channels(params);
-	int periods = params_periods(params);
-	int i;
-	u8 slots = dev->tdm_slots;
-	u8 max_active_serializers = (channels + slots - 1) / slots;
-	u8 num_ser = 0;
-	u8 num_evt = 0;
-	unsigned long step = 1;
-
-	if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		for (i = 0; i < dev->num_serializer; i++) {
-			if (dev->serial_dir[i] == TX_MODE &&
-					num_ser < max_active_serializers)
-				num_ser++;
-		}
-		num_evt = dev->txnumevt * num_ser;
-	} else {
-		for (i = 0; i < dev->num_serializer; i++) {
-			if (dev->serial_dir[i] == RX_MODE &&
-					num_ser < max_active_serializers)
-				num_ser++;
-		}
-		num_evt = dev->rxnumevt * num_ser;
-	}
-
-	/*
-	 * The buffersize (in samples), must be a multiple of num_evt.  The
-	 * buffersize (in frames) is the product of the period_size and the
-	 * number of periods. Therefore, the buffersize should be a multiple
-	 * of the number of periods. The below finds the least common
-	 * multiple of num_evt and channels (since the number of samples
-	 * per frame is equal to the number of channels). It also makes sure
-	 * that the resulting step value (LCM / channels) is a multiple of the
-	 * number of periods.
-	 */
-	step = lcm((lcm(num_evt, channels) / channels), periods);
-
-	return snd_interval_step(buffer_size, 0, step);
-}
-
-static int davinci_mcasp_hwrule_txbuffersize(struct snd_pcm_hw_params *params,
-					     struct snd_pcm_hw_rule *rule)
-{
-	return davinci_mcasp_hwrule_buffersize(params, rule,
-					       SNDRV_PCM_STREAM_PLAYBACK);
-}
-
-static int davinci_mcasp_hwrule_rxbuffersize(struct snd_pcm_hw_params *params,
-						  struct snd_pcm_hw_rule *rule)
-{
-	return davinci_mcasp_hwrule_buffersize(params, rule,
-					       SNDRV_PCM_STREAM_CAPTURE);
-}
-
 static int davinci_mcasp_startup(struct snd_pcm_substream *substream,
 				 struct snd_soc_dai *cpu_dai)
 {
@@ -1134,24 +1073,6 @@ static int davinci_mcasp_startup(struct snd_pcm_substream *substream,
 		dir = TX_MODE;
 	else
 		dir = RX_MODE;
-
-	if (mcasp->version == MCASP_VERSION_4) {
-		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-			if (mcasp->txnumevt)
-				snd_pcm_hw_rule_add(substream->runtime, 0,
-					SNDRV_PCM_HW_PARAM_BUFFER_SIZE,
-					davinci_mcasp_hwrule_txbuffersize,
-					mcasp,
-					SNDRV_PCM_HW_PARAM_BUFFER_SIZE, -1);
-		} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
-			if (mcasp->rxnumevt)
-				snd_pcm_hw_rule_add(substream->runtime, 0,
-					SNDRV_PCM_HW_PARAM_BUFFER_SIZE,
-					davinci_mcasp_hwrule_rxbuffersize,
-					mcasp,
-					SNDRV_PCM_HW_PARAM_BUFFER_SIZE, -1);
-		}
-	}
 
 	for (i = 0; i < mcasp->num_serializer; i++) {
 		if (mcasp->serial_dir[i] == dir)
@@ -1942,6 +1863,32 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 	dev_set_drvdata(&pdev->dev, mcasp);
 
 	mcasp_reparent_fck(pdev);
+
+	if (mcasp->version == MCASP_VERSION_4) {
+		pm_runtime_get_sync(mcasp->dev);
+		mcasp->revision = mcasp_get_reg(mcasp, DAVINCI_MCASP_PID_REG) &
+					MCASP_V4_REVISION_MASK;
+		pm_runtime_put(mcasp->dev);
+	}
+
+	/*
+	 * FIFO events to eDMA or sDMA can be lost depending on the
+	 * timing between McASP side activity and DMA side activity,
+	 * causing overflow (capture) or underflow (playback).
+	 * The workaround consists of maximizing the time to avoid
+	 * the boundary condition in hardware.
+	 */
+	if ((mcasp->version == MCASP_VERSION_4) &&
+	    (mcasp->revision < MCASP_V4_REVISION(3, 3))) {
+		if (mcasp->txnumevt || mcasp->rxnumevt)
+			dev_info(&pdev->dev,
+				 "numevt will be ignored due to errata i868\n");
+
+		if (mcasp->txnumevt)
+			mcasp->txnumevt = 32;
+		if (mcasp->rxnumevt)
+			mcasp->rxnumevt = 32;
+	}
 
 	ret = devm_snd_soc_register_component(&pdev->dev,
 					&davinci_mcasp_component,
