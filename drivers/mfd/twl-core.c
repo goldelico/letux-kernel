@@ -128,13 +128,17 @@
 #define TWL6032_BASEADD_CHARGER		0x00DA
 #define TWL6030_BASEADD_LED		0x00F4
 
+
 /* subchip/slave 2 0x4A - DFT */
 #define TWL6030_BASEADD_DIEID		0x00C0
+#define TWL6037_BASEADD_GPADC		0x02C0
 
 /* subchip/slave 3 0x4B - AUDIO */
 #define TWL6030_BASEADD_AUDIO		0x0000
 #define TWL6030_BASEADD_RSV		0x0000
 #define TWL6030_BASEADD_ZERO		0x0000
+#define TWL6037_BASEADD_TRIM_GPADC	0x03CD
+
 
 /* Few power values */
 #define R_CFG_BOOT			0x05
@@ -367,6 +371,7 @@ static struct twl_mapping twl6030_map[] = {
 	{ 2, TWL6030_BASEADD_ZERO },
 	{ 1, TWL6030_BASEADD_GPADC_CTRL },
 	{ 1, TWL6030_BASEADD_GASGAUGE },
+	{ 2, TWL6037_BASEADD_TRIM_GPADC },
 };
 
 static const struct regmap_config twl6030_regmap_config[3] = {
@@ -1135,6 +1140,9 @@ twl_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		if ((id->driver_data) & TWL6032_SUBCLASS)
 			twl_priv->twl_map[TWL_MODULE_MAIN_CHARGE].base =
 							TWL6032_BASEADD_CHARGER;
+		if ((id->driver_data) & TWL6037_SUBCLASS)
+			twl_priv->twl_map[TWL6030_MODULE_GPADC].base =
+							TWL6037_BASEADD_GPADC;
 		twl_regmap_config = twl6030_regmap_config;
 	} else {
 		twl_priv->twl_id = TWL4030_CLASS_ID;
@@ -1259,6 +1267,7 @@ static const struct i2c_device_id twl_ids[] = {
 					   and vibrator. Charger in USB module*/
 	{ "twl6030", TWL6030_CLASS },	/* "Phoenix power chip" */
 	{ "twl6032", TWL6030_CLASS | TWL6032_SUBCLASS }, /* "Phoenix lite" */
+	{ "twl6037", TWL6030_CLASS | TWL6037_SUBCLASS },
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(i2c, twl_ids);
