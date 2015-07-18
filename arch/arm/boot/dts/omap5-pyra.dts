@@ -150,6 +150,9 @@
 		ti,palmas-long-press-seconds = <8>;
 		ti,palmas-pwron-debounce-milli-seconds = <15>;
 	};
+	palmas_gpadc: gpadc {
+		compatible = "ti,twl6037-gpadc";
+	};
 };
 
 /* Audio routing */
