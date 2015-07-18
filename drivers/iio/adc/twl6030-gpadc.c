@@ -936,8 +936,8 @@ static int twl6037_calibration(struct twl6030_gpadc_data *gpadc)
 	 * used to correct the measurements. The values represent
 	 * offsets for the given input from the output on ideal curve.
 	 */
-	ret = twl_i2c_read(TWL6030_MODULE_ID2, trim_regs,
-			TWL6030_GPADC_TRIM1, TWL6030_GPADC_NUM_TRIM_REGS);
+	ret = twl_i2c_read(TWL6030_MODULE_GPADC_TRIM, trim_regs,
+			0, TWL6030_GPADC_NUM_TRIM_REGS);
 	if (ret < 0) {
 		dev_err(gpadc->dev, "calibration failed\n");
 		return ret;
