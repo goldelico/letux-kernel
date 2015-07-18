@@ -1268,6 +1268,7 @@ static const struct i2c_device_id twl_ids[] = {
 	{ "twl6030", TWL6030_CLASS },	/* "Phoenix power chip" */
 	{ "twl6032", TWL6030_CLASS | TWL6032_SUBCLASS }, /* "Phoenix lite" */
 	{ "twl6037", TWL6030_CLASS | TWL6037_SUBCLASS },
+	{ "palmas", TWL6030_CLASS | TWL6037_SUBCLASS },	/* alternate name */
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(i2c, twl_ids);
