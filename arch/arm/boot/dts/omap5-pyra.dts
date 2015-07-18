@@ -60,7 +60,7 @@
 		enable-active-high;
 		startup-delay-us = <70000>;
 		vin-supply = <&modem_vbus_hdmi_power>;
-		regulator-always-on;
+//		regulator-always-on;
 	};
 
 	host2_vbus_power: host2_vbus_power_reg {
@@ -72,7 +72,7 @@
 		enable-active-high;
 		startup-delay-us = <70000>;
 		vin-supply = <&modem_vbus_hdmi_power>;
-		regulator-always-on;
+//		regulator-always-on;
 	};
 
 	/* this is the modem power switch (similar to a LDO) */
@@ -87,7 +87,7 @@
 		/* the real input is vsys but it makes no sense
 		   to power the modem without requesting vbus */
 		vin-supply = <&modem_vbus_hdmi_power>;
-		regulator-always-on;
+//		regulator-always-on;
 	};
 
 	modem_en: modem { /* control modem power through rfkill */
@@ -149,6 +149,9 @@
 		interrupts = <1 IRQ_TYPE_EDGE_FALLING>;
 		ti,palmas-long-press-seconds = <8>;
 		ti,palmas-pwron-debounce-milli-seconds = <15>;
+	};
+	palmas_gpadc: gpadc {
+		compatible = "ti,twl6037-gpadc";
 	};
 };
 
