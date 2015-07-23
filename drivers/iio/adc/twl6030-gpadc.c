@@ -41,7 +41,6 @@
 
 /*
  * twl6030 per TRM has 17 channels, and twl6032 has 19 channels
- * and twl6037 has 16 channels
  * 2 test network channels are not used,
  * 2 die temperature channels are not used either, as it is not
  * defined how to convert ADC value to temperature
@@ -51,8 +50,6 @@
 #define TWL6032_GPADC_USED_CHANNELS		15
 #define TWL6032_GPADC_MAX_CHANNELS		19
 #define TWL6030_GPADC_NUM_TRIM_REGS		16
-#define TWL6037_GPADC_USED_CHANNELS		12
-#define TWL6037_GPADC_MAX_CHANNELS		16
 
 #define TWL6030_GPADC_CTRL_P1			0x05
 
@@ -73,10 +70,6 @@
 #define TWL6030_REG_TOGGLE1			0x90
 #define TWL6030_GPADCS				BIT(1)
 #define TWL6030_GPADCR				BIT(0)
-
-#define TWL6037_GPADC_RT_SELECT			0x05
-#define TWL6037_GPADC_RT_CONV_EN		BIT(7)
-#define TWL6037_GPADC_GPADC_RT_CONV0_LSB	0x06
 
 /**
  * struct twl6030_chnl_calib - channel calibration
@@ -358,98 +351,6 @@ static const struct twl6030_ideal_code
 	},
 };
 
-static const struct twl6030_ideal_code
-	twl6037_ideal[TWL6037_GPADC_USED_CHANNELS] = {
-	[0] = { /* ch 0, external, battery type, resistor value, general purpose */
-		.channel = 0,
-		.code1 = 2064,
-		.code2 = 3112,
-		.volt1 = 630,
-		.volt2 = 950,
-	},
-	[1] = { /* ch 1, external, battery temperature, NTC resistor value, general purpose */
-		.channel = 1,
-		.code1 = 2064,
-		.code2 = 3112,
-		.volt1 = 630,
-		.volt2 = 950,
-	},
-	[2] = { /* ch 2, external, audio accessory/general purpose */
-		.channel = 2,
-		.code1 = 2064,
-		.code2 = 3112,
-		.volt1 = 1260,
-		.volt2 = 1900,
-	},
-	[3] = { /* ch 3, external, general purpose */
-		.channel = 3,
-		.code1 = 2064,
-		.code2 = 3112,
-		.volt1 = 630,
-		.volt2 = 950,
-	},
-	[4] = { /* ch 4, external, temperature measurement/general purpose */
-		.channel = 4,
-		.code1 = 2064,
-		.code2 = 3112,
-		.volt1 = 630,
-		.volt2 = 950,
-	},
-	[5] = { /* ch 5, external, general purpose */
-		.channel = 5,
-		.code1 = 2064,
-		.code2 = 3112,
-		.volt1 = 630,
-		.volt2 = 950,
-	},
-	[6] = { /* ch 6, external, general purpose */
-		.channel = 6,
-		.code1 = 2064,
-		.code2 = 3112,
-		.volt1 = 2520,
-		.volt2 = 3800,
-	},
-	[7] = { /* ch 7, internal, main battery */
-		.channel = 7,
-		.code1 = 2064,
-		.code2 = 3112,
-		.volt1 = 2520,
-		.volt2 = 3800,
-	},
-	[8] = { /* ch 8, internal, backup battery */
-		.channel = 8,
-		.code1 = 2064,
-		.code2 = 3112,
-		.volt1 = 3150,
-		.volt2 = 4750,
-	},
-	[9] = { /* ch 9, internal, external charger input */
-		.channel = 9,
-		.code1 = 2064,
-		.code2 = 3112,
-		.volt1 = 5670,
-		.volt2 = 8550,
-	},
-	[10] = { /* ch 10, internal, VBUS */
-		.channel = 10,
-		.code1 = 2064,
-		.code2 = 3112,
-		.volt1 = 3465,
-		.volt2 = 5225,
-	},
-	/* ch 11, internal, DC-DC current probe */
-	/* ch 12, internal, Die temperature */
-	/* ch 13, internal, Die temperature */
-	[11] = { /* ch 14, internal, USB ID line voltage */
-		.channel = 11,
-		.code1 = 2064,
-		.code2 = 3112,
-		.volt1 = 3465,
-		.volt2 = 5225,
-	},
-	/* ch 15, internal, Test network */
-};
-
 static inline int twl6030_gpadc_write(u8 reg, u8 val)
 {
 	return twl_i2c_write_u8(TWL6030_MODULE_GPADC, val, reg);
@@ -507,18 +408,6 @@ static int twl6032_start_conversion(int channel)
 						TWL6030_GPADC_CTRL_P1_SP1);
 }
 
-static int twl6037_start_conversion(int channel)
-{
-	int ret;
-
-	ret = twl6030_gpadc_write(TWL6037_GPADC_RT_SELECT, channel);
-	if (ret)
-		return ret;
-
-	return twl6030_gpadc_write(TWL6037_GPADC_RT_SELECT,
-						TWL6037_GPADC_RT_CONV_EN);
-}
-
 static u8 twl6030_channel_to_reg(int channel)
 {
 	return TWL6030_GPADC_GPCH0_LSB + 2 * channel;
@@ -533,17 +422,6 @@ static u8 twl6032_channel_to_reg(int channel)
 
 	return TWL6032_GPADC_GPCH0_LSB;
 }
-
-static u8 twl6037_channel_to_reg(int channel)
-{
-	/*
-	 * for any prior chosen channel, when the conversion is ready
-	 * the result is avalable in GPCH0_LSB, GPCH0_MSB.
-	 */
-
-	return TWL6037_GPADC_GPADC_RT_CONV0_LSB;
-}
-
 
 static int twl6030_gpadc_lookup(const struct twl6030_ideal_code *ideal,
 		int channel, int size)
@@ -922,84 +800,6 @@ static int twl6032_calibration(struct twl6030_gpadc_data *gpadc)
 	return 0;
 }
 
-static int twl6037_calibration(struct twl6030_gpadc_data *gpadc)
-{
-	int ret;
-	int chn;
-	u8 trim_regs[TWL6030_GPADC_NUM_TRIM_REGS];
-	s8 d1, d2;
-
-	/*
-	 * for calibration two measurements have been performed at
-	 * factory, for some channels, during the production test and
-	 * have been stored in registers. This two stored values are
-	 * used to correct the measurements. The values represent
-	 * offsets for the given input from the output on ideal curve.
-	 */
-	ret = twl_i2c_read(TWL6030_MODULE_ID2, trim_regs,
-			TWL6030_GPADC_TRIM1, TWL6030_GPADC_NUM_TRIM_REGS);
-	if (ret < 0) {
-		dev_err(gpadc->dev, "calibration failed\n");
-		return ret;
-	}
-
-	for (chn = 0; chn < TWL6037_GPADC_MAX_CHANNELS; chn++) {
-
-		switch (chn) {
-		case 0:
-		case 1:
-		case 3:
-		case 4:
-		case 5:
-			d1 = trim_regs[0];
-			d2 = trim_regs[1];
-			break;
-		case 2:
-			d1 = trim_regs[2];
-			d2 = trim_regs[3];
-			break;
-		case 6:
-			d1 = trim_regs[4];
-			d2 = trim_regs[5];
-			break;
-		case 7:
-			d1 = trim_regs[6];
-			d2 = trim_regs[7];
-			break;
-		case 8:
-			d1 = trim_regs[8];
-			d2 = trim_regs[9];
-			break;
-
-		case 9:
-			d1 = trim_regs[10];
-			d2 = trim_regs[11];
-			break;
-		case 10:
-			d1 = trim_regs[12];
-			d2 = trim_regs[13];
-			break;
-		case 14:
-			d1 = trim_regs[14];
-			d2 = trim_regs[15];
-			break;
-		default:
-			continue;
-		}
-
-		/*
-		 * twl6030 and twl6030 use get_trim_offset function to
-		 * recalculate d1 and d2. twl6037 doesn't state anything
-		 * like that in datasheet so just keep original value
-		 */
-		/* d1 = twl6030_gpadc_get_trim_offset(d1);
-		d2 = twl6030_gpadc_get_trim_offset(d2);*/
-
-		twl6030_calibrate_channel(gpadc, chn, d1, d2);
-	}
-
-	return 0;
-}
 #define TWL6030_GPADC_CHAN(chn, _type, chan_info) {	\
 	.type = _type,					\
 	.channel = chn,					\
@@ -1041,21 +841,6 @@ static const struct iio_chan_spec twl6032_gpadc_iio_channels[] = {
 	TWL6030_GPADC_CHAN(18, IIO_VOLTAGE, IIO_CHAN_INFO_PROCESSED),
 };
 
-static const struct iio_chan_spec twl6037_gpadc_iio_channels[] = {
-	TWL6030_GPADC_CHAN(0, IIO_VOLTAGE, IIO_CHAN_INFO_PROCESSED),
-	TWL6030_GPADC_CHAN(1, IIO_TEMP, IIO_CHAN_INFO_RAW),
-	TWL6030_GPADC_CHAN(2, IIO_VOLTAGE, IIO_CHAN_INFO_PROCESSED),
-	TWL6030_GPADC_CHAN(3, IIO_TEMP, IIO_CHAN_INFO_RAW),
-	TWL6030_GPADC_CHAN(4, IIO_VOLTAGE, IIO_CHAN_INFO_PROCESSED),
-	TWL6030_GPADC_CHAN(5, IIO_VOLTAGE, IIO_CHAN_INFO_PROCESSED),
-	TWL6030_GPADC_CHAN(6, IIO_VOLTAGE, IIO_CHAN_INFO_PROCESSED),
-	TWL6030_GPADC_CHAN(7, IIO_VOLTAGE, IIO_CHAN_INFO_PROCESSED),
-	TWL6030_GPADC_CHAN(8, IIO_VOLTAGE, IIO_CHAN_INFO_PROCESSED),
-	TWL6030_GPADC_CHAN(9, IIO_VOLTAGE, IIO_CHAN_INFO_PROCESSED),
-	TWL6030_GPADC_CHAN(10, IIO_VOLTAGE, IIO_CHAN_INFO_PROCESSED),
-	TWL6030_GPADC_CHAN(14, IIO_VOLTAGE, IIO_CHAN_INFO_PROCESSED),
-};
-
 static const struct iio_info twl6030_gpadc_iio_info = {
 	.read_raw = &twl6030_gpadc_read_raw,
 	.driver_module = THIS_MODULE,
@@ -1079,16 +864,6 @@ static const struct twl6030_gpadc_platform_data twl6032_pdata = {
 	.calibrate = twl6032_calibration,
 };
 
-static const struct twl6030_gpadc_platform_data twl6037_pdata = {
-	.iio_channels = twl6037_gpadc_iio_channels,
-	.nchannels = TWL6037_GPADC_USED_CHANNELS,
-	.ideal = twl6037_ideal,
-	.start_conversion = twl6037_start_conversion,
-	.channel_to_reg = twl6037_channel_to_reg,
-	.calibrate = twl6037_calibration,
-};
-
-
 static const struct of_device_id of_twl6030_match_tbl[] = {
 	{
 		.compatible = "ti,twl6030-gpadc",
@@ -1098,14 +873,8 @@ static const struct of_device_id of_twl6030_match_tbl[] = {
 		.compatible = "ti,twl6032-gpadc",
 		.data = &twl6032_pdata,
 	},
-	{
-		.compatible = "ti,twl6037-gpadc",
-		.data = &twl6037_pdata,
-	},
 	{ /* end */ }
 };
-
-MODULE_DEVICE_TABLE(of, of_twl6030_match_tbl);
 
 static int twl6030_gpadc_probe(struct platform_device *pdev)
 {
