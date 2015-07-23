@@ -1091,7 +1091,7 @@ printk("pdata=%p\n", pdata);
 
 //	ret = palmas_request_irq(palmas, PALMAS_GPADC_EOC_SW_IRQ,
 //			"palmas_gpadc", palmas_gpadc_irq_handler, gpadc);
-	gpadc->eoc_sw_irq = platform_get_irq(pdev, PALMAS_GPADC_EOC_SW_IRQ);
+	gpadc->eoc_sw_irq = palmas_irq_get_virq(gpadc->palmas, PALMAS_GPADC_EOC_SW_IRQ);
 printk("eoc_sw_irq=%d\n", gpadc->eoc_sw_irq);
 	ret = request_threaded_irq(gpadc->eoc_sw_irq, NULL, palmas_gpadc_irq_handler,
 						IRQF_ONESHOT,
