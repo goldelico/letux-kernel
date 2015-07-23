@@ -1018,7 +1018,7 @@ static int palmas_gpadc_calibrate(struct palmas_gpadc *gpadc)
 	return 0;
 }
 
-static void __devinit palmas_dt_to_pdata(struct device_node *node,
+static void palmas_dt_to_pdata(struct device_node *node,
 		struct palmas_gpadc_platform_data *pdata)
 {
 	u32 prop;
@@ -1045,7 +1045,7 @@ static void __devinit palmas_dt_to_pdata(struct device_node *node,
 	}
 }
 
-static int __devinit palmas_gpadc_probe(struct platform_device *pdev)
+static int palmas_gpadc_probe(struct platform_device *pdev)
 {
 	struct palmas *palmas = dev_get_drvdata(pdev->dev.parent);
 	struct palmas_gpadc_platform_data *pdata = pdev->dev.platform_data;
@@ -1053,6 +1053,7 @@ static int __devinit palmas_gpadc_probe(struct platform_device *pdev)
 	struct palmas_gpadc *gpadc;
 	int ret;
 
+printk("palmas_gpadc_probe node=%p\n", node);
 	if(node && !pdata) {
 		pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
 
@@ -1061,7 +1062,7 @@ static int __devinit palmas_gpadc_probe(struct platform_device *pdev)
 
 		palmas_dt_to_pdata(node, pdata);
 	}
-
+printk("pdata=%p\n", pdata);
 	if (!pdata)
 		return -EINVAL;
 
@@ -1088,9 +1089,16 @@ static int __devinit palmas_gpadc_probe(struct platform_device *pdev)
 		goto err_misc;
 	}
 
-	ret = palmas_request_irq(palmas, PALMAS_GPADC_EOC_SW_IRQ,
-			"palmas_gpadc", palmas_gpadc_irq_handler, gpadc);
+//	ret = palmas_request_irq(palmas, PALMAS_GPADC_EOC_SW_IRQ,
+//			"palmas_gpadc", palmas_gpadc_irq_handler, gpadc);
+	gpadc->eoc_sw_irq = platform_get_irq(pdev, PALMAS_GPADC_EOC_SW_IRQ);
+printk("eoc_sw_irq=%d\n", gpadc->eoc_sw_irq);
+	ret = request_threaded_irq(gpadc->eoc_sw_irq, NULL, palmas_gpadc_irq_handler,
+						IRQF_ONESHOT,
+					dev_name(gpadc->dev), gpadc);
+
 	if (ret < 0) {
+		dev_err(&pdev->dev, "could not request irq ret=%d\n", ret);
 		dev_dbg(&pdev->dev, "could not request irq\n");
 		goto err_irq;
 	}
@@ -1125,7 +1133,7 @@ static int __devinit palmas_gpadc_probe(struct platform_device *pdev)
 	return 0;
 
 err_ctrl:
-	palmas_free_irq(palmas, PALMAS_GPADC_EOC_SW_IRQ, gpadc);
+	free_irq(gpadc->eoc_sw_irq, gpadc);
 err_irq:
 	misc_deregister(&palmas_gpadc_device);
 err_misc:
@@ -1133,19 +1141,18 @@ err_misc:
 	return ret;
 }
 
-static int __devexit palmas_gpadc_remove(struct platform_device *pdev)
+static int palmas_gpadc_remove(struct platform_device *pdev)
 {
 	struct palmas_gpadc *gpadc = platform_get_drvdata(pdev);
-	struct palmas *palmas = gpadc->palmas;
 
-	palmas_free_irq(palmas, PALMAS_GPADC_EOC_SW_IRQ, gpadc);
+	free_irq(gpadc->eoc_sw_irq, gpadc);
 	sysfs_remove_group(&pdev->dev.kobj, &palmas_gpadc_group);
 	misc_deregister(&palmas_gpadc_device);
 
 	return 0;
 }
 
-static struct of_device_id __devinitdata of_palmas_match_tbl[] = {
+static struct of_device_id of_palmas_match_tbl[] = {
 	{ .compatible = "ti,palmas-gpadc", },
 	{ /* end */ }
 };
@@ -1157,7 +1164,7 @@ static struct platform_driver palmas_gpadc_driver = {
 		.owner = THIS_MODULE,
 	},
 	.probe = palmas_gpadc_probe,
-	.remove = __devexit_p(palmas_gpadc_remove),
+	.remove = palmas_gpadc_remove,
 };
 
 static int __init palmas_gpadc_init(void)
