@@ -152,7 +152,11 @@
 		ti,palmas-pwron-debounce-milli-seconds = <15>;
 	};
 	palmas_gpadc: gpadc {
-		compatible = "ti,twl6037-gpadc";
+		compatible = "ti,palmas-gpadc";
+/*		ti,ch0_current = 0;
+		ti,ch3_current = 0;
+		ti,bat_removal = 0;
+		ti,start_polarity = 0; */
 	};
 };
 
