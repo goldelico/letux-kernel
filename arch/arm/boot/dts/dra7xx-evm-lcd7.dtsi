@@ -16,6 +16,10 @@
 	status = "disabled";
 };
 
+&tlv320aic3106 {
+      reg = <0x18>;
+};
+
 &i2c1 {
 	mxt244: touchscreen@4a {
 		compatible = "atmel,mXT244";
