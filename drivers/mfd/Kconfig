@@ -1015,7 +1015,7 @@ config MFD_PALMAS
 	  series of PMIC chips from Texas Instruments.
 
 config MFD_PALMAS_GPADC
-	bool "Support for the GPADC on the Palmas series chips"
+	tristate "Support for the GPADC on the Palmas series chips"
 	depends on MFD_PALMAS
 	help
 	  If you say yes here you get support for the GPADC on
