@@ -82,7 +82,6 @@ enum twl6030_module_ids {
 	TWL6030_MODULE_ID2,
 	TWL6030_MODULE_GPADC,
 	TWL6030_MODULE_GASGAUGE,
-	TWL6030_MODULE_GPADC_TRIM,
 
 	TWL6030_MODULE_LAST,
 };
@@ -776,7 +775,6 @@ struct twl_regulator_driver_data {
 					  * This flag is necessary to
 					  * enable them.
 					  */
-#define TWL6037_SUBCLASS	BIT(6)
 
 /*----------------------------------------------------------------------*/
 
