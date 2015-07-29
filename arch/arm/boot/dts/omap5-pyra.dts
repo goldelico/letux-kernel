@@ -269,6 +269,15 @@
 
 /* add overlay pimmux for pyra on 5432evm */
 
+&mcspi3_pins {
+		pinctrl-single,pins = <
+/* allow to reuse as real gpio:	0x78 (PIN_INPUT | MUX_MODE1)	/*  mcspi3_somi = gpio3_84 */
+			0x7a (PIN_INPUT | MUX_MODE1)		/*  mcspi3_cs0 = gpio3_85 */
+			0x7c (PIN_INPUT | MUX_MODE1)		/*  mcspi3_simo = gpio3_86 */
+			0x7e (PIN_INPUT | MUX_MODE1)		/*  mcspi3_clk =gpio3_87 */
+		>;
+	};
+
 &omap5_pmx_core {
 
 	pinctrl-0 = <
