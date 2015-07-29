@@ -187,13 +187,13 @@
 / { /* should better be moved to omap5.dtsi because it is of general interest */
 	ocp {
 		omap5_control_ckobuffer: pinmux@4ae0cdb4 {
-			compatible = "ti,omap4-padconf", "pinctrl-single";
+			compatible = /*"ti,omap4-padconf",*/ "pinctrl-single";
 			reg = <0x4ae0cdb4 4>;   /* Single register */
 			#address-cells = <1>;
 			#size-cells = <0>;
 			pinctrl-single,register-width = <32>;
 			pinctrl-single,function-mask = <0xf0000000>;
-			pinctrl-single,bit-per-mux;
+//			pinctrl-single,bit-per-mux;
 		};
 	};
 };
