@@ -174,7 +174,7 @@ omapdss_of_find_source_for_first_ep(struct device_node *node)
 
 	src = omap_dss_find_output_by_port_node(src_port);
 
-	of_node_put(src_port);
+//	of_node_put(src_port);
 
 	return src ? src : ERR_PTR(-EPROBE_DEFER);
 }
