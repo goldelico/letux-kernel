@@ -1624,8 +1624,8 @@ try:
 
 		trys++;
 		if (trys == 2) {
-			dev_err(dwc->dev, "i819: metastability workaround failed\n");
-			BUG();
+			dev_WARN_ONCE(dwc->dev, true,
+				      "i819: metastability workaround failed\n");
 			return -ETIMEDOUT;
 		}
 

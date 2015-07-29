@@ -18,7 +18,6 @@
 
 #define DRA7_DPLL_ABE_DEFFREQ				180633600
 #define DRA7_DPLL_GMAC_DEFFREQ				1000000000
-#define DRA7_DPLL_DSP_DEFFREQ				600000000
 #define DRA7_DPLL_DSP_GFCLK_NOMFREQ			600000000
 #define DRA7_DPLL_EVE_GCLK_NOMFREQ			400000000
 
@@ -321,7 +320,7 @@ int __init dra7xx_dt_clk_init(void)
 	int rc;
 	struct clk *abe_dpll_mux, *sys_clkin2, *dpll_ck, *dss_deshdcp_ck;
 	struct clk *ipu1_gfclk, *ipu1_gfclk_parent;
-	struct clk *dsp_dpll, *dsp_m2_dpll, *dsp_m3x2_dpll;
+	struct clk *dsp_m2_dpll, *dsp_m3x2_dpll;
 	struct clk *atl_fck, *atl_parent;
 
 	ti_dt_clocks_register(dra7xx_clks);
@@ -359,23 +358,17 @@ int __init dra7xx_dt_clk_init(void)
 	if (rc)
 		pr_err("%s: failed to reparent ipu1_gfclk_mux\n", __func__);
 
-	dsp_dpll = clk_get_sys(NULL, "dpll_dsp_ck");
-	rc = clk_set_rate(dsp_dpll, DRA7_DPLL_DSP_DEFFREQ);
-	if (!rc) {
-		dsp_m2_dpll = clk_get_sys(NULL, "dpll_dsp_m2_ck");
-		rc = clk_set_rate(dsp_m2_dpll, DRA7_DPLL_DSP_GFCLK_NOMFREQ);
-		if (rc)
-			pr_err("%s: failed to configure DSP DPLL m2 output!\n",
-			       __func__);
+	dsp_m2_dpll = clk_get_sys(NULL, "dpll_dsp_m2_ck");
+	rc = clk_set_rate(dsp_m2_dpll, DRA7_DPLL_DSP_GFCLK_NOMFREQ);
+	if (rc)
+		pr_err("%s: failed to configure DSP DPLL m2 output!\n",
+		       __func__);
 
-		dsp_m3x2_dpll = clk_get_sys(NULL, "dpll_dsp_m3x2_ck");
-		rc = clk_set_rate(dsp_m3x2_dpll, DRA7_DPLL_EVE_GCLK_NOMFREQ);
-		if (rc)
-			pr_err("%s: failed to configure DSP DPLL m3x2 divider!\n",
-			       __func__);
-	} else {
-		pr_err("%s: failed to configure DSP DPLL!\n", __func__);
-	}
+	dsp_m3x2_dpll = clk_get_sys(NULL, "dpll_dsp_m3x2_ck");
+	rc = clk_set_rate(dsp_m3x2_dpll, DRA7_DPLL_EVE_GCLK_NOMFREQ);
+	if (rc)
+		pr_err("%s: failed to configure DSP DPLL m3x2 divider!\n",
+		       __func__);
 
 	atl_fck = clk_get_sys(NULL, "atl_gfclk_mux");
 	atl_parent = clk_get_sys(NULL, "dpll_abe_m2_ck");
