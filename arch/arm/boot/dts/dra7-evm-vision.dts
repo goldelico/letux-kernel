@@ -1,3 +1,11 @@
+/*
+ * Copyright (C) 2013 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
 #include "dra7-evm.dts"
 
 i2cexp: &i2c2 {
@@ -5,6 +13,26 @@ i2cexp: &i2c2 {
 
 #include "dra7xx-vision.dtsi"
 
+/*
+ * Following is the mapping of the cameras and video ports:
+ *
+ * +-------+--------------------+--------+---------+---------+---------+---------+
+ * | Video |   VIP port name    | LVDS   | DES I2C | Remote  | SER I2C | CAM I2C |
+ * | Port  | Inst Slice  Port   | Camera | Addr    | I2C bus | Alias   | Alias   |
+ * +-------+--------------------+--------+---------+---------+---------+---------+
+ * | vin1a | VIP1 Slice0 Port A |  cam1  |   0x60  |   11    |   0x74  |   0x38  |
+ * | vin2a | VIP1 Slice1 Port A |  cam2  |   0x64  |   12    |   0x75  |   0x39  |
+ * | vin3a | VIP2 Slice0 Port A |  cam3  |   0x68  |   13    |   0x76  |   0x3A  |
+ * | vin5a | VIP3 Slice0 Port A |  cam4  |   0x6C  |   14    |   0x77  |   0x3B  |
+ * | vin4b | VIP2 Slice1 Port B |  cam5  |   0x69  |   15    |   0x78  |   0x3C  |
+ * | vin6a | VIP3 Slice1 Port A |  cam6  |   0x61  |   16    |   0x79  |   0x3D  |
+ * +-------+--------------------+--------+---------+---------+---------+---------+
+ *
+ * For easier access, all the remote devices can be accessed using the remote bus
+ * No need to remember the aliases - instead use real addresses on remote bus.
+ * For example, the i2c address for remote serializer is 0x58 and camera is 0x30
+ * So this can be accessed as 11-0058 and 11-0030 (11 is the remote bus)
+ */
 &vip1 {
 	status = "okay";
 };
@@ -17,7 +45,45 @@ i2cexp: &i2c2 {
 	status = "okay";
 };
 
+&ovcam_fc {
+	/* Select between onboard OV10633 camera and daughter card vin
+	 * Also enable power for the OVcamera externally */
+	mux-gpios =
+		<&pcf_hdmi 3	GPIO_ACTIVE_HIGH>,	/* CAM_FPD_MUX_S0 */
+		<&gpio6 17	GPIO_ACTIVE_HIGH>;	/* OV_PWDN */
+};
+
+&ovcam1 {
+	/* Select between onboard OV10633 camera and daughter card vin */
+	mux-gpios =
+		<&pcf_hdmi 3	GPIO_ACTIVE_HIGH>;	/* CAM_FPD_MUX_S0 */
+};
+
+&ovcam2 {
+	/* Select between vin2a and ethernet slave0 */
+	mux-gpios =
+		<&pcf_hdmi 2	GPIO_ACTIVE_LOW>;	/* VIN2_S0 */
+};
+
+&ovcam3 {
+	/* No board muxes */
+};
+
+&ovcam4 {
+	/* No board muxes */
+};
+
+&ovcam5 {
+	/* No board muxes */
+};
+
+&ovcam6 {
+	mux-gpios =
+		<&pcf_hdmi 1	GPIO_ACTIVE_HIGH>;	/* VIN6_SEL_S0 */
+};
+
 &vin1a {
+	status = "okay";
 	endpoint@cam1 {
 		slave-mode;
 		remote-endpoint = <&cam1>;
@@ -29,6 +95,7 @@ i2cexp: &i2c2 {
 };
 
 &vin2a {
+	status = "okay";
 	endpoint@0 {
 		slave-mode;
 		remote-endpoint = <&cam2>;
@@ -36,6 +103,7 @@ i2cexp: &i2c2 {
 };
 
 &vin3a {
+	status = "okay";
 	endpoint@0 {
 		slave-mode;
 		remote-endpoint = <&cam3>;
@@ -43,6 +111,7 @@ i2cexp: &i2c2 {
 };
 
 &vin5a {
+	status = "okay";
 	endpoint@0 {
 		slave-mode;
 		remote-endpoint = <&cam4>;
@@ -50,6 +119,7 @@ i2cexp: &i2c2 {
 };
 
 &vin6a {
+	status = "okay";
 	endpoint@0 {
 		slave-mode;
 		remote-endpoint = <&cam6>;
