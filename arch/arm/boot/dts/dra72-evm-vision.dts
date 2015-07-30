@@ -1,28 +1,208 @@
-#include "dra7-evm.dts"
+/*
+ * Copyright (C) 2013 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include "dra72-evm.dts"
 
 i2cexp: &i2c5 {
 };
 
 #include "dra7xx-vision.dtsi"
 
+/*
+ * Following is the mapping of the cameras and video ports:
+ *
+ * +-------+--------------------+--------+---------+---------+---------+---------+
+ * | Video |   VIP port name    | LVDS   | DES I2C | Remote  | SER I2C | CAM I2C |
+ * | Port  | Inst Slice  Port   | Camera | Addr    | I2C bus | Alias   | Alias   |
+ * +-------+--------------------+--------+---------+---------+---------+---------+
+ * | vin2a | VIP1 Slice1 Port A |  cam1  |   0x60  |   11    |   0x74  |   0x38  |
+ * | vin1a | VIP1 Slice0 Port A |  cam2  |   0x64  |   12    |   0x75  |   0x39  |
+ * | vin2b | VIP1 Slice1 Port B |  cam3  |   0x68  |   13    |   0x76  |   0x3A  |
+ * | vin1b | VIP1 Slice0 Port B |  cam4  |   0x6C  |   14    |   0x77  |   0x3B  |
+ * +-------+--------------------+--------+---------+---------+---------+---------+
+ *
+ * For easier access, all the remote devices can be accessed using the remote bus
+ * No need to remember the aliases - instead use real addresses on remote bus.
+ * For example, the i2c address for remote serializer is 0x58 and camera is 0x30
+ * So this can be accessed as 11-0058 and 11-0030 (11 is the remote bus)
+ */
+
+&dra7_pmx_core {
+	/* vin5a pins are internally routed to vin1a  */
+	vin5a_pins: pinmux_vin5a_pins {
+		pinctrl-single,pins = <
+			0x374	(PIN_INPUT | MUX_MODE9)	/* vin1a_clk0	*/
+			0x39C	(PIN_INPUT | MUX_MODE9)	/* vin1a_hsync0	*/
+			0x3A0	(PIN_INPUT | MUX_MODE9)	/* vin1a_vsync0	*/
+			0x398	(PIN_INPUT | MUX_MODE9)	/* vin1a_d0	*/
+			0x394	(PIN_INPUT | MUX_MODE9)	/* vin1a_d1	*/
+			0x390	(PIN_INPUT | MUX_MODE9)	/* vin1a_d2	*/
+			0x38C	(PIN_INPUT | MUX_MODE9)	/* vin1a_d3 	*/
+			0x388	(PIN_INPUT | MUX_MODE9)	/* vin1a_d4 	*/
+			0x384	(PIN_INPUT | MUX_MODE9)	/* vin1a_d5	*/
+			0x380	(PIN_INPUT | MUX_MODE9)	/* vin1a_d6	*/
+			0x37C	(PIN_INPUT | MUX_MODE9)	/* vin1a_d7	*/
+		>;
+	};
+
+	/* vin4b pins are internally routed to vin1b  */
+        vin4b_pins: pinmux_vin4b_pins {
+		pinctrl-single,pins = <
+			0x23C	(PIN_INPUT | MUX_MODE5)	/* vin1b_clk1	*/
+			0x060	(PIN_INPUT | MUX_MODE6)	/* vin1b_hsync1	*/
+			0x260	(PIN_INPUT | MUX_MODE5)	/* vin1b_vsync1	*/
+			0x240	(PIN_INPUT | MUX_MODE5)	/* vin1b_d0	*/
+			0x248	(PIN_INPUT | MUX_MODE5)	/* vin1b_d1	*/
+			0x24C	(PIN_INPUT | MUX_MODE5)	/* vin1b_d2	*/
+			0x250	(PIN_INPUT | MUX_MODE5)	/* vin1b_d3 	*/
+			0x254	(PIN_INPUT | MUX_MODE5)	/* vin1b_d4 	*/
+			0x268	(PIN_INPUT | MUX_MODE5)	/* vin1b_d5	*/
+			0x26C	(PIN_INPUT | MUX_MODE5)	/* vin1b_d6	*/
+			0x270	(PIN_INPUT | MUX_MODE5)	/* vin1b_d7	*/
+                >;
+        };
+
+	/* vin2a pins are connected to vin2a only */
+	vin2a_pins: pinmux_vin2a_pins {
+		pinctrl-single,pins = <
+			0x154	(PIN_INPUT | MUX_MODE0)	/* vin2a_clk0	*/
+			0x25c	(PIN_INPUT | MUX_MODE4)	/* vin2a_hsync0	*/
+			0x164	(PIN_INPUT | MUX_MODE0)	/* vin2a_vsync0	*/
+			0x168	(PIN_INPUT | MUX_MODE0)	/* vin2a_d0	*/
+			0x16c	(PIN_INPUT | MUX_MODE0)	/* vin2a_d1	*/
+			0x170	(PIN_INPUT | MUX_MODE0)	/* vin2a_d2	*/
+			0x174	(PIN_INPUT | MUX_MODE0)	/* vin2a_d3	*/
+			0x178	(PIN_INPUT | MUX_MODE0)	/* vin2a_d4	*/
+			0x17c	(PIN_INPUT | MUX_MODE0)	/* vin2a_d5	*/
+			0x180	(PIN_INPUT | MUX_MODE0)	/* vin2a_d6	*/
+			0x184	(PIN_INPUT | MUX_MODE0)	/* vin2a_d7	*/
+		>;
+	};
+
+	/* vin3b pins are internally routed to vin2b */
+	vin3b_pins: pinmux_vin3b_pins {
+		pinctrl-single,pins = <
+			0x15C	(PIN_INPUT | MUX_MODE2)	/* vin2b_clk1	*/
+			0x160	(PIN_INPUT | MUX_MODE3)	/* vin2b_hsync1	*/
+			0x378	(PIN_INPUT | MUX_MODE4)	/* vin2b_vsync1	*/
+			0x1C4	(PIN_INPUT | MUX_MODE2)	/* vin2b_d0	*/
+			0x1C0	(PIN_INPUT | MUX_MODE2)	/* vin2b_d1	*/
+			0x1BC	(PIN_INPUT | MUX_MODE2)	/* vin2b_d2	*/
+			0x1B8	(PIN_INPUT | MUX_MODE2)	/* vin2b_d3 	*/
+			0x1B4	(PIN_INPUT | MUX_MODE2)	/* vin2b_d4 	*/
+			0x1B0	(PIN_INPUT | MUX_MODE2)	/* vin2b_d5	*/
+			0x1AC	(PIN_INPUT | MUX_MODE2)	/* vin2b_d6	*/
+			0x1A8	(PIN_INPUT | MUX_MODE2)	/* vin2b_d7	*/
+                >;
+	};
+};
+
+&dra72_vip_mux {
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&vip_mux>;
+
+	/* Following is the mapping of interfaces
+	 * vin1A <= vin5A (remapped)
+	 * vin1B <= vin4B (remapped, only available option)
+	 * vin2A <= vin2A (default)
+	 * vin2B <= vin3B (default)
+	 */
+	vip_mux: pinmux_vin5a_pins {
+		pinctrl-single,pins = <
+			0x0	(VIP_VIN5A | VIP_VIN4B | VIP_VIN2A | VIP_VIN3B)
+		>;
+	};
+};
+
 &vip1 {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&vin5a_pins &vin4b_pins &vin2a_pins &vin3b_pins>;
+};
+
+&ovcam_fc {
+	/* Select between onboard OV10633 camera and daughter card vin
+	 * Also enable power for the OVcamera externally */
+	mux-gpios =
+		<&pcf_hdmi 2	GPIO_ACTIVE_LOW>,	/* VIN2_S0 */
+		<&pcf_hdmi 6	GPIO_ACTIVE_HIGH>,	/* VIN2_S2 */
+		<&gpio6 17	GPIO_ACTIVE_HIGH>;	/* OV_PWDN */
+};
+
+&ovcam1 {
+	/* Select between onboard OV10633 camera and daughter card vin */
+	mux-gpios =
+		<&pcf_hdmi 2	GPIO_ACTIVE_LOW>,	/* VIN2_S0 */
+		<&pcf_hdmi 6	GPIO_ACTIVE_HIGH>;	/* VIN2_S2 */
+};
+
+&ovcam2 {
+	/* No board muxes */
+};
+
+&ovcam3 {
+	/* No board muxes */
+};
+
+&ovcam4 {
+	/* No board muxes */
+	mux-gpios =
+		<&pcf_hdmi 7	GPIO_ACTIVE_LOW>,	/* SEL_VIN4_MUX_S0 */
+		<&pcf_gpio_21 4	GPIO_ACTIVE_HIGH>;	/* SEL_ENET_MUX_S0 */
+};
+
+&ovcam5 {
+	status = "disabled";
+};
+
+&ovcam6 {
+	status = "disabled";
+};
+
+&pcf_gpio_21 {
+	cpsw_sel_s0 {
+		status = "disabled";
+	};
 };
 
 &vin1a {
-	endpoint@cam1 {
+	status = "okay";
+	endpoint@0 {
+		slave-mode;
+		remote-endpoint = <&cam2>;
+	};
+};
+
+&vin1b {
+	status = "okay";
+	endpoint@0 {
+		slave-mode;
+		remote-endpoint = <&cam4>;
+	};
+};
+
+&vin2a {
+	status = "okay";
+	endpoint@0 {
 		slave-mode;
 		remote-endpoint = <&cam1>;
 	};
-	endpoint@ovcam {
+	endpoint@1 {
 		slave-mode;
 		remote-endpoint = <&ovcam>;
 	};
 };
 
-&vin2a {
+&vin2b {
+	status = "okay";
 	endpoint@0 {
 		slave-mode;
-		remote-endpoint = <&cam2>;
+		remote-endpoint = <&cam3>;
 	};
 };
