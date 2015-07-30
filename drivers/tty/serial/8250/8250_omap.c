@@ -615,6 +615,11 @@ static void omap_8250_shutdown(struct uart_port *port)
 	serial_out(up, UART_OMAP_WER, 0);
 	serial8250_do_shutdown(port);
 
+	if (up->dma && priv->delayed_restore) {
+		priv->delayed_restore = 0;
+		omap8250_restore_regs(up);
+	}
+
 	pm_runtime_mark_last_busy(port->dev);
 	pm_runtime_put_autosuspend(port->dev);
 
