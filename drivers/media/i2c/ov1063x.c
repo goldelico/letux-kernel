@@ -616,9 +616,6 @@ static int ov1063x_set_params(struct i2c_client *client, u32 *width,
 	if (ret)
 		return ret;
 
-	/* Wait for settings to take effect */
-	mdelay(500);
-
 	if (priv->cfmt->code == V4L2_MBUS_FMT_YUYV8_2X8)
 		dev_dbg(&client->dev, "Using 8-bit BT.656\n");
 	else
