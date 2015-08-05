@@ -35,6 +35,7 @@ The following are mandatory properties for 66AK2G SoCs only:
 
 
 Optional properties:
+<<<<<<< HEAD
 --------------------
 - ti,dual-volt:		boolean, supports dual voltage cards
 - <supply-name>-supply:	phandle to the regulator device tree node
@@ -51,6 +52,11 @@ Optional properties:
 			1:1 with the DMA specifiers listed in dmas.
 			The string naming is to be "rx" and "tx" for
 			RX and TX DMA requests, respectively.
+- pinctrl-names:	Should be a list of pinctrl state names and can be
+			"sdr104", "hs200_1_8v", "ddr50", "sdr50", "sdr25",
+			"sdr12", "hs", "ddr_1_8v" or "default".
+- pinctrl-<num>:	Phandle referencing pin configuration of the sd/emmc controller.
+			See: Documentation/devicetree/bindings/pinctrl/pinctrl-binding.txt
 
 Examples:
 
