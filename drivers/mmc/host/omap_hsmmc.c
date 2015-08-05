@@ -1273,6 +1273,44 @@ err:
 	return ret;
 }
 
+/* Protect the card while the cover is open */
+static void omap_hsmmc_protect_card(struct omap_hsmmc_host *host)
+{
+	if (!host->get_cover_state)
+		return;
+
+	host->reqs_blocked = 0;
+	if (host->get_cover_state(host->dev)) {
+		if (host->protect_card) {
+			dev_info(host->dev, "%s: cover is closed, "
+					 "card is now accessible\n",
+					 mmc_hostname(host->mmc));
+			host->protect_card = 0;
+		}
+	} else {
+		if (!host->protect_card) {
+			dev_info(host->dev, "%s: cover is open, "
+					 "card is now inaccessible\n",
+					 mmc_hostname(host->mmc));
+			host->protect_card = 1;
+		}
+	}
+}
+
+/*
+ * irq handler when (cell-phone) cover is mounted/removed
+ */
+static irqreturn_t omap_hsmmc_cover_irq(int irq, void *dev_id)
+{
+	struct omap_hsmmc_host *host = dev_id;
+
+	sysfs_notify(&host->mmc->class_dev.kobj, NULL, "cover_switch");
+
+	omap_hsmmc_protect_card(host);
+	mmc_detect_change(host->mmc, (HZ * 200) / 1000);
+	return IRQ_HANDLED;
+}
+
 static void omap_hsmmc_dma_callback(void *param)
 {
 	struct omap_hsmmc_host *host = param;
@@ -1627,24 +1665,6 @@ static void omap_hsmmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	/* FIXME: set registers based only on changes to ios */
 
 	omap_hsmmc_set_bus_width(host);
-
-	if (host->pdata->controller_flags & OMAP_HSMMC_SUPPORTS_DUAL_VOLT) {
-		/* Only MMC1 can interface at 3V without some flavor
-		 * of external transceiver; but they all handle 1.8V.
-		 */
-		if ((OMAP_HSMMC_READ(host->base, HCTL) & SDVSDET) &&
-			(ios->vdd == DUAL_VOLT_OCR_BIT)) {
-				/*
-				 * The mmc_select_voltage fn of the core does
-				 * not seem to set the power_mode to
-				 * MMC_POWER_UP upon recalculating the voltage.
-				 * vdd 1.8v.
-				 */
-			if (omap_hsmmc_switch_opcond(host, ios->vdd) != 0)
-				dev_dbg(mmc_dev(host->mmc),
-						"Switch operation failed\n");
-		}
-	}
 
 	omap_hsmmc_set_clock(host);
 
