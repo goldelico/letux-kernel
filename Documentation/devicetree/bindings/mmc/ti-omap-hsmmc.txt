@@ -13,6 +13,7 @@ Required properties:
  Should be "ti,omap3-hsmmc", for OMAP3 controllers
  Should be "ti,omap3-pre-es3-hsmmc" for OMAP3 controllers pre ES3.0
  Should be "ti,omap4-hsmmc", for OMAP4 controllers
+ Should be "ti,dra7-hsmmc", for dra7 and dra72 controllers
  Should be "ti,am33xx-hsmmc", for AM335x controllers
  Should be "ti,k2g-hsmmc", "ti,omap4-hsmmc" for 66AK2G controllers.
 
