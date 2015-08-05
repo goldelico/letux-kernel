@@ -1531,7 +1531,9 @@ static int vip_try_fmt_vid_cap(struct file *file, void *priv,
 
 		if (fsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) {
 			if ((f->fmt.pix.width == fsize.discrete.width) &&
-			    (f->fmt.pix.height == fsize.discrete.height)) {
+			    (((f->fmt.pix.field == V4L2_FIELD_ALTERNATE) ?
+			    f->fmt.pix.height * 2 : f->fmt.pix.height) ==
+			    fsize.discrete.height)) {
 				found = true;
 				break;
 			}
