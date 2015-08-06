@@ -1548,6 +1548,7 @@ int of_remove_property(struct device_node *np, struct property *prop)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(of_remove_property);
 
 /*
  * of_update_property - Update a property in a node, if the property does
