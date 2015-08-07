@@ -1198,7 +1198,7 @@ i2c_p3_exp: &i2c5 {
 	status = "okay";
 };
 
-&vin2a {
+video_in: &vin2a {
 	endpoint@0 {
 		slave-mode;
 		remote-endpoint = <&onboardLI>;
@@ -1213,4 +1213,10 @@ i2c_p3_exp: &i2c5 {
 &dsp_radio {
 	 pinctrl-names = "default";
 	 pinctrl-0 = <&radio_pins>;
+};
+
+&tvp_5158{
+	mux-gpios = <&pcf_hdmi 2 GPIO_ACTIVE_LOW>,	/*VIN2_S0*/
+			<&pcf_jamr3_21 8 GPIO_ACTIVE_LOW>,	/*SEL_TVP_FPD*/
+			<&pcf_hdmi 6 GPIO_ACTIVE_HIGH>;	/*VIN2_S2*/
 };

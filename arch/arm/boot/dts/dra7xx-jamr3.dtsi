@@ -68,6 +68,13 @@
 &i2c4 {
 	status = "okay";
 	clock-frequency = <400000>;
+
+	pcf_jamr3_21: pcf8575@21 {
+		compatible = "nxp,pcf8575";
+		reg = <0x21>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
 };
 
 &mcasp2 {
@@ -146,12 +153,10 @@
 		DVDD-supply = <&aic_dvdd>;
 	};
 
-	tvp5158@58 {
+	tvp_5158: tvp5158@58 {
 		compatible= "ti,tvp5158";
 		reg = <0x58>;
 
-		gpios = <&pcf_hdmi 3 0>,
-				<&pcf_gpio_21 8 0>;
 		port {
 			tvp_decoder: endpoint@0 {
 				/* No properties for BT656 */
@@ -160,7 +165,7 @@
 	};
 };
 
-&vin1a {
+&video_in {
 	endpoint {
 		slave-mode;
 		remote-endpoint = <&tvp_decoder>;

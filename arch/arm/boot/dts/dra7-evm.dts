@@ -1082,7 +1082,7 @@ i2c_p3_exp: &i2c2 {
 	status = "okay";
 };
 
-&vin1a {
+video_in: &vin1a {
 	endpoint@0 {
 		slave-mode;
 		remote-endpoint = <&onboardLI>;
@@ -1090,3 +1090,8 @@ i2c_p3_exp: &i2c2 {
 };
 
 #include "dra7xx-jamr3.dtsi"
+
+&tvp_5158{
+	mux-gpios = <&pcf_hdmi 3 GPIO_ACTIVE_HIGH>,	/*CAM_FPD_MUX_S0*/
+			<&pcf_jamr3_21 8 GPIO_ACTIVE_LOW>;	/*SEL_TVP_FPD*/
+};
