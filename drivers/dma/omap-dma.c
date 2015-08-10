@@ -1037,8 +1037,10 @@ static int omap_dma_pause(struct dma_chan *chan)
 
 	spin_lock_irqsave(&od->irq_lock, flags);
 
-	if (!c->desc)
+	if (!c->desc) {
+		ret = 0;
 		goto out;
+	}
 
 	if (c->cyclic)
 		can_pause = true;
