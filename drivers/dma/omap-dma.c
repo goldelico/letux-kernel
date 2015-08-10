@@ -351,7 +351,7 @@ static int omap_dma_stop(struct omap_chan *c)
 	} else {
 
 		if (!(val & CCR_ENABLE))
-			return -EINVAL;
+			return 0;
 
 		val &= ~CCR_ENABLE;
 		omap_dma_chan_write(c, CCR, val);
