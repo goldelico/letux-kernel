@@ -95,8 +95,9 @@ struct vbus_addr_value vbus_addr_value_set[] = {
 };
 static bool vbus_prog = 1;
 static int
-tvp5158_get_gpios(struct device_node *node, struct i2c_client *client);
-static int tvp5158_set_gpios(struct i2c_client *client);
+tvp5158_of_probe(struct i2c_client *client, struct device_node *node);
+static int
+tvp5158_init_gpios(struct i2c_client *client);
 static int
 tvp5158_set_default(struct i2c_client *client, unsigned char core);
 static enum tvp5158_std
@@ -150,6 +151,8 @@ tvp5158_set_int_regs(struct i2c_client *client, struct vbus_addr_value *reg,
 #define NTSC_NUM_ACTIVE_PIXELS  (720)
 #define NTSC_NUM_ACTIVE_LINES   (480)
 
+#define MAX_NUM_GPIOS			3
+
 struct tvp5158_color_format {
 	enum v4l2_mbus_pixelcode code;
 	enum v4l2_colorspace colorspace;
@@ -199,12 +202,13 @@ struct tvp5158_priv {
 	int                             width;
 	int                             height;
 	const char			*sensor_name;
-	int				cam_fpd_mux_s0_gpio;
-	int				sel_tvp_fpd_s0;
 	enum				tvp5158_std current_std;
 	enum				tvp5158_signal_present signal_present;
 	const struct			tvp5158_std_info *std_list;
 	const struct tvp5158_color_format	*cfmt;
+
+	struct gpio			mux_gpios[MAX_NUM_GPIOS];
+	int				num_gpios;
 };
 
 static const struct tvp5158_std_info tvp5158_std_list[] = {
@@ -277,6 +281,9 @@ static inline void tvp5158_write(struct i2c_client *client, unsigned char addr,
 static int tvp5158_s_stream(struct v4l2_subdev *sd, int enable)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
+
+	tvp5158_init_gpios(client);
+
 	if (enable) {
 		if (vbus_prog == 1)
 			/* VBUS address value setting */
@@ -387,7 +394,6 @@ static int tvp5158_s_fmt(struct v4l2_subdev *sd,
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct tvp5158_priv *priv = to_tvp5158(client);
 
-	tvp5158_set_gpios(client);
 	v4l2_info(&priv->subdev, "Currently only D1 resolution is supported\n");
 
 	return 0;
@@ -446,50 +452,45 @@ static int tvp5158_enum_framesizes(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static int tvp5158_get_gpios(struct device_node *node,
-			struct i2c_client *client)
+static int tvp5158_of_probe(struct i2c_client *client,
+			struct device_node *node)
 {
-
 	struct tvp5158_priv *priv = to_tvp5158(client);
-	int gpio;
+	struct gpio *gpios = &priv->mux_gpios[0];
+	unsigned int flags;
+	int i, gpio;
 
-	gpio = of_get_gpio(node, 0);
-	if (gpio_is_valid(gpio)) {
-		priv->cam_fpd_mux_s0_gpio = gpio;
-	} else {
-		dev_err(&client->dev, "failed to parse CAM_FPD_MUX_S0 gpio\n");
-		return -EINVAL;
+	/* Iterate over all the gpios in the device tree
+	 * ENOENT is returned when trying to access last + 1 gpio */
+	for (i = 0; i < MAX_NUM_GPIOS; i++) {
+		gpio = of_get_named_gpio_flags(node, "mux-gpios", i, &flags);
+		if (gpio_is_valid(gpio)) {
+			gpios[i].gpio	= gpio;
+			gpios[i].flags	= (flags & GPIO_ACTIVE_LOW) ?
+				GPIOF_OUT_INIT_LOW : GPIOF_OUT_INIT_HIGH;
+			gpios[i].label	= client->name;
+		} else if (gpio == -ENOENT) {
+			break;
+		} else {
+			return gpio;
+		}
 	}
-	gpio = of_get_gpio(node, 1);
-	if (gpio_is_valid(gpio)) {
-		priv->sel_tvp_fpd_s0 = gpio;
-	} else {
-		dev_err(&client->dev, "failed to parse TVP_FPD_MUX_S0 gpio\n");
-		return -EINVAL;
-	}
-
+	priv->num_gpios = i;
 	return 0;
 }
 
-static int tvp5158_set_gpios(struct i2c_client *client)
+static int tvp5158_init_gpios(struct i2c_client *client)
 {
-
 	struct tvp5158_priv *priv = to_tvp5158(client);
-	struct gpio gpios[] = {
-		{ priv->sel_tvp_fpd_s0, GPIOF_OUT_INIT_LOW,
-			"tvp_fpd_mux_s0" },
-		{ priv->cam_fpd_mux_s0_gpio, GPIOF_OUT_INIT_HIGH,
-			"cam_fpd_mux_s0" },
-	};
-	int ret = -1;
+	int ret = 0;
 
-	ret = gpio_request_array(gpios, ARRAY_SIZE(gpios));
+	ret = gpio_request_array(priv->mux_gpios, priv->num_gpios);
 	if (ret)
-		return ret;
+		goto done;
+	gpio_free_array(priv->mux_gpios, priv->num_gpios);
 
-	gpio_free_array(gpios, ARRAY_SIZE(gpios));
-
-	return 0;
+done:
+	return ret;
 }
 
 static struct v4l2_subdev_video_ops tvp5158_video_ops = {
@@ -627,15 +628,15 @@ static int tvp5158_probe(struct i2c_client *client,
 
 	v4l2_i2c_subdev_init(sd, client, &tvp5158_subdev_ops);
 
-	ret = tvp5158_get_gpios(node, client);
+	ret = tvp5158_of_probe(client, node);
 	if (ret) {
-		dev_err(&client->dev, "Unable to get gpios\n");
+		dev_err(&client->dev, "Unable to of_probe\n");
 		return ret;
 	}
 
-	ret = tvp5158_set_gpios(client);
+	ret = tvp5158_init_gpios(client);
 	if (ret) {
-		dev_err(&client->dev, "failed to set gpios ERR %d\n", ret);
+		dev_err(&client->dev, "failed to init gpios ERR %d\n", ret);
 		return ret;
 	}
 
