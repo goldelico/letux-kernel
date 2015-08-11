@@ -119,6 +119,13 @@ config ARCH_OMAP2PLUS
 	help
 	  Systems based on OMAP2, OMAP3, OMAP4 or OMAP5
 
+config OMAP5_ERRATA_801819
+        bool "Errata 801819: An eviction from L1 data cache might stall indefinitely"
+        depends on SOC_OMAP5 || SOC_DRA7XX
+        help
+          A livelock can occur in the L2 cache arbitration that might prevent
+          a snoop from completing. Under certain conditions this can cause the
+          system to deadlock.
 
 if ARCH_OMAP2PLUS
 
