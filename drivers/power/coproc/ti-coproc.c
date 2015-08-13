@@ -115,7 +115,7 @@ static int coproc_probe(struct platform_device *pdev)
 	if (err) {
 		dev_err(dev, "%s: Cannot initialize opp table(%d).\n", __func__,
 			err);
-		goto out;
+		goto free_opp;
 	}
 	d->dev = dev;
 
@@ -134,7 +134,7 @@ static int coproc_probe(struct platform_device *pdev)
 				"Failed to register coproc clk notifier: %d\n",
 				err);
 		}
-		goto out;
+		goto free_opp;
 	}
 
 	if (target_freq) {
@@ -143,7 +143,7 @@ static int coproc_probe(struct platform_device *pdev)
 			if (err) {
 				dev_err(dev, "%s: Cannot set dpll clock rate(%d).\n",
 					__func__, err);
-				goto out;
+				goto free_vm;
 			}
 		}
 
@@ -151,13 +151,18 @@ static int coproc_probe(struct platform_device *pdev)
 		if (err) {
 			dev_err(dev, "%s: Cannot set func clock rate(%d).\n",
 				__func__, err);
-			goto out;
+			goto free_vm;
 		}
 	}
 
 	/* All good.. */
 	goto out;
 
+free_vm:
+	of_pm_voltdm_notifier_unregister(d->clk_nb);
+	d->clk_nb = NULL;
+free_opp:
+	of_free_opp_table(dev);
 out:
 	dev_info(dev, "%s result=%d", __func__, err);
 	return err;
@@ -170,8 +175,10 @@ static int coproc_remove(struct platform_device *pdev)
 
 	dev_info(dev, "remove\n");
 
-	of_pm_voltdm_notifier_unregister(d->clk_nb);
+	if (!IS_ERR_OR_NULL(d->clk_nb))
+		of_pm_voltdm_notifier_unregister(d->clk_nb);
 
+	of_free_opp_table(dev);
 	dev_info(dev, "%s Removed\n", __func__);
 	return 0;
 }
