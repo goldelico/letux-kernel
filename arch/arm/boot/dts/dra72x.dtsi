@@ -44,7 +44,7 @@
 		clock-names = "fclk", "dpll";
 		clock-target-frequency = <532000000>;
 		operating-points = <
-			388200  1055000
+			388200  1060000
 			430000	1150000
 			532000  1250000
 			>;
@@ -58,7 +58,7 @@
 		clock-names = "fclk", "dpll";
 		clock-target-frequency = <700000000>;
 		operating-points = <
-			600000  1055000
+			600000  1060000
 			700000	1150000
 			>;
 		coproc-voltdm = <&voltdm_dspeve>;
