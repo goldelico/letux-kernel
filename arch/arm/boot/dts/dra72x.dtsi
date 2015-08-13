@@ -60,7 +60,6 @@
 		operating-points = <
 			600000  1055000
 			700000	1150000
-			700000  1250000
 			>;
 		coproc-voltdm = <&voltdm_dspeve>;
 		voltage-tolerance = <1>;
