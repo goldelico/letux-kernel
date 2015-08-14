@@ -159,7 +159,7 @@
 
 		port {
 			tvp_decoder: endpoint@0 {
-				/* No properties for BT656 */
+				channels = <0 2 4 6>;
 			};
 		};
 	};
