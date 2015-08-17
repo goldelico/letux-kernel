@@ -690,11 +690,6 @@
 		interrupt-controller;
 		#interrupt-cells = <2>;
 
-		cpsw_sel_s0 {
-			gpio-hog;
-			gpios = <4 GPIO_ACTIVE_HIGH>;
-			output-low;
-		};
 	};
 
 	tlv320aic3106: tlv320aic3106@19 {
@@ -1199,6 +1194,7 @@ i2c_p3_exp: &i2c5 {
 };
 
 video_in: &vin2a {
+	status = "okay";
 	endpoint@0 {
 		slave-mode;
 		remote-endpoint = <&onboardLI>;

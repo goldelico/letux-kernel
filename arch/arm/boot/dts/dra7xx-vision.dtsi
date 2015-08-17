@@ -23,16 +23,6 @@
 		compatible = "ovti,ov10635";
 		reg = <0x30>;
 
-		mux-gpios =	<&pcf_hdmi 2	GPIO_ACTIVE_LOW>,	/* VIN2_S0		*/
-			<&pcf_hdmi 3	GPIO_ACTIVE_HIGH>,	/* CAM_FPD_MUX_S0	*/
-			<&gpio4 13	GPIO_ACTIVE_HIGH>,	/* MUX1_SEL0		*/
-			<&gpio4 14	GPIO_ACTIVE_LOW>,	/* MUX1_SEL1		*/
-			<&gpio4 15	GPIO_ACTIVE_LOW>,	/* MUX2_SEL0		*/
-			<&gpio4 16	GPIO_ACTIVE_LOW>,	/* MUX2_SEL1		*/
-			<&gpio2 29	GPIO_ACTIVE_HIGH>,	/* DEMUX_FPD_A		*/
-			<&gpio1 4	GPIO_ACTIVE_LOW>,	/* DEMUX_FPD_B		*/
-			<&gpio6 7	GPIO_ACTIVE_HIGH>,	/* DEMUX_FPD_C		*/
-			<&gpio6 17	GPIO_ACTIVE_HIGH>;	/* OV_PWDN		*/
 		port {
 			ovcam: endpoint {
 				hsync-active = <1>;
@@ -175,17 +165,6 @@
 		compatible = "ovti,ov10635";
 		reg = <0x30>;
 
-		mux-gpios =	<&pcf_hdmi 1	GPIO_ACTIVE_HIGH>,	/* VIN6_SEL_S0		*/
-			<&pcf_hdmi 2	GPIO_ACTIVE_LOW>,	/* VIN2_S0		*/
-			<&pcf_hdmi 3	GPIO_ACTIVE_HIGH>,	/* CAM_FPD_MUX_S0	*/
-			<&gpio4 13	GPIO_ACTIVE_LOW>,	/* MUX1_SEL0		*/
-			<&gpio4 14	GPIO_ACTIVE_LOW>,	/* MUX1_SEL1		*/
-			<&gpio4 15	GPIO_ACTIVE_LOW>,	/* MUX2_SEL0		*/
-			<&gpio4 16	GPIO_ACTIVE_HIGH>,	/* MUX2_SEL1		*/
-			<&gpio2 29	GPIO_ACTIVE_HIGH>,	/* DEMUX_FPD_A		*/
-			<&gpio1 4	GPIO_ACTIVE_LOW>,	/* DEMUX_FPD_B		*/
-			<&gpio6 7	GPIO_ACTIVE_HIGH>,	/* DEMUX_FPD_C		*/
-			<&gpio6 17	GPIO_ACTIVE_HIGH>;	/* OV_PWDN		*/
 		port {
 			cam1: endpoint {
 				hsync-active = <1>;
@@ -210,17 +189,6 @@
 		compatible = "ovti,ov10635";
 		reg = <0x30>;
 
-		mux-gpios =	<&pcf_hdmi 1	GPIO_ACTIVE_HIGH>,	/* VIN6_SEL_S0		*/
-			<&pcf_hdmi 2	GPIO_ACTIVE_LOW>,	/* VIN2_S0		*/
-			<&pcf_hdmi 3	GPIO_ACTIVE_HIGH>,	/* CAM_FPD_MUX_S0	*/
-			<&gpio4 13	GPIO_ACTIVE_LOW>,	/* MUX1_SEL0		*/
-			<&gpio4 14	GPIO_ACTIVE_LOW>,	/* MUX1_SEL1		*/
-			<&gpio4 15	GPIO_ACTIVE_LOW>,	/* MUX2_SEL0		*/
-			<&gpio4 16	GPIO_ACTIVE_HIGH>,	/* MUX2_SEL1		*/
-			<&gpio2 29	GPIO_ACTIVE_HIGH>,	/* DEMUX_FPD_A		*/
-			<&gpio1 4	GPIO_ACTIVE_LOW>,	/* DEMUX_FPD_B		*/
-			<&gpio6 7	GPIO_ACTIVE_HIGH>,	/* DEMUX_FPD_C		*/
-			<&gpio6 17	GPIO_ACTIVE_HIGH>;	/* OV_PWDN		*/
 		port {
 			cam2: endpoint {
 				hsync-active = <1>;
@@ -245,17 +213,6 @@
 		compatible = "ovti,ov10635";
 		reg = <0x30>;
 
-		mux-gpios =	<&pcf_hdmi 1	GPIO_ACTIVE_HIGH>,	/* VIN6_SEL_S0		*/
-			<&pcf_hdmi 2	GPIO_ACTIVE_LOW>,	/* VIN2_S0		*/
-			<&pcf_hdmi 3	GPIO_ACTIVE_HIGH>,	/* CAM_FPD_MUX_S0	*/
-			<&gpio4 13	GPIO_ACTIVE_LOW>,	/* MUX1_SEL0		*/
-			<&gpio4 14	GPIO_ACTIVE_LOW>,	/* MUX1_SEL1		*/
-			<&gpio4 15	GPIO_ACTIVE_LOW>,	/* MUX2_SEL0		*/
-			<&gpio4 16	GPIO_ACTIVE_HIGH>,	/* MUX2_SEL1		*/
-			<&gpio2 29	GPIO_ACTIVE_HIGH>,	/* DEMUX_FPD_A		*/
-			<&gpio1 4	GPIO_ACTIVE_LOW>,	/* DEMUX_FPD_B		*/
-			<&gpio6 7	GPIO_ACTIVE_HIGH>,	/* DEMUX_FPD_C		*/
-			<&gpio6 17	GPIO_ACTIVE_HIGH>;	/* OV_PWDN		*/
 		port {
 			cam3: endpoint {
 				hsync-active = <1>;
@@ -280,17 +237,6 @@
 		compatible = "ovti,ov10635";
 		reg = <0x30>;
 
-		mux-gpios =	<&pcf_hdmi 1	GPIO_ACTIVE_HIGH>,	/* VIN6_SEL_S0		*/
-			<&pcf_hdmi 2	GPIO_ACTIVE_LOW>,	/* VIN2_S0		*/
-			<&pcf_hdmi 3	GPIO_ACTIVE_HIGH>,	/* CAM_FPD_MUX_S0	*/
-			<&gpio4 13	GPIO_ACTIVE_LOW>,	/* MUX1_SEL0		*/
-			<&gpio4 14	GPIO_ACTIVE_LOW>,	/* MUX1_SEL1		*/
-			<&gpio4 15	GPIO_ACTIVE_LOW>,	/* MUX2_SEL0		*/
-			<&gpio4 16	GPIO_ACTIVE_HIGH>,	/* MUX2_SEL1		*/
-			<&gpio2 29	GPIO_ACTIVE_HIGH>,	/* DEMUX_FPD_A		*/
-			<&gpio1 4	GPIO_ACTIVE_LOW>,	/* DEMUX_FPD_B		*/
-			<&gpio6 7	GPIO_ACTIVE_HIGH>,	/* DEMUX_FPD_C		*/
-			<&gpio6 17	GPIO_ACTIVE_HIGH>;	/* OV_PWDN		*/
 		port {
 			cam4: endpoint {
 				hsync-active = <1>;
@@ -315,17 +261,6 @@
 		compatible = "ovti,ov10635";
 		reg = <0x30>;
 
-		mux-gpios =	<&pcf_hdmi 1	GPIO_ACTIVE_HIGH>,	/* VIN6_SEL_S0		*/
-			<&pcf_hdmi 2	GPIO_ACTIVE_LOW>,	/* VIN2_S0		*/
-			<&pcf_hdmi 3	GPIO_ACTIVE_HIGH>,	/* CAM_FPD_MUX_S0	*/
-			<&gpio4 13	GPIO_ACTIVE_LOW>,	/* MUX1_SEL0		*/
-			<&gpio4 14	GPIO_ACTIVE_LOW>,	/* MUX1_SEL1		*/
-			<&gpio4 15	GPIO_ACTIVE_LOW>,	/* MUX2_SEL0		*/
-			<&gpio4 16	GPIO_ACTIVE_HIGH>,	/* MUX2_SEL1		*/
-			<&gpio2 29	GPIO_ACTIVE_HIGH>,	/* DEMUX_FPD_A		*/
-			<&gpio1 4	GPIO_ACTIVE_LOW>,	/* DEMUX_FPD_B		*/
-			<&gpio6 7	GPIO_ACTIVE_HIGH>,	/* DEMUX_FPD_C		*/
-			<&gpio6 17	GPIO_ACTIVE_HIGH>;	/* OV_PWDN		*/
 		port {
 			cam5: endpoint {
 				hsync-active = <1>;
@@ -350,17 +285,6 @@
 		compatible = "ovti,ov10635";
 		reg = <0x30>;
 
-		mux-gpios =	<&pcf_hdmi 1	GPIO_ACTIVE_HIGH>,	/* VIN6_SEL_S0		*/
-			<&pcf_hdmi 2	GPIO_ACTIVE_LOW>,	/* VIN2_S0		*/
-			<&pcf_hdmi 3	GPIO_ACTIVE_HIGH>,	/* CAM_FPD_MUX_S0	*/
-			<&gpio4 13	GPIO_ACTIVE_LOW>,	/* MUX1_SEL0		*/
-			<&gpio4 14	GPIO_ACTIVE_LOW>,	/* MUX1_SEL1		*/
-			<&gpio4 15	GPIO_ACTIVE_LOW>,	/* MUX2_SEL0		*/
-			<&gpio4 16	GPIO_ACTIVE_HIGH>,	/* MUX2_SEL1		*/
-			<&gpio2 29	GPIO_ACTIVE_HIGH>,	/* DEMUX_FPD_A		*/
-			<&gpio1 4	GPIO_ACTIVE_LOW>,	/* DEMUX_FPD_B		*/
-			<&gpio6 7	GPIO_ACTIVE_HIGH>,	/* DEMUX_FPD_C		*/
-			<&gpio6 17	GPIO_ACTIVE_HIGH>;	/* OV_PWDN		*/
 		port {
 			cam6: endpoint {
 				hsync-active = <1>;

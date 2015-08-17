@@ -23,7 +23,7 @@
 
 			operating-points = <
 				/* kHz    uV */
-				1000000 1060000
+				1000000 1100000
 				>;
 
 			clocks = <&dpll_mpu_ck>;
@@ -44,7 +44,7 @@
 		clock-names = "fclk", "dpll";
 		clock-target-frequency = <532000000>;
 		operating-points = <
-			388200  1055000
+			388200  1060000
 			430000	1150000
 			532000  1250000
 			>;
@@ -58,12 +58,20 @@
 		clock-names = "fclk", "dpll";
 		clock-target-frequency = <700000000>;
 		operating-points = <
-			600000  1055000
+			600000  1060000
 			700000	1150000
-			700000  1250000
 			>;
 		coproc-voltdm = <&voltdm_dspeve>;
 		voltage-tolerance = <1>;
+	};
+
+	dra72_vip_mux: pinmux@4a002e8c {
+		compatible = "pinctrl-single";
+		reg = <0x4a002e8c 0x4>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		pinctrl-single,register-width = <32>;
+		pinctrl-single,function-mask = <0x7f>;
 	};
 
 	thermal_zones: thermal-zones {
