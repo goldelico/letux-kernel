@@ -553,10 +553,13 @@ static ssize_t twl4030_usb_vbus_out_store(struct device *dev,
 {
 	struct twl4030_usb *twl = dev_get_drvdata(dev);
 	/* hack, should probably not be called directly this way */
+#ifndef MODULE
 	extern void twl4030_charger_enable_usb_ext(bool);
-
+#endif
 	if (sysfs_streq(buf, "on")) {
+#ifndef MODULE
 		twl4030_charger_enable_usb_ext(0);
+#endif
 		twl4030_i2c_access(twl, 1);
 		twl4030_usb_set_bits(twl, ULPI_OTG_CTRL, ULPI_OTG_CTRL_DRVVBUS);
 		twl4030_i2c_access(twl, 0);
@@ -565,7 +568,9 @@ static ssize_t twl4030_usb_vbus_out_store(struct device *dev,
 		twl4030_usb_clear_bits(twl, ULPI_OTG_CTRL,
 			ULPI_OTG_CTRL_DRVVBUS);
 		twl4030_i2c_access(twl, 0);
+#ifndef MODULE
 		twl4030_charger_enable_usb_ext(1);
+#endif
 	} else
 		return -EINVAL;
 	return n;
