@@ -672,6 +672,7 @@ static void __dma_rx_do_complete(struct uart_8250_port *p, bool error)
 	struct dma_tx_state     state;
 	int                     count;
 	unsigned long		flags;
+	int ret;
 
 	dma_sync_single_for_cpu(dma->rxchan->device->dev, dma->rx_addr,
 				dma->rx_size, DMA_FROM_DEVICE);
@@ -687,7 +688,10 @@ static void __dma_rx_do_complete(struct uart_8250_port *p, bool error)
 
 	count = dma->rx_size - state.residue;
 
-	tty_insert_flip_string(tty_port, dma->rx_buf, count);
+	ret = tty_insert_flip_string(tty_port, dma->rx_buf, count);
+	if (ret != count)
+		pr_err("%s(%d) %d vs %d\n", __func__, __LINE__, ret, count);
+
 	p->port.icount.rx += count;
 unlock:
 	spin_unlock_irqrestore(&priv->rx_dma_lock, flags);
