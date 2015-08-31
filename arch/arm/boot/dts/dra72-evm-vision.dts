@@ -150,6 +150,11 @@ i2cexp: &i2c5 {
 	/* No board muxes */
 };
 
+/* This is to not hog the GPIO
+ * We need to set the gpio from the camera driver
+ * Note that this will disable the ethernet */
+/delete-node/ &sel_enet_mux_hog;
+
 &ovcam4 {
 	/* No board muxes */
 	mux-gpios =
