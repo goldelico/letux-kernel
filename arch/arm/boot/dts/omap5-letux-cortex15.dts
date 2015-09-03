@@ -1,0 +1,367 @@
+/*
+ * Copyright (C) 2015 Golden Delicous Computers - http://www.goldelico.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/* this version is for the Letux Cortex 15 CPU board */
+
+/* we start with the omap5-uevm tree since the Letux Cortex is very similar */
+
+#include "omap5-uevm.dts"
+
+/* overwrite device model */
+
+/ {
+	model = "Letux Cortex 15";
+};
+
+&palmas {
+	palmas_pwr_button: pwrbutton {
+		compatible = "ti,palmas-pwrbutton";
+		interrupt-parent = <&palmas>;
+		interrupts = <1 IRQ_TYPE_EDGE_FALLING>;
+		ti,palmas-long-press-seconds = <8>;
+		ti,palmas-pwron-debounce-milli-seconds = <15>;
+	};
+	palmas_gpadc: gpadc {
+		compatible = "ti,palmas-gpadc";
+/*		ti,ch0_current = 0;
+		ti,ch3_current = 0;
+		ti,bat_removal = 0;
+		ti,start_polarity = 0; */
+	};
+};
+
+/* Audio routing */
+
+&sound {
+	ti,model = "Letux Cortex 15";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&ckobuffer>;
+
+	/* Audio routing */
+	ti,audio-routing =
+		"Headset Stereophone", "HSOL",
+		"Headset Stereophone", "HSOR",
+		"Ext Spk", "HFL",
+		"Ext Spk", "HFR",
+		"Line Out", "AUXL",
+		"Line Out", "AUXR",
+		"AFML", "Line In",
+		"AFMR", "Line In",
+		"HSMIC", "Headset Mic",
+		"Headset Mic", "Headset Mic Bias";
+};
+
+&twl6040 {
+	ti,audpwron-gpio = <&gpio3 17 0>;  /* gpio line 3_81 */
+};
+
+/* Audio needs clock enabled */
+
+/ { /* should better be moved to omap5.dtsi because it is of general interest */
+	ocp {
+		omap5_control_ckobuffer: pinmux@4ae0cdb4 {
+			compatible = "ti,omap4-padconf", "pinctrl-single";
+			reg = <0x4ae0cdb4 4>;   /* Single register */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			pinctrl-single,register-width = <32>;
+			pinctrl-single,function-mask = <0xf0000000>;
+			pinctrl-single,bit-per-mux;
+		};
+	};
+};
+
+&omap5_control_ckobuffer {
+	ckobuffer: pinmux_ckobuffer {
+		pinctrl-single,pins = <
+		/* same as devmem2 0x4AE0CDB4 w 0x10000000 */
+		0x0 0x10000000  /* CONTROL.CONTROL_CKOBUFFER[28] CKOBUFFER_CLK_EN := 1 */
+		>;
+        };
+};
+
+/* LCD panel - MIPI */
+
+&dss {
+	status = "ok";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&mipi_dsi_a>;
+
+	port {
+		dsi_out: endpoint {
+			remote-endpoint = <&dsi1>;
+		};
+	};
+};
+
+&dsi1 {
+	status = "ok";
+
+	vdd-supply = <&ldo4_reg>;
+
+	port {
+		dsi1_out_ep: endpoint {
+			remote-endpoint = <&lcd_in>;
+			lanes = <
+				0       /* lane0+ = clk + */
+				1       /* lane0- = clk - */
+				2       /* lane1+ = data1 + */
+				3       /* lane1- = data1 - */
+				4       /* lane2+ = data2 + */
+				5       /* lane2- = data2 - */
+				6       /* lane3+ = data3 + */
+				7       /* lane3- = data3 - */
+				8       /* lane4+ = data4 + */
+				9       /* lane4- = data4 - */
+			>;
+		};
+	};
+
+	lcd: lcd {
+		/* default to be overwritten by specific panel in derived board file
+		   by using the /root/panelselect script */
+
+		label = "lcd";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&mipi_display_pins>;
+
+		port {
+			lcd_in: endpoint {
+				remote-endpoint = <&dsi1_out_ep>;
+			};
+		};
+	};
+};
+
+
+/* add overlay pimmux for Letux Cortex 15 (differences to EVM) */
+
+&omap5_pmx_core {
+
+	pinctrl-0 = <
+			/* copied from original */
+			&usbhost_pins
+			&led_gpio_pins
+
+			/* new entries */
+			&letux_button_pins
+			&letux_other_pins
+	>;
+
+/* to find pinmux register offsets, see section A.7.2 in TRM
+
+   note: offsets in the table are relative to 0x4a00 2800
+   but reg = <0x4a002840 0x01b6> for omap5_pmx_core
+
+   Therefore gpio5_153 with Address Offset 0x1D4
+   translates into 0x194 (0xd0-0x40 => 0x90)
+   and because it has [31:16] we have to add 0x02
+   giving a result of 0x196.
+
+   Definitions for bit patterns:
+   0x0007	MUX_MODE0 .. MUX_MODE7
+   0x0008	enable pull up/down
+   0x0010	select pull up
+   0x0020	disable power for I/O cell
+   0x0100	enable input buffer (there is no explicit "enable output buffer" because that is defined by the GPIO direction)
+   0x4000	enable wakeup detection
+
+   or use the OMAP5_IOPAD() macros to do the conversion. You still have to look
+   up the pin and register address offset in the TRM.
+*/
+
+	letux_button_pins: pinmux_button_gpio_pins {
+		pinctrl-single,pins = <
+//			OMAP5_IOPAD(0x0b6, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0B4:[31:16] user button gpio3_83  -- pullup is not really necessary since there is an external pullup */
+		>;
+	};
+
+// checkme: are there conflicts with imported uevm pinmux entries?
+/* yes
+	usbhost_pins - gpio3_79, gpio3_80
+	tca6424_pins - gpio3_78
+*/
+
+// CHEKME: attach wk7/11 and others to &usbhost_wkup_pins?
+
+	letux_other_pins: pinmux_other_gpio_pins {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x046, PIN_INPUT | MUX_MODE6)	/* 0x044:[31:16]  gpio1_wk7 - boot select input */
+// inherited		OMAP5_IOPAD(0x05a, PIN_OUTPUT | MUX_MODE0)	/* 0x058:[31:16]  gpio1_wk11 - 19.2 MHz clock out */
+			OMAP5_IOPAD(0x08e, PIN_INPUT | MUX_MODE6)	/* 0x08C:[31:16]  gpio2_32 - board revision */
+			OMAP5_IOPAD(0x054, PIN_INPUT | MUX_MODE6)	/* 0x054:[15:0]  gpio2_33 - board revision */
+			OMAP5_IOPAD(0x0ac, PIN_INPUT | MUX_MODE6)	/* 0x0AC:[15:0]  gpio3_78 - hub interrupt */
+/* FIXME: reset for USB3503A - should be output connected to reset pulse generator or chip specific driver and/or be controlled by PHY */
+			OMAP5_IOPAD(0x0b0, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0B0:[15:0]  gpio3_80 - hub reset */
+			OMAP5_IOPAD(0x0b2, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0B0:[31:16]  gpio3_81 - twl6040 poweron */
+			OMAP5_IOPAD(0x084, PIN_INPUT | MUX_MODE6)	/* 0x084:[31:16]  gpio3_82 - eMMC/uSD switch */
+			OMAP5_IOPAD(0x1d6, PIN_OUTPUT | MUX_MODE6)	/* 0x1D4:[31:16]  gpio5_153 - status LED (heartbeat) */
+		>;
+	};
+
+	mipi_display_pins: pinmux_display_gpio_pins {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x0ca, PIN_INPUT_PULLDOWN | MUX_MODE7)	/* 0x0C8:[31:16] gpio6_189 - VSYNC input */
+			OMAP5_IOPAD(0x0f6, PIN_INPUT_PULLDOWN | MUX_MODE7)	/* 0x0F4:[31:16] gpio6_190 - choose MUX_MODE0 for PWM_TIMER9 - choose MUX_MODE7 if panel outputs the PWM */
+		>;
+	};
+
+/* I2C pinmux (i2c1 and i2c5 inherited from uevm) */
+
+	i2c2_pins: pinmux_i2c2_pins {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x1b8, PIN_INPUT_PULLUP | MUX_MODE0)		/* i2c2_scl */
+			OMAP5_IOPAD(0x1ba, PIN_INPUT_PULLUP | MUX_MODE0)		/* i2c2_sda */
+		>;
+	};
+
+	i2c3_pins: pinmux_i2c3_pins {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x17a, PIN_INPUT_PULLUP | MUX_MODE0)		/* i2c3_scl */
+			OMAP5_IOPAD(0x17c, PIN_INPUT_PULLUP | MUX_MODE0)		/* i2c3_sda */
+		>;
+	};
+
+	i2c4_pins: pinmux_i2c4_pins {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x0f8, PIN_INPUT_PULLUP | MUX_MODE0)		/* i2c4_scl (gpio7_200) */
+			OMAP5_IOPAD(0x0fa, PIN_INPUT_PULLUP | MUX_MODE0)		/* i2c4_sda (gpio7_201) */
+		>;
+	};
+
+/* enable MIPI pinmux - we may not really need this because the PinMux only has MUX_MODE0 */
+
+	mipi_dsi_a: pinmux_dsi_a_pins {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x0cc, PIN_OUTPUT | MUX_MODE0)	/* 0x0cc:[15:0]  dsiporta_lane0x */
+			OMAP5_IOPAD(0x0ce, PIN_OUTPUT | MUX_MODE0)	/* 0x0cc:[31:16] dsiporta_lane0y */
+			OMAP5_IOPAD(0x0d0, PIN_OUTPUT | MUX_MODE0)	/* 0x0d0:[15:0]  dsiporta_lane1x */
+			OMAP5_IOPAD(0x0d2, PIN_OUTPUT | MUX_MODE0)	/* 0x0d0:[31:16] dsiporta_lane1y */
+			OMAP5_IOPAD(0x0d4, PIN_OUTPUT | MUX_MODE0)	/* 0x0d4:[15:0]  dsiporta_lane2x */
+			OMAP5_IOPAD(0x0d6, PIN_OUTPUT | MUX_MODE0)	/* 0x0d4:[31:16] dsiporta_lane2y */
+			OMAP5_IOPAD(0x0d8, PIN_OUTPUT | MUX_MODE0)	/* 0x0d8:[15:0]  dsiporta_lane3x */
+			OMAP5_IOPAD(0x0da, PIN_OUTPUT | MUX_MODE0)	/* 0x0d8:[31:16] dsiporta_lane3y */
+			OMAP5_IOPAD(0x0dc, PIN_OUTPUT | MUX_MODE0)	/* 0x0dc:[15:0]  dsiporta_lane4x */
+			OMAP5_IOPAD(0x0de, PIN_OUTPUT | MUX_MODE0)	/* 0x0dc:[31:16] dsiporta_lane4y */
+		>;
+	};
+
+};
+
+&hsusb2_phy {
+	reset-gpios = <0>; /* free up hub reset gpio3_80 */
+};
+
+&hsusb3_phy {
+	compatible = "none"; /* not connected */
+	reset-gpios = <0>; /* free up gpio3_79 */
+};
+
+&i2c1 {
+	/* usb bridge */
+	usb3503@08 {
+		compatible = "smsc,usb3503a";
+		reg = <0x08>;
+		intn-gpios = <&gpio3 14 GPIO_ACTIVE_HIGH>;	// gpio3_78 interrupt
+		reset-gpios = <&gpio3 16 GPIO_ACTIVE_HIGH>;	// gpio3_80 reset
+	//	connect-gpios - none
+	//	refclk	// comes from OMAP5 FREF_CLK1_OUT/GPIO1_W K11
+	//	refclk-frequency 19.2 MHz
+		initial-mode = <1>;
+	};
+};
+
+&i2c2 {
+	clock-frequency = <400000>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c2_pins>;
+};
+
+&i2c3 {
+	clock-frequency = <400000>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c3_pins>;
+};
+
+&i2c4 {
+	clock-frequency = <400000>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c4_pins>;
+};
+
+/ { /* should have been defined by uevm */
+
+	user-button {
+		compatible = "gpio-keys";
+
+		#address-cells = <7>;
+		#size-cells = <0>;
+
+		BTN1 {
+			label = "BTN1";
+			linux,code = <169>;
+			gpios = <&gpio3 19 GPIO_ACTIVE_LOW>;	/* gpio3_83 is User Button */
+			gpio-key,wakeup;
+			autorepeat;
+			debounce_interval = <50>;
+		};
+
+	};
+};
+
+/* disable components not on the Letux Cortex 15 board */
+
+&tpd12s015 {
+	compatible = "none";	// disable
+};
+
+&gpio9 {
+	compatible = "none";	// disable
+	reg = <0x03>;	// overwrite duplicate i2c5 address inherited from omap5-uevm
+};
+
+/* patches to correctly bring up the Letux 15 CPU Board */
+
+/ {
+	vmmc1_fixed: fixedregulator-mmc1 {
+		compatible = "regulator-fixed";
+		regulator-name = "vmmc1_fixed";
+		regulator-min-microvolt = <3000000>;
+		regulator-max-microvolt = <3000000>;
+	};
+};
+
+&mmc1 { /* first SD slot */
+	vmmc-supply = <&vmmc1_fixed>;	/* LDO9 is not working */
+};
+
+&mmc2 { /* eMMC / µSD-card */
+	/* ti,non-removable; */
+	/* define TXS02612 eMMC / µSD driver here */
+};
+
+&mmc3 { /* WiFi-SDIO */
+	/* ti,non-removable; */
+	// define a regulator-fixed GPIO */
+};
+
+&mmc4 { /* second SD slot */
+	/* vmmc-supply = <&ldo2_reg> */
+	bus-width = <4>;
+	status = "okay";
+};
+
+&mmc5 {
+	status = "disabled";
+};
