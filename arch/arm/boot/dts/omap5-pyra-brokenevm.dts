@@ -7,10 +7,6 @@
 
 #include "omap5-pyra.dts"
 
-/ {
-	model = "Pyra-Handheld with broken I2C2";
-};
-
 /* make I2C2 bitbanged */
 
 &i2c2 {
