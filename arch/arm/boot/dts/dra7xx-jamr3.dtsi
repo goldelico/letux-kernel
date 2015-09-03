@@ -159,6 +159,7 @@
 
 		port {
 			tvp_decoder: endpoint@0 {
+				pclk-sample = <0>;
 				channels = <0 2 4 6>;
 			};
 		};
