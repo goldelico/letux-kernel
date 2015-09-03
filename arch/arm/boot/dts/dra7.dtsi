@@ -863,7 +863,6 @@
 			ti,hwmods = "gpu";
 			operating-points = <
 				/* kHz    uV */
-				425600  1060000
 				532000  1280000
 				>;
 			clocks = <&dpll_core_h14x2_ck>, <&dpll_per_h14x2_ck>,
