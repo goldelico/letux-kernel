@@ -1677,6 +1677,10 @@ static void __init gta04_init(void)
 		if(gta04_i2c2_boardinfo[i].addr == 0x1e)
 			gta04_i2c2_boardinfo[i].irq = gpio_to_irq(HMC5883L_IRQ_GPIO);
 #endif
+#if defined(CONFIG_BMP085) || defined(CONFIG_BMP085_MODULE)
+		if(gta04_i2c2_boardinfo[i].addr == 0x77)
+			gta04_i2c2_boardinfo[i].irq = gpio_to_irq(BMP085_EOC_IRQ_GPIO);
+#endif
 	}
 	
 #ifdef CONFIG_KEYBOARD_TCA8418

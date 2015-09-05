@@ -49,6 +49,7 @@
 #include <linux/device.h>
 #include <linux/init.h>
 #include <linux/slab.h>
+#include <linux/input.h>
 #include <linux/delay.h>
 #include <linux/of.h>
 #include "bmp085.h"
@@ -77,11 +78,14 @@ struct bmp085_calibration_data {
 };
 
 struct bmp085_data {
+	struct	input_dev *input;
+	struct	delayed_work work;
 	struct	device *dev;
 	struct  regmap *regmap;
 	struct	mutex lock;
 	struct	bmp085_calibration_data calibration;
 	u8	oversampling_setting;
+	long	poll_delay;
 	u32	raw_temperature;
 	u32	raw_pressure;
 	u32	temp_measurement_period;
@@ -292,6 +296,30 @@ static s32 bmp085_get_pressure(struct bmp085_data *data, int *pressure)
 }
 
 /*
+ * Set the Poll Delay in ms. 0 means off.
+ */
+static void bmp085_set_poll_delay(struct bmp085_data *data,
+						unsigned char poll_delay)
+{
+	if (poll_delay < 0)
+		poll_delay = 0;
+	data->poll_delay = poll_delay;
+
+	if (poll_delay == 0)
+		cancel_delayed_work(&data->work);
+	else
+		schedule_delayed_work(&data->work, msecs_to_jiffies(data->poll_delay));
+}
+
+/*
+ * Returns the current Poll Delay.
+ */
+static unsigned char bmp085_get_poll_delay(struct bmp085_data *data)
+{
+	return data->poll_delay;
+}
+
+/*
  * This function sets the chip-internal oversampling. Valid values are 0..3.
  * The chip will use 2^oversampling samples for internal averaging.
  * This influences the measurement time and the accuracy; larger values
@@ -375,17 +403,68 @@ static ssize_t show_pressure(struct device *dev,
 }
 static DEVICE_ATTR(pressure0_input, S_IRUGO, show_pressure, NULL);
 
+static ssize_t set_poll_delay(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct bmp085_data *data = dev_get_drvdata(dev);
+	unsigned long poll_delay;
+	int err = kstrtol(buf, 10, &poll_delay);
+
+	if (err == 0) {
+		mutex_lock(&data->lock);
+		bmp085_set_poll_delay(data, poll_delay);
+		mutex_unlock(&data->lock);
+		return count;
+	}
+
+	return err;
+}
+
+static ssize_t show_poll_delay(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	struct bmp085_data *data = dev_get_drvdata(dev);
+
+	return sprintf(buf, "%u\n", bmp085_get_poll_delay(data));
+}
+static DEVICE_ATTR(poll_delay, S_IWUSR | S_IRUGO,
+					show_poll_delay, set_poll_delay);
+
 
 static struct attribute *bmp085_attributes[] = {
 	&dev_attr_temp0_input.attr,
 	&dev_attr_pressure0_input.attr,
 	&dev_attr_oversampling.attr,
+	&dev_attr_poll_delay.attr,
 	NULL
 };
 
 static const struct attribute_group bmp085_attr_group = {
 	.attrs = bmp085_attributes,
 };
+
+static void bmp085_work(struct work_struct *work)
+{
+	int pressure;
+	int status;
+
+	struct bmp085_data *data = container_of(to_delayed_work(work), struct bmp085_data, work);
+	struct input_dev *input = data->input;
+
+	status = bmp085_get_pressure(data, &pressure);
+	if (status < 0)
+		printk("bmp085_work(): ERR status: %d\n", status);
+	else {
+		// Report pressure value to the input event
+		input_report_abs(input, ABS_PRESSURE, pressure);
+		input_sync(input);
+	}
+
+	if (data->poll_delay > 0)
+		schedule_delayed_work(&data->work, msecs_to_jiffies(data->poll_delay));
+
+}
 
 int bmp085_detect(struct device *dev)
 {
@@ -436,6 +515,7 @@ static int bmp085_init_client(struct bmp085_data *data)
 	data->last_temp_measurement = 0;
 	data->temp_measurement_period = 1*HZ;
 	data->oversampling_setting = 3;
+	data->poll_delay = 0;
 
 	bmp085_get_of_properties(data);
 
@@ -454,17 +534,27 @@ int bmp085_probe(struct device *dev, struct regmap *regmap)
 {
 	struct bmp085_data *data;
 	struct bmp085_platform_data *pdata = dev->platform_data;
+	struct input_dev *input_dev;
 	int err = 0;
 
 	data = kzalloc(sizeof(struct bmp085_data), GFP_KERNEL);
-	if (!data) {
+	input_dev = input_allocate_device();
+	if (!data || !input_dev) {
 		err = -ENOMEM;
-		goto exit;
+		goto exit_free;
 	}
 
 	dev_set_drvdata(dev, data);
 	data->dev = dev;
 	data->regmap = regmap;
+
+	input_dev->name = BMP085_NAME;
+	input_dev->id.bustype = BUS_I2C;
+
+	input_dev->evbit[0] = BIT_MASK(EV_ABS);
+	input_set_abs_params(input_dev, ABS_PRESSURE, 0, 100000, 0, 0);
+	INIT_DELAYED_WORK(&data->work, bmp085_work);
+	data->input = input_dev;
 
 	if (pdata && gpio_is_valid(pdata->eoc_gpio)) {
 		err = devm_gpio_request(dev, pdata->eoc_gpio, "bmp085_eoc_irq");
@@ -507,6 +597,11 @@ int bmp085_probe(struct device *dev, struct regmap *regmap)
 	if (err)
 		goto exit_free_irq;
 
+	/* Register input device */
+	err = input_register_device(input_dev);
+	if (err)
+		goto exit_free_irq;
+
 	dev_info(dev, "Successfully initialized %s!\n", BMP085_NAME);
 
 	return 0;
@@ -516,7 +611,8 @@ exit_free_irq:
 		free_irq(data->eoc_irq, data);
 exit_free:
 	kfree(data);
-exit:
+	input_free_device(input_dev);
+//exit:
 	return err;
 }
 EXPORT_SYMBOL_GPL(bmp085_probe);
