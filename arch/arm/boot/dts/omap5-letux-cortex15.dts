@@ -340,6 +340,21 @@
 		regulator-min-microvolt = <3000000>;
 		regulator-max-microvolt = <3000000>;
 	};
+
+	ldo4_reg_fixed: fixedregulator-ldo4 {
+		compatible = "regulator-fixed";
+		regulator-name = "ldo4";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+};
+
+&hdmi {
+	vdda-supply = <&ldo4_reg_fixed>;
+};
+
+&dsi1 {
+	vdd-supply = <&ldo4_reg_fixed>;
 };
 
 &mmc1 { /* first SD slot */
