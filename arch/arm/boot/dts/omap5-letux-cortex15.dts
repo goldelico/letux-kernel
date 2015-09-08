@@ -57,6 +57,12 @@
 		"Headset Mic", "Headset Mic Bias";
 };
 
+&twl6040_pins {
+	pinctrl-single,pins = <
+		OMAP5_IOPAD(0x0b2, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0B0:[31:16]  gpio3_81 - twl6040 poweron */
+	>;
+};
+
 &twl6040 {
 	ti,audpwron-gpio = <&gpio3 17 0>;  /* gpio line 3_81 */
 };
@@ -201,7 +207,6 @@
 			OMAP5_IOPAD(0x0ac, PIN_INPUT | MUX_MODE6)	/* 0x0AC:[15:0]  gpio3_78 - hub interrupt */
 /* FIXME: reset for USB3503A - should be output connected to reset pulse generator or chip specific driver and/or be controlled by PHY */
 			OMAP5_IOPAD(0x0b0, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0B0:[15:0]  gpio3_80 - hub reset */
-			OMAP5_IOPAD(0x0b2, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0B0:[31:16]  gpio3_81 - twl6040 poweron */
 			OMAP5_IOPAD(0x084, PIN_INPUT | MUX_MODE6)	/* 0x084:[31:16]  gpio3_82 - eMMC/uSD switch */
 			OMAP5_IOPAD(0x1d6, PIN_OUTPUT | MUX_MODE6)	/* 0x1D4:[31:16]  gpio5_153 - status LED (heartbeat) */
 		>;
@@ -331,7 +336,7 @@
 	reg = <0x03>;	// overwrite duplicate i2c5 address inherited from omap5-uevm
 };
 
-/* patches to correctly bring up the Letux 15 CPU Board */
+/* patches to correctly bring up the Letux 15 V4 CPU Board with broken OMAP5 <-> Palmas I2C1 */
 
 / {
 	vmmc1_fixed: fixedregulator-mmc1 {
@@ -340,6 +345,40 @@
 		regulator-min-microvolt = <3000000>;
 		regulator-max-microvolt = <3000000>;
 	};
+
+	ldo4_reg_fixed: fixedregulator-ldo4 {
+		compatible = "regulator-fixed";
+		regulator-name = "ldo4";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	smps7_reg_fixed: fixedregulator-smps7 {
+		compatible = "regulator-fixed";
+		regulator-name = "smps7";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	smps9_reg_fixed: fixedregulator-smps9 {
+		compatible = "regulator-fixed";
+		regulator-name = "smps9";
+		regulator-min-microvolt = <2100000>;
+		regulator-max-microvolt = <2100000>;
+	};
+};
+
+&hdmi {
+	vdda-supply = <&ldo4_reg_fixed>;
+};
+
+&dsi1 {
+	vdd-supply = <&ldo4_reg_fixed>;
+};
+
+&twl6040 {
+	vio-supply = <&smps7_reg_fixed>;
+	v2v1-supply = <&smps9_reg_fixed>;
 };
 
 &mmc1 { /* first SD slot */
