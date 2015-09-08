@@ -58,6 +58,11 @@
 		};
 	};
 
+	wifi_pwrseq: wifi_pwrseq {
+		compatible = "mmc-pwrseq-simple";
+		reset-gpios = <&tca_gpios 0 GPIO_ACTIVE_LOW>;	/* W2CBW003 reset through tca6507 */
+	};
+
 	gpio-keys-wwan-wakeup {
 		compatible = "gpio-keys";
 		// FIXME: pinmux
@@ -836,7 +841,7 @@
 	vmmc-supply = <&vaux4>;
 	bus-width = <4>;
 	ti,non-removable;
-	reset-gpios = <&tca_gpios 0 GPIO_ACTIVE_LOW>;	/* W2CBW003 reset through tca6507 */
+	mmc-pwrseq = <&wifi_pwrseq>;
 };
 
 &mmc3 {
