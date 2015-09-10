@@ -117,6 +117,10 @@
 			gpios = <&gpc 2 0>;
 			linux,default-trigger = "nand-disk";
 		};
+		led0 {
+			gpios = <&gpc 3 0>;
+			linux,default-trigger = "none";
+		};
 	};
 };
 
