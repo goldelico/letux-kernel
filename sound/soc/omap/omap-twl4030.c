@@ -47,7 +47,6 @@
 struct omap_twl4030 {
 	int jack_detect;	/* board can detect jack events */
 	struct snd_soc_jack hs_jack;
-	void (*jack_remove)(struct snd_soc_codec *codec);
 };
 
 static int omap_twl4030_hw_params(struct snd_pcm_substream *substream,
@@ -205,10 +204,6 @@ static int omap_twl4030_init(struct snd_soc_pcm_runtime *rtd)
 	twl4030_disconnect_pin(dapm, pdata->has_digimic0, "Digital0 Mic");
 	twl4030_disconnect_pin(dapm, pdata->has_digimic1, "Digital1 Mic");
 	twl4030_disconnect_pin(dapm, pdata->has_linein, "Line In");
-
-	if (pdata->jack_init &&
-	    pdata->jack_init(rtd->codec))
-		priv->jack_remove = pdata->jack_remove;
 
 	return ret;
 }
