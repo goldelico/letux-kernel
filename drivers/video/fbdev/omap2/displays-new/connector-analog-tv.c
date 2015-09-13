@@ -100,10 +100,10 @@ static int tvc_enable(struct omap_dss_device *dssdev)
 
 	if (!ddata->dev->of_node) {
 		in->ops.atv->set_type(in, ddata->connector_type);
-	}
 
-	in->ops.atv->invert_vid_out_polarity(in,
-		ddata->invert_polarity);
+		in->ops.atv->invert_vid_out_polarity(in,
+			ddata->invert_polarity);
+	}
 
 	r = in->ops.atv->enable(in);
 	if (r)
@@ -229,8 +229,6 @@ static int tvc_probe_of(struct platform_device *pdev)
 	}
 
 	ddata->in = in;
-	ddata->invert_polarity = of_property_read_bool(node,
-		"ti,invert-polarity");	/* missing is false */
 
 	return 0;
 }

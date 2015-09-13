@@ -74,22 +74,6 @@ static irqreturn_t gpio_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static ssize_t extcon_gpio_print_state(struct extcon_dev *edev, char *buf)
-{
-	struct device *dev = edev->dev.parent;
-	struct gpio_extcon_data *extcon_data = dev_get_drvdata(dev);
-	const char *state;
-
-	if (extcon_get_state(edev))
-		state = extcon_data->state_on;
-	else
-		state = extcon_data->state_off;
-
-	if (state)
-		return sprintf(buf, "%s\n", state);
-	return -EINVAL;
-}
-
 static int gpio_extcon_probe(struct platform_device *pdev)
 {
 	struct gpio_extcon_platform_data *pdata = dev_get_platdata(&pdev->dev);
@@ -149,8 +133,6 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 	extcon_data->state_on = pdata->state_on;
 	extcon_data->state_off = pdata->state_off;
 	extcon_data->check_on_resume = pdata->check_on_resume;
-	if (pdata->state_on && pdata->state_off)
-		extcon_data->edev->print_state = extcon_gpio_print_state;
 
 #ifdef DEBUG
 	printk("extcon gpio %d\n", extcon_data->gpio);

@@ -22,11 +22,9 @@ source "drivers/gpu/vga/Kconfig"
 source "drivers/gpu/host1x/Kconfig"
 source "drivers/gpu/ipu-v3/Kconfig"
 
-source "drivers/gpu/pvr/omap3/Kconfig"
-
-menu "Direct Rendering Manager"
 source "drivers/gpu/drm/Kconfig"
-endmenu
+
+source "drivers/gpu/pvr/omap3/Kconfig"
 
 menu "Frame buffer Devices"
 source "drivers/video/fbdev/Kconfig"

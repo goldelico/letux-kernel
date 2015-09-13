@@ -1,17 +1,15 @@
 /*
  * This is a simple driver for the GTM601 Voice PCM interface
  *
- * gtm601.c
+ * Copyright (C) 2015 Goldelico GmbH
  *
- *  Created on: 15-Oct-2009
- *      Author: neil.jones@imgtec.com
+ * Author: Marek Belisko <marek@goldelico.com>
  *
- * Copyright (C) 2009 Imagination Technologies Ltd.
+ * Based on wm8727.c driver
  *
- *  This program is free software; you can redistribute  it and/or modify it
- *  under  the terms of  the GNU General  Public License as published by the
- *  Free Software Foundation;  either version 2 of the  License, or (at your
- *  option) any later version.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  */
 
 #include <linux/init.h>
@@ -25,34 +23,40 @@
 #include <sound/initval.h>
 #include <sound/soc.h>
 
-#include "gtm601.h"
-/*
- * Note this is a simple chip with no configuration interface, sample rate is
- * determined automatically by examining the Master clock and Bit clock ratios
- */
+static const struct snd_soc_dapm_widget gtm601_dapm_widgets[] = {
+	SND_SOC_DAPM_OUTPUT("AOUT"),
+	SND_SOC_DAPM_INPUT("AIN"),
+};
 
-#define GTM601_RATES  (SNDRV_PCM_RATE_8000)	// CHECKME
+static const struct snd_soc_dapm_route gtm601_dapm_routes[] = {
+	{ "AOUT", NULL, "Playback" },
+	{ "Capture", NULL, "AIN" },
+};
 
-struct snd_soc_dai_driver gtm601_dai = {
-	.name = "GTM601",
+static struct snd_soc_dai_driver gtm601_dai = {
+	.name = "gtm601",
 	.playback = {
 		.stream_name = "Playback",
-		.channels_min = 1,	// CHECKME
+		.channels_min = 1,
 		.channels_max = 1,
-		.rates = GTM601_RATES,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,	/* this is the only format the
-							 * omap-mcbsp-dai understands */
+		.rates = SNDRV_PCM_RATE_8000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
 		},
 	.capture = {
 		.stream_name = "Capture",
 		.channels_min = 1,
 		.channels_max = 1,
-		.rates = GTM601_RATES,
+		.rates = SNDRV_PCM_RATE_8000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,
 	},
 };
 
-struct snd_soc_codec_driver soc_codec_dev_gtm601;
+static const struct snd_soc_codec_driver soc_codec_dev_gtm601 = {
+	.dapm_widgets = gtm601_dapm_widgets,
+	.num_dapm_widgets = ARRAY_SIZE(gtm601_dapm_widgets),
+	.dapm_routes = gtm601_dapm_routes,
+	.num_dapm_routes = ARRAY_SIZE(gtm601_dapm_routes),
+};
 
 static int gtm601_platform_probe(struct platform_device *pdev)
 {
@@ -66,11 +70,9 @@ static int gtm601_platform_remove(struct platform_device *pdev)
 	return 0;
 }
 
-MODULE_ALIAS("platform:gtm601_codec_audio");
-
 #if defined(CONFIG_OF)
 static const struct of_device_id gtm601_codec_of_match[] = {
-	{ .compatible = "gtm601-codec", },
+	{ .compatible = "option,gtm601", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, gtm601_codec_of_match);
@@ -78,27 +80,16 @@ MODULE_DEVICE_TABLE(of, gtm601_codec_of_match);
 
 static struct platform_driver gtm601_codec_driver = {
 	.driver = {
-			.name = "gtm601_codec_audio",
-			.owner = THIS_MODULE,
-			.of_match_table = of_match_ptr(gtm601_codec_of_match),
+		.name = "gtm601",
+		.of_match_table = of_match_ptr(gtm601_codec_of_match),
 	},
-
 	.probe = gtm601_platform_probe,
 	.remove = gtm601_platform_remove,
 };
 
-static int __init gtm601_init(void)
-{
-	return platform_driver_register(&gtm601_codec_driver);
-}
-module_init(gtm601_init);
+module_platform_driver(gtm601_codec_driver);
 
-static void __exit gtm601_exit(void)
-{
-	platform_driver_unregister(&gtm601_codec_driver);
-}
-module_exit(gtm601_exit);
-
-MODULE_DESCRIPTION("ASoC GTM601 driver");
-MODULE_AUTHOR("Neil Jones");
+MODULE_DESCRIPTION("ASoC gtm601 driver");
+MODULE_AUTHOR("Marek Belisko <marek@goldelico.com>");
 MODULE_LICENSE("GPL");
+MODULE_ALIAS("platform:gtm601");
