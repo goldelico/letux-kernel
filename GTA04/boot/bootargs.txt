@@ -24,7 +24,6 @@
 #
 
 echo running bootargs.scr
-setenv kernelmmc 0
 
 # echo before: $bootargs
 # echo mmc: ${kernelmmc}
