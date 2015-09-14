@@ -22,7 +22,7 @@
 #include <linux/power_supply.h>
 #include <linux/notifier.h>
 #include <linux/usb/otg.h>
-#include <linux/i2c/twl4030-madc.h>
+#include <linux/iio/consumer.h>
 
 #define TWL4030_BCIMDEN		0x00
 #define TWL4030_BCIMDKEY	0x01
@@ -96,12 +96,16 @@
  * If AC (Accessory Charger) voltage exceeds 4.5V (MADC 11)
  * then AC is available.
  */
-static inline int ac_available(void)
+static inline int ac_available(struct iio_channel *channel_vac)
 {
-	return twl4030_get_madc_conversion(11) > 4500;
+	int val, err;
+	err = iio_read_channel_processed(channel_vac, &val);
+	if (err < 0)
+		return 0;
+	return val > 4500;
 }
 #else
-static inline int ac_available(void)
+static inline int ac_available(struct iio_channel *channel_vac)
 {
 	return 0;
 }
@@ -128,6 +132,7 @@ struct twl4030_bci {
 	 */
 	unsigned int		ichg_eoc, ichg_lo, ichg_hi;
 	unsigned int		usb_cur, ac_cur;
+	struct iio_channel	*channel_vac;
 	bool			ac_is_active;
 	int			usb_mode, ac_mode; /* charging mode requested */
 #define	CHARGE_OFF	0
@@ -278,7 +283,7 @@ static int twl4030_charger_update_current(struct twl4030_bci *bci)
 	 * If AC (Accessory Charger) voltage exceeds 4.5V (MADC 11)
 	 * and AC is enabled, set current for 'ac'
 	 */
-	if (ac_available()) {
+	if (ac_available(bci->channel_vac)) {
 		cur = bci->ac_cur;
 		bci->ac_is_active = true;
 	} else {
@@ -1046,6 +1051,12 @@ static int twl4030_bci_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "could not request irq %d, status %d\n",
 			bci->irq_bci, ret);
 		return ret;
+	}
+
+	bci->channel_vac = iio_channel_get(&pdev->dev, "vac");
+	if (IS_ERR(bci->channel_vac)) {
+		dev_err(&pdev->dev, "could not request vac iio channel");
+		return PTR_ERR(bci->channel_vac);
 	}
 
 	INIT_WORK(&bci->work, twl4030_bci_usb_work);
