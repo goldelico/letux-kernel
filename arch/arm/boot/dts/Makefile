@@ -356,6 +356,9 @@ targets += dtbs
 targets += $(DTB_LIST)
 endif
 
+# Pad DTB by 4KB to allow fdt manipulation in MLO
+DTC_FLAGS ?= -p 4096
+
 # *.dtb used to be generated in the directory above. Clean out the
 # old build results so people don't accidentally use them.
 dtbs: $(addprefix $(obj)/, $(dtb-y))
