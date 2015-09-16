@@ -1074,12 +1074,15 @@ static int __init omap_dsshw_probe(struct platform_device *pdev)
 	if (r)
 		goto err_setup_clocks;
 
-	pm_runtime_enable(&pdev->dev);
-	pm_runtime_irq_safe(&pdev->dev);
+	if (!omapdss_skipinit()) {
 
-	r = dss_runtime_get();
-	if (r)
-		goto err_runtime_get;
+		pm_runtime_enable(&pdev->dev);
+		pm_runtime_irq_safe(&pdev->dev);
+
+		r = dss_runtime_get();
+		if (r)
+			goto err_runtime_get;
+	}
 
 	dss.dss_clk_rate = clk_get_rate(dss.dss_clk);
 

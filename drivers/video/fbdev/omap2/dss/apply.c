@@ -721,11 +721,13 @@ static void dss_mgr_write_regs_extra(struct omap_overlay_manager *mgr)
 	if (!mp->extra_info_dirty)
 		return;
 
-	dispc_mgr_set_timings(mgr->id, &mp->timings);
+	if (!omapdss_skipinit() || mgr->id != OMAP_DSS_CHANNEL_LCD) {
+		dispc_mgr_set_timings(mgr->id, &mp->timings);
 
-	/* lcd_config parameters */
-	if (dss_mgr_is_lcd(mgr->id))
-		dispc_mgr_set_lcd_config(mgr->id, &mp->lcd_config);
+		/* lcd_config parameters */
+		if (dss_mgr_is_lcd(mgr->id))
+			dispc_mgr_set_lcd_config(mgr->id, &mp->lcd_config);
+	}
 
 	mp->extra_info_dirty = false;
 	if (mp->updating)
