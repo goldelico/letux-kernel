@@ -212,6 +212,9 @@ static void panel_dpi_disable(struct omap_dss_device *dssdev)
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
 
+	if (omapdss_skipinit())
+		return;
+
 	if (!omapdss_device_is_enabled(dssdev))
 		return;
 
