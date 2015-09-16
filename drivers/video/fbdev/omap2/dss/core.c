@@ -34,6 +34,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/suspend.h>
 #include <linux/slab.h>
+#include <linux/of.h>
 
 #include <video/omapdss.h>
 
@@ -45,6 +46,9 @@ static struct {
 
 	const char *default_display_name;
 } core;
+
+static uint g_display_skip_init;
+static uint g_display_share;
 
 static char *def_disp_name;
 module_param_named(def_disp, def_disp_name, charp, 0);
@@ -64,6 +68,18 @@ enum omapdss_version omapdss_get_version(void)
 	return pdata->version;
 }
 EXPORT_SYMBOL(omapdss_get_version);
+
+int omapdss_skipinit(void)
+{
+	return g_display_skip_init;
+}
+EXPORT_SYMBOL(omapdss_skipinit);
+
+int omapdss_display_share(void)
+{
+	return g_display_share;
+}
+EXPORT_SYMBOL(omapdss_display_share);
 
 bool omapdss_is_initialized(void)
 {
@@ -198,9 +214,15 @@ static struct notifier_block omap_dss_pm_notif_block = {
 static int __init omap_dss_probe(struct platform_device *pdev)
 {
 	struct omap_dss_board_info *pdata = pdev->dev.platform_data;
+	struct device_node *node = pdev->dev.of_node;
 	int r;
 
 	core.pdev = pdev;
+
+	of_property_read_u32(node, "skip_init",
+					 &g_display_skip_init);
+	if (g_display_skip_init)
+		g_display_share = 1;
 
 	dss_features_init(omapdss_get_version());
 
