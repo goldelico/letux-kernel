@@ -133,9 +133,20 @@ int dss_ovl_simple_check(struct omap_overlay *ovl,
 		return -EINVAL;
 	}
 
-	if (info->zorder >= omap_dss_get_num_overlays()) {
-		DSSERR("check_overlay: zorder %d too high\n", info->zorder);
-		return -EINVAL;
+	/* In this case since the display is shared, we reduce the number of
+	overlays by n and share them across cores but z-order can be higher */
+	if (omapdss_display_share()) {
+		if (info->zorder >= (omap_dss_get_num_overlays() + 1)) {
+			DSSERR("check_overlay: zorder %d too high\n",
+				info->zorder);
+			return -EINVAL;
+		}
+	} else {
+		if (info->zorder >= omap_dss_get_num_overlays()) {
+			DSSERR("check_overlay: zorder %d too high\n",
+				info->zorder);
+			return -EINVAL;
+		}
 	}
 
 	if (dss_feat_rotation_type_supported(info->rotation_type) == 0) {

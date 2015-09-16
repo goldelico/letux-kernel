@@ -577,7 +577,13 @@ EXPORT_SYMBOL(dispc_mgr_go_busy);
 void dispc_mgr_go(enum omap_channel channel)
 {
 	WARN_ON(dispc_mgr_is_enabled(channel) == false);
-	WARN_ON(dispc_mgr_go_busy(channel));
+
+	if (omapdss_display_share())
+		/* In case of display share use case, the remote core
+		 * will be setting GO bit independently. Hence we might see the
+		 * channel as busy on kernel side. Ignore this and proceed
+		 * further */
+		WARN_ON(dispc_mgr_go_busy(channel));
 
 	DSSDBG("GO %s\n", mgr_desc[channel].name);
 
@@ -3736,7 +3742,12 @@ void dispc_write_irqenable(u32 mask)
 	/* clear the irqstatus for newly enabled irqs */
 	dispc_clear_irqstatus((mask ^ old_mask) & mask);
 
-	dispc_write_reg(DISPC_IRQENABLE, mask);
+	if (omapdss_display_share())
+		/* Should not clear already enabled interrupts since remote
+		* core must be using it */
+		dispc_write_reg(DISPC_IRQENABLE, mask | old_mask);
+	else
+		dispc_write_reg(DISPC_IRQENABLE, mask);
 }
 EXPORT_SYMBOL(dispc_write_irqenable);
 
