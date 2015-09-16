@@ -28,6 +28,11 @@
 #include "dss.h"
 #include "dss_features.h"
 
+static int num_ovls;
+
+MODULE_PARM_DESC(num_ovls, "Number of pipelines used for composition");
+module_param(num_ovls, int, 0600);
+
 /* Defines a generic omap register field */
 struct dss_reg_field {
 	u8 start, end;
@@ -801,7 +806,7 @@ static const struct omap_dss_features omap5_dss_features = {
 	.num_features = ARRAY_SIZE(omap5_dss_feat_list),
 
 	.num_mgrs = 4,
-	.num_ovls = 4,
+	.num_ovls = CONFIG_OMAP2_DSS_NUM_OVLS,
 	.supported_displays = omap5_dss_supported_displays,
 	.supported_outputs = omap5_dss_supported_outputs,
 	.supported_color_modes = omap4_dss_supported_color_modes,
@@ -822,7 +827,7 @@ EXPORT_SYMBOL(dss_feat_get_num_mgrs);
 
 int dss_feat_get_num_ovls(void)
 {
-	return omap_current_dss_features->num_ovls;
+	return num_ovls ? num_ovls : omap_current_dss_features->num_ovls;
 }
 EXPORT_SYMBOL(dss_feat_get_num_ovls);
 

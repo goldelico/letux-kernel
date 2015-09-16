@@ -165,4 +165,10 @@ config OMAP2_DSS_SLEEP_AFTER_VENC_RESET
 	  This option enables the sleep, and is enabled by default. You can
 	  disable the sleep if it doesn't cause problems on your platform.
 
+config OMAP2_DSS_NUM_OVLS
+	int "Number of Overlays"
+	range 1 10
+	help
+	  Select the number of video pipelines which are used for composition.
+
 endif
