@@ -23,6 +23,8 @@ Optional properties:
   during suspend.
 - ti,no-reset-on-init: When present, the module should not be reset at init
 - ti,no-idle-on-init: When present, the module should not be idled at init
+- ti,enable-opt-clks-on-reset: When present, enable all optional clocks
+  during reset of the module.
 - ti,no_init: When present, the module is marked as disabled immediately and
   no setup is done.
 - ti,no-idle: When present, the module is never allowed to idle.
