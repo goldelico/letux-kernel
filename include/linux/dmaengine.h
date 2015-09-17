@@ -797,7 +797,7 @@ static inline int dmaengine_terminate_all(struct dma_chan *chan)
 	return dmaengine_device_control(chan, DMA_TERMINATE_ALL, 0);
 }
 
-static inline int dmaengine_pause(struct dma_chan *chan)
+static inline int __must_check dmaengine_pause(struct dma_chan *chan)
 {
 	return dmaengine_device_control(chan, DMA_PAUSE, 0);
 }

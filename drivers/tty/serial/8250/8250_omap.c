@@ -106,6 +106,7 @@ struct omap8250_priv {
 	struct work_struct qos_work;
 	struct uart_8250_dma omap8250_dma;
 	spinlock_t rx_dma_lock;
+	bool rx_dma_broken;
 };
 
 static u32 uart_read(struct uart_8250_port *up, u32 reg)
@@ -614,6 +615,11 @@ static void omap_8250_shutdown(struct uart_port *port)
 	serial_out(up, UART_OMAP_WER, 0);
 	serial8250_do_shutdown(port);
 
+	if (up->dma && priv->delayed_restore) {
+		priv->delayed_restore = 0;
+		omap8250_restore_regs(up);
+	}
+
 	pm_runtime_mark_last_busy(port->dev);
 	pm_runtime_put_autosuspend(port->dev);
 
@@ -666,6 +672,7 @@ static void __dma_rx_do_complete(struct uart_8250_port *p, bool error)
 	struct dma_tx_state     state;
 	int                     count;
 	unsigned long		flags;
+	int ret;
 
 	dma_sync_single_for_cpu(dma->rxchan->device->dev, dma->rx_addr,
 				dma->rx_size, DMA_FROM_DEVICE);
@@ -681,7 +688,10 @@ static void __dma_rx_do_complete(struct uart_8250_port *p, bool error)
 
 	count = dma->rx_size - state.residue;
 
-	tty_insert_flip_string(tty_port, dma->rx_buf, count);
+	ret = tty_insert_flip_string(tty_port, dma->rx_buf, count);
+	if (ret != count)
+		pr_err("%s(%d) %d vs %d\n", __func__, __LINE__, ret, count);
+
 	p->port.icount.rx += count;
 unlock:
 	spin_unlock_irqrestore(&priv->rx_dma_lock, flags);
@@ -702,6 +712,7 @@ static void omap_8250_rx_dma_flush(struct uart_8250_port *p)
 	struct omap8250_priv	*priv = p->port.private_data;
 	struct uart_8250_dma	*dma = p->dma;
 	unsigned long		flags;
+	int ret;
 
 	spin_lock_irqsave(&priv->rx_dma_lock, flags);
 
@@ -710,7 +721,9 @@ static void omap_8250_rx_dma_flush(struct uart_8250_port *p)
 		return;
 	}
 
-	dmaengine_pause(dma->rxchan);
+	ret = dmaengine_pause(dma->rxchan);
+	if (WARN_ON_ONCE(ret))
+		priv->rx_dma_broken = true;
 
 	spin_unlock_irqrestore(&priv->rx_dma_lock, flags);
 
@@ -753,6 +766,9 @@ static int omap_8250_rx_dma(struct uart_8250_port *p, unsigned int iir)
 	default:
 		break;
 	}
+
+	if (priv->rx_dma_broken)
+		return -EINVAL;
 
 	spin_lock_irqsave(&priv->rx_dma_lock, flags);
 
