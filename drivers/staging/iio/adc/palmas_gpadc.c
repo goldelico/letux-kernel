@@ -323,7 +323,7 @@ static int palmas_gpadc_start_convertion(struct palmas_gpadc *adc, int adc_chan)
 	unsigned int val;
 	int ret;
 
-	INIT_COMPLETION(adc->conv_completion);
+	init_completion(&adc->conv_completion);
 	ret = palmas_update_bits(adc->palmas, PALMAS_GPADC_BASE,
 				PALMAS_GPADC_SW_SELECT,
 				PALMAS_GPADC_SW_SELECT_SW_START_CONV0,
@@ -402,7 +402,7 @@ static int palmas_gpadc_read_raw(struct iio_dev *indio_dev,
 
 		ret = IIO_VAL_INT;
 		goto out;
-
+#if 0
 	case IIO_CHAN_INFO_RAW_DUAL:
 	case IIO_CHAN_INFO_PROCESSED_DUAL:
 		ret = palmas_gpadc_read_prepare(adc, adc_chan);
@@ -453,6 +453,7 @@ static int palmas_gpadc_read_raw(struct iio_dev *indio_dev,
 
 		ret = IIO_VAL_INT;
 		goto out;
+#endif
 	}
 
 	mutex_unlock(&indio_dev->mlock);
@@ -479,6 +480,8 @@ static const struct iio_info palmas_gpadc_iio_info = {
 	.channel = PALMAS_ADC_CH_##chan,				\
 }
 
+#if 0
+
 #define PALMAS_ADC_CHAN_DUAL_IIO(chan)					\
 {									\
 	.datasheet_name = PALMAS_DATASHEET_NAME(chan),			\
@@ -490,12 +493,14 @@ static const struct iio_info palmas_gpadc_iio_info = {
 	.indexed = 1,							\
 	.channel = PALMAS_ADC_CH_##chan,				\
 }
-
+#endif
 static const struct iio_chan_spec palmas_gpadc_iio_channel[] = {
 	PALMAS_ADC_CHAN_IIO(IN0),
 	PALMAS_ADC_CHAN_IIO(IN1),
 	PALMAS_ADC_CHAN_IIO(IN2),
+#if 0
 	PALMAS_ADC_CHAN_DUAL_IIO(IN3),
+#endif
 	PALMAS_ADC_CHAN_IIO(IN4),
 	PALMAS_ADC_CHAN_IIO(IN5),
 	PALMAS_ADC_CHAN_IIO(IN6),
