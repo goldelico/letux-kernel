@@ -2593,6 +2593,8 @@ static int __init _init(struct omap_hwmod *oh, void *data)
 			oh->flags |= HWMOD_INIT_NO_RESET;
 		if (of_find_property(np, "ti,no-idle-on-init", NULL))
 			oh->flags |= HWMOD_INIT_NO_IDLE;
+		if (of_find_property(np, "ti,enable-opt-clks-on-reset", NULL))
+			oh->flags |= HWMOD_CONTROL_OPT_CLKS_IN_RESET;
 		if (of_find_property(np, "ti,no-init", NULL))
 			oh->flags |= HWMOD_NO_INIT;
 		if (of_find_property(np, "ti,no-idle", NULL))
