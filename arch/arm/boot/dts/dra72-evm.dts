@@ -960,6 +960,7 @@ i2c_p3_exp: &i2c5 {
 
 &dss {
 	status = "ok";
+	ti,enable-opt-clks-on-reset;
 
 	vdda_video-supply = <&ldo5_reg>;
 };
