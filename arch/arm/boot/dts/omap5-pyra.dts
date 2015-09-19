@@ -1004,34 +1004,3 @@ gpio-keys@2 {
 * add a regulator-gpio for the LCD
 * configure WLAN/Bluetooth module
 */
-
-/* patches to bring up the Pyra CPU Board */
-
-/ {
-	vmmc1_fixed: fixedregulator-mmc1 {
-		compatible = "regulator-fixed";
-		regulator-name = "vmmc1_fixed";
-		regulator-min-microvolt = <3000000>;
-		regulator-max-microvolt = <3000000>;
-	};
-};
-
-&mmc1 { /* left SD slot */
-	vmmc-supply = <&vmmc1_fixed>;	/* LDO9 is not working */
-};
-
-&mmc2 { /* eMMC / SD-card */
-	/* ti,non-removable; */
-};
-
-&mmc3 { /* WiFi-SDIO */
-};
-
-&mmc4 { /* right SD slot */
-	/* vmmc-supply = <&ldo2_reg> */
-	bus-width = <4>;
-	status = "okay";
-};
-
-&mmc5 {
-};
