@@ -599,6 +599,7 @@ static int palmas_gpadc_probe(struct platform_device *pdev)
 	struct palmas_gpadc_platform_data *gpadc_pdata = NULL;
 	struct iio_dev *iodev;
 	int ret, i;
+printk("palmas_gpadc_probe\n");
 	pdata = dev_get_platdata(pdev->dev.parent);
 	if (pdata && pdata->gpadc_pdata)
 		gpadc_pdata = pdata->gpadc_pdata;
@@ -714,6 +715,7 @@ static int palmas_gpadc_probe(struct platform_device *pdev)
 	iodev->num_channels = ARRAY_SIZE(palmas_gpadc_iio_channel);
 
 	ret = iio_device_register(iodev);
+printk("palmas_gpadc_probe iio_device_register done\n");
 	if (ret < 0) {
 		dev_err(adc->dev, "iio_device_register() failed: %d\n", ret);
 		goto out_irq_auto1_free;
@@ -727,6 +729,7 @@ static int palmas_gpadc_probe(struct platform_device *pdev)
 
 	if (adc->wakeup1_enable || adc->wakeup2_enable)
 		device_wakeup_enable(&pdev->dev);
+printk("palmas_gpadc_probe done\n");
 
 	return 0;
 
