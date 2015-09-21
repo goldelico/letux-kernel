@@ -394,6 +394,14 @@
 #include "twl6030.dtsi"
 #include "twl6030_omap4.dtsi"
 
+&twl {
+	adc {
+		compatible = "ti,twl6030-gpadc";
+		interrupts = <3>;
+		#io-channel-cells = <1>;
+	};
+};
+
 &i2c2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c2_pins>;
