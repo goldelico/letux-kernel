@@ -470,22 +470,22 @@ static const struct iio_info palmas_gpadc_iio_info = {
 	.driver_module = THIS_MODULE,
 };
 
-#define PALMAS_ADC_CHAN_IIO(chan)					\
+#define PALMAS_ADC_CHAN_IIO(chan, _type)			\
 {									\
 	.datasheet_name = PALMAS_DATASHEET_NAME(chan),			\
-	.type = IIO_VOLTAGE, 						\
+	.type = _type, 						\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
-			BIT(IIO_CHAN_INFO_CALIBSCALE),			\
+			BIT(IIO_CHAN_INFO_PROCESSED),			\
 	.indexed = 1,							\
 	.channel = PALMAS_ADC_CH_##chan,				\
 }
 
 #if 0
 
-#define PALMAS_ADC_CHAN_DUAL_IIO(chan)					\
+#define PALMAS_ADC_CHAN_DUAL_IIO(chan, _type)					\
 {									\
 	.datasheet_name = PALMAS_DATASHEET_NAME(chan),			\
-	.type = IIO_VOLTAGE,						\
+	.type = _type,						\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
 			BIT(IIO_CHAN_INFO_PROCESSED) |			\
 			BIT(IIO_CHAN_INFO_RAW_DUAL) |			\
@@ -495,24 +495,26 @@ static const struct iio_info palmas_gpadc_iio_info = {
 }
 #endif
 static const struct iio_chan_spec palmas_gpadc_iio_channel[] = {
-	PALMAS_ADC_CHAN_IIO(IN0),
-	PALMAS_ADC_CHAN_IIO(IN1),
-	PALMAS_ADC_CHAN_IIO(IN2),
+	PALMAS_ADC_CHAN_IIO(IN0, IIO_VOLTAGE),
+	PALMAS_ADC_CHAN_IIO(IN1, IIO_VOLTAGE),
+	PALMAS_ADC_CHAN_IIO(IN2, IIO_VOLTAGE),
 #if 0
-	PALMAS_ADC_CHAN_DUAL_IIO(IN3),
+	PALMAS_ADC_CHAN_DUAL_IIO(IN3, IIO_VOLTAGE),
+#else
+	PALMAS_ADC_CHAN_IIO(IN3, IIO_VOLTAGE),
 #endif
-	PALMAS_ADC_CHAN_IIO(IN4),
-	PALMAS_ADC_CHAN_IIO(IN5),
-	PALMAS_ADC_CHAN_IIO(IN6),
-	PALMAS_ADC_CHAN_IIO(IN7),
-	PALMAS_ADC_CHAN_IIO(IN8),
-	PALMAS_ADC_CHAN_IIO(IN9),
-	PALMAS_ADC_CHAN_IIO(IN10),
-	PALMAS_ADC_CHAN_IIO(IN11),
-	PALMAS_ADC_CHAN_IIO(IN12),
-	PALMAS_ADC_CHAN_IIO(IN13),
-	PALMAS_ADC_CHAN_IIO(IN14),
-	PALMAS_ADC_CHAN_IIO(IN15),
+	PALMAS_ADC_CHAN_IIO(IN4, IIO_VOLTAGE),
+	PALMAS_ADC_CHAN_IIO(IN5, IIO_VOLTAGE),
+	PALMAS_ADC_CHAN_IIO(IN6, IIO_VOLTAGE),
+	PALMAS_ADC_CHAN_IIO(IN7, IIO_VOLTAGE),
+	PALMAS_ADC_CHAN_IIO(IN8, IIO_VOLTAGE),
+	PALMAS_ADC_CHAN_IIO(IN9, IIO_VOLTAGE),
+	PALMAS_ADC_CHAN_IIO(IN10, IIO_VOLTAGE),
+	PALMAS_ADC_CHAN_IIO(IN11, IIO_VOLTAGE),
+	PALMAS_ADC_CHAN_IIO(IN12, IIO_VOLTAGE),
+	PALMAS_ADC_CHAN_IIO(IN13, IIO_VOLTAGE),
+	PALMAS_ADC_CHAN_IIO(IN14, IIO_VOLTAGE),
+	PALMAS_ADC_CHAN_IIO(IN15, IIO_VOLTAGE),
 };
 
 static int palmas_gpadc_get_adc_dt_data(struct platform_device *pdev,
@@ -597,7 +599,6 @@ static int palmas_gpadc_probe(struct platform_device *pdev)
 	struct palmas_gpadc_platform_data *gpadc_pdata = NULL;
 	struct iio_dev *iodev;
 	int ret, i;
-
 	pdata = dev_get_platdata(pdev->dev.parent);
 	if (pdata && pdata->gpadc_pdata)
 		gpadc_pdata = pdata->gpadc_pdata;
@@ -726,6 +727,7 @@ static int palmas_gpadc_probe(struct platform_device *pdev)
 
 	if (adc->wakeup1_enable || adc->wakeup2_enable)
 		device_wakeup_enable(&pdev->dev);
+
 	return 0;
 
 out_irq_auto1_free:
@@ -741,6 +743,7 @@ out_unregister_map:
 		iio_map_array_unregister(iodev);
 out:
 	iio_device_free(iodev);
+printk("palmas_gpadc_probe failed\n");
 	return ret;
 }
 
