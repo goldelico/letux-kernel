@@ -242,6 +242,14 @@ config NAU7802
 	  To compile this driver as a module, choose M here: the
 	  module will be called nau7802.
 
+config PALMAS_GPADC
+	tristate "TI Palmas General Purpose ADC"
+	depends on MFD_PALMAS
+	help
+	  Palmas series pmic chip is used in smartphones and tablets
+	  which supports a 16 channel GPADC. Add iio driver to read
+	  different channel of GPADCs.
+
 config QCOM_SPMI_IADC
 	tristate "Qualcomm SPMI PMIC current ADC"
 	depends on SPMI
