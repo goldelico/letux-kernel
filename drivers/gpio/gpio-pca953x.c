@@ -90,6 +90,7 @@ struct pca953x_chip {
 	unsigned gpio_start;
 	u8 reg_output[MAX_BANK];
 	u8 reg_direction[MAX_BANK];
+	u8 reg_open_drain[MAX_BANK];
 	struct mutex i2c_lock;
 
 #ifdef CONFIG_GPIO_PCA953X_IRQ
@@ -242,6 +243,11 @@ static int pca953x_gpio_direction_output(struct gpio_chip *gc,
 	u8 reg_val;
 	int ret, offset = 0;
 
+	if (val && (chip->reg_open_drain[off / BANK_SZ] &
+						(1u << (off % BANK_SZ))))
+		/* make high impedance */
+		return pca953x_gpio_direction_input(gc, off);
+
 	mutex_lock(&chip->i2c_lock);
 	/* set output level */
 	if (val)
@@ -319,6 +325,12 @@ static void pca953x_gpio_set_value(struct gpio_chip *gc, unsigned off, int val)
 	struct pca953x_chip *chip = gpiochip_get_data(gc);
 	u8 reg_val;
 	int ret, offset = 0;
+
+	if ((chip->reg_open_drain[off / BANK_SZ] & (1u << (off % BANK_SZ)))) {
+		/* switch between input (1=High-Z) and output (0=Low) */
+		pca953x_gpio_direction_output(gc, off, val);
+		return;
+	}
 
 	mutex_lock(&chip->i2c_lock);
 	if (val)
@@ -709,6 +721,8 @@ static int pca953x_probe(struct i2c_client *client,
 	if (chip == NULL)
 		return -ENOMEM;
 
+	memset(chip->reg_open_drain, 0, NBANK(chip));
+
 	pdata = dev_get_platdata(&client->dev);
 	if (pdata) {
 		irq_base = pdata->irq_base;
@@ -716,8 +730,24 @@ static int pca953x_probe(struct i2c_client *client,
 		invert = pdata->invert;
 		chip->names = pdata->names;
 	} else {
+		int size, i;
+
+		size = of_property_count_elems_of_size(client->dev.of_node,
+						"open-drain-pins", sizeof(u32));
 		chip->gpio_start = -1;
 		irq_base = 0;
+
+		/* negative sizes (errno) are simply ignored */
+
+		for (i = 0; i < size; i++) {
+			u32 off;
+			int r = of_property_read_u32_index(client->dev.of_node,
+						"open-drain-pins", i, &off);
+			if (r == 0 && off < (MAX_BANK * BANK_SZ)) {
+				chip->reg_open_drain[off / BANK_SZ] |=
+						(1u << (off % BANK_SZ));
+			}
+		}
 	}
 
 	chip->client = client;
