@@ -148,6 +148,8 @@ static inline void omap_soc_device_init(void)
 }
 #endif
 
+void omap_restart(enum reboot_mode mode, const char *cmd);
+
 #if defined(CONFIG_SOC_OMAP2420) || defined(CONFIG_SOC_OMAP2430)
 void omap2xxx_restart(enum reboot_mode mode, const char *cmd);
 #else
