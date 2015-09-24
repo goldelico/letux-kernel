@@ -201,7 +201,7 @@ DT_MACHINE_START(TI814X_DT, "Generic ti814x (Flattened Device Tree)")
 	.init_late	= ti81xx_init_late,
 	.init_time	= omap3_gptimer_timer_init,
 	.dt_compat	= ti814x_boards_compat,
-	.restart	= ti81xx_restart,
+	.restart	= omap_restart,
 MACHINE_END
 
 static const char *const ti816x_boards_compat[] __initconst = {
@@ -218,7 +218,7 @@ DT_MACHINE_START(TI816X_DT, "Generic ti816x (Flattened Device Tree)")
 	.init_late	= ti81xx_init_late,
 	.init_time	= omap3_gptimer_timer_init,
 	.dt_compat	= ti816x_boards_compat,
-	.restart	= ti81xx_restart,
+	.restart	= omap_restart,
 MACHINE_END
 #endif
 
@@ -236,7 +236,7 @@ DT_MACHINE_START(AM33XX_DT, "Generic AM33XX (Flattened Device Tree)")
 	.init_late	= am33xx_init_late,
 	.init_time	= omap3_gptimer_timer_init,
 	.dt_compat	= am33xx_boards_compat,
-	.restart	= am33xx_restart,
+	.restart	= omap_restart,
 MACHINE_END
 #endif
 
@@ -261,7 +261,7 @@ DT_MACHINE_START(OMAP4_DT, "Generic OMAP4 (Flattened Device Tree)")
 	.init_late	= omap4430_init_late,
 	.init_time	= omap4_local_timer_init,
 	.dt_compat	= omap4_boards_compat,
-	.restart	= omap44xx_restart,
+	.restart	= omap_restart,
 MACHINE_END
 #endif
 
@@ -286,7 +286,7 @@ DT_MACHINE_START(OMAP5_DT, "Generic OMAP5 (Flattened Device Tree)")
 	.init_late	= omap5_init_late,
 	.init_time	= omap5_realtime_timer_init,
 	.dt_compat	= omap5_boards_compat,
-	.restart	= omap44xx_restart,
+	.restart	= omap_restart,
 MACHINE_END
 #endif
 
@@ -308,7 +308,7 @@ DT_MACHINE_START(AM43_DT, "Generic AM43 (Flattened Device Tree)")
 	.init_machine	= omap_generic_init,
 	.init_time	= omap4_local_timer_init,
 	.dt_compat	= am43_boards_compat,
-	.restart	= omap44xx_restart,
+	.restart	= omap_restart,
 MACHINE_END
 #endif
 
@@ -334,7 +334,7 @@ DT_MACHINE_START(DRA74X_DT, "Generic DRA74X (Flattened Device Tree)")
 	.init_machine	= omap_generic_init,
 	.init_time	= omap5_realtime_timer_init,
 	.dt_compat	= dra74x_boards_compat,
-	.restart	= omap44xx_restart,
+	.restart	= omap_restart,
 MACHINE_END
 
 static const char *const dra72x_boards_compat[] __initconst = {
@@ -356,6 +356,6 @@ DT_MACHINE_START(DRA72X_DT, "Generic DRA72X (Flattened Device Tree)")
 	.init_machine	= omap_generic_init,
 	.init_time	= omap5_realtime_timer_init,
 	.dt_compat	= dra72x_boards_compat,
-	.restart	= omap44xx_restart,
+	.restart	= omap_restart,
 MACHINE_END
 #endif
