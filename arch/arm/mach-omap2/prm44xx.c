@@ -702,7 +702,6 @@ static struct prm_ll_data omap44xx_prm_ll_data = {
 	.assert_hardreset	= omap4_prminst_assert_hardreset,
 	.deassert_hardreset	= omap4_prminst_deassert_hardreset,
 	.is_hardreset_asserted	= omap4_prminst_is_hardreset_asserted,
-	.reset_system		= omap4_prminst_global_warm_sw_reset,
 	.vp_check_txdone	= omap4_prm_vp_check_txdone,
 	.vp_clear_txdone	= omap4_prm_vp_clear_txdone,
 };
