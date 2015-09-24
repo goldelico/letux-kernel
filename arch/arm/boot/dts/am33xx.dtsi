@@ -110,11 +110,14 @@
 				reg-names = "umem", "dmem";
 				ti,hwmods = "wkup_m3";
 				ti,pm-firmware = "am335x-pm-firmware.elf";
+				reset-names = "wkup_m3";
+				resets = <&prcm 0xd00 0 3 0xc 5>;
 			};
 
 			prcm: prcm@200000 {
 				compatible = "ti,am3-prcm";
 				reg = <0x200000 0x4000>;
+				#reset-cells = <5>;
 
 				prcm_clocks: clocks {
 					#address-cells = <1>;
@@ -122,6 +125,12 @@
 				};
 
 				prcm_clockdomains: clockdomains {
+				};
+
+				system_reset: system_reset {
+					compatible = "ti,system-reset";
+					reset-names = "system";
+					resets = <&prcm 0xf00 0 0 8 1>;
 				};
 			};
 
@@ -878,6 +887,21 @@
 			ti,hwmods = "rng";
 			reg = <0x48310000 0x2000>;
 			interrupts = <111>;
+		};
+
+		pruss: pruss@4a300000 {
+			compatible = "ti,am3352-pruss";
+			ti,hwmods = "pruss";
+			reset-names = "pruss";
+			resets = <&prcm 0xc00 0 1 0 1>;
+		};
+
+		gfx: gfx@56000000 {
+			compatible = "ti,am3352-sgx530", "img,sgx530";
+			ti,hwmods = "gfx";
+			status = "disabled";
+			reset-names = "gfx";
+			resets = <&prcm 0x1100 0x4 0 0x14 0>;
 		};
 	};
 };
