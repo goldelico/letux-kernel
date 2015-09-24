@@ -52,10 +52,6 @@ static struct omap_hwmod am43xx_l4_hs_hwmod = {
 	},
 };
 
-static struct omap_hwmod_rst_info am33xx_wkup_m3_resets[] = {
-	{ .name = "wkup_m3", .rst_shift = 3, .st_shift = 5 },
-};
-
 static struct omap_hwmod am43xx_wkup_m3_hwmod = {
 	.name		= "wkup_m3",
 	.class		= &am33xx_wkup_m3_hwmod_class,
@@ -66,13 +62,9 @@ static struct omap_hwmod am43xx_wkup_m3_hwmod = {
 	.prcm		= {
 		.omap4	= {
 			.clkctrl_offs	= AM43XX_CM_WKUP_WKUP_M3_CLKCTRL_OFFSET,
-			.rstctrl_offs	= AM43XX_RM_WKUP_RSTCTRL_OFFSET,
-			.rstst_offs	= AM43XX_RM_WKUP_RSTST_OFFSET,
 			.modulemode	= MODULEMODE_SWCTRL,
 		},
 	},
-	.rst_lines	= am33xx_wkup_m3_resets,
-	.rst_lines_cnt	= ARRAY_SIZE(am33xx_wkup_m3_resets),
 };
 
 static struct omap_hwmod am43xx_control_hwmod = {
