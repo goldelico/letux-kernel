@@ -13,6 +13,16 @@
 / {
 	compatible = "ti,omap2430", "ti,omap2";
 
+	soc {
+		iva {
+			compatible = "ti,iva2.1";
+			ti,hwmods = "iva";
+			reset-names = "logic", "mmu";
+			resets = <&prcm 0x800 0 0 0 4>,
+				 <&prcm 0x800 0 1 0 5>;
+		};
+	};
+
 	ocp {
 		l4_wkup: l4_wkup@49000000 {
 			compatible = "ti,omap2-l4-wkup", "simple-bus";
@@ -23,6 +33,7 @@
 			prcm: prcm@6000 {
 				compatible = "ti,omap2-prcm";
 				reg = <0x6000 0x1000>;
+				#reset-cells = <5>;
 
 				prcm_clocks: clocks {
 					#address-cells = <1>;
@@ -30,6 +41,12 @@
 				};
 
 				prcm_clockdomains: clockdomains {
+				};
+
+				system_reset: system_reset {
+					compatible = "ti,system-reset";
+					reset-names = "system";
+					resets = <&prcm 0x400 0 2 0 0>;
 				};
 			};
 
