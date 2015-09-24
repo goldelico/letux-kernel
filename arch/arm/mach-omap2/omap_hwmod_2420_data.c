@@ -49,16 +49,10 @@ static struct omap_hwmod_class iva1_hwmod_class = {
 	.name		= "iva1",
 };
 
-static struct omap_hwmod_rst_info omap2420_iva_resets[] = {
-	{ .name = "iva", .rst_shift = 8 },
-};
-
 static struct omap_hwmod omap2420_iva_hwmod = {
 	.name		= "iva",
 	.class		= &iva1_hwmod_class,
 	.clkdm_name	= "iva1_clkdm",
-	.rst_lines	= omap2420_iva_resets,
-	.rst_lines_cnt	= ARRAY_SIZE(omap2420_iva_resets),
 	.main_clk	= "iva1_ifck",
 };
 
@@ -67,17 +61,10 @@ static struct omap_hwmod_class dsp_hwmod_class = {
 	.name		= "dsp",
 };
 
-static struct omap_hwmod_rst_info omap2420_dsp_resets[] = {
-	{ .name = "logic", .rst_shift = 0 },
-	{ .name = "mmu", .rst_shift = 1 },
-};
-
 static struct omap_hwmod omap2420_dsp_hwmod = {
 	.name		= "dsp",
 	.class		= &dsp_hwmod_class,
 	.clkdm_name	= "dsp_clkdm",
-	.rst_lines	= omap2420_dsp_resets,
-	.rst_lines_cnt	= ARRAY_SIZE(omap2420_dsp_resets),
 	.main_clk	= "dsp_fck",
 };
 
