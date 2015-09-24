@@ -199,14 +199,16 @@ struct omap_hwmod_dma_info {
  * @name: name of the reset line (module local name)
  * @rst_shift: Offset of the reset bit
  * @st_shift: Offset of the reset status bit (OMAP2/3 only)
+ * @rc: reset control handle for the reset
  *
  * @name should be something short, e.g., "cpu0" or "rst". It is defined
  * locally to the hwmod.
  */
 struct omap_hwmod_rst_info {
-	const char	*name;
-	u8		rst_shift;
-	u8		st_shift;
+	const char		*name;
+	u8			rst_shift;
+	u8			st_shift;
+	struct reset_control	*rc;
 };
 
 /**
