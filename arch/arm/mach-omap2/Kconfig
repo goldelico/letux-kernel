@@ -104,6 +104,7 @@ config ARCH_OMAP2PLUS
 	select SOC_BUS
 	select OMAP_IRQCHIP
 	select CLKSRC_TI_32K
+	select RESET_CONTROLLER
 	help
 	  Systems based on OMAP2, OMAP3, OMAP4 or OMAP5
 
