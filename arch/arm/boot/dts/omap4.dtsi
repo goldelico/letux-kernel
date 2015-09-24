@@ -97,11 +97,25 @@
 		dsp {
 			compatible = "ti,omap3-c64";
 			ti,hwmods = "dsp";
+			reset-names = "dsp";
+			resets = <&prm 0x0400 0x10 0 0x14 0>;
 		};
 
 		iva {
 			compatible = "ti,ivahd";
 			ti,hwmods = "iva";
+			reset-names = "seq0", "seq1", "logic";
+			resets = <&prm 0x0f00 0x10 0 0x14 0>,
+				 <&prm 0x0f00 0x10 1 0x14 1>,
+				 <&prm 0x0f00 0x10 2 0x14 2>;
+		};
+
+		ipu {
+			compatible = "ti,omap4-ipu";
+			ti,hwmods = "ipu";
+			reset-names = "cpu0", "cpu1";
+			resets = <&prm 0x0700 0x210 0 0x214 0>,
+				 <&prm 0x0700 0x210 1 0x214 1>;
 		};
 	};
 
@@ -227,6 +241,7 @@
 					compatible = "ti,omap4-prm";
 					reg = <0x6000 0x3000>;
 					interrupts = <GIC_SPI 11 IRQ_TYPE_LEVEL_HIGH>;
+					#reset-cells = <5>;
 
 					prm_clocks: clocks {
 						#address-cells = <1>;
@@ -234,6 +249,14 @@
 					};
 
 					prm_clockdomains: clockdomains {
+					};
+
+					system_reset: system_reset {
+						compatible = "ti,system-reset";
+						reset-names = "system",
+							      "cold_sw";
+						resets = <&prm 0x1b00 0 0 4 0>,
+							 <&prm 0x1b00 0 1 4 1>;
 					};
 				};
 
@@ -554,6 +577,8 @@
 			interrupts = <GIC_SPI 28 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "mmu_dsp";
 			#iommu-cells = <0>;
+			reset-names = "mmu_cache";
+			resets = <&prm 0x400 0x10 1 0x14 1>;
 		};
 
 		mmu_ipu: mmu@55082000 {
@@ -563,6 +588,8 @@
 			ti,hwmods = "mmu_ipu";
 			#iommu-cells = <0>;
 			ti,iommu-bus-err-back;
+			reset-names = "mmu_cache";
+			resets = <&prm 0x700 0x210 2 0x214 2>;
 		};
 
 		wdt2: wdt@4a314000 {
