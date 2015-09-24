@@ -99,7 +99,7 @@ VOLT=$(cat $TWL6037_GPADC/in_voltage6_input)
 echo volt: ${VOLT}mV ca. $(expr \( "$VOLT" - 3300 \) \* 100 / 950)%
 # NOTE: the driver reports mV and not mA or °C!
 echo current: $(cat $TWL6037_GPADC/in_voltage11_input)mA
-echo temp: $(cat $TWL6037_GPADC/in_voltage1_input)°C
+echo temp: $(cat $TWL6037_GPADC/in_temp1_raw)°C
 echo type: $(cat $TWL6037_GPADC/in_voltage0_input)mV
 echo VBUS: $(cat $TWL6037_GPADC/in_voltage10_input)mV
 echo VCHG: $(cat $TWL6037_GPADC/in_voltage9_input)mV
