@@ -243,6 +243,7 @@
 				compatible = "ti,omap5-prm";
 				reg = <0x6000 0x3000>;
 				interrupts = <GIC_SPI 11 IRQ_TYPE_LEVEL_HIGH>;
+				#reset-cells = <5>;
 
 				prm_clocks: clocks {
 					#address-cells = <1>;
@@ -250,6 +251,12 @@
 				};
 
 				prm_clockdomains: clockdomains {
+				};
+
+				system_reset: system_reset {
+					compatible = "ti,system-reset";
+					reset-names = "system";
+					resets = <&prm 0x1c00 0 0 4 0>;
 				};
 			};
 
@@ -615,6 +622,8 @@
 			interrupts = <GIC_SPI 28 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "mmu_dsp";
 			#iommu-cells = <0>;
+			reset-names = "mmu_cache";
+			resets = <&prm 0x400 0x10 1 0x14 1>;
 		};
 
 		mmu_ipu: mmu@55082000 {
@@ -624,6 +633,8 @@
 			ti,hwmods = "mmu_ipu";
 			#iommu-cells = <0>;
 			ti,iommu-bus-err-back;
+			reset-names = "mmu_cache";
+			resets = <&prm 0x700 0x210 2 0x214 2>;
 		};
 
 		keypad: keypad@4ae1c000 {
