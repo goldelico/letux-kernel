@@ -40,7 +40,7 @@ void omap2xxx_restart(enum reboot_mode mode, const char *cmd)
 
 	/* XXX Should save the cmd argument for use after the reboot */
 
-	omap_prm_reset_system();
+	omap_restart(mode, cmd);
 }
 
 /**
