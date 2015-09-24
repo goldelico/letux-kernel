@@ -64,10 +64,22 @@
 		iva: iva {
 			compatible = "ti,iva2.2";
 			ti,hwmods = "iva";
+			reset-names = "logic", "seq0", "seq1";
+			resets = <&prm 0x0000 0 0 0 8>,
+				 <&prm 0x0000 0 1 0 9>,
+				 <&prm 0x0000 0 2 0 10>;
 
 			dsp {
 				compatible = "ti,omap3-c64";
 			};
+		};
+
+		sad2d: sad2d {
+			compatible = "ti,sad2d";
+			ti,hwmods = "sad2d";
+			reset-names = "rst_modem_sw", "rst_modem_pwron_sw";
+			resets = <&prm 0x0a00 0 0 0 8>,
+				 <&prm 0x0a00 0 1 0 9>;
 		};
 	};
 
@@ -166,6 +178,7 @@
 			compatible = "ti,omap3-prm";
 			reg = <0x48306000 0x4000>;
 			interrupts = <11>;
+			#reset-cells = <5>;
 
 			prm_clocks: clocks {
 				#address-cells = <1>;
@@ -173,6 +186,12 @@
 			};
 
 			prm_clockdomains: clockdomains {
+			};
+
+			system_reset: system_reset {
+				compatible = "ti,system-reset";
+				reset-names = "system";
+				resets = <&prm 0x1200 0 2 0 0>;
 			};
 		};
 
@@ -472,6 +491,8 @@
 			interrupts = <28>;
 			ti,hwmods = "mmu_iva";
 			status = "disabled";
+			reset-names = "mmu";
+			resets = <&prm 0x0000 0 1 0 9>;
 		};
 
 		wdt2: wdt@48314000 {
