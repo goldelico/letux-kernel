@@ -1378,21 +1378,14 @@ static struct omap_hwmod_class omap54xx_mmu_hwmod_class = {
 	.sysc = &omap54xx_mmu_sysc,
 };
 
-static struct omap_hwmod_rst_info omap54xx_mmu_dsp_resets[] = {
-	{ .name = "mmu_cache", .rst_shift = 1 },
-};
-
 static struct omap_hwmod omap54xx_mmu_dsp_hwmod = {
 	.name		= "mmu_dsp",
 	.class		= &omap54xx_mmu_hwmod_class,
 	.clkdm_name	= "dsp_clkdm",
-	.rst_lines	= omap54xx_mmu_dsp_resets,
-	.rst_lines_cnt	= ARRAY_SIZE(omap54xx_mmu_dsp_resets),
 	.main_clk	= "dpll_iva_h11x2_ck",
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = OMAP54XX_CM_DSP_DSP_CLKCTRL_OFFSET,
-			.rstctrl_offs = OMAP54XX_RM_DSP_RSTCTRL_OFFSET,
 			.context_offs = OMAP54XX_RM_DSP_DSP_CONTEXT_OFFSET,
 			.modulemode   = MODULEMODE_HWCTRL,
 		},
@@ -1400,21 +1393,14 @@ static struct omap_hwmod omap54xx_mmu_dsp_hwmod = {
 };
 
 /* mmu ipu */
-static struct omap_hwmod_rst_info omap54xx_mmu_ipu_resets[] = {
-	{ .name = "mmu_cache", .rst_shift = 2 },
-};
-
 static struct omap_hwmod omap54xx_mmu_ipu_hwmod = {
 	.name		= "mmu_ipu",
 	.class		= &omap54xx_mmu_hwmod_class,
 	.clkdm_name	= "ipu_clkdm",
-	.rst_lines	= omap54xx_mmu_ipu_resets,
-	.rst_lines_cnt	= ARRAY_SIZE(omap54xx_mmu_ipu_resets),
 	.main_clk	= "dpll_core_h22x2_ck",
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = OMAP54XX_CM_IPU_IPU_CLKCTRL_OFFSET,
-			.rstctrl_offs = OMAP54XX_RM_IPU_RSTCTRL_OFFSET,
 			.context_offs = OMAP54XX_RM_IPU_IPU_CONTEXT_OFFSET,
 			.modulemode   = MODULEMODE_HWCTRL,
 		},
