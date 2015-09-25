@@ -32,7 +32,7 @@
 
 	aliases {
 		display0 = &lcd;
-		// makes problems with omapfb and X11:	display1 = &tv0;
+		display1 = &tv0;
 	};
 
 	/* pinmux for devconf1 */
