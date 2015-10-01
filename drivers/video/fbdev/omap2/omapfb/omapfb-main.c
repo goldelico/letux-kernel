@@ -2402,6 +2402,7 @@ static int omapfb_init_connections(struct omapfb2_device *fbdev,
 
 	for (i = 0; i < fbdev->num_overlays; i++) {
 		struct omap_overlay *ovl = fbdev->overlays[i];
+
 		if (ovl->manager)
 			ovl->unset_manager(ovl);
 
@@ -2425,6 +2426,7 @@ omapfb_find_default_display(struct omapfb2_device *fbdev)
 	 * Search with the display name from the user or the board file,
 	 * comparing to display names and aliases
 	 */
+
 	def_name = omapdss_get_default_display_name();
 
 	if (def_name) {
@@ -2482,39 +2484,6 @@ static int omapfb_probe(struct platform_device *pdev)
 		goto err0;
 	}
 
-{
-	struct device_node *of_aliases = of_find_node_by_path("/aliases");
-
-	if (of_aliases) {
-		int num_displays = 0;
-		int number_of_display_aliases = 0;
-		struct property *pp;
-		dssdev = NULL;
-		/* count the displays */
-		for_each_dss_dev(dssdev) {
-			omap_dss_get_device(dssdev);
-			if (!dssdev->driver) {
-				dev_warn(&pdev->dev, "no driver for display: %s\n",
-						 dssdev->name);
-				omap_dss_put_device(dssdev);
-				continue;
-			}
-			num_displays++;
-		}
-		/* count the aliases */
-		for_each_property_of_node(of_aliases, pp) {
-			if (!strncmp(pp->name, "display", 7))
-				number_of_display_aliases++;
-		}
-		if (number_of_display_aliases > 0 && num_displays < number_of_display_aliases) {
-			dev_err(&pdev->dev, "not all displays running (%d of %d)\n",
-					num_displays, number_of_display_aliases);
-			r = -EPROBE_DEFER;	/* wait until all aliased displays show up */
-			goto err0;
-		}
-	}
-}
-
 	fbdev = devm_kzalloc(&pdev->dev, sizeof(struct omapfb2_device),
 			GFP_KERNEL);
 	if (fbdev == NULL) {
@@ -2543,6 +2512,7 @@ static int omapfb_probe(struct platform_device *pdev)
 		struct omapfb_display_data *d;
 
 		omap_dss_get_device(dssdev);
+
 		if (!dssdev->driver) {
 			dev_warn(&pdev->dev, "no driver for display: %s\n",
 				dssdev->name);
@@ -2587,7 +2557,7 @@ static int omapfb_probe(struct platform_device *pdev)
 
 	if (def_mode && strlen(def_mode) > 0) {
 		if (omapfb_parse_def_modes(fbdev))
-			dev_warn(&pdev->dev, "cannot parse default modes %s\n", def_mode);
+			dev_warn(&pdev->dev, "cannot parse default modes\n");
 	} else if (def_display && def_display->driver->set_timings &&
 			def_display->driver->check_timings) {
 		struct omap_video_timings t;
