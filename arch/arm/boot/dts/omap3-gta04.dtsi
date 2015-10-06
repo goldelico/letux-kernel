@@ -299,10 +299,6 @@
 	bmp085@77 {
 		compatible = "bosch,bmp085";
 		reg = <0x77>;
-/* here we could enable the EOC interrupt
-		pinctrl-names = "default";
-		pinctrl-0 = <&bmp085_pins>;
-*/
 		interrupt-parent = <&gpio4>;
 		interrupts = <17 IRQ_TYPE_EDGE_RISING>; /* GPIO_113 */
 	};
@@ -313,7 +309,7 @@
 		compatible = "bosch,bma180";
 		reg = <0x41>;
 		pinctrl-names = "default";
-		pinctrl-0 = <&bma180_pins>;
+		pintcrl-0 = <&bma180_pins>;
 		interrupt-parent = <&gpio4>;
 		interrupts = <19 (IRQ_TYPE_LEVEL_HIGH | IRQ_TYPE_EDGE_RISING)>; /* GPIO_115 */
 	};
@@ -381,18 +377,10 @@
 	tsc2007@48 {
 		compatible = "ti,tsc2007";
 		reg = <0x48>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&penirq_pins>;
 		interrupt-parent = <&gpio6>;
 		interrupts = <0 IRQ_TYPE_EDGE_FALLING>; /* GPIO_160 */
-		gpios = <&gpio6 0 GPIO_ACTIVE_LOW>;	/* GPIO_160 */
-		ti,x-plate-ohms = <550>;
-		ti,min-x = <0x100>;
-		ti,max-x = <0xf00>;
-		ti,min-y = <0xf00>;
-		ti,max-y = <0x100>;
-		ti,min-rt = <0xfff>;
-		ti,max-rt = <0>;
+		gpios = <&gpio6 0 GPIO_ACTIVE_LOW>;
+		ti,x-plate-ohms = <600>;
 	};
 
 };
