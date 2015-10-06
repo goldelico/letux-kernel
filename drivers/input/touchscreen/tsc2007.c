@@ -74,12 +74,6 @@ struct tsc2007 {
 
 	u16			model;
 	u16			x_plate_ohms;
-	bool swap_xy;	/* swap x and y axis */
-	u16			min_x;
-	u16			min_y;
-	u16			min_rt;
-	u16			max_x;
-	u16			max_y;
 	u16			max_rt;
 	unsigned long		poll_period; /* in jiffies */
 	int			fuzzx;
@@ -183,7 +177,6 @@ static irqreturn_t tsc2007_soft_irq(int irq, void *handle)
 	struct ts_event tc;
 	u32 rt;
 
-	dev_dbg(&ts->client->dev, "soft irq %d\n", irq);
 	while (!ts->stopped && tsc2007_is_pen_down(ts)) {
 
 		/* pen is down, continue with the measurement */
@@ -200,48 +193,11 @@ static irqreturn_t tsc2007_soft_irq(int irq, void *handle)
 			break;
 		}
 
-		if (rt <= max(ts->min_rt, ts->max_rt)) {
+		if (rt <= ts->max_rt) {
 			dev_dbg(&ts->client->dev,
 				"DOWN point(%4d,%4d), pressure (%4u)\n",
 				tc.x, tc.y, rt);
 
-			if(ts->swap_xy) {
-				/* swap before applying the range limits */
-				u16 h = tc.x;
-				tc.x = tc.y;
-				tc.y = h;
-			}
-
-			/* flip and/or clip X */
-			if(ts->max_x < ts->min_x)
-				tc.x = (ts->min_x - tc.x) + ts->max_x;
-
-			if(tc.x > max(ts->min_x, ts->max_x))
-				tc.x = max(ts->min_x, ts->max_x);
-			else if(tc.x < min(ts->min_x, ts->max_x))
-				tc.x = min(ts->min_x, ts->max_x);
-
-			/* flip and/or clip Y */
-			if(ts->max_y < ts->min_y)
-				tc.y = (ts->min_y - tc.y) + ts->max_y;
-
-			if(tc.y > max(ts->min_y, ts->max_y))
-				tc.y = max(ts->min_y, ts->max_y);
-			else if(tc.y < min(ts->min_y, ts->max_y))
-				tc.y = min(ts->min_y, ts->max_y);
-
-			/* clip Z */
-			if(ts->max_rt < ts->min_rt)
-				rt = (ts->min_rt - rt) + ts->max_rt;
-
-			if(rt > max(ts->min_rt, ts->max_rt))
-				rt = max(ts->min_rt, ts->max_rt);
-			else if(rt < min(ts->min_rt, ts->max_rt))
-				rt = min(ts->min_rt, ts->max_rt);
-
-			dev_dbg(&ts->client->dev,
-					"shaped point(%4d,%4d), pressure (%4u)\n",
-					tc.x, tc.y, rt);
 			input_report_key(input, BTN_TOUCH, 1);
 			input_report_abs(input, ABS_X, tc.x);
 			input_report_abs(input, ABS_Y, tc.y);
@@ -277,7 +233,6 @@ static irqreturn_t tsc2007_hard_irq(int irq, void *handle)
 {
 	struct tsc2007 *ts = handle;
 
-	dev_dbg(&ts->client->dev, "hard irq %d\n", irq);
 	if (tsc2007_is_pen_down(ts))
 		return IRQ_WAKE_THREAD;
 
@@ -343,24 +298,6 @@ static int tsc2007_probe_dt(struct i2c_client *client, struct tsc2007 *ts)
 		return -EINVAL;
 	}
 
-	ts->swap_xy = of_property_read_bool(np, "ti,swap-xy");
-
-	if (!of_property_read_u32(np, "ti,min-x", &val32))
-		ts->min_x = val32;
-	if (!of_property_read_u32(np, "ti,max-x", &val32))
-		ts->max_x = val32;
-	else
-		ts->max_x = MAX_12BIT;
-
-	if (!of_property_read_u32(np, "ti,min-y", &val32))
-		ts->min_y = val32;
-	if (!of_property_read_u32(np, "ti,max-y", &val32))
-		ts->max_y = val32;
-	else
-		ts->max_y = MAX_12BIT;
-
-	if (!of_property_read_u32(np, "ti,min-rt", &val32))
-		ts->min_rt = val32;
 	if (!of_property_read_u32(np, "ti,max-rt", &val32))
 		ts->max_rt = val32;
 	else
@@ -387,16 +324,6 @@ static int tsc2007_probe_dt(struct i2c_client *client, struct tsc2007 *ts)
 		return -EINVAL;
 	}
 
-	dev_dbg(&client->dev,
-			"min/max_x (%4d,%4d)\n",
-			ts->min_x, ts->max_x);
-	dev_dbg(&client->dev,
-			"min/max_y (%4d,%4d)\n",
-			ts->min_y, ts->max_y);
-	dev_dbg(&client->dev,
-			"min/max_rt (%4d,%4d)\n",
-			ts->min_rt, ts->max_rt);
-
 	ts->gpio = of_get_gpio(np, 0);
 	if (gpio_is_valid(ts->gpio))
 		ts->get_pendown_state = tsc2007_get_pendown_state_gpio;
@@ -404,10 +331,6 @@ static int tsc2007_probe_dt(struct i2c_client *client, struct tsc2007 *ts)
 		dev_warn(&client->dev,
 			 "GPIO not specified in DT (of_get_gpio returned %d)\n",
 			 ts->gpio);
-
-	dev_dbg(&client->dev,
-			"ts-gpio: %d\n",
-			ts->gpio);
 
 	return 0;
 }
@@ -425,12 +348,6 @@ static int tsc2007_probe_pdev(struct i2c_client *client, struct tsc2007 *ts,
 {
 	ts->model             = pdata->model;
 	ts->x_plate_ohms      = pdata->x_plate_ohms;
-	ts->swap_xy           = pdata->swap_xy;
-	ts->min_x             = pdata->min_x ? : 0;
-	ts->min_y             = pdata->min_y ? : 0;
-	ts->min_rt            = pdata->min_rt ? : 0;
-	ts->max_x             = pdata->max_x ? : MAX_12BIT;
-	ts->max_y             = pdata->max_y ? : MAX_12BIT;
 	ts->max_rt            = pdata->max_rt ? : MAX_12BIT;
 	ts->poll_period       = msecs_to_jiffies(pdata->poll_period ? : 1);
 	ts->get_pendown_state = pdata->get_pendown_state;
@@ -504,18 +421,10 @@ static int tsc2007_probe(struct i2c_client *client,
 	input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
 	input_dev->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
 
-	input_set_abs_params(input_dev, ABS_X,
-							min(ts->min_x, ts->max_x),
-							max(ts->min_x, ts->max_x),
-							ts->fuzzx, 0);
-	input_set_abs_params(input_dev, ABS_Y,
-							min(ts->min_y, ts->max_y),
-							max(ts->min_y, ts->max_y),
-							ts->fuzzy, 0);
-	input_set_abs_params(input_dev, ABS_PRESSURE,
-							ts->min_rt,
-							ts->max_rt,
-							ts->fuzzz, 0);
+	input_set_abs_params(input_dev, ABS_X, 0, MAX_12BIT, ts->fuzzx, 0);
+	input_set_abs_params(input_dev, ABS_Y, 0, MAX_12BIT, ts->fuzzy, 0);
+	input_set_abs_params(input_dev, ABS_PRESSURE, 0, MAX_12BIT,
+			     ts->fuzzz, 0);
 
 	if (pdata) {
 		if (pdata->exit_platform_hw) {
@@ -534,8 +443,6 @@ static int tsc2007_probe(struct i2c_client *client,
 			pdata->init_platform_hw();
 	}
 
-	dev_dbg(&client->dev, "request irq %d\n",
-			ts->irq);
 	err = devm_request_threaded_irq(&client->dev, ts->irq,
 					tsc2007_hard_irq, tsc2007_soft_irq,
 					IRQF_ONESHOT,
