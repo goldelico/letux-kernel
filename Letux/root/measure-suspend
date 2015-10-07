@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # by Neil Brown
 
@@ -14,6 +14,7 @@ delay=${1-300}
 [ -f $rs232 ] || { echo 13 > /sys/class/gpio/export; echo high > $rs232dir;}
 
 stty raw -echo -cread
+	echo suspending for $delay seconds
 echo 0 > $rs232
 echo off > $power1
 echo off > $power2
@@ -24,8 +25,9 @@ echo mem > /sys/power/state
 after=`cat $chg`
 end=`date '+%s'`
 echo 1 > $rs232
+	echo waked up
 stty sane
 echo auto > $power1
 echo auto > $power2
 
-echo $((before-after)*3600/(end-start)) uA over $((end-start)) seconds
+echo $[(before-after)*3600/(end-start)] uA over $[end-start] seconds
