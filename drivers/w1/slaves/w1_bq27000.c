@@ -49,8 +49,6 @@ static int w1_bq27000_add_slave(struct w1_slave *sl)
 	int ret;
 	struct platform_device *pdev;
 
-	request_module("bq27x00_battery");  /* load as module if needed */
-
 	pdev = platform_device_alloc("bq27000-battery", -1);
 	if (!pdev) {
 		ret = -ENOMEM;
