@@ -41,6 +41,11 @@
 		ti,wakeup;
 	};
 
+	rtc {
+		compatible = "ti,palmas-rtc";
+		interrupt-parent = <&palmas>;
+		interrupts = <8 IRQ_TYPE_NONE>;
+	};
 };
 
 &usb3 {
