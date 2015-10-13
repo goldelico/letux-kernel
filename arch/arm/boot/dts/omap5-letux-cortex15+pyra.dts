@@ -139,6 +139,24 @@
 		state-off = "status-off";
 	}; */
 
+	backlight {
+		compatible = "pwm-backlight";
+		pwms = <&pwm 0 2000000>;
+		pwm-names = "backlight";
+		brightness-levels = <0 11 20 30 40 50 60 70 80 90 100>;
+		default-brightness-level = <9>;	/* => 90 */
+//		pinctrl-names = "default";
+//		pinctrl-0 = <&backlight_pins>;
+//		power-supply = <&vdd_bl_reg>;
+		enable-gpios = <&gpio6 30 0>;	/* GPT9/PWM gpio6_190 */
+	};
+
+	pwm: omap_pwm {
+		compatible = "ti,omap-pwm";
+		timers = <&timer9>;
+		#pwm-cells = <2>;
+	};
+
 };
 
 /* LCD panel - MIPI */
@@ -147,7 +165,7 @@
 	pinctrl-single,pins = <
 		OMAP5_IOPAD(0x124, PIN_OUTPUT_PULLUP | MUX_MODE6)	/* 0x124:[0:15] gpio6_162 - enable panel DC/DC */
 		OMAP5_IOPAD(0x0ca, PIN_INPUT_PULLDOWN | MUX_MODE7)	/* 0x0C8:[31:16] gpio6_189 - VSYNC input */
-		OMAP5_IOPAD(0x0f6, PIN_INPUT_PULLDOWN | MUX_MODE7)	/* 0x0F4:[31:16] gpio6_190 - choose MUX_MODE0 for PWM_TIMER9 - choose MUX_MODE7 if panel outputs the PWM */
+		OMAP5_IOPAD(0x0f6, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x0F4:[31:16] gpio6_190 - choose MUX_MODE0 for PWM_TIMER9 - choose MUX_MODE7 if panel outputs the PWM */
 		OMAP5_IOPAD(0x10e, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x10c:[31:16] gpio6_176 - panel reset */
 		>;
 };
