@@ -33,6 +33,19 @@
 		ti,bat_removal = 0;
 		ti,start_polarity = 0; */
 	};
+
+	extcon_usb3: palmas_usb {
+		compatible = "ti,palmas-usb-vid";
+		ti,enable-vbus-detection;
+		ti,enable-id-detection;
+		ti,wakeup;
+	};
+
+};
+
+&usb3 {
+       extcon = <&extcon_usb3>;
+       vbus-supply = <&smps10_out1_reg>;
 };
 
 /* Audio routing */
