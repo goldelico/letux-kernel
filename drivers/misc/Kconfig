@@ -838,4 +838,11 @@ config W2CBW003
 	  Enable on/off power control of W2CBW003 if the /dev/tty$n for
 	  Bluetooth is opened.
 
+config TRS3386
+	tristate "TRS3386 modem control"
+	help
+	  Enable the driver to forward modem control lines
+	  through gpio(s) to the physical RS232 level shifter
+	  chip TRS3386.
+
 endmenu
