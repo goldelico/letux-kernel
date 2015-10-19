@@ -320,13 +320,20 @@
 		interrupt-parent = <&gpio6>;
 		interrupts = <13 IRQ_TYPE_EDGE_FALLING>;	/* gpio6_173 falling edge */
 		gpios = <&gpio6 13 GPIO_ACTIVE_LOW>;	/* gpio6_173 active low */
+/* note: overwrite for rotated screen */
+		touchscreen-size-x = <720>;
+		touchscreen-size-y = <1280>;
+		touchscreen-max-pressure = <1000>;
+		touchscreen-fuzz-x = <2>;
+		touchscreen-fuzz-y = <5>;
+		touchscreen-fuzz-pressure = <50>;
+		touchscreen-inverted-y;
+		ti,min-x = <140>;
+		ti,max-x = <3870>;
+		ti,min-y = <50>;
+		ti,max-y = <3970>;
+		ti,max-rt = <2000>;
 		ti,x-plate-ohms = <550>;
-		ti,min-x = <0x100>;
-		ti,max-x = <0xf00>;
-		ti,min-y = <0x100>;
-		ti,max-y = <0xf00>;
-		ti,min-rt = <0xfff>;
-		ti,max-rt = <0>;
 	};
 
 	crtouch@49 {
