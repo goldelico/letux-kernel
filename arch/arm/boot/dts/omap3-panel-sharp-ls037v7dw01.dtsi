@@ -65,7 +65,7 @@
 		ti,y-max = /bits/ 16 <4800>;
 		ti,x-plate-ohms = /bits/ 16 <40>;
 		ti,pressure-max = /bits/ 16 <255>;
-		ti,swap-xy;
+		touchscreen-swapped-x-y;
 		linux,wakeup;
 	};
 };
