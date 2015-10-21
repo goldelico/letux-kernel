@@ -32,6 +32,7 @@
 
 	gpio-keys {
 		compatible = "gpio-keys";
+		// FIXME: pinmux
 
 		aux-button {
 			label = "aux";
@@ -70,7 +71,7 @@
 		#sound-dai-cells = <0>;
 	};
 
-	spi_lcd {
+	spi_lcd: spi_lcd {
 		compatible = "spi-gpio";
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
@@ -102,7 +103,8 @@
 
 	hsusb2_phy: hsusb2_phy {
 		compatible = "usb-nop-xceiv";
-		reset-gpios = <&gpio6 14 GPIO_ACTIVE_LOW>;
+		reset-gpios = <&gpio6 14 GPIO_ACTIVE_LOW>; /* GPIO_174 = reset for USB3322 */
+/*		vcc-supply = <&hsusb2_power>; */
 	};
 
 	tv0: connector@1 {
@@ -118,7 +120,7 @@
 
 	tv_amp: opa362 {
 		compatible = "ti,opa362";
-		enable-gpios = <&gpio1 23 0>;
+		enable-gpios = <&gpio1 23 0>;	/* GPIO_23 to enable video out amplifier */
 
 		ports {
 			#address-cells = <1>;
@@ -132,7 +134,7 @@
 			};
 
 			port@1 {
-				reg = <1>;
+				reg = <0>;
 				opa_out: endpoint@0 {
 					remote-endpoint = <&tv_connector_in>;
 				};
@@ -162,6 +164,7 @@
 		pinctrl-single,pins = <
 			OMAP3_CORE1_IOPAD(0x2182, PIN_INPUT | MUX_MODE0)		/* uart1_rx.uart1_rx */
 			OMAP3_CORE1_IOPAD(0x217c, PIN_OUTPUT | MUX_MODE0)		/* uart1_tx.uart1_tx */
+			/* what about rts/cts? */
 		>;
 	};
 
@@ -169,6 +172,8 @@
 		pinctrl-single,pins = <
 			OMAP3_CORE1_IOPAD(0x217a, PIN_INPUT | MUX_MODE0)		/* uart2_rx.uart2_rx */
 			OMAP3_CORE1_IOPAD(0x2178, PIN_OUTPUT | MUX_MODE0)		/* uart2_tx.uart2_tx */
+/* FIXME: should also define GPIO_145 as output */
+			/* what about rts/cts? */
 		>;
 	};
 
@@ -176,6 +181,8 @@
 		pinctrl-single,pins = <
 			OMAP3_CORE1_IOPAD(0x219e, PIN_INPUT | MUX_MODE0)		/* uart3_rx.uart3_rx */
 			OMAP3_CORE1_IOPAD(0x21a0, PIN_OUTPUT | MUX_MODE0)		/* uart3_tx.uart3_tx */
+			/* what about rts/cts etc.? */
+			/* enable gpio21 as output for DTR */
 		>;
 	};
 
@@ -191,7 +198,7 @@
 	};
 
 	dss_dpi_pins: pinmux_dss_dpi_pins {
-               pinctrl-single,pins = <
+		pinctrl-single,pins = <
 			OMAP3_CORE1_IOPAD(0x20d4, PIN_OUTPUT | MUX_MODE0)   /* dss_pclk.dss_pclk */
 			OMAP3_CORE1_IOPAD(0x20d6, PIN_OUTPUT | MUX_MODE0)   /* dss_hsync.dss_hsync */
 			OMAP3_CORE1_IOPAD(0x20d8, PIN_OUTPUT | MUX_MODE0)   /* dss_vsync.dss_vsync */
@@ -221,7 +228,7 @@
 			OMAP3_CORE1_IOPAD(0x2108, PIN_OUTPUT | MUX_MODE0)   /* dss_data22.dss_data22 */
 			OMAP3_CORE1_IOPAD(0x210a, PIN_OUTPUT | MUX_MODE0)   /* dss_data23.dss_data23 */
 		>;
-       };
+	};
 
 	hdq_pins: hdq_pins {
 		pinctrl-single,pins = <
@@ -290,28 +297,38 @@
 	bmp085@77 {
 		compatible = "bosch,bmp085";
 		reg = <0x77>;
+/* here we could enable the EOC interrupt
+		pinctrl-names = "default";
+		pinctrl-0 = <&bmp085_pins>;
+*/
 		interrupt-parent = <&gpio4>;
 		interrupts = <17 IRQ_TYPE_EDGE_RISING>; /* GPIO_113 */
 	};
 
 	/* accelerometer */
 	bma180@41 {
+		/* we use the BMA150 Input (CONFIG_INPUT_BMA150) driver */
 		compatible = "bosch,bma180";
 		reg = <0x41>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&bma180_pins>;
 		interrupt-parent = <&gpio4>;
-		interrupts = <19 IRQ_TYPE_LEVEL_HIGH>; /* GPIO_115 */
+		interrupts = <19 (IRQ_TYPE_LEVEL_HIGH | IRQ_TYPE_EDGE_RISING)>; /* GPIO_115 */
 	};
 
 	/* gyroscope */
 	itg3200@68 {
 		compatible = "invensense,itg3200";
 		reg = <0x68>;
+		vdd-supply = <&vaux2>;	/* driver should devm_regulator_get_optional("vdd") */
 		interrupt-parent = <&gpio2>;
-		interrupts = <24 0>; /* GPIO_56 */
+		interrupts = <24 IRQ_TYPE_EDGE_FALLING>; /* GPIO_56 */
+		pinctrl-names = "default";
+		pinctrl-0 = <&itg3200_pins>;
 	};
 
 	/* leds */
-	tca6507@45 {
+	tca_gpios: tca6507@45 {
 		compatible = "ti,tca6507";
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -341,7 +358,7 @@
 			reg = <0x4>;
 		};
 
-		wifi_reset: wifi_reset@6 {
+		wifi_reset: wifi_reset@6 { /* reference as <&tca_gpios 0 0> since it is currently the only GPIO */
 			reg = <0x6>;
 			compatible = "gpio";
 		};
@@ -351,17 +368,31 @@
 	hmc5843@1e {
 		compatible = "honeywell,hmc5883l";
 		reg = <0x1e>;
+		vdd-supply = <&vaux2>;	/* driver should devm_regulator_get_optional("vdd") */
+		interrupt-parent = <&gpio4>;
+		interrupts = <16 IRQ_TYPE_EDGE_FALLING>;	/* gpio112 */
+		pinctrl-names = "default";
+		pinctrl-0 = <&hmc5843_pins>;
 	};
 
 	/* touchscreen */
 	tsc2007@48 {
 		compatible = "ti,tsc2007";
 		reg = <0x48>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&penirq_pins>;
 		interrupt-parent = <&gpio6>;
 		interrupts = <0 IRQ_TYPE_EDGE_FALLING>; /* GPIO_160 */
-		gpios = <&gpio6 0 GPIO_ACTIVE_LOW>;
-		ti,x-plate-ohms = <600>;
+		gpios = <&gpio6 0 GPIO_ACTIVE_LOW>;	/* GPIO_160 */
+		ti,x-plate-ohms = <550>;
+		ti,min-x = <0x100>;
+		ti,max-x = <0xf00>;
+		ti,min-y = <0xf00>;
+		ti,max-y = <0x100>;
+		ti,min-rt = <0xfff>;
+		ti,max-rt = <0>;
 	};
+
 };
 
 &i2c3 {
@@ -397,7 +428,7 @@
 	vmmc-supply = <&vaux4>;
 	bus-width = <4>;
 	ti,non-removable;
-	cap-power-off-card;
+	cap-power-off-card;	/* remove! */
 };
 
 &mmc3 {
@@ -438,7 +469,7 @@
 &vaux2 {
 	regulator-min-microvolt = <2800000>;
 	regulator-max-microvolt = <2800000>;
-	regulator-always-on;
+	regulator-always-on;	/* we should never switch off while vio is on! */
 };
 
 /* camera */
@@ -480,6 +511,7 @@
 	vdda-supply = <&vdac>;
 
 	port {
+		reg = <0>;
 		venc_out: endpoint {
 			remote-endpoint = <&opa_in>;
 			ti,channels = <2>;
