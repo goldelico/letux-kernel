@@ -831,4 +831,11 @@ config W2SG0004_DEBUG
 	help
 	  Enable driver debugging mode of W2SG0004 GPS.
 
+config W2CBW003
+	tristate "W2CBW003 power on/off control"
+	depends on GPIOLIB
+	help
+	  Enable on/off power control of W2CBW003 if the /dev/tty$n for
+	  Bluetooth is opened.
+
 endmenu
