@@ -147,6 +147,12 @@
 		on-off-gpio = <&gpio5 17 0>;	/* GPIO_145: trigger for turning on/off w2sg0004 */
 	};
 
+	bluetooth: w2cbw003 {
+		compatible = "wi2wi,w2cbw003-bluetooth";
+		uart = <&uart1>;
+		vdd-supply = <&vaux4>;
+	};
+
 };
 
 &omap3_pmx_core {
