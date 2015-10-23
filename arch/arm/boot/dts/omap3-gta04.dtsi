@@ -472,16 +472,34 @@
 &uart1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart1_pins>;
+
+	bluetooth: w2cbw003 {
+		compatible = "wi2wi,w2cbw003-bluetooth";
+		vdd-supply = <&vaux4>;
+	};
 };
 
 &uart2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart2_pins>;
+
+	gps: w2sg0004 {
+		compatible = "wi2wi,w2sg0004";
+		lna-supply = <&vsim>;   /* LNA regulator */
+		on-off-gpios = <&gpio5 17 GPIO_ACTIVE_HIGH>;    /* GPIO_145: trigger for turning on/off w2sg0004 */
+	};
 };
 
 &uart3 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart3_pins>;
+
+	rs232: trs3386 {
+		status = "disabled";
+		compatible = "ti,trs3386-mctrl";
+		gpios = <0>,		/* ... */
+			<&gpio1 21 0>;	/* DTR: GPIO_21 */
+	};
 };
 
 &charger {
