@@ -692,14 +692,6 @@
 		enable-active-high;
 	};
 
-	bt_en: w2cbw003 { /* presents a single gpio to be plumbed to uart1 dts */
-		compatible = "wi2wi,w2cbw003";
-		gpio-controller;
-		#gpio-cells = <2>;
-
-		vdd-supply = <&vaux4>;
-	};
-
 	/* Bluetooth audio */
 	sound_bluetooth {
 		compatible = "simple-audio-card";
@@ -980,10 +972,6 @@
 	vsync-active = <0>; /* Active low */
 	data-active = <1>;/* Active high */
 	pclk-sample = <1>;/* Rising */
-};
-
-&uart1 { /* Bluetooth /dev/ttyO0 */
-	dtr-gpio = <&bt_en 0 GPIO_ACTIVE_LOW>;	/* w2cbw bluetooth power control through virtual gpio */
 };
 
 &uart3 { /* Console and IrDA /dev/ttyO2 */
