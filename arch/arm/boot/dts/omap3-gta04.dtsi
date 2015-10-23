@@ -153,6 +153,13 @@
 		vdd-supply = <&vaux4>;
 	};
 
+	serial: trs3386 {
+		compatible = "ti,trs3386-mctrl";
+		uart = <&uart3>;
+		gpios = <0>,		/* ... */
+			<&gpio1 21 0>;	/* DTR: GPIO_21 */
+	};
+
 };
 
 &omap3_pmx_core {
