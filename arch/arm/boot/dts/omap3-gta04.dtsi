@@ -160,6 +160,14 @@
 		compatible = "mmc-pwrseq-simple";
 		reset-gpios = <&tca6507 0 GPIO_ACTIVE_LOW>;	/* W2CBW003 reset through tca6507 */
 	};
+
+	gps: w2sg0004 {
+		compatible = "wi2wi,w2sg0004";
+		uart = <&uart2>;
+		lna-supply = <&vsim>;	/* LNA regulator */
+		on-off-gpio = <&gpio5 17 0>;	/* GPIO_145: trigger for turning on/off w2sg0004 */
+	};
+
 };
 
 &omap3_pmx_core {
