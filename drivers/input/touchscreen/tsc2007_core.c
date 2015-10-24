@@ -28,77 +28,10 @@
 #include <linux/i2c/tsc2007.h>
 #include <linux/of_device.h>
 #include <linux/of_gpio.h>
-#include <linux/input/touchscreen.h>
+#include "tsc2007.h"
 
-#define TSC2007_MEASURE_TEMP0		(0x0 << 4)
-#define TSC2007_MEASURE_AUX		(0x2 << 4)
-#define TSC2007_MEASURE_TEMP1		(0x4 << 4)
-#define TSC2007_ACTIVATE_XN		(0x8 << 4)
-#define TSC2007_ACTIVATE_YN		(0x9 << 4)
-#define TSC2007_ACTIVATE_YP_XN		(0xa << 4)
-#define TSC2007_SETUP			(0xb << 4)
-#define TSC2007_MEASURE_X		(0xc << 4)
-#define TSC2007_MEASURE_Y		(0xd << 4)
-#define TSC2007_MEASURE_Z1		(0xe << 4)
-#define TSC2007_MEASURE_Z2		(0xf << 4)
 
-#define TSC2007_POWER_OFF_IRQ_EN	(0x0 << 2)
-#define TSC2007_ADC_ON_IRQ_DIS0		(0x1 << 2)
-#define TSC2007_ADC_OFF_IRQ_EN		(0x2 << 2)
-#define TSC2007_ADC_ON_IRQ_DIS1		(0x3 << 2)
-
-#define TSC2007_12BIT			(0x0 << 1)
-#define TSC2007_8BIT			(0x1 << 1)
-
-#define	MAX_12BIT			((1 << 12) - 1)
-
-#define ADC_ON_12BIT	(TSC2007_12BIT | TSC2007_ADC_ON_IRQ_DIS0)
-
-#define READ_Y		(ADC_ON_12BIT | TSC2007_MEASURE_Y)
-#define READ_Z1		(ADC_ON_12BIT | TSC2007_MEASURE_Z1)
-#define READ_Z2		(ADC_ON_12BIT | TSC2007_MEASURE_Z2)
-#define READ_X		(ADC_ON_12BIT | TSC2007_MEASURE_X)
-#define PWRDOWN		(TSC2007_12BIT | TSC2007_POWER_OFF_IRQ_EN)
-
-struct ts_event {
-	u16	x;
-	u16	y;
-	u16	z1, z2;
-};
-
-struct tsc2007 {
-	struct input_dev	*input;
-	char			phys[32];
-
-	struct i2c_client	*client;
-
-	u16			model;
-	u16			x_plate_ohms;
-
-	struct touchscreen_properties prop;
-
-	bool			report_resistance;
-	u16			min_x;
-	u16			min_y;
-	u16			max_x;
-	u16			max_y;
-	u16			max_rt;
-	unsigned long		poll_period; /* in jiffies */
-	int			fuzzx;
-	int			fuzzy;
-	int			fuzzz;
-
-	unsigned		gpio;
-	int			irq;
-
-	wait_queue_head_t	wait;
-	bool			stopped;
-
-	int			(*get_pendown_state)(struct device *);
-	void			(*clear_penirq)(void);
-};
-
-static inline int tsc2007_xfer(struct tsc2007 *tsc, u8 cmd)
+int tsc2007_xfer(struct tsc2007 *tsc, u8 cmd)
 {
 	s32 data;
 	u16 val;
@@ -136,7 +69,7 @@ static void tsc2007_read_values(struct tsc2007 *tsc, struct ts_event *tc)
 	tsc2007_xfer(tsc, PWRDOWN);
 }
 
-static u32 tsc2007_calculate_resistance(struct tsc2007 *tsc,
+u32 tsc2007_calculate_resistance(struct tsc2007 *tsc,
 					struct ts_event *tc)
 {
 	u32 rt = 0;
