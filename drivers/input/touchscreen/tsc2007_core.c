@@ -20,87 +20,9 @@
  *  published by the Free Software Foundation.
  */
 
-#include <linux/module.h>
-#include <linux/slab.h>
-#include <linux/input.h>
-#include <linux/interrupt.h>
-#include <linux/i2c.h>
-#include <linux/i2c/tsc2007.h>
-#include <linux/of_device.h>
-#include <linux/of.h>
-#include <linux/of_gpio.h>
-#include <linux/input/touchscreen.h>
+#include "tsc2007.h"
 
-#define TSC2007_MEASURE_TEMP0		(0x0 << 4)
-#define TSC2007_MEASURE_AUX		(0x2 << 4)
-#define TSC2007_MEASURE_TEMP1		(0x4 << 4)
-#define TSC2007_ACTIVATE_XN		(0x8 << 4)
-#define TSC2007_ACTIVATE_YN		(0x9 << 4)
-#define TSC2007_ACTIVATE_YP_XN		(0xa << 4)
-#define TSC2007_SETUP			(0xb << 4)
-#define TSC2007_MEASURE_X		(0xc << 4)
-#define TSC2007_MEASURE_Y		(0xd << 4)
-#define TSC2007_MEASURE_Z1		(0xe << 4)
-#define TSC2007_MEASURE_Z2		(0xf << 4)
-
-#define TSC2007_POWER_OFF_IRQ_EN	(0x0 << 2)
-#define TSC2007_ADC_ON_IRQ_DIS0		(0x1 << 2)
-#define TSC2007_ADC_OFF_IRQ_EN		(0x2 << 2)
-#define TSC2007_ADC_ON_IRQ_DIS1		(0x3 << 2)
-
-#define TSC2007_12BIT			(0x0 << 1)
-#define TSC2007_8BIT			(0x1 << 1)
-
-#define	MAX_12BIT			((1 << 12) - 1)
-
-#define ADC_ON_12BIT	(TSC2007_12BIT | TSC2007_ADC_ON_IRQ_DIS0)
-
-#define READ_Y		(ADC_ON_12BIT | TSC2007_MEASURE_Y)
-#define READ_Z1		(ADC_ON_12BIT | TSC2007_MEASURE_Z1)
-#define READ_Z2		(ADC_ON_12BIT | TSC2007_MEASURE_Z2)
-#define READ_X		(ADC_ON_12BIT | TSC2007_MEASURE_X)
-#define PWRDOWN		(TSC2007_12BIT | TSC2007_POWER_OFF_IRQ_EN)
-
-struct ts_event {
-	u16	x;
-	u16	y;
-	u16	z1, z2;
-};
-
-struct tsc2007 {
-	struct input_dev	*input;
-	char			phys[32];
-
-	struct i2c_client	*client;
-
-	u16			model;
-	u16			x_plate_ohms;
-
-	struct touchscreen_properties prop;
-
-	bool			report_resistance;
-	u16			min_x;
-	u16			min_y;
-	u16			max_x;
-	u16			max_y;
-	u16			max_rt;
-	unsigned long		poll_period; /* in jiffies */
-	int			fuzzx;
-	int			fuzzy;
-	int			fuzzz;
-
-	unsigned		gpio;
-	int			irq;
-
-	wait_queue_head_t	wait;
-	bool			stopped;
-	bool			pendown;
-
-	int			(*get_pendown_state)(struct device *);
-	void			(*clear_penirq)(void);
-};
-
-static inline int tsc2007_xfer(struct tsc2007 *tsc, u8 cmd)
+int tsc2007_xfer(struct tsc2007 *tsc, u8 cmd)
 {
 	s32 data;
 	u16 val;
@@ -121,6 +43,7 @@ static inline int tsc2007_xfer(struct tsc2007 *tsc, u8 cmd)
 
 	return val;
 }
+EXPORT_SYMBOL(tsc2007_xfer);
 
 static void tsc2007_read_values(struct tsc2007 *tsc, struct ts_event *tc)
 {
@@ -138,7 +61,7 @@ static void tsc2007_read_values(struct tsc2007 *tsc, struct ts_event *tc)
 	tsc2007_xfer(tsc, PWRDOWN);
 }
 
-static u32 tsc2007_calculate_resistance(struct tsc2007 *tsc,
+u32 tsc2007_calculate_resistance(struct tsc2007 *tsc,
 					struct ts_event *tc)
 {
 	u32 rt = 0;
@@ -158,8 +81,9 @@ static u32 tsc2007_calculate_resistance(struct tsc2007 *tsc,
 
 	return rt;
 }
+EXPORT_SYMBOL(tsc2007_calculate_resistance);
 
-static bool tsc2007_is_pen_down(struct tsc2007 *ts)
+bool tsc2007_is_pen_down(struct tsc2007 *ts)
 {
 	/*
 	 * NOTE: We can't rely on the pressure to determine the pen down
@@ -180,6 +104,7 @@ static bool tsc2007_is_pen_down(struct tsc2007 *ts)
 
 	return ts->get_pendown_state(&ts->client->dev);
 }
+EXPORT_SYMBOL(tsc2007_is_pen_down);
 
 static irqreturn_t tsc2007_soft_irq(int irq, void *handle)
 {
@@ -192,7 +117,10 @@ static irqreturn_t tsc2007_soft_irq(int irq, void *handle)
 	while (!ts->stopped && tsc2007_is_pen_down(ts)) {
 
 		/* pen is down, continue with the measurement */
+
+		mutex_lock(&ts->mlock);
 		tsc2007_read_values(ts, &tc);
+		mutex_unlock(&ts->mlock);
 
 		rt = tsc2007_calculate_resistance(ts, &tc);
 
@@ -450,7 +378,8 @@ static void tsc2007_call_exit_platform_hw(void *data)
 static int tsc2007_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
-	const struct tsc2007_platform_data *pdata = dev_get_platdata(&client->dev);
+	const struct tsc2007_platform_data *pdata =
+		dev_get_platdata(&client->dev);
 	struct tsc2007 *ts;
 	struct input_dev *input_dev;
 	int err;
@@ -472,7 +401,13 @@ static int tsc2007_probe(struct i2c_client *client,
 	ts->client = client;
 	ts->irq = client->irq;
 	ts->input = input_dev;
+
+	err = tsc2007_iio_configure(ts);
+	if (err < 0)
+		return err;
+
 	init_waitqueue_head(&ts->wait);
+	mutex_init(&ts->mlock);
 
 	snprintf(ts->phys, sizeof(ts->phys),
 		 "%s/input0", dev_name(&client->dev));
@@ -494,7 +429,7 @@ static int tsc2007_probe(struct i2c_client *client,
 	if (pdata) {
 		err = tsc2007_probe_pdev(client, ts, pdata, id);
 		if (err)
-			return err;
+			goto probe_err;
 		input_set_abs_params(input_dev, ABS_X, 0, ts->max_x-ts->min_x,
 							  ts->fuzzx, 0);
 		input_set_abs_params(input_dev, ABS_Y, 0, ts->max_y-ts->min_y,
@@ -504,7 +439,7 @@ static int tsc2007_probe(struct i2c_client *client,
 	} else {
 		err = tsc2007_probe_dt(client, ts);
 		if (err)
-			return err;
+			goto probe_err;
 	}
 
 	if (pdata) {
@@ -516,7 +451,7 @@ static int tsc2007_probe(struct i2c_client *client,
 				dev_err(&client->dev,
 					"Failed to register exit_platform_hw action, %d\n",
 					err);
-				return err;
+				goto probe_err;
 			}
 		}
 
@@ -533,7 +468,7 @@ static int tsc2007_probe(struct i2c_client *client,
 	if (err) {
 		dev_err(&client->dev, "Failed to request irq %d: %d\n",
 			ts->irq, err);
-		return err;
+		goto probe_err;
 	}
 
 	tsc2007_stop(ts);
@@ -543,16 +478,29 @@ static int tsc2007_probe(struct i2c_client *client,
 	if (err < 0) {
 		dev_err(&client->dev,
 			"Failed to setup chip: %d\n", err);
-		return err;	/* usually, chip does not respond */
+		goto probe_err;	/* chip does not respond */
 	}
 
 	err = input_register_device(input_dev);
 	if (err) {
 		dev_err(&client->dev,
 			"Failed to register input device: %d\n", err);
-		return err;
+		goto probe_err;
 	}
 
+	return 0;
+
+probe_err:
+	tsc2007_iio_unconfigure(ts);
+	return err;
+}
+
+static int tsc2007_remove(struct i2c_client *client)
+{
+	struct tsc2007 *ts = i2c_get_clientdata(client);
+
+	tsc2007_iio_unconfigure(ts);
+	input_unregister_device(ts->input);
 	return 0;
 }
 
@@ -578,6 +526,7 @@ static struct i2c_driver tsc2007_driver = {
 	},
 	.id_table	= tsc2007_idtable,
 	.probe		= tsc2007_probe,
+	.remove		= tsc2007_remove,
 };
 
 module_i2c_driver(tsc2007_driver);
