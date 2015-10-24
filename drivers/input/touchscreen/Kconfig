@@ -1019,6 +1019,7 @@ config TOUCHSCREEN_TSC2005
 config TOUCHSCREEN_TSC2007
 	tristate "TSC2007 based touchscreens"
 	depends on I2C
+	select IIO
 	help
 	  Say Y here if you have a TSC2007 based touchscreen.
 
