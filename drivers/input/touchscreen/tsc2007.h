@@ -1,4 +1,3 @@
-
 /*
  * Copyright (c) 2008 MtekVision Co., Ltd.
  *	Kwangwoo Lee <kwlee@mtekvision.com>
@@ -21,6 +20,8 @@
 
 #ifndef _TSC2007_H
 #define _TSC2007_H
+
+#include <linux/input/touchscreen.h>
 
 #define TSC2007_MEASURE_TEMP0		(0x0 << 4)
 #define TSC2007_MEASURE_AUX		(0x2 << 4)
@@ -67,6 +68,13 @@ struct tsc2007 {
 	u16			model;
 	u16			x_plate_ohms;
 	bool			report_resistance;
+
+	struct touchscreen_properties prop;
+
+	u16			min_x;
+	u16			min_y;
+	u16			max_x;
+	u16			max_y;
 	u16			max_rt;
 	unsigned long		poll_period; /* in jiffies */
 	int			fuzzx;
@@ -78,6 +86,7 @@ struct tsc2007 {
 
 	wait_queue_head_t	wait;
 	bool			stopped;
+	bool			pendown;
 
 	int			(*get_pendown_state)(struct device *);
 	void			(*clear_penirq)(void);
@@ -86,14 +95,15 @@ struct tsc2007 {
 };
 
 int tsc2007_xfer(struct tsc2007 *tsc, u8 cmd);
-u32 tsc2007_calculate_pressure(struct tsc2007 *tsc,
+u32 tsc2007_calculate_resistance(struct tsc2007 *tsc,
 					struct ts_event *tc);
 bool tsc2007_is_pen_down(struct tsc2007 *ts);
 
 #if IS_ENABLED(CONFIG_TOUCHSCREEN_TSC2007_IIO)
 /* defined in tsc2007_iio.c */
 int tsc2007_iio_configure(struct tsc2007 *ts);
-#else
+
+#else /* CONFIG_TOUCHSCREEN_TSC2007_IIO */
 static inline int tsc2007_iio_configure(struct tsc2007 *ts)
 {
 	return 0;
