@@ -31,10 +31,6 @@
 
 	gpio9: gpio@22 {
 		compatible = "ti,tca6424";
-		pinctrl-names = "default";
-		pinctrl-0 = <&tca6424_pins>;
-		interrupt-parent = <&gpio3>;
-		interrupts = <14 IRQ_TYPE_LEVEL_LOW>;	/* gpio3_78 */
 		reg = <0x22>;
 		gpio-controller;
 		#gpio-cells = <2>;
