@@ -1065,6 +1065,7 @@ static int twl4030_bci_probe(struct platform_device *pdev)
 		dev_warn(&pdev->dev, "could not create sysfs file\n");
 
 	twl4030_charger_enable_ac(bci, true);
+		dev_dbg(&pdev->dev, "transceiver = %p\n", bci->transceiver);
 	if (!IS_ERR_OR_NULL(bci->transceiver))
 		twl4030_bci_usb_ncb(&bci->usb_nb,
 				    bci->transceiver->last_event,
