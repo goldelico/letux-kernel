@@ -1009,13 +1009,6 @@ static int twl4030_bci_probe(struct platform_device *pdev)
 	bci->irq_chg = platform_get_irq(pdev, 0);
 	bci->irq_bci = platform_get_irq(pdev, 1);
 
-	/* Only proceed further *IF* battery is physically present */
-	ret = twl4030_is_battery_present(bci);
-	if  (ret) {
-		dev_crit(&pdev->dev, "Battery was not detected:%d\n", ret);
-		return ret;
-	}
-
 	platform_set_drvdata(pdev, bci);
 
 	bci->ac = devm_power_supply_register(&pdev->dev, &twl4030_bci_ac_desc,
