@@ -68,6 +68,7 @@ static struct usb_phy *__of_usb_find_phy(struct device_node *node)
 		return ERR_PTR(-ENODEV);
 
 	list_for_each_entry(phy, &phy_list, head) {
+printk("%s : %s\n", node->name, phy->dev->of_node->name);
 		if (node != phy->dev->of_node)
 			continue;
 
@@ -190,6 +191,7 @@ struct  usb_phy *devm_usb_get_phy_by_node(struct device *dev,
 	struct phy_devm	*ptr;
 	unsigned long	flags;
 
+printk("devm_usb_get_phy_by_node(%p %s, %p %s, %p)\n", dev, dev_name(dev), node, node->name, nb);
 	ptr = devres_alloc(devm_usb_phy_release2, sizeof(*ptr), GFP_KERNEL);
 	if (!ptr) {
 		dev_dbg(dev, "failed to allocate memory for devres\n");
@@ -199,12 +201,14 @@ struct  usb_phy *devm_usb_get_phy_by_node(struct device *dev,
 	spin_lock_irqsave(&phy_lock, flags);
 
 	phy = __of_usb_find_phy(node);
+printk("phy = %p\n", phy);
 	if (IS_ERR(phy)) {
 		devres_free(ptr);
 		goto err1;
 	}
 
 	if (!try_module_get(phy->dev->driver->owner)) {
+printk("try_module_get failed\n");
 		phy = ERR_PTR(-ENODEV);
 		devres_free(ptr);
 		goto err1;
@@ -246,6 +250,8 @@ struct usb_phy *devm_usb_get_phy_by_phandle(struct device *dev,
 {
 	struct device_node *node;
 	struct usb_phy	*phy;
+
+printk("devm_usb_get_phy_by_phandle(..., %s, %u)\n", phandle, index);
 
 	if (!dev->of_node) {
 		dev_dbg(dev, "device does not have a device node entry\n");
@@ -383,6 +389,8 @@ int usb_add_phy(struct usb_phy *x, enum usb_phy_type type)
 	unsigned long	flags;
 	struct usb_phy	*phy;
 
+printk("usb_add_phy %s\n", x->label);
+
 	if (x->type != USB_PHY_TYPE_UNDEFINED) {
 		dev_err(x->dev, "not accepting initialized PHY %s\n", x->label);
 		return -EINVAL;
@@ -422,6 +430,8 @@ int usb_add_phy_dev(struct usb_phy *x)
 {
 	struct usb_phy_bind *phy_bind;
 	unsigned long flags;
+
+printk("usb_add_phy_dev %s\n", x->label);
 
 	if (!x->dev) {
 		dev_err(x->dev, "no device provided for PHY\n");
