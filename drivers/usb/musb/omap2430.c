@@ -382,6 +382,8 @@ static int omap2430_musb_init(struct musb *musb)
 		 */
 		musb->xceiv = devm_usb_get_phy_by_phandle(dev->parent,
 		    "usb-phy", 0);
+printk("xceiv = %p\n", musb->xceiv);
+printk("phy = %p\n", musb->phy);
 	} else {
 		musb->xceiv = devm_usb_get_phy_dev(dev, 0);
 		musb->phy = devm_phy_get(dev, "usb");
