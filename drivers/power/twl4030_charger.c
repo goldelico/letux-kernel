@@ -958,6 +958,10 @@ static int twl4030_bci_probe(struct platform_device *pdev)
 	int ret;
 	u32 reg;
 
+#ifdef DEBUG
+printk("twl4030_bci_probe\n");
+#endif
+
 	bci = devm_kzalloc(&pdev->dev, sizeof(*bci), GFP_KERNEL);
 	if (bci == NULL)
 		return -ENOMEM;
@@ -985,11 +989,24 @@ static int twl4030_bci_probe(struct platform_device *pdev)
 	if (bci->dev->of_node) {
 		struct device_node *phynode;
 
+#ifdef DEBUG
+printk("twl4030_bci_probe: of_find_compatible_node\n");
+#endif
+
 		phynode = of_find_compatible_node(bci->dev->of_node->parent,
 						  NULL, "ti,twl4030-usb");
+#ifdef DEBUG
+printk("  phynode = %p\n", phynode);
+#endif
+
 		if (phynode) {
 			bci->transceiver = devm_usb_get_phy_by_node(
 				bci->dev, phynode, &bci->usb_nb);
+
+#ifdef DEBUG
+printk("  bci->transceiver = %p\n", bci->transceiver);
+#endif
+
 			if (IS_ERR(bci->transceiver) &&
 			    PTR_ERR(bci->transceiver) == -EPROBE_DEFER)
 				return -EPROBE_DEFER;	/* PHY not ready */
