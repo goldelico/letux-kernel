@@ -989,8 +989,12 @@ static int twl4030_bci_probe(struct platform_device *pdev)
 
 	bci->channel_vac = devm_iio_channel_get(&pdev->dev, "vac");
 	if (IS_ERR(bci->channel_vac)) {
+		ret = PTR_ERR(bci->channel_vac);
+		if (ret == -EPROBE_DEFER)
+			return ret;	/* iio not ready */
+		dev_warn(&pdev->dev, "could not request vac iio channel (%d)",
+			ret);
 		bci->channel_vac = NULL;
-		dev_warn(&pdev->dev, "could not request vac iio channel");
 	}
 
 	if (bci->dev->of_node) {
@@ -1002,6 +1006,14 @@ static int twl4030_bci_probe(struct platform_device *pdev)
 			bci->transceiver = devm_usb_get_phy_by_node(
 				bci->dev, phynode, &bci->usb_nb);
 			bci->usb_nb.notifier_call = twl4030_bci_usb_ncb;
+			if (IS_ERR(bci->transceiver)) {
+				ret = PTR_ERR(bci->transceiver);
+				if (ret == -EPROBE_DEFER)
+					return ret;	/* phy not ready */
+				dev_warn(&pdev->dev, "could not request transceiver (%d)",
+					ret);
+				bci->transceiver = NULL;
+			}
 		}
 	}
 
