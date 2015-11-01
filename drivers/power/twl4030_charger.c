@@ -1031,23 +1031,6 @@ static int twl4030_bci_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = devm_request_threaded_irq(&pdev->dev, bci->irq_chg, NULL,
-			twl4030_charger_interrupt, IRQF_ONESHOT, pdev->name,
-			bci);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "could not request irq %d, status %d\n",
-			bci->irq_chg, ret);
-		return ret;
-	}
-
-	ret = devm_request_threaded_irq(&pdev->dev, bci->irq_bci, NULL,
-			twl4030_bci_interrupt, IRQF_ONESHOT, pdev->name, bci);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "could not request irq %d, status %d\n",
-			bci->irq_bci, ret);
-		return ret;
-	}
-
 	INIT_WORK(&bci->work, twl4030_bci_usb_work);
 	INIT_DELAYED_WORK(&bci->current_worker, twl4030_current_worker);
 
@@ -1064,6 +1047,23 @@ static int twl4030_bci_probe(struct platform_device *pdev)
 			    PTR_ERR(bci->transceiver) == -EPROBE_DEFER)
 				return -EPROBE_DEFER;	/* PHY not ready */
 		}
+	}
+
+	ret = devm_request_threaded_irq(&pdev->dev, bci->irq_chg, NULL,
+			twl4030_charger_interrupt, IRQF_ONESHOT, pdev->name,
+			bci);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "could not request irq %d, status %d\n",
+			bci->irq_chg, ret);
+		return ret;
+	}
+
+	ret = devm_request_threaded_irq(&pdev->dev, bci->irq_bci, NULL,
+			twl4030_bci_interrupt, IRQF_ONESHOT, pdev->name, bci);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "could not request irq %d, status %d\n",
+			bci->irq_bci, ret);
+		return ret;
 	}
 
 	/* Enable interrupts now. */
