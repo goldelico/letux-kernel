@@ -961,6 +961,7 @@ static struct platform_driver twl4030_usb_driver = {
 
 static int __init twl4030_usb_init(void)
 {
+	printk("twl4030_usb_init\n");
 	return platform_driver_register(&twl4030_usb_driver);
 }
 subsys_initcall(twl4030_usb_init);
