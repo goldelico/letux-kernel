@@ -1021,4 +1021,19 @@
 	pclk-sample = <1>;/* Rising */
 };
 
+/* can be removed as soon as we have tty-slaves */
+&uart1 { /* Bluetooth /dev/ttyO0 */
+	dtr-gpio = <&bt_en 0 GPIO_ACTIVE_LOW>;	/* w2cbw bluetooth power control through virtual gpio */
+};
+
+&uart2 { /* GPS /dev/ttyO1 */
+	dtr-gpio = <&gps_en 0 GPIO_ACTIVE_HIGH>;	/* w2sg0004 GPS power control through virtual gpio */
+};
+
+/* requires driver patch that Neil has remvoed upstream */
+&uart3 { /* Console and IrDA /dev/ttyO2 */
+	/* pinmux? */
+	dtr-gpio = <&gpio1 21 GPIO_ACTIVE_HIGH>;	/* DTR line on external RS232 interface */
+};
+
 };
