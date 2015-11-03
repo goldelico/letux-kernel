@@ -902,4 +902,11 @@
 		>;
 	};
 
+/* wwan power driver */
+	modem_pins: modem_pins {
+		pinctrl-single,pins = <
+			OMAP3_CORE1_IOPAD(0x21e2, PIN_OUTPUT | MUX_MODE4) /* GPIO_186 */
+		>;
+	};
+
 };
