@@ -894,4 +894,12 @@
 		>;
 	};
 
+/* should this alredy be upstream? */
+	penirq_pins: pinmux_penirq_pins {
+		pinctrl-single,pins = <
+			/* here we could enable to wakeup the cpu from suspend by a pen touch */
+			OMAP3_CORE1_IOPAD(0x2194, PIN_INPUT_PULLUP | MUX_MODE4) /* GPIO_160 */
+		>;
+	};
+
 };
