@@ -956,4 +956,25 @@
 	};
 */
 
+	/* camera (driver not yet available) */
+	ov9655@30 {
+		compatible = "omnivision,ov9655";
+		reg = <0x30>;
+		vdd_ana-supply = <&vaux3>;	/* driver should devm_regulator_get_optional("vdd_ana") */
+
+		clock-frequency = <24000000>;
+		clocks = <&isp 0>;	/* cam_clka */
+
+		port {
+			ov9655: endpoint {
+				bus-width = <8>;
+				remote-endpoint = <&parallel_ep>;
+				hsync-active = <1>;
+				vsync-active = <1>;
+				data-active = <1>;	/* Active High */
+				pclk-sample = <1>;	/* Rising */
+			};
+		};
+	};
+
 };
