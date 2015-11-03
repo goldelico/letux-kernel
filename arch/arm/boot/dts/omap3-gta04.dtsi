@@ -977,4 +977,11 @@
 		};
 	};
 
+	/* FM Radio (no kernel driver exists) */
+	si4721_codec: si4721@11 {
+		compatible = "silicon-labs,si4721";
+		#sound-dai-cells = <0>;
+		reg = <0x11>;
+	};
+
 };
