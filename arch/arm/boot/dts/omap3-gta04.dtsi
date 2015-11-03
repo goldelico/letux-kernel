@@ -1085,4 +1085,21 @@
 	};
 };
 
+/* some changes because partition sizes have been changed in u-boot to accomodate kernels up to 6 MB */
+
+&gpmc {
+	ranges = <0 0 0x30000000 0x04>; /* CS0: NAND */
+
+	nand@0,0 {
+		reg = <0 0 0>; /* CS0, offset 0 */
+		ti,nand-ecc-opt = "sw"; /* stay compatible with our old u-boot (does not support bch8) */
+
+		kernel@280000 {
+			reg = <0x280000 0x600000>;
+		};
+
+		filesystem@a80000 {
+			reg = <0x880000 0>;     /* 0 = MTDPART_SIZ_FULL */
+		};
+	};
 };
