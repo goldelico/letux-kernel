@@ -1036,4 +1036,33 @@
 	dtr-gpio = <&gpio1 21 GPIO_ACTIVE_HIGH>;	/* DTR line on external RS232 interface */
 };
 
+/* audio system */
+&mcbsp1 { /* FM Transceiver PCM */
+	status = "okay";
+	#sound-dai-cells = <0>;
+//	pinctrl-names = "default";
+//	pinctrl-0 = <&mcbsp1_pins>;
+};
+
+&mcbsp2 { /* TPS65950 I2S */
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcbsp2_pins>;
+};
+
+&mcbsp3 { /* Bluetooth PCM */
+	status = "okay";
+	#sound-dai-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcbsp3_pins>;
+};
+
+&mcbsp4 { /* GSM voice PCM */
+	status = "okay";
+	#sound-dai-cells = <0>;
+	pinctrl-names = "default", "tristate";
+	pinctrl-0 = <&mcbsp4_pins>;
+	pinctrl-1 = <&mcbsp4_tristate_pins>;
+};
+
 };
