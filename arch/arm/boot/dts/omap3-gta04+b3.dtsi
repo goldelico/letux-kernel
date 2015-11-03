@@ -136,12 +136,18 @@
 		interrupts = <0 IRQ_TYPE_EDGE_FALLING>;
 		gpios = <&gpio6 0 GPIO_ACTIVE_LOW>;	/* gpio160 */
 		ti,x-plate-ohms = <450>;
-		ti,rng_x = <0 4095>;
-		ti,rng_y = <0 4095>;
-		ti,rng_z = <0 4095>;
-		ti,flip_x = <0>;
-		ti,flip_y = <0>;
-		ti,swap_xy = <1>;
+		touchscreen-size-x = <480>;
+		touchscreen-size-y = <800>;
+		touchscreen-max-pressure = <1000>;
+		touchscreen-fuzz-x = <2>;
+		touchscreen-fuzz-y = <2>;
+		touchscreen-fuzz-pressure = <10>;
+		touchscreen-swapped-x-y;
+		ti,min-x = <200>;
+		ti,max-x = <4000>;
+		ti,min-y = <200>;
+		ti,max-y = <4000>;
+		ti,max-rt = <1000>;
 	};
 
 };
