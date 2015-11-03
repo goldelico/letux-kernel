@@ -586,3 +586,11 @@
 &mcbsp4 {
 	status = "okay";
 };
+
+/*
+ * additions not yet upstreamed
+ * and work in progress
+ * as soon as something is stable, it should be casted into a
+ *    patch for code above and upstreamed
+ * as soon as it arrives upstream, we can remove it here
+ */
