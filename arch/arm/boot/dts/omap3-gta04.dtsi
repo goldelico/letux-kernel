@@ -1065,4 +1065,12 @@
 	pinctrl-1 = <&mcbsp4_tristate_pins>;
 };
 
+/* Needed to power the DPI pins */
+
+/* should this go upstream? Ask Tomi Valkainen / check with BeagleBoard/RX51 */
+
+&vpll2 {
+	regulator-always-on;
+};
+
 };
