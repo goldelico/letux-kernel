@@ -1073,4 +1073,16 @@
 	regulator-always-on;
 };
 
+/* for VENC - do we have duplicate devconf settings??? */
+&control_devconf1 {
+	pinctrl-name = "default";
+	pinctrl-0 = < &tv_acbias_pins>;
+
+	tv_acbias_pins: pinmux_tv_acbias_pins {
+		pinctrl-single,bits = <
+			0 0x40800 0x40800
+		>;
+	};
+};
+
 };
