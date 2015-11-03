@@ -910,3 +910,28 @@
 	};
 
 };
+
+&twl_madc {
+	ti,system-uses-second-madc-irq;
+};
+
+// should be patched upstream!
+
+&twl_power {
+	compatible = "ti,twl4030-power-reset";
+	ti,use_poweroff;
+};
+
+/* spare */
+&vmmc2 {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+};
+
+// for WLAN
+&mmc2 {
+	// remove cap-power-off-card;
+	mmc-pwrseq = <&wifi_pwrseq>;
+};
+
+};
