@@ -729,4 +729,29 @@
 		};
 	};
 
+/* modem power management - driver not upstream */
+	gpio-keys-wwan-wakeup {
+		compatible = "gpio-keys";
+		// FIXME: pinmux
+
+		wwan_wakeup_button: wwan-wakeup-button {
+			label = "3G_WOE";
+			linux,code = <240>;
+			gpios = <&gpio1 10 GPIO_ACTIVE_HIGH>;
+			gpio-key,wakeup;
+		};
+	};
+
+	modem_en: modem { /* control modem power through rfkill */
+		compatible = "option,gtm601";
+		/* compatible = "gemalto,phs8" for Neo900/GTA04b7 */
+		gpio-controller;
+		#gpio-cells = <2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&modem_pins>;
+		usb-port = <&hsusb2_phy>;
+		on-off-gpio = <&gpio6 26 0>;	/* GPIO_186: trigger to power on modem */
+		on-indicator-gpio = <0>;		/* n/a on GTA04A3/4 but on A5 */
+	};
+
 };
