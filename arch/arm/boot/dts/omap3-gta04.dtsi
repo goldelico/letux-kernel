@@ -634,4 +634,9 @@
 		state-off = "internal";
 	};
 
+/* can we upstream ? */
+	madc-hwmon {
+		compatible = "ti,twl4030-madc-hwmon";
+	};
+
 };
