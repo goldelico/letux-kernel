@@ -779,3 +779,16 @@
 		reg = <0x48002270 0x74>;
 	};
 };
+
+&omap3_pmx_core {
+
+/* will no longer be needed with tty-slaves */
+	uart2_rx_irq_pins: pinmux_uart2_rx_irq_pins {
+		pinctrl-single,pins = <
+			/* switch RX to GPIO so that we can get interrupts by the start bit */
+			OMAP3_CORE1_IOPAD(0x217a, PIN_INPUT | MUX_MODE4)	/* uart2_rx.uart2_rx */
+			OMAP3_CORE1_IOPAD(0x2178, PIN_OUTPUT | MUX_MODE0)	/* uart2_tx.uart2_tx */
+		>;
+	};
+
+};
