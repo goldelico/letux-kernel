@@ -681,4 +681,13 @@
 		enable-active-high;
 	};
 
+/* will be replaced by new tty-slaves (DON'T UPSTREAM) */
+	bt_en: w2cbw003 { /* presents a single gpio to be plumbed to uart1 dts */
+		compatible = "wi2wi,w2cbw003";
+		gpio-controller;
+		#gpio-cells = <2>;
+
+		vdd-supply = <&vaux4>;
+	};
+
 };
