@@ -620,4 +620,18 @@
 		reset-gpios = <&tca_gpios 0 GPIO_ACTIVE_LOW>;	/* W2CBW003 reset through tca6507 */
 	};
 
+/* Neil's extcon patches not upstream */
+	antenna-detect {
+		compatible = "extcon-gpio";
+		label = "gps_antenna";
+		// FIXME: pinmux
+		gpios = <&gpio5 16 GPIO_ACTIVE_HIGH>; /* GPIO144 */
+		debounce-delay-ms = <10>;
+		interrupt-parent = <&gpio5>;
+		interrupts = <16 IRQ_TYPE_EDGE_BOTH>;
+		irq-flags = <IRQ_TYPE_EDGE_BOTH>;
+		state-on = "external";
+		state-off = "internal";
+	};
+
 };
