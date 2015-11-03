@@ -754,4 +754,23 @@
 		on-indicator-gpio = <0>;		/* n/a on GTA04A3/4 but on A5 */
 	};
 
+/* gps - will be replaced by new tty-slave driver (DON'T UPSTREAM) */
+	gps_en: w2sg0004 { /* presents a single gpio to be plumbed to uart2 dts */
+		compatible = "wi2wi,w2sg0004";
+		gpio-controller;
+		#gpio-cells = <2>;
+
+		pinctrl-names = "default", "monitor";
+		pinctrl-0 = <&uart2_pins>;
+		pinctrl-1 = <&uart2_rx_irq_pins>;
+
+/* FIXME: driver currently uses the rx-gpio but we should (could?) simply specify the IRQ */
+		interrupt-parent = <&gpio5>;
+		interrupts = <19 IRQ_TYPE_EDGE_FALLING>;	/* GPIO_147: RX - trigger on arrival of start bit */
+//		rx-gpio = <&gpio5 19 0>;	/* GPIO_147: RX */
+
+		lna-supply = <&vsim>;	/* LNA regulator */
+		on-off-gpio = <&gpio5 17 0>;	/* GPIO_145: trigger for turning on/off w2sg0004 */
+	};
+
 };
