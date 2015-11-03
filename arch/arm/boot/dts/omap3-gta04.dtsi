@@ -690,4 +690,43 @@
 		vdd-supply = <&vaux4>;
 	};
 
+/* audio extensions */
+	w2cbw003_codec: headset_codec {
+		compatible = "w2cbw003-codec";
+		#sound-dai-cells = <0>;
+	};
+
+	/* Bluetooth audio */
+	sound_bluetooth {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "GTA04 bluetooth";
+		simple-audio-card,bitclock-master = <&bt_link_master>;
+		simple-audio-card,frame-master = <&bt_link_master>;
+		simple-audio-card,format = "i2s";
+
+		simple-audio-card,cpu {
+			sound-dai = <&mcbsp3>;
+		};
+
+		bt_link_master: simple-audio-card,codec {
+			sound-dai = <&w2cbw003_codec>;
+		};
+	};
+
+	sound_fmradio {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "GTA04 fm-radio";
+
+		/* FM tuner audio */
+		simple-audio-card,dai-link@0 {
+			format = "i2s";
+			cpu {
+				sound-dai = <&mcbsp1>;
+			};
+			codec {
+				sound-dai = <&si4721_codec>;
+			};
+		};
+	};
+
 };
