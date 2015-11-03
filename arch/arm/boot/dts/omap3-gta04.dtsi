@@ -934,4 +934,26 @@
 	mmc-pwrseq = <&wifi_pwrseq>;
 };
 
+&i2c2 {
+/* can be upstreamed */
+	/* RFID EEPROM */
+	m24lr64@50 {
+		compatible = "at,24c64";
+		reg = <0x50>;
+	};
+
+/* not yet mature */
+	/* flash/torch (torch driver not yet available) */
+/* segfaults during modprobe
+	tps61050@33 {
+		compatible = "ti,tps61050";
+		reg = <0x33>;
+
+		flash: regulator@0 {
+			regulator-min-microvolt= <1000000>;
+			regulator-max-microvolt= <3000000>;
+		};
+	};
+*/
+
 };
