@@ -985,3 +985,40 @@
 	};
 
 };
+
+/* image signal processor within OMAP3 SoC */
+&isp {
+//	vdd-csiphy1-supply = <&vaux2>;
+//	vdd-csiphy2-supply = <&vaux2>;
+	ports {
+		port@0 {
+			reg = <0>;
+			parallel_ep: endpoint {};
+		};
+/* these ports are not used by GTA04 */
+		port@1 {
+			reg = <1>;
+			csi1_ep: endpoint {};
+		};
+
+		port@2 {
+			reg = <2>;
+			csi2_ep: endpoint {};
+		};
+	};
+};
+
+/* parallel camera interface */
+&parallel_ep {
+	remote-endpoint = <&ov9655>;
+	ti,isp-clock-divisor = <1>;
+	ti,strobe-mode;
+	bus-width = <8>;/* Used data lines */
+	data-shift = <2>; /* Lines 9:2 are used */
+	hsync-active = <0>; /* Active low */
+	vsync-active = <0>; /* Active low */
+	data-active = <1>;/* Active high */
+	pclk-sample = <1>;/* Rising */
+};
+
+};
