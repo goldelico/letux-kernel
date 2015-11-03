@@ -773,4 +773,9 @@
 		on-off-gpio = <&gpio5 17 0>;	/* GPIO_145: trigger for turning on/off w2sg0004 */
 	};
 
+/* what was this good for? */
+	control: control@48002270 {
+		compatible = "ti,omap3-devconf1-syscon", "syscon";
+		reg = <0x48002270 0x74>;
+	};
 };
