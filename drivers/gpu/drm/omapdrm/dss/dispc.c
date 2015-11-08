@@ -2714,6 +2714,8 @@ static int dispc_ovl_setup_common(enum omap_plane plane,
 		frame_height = height;
 	}
 
+	printk("dsi: dispc_ovl_setup_common() rotation type %d paddr %p\n", rotation_type, paddr);
+
 	if (rotation_type == OMAP_DSS_ROT_TILER)
 		calc_tiler_rotation_offset(screen_width, frame_width,
 				color_mode, fieldmode, field_offset,
@@ -2732,7 +2734,7 @@ static int dispc_ovl_setup_common(enum omap_plane plane,
 				&offset0, &offset1, &row_inc, &pix_inc,
 				x_predecim, y_predecim);
 
-	DSSDBG("offset0 %u, offset1 %u, row_inc %d, pix_inc %d\n",
+	printk("dsi: dispc_ovl_setup_common() offset0 %u, offset1 %u, row_inc %d, pix_inc %d\n",
 			offset0, offset1, row_inc, pix_inc);
 
 	dispc_ovl_set_color_mode(plane, color_mode);
@@ -2793,7 +2795,7 @@ int dispc_ovl_setup(enum omap_plane plane, const struct omap_overlay_info *oi,
 
 	channel = dispc_ovl_get_channel_out(plane);
 
-	DSSDBG("dispc_ovl_setup %d, pa %pad, pa_uv %pad, sw %d, %d,%d, %dx%d ->"
+	printk("dsi: dispc_ovl_setup() %d, pa %pad, pa_uv %pad, sw %d, %d,%d, %dx%d ->"
 		" %dx%d, cmode %x, rot %d, mir %d, chan %d repl %d\n",
 		plane, &oi->paddr, &oi->p_uv_addr, oi->screen_width, oi->pos_x,
 		oi->pos_y, oi->width, oi->height, oi->out_width, oi->out_height,
@@ -2824,7 +2826,7 @@ int dispc_wb_setup(const struct omap_dss_writeback_info *wi,
 	enum omap_overlay_caps caps =
 		OMAP_DSS_OVL_CAP_SCALE | OMAP_DSS_OVL_CAP_PRE_MULT_ALPHA;
 
-	DSSDBG("dispc_wb_setup, pa %x, pa_uv %x, %d,%d -> %dx%d, cmode %x, "
+	printk("dsi: dispc_wb_setup, pa %x, pa_uv %x, %d,%d -> %dx%d, cmode %x, "
 		"rot %d, mir %d\n", wi->paddr, wi->p_uv_addr, in_width,
 		in_height, wi->width, wi->height, wi->color_mode, wi->rotation,
 		wi->mirror);

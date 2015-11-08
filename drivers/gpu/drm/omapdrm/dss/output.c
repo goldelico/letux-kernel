@@ -94,6 +94,7 @@ EXPORT_SYMBOL(omapdss_output_unset_device);
 
 int omapdss_register_output(struct omap_dss_device *out)
 {
+printk("omapdss_register_output() name =%s\n", out->name);
 	list_add_tail(&out->list, &output_list);
 	return 0;
 }
@@ -190,6 +191,7 @@ EXPORT_SYMBOL(dss_uninstall_mgr_ops);
 int dss_mgr_connect(enum omap_channel channel,
 		struct omap_dss_device *dst)
 {
+printk("dsi: dss_mgr_connect() %d %s\n", channel, dst->name);
 	return dss_mgr_ops->connect(channel, dst);
 }
 EXPORT_SYMBOL(dss_mgr_connect);
@@ -217,6 +219,7 @@ EXPORT_SYMBOL(dss_mgr_set_lcd_config);
 
 int dss_mgr_enable(enum omap_channel channel)
 {
+printk("dsi: dss_mgr_enable()\n");
 	return dss_mgr_ops->enable(channel);
 }
 EXPORT_SYMBOL(dss_mgr_enable);

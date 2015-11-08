@@ -475,7 +475,7 @@ static void dsi_bus_lock(struct omap_dss_device *dssdev)
 {
 	struct platform_device *dsidev = dsi_get_dsidev_from_dssdev(dssdev);
 	struct dsi_data *dsi = dsi_get_dsidrv_data(dsidev);
-
+printk("dsi: dsi_bus_lock\n");
 	down(&dsi->bus_lock);
 }
 
@@ -483,6 +483,7 @@ static void dsi_bus_unlock(struct omap_dss_device *dssdev)
 {
 	struct platform_device *dsidev = dsi_get_dsidev_from_dssdev(dssdev);
 	struct dsi_data *dsi = dsi_get_dsidrv_data(dsidev);
+printk("dsi: dsi_bus_unlock\n");
 
 	up(&dsi->bus_lock);
 }
@@ -2458,6 +2459,7 @@ static int dsi_vc_config_source(struct platform_device *dsidev, int channel,
 	if (dsi->vc[channel].source == source)
 		return 0;
 
+	printk("dsi: dsi_vc_config_source %d %d\n", channel, source);
 	DSSDBG("Source config of virtual channel %d", channel);
 
 	dsi_sync_vc(dsidev, channel);
@@ -2493,6 +2495,7 @@ static void dsi_vc_enable_hs(struct omap_dss_device *dssdev, int channel,
 	struct dsi_data *dsi = dsi_get_dsidrv_data(dsidev);
 
 	DSSDBG("dsi_vc_enable_hs(%d, %d)\n", channel, enable);
+	printk("dsi: dsi_vc_enable_hs(%d, %d)\n", channel, enable);
 
 	WARN_ON(!dsi_bus_is_locked(dsidev));
 
@@ -3108,6 +3111,8 @@ static int dsi_vc_set_max_rx_packet_size(struct omap_dss_device *dssdev, int cha
 {
 	struct platform_device *dsidev = dsi_get_dsidev_from_dssdev(dssdev);
 
+// printk("dsi: dsi_vc_set_max_rx_packet_size ch %d len %d\n", channel, len);
+
 	return dsi_vc_send_short(dsidev, channel,
 			MIPI_DSI_SET_MAXIMUM_RETURN_PACKET_SIZE, len, 0);
 }
@@ -3119,7 +3124,7 @@ static int dsi_enter_ulps(struct platform_device *dsidev)
 	int r, i;
 	unsigned mask;
 
-	DSSDBG("Entering ULPS");
+	printk("dsi: dsi_enter_ulps\n");
 
 	WARN_ON(!dsi_bus_is_locked(dsidev));
 
@@ -3822,6 +3827,8 @@ static int dsi_enable_video_output(struct omap_dss_device *dssdev, int channel)
 	u16 word_count;
 	int r;
 
+printk("dsi: dsi_enable_video_output %d\n", channel);
+
 	if (!out->dispc_channel_connected) {
 		DSSERR("failed to enable display: no output/manager\n");
 		return -ENODEV;
@@ -3888,6 +3895,8 @@ static void dsi_disable_video_output(struct omap_dss_device *dssdev, int channel
 	struct dsi_data *dsi = dsi_get_dsidrv_data(dsidev);
 	enum omap_channel dispc_channel = dssdev->dispc_channel;
 
+printk("dsi: dsi_disable_video_output\n");
+
 	if (dsi->mode == OMAP_DSS_DSI_VIDEO_MODE) {
 		dsi_if_enable(dsidev, false);
 		dsi_vc_enable(dsidev, channel, false);
@@ -3921,7 +3930,7 @@ static void dsi_update_screen_dispc(struct platform_device *dsidev)
 	u16 w = dsi->timings.x_res;
 	u16 h = dsi->timings.y_res;
 
-	DSSDBG("dsi_update_screen_dispc(%dx%d)\n", w, h);
+	printk("dsi: dsi_update_screen_dispc(%dx%d)\n", w, h);
 
 	dsi_vc_config_source(dsidev, channel, DSI_VC_SOURCE_VP);
 
@@ -4261,6 +4270,7 @@ static int dsi_display_enable(struct omap_dss_device *dssdev)
 	struct dsi_data *dsi = dsi_get_dsidrv_data(dsidev);
 	int r = 0;
 
+	printk("dsi: dsi_display_enable\n");
 	DSSDBG("dsi_display_enable\n");
 
 	WARN_ON(!dsi_bus_is_locked(dsidev));
@@ -4295,7 +4305,7 @@ static void dsi_display_disable(struct omap_dss_device *dssdev,
 	struct platform_device *dsidev = dsi_get_dsidev_from_dssdev(dssdev);
 	struct dsi_data *dsi = dsi_get_dsidrv_data(dsidev);
 
-	DSSDBG("dsi_display_disable\n");
+	printk("dsi: dsi_display_disable disc %d ulps %d\n", disconnect_lanes, enter_ulps);
 
 	WARN_ON(!dsi_bus_is_locked(dsidev));
 
@@ -4767,6 +4777,7 @@ static bool dsi_vm_calc(struct dsi_data *dsi,
 	unsigned long byteclk_min;
 
 	clkin = clk_get_rate(dsi->pll.clkin);
+printk("dsi: dsi_vm_calc clkin = %lu bitspp = %d\n", clkin, bitspp);
 
 	memset(ctx, 0, sizeof(*ctx));
 	ctx->dsidev = dsi->pdev;
@@ -4777,9 +4788,11 @@ static bool dsi_vm_calc(struct dsi_data *dsi,
 	ctx->req_pck_min = t->pixelclock - 1000;
 	ctx->req_pck_nom = t->pixelclock;
 	ctx->req_pck_max = t->pixelclock + 1000;
+printk("dsi: dsi_vm_calc pixelclock = %lu\n", t->pixelclock);
 
 	byteclk_min = div64_u64((u64)ctx->req_pck_min * bitspp, ndl * 8);
 	pll_min = max(cfg->hs_clk_min * 4, byteclk_min * 4 * 4);
+printk("dsi: dsi_vm_calc byteclk_min = %lu pll_min = %lu\n", byteclk_min, pll_min);
 
 	if (cfg->trans_mode == OMAP_DSS_DSI_BURST_MODE) {
 		pll_max = cfg->hs_clk_max * 4;
@@ -4789,7 +4802,9 @@ static bool dsi_vm_calc(struct dsi_data *dsi,
 				ndl * 8);
 
 		pll_max = byteclk_max * 4 * 4;
+printk("dsi: dsi_vm_calc byteclk_max = %lu\n", byteclk_max);
 	}
+printk("dsi: dsi_vm_calc pll_max = %lu\n", pll_max);
 
 	return dss_pll_calc_a(ctx->pll, clkin,
 			pll_min, pll_max,
@@ -4804,6 +4819,14 @@ static int dsi_set_config(struct omap_dss_device *dssdev,
 	struct dsi_clk_calc_ctx ctx;
 	bool ok;
 	int r;
+
+printk("dsi: dsi_set_config()\n");
+		printk("  DDR CLK: %lu..%lu\n", config->hs_clk_min, config->hs_clk_max);
+		printk("  LPCLK out: %lu..%lu\n", config->lp_clk_min, config->lp_clk_max);
+		printk("  MODE: %u\n", config->mode);
+		printk("  FMT: %u\n", config->pixel_format);
+		printk("  Always On: %u\n", config->ddr_clk_always_on);
+		printk("  Trans Mode: %u\n", config->trans_mode);
 
 	mutex_lock(&dsi->lock);
 
@@ -4918,6 +4941,8 @@ static int dsi_set_vc_id(struct omap_dss_device *dssdev, int channel, int vc_id)
 	struct platform_device *dsidev = dsi_get_dsidev_from_dssdev(dssdev);
 	struct dsi_data *dsi = dsi_get_dsidrv_data(dsidev);
 
+printk("dsi: dsi_set_vc_id ch=%d id=%d\n", channel, vc_id);
+
 	if (vc_id < 0 || vc_id > 3) {
 		DSSERR("VC ID out of range\n");
 		return -EINVAL;
@@ -4974,7 +4999,7 @@ static int dsi_connect(struct omap_dss_device *dssdev,
 	struct platform_device *dsidev = dsi_get_dsidev_from_dssdev(dssdev);
 	enum omap_channel dispc_channel = dssdev->dispc_channel;
 	int r;
-
+printk("dsi: dsi_connect %s/%s -> %s/%s\n", dssdev->alias, dssdev->name, dst->alias, dst->name);
 	r = dsi_regulator_init(dsidev);
 	if (r)
 		return r;
@@ -4998,6 +5023,8 @@ static void dsi_disconnect(struct omap_dss_device *dssdev,
 		struct omap_dss_device *dst)
 {
 	enum omap_channel dispc_channel = dssdev->dispc_channel;
+
+printk("dsi: dsi_disconnect\n");
 
 	WARN_ON(dst != dssdev->dst);
 
@@ -5060,6 +5087,7 @@ static void dsi_init_output(struct platform_device *dsidev)
 	out->output_type = OMAP_DISPLAY_TYPE_DSI;
 	out->name = dsi->module_id == 0 ? "dsi.0" : "dsi.1";
 	out->dispc_channel = dsi_get_channel(dsi->module_id);
+printk("dsi: dsi_init_output set dsi_ops %p\n", &dsi_ops);
 	out->ops.dsi = &dsi_ops;
 	out->owner = THIS_MODULE;
 

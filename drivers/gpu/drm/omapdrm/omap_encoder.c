@@ -110,11 +110,14 @@ static int omap_encoder_update(struct drm_encoder *encoder,
 	struct omap_dss_driver *dssdrv = dssdev->driver;
 	int ret;
 
+printk("dsi: omap_encoder_update()\n");
 	if (dssdrv->check_timings) {
+printk("dsi: omap_encoder_update check_timings()\n");
 		ret = dssdrv->check_timings(dssdev, timings);
 	} else {
 		struct omap_video_timings t = {0};
 
+printk("dsi: omap_encoder_update get_timings()\n");
 		dssdrv->get_timings(dssdev, &t);
 
 		if (memcmp(timings, &t, sizeof(struct omap_video_timings)))
@@ -143,7 +146,7 @@ static void omap_encoder_enable(struct drm_encoder *encoder)
 
 	omap_encoder_update(encoder, omap_crtc_channel(encoder->crtc),
 			    omap_crtc_timings(encoder->crtc));
-
+printk("dsi: omap_encoder_enable()\n");
 	r = dssdrv->enable(dssdev);
 	if (r)
 		dev_err(encoder->dev->dev,

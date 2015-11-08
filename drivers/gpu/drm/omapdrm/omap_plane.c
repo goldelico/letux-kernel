@@ -85,7 +85,7 @@ static void omap_plane_atomic_update(struct drm_plane *plane,
 	struct omap_drm_window win;
 	int ret;
 
-	DBG("%s, crtc=%p fb=%p", omap_plane->name, state->crtc, state->fb);
+	printk("dsi: omap_plane_atomic_update %s, crtc=%p fb=%p\n", omap_plane->name, state->crtc, state->fb);
 
 	memset(&info, 0, sizeof(info));
 	info.rotation_type = OMAP_DSS_ROT_DMA;
@@ -123,10 +123,10 @@ static void omap_plane_atomic_update(struct drm_plane *plane,
 	/* update scanout: */
 	omap_framebuffer_update_scanout(state->fb, &win, &info);
 
-	DBG("%dx%d -> %dx%d (%d)", info.width, info.height,
+	printk("dsi: omap_plane_atomic_update %dx%d -> %dx%d (%d)\n", info.width, info.height,
 			info.out_width, info.out_height,
 			info.screen_width);
-	DBG("%d,%d %pad %pad", info.pos_x, info.pos_y,
+	printk("dsi: omap_plane_atomic_update %d,%d %pad %pad\n", info.pos_x, info.pos_y,
 			&info.paddr, &info.p_uv_addr);
 
 	dispc_ovl_set_channel_out(omap_plane->id,

@@ -336,6 +336,7 @@ static void omap_crtc_enable(struct drm_crtc *crtc)
 {
 	struct omap_crtc *omap_crtc = to_omap_crtc(crtc);
 
+	printk("dsi: omap_crtc_enable() %s\n", omap_crtc->name);
 	DBG("%s", omap_crtc->name);
 
 	rmb();
@@ -396,6 +397,7 @@ static void omap_crtc_atomic_flush(struct drm_crtc *crtc,
 {
 	struct omap_crtc *omap_crtc = to_omap_crtc(crtc);
 
+	printk("dsi: omap_crtc_atomic_flush() %s\n", omap_crtc->name);
 	WARN_ON(omap_crtc->vblank_irq.registered);
 
 	if (crtc->state->color_mgmt_changed) {

@@ -215,8 +215,7 @@ int drm_helper_probe_single_connector_modes(struct drm_connector *connector,
 	enum drm_connector_status old_status;
 
 	WARN_ON(!mutex_is_locked(&dev->mode_config.mutex));
-
-	DRM_DEBUG_KMS("[CONNECTOR:%d:%s]\n", connector->base.id,
+	printk("[CONNECTOR:%d:%s]\n", connector->base.id,
 			connector->name);
 	/* set all old modes to the stale state */
 	list_for_each_entry(mode, &connector->modes, head)
@@ -327,7 +326,7 @@ prune:
 
 	drm_mode_sort(&connector->modes);
 
-	DRM_DEBUG_KMS("[CONNECTOR:%d:%s] probed modes :\n", connector->base.id,
+	printk("[CONNECTOR:%d:%s] probed modes :\n", connector->base.id,
 			connector->name);
 	list_for_each_entry(mode, &connector->modes, head) {
 		drm_mode_set_crtcinfo(mode, CRTC_INTERLACE_HALVE_V);

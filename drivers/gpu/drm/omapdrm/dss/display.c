@@ -92,7 +92,7 @@ int omapdss_register_display(struct omap_dss_device *dssdev)
 	 * which normally should be the case. This also presumes that all
 	 * displays either have an DT alias, or none has.
 	 */
-
+printk("omapdss_register_display()\n");
 	if (dssdev->dev->of_node) {
 		id = of_alias_get_id(dssdev->dev->of_node, "display");
 
@@ -111,6 +111,7 @@ int omapdss_register_display(struct omap_dss_device *dssdev)
 
 	if (dssdev->name == NULL)
 		dssdev->name = dssdev->alias;
+printk("omapdss_register_display() name =%s\n", dssdev->name);
 
 	if (drv && drv->get_resolution == NULL)
 		drv->get_resolution = omapdss_default_get_resolution;

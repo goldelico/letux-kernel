@@ -226,6 +226,9 @@ bool dss_pll_calc_a(const struct dss_pll *pll, unsigned long clkin,
 	fint_hw_min = hw->fint_min;
 	fint_hw_max = hw->fint_max;
 
+printk("dss_pll_calc clkin=%lu min=%lu max=%lu\n", clkin, pll_min, pll_max);
+printk("hp clkdco=%lu min=%lu max=%lu\n", pll_hw_max, fint_hw_min, fint_hw_max);
+
 	n_start = max(DIV_ROUND_UP(clkin, fint_hw_max), 1ul);
 	n_stop = min((unsigned)(clkin / fint_hw_min), hw->n_max);
 

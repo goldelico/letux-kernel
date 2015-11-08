@@ -236,8 +236,10 @@ static int omap_connect_dssdevs(void)
 	int r;
 	struct omap_dss_device *dssdev = NULL;
 	bool no_displays = true;
+printk("dsi: omap_connect_dssdevs\n");
 
 	for_each_dss_dev(dssdev) {
+printk("dsi: omap_connect_dssdevs: %s\n", dssdev->name);
 		r = dssdev->driver->connect(dssdev);
 		if (r == -EPROBE_DEFER) {
 			omap_dss_put_device(dssdev);
@@ -252,10 +254,12 @@ static int omap_connect_dssdevs(void)
 
 	if (no_displays)
 		return -EPROBE_DEFER;
+printk("dsi: omap_connect_dssdevs done !no_displays\n");
 
 	return 0;
 
 cleanup:
+printk("dsi: omap_connect_dssdevs cleanup\n");
 	/*
 	 * if we are deferring probe, we disconnect the devices we previously
 	 * connected
@@ -864,6 +868,7 @@ static int omap_drm_suspend_all_displays(void)
 {
 	struct omap_dss_device *dssdev = NULL;
 
+printk("dsi: omap_drm_suspend_all_displays()\n");
 	for_each_dss_dev(dssdev) {
 		if (!dssdev->driver)
 			continue;
@@ -883,6 +888,7 @@ static int omap_drm_resume_all_displays(void)
 {
 	struct omap_dss_device *dssdev = NULL;
 
+printk("dsi: omap_drm_resume_all_displays()\n");
 	for_each_dss_dev(dssdev) {
 		if (!dssdev->driver)
 			continue;
