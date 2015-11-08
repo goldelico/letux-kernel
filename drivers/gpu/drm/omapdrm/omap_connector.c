@@ -46,6 +46,8 @@ bool omap_connector_get_hdmi_mode(struct drm_connector *connector)
 void copy_timings_omap_to_drm(struct drm_display_mode *mode,
 		struct omap_video_timings *timings)
 {
+	DBG("");
+
 	mode->clock = timings->pixelclock / 1000;
 
 	mode->hdisplay = timings->x_res;
@@ -77,6 +79,8 @@ void copy_timings_omap_to_drm(struct drm_display_mode *mode,
 void copy_timings_drm_to_omap(struct omap_video_timings *timings,
 		struct drm_display_mode *mode)
 {
+	DBG("");
+
 	timings->pixelclock = mode->clock * 1000;
 
 	timings->x_res = mode->hdisplay;
@@ -114,6 +118,7 @@ static enum drm_connector_status omap_connector_detect(
 	struct omap_dss_driver *dssdrv = dssdev->driver;
 	enum drm_connector_status ret;
 
+	DBG("%s", omap_connector->dssdev->name);
 	if (dssdrv->detect) {
 		if (dssdrv->detect(dssdev))
 			ret = connector_status_connected;
@@ -210,6 +215,8 @@ static int omap_connector_mode_valid(struct drm_connector *connector,
 	struct drm_display_mode *new_mode;
 	int r, ret = MODE_BAD;
 
+	DBG("%s", omap_connector->dssdev->name);
+
 	copy_timings_drm_to_omap(&timings, mode);
 	mode->vrefresh = drm_mode_vrefresh(mode);
 
@@ -219,6 +226,7 @@ static int omap_connector_mode_valid(struct drm_connector *connector,
 	 * panel's timings
 	 */
 	if (dssdrv->check_timings) {
+		DBG("check_timings: %s", omap_connector->dssdev->name);
 		r = dssdrv->check_timings(dssdev, &timings);
 	} else {
 		struct omap_video_timings t = {0};
@@ -226,7 +234,16 @@ static int omap_connector_mode_valid(struct drm_connector *connector,
 		dssdrv->get_timings(dssdev, &t);
 
 		if (memcmp(&timings, &t, sizeof(struct omap_video_timings)))
+			{
+#ifdef DEBUG
+			int i;
+
+			DBG("timing error: %s", omap_connector->dssdev->name);
+			for (i=0; i<sizeof(struct omap_video_timings); i++)
+				printk("%0d: %02x %02x\n", i, ((char *)&timings)[i], ((char *)&t)[i]);
+#endif
 			r = -EINVAL;
+			}
 		else
 			r = 0;
 	}
@@ -238,6 +255,10 @@ static int omap_connector_mode_valid(struct drm_connector *connector,
 		new_mode->vrefresh = 0;
 		if (mode->vrefresh == drm_mode_vrefresh(new_mode))
 			ret = MODE_OK;
+		else
+			{
+			DBG("mode vrefresh mismatch: %s %d <-> %d", omap_connector->dssdev->name, mode->vrefresh, drm_mode_vrefresh(new_mode));
+			}
 		drm_mode_destroy(dev, new_mode);
 	}
 
@@ -257,6 +278,7 @@ struct drm_encoder *omap_connector_attached_encoder(
 		struct drm_connector *connector)
 {
 	struct omap_connector *omap_connector = to_omap_connector(connector);
+	DBG("%s", omap_connector->dssdev->name);
 	return omap_connector->encoder;
 }
 
@@ -283,6 +305,10 @@ struct drm_connector *omap_connector_init(struct drm_device *dev,
 {
 	struct drm_connector *connector = NULL;
 	struct omap_connector *omap_connector;
+
+#ifdef DEBUG
+	drm_debug=DRM_UT_CORE;
+#endif
 
 	DBG("%s", dssdev->name);
 
@@ -313,6 +339,10 @@ struct drm_connector *omap_connector_init(struct drm_device *dev,
 	connector->doublescan_allowed = 0;
 
 	drm_connector_register(connector);
+
+#ifdef DEBUG
+	printk("connector = %p\n", connector);
+#endif
 
 	return connector;
 

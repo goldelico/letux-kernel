@@ -161,6 +161,9 @@ static int opa362_check_timings(struct omap_dss_device *dssdev,
 static void opa362_set_type(struct omap_dss_device *dssdev,
 		enum omap_dss_venc_type type)
 {
+
+	dev_dbg(dssdev->dev, "set_type\n");
+
 	/* we can only drive a COMPOSITE output */
 	WARN_ON(type != OMAP_DSS_VENC_TYPE_COMPOSITE);
 
@@ -227,6 +230,8 @@ static int opa362_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to register output\n");
 		goto err_reg;
 	}
+
+	dev_dbg(&pdev->dev, "probe ok\n");
 
 	return 0;
 err_reg:
