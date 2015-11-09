@@ -108,6 +108,7 @@
 	};
 
 	tv0: connector@1 {
+//		compatible = "composite-svideo-connector";
 		compatible = "svideo-connector";
 		label = "tv";
 
@@ -516,7 +517,7 @@
 		reg = <0>;
 		venc_out: endpoint {
 			remote-endpoint = <&opa_in>;
-			ti,channels = <2>;
+			ti,channels = <1>;
 		};
 	};
 };
