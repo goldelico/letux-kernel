@@ -120,6 +120,7 @@ static enum drm_connector_status omap_connector_detect(
 		else
 			ret = connector_status_disconnected;
 	} else if (dssdev->type == OMAP_DISPLAY_TYPE_DPI ||
+			dssdev->type == OMAP_DISPLAY_TYPE_VENC ||
 			dssdev->type == OMAP_DISPLAY_TYPE_DBI ||
 			dssdev->type == OMAP_DISPLAY_TYPE_SDI ||
 			dssdev->type == OMAP_DISPLAY_TYPE_DSI) {
