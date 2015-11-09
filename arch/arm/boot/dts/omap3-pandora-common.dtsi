@@ -29,7 +29,7 @@
 	};
 
 	tv: connector@1 {
-		compatible = "connector-analog-tv";
+		compatible = "svideo-connector";
 		label = "tv";
 
 		port {
