@@ -1248,7 +1248,11 @@ static const struct ads7846_platform_data *ads7846_probe_dt(struct device *dev)
 	of_property_read_u16(node, "ti,vref-mv", &pdata->vref_mv);
 	pdata->keep_vref_on = of_property_read_bool(node, "ti,keep-vref-on");
 
-	pdata->swap_xy = of_property_read_bool(node, "touchscreen-swapped-x-y");
+	pdata->swap_xy = of_property_read_bool(node, "ti,swap-xy");
+	if (pdata->swap_xy)
+		dev_notice(dev, "please update device tree to use touchscreen-swapped-x-y");
+	pdata->swap_xy |= of_property_read_bool(node,
+						"touchscreen-swapped-x-y");
 
 	of_property_read_u16(node, "ti,settle-delay-usec",
 			     &pdata->settle_delay_usecs);
