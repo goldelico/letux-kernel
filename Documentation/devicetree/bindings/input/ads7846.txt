@@ -39,6 +39,7 @@ This allows to scale, invert or swap coordinates and define the fuzz factors.
 					(ADS7846).
 	ti,keep-vref-on			set to keep vref on for differential
 					measurements as well
+	ti,swap-xy			deprecated name for touchscreen-swapped-x-y
 	ti,settle-delay-usec		Settling time of the analog signals;
 					a function of Vcc and the capacitance
 					on the X/Y drivers.  If set to non-zero,
