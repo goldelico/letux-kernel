@@ -59,6 +59,16 @@ then ok "SD"
 else ok "NAND"
 fi
 
+function findregulator {
+for regulator in /sys/class/regulator/regulator.*
+do
+	if [ "$(cat $regulator/name 2>/dev/null)" = "$1" ]
+		then echo $regulator
+		break
+	fi
+done
+}
+
 function findiio {
 for iiodev in /sys/bus/iio/devices/iio:device*
 do
@@ -349,6 +359,18 @@ if $OK
 		fi
 		done
 	nok
+
+# known to fail on GTA04A3
+
+	testing "GTM601 power off" "check power off through rfkill block"
+	rfkill block wwan
+	sleep 8
+	if lsusb | fgrep '0af0:8800 Option' >/dev/null
+		then # still/again found
+	nok
+		else
+	ok
+	fi
 fi
 
 # enable antenna power
@@ -372,6 +394,8 @@ $PSRF' >/dev/null
 	) </dev/ttyO1
 done
 nok
+
+VAUX4=$(findregulator "VAUX4")
 
 testing "W2CBW003-BT UART" "Bluetooth/WLAN power, UART1, Bluetooth and initial baudrate"
 rfkill unblock bluetooth
@@ -419,7 +443,7 @@ then # scan
 	testing "W2CBW003-BT-Scan" "scan for Bluetooth Base station"
 	for i in 1 2 3 4 5
 		do
-		BASE=$(hcitool scan --refresh | fgrep --invert-match Scanning | head -1 | cut -f 2)	# try to locate base station
+		BASE=$(hcitool scan --info | fgrep 'BD Address' | head -1 | cut -f 2 | cut -d ' ' -f 1)	# try to locate base station
 		if [ "$BASE" ]
 		then
 			ok $BASE	# found
@@ -429,7 +453,13 @@ then # scan
 	nok
 fi
 
+testing "VAUX4" "power on for Bluetooth"
+[ "$(cat $VAUX4/num_users)" = "2" ] && ok || nok
+
 killall hciattach 2>/dev/null	# stop any running daemon
+
+testing "VAUX4" "power off for Bluetooth"
+[ "$(cat $VAUX4/num_users)" = "1" ] && ok || nok
 
 testing "W2CBW003-WLAN-libertas" "check if kernel did load libertas driver"
 rfkill unblock wifi
@@ -464,6 +494,9 @@ then # scan
 	ifconfig $WLANIF down 2>/dev/null &&
 	ok || nok
 fi
+
+testing "VAUX4" "power off for WLAN"
+[ "$(cat $VAUX4/num_users)" = "0" ] && ok || nok
 
 killall -9 arecord aplay 2>/dev/null # stop any running audio forwarding
 
