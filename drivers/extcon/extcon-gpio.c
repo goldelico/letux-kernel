@@ -28,6 +28,10 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
+#include <linux/of.h>
+#include <linux/of_platform.h>
+#include <linux/of_gpio.h>
+#include <linux/of_irq.h>
 
 struct gpio_extcon_data {
 	struct extcon_dev *edev;
@@ -95,7 +99,25 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 	struct gpio_extcon_pdata *pdata = dev_get_platdata(&pdev->dev);
 	struct gpio_extcon_data *data;
 	int ret;
+#ifdef DEBUG
+	printk("gpio_extcon_probe\n");
+#endif
+	if (node && !pdata) {
+/* CHECKME: this does not persist until gpio_extcon_resume! */
+		struct gpio_extcon_platform_data of_pdata;
+		enum of_gpio_flags flags;
+		u32 value;
+		pdata = &of_pdata;
 
+		pdata->debounce = 0;
+		pdata->irq_flags = 0;
+		pdata->gpio = of_get_gpio_flags(node, 0, &flags);
+		pdata->check_on_resume=of_property_read_bool(node, "check-on-resume");
+		if(!of_property_read_u32(node, "debounce-delay-ms", &value))
+			pdata->debounce=value;
+		if(!of_property_read_u32(node, "irq-flags", &value))
+			pdata->irq_flags=value;
+	}
 	if (!pdata)
 		return -EBUSY;
 	if (!pdata->irq_flags || pdata->extcon_id > EXTCON_NONE)
@@ -106,6 +128,17 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 	if (!data)
 		return -ENOMEM;
 	data->pdata = pdata;
+
+	extcon_data->edev = devm_extcon_dev_allocate(&pdev->dev, NULL);
+	if (IS_ERR(extcon_data->edev)) {
+		dev_err(&pdev->dev, "failed to allocate extcon device\n");
+		return -ENOMEM;
+	}
+
+#ifdef DEBUG
+	printk("extcon gpio %d\n", extcon_data->gpio);
+	printk("extcon debounce %lu\n", pdata->debounce);
+#endif
 
 	/* Initialize the gpio */
 	ret = gpio_extcon_init(&pdev->dev, data);
@@ -167,12 +200,20 @@ static int gpio_extcon_resume(struct device *dev)
 
 static SIMPLE_DEV_PM_OPS(gpio_extcon_pm_ops, NULL, gpio_extcon_resume);
 
+static const struct of_device_id of_extcon_match_tbl[] = {
+	{ .compatible = "extcon-gpio", },
+	{ /* end */ }
+};
+
+MODULE_DEVICE_TABLE(of, of_extcon_match_tbl);
+
 static struct platform_driver gpio_extcon_driver = {
 	.probe		= gpio_extcon_probe,
 	.remove		= gpio_extcon_remove,
 	.driver		= {
 		.name	= "extcon-gpio",
 		.pm	= &gpio_extcon_pm_ops,
+		.of_match_table = of_match_ptr(of_extcon_match_tbl),
 	},
 };
 
@@ -181,3 +222,4 @@ module_platform_driver(gpio_extcon_driver);
 MODULE_AUTHOR("Mike Lockwood <lockwood@android.com>");
 MODULE_DESCRIPTION("GPIO extcon driver");
 MODULE_LICENSE("GPL");
+MODULE_ALIAS("platform:extcon-gpio");
