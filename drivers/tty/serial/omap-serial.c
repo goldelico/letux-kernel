@@ -1655,6 +1655,8 @@ static int serial_omap_probe(struct platform_device *pdev)
 
 	/* The optional wakeirq may be specified in the board dts file */
 	if (pdev->dev.of_node) {
+		struct device_node *node;
+		struct property *p;
 		uartirq = irq_of_parse_and_map(pdev->dev.of_node, 0);
 		if (!uartirq)
 			return -EPROBE_DEFER;
@@ -1663,6 +1665,20 @@ static int serial_omap_probe(struct platform_device *pdev)
 		if (omap_up_info->DTR_gpio == -EPROBE_DEFER)
 			return -EPROBE_DEFER;
 		pdev->dev.platform_data = omap_up_info;
+#if 1
+		// if (of_get_available_child_count(pdev->dev.of_node) > 0)
+			printk("child count: %d\n", of_get_available_child_count(pdev->dev.of_node));
+		for_each_available_child_of_node(pdev->dev.of_node, node) {
+			printk("Child node\n");
+			if (of_node_test_and_set_flag(node, OF_POPULATED))
+				continue;
+			p = of_find_property(node, "compatible", NULL);
+			if (p) {
+				const char *name =  of_prop_next_string(p, NULL);
+				printk("!!compatible-node:%s\n", name);
+			}
+#endif
+		}
 	} else {
 		uartirq = platform_get_irq(pdev, 0);
 		if (uartirq < 0)

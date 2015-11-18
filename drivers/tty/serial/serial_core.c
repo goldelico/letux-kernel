@@ -126,6 +126,12 @@ struct uart_port *devm_serial_get_uart_by_phandle(struct device *dev,
 
 	node = of_parse_phandle(dev->of_node, phandle, index);
 	if (!node) {
+		if (index == 0) {
+			// check if device is a child of an uart node
+			// if yes, then take the parent
+			// we can also always take the parent node
+			// or just check that it is compatible to some "uart"?
+		}
 		dev_err(dev, "failed to get %s phandle in %s node\n", phandle,
 			dev->of_node->full_name);
 		return ERR_PTR(-ENODEV);
