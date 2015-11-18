@@ -497,6 +497,12 @@
 &uart2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart2_pins>;
+	gps: w2sg0004@0 {
+		compatible = "wi2wi,w2sg0004";
+	/*	uart = <&uart2>;*/
+		lna-supply = <&vsim>;	/* LNA regulator */
+		on-off-gpio = <&gpio5 17 0>;	/* GPIO_145: trigger for turning on/off w2sg0004 */
+	};
 };
 
 &uart3 {

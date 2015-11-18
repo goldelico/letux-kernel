@@ -6,11 +6,18 @@ a list of phandles can be specified.
 
 properties:
 	- uart: (list of) phandle(s) of UART(s) the device is connected to
+	  if it is missing it defaults to a single parent node
 
 
-example:
+examples:
 
 	gps {
 		compatible = "wi2wi,w2sg0004";
 		uart = <&uart1>;
+	};
+
+	&uart2 {
+		gps {
+			compatible = "wi2wi,w2sg0004";
+		};
 	};

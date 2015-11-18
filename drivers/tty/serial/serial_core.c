@@ -163,9 +163,13 @@ struct uart_port *devm_serial_get_uart_by_phandle(struct device *dev,
 
 	node = of_parse_phandle(dev->of_node, phandle, index);
 	if (!node) {
-		dev_err(dev, "failed to get %s phandle in %s node\n", phandle,
-			dev->of_node->full_name);
-		return ERR_PTR(-ENODEV);
+		/* if no phandle[0] is specified, take parent node as default */
+		if (index != 0) {
+			dev_err(dev, "failed to get %s phandle[%u] in %s node\n",
+				phandle, index, dev->of_node->full_name);
+			return ERR_PTR(-ENODEV);
+		}
+		node = dev->of_node->parent;
 	}
 
 	ptr = devres_alloc(devm_serial_uart_release, sizeof(*ptr), GFP_KERNEL);
@@ -2934,6 +2938,25 @@ int uart_add_one_port(struct uart_driver *drv, struct uart_port *uport)
 	int ret = 0;
 	struct device *tty_dev;
 	int num_groups;
+
+#if 1
+	struct device_node *node;
+	struct property *p;
+
+	// check for "notty" property to be able to suppress the tty layer and /dev/tty* entry
+
+	// if (of_get_available_child_count(uport->dev.of_node) > 0)
+		printk("child count: %d\n", of_get_available_child_count(uport->dev.of_node));
+	for_each_available_child_of_node(uport->dev.of_node, node) {
+		printk("Child node\n");
+		if (of_node_test_and_set_flag(node, OF_POPULATED))
+			continue;
+		p = of_find_property(node, "compatible", NULL);
+		if (p) {
+			const char *name =  of_prop_next_string(p, NULL);
+			printk("!!compatible-node:%s\n", name);
+		}
+#endif
 
 	BUG_ON(in_interrupt());
 
