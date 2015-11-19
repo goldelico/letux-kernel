@@ -98,13 +98,14 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 {
 	struct gpio_extcon_pdata *pdata = dev_get_platdata(&pdev->dev);
 	struct gpio_extcon_data *data;
+	struct device_node *node = pdev->dev.of_node;
 	int ret;
 #ifdef DEBUG
 	printk("gpio_extcon_probe\n");
 #endif
 	if (node && !pdata) {
 /* CHECKME: this does not persist until gpio_extcon_resume! */
-		struct gpio_extcon_platform_data of_pdata;
+		struct gpio_extcon_pdata of_pdata;
 		enum of_gpio_flags flags;
 		u32 value;
 		pdata = &of_pdata;
@@ -117,6 +118,10 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 			pdata->debounce=value;
 		if(!of_property_read_u32(node, "irq-flags", &value))
 			pdata->irq_flags=value;
+#ifdef DEBUG
+		printk("extcon gpio %d\n", extcon_data->gpio);
+		printk("extcon debounce %lu\n", pdata->debounce);
+#endif
 	}
 	if (!pdata)
 		return -EBUSY;
@@ -128,17 +133,6 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 	if (!data)
 		return -ENOMEM;
 	data->pdata = pdata;
-
-	extcon_data->edev = devm_extcon_dev_allocate(&pdev->dev, NULL);
-	if (IS_ERR(extcon_data->edev)) {
-		dev_err(&pdev->dev, "failed to allocate extcon device\n");
-		return -ENOMEM;
-	}
-
-#ifdef DEBUG
-	printk("extcon gpio %d\n", extcon_data->gpio);
-	printk("extcon debounce %lu\n", pdata->debounce);
-#endif
 
 	/* Initialize the gpio */
 	ret = gpio_extcon_init(&pdev->dev, data);
