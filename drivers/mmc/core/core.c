@@ -1712,8 +1712,6 @@ void mmc_power_up(struct mmc_host *host, u32 ocr)
 	if (host->ios.power_mode == MMC_POWER_ON)
 		return;
 
-	mmc_host_clk_hold(host);
-
 	/* Reset during power-off */
 	mmc_gpio_set_rs(host, 1);
 	mmc_pwrseq_pre_power_on(host);
@@ -1751,7 +1749,6 @@ void mmc_power_up(struct mmc_host *host, u32 ocr)
 	mmc_delay(10);
 	mmc_gpio_set_rs(host, 0);
 
-	mmc_host_clk_release(host);
 }
 
 void mmc_power_off(struct mmc_host *host)
