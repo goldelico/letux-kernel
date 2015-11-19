@@ -108,6 +108,7 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 	printk("gpio_extcon_probe\n");
 #endif
 	if (node && !pdata) {
+/* CHECKME: this does not persist until gpio_extcon_resume! */
 		struct gpio_extcon_platform_data of_pdata;
 		enum of_gpio_flags flags;
 		u32 value;
@@ -131,6 +132,10 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 			pdata->irq_flags=value;
 		of_property_read_string(node, "state-on", &pdata->state_on);
 		of_property_read_string(node, "state-off", &pdata->state_off);
+#ifdef DEBUG
+		printk("extcon gpio %d\n", data->gpio);
+		printk("extcon debounce %lu\n", pdata->debounce);
+#endif
 		pdata->check_on_resume=of_property_read_bool(node, "check-on-resume");
 	}
 	if (!pdata)
