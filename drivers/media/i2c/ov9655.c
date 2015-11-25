@@ -1,7 +1,7 @@
 /*
  * Driver for OV9655 CMOS Image Sensor from OmniVision
  * 
- * H. N. Schaller <hns@computer.org>
+ * H. N. Schaller <hns@goldelico.com>
  *
  * Based on Driver for MT9P031 CMOS Image Sensor from Aptina
  *
@@ -1686,6 +1686,7 @@ static int ov9655_probe(struct i2c_client *client,
 	int ret;
 
 	if (pdata == NULL) {
+		// parse DT here
 		dev_err(&client->dev, "No platform data\n");
 		return -EINVAL;
 	}
@@ -1825,6 +1826,12 @@ static const struct i2c_device_id ov9655_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, ov9655_id);
 
+static const struct of_device_id of_ov9655_match_tbl[] = {
+	{ .compatible = "omnivision,ov9655", },
+	{ /* end */ }
+};
+MODULE_DEVICE_TABLE(of, of_ov9655_match_tbl);
+
 static struct i2c_driver ov9655_i2c_driver = {
 	.driver = {
 		.name = "ov9655",
@@ -1832,10 +1839,11 @@ static struct i2c_driver ov9655_i2c_driver = {
 	.probe          = ov9655_probe,
 	.remove         = ov9655_remove,
 	.id_table       = ov9655_id,
+	.of_match_table = of_ov9655_match_tbl,
 };
 
 module_i2c_driver(ov9655_i2c_driver);
 
 MODULE_DESCRIPTION("OmniVision OV9655 Camera driver");
 MODULE_AUTHOR("H. Nikolaus Schaller <hns@goldelico.com>");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL v2");
