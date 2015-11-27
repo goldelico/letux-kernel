@@ -1835,11 +1835,11 @@ MODULE_DEVICE_TABLE(of, of_ov9655_match_tbl);
 static struct i2c_driver ov9655_i2c_driver = {
 	.driver = {
 		.name = "ov9655",
+		.of_match_table = of_ov9655_match_tbl,
 	},
 	.probe          = ov9655_probe,
 	.remove         = ov9655_remove,
 	.id_table       = ov9655_id,
-	.of_match_table = of_ov9655_match_tbl,
 };
 
 module_i2c_driver(ov9655_i2c_driver);
