@@ -7,6 +7,7 @@ DATE := $(shell date "+%Y%m%d%H%M%S" )
 # other options depend on the kernel version (here 3.7) and CPU (here: DM3730=OMAP3630)
 
 ccflags-y = \
+	-Iarch/arm/mach-omap2 \
 	-Iinclude \
 	-Idrivers/video/omap2 \
 	-Idrivers/gpu/pvr/omap3/ \
@@ -222,7 +223,6 @@ drm-y :=  \
 	../../drm/drm_irq.o \
 	../../drm/drm_lock.o \
 	../../drm/drm_memory.o \
-	../../drm/drm_stub.o \
 	../../drm/drm_vm.o \
 	../../drm/drm_agpsupport.o \
 	../../drm/drm_scatter.o \
@@ -234,18 +234,27 @@ drm-y :=  \
 	../../drm/drm_crtc.o \
 	../../drm/drm_modes.o \
 	../../drm/drm_edid.o \
-	../../../video/hdmi.o \
 	../../drm/drm_info.o \
 	../../drm/drm_debugfs.o \
-	../../drm/drm_encoder_slave.o \
+	../../drm/drm_encoder_slave.o
 
 # not available in Linux 3.7
 #	../../drm/drm_drawable.o \
 #	../../drm/drm_sman.o \
 
-# needed for Linux 3.7
+# not available in Linux 4.1
+#	../../drm/drm_stub.o \
+# duplicate in 4.1
+#	../../../video/hdmi.o \
+
+# new for Linux 3.7
 drm-y += ../../drm/drm_prime.o \
 	../../drm/drm_global.o
+
+# new for Linux 4.1
+drm-y +=  ../../drm/drm_vma_manager.o \
+	../../drm/drm_modeset_lock.o \
+	../../drm/drm_atomic.o
 
 # extra flags for some files
 CFLAGS_pvr_drm_stubs.o := -DCONFIG_PCI
@@ -259,7 +268,11 @@ omaplfb-y := \
 
 # build into kernel (y) or module (m)
 # omaplfb must be the last because it requires the others to be initialized before
-obj-$(CONFIG_SGX530) := pvr_common.o sgx.o drm.o pvr530.o omaplfb.o
-obj-$(CONFIG_SGX540) := pvr_common.o sgx.o drm.o pvr540.o omaplfb.o
+#obj-$(CONFIG_SGX530) := pvr_common.o sgx.o drm.o pvr530.o omaplfb.o
+#obj-$(CONFIG_SGX540) := pvr_common.o sgx.o drm.o pvr540.o omaplfb.o
+
+# we can now set CONFIG_DRM=y to get it compiled!
+obj-$(CONFIG_SGX530) := pvr_common.o sgx.o pvr530.o omaplfb.o
+obj-$(CONFIG_SGX540) := pvr_common.o sgx.o pvr540.o omaplfb.o
 
 #obj-$(CONFIG_VIRTUAL_DISPLAY_SUPPORT) := pvr_common.o sgx.o \

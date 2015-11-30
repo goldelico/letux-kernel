@@ -275,6 +275,12 @@ const struct omap_video_timings omap_dss_pal_timings = {
 	.vbp		= 41,
 
 	.interlace	= true,
+
+	.hsync_level = OMAPDSS_SIG_ACTIVE_LOW,
+	.vsync_level = OMAPDSS_SIG_ACTIVE_LOW,
+	.data_pclk_edge = OMAPDSS_DRIVE_SIG_RISING_EDGE,
+	.de_level = OMAPDSS_SIG_ACTIVE_HIGH,
+	.sync_pclk_edge = OMAPDSS_DRIVE_SIG_FALLING_EDGE,
 };
 EXPORT_SYMBOL(omap_dss_pal_timings);
 
@@ -290,8 +296,27 @@ const struct omap_video_timings omap_dss_ntsc_timings = {
 	.vbp		= 31,
 
 	.interlace	= true,
+
+	.hsync_level = OMAPDSS_SIG_ACTIVE_LOW,
+	.vsync_level = OMAPDSS_SIG_ACTIVE_LOW,
+	.data_pclk_edge = OMAPDSS_DRIVE_SIG_RISING_EDGE,
+	.de_level = OMAPDSS_SIG_ACTIVE_HIGH,
+	.sync_pclk_edge = OMAPDSS_DRIVE_SIG_FALLING_EDGE,
 };
 EXPORT_SYMBOL(omap_dss_ntsc_timings);
+
+#ifdef DEBUG
+static void print_omap_timings(char *s, const struct omap_video_timings *t)
+{
+	printk("%s\n", s);
+	printk("res: %dx%d\n", t->x_res, t->y_res);
+	printk("clk: %d MHz\n", t->pixelclock);
+	printk("H: %d + %d + %d\n", t->hfp, t->hsw, t->hbp);
+	printk("V: %d + %d + %d\n", t->vfp, t->vsw, t->vbp);
+	printk("%s\n", t->interlace?"interlace":"non interlaced");
+	printk("levels: %d %d %d %d %d\n", t->hsync_level, t->vsync_level, t->data_pclk_edge, t->de_level, t->sync_pclk_edge);
+}
+#endif
 
 static struct {
 	struct platform_device *pdev;
@@ -380,6 +405,7 @@ static void venc_reset(void)
 {
 	int t = 1000;
 
+	DSSDBG("venc_reset\n");
 	venc_write_reg(VENC_F_CONTROL, 1<<8);
 	while (venc_read_reg(VENC_F_CONTROL) & (1<<8)) {
 		if (--t == 0) {
@@ -435,6 +461,7 @@ static int venc_power_on(struct omap_dss_device *dssdev)
 	u32 l;
 	int r;
 
+	DSSDBG("venc_power_on\n");
 	r = venc_runtime_get();
 	if (r)
 		goto err0;
@@ -484,6 +511,7 @@ static void venc_power_off(struct omap_dss_device *dssdev)
 {
 	struct omap_overlay_manager *mgr = venc.output.manager;
 
+	DSSDBG("venc_power_off\n");
 	venc_write_reg(VENC_OUTPUT_CONTROL, 0);
 	dss_set_dac_pwrdn_bgz(0);
 
@@ -563,12 +591,20 @@ static int venc_check_timings(struct omap_dss_device *dssdev,
 	if (memcmp(&omap_dss_ntsc_timings, timings, sizeof(*timings)) == 0)
 		return 0;
 
+#ifdef DEBUG
+	print_omap_timings("venc", timings);
+	print_omap_timings("pal", &omap_dss_pal_timings);
+	print_omap_timings("ntsc", &omap_dss_ntsc_timings);
+#endif
+
 	return -EINVAL;
 }
 
 static void venc_get_timings(struct omap_dss_device *dssdev,
 		struct omap_video_timings *timings)
 {
+	DSSDBG("venc_get_timings\n");
+
 	mutex_lock(&venc.venc_lock);
 
 	*timings = venc.timings;
@@ -578,6 +614,7 @@ static void venc_get_timings(struct omap_dss_device *dssdev,
 
 static u32 venc_get_wss(struct omap_dss_device *dssdev)
 {
+	DSSDBG("venc_get_wss\n");
 	/* Invert due to VENC_L21_WC_CTL:INV=1 */
 	return (venc.wss_data >> 8) ^ 0xfffff;
 }
@@ -614,6 +651,7 @@ err:
 static void venc_set_type(struct omap_dss_device *dssdev,
 		enum omap_dss_venc_type type)
 {
+	DSSDBG("venc_set_type\n");
 	mutex_lock(&venc.venc_lock);
 
 	venc.type = type;
@@ -624,6 +662,7 @@ static void venc_set_type(struct omap_dss_device *dssdev,
 static void venc_invert_vid_out_polarity(struct omap_dss_device *dssdev,
 		bool invert_polarity)
 {
+	DSSDBG("venc_invert_vid_out_polarity\n");
 	mutex_lock(&venc.venc_lock);
 
 	venc.invert_polarity = invert_polarity;
@@ -817,6 +856,8 @@ static int venc_probe_of(struct platform_device *pdev)
 	u32 channels;
 	int r;
 
+	DSSDBG("venc_probe_of\n");
+
 	ep = omapdss_of_get_first_endpoint(node);
 	if (!ep)
 		return 0;
@@ -859,6 +900,8 @@ static int venc_bind(struct device *dev, struct device *master, void *data)
 	u8 rev_id;
 	struct resource *venc_mem;
 	int r;
+
+	DSSDBG("venc_bind\n");
 
 	venc.pdev = pdev;
 
@@ -930,6 +973,7 @@ static const struct component_ops venc_component_ops = {
 
 static int venc_probe(struct platform_device *pdev)
 {
+	DSSDBG("venc_probe\n");
 	return component_add(&pdev->dev, &venc_component_ops);
 }
 
