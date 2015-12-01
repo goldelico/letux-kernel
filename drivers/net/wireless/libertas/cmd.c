@@ -1428,7 +1428,7 @@ int lbs_execute_next_command(struct lbs_private *priv)
 		 * check if in power save mode, if yes, put the device back
 		 * to PS mode
 		 */
-#ifdef TODO
+#if 1
 		/*
 		 * This was the old code for libertas+wext. Someone that
 		 * understands this beast should re-code it in a sane way.
@@ -1439,8 +1439,9 @@ int lbs_execute_next_command(struct lbs_private *priv)
 		 */
 		if ((priv->psmode != LBS802_11POWERMODECAM) &&
 		    (priv->psstate == PS_STATE_FULL_POWER) &&
-		    ((priv->connect_status == LBS_CONNECTED) ||
-		    lbs_mesh_connected(priv))) {
+		    ((priv->connect_status == LBS_CONNECTED) /*||
+		    lbs_mesh_connected(priv) */)) {
+#if 0
 			if (priv->secinfo.WPAenabled ||
 			    priv->secinfo.WPA2enabled) {
 				/* check for valid WPA group keys */
@@ -1453,7 +1454,9 @@ int lbs_execute_next_command(struct lbs_private *priv)
 							PS_MODE_ACTION_ENTER_PS,
 							false);
 				}
-			} else {
+			} else
+#endif
+{
 				lbs_deb_host(
 				       "EXEC_NEXT_CMD: cmdpendingq empty, "
 				       "go back to PS_SLEEP");
