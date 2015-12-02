@@ -116,7 +116,12 @@ static int omap_fbdev_create(struct drm_fb_helper *helper,
 			sizes->surface_depth);
 
 	mode_cmd.width = sizes->surface_width;
-	mode_cmd.height = sizes->surface_height;
+	//mode_cmd.height = sizes->surface_height;
+	/* Ugly HACK to fix framebuffer resolution on Android/Replicant,
+	   it was only 480x320 for some reason.
+	   TODO: find a proper fix for this problem.
+	 */
+	mode_cmd.height = sizes->surface_height*2;
 
 	mode_cmd.pitches[0] =
 			DIV_ROUND_UP(mode_cmd.width * sizes->surface_bpp, 8);
