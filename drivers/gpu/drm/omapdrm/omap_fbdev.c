@@ -104,6 +104,11 @@ static int omap_fbdev_create(struct drm_fb_helper *helper,
 	sizes->surface_bpp = 32;
 	sizes->surface_depth = 24;
 
+	/* Force RGB565 since this is what is needed for Android/Replicant
+	 */
+	sizes->surface_bpp = 16;
+	sizes->surface_depth = 0;
+
 	DBG("create fbdev: %dx%d@%d (%dx%d)", sizes->surface_width,
 			sizes->surface_height, sizes->surface_bpp,
 			sizes->fb_width, sizes->fb_height);
