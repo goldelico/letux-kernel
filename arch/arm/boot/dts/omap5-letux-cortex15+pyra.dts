@@ -625,7 +625,7 @@
 		led@1 {
 			label = "pyra:red:left";
 			gpios = <&gpio99 5 GPIO_ACTIVE_LOW>;
-			linux,default-trigger = "none";
+			linux,default-trigger = "mmc0";
 			default-state = "off";
 		};
 
@@ -646,7 +646,7 @@
 		led@4 {
 			label = "pyra:red:mid";
 			gpios = <&gpio99 17 GPIO_ACTIVE_LOW>;
-			linux,default-trigger = "none";
+			linux,default-trigger = "mmc1";
 			default-state = "off";
 		};
 
@@ -667,7 +667,7 @@
 		led@7 {
 			label = "pyra:red:right";
 			gpios = <&gpio99 21 GPIO_ACTIVE_LOW>;
-			linux,default-trigger = "none";
+			linux,default-trigger = "heartbeat";
 			default-state = "off";
 		};
 
