@@ -6,7 +6,7 @@
  * published by the Free Software Foundation.
  */
 
-/* this version is for Pyra V5 with Letux Cortex 15 CPU board */
+/* this version is for Pyra V5.0 with Letux Cortex 15 CPU board */
 
 #include "omap5-letux-cortex15.dts"
 
@@ -96,7 +96,7 @@
 		NIMP-usb-port = <&hsusb2_phy>; 	/* USB phy where we can check the modem status */
 		on-off-gpio = <&gpio6 11 GPIO_ACTIVE_HIGH>;	/* gpio6_171: trigger to power on modem */
 		on-indicator-gpio = <&gpio6 12 GPIO_ACTIVE_HIGH>;	/* gpio6_172: modem power indication feedback GPIO */
-		NIMP-modem-supply = <&modem_power>;		/* enable external power regulator */
+		NIMP-modem-supply = <&modem_power>;		/* enable some external power regulator */
 		/* VBUS supply should probably be controlled through the USB PHY driver for the modem port */
 		NIMP-vbus-supply = <&modem_vbus_hdmi_power>;	/* apply VBUS to the modem */
 	};
@@ -112,31 +112,6 @@
 		// debounce-delay-ms = <10>; -- not available at tca6424
 		state-on = "present";
 		state-off = "unplugged";
-	}; */
-
-/* FIXME: having both leads to an irq conflict */
-/*	mic_presence_evm { /* move this to omap5-uevm.dts */
-/*		compatible = "extcon-gpio";
-		label = "mic_presence_evm";
-		interrupt-parent = <&gpio9>;
-		interrupts = <14 IRQ_TYPE_EDGE_BOTH>;
-		irq-flags = <IRQ_TYPE_EDGE_BOTH>;
-		gpios = <&gpio9 14 GPIO_ACTIVE_LOW>;
-		// debounce-delay-ms = <10>; -- not available at tca6424
-		state-on = "present";
-		state-off = "unplugged";
-	}; */
-
-/*	extcon_test { /* if enabled, disable BTN1 */
-/*		compatible = "extcon-gpio";
-		label = "user_button";
-		interrupt-parent = <&gpio3>;
-		interrupts = <19 2>;
-		irq-flags = <IRQ_TYPE_EDGE_BOTH>;
-		gpios = <&gpio3 19 1>;	/* gpio3_83 is BTN1 */
-/*		debounce-delay-ms = <50>;
-		state-on = "status-on";
-		state-off = "status-off";
 	}; */
 
 	backlight {
@@ -155,6 +130,19 @@
 		compatible = "ti,omap-pwm";
 		timers = <&timer9>;
 		#pwm-cells = <2>;
+	};
+
+	keyboard-backlight {
+/*
+		compatible = "pwm-backlight";
+		pwms = <&pwm 0 2000000>;
+		pwm-names = "backlight";
+		brightness-levels = <0 10 20 30 40 50 60 70 80 90 100>;
+		default-brightness-level = <9>;
+//		pinctrl-names = "default";
+//		pinctrl-0 = <&backlight_pins>;
+//		power-supply = <&vdd_bl_reg>;
+/*		enable-gpios = <&gpio6 30 0>;	/* GPT9/PWM gpio6_190 */
 	};
 
 };
@@ -192,13 +180,7 @@
 
 			/* new entries */
 			&pyra_button_pins
-			// &pyra_display_pins
 			&pyra_other_pins
-			// &i2c2_pins
-			// &i2c3_pins
-			// &i2c4_pins
-			// &i2c5_pins
-			// &pyra_dsi_a
 	>;
 
 /* this is for DragonFly V4 with the letux Cortex15 CPU board
@@ -346,7 +328,12 @@
 	};
 
 	/* leds */
-	tca6507@45 {
+	is31fl3196@64 {
+		compatible = "issi,is31fl3196";
+		reg = <0x64>;
+	};
+
+	tca6507@45 { /* historical for V4 display boards */
 		compatible = "ti,tca6507";
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -525,15 +512,22 @@
 /* not installed due to bus speed issue
 	bq27200@55 {
 		compatible = "ti,bq27200";
+		status = "disabled";
 		reg = <0x55>;
-	}; */
+	};
+*/
 
 	/* fuel gauge variant 2 */
-	bq27421@55 {
-		compatible = "ti,bq27425";
-	/* FIXME: there are non-mainline updates to directly support the bq27421
-	   and improve chip parameter setup
-	   e.g. https://github.com/aneeshv/linux-bq27xxx/commit/148cbb01358c92a6541d153207a880926182d30e */
+/* not installed due to bus speed issue
+	bq27510@55 {
+		compatible = "ti,bq27510";
+		reg = <0x55>;
+	};
+*/
+
+	/* fuel gauge variant 3 */
+	bq27621@55 {
+		compatible = "ti,bq27621";
 		reg = <0x55>;
 	};
 
@@ -551,13 +545,13 @@
 
 /* register devices connected to Sensor-I2C */
 &i2c3 {
-	/* gyroscope sensor */
+	/* optional gyroscope sensor */
 	bmg160@69 {
 		compatible = "bosch,bmg160";
 		reg = <0x69>;
 // irq
 	};
-	/* accelerometer sensor */
+	/* optional accelerometer sensor */
 	bmc150@10 {
 		compatible = "bosch,bma250";
 		reg = <0x10>;
@@ -567,18 +561,25 @@
 		interrupts = <9 (IRQ_TYPE_LEVEL_HIGH | IRQ_TYPE_EDGE_RISING)>;	/* gpio6_169 * /
 */
 	};
-	/* compass sensor */
+	/* optional compass sensor */
 	bmc150@12 {
 		compatible = "bosch,bmc150";
 		reg = <0x12>;
 // irq
 	};
-	/* barometer sensor */
+	/* optional barometer sensor */
 	bmp180@77 {
 		compatible = "bosch,bmp180";
 		reg = <0x77>;
 	};
-	/* 9-axis sensor */
+	/* optional barometer/hygrometer sensor */
+	bme280@76 {
+		// compatible = "bosch,bme280";
+		/* ovrwrite to use the bmp280 driver */
+		compatible = "bosch,bmp280";
+		reg = <0x76>;
+	};
+	/* optional 9-axis sensor */
 	bno050@29 {
 		compatible = "bosch,bno050";
 		reg = <0x29>;
@@ -605,10 +606,21 @@
 		#gpio-cells = <2>;
 		open-drain-pins = <2 3 5 6 7 12 13 17 18 19 21 22 23>;
 	};
+
+	is31fl3196@64-left {
+		compatible = "issi,is31fl3196";
+		reg = <0x64>;
+	};
+
+	is31fl3196@65-right {
+		compatible = "issi,is31fl3196";
+		reg = <0x65>;
+	};
+
 };
 
 / {
-	pyra_leds {
+	pyra_leds { /* historical for V4 main boards */
 		compatible = "gpio-leds";
 		led@1 {
 			label = "pyra:red:left";
@@ -675,8 +687,9 @@
 
 	};
 
-	keypad_leds {
+	keypad_leds { /* historical for V4 main boards */
 		compatible = "gpio-leds";
+
 		led@1 {
 			label = "keypad1";
 			gpios = <&gpio99 2 GPIO_ACTIVE_LOW>;
@@ -821,13 +834,55 @@
 };
 
 /* more things to do
-* add a regulator-gpio for the LCD
-* configure WLAN/Bluetooth module
+ * add a regulator-gpio for the LCD
+ * configure WLAN/Bluetooth module - http://processors.wiki.ti.com/index.php/WL18xx_Platform_Integration_Guide#For_kernels_with_device_tree_support
+ * and see http://lxr.free-electrons.com/source/Documentation/devicetree/bindings/net/wireless/ti,wlcore.txt
+ */
+
+/*
+ * we have inherited some stuff from omap5-board-common.dtsi
+ * and must patch to our config
+ */
+
+&wlan_pins {
+	status = "disabled";
+	pinctrl-single,pins = <>;	// clear
+};
+
+&vmmcsdio_fixed {
+	gpio = <&gpio6 3 GPIO_ACTIVE_HIGH>;
+	enable-active-high;
+};
+
+&mmc3 {
+	status = "okay";
+/* inherited
+	vmmc-supply = <&vmmcsdio_fixed>;
+	bus-width = <4>;
+	cap-power-off-card;
+	non-removable;
+	keep-power-in-suspend;
 */
 
-/* wlan on regulator-fixed to control gpio6_163 */
-&mmc3 {
-	// vdd-mmc=<&wlan-on>
+/* find out if we still need this
+	bus-width = <4>;
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&mmc3_pins_default &wlan_pins_default>;
+	pinctrl-1 = <&mmc3_pins_sleep &wlan_pins_sleep>;
+	ti,non-removable;
+	ti,needs-special-hs-handling;
+	cap-power-off-card;
+*/
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+	wlcore: wlcore@2 {
+		compatible = "ti,wl1835";	/* or ti,wl1837" */
+		reg = <2>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <14 IRQ_TYPE_LEVEL_HIGH>;	/* gpio1_wk14 */
+		ref-clock-frequency = <26000000>;
+	};
 };
 
 // uart2-dtr mit gpio6_164 verbinden
