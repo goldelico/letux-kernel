@@ -3930,7 +3930,7 @@ CONFIG_ITG3200=m
 #
 # CONFIG_AK8975 is not set
 # CONFIG_AK09911 is not set
-# CONFIG_BMC150_MAGN is not set
+CONFIG_BMC150_MAGN=m
 # CONFIG_MAG3110 is not set
 # CONFIG_MMC35240 is not set
 # CONFIG_IIO_ST_MAGN_3AXIS is not set
@@ -3953,7 +3953,7 @@ CONFIG_IIO_SYSFS_TRIGGER=m
 #
 # Pressure sensors
 #
-# CONFIG_BMP280 is not set
+CONFIG_BMP280=m
 # CONFIG_MPL115 is not set
 # CONFIG_MPL3115 is not set
 # CONFIG_MS5611 is not set
