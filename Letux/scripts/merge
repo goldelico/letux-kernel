@@ -93,7 +93,7 @@ do
 	fi
 done
 
-git merge --no-ff --no-edit $LATEST_BRANCHES || exit	# try to merge all
+git merge --no-ff --no-edit $LATEST_BRANCHES "$@" || exit	# try to merge all
 
 $PUSH && echo "*** pushing letux-next on remote ***"
 $PUSH && git push --force origin letux-next	# update letux-next on public server
