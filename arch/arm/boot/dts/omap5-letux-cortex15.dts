@@ -6,16 +6,24 @@
  * published by the Free Software Foundation.
  */
 
-/* this version is for the Letux Cortex 15 CPU board */
+/dts-v1/;
 
-/* we start with the omap5-uevm tree since the Letux Cortex is very similar */
+/* this version is for the Letux Cortex 15 CPU board (V4.9) */
 
-#include "omap5-uevm.dts"
-
-/* overwrite device model */
+#include "omap5-board-common.dtsi"
 
 / {
 	model = "Letux Cortex 15";
+	compatible = "ti,omap5-uevm", "ti,omap5";
+
+	memory {
+		device_type = "memory";
+		reg = <0x80000000 0x7F000000>; /* 2032 MB */
+	};
+};
+
+&hdmi {
+	vdda-supply = <&ldo4_reg>;
 };
 
 &palmas {
@@ -26,6 +34,7 @@
 		ti,palmas-long-press-seconds = <8>;
 		ti,palmas-pwron-debounce-milli-seconds = <15>;
 	};
+
 	palmas_gpadc: gpadc {
 		compatible = "ti,palmas-gpadc";
 /*		ti,ch0_current = 0;
@@ -223,7 +232,6 @@
 			OMAP5_IOPAD(0x08e, PIN_INPUT | MUX_MODE6)	/* 0x08C:[31:16]  gpio2_32 - board revision */
 			OMAP5_IOPAD(0x054, PIN_INPUT | MUX_MODE6)	/* 0x054:[15:0]  gpio2_33 - board revision */
 			OMAP5_IOPAD(0x0ac, PIN_INPUT | MUX_MODE6)	/* 0x0AC:[15:0]  gpio3_78 - hub interrupt */
-/* FIXME: reset for USB3503A - should be output connected to reset pulse generator or chip specific driver and/or be controlled by PHY */
 			OMAP5_IOPAD(0x0b0, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0B0:[15:0]  gpio3_80 - hub reset */
 			OMAP5_IOPAD(0x084, PIN_INPUT | MUX_MODE6)	/* 0x084:[31:16]  gpio3_82 - eMMC/uSD switch */
 			OMAP5_IOPAD(0x1d6, PIN_OUTPUT | MUX_MODE6)	/* 0x1D4:[31:16]  gpio5_153 - status LED (heartbeat) */
@@ -237,7 +245,7 @@
 		>;
 	};
 
-/* I2C pinmux (i2c1 and i2c5 inherited from uevm) */
+/* I2C pinmux (i2c1 inherited) */
 
 	i2c2_pins: pinmux_i2c2_pins {
 		pinctrl-single,pins = <
@@ -257,6 +265,13 @@
 		pinctrl-single,pins = <
 			OMAP5_IOPAD(0x0f8, PIN_INPUT_PULLUP | MUX_MODE0)		/* i2c4_scl (gpio7_200) */
 			OMAP5_IOPAD(0x0fa, PIN_INPUT_PULLUP | MUX_MODE0)		/* i2c4_sda (gpio7_201) */
+		>;
+	};
+
+	i2c5_pins: pinmux_i2c5_pins {
+		pinctrl-single,pins = <
+			0x186 (PIN_INPUT | MUX_MODE0)		/* i2c5_scl */
+			0x188 (PIN_INPUT | MUX_MODE0)		/* i2c5_sda */
 		>;
 	};
 
@@ -288,13 +303,26 @@
 	reset-gpios = <0>; /* free up gpio3_79 */
 };
 
+/ {
+	/* this applies a 100µs low to the reset line
+	 * Rationale: if we use the reset-gpios of the driver we can't
+	 * dynamically load the driver since I2C is inactive dring reset
+	 */
+	usb3503-reset {
+		compatible = "regulator-fixed";
+		regulator-name = "usb3503-reset";
+		reset-gpios = <&gpio3 16 GPIO_ACTIVE_HIGH>;	// gpio3_80 reset
+		startup-delay-us = <100000>;
+	};
+};
+
 &i2c1 {
 	/* usb bridge */
 	usb3503@08 {
 		compatible = "smsc,usb3503a";
 		reg = <0x08>;
 		intn-gpios = <&gpio3 14 GPIO_ACTIVE_HIGH>;	// gpio3_78 interrupt
-		reset-gpios = <&gpio3 16 GPIO_ACTIVE_HIGH>;	// gpio3_80 reset
+	//	reset-gpios = <&gpio3 16 GPIO_ACTIVE_HIGH>;	// gpio3_80 reset
 	//	connect-gpios - none
 	//	refclk	// comes from OMAP5 FREF_CLK1_OUT/GPIO1_W K11
 	//	refclk-frequency 19.2 MHz
@@ -323,7 +351,15 @@
 	pinctrl-0 = <&i2c4_pins>;
 };
 
-/ { /* should have been defined by uevm */
+&i2c5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c5_pins>;
+
+	clock-frequency = <400000>;
+
+};
+
+/ {
 
 	user-button {
 		compatible = "gpio-keys";
@@ -343,18 +379,11 @@
 	};
 };
 
-/* disable components not on the Letux Cortex 15 board */
-
-&tpd12s015 {
-	compatible = "none";	// disable
-};
-
-&gpio9 {
-	compatible = "none";	// disable
-	reg = <0x03>;	// overwrite duplicate i2c5 address inherited from omap5-uevm
-};
-
-/* patches to correctly bring up the Letux 15 V4 CPU Board with broken OMAP5 <-> Palmas I2C1 */
+/*
+ * patches to work around a hardware bug (broken broken OMAP5 <-> Palmas I2C1)
+ * in the V4 prototype CPU board
+ * disable components not accessible
+ */
 
 / {
 	vmmc1_fixed: fixedregulator-mmc1 {
@@ -399,21 +428,41 @@
 	v2v1-supply = <&smps9_reg_fixed>;
 };
 
-&mmc1 { /* first SD slot */
+&mmc1 { /* first (µ)SD slot */
 	vmmc-supply = <&vmmc1_fixed>;	/* LDO9 is not working */
 };
 
 &mmc2 { /* eMMC / µSD-card */
+	bus-width = <8>;
 	/* ti,non-removable; */
-	/* define TXS02612 eMMC / µSD driver here */
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+	mmcmux: txs02612@0 {
+		compatible = "ti,txs02612";
+		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		// control gpio(s)
+
+		eMMC: port@0 {
+			compatible = "any,emmc";
+			bus-width = <8>;
+		};
+
+		uSD: port@1 {
+			bus-width = <4>;
+		};
+	};
 };
 
 &mmc3 { /* WiFi-SDIO */
 	/* ti,non-removable; */
-	// define a regulator-fixed GPIO */
+	// define a regulator-fixed GPIO for power-on */
+	// NOTE: has been predefined for a wl1271 in ompa5-common.dtsi
 };
 
-&mmc4 { /* second SD slot */
+&mmc4 { /* second (µ)SD slot */
 	/* vmmc-supply = <&ldo2_reg> */
 	bus-width = <4>;
 	status = "okay";
