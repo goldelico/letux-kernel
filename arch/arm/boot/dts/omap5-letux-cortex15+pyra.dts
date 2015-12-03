@@ -846,7 +846,7 @@
 
 &wlan_pins {
 	status = "disabled";
-	pinctrl-single,pins = <>;	// clear
+	pinctrl-single,pins;	// clear
 };
 
 &vmmcsdio_fixed {
