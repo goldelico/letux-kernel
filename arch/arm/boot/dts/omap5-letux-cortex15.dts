@@ -8,7 +8,7 @@
 
 /dts-v1/;
 
-/* this version is for the Letux Cortex 15 CPU board (V4.9) */
+/* this version is for the Letux Cortex 15 CPU board (V5.0) */
 
 #include "omap5-board-common.dtsi"
 
@@ -37,10 +37,6 @@
 
 	palmas_gpadc: gpadc {
 		compatible = "ti,palmas-gpadc";
-/*		ti,ch0_current = 0;
-		ti,ch3_current = 0;
-		ti,bat_removal = 0;
-		ti,start_polarity = 0; */
 	};
 
 	extcon_usb3: palmas_usb {
@@ -356,11 +352,9 @@
 	pinctrl-0 = <&i2c5_pins>;
 
 	clock-frequency = <400000>;
-
 };
 
 / {
-
 	user-button {
 		compatible = "gpio-keys";
 
@@ -374,62 +368,10 @@
 			gpio-key,wakeup;
 			autorepeat;
 			debounce_interval = <50>;
+// FIXME: don#t we have a seconf user button?
 		};
 
 	};
-};
-
-/*
- * patches to work around a hardware bug (broken broken OMAP5 <-> Palmas I2C1)
- * in the V4 prototype CPU board
- * disable components not accessible
- */
-
-/ {
-	vmmc1_fixed: fixedregulator-mmc1 {
-		compatible = "regulator-fixed";
-		regulator-name = "vmmc1_fixed";
-		regulator-min-microvolt = <3000000>;
-		regulator-max-microvolt = <3000000>;
-	};
-
-	ldo4_reg_fixed: fixedregulator-ldo4 {
-		compatible = "regulator-fixed";
-		regulator-name = "ldo4";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
-	};
-
-	smps7_reg_fixed: fixedregulator-smps7 {
-		compatible = "regulator-fixed";
-		regulator-name = "smps7";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
-	};
-
-	smps9_reg_fixed: fixedregulator-smps9 {
-		compatible = "regulator-fixed";
-		regulator-name = "smps9";
-		regulator-min-microvolt = <2100000>;
-		regulator-max-microvolt = <2100000>;
-	};
-};
-
-&hdmi {
-	vdda-supply = <&ldo4_reg_fixed>;
-};
-
-&dsi1 {
-	vdd-supply = <&ldo4_reg_fixed>;
-};
-
-&twl6040 {
-	vio-supply = <&smps7_reg_fixed>;
-	v2v1-supply = <&smps9_reg_fixed>;
-};
-
-&mmc1 { /* first (µ)SD slot */
-	vmmc-supply = <&vmmc1_fixed>;	/* LDO9 is not working */
 };
 
 &mmc2 { /* eMMC / µSD-card */
