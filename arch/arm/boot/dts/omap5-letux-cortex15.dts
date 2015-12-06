@@ -87,6 +87,8 @@
 };
 
 &twl6040 {
+	status = "disabled";
+	reg = <0x77>;
 	ti,audpwron-gpio = <&gpio3 17 0>;  /* gpio line 3_81 */
 };
 
