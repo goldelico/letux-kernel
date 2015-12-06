@@ -835,6 +835,9 @@
 
 /* more things to do
  * add a regulator-gpio for the LCD
+ */
+
+/*
  * configure WLAN/Bluetooth module - http://processors.wiki.ti.com/index.php/WL18xx_Platform_Integration_Guide#For_kernels_with_device_tree_support
  * and see http://lxr.free-electrons.com/source/Documentation/devicetree/bindings/net/wireless/ti,wlcore.txt
  */
