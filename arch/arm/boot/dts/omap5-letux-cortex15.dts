@@ -50,6 +50,8 @@
 		compatible = "ti,palmas-rtc";
 		interrupt-parent = <&palmas>;
 		interrupts = <8 IRQ_TYPE_NONE>;
+		ti,backup-battery-chargeable;
+		ti,backup-battery-charge-high-current;
 	};
 };
 
