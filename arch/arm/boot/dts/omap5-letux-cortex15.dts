@@ -217,12 +217,6 @@
 		>;
 	};
 
-// checkme: are there conflicts with imported uevm pinmux entries?
-/* yes
-	usbhost_pins - gpio3_79, gpio3_80
-	tca6424_pins - gpio3_78
-*/
-
 // CHEKME: attach wk7/11 and others to &usbhost_wkup_pins?
 
 	letux_other_pins: pinmux_other_gpio_pins {
@@ -372,7 +366,7 @@
 			gpio-key,wakeup;
 			autorepeat;
 			debounce_interval = <50>;
-// FIXME: don#t we have a seconf user button?
+// FIXME: don#t we have a second user button?
 		};
 
 	};
