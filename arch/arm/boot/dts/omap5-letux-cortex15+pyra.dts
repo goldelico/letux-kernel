@@ -612,9 +612,9 @@
 		reg = <0x64>;
 	};
 
-	is31fl3196@65-right {
+	is31fl3196@67-right {
 		compatible = "issi,is31fl3196";
-		reg = <0x65>;
+		reg = <0x67>;
 	};
 
 };
