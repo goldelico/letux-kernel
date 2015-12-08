@@ -2,7 +2,7 @@
  * Driver for panels through Solomon Systech SSD2858 rotator chip
  *
  * Device Tree FIXME:
- *   this chip should is defined with a pair "port {}" elements
+ *   this chip is defined with a pair "port {}" elements
  *   to keep the panel separated from the DSI interface
  *   so it is an "encoder" with an input and an output port
  *   Device Tree could config bypass, rotation and some other paramters
@@ -343,12 +343,13 @@ static int ssd2858_write(struct omap_dss_device *dssdev, u8 *buf, int len)
 static int ssd2858_pass_to_panel(struct omap_dss_device *dssdev, int enable)
 { // choose destination of further commands: SSD chip or panel
 	int r = 0;
+	// if !enable and ssd is in reset => error
 	if(mode != enable)
 		{ // write a "special control packet" to switch pass through modes
 			u8 buf[2];
-			buf[0]=0xff;
-			buf[1]=mode=enable;
-			r=ssd2858_write(dssdev, buf, sizeof(buf));
+			buf[0] = 0xff;
+			buf[1] = (mode = enable);
+			r = ssd2858_write(dssdev, buf, sizeof(buf));
 		}
 	return r;
 }
@@ -466,6 +467,8 @@ static int ssd2858_write_reg_sequence(struct omap_dss_device *dssdev, void *seq,
 	return -EINVAL;
 }
 
+/* callbacks from the DSI driver */
+
 static int ssd2858_connect(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
@@ -571,6 +574,8 @@ static void ssd2858_get_resolution(struct omap_dss_device *dssdev,
 	// FIXME: forward to panel?
 }
 
+/* hardware control */
+
 static int ssd2858_reset(struct omap_dss_device *dssdev, int state)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
@@ -590,6 +595,8 @@ static int ssd2858_regulator(struct omap_dss_device *dssdev, int state)
 	// FIXME: forward to panel regulator
 	return 0;
 }
+
+/* backlight control */
 
 static int ssd2858_update_brightness(struct omap_dss_device *dssdev, int level)
 {
@@ -712,6 +719,230 @@ static const struct attribute_group ssd2858_attr_group = {
 	.attrs = ssd2858_attributes,
 };
 
+/* calculate timings */
+
+#if 0	// we need to define the structs to make this code work
+
+/* some of these values are defined by the panel driver */
+
+struct paneltiming {
+PANEL_WIDTH=720
+PANEL_HEIGHT=1280
+PANEL_FPS=60	// frames per second
+PANEL_BPP=24	// bits per lane
+PANEL_LANES=4	// lanes
+PANEL_HFP=10	// front porch
+PANEL_HSA=10	// sync active
+PANEL_HBP=100	// back porch
+// NOTE: we must set this so the sum of V* is < ~70 to get a slightly higher pixel and DDR rate or the panel wouldn't sync properly
+// warning: some VBP values are causing horizontal misalignemt:
+// 12..15, 18..23, 26..?, 34..40, ...?
+PANEL_VFP=10	// top porch
+PANEL_VSA=2	// sync active
+PANEL_VBP=48	// bottom porch
+PANEL_LPCLOCK=8000000	// maximum is 9.2 MHz
+PANEL_MAX_DDR=250000000	// maximum DDR clock (4..25ns) that can be processed by controller
+}
+
+static void calculate_timings(struct omap_dss_device *dssdev, struct paneltiming *panel, bool rotate)
+{
+/* panel derived parameters */
+unsigned int PANEL_FRAME_WIDTH = PANEL_WIDTH + PANEL_HFP + PANEL_HSA + PANEL_HBP	// some margin for sync and retrace
+unsigned int PANEL_FRAME_HEIGHT = PANEL_HEIGHT + PANEL_VFP + PANEL_VSA + PANEL_VBP	// some margin for sync and retrace
+unsigned long PANEL_PCLK = PANEL_FRAME_WIDTH * PANEL_FRAME_HEIGHT * PANEL_FPS	// required pixel clock
+unsigned long PANEL_MIN_DDR = PANEL_PCLK / 2 / PANEL_LANES * PANEL_BPP	// min is defined by required data bandwidth
+
+// SSD2858 mode parameters
+int SPLIT_MEM = 1, TE_SEL = 1, VBP = 0;
+int CKE = 0;
+int VB_MODE = 0;
+int VBE = 0;
+int ROT90 = 0;
+
+// SSD2858 clock divider parameters
+unsigned int XTAL = 24000000;	// we have 24 MHz XTAL
+unsigned int PCLK_NUM = 1, PCLK_DEN = 4; // must be 1:4 for proper video processing
+
+unsigned int SYS_CLK_DIV = 5; // this is something to play with until all parameters fit the constraints
+// we might also loop over all potential values until we find the lowest value that fulfills the constraints
+
+// OMAP MIPI parameters
+/* no specifc requirements checked or considered */
+
+// SSD divider calculations
+
+// VTCM
+unsigned long TARGET_PIXEL_CLK = PANEL_PCLK / 2;
+unsigned long TARGET_SYS_CLK = PCLK_DEN * TARGET_PIXEL_CLK / PCLK_NUM;
+unsigned long TARGET_MAIN_CLK = 2 * SYS_CLK_DIV * TARGET_SYS_CLK;
+unsigned int TARGET_DIV = 1500000000 / TARGET_MAIN_CLK;	// total required divisor between PLL and MAIN_CLK - rounded down (running the PLL at least at required frequency)
+unsigned long TARGET_PLL = TARGET_DIV * TARGET_MAIN_CLK;	// what we expect to see as PLL frequency
+// PLL
+unsigned int PLL_MULT= (TARGET_PLL + XTAL - 1) / XTAL;	// required PLL multiplier from XTAL (rounded up)
+unsigned long PLL = XTAL * PLL_MULT;	// real PLL frequency
+unsigned int PLL_POST_DIV = PLL / TARGET_MAIN_CLK;	// PLL_POST_DIV to get MAIN_CLOCK - should be >= TARGET_DIV
+unsigned long MAIN_CLK = PLL / PLL_POST_DIV;	// real MAIN clock
+unsigned long SYS_CLK = MAIN_CLK / 2 / SYS_CLK_DIV;	// real SYS clock
+unsigned long PIXEL_CLK = (SYS_CLK * PCLK_NUM) / PCLK_DEN;	// real VTCM pixel clock
+// MIPITX
+unsigned int MTX_CLK_DIV = MAIN_CLK / ( 2 * PANEL_MIN_DDR );	// try to run at least with PANEL_MIN_DDR speed
+unsigned long MIPITX_BIT_CLK = MAIN_CLK / MTX_CLK_DIV;
+unsigned long MIPITX_DDR_CLK = MIPITX_BIT_CLK / 2;	// going to panel
+unsigned long MIPITX_BYTE_CLK = MIPITX_BIT_CLK / 8;
+unsigned ing LP_CLK_DIV = (MIPITX_BYTE_CLK + PANEL_LPCLOCK - 1) / PANEL_LPCLOCK;	// divider
+unsigned int SSD_LPCLK = MIPITX_BYTE_CLK / $LP_CLK_DIV;	// real LP clock output
+// LOCKCNT - at least 30us - this is the number of LPCLOCK (XTAL / 2); we add 40% safety margin
+unsigned int LOCKCNT=(unsigned int) (1.4 * 30e-6 * (XTAL / 2);
+
+// calculate OMAP parameters
+unsigned int OMAP_LPCLK = XTAL / 2;	// we must drive SSD with this LP clock frequency
+unsigned long OMAP_PCLK = 2 * $PIXEL_CLK;	// feed pixels in speed defined by SSD2858
+unsigned int OMAP_WIDTH = PANEL_WIDTH
+unsigned int OMAP_HEIGHT= PANEL_HEIGHT
+unsigned int OMAP_HFP = PANEL_HFP
+unsigned int OMAP_HSA = PANEL_HSA
+unsigned int OMAP_HBP = PANEL_HBP
+unsigned int OMAP_VFP = PANEL_VFP
+unsigned int OMAP_VSA = PANEL_VSA
+unsigned int OMAP_VBP = PANEL_VBP
+unsigned int OMAP_DDR = MIPITX_DDR_CLK	// I hope the OMAP DSS calculates what it needs
+
+// default flags
+
+if (rotate) { /* swap width and height */
+	OMAP_WIDTH = PANEL_HEIGHT;
+	OMAP_HEIGHT = PANEL_WIDTH;
+	ROT90 = 1;
+}
+
+// FIXME: convert this into printk()
+// do all constraint checks afterwards so that we can loop over SYS_CLK_DIV
+// break; if no constraint is violated
+
+echo "Panel MIPI:"
+echo "  Dimensions: ${PANEL_WIDTH}x${PANEL_HEIGHT} in ${PANEL_FRAME_WIDTH}x${PANEL_FRAME_HEIGHT}"
+echo "  Pixel CLK: $PANEL_PCLK"
+echo "  DDR CLK: $PANEL_MIN_DDR"
+echo "  LPCLK target: $PANEL_LPCLOCK"
+
+echo "SSD2858:"
+echo "  XTAL CLK: $XTAL"
+[ $XTAL -ge 20000000 -a $XTAL -le 300000000 ] || echo "XTAL frequency problem: $XTAL (20 - 30 MHz)"
+echo "  LPCLK in: $(($XTAL / 2))"
+echo "  target VTCM PIXEL CLK: $TARGET_PIXEL_CLK"
+echo "  target SYS_CLK: $TARGET_SYS_CLK"
+echo "  target MAIN_CLK: $TARGET_MAIN_CLK"
+echo "  target PLL: $TARGET_PLL"
+echo "  PLL_MULT / PLL_POST_DIV: $PLL_MULT / $PLL_POST_DIV"
+[ $PLL_MULT -ge 1 -a $PLL_MULT -le 128 ] || echo "PLL_MULT problem: $PLL_MULT (1 .. 127)"
+[ $PLL_POST_DIV -ge 1 -a $PLL_POST_DIV -le 64 ] || echo "PLL_POST_DIV problem: $PLL_POST_DIV (1 .. 63)"
+echo "  real PLL: $PLL"
+[ $PLL -ge 1000000000 -a $PLL -le 1500000000 ] || echo "PLL frequency problem: $PLL (1.000 .. 1.500 GHz)"
+echo "  MAIN_CLK: $MAIN_CLK"
+echo "  SYS_CLK_DIV: $SYS_CLK_DIV"
+[ $SYS_CLK_DIV -ge 1 -a $SYS_CLK_DIV -le 16 ] || echo "SYS_CLK_DIV problem: $SYS_CLK_DIV (1 .. 15)"
+echo "  SYS_CLK: $SYS_CLK"
+[ $SYS_CLK -le 150000000 ] || echo "SYS_CLK problem: $SYS_CLK ( ... 150 MHz)"
+[ $PCLK_NUM -ge 1 -a $PCLK_NUM -le 128 ] || echo "PCLK_NUM problem: $PCLK_NUM (1 .. 127)"
+[ $PCLK_DEN -ge 1 -a $PCLK_DEN -le 256 ] || echo "PCLK_DEN problem: $PCLK_DEN (1 .. 255)"
+echo "  PCLK_NUM / PCLK_DEN: $PCLK_NUM / $PCLK_DEN"
+echo "  VTCM PIXEL_CLK: $PIXEL_CLK"
+echo "  Panel PIXEL_CLK: $(( 2 * $PIXEL_CLK ))"
+echo "  MTX_CLK_DIV: $MTX_CLK_DIV"
+[ $MTX_CLK_DIV -ge 1 -a $MTX_CLK_DIV -le 16 ] || echo "MTX_CLK_DIV problem: $MTX_CLK_DIV (1 .. 15)"
+[ $MTX_CLK_DIV -eq 1 -o $((MTX_CLK_DIV % 2)) -eq 0 ] || echo "MTX_CLK_DIV problem: $MTX_CLK_DIV (1 or even divider) - ignored"
+echo "  MIPITX_BIT_CLK: $MIPITX_BIT_CLK"
+echo "  MIPITX_DDR_CLK: $MIPITX_DDR_CLK"
+[ $MIPITX_DDR_CLK -ge $PANEL_MIN_DDR ] || echo "MIPITX_DDR_CLK vs. PANEL_MIN_DDR problem: $MIPITX_DDR_CLK < $PANEL_MIN_DDR"
+[ $MIPITX_DDR_CLK -le $PANEL_MAX_DDR ] || echo "MIPITX_DDR_CLK vs. PANEL_MAX_DDR problem: $MIPITX_DDR_CLK < $PANEL_MAX_DDR"
+echo "  MIPITX_BYTE_CLK: $MIPITX_BYTE_CLK"
+echo "  LPCLK out: $SSD_LPCLK"
+[ $LP_CLK_DIV -gt 0 -a $LP_CLK_DIV -le 64 ] || echo "LP_CLK_DIV problem: $LP_CLK_DIV (1 .. 63)"
+echo "  LOCKCNT: $LOCKCNT"
+[ $LOCKCNT -gt 0 -a $LOCKCNT -le 65535 ] || echo "LOCKCNT problem: $LOCKCNT (1 .. 65535)"
+
+echo "OMAP MIPI:"
+echo "  Dimensions: ${OMAP_WIDTH}x${OMAP_HEIGHT} in ${PANEL_FRAME_WIDTH}x${PANEL_FRAME_HEIGHT}"
+echo "  Pixel CLK: $OMAP_PCLK"
+echo "  DDR CLK: $OMAP_DDR"
+echo "  LPCLK out: $(($XTAL / 2))"
+
+/* now initialize OMAP MIPI Interface */
+
+// FIXME: initialize the omap interface - but we can't do a fbset here!!!
+
+fbset -g $OMAP_WIDTH $OMAP_HEIGHT $OMAP_WIDTH $OMAP_HEIGHT 32
+
+echo start x_res=$OMAP_WIDTH y_res=$OMAP_HEIGHT lpclock=$OMAP_LPCLK pixelclock=$OMAP_PCLK \
+	hfp=$OMAP_HFP hsw=$OMAP_HSA hbp=$OMAP_HBP \
+	vfp=$OMAP_VFP vsw=$OMAP_VSA vbp=$OMAP_VBP >dcs	// start MIPI interface timing
+
+sleep .5
+
+// FIXME: write to ssd registers
+
+/* replace e.g.
+
+	echo g0024 00003000 >dcs
+
+   by
+
+	ssd2858_write_reg(dssdev, 0x0024, 0x00003000);
+
+*/
+
+// prepare for getting access to the ssd
+echo 28 >dcs
+echo 10 >dcs
+echo ff00 >dcs
+echo 28 >dcs
+echo 10 >dcs
+
+// start programming the SSD2858 with the SCM
+
+echo g0008 $(printf "%08x" $(( ($LOCKCNT << 16) | (0 << 15) | (0 << 15) | (($PLL_POST_DIV-1) << 8) | $PLL_MULT << 0)) ) >dcs
+echo g000c $(printf "%08x" $(( (($MTX_CLK_DIV-1) << 4) | (($SYS_CLK_DIV-1) << 0) )) ) >dcs
+echo g0014 $(printf "%08x" $(( 0x0C37800F )) ) >dcs	// SCM_MISC2 (0C77800F): MRXEN = enabled
+echo g0020 $(printf "%08x" $(( 0x1592567D | (1 << 22) )) ) >dcs	// SCM_ANACTRL1 (1592567D): CPEN = enabled
+echo g0024 00003000 >dcs	// SCM_ANACTRL2 (00003300): CPPER=24
+
+// some DCS
+echo 11 >dcs
+sleep 0.001
+echo 2a $(printf "%08x" $(( $OMAP_WIDTH - 1 )) ) >dcs
+echo 2b $(printf "%08x" $(( $OMAP_HEIGHT - 1 )) ) >dcs
+
+// MIPIRX
+echo g1008 01200445 >dcs	// MIPIRX_DCR (01200245): HST=4
+
+// VCTM
+echo g200c $(printf "%08x" $(( ($SPLIT_MEM << 9) | ($ROT90 << 8) | ($VBP << 2) | ($TE_SEL << 1) )) ) >dcs	// VCTM_CFGR (00000000)
+echo g2010 $(printf "%08x" $(( ($PCLK_DEN << 16) | ($PCLK_NUM << 0) )) ) >dcs	// VCTM_PCFRR (00010001)
+echo g2014 $(printf "%08x" $(( ($PANEL_FRAME_WIDTH << 16) | $PANEL_HBP )) ) >dcs	// HDCFGR
+echo g2018 $(printf "%08x" $(( ($PANEL_FRAME_HEIGHT << 16) | $PANEL_VBP )) ) >dcs	// VDCFGR
+echo g201c $(printf "%08x" $(( ($OMAP_HEIGHT << 16) | $OMAP_WIDTH )) ) >dcs	// MSZR
+echo g2020 $(printf "%08x" $(( ($PANEL_HEIGHT << 16) | $PANEL_WIDTH )) ) >dcs		// DSZR
+echo g2024 $(printf "%08x" $(( ($PANEL_HEIGHT << 16) | $PANEL_WIDTH )) ) >dcs		// PSZR
+echo g203c $(printf "%08x" $(( ($PANEL_HEIGHT << 16) | $PANEL_WIDTH )) ) >dcs		// ISZR
+echo g2034 00000000 >dcs	// VCTM_POSR (00000000)
+echo g2038 $(printf "%08x" $(( (($PANEL_HEIGHT - 1) << 16) | ($PANEL_WIDTH - 1) )) ) >dcs >dcs	// POER
+echo g2030 00000015 >dcs	// URAM refresh period
+echo g20a0 00000050 >dcs	// VTCM_QFBCCTRLR (00004151) - no padding, no pixswap, no fbc
+
+// some DCS
+echo 35 02 >dcs		// tear on
+echo 44 0500 >dcs	// tear scan line
+
+// MIPITX
+echo g6008 $(printf "%08x" $(( 0x00000008 | (($PANEL_LANES - 1) << 22) | (($LP_CLK_DIV-1) << 16) | ($CKE << 0) )) ) >dcs	// MIPITX_CTLR (00030008)
+echo g600c $(printf "%08x" $(( ($PANEL_VBP << 24) | ($PANEL_HBP << 16) | ($PANEL_VSA << 8) | ($PANEL_HSA << 0) )) ) >dcs	// MIPITX_VTC1R (0214020A)
+echo g6010 $(printf "%08x" $(( ($PANEL_HEIGHT << 16) | ($PANEL_VFP << 8) | ($PANEL_HFP << 0) )) ) >dcs	// MIPITX_VTC2R (0438020A)
+echo g6014 $(printf "%08x" $(( 0x01000102 | ($VB_MODE << 13) | ($VBE << 30) )) ) >dcs	// MIPITX_VCFR (01000101): VM=burst mode
+echo g6084 $(printf "%08x" $(( $PANEL_WIDTH << 0 )) ) >dcs	// MIPITX_DSI0VR (00000400)
+}
+
+#endif
+
 /* out ops available to be called by attached panel */
 
 /* a panel driver may call these operations and we must either
@@ -720,6 +951,11 @@ static const struct attribute_group ssd2858_attr_group = {
  */
 
 /* here is a sketch how DCS and generic packet commands requested by the panel driver should be handled */
+
+/* FIXME: if we have a "hardware-bypass-available"
+ * we can directly write to dcs while the ssd is in reset state
+ * if the ssd is in reset and we have no bypass, report an error
+ */
  
 static int from_panel_gen_write(struct omap_dss_device *dssdev, int channel, u8 *buf, int len)
 { // panel driver wants us to send a generic packet to the panel through the SSD
@@ -744,6 +980,8 @@ static int from_panel_dcs_write_nosync(struct omap_dss_device *dssdev, int chann
 	ssd2858_pass_to_panel(dssdev, true);	// switch SSD2858 to pass-through mode
 	return in->ops.dsi->dcs_write_nosync(in, channel, buf, len);
 }
+
+/* this are the ops the panel driver can call */
 
 static struct omapdss_dsi_ops ssd2858_out_ops = {
 	/* we must support at least (used in BOE driver)
