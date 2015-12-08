@@ -491,6 +491,14 @@ config LEDS_ASIC3
 	  cannot be used. This driver supports hardware blinking with an on+off
 	  period from 62ms to 125s. Say Y to enable LEDs on the HP iPAQ hx4700.
 
+config LEDS_IS31FL319X
+	tristate "LED Support for IS31FL319x I2C chip"
+	depends on LEDS_CLASS && I2C
+	help
+	  This option enables support for LEDs connected to IS31FL3196
+	  or IS31FL3199 LED driver chips accessed via the I2C bus.
+	  Driver support brightness control and hardware-assisted blinking.
+
 config LEDS_TCA6507
 	tristate "LED Support for TCA6507 I2C chip"
 	depends on LEDS_CLASS && I2C

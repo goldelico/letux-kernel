@@ -1,0 +1,41 @@
+LEDs connected to is31fl319x RGB LED controller chip
+
+Required properties:
+- compatible : should be : "issi,is31fl3196" or "issi,is31fl3199".
+- #address-cells: must be 1
+- #size-cells: must be 0
+- reg: 0x64, 0x65, 0x66, 0x67.
+
+Optional properties:
+- max-current-ma:	maximum led current (5..40 mA, default 20 mA)
+- audio-gain-db:	audio gain selection (0..21 dB. default 0 dB)
+- breathing & audio:	not implemented
+
+Each led is represented as a sub-node of the issi,is31fl319x device.
+
+LED sub-node properties:
+- label : (optional) see Documentation/devicetree/bindings/leds/common.txt
+- reg : number of LED line (0 to 5 or 0 to 8 - not all need to be present)
+- linux,default-trigger : (optional)
+   see Documentation/devicetree/bindings/leds/common.txt
+
+Examples:
+
+fancy_leds: is31fl3196@65 {
+	compatible = "issi,is31fl319x";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	reg = <0x65>;
+
+	led0: red-aux@0 {
+		label = "red:aux";
+		reg = <0>;
+	};
+
+	led1: green-power@4 {
+		label = "green:power";
+		reg = <4>;
+		linux,default-trigger = "default-on";
+	};
+};
+
