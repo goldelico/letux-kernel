@@ -398,6 +398,14 @@
 	};
 };
 
+&uart5_pins {
+	status = "disabled";
+}
+
+&uart5 {
+	status = "disabled";
+}
+
 &mmc2 { /* eMMC / µSD-card */
 	bus-width = <8>;
 	/* ti,non-removable; */
@@ -442,6 +450,7 @@
 &mmc5 {
 	status = "disabled";
 };
+
 
 /* rearrange to use gpio6_167/168 for console UART3 instead of sdio4_cmd/clk */
 
