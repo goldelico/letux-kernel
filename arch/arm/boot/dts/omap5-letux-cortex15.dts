@@ -392,7 +392,7 @@
 			gpio-key,wakeup;
 			autorepeat;
 			debounce_interval = <50>;
-// FIXME: don#t we have a second user button?
+// FIXME: don't we have a second user button?
 		};
 
 	};
