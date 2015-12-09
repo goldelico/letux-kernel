@@ -286,6 +286,17 @@
 		>;
 	};
 
+	mmc4_pins: pinmux_sdio4_pins {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x01da, PIN_INPUT_PULLUP | MUX_MODE4) /* sdio4_clk */
+			OMAP5_IOPAD(0x01dc, PIN_INPUT_PULLUP | MUX_MODE4) /* sdio4_cmd */
+			OMAP5_IOPAD(0x01b4, PIN_INPUT_PULLUP | MUX_MODE6) /* sdio4_data0 */
+			OMAP5_IOPAD(0x01b0, PIN_INPUT_PULLUP | MUX_MODE6) /* sdio4_data1 */
+			OMAP5_IOPAD(0x01b2, PIN_INPUT_PULLUP | MUX_MODE6) /* sdio4_data2 */
+			OMAP5_IOPAD(0x01b6, PIN_INPUT_PULLUP | MUX_MODE6) /* sdio4_data3 */
+		>;
+	};
+
 };
 
 &hsusb2_phy {
@@ -417,8 +428,13 @@
 	// NOTE: has been predefined for a wl1271 in ompa5-common.dtsi
 };
 
-&mmc4 { /* second (µ)SD slot */
+&mmc4 { /* second (µ)SD slot (SDIO capable) */
 	/* vmmc-supply = <&ldo2_reg> */
+	pinctrl-names = "default";
+	pinctrl-0 = <&mmc4_pins>;
+
+	// add wp/cd gpios
+
 	bus-width = <4>;
 	status = "okay";
 };
