@@ -392,7 +392,7 @@
 			gpio-key,wakeup;
 			autorepeat;
 			debounce_interval = <50>;
-// FIXME: don#t we have a second user button?
+// FIXME: don't we have a second user button?
 		};
 
 	};
@@ -441,4 +441,13 @@
 
 &mmc5 {
 	status = "disabled";
+};
+
+/* rearrange to use gpio6_167/168 for console UART3 instead of sdio4_cmd/clk */
+
+&uart3_pins {
+	pinctrl-single,pins = <
+		OMAP5_IOPAD(0x11e, PIN_OUTPUT | MUX_MODE4) /* uart3_tx_irtx gpio6_168 */
+		OMAP5_IOPAD(0x120, PIN_INPUT_PULLUP | MUX_MODE4) /* uart3_rx_irrx gpio6_167 */
+	>;
 };
