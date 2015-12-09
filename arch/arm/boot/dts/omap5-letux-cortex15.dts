@@ -451,6 +451,17 @@
 	status = "disabled";
 };
 
+&mcspi1 {
+	status = "disabled";
+};
+
+&mcspi2 {
+	status = "disabled";
+};
+
+&mcspi3 {
+	status = "disabled";
+};
 
 /* rearrange to use gpio6_167/168 for console UART3 instead of sdio4_cmd/clk */
 
