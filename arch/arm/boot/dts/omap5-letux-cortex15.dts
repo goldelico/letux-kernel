@@ -35,6 +35,8 @@
 		ti,palmas-pwron-debounce-milli-seconds = <15>;
 	};
 
+/* next three should be in omap5-board-common.dtsi */
+
 	palmas_gpadc: gpadc {
 		compatible = "ti,palmas-gpadc";
 	};
@@ -54,6 +56,8 @@
 		ti,backup-battery-charge-high-current;
 	};
 };
+
+/* should be in omap5-board-common.dtsi */
 
 &usb3 {
        extcon = <&extcon_usb3>;
@@ -84,12 +88,12 @@
 
 &twl6040_pins {
 	pinctrl-single,pins = <
-		OMAP5_IOPAD(0x0b2, PIN_OUTPUT | MUX_MODE6)	/* 0x0B0:[31:16]  gpio3_81 - twl6040 poweron */
+		OMAP5_IOPAD(0x0b2, PIN_OUTPUT | MUX_MODE6)	/* 0x0B0:[31:16]  gpio3_81 - redefine twl6040 poweron */
 	>;
 };
 
 &twl6040 {
-	status = "disabled";
+	status = "disabled";	/* broken on first board */
 	reg = <0x77>;
 	ti,audpwron-gpio = <&gpio3 17 0>;  /* gpio line 3_81 */
 };
@@ -294,16 +298,24 @@
 			OMAP5_IOPAD(0x01b0, PIN_INPUT_PULLUP | MUX_MODE6) /* sdio4_data1 */
 			OMAP5_IOPAD(0x01b2, PIN_INPUT_PULLUP | MUX_MODE6) /* sdio4_data2 */
 			OMAP5_IOPAD(0x01b6, PIN_INPUT_PULLUP | MUX_MODE6) /* sdio4_data3 */
+			/* CD and WP? gpio 3_77 / 79 */
 		>;
 	};
 
 };
+
+&wlan_pins {
+	status = "disabled";	/* we use these pins differently */
+};
+
+// chekcme if we can beter set the pinmux to "disabled"
 
 &hsusb2_phy {
 	reset-gpios = <0>; /* free up hub reset gpio3_80 */
 };
 
 &hsusb3_phy {
+	status = "disabled";
 	compatible = "none"; /* not connected */
 	reset-gpios = <0>; /* free up gpio3_79 */
 };
@@ -398,13 +410,20 @@
 	};
 };
 
+// do we need this?
+
 // &uart5_pins {
 //	status = "disabled";
 //}
 
 &uart5 {
 	status = "disabled";
-}
+};
+
+&mmc1 { /* SD slot */
+	cd-gpios = <&gpio8 4 0>;	/* gpio8_228 */
+	wp-gpios = <&gpio8 5 0>;	/* gpio8_229 */
+};
 
 &mmc2 { /* eMMC / µSD-card */
 	bus-width = <8>;
@@ -446,12 +465,11 @@
 
 &mmc4 { /* second (µ)SD slot (SDIO capable) */
 	status = "disabled";	/* because we are using for UART3 FTDI interface */
-	vmmc-supply = <&ldo2_reg>
+	vmmc-supply = <&ldo2_reg>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&mmc4_pins>;
-
-	// add wp/cd gpios as defined by LC15 board
-
+	cd-gpios = <&gpio3 13 0>;	/* gpio3_77 */
+	wp-gpios = <&gpio3 15 0>;	/* gpio3_79 */
 	bus-width = <4>;
 	status = "okay";
 };
@@ -461,11 +479,11 @@
 };
 
 &mcspi1 {
-	status = "disabled";
+	status = "okay";
 };
 
 &mcspi2 {
-	status = "disabled";
+	status = "okay";
 };
 
 &mcspi3 {
