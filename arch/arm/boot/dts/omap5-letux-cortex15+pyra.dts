@@ -986,3 +986,16 @@
 
 // uart2-dtr mit gpio6_164 verbinden
 // fm-en gpio6_166 mit regulator-fixed der always on ist
+
+/* rearrange to use gpio6_167/168 for console UART3 instead of sdio4_cmd/clk */
+
+&uart3_pins {
+	pinctrl-single,pins = <
+		OMAP5_IOPAD(0x11e, PIN_OUTPUT | MUX_MODE4) /* uart3_tx_irtx gpio6_168 */
+		OMAP5_IOPAD(0x120, PIN_INPUT_PULLUP | MUX_MODE4) /* uart3_rx_irrx gpio6_167 */
+	>;
+};
+
+&mmc4 { /* now, we can enable the second (µ)SD slot (SDIO capable) */
+	status = "okay";
+}
