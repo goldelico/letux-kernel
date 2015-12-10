@@ -1,14 +1,10 @@
 /*
- * Copyright (C) 2014 OpenPandora - http://www.pyra-handheld.com/
+ * Copyright (C) 2015 OpenPandora - http://www.pyra-handheld.com/
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-
-/* this version is for Pyra V5.0 with Letux Cortex 15 CPU board */
-
-#include "omap5-letux-cortex15.dts"
 
 /* overwrite device model */
 
@@ -933,20 +929,20 @@
  * add a regulator-gpio for the LCD
  */
 
+/* used in gpio mode for shoulder buttons etc. */
+
+&mcspi1 {
+	status = "disabled";
+};
+
+&mcspi2 {
+	status = "disabled";
+};
+
 /*
  * configure WLAN/Bluetooth module - http://processors.wiki.ti.com/index.php/WL18xx_Platform_Integration_Guide#For_kernels_with_device_tree_support
  * and see http://lxr.free-electrons.com/source/Documentation/devicetree/bindings/net/wireless/ti,wlcore.txt
  */
-
-/*
- * we have inherited some stuff from omap5-board-common.dtsi
- * and must patch to our config
- */
-
-&wlan_pins {
-	status = "disabled";
-	pinctrl-single,pins;	// clear
-};
 
 &vmmcsdio_fixed {
 	gpio = <&gpio6 3 GPIO_ACTIVE_HIGH>;	/* GPIO6_163 */
@@ -984,6 +980,10 @@
 	};
 };
 
+&uart2 {
+	status = "okay";
+};
+
 // uart2-dtr mit gpio6_164 verbinden
 // fm-en gpio6_166 mit regulator-fixed der always on ist
 
@@ -998,4 +998,4 @@
 
 &mmc4 { /* now, we can enable the second (µ)SD slot (SDIO capable) */
 	status = "okay";
-}
+};
