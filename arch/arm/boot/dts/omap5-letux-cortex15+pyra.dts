@@ -266,7 +266,7 @@
 			OMAP5_IOPAD(0x114, PIN_INPUT | MUX_MODE6)	/* 0x114:[15:0]  gpio6_160 - revision 1 */
 			OMAP5_IOPAD(0x12c, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x12C:[15:0]  gpio6_161 - TCA6424 active low interrupt */
 /* next 4 should be outputs and controlled by some driver (e.g. regulator-fixed) */
-			OMAP5_IOPAD(0x126, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x124:[31:16]  gpio6_163 - WLAN EN */
+			OMAP5_IOPAD(0x126, PIN_OUTPUT | MUX_MODE6)	/* 0x124:[31:16]  gpio6_163 - WLAN EN */
 			OMAP5_IOPAD(0x12a, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x128:[31:16]  gpio6_164 - BT EN */
 			OMAP5_IOPAD(0x128, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x128:[15:0]  gpio6_165 - Speaker EN */
 			OMAP5_IOPAD(0x122, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x120:[31:16]  gpio6_166 - FM EN */
@@ -330,7 +330,45 @@
 	/* leds */
 	is31fl3196@64 {
 		compatible = "issi,is31fl3196";
+		#address-cells = <1>;
+		#size-cells = <0>;
 		reg = <0x64>;
+
+		display_led0: red_bottom@0 {
+			label = "logo::led-0";
+			reg = <0>;
+			linux,default-trigger = "mmc0";
+		};
+
+		display_led1: green_bottom@1 {
+			label = "logo::led-1";
+			reg = <1>;
+			linux,default-trigger = "heartbeat";
+		};
+
+		display_led2: blue_bottom@2 {
+			label = "logo::led-2";
+			reg = <2>;
+			linux,default-trigger = "timer";
+		};
+
+		display_led3: red_top@3 {
+			label = "logo::led-3";
+			reg = <3>;
+			linux,default-trigger = "default-on";
+		};
+
+		display_led4: green_top@4 {
+			label = "logo::led-4";
+			reg = <4>;
+			linux,default-trigger = "timer";
+		};
+
+		display_led5: blue_top@5 {
+			label = "logo::led-5";
+			reg = <5>;
+			linux,default-trigger = "mmc0";
+		};
 	};
 
 	tca6507@45 { /* historical for V4 display boards */
@@ -343,43 +381,43 @@
 		/* gpio-controller;
 		#gpio-cells = <2>; */
 
-		display_led0: red_aux@0 {
+		red_aux@0 {
 			label = "display::led-0";
 			reg = <0x0>;
 			linux,default-trigger = "mmc0";
 		};
 
-		display_led1: green_aux@1 {
+		green_aux@1 {
 			label = "display::led-1";
 			reg = <0x1>;
 			linux,default-trigger = "heartbeat";
 		};
 
-		display_led2: blue_aux@2 {
+		blue_aux@2 {
 			label = "display::led-2";
 			reg = <0x2>;
 			linux,default-trigger = "timer";
 		};
 
-		display_led3: set1@3 {
+		set1@3 {
 			label = "display::led-3";
 			reg = <0x3>;
 			linux,default-trigger = "default-on";
 		};
 
-		display_led4: set2@4 {
+		set2@4 {
 			label = "display::led-4";
 			reg = <0x4>;
 			linux,default-trigger = "timer";
 		};
 
-		display_led5: set3@5 {
+		set3@5 {
 			label = "display::led-5";
 			reg = <0x5>;
 			linux,default-trigger = "mmc0";
 		};
 
-		display_led6: set4@6 {
+		set4@6 {
 			label = "display::led-6";
 			reg = <0x6>;
 			linux,default-trigger = "heartbeat";
@@ -607,14 +645,72 @@
 		open-drain-pins = <2 3 5 6 7 12 13 17 18 19 21 22 23>;
 	};
 
-	is31fl3196@64-left {
+	is31fl3196@64-left-mid {
 		compatible = "issi,is31fl3196";
+		#address-cells = <1>;
+		#size-cells = <0>;
 		reg = <0x64>;
+
+		left_led0: red_left@0 {
+			label = "left::led-0";
+			reg = <0>;
+			linux,default-trigger = "mmc0";
+		};
+
+		left_led1: green_left@1 {
+			label = "left::led-1";
+			reg = <1>;
+			linux,default-trigger = "heartbeat";
+		};
+
+		left_led2: blue_left@2 {
+			label = "left::led-2";
+			reg = <2>;
+			linux,default-trigger = "timer";
+		};
+
+		mid_led3: red_mid@3 {
+			label = "mid::led-3";
+			reg = <3>;
+			linux,default-trigger = "default-on";
+		};
+
+		mid_led4: green_mid@4 {
+			label = "mid::led-4";
+			reg = <4>;
+			linux,default-trigger = "timer";
+		};
+
+		mid_led5: blue_mid@5 {
+			label = "mid::led-5";
+			reg = <5>;
+			linux,default-trigger = "mmc0";
+		};
 	};
 
-	is31fl3196@65-right {
+	is31fl3196@67-right {
 		compatible = "issi,is31fl3196";
-		reg = <0x65>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x67>;
+
+		right_led0: red_right@0 {
+			label = "right::led-0";
+			reg = <0>;
+			linux,default-trigger = "mmc0";
+		};
+
+		right_led1: green_right@1 {
+			label = "right::led-1";
+			reg = <1>;
+			linux,default-trigger = "heartbeat";
+		};
+
+		right_led2: blue_right@2 {
+			label = "right::led-2";
+			reg = <2>;
+			linux,default-trigger = "timer";
+		};
 	};
 
 };
@@ -835,6 +931,9 @@
 
 /* more things to do
  * add a regulator-gpio for the LCD
+ */
+
+/*
  * configure WLAN/Bluetooth module - http://processors.wiki.ti.com/index.php/WL18xx_Platform_Integration_Guide#For_kernels_with_device_tree_support
  * and see http://lxr.free-electrons.com/source/Documentation/devicetree/bindings/net/wireless/ti,wlcore.txt
  */
@@ -850,7 +949,7 @@
 };
 
 &vmmcsdio_fixed {
-	gpio = <&gpio6 3 GPIO_ACTIVE_HIGH>;
+	gpio = <&gpio6 3 GPIO_ACTIVE_HIGH>;	/* GPIO6_163 */
 	enable-active-high;
 };
 
@@ -887,3 +986,16 @@
 
 // uart2-dtr mit gpio6_164 verbinden
 // fm-en gpio6_166 mit regulator-fixed der always on ist
+
+/* rearrange to use gpio6_167/168 for console UART3 instead of sdio4_cmd/clk */
+
+&uart3_pins {
+	pinctrl-single,pins = <
+		OMAP5_IOPAD(0x11e, PIN_OUTPUT | MUX_MODE4) /* uart3_tx_irtx gpio6_168 */
+		OMAP5_IOPAD(0x120, PIN_INPUT_PULLUP | MUX_MODE4) /* uart3_rx_irrx gpio6_167 */
+	>;
+};
+
+&mmc4 { /* now, we can enable the second (µ)SD slot (SDIO capable) */
+	status = "okay";
+}
