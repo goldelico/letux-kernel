@@ -398,9 +398,9 @@
 	};
 };
 
-&uart5_pins {
-	status = "disabled";
-}
+// &uart5_pins {
+//	status = "disabled";
+//}
 
 &uart5 {
 	status = "disabled";
@@ -417,7 +417,7 @@
 		reg = <0>;
 		#address-cells = <1>;
 		#size-cells = <0>;
-		// control gpio(s)
+		// add control gpio(s)
 
 		eMMC: port@0 {
 			compatible = "any,emmc";
@@ -436,12 +436,21 @@
 	// NOTE: has been predefined for a wl1271 in ompa5-common.dtsi
 };
 
+&ldo2_reg {
+	/* used as vmmc4 */
+	regulator-name = "ldo2";
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <3300000>;
+	status = "okay";
+};
+
 &mmc4 { /* second (µ)SD slot (SDIO capable) */
-	/* vmmc-supply = <&ldo2_reg> */
+	status = "disabled";	/* because we are using for UART3 FTDI interface */
+	vmmc-supply = <&ldo2_reg>
 	pinctrl-names = "default";
 	pinctrl-0 = <&mmc4_pins>;
 
-	// add wp/cd gpios
+	// add wp/cd gpios as defined by LC15 board
 
 	bus-width = <4>;
 	status = "okay";
@@ -461,13 +470,4 @@
 
 &mcspi3 {
 	status = "disabled";
-};
-
-/* rearrange to use gpio6_167/168 for console UART3 instead of sdio4_cmd/clk */
-
-&uart3_pins {
-	pinctrl-single,pins = <
-		OMAP5_IOPAD(0x11e, PIN_OUTPUT | MUX_MODE4) /* uart3_tx_irtx gpio6_168 */
-		OMAP5_IOPAD(0x120, PIN_INPUT_PULLUP | MUX_MODE4) /* uart3_rx_irrx gpio6_167 */
-	>;
 };
