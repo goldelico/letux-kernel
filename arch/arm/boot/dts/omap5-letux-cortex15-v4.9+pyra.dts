@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 OpenPandora - http://www.pyra-handheld.com/
+ * Copyright (C) 2015 OpenPandora - http://www.pyra-handheld.com/
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -10,9 +10,3 @@
 
 #include "omap5-letux-cortex15-v4.9.dts"
 #include "pyra-common.dtsi"
-
-/* not working on older CPU boards */
-
-&ldo2_reg {
-	status = "disabled";
-};
