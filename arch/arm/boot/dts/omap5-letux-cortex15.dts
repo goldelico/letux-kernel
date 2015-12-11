@@ -26,6 +26,8 @@
 	vdda-supply = <&ldo4_reg>;
 };
 
+/* these should be in omap5-board-common.dtsi */
+
 &palmas {
 	palmas_pwr_button: pwrbutton {
 		compatible = "ti,palmas-pwrbutton";
@@ -34,8 +36,6 @@
 		ti,palmas-long-press-seconds = <8>;
 		ti,palmas-pwron-debounce-milli-seconds = <15>;
 	};
-
-/* next three should be in omap5-board-common.dtsi */
 
 	palmas_gpadc: gpadc {
 		compatible = "ti,palmas-gpadc";
@@ -93,7 +93,7 @@
 };
 
 &twl6040 {
-	status = "disabled";	/* broken on first board */
+	status = "disabled";	/* broken on first boards */
 	reg = <0x77>;
 	ti,audpwron-gpio = <&gpio3 17 0>;  /* gpio line 3_81 */
 };
@@ -273,6 +273,15 @@
 		>;
 	};
 
+	uart2_pins: pinmux_uart2_pins {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x0b8, PIN_OUTPUT | MUX_MODE0) /* uart2_rts */
+			OMAP5_IOPAD(0x0ba, PIN_INPUT_PULLUP | MUX_MODE0) /* uart2_cts */
+			OMAP5_IOPAD(0x0bc, PIN_INPUT_PULLUP | MUX_MODE0) /* uart2_rx */
+			OMAP5_IOPAD(0x0be, PIN_OUTPUT | MUX_MODE0) /* uart2_tx */
+		>;
+	};
+
 /* enable MIPI pinmux - we may not really need this because the PinMux only has MUX_MODE0 */
 
 	mipi_dsi_a: pinmux_dsi_a_pins {
@@ -298,7 +307,7 @@
 			OMAP5_IOPAD(0x01b0, PIN_INPUT_PULLUP | MUX_MODE6) /* sdio4_data1 */
 			OMAP5_IOPAD(0x01b2, PIN_INPUT_PULLUP | MUX_MODE6) /* sdio4_data2 */
 			OMAP5_IOPAD(0x01b6, PIN_INPUT_PULLUP | MUX_MODE6) /* sdio4_data3 */
-			/* CD and WP? gpio 3_77 / 79 */
+			/* add CD and WP gpio 3_77 / 79 */
 		>;
 	};
 
@@ -308,7 +317,7 @@
 	status = "disabled";	/* we use these pins differently */
 };
 
-// chekcme if we can beter set the pinmux to "disabled"
+// checkme if we can better set the pinmux to "disabled"
 
 &hsusb2_phy {
 	reset-gpios = <0>; /* free up hub reset gpio3_80 */
@@ -329,7 +338,7 @@
 	 */
 
 	usb3503-reset {
-	/* this tries to apply a 100µs low to the reset line */
+	/* this tries to apply a 100us low to the reset line */
 		compatible = "regulator-fixed";
 		regulator-name = "usb3503-reset";
 		regulator-min-microvolt = <1800000>;
@@ -404,28 +413,42 @@
 			gpio-key,wakeup;
 			autorepeat;
 			debounce_interval = <50>;
-// FIXME: don't we have a second user button?
 		};
+
+// FIXME: don't we have a second user button?
 
 	};
 };
 
-// do we need this?
+&ldo2_reg {
+	/* used as vmmc4 */
+	regulator-name = "ldo2";
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <3300000>;
+	status = "okay";
+};
 
-// &uart5_pins {
-//	status = "disabled";
-//}
+&uart1 { /* used as mmc1 cd/wp */
+	status = "disabled";
+};
+
+&uart2 { /* pins shared with mcspi3 */
+	status = "okay";
+	pinctrl-0 = <&uart2_pins>;
+};
 
 &uart5 {
 	status = "disabled";
 };
 
-&mmc1 { /* SD slot */
-	cd-gpios = <&gpio8 4 0>;	/* gpio8_228 */
-	wp-gpios = <&gpio8 5 0>;	/* gpio8_229 */
+&mmc1 { /* first SD slot */
+/* check polarity and presence */
+// add pinmux!
+//	cd-gpios = <&gpio8 4 0>;	/* gpio8_228 */
+//	wp-gpios = <&gpio8 5 0>;	/* gpio8_229 */
 };
 
-&mmc2 { /* eMMC / µSD-card */
+&mmc2 { /* eMMC / uSD-card */
 	bus-width = <8>;
 	/* ti,non-removable; */
 
@@ -455,27 +478,14 @@
 	// NOTE: has been predefined for a wl1271 in ompa5-common.dtsi
 };
 
-&ldo2_reg {
-	/* used as vmmc4 */
-	regulator-name = "ldo2";
-	regulator-min-microvolt = <1800000>;
-	regulator-max-microvolt = <3300000>;
-	status = "okay";
-};
-
-&mmc4 { /* second (µ)SD slot (SDIO capable) */
-	status = "disabled";	/* because we are using for UART3 FTDI interface */
+&mmc4 { /* second (u)SD slot (SDIO capable) */
+	status = "disabled";	/* because we are still using ctl/cmd pins for UART3 FTDI interface */
 	vmmc-supply = <&ldo2_reg>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&mmc4_pins>;
 	cd-gpios = <&gpio3 13 0>;	/* gpio3_77 */
 	wp-gpios = <&gpio3 15 0>;	/* gpio3_79 */
 	bus-width = <4>;
-	status = "okay";
-};
-
-&mmc5 {
-	status = "disabled";
 };
 
 &mcspi1 {
@@ -486,6 +496,6 @@
 	status = "okay";
 };
 
-&mcspi3 {
+&mcspi3 { /* pins used for uart2 */
 	status = "disabled";
 };
