@@ -980,10 +980,6 @@
 	};
 };
 
-&uart2 {
-	status = "okay";
-};
-
 // uart2-dtr mit gpio6_164 verbinden
 // fm-en gpio6_166 mit regulator-fixed der always on ist
 
