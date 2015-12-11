@@ -28,6 +28,13 @@
 		regulator-max-microvolt = <3000000>;
 	};
 
+	ldo2_reg_fixed: fixedregulator-ldo2 {
+		compatible = "regulator-fixed";
+		regulator-name = "ldo2";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
 	ldo4_reg_fixed: fixedregulator-ldo4 {
 		compatible = "regulator-fixed";
 		regulator-name = "ldo4";
@@ -59,10 +66,15 @@
 };
 
 &twl6040 {
+	status = "disabled";	/* can't work */
 	vio-supply = <&smps7_reg_fixed>;
 	v2v1-supply = <&smps9_reg_fixed>;
 };
 
-&mmc1 { /* first (µ)SD slot */
+&mmc1 { /* first (u)SD slot */
 	vmmc-supply = <&vmmc1_fixed>;	/* LDO9 is not working */
+};
+
+&mmc4 { /* second (u)SD slot (SDIO capable) */
+	vmmc-supply = <&ldo2_reg_fixed>;	/* LDO2 is not working */
 };
