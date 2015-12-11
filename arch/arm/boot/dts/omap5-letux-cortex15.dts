@@ -483,8 +483,8 @@
 	vmmc-supply = <&ldo2_reg>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&mmc4_pins>;
-	cd-gpios = <&gpio3 13 0>;	/* gpio3_77 */
-	wp-gpios = <&gpio3 15 0>;	/* gpio3_79 */
+//	cd-gpios = <&gpio3 13 0>;	/* gpio3_77 */
+//	wp-gpios = <&gpio3 15 0>;	/* gpio3_79 */
 	bus-width = <4>;
 };
 
