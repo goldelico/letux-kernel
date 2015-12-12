@@ -1,7 +1,7 @@
 /*
- * Virtual gpio to allow ON/OFF control of the W2CBW003 module.
+ * IS31FL3196 LED chip driver.
  *
- * Copyright (C) 2014 H. Nikolaus Schaller <hns@goldelico.com>
+ * Copyright (C) 2015 H. Nikolaus Schaller <hns@goldelico.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -18,12 +18,12 @@
  * 02110-1301 USA
  */
 
-#ifndef __LINUX_W2CBW003_H
-#define __LINUX_W2CBW003_H
+#ifndef __LINUX_IS31FL319X_H
+#define __LINUX_IS31FL319X_H
+#include <linux/leds.h>
 
-struct w2cbw_data {
-	int	gpio_base;		/* (not used by DT) - defines the gpio.base */
-	int uV;
+struct is31fl319x_platform_data {
+	struct led_platform_data leds;
 };
 
-#endif /* __LINUX_W2CBW003_H */
+#endif /* __LINUX_IS31FL319X_H */

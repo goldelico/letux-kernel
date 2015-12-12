@@ -37,7 +37,7 @@
 #include <linux/usb/phy.h>
 
 #define DEBUG
-#define CONFIG_PRESENT_GPIO
+#define CONFIG_PRESENT_AS_GPIO
 
 struct wwan_on_off {
 	struct rfkill *rf_kill;
@@ -46,7 +46,7 @@ struct wwan_on_off {
 	struct usb_phy *usb_phy;	/* USB PHY to monitor for modem activity */
 	int		is_power_off;		/* current state */
 	spinlock_t	lock;
-#ifdef CONFIG_PRESENT_GPIO
+#ifdef CONFIG_PRESENT_AS_GPIO
 #ifdef CONFIG_GPIOLIB
 	struct gpio_chip gpio;
 	const char	*gpio_name[1];
@@ -102,7 +102,7 @@ static void set_power(struct wwan_on_off *wwan, int off)
 #endif
 }
 
-#ifdef CONFIG_PRESENT_GPIO
+#ifdef CONFIG_PRESENT_AS_GPIO
 static int wwan_on_off_get_value(struct gpio_chip *gc,
 						   unsigned offset)
 {
@@ -202,7 +202,7 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 	wwan->feedback_gpio = pdata->feedback_gpio;
 	wwan->usb_phy = pdata->usb_phy;
 
-#ifdef CONFIG_PRESENT_GPIO
+#ifdef CONFIG_PRESENT_AS_GPIO
 	wwan->gpio_name[0] = "gpio-wwan-enable";	/* label of controlling GPIO */
 
 	wwan->gpio.label = "gpio-wwan-on-off";
@@ -242,7 +242,7 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 		gpio_direction_input(wwan->feedback_gpio);
 	}
 
-#ifdef CONFIG_PRESENT_GPIO
+#ifdef CONFIG_PRESENT_AS_GPIO
 	err = gpiochip_add(&wwan->gpio);
 	if (err)
 		goto out3;
@@ -274,7 +274,7 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 out5:
 	rfkill_destroy(rf_kill);
 out4:
-#ifdef CONFIG_PRESENT_GPIO
+#ifdef CONFIG_PRESENT_AS_GPIO
 	gpiochip_remove(&wwan->gpio);
 #endif
 out3:
@@ -291,7 +291,7 @@ out:
 static int wwan_on_off_remove(struct platform_device *pdev)
 {
 	struct wwan_on_off *wwan = platform_get_drvdata(pdev);
-#ifdef CONFIG_PRESENT_GPIO
+#ifdef CONFIG_PRESENT_AS_GPIO
 	gpiochip_remove(&wwan->gpio);
 #endif
 	if (gpio_is_valid(wwan->feedback_gpio))

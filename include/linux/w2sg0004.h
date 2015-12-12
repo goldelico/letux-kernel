@@ -1,5 +1,5 @@
 /*
- * Virtual gpio to allow ON/OFF control of w2sg0004 GPS receiver.
+ * UART slave to allow ON/OFF control of w2sg0004 GPS receiver.
  *
  * Copyright (C) 2011 Neil Brown <neil@brown.name>
  *
@@ -11,11 +11,6 @@
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA
  */
 
 
@@ -25,12 +20,8 @@
 
 #include <linux/regulator/consumer.h>
 
-struct gpio_w2sg_data {
-	int	gpio_base;		/* (not used by DT) - defines the gpio.base */
+struct w2sg_pdata {
 	struct regulator *lna_regulator;	/* enable LNA power */
-	int	on_off_gpio;	/* connected to the on-off input of the GPS module */
-	int	rx_irq;		/* the rx irq - we track to check for module activity */
-	unsigned short	on_state;  /* Mux state when GPS is on */
-	unsigned short	off_state; /* Mux state when GPS is off */
+	int	on_off_gpio;	/*  on-off input of the GPS module */
 };
 #endif /* __LINUX_W2SG0004_H */

@@ -2,9 +2,8 @@ Wi2Wi GPS module connected through UART
 
 Required properties:
 - compatible: wi2wi,w2sg0004 or wi2wi,w2sg0084
-- pinctrl: specify two states (default and monitor). One is the default (UART) mode
-  and the other is for monitoring the RX line by an interrupt
 - on-off-gpio: the GPIO that controls the module's on-off toggle input
+- uart: the uart we are connected to (provides DTR for power control)
 
 Optional properties:
 - lna-suppy: an (optional) LNA regulator that is enabled together with the GPS receiver
@@ -13,14 +12,7 @@ example:
 
         gps_receiver: w2sg0004 {
                 compatible = "wi2wi,w2sg0004";
-                gpio-controller;
-                #gpio-cells = <2>;
-
-                pinctrl-names = "default", "monitor";
-                pinctrl-0 = <&uart2_pins>;
-                pinctrl-1 = <&uart2_rx_irq_pins>;
-
-                interrupt-parent = <&gpio5>;
-                interrupts = <19 IRQ_TYPE_EDGE_FALLING>;  /* GPIO_147: RX - trigger on arrival of start bit */
                 lna-supply = <&vsim>;	/* LNA regulator */
                 on-off-gpio = <&gpio5 17 0>;	/* GPIO_145: trigger for turning on/off w2sg0004 */
+                uart = <&uart1>;	/* we are a slave of uart1 */
+        }

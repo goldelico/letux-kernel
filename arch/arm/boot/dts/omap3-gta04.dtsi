@@ -108,6 +108,7 @@
 	};
 
 	tv0: connector@1 {
+//		compatible = "composite-svideo-connector";
 		compatible = "svideo-connector";
 		label = "tv";
 
@@ -141,6 +142,27 @@
 			};
 		};
 	};
+
+	gps: w2sg0004 {
+		compatible = "wi2wi,w2sg0004";
+		uart = <&uart2>;
+		lna-supply = <&vsim>;	/* LNA regulator */
+		on-off-gpio = <&gpio5 17 0>;	/* GPIO_145: trigger for turning on/off w2sg0004 */
+	};
+
+	bluetooth: w2cbw003 {
+		compatible = "wi2wi,w2cbw003-bluetooth";
+		uart = <&uart1>;
+		vdd-supply = <&vaux4>;
+	};
+
+	serial: trs3386 {
+		compatible = "ti,trs3386-mctrl";
+		uart = <&uart3>;
+		gpios = <0>,		/* ... */
+			<&gpio1 21 0>;	/* DTR: GPIO_21 */
+	};
+
 };
 
 &omap3_pmx_core {
@@ -313,7 +335,7 @@
 		compatible = "bosch,bma180";
 		reg = <0x41>;
 		pinctrl-names = "default";
-		pinctrl-0 = <&bma180_pins>;
+		pintcrl-0 = <&bma180_pins>;
 		interrupt-parent = <&gpio4>;
 		interrupts = <19 (IRQ_TYPE_LEVEL_HIGH | IRQ_TYPE_EDGE_RISING)>; /* GPIO_115 */
 	};
@@ -386,13 +408,19 @@
 		interrupt-parent = <&gpio6>;
 		interrupts = <0 IRQ_TYPE_EDGE_FALLING>; /* GPIO_160 */
 		gpios = <&gpio6 0 GPIO_ACTIVE_LOW>;	/* GPIO_160 */
-		ti,x-plate-ohms = <550>;
+		touchscreen-size-x = <480>;
+		touchscreen-size-y = <640>;
+		touchscreen-max-pressure = <1000>;
+		touchscreen-fuzz-x = <2>;
+		touchscreen-fuzz-y = <2>;
+		touchscreen-fuzz-pressure = <10>;
+		touchscreen-inverted-y;
 		ti,min-x = <0x100>;
 		ti,max-x = <0xf00>;
-		ti,min-y = <0xf00>;
-		ti,max-y = <0x100>;
-		ti,min-rt = <0xfff>;
-		ti,max-rt = <0>;
+		ti,min-y = <0x100>;
+		ti,max-y = <0xf00>;
+		ti,max-rt = <4096>;
+		ti,x-plate-ohms = <550>;
 	};
 
 };
@@ -516,7 +544,7 @@
 		reg = <0>;
 		venc_out: endpoint {
 			remote-endpoint = <&opa_in>;
-			ti,channels = <2>;
+			ti,channels = <1>;
 		};
 	};
 };
@@ -664,40 +692,18 @@
 
 	backlight {
 		compatible = "pwm-backlight";
-		pwms = <&pwm 0 2000000>;
+		pwms = <&pwm11 0 2000000 0>;
 		pwm-names = "backlight";
 		brightness-levels = <0 11 20 30 40 50 60 70 80 90 100>;
 		default-brightness-level = <9>;	/* => 90 */
 		pinctrl-names = "default";
 		pinctrl-0 = <&backlight_pins>;
-		power-supply = <&vdd_bl_reg>;
-		enable-gpios = <&gpio2 25 0>;	/* GPT11/PWM */
 	};
 
-	pwm: omap_pwm {
-		compatible = "ti,omap-pwm";
-		timers = <&timer11>;
-		#pwm-cells = <2>;
-	};
-
-	/* this is a workaround because the backlight pwm does not work */
-	vdd_bl_reg: fixed_regulator@0 {
-		compatible = "regulator-fixed";
-		regulator-name = "bl-enable";
-		regulator-boot-on;
-		regulator-always-on;
-		regulator-min-microvolt = "1000000";
-		regulator-max-microvolt = "1000000";
-//		gpio = <&gpio2 25 0>;	/* GPT11/PWM */
-		enable-active-high;
-	};
-
-	bt_en: w2cbw003 { /* presents a single gpio to be plumbed to uart1 dts */
-		compatible = "wi2wi,w2cbw003";
-		gpio-controller;
-		#gpio-cells = <2>;
-
-		vdd-supply = <&vaux4>;
+	pwm11: dmtimer-pwm@11 {
+		compatible = "ti,omap-dmtimer-pwm";
+		ti,timers = <&timer11>;
+		#pwm-cells = <3>;
 	};
 
 	/* Bluetooth audio */
@@ -743,24 +749,6 @@
 		usb-port = <&hsusb2_phy>;
 		on-off-gpio = <&gpio6 26 0>;	/* GPIO_186: trigger to power on modem */
 		on-indicator-gpio = <0>;		/* n/a on GTA04A3/4 but on A5 */
-	};
-
-	gps_en: w2sg0004 { /* presents a single gpio to be plumbed to uart2 dts */
-		compatible = "wi2wi,w2sg0004";
-		gpio-controller;
-		#gpio-cells = <2>;
-
-		pinctrl-names = "default", "monitor";
-		pinctrl-0 = <&uart2_pins>;
-		pinctrl-1 = <&uart2_rx_irq_pins>;
-
-/* FIXME: driver currently uses the rx-gpio but we should (could?) simply specify the IRQ */
-		interrupt-parent = <&gpio5>;
-		interrupts = <19 IRQ_TYPE_EDGE_FALLING>;	/* GPIO_147: RX - trigger on arrival of start bit */
-//		rx-gpio = <&gpio5 19 0>;	/* GPIO_147: RX */
-
-		lna-supply = <&vsim>;	/* LNA regulator */
-		on-off-gpio = <&gpio5 17 0>;	/* GPIO_145: trigger for turning on/off w2sg0004 */
 	};
 
 	control: control@48002270 {
@@ -858,7 +846,7 @@
 
 	backlight_pins: backlight_pins_pimnux {
 		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x20ba, MUX_MODE4)		/* gpt11/gpio57 */
+			OMAP3_CORE1_IOPAD(0x20ba, MUX_MODE3)		/* gpt11/gpio57 */
 		>;
 	};
 
@@ -998,14 +986,6 @@
 	vsync-active = <0>; /* Active low */
 	data-active = <1>;/* Active high */
 	pclk-sample = <1>;/* Rising */
-};
-
-&uart1 { /* Bluetooth /dev/ttyO0 */
-	dtr-gpio = <&bt_en 0 GPIO_ACTIVE_LOW>;	/* w2cbw bluetooth power control through virtual gpio */
-};
-
-&uart2 { /* GPS /dev/ttyO1 */
-	dtr-gpio = <&gps_en 0 GPIO_ACTIVE_HIGH>;	/* w2sg0004 GPS power control through virtual gpio */
 };
 
 &uart3 { /* Console and IrDA /dev/ttyO2 */

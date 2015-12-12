@@ -9,13 +9,11 @@
 / {
 	model = "Goldelico GTA04b2/Letux 3704";
 
-	/* add additional regulators etc. */
-
 	/* overwrite panel definitions */
 
 	aliases {
 		display0 = &lcd_b2;
-//		display1 = &tv0;
+		display1 = &tv0;
 	};
 
 	lcd_b2: lcd {
@@ -68,6 +66,7 @@
 };
 
 &spi_lcd {
+	status = "disabled";
 	compatible = "none";
 };
 
@@ -127,13 +126,18 @@
 		interrupt-parent = <&gpio6>;
 		interrupts = <0 IRQ_TYPE_EDGE_FALLING>;
 		gpios = <&gpio6 0 GPIO_ACTIVE_LOW>;	/* gpio160 */
-		ti,x-plate-ohms = <600>;
-		ti,min-x = <0x100>;
-		ti,max-x = <0xf00>;
-		ti,min-y = <0xf00>;
-		ti,max-y = <0x100>;
-		ti,min-rt = <0xfff>;
-		ti,max-rt = <0>;
+		ti,x-plate-ohms = <450>;
+		touchscreen-size-x = <480>;
+		touchscreen-size-y = <800>;
+		touchscreen-max-pressure = <1000>;
+		touchscreen-fuzz-x = <2>;
+		touchscreen-fuzz-y = <2>;
+		touchscreen-fuzz-pressure = <10>;
+		ti,min-x = <190>;
+		ti,max-x = <3900>;
+		ti,min-y = <140>;
+		ti,max-y = <3900>;
+		ti,max-rt = <1000>;
 	};
 
 };

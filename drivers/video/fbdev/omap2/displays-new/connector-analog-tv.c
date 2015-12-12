@@ -135,6 +135,7 @@ static void tvc_set_timings(struct omap_dss_device *dssdev,
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
 
+	dev_dbg(ddata->dev, "tvc_set_timings\n");
 	ddata->timings = *timings;
 	dssdev->panel.timings = *timings;
 
@@ -155,6 +156,7 @@ static int tvc_check_timings(struct omap_dss_device *dssdev,
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
 
+	dev_dbg(ddata->dev, "tvc_check_timings\n");
 	return in->ops.atv->check_timings(in, timings);
 }
 
@@ -197,6 +199,7 @@ static int tvc_probe_pdata(struct platform_device *pdev)
 	struct connector_atv_platform_data *pdata;
 	struct omap_dss_device *in, *dssdev;
 
+	dev_dbg(ddata->dev, "tvc_probe_pdata\n");
 	pdata = dev_get_platdata(&pdev->dev);
 
 	in = omap_dss_find_output(pdata->source);
@@ -222,6 +225,7 @@ static int tvc_probe_of(struct platform_device *pdev)
 	struct device_node *node = pdev->dev.of_node;
 	struct omap_dss_device *in;
 
+	dev_dbg(ddata->dev, "tvc_probe_of\n");
 	in = omapdss_of_find_source_for_first_ep(node);
 	if (IS_ERR(in)) {
 		dev_err(&pdev->dev, "failed to find video source\n");
@@ -239,6 +243,10 @@ static int tvc_probe(struct platform_device *pdev)
 	struct omap_dss_device *dssdev;
 	int r;
 
+#ifdef DEBUG
+printk("tvc_probe\n");
+#endif
+
 	ddata = devm_kzalloc(&pdev->dev, sizeof(*ddata), GFP_KERNEL);
 	if (!ddata)
 		return -ENOMEM;
@@ -249,11 +257,11 @@ static int tvc_probe(struct platform_device *pdev)
 	if (dev_get_platdata(&pdev->dev)) {
 		r = tvc_probe_pdata(pdev);
 		if (r)
-			return r;
+			goto err;
 	} else if (pdev->dev.of_node) {
 		r = tvc_probe_of(pdev);
 		if (r)
-			return r;
+			goto err;
 	} else {
 		return -ENODEV;
 	}
@@ -273,9 +281,12 @@ static int tvc_probe(struct platform_device *pdev)
 		goto err_reg;
 	}
 
+	dev_dbg(ddata->dev, "tvc_probe ok\n");
 	return 0;
 err_reg:
 	omap_dss_put_device(ddata->in);
+err:
+	dev_dbg(ddata->dev, "tvc_probe failed %d\n", r);
 	return r;
 }
 
