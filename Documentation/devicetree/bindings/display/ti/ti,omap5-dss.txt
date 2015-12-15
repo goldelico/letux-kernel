@@ -39,7 +39,10 @@ Required properties:
 Optional properties:
 - max-memory-bandwidth: Input memory (from main memory to dispc) bandwidth limit
 			in bytes per second
-
+- interrupts-extended: Specify the DISPC interrupt plus a VSYNC/TE interrupt (e.g.
+			gpio6_189) for LCD1
+- te-scanline: The scanline where we expect the VSYNC/TE input for antitear
+			regulation
 
 RFBI
 ----
