@@ -172,6 +172,10 @@ static struct {
 	irq_handler_t user_handler;
 	void *user_data;
 
+	int te_gpio_irq;
+	int count;
+	u32 expected;	/* expected scan line */
+
 	unsigned long core_clk_rate;
 	unsigned long tv_pclk_rate;
 
@@ -4516,6 +4520,28 @@ static const struct dispc_ops dispc_ops = {
 	.ovl_get_color_modes = dispc_ovl_get_color_modes,
 };
 
+static irqreturn_t dispc_te_gpio_handler(int irq, void *arg)
+{
+	u32 line;
+
+	if (!dispc.is_enabled)
+		return IRQ_NONE;
+
+	line = dispc_read_reg(DISPC_LINE_STATUS);
+
+	if (dispc.count++ > 10) {
+		if (line > dispc.expected)
+			printk("TE @ line %u diff = %d -- too late\n", line, line - (int) dispc.expected);
+		else
+			printk("TE @ line %u diff = %d -- too early\n", line, line - (int) dispc.expected);
+		dispc.count = 0;
+	}
+
+//	determine what to do
+
+	return IRQ_HANDLED;
+}
+
 /* DISPC HW IP initialisation */
 static const struct of_device_id dispc_of_match[] = {
 	{ .compatible = "ti,omap2-dispc", .data = &omap24xx_dispc_feats },
@@ -4573,6 +4599,14 @@ static int dispc_bind(struct device *dev, struct device *master, void *data)
 		return -ENODEV;
 	}
 
+	dispc.te_gpio_irq = platform_get_irq(dispc.pdev, 1);
+	/* silently fail */
+	printk("defined TE GPIO interrupt %d\n", dispc.te_gpio_irq);
+
+	if (np)
+		of_property_read_u32(np, "te-scanline", &dispc.expected);
+	printk("TE scanline expected %d\n", dispc.expected);
+
 	if (np && of_property_read_bool(np, "syscon-pol")) {
 		dispc.syscon_pol = syscon_regmap_lookup_by_phandle(np, "syscon-pol");
 		if (IS_ERR(dispc.syscon_pol)) {
@@ -4608,6 +4642,13 @@ static int dispc_bind(struct device *dev, struct device *master, void *data)
 	dispc_set_ops(&dispc_ops);
 
 	dss_debugfs_create_file("dispc", dispc_dump_regs);
+
+	if (dispc.te_gpio_irq >= 0) {
+		r = devm_request_irq(&dispc.pdev->dev, dispc.te_gpio_irq, dispc_te_gpio_handler,
+				     IRQF_SHARED, "OMAP DISPC", &dispc);
+		/* silently fail */
+		DSSDBG("TE GPIO interrupt %d => %d\n", dispc.te_gpio_irq, r);
+	}
 
 	return 0;
 
