@@ -36,6 +36,9 @@ Required properties:
 - clocks: handle to fclk
 - clock-names: "fck"
 
+Optional properties (for Antialias driver):
+- interrupts-extended: specify the DISPC interrupt plus a VSYNC/TE interrupt (e.g. gpio6_189) for LCD1
+- te-scanline: the scanline where we expect the VSYNC/TE input
 
 RFBI
 ----
