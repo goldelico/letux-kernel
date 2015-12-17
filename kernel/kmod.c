@@ -59,7 +59,10 @@ static DECLARE_WAIT_QUEUE_HEAD(kmod_wq);
 /*
 	modprobe_path is set via /proc/sys.
 */
-char modprobe_path[KMOD_PATH_LEN] = "/sbin/modprobe";
+//char modprobe_path[KMOD_PATH_LEN] = "/sbin/modprobe";
+//This is our Android-Busybox modprobe
+//It can also be modified via /proc/sys/kernel/modprobe
+char modprobe_path[KMOD_PATH_LEN] = "/system/xbin/modprobe";
 
 static void free_modprobe_argv(struct subprocess_info *info)
 {
