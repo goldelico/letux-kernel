@@ -415,16 +415,13 @@
 			debounce_interval = <50>;
 		};
 
-// FIXME: don't we have a second user button?
-
-		leds {
-			compatible = "gpio-leds";
-			led@1 {
-				label = "lc15:red:usr1";
-				gpios = <&gpio5 25 GPIO_ACTIVE_HIGH>; /* gpio5_153 D1 LED */
-				linux,default-trigger = "heartbeat";
-				default-state = "off";
-			};
+		BOOTSEL {
+			label = "BOOTSEL";
+			linux,code = <0x161>;
+			gpios = <&gpio1 7 GPIO_ACTIVE_LOW>;	/* gpio1_wk7 is Boot-Select Button */
+			gpio-key,wakeup;
+			autorepeat;
+			debounce_interval = <50>;
 		};
 
 	};
