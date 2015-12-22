@@ -1,5 +1,5 @@
 /*
- * Virtual gpio to allow ON/OFF control of a WWAN module.
+ * Driver for controlling power states of some WWAN modules.
  *
  * Copyright (C) 2014 H. Nikolaus Schaller <hns@goldelico.com>
  *
@@ -24,8 +24,9 @@
 
 struct wwan_on_off_data {
 	int	gpio_base;		/* (not used by DT) - defines the gpio.base */
-	int	on_off_gpio;	/* connected to the on-off input of the GPS module */
-	int	feedback_gpio;	/* optional status feedback to report module power state */
+	int	on_off_gpio;		/* connected to the on-off input of the GPS module */
+	int	feedback_gpio;		/* optional status feedback to report module power state */
+	bool	feedback_gpio_inverted;	/* if active low */
 	struct usb_phy *usb_phy;	/* optional USB PHY to monitor for modem activity */
 };
 #endif /* __LINUX_WWAN_ON_OFF_H */
