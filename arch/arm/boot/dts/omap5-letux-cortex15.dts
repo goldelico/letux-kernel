@@ -26,42 +26,9 @@
 	vdda-supply = <&ldo4_reg>;
 };
 
-/* these should be in omap5-board-common.dtsi */
-
-&palmas {
-	palmas_pwr_button: pwrbutton {
-		compatible = "ti,palmas-pwrbutton";
-		interrupt-parent = <&palmas>;
-		interrupts = <1 IRQ_TYPE_EDGE_FALLING>;
-		ti,palmas-long-press-seconds = <8>;
-		ti,palmas-pwron-debounce-milli-seconds = <15>;
-	};
-
-	palmas_gpadc: gpadc {
-		compatible = "ti,palmas-gpadc";
-	};
-
-	extcon_usb3: palmas_usb {
-		compatible = "ti,palmas-usb-vid";
-		ti,enable-vbus-detection;
-		ti,enable-id-detection;
-		ti,wakeup;
-	};
-
-	rtc {
-		compatible = "ti,palmas-rtc";
-		interrupt-parent = <&palmas>;
-		interrupts = <8 IRQ_TYPE_NONE>;
-		ti,backup-battery-chargeable;
-		ti,backup-battery-charge-high-current;
-	};
-};
-
-/* should be in omap5-board-common.dtsi */
-
-&usb3 {
-       extcon = <&extcon_usb3>;
-       vbus-supply = <&smps10_out1_reg>;
+&palmas_power_button {
+	ti,palmas-long-press-seconds = <8>;
+	ti,palmas-pwron-debounce-milli-seconds = <15>;
 };
 
 /* Audio routing */
