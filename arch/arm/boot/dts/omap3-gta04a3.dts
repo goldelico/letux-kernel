@@ -26,6 +26,18 @@
 
 };
 
+&modem_en { /* can't control modem power through rfkill */
+	status = "disabled";
+	on-off-gpio = <0>;	/* overwrite as n/a */
+};
+
+&modem_pins {
+	pinctrl-single,pins = <
+		/* remove entry inherited from omap3-gta04.dtsi */
+	>;
+};
+
+
 &i2c2 {
 
 	/* alternate accelerometer that might be installed on some GTA04A3 boards */
