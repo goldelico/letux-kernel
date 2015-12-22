@@ -48,7 +48,7 @@
 		ti,mcbsp = <&mcbsp2>;
 	};
 
-	 /* GSM audio */
+	/* GSM audio */
 	sound_telephony {
 		compatible = "simple-audio-card";
 		simple-audio-card,name = "GTA04 voice";
@@ -221,7 +221,7 @@
 			OMAP3_CORE1_IOPAD(0x2108, PIN_OUTPUT | MUX_MODE0)   /* dss_data22.dss_data22 */
 			OMAP3_CORE1_IOPAD(0x210a, PIN_OUTPUT | MUX_MODE0)   /* dss_data23.dss_data23 */
 		>;
-       };
+	};
 
 	hdq_pins: hdq_pins {
 		pinctrl-single,pins = <
