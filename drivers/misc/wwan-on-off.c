@@ -58,8 +58,7 @@ struct wwan_on_off {
 static bool is_powered_on(struct wwan_on_off *wwan)
 { /* check with physical interfaces if possible */
 	if (gpio_is_valid(wwan->feedback_gpio))
-		// handle active low
-		return gpio_get_value(wwan->feedback_gpio) ^ wwan->feedback_gpio_inverted;	/* read gpio */
+		return gpio_get_value(wwan->feedback_gpio) != wwan->feedback_gpio_inverted;	/* read gpio */
 	if (wwan->usb_phy != NULL && !IS_ERR(wwan->usb_phy))
 		printk("USB phy event %d\n", wwan->usb_phy->last_event);
 	/* check with PHY if available */
@@ -186,7 +185,7 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 		pdata->feedback_gpio_inverted = (flags & OF_GPIO_ACTIVE_LOW) != 0;
 		// handle active low feedback gpio!
 		pdata->usb_phy = devm_usb_get_phy_by_phandle(dev, "usb-port", 0);
-		printk("onoff = %d indicator = %d usb_phy = %ld\n", pdata->on_off_gpio, pdata->feedback_gpio, PTR_ERR(pdata->usb_phy));
+		printk("onoff = %d indicator = %d act low: %d usb_phy = %ld\n", pdata->on_off_gpio, pdata->feedback_gpio, pdata->feedback_gpio_inverted, PTR_ERR(pdata->usb_phy));
 		if (pdata->on_off_gpio == -EPROBE_DEFER ||
 			pdata->feedback_gpio == -EPROBE_DEFER ||
 			PTR_ERR(pdata->usb_phy) == -EPROBE_DEFER)
@@ -205,6 +204,7 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	wwan->on_off_gpio = pdata->on_off_gpio;
 	wwan->feedback_gpio = pdata->feedback_gpio;
+	wwan->feedback_gpio_inverted = pdata->feedback_gpio_inverted;
 	wwan->usb_phy = pdata->usb_phy;
 
 #ifdef CONFIG_PRESENT_AS_GPIO
