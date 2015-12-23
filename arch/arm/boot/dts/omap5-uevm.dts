@@ -34,6 +34,10 @@
 		reg = <0x22>;
 		gpio-controller;
 		#gpio-cells = <2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&tca6424_pins>;
+		interrupt-parent = <&gpio3>;
+		interrupts = <14 IRQ_TYPE_LEVEL_HIGH>;  /* gpio3_78 */
 	};
 };
 
