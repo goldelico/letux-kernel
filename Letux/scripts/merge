@@ -72,7 +72,7 @@ do
 	case "$FEATURE" in
 	'' | -* | '#'* )	continue;;
 	esac
-	LATEST=$(echo $(git branch | fgrep $FEATURE | sort | tail -1))
+	LATEST=$(echo $(git branch | fgrep "${FEATURE}-v" | sort | tail -1))
 	if [ "$LATEST" = "" ]
 	then
 		echo "*** merging $FEATURE (run git pull -t origin/$FEATURE-Version?) ***"
