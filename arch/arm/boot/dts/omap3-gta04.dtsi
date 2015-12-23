@@ -206,6 +206,12 @@
 		>;
 	};
 
+	backlight_pins: backlight_pins_pimnux {
+		pinctrl-single,pins = <
+			OMAP3_CORE1_IOPAD(0x20ba, MUX_MODE3)		/* gpt11/gpio57 */
+		>;
+	};
+
 	dss_dpi_pins: pinmux_dss_dpi_pins {
                pinctrl-single,pins = <
 			OMAP3_CORE1_IOPAD(0x20d4, PIN_OUTPUT | MUX_MODE0)   /* dss_pclk.dss_pclk */
@@ -242,12 +248,6 @@
 	hdq_pins: hdq_pins {
 		pinctrl-single,pins = <
 			OMAP3_CORE1_IOPAD(0x21c6, PIN_INPUT_PULLUP | MUX_MODE0) /* i2c3_sda.hdq */
-		>;
-	};
-
-	backlight_pins: backlight_pins_pimnux {
-		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x20ba, MUX_MODE3)		/* gpt11/gpio57 */
 		>;
 	};
 };
