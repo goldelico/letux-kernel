@@ -222,6 +222,7 @@ static struct ti_dt_clk omap54xx_clks[] = {
 	DT_CLK("4013a000.timer", "timer_sys_ck", "dss_syc_gfclk_div"),
 	DT_CLK("4013c000.timer", "timer_sys_ck", "dss_syc_gfclk_div"),
 	DT_CLK("4013e000.timer", "timer_sys_ck", "dss_syc_gfclk_div"),
+	DT_CLK(NULL, "fref_xtal_ck", "fref_xtal_ck"),
 	{ .node_name = NULL },
 };
 
