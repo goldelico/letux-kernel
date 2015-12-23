@@ -84,7 +84,16 @@ do
 	fi
 done
 
+if false
+then # octopus
 git merge --no-ff --no-edit $BRANCHES || exit	# try to merge all
+
+else # sequence
+for BRANCH in $BRANCHES
+do
+	git merge --no-ff --no-edit $BRANCH || exit	# try to merge one after the other
+done
+fi
 
 $PUSH && echo "*** pushing letux-$VERSION to remote ***"
 $PUSH && { git push --force origin letux-$VERSION || exit; }	# update letux-$VERSION on public server
