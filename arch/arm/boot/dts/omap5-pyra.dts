@@ -143,20 +143,18 @@
 
 	backlight {
 		compatible = "pwm-backlight";
-		pwms = <&pwm 0 2000000>;
+		pwms = <&pwm9 0 2000000 0>;
 		pwm-names = "backlight";
 		brightness-levels = <0 11 20 30 40 50 60 70 80 90 100>;
 		default-brightness-level = <9>;	/* => 90 */
-//		pinctrl-names = "default";
-//		pinctrl-0 = <&backlight_pins>;
-//		power-supply = <&vdd_bl_reg>;
-		enable-gpios = <&gpio6 30 0>;	/* GPT9/PWM gpio6_190 */
+		pinctrl-names = "default";
+		pinctrl-0 = <&backlight_pins>;
 	};
 
-	pwm: omap_pwm {
-		compatible = "ti,omap-pwm";
-		timers = <&timer9>;
-		#pwm-cells = <2>;
+	pwm9: dmtimer-pwm@9 {
+		compatible = "ti,omap-dmtimer-pwm";
+		ti,timers = <&timer9>;
+		#pwm-cells = <3>;
 	};
 
 };
@@ -368,7 +366,6 @@
 		pinctrl-single,pins = <
 			OMAP5_IOPAD(0x122, PIN_OUTPUT_PULLUP | MUX_MODE6)	/* 0x120:[31:16] gpio6_166 - enable panel DC/DC */
 			OMAP5_IOPAD(0x0ca, PIN_INPUT_PULLDOWN | MUX_MODE7)	/* 0x0C8:[31:16] gpio6_189 - VSYNC input */
-			OMAP5_IOPAD(0x0f6, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x0F4:[31:16] gpio6_190 - choose MUX_MODE0 for PWM_TIMER9 - choose MUX_MODE7 if panel outputs the PWM */
 			OMAP5_IOPAD(0x10e, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x10c:[31:16] gpio6_176 - panel reset */
 		>;
 	};
@@ -380,6 +377,13 @@
 			OMAP5_IOPAD(0x0b8, PIN_INPUT | MUX_MODE6)	/* 0x108:[15:0] gpio3_84 - modem power ind */
 			OMAP5_IOPAD(0x114, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x114:[15:0]  gpio6_173 - touch screen */
 			OMAP5_IOPAD(0x178, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x178:[15:0]  gpio8_230 - reset I2C peripherals */
+		>;
+	};
+
+	backlight_pins: pinmux_backlight_pins {
+		pinctrl-single,pins = <
+			/* MUX_MODE0 for PWM_TIMER9, MUX_MODE6 for GPIO, MUX_MODE7 if panel provides the PWM signal */
+			OMAP5_IOPAD(0x0f6, PIN_OUTPUT_PULLDOWN | MUX_MODE0)	/* 0x0F4:[31:16] timer9/gpio6_190 */
 		>;
 	};
 
