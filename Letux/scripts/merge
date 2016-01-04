@@ -50,7 +50,7 @@ then
 	exit 1
 fi
 
-VERSION=$(git log -1 -E --grep="^Merge tag 'v[0-9].[0-9]" --format=oneline | sed "s|.*Merge tag 'v\(.*\)' into .*|\1|g")
+VERSION=$(git log -1 -E --grep="^Merge tag 'v[0-9].[0-9]" --format=oneline letux-base | sed "s|.*Merge tag 'v\(.*\)' into .*|\1|g")
 
 if ! [ "$VERSION" ]
 then
@@ -59,7 +59,7 @@ then
 fi
 
 # try to switch to base
-echo "*** checkout letux-base ***"
+echo "*** checkout letux-base ($VERSION) ***"
 git checkout letux-base || exit
 $PUSH && { git push origin letux-base; }	# update letux-base on public server
 
