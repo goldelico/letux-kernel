@@ -210,6 +210,16 @@
 			remote-endpoint = <&dsi1>;
 		};
 	};
+
+	dispc@58001000 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&ssd2858_vsync_pins>;
+		/delete-property/ interrupts;
+		interrupts-extended = <&wakeupgen GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>,
+			     <&gpio6 29 0>; 	/* gpio6_189 */
+		desired-scanline = <360>;
+	};
+
 };
 
 &dsi1 {
@@ -420,6 +430,13 @@
 			OMAP5_IOPAD(0x0de, PIN_OUTPUT | MUX_MODE0)	/* 0x0dc:[31:16] dsiporta_lane4y */
 		>;
 	};
+
+	ssd2858_vsync_pins: pinmux_ssd2858_vsync_pins {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x0ca, PIN_INPUT_PULLDOWN | MUX_MODE6)	/* 0x0C8:[31:16] gpio6_189 - VSYNC input */
+		>;
+	};
+
 };
 
 &i2c2 {
