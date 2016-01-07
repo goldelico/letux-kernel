@@ -494,6 +494,49 @@
 	};
 
 	/* leds */
+	is31fl3196@64 {
+		compatible = "issi,is31fl3196";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x64>;
+
+		display_led0: red_bottom@0 {
+			label = "logo:red:bottom";
+			reg = <0>;
+			linux,default-trigger = "mmc0";
+		};
+
+		display_led1: green_bottom@1 {
+			label = "logo:green:bottom";
+			reg = <1>;
+			linux,default-trigger = "heartbeat";
+		};
+
+		display_led2: blue_bottom@2 {
+			label = "logo:blue:bottom";
+			reg = <2>;
+			linux,default-trigger = "timer";
+		};
+
+		display_led3: red_top@3 {
+			label = "logo:red:top";
+			reg = <3>;
+			linux,default-trigger = "mmc1";
+		};
+
+		display_led4: green_top@4 {
+			label = "logo:green:top";
+			reg = <4>;
+			linux,default-trigger = "timer";
+		};
+
+		display_led5: blue_top@5 {
+			label = "logo:blue:top";
+			reg = <5>;
+			linux,default-trigger = "default-on";
+		};
+	};
+
 	tca6507@45 {
 		compatible = "ti,tca6507";
 		#address-cells = <1>;
@@ -504,43 +547,43 @@
 		/* gpio-controller;
 		#gpio-cells = <2>; */
 
-		display_led0: red_aux@0 {
+		red_aux@0 {
 			label = "display::led-0";
 			reg = <0x0>;
 			linux,default-trigger = "mmc0";
 		};
 
-		display_led1: green_aux@1 {
+		green_aux@1 {
 			label = "display::led-1";
 			reg = <0x1>;
 			linux,default-trigger = "heartbeat";
 		};
 
-		display_led2: blue_aux@2 {
+		blue_aux@2 {
 			label = "display::led-2";
 			reg = <0x2>;
 			linux,default-trigger = "timer";
 		};
 
-		display_led3: set1@3 {
+		set1@3 {
 			label = "display::led-3";
 			reg = <0x3>;
 			linux,default-trigger = "default-on";
 		};
 
-		display_led4: set2@4 {
+		set2@4 {
 			label = "display::led-4";
 			reg = <0x4>;
 			linux,default-trigger = "timer";
 		};
 
-		display_led5: set3@5 {
+		set3@5 {
 			label = "display::led-5";
 			reg = <0x5>;
 			linux,default-trigger = "mmc0";
 		};
 
-		display_led6: set4@6 {
+		set4@6 {
 			label = "display::led-6";
 			reg = <0x6>;
 			linux,default-trigger = "heartbeat";
