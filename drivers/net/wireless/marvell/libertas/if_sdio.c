@@ -123,6 +123,13 @@ struct if_sdio_card {
 	u8			buffer[65536] __attribute__((aligned(4)));
 
 	spinlock_t		lock;
+	/* used to lock if_sdio_power_restore from
+	 * power_on/off in if_sdio_probe
+	 * avoids race conditions when firmware is reloaded
+	 * after resume and something tries to open the
+	 * network interface
+	 */
+	struct mutex		power_lock;
 	struct if_sdio_packet	*packets;
 
 	struct workqueue_struct	*workqueue;
@@ -1232,6 +1239,7 @@ static int if_sdio_probe(struct sdio_func *func,
 	}
 
 	spin_lock_init(&card->lock);
+	mutex_init(&card->power_lock);
 	card->workqueue = create_workqueue("libertas_sdio");
 	INIT_WORK(&card->packet_worker, if_sdio_host_to_card_worker);
 	init_waitqueue_head(&card->pwron_waitq);
@@ -1271,10 +1279,20 @@ static int if_sdio_probe(struct sdio_func *func,
 	priv->reset_card = if_sdio_reset_card;
 	priv->power_save = if_sdio_power_save;
 	priv->power_restore = if_sdio_power_restore;
+	mutex_lock(&card->power_lock);
 
 	ret = if_sdio_power_on(card);
 	if (ret)
 		goto err_activate_card;
+
+	ret = lbs_start_card(priv);
+	if_sdio_power_off(card);
+	if (ret)
+		goto err_activate_card;
+
+	mutex_unlock(&card->power_lock);
+	/* Tell PM core that we don't need the card to be powered now */
+	pm_runtime_put_noidle(&func->dev);
 
 out:
 	lbs_deb_leave_args(LBS_DEB_SDIO, "ret %d", ret);
@@ -1282,6 +1300,7 @@ out:
 	return ret;
 
 err_activate_card:
+	mutex_unlock(&card->power_lock);
 	flush_workqueue(card->workqueue);
 	lbs_remove_card(priv);
 free:
