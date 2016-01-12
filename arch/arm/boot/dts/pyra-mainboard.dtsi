@@ -227,7 +227,6 @@
 
 	pyra_button_pins: pinmux_button_gpio_pins {
 		pinctrl-single,pins = <
-			OMAP5_IOPAD(0x044, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x044:[15:0] gpio1_wk6 - lid */
 			OMAP5_IOPAD(0x1bc, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x1BC:[15:0] gpio5_140 - U */
 			OMAP5_IOPAD(0x1be, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x1BC:[31:16] gpio5_141 - L */
 			OMAP5_IOPAD(0x1c0, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x1C0:[15:0] gpio5_142 - D */
@@ -247,8 +246,6 @@
 
 	pyra_other_pins: pinmux_other_gpio_pins {
 		pinctrl-single,pins = <
-			OMAP5_IOPAD(0x040, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x040:[15:0] gpio1_wk14 - wlan irq */
-			OMAP5_IOPAD(0x042, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x040:[31:16] gpio1_wk15 - modem wakeup */
 			OMAP5_IOPAD(0x0aa, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0A8:[31:16] gpio3_77 - mmc3-cd */
 			OMAP5_IOPAD(0x0ae, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0AC:[31:16] gpio3_79 - mmc3-wp */
 /* gpio 3_84-87 = BT HCI uart2 */
@@ -297,6 +294,21 @@
 		>;
 	};
 
+};
+
+&omap5_pmx_wkup {
+
+	lid_pin: pinmux_lid_pin {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x044, WAKEUP_EN | PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x044:[15:0] gpio1_wk6 - lid */
+		>;
+	};
+
+	wwan_pins: pinmux_wwan_pins {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x042, WAKEUP_EN | PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x040:[31:16] gpio1_wk15 - modem wakeup */
+		>;
+	};
 };
 
 /* register devices connected to Panel-I2C */
@@ -913,6 +925,8 @@
 		wwan_wakeup {
 			label = "3G WOE";
 			linux,code = <17>;	/* KEY_W */
+			pinctrl-names = "default";
+			pinctrl-0 = <&wwan_pins>;
 			gpios = <&gpio1 15 GPIO_ACTIVE_HIGH>;	/* gpio1_wk15 */
 			gpio-key,wakeup;
 			/* debounce-interval */
@@ -920,6 +934,8 @@
 
 		display_lid {
 			label = "Display Lid";
+			pinctrl-names = "default";
+			pinctrl-0 = <&lid_pin>;
 			linux,input-type = <5>; /* EV_SW */
 			linux,code = <0>; /* SW_LID */
 			gpios = <&gpio1 6 GPIO_ACTIVE_LOW>;	/* gpio1_wk6 */
@@ -972,20 +988,14 @@
 	status = "okay";
 /* inherited
 	vmmc-supply = <&vmmcsdio_fixed>;
+	mmc-pwrseq = <&mmc3_pwrseq>;
 	bus-width = <4>;
-	cap-power-off-card;
 	non-removable;
-	keep-power-in-suspend;
-*/
-
-/* find out if we still need this
-	bus-width = <4>;
-	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&mmc3_pins_default &wlan_pins_default>;
-	pinctrl-1 = <&mmc3_pins_sleep &wlan_pins_sleep>;
-	ti,non-removable;
-	ti,needs-special-hs-handling;
 	cap-power-off-card;
+	pinctrl-names = "default";
+	pinctrl-0 = <&mmc3_pins &wlcore_irq_pin>;
+	interrupts-extended = <&gic GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH
+			       &omap5_pmx_core 0x168>;
 */
 
 	#address-cells = <1>;
