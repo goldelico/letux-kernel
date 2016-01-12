@@ -36,8 +36,8 @@
 &sound {
 	ti,model = "Letux Cortex 15";
 
-	pinctrl-names = "default";
-	pinctrl-0 = <&ckobuffer>;
+//	pinctrl-names = "default";
+//	pinctrl-0 = <&ckobuffer>;
 
 	/* Audio routing */
 	ti,audio-routing =
@@ -66,29 +66,8 @@
 };
 
 /* Audio needs clock enabled */
-
-/ { /* should better be moved to omap5.dtsi because it is of general interest */
-	ocp {
-		omap5_control_ckobuffer: pinmux@4ae0cdb4 {
-			compatible = "ti,omap4-padconf", "pinctrl-single";
-			reg = <0x4ae0cdb4 4>;   /* Single register */
-			#address-cells = <1>;
-			#size-cells = <0>;
-			pinctrl-single,register-width = <32>;
-			pinctrl-single,function-mask = <0xf0000000>;
-			pinctrl-single,bit-per-mux;
-		};
-	};
-};
-
-&omap5_control_ckobuffer {
-	ckobuffer: pinmux_ckobuffer {
-		pinctrl-single,pins = <
-		/* same as devmem2 0x4AE0CDB4 w 0x10000000 */
-		0x0 0x10000000  /* CONTROL.CONTROL_CKOBUFFER[28] CKOBUFFER_CLK_EN := 1 */
-		>;
-        };
-};
+/* should set CONTROL.CONTROL_CKOBUFFER[28] CKOBUFFER_CLK_EN := 1 */
+/* should be handled like omap5_pmx_wkup */
 
 /* LCD panel - MIPI */
 
@@ -150,16 +129,6 @@
 
 &omap5_pmx_core {
 
-	pinctrl-0 = <
-			/* copied from original */
-			&usbhost_pins
-			&led_gpio_pins
-
-			/* new entries */
-			&letux_button_pins
-			&letux_other_pins
-	>;
-
 /* to find pinmux register offsets, see section A.7.2 in TRM
 
    note: offsets in the table are relative to 0x4a00 2800
@@ -184,22 +153,15 @@
 
 	letux_button_pins: pinmux_button_gpio_pins {
 		pinctrl-single,pins = <
-//			OMAP5_IOPAD(0x0b6, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0B4:[31:16] user button gpio3_83  -- pullup is not really necessary since there is an external pullup */
+			OMAP5_IOPAD(0x0b6, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0B4:[31:16] user button gpio3_83 */
 		>;
 	};
 
-// CHEKME: attach wk7/11 and others to &usbhost_wkup_pins?
-
 	letux_other_pins: pinmux_other_gpio_pins {
 		pinctrl-single,pins = <
-			OMAP5_IOPAD(0x046, PIN_INPUT | MUX_MODE6)	/* 0x044:[31:16]  gpio1_wk7 - boot select input */
-// inherited		OMAP5_IOPAD(0x05a, PIN_OUTPUT | MUX_MODE0)	/* 0x058:[31:16]  gpio1_wk11 - 19.2 MHz clock out */
 			OMAP5_IOPAD(0x08e, PIN_INPUT | MUX_MODE6)	/* 0x08C:[31:16]  gpio2_32 - board revision */
 			OMAP5_IOPAD(0x054, PIN_INPUT | MUX_MODE6)	/* 0x054:[15:0]   gpio2_33 - board revision */
-			OMAP5_IOPAD(0x0ac, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0AC:[15:0]  gpio3_78 - hub interrupt */
-			OMAP5_IOPAD(0x0b0, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0B0:[15:0]  gpio3_80 - hub reset */
 			OMAP5_IOPAD(0x084, PIN_INPUT | MUX_MODE6)	/* 0x084:[31:16]  gpio3_82 - eMMC/uSD switch */
-			OMAP5_IOPAD(0x1d6, PIN_OUTPUT | MUX_MODE6)	/* 0x1D4:[31:16]  gpio5_153 - status LED (heartbeat) */
 		>;
 	};
 
@@ -280,21 +242,41 @@
 
 };
 
+&omap5_pmx_wkup {
+	letux_wkup_pins: pinmux_wkup_pins {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x078, PIN_OUTPUT | MUX_MODE6)	/* 0x078:[15:0]  gpio1_wkout4 - second LED on CPU board */
+			OMAP5_IOPAD(0x046, PIN_INPUT | MUX_MODE6)	/* 0x044:[31:16]  gpio1_wk7 - boot select input */
+		>;
+	};
+};
+
 &wlan_pins {
 	status = "disabled";	/* we use these pins differently */
 };
 
-// checkme if we can better set the pinmux to "disabled"
-
 &hsusb2_phy {
-	reset-gpios = <0>; /* free up hub reset gpio3_80 */
+	status = "okay";
+	reset-gpios = <0>; 	/* don't apply reset! */
 };
 
 &hsusb3_phy {
 	status = "disabled";
-	compatible = "none"; /* not connected */
-	reset-gpios = <0>; /* free up gpio3_79 */
 };
+
+&usbhost_pins {
+	pinctrl-single,pins = <
+		0x84 (PIN_INPUT | MUX_MODE0) /* usbb2_hsic_strobe */
+		0x86 (PIN_INPUT | MUX_MODE0) /* usbb2_hsic_data */
+
+		0x19e (PIN_INPUT | MUX_MODE0) /* usbb3_hsic_strobe */
+		0x1a0 (PIN_INPUT | MUX_MODE0) /* usbb3_hsic_data */
+
+		OMAP5_IOPAD(0x0ac, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0AC:[15:0]  gpio3_78 - hub interrupt */
+		OMAP5_IOPAD(0x0b0, PIN_OUTPUT | MUX_MODE6)	/* 0x0B0:[15:0]  gpio3_80 - hub nreset */
+	>;
+};
+
 
 / {
 	/* starting the usb3503 is problematic
@@ -332,7 +314,7 @@
 		intn-gpios = <&gpio3 14 GPIO_ACTIVE_HIGH>;	// gpio3_78 interrupt
 		reset-gpios = <&gpio3 16 GPIO_ACTIVE_HIGH>;	// gpio3_80 reset
 	//	connect-gpios - none
-	//	refclk	// comes from OMAP5 FREF_CLK1_OUT/GPIO1_W K11
+	//	refclk	// comes from OMAP5 FREF_CLK1_OUT/GPIO1_WK11
 	//	refclk-frequency 19.2 MHz
 		initial-mode = <1>;
 	};
@@ -370,6 +352,9 @@
 	user-button {
 		compatible = "gpio-keys";
 
+		pinctrl-names = "default";
+		pinctrl-0 = <&letux_button_pins>;
+
 		#address-cells = <7>;
 		#size-cells = <0>;
 
@@ -394,11 +379,17 @@
 	};
 
 	leds {
-		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&letux_wkup_pins>;
+
 		led@1 {
 			label = "lc15:red:usr1";
-			gpios = <&gpio5 25 GPIO_ACTIVE_HIGH>; /* gpio5_153 D1 LED */
-			linux,default-trigger = "heartbeat";
+		};
+
+		led@2 {
+			label = "lc15:red:usr2";
+			gpios = <&gpio1 4 GPIO_ACTIVE_HIGH>; /* sysboot4 = gpio1_wk4: second LED */
+			linux,default-trigger = "mmc0";
 			default-state = "off";
 		};
 	};
