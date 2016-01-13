@@ -213,6 +213,12 @@
 		>;
 	};
 
+	palmas_msecure_pins: palmas_msecure_pins {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x180, PIN_INPUT_PULLUP | MUX_MODE6) /* gpio8_234 used as sys_drm_msecure */
+		>;
+	};
+
 	usbhost_pins: pinmux_usbhost_pins {
 		pinctrl-single,pins = <
 			0x84 (PIN_INPUT | MUX_MODE0) /* usbb2_hsic_strobe */
@@ -277,6 +283,12 @@
 	pinctrl-0 = <
 			&usbhost_wkup_pins
 	>;
+
+	palmas_sys_nirq_pins: pinmux_palmas_sys_nirq_pins {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x068, PIN_INPUT_PULLUP | MUX_MODE0) /* sys_nirq1 */
+		>;
+	};
 
 	usbhost_wkup_pins: pinmux_usbhost_wkup_pins {
 		pinctrl-single,pins = <
@@ -345,6 +357,8 @@
 		interrupt-controller;
 		#interrupt-cells = <2>;
 		ti,system-power-controller;
+		pinctrl-names = "default";
+		pinctrl-0 = <&palmas_sys_nirq_pins &palmas_msecure_pins>;
 
 		extcon_usb3: palmas_usb {
 			compatible = "ti,palmas-usb-vid";
@@ -356,6 +370,24 @@
 		clk32kgaudio: palmas_clk32k@1 {
 			compatible = "ti,palmas-clk32kgaudio";
 			#clock-cells = <0>;
+		};
+
+		rtc {
+			compatible = "ti,palmas-rtc";
+			interrupt-parent = <&palmas>;
+			interrupts = <8 IRQ_TYPE_NONE>;
+			ti,backup-battery-chargeable;
+			ti,backup-battery-charge-high-current;
+		};
+
+		gpadc {
+			compatible = "ti,palmas-gpadc";
+			interrupts = <18 0
+				      16 0
+				      17 0>;
+			#io-channel-cells = <1>;
+			ti,channel0-current-microamp = <5>;
+			ti,channel3-current-microamp = <10>;
 		};
 
 		palmas_pmic {

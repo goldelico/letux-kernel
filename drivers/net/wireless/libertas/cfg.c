@@ -2038,6 +2038,32 @@ static int lbs_leave_ibss(struct wiphy *wiphy, struct net_device *dev)
 
 
 
+int lbs_set_power_mgmt(struct wiphy *wiphy, struct net_device *dev,
+			bool enabled, int timeout)
+{
+	struct lbs_private *priv = wiphy_priv(wiphy);
+	int ret = 0;
+	if  (!(priv->fwcapinfo & FW_CAPINFO_PS)) {
+		if (!enabled)
+			return 0;
+		else
+			return -EINVAL;
+	}
+	if (!enabled) {
+		priv->psmode = LBS802_11POWERMODECAM;
+		if (priv->psstate != PS_STATE_FULL_POWER)
+			lbs_set_ps_mode(priv,
+					PS_MODE_ACTION_EXIT_PS,
+					true);
+		return 0;
+	}
+	if (priv->psmode != LBS802_11POWERMODECAM)
+		return 0;
+	priv->psmode = LBS802_11POWERMODEMAX_PSP;
+	if (priv->connect_status == LBS_CONNECTED)
+		lbs_set_ps_mode(priv, PS_MODE_ACTION_ENTER_PS, true);
+	return 0;
+}
 
 /*
  * Initialization
@@ -2056,6 +2082,7 @@ static struct cfg80211_ops lbs_cfg80211_ops = {
 	.change_virtual_intf = lbs_change_intf,
 	.join_ibss = lbs_join_ibss,
 	.leave_ibss = lbs_leave_ibss,
+	.set_power_mgmt = lbs_set_power_mgmt,
 };
 
 

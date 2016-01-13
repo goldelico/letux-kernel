@@ -112,33 +112,34 @@
 
 	backlight {
 		compatible = "pwm-backlight";
-		pwms = <&pwm 0 2000000>;
+		pwms = <&pwm9 0 2000000 0>;
 		pwm-names = "backlight";
 		brightness-levels = <0 11 20 30 40 50 60 70 80 90 100>;
 		default-brightness-level = <9>;	/* => 90 */
-//		pinctrl-names = "default";
-//		pinctrl-0 = <&backlight_pins>;
-//		power-supply = <&vdd_bl_reg>;
-		enable-gpios = <&gpio6 30 0>;	/* GPT9/PWM gpio6_190 */
+		pinctrl-names = "default";
+		pinctrl-0 = <&backlight_pins>;
 	};
 
-	pwm: omap_pwm {
-		compatible = "ti,omap-pwm";
-		timers = <&timer9>;
-		#pwm-cells = <2>;
+	pwm9: dmtimer-pwm@9 {
+		compatible = "ti,omap-dmtimer-pwm";
+		ti,timers = <&timer9>;
+		#pwm-cells = <3>;
 	};
 
 	keyboard-backlight {
-/*
 		compatible = "pwm-backlight";
-		pwms = <&pwm 0 2000000>;
-		pwm-names = "backlight";
+		pwms = <&pwm8 0 2000000 0>;
+		pwm-names = "keyboard";
 		brightness-levels = <0 10 20 30 40 50 60 70 80 90 100>;
 		default-brightness-level = <9>;
-//		pinctrl-names = "default";
-//		pinctrl-0 = <&backlight_pins>;
-//		power-supply = <&vdd_bl_reg>;
-/*		enable-gpios = <&gpio6 30 0>;	/* GPT9/PWM gpio6_190 */
+		pinctrl-names = "default";
+		pinctrl-0 = <&keyboard_backlight_pins>;
+	};
+
+	pwm8: dmtimer-pwm@8 {
+		compatible = "ti,omap-dmtimer-pwm";
+		ti,timers = <&timer8>;
+		#pwm-cells = <3>;
 	};
 
 };
@@ -149,7 +150,6 @@
 	pinctrl-single,pins = <
 		OMAP5_IOPAD(0x124, PIN_OUTPUT_PULLUP | MUX_MODE6)	/* 0x124:[0:15] gpio6_162 - enable panel DC/DC */
 		OMAP5_IOPAD(0x0ca, PIN_INPUT_PULLDOWN | MUX_MODE7)	/* 0x0C8:[31:16] gpio6_189 - VSYNC input */
-		OMAP5_IOPAD(0x0f6, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x0F4:[31:16] gpio6_190 - choose MUX_MODE0 for PWM_TIMER9 - choose MUX_MODE7 if panel outputs the PWM */
 		OMAP5_IOPAD(0x10e, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x10c:[31:16] gpio6_176 - panel reset */
 		>;
 };
@@ -227,7 +227,6 @@
 
 	pyra_button_pins: pinmux_button_gpio_pins {
 		pinctrl-single,pins = <
-			OMAP5_IOPAD(0x044, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x044:[15:0] gpio1_wk6 - lid */
 			OMAP5_IOPAD(0x1bc, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x1BC:[15:0] gpio5_140 - U */
 			OMAP5_IOPAD(0x1be, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x1BC:[31:16] gpio5_141 - L */
 			OMAP5_IOPAD(0x1c0, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x1C0:[15:0] gpio5_142 - D */
@@ -247,8 +246,6 @@
 
 	pyra_other_pins: pinmux_other_gpio_pins {
 		pinctrl-single,pins = <
-			OMAP5_IOPAD(0x040, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x040:[15:0] gpio1_wk14 - wlan irq */
-			OMAP5_IOPAD(0x042, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x040:[31:16] gpio1_wk15 - modem wakeup */
 			OMAP5_IOPAD(0x0aa, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0A8:[31:16] gpio3_77 - mmc3-cd */
 			OMAP5_IOPAD(0x0ae, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0AC:[31:16] gpio3_79 - mmc3-wp */
 /* gpio 3_84-87 = BT HCI uart2 */
@@ -280,10 +277,38 @@
 			OMAP5_IOPAD(0x136, PIN_INPUT | MUX_MODE6)	/* 0x134:[31:16]  gpio6_185 - revision 3 */
 			OMAP5_IOPAD(0x138, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x138:[15:0]  gpio6_186 - Gyroscope interrupt */
 /* gpio 8_228-229 = mmc1 = left SD slot WP/CD */
-			OMAP5_IOPAD(0x178, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x178:[15:0]  gpio8_230 - keypad backlight pwm */
 		>;
 	};
 
+	backlight_pins: pinmux_backlight_pins {
+		pinctrl-single,pins = <
+			/* MUX_MODE0 for PWM_TIMER9, MUX_MODE6 for GPIO, MUX_MODE7 if panel provides the PWM signal */
+			OMAP5_IOPAD(0x0f6, PIN_OUTPUT_PULLDOWN | MUX_MODE0)	/* 0x0F4:[31:16] timer9/gpio6_190 */
+		>;
+	};
+
+	keyboard_backlight_pins: pinmux_keyboard_backlight_pins {
+		pinctrl-single,pins = <
+			/* MUX_MODE0 for PWM_TIMER8, MUX_MODE6 for GPIO */
+			OMAP5_IOPAD(0x178, PIN_OUTPUT_PULLDOWN | MUX_MODE0)	/* 0x178:[15:0] timer8/gpio8_230 */
+		>;
+	};
+
+};
+
+&omap5_pmx_wkup {
+
+	lid_pin: pinmux_lid_pin {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x044, WAKEUP_EN | PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x044:[15:0] gpio1_wk6 - lid */
+		>;
+	};
+
+	wwan_pins: pinmux_wwan_pins {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x042, WAKEUP_EN | PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x040:[31:16] gpio1_wk15 - modem wakeup */
+		>;
+	};
 };
 
 /* register devices connected to Panel-I2C */
@@ -900,6 +925,8 @@
 		wwan_wakeup {
 			label = "3G WOE";
 			linux,code = <17>;	/* KEY_W */
+			pinctrl-names = "default";
+			pinctrl-0 = <&wwan_pins>;
 			gpios = <&gpio1 15 GPIO_ACTIVE_HIGH>;	/* gpio1_wk15 */
 			gpio-key,wakeup;
 			/* debounce-interval */
@@ -907,6 +934,8 @@
 
 		display_lid {
 			label = "Display Lid";
+			pinctrl-names = "default";
+			pinctrl-0 = <&lid_pin>;
 			linux,input-type = <5>; /* EV_SW */
 			linux,code = <0>; /* SW_LID */
 			gpios = <&gpio1 6 GPIO_ACTIVE_LOW>;	/* gpio1_wk6 */
@@ -959,20 +988,14 @@
 	status = "okay";
 /* inherited
 	vmmc-supply = <&vmmcsdio_fixed>;
+	mmc-pwrseq = <&mmc3_pwrseq>;
 	bus-width = <4>;
-	cap-power-off-card;
 	non-removable;
-	keep-power-in-suspend;
-*/
-
-/* find out if we still need this
-	bus-width = <4>;
-	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&mmc3_pins_default &wlan_pins_default>;
-	pinctrl-1 = <&mmc3_pins_sleep &wlan_pins_sleep>;
-	ti,non-removable;
-	ti,needs-special-hs-handling;
 	cap-power-off-card;
+	pinctrl-names = "default";
+	pinctrl-0 = <&mmc3_pins &wlcore_irq_pin>;
+	interrupts-extended = <&gic GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH
+			       &omap5_pmx_core 0x168>;
 */
 
 	#address-cells = <1>;
