@@ -250,6 +250,8 @@ static int bq24296_get_limit_current(int value)
 	else if(value < 1200)
 		data = 4;
 	else if(value < 1800)
+		data = 5;
+	else if(value < 2200)
 		data = 6;
 	else
 		data = 7;
