@@ -36,7 +36,7 @@ struct bq24296_board *bq24296_pdata;
 static int bq24296_int = 0;
 int bq24296_mode = 0;
 int bq24296_chag_down;
-#if 0
+#if 1
 #define DBG(x...) printk(KERN_INFO x)
 #define DEBUG 1
 #else
@@ -134,16 +134,25 @@ static int bq24296_update_reg(struct i2c_client *client, int reg, u8 value, u8 m
 		return ret;
 	}
 
-printk("bq24296_update_reg %02x %02x -> %02x (m=%02x) -> %02x\n", reg, retval, value, mask, ((retval & ~mask) | value) | value);
+printk("bq24296_update_reg %02x: ( %02x & %02x ) | %02x -> %02x\n", reg, retval, (u8) ~mask, value, (u8) ((retval & ~mask) | value));
 
 	if ((retval & mask) != value) {
-		retval = ((retval & ~mask) | value) | value;
+		retval = (retval & ~mask) | value;
 		ret = bq24296_write(client, reg, &retval, 1);
 		if (ret < 0) {
 			dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 			return ret;
 		}
 	}
+{
+	int i;
+	u8 buffer;
+	for(i=0;i<11;i++)
+		{
+		bq24296_read(bq24296_di->client, i, &buffer, 1);
+		printk("  reg %02x value %02x\n", i, buffer);
+		}
+}
 
 	return ret;
 }
@@ -256,9 +265,13 @@ static int bq24296_get_chg_current(int value)
 	data &= 0xff;
 	return data;	
 }
+
 static int bq24296_update_input_current_limit(u8 value)
 {
 	int ret = 0;
+
+printk("bq24296_update_input_current_limit(%u)\n", value);
+
 	ret = bq24296_update_reg(bq24296_di->client,
 							 INPUT_SOURCE_CONTROL_REGISTER,
 							 ((value << IINLIM_OFFSET) | (EN_HIZ_DISABLE << EN_HIZ_OFFSET)),
@@ -416,6 +429,9 @@ static int bq24296_read_sys_stats(u8 *retval)
 
 int previous_online = 0;	// was the USB power already online last time we looked?
 
+u8 lastretval = 0xff;
+u8 lastchag_down = 0;
+
 static void usb_detect_work_func(struct work_struct *work)
 {
 	struct delayed_work *delayed_work = (struct delayed_work *)container_of(work, struct delayed_work, work);
@@ -434,7 +450,10 @@ static void usb_detect_work_func(struct work_struct *work)
 	}else
 		bq24296_chag_down =0;
 
-	DBG("%s: retval = %02x bq24296_chag_down = %d\n", __func__,retval,bq24296_chag_down);
+	if (retval != lastretval || bq24296_chag_down != lastchag_down)
+		DBG("%s: retval = %02x bq24296_chag_down = %d\n", __func__,retval,bq24296_chag_down);
+	lastretval = retval;
+	lastchag_down = bq24296_chag_down;
 
 	mutex_lock(&pi->var_lock);
 
@@ -469,13 +488,11 @@ static void usb_detect_work_func(struct work_struct *work)
 				DBG("bq24296: detect usb wall charger\n");
 				break;
 			case 1: //normal USB
-#if 0
 				if (0 == get_gadget_connect_flag()){  // non-standard AC charger
 					bq24296_update_input_current_limit(bq24296_di->usb_input_current);
 					bq24296_set_charge_current(CHARGE_CURRENT_2048MA);
 					bq24296_charge_mode_config(0);;
 				}else
-#endif
 					{
 					// connect to pc
 					bq24296_update_input_current_limit(bq24296_di->usb_input_current);
@@ -840,6 +857,8 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 
 	DBG("%s,line=%d\n", __func__,__LINE__);
 
+msleep(50);
+
 	bq24296_node = of_node_get(client->dev.of_node);
 	if (!bq24296_node) {
 		printk("could not find bq24296-node\n");
@@ -881,6 +900,10 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 		di->usb_input_current  = bq24296_get_limit_current(500);
 		di->adp_input_current  = bq24296_get_limit_current(2000);
 	}
+
+	DBG("%s,line=%d chg_current =%d usb_input_current = %d adp_input_current =%d \n", __func__,__LINE__,
+		di->chg_current,di->usb_input_current,di->adp_input_current);
+
 	/****************************************/
 	/* get the vendor id */
 	ret = bq24296_read(di->client, VENDOR_STATS_REGISTER, &retval, 1);
@@ -938,7 +961,9 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 
 	bq24296_int =1;
 
+msleep(50);
 	DBG("bq24296_battery_probe ok");
+
 	return 0;
 
 err_chgirq_failed:
