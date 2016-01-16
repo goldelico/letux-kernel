@@ -657,7 +657,7 @@
 	gpio99: tca6424@22 {
 		compatible = "ti,tca6424";
 		interrupt-parent = <&gpio6>;
-		interrupts = <1 IRQ_TYPE_LEVEL_LOW>;	/* gpio6_161 */
+//		interrupts = <1 IRQ_TYPE_LEVEL_LOW>;	/* gpio6_161 */
 		reg = <0x22>;
 		gpio-controller;
 		#gpio-cells = <2>;
