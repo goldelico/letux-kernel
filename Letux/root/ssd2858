@@ -307,7 +307,6 @@ do
 echo g$r rrrr >dcs
 echo $r: $(cat dcs)
 done
-shift
 fi
 
 if $LOOP_DCS_11_10
@@ -326,7 +325,6 @@ then
 		echo 10 >dcs
 		sleep 0.02
 	done
-	shift
 fi
 
 if $PROGRAM_PANEL
@@ -339,7 +337,6 @@ then	# activate panel
 		do echo $i r >dcs
 	done
 	# send more dcs commands
-	shift
 fi
 
 if $STREAM
