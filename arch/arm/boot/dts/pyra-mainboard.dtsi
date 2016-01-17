@@ -16,19 +16,7 @@
 		display1 = &hdmi0;
 	};
 
-	/* DC/DC converter for LCD panel */
-/* disabled because the r63311 driver can control it */
-/*	dsi1_panel_power: dsi1_panel_power_reg {
-		compatible = "regulator-fixed";
-		regulator-name = "dsi1_panel_power";
-		regulator-min-microvolt = <5000000>;
-		regulator-max-microvolt = <5000000>;
-		gpio = <&gpio6 16 0>;	/ * gpio6_176 = display-enable/panel-reset * /
-		startup-delay-us = <70000>;
-		enable-active-high;
-	}; */
-
-	/* DC/DC converter for USB Host ports, Modem USB and HDMI 5V */
+	/* common DC/DC converter for USB Host ports, Modem USB and HDMI 5V */
 	modem_vbus_hdmi_power: tps2505_reg {
 		compatible = "regulator-fixed";
 		regulator-name = "modem_vbus_hdmi_power";
@@ -115,7 +103,7 @@
 		pwms = <&pwm9 0 2000000 0>;
 		pwm-names = "backlight";
 		brightness-levels = <0 11 20 30 40 50 60 70 80 90 100>;
-		default-brightness-level = <9>;	/* => 90 */
+		default-brightness-level = <10>;	/* => 90 */
 		pinctrl-names = "default";
 		pinctrl-0 = <&backlight_pins>;
 	};
@@ -131,7 +119,7 @@
 		pwms = <&pwm8 0 2000000 0>;
 		pwm-names = "keyboard";
 		brightness-levels = <0 10 20 30 40 50 60 70 80 90 100>;
-		default-brightness-level = <9>;
+		default-brightness-level = <5>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&keyboard_backlight_pins>;
 	};
