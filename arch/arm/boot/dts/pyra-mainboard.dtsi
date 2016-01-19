@@ -979,8 +979,36 @@
 	compatible = "ti,wl1835";	/* or ti,wl1837" */
 };
 
-// uart2-dtr mit gpio6_164 verbinden
-// fm-en gpio6_166 mit regulator-fixed der always on ist
+&omap5_pmx_core {
+	bt_pins: pinmux_bt_pins {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x12a, PIN_OUTPUT | MUX_MODE6)	/* 0x128:[31:16]  gpio6_164 - BT EN */
+		>;
+	};
+
+};
+
+/ {
+	bluetooth_power: bt_en {
+		compatible = "regulator-fixed";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_pins>;
+		regulator-name = "bt_power";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <&gpio6 4 GPIO_ACTIVE_HIGH>;	/* GPIO6_164 */
+		enable-active-high;
+		startup-delay-us = <70000>;
+//		vin-supply = <&vsys>;
+	};
+
+	bluetooth: tiwi {
+		/* we can (mis)use the same driver */
+		compatible = "wi2wi,w2cbw003-bluetooth";
+		uart = <&uart2>;
+		vdd-supply = <&bluetooth_power>;
+	};
+};
 
 /* rearrange to use gpio6_167/168 for console UART3 instead of sdio4_cmd/clk */
 
