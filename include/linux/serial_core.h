@@ -521,5 +521,6 @@ extern void uart_register_mctrl_notification(struct uart_port *uart,
 		void (*function)(void *slave, int state));
 extern void uart_register_rx_notification(struct uart_port *uart,
 		bool (*function)(void *slave, unsigned int *c), struct ktermios *termios);
+extern int uart_peer_tx(struct uart_port *uart, unsigned char ch);
 
 #endif /* LINUX_SERIAL_CORE_H */

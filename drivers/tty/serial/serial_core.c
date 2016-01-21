@@ -734,6 +734,12 @@ static int uart_put_char(struct tty_struct *tty, unsigned char c)
 	return ret;
 }
 
+int uart_peer_tx(struct uart_port *uart, unsigned char ch)
+{
+	struct uart_port *tport = &uart->state->port->driver_data->uart_port;
+	return __uart_put_char(state->uart_port, &state->xmit, ch);
+}
+
 static void uart_flush_chars(struct tty_struct *tty)
 {
 	uart_start(tty);
