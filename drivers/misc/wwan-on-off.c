@@ -44,7 +44,7 @@ struct wwan_on_off {
 	int		on_off_gpio;	/* may be invalid */
 	int		feedback_gpio;	/* may be invalid */
 	struct usb_phy *usb_phy;	/* USB PHY to monitor for modem activity */
-	int		is_power_off;		/* current state */
+	bool		is_power_on;	/* current state */
 	spinlock_t	lock;
 #ifdef CONFIG_PRESENT_AS_GPIO
 #ifdef CONFIG_GPIOLIB
@@ -54,46 +54,48 @@ struct wwan_on_off {
 #endif
 };
 
-static int is_powered_off(struct wwan_on_off *wwan)
+static bool is_powered_on(struct wwan_on_off *wwan)
 { /* check with physical interfaces if possible */
 	if (gpio_is_valid(wwan->feedback_gpio))
-		return !gpio_get_value(wwan->feedback_gpio);	/* read gpio */
+		// handle active low
+		return gpio_get_value(wwan->feedback_gpio);	/* read gpio */
 	if (wwan->usb_phy != NULL && !IS_ERR(wwan->usb_phy))
 		printk("USB phy event %d\n", wwan->usb_phy->last_event);
 	/* check with PHY if available */
 	if (!gpio_is_valid(wwan->on_off_gpio))
-		return 0;	/* we can't even control power, assume it is on */
-	return wwan->is_power_off;	/* assume that we know the correct state */
+		return true;	/* we can't even control power, assume it is on */
+	return wwan->is_power_on;	/* assume that we know the correct state */
 }
 
-static void set_power(struct wwan_on_off *wwan, int off)
+static void set_power(struct wwan_on_off *wwan, bool on)
 {
 	int state;
 #ifdef DEBUG
-	printk("modem: set_power %d\n", off);
+	printk("modem: set_power %d\n", on);
 #endif
 	if (!gpio_is_valid(wwan->on_off_gpio))
 		return;	/* we can't control power */
 
 	spin_lock_irq(&wwan->lock);	/* block other processes who want to change the state */
 
-	state = is_powered_off(wwan);
+	state = is_powered_on(wwan);
 
 #ifdef DEBUG
 	printk("  state %d\n", state);
 #endif
 
-	if(state != off) {
+	if(state != on) {
 #ifdef DEBUG
 		printk("modem: send impulse\n");
 #endif
+		// use gpiolib to generate impulse
 		gpio_set_value_cansleep(wwan->on_off_gpio, 1);
 		// FIXME: check feedback_gpio for early end of impulse
 		msleep(200);	/* wait 200 ms */
 		gpio_set_value_cansleep(wwan->on_off_gpio, 0);
 		msleep(500);	/* wait 500 ms */
-		wwan->is_power_off = off;
-		if (is_powered_off(wwan) != off)
+		wwan->is_power_on = on;
+		if (is_powered_on(wwan) != on)
 			printk("modem: failed to change modem state\n");	/* warning only! using USB feedback might not be immediate */
 	}
 	spin_unlock_irq(&wwan->lock);
@@ -110,9 +112,9 @@ static int wwan_on_off_get_value(struct gpio_chip *gc,
 											 gpio);
 	int state;
 	spin_lock_irq(&wwan->lock);	/* block other processes who change the state */
-	state = is_powered_off(wwan);
+	state = is_powered_on(wwan);
 	spin_unlock_irq(&wwan->lock);
-	return !state;
+	return state;
 }
 
 static void wwan_on_off_set_value(struct gpio_chip *gc,
@@ -125,7 +127,7 @@ static void wwan_on_off_set_value(struct gpio_chip *gc,
 #ifdef DEBUG
 	printk("WWAN GPIO set value %d\n", val);
 #endif
-	set_power(wwan, !val);	/* 1 = enable, 0 = disable */
+	set_power(wwan, val);	/* 1 = enable, 0 = disable */
 }
 
 static int wwan_on_off_direction_output(struct gpio_chip *gc,
@@ -152,7 +154,7 @@ static int wwan_on_off_rfkill_set_block(void *data, bool blocked)
 	if (!gpio_is_valid(wwan->on_off_gpio))
 		return -EIO;	/* can't block if we have no control */
 
-	set_power(wwan, blocked);
+	set_power(wwan, !blocked);
 	return ret;
 }
 
@@ -180,6 +182,7 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 			return -ENOMEM;
 		pdata->on_off_gpio = of_get_named_gpio_flags(dev->of_node, "on-off-gpio", 0, &flags);
 		pdata->feedback_gpio = of_get_named_gpio_flags(dev->of_node, "on-indicator-gpio", 0, &flags);
+		// handle active low feedback gpio!
 		pdata->usb_phy = devm_usb_get_phy_by_phandle(dev, "usb-port", 0);
 		printk("onoff = %d indicator = %d usb_phy = %ld\n", pdata->on_off_gpio, pdata->feedback_gpio, PTR_ERR(pdata->usb_phy));
 		if (pdata->on_off_gpio == -EPROBE_DEFER ||
@@ -220,7 +223,7 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 #endif
 #endif
 
-	wwan->is_power_off = 1;	/* assume initial power is off */
+	wwan->is_power_on = false;	/* assume initial power is off */
 
 	spin_lock_init(&wwan->lock);
 
@@ -255,7 +258,7 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 		goto out4;
 	}
 
-	rfkill_init_sw_state(rf_kill, is_powered_off(wwan));	/* check initial state */
+	rfkill_init_sw_state(rf_kill, !is_powered_on(wwan));	/* set initial state */
 
 	err = rfkill_register(rf_kill);
 	if (err) {
