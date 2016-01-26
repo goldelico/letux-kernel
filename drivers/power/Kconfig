@@ -427,15 +427,6 @@ config CHARGER_BQ24735
 	help
 	  Say Y to enable support for the TI BQ24735 battery charger.
 
-config CHARGER_BQ2429X
-	tristate "TI BQ2429x battery charger support"
-	depends on I2C && GPIOLIB
-	help
-	  Say Y to enable support for the TI BQ2429x battery charger.
-
-	  You'll need this driver to charge batteries on e.g. Pyra
-	  Handheld.
-
 config CHARGER_BQ25890
 	tristate "TI BQ25890 battery charger driver"
 	depends on I2C
@@ -503,13 +494,6 @@ config CHARGER_RT9455
 	select REGMAP_I2C
 	help
 	  Say Y to enable support for Richtek RT9455 battery charger.
-
-config POWER_MINIPC
-	tristate "MIPS MiniPC power controller support"
-	depends on I2C
-	help
-	  This adds support for the MIPS MiniPC (like Letux 400). It provides
-	  battery status and system power off.
 
 config AXP20X_POWER
 	tristate "AXP20x power supply driver"
