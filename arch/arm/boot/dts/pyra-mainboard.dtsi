@@ -1036,3 +1036,14 @@
 &mmc4 { /* enable second (µ)SD slot (SDIO capable) */
 	status = "okay";
 };
+
+/* we do not use the Palmas OTG step-up converter */
+
+&usb3 {
+	vbus-supply = <&otg_reg>;
+};
+
+&smps10_out1_reg {
+	/* never turn on or it may burn the Palmas! */
+	status = "disabled";
+};
