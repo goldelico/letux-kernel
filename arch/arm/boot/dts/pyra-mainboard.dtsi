@@ -34,7 +34,7 @@
 	   They should be under the (software) control
 	   of the USB3503A hub on the CPU board */
 
-	host1_vbus_power:host1_vbus_power_reg {
+	host1_vbus_power: host1_vbus_power_reg {
 		compatible = "regulator-fixed";
 		regulator-name = "host1_vbus_power";
 		regulator-min-microvolt = <5000000>;
