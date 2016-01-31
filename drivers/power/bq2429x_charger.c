@@ -1,5 +1,8 @@
 /*
- * BQ24296 battery charger
+ * BQ24296/7 battery charger and OTG regulator
+ *
+ * found in some Android driver and hacked by <hns@goldelico.com>
+ * to become useable for the Pyra
  *
  * This package is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -30,6 +33,8 @@
 #include <linux/of_gpio.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/regulator/driver.h>
+#include <linux/regulator/of_regulator.h>
 
 struct bq24296_device_info *bq24296_di;
 struct bq24296_board *bq24296_pdata;
@@ -544,6 +549,13 @@ static irqreturn_t chg_irq_func(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static struct regulator_ops otg_ops = {
+	.set_voltage = NULL,	/* enable/disable OTG */
+	.set_current_limit = NULL,	/* set OTG current limit */
+	.enable = NULL,	/* turn on OTG mode */
+	.disable = NULL,	/* turn off OTG mode */
+};
+
 #ifdef CONFIG_OF
 static struct bq24296_board *bq24296_parse_dt(struct bq24296_device_info *di)
 {
@@ -573,6 +585,43 @@ static struct bq24296_board *bq24296_parse_dt(struct bq24296_device_info *di)
 	if (!gpio_is_valid(pdata->dc_det_pin)) {
 		printk("bq24296_parse_dt: invalid gpio: %d\n",  pdata->dc_det_pin);
 	}
+
+#if 0
+	/* get child node(s) */
+	struct device_node *np;
+	struct regulator_desc desc;
+	struct regulator_config cfg;
+
+	np = of_find_node_by_name(bq24296_np, "vsys_regulator");
+	// error handling
+	of_get_regulator_init_data(di->dev, np, &desc);
+	// error handling
+
+	cfg.dev = di->dev;
+	cfg.init_data = NULL;
+	cfg.driver_data = NULL;
+	cfg.of_node = np;
+	regulator_register(&desc, &cfg);
+	// error handling
+
+	np = of_find_node_by_name(bq24296_np, "otg_regulator");
+	// error handling
+	of_get_regulator_init_data(di->dev, np, &desc);
+	// error handling
+
+	desc.name = "otg";
+	desc.type = REGULATOR_VOLTAGE;
+	desc.owner = THIS_MODULE;
+	desc.ops = &otg_ops;
+	desc.enable_time = 100000;	/* 100 ms */
+	cfg.dev = di->dev;
+	cfg.init_data = NULL;
+	cfg.driver_data = NULL;
+	cfg.of_node = np;
+	regulator_register(&desc, &cfg);
+	// error handling
+
+#endif
 
 	return pdata;
 }
