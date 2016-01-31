@@ -25,7 +25,7 @@
 		gpio = <&gpio99 8 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 		startup-delay-us = <70000>;
-//		vin-supply = <&vsys>;
+//		vin-supply = <&vsys_reg>;
 		regulator-always-on;
 	};
 
@@ -587,6 +587,20 @@
 		ti,chg_current = <1000 2000 2000>;	// chg_current (max for the battery), usb_input_current, adp_input_current
 		gpios = <&gpio99 11 0>,		// chg_irq_pin
 			<0>;			// dc_det_pin - if 0, charger is switched by driver to 2048mA, otherwise 512mA
+		vsys_reg: vsys_regulator {
+			/* add information */
+			regulator-name = "vsys_boost";
+			regulator-min-microvolt = <3700000>;
+			regulator-max-microvolt = <3700000>;
+			regulator-always-on;
+			regulator-boot-on;
+		};
+		otg_reg: otg_regulator {
+			/* add information */
+			regulator-name = "otg_boost";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+		};
 	};
 
 };
@@ -1002,7 +1016,7 @@
 		gpio = <&gpio6 4 GPIO_ACTIVE_HIGH>;	/* GPIO6_164 */
 		enable-active-high;
 		startup-delay-us = <70000>;
-//		vin-supply = <&vsys>;
+//		vin-supply = <&vsys_reg>;
 	};
 
 	bluetooth: tiwi {
