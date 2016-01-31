@@ -1033,6 +1033,6 @@
 	>;
 };
 
-&mmc4 { /* now, we can enable the second (µ)SD slot (SDIO capable) */
+&mmc4 { /* enable second (µ)SD slot (SDIO capable) */
 	status = "okay";
 };
