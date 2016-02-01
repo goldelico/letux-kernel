@@ -79,7 +79,7 @@
 		#gpio-cells = <2>;
 		NIMP-usb-port = <&hsusb2_phy>; 	/* USB phy where we can check the modem status */
 		on-off-gpio = <&gpio6 11 GPIO_ACTIVE_HIGH>;	/* gpio6_171: trigger to power on modem */
-		on-indicator-gpio = <&gpio6 12 GPIO_ACTIVE_HIGH>;	/* gpio6_172: modem power indication feedback GPIO */
+		on-indicator-gpio = <&gpio6 12 GPIO_ACTIVE_LOW>;	/* gpio6_172: modem power indication feedback GPIO */
 		NIMP-modem-supply = <&modem_power>;		/* enable some external power regulator */
 		/* VBUS supply should probably be controlled through the USB PHY driver for the modem port */
 		NIMP-vbus-supply = <&modem_vbus_hdmi_power>;	/* apply VBUS to the modem */
