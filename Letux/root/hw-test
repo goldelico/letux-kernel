@@ -564,7 +564,7 @@ TEST="$1"
 [ "$1" ] || TEST="all"
 
 # run selected test function
-test_$1
+test_$TEST
 
 killall -9 arecord aplay 2>/dev/null # stop any running audio forwarding
 
