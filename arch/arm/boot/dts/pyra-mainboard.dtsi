@@ -247,12 +247,11 @@
 /* gpio 5_155-156 = mmc4 = right SD slot / uart3 debug */
 			OMAP5_IOPAD(0x114, PIN_INPUT | MUX_MODE6)	/* 0x114:[15:0]  gpio6_160 - revision 1 */
 			OMAP5_IOPAD(0x12c, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x12C:[15:0]  gpio6_161 - TCA6424 active low interrupt */
-/* next 4 should be outputs and controlled by some driver (e.g. regulator-fixed) */
-			OMAP5_IOPAD(0x12a, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x128:[31:16]  gpio6_164 - BT EN */
-			OMAP5_IOPAD(0x128, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x128:[15:0]  gpio6_165 - Speaker EN */
-			OMAP5_IOPAD(0x122, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x120:[31:16]  gpio6_166 - FM EN */
 
-/* gpio 5_167-168 = uart3 Pyra console - should be handled by MLO! */
+/* next should be outputs and controlled by some driver (e.g. regulator-fixed) */
+			OMAP5_IOPAD(0x128, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x128:[15:0]  gpio6_165 - Speaker EN */
+
+/* gpio 5_167-168 = uart3 Pyra console - is handled by MLO! */
 			OMAP5_IOPAD(0x11c, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x11C:[15:0]  gpio6_169 - Accelerometer interrupt */
 			OMAP5_IOPAD(0x11a, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x118:[31:16]  gpio6_170 - Magnetometer interrupt */
 			OMAP5_IOPAD(0x114, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x114:[15:0]  gpio6_173 - touch screen penirq */
