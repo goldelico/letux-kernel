@@ -77,6 +77,8 @@
 		compatible = "gemalto,phs8";
 		gpio-controller;
 		#gpio-cells = <2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pyra_modem_pins>;
 		NIMP-usb-port = <&hsusb2_phy>; 	/* USB phy where we can check the modem status */
 		on-off-gpio = <&gpio6 11 GPIO_ACTIVE_HIGH>;	/* gpio6_171: trigger to power on modem */
 		on-indicator-gpio = <&gpio6 12 GPIO_ACTIVE_LOW>;	/* gpio6_172: modem power indication feedback GPIO */
@@ -253,8 +255,6 @@
 /* gpio 5_167-168 = uart3 Pyra console - should be handled by MLO! */
 			OMAP5_IOPAD(0x11c, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x11C:[15:0]  gpio6_169 - Accelerometer interrupt */
 			OMAP5_IOPAD(0x11a, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x118:[31:16]  gpio6_170 - Magnetometer interrupt */
-			OMAP5_IOPAD(0x118, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x118:[15:0]  gpio6_171 - modem ignite */
-			OMAP5_IOPAD(0x116, PIN_INPUT | MUX_MODE6)	/* 0x114:[31:16]  gpio6_172 - modem power indication */
 			OMAP5_IOPAD(0x114, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x114:[15:0]  gpio6_173 - touch screen penirq */
 			OMAP5_IOPAD(0x112, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x110:[31:16]  gpio6_174 - right NUB int */
 			OMAP5_IOPAD(0x110, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x110:[15:0]  gpio6_175 - left NUB int */
@@ -264,6 +264,13 @@
 			OMAP5_IOPAD(0x136, PIN_INPUT | MUX_MODE6)	/* 0x134:[31:16]  gpio6_185 - revision 3 */
 			OMAP5_IOPAD(0x138, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x138:[15:0]  gpio6_186 - Gyroscope interrupt */
 /* gpio 8_228-229 = mmc1 = left SD slot WP/CD */
+		>;
+	};
+
+	pyra_modem_pins: pinmux_moden_gpio_pins {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x118, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x118:[15:0]  gpio6_171 - modem ignite */
+			OMAP5_IOPAD(0x116, PIN_INPUT | MUX_MODE6)	/* 0x114:[31:16]  gpio6_172 - modem power indication */
 		>;
 	};
 
