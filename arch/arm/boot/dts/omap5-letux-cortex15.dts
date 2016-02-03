@@ -275,31 +275,12 @@
 	>;
 };
 
-
-/ {
-	/* starting the usb3503 is problematic
-	 * - while in reset state it is not visible on I2C
-	 * - therefore the driver does not load
-	 * - which means we can't easily use the driver to control the reset-gpios
-	 * - we need a trick to reset the usb3503 or get the driver module loaded otherwise
-	 */
-
-	usb3503-reset {
-	/* this tries to apply a 100us low to the reset line */
-		compatible = "regulator-fixed";
-		regulator-name = "usb3503-reset";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
-//		gpio = <&gpio3 16 0 /*GPIO_ACTIVE_HIGH*/>;	// gpio3_80 reset
-		enable-active-high;
-		startup-delay-us = <100000>;
-		regulator-always-on;
-	};
-
-	usb3503-dummy {
-	/* this tries to load the driver module without I2C support */
-		compatible = "smsc,usb3503";
-	//	reset-gpios = <0>;	// invalid - don't try to instantiate
+&gpio3 {
+	p80 {
+		gpio-hog;
+		gpios = <16 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "gpio3_80/hub reset";
 	};
 };
 
