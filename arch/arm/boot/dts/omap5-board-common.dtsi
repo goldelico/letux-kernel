@@ -130,6 +130,19 @@
 	};
 };
 
+&omap5_control_ckobuffer {
+	ckobuffer: pinmux_ckobuffer {
+		pinctrl-single,pins = <
+		0x0 0x10000000  /* CONTROL.CONTROL_CKOBUFFER[28] CKOBUFFER_CLK_EN := 1 */
+		>;
+        };
+};
+
+&sound {
+	pinctrl-names = "default";
+	pinctrl-0 = <&ckobuffer>;
+};
+
 &gpio8 {
 	/* TI trees use GPIO instead of msecure, see also muxing */
 	p234 {
