@@ -68,7 +68,7 @@ static void mmc_pwrseq_simple_power_off(struct mmc_host *host)
 	struct mmc_pwrseq_simple *pwrseq = container_of(host->pwrseq,
 					struct mmc_pwrseq_simple, pwrseq);
 
-	mmc_pwrseq_simple_set_gpios_value(pwrseq, 1);
+	mmc_pwrseq_simple_set_gpios_value(pwrseq, 0);
 
 	if (!IS_ERR(pwrseq->ext_clk) && pwrseq->clk_enabled) {
 		clk_disable_unprepare(pwrseq->ext_clk);
