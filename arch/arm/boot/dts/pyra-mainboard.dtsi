@@ -1043,6 +1043,32 @@
 	status = "okay";
 };
 
+/* we do not yet have vsys_reg correct, therefore substitute a dummy */
+
+/ {
+	vibra_reg: vibra_reg {
+		compatible = "regulator-fixed";
+		regulator-name = "vibra_battery";
+		regulator-min-microvolt = <3700000>;
+		regulator-max-microvolt = <3700000>;
+		regulator-always-on;
+	};
+};
+
+&twl6040 {
+//	vddvibl-supply = <&vsys_reg>;
+//	vddvibr-supply = <&vsys_reg>;
+	vddvibl-supply = <&vibra_reg>;
+	vddvibr-supply = <&vibra_reg>;
+
+	vibra {
+		ti,vibldrv-res = <8>;
+		ti,vibrdrv-res = <3>;
+		ti,viblmotor-res = <32>;
+		ti,vibrmotor-res = <999999>;	/* no motor */
+	};
+};
+
 /* we do not use the Palmas OTG step-up converter */
 
 &usb3 {
