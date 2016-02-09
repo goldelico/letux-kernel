@@ -1046,6 +1046,19 @@
 	status = "okay";
 };
 
+&twl6040 {
+	/* only left channel is connected to a motor */
+	vddvibl-supply = <&vsys_reg>;
+	vddvibr-supply = <&vsys_reg>;
+
+	vibra {
+		vibldrv_res = <8>;
+		vibrdrv_res = <3>;
+		viblmotor_res = <10>;
+		vibrmotor_res = <10>;
+	};
+};
+
 /* we do not use the Palmas OTG step-up converter */
 
 &usb3 {
