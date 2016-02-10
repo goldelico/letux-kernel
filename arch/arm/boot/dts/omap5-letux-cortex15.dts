@@ -379,6 +379,7 @@
 
 &uart2 { /* pins shared with mcspi3 */
 	status = "okay";
+	pinctrl-names = "default";
 	pinctrl-0 = <&uart2_pins>;
 };
 
