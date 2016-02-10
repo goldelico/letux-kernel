@@ -275,15 +275,6 @@
 	>;
 };
 
-&gpio3 {
-	p80 {
-		gpio-hog;
-		gpios = <16 GPIO_ACTIVE_HIGH>;
-		output-high;
-		line-name = "gpio3_80/hub reset";
-	};
-};
-
 &i2c1 {
 	/* usb bridge */
 	usb3503@08 {
