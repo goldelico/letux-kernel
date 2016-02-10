@@ -1069,3 +1069,11 @@
 	/* never turn on or it may burn the Palmas! */
 	status = "disabled";
 };
+
+&twl6040 {
+	status = "disabled";
+};
+
+&sound {
+	status = "disabled";
+};
