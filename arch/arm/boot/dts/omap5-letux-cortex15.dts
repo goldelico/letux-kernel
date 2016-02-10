@@ -427,9 +427,7 @@
 };
 
 &mmc3 { /* WiFi-SDIO */
-	/* ti,non-removable; */
-	// define a regulator-fixed GPIO for power-on */
-	// NOTE: has been predefined for a wl1271 in ompa5-common.dtsi
+	/* has been predefined for a wl1271 in ompa5-common.dtsi */
 };
 
 &mmc4 { /* second (u)SD slot (SDIO capable) */
