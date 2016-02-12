@@ -1015,32 +1015,6 @@ printk("twl4030_bci_probe\n");
 
 	platform_set_drvdata(pdev, bci);
 
-	bci->ac = devm_power_supply_register(&pdev->dev, &twl4030_bci_ac_desc,
-					     NULL);
-	if (IS_ERR(bci->ac)) {
-		ret = PTR_ERR(bci->ac);
-		dev_err(&pdev->dev, "failed to register ac: %d\n", ret);
-		return ret;
-	}
-
-	bci->usb = devm_power_supply_register(&pdev->dev, &twl4030_bci_usb_desc,
-					      NULL);
-	if (IS_ERR(bci->usb)) {
-		ret = PTR_ERR(bci->usb);
-		dev_err(&pdev->dev, "failed to register usb: %d\n", ret);
-		return ret;
-	}
-
-	bci->channel_vac = iio_channel_get(&pdev->dev, "vac");
-	if (IS_ERR(bci->channel_vac)) {
-		bci->channel_vac = NULL;
-		dev_warn(&pdev->dev, "could not request vac iio channel");
-	}
-
-	INIT_WORK(&bci->work, twl4030_bci_usb_work);
-	INIT_DELAYED_WORK(&bci->current_worker, twl4030_current_worker);
-
-	bci->usb_nb.notifier_call = twl4030_bci_usb_ncb;
 	if (bci->dev->of_node) {
 		struct device_node *phynode;
 
@@ -1068,6 +1042,33 @@ printk("  bci->transceiver = %p\n", bci->transceiver);
 				return -EPROBE_DEFER;	/* PHY not ready */
 		}
 	}
+
+	bci->channel_vac = iio_channel_get(&pdev->dev, "vac");
+	if (IS_ERR(bci->channel_vac)) {
+		bci->channel_vac = NULL;
+		dev_warn(&pdev->dev, "could not request vac iio channel");
+	}
+
+	bci->ac = devm_power_supply_register(&pdev->dev, &twl4030_bci_ac_desc,
+					     NULL);
+	if (IS_ERR(bci->ac)) {
+		ret = PTR_ERR(bci->ac);
+		dev_err(&pdev->dev, "failed to register ac: %d\n", ret);
+		return ret;
+	}
+
+	bci->usb = devm_power_supply_register(&pdev->dev, &twl4030_bci_usb_desc,
+					      NULL);
+	if (IS_ERR(bci->usb)) {
+		ret = PTR_ERR(bci->usb);
+		dev_err(&pdev->dev, "failed to register usb: %d\n", ret);
+		return ret;
+	}
+
+	INIT_WORK(&bci->work, twl4030_bci_usb_work);
+	INIT_DELAYED_WORK(&bci->current_worker, twl4030_current_worker);
+
+	bci->usb_nb.notifier_call = twl4030_bci_usb_ncb;
 
 	ret = devm_request_threaded_irq(&pdev->dev, bci->irq_chg, NULL,
 			twl4030_charger_interrupt, IRQF_ONESHOT, pdev->name,
