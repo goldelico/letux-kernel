@@ -1045,8 +1045,10 @@ printk("  bci->transceiver = %p\n", bci->transceiver);
 
 	bci->channel_vac = iio_channel_get(&pdev->dev, "vac");
 	if (IS_ERR(bci->channel_vac)) {
-		bci->channel_vac = NULL;
+	        if (PTR_ERR(bci->channel_vac) == -EPROBE_DEFER)
+			return -EPROBE_DEFER;	/* iio not ready */
 		dev_warn(&pdev->dev, "could not request vac iio channel");
+		bci->channel_vac = NULL;
 	}
 
 	bci->ac = devm_power_supply_register(&pdev->dev, &twl4030_bci_ac_desc,
