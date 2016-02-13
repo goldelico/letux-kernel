@@ -72,7 +72,6 @@ static int bq24296_i2c_reg8_read(const struct i2c_client *client, const char reg
 
 	return (ret == 2)? count : ret;
 }
-EXPORT_SYMBOL(bq24296_i2c_reg8_read);
 
 static int bq24296_i2c_reg8_write(const struct i2c_client *client, const char reg, const char *buf, int count)
 {
@@ -94,7 +93,6 @@ static int bq24296_i2c_reg8_write(const struct i2c_client *client, const char re
 	kfree(tx_buf);
 	return (ret == 1) ? count : ret;
 }
-EXPORT_SYMBOL(bq24296_i2c_reg8_write);
 
 static int bq24296_read(struct i2c_client *client, u8 reg, u8 buf[], unsigned len)
 {
@@ -337,7 +335,6 @@ int bq24296_set_input_current(int on)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(bq24296_set_input_current);
 
 static int bq24296_update_charge_mode(u8 value)
 {
@@ -403,16 +400,6 @@ int bq24296_charge_otg_en(int chg_en,int otg_en)
 		bq24296_charge_mode_config(0);
 	return ret;
 }
-
-#ifdef OLD
-extern int dwc_otg_check_dpdm(bool wait);
-//extern int get_gadget_connect_flag(void);
-
-int dwc_otg_check_dpdm(bool wait)
-{ /* ask system for OTG mode ad return 0 */
-	return 1;
-}
-#endif
 
 static int bq24296_read_sys_stats(u8 *retval)
 { /* return 0 if not charging, 1 if online */
