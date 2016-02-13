@@ -368,16 +368,16 @@ static int bq24296_charge_mode_config(int on)
 	if(!bq24296_int)
 		return 0;
 
-	if(1 == on)
-		{
+	if(1 == on) {
 		bq24296_update_en_hiz_disable();
 		mdelay(5);
 		bq24296_update_charge_mode(CHARGE_MODE_CONFIG_OTG_OUTPUT);
 		mdelay(10);
 		bq24296_update_otg_mode_current(OTG_MODE_CURRENT_CONFIG_1300MA);
-		}else{
+	}
+	else {
 			bq24296_update_charge_mode(CHARGE_MODE_CONFIG_CHARGE_BATTERY);
-		}
+	}
 
 	DBG("bq24296_charge_mode_config is %s\n", on ? "OTG Mode" : "Charge Mode");
 
@@ -1045,37 +1045,22 @@ static const struct i2c_device_id bq24296_id[] = {
 MODULE_DEVICE_TABLE(i2c, bq24296_id);
 
 static struct i2c_driver bq24296_battery_driver = {
-	.driver = {
-		.name = "bq2429x_charger",
-		.owner = THIS_MODULE,
-		.of_match_table =of_match_ptr(bq24296_battery_of_match),
-	},
 	.probe = bq24296_battery_probe,
 	.remove = bq24296_battery_remove,
-	.shutdown = bq24296_battery_shutdown,
 	.suspend = bq24296_battery_suspend,
 	.resume = bq24296_battery_resume,
 	.id_table = bq24296_id,
+	.shutdown = bq24296_battery_shutdown,
+	.driver = {
+		.name = "bq2429x_charger",
+	//	.pm = &bq2429x_pm_ops,
+		.of_match_table =of_match_ptr(bq24296_battery_of_match),
+	},
+	.id_table = bq24296_id,
 };
 
-static int __init bq24296_battery_init(void)
-{
-	int ret;
-
-	ret = i2c_add_driver(&bq24296_battery_driver);
-	if (ret)
-		printk(KERN_ERR "Unable to register BQ24296 driver\n");
-
-	return ret;
-}
-subsys_initcall(bq24296_battery_init);
-
-static void __exit bq24296_battery_exit(void)
-{
-	i2c_del_driver(&bq24296_battery_driver);
-}
-module_exit(bq24296_battery_exit);
+module_i2c_driver(bq24296_battery_driver);
 
 MODULE_AUTHOR("Rockchip");
-MODULE_DESCRIPTION("BQ24296 battery monitor driver");
+MODULE_DESCRIPTION("TI BQ24296 battery monitor driver");
 MODULE_LICENSE("GPL");
