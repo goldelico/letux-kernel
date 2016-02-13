@@ -944,16 +944,13 @@ msleep(50);
 		printk("could not find bq24296-node\n");
 	}
 
-	di = devm_kzalloc(&client->dev,sizeof(*di), GFP_KERNEL);
-	if (!di) {
+	di = devm_kzalloc(&client->dev, sizeof(*di), GFP_KERNEL);
+	if (di == NULL) {
 		dev_err(&client->dev, "failed to allocate device info data\n");
 		ret = -ENOMEM;
 		goto batt_failed_2;
 	}
-	bq24296_di = di;
-	i2c_set_clientdata(client, di);
-	di->dev = &client->dev;
-	di->client = client;
+
 	if (bq24296_node)
 		pdev = bq24296_parse_dt(di);
 	else
@@ -1001,7 +998,19 @@ msleep(50);
 	}
 
 	psy_cfg.drv_data = bq24296_di;
-	bq24296_di->usb = power_supply_register(&client->dev,
+	bq24296_di = di;
+	i2c_set_clientdata(client, di);
+	di->dev = &client->dev;
+	di->client = client;
+
+	di->workqueue = create_singlethread_workqueue("bq24296_irq");
+	INIT_WORK(&di->irq_work, irq_work_func);
+	mutex_init(&di->var_lock);
+	INIT_DELAYED_WORK(&di->usb_detect_work, usb_detect_work_func);
+
+	// di->usb_nb.notifier_call = bq24296_bci_usb_ncb;
+
+	bq24296_di->usb = devm_power_supply_register(&client->dev,
 						&bq24296_madc_bat_desc[id->driver_data],
 						&psy_cfg);
 	if (IS_ERR(bq24296_di->usb)) {
@@ -1010,10 +1019,6 @@ msleep(50);
 		goto batt_failed_2;
 	}
 
-	di->workqueue = create_singlethread_workqueue("bq24296_irq");
-	INIT_WORK(&di->irq_work, irq_work_func);
-	mutex_init(&di->var_lock);
-	INIT_DELAYED_WORK(&di->usb_detect_work, usb_detect_work_func);
 	schedule_delayed_work(&di->usb_detect_work, 0);
 	bq24296_init_registers();
 
@@ -1048,8 +1053,6 @@ msleep(50);
 
 err_chgirq_failed:
 	free_irq(gpio_to_irq(pdev->chg_irq_pin), NULL);
-batt_failed_2:
-	power_supply_unregister(di->usb);
 fail_probe:
 	return ret;
 }
@@ -1065,7 +1068,12 @@ static void bq24296_battery_shutdown(struct i2c_client *client)
 static int bq24296_battery_remove(struct i2c_client *client)
 {
 	struct bq24296_device_info *di = i2c_get_clientdata(client);
-	kfree(di);
+
+	device_remove_file(di->dev, &dev_attr_max_current);
+	device_remove_file(di->dev, &dev_attr_id);
+	device_remove_file(di->dev, &dev_attr_otg);
+	device_remove_file(di->dev, &dev_attr_battparam);
+
 	return 0;
 }
 
