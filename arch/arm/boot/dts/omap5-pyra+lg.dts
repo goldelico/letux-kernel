@@ -8,7 +8,7 @@
 
 /* we atart with the omap5-pyra tree */
 
-#include "omap5-pyra.dts"
+#include "omap5-evm+pyra4.dts"
 
 &lcd {
 	compatible = "lg,lh500wf1";
