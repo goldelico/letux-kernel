@@ -34,7 +34,7 @@ const char lbs_driver_version[] = "COMM-USB8388-" DRIVER_RELEASE_VERSION
 
 
 /* Module parameters */
-unsigned int lbs_debug;
+unsigned int lbs_debug=true;
 EXPORT_SYMBOL_GPL(lbs_debug);
 module_param_named(libertas_debug, lbs_debug, int, 0644);
 

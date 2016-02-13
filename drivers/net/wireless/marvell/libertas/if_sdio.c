@@ -555,7 +555,7 @@ release:
 
 out:
 	if (ret)
-		pr_err("failed to load helper firmware\n");
+		pr_err("failed to load helper firmware err=%d\n", ret);
 
 	lbs_deb_leave_args(LBS_DEB_SDIO, "ret %d", ret);
 	return ret;
