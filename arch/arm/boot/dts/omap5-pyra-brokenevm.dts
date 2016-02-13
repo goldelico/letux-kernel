@@ -5,7 +5,7 @@
  * Update: now, I2C2_SDA is also broken
  */
 
-#include "omap5-pyra.dts"
+#include "omap5-evm+pyra4.dts"
 
 / {
 	model = "Pyra-Handheld with broken I2C2";
