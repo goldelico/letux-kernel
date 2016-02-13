@@ -143,17 +143,6 @@
 		>;
 };
 
-&lcd {
-	/* default to be overwritten by specific panel in derived board file
-	   by using the /root/panelselect script */
-
-	compatible = "mipi,debug";
-
-	gpios =
-		<&gpio6 16 0>,	/* goip6_176 = panel reset */
-		<&gpio6 2 0>;	/* gpio6_162 = enable DC/DC */
-};
-
 /* add overlay pimmux for pyra on 5432evm */
 
 &omap5_pmx_core {
