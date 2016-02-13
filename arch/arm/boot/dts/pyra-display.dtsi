@@ -1,0 +1,58 @@
+/*
+ * Copyright (C) 2015 OpenPandora - http://www.pyra-handheld.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+&lcd {
+	/* default to be overwritten by specific panel in derived board file
+	   by using the /root/panelselect script */
+
+	compatible = "mipi,debug";
+//	compatible = "boe,btl507212-w677l";
+
+	gpios =
+		<&gpio6 16 0>,	/* goip6_176 = panel reset */
+		<&gpio6 2 0>;	/* gpio6_162 = enable DC/DC */
+};
+
+#if 0
+
+/* insert ssd2858 driver into pipeline */
+
+/ {
+	ssd: encoder {
+		compatible = "solomon-systech,ssd2858";
+		gpios =
+			<&gpio6 2 0>;	/* gpio6_162 = enable ssd and disable DCS bypass */
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				ssd_in: endpoint@0 {
+					remote-endpoint = <&dsi1_out_ep>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+				ssd_out: endpoint@0 {
+					remote-endpoint = <&lcd_in>;
+				};
+			};
+		};
+	};
+};
+
+&lcd_in {
+	remote-endpoint = <&ssd_out>;
+};
+
+&dsi1_out_ep {
+	remote-endpoint = <&ssd_in>;
+};
+
+#endif
