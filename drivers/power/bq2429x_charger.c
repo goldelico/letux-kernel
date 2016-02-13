@@ -537,11 +537,44 @@ static irqreturn_t chg_irq_func(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+/* to be defined */
+static int bq24296_set_otg_voltage(struct regulator_dev *dev, int min_uV, int max_uV,
+			       unsigned *selector)
+{
+	printk("bq24296_set_voltage(..., %d, %d, %u)\n", min_uV, max_uV, *selector);
+	/* enable/disable OTG step up converter */
+	return 0;
+}
+
+static int bq24296_set_otg_current_limit(struct regulator_dev *dev,
+				     int min_uA, int max_uA)
+{
+	printk("bq24296_set_current_limit(..., %d, %d)\n", min_uA, max_uA);
+	/* set OTG current limit */
+	// bq24296_update_otg_mode_current(OTG_MODE_CURRENT_CONFIG_1300MA);
+	return 0;
+}
+
+static int bq24296_otg_enable(struct regulator_dev *dev)
+{ /* enable OTG step up converter */
+	printk("bq24296_enable(...)\n");
+	/* check if battery is present and don't do w/o battery */
+	bq24296_charge_mode_config(1);
+	return 0;
+}
+
+static int bq24296_otg_disable(struct regulator_dev *dev)
+{ /* disable OTG step up converter and enable charger */
+	printk("bq24296_otg_disable(...)\n");
+	bq24296_charge_mode_config(0);
+	return 0;
+}
+
 static struct regulator_ops otg_ops = {
-	.set_voltage = NULL,	/* enable/disable OTG */
-	.set_current_limit = NULL,	/* set OTG current limit */
-	.enable = NULL,	/* turn on OTG mode */
-	.disable = NULL,	/* turn off OTG mode */
+	.set_voltage = bq24296_set_otg_voltage,	/* enable/disable OTG */
+	.set_current_limit = bq24296_set_otg_current_limit,	/* set OTG current limit */
+	.enable = bq24296_otg_enable,	/* turn on OTG mode */
+	.disable = bq24296_otg_disable,	/* turn off OTG mode */
 };
 
 #ifdef CONFIG_OF
