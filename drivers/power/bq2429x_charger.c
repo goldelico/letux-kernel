@@ -36,11 +36,32 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/of_regulator.h>
 
+struct bq24296_device_info {
+	struct device 		*dev;
+	struct delayed_work usb_detect_work;
+	struct i2c_client	*client;
+	unsigned int interval;
+	struct mutex	var_lock;
+	struct workqueue_struct	*freezable_work;
+	struct work_struct	irq_work;	/* for Charging & VUSB/VADP */
+	struct regulator_desc vsys_desc;
+	struct regulator_desc otg_desc;
+
+	struct workqueue_struct *workqueue;
+	u8 chg_current;
+	u8 usb_input_current;
+	u8 adp_input_current;
+	//struct timer_list timer;
+	struct power_supply *usb;
+};
+
 struct bq24296_device_info *bq24296_di;
 struct bq24296_board *bq24296_pdata;
 static int bq24296_int = 0;
 int bq24296_mode = 0;
-#if 1
+int bq24296_chag_down;
+
+#if 0
 #define DBG(x...) printk(KERN_INFO x)
 #define DEBUG 1
 #else
@@ -106,7 +127,7 @@ static int bq24296_write(struct i2c_client *client, u8 reg, u8 const buf[], unsi
 	return ret;
 }
 
-static ssize_t bat_param_read(struct device *dev,struct device_attribute *attr, char *buf)
+static ssize_t bat_param_read(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	int i;
 	u8 buffer;
@@ -133,6 +154,7 @@ static int bq24296_update_reg(struct i2c_client *client, int reg, u8 value, u8 m
 		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 		return ret;
 	}
+	ret = 0;
 
 printk("bq24296_update_reg %02x: ( %02x & %02x ) | %02x -> %02x\n", reg, retval, (u8) ~mask, value, (u8) ((retval & ~mask) | value));
 
@@ -143,6 +165,7 @@ printk("bq24296_update_reg %02x: ( %02x & %02x ) | %02x -> %02x\n", reg, retval,
 			dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 			return ret;
 		}
+		ret = 0;
 	}
 {
 	int i;
@@ -161,7 +184,7 @@ static int bq24296_init_registers(void)
 {
 	int ret = 0;
 
-	/* reset the register */
+	/* reset the configuration register */
 	/*
 	 ret = bq24296_update_reg(bq24296_di->client,
 				 POWER_ON_CONFIGURATION_REGISTER,
@@ -401,6 +424,7 @@ int bq24296_charge_otg_en(int chg_en,int otg_en)
 static int bq24296_read_sys_stats(u8 *retval)
 { /* return 0 if not charging, 1 if online */
 	int ret;
+//	DBG("%s,line=%d\n", __func__,__LINE__);
 	ret = bq24296_read(bq24296_di->client, SYSTEM_STATS_REGISTER, retval, 1);
 	if (ret < 0) {
 		dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
@@ -430,6 +454,7 @@ static void usb_detect_work_func(struct work_struct *work)
 	u8 retval = 0;
 	int ret ;
 
+//	DBG("%s,line=%d\n", __func__,__LINE__);
 	ret = bq24296_read_sys_stats(&retval);
 	if (ret < 0) {
 		dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
@@ -525,10 +550,10 @@ static void irq_work_func(struct work_struct *work)
 
 static irqreturn_t chg_irq_func(int irq, void *dev_id)
 {
-//	struct bq24296_device_info *info = dev_id;
+	struct bq24296_device_info *info = dev_id;
 	DBG("%s\n", __func__);
 
-//	queue_work(info->workqueue, &info->irq_work);
+	queue_work(info->workqueue, &info->irq_work);
 
 	return IRQ_HANDLED;
 }
@@ -582,48 +607,51 @@ static struct bq24296_board *bq24296_parse_dt(struct bq24296_device_info *di)
 	DBG("%s,line=%d\n", __func__,__LINE__);
 	bq24296_np = of_node_get(di->dev->of_node);
 	if (!bq24296_np) {
-		printk("could not find bq24296-node\n");
+		printk("could not find bq2429x-node\n");
 		return NULL;
 	}
 	pdata = devm_kzalloc(di->dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)
 		return NULL;
-	if (of_property_read_u32_array(bq24296_np,"ti,chg_current",pdata->chg_current, 3)) {
+	if (of_property_read_u32_array(bq24296_np, "ti,chg_current", pdata->chg_current, 3)) {
 		printk("bq24296_parse_dt: charge current not specified\n");
 		return NULL;
 	}
 
-	pdata->chg_irq_pin = of_get_named_gpio(bq24296_np,"gpios",0);
+	pdata->chg_irq_pin = of_get_named_gpio(bq24296_np,"gpios", 0);
 	if (!gpio_is_valid(pdata->chg_irq_pin)) {
-		printk("bq24296_parse_dt: invalid gpio: %d\n",  pdata->chg_irq_pin);
+		printk("bq24296_parse_dt: invalid gpio: %d\n", pdata->chg_irq_pin);
 	}
 
-	pdata->dc_det_pin = of_get_named_gpio(bq24296_np,"gpios",1);
+	pdata->dc_det_pin = of_get_named_gpio(bq24296_np,"gpios", 1);
 	if (!gpio_is_valid(pdata->dc_det_pin)) {
-		printk("bq24296_parse_dt: invalid gpio: %d\n",  pdata->dc_det_pin);
+		printk("bq24296_parse_dt: invalid gpio: %d\n", pdata->dc_det_pin);
 	}
 
 #if 0
 	/* get child node(s) */
 	struct device_node *np;
-	struct regulator_desc desc;
-	struct regulator_config cfg;
 
 	np = of_find_node_by_name(bq24296_np, "vsys_regulator");
-	// error handling
-	of_get_regulator_init_data(di->dev, np, &desc);
-	// error handling
+	if (np) {
+		of_get_regulator_init_data(di->dev, np, &di->vsys_desc);
+		// error handling
+	}
+
+	np = of_find_node_by_name(bq24296_np, "otg_regulator");
+	if (np) {
+		of_get_regulator_init_data(di->dev, np, &di->otg_desc);
+		// error handling
+	}
+
+// move this into the probe function
+	struct regulator_config cfg;
 
 	cfg.dev = di->dev;
 	cfg.init_data = NULL;
 	cfg.driver_data = NULL;
 	cfg.of_node = np;
-	regulator_register(&desc, &cfg);
-	// error handling
-
-	np = of_find_node_by_name(bq24296_np, "otg_regulator");
-	// error handling
-	of_get_regulator_init_data(di->dev, np, &desc);
+	regulator_register(&pdata->vsys_desc, &cfg);
 	// error handling
 
 	desc.name = "otg";
@@ -635,7 +663,7 @@ static struct bq24296_board *bq24296_parse_dt(struct bq24296_device_info *di)
 	cfg.init_data = NULL;
 	cfg.driver_data = NULL;
 	cfg.of_node = np;
-	regulator_register(&desc, &cfg);
+	regulator_register(&pdata->otg_desc, &cfg);
 	// error handling
 
 #endif
@@ -806,6 +834,7 @@ static int bq24296_get_property(struct power_supply *psy,
 {
 	int ret;
 	u8 retval = 0;
+	DBG("%s,line=%d prop=%d\n", __func__,__LINE__, psp);
 	ret = bq24296_read_sys_stats(&retval);
 	if (ret < 0) {
 		dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
@@ -951,6 +980,11 @@ msleep(50);
 		goto batt_failed_2;
 	}
 
+	di->dev = &client->dev;
+	bq24296_di = di;
+	i2c_set_clientdata(client, di);
+	di->client = client;
+
 	if (bq24296_node)
 		pdev = bq24296_parse_dt(di);
 	else
@@ -993,23 +1027,18 @@ msleep(50);
 
 	if ((retval & 0xa7) != 0x20) {
 		printk("not a bq24296/97: %02x\n", retval);
-		ret = -EINVAL;
-		goto batt_failed_2;
+		ret = -ENODEV;
+		goto fail_probe;
 	}
 
-	psy_cfg.drv_data = bq24296_di;
-	bq24296_di = di;
-	i2c_set_clientdata(client, di);
-	di->dev = &client->dev;
-	di->client = client;
-
+	mutex_init(&di->var_lock);
 	di->workqueue = create_singlethread_workqueue("bq24296_irq");
 	INIT_WORK(&di->irq_work, irq_work_func);
-	mutex_init(&di->var_lock);
 	INIT_DELAYED_WORK(&di->usb_detect_work, usb_detect_work_func);
 
 	// di->usb_nb.notifier_call = bq24296_bci_usb_ncb;
 
+	psy_cfg.drv_data = bq24296_di;
 	bq24296_di->usb = devm_power_supply_register(&client->dev,
 						&bq24296_madc_bat_desc[id->driver_data],
 						&psy_cfg);
@@ -1019,50 +1048,50 @@ msleep(50);
 		goto batt_failed_2;
 	}
 
-	schedule_delayed_work(&di->usb_detect_work, 0);
-	bq24296_init_registers();
+	ret = bq24296_init_registers();
+	if (ret < 0) {
+		dev_err(&client->dev, "failed to initialize registers: %d\n", ret);
+		goto fail_probe;
+	}
 
+	// seems to be wrong for DT interrupts
+	// we currently do not use the interrupt, so we disable this code
+#if 0
 	if (gpio_is_valid(pdev->chg_irq_pin)){
 		pdev->chg_irq = gpio_to_irq(pdev->chg_irq_pin);
-		ret = request_threaded_irq(pdev->chg_irq, NULL, chg_irq_func, IRQF_TRIGGER_FALLING| IRQF_ONESHOT, "bq24296_chg_irq", di);
-		if (ret) {
-			ret = -EINVAL;
-			printk("failed to request bq24296_chg_irq\n");
+		ret = devm_request_threaded_irq(&client->dev, pdev->chg_irq, NULL,
+				chg_irq_func, IRQF_TRIGGER_FALLING| IRQF_ONESHOT, client->name,
+				di);
+		if (ret < 0) {
+			dev_err(&client->dev, "failed to request chg_irq: %d\n", ret);
 			goto err_chgirq_failed;
 		}
 	}
-
+#endif
 	if (device_create_file(&client->dev, &dev_attr_max_current))
-		dev_warn(&client->dev, "could not create sysfs file\n");
+		dev_warn(&client->dev, "could not create sysfs file max_current\n");
 
 	if (device_create_file(&client->dev, &dev_attr_id))
-		dev_warn(&client->dev, "could not create sysfs file\n");
+		dev_warn(&client->dev, "could not create sysfs file id\n");
 
 	if (device_create_file(&client->dev, &dev_attr_otg))
-		dev_warn(&client->dev, "could not create sysfs file\n");
+		dev_warn(&client->dev, "could not create sysfs file otg\n");
 
 	if (device_create_file(&client->dev, &dev_attr_battparam))
-		dev_warn(&client->dev, "could not create sysfs file\n");
+		dev_warn(&client->dev, "could not create sysfs file battparam\n");
 
 	bq24296_int =1;
 
 msleep(50);
+	schedule_delayed_work(&di->usb_detect_work, 0);
+
 	DBG("bq24296_battery_probe ok");
 
 	return 0;
 
 err_chgirq_failed:
-	free_irq(gpio_to_irq(pdev->chg_irq_pin), NULL);
 fail_probe:
 	return ret;
-}
-
-static void bq24296_battery_shutdown(struct i2c_client *client)
-{
-	struct bq24296_device_info *di = i2c_get_clientdata(client);
-
-	if (bq24296_pdata->chg_irq)
-		free_irq(bq24296_pdata->chg_irq, di);
 }
 
 static int bq24296_battery_remove(struct i2c_client *client)
@@ -1091,7 +1120,6 @@ static struct i2c_driver bq24296_battery_driver = {
 	.suspend = bq24296_battery_suspend,
 	.resume = bq24296_battery_resume,
 	.id_table = bq24296_id,
-	.shutdown = bq24296_battery_shutdown,
 	.driver = {
 		.name = "bq2429x_charger",
 	//	.pm = &bq2429x_pm_ops,
@@ -1103,5 +1131,5 @@ static struct i2c_driver bq24296_battery_driver = {
 module_i2c_driver(bq24296_battery_driver);
 
 MODULE_AUTHOR("Rockchip");
-MODULE_DESCRIPTION("TI BQ24296 battery monitor driver");
+MODULE_DESCRIPTION("TI BQ24296/7 battery monitor driver");
 MODULE_LICENSE("GPL");
