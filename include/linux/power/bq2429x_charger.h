@@ -1,5 +1,5 @@
 /*
- * Definitions for BQ24296 battery charger.
+ * Definitions for BQ24296/7 battery charger.
  */
 #ifndef BQ24296_H
 #define BQ24296_H
@@ -125,23 +125,6 @@ enum {
 	AC_INSERT = 1,
 };
 
-struct bq24296_device_info {
-	struct device 		*dev;
-	struct delayed_work usb_detect_work;
-	struct i2c_client	*client;
-	unsigned int interval;
-	struct mutex	var_lock;
-	struct workqueue_struct	*freezable_work;
-	struct work_struct	irq_work;	/* for Charging & VUSB/VADP */
-
-	struct workqueue_struct *workqueue;
-	u8 chg_current;
-	u8 usb_input_current;
-	u8 adp_input_current;
-	//struct timer_list timer;
-	struct power_supply *usb;
-};
-
 struct bq24296_platform_data {
 	unsigned int otg_usb_pin;
 	unsigned int chg_irq_pin;
@@ -155,7 +138,6 @@ struct bq24296_board {
 	unsigned int chg_irq;
 	unsigned int dc_det_pin;
 	unsigned int psel_pin;
-	struct device_node *of_node;
 	unsigned int chg_current[3];
 };
 
