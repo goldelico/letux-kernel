@@ -353,7 +353,9 @@ static int rpm_idle(struct device *dev, int rpmflags)
 
  out:
 	trace_rpm_return_int(dev, _THIS_IP_, retval);
-	return retval ? retval : rpm_suspend(dev, rpmflags | RPM_AUTO);
+	if (!(rpmflags & RPM_IGNORE_AUTO))
+		rpmflags |= RPM_AUTO;
+	return retval ? retval : rpm_suspend(dev, rpmflags);
 }
 
 /**
