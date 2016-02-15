@@ -230,10 +230,10 @@
 		pinctrl-single,pins = <
 			OMAP5_IOPAD(0x01da, PIN_INPUT_PULLUP | MUX_MODE4) /* sdio4_clk */
 			OMAP5_IOPAD(0x01dc, PIN_INPUT_PULLUP | MUX_MODE4) /* sdio4_cmd */
-			OMAP5_IOPAD(0x01b4, PIN_INPUT_PULLUP | MUX_MODE6) /* sdio4_data0 */
-			OMAP5_IOPAD(0x01b0, PIN_INPUT_PULLUP | MUX_MODE6) /* sdio4_data1 */
-			OMAP5_IOPAD(0x01b2, PIN_INPUT_PULLUP | MUX_MODE6) /* sdio4_data2 */
-			OMAP5_IOPAD(0x01b6, PIN_INPUT_PULLUP | MUX_MODE6) /* sdio4_data3 */
+			OMAP5_IOPAD(0x01b4, PIN_INPUT_PULLUP | MUX_MODE4) /* sdio4_data0 */
+			OMAP5_IOPAD(0x01b0, PIN_INPUT_PULLUP | MUX_MODE4) /* sdio4_data1 */
+			OMAP5_IOPAD(0x01b2, PIN_INPUT_PULLUP | MUX_MODE4) /* sdio4_data2 */
+			OMAP5_IOPAD(0x01b6, PIN_INPUT_PULLUP | MUX_MODE4) /* sdio4_data3 */
 			/* add CD and WP gpio 3_77 / 79 */
 		>;
 	};
@@ -435,9 +435,10 @@
 	vmmc-supply = <&ldo2_reg>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&mmc4_pins>;
+	bus-width = <4>;
 //	cd-gpios = <&gpio3 13 0>;	/* gpio3_77 */
 //	wp-gpios = <&gpio3 15 0>;	/* gpio3_79 */
-	bus-width = <4>;
+	broken-cd;	/* if no gpios */
 };
 
 &mcspi1 {
