@@ -384,8 +384,18 @@ static int twl6040_vibra_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static int twl6040_vibra_remove(struct platform_device *pdev)
+{
+	struct vibra_info *info = platform_get_drvdata(pdev);
+
+	input_unregister_device(info->input_dev);
+
+	return 0;
+	}
+
 static struct platform_driver twl6040_vibra_driver = {
 	.probe		= twl6040_vibra_probe,
+	.remove		= twl6040_vibra_remove,
 	.driver		= {
 		.name	= "twl6040-vibra",
 		.pm	= &twl6040_vibra_pm_ops,
