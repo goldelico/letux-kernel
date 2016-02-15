@@ -55,7 +55,7 @@
 		enable-active-high;
 		startup-delay-us = <70000>;
 		vin-supply = <&modem_vbus_hdmi_power>;
-		regulator-always-on;
+//		regulator-always-on;
 	};
 
 	host2_vbus_power: host2_vbus_power_reg {
@@ -67,7 +67,7 @@
 		enable-active-high;
 		startup-delay-us = <70000>;
 		vin-supply = <&modem_vbus_hdmi_power>;
-		regulator-always-on;
+//		regulator-always-on;
 	};
 
 	/* this is the modem power switch (similar to a LDO) */
@@ -82,7 +82,7 @@
 		/* the real input is vsys but it makes no sense
 		   to power the modem without requesting vbus */
 		vin-supply = <&modem_vbus_hdmi_power>;
-		regulator-always-on;
+//		regulator-always-on;
 	};
 
 	modem_en: modem { /* control modem power through rfkill */
@@ -141,6 +141,10 @@
 /*		enable-gpios = <&gpio6 30 0>;	/* GPT9/PWM gpio6_190 */
 	};
 
+};
+
+&modem_vbus_hdmi_power {
+	/delete-property/ regulator-always-on;
 };
 
 /* LCD panel - MIPI */
