@@ -150,6 +150,7 @@ static int twl6040_power_up_manual(struct twl6040 *twl6040)
 	/* enable high-side LDO, reference system and internal oscillator */
 	ldoctl = TWL6040_HSLDOENA | TWL6040_REFENA | TWL6040_OSCENA;
 	ret = twl6040_reg_write(twl6040, TWL6040_REG_LDOCTL, ldoctl);
+printk("twl6040_power_up_manual write TWL6040_REG_LDOCTL %02x => %d\n", ldoctl, ret);
 	if (ret)
 		return ret;
 	usleep_range(10000, 10500);
@@ -157,6 +158,7 @@ static int twl6040_power_up_manual(struct twl6040 *twl6040)
 	/* enable negative charge pump */
 	ncpctl = TWL6040_NCPENA;
 	ret = twl6040_reg_write(twl6040, TWL6040_REG_NCPCTL, ncpctl);
+printk("twl6040_power_up_manual write TWL6040_REG_NCPCTL %02x => %d\n", ncpctl, ret);
 	if (ret)
 		goto ncp_err;
 	usleep_range(1000, 1500);
@@ -164,6 +166,7 @@ static int twl6040_power_up_manual(struct twl6040 *twl6040)
 	/* enable low-side LDO */
 	ldoctl |= TWL6040_LSLDOENA;
 	ret = twl6040_reg_write(twl6040, TWL6040_REG_LDOCTL, ldoctl);
+printk("twl6040_power_up_manual write TWL6040_REG_LDOCTL %02x => %d\n", ldoctl, ret);
 	if (ret)
 		goto lsldo_err;
 	usleep_range(1000, 1500);
@@ -171,6 +174,7 @@ static int twl6040_power_up_manual(struct twl6040 *twl6040)
 	/* enable low-power PLL */
 	lppllctl = TWL6040_LPLLENA;
 	ret = twl6040_reg_write(twl6040, TWL6040_REG_LPPLLCTL, lppllctl);
+printk("twl6040_power_up_manual write TWL6040_REG_LPPLLCTL %02x => %d\n", lppllctl, ret);
 	if (ret)
 		goto lppll_err;
 	usleep_range(5000, 5500);
@@ -178,6 +182,7 @@ static int twl6040_power_up_manual(struct twl6040 *twl6040)
 	/* disable internal oscillator */
 	ldoctl &= ~TWL6040_OSCENA;
 	ret = twl6040_reg_write(twl6040, TWL6040_REG_LDOCTL, ldoctl);
+printk("twl6040_power_up_manual write TWL6040_REG_LDOCTL %02x => %d\n", ldoctl, ret);
 	if (ret)
 		goto osc_err;
 
@@ -235,6 +240,7 @@ static irqreturn_t twl6040_readyint_handler(int irq, void *data)
 {
 	struct twl6040 *twl6040 = data;
 
+printk("twl6040_readyint_handler()\n");
 	complete(&twl6040->ready);
 
 	return IRQ_HANDLED;
@@ -261,17 +267,21 @@ static int twl6040_power_up_automatic(struct twl6040 *twl6040)
 {
 	int time_left;
 
+printk("twl6040_power_up_automatic set gpio %d = 1\n", twl6040->audpwron);
 	gpio_set_value(twl6040->audpwron, 1);
 
 	time_left = wait_for_completion_timeout(&twl6040->ready,
 						msecs_to_jiffies(144));
+printk("twl6040_power_up_automatic time_left = %d\n", time_left);
 	if (!time_left) {
 		u8 intid;
 
 		dev_warn(twl6040->dev, "timeout waiting for READYINT\n");
 		intid = twl6040_reg_read(twl6040, TWL6040_REG_INTID);
+printk("twl6040_power_up_automatic intid = %02x\n", intid);
 		if (!(intid & TWL6040_READYINT)) {
 			dev_err(twl6040->dev, "automatic power-up failed\n");
+printk("twl6040_power_up_automatic set gpio %d = 0\n", twl6040->audpwron);
 			gpio_set_value(twl6040->audpwron, 0);
 			return -ETIMEDOUT;
 		}
@@ -283,7 +293,7 @@ static int twl6040_power_up_automatic(struct twl6040 *twl6040)
 int twl6040_power(struct twl6040 *twl6040, int on)
 {
 	int ret = 0;
-
+printk("twl6040_power(%d)\n", on);
 	mutex_lock(&twl6040->mutex);
 
 	if (on) {
