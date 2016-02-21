@@ -50,7 +50,9 @@
 		"AFML", "Line In",
 		"AFMR", "Line In",
 		"HSMIC", "Headset Mic",
-		"Headset Mic", "Headset Mic Bias";
+		"Headset Mic", "Headset Mic Bias",
+		"MAINMIC", "Main Handset Mic",
+		"Main Handset Mic", "Main Mic Bias";
 };
 
 &twl6040_pins {
