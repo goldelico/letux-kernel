@@ -36,10 +36,7 @@
 &sound {
 	ti,model = "Letux Cortex 15";
 
-//	pinctrl-names = "default";
-//	pinctrl-0 = <&ckobuffer>;
-
-	/* Audio routing */
+	/* extended Audio routing */
 	ti,audio-routing =
 		"Headset Stereophone", "HSOL",
 		"Headset Stereophone", "HSOR",
@@ -64,10 +61,6 @@
 &twl6040 {
 	ti,audpwron-gpio = <&gpio3 17 0>;  /* gpio line 3_81 */
 };
-
-/* Audio needs clock enabled */
-/* should set CONTROL.CONTROL_CKOBUFFER[28] CKOBUFFER_CLK_EN := 1 */
-/* should be handled like omap5_pmx_wkup */
 
 /* LCD panel - MIPI */
 
