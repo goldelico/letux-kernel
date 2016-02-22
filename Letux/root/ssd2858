@@ -219,18 +219,18 @@ fbset -g $OMAP_WIDTH $OMAP_HEIGHT $OMAP_WIDTH $OMAP_HEIGHT 32
 
 echo start x_res=$OMAP_WIDTH y_res=$OMAP_HEIGHT lpclock=$OMAP_LPCLK pixelclock=$OMAP_PCLK \
 	hfp=$OMAP_HFP hsw=$OMAP_HSA hbp=$OMAP_HBP \
-	vfp=$OMAP_VFP vsw=$OMAP_VSA vbp=$OMAP_VBP >dcs	# start MIPI interface timing
+	vfp=$OMAP_VFP vsw=$OMAP_VSA vbp=$OMAP_VBP >dcs || exit 1	# start MIPI interface timing
 
 sleep .5
 
 # show some DCS status (don't use echo status >dcs because it reads non-existent registers which makes the communication hang)
 for i in 0b 0c 45
-	do echo $i r >dcs
+	do echo $i r >dcs || exit 1
 done
 
 # read out some values after power on
 
-echo g0004 rrrr >dcs
+echo g0004 rrrr >dcs || exit 1
 echo g0008 rrrr >dcs
 echo g000c rrrr >dcs
 echo g0010 rrrr >dcs
@@ -243,7 +243,7 @@ echo g002c rrrr >dcs
 echo g0030 rrrr >dcs
 
 # prepare for getting access to the ssd
-echo 28 >dcs
+echo 28 >dcs || exit 1
 echo 10 >dcs
 echo ff00 >dcs
 echo 28 >dcs
