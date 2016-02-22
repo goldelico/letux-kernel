@@ -206,35 +206,6 @@ static int twl4030bci_read_adc_val(u8 reg)
 }
 
 /*
- * Check if Battery Pack was present
- */
-static int twl4030_is_battery_present(struct twl4030_bci *bci)
-{
-	int ret;
-	u8 val = 0;
-
-	/* Battery presence in Main charge? */
-	ret = twl_i2c_read_u8(TWL_MODULE_MAIN_CHARGE, &val, TWL4030_BCIMFSTS3);
-	if (ret)
-		return ret;
-	if (val & TWL4030_BATSTSMCHG)
-		return 0;
-
-	/*
-	 * OK, It could be that bootloader did not enable main charger,
-	 * pre-charge is h/w auto. So, Battery presence in Pre-charge?
-	 */
-	ret = twl_i2c_read_u8(TWL4030_MODULE_PRECHARGE, &val,
-			      TWL4030_BCIMFSTS1);
-	if (ret)
-		return ret;
-	if (val & TWL4030_BATSTSPCHG)
-		return 0;
-
-	return -ENODEV;
-}
-
-/*
  * TI provided formulas:
  * CGAIN == 0: ICHG = (BCIICHG * 1.7) / (2^10 - 1) - 0.85
  * CGAIN == 1: ICHG = (BCIICHG * 3.4) / (2^10 - 1) - 1.7
@@ -987,12 +958,18 @@ static int twl4030_bci_probe(struct platform_device *pdev)
 	int ret;
 	u32 reg;
 
+#ifdef DEBUG
+printk("twl4030_bci_probe\n");
+#endif
+
 	bci = devm_kzalloc(&pdev->dev, sizeof(*bci), GFP_KERNEL);
 	if (bci == NULL)
 		return -ENOMEM;
 
 	if (!pdata)
 		pdata = twl4030_bci_parse_dt(&pdev->dev);
+
+	platform_set_drvdata(pdev, bci);
 
 	bci->ichg_eoc = 80100; /* Stop charging when current drops to here */
 	bci->ichg_lo = 241000; /* Low threshold */
@@ -1009,14 +986,40 @@ static int twl4030_bci_probe(struct platform_device *pdev)
 	bci->irq_chg = platform_get_irq(pdev, 0);
 	bci->irq_bci = platform_get_irq(pdev, 1);
 
-	/* Only proceed further *IF* battery is physically present */
-	ret = twl4030_is_battery_present(bci);
-	if  (ret) {
-		dev_crit(&pdev->dev, "Battery was not detected:%d\n", ret);
-		return ret;
+	if (bci->dev->of_node) {
+		struct device_node *phynode;
+
+#ifdef DEBUG
+printk("twl4030_bci_probe: of_find_compatible_node\n");
+#endif
+
+		phynode = of_find_compatible_node(bci->dev->of_node->parent,
+						  NULL, "ti,twl4030-usb");
+#ifdef DEBUG
+printk("  phynode = %p\n", phynode);
+#endif
+
+		if (phynode) {
+			bci->transceiver = devm_usb_get_phy_by_node(
+				bci->dev, phynode, &bci->usb_nb);
+
+#ifdef DEBUG
+printk("  bci->transceiver = %p\n", bci->transceiver);
+#endif
+
+			if (IS_ERR(bci->transceiver) &&
+			    PTR_ERR(bci->transceiver) == -EPROBE_DEFER)
+				return -EPROBE_DEFER;	/* PHY not ready */
+		}
 	}
 
-	platform_set_drvdata(pdev, bci);
+	bci->channel_vac = iio_channel_get(&pdev->dev, "vac");
+	if (IS_ERR(bci->channel_vac)) {
+	        if (PTR_ERR(bci->channel_vac) == -EPROBE_DEFER)
+			return -EPROBE_DEFER;	/* iio not ready */
+		dev_warn(&pdev->dev, "could not request vac iio channel");
+		bci->channel_vac = NULL;
+	}
 
 	bci->ac = devm_power_supply_register(&pdev->dev, &twl4030_bci_ac_desc,
 					     NULL);
@@ -1034,6 +1037,11 @@ static int twl4030_bci_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	INIT_WORK(&bci->work, twl4030_bci_usb_work);
+	INIT_DELAYED_WORK(&bci->current_worker, twl4030_current_worker);
+
+	bci->usb_nb.notifier_call = twl4030_bci_usb_ncb;
+
 	ret = devm_request_threaded_irq(&pdev->dev, bci->irq_chg, NULL,
 			twl4030_charger_interrupt, IRQF_ONESHOT, pdev->name,
 			bci);
@@ -1049,26 +1057,6 @@ static int twl4030_bci_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "could not request irq %d, status %d\n",
 			bci->irq_bci, ret);
 		return ret;
-	}
-
-	bci->channel_vac = iio_channel_get(&pdev->dev, "vac");
-	if (IS_ERR(bci->channel_vac)) {
-		bci->channel_vac = NULL;
-		dev_warn(&pdev->dev, "could not request vac iio channel");
-	}
-
-	INIT_WORK(&bci->work, twl4030_bci_usb_work);
-	INIT_DELAYED_WORK(&bci->current_worker, twl4030_current_worker);
-
-	bci->usb_nb.notifier_call = twl4030_bci_usb_ncb;
-	if (bci->dev->of_node) {
-		struct device_node *phynode;
-
-		phynode = of_find_compatible_node(bci->dev->of_node->parent,
-						  NULL, "ti,twl4030-usb");
-		if (phynode)
-			bci->transceiver = devm_usb_get_phy_by_node(
-				bci->dev, phynode, &bci->usb_nb);
 	}
 
 	/* Enable interrupts now. */
@@ -1098,6 +1086,7 @@ static int twl4030_bci_probe(struct platform_device *pdev)
 		dev_warn(&pdev->dev, "could not create sysfs file\n");
 
 	twl4030_charger_enable_ac(bci, true);
+		dev_dbg(&pdev->dev, "transceiver = %p\n", bci->transceiver);
 	if (!IS_ERR_OR_NULL(bci->transceiver))
 		twl4030_bci_usb_ncb(&bci->usb_nb,
 				    bci->transceiver->last_event,

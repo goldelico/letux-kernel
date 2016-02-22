@@ -214,8 +214,6 @@ static int pca953x_gpio_direction_input(struct gpio_chip *gc, unsigned off)
 	u8 reg_val;
 	int ret, offset = 0;
 
-//	if ((chip->reg_open_drain[off / BANK_SZ] & (1u << (off % BANK_SZ))))
-//		printk("pca953x_gpio_direction_input(%d)\n", off);
 	mutex_lock(&chip->i2c_lock);
 	reg_val = chip->reg_direction[off / BANK_SZ] | (1u << (off % BANK_SZ));
 
@@ -244,10 +242,11 @@ static int pca953x_gpio_direction_output(struct gpio_chip *gc,
 	struct pca953x_chip *chip = gpiochip_get_data(gc);
 	u8 reg_val;
 	int ret, offset = 0;
-//	if ((chip->reg_open_drain[off / BANK_SZ] & (1u << (off % BANK_SZ))))
-//		printk("pca953x_gpio_direction_output(%d, %d)\n", off, val);
-	if (val && (chip->reg_open_drain[off / BANK_SZ] & (1u << (off % BANK_SZ))))
-		return pca953x_gpio_direction_input(gc, off);	/* high impedance */
+
+	if (val && (chip->reg_open_drain[off / BANK_SZ] &
+						(1u << (off % BANK_SZ))))
+		/* make high impedance */
+		return pca953x_gpio_direction_input(gc, off);
 
 	mutex_lock(&chip->i2c_lock);
 	/* set output level */
@@ -326,9 +325,6 @@ static void pca953x_gpio_set_value(struct gpio_chip *gc, unsigned off, int val)
 	struct pca953x_chip *chip = gpiochip_get_data(gc);
 	u8 reg_val;
 	int ret, offset = 0;
-
-if(off == 8 || off == 9 || off == 10 || off == 15)
-		printk("pca953x_gpio_set_value(%d, %d)\n", off, val);
 
 	if ((chip->reg_open_drain[off / BANK_SZ] & (1u << (off % BANK_SZ)))) {
 		/* switch between input (1=High-Z) and output (0=Low) */
@@ -733,17 +729,21 @@ static int pca953x_probe(struct i2c_client *client,
 		chip->names = pdata->names;
 	} else {
 		int size, i;
-		size = of_property_count_elems_of_size(client->dev.of_node, "open-drain-pins", sizeof(u32));
+
+		size = of_property_count_elems_of_size(client->dev.of_node,
+						"open-drain-pins", sizeof(u32));
 		chip->gpio_start = -1;
 		irq_base = 0;
-		printk("pca953x_probe: %d open-drain-pins\n", size);
-		for (i=0; i < size; i++) { /* negative sizes (errors) are ignored */
+
+		/* negative sizes (errno) are simply ignored */
+
+		for (i = 0; i < size; i++) {
 			u32 off;
-			int r = of_property_read_u32_index(client->dev.of_node, "open-drain-pins", i, &off);
-			printk("pca953x_get_alt_pdata: open-drain pin %d (%d)\n", off, r);
-			if(r == 0 && off < (MAX_BANK * BANK_SZ)) {
-				printk("pca953x_get_alt_pdata: make open-drain: %d\n", off);
-				chip->reg_open_drain[off / BANK_SZ] |= (1u << (off % BANK_SZ));
+			int r = of_property_read_u32_index(client->dev.of_node,
+						"open-drain-pins", i, &off);
+			if (r == 0 && off < (MAX_BANK * BANK_SZ)) {
+				chip->reg_open_drain[off / BANK_SZ] |=
+						(1u << (off % BANK_SZ));
 			}
 		}
 	}
