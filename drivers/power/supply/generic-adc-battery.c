@@ -166,7 +166,9 @@ static int gab_get_property(struct power_supply *psy,
 		val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_NOW:
-		val->intval = pdata->cal_charge(result);
+		val->intval = 0;
+		if (pdata->cal_charge)
+			val->intval = pdata->cal_charge(result);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
@@ -256,7 +258,7 @@ static int gab_probe(struct platform_device *pdev)
 
 	psy_cfg.drv_data = adc_bat;
 	psy_desc = &adc_bat->psy_desc;
-	psy_desc->name = pdata->battery_info.name;
+	psy_desc->name = "generic-adc-batt";//pdata->battery_info.name;
 
 	/* bootup default values for the battery */
 	adc_bat->cable_plugged = false;
@@ -292,6 +294,8 @@ static int gab_probe(struct platform_device *pdev)
 							 gab_chan_name[chan]);
 		if (IS_ERR(adc_bat->channel[chan])) {
 			ret = PTR_ERR(adc_bat->channel[chan]);
+			if (ret == -EPROBE_DEFER)
+				return ret;
 			adc_bat->channel[chan] = NULL;
 		} else {
 			/* copying properties for supported channels only */
