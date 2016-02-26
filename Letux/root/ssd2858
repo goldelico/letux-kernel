@@ -8,6 +8,7 @@
 # -l:	loop dcs commands 10h and 11h to check LP output to panel
 # -p:	program panel through DCS
 # -s:	enable stream to ssd and panel
+# -off:	turn off
 #
 # typical invocation for operation
 # ./ssd2858 -r -p -s
@@ -35,13 +36,63 @@ then
 	exit 1
 fi
 
-# make sure the panel is active before trying to send commands
+# default flags
+DUMP_REGS=false
+LOOP_DCS_11_10=false
+PROGRAM_PANEL=false
+STREAM=true
+OFF=false
+
+# SSD2858 mode parameters
+VB_MODE=0
+VBE=0
+ROT90=0
+
+while [ "$1" ]
+do
+	case "$1" in
+	"-b" )
+		VB_MODE=4
+		VBE=3
+		;;
+	"-r" )
+		ROT90=1
+		;;
+	"-d" )
+		DUMP_REGS=true
+		;;
+	"-l" )
+		LOOP_DCS_11_10=true
+		;;
+	"-p" )
+		PROGRAM_PANEL=true
+		;;
+	"-s" )
+		STREAM=true
+		;;
+	"-off" )
+		OFF=true
+		;;
+	-* )
+		echo unknown option $1
+		exit 1
+		;;
+	* )
+		break
+		;;
+	esac
+	shift
+done
+
+# make sure the panel is off before trying to send commands
 echo nostream >dcs	# if it was on before
 sleep .5
 echo stop >dcs	# stop if it was already running
 echo nopower >dcs	# enable is unused
-echo reset >dcs	# reset panel
 sleep .5
+
+$OFF && exit 0
+
 # reset panel
 echo reset >dcs	# reset panel
 echo power >dcs	# enable ssd (should do this only on v4/v5 boards!!! but I have no method to decide between v3 and v4)
@@ -77,9 +128,6 @@ PANEL_MIN_DDR=$(( $PANEL_PCLK / 2 / $PANEL_LANES * $PANEL_BPP ))	# min is define
 # SSD2858 mode parameters
 SPLIT_MEM=1 TE_SEL=1 VBP=0
 CKE=0
-VB_MODE=0
-VBE=0
-ROT90=0
 
 # SSD2858 clock divider parameters
 XTAL=24000000	# we have 24 MHz XTAL
@@ -118,8 +166,16 @@ LOCKCNT=$(printf "%.0f" $(echo '1.4 * 30*10^-6 *' $XTAL '/ 2' | bc -l ))
 # calculate OMAP parameters
 OMAP_LPCLK=$(( $XTAL / 2 ))	# we must drive SSD with this LP clock frequency
 OMAP_PCLK=$((2 * $PIXEL_CLK))	# feed pixels in speed defined by SSD2858
-OMAP_WIDTH=$PANEL_WIDTH
-OMAP_HEIGHT=$PANEL_HEIGHT
+
+if [ "$ROT90" = 1 ]
+then
+	OMAP_WIDTH=$PANEL_HEIGHT
+	OMAP_HEIGHT=$PANEL_WIDTH
+else
+	OMAP_WIDTH=$PANEL_WIDTH
+	OMAP_HEIGHT=$PANEL_HEIGHT
+fi
+
 OMAP_HFP=$PANEL_HFP
 OMAP_HSA=$PANEL_HSA
 OMAP_HBP=$PANEL_HBP
@@ -127,43 +183,6 @@ OMAP_VFP=$PANEL_VFP
 OMAP_VSA=$PANEL_VSA
 OMAP_VBP=$PANEL_VBP
 OMAP_DDR=$MIPITX_DDR_CLK	# I hope the OMAP DSS calculates what it needs
-
-# default flags
-DUMP_REGS=false
-LOOP_DCS_11_10=false
-PROGRAM_PANEL=false
-STREAM=true
-
-while [ "$1" ]
-do
-	case "$1" in
-	"-b" )
-		VB_MODE=4
-		VBE=3
-		;;
-	"-r" )
-		OMAP_WIDTH=$PANEL_HEIGHT
-		OMAP_HEIGHT=$PANEL_WIDTH
-		ROT90=1
-		;;
-	"-d" )
-		DUMP_REGS=true
-		;;
-	"-l" )
-		LOOP_DCS_11_10=true
-		;;
-	"-p" )
-		PROGRAM_PANEL=true
-		;;
-	"-s" )
-		STREAM=true
-		;;
-	* )
-		break
-		;;
-	esac
-	shift
-done
 
 echo "Panel MIPI:"
 echo "  Dimensions: ${PANEL_WIDTH}x${PANEL_HEIGHT} in ${PANEL_FRAME_WIDTH}x${PANEL_FRAME_HEIGHT}"
