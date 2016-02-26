@@ -23,6 +23,8 @@
 					    usage_count */
 #define RPM_AUTO		0x08	/* Use autosuspend_delay */
 
+#define RPM_IGNORE_AUTO		0x10	/* Ignore autosuspend */
+
 #ifdef CONFIG_PM
 extern struct workqueue_struct *pm_wq;
 
@@ -241,7 +243,7 @@ static inline int pm_runtime_put_autosuspend(struct device *dev)
 
 static inline int pm_runtime_put_sync(struct device *dev)
 {
-	return __pm_runtime_idle(dev, RPM_GET_PUT);
+	return __pm_runtime_idle(dev, RPM_GET_PUT | RPM_IGNORE_AUTO);
 }
 
 static inline int pm_runtime_put_sync_suspend(struct device *dev)
