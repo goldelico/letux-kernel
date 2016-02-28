@@ -34,7 +34,12 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/regulator/driver.h>
+#include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
+
+#define VSYS_REGULATOR	0
+#define OTG_REGULATOR	1
+#define NUM_REGULATORS	2
 
 struct bq24296_device_info {
 	struct device 		*dev;
@@ -44,8 +49,9 @@ struct bq24296_device_info {
 	struct mutex	var_lock;
 	struct workqueue_struct	*freezable_work;
 	struct work_struct	irq_work;	/* for Charging & VUSB/VADP */
-	struct regulator_desc vsys_desc;
-	struct regulator_desc otg_desc;
+	struct regulator_desc desc[NUM_REGULATORS];
+	struct regulator_dev *rdev[NUM_REGULATORS];
+	struct regulator_init_data **pmic_init_data;
 
 	struct workqueue_struct *workqueue;
 	u8 chg_current;
@@ -565,6 +571,7 @@ static irqreturn_t chg_irq_func(int irq, void *dev_id)
 static int bq24296_set_otg_voltage(struct regulator_dev *dev, int min_uV, int max_uV,
 			       unsigned *selector)
 {
+	// get *di from dev->data or use global bq24296_di
 	printk("bq24296_set_voltage(..., %d, %d, %u)\n", min_uV, max_uV, *selector);
 	/* enable/disable OTG step up converter */
 	return 0;
@@ -583,14 +590,14 @@ static int bq24296_otg_enable(struct regulator_dev *dev)
 { /* enable OTG step up converter */
 	printk("bq24296_enable(...)\n");
 	/* check if battery is present and don't do w/o battery */
-	bq24296_charge_mode_config(1);
+//	bq24296_charge_mode_config(1);
 	return 0;
 }
 
 static int bq24296_otg_disable(struct regulator_dev *dev)
 { /* disable OTG step up converter and enable charger */
 	printk("bq24296_otg_disable(...)\n");
-	bq24296_charge_mode_config(0);
+//	bq24296_charge_mode_config(0);
 	return 0;
 }
 
@@ -601,11 +608,20 @@ static struct regulator_ops otg_ops = {
 	.disable = bq24296_otg_disable,	/* turn off OTG mode */
 };
 
+static struct of_regulator_match bq24296_regulator_matches[] = {
+	{ .name = "vsys"},
+	{ .name = "otg"},
+};
+
 #ifdef CONFIG_OF
 static struct bq24296_board *bq24296_parse_dt(struct bq24296_device_info *di)
 {
 	struct bq24296_board *pdata;
 	struct device_node *bq24296_np;
+	struct device_node *regulators;
+	struct of_regulator_match *matches;
+	static struct regulator_init_data *reg_data;
+	int idx = 0, count, ret;
 
 	DBG("%s,line=%d\n", __func__,__LINE__);
 	bq24296_np = of_node_get(di->dev->of_node);
@@ -631,45 +647,41 @@ static struct bq24296_board *bq24296_parse_dt(struct bq24296_device_info *di)
 		printk("bq24296_parse_dt: invalid gpio: %d\n", pdata->dc_det_pin);
 	}
 
-#if 0
-	/* get child node(s) */
-	struct device_node *np;
-
-	np = of_find_node_by_name(bq24296_np, "vsys_regulator");
-	if (np) {
-		of_get_regulator_init_data(di->dev, np, &di->vsys_desc);
-		// error handling
+	of_node_get(bq24296_np);
+	regulators = of_get_child_by_name(bq24296_np, "regulators");
+	if (!regulators) {
+		dev_err(&di->client->dev, "regulator node not found\n");
+		return NULL;
 	}
 
-	np = of_find_node_by_name(bq24296_np, "otg_regulator");
-	if (np) {
-		of_get_regulator_init_data(di->dev, np, &di->otg_desc);
-		// error handling
+	count = ARRAY_SIZE(bq24296_regulator_matches);
+	matches = bq24296_regulator_matches;
+
+	ret = of_regulator_match(&di->client->dev, regulators, matches, count);
+	of_node_put(regulators);
+	if (ret < 0) {
+		dev_err(&di->client->dev, "Error parsing regulator init data: %d\n",
+			ret);
+		return NULL;
 	}
 
-// move this into the probe function
-	struct regulator_config cfg;
+	// *tps6507x_reg_matches = matches;
 
-	cfg.dev = di->dev;
-	cfg.init_data = NULL;
-	cfg.driver_data = NULL;
-	cfg.of_node = np;
-	regulator_register(&pdata->vsys_desc, &cfg);
-	// error handling
+	reg_data = devm_kzalloc(&di->client->dev, (sizeof(struct regulator_init_data)
+					* NUM_REGULATORS), GFP_KERNEL);
+	if (!reg_data)
+		return NULL;
 
-	desc.name = "otg";
-	desc.type = REGULATOR_VOLTAGE;
-	desc.owner = THIS_MODULE;
-	desc.ops = &otg_ops;
-	desc.enable_time = 100000;	/* 100 ms */
-	cfg.dev = di->dev;
-	cfg.init_data = NULL;
-	cfg.driver_data = NULL;
-	cfg.of_node = np;
-	regulator_register(&pdata->otg_desc, &cfg);
-	// error handling
+	di->pmic_init_data = reg_data;
 
-#endif
+	for (idx = 0; idx < count; idx++) {
+		if (!matches[idx].init_data || !matches[idx].of_node)
+			continue;
+
+		memcpy(&reg_data[idx], matches[idx].init_data,
+				sizeof(struct regulator_init_data));
+
+	}
 
 	return pdata;
 }
@@ -952,7 +964,11 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 	u8 retval = 0;
 	struct bq24296_board *pdev;
 	struct device_node *bq24296_node;
-	struct power_supply_config psy_cfg = {};
+	struct power_supply_config psy_cfg = { };
+	struct regulator_config config = { };
+	struct regulator_init_data *init_data;
+	struct regulator_dev *rdev;
+	int i;
 	int ret = -EINVAL;
 
 	DBG("%s,line=%d\n", __func__,__LINE__);
@@ -1022,6 +1038,10 @@ msleep(50);
 		goto fail_probe;
 	}
 
+	init_data = di->pmic_init_data;
+	if (!init_data)
+		return -EINVAL;
+
 	mutex_init(&di->var_lock);
 	di->workqueue = create_singlethread_workqueue("bq24296_irq");
 	INIT_WORK(&di->irq_work, irq_work_func);
@@ -1037,6 +1057,35 @@ msleep(50);
 		ret = PTR_ERR(bq24296_di->usb);
 		dev_err(&client->dev, "failed to register as USB power_supply: %d\n", ret);
 		goto fail_probe;
+	}
+
+	for (i = 0; i < NUM_REGULATORS; i++, init_data++) {
+		/* Register the regulators */
+
+		di->desc[i].id = i;
+/*		di->desc[i].name = info->name;
+		di->desc[i].n_voltages = info->table_len;
+		di->desc[i].volt_table = info->table;
+*/
+		di->desc[i].ops = &otg_ops;
+		di->desc[i].type = REGULATOR_VOLTAGE;
+		di->desc[i].owner = THIS_MODULE;
+
+		config.dev = di->dev;
+		config.init_data = init_data;
+		config.driver_data = di;
+
+		rdev = devm_regulator_register(&client->dev, &di->desc[i],
+					       &config);
+		if (IS_ERR(rdev)) {
+			dev_err(di->dev,
+				"failed to register %s regulator\n",
+				client->name);
+			return PTR_ERR(rdev);
+		}
+
+		/* Save regulator for cleanup */
+		di->rdev[i] = rdev;
 	}
 
 	ret = bq24296_init_registers();
