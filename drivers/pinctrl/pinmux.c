@@ -96,21 +96,21 @@ static int pin_request(struct pinctrl_dev *pctldev,
 		goto out;
 	}
 
-	dev_dbg(pctldev->dev, "request pin %d (%s) for %s\n",
-		pin, desc->name, owner);
+	dev_err(pctldev->dev, "request pin %d (%s) for %s range %p dev %s desc %s\n",
+		pin, desc->name, owner, gpio_range, pctldev->dev->init_name, pctldev->desc->name);
 
 	if (gpio_range) {
 		/* There's no need to support multiple GPIO requests */
 		if (desc->gpio_owner) {
 			dev_err(pctldev->dev,
-				"pin %s already requested by %s; cannot claim for %s\n",
+				"a pin %s already requested by %s; cannot claim for %s\n",
 				desc->name, desc->gpio_owner, owner);
 			goto out;
 		}
 		if (ops->strict && desc->mux_usecount &&
 		    strcmp(desc->mux_owner, owner)) {
 			dev_err(pctldev->dev,
-				"pin %s already requested by %s; cannot claim for %s\n",
+				"b pin %s already requested by %s; cannot claim for %s\n",
 				desc->name, desc->mux_owner, owner);
 			goto out;
 		}
@@ -119,13 +119,13 @@ static int pin_request(struct pinctrl_dev *pctldev,
 	} else {
 		if (desc->mux_usecount && strcmp(desc->mux_owner, owner)) {
 			dev_err(pctldev->dev,
-				"pin %s already requested by %s; cannot claim for %s\n",
+				"c pin %s already requested by %s; cannot claim for %s\n",
 				desc->name, desc->mux_owner, owner);
 			goto out;
 		}
 		if (ops->strict && desc->gpio_owner) {
 			dev_err(pctldev->dev,
-				"pin %s already requested by %s; cannot claim for %s\n",
+				"d pin %s already requested by %s; cannot claim for %s\n",
 				desc->name, desc->gpio_owner, owner);
 			goto out;
 		}
