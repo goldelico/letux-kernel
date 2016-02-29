@@ -106,17 +106,17 @@
 /* low power clock is quite arbitrarily choosen to be roughly 10 MHz */
 #define SSD2858_LP_CLOCK			10000000	// low power clock
 
-static struct omap_video_timings ssd2858_timings = {
-	.x_res		= SSD2858_W,
-	.y_res		= SSD2858_H,
+static struct videomode ssd2858_timings = {
+	.hactive		= SSD2858_W,
+	.vactive		= SSD2858_H,
 	.pixelclock	= SSD2858_PIXELCLOCK,
 	// they are choosen to round up to XTOTALxYTOTAL pixels giving a pixel clock of 86.400 MHz
-	.hfp		= 20,
-	.hsw		= 20,
-	.hbp		= 240,	// sum must match XTOTAL-XRES
-	.vfp		= 50,
-	.vsw		= 60,
-	.vbp		= 50,	// sum must match YTOTAL-YRES
+	.hfront_porch		= 20,
+	.hsync_len		= 20,
+	.hback_porch		= 240,	// sum must match XTOTAL-XRES
+	.vfront_porch		= 50,
+	.vsync_len		= 60,
+	.vback_porch		= 50,	// sum must match YTOTAL-YRES
 };
 
 struct panel_drv_data {
@@ -124,7 +124,7 @@ struct panel_drv_data {
 	struct omap_dss_device *in;
 	struct omap_dss_device *out;	/* should be the real panel connected to the SSD */
 
-	struct omap_video_timings timings;
+	struct videomode vm;
 
 	struct platform_device *pdev;
 
@@ -537,28 +537,28 @@ static void ssd2858_disconnect(struct omap_dss_device *dssdev)
 
 
 static void ssd2858_get_timings(struct omap_dss_device *dssdev,
-		struct omap_video_timings *timings)
+		struct videomode *timings)
 {
-	*timings = dssdev->panel.timings;
+	*timings = dssdev->panel.vm;
 }
 
 static void ssd2858_set_timings(struct omap_dss_device *dssdev,
-		struct omap_video_timings *timings)
+		struct videomode *timings)
 {
-	dssdev->panel.timings.x_res = timings->x_res;
-	dssdev->panel.timings.y_res = timings->y_res;
-	dssdev->panel.timings.pixelclock = timings->pixelclock;
-	dssdev->panel.timings.hsw = timings->hsw;
-	dssdev->panel.timings.hfp = timings->hfp;
-	dssdev->panel.timings.hbp = timings->hbp;
-	dssdev->panel.timings.vsw = timings->vsw;
-	dssdev->panel.timings.vfp = timings->vfp;
-	dssdev->panel.timings.vbp = timings->vbp;
+	dssdev->panel.vm.hactive = timings->hactive;
+	dssdev->panel.vm.vactive = timings->vactive;
+	dssdev->panel.vm.pixelclock = timings->pixelclock;
+	dssdev->panel.vm.hsync_len = timings->hsync_len;
+	dssdev->panel.vm.hfront_porch = timings->hfront_porch;
+	dssdev->panel.vm.hback_porch = timings->hback_porch;
+	dssdev->panel.vm.vsync_len = timings->vsync_len;
+	dssdev->panel.vm.vfront_porch = timings->vfront_porch;
+	dssdev->panel.vm.vback_porch = timings->vback_porch;
 	// FIXME: forward to panel
 }
 
 static int ssd2858_check_timings(struct omap_dss_device *dssdev,
-		struct omap_video_timings *timings)
+		struct videomode *timings)
 {
 	return 0;
 }
@@ -566,8 +566,8 @@ static int ssd2858_check_timings(struct omap_dss_device *dssdev,
 static void ssd2858_get_resolution(struct omap_dss_device *dssdev,
 		u16 *xres, u16 *yres)
 {
-	*xres = dssdev->panel.timings.x_res;
-	*yres = dssdev->panel.timings.y_res;
+	*xres = dssdev->panel.vm.hactive;
+	*yres = dssdev->panel.vm.vactive;
 	// FIXME: forward to panel?
 }
 
@@ -791,7 +791,7 @@ static int ssd2858_power_on(struct omap_dss_device *dssdev)
 	struct omap_dss_dsi_config ssd2858_dsi_config = {
 		.mode = OMAP_DSS_DSI_VIDEO_MODE,
 		.pixel_format = SSD2858_PIXELFORMAT,
-		.timings = &ddata->timings,
+		.vm = &ddata->vm,
 		.hs_clk_min = 125000000 /*SSD2858_HS_CLOCK*/,
 		.hs_clk_max = 450000000 /*(12*SSD2858_HS_CLOCK)/10*/,
 		.lp_clk_min = (7*SSD2858_LP_CLOCK)/10,
@@ -1070,12 +1070,12 @@ static int ssd2858_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	ddata->timings = ssd2858_timings;
+	ddata->vm = ssd2858_timings;
 
 	dssdev = &ddata->dssdev;
 	dssdev->dev = dev;
 	dssdev->driver = &ssd2858_in_ops;
-	dssdev->panel.timings = ssd2858_timings;
+	dssdev->panel.vm = ssd2858_timings;
 	dssdev->type = OMAP_DISPLAY_TYPE_DSI;
 	dssdev->owner = THIS_MODULE;
 
