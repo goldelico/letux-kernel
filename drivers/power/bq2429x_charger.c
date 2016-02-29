@@ -50,8 +50,9 @@ struct bq24296_device_info {
 	struct workqueue_struct	*freezable_work;
 	struct work_struct	irq_work;	/* for Charging & VUSB/VADP */
 	struct regulator_desc desc[NUM_REGULATORS];
+	struct device_node *of_node[NUM_REGULATORS];
 	struct regulator_dev *rdev[NUM_REGULATORS];
-	struct regulator_init_data **pmic_init_data;
+	struct regulator_init_data *pmic_init_data;
 
 	struct workqueue_struct *workqueue;
 	u8 chg_current;
@@ -63,9 +64,6 @@ struct bq24296_device_info {
 
 struct bq24296_device_info *bq24296_di;
 struct bq24296_board *bq24296_pdata;
-static int bq24296_int = 0;
-int bq24296_mode = 0;
-int bq24296_chag_down;
 
 #if 0
 #define DBG(x...) printk(KERN_INFO x)
@@ -162,7 +160,7 @@ static int bq24296_update_reg(struct i2c_client *client, int reg, u8 value, u8 m
 	}
 	ret = 0;
 
-printk("bq24296_update_reg %02x: ( %02x & %02x ) | %02x -> %02x\n", reg, retval, (u8) ~mask, value, (u8) ((retval & ~mask) | value));
+// printk("bq24296_update_reg %02x: ( %02x & %02x ) | %02x -> %02x\n", reg, retval, (u8) ~mask, value, (u8) ((retval & ~mask) | value));
 
 	if ((retval & mask) != value) {
 		retval = (retval & ~mask) | value;
@@ -179,7 +177,7 @@ printk("bq24296_update_reg %02x: ( %02x & %02x ) | %02x -> %02x\n", reg, retval,
 	for(i=0;i<11;i++)
 		{
 		bq24296_read(bq24296_di->client, i, &buffer, 1);
-		printk("  reg %02x value %02x\n", i, buffer);
+//		printk("  reg %02x value %02x\n", i, buffer);
 		}
 }
 
@@ -344,16 +342,13 @@ static int bq24296_update_en_hiz_disable(void)
 
 int bq24296_set_input_current(int on)
 {
-	if(!bq24296_int)
-		return 0;
-
-	if(1 == on){
+	if(on) {
 #ifdef CONFIG_BATTERY_RK30_USB_AND_CHARGE
 		bq24296_update_input_current_limit(IINLIM_3000MA);
 #else
 		bq24296_update_input_current_limit(IINLIM_3000MA);
 #endif
-	}else{
+	} else {
 		bq24296_update_input_current_limit(IINLIM_500MA);
 	}
 	DBG("bq24296_set_input_current %s\n", on ? "3000mA" : "500mA");
@@ -394,10 +389,7 @@ static int bq24296_update_otg_mode_current(u8 value)
 
 static int bq24296_charge_mode_config(int on)
 {
-	if(!bq24296_int)
-		return 0;
-
-	if(1 == on) {
+	if (on) {
 		bq24296_update_en_hiz_disable();
 		mdelay(5);
 		bq24296_update_charge_mode(CHARGE_MODE_CONFIG_OTG_OUTPUT);
@@ -405,7 +397,7 @@ static int bq24296_charge_mode_config(int on)
 		bq24296_update_otg_mode_current(OTG_MODE_CURRENT_CONFIG_1300MA);
 	}
 	else {
-			bq24296_update_charge_mode(CHARGE_MODE_CONFIG_CHARGE_BATTERY);
+		bq24296_update_charge_mode(CHARGE_MODE_CONFIG_CHARGE_BATTERY);
 	}
 
 	DBG("bq24296_charge_mode_config is %s\n", on ? "OTG Mode" : "Charge Mode");
@@ -451,6 +443,7 @@ static int bq24296_read_sys_stats(u8 *retval)
 int previous_online = 0;	// was the USB power already online last time we looked?
 
 u8 lastretval = 0xff;
+int bq24296_chag_down;
 u8 lastchag_down = 0;
 
 static void usb_detect_work_func(struct work_struct *work)
@@ -564,12 +557,21 @@ static irqreturn_t chg_irq_func(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static const unsigned int vsys_VSEL_table[] = {
+	3700000,
+};
+
+static const unsigned int otg_VSEL_table[] = {
+	5000000,
+};
+
 /* to be defined */
 static int bq24296_set_otg_voltage(struct regulator_dev *dev, int min_uV, int max_uV,
 			       unsigned *selector)
 {
-	// get *di from dev->data or use global bq24296_di
-	printk("bq24296_set_voltage(..., %d, %d, %u)\n", min_uV, max_uV, *selector);
+	struct bq24296_device_info *di = rdev_get_drvdata(dev);
+	int idx = dev->desc->id;
+	printk("bq24296_set_otg_voltage(%d, %d, %d, %u)\n", idx, min_uV, max_uV, *selector);
 	/* enable/disable OTG step up converter */
 	return 0;
 }
@@ -577,7 +579,9 @@ static int bq24296_set_otg_voltage(struct regulator_dev *dev, int min_uV, int ma
 static int bq24296_set_otg_current_limit(struct regulator_dev *dev,
 				     int min_uA, int max_uA)
 {
-	printk("bq24296_set_current_limit(..., %d, %d)\n", min_uA, max_uA);
+	struct bq24296_device_info *di = rdev_get_drvdata(dev);
+	int idx = dev->desc->id;
+	printk("bq24296_set_otg_current_limit(%d, %d, %d)\n", idx, min_uA, max_uA);
 	/* set OTG current limit */
 	// bq24296_update_otg_mode_current(OTG_MODE_CURRENT_CONFIG_1300MA);
 	return 0;
@@ -585,29 +589,38 @@ static int bq24296_set_otg_current_limit(struct regulator_dev *dev,
 
 static int bq24296_otg_enable(struct regulator_dev *dev)
 { /* enable OTG step up converter */
-	printk("bq24296_enable(...)\n");
-	/* check if battery is present and don't do w/o battery */
+	struct bq24296_device_info *di = rdev_get_drvdata(dev);
+	int idx = dev->desc->id;
+	printk("bq24296_otg_enable(%d)\n", idx);
+	/* check if battery is present and reject if no battery */
 //	bq24296_charge_mode_config(1);
 	return 0;
 }
 
 static int bq24296_otg_disable(struct regulator_dev *dev)
 { /* disable OTG step up converter and enable charger */
-	printk("bq24296_otg_disable(...)\n");
+	struct bq24296_device_info *di = rdev_get_drvdata(dev);
+	int idx = dev->desc->id;
+	printk("bq24296_otg_disable(%d)\n", idx);
 //	bq24296_charge_mode_config(0);
 	return 0;
 }
 
+static struct regulator_ops vsys_ops = {
+	.set_voltage = bq24296_set_otg_voltage,	/* echange vsys voltage */
+};
+
 static struct regulator_ops otg_ops = {
-	.set_voltage = bq24296_set_otg_voltage,	/* enable/disable OTG */
+	// .get_voltage
+	.set_voltage = bq24296_set_otg_voltage,	/* change OTG voltage */
 	.set_current_limit = bq24296_set_otg_current_limit,	/* set OTG current limit */
 	.enable = bq24296_otg_enable,	/* turn on OTG mode */
 	.disable = bq24296_otg_disable,	/* turn off OTG mode */
 };
 
 static struct of_regulator_match bq24296_regulator_matches[] = {
-	{ .name = "vsys"},
-	{ .name = "otg"},
+	[VSYS_REGULATOR] = { .name = "bq2429x-vsys"},
+	[OTG_REGULATOR] ={  .name = "bq2429x-otg"},
 };
 
 #ifdef CONFIG_OF
@@ -623,25 +636,25 @@ static struct bq24296_board *bq24296_parse_dt(struct bq24296_device_info *di)
 	DBG("%s,line=%d\n", __func__,__LINE__);
 	bq24296_np = of_node_get(di->dev->of_node);
 	if (!bq24296_np) {
-		printk("could not find bq2429x-node\n");
+		dev_err(&di->client->dev, "could not find bq2429x DT node\n");
 		return NULL;
 	}
 	pdata = devm_kzalloc(di->dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)
 		return NULL;
 	if (of_property_read_u32_array(bq24296_np, "ti,chg_current", pdata->chg_current, 3)) {
-		printk("bq24296_parse_dt: charge current not specified\n");
+		dev_err(&di->client->dev, "charge current not specified\n");
 		return NULL;
 	}
 
 	pdata->chg_irq_pin = of_get_named_gpio(bq24296_np,"gpios", 0);
 	if (!gpio_is_valid(pdata->chg_irq_pin)) {
-		printk("bq24296_parse_dt: invalid gpio: %d\n", pdata->chg_irq_pin);
+		dev_err(&di->client->dev, "invalid irq gpio: %d\n", pdata->chg_irq_pin);
 	}
 
 	pdata->dc_det_pin = of_get_named_gpio(bq24296_np,"gpios", 1);
 	if (!gpio_is_valid(pdata->dc_det_pin)) {
-		printk("bq24296_parse_dt: invalid gpio: %d\n", pdata->dc_det_pin);
+		dev_err(&di->client->dev, "invalid det gpio: %d\n", pdata->dc_det_pin);
 	}
 
 	of_node_get(bq24296_np);
@@ -655,6 +668,7 @@ static struct bq24296_board *bq24296_parse_dt(struct bq24296_device_info *di)
 	matches = bq24296_regulator_matches;
 
 	ret = of_regulator_match(&di->client->dev, regulators, matches, count);
+// printk("%d matches\n", ret);
 	of_node_put(regulators);
 	if (ret < 0) {
 		dev_err(&di->client->dev, "Error parsing regulator init data: %d\n",
@@ -662,7 +676,11 @@ static struct bq24296_board *bq24296_parse_dt(struct bq24296_device_info *di)
 		return NULL;
 	}
 
-	// *tps6507x_reg_matches = matches;
+	if (ret != count) {
+		dev_err(&di->client->dev, "Found %d of expected %d regulators\n",
+			ret, count);
+		return NULL;
+	}
 
 	reg_data = devm_kzalloc(&di->client->dev, (sizeof(struct regulator_init_data)
 					* NUM_REGULATORS), GFP_KERNEL);
@@ -671,7 +689,8 @@ static struct bq24296_board *bq24296_parse_dt(struct bq24296_device_info *di)
 
 	di->pmic_init_data = reg_data;
 
-	for (idx = 0; idx < count; idx++) {
+	for (idx = 0; idx < ret; idx++) {
+// printk("matches[%d].of_node = %p\n", idx, matches[idx].of_node);
 		if (!matches[idx].init_data || !matches[idx].of_node)
 			continue;
 
@@ -982,11 +1001,9 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 
 	DBG("%s,line=%d\n", __func__,__LINE__);
 
-msleep(50);
-
 	bq24296_node = of_node_get(client->dev.of_node);
 	if (!bq24296_node) {
-		printk("could not find bq24296-node\n");
+		dev_err(&client->dev, "could not find bq24296 DT node\n");
 	}
 
 	di = devm_kzalloc(&client->dev, sizeof(*di), GFP_KERNEL);
@@ -1042,7 +1059,7 @@ msleep(50);
 	}
 
 	if ((retval & 0xa7) != 0x20) {
-		printk("not a bq24296/97: %02x\n", retval);
+		dev_err(&client->dev, "not a bq24296/97: %02x\n", retval);
 		ret = -ENODEV;
 		goto fail_probe;
 	}
@@ -1072,24 +1089,36 @@ msleep(50);
 		/* Register the regulators */
 
 		di->desc[i].id = i;
-/*		di->desc[i].name = info->name;
-		di->desc[i].n_voltages = info->table_len;
-		di->desc[i].volt_table = info->table;
-*/
-		di->desc[i].ops = &otg_ops;
+		di->desc[i].name = bq24296_regulator_matches[i].name;
+// printk("%d: %s %s\n", i, di->desc[i].name, di->desc[i].of_match);
 		di->desc[i].type = REGULATOR_VOLTAGE;
 		di->desc[i].owner = THIS_MODULE;
+
+		switch(i) {
+			case VSYS_REGULATOR:
+				di->desc[i].ops = &vsys_ops;
+				di->desc[i].n_voltages = ARRAY_SIZE(vsys_VSEL_table);
+				di->desc[i].volt_table = vsys_VSEL_table;
+				break;
+			case OTG_REGULATOR:
+				di->desc[i].ops = &otg_ops;
+				di->desc[i].n_voltages = ARRAY_SIZE(otg_VSEL_table);
+				di->desc[i].volt_table = otg_VSEL_table;
+				break;
+		}
 
 		config.dev = di->dev;
 		config.init_data = init_data;
 		config.driver_data = di;
+		config.of_node = bq24296_regulator_matches[i].of_node;
+// printk("%d: %s\n", i, config.of_node?config.of_node->name:"?");
 
 		rdev = devm_regulator_register(&client->dev, &di->desc[i],
 					       &config);
 		if (IS_ERR(rdev)) {
 			dev_err(di->dev,
-				"failed to register %s regulator\n",
-				client->name);
+				"failed to register %s regulator %d %s\n",
+				client->name, i, di->desc[i].name);
 			return PTR_ERR(rdev);
 		}
 
@@ -1103,8 +1132,9 @@ msleep(50);
 		goto fail_probe;
 	}
 
-	// seems to be wrong for DT interrupts
-	// we currently do not use the interrupt, so we disable this code
+	// the following code seems to be wrong for DT defined interrupts
+	// we currently do not use the interrupt,
+	// so we disable this code
 #if 0
 	if (gpio_is_valid(pdev->chg_irq_pin)){
 		pdev->chg_irq = gpio_to_irq(pdev->chg_irq_pin);
@@ -1129,9 +1159,6 @@ msleep(50);
 	if (device_create_file(&client->dev, &dev_attr_battparam))
 		dev_warn(&client->dev, "could not create sysfs file battparam\n");
 
-	bq24296_int =1;
-
-msleep(50);
 	schedule_delayed_work(&di->usb_detect_work, 0);
 
 	DBG("bq24296_battery_probe ok");
