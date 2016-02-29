@@ -260,11 +260,11 @@
 
 &usbhost_pins {
 	pinctrl-single,pins = <
-		0x84 (PIN_INPUT | MUX_MODE0) /* usbb2_hsic_strobe */
-		0x86 (PIN_INPUT | MUX_MODE0) /* usbb2_hsic_data */
+		OMAP5_IOPAD(0x0c4, PIN_INPUT | MUX_MODE0) /* usbb2_hsic_strobe */
+		OMAP5_IOPAD(0x0c6, PIN_INPUT | MUX_MODE0) /* usbb2_hsic_data */
 
-		0x19e (PIN_INPUT | MUX_MODE0) /* usbb3_hsic_strobe */
-		0x1a0 (PIN_INPUT | MUX_MODE0) /* usbb3_hsic_data */
+		OMAP5_IOPAD(0x1de, PIN_INPUT | MUX_MODE0) /* usbb3_hsic_strobe */
+		OMAP5_IOPAD(0x1e0, PIN_INPUT | MUX_MODE0) /* usbb3_hsic_data */
 
 		OMAP5_IOPAD(0x0ac, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0AC:[15:0]  gpio3_78 - hub interrupt */
 		OMAP5_IOPAD(0x0b0, PIN_OUTPUT | MUX_MODE6)	/* 0x0B0:[15:0]  gpio3_80 - hub nreset */
