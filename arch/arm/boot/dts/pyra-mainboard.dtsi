@@ -25,7 +25,7 @@
 		gpio = <&gpio99 8 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 		startup-delay-us = <70000>;
-//		vin-supply = <&vsys_reg>;
+		vin-supply = <&vsys_reg>;
 		regulator-always-on;
 	};
 
@@ -876,7 +876,7 @@
 		gpio = <&gpio6 4 GPIO_ACTIVE_HIGH>;	/* GPIO6_164 */
 		enable-active-high;
 		startup-delay-us = <70000>;
-//		vin-supply = <&vsys>;
+		vin-supply = <&vsys_reg>;
 	};
 
 	bluetooth: tiwi {
@@ -900,23 +900,9 @@
 	status = "okay";
 };
 
-/* we do not yet have vsys_reg correct, therefore substitute a dummy */
-
-/ {
-	vibra_reg: vibra_reg {
-		compatible = "regulator-fixed";
-		regulator-name = "vibra_battery";
-		regulator-min-microvolt = <3700000>;
-		regulator-max-microvolt = <3700000>;
-		regulator-always-on;
-	};
-};
-
 &twl6040 {
-//	vddvibl-supply = <&vsys_reg>;
-//	vddvibr-supply = <&vsys_reg>;
-	vddvibl-supply = <&vibra_reg>;
-	vddvibr-supply = <&vibra_reg>;
+	vddvibl-supply = <&vsys_reg>;
+	vddvibr-supply = <&vsys_reg>;
 
 	vibra {
 		ti,vibldrv-res = <8>;
