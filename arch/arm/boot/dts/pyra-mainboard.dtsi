@@ -37,7 +37,7 @@
 		gpio = <&gpio99 8 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 		startup-delay-us = <70000>;
-//		vin-supply = <&vsys>;
+//		vin-supply = <&vsys_reg>;
 		regulator-always-on;
 	};
 
