@@ -818,8 +818,9 @@ static int mipi_debug_enable(struct omap_dss_device *dssdev)
 	printk("dsi: mipi_debug_enable()\n");
 	dev_dbg(&ddata->pdev->dev, "enable\n");
 
-	if (dssdev->state != OMAP_DSS_DISPLAY_DISABLED)
-		return -EINVAL;
+//	if (dssdev->state != OMAP_DSS_DISPLAY_DISABLED)
+//		return -EINVAL;
+	printk("dsi: mipi_debug_enable() done\n");
 
 	return 0;
 }
@@ -968,20 +969,31 @@ static int __exit mipi_debug_remove(struct platform_device *pdev)
 	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
 	struct omap_dss_device *dssdev = &ddata->dssdev;
 	// struct backlight_device *bldev;
-	
+
 	printk("dsi: mipi_debug_remove()\n");
-	
+
+	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE)
+		{
+		ddata->in->ops.dsi->bus_lock(ddata->in);
+		ddata->in->ops.dsi->disable_video_output(ddata->in, ddata->pixel_channel);
+		ddata->in->ops.dsi->bus_unlock(ddata->in);
+		}
+
+	mipi_debug_stop(dssdev);
+
+	mipi_debug_regulator(dssdev, 0);	// power off
+
 	omapdss_unregister_display(dssdev);
-	
+
 	mipi_debug_disable(dssdev);
 	mipi_debug_disconnect(dssdev);
-	
-	sysfs_remove_group(&pdev->dev.kobj, &mipi_debugattr_group);
-	
+
 	omap_dss_put_device(ddata->in);
 	
 	mutex_destroy(&ddata->lock);
-	
+
+	sysfs_remove_group(&pdev->dev.kobj, &mipi_debugattr_group);
+
 	return 0;
 }
 
