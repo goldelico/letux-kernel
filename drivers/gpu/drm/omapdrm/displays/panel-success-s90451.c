@@ -97,23 +97,23 @@
 /* low power clock is quite arbitrarily choosen to be roughly 10 MHz */
 #define w677l_LP_CLOCK			10000000	// low power clock
 
-static struct omap_video_timings w677l_timings = {
-	.x_res		= w677l_W,
-	.y_res		= w677l_H,
+static struct videomode w677l_timings = {
+	.hactive		= w677l_W,
+	.vactive		= w677l_H,
 	.pixelclock	= w677l_PIXELCLOCK,
-	.hfp		= 5,
-	.hsw		= 5,
-	.hbp		= w677l_WIDTH-w677l_W-5-5,
-	.vfp		= 50,
-	.vsw		= w677l_HEIGHT-w677l_H-50-50,
-	.vbp		= 50,
+	.hfront_porch		= 5,
+	.hsync_len		= 5,
+	.hback_porch		= w677l_WIDTH-w677l_W-5-5,
+	.vfront_porch		= 50,
+	.vsync_len		= w677l_HEIGHT-w677l_H-50-50,
+	.vback_porch		= 50,
 };
 
 struct panel_drv_data {
 	struct omap_dss_device dssdev;
 	struct omap_dss_device *in;
 
-	struct omap_video_timings timings;
+	struct videomode vm;
 
 	struct platform_device *pdev;
 
@@ -444,27 +444,27 @@ static void w677l_disconnect(struct omap_dss_device *dssdev)
 
 
 static void w677l_get_timings(struct omap_dss_device *dssdev,
-		struct omap_video_timings *timings)
+		struct videomode *timings)
 {
-	*timings = dssdev->panel.timings;
+	*timings = dssdev->panel.vm;
 }
 
 static void w677l_set_timings(struct omap_dss_device *dssdev,
-		struct omap_video_timings *timings)
+		struct videomode *timings)
 {
-	dssdev->panel.timings.x_res = timings->x_res;
-	dssdev->panel.timings.y_res = timings->y_res;
-	dssdev->panel.timings.pixelclock = timings->pixelclock;
-	dssdev->panel.timings.hsw = timings->hsw;
-	dssdev->panel.timings.hfp = timings->hfp;
-	dssdev->panel.timings.hbp = timings->hbp;
-	dssdev->panel.timings.vsw = timings->vsw;
-	dssdev->panel.timings.vfp = timings->vfp;
-	dssdev->panel.timings.vbp = timings->vbp;
+	dssdev->panel.vm.hactive = timings->hactive;
+	dssdev->panel.vm.vactive = timings->vactive;
+	dssdev->panel.vm.pixelclock = timings->pixelclock;
+	dssdev->panel.vm.hsync_len = timings->hsync_len;
+	dssdev->panel.vm.hfront_porch = timings->hfront_porch;
+	dssdev->panel.vm.hback_porch = timings->hback_porch;
+	dssdev->panel.vm.vsync_len = timings->vsync_len;
+	dssdev->panel.vm.vfront_porch = timings->vfront_porch;
+	dssdev->panel.vm.vback_porch = timings->vback_porch;
 }
 
 static int w677l_check_timings(struct omap_dss_device *dssdev,
-		struct omap_video_timings *timings)
+		struct videomode *timings)
 {
 	return 0;
 }
@@ -472,8 +472,8 @@ static int w677l_check_timings(struct omap_dss_device *dssdev,
 static void w677l_get_resolution(struct omap_dss_device *dssdev,
 		u16 *xres, u16 *yres)
 {
-	*xres = dssdev->panel.timings.x_res;
-	*yres = dssdev->panel.timings.y_res;
+	*xres = dssdev->panel.vm.hactive;
+	*yres = dssdev->panel.vm.vactive;
 }
 
 static int w677l_reset(struct omap_dss_device *dssdev, int state)
@@ -757,7 +757,7 @@ static int w677l_power_on(struct omap_dss_device *dssdev)
 	struct omap_dss_dsi_config w677l_dsi_config = {
 		.mode = OMAP_DSS_DSI_VIDEO_MODE,
 		.pixel_format = w677l_PIXELFORMAT,
-		.timings = &ddata->timings,
+		.vm = &ddata->vm,
 		.hs_clk_min = 125000000 /*w677l_HS_CLOCK*/,
 		.hs_clk_max = 450000000 /*(12*w677l_HS_CLOCK)/10*/,
 		.lp_clk_min = (7*w677l_LP_CLOCK)/10,
@@ -1017,12 +1017,12 @@ static int w677l_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	ddata->timings = w677l_timings;
+	ddata->vm = w677l_timings;
 
 	dssdev = &ddata->dssdev;
 	dssdev->dev = dev;
 	dssdev->driver = &w677l_ops;
-	dssdev->panel.timings = w677l_timings;
+	dssdev->panel.vm = w677l_timings;
 	dssdev->type = OMAP_DISPLAY_TYPE_DSI;
 	dssdev->owner = THIS_MODULE;
 
