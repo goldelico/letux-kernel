@@ -568,14 +568,45 @@ static const unsigned int otg_VSEL_table[] = {
 	5000000,
 };
 
-/* to be defined */
+static int bq24296_get_vsys_voltage(struct regulator_dev *dev)
+{
+	struct bq24296_device_info *di = rdev_get_drvdata(dev);
+	int idx = dev->desc->id;
+	printk("bq24296_get_vsys_voltage(%d)\n", idx);
+	/* enable/disable OTG step up converter */
+	return vsys_VSEL_table[0];
+}
+
+// should we be able to set the VSYS voltage?
+// should we be able to set the input current limit - which is the USB input current?
+
+static int bq24296_get_otg_voltage(struct regulator_dev *dev)
+{
+	struct bq24296_device_info *di = rdev_get_drvdata(dev);
+	int idx = dev->desc->id;
+	printk("bq24296_get_otg_voltage(%d)\n", idx);
+	/* enable/disable OTG step up converter */
+	return otg_VSEL_table[0];
+}
+
 static int bq24296_set_otg_voltage(struct regulator_dev *dev, int min_uV, int max_uV,
 			       unsigned *selector)
 {
 	struct bq24296_device_info *di = rdev_get_drvdata(dev);
 	int idx = dev->desc->id;
 	printk("bq24296_set_otg_voltage(%d, %d, %d, %u)\n", idx, min_uV, max_uV, *selector);
-	/* enable/disable OTG step up converter */
+// The driver should select the voltage closest to min_uV
+	/* set OTG step up converter voltage */
+	return 0;
+}
+
+static int bq24296_get_otg_current_limit(struct regulator_dev *dev)
+{
+	struct bq24296_device_info *di = rdev_get_drvdata(dev);
+	int idx = dev->desc->id;
+	printk("bq24296_set_otg_current_limit(%d)\n", idx);
+	/* get OTG current limit */
+	// bq24296_update_otg_mode_current(OTG_MODE_CURRENT_CONFIG_1300MA);
 	return 0;
 }
 
@@ -585,6 +616,7 @@ static int bq24296_set_otg_current_limit(struct regulator_dev *dev,
 	struct bq24296_device_info *di = rdev_get_drvdata(dev);
 	int idx = dev->desc->id;
 	printk("bq24296_set_otg_current_limit(%d, %d, %d)\n", idx, min_uA, max_uA);
+// The driver should select the current closest to max_uA
 	/* set OTG current limit */
 	// bq24296_update_otg_mode_current(OTG_MODE_CURRENT_CONFIG_1300MA);
 	return 0;
@@ -610,11 +642,13 @@ static int bq24296_otg_disable(struct regulator_dev *dev)
 }
 
 static struct regulator_ops vsys_ops = {
-	.set_voltage = bq24296_set_otg_voltage,	/* echange vsys voltage */
+	.get_voltage = bq24296_get_otg_voltage,
+	.set_voltage = bq24296_set_otg_voltage,	/* change vsys voltage (?) */
 };
 
 static struct regulator_ops otg_ops = {
 	// .get_voltage
+	.get_voltage = bq24296_get_otg_voltage,
 	.set_voltage = bq24296_set_otg_voltage,	/* change OTG voltage */
 	.set_current_limit = bq24296_set_otg_current_limit,	/* set OTG current limit */
 	.enable = bq24296_otg_enable,	/* turn on OTG mode */
