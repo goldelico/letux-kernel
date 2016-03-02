@@ -297,6 +297,31 @@ static int bq24296_get_chg_current(int value)
 	return data;	
 }
 
+static int bq24296_max_current(void)
+{
+	int cur;	/* in uA */
+	int ret;
+	u8 retval = 0;
+	ret = bq24296_read(bq24296_di->client, POWER_ON_CONFIGURATION_REGISTER, &retval, 1);
+	if (ret < 0) {
+		dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
+		return ret;
+	}
+	if(((retval >> EN_HIZ_OFFSET) & EN_HIZ_MASK) == EN_HIZ_ENABLE)
+		cur=0;	// High-Z state
+	else switch((retval >> IINLIM_OFFSET) & IINLIM_MASK) {
+		case IINLIM_100MA: cur=100000; break;
+		case IINLIM_150MA: cur=150000; break;
+		case IINLIM_500MA: cur=500000; break;
+		case IINLIM_900MA: cur=900000; break;
+		case IINLIM_1200MA: cur=1200000; break;
+		case IINLIM_1500MA: cur=1500000; break;
+		case IINLIM_2000MA: cur=2000000; break;
+		case IINLIM_3000MA: cur=3000000; break;
+	}
+	return cur;
+}
+
 static int bq24296_update_input_current_limit(u8 value)
 {
 	int ret = 0;
@@ -642,8 +667,8 @@ static int bq24296_otg_disable(struct regulator_dev *dev)
 }
 
 static struct regulator_ops vsys_ops = {
-	.get_voltage = bq24296_get_otg_voltage,
-	.set_voltage = bq24296_set_otg_voltage,	/* change vsys voltage (?) */
+	.get_voltage = bq24296_get_vsys_voltage,
+//	.set_voltage = bq24296_set_vsys_voltage,	/* change vsys voltage (?) */
 };
 
 static struct regulator_ops otg_ops = {
@@ -780,45 +805,15 @@ bq24296_max_current_store(struct device *dev, struct device_attribute *attr,
  * reports current drawn from VBUS
  * note: actual input current limit is the lower of I2C register and ILIM resistor
  */
+
 static ssize_t bq24296_max_current_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	int cur;	/* in uA */
-	int ret;
-	u8 retval = 0;
-	ret = bq24296_read(bq24296_di->client, POWER_ON_CONFIGURATION_REGISTER, &retval, 1);
-	if (ret < 0) {
-		dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
-		return ret;
-	}
-	if(((retval >> EN_HIZ_OFFSET) & EN_HIZ_MASK) == EN_HIZ_ENABLE)
-		cur=0;	// High-Z state
-	else switch((retval >> IINLIM_OFFSET) & IINLIM_MASK) {
-		case IINLIM_100MA: cur=100000; break;
-		case IINLIM_150MA: cur=150000; break;
-		case IINLIM_500MA: cur=500000; break;
-		case IINLIM_900MA: cur=900000; break;
-		case IINLIM_1200MA: cur=1200000; break;
-		case IINLIM_1500MA: cur=1500000; break;
-		case IINLIM_2000MA: cur=2000000; break;
-		case IINLIM_3000MA: cur=3000000; break;
-	}
-	return scnprintf(buf, PAGE_SIZE, "%u\n", cur);
-}
-
-/*
- * sysfs id show
- */
-static ssize_t bq24296_id_show(struct device *dev,
-	struct device_attribute *attr, char *buf)
-{
-#if FIXME
-	// get ID pin status string "floating", 0R
-	cur = ...;
+	int cur = bq24296_max_current();
 	if (cur < 0)
-		return cur;	// read error
-#endif
-	return scnprintf(buf, PAGE_SIZE, "floating\n");
+		return cur;
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n", cur);
 }
 
 /*
@@ -878,9 +873,11 @@ static ssize_t bq24296_otg_show(struct device *dev,
 	return scnprintf(buf, PAGE_SIZE, "%u\n", cur);
 }
 
+// can be removed if handled as property
 static DEVICE_ATTR(max_current, 0644, bq24296_max_current_show,
 			bq24296_max_current_store);
-static DEVICE_ATTR(id, 0444, bq24296_id_show, NULL);
+
+// do we need that? Only if there is no mechanism to set the regulator from user-space
 static DEVICE_ATTR(otg, 0644, bq24296_otg_show, bq24296_otg_store);
 
 
@@ -912,7 +909,7 @@ static int bq24296_get_property(struct power_supply *psy,
 			case CHRG_CHRGE_DONE:	val->intval = POWER_SUPPLY_CHARGE_TYPE_FAST; break;
 		}
 		break;
-#if FIXME
+#if REMOVEME
 	case POWER_SUPPLY_PROP_HEALTH:
 		// we must read the interrupt register
 		// but it reports the interrupt situation only once (auto-reset)
@@ -929,6 +926,10 @@ static int bq24296_get_property(struct power_supply *psy,
 			val->intval = 5000000;	/* power good: assume 5V */
 		else
 			val->intval = 0;	/* power not good: assume 0V */
+		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		val->intval = bq24296_max_current();
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		switch((retval >> CHRG_OFFSET) & CHRG_MASK) {
@@ -952,9 +953,6 @@ static int bq24296_get_property(struct power_supply *psy,
 				break;
 		}
 		break;
-	case POWER_SUPPLY_PROP_ONLINE:	/* charger online, i.e. VBUS */
-		val->intval = ret;
-		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		/* read twice to clear any flag */
 		ret = bq24296_read(bq24296_di->client, FAULT_STATS_REGISTER, &retval, 1);
@@ -974,6 +972,9 @@ static int bq24296_get_property(struct power_supply *psy,
 		else
 			val->intval = 225;	// ok (22.5C)
 		break;
+	case POWER_SUPPLY_PROP_ONLINE:	/* charger online, i.e. VBUS */
+		val->intval = ret;
+		break;
 	case POWER_SUPPLY_PROP_PRESENT:
 		val->intval = !(retval & 0x1);	// VBAT > VSYSMIN
 		break;
@@ -983,12 +984,21 @@ static int bq24296_get_property(struct power_supply *psy,
 	return 0;
 }
 
+static int bq24296_set_property(struct power_supply *psy,
+				enum power_supply_property psp,
+				const union power_supply_propval *val)
+{
+	// handle setting POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT
+	return -EINVAL;
+}
+
 static enum power_supply_property bq24296_charger_props[] = {
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
-//	POWER_SUPPLY_PROP_HEALTH,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_PRESENT,
@@ -1001,6 +1011,7 @@ static const struct power_supply_desc bq24296_madc_bat_desc[] = {
 	.properties		= bq24296_charger_props,
 	.num_properties		= ARRAY_SIZE(bq24296_charger_props),
 	.get_property		= bq24296_get_property,
+	.set_property		= bq24296_set_property,
 	},
 	{
 	.name			= "bq24297",
@@ -1008,6 +1019,7 @@ static const struct power_supply_desc bq24296_madc_bat_desc[] = {
 	.properties		= bq24296_charger_props,
 	.num_properties		= ARRAY_SIZE(bq24296_charger_props),
 	.get_property		= bq24296_get_property,
+	.set_property		= bq24296_set_property,
 	},
 };
 
@@ -1175,9 +1187,6 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 	if (device_create_file(&client->dev, &dev_attr_max_current))
 		dev_warn(&client->dev, "could not create sysfs file max_current\n");
 
-	if (device_create_file(&client->dev, &dev_attr_id))
-		dev_warn(&client->dev, "could not create sysfs file id\n");
-
 	if (device_create_file(&client->dev, &dev_attr_otg))
 		dev_warn(&client->dev, "could not create sysfs file otg\n");
 
@@ -1200,7 +1209,6 @@ static int bq24296_battery_remove(struct i2c_client *client)
 	struct bq24296_device_info *di = i2c_get_clientdata(client);
 
 	device_remove_file(di->dev, &dev_attr_max_current);
-	device_remove_file(di->dev, &dev_attr_id);
 	device_remove_file(di->dev, &dev_attr_otg);
 	device_remove_file(di->dev, &dev_attr_battparam);
 
