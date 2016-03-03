@@ -3,7 +3,8 @@
 # using the panel-mipi-debug driver
 #
 # -b:	BIST mode (test pattern)
-# -r:	program for rotation
+# -r:	rotate by 90 degrees
+# -f <n>: flip mode n (0..3) - 3 adds a rotation by 180 degrees, 0 by 0 degrees
 # -d:	dump ssd2858 registers
 # -l:	loop dcs commands 10h and 11h to check LP output to panel
 # -p:	program panel through DCS
@@ -11,9 +12,8 @@
 # -off:	turn off
 #
 # typical invocation for operation
-# ./ssd2858 -r -p -s
+# ./ssd2858 -r -f 3 -p -s
 # ./ssd2858 -b -d -l
-
 
 if ! [ "$(cat /proc/device-tree/ocp/dss@58000000/encoder@58004000/lcd/compatible)" = "omapdss,mipi,debug" ]
 then
@@ -47,6 +47,10 @@ OFF=false
 VB_MODE=0
 VBE=0
 ROT90=0
+FLIP=0
+
+# default to 3 for the Pyra so that we don't have to modify the xinit patch
+FLIP=3
 
 while [ "$1" ]
 do
@@ -57,6 +61,10 @@ do
 		;;
 	"-r" )
 		ROT90=1
+		;;
+	"-f" )
+		shift
+		FLIP=$1
 		;;
 	"-d" )
 		DUMP_REGS=true
@@ -309,6 +317,7 @@ echo g2038 rrrr >dcs
 # some DCS
 echo 35 02 >dcs		# tear on
 echo 44 0500 >dcs	# tear scan line
+[ "$FLIP" != "0" ] && echo 36 $(printf "%02x" $(( $FLIP << 6 )) ) >dcs
 
 # MIPITX
 echo g6008 $(printf "%08x" $(( 0x00000008 | (($PANEL_LANES - 1) << 22) | (($LP_CLK_DIV-1) << 16) | ($CKE << 0) )) ) >dcs	# MIPITX_CTLR (00030008)
