@@ -893,6 +893,35 @@ static int twl4030_bci_get_property(struct power_supply *psy,
 			twl4030_bci_state_to_status(state) !=
 				POWER_SUPPLY_STATUS_NOT_CHARGING;
 		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
+		if (psy->desc->type == POWER_SUPPLY_TYPE_USB)
+			val->intval = bci->usb_cur_target;
+		else
+			val->intval = bci->ac_cur;
+printk("POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT = %d\n", val->intval);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int twl4030_bci_set_property(struct power_supply *psy,
+				    enum power_supply_property psp,
+				    const union power_supply_propval *val)
+{
+	struct twl4030_bci *bci = dev_get_drvdata(psy->dev.parent);
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
+		if (psy->desc->type == POWER_SUPPLY_TYPE_USB)
+			bci->usb_cur_target = val->intval;
+		else
+			bci->ac_cur = val->intval;
+printk("POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT := %d\n", val->intval);
+		twl4030_charger_update_current(bci);
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -905,6 +934,7 @@ static enum power_supply_property twl4030_charger_props[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
+	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
 };
 
 #ifdef CONFIG_OF
@@ -941,6 +971,7 @@ static const struct power_supply_desc twl4030_bci_ac_desc = {
 	.properties	= twl4030_charger_props,
 	.num_properties	= ARRAY_SIZE(twl4030_charger_props),
 	.get_property	= twl4030_bci_get_property,
+	.set_property	= twl4030_bci_set_property,
 };
 
 static const struct power_supply_desc twl4030_bci_usb_desc = {
@@ -949,6 +980,7 @@ static const struct power_supply_desc twl4030_bci_usb_desc = {
 	.properties	= twl4030_charger_props,
 	.num_properties	= ARRAY_SIZE(twl4030_charger_props),
 	.get_property	= twl4030_bci_get_property,
+	.set_property	= twl4030_bci_set_property,
 };
 
 static int twl4030_bci_probe(struct platform_device *pdev)
