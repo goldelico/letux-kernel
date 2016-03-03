@@ -76,6 +76,8 @@
 		touchscreen-fuzz-y = <5>;
 		touchscreen-fuzz-pressure = <50>;
 		touchscreen-swapped-x-y;
+		touchscreen-inverted-x;
+		touchscreen-inverted-y;
 		ti,min-x = <50>;
 		ti,max-x = <3900>;
 		ti,min-y = <50>;
