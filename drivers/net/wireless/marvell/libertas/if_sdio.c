@@ -1271,7 +1271,7 @@ static int if_sdio_probe(struct sdio_func *func,
 	priv->reset_card = if_sdio_reset_card;
 	priv->power_save = if_sdio_power_save;
 	priv->power_restore = if_sdio_power_restore;
-
+	priv->is_polling = !(func->card->host->caps & MMC_CAP_SDIO_IRQ);
 	ret = if_sdio_power_on(card);
 	if (ret)
 		goto err_activate_card;
@@ -1408,8 +1408,8 @@ static int if_sdio_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops if_sdio_pm_ops = {
-	.suspend	= if_sdio_suspend,
-	.resume		= if_sdio_resume,
+	.suspend	= NULL /*if_sdio_suspend*/,
+	.resume		= NULL /*if_sdio_resume*/,
 };
 
 static struct sdio_driver if_sdio_driver = {
