@@ -103,7 +103,9 @@ static int gab_get_status(struct gab *adc_bat)
 	struct power_supply_info *bat_info;
 
 	bat_info = &pdata->battery_info;
-	if (adc_bat->level == bat_info->charge_full_design)
+	// level is never updated and we don't have yes charge_full_design defined thus we
+	// still get FULL status which is not correct
+	if (adc_bat->level == bat_info->charge_full_design && (adc_bat->level != 0))
 		return POWER_SUPPLY_STATUS_FULL;
 	return adc_bat->status;
 }
