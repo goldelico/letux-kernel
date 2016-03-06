@@ -51,7 +51,7 @@
 #define READ_RESOLUTION
 #define GESTURES
 #define CAPACITIVE
-#define WAKE_SIGNAL
+/* #define WAKE_SIGNAL */
 #define IRQ_EVENT_HANDLING
 #endif /* CONFIG_ARCH_xxx */
 
@@ -849,7 +849,7 @@ static int crtouch_suspend(struct i2c_client *client, pm_message_t mesg)
 }
 #endif /* WAKE_SIGNAL */
 
-static int __devinit crtouch_probe(struct i2c_client *client,
+static int crtouch_probe(struct i2c_client *client,
 				 const struct i2c_device_id *id)
 {
 
@@ -1067,7 +1067,7 @@ err_free_mem:
 	return result;
 }
 
-static int __devexit crtouch_remove(struct i2c_client *client)
+static int crtouch_remove(struct i2c_client *client)
 {
 	cancel_work_sync(&crtouch->work);
 	destroy_workqueue(crtouch->workqueue);
@@ -1103,12 +1103,12 @@ static struct i2c_driver crtouch_fops = {
 	.resume		= crtouch_resume,
 	.suspend	= crtouch_suspend,
 #endif /* WAKE_SIGNAL */
-	.remove		= __devexit_p(crtouch_remove),
+	.remove		= crtouch_remove,
 };
 
 MODULE_DEVICE_TABLE(i2c, crtouch_idtable);
 
-static int __init crtouch_init(void)
+static int crtouch_init(void)
 {
 	return i2c_add_driver(&crtouch_fops);
 }
