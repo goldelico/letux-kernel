@@ -329,7 +329,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	/* Connections between twl6040 and ABE */
 	{"Headset Playback", NULL, "PDM_DL1"},
 	{"Handsfree Playback", NULL, "PDM_DL2"},
-	{"PDM_UL1", NULL, "Capture"},
+	{"PDM_UL1", NULL, "Analog Capture"},
 
 	/* Bluetooth <--> ABE*/
 	{"omap-mcbsp.1 Playback", NULL, "BT_VX_DL"},

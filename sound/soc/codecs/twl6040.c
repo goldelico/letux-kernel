@@ -742,9 +742,9 @@ static const struct snd_soc_dapm_route intercon[] = {
 
 	/* ADC -> Stream mapping */
 	{"Legacy Capture" , NULL, "ADC Left"},
-	{"Capture", NULL, "ADC Left"},
+	{"Analog Capture", NULL, "ADC Left"},
 	{"Legacy Capture", NULL, "ADC Right"},
-	{"Capture" , NULL, "ADC Right"},
+	{"Analog Capture" , NULL, "ADC Right"},
 
 	/* Capture path */
 	{"Analog Left Capture Route", "Headset Mic", "HSMIC"},
@@ -1049,7 +1049,7 @@ static struct snd_soc_dai_driver twl6040_dai[] = {
 	.name = "twl6040-ul",
 	.id = TWL6040_DAI_UL,
 	.capture = {
-		.stream_name = "Capture",
+		.stream_name = "Analog Capture",
 		.channels_min = 1,
 		.channels_max = 2,
 		.rates = TWL6040_RATES,
