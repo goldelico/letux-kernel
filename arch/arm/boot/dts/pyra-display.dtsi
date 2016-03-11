@@ -11,8 +11,9 @@
 	   by using the /root/panelselect script */
 
 	compatible = "mipi,debug";
-//	compatible = "boe,btl507212-w677l";
-
+#if 0
+	compatible = "boe,btl507212-w677l";
+#endif
 	gpios =
 		<&gpio6 16 0>,	/* goip6_176 = panel reset */
 		<&gpio6 2 0>;	/* gpio6_162 = enable DC/DC */
@@ -20,13 +21,15 @@
 
 #if 0
 
-/* insert ssd2858 driver into pipeline */
+/* splice ssd2858 driver into display pipeline */
 
 / {
 	ssd: encoder {
 		compatible = "solomon-systech,ssd2858";
 		gpios =
 			<&gpio6 2 0>;	/* gpio6_162 = enable ssd and disable DCS bypass */
+		xtal-freq-mhz = <24000000>;
+		rotate = <270>;
 		ports {
 			#address-cells = <1>;
 			#size-cells = <0>;
