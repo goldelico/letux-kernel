@@ -166,12 +166,12 @@
 #define GPIO_LNUB_IRQ 175		// left nub IRQ - gpio6_175
 #define GPIO_RNUB_IRQ 174		// right nub IRQ - gpio6_174
 #define GPIO_KEYIRQ 177			// keyboard controller IRQ - gpio6-177
-#define GPIO_RSH_BOT 179		// right bottom shoulder button - gpio6-179 - closes to GND
-#define GPIO_RSH_TOP 180		// right top shoulder button - gpio6-180 - closes to GND
+#define GPIO_RSH_TOP 179		// right top shoulder button - gpio6-179 - closes to GND
+#define GPIO_RSH_BOT 180		// right bottom shoulder button - gpio6-180 - closes to GND
 #define GPIO_RNUB 181			// right nub center button - gpio6-181 - closes to GND
 #define GPIO_LNUB 187			// left nub center button - gpio6-187 - closes to GND
-#define GPIO_LSH_BOT 183		// left bottom shoulder button - gpio6-183 - closes to GND
-#define GPIO_LSH_TOP 184		// left top shoulder button - gpio6-184 - closes to GND
+#define GPIO_LSH_TOP 183		// left top shoulder button - gpio6-183 - closes to GND
+#define GPIO_LSH_BOT 7			// left bottom shoulder button - gpio1_wk7 - closes to GND
 #define GPIO_VSYNC 189			// VSYNC input (gpio6_189 in: comes from panel)
 // outputs
 #define GPIO_3G_IGNITE 171		// start modem (active high pulse) - gpio6_171
@@ -209,11 +209,10 @@
 			OMAP5_IOPAD(0x1be, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x1BC:[31:16] gpio5_141 - L */
 			OMAP5_IOPAD(0x1c0, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x1C0:[15:0] gpio5_142 - D */
 			OMAP5_IOPAD(0x1c2, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x1C0:[31:16] gpio5_143 - R */
-			OMAP5_IOPAD(0x108, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x108:[15:0]  gpio6_179 - rsh-bot */
-			OMAP5_IOPAD(0x106, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x104:[31:16] gpio6_180 - rsh-top */
+			OMAP5_IOPAD(0x108, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x108:[15:0]  gpio6_179 - rsh-top */
+			OMAP5_IOPAD(0x106, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x104:[31:16] gpio6_180 - rsh-bot */
 			OMAP5_IOPAD(0x104, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x104:[15:0]  gpio6_181 - right nub */
-			OMAP5_IOPAD(0x132, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x130:[31:16] gpio6_183 - lsh-bot */
-			OMAP5_IOPAD(0x134, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x134:[15:0]  gpio6_184 - lsh-top */
+			OMAP5_IOPAD(0x132, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x130:[31:16] gpio6_183 - lsh-top */
 			OMAP5_IOPAD(0x13a, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x138:[31:16]  gpio6_187 - left nub */
 			OMAP5_IOPAD(0x102, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x100:[31:16] gpio7_196 - B */
 			OMAP5_IOPAD(0x0fc, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0FC:[15:0] gpio7_197 - Y */
@@ -279,6 +278,13 @@
 };
 
 &omap5_pmx_wkup {
+
+	letux_wkup_pins: pinmux_wkup_pins {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x078, PIN_OUTPUT | MUX_MODE6)	/* 0x078:[15:0]  gpio1_wkout4 - second LED on CPU board */
+			OMAP5_IOPAD(0x046, WAKEUP_EN | PIN_INPUT | MUX_MODE6)	/* 0x044:[31:16]  gpio1_wk7 - boot select input */
+		>;
+	};
 
 	lid_pin: pinmux_lid_pin {
 		pinctrl-single,pins = <
@@ -702,36 +708,40 @@
 
 / {
 
+	user-button {
+		/* is bound to gpio1_wk7 which we want to reassign */
+		/delete-node/ BOOTSEL;
+	};
+
 	pyra-gpio-keys@1 {
 		compatible = "gpio-keys";
 
 		#address-cells = <7>;
 		#size-cells = <0>;
 
-		left_shoulder_top {
-			label = "Left-Shoulder-Top";
+		left_shoulder_bottom {
+			label = "Left-Shoulder-Bottom";
 			linux,code = <16>;	/* KEY_Q */
-			// CHECKME: polarity may change for next revision!
-			gpios = <&gpio6 24 GPIO_ACTIVE_LOW>;	/* gpio6_184 */
+			gpios = <&gpio1 7 GPIO_ACTIVE_LOW>;	/* gpio1_wk7 */
 			gpio-key,wakeup;
 		};
 
-		left_shoulder_bottom {
-			label = "Left-Shoulder-Bottom";
+		left_shoulder_top {
+			label = "Left-Shoulder-Top";
 			linux,code = <44>;	/* KEY_Z */
 			gpios = <&gpio6 23 GPIO_ACTIVE_LOW>;	/* gpio6_183 */
 			gpio-key,wakeup;
 		};
 
-		right_shoulder_top {
-			label = "Right-Shoulder-Top";
+		right_shoulder_bottom {
+			label = "Right-Shoulder-Bottom";
 			linux,code = <25>;	/* KEY_P */
 			gpios = <&gpio6 20 GPIO_ACTIVE_LOW>;	/* gpio6_180 */
 			gpio-key,wakeup;
 		};
 
-		right_shoulder_bottom {
-			label = "Right-Shoulder-Bottom";
+		right_shoulder_top {
+			label = "Right-Shoulder-Top";
 			linux,code = <50>;	/* KEY_M */
 			gpios = <&gpio6 19 GPIO_ACTIVE_LOW>;	/* gpio6_179 */
 			gpio-key,wakeup;
