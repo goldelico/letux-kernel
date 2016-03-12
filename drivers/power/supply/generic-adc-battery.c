@@ -30,6 +30,7 @@ enum gab_chan_type {
 	GAB_VOLTAGE = 0,
 	GAB_CURRENT,
 	GAB_POWER,
+	GAB_TEMPERATURE,
 	GAB_MAX_CHAN_TYPE
 };
 
@@ -40,7 +41,8 @@ enum gab_chan_type {
 static const char *const gab_chan_name[] = {
 	[GAB_VOLTAGE]	= "voltage",
 	[GAB_CURRENT]	= "current",
-	[GAB_POWER]		= "power",
+	[GAB_POWER]	= "power",
+	[GAB_TEMPERATURE] = "temperature",
 };
 
 struct gab {
@@ -77,6 +79,7 @@ static const enum power_supply_property gab_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
 	POWER_SUPPLY_PROP_MODEL_NAME,
+	POWER_SUPPLY_PROP_TEMP,
 };
 
 /*
@@ -122,6 +125,8 @@ static enum gab_chan_type gab_prop_to_chan(enum power_supply_property psp)
 		return GAB_VOLTAGE;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		return GAB_CURRENT;
+	case POWER_SUPPLY_PROP_TEMP:
+		return GAB_TEMPERATURE;
 	default:
 		WARN_ON(1);
 		break;
@@ -173,6 +178,7 @@ static int gab_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 	case POWER_SUPPLY_PROP_POWER_NOW:
+	case POWER_SUPPLY_PROP_TEMP:
 		ret = read_channel(adc_bat, psp, &result);
 		if (ret < 0)
 			goto err;
@@ -206,12 +212,18 @@ static void gab_work(struct work_struct *work)
 	struct delayed_work *delayed_work;
 	bool is_plugged;
 	int status;
+	int ret, iio_charge;
 
 	delayed_work = to_delayed_work(work);
 	adc_bat = container_of(delayed_work, struct gab, bat_work);
 	status = adc_bat->status;
-
-	is_plugged = power_supply_am_i_supplied(adc_bat->psy);
+	ret = read_channel(adc_bat, POWER_SUPPLY_PROP_CURRENT_NOW, &iio_charge);
+	if (ret < 0) {
+		pr_info("Cannot read current channel, ret:%d\n", ret);
+		iio_charge = 0;
+	} else
+		pr_info("iio_charge:%d\n", iio_charge);
+	is_plugged = power_supply_am_i_supplied(adc_bat->psy) || (iio_charge > 0);
 	adc_bat->cable_plugged = is_plugged;
 
 	if (!is_plugged)
