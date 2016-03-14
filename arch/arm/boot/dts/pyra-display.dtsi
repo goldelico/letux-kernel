@@ -6,11 +6,16 @@
  * published by the Free Software Foundation.
  */
 
-&lcd {
-	/* default to be overwritten by specific panel in derived board file
-	   by using the /root/panelselect script */
+/* LCD panel - MIPI */
 
-	compatible = "mipi,debug";
+&mipi_display_pins {
+	pinctrl-single,pins = <
+		OMAP5_IOPAD(0x124, PIN_OUTPUT_PULLUP | MUX_MODE6)	/* 0x124:[0:15] gpio6_162 - enable panel DC/DC */
+		OMAP5_IOPAD(0x10e, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x10c:[31:16] gpio6_176 - panel reset */
+		>;
+};
+
+&lcd {
 #if 0
 	compatible = "boe,btl507212-w677l";
 #endif
