@@ -114,9 +114,8 @@ static struct omap_video_timings ssd2858_timings = {
 };
 
 struct panel_drv_data {
-	struct omap_dss_device dssdev;
+	struct omap_dss_device dssdev;	/* the output port (where a panel connects) */
 	struct omap_dss_device *in;	/* the input port (OMAP to SSD) */
-	struct omap_dss_device *out;	/* the panel connected to the SSD */
 
 	struct omap_video_timings timings;
 	
@@ -545,6 +544,7 @@ static int ssd2858_connect(struct omap_dss_device *dssdev)
 	struct device *dev = &ddata->pdev->dev;
 	int r;
 	
+	printk("ssd2858_connect\n");
 	if (omapdss_device_is_connected(dssdev))
 		return 0;
 	
@@ -598,6 +598,7 @@ static void ssd2858_disconnect(struct omap_dss_device *dssdev)
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
 	
+	printk("ssd2858_disconnect\n");
 	if (!omapdss_device_is_connected(dssdev))
 		return;
 	// FIXME: forward disconnect to panel
@@ -896,7 +897,6 @@ static int ssd2858_power_on(struct omap_dss_device *dssdev)
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct device *dev = &ddata->pdev->dev;
 	struct omap_dss_device *in = ddata->in;
-	struct omap_dss_device *out = ddata->out;
 	int r;
 	struct omap_dss_dsi_config ssd2858_dsi_config = {
 		.mode = OMAP_DSS_DSI_VIDEO_MODE,
@@ -1253,7 +1253,7 @@ static int ssd2858_power_on(struct omap_dss_device *dssdev)
 	printk("dsi: powered on()\n");
 
 	/* FIXME: isn't this far too late? */
-	out->ops.dsi->enable(out);	// power on the panel (will this call some out->ops?)
+//	out->ops.dsi->enable(out);	// power on the panel (will this call some out->ops?)
 
 	return r;
 err:
@@ -1398,6 +1398,66 @@ static struct omap_dss_driver ssd2858_in_ops = {
 	 */
 };
 
+#if OLD
+static struct device_node *omapdss_of_get_remote_port(const struct device_node *node)
+{
+	struct device_node *np;
+
+	np = of_parse_phandle(node, "remote-endpoint", 0);
+	if (!np)
+		return NULL;
+
+	np = of_get_next_parent(np);
+
+	return np;
+}
+
+static struct device_node *
+omapdss_of_get_nth_endpoint(const struct device_node *parent, int portnum)
+{
+	struct device_node *port = NULL, *ep;
+
+	do {
+		port = omapdss_of_get_next_port(parent, port);
+
+		if (!port)
+			return NULL;
+	} while (portnum-- > 0);
+
+	ep = omapdss_of_get_next_endpoint(port, NULL);
+
+	of_node_put(port);
+
+	return ep;
+}
+
+static struct omap_dss_device *
+omapdss_of_find_source_for_nth_ep(struct device_node *node, int portnum)
+{
+	struct device_node *ep;
+	struct device_node *src_port;
+	struct omap_dss_device *src;
+
+	ep = omapdss_of_get_nth_endpoint(node, portnum);
+	if (!ep)
+		return ERR_PTR(-EINVAL);
+
+	src_port = omapdss_of_get_remote_port(ep);
+	if (!src_port) {
+		of_node_put(ep);
+		return ERR_PTR(-EINVAL);
+	}
+
+	of_node_put(ep);
+
+	src = omap_dss_find_output_by_port_node(src_port);
+
+	of_node_put(src_port);
+
+	return src ? src : ERR_PTR(-EPROBE_DEFER);
+}
+#endif
+
 static int ssd2858_probe_of(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
@@ -1460,11 +1520,15 @@ static int ssd2858_probe_of(struct platform_device *pdev)
 		ddata->flip ^= MIPI_DCS_SET_ADDRESS_MODE_VFLIP;
 
 #if LOG
-	printk("rotate = %d flip = %02x\n", ddata->rotate, ddata->flip);
+	printk("rotate = %d flip = 0x%02x\n", ddata->rotate, ddata->flip);
 #endif
 	/*
 	 * parse additional dt properties like
-	 * type of compression (e.g. optimal, lossy, video-pass-through, test mode)
+	 * - type of compression (e.g. optimal, lossy)
+	 * - video-pass-through
+	 * - test mode
+	 * - channel definitions
+	 * - charge pump vs. external power
 	 * those are to be reflected by different register settings of the SSD2858 chip
 	 */
 
@@ -1476,19 +1540,23 @@ static int ssd2858_probe_of(struct platform_device *pdev)
 
 	ddata->in = ep;
 
-	ep = omapdss_of_find_source_for_first_ep(node);
+#if OLD
+	ep = omapdss_of_find_source_for_second_ep(node, 1);
 	if (IS_ERR(ep)) {
 		dev_err(&pdev->dev, "failed to find video sink (err=%ld)\n", PTR_ERR(ep));
 		return PTR_ERR(ep);
 	}
 
+	printk("out = %p\n", ep);
 	ddata->out = ep;
+#endif
 
 	/*
 	 * Room for enhancement:
 	 * The SSD has a second MIPITX and can also set the output channel if two
 	 * panels are connected in parallel.
-	 * So we could handle more output ports here.
+	 * So we could handle more output ports or multiple endpoints for the second
+	 * port here.
 	 */
 
 	return 0;
@@ -1529,31 +1597,11 @@ static int ssd2858_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	ddata->timings = ssd2858_timings;
-
-	dssdev = &ddata->dssdev;
-	dssdev->dev = dev;
-	dssdev->driver = &ssd2858_in_ops;
-
-	/* FIXME: don't these depend on calculation of connected panel timings??? */
-
-	dssdev->panel.timings = ssd2858_timings;
-	dssdev->type = OMAP_DISPLAY_TYPE_DSI;
-	dssdev->owner = THIS_MODULE;
-
-	dssdev->panel.dsi_pix_fmt = SSD2858_PIXELFORMAT;
-
-	r = omapdss_register_display(dssdev);
-	if (r) {
-		dev_err(dev, "Failed to register controller\n");
-		goto err_reg;
-	}
-
 	mutex_init(&ddata->lock);
 
 	if (gpio_is_valid(ddata->reset_gpio)) {
-		r = devm_gpio_request_one(&pdev->dev, ddata->reset_gpio,
-								  GPIOF_DIR_OUT, "rotator reset");
+		r = devm_gpio_request_one(dev, ddata->reset_gpio,
+					  GPIOF_DIR_OUT, "rotator reset");
 		if (r) {
 			dev_err(dev, "failed to request reset gpio (%d err=%d)\n", ddata->reset_gpio, r);
 			return r;
@@ -1563,13 +1611,46 @@ static int ssd2858_probe(struct platform_device *pdev)
 #if REGULATOR
 	if (gpio_is_valid(ddata->regulator_gpio)) {
 		r = devm_gpio_request_one(dev, ddata->regulator_gpio,
-								  GPIOF_DIR_OUT, "rotator DC/DC regulator");
+					 GPIOF_DIR_OUT, "rotator DC/DC regulator");
 		if (r) {
 			dev_err(dev, "failed to request regulator gpio (%d err=%d)\n", ddata->regulator_gpio, r);
 			return r;
 		}
 	}
 #endif
+
+//	ddata->timings = ssd2858_timings;
+
+	dssdev = &ddata->dssdev;
+	dssdev->driver = &ssd2858_in_ops;
+	dssdev->ops.dsi = &ssd2858_out_ops;
+	dssdev->dev = dev;
+
+	/* FIXME: don't these depend on calculation of connected panel timings??? */
+
+//	dssdev->panel.timings = ssd2858_timings;
+	dssdev->type = OMAP_DISPLAY_TYPE_DSI;
+	dssdev->output_type = OMAP_DISPLAY_TYPE_DSI;
+	dssdev->owner = THIS_MODULE;
+
+	dssdev->panel.dsi_pix_fmt = SSD2858_PIXELFORMAT;
+	dssdev->id = OMAP_DSS_OUTPUT_DSI1;
+
+	dssdev->output_type = OMAP_DISPLAY_TYPE_DSI;
+	dssdev->name = "dsi.0";
+	dssdev->dispc_channel = 1;
+
+	/* register dsi output so that a panel can connect */
+
+	r = omapdss_register_output(dssdev);
+	if (r) {
+		dev_err(dev, "Failed to register controller\n");
+		goto err_reg;
+	}
+
+	/* future: if we want to use the second MIPITX, we should
+	 * register another output here
+	 */
 
 #if SYSFS
 	/* Register sysfs hooks */
@@ -1608,8 +1689,7 @@ static int __exit ssd2858_remove(struct platform_device *pdev)
 #if LOG
 	printk("dsi: ssd2858_remove()\n");
 #endif
-
-	omapdss_unregister_display(dssdev);
+	omapdss_unregister_output(&ddata->dssdev);
 
 	ssd2858_disable(dssdev);
 	ssd2858_disconnect(dssdev);
