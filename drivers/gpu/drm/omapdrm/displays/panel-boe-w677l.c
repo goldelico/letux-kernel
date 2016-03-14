@@ -24,12 +24,16 @@
 
 #include <linux/backlight.h>
 #include <linux/delay.h>
+#include <linux/err.h>
 #include <linux/fb.h>
 #include <linux/gpio.h>
 #include <linux/interrupt.h>
 #include <linux/jiffies.h>
 #include <linux/module.h>
+#include <linux/of_device.h>
+#include <linux/of_gpio.h>
 #include <linux/platform_device.h>
+#include <linux/regulator/consumer.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
@@ -37,11 +41,8 @@
 #include <linux/of_gpio.h>
 
 #include "../dss/omapdss.h"
-#include <video/omap-panel-data.h>
 #include <video/mipi_display.h>
-
-#include <linux/err.h>
-#include <linux/regulator/consumer.h>
+#include <video/omap-panel-data.h>
 
 /* extended DCS commands (not defined in mipi_display.h) */
 #define DCS_READ_DDB_START		0x02
@@ -97,6 +98,7 @@ struct panel_drv_data {
 	struct omap_dss_device dssdev;
 	struct omap_dss_device *in;
 
+// do we need the timings here if they are also stored in a static struct???
 	struct videomode vm;
 
 	struct platform_device *pdev;
@@ -160,51 +162,51 @@ static struct w677l_reg init_seq[] = {
 	{ 2, 0x00, 0x90, },             //Mode-3
 	{ 5, 0xf5, 0x02, 0x11, 0x02, 0x11, },
 
-	{ 2, 0x00, 0x90, },              //2xVPNL,  1.5*=00,  2*=50,  3*=a0
+	{ 2, 0x00, 0x90, },		//2xVPNL,  1.5*=00,  2*=50,  3*=a0
 	{ 2, 0xc5, 0x50, },
 
-	{ 2, 0x00, 0x94, },             //Frequency
+	{ 2, 0x00, 0x94, },		//Frequency
 	{ 2, 0xc5, 0x66, },
 
-	{ 2, 0x00, 0xb2, },             //VGLO1 setting
+	{ 2, 0x00, 0xb2, },		//VGLO1 setting
 	{ 3, 0xf5, 0x00, 0x00, },
 
-	{ 2, 0x00, 0xb4, },             //VGLO1_S setting
+	{ 2, 0x00, 0xb4, },		//VGLO1_S setting
 	{ 3, 0xf5, 0x00, 0x00, },
 
-	{ 2, 0x00, 0xb6, },              //VGLO2 setting
+	{ 2, 0x00, 0xb6, },		//VGLO2 setting
 	{ 3, 0xf5, 0x00, 0x00, },
 
-	{ 2, 0x00, 0xb8, },             //VGLO2_S setting
+	{ 2, 0x00, 0xb8, },		//VGLO2_S setting
 	{ 3, 0xf5, 0x00, 0x00, },
 
-	{ 2, 0x00, 0x94, },             //VCL ON
+	{ 2, 0x00, 0x94, },		//VCL ON
 	{ 2, 0xf5, 0x02, },
 
-	{ 2, 0x00, 0xBA, },             //VSP ON
+	{ 2, 0x00, 0xBA, },		//VSP ON
 	{ 2, 0xf5, 0x03, },
 
-	{ 2, 0x00, 0xb2, },             //VGHO Option
+	{ 2, 0x00, 0xb2, },		//VGHO Option
 	{ 2, 0xc5, 0x40, },
 
-	{ 2, 0x00, 0xb4, },             //VGLO Option
+	{ 2, 0x00, 0xb4, },		//VGLO Option
 	{ 2, 0xc5, 0xC0, },
 
 //-------------------- power setting --------------------//
-	{ 2, 0x00, 0xa0, },             //dcdc setting
+	{ 2, 0x00, 0xa0, },		//dcdc setting
 	{ 15, 0xc4, 0x05, 0x10, 0x06, 0x02, 0x05, 0x15, 0x10, 0x05, 0x10, 0x07, 0x02, 0x05, 0x15, 0x10, },
 
-	{ 2, 0x00, 0xb0, },             //clamp voltage setting
+	{ 2, 0x00, 0xb0, },		//clamp voltage setting
 	{ 3, 0xc4, 0x00, 0x00, },
 
-	{ 2, 0x00, 0x91, },             //VGH=13V,  VGL=-12V,  pump ratio:VGH=6x,  VGL=-5x
+	{ 2, 0x00, 0x91, },		//VGH=13V,  VGL=-12V,  pump ratio:VGH=6x,  VGL=-5x
 	{ 3, 0xc5, 0x19, 0x50, },
 
-	{ 2, 0x00, 0x00, },             //GVDD=4.87V,  NGVDD=-4.87V
+	{ 2, 0x00, 0x00, },		//GVDD=4.87V,  NGVDD=-4.87V
 	{ 3, 0xd8, 0xbc, 0xbc, },
 
-	{ 2, 0x00, 0x00, },             //VCOMDC=-1.1
-	{ 2, 0xd9, 0x5a, },  //5d  6f
+	{ 2, 0x00, 0x00, },		//VCOMDC=-1.1
+	{ 2, 0xd9, 0x5a, },  		//5d  6f
 
 	{ 2, 0x00, 0x00, },
 	{ 17, 0xE1, 0x01, 0x07, 0x0b, 0x0d, 0x06, 0x0d, 0x0b, 0x0a, 0x04, 0x07, 0x10, 0x08, 0x0f, 0x11, 0x0a, 0x01, },
@@ -212,93 +214,88 @@ static struct w677l_reg init_seq[] = {
 	{ 2, 0x00, 0x00, },
 	{ 17, 0xE2, 0x01, 0x07, 0x0b, 0x0d, 0x06, 0x0d, 0x0b, 0x0a, 0x04, 0x07, 0x10, 0x08, 0x0f, 0x11, 0x0a, 0x01, },
 
-	{ 2, 0x00, 0xb0, },             //VDD_18V=1.7V,  LVDSVDD=1.55V
+	{ 2, 0x00, 0xb0, },		//VDD_18V=1.7V,  LVDSVDD=1.55V
 	{ 3, 0xc5, 0x04, 0xB8, },
 
-	{ 2, 0x00, 0xbb, },              //LVD voltage level setting
+	{ 2, 0x00, 0xbb, },		//LVD voltage level setting
 	{ 2, 0xc5, 0x80, },
 
-//	{ 2, 0x00, 0xc3, },              //Sample / Hold All on
-//	{ 2, 0xf5, 0x81, },
-
-
-
 //-------------------- panel timing state control --------------------//
-	{ 2, 0x00, 0x80, },             //panel timing state control
+	{ 2, 0x00, 0x80, },		//panel timing state control
 	{ 12, 0xcb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
 
-	{ 2, 0x00, 0x90, },             //panel timing state control
+	{ 2, 0x00, 0x90, },		//panel timing state control
 	{ 16, 0xcb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
 
-	{ 2, 0x00, 0xa0, },             //panel timing state control
+	{ 2, 0x00, 0xa0, },		//panel timing state control
 	{ 16, 0xcb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
 
-	{ 2, 0x00, 0xb0, },             //panel timing state control
+	{ 2, 0x00, 0xb0, },		//panel timing state control
 	{ 16, 0xcb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
 
-	{ 2, 0x00, 0xc0, },             //panel timing state control
+	{ 2, 0x00, 0xc0, },		//panel timing state control
 	{ 16, 0xcb, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
 
-	{ 2, 0x00, 0xd0, },             //panel timing state control
+	{ 2, 0x00, 0xd0, },		//panel timing state control
 	{ 16, 0xcb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x00, 0x00, },
 
-	{ 2, 0x00, 0xe0, },             //panel timing state control
+	{ 2, 0x00, 0xe0, },		//panel timing state control
 	{ 15, 0xcb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x05, },
 
-	{ 2, 0x00, 0xf0, },             //panel timing state control
+	{ 2, 0x00, 0xf0, },		//panel timing state control
 	{ 12, 0xcb, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, },
 
 //-------------------- panel pad mapping control --------------------//
-	{ 2, 0x00, 0x80, },             //panel pad mapping control
+	{ 2, 0x00, 0x80, },		//panel pad mapping control
 	{ 16, 0xcc, 0x0a, 0x0c, 0x0e, 0x10, 0x02, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
 
-	{ 2, 0x00, 0x90, },             //panel pad mapping control
+	{ 2, 0x00, 0x90, },		//panel pad mapping control
 	{ 16, 0xcc, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2e, 0x2d, 0x09, 0x0b, 0x0d, 0x0f, 0x01, 0x03, 0x00, 0x00, },
 
-	{ 2, 0x00, 0xa0, },             //panel pad mapping control
+	{ 2, 0x00, 0xa0, },		//panel pad mapping control
 	{ 15, 0xcc, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2e, 0x2d, },
 
-	{ 2, 0x00, 0xb0, },             //panel pad mapping control
+	{ 2, 0x00, 0xb0, },		//panel pad mapping control
 	{ 16, 0xcc, 0x0F, 0x0D, 0x0B, 0x09, 0x03, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
 
-	{ 2, 0x00, 0xc0, },             //panel pad mapping control
+	{ 2, 0x00, 0xc0, },		//panel pad mapping control
 	{ 16, 0xcc, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2d, 0x2e, 0x10, 0x0E, 0x0C, 0x0A, 0x04, 0x02, 0x00, 0x00, },
 
-	{ 2, 0x00, 0xd0, },             //panel pad mapping control
+	{ 2, 0x00, 0xd0, },		//panel pad mapping control
 	{ 15, 0xcc, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2d, 0x2e, },
 
 //-------------------- panel timing setting --------------------//
-	{ 2, 0x00, 0x80, },             //panel VST setting
+	{ 2, 0x00, 0x80, },		//panel VST setting
 	{ 13, 0xce, 0x8D, 0x03, 0x00, 0x8C, 0x03, 0x00, 0x8B, 0x03, 0x00, 0x8A, 0x03, 0x00, },
 
-	{ 2, 0x00, 0x90, },             //panel VEND setting
+	{ 2, 0x00, 0x90, },		//panel VEND setting
 	{ 15, 0xce, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
 
-	{ 2, 0x00, 0xa0, },             //panel CLKA1/2 setting
+	{ 2, 0x00, 0xa0, },		//panel CLKA1/2 setting
 	{ 15, 0xce, 0x38, 0x0B, 0x04, 0xFC, 0x00, 0x00, 0x00, 0x38, 0x0A, 0x04, 0xFD, 0x00, 0x00, 0x00, },
 
-	{ 2, 0x00, 0xb0, },             //panel CLKA3/4 setting
+	{ 2, 0x00, 0xb0, },		//panel CLKA3/4 setting
 	{ 15, 0xce, 0x38,  0x09,  0x04, 0xFE,  0x00, 0x00,  0x00,  0x38, 0x08,  0x04, 0xFF,  0x00,  0x00, 0x00, },
 
-	{ 2, 0x00, 0xc0, },             //panel CLKb1/2 setting
+	{ 2, 0x00, 0xc0, },		//panel CLKb1/2 setting
 	{ 15, 0xce, 0x38,  0x07,  0x05, 0x00,  0x00, 0x00,  0x00,  0x38, 0x06,  0x05, 0x01,  0x00,  0x00, 0x00, },
 
-	{ 2, 0x00, 0xd0, },             //panel CLKb3/4 setting
+	{ 2, 0x00, 0xd0, },		//panel CLKb3/4 setting
 	{ 15, 0xce, 0x38,  0x05,  0x05, 0x02,  0x00, 0x00,  0x00,  0x38, 0x04,  0x05, 0x03,  0x00,  0x00, 0x00, },
 
-	{ 2, 0x00, 0x80, },             //panel CLKc1/2 setting
+	{ 2, 0x00, 0x80, },		//panel CLKc1/2 setting
 	{ 15, 0xcf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
 
-	{ 2, 0x00, 0x90, },             //panel CLKc3/4 setting
+	{ 2, 0x00, 0x90, },		//panel CLKc3/4 setting
 	{ 15, 0xcf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
 
-	{ 2, 0x00, 0xa0, },             //panel CLKd1/2 setting
+	{ 2, 0x00, 0xa0, },		//panel CLKd1/2 setting
 	{ 15, 0xcf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
 
-	{ 2, 0x00, 0xb0, },             //panel CLKd3/4 setting
+	{ 2, 0x00, 0xb0, },		//panel CLKd3/4 setting
 	{ 15, 0xcf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
 
-	{ 2, 0x00, 0xc0, },             //panel ECLK setting
+	{ 2, 0x00, 0xc0, },		//panel ECLK setting
 	{ 12, 0xcf, 0x01, 0x01, 0x20, 0x20, 0x00, 0x00, 0x01, 0x02, 0x00, 0x00, 0x08, },
 
 	{ 2, 0x00, 0xb5, },             //TCON_GOA_OUT Setting
@@ -392,9 +389,6 @@ static int w677l_write_sequence(struct omap_dss_device *dssdev,
 			dev_err(&ddata->pdev->dev, "sequence failed: %d\n", i);
 			return -EINVAL;
 		}
-
-		/* TODO: Figure out why this is needed for OMAP5 */
-		msleep(1);
 	}
 
 	return 0;
@@ -407,6 +401,7 @@ static int w677l_connect(struct omap_dss_device *dssdev)
 	struct device *dev = &ddata->pdev->dev;
 	int r;
 
+	printk("dsi: w677l_connect()\n");
 	if (omapdss_device_is_connected(dssdev))
 		return 0;
 
@@ -459,6 +454,7 @@ static void w677l_disconnect(struct omap_dss_device *dssdev)
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
 
+	printk("dsi: w677l_disconnect()\n");
 	if (!omapdss_device_is_connected(dssdev))
 		return;
 
@@ -467,38 +463,15 @@ static void w677l_disconnect(struct omap_dss_device *dssdev)
 	in->ops.dsi->disconnect(in, dssdev);
 }
 
-
-static void w677l_get_timings(struct omap_dss_device *dssdev,
-		struct videomode *timings)
-{
-	*timings = dssdev->panel.vm;
-}
-
-static void w677l_set_timings(struct omap_dss_device *dssdev,
-		struct videomode *timings)
-{
-	dssdev->panel.vm.hactive = timings->hactive;
-	dssdev->panel.vm.vactive = timings->vactive;
-	dssdev->panel.vm.pixelclock = timings->pixelclock;
-	dssdev->panel.vm.hsync_len = timings->hsync_len;
-	dssdev->panel.vm.hfront_porch = timings->hfront_porch;
-	dssdev->panel.vm.hback_porch = timings->hback_porch;
-	dssdev->panel.vm.vsync_len = timings->vsync_len;
-	dssdev->panel.vm.vfront_porch = timings->vfront_porch;
-	dssdev->panel.vm.vback_porch = timings->vback_porch;
-}
+#if CHECKME
+// is there really no default method for check_timings?
+#endif
 
 static int w677l_check_timings(struct omap_dss_device *dssdev,
 		struct videomode *timings)
 {
+	printk("dsi: w677l_check_timings()\n");
 	return 0;
-}
-
-static void w677l_get_resolution(struct omap_dss_device *dssdev,
-		u16 *xres, u16 *yres)
-{
-	*xres = dssdev->panel.vm.hactive;
-	*yres = dssdev->panel.vm.vactive;
 }
 
 static int w677l_reset(struct omap_dss_device *dssdev, int state)
@@ -608,16 +581,52 @@ static const struct backlight_ops w677l_backlight_ops  = {
 	.update_status = w677l_set_brightness,
 };
 
-static int w677l_power_on(struct omap_dss_device *dssdev)
+static void w677l_disable(struct omap_dss_device *dssdev)
+{
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+
+	printk("dsi: w677l_disable()\n");
+	dev_dbg(&ddata->pdev->dev, "disable\n");
+
+	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE) {
+		struct omap_dss_device *in = ddata->in;
+
+		printk("dsi: w677l_stop()\n");
+		mutex_lock(&ddata->lock);
+
+		in->ops.dsi->bus_lock(in);
+
+		printk("dsi: w677l_power_off()\n");
+		ddata->enabled = 0;
+		in->ops.dsi->disable_video_output(in, ddata->pixel_channel);
+		in->ops.dsi->disable(in, false, false);
+		mdelay(10);
+		w677l_reset(dssdev, 0);	// activate reset
+		w677l_regulator(dssdev, 0);	// switch power off - after stopping video stream
+		mdelay(20);
+		/* here we can also power off IOVCC */
+
+		in->ops.dsi->bus_unlock(in);
+
+		mutex_unlock(&ddata->lock);
+	}
+
+	dssdev->state = OMAP_DSS_DISPLAY_DISABLED;
+}
+
+static int w677l_enable(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct device *dev = &ddata->pdev->dev;
 	struct omap_dss_device *in = ddata->in;
-	int r;
 	struct omap_dss_dsi_config w677l_dsi_config = {
 		.mode = OMAP_DSS_DSI_VIDEO_MODE,
 		.pixel_format = w677l_PIXELFORMAT,
+#if 1	// alternative
+		.vm = &w677l_timings,
+#else
 		.vm = &ddata->vm,
+#endif
 		.hs_clk_min = 125000000 /*w677l_HS_CLOCK*/,
 		.hs_clk_max = 450000000 /*(12*w677l_HS_CLOCK)/10*/,
 		.lp_clk_min = (7*w677l_LP_CLOCK)/10,
@@ -625,6 +634,19 @@ static int w677l_power_on(struct omap_dss_device *dssdev)
 		.ddr_clk_always_on = true,
 		.trans_mode = OMAP_DSS_DSI_BURST_MODE,
 	};
+	int r = 0;
+
+	printk("dsi: w677l_enable()\n");
+	dev_dbg(&ddata->pdev->dev, "enable\n");
+
+	if (dssdev->state != OMAP_DSS_DISPLAY_DISABLED)
+		return -EINVAL;
+
+	printk("dsi: w677l_start()\n");
+	mutex_lock(&ddata->lock);
+
+	in->ops.dsi->bus_lock(in);
+
 //	printk("hs_clk_min=%lu\n", w677l_dsi_config.hs_clk_min);
 	printk("dsi: w677l_power_on()\n");
 
@@ -636,23 +658,27 @@ static int w677l_power_on(struct omap_dss_device *dssdev)
 		if (r) {
 			dev_err(&ddata->pdev->dev,
 					"failed to configure DSI pins\n");
-			goto err0;
+			goto err;
 		}
 	}
+#endif
+
+#if CHECKME
+	// this might be the first place where timings are really important
+	// or is this too late?
 #endif
 
 	r = in->ops.dsi->set_config(in, &w677l_dsi_config);
 	if (r) {
 		dev_err(dev, "failed to configure DSI\n");
-		goto err0;
+		goto err;
 	}
 
 	r = in->ops.dsi->enable(in);
 	if (r) {
 		dev_err(dev, "failed to enable DSI\n");
-		goto err0;
+		goto err;
 	}
-
 
 	w677l_regulator(dssdev, 1);	// switch power on
 	msleep(50);
@@ -660,42 +686,41 @@ static int w677l_power_on(struct omap_dss_device *dssdev)
 	w677l_reset(dssdev, 1);	// release reset
 	msleep(10);
 
-
 	in->ops.dsi->enable_hs(in, ddata->pixel_channel, true);
 
 	r = w677l_write_sequence(dssdev, init_seq, ARRAY_SIZE(init_seq));
 	if (r) {
 		dev_err(dev, "failed to configure panel\n");
-		goto err;
+		goto cleanup;
 	}
 
 	msleep(20);
 
 	r = w677l_update_brightness(dssdev, 255);
 	if (r)
-		goto err;
+		goto cleanup;
 
 	r = w677l_write_sequence(dssdev, sleep_out, ARRAY_SIZE(sleep_out));
 	if (r)
-		goto err;
-
+		goto cleanup;
 
 	r = in->ops.dsi->enable_video_output(in, ddata->pixel_channel);
 	if (r)
-		goto err;
+		goto cleanup;
 
 	msleep(120);
 
 #if 0	// this is recommended by the latest data sheet
 	r = w677l_write_sequence(dssdev, display_on, ARRAY_SIZE(display_on));
 	if (r)
-		goto err;
+		goto cleanup;
 #endif
 	ddata->enabled = true;
 	printk("dsi: powered on()\n");
 
-	return r;
-err:
+	goto ok;
+
+cleanup:
 	printk("dsi: power on error\n");
 	dev_err(dev, "error while enabling panel, issuing HW reset\n");
 
@@ -705,43 +730,8 @@ err:
 	w677l_regulator(dssdev, 0);	// switch power off
 	mdelay(20);
 
-err0:
-	return r;
-}
-
-// we don't have a sophisticated power management (sending the panel to power off)
-// we simply stop the video stream and assert the RESET
-// please note that we don't/can't switch off the VCCIO
-
-static void w677l_power_off(struct omap_dss_device *dssdev)
-{
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
-
-	printk("dsi: w677l_power_off()\n");
-
-	ddata->enabled = 0;
-	in->ops.dsi->disable_video_output(in, ddata->pixel_channel);
-	in->ops.dsi->disable(in, false, false);
-	mdelay(10);
-	w677l_reset(dssdev, 0);	// activate reset
-	w677l_regulator(dssdev, 0);	// switch power off - after stopping video stream
-	mdelay(20);
-	/* here we can also power off IOVCC */
-}
-
-static int w677l_start(struct omap_dss_device *dssdev)
-{
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
-	int r = 0;
-
-	printk("dsi: w677l_start()\n");
-	mutex_lock(&ddata->lock);
-
-	in->ops.dsi->bus_lock(in);
-
-	r = w677l_power_on(dssdev);
+err:
+ok:
 
 	in->ops.dsi->bus_unlock(in);
 
@@ -755,47 +745,6 @@ static int w677l_start(struct omap_dss_device *dssdev)
 	return r;
 }
 
-static void w677l_stop(struct omap_dss_device *dssdev)
-{
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
-
-	printk("dsi: w677l_stop()\n");
-	mutex_lock(&ddata->lock);
-
-	in->ops.dsi->bus_lock(in);
-
-	w677l_power_off(dssdev);
-
-	in->ops.dsi->bus_unlock(in);
-
-	mutex_unlock(&ddata->lock);
-}
-
-static void w677l_disable(struct omap_dss_device *dssdev)
-{
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	printk("dsi: w677l_disable()\n");
-	dev_dbg(&ddata->pdev->dev, "disable\n");
-
-	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE)
-		w677l_stop(dssdev);
-
-	dssdev->state = OMAP_DSS_DISPLAY_DISABLED;
-}
-
-static int w677l_enable(struct omap_dss_device *dssdev)
-{
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	printk("dsi: w677l_enable()\n");
-	dev_dbg(&ddata->pdev->dev, "enable\n");
-
-	if (dssdev->state != OMAP_DSS_DISPLAY_DISABLED)
-		return -EINVAL;
-
-	return w677l_start(dssdev);
-}
-
 static struct omap_dss_driver w677l_ops = {
 	.connect	= w677l_connect,
 	.disconnect	= w677l_disconnect,
@@ -803,11 +752,7 @@ static struct omap_dss_driver w677l_ops = {
 	.enable		= w677l_enable,
 	.disable	= w677l_disable,
 
-	.get_resolution	= w677l_get_resolution,
-
 	.check_timings	= w677l_check_timings,
-	.set_timings	= w677l_set_timings,
-	.get_timings	= w677l_get_timings,
 };
 
 static int w677l_probe_of(struct platform_device *pdev)
@@ -819,19 +764,29 @@ static int w677l_probe_of(struct platform_device *pdev)
 
 	printk("dsi: w677l_probe_of()\n");
 
+	if (!node)
+		return -ENODEV;
+
 	gpio = of_get_gpio(node, 0);
+	if (gpio == -EPROBE_DEFER)
+		return -EPROBE_DEFER;
 	if (!gpio_is_valid(gpio)) {
 		dev_err(&pdev->dev, "failed to parse reset gpio (err=%d)\n", gpio);
 		return gpio;
 	}
 	ddata->reset_gpio = gpio;
 
+#if OPTIONAL
 	gpio = of_get_gpio(node, 1);
 	if (!gpio_is_valid(gpio)) {
 		dev_err(&pdev->dev, "failed to parse regulator gpio (err=%d)\n", gpio);
 		return gpio;
 	}
+
+	if (gpio == -EPROBE_DEFER)
+		return -EPROBE_DEFER;
 	ddata->regulator_gpio = gpio;
+#endif
 
 	ep = omapdss_of_find_source_for_first_ep(node);
 	if (IS_ERR(ep)) {
@@ -863,24 +818,23 @@ static int w677l_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, ddata);
 	ddata->pdev = pdev;
 
-	if (dev_get_platdata(dev)) {
-		r = -EINVAL /*w677l_probe_pdata(pdev)*/;
-		if (r)
-			return r;
-	} else if (pdev->dev.of_node) {
-		r = w677l_probe_of(pdev);
-		if (r)
-			return r;
-	} else {
-		return -ENODEV;
+	r = w677l_probe_of(pdev);
+	if (r) {
+		dev_err(dev, "Failed to probe %d\n", r);
+		return r;
 	}
 
+#if 1	// checkme if we need the timings here
 	ddata->vm = w677l_timings;
+#endif
 
 	dssdev = &ddata->dssdev;
 	dssdev->dev = dev;
 	dssdev->driver = &w677l_ops;
+
+#if 1	// checkme if we need the timings here
 	dssdev->panel.vm = w677l_timings;
+#endif
 	dssdev->type = OMAP_DISPLAY_TYPE_DSI;
 	dssdev->owner = THIS_MODULE;
 
@@ -889,37 +843,34 @@ static int w677l_probe(struct platform_device *pdev)
 	r = omapdss_register_display(dssdev);
 	if (r) {
 		dev_err(dev, "Failed to register controller\n");
-		goto err_reg;
+		return r;
 	}
 
 	mutex_init(&ddata->lock);
 
 	if (gpio_is_valid(ddata->reset_gpio)) {
-		r = devm_gpio_request_one(&pdev->dev, ddata->reset_gpio,
-								  GPIOF_DIR_OUT, "rotator reset");
+		r = devm_gpio_request_one(dev, ddata->reset_gpio,
+					  GPIOF_DIR_OUT, "panel reset");
 		if (r) {
 			dev_err(dev, "failed to request reset gpio (%d err=%d)\n", ddata->reset_gpio, r);
 			return r;
 		}
 	}
 
+#if OPTIONAL
 	if (gpio_is_valid(ddata->regulator_gpio)) {
 		r = devm_gpio_request_one(dev, ddata->regulator_gpio,
-								  GPIOF_DIR_OUT, "rotator DC/DC regulator");
+					  GPIOF_DIR_OUT, "panel DC/DC regulator");
 		if (r) {
 			dev_err(dev, "failed to request regulator gpio (%d err=%d)\n", ddata->regulator_gpio, r);
 			return r;
 		}
 	}
+#endif
 
 	printk("w677l_probe ok\n");
 
 	return 0;
-
-err_bl:
-	//	destroy_workqueue(ddata->workqueue);
-err_reg:
-	return r;
 }
 
 
