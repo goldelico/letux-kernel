@@ -407,6 +407,7 @@ static int w677l_connect(struct omap_dss_device *dssdev)
 	struct device *dev = &ddata->pdev->dev;
 	int r;
 	
+	printk("dsi: w677l_connect()\n");
 	if (omapdss_device_is_connected(dssdev))
 		return 0;
 	
@@ -459,6 +460,7 @@ static void w677l_disconnect(struct omap_dss_device *dssdev)
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
 	
+	printk("dsi: w677l_disconnect()\n");
 	if (!omapdss_device_is_connected(dssdev))
 		return;
 	
@@ -471,12 +473,14 @@ static void w677l_disconnect(struct omap_dss_device *dssdev)
 static void w677l_get_timings(struct omap_dss_device *dssdev,
 		struct omap_video_timings *timings)
 {
+	printk("dsi: w677l_get_timings()\n");
 	*timings = dssdev->panel.timings;
 }
 
 static void w677l_set_timings(struct omap_dss_device *dssdev,
 		struct omap_video_timings *timings)
 {
+	printk("dsi: w677l_set_timings()\n");
 	dssdev->panel.timings.x_res = timings->x_res;
 	dssdev->panel.timings.y_res = timings->y_res;
 	dssdev->panel.timings.pixelclock = timings->pixelclock;
@@ -491,12 +495,14 @@ static void w677l_set_timings(struct omap_dss_device *dssdev,
 static int w677l_check_timings(struct omap_dss_device *dssdev,
 		struct omap_video_timings *timings)
 {
+	printk("dsi: w677l_check_timings()\n");
 	return 0;
 }
 
 static void w677l_get_resolution(struct omap_dss_device *dssdev,
 		u16 *xres, u16 *yres)
 {
+	printk("dsi: w677l_get_resolution()\n");
 	*xres = dssdev->panel.timings.x_res;
 	*yres = dssdev->panel.timings.y_res;
 }
@@ -820,6 +826,8 @@ static int w677l_probe_of(struct platform_device *pdev)
 	printk("dsi: w677l_probe_of()\n");
 	
 	gpio = of_get_gpio(node, 0);
+	if (gpio == -EPROBE_DEFER)
+		return -EPROBE_DEFER;
 	if (!gpio_is_valid(gpio)) {
 		dev_err(&pdev->dev, "failed to parse reset gpio (err=%d)\n", gpio);
 		return gpio;
@@ -827,10 +835,14 @@ static int w677l_probe_of(struct platform_device *pdev)
 	ddata->reset_gpio = gpio;
 	
 	gpio = of_get_gpio(node, 1);
+/* make gpio optional
 	if (!gpio_is_valid(gpio)) {
 		dev_err(&pdev->dev, "failed to parse regulator gpio (err=%d)\n", gpio);
 		return gpio;
 	}
+*/
+	if (gpio == -EPROBE_DEFER)
+		return -EPROBE_DEFER;
 	ddata->regulator_gpio = gpio;
 	
 	ep = omapdss_of_find_source_for_first_ep(node);
@@ -895,8 +907,8 @@ static int w677l_probe(struct platform_device *pdev)
 	mutex_init(&ddata->lock);
 	
 	if (gpio_is_valid(ddata->reset_gpio)) {
-		r = devm_gpio_request_one(&pdev->dev, ddata->reset_gpio,
-								  GPIOF_DIR_OUT, "rotator reset");
+		r = devm_gpio_request_one(dev, ddata->reset_gpio,
+					  GPIOF_DIR_OUT, "rotator reset");
 		if (r) {
 			dev_err(dev, "failed to request reset gpio (%d err=%d)\n", ddata->reset_gpio, r);
 			return r;
@@ -905,7 +917,7 @@ static int w677l_probe(struct platform_device *pdev)
 	
 	if (gpio_is_valid(ddata->regulator_gpio)) {
 		r = devm_gpio_request_one(dev, ddata->regulator_gpio,
-								  GPIOF_DIR_OUT, "rotator DC/DC regulator");
+					  GPIOF_DIR_OUT, "rotator DC/DC regulator");
 		if (r) {
 			dev_err(dev, "failed to request regulator gpio (%d err=%d)\n", ddata->regulator_gpio, r);
 			return r;
