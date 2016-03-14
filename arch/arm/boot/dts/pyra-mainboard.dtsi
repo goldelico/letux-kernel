@@ -11,11 +11,6 @@
 / {
 	model = "Pyra-Handheld";
 
-	aliases {
-		display0 = &lcd;
-		display1 = &hdmi0;
-	};
-
 	/* common DC/DC converter for USB Host ports, Modem USB and HDMI 5V */
 	modem_vbus_hdmi_power: tps2505_reg {
 		compatible = "regulator-fixed";
@@ -132,15 +127,6 @@
 		#pwm-cells = <3>;
 	};
 
-};
-
-/* LCD panel - MIPI */
-
-&mipi_display_pins {
-	pinctrl-single,pins = <
-		OMAP5_IOPAD(0x124, PIN_OUTPUT_PULLUP | MUX_MODE6)	/* 0x124:[0:15] gpio6_162 - enable panel DC/DC */
-		OMAP5_IOPAD(0x10e, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x10c:[31:16] gpio6_176 - panel reset */
-		>;
 };
 
 /* add overlay pimmux for pyra on 5432evm */
