@@ -28,6 +28,11 @@ Required properties:
 	onsemi,pca9654
 	exar,xra1202
 
+Optional property:
+ - open-drain-pins: list of pin numbers (starting at 0)
+	which will be simulating open-drain outputs
+	(by swithing between input and output(0)).
+
 Example:
 
 
@@ -38,4 +43,5 @@ Example:
 		pinctrl-0 = <&pinctrl_pca9505>;
 		interrupt-parent = <&gpio3>;
 		interrupts = <23 IRQ_TYPE_LEVEL_LOW>;
+		open-drain-pins = <1 3 4>;
 	};
