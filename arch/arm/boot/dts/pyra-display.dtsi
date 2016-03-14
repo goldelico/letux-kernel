@@ -6,33 +6,42 @@
  * published by the Free Software Foundation.
  */
 
-&lcd {
-	/* default to be overwritten by specific panel in derived board file
-	   by using the /root/panelselect script */
+/* LCD panel - MIPI */
 
-	compatible = "mipi,debug";
+&mipi_display_pins {
+	pinctrl-single,pins = <
+		OMAP5_IOPAD(0x124, PIN_OUTPUT_PULLUP | MUX_MODE6)	/* 0x124:[0:15] gpio6_162 - enable panel DC/DC */
+		OMAP5_IOPAD(0x10e, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x10c:[31:16] gpio6_176 - panel reset */
+		>;
+};
+
+&lcd {
 #if 0
 	compatible = "boe,btl507212-w677l";
+	gpios = <&gpio6 16 0>;	/* goip6_176 = panel reset */
+#else
+	compatible = "mipi,debug";
+	gpios = <&gpio6 16 0>,	/* goip6_176 = panel reset */
+		<&gpio6 2 0>;	/* gpio6_162 = enable ssd and disable DCS bypass */
 #endif
-	gpios =
-		<&gpio6 16 0>,	/* goip6_176 = panel reset */
-		<&gpio6 2 0>;	/* gpio6_162 = enable DC/DC */
 };
 
 #if 0
 
-/* splice ssd2858 driver into display pipeline */
+/* splice ssd2858 encoder into display pipeline */
 
 / {
-	ssd: encoder {
+	rotator: ssd2858 {
 		compatible = "solomon-systech,ssd2858";
-		gpios =
-			<&gpio6 2 0>;	/* gpio6_162 = enable ssd and disable DCS bypass */
+		gpios = <&gpio6 2 0>;	/* gpio6_162 = enable ssd and disable DCS bypass */
+
 		xtal-freq-mhz = <24000000>;
 		rotate = <270>;
+
 		ports {
 			#address-cells = <1>;
 			#size-cells = <0>;
+
 			port@0 {
 				reg = <0>;
 				ssd_in: endpoint@0 {
@@ -41,7 +50,7 @@
 			};
 
 			port@1 {
-				reg = <1>;
+				reg = <0>;
 				ssd_out: endpoint@0 {
 					remote-endpoint = <&lcd_in>;
 				};
