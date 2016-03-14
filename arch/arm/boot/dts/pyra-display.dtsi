@@ -18,26 +18,30 @@
 &lcd {
 #if 0
 	compatible = "boe,btl507212-w677l";
+	gpios = <&gpio6 16 0>;	/* goip6_176 = panel reset */
+#else
+	compatible = "mipi,debug";
+	gpios = <&gpio6 16 0>,	/* goip6_176 = panel reset */
+		<&gpio6 2 0>;	/* gpio6_162 = enable ssd and disable DCS bypass */
 #endif
-	gpios =
-		<&gpio6 16 0>,	/* goip6_176 = panel reset */
-		<&gpio6 2 0>;	/* gpio6_162 = enable DC/DC */
 };
 
 #if 0
 
-/* splice ssd2858 driver into display pipeline */
+/* splice ssd2858 encoder into display pipeline */
 
 / {
-	ssd: encoder {
+	rotator: ssd2858 {
 		compatible = "solomon-systech,ssd2858";
-		gpios =
-			<&gpio6 2 0>;	/* gpio6_162 = enable ssd and disable DCS bypass */
+		gpios = <&gpio6 2 0>;	/* gpio6_162 = enable ssd and disable DCS bypass */
+
 		xtal-freq-mhz = <24000000>;
 		rotate = <270>;
+
 		ports {
 			#address-cells = <1>;
 			#size-cells = <0>;
+
 			port@0 {
 				reg = <0>;
 				ssd_in: endpoint@0 {
@@ -46,7 +50,7 @@
 			};
 
 			port@1 {
-				reg = <1>;
+				reg = <0>;
 				ssd_out: endpoint@0 {
 					remote-endpoint = <&lcd_in>;
 				};
