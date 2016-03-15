@@ -694,70 +694,70 @@
 
 		left_shoulder_bottom {
 			label = "Left-Shoulder-Bottom";
-			linux,code = <16>;	/* KEY_Q */
+			linux,code = <79>;	/* KEY_KP1 */
 			gpios = <&gpio1 7 GPIO_ACTIVE_LOW>;	/* gpio1_wk7 */
 			gpio-key,wakeup;
 		};
 
 		left_shoulder_top {
 			label = "Left-Shoulder-Top";
-			linux,code = <44>;	/* KEY_Z */
+			linux,code = <71>;	/* KEY_KP7 */
 			gpios = <&gpio6 23 GPIO_ACTIVE_LOW>;	/* gpio6_183 */
 			gpio-key,wakeup;
 		};
 
 		right_shoulder_bottom {
 			label = "Right-Shoulder-Bottom";
-			linux,code = <25>;	/* KEY_P */
+			linux,code = <81>;	/* KEY_KP3 */
 			gpios = <&gpio6 20 GPIO_ACTIVE_LOW>;	/* gpio6_180 */
 			gpio-key,wakeup;
 		};
 
 		right_shoulder_top {
 			label = "Right-Shoulder-Top";
-			linux,code = <50>;	/* KEY_M */
+			linux,code = <73>;	/* KEY_KP9 */
 			gpios = <&gpio6 19 GPIO_ACTIVE_LOW>;	/* gpio6_179 */
 			gpio-key,wakeup;
 		};
 
 		left_nub {
 			label = "Left-Nub";
-			linux,code = <38>;	/* KEY_L */
+			linux,code = <76>;	/* KEY_KP5 */
 			gpios = <&gpio6 27 GPIO_ACTIVE_LOW>;	/* gpio6_187 */
 			gpio-key,wakeup;
 		};
 
 		right_nub {
 			label = "Right-Nub";
-			linux,code = <19>;	/* KEY_R */
+			linux,code = <82>;	/* KEY_KP0 */
 			gpios = <&gpio6 21 GPIO_ACTIVE_LOW>;	/* gpio6_181 */
 			gpio-key,wakeup;
 		};
 
 		button_a {
 			label = "A";
-			linux,code = <30>;	/* KEY_A */
+			linux,code = <75>;	/* KEY_KP4 */
 			gpios = <&gpio7 7 GPIO_ACTIVE_LOW>;	/* gpio7_199 */
 			gpio-key,wakeup;
 		};
 
 		button_b {
 			label = "B";
-			linux,code = <48>;	/* KEY_B */
+			linux,code = <77>;	/* KEY_KP6 */
 			gpios = <&gpio7 4 GPIO_ACTIVE_LOW>;	/* gpio7_196 */
 			gpio-key,wakeup;
 		};
 
 		button_x {
 			label = "X";
-			linux,code = <45>;	/* KEY_X */
+			linux,code = <80>;	/* KEY_KP2 */
 			gpios = <&gpio7 6 GPIO_ACTIVE_LOW>;	/* gpio7_198 */
 			gpio-key,wakeup;
 		};
 
 		button_y {
 			label = "Y";
-			linux,code = <21>;	/* KEY_Y */
+			linux,code = <72>;	/* KEY_KP8 */
 			gpios = <&gpio7 5 GPIO_ACTIVE_LOW>;	/* gpio7_197 */
 			gpio-key,wakeup;
 		};
@@ -770,8 +770,8 @@
 		#size-cells = <0>;
 
 		wwan_wakeup {
-			label = "3G WOE";
-			linux,code = <17>;	/* KEY_W */
+			label = "WWAN Wakeup";
+			linux,code = <240>;	/* KEY_UNKNOWN */
 			pinctrl-names = "default";
 			pinctrl-0 = <&wwan_pins>;
 			gpios = <&gpio1 15 GPIO_ACTIVE_HIGH>;	/* gpio1_wk15 */
