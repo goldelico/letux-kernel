@@ -82,19 +82,6 @@
 		NIMP-vbus-supply = <&modem_vbus_hdmi_power>;	/* apply VBUS to the modem */
 	};
 
-/*	mic_presence {
-/* FIXME: a dedicated TS3A225 driver can reprogram the MIC_PRESENT line through I2C into an INT so we can detect other changes (e.g. mic button pressed) * /
-		compatible = "extcon-gpio";
-		label = "mic_presence";
-		interrupt-parent = <&gpio99>;
-		interrupts = <14 IRQ_TYPE_EDGE_BOTH>;
-		irq-flags = <IRQ_TYPE_EDGE_BOTH>;
-		gpios = <&gpio99 14 GPIO_ACTIVE_LOW>;
-		// debounce-delay-ms = <10>; -- not available at tca6424
-		state-on = "present";
-		state-off = "unplugged";
-	}; */
-
 	backlight {
 		compatible = "pwm-backlight";
 		pwms = <&pwm9 0 2000000 0>;
