@@ -223,7 +223,7 @@
 			OMAP5_IOPAD(0x12c, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x12C:[15:0]  gpio6_161 - TCA6424 active low interrupt */
 
 /* next should be outputs and controlled by some driver (e.g. regulator-fixed) */
-			OMAP5_IOPAD(0x128, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x128:[15:0]  gpio6_165 - Speaker EN */
+			OMAP5_IOPAD(0x128, PIN_INPUT_PULLDOWN | MUX_MODE6)	/* 0x128:[15:0]  gpio6_165 - Speaker EN */
 
 /* gpio 5_167-168 = uart3 Pyra console - is handled by MLO! */
 			OMAP5_IOPAD(0x11c, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x11C:[15:0]  gpio6_169 - Accelerometer interrupt */
