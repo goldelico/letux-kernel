@@ -779,9 +779,12 @@
 /* register devices connected to System-I2C */
 &i2c4 {
 	/* microphone detect */
-	ts3a225@3b {
-		compatible = "ti,ts3a225";
+	ts3a22x@3b {
+		compatible = "ti,ts3a225e";
 		reg = <0x3b>;
+//		interrupt-parent = <&gpio99>;
+//		interrupts = <x IRQ_TYPE_LEVEL_LOW>;
+		ti,micbias = <0>;	/* 2.1V */
 	};
 
 	/* system/keyboard-led and other controls */
