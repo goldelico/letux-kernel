@@ -720,6 +720,24 @@
 		ti,chg_current = <1000 500 2000>;	// chg_current (max for the battery), usb_input_current, adp_input_current
 		gpios = <&gpio99 11 0>,		// chg_irq_pin
 			<0>;			// dc_det_pin - if 0, charger is switched by driver to 2048mA, otherwise 512mA
+		regulators {
+			vsys_reg: vsys_regulator {
+				/* add information */
+				regulator-compatible = "bq2429x-vsys";
+				regulator-name = "vsys";
+//				regulator-min-microvolt = <3700000>;
+//				regulator-max-microvolt = <3700000>;
+				regulator-always-on;
+				regulator-boot-on;
+			};
+			otg_reg: otg_regulator {
+				/* add information */
+				regulator-compatible = "bq2429x-otg";
+				regulator-name = "otg";
+//				regulator-min-microvolt = <5000000>;
+//				regulator-max-microvolt = <5000000>;
+			};
+		};
 	};
 
 };
