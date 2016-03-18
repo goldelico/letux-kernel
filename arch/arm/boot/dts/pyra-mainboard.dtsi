@@ -694,28 +694,28 @@
 
 		left_shoulder_bottom {
 			label = "Left-Shoulder-Bottom";
-			linux,code = <79>;	/* KEY_KP1 */
+			linux,code = <54>;	/* KEY_RSHIFT */
 			gpios = <&gpio1 7 GPIO_ACTIVE_LOW>;	/* gpio1_wk7 */
 			gpio-key,wakeup;
 		};
 
 		left_shoulder_top {
 			label = "Left-Shoulder-Top";
-			linux,code = <71>;	/* KEY_KP7 */
+			linux,code = <126>;	/* KEY_RMETA */
 			gpios = <&gpio6 23 GPIO_ACTIVE_LOW>;	/* gpio6_183 */
 			gpio-key,wakeup;
 		};
 
 		right_shoulder_bottom {
 			label = "Right-Shoulder-Bottom";
-			linux,code = <81>;	/* KEY_KP3 */
+			linux,code = <97>;	/* KEY_RCTRL */
 			gpios = <&gpio6 20 GPIO_ACTIVE_LOW>;	/* gpio6_180 */
 			gpio-key,wakeup;
 		};
 
 		right_shoulder_top {
 			label = "Right-Shoulder-Top";
-			linux,code = <73>;	/* KEY_KP9 */
+			linux,code = <100>;	/* KEY_RALT */
 			gpios = <&gpio6 19 GPIO_ACTIVE_LOW>;	/* gpio6_179 */
 			gpio-key,wakeup;
 		};
@@ -736,28 +736,28 @@
 
 		button_a {
 			label = "A";
-			linux,code = <75>;	/* KEY_KP4 */
+			linux,code = <102>;	/* KEY_HOME */
 			gpios = <&gpio7 7 GPIO_ACTIVE_LOW>;	/* gpio7_199 */
 			gpio-key,wakeup;
 		};
 
 		button_b {
 			label = "B";
-			linux,code = <77>;	/* KEY_KP6 */
+			linux,code = <107>;	/* KEY_END */
 			gpios = <&gpio7 4 GPIO_ACTIVE_LOW>;	/* gpio7_196 */
 			gpio-key,wakeup;
 		};
 
 		button_x {
 			label = "X";
-			linux,code = <80>;	/* KEY_KP2 */
+			linux,code = <109>;	/* KEY_PGDOWN */
 			gpios = <&gpio7 6 GPIO_ACTIVE_LOW>;	/* gpio7_198 */
 			gpio-key,wakeup;
 		};
 
 		button_y {
 			label = "Y";
-			linux,code = <72>;	/* KEY_KP8 */
+			linux,code = <104>;	/* KEY_PGUP */
 			gpios = <&gpio7 5 GPIO_ACTIVE_LOW>;	/* gpio7_197 */
 			gpio-key,wakeup;
 		};
