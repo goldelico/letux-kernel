@@ -6,6 +6,8 @@
  * published by the Free Software Foundation.
  */
 
+#include <dt-bindings/input/input.h>
+
 /* overwrite device model */
 
 / {
@@ -694,70 +696,70 @@
 
 		left_shoulder_bottom {
 			label = "Left-Shoulder-Bottom";
-			linux,code = <54>;	/* KEY_RSHIFT */
+			linux,code = <KEY_RIGHTSHIFT>;
 			gpios = <&gpio1 7 GPIO_ACTIVE_LOW>;	/* gpio1_wk7 */
 			gpio-key,wakeup;
 		};
 
 		left_shoulder_top {
 			label = "Left-Shoulder-Top";
-			linux,code = <126>;	/* KEY_RMETA */
+			linux,code = <KEY_RIGHTMETA>;
 			gpios = <&gpio6 23 GPIO_ACTIVE_LOW>;	/* gpio6_183 */
 			gpio-key,wakeup;
 		};
 
 		right_shoulder_bottom {
 			label = "Right-Shoulder-Bottom";
-			linux,code = <97>;	/* KEY_RCTRL */
+			linux,code = <KEY_RIGHTCTRL>;
 			gpios = <&gpio6 20 GPIO_ACTIVE_LOW>;	/* gpio6_180 */
 			gpio-key,wakeup;
 		};
 
 		right_shoulder_top {
 			label = "Right-Shoulder-Top";
-			linux,code = <100>;	/* KEY_RALT */
+			linux,code = <KEY_RIGHTALT>;
 			gpios = <&gpio6 19 GPIO_ACTIVE_LOW>;	/* gpio6_179 */
 			gpio-key,wakeup;
 		};
 
 		left_nub {
 			label = "Left-Nub";
-			linux,code = <76>;	/* KEY_KP5 */
+			linux,code = <KEY_KP5>;
 			gpios = <&gpio6 27 GPIO_ACTIVE_LOW>;	/* gpio6_187 */
 			gpio-key,wakeup;
 		};
 
 		right_nub {
 			label = "Right-Nub";
-			linux,code = <82>;	/* KEY_KP0 */
+			linux,code = <KEY_KP0>;
 			gpios = <&gpio6 21 GPIO_ACTIVE_LOW>;	/* gpio6_181 */
 			gpio-key,wakeup;
 		};
 
 		button_a {
 			label = "A";
-			linux,code = <102>;	/* KEY_HOME */
+			linux,code = <KEY_HOME>;
 			gpios = <&gpio7 7 GPIO_ACTIVE_LOW>;	/* gpio7_199 */
 			gpio-key,wakeup;
 		};
 
 		button_b {
 			label = "B";
-			linux,code = <107>;	/* KEY_END */
+			linux,code = <KEY_END>;
 			gpios = <&gpio7 4 GPIO_ACTIVE_LOW>;	/* gpio7_196 */
 			gpio-key,wakeup;
 		};
 
 		button_x {
 			label = "X";
-			linux,code = <109>;	/* KEY_PGDOWN */
+			linux,code = <KEY_PAGEDOWN>;
 			gpios = <&gpio7 6 GPIO_ACTIVE_LOW>;	/* gpio7_198 */
 			gpio-key,wakeup;
 		};
 
 		button_y {
 			label = "Y";
-			linux,code = <104>;	/* KEY_PGUP */
+			linux,code = <KEY_PAGEUP>;
 			gpios = <&gpio7 5 GPIO_ACTIVE_LOW>;	/* gpio7_197 */
 			gpio-key,wakeup;
 		};
@@ -771,7 +773,7 @@
 
 		wwan_wakeup {
 			label = "WWAN Wakeup";
-			linux,code = <240>;	/* KEY_UNKNOWN */
+			linux,code = <KEY_UNKNOWN>;
 			pinctrl-names = "default";
 			pinctrl-0 = <&wwan_pins>;
 			gpios = <&gpio1 15 GPIO_ACTIVE_HIGH>;	/* gpio1_wk15 */
@@ -783,8 +785,8 @@
 			label = "Display Lid";
 			pinctrl-names = "default";
 			pinctrl-0 = <&lid_pin>;
-			linux,input-type = <5>; /* EV_SW */
-			linux,code = <0>; /* SW_LID */
+			linux,input-type = <EV_SW>;
+			linux,code = <SW_LID>;
 			gpios = <&gpio1 6 GPIO_ACTIVE_LOW>;	/* gpio1_wk6 */
 			gpio-key,wakeup;
 		};
