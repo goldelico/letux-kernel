@@ -416,7 +416,7 @@
 
 		compatible = "ti,txs02612";
 		mmc = <&mmc2>;
-		select-gpio = <&gpio3 18 0>;	/* gpio3_82 */
+		select-gpio = <&gpio2 0 0>;	/* gpio2_32 soft-select */
 
 		#address-cells = <1>;
 		#size-cells = <0>;
