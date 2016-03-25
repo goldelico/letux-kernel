@@ -38,6 +38,8 @@
 		xtal-freq-mhz = <24000000>;
 		rotate = <270>;
 
+		te-scanline = <360>;
+
 		ports {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -222,7 +224,7 @@
 		pinctrl-0 = <&ssd2858_vsync_pins>;
 		/delete-property/ interrupts;
 		interrupts-extended = <&wakeupgen GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>,
-			     <&gpio6 29 0>; 	/* gpio6_189 */
-		desired-scanline = <360>;
+			     <&gpio6 29 IRQ_TYPE_EDGE_RISING>; 	/* gpio6_189 */
+		te-scanline = <360>;
 	};
 };
