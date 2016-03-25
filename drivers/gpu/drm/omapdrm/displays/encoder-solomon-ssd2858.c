@@ -144,6 +144,9 @@ struct panel_drv_data {
 	bool rotate;	/* rotate by 90 degrees */
 	int flip;	/* flip code */
 
+	u16 tearline;
+	bool tear;	/* enable tearing impulse */
+
 	int config_channel;
 	int pixel_channel;
 };
@@ -1193,9 +1196,10 @@ static int ssd2858_power_on(struct omap_dss_device *dssdev)
 
 	/* some more DCS */
 
-	ssd2858_write_cmd1(dssdev, MIPI_DCS_SET_TEAR_ON, 0x02);
-
-	ssd2858_write_cmd2(dssdev, MIPI_DCS_SET_TEAR_SCANLINE, ssd2858_timings.y_res >> 8, ssd2858_timings.y_res >> 0);
+	if (ddata->tear) {
+		ssd2858_write_cmd1(dssdev, MIPI_DCS_SET_TEAR_ON, 0x02);
+		ssd2858_write_cmd2(dssdev, MIPI_DCS_SET_TEAR_SCANLINE, ddata->tearline >> 8, ddata->tearline >> 0);
+	}
 
 	if (ddata->flip)
 		ssd2858_write_cmd1(dssdev, MIPI_DCS_SET_ADDRESS_MODE, ddata->flip);
@@ -1518,6 +1522,11 @@ static int ssd2858_probe_of(struct platform_device *pdev)
 		ddata->flip ^= MIPI_DCS_SET_ADDRESS_MODE_HFLIP;
 	if (of_property_read_bool(node, "flip-y"))
 		ddata->flip ^= MIPI_DCS_SET_ADDRESS_MODE_VFLIP;
+
+	if (of_property_read_u32(node, "te-scanline", &val32)) {
+		ddata->tearline = val32;
+		ddata->tear = true;
+	}
 
 #if LOG
 	printk("rotate = %d flip = 0x%02x\n", ddata->rotate, ddata->flip);
