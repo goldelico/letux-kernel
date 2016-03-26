@@ -295,29 +295,29 @@
 
 	/* keyboard scanner */
 	tca8418@34 {
-		compatible = "ti,tca8418";	/* this translates into request_module("i2c:tca8418")
-									   so it must be known as a MODULE_ALIAS to modprobe -c */
+		compatible = "ti,tca8418";
 		reg = <0x34>;
-		/* the interrupt is specified as:
-			The first cell is the GPIO number.
-			The second cell is used to specify flags:
-			bits[3:0] trigger type and level flags:
-				1 = low-to-high edge triggered.
-				2 = high-to-low edge triggered.
-				4 = active high level-sensitive.
-				8 = active low level-sensitive.
-		 */
 		interrupt-parent = <&gpio6>;
 		interrupts = <17 IRQ_TYPE_EDGE_RISING>;	/* gpio6_177 low-to-high edge */
 		keypad,num-rows = <8>;
 		keypad,num-columns = <10>;
 		linux,keymap = <
-			MATRIX_KEY(3, 6, KEY_F1)
-			MATRIX_KEY(2, 3, KEY_F2)
-			MATRIX_KEY(2, 4, KEY_F11)
-			MATRIX_KEY(1, 8, KEY_F12)
-			MATRIX_KEY(1, 2, KEY_F3)
-			MATRIX_KEY(7, 1, KEY_F4)
+			/* top row */
+			MATRIX_KEY(3, 6, KEY_ESC)
+			MATRIX_KEY(2, 3, KEY_PAUSE)
+			MATRIX_KEY(1, 2, KEY_BRIGHTNESSUP)
+			MATRIX_KEY(7, 1, KEY_F11)
+
+			/* center column */
+			MATRIX_KEY(2, 4, KEY_LEFTALT)
+			MATRIX_KEY(2, 0, KEY_LEFTCTRL)
+			MATRIX_KEY(1, 0, KEY_MENU)
+
+			/* ABXY extension */
+			MATRIX_KEY(4, 9, KEY_INSERT)
+			MATRIX_KEY(1, 9, KEY_DELETE)
+
+			/* digits row */
 			MATRIX_KEY(7, 3, KEY_1)
 			MATRIX_KEY(6, 7, KEY_2)
 			MATRIX_KEY(6, 1, KEY_3)
@@ -327,8 +327,10 @@
 			MATRIX_KEY(3, 7, KEY_7)
 			MATRIX_KEY(3, 5, KEY_8)
 			MATRIX_KEY(2, 5, KEY_9)
-			MATRIX_KEY(1, 7, KEY_0)
+			MATRIX_KEY(1, 5, KEY_0)
 			MATRIX_KEY(7, 2, KEY_BACKSPACE)
+
+			/* TAB row */
 			MATRIX_KEY(5, 3, KEY_TAB)
 			MATRIX_KEY(6, 4, KEY_Q)
 			MATRIX_KEY(5, 8, KEY_W)
@@ -341,7 +343,9 @@
 			MATRIX_KEY(1, 6, KEY_O)
 			MATRIX_KEY(0, 5, KEY_P)
 			MATRIX_KEY(0, 4, KEY_ENTER)
-			MATRIX_KEY(4, 0, KEY_LEFTSHIFT)
+
+			/* middle letter row */
+			MATRIX_KEY(4, 0, KEY_APOSTROPHE)
 			MATRIX_KEY(5, 6, KEY_A)
 			MATRIX_KEY(4, 1, KEY_S)
 			MATRIX_KEY(4, 4, KEY_D)
@@ -351,7 +355,9 @@
 			MATRIX_KEY(1, 3, KEY_J)
 			MATRIX_KEY(1, 4, KEY_K)
 			MATRIX_KEY(0, 8, KEY_L)
-			MATRIX_KEY(0, 2, KEY_RIGHTSHIFT)
+			MATRIX_KEY(3, 0, KEY_LEFTSHIFT)
+
+			/* bottom letter row */
 			MATRIX_KEY(7, 6, KEY_COMMA)
 			MATRIX_KEY(6, 3, KEY_DOT)
 			MATRIX_KEY(5, 7, KEY_Z)
@@ -361,26 +367,9 @@
 			MATRIX_KEY(3, 3, KEY_B)
 			MATRIX_KEY(2, 7, KEY_N)
 			MATRIX_KEY(7, 4, KEY_M)
-			MATRIX_KEY(1, 5, KEY_SPACE)
+			MATRIX_KEY(0, 6, KEY_SPACE)
 			MATRIX_KEY(0, 7, KEY_SPACE)
-			MATRIX_KEY(0, 0, KEY_RIGHTALT)
-			MATRIX_KEY(1, 9, KEY_LEFT)
-			MATRIX_KEY(3, 9, KEY_RIGHT)
-			MATRIX_KEY(0, 9, KEY_UP)
-			MATRIX_KEY(2, 9, KEY_DOWN)
-			MATRIX_KEY(5, 9, KEY_HOME)
-			MATRIX_KEY(7, 9, KEY_END)
-			MATRIX_KEY(4, 9, KEY_PAGEUP)
-			MATRIX_KEY(6, 9, KEY_PAGEDOWN)
-			MATRIX_KEY(3, 0, KEY_LEFTALT)
-			MATRIX_KEY(2, 0, KEY_LEFTCTRL)
-			MATRIX_KEY(1, 0, KEY_ESC)
-			MATRIX_KEY(0, 1, KEY_RIGHTSHIFT)
-			MATRIX_KEY(1, 1, KEY_KPPLUS)
-			MATRIX_KEY(3, 1, KEY_RIGHTCTRL)
-			MATRIX_KEY(2, 1, KEY_KPMINUS)
-			MATRIX_KEY(7, 0, KEY_INSERT)
-			MATRIX_KEY(6, 0, KEY_DELETE)
+			MATRIX_KEY(0, 0, KEY_LEFTMETA)
 		>;
 	};
 
@@ -722,14 +711,14 @@
 
 		left_nub {
 			label = "Left-Nub";
-			linux,code = <KEY_KP5>;
+			linux,code = <BTN_RIGHT>;
 			gpios = <&gpio6 27 GPIO_ACTIVE_LOW>;	/* gpio6_187 */
 			gpio-key,wakeup;
 		};
 
 		right_nub {
 			label = "Right-Nub";
-			linux,code = <KEY_KP0>;
+			linux,code = <BTN_LEFT>;
 			gpios = <&gpio6 21 GPIO_ACTIVE_LOW>;	/* gpio6_181 */
 			gpio-key,wakeup;
 		};
@@ -759,6 +748,34 @@
 			label = "Y";
 			linux,code = <KEY_PAGEUP>;
 			gpios = <&gpio7 5 GPIO_ACTIVE_LOW>;	/* gpio7_197 */
+			gpio-key,wakeup;
+		};
+
+		dpad_left {
+			label = "LEFT";
+			linux,code = <KEY_LEFT>;
+			gpios = <&gpio5 13 GPIO_ACTIVE_LOW>;	/* gpio5_141 */
+			gpio-key,wakeup;
+		};
+
+		dpad_up {
+			label = "UP";
+			linux,code = <KEY_UP>;
+			gpios = <&gpio5 12 GPIO_ACTIVE_LOW>;	/* gpio5_140 */
+			gpio-key,wakeup;
+		};
+
+		dpad_right {
+			label = "RIGHT";
+			linux,code = <KEY_RIGHT>;
+			gpios = <&gpio5 15 GPIO_ACTIVE_LOW>;	/* gpio5_143 */
+			gpio-key,wakeup;
+		};
+
+		dpad_down {
+			label = "DOWN";
+			linux,code = <KEY_DOWN>;
+			gpios = <&gpio5 14 GPIO_ACTIVE_LOW>;	/* gpio5_142 */
 			gpio-key,wakeup;
 		};
 	};
