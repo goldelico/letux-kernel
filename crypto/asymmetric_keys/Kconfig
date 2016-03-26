@@ -12,7 +12,6 @@ if ASYMMETRIC_KEY_TYPE
 config ASYMMETRIC_PUBLIC_KEY_SUBTYPE
 	tristate "Asymmetric public-key crypto algorithm subtype"
 	select MPILIB
-	select PUBLIC_KEY_ALGO_RSA
 	select CRYPTO_HASH_INFO
 	help
 	  This option provides support for asymmetric public key type handling.
@@ -20,18 +19,11 @@ config ASYMMETRIC_PUBLIC_KEY_SUBTYPE
 	  appropriate hash algorithms (such as SHA-1) must be available.
 	  ENOPKG will be reported if the requisite algorithm is unavailable.
 
-config PUBLIC_KEY_ALGO_RSA
-	tristate "RSA public-key algorithm"
-	select MPILIB
-	help
-	  This option enables support for the RSA algorithm (PKCS#1, RFC3447).
-
 config X509_CERTIFICATE_PARSER
 	tristate "X.509 certificate parser"
 	depends on ASYMMETRIC_PUBLIC_KEY_SUBTYPE
 	select ASN1
 	select OID_REGISTRY
-	select SYSTEM_TRUSTED_KEYRING	# compare https://groups.google.com/forum/#!msg/linux.kernel/KsPIrfsdb9w/ynDohizZNw4J
 	help
 	  This option provides support for parsing X.509 format blobs for key
 	  data and provides the ability to instantiate a crypto key from a
