@@ -421,7 +421,7 @@ static void do_notify(struct twl4030_usb *twl,
 				   twl->phy.otg->gadget);
 }
 
-static int twl4030_usb_runtime_suspend(struct device *dev)
+static int __maybe_unused twl4030_usb_runtime_suspend(struct device *dev)
 {
 	struct twl4030_usb *twl = dev_get_drvdata(dev);
 
@@ -435,7 +435,7 @@ static int twl4030_usb_runtime_suspend(struct device *dev)
 	return 0;
 }
 
-static int twl4030_usb_runtime_resume(struct device *dev)
+static int __maybe_unused twl4030_usb_runtime_resume(struct device *dev)
 {
 	struct twl4030_usb *twl = dev_get_drvdata(dev);
 	int res;
