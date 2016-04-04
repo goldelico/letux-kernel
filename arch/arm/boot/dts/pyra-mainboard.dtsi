@@ -281,16 +281,16 @@
 	as5013@40 {
 		compatible = "ams,as5013";
 		reg = <0x40>;
-		// gpios = <&gpio...>, <&gpio>;
-		// irq
+		interrupt-parent = <&gpio6>;
+		interrupts = <15 IRQ_TYPE_EDGE_RISING>;	/* gpio6_175 low-to-high edge */
 	};
 
 	/* right nub */
 	as5013@41 {
 		compatible = "ams,as5013";
 		reg = <0x41>;
-		// gpios = <&gpio...>, <&gpio>;
-		// irq
+		interrupt-parent = <&gpio6>;
+		interrupts = <14 IRQ_TYPE_EDGE_RISING>;	/* gpio6_174 low-to-high edge */
 	};
 
 	/* keyboard scanner */
