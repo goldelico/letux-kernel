@@ -143,57 +143,25 @@
 
 	backlight {
 		compatible = "pwm-backlight";
-		pwms = <&pwm 0 2000000>;
+		pwms = <&pwm9 0 2000000 0>;
 		pwm-names = "backlight";
 		brightness-levels = <0 11 20 30 40 50 60 70 80 90 100>;
 		default-brightness-level = <9>;	/* => 90 */
-//		pinctrl-names = "default";
-//		pinctrl-0 = <&backlight_pins>;
-//		power-supply = <&vdd_bl_reg>;
-		enable-gpios = <&gpio6 30 0>;	/* GPT9/PWM gpio6_190 */
+		pinctrl-names = "default";
+		pinctrl-0 = <&backlight_pins>;
 	};
 
-	pwm: omap_pwm {
-		compatible = "ti,omap-pwm";
-		timers = <&timer9>;
-		#pwm-cells = <2>;
+	pwm9: dmtimer-pwm@9 {
+		compatible = "ti,omap-dmtimer-pwm";
+		ti,timers = <&timer9>;
+		#pwm-cells = <3>;
 	};
 
 };
 
-&palmas {
-	palmas_pwr_button: pwrbutton {
-		compatible = "ti,palmas-pwrbutton";
-		interrupt-parent = <&palmas>;
-		interrupts = <1 IRQ_TYPE_EDGE_FALLING>;
-		ti,palmas-long-press-seconds = <8>;
-		ti,palmas-pwron-debounce-milli-seconds = <15>;
-	};
-	palmas_gpadc: gpadc {
-		compatible = "ti,palmas-gpadc";
-/*		ti,ch0_current = 0;
-		ti,ch3_current = 0;
-		ti,bat_removal = 0;
-		ti,start_polarity = 0; */
-	};
-
-	extcon_usb3: palmas_usb {
-		compatible = "ti,palmas-usb-vid";
-		ti,enable-vbus-detection;
-		ti,enable-id-detection;
-		ti,wakeup;
-	};
-
-	rtc {
-		compatible = "ti,palmas-rtc";
-		interrupt-parent = <&palmas>;
-		interrupts = <8 IRQ_TYPE_NONE>;
-	};
-};
-
-&usb3 {
-       extcon = <&extcon_usb3>;
-       vbus-supply = <&smps10_out1_reg>;
+&palmas_power_button {
+	ti,palmas-long-press-seconds = <8>;
+	ti,palmas-pwron-debounce-milli-seconds = <15>;
 };
 
 /* Audio routing */
@@ -220,20 +188,6 @@
 
 /* Audio needs clock enabled */
 
-/ { /* should better be moved to omap5.dtsi because it is of general interest */
-	ocp {
-		omap5_control_ckobuffer: pinmux@4ae0cdb4 {
-			compatible = "ti,omap5-padconf", "pinctrl-single";
-			reg = <0x4ae0cdb4 4>;   /* Single register */
-			#address-cells = <1>;
-			#size-cells = <0>;
-			pinctrl-single,register-width = <32>;
-			pinctrl-single,function-mask = <0xf0000000>;
-//			pinctrl-single,bit-per-mux;
-		};
-	};
-};
-
 &omap5_control_ckobuffer {
 	ckobuffer: pinmux_ckobuffer {
 		pinctrl-single,pins = <
@@ -256,6 +210,16 @@
 			remote-endpoint = <&dsi1>;
 		};
 	};
+
+	dispc@58001000 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&ssd2858_vsync_pins>;
+		/delete-property/ interrupts;
+		interrupts-extended = <&wakeupgen GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>,
+			     <&gpio6 29 0>; 	/* gpio6_189 */
+		desired-scanline = <360>;
+	};
+
 };
 
 &dsi1 {
@@ -398,7 +362,6 @@
 		pinctrl-single,pins = <
 			OMAP5_IOPAD(0x122, PIN_OUTPUT_PULLUP | MUX_MODE6)	/* 0x120:[31:16] gpio6_166 - enable panel DC/DC */
 			OMAP5_IOPAD(0x0ca, PIN_INPUT_PULLDOWN | MUX_MODE7)	/* 0x0C8:[31:16] gpio6_189 - VSYNC input */
-			OMAP5_IOPAD(0x0f6, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x0F4:[31:16] gpio6_190 - choose MUX_MODE0 for PWM_TIMER9 - choose MUX_MODE7 if panel outputs the PWM */
 			OMAP5_IOPAD(0x10e, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x10c:[31:16] gpio6_176 - panel reset */
 		>;
 	};
@@ -410,6 +373,13 @@
 			OMAP5_IOPAD(0x0b8, PIN_INPUT | MUX_MODE6)	/* 0x108:[15:0] gpio3_84 - modem power ind */
 			OMAP5_IOPAD(0x114, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x114:[15:0]  gpio6_173 - touch screen */
 			OMAP5_IOPAD(0x178, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x178:[15:0]  gpio8_230 - reset I2C peripherals */
+		>;
+	};
+
+	backlight_pins: pinmux_backlight_pins {
+		pinctrl-single,pins = <
+			/* MUX_MODE0 for PWM_TIMER9, MUX_MODE6 for GPIO, MUX_MODE7 if panel provides the PWM signal */
+			OMAP5_IOPAD(0x0f6, PIN_OUTPUT_PULLDOWN | MUX_MODE0)	/* 0x0F4:[31:16] timer9/gpio6_190 */
 		>;
 	};
 
@@ -460,6 +430,13 @@
 			OMAP5_IOPAD(0x0de, PIN_OUTPUT | MUX_MODE0)	/* 0x0dc:[31:16] dsiporta_lane4y */
 		>;
 	};
+
+	ssd2858_vsync_pins: pinmux_ssd2858_vsync_pins {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x0ca, PIN_INPUT_PULLDOWN | MUX_MODE6)	/* 0x0C8:[31:16] gpio6_189 - VSYNC input */
+		>;
+	};
+
 };
 
 &i2c2 {
@@ -520,6 +497,49 @@
 	};
 
 	/* leds */
+	is31fl3196@64 {
+		compatible = "issi,is31fl3196";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x64>;
+
+		display_led0: red_bottom@0 {
+			label = "logo:red:bottom";
+			reg = <0>;
+			linux,default-trigger = "mmc0";
+		};
+
+		display_led1: green_bottom@1 {
+			label = "logo:green:bottom";
+			reg = <1>;
+			linux,default-trigger = "heartbeat";
+		};
+
+		display_led2: blue_bottom@2 {
+			label = "logo:blue:bottom";
+			reg = <2>;
+			linux,default-trigger = "timer";
+		};
+
+		display_led3: red_top@3 {
+			label = "logo:red:top";
+			reg = <3>;
+			linux,default-trigger = "mmc1";
+		};
+
+		display_led4: green_top@4 {
+			label = "logo:green:top";
+			reg = <4>;
+			linux,default-trigger = "timer";
+		};
+
+		display_led5: blue_top@5 {
+			label = "logo:blue:top";
+			reg = <5>;
+			linux,default-trigger = "default-on";
+		};
+	};
+
 	tca6507@45 {
 		compatible = "ti,tca6507";
 		#address-cells = <1>;
@@ -530,43 +550,43 @@
 		/* gpio-controller;
 		#gpio-cells = <2>; */
 
-		display_led0: red_aux@0 {
+		red_aux@0 {
 			label = "display::led-0";
 			reg = <0x0>;
 			linux,default-trigger = "mmc0";
 		};
 
-		display_led1: green_aux@1 {
+		green_aux@1 {
 			label = "display::led-1";
 			reg = <0x1>;
 			linux,default-trigger = "heartbeat";
 		};
 
-		display_led2: blue_aux@2 {
+		blue_aux@2 {
 			label = "display::led-2";
 			reg = <0x2>;
 			linux,default-trigger = "timer";
 		};
 
-		display_led3: set1@3 {
+		set1@3 {
 			label = "display::led-3";
 			reg = <0x3>;
 			linux,default-trigger = "default-on";
 		};
 
-		display_led4: set2@4 {
+		set2@4 {
 			label = "display::led-4";
 			reg = <0x4>;
 			linux,default-trigger = "timer";
 		};
 
-		display_led5: set3@5 {
+		set3@5 {
 			label = "display::led-5";
 			reg = <0x5>;
 			linux,default-trigger = "mmc0";
 		};
 
-		display_led6: set4@6 {
+		set4@6 {
 			label = "display::led-6";
 			reg = <0x6>;
 			linux,default-trigger = "heartbeat";
@@ -717,6 +737,24 @@
 		ti,chg_current = <1000 500 2000>;	// chg_current (max for the battery), usb_input_current, adp_input_current
 		gpios = <&gpio99 11 0>,		// chg_irq_pin
 			<0>;			// dc_det_pin - if 0, charger is switched by driver to 2048mA, otherwise 512mA
+		regulators {
+			vsys_reg: vsys_regulator {
+				/* add information */
+				regulator-compatible = "bq2429x-vsys";
+				regulator-name = "vsys";
+//				regulator-min-microvolt = <3700000>;
+//				regulator-max-microvolt = <3700000>;
+				regulator-always-on;
+				regulator-boot-on;
+			};
+			otg_reg: otg_regulator {
+				/* add information */
+				regulator-compatible = "bq2429x-otg";
+				regulator-name = "otg";
+//				regulator-min-microvolt = <5000000>;
+//				regulator-max-microvolt = <5000000>;
+			};
+		};
 	};
 
 };
@@ -758,9 +796,12 @@
 /* register devices connected to System-I2C */
 &i2c4 {
 	/* microphone detect */
-	ts3a225@3b {
-		compatible = "ti,ts3a225";
+	ts3a22x@3b {
+		compatible = "ti,ts3a225e";
 		reg = <0x3b>;
+//		interrupt-parent = <&gpio99>;
+//		interrupts = <x IRQ_TYPE_LEVEL_LOW>;
+		ti,micbias = <0>;	/* 2.1V */
 	};
 
 	/* system/keyboard-led and other controls */
