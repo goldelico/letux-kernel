@@ -1,0 +1,230 @@
+/*
+ * Copyright (C) 2015 OpenPandora - http://www.pyra-handheld.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/* LCD panel - MIPI */
+
+&mipi_display_pins {
+	pinctrl-single,pins = <
+		OMAP5_IOPAD(0x124, PIN_OUTPUT_PULLUP | MUX_MODE6)	/* 0x124:[0:15] gpio6_162 - enable panel DC/DC */
+		OMAP5_IOPAD(0x10e, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x10c:[31:16] gpio6_176 - panel reset */
+		>;
+};
+
+&lcd {
+#if 0
+	compatible = "boe,btl507212-w677l";
+	gpios = <&gpio6 16 0>;	/* goip6_176 = panel reset */
+#else
+	compatible = "mipi,debug";
+	gpios = <&gpio6 16 0>,	/* goip6_176 = panel reset */
+		<&gpio6 2 0>;	/* gpio6_162 = enable ssd and disable DCS bypass */
+#endif
+};
+
+#if 0
+
+/* splice ssd2858 encoder into display pipeline */
+
+/ {
+	rotator: ssd2858 {
+		compatible = "solomon-systech,ssd2858";
+		gpios = <&gpio6 2 0>;	/* gpio6_162 = enable ssd and disable DCS bypass */
+
+		xtal-freq-mhz = <24000000>;
+		rotate = <270>;
+
+		te-scanline = <360>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				ssd_in: endpoint@0 {
+					remote-endpoint = <&dsi1_out_ep>;
+				};
+			};
+
+			port@1 {
+				reg = <0>;
+				ssd_out: endpoint@0 {
+					remote-endpoint = <&lcd_in>;
+				};
+			};
+		};
+	};
+};
+
+&lcd_in {
+	remote-endpoint = <&ssd_out>;
+};
+
+&dsi1_out_ep {
+	remote-endpoint = <&ssd_in>;
+};
+
+#endif
+
+/* register devices connected to Panel-I2C */
+&i2c4 {
+	/* touchscreen */
+	touch: tsc2007@48 {
+		compatible = "ti,tsc2007";
+		reg = <0x48>;
+		pinctrl-names = "default";
+/* FIXME:		pinctrl-0 = <&penirq_pins>; */
+		interrupt-parent = <&gpio6>;
+		interrupts = <13 IRQ_TYPE_EDGE_FALLING>;	/* gpio6_173 falling edge */
+		gpios = <&gpio6 13 GPIO_ACTIVE_LOW>;	/* gpio6_173 active low */
+		/* rotated screen */
+		touchscreen-size-x = <1280>;
+		touchscreen-size-y = <720>;
+		touchscreen-max-pressure = <1000>;
+		touchscreen-fuzz-x = <5>;
+		touchscreen-fuzz-y = <5>;
+		touchscreen-fuzz-pressure = <50>;
+		touchscreen-swapped-x-y;
+		touchscreen-inverted-x;
+		touchscreen-inverted-y;
+		ti,min-x = <50>;
+		ti,max-x = <3900>;
+		ti,min-y = <50>;
+		ti,max-y = <3900>;
+		ti,max-rt = <2000>;
+		ti,x-plate-ohms = <550>;
+	};
+
+	crtouch@49 {
+		compatible = "freescale,crtouch";
+		reg = <0x49>;
+		interrupt-parent = <&gpio6>;
+		interrupts = <13 IRQ_TYPE_EDGE_FALLING>;	/* gpio6_173 falling edge */
+		gpios = <&gpio6 13 1>;	/* gpio6_173 active low */
+		/* more paramters tbd. */
+	};
+
+	/* leds */
+	is31fl3196@64 {
+		compatible = "issi,is31fl3196";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x64>;
+
+		display_led0: red_bottom@0 {
+			label = "logo:red:bottom";
+			reg = <0>;
+			linux,default-trigger = "mmc0";
+		};
+
+		display_led1: green_bottom@1 {
+			label = "logo:green:bottom";
+			reg = <1>;
+			linux,default-trigger = "heartbeat";
+		};
+
+		display_led2: blue_bottom@2 {
+			label = "logo:blue:bottom";
+			reg = <2>;
+			linux,default-trigger = "timer";
+		};
+
+		display_led3: red_top@3 {
+			label = "logo:red:top";
+			reg = <3>;
+			linux,default-trigger = "default-on";
+		};
+
+		display_led4: green_top@4 {
+			label = "logo:green:top";
+			reg = <4>;
+			linux,default-trigger = "timer";
+		};
+
+		display_led5: blue_top@5 {
+			label = "logo:blue:top";
+			reg = <5>;
+			linux,default-trigger = "mmc0";
+		};
+	};
+
+	tca6507@45 { /* historical for V4 display boards */
+		compatible = "ti,tca6507";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x45>;
+
+		/* unused */
+		/* gpio-controller;
+		#gpio-cells = <2>; */
+
+		red_aux@0 {
+			label = "display::led-0";
+			reg = <0x0>;
+			linux,default-trigger = "mmc0";
+		};
+
+		green_aux@1 {
+			label = "display::led-1";
+			reg = <0x1>;
+			linux,default-trigger = "heartbeat";
+		};
+
+		blue_aux@2 {
+			label = "display::led-2";
+			reg = <0x2>;
+			linux,default-trigger = "timer";
+		};
+
+		set1@3 {
+			label = "display::led-3";
+			reg = <0x3>;
+			linux,default-trigger = "default-on";
+		};
+
+		set2@4 {
+			label = "display::led-4";
+			reg = <0x4>;
+			linux,default-trigger = "timer";
+		};
+
+		set3@5 {
+			label = "display::led-5";
+			reg = <0x5>;
+			linux,default-trigger = "mmc0";
+		};
+
+		set4@6 {
+			label = "display::led-6";
+			reg = <0x6>;
+			linux,default-trigger = "heartbeat";
+		};
+	};
+
+};
+
+/* add anti-tearing */
+
+&omap5_pmx_core {
+	ssd2858_vsync_pins: pinmux_ssd2858_vsync_pins {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x0ca, PIN_INPUT_PULLDOWN | MUX_MODE6)	/* 0x0C8:[31:16] gpio6_189 - VSYNC input */
+		>;
+	};
+};
+
+&dss {
+	dispc@58001000 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&ssd2858_vsync_pins>;
+		/delete-property/ interrupts;
+		interrupts-extended = <&wakeupgen GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>,
+			     <&gpio6 29 IRQ_TYPE_EDGE_RISING>; 	/* gpio6_189 */
+		te-scanline = <360>;
+	};
+};
