@@ -6,29 +6,14 @@
  * published by the Free Software Foundation.
  */
 
+#include <dt-bindings/input/input.h>
+
 /* overwrite device model */
 
 / {
 	model = "Pyra-Handheld";
 
-	aliases {
-		display0 = &lcd;
-		display1 = &hdmi0;
-	};
-
-	/* DC/DC converter for LCD panel */
-/* disabled because the r63311 driver can control it */
-/*	dsi1_panel_power: dsi1_panel_power_reg {
-		compatible = "regulator-fixed";
-		regulator-name = "dsi1_panel_power";
-		regulator-min-microvolt = <5000000>;
-		regulator-max-microvolt = <5000000>;
-		gpio = <&gpio6 16 0>;	/ * gpio6_176 = display-enable/panel-reset * /
-		startup-delay-us = <70000>;
-		enable-active-high;
-	}; */
-
-	/* DC/DC converter for USB Host ports, Modem USB and HDMI 5V */
+	/* common DC/DC converter for USB Host ports, Modem USB and HDMI 5V */
 	modem_vbus_hdmi_power: tps2505_reg {
 		compatible = "regulator-fixed";
 		regulator-name = "modem_vbus_hdmi_power";
@@ -37,7 +22,7 @@
 		gpio = <&gpio99 8 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 		startup-delay-us = <70000>;
-//		vin-supply = <&vsys_reg>;
+		vin-supply = <&vsys_reg>;
 		regulator-always-on;
 	};
 
@@ -46,7 +31,7 @@
 	   They should be under the (software) control
 	   of the USB3503A hub on the CPU board */
 
-	host1_vbus_power:host1_vbus_power_reg {
+	host1_vbus_power: host1_vbus_power_reg {
 		compatible = "regulator-fixed";
 		regulator-name = "host1_vbus_power";
 		regulator-min-microvolt = <5000000>;
@@ -89,80 +74,48 @@
 		compatible = "gemalto,phs8";
 		gpio-controller;
 		#gpio-cells = <2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pyra_modem_pins>;
 		NIMP-usb-port = <&hsusb2_phy>; 	/* USB phy where we can check the modem status */
 		on-off-gpio = <&gpio6 11 GPIO_ACTIVE_HIGH>;	/* gpio6_171: trigger to power on modem */
-		on-indicator-gpio = <&gpio6 12 GPIO_ACTIVE_HIGH>;	/* gpio6_172: modem power indication feedback GPIO */
+		on-indicator-gpio = <&gpio6 12 GPIO_ACTIVE_LOW>;	/* gpio6_172: modem power indication feedback GPIO */
 		NIMP-modem-supply = <&modem_power>;		/* enable some external power regulator */
 		/* VBUS supply should probably be controlled through the USB PHY driver for the modem port */
 		NIMP-vbus-supply = <&modem_vbus_hdmi_power>;	/* apply VBUS to the modem */
 	};
 
-/*	mic_presence {
-/* FIXME: a dedicated TS3A225 driver can reprogram the MIC_PRESENT line through I2C into an INT so we can detect other changes (e.g. mic button pressed) * /
-		compatible = "extcon-gpio";
-		label = "mic_presence";
-		interrupt-parent = <&gpio99>;
-		interrupts = <14 IRQ_TYPE_EDGE_BOTH>;
-		irq-flags = <IRQ_TYPE_EDGE_BOTH>;
-		gpios = <&gpio99 14 GPIO_ACTIVE_LOW>;
-		// debounce-delay-ms = <10>; -- not available at tca6424
-		state-on = "present";
-		state-off = "unplugged";
-	}; */
-
 	backlight {
 		compatible = "pwm-backlight";
-		pwms = <&pwm 0 2000000>;
+		pwms = <&pwm9 0 2000000 0>;
 		pwm-names = "backlight";
 		brightness-levels = <0 11 20 30 40 50 60 70 80 90 100>;
-		default-brightness-level = <9>;	/* => 90 */
-//		pinctrl-names = "default";
-//		pinctrl-0 = <&backlight_pins>;
-//		power-supply = <&vdd_bl_reg>;
-		enable-gpios = <&gpio6 30 0>;	/* GPT9/PWM gpio6_190 */
+		default-brightness-level = <10>;	/* => 90 */
+		pinctrl-names = "default";
+		pinctrl-0 = <&backlight_pins>;
 	};
 
-	pwm: omap_pwm {
-		compatible = "ti,omap-pwm";
-		timers = <&timer9>;
-		#pwm-cells = <2>;
+	pwm9: dmtimer-pwm@9 {
+		compatible = "ti,omap-dmtimer-pwm";
+		ti,timers = <&timer9>;
+		#pwm-cells = <3>;
 	};
 
 	keyboard-backlight {
-/*
 		compatible = "pwm-backlight";
-		pwms = <&pwm 0 2000000>;
-		pwm-names = "backlight";
+		pwms = <&pwm8 0 2000000 0>;
+		pwm-names = "keyboard";
 		brightness-levels = <0 10 20 30 40 50 60 70 80 90 100>;
-		default-brightness-level = <9>;
-//		pinctrl-names = "default";
-//		pinctrl-0 = <&backlight_pins>;
-//		power-supply = <&vdd_bl_reg>;
-/*		enable-gpios = <&gpio6 30 0>;	/* GPT9/PWM gpio6_190 */
+		default-brightness-level = <5>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&keyboard_backlight_pins>;
 	};
 
-};
+	pwm8: dmtimer-pwm@8 {
+		compatible = "ti,omap-dmtimer-pwm";
+		ti,timers = <&timer8>;
+		#pwm-cells = <3>;
+	};
 
-/* LCD panel - MIPI */
-
-&mipi_display_pins {
-	pinctrl-single,pins = <
-		OMAP5_IOPAD(0x124, PIN_OUTPUT_PULLUP | MUX_MODE6)	/* 0x124:[0:15] gpio6_162 - enable panel DC/DC */
-		OMAP5_IOPAD(0x0ca, PIN_INPUT_PULLDOWN | MUX_MODE7)	/* 0x0C8:[31:16] gpio6_189 - VSYNC input */
-		OMAP5_IOPAD(0x0f6, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x0F4:[31:16] gpio6_190 - choose MUX_MODE0 for PWM_TIMER9 - choose MUX_MODE7 if panel outputs the PWM */
-		OMAP5_IOPAD(0x10e, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x10c:[31:16] gpio6_176 - panel reset */
-		>;
-};
-
-&lcd {
-	/* default to be overwritten by specific panel in derived board file
-	   by using the /root/panelselect script */
-
-	compatible = "mipi,debug";
-
-	gpios =
-		<&gpio6 16 0>,	/* goip6_176 = panel reset */
-		<&gpio6 2 0>;	/* gpio6_162 = enable DC/DC */
 };
 
 /* add overlay pimmux for pyra on 5432evm */
@@ -188,12 +141,12 @@
 #define GPIO_LNUB_IRQ 175		// left nub IRQ - gpio6_175
 #define GPIO_RNUB_IRQ 174		// right nub IRQ - gpio6_174
 #define GPIO_KEYIRQ 177			// keyboard controller IRQ - gpio6-177
-#define GPIO_RSH_BOT 179		// right bottom shoulder button - gpio6-179 - closes to GND
-#define GPIO_RSH_TOP 180		// right top shoulder button - gpio6-180 - closes to GND
+#define GPIO_RSH_TOP 179		// right top shoulder button - gpio6-179 - closes to GND
+#define GPIO_RSH_BOT 180		// right bottom shoulder button - gpio6-180 - closes to GND
 #define GPIO_RNUB 181			// right nub center button - gpio6-181 - closes to GND
 #define GPIO_LNUB 187			// left nub center button - gpio6-187 - closes to GND
-#define GPIO_LSH_BOT 183		// left bottom shoulder button - gpio6-183 - closes to GND
-#define GPIO_LSH_TOP 184		// left top shoulder button - gpio6-184 - closes to GND
+#define GPIO_LSH_TOP 183		// left top shoulder button - gpio6-183 - closes to GND
+#define GPIO_LSH_BOT 7			// left bottom shoulder button - gpio1_wk7 - closes to GND
 #define GPIO_VSYNC 189			// VSYNC input (gpio6_189 in: comes from panel)
 // outputs
 #define GPIO_3G_IGNITE 171		// start modem (active high pulse) - gpio6_171
@@ -227,16 +180,14 @@
 
 	pyra_button_pins: pinmux_button_gpio_pins {
 		pinctrl-single,pins = <
-			OMAP5_IOPAD(0x044, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x044:[15:0] gpio1_wk6 - lid */
 			OMAP5_IOPAD(0x1bc, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x1BC:[15:0] gpio5_140 - U */
 			OMAP5_IOPAD(0x1be, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x1BC:[31:16] gpio5_141 - L */
 			OMAP5_IOPAD(0x1c0, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x1C0:[15:0] gpio5_142 - D */
 			OMAP5_IOPAD(0x1c2, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x1C0:[31:16] gpio5_143 - R */
-			OMAP5_IOPAD(0x108, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x108:[15:0]  gpio6_179 - rsh-bot */
-			OMAP5_IOPAD(0x106, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x104:[31:16] gpio6_180 - rsh-top */
+			OMAP5_IOPAD(0x108, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x108:[15:0]  gpio6_179 - rsh-top */
+			OMAP5_IOPAD(0x106, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x104:[31:16] gpio6_180 - rsh-bot */
 			OMAP5_IOPAD(0x104, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x104:[15:0]  gpio6_181 - right nub */
-			OMAP5_IOPAD(0x132, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x130:[31:16] gpio6_183 - lsh-bot */
-			OMAP5_IOPAD(0x134, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x134:[15:0]  gpio6_184 - lsh-top */
+			OMAP5_IOPAD(0x132, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x130:[31:16] gpio6_183 - lsh-top */
 			OMAP5_IOPAD(0x13a, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x138:[31:16]  gpio6_187 - left nub */
 			OMAP5_IOPAD(0x102, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x100:[31:16] gpio7_196 - B */
 			OMAP5_IOPAD(0x0fc, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0FC:[15:0] gpio7_197 - Y */
@@ -247,8 +198,6 @@
 
 	pyra_other_pins: pinmux_other_gpio_pins {
 		pinctrl-single,pins = <
-			OMAP5_IOPAD(0x040, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x040:[15:0] gpio1_wk14 - wlan irq */
-			OMAP5_IOPAD(0x042, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x040:[31:16] gpio1_wk15 - modem wakeup */
 			OMAP5_IOPAD(0x0aa, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0A8:[31:16] gpio3_77 - mmc3-cd */
 			OMAP5_IOPAD(0x0ae, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0AC:[31:16] gpio3_79 - mmc3-wp */
 /* gpio 3_84-87 = BT HCI uart2 */
@@ -261,16 +210,13 @@
 /* gpio 5_155-156 = mmc4 = right SD slot / uart3 debug */
 			OMAP5_IOPAD(0x114, PIN_INPUT | MUX_MODE6)	/* 0x114:[15:0]  gpio6_160 - revision 1 */
 			OMAP5_IOPAD(0x12c, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x12C:[15:0]  gpio6_161 - TCA6424 active low interrupt */
-/* next 4 should be outputs and controlled by some driver (e.g. regulator-fixed) */
-			OMAP5_IOPAD(0x12a, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x128:[31:16]  gpio6_164 - BT EN */
-			OMAP5_IOPAD(0x128, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x128:[15:0]  gpio6_165 - Speaker EN */
-			OMAP5_IOPAD(0x122, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x120:[31:16]  gpio6_166 - FM EN */
 
-/* gpio 5_167-168 = uart3 Pyra console - should be handled by MLO! */
+/* next should be outputs and controlled by some driver (e.g. regulator-fixed) */
+			OMAP5_IOPAD(0x128, PIN_INPUT_PULLDOWN | MUX_MODE6)	/* 0x128:[15:0]  gpio6_165 - Speaker EN */
+
+/* gpio 5_167-168 = uart3 Pyra console - is handled by MLO! */
 			OMAP5_IOPAD(0x11c, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x11C:[15:0]  gpio6_169 - Accelerometer interrupt */
 			OMAP5_IOPAD(0x11a, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x118:[31:16]  gpio6_170 - Magnetometer interrupt */
-			OMAP5_IOPAD(0x118, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x118:[15:0]  gpio6_171 - modem ignite */
-			OMAP5_IOPAD(0x116, PIN_INPUT | MUX_MODE6)	/* 0x114:[31:16]  gpio6_172 - modem power indication */
 			OMAP5_IOPAD(0x114, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x114:[15:0]  gpio6_173 - touch screen penirq */
 			OMAP5_IOPAD(0x112, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x110:[31:16]  gpio6_174 - right NUB int */
 			OMAP5_IOPAD(0x110, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x110:[15:0]  gpio6_175 - left NUB int */
@@ -280,146 +226,52 @@
 			OMAP5_IOPAD(0x136, PIN_INPUT | MUX_MODE6)	/* 0x134:[31:16]  gpio6_185 - revision 3 */
 			OMAP5_IOPAD(0x138, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x138:[15:0]  gpio6_186 - Gyroscope interrupt */
 /* gpio 8_228-229 = mmc1 = left SD slot WP/CD */
-			OMAP5_IOPAD(0x178, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x178:[15:0]  gpio8_230 - keypad backlight pwm */
+		>;
+	};
+
+	pyra_modem_pins: pinmux_moden_gpio_pins {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x118, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x118:[15:0]  gpio6_171 - modem ignite */
+			OMAP5_IOPAD(0x116, PIN_INPUT | MUX_MODE6)	/* 0x114:[31:16]  gpio6_172 - modem power indication */
+		>;
+	};
+
+	backlight_pins: pinmux_backlight_pins {
+		pinctrl-single,pins = <
+			/* MUX_MODE0 for PWM_TIMER9, MUX_MODE6 for GPIO, MUX_MODE7 if panel provides the PWM signal */
+			OMAP5_IOPAD(0x0f6, PIN_OUTPUT_PULLDOWN | MUX_MODE0)	/* 0x0F4:[31:16] timer9/gpio6_190 */
+		>;
+	};
+
+	keyboard_backlight_pins: pinmux_keyboard_backlight_pins {
+		pinctrl-single,pins = <
+			/* MUX_MODE0 for PWM_TIMER8, MUX_MODE6 for GPIO */
+			OMAP5_IOPAD(0x178, PIN_OUTPUT_PULLDOWN | MUX_MODE0)	/* 0x178:[15:0] timer8/gpio8_230 */
 		>;
 	};
 
 };
 
-/* register devices connected to Panel-I2C */
-&i2c4 {
-	/* touchscreen */
-	tsc2007@48 {
-		compatible = "ti,tsc2007";
-		reg = <0x48>;
-		pinctrl-names = "default";
-/* FIXME:		pinctrl-0 = <&penirq_pins>; */
-		interrupt-parent = <&gpio6>;
-		interrupts = <13 IRQ_TYPE_EDGE_FALLING>;	/* gpio6_173 falling edge */
-		gpios = <&gpio6 13 GPIO_ACTIVE_LOW>;	/* gpio6_173 active low */
-/* note: overwrite for rotated screen */
-		touchscreen-size-x = <720>;
-		touchscreen-size-y = <1280>;
-		touchscreen-max-pressure = <1000>;
-		touchscreen-fuzz-x = <2>;
-		touchscreen-fuzz-y = <5>;
-		touchscreen-fuzz-pressure = <50>;
-		touchscreen-inverted-y;
-		ti,min-x = <140>;
-		ti,max-x = <3870>;
-		ti,min-y = <50>;
-		ti,max-y = <3970>;
-		ti,max-rt = <2000>;
-		ti,x-plate-ohms = <550>;
+&omap5_pmx_wkup {
+
+	letux_wkup_pins: pinmux_wkup_pins {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x078, PIN_OUTPUT | MUX_MODE6)	/* 0x078:[15:0]  gpio1_wkout4 - second LED on CPU board */
+			OMAP5_IOPAD(0x046, WAKEUP_EN | PIN_INPUT | MUX_MODE6)	/* 0x044:[31:16]  gpio1_wk7 - boot select input */
+		>;
 	};
 
-	crtouch@49 {
-		compatible = "freescale,crtouch";
-		reg = <0x49>;
-		interrupt-parent = <&gpio6>;
-		interrupts = <13 IRQ_TYPE_EDGE_FALLING>;	/* gpio6_173 falling edge */
-		gpios = <&gpio6 13 1>;	/* gpio6_173 active low */
-		/* more paramters tbd. */
+	lid_pin: pinmux_lid_pin {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x044, WAKEUP_EN | PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x044:[15:0] gpio1_wk6 - lid */
+		>;
 	};
 
-	/* leds */
-	is31fl3196@64 {
-		compatible = "issi,is31fl3196";
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg = <0x64>;
-
-		display_led0: red_bottom@0 {
-			label = "logo:red:bottom";
-			reg = <0>;
-			linux,default-trigger = "mmc0";
-		};
-
-		display_led1: green_bottom@1 {
-			label = "logo:green:bottom";
-			reg = <1>;
-			linux,default-trigger = "heartbeat";
-		};
-
-		display_led2: blue_bottom@2 {
-			label = "logo:blue:bottom";
-			reg = <2>;
-			linux,default-trigger = "timer";
-		};
-
-		display_led3: red_top@3 {
-			label = "logo:red:top";
-			reg = <3>;
-			linux,default-trigger = "default-on";
-		};
-
-		display_led4: green_top@4 {
-			label = "logo:green:top";
-			reg = <4>;
-			linux,default-trigger = "timer";
-		};
-
-		display_led5: blue_top@5 {
-			label = "logo:blue:top";
-			reg = <5>;
-			linux,default-trigger = "mmc0";
-		};
+	wwan_pins: pinmux_wwan_pins {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x042, WAKEUP_EN | PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x040:[31:16] gpio1_wk15 - modem wakeup */
+		>;
 	};
-
-	tca6507@45 { /* historical for V4 display boards */
-		compatible = "ti,tca6507";
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg = <0x45>;
-
-		/* unused */
-		/* gpio-controller;
-		#gpio-cells = <2>; */
-
-		red_aux@0 {
-			label = "display::led-0";
-			reg = <0x0>;
-			linux,default-trigger = "mmc0";
-		};
-
-		green_aux@1 {
-			label = "display::led-1";
-			reg = <0x1>;
-			linux,default-trigger = "heartbeat";
-		};
-
-		blue_aux@2 {
-			label = "display::led-2";
-			reg = <0x2>;
-			linux,default-trigger = "timer";
-		};
-
-		set1@3 {
-			label = "display::led-3";
-			reg = <0x3>;
-			linux,default-trigger = "default-on";
-		};
-
-		set2@4 {
-			label = "display::led-4";
-			reg = <0x4>;
-			linux,default-trigger = "timer";
-		};
-
-		set3@5 {
-			label = "display::led-5";
-			reg = <0x5>;
-			linux,default-trigger = "mmc0";
-		};
-
-		set4@6 {
-			label = "display::led-6";
-			reg = <0x6>;
-			linux,default-trigger = "heartbeat";
-		};
-
-	};
-
 };
 
 /* register devices connected to Peripheral-I2C */
@@ -429,108 +281,95 @@
 	as5013@40 {
 		compatible = "ams,as5013";
 		reg = <0x40>;
-		// gpios = <&gpio...>, <&gpio>;
-		// irq
+		interrupt-parent = <&gpio6>;
+		interrupts = <15 IRQ_TYPE_EDGE_RISING>;	/* gpio6_175 low-to-high edge */
 	};
 
 	/* right nub */
 	as5013@41 {
 		compatible = "ams,as5013";
 		reg = <0x41>;
-		// gpios = <&gpio...>, <&gpio>;
-		// irq
+		interrupt-parent = <&gpio6>;
+		interrupts = <14 IRQ_TYPE_EDGE_RISING>;	/* gpio6_174 low-to-high edge */
 	};
 
 	/* keyboard scanner */
 	tca8418@34 {
-		compatible = "ti,tca8418";	/* this translates into request_module("i2c:tca8418")
-									   so it must be known as a MODULE_ALIAS to modprobe -c */
+		compatible = "ti,tca8418";
 		reg = <0x34>;
-		/* the interrupt is specified as:
-			The first cell is the GPIO number.
-			The second cell is used to specify flags:
-			bits[3:0] trigger type and level flags:
-				1 = low-to-high edge triggered.
-				2 = high-to-low edge triggered.
-				4 = active high level-sensitive.
-				8 = active low level-sensitive.
-		 */
 		interrupt-parent = <&gpio6>;
 		interrupts = <17 IRQ_TYPE_EDGE_RISING>;	/* gpio6_177 low-to-high edge */
 		keypad,num-rows = <8>;
 		keypad,num-columns = <10>;
 		linux,keymap = <
-	/* The 32-bit big endian cell is packed as: row << 24 | column << 16 | key-code */
+			/* top row */
+			MATRIX_KEY(3, 6, KEY_ESC)
+			MATRIX_KEY(2, 3, KEY_PAUSE)
+			MATRIX_KEY(1, 2, KEY_BRIGHTNESSUP)
+			MATRIX_KEY(7, 1, KEY_F11)
 
-			0x0306003b
-			0x0203003c
-			0x02040057
-			0x01080058
-			0x0102003d
-			0x0701003e
-			0x07030002
-			0x06070003
-			0x06010004
-			0x05050005
-			0x06060006
-			0x04030007
-			0x03070008
-			0x03050009
-			0x0205000a
-			0x0107000b
-			0x0702000e
-			0x0503000f
-			0x06040010
-			0x05080011
-			0x05020012
-			0x04060013
-			0x06020014
-			0x03040015
-			0x02080016
-			0x02020017
-			0x01060018
-			0x00050019
-			0x0004001c
-			0x0400002a
-			0x0506001e
-			0x0401001f
-			0x04040020
-			0x03080021
-			0x03020022
-			0x02060023
-			0x01030024
-			0x01040025
-			0x00080026
-			0x00020036
-			0x07060033
-			0x06030034
-			0x0507002c
-			0x0501002d
-			0x0405002e
-			0x0407002f
-			0x03030030
-			0x02070031
-			0x07040032
-			0x01050039
-			0x00070039
-			0x00000064
-			0x01090069
-			0x0309006a
-			0x00090067
-			0x0209006c
-			0x05090066
-			0x0709006b
-			0x04090068
-			0x0609006d
-			0x03000038
-			0x0200001d
-			0x01000001
-			0x00010036
-			0x0101004e
-			0x03010061
-			0x0201004a
-			0x07000110
-			0x06000111
+			/* center column */
+			MATRIX_KEY(2, 4, KEY_LEFTALT)
+			MATRIX_KEY(2, 0, KEY_LEFTCTRL)
+			MATRIX_KEY(1, 0, KEY_MENU)
+
+			/* ABXY extension */
+			MATRIX_KEY(4, 9, KEY_INSERT)
+			MATRIX_KEY(1, 9, KEY_DELETE)
+
+			/* digits row */
+			MATRIX_KEY(7, 3, KEY_1)
+			MATRIX_KEY(6, 7, KEY_2)
+			MATRIX_KEY(6, 1, KEY_3)
+			MATRIX_KEY(5, 5, KEY_4)
+			MATRIX_KEY(6, 6, KEY_5)
+			MATRIX_KEY(4, 3, KEY_6)
+			MATRIX_KEY(3, 7, KEY_7)
+			MATRIX_KEY(3, 5, KEY_8)
+			MATRIX_KEY(2, 5, KEY_9)
+			MATRIX_KEY(1, 5, KEY_0)
+			MATRIX_KEY(7, 2, KEY_BACKSPACE)
+
+			/* TAB row */
+			MATRIX_KEY(5, 3, KEY_TAB)
+			MATRIX_KEY(6, 4, KEY_Q)
+			MATRIX_KEY(5, 8, KEY_W)
+			MATRIX_KEY(5, 2, KEY_E)
+			MATRIX_KEY(4, 6, KEY_R)
+			MATRIX_KEY(6, 2, KEY_T)
+			MATRIX_KEY(3, 4, KEY_Y)
+			MATRIX_KEY(2, 8, KEY_U)
+			MATRIX_KEY(2, 2, KEY_I)
+			MATRIX_KEY(1, 6, KEY_O)
+			MATRIX_KEY(0, 5, KEY_P)
+			MATRIX_KEY(0, 4, KEY_ENTER)
+
+			/* middle letter row */
+			MATRIX_KEY(4, 0, KEY_APOSTROPHE)
+			MATRIX_KEY(5, 6, KEY_A)
+			MATRIX_KEY(4, 1, KEY_S)
+			MATRIX_KEY(4, 4, KEY_D)
+			MATRIX_KEY(3, 8, KEY_F)
+			MATRIX_KEY(3, 2, KEY_G)
+			MATRIX_KEY(2, 6, KEY_H)
+			MATRIX_KEY(1, 3, KEY_J)
+			MATRIX_KEY(1, 4, KEY_K)
+			MATRIX_KEY(0, 8, KEY_L)
+			MATRIX_KEY(3, 0, KEY_LEFTSHIFT)
+
+			/* bottom letter row */
+			MATRIX_KEY(7, 6, KEY_COMMA)
+			MATRIX_KEY(6, 3, KEY_DOT)
+			MATRIX_KEY(5, 7, KEY_Z)
+			MATRIX_KEY(5, 1, KEY_X)
+			MATRIX_KEY(4, 5, KEY_C)
+			MATRIX_KEY(4, 7, KEY_V)
+			MATRIX_KEY(3, 3, KEY_B)
+			MATRIX_KEY(2, 7, KEY_N)
+			MATRIX_KEY(7, 4, KEY_M)
+			MATRIX_KEY(0, 6, KEY_SPACE)
+			MATRIX_KEY(0, 7, KEY_SPACE)
+			MATRIX_KEY(0, 0, KEY_LEFTMETA)
 		>;
 	};
 
@@ -569,9 +408,27 @@
 		/* FIXME: driver is quite broken because it is a hack */
 		compatible = "ti,bq24297";
 		reg = <0x6b>;
-		ti,chg_current = <1000 500 2000>;	// chg_current (max for the battery), usb_input_current, adp_input_current
+		ti,chg_current = <1000 2000 2000>;	// chg_current (max for the battery), usb_input_current, adp_input_current
 		gpios = <&gpio99 11 0>,		// chg_irq_pin
 			<0>;			// dc_det_pin - if 0, charger is switched by driver to 2048mA, otherwise 512mA
+		regulators {
+			vsys_reg: vsys_regulator {
+				/* add information */
+				regulator-compatible = "bq2429x-vsys";
+				regulator-name = "vsys";
+//				regulator-min-microvolt = <3700000>;
+//				regulator-max-microvolt = <3700000>;
+				regulator-always-on;
+				regulator-boot-on;
+			};
+			otg_reg: otg_regulator {
+				/* add information */
+				regulator-compatible = "bq2429x-otg";
+				regulator-name = "otg";
+//				regulator-min-microvolt = <5000000>;
+//				regulator-max-microvolt = <5000000>;
+			};
+		};
 	};
 
 };
@@ -623,17 +480,20 @@
 /* register devices connected to System-I2C */
 &i2c5 {
 	/* microphone detect */
-	ts3a225@3b {
-		compatible = "ti,ts3a225";
+	ts3a22x@3b {
+		compatible = "ti,ts3a225e";
+//		compatible = "ti,ts3a227e";
 		reg = <0x3b>;
-// irq
-	};
+//		interrupt-parent = <&gpio99>;
+//		interrupts = <x IRQ_TYPE_LEVEL_LOW>;
+		ti,micbias = <0>;	/* 2.1V */
+ 	};
 
 	/* system/keyboard-led and other controls */
 	gpio99: tca6424@22 {
 		compatible = "ti,tca6424";
 		interrupt-parent = <&gpio6>;
-		interrupts = <1 IRQ_TYPE_LEVEL_LOW>;	/* gpio6_161 */
+//		interrupts = <1 IRQ_TYPE_LEVEL_LOW>;	/* gpio6_161 */
 		reg = <0x22>;
 		gpio-controller;
 		#gpio-cells = <2>;
@@ -715,63 +575,63 @@
 		compatible = "gpio-leds";
 		led@1 {
 			label = "pyra-old:red:left";
-			gpios = <&gpio99 5 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio99 5 GPIO_OPEN_DRAIN>;
 			linux,default-trigger = "mmc0";
 			default-state = "off";
 		};
 
 		led@2 {
 			label = "pyra-old:green:left";
-			gpios = <&gpio99 6 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio99 6 GPIO_OPEN_DRAIN>;
 			linux,default-trigger = "none";
 			default-state = "off";
 		};
 
 		led@3 {
 			label = "pyra-old:blue:left";
-			gpios = <&gpio99 7 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio99 7 GPIO_OPEN_DRAIN>;
 			linux,default-trigger = "none";
 			default-state = "off";
 		};
 
 		led@4 {
 			label = "pyra-old:red:mid";
-			gpios = <&gpio99 17 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio99 17 GPIO_OPEN_DRAIN>;
 			linux,default-trigger = "mmc1";
 			default-state = "off";
 		};
 
 		led@5 {
 			label = "pyra-old:green:mid";
-			gpios = <&gpio99 18 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio99 18 GPIO_OPEN_DRAIN>;
 			linux,default-trigger = "none";
 			default-state = "off";
 		};
 
 		led@6 {
 			label = "pyra-old:blue:mid";
-			gpios = <&gpio99 19 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio99 19 GPIO_OPEN_DRAIN>;
 			linux,default-trigger = "timer";
 			default-state = "off";
 		};
 
 		led@7 {
 			label = "pyra-old:red:right";
-			gpios = <&gpio99 21 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio99 21 GPIO_OPEN_DRAIN>;
 			linux,default-trigger = "heartbeat";
 			default-state = "off";
 		};
 
 		led@8 {
 			label = "pyra-old:green:right";
-			gpios = <&gpio99 22 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio99 22 GPIO_OPEN_DRAIN>;
 			linux,default-trigger = "none";
 			default-state = "off";
 		};
 
 		led@9 {
 			label = "pyra-old:blue:right";
-			gpios = <&gpio99 23 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio99 23 GPIO_OPEN_DRAIN>;
 			linux,default-trigger = "none";
 			default-state = "off";
 		};
@@ -783,28 +643,28 @@
 
 		led@1 {
 			label = "keypad1";
-			gpios = <&gpio99 2 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio99 2 GPIO_OPEN_DRAIN>;
 			linux,default-trigger = "none";
 			default-state = "off";
 		};
 
 		led@2 {
 			label = "keypad2";
-			gpios = <&gpio99 3 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio99 3 GPIO_OPEN_DRAIN>;
 			linux,default-trigger = "none";
 			default-state = "off";
 		};
 
 		led@3 {
 			label = "keypad3";
-			gpios = <&gpio99 12 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio99 12 GPIO_OPEN_DRAIN>;
 			linux,default-trigger = "none";
 			default-state = "off";
 		};
 
 		led@4 {
 			label = "keypad4";
-			gpios = <&gpio99 13 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio99 13 GPIO_OPEN_DRAIN>;
 			linux,default-trigger = "none";
 			default-state = "off";
 		};
@@ -813,80 +673,112 @@
 
 / {
 
+	user-button {
+		/* is bound to gpio1_wk7 which we want to reassign */
+		/delete-node/ BOOTSEL;
+	};
+
 	pyra-gpio-keys@1 {
 		compatible = "gpio-keys";
 
 		#address-cells = <7>;
 		#size-cells = <0>;
 
-		left_shoulder_top {
-			label = "Left-Shoulder-Top";
-			linux,code = <16>;	/* KEY_Q */
-			// CHECKME: polarity may change for next revision!
-			gpios = <&gpio6 24 GPIO_ACTIVE_LOW>;	/* gpio6_184 */
-			gpio-key,wakeup;
-		};
-
 		left_shoulder_bottom {
 			label = "Left-Shoulder-Bottom";
-			linux,code = <44>;	/* KEY_Z */
-			gpios = <&gpio6 23 GPIO_ACTIVE_LOW>;	/* gpio6_183 */
+			linux,code = <KEY_RIGHTSHIFT>;
+			gpios = <&gpio1 7 GPIO_ACTIVE_LOW>;	/* gpio1_wk7 */
 			gpio-key,wakeup;
 		};
 
-		right_shoulder_top {
-			label = "Right-Shoulder-Top";
-			linux,code = <25>;	/* KEY_P */
-			gpios = <&gpio6 20 GPIO_ACTIVE_LOW>;	/* gpio6_180 */
+		left_shoulder_top {
+			label = "Left-Shoulder-Top";
+			linux,code = <KEY_RIGHTMETA>;
+			gpios = <&gpio6 23 GPIO_ACTIVE_LOW>;	/* gpio6_183 */
 			gpio-key,wakeup;
 		};
 
 		right_shoulder_bottom {
 			label = "Right-Shoulder-Bottom";
-			linux,code = <50>;	/* KEY_M */
+			linux,code = <KEY_RIGHTCTRL>;
+			gpios = <&gpio6 20 GPIO_ACTIVE_LOW>;	/* gpio6_180 */
+			gpio-key,wakeup;
+		};
+
+		right_shoulder_top {
+			label = "Right-Shoulder-Top";
+			linux,code = <KEY_RIGHTALT>;
 			gpios = <&gpio6 19 GPIO_ACTIVE_LOW>;	/* gpio6_179 */
 			gpio-key,wakeup;
 		};
 
 		left_nub {
 			label = "Left-Nub";
-			linux,code = <38>;	/* KEY_L */
+			linux,code = <BTN_RIGHT>;
 			gpios = <&gpio6 27 GPIO_ACTIVE_LOW>;	/* gpio6_187 */
 			gpio-key,wakeup;
 		};
 
 		right_nub {
 			label = "Right-Nub";
-			linux,code = <19>;	/* KEY_R */
+			linux,code = <BTN_LEFT>;
 			gpios = <&gpio6 21 GPIO_ACTIVE_LOW>;	/* gpio6_181 */
 			gpio-key,wakeup;
 		};
 
 		button_a {
 			label = "A";
-			linux,code = <30>;	/* KEY_A */
+			linux,code = <KEY_HOME>;
 			gpios = <&gpio7 7 GPIO_ACTIVE_LOW>;	/* gpio7_199 */
 			gpio-key,wakeup;
 		};
 
 		button_b {
 			label = "B";
-			linux,code = <48>;	/* KEY_B */
+			linux,code = <KEY_END>;
 			gpios = <&gpio7 4 GPIO_ACTIVE_LOW>;	/* gpio7_196 */
 			gpio-key,wakeup;
 		};
 
 		button_x {
 			label = "X";
-			linux,code = <45>;	/* KEY_X */
+			linux,code = <KEY_PAGEDOWN>;
 			gpios = <&gpio7 6 GPIO_ACTIVE_LOW>;	/* gpio7_198 */
 			gpio-key,wakeup;
 		};
 
 		button_y {
 			label = "Y";
-			linux,code = <21>;	/* KEY_Y */
+			linux,code = <KEY_PAGEUP>;
 			gpios = <&gpio7 5 GPIO_ACTIVE_LOW>;	/* gpio7_197 */
+			gpio-key,wakeup;
+		};
+
+		dpad_left {
+			label = "LEFT";
+			linux,code = <KEY_LEFT>;
+			gpios = <&gpio5 13 GPIO_ACTIVE_LOW>;	/* gpio5_141 */
+			gpio-key,wakeup;
+		};
+
+		dpad_up {
+			label = "UP";
+			linux,code = <KEY_UP>;
+			gpios = <&gpio5 12 GPIO_ACTIVE_LOW>;	/* gpio5_140 */
+			gpio-key,wakeup;
+		};
+
+		dpad_right {
+			label = "RIGHT";
+			linux,code = <KEY_RIGHT>;
+			gpios = <&gpio5 15 GPIO_ACTIVE_LOW>;	/* gpio5_143 */
+			gpio-key,wakeup;
+		};
+
+		dpad_down {
+			label = "DOWN";
+			linux,code = <KEY_DOWN>;
+			gpios = <&gpio5 14 GPIO_ACTIVE_LOW>;	/* gpio5_142 */
 			gpio-key,wakeup;
 		};
 	};
@@ -898,8 +790,10 @@
 		#size-cells = <0>;
 
 		wwan_wakeup {
-			label = "3G WOE";
-			linux,code = <17>;	/* KEY_W */
+			label = "WWAN Wakeup";
+			linux,code = <KEY_UNKNOWN>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&wwan_pins>;
 			gpios = <&gpio1 15 GPIO_ACTIVE_HIGH>;	/* gpio1_wk15 */
 			gpio-key,wakeup;
 			/* debounce-interval */
@@ -907,8 +801,10 @@
 
 		display_lid {
 			label = "Display Lid";
-			linux,input-type = <5>; /* EV_SW */
-			linux,code = <0>; /* SW_LID */
+			pinctrl-names = "default";
+			pinctrl-0 = <&lid_pin>;
+			linux,input-type = <EV_SW>;
+			linux,code = <SW_LID>;
 			gpios = <&gpio1 6 GPIO_ACTIVE_LOW>;	/* gpio1_wk6 */
 			gpio-key,wakeup;
 		};
@@ -952,42 +848,47 @@
 
 &vmmcsdio_fixed {
 	gpio = <&gpio6 3 GPIO_ACTIVE_HIGH>;	/* GPIO6_163 */
-	enable-active-high;
 };
 
-&mmc3 {
+&mmc3 { /* we have a WLAN module on mmc3 */
 	status = "okay";
-/* inherited
-	vmmc-supply = <&vmmcsdio_fixed>;
-	bus-width = <4>;
-	cap-power-off-card;
-	non-removable;
-	keep-power-in-suspend;
-*/
+};
 
-/* find out if we still need this
-	bus-width = <4>;
-	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&mmc3_pins_default &wlan_pins_default>;
-	pinctrl-1 = <&mmc3_pins_sleep &wlan_pins_sleep>;
-	ti,non-removable;
-	ti,needs-special-hs-handling;
-	cap-power-off-card;
-*/
+&wlcore {
+	status = "okay";
+	compatible = "ti,wl1835";	/* or ti,wl1837" */
+};
 
-	#address-cells = <1>;
-	#size-cells = <0>;
-	wlcore: wlcore@2 {
-		compatible = "ti,wl1835";	/* or ti,wl1837" */
-		reg = <2>;
-		interrupt-parent = <&gpio1>;
-		interrupts = <14 IRQ_TYPE_LEVEL_HIGH>;	/* gpio1_wk14 */
-		ref-clock-frequency = <26000000>;
+&omap5_pmx_core {
+	bt_pins: pinmux_bt_pins {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x12a, PIN_OUTPUT | MUX_MODE6)	/* 0x128:[31:16]  gpio6_164 - BT EN */
+		>;
+	};
+
+};
+
+/ {
+	bluetooth_power: bt_en {
+		compatible = "regulator-fixed";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_pins>;
+		regulator-name = "bt_power";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <&gpio6 4 GPIO_ACTIVE_HIGH>;	/* GPIO6_164 */
+		enable-active-high;
+		startup-delay-us = <70000>;
+		vin-supply = <&vsys_reg>;
+	};
+
+	bluetooth: tiwi {
+		/* we can (mis)use the same driver */
+		compatible = "wi2wi,w2cbw003-bluetooth";
+		uart = <&uart2>;
+		vdd-supply = <&bluetooth_power>;
 	};
 };
-
-// uart2-dtr mit gpio6_164 verbinden
-// fm-en gpio6_166 mit regulator-fixed der always on ist
 
 /* rearrange to use gpio6_167/168 for console UART3 instead of sdio4_cmd/clk */
 
@@ -998,6 +899,29 @@
 	>;
 };
 
-&mmc4 { /* now, we can enable the second (µ)SD slot (SDIO capable) */
+&mmc4 { /* enable second (µ)SD slot (SDIO capable) */
 	status = "okay";
+};
+
+&twl6040 {
+	vddvibl-supply = <&vsys_reg>;
+	vddvibr-supply = <&vsys_reg>;
+
+	vibra {
+		ti,vibldrv-res = <8>;
+		ti,vibrdrv-res = <3>;
+		ti,viblmotor-res = <32>;
+		ti,vibrmotor-res = <999999>;	/* no motor */
+	};
+};
+
+/* we do not use the Palmas OTG step-up converter */
+
+&usb3 {
+	vbus-supply = <&otg_reg>;
+};
+
+&smps10_out1_reg {
+	/* never turn on or it may burn the Palmas! */
+	status = "disabled";
 };

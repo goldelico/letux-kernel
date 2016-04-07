@@ -10,4 +10,4 @@
 
 #include "omap5-letux-cortex15.dts"
 #include "pyra-mainboard.dtsi"
-// #include "pyra-display-ssd2858.dtsi"
+#include "pyra-display.dtsi"
