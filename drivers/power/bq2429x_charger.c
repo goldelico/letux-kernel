@@ -107,6 +107,7 @@ static int bq24296_i2c_reg8_write(const struct i2c_client *client, const char re
 	struct i2c_msg msg;
 	int ret;
 	char *tx_buf = (char *)kmalloc(count + 1, GFP_KERNEL);
+
 	if(!tx_buf)
 		return -ENOMEM;
 	tx_buf[0] = reg;
@@ -138,6 +139,48 @@ static inline int bq24296_write(struct i2c_client *client, u8 reg, u8 const buf[
 	return ret;
 }
 
+static int bq24296_update_reg(struct i2c_client *client, int reg, u8 value, u8 mask )
+{
+	int ret =0;
+	u8 retval = 0;
+
+	ret = bq24296_read(client, reg, &retval, 1);
+	if (ret < 0) {
+		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
+		return ret;
+	}
+	ret = 0;
+
+#if 0
+	printk("bq24296_update_reg %02x: ( %02x & %02x ) | %02x -> %02x\n", reg, retval, (u8) ~mask, value, (u8) ((retval & ~mask) | value));
+#endif
+
+	if ((retval & mask) != value) {
+		retval = (retval & ~mask) | value;
+		ret = bq24296_write(client, reg, &retval, 1);
+		if (ret < 0) {
+			dev_err(&client->dev, "%s: err %d\n", __func__, ret);
+			return ret;
+		}
+		ret = 0;
+	}
+#if 0	// DEBUG
+{
+	int i;
+	u8 buffer;
+	for(i=0;i<11;i++)
+		{
+		bq24296_read(bq24296_di->client, i, &buffer, 1);
+		printk("  reg %02x value %02x\n", i, buffer);
+		}
+}
+#endif
+
+	return ret;
+}
+
+/* sysfs tool to show all register values */
+
 static ssize_t bat_param_read(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	int i;
@@ -157,42 +200,6 @@ static ssize_t bat_param_read(struct device *dev, struct device_attribute *attr,
 }
 
 DEVICE_ATTR(battparam, 0444, bat_param_read,NULL);
-
-static int bq24296_update_reg(struct i2c_client *client, int reg, u8 value, u8 mask )
-{
-	int ret =0;
-	u8 retval = 0;
-
-	ret = bq24296_read(client, reg, &retval, 1);
-	if (ret < 0) {
-		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
-		return ret;
-	}
-	ret = 0;
-
-// printk("bq24296_update_reg %02x: ( %02x & %02x ) | %02x -> %02x\n", reg, retval, (u8) ~mask, value, (u8) ((retval & ~mask) | value));
-
-	if ((retval & mask) != value) {
-		retval = (retval & ~mask) | value;
-		ret = bq24296_write(client, reg, &retval, 1);
-		if (ret < 0) {
-			dev_err(&client->dev, "%s: err %d\n", __func__, ret);
-			return ret;
-		}
-		ret = 0;
-	}
-{
-	int i;
-	u8 buffer;
-	for(i=0;i<11;i++)
-		{
-		bq24296_read(bq24296_di->client, i, &buffer, 1);
-//		printk("  reg %02x value %02x\n", i, buffer);
-		}
-}
-
-	return ret;
-}
 
 // FIXME: review very critical what we need to initialize
 // and why it is constant and not defined by device tree properties!
@@ -363,9 +370,9 @@ static int bq24296_update_input_current_limit(u8 value)
 printk("bq24296_update_input_current_limit(%u)\n", value);
 
 	ret = bq24296_update_reg(bq24296_di->client,
-							 INPUT_SOURCE_CONTROL_REGISTER,
-							 ((value << IINLIM_OFFSET) | (EN_HIZ_DISABLE << EN_HIZ_OFFSET)),
-							 ((IINLIM_MASK << IINLIM_OFFSET) | (EN_HIZ_MASK << EN_HIZ_OFFSET)));
+				  INPUT_SOURCE_CONTROL_REGISTER,
+				  ((value << IINLIM_OFFSET) | (hiz << EN_HIZ_OFFSET)),
+				  ((IINLIM_MASK << IINLIM_OFFSET) | (EN_HIZ_MASK << EN_HIZ_OFFSET)));
 	if (ret < 0) {
 		dev_err(&bq24296_di->client->dev, "%s(): Failed to set input current limit (0x%x) \n",
 				__func__, value);
@@ -373,13 +380,14 @@ printk("bq24296_update_input_current_limit(%u)\n", value);
 
 	return ret;
 }
+
 static int bq24296_set_charge_current(u8 value)
 {
 	int ret = 0;
 
 	ret = bq24296_update_reg(bq24296_di->client,
-							 CHARGE_CURRENT_CONTROL_REGISTER,
-							 (value << CHARGE_CURRENT_OFFSET) ,(CHARGE_CURRENT_MASK <<CHARGE_CURRENT_OFFSET ));
+				  CHARGE_CURRENT_CONTROL_REGISTER,
+				  (value << CHARGE_CURRENT_OFFSET) ,(CHARGE_CURRENT_MASK <<CHARGE_CURRENT_OFFSET ));
 	if (ret < 0) {
 		dev_err(&bq24296_di->client->dev, "%s(): Failed to set charge current limit (0x%x) \n",
 				__func__, value);
@@ -392,9 +400,9 @@ static int bq24296_update_en_hiz_disable(void)
 	int ret = 0;
 
 	ret = bq24296_update_reg(bq24296_di->client,
-							 INPUT_SOURCE_CONTROL_REGISTER,
-							 EN_HIZ_DISABLE << EN_HIZ_OFFSET,
-							 EN_HIZ_MASK << EN_HIZ_OFFSET);
+				  INPUT_SOURCE_CONTROL_REGISTER,
+				  EN_HIZ_DISABLE << EN_HIZ_OFFSET,
+				  EN_HIZ_MASK << EN_HIZ_OFFSET);
 	if (ret < 0) {
 		dev_err(&bq24296_di->client->dev, "%s(): Failed to set en_hiz_disable\n",
 				__func__);
@@ -405,11 +413,7 @@ static int bq24296_update_en_hiz_disable(void)
 int bq24296_set_input_current(int on)
 {
 	if(on) {
-#ifdef CONFIG_BATTERY_RK30_USB_AND_CHARGE
 		bq24296_update_input_current_limit(IINLIM_3000MA);
-#else
-		bq24296_update_input_current_limit(IINLIM_3000MA);
-#endif
 	} else {
 		bq24296_update_input_current_limit(IINLIM_500MA);
 	}
@@ -423,9 +427,9 @@ static int bq24296_update_charge_mode(u8 value)
 	int ret = 0;
 
 	ret = bq24296_update_reg(bq24296_di->client,
-							 POWER_ON_CONFIGURATION_REGISTER,
-							 value << CHARGE_MODE_CONFIG_OFFSET,
-							 CHARGE_MODE_CONFIG_MASK << CHARGE_MODE_CONFIG_OFFSET);
+				  POWER_ON_CONFIGURATION_REGISTER,
+				  value << CHARGE_MODE_CONFIG_OFFSET,
+				  CHARGE_MODE_CONFIG_MASK << CHARGE_MODE_CONFIG_OFFSET);
 	if (ret < 0) {
 		dev_err(&bq24296_di->client->dev, "%s(): Failed to set charge mode(0x%x) \n",
 				__func__, value);
@@ -439,9 +443,9 @@ static int bq24296_update_otg_mode_current(u8 value)
 	int ret = 0;
 
 	ret = bq24296_update_reg(bq24296_di->client,
-							 POWER_ON_CONFIGURATION_REGISTER,
-							 value << OTG_MODE_CURRENT_CONFIG_OFFSET,
-							 OTG_MODE_CURRENT_CONFIG_MASK << OTG_MODE_CURRENT_CONFIG_OFFSET);
+				  POWER_ON_CONFIGURATION_REGISTER,
+				  value << OTG_MODE_CURRENT_CONFIG_OFFSET,
+				  OTG_MODE_CURRENT_CONFIG_MASK << OTG_MODE_CURRENT_CONFIG_OFFSET);
 	if (ret < 0) {
 		dev_err(&bq24296_di->client->dev, "%s(): Failed to set otg current mode(0x%x) \n",
 				__func__, value);
@@ -488,6 +492,7 @@ static int bq24296_charge_otg_en(int chg_en,int otg_en)
 static int bq24296_read_sys_stats(u8 *retval)
 { /* return 0 if not charging, 1 if online */
 	int ret;
+
 //	DBG("%s,line=%d\n", __func__,__LINE__);
 	ret = bq24296_read(bq24296_di->client, SYSTEM_STATS_REGISTER, retval, 1);
 	if (ret < 0) {
