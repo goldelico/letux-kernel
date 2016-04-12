@@ -512,6 +512,14 @@ static int bq27xxx_battery_read_dcap(struct bq27xxx_device_info *di)
 	else
 		dcap *= 1000;
 
+	if (di->charge_design_full_expected > 0 &&
+	    dcap != di->charge_design_full_expected) {
+		dev_err(di->dev, "mismatch in battery capacity: %u instead of %u\n",
+			dcap, di->charge_design_full_expected);
+		/* try to update BQ27XXX_REG_DCAP register and set dcap to new value */
+		/* see page 12 of: http://www.ti.com/lit/ug/sluuad4c/sluuad4c.pdf */
+	}
+
 	return dcap;
 }
 
@@ -960,6 +968,11 @@ int bq27xxx_battery_setup(struct bq27xxx_device_info *di)
 {
 	struct power_supply_desc *psy_desc;
 	struct power_supply_config psy_cfg = { .drv_data = di, };
+
+	if (di->dev->of_node) {
+		/* should read from DT battery subnode! */
+		di->charge_design_full_expected = 6000000;
+	}
 
 	INIT_DELAYED_WORK(&di->work, bq27xxx_battery_poll);
 	mutex_init(&di->lock);
