@@ -326,34 +326,39 @@ static int bq24296_get_chg_current(int value)
 
 /* getter and setter functions - review critically which ones we still need */
 
+static const unsigned int iinlim_table[] = {
+	100000,
+	150000,
+	500000,
+	900000,
+	1000000,
+	1500000,
+	2000000,
+	3000000,
+};
+
 static int bq24296_max_current(void)
 {
 	int cur;	/* in uA */
 	int ret;
 	u8 retval = 0;
-	ret = bq24296_read(bq24296_di->client, POWER_ON_CONFIGURATION_REGISTER, &retval, 1);
+
+	ret = bq24296_read(bq24296_di->client, INPUT_SOURCE_CONTROL_REGISTER, &retval, 1);
 	if (ret < 0) {
 		dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
 		return ret;
 	}
+
 	if(((retval >> EN_HIZ_OFFSET) & EN_HIZ_MASK) == EN_HIZ_ENABLE)
-		cur=0;	// High-Z state
-	else switch((retval >> IINLIM_OFFSET) & IINLIM_MASK) {
-		case IINLIM_100MA: cur=100000; break;
-		case IINLIM_150MA: cur=150000; break;
-		case IINLIM_500MA: cur=500000; break;
-		case IINLIM_900MA: cur=900000; break;
-		case IINLIM_1200MA: cur=1200000; break;
-		case IINLIM_1500MA: cur=1500000; break;
-		case IINLIM_2000MA: cur=2000000; break;
-		case IINLIM_3000MA: cur=3000000; break;
-	}
-	return cur;
+		return 0;	// High-Z state
+
+	return iinlim_table[(retval >> IINLIM_OFFSET) & IINLIM_MASK];
 }
 
 static int bq24296_update_input_current_limit(u8 value)
 {
 	int ret = 0;
+	u8 hiz = (value < 0 ? EN_HIZ_ENABLE : EN_HIZ_DISABLE);
 
 printk("bq24296_update_input_current_limit(%u)\n", value);
 
