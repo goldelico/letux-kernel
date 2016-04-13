@@ -523,13 +523,6 @@ static void usb_detect_work_func(struct work_struct *work)
 	}
 
 	bq24296_battery_present = ((r9 >> NTC_FAULT_OFFSET) & NTC_FAULT_MASK) == 0;	/* if no fault */
-
-	if (!bq24296_battery_present) {
-		// FIXME: we should simply set 2A minimum (or defined by DT) if no battery
-		// same logic as in U-Boot
-		// or better: we should protect the input limit in the setter calls...
-	}
-
 	bq24296_input_present = (r8 & PG_STAT) != 0;
 
 	if (r8 != previous_r8 || bq24296_input_present != (previous_r8 & PG_STAT) != 0)
@@ -550,6 +543,7 @@ static void usb_detect_work_func(struct work_struct *work)
  * that the Host stops before it can do anything good. It will then
  * probably reboot and then increase to 2A by U-Boot.
  */
+
 	if (!bq24296_battery_present && bq24296_input_current_limit_uA() < 2000000)
 		bq24296_update_input_current_limit(bq24296_limit_current_mA_to_bits(2000000));
 
@@ -1102,7 +1096,7 @@ static int bq24296_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		val->intval = bq24296_input_current_limit_uA();
-		printk("bq24296 CURRENT_MAX: %u mA\n", val->intval);
+//		printk("bq24296 CURRENT_MAX: %u mA\n", val->intval);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		ret = bq24296_read(bq24296_di->client, SYSTEM_STATS_REGISTER, &retval, 1);
@@ -1113,11 +1107,11 @@ static int bq24296_get_property(struct power_supply *psy,
 			case CHRG_NO_CHARGING:
 			case CHRG_CHRGE_DONE:
 				val->intval = 0;	// assume not charging current
-				printk("bq24296 CURRENT_NOW: %u mA\n", val->intval = ret);
+//				printk("bq24296 CURRENT_NOW: %u mA\n", val->intval = ret);
 				break;
 			case CHRG_PRE_CHARGE:
 				ret = bq24296_read(bq24296_di->client, PRE_CHARGE_TERMINATION_CURRENT_CONTROL_REGISTER, &retval, 1);
-				printk("bq24296: PRE_CHARGE_TERMINATION_CURRENT_CONTROL_REGISTER %02x\n", retval);
+//				printk("bq24296: PRE_CHARGE_TERMINATION_CURRENT_CONTROL_REGISTER %02x\n", retval);
 				if (ret < 0) {
 					dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
 				}
@@ -1125,18 +1119,18 @@ static int bq24296_get_property(struct power_supply *psy,
 				val->intval = bq24296_input_current_limit_uA();
 				if (ret < val->intval)
 					val->intval = ret;
-				printk("bq24296 CURRENT_NOW: %u mA\n", val->intval);
+//				printk("bq24296 CURRENT_NOW: %u mA\n", val->intval);
 				break;
 			case CHRG_FAST_CHARGE:
 				ret = bq24296_read(bq24296_di->client, CHARGE_CURRENT_CONTROL_REGISTER, &retval, 1);
-				printk("bq24296: FAST_CHARGE CHARGE_CURRENT_CONTROL_REGISTER %02x\n", retval);
+//				printk("bq24296: FAST_CHARGE CHARGE_CURRENT_CONTROL_REGISTER %02x\n", retval);
 				if (ret < 0) {
 					dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
 				}
 				ret = 64000 * ((retval >> CHARGE_CURRENT_OFFSET) & CHARGE_CURRENT_MASK) + 512000;											val->intval = bq24296_input_current_limit_uA();
 				if (ret < val->intval)
 					val->intval = ret;
-				printk("bq24296 CURRENT_NOW: %u mA\n", val->intval);
+//				printk("bq24296 CURRENT_NOW: %u mA\n", val->intval);
 				break;
 		}
 		break;
@@ -1167,7 +1161,15 @@ static int bq24296_get_property(struct power_supply *psy,
 		val->intval = (retval & PG_STAT) != 0;	/* power is good */
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
+#if 0	/* this would indicate a low battery! */
+		ret = bq24296_read(bq24296_di->client, SYSTEM_STATS_REGISTER, &retval, 1);
+		if (ret < 0) {
+			dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
+		}
 		val->intval = !(retval & 0x1);	// VBAT > VSYSMIN
+#else
+		val->intval = bq24296_battery_present;
+#endif
 		break;
 	default:
 		return -EINVAL;
