@@ -1055,13 +1055,15 @@ static int bq24296_get_property(struct power_supply *psy,
 {
 	int ret;
 	u8 retval = 0;
+
 	DBG("%s,line=%d prop=%d\n", __func__,__LINE__, psp);
-	ret = bq24296_read_sys_stats(&retval);
-	if (ret < 0) {
-		dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
-	}
+
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
+		ret = bq24296_read(bq24296_di->client, SYSTEM_STATS_REGISTER, &retval, 1);
+		if (ret < 0) {
+			dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
+		}
 		switch((retval >> CHRG_OFFSET) & CHRG_MASK) {
 			case CHRG_NO_CHARGING:	val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING; break;
 			case CHRG_PRE_CHARGE:	val->intval = POWER_SUPPLY_STATUS_CHARGING; break;
@@ -1070,6 +1072,10 @@ static int bq24296_get_property(struct power_supply *psy,
 		}
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_TYPE:
+		ret = bq24296_read(bq24296_di->client, SYSTEM_STATS_REGISTER, &retval, 1);
+		if (ret < 0) {
+			dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
+		}
 		switch((retval >> CHRG_OFFSET) & CHRG_MASK) {
 			case CHRG_NO_CHARGING:	val->intval = POWER_SUPPLY_CHARGE_TYPE_NONE; break;
 			case CHRG_PRE_CHARGE:	val->intval = POWER_SUPPLY_CHARGE_TYPE_TRICKLE; break;
@@ -1091,41 +1097,53 @@ static int bq24296_get_property(struct power_supply *psy,
 		break;
 #endif
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		if((retval >> 2) & 0x01)
-			val->intval = 5000000;	/* power good: assume 5V */
+		ret = bq24296_read(bq24296_di->client, SYSTEM_STATS_REGISTER, &retval, 1);
+		if (ret < 0) {
+			dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
+		}
+		if(retval & PG_STAT)
+			val->intval = 5000000;	/* power good: assume VBUS 5V - we could also report VINDPM */
 		else
 			val->intval = 0;	/* power not good: assume 0V */
 		break;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		val->intval = bq24296_max_current();
+		val->intval = bq24296_input_current_limit_uA();
+		printk("bq24296 CURRENT_MAX: %u mA\n", val->intval);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
+		ret = bq24296_read(bq24296_di->client, SYSTEM_STATS_REGISTER, &retval, 1);
+		if (ret < 0) {
+			dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
+		}
 		switch((retval >> CHRG_OFFSET) & CHRG_MASK) {
 			case CHRG_NO_CHARGING:
 			case CHRG_CHRGE_DONE:
 				val->intval = 0;	// assume not charging current
+				printk("bq24296 CURRENT_NOW: %u mA\n", val->intval = ret);
 				break;
 			case CHRG_PRE_CHARGE:
 				ret = bq24296_read(bq24296_di->client, PRE_CHARGE_TERMINATION_CURRENT_CONTROL_REGISTER, &retval, 1);
-				printk("CHRG_PRE_CHARGE: PRE_CHARGE_TERMINATION_CURRENT_CONTROL_REGISTER %02x\n", retval);
+				printk("bq24296: PRE_CHARGE_TERMINATION_CURRENT_CONTROL_REGISTER %02x\n", retval);
 				if (ret < 0) {
 					dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
 				}
-				val->intval = bq24296_max_current();
 				ret = 128000 * ((retval >> PRE_CHARGE_CURRENT_LIMIT_OFFSET) & PRE_CHARGE_CURRENT_LIMIT_MASK) + 128000;	// return precharge limit
+				val->intval = bq24296_input_current_limit_uA();
 				if (ret < val->intval)
 					val->intval = ret;
+				printk("bq24296 CURRENT_NOW: %u mA\n", val->intval);
 				break;
 			case CHRG_FAST_CHARGE:
 				ret = bq24296_read(bq24296_di->client, CHARGE_CURRENT_CONTROL_REGISTER, &retval, 1);
-				printk("CHRG_FAST_CHARGE: CHARGE_CURRENT_CONTROL_REGISTER %02x\n", retval);
+				printk("bq24296: FAST_CHARGE CHARGE_CURRENT_CONTROL_REGISTER %02x\n", retval);
 				if (ret < 0) {
 					dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
 				}
-				ret = 64000 * ((retval >> CHARGE_CURRENT_OFFSET) & CHARGE_CURRENT_MASK) + 512000;								val->intval = bq24296_max_current();
+				ret = 64000 * ((retval >> CHARGE_CURRENT_OFFSET) & CHARGE_CURRENT_MASK) + 512000;											val->intval = bq24296_input_current_limit_uA();
 				if (ret < val->intval)
 					val->intval = ret;
+				printk("bq24296 CURRENT_NOW: %u mA\n", val->intval);
 				break;
 		}
 		break;
@@ -1149,7 +1167,11 @@ static int bq24296_get_property(struct power_supply *psy,
 			val->intval = 225;	// ok (22.5C)
 		break;
 	case POWER_SUPPLY_PROP_ONLINE:	/* charger online, i.e. VBUS */
-		val->intval = ret;
+		ret = bq24296_read(bq24296_di->client, SYSTEM_STATS_REGISTER, &retval, 1);
+		if (ret < 0) {
+			dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
+		}
+		val->intval = (retval & PG_STAT) != 0;	/* power is good */
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
 		val->intval = !(retval & 0x1);	// VBAT > VSYSMIN
@@ -1169,9 +1191,23 @@ static int bq24296_set_property(struct power_supply *psy,
 	DBG("%s,line=%d prop=%d\n", __func__,__LINE__, psp);
 	switch (psp) {
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
-		return bq24296_update_input_current_limit(bq24296_get_limit_current(val->intval));
+		if (val->intval < 80)
+			; // we should be able to switch to High-Z mode!
+		return bq24296_update_input_current_limit(bq24296_limit_current_mA_to_bits(val->intval/1000));
 	default:
-		return -EINVAL;
+		return -EPERM;
+	}
+	return 0;
+}
+
+static int bq24296_writeable_property(struct power_supply *psy,
+					enum power_supply_property psp)
+{
+	switch (psp) {
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
+		return 1;
+	default:
+		break;
 	}
 	return 0;
 }
@@ -1196,6 +1232,7 @@ static const struct power_supply_desc bq24296_power_supply_desc[] = {
 	.num_properties		= ARRAY_SIZE(bq24296_charger_props),
 	.get_property		= bq24296_get_property,
 	.set_property		= bq24296_set_property,
+	.property_is_writeable	= bq24296_writeable_property,
 	},
 	{
 	.name			= "bq24297",
@@ -1204,6 +1241,7 @@ static const struct power_supply_desc bq24296_power_supply_desc[] = {
 	.num_properties		= ARRAY_SIZE(bq24296_charger_props),
 	.get_property		= bq24296_get_property,
 	.set_property		= bq24296_set_property,
+	.property_is_writeable	= bq24296_writeable_property,
 	},
 };
 
