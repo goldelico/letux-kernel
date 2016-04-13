@@ -115,6 +115,21 @@
 #define CHRG_OFFSET		4
 #define CHRG_MASK		3
 
+#define DPM_STAT	0x08
+#define PG_STAT		0x04
+#define THERM_STAT	0x02
+#define VSYS_STAT	0x01
+
+/* fault status register value */
+
+#define WATCHDOG_FAULT	0x80
+#define OTG_FAULT	0x40
+#define CHRG_FAULT_OFFSET	4
+#define CHRG_FAULT_MASK	0x3
+#define BAT_FAULT	0x08
+#define NTC_FAULT_OFFSET	0
+#define NTC_FAULT_MASK	0x3
+
 /* vendor status register value */
 /* #define CHIP_BQ24190		0
 #define CHIP_BQ24191		1
