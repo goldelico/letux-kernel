@@ -181,7 +181,7 @@ static int bq24296_update_reg(struct i2c_client *client, int reg, u8 value, u8 m
 
 /* sysfs tool to show all register values */
 
-static ssize_t bat_param_read(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t show_registers(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	int i;
 	u8 buffer;
@@ -199,7 +199,7 @@ static ssize_t bat_param_read(struct device *dev, struct device_attribute *attr,
 	return len;
 }
 
-DEVICE_ATTR(battparam, 0444, bat_param_read,NULL);
+DEVICE_ATTR(registers, 0444, show_registers,NULL);
 
 // FIXME: review very critical what we need to initialize
 // and why it is constant and not defined by device tree properties!
@@ -1350,14 +1350,15 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 		}
 	}
 #endif
+
 	if (device_create_file(&client->dev, &dev_attr_max_current))
 		dev_warn(&client->dev, "could not create sysfs file max_current\n");
 
 	if (device_create_file(&client->dev, &dev_attr_otg))
 		dev_warn(&client->dev, "could not create sysfs file otg\n");
 
-	if (device_create_file(&client->dev, &dev_attr_battparam))
-		dev_warn(&client->dev, "could not create sysfs file battparam\n");
+	if (device_create_file(&client->dev, &dev_attr_registers))
+		dev_warn(&client->dev, "could not create sysfs file registers\n");
 
 	schedule_delayed_work(&di->usb_detect_work, 0);
 
@@ -1376,7 +1377,7 @@ static int bq24296_battery_remove(struct i2c_client *client)
 
 	device_remove_file(di->dev, &dev_attr_max_current);
 	device_remove_file(di->dev, &dev_attr_otg);
-	device_remove_file(di->dev, &dev_attr_battparam);
+	device_remove_file(di->dev, &dev_attr_registers);
 
 	return 0;
 }
