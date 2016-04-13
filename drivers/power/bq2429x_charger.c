@@ -489,61 +489,78 @@ static int bq24296_charge_otg_en(int chg_en,int otg_en)
 
 /* this polls the bq2429x to handle VBUS events -- should become interrupt driven */
 
-static int bq24296_read_sys_stats(u8 *retval)
-{ /* return 0 if not charging, 1 if online */
-	int ret;
+u8 r8;	// should be read in interrupt handler
+u8 r9;	// should be read in interrupt handler because it autoresets
 
-//	DBG("%s,line=%d\n", __func__,__LINE__);
-	ret = bq24296_read(bq24296_di->client, SYSTEM_STATS_REGISTER, retval, 1);
-	if (ret < 0) {
-		dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
-		return -1;
-	}
-	switch((*retval >> VBUS_OFFSET) & VBUS_MASK) {
-		case VBUS_UNKNOWN:
-		case VBUS_OTG:
-			return 0;
-		// NOTE: on the Pyra this also indicates if power comes from the main USB or the charging bypass
-		case VBUS_USB_HOST:
-		case VBUS_ADAPTER_PORT:
-			return 1;
-	}
-	return 0;
-}
+u8 previous_r8 = 0xff;
 
-int previous_online = 0;	// was the USB power already online last time we looked?
-
-u8 lastretval = 0xff;
-int bq24296_chag_down;
-u8 lastchag_down = 0;
+bool bq24296_battery_present;
+bool bq24296_input_present;	// VBUS available
 
 static void usb_detect_work_func(struct work_struct *work)
 {
 	struct delayed_work *delayed_work = (struct delayed_work *)container_of(work, struct delayed_work, work);
 	struct bq24296_device_info *pi = (struct bq24296_device_info *)container_of(delayed_work, struct bq24296_device_info, usb_detect_work);
-	u8 retval = 0;
 	int ret ;
 
+	previous_r8 = r8;
+
 //	DBG("%s,line=%d\n", __func__,__LINE__);
-	ret = bq24296_read_sys_stats(&retval);
+	ret = bq24296_read(bq24296_di->client, SYSTEM_STATS_REGISTER, &r8, 1);
 	if (ret < 0) {
 		dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
 		return;	/* don't schedule again */
 	}
 
-// FIXME: here we could set bit 6 of POWER_ON_CONFIGURATION_REGISTER
-// to reset the watchdog
-// then we can keep it enabled
+	ret = bq24296_read(bq24296_di->client, FAULT_STATS_REGISTER, &r9, 1);
+	if (ret < 0) {
+		dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
+		return;	/* don't schedule again */
+	}
 
-	if (((retval >> VBUS_OFFSET) & VBUS_MASK) == 3){ /* charge termination */
-		bq24296_chag_down =1;
-	}else
-		bq24296_chag_down =0;
+	bq24296_battery_present = ((r9 >> NTC_FAULT_OFFSET) & NTC_FAULT_MASK) == 0;	/* if no fault */
 
-	if (retval != lastretval || bq24296_chag_down != lastchag_down)
-		DBG("%s: retval = %02x bq24296_chag_down = %d\n", __func__,retval,bq24296_chag_down);
-	lastretval = retval;
-	lastchag_down = bq24296_chag_down;
+	if (!bq24296_battery_present) {
+		// FIXME: we should simply set 2A minimum (or defined by DT) if no battery
+		// same logic as in U-Boot
+		// or better: we should protect the input limit in the setter calls...
+	}
+
+	bq24296_input_present = (r8 & PG_STAT) != 0;
+
+	if (r8 != previous_r8 || bq24296_input_present != (previous_r8 & PG_STAT) != 0)
+		DBG("%s: r8 = %02x bq24296_input_present = %d\n", __func__,r8,bq24296_input_present);
+
+#if FIXME
+
+/*
+ * we should apply the same logic as U-Boot
+ * if no battery available, increase the IINLIM to 2A if below
+ * this makes it possible to run from a sufficiently strong USB power supply
+ * in all other cases, leave the IINLIM untouched and updated only by udev events
+ * or user contro writing to /sys/class/power/bq24297/
+ * There is some issue even with this approach:
+ * if battery is inserted and system connected to a 2A power supply
+ * and then the battery is removed (might happen even during suspend)
+ * it may take too long until IINLIM is increased to 2A by code so
+ * that the Host stops before it can do anything good. It will then
+ * probably reboot and then increase to 2A by U-Boot.
+ */
+	if (!bq24296_battery_present && bq24296_input_current_limit_uA() < 2000000)
+		bq24296_update_input_current_limit(bq24296_limit_current_mA_to_bits(2000000));
+
+#endif
+
+#if FIXME
+
+/*
+ * we should also reset the watchdog every now and then
+ * at least if we run from battery
+ * If watchdog operation is with battery only, we should
+ * enable/disable it on demand
+ */
+
+#endif
 
 	mutex_lock(&pi->var_lock);
 
@@ -603,12 +620,15 @@ static void usb_detect_work_func(struct work_struct *work)
 */ 
  
 		/* detect VBUS being available */
-		if(ret && !previous_online) { /* VBUS became available */
+		if(ret && bq24296_input_present && !(previous_r8 & PG_STAT)) { /* VBUS became available */
 			DBG("bq24296: VBUS became available\n");
+			printk("bq24296: VBUS became available\n");
+			// this should have been queried/provided by the USB stack...
 			bq24296_update_input_current_limit(bq24296_di->usb_input_current);
+		/* could trigger another DPDM detection... */
+		/* start charging here */
 //			bq24296_update_charge_mode(CHARGE_MODE_CONFIG_CHARGE_BATTERY);
 		}
-		previous_online = ret;
 #endif
 	}
 
