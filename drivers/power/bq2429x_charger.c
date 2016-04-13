@@ -135,6 +135,10 @@ static inline int bq24296_write(struct i2c_client *client, u8 reg, u8 const buf[
 {
 	int ret;
 
+#if 0	// debug and disable write commands
+	printk("bq24296_write %02x: %02x\n", reg, *buf);
+	return 0;
+#endif
 	ret = bq24296_i2c_reg8_write(client, reg, buf, (int)len);
 	return ret;
 }
@@ -299,22 +303,22 @@ final:
 
 /* helper functions */
 
-static int bq24296_get_limit_current(int value)
+static int bq24296_limit_current_mA_to_bits(int mA)
 {
 	u8 data;
-	if (value < 120)
+	if (mA < 120)
 		data = 0;
-	else if(value < 400)
+	else if(mA < 400)
 		data = 1;
-	else if(value < 700)
+	else if(mA < 700)
 		data = 2;
-	else if(value < 1000)
+	else if(mA < 1000)
 		data = 3;
-	else if(value < 1200)
+	else if(mA < 1200)
 		data = 4;
-	else if(value < 1800)
+	else if(mA < 1800)
 		data = 5;
-	else if(value < 2200)
+	else if(mA < 2200)
 		data = 6;
 	else
 		data = 7;
@@ -322,11 +326,11 @@ static int bq24296_get_limit_current(int value)
 	
 }
 
-static int bq24296_get_chg_current(int value)
+static int bq24296_chg_current_mA_to_bits(int mA)
 {
 	u8 data;
 
-	data = (value)/64;
+	data = (mA)/64;
 	data &= 0xff;
 	return data;	
 }
@@ -344,7 +348,7 @@ static const unsigned int iinlim_table[] = {
 	3000000,
 };
 
-static int bq24296_max_current(void)
+static int bq24296_input_current_limit_uA(void)
 {
 	int cur;	/* in uA */
 	int ret;
@@ -939,7 +943,7 @@ MODULE_DEVICE_TABLE(of, bq24296_battery_of_match);
  * set the max current drawn from USB
  */
 static ssize_t
-bq24296_max_current_store(struct device *dev, struct device_attribute *attr,
+bq24296_input_current_limit_uA_store(struct device *dev, struct device_attribute *attr,
 	const char *buf, size_t n)
 {
 	int cur = 0;
@@ -949,8 +953,8 @@ bq24296_max_current_store(struct device *dev, struct device_attribute *attr,
 		return status;
 	if (cur < 0)
 		return -EINVAL;
-	printk("bq24296_max_current_store: set input max current to %u uA -> %02x\n", cur, bq24296_get_limit_current(cur));
-	status = bq24296_update_input_current_limit(bq24296_get_limit_current(cur));
+	printk("bq24296_input_current_limit_uA_store: set input max current to %u uA -> %02x\n", cur, bq24296_limit_current_mA_to_bits(cur/1000));
+	status = bq24296_update_input_current_limit(bq24296_limit_current_mA_to_bits(cur/1000));
 	return (status == 0) ? n : status;
 }
 
@@ -960,10 +964,10 @@ bq24296_max_current_store(struct device *dev, struct device_attribute *attr,
  * note: actual input current limit is the lower of I2C register and ILIM resistor
  */
 
-static ssize_t bq24296_max_current_show(struct device *dev,
+static ssize_t bq24296_input_current_limit_uA_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	int cur = bq24296_max_current();
+	int cur = bq24296_input_current_limit_uA();
 	if (cur < 0)
 		return cur;
 
@@ -1030,8 +1034,8 @@ static ssize_t bq24296_otg_show(struct device *dev,
 }
 
 // can be removed if handled as property
-static DEVICE_ATTR(max_current, 0644, bq24296_max_current_show,
-			bq24296_max_current_store);
+static DEVICE_ATTR(max_current, 0644, bq24296_input_current_limit_uA_show,
+			bq24296_input_current_limit_uA_store);
 
 // do we need that? Only if there is no mechanism to set the regulator from user-space
 static DEVICE_ATTR(otg, 0644, bq24296_otg_show, bq24296_otg_store);
@@ -1285,14 +1289,14 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 
 	/******************get set current******/
 	if (pdev->chg_current[0] && pdev->chg_current[1] && pdev->chg_current[2]){
-		di->chg_current = bq24296_get_chg_current(pdev->chg_current[0] );
-		di->usb_input_current  = bq24296_get_limit_current(pdev->chg_current[1]);
-		di->adp_input_current  = bq24296_get_limit_current(pdev->chg_current[2]);
+		di->chg_current = bq24296_chg_current_mA_to_bits(pdev->chg_current[0] );
+		di->usb_input_current  = bq24296_limit_current_mA_to_bits(pdev->chg_current[1]);
+		di->adp_input_current  = bq24296_limit_current_mA_to_bits(pdev->chg_current[2]);
 	}
 	else {
-		di->chg_current = bq24296_get_chg_current(1000);
-		di->usb_input_current  = bq24296_get_limit_current(500);
-		di->adp_input_current  = bq24296_get_limit_current(2000);
+		di->chg_current = bq24296_chg_current_mA_to_bits(1000);
+		di->usb_input_current  = bq24296_limit_current_mA_to_bits(500);
+		di->adp_input_current  = bq24296_limit_current_mA_to_bits(2000);
 	}
 
 	DBG("%s,line=%d chg_current =%d usb_input_current = %d adp_input_current =%d \n", __func__,__LINE__,
@@ -1313,6 +1317,8 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 		ret = -ENODEV;
 		goto fail_probe;
 	}
+
+/* we can also read and save the IINLIM value inherited from the boot process here! */
 
 	init_data = di->pmic_init_data;
 	if (!init_data)
