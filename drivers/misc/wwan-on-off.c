@@ -76,8 +76,6 @@ static void set_power(struct wwan_on_off *wwan, bool on)
 	if (!gpio_is_valid(wwan->on_off_gpio))
 		return;	/* we can't control power */
 
-	spin_lock_irq(&wwan->lock);	/* block other processes who want to change the state */
-
 	state = is_powered_on(wwan);
 
 #ifdef DEBUG
@@ -98,7 +96,7 @@ static void set_power(struct wwan_on_off *wwan, bool on)
 		if (is_powered_on(wwan) != on)
 			printk("modem: failed to change modem state\n");	/* warning only! using USB feedback might not be immediate */
 	}
-	spin_unlock_irq(&wwan->lock);
+
 #ifdef DEBUG
 	printk("modem: done\n");
 #endif
@@ -127,7 +125,9 @@ static void wwan_on_off_set_value(struct gpio_chip *gc,
 #ifdef DEBUG
 	printk("WWAN GPIO set value %d\n", val);
 #endif
+	spin_lock_irq(&wwan->lock);	/* block other processes who change the state */
 	set_power(wwan, val);	/* 1 = enable, 0 = disable */
+	spin_unlock_irq(&wwan->lock);
 }
 
 static int wwan_on_off_direction_output(struct gpio_chip *gc,
