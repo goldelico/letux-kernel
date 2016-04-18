@@ -366,16 +366,16 @@ static int bq24296_input_current_limit_uA(void)
 	return iinlim_table[(retval >> IINLIM_OFFSET) & IINLIM_MASK];
 }
 
-static int bq24296_update_input_current_limit(u8 value)
+static int bq24296_update_input_current_limit(int value)
 {
 	int ret = 0;
 	u8 hiz = (value < 0 ? EN_HIZ_ENABLE : EN_HIZ_DISABLE);
 
-printk("bq24296_update_input_current_limit(%u)\n", value);
+printk("bq24296_update_input_current_limit(%d)\n", value);
 
 	ret = bq24296_update_reg(bq24296_di->client,
 				  INPUT_SOURCE_CONTROL_REGISTER,
-				  ((value << IINLIM_OFFSET) | (hiz << EN_HIZ_OFFSET)),
+				  (((value & IINLIM_MASK) << IINLIM_OFFSET) | (hiz << EN_HIZ_OFFSET)),
 				  ((IINLIM_MASK << IINLIM_OFFSET) | (EN_HIZ_MASK << EN_HIZ_OFFSET)));
 	if (ret < 0) {
 		dev_err(&bq24296_di->client->dev, "%s(): Failed to set input current limit (0x%x) \n",
@@ -948,7 +948,10 @@ bq24296_input_current_limit_uA_store(struct device *dev, struct device_attribute
 	if (cur < 0)
 		return -EINVAL;
 	printk("bq24296_input_current_limit_uA_store: set input max current to %u uA -> %02x\n", cur, bq24296_limit_current_mA_to_bits(cur/1000));
-	status = bq24296_update_input_current_limit(bq24296_limit_current_mA_to_bits(cur/1000));
+	if (cur < 80000)
+		status = bq24296_update_input_current_limit(-1);	/* High-Z */
+	else
+		status = bq24296_update_input_current_limit(bq24296_limit_current_mA_to_bits(cur/1000));
 	return (status == 0) ? n : status;
 }
 
@@ -1186,8 +1189,8 @@ static int bq24296_set_property(struct power_supply *psy,
 	DBG("%s,line=%d prop=%d\n", __func__,__LINE__, psp);
 	switch (psp) {
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
-		if (val->intval < 80)
-			; // we should be able to switch to High-Z mode!
+		if (val->intval < 80000)
+			return bq24296_update_input_current_limit(-1);	/* High-Z mode */
 		return bq24296_update_input_current_limit(bq24296_limit_current_mA_to_bits(val->intval/1000));
 	default:
 		return -EPERM;
