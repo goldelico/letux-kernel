@@ -16,52 +16,33 @@
 	model = "Letux Cortex 15";
 	compatible = "ti,omap5-uevm", "ti,omap5";
 
+	aliases {
+		display0 = &lcd;
+		display1 = &hdmi0;
+	};
+
 	memory {
 		device_type = "memory";
 		reg = <0x80000000 0x7F000000>; /* 2032 MB */
 	};
 };
 
+&cpu0 {
+	operating-points = <
+		/* kHz    uV */
+		1000000 1060000
+		// 1500000 1250000
+		500000 1250000
+	>;
+};
+
 &hdmi {
 	vdda-supply = <&ldo4_reg>;
 };
 
-/* these should be in omap5-board-common.dtsi */
-
-&palmas {
-	palmas_pwr_button: pwrbutton {
-		compatible = "ti,palmas-pwrbutton";
-		interrupt-parent = <&palmas>;
-		interrupts = <1 IRQ_TYPE_EDGE_FALLING>;
-		ti,palmas-long-press-seconds = <8>;
-		ti,palmas-pwron-debounce-milli-seconds = <15>;
-	};
-
-	palmas_gpadc: gpadc {
-		compatible = "ti,palmas-gpadc";
-	};
-
-	extcon_usb3: palmas_usb {
-		compatible = "ti,palmas-usb-vid";
-		ti,enable-vbus-detection;
-		ti,enable-id-detection;
-		ti,wakeup;
-	};
-
-	rtc {
-		compatible = "ti,palmas-rtc";
-		interrupt-parent = <&palmas>;
-		interrupts = <8 IRQ_TYPE_NONE>;
-		ti,backup-battery-chargeable;
-		ti,backup-battery-charge-high-current;
-	};
-};
-
-/* should be in omap5-board-common.dtsi */
-
-&usb3 {
-       extcon = <&extcon_usb3>;
-       vbus-supply = <&smps10_out1_reg>;
+&palmas_power_button {
+	ti,palmas-long-press-seconds = <8>;
+	ti,palmas-pwron-debounce-milli-seconds = <15>;
 };
 
 /* Audio routing */
@@ -69,10 +50,7 @@
 &sound {
 	ti,model = "Letux Cortex 15";
 
-	pinctrl-names = "default";
-	pinctrl-0 = <&ckobuffer>;
-
-	/* Audio routing */
+	/* extended Audio routing */
 	ti,audio-routing =
 		"Headset Stereophone", "HSOL",
 		"Headset Stereophone", "HSOR",
@@ -83,7 +61,9 @@
 		"AFML", "Line In",
 		"AFMR", "Line In",
 		"HSMIC", "Headset Mic",
-		"Headset Mic", "Headset Mic Bias";
+		"Headset Mic", "Headset Mic Bias",
+		"MAINMIC", "Main Handset Mic",
+		"Main Handset Mic", "Main Mic Bias";
 };
 
 &twl6040_pins {
@@ -93,34 +73,7 @@
 };
 
 &twl6040 {
-	status = "disabled";	/* broken on first boards */
-	reg = <0x77>;
 	ti,audpwron-gpio = <&gpio3 17 0>;  /* gpio line 3_81 */
-};
-
-/* Audio needs clock enabled */
-
-/ { /* should better be moved to omap5.dtsi because it is of general interest */
-	ocp {
-		omap5_control_ckobuffer: pinmux@4ae0cdb4 {
-			compatible = "ti,omap4-padconf", "pinctrl-single";
-			reg = <0x4ae0cdb4 4>;   /* Single register */
-			#address-cells = <1>;
-			#size-cells = <0>;
-			pinctrl-single,register-width = <32>;
-			pinctrl-single,function-mask = <0xf0000000>;
-			pinctrl-single,bit-per-mux;
-		};
-	};
-};
-
-&omap5_control_ckobuffer {
-	ckobuffer: pinmux_ckobuffer {
-		pinctrl-single,pins = <
-		/* same as devmem2 0x4AE0CDB4 w 0x10000000 */
-		0x0 0x10000000  /* CONTROL.CONTROL_CKOBUFFER[28] CKOBUFFER_CLK_EN := 1 */
-		>;
-        };
 };
 
 /* LCD panel - MIPI */
@@ -183,16 +136,6 @@
 
 &omap5_pmx_core {
 
-	pinctrl-0 = <
-			/* copied from original */
-			&usbhost_pins
-			&led_gpio_pins
-
-			/* new entries */
-			&letux_button_pins
-			&letux_other_pins
-	>;
-
 /* to find pinmux register offsets, see section A.7.2 in TRM
 
    note: offsets in the table are relative to 0x4a00 2800
@@ -217,22 +160,15 @@
 
 	letux_button_pins: pinmux_button_gpio_pins {
 		pinctrl-single,pins = <
-//			OMAP5_IOPAD(0x0b6, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0B4:[31:16] user button gpio3_83  -- pullup is not really necessary since there is an external pullup */
+			OMAP5_IOPAD(0x0b6, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0B4:[31:16] user button gpio3_83 */
 		>;
 	};
 
-// CHEKME: attach wk7/11 and others to &usbhost_wkup_pins?
-
 	letux_other_pins: pinmux_other_gpio_pins {
 		pinctrl-single,pins = <
-			OMAP5_IOPAD(0x046, PIN_INPUT | MUX_MODE6)	/* 0x044:[31:16]  gpio1_wk7 - boot select input */
-// inherited		OMAP5_IOPAD(0x05a, PIN_OUTPUT | MUX_MODE0)	/* 0x058:[31:16]  gpio1_wk11 - 19.2 MHz clock out */
 			OMAP5_IOPAD(0x08e, PIN_INPUT | MUX_MODE6)	/* 0x08C:[31:16]  gpio2_32 - board revision */
 			OMAP5_IOPAD(0x054, PIN_INPUT | MUX_MODE6)	/* 0x054:[15:0]   gpio2_33 - board revision */
-			OMAP5_IOPAD(0x0ac, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0AC:[15:0]  gpio3_78 - hub interrupt */
-			OMAP5_IOPAD(0x0b0, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0B0:[15:0]  gpio3_80 - hub reset */
 			OMAP5_IOPAD(0x084, PIN_INPUT | MUX_MODE6)	/* 0x084:[31:16]  gpio3_82 - eMMC/uSD switch */
-			OMAP5_IOPAD(0x1d6, PIN_OUTPUT | MUX_MODE6)	/* 0x1D4:[31:16]  gpio5_153 - status LED (heartbeat) */
 		>;
 	};
 
@@ -268,8 +204,8 @@
 
 	i2c5_pins: pinmux_i2c5_pins {
 		pinctrl-single,pins = <
-			0x186 (PIN_INPUT | MUX_MODE0)		/* i2c5_scl */
-			0x188 (PIN_INPUT | MUX_MODE0)		/* i2c5_sda */
+			OMAP5_IOPAD(0x1c6, PIN_INPUT | MUX_MODE0)		/* i2c5_scl */
+			OMAP5_IOPAD(0x1c8, PIN_INPUT | MUX_MODE0)		/* i2c5_sda */
 		>;
 	};
 
@@ -303,57 +239,50 @@
 		pinctrl-single,pins = <
 			OMAP5_IOPAD(0x01da, PIN_INPUT_PULLUP | MUX_MODE4) /* sdio4_clk */
 			OMAP5_IOPAD(0x01dc, PIN_INPUT_PULLUP | MUX_MODE4) /* sdio4_cmd */
-			OMAP5_IOPAD(0x01b4, PIN_INPUT_PULLUP | MUX_MODE6) /* sdio4_data0 */
-			OMAP5_IOPAD(0x01b0, PIN_INPUT_PULLUP | MUX_MODE6) /* sdio4_data1 */
-			OMAP5_IOPAD(0x01b2, PIN_INPUT_PULLUP | MUX_MODE6) /* sdio4_data2 */
-			OMAP5_IOPAD(0x01b6, PIN_INPUT_PULLUP | MUX_MODE6) /* sdio4_data3 */
-			/* add CD and WP gpio 3_77 / 79 */
+			OMAP5_IOPAD(0x01b4, PIN_INPUT_PULLUP | MUX_MODE4) /* sdio4_data0 */
+			OMAP5_IOPAD(0x01b0, PIN_INPUT_PULLUP | MUX_MODE4) /* sdio4_data1 */
+			OMAP5_IOPAD(0x01b2, PIN_INPUT_PULLUP | MUX_MODE4) /* sdio4_data2 */
+			OMAP5_IOPAD(0x01b6, PIN_INPUT_PULLUP | MUX_MODE4) /* sdio4_data3 */
+			OMAP5_IOPAD(0x00aa, PIN_INPUT_PULLUP | MUX_MODE6) /* gpio3_77 = cd */
+			OMAP5_IOPAD(0x00ae, PIN_INPUT_PULLUP | MUX_MODE6) /* gpio3_79 = wp */
 		>;
 	};
 
+};
+
+&omap5_pmx_wkup {
+	letux_wkup_pins: pinmux_wkup_pins {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x078, PIN_OUTPUT | MUX_MODE6)	/* 0x078:[15:0]  gpio1_wkout4 - second LED on CPU board */
+			OMAP5_IOPAD(0x046, PIN_INPUT | MUX_MODE6)	/* 0x044:[31:16]  gpio1_wk7 - boot select input */
+		>;
+	};
 };
 
 &wlan_pins {
 	status = "disabled";	/* we use these pins differently */
 };
 
-// checkme if we can better set the pinmux to "disabled"
-
 &hsusb2_phy {
-	reset-gpios = <0>; /* free up hub reset gpio3_80 */
+	status = "okay";
+	reset-gpios = <0>; 	/* don't apply reset! */
 };
 
 &hsusb3_phy {
 	status = "disabled";
-	compatible = "none"; /* not connected */
-	reset-gpios = <0>; /* free up gpio3_79 */
 };
 
-/ {
-	/* starting the usb3503 is problematic
-	 * - while in reset state it is not visible on I2C
-	 * - therefore the driver does not load
-	 * - which means we can't easily use the driver to control the reset-gpios
-	 * - we need a trick to reset the usb3503 or get the driver module loaded otherwise
-	 */
+&usbhost_pins {
+	pinctrl-single,pins = <
+		OMAP5_IOPAD(0x0c4, PIN_INPUT | MUX_MODE0) /* usbb2_hsic_strobe */
+		OMAP5_IOPAD(0x0c6, PIN_INPUT | MUX_MODE0) /* usbb2_hsic_data */
 
-	usb3503-reset {
-	/* this tries to apply a 100us low to the reset line */
-		compatible = "regulator-fixed";
-		regulator-name = "usb3503-reset";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
-//		gpio = <&gpio3 16 0 /*GPIO_ACTIVE_HIGH*/>;	// gpio3_80 reset
-		enable-active-high;
-		startup-delay-us = <100000>;
-		regulator-always-on;
-	};
+		OMAP5_IOPAD(0x1de, PIN_INPUT | MUX_MODE0) /* usbb3_hsic_strobe */
+		OMAP5_IOPAD(0x1e0, PIN_INPUT | MUX_MODE0) /* usbb3_hsic_data */
 
-	usb3503-dummy {
-	/* this tries to load the driver module without I2C support */
-		compatible = "smsc,usb3503";
-	//	reset-gpios = <0>;	// invalid - don't try to instantiate
-	};
+		OMAP5_IOPAD(0x0ac, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0AC:[15:0]  gpio3_78 - hub interrupt */
+		OMAP5_IOPAD(0x0b0, PIN_OUTPUT | MUX_MODE6)	/* 0x0B0:[15:0]  gpio3_80 - hub nreset */
+	>;
 };
 
 &i2c1 {
@@ -365,7 +294,7 @@
 		intn-gpios = <&gpio3 14 GPIO_ACTIVE_HIGH>;	// gpio3_78 interrupt
 		reset-gpios = <&gpio3 16 GPIO_ACTIVE_HIGH>;	// gpio3_80 reset
 	//	connect-gpios - none
-	//	refclk	// comes from OMAP5 FREF_CLK1_OUT/GPIO1_W K11
+	//	refclk	// comes from OMAP5 FREF_CLK1_OUT/GPIO1_WK11
 	//	refclk-frequency 19.2 MHz
 		initial-mode = <1>;
 	};
@@ -403,6 +332,9 @@
 	user-button {
 		compatible = "gpio-keys";
 
+		pinctrl-names = "default";
+		pinctrl-0 = <&letux_button_pins>;
+
 		#address-cells = <7>;
 		#size-cells = <0>;
 
@@ -427,11 +359,17 @@
 	};
 
 	leds {
-		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&letux_wkup_pins>;
+
 		led@1 {
 			label = "lc15:red:usr1";
-			gpios = <&gpio5 25 GPIO_ACTIVE_HIGH>; /* gpio5_153 D1 LED */
-			linux,default-trigger = "heartbeat";
+		};
+
+		led@2 {
+			label = "lc15:red:usr2";
+			gpios = <&gpio1 4 GPIO_ACTIVE_HIGH>; /* sysboot4 = gpio1_wk4: second LED */
+			linux,default-trigger = "mmc0";
 			default-state = "off";
 		};
 	};
@@ -451,6 +389,7 @@
 
 &uart2 { /* pins shared with mcspi3 */
 	status = "okay";
+	pinctrl-names = "default";
 	pinctrl-0 = <&uart2_pins>;
 };
 
@@ -471,28 +410,34 @@
 
 	#address-cells = <1>;
 	#size-cells = <0>;
+
 	mmcmux: txs02612@0 {
-		compatible = "ti,txs02612";
 		reg = <0>;
+
+		compatible = "ti,txs02612";
+		mmc = <&mmc2>;
+		select-gpio = <&gpio2 0 0>;	/* gpio2_32 soft-select */
+
 		#address-cells = <1>;
 		#size-cells = <0>;
-		// add control gpio(s)
 
 		eMMC: port@0 {
+			reg = <0>;
 			compatible = "any,emmc";
 			bus-width = <8>;
+			ti,non-removable;
 		};
 
 		uSD: port@1 {
+			reg = <1>;
 			bus-width = <4>;
 		};
+
 	};
 };
 
 &mmc3 { /* WiFi-SDIO */
-	/* ti,non-removable; */
-	// define a regulator-fixed GPIO for power-on */
-	// NOTE: has been predefined for a wl1271 in ompa5-common.dtsi
+	/* has been predefined for a wl1271 in ompa5-common.dtsi */
 };
 
 &mmc4 { /* second (u)SD slot (SDIO capable) */
@@ -500,9 +445,13 @@
 	vmmc-supply = <&ldo2_reg>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&mmc4_pins>;
-//	cd-gpios = <&gpio3 13 0>;	/* gpio3_77 */
-//	wp-gpios = <&gpio3 15 0>;	/* gpio3_79 */
 	bus-width = <4>;
+	cd-gpios = <&gpio3 13 GPIO_ACTIVE_LOW>;	/* gpio3_77 */
+	wp-gpios = <&gpio3 15 GPIO_ACTIVE_LOW>;	/* gpio3_79 */
+	/* if your card has no CD/WP then define
+	broken-cd;
+	disable-wp;
+	*/
 };
 
 &mcspi1 {

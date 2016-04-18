@@ -269,13 +269,23 @@
 			omap5_pmx_wkup: pinmux@c840 {
 				compatible = "ti,omap5-padconf",
 					     "pinctrl-single";
-				reg = <0xc840 0x0038>;
+				reg = <0xc840 0x003c>;
 				#address-cells = <1>;
 				#size-cells = <0>;
 				#interrupt-cells = <1>;
 				interrupt-controller;
 				pinctrl-single,register-width = <16>;
 				pinctrl-single,function-mask = <0x7fff>;
+			};
+
+			omap5_control_ckobuffer: pinmux@cdb4 {
+				compatible = "ti,omap5-padconf",
+					     "pinctrl-single";
+				reg = <0xcdb4 4>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				pinctrl-single,register-width = <32>;
+				pinctrl-single,function-mask = <0xf0000000>;
 			};
 		};
 
