@@ -498,70 +498,70 @@
 		open-drain-pins = <2 3 5 6 7 12 13 17 18 19 21 22 23>;
 	};
 
-	is31fl3196@64-left-mid {
+	leds-left-mid@64 {
 		compatible = "issi,is31fl3196";
 		#address-cells = <1>;
 		#size-cells = <0>;
 		reg = <0x64>;
 
-		left_led0: red_left@0 {
+		left_led1: red_left@1 {
 			label = "pyra:red:left";
-			reg = <0>;
+			reg = <1>;
 			linux,default-trigger = "mmc0";
 		};
 
-		left_led1: green_left@1 {
+		left_led2: green_left@2 {
 			label = "pyra:green:left";
-			reg = <1>;
+			reg = <2>;
 			linux,default-trigger = "heartbeat";
 		};
 
-		left_led2: blue_left@2 {
+		left_led3: blue_left@3 {
 			label = "pyra:blue:left";
-			reg = <2>;
+			reg = <3>;
 			linux,default-trigger = "timer";
 		};
 
-		mid_led3: red_mid@3 {
+		mid_led4: red_mid@4 {
 			label = "pyra:red:mid";
-			reg = <3>;
+			reg = <4>;
 			linux,default-trigger = "default-on";
 		};
 
-		mid_led4: green_mid@4 {
+		mid_led5: green_mid@5 {
 			label = "pyra:green:mid";
-			reg = <4>;
+			reg = <5>;
 			linux,default-trigger = "timer";
 		};
 
-		mid_led5: blue_mid@5 {
+		mid_led6: blue_mid@6 {
 			label = "pyra:blue:mid";
-			reg = <5>;
+			reg = <6>;
 			linux,default-trigger = "mmc0";
 		};
 	};
 
-	is31fl3196@67-right {
+	leds-right@67 {
 		compatible = "issi,is31fl3196";
 		#address-cells = <1>;
 		#size-cells = <0>;
 		reg = <0x67>;
 
-		right_led0: red_right@0 {
+		right_led7: red_right@1 {
 			label = "pyra:red:right";
-			reg = <0>;
+			reg = <1>;
 			linux,default-trigger = "mmc0";
 		};
 
-		right_led1: green_right@1 {
+		right_led8: green_right@2 {
 			label = "pyra:green:right";
-			reg = <1>;
+			reg = <2>;
 			linux,default-trigger = "heartbeat";
 		};
 
-		right_led2: blue_right@2 {
+		right_led9: blue_right@3 {
 			label = "pyra:blue:right";
-			reg = <2>;
+			reg = <3>;
 			linux,default-trigger = "timer";
 		};
 	};
