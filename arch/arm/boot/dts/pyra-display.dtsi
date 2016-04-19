@@ -110,45 +110,45 @@
 	};
 
 	/* leds */
-	is31fl3196@64 {
+	leds-display@64 {
 		compatible = "issi,is31fl3196";
 		#address-cells = <1>;
 		#size-cells = <0>;
 		reg = <0x64>;
 
-		display_led0: red_bottom@0 {
+		display_led1: red_bottom@1 {
 			label = "logo:red:bottom";
-			reg = <0>;
+			reg = <1>;
 			linux,default-trigger = "mmc0";
 		};
 
-		display_led1: green_bottom@1 {
+		display_led2: green_bottom@2 {
 			label = "logo:green:bottom";
-			reg = <1>;
+			reg = <2>;
 			linux,default-trigger = "heartbeat";
 		};
 
-		display_led2: blue_bottom@2 {
+		display_led3: blue_bottom@3 {
 			label = "logo:blue:bottom";
-			reg = <2>;
+			reg = <3>;
 			linux,default-trigger = "timer";
 		};
 
-		display_led3: red_top@3 {
+		display_led4: red_top@4 {
 			label = "logo:red:top";
-			reg = <3>;
+			reg = <4>;
 			linux,default-trigger = "default-on";
 		};
 
-		display_led4: green_top@4 {
+		display_led5: green_top@5 {
 			label = "logo:green:top";
-			reg = <4>;
+			reg = <5>;
 			linux,default-trigger = "timer";
 		};
 
-		display_led5: blue_top@5 {
+		display_led6: blue_top@6 {
 			label = "logo:blue:top";
-			reg = <5>;
+			reg = <6>;
 			linux,default-trigger = "mmc0";
 		};
 	};
