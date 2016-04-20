@@ -173,7 +173,7 @@ static int mipi_debug_read(struct omap_dss_device *dssdev, u8 *dcs_cmd, int cmdl
 			dev_err(&ddata->pdev->dev, "can't set max rx packet size\n");
 			return -EIO;
 		}
-		printk("rx packet size := %d\n", len);
+		printk("dsi: mipi_debug_read() rx packet size := %d\n", len);
 		ddata->max_rx_packet_size = len;
 	}
 	if(generic)
@@ -212,6 +212,8 @@ static int mipi_debug_connect(struct omap_dss_device *dssdev)
 	struct device *dev = &ddata->pdev->dev;
 	int r;
 
+	printk("dsi: mipi_debug_connect()\n");
+
 	if (omapdss_device_is_connected(dssdev))
 		return 0;
 
@@ -247,6 +249,8 @@ static int mipi_debug_connect(struct omap_dss_device *dssdev)
 		goto err_vc_id1;
 	}
 
+	printk("dsi: mipi_debug_connect() connected\n");
+
 	return 0;
 
 err_vc_id1:
@@ -264,12 +268,16 @@ static void mipi_debug_disconnect(struct omap_dss_device *dssdev)
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
 
+	printk("dsi: mipi_debug_disconnect()\n");
+
 	if (!omapdss_device_is_connected(dssdev))
 		return;
 
 	in->ops.dsi->release_vc(in, ddata->pixel_channel);
 	in->ops.dsi->release_vc(in, ddata->config_channel);
 	in->ops.dsi->disconnect(in, dssdev);
+
+	printk("dsi: mipi_debug_disconnect() disconnected\n");
 }
 
 
@@ -386,7 +394,7 @@ static int mipi_debug_get_brightness(struct backlight_device *bd)
 	int r = 0;
 	printk("dsi: mipi_debug_get_brightness()\n");
 	if (dssdev->state != OMAP_DSS_DISPLAY_ACTIVE) {
-		printk("dsi: display is not active\n");
+		printk("dsi: mipi_debug_get_brightness(): display is not active\n");
 		return 0;
 	}
 
@@ -403,10 +411,10 @@ static int mipi_debug_get_brightness(struct backlight_device *bd)
 	mutex_unlock(&ddata->lock);
 
 	if(r < 0) {
-		printk("dsi: read error\n");
+		printk("dsi: mipi_debug_get_brightness(): read error\n");
 		return bd->props.brightness;
 	}
-	printk("dsi: read %d\n", brightness);
+	printk("dsi: mipi_debug_get_brightness() read %d\n", brightness);
 	return brightness>>4;	// get to range 0..255
 }
 
@@ -720,7 +728,7 @@ static int mipi_debug_power_on(struct omap_dss_device *dssdev)
 	/* don't initialize the panel here - user space has to do */
 
 	ddata->enabled = true;
-	printk("dsi: enabled()\n");
+	printk("dsi: mipi_debug_power_on: enabled()\n");
 
 	return r;
 }
@@ -803,6 +811,7 @@ static void mipi_debug_stop(struct omap_dss_device *dssdev)
 static void mipi_debug_disable(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
+
 	printk("dsi: mipi_debug_disable()\n");
 	dev_dbg(&ddata->pdev->dev, "disable\n");
 
@@ -815,6 +824,7 @@ static void mipi_debug_disable(struct omap_dss_device *dssdev)
 static int mipi_debug_enable(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
+
 	printk("dsi: mipi_debug_enable()\n");
 	dev_dbg(&ddata->pdev->dev, "enable\n");
 
@@ -952,7 +962,7 @@ static int mipi_debug_probe(struct platform_device *pdev)
 		goto err_sysfs_create;
 	}
 
-	printk("mipi_debug_probe ok\n");
+	printk("dsi: mipi_debug_probe ok\n");
 
 	return 0;
 
