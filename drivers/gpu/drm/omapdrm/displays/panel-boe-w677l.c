@@ -33,7 +33,6 @@
 #include <linux/of_device.h>
 #include <linux/of_gpio.h>
 #include <linux/platform_device.h>
-#include <linux/regulator/consumer.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
@@ -868,7 +867,7 @@ static int w677l_probe(struct platform_device *pdev)
 	}
 #endif
 
-	printk("w677l_probe ok\n");
+	printk("dsi: w677l_probe ok\n");
 
 	return 0;
 }
