@@ -689,7 +689,8 @@ static int bma150_probe(struct i2c_client *client,
 		goto err_free_mem;
 
 	printk("bma150: client->irq: %d\n", client->irq);
-	if (client->irq > 0) {
+	//if (client->irq > 0) { //TODO: check side effects of this HACK
+	if(0) { //this is always FALSE, as we want the else case
 		printk("bma150: register_input_device");
 		error = bma150_register_input_device(bma150);
 		if (error)
