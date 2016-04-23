@@ -641,7 +641,6 @@ static int bma150_register_polled_device(struct bma150_data *bma150)
 static int bma150_probe(struct i2c_client *client,
 				  const struct i2c_device_id *id)
 {
-	printk("bma150: probe\n");
 	const struct bma150_platform_data *pdata =
 			dev_get_platdata(&client->dev);
 	const struct bma150_cfg *cfg;
@@ -684,14 +683,11 @@ static int bma150_probe(struct i2c_client *client,
 	}
 
 	error = bma150_initialize(bma150, cfg);
-	printk("bma150: initialize (error: %d)\n", error);
 	if (error)
 		goto err_free_mem;
 
-	printk("bma150: client->irq: %d\n", client->irq);
 	//if (client->irq > 0) { //TODO: check side effects of this HACK
 	if(0) { //this is always FALSE, as we want the else case
-		printk("bma150: register_input_device");
 		error = bma150_register_input_device(bma150);
 		if (error)
 			goto err_free_mem;
@@ -708,7 +704,6 @@ static int bma150_probe(struct i2c_client *client,
 			goto err_free_mem;
 		}
 	} else {
-		printk("bma150: register_polled__device");
 		error = bma150_register_polled_device(bma150);
 		if (error)
 			goto err_free_mem;
