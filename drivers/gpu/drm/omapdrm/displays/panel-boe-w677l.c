@@ -96,7 +96,7 @@ struct panel_drv_data {
 
 // do we need the timings here if they are also stored in a static struct???
 
-	struct omap_video_timings timings;
+	struct omap_video_timings videomode;
 	
 	struct platform_device *pdev;
 
@@ -401,39 +401,40 @@ static int w677l_connect(struct omap_dss_device *dssdev)
 	printk("dsi: w677l_connect()\n");
 	if (omapdss_device_is_connected(dssdev))
 		return 0;
-	
+
 	r = in->ops.dsi->connect(in, dssdev);
 	if (r) {
 		dev_err(dev, "Failed to connect to video source\n");
 		return r;
 	}
-	
+
 	/* channel0 used for video packets */
 	r = in->ops.dsi->request_vc(ddata->in, &ddata->pixel_channel);
 	if (r) {
 		dev_err(dev, "failed to get virtual channel\n");
 		goto err_req_vc0;
 	}
-	
+
 	r = in->ops.dsi->set_vc_id(ddata->in, ddata->pixel_channel, 0);
 	if (r) {
 		dev_err(dev, "failed to set VC_ID\n");
 		goto err_vc_id0;
 	}
-	
+
 	/* channel1 used for registers access in LP mode */
 	r = in->ops.dsi->request_vc(ddata->in, &ddata->config_channel);
 	if (r) {
 		dev_err(dev, "failed to get virtual channel\n");
 		goto err_req_vc1;
 	}
-	
+
 	r = in->ops.dsi->set_vc_id(ddata->in, ddata->config_channel, 0);
 	if (r) {
 		dev_err(dev, "failed to set VC_ID\n");
 		goto err_vc_id1;
 	}
-	
+	printk("dsi: w677l_connect() ok\n");
+
 	return 0;
 	
 err_vc_id1:
@@ -454,7 +455,7 @@ static void w677l_disconnect(struct omap_dss_device *dssdev)
 	printk("dsi: w677l_disconnect()\n");
 	if (!omapdss_device_is_connected(dssdev))
 		return;
-	
+
 	in->ops.dsi->release_vc(in, ddata->pixel_channel);
 	in->ops.dsi->release_vc(in, ddata->config_channel);
 	in->ops.dsi->disconnect(in, dssdev);
@@ -622,7 +623,7 @@ static int w677l_enable(struct omap_dss_device *dssdev)
 #if 1	// alternative
 		.timings = &w677l_timings,
 #else
-		.timings = &ddata->timings,
+		.timings = &ddata->videomode,
 #endif
 		.hs_clk_min = 125000000 /*w677l_HS_CLOCK*/,
 		.hs_clk_max = 450000000 /*(12*w677l_HS_CLOCK)/10*/,
@@ -822,16 +823,20 @@ static int w677l_probe(struct platform_device *pdev)
 	}
 
 #if 1	// checkme if we need the timings here
-	ddata->timings = w677l_timings;
+	// NO: not needed for driver to be enabled
+	// YES: to avoid omapdrm omapdrm.0: atomic complete timeout
+	ddata->videomode = w677l_timings;
 #endif
 
 	dssdev = &ddata->dssdev;
 	dssdev->dev = dev;
 	dssdev->driver = &w677l_ops;
 
-#if 1	// checkme if we need the timings here
+#if OLD	// checkme if we need the timings here
+	// NO: if this is missing we see: Modeline 36:"0x0" 0 0 0 0 0 0 0 0 0 0 0x48 0xa
 	dssdev->panel.timings = w677l_timings;
 #endif
+	dssdev->panel.timings = ddata->videomode;
 	dssdev->type = OMAP_DISPLAY_TYPE_DSI;
 	dssdev->owner = THIS_MODULE;
 	
