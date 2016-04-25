@@ -435,6 +435,7 @@ static int w677l_connect(struct omap_dss_device *dssdev)
 		dev_err(dev, "failed to set VC_ID\n");
 		goto err_vc_id1;
 	}
+	printk("dsi: w677l_connect() ok\n");
 
 	return 0;
 
@@ -824,6 +825,8 @@ static int w677l_probe(struct platform_device *pdev)
 	}
 
 #if 1	// checkme if we need the timings here
+	// NO: not needed for driver to be enabled
+	// YES: to avoid omapdrm omapdrm.0: atomic complete timeout
 	ddata->vm = w677l_timings;
 #endif
 
@@ -831,9 +834,11 @@ static int w677l_probe(struct platform_device *pdev)
 	dssdev->dev = dev;
 	dssdev->driver = &w677l_ops;
 
-#if 1	// checkme if we need the timings here
+#if OLD	// checkme if we need the timings here
+	// NO: if this is missing we see: Modeline 36:"0x0" 0 0 0 0 0 0 0 0 0 0 0x48 0xa
 	dssdev->panel.vm = w677l_timings;
 #endif
+	dssdev->panel.timings = ddata->videomode;
 	dssdev->type = OMAP_DISPLAY_TYPE_DSI;
 	dssdev->owner = THIS_MODULE;
 
