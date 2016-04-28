@@ -250,7 +250,6 @@ struct panel_drv_data {
 
 	bool reset;	/* ssd is in reset state (and hardware bypass) */
 	bool bypass;	/* ssd is in bypass mode */
-	bool enabled;	/* video is enabled */
 
 	u32 xtal;	/* xtal clock frequency */
 	bool rotate;	/* rotate by 90 degrees */
@@ -885,7 +884,7 @@ static int ssd2858_power_on(struct omap_dss_device *dssdev)
 	msleep(50);
 #endif
 
-#if 0
+#if 0	/* already triggered by the panel */
 	in->ops.dsi->enable_hs(in, ddata->pixel_channel, true);
 #endif
 	/* send setup */
@@ -1015,8 +1014,6 @@ static int ssd2858_power_on(struct omap_dss_device *dssdev)
 	msleep(120);
 #endif
 
-	ddata->enabled = true;
-
 	ssd2858_write_cmd0(dssdev, MIPI_DCS_SET_DISPLAY_ON);
 
 #if LOG
@@ -1048,38 +1045,36 @@ err0:
 // we simply stop the video stream and assert the RESET
 // please note that we don't/can't switch off the VCCIO
 
-static void ssd2858_stop(struct omap_dss_device *dssdev)
+static void ssd2858_power_off(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
 #if LOG
-	printk("dsi: ssd2858_stop()\n");
-#endif
-	mutex_lock(&ddata->lock);
-
-	in->ops.dsi->bus_lock(in);
-
-#if LOG
 	printk("dsi: ssd2858_power_off()\n");
 #endif
+//	mutex_lock(&ddata->lock);
 
-	// FIXME: we should ask the panel driver to send these commands
-	// and turn off panel power
+//	in->ops.dsi->bus_lock(in);
+
+	// FIXME: we should ask the panel driver to send these commands and turn off panel power
 
 	ssd2858_pass_to_panel(dssdev, true);	/* communicate with the panel */
 
 	ssd2858_write_cmd0(dssdev, MIPI_DCS_SET_DISPLAY_OFF);
 	ssd2858_write_cmd0(dssdev, MIPI_DCS_ENTER_SLEEP_MODE);
 
-	ddata->enabled = 0;
+#if 0	/* already triggered by the panel */
 	in->ops.dsi->disable_video_output(in, ddata->pixel_channel);
-
+#endif
 	ssd2858_pass_to_panel(dssdev, false);	/* communicate with the SSD */
 
 	ssd2858_write_cmd0(dssdev, MIPI_DCS_SET_DISPLAY_OFF);
 	ssd2858_write_cmd0(dssdev, MIPI_DCS_ENTER_SLEEP_MODE);
 
+#if 0
 	in->ops.dsi->disable(in, false, false);
+#endif
+
 	mdelay(10);
 	ssd2858_reset(dssdev, true);	// activate reset
 #if REGULATOR
@@ -1089,9 +1084,9 @@ static void ssd2858_stop(struct omap_dss_device *dssdev)
 
 	/* here we could also power off IOVCC if possible */
 
-	in->ops.dsi->bus_unlock(in);
+//	in->ops.dsi->bus_unlock(in);
 
-	mutex_unlock(&ddata->lock);
+//	mutex_unlock(&ddata->lock);
 }
 
 /*
@@ -1351,7 +1346,7 @@ static void ssd2858_disable(struct omap_dss_device *dssdev, bool disconnect_lane
 
 	in->ops.dsi->disable(in, disconnect_lanes, enter_ulps);
 
-	in->ops.dsi->bus_unlock(in);
+	in->ops.dsi->bus_unlock(in);	/* match bus lock in ssd2858_enable */
 
 	dssdev->state = OMAP_DSS_DISPLAY_DISABLED;
 }
@@ -1456,8 +1451,9 @@ static void ssd2858_disable_video_output(struct omap_dss_device *dssdev, int cha
 	printk("dsi: ssd2858: ssd2858_disable_video_output\n");
 #endif
 
+	ssd2858_power_off(dssdev);
+
 	return in->ops.dsi->disable_video_output(in, channel);
-	// FIXME: power off
 }
 
 static void ssd2858_bus_lock(struct omap_dss_device *dssdev)
@@ -1579,7 +1575,7 @@ static void driver_ssd2858_disable(struct omap_dss_device *dssdev)
 	dev_dbg(&ddata->pdev->dev, "disable\n");
 
 	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE)
-		ssd2858_stop(dssdev);
+		ssd2858_power_off(dssdev);
 
 	dssdev->state = OMAP_DSS_DISPLAY_DISABLED;
 }
