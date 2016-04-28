@@ -79,7 +79,7 @@
  */
 #define w677l_HS_CLOCK			(w677l_BIT_PER_PIXEL * (w677l_PIXELCLOCK / (w677l_LANES * 2)))
 /* low power clock is quite arbitrarily choosen to be roughly 10 MHz */
-#define w677l_LP_CLOCK			10000000	// low power clock
+#define w677l_LP_CLOCK			9200000	// low power clock
 
 static struct videomode w677l_timings = {
 	.hactive		= w677l_W,
@@ -393,86 +393,6 @@ static int w677l_write_sequence(struct omap_dss_device *dssdev,
 	return 0;
 }
 
-static int w677l_connect(struct omap_dss_device *dssdev)
-{
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
-	struct device *dev = &ddata->pdev->dev;
-	int r;
-
-	printk("dsi: w677l_connect()\n");
-	if (omapdss_device_is_connected(dssdev))
-		return 0;
-
-	r = in->ops.dsi->connect(in, dssdev);
-	if (r) {
-		dev_err(dev, "Failed to connect to video source\n");
-		return r;
-	}
-
-	/* channel0 used for video packets */
-	r = in->ops.dsi->request_vc(ddata->in, &ddata->pixel_channel);
-	if (r) {
-		dev_err(dev, "failed to get virtual channel\n");
-		goto err_req_vc0;
-	}
-
-	r = in->ops.dsi->set_vc_id(ddata->in, ddata->pixel_channel, 0);
-	if (r) {
-		dev_err(dev, "failed to set VC_ID\n");
-		goto err_vc_id0;
-	}
-
-	/* channel1 used for registers access in LP mode */
-	r = in->ops.dsi->request_vc(ddata->in, &ddata->config_channel);
-	if (r) {
-		dev_err(dev, "failed to get virtual channel\n");
-		goto err_req_vc1;
-	}
-
-	r = in->ops.dsi->set_vc_id(ddata->in, ddata->config_channel, 0);
-	if (r) {
-		dev_err(dev, "failed to set VC_ID\n");
-		goto err_vc_id1;
-	}
-
-	return 0;
-
-err_vc_id1:
-	in->ops.dsi->release_vc(ddata->in, ddata->config_channel);
-err_req_vc1:
-err_vc_id0:
-	in->ops.dsi->release_vc(ddata->in, ddata->pixel_channel);
-err_req_vc0:
-	in->ops.dsi->disconnect(in, dssdev);
-	return r;
-}
-
-static void w677l_disconnect(struct omap_dss_device *dssdev)
-{
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
-
-	printk("dsi: w677l_disconnect()\n");
-	if (!omapdss_device_is_connected(dssdev))
-		return;
-
-	in->ops.dsi->release_vc(in, ddata->pixel_channel);
-	in->ops.dsi->release_vc(in, ddata->config_channel);
-	in->ops.dsi->disconnect(in, dssdev);
-}
-
-#if CHECKME
-// is there really no default method for check_timings?
-#endif
-
-static int w677l_check_timings(struct omap_dss_device *dssdev,
-		struct videomode *timings)
-{
-	printk("dsi: w677l_check_timings()\n");
-	return 0;
-}
-
 static int w677l_reset(struct omap_dss_device *dssdev, int state)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
@@ -580,37 +500,85 @@ static const struct backlight_ops w677l_backlight_ops  = {
 	.update_status = w677l_set_brightness,
 };
 
-static void w677l_disable(struct omap_dss_device *dssdev)
+static int w677l_connect(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
+	struct omap_dss_device *in = ddata->in;
+	struct device *dev = &ddata->pdev->dev;
+	int r;
 
-	printk("dsi: w677l_disable()\n");
-	dev_dbg(&ddata->pdev->dev, "disable\n");
+	printk("dsi: w677l_connect()\n");
+	if (omapdss_device_is_connected(dssdev))
+		return 0;
 
-	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE) {
-		struct omap_dss_device *in = ddata->in;
-
-		printk("dsi: w677l_stop()\n");
-		mutex_lock(&ddata->lock);
-
-		in->ops.dsi->bus_lock(in);
-
-		printk("dsi: w677l_power_off()\n");
-		ddata->enabled = 0;
-		in->ops.dsi->disable_video_output(in, ddata->pixel_channel);
-		in->ops.dsi->disable(in, false, false);
-		mdelay(10);
-		w677l_reset(dssdev, 0);	// activate reset
-		w677l_regulator(dssdev, 0);	// switch power off - after stopping video stream
-		mdelay(20);
-		/* here we can also power off IOVCC */
-
-		in->ops.dsi->bus_unlock(in);
-
-		mutex_unlock(&ddata->lock);
+	r = in->ops.dsi->connect(in, dssdev);
+	if (r) {
+		dev_err(dev, "Failed to connect to video source\n");
+		return r;
 	}
 
-	dssdev->state = OMAP_DSS_DISPLAY_DISABLED;
+	/* channel0 used for video packets */
+	r = in->ops.dsi->request_vc(ddata->in, &ddata->pixel_channel);
+	if (r) {
+		dev_err(dev, "failed to get virtual channel\n");
+		goto err_req_vc0;
+	}
+
+	r = in->ops.dsi->set_vc_id(ddata->in, ddata->pixel_channel, 0);
+	if (r) {
+		dev_err(dev, "failed to set VC_ID\n");
+		goto err_vc_id0;
+	}
+
+	/* channel1 used for registers access in LP mode */
+	r = in->ops.dsi->request_vc(ddata->in, &ddata->config_channel);
+	if (r) {
+		dev_err(dev, "failed to get virtual channel\n");
+		goto err_req_vc1;
+	}
+
+	r = in->ops.dsi->set_vc_id(ddata->in, ddata->config_channel, 0);
+	if (r) {
+		dev_err(dev, "failed to set VC_ID\n");
+		goto err_vc_id1;
+	}
+	printk("dsi: w677l_connect() ok\n");
+
+	return 0;
+
+err_vc_id1:
+	in->ops.dsi->release_vc(ddata->in, ddata->config_channel);
+err_req_vc1:
+err_vc_id0:
+	in->ops.dsi->release_vc(ddata->in, ddata->pixel_channel);
+err_req_vc0:
+	in->ops.dsi->disconnect(in, dssdev);
+	return r;
+}
+
+static void w677l_disconnect(struct omap_dss_device *dssdev)
+{
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+	struct omap_dss_device *in = ddata->in;
+
+	printk("dsi: w677l_disconnect()\n");
+	if (!omapdss_device_is_connected(dssdev))
+		return;
+
+	in->ops.dsi->release_vc(in, ddata->pixel_channel);
+	in->ops.dsi->release_vc(in, ddata->config_channel);
+	in->ops.dsi->disconnect(in, dssdev);
+}
+
+#if CHECKME
+// is there really no default method?
+#endif
+
+static int w677l_check_timings(struct omap_dss_device *dssdev,
+		struct omap_video_timings *timings)
+{
+	printk("dsi: w677l_check_timings()\n");
+	return 0;
 }
 
 static int w677l_enable(struct omap_dss_device *dssdev)
@@ -638,8 +606,11 @@ static int w677l_enable(struct omap_dss_device *dssdev)
 	printk("dsi: w677l_enable()\n");
 	dev_dbg(&ddata->pdev->dev, "enable\n");
 
-	if (dssdev->state != OMAP_DSS_DISPLAY_DISABLED)
-		return -EINVAL;
+	if (!omapdss_device_is_connected(dssdev))
+		return -ENODEV;
+
+	if (omapdss_device_is_enabled(dssdev))
+		return 0;
 
 	printk("dsi: w677l_start()\n");
 	mutex_lock(&ddata->lock);
@@ -703,6 +674,20 @@ static int w677l_enable(struct omap_dss_device *dssdev)
 	if (r)
 		goto cleanup;
 
+#if 1
+	{
+		u8 ret[8];
+		/* read some registers through DCS commands */
+		r = w677l_read(dssdev, 0x05, ret, 1);
+		r = w677l_read(dssdev, 0x0a, ret, 1);  // power mode 0x10=sleep off; 0x04=display on
+		r = w677l_read(dssdev, 0x0b, ret, 1);  // address mode
+		r = w677l_read(dssdev, MIPI_DCS_GET_PIXEL_FORMAT, ret, 1);     // pixel format 0x70 = RGB888
+		r = w677l_read(dssdev, 0x0d, ret, 1);  // display mode 0x80 = command 0x34/0x35
+		r = w677l_read(dssdev, 0x0e, ret, 1);  // signal mode
+		r = w677l_read(dssdev, MIPI_DCS_GET_DIAGNOSTIC_RESULT, ret, 1);        // diagnostic 0x40 = functional
+		r = w677l_read(dssdev, 0x45, ret, 2);  // get scanline
+	}
+#endif
 	r = in->ops.dsi->enable_video_output(in, ddata->pixel_channel);
 	if (r)
 		goto cleanup;
@@ -742,6 +727,39 @@ ok:
 	mutex_unlock(&ddata->lock);
 
 	return r;
+}
+
+static void w677l_disable(struct omap_dss_device *dssdev)
+{
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+	struct omap_dss_device *in = ddata->in;
+
+	printk("dsi: w677l_disable()\n");
+	dev_dbg(&ddata->pdev->dev, "disable\n");
+
+	if (!omapdss_device_is_enabled(dssdev))
+		return;
+
+	printk("dsi: w677l_stop()\n");
+	mutex_lock(&ddata->lock);
+
+	in->ops.dsi->bus_lock(in);
+
+	printk("dsi: w677l_power_off()\n");
+	ddata->enabled = 0;
+	in->ops.dsi->disable_video_output(in, ddata->pixel_channel);
+	in->ops.dsi->disable(in, false, false);
+	mdelay(10);
+	w677l_reset(dssdev, 0);	// activate reset
+	w677l_regulator(dssdev, 0);	// switch power off - after stopping video stream
+	mdelay(20);
+	/* here we can also power off IOVCC */
+
+	in->ops.dsi->bus_unlock(in);
+
+	mutex_unlock(&ddata->lock);
+
+	dssdev->state = OMAP_DSS_DISPLAY_DISABLED;
 }
 
 static struct omap_dss_driver w677l_ops = {
@@ -824,6 +842,8 @@ static int w677l_probe(struct platform_device *pdev)
 	}
 
 #if 1	// checkme if we need the timings here
+	// NO: not needed for driver to be enabled
+	// YES: to avoid omapdrm omapdrm.0: atomic complete timeout
 	ddata->vm = w677l_timings;
 #endif
 
@@ -831,9 +851,11 @@ static int w677l_probe(struct platform_device *pdev)
 	dssdev->dev = dev;
 	dssdev->driver = &w677l_ops;
 
-#if 1	// checkme if we need the timings here
+#if OLD	// checkme if we need the timings here
+	// NO: if this is missing we see: Modeline 36:"0x0" 0 0 0 0 0 0 0 0 0 0 0x48 0xa
 	dssdev->panel.vm = w677l_timings;
 #endif
+	dssdev->panel.timings = ddata->videomode;
 	dssdev->type = OMAP_DISPLAY_TYPE_DSI;
 	dssdev->owner = THIS_MODULE;
 
