@@ -54,13 +54,12 @@ SSD2858:
   real PLL: 1368000000
   MAIN_CLK: 1368000000
   SYS_CLK_DIV: 5
-SYS_CLK: 136800000
+  SYS_CLK: 136800000
   PCLK_NUM / PCLK_DEN: 1 / 4
   VTCM PIXEL_CLK: 34200000
   Panel PIXEL_CLK: 68400000
   MTX_CLK_DIV: 3
-MTX_CLK_DIV problem
-: 3 (1 or even divider) - ignored
+MTX_CLK_DIV problem: 3 (1 or even divider) - ignored
   MIPITX_BIT_CLK: 456000000
   MIPITX_DDR_CLK: 228000000
   MIPITX_BYTE_CLK: 57000000
@@ -169,16 +168,9 @@ OMAP MIPI:
 
  */
 
-#define BACKLIGHT 1
 #define REGULATOR 0
-#define SYSFS 0
 #define LOG 1
-/* code that can be removed later */
-#define REMOVEME 0
 
-#if BACKLIGHT
-#include <linux/backlight.h>
-#endif
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/fb.h>
@@ -246,11 +238,6 @@ struct panel_drv_data {
 
 	struct mutex lock;
 
-#if BACKLIGHT
-	struct backlight_device *bldev;
-#endif
-	int bl;
-
 	int	reset_gpio;
 #if REGULATOR
 	int	regulator_gpio;
@@ -310,7 +297,46 @@ struct ssd2858_reg {
 	int len;
 };
 
-/* communication with the SSD chip */
+/*
+ * hardware control
+ */
+
+static int ssd2858_reset(struct omap_dss_device *dssdev, bool state)
+{
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+
+#if LOG
+	printk("dsi: ssd2858_reset(%d)\n", state);
+#endif
+
+	if (gpio_is_valid(ddata->reset_gpio))
+		gpio_set_value(ddata->reset_gpio, !state);	/* assume active low */
+	ddata->reset = !state;
+
+	// FIXME: forward to panel driver?
+
+	return 0;
+}
+
+#if REGULATOR
+static int ssd2858_regulator(struct omap_dss_device *dssdev, int state)
+{
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+
+#if LOG
+	printk("dsi: ssd2858_regulator(%d)\n", state);
+#endif
+
+	if (gpio_is_valid(ddata->regulator_gpio))
+		gpio_set_value(ddata->regulator_gpio, state);	// switch regulator
+
+	return 0;
+}
+#endif /* REGULATOR */
+
+/*
+ * communication with the SSD chip control registers
+ */
 
 static int ssd2858_write(struct omap_dss_device *dssdev, u8 *buf, int len)
 {
@@ -496,633 +522,308 @@ static int ssd2858_read_reg(struct omap_dss_device *dssdev, unsigned short addre
 	return r;
 }
 
-#if 1
-
-/* callbacks from the DSI driver */
-
-static int driver_ssd2858_connect(struct omap_dss_device *dssdev)
-{
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
-	struct device *dev = &ddata->pdev->dev;
-	int r;
-
-	printk("dsi: driver_ssd2858_connect\n");
-	if (omapdss_device_is_connected(dssdev))
-		return 0;
-
-	r = in->ops.dsi->connect(in, dssdev);
-	if (r) {
-		dev_err(dev, "Failed to connect to video source\n");
-		return r;
-	}
-
-	/* channel0 used for video packets */
-	r = in->ops.dsi->request_vc(ddata->in, &ddata->pixel_channel);
-	if (r) {
-		dev_err(dev, "failed to get virtual channel\n");
-		goto err_req_vc0;
-	}
-
-	r = in->ops.dsi->set_vc_id(ddata->in, ddata->pixel_channel, 0);
-	if (r) {
-		dev_err(dev, "failed to set VC_ID\n");
-		goto err_vc_id0;
-	}
-
-	/* channel1 used for registers access in LP mode */
-	r = in->ops.dsi->request_vc(ddata->in, &ddata->config_channel);
-	if (r) {
-		dev_err(dev, "failed to get virtual channel\n");
-		goto err_req_vc1;
-	}
-
-	r = in->ops.dsi->set_vc_id(ddata->in, ddata->config_channel, 0);
-	if (r) {
-		dev_err(dev, "failed to set VC_ID\n");
-		goto err_vc_id1;
-	}
-
-	return 0;
-
-err_vc_id1:
-	in->ops.dsi->release_vc(ddata->in, ddata->config_channel);
-err_req_vc1:
-err_vc_id0:
-	in->ops.dsi->release_vc(ddata->in, ddata->pixel_channel);
-err_req_vc0:
-	in->ops.dsi->disconnect(in, dssdev);
-	return r;
-}
-
-static void driver_ssd2858_disconnect(struct omap_dss_device *dssdev)
-{
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
-
-	printk("dsi: driver_ssd2858_disconnect\n");
-	if (!omapdss_device_is_connected(dssdev))
-		return;
-	// FIXME: forward disconnect to panel
-
-	in->ops.dsi->release_vc(in, ddata->pixel_channel);
-	in->ops.dsi->release_vc(in, ddata->config_channel);
-	in->ops.dsi->disconnect(in, dssdev);
-}
-
-static void driver_ssd2858_get_timings(struct omap_dss_device *dssdev,
-		struct omap_video_timings *timings)
-{
-	printk("dsi: driver_ssd2858_get_timings\n");
-	*timings = dssdev->panel.vm;
-}
-
-static void driver_ssd2858_set_timings(struct omap_dss_device *dssdev,
-		struct omap_video_timings *timings)
-{
-	printk("dsi: driver_ssd2858_set_timings\n");
-	dssdev->panel.vm.hactive = timings->hactive;
-	dssdev->panel.vm.vactive = timings->vactive;
-	dssdev->panel.vm.pixelclock = timings->pixelclock;
-	dssdev->panel.vm.hsync_len = timings->hsync_len;
-	dssdev->panel.vm.hfront_porch = timings->hfront_porch;
-	dssdev->panel.vm.hback_porch = timings->hback_porch;
-	dssdev->panel.vm.vsync_len = timings->vsync_len;
-	dssdev->panel.vm.vfront_porch = timings->vfront_porch;
-	dssdev->panel.vm.vback_porch = timings->vback_porch;
-	// FIXME: forward to panel
-}
-
-static int driver_ssd2858_check_timings(struct omap_dss_device *dssdev,
-		struct omap_video_timings *timings)
-{
-	printk("dsi: driver_ssd2858_check_timings\n");
-	return 0;
-}
-
-static void driver_ssd2858_get_resolution(struct omap_dss_device *dssdev,
-		u16 *xres, u16 *yres)
-{
-	printk("dsi: driver_ssd2858_get_resolution\n");
-	*xres = dssdev->panel.vm.hactive;
-	*yres = dssdev->panel.vm.vactive;
-	// FIXME: forward to panel?
-}
-#endif
-
-/* hardware control */
-
-static int ssd2858_reset(struct omap_dss_device *dssdev, bool state)
-{
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-
-#if LOG
-	printk("dsi: ssd2858_reset(%d)\n", state);
-#endif
-
-	if (gpio_is_valid(ddata->reset_gpio))
-		gpio_set_value(ddata->reset_gpio, !state);	/* assume active low */
-	ddata->reset = !state;
-
-	// forward to panel driver?
-
-	return 0;
-}
-
-#if REGULATOR
-static int ssd2858_regulator(struct omap_dss_device *dssdev, int state)
-{
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-
-#if LOG
-	printk("dsi: ssd2858_regulator(%d)\n", state);
-#endif
-
-	if (gpio_is_valid(ddata->regulator_gpio))
-		gpio_set_value(ddata->regulator_gpio, state);	// switch regulator
-
-	return 0;
-}
-#endif
-
-#if BACKLIGHT
-/* backlight control */
-
-static int ssd2858_update_brightness(struct omap_dss_device *dssdev, int level)
-{
-#if 1
-	return ssd2858_write_cmd1(dssdev, DCS_BRIGHTNESS, level);
-#else
-	return ssd2858_write_cmd2(dssdev, DCS_BRIGHTNESS, level>>4, (level&0xf) << 4);
-#endif
-}
-
-static int ssd2858_set_brightness(struct backlight_device *bd)
-{
-	struct omap_dss_device *dssdev = dev_get_drvdata(&bd->dev);
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-//	struct omap_dss_device *in = ddata->in;
-	int bl = bd->props.brightness;
-	int r = 0;
-#if LOG
-	printk("dsi: ssd2858_set_brightness(%d)\n", bl);
-#endif
-	if (bl == ddata->bl)
-		return 0;
-
-#if 0
-
-	mutex_lock(&ddata->lock);
-
-	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE) {
-		in->ops.dsi->bus_lock(in);
-
-		r = ssd2858_update_brightness(dssdev, bl);
-		if (!r)
-			ddata->bl = bl;
-
-		in->ops.dsi->bus_unlock(in);
-	}
-
-	mutex_unlock(&ddata->lock);
-#endif
-
-	return r;
-}
-
-static int ssd2858_get_brightness(struct backlight_device *bd)
-{
-	struct omap_dss_device *dssdev = dev_get_drvdata(&bd->dev);
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
-	u8 data[16];
-	u16 brightness = 0;
-	int r = 0;
-#if LOG
-	printk("dsi: ssd2858_get_brightness()\n");
-#endif
-	if (dssdev->state != OMAP_DSS_DISPLAY_ACTIVE) {
-		dev_err(&ddata->pdev->dev, "dsi: display is not active\n");
-		return 0;
-	}
-
-	mutex_lock(&ddata->lock);
-
-	if (ddata->enabled) {
-		in->ops.dsi->bus_lock(in);
-		r = ssd2858_read(dssdev, DCS_READ_BRIGHTNESS, data, 2);
-		brightness = (data[0]<<4) + (data[1]>>4);
-
-		in->ops.dsi->bus_unlock(in);
-	}
-
-	mutex_unlock(&ddata->lock);
-
-	if(r < 0) {
-		dev_err(&ddata->pdev->dev, "dsi: read error\n");
-		return bd->props.brightness;
-	}
-
-#if LOG
-	printk("dsi: read %d\n", brightness);
-#endif
-	return brightness>>4;	// get to range 0..255
-}
-
-static const struct backlight_ops ssd2858_backlight_ops  = {
-	.get_brightness = ssd2858_get_brightness,
-	.update_status = ssd2858_set_brightness,
-};
-#endif
-
-#if SYSFS
-
-/* sysfs callbacks */
-
-static int ssd2858_start(struct omap_dss_device *dssdev);
-static void ssd2858_stop(struct omap_dss_device *dssdev);
-
-static ssize_t set_control(struct device *dev,
-					   struct device_attribute *attr,
-					   const char *buf, size_t count)
-{
-	int r = 0;
-	// decode some commands like setting the rotation etc.
-	return r < 0 ? r : count;
-}
-
-static ssize_t show_control(struct device *dev,
-						struct device_attribute *attr, char *buf)
-{
-	return sprintf(buf, "control the SSD chip\n");
-}
-
-static DEVICE_ATTR(control, S_IWUSR | S_IRUGO,
-				   show_control, set_control);
-
-static struct attribute *ssd2858_attributes[] = {
-	&dev_attr_control.attr,
-	NULL
-};
-
-static const struct attribute_group ssd2858_attr_group = {
-	.attrs = ssd2858_attributes,
-};
-
-#endif
-
-/* out ops available to be called by attached panel */
-
-/* a panel driver may call these operations and we must either
- * - translate them into SSD2858 register settings or
- * - forward to in->ops i.e. the video source
+/*
+ * calculate timings based on panel and system setup
+ *
+ * note: timing values depend on rotation on or off
  */
 
-/* here is a sketch how DCS and generic packet commands requested by the panel driver should be handled */
-
-static int ssd2858_gen_write(struct omap_dss_device *dssdev, int channel, u8 *buf, int len)
-{ /* panel driver wants us to send a generic packet to the panel through the SSD/bypass */
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
-
-#if LOG
-	printk("dsi: ssd2858: ssd2858_gen_write\n");
-#endif
-
-	ssd2858_pass_to_panel(dssdev, true);	// switch SSD2858 to pass-through mode
-
-	if (!ddata->reset && buf[0] == 0xff) {
-		u8 nbuf[5];
-		if(len > 4) {
-			dev_err(&ddata->pdev->dev, "packet too long for forwarding mechanism: %d\n", len);
-			return -EIO;
-		}
-		memcpy(&nbuf[1], buf, len);
-		nbuf[0]=0xff;	// we need to prefix with 0xff
-		return in->ops.dsi->gen_write(in, channel, nbuf, len+1);
-	} else
-		return in->ops.dsi->gen_write(in, channel, buf, len);
-}
-
-static int ssd2858_dcs_write_nosync(struct omap_dss_device *dssdev, int channel, u8 *buf, int len)
-{ /* panel driver wants us to send a DCS packet to the panel through the SSD/bypass */
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
-#if LOG
-	printk("dsi: ssd2858: ssd2858_dcs_write_nosync\n");
-#endif
-	ssd2858_pass_to_panel(dssdev, true);	// switch SSD2858 to pass-through mode
-
-	return in->ops.dsi->dcs_write_nosync(in, channel, buf, len);
-}
-
-static int ssd2858_gen_read(struct omap_dss_device *dssdev, int channel,
-				u8 *reqdata, int reqlen,
-				u8 *data, int len)
-{
-#if LOG
-	printk("dsi: ssd2858: ssd2858_gen_read\n");
-#endif
-	return -EINVAL;
-}
-
-static int ssd2858_dcs_read(struct omap_dss_device *dssdev, int channel, u8 dcs_cmd,
-				u8 *data, int len)
-{
-#if LOG
-	printk("dsi: ssd2858: ssd2858_dcs_read\n");
-#endif
-	return -EINVAL;
-}
-
-static int ssd2858_set_max_rx_packet_size(struct omap_dss_device *dssdev, int channel, u16 plen)
-{
-#if LOG
-	printk("dsi: ssd2858: ssd2858_set_max_rx_packet_size\n");
-#endif
-	return -EINVAL;
-}
-
-static int ssd2858_connect(struct omap_dss_device *dssdev, struct omap_dss_device *dst)
+static int ssd2858_get_panel_timings(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
-	struct device *dev = &ddata->pdev->dev;
-	int r;
 
 #if LOG
-	printk("dsi: ssd2858: ssd2858_connect\n");
+	printk("ssd2858_get_panel_timings()\n");
 #endif
-	dev_dbg(dssdev->dev, "connect\n");
+	// we have a problem: dssdev->dst may not yet be initialized here!
 
-// return 0;
-
-	if (omapdss_device_is_connected(dssdev))
-		return -EBUSY;
-
-	r = in->ops.dsi->connect(in, dssdev);
-	if (r) {
-		dev_err(dev, "Failed to connect to video source\n");
-		return r;
+	if (dssdev->dst && dssdev->dst->driver && dssdev->dst->driver->get_timings)
+		dssdev->dst->driver->get_timings(dssdev->dst, &ddata->panel_timings);
+	else {
+#if LOG
+		printk("ssd2858_get_panel_timings() use hard coded panel setup\n");
+#endif
+		ddata->panel_timings.x_res = 720;
+		ddata->panel_timings.y_res = 1280;
+		ddata->PANEL_FPS = 60;	// frames per second
+		ddata->PANEL_BPP = 24;	// bits per lane
+		ddata->PANEL_LANES = 4;	// lanes
+		ddata->panel_timings.hfp = 10;	// front porch
+		ddata->panel_timings.hsw = 10;	// sync active
+		ddata->panel_timings.hbp = 100;	// back porch
+		// NOTE: we must set this so the sum of V* is < ~70 to get a slightly higher pixel and DDR rate or the panel wouldn't sync properly
+		// warning: some VBP values are causing horizontal misalignemt:
+		// 12..15, 18..23, 26..?, 34..40, ...?
+		ddata->panel_timings.vfp = 10;	// top porch
+		ddata->panel_timings.vsw = 2;	// sync active
+		ddata->panel_timings.vbp = 48;	// bottom porch
+		ddata->panel_dsi_config.lp_clk_max = 8000000;	// maximum is 9.2 MHz
 	}
 
-	dst->src = dssdev;
-	dssdev->dst = dst;
-
-return 0;
-
-	/* channel0 used for video packets */
-	r = in->ops.dsi->request_vc(ddata->in, &ddata->pixel_channel);
-	if (r) {
-		dev_err(dev, "failed to get virtual channel\n");
-		goto err_req_vc0;
-	}
-
-	r = in->ops.dsi->set_vc_id(ddata->in, ddata->pixel_channel, 0);
-	if (r) {
-		dev_err(dev, "failed to set VC_ID\n");
-		goto err_vc_id0;
-	}
-
-	/* channel1 used for registers access in LP mode */
-	r = in->ops.dsi->request_vc(ddata->in, &ddata->config_channel);
-	if (r) {
-		dev_err(dev, "failed to get virtual channel\n");
-		goto err_req_vc1;
-	}
-
-	r = in->ops.dsi->set_vc_id(ddata->in, ddata->config_channel, 0);
-	if (r) {
-		dev_err(dev, "failed to set VC_ID\n");
-		goto err_vc_id1;
-	}
+	ddata->PANEL_FRAME_WIDTH = ddata->panel_timings.x_res
+					+ ddata->panel_timings.hfp
+					+ ddata->panel_timings.hsw
+					+ ddata->panel_timings.hbp;	// some margin for sync and retrace
+	ddata->PANEL_FRAME_HEIGHT = ddata->panel_timings.y_res
+					+ ddata->panel_timings.vfp
+					+ ddata->panel_timings.vsw
+					+ ddata->panel_timings.vbp;	// some margin for sync and retrace
+	ddata->PANEL_PCLK = ddata->PANEL_FRAME_WIDTH
+					* ddata->PANEL_FRAME_HEIGHT
+					* ddata->PANEL_FPS;	// required pixel clock
+	ddata->PANEL_MIN_DDR = (ddata->PANEL_PCLK / 2 / ddata->PANEL_LANES) * ddata->PANEL_BPP;	// min is defined by required data bandwidth
 
 	return 0;
-
-err_vc_id1:
-	in->ops.dsi->release_vc(ddata->in, ddata->config_channel);
-err_req_vc1:
-err_vc_id0:
-	in->ops.dsi->release_vc(ddata->in, ddata->pixel_channel);
-err_req_vc0:
-printk("ssd2858_connect error %d\n", r);
-	in->ops.dsi->disconnect(in, dssdev);
-	return r;
 }
 
-static void ssd2858_disconnect(struct omap_dss_device *dssdev, struct omap_dss_device *dst)
+static int ssd2858_calculate_timings(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+
+	u32 PANEL_MAX_DDR=250000000;	// maximum DDR clock (4..25ns) that can be processed by ssd2858
+
+	/* OMAP timings */
+
+	ddata->dsi_config.mode = OMAP_DSS_DSI_VIDEO_MODE;
+	ddata->dsi_config.pixel_format = SSD2858_PIXELFORMAT,
+	ddata->dsi_config.timings = &ddata->videomode,
+	ddata->dsi_config.ddr_clk_always_on = true,
+	ddata->dsi_config.trans_mode = OMAP_DSS_DSI_BURST_MODE,
+	ddata->dsi_config.lp_clk_min = ddata->dsi_config.lp_clk_max = ddata->xtal / 2;	// we must drive SSD with this LP clock frequency
+
+	ddata->videomode = ddata->panel_timings;
+	if (ddata->rotate) {
+		ddata->videomode.hactive = ddata->panel_timings.vactive;
+		ddata->videomode.vactive = ddata->panel_timings.hactive;
+	}
+	/* calculate timings */
+
+	/* SSD2858 mode parameters */
+
+	ddata->SPLIT_MEM = 1;
+	ddata->TE_SEL = 1;
+	ddata->VBP = 0;
+	ddata->CKE = 0;
+	ddata->VB_MODE = 0;
+	ddata->VBE = 0;
+	ddata->PCLK_NUM = 1;
+	ddata->PCLK_DEN = 4; // must be 1:4 for proper video processing
+
+	// check input parameters
+
+#define in_range(val, min, max) ((val) >= (min) && (val) <= (max))
+
+	if (!in_range(ddata->xtal, 20000000, 300000000)) {
+		printk("XTAL frequency problem: %u (20 - 30 MHz)\n", ddata->xtal);
+		return -EINVAL;
+	}
+
+	/* SSD2858 clock divider parameters */
+
+	for(ddata->SYS_CLK_DIV = 5; ddata->SYS_CLK_DIV <= 5; ddata->SYS_CLK_DIV++) {
+
+		u32 TARGET_PIXEL_CLK;
+		u32 TARGET_SYS_CLK;
+		u32 TARGET_MAIN_CLK;
+		u32 TARGET_DIV;	// total required divisor between PLL and MAIN_CLK - rounded down (running the PLL at least at target frequency)
+		u32 TARGET_PLL;	// what we expect to see as PLL frequency
+		u32 PLL;	// real PLL frequency (us usually higher than target)
+		u32 MAIN_CLK;	// real MAIN clock
+		u32 SYS_CLK;	// real SYS clock
+		u32 PIXEL_CLK;	// real VTCM pixel clock
+		u32 MIPITX_BIT_CLK;
+		u32 MIPITX_DDR_CLK;	// going to panel
+		u32 MIPITX_BYTE_CLK;
+		u32 SSD_LPCLK;	// real LP clock output
+		u32 OMAP_PCLK;	// feed pixels in speed defined by SSD2858
+
+		/* SSD divider calculations */
+
+		/* 1. VCTM */
+		TARGET_PIXEL_CLK = ddata->PANEL_PCLK / 2;
+		TARGET_SYS_CLK = ddata->PCLK_DEN * TARGET_PIXEL_CLK / ddata->PCLK_NUM;
+		TARGET_MAIN_CLK = 2 * ddata->SYS_CLK_DIV * TARGET_SYS_CLK;
+		TARGET_DIV = 1500000000 / TARGET_MAIN_CLK;	// total required divisor between PLL and MAIN_CLK - rounded down (running the PLL at least at required frequency)
+		TARGET_PLL = TARGET_DIV * TARGET_MAIN_CLK;	// what we expect to see as PLL frequency
+		/* 2. PLL */
+		ddata->PLL_MULT = (TARGET_PLL + ddata->xtal - 1) / ddata->xtal;	// required PLL multiplier from XTAL (rounded up)
+		PLL = ddata->xtal * ddata->PLL_MULT;	// real PLL frequency
+		ddata->PLL_POST_DIV = PLL / TARGET_MAIN_CLK;	// PLL_POST_DIV to get MAIN_CLOCK - should be >= TARGET_DIV
+		MAIN_CLK = PLL / ddata->PLL_POST_DIV;	// real MAIN clock
+		SYS_CLK = MAIN_CLK / 2 / ddata->SYS_CLK_DIV;	// real SYS clock
+		PIXEL_CLK = (SYS_CLK * ddata->PCLK_NUM) / ddata->PCLK_DEN;	// real VTCM pixel clock
+		/* 3. MIPITX */
+		ddata->MTX_CLK_DIV = MAIN_CLK / ( 2 * ddata->PANEL_MIN_DDR );	// try to run at least with PANEL_MIN_DDR speed
+		MIPITX_BIT_CLK = MAIN_CLK / ddata->MTX_CLK_DIV;
+		MIPITX_DDR_CLK = MIPITX_BIT_CLK / 2;	// going to panel
+		MIPITX_BYTE_CLK = MIPITX_BIT_CLK / 8;
+		ddata->LP_CLK_DIV = (MIPITX_BYTE_CLK + ddata->panel_dsi_config.lp_clk_max - 1) / ddata->panel_dsi_config.lp_clk_max;	// divider
+		SSD_LPCLK = MIPITX_BYTE_CLK / ddata->LP_CLK_DIV;	// real LP clock output
+		/* LOCKCNT - at least 30us - this is the number of LPCLOCK (XTAL / 2); we add 40% safety margin */
+		ddata->LOCKCNT=((((ddata->xtal / 2 ) * 30) / 1000000) * 140) / 100;
+
+		/* calculate OMAP parameters */
+		ddata->dsi_config.hs_clk_min = ddata->dsi_config.hs_clk_max = MIPITX_DDR_CLK;	// I hope the OMAP DSS calculates what it needs
+		OMAP_PCLK = 2 * PIXEL_CLK;	// feed pixels in speed defined by SSD2858
 
 #if LOG
-	printk("dsi: ssd2858: ssd2858_disconnect\n");
+		printk("Panel MIPI:\n");
+		printk("  Dimensions: {%ux%u} in {%ux%u}\n", ddata->panel_timings.x_res, ddata->panel_timings.y_res, ddata->PANEL_FRAME_WIDTH, ddata->PANEL_FRAME_HEIGHT);
+		printk("  Pixel CLK: %u\n", ddata->PANEL_PCLK);
+		printk("  DDR CLK: %u\n", ddata->PANEL_MIN_DDR);
+		printk("  LPCLK target: %lu..%lu\n", ddata->panel_dsi_config.lp_clk_max, ddata->panel_dsi_config.lp_clk_max);
+
+		printk("SSD2858:\n");
+		printk("  XTAL CLK: %u\n", ddata->xtal);
+		printk("  LPCLK in: %u\n", ddata->xtal / 2);
+		printk("  target VTCM PIXEL CLK: %u\n", TARGET_PIXEL_CLK);
+		printk("  target SYS_CLK: %u\n", TARGET_SYS_CLK);
+		printk("  target MAIN_CLK: %u\n", TARGET_MAIN_CLK);
+		printk("  target PLL: %u\n", TARGET_PLL);
+		printk("  PLL_MULT / PLL_POST_DIV: %u / %u\n", ddata->PLL_MULT, ddata->PLL_POST_DIV);
+		printk("  real PLL: %u\n", PLL);
+		printk("  MAIN_CLK: %u\n", MAIN_CLK);
+		printk("  SYS_CLK_DIV: %ud\n", ddata->SYS_CLK_DIV);
+		printk("  SYS_CLK: %u\n", SYS_CLK);
+		printk("  PCLK_NUM / PCLK_DEN: %u / %u\n", ddata->PCLK_NUM , ddata->PCLK_DEN);
+		printk("  VTCM PIXEL_CLK: %u\n", PIXEL_CLK);
+		printk("  Panel PIXEL_CLK: %u\n", 2 * PIXEL_CLK);
+		printk("  MTX_CLK_DIV: %u\n", ddata->MTX_CLK_DIV);
+		printk("  MIPITX_BIT_CLK: %u\n", MIPITX_BIT_CLK);
+		printk("  MIPITX_DDR_CLK: %u\n", MIPITX_DDR_CLK);
+		printk("  MIPITX_BYTE_CLK: %u\n", MIPITX_BYTE_CLK);
+		printk("  LPCLK out: %u\n", SSD_LPCLK);
+		printk("  LOCKCNT: %u\n", ddata->LOCKCNT);
+
+		printk("OMAP MIPI:\n");
+		printk("  Dimensions: {%ux%u} in {%ux%u}\n", ddata->videomode.hactive,
+			/* FIXME: */ ddata->videomode.vactive, ddata->PANEL_FRAME_WIDTH, ddata->PANEL_FRAME_HEIGHT);
+		printk("  Pixel CLK: %ud\n", OMAP_PCLK);
+		printk("  DDR CLK: %lu..%lu\n", ddata->dsi_config.hs_clk_min, ddata->dsi_config.hs_clk_max);
+		printk("  LPCLK out: %lu..%lu\n", ddata->dsi_config.lp_clk_min, ddata->dsi_config.lp_clk_max);
+
 #endif
-	dev_dbg(dssdev->dev, "disconnect\n");
 
-	WARN_ON(!omapdss_device_is_connected(dssdev));
-	if (!omapdss_device_is_connected(dssdev))
-		return;
+	/* check parameters */
 
-	WARN_ON(dst != dssdev->dst);
-	if (dst != dssdev->dst)
-		return;
+// [ $PLL_MULT -ge 1 -a $PLL_MULT -le 128 ] || echo "PLL_MULT problem: $PLL_MULT (1 .. 127)"
 
-	dst->src = NULL;
-	dssdev->dst = NULL;
-
-	in->ops.dsi->release_vc(in, ddata->pixel_channel);
-	in->ops.dsi->release_vc(in, ddata->config_channel);
-	in->ops.dsi->disconnect(in, &ddata->dssdev);
-}
-
-static int ssd2858_enable(struct omap_dss_device *dssdev)
-{
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
-	int r;
-
+		if (!in_range(ddata->PLL_MULT, 1, 128)) {
 #if LOG
-	printk("dsi: ssd2858: ssd2858_enable\n");
+			printk("PLL_MULT problem: %u (1 .. 128)\n", ddata->PLL_MULT);
 #endif
-	dev_dbg(dssdev->dev, "enable\n");
+			continue;
+		}
 
-	if (!omapdss_device_is_connected(dssdev))
-		return -ENODEV;
+// [ $PLL_POST_DIV -ge 1 -a $PLL_POST_DIV -le 64 ] || echo "PLL_POST_DIV problem: $PLL_POST_DIV (1 .. 64)"
 
-	if (omapdss_device_is_enabled(dssdev))
+		if (!in_range(ddata->PLL_POST_DIV, 1, 64)) {
+#if LOG
+			printk("PLL_POST_DIV problem: %u (1 .. 64)\n", ddata->PLL_POST_DIV);
+#endif
+			continue;
+		}
+
+// [ $PLL -ge 1000000000 -a $PLL -le 1500000000 ] || echo "PLL frequency problem: $PLL (1.000 .. 1.500 GHz)"
+
+		if (!in_range(PLL, 1000000000, 1500000000)) {
+#if LOG
+			printk("PLL frequency problem: %u (1.000 .. 1.500 GHz)\n", PLL);
+#endif
+			continue;
+		}
+
+// [ $SYS_CLK_DIV -ge 1 -a $SYS_CLK_DIV -le 16 ] || echo "SYS_CLK_DIV problem: $SYS_CLK_DIV (1 .. 16)"
+
+		if (!in_range(ddata->SYS_CLK_DIV, 1, 16)) {
+#if LOG
+			printk("SYS_CLK_DIV problem: %u (1 .. 16)\n", ddata->SYS_CLK_DIV);
+#endif
+			continue;
+		}
+
+// [ $SYS_CLK -le 150000000 ] || echo "SYS_CLK problem: $SYS_CLK ( ... 150 MHz)"
+
+		if (!in_range(SYS_CLK, 1, 150000000)) {
+#if LOG
+			printk("SYS_CLK problem: %u ( .. 150 MHz)\n", SYS_CLK);
+#endif
+			continue;
+		}
+
+// [ $PCLK_NUM -ge 1 -a $PCLK_NUM -le 128 ] || echo "PCLK_NUM problem: $PCLK_NUM (1 .. 128)"
+
+		if (!in_range(ddata->PCLK_NUM, 1, 128)) {
+#if LOG
+			printk("PCLK_NUM problem: %u (1 .. 16)\n", ddata->PCLK_NUM);
+#endif
+			continue;
+		}
+
+// [ $PCLK_DEN -ge 1 -a $PCLK_DEN -le 256 ] || echo "PCLK_DEN problem: $PCLK_DEN (1 .. 256)"
+
+		if (!in_range(ddata->PCLK_DEN, 1, 256)) {
+#if LOG
+			printk("PCLK_DEN problem: %u (1 .. 256)\n", ddata->PCLK_DEN);
+#endif
+			continue;
+		}
+
+// [ $MTX_CLK_DIV -ge 1 -a $MTX_CLK_DIV -le 16 ] || echo "MTX_CLK_DIV problem: $MTX_CLK_DIV (1 .. 15)"
+
+		if (!in_range(ddata->MTX_CLK_DIV, 1, 16)) {
+#if LOG
+			printk("MTX_CLK_DIV problem: %u (1 .. 16)\n", ddata->MTX_CLK_DIV);
+#endif
+			continue;
+		}
+
+// [ $MTX_CLK_DIV -eq 1 -o $((MTX_CLK_DIV % 2)) -eq 0 ] || echo "MTX_CLK_DIV problem: $MTX_CLK_DIV (1 or even divider) - ignored"
+
+		if (!ddata->MTX_CLK_DIV != 1 && !(ddata->MTX_CLK_DIV%2 == 0)) {
+#if LOG
+			printk("MTX_CLK_DIV problem: %u (1 or even divider) - ignored\n", ddata->MTX_CLK_DIV);
+#endif
+		//	continue;
+		}
+
+// [ $MIPITX_DDR_CLK -ge $PANEL_MIN_DDR ] || echo "MIPITX_DDR_CLK vs. PANEL_MIN_DDR problem: $MIPITX_DDR_CLK < $PANEL_MIN_DDR"
+// [ $MIPITX_DDR_CLK -le $PANEL_MAX_DDR ] || echo "MIPITX_DDR_CLK vs. PANEL_MAX_DDR problem: $MIPITX_DDR_CLK < $PANEL_MAX_DDR"
+
+		if (!in_range(MIPITX_DDR_CLK, ddata->PANEL_MIN_DDR, PANEL_MAX_DDR)) {
+#if LOG
+			printk("MIPITX_DDR_CLK problem: %u (%u .. %u)\n",MIPITX_DDR_CLK, ddata->PANEL_MIN_DDR, PANEL_MAX_DDR);
+#endif
+			continue;
+		}
+
+// [ $LP_CLK_DIV -gt 0 -a $LP_CLK_DIV -le 64 ] || echo "LP_CLK_DIV problem: $LP_CLK_DIV (1 .. 63)"
+
+		if (!in_range(ddata->LP_CLK_DIV, 1, 64)) {
+#if LOG
+			printk("LP_CLK_DIV problem: %u (1 .. 64)\n", ddata->LP_CLK_DIV);
+#endif
+			continue;
+		}
+
+// [ $LOCKCNT -gt 0 -a $LOCKCNT -le 65535 ] || echo "LOCKCNT problem: $LOCKCNT (1 .. 65535)"
+
+		if (!in_range(ddata->LOCKCNT, 1, 65535)) {
+#if LOG
+			printk("LOCKCNT problem: %u (1 .. 65535)\n", ddata->LOCKCNT);
+#endif
+			continue;
+		}
+
 		return 0;
+	}
 
-// can we calculate timings here?
-// there is no dsi->set_timings - is driver->set_timings ok?
-
-	in->driver->set_timings(in, &ddata->videomode);
-
-	r = in->ops.dsi->enable(in);
-	if (r)
-		return r;
-
-// power on and program the sdd here
+	return -EINVAL;	// no sufficiently matching SYS_CLK_DIV found
+}
 
 /*
-	if (ddata->enable_gpio)
-		gpiod_set_value_cansleep(ddata->enable_gpio, 1);
-*/
-
-	dssdev->state = OMAP_DSS_DISPLAY_ACTIVE;
-
-	return 0;
-}
-
-static void ssd2858_disable(struct omap_dss_device *dssdev, bool disconnect_lanes, bool enter_ulps)
-{
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
-
-#if LOG
-	printk("dsi: ssd2858: ssd2858_disable\n");
-#endif
-	dev_dbg(dssdev->dev, "disable\n");
-
-	if (!omapdss_device_is_enabled(dssdev))
-		return;
-
-/* power off the ssd
-	if (ddata->enable_gpio)
-		gpiod_set_value_cansleep(ddata->enable_gpio, 0);
-*/
-
-	in->ops.dsi->disable(in, disconnect_lanes, enter_ulps);
-
-	dssdev->state = OMAP_DSS_DISPLAY_DISABLED;
-}
-
-#if NIMP
-
-static void ssd2858_set_timings(struct omap_dss_device *dssdev,
-		struct omap_video_timings *timings)
-{
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
-
-	dev_dbg(dssdev->dev, "set_timings\n");
-
-	ddata->videomode = *timings;
-	dssdev->panel.timings = *timings;
-
-	in->ops.dsi->set_timings(in, timings);
-}
-
-static void ssd2858_get_timings(struct omap_dss_device *dssdev,
-		struct omap_video_timings *timings)
-{
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-
-	dev_dbg(dssdev->dev, "get_timings\n");
-
-	*timings = ddata->timings;
-}
-
-static int ssd2858_check_timings(struct omap_dss_device *dssdev,
-		struct omap_video_timings *timings)
-{
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
-
-	dev_dbg(dssdev->dev, "check_timings\n");
-
-	return in->ops.dsi->check_timings(in, timings);
-}
-
-#endif
-
-static unsigned long channels;
-
-static int ssd2858_request_vc(struct omap_dss_device *dssdev, int *channel)
-{
-#if LOG
-	printk("dsi: ssd2858: ssd2858_request_vc\n");
-#endif
-	if (channels == 0xffffffff)
-		return -ENOSPC;
-	*channel = ffz(channels);
-	printk("dsi: ssd2858: ssd2858_request_vc assigned channel %d\n", *channel);
-	channels |= (1 << *channel);	// reserve this channel
-	return 0;
-}
-
-static void ssd2858_release_vc(struct omap_dss_device *dssdev, int channel)
-{
-#if LOG
-	printk("dsi: ssd2858: ssd2858_release_vc\n");
-#endif
-	channels &= ~(1 << channel);	// release channel bit
-	return;
-}
-
-static void ssd2858_enable_hs(struct omap_dss_device *dssdev, int channel, bool enable)
-{
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
-
-#if LOG
-	printk("dsi: ssd2858: ssd2858_enable_hs\n");
-#endif
-	in->ops.dsi->enable_hs(in, channel, enable);
-}
-
-static int ssd2858_enable_video_output(struct omap_dss_device *dssdev, int channel)
-{
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
-
-#if LOG
-	printk("dsi: ssd2858: ssd2858_enable_video_output\n");
-#endif
-
-	return in->ops.dsi->enable_video_output(in, channel);
-}
-
-static void ssd2858_disable_video_output(struct omap_dss_device *dssdev, int channel)
-{
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
-
-#if LOG
-	printk("dsi: ssd2858: ssd2858_disable_video_output\n");
-#endif
-
-	return in->ops.dsi->disable_video_output(in, channel);
-}
-
-static int ssd2858_set_vc_id(struct omap_dss_device *dssdev, int channel, int vc_id)
-{
-#if LOG
-	printk("dsi: ssd2858: ssd2858_set_vc_id\n");
-#endif
-	// we use default id values
-	return 0;
-}
-
-static void ssd2858_bus_lock(struct omap_dss_device *dssdev)
-{
-#if LOG
-	printk("dsi: ssd2858: ssd2858_bus_lock\n");
-#endif
-	// no locking implemented - would need for multiple panels on single mipitx
-	return;
-}
-
-static void ssd2858_bus_unlock(struct omap_dss_device *dssdev)
-{
-#if LOG
-	printk("dsi: ssd2858: ssd2858_bus_unlock\n");
-#endif
-	// no locking
-	return;
-}
-
-/* in ops available to be called by dss video source */
+ * set up the ssd2858 controller according to config and timing calculations
+ */
 
 static int ssd2858_power_on(struct omap_dss_device *dssdev)
 {
@@ -1272,10 +973,12 @@ static int ssd2858_power_on(struct omap_dss_device *dssdev)
 	ssd2858_pass_to_panel(dssdev, true);	/* communicate with the panel */
 
 #if LOG
-	u8 data[8];
-	ssd2858_read(dssdev, 0x0b, data, 1);
-	ssd2858_read(dssdev, 0x0c, data, 1);
-	ssd2858_read(dssdev, 0x45, data, 1);
+	{
+		u8 data[8];
+		ssd2858_read(dssdev, 0x0b, data, 1);
+		ssd2858_read(dssdev, 0x0c, data, 1);
+		ssd2858_read(dssdev, 0x45, data, 1);
+	}
 #endif
 
 	ssd2858_write_cmd0(dssdev, MIPI_DCS_EXIT_SLEEP_MODE);
@@ -1295,23 +998,14 @@ static int ssd2858_power_on(struct omap_dss_device *dssdev)
 
 	ssd2858_write_cmd0(dssdev, MIPI_DCS_SET_DISPLAY_ON);
 
-#if 0
-
-	r = ssd2858_update_brightness(dssdev, 255);
-	if (r)
-		goto err;
-
-	r = ssd2858_write_sequence(dssdev, sleep_out, ARRAY_SIZE(sleep_out));
-	if (r)
-		goto err;
-
-#endif
-
+#if LOG
 	printk("dsi: powered on()\n");
-
+#endif
 	return r;
 err:
-	printk("dsi: power on error\n");
+#if LOG
+	printk("dsi: power on error %d\n", r);
+#endif
 	dev_err(dev, "error powering on ssd2858 - activating reset\n");
 
 	in->ops.dsi->disable(in, false, false);
@@ -1326,185 +1020,26 @@ err0:
 	return r;
 }
 
-static int ssd2858_get_panel_timings(struct omap_dss_device *dssdev)
-{
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-
-	ddata->dsi_config.mode = OMAP_DSS_DSI_VIDEO_MODE;
-	ddata->dsi_config.pixel_format = SSD2858_PIXELFORMAT,
-	ddata->dsi_config.timings = &ddata->videomode,
-	ddata->dsi_config.ddr_clk_always_on = true,
-	ddata->dsi_config.trans_mode = OMAP_DSS_DSI_BURST_MODE,
-
-	// others will be calculated
-
-	// initial Panel parameters (should be fetched from the panel driver!)
-
-	ddata->panel_timings.x_res = 720;
-	ddata->panel_timings.y_res = 1280;
-	ddata->PANEL_FPS = 60;	// frames per second
-	ddata->PANEL_BPP = 24;	// bits per lane
-	ddata->PANEL_LANES = 4;	// lanes
-	ddata->panel_timings.hfp = 10;	// front porch
-	ddata->panel_timings.hsw = 10;	// sync active
-	ddata->panel_timings.hbp = 100;	// back porch
-	// NOTE: we must set this so the sum of V* is < ~70 to get a slightly higher pixel and DDR rate or the panel wouldn't sync properly
-	// warning: some VBP values are causing horizontal misalignemt:
-	// 12..15, 18..23, 26..?, 34..40, ...?
-	ddata->panel_timings.hfp = 10;	// top porch
-	ddata->panel_timings.hsw = 2;	// sync active
-	ddata->panel_timings.hbp = 48;	// bottom porch
-	ddata->panel_dsi_config.lp_clk_max = 8000000;	// maximum is 9.2 MHz
-	return 0;
-}
-
-static int ssd2858_calculate_timings(struct omap_dss_device *dssdev)
-{
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-
-	u32 PANEL_MAX_DDR=250000000;	// maximum DDR clock (4..25ns) that can be processed by controller
-
-	ddata->videomode = ddata->panel_timings;
-
-	/* calculate timings */
-
-	/* derived panel parameters */
-	ddata->PANEL_FRAME_WIDTH = ddata->panel_timings.x_res + ddata->panel_timings.hfp + ddata->panel_timings.hsw + ddata->panel_timings.hbp;	// some margin for sync and retrace
-	ddata->PANEL_FRAME_HEIGHT = ddata->panel_timings.y_res + ddata->panel_timings.vfp + ddata->panel_timings.vsw + ddata->panel_timings.vbp;	// some margin for sync and retrace
-	ddata->PANEL_PCLK = ddata->PANEL_FRAME_WIDTH * ddata->PANEL_FRAME_HEIGHT * ddata->PANEL_FPS;	// required pixel clock
-	ddata->PANEL_MIN_DDR = (ddata->PANEL_PCLK / 2 / ddata->PANEL_LANES) * ddata->PANEL_BPP;	// min is defined by required data bandwidth
-
-	/* SSD2858 mode parameters */
-
-	ddata->SPLIT_MEM = 1;
-	ddata->TE_SEL = 1;
-	ddata->VBP = 0;
-	ddata->CKE = 0;
-	ddata->VB_MODE = 0;
-	ddata->VBE = 0;
-	ddata->PCLK_NUM = 1;
-	ddata->PCLK_DEN = 4; // must be 1:4 for proper video processing
-
-	/* SSD2858 clock divider parameters */
-
-	for(ddata->SYS_CLK_DIV = 5; ddata->SYS_CLK_DIV <= 5; ddata->SYS_CLK_DIV++) {
-
-		/* SSD divider calculations */
-
-		/* 1. VCTM */
-		u32 TARGET_PIXEL_CLK = ddata->PANEL_PCLK / 2;
-		u32 TARGET_SYS_CLK = ddata->PCLK_DEN * TARGET_PIXEL_CLK / ddata->PCLK_NUM;
-		u32 TARGET_MAIN_CLK = 2 * ddata->SYS_CLK_DIV * TARGET_SYS_CLK;
-		u16 TARGET_DIV = 1500000000 / TARGET_MAIN_CLK;	// total required divisor between PLL and MAIN_CLK - rounded down (running the PLL at least at required frequency)
-		u32 TARGET_PLL = TARGET_DIV * TARGET_MAIN_CLK;	// what we expect to see as PLL frequency
-		/* 2. PLL */
-		ddata->PLL_MULT = (TARGET_PLL + ddata->xtal - 1) / ddata->xtal;	// required PLL multiplier from XTAL (rounded up)
-		u32 PLL = ddata->xtal * ddata->PLL_MULT;	// real PLL frequency
-		ddata->PLL_POST_DIV = PLL / TARGET_MAIN_CLK;	// PLL_POST_DIV to get MAIN_CLOCK - should be >= TARGET_DIV
-		u32 MAIN_CLK = PLL / ddata->PLL_POST_DIV;	// real MAIN clock
-		u32 SYS_CLK = MAIN_CLK / 2 / ddata->SYS_CLK_DIV;	// real SYS clock
-		u32 PIXEL_CLK = (SYS_CLK * ddata->PCLK_NUM) / ddata->PCLK_DEN;	// real VTCM pixel clock
-		/* 3. MIPITX */
-		ddata->MTX_CLK_DIV = MAIN_CLK / ( 2 * ddata->PANEL_MIN_DDR );	// try to run at least with PANEL_MIN_DDR speed
-		u32 MIPITX_BIT_CLK = MAIN_CLK / ddata->MTX_CLK_DIV;
-		u32 MIPITX_DDR_CLK = MIPITX_BIT_CLK / 2;	// going to panel
-		u32 MIPITX_BYTE_CLK = MIPITX_BIT_CLK / 8;
-		ddata->LP_CLK_DIV = (MIPITX_BYTE_CLK + ddata->panel_dsi_config.lp_clk_max - 1) / ddata->panel_dsi_config.lp_clk_max;	// divider
-		u32 SSD_LPCLK = MIPITX_BYTE_CLK / ddata->LP_CLK_DIV;	// real LP clock output
-		/* LOCKCNT - at least 30us - this is the number of LPCLOCK (XTAL / 2); we add 40% safety margin */
-		ddata->LOCKCNT=((((ddata->xtal / 2 ) * 30) / 1000000) * 140) / 100;
-
-		/* calculate OMAP parameters */
-
-		ddata->dsi_config.lp_clk_min = ddata->dsi_config.lp_clk_max = ddata->xtal / 2;	// we must drive SSD with this LP clock frequency
-		u32 OMAP_PCLK = 2 * PIXEL_CLK;	// feed pixels in speed defined by SSD2858
-		ddata->videomode = ddata->panel_timings;
-		if (ddata->rotate) {
-			ddata->videomode.x_res = ddata->panel_timings.y_res;
-			ddata->videomode.y_res = ddata->panel_timings.x_res;
-		}
-
-		ddata->dsi_config.hs_clk_min = ddata->dsi_config.hs_clk_max = MIPITX_DDR_CLK;	// I hope the OMAP DSS calculates what it needs
-
-#if LOG
-		printk("Panel MIPI:\n");
-		printk("  Dimensions: {%dx%d} in {%dx%d}\n", ddata->panel_timings.x_res, ddata->panel_timings.y_res, ddata->PANEL_FRAME_WIDTH, ddata->PANEL_FRAME_HEIGHT);
-		printk("  Pixel CLK: %d\n", ddata->PANEL_PCLK);
-		printk("  DDR CLK: %d\n", ddata->PANEL_MIN_DDR);
-		printk("  LPCLK target: %ld..%ld\n", ddata->panel_dsi_config.lp_clk_max, ddata->panel_dsi_config.lp_clk_max);
-
-		printk("SSD2858:\n");
-		printk("  XTAL CLK: %d\n", ddata->xtal);
-		printk("  LPCLK in: %d\n", ddata->xtal / 2);
-		printk("  target VTCM PIXEL CLK: %d\n", TARGET_PIXEL_CLK);
-		printk("  target SYS_CLK: %d\n", TARGET_SYS_CLK);
-		printk("  target MAIN_CLK: %d\n", TARGET_MAIN_CLK);
-		printk("  target PLL: %d\n", TARGET_PLL);
-		printk("  PLL_MULT / PLL_POST_DIV: %d / %d\n", ddata->PLL_MULT, ddata->PLL_POST_DIV);
-		printk("  real PLL: %d\n", PLL);
-		printk("  MAIN_CLK: %d\n", MAIN_CLK);
-		printk("  SYS_CLK_DIV: %d\n", ddata->SYS_CLK_DIV);
-		printk("  SYS_CLK: %d\n", SYS_CLK);
-		printk("  PCLK_NUM / PCLK_DEN: %d / %d\n", ddata->PCLK_NUM , ddata->PCLK_DEN);
-		printk("  VTCM PIXEL_CLK: %d\n", PIXEL_CLK);
-		printk("  Panel PIXEL_CLK: %d\n", 2 * PIXEL_CLK);
-		printk("  MTX_CLK_DIV: %d\n", ddata->MTX_CLK_DIV);
-		printk("  MIPITX_BIT_CLK: %d\n", MIPITX_BIT_CLK);
-		printk("  MIPITX_DDR_CLK: %d\n", MIPITX_DDR_CLK);
-		printk("  MIPITX_BYTE_CLK: %d\n", MIPITX_BYTE_CLK);
-		printk("  LPCLK out: %d\n", SSD_LPCLK);
-		printk("  LOCKCNT: %d\n", ddata->LOCKCNT);
-
-		printk("OMAP MIPI:\n");
-		printk("  Dimensions: %dx%d} in {%dx%d}\n", ddata->videomode.x_res, ddata->videomode.y_res, ddata->PANEL_FRAME_WIDTH, ddata->PANEL_FRAME_HEIGHT);
-		printk("  Pixel CLK: %d\n", OMAP_PCLK);
-		printk("  DDR CLK: %ld..%ld\n", ddata->dsi_config.hs_clk_min, ddata->dsi_config.hs_clk_max);
-		printk("  LPCLK out: %ld..%ld\n", ddata->dsi_config.lp_clk_min, ddata->dsi_config.lp_clk_max);
-
-#endif
-
-#if 0
-	/* check parameters */
-
-// these are independent of the SYS_CLK_DIV
-
-[ $XTAL -ge 20000000 -a $XTAL -le 300000000 ] || echo "XTAL frequency problem: $XTAL (20 - 30 MHz)"
-
-	// we could simply print optional warning message and continue;
-
-[ $PLL_MULT -ge 1 -a $PLL_MULT -le 128 ] || echo "PLL_MULT problem: $PLL_MULT (1 .. 127)"
-[ $PLL_POST_DIV -ge 1 -a $PLL_POST_DIV -le 64 ] || echo "PLL_POST_DIV problem: $PLL_POST_DIV (1 .. 63)"
-[ $PLL -ge 1000000000 -a $PLL -le 1500000000 ] || echo "PLL frequency problem: $PLL (1.000 .. 1.500 GHz)"
-[ $SYS_CLK_DIV -ge 1 -a $SYS_CLK_DIV -le 16 ] || echo "SYS_CLK_DIV problem: $SYS_CLK_DIV (1 .. 15)"
-[ $SYS_CLK -le 150000000 ] || echo "SYS_CLK problem: $SYS_CLK ( ... 150 MHz)"
-[ $PCLK_NUM -ge 1 -a $PCLK_NUM -le 128 ] || echo "PCLK_NUM problem: $PCLK_NUM (1 .. 127)"
-[ $PCLK_DEN -ge 1 -a $PCLK_DEN -le 256 ] || echo "PCLK_DEN problem: $PCLK_DEN (1 .. 255)"
-[ $MTX_CLK_DIV -ge 1 -a $MTX_CLK_DIV -le 16 ] || echo "MTX_CLK_DIV problem: $MTX_CLK_DIV (1 .. 15)"
-[ $MTX_CLK_DIV -eq 1 -o $((MTX_CLK_DIV % 2)) -eq 0 ] || echo "MTX_CLK_DIV problem: $MTX_CLK_DIV (1 or even divider) - ignored"
-[ $MIPITX_DDR_CLK -ge $PANEL_MIN_DDR ] || echo "MIPITX_DDR_CLK vs. PANEL_MIN_DDR problem: $MIPITX_DDR_CLK < $PANEL_MIN_DDR"
-[ $MIPITX_DDR_CLK -le $PANEL_MAX_DDR ] || echo "MIPITX_DDR_CLK vs. PANEL_MAX_DDR problem: $MIPITX_DDR_CLK < $PANEL_MAX_DDR"
-[ $LP_CLK_DIV -gt 0 -a $LP_CLK_DIV -le 64 ] || echo "LP_CLK_DIV problem: $LP_CLK_DIV (1 .. 63)"
-[ $LOCKCNT -gt 0 -a $LOCKCNT -le 65535 ] || echo "LOCKCNT problem: $LOCKCNT (1 .. 65535)"
-#endif
-
-		return 0;
-	}
-
-	return -EINVAL;	// no sufficiently matching SYS_CLK_DIV found
-}
-
-// we don't have a sophisticated power management (sending the panel to power off)
 // we simply stop the video stream and assert the RESET
 // please note that we don't/can't switch off the VCCIO
 
-static void ssd2858_power_off(struct omap_dss_device *dssdev)
+static void ssd2858_stop(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
+#if LOG
+	printk("dsi: ssd2858_stop()\n");
+#endif
+	mutex_lock(&ddata->lock);
+
+	in->ops.dsi->bus_lock(in);
 
 #if LOG
 	printk("dsi: ssd2858_power_off()\n");
 #endif
+
+	// FIXME: we should ask the panel driver to send these commands
+	// and turn off panel power
 
 	ssd2858_pass_to_panel(dssdev, true);	/* communicate with the panel */
 
@@ -1526,28 +1061,418 @@ static void ssd2858_power_off(struct omap_dss_device *dssdev)
 	ssd2858_regulator(dssdev, 0);	// switch power off - after stopping video stream
 #endif
 	mdelay(20);
-	/* here we can also power off IOVCC */
-}
 
-static void ssd2858_stop(struct omap_dss_device *dssdev)
-{
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
-#if LOG
-	printk("dsi: ssd2858_stop()\n");
-#endif
-	mutex_lock(&ddata->lock);
-
-	in->ops.dsi->bus_lock(in);
-
-	ssd2858_power_off(dssdev);
+	/* here we could also power off IOVCC if possible */
 
 	in->ops.dsi->bus_unlock(in);
 
 	mutex_unlock(&ddata->lock);
 }
 
-#if 1 || REMOVEME
+/*
+ * ops from the DSI video source
+ */
+
+static int driver_ssd2858_connect(struct omap_dss_device *dssdev)
+{
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+	struct omap_dss_device *in = ddata->in;
+	struct device *dev = &ddata->pdev->dev;
+	int r;
+
+#if LOG
+	printk("dsi: driver_ssd2858_connect\n");
+#endif
+
+	return 0;
+}
+
+static void driver_ssd2858_disconnect(struct omap_dss_device *dssdev)
+{
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+	struct omap_dss_device *in = ddata->in;
+
+#if LOG
+	printk("dsi: driver_ssd2858_disconnect\n");
+#endif
+	if (!omapdss_device_is_connected(dssdev))
+		return;
+}
+
+static void driver_ssd2858_get_timings(struct omap_dss_device *dssdev,
+		struct omap_video_timings *timings)
+{
+#if LOG
+	printk("dsi: driver_ssd2858_get_timings\n");
+#endif
+	*timings = dssdev->panel.timings;
+}
+
+static int driver_ssd2858_set_rotate(struct omap_dss_device *dssdev,
+		u8 rotate)
+{
+#if LOG
+	printk("dsi: driver_ssd2858_set_rotate %u\n", rotate);
+#endif
+	return 0;
+}
+
+static void driver_ssd2858_set_timings(struct omap_dss_device *dssdev,
+		struct omap_video_timings *timings)
+{
+#if LOG
+	printk("dsi: driver_ssd2858_set_timings\n");
+#endif
+	dssdev->panel.timings.x_res = timings->x_res;
+	dssdev->panel.timings.y_res = timings->y_res;
+	dssdev->panel.timings.pixelclock = timings->pixelclock;
+	dssdev->panel.timings.hsw = timings->hsw;
+	dssdev->panel.timings.hfp = timings->hfp;
+	dssdev->panel.timings.hbp = timings->hbp;
+	dssdev->panel.timings.vsw = timings->vsw;
+	dssdev->panel.timings.vfp = timings->vfp;
+	dssdev->panel.timings.vbp = timings->vbp;
+	// FIXME: forward to panel driver?
+}
+
+static int driver_ssd2858_check_timings(struct omap_dss_device *dssdev,
+		struct omap_video_timings *timings)
+{
+#if LOG
+	printk("dsi: driver_ssd2858_check_timings\n");
+#endif
+	return 0;
+}
+
+static void driver_ssd2858_get_resolution(struct omap_dss_device *dssdev,
+		u16 *xres, u16 *yres)
+{
+#if LOG
+	printk("dsi: driver_ssd2858_get_resolution\n");
+#endif
+	*xres = dssdev->panel.timings.x_res;
+	*yres = dssdev->panel.timings.y_res;
+	// FIXME: forward to panel driver?
+}
+
+/*
+ * ops available to be called by attached panel
+ *
+ * a panel driver may call these operations and we must either
+ * - translate them into SSD2858 register settings or
+ * - forward to in->ops i.e. our own video source
+ */
+
+static int ssd2858_gen_write(struct omap_dss_device *dssdev, int channel, u8 *buf, int len)
+{ /* panel driver wants us to send a generic packet to the panel through the SSD/bypass */
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+	struct omap_dss_device *in = ddata->in;
+
+#if LOG
+	printk("dsi: ssd2858: ssd2858_gen_write\n");
+#endif
+
+	ssd2858_pass_to_panel(dssdev, true);	// switch SSD2858 to pass-through mode
+
+	if (!ddata->reset && buf[0] == 0xff) {
+		u8 nbuf[5];
+		if(len > 4) {
+			dev_err(&ddata->pdev->dev, "packet too long for forwarding mechanism: %d\n", len);
+			return -EIO;
+		}
+		memcpy(&nbuf[1], buf, len);
+		nbuf[0]=0xff;	// we need to prefix with 0xff
+		return in->ops.dsi->gen_write(in, channel, nbuf, len+1);
+	} else
+		return in->ops.dsi->gen_write(in, channel, buf, len);
+}
+
+static int ssd2858_dcs_write_nosync(struct omap_dss_device *dssdev, int channel, u8 *buf, int len)
+{ /* panel driver wants us to send a DCS packet to the panel through the SSD/bypass */
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+	struct omap_dss_device *in = ddata->in;
+#if LOG
+	printk("dsi: ssd2858: ssd2858_dcs_write_nosync\n");
+#endif
+	ssd2858_pass_to_panel(dssdev, true);	// switch SSD2858 to pass-through mode
+
+	return in->ops.dsi->dcs_write_nosync(in, channel, buf, len);
+}
+
+static int ssd2858_gen_read(struct omap_dss_device *dssdev, int channel,
+				u8 *reqdata, int reqlen,
+				u8 *data, int len)
+{
+#if LOG
+	printk("dsi: ssd2858: ssd2858_gen_read\n");
+#endif
+	return -EINVAL;
+}
+
+static int ssd2858_dcs_read(struct omap_dss_device *dssdev, int channel, u8 dcs_cmd,
+				u8 *data, int len)
+{
+#if LOG
+	printk("dsi: ssd2858: ssd2858_dcs_read\n");
+#endif
+	return -EINVAL;
+}
+
+static int ssd2858_set_max_rx_packet_size(struct omap_dss_device *dssdev, int channel, u16 plen)
+{
+#if LOG
+	printk("dsi: ssd2858: ssd2858_set_max_rx_packet_size\n");
+#endif
+	return -EINVAL;
+}
+
+static int ssd2858_connect(struct omap_dss_device *dssdev, struct omap_dss_device *dst)
+{
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+	struct omap_dss_device *in = ddata->in;
+	struct device *dev = &ddata->pdev->dev;
+	int r;
+
+#if LOG
+	printk("dsi: ssd2858: ssd2858_connect\n");
+#endif
+	dev_dbg(dssdev->dev, "connect\n");
+
+	if (omapdss_device_is_connected(dssdev)) {
+#if LOG
+	printk("dsi: ssd2858 already connected\n");
+#endif
+		return -EBUSY;
+	}
+
+return 0;
+
+	r = in->ops.dsi->connect(in, dssdev);
+	if (r) {
+		dev_err(dev, "Failed to connect to video source\n");
+		return r;
+	}
+
+	dst->src = dssdev;
+	dssdev->dst = dst;
+
+	/* channel0 used for video packets */
+	r = in->ops.dsi->request_vc(ddata->in, &ddata->pixel_channel);
+	if (r) {
+		dev_err(dev, "failed to get virtual channel\n");
+		goto err_req_vc0;
+	}
+
+	r = in->ops.dsi->set_vc_id(ddata->in, ddata->pixel_channel, 0);
+	if (r) {
+		dev_err(dev, "failed to set VC_ID\n");
+		goto err_vc_id0;
+	}
+
+	/* channel1 used for registers access in LP mode */
+	r = in->ops.dsi->request_vc(ddata->in, &ddata->config_channel);
+	if (r) {
+		dev_err(dev, "failed to get virtual channel\n");
+		goto err_req_vc1;
+	}
+
+	r = in->ops.dsi->set_vc_id(ddata->in, ddata->config_channel, 0);
+	if (r) {
+		dev_err(dev, "failed to set VC_ID\n");
+		goto err_vc_id1;
+	}
+
+	return 0;
+
+err_vc_id1:
+	in->ops.dsi->release_vc(ddata->in, ddata->config_channel);
+err_req_vc1:
+err_vc_id0:
+	in->ops.dsi->release_vc(ddata->in, ddata->pixel_channel);
+err_req_vc0:
+#if LOG
+	printk("dsi: ssd2858_connect error %d\n", r);
+#endif
+	in->ops.dsi->disconnect(in, dssdev);
+	return r;
+}
+
+static void ssd2858_disconnect(struct omap_dss_device *dssdev, struct omap_dss_device *dst)
+{
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+	struct omap_dss_device *in = ddata->in;
+
+#if LOG
+	printk("dsi: ssd2858: ssd2858_disconnect\n");
+#endif
+	dev_dbg(dssdev->dev, "disconnect\n");
+
+	WARN_ON(!omapdss_device_is_connected(dssdev));
+	if (!omapdss_device_is_connected(dssdev))
+		return;
+
+	WARN_ON(dst != dssdev->dst);
+	if (dst != dssdev->dst)
+		return;
+
+	dst->src = NULL;
+	dssdev->dst = NULL;
+
+	in->ops.dsi->release_vc(in, ddata->pixel_channel);
+	in->ops.dsi->release_vc(in, ddata->config_channel);
+	in->ops.dsi->disconnect(in, &ddata->dssdev);
+}
+
+static int ssd2858_enable(struct omap_dss_device *dssdev)
+{
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+	struct omap_dss_device *in = ddata->in;
+	int r;
+
+#if LOG
+	printk("dsi: ssd2858: ssd2858_enable\n");
+#endif
+	dev_dbg(dssdev->dev, "enable\n");
+
+	if (!omapdss_device_is_connected(dssdev))
+		return -ENODEV;
+
+	if (omapdss_device_is_enabled(dssdev))
+		return 0;
+
+// can we calculate timings here?
+// there is no dsi->set_timings - is driver->set_timings ok?
+
+	in->driver->set_timings(in, &ddata->videomode);
+
+	r = in->ops.dsi->enable(in);
+	if (r)
+		return r;
+
+// power on and program the sdd here
+
+/*
+	if (ddata->enable_gpio)
+		gpiod_set_value_cansleep(ddata->enable_gpio, 1);
+*/
+
+	dssdev->state = OMAP_DSS_DISPLAY_ACTIVE;
+
+	return 0;
+}
+
+static void ssd2858_disable(struct omap_dss_device *dssdev, bool disconnect_lanes, bool enter_ulps)
+{
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+	struct omap_dss_device *in = ddata->in;
+
+#if LOG
+	printk("dsi: ssd2858: ssd2858_disable\n");
+#endif
+	dev_dbg(dssdev->dev, "disable\n");
+
+	if (!omapdss_device_is_enabled(dssdev))
+		return;
+
+/* power off the ssd
+	if (ddata->enable_gpio)
+		gpiod_set_value_cansleep(ddata->enable_gpio, 0);
+*/
+
+	in->ops.dsi->disable(in, disconnect_lanes, enter_ulps);
+
+	dssdev->state = OMAP_DSS_DISPLAY_DISABLED;
+}
+
+static unsigned long channels;
+
+static int ssd2858_request_vc(struct omap_dss_device *dssdev, int *channel)
+{
+#if LOG
+	printk("dsi: ssd2858: ssd2858_request_vc\n");
+#endif
+	if (channels == 0xffffffff)
+		return -ENOSPC;
+	*channel = ffz(channels);
+#if LOG
+	printk("dsi: ssd2858: ssd2858_request_vc assigned channel %d\n", *channel);
+#endif
+	channels |= (1 << *channel);	// reserve this channel
+	return 0;
+}
+
+static void ssd2858_release_vc(struct omap_dss_device *dssdev, int channel)
+{
+#if LOG
+	printk("dsi: ssd2858: ssd2858_release_vc\n");
+#endif
+	channels &= ~(1 << channel);	// release channel bit
+	return;
+}
+
+static void ssd2858_enable_hs(struct omap_dss_device *dssdev, int channel, bool enable)
+{
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+	struct omap_dss_device *in = ddata->in;
+
+#if LOG
+	printk("dsi: ssd2858: ssd2858_enable_hs\n");
+#endif
+	in->ops.dsi->enable_hs(in, channel, enable);
+}
+
+static int ssd2858_enable_video_output(struct omap_dss_device *dssdev, int channel)
+{
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+	struct omap_dss_device *in = ddata->in;
+
+#if LOG
+	printk("dsi: ssd2858: ssd2858_enable_video_output\n");
+#endif
+
+	return in->ops.dsi->enable_video_output(in, channel);
+}
+
+static void ssd2858_disable_video_output(struct omap_dss_device *dssdev, int channel)
+{
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+	struct omap_dss_device *in = ddata->in;
+
+#if LOG
+	printk("dsi: ssd2858: ssd2858_disable_video_output\n");
+#endif
+
+	return in->ops.dsi->disable_video_output(in, channel);
+}
+
+static int ssd2858_set_vc_id(struct omap_dss_device *dssdev, int channel, int vc_id)
+{
+#if LOG
+	printk("dsi: ssd2858: ssd2858_set_vc_id\n");
+#endif
+	// we use default id values
+	return 0;
+}
+
+static void ssd2858_bus_lock(struct omap_dss_device *dssdev)
+{
+#if LOG
+	printk("dsi: ssd2858: ssd2858_bus_lock\n");
+#endif
+	// no locking implemented - would need for multiple panels on single mipitx
+	return;
+}
+
+static void ssd2858_bus_unlock(struct omap_dss_device *dssdev)
+{
+#if LOG
+	printk("dsi: ssd2858: ssd2858_bus_unlock\n");
+#endif
+	// no locking
+	return;
+}
+
+#if 1
 
 static void driver_ssd2858_disable(struct omap_dss_device *dssdev)
 {
@@ -1607,12 +1532,13 @@ static struct omap_dss_driver ssd2858_driver_ops = {
 	.enable			= driver_ssd2858_enable,
 	.disable		= driver_ssd2858_disable,
 
-#if NIMP
 	.set_rotate		= driver_ssd2858_set_rotate,
-#endif
+	.get_resolution		= driver_ssd2858_get_resolution,
+
 	.set_timings		= driver_ssd2858_set_timings,
 	.get_timings		= driver_ssd2858_get_timings,
 	.check_timings		= driver_ssd2858_check_timings,
+
 	};
 
 static struct omapdss_dsi_ops ssd2858_dsi_ops = {
@@ -1763,10 +1689,6 @@ static int ssd2858_probe_of(struct platform_device *pdev)
 
 static int ssd2858_probe(struct platform_device *pdev)
 {
-#if BACKLIGHT
-	struct backlight_properties props;
-	struct backlight_device *bldev = NULL;
-#endif
 	struct panel_drv_data *ddata;
 	struct device *dev = &pdev->dev;
 	struct omap_dss_device *dssdev;
@@ -1813,7 +1735,9 @@ static int ssd2858_probe(struct platform_device *pdev)
 #endif
 
 	dssdev = &ddata->dssdev;
-printk("change driver %p -> %p\n", dssdev->driver, &ssd2858_driver_ops);
+#if LOG
+	printk("change driver %p -> %p\n", dssdev->driver, &ssd2858_driver_ops);
+#endif
 	dssdev->dev = dev;
 	dssdev->driver = &ssd2858_driver_ops;	// coming from video source
 	dssdev->ops.dsi = &ssd2858_dsi_ops;	// coming from panel (if it calls in->ops.dsi)
@@ -1850,30 +1774,12 @@ printk("change driver %p -> %p\n", dssdev->driver, &ssd2858_driver_ops);
 	 * register another output here
 	 */
 
-#if SYSFS
-	/* Register sysfs hooks */
-	r = sysfs_create_group(&dev->kobj, &ssd2858_attr_group);
-	if (r) {
-		dev_err(dev, "failed to create sysfs files\n");
-		goto err_sysfs_create;
-	}
-#endif
-
 #if LOG
 	printk("dsi: ssd2858_probe ok\n");
 #endif
 
 	return 0;
 
-#if SYSFS
-err_sysfs_create:
-#endif
-#if BACKLIGHT
-	if (bldev != NULL)
-		backlight_device_unregister(bldev);
-#endif
-err_bl:
-	//	destroy_workqueue(ddata->workqueue);
 err_reg:
 	omap_dss_put_device(ddata->in);
 	return r;
@@ -1898,14 +1804,6 @@ static int __exit ssd2858_remove(struct platform_device *pdev)
 	WARN_ON(omapdss_device_is_connected(dssdev));
 	if (omapdss_device_is_connected(dssdev))
 		ssd2858_disconnect(dssdev, 0);	// check parameters!
-
-#if SYSFS
-	sysfs_remove_group(&pdev->dev.kobj, &ssd2858_attr_group);
-#endif
-#if BACKLIGHT
-	if (ddata->bldev != NULL)
-		backlight_device_unregister(ddata->bldev);
-#endif
 
 	omap_dss_put_device(ddata->in);
 
