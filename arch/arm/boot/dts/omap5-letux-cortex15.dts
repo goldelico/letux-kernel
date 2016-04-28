@@ -83,12 +83,6 @@
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&mipi_dsi_a>;
-
-	port {
-		dsi_out: endpoint {
-			remote-endpoint = <&dsi1>;
-		};
-	};
 };
 
 &dsi1 {
