@@ -1,10 +1,12 @@
 /*
- * Copyright (C) 2015 OpenPandora - http://www.pyra-handheld.com/
+ * Copyright (C) 2015-2016 OpenPandora - http://www.pyra-handheld.com/
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
+
+#define PANEL 2		// 0 = mipi-debug + script; 1 = w677 only; 2 = w677 + ssd2858
 
 /* LCD panel - MIPI */
 
@@ -16,17 +18,17 @@
 };
 
 &lcd {
-#if 0
-	compatible = "boe,btl507212-w677l";
-	gpios = <&gpio6 16 0>;	/* goip6_176 = panel reset */
-#else
+#if (PANEL == 0)
 	compatible = "mipi,debug";
 	gpios = <&gpio6 16 0>,	/* goip6_176 = panel reset */
 		<&gpio6 2 0>;	/* gpio6_162 = enable ssd and disable DCS bypass */
+#else
+	compatible = "boe,btl507212-w677l";
+	gpios = <&gpio6 16 0>;	/* goip6_176 = panel reset */
 #endif
 };
 
-#if 0
+#if (PANEL == 2)
 
 /* splice ssd2858 encoder into display pipeline */
 
@@ -82,16 +84,21 @@
 		interrupt-parent = <&gpio6>;
 		interrupts = <13 IRQ_TYPE_EDGE_FALLING>;	/* gpio6_173 falling edge */
 		gpios = <&gpio6 13 GPIO_ACTIVE_LOW>;	/* gpio6_173 active low */
+#if (PANEL == 1)
+		touchscreen-size-x = <720>;
+		touchscreen-size-y = <1280>;
+#else
 		/* rotated screen */
 		touchscreen-size-x = <1280>;
 		touchscreen-size-y = <720>;
-		touchscreen-max-pressure = <1000>;
-		touchscreen-fuzz-x = <5>;
-		touchscreen-fuzz-y = <5>;
-		touchscreen-fuzz-pressure = <50>;
 		touchscreen-swapped-x-y;
 		touchscreen-inverted-x;
 		touchscreen-inverted-y;
+#endif
+		touchscreen-fuzz-x = <5>;
+		touchscreen-fuzz-y = <5>;
+		touchscreen-fuzz-pressure = <50>;
+		touchscreen-max-pressure = <1000>;
 		ti,min-x = <50>;
 		ti,max-x = <3900>;
 		ti,min-y = <50>;
