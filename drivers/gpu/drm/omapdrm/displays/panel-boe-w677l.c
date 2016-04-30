@@ -1,5 +1,5 @@
 /*
- * Driver for BOE W677L panel
+ * Driver for BOE W677L panel with Orise OTM1283A controller
  *
  * Copyright 2011 Texas Instruments, Inc.
  * Author: Archit Taneja <archit@ti.com>
@@ -7,6 +7,7 @@
  *
  * based on d2l panel driver by Jerry Alexander <x0135174@ti.com>
  *
+ * Copyright (C) 2014-2016 Golden Delicious Computers
  * based on lg4591 panel driver by H. Nikolaus Schaller <hns@goldelico.com>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -21,6 +22,8 @@
  * You should have received a copy of the GNU General Public License along with
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
+#define LOG 1
 
 #include <linux/backlight.h>
 #include <linux/delay.h>
@@ -107,8 +110,8 @@ struct panel_drv_data {
 	struct backlight_device *bldev;
 	int bl;
 
-	int	reset_gpio;
-	int	regulator_gpio;
+	int reset_gpio;
+	int regulator_gpio;
 
 	struct omap_dsi_pin_config pin_config;
 
@@ -328,7 +331,9 @@ static int w677l_write(struct omap_dss_device *dssdev, u8 *buf, int len)
 	int r;
 	int i;
 
+#if LOG
 	printk("dsi: w677l_write(%s", IS_MCS(buf[0], len)?"g":""); for(i=0; i<len; i++) printk("%02x%s", buf[i], i+1 == len?")\n":" ");
+#endif
 
 	if(IS_MCS(buf[0], len))
 		{ // this is a "manufacturer command" that must be sent as a "generic write command"
@@ -371,8 +376,12 @@ static int w677l_read(struct omap_dss_device *dssdev, u8 dcs_cmd, u8 *buf, int l
 	if (r)
 		dev_err(&ddata->pdev->dev, "read cmd/reg(%02x, %d) failed: %d\n",
 				dcs_cmd, len, r);
+
+#if LOG
 	printk("dsi: w677l_read(%02x,", dcs_cmd); for(i=0; i<len; i++) printk(" %02x", buf[i]);
 	printk(") -> %d\n", r);
+#endif
+
 	return r;
 }
 
@@ -396,7 +405,11 @@ static int w677l_write_sequence(struct omap_dss_device *dssdev,
 static int w677l_reset(struct omap_dss_device *dssdev, int state)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
+
+#if LOG
 	printk("dsi: w677l_reset(%d)\n", state);
+#endif
+
 	if (gpio_is_valid(ddata->reset_gpio))
 		gpio_set_value(ddata->reset_gpio, state);
 	return 0;
@@ -405,7 +418,11 @@ static int w677l_reset(struct omap_dss_device *dssdev, int state)
 static int w677l_regulator(struct omap_dss_device *dssdev, int state)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
+
+#if LOG
 	printk("dsi: w677l_regulator(%d)\n", state);
+#endif
+
 	if (gpio_is_valid(ddata->regulator_gpio))
 		gpio_set_value(ddata->regulator_gpio, state);	// switch regulator
 	return 0;
@@ -437,7 +454,11 @@ static int w677l_set_brightness(struct backlight_device *bd)
 //	struct omap_dss_device *in = ddata->in;
 	int bl = bd->props.brightness;
 	int r = 0;
+
+#if LOG
 	printk("dsi: w677l_set_brightness(%d)\n", bl);
+#endif
+
 	if (bl == ddata->bl)
 		return 0;
 
@@ -469,7 +490,11 @@ static int w677l_get_brightness(struct backlight_device *bd)
 	u8 data[16];
 	u16 brightness = 0;
 	int r = 0;
+
+#if LOG
 	printk("dsi: w677l_get_brightness()\n");
+#endif
+
 	if (dssdev->state != OMAP_DSS_DISPLAY_ACTIVE) {
 		printk("dsi: display is not active\n");
 		return 0;
@@ -491,7 +516,11 @@ static int w677l_get_brightness(struct backlight_device *bd)
 		printk("dsi: read error\n");
 		return bd->props.brightness;
 	}
+
+#if LOG
 	printk("dsi: read %d\n", brightness);
+#endif
+
 	return brightness>>4;	// get to range 0..255
 }
 
@@ -507,7 +536,10 @@ static int w677l_connect(struct omap_dss_device *dssdev)
 	struct device *dev = &ddata->pdev->dev;
 	int r;
 
+#if LOG
 	printk("dsi: w677l_connect()\n");
+#endif
+
 	if (omapdss_device_is_connected(dssdev))
 		return 0;
 
@@ -542,7 +574,10 @@ static int w677l_connect(struct omap_dss_device *dssdev)
 		dev_err(dev, "failed to set VC_ID\n");
 		goto err_vc_id1;
 	}
+
+#if LOG
 	printk("dsi: w677l_connect() ok\n");
+#endif
 
 	return 0;
 
@@ -561,7 +596,10 @@ static void w677l_disconnect(struct omap_dss_device *dssdev)
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
 
+#if LOG
 	printk("dsi: w677l_disconnect()\n");
+#endif
+
 	if (!omapdss_device_is_connected(dssdev))
 		return;
 
@@ -570,14 +608,47 @@ static void w677l_disconnect(struct omap_dss_device *dssdev)
 	in->ops.dsi->disconnect(in, dssdev);
 }
 
-#if CHECKME
-// is there really no default method?
+static void w677l_get_timings(struct omap_dss_device *dssdev,
+		struct omap_video_timings *timings)
+{
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+	struct omap_dss_device *in = ddata->in;
+
+#if LOG
+	printk("dsi: w677l_get_timings()\n");
+	printk("dsi: in = %s %s %s %p\n", in->name, in->driver_name, in->alias, in->driver);
 #endif
+
+	/* if we are connected to the ssd2858 driver in->driver provides get_timings() */
+
+	if (in->driver && in->driver->get_timings) {
+#if LOG
+		printk("dsi: get_timings from source\n");
+#endif
+		in->driver->get_timings(in, timings);
+	} else
+		*timings = ddata->videomode;
+}
 
 static int w677l_check_timings(struct omap_dss_device *dssdev,
 		struct omap_video_timings *timings)
 {
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+	struct omap_dss_device *in = ddata->in;
+
+#if LOG
 	printk("dsi: w677l_check_timings()\n");
+	printk("dsi: in = %s %s %s\n", in->name, in->driver_name, in->alias, in->driver);
+#endif
+
+	/* if we are connected to the ssd2858 driver in->driver provides check_timings() */
+
+	if (in->driver && in->driver->check_timings) {
+#if LOG
+		printk("dsi: check_timings with source\n");
+#endif
+		return in->driver->check_timings(in, timings);
+	}
 	return 0;
 }
 
@@ -603,7 +674,9 @@ static int w677l_enable(struct omap_dss_device *dssdev)
 	};
 	int r = 0;
 
+#if LOG
 	printk("dsi: w677l_enable()\n");
+#endif
 	dev_dbg(&ddata->pdev->dev, "enable\n");
 
 	if (!omapdss_device_is_connected(dssdev))
@@ -612,13 +685,17 @@ static int w677l_enable(struct omap_dss_device *dssdev)
 	if (omapdss_device_is_enabled(dssdev))
 		return 0;
 
+#if LOG
 	printk("dsi: w677l_start()\n");
+#endif
 	mutex_lock(&ddata->lock);
 
 	in->ops.dsi->bus_lock(in);
 
-//	printk("hs_clk_min=%lu\n", w677l_dsi_config.hs_clk_min);
+#if LOG
+	printk("hs_clk_min=%lu\n", w677l_dsi_config.hs_clk_min);
 	printk("dsi: w677l_power_on()\n");
+#endif
 
 	w677l_reset(dssdev, 0);	// activate reset
 
@@ -700,12 +777,17 @@ static int w677l_enable(struct omap_dss_device *dssdev)
 		goto cleanup;
 #endif
 	ddata->enabled = true;
+
+#if LOG
 	printk("dsi: powered on()\n");
+#endif
 
 	goto ok;
 
 cleanup:
+#if LOG
 	printk("dsi: power on error\n");
+#endif
 	dev_err(dev, "error while enabling panel, issuing HW reset\n");
 
 	in->ops.dsi->disable(in, false, false);
@@ -734,18 +816,26 @@ static void w677l_disable(struct omap_dss_device *dssdev)
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
 
+#if LOG
 	printk("dsi: w677l_disable()\n");
+#endif
 	dev_dbg(&ddata->pdev->dev, "disable\n");
 
 	if (!omapdss_device_is_enabled(dssdev))
 		return;
 
+#if LOG
 	printk("dsi: w677l_stop()\n");
+#endif
+
 	mutex_lock(&ddata->lock);
 
 	in->ops.dsi->bus_lock(in);
 
+#if LOG
 	printk("dsi: w677l_power_off()\n");
+#endif
+
 	ddata->enabled = 0;
 	in->ops.dsi->disable_video_output(in, ddata->pixel_channel);
 	in->ops.dsi->disable(in, false, false);
@@ -769,6 +859,7 @@ static struct omap_dss_driver w677l_ops = {
 	.enable		= w677l_enable,
 	.disable	= w677l_disable,
 
+	.get_timings	= w677l_get_timings,
 	.check_timings	= w677l_check_timings,
 };
 
@@ -779,7 +870,9 @@ static int w677l_probe_of(struct platform_device *pdev)
 	struct omap_dss_device *ep;
 	int gpio;
 
+#if LOG
 	printk("dsi: w677l_probe_of()\n");
+#endif
 
 	if (!node)
 		return -ENODEV;
@@ -825,7 +918,10 @@ static int w677l_probe(struct platform_device *pdev)
 	struct omap_dss_device *dssdev;
 	int r;
 
+#if LOG
 	printk("dsi: w677l_probe()\n");
+#endif
+
 	dev_dbg(dev, "w677l_probe\n");
 
 	ddata = devm_kzalloc(dev, sizeof(*ddata), GFP_KERNEL);
@@ -889,8 +985,9 @@ static int w677l_probe(struct platform_device *pdev)
 	}
 #endif
 
+#if LOG
 	printk("dsi: w677l_probe ok\n");
-
+#endif
 	return 0;
 }
 
@@ -901,7 +998,9 @@ static int __exit w677l_remove(struct platform_device *pdev)
 	struct omap_dss_device *dssdev = &ddata->dssdev;
 	struct backlight_device *bldev;
 
+#if LOG
 	printk("dsi: w677l_remove()\n");
+#endif
 
 	omapdss_unregister_display(dssdev);
 
