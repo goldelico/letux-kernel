@@ -269,13 +269,35 @@
 			omap5_pmx_wkup: pinmux@c840 {
 				compatible = "ti,omap5-padconf",
 					     "pinctrl-single";
-				reg = <0xc840 0x0038>;
+				reg = <0xc840 0x003c>;
 				#address-cells = <1>;
 				#size-cells = <0>;
 				#interrupt-cells = <1>;
 				interrupt-controller;
 				pinctrl-single,register-width = <16>;
 				pinctrl-single,function-mask = <0x7fff>;
+			};
+
+			omap5_scm_wkup_pad_conf: omap5_scm_wkup_pad_conf@cda0 {
+				compatible = "ti,omap5-scm-wkup-pad-conf",
+					     "simple-bus";
+				reg = <0xcda0 0x60>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				ranges = <0 0xcda0 0x60>;
+
+				scm_wkup_pad_conf: scm_conf@0 {
+					compatible = "syscon", "simple-bus";
+					reg = <0x0 0x60>;
+					#address-cells = <1>;
+					#size-cells = <1>;
+					ranges = <0 0x0 0x60>;
+
+					scm_wkup_pad_conf_clocks: clocks@0 {
+						#address-cells = <1>;
+						#size-cells = <0>;
+					};
+				};
 			};
 		};
 
