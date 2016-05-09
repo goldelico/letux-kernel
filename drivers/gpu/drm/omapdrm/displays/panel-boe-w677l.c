@@ -101,6 +101,9 @@ struct panel_drv_data {
 	struct omap_dss_device *in;
 
 // do we need the timings here if they are also stored in a static struct???
+// do we need the static struct if they are also stored here?
+// do we need any of both if they are also stored in dssdev->panel.timings???
+
 	struct videomode vm;
 
 	struct platform_device *pdev;
@@ -320,8 +323,13 @@ static struct w677l_reg init_seq[] = {
 };
 
 static struct w677l_reg sleep_out[] = {
-	{ 1, { MIPI_DCS_SET_DISPLAY_ON, }, },
+//	{ 1, { MIPI_DCS_SET_DISPLAY_ON, }, },
 	{ 1, { MIPI_DCS_EXIT_SLEEP_MODE, }, },
+};
+
+static struct w677l_reg display_on[] = {
+	{ 1, { MIPI_DCS_SET_DISPLAY_ON, }, },
+//	{ 1, { MIPI_DCS_EXIT_SLEEP_MODE, }, },
 };
 
 static int w677l_write(struct omap_dss_device *dssdev, u8 *buf, int len)
@@ -402,16 +410,16 @@ static int w677l_write_sequence(struct omap_dss_device *dssdev,
 	return 0;
 }
 
-static int w677l_reset(struct omap_dss_device *dssdev, int state)
+static int w677l_reset(struct omap_dss_device *dssdev, int activate)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 
 #if LOG
-	printk("dsi: w677l_reset(%d)\n", state);
+	printk("dsi: w677l_reset(%s)\n", activate?"active":"inactive");
 #endif
 
 	if (gpio_is_valid(ddata->reset_gpio))
-		gpio_set_value(ddata->reset_gpio, state);
+		gpio_set_value(ddata->reset_gpio, !activate);
 	return 0;
 }
 
@@ -496,7 +504,7 @@ static int w677l_get_brightness(struct backlight_device *bd)
 #endif
 
 	if (dssdev->state != OMAP_DSS_DISPLAY_ACTIVE) {
-		printk("dsi: display is not active\n");
+		printk("dsi: w677l_get_brightness display is not active\n");
 		return 0;
 	}
 
@@ -513,12 +521,12 @@ static int w677l_get_brightness(struct backlight_device *bd)
 	mutex_unlock(&ddata->lock);
 
 	if(r < 0) {
-		printk("dsi: read error\n");
+		printk("dsi: w677l_get_brightness read error\n");
 		return bd->props.brightness;
 	}
 
 #if LOG
-	printk("dsi: read %d\n", brightness);
+	printk("dsi: w677l_get_brightness read %d\n", brightness);
 #endif
 
 	return brightness>>4;	// get to range 0..255
@@ -615,15 +623,14 @@ static void w677l_get_timings(struct omap_dss_device *dssdev,
 	struct omap_dss_device *in = ddata->in;
 
 #if LOG
-	printk("dsi: w677l_get_timings()\n");
-	printk("dsi: in = %s %s %s %p\n", in->name, in->driver_name, in->alias, in->driver);
+	printk("dsi: w677l_get_timings()  in = %s %s %s %p\n", in->name, in->driver_name, in->alias, in->driver);
 #endif
 
 	/* if we are connected to the ssd2858 driver in->driver provides get_timings() */
 
 	if (in->driver && in->driver->get_timings) {
 #if LOG
-		printk("dsi: get_timings from source\n");
+		printk("dsi: w677l_get_timings() from source\n");
 #endif
 		in->driver->get_timings(in, timings);
 	} else
@@ -637,8 +644,7 @@ static int w677l_check_timings(struct omap_dss_device *dssdev,
 	struct omap_dss_device *in = ddata->in;
 
 #if LOG
-	printk("dsi: w677l_check_timings()\n");
-	printk("dsi: in = %s %s %s\n", in->name, in->driver_name, in->alias, in->driver);
+	printk("dsi: w677l_check_timings() in = %s %s %s %p\n", in->name, in->driver_name, in->alias, in->driver);
 #endif
 
 	/* if we are connected to the ssd2858 driver in->driver provides check_timings() */
@@ -697,7 +703,7 @@ static int w677l_enable(struct omap_dss_device *dssdev)
 	printk("dsi: w677l_power_on()\n");
 #endif
 
-	w677l_reset(dssdev, 0);	// activate reset
+	w677l_reset(dssdev, true);	// activate reset
 
 #if 0
 	if (ddata->pin_config.num_pins > 0) {
@@ -730,24 +736,25 @@ static int w677l_enable(struct omap_dss_device *dssdev)
 	w677l_regulator(dssdev, 1);	// switch power on
 	msleep(50);
 
-	w677l_reset(dssdev, 1);	// release reset
+	w677l_reset(dssdev, false);	// release reset
 	msleep(10);
 
 	in->ops.dsi->enable_hs(in, ddata->pixel_channel, true);
 
-	r = w677l_write_sequence(dssdev, init_seq, ARRAY_SIZE(init_seq));
-	if (r) {
-		dev_err(dev, "failed to configure panel\n");
-		goto cleanup;
-	}
-
-	msleep(20);
-
-	r = w677l_update_brightness(dssdev, 255);
+	r = w677l_write_sequence(dssdev, sleep_out, ARRAY_SIZE(sleep_out));
 	if (r)
 		goto cleanup;
 
-	r = w677l_write_sequence(dssdev, sleep_out, ARRAY_SIZE(sleep_out));
+	msleep(10);
+
+	r = w677l_write_sequence(dssdev, init_seq, ARRAY_SIZE(init_seq));
+	if (r) {
+		dev_err(dev, "failed to configure panel\n");
+// can fail if the ssd can't forward long commands
+//		goto cleanup;
+	}
+
+	r = w677l_update_brightness(dssdev, 255);
 	if (r)
 		goto cleanup;
 
@@ -769,30 +776,31 @@ static int w677l_enable(struct omap_dss_device *dssdev)
 	if (r)
 		goto cleanup;
 
-	msleep(120);
+	msleep(10);
 
-#if 0	// this is recommended by the latest data sheet
+#if 1	// this is recommended by the latest data sheet
 	r = w677l_write_sequence(dssdev, display_on, ARRAY_SIZE(display_on));
 	if (r)
 		goto cleanup;
 #endif
+
 	ddata->enabled = true;
 
 #if LOG
-	printk("dsi: powered on()\n");
+	printk("dsi: w677l_enable() powered on()\n");
 #endif
 
 	goto ok;
 
 cleanup:
 #if LOG
-	printk("dsi: power on error\n");
+	printk("dsi: w677l_enable() power on error\n");
 #endif
 	dev_err(dev, "error while enabling panel, issuing HW reset\n");
 
 	in->ops.dsi->disable(in, false, false);
 	mdelay(10);
-//	w677l_reset(dssdev, 0);	// activate reset
+//	w677l_reset(dssdev, true);	// activate reset
 	w677l_regulator(dssdev, 0);	// switch power off
 	mdelay(20);
 
@@ -840,7 +848,7 @@ static void w677l_disable(struct omap_dss_device *dssdev)
 	in->ops.dsi->disable_video_output(in, ddata->pixel_channel);
 	in->ops.dsi->disable(in, false, false);
 	mdelay(10);
-	w677l_reset(dssdev, 0);	// activate reset
+	w677l_reset(dssdev, true);	// activate reset
 	w677l_regulator(dssdev, 0);	// switch power off - after stopping video stream
 	mdelay(20);
 	/* here we can also power off IOVCC */
