@@ -6,7 +6,7 @@
  * published by the Free Software Foundation.
  */
 
-#define PANEL 2		// 0 = mipi-debug + script; 1 = w677 only; 2 = w677 + ssd2858
+#define PANEL 0		// 0 = mipi-debug + script; 1 = w677 only; 2 = w677 + ssd2858; 3 = mipi-debug + ssd2858
 
 /* LCD panel - MIPI */
 
@@ -18,7 +18,7 @@
 };
 
 &lcd {
-#if (PANEL == 0)
+#if (PANEL == 0 || PANEL == 3)
 	compatible = "mipi,debug";
 	gpios = <&gpio6 16 0>,	/* goip6_176 = panel reset */
 		<&gpio6 2 0>;	/* gpio6_162 = enable ssd and disable DCS bypass */
@@ -28,7 +28,7 @@
 #endif
 };
 
-#if (PANEL == 2)
+#if (PANEL >= 2)
 
 /* splice ssd2858 encoder into display pipeline */
 
