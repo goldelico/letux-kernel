@@ -282,6 +282,24 @@
 			OMAP3_CORE1_IOPAD(0x2134, PIN_INPUT_PULLUP | MUX_MODE4) /* gpio112 */
 		>;
 	};
+
+	mcbsp4_pins: pinmux_mcbsp4_pins {
+		pinctrl-single,pins = <
+			OMAP3_CORE1_IOPAD(0x2184, PIN_INPUT | MUX_MODE0)	/* mcbsp4_fsx.mcbsp4_clkx */
+			OMAP3_CORE1_IOPAD(0x2186, PIN_INPUT | MUX_MODE0)	/* mcbsp4_clkx.mcbsp4_dr */
+			OMAP3_CORE1_IOPAD(0x2188, PIN_OUTPUT | MUX_MODE0)	/* mcbsp4_dr.mcbsp4_dx */
+			OMAP3_CORE1_IOPAD(0x218a, PIN_INPUT | MUX_MODE0)	/* mcbsp4_dx.mcbsp4_fsx */
+		>;
+	};
+
+	mcbsp4_tristate_pins: pinmux_mcbsp4_tristate_pins {
+		pinctrl-single,pins = <
+			OMAP3_CORE1_IOPAD(0x2184, PIN_INPUT | MUX_MODE0)	/* mcbsp4_fsx.mcbsp4_clkx */
+			OMAP3_CORE1_IOPAD(0x2186, PIN_INPUT | MUX_MODE0)	/* mcbsp4_clkx.mcbsp4_dr */
+			OMAP3_CORE1_IOPAD(0x2188, PIN_INPUT | MUX_MODE0)	/* mcbsp4_dr.mcbsp4_dx */
+			OMAP3_CORE1_IOPAD(0x218a, PIN_INPUT | MUX_MODE0)	/* mcbsp4_dx.mcbsp4_fsx */
+		>;
+	};
 };
 
 &omap3_pmx_core2 {
@@ -628,5 +646,9 @@
 };
 
 &mcbsp4 {
-	status = "okay";
+	status = "ok";
+	#sound-dai-cells = <0>;
+	pinctrl-names = "default", "tristate";
+	pinctrl-0 = <&mcbsp4_pins>;
+	pinctrl-1 = <&mcbsp4_tristate_pins>;
 };
