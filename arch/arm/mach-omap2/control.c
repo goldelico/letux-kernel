@@ -623,7 +623,6 @@ void __init omap3_ctrl_init(void)
 
 struct control_init_data {
 	int index;
-	void __iomem *mem;
 	s16 offset;
 };
 
@@ -636,10 +635,6 @@ static const struct control_init_data omap2_ctrl_data = {
 	.offset = -OMAP2_CONTROL_GENERAL,
 };
 
-static const struct control_init_data ctrl_aux_data = {
-	.index = TI_CLKM_CTRL_AUX,
-};
-
 static const struct of_device_id omap_scrm_dt_match_table[] = {
 	{ .compatible = "ti,am3-scm", .data = &ctrl_data },
 	{ .compatible = "ti,am4-scm", .data = &ctrl_data },
@@ -649,7 +644,6 @@ static const struct of_device_id omap_scrm_dt_match_table[] = {
 	{ .compatible = "ti,dm816-scrm", .data = &ctrl_data },
 	{ .compatible = "ti,omap4-scm-core", .data = &ctrl_data },
 	{ .compatible = "ti,omap5-scm-core", .data = &ctrl_data },
-	{ .compatible = "ti,omap5-scm-wkup-pad-conf", .data = &ctrl_aux_data },
 	{ .compatible = "ti,dra7-scm-core", .data = &ctrl_data },
 	{ }
 };
@@ -666,21 +660,15 @@ int __init omap2_control_base_init(void)
 	struct device_node *np;
 	const struct of_device_id *match;
 	struct control_init_data *data;
-	void __iomem *mem;
 
 	for_each_matching_node_and_match(np, omap_scrm_dt_match_table, &match) {
 		data = (struct control_init_data *)match->data;
 
-		mem = of_iomap(np, 0);
-		if (!mem)
+		omap2_ctrl_base = of_iomap(np, 0);
+		if (!omap2_ctrl_base)
 			return -ENOMEM;
 
-		if (data->index == TI_CLKM_CTRL) {
-			omap2_ctrl_base = mem;
-			omap2_ctrl_offset = data->offset;
-		}
-
-		data->mem = mem;
+		omap2_ctrl_offset = data->offset;
 	}
 
 	return 0;
@@ -725,7 +713,7 @@ int __init omap_control_init(void)
 		} else {
 			/* No scm_conf found, direct access */
 			ret = omap2_clk_provider_init(np, data->index, NULL,
-						      data->mem);
+						      omap2_ctrl_base);
 			if (ret)
 				return ret;
 		}
