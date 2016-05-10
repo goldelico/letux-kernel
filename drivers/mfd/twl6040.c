@@ -291,7 +291,7 @@ int twl6040_power(struct twl6040 *twl6040, int on)
 		if (twl6040->power_count++)
 			goto out;
 
-		ret = clk_prepare_enable(twl6040->clk32k);
+		ret = clk_prepare_enable(twl6040->clk32k_clk);
 		if (ret) {
 			twl6040->power_count = 0;
 			goto out;
@@ -304,7 +304,7 @@ int twl6040_power(struct twl6040 *twl6040, int on)
 			/* use automatic power-up sequence */
 			ret = twl6040_power_up_automatic(twl6040);
 			if (ret) {
-				clk_disable_unprepare(twl6040->clk32k);
+				clk_disable_unprepare(twl6040->clk32k_clk);
 				twl6040->power_count = 0;
 				goto out;
 			}
@@ -312,7 +312,7 @@ int twl6040_power(struct twl6040 *twl6040, int on)
 			/* use manual power-up sequence */
 			ret = twl6040_power_up_manual(twl6040);
 			if (ret) {
-				clk_disable_unprepare(twl6040->clk32k);
+				clk_disable_unprepare(twl6040->clk32k_clk);
 				twl6040->power_count = 0;
 				goto out;
 			}
@@ -355,7 +355,10 @@ int twl6040_power(struct twl6040 *twl6040, int on)
 		twl6040->sysclk = 0;
 		twl6040->mclk = 0;
 
-		clk_disable_unprepare(twl6040->clk32k);
+		if (twl6040->pll == TWL6040_SYSCLK_SEL_HPPLL)
+			clk_disable_unprepare(twl6040->mclk_clk);
+
+		clk_disable_unprepare(twl6040->clk32k_clk);
 	}
 
 out:
@@ -427,6 +430,8 @@ int twl6040_set_pll(struct twl6040 *twl6040, int pll_id,
 			ret = -EINVAL;
 			goto pll_out;
 		}
+
+		clk_disable_unprepare(twl6040->mclk_clk);
 		break;
 	case TWL6040_SYSCLK_SEL_HPPLL:
 		/* high-performance PLL can provide only 19.2 MHz */
@@ -468,6 +473,9 @@ int twl6040_set_pll(struct twl6040 *twl6040, int pll_id,
 				goto pll_out;
 			}
 
+			/* When switching to HPPLL, enable the mclk first */
+			if (pll_id != twl6040->pll)
+				clk_prepare_enable(twl6040->mclk_clk);
 			/*
 			 * enable clock slicer to ensure input waveform is
 			 * square
@@ -651,12 +659,20 @@ static int twl6040_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, twl6040);
 
-	twl6040->clk32k = devm_clk_get(&client->dev, "clk32k");
-	if (IS_ERR(twl6040->clk32k)) {
-		if (PTR_ERR(twl6040->clk32k) == -EPROBE_DEFER)
+	twl6040->clk32k_clk = devm_clk_get(&client->dev, "clk32k");
+	if (IS_ERR(twl6040->clk32k_clk)) {
+		if (PTR_ERR(twl6040->clk32k_clk) == -EPROBE_DEFER)
 			return -EPROBE_DEFER;
 		dev_info(&client->dev, "clk32k is not handled\n");
-		twl6040->clk32k = NULL;
+		twl6040->clk32k_clk = NULL;
+	}
+
+	twl6040->mclk_clk = devm_clk_get(&client->dev, "mclk");
+	if (IS_ERR(twl6040->mclk_clk)) {
+		if (PTR_ERR(twl6040->mclk_clk) == -EPROBE_DEFER)
+			return -EPROBE_DEFER;
+		dev_info(&client->dev, "mclk is not handled\n");
+		twl6040->mclk_clk = NULL;
 	}
 
 	twl6040->supplies[0].supply = "vio";
