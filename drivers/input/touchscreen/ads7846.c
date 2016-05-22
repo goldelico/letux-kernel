@@ -34,6 +34,7 @@
 #include <linux/spi/ads7846.h>
 #include <linux/regulator/consumer.h>
 #include <linux/module.h>
+#include <linux/input/touchscreen.h>
 #include <asm/irq.h>
 
 /*
@@ -109,8 +110,14 @@ struct ads7846 {
 	u16			vref_delay_usecs;
 	u16			x_plate_ohms;
 	u16			pressure_max;
+	u16			x_min;
+	u16			x_max;
+	u16			y_min;
+	u16			y_max;
 
 	bool			swap_xy;
+	bool			invert_x;
+	bool			invert_y;
 	bool			use_internal;
 
 	struct ads7846_packet	*packet;
@@ -825,22 +832,52 @@ static void ads7846_report_state(struct ads7846 *ts)
 	 */
 	if (Rt) {
 		struct input_dev *input = ts->input;
+		int sx, sy;
 
-		if (ts->swap_xy)
-			swap(x, y);
+		dev_dbg(&ts->spi->dev,
+			"Raw point(%4d,%4d), pressure (%4u)\n",
+				x, y, Rt);
 
+		sx = ts->swap_xy ? y : x;
+		sy = ts->swap_xy ? x : y;
+
+		dev_dbg(&ts->spi->dev,
+			"Swapped point(%4d,%4d), pressure (%4u)\n",
+				sx, sy, Rt);
+
+		/* flip */
+		if (ts->invert_x)
+			sx = (ts->x_max - sx) + ts->x_min;
+		if (ts->invert_y)
+			sy = (ts->y_max - sy) + ts->y_min;
+
+		dev_dbg(&ts->spi->dev,
+			"Flipped point(%4d,%4d), pressure (%4u)\n",
+				sx, sy, Rt);
+
+		/* scale to desired output range */
+		sx = (input->absinfo[ABS_X].maximum * (sx - ts->x_min))
+			/ (ts->x_max - ts->x_min);
+		sy = (input->absinfo[ABS_Y].maximum * (sy - ts->y_min))
+			/ (ts->y_max - ts->y_min);
+
+		dev_dbg(&ts->spi->dev,
+			"Scaled point(%4d,%4d), pressure (%4u)\n",
+				sx, sy, Rt);
+
+		/* report event */
 		if (!ts->pendown) {
 			input_report_key(input, BTN_TOUCH, 1);
 			ts->pendown = true;
 			dev_vdbg(&ts->spi->dev, "DOWN\n");
 		}
 
-		input_report_abs(input, ABS_X, x);
-		input_report_abs(input, ABS_Y, y);
+		input_report_abs(input, ABS_X, sx);
+		input_report_abs(input, ABS_Y, sy);
 		input_report_abs(input, ABS_PRESSURE, ts->pressure_max - Rt);
 
 		input_sync(input);
-		dev_vdbg(&ts->spi->dev, "%4d/%4d/%4d\n", x, y, Rt);
+		dev_vdbg(&ts->spi->dev, "%4d/%4d/%4d\n", sx, sy, Rt);
 	}
 }
 
@@ -1212,6 +1249,10 @@ static const struct ads7846_platform_data *ads7846_probe_dt(struct device *dev)
 	pdata->keep_vref_on = of_property_read_bool(node, "ti,keep-vref-on");
 
 	pdata->swap_xy = of_property_read_bool(node, "ti,swap-xy");
+	if (pdata->swap_xy)
+		dev_notice(dev, "please update device tree to use touchscreen-swapped-x-y");
+	pdata->swap_xy |= of_property_read_bool(node,
+						"touchscreen-swapped-x-y");
 
 	of_property_read_u16(node, "ti,settle-delay-usec",
 			     &pdata->settle_delay_usecs);
@@ -1356,16 +1397,32 @@ static int ads7846_probe(struct spi_device *spi)
 
 	input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
 	input_dev->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
+
+	ts->x_min = pdata->x_min ? : 0;
+	ts->x_max = pdata->x_max ? : MAX_12BIT;
+	ts->y_min = pdata->y_min ? : 0;
+	ts->y_max = pdata->y_max ? : MAX_12BIT;
+
 	input_set_abs_params(input_dev, ABS_X,
-			pdata->x_min ? : 0,
-			pdata->x_max ? : MAX_12BIT,
+			ts->x_min,
+			ts->x_max,
 			0, 0);
 	input_set_abs_params(input_dev, ABS_Y,
-			pdata->y_min ? : 0,
-			pdata->y_max ? : MAX_12BIT,
+			ts->y_min,
+			ts->y_max,
 			0, 0);
 	input_set_abs_params(input_dev, ABS_PRESSURE,
 			pdata->pressure_min, pdata->pressure_max, 0, 0);
+
+	if (spi->dev.of_node) {
+		input_dev->absinfo[ABS_X].minimum = 0;
+		input_dev->absinfo[ABS_Y].minimum = 0;
+		ts->invert_x = of_property_read_bool(spi->dev.of_node,
+						     "touchscreen-inverted-x");
+		ts->invert_y = of_property_read_bool(spi->dev.of_node,
+						     "touchscreen-inverted-y");
+		touchscreen_parse_properties(input_dev, false);
+	}
 
 	ads7846_setup_spi_msg(ts, pdata);
 
@@ -1494,6 +1551,17 @@ static int ads7846_remove(struct spi_device *spi)
 
 	return 0;
 }
+
+static const struct spi_device_id ads7846_idtable[] = {
+	{ "tsc2046", 0 },
+	{ "ads7843", 0 },
+	{ "ads7845", 0 },
+	{ "ads7846", 0 },
+	{ "ads7873", 0 },
+	{ }
+};
+
+MODULE_DEVICE_TABLE(spi, ads7846_idtable);
 
 static struct spi_driver ads7846_driver = {
 	.driver = {
