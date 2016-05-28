@@ -347,7 +347,6 @@
 	pyra_display_pins: pinmux_display_gpio_pins {
 		pinctrl-single,pins = <
 			OMAP5_IOPAD(0x122, PIN_OUTPUT_PULLUP | MUX_MODE6)	/* 0x120:[31:16] gpio6_166 - enable panel DC/DC */
-			OMAP5_IOPAD(0x0ca, PIN_INPUT_PULLDOWN | MUX_MODE7)	/* 0x0C8:[31:16] gpio6_189 - VSYNC input */
 			OMAP5_IOPAD(0x10e, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x10c:[31:16] gpio6_176 - panel reset */
 		>;
 	};
