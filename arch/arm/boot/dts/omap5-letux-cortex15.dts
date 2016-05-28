@@ -153,7 +153,7 @@
    up the pin and register address offset in the TRM.
 */
 
-	letux_button_pins: pinmux_button_gpio_pins {
+	letux_button_pins: pinmux_user_button_gpio_pins {
 		pinctrl-single,pins = <
 			OMAP5_IOPAD(0x0b6, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0B4:[31:16] user button gpio3_83 */
 		>;
