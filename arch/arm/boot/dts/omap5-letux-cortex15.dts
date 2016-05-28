@@ -238,8 +238,11 @@
 			OMAP5_IOPAD(0x01b0, PIN_INPUT_PULLUP | MUX_MODE4) /* sdio4_data1 */
 			OMAP5_IOPAD(0x01b2, PIN_INPUT_PULLUP | MUX_MODE4) /* sdio4_data2 */
 			OMAP5_IOPAD(0x01b6, PIN_INPUT_PULLUP | MUX_MODE4) /* sdio4_data3 */
-			OMAP5_IOPAD(0x00aa, PIN_INPUT_PULLUP | MUX_MODE6) /* gpio3_77 = cd */
-			OMAP5_IOPAD(0x00ae, PIN_INPUT_PULLUP | MUX_MODE6) /* gpio3_79 = wp */
+// the two following pins make pinmux problems
+// kernel says they are already requested. but by whom?
+// There is no duplicate reference in the device tree.
+//			OMAP5_IOPAD(0x00aa, PIN_INPUT_PULLUP | MUX_MODE6) /* gpio3_77 = cd */
+//			OMAP5_IOPAD(0x00ae, PIN_INPUT_PULLUP | MUX_MODE6) /* gpio3_79 = wp */
 		>;
 	};
 
