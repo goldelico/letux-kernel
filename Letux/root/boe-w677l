@@ -33,6 +33,9 @@ echo reset >dcs	# reset panel
 sleep .1
 echo noreset >dcs	# take panel out of reset before starting the clocks
 sleep .2
+
+fbset -g 720 1280 720 1280 32
+
 echo start >dcs	# start MIPI interface
 sleep .2
 
