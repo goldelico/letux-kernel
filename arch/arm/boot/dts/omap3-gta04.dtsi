@@ -715,6 +715,21 @@
 		compatible = "ti,twl4030-madc-hwmon";
 	};
 
+#include <dt-bindings/power/power.h>
+
+	battery: battery {
+		compatible = "linux,generic-adc-battery";
+		io-channels = <&twl_madc 12>, <&twl_madc 10>, <&twl_madc 0>;
+		io-channel-names = "voltage", "current", "temperature";
+		technology = <POWER_SUPPLY_TECHNOLOGY_LION>;
+		battery-name = "gta04-battery";
+		charge_full_design = <4000>;
+		charge_empty_design = <3500>;
+		voltage_min_design = <100>;
+		voltage_max_design = <4300>;
+	};
+
+/*
 	battery: battery {
 		compatible = "ti,twl4030-madc-battery";
 		io-channels = <&twl_madc 0>, <&twl_madc 10>, <&twl_madc 12>;
@@ -724,7 +739,7 @@
 		charging-calibration-data = <4200 100 4100 75 4000 55 3900 25 3800 5 3700 2 3600 1 3300 0>;
 		discharging-calibration-data = <4200 100 4100 95 4000 70 3800 50 3700 10 3600 5 3300 0>;
 	};
-
+*/
 	backlight {
 		compatible = "pwm-backlight";
 		pwms = <&pwm11 0 12000000 0>;
