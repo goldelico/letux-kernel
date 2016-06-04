@@ -23,6 +23,7 @@
 #include <linux/iio/consumer.h>
 #include <linux/iio/types.h>
 #include <linux/power/generic-adc-battery.h>
+#include <linux/of_gpio.h>
 
 #define JITTER_DEFAULT 10 /* hope 10ms is enough */
 
@@ -329,6 +330,9 @@ static int gab_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	if (pdata == NULL)
+		pdata = gab_dt_probe(pdev);
+
 	psy_cfg.drv_data = adc_bat;
 	psy_desc = &adc_bat->psy_desc;
 	psy_desc->name = pdata->battery_info.name;
@@ -492,6 +496,7 @@ static struct platform_driver gab_driver = {
 	.driver		= {
 		.name	= "generic-adc-battery",
 		.pm	= &gab_pm_ops,
+		.of_match_table = of_gab_match,
 	},
 	.probe		= gab_probe,
 	.remove		= gab_remove,
