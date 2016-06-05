@@ -24,6 +24,7 @@
 #include <linux/iio/types.h>
 #include <linux/power/generic-adc-battery.h>
 #include <linux/of_gpio.h>
+#include <linux/power/generic-fuel-gauge.h>
 
 #define JITTER_DEFAULT 10 /* hope 10ms is enough */
 
@@ -82,6 +83,7 @@ static const enum power_supply_property gab_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
 	POWER_SUPPLY_PROP_MODEL_NAME,
 	POWER_SUPPLY_PROP_TEMP,
+	POWER_SUPPLY_PROP_CAPACITY,
 };
 
 /*
@@ -196,6 +198,18 @@ static int gab_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_MODEL_NAME:
 		val->strval = bat_info->name;
+		break;
+	case POWER_SUPPLY_PROP_CAPACITY:
+		{
+		int ret, curr, voltage;
+
+		ret = read_channel(adc_bat, POWER_SUPPLY_PROP_CURRENT_NOW, &curr);
+		ret |= read_channel(adc_bat, POWER_SUPPLY_PROP_VOLTAGE_NOW, &voltage);
+		if (ret < 0)
+			goto err;
+
+		val->intval = fuel_level_LiIon(voltage, curr, 10);
+		}
 		break;
 	default:
 		return -EINVAL;
