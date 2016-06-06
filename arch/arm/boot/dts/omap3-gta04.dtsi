@@ -898,6 +898,32 @@
 		>;
 	};
 
+	camera_pins: pinmux_camera_pins {
+		pinctrl-single,pins = <
+			/* set up parallel camera interface */
+			OMAP3_CORE1_IOPAD(0x210c, PIN_INPUT_PULLDOWN | MUX_MODE0) /* cam_hs */
+			OMAP3_CORE1_IOPAD(0x210e, PIN_INPUT_PULLDOWN | MUX_MODE0) /* cam_vs */
+			OMAP3_CORE1_IOPAD(0x2110, PIN_OUTPUT | MUX_MODE0) /* cam_xclka */
+			OMAP3_CORE1_IOPAD(0x2112, PIN_INPUT_PULLDOWN | MUX_MODE7) /* cam_pclk */
+			OMAP3_CORE1_IOPAD(0x2114, PIN_OUTPUT | MUX_MODE4) /* cam_fld = gpio_98 */
+			OMAP3_CORE1_IOPAD(0x2116, PIN_INPUT_PULLDOWN | MUX_MODE0) /* cam_d0 */
+			OMAP3_CORE1_IOPAD(0x2118, PIN_INPUT_PULLDOWN | MUX_MODE0) /* cam_d1 */
+			OMAP3_CORE1_IOPAD(0x211a, PIN_INPUT_PULLDOWN | MUX_MODE0) /* cam_d2 */
+			OMAP3_CORE1_IOPAD(0x211c, PIN_INPUT_PULLDOWN | MUX_MODE0) /* cam_d3 */
+			OMAP3_CORE1_IOPAD(0x211e, PIN_INPUT_PULLDOWN | MUX_MODE0) /* cam_d4 */
+			OMAP3_CORE1_IOPAD(0x2120, PIN_INPUT_PULLDOWN | MUX_MODE0) /* cam_d5 */
+			OMAP3_CORE1_IOPAD(0x2122, PIN_INPUT_PULLDOWN | MUX_MODE0) /* cam_d6 */
+			OMAP3_CORE1_IOPAD(0x2124, PIN_INPUT_PULLDOWN | MUX_MODE0) /* cam_d7 */
+			OMAP3_CORE1_IOPAD(0x2126, PIN_INPUT_PULLDOWN | MUX_MODE0) /* cam_d8 */
+			OMAP3_CORE1_IOPAD(0x2128, PIN_INPUT_PULLDOWN | MUX_MODE0) /* cam_d9 */
+			OMAP3_CORE1_IOPAD(0x212a, PIN_INPUT_PULLDOWN | MUX_MODE0) /* cam_d10 */
+			OMAP3_CORE1_IOPAD(0x212c, PIN_INPUT_PULLDOWN | MUX_MODE0) /* cam_d10 */
+			OMAP3_CORE1_IOPAD(0x212e, PIN_OUTPUT | MUX_MODE0) /* cam_xclkb */
+			OMAP3_CORE1_IOPAD(0x2130, PIN_OUTPUT | MUX_MODE4) /* cam_wen = gpio_167 */
+			OMAP3_CORE1_IOPAD(0x2132, PIN_INPUT_PULLDOWN | MUX_MODE4) /* cam_strobe */
+		>;
+	};
+
 };
 
 &twl_madc {
@@ -940,14 +966,17 @@
 	};
 */
 
-	/* camera (driver not yet available) */
+	/* camera */
 	ov9655@30 {
-		compatible = "omnivision,ov9655";
+		pinctrl-names = "default";
+		pinctrl-0 = <&camera_pins>;
+		compatible = "ovti,ov9655";
 		reg = <0x30>;
-		vdd_ana-supply = <&vaux3>;	/* driver should devm_regulator_get_optional("vdd_ana") */
-
-		clock-frequency = <24000000>;
+		gpios = <&gpio3 2 0>,	/* reset cam_fld = GPIO_98 */
+			<&gpio6 7 0>;	/* pwdn cam_wen = GPIO_167 */
+		vana-supply = <&vaux3>;
 		clocks = <&isp 0>;	/* cam_clka */
+		clock-frequency = <24000000>;
 
 		port {
 			ov9655: endpoint {
@@ -979,6 +1008,7 @@
 			reg = <0>;
 			parallel_ep: endpoint {};
 		};
+#if 0
 /* these ports are not used by GTA04 */
 		port@1 {
 			reg = <1>;
@@ -989,6 +1019,7 @@
 			reg = <2>;
 			csi2_ep: endpoint {};
 		};
+#endif
 	};
 };
 
