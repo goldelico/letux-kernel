@@ -1,0 +1,49 @@
+* Omnivision OV9650/9652/9655 CMOS sensor
+
+The Omnivision OV965x sensor support multiple resolutions output, such as
+CIF, SVGA, UXGA. It also can support YUV422/420, RGB565/555 or raw RGB
+output format.
+
+Required Properties:
+- compatible: should be one of
+	"ovti,ov9650"
+	"ovti,ov9652"
+	"ovti,ov9655"
+- clocks: reference to the xclk input clock.
+- clock-frequency: clock frequency in Hz.
+- gpios: reference to the GPIO connected to the reset(b) pin and pwdn pin.
+	Specify GPIO polarity as defined by data sheet (reset / resetb).
+
+Optional Properties:
+- vana-supply: a reglator to power up the camera module.
+
+The device node must contain one 'port' child node for its digital output
+video port, in accordance with the video interface bindings defined in
+Documentation/devicetree/bindings/media/video-interfaces.txt.
+
+Example:
+
+&i2c2 {
+	ov9655@30 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&camera_pins>;
+		compatible = "ovti,ov9655";
+		reg = <0x30>;
+		gpios = <&gpio3 2 0>,	/* reset cam_fld = GPIO_98 */
+			<&gpio6 7 0>;	/* pwdn cam_wen = GPIO_167 */
+		vana-supply = <&vaux3>;
+		clocks = <&isp 0>;	/* cam_clka */
+		clock-frequency = <24000000>;
+
+		port {
+			ov9655: endpoint {
+				bus-width = <8>;
+				remote-endpoint = <&parallel_ep>;
+				hsync-active = <1>;
+				vsync-active = <1>;
+				data-active = <1>;	/* Active High */
+				pclk-sample = <1>;	/* Rising */
+			};
+		};
+	};
+};
