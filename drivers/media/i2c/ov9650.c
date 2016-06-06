@@ -29,6 +29,7 @@
 #include <linux/module.h>
 #include <linux/of_gpio.h>
 #include <linux/ratelimit.h>
+#include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/videodev2.h>
@@ -367,6 +368,7 @@ struct ov965x {
 	/* External master clock frequency */
 	unsigned long mclk_frequency;
 	struct clk *clk;
+	struct regulator *vana;
 
 	/* Protects the struct fields below */
 	struct mutex lock;
@@ -945,12 +947,28 @@ static void ov965x_gpio_set(struct gpio_desc *gpio, int val)
 static void __ov965x_set_power(struct ov965x *ov965x, int on)
 {
 	if (on) {
+		/* Bring up the supplies */
+		int ret = regulator_enable(ov965x->vana);
+		if (ret < 0)
+			dev_info(&ov965x->client->dev, "regulator_enable failed err=%d\n", ret);
+
+		usleep_range(25000, 26000);
+
+		/* Enable clock */
+		if (ov965x->clk)
+			clk_prepare_enable(ov965x->clk);
+		usleep_range(25000, 26000);
+
 		ov965x_gpio_set(ov965x->gpios[GPIO_PWDN], 0);
 		ov965x_gpio_set(ov965x->gpios[GPIO_RST], 0);
 		msleep(25);
 	} else {
 		ov965x_gpio_set(ov965x->gpios[GPIO_RST], 1);
 		ov965x_gpio_set(ov965x->gpios[GPIO_PWDN], 1);
+
+		if (ov965x->clk)
+			clk_disable_unprepare(ov965x->clk);
+		regulator_disable(ov965x->vana);
 	}
 
 	ov965x->streaming = 0;
@@ -1913,7 +1931,6 @@ static int ov965x_detect_sensor(struct v4l2_subdev *sd)
 
 	mutex_lock(&ov965x->lock);
 	__ov965x_set_power(ov965x, 1);
-	msleep(25);
 
 	/* Check sensor revision */
 	ret = ov965x_read(client, REG_PID, &pid);
@@ -1972,6 +1989,11 @@ static int ov965x_probe(struct i2c_client *client,
 			devm_gpiod_get_optional(&client->dev, "pwdn",
 						GPIOD_OUT_HIGH);
 
+		ov965x->vana = devm_regulator_get(&client->dev, "vana");
+		if (IS_ERR(ov965x->vana)) {
+			dev_err(&client->dev, "could not get regulator for vana\n");
+			return PTR_ERR(ov965x->vana);
+		}
 		ov965x->clk = devm_clk_get(&client->dev, NULL);
 		if (IS_ERR(ov965x->clk)) {
 			dev_err(&client->dev, "Could not get clock\n");
