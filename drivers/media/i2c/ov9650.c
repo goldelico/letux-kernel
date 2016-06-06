@@ -18,6 +18,7 @@
 #include <linux/kernel.h>
 #include <linux/media.h>
 #include <linux/module.h>
+#include <linux/of_gpio.h>
 #include <linux/ratelimit.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
@@ -1505,8 +1506,26 @@ printk("id = %p\n", id);
 if(id) printk("id = %lu\n", id->driver_data);
 
 	if (pdata == NULL) {
-		dev_err(&client->dev, "platform data not specified\n");
-		return -EINVAL;
+		struct device_node *np = client->dev.of_node;
+		u32 val32;
+
+		if (!np) {
+			dev_err(&client->dev, "missing platform and device tree data\n");
+			return -EINVAL;
+		}
+
+		pdata = devm_kzalloc(&client->dev, sizeof(*pdata), GFP_KERNEL);
+		if (!pdata)
+			return -ENOMEM;
+
+		// get clock("clocks", 0)
+
+		((struct ov9650_platform_data *) pdata)->gpio_reset = of_get_named_gpio(np, "gpios", 0);
+		((struct ov9650_platform_data *) pdata)->gpio_pwdn = of_get_named_gpio(np, "gpios", 1);
+
+		if (!of_property_read_u32(np, "clock-frequency", &val32))
+			((struct ov9650_platform_data *) pdata)->mclk_frequency = val32;
+
 	}
 
 	if (pdata->mclk_frequency == 0) {
@@ -1521,6 +1540,29 @@ if(id) printk("id = %lu\n", id->driver_data);
 	mutex_init(&ov965x->lock);
 	ov965x->client = client;
 	ov965x->mclk_frequency = pdata->mclk_frequency;
+
+	if (client->dev.of_node) {
+		int rval;
+
+		ov965x->vana = devm_regulator_get_optional(&client->dev, "vana");
+		if (IS_ERR(ov965x->vana)) {
+			dev_err(&client->dev, "could not get regulator for vana\n");
+			return PTR_ERR(ov965x->vana);
+		}
+		ov965x->clk = devm_clk_get(&client->dev, NULL);
+		if (IS_ERR(ov965x->clk)) {
+			dev_err(&client->dev, "could not get clock\n");
+			return PTR_ERR(ov965x->clk);
+		}
+		rval = clk_set_rate(ov965x->clk,
+				    pdata->mclk_frequency);
+		if (rval < 0) {
+			dev_err(&client->dev,
+				"unable to set clock freq to %lu\n",
+				pdata->mclk_frequency);
+			return rval;
+		}
+	}
 
 	sd = &ov965x->sd;
 	v4l2_i2c_subdev_init(sd, client, &ov965x_subdev_ops);
@@ -1586,9 +1628,18 @@ static const struct i2c_device_id ov965x_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, ov965x_id);
 
+static const struct of_device_id of_ov965x_match[] = {
+	{ .compatible = "ovti,ov9650", .data = (void *) 0x9650 },
+	{ .compatible = "ovti,ov9652", .data = (void *) 0x9652 },
+	{ .compatible = "ovti,ov9655", .data = (void *) 0x9655 },
+	{ /* sentinel */ }
+};
+MODULE_DEVICE_TABLE(of, of_ov965x_match);
+
 static struct i2c_driver ov965x_i2c_driver = {
 	.driver = {
 		.name	= DRIVER_NAME,
+		.of_match_table = of_match_ptr(of_ov965x_match),
 	},
 	.probe		= ov965x_probe,
 	.remove		= ov965x_remove,
