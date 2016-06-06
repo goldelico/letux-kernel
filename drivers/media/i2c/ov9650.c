@@ -1,5 +1,5 @@
 /*
- * Omnivision OV9650/OV9652 CMOS Image Sensor driver
+ * Omnivision OV9650/OV9652/OV9655 CMOS Image Sensor driver
  *
  * Copyright (C) 2013, Sylwester Nawrocki <sylvester.nawrocki@gmail.com>
  *
@@ -197,6 +197,8 @@ MODULE_PARM_DESC(debug, "Debug level (0-2)");
 #define OV965X_ID(_msb, _lsb)	((_msb) << 8 | (_lsb))
 #define OV9650_ID		0x9650
 #define OV9652_ID		0x9652
+#define OV9655V4_ID		0x9656
+#define OV9655V5_ID		0x9657
 
 struct ov965x_ctrls {
 	struct v4l2_ctrl_handler handler;
@@ -1448,12 +1450,17 @@ static int ov965x_detect_sensor(struct v4l2_subdev *sd)
 
 	if (!ret) {
 		ov965x->id = OV965X_ID(pid, ver);
-		if (ov965x->id == OV9650_ID || ov965x->id == OV9652_ID) {
-			v4l2_info(sd, "Found OV%04X sensor\n", ov965x->id);
-		} else {
-			v4l2_err(sd, "Sensor detection failed (%04X, %d)\n",
-				 ov965x->id, ret);
-			ret = -ENODEV;
+		switch (ov965x->id) {
+			case OV9650_ID:
+			case OV9652_ID:
+			case OV9655V4_ID:
+			case OV9655V5_ID:
+				v4l2_info(sd, "Found OV%04X sensor\n", ov965x->id);
+				break;
+			default:
+				v4l2_err(sd, "Sensor detection failed (%04X, %d)\n",
+					 ov965x->id, ret);
+				ret = -ENODEV;
 		}
 	}
 	mutex_unlock(&ov965x->lock);
@@ -1540,8 +1547,9 @@ static int ov965x_remove(struct i2c_client *client)
 }
 
 static const struct i2c_device_id ov965x_id[] = {
-	{ "OV9650", 0 },
-	{ "OV9652", 0 },
+	{ "OV9650", 0x9650 },
+	{ "OV9652", 0x9652 },
+	{ "OV9655", 0x9655 },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(i2c, ov965x_id);
