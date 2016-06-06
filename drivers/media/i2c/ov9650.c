@@ -11,6 +11,7 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
 #include <linux/i2c.h>
@@ -18,6 +19,7 @@
 #include <linux/media.h>
 #include <linux/module.h>
 #include <linux/ratelimit.h>
+#include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/videodev2.h>
@@ -254,6 +256,8 @@ struct ov965x {
 	int gpios[NUM_GPIOS];
 	/* External master clock frequency */
 	unsigned long mclk_frequency;
+	struct clk *clk;
+	struct regulator *vana;
 
 	/* Protects the struct fields below */
 	struct mutex lock;
@@ -522,12 +526,29 @@ static void ov965x_gpio_set(int gpio, int val)
 static void __ov965x_set_power(struct ov965x *ov965x, int on)
 {
 	if (on) {
+		/* Bring up the supplies */
+		int ret = regulator_enable(ov965x->vana);
+		if (ret < 0)
+			dev_info(&ov965x->client->dev, "regulator_enable failed err=%d\n", ret);
+
+		usleep_range(25000, 26000);
+
+		/* Enable clock */
+		if (ov965x->clk)
+			clk_prepare_enable(ov965x->clk);
+		usleep_range(25000, 26000);
+
 		ov965x_gpio_set(ov965x->gpios[GPIO_PWDN], 0);
+// FIXME: handle different polarity for OV9655v4
 		ov965x_gpio_set(ov965x->gpios[GPIO_RST], 0);
 		usleep_range(25000, 26000);
 	} else {
 		ov965x_gpio_set(ov965x->gpios[GPIO_RST], 1);
 		ov965x_gpio_set(ov965x->gpios[GPIO_PWDN], 1);
+
+		if (ov965x->clk)
+			clk_disable_unprepare(ov965x->clk);
+		regulator_disable(ov965x->vana);
 	}
 
 	ov965x->streaming = 0;
