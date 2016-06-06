@@ -525,7 +525,7 @@ config VIDEO_OV9650
 	depends on I2C && VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API
 	---help---
 	  This is a V4L2 sensor-level driver for the Omnivision
-	  OV9650 and OV9652 camera sensors.
+	  OV9650 and OV9652 and OV9655 camera sensors.
 
 config VIDEO_VS6624
 	tristate "ST VS6624 sensor support"
@@ -581,14 +581,6 @@ config VIDEO_MT9V032
 	---help---
 	  This is a Video4Linux2 sensor-level driver for the Micron
 	  MT9V032 752x480 CMOS sensor.
-
-config VIDEO_OV9655
-	tristate "OmniVision OV9655 VGA CMOS IMAGE SENSOR"
-	depends on I2C && VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API
-	depends on MEDIA_CAMERA_SUPPORT
-	---help---
-	  This is a Video4Linux2 sensor-level driver for the OmniVision
-	  OV9655 image sensor.
 
 config VIDEO_SR030PC30
 	tristate "Siliconfile SR030PC30 sensor support"
