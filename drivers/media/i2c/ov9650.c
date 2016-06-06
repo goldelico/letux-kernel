@@ -457,7 +457,7 @@ static int ov965x_write(struct i2c_client *client, u8 addr, u8 val)
 {
 	u8 buf[2] = { addr, val };
 
-	int ret = i2c_master_send(client, buf, 2);
+	int ret = 0 /* i2c_master_send(client, buf, 2) */;
 
 	v4l2_dbg(2, debug, client, "%s: 0x%02x @ 0x%02X (%d)\n",
 		 __func__, val, addr, ret);
@@ -1497,6 +1497,9 @@ static int ov965x_probe(struct i2c_client *client,
 	struct v4l2_subdev *sd;
 	struct ov965x *ov965x;
 	int ret;
+
+printk("id = %p\n", id);
+if(id) printk("id = %lu\n", id->driver_data);
 
 	if (pdata == NULL) {
 		struct device_node *np = client->dev.of_node;
