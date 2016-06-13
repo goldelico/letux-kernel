@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 H. Nikolaus Schaller <hns@goldelico.com>
+ * Copyright (C) 2014-15 H. Nikolaus Schaller <hns@goldelico.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -23,4 +23,39 @@
 
 &twl_power {
 	compatible = "ti,twl4030-power-idle-osc-off";
+};
+
+// FIXME: disable all W2CBW logic
+
+// http://lxr.free-electrons.com/source/Documentation/devicetree/bindings/net/wireless/ti,wlcore.txt
+
+/ {
+	wlan_en_reg: fixedregulator@2 {
+		compatible = "regulator-fixed";
+		regulator-name = "wlan-en-regulator";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+
+	        gpio = <&gpio3 17 0>;	// FIXME 
+
+		startup-delay-us = <70000>;
+		enable-active-high;
+	};
+};
+
+&mmc2 {
+	status = "okay";
+	vmmc-supply = <&wlan_en_reg>;
+	bus-width = <4>;
+	cap-power-off-card;
+	keep-power-in-suspend;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+	wlcore: wlcore@2 {
+		compatible = "ti,wl1835";
+ 		reg = <2>;
+ 		interrupt-parent = <&gpio1>;
+ 		interrupts = <19 IRQ_TYPE_LEVEL_HIGH>;	// FIXME!
+	};
 };
