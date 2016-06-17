@@ -24,6 +24,7 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/gpio/consumer.h>
+#include <linux/regulator/consumer.h>
 
 /* BMP280 specific registers */
 #define BMP280_REG_HUMIDITY_LSB		0xFE
@@ -124,6 +125,8 @@ struct bmp280_data {
 	struct mutex lock;
 	struct regmap *regmap;
 	const struct bmp280_chip_info *chip_info;
+	struct regulator *vddd;
+	struct regulator *vdda;
 
 	/* log of base 2 of oversampling rate */
 	u8 oversampling_press;
@@ -1063,6 +1066,28 @@ static int bmp280_probe(struct i2c_client *client,
 		break;
 	default:
 		return -EINVAL;
+	}
+
+	/* Bring up regulators */
+	data->vddd = devm_regulator_get(&client->dev, "vddd");
+	if (IS_ERR(data->vddd)) {
+		dev_err(&client->dev, "failed to get VDDD regulator\n");
+		return PTR_ERR(data->vddd);
+	}
+	ret = regulator_enable(data->vddd);
+	if (ret) {
+		dev_err(&client->dev, "failed to enable VDDD regulator\n");
+		return ret;
+	}
+	data->vdda = devm_regulator_get(&client->dev, "vdda");
+	if (IS_ERR(data->vdda)) {
+		dev_err(&client->dev, "failed to get VDDA regulator\n");
+		return PTR_ERR(data->vddd);
+	}
+	ret = regulator_enable(data->vdda);
+	if (ret) {
+		dev_err(&client->dev, "failed to enable VDDA\n");
+		return ret;
 	}
 
 	/* Bring chip out of reset if there is an assigned GPIO line */
