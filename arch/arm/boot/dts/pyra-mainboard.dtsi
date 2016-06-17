@@ -403,6 +403,22 @@
 		reg = <0x55>;
 	};
 
+	/* fuel gauge variant 4 */
+
+#include <dt-bindings/power/power.h>
+
+	battery: battery {
+		compatible = "linux,generic-adc-battery";
+		io-channels = <&gpadc 6>, <&gpadc 11>, <&gpadc 1>;
+		io-channel-names = "voltage", "current", "temperature";
+		technology = <POWER_SUPPLY_TECHNOLOGY_LION>;
+		battery-name = "pyra-battery";
+		charge_full_design = <6000>;
+		charge_empty_design = <00>;
+		voltage_min_design = <3200>;
+		voltage_max_design = <4200>;
+	};
+
 	/* charger */
 	bq24297@6b {
 		/* FIXME: driver is quite broken because it is a hack */
