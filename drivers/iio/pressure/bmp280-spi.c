@@ -81,7 +81,8 @@ static int bmp280_spi_probe(struct spi_device *spi)
 	return bmp280_common_probe(&spi->dev,
 				   regmap,
 				   id->driver_data,
-				   id->name);
+				   id->name,
+				   spi->irq);
 }
 
 static const struct of_device_id bmp280_of_spi_match[] = {
