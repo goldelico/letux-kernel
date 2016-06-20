@@ -8,6 +8,9 @@
 	the Free Software Foundation; version 2 of the License.
 */
 
+// FIXME: read_proc_t and write_proc_t has been removed in 3.12
+typedef void *read_proc_t, *write_proc_t;
+
 #define DEBUG
 #include <linux/kernel.h>
 #include <linux/slab.h>
@@ -25,7 +28,6 @@
 #include <linux/gpio.h>
 #include <linux/regulator/consumer.h>
 #include <linux/proc_fs.h>
-#include <linux/seq_file.h>
 #include <linux/of.h>
 
 
@@ -341,32 +343,36 @@ static void vsense_input_unregister(struct vsense_drvdata *ddata)
 	input_unregister_device(ddata->input);
 }
 
-static int vsense_proc_mode_read(struct seq_file *m, void *data)
+static int vsense_proc_mode_read(char *page, char **start, off_t off, int count,
+		int *eof, void *data)
 {
 	struct vsense_drvdata *ddata = data;
+	char *p = page;
+	int len;
 
 	switch (ddata->mode) {
 	case VSENSE_MODE_MOUSE:
-		seq_printf(m, "mouse\n");
+		len = sprintf(p, "mouse\n");
 		break;
 	case VSENSE_MODE_SCROLL:
-		seq_printf(m, "scroll\n");
+		len = sprintf(p, "scroll\n");
 		break;
 	case VSENSE_MODE_MBUTTONS:
-		seq_printf(m, "mbuttons\n");
+		len = sprintf(p, "mbuttons\n");
 		break;
 	default:
-		seq_printf(m, "absolute\n");
+		len = sprintf(p, "absolute\n");
 		break;
 	}
 
-	return 0;
+	*eof = 1;
+	return len;
 }
 
-static ssize_t vsense_proc_mode_write(struct file *file, const char __user *buffer,
-		size_t count, loff_t *offs)
+static int vsense_proc_mode_write(struct file *file, const char __user *buffer,
+		unsigned long count, void *data)
 {
-	struct vsense_drvdata *ddata = PDE_DATA(file->f_inode);
+	struct vsense_drvdata *ddata = data;
 	int mode = ddata->mode;
 	char buff[32], *p;
 	int ret;
@@ -412,61 +418,51 @@ static ssize_t vsense_proc_mode_write(struct file *file, const char __user *buff
 	return count;
 }
 
-static int vsense_proc_int_read(struct seq_file *m, void *data)
+static int vsense_proc_int_read(char *page, char **start, off_t off,
+		int count, int *eof, void *data)
 {
 	int *val = data;
+	int len;
 
-	seq_printf(m, "%d\n", *val);
-	return 0;
+	len = sprintf(page, "%d\n", *val);
+	*eof = 1;
+	return len;
 }
 
-static int get_write_value(const char __user *buffer, size_t count, int *val)
+static int vsense_proc_int_write(struct file *file, const char __user *buffer,
+		unsigned long count, void *data)
 {
 	char buff[32];
-	long lval = 0;
+	long val;
 	int ret;
+	int *value = data;
 
 	count = strncpy_from_user(buff, buffer,
 			count < sizeof(buff) ? count : sizeof(buff) - 1);
 	buff[count] = 0;
 
-	ret = strict_strtol(buff, 0, &lval);
+	ret = strict_strtol(buff, 0, &val);
 	if (ret < 0)
 		return ret;
-
-	*val = lval;
-	return count;
-}
-
-static ssize_t vsense_proc_int_write(struct file *file, const char __user *buffer,
-		size_t count, loff_t *offs)
-{
-	int *value = PDE_DATA(file->f_inode);
-	int val;
-	int ret;
-
-	ret = get_write_value(buffer, count, &val);
-	if (ret < 0)
-		return ret;
-
 	*value = val;
 	return count;
 }
 
-static int vsense_proc_mult_read(struct seq_file *m, void *data)
+static int vsense_proc_mult_read(char *page, char **start, off_t off,
+		int count, int *eof, void *data)
 {
 	int *multiplier = data;
 	int val = *multiplier * 100 / 256;
-	return vsense_proc_int_read(m, &val);
+	return vsense_proc_int_read(page, start, off, count, eof, &val);
 }
 
-static ssize_t vsense_proc_mult_write(struct file *file, const char __user *buffer,
-		size_t count, loff_t *offs)
+static int vsense_proc_mult_write(struct file *file, const char __user *buffer,
+		unsigned long count, void *data)
 {
-	int *multiplier = PDE_DATA(file->f_inode);
+	int *multiplier = data;
 	int ret, val, adj;
 
-	ret = get_write_value(buffer, count, &val);
+	ret = vsense_proc_int_write(file, buffer, count, &val);
 	if (ret < 0)
 		return ret;
 	if (val == 0)
@@ -479,20 +475,21 @@ static ssize_t vsense_proc_mult_write(struct file *file, const char __user *buff
 	return ret;
 }
 
-static int vsense_proc_rate_read(struct seq_file *m, void *data)
+static int vsense_proc_rate_read(char *page, char **start, off_t off,
+		int count, int *eof, void *data)
 {
 	int *steps = data;
 	int val = 1000 / VSENSE_INTERVAL / *steps;
-	return vsense_proc_int_read(m, &val);
+	return vsense_proc_int_read(page, start, off, count, eof, &val);
 }
 
-static ssize_t vsense_proc_rate_write(struct file *file, const char __user *buffer,
-		size_t count, loff_t *offs)
+static int vsense_proc_rate_write(struct file *file, const char __user *buffer,
+		unsigned long count, void *data)
 {
-	int *steps = PDE_DATA(file->f_inode);
+	int *steps = data;
 	int ret, val;
 
-	ret = get_write_value(buffer, count, &val);
+	ret = vsense_proc_int_write(file, buffer, count, &val);
 	if (ret < 0)
 		return ret;
 	if (val < 1)
@@ -504,13 +501,13 @@ static ssize_t vsense_proc_rate_write(struct file *file, const char __user *buff
 	return ret;
 }
 
-static ssize_t vsense_proc_treshold_write(struct file *file, const char __user *buffer,
-		size_t count, loff_t *offs)
+static int vsense_proc_treshold_write(struct file *file, const char __user *buffer,
+		unsigned long count, void *data)
 {
-	int *value = PDE_DATA(file->f_inode);
+	int *value = data;
 	int ret, val;
 
-	ret = get_write_value(buffer, count, &val);
+	ret = vsense_proc_int_write(file, buffer, count, &val);
 	if (ret < 0)
 		return ret;
 	if (val < 1 || val > 32)
@@ -546,6 +543,23 @@ vsense_set_reset(struct device *dev, struct device_attribute *attr,
 }
 static DEVICE_ATTR(reset, S_IRUGO | S_IWUSR,
 	vsense_show_reset, vsense_set_reset);
+
+static void vsense_create_proc(struct vsense_drvdata *ddata,
+			       void *pdata, const char *name,
+			       read_proc_t *read_proc, write_proc_t *write_proc)
+{
+	struct proc_dir_entry *pret;
+
+	pret = create_proc_entry(name, S_IWUGO | S_IRUGO, ddata->proc_root);
+	if (pret == NULL) {
+		dev_err(&ddata->client->dev, "failed to create proc file %s\n", name);
+		return;
+	}
+
+	pret->data = pdata;
+	pret->read_proc = read_proc;
+	pret->write_proc = write_proc;
+}
 
 #ifdef CONFIG_OF
 static struct vsense_platform_data *
@@ -584,47 +598,6 @@ vsense_dt_init(struct i2c_client *client)
 }
 
 #endif
-
-struct vsense_proc_entry {
-	int (*read_func)(struct seq_file *m, void *v);
-	const struct file_operations fops;
-};
-
-static int vsense_proc_open(struct inode *inode, struct file *file)
-{
-	const struct vsense_proc_entry *vpe =
-		container_of(file->f_op, struct vsense_proc_entry, fops);
-
-	return single_open(file, vpe->read_func, PDE_DATA(inode));
-}
-
-#define VSENSE_PE(readf, writef) { \
-	.read_func = readf, \
-	.fops = { \
-		.open		= vsense_proc_open, \
-		.read		= seq_read, \
-		.llseek		= seq_lseek, \
-		.release	= seq_release, \
-		.write		= writef, \
-	}, \
-}
-
-static const struct vsense_proc_entry vsense_proc_mode =
-	VSENSE_PE(vsense_proc_mode_read, vsense_proc_mode_write);
-static const struct vsense_proc_entry vsense_proc_mouse_sensitivity =
-	VSENSE_PE(vsense_proc_mult_read, vsense_proc_mult_write);
-static const struct vsense_proc_entry vsense_proc_scrollx_sensitivity =
-	VSENSE_PE(vsense_proc_mult_read, vsense_proc_mult_write);
-static const struct vsense_proc_entry vsense_proc_scrolly_sensitivity =
-	VSENSE_PE(vsense_proc_mult_read, vsense_proc_mult_write);
-static const struct vsense_proc_entry vsense_proc_scroll_rate =
-	VSENSE_PE(vsense_proc_rate_read, vsense_proc_rate_write);
-static const struct vsense_proc_entry vsense_proc_mbutton_threshold =
-	VSENSE_PE(vsense_proc_int_read, vsense_proc_treshold_write);
-static const struct vsense_proc_entry vsense_proc_mbutton_threshold_y =
-	VSENSE_PE(vsense_proc_int_read, vsense_proc_treshold_write);
-static const struct vsense_proc_entry vsense_proc_mbutton_delay =
-	VSENSE_PE(vsense_proc_int_read, vsense_proc_int_write);
 
 static int vsense_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
@@ -785,30 +758,22 @@ static int vsense_probe(struct i2c_client *client,
 	snprintf(buff, sizeof(buff), "pandora/nub%d", ddata->proc_id);
 	ddata->proc_root = proc_mkdir(buff, NULL);
 	if (ddata->proc_root != NULL) {
-		proc_create_data("mode", S_IWUGO | S_IRUGO,
-			ddata->proc_root, &vsense_proc_mode.fops,
-			ddata);
-		proc_create_data("mouse_sensitivity", S_IWUGO | S_IRUGO,
-			ddata->proc_root, &vsense_proc_mouse_sensitivity.fops,
-			&ddata->mouse_multiplier);
-		proc_create_data("scrollx_sensitivity", S_IWUGO | S_IRUGO, ddata->proc_root,
-			&vsense_proc_scrollx_sensitivity.fops,
-			&ddata->scrollx_multiplier);
-		proc_create_data("scrolly_sensitivity", S_IWUGO | S_IRUGO, ddata->proc_root,
-			&vsense_proc_scrolly_sensitivity.fops,
-			&ddata->scrolly_multiplier);
-		proc_create_data("scroll_rate", S_IWUGO | S_IRUGO, ddata->proc_root,
-			&vsense_proc_scroll_rate.fops,
-			&ddata->scroll_steps);
-		proc_create_data("mbutton_threshold", S_IWUGO | S_IRUGO, ddata->proc_root,
-			&vsense_proc_mbutton_threshold.fops,
-			&ddata->mbutton.threshold_x);
-		proc_create_data("mbutton_threshold_y", S_IWUGO | S_IRUGO, ddata->proc_root,
-			&vsense_proc_mbutton_threshold_y.fops,
-			&ddata->mbutton.threshold_y);
-		proc_create_data("mbutton_delay", S_IWUGO | S_IRUGO, ddata->proc_root,
-			&vsense_proc_mbutton_delay.fops,
-			&ddata->mbutton.delay);
+		vsense_create_proc(ddata, ddata, "mode",
+				vsense_proc_mode_read, vsense_proc_mode_write);
+		vsense_create_proc(ddata, &ddata->mouse_multiplier, "mouse_sensitivity",
+				vsense_proc_mult_read, vsense_proc_mult_write);
+		vsense_create_proc(ddata, &ddata->scrollx_multiplier, "scrollx_sensitivity",
+				vsense_proc_mult_read, vsense_proc_mult_write);
+		vsense_create_proc(ddata, &ddata->scrolly_multiplier, "scrolly_sensitivity",
+				vsense_proc_mult_read, vsense_proc_mult_write);
+		vsense_create_proc(ddata, &ddata->scroll_steps, "scroll_rate",
+				vsense_proc_rate_read, vsense_proc_rate_write);
+		vsense_create_proc(ddata, &ddata->mbutton.threshold_x, "mbutton_threshold",
+				vsense_proc_int_read, vsense_proc_treshold_write);
+		vsense_create_proc(ddata, &ddata->mbutton.threshold_y, "mbutton_threshold_y",
+				vsense_proc_int_read, vsense_proc_treshold_write);
+		vsense_create_proc(ddata, &ddata->mbutton.delay, "mbutton_delay",
+				vsense_proc_int_read, vsense_proc_int_write);
 	} else
 		dev_err(&client->dev, "can't create proc dir");
 
@@ -860,10 +825,6 @@ static int vsense_remove(struct i2c_client *client)
 	snprintf(buff, sizeof(buff), "pandora/nub%d", ddata->proc_id);
 	remove_proc_entry(buff, NULL);
 	idr_remove(&vsense_proc_id, ddata->proc_id);
-
-	// hack..
-	if (idr_find_slowpath(&vsense_proc_id, ddata->proc_id ^ 1) == NULL)
-		remove_proc_entry("pandora", NULL);
 
 	free_irq(client->irq, ddata);
 	vsense_input_unregister(ddata);
