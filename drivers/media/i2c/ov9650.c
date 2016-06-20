@@ -1,5 +1,5 @@
 /*
- * Omnivision OV9650/OV9652 CMOS Image Sensor driver
+ * Omnivision OV9650/OV9652/OV9655 CMOS Image Sensor driver
  *
  * Copyright (C) 2013, Sylwester Nawrocki <sylvester.nawrocki@gmail.com>
  *
@@ -11,13 +11,16 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
 #include <linux/i2c.h>
 #include <linux/kernel.h>
 #include <linux/media.h>
 #include <linux/module.h>
+#include <linux/of_gpio.h>
 #include <linux/ratelimit.h>
+#include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/videodev2.h>
@@ -197,6 +200,8 @@ MODULE_PARM_DESC(debug, "Debug level (0-2)");
 #define OV965X_ID(_msb, _lsb)	((_msb) << 8 | (_lsb))
 #define OV9650_ID		0x9650
 #define OV9652_ID		0x9652
+#define OV9655V4_ID		0x9656
+#define OV9655V5_ID		0x9657
 
 struct ov965x_ctrls {
 	struct v4l2_ctrl_handler handler;
@@ -251,6 +256,8 @@ struct ov965x {
 	int gpios[NUM_GPIOS];
 	/* External master clock frequency */
 	unsigned long mclk_frequency;
+	struct clk *clk;
+	struct regulator *vana;
 
 	/* Protects the struct fields below */
 	struct mutex lock;
@@ -450,7 +457,7 @@ static int ov965x_write(struct i2c_client *client, u8 addr, u8 val)
 {
 	u8 buf[2] = { addr, val };
 
-	int ret = i2c_master_send(client, buf, 2);
+	int ret = 0 /* i2c_master_send(client, buf, 2) */;
 
 	v4l2_dbg(2, debug, client, "%s: 0x%02x @ 0x%02X (%d)\n",
 		 __func__, val, addr, ret);
@@ -519,12 +526,29 @@ static void ov965x_gpio_set(int gpio, int val)
 static void __ov965x_set_power(struct ov965x *ov965x, int on)
 {
 	if (on) {
+		/* Bring up the supplies */
+		int ret = regulator_enable(ov965x->vana);
+		if (ret < 0)
+			dev_info(&ov965x->client->dev, "regulator_enable failed err=%d\n", ret);
+
+		usleep_range(25000, 26000);
+
+		/* Enable clock */
+		if (ov965x->clk)
+			clk_prepare_enable(ov965x->clk);
+		usleep_range(25000, 26000);
+
 		ov965x_gpio_set(ov965x->gpios[GPIO_PWDN], 0);
+// FIXME: handle different polarity for OV9655v4
 		ov965x_gpio_set(ov965x->gpios[GPIO_RST], 0);
 		usleep_range(25000, 26000);
 	} else {
 		ov965x_gpio_set(ov965x->gpios[GPIO_RST], 1);
 		ov965x_gpio_set(ov965x->gpios[GPIO_PWDN], 1);
+
+		if (ov965x->clk)
+			clk_disable_unprepare(ov965x->clk);
+		regulator_disable(ov965x->vana);
 	}
 
 	ov965x->streaming = 0;
@@ -1448,12 +1472,17 @@ static int ov965x_detect_sensor(struct v4l2_subdev *sd)
 
 	if (!ret) {
 		ov965x->id = OV965X_ID(pid, ver);
-		if (ov965x->id == OV9650_ID || ov965x->id == OV9652_ID) {
-			v4l2_info(sd, "Found OV%04X sensor\n", ov965x->id);
-		} else {
-			v4l2_err(sd, "Sensor detection failed (%04X, %d)\n",
-				 ov965x->id, ret);
-			ret = -ENODEV;
+		switch (ov965x->id) {
+			case OV9650_ID:
+			case OV9652_ID:
+			case OV9655V4_ID:
+			case OV9655V5_ID:
+				v4l2_info(sd, "Found OV%04X sensor\n", ov965x->id);
+				break;
+			default:
+				v4l2_err(sd, "Sensor detection failed (%04X, %d)\n",
+					 ov965x->id, ret);
+				ret = -ENODEV;
 		}
 	}
 	mutex_unlock(&ov965x->lock);
@@ -1469,9 +1498,30 @@ static int ov965x_probe(struct i2c_client *client,
 	struct ov965x *ov965x;
 	int ret;
 
+printk("id = %p\n", id);
+if(id) printk("id = %lu\n", id->driver_data);
+
 	if (pdata == NULL) {
-		dev_err(&client->dev, "platform data not specified\n");
-		return -EINVAL;
+		struct device_node *np = client->dev.of_node;
+		u32 val32;
+
+		if (!np) {
+			dev_err(&client->dev, "missing platform and device tree data\n");
+			return -EINVAL;
+		}
+
+		pdata = devm_kzalloc(&client->dev, sizeof(*pdata), GFP_KERNEL);
+		if (!pdata)
+			return -ENOMEM;
+
+		// get clock("clocks", 0)
+
+		((struct ov9650_platform_data *) pdata)->gpio_reset = of_get_named_gpio(np, "gpios", 0);
+		((struct ov9650_platform_data *) pdata)->gpio_pwdn = of_get_named_gpio(np, "gpios", 1);
+
+		if (!of_property_read_u32(np, "clock-frequency", &val32))
+			((struct ov9650_platform_data *) pdata)->mclk_frequency = val32;
+
 	}
 
 	if (pdata->mclk_frequency == 0) {
@@ -1486,6 +1536,29 @@ static int ov965x_probe(struct i2c_client *client,
 	mutex_init(&ov965x->lock);
 	ov965x->client = client;
 	ov965x->mclk_frequency = pdata->mclk_frequency;
+
+	if (client->dev.of_node) {
+		int rval;
+
+		ov965x->vana = devm_regulator_get_optional(&client->dev, "vana");
+		if (IS_ERR(ov965x->vana)) {
+			dev_err(&client->dev, "could not get regulator for vana\n");
+			return PTR_ERR(ov965x->vana);
+		}
+		ov965x->clk = devm_clk_get(&client->dev, NULL);
+		if (IS_ERR(ov965x->clk)) {
+			dev_err(&client->dev, "could not get clock\n");
+			return PTR_ERR(ov965x->clk);
+		}
+		rval = clk_set_rate(ov965x->clk,
+				    pdata->mclk_frequency);
+		if (rval < 0) {
+			dev_err(&client->dev,
+				"unable to set clock freq to %lu\n",
+				pdata->mclk_frequency);
+			return rval;
+		}
+	}
 
 	sd = &ov965x->sd;
 	v4l2_i2c_subdev_init(sd, client, &ov965x_subdev_ops);
@@ -1540,15 +1613,25 @@ static int ov965x_remove(struct i2c_client *client)
 }
 
 static const struct i2c_device_id ov965x_id[] = {
-	{ "OV9650", 0 },
-	{ "OV9652", 0 },
+	{ "ov9650", 0x9650 },
+	{ "ov9652", 0x9652 },
+	{ "ov9655", 0x9655 },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(i2c, ov965x_id);
 
+static const struct of_device_id of_ov965x_match[] = {
+	{ .compatible = "ovti,ov9650", .data = (void *) 0x9650 },
+	{ .compatible = "ovti,ov9652", .data = (void *) 0x9652 },
+	{ .compatible = "ovti,ov9655", .data = (void *) 0x9655 },
+	{ /* sentinel */ }
+};
+MODULE_DEVICE_TABLE(of, of_ov965x_match);
+
 static struct i2c_driver ov965x_i2c_driver = {
 	.driver = {
 		.name	= DRIVER_NAME,
+		.of_match_table = of_match_ptr(of_ov965x_match),
 	},
 	.probe		= ov965x_probe,
 	.remove		= ov965x_remove,
