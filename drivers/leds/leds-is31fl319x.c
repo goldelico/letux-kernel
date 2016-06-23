@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Golden Delicious Computers
+ * Copyright 2015-16 Golden Delicious Computers
  *
  * Author: Nikolaus Schaller <hns@goldelico.com>
  *
@@ -9,17 +9,20 @@
  * the GNU General Public License.  See the file COPYING in the main
  * directory of this archive for more details.
  *
- * LED driver for the IS31FL3196/99 to drive 6 or 9 light effect LEDs.
+ * LED driver for the IS31FL3191/3/6/99 to drive 1, 3, 6 or 9 light
+ * effect LEDs.
  *
  */
+
+#define DEBUG 1
 
 #include <linux/err.h>
 #include <linux/i2c.h>
 #include <linux/leds.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/regmap.h>
 #include <linux/slab.h>
-#include <linux/workqueue.h>
 
 /* register numbers */
 #define IS31FL319X_SHUTDOWN	0x00
@@ -62,16 +65,13 @@
 #define IS31FL319X_T4_9		0x25
 #define IS31FL319X_TIME_UPDATE	0x26
 
-#define	IS31FL319X_REG_CNT	(IS31FL319X_TIME_UPDATE + 1)
+#define IS31FL319X_REG_CNT	(IS31FL319X_TIME_UPDATE + 1)
 
 #define NUM_LEDS 9	/* max for 3199 chip */
 
 struct is31fl319x_chip {
 	struct i2c_client	*client;
-	struct work_struct	work;
-	bool			work_scheduled;
-	spinlock_t		lock;
-	u8			reg_file[IS31FL319X_REG_CNT];
+	struct regmap		*regmap;
 
 	struct is31fl319x_led {
 		struct is31fl319x_chip	*chip;
@@ -90,61 +90,40 @@ static const struct i2c_device_id is31fl319x_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, is31fl319x_id);
 
-
-static int is31fl319x_write(struct is31fl319x_chip *is31, u8 reg, u8 byte)
+static int is31fl319x_brightness_set(struct led_classdev *led_cdev,
+				   enum led_brightness brightness)
 {
-	struct i2c_client *cl = is31->client;
+	struct is31fl319x_led *led = container_of(led_cdev,
+						  struct is31fl319x_led,
+						  led_cdev);
+	struct is31fl319x_chip *is31 = led->chip;
+	int ret;
 
-	if (reg >= IS31FL319X_REG_CNT)
-		return -EIO;
-	is31->reg_file[reg] = byte;	/* save in cache */
-	dev_dbg(&is31->client->dev, "write %02x to reg %02x\n", byte, reg);
-	return i2c_smbus_write_byte_data(cl, reg, byte);
-}
-
-static int is31fl319x_read(struct is31fl319x_chip *is31, u8 reg)
-{
-	if (reg >= IS31FL319X_REG_CNT)
-		return -EIO;
-	return is31->reg_file[reg];	/* read crom cache (can't read chip) */
-}
-
-static void is31fl319x_work(struct work_struct *work)
-{
-	struct is31fl319x_chip *is31 = container_of(work,
-						    struct is31fl319x_chip,
-						    work);
-	unsigned long flags;
 	int i;
 	u8 ctrl1, ctrl2;
 
-	dev_dbg(&is31->client->dev, "work called\n");
+	dev_dbg(&is31->client->dev, "%s [%d] %d\n", __func__, (led - is31->leds), brightness);
 
-	spin_lock_irqsave(&is31->lock, flags);
-	/* make subsequent changes run another schedule_work */
-	is31->work_scheduled = false;
-	spin_unlock_irqrestore(&is31->lock, flags);
-
-	dev_dbg(&is31->client->dev, "write to chip\n");
+	/* update PWM register */
+	ret = regmap_write(is31->regmap, IS31FL319X_PWM1 + (led - is31->leds), brightness);
+	if (ret < 0)
+		return ret;
 
 	ctrl1 = 0;
 	ctrl2 = 0;
 
+	/* read current brightness of all PWM channels */
 	for (i = 0; i < NUM_LEDS; i++) {
-		struct led_classdev *led = &is31->leds[i].led_cdev;
+		unsigned int pwm_value;
 		bool on;
 
-		if (!is31->leds[i].led_cdev.name)
-			continue;
+		/* since neither led_cdev nor the chip can provide
+		 * the current setting, we read from the regmap
+		 */
+		ret = regmap_read(is31->regmap, IS31FL319X_PWM1 + i, &pwm_value);
+		dev_dbg(&is31->client->dev, "%s read ret=%d [%d]: %d\n", __func__, ret, i, pwm_value);
+		on = ret >= 0 && pwm_value > LED_OFF;
 
-		dev_dbg(&is31->client->dev, "set brightness %u for led %u\n",
-					    led->brightness, i);
-
-		/* update brightness register */
-		is31fl319x_write(is31, IS31FL319X_PWM1 + i, led->brightness);
-
-		/* update output enable bits */
-		on = led->brightness > LED_OFF;
 		if (i < 3)
 			ctrl1 |= on << i;	/* 0..2 => bit 0..2 */
 		else if (i < 6)
@@ -153,57 +132,23 @@ static void is31fl319x_work(struct work_struct *work)
 			ctrl2 |= on << (i-6);	/* 6..8 => bit 0..2 */
 	}
 
-	/* check if any PWM is enabled or all outputs are now off */
+	/* check if any PWM is enabled or all outputs are now off
+	 * and we can shut down the chip
+	 */
 	if (ctrl1 > 0 || ctrl2 > 0) {
-		dev_dbg(&is31->client->dev, "power up\n");
-		is31fl319x_write(is31, IS31FL319X_CTRL1, ctrl1);
-		is31fl319x_write(is31, IS31FL319X_CTRL2, ctrl2);
+		dev_dbg(&is31->client->dev, "power up %02x %02x\n", ctrl1, ctrl2);
+		regmap_write(is31->regmap, IS31FL319X_CTRL1, ctrl1);
+		regmap_write(is31->regmap, IS31FL319X_CTRL2, ctrl2);
 		/* update PWMs */
-		is31fl319x_write(is31, IS31FL319X_DATA_UPDATE, 0x00);
+		regmap_write(is31->regmap, IS31FL319X_DATA_UPDATE, 0x00);
 		/* enable chip from shut down */
-		is31fl319x_write(is31, IS31FL319X_SHUTDOWN, 0x01);
+		ret = regmap_write(is31->regmap, IS31FL319X_SHUTDOWN, 0x01);
 	} else {
 		dev_dbg(&is31->client->dev, "power down\n");
-		/* shut down */
-		is31fl319x_write(is31, IS31FL319X_SHUTDOWN, 0x00);
+		/* shut down (no need to clear CTRL1/2) */
+		ret = regmap_write(is31->regmap, IS31FL319X_SHUTDOWN, 0x00);
 	}
-
-	dev_dbg(&is31->client->dev, "work done\n");
-
-}
-
-/* NOTE: this may be called from within irq context, e.g. led_trigger_event */
-
-static int is31fl319x_brightness_get(struct led_classdev *led_cdev)
-{
-	struct is31fl319x_led *led = container_of(led_cdev,
-						  struct is31fl319x_led,
-						  led_cdev);
-	struct is31fl319x_chip *is31 = led->chip;
-
-	/* read PWM register */
-	return is31fl319x_read(is31, IS31FL319X_PWM1 + (led - is31->leds));
-}
-
-static void is31fl319x_brightness_set(struct led_classdev *led_cdev,
-				   enum led_brightness brightness)
-{
-	struct is31fl319x_led *led = container_of(led_cdev,
-						  struct is31fl319x_led,
-						  led_cdev);
-	struct is31fl319x_chip *is31 = led->chip;
-	unsigned long flags;
-
-	spin_lock_irqsave(&is31->lock, flags);
-
-	if (brightness != is31fl319x_brightness_get(led_cdev)) {
-		if (!is31->work_scheduled) {
-			schedule_work(&is31->work);
-			is31->work_scheduled = true;
-		}
-	}
-
-	spin_unlock_irqrestore(&is31->lock, flags);
+	return ret;
 }
 
 static struct led_info *
@@ -267,6 +212,33 @@ static const struct of_device_id of_is31fl319x_leds_match[] = {
 };
 MODULE_DEVICE_TABLE(of, of_is31fl319x_leds_match);
 
+static bool is31fl319x_readable_reg(struct device *dev, unsigned int reg)
+{
+return true;
+	return false;	/* we have no readable registers */
+}
+
+static bool is31fl319x_volatile_reg(struct device *dev, unsigned int reg)
+{
+	switch(reg) {
+		case IS31FL319X_DATA_UPDATE:
+		case IS31FL319X_TIME_UPDATE:
+			return true;	/* means we must always write */
+		default:
+			break;
+	}
+	return false;
+}
+
+struct regmap_config regmap_config = {
+	.reg_bits = 8,
+	.val_bits = 8,
+	.max_register = IS31FL319X_REG_CNT,
+
+	.readable_reg = is31fl319x_readable_reg,
+	.volatile_reg = is31fl319x_volatile_reg,
+};
+
 static int is31fl319x_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
 {
@@ -290,37 +262,34 @@ static int is31fl319x_probe(struct i2c_client *client,
 			(int) PTR_ERR(leds));
 		return PTR_ERR(leds);
 	}
+
 	is31 = devm_kzalloc(&client->dev, sizeof(*is31), GFP_KERNEL);
 	if (!is31)
 		return -ENOMEM;
 
 	is31->client = client;
-	INIT_WORK(&is31->work, is31fl319x_work);
-	spin_lock_init(&is31->lock);
+	is31->regmap = devm_regmap_init_i2c(client, &regmap_config);
+	if (IS_ERR(is31->regmap)) {
+		dev_err(&client->dev, "failed to allocate register map\n");
+		return PTR_ERR(is31->regmap);
+	}
+
 	i2c_set_clientdata(client, is31);
 
 	/* check for reply from chip (we can't read any registers) */
-	err = is31fl319x_write(is31, IS31FL319X_SHUTDOWN, 0x01);
+	err = regmap_write(is31->regmap, IS31FL319X_SHUTDOWN, 0x01);
 	if (err < 0) {
 		dev_err(&client->dev, "no response from chip write: err = %d\n",
 			err);
 		return -EIO;	/* does not answer */
 	}
 
+	/* initialize chip and regmap so that we never try to read from i2c */
+	regmap_write(is31->regmap, IS31FL319X_CTRL1, 0x00);
+	regmap_write(is31->regmap, IS31FL319X_CTRL2, 0x00);
+	regmap_write(is31->regmap, IS31FL319X_DATA_UPDATE, 0x00);
 	for (i = 0; i < NUM_LEDS; i++) {
-		struct is31fl319x_led *l = is31->leds + i;
-
-		l->chip = is31;
-		if (leds[i].name && !leds[i].flags) {
-			l->led_cdev.name = leds[i].name;
-			l->led_cdev.default_trigger
-				= leds[i].default_trigger;
-			l->led_cdev.brightness_set = is31fl319x_brightness_set;
-			err = devm_led_classdev_register(&client->dev,
-						    &l->led_cdev);
-			if (err < 0)
-				return err;
-		}
+		regmap_write(is31->regmap, IS31FL319X_PWM1 + i, 0x00);
 	}
 
 	if (client->dev.of_node) {
@@ -341,21 +310,29 @@ static int is31fl319x_probe(struct i2c_client *client,
 				val = 21;
 			config2 |= val / 3; /* AGS */
 		}
-		is31fl319x_write(is31, IS31FL319X_CONFIG2, config2);
+		regmap_write(is31->regmap, IS31FL319X_CONFIG2, config2);
 	}
 
-	schedule_work(&is31->work);	/* first update */
+	for (i = 0; i < NUM_LEDS; i++) {
+		struct is31fl319x_led *l = is31->leds + i;
+
+		l->chip = is31;
+		if (leds[i].name && !leds[i].flags) {
+			l->led_cdev.name = leds[i].name;
+			l->led_cdev.default_trigger
+				= leds[i].default_trigger;
+			l->led_cdev.brightness_set_blocking = is31fl319x_brightness_set;
+			/* NOTE: is31fl319x_brightness_set might be called immediately
+			 * for CPU or MMC triggers!
+			 */
+			err = devm_led_classdev_register(&client->dev,
+						    &l->led_cdev);
+			if (err < 0)
+				return err;
+		}
+	}
 
 	dev_dbg(&client->dev, "probed\n");
-	return 0;
-}
-
-static int is31fl319x_remove(struct i2c_client *client)
-{
-	struct is31fl319x_chip *is31 = i2c_get_clientdata(client);
-
-	cancel_work_sync(&is31->work);
-
 	return 0;
 }
 
@@ -365,7 +342,6 @@ static struct i2c_driver is31fl319x_driver = {
 		.of_match_table = of_match_ptr(of_is31fl319x_leds_match),
 	},
 	.probe    = is31fl319x_probe,
-	.remove   = is31fl319x_remove,
 	.id_table = is31fl319x_id,
 };
 
