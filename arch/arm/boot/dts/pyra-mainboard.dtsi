@@ -522,7 +522,7 @@
 		left_led1: red_left@1 {
 			label = "pyra:red:left";
 			reg = <1>;
-			linux,default-trigger = "mmc0";
+			linux,default-trigger = "heartbeat";
 		};
 
 		left_led2: green_left@2 {
@@ -552,7 +552,7 @@
 		mid_led6: blue_mid@6 {
 			label = "pyra:blue:mid";
 			reg = <6>;
-			linux,default-trigger = "mmc0";
+			linux,default-trigger = "heartbeat";
 		};
 	};
 
@@ -565,7 +565,7 @@
 		right_led7: red_right@1 {
 			label = "pyra:red:right";
 			reg = <1>;
-			linux,default-trigger = "mmc0";
+			linux,default-trigger = "heartbeat";
 		};
 
 		right_led8: green_right@2 {
