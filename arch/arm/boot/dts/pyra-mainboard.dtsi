@@ -481,10 +481,9 @@
 	};
 	/* optional barometer/hygrometer sensor */
 	bme280@76 {
-		// compatible = "bosch,bme280";
-		/* ovrwrite to use the bmp280 driver */
-		compatible = "bosch,bmp280";
+		compatible = "bosch,bme280";
 		reg = <0x76>;
+// power on/off?
 	};
 	/* optional 9-axis sensor */
 	bno050@29 {
