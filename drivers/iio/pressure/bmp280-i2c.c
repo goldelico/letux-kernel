@@ -52,6 +52,7 @@ static const struct of_device_id bmp280_of_i2c_match[] = {
 	{ .compatible = "bosch,bmp280", .data = (void *)BMP280_CHIP_ID },
 	{ .compatible = "bosch,bmp180", .data = (void *)BMP180_CHIP_ID },
 	{ .compatible = "bosch,bmp085", .data = (void *)BMP180_CHIP_ID },
+	{ },
 };
 MODULE_DEVICE_TABLE(of, bmp280_of_i2c_match);
 #else
