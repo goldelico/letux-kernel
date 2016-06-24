@@ -349,9 +349,9 @@ static int wwan_on_off_poweroff(struct device *dev)
 
 #if defined(CONFIG_OF)
 static const struct of_device_id wwan_of_match[] = {
-	{ .compatible = "option,gtm601" },
-	{ .compatible = "gemalto,phs8" },
-	{ .compatible = "gemalto,pls8" },
+	{ .compatible = "option,gtm601-power" },
+	{ .compatible = "gemalto,phs8-power" },
+	{ .compatible = "gemalto,pls8-power" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, wwan_of_match);
