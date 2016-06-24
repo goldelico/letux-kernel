@@ -71,7 +71,7 @@
 	};
 
 	modem_en: modem { /* control modem power through rfkill */
-		compatible = "gemalto,phs8";
+		compatible = "gemalto,phs8-power";
 		gpio-controller;
 		#gpio-cells = <2>;
 		pinctrl-names = "default";
