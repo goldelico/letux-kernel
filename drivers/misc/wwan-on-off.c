@@ -166,6 +166,7 @@ static struct rfkill_ops wwan_on_off_rfkill_ops = {
 static int wwan_on_off_probe(struct platform_device *pdev)
 {
 	struct wwan_on_off_data *pdata = dev_get_platdata(&pdev->dev);
+	struct device *dev = &pdev->dev;
 	struct wwan_on_off *wwan;
 	struct rfkill *rf_kill;
 	int err;
@@ -175,7 +176,6 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 #ifdef CONFIG_OF
 
 	if (pdev->dev.of_node) {
-		struct device *dev = &pdev->dev;
 		enum of_gpio_flags flags;
 		pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 		if (!pdata)
@@ -199,13 +199,52 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 	}
 #endif
 
-	wwan = kzalloc(sizeof(*wwan), GFP_KERNEL);
+	wwan = devm_kzalloc(dev, sizeof(*wwan), GFP_KERNEL);
 	if (wwan == NULL)
 		return -ENOMEM;
+
+	platform_set_drvdata(pdev, wwan);
+
 	wwan->on_off_gpio = pdata->on_off_gpio;
 	wwan->feedback_gpio = pdata->feedback_gpio;
 	wwan->feedback_gpio_inverted = pdata->feedback_gpio_inverted;
 	wwan->usb_phy = pdata->usb_phy;
+
+	wwan->is_power_on = false;	/* assume initial power is off */
+
+	spin_lock_init(&wwan->lock);
+
+	if (gpio_is_valid(wwan->on_off_gpio)) {
+		err = devm_gpio_request(dev, wwan->on_off_gpio, "on-off-gpio");
+		if (err < 0)
+			return err;
+		gpio_direction_output(wwan->on_off_gpio, 0);	/* initially off */
+	} else
+		pr_warn("wwan-on-off: I have no control over modem\n");
+
+	if (gpio_is_valid(wwan->feedback_gpio)) {
+		err = devm_gpio_request(dev, wwan->feedback_gpio, "on-indicator-gpio");
+		if (err < 0)
+			return err;
+		gpio_direction_input(wwan->feedback_gpio);
+	}
+
+	rf_kill = rfkill_alloc("WWAN", &pdev->dev,
+				RFKILL_TYPE_WWAN,
+				&wwan_on_off_rfkill_ops, wwan);
+	if (rf_kill == NULL) {
+		return -ENOMEM;
+	}
+
+	rfkill_init_sw_state(rf_kill, !is_powered_on(wwan));	/* set initial state */
+
+	err = rfkill_register(rf_kill);
+	if (err) {
+		dev_err(&pdev->dev, "Cannot register rfkill device\n");
+		goto err;
+	}
+
+	wwan->rf_kill = rf_kill;
 
 #ifdef CONFIG_PRESENT_AS_GPIO
 	wwan->gpio_name[0] = "gpio-wwan-enable";	/* label of controlling GPIO */
@@ -223,70 +262,22 @@ static int wwan_on_off_probe(struct platform_device *pdev)
 #ifdef CONFIG_OF_GPIO
 	wwan->gpio.of_node = pdev->dev.of_node;
 #endif
-#endif
 
-	wwan->is_power_on = false;	/* assume initial power is off */
-
-	spin_lock_init(&wwan->lock);
-
-	if (gpio_is_valid(wwan->on_off_gpio)) {
-		err = gpio_request(wwan->on_off_gpio, "on-off-gpio");
-		if (err < 0)
-			goto out;
-		gpio_direction_output(wwan->on_off_gpio, 0);	/* initially off */
-	} else
-		pr_warn("wwan-on-off: I have no control over modem\n");
-
-	if (gpio_is_valid(wwan->feedback_gpio)) {
-		err = gpio_request(wwan->feedback_gpio, "on-indicator-gpio");
-		if (err < 0)
-			goto out1;
-		gpio_direction_input(wwan->feedback_gpio);
-	}
-
-#ifdef CONFIG_PRESENT_AS_GPIO
 	err = gpiochip_add(&wwan->gpio);
 	if (err)
-		goto out3;
+		goto err;
 #endif
-	rf_kill = rfkill_alloc("WWAN", &pdev->dev,
-				RFKILL_TYPE_WWAN,
-				&wwan_on_off_rfkill_ops, wwan);
-	if (rf_kill == NULL) {
-		err = -ENOMEM;
-		goto out4;
-	}
 
-	rfkill_init_sw_state(rf_kill, !is_powered_on(wwan));	/* set initial state */
-
-	err = rfkill_register(rf_kill);
-	if (err) {
-		dev_err(&pdev->dev, "Cannot register rfkill device\n");
-		goto out5;
-	}
-
-	wwan->rf_kill = rf_kill;
-
-	platform_set_drvdata(pdev, wwan);
 #ifdef DEBUG
 	printk("wwan-on-off successfully probed\n");
 #endif
 	return 0;
 
-out5:
+err:
 	rfkill_destroy(rf_kill);
-out4:
-#ifdef CONFIG_PRESENT_AS_GPIO
-	gpiochip_remove(&wwan->gpio);
+#ifdef DEBUG
+	printk("wwan-on-off probe failed %d\n", err);
 #endif
-out3:
-	if (gpio_is_valid(wwan->feedback_gpio))
-		gpio_free(wwan->feedback_gpio);
-out1:
-	if (gpio_is_valid(wwan->on_off_gpio))
-		gpio_free(wwan->on_off_gpio);
-out:
-	kfree(wwan);
 	return err;
 }
 
@@ -296,11 +287,6 @@ static int wwan_on_off_remove(struct platform_device *pdev)
 #ifdef CONFIG_PRESENT_AS_GPIO
 	gpiochip_remove(&wwan->gpio);
 #endif
-	if (gpio_is_valid(wwan->feedback_gpio))
-		gpio_free(wwan->feedback_gpio);
-	if (gpio_is_valid(wwan->on_off_gpio))
-		gpio_free(wwan->on_off_gpio);
-	kfree(wwan);
 	return 0;
 }
 
