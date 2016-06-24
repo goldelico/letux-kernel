@@ -42,8 +42,8 @@
 	};
 
 	modem_en: modem { /* control modem power through rfkill */
-		compatible = "option,gtm601";
-		/* compatible = "gemalto,phs8" for Neo900/GTA04b7 */
+		compatible = "option,gtm601-power";
+		/* compatible = "gemalto,phs8-power" for Neo900/GTA04b7 */
 		gpio-controller;
 		#gpio-cells = <2>;
 		pinctrl-names = "default";
