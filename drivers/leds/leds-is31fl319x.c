@@ -62,8 +62,9 @@
 #define IS31FL319X_T4_8		0x24
 #define IS31FL319X_T4_9		0x25
 #define IS31FL319X_TIME_UPDATE	0x26
+#define IS31FL319X_RESET	0xff
 
-#define IS31FL319X_REG_CNT	(IS31FL319X_TIME_UPDATE + 1)
+#define IS31FL319X_REG_CNT	(IS31FL319X_RESET + 1)
 
 #define NUM_LEDS 9	/* max for 3199 chip */
 
@@ -220,7 +221,8 @@ static bool is31fl319x_volatile_reg(struct device *dev, unsigned int reg)
 	switch(reg) {
 	case IS31FL319X_DATA_UPDATE:
 	case IS31FL319X_TIME_UPDATE:
-		return true;	/* means we must always write */
+	case IS31FL319X_RESET:
+		return true;	/* always write-through */
 	default:
 		return false;
 	}
@@ -272,8 +274,8 @@ static int is31fl319x_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, is31);
 
-	/* check for reply from chip (we can't read any registers) */
-	err = regmap_write(is31->regmap, IS31FL319X_SHUTDOWN, 0x01);
+	/* check for write-reply from chip (we can't read any registers) */
+	err = regmap_write(is31->regmap, IS31FL319X_RESET, 0x00);
 	if (err < 0) {
 		dev_err(&client->dev, "no response from chip write: err = %d\n",
 			err);
