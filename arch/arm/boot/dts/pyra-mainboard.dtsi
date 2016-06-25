@@ -486,9 +486,10 @@
 // power on/off?
 	};
 	/* optional 9-axis sensor */
-	bno050@29 {
-		compatible = "bosch,bno050";
+	bno055@29 {
+		compatible = "bosch,bno055";
 		reg = <0x29>;
+		bosch,operation-mode = <7>;	/* BNO055_MODE_AMG */
 // irq
 	};
 };
