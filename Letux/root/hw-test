@@ -173,6 +173,18 @@ Y=$(cat $COMPASS/in_magn_y_raw 2>/dev/null)
 Z=$(cat $COMPASS/in_magn_z_raw 2>/dev/null)
 [ "$X$Y$Z" ] && ok "$X, $Y, $Z" || optional "$COMPASS: $X, $Y, $Z"
 
+testing "BNO055" "All values"
+COMPASS=$(findiio bno055)
+sleep 1
+XA=$(cat $COMPASS/in_accel_x_raw 2>/dev/null)
+YA=$(cat $COMPASS/in_accel_y_raw 2>/dev/null)
+ZA=$(cat $COMPASS/in_accel_z_raw 2>/dev/null)
+XG=$(cat $COMPASS/in_anglvel_x_raw 2>/dev/null)
+YG=$(cat $COMPASS/in_anglvel_y_raw 2>/dev/null)
+ZG=$(cat $COMPASS/in_anglvel_z_raw 2>/dev/null)
+TEMP=$(cat $COMPASS/in_temp_input 2>/dev/null)
+[ "$XA$YA$ZA$XG$YG$ZG$TEMP" ] && ok "$XA, $YA, $ZA - $XG, $YG, ZG - $TEMP" || optional "$COMPASS: $XA, $YA, $ZA - $XG, $YG, ZG - $TEMP"
+
 testing "TSC2007" "Touch screen values"
 TSC=$(findiio tsc2007)
 read VAL < <(sed "s/,/ /g" $TSC/in_pressure6_raw 2>/dev/null)
