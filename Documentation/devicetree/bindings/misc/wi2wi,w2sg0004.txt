@@ -1,0 +1,18 @@
+Wi2Wi GPS module connected through UART
+
+Required properties:
+- compatible: wi2wi,w2sg0004 or wi2wi,w2sg0084
+- on-off-gpio: the GPIO that controls the module's on-off toggle input
+- uart: the uart we are connected to (provides DTR for power control)
+
+Optional properties:
+- lna-suppy: an (optional) LNA regulator that is enabled together with the GPS receiver
+
+example:
+
+        gps_receiver: w2sg0004 {
+                compatible = "wi2wi,w2sg0004";
+                lna-supply = <&vsim>;	/* LNA regulator */
+                on-off-gpio = <&gpio5 17 0>;	/* GPIO_145: trigger for turning on/off w2sg0004 */
+                uart = <&uart1>;	/* we are a slave of uart1 */
+        }
