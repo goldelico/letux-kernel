@@ -56,6 +56,9 @@ SUPPORT_ACTIVE_POWER_MANAGEMENT 	:= 0
 # Disable Device Class
 SUPPORT_PVRSRV_DEVICE_CLASS := 0
 
+# Disable active power management
+SUPPORT_ACTIVE_POWER_MANAGEMENT 	:= 0
+
 # Customize this build as per the TARGET_PRODUCT setting
 #
 ifneq ($(filter omap5uevm jacinto6evm,$(TARGET_PRODUCT)),)
