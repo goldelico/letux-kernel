@@ -8797,6 +8797,7 @@ L:	letux-kernel@openphoenux.org
 W:	https://pyra-handheld.com
 T:	git://git.openpandora.org/pyra-kernel.git
 S:	Maintained
+F:	drivers/input/joystick/as5013.c
 
 P54 WIRELESS DRIVER
 M:	Christian Lamparter <chunkeey@googlemail.com>
