@@ -124,7 +124,7 @@ static int is31fl319x_brightness_set(struct led_classdev *cdev,
 		goto out;
 
 	/* read current brightness of all PWM channels */
-	for (i = 0; i < IS31FL319X_MAX_LEDS; i++) {
+	for (i = 0; i < is31->cdef->num_leds; i++) {
 		unsigned int pwm_value;
 		bool on;
 
@@ -373,7 +373,7 @@ static int is31fl319x_probe(struct i2c_client *client,
 	 * But the chip does not allow to limit individual LEDs.
 	 * So we take minimum from all subnodes.
 	 */
-	for (i = 0; i < IS31FL319X_MAX_LEDS; i++)
+	for (i = 0; i < is31->cdef->num_leds; i++)
 		if (is31->leds[i].configured &&
 		    is31->leds[i].max_microamp < aggregated_led_microamp)
 			aggregated_led_microamp = is31->leds[i].max_microamp;
@@ -382,7 +382,7 @@ static int is31fl319x_probe(struct i2c_client *client,
 		     is31fl319x_microamp_to_cs(aggregated_led_microamp) << 4 |
 		     is31->audio_gain_db / 3);
 
-	for (i = 0; i < IS31FL319X_MAX_LEDS; i++) {
+	for (i = 0; i < is31->cdef->num_leds; i++) {
 		struct is31fl319x_led *led = &is31->leds[i];
 
 		if (!led->configured)
