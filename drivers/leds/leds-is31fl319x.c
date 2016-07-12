@@ -19,6 +19,7 @@
 #include <linux/leds.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_device.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
 
@@ -57,10 +58,11 @@
  * which is known to hang.
  */
 struct is31fl319x_chip {
-	struct i2c_client       *client;
-	struct regmap           *regmap;
-	struct mutex            lock;
-	u32                     audio_gain_db;
+	const struct is31fl319x_chipdef *cdef;
+	struct i2c_client               *client;
+	struct regmap                   *regmap;
+	struct mutex                    lock;
+	u32                             audio_gain_db;
 
 	struct is31fl319x_led {
 		struct is31fl319x_chip  *chip;
@@ -70,16 +72,36 @@ struct is31fl319x_chip {
 	} leds[NUM_LEDS];
 };
 
-static const struct i2c_device_id is31fl319x_id[] = {
-	{ "is31fl3190", 1 },
-	{ "is31fl3191", 1 },
-	{ "is31fl3193", 3 },
-	{ "is31fl3196", 6 },
-	{ "is31fl3199", 9 },
-	{ "sn3199", 9 },
+struct is31fl319x_chipdef {
+	int num_leds;
+};
+
+static const struct is31fl319x_chipdef is31fl3190_cdef = {
+	.num_leds = 1,
+};
+
+static const struct is31fl319x_chipdef is31fl3193_cdef = {
+	.num_leds = 3,
+};
+
+static const struct is31fl319x_chipdef is31fl3196_cdef = {
+	.num_leds = 6,
+};
+
+static const struct is31fl319x_chipdef is31fl3199_cdef = {
+	.num_leds = 9,
+};
+
+static const struct of_device_id of_is31fl319x_match[] = {
+	{ .compatible = "issi,is31fl3190", .data = &is31fl3190_cdef, },
+	{ .compatible = "issi,is31fl3191", .data = &is31fl3190_cdef, },
+	{ .compatible = "issi,is31fl3193", .data = &is31fl3193_cdef, },
+	{ .compatible = "issi,is31fl3196", .data = &is31fl3196_cdef, },
+	{ .compatible = "issi,is31fl3199", .data = &is31fl3199_cdef, },
+	{ .compatible = "si-en,sn3199",    .data = &is31fl3199_cdef, },
 	{ }
 };
-MODULE_DEVICE_TABLE(i2c, is31fl319x_id);
+MODULE_DEVICE_TABLE(of, of_is31fl319x_match);
 
 static int is31fl319x_brightness_set(struct led_classdev *cdev,
 				   enum led_brightness brightness)
@@ -178,23 +200,26 @@ static int is31fl319x_parse_dt(struct device *dev,
 			       struct is31fl319x_chip *is31)
 {
 	struct device_node *np = dev->of_node, *child;
-	struct led_info *is31_leds;
+	const struct of_device_id *of_dev_id;
 	int count;
 	int ret;
 
 	if (!np)
 		return -ENODEV;
 
+	of_dev_id = of_match_device(of_is31fl319x_match, dev);
+	if (!of_dev_id)
+		return -EINVAL;
+
+	is31->cdef = of_dev_id->data;
+
 	count = of_get_child_count(np);
 
-	dev_dbg(dev, "child count %d\n", count);
-	if (!count || count > NUM_LEDS)
-		return -ENODEV;
+	dev_dbg(dev, "probe %s with %d leds defined in DT\n",
+		of_dev_id->compatible, count);
 
-	is31_leds = devm_kzalloc(dev, sizeof(struct led_info) * NUM_LEDS,
-				 GFP_KERNEL);
-	if (!is31_leds)
-		return -ENOMEM;
+	if (!count || count > is31->cdef->num_leds)
+		return -ENODEV;
 
 	for_each_child_of_node(np, child) {
 		struct is31fl319x_led *led;
@@ -241,17 +266,6 @@ static int is31fl319x_parse_dt(struct device *dev,
 
 	return 0;
 }
-
-static const struct of_device_id of_is31fl319x_leds_match[] = {
-	{ .compatible = "issi,is31fl3190", (void *) 1 },
-	{ .compatible = "issi,is31fl3191", (void *) 1 },
-	{ .compatible = "issi,is31fl3193", (void *) 3 },
-	{ .compatible = "issi,is31fl3196", (void *) 6 },
-	{ .compatible = "issi,is31fl3199", (void *) 9 },
-	{ .compatible = "si-en,sn3199", (void *) 9 },
-	{},
-};
-MODULE_DEVICE_TABLE(of, of_is31fl319x_leds_match);
 
 static bool is31fl319x_readable_reg(struct device *dev, unsigned int reg)
 { /* we have no readable registers */
@@ -315,15 +329,11 @@ static int is31fl319x_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
 {
 	struct is31fl319x_chip *is31;
-	struct i2c_adapter *adapter;
+	struct device *dev = &client->dev;
+	struct i2c_adapter *adapter = to_i2c_adapter(dev->parent);
 	int err;
 	int i = 0;
 	u32 aggregated_led_microamp = LED_MAX_MICROAMP_UPPER_LIMIT;
-
-	adapter = to_i2c_adapter(client->dev.parent);
-
-	dev_dbg(&client->dev, "probe IS31FL319x for num_leds = %d\n",
-		(int) id->driver_data);
 
 	if (!i2c_check_functionality(adapter, I2C_FUNC_I2C))
 		return -EIO;
@@ -388,10 +398,19 @@ static int is31fl319x_probe(struct i2c_client *client,
 	return 0;
 }
 
+/*
+ * i2c-core requires that id_table be non-NULL, even though
+ * it is not used for DeviceTree based instantiation.
+ */
+static const struct i2c_device_id is31fl319x_id[] = {
+	{},
+};
+MODULE_DEVICE_TABLE(i2c, is31fl319x_id);
+
 static struct i2c_driver is31fl319x_driver = {
 	.driver   = {
 		.name           = "leds-is31fl319x",
-		.of_match_table = of_match_ptr(of_is31fl319x_leds_match),
+		.of_match_table = of_match_ptr(of_is31fl319x_match),
 	},
 	.probe    = is31fl319x_probe,
 	.id_table = is31fl319x_id,
