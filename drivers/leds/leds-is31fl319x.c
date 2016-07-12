@@ -390,7 +390,7 @@ static int is31fl319x_probe(struct i2c_client *client,
 
 static struct i2c_driver is31fl319x_driver = {
 	.driver   = {
-		.name    = "leds-is31fl319x",
+		.name           = "leds-is31fl319x",
 		.of_match_table = of_match_ptr(of_is31fl319x_leds_match),
 	},
 	.probe    = is31fl319x_probe,
