@@ -43,14 +43,14 @@
 
 #define IS31FL319X_REG_CNT      (IS31FL319X_RESET + 1)
 
-#define NUM_LEDS 9 /* max for 3199 chip */
+#define IS31FL319X_MAX_LEDS 9
 
-#define LED_MAX_MICROAMP_UPPER_LIMIT ((u32) 40000)
-#define LED_MAX_MICROAMP_LOWER_LIMIT ((u32) 5000)
-#define LED_MAX_MICROAMP_DEFAULT ((u32) 20000)
-#define LED_MAX_MICROAMP_STEP ((u32) 5000)
+#define IS31FL319X_CURRENT_MIN ((u32)5000)
+#define IS31FL319X_CURRENT_MAX ((u32)40000)
+#define IS31FL319X_CURRENT_STEP ((u32)5000)
+#define IS31FL319X_CURRENT_DEFAULT ((u32)20000)
 
-#define AUDIO_GAIN_DB_MAX ((u32) 21)
+#define IS31FL319X_AUDIO_GAIN_DB_MAX ((u32)21)
 
 /*
  * regmap is used as a cache of chip's register space,
@@ -69,7 +69,7 @@ struct is31fl319x_chip {
 		struct led_classdev     cdev;
 		u32                     max_microamp;
 		bool                    configured;
-	} leds[NUM_LEDS];
+	} leds[IS31FL319X_MAX_LEDS];
 };
 
 struct is31fl319x_chipdef {
@@ -124,7 +124,7 @@ static int is31fl319x_brightness_set(struct led_classdev *cdev,
 		goto out;
 
 	/* read current brightness of all PWM channels */
-	for (i = 0; i < NUM_LEDS; i++) {
+	for (i = 0; i < IS31FL319X_MAX_LEDS; i++) {
 		unsigned int pwm_value;
 		bool on;
 
@@ -183,14 +183,15 @@ static int is31fl319x_parse_child_dt(const struct device *dev,
 	if (ret < 0 && ret != -EINVAL) /* is optional */
 		return ret;
 
-	led->max_microamp = LED_MAX_MICROAMP_DEFAULT;
+	led->max_microamp = IS31FL319X_CURRENT_DEFAULT;
 	ret = of_property_read_u32(child, "led-max-microamp",
 				   &led->max_microamp);
 	if (!ret) {
 		led->max_microamp = clamp(led->max_microamp,
-					  LED_MAX_MICROAMP_LOWER_LIMIT,
-					  LED_MAX_MICROAMP_UPPER_LIMIT);
-		led->max_microamp -= led->max_microamp % LED_MAX_MICROAMP_STEP;
+					  IS31FL319X_CURRENT_MIN,
+					  IS31FL319X_CURRENT_MAX);
+		led->max_microamp -= led->max_microamp %
+			IS31FL319X_CURRENT_STEP;
 	}
 
 	return 0;
@@ -229,7 +230,7 @@ static int is31fl319x_parse_dt(struct device *dev,
 		if (ret)
 			break;
 
-		if (reg < 1 || reg > NUM_LEDS) {
+		if (reg < 1 || reg > IS31FL319X_MAX_LEDS) {
 			dev_err(dev, "invalid led reg %u\n", reg);
 			ret = -EINVAL;
 			break;
@@ -260,7 +261,7 @@ static int is31fl319x_parse_dt(struct device *dev,
 	ret = of_property_read_u32(np, "audio-gain-db", &is31->audio_gain_db);
 	if (!ret) {
 		is31->audio_gain_db = min(is31->audio_gain_db,
-					  AUDIO_GAIN_DB_MAX);
+					  IS31FL319X_AUDIO_GAIN_DB_MAX);
 		is31->audio_gain_db -= is31->audio_gain_db % 3;
 	}
 
@@ -333,7 +334,7 @@ static int is31fl319x_probe(struct i2c_client *client,
 	struct i2c_adapter *adapter = to_i2c_adapter(dev->parent);
 	int err;
 	int i = 0;
-	u32 aggregated_led_microamp = LED_MAX_MICROAMP_UPPER_LIMIT;
+	u32 aggregated_led_microamp = IS31FL319X_CURRENT_MAX;
 
 	if (!i2c_check_functionality(adapter, I2C_FUNC_I2C))
 		return -EIO;
@@ -372,7 +373,7 @@ static int is31fl319x_probe(struct i2c_client *client,
 	 * But the chip does not allow to limit individual LEDs.
 	 * So we take minimum from all subnodes.
 	 */
-	for (i = 0; i < NUM_LEDS; i++)
+	for (i = 0; i < IS31FL319X_MAX_LEDS; i++)
 		if (is31->leds[i].configured &&
 		    is31->leds[i].max_microamp < aggregated_led_microamp)
 			aggregated_led_microamp = is31->leds[i].max_microamp;
@@ -381,7 +382,7 @@ static int is31fl319x_probe(struct i2c_client *client,
 		     is31fl319x_microamp_to_cs(aggregated_led_microamp) << 4 |
 		     is31->audio_gain_db / 3);
 
-	for (i = 0; i < NUM_LEDS; i++) {
+	for (i = 0; i < IS31FL319X_MAX_LEDS; i++) {
 		struct is31fl319x_led *led = &is31->leds[i];
 
 		if (!led->configured)
