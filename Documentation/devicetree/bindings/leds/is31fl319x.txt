@@ -49,4 +49,3 @@ fancy_leds: leds@65 {
 		linux,default-trigger = "default-on";
 	};
 };
-
