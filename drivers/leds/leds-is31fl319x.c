@@ -230,7 +230,7 @@ static int is31fl319x_parse_dt(struct device *dev,
 		if (ret)
 			break;
 
-		if (reg < 1 || reg > IS31FL319X_MAX_LEDS) {
+		if (reg < 1 || reg > is31->cdef->num_leds) {
 			dev_err(dev, "invalid led reg %u\n", reg);
 			ret = -EINVAL;
 			break;
