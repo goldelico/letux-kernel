@@ -104,7 +104,7 @@ static const struct of_device_id of_is31fl319x_match[] = {
 MODULE_DEVICE_TABLE(of, of_is31fl319x_match);
 
 static int is31fl319x_brightness_set(struct led_classdev *cdev,
-				   enum led_brightness brightness)
+				     enum led_brightness brightness)
 {
 	struct is31fl319x_led *led = container_of(cdev, struct is31fl319x_led,
 						  cdev);
@@ -139,11 +139,11 @@ static int is31fl319x_brightness_set(struct led_classdev *cdev,
 		on = ret >= 0 && pwm_value > LED_OFF;
 
 		if (i < 3)
-			ctrl1 |= on << i;     /* 0..2 => bit 0..2 */
+			ctrl1 |= on << i;       /* 0..2 => bit 0..2 */
 		else if (i < 6)
-			ctrl1 |= on << (i+1); /* 3..5 => bit 4..6 */
+			ctrl1 |= on << (i + 1); /* 3..5 => bit 4..6 */
 		else
-			ctrl2 |= on << (i-6); /* 6..8 => bit 0..2 */
+			ctrl2 |= on << (i - 6); /* 6..8 => bit 0..2 */
 	}
 
 	if (ctrl1 > 0 || ctrl2 > 0) {
@@ -179,7 +179,7 @@ static int is31fl319x_parse_child_dt(const struct device *dev,
 
 	cdev->default_trigger = NULL;
 	ret = of_property_read_string(child, "linux,default-trigger",
-		&cdev->default_trigger);
+				      &cdev->default_trigger);
 	if (ret < 0 && ret != -EINVAL) /* is optional */
 		return ret;
 
@@ -327,7 +327,7 @@ static int is31fl319x_microamp_to_cs(u32 microamp)
 }
 
 static int is31fl319x_probe(struct i2c_client *client,
-		const struct i2c_device_id *id)
+			    const struct i2c_device_id *id)
 {
 	struct is31fl319x_chip *is31;
 	struct device *dev = &client->dev;
