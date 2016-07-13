@@ -344,7 +344,7 @@ static int is31fl319x_probe(struct i2c_client *client,
 	struct i2c_adapter *adapter = to_i2c_adapter(dev->parent);
 	int err;
 	int i = 0;
-	u32 aggregated_led_microamp = IS31FL319X_CURRENT_MIN;
+	u32 aggregated_led_microamp = IS31FL319X_CURRENT_MAX;
 
 	if (!i2c_check_functionality(adapter, I2C_FUNC_I2C))
 		return -EIO;
@@ -381,12 +381,11 @@ static int is31fl319x_probe(struct i2c_client *client,
 	/*
 	 * Kernel conventions require per-LED led-max-microamp property.
 	 * But the chip does not allow to limit individual LEDs.
-	 * So we take maximum from all subnodes and reduce max_brightness
-	 * properties of the LEDs with lesser led-max-microamp.
+	 * So we take minimum from all subnodes for safety of hardware.
 	 */
 	for (i = 0; i < is31->cdef->num_leds; i++)
 		if (is31->leds[i].configured &&
-		    is31->leds[i].max_microamp > aggregated_led_microamp)
+		    is31->leds[i].max_microamp < aggregated_led_microamp)
 			aggregated_led_microamp = is31->leds[i].max_microamp;
 
 	regmap_write(is31->regmap, IS31FL319X_CONFIG2,
@@ -401,8 +400,6 @@ static int is31fl319x_probe(struct i2c_client *client,
 
 		led->chip = is31;
 		led->cdev.brightness_set_blocking = is31fl319x_brightness_set;
-		led->cdev.max_brightness = LED_FULL * led->max_microamp /
-			aggregated_led_microamp;
 
 		err = devm_led_classdev_register(&client->dev, &led->cdev);
 		if (err < 0)
