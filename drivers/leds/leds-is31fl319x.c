@@ -43,6 +43,9 @@
 
 #define IS31FL319X_REG_CNT      (IS31FL319X_RESET + 1)
 
+/* Shift of CS (Current Setting) in CONFIG2 register */
+#define IS31FL319X_CONFIG2_CS_SHIFT 4
+
 #define IS31FL319X_MAX_LEDS 9
 
 #define IS31FL319X_CURRENT_MIN ((u32)5000)
@@ -177,7 +180,6 @@ static int is31fl319x_parse_child_dt(const struct device *dev,
 	if (of_property_read_string(child, "label", &cdev->name))
 		cdev->name = child->name;
 
-	cdev->default_trigger = NULL;
 	ret = of_property_read_string(child, "linux,default-trigger",
 				      &cdev->default_trigger);
 	if (ret < 0 && ret != -EINVAL) /* is optional */
@@ -209,8 +211,10 @@ static int is31fl319x_parse_dt(struct device *dev,
 		return -ENODEV;
 
 	of_dev_id = of_match_device(of_is31fl319x_match, dev);
-	if (!of_dev_id)
+	if (!of_dev_id) {
+		dev_err(dev, "Failed to match device with supported chips\n");
 		return -EINVAL;
+	}
 
 	is31->cdef = of_dev_id->data;
 
@@ -219,21 +223,26 @@ static int is31fl319x_parse_dt(struct device *dev,
 	dev_dbg(dev, "probe %s with %d leds defined in DT\n",
 		of_dev_id->compatible, count);
 
-	if (!count || count > is31->cdef->num_leds)
+	if (!count || count > is31->cdef->num_leds) {
+		dev_err(dev, "Number of leds defined must be between 1 and %u\n",
+			is31->cdef->num_leds);
 		return -ENODEV;
+	}
 
 	for_each_child_of_node(np, child) {
 		struct is31fl319x_led *led;
 		u32 reg;
 
 		ret = of_property_read_u32(child, "reg", &reg);
-		if (ret)
-			break;
+		if (ret) {
+			dev_err(dev, "Failed to read led 'reg' property\n");
+			goto put_child_node;
+		}
 
 		if (reg < 1 || reg > is31->cdef->num_leds) {
 			dev_err(dev, "invalid led reg %u\n", reg);
 			ret = -EINVAL;
-			break;
+			goto put_child_node;
 		}
 
 		led = &is31->leds[reg - 1];
@@ -241,20 +250,16 @@ static int is31fl319x_parse_dt(struct device *dev,
 		if (led->configured) {
 			dev_err(dev, "led %u is already configured\n", reg);
 			ret = -EINVAL;
-			break;
+			goto put_child_node;
 		}
 
 		ret = is31fl319x_parse_child_dt(dev, child, led);
 		if (ret) {
 			dev_err(dev, "led %u DT parsing failed\n", reg);
-			break;
+			goto put_child_node;
 		}
 
 		led->configured = true;
-	}
-	if (ret) {
-		dev_err(dev, "DT child nodes parsing failed, error %d\n", ret);
-		return ret;
 	}
 
 	is31->audio_gain_db = 0;
@@ -266,6 +271,10 @@ static int is31fl319x_parse_dt(struct device *dev,
 	}
 
 	return 0;
+
+put_child_node:
+	of_node_put(child);
+	return ret;
 }
 
 static bool is31fl319x_readable_reg(struct device *dev, unsigned int reg)
@@ -310,11 +319,9 @@ static struct regmap_config regmap_config = {
 	.num_reg_defaults = ARRAY_SIZE(is31fl319x_reg_defaults),
 };
 
-static int is31fl319x_microamp_to_cs(u32 microamp)
+static int is31fl319x_microamp_to_cs(struct device *dev, u32 microamp)
 {
 	switch (microamp) {
-	default:
-		WARN(1, "Invalid microamp setting");
 	case 20000: return 0;
 	case 15000: return 1;
 	case 10000: return 2;
@@ -323,6 +330,9 @@ static int is31fl319x_microamp_to_cs(u32 microamp)
 	case 35000: return 5;
 	case 30000: return 6;
 	case 25000: return 7;
+	default:
+		dev_warn(dev, "Invalid microamp setting %u\n", microamp);
+		return 0;
 	}
 }
 
@@ -334,7 +344,7 @@ static int is31fl319x_probe(struct i2c_client *client,
 	struct i2c_adapter *adapter = to_i2c_adapter(dev->parent);
 	int err;
 	int i = 0;
-	u32 aggregated_led_microamp = IS31FL319X_CURRENT_MAX;
+	u32 aggregated_led_microamp = IS31FL319X_CURRENT_MIN;
 
 	if (!i2c_check_functionality(adapter, I2C_FUNC_I2C))
 		return -EIO;
@@ -346,16 +356,15 @@ static int is31fl319x_probe(struct i2c_client *client,
 	mutex_init(&is31->lock);
 
 	err = is31fl319x_parse_dt(&client->dev, is31);
-	if (err) {
-		dev_err(&client->dev, "DT parsing error %d\n", err);
-		return err;
-	}
+	if (err)
+		goto free_mutex;
 
 	is31->client = client;
 	is31->regmap = devm_regmap_init_i2c(client, &regmap_config);
 	if (IS_ERR(is31->regmap)) {
 		dev_err(&client->dev, "failed to allocate register map\n");
-		return PTR_ERR(is31->regmap);
+		err = PTR_ERR(is31->regmap);
+		goto free_mutex;
 	}
 
 	i2c_set_clientdata(client, is31);
@@ -365,22 +374,24 @@ static int is31fl319x_probe(struct i2c_client *client,
 	if (err < 0) {
 		dev_err(&client->dev, "no response from chip write: err = %d\n",
 			err);
-		return -EIO; /* does not answer */
+		err = -EIO; /* does not answer */
+		goto free_mutex;
 	}
 
 	/*
 	 * Kernel conventions require per-LED led-max-microamp property.
 	 * But the chip does not allow to limit individual LEDs.
-	 * So we take minimum from all subnodes.
+	 * So we take maximum from all subnodes and reduce max_brightness
+	 * properties of the LEDs with lesser led-max-microamp.
 	 */
 	for (i = 0; i < is31->cdef->num_leds; i++)
 		if (is31->leds[i].configured &&
-		    is31->leds[i].max_microamp < aggregated_led_microamp)
+		    is31->leds[i].max_microamp > aggregated_led_microamp)
 			aggregated_led_microamp = is31->leds[i].max_microamp;
 
 	regmap_write(is31->regmap, IS31FL319X_CONFIG2,
-		     is31fl319x_microamp_to_cs(aggregated_led_microamp) << 4 |
-		     is31->audio_gain_db / 3);
+		     is31fl319x_microamp_to_cs(dev, aggregated_led_microamp) <<
+		     IS31FL319X_CONFIG2_CS_SHIFT | is31->audio_gain_db / 3);
 
 	for (i = 0; i < is31->cdef->num_leds; i++) {
 		struct is31fl319x_led *led = &is31->leds[i];
@@ -390,12 +401,26 @@ static int is31fl319x_probe(struct i2c_client *client,
 
 		led->chip = is31;
 		led->cdev.brightness_set_blocking = is31fl319x_brightness_set;
+		led->cdev.max_brightness = LED_FULL * led->max_microamp /
+			aggregated_led_microamp;
 
 		err = devm_led_classdev_register(&client->dev, &led->cdev);
 		if (err < 0)
-			return err;
+			goto free_mutex;
 	}
 
+	return 0;
+
+free_mutex:
+	mutex_destroy(&is31->lock);
+	return err;
+}
+
+static int is31fl319x_remove(struct i2c_client *client)
+{
+	struct is31fl319x_chip *is31 = i2c_get_clientdata(client);
+
+	mutex_destroy(&is31->lock);
 	return 0;
 }
 
@@ -414,6 +439,7 @@ static struct i2c_driver is31fl319x_driver = {
 		.of_match_table = of_match_ptr(of_is31fl319x_match),
 	},
 	.probe    = is31fl319x_probe,
+	.remove   = is31fl319x_remove,
 	.id_table = is31fl319x_id,
 };
 
