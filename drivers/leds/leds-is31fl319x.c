@@ -43,6 +43,7 @@
 
 /* Shift of CS (Current Setting) in CONFIG2 register */
 #define IS31FL319X_CONFIG2_CS_SHIFT 4
+#define IS31FL319X_CONFIG2_CS_MASK  0x7
 
 #define IS31FL319X_MAX_LEDS 9
 
@@ -317,20 +318,9 @@ static struct regmap_config regmap_config = {
 };
 
 static int is31fl319x_microamp_to_cs(struct device *dev, u32 microamp)
-{
-	switch (microamp) {
-	case 20000: return 0;
-	case 15000: return 1;
-	case 10000: return 2;
-	case 5000:  return 3;
-	case 40000: return 4;
-	case 35000: return 5;
-	case 30000: return 6;
-	case 25000: return 7;
-	default:
-		dev_warn(dev, "Invalid microamp setting %u\n", microamp);
-		return 0;
-	}
+{ /* round down to nearest supported value (range check done by caller) */
+	int step = microamp / IS31FL319X_CURRENT_STEP;
+	return (12 - step) & IS31FL319X_CONFIG2_CS_MASK; /* CS encoding */
 }
 
 static int is31fl319x_probe(struct i2c_client *client,
