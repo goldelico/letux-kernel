@@ -187,11 +187,10 @@ static int is31fl319x_parse_child_dt(const struct device *dev,
 	ret = of_property_read_u32(child, "led-max-microamp",
 				   &led->max_microamp);
 	if (!ret) {
-		led->max_microamp = clamp(led->max_microamp,
-					  IS31FL319X_CURRENT_MIN,
+		if (led->max_microamp < IS31FL319X_CURRENT_MIN)
+			return -EINVAL;	/* not supported */
+		led->max_microamp = min(led->max_microamp,
 					  IS31FL319X_CURRENT_MAX);
-		led->max_microamp -= led->max_microamp %
-			IS31FL319X_CURRENT_STEP;
 	}
 
 	return 0;
