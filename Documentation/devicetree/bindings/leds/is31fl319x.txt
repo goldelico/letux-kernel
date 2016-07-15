@@ -13,9 +13,6 @@ Required properties:
 - reg: 0x64, 0x65, 0x66, 0x67.
 
 Optional properties:
-- led-max-microamp : See Documentation/devicetree/bindings/leds/common.txt.
-	Valid values: 5000 - 40000, step by 5000 (rounded down)
-	Default: 20000 (20 mA)
 - audio-gain-db : audio gain selection for external analog modulation input.
 	Valid values: 0 - 21, step by 3 (rounded down)
 	Default: 0
@@ -23,12 +20,19 @@ Optional properties:
 Each led is represented as a sub-node of the issi,is31fl319x device.
 There can be less leds subnodes than the chip can support but not more.
 
-LED sub-node properties:
-- label : (optional) see Documentation/devicetree/bindings/leds/common.txt.
+Required led sub-node properties:
 - reg : number of LED line
 	Valid values: 1 - number of leds supported by the chip variant.
-- linux,default-trigger : (optional)
+
+Optional led sub-node properties:
+- label : see Documentation/devicetree/bindings/leds/common.txt.
+- linux,default-trigger :
 	see Documentation/devicetree/bindings/leds/common.txt.
+- led-max-microamp : (optional)
+	Valid values: 5000 - 40000, step by 5000 (rounded down)
+	Default: 20000 (20 mA)
+	Note: a driver will take the lowest of all led limits since the
+	chip has a single global setting.
 
 Examples:
 
@@ -41,6 +45,7 @@ fancy_leds: leds@65 {
 	red_aux: led@1 {
 		label = "red:aux";
 		reg = <1>;
+		led-max-microamp = <10000>;
 	};
 
 	green_power: led@5 {
