@@ -42,10 +42,14 @@ struct drm_omap_param {
 #define OMAP_BO_CACHE_MASK	0x00000006	/* cache type mask, see cache modes */
 #define OMAP_BO_TILED_MASK	0x00000f00	/* tiled mapping mask, see tiled modes */
 
-/* cache modes */
-#define OMAP_BO_CACHED		0x00000000	/* default */
-#define OMAP_BO_WC		0x00000002	/* write-combine */
-#define OMAP_BO_UNCACHED	0x00000004	/* strongly-ordered (uncached) */
+/* memory types / cache modes */
+#define OMAP_BO_CACHED		0x00000000	/* normal cacheable */
+#define OMAP_BO_WC		0x00000002	/* normal non-cacheable */
+#define OMAP_BO_UNCACHED	0x00000004	/* device */
+#define OMAP_BO_SYNC		0x00000006	/* strongly-ordered */
+
+/* allow use of normal memory types even when this is hazardous */
+#define OMAP_BO_FORCE		0x00000010
 
 /* tiled modes */
 #define OMAP_BO_TILED_8		0x00000100
