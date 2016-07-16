@@ -73,8 +73,9 @@ struct omap_gem_object {
 	refcount_t pin_cnt;
 
 	/**
-	 * If the buffer has been imported from a dmabuf the OMAP_DB_DMABUF flag
-	 * is set and the sgt field is valid.
+	 * buffer represented as sg table. It is valid if
+	 * - the buffer is imported from dmabuf (OMAP_BO_MEM_DMABUF flag set)
+	 * - the buffer is mapped through dmabuf (also increases dma_addr_cnt)
 	 */
 	struct sg_table *sgt;
 
@@ -537,11 +538,20 @@ static int omap_gem_object_mmap(struct drm_gem_object *obj, struct vm_area_struc
 
 	vm_flags_set(vma, VM_DONTEXPAND | VM_DONTDUMP | VM_IO | VM_MIXEDMAP);
 
-	if (omap_obj->flags & OMAP_BO_WC) {
-		vma->vm_page_prot = pgprot_writecombine(vma_get_page_prot(vma));
-	} else if (omap_obj->flags & OMAP_BO_UNCACHED) {
-		vma->vm_page_prot = pgprot_noncached(vma_get_page_prot(vma));
-	} else {
+// CHECKME: this is always overwritten?
+	vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
+
+	switch (omap_obj->flags & OMAP_BO_CACHE_MASK) {
+	case OMAP_BO_WC:
+		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+		break;
+	case OMAP_BO_UNCACHED:
+		vma->vm_page_prot = pgprot_device(vma->vm_page_prot);
+		break;
+	case OMAP_BO_SYNC:
+		vma->vm_page_prot = pgprot_stronglyordered(vma->vm_page_prot);
+		break;
+	default:
 		/*
 		 * We do have some private objects, at least for scanout buffers
 		 * on hardware without DMM/TILER.  But these are allocated write-
@@ -1301,11 +1311,13 @@ struct drm_gem_object *omap_gem_new(struct drm_device *dev,
 		flags |= OMAP_BO_MEM_SHMEM;
 
 		/*
-		 * Currently don't allow cached buffers. There is some caching
-		 * stuff that needs to be handled better.
+		 * Unless caller knows what he's doing replace cacheable and
+		 * normal uncacheable memory types by default type for cpu.
 		 */
-		flags &= ~(OMAP_BO_CACHED|OMAP_BO_WC|OMAP_BO_UNCACHED);
-		flags |= tiler_get_cpu_cache_flags();
+		if (!(flags & (OMAP_BO_UNCACHED | OMAP_BO_FORCE))) {
+			flags &= ~OMAP_BO_CACHE_MASK;
+			flags |= tiler_get_cpu_cache_flags();
+		}
 	} else if ((flags & OMAP_BO_SCANOUT) && !priv->has_dmm) {
 		/*
 		 * If we don't have DMM, we must allocate scanout buffers
