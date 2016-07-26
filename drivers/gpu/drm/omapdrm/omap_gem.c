@@ -803,6 +803,53 @@ void omap_gem_dma_sync(struct drm_gem_object *obj,
 	}
 }
 
+static int omap_gem_pin(struct omap_gem_object *omap_obj)
+{
+	struct drm_gem_object *obj = &omap_obj->base;
+	struct page **pages;
+	uint32_t npages = obj->size >> PAGE_SHIFT;
+	enum tiler_fmt fmt = gem2fmt(omap_obj->flags);
+	struct tiler_block *block;
+	int ret;
+
+	BUG_ON(omap_obj->block);
+
+	ret = get_pages(obj, &pages);
+	if (ret)
+		return ret;
+
+	if (omap_obj->flags & OMAP_BO_TILED) {
+		block = tiler_reserve_2d(fmt,
+				omap_obj->width,
+				omap_obj->height, PAGE_SIZE);
+	} else {
+		block = tiler_reserve_1d(obj->size);
+	}
+
+	if (IS_ERR(block)) {
+		ret = PTR_ERR(block);
+		dev_err(obj->dev->dev,
+			"could not remap: %d (%d)\n", ret, fmt);
+		return ret;
+	}
+
+	/* TODO: enable async refill.. */
+	ret = tiler_pin(block, pages, npages,
+			omap_obj->roll, true);
+	if (ret) {
+		tiler_release(block);
+		dev_err(obj->dev->dev,
+				"could not pin: %d\n", ret);
+		return ret;
+	}
+
+	omap_obj->paddr = tiler_ssptr(block);
+	omap_obj->block = block;
+
+	DBG("got paddr: %pad", &omap_obj->paddr);
+	return 0;
+}
+
 /* Get physical address for DMA.. if 'remap' is true, and the buffer is not
  * already contiguous, remap it to pin in physically contiguous memory.. (ie.
  * map in TILER)
@@ -818,46 +865,9 @@ int omap_gem_get_paddr(struct drm_gem_object *obj,
 
 	if (!is_contiguous(omap_obj) && remap && priv->has_dmm) {
 		if (omap_obj->paddr_cnt == 0) {
-			struct page **pages;
-			uint32_t npages = obj->size >> PAGE_SHIFT;
-			enum tiler_fmt fmt = gem2fmt(omap_obj->flags);
-			struct tiler_block *block;
-
-			BUG_ON(omap_obj->block);
-
-			ret = get_pages(obj, &pages);
+			ret = omap_gem_pin(omap_obj);
 			if (ret)
 				goto fail;
-
-			if (omap_obj->flags & OMAP_BO_TILED) {
-				block = tiler_reserve_2d(fmt,
-						omap_obj->width,
-						omap_obj->height, 0);
-			} else {
-				block = tiler_reserve_1d(obj->size);
-			}
-
-			if (IS_ERR(block)) {
-				ret = PTR_ERR(block);
-				dev_err(obj->dev->dev,
-					"could not remap: %d (%d)\n", ret, fmt);
-				goto fail;
-			}
-
-			/* TODO: enable async refill.. */
-			ret = tiler_pin(block, pages, npages,
-					omap_obj->roll, true);
-			if (ret) {
-				tiler_release(block);
-				dev_err(obj->dev->dev,
-						"could not pin: %d\n", ret);
-				goto fail;
-			}
-
-			omap_obj->paddr = tiler_ssptr(block);
-			omap_obj->block = block;
-
-			DBG("got paddr: %pad", &omap_obj->paddr);
 		}
 
 		omap_obj->paddr_cnt++;
@@ -876,31 +886,36 @@ fail:
 	return ret;
 }
 
+static void omap_gem_unpin(struct omap_gem_object *omap_obj)
+{
+	int ret;
+	ret = tiler_unpin(omap_obj->block);
+	if (ret) {
+		dev_err(omap_obj->base.dev->dev,
+			"could not unpin pages: %d\n", ret);
+	}
+	ret = tiler_release(omap_obj->block);
+	if (ret) {
+		dev_err(omap_obj->base.dev->dev,
+			"could not release unmap: %d\n", ret);
+	}
+	omap_obj->paddr = 0;
+	omap_obj->block = NULL;
+}
+
 /* Release physical address, when DMA is no longer being performed.. this
  * could potentially unpin and unmap buffers from TILER
  */
 void omap_gem_put_paddr(struct drm_gem_object *obj)
 {
 	struct omap_gem_object *omap_obj = to_omap_bo(obj);
-	int ret;
 
 	mutex_lock(&obj->dev->struct_mutex);
-	if (omap_obj->paddr_cnt > 0) {
+
+	if (!WARN_ON(omap_obj->paddr_cnt == 0)) {
 		omap_obj->paddr_cnt--;
-		if (omap_obj->paddr_cnt == 0) {
-			ret = tiler_unpin(omap_obj->block);
-			if (ret) {
-				dev_err(obj->dev->dev,
-					"could not unpin pages: %d\n", ret);
-			}
-			ret = tiler_release(omap_obj->block);
-			if (ret) {
-				dev_err(obj->dev->dev,
-					"could not release unmap: %d\n", ret);
-			}
-			omap_obj->paddr = 0;
-			omap_obj->block = NULL;
-		}
+		if (omap_obj->paddr_cnt == 0)
+			omap_gem_unpin(omap_obj);
 	}
 
 	mutex_unlock(&obj->dev->struct_mutex);
@@ -1293,6 +1308,11 @@ void omap_gem_free_object(struct drm_gem_object *obj)
 	list_del(&omap_obj->mm_list);
 	spin_unlock(&priv->list_lock);
 
+	if ((omap_obj->flags & OMAP_BO_TILED) && omap_obj->paddr_cnt) {
+		if (--omap_obj->paddr_cnt == 0)
+			omap_gem_unpin(omap_obj);
+	}
+
 	/* this means the object is still pinned.. which really should
 	 * not happen.  I think..
 	 */
@@ -1412,6 +1432,12 @@ struct drm_gem_object *omap_gem_new(struct drm_device *dev,
 					       GFP_KERNEL);
 		if (!omap_obj->vaddr)
 			goto err_release;
+	}
+	if (flags & OMAP_BO_TILED) {
+		ret = omap_gem_pin(omap_obj);
+		if (ret)
+			goto err_release;
+		++omap_obj->paddr_cnt;
 	}
 
 	spin_lock(&priv->list_lock);
