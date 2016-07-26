@@ -368,6 +368,7 @@ static vm_fault_t omap_gem_fault_1d(struct drm_gem_object *obj,
 			__pfn_to_pfn_t(pfn, PFN_DEV));
 }
 
+#if 0
 /* Special handling for the case of faulting in 2d tiled buffers */
 static vm_fault_t omap_gem_fault_2d(struct drm_gem_object *obj,
 		struct vm_area_struct *vma, struct vm_fault *vmf)
@@ -474,6 +475,7 @@ static vm_fault_t omap_gem_fault_2d(struct drm_gem_object *obj,
 
 	return ret;
 }
+#endif
 
 /**
  * omap_gem_fault		-	pagefault handler for GEM objects
@@ -514,7 +516,7 @@ static vm_fault_t omap_gem_fault(struct vm_fault *vmf)
 	 */
 
 	if (omap_obj->flags & OMAP_BO_TILED_MASK)
-		ret = omap_gem_fault_2d(obj, vma, vmf);
+		ret = -EFAULT; //omap_gem_fault_2d(obj, vma, vmf);
 	else
 		ret = omap_gem_fault_1d(obj, vma, vmf);
 
@@ -543,8 +545,10 @@ int omap_gem_mmap_obj(struct drm_gem_object *obj,
 {
 	struct omap_gem_object *omap_obj = to_omap_bo(obj);
 
-	vma->vm_flags &= ~VM_PFNMAP;
-	vma->vm_flags |= VM_MIXEDMAP;
+	if (!(omap_obj->flags & OMAP_BO_TILED)) {
+		vma->vm_flags &= ~VM_PFNMAP;
+		vma->vm_flags |= VM_MIXEDMAP;
+	}
 
 	vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
 
@@ -576,6 +580,25 @@ int omap_gem_mmap_obj(struct drm_gem_object *obj,
 		vma_set_file(vma, obj->filp);
 
 		vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
+	}
+
+	if (omap_obj->flags & OMAP_BO_TILED) {
+		const enum tiler_fmt fmt = gem2fmt(omap_obj->flags);
+		const uint vstride = tiler_vsize(fmt, omap_obj->width, 1);
+		const uint pstride = tiler_stride(fmt, 0) >> PAGE_SHIFT;
+		unsigned long vaddr = vma->vm_start;
+		unsigned long pfn = omap_obj->dma_addr >> PAGE_SHIFT;
+		uint i;
+		int ret = 0;
+		for (i = 0; i < omap_obj->height; i++) {
+			ret = remap_pfn_range(vma, vaddr, pfn, vstride,
+					vma->vm_page_prot);
+			if (ret)
+				break;
+			vaddr += vstride;
+			pfn += pstride;
+		}
+		return ret;
 	}
 
 	return 0;
