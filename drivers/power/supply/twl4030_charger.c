@@ -452,6 +452,26 @@ static int twl4030_charger_enable_usb(struct twl4030_bci *bci, bool enable)
 			bci->usb_enabled = 1;
 		}
 
+		/* check if USB PHY is correctly enabled
+		 * can be removed after phy-twl4030-usb is fixed
+		 * and sets this bit if requested by pm_runtime_get_sync */
+
+		{ /* local block to keep this a single hunk patch
+		   * this makes it easier to git revert */
+#define POWER_CTRL			0xAC
+#define POWER_CTRL_OTG_ENAB		(1 << 5)
+
+			u8 val;
+			ret = twl_i2c_read_u8(TWL_MODULE_USB, &val, POWER_CTRL);
+			if(ret >= 0 && !(val & POWER_CTRL_OTG_ENAB)) {
+				dev_warn(bci->dev, "ADC8 (VBUS) prescaler was not enabled!"
+					" Please verify power management of twl4030-phy\n");
+				twl4030_clear_set(TWL_MODULE_USB, 0,
+					POWER_CTRL_OTG_ENAB, POWER_CTRL);
+				msleep(50);	/* as per data sheet */
+			}
+		}
+
 		if (bci->usb_mode == CHARGE_AUTO)
 			/* forcing the field BCIAUTOUSB (BOOT_BCI[1]) to 1 */
 			ret = twl4030_clear_set_boot_bci(0, TWL4030_BCIAUTOUSB);
