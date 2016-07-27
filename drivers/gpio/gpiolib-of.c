@@ -40,7 +40,10 @@ static int of_gpiochip_find_and_xlate(struct gpio_chip *gc, void *data)
 {
 	struct gg_data *gg_data = data;
 	int ret;
-
+	if (gc == NULL) {
+		printk("gpiolibof_match  chip is missing\n");
+		return false;
+	}
 	if ((gc->of_node != gg_data->gpiospec.np) ||
 	    (gc->of_gpio_n_cells != gg_data->gpiospec.args_count) ||
 	    (!gc->of_xlate))
