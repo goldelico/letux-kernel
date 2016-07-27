@@ -298,30 +298,37 @@ testing "Vibra" "running rumble effect demo"
 [ -r /dev/input/rumble ] && ./vibra.py && ok || nok
 
 testing "Sound" "enabling sound"
+function playfile {
+	aplay $1
+	# if twl6040:
+	# take stdin if no file is specified
+	# play -t wav ${1:-'-'} remix 1 1 1 1
+}
 killall -9 arecord aplay 2>/dev/null # stop any running audio forwarding (or amixer commands will fail)
 sleep 1
-amixer -q set "AVADC Clock Priority" "HiFi high priority" &&
-amixer -q set "DAC1 Analog" off &&
-amixer -q set "DAC2 Analog" on &&
-amixer -q set "DAC2 Analog" 5 &&	# so that total gain is < 1
-amixer -q set "Codec Operation Mode" "Option 2 (voice/audio)" &&
-amixer -q set Earpiece 100% &&
-amixer -q set "Earpiece Mixer AudioL2" on &&
-amixer -q set "Earpiece Mixer Voice" off &&
-amixer -q set "Analog" 5 &&
-amixer -q set TX1 "Analog" &&
-amixer -q set "TX1 Digital" 12 &&
-amixer -q set "Analog Left AUXL" nocap &&
-amixer -q set "Analog Right AUXR" nocap &&
-amixer -q set "Analog Left Main Mic" cap &&
-amixer -q set "Analog Left Headset Mic" nocap &&
-amixer -q set HandsfreeL on &&
-amixer -q set HandsfreeR on &&
-amixer -q set "HandsfreeL Mux" AudioL2 &&
-amixer -q set "HandsfreeR Mux" AudioR2 &&
-aplay -q /usr/share/sounds/alsa/Front_Center.wav &&
+#amixer -q set "AVADC Clock Priority" "HiFi high priority" &&
+#amixer -q set "DAC1 Analog" off &&
+#amixer -q set "DAC2 Analog" on &&
+#amixer -q set "DAC2 Analog" 5 &&	# so that total gain is < 1
+#amixer -q set "Codec Operation Mode" "Option 2 (voice/audio)" &&
+#amixer -q set Earpiece 100% &&
+#amixer -q set "Earpiece Mixer AudioL2" on &&
+#amixer -q set "Earpiece Mixer Voice" off &&
+#amixer -q set "Analog" 5 &&
+#amixer -q set TX1 "Analog" &&
+#amixer -q set "TX1 Digital" 12 &&
+#amixer -q set "Analog Left AUXL" nocap &&
+#amixer -q set "Analog Right AUXR" nocap &&
+#amixer -q set "Analog Left Main Mic" cap &&
+#amixer -q set "Analog Left Headset Mic" nocap &&
+#amixer -q set HandsfreeL on &&
+#amixer -q set HandsfreeR on &&
+#amixer -q set "HandsfreeL Mux" AudioL2 &&
+#amixer -q set "HandsfreeR Mux" AudioR2 &&
+#aplay -q /usr/share/sounds/alsa/Front_Center.wav &&
+play /usr/share/sounds/alsa/Front_Center.wav &&
 ok || nok
-$OK && amixer -q set "Analog" 3 && (arecord | tee /tmp/echo.wav | aplay) >/dev/null 2>&1 &	# run sound echo
+$OK && amixer -q set "Analog" 3 && (arecord | tee /tmp/echo.wav | playfile ) >/dev/null 2>&1 &	# run sound echo
 
 testing "TVout" "enabling TVout"
 ./tvout 1 2>/dev/null && ok || nok
