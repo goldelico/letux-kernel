@@ -1099,7 +1099,7 @@ static int crtouch_remove(struct i2c_client *client)
 }
 
 static const struct i2c_device_id crtouch_idtable[] = {
-	{"crtouchId", 0},
+	{"crtouch", 0},
 	{}
 };
 
@@ -1118,6 +1118,13 @@ static struct i2c_driver crtouch_fops = {
 };
 
 MODULE_DEVICE_TABLE(i2c, crtouch_idtable);
+
+static const struct of_device_id of_is31fl319x_match[] = {
+	{ .compatible = "fsl,crtouch", 0, },
+	{ }
+};
+
+MODULE_DEVICE_TABLE(of, of_is31fl319x_match);
 
 static int crtouch_init(void)
 {
