@@ -145,7 +145,7 @@ int read_resolution(void)
 	ymax = 4096;
 #endif /* READ_RESOLUTION */
 
-	printk(KERN_DEBUG "calibration values XMAX:%i YMAX:%i\n", xmax, ymax);
+	dev_err(&client_public->dev, "calibration values XMAX:%i YMAX:%i\n", xmax, ymax);
 
 	return 0;
 }
@@ -187,14 +187,14 @@ static void report_MT(struct work_struct *work)
 	result = i2c_smbus_read_i2c_block_data(client, 2, 5, &regs_buf[2]);
 
 	if (result < 0) {
-		printk(KERN_DEBUG "smbus read error %d\n", result);
+		dev_err(&client->dev, "smbus read error %d\n", result);
 		return;
 	}
 
 #ifdef GESTURES
 	rotate_angle = i2c_smbus_read_byte_data(client, ROTATE_ANGLE);
 	if (rotate_angle < 0) {
-		printk(KERN_DEBUG "smbus read error %d\n", rotate_angle);
+		dev_err(&client->dev, "smbus read error %d\n", rotate_angle);
 		return;
 	}
 #endif
@@ -202,12 +202,12 @@ static void report_MT(struct work_struct *work)
 	result = i2c_smbus_read_i2c_block_data(client, 0, 2, &regs_buf[0]);
 
 	if (result < 0) {
-		printk(KERN_DEBUG "smbus read error %d\n", result);
+		dev_err(&client->dev, "smbus read error %d\n", result);
 		return;
 	}
 
 	if (regs_buf[0] != 0) {
-		printk(KERN_DEBUG "an error detected in crtouch error register: %02x\n", regs_buf[0]);
+		dev_err(&client->dev, "an error detected in crtouch error register: %02x\n", regs_buf[0]);
 		return;
 	}
 
@@ -417,7 +417,7 @@ static void report_MT(struct work_struct *work)
 				 * touchscreen on the TWR-LCD-RGB board.
 				 */
 #ifndef CONFIG_ARCH_KINETIS
-				printk(KERN_ALERT "Single Touch Error Reading\n");
+				dev_info(&client->dev, "Single Touch Error Reading\n");
 #endif
 			} else {
 				crtouch->x1 = xy[1];
@@ -676,11 +676,11 @@ static ssize_t crtouch_read(struct file *filep,
 			data_to_read = i2c_smbus_read_byte_data(client_public, *buf);
 
 			if (data_to_read >= 0 && copy_to_user(buf, &data_to_read, 1))
-				printk(KERN_DEBUG "error reading from userspace\n");
+				dev_err(&client_public->dev, "error reading from userspace\n");
 			break;
 
 		default:
-			printk(KERN_DEBUG "invalid address to read\n");
+			dev_err(& client_public->dev, "invalid address to read\n");
 			return -ENXIO;
 
 		}
@@ -737,7 +737,7 @@ static ssize_t crtouch_write(struct file *filep, const char __user *buf, size_t 
 			i2c_smbus_write_byte_data(client_public,
 					*data_to_write, *(data_to_write + 1));
 		else
-			printk(KERN_DEBUG "invalid range of data\n");
+			dev_dbg(&client_public->dev, "trigger_events: invalid range of data\n");
 
 		break;
 
@@ -748,7 +748,7 @@ static ssize_t crtouch_write(struct file *filep, const char __user *buf, size_t 
 			i2c_smbus_write_byte_data(client_public,
 					*data_to_write, *(data_to_write+1));
 		else
-			printk(KERN_DEBUG "invalid range of data\n");
+			dev_dbg(&client_public->dev, "response_timer: invalid range of data\n");
 		break;
 
 	case FIFO_SETUP:
@@ -756,7 +756,7 @@ static ssize_t crtouch_write(struct file *filep, const char __user *buf, size_t 
 			i2c_smbus_write_byte_data(client_public,
 					*data_to_write, *(data_to_write+1));
 		else
-			printk(KERN_DEBUG "invalid range of data\n");
+			dev_dbg(&client_public->dev, "fifo_setup: invalid range of data\n");
 		break;
 
 	case SAMPLING_X_Y:
@@ -764,7 +764,7 @@ static ssize_t crtouch_write(struct file *filep, const char __user *buf, size_t 
 			i2c_smbus_write_byte_data(client_public,
 					*data_to_write, *(data_to_write+1));
 		else
-			printk(KERN_DEBUG "invalid range of data\n");
+			dev_dbg(&client_public->dev, "sampling_x_y: invalid range of data\n");
 		break;
 
 
@@ -776,7 +776,7 @@ static ssize_t crtouch_write(struct file *filep, const char __user *buf, size_t 
 			i2c_smbus_write_byte_data(client_public,
 					*data_to_write, *(data_to_write+1));
 		else
-			printk(KERN_DEBUG "invalid range of data\n");
+			dev_dbg(&client_public->dev, "E*_sensitivity: invalid range of data\n");
 		break;
 
 
@@ -788,12 +788,12 @@ static ssize_t crtouch_write(struct file *filep, const char __user *buf, size_t 
 			i2c_smbus_write_byte_data(client_public,
 					*data_to_write, *(data_to_write+1));
 		else
-			printk(KERN_DEBUG "invalid range of data\n");
+			dev_err(&client_public->dev, "diverse: invalid range of data\n");
 		break;
 
 
 	default:
-		printk(KERN_DEBUG "invalid address to write\n");
+		dev_err(&client_public->dev, "invalid address to write\n");
 		return -ENXIO;
 
 	}
@@ -858,6 +858,7 @@ static int crtouch_probe(struct i2c_client *client,
 	int error = 0;
 	s32 mask_trigger = 0;
 
+	dev_dbg(&client->dev, "probe\n");
 
 	/*to be able to communicate by i2c with crtouch (dev)*/
 	client_public = client;
@@ -879,21 +880,21 @@ static int crtouch_probe(struct i2c_client *client,
 	INIT_WORK(&crtouch->work, report_MT);
 
 	if (crtouch->workqueue == NULL) {
-		printk(KERN_DEBUG "couldn't create workqueue\n");
+		dev_err(&client->dev, "couldn't create workqueue\n");
 		result = -ENOMEM;
 		goto err_wqueue;
 	}
 
 	error = read_resolution();
 	if (error < 0) {
-		printk(KERN_DEBUG "couldn't read size of screen\n");
+		dev_err(&client->dev, "couldn't read size of screen\n");
 		result = -EIO;
 		goto err_free_wq;
 	}
 
 	data_configuration = i2c_smbus_read_byte_data(client, CONFIGURATION);
 	if (data_configuration < 0) {
-		printk(KERN_DEBUG "couldn't read configuration register via I2C %d\n", data_configuration);
+		dev_err(&client->dev, "couldn't read configuration register via I2C %d\n", data_configuration);
 		result = -EIO;
 		goto err_free_wq;
 	}
@@ -903,7 +904,7 @@ static int crtouch_probe(struct i2c_client *client,
 
 	mask_trigger = i2c_smbus_read_byte_data(client, TRIGGER_EVENTS);
 	if (mask_trigger < 0) {
-		printk(KERN_DEBUG "couldn't read the trigger events register via I2C %d\n", mask_trigger);
+		dev_err(&client->dev, "couldn't read the trigger events register via I2C %d\n", mask_trigger);
 		result = -EIO;
 		goto err_free_wq;
 	}
@@ -947,69 +948,72 @@ static int crtouch_probe(struct i2c_client *client,
 	input_set_abs_params(crtouch->input_dev, ABS_MT_TRACKING_ID, 0, 1, 0, 0);
 
 	input_set_abs_params(crtouch->input_dev, ABS_PRESSURE, 0, 1, 0, 0);
-	printk(KERN_DEBUG "CR-TOUCH max values X: %d Y: %d\n", xmax, ymax);
+	dev_err(&client->dev, "CR-TOUCH max values X: %d Y: %d\n", xmax, ymax);
 
 	result = input_register_device(crtouch->input_dev);
 	if (result)
 		goto err_free_wq;
 
 	if (alloc_chrdev_region(&dev_number, 0, 2, DEV_NAME) < 0) {
-		printk(KERN_DEBUG "couldn't allocate cr-touch device with dev\n");
+		dev_err(&client->dev, "couldn't allocate cr-touch device with dev\n");
 		goto err_unr_dev;
 	}
 
 	cdev_init(&crtouch_cdev , &file_ops_crtouch);
 
 	if (cdev_add(&crtouch_cdev, dev_number, 1)) {
-		printk(KERN_DEBUG "couldn't register cr-touch device with dev\n");
+		dev_err(&client->dev, "couldn't register cr-touch device with dev\n");
 		goto err_unr_chrdev;
 	}
 
 	crtouch_class = class_create(THIS_MODULE, DEV_NAME);
 
 	if (crtouch_class == NULL) {
-		printk(KERN_DEBUG "unable to create a class\n");
+		dev_err(&client->dev, "unable to create a class\n");
 		goto err_unr_cdev;
 	}
 
 	if (device_create(crtouch_class, NULL, dev_number,
 				NULL, DEV_NAME) == NULL) {
-		printk(KERN_DEBUG "unable to create a device\n");
+		dev_err(&client->dev, "unable to create a device\n");
 		goto err_unr_class;
 	}
 
 #ifdef WAKE_SIGNAL
+
 	result = gpio_request(PIN_WAKE, "GPIO_WAKE_CRTOUCH");
 
 	if (result != 0) {
-		printk(KERN_DEBUG "error requesting GPIO %d\n", result);
+		dev_err(&client->dev, "error requesting GPIO %d\n", result);
 		goto err_unr_createdev;
 	}
 
 	result = gpio_direction_output(PIN_WAKE, GPIOF_OUT_INIT_HIGH);
 
 	if (result != 0) {
-		printk(KERN_DEBUG "error config GPIO PIN direction %d\n", result);
+		dev_err(&client->dev, "error config GPIO PIN direction %d\n", result);
 		goto err_free_pin;
 	}
 
 	gpio_set_value(PIN_WAKE, VCC);
+
 #endif /* WAKE_SIGNAL */
 
 
 #ifdef IRQ_EVENT_HANDLING
+
 	/*request gpio to used as interrupt*/
 	result = gpio_request(GPIO_IRQ, "GPIO_INTERRUPT_CRTOUCH");
 
 	if (result != 0) {
-		printk(KERN_DEBUG "error requesting GPIO for IRQ %d\n", result);
+		dev_err(&client->dev, "error requesting GPIO %d for IRQ %d\n", GPIO_IRQ, result);
 		goto err_free_pin;
 	}
 
 	result = gpio_direction_input(GPIO_IRQ);
 
 	if (result != 0) {
-		printk(KERN_DEBUG "error config IRQ PIN direction %d\n", result);
+		dev_err(&client->dev, "error config IRQ PIN GPIO %d direction %d\n", GPIO_IRQ, result);
 		goto err_free_pinIrq;
 	}
 
@@ -1018,13 +1022,15 @@ static int crtouch_probe(struct i2c_client *client,
 				IRQF_TRIGGER_FALLING, IRQ_NAME, crtouch_irq);
 
 	if (result < 0) {
-		printk(KERN_DEBUG "unable to request IRQ\n");
+		dev_err(&client->dev, "unable to request IRQ\n");
 		goto err_free_pinIrq;
 	}
+
 #else /* IRQ_EVENT_HANDLING */
 	/*
 	 * Register timer to implement IRQ polling
 	 */
+
 	init_timer(&tsc_poll_timer);
 	tsc_poll_timer.function = tsc_poll_handler;
 	tsc_poll_timer.expires = jiffies + IRQ_POLL_PERIOD;
