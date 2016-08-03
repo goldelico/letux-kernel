@@ -24,8 +24,11 @@
  *   Copyright 2011-2012 Freescale Semiconductor, Inc. All Rights Reserved.
  */
 
+#define DEBUG 1
+
 #include "crtouch_mt.h"
 
+/* fixme: should all be individual CONFIG and not ARCH_xxx magic */
 #if defined(CONFIG_ARCH_KINETIS) || defined(CONFIG_ARCH_STM32)
 #undef MULTITOUCH
 #if defined(CONFIG_TOUCHSCREEN_CRTOUCH_MT_PRESSURE)
@@ -38,13 +41,6 @@
 #undef CAPACITIVE
 #undef WAKE_SIGNAL
 #undef IRQ_EVENT_HANDLING
-#if defined(CONFIG_TOUCHSCREEN_CRTOUCH_MT_GPIO_IRQ)
-#define IRQ_EVENT_HANDLING
-#undef GPIO_IRQ
-#define GPIO_IRQ	CONFIG_TOUCHSCREEN_CRTOUCH_MT_GPIO_IRQ
-#else
-#define IRQ_POLL_PERIOD		(msecs_to_jiffies(20))
-#endif
 #else /* CONFIG_ARCH_xxx */
 #define MULTITOUCH
 #define PRESSURE_EVENT
@@ -54,6 +50,15 @@
 /* #define WAKE_SIGNAL */
 #define IRQ_EVENT_HANDLING
 #endif /* CONFIG_ARCH_xxx */
+
+/* FIXME: should be defined by DT */
+#if defined(CONFIG_TOUCHSCREEN_CRTOUCH_MT_GPIO_IRQ)
+#define IRQ_EVENT_HANDLING
+#undef GPIO_IRQ
+#define GPIO_IRQ	CONFIG_TOUCHSCREEN_CRTOUCH_MT_GPIO_IRQ
+#else
+#define IRQ_POLL_PERIOD		(msecs_to_jiffies(20))
+#endif
 
 void report_single_touch(void)
 {
