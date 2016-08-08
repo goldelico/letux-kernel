@@ -110,7 +110,7 @@
 		pinctrl-0 = <&backlight_pins>;
 	};
 
-	pwm11: dmtimer-pwm@11 {
+	pwm11: dmtimer-pwm {
 		compatible = "ti,omap-dmtimer-pwm";
 		ti,timers = <&timer11>;
 		#pwm-cells = <3>;
@@ -121,7 +121,7 @@
 		reset-gpios = <&gpio6 14 GPIO_ACTIVE_LOW>;
 	};
 
-	tv0: connector@1 {
+	tv0: connector {
 		compatible = "svideo-connector";
 		label = "tv";
 
@@ -142,18 +142,23 @@
 
 			port@0 {
 				reg = <0>;
-				opa_in: endpoint@0 {
+				opa_in: endpoint {
 					remote-endpoint = <&venc_out>;
 				};
 			};
 
 			port@1 {
 				reg = <1>;
-				opa_out: endpoint@0 {
+				opa_out: endpoint {
 					remote-endpoint = <&tv_connector_in>;
 				};
 			};
 		};
+	};
+
+	wifi_pwrseq: wifi_pwrseq {
+		compatible = "mmc-pwrseq-simple";
+		reset-gpios = <&tca6507 0 GPIO_ACTIVE_LOW>;	/* W2CBW003 reset through tca6507 */
 	};
 };
 
@@ -354,8 +359,8 @@
 		interrupts = <24 IRQ_TYPE_EDGE_FALLING>; /* GPIO_56 */
 	};
 
-	/* leds */
-	tca6507@45 {
+	/* leds + gpios */
+	tca6507: tca6507@45 {
 		compatible = "ti,tca6507";
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -452,6 +457,7 @@
 	bus-width = <4>;
 	ti,non-removable;
 	cap-power-off-card;
+	mmc-pwrseq = <&wifi_pwrseq>;
 };
 
 &mmc3 {
