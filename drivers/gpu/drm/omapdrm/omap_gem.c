@@ -647,8 +647,8 @@ int omap_gem_dumb_create(struct drm_file *file, struct drm_device *dev,
 {
 	union omap_gem_size gsize;
 
+#if 0
 	args->pitch = DIV_ROUND_UP(args->width * args->bpp, 8);
-
 	args->size = PAGE_ALIGN(args->pitch * args->height);
 
 	gsize = (union omap_gem_size){
@@ -657,6 +657,35 @@ int omap_gem_dumb_create(struct drm_file *file, struct drm_device *dev,
 
 	return omap_gem_new_handle(dev, file, gsize,
 			OMAP_BO_SCANOUT | OMAP_BO_WC, &args->handle);
+#else
+	u32 flags = OMAP_BO_SCANOUT | OMAP_BO_WC;
+	if( args->width > 16384 || args->height > 4096 )
+		return -EINVAL;
+	if( args->bpp == 8 ) {
+		flags |= OMAP_BO_TILED_8;
+		args->pitch = PAGE_ALIGN(args->width);
+	} else if( args->bpp == 16 ) {
+		flags |= OMAP_BO_TILED_16;
+		args->pitch = PAGE_ALIGN(args->width * 2);
+	} else if( args->bpp == 32 ) {
+		flags |= OMAP_BO_TILED_32;
+		args->pitch = PAGE_ALIGN(args->width * 4);
+	} else {
+		return -EINVAL;
+	}
+	if( args->pitch > 32768 )
+		return -EINVAL;
+	args->size = args->pitch * args->height;
+
+	gsize = (union omap_gem_size){
+		.tiled = {
+			.width = args->width,
+			.height = args->height,
+		},
+	};
+
+	return omap_gem_new_handle(dev, file, gsize, flags, &args->handle);
+#endif
 }
 
 /**
