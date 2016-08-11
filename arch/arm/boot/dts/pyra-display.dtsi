@@ -6,7 +6,9 @@
  * published by the Free Software Foundation.
  */
 
+#if !defined(PANEL)
 #define PANEL 0		// 0 = mipi-debug + script; 1 = w677 only; 2 = w677 + ssd2858; 3 = mipi-debug + ssd2858
+#endif
 
 /* LCD panel - MIPI */
 
