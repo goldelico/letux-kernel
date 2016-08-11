@@ -1,0 +1,18 @@
+/*
+ * Copyright (C) 2016 Golden Delicous Computers - http://www.goldelico.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/* this version is for the Letux Cortex 15 CPU board (V5.1) */
+
+#include "omap5-letux-cortex15.dts"
+
+/ {
+	model = "Letux Cortex 15 V5.1";
+
+// FIXME: adjust for different uSD/eMMC gpios
+// FIXME: add EEPROM
+};
