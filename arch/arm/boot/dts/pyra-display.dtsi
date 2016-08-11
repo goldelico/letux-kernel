@@ -108,12 +108,12 @@
 	};
 
 	crtouch@49 {
-		compatible = "freescale,crtouch";
+		compatible = "fsl,crtouch";
 		reg = <0x49>;
 		interrupt-parent = <&gpio6>;
 		interrupts = <13 IRQ_TYPE_EDGE_FALLING>;	/* gpio6_173 falling edge */
 		gpios = <&gpio6 13 1>;	/* gpio6_173 active low */
-		/* more paramters tbd. */
+		/* more parameters tbd. */
 	};
 
 	/* leds */
