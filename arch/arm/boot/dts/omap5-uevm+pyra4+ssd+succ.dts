@@ -10,7 +10,7 @@
    and "insert" the ssd2858 into the video stream by
    overwriting the DT nodes */
 
-#include "omap5-pyra+boe.dts"
+#include "omap5-uevm+pyra4+boe.dts"
 
 / {
 	ssd: encoder {
