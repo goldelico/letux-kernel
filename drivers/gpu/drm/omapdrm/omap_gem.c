@@ -1081,6 +1081,25 @@ void *omap_gem_vaddr(struct drm_gem_object *obj)
 	mutex_lock(&omap_obj->lock);
 
 	if (!omap_obj->vaddr) {
+		if (omap_obj->flags & OMAP_BO_TILED_MASK) {
+			if (!omap_obj->pages) {
+				ret = omap_gem_get_pages(obj, &omap_obj->pages, true);
+				if (ret) {
+					vaddr = ERR_PTR(ret);
+					goto unlock;
+				}
+			}
+
+			vaddr = vmap(omap_obj->pages, obj->size >> PAGE_SHIFT,
+				     VM_MAP, pgprot_writecombine(PAGE_KERNEL));
+			if (!vaddr) {
+				vaddr = ERR_PTR(-ENOMEM);
+				goto unlock;
+			}
+
+			omap_obj->vaddr = vaddr;
+			goto unlock;
+		}
 		ret = omap_gem_attach_pages(obj);
 		if (ret) {
 			vaddr = ERR_PTR(ret);
@@ -1204,7 +1223,7 @@ static void omap_gem_free_object(struct drm_gem_object *obj)
 	mutex_lock(&priv->list_lock);
 
 	if (omap_obj->flags & OMAP_BO_TILED_MASK)
-		omap_gem_unpin_tiler(obj);
+		omap_gem_unpin(obj);
 
 	list_del(&omap_obj->mm_list);
 	mutex_unlock(&priv->list_lock);
@@ -1230,6 +1249,9 @@ static void omap_gem_free_object(struct drm_gem_object *obj)
 	if (omap_obj->flags & OMAP_BO_MEM_DMA_API) {
 		dma_free_wc(dev->dev, obj->size, omap_obj->vaddr,
 			    omap_obj->dma_addr);
+	} else if (omap_obj->flags & OMAP_BO_TILED_MASK) {
+		if (omap_obj->vaddr)
+			vunmap(omap_obj->vaddr);
 	} else if (omap_obj->vaddr) {
 		vunmap(omap_obj->vaddr);
 	} else if (obj->import_attach) {
@@ -1387,7 +1409,7 @@ struct drm_gem_object *omap_gem_new(struct drm_device *dev,
 	if (flags & OMAP_BO_TILED_MASK) {
 		ret = omap_gem_pin_tiler(obj);
 		if (ret)
-			goto err_release;
+			goto err_unlock;
 	}
 
 	list_add(&omap_obj->mm_list, &priv->obj_list);
@@ -1395,6 +1417,8 @@ struct drm_gem_object *omap_gem_new(struct drm_device *dev,
 
 	return obj;
 
+err_unlock:
+	mutex_unlock(&priv->list_lock);
 err_release:
 	drm_gem_object_release(obj);
 err_free:
