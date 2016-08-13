@@ -563,34 +563,6 @@ static void dev_lastclose(struct drm_device *dev)
 
 	DBG("lastclose: dev=%p", dev);
 
-	/* need to restore default rotation state.. not sure
-	 * if there is a cleaner way to restore properties to
-	 * default state?  Maybe a flag that properties should
-	 * automatically be restored to default state on
-	 * lastclose?
-	 */
-	for (i = 0; i < priv->num_crtcs; i++) {
-		struct drm_crtc *crtc = priv->crtcs[i];
-
-		if (!crtc->primary->rotation_property)
-			continue;
-
-		drm_object_property_set_value(&crtc->base,
-					      crtc->primary->rotation_property,
-					      DRM_ROTATE_0);
-	}
-
-	for (i = 0; i < priv->num_planes; i++) {
-		struct drm_plane *plane = priv->planes[i];
-
-		if (!plane->rotation_property)
-			continue;
-
-		drm_object_property_set_value(&plane->base,
-					      plane->rotation_property,
-					      DRM_ROTATE_0);
-	}
-
 	if (priv->fbdev) {
 		ret = drm_fb_helper_restore_fbdev_mode_unlocked(priv->fbdev);
 		if (ret)
