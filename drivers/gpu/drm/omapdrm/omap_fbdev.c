@@ -119,6 +119,7 @@ static int omap_fbdev_create(struct drm_fb_helper *helper,
 	mode_cmd.pixel_format = drm_mode_legacy_fb_format(sizes->surface_bpp,
 			sizes->surface_depth);
 
+#if 0
 	mode_cmd.width = sizes->surface_width;
 	mode_cmd.height = sizes->surface_height;
 
@@ -137,6 +138,24 @@ static int omap_fbdev_create(struct drm_fb_helper *helper,
 	};
 	DBG("allocating %d bytes for fb %d", gsize.bytes, dev->primary->index);
 	fbdev->bo = omap_gem_new(dev, gsize, OMAP_BO_SCANOUT | OMAP_BO_WC);
+#else
+	mode_cmd.width = 8192;  // XXX HACK
+	mode_cmd.height = sizes->surface_height;
+
+	mode_cmd.pitches[0] = PAGE_ALIGN(
+			DIV_ROUND_UP(mode_cmd.width * sizes->surface_bpp, 8));
+
+	// XXX needs implementation fix, so disable for now.
+	fbdev->ywrap_enabled = false;
+
+	gsize = (union omap_gem_size){
+		.tiled = {
+			.width = mode_cmd.width,
+			.height = mode_cmd.height,
+		}
+	};
+	fbdev->bo = omap_gem_new(dev, gsize, OMAP_BO_TILED_32 | OMAP_BO_WC);
+#endif
 	if (!fbdev->bo) {
 		dev_err(dev->dev, "failed to allocate buffer object\n");
 		ret = -ENOMEM;
@@ -196,9 +215,9 @@ static int omap_fbdev_create(struct drm_fb_helper *helper,
 	dev->mode_config.fb_base = paddr;
 
 	fbi->screen_base = omap_gem_vaddr(fbdev->bo);
-	fbi->screen_size = fbdev->bo->size;
+	fbi->screen_size = fb->pitches[0] * sizes->surface_height;
 	fbi->fix.smem_start = paddr;
-	fbi->fix.smem_len = fbdev->bo->size;
+	fbi->fix.smem_len = fbi->screen_size;
 
 	/* if we have DMM, then we can use it for scrolling by just
 	 * shuffling pages around in DMM rather than doing sw blit.
