@@ -55,6 +55,9 @@ MODULE_PARM_DESC(drm_fbdev_overalloc,
 		 "Overallocation of the fbdev buffer (%) [default="
 		 __MODULE_STRING(CONFIG_DRM_FBDEV_OVERALLOC) "]");
 
+static uint drm_fbdev_rotation = DRM_MODE_ROTATE_0;
+module_param_named(fbdev_rotation, drm_fbdev_rotation, uint, 0644);
+
 static LIST_HEAD(kernel_fb_helper_list);
 static DEFINE_MUTEX(kernel_fb_helper_lock);
 
@@ -389,7 +392,7 @@ retry:
 			goto out_state;
 		}
 
-		plane_state->rotation = DRM_MODE_ROTATE_0;
+		plane_state->rotation = drm_fbdev_rotation;
 
 		plane->old_fb = plane->fb;
 		plane_mask |= 1 << drm_plane_index(plane);
@@ -463,7 +466,7 @@ static int restore_fbdev_mode_legacy(struct drm_fb_helper *fb_helper)
 		if (plane->rotation_property)
 			drm_mode_plane_set_obj_prop(plane,
 						    plane->rotation_property,
-						    DRM_MODE_ROTATE_0);
+						    drm_fbdev_rotation);
 	}
 
 	for (i = 0; i < fb_helper->crtc_count; i++) {
@@ -1837,7 +1840,7 @@ static int drm_fb_helper_single_fb_probe(struct drm_fb_helper *fb_helper,
 	for (i = 0; i < fb_helper->crtc_count; i++) {
 		struct drm_display_mode *desired_mode;
 		struct drm_mode_set *mode_set;
-		int x, y, j;
+		int width, height, x, y, j;
 		/* in case of tile group, are we the last tile vert or horiz?
 		 * If no tile group you are always the last one both vertically
 		 * and horizontally
@@ -1850,6 +1853,14 @@ static int drm_fb_helper_single_fb_probe(struct drm_fb_helper *fb_helper,
 		if (!desired_mode)
 			continue;
 
+		if (drm_rotation_90_or_270(drm_fbdev_rotation)) {
+			height = desired_mode->hdisplay;
+			width = desired_mode->vdisplay;
+		} else {
+			width = desired_mode->hdisplay;
+			height = desired_mode->vdisplay;
+		}
+
 		crtc_count++;
 
 		x = fb_helper->crtc_info[i].x;
@@ -1858,8 +1869,8 @@ static int drm_fb_helper_single_fb_probe(struct drm_fb_helper *fb_helper,
 		if (gamma_size == 0)
 			gamma_size = fb_helper->crtc_info[i].mode_set.crtc->gamma_size;
 
-		sizes.surface_width  = max_t(u32, desired_mode->hdisplay + x, sizes.surface_width);
-		sizes.surface_height = max_t(u32, desired_mode->vdisplay + y, sizes.surface_height);
+		sizes.surface_width  = max_t(u32, width + x, sizes.surface_width);
+		sizes.surface_height = max_t(u32, height + y, sizes.surface_height);
 
 		for (j = 0; j < mode_set->num_connectors; j++) {
 			struct drm_connector *connector = mode_set->connectors[j];
@@ -1873,9 +1884,9 @@ static int drm_fb_helper_single_fb_probe(struct drm_fb_helper *fb_helper,
 		}
 
 		if (lasth)
-			sizes.fb_width  = min_t(u32, desired_mode->hdisplay + x, sizes.fb_width);
+			sizes.fb_width  = min_t(u32, width + x, sizes.fb_width);
 		if (lastv)
-			sizes.fb_height = min_t(u32, desired_mode->vdisplay + y, sizes.fb_height);
+			sizes.fb_height = min_t(u32, height + y, sizes.fb_height);
 	}
 
 	if (crtc_count == 0 || sizes.fb_width == -1 || sizes.fb_height == -1) {
@@ -2749,6 +2760,7 @@ EXPORT_SYMBOL(drm_fb_helper_initial_config);
 int drm_fb_helper_hotplug_event(struct drm_fb_helper *fb_helper)
 {
 	int err = 0;
+	unsigned width, height;
 
 	if (!drm_fbdev_emulation || !fb_helper)
 		return 0;
@@ -2768,7 +2780,14 @@ int drm_fb_helper_hotplug_event(struct drm_fb_helper *fb_helper)
 
 	DRM_DEBUG_KMS("\n");
 
-	drm_setup_crtcs(fb_helper, fb_helper->fb->width, fb_helper->fb->height);
+	if (drm_rotation_90_or_270(drm_fbdev_rotation)) {
+		width = fb_helper->fb->height;
+		height = fb_helper->fb->width;
+	} else {
+		width = fb_helper->fb->width;
+		height = fb_helper->fb->height;
+	}
+	drm_setup_crtcs(fb_helper, width, height);
 	drm_setup_crtcs_fb(fb_helper);
 	mutex_unlock(&fb_helper->lock);
 
