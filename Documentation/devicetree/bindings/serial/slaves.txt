@@ -1,0 +1,16 @@
+Device-Tree bindings for UART slave devices
+
+A node describing a slave device defines a phandle to reference the UART
+the device is connected to. In the (unexpected) case of two or more UARTs
+a list of phandles can be specified.
+
+properties:
+	- uart: (list of) phandle(s) of UART(s) the device is connected to
+
+
+example:
+
+	gps {
+		compatible = "wi2wi,w2sg0004";
+		uart = <&uart1>;
+	};

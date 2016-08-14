@@ -469,6 +469,12 @@ static int __maybe_unused twl4030_usb_runtime_resume(struct device *dev)
 			  (PHY_CLK_CTRL_CLOCKGATING_EN |
 			   PHY_CLK_CTRL_CLK32K_EN));
 
+	twl4030_i2c_access(twl, 1);
+	twl4030_usb_set_mode(twl, twl->usb_mode);
+	if (twl->usb_mode == T2_USB_MODE_ULPI)
+		twl4030_i2c_access(twl, 0);
+	mdelay(50);
+	twl->linkstat = MUSB_UNKNOWN;
 	return 0;
 }
 
@@ -489,11 +495,6 @@ static int twl4030_phy_power_on(struct phy *phy)
 
 	dev_dbg(twl->dev, "%s\n", __func__);
 	pm_runtime_get_sync(twl->dev);
-	twl4030_i2c_access(twl, 1);
-	twl4030_usb_set_mode(twl, twl->usb_mode);
-	if (twl->usb_mode == T2_USB_MODE_ULPI)
-		twl4030_i2c_access(twl, 0);
-	twl->linkstat = MUSB_UNKNOWN;
 	schedule_delayed_work(&twl->id_workaround_work, HZ);
 
 	return 0;
@@ -796,6 +797,10 @@ static int twl4030_usb_probe(struct platform_device *pdev)
 	struct device_node	*np = pdev->dev.of_node;
 	struct phy_provider	*phy_provider;
 
+#ifdef DEBUG
+printk("twl4030_usb_probe\n");
+#endif
+
 	twl = devm_kzalloc(&pdev->dev, sizeof(*twl), GFP_KERNEL);
 	if (!twl)
 		return -ENOMEM;
@@ -813,6 +818,10 @@ static int twl4030_usb_probe(struct platform_device *pdev)
 	otg = devm_kzalloc(&pdev->dev, sizeof(*otg), GFP_KERNEL);
 	if (!otg)
 		return -ENOMEM;
+
+#ifdef DEBUG
+printk("twl4030_usb_probe: otg = %p\n", otg);
+#endif
 
 	twl->dev		= &pdev->dev;
 	twl->irq		= platform_get_irq(pdev, 0);
@@ -834,6 +843,10 @@ static int twl4030_usb_probe(struct platform_device *pdev)
 		return PTR_ERR(phy);
 	}
 
+#ifdef DEBUG
+printk("twl4030_usb_probe: phy = %p\n", phy);
+#endif
+
 	phy_set_drvdata(phy, twl);
 
 	phy_provider = devm_of_phy_provider_register(twl->dev,
@@ -851,6 +864,11 @@ static int twl4030_usb_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "ldo init failed\n");
 		return err;
 	}
+
+#ifdef DEBUG
+printk("twl4030_usb_probe: usb_add_phy_dev\n");
+#endif
+
 	usb_add_phy_dev(&twl->phy);
 
 	platform_set_drvdata(pdev, twl);
@@ -897,6 +915,10 @@ static int twl4030_usb_probe(struct platform_device *pdev)
 
 	pm_runtime_mark_last_busy(&pdev->dev);
 	pm_runtime_put_autosuspend(twl->dev);
+
+#ifdef DEBUG
+printk("twl4030_usb_probe: done\n");
+#endif
 
 	dev_info(&pdev->dev, "Initialized TWL4030 USB module\n");
 	return 0;
@@ -963,6 +985,9 @@ static struct platform_driver twl4030_usb_driver = {
 
 static int __init twl4030_usb_init(void)
 {
+#ifdef DEBUG
+	printk("twl4030_usb_init\n");
+#endif
 	return platform_driver_register(&twl4030_usb_driver);
 }
 subsys_initcall(twl4030_usb_init);

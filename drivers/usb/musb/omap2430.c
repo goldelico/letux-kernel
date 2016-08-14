@@ -316,6 +316,8 @@ static int omap2430_musb_init(struct musb *musb)
 		 */
 		musb->xceiv = devm_usb_get_phy_by_phandle(dev->parent,
 		    "usb-phy", 0);
+printk("xceiv = %p\n", musb->xceiv);
+printk("phy = %p\n", musb->phy);
 	} else {
 		musb->xceiv = devm_usb_get_phy_dev(dev, 0);
 		musb->phy = devm_phy_get(dev, "usb");
@@ -413,9 +415,10 @@ static void omap2430_musb_disable(struct musb *musb)
 	struct device *dev = musb->controller;
 	struct omap2430_glue *glue = dev_get_drvdata(dev->parent);
 
-	if (!WARN_ON(!musb->phy))
-		phy_power_off(musb->phy);
-
+	if (glue->enabled) {
+		if (!WARN_ON(!musb->phy))
+			phy_power_off(musb->phy);
+	}
 	if (glue->status != MUSB_UNKNOWN)
 		omap_control_usb_set_mode(glue->control_otghs,
 			USB_MODE_DISCONNECT);

@@ -2517,7 +2517,6 @@ static int musb_suspend(struct device *dev)
 	musb_save_context(musb);
 
 	spin_unlock_irqrestore(&musb->lock, flags);
-	musb_save_context(musb);
 	return 0;
 }
 
