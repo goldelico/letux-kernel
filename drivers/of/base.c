@@ -931,10 +931,12 @@ struct device_node *of_find_compatible_node(struct device_node *from,
 	unsigned long flags;
 
 	raw_spin_lock_irqsave(&devtree_lock, flags);
-	for_each_of_allnodes_from(from, np)
+	for_each_of_allnodes_from(from, np) {
+		pr_info("%s: name:%s, compatible:%s\n", __func__, np->name, compatible);
 		if (__of_device_is_compatible(np, compatible, type, NULL) &&
 		    of_node_get(np))
 			break;
+	}
 	of_node_put(from);
 	raw_spin_unlock_irqrestore(&devtree_lock, flags);
 	return np;

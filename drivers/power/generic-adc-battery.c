@@ -352,6 +352,7 @@ static int gab_probe(struct platform_device *pdev)
 		pdata = gab_dt_probe(pdev);
 
 	psy_cfg.drv_data = adc_bat;
+	psy_cfg.of_node = pdev->dev.of_node;
 	psy_desc = &adc_bat->psy_desc;
 	psy_desc->name = "generic-adc-batt";//pdata->battery_info.name;
 
@@ -389,9 +390,9 @@ static int gab_probe(struct platform_device *pdev)
 							 gab_chan_name[chan]);
 		if (IS_ERR(adc_bat->channel[chan])) {
 			ret = PTR_ERR(adc_bat->channel[chan]);
+			adc_bat->channel[chan] = NULL;
 			if (ret == -EPROBE_DEFER)
 				return ret;
-			adc_bat->channel[chan] = NULL;
 		} else {
 			/* copying properties for supported channels only */
 			memcpy(properties + sizeof(*(psy_desc->properties)) * index,

@@ -199,7 +199,7 @@ printk("devm_usb_get_phy_by_node(%p %s, %p %s, %p)\n", dev, dev_name(dev), node,
 	}
 
 	spin_lock_irqsave(&phy_lock, flags);
-
+printk("after lock\n");
 	phy = __of_usb_find_phy(node);
 printk("phy = %p\n", phy);
 	if (IS_ERR(phy)) {

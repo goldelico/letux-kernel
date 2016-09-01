@@ -11,7 +11,7 @@
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  */
-
+#define DEBUG
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -978,6 +978,7 @@ static int twl4030_bci_probe(struct platform_device *pdev)
 	const struct twl4030_bci_platform_data *pdata = pdev->dev.platform_data;
 	int ret;
 	u32 reg;
+	struct power_supply_config psy_cfg = {};
 
 #ifdef DEBUG
 printk("twl4030_bci_probe\n");
@@ -1029,8 +1030,10 @@ printk("  bci->transceiver = %p\n", bci->transceiver);
 #endif
 
 			if (IS_ERR(bci->transceiver) &&
-			    PTR_ERR(bci->transceiver) == -EPROBE_DEFER)
+			    PTR_ERR(bci->transceiver) == -EPROBE_DEFER) {
+				pr_info("phy not yet ready\n");
 				return -EPROBE_DEFER;	/* PHY not ready */
+			}
 		}
 	}
 
@@ -1042,8 +1045,10 @@ printk("  bci->transceiver = %p\n", bci->transceiver);
 		bci->channel_vac = NULL;
 	}
 
+	psy_cfg.of_node = pdev->dev.of_node;
+
 	bci->ac = devm_power_supply_register(&pdev->dev, &twl4030_bci_ac_desc,
-					     NULL);
+					     &psy_cfg);
 	if (IS_ERR(bci->ac)) {
 		ret = PTR_ERR(bci->ac);
 		dev_err(&pdev->dev, "failed to register ac: %d\n", ret);
@@ -1051,7 +1056,7 @@ printk("  bci->transceiver = %p\n", bci->transceiver);
 	}
 
 	bci->usb = devm_power_supply_register(&pdev->dev, &twl4030_bci_usb_desc,
-					      NULL);
+					      &psy_cfg);
 	if (IS_ERR(bci->usb)) {
 		ret = PTR_ERR(bci->usb);
 		dev_err(&pdev->dev, "failed to register usb: %d\n", ret);

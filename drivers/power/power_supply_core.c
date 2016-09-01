@@ -36,25 +36,39 @@ static bool __power_supply_is_supplied_by(struct power_supply *supplier,
 					 struct power_supply *supply)
 {
 	int i;
-
-	if (!supply->supplied_from && !supplier->supplied_to)
+	pr_info("Entering:%s\n", __func__);	
+	if (!supply->supplied_from && !supplier->supplied_to) {
+		
+		pr_info("Leaving:%s, %d\n", __func__, __LINE__);	
 		return false;
+	}
+
 
 	/* Support both supplied_to and supplied_from modes */
 	if (supply->supplied_from) {
-		if (!supplier->desc->name)
+		if (!supplier->desc->name) {
+		
+			pr_info("Leaving:%s, %d\n", __func__, __LINE__);	
 			return false;
+		}
 		for (i = 0; i < supply->num_supplies; i++)
-			if (!strcmp(supplier->desc->name, supply->supplied_from[i]))
+			if (!strcmp(supplier->desc->name, supply->supplied_from[i])) {
+
+				pr_info("Leaving:%s, %d\n", __func__, __LINE__);	
 				return true;
+	}
 	} else {
-		if (!supply->desc->name)
+		if (!supply->desc->name) {
+		
+			pr_info("Leaving:%s, %d\n", __func__, __LINE__);	
 			return false;
+		}
 		for (i = 0; i < supplier->num_supplicants; i++)
 			if (!strcmp(supplier->supplied_to[i], supply->desc->name))
 				return true;
 	}
 
+		pr_info("Leaving:%s, %d\n", __func__, __LINE__);	
 	return false;
 }
 
@@ -194,6 +208,7 @@ static int  __power_supply_find_supply_from_node(struct device *dev,
 {
 	struct device_node *np = data;
 	struct power_supply *epsy = dev_get_drvdata(dev);
+	pr_info("%s - dev_name:%s", __func__, dev->init_name);
 
 	/* returning non-zero breaks out of class_for_each_device loop */
 	if (epsy->of_node == np)
@@ -228,32 +243,44 @@ static int power_supply_check_supplies(struct power_supply *psy)
 	int cnt = 0;
 
 	/* If there is already a list honor it */
-	if (psy->supplied_from && psy->num_supplies > 0)
+	if (psy->supplied_from && psy->num_supplies > 0) {
+	
+			dev_info(&psy->dev, "return line:%d", __LINE__);
+	
 		return 0;
+	}
 
 	/* No device node found, nothing to do */
-	if (!psy->of_node)
+	if (!psy->of_node) {
+	
+		dev_info(&psy->dev, "return line:%d", __LINE__);
 		return 0;
+	
+	}	
 
 	do {
 		int ret;
 
 		np = of_parse_phandle(psy->of_node, "power-supplies", cnt++);
-		if (!np)
+		if (!np) {
+			dev_info(&psy->dev, "return line:%d", __LINE__);
 			break;
+		}
 
 		ret = power_supply_find_supply_from_node(np);
 		of_node_put(np);
 
 		if (ret) {
-			dev_dbg(&psy->dev, "Failed to find supply!\n");
+			dev_info(&psy->dev, "Failed to find supply!\n");
 			return ret;
 		}
 	} while (np);
 
 	/* Missing valid "power-supplies" entries */
-	if (cnt == 1)
+	if (cnt == 1) {
+		dev_info(&psy->dev, "return line:%d", __LINE__);
 		return 0;
+	}
 
 	/* All supplies found, allocate char ** array for filling */
 	psy->supplied_from = devm_kzalloc(&psy->dev, sizeof(psy->supplied_from),
