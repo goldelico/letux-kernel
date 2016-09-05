@@ -23,7 +23,8 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define LOG 1
+#define LOG 0
+#define OPTIONAL 0
 
 #include <linux/backlight.h>
 #include <linux/delay.h>
@@ -337,9 +338,9 @@ static int w677l_write(struct omap_dss_device *dssdev, u8 *buf, int len)
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
 	int r;
-	int i;
 
 #if LOG
+	int i;
 	printk("dsi: w677l_write(%s", IS_MCS(buf[0], len)?"g":""); for(i=0; i<len; i++) printk("%02x%s", buf[i], i+1 == len?")\n":" ");
 #endif
 
@@ -716,10 +717,8 @@ static int w677l_enable(struct omap_dss_device *dssdev)
 	}
 #endif
 
-#if CHECKME
-	// this might be the first place where timings are really important
+	// CHECKME: this might be the first place where timings are really important
 	// or is this too late?
-#endif
 
 	r = in->ops.dsi->set_config(in, &w677l_dsi_config);
 	if (r) {
@@ -945,20 +944,11 @@ static int w677l_probe(struct platform_device *pdev)
 		return r;
 	}
 
-#if 1	// checkme if we need the timings here
-	// NO: not needed for driver to be enabled
-	// YES: to avoid omapdrm omapdrm.0: atomic complete timeout
 	ddata->videomode = w677l_timings;
-#endif
-
 	dssdev = &ddata->dssdev;
 	dssdev->dev = dev;
 	dssdev->driver = &w677l_ops;
 
-#if OLD	// checkme if we need the timings here
-	// NO: if this is missing we see: Modeline 36:"0x0" 0 0 0 0 0 0 0 0 0 0 0x48 0xa
-	dssdev->panel.timings = w677l_timings;
-#endif
 	dssdev->panel.timings = ddata->videomode;
 	dssdev->type = OMAP_DISPLAY_TYPE_DSI;
 	dssdev->owner = THIS_MODULE;
