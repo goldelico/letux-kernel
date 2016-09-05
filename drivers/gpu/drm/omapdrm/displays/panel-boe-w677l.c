@@ -26,7 +26,6 @@
 #define LOG 0
 #define OPTIONAL 0
 
-#include <linux/backlight.h>
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/fb.h>
@@ -111,7 +110,6 @@ struct panel_drv_data {
 
 	struct mutex lock;
 
-	struct backlight_device *bldev;
 	int bl;
 	
 	int reset_gpio;
@@ -919,7 +917,6 @@ static int w677l_probe_of(struct platform_device *pdev)
 static int w677l_probe(struct platform_device *pdev)
 {
 	struct backlight_properties props;
-	struct backlight_device *bldev = NULL;
 	struct panel_drv_data *ddata;
 	struct device *dev = &pdev->dev;
 	struct omap_dss_device *dssdev;
@@ -994,7 +991,6 @@ static int __exit w677l_remove(struct platform_device *pdev)
 {
 	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
 	struct omap_dss_device *dssdev = &ddata->dssdev;
-	struct backlight_device *bldev;
 
 #if LOG
 	printk("dsi: w677l_remove()\n");
