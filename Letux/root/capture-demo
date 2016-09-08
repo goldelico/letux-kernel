@@ -3,6 +3,8 @@
 # see also http://projects.goldelico.com/p/gta04-kernel/page/Camera/
 #
 
+PATH=$PATH:/usr/bin/arm-linux-gnueabihf
+
 make capture
 
 case "$(uname -r)" in
