@@ -460,8 +460,10 @@ static int ov965x_write(struct i2c_client *client, u8 addr, u8 val)
 
 	int ret = 0 /* i2c_master_send(client, buf, 2) */;
 
+debug=2;
 	v4l2_dbg(2, debug, client, "%s: 0x%02x @ 0x%02X (%d)\n",
 		 __func__, val, addr, ret);
+debug=0;
 
 	return ret == 2 ? 0 : ret;
 }
