@@ -56,6 +56,7 @@ struct gab {
 	int	level;
 	int	status;
 	bool cable_plugged;
+	bool charger_detected;
 };
 
 static struct gab *to_generic_bat(struct power_supply *psy)
@@ -106,19 +107,6 @@ static bool gab_charge_finished(struct gab *adc_bat)
 	return ret ^ inv;
 }
 
-static int gab_get_status(struct gab *adc_bat)
-{
-	struct gab_platform_data *pdata = adc_bat->pdata;
-	struct power_supply_info *bat_info;
-
-	bat_info = &pdata->battery_info;
-	// level is never updated and we don't have yes charge_full_design defined thus we
-	// still get FULL status which is not correct
-	if (adc_bat->level == bat_info->charge_full_design && (adc_bat->level != 0))
-		return POWER_SUPPLY_STATUS_FULL;
-	return adc_bat->status;
-}
-
 static enum gab_chan_type gab_prop_to_chan(enum power_supply_property psp)
 {
 	switch (psp) {
@@ -149,6 +137,30 @@ static int read_channel(struct gab *adc_bat, enum power_supply_property psp,
 	if (ret < 0)
 		pr_err("read channel error\n");
 	return ret;
+}
+
+static int gab_get_status(struct gab *adc_bat)
+{
+	struct gab_platform_data *pdata = adc_bat->pdata;
+	struct power_supply_info *bat_info;
+
+	bat_info = &pdata->battery_info;
+	// level is never updated and we don't have yes charge_full_design defined thus we
+	// still get FULL status which is not correct
+	if (adc_bat->level == bat_info->charge_full_design && (adc_bat->level != 0))
+		return POWER_SUPPLY_STATUS_FULL;
+
+	// if we don't get notifications from core
+	if (!pdata->charger_detected) {
+		int result, ret;
+		// read current
+		ret = read_channel(adc_bat, POWER_SUPPLY_PROP_CURRENT_NOW , &result);
+		if (ret < 0)
+			goto err;
+		return (result > 0) ? POWER_SUPPLY_STATUS_CHARGING : POWER_SUPPLY_STATUS_DISCHARGING;
+	}
+err:
+	return adc_bat->status;
 }
 
 static int gab_get_property(struct power_supply *psy,
@@ -310,6 +322,10 @@ static struct gab_platform_data *gab_dt_probe(struct platform_device *pdev)
 	val = 0;
 	err = of_property_read_u32(np, "voltage_max-design", &val);
 	pdata->battery_info.voltage_max_design = val;
+
+	if (of_find_property(np, "power-supplies", NULL) != NULL) {
+		pdata->charger_detected = true;
+	}
 
 	return pdata;
 }
