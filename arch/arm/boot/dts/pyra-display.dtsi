@@ -215,6 +215,10 @@
 		};
 	};
 
+	eeprom@50 {
+		compatible = "at,24c01";
+		reg = <0x50>;
+	};
 };
 
 /* add anti-tearing */
