@@ -296,6 +296,11 @@
 	//	refclk-frequency 19.2 MHz
 		initial-mode = <1>;
 	};
+
+	eeprom@50 {
+		compatible = "at,24c01";
+		reg = <0x50>;
+	};
 };
 
 &i2c2 {
