@@ -958,6 +958,10 @@
 	/* FM Radio (no kernel driver exists) */
 	si4721_codec: si4721@11 {
 		compatible = "silicon-labs,si4721";
+
+		interrupt-parent = <&gpio5>;
+		interrupts = <28 IRQ_TYPE_EDGE_RISING>; /* GPIO_156 */
+
 		#sound-dai-cells = <0>;
 		reg = <0x11>;
 	};
