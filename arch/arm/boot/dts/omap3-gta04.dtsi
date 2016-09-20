@@ -772,11 +772,6 @@
 			};
 		};
 	};
-
-	control: control@48002270 {
-		compatible = "ti,omap3-devconf1-syscon", "syscon";
-		reg = <0x48002270 0x74>;
-	};
 };
 
 /* not yet upstream */
