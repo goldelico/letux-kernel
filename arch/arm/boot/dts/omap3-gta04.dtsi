@@ -668,12 +668,12 @@
 	/* pinmux for devconf1 */
 	control_devconf1: pinmux@480022d8 {
 		compatible = "pinctrl-single";
-		reg = <0x480022d8 4>;   /* Single register */
+		reg = <0x480022d8 4>;	/* CONTROL_DEVCONF1 */
 		#address-cells = <1>;
 		#size-cells = <0>;
 		pinctrl-single,bit-per-mux;
 		pinctrl-single,register-width = <32>;
-		pinctrl-single,function-mask = <0xfc0bd5>;
+		pinctrl-single,function-mask = <0x81>;	/* TV control */
 	};
 
 	wifi_pwrseq: wifi_pwrseq {
