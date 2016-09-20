@@ -458,12 +458,13 @@ static int ov965x_write(struct i2c_client *client, u8 addr, u8 val)
 {
 	u8 buf[2] = { addr, val };
 
-	int ret = 0 /* i2c_master_send(client, buf, 2) */;
+	int ret = 2 /* i2c_master_send(client, buf, 2) */;
 
-debug=2;
+	printk("%s: 0x%02x @ 0x%02X (%d)\n",
+		 __func__, val, addr, ret);
+
 	v4l2_dbg(2, debug, client, "%s: 0x%02x @ 0x%02X (%d)\n",
 		 __func__, val, addr, ret);
-debug=0;
 
 	return ret == 2 ? 0 : ret;
 }
@@ -562,6 +563,7 @@ static int ov965x_s_power(struct v4l2_subdev *sd, int on)
 	struct i2c_client *client = ov965x->client;
 	int ret = 0;
 
+	printk("%s: on: %d\n", __func__, on);
 	v4l2_dbg(1, debug, client, "%s: on: %d\n", __func__, on);
 
 	mutex_lock(&ov965x->lock);
@@ -579,6 +581,7 @@ static int ov965x_s_power(struct v4l2_subdev *sd, int on)
 
 	WARN_ON(ov965x->power < 0);
 	mutex_unlock(&ov965x->lock);
+	printk("%s: on => %d\n", __func__, ret);
 	return ret;
 }
 
@@ -608,6 +611,8 @@ static void ov965x_update_exposure_ctrl(struct ov965x *ov965x)
 	ov965x->exp_row_interval = trow;
 	mutex_unlock(&ov965x->lock);
 
+	printk("ov965x_update_exposure_ctrl clkrc: %#x, fi: %lu, tr: %lu, %d\n",
+		 clkrc, fint, trow, max);
 	v4l2_dbg(1, debug, &ov965x->sd, "clkrc: %#x, fi: %lu, tr: %lu, %d\n",
 		 clkrc, fint, trow, max);
 
@@ -1196,6 +1201,8 @@ static int ov965x_get_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_pad_config 
 	struct ov965x *ov965x = to_ov965x(sd);
 	struct v4l2_mbus_framefmt *mf;
 
+	printk("ov965x_get_fmt(fmt->which=%d)\n", fmt->which);
+
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
 		mf = v4l2_subdev_get_try_format(sd, cfg, 0);
 		fmt->format = *mf;
@@ -1216,6 +1223,8 @@ static void __ov965x_try_frame_size(struct v4l2_mbus_framefmt *mf,
 		*match = NULL;
 	int i = ARRAY_SIZE(ov965x_framesizes);
 	unsigned int min_err = UINT_MAX;
+
+	printk("__ov965x_try_frame_size()\n");
 
 	while (i--) {
 		int err = abs(fsize->width - mf->width)
@@ -1243,6 +1252,7 @@ static int ov965x_set_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_pad_config 
 	const struct ov965x_framesize *size = NULL;
 	int ret = 0;
 
+	printk("ov965x_set_fmt()\n");
 	__ov965x_try_frame_size(mf, &size);
 
 	while (--index)
@@ -1290,6 +1300,7 @@ static int ov965x_set_frame_size(struct ov965x *ov965x)
 {
 	int i, ret = 0;
 
+	printk("ov965x_set_frame_size()\n");
 	for (i = 0; ret == 0 && i < NUM_FMT_REGS; i++)
 		ret = ov965x_write(ov965x->client, frame_size_reg_addr[i],
 				   ov965x->frame_size->regs[i]);
@@ -1303,6 +1314,7 @@ static int __ov965x_set_params(struct ov965x *ov965x)
 	int ret = 0;
 	u8 reg;
 
+	printk("__ov965x_set_params()\n");
 	if (ov965x->apply_frame_fmt) {
 		reg = DEF_CLKRC + ov965x->fiv->clkrc_div;
 		ret = ov965x_write(client, REG_CLKRC, reg);
@@ -1350,6 +1362,7 @@ static int ov965x_s_stream(struct v4l2_subdev *sd, int on)
 	struct ov965x_ctrls *ctrls = &ov965x->ctrls;
 	int ret = 0;
 
+	printk("ov965x_s_stream()\n");
 	v4l2_dbg(1, debug, client, "%s: on: %d\n", __func__, on);
 
 	mutex_lock(&ov965x->lock);
@@ -1388,9 +1401,17 @@ static int ov965x_s_stream(struct v4l2_subdev *sd, int on)
 static int ov965x_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	struct v4l2_mbus_framefmt *mf = v4l2_subdev_get_try_format(sd, fh->pad, 0);
-
+printk("ov965x_open\n");
 	ov965x_get_default_format(mf);
-	return 0;
+// new...
+	return ov965x_s_power(sd, 1);
+}
+
+// new...
+static int ov965x_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+{
+printk("ov965x_close\n");
+	return ov965x_s_power(sd, 0);
 }
 
 static const struct v4l2_subdev_pad_ops ov965x_pad_ops = {
@@ -1409,6 +1430,7 @@ static const struct v4l2_subdev_video_ops ov965x_video_ops = {
 
 static const struct v4l2_subdev_internal_ops ov965x_sd_internal_ops = {
 	.open = ov965x_open,
+	.close = ov965x_close,
 };
 
 static const struct v4l2_subdev_core_ops ov965x_core_ops = {
