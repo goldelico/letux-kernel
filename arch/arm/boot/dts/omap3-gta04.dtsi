@@ -961,6 +961,10 @@
 	/* FM Radio (no kernel driver exists) */
 	si4721_codec: si4721@11 {
 		compatible = "silicon-labs,si4721";
+
+		interrupt-parent = <&gpio5>;
+		interrupts = <28 IRQ_TYPE_EDGE_RISING>; /* GPIO_156 */
+
 		#sound-dai-cells = <0>;
 		reg = <0x11>;
 	};
@@ -1064,5 +1068,28 @@
 		filesystem@a80000 {
 			reg = <0x880000 0>;     /* 0 = MTDPART_SIZ_FULL */
 		};
+	};
+};
+
+/ {
+	/* pinmux for devconf0 */
+	control_devconf0: pinmux@48002274 {
+		compatible = "pinctrl-single";
+		reg = <0x48002274 4>;   /* CONTROL_DEVCONF1 */
+		#address-cells = <1>;
+		#size-cells = <0>;
+		pinctrl-single,bit-per-mux;
+		pinctrl-single,register-width = <32>;
+		pinctrl-single,function-mask = <0x5f>;	/* CLK */
+	};
+};
+
+&control_devconf0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcbsp1_defconf0>;
+
+	mcbsp1_defconf0: pinmux_mcbsp1_defconf0 {
+		/*                   offset bits mask */
+		pinctrl-single,bits = <0x00 0x08 0x5f>;	/* set MCBSP1_CLKR_MASK */
 	};
 };
