@@ -670,12 +670,12 @@
 	/* pinmux for devconf1 */
 	control_devconf1: pinmux@480022d8 {
 		compatible = "pinctrl-single";
-		reg = <0x480022d8 4>;   /* Single register */
+		reg = <0x480022d8 4>;	/* CONTROL_DEVCONF1 */
 		#address-cells = <1>;
 		#size-cells = <0>;
 		pinctrl-single,bit-per-mux;
 		pinctrl-single,register-width = <32>;
-		pinctrl-single,function-mask = <0xfc0bd5>;
+		pinctrl-single,function-mask = <0x81>;	/* TV control */
 	};
 
 	wifi_pwrseq: wifi_pwrseq {
@@ -717,6 +717,21 @@
 		compatible = "ti,twl4030-madc-hwmon";
 	};
 
+#include <dt-bindings/power/power.h>
+
+	battery: battery {
+		compatible = "linux,generic-adc-battery";
+		io-channels = <&twl_madc 12>, <&twl_madc 10>, <&twl_madc 0>;
+		io-channel-names = "voltage", "current", "temperature";
+		technology = <POWER_SUPPLY_TECHNOLOGY_LION>;
+		battery-name = "gta04-battery";
+		charge_full_design = <4000>;
+		charge_empty_design = <3500>;
+		voltage_min_design = <100>;
+		voltage_max_design = <4300>;
+	};
+
+/*
 	battery: battery {
 		compatible = "ti,twl4030-madc-battery";
 		io-channels = <&twl_madc 0>, <&twl_madc 10>, <&twl_madc 12>;
@@ -726,22 +741,7 @@
 		charging-calibration-data = <4200 100 4100 75 4000 55 3900 25 3800 5 3700 2 3600 1 3300 0>;
 		discharging-calibration-data = <4200 100 4100 95 4000 70 3800 50 3700 10 3600 5 3300 0>;
 	};
-
-	backlight {
-		compatible = "pwm-backlight";
-		pwms = <&pwm11 0 2000000 0>;
-		pwm-names = "backlight";
-		brightness-levels = <0 11 20 30 40 50 60 70 80 90 100>;
-		default-brightness-level = <9>;	/* => 90 */
-		pinctrl-names = "default";
-		pinctrl-0 = <&backlight_pins>;
-	};
-
-	pwm11: dmtimer-pwm@11 {
-		compatible = "ti,omap-dmtimer-pwm";
-		ti,timers = <&timer11>;
-		#pwm-cells = <3>;
-	};
+*/
 
 	/* Bluetooth audio */
 	sound_bluetooth {
@@ -775,11 +775,6 @@
 			};
 		};
 	};
-
-	control: control@48002270 {
-		compatible = "ti,omap3-devconf1-syscon", "syscon";
-		reg = <0x48002270 0x74>;
-	};
 };
 
 /* not yet upstream */
@@ -796,11 +791,12 @@
 
 	mcbsp1_pins: pinmux_mcbsp1_pins {
 		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x218c, PIN_INPUT | MUX_MODE0)	/* mcbsp1_clkr.mcbsp1_clkr */
-			OMAP3_CORE1_IOPAD(0x218e, PIN_INPUT | MUX_MODE0)	/* mcbsp1_clkr.mcbsp1_fsr */
+			OMAP3_CORE1_IOPAD(0x218c, PIN_INPUT | MUX_MODE4)	/* mcbsp1_clkr.mcbsp1_clkr - gpio_156 FM interrupt */
+			OMAP3_CORE1_IOPAD(0x218e, PIN_OUTPUT | MUX_MODE0)	/* mcbsp1_clkr.mcbsp1_fsr */
 			OMAP3_CORE1_IOPAD(0x2190, PIN_OUTPUT | MUX_MODE0)	/* mcbsp1_dx.mcbsp1_dx */
 			OMAP3_CORE1_IOPAD(0x2192, PIN_INPUT | MUX_MODE0)	/* mcbsp1_dx.mcbsp1_dr */
-			OMAP3_CORE1_IOPAD(0x2194, PIN_INPUT | MUX_MODE0)	/* mcbsp_clks.mcbsp_clks */
+			/* used as PENIRQ
+			   OMAP3_CORE1_IOPAD(0x2194, PIN_INPUT | MUX_MODE0)	/* mcbsp_clks.mcbsp_clks */
 			OMAP3_CORE1_IOPAD(0x2196, PIN_INPUT | MUX_MODE0)	/* mcbsp_clks.mcbsp1_fsx */
 			OMAP3_CORE1_IOPAD(0x2198, PIN_INPUT | MUX_MODE0)	/* mcbsp1_clkx.mcbsp1_clkx */
 		>;
@@ -863,33 +859,9 @@
 		>;
 	};
 
-	itg3200_pins: pinmux_itg3200_pins {
-		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x20b8, PIN_INPUT_PULLUP | MUX_MODE4) /* gpio56 */
-		>;
-	};
-
-	backlight_pins: backlight_pins_pimnux {
-		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x20ba, MUX_MODE3)		/* gpt11/gpio57 */
-		>;
-	};
-
-	hmc5843_pins: pinmux_hmc5843_pins {
-		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x2134, PIN_INPUT_PULLUP | MUX_MODE4) /* gpio112 */
-		>;
-	};
-
 	bmp085_pins: pinmux_bmp085_pins {
 		pinctrl-single,pins = <
 			OMAP3_CORE1_IOPAD(0x2136, PIN_INPUT_PULLUP | MUX_MODE4) /* gpio113 */
-		>;
-	};
-
-	bma180_pins: pinmux_bma180_pins {
-		pinctrl-single,pins = <
-			OMAP3_CORE1_IOPAD(0x213a, PIN_INPUT_PULLUP | MUX_MODE4) /* gpio115 */
 		>;
 	};
 
@@ -949,12 +921,6 @@
 };
 
 &i2c2 {
-	/* RFID EEPROM */
-	m24lr64@50 {
-		compatible = "at,24c64";
-		reg = <0x50>;
-	};
-
 	/* flash/torch (torch driver not yet available) */
 /* segfaults during modprobe
 	tps61050@33 {
@@ -1045,8 +1011,8 @@
 &mcbsp1 { /* FM Transceiver PCM */
 	status = "ok";
 	#sound-dai-cells = <0>;
-//	pinctrl-names = "default";
-//	pinctrl-0 = <&mcbsp1_pins>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcbsp1_pins>;
 };
 
 &mcbsp2 { /* TPS65950 I2S */
@@ -1088,10 +1054,7 @@
 };
 
 &gpmc {
-	ranges = <0 0 0x30000000 0x04>; /* CS0: NAND */
-
 	nand@0,0 {
-		reg = <0 0 0>; /* CS0, offset 0 */
 		ti,nand-ecc-opt = "sw"; /* stay compatible with our old u-boot (does not support bch8) */
 
 		kernel@280000 {
