@@ -39,7 +39,7 @@ static int debug;
 module_param(debug, int, 0644);
 MODULE_PARM_DESC(debug, "Debug level (0-2)");
 
-#define DRIVER_NAME "OV9650"
+#define DRIVER_NAME "ov9650"
 
 /*
  * OV9650/OV9652 register definitions
