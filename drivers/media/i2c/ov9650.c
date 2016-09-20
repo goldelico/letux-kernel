@@ -542,11 +542,10 @@ static void __ov965x_set_power(struct ov965x *ov965x, int on)
 		usleep_range(25000, 26000);
 
 		ov965x_gpio_set(ov965x->gpios[GPIO_PWDN], 0);
-// FIXME: handle different polarity for OV9655v4
-		ov965x_gpio_set(ov965x->gpios[GPIO_RST], 0);
+		ov965x_gpio_set(ov965x->gpios[GPIO_RST], ov965x->id == OV9655V4_ID ? 1 : 0);
 		usleep_range(25000, 26000);
 	} else {
-		ov965x_gpio_set(ov965x->gpios[GPIO_RST], 1);
+		ov965x_gpio_set(ov965x->gpios[GPIO_RST], ov965x->id == OV9655V4_ID ? 0 : 1);
 		ov965x_gpio_set(ov965x->gpios[GPIO_PWDN], 1);
 
 		if (ov965x->clk)
@@ -1463,6 +1462,8 @@ static int ov965x_detect_sensor(struct v4l2_subdev *sd)
 	int ret;
 
 	mutex_lock(&ov965x->lock);
+
+	/* FIXME: does not work for OV9655V4_ID because ov965x->id isn't set here */
 	__ov965x_set_power(ov965x, 1);
 	usleep_range(25000, 26000);
 
