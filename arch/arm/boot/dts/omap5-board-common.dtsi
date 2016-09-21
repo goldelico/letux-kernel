@@ -414,7 +414,7 @@
 			ti,backup-battery-charge-high-current;
 		};
 
-		gpadc {
+		gpadc: gpadc {
 			compatible = "ti,palmas-gpadc";
 			interrupts = <18 0
 				      16 0
@@ -651,8 +651,8 @@
 		v2v1-supply = <&smps9_reg>;
 		enable-active-high;
 
-		clocks = <&clk32kgaudio>;
-		clock-names = "clk32k";
+		clocks = <&clk32kgaudio>, <&fref_xtal_ck>;
+		clock-names = "clk32k", "mclk";
 	};
 };
 

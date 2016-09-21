@@ -122,6 +122,29 @@ static void omap2430_musb_set_vbus(struct musb *musb, int is_on)
 		musb_readb(musb->mregs, MUSB_DEVCTL));
 }
 
+static int omap2430_musb_set_mode(struct musb *musb, u8 musb_mode)
+{
+	u8	devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
+
+	devctl |= MUSB_DEVCTL_SESSION;
+
+	/* this bit only works in the b_peripheral state
+	 * to start the transition to b_wait_aconn
+	 * and would normally be set through as a response
+	 * to a b_hnp_enable
+	 */
+
+	if (musb_mode == MUSB_HOST) {
+		devctl |= MUSB_DEVCTL_HR;
+		if (musb->g.is_otg)
+			musb->g.b_hnp_enable = 1;
+	} else if (musb_mode == MUSB_PERIPHERAL) {
+		devctl &= (~MUSB_DEVCTL_HR);
+	}
+	musb_writeb(musb->mregs, MUSB_DEVCTL, devctl);
+	return 0;
+}
+
 static inline void omap2430_low_level_exit(struct musb *musb)
 {
 	u32 l;
@@ -316,6 +339,8 @@ static int omap2430_musb_init(struct musb *musb)
 		 */
 		musb->xceiv = devm_usb_get_phy_by_phandle(dev->parent,
 		    "usb-phy", 0);
+printk("xceiv = %p\n", musb->xceiv);
+printk("phy = %p\n", musb->phy);
 	} else {
 		musb->xceiv = devm_usb_get_phy_dev(dev, 0);
 		musb->phy = devm_phy_get(dev, "usb");
@@ -413,9 +438,10 @@ static void omap2430_musb_disable(struct musb *musb)
 	struct device *dev = musb->controller;
 	struct omap2430_glue *glue = dev_get_drvdata(dev->parent);
 
-	if (!WARN_ON(!musb->phy))
-		phy_power_off(musb->phy);
-
+	if (glue->enabled) {
+		if (!WARN_ON(!musb->phy))
+			phy_power_off(musb->phy);
+	}
 	if (glue->status != MUSB_UNKNOWN)
 		omap_control_usb_set_mode(glue->control_otghs,
 			USB_MODE_DISCONNECT);
@@ -446,7 +472,7 @@ static const struct musb_platform_ops omap2430_ops = {
 	.exit		= omap2430_musb_exit,
 
 	.set_vbus	= omap2430_musb_set_vbus,
-
+	.set_mode	= omap2430_musb_set_mode,
 	.enable		= omap2430_musb_enable,
 	.disable	= omap2430_musb_disable,
 
