@@ -173,6 +173,7 @@ struct twl4030_usb {
 	int			irq;
 	enum musb_vbus_id_status linkstat;
 	bool			vbus_supplied;
+	bool			musb_mailbox_pending;
 
 	struct delayed_work	id_workaround_work;
 };
@@ -469,6 +470,11 @@ static int __maybe_unused twl4030_usb_runtime_resume(struct device *dev)
 			  (PHY_CLK_CTRL_CLOCKGATING_EN |
 			   PHY_CLK_CTRL_CLK32K_EN));
 
+	twl4030_i2c_access(twl, 1);
+	twl4030_usb_set_mode(twl, twl->usb_mode);
+	if (twl->usb_mode == T2_USB_MODE_ULPI)
+		twl4030_i2c_access(twl, 0);
+	mdelay(50);
 	return 0;
 }
 
@@ -489,11 +495,6 @@ static int twl4030_phy_power_on(struct phy *phy)
 
 	dev_dbg(twl->dev, "%s\n", __func__);
 	pm_runtime_get_sync(twl->dev);
-	twl4030_i2c_access(twl, 1);
-	twl4030_usb_set_mode(twl, twl->usb_mode);
-	if (twl->usb_mode == T2_USB_MODE_ULPI)
-		twl4030_i2c_access(twl, 0);
-	twl->linkstat = MUSB_UNKNOWN;
 	schedule_delayed_work(&twl->id_workaround_work, HZ);
 
 	return 0;
@@ -711,9 +712,12 @@ static irqreturn_t twl4030_usb_irq(int irq, void *_twl)
 			pm_runtime_mark_last_busy(twl->dev);
 			pm_runtime_put_autosuspend(twl->dev);
 		}
+		twl->musb_mailbox_pending = true;
+	}
+	if (twl->musb_mailbox_pending) {
 		err = musb_mailbox(status);
-		if (err)
-			twl->linkstat = MUSB_UNKNOWN;
+		if (!err)
+			twl->musb_mailbox_pending = false;
 	}
 
 	/* don't schedule during sleep - irq works right then */
@@ -796,6 +800,10 @@ static int twl4030_usb_probe(struct platform_device *pdev)
 	struct device_node	*np = pdev->dev.of_node;
 	struct phy_provider	*phy_provider;
 
+#ifdef DEBUG
+printk("twl4030_usb_probe\n");
+#endif
+
 	twl = devm_kzalloc(&pdev->dev, sizeof(*twl), GFP_KERNEL);
 	if (!twl)
 		return -ENOMEM;
@@ -814,10 +822,15 @@ static int twl4030_usb_probe(struct platform_device *pdev)
 	if (!otg)
 		return -ENOMEM;
 
+#ifdef DEBUG
+printk("twl4030_usb_probe: otg = %p\n", otg);
+#endif
+
 	twl->dev		= &pdev->dev;
 	twl->irq		= platform_get_irq(pdev, 0);
 	twl->vbus_supplied	= false;
 	twl->linkstat		= MUSB_UNKNOWN;
+	twl->musb_mailbox_pending = false;
 
 	twl->phy.dev		= twl->dev;
 	twl->phy.label		= "twl4030";
@@ -833,6 +846,10 @@ static int twl4030_usb_probe(struct platform_device *pdev)
 		dev_dbg(&pdev->dev, "Failed to create PHY\n");
 		return PTR_ERR(phy);
 	}
+
+#ifdef DEBUG
+printk("twl4030_usb_probe: phy = %p\n", phy);
+#endif
 
 	phy_set_drvdata(phy, twl);
 
@@ -851,6 +868,11 @@ static int twl4030_usb_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "ldo init failed\n");
 		return err;
 	}
+
+#ifdef DEBUG
+printk("twl4030_usb_probe: usb_add_phy_dev\n");
+#endif
+
 	usb_add_phy_dev(&twl->phy);
 
 	platform_set_drvdata(pdev, twl);
@@ -897,6 +919,10 @@ static int twl4030_usb_probe(struct platform_device *pdev)
 
 	pm_runtime_mark_last_busy(&pdev->dev);
 	pm_runtime_put_autosuspend(twl->dev);
+
+#ifdef DEBUG
+printk("twl4030_usb_probe: done\n");
+#endif
 
 	dev_info(&pdev->dev, "Initialized TWL4030 USB module\n");
 	return 0;
@@ -963,6 +989,9 @@ static struct platform_driver twl4030_usb_driver = {
 
 static int __init twl4030_usb_init(void)
 {
+#ifdef DEBUG
+	printk("twl4030_usb_init\n");
+#endif
 	return platform_driver_register(&twl4030_usb_driver);
 }
 subsys_initcall(twl4030_usb_init);

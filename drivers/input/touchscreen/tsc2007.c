@@ -29,6 +29,8 @@
 #include <linux/of_device.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
+#include <linux/input/touchscreen.h>
+#include <linux/iio/iio.h>
 
 #define TSC2007_MEASURE_TEMP0		(0x0 << 4)
 #define TSC2007_MEASURE_AUX		(0x2 << 4)
@@ -60,6 +62,16 @@
 #define READ_X		(ADC_ON_12BIT | TSC2007_MEASURE_X)
 #define PWRDOWN		(TSC2007_12BIT | TSC2007_POWER_OFF_IRQ_EN)
 
+#define TSC2007_CHAN_IIO(_chan, _name, _type, _chan_info) \
+{ \
+	.datasheet_name = _name, \
+	.type = _type, \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |	\
+			BIT(_chan_info), \
+	.indexed = 1, \
+	.channel = _chan, \
+}
+
 struct ts_event {
 	u16	x;
 	u16	y;
@@ -68,12 +80,24 @@ struct ts_event {
 
 struct tsc2007 {
 	struct input_dev	*input;
+#ifdef CONFIG_IIO
+	struct iio_dev		*indio;
+#endif
 	char			phys[32];
 
 	struct i2c_client	*client;
+	struct mutex		mlock;
 
 	u16			model;
 	u16			x_plate_ohms;
+
+	struct touchscreen_properties prop;
+
+	bool			report_resistance;
+	u16			min_x;
+	u16			min_y;
+	u16			max_x;
+	u16			max_y;
 	u16			max_rt;
 	unsigned long		poll_period; /* in jiffies */
 	int			fuzzx;
@@ -85,6 +109,7 @@ struct tsc2007 {
 
 	wait_queue_head_t	wait;
 	bool			stopped;
+	bool			pendown;
 
 	int			(*get_pendown_state)(struct device *);
 	void			(*clear_penirq)(void);
@@ -128,7 +153,8 @@ static void tsc2007_read_values(struct tsc2007 *tsc, struct ts_event *tc)
 	tsc2007_xfer(tsc, PWRDOWN);
 }
 
-static u32 tsc2007_calculate_pressure(struct tsc2007 *tsc, struct ts_event *tc)
+static u32 tsc2007_calculate_resistance(struct tsc2007 *tsc,
+					struct ts_event *tc)
 {
 	u32 rt = 0;
 
@@ -177,12 +203,16 @@ static irqreturn_t tsc2007_soft_irq(int irq, void *handle)
 	struct ts_event tc;
 	u32 rt;
 
+	dev_dbg(&ts->client->dev, "soft irq %d\n", irq);
 	while (!ts->stopped && tsc2007_is_pen_down(ts)) {
 
 		/* pen is down, continue with the measurement */
-		tsc2007_read_values(ts, &tc);
 
-		rt = tsc2007_calculate_pressure(ts, &tc);
+		mutex_lock(&ts->mlock);
+		tsc2007_read_values(ts, &tc);
+		mutex_unlock(&ts->mlock);
+
+		rt = tsc2007_calculate_resistance(ts, &tc);
 
 		if (!rt && !ts->get_pendown_state) {
 			/*
@@ -194,21 +224,45 @@ static irqreturn_t tsc2007_soft_irq(int irq, void *handle)
 		}
 
 		if (rt <= ts->max_rt) {
+			int sx, sy;
+
 			dev_dbg(&ts->client->dev,
 				"DOWN point(%4d,%4d), pressure (%4u)\n",
 				tc.x, tc.y, rt);
 
-			input_report_key(input, BTN_TOUCH, 1);
-			input_report_abs(input, ABS_X, tc.x);
-			input_report_abs(input, ABS_Y, tc.y);
+			if (!ts->report_resistance)
+				rt = ts->max_rt - rt;
+
+			/* scale ADC values to desired output range */
+			sx = (ts->prop.max_x * (tc.x - ts->min_x))
+				/ (ts->max_x - ts->min_x);
+			sy = (ts->prop.max_y * (tc.y - ts->min_y))
+				/ (ts->max_y - ts->min_y);
+			rt = (input->absinfo[ABS_PRESSURE].maximum * rt) /
+				ts->max_rt;
+
+			dev_dbg(&ts->client->dev,
+				"Scaled point(%4d,%4d), pressure (%4u)\n",
+				sx, sy, rt);
+
+			/* report event */
+			if (!ts->pendown) {
+				input_report_key(input, BTN_TOUCH, 1);
+				ts->pendown = true;
+			}
+
+			touchscreen_report_pos(ts->input, &ts->prop,
+						(unsigned int) sx,
+						(unsigned int) sy,
+						false);
 			input_report_abs(input, ABS_PRESSURE, rt);
 
 			input_sync(input);
 
 		} else {
 			/*
-			 * Sample found inconsistent by debouncing or pressure is
-			 * beyond the maximum. Don't report it to user space,
+			 * Sample found inconsistent by debouncing or resistance
+			 * is beyond the maximum. Don't report it to user space,
 			 * repeat at least once more the measurement.
 			 */
 			dev_dbg(&ts->client->dev, "ignored pressure %d\n", rt);
@@ -219,9 +273,13 @@ static irqreturn_t tsc2007_soft_irq(int irq, void *handle)
 
 	dev_dbg(&ts->client->dev, "UP\n");
 
-	input_report_key(input, BTN_TOUCH, 0);
-	input_report_abs(input, ABS_PRESSURE, 0);
-	input_sync(input);
+	if (ts->pendown) {
+		input_report_key(input, BTN_TOUCH, 0);
+		input_report_abs(input, ABS_PRESSURE, 0);
+		input_sync(input);
+
+		ts->pendown = false;
+	}
 
 	if (ts->clear_penirq)
 		ts->clear_penirq();
@@ -233,6 +291,7 @@ static irqreturn_t tsc2007_hard_irq(int irq, void *handle)
 {
 	struct tsc2007 *ts = handle;
 
+	dev_dbg(&ts->client->dev, "hard irq %d\n", irq);
 	if (tsc2007_is_pen_down(ts))
 		return IRQ_WAKE_THREAD;
 
@@ -278,6 +337,89 @@ static void tsc2007_close(struct input_dev *input_dev)
 	tsc2007_stop(ts);
 }
 
+#ifdef CONFIG_IIO
+
+static const struct iio_chan_spec tsc2007_iio_channel[] = {
+	TSC2007_CHAN_IIO(0, "x", IIO_VOLTAGE, IIO_CHAN_INFO_RAW),
+	TSC2007_CHAN_IIO(1, "y", IIO_VOLTAGE, IIO_CHAN_INFO_RAW),
+	TSC2007_CHAN_IIO(2, "z1", IIO_VOLTAGE, IIO_CHAN_INFO_RAW),
+	TSC2007_CHAN_IIO(3, "z2", IIO_VOLTAGE, IIO_CHAN_INFO_RAW),
+	TSC2007_CHAN_IIO(4, "adc", IIO_VOLTAGE, IIO_CHAN_INFO_RAW),
+	TSC2007_CHAN_IIO(5, "rt", IIO_VOLTAGE, IIO_CHAN_INFO_RAW), /* Ohms? */
+	TSC2007_CHAN_IIO(6, "pen", IIO_PRESSURE, IIO_CHAN_INFO_RAW),
+	TSC2007_CHAN_IIO(7, "temp0", IIO_TEMP, IIO_CHAN_INFO_RAW),
+	TSC2007_CHAN_IIO(8, "temp1", IIO_TEMP, IIO_CHAN_INFO_RAW),
+};
+
+static int tsc2007_read_raw(struct iio_dev *indio_dev,
+	struct iio_chan_spec const *chan, int *val, int *val2, long mask)
+{
+	struct  tsc2007 *tsc = iio_priv(indio_dev);
+	int adc_chan = chan->channel;
+	int ret = 0;
+
+	if (adc_chan >= ARRAY_SIZE(tsc2007_iio_channel))
+		return -EINVAL;
+
+	if (mask != IIO_CHAN_INFO_RAW)
+		return -EINVAL;
+
+	mutex_lock(&tsc->mlock);
+
+	switch (chan->channel) {
+	case 0:
+		*val = tsc2007_xfer(tsc, READ_X);
+		break;
+	case 1:
+		*val = tsc2007_xfer(tsc, READ_Y);
+		break;
+	case 2:
+		*val = tsc2007_xfer(tsc, READ_Z1);
+		break;
+	case 3:
+		*val = tsc2007_xfer(tsc, READ_Z2);
+		break;
+	case 4:
+		*val = tsc2007_xfer(tsc, (ADC_ON_12BIT | TSC2007_MEASURE_AUX));
+		break;
+	case 5: {
+		struct ts_event tc;
+
+		tc.x = tsc2007_xfer(tsc, READ_X);
+		tc.z1 = tsc2007_xfer(tsc, READ_Z1);
+		tc.z2 = tsc2007_xfer(tsc, READ_Z2);
+		*val = tsc2007_calculate_resistance(tsc, &tc);
+		break;
+	}
+	case 6:
+		*val = tsc2007_is_pen_down(tsc);
+		break;
+	case 7:
+		*val = tsc2007_xfer(tsc,
+				    (ADC_ON_12BIT | TSC2007_MEASURE_TEMP0));
+		break;
+	case 8:
+		*val = tsc2007_xfer(tsc,
+				    (ADC_ON_12BIT | TSC2007_MEASURE_TEMP1));
+		break;
+	}
+
+	/* Prepare for next touch reading - power down ADC, enable PENIRQ */
+	tsc2007_xfer(tsc, PWRDOWN);
+
+	mutex_unlock(&tsc->mlock);
+
+	ret = IIO_VAL_INT;
+
+	return ret;
+}
+
+static const struct iio_info tsc2007_iio_info = {
+	.read_raw = tsc2007_read_raw,
+	.driver_module = THIS_MODULE,
+};
+#endif
+
 #ifdef CONFIG_OF
 static int tsc2007_get_pendown_state_gpio(struct device *dev)
 {
@@ -303,14 +445,24 @@ static int tsc2007_probe_dt(struct i2c_client *client, struct tsc2007 *ts)
 	else
 		ts->max_rt = MAX_12BIT;
 
-	if (!of_property_read_u32(np, "ti,fuzzx", &val32))
-		ts->fuzzx = val32;
+	ts->report_resistance =
+		       of_property_read_bool(np, "ti,report-resistance");
 
-	if (!of_property_read_u32(np, "ti,fuzzy", &val32))
-		ts->fuzzy = val32;
+	touchscreen_parse_properties(ts->input, false, &ts->prop);
 
-	if (!of_property_read_u32(np, "ti,fuzzz", &val32))
-		ts->fuzzz = val32;
+	if (!of_property_read_u32(np, "ti,min-x", &val32))
+		ts->min_x = val32;
+	if (!of_property_read_u32(np, "ti,max-x", &val32))
+		ts->max_x = val32;
+	else
+		ts->max_x = MAX_12BIT;
+
+	if (!of_property_read_u32(np, "ti,min-y", &val32))
+		ts->min_y = val32;
+	if (!of_property_read_u32(np, "ti,max-y", &val32))
+		ts->max_y = val32;
+	else
+		ts->max_y = MAX_12BIT;
 
 	if (!of_property_read_u64(np, "ti,poll-period", &val64))
 		ts->poll_period = msecs_to_jiffies(val64);
@@ -332,6 +484,22 @@ static int tsc2007_probe_dt(struct i2c_client *client, struct tsc2007 *ts)
 			 "GPIO not specified in DT (of_get_gpio returned %d)\n",
 			 ts->gpio);
 
+	dev_dbg(&client->dev,
+			"min/max_x (%4d,%4d)\n",
+			ts->min_x, ts->max_x);
+	dev_dbg(&client->dev,
+			"min/max_y (%4d,%4d)\n",
+			ts->min_y, ts->max_y);
+	dev_dbg(&client->dev,
+			"max_rt (%4d)\n",
+			ts->max_rt);
+	dev_dbg(&client->dev,
+			"size (%4d,%4d)\n",
+			ts->prop.max_x, ts->prop.max_y);
+	dev_dbg(&client->dev,
+			"ts-gpio: %d\n",
+			ts->gpio);
+
 	return 0;
 }
 #else
@@ -349,6 +517,14 @@ static int tsc2007_probe_pdev(struct i2c_client *client, struct tsc2007 *ts,
 	ts->model             = pdata->model;
 	ts->x_plate_ohms      = pdata->x_plate_ohms;
 	ts->max_rt            = pdata->max_rt ? : MAX_12BIT;
+	ts->prop.swap_x_y     = pdata->swap_xy;
+	ts->prop.invert_x     = pdata->invert_x;
+	ts->prop.invert_y     = pdata->invert_y;
+	ts->report_resistance = pdata->report_resistance;
+	ts->min_x             = pdata->min_x ? : 0;
+	ts->min_y             = pdata->min_y ? : 0;
+	ts->max_x             = pdata->max_x ? : MAX_12BIT;
+	ts->max_y             = pdata->max_y ? : MAX_12BIT;
 	ts->poll_period       = msecs_to_jiffies(pdata->poll_period ? : 1);
 	ts->get_pendown_state = pdata->get_pendown_state;
 	ts->clear_penirq      = pdata->clear_penirq;
@@ -378,33 +554,56 @@ static int tsc2007_probe(struct i2c_client *client,
 	const struct tsc2007_platform_data *pdata = dev_get_platdata(&client->dev);
 	struct tsc2007 *ts;
 	struct input_dev *input_dev;
+#ifdef CONFIG_IIO
+	struct iio_dev *indio_dev;
+#endif
 	int err;
 
 	if (!i2c_check_functionality(client->adapter,
 				     I2C_FUNC_SMBUS_READ_WORD_DATA))
 		return -EIO;
 
+#ifdef CONFIG_IIO
+	indio_dev = devm_iio_device_alloc(&client->dev, sizeof(*ts));
+	if (!indio_dev) {
+		dev_err(&client->dev, "iio_device_alloc failed\n");
+		return -ENOMEM;
+	}
+
+	ts = iio_priv(indio_dev);
+#else
 	ts = devm_kzalloc(&client->dev, sizeof(struct tsc2007), GFP_KERNEL);
 	if (!ts)
 		return -ENOMEM;
-
-	if (pdata)
-		err = tsc2007_probe_pdev(client, ts, pdata, id);
-	else
-		err = tsc2007_probe_dt(client, ts);
-	if (err)
-		return err;
-
+#endif
 	input_dev = devm_input_allocate_device(&client->dev);
 	if (!input_dev)
 		return -ENOMEM;
 
 	i2c_set_clientdata(client, ts);
 
+#ifdef CONFIG_IIO
+	indio_dev->name = "tsc2007";
+	indio_dev->dev.parent = &client->dev;
+	indio_dev->info = &tsc2007_iio_info;
+	indio_dev->modes = INDIO_DIRECT_MODE;
+	indio_dev->channels = tsc2007_iio_channel;
+	indio_dev->num_channels = ARRAY_SIZE(tsc2007_iio_channel);
+
+	err = iio_device_register(indio_dev);
+	if (err < 0) {
+		dev_err(&client->dev, "iio_device_register() failed: %d\n",
+			err);
+		return err;
+	}
+	ts->indio = indio_dev;
+#endif
+
 	ts->client = client;
 	ts->irq = client->irq;
 	ts->input = input_dev;
 	init_waitqueue_head(&ts->wait);
+	mutex_init(&ts->mlock);
 
 	snprintf(ts->phys, sizeof(ts->phys),
 		 "%s/input0", dev_name(&client->dev));
@@ -419,12 +618,25 @@ static int tsc2007_probe(struct i2c_client *client,
 	input_set_drvdata(input_dev, ts);
 
 	input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
+	input_dev->absbit[0] = BIT_MASK(ABS_X) | BIT_MASK(ABS_Y) |
+				BIT_MASK(ABS_PRESSURE);
 	input_dev->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
 
-	input_set_abs_params(input_dev, ABS_X, 0, MAX_12BIT, ts->fuzzx, 0);
-	input_set_abs_params(input_dev, ABS_Y, 0, MAX_12BIT, ts->fuzzy, 0);
-	input_set_abs_params(input_dev, ABS_PRESSURE, 0, MAX_12BIT,
-			     ts->fuzzz, 0);
+	if (pdata) {
+		err = tsc2007_probe_pdev(client, ts, pdata, id);
+		if (err)
+			return err;
+		input_set_abs_params(input_dev, ABS_X, 0, ts->max_x-ts->min_x,
+							  ts->fuzzx, 0);
+		input_set_abs_params(input_dev, ABS_Y, 0, ts->max_y-ts->min_y,
+							  ts->fuzzy, 0);
+		input_set_abs_params(input_dev, ABS_PRESSURE, 0, ts->max_rt,
+							  ts->fuzzz, 0);
+	} else {
+		err = tsc2007_probe_dt(client, ts);
+		if (err)
+			return err;
+	}
 
 	if (pdata) {
 		if (pdata->exit_platform_hw) {
@@ -443,6 +655,8 @@ static int tsc2007_probe(struct i2c_client *client,
 			pdata->init_platform_hw();
 	}
 
+	dev_dbg(&client->dev, "request irq %d\n",
+			ts->irq);
 	err = devm_request_threaded_irq(&client->dev, ts->irq,
 					tsc2007_hard_irq, tsc2007_soft_irq,
 					IRQF_ONESHOT,
@@ -455,6 +669,17 @@ static int tsc2007_probe(struct i2c_client *client,
 
 	tsc2007_stop(ts);
 
+	/* power down the chip (TSC2007_SETUP does not ACK on I2C) */
+	err = tsc2007_xfer(ts, PWRDOWN);
+	if (err < 0) {
+		dev_err(&client->dev,
+			"Failed to setup chip: %d\n", err);
+#ifdef CONFIG_IIO
+		iio_device_unregister(indio_dev);
+#endif
+		return err;	/* usually, chip does not respond */
+	}
+
 	err = input_register_device(input_dev);
 	if (err) {
 		dev_err(&client->dev,
@@ -462,6 +687,21 @@ static int tsc2007_probe(struct i2c_client *client,
 		return err;
 	}
 
+	return 0;
+}
+
+static int tsc2007_remove(struct i2c_client *client)
+{
+	struct tsc2007 *ts = i2c_get_clientdata(client);
+	struct input_dev *input_dev = ts->input;
+#ifdef CONFIG_IIO
+	struct iio_dev *indio_dev = ts->indio;
+#endif
+	input_unregister_device(input_dev);
+
+#ifdef CONFIG_IIO
+	iio_device_unregister(indio_dev);
+#endif
 	return 0;
 }
 
@@ -487,6 +727,7 @@ static struct i2c_driver tsc2007_driver = {
 	},
 	.id_table	= tsc2007_idtable,
 	.probe		= tsc2007_probe,
+	.remove		= tsc2007_remove,
 };
 
 module_i2c_driver(tsc2007_driver);
