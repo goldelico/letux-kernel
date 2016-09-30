@@ -637,19 +637,22 @@ static void usb_detect_work_func(struct work_struct *work)
 static void irq_work_func(struct work_struct *work)
 {
 //	struct bq24296_device_info *info= container_of(work, struct bq24296_device_info, irq_work);
+	printk("%s\n", __func__);
+
+	// should find out what has happened
+
 }
 
-#if UNUSED
 static irqreturn_t chg_irq_func(int irq, void *dev_id)
 {
 	struct bq24296_device_info *info = dev_id;
 	DBG("%s\n", __func__);
+	printk("%s\n", __func__);
 
 	queue_work(info->workqueue, &info->irq_work);
 
 	return IRQ_HANDLED;
 }
-#endif
 
 /* regulator framework integration for VSYS and OTG */
 
@@ -1404,21 +1407,16 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 		goto fail_probe;
 	}
 
-	// the following code seems to be wrong for DT defined interrupts
-	// we currently do not use the interrupt,
-	// so we disable this code
-#if UNUSED
-	if (gpio_is_valid(pdev->chg_irq_pin)){
-		pdev->chg_irq = gpio_to_irq(pdev->chg_irq_pin);
-		ret = devm_request_threaded_irq(&client->dev, pdev->chg_irq, NULL,
-				chg_irq_func, IRQF_TRIGGER_FALLING| IRQF_ONESHOT, client->name,
+	ret = devm_request_threaded_irq(&client->dev, pdev->chg_irq,
+				NULL, chg_irq_func,
+				IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+				client->name,
 				di);
-		if (ret < 0) {
-			dev_err(&client->dev, "failed to request chg_irq: %d\n", ret);
-			goto err_chgirq_failed;
-		}
+	if (ret < 0) {
+		dev_warn(&client->dev, "failed to request chg_irq: %d\n", ret);
+		// run with polling
+//		goto err_chgirq_failed;
 	}
-#endif
 
 	if (device_create_file(&client->dev, &dev_attr_max_current))
 		dev_warn(&client->dev, "could not create sysfs file max_current\n");
