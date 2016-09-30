@@ -2118,6 +2118,7 @@ static int isp_of_parse_nodes(struct device *dev,
 
 		isd = devm_kzalloc(dev, sizeof(*isd), GFP_KERNEL);
 		if (!isd) {
+			of_node_put(node);
 			return -ENOMEM;
 		}
 
@@ -2129,7 +2130,7 @@ static int isp_of_parse_nodes(struct device *dev,
 		}
 
 		isd->asd.match.of.node = of_graph_get_remote_port_parent(node);
-
+		of_node_put(node);
 		if (!isd->asd.match.of.node) {
 			dev_warn(dev, "bad remote port parent\n");
 			return -EINVAL;
