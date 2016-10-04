@@ -466,7 +466,7 @@ function test_uboot {
 
 function test_si47xx {
 	(cd /root && make si4721 >/dev/null 2>&1)
-VAL=$(echo $(/root/si4721 -d -up -dn))
+	VAL=$(echo $(/root/si4721 -d -up -dn))
 	case "$VAL" in
 		"init resp: 80 get_chiprev resp: 80 1532300000323042 powered off" | \
 		"init resp: 80 get_chiprev resp: 80 0532300000323042 powered off" )
