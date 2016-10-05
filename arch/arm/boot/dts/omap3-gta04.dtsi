@@ -479,13 +479,13 @@
 	pinctrl-0 = <&mmc1_pins>;
 	vmmc-supply = <&vmmc1>;
 	bus-width = <4>;
-	ti,non-removable;
+	ti,non-removable;	/* remove ti, */
 };
 
 &mmc2 {
 	vmmc-supply = <&vaux4>;
 	bus-width = <4>;
-	ti,non-removable;
+	ti,non-removable;	/* remove ti, */
 	mmc-pwrseq = <&wifi_pwrseq>;
 	cap-power-off-card;	/* remove! */
 };
