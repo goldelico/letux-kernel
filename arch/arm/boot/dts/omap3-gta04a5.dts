@@ -19,48 +19,106 @@
 		on-indicator-gpio = <&twl_gpio 15 0>;	/* GTA04A5 only: reset_out feedback from modem */
 	};
 
+	wlan_en: wlan_en_regulator {
+		compatible = "regulator-fixed";
+		pinctrl-names = "default";
+		pinctrl-0 = <&wlan_pins>;
+		regulator-name = "wlan-en-regulator";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+
+	        gpio = <&gpio5 10 GPIO_ACTIVE_HIGH>;	/* GPIO_138 */
+
+		startup-delay-us = <70000>;
+		enable-active-high;
+		vin-supply = <&vcc>;	/* otherwise regulator is "disabling" */
+	};
+
+	bluetooth_en: bt_en_regulator {
+		compatible = "regulator-fixed";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_pins>;
+		regulator-name = "bt-en-regulator";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+
+		gpio = <&gpio5 9 GPIO_ACTIVE_HIGH>;	/* GPIO_137 */
+
+		startup-delay-us = <70000>;
+		enable-active-high;
+		vin-supply = <&vcc>;	/* otherwise regulator is "disabling" */
+	};
+
+	/delete-node/ sound_bluetooth;	// FIXME: adjust for WL183x bluetooth audio
+//	/delete-node/ headset_codec; -- still used by sound_bluetooth
 };
 
 &twl_power {
 	compatible = "ti,twl4030-power-idle-osc-off";
 };
 
-/* http://lxr.free-electrons.com/source/Documentation/devicetree/bindings/net/wireless/ti,wlcore.txt */
-
-// FIXME: disable all W2CBW logic
-
-/ {
-	wlan_en_reg: fixedregulator@2 {
-		compatible = "regulator-fixed";
-		regulator-name = "wlan-en-regulator";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
-
-	        gpio = <&gpio4 10 GPIO_ACTIVE_HIGH>;	/* GPIO_138 */
-
-		startup-delay-us = <70000>;
-		enable-active-high;
+&omap3_pmx_core {
+	bt_pins: pinmux_bt_pins {
+		pinctrl-single,pins = <
+			OMAP3_CORE1_IOPAD(0x2166, PIN_OUTPUT | MUX_MODE4)	/* mmc2_dat5 = gpio137 */
+		>;
 	};
+
+	wlan_irq_pin: pinmux_wlan_irq_pin {
+		pinctrl-single,pins = <
+			OMAP3_CORE1_IOPAD(0x2168, PIN_INPUT_PULLUP | MUX_MODE4)	/* mmc2_dat6 = gpio138 */
+		>;
+	};
+
+	wlan_pins: pinmux_wlan_pins {
+		pinctrl-single,pins = <
+			OMAP3_CORE1_IOPAD(0x216a, PIN_OUTPUT | MUX_MODE4)	/* mmc2_dat7 = gpio139 */
+		>;
+	};
+};
+
+/*
+ * for WL183x module see
+ * http://lxr.free-electrons.com/source/Documentation/devicetree/bindings/net/wireless/ti,wlcore.txt
+ */
+
+&wifi_pwrseq {
+	/delete-property/ reset-gpios;
+/* if 32kHz can be gated...
+	clocks = <&clk32kgaudio>;
+	clock-names = "ext_clock";
+*/
 };
 
 &mmc2 {
-	status = "okay";
-	vmmc-supply = <&wlan_en_reg>;
-	bus-width = <4>;
+	vmmc-supply = <&wlan_en>;
+	non-removable;
 	cap-power-off-card;
-	keep-power-in-suspend;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&wlan_irq_pin>;
+/* what is this good for on OMAP5?
+	interrupts-extended = <&gic GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH
+			       &omap5_pmx_core 0x168>;
+*/
 
 	#address-cells = <1>;
 	#size-cells = <0>;
+
+	/delete-property/ mmc-pwrseq;
+
 	wlcore: wlcore@2 {
 		compatible = "ti,wl1835";
 		reg = <2>;
-		interrupt-parent = <&gpio4>;
+		interrupt-parent = <&gpio5>;
 		interrupts = <11 IRQ_TYPE_LEVEL_HIGH>;	/* GPIO_139 */
+		ref-clock-frequency = <26000000>;
 	};
 };
 
-// FIXME: add bluetooth enable: <&gpio4 9 GPIO_ACTIVE_HIGH> GPIO_137 */
+&bluetooth {
+	vdd-supply = <&bluetooth_en>;	// use same driver but different enable
+};
 
 &gpmc {
 	/* switch inherited setup to OneNAND */
