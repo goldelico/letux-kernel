@@ -876,7 +876,7 @@
 
 &wlcore {
 	status = "okay";
-	compatible = "ti,wl1835";	/* or ti,wl1837" */
+	compatible = "ti,wl1835";	/* or "ti,wl1837" */
 };
 
 &omap5_pmx_core {
