@@ -10,8 +10,7 @@
 
 #include "omap5-letux-cortex15-v5.1.dts"
 
-// FIXME: do we also need a mainboard-v5.1?
-#include "pyra-mainboard.dtsi"
+#include "pyra-mainboard-v5.1.dtsi"
 
 #define PANEL 1		/* use w677 panel and non-rotating display board */
 #include "pyra-display.dtsi"
