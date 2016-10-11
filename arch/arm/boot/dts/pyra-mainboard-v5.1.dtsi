@@ -1,0 +1,108 @@
+/*
+ * Copyright (C) 2015 OpenPandora - http://www.pyra-handheld.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include "pyra-mainboard.dtsi"
+
+/* overwrite device model */
+
+/ {
+	model = "Pyra-Handheld-V5.1";
+};
+
+/* register devices connected to Peripheral-I2C */
+&i2c2 {
+	/* different fuel gauge */
+
+	/delete-node/ bq27621@55;
+
+	bq27421@55 {
+		compatible = "ti,bq27421";
+		reg = <0x55>;
+	};
+};
+
+/* register devices connected to System-I2C */
+&i2c5 {
+	/* different microphone detect */
+
+	/delete-node/ ts3a225@3b;
+
+	ts3a227@3b {
+		compatible = "ti,ts3a227e";
+		reg = <0x3b>;
+		interrupt-parent = <&gpio99>;
+		interrupts = <14 IRQ_TYPE_LEVEL_LOW>;
+		ti,micbias = <0>;	/* 2.1V */
+	};
+
+	/* different led controller */
+
+	/delete-node/ leds-left-mid@64;
+	/delete-node/ leds-right@67;
+
+	leds-left-mid-right@64 {
+		compatible = "issi,is31fl3199";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x64>;
+
+		left_led1: red_left@1 {
+			label = "pyra:red:left";
+			reg = <1>;
+			linux,default-trigger = "heartbeat";
+		};
+
+		left_led2: green_left@2 {
+			label = "pyra:green:left";
+			reg = <2>;
+			linux,default-trigger = "heartbeat";
+		};
+
+		left_led3: blue_left@3 {
+			label = "pyra:blue:left";
+			reg = <3>;
+			linux,default-trigger = "timer";
+		};
+
+		mid_led4: red_mid@4 {
+			label = "pyra:red:mid";
+			reg = <4>;
+			linux,default-trigger = "default-on";
+		};
+
+		mid_led5: green_mid@5 {
+			label = "pyra:green:mid";
+			reg = <5>;
+			linux,default-trigger = "timer";
+		};
+
+		mid_led6: blue_mid@6 {
+			label = "pyra:blue:mid";
+			reg = <6>;
+			linux,default-trigger = "heartbeat";
+		};
+
+		right_led7: red_right@7 {
+			label = "pyra:red:right";
+			reg = <7>;
+			linux,default-trigger = "heartbeat";
+		};
+
+		right_led8: green_right@8 {
+			label = "pyra:green:right";
+			reg = <8>;
+			linux,default-trigger = "heartbeat";
+		};
+
+		right_led9: blue_right@9 {
+			label = "pyra:blue:right";
+			reg = <9>;
+			linux,default-trigger = "timer";
+		};
+	};
+};
