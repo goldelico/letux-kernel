@@ -380,30 +380,11 @@
 		shunt-resistor = <20000>;	/* 20 mOhm */
 	};
 
-	/* fuel gauge variant 1 */
-/* not installed due to bus speed issue
-	bq27200@55 {
-		compatible = "ti,bq27200";
-		status = "disabled";
-		reg = <0x55>;
-	};
-*/
-
-	/* fuel gauge variant 2 */
-/* not installed due to bus speed issue
-	bq27510@55 {
-		compatible = "ti,bq27510";
-		reg = <0x55>;
-	};
-*/
-
-	/* fuel gauge variant 3 */
+	/* fuel gauge */
 	bq27621@55 {
 		compatible = "ti,bq27621";
 		reg = <0x55>;
 	};
-
-	/* fuel gauge variant 4 */
 
 #include <dt-bindings/power/power.h>
 
