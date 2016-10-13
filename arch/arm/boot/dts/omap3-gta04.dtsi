@@ -899,7 +899,6 @@
 
 &twl_power {
 	compatible = "ti,twl4030-power-reset";
-	ti,use_poweroff;
 };
 
 /* spare */
