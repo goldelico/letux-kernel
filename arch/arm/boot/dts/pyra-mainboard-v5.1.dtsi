@@ -12,6 +12,45 @@
 
 / {
 	model = "Pyra-Handheld-V5.1";
+
+	pyra_leds { /* alternate LED driver (parallel to is31fl31) */
+		compatible = "gpio-leds";
+		led@1 {
+			label = "pyra-old:red:left";
+			gpios = <&gpio99 5 GPIO_OPEN_DRAIN>;
+			linux,default-trigger = "none";
+			default-state = "off";
+		};
+
+		led@4 {
+			label = "pyra-old:red:mid";
+			gpios = <&gpio99 (1+16) GPIO_OPEN_DRAIN>;
+			linux,default-trigger = "none";
+			default-state = "off";
+		};
+
+		led@5 {
+			label = "pyra-old:green:mid";
+			gpios = <&gpio99 (2+16) GPIO_OPEN_DRAIN>;
+			linux,default-trigger = "none";
+			default-state = "off";
+		};
+
+		led@6 {
+			label = "pyra-old:blue:mid";
+			gpios = <&gpio99 (3+16) GPIO_OPEN_DRAIN>;
+			linux,default-trigger = "none";
+			default-state = "off";
+		};
+
+		led@7 {
+			label = "pyra-old:red:right";
+			gpios = <&gpio99 (5+16) GPIO_OPEN_DRAIN>;
+			linux,default-trigger = "none";
+			default-state = "off";
+		};
+
+	};
 };
 
 /* register devices connected to Peripheral-I2C */
