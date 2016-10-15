@@ -115,7 +115,11 @@
 		interrupt-parent = <&gpio6>;
 		interrupts = <13 IRQ_TYPE_EDGE_FALLING>;	/* gpio6_173 falling edge */
 		gpios = <&gpio6 13 1>;	/* gpio6_173 active low */
-		/* more parameters tbd. */
+
+		is-capacitive;	/* enable capacitive pads */
+		/* more parameters tbd.
+		polling-period-ms = <>;
+		*/
 	};
 
 	/* leds */
