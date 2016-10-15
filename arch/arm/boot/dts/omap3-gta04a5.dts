@@ -31,7 +31,6 @@
 
 		startup-delay-us = <70000>;
 		enable-active-high;
-		vin-supply = <&vcc>;	/* otherwise regulator is "disabling" */
 	};
 
 	bluetooth_en: bt_en_regulator {
@@ -46,11 +45,18 @@
 
 		startup-delay-us = <70000>;
 		enable-active-high;
-		vin-supply = <&vcc>;	/* otherwise regulator is "disabling" */
 	};
 
 	/delete-node/ sound_bluetooth;	// FIXME: adjust for WL183x bluetooth audio
 //	/delete-node/ headset_codec; -- still used by sound_bluetooth
+};
+
+&gpio5 {
+	irda_en {
+		gpio-hog;
+		gpios = <(175-160) GPIO_ACTIVE_HIGH>;
+		output-high;	/* activate gpio_175 to disable IrDA receiver */
+	};
 };
 
 &twl_power {
@@ -75,6 +81,12 @@
 			OMAP3_CORE1_IOPAD(0x216a, PIN_OUTPUT | MUX_MODE4)	/* mmc2_dat7 = gpio139 */
 		>;
 	};
+
+	irda_pins: pinmix_irda {
+		pinctrl-single,pins = <
+			OMAP3_CORE1_IOPAD(0x21d0, PIN_OUTPUT_PULLUP | MUX_MODE4)	/* mcspi1_cs1 = gpio175 */
+		>;
+	};
 };
 
 /*
@@ -84,23 +96,17 @@
 
 &wifi_pwrseq {
 	/delete-property/ reset-gpios;
-/* if 32kHz can be gated...
-	clocks = <&clk32kgaudio>;
-	clock-names = "ext_clock";
-*/
 };
 
 &mmc2 {
 	vmmc-supply = <&wlan_en>;
 	non-removable;
+	bus-width = <4>;
 	cap-power-off-card;
+	non-removable;
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&wlan_irq_pin>;
-/* what is this good for on OMAP5?
-	interrupts-extended = <&gic GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH
-			       &omap5_pmx_core 0x168>;
-*/
 
 	#address-cells = <1>;
 	#size-cells = <0>;
@@ -117,7 +123,7 @@
 };
 
 &bluetooth {
-	vdd-supply = <&bluetooth_en>;	// use same driver but different enable
+	vdd-supply = <&bluetooth_en>;	/* use same driver as A4 board, but different enable */
 };
 
 &gpmc {
