@@ -70,9 +70,6 @@ struct ts_event {
 
 struct tsc2007 {
 	struct input_dev	*input;
-#ifdef CONFIG_IIO
-	struct iio_dev		*indio;
-#endif
 	char			phys[32];
 
 	struct i2c_client	*client;
@@ -329,6 +326,10 @@ static void tsc2007_close(struct input_dev *input_dev)
 
 #ifdef CONFIG_IIO
 
+struct tsc2007_iio {
+	struct tsc2007 *ts;
+};
+
 #define TSC2007_CHAN_IIO(_chan, _name, _type, _chan_info) \
 { \
 	.datasheet_name = _name, \
@@ -354,7 +355,8 @@ static const struct iio_chan_spec tsc2007_iio_channel[] = {
 static int tsc2007_read_raw(struct iio_dev *indio_dev,
 	struct iio_chan_spec const *chan, int *val, int *val2, long mask)
 {
-	struct  tsc2007 *tsc = iio_priv(indio_dev);
+	struct tsc2007_iio *iio = iio_priv(indio_dev);
+	struct tsc2007 *tsc = iio->ts;
 	int adc_chan = chan->channel;
 	int ret = 0;
 
@@ -424,21 +426,28 @@ static inline int tsc2007_alloc(struct i2c_client *client, struct tsc2007 **ts,
 {
 	int err;
 	struct iio_dev *indio_dev;
+	struct tsc2007_iio *iio;
 
-	indio_dev = devm_iio_device_alloc(&client->dev, sizeof(*ts));
-	if (!indio_dev) {
-		dev_err(&client->dev, "iio_device_alloc failed\n");
+/* common */
+	*ts = devm_kzalloc(&client->dev, sizeof(struct tsc2007), GFP_KERNEL);
+	if (!*ts)
 		return -ENOMEM;
-	}
-
-	*ts = iio_priv(indio_dev);
 
 	*input_dev = devm_input_allocate_device(&client->dev);
 	if (!*input_dev)
 		return -ENOMEM;
 
 	i2c_set_clientdata(client, *ts);
-	(*ts)->indio = indio_dev;
+/* end common */
+
+	indio_dev = devm_iio_device_alloc(&client->dev, sizeof(struct tsc2007_iio));
+	if (!indio_dev) {
+		dev_err(&client->dev, "iio_device_alloc failed\n");
+		return -ENOMEM;
+	}
+
+	iio = iio_priv(indio_dev);
+	iio->ts = *ts;
 
 	indio_dev->name = "tsc2007";
 	indio_dev->dev.parent = &client->dev;
@@ -459,7 +468,7 @@ static inline int tsc2007_alloc(struct i2c_client *client, struct tsc2007 **ts,
 
 static inline void tsc2007_dealloc(struct tsc2007 *ts)
 {
-	iio_device_unregister(ts->indio);
+//	iio_device_unregister(ts->indio);
 }
 
 #else /* CONFIG_IIO */
