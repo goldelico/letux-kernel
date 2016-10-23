@@ -62,16 +62,6 @@
 #define READ_X		(ADC_ON_12BIT | TSC2007_MEASURE_X)
 #define PWRDOWN		(TSC2007_12BIT | TSC2007_POWER_OFF_IRQ_EN)
 
-#define TSC2007_CHAN_IIO(_chan, _name, _type, _chan_info) \
-{ \
-	.datasheet_name = _name, \
-	.type = _type, \
-	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |	\
-			BIT(_chan_info), \
-	.indexed = 1, \
-	.channel = _chan, \
-}
-
 struct ts_event {
 	u16	x;
 	u16	y;
@@ -339,6 +329,16 @@ static void tsc2007_close(struct input_dev *input_dev)
 
 #ifdef CONFIG_IIO
 
+#define TSC2007_CHAN_IIO(_chan, _name, _type, _chan_info) \
+{ \
+	.datasheet_name = _name, \
+	.type = _type, \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |	\
+			BIT(_chan_info), \
+	.indexed = 1, \
+	.channel = _chan, \
+}
+
 static const struct iio_chan_spec tsc2007_iio_channel[] = {
 	TSC2007_CHAN_IIO(0, "x", IIO_VOLTAGE, IIO_CHAN_INFO_RAW),
 	TSC2007_CHAN_IIO(1, "y", IIO_VOLTAGE, IIO_CHAN_INFO_RAW),
@@ -418,7 +418,74 @@ static const struct iio_info tsc2007_iio_info = {
 	.read_raw = tsc2007_read_raw,
 	.driver_module = THIS_MODULE,
 };
-#endif
+
+static inline int tsc2007_alloc(struct i2c_client *client, struct tsc2007 **ts,
+			   struct input_dev **input_dev)
+{
+	int err;
+	struct iio_dev *indio_dev;
+
+	indio_dev = devm_iio_device_alloc(&client->dev, sizeof(*ts));
+	if (!indio_dev) {
+		dev_err(&client->dev, "iio_device_alloc failed\n");
+		return -ENOMEM;
+	}
+
+	*ts = iio_priv(indio_dev);
+
+	*input_dev = devm_input_allocate_device(&client->dev);
+	if (!*input_dev)
+		return -ENOMEM;
+
+	i2c_set_clientdata(client, *ts);
+	(*ts)->indio = indio_dev;
+
+	indio_dev->name = "tsc2007";
+	indio_dev->dev.parent = &client->dev;
+	indio_dev->info = &tsc2007_iio_info;
+	indio_dev->modes = INDIO_DIRECT_MODE;
+	indio_dev->channels = tsc2007_iio_channel;
+	indio_dev->num_channels = ARRAY_SIZE(tsc2007_iio_channel);
+
+	err = iio_device_register(indio_dev);
+	if (err < 0) {
+		dev_err(&client->dev, "iio_device_register() failed: %d\n",
+			err);
+		return err;
+	}
+
+	return 0;
+}
+
+static inline void tsc2007_dealloc(struct tsc2007 *ts)
+{
+	iio_device_unregister(ts->indio);
+}
+
+#else /* CONFIG_IIO */
+
+static inline int tsc2007_alloc(struct i2c_client *client, struct tsc2007 **ts,
+			   struct input_dev **input_dev)
+{
+	*ts = devm_kzalloc(&client->dev, sizeof(struct tsc2007), GFP_KERNEL);
+	if (!*ts)
+		return -ENOMEM;
+
+	*input_dev = devm_input_allocate_device(&client->dev);
+	if (!*input_dev)
+		return -ENOMEM;
+
+	i2c_set_clientdata(client, *ts);
+
+	return 0;
+}
+
+static inline void tsc2007_dealloc(struct tsc2007 *ts)
+{
+	/* not needed */
+}
+
+#endif /* CONFIG_IIO */
 
 #ifdef CONFIG_OF
 static int tsc2007_get_pendown_state_gpio(struct device *dev)
@@ -554,50 +621,15 @@ static int tsc2007_probe(struct i2c_client *client,
 	const struct tsc2007_platform_data *pdata = dev_get_platdata(&client->dev);
 	struct tsc2007 *ts;
 	struct input_dev *input_dev;
-#ifdef CONFIG_IIO
-	struct iio_dev *indio_dev;
-#endif
 	int err;
 
 	if (!i2c_check_functionality(client->adapter,
 				     I2C_FUNC_SMBUS_READ_WORD_DATA))
 		return -EIO;
 
-#ifdef CONFIG_IIO
-	indio_dev = devm_iio_device_alloc(&client->dev, sizeof(*ts));
-	if (!indio_dev) {
-		dev_err(&client->dev, "iio_device_alloc failed\n");
-		return -ENOMEM;
-	}
-
-	ts = iio_priv(indio_dev);
-#else
-	ts = devm_kzalloc(&client->dev, sizeof(struct tsc2007), GFP_KERNEL);
-	if (!ts)
-		return -ENOMEM;
-#endif
-	input_dev = devm_input_allocate_device(&client->dev);
-	if (!input_dev)
-		return -ENOMEM;
-
-	i2c_set_clientdata(client, ts);
-
-#ifdef CONFIG_IIO
-	indio_dev->name = "tsc2007";
-	indio_dev->dev.parent = &client->dev;
-	indio_dev->info = &tsc2007_iio_info;
-	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->channels = tsc2007_iio_channel;
-	indio_dev->num_channels = ARRAY_SIZE(tsc2007_iio_channel);
-
-	err = iio_device_register(indio_dev);
-	if (err < 0) {
-		dev_err(&client->dev, "iio_device_register() failed: %d\n",
-			err);
+	err = tsc2007_alloc(client, &ts, &input_dev);
+	if (err < 0)
 		return err;
-	}
-	ts->indio = indio_dev;
-#endif
 
 	ts->client = client;
 	ts->irq = client->irq;
@@ -634,8 +666,10 @@ static int tsc2007_probe(struct i2c_client *client,
 							  ts->fuzzz, 0);
 	} else {
 		err = tsc2007_probe_dt(client, ts);
-		if (err)
+		if (err) {
+			tsc2007_dealloc(ts);
 			return err;
+		}
 	}
 
 	if (pdata) {
@@ -647,6 +681,7 @@ static int tsc2007_probe(struct i2c_client *client,
 				dev_err(&client->dev,
 					"Failed to register exit_platform_hw action, %d\n",
 					err);
+				tsc2007_dealloc(ts);
 				return err;
 			}
 		}
@@ -664,6 +699,7 @@ static int tsc2007_probe(struct i2c_client *client,
 	if (err) {
 		dev_err(&client->dev, "Failed to request irq %d: %d\n",
 			ts->irq, err);
+		tsc2007_dealloc(ts);
 		return err;
 	}
 
@@ -674,9 +710,7 @@ static int tsc2007_probe(struct i2c_client *client,
 	if (err < 0) {
 		dev_err(&client->dev,
 			"Failed to setup chip: %d\n", err);
-#ifdef CONFIG_IIO
-		iio_device_unregister(indio_dev);
-#endif
+		tsc2007_dealloc(ts);
 		return err;	/* usually, chip does not respond */
 	}
 
@@ -684,6 +718,7 @@ static int tsc2007_probe(struct i2c_client *client,
 	if (err) {
 		dev_err(&client->dev,
 			"Failed to register input device: %d\n", err);
+		tsc2007_dealloc(ts);
 		return err;
 	}
 
@@ -693,15 +728,8 @@ static int tsc2007_probe(struct i2c_client *client,
 static int tsc2007_remove(struct i2c_client *client)
 {
 	struct tsc2007 *ts = i2c_get_clientdata(client);
-	struct input_dev *input_dev = ts->input;
-#ifdef CONFIG_IIO
-	struct iio_dev *indio_dev = ts->indio;
-#endif
-	input_unregister_device(input_dev);
-
-#ifdef CONFIG_IIO
-	iio_device_unregister(indio_dev);
-#endif
+	input_unregister_device(ts->input);
+	tsc2007_dealloc(ts);
 	return 0;
 }
 
