@@ -163,6 +163,7 @@ static void ts3a227e_jack_report(struct ts3a227e *ts3a227e)
 		if (ts3a227e->buttons_held & (1 << i))
 			report |= ts3a227e_buttons[i];
 	}
+printk("ts3a227e_jack_report %x\n", report);
 	snd_soc_jack_report(ts3a227e->jack, report, TS3A227E_JACK_MASK);
 }
 
@@ -174,6 +175,8 @@ static void ts3a227e_new_jack_state(struct ts3a227e *ts3a227e, unsigned acc_reg)
 	mic_present = plugged && !!(acc_reg & EITHER_MIC_MASK);
 
 	ts3a227e->plugged = plugged;
+
+printk("ts3a227e_new_jack_state: plugged %d mic_pres %d\n", plugged, mic_present);
 
 	if (mic_present != ts3a227e->mic_present) {
 		ts3a227e->mic_present = mic_present;
@@ -195,6 +198,7 @@ static irqreturn_t ts3a227e_interrupt(int irq, void *data)
 	struct device *dev = ts3a227e->dev;
 	int ret;
 
+printk("ts3a227e_interrupt\n");
 	/* Check for plug/unplug. */
 	ret = regmap_read(regmap, TS3A227E_REG_INTERRUPT, &int_reg);
 	if (ret) {
