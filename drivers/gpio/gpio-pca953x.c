@@ -624,6 +624,15 @@ static int pca953x_irq_setup(struct pca953x_chip *chip,
 	struct i2c_client *client = chip->client;
 	int ret, i;
 
+printk("pca953x_irq_setup 1\n");
+
+if(of_find_node_by_path("/ocp/i2c@4807c000/ts3a227@3b")) {
+	int hwirq = 14;	// mic_int
+	printk("pca953x_irq_setup hack for ts3a227\n");
+	chip->irq_mask[hwirq / BANK_SZ] |= 1 << (hwirq % BANK_SZ);
+	chip->irq_trig_fall[hwirq / BANK_SZ] |= 1 << (hwirq % BANK_SZ);
+}
+
 	if (client->irq && irq_base != -1
 			&& (chip->driver_data & PCA_INT)) {
 		ret = pca953x_read_regs(chip,
@@ -886,6 +895,14 @@ static int pca953x_probe(struct i2c_client *client,
 			dev_warn(&client->dev, "setup failed, %d\n", ret);
 	}
 
+#ifdef CONFIG_GPIO_PCA953X_IRQ
+{
+	int i;
+	for (i = 0; i < NBANK(chip); i++) {
+		printk("pca953x_probe mask=%02x\n", chip->irq_mask[i]);
+	}
+}
+#endif
 	i2c_set_clientdata(client, chip);
 	return 0;
 
