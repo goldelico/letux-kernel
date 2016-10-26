@@ -4335,7 +4335,9 @@ static void pvr_dmac_inv_range(const void *pvStart, const void *pvEnd)
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,34))
 	dmac_inv_range(pvStart, pvEnd);
 #else
-	dmac_map_area(pvStart, pvr_dmac_range_len(pvStart, pvEnd), DMA_FROM_DEVICE);
+//	dmac_map_area(pvStart, pvr_dmac_range_len(pvStart, pvEnd), DMA_FROM_DEVICE);
+#warning fix pvr_dmac_inv_range
+//	__dma_page_cpu_to_dev(???, pvr_dmac_range_len(pvStart, pvEnd), DMA_FROM_DEVICE);
 #endif
 }
 
@@ -4344,8 +4346,21 @@ static void pvr_dmac_clean_range(const void *pvStart, const void *pvEnd)
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,34))
 	dmac_clean_range(pvStart, pvEnd);
 #else
-	dmac_map_area(pvStart, pvr_dmac_range_len(pvStart, pvEnd), DMA_TO_DEVICE);
+//	dmac_map_area(pvStart, pvr_dmac_range_len(pvStart, pvEnd), DMA_TO_DEVICE);
+#warning fix pvr_dmac_clean_range
+//	__dma_page_cpu_to_dev(???, pvr_dmac_range_len(pvStart, pvEnd), DMA_TO_DEVICE);
+// or
+//	dma_sync_single_for_cpu(???, pvStart, pvr_dmac_range_len(pvStart, pvEnd), DMA_TO_DEVICE);
+//	dma_sync_single_for_device(???, pvStart, pvr_dmac_range_len(pvStart, pvEnd), DMA_TO_DEVICE);
 #endif
+}
+
+static void pvr_dmac_flush_range(const void *pvStart, const void *pvEnd)
+{
+//	dmac_flush_range(pvStart, pvEnd);
+#warning fix pvr_dmac_flush_range
+//	dma_sync_single_for_cpu(???, pvStart, pvr_dmac_range_len(pvStart, pvEnd), DMA_TO_DEVICE);
+//	dma_sync_single_for_device(???, pvStart, pvr_dmac_range_len(pvStart, pvEnd), DMA_TO_DEVICE);
 }
 
 IMG_BOOL OSFlushCPUCacheRangeKM(IMG_HANDLE hOSMemHandle,
@@ -4353,9 +4368,10 @@ IMG_BOOL OSFlushCPUCacheRangeKM(IMG_HANDLE hOSMemHandle,
 								IMG_VOID *pvRangeAddrStart,
 								IMG_UINT32 ui32Length)
 {
+#warning fix OSFlushCPUCacheRangeKM
 	return CheckExecuteCacheOp(hOSMemHandle, ui32ByteOffset,
 							   pvRangeAddrStart, ui32Length,
-							   dmac_flush_range, outer_flush_range);
+							   pvr_dmac_flush_range, outer_flush_range);
 }
 
 IMG_BOOL OSCleanCPUCacheRangeKM(IMG_HANDLE hOSMemHandle,
@@ -4363,6 +4379,7 @@ IMG_BOOL OSCleanCPUCacheRangeKM(IMG_HANDLE hOSMemHandle,
 								IMG_VOID *pvRangeAddrStart,
 								IMG_UINT32 ui32Length)
 {
+#warning fix OSCleanCPUCacheRangeKM
 	return CheckExecuteCacheOp(hOSMemHandle, ui32ByteOffset,
 							   pvRangeAddrStart, ui32Length,
 							   pvr_dmac_clean_range, outer_clean_range);
@@ -4373,6 +4390,7 @@ IMG_BOOL OSInvalidateCPUCacheRangeKM(IMG_HANDLE hOSMemHandle,
 									 IMG_VOID *pvRangeAddrStart,
 									 IMG_UINT32 ui32Length)
 {
+#warning fix OSInvalidateCPUCacheRangeKM
 	return CheckExecuteCacheOp(hOSMemHandle, ui32ByteOffset,
 							   pvRangeAddrStart, ui32Length,
 							   pvr_dmac_inv_range, outer_inv_range);
