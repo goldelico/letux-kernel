@@ -57,8 +57,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include <asm/io.h>
 
-#define	PHYS_TO_PFN(phys) ((phys) >> PAGE_SHIFT)
-#define PFN_TO_PHYS(pfn) ((pfn) << PAGE_SHIFT)
+#include <linux/pfn_t.h>
+
+#define	PHYS_TO_PFN(phys) PHYS_PFN(phys)
+#define PFN_TO_PHYS(pfn) PFN_PHYS(pfn)
 
 #define RANGE_TO_PAGES(range) (((range) + (PAGE_SIZE - 1)) >> PAGE_SHIFT)
 
