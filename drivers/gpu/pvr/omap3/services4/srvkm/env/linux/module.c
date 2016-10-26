@@ -396,7 +396,7 @@ static int __devinit PVRSRVDriverProbe(LDM_DEV *pDevice, const struct pci_device
 	SYS_DATA *psSysData;
 	int ret;
 	struct device *dev = &pDevice->dev;
-	struct gfx_sgx_platform_data *pdata = dev->platform_data;
+//	struct gfx_sgx_platform_data *pdata = dev->platform_data;
 
 	PVR_TRACE(("PVRSRVDriverProbe(pDevice=%p)", pDevice));
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,11,0))
