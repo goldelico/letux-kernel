@@ -3606,7 +3606,13 @@ PVRSRV_ERROR OSAcquirePhysPageAddr(IMG_VOID *pvCPUVAddr,
     bMMapSemHeld = IMG_TRUE;
 
     /* Get page list */
-    psInfo->iNumPagesMapped = get_user_pages(current, current->mm, uStartAddr, psInfo->iNumPages, 1, 0, psInfo->ppsPages, NULL);
+//   became unavailable in 4.9-rc3:
+//   psInfo->iNumPagesMapped = get_user_pages(current, current->mm, uStartAddr, psInfo->iNumPages, 1, 0, psInfo->ppsPages, NULL);
+
+#warning fix get_user_pages
+
+// FIXME: use get_user_pages_remote() or get_user_pages_locked() or what?
+    psInfo->iNumPagesMapped = get_user_pages_remote(current, current->mm, uStartAddr, psInfo->iNumPages, FOLL_WRITE, psInfo->ppsPages, NULL);
 
     if (psInfo->iNumPagesMapped >= 0)
     {
