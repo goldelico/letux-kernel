@@ -713,7 +713,7 @@ DoMapToUser(LinuxMemArea *psLinuxMemArea,
 	/* First pass, validate the page frame numbers */
 	for(uiPA = uiByteOffset; uiPA < uiByteEnd; uiPA += PAGE_SIZE)
 	{
-		IMG_UINTPTR_T pfn;
+	    unsigned long pfn;
 	    IMG_BOOL bMapPage = IMG_TRUE;
 
 		if (psLinuxMemArea->hBMHandle)
@@ -755,7 +755,7 @@ DoMapToUser(LinuxMemArea *psLinuxMemArea,
         uiAdjustedPA = uiByteOffset;
 	for(uiPA = uiByteOffset; uiPA < uiByteEnd; uiPA += PAGE_SIZE)
 	{
-	    IMG_UINTPTR_T pfn;
+	    unsigned long pfn;
 	    IMG_INT result;
 	    IMG_BOOL bMapPage = IMG_TRUE;
 
@@ -775,7 +775,7 @@ DoMapToUser(LinuxMemArea *psLinuxMemArea,
 #if defined(PVR_MAKE_ALL_PFNS_SPECIAL)
 		    if (bMixedMap)
 		    {
-			result = vm_insert_mixed(ps_vma, ulVMAPos, pfn);
+			result = vm_insert_mixed(ps_vma, ulVMAPos, pfn_to_pfn_t(pfn));
 	                if(result != 0)
 	                {
 	                    PVR_DPF((PVR_DBG_ERROR,"%s: Error - vm_insert_mixed failed (%d)", __FUNCTION__, result));
@@ -936,7 +936,8 @@ static int MMapVAccess(struct vm_area_struct *ps_vma, unsigned long addr,
 	}
 	else
 	{
-		IMG_UINTPTR_T pfn, uiOffsetInPage;
+		IMG_UINTPTR_T uiOffsetInPage;
+		unsigned long pfn;
 		struct page *page;
 
 		pfn = LinuxMemAreaToCpuPFN(psLinuxMemArea, ulOffset);
