@@ -50,7 +50,7 @@ TARGET := $(MODULE)-$(CONFIG_SGX_OMAP)
 
 obj-$(CONFIG_SGX_OMAP) += $(MODULE).o
 
-ccflags-y += -DSGX_CORE_REV=$(REV) -DSGX_COMPATIBLE="\"ti,$(TI_PLATFORM)-$(SGX)-$(REV)\""
+ccflags-y += -DSGX_CORE_REV=$(REV) -DSGX_COMPATIBLE="\"ti,omap-$(TI_PLATFORM)-$(SGX)-$(REV)\""
 ccflags-y += -DPVR_BUILD_DATE="\"$(shell date "+%Y%m%d" )\""
 
 ccflags-y += \
