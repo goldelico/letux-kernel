@@ -3,10 +3,10 @@ DATE := $(shell date "+%Y%m%d%H%M%S" )
 
 # revision specific flags (only one can be choosen as y)
 
-ccflags-$(CONFIG_SGX_REV110) += -DSGX_CORE_REV=110
-ccflags-$(CONFIG_SGX_REV120) += -DSGX_CORE_REV=120
-ccflags-$(CONFIG_SGX_REV121) += -DSGX_CORE_REV=121
-ccflags-$(CONFIG_SGX_REV125) += -DSGX_CORE_REV=125
+ccflags-$(CONFIG_SGX_REV110) += -DSGX_CORE_REV=110 -DSGX_COMPATIBLE="\"ti,sgx540_110\""
+ccflags-$(CONFIG_SGX_REV120) += -DSGX_CORE_REV=120 -DSGX_COMPATIBLE="\"ti,sgx540_120\""
+ccflags-$(CONFIG_SGX_REV121) += -DSGX_CORE_REV=121 -DSGX_COMPATIBLE="\"ti,sgx530_121\""
+ccflags-$(CONFIG_SGX_REV125) += -DSGX_CORE_REV=125 -DSGX_COMPATIBLE="\"ti,sgx530_125\""
 
 # these options must match the compiled binary pvrsrvinit or you will see e.g.
 # SGXInit: Mismatch in driver and microkernel build options; extra options present in driver: (0x1)
