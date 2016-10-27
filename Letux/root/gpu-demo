@@ -1,0 +1,33 @@
+#
+# start PVR SGX GPU
+# and run some demo
+#
+# usage: dpu-demo
+#
+# WARNING: this loads and installs a package with NON-FREE
+# firmware for the SGX libraries and runtime support
+#
+# it needs a kernel where the GPL'ed SGX kernel driver is
+# configured.
+#
+
+case "$(cat /sys/firmware/devicetree/base/model)" in
+	*GTA04* | *Pandora* )
+		PACKAGE=omap3-pvrsgx530-gta04
+		;;
+	*Panda* )
+		PACKAGE=omap3-pvrsgx540-gta04
+		;;
+	* )
+		echo "unsupported device; $(cat /sys/firmware/devicetree/base/model)"
+		exit 1
+		;;
+esac
+
+[ -x /usr/local/bin/pvrsrvctl ] || apt-get install -y --force-yes $PACKAGE
+
+/usr/local/bin/pvrsrvctl --start --no-module
+
+/usr/local/bin/sgx_clipblit_test
+
+/usr/local/bin/pvrsrvctl --stop
