@@ -20,6 +20,10 @@
 	model = "Pandora Handheld Console";
 
 	compatible = "openpandora,omap3-pandora-600mhz", "ti,omap3430", "ti,omap3";
+
+	gpu {
+		compatible = "ti,sgx530_121";
+	};
 };
 
 &omap3_pmx_core2 {
