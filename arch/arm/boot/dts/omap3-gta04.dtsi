@@ -30,6 +30,10 @@
 		display0 = &lcd;
 	};
 
+	gpu@5000000 {
+		compatible = "ti,sgx530_125";
+	};
+
 	gpio-keys {
 		compatible = "gpio-keys";
 
