@@ -468,13 +468,11 @@ static int __devinit PVRSRVDriverProbe(LDM_DEV *pDevice, const struct pci_device
 #ifdef CONFIG_RESET_CONTROLLER
         if (!already_deasserted)
         {
-#if 0
-                ret = reset_control_is_reset(rstc);
-                if (ret <= 0)
+                ret = reset_control_status(rstc);
+                if (ret != 0)
                 {
-                        PVR_DPF((PVR_DBG_MESSAGE, "reset control reset"));
+                        PVR_DPF((PVR_DBG_MESSAGE, "reset control reset %d", ret));
                 }
-#endif
         }
         reset_control_put(rstc);
 #endif /* CONFIG_RESET_CONTROLLER */

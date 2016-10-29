@@ -72,7 +72,7 @@ int reset_controller_register(struct reset_controller_dev *rcdev)
 	}
 
 	INIT_LIST_HEAD(&rcdev->reset_control_head);
-
+printk("reset_controller_register %s\n", rcdev->of_node->name);
 	mutex_lock(&reset_list_mutex);
 	list_add(&rcdev->list, &reset_controller_list);
 	mutex_unlock(&reset_list_mutex);
@@ -276,24 +276,29 @@ struct reset_control *__of_reset_control_get(struct device_node *node,
 	int rstc_id;
 	int ret;
 
+printk("__of_reset_control_get 1 %p\n", node);
 	if (!node)
 		return ERR_PTR(-EINVAL);
 
 	if (id) {
 		index = of_property_match_string(node,
 						 "reset-names", id);
+printk("__of_reset_control_get 2 %d\n", index);
 		if (index < 0)
 			return ERR_PTR(-ENOENT);
 	}
 
 	ret = of_parse_phandle_with_args(node, "resets", "#reset-cells",
 					 index, &args);
+printk("__of_reset_control_get 2b %s\n", node->name);
+printk("__of_reset_control_get 3 %d\n", ret);
 	if (ret)
 		return ERR_PTR(ret);
 
 	mutex_lock(&reset_list_mutex);
 	rcdev = NULL;
 	list_for_each_entry(r, &reset_controller_list, list) {
+printk("__of_reset_control_get 3a try %s == %s\n", args.np->name, r->of_node->name);
 		if (args.np == r->of_node) {
 			rcdev = r;
 			break;
@@ -303,17 +308,20 @@ struct reset_control *__of_reset_control_get(struct device_node *node,
 
 	if (!rcdev) {
 		mutex_unlock(&reset_list_mutex);
+printk("__of_reset_control_get 3b defer (!rcdev)\n");
 		return ERR_PTR(-EPROBE_DEFER);
 	}
 
 	if (WARN_ON(args.args_count != rcdev->of_reset_n_cells)) {
 		mutex_unlock(&reset_list_mutex);
+printk("__of_reset_control_get 4 %d %d\n", args.args_count, rcdev->of_reset_n_cells);
 		return ERR_PTR(-EINVAL);
 	}
 
 	rstc_id = rcdev->of_xlate(rcdev, &args);
 	if (rstc_id < 0) {
 		mutex_unlock(&reset_list_mutex);
+printk("__of_reset_control_get 5 %d\n", rstc_id);
 		return ERR_PTR(rstc_id);
 	}
 
@@ -322,6 +330,7 @@ struct reset_control *__of_reset_control_get(struct device_node *node,
 
 	mutex_unlock(&reset_list_mutex);
 
+printk("__of_reset_control_get 6 %d\n", rstc);
 	return rstc;
 }
 EXPORT_SYMBOL_GPL(__of_reset_control_get);
