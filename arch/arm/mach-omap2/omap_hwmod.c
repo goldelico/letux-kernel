@@ -142,6 +142,7 @@
 #include <linux/cpu.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/reset.h>
 
 #include <asm/system_misc.h>
 
@@ -1645,9 +1646,10 @@ static int _lookup_hardreset(struct omap_hwmod *oh, const char *name,
 		if (!strcmp(rst_line, name)) {
 			ohri->rst_shift = oh->rst_lines[i].rst_shift;
 			ohri->st_shift = oh->rst_lines[i].st_shift;
-			pr_debug("omap_hwmod: %s: %s: %s: rst %d st %d\n",
+			ohri->rc = oh->rst_lines[i].rc;
+			pr_debug("omap_hwmod: %s: %s: %s: rst %d st %d rc %x\n",
 				 oh->name, __func__, rst_line, ohri->rst_shift,
-				 ohri->st_shift);
+				 ohri->st_shift, (u32)ohri->rc);
 
 			return 0;
 		}
@@ -2481,6 +2483,58 @@ static int __init _init_mpu_rt_base(struct omap_hwmod *oh, void *data,
 }
 
 /**
+ * _init_resets - initialize internal reset data for hwmod @oh
+ * @oh: struct omap_hwmod *
+ * @np: device node pointer for this hwmod
+ *
+ * Look up the reset info for this hwmod from device tree.
+ */
+static int __init _init_resets(struct omap_hwmod *oh, struct device_node *np)
+{
+	int num;
+	int i;
+	int ret;
+	const char *reset_name;
+	struct reset_control *rc;
+
+	num = of_property_count_strings(np, "reset-names");
+	if (num < 1)
+		return 0;
+
+	oh->rst_lines = kcalloc(num, sizeof(struct omap_hwmod_rst_info),
+				GFP_KERNEL);
+
+	for (i = 0; i < num; i++) {
+		ret = of_property_read_string_index(np, "reset-names", i,
+						    &reset_name);
+		if (ret)
+			goto cleanup;
+
+		rc = of_reset_control_get(np, reset_name);
+		if (IS_ERR(rc)) {
+			ret = PTR_ERR(rc);
+			goto cleanup;
+		}
+
+		oh->rst_lines[i].name = kstrdup(reset_name, GFP_KERNEL);
+		oh->rst_lines[i].rc = rc;
+	}
+
+	oh->rst_lines_cnt = num;
+
+	return ret;
+
+cleanup:
+	for (i = 0; i < num; i++) {
+		if (oh->rst_lines[i].rc)
+			reset_control_put(oh->rst_lines[i].rc);
+	}
+	kfree(oh->rst_lines);
+	oh->rst_lines = NULL;
+	return ret;
+}
+
+/**
  * _init - initialize internal data for the hwmod @oh
  * @oh: struct omap_hwmod *
  * @n: (unused)
@@ -2503,15 +2557,24 @@ static int __init _init(struct omap_hwmod *oh, void *data)
 
 	if (of_have_populated_dt()) {
 		struct device_node *bus;
+		struct device_node *soc;
 
 		bus = of_find_node_by_name(NULL, "ocp");
 		if (!bus)
 			return -ENODEV;
 
 		r = of_dev_hwmod_lookup(bus, oh, &index, &np);
-		if (r)
-			pr_debug("omap_hwmod: %s missing dt data\n", oh->name);
-		else if (np && index)
+		if (r) {
+			soc = of_find_node_by_name(NULL, "soc");
+			if (soc)
+				r = of_dev_hwmod_lookup(soc, oh, &index, &np);
+
+			if (r)
+				pr_debug("omap_hwmod: %s missing dt data\n",
+					 oh->name);
+		}
+
+		if (np && index)
 			pr_warn("omap_hwmod: %s using broken dt data from %s\n",
 				oh->name, np->name);
 	}
@@ -2536,6 +2599,13 @@ static int __init _init(struct omap_hwmod *oh, void *data)
 			oh->flags |= HWMOD_INIT_NO_IDLE;
 		if (of_find_property(np, "ti,no-idle", NULL))
 			oh->flags |= HWMOD_NO_IDLE;
+
+		r = _init_resets(oh, np);
+		if (r < 0) {
+			WARN(1, "omap_hwmod: %s: couldn't init reset\n",
+			     oh->name);
+			return -EINVAL;
+		}
 	}
 
 	oh->_state = _HWMOD_STATE_INITIALIZED;
@@ -3042,84 +3112,6 @@ static int _omap2_is_hardreset_asserted(struct omap_hwmod *oh,
 }
 
 /**
- * _omap4_assert_hardreset - call OMAP4 PRM hardreset fn with hwmod args
- * @oh: struct omap_hwmod * to assert hardreset
- * @ohri: hardreset line data
- *
- * Call omap4_prminst_assert_hardreset() with parameters extracted
- * from the hwmod @oh and the hardreset line data @ohri.  Only
- * intended for use as an soc_ops function pointer.  Passes along the
- * return value from omap4_prminst_assert_hardreset().  XXX This
- * function is scheduled for removal when the PRM code is moved into
- * drivers/.
- */
-static int _omap4_assert_hardreset(struct omap_hwmod *oh,
-				   struct omap_hwmod_rst_info *ohri)
-{
-	if (!oh->clkdm)
-		return -EINVAL;
-
-	return omap_prm_assert_hardreset(ohri->rst_shift,
-					 oh->clkdm->pwrdm.ptr->prcm_partition,
-					 oh->clkdm->pwrdm.ptr->prcm_offs,
-					 oh->prcm.omap4.rstctrl_offs);
-}
-
-/**
- * _omap4_deassert_hardreset - call OMAP4 PRM hardreset fn with hwmod args
- * @oh: struct omap_hwmod * to deassert hardreset
- * @ohri: hardreset line data
- *
- * Call omap4_prminst_deassert_hardreset() with parameters extracted
- * from the hwmod @oh and the hardreset line data @ohri.  Only
- * intended for use as an soc_ops function pointer.  Passes along the
- * return value from omap4_prminst_deassert_hardreset().  XXX This
- * function is scheduled for removal when the PRM code is moved into
- * drivers/.
- */
-static int _omap4_deassert_hardreset(struct omap_hwmod *oh,
-				     struct omap_hwmod_rst_info *ohri)
-{
-	if (!oh->clkdm)
-		return -EINVAL;
-
-	if (ohri->st_shift)
-		pr_err("omap_hwmod: %s: %s: hwmod data error: OMAP4 does not support st_shift\n",
-		       oh->name, ohri->name);
-	return omap_prm_deassert_hardreset(ohri->rst_shift, ohri->rst_shift,
-					   oh->clkdm->pwrdm.ptr->prcm_partition,
-					   oh->clkdm->pwrdm.ptr->prcm_offs,
-					   oh->prcm.omap4.rstctrl_offs,
-					   oh->prcm.omap4.rstctrl_offs +
-					   OMAP4_RST_CTRL_ST_OFFSET);
-}
-
-/**
- * _omap4_is_hardreset_asserted - call OMAP4 PRM hardreset fn with hwmod args
- * @oh: struct omap_hwmod * to test hardreset
- * @ohri: hardreset line data
- *
- * Call omap4_prminst_is_hardreset_asserted() with parameters
- * extracted from the hwmod @oh and the hardreset line data @ohri.
- * Only intended for use as an soc_ops function pointer.  Passes along
- * the return value from omap4_prminst_is_hardreset_asserted().  XXX
- * This function is scheduled for removal when the PRM code is moved
- * into drivers/.
- */
-static int _omap4_is_hardreset_asserted(struct omap_hwmod *oh,
-					struct omap_hwmod_rst_info *ohri)
-{
-	if (!oh->clkdm)
-		return -EINVAL;
-
-	return omap_prm_is_hardreset_asserted(ohri->rst_shift,
-					      oh->clkdm->pwrdm.ptr->
-					      prcm_partition,
-					      oh->clkdm->pwrdm.ptr->prcm_offs,
-					      oh->prcm.omap4.rstctrl_offs);
-}
-
-/**
  * _omap4_disable_direct_prcm - disable direct PRCM control for hwmod
  * @oh: struct omap_hwmod * to disable control for
  *
@@ -3138,26 +3130,37 @@ static int _omap4_disable_direct_prcm(struct omap_hwmod *oh)
 	return 0;
 }
 
-/**
- * _am33xx_deassert_hardreset - call AM33XX PRM hardreset fn with hwmod args
- * @oh: struct omap_hwmod * to deassert hardreset
- * @ohri: hardreset line data
- *
- * Call am33xx_prminst_deassert_hardreset() with parameters extracted
- * from the hwmod @oh and the hardreset line data @ohri.  Only
- * intended for use as an soc_ops function pointer.  Passes along the
- * return value from am33xx_prminst_deassert_hardreset().  XXX This
- * function is scheduled for removal when the PRM code is moved into
- * drivers/.
- */
-static int _am33xx_deassert_hardreset(struct omap_hwmod *oh,
+static int _dt_assert_hardreset(struct omap_hwmod *oh,
+				struct omap_hwmod_rst_info *ohri)
+{
+	if (!ohri->rc) {
+		pr_err("%s: %s: missing rc\n", __func__, oh->name);
+		WARN_ONCE(1, "missing rc\n");
+		return 0;
+	}
+
+	return reset_control_assert(ohri->rc);
+}
+
+static int _dt_deassert_hardreset(struct omap_hwmod *oh,
+				  struct omap_hwmod_rst_info *ohri)
+{
+	if (!ohri->rc) {
+		pr_err("%s: %s: missing rc\n", __func__, oh->name);
+		return 0;
+	}
+
+	return reset_control_deassert(ohri->rc);
+}
+
+static int _dt_is_hardreset_asserted(struct omap_hwmod *oh,
 				     struct omap_hwmod_rst_info *ohri)
 {
-	return omap_prm_deassert_hardreset(ohri->rst_shift, ohri->st_shift,
-					   oh->clkdm->pwrdm.ptr->prcm_partition,
-					   oh->clkdm->pwrdm.ptr->prcm_offs,
-					   oh->prcm.omap4.rstctrl_offs,
-					   oh->prcm.omap4.rstst_offs);
+	if (!ohri->rc) {
+		pr_err("%s: %s: missing rc\n", __func__, oh->name);
+		return 0;
+	}
+	return reset_control_status(ohri->rc);
 }
 
 /* Public functions */
@@ -3942,8 +3945,6 @@ void __init omap_hwmod_init(void)
 {
 	if (cpu_is_omap24xx()) {
 		soc_ops.wait_target_ready = _omap2xxx_3xxx_wait_target_ready;
-		soc_ops.assert_hardreset = _omap2_assert_hardreset;
-		soc_ops.deassert_hardreset = _omap2_deassert_hardreset;
 		soc_ops.is_hardreset_asserted = _omap2_is_hardreset_asserted;
 	} else if (cpu_is_omap34xx()) {
 		soc_ops.wait_target_ready = _omap2xxx_3xxx_wait_target_ready;
@@ -3955,9 +3956,6 @@ void __init omap_hwmod_init(void)
 		soc_ops.enable_module = _omap4_enable_module;
 		soc_ops.disable_module = _omap4_disable_module;
 		soc_ops.wait_target_ready = _omap4_wait_target_ready;
-		soc_ops.assert_hardreset = _omap4_assert_hardreset;
-		soc_ops.deassert_hardreset = _omap4_deassert_hardreset;
-		soc_ops.is_hardreset_asserted = _omap4_is_hardreset_asserted;
 		soc_ops.init_clkdm = _init_clkdm;
 		soc_ops.update_context_lost = _omap4_update_context_lost;
 		soc_ops.get_context_lost = _omap4_get_context_lost;
@@ -3967,13 +3965,16 @@ void __init omap_hwmod_init(void)
 		soc_ops.enable_module = _omap4_enable_module;
 		soc_ops.disable_module = _omap4_disable_module;
 		soc_ops.wait_target_ready = _omap4_wait_target_ready;
-		soc_ops.assert_hardreset = _omap4_assert_hardreset;
-		soc_ops.deassert_hardreset = _am33xx_deassert_hardreset;
-		soc_ops.is_hardreset_asserted = _omap4_is_hardreset_asserted;
 		soc_ops.init_clkdm = _init_clkdm;
 		soc_ops.disable_direct_prcm = _omap4_disable_direct_prcm;
 	} else {
 		WARN(1, "omap_hwmod: unknown SoC type\n");
+	}
+
+	if (of_have_populated_dt()) {
+		soc_ops.assert_hardreset = _dt_assert_hardreset;
+		soc_ops.deassert_hardreset = _dt_deassert_hardreset;
+		soc_ops.is_hardreset_asserted = _dt_is_hardreset_asserted;
 	}
 
 	inited = true;
