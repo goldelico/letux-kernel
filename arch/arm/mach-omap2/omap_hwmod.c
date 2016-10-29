@@ -3112,84 +3112,6 @@ static int _omap2_is_hardreset_asserted(struct omap_hwmod *oh,
 }
 
 /**
- * _omap4_assert_hardreset - call OMAP4 PRM hardreset fn with hwmod args
- * @oh: struct omap_hwmod * to assert hardreset
- * @ohri: hardreset line data
- *
- * Call omap4_prminst_assert_hardreset() with parameters extracted
- * from the hwmod @oh and the hardreset line data @ohri.  Only
- * intended for use as an soc_ops function pointer.  Passes along the
- * return value from omap4_prminst_assert_hardreset().  XXX This
- * function is scheduled for removal when the PRM code is moved into
- * drivers/.
- */
-static int _omap4_assert_hardreset(struct omap_hwmod *oh,
-				   struct omap_hwmod_rst_info *ohri)
-{
-	if (!oh->clkdm)
-		return -EINVAL;
-
-	return omap_prm_assert_hardreset(ohri->rst_shift,
-					 oh->clkdm->pwrdm.ptr->prcm_partition,
-					 oh->clkdm->pwrdm.ptr->prcm_offs,
-					 oh->prcm.omap4.rstctrl_offs);
-}
-
-/**
- * _omap4_deassert_hardreset - call OMAP4 PRM hardreset fn with hwmod args
- * @oh: struct omap_hwmod * to deassert hardreset
- * @ohri: hardreset line data
- *
- * Call omap4_prminst_deassert_hardreset() with parameters extracted
- * from the hwmod @oh and the hardreset line data @ohri.  Only
- * intended for use as an soc_ops function pointer.  Passes along the
- * return value from omap4_prminst_deassert_hardreset().  XXX This
- * function is scheduled for removal when the PRM code is moved into
- * drivers/.
- */
-static int _omap4_deassert_hardreset(struct omap_hwmod *oh,
-				     struct omap_hwmod_rst_info *ohri)
-{
-	if (!oh->clkdm)
-		return -EINVAL;
-
-	if (ohri->st_shift)
-		pr_err("omap_hwmod: %s: %s: hwmod data error: OMAP4 does not support st_shift\n",
-		       oh->name, ohri->name);
-	return omap_prm_deassert_hardreset(ohri->rst_shift, ohri->rst_shift,
-					   oh->clkdm->pwrdm.ptr->prcm_partition,
-					   oh->clkdm->pwrdm.ptr->prcm_offs,
-					   oh->prcm.omap4.rstctrl_offs,
-					   oh->prcm.omap4.rstctrl_offs +
-					   OMAP4_RST_CTRL_ST_OFFSET);
-}
-
-/**
- * _omap4_is_hardreset_asserted - call OMAP4 PRM hardreset fn with hwmod args
- * @oh: struct omap_hwmod * to test hardreset
- * @ohri: hardreset line data
- *
- * Call omap4_prminst_is_hardreset_asserted() with parameters
- * extracted from the hwmod @oh and the hardreset line data @ohri.
- * Only intended for use as an soc_ops function pointer.  Passes along
- * the return value from omap4_prminst_is_hardreset_asserted().  XXX
- * This function is scheduled for removal when the PRM code is moved
- * into drivers/.
- */
-static int _omap4_is_hardreset_asserted(struct omap_hwmod *oh,
-					struct omap_hwmod_rst_info *ohri)
-{
-	if (!oh->clkdm)
-		return -EINVAL;
-
-	return omap_prm_is_hardreset_asserted(ohri->rst_shift,
-					      oh->clkdm->pwrdm.ptr->
-					      prcm_partition,
-					      oh->clkdm->pwrdm.ptr->prcm_offs,
-					      oh->prcm.omap4.rstctrl_offs);
-}
-
-/**
  * _omap4_disable_direct_prcm - disable direct PRCM control for hwmod
  * @oh: struct omap_hwmod * to disable control for
  *
@@ -3206,28 +3128,6 @@ static int _omap4_disable_direct_prcm(struct omap_hwmod *oh)
 	oh->prcm.omap4.modulemode = 0;
 
 	return 0;
-}
-
-/**
- * _am33xx_deassert_hardreset - call AM33XX PRM hardreset fn with hwmod args
- * @oh: struct omap_hwmod * to deassert hardreset
- * @ohri: hardreset line data
- *
- * Call am33xx_prminst_deassert_hardreset() with parameters extracted
- * from the hwmod @oh and the hardreset line data @ohri.  Only
- * intended for use as an soc_ops function pointer.  Passes along the
- * return value from am33xx_prminst_deassert_hardreset().  XXX This
- * function is scheduled for removal when the PRM code is moved into
- * drivers/.
- */
-static int _am33xx_deassert_hardreset(struct omap_hwmod *oh,
-				     struct omap_hwmod_rst_info *ohri)
-{
-	return omap_prm_deassert_hardreset(ohri->rst_shift, ohri->st_shift,
-					   oh->clkdm->pwrdm.ptr->prcm_partition,
-					   oh->clkdm->pwrdm.ptr->prcm_offs,
-					   oh->prcm.omap4.rstctrl_offs,
-					   oh->prcm.omap4.rstst_offs);
 }
 
 static int _dt_assert_hardreset(struct omap_hwmod *oh,
