@@ -1,5 +1,11 @@
 # stub for SGX530/540
 # end
 
-# stub for SGX544
-# end
+config SGX544
+	tristate "PowerVR SGX544"
+	depends on ARCH_OMAP4 || SOC_OMAP5 || SOC_DRA7XX
+	select DRM
+	select PCT
+	---help---
+	  Support for the PowerVR SGX544 core.
+	  This is part of OMAP4470 and OMAP543x and DRA7xx.
