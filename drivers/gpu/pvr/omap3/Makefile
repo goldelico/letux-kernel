@@ -3,10 +3,10 @@ DATE := $(shell date "+%Y%m%d%H%M%S" )
 
 # revision specific flags (only one can be choosen as y)
 
-ccflags-$(CONFIG_SGX_REV110) += -DSGX_CORE_REV=110
-ccflags-$(CONFIG_SGX_REV120) += -DSGX_CORE_REV=120
-ccflags-$(CONFIG_SGX_REV121) += -DSGX_CORE_REV=121
-ccflags-$(CONFIG_SGX_REV125) += -DSGX_CORE_REV=125
+ccflags-$(CONFIG_SGX_REV110) += -DSGX_CORE_REV=110 -DSGX_COMPATIBLE="\"ti,sgx540_110\""
+ccflags-$(CONFIG_SGX_REV120) += -DSGX_CORE_REV=120 -DSGX_COMPATIBLE="\"ti,sgx540_120\""
+ccflags-$(CONFIG_SGX_REV121) += -DSGX_CORE_REV=121 -DSGX_COMPATIBLE="\"ti,sgx530_121\""
+ccflags-$(CONFIG_SGX_REV125) += -DSGX_CORE_REV=125 -DSGX_COMPATIBLE="\"ti,sgx530_125\""
 
 # these options must match the compiled binary pvrsrvinit or you will see e.g.
 # SGXInit: Mismatch in driver and microkernel build options; extra options present in driver: (0x1)
@@ -72,12 +72,7 @@ ccflags-y += \
 	-DSGX_CLK_CORE_DIV5 \
 	-DSUPPORT_SGX_NEW_STATUS_VALS
 
-ifeq (CONFIG_SGX530,y)
-ccflags-y += -DKBUILD_MODNAME="\"pvr_sgx\""
-endif
-ifeq (CONFIG_SGX540,y)
-ccflags-y += -DKBUILD_MODNAME="\"pvr_sgx\""
-endif
+ccflags-n += -DKBUILD_MODNAME="\"pvr_sgx\""
 
 # has been disabled because otherwise modules are not loaded automatically
 # but need support through X-server (AFAIK)
@@ -113,7 +108,7 @@ ccflags-n += \
 
 # build specific flags (only one can be choosen as y)
 ccflags-$(CONFIG_SGX_530_BUILD_RELEASE) += \
-	-Idrivers/gpu/pvr/omap3 \
+	-Idrivers/gpu/pvr/omap3/omap3  -Idrivers/gpu/pvr/omap3/sgx \
 	-DSGX530 \
 	-DSUPPORT_SGX530 \
 	-DPVR_BUILD_TYPE="\"release\"" \
@@ -122,7 +117,7 @@ ccflags-$(CONFIG_SGX_530_BUILD_RELEASE) += \
 	-fno-strict-aliasing -Wno-pointer-arith -Wno-sign-conversion
 
 ccflags-$(CONFIG_SGX_530_BUILD_DEBUG) += \
-	-Idrivers/gpu/pvr/omap3 \
+	-Idrivers/gpu/pvr/omap3/omap3  -Idrivers/gpu/pvr/omap3/sgx \
 	-DSGX530 \
 	-DSUPPORT_SGX530 \
 	-O0 \
@@ -171,100 +166,100 @@ CFLAGS_ati_pcigart.o := -DCONFIG_PCI
 # put common files into a library
 
 lib-y := \
-	omap3/services4/srvkm/env/linux/osfunc.o \
-	omap3/services4/srvkm/env/linux/mutils.o \
-	omap3/services4/srvkm/env/linux/mmap.o \
-	omap3/services4/srvkm/env/linux/module.o \
-	omap3/services4/srvkm/env/linux/pdump.o \
-	omap3/services4/srvkm/env/linux/proc.o \
-	omap3/services4/srvkm/env/linux/pvr_bridge_k.o \
-	omap3/services4/srvkm/env/linux/pvr_debug.o \
-	omap3/services4/srvkm/env/linux/pvr_drm.o \
-	omap3/services4/srvkm/env/linux/mm.o \
-	omap3/services4/srvkm/env/linux/mutex.o \
-	omap3/services4/srvkm/env/linux/event.o \
-	omap3/services4/srvkm/env/linux/osperproc.o \
-	omap3/services4/srvkm/common/buffer_manager.o \
-	omap3/services4/srvkm/common/devicemem.o \
-	omap3/services4/srvkm/common/deviceclass.o \
-	omap3/services4/srvkm/common/handle.o \
-	omap3/services4/srvkm/common/hash.o \
-	omap3/services4/srvkm/common/metrics.o \
-	omap3/services4/srvkm/common/pvrsrv.o \
-	omap3/services4/srvkm/common/queue.o \
-	omap3/services4/srvkm/common/ra.o \
-	omap3/services4/srvkm/common/resman.o \
-	omap3/services4/srvkm/common/power.o \
-	omap3/services4/srvkm/common/mem.o \
-	omap3/services4/srvkm/common/pdump_common.o \
-	omap3/services4/srvkm/common/perproc.o \
-	omap3/services4/srvkm/common/lists.o \
-	omap3/services4/srvkm/common/mem_debug.o \
-	omap3/services4/srvkm/common/osfunc_common.o \
-	omap3/services4/srvkm/common/refcount.o \
-	omap3/services4/srvkm/bridged/bridged_support.o \
-	omap3/services4/srvkm/bridged/bridged_pvr_bridge.o
+	services4/srvkm/env/linux/osfunc.o \
+	services4/srvkm/env/linux/mutils.o \
+	services4/srvkm/env/linux/mmap.o \
+	services4/srvkm/env/linux/module.o \
+	services4/srvkm/env/linux/pdump.o \
+	services4/srvkm/env/linux/proc.o \
+	services4/srvkm/env/linux/pvr_bridge_k.o \
+	services4/srvkm/env/linux/pvr_debug.o \
+	services4/srvkm/env/linux/pvr_drm.o \
+	services4/srvkm/env/linux/mm.o \
+	services4/srvkm/env/linux/mutex.o \
+	services4/srvkm/env/linux/event.o \
+	services4/srvkm/env/linux/osperproc.o \
+	services4/srvkm/common/buffer_manager.o \
+	services4/srvkm/common/devicemem.o \
+	services4/srvkm/common/deviceclass.o \
+	services4/srvkm/common/handle.o \
+	services4/srvkm/common/hash.o \
+	services4/srvkm/common/metrics.o \
+	services4/srvkm/common/pvrsrv.o \
+	services4/srvkm/common/queue.o \
+	services4/srvkm/common/ra.o \
+	services4/srvkm/common/resman.o \
+	services4/srvkm/common/power.o \
+	services4/srvkm/common/mem.o \
+	services4/srvkm/common/pdump_common.o \
+	services4/srvkm/common/perproc.o \
+	services4/srvkm/common/lists.o \
+	services4/srvkm/common/mem_debug.o \
+	services4/srvkm/common/osfunc_common.o \
+	services4/srvkm/common/refcount.o \
+	services4/srvkm/bridged/bridged_support.o \
+	services4/srvkm/bridged/bridged_pvr_bridge.o
 
 lib-y +=  \
-	omap3/services4/srvkm/bridged/sgx/bridged_sgx_bridge.o \
-	omap3/services4/srvkm/devices/sgx/sgxinit.o \
-	omap3/services4/srvkm/devices/sgx/sgxpower.o \
-	omap3/services4/srvkm/devices/sgx/sgxreset.o \
-	omap3/services4/srvkm/devices/sgx/sgxutils.o \
-	omap3/services4/srvkm/devices/sgx/sgxkick.o \
-	omap3/services4/srvkm/devices/sgx/sgxtransfer.o \
-	omap3/services4/srvkm/devices/sgx/mmu.o \
-	omap3/services4/srvkm/devices/sgx/pb.o
+	services4/srvkm/bridged/sgx/bridged_sgx_bridge.o \
+	services4/srvkm/devices/sgx/sgxinit.o \
+	services4/srvkm/devices/sgx/sgxpower.o \
+	services4/srvkm/devices/sgx/sgxreset.o \
+	services4/srvkm/devices/sgx/sgxutils.o \
+	services4/srvkm/devices/sgx/sgxkick.o \
+	services4/srvkm/devices/sgx/sgxtransfer.o \
+	services4/srvkm/devices/sgx/mmu.o \
+	services4/srvkm/devices/sgx/pb.o
 
 # compile from drivers/gpu/drm what we need
 # this should be replaced by setting CONFIG_DRM=y
 # but when we tried it failed to compile
 
 lib-n +=  \
-	omap3/services4/3rdparty/linux_drm/pvr_drm_stubs.o \
-	../drm/drm_auth.o \
-	../drm/drm_bufs.o \
-	../drm/drm_cache.o \
-	../drm/drm_context.o \
-	../drm/drm_dma.o \
-	../drm/drm_drv.o \
-	../drm/drm_fops.o \
-	../drm/drm_gem.o \
-	../drm/drm_ioctl.o \
-	../drm/drm_irq.o \
-	../drm/drm_lock.o \
-	../drm/drm_memory.o \
-	../drm/drm_stub.o \
-	../drm/drm_vm.o \
-	../drm/drm_agpsupport.o \
-	../drm/drm_scatter.o \
-	../drm/ati_pcigart.o \
-	../drm/drm_pci.o \
-	../drm/drm_sysfs.o \
-	../drm/drm_hashtab.o \
-	../drm/drm_mm.o \
-	../drm/drm_crtc.o \
-	../drm/drm_modes.o \
-	../drm/drm_edid.o \
+	services4/3rdparty/linux_drm/pvr_drm_stubs.o \
+	../../drm/drm_auth.o \
+	../../drm/drm_bufs.o \
+	../../drm/drm_cache.o \
+	../../drm/drm_context.o \
+	../../drm/drm_dma.o \
+	../../drm/drm_drv.o \
+	../../drm/drm_fops.o \
+	../../drm/drm_gem.o \
+	../../drm/drm_ioctl.o \
+	../../drm/drm_irq.o \
+	../../drm/drm_lock.o \
+	../../drm/drm_memory.o \
+	../../drm/drm_stub.o \
+	../../drm/drm_vm.o \
+	../../drm/drm_agpsupport.o \
+	../../drm/drm_scatter.o \
+	../../drm/ati_pcigart.o \
+	../../drm/drm_pci.o \
+	../../drm/drm_sysfs.o \
+	../../drm/drm_hashtab.o \
+	../../drm/drm_mm.o \
+	../../drm/drm_crtc.o \
+	../../drm/drm_modes.o \
+	../../drm/drm_edid.o \
 	../../../video/hdmi.o \
-	../drm/drm_info.o \
-	../drm/drm_debugfs.o \
-	../drm/drm_encoder_slave.o
+	../../drm/drm_info.o \
+	../../drm/drm_debugfs.o \
+	../../drm/drm_encoder_slave.o
 
 # not available in Linux 3.7
 lib-n +=  \
-	../drm/drm_drawable.o \
-	../drm/drm_sman.o
+	../../drm/drm_drawable.o \
+	../../drm/drm_sman.o
 
 # needed for Linux 3.7
-lib-y += ../drm/drm_prime.o \
-	../drm/drm_global.o
+lib-y += ../../drm/drm_prime.o \
+	../../drm/drm_global.o
 
 ccflags-n += \
 	-DFBDEV_PRESENT=0
 
-lib-n += omap3/services4/3rdparty/dc_omapfb3_linux/omaplfb_displayclass.o \
-	omap3/services4/3rdparty/dc_omapfb3_linux/omaplfb_linux.o
+lib-n += services4/3rdparty/dc_omapfb3_linux/omaplfb_displayclass.o \
+	services4/3rdparty/dc_omapfb3_linux/omaplfb_linux.o
 
 # build into kernel (y) or as a module (m) depending on CONFIG_SGX_530/540
 # would be nice if we could find a trick to build separate
@@ -274,8 +269,8 @@ lib-n += omap3/services4/3rdparty/dc_omapfb3_linux/omaplfb_displayclass.o \
 # Revision 1.2.1 - Omap 3430
 ifeq ($(CONFIG_SGX_REV121),y)
 pvr_sgx530_rev121-$(CONFIG_SGX530) := \
-	omap3/services4/system/omap3/sysconfig.o \
-	omap3/services4/system/omap3/sysutils.o \
+	services4/system/omap3/sysconfig.o \
+	services4/system/omap3/sysutils.o \
 	lib.a
 obj-$(CONFIG_SGX530) += pvr_sgx530_rev121.o
 endif
@@ -283,8 +278,8 @@ endif
 # Revision 1.2.5 - Omap 3630
 ifeq ($(CONFIG_SGX_REV125),y)
 pvr_sgx530_rev125-$(CONFIG_SGX530) := \
-	omap3/services4/system/omap3630/sysconfig.o \
-	omap3/services4/system/omap3630/sysutils.o \
+	services4/system/omap3630/sysconfig.o \
+	services4/system/omap3630/sysutils.o \
 	lib.a
 obj-$(CONFIG_SGX530) += pvr_sgx530_rev125.o
 endif
@@ -292,8 +287,8 @@ endif
 # Revision 1.1.0 - Omap 4430 ES1
 ifeq ($(CONFIG_SGX_REV110),y)
 pvr_sgx540_rev110-$(CONFIG_SGX540) := \
-	omap3/services4/system/omap3/sysconfig.o \
-	omap3/services4/system/omap3/sysutils.o \
+	services4/system/omap3/sysconfig.o \
+	services4/system/omap3/sysutils.o \
 	lib.a
 obj-$(CONFIG_SGX540) += pvr_sgx540_rev110.o
 endif
@@ -301,11 +296,8 @@ endif
 # Revision 1.2.0 - Omap 4430 ES2
 ifeq ($(CONFIG_SGX_REV120),y)
 pvr_sgx540_rev120-$(CONFIG_SGX540) := \
-	omap3/services4/system/omap4/sysconfig.o \
-	omap3/services4/system/omap4/sysutils.o \
+	services4/system/omap4/sysconfig.o \
+	services4/system/omap4/sysutils.o \
 	lib.a
 obj-$(CONFIG_SGX540) += pvr_sgx540_rev120.o
 endif
-
-# stub for SGX544
-# end
