@@ -1641,16 +1641,24 @@ static int _lookup_hardreset(struct omap_hwmod *oh, const char *name,
 {
 	int i;
 
+#if 1
+printk("%s: name=%s cnt=%d lines=%p\n", __func__, name, oh->rst_lines_cnt, oh->rst_lines);
+#endif
+
 	for (i = 0; i < oh->rst_lines_cnt; i++) {
 		const char *rst_line = oh->rst_lines[i].name;
+#if 1
+printk("try name=%s\n", name);
+#endif
 		if (!strcmp(rst_line, name)) {
 			ohri->rst_shift = oh->rst_lines[i].rst_shift;
 			ohri->st_shift = oh->rst_lines[i].st_shift;
 			ohri->rc = oh->rst_lines[i].rc;
-			pr_debug("omap_hwmod: %s: %s: %s: rst %d st %d rc %x\n",
+			pr_info("omap_hwmod: %s: %s: %s: rst %d st %d rc %x\n",
 				 oh->name, __func__, rst_line, ohri->rst_shift,
 				 ohri->st_shift, (u32)ohri->rc);
 
+			return -ENOENT;
 			return 0;
 		}
 	}
@@ -2497,13 +2505,33 @@ static int __init _init_resets(struct omap_hwmod *oh, struct device_node *np)
 	const char *reset_name;
 	struct reset_control *rc;
 
+#if 0
+	printk("%s: np=%s\n", __func__, np->name);
+#endif
 	num = of_property_count_strings(np, "reset-names");
+#if 0
+	printk("%s: np=%s cnt=%d num=%d\n", __func__, np->name, oh->rst_lines_cnt, num);
+	return 0;
+#endif
 	if (num < 1)
 		return 0;
 
+#if 1
+	printk("%s: np=%s cnt=%d num=%d\n", __func__, np->name, oh->rst_lines_cnt, num);
+#endif
+
+	if (oh->rst_lines_cnt != num)
+		printk("%s: %s rst lines mismatch\n", __func__, np->name);
+
+#if 1
+	return 0;
+#endif
 	oh->rst_lines = kcalloc(num, sizeof(struct omap_hwmod_rst_info),
 				GFP_KERNEL);
 
+#if 1
+	return 0;
+#endif
 	for (i = 0; i < num; i++) {
 		ret = of_property_read_string_index(np, "reset-names", i,
 						    &reset_name);
@@ -2511,6 +2539,7 @@ static int __init _init_resets(struct omap_hwmod *oh, struct device_node *np)
 			goto cleanup;
 
 		rc = of_reset_control_get(np, reset_name);
+
 		if (IS_ERR(rc)) {
 			ret = PTR_ERR(rc);
 			goto cleanup;
@@ -2525,6 +2554,7 @@ static int __init _init_resets(struct omap_hwmod *oh, struct device_node *np)
 	return ret;
 
 cleanup:
+	printk("%s: %s cleanup ret=%d\n", __func__, np->name, ret);
 	for (i = 0; i < num; i++) {
 		if (oh->rst_lines[i].rc)
 			reset_control_put(oh->rst_lines[i].rc);
@@ -2600,12 +2630,14 @@ static int __init _init(struct omap_hwmod *oh, void *data)
 		if (of_find_property(np, "ti,no-idle", NULL))
 			oh->flags |= HWMOD_NO_IDLE;
 
+#if 1
 		r = _init_resets(oh, np);
 		if (r < 0) {
 			WARN(1, "omap_hwmod: %s: couldn't init reset\n",
 			     oh->name);
 			return -EINVAL;
 		}
+#endif
 	}
 
 	oh->_state = _HWMOD_STATE_INITIALIZED;
@@ -3133,6 +3165,10 @@ static int _omap4_disable_direct_prcm(struct omap_hwmod *oh)
 static int _dt_assert_hardreset(struct omap_hwmod *oh,
 				struct omap_hwmod_rst_info *ohri)
 {
+#if 1
+	pr_info("%s: %s\n", __func__, oh->name);
+	return 0;
+#endif
 	if (!ohri->rc) {
 		pr_err("%s: %s: missing rc\n", __func__, oh->name);
 		WARN_ONCE(1, "missing rc\n");
@@ -3145,6 +3181,10 @@ static int _dt_assert_hardreset(struct omap_hwmod *oh,
 static int _dt_deassert_hardreset(struct omap_hwmod *oh,
 				  struct omap_hwmod_rst_info *ohri)
 {
+#if 1
+	pr_info("%s: %s\n", __func__, oh->name);
+	return 0;
+#endif
 	if (!ohri->rc) {
 		pr_err("%s: %s: missing rc\n", __func__, oh->name);
 		return 0;
@@ -3156,6 +3196,10 @@ static int _dt_deassert_hardreset(struct omap_hwmod *oh,
 static int _dt_is_hardreset_asserted(struct omap_hwmod *oh,
 				     struct omap_hwmod_rst_info *ohri)
 {
+#if 1
+	pr_info("%s: %s\n", __func__, oh->name);
+	return 1;
+#endif
 	if (!ohri->rc) {
 		pr_err("%s: %s: missing rc\n", __func__, oh->name);
 		return 0;
