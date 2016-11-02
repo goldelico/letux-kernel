@@ -2510,7 +2510,8 @@ static int __init _init_resets(struct omap_hwmod *oh, struct device_node *np)
 		if (ret)
 			goto cleanup;
 
-		rc = of_reset_control_get(np, reset_name);
+		rc = of_reset_control_get_shared(np, reset_name);
+
 		if (IS_ERR(rc)) {
 			ret = PTR_ERR(rc);
 			goto cleanup;
