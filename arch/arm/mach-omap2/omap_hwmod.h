@@ -199,14 +199,16 @@ struct omap_hwmod_dma_info {
  * @name: name of the reset line (module local name)
  * @rst_shift: Offset of the reset bit
  * @st_shift: Offset of the reset status bit (OMAP2/3 only)
+ * @rc: reset control handle for the reset
  *
  * @name should be something short, e.g., "cpu0" or "rst". It is defined
  * locally to the hwmod.
  */
 struct omap_hwmod_rst_info {
-	const char	*name;
-	u8		rst_shift;
-	u8		st_shift;
+	const char		*name;
+	u8			rst_shift;
+	u8			st_shift;
+	struct reset_control	*rc;
 };
 
 /**
@@ -453,10 +455,8 @@ struct omap_hwmod_omap2_prcm {
 /**
  * struct omap_hwmod_omap4_prcm - OMAP4-specific PRCM data
  * @clkctrl_offs: offset of the PRCM clock control register
- * @rstctrl_offs: offset of the XXX_RSTCTRL register located in the PRM
  * @context_offs: offset of the RM_*_CONTEXT register
  * @lostcontext_mask: bitmask for selecting bits from RM_*_CONTEXT register
- * @rstst_reg: (AM33XX only) address of the XXX_RSTST register in the PRM
  * @submodule_wkdep_bit: bit shift of the WKDEP range
  * @flags: PRCM register capabilities for this IP block
  * @modulemode: allowable modulemodes
@@ -469,8 +469,6 @@ struct omap_hwmod_omap2_prcm {
  */
 struct omap_hwmod_omap4_prcm {
 	u16		clkctrl_offs;
-	u16		rstctrl_offs;
-	u16		rstst_offs;
 	u16		context_offs;
 	u32		lostcontext_mask;
 	u8		submodule_wkdep_bit;

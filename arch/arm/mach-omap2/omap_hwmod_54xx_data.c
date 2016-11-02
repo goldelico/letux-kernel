@@ -827,6 +827,40 @@ static struct omap_hwmod omap54xx_gpio8_hwmod = {
 };
 
 /*
+ * 'gpu' class
+ * 3d graphics accelerator
+ */
+
+static struct omap_hwmod_class_sysconfig omap54xx_gpu_sysc = {
+	.rev_offs       = 0x0000,
+	.sysc_offs      = 0x0010,
+	.sysc_flags     = (SYSC_HAS_MIDLEMODE | SYSC_HAS_SIDLEMODE),
+	.idlemodes      = (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
+			   SIDLE_SMART_WKUP | MSTANDBY_FORCE | MSTANDBY_NO |
+			   MSTANDBY_SMART | MSTANDBY_SMART_WKUP),
+	.sysc_fields    = &omap_hwmod_sysc_type2,
+};
+
+static struct omap_hwmod_class omap54xx_gpu_hwmod_class = {
+	.name   = "gpu",
+	.sysc   = &omap54xx_gpu_sysc,
+};
+
+static struct omap_hwmod omap54xx_gpu_hwmod = {
+	.name           = "gpu",
+	.class          = &omap54xx_gpu_hwmod_class,
+	.clkdm_name     = "gpu_clkdm",
+	.main_clk       = "gpu_core_gclk_mux",
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs = OMAP54XX_CM_GPU_GPU_CLKCTRL_OFFSET,
+			.context_offs = OMAP54XX_RM_GPU_GPU_CONTEXT_OFFSET,
+			.modulemode   = MODULEMODE_SWCTRL,
+		},
+	},
+};
+
+/*
  * 'i2c' class
  * multimaster high-speed i2c controller
  */
@@ -1378,21 +1412,14 @@ static struct omap_hwmod_class omap54xx_mmu_hwmod_class = {
 	.sysc = &omap54xx_mmu_sysc,
 };
 
-static struct omap_hwmod_rst_info omap54xx_mmu_dsp_resets[] = {
-	{ .name = "mmu_cache", .rst_shift = 1 },
-};
-
 static struct omap_hwmod omap54xx_mmu_dsp_hwmod = {
 	.name		= "mmu_dsp",
 	.class		= &omap54xx_mmu_hwmod_class,
 	.clkdm_name	= "dsp_clkdm",
-	.rst_lines	= omap54xx_mmu_dsp_resets,
-	.rst_lines_cnt	= ARRAY_SIZE(omap54xx_mmu_dsp_resets),
 	.main_clk	= "dpll_iva_h11x2_ck",
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = OMAP54XX_CM_DSP_DSP_CLKCTRL_OFFSET,
-			.rstctrl_offs = OMAP54XX_RM_DSP_RSTCTRL_OFFSET,
 			.context_offs = OMAP54XX_RM_DSP_DSP_CONTEXT_OFFSET,
 			.modulemode   = MODULEMODE_HWCTRL,
 		},
@@ -1400,21 +1427,14 @@ static struct omap_hwmod omap54xx_mmu_dsp_hwmod = {
 };
 
 /* mmu ipu */
-static struct omap_hwmod_rst_info omap54xx_mmu_ipu_resets[] = {
-	{ .name = "mmu_cache", .rst_shift = 2 },
-};
-
 static struct omap_hwmod omap54xx_mmu_ipu_hwmod = {
 	.name		= "mmu_ipu",
 	.class		= &omap54xx_mmu_hwmod_class,
 	.clkdm_name	= "ipu_clkdm",
-	.rst_lines	= omap54xx_mmu_ipu_resets,
-	.rst_lines_cnt	= ARRAY_SIZE(omap54xx_mmu_ipu_resets),
 	.main_clk	= "dpll_core_h22x2_ck",
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = OMAP54XX_CM_IPU_IPU_CLKCTRL_OFFSET,
-			.rstctrl_offs = OMAP54XX_RM_IPU_RSTCTRL_OFFSET,
 			.context_offs = OMAP54XX_RM_IPU_IPU_CONTEXT_OFFSET,
 			.modulemode   = MODULEMODE_HWCTRL,
 		},
@@ -2407,6 +2427,14 @@ static struct omap_hwmod_ocp_if omap54xx_l4_per__gpio8 = {
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
+/* l3_main_1 -> gpu */
+static struct omap_hwmod_ocp_if omap54xx_l3_main_1__gpu = {
+	.master         = &omap54xx_l3_main_1_hwmod,
+	.slave          = &omap54xx_gpu_hwmod,
+	.clk            = "l3_iclk_div",
+	.user           = OCP_USER_MPU | OCP_USER_SDMA,
+};
+
 /* l4_per -> i2c1 */
 static struct omap_hwmod_ocp_if omap54xx_l4_per__i2c1 = {
 	.master		= &omap54xx_l4_per_hwmod,
@@ -2796,6 +2824,7 @@ static struct omap_hwmod_ocp_if *omap54xx_hwmod_ocp_ifs[] __initdata = {
 	&omap54xx_l4_per__gpio6,
 	&omap54xx_l4_per__gpio7,
 	&omap54xx_l4_per__gpio8,
+	&omap54xx_l3_main_1__gpu,
 	&omap54xx_l4_per__i2c1,
 	&omap54xx_l4_per__i2c2,
 	&omap54xx_l4_per__i2c3,

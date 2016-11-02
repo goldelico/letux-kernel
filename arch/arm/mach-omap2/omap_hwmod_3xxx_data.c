@@ -107,19 +107,11 @@ static struct omap_hwmod omap3xxx_mpu_hwmod = {
 	.main_clk	= "arm_fck",
 };
 
-/* IVA2 (IVA2) */
-static struct omap_hwmod_rst_info omap3xxx_iva_resets[] = {
-	{ .name = "logic", .rst_shift = 0, .st_shift = 8 },
-	{ .name = "seq0", .rst_shift = 1, .st_shift = 9 },
-	{ .name = "seq1", .rst_shift = 2, .st_shift = 10 },
-};
 
 static struct omap_hwmod omap3xxx_iva_hwmod = {
 	.name		= "iva",
 	.class		= &iva_hwmod_class,
 	.clkdm_name	= "iva2_clkdm",
-	.rst_lines	= omap3xxx_iva_resets,
-	.rst_lines_cnt	= ARRAY_SIZE(omap3xxx_iva_resets),
 	.main_clk	= "iva2_ck",
 	.prcm = {
 		.omap2 = {
@@ -2053,20 +2045,12 @@ static struct omap_hwmod omap3xxx_hdq1w_hwmod = {
 	.class		= &omap2_hdq1w_class,
 };
 
-/* SAD2D */
-static struct omap_hwmod_rst_info omap3xxx_sad2d_resets[] = {
-	{ .name = "rst_modem_pwron_sw", .rst_shift = 0 },
-	{ .name = "rst_modem_sw", .rst_shift = 1 },
-};
-
 static struct omap_hwmod_class omap3xxx_sad2d_class = {
 	.name			= "sad2d",
 };
 
 static struct omap_hwmod omap3xxx_sad2d_hwmod = {
 	.name		= "sad2d",
-	.rst_lines	= omap3xxx_sad2d_resets,
-	.rst_lines_cnt	= ARRAY_SIZE(omap3xxx_sad2d_resets),
 	.main_clk	= "sad2d_ick",
 	.prcm		= {
 		.omap2 = {
@@ -2972,10 +2956,6 @@ static struct omap_hwmod omap3xxx_mmu_isp_hwmod = {
 
 static struct omap_hwmod omap3xxx_mmu_iva_hwmod;
 
-static struct omap_hwmod_rst_info omap3xxx_mmu_iva_resets[] = {
-	{ .name = "mmu", .rst_shift = 1, .st_shift = 9 },
-};
-
 /* l3_main -> iva mmu */
 static struct omap_hwmod_ocp_if omap3xxx_l3_main__mmu_iva = {
 	.master		= &omap3xxx_l3_main_hwmod,
@@ -2987,8 +2967,6 @@ static struct omap_hwmod omap3xxx_mmu_iva_hwmod = {
 	.name		= "mmu_iva",
 	.class		= &omap3xxx_mmu_hwmod_class,
 	.clkdm_name	= "iva2_clkdm",
-	.rst_lines	= omap3xxx_mmu_iva_resets,
-	.rst_lines_cnt	= ARRAY_SIZE(omap3xxx_mmu_iva_resets),
 	.main_clk	= "iva2_ck",
 	.prcm = {
 		.omap2 = {

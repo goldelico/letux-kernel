@@ -27,8 +27,6 @@
 #include "common.h"
 
 #define CLKCTRL(oh, clkctrl) ((oh).prcm.omap4.clkctrl_offs = (clkctrl))
-#define RSTCTRL(oh, rstctrl) ((oh).prcm.omap4.rstctrl_offs = (rstctrl))
-#define RSTST(oh, rstst) ((oh).prcm.omap4.rstst_offs = (rstst))
 #define PRCM_FLAGS(oh, flag) ((oh).prcm.omap4.flags = (flag))
 
 /*
@@ -144,10 +142,6 @@ static struct omap_hwmod_class am33xx_pruss_hwmod_class = {
 	.name	= "pruss",
 };
 
-static struct omap_hwmod_rst_info am33xx_pruss_resets[] = {
-	{ .name = "pruss", .rst_shift = 1 },
-};
-
 /* pru-icss */
 /* Pseudo hwmod for reset control purpose only */
 struct omap_hwmod am33xx_pruss_hwmod = {
@@ -160,18 +154,12 @@ struct omap_hwmod am33xx_pruss_hwmod = {
 			.modulemode	= MODULEMODE_SWCTRL,
 		},
 	},
-	.rst_lines	= am33xx_pruss_resets,
-	.rst_lines_cnt	= ARRAY_SIZE(am33xx_pruss_resets),
 };
 
 /* gfx */
 /* Pseudo hwmod for reset control purpose only */
 static struct omap_hwmod_class am33xx_gfx_hwmod_class = {
 	.name	= "gfx",
-};
-
-static struct omap_hwmod_rst_info am33xx_gfx_resets[] = {
-	{ .name = "gfx", .rst_shift = 0, .st_shift = 0},
 };
 
 struct omap_hwmod am33xx_gfx_hwmod = {
@@ -184,8 +172,6 @@ struct omap_hwmod am33xx_gfx_hwmod = {
 			.modulemode	= MODULEMODE_SWCTRL,
 		},
 	},
-	.rst_lines	= am33xx_gfx_resets,
-	.rst_lines_cnt	= ARRAY_SIZE(am33xx_gfx_resets),
 };
 
 /*
@@ -1317,17 +1303,9 @@ static void omap_hwmod_am33xx_clkctrl(void)
 	CLKCTRL(am33xx_aes0_hwmod , AM33XX_CM_PER_AES0_CLKCTRL_OFFSET);
 }
 
-static void omap_hwmod_am33xx_rst(void)
-{
-	RSTCTRL(am33xx_pruss_hwmod, AM33XX_RM_PER_RSTCTRL_OFFSET);
-	RSTCTRL(am33xx_gfx_hwmod, AM33XX_RM_GFX_RSTCTRL_OFFSET);
-	RSTST(am33xx_gfx_hwmod, AM33XX_RM_GFX_RSTST_OFFSET);
-}
-
 void omap_hwmod_am33xx_reg(void)
 {
 	omap_hwmod_am33xx_clkctrl();
-	omap_hwmod_am33xx_rst();
 }
 
 static void omap_hwmod_am43xx_clkctrl(void)
@@ -1390,16 +1368,7 @@ static void omap_hwmod_am43xx_clkctrl(void)
 	CLKCTRL(am33xx_aes0_hwmod , AM43XX_CM_PER_AES0_CLKCTRL_OFFSET);
 }
 
-static void omap_hwmod_am43xx_rst(void)
-{
-	RSTCTRL(am33xx_pruss_hwmod, AM43XX_RM_PER_RSTCTRL_OFFSET);
-	RSTCTRL(am33xx_gfx_hwmod, AM43XX_RM_GFX_RSTCTRL_OFFSET);
-	RSTST(am33xx_pruss_hwmod, AM43XX_RM_PER_RSTST_OFFSET);
-	RSTST(am33xx_gfx_hwmod, AM43XX_RM_GFX_RSTST_OFFSET);
-}
-
 void omap_hwmod_am43xx_reg(void)
 {
 	omap_hwmod_am43xx_clkctrl();
-	omap_hwmod_am43xx_rst();
 }

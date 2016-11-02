@@ -101,20 +101,6 @@ static int omap2xxx_pwrst_to_common_pwrst(u8 omap2xxx_pwrst)
 }
 
 /**
- * omap2xxx_prm_dpll_reset - use DPLL reset to reboot the OMAP SoC
- *
- * Set the DPLL reset bit, which should reboot the SoC.  This is the
- * recommended way to restart the SoC.  No return value.
- */
-static void omap2xxx_prm_dpll_reset(void)
-{
-	omap2_prm_set_mod_reg_bits(OMAP_RST_DPLL3_MASK, WKUP_MOD,
-				   OMAP2_RM_RSTCTRL);
-	/* OCP barrier */
-	omap2_prm_read_mod_reg(WKUP_MOD, OMAP2_RM_RSTCTRL);
-}
-
-/**
  * omap2xxx_prm_clear_mod_irqs - clear wakeup status bits for a module
  * @module: PRM module to clear wakeups from
  * @regs: register offset to clear
@@ -216,7 +202,6 @@ static struct prm_ll_data omap2xxx_prm_ll_data = {
 	.assert_hardreset = &omap2_prm_assert_hardreset,
 	.deassert_hardreset = &omap2_prm_deassert_hardreset,
 	.is_hardreset_asserted = &omap2_prm_is_hardreset_asserted,
-	.reset_system = &omap2xxx_prm_dpll_reset,
 	.clear_mod_irqs = &omap2xxx_prm_clear_mod_irqs,
 };
 
