@@ -43,22 +43,6 @@
 		};
 	};
 
-	gpu@50000000 {
-		compatible = "ti,sgx", "img,sgx530";
-		reg = <0x50000000 0x10000>;
-		interrupts = <21>;
-		ti,hwmods = "gfx";
-		// any clocks to enable? iclk and fclk?
-		/* SGX reset is
-			And section 8.2.1.2 explicitly says:
-			"Software controls the release of SGX_RST using the PRCM.RM_RSTCTRL_SGX[0] SGX_RST bit."
-			It is located at ??? [missing from documentation?]
-		*/
-		/* <&prm "address relative to 0x48306000" ? ? ? ? */
-		reset-names = "sgx";
-		resets = <&prm 0x0b58 0 0 0 0>;
-	};
-
 	pmu@54000000 {
 		compatible = "arm,cortex-a8-pmu";
 		reg = <0x54000000 0x800000>;
@@ -96,6 +80,22 @@
 			reset-names = "rst_modem_sw", "rst_modem_pwron_sw";
 			resets = <&prm 0x0a00 0 0 0 8>,
 				 <&prm 0x0a00 0 1 0 9>;
+		};
+
+		gpu: gpu@50000000 {
+			compatible = "ti,sgx", "img,sgx530";
+			reg = <0x50000000 0x10000>;
+			interrupts = <21>;
+			ti,hwmods = "gfx";
+			// any clocks to enable? iclk and fclk?
+/* SGX reset
+   And section 8.2.1.2 explicitly says:
+   "Software controls the release of SGX_RST using the PRCM.RM_RSTCTRL_SGX[0] SGX_RST bit."
+   It is located at ??? [missing from documentation?]
+*/
+			/* <&prm "address relative to 0x48306000" ? ? ? ? */
+			reset-names = "sgx";
+			resets = <&prm 0x0b50 0 0 0 8>;
 		};
 	};
 
