@@ -1,0 +1,25 @@
+#
+# start background processes with 100% CPU load 
+#
+
+# parameters for Pyra (OMAP5)
+CORES=2	# find from /proc/cpuinfo
+
+# start 100% load processes
+for i in $(seq 1 $CORES)
+do
+	while true
+	do
+		:
+	done &
+	PIDS="$PIDS $!"
+done
+
+# stop them if we are stopped
+trap "echo kill $PIDS; kill $PIDS" EXIT
+
+while true
+do
+	/root/temperatures
+	sleep 1
+done
