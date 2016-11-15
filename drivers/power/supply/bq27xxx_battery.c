@@ -892,12 +892,65 @@ static int bq27xxx_battery_read_dcap(struct bq27xxx_device_info *di)
 	else
 		dcap *= 1000;
 
+// FIXME: use this only for programmable chips
+
 	if (di->charge_design_full_expected > 0 &&
 	    dcap != di->charge_design_full_expected) {
-		dev_err(di->dev, "mismatch in battery capacity: %u instead of %u\n",
-			dcap, di->charge_design_full_expected);
+		dev_warn(di->dev, "mismatch in battery capacity: %u instead of %u\n",
+			 dcap, di->charge_design_full_expected);
+#if 0
 		/* try to update BQ27XXX_REG_DCAP register and set dcap to new value */
 		/* see page 12 of: http://www.ti.com/lit/ug/sluuad4c/sluuad4c.pdf */
+
+		di->bus.write(di, di->regs[BQ27XXX_REG_CTRL], false, 0x8000);
+		di->bus.write(di, di->regs[BQ27XXX_REG_CTRL], false, 0x8000);
+		di->bus.write(di, di->regs[BQ27XXX_REG_CTRL], false, 0x0013);
+
+		timeout = 1000 / 20;	/* may take up to 1 second */
+		do {
+			val = bq27xxx_read(di, BQ27XXX_REG_FLAGS, true);
+			if (val & BIT(4))
+				break;
+			msleep(20);
+		} while(--timeout > 0);
+		if (timeout == 0) {
+			dev_err(di->dev, "unable to switch to programming mode\n");
+			return dcap;
+		}
+
+		di->bus.write(di, 0x61, true, 0x00);
+		di->bus.write(di, 0x3e, true, 0x52);
+		di->bus.write(di, 0x3f, true, 0x00);
+
+		csum = di->bus.read(di, 0x60, true);
+
+		di->bus.write(di, 0x43, true, di->charge_design_full_expected / 256);
+		di->bus.write(di, 0x44, true, di->charge_design_full_expected);
+
+		csum += 0x04 + 0xb0 +
+			(di->charge_design_full_expected & 0xff) +
+			(di->charge_design_full_expected >> 8);
+
+		di->bus.write(di, 0x60, true, csum);
+
+		di->bus.write(di, di->regs[BQ27XXX_REG_CTRL], false, 0x0042);
+
+		timeout = 1000 / 20;
+		do {
+			val = bq27xxx_read(di, BQ27XXX_REG_FLAGS, true);
+			if (!(val & BIT(4)))
+				break;
+			msleep(20);
+		} while(--timeout > 0);
+		if (timeout == 0) {
+			dev_err(di->dev, "programming failed\n");
+			return dcap;
+		}
+
+		di->bus.write(di, di->regs[BQ27XXX_REG_CTRL], false, 0x0020);
+
+		return di->charge_design_full_expected;
+#endif
 	}
 
 	return dcap;
