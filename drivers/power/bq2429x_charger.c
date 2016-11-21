@@ -524,7 +524,7 @@ static void usb_detect_work_func(struct work_struct *work)
 	bq24296_battery_present = ((r9 >> NTC_FAULT_OFFSET) & NTC_FAULT_MASK) == 0;	/* if no fault */
 	bq24296_input_present = (r8 & PG_STAT) != 0;
 
-	if (r8 != previous_r8 || bq24296_input_present != (previous_r8 & PG_STAT) != 0)
+	if (r8 != previous_r8 || bq24296_input_present != ((previous_r8 & PG_STAT) != 0))
 		DBG("%s: r8 = %02x bq24296_input_present = %d\n", __func__,r8,bq24296_input_present);
 
 #if FIXME
@@ -711,11 +711,14 @@ static int bq24296_set_vsys_voltage(struct regulator_dev *dev, int min_uV, int m
 	printk("bq24296_set_vsys_voltage(%d, %d, %d, %u)\n", idx, min_uV, max_uV, *selector);
 // The driver should select the voltage closest to min_uV
 
+	return 0;
+
 	/* set system voltage */
 
-// FIXME: can we directly use the selector value???
-
-	return 0;
+	return bq24296_update_reg(bq24296_di->client,
+				  POWER_ON_CONFIGURATION_REGISTER,
+				  *selector,	/* 3.0V + 0.2V */
+				  SYS_MIN_MASK << SYS_MIN_OFFSET);
 }
 
 // should we be able to get/set the input current limit - which is the USB input current?
@@ -745,11 +748,14 @@ static int bq24296_set_otg_voltage(struct regulator_dev *dev, int min_uV, int ma
 	printk("bq24296_set_otg_voltage(%d, %d, %d, %u)\n", idx, min_uV, max_uV, *selector);
 // The driver should select the voltage closest to min_uV
 
+	return 0;
+
 	/* set OTG step up converter voltage */
 
-// FIXME: can we directly use the selector value???
-
-	return 0;
+	return bq24296_update_reg(bq24296_di->client,
+				  THERMAL_REGULATION_CONTROL_REGISTER,
+				  *selector,
+				  BOOSTV_MASK << BOOSTV_OFFSET);
 }
 
 static int bq24296_get_otg_current_limit(struct regulator_dev *dev)
@@ -776,13 +782,12 @@ static int bq24296_set_otg_current_limit(struct regulator_dev *dev,
 
 	printk("bq24296_set_otg_current_limit(%d, %d, %d)\n", idx, min_uA, max_uA);
 
-// The driver should select the current closest to max_uA
-// we only have two choices: 1A, 1.5A
-// this function does not enable/disable boost mode
-
 	/* set OTG current limit in bit 0 of POWER_ON_CONFIGURATION_REGISTER */
 
-	return 0;
+	if(max_uA < 1250000)
+		return bq24296_update_reg(bq24296_di->client,POWER_ON_CONFIGURATION_REGISTER, OTG_MODE_CURRENT_CONFIG_500MA,0x01);	// enable 1A
+	else
+		return bq24296_update_reg(bq24296_di->client,POWER_ON_CONFIGURATION_REGISTER, OTG_MODE_CURRENT_CONFIG_1300MA,0x01);	// enable 1.5A
 }
 
 static int bq24296_otg_enable(struct regulator_dev *dev)
@@ -793,10 +798,12 @@ static int bq24296_otg_enable(struct regulator_dev *dev)
 	printk("bq24296_otg_enable(%d)\n", idx);
 
 	/* check if battery is present and reject if no battery */
+	if (!bq24296_battery_present)
+		return -EBUSY;
 
 	/* enable bit 5 of POWER_ON_CONFIGURATION_REGISTER */
 
-	return 0;
+	return bq24296_update_reg(bq24296_di->client,POWER_ON_CONFIGURATION_REGISTER,0x01 << 5,0x01 << 5);	// enable OTG
 }
 
 static int bq24296_otg_disable(struct regulator_dev *dev)
@@ -808,7 +815,7 @@ static int bq24296_otg_disable(struct regulator_dev *dev)
 
 	/* disable bit 5 of POWER_ON_CONFIGURATION_REGISTER */
 
-	return 0;
+	return bq24296_update_reg(bq24296_di->client,POWER_ON_CONFIGURATION_REGISTER,0 << 5,0x01 << 5);	// disable OTG
 }
 
 static struct regulator_ops vsys_ops = {
