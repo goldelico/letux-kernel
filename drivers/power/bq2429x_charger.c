@@ -287,7 +287,7 @@ static int bq24296_init_registers(void)
 #if 0
 	/* disable boost temperature protection (for debugging) */
 	ret = bq24296_update_reg(bq24296_di->client,
-							 THERMAIL_REGULATOION_CONTROL_REGISTER,
+							 THERMAL_REGULATION_CONTROL_REGISTER,
 							 0x0c,	/* BHOT[1:0]=11 */
 							 0x0c);
 	if (ret < 0) {
@@ -729,7 +729,7 @@ static int bq24296_get_otg_voltage(struct regulator_dev *dev)
 
 	printk("bq24296_get_otg_voltage(%d)\n", idx);
 
-	ret = bq24296_read(bq24296_di->client, THERMAIL_REGULATOION_CONTROL_REGISTER, &retval, 1);
+	ret = bq24296_read(bq24296_di->client, THERMAL_REGULATION_CONTROL_REGISTER, &retval, 1);
 	if (ret < 0)
 		return ret;
 	printk(" => %d uV\n", otg_VSEL_table[(retval >> BOOSTV_OFFSET) & BOOSTV_MASK]);
