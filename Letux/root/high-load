@@ -1,0 +1,30 @@
+#
+# start multiple background processes with 100% CPU load
+#
+
+
+CORES=$(fgrep processor /proc/cpuinfo | wc -l)	# find from /proc/cpuinfo
+
+echo "100% load stress test for $CORES cores"
+
+# run once in this shell so that we define the 'temperatures' function for the loop
+. ./temperatures
+
+# start 100% load processes
+for i in $(seq 1 $CORES)
+do
+	while true
+	do
+		:
+	done &
+	PIDS="$PIDS $!"
+done
+
+# stop them if we are stopped
+trap "echo kill $PIDS; kill $PIDS" EXIT
+
+while true
+do
+	temperatures
+	sleep 1
+done
