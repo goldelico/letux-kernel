@@ -1,6 +1,4 @@
 /*
- * drivers/input/touchscreen/tsc2007_iio.c
- *
  * Copyright (c) 2016 Golden Delicious Comp. GmbH&Co. KG
  *	Nikolaus Schaller <hns@goldelico.com>
  *

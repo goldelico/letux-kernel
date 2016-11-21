@@ -81,7 +81,12 @@ obj-$(CONFIG_TOUCHSCREEN_TSC200X_CORE)	+= tsc200x-core.o
 obj-$(CONFIG_TOUCHSCREEN_TSC2004)	+= tsc2004.o
 obj-$(CONFIG_TOUCHSCREEN_TSC2005)	+= tsc2005.o
 tsc2007-y				:= tsc2007_core.o
-tsc2007-$(CONFIG_IIO)			+= tsc2007_iio.o
+ifeq ($(CONFIG_IIO),y)
+tsc2007-y				+= tsc2007_iio.o
+endif
+ifeq ($(CONFIG_IIO),m)
+tsc2007-y				+= tsc2007_iio.o
+endif
 obj-$(CONFIG_TOUCHSCREEN_TSC2007)	+= tsc2007.o
 obj-$(CONFIG_TOUCHSCREEN_UCB1400)	+= ucb1400_ts.o
 obj-$(CONFIG_TOUCHSCREEN_WACOM_W8001)	+= wacom_w8001.o

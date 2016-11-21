@@ -1,6 +1,4 @@
 /*
- * drivers/input/touchscreen/tsc2007.h
- *
  * Copyright (c) 2008 MtekVision Co., Ltd.
  *	Kwangwoo Lee <kwlee@mtekvision.com>
  *
