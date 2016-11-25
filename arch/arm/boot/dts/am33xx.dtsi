@@ -634,6 +634,11 @@
 			 * binding or driver in mainline
 			 */
 		};
+
+		bandgap@44e10448 {
+			compatible = "ti,am335x-bandgap";
+			reg = <0x44e10448 0x8>;
+		};
 	};
 };
 
