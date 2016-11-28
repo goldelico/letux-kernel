@@ -362,6 +362,7 @@ printk("phy = %p\n", musb->phy);
 	}
 	musb->isr = omap2430_musb_interrupt;
 	phy_init(musb->phy);
+	phy_power_on(musb->phy);
 
 	l = musb_readl(musb->mregs, OTG_INTERFSEL);
 
@@ -398,8 +399,6 @@ static void omap2430_musb_enable(struct musb *musb)
 	struct musb_hdrc_platform_data *pdata = dev_get_platdata(dev);
 	struct omap_musb_board_data *data = pdata->board_data;
 
-	if (!WARN_ON(!musb->phy))
-		phy_power_on(musb->phy);
 
 	omap2430_set_power(musb, true, glue->cable_connected);
 
@@ -455,6 +454,7 @@ static int omap2430_musb_exit(struct musb *musb)
 	struct omap2430_glue *glue = dev_get_drvdata(dev->parent);
 
 	omap2430_low_level_exit(musb);
+	phy_power_off(musb->phy);
 	phy_exit(musb->phy);
 	musb->phy = NULL;
 	cancel_work_sync(&glue->omap_musb_mailbox_work);
