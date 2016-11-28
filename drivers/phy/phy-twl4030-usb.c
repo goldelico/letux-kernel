@@ -489,8 +489,6 @@ static int twl4030_phy_power_off(struct phy *phy)
 	struct twl4030_usb *twl = phy_get_drvdata(phy);
 
 	dev_dbg(twl->dev, "%s\n", __func__);
-	pm_runtime_mark_last_busy(twl->dev);
-	pm_runtime_put_autosuspend(twl->dev);
 
 	return 0;
 }
@@ -502,6 +500,8 @@ static int twl4030_phy_power_on(struct phy *phy)
 	dev_dbg(twl->dev, "%s\n", __func__);
 	pm_runtime_get_sync(twl->dev);
 	schedule_delayed_work(&twl->id_workaround_work, HZ);
+	pm_runtime_mark_last_busy(twl->dev);
+	pm_runtime_put_autosuspend(twl->dev);
 
 	return 0;
 }
