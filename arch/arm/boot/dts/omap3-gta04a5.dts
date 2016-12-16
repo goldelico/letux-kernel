@@ -212,7 +212,7 @@
 	};
 
 	bmc150@10 {
-		compatible = "bosch,bma250";
+		compatible = "bosch,bmc150_accel";
 		reg = <0x10>;
 /*		pinctrl-names = "default";
 		pinctrl-0 = <&bmc150_pins>;
