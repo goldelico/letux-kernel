@@ -6,7 +6,7 @@
  * published by the Free Software Foundation.
  */
 
-#include "pyra-mainboard.dtsi"
+#include "pyra-mainboard-v5.0.dtsi"
 
 /* overwrite device model */
 
