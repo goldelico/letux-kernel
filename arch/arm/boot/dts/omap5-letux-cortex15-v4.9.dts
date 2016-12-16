@@ -8,7 +8,7 @@
 
 /* this version is for the Letux Cortex 15 CPU board (V4.9) */
 
-#include "omap5-letux-cortex15.dts"
+#include "omap5-letux-cortex15-v5.0.dts"
 
 /*
  * patches to work around a hardware bug
