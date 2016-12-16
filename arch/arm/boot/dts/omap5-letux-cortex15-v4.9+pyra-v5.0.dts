@@ -6,8 +6,8 @@
  * published by the Free Software Foundation.
  */
 
-/* this version is for Pyra V5.0 (also V4.0) with Letux Cortex 15 CPU board V5.0 */
+/* this version is for Pyra V5.0 (also V4.0) with Letux Cortex 15 CPU board V4.9 */
 
-#include "omap5-letux-cortex15.dts"
-#include "pyra-mainboard.dtsi"
-#include "pyra-display.dtsi"
+#include "omap5-letux-cortex15-v4.9.dts"
+#include "pyra-mainboard-v5.0.dtsi"
+// #include "pyra-display-ssd2858.dtsi"
