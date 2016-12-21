@@ -166,6 +166,7 @@
 		};
 	};
 
+#if (PANEL != 1)
 	tca6507@45 { /* historical for V4 display boards */
 		compatible = "ti,tca6507";
 		#address-cells = <1>;
@@ -218,6 +219,7 @@
 			linux,default-trigger = "heartbeat";
 		};
 	};
+#endif
 
 	eeprom@50 {
 		compatible = "at,24c01";
@@ -225,7 +227,9 @@
 	};
 };
 
-/* add anti-tearing */
+#if (PANEL != 1)
+
+/* add anti-tearing for ssd2858 */
 
 &omap5_pmx_core {
 	ssd2858_vsync_pins: pinmux_ssd2858_vsync_pins {
@@ -245,3 +249,4 @@
 		te-scanline = <360>;
 	};
 };
+#endif
