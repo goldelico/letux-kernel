@@ -161,12 +161,61 @@ static int omap_connect_dssdevs(void)
 {
 	int r;
 	struct omap_dss_device *dssdev = NULL;
+	struct device_node *of_aliases = of_find_node_by_path("/aliases");
 
 	if (!omapdss_stack_is_ready())
 		return -EPROBE_DEFER;
 
+#if 0
+printk("dsi: omap_connect_dssdevs\n");
+#endif
+	if (of_aliases) {
+		int number_of_displays = 0;
+		int number_of_display_aliases = 0;
+		struct property *pp;
+		dssdev = NULL;
+
+		/* count the displays already registered */
+		for_each_dss_dev(dssdev) {
+#if 0
+printk("dsi: omap_connect_dssdevs(): display %d: %s\n", number_of_displays, dssdev->name);
+#endif
+			if (!dssdev->driver) {
+			dev_warn(dssdev->dev, "no driver for display: %s\n",
+						dssdev->name);
+				omap_dss_put_device(dssdev);
+			continue;
+			}
+			number_of_displays++;
+		}
+
+		/* count the display aliases */
+		for_each_property_of_node(of_aliases, pp) {
+#if 0
+printk("dsi: omap_connect_dssdevs(): alias %s\n", pp->name);
+#endif
+			if (!strncmp(pp->name, "display", 7))
+				number_of_display_aliases++;
+		}
+
+#if 0
+printk("dsi: omap_connect_dssdevs(): %d aliases %d displays\n", number_of_display_aliases, number_of_displays);
+#endif
+		if (number_of_display_aliases > 0 && number_of_displays < number_of_display_aliases) {
+			pr_err("not all displays probed (%d of %d)\n",
+				number_of_displays, number_of_display_aliases);
+			return -EPROBE_DEFER;      /* wait until all aliased displays show up */
+		}
+	}
+#if 0
+printk("dsi: omap_connect_dssdevs ok\n");
+#endif
 	for_each_dss_dev(dssdev) {
+#if 0
+printk("dsi: omap_connect_dssdevs: %s\n", dssdev->name);
+#endif
 		r = dssdev->driver->connect(dssdev);
+		/* NOTE: should not happen any more */
 		if (r == -EPROBE_DEFER) {
 			omap_dss_put_device(dssdev);
 			goto cleanup;
@@ -175,6 +224,10 @@ static int omap_connect_dssdevs(void)
 				dssdev->name);
 		}
 	}
+
+#if 0
+printk("dsi: omap_connect_dssdevs done !no_displays\n");
+#endif
 
 	return 0;
 
