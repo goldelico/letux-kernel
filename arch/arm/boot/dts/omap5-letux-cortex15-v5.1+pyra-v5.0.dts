@@ -12,5 +12,5 @@
 
 #include "pyra-mainboard-v5.0.dtsi"
 
-#define PANEL 1		/* use w677 panel and non-rotating display board */
+#define PANEL 0		/* use w677 panel and rotating display board */
 #include "pyra-display.dtsi"
