@@ -6,9 +6,11 @@
  * published by the Free Software Foundation.
  */
 
-/* this version is for DragonFly V4 connected to EVM */
-
-/* we start with the omap5-uevm tree since the Pyra is currently a separate board connected to the EVM expansion connector(s) */
+/*
+ * this version is for DragonFly Mainboard V4(.x) connected to EVM
+ * we start with the omap5-uevm tree since the Pyra is currently a
+ * separate board connected to the EVM expansion connector(s)
+ */
 
 #include "omap5-uevm.dts"
 
@@ -991,8 +993,3 @@
 	};
 
 };
-
-/* more things to do
-* add a regulator-gpio for the LCD
-* configure WLAN/Bluetooth module
-*/
