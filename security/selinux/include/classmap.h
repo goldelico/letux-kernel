@@ -7,7 +7,6 @@ typedef _Bool bool; // get typedef for bool
 
 #include <linux/capability.h>
 
-egtvedt/linux-avr32
 #define COMMON_FILE_SOCK_PERMS "ioctl", "read", "write", "create", \
     "getattr", "setattr", "lock", "relabelfrom", "relabelto", "append"
 
@@ -33,6 +32,10 @@ egtvedt/linux-avr32
 
 #define COMMON_CAP2_PERMS  "mac_override", "mac_admin", "syslog", \
 		"wake_alarm", "block_suspend", "audit_read"
+
+#if CAP_LAST_CAP > CAP_AUDIT_READ
+#error New capability defined, please update COMMON_CAP2_PERMS.
+#endif
 
 /*
  * Note: The name for any socket class should be suffixed by "socket",
