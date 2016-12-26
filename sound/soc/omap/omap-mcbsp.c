@@ -40,8 +40,6 @@
 #include "mcbsp.h"
 #include "omap-mcbsp.h"
 
-#include "../../../arch/arm/mach-omap2/mux.h"
-
 #define OMAP_MCBSP_RATES	(SNDRV_PCM_RATE_8000_96000)
 
 #define OMAP_MCBSP_SOC_SINGLE_S16_EXT(xname, xmin, xmax, \
