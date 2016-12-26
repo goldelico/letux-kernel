@@ -1,0 +1,865 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Driver for BOE W677L panel with Orise OTM1283A controller
+ *
+ * Copyright 2011 Texas Instruments, Inc.
+ * Author: Archit Taneja <archit@ti.com>
+ * Author: Tomi Valkeinen <tomi.valkeinen@ti.com>
+ *
+ * based on d2l panel driver by Jerry Alexander <x0135174@ti.com>
+ *
+ * Copyright (C) 2014-2019 Golden Delicious Computers
+ * by H. Nikolaus Schaller <hns@goldelico.com>
+ * based on lg4591 panel driver
+ * harmonized with latest panel-dsi-cm.c and panel-orisetech-otm8009a.c
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 as published by
+ * the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#define LOG 1
+#define OPTIONAL 0
+
+#include <linux/backlight.h>
+#include <linux/delay.h>
+#include <linux/gpio/consumer.h>
+#include <linux/fb.h>
+#include <linux/gpio.h>
+#include <linux/interrupt.h>
+#include <linux/jiffies.h>
+#include <linux/module.h>
+#include <linux/of_device.h>
+#include <linux/of_gpio.h>
+#include <linux/platform_device.h>
+#include <linux/regulator/consumer.h>
+#include <linux/sched/signal.h>
+#include <linux/slab.h>
+
+#include <drm/drm_connector.h>
+#include <drm/drm_mipi_dsi.h>
+#include <drm/drm_panel.h>
+#include <drm/drm_modes.h>
+
+#include <video/display_timing.h>
+#include <video/mipi_display.h>
+#include <video/of_display_timing.h>
+#include <video/videomode.h>
+
+#if LOG
+#undef dev_dbg
+#define dev_dbg dev_err
+#endif
+
+/* extended DCS commands (not defined in mipi_display.h) */
+#define DCS_READ_DDB_START		0x02
+#define DCS_READ_NUM_ERRORS		0x05
+#define DCS_READ_BRIGHTNESS		0x52	/* read brightness */
+#define DCS_READ_CTRL_DISPLAY	0x53	/* read control */
+#define DCS_WRITE_CABC			0x55
+#define DCS_READ_CABC			0x56
+#define MCS_READID1		0xda
+#define MCS_READID2		0xdb
+#define MCS_READID3		0xdc
+
+/* DCS NOP is 1-byte 0x00 while 2-byte 0x00 is address shift function of this controller */
+
+#define IS_MCS(CMD, LEN) ((((CMD) == 0) && (LEN) == 2) || (((CMD) >= 0xb0 && (CMD) < 0xda)) || ((CMD) > 0xdc))
+
+/* horizontal * vertical * refresh */
+#define w677l_W				(720)
+#define w677l_H				(1280)
+#define w677l_WIDTH			(w677l_W+80+88)
+#define w677l_HEIGHT			(w677l_H+160)
+#define w677l_FPS				(60ll)
+#define w677l_PIXELCLOCK		(w677l_WIDTH * w677l_HEIGHT * w677l_FPS)	/* Full HD * 60 fps */
+/* panel has 16.7M colors = RGB888 = 3*8 bit per pixel */
+#define w677l_PIXELFORMAT		OMAP_DSS_DSI_FMT_RGB888	/* 16.7M color = RGB888 */
+#define w677l_BIT_PER_PIXEL	(3*8)
+/* the panel can handle 4 lanes */
+#define w677l_LANES			4
+/* high speed clock is running at double data rate, i.e. half speed
+ * (take care of integer overflows!)
+ * hsck =  bit/pixel * 110% * pixel clock / lanes / 2 clock edges
+ * real clock rate may be rounded up or down depending on divisors
+ */
+#define w677l_HS_CLOCK			(w677l_BIT_PER_PIXEL * (w677l_PIXELCLOCK / (w677l_LANES * 2)))
+/* low power clock is quite arbitrarily choosen to be roughly 10 MHz */
+#define w677l_LP_CLOCK			9200000	/* low power clock */
+
+static struct videomode w677l_timings = {
+	.hactive		= w677l_W,
+	.vactive		= w677l_H,
+	.pixelclock	= w677l_PIXELCLOCK,
+	.hfront_porch		= 5,
+	.hsync_len		= 5,
+	.hback_porch		= w677l_WIDTH-w677l_W-5-5,
+	.vfront_porch		= 50,
+	.vsync_len		= w677l_HEIGHT-w677l_H-50-50,
+	.vback_porch		= 50,
+};
+
+#define DCS_REGULATOR_SUPPLY_NUM 1
+struct panel_drv_data {
+	struct mipi_dsi_device *dsi;
+	struct drm_panel panel;
+	struct drm_display_mode mode;
+
+	struct backlight_device *backlight;
+
+	struct mutex lock;
+
+	struct gpio_desc *reset_gpio;
+	struct gpio_desc *regulator_gpio;
+//	struct regulator_bulk_data supplies[DCS_REGULATOR_SUPPLY_NUM];
+
+	bool enabled;
+};
+
+static inline struct panel_drv_data *panel_to_ddata(struct drm_panel *panel)
+{
+	return container_of(panel, struct panel_drv_data, panel);
+}
+
+typedef u8 w677l_reg[20];	/* data[0] is length, data[1] is first byte */
+
+static w677l_reg init_seq[] = {
+	{ 2, 0x00, 0x00, },
+	{ 4, 0xff, 0x12, 0x83, 0x01, },	//EXTC=1
+	{ 2, 0x00, 0x80, },	            //Orise mode enable
+	{ 3, 0xff, 0x12, 0x83, },
+
+
+//-------------------- panel setting --------------------//
+	{ 2, 0x00, 0x80, },              //TCON Setting
+	{ 10, 0xc0, 0x00, 0x64, 0x00, 0x0f, 0x11, 0x00, 0x64, 0x0f, 0x11, },
+
+	{ 2, 0x00, 0x90, },             //Panel Timing Setting
+	{ 7, 0xc0, 0x00, 0x5c, 0x00, 0x01, 0x00, 0x04, },
+
+	{ 2, 0x00, 0x87, },
+	{ 2, 0xc4, 0x18, },
+
+	{ 2, 0x00, 0xb3, },            //Interval Scan Frame: 0 frame,  column inversion
+	{ 3, 0xc0, 0x00, 0x50, },
+
+	{ 2, 0x00, 0x81, },              //frame rate:60Hz
+	{ 2, 0xc1, 0x66, },
+
+	{ 2, 0x00, 0x81, },
+	{ 3, 0xc4, 0x82, 0x02, },
+
+	{ 2, 0x00, 0x90, },
+	{ 2, 0xc4, 0x49, },
+
+	{ 2, 0x00, 0xc6, },
+	{ 2, 0xb0, 0x03, },
+
+	{ 2, 0x00, 0x90, },             //Mode-3
+	{ 5, 0xf5, 0x02, 0x11, 0x02, 0x11, },
+
+	{ 2, 0x00, 0x90, },		//2xVPNL,  1.5*=00,  2*=50,  3*=a0
+	{ 2, 0xc5, 0x50, },
+
+	{ 2, 0x00, 0x94, },		//Frequency
+	{ 2, 0xc5, 0x66, },
+
+	{ 2, 0x00, 0xb2, },		//VGLO1 setting
+	{ 3, 0xf5, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xb4, },		//VGLO1_S setting
+	{ 3, 0xf5, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xb6, },		//VGLO2 setting
+	{ 3, 0xf5, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xb8, },		//VGLO2_S setting
+	{ 3, 0xf5, 0x00, 0x00, },
+
+	{ 2, 0x00, 0x94, },		//VCL ON
+	{ 2, 0xf5, 0x02, },
+
+	{ 2, 0x00, 0xBA, },		//VSP ON
+	{ 2, 0xf5, 0x03, },
+
+	{ 2, 0x00, 0xb2, },		//VGHO Option
+	{ 2, 0xc5, 0x40, },
+
+	{ 2, 0x00, 0xb4, },		//VGLO Option
+	{ 2, 0xc5, 0xC0, },
+
+//-------------------- power setting --------------------//
+	{ 2, 0x00, 0xa0, },		//dcdc setting
+	{ 15, 0xc4, 0x05, 0x10, 0x06, 0x02, 0x05, 0x15, 0x10, 0x05, 0x10, 0x07, 0x02, 0x05, 0x15, 0x10, },
+
+	{ 2, 0x00, 0xb0, },		//clamp voltage setting
+	{ 3, 0xc4, 0x00, 0x00, },
+
+	{ 2, 0x00, 0x91, },		//VGH=13V,  VGL=-12V,  pump ratio:VGH=6x,  VGL=-5x
+	{ 3, 0xc5, 0x19, 0x50, },
+
+	{ 2, 0x00, 0x00, },		//GVDD=4.87V,  NGVDD=-4.87V
+	{ 3, 0xd8, 0xbc, 0xbc, },
+
+	{ 2, 0x00, 0x00, },		//VCOMDC=-1.1
+	{ 2, 0xd9, 0x5a, },  		//5d  6f
+
+	{ 2, 0x00, 0x00, },
+	{ 17, 0xE1, 0x01, 0x07, 0x0b, 0x0d, 0x06, 0x0d, 0x0b, 0x0a, 0x04, 0x07, 0x10, 0x08, 0x0f, 0x11, 0x0a, 0x01, },
+
+	{ 2, 0x00, 0x00, },
+	{ 17, 0xE2, 0x01, 0x07, 0x0b, 0x0d, 0x06, 0x0d, 0x0b, 0x0a, 0x04, 0x07, 0x10, 0x08, 0x0f, 0x11, 0x0a, 0x01, },
+
+	{ 2, 0x00, 0xb0, },		//VDD_18V=1.7V,  LVDSVDD=1.55V
+	{ 3, 0xc5, 0x04, 0xB8, },
+
+	{ 2, 0x00, 0xbb, },		//LVD voltage level setting
+	{ 2, 0xc5, 0x80, },
+
+//-------------------- panel timing state control --------------------//
+	{ 2, 0x00, 0x80, },		//panel timing state control
+	{ 12, 0xcb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
+
+	{ 2, 0x00, 0x90, },		//panel timing state control
+	{ 16, 0xcb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xa0, },		//panel timing state control
+	{ 16, 0xcb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xb0, },		//panel timing state control
+	{ 16, 0xcb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xc0, },		//panel timing state control
+	{ 16, 0xcb, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xd0, },		//panel timing state control
+	{ 16, 0xcb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xe0, },		//panel timing state control
+	{ 15, 0xcb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x05, },
+
+	{ 2, 0x00, 0xf0, },		//panel timing state control
+	{ 12, 0xcb, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, },
+
+//-------------------- panel pad mapping control --------------------//
+	{ 2, 0x00, 0x80, },		//panel pad mapping control
+	{ 16, 0xcc, 0x0a, 0x0c, 0x0e, 0x10, 0x02, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
+
+	{ 2, 0x00, 0x90, },		//panel pad mapping control
+	{ 16, 0xcc, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2e, 0x2d, 0x09, 0x0b, 0x0d, 0x0f, 0x01, 0x03, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xa0, },		//panel pad mapping control
+	{ 15, 0xcc, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2e, 0x2d, },
+
+	{ 2, 0x00, 0xb0, },		//panel pad mapping control
+	{ 16, 0xcc, 0x0F, 0x0D, 0x0B, 0x09, 0x03, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xc0, },		//panel pad mapping control
+	{ 16, 0xcc, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2d, 0x2e, 0x10, 0x0E, 0x0C, 0x0A, 0x04, 0x02, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xd0, },		//panel pad mapping control
+	{ 15, 0xcc, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2d, 0x2e, },
+
+//-------------------- panel timing setting --------------------//
+	{ 2, 0x00, 0x80, },		//panel VST setting
+	{ 13, 0xce, 0x8D, 0x03, 0x00, 0x8C, 0x03, 0x00, 0x8B, 0x03, 0x00, 0x8A, 0x03, 0x00, },
+
+	{ 2, 0x00, 0x90, },		//panel VEND setting
+	{ 15, 0xce, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xa0, },		//panel CLKA1/2 setting
+	{ 15, 0xce, 0x38, 0x0B, 0x04, 0xFC, 0x00, 0x00, 0x00, 0x38, 0x0A, 0x04, 0xFD, 0x00, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xb0, },		//panel CLKA3/4 setting
+	{ 15, 0xce, 0x38,  0x09,  0x04, 0xFE,  0x00, 0x00,  0x00,  0x38, 0x08,  0x04, 0xFF,  0x00,  0x00, 0x00, },
+
+	{ 2, 0x00, 0xc0, },		//panel CLKb1/2 setting
+	{ 15, 0xce, 0x38,  0x07,  0x05, 0x00,  0x00, 0x00,  0x00,  0x38, 0x06,  0x05, 0x01,  0x00,  0x00, 0x00, },
+
+	{ 2, 0x00, 0xd0, },		//panel CLKb3/4 setting
+	{ 15, 0xce, 0x38,  0x05,  0x05, 0x02,  0x00, 0x00,  0x00,  0x38, 0x04,  0x05, 0x03,  0x00,  0x00, 0x00, },
+
+	{ 2, 0x00, 0x80, },		//panel CLKc1/2 setting
+	{ 15, 0xcf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
+
+	{ 2, 0x00, 0x90, },		//panel CLKc3/4 setting
+	{ 15, 0xcf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xa0, },		//panel CLKd1/2 setting
+	{ 15, 0xcf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xb0, },		//panel CLKd3/4 setting
+	{ 15, 0xcf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, },
+
+	{ 2, 0x00, 0xc0, },		//panel ECLK setting
+	{ 12, 0xcf, 0x01, 0x01, 0x20, 0x20, 0x00, 0x00, 0x01, 0x02, 0x00, 0x00, 0x08, },
+
+	{ 2, 0x00, 0xb5, },             //TCON_GOA_OUT Setting
+	{ 7, 0xc5, 0x33, 0xf1, 0xff, 0x33, 0xf1, 0xff, },  //normal output with VGH/VGL
+
+	{ 2, 0x00, 0xa0, },
+	{ 2, 0xc1, 0x02, },
+
+	{ 2, 0x00, 0xb1, },
+	{ 2, 0xc6, 0x04, },
+
+	{ 2, 0x00, 0x00, },             //Orise mode disable
+	/* this might not go through the SSD2858! */
+	{ 3, 0xff, 0xff, 0xff, 0xff, },
+
+#if 0
+	{ 2, DCS_CTRL_DISPLAY, 0x24, },	// LEDPWM ON
+	{ 2, DCS_WRITE_CABC, 0x00, },	// CABC off
+#endif
+};
+
+static w677l_reg sleep_out[] = {
+//	{ 1, MIPI_DCS_SET_DISPLAY_ON, },
+	{ 1, MIPI_DCS_EXIT_SLEEP_MODE, },
+};
+
+static w677l_reg display_on[] = {
+	{ 1, MIPI_DCS_SET_DISPLAY_ON, },
+//	{ 1, MIPI_DCS_EXIT_SLEEP_MODE, },
+};
+
+// FIXME: convert to use struct panel_drv_data *ddata as parameter
+static int w677l_write(struct panel_drv_data *ddata, u8 *buf, int len)
+{
+	int r;
+
+#if LOG
+	int i;
+	static char logbuf[256];
+	sprintf(logbuf, "%s", IS_MCS(buf[0], len) ? "gen" : "dcs");
+	for (i = 0; i < len; i++)
+		sprintf(logbuf + strlen(logbuf), " %02x", buf[i]);
+	printk("dsi: %s(%s)", __func__, logbuf);
+#endif
+
+	if (IS_MCS(buf[0], len))
+		{
+		/* this is a "manufacturer command" that must be sent as a "generic write command" */
+		r = mipi_dsi_generic_write(ddata->dsi, buf, len);
+		}
+	else
+		{ /* this is a "user command" that must be sent as "DCS command" */
+		r = mipi_dsi_dcs_write(ddata->dsi, buf[0], &buf[1], len);
+		}
+
+	if (r)
+		dev_err(&ddata->dsi->dev, "write cmd/reg(%x) failed: %d\n",
+				buf[0], r);
+
+	return r;
+}
+
+// FIXME: convert to use struct panel_drv_data *ddata as parameter
+static int w677l_read(struct panel_drv_data *ddata, u8 dcs_cmd, u8 *buf, int len)
+{
+	int r;
+
+	r = mipi_dsi_set_maximum_return_packet_size(ddata->dsi, len);
+/*
+	if (r) {
+		dev_err(&ddata->dsi->dev, "can't set max rx packet size\n");
+		return -EIO;
+	}
+*/
+
+	if (IS_MCS(buf[0], len))
+		{ /* this is a "manufacturer command" that must be sent as a "generic read command" */
+		r = mipi_dsi_generic_read(ddata->dsi, NULL, 0, buf, 1);
+		}
+	else
+		{ /* this is a "user command" that must be sent as "DCS command" */
+		r = mipi_dsi_dcs_read(ddata->dsi, buf[0], &buf[1], 1);
+		}
+
+	if (r)
+		dev_err(&ddata->dsi->dev, "read cmd/reg(%02x, %d) failed: %d\n",
+				dcs_cmd, len, r);
+
+#if LOG
+	{
+	int i;
+	static char logbuf[256];
+
+	sprintf(logbuf, "%02x:", dcs_cmd);
+	for (i = 0; i < len; i++)
+		sprintf(logbuf + strlen(logbuf), " %02x", buf[i]);
+	printk("dsi: %s(%s) -> %d\n", __func__, logbuf, r);
+	}
+#endif
+
+	return r;
+}
+
+static int w677l_write_sequence(struct panel_drv_data *ddata,
+		w677l_reg *seq, int len)
+{
+	int r, i;
+
+	for (i = 0; i < len; i++) {
+		r = w677l_write(ddata, &seq[i][1], seq[i][0]);
+		if (r) {
+			dev_err(&ddata->dsi->dev, "sequence failed: %d\n", i);
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
+static int w677l_reset(struct panel_drv_data *ddata, int activate)
+{
+	dev_dbg(&ddata->dsi->dev, "%s(%s)\n", __func__, activate?"active":"inactive");
+
+	gpiod_set_value(ddata->reset_gpio, !activate);
+	return 0;
+}
+
+static int w677l_regulator(struct panel_drv_data *ddata, int state)
+{
+	dev_dbg(&ddata->dsi->dev, "%s(%d)\n", __func__, state);
+
+	gpiod_set_value(ddata->regulator_gpio, state);	/* switch regulator */
+	return 0;
+}
+
+static int w677l_update_brightness(struct panel_drv_data *ddata, int level)
+{
+	int r;
+#if 1
+	u8 buf[2];
+	buf[0] = MIPI_DCS_SET_DISPLAY_BRIGHTNESS;
+	buf[1] = level;
+#else
+	u8 buf[3];
+	buf[0] = MIPI_DCS_SET_DISPLAY_BRIGHTNESS;
+	buf[1] = level >> 4;	/* 12 bit mode */
+	buf[2] = buf[1] + ((level & 0x0f) << 4);
+#endif
+	r = w677l_write(ddata, buf, sizeof(buf));
+	if (r)
+		return r;
+	return 0;
+}
+
+static int w677l_set_brightness(struct backlight_device *bd)
+{
+	struct panel_drv_data *ddata = dev_get_drvdata(&bd->dev);
+	int bl = bd->props.brightness;
+	int r = 0;
+
+	dev_dbg(&ddata->dsi->dev, "%s (%d)\n", __func__, bl);
+
+#if 0
+
+	mutex_lock(&ddata->lock);
+
+	src->ops->dsi.bus_lock(src);
+
+	r = w677l_update_brightness(ddata, bl);
+
+	src->ops->dsi.bus_unlock(src);
+
+	mutex_unlock(&ddata->lock);
+#endif
+
+	return r;
+}
+
+static int w677l_get_brightness(struct backlight_device *bd)
+{
+	struct panel_drv_data *ddata = dev_get_drvdata(&bd->dev);
+	u8 data[16];
+	u16 brightness = 0;
+	int r = 0;
+
+	dev_dbg(&ddata->dsi->dev, "%s\n", __func__);
+
+	mutex_lock(&ddata->lock);
+
+	if (ddata->enabled) {
+		r = w677l_read(ddata, DCS_READ_BRIGHTNESS, data, 2);
+		brightness = (data[0]<<4) + (data[1]>>4);
+	}
+
+	mutex_unlock(&ddata->lock);
+
+	if (r < 0) {
+		dev_err(&ddata->dsi->dev, "get_brightness: read error\n");
+		return bd->props.brightness;
+	}
+
+	dev_dbg(&ddata->dsi->dev, "get_brightness -> %d\n", brightness);
+
+	return brightness>>4;	/* get into range 0..255 */
+}
+
+static const struct backlight_ops w677l_backlight_ops  = {
+	.get_brightness = w677l_get_brightness,
+	.update_status = w677l_set_brightness,
+};
+
+static int w677l_disable(struct drm_panel *panel)
+{
+	struct panel_drv_data *ddata = panel_to_ddata(panel);
+	int ret;
+
+	dev_dbg(&ddata->dsi->dev, "%s\n", __func__);
+
+	if (!ddata->enabled)
+		return 0; /* This is not an issue so we return 0 here */
+
+	backlight_disable(ddata->backlight);
+
+	ret = mipi_dsi_dcs_set_display_off(ddata->dsi);
+	if (ret)
+		return ret;
+
+	ret = mipi_dsi_dcs_enter_sleep_mode(ddata->dsi);
+	if (ret)
+		return ret;
+
+	msleep(120);
+
+	ddata->enabled = false;
+
+	return 0;
+}
+
+static int w677l_enable(struct drm_panel *panel)
+{
+	struct panel_drv_data *ddata = panel_to_ddata(panel);
+
+	dev_dbg(&ddata->dsi->dev, "%s\n", __func__);
+
+	if (ddata->enabled)
+		return 0;
+
+	backlight_enable(ddata->backlight);
+
+	ddata->enabled = true;
+
+	return 0;
+}
+
+static int w677l_prepare(struct drm_panel *panel)
+{
+	struct panel_drv_data *ddata = panel_to_ddata(panel);
+	int r;
+
+	dev_dbg(&ddata->dsi->dev, "%s\n", __func__);
+
+	mutex_lock(&ddata->lock);
+
+//	dev_dbg(&ddata->dsi->dev, "hs_clk_min=%lu\n", w677l_dsi_config.hs_clk_min);
+	dev_dbg(&ddata->dsi->dev, "power_on()\n");
+
+	w677l_reset(ddata, true);	/* activate reset */
+
+	w677l_regulator(ddata, true);	/* switch power on */
+	msleep(50);
+
+	w677l_reset(ddata, false);	/* release reset */
+	msleep(10);
+
+//	src->ops->dsi.enable_hs(src, ddata->pixel_channel, true);
+
+	r = w677l_write_sequence(ddata, sleep_out, ARRAY_SIZE(sleep_out));
+	if (r)
+		goto cleanup;
+
+	msleep(10);
+
+	r = w677l_write_sequence(ddata, init_seq, ARRAY_SIZE(init_seq));
+	if (r) {
+		dev_err(&ddata->dsi->dev, "failed to configure panel\n");
+// can fail if the ssd2858 can't forward long commands
+//		goto cleanup;
+	}
+
+	r = w677l_update_brightness(ddata, 255);
+	if (r)
+		goto cleanup;
+
+#if LOG
+	{
+		u8 ret[8];
+		/* read back some registers through DCS commands */
+		r = w677l_read(ddata, 0x05, ret, 1);
+		r = w677l_read(ddata, 0x0a, ret, 1);  // power mode 0x10=sleep off; 0x04=display on
+		r = w677l_read(ddata, 0x0b, ret, 1);  // address mode
+		r = w677l_read(ddata, MIPI_DCS_GET_PIXEL_FORMAT, ret, 1);     // pixel format 0x70 = RGB888
+		r = w677l_read(ddata, 0x0d, ret, 1);  // display mode 0x80 = command 0x34/0x35
+		r = w677l_read(ddata, 0x0e, ret, 1);  // signal mode
+		r = w677l_read(ddata, MIPI_DCS_GET_DIAGNOSTIC_RESULT, ret, 1);        // diagnostic 0x40 = functional
+		r = w677l_read(ddata, 0x45, ret, 2);  // get scanline
+	}
+#endif
+
+#if 1	/* this is recommended by the latest data sheet */
+	r = w677l_write_sequence(ddata, display_on, ARRAY_SIZE(display_on));
+	if (r)
+		goto cleanup;
+#endif
+
+	dev_dbg(&ddata->dsi->dev, "%s() powered on()\n", __func__);
+
+	goto ok;
+
+cleanup:
+	dev_err(&ddata->dsi->dev, "error while enabling panel, issuing HW reset\n");
+
+	mdelay(10);
+//	w677l_reset(ddata, true);	/* activate reset */
+	w677l_regulator(ddata, false);	/* switch power off */
+	mdelay(20);
+
+err:
+ok:
+
+	if (r)
+		dev_err(&ddata->dsi->dev, "%s failed\n", __func__);
+
+	mutex_unlock(&ddata->lock);
+
+	backlight_enable(ddata->backlight);
+
+	return r;
+}
+
+static int w677l_unprepare(struct drm_panel *panel)
+{
+	struct panel_drv_data *ddata = panel_to_ddata(panel);
+	int r = 0;
+
+	dev_dbg(&ddata->dsi->dev, "%s\n", __func__);
+
+	backlight_disable(ddata->backlight);
+
+	dev_dbg(&ddata->dsi->dev, "stop()\n");
+
+	mutex_lock(&ddata->lock);
+
+	dev_dbg(&ddata->dsi->dev, "power_off()\n");
+
+	mdelay(10);
+	w677l_reset(ddata, true);	/* activate reset */
+	mdelay(10);
+	w677l_regulator(ddata, false);	/* switch power off - after stopping video stream */
+	mdelay(20);
+	/* here we can also power off IOVCC */
+
+	dev_dbg(&ddata->dsi->dev, "unlock bus()\n");
+
+	mutex_unlock(&ddata->lock);
+	dev_dbg(&ddata->dsi->dev, "disable finished)\n");
+
+	return r;
+}
+
+static int w677l_get_modes(struct drm_panel *panel)
+{
+	struct drm_display_mode *mode;
+	struct panel_drv_data *ddata = panel_to_ddata(panel);
+
+	dev_dbg(&ddata->dsi->dev, "%s\n", __func__);
+
+	mode = drm_mode_duplicate(panel->drm, &ddata->mode);
+	if (!mode) {
+		dev_err(&ddata->dsi->dev, "failed to add mode %ux%ux@%u\n",
+			ddata->mode.hdisplay, ddata->mode.vdisplay,
+			ddata->mode.vrefresh);
+		return -ENOMEM;
+	}
+
+	drm_mode_set_name(mode);
+
+	mode->type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
+	drm_mode_probed_add(panel->connector, mode);
+
+	panel->connector->display_info.width_mm = 63;
+	panel->connector->display_info.height_mm = 112;
+
+	return 1;
+}
+
+static const struct drm_panel_funcs w677l_panel_funcs = {
+	.disable = w677l_disable,
+	.unprepare = w677l_unprepare,
+	.prepare = w677l_prepare,
+	.enable = w677l_enable,
+	.get_modes = w677l_get_modes,
+};
+
+static int w677l_probe_of(struct mipi_dsi_device *dsi)
+{
+	struct panel_drv_data *ddata = mipi_dsi_get_drvdata(dsi);
+	int err;
+
+	dev_dbg(&ddata->dsi->dev, "%s\n", __func__);
+
+	ddata->reset_gpio = devm_gpiod_get(&dsi->dev, "reset", GPIOD_OUT_LOW);
+	if (IS_ERR(ddata->reset_gpio)) {
+		err = PTR_ERR(ddata->reset_gpio);
+		dev_err(&dsi->dev, "reset gpio request failed: %d", err);
+		return err;
+	}
+
+	ddata->regulator_gpio = devm_gpiod_get_optional(&dsi->dev, "regulator", GPIOD_OUT_LOW);
+	if (IS_ERR(ddata->regulator_gpio)) {
+		err = PTR_ERR(ddata->regulator_gpio);
+		dev_err(&dsi->dev, "regulator gpio request failed: %d", err);
+		return err;
+	}
+
+	ddata->backlight = devm_of_find_backlight(&dsi->dev);
+	if (IS_ERR(ddata->backlight))
+		return PTR_ERR(ddata->backlight);
+
+	return 0;
+}
+
+static int w677l_probe(struct mipi_dsi_device *dsi)
+{
+	struct device *dev = &dsi->dev;
+	struct panel_drv_data *ddata;
+	int r;
+
+	dev_dbg(dev, "%s\n", __func__);
+
+	ddata = devm_kzalloc(dev, sizeof(*ddata), GFP_KERNEL);
+	if (!ddata)
+		return -ENOMEM;
+
+	mipi_dsi_set_drvdata(dsi, ddata);
+	ddata->dsi = dsi;
+
+	/* default timings */
+	drm_display_mode_from_videomode(&w677l_timings, &ddata->mode);
+
+	r = w677l_probe_of(dsi);
+	if (r) {
+		dev_err(dev, "Failed to probe %d\n", r);
+		return r;
+	}
+
+	mutex_init(&ddata->lock);
+
+	// hw_reset here?
+
+	dsi->lanes = 4;
+	dsi->format = MIPI_DSI_FMT_RGB888;
+	dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
+			  MIPI_DSI_MODE_LPM;
+	dsi->hs_rate = w677l_HS_CLOCK;
+	dsi->lp_rate = w677l_LP_CLOCK;
+
+	drm_panel_init(&ddata->panel, dev, &w677l_panel_funcs, MIPI_DSI_MODE_VIDEO);
+
+#if OPTIONAL
+	if (ddata->use_dsi_backlight) {
+		struct backlight_device *bldev;
+		struct backlight_properties props = { 0 };
+
+		props.max_brightness = 255;
+		props.brightness = 200;
+		props.power = FB_BLANK_POWERDOWN;
+		props.type = BACKLIGHT_RAW;
+
+		bldev = devm_backlight_device_register(dev, dev_name(dev),
+			dev, ddata, &w677l_backlight_ops, &props);
+		if (IS_ERR(bldev)) {
+			r = PTR_ERR(bldev);
+			goto err_bl;
+		}
+
+		ddata->bldev = bldev;
+	}
+#endif
+
+#if OPTIONAL
+	r = sysfs_create_group(&dev->kobj, &dsicm_attr_group);
+	if (r) {
+		dev_err(dev, "failed to create sysfs files\n");
+		goto err_bl;
+	}
+#endif
+
+	r = drm_panel_add(&ddata->panel);
+	if (r < 0)
+		goto err_panel_add;
+
+	r = mipi_dsi_attach(dsi);
+	if (r < 0)
+		goto err_dsi_attach;
+
+	dev_dbg(dev, "%s ok\n", __func__);
+
+	return 0;
+
+err_dsi_attach:
+	drm_panel_remove(&ddata->panel);
+err_panel_add:
+#if OPTIONAL
+	sysfs_remove_group(&dsi->dev.kobj, &dsicm_attr_group);
+err_bl:
+	if (ddata->backlight)
+		backlight_device_unregister(&ddata->backlight);
+#endif
+	dev_dbg(dev, "%s nok\n", __func__);
+	return r;
+}
+
+
+static int __exit w677l_remove(struct mipi_dsi_device *dsi)
+{
+	struct panel_drv_data *ddata = mipi_dsi_get_drvdata(dsi);
+
+	dev_dbg(&dsi->dev, "%s\n", __func__);
+
+	mipi_dsi_detach(dsi);
+
+	drm_panel_remove(&ddata->panel);
+	// sysfs_remove_group(&dsi->dev.kobj, &dsicm_attr_group);
+
+	w677l_reset(ddata, true);	/* activate reset */
+
+	mutex_destroy(&ddata->lock);
+
+	return 0;
+}
+
+static const struct of_device_id w677l_of_match[] = {
+	{ .compatible = "boe,btl507212-w677l", },
+	{},
+};
+
+MODULE_DEVICE_TABLE(of, w677l_of_match);
+
+static struct mipi_dsi_driver w677l_driver = {
+	.probe = w677l_probe,
+	.remove = __exit_p(w677l_remove),
+	.driver = {
+		.name = "panel-btl507212-w677l",
+		.of_match_table = w677l_of_match,
+		.suppress_bind_attrs = true,
+	},
+};
+
+module_mipi_dsi_driver(w677l_driver);
+
+MODULE_AUTHOR("H. Nikolaus Schaller <hns@goldelico.com>");
+MODULE_DESCRIPTION("btl507212-w677l driver");
+MODULE_LICENSE("GPL");
