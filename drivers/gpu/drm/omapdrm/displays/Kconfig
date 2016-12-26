@@ -7,4 +7,10 @@ config DRM_OMAP_PANEL_DSI_CM
 	help
 	  Driver for generic DSI command mode panels.
 
+config DRM_OMAP_PANEL_BOE_W677L
+	tristate "BOE W677L LCD Panel"
+	help
+		This is for OTM1283A based panels.
+		* BOE W677L used in the Pyra.
+
 endmenu
