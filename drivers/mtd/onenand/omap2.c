@@ -93,14 +93,14 @@ static inline void write_reg(struct omap2_onenand *c, unsigned short value,
 
 static void wait_err(char *msg, int state, unsigned int ctrl, unsigned int intr)
 {
-	printk(KERN_ERR "onenand_waiterr: %s! state %d ctrl 0x%04x intr 0x%04x\n",
+	printk(KERN_ERR "onenand_wait: %s! state %d ctrl 0x%04x intr 0x%04x\n",
 	       msg, state, ctrl, intr);
 }
 
 static void wait_warn(char *msg, int state, unsigned int ctrl,
 		      unsigned int intr)
 {
-	printk(KERN_WARNING "onenand_waitwarn: %s! state %d ctrl 0x%04x "
+	printk(KERN_WARNING "onenand_wait: %s! state %d ctrl 0x%04x "
 	       "intr 0x%04x\n", msg, state, ctrl, intr);
 }
 
@@ -112,8 +112,6 @@ static int omap2_onenand_wait(struct mtd_info *mtd, int state)
 	unsigned int ctrl, ctrl_mask;
 	unsigned long timeout;
 	u32 syscfg;
-
-	printk("omap2_onenand_wait state=%d\n", state);
 
 	if (state == FL_RESETING || state == FL_PREPARING_ERASE ||
 	    state == FL_VERIFYING_ERASE) {
@@ -191,12 +189,12 @@ retry:
 						goto retry;
 					intr = read_reg(c,
 							ONENAND_REG_INTERRUPT);
-					wait_err("timeout1", state, ctrl, intr);
+					wait_err("timeout", state, ctrl, intr);
 					return -EIO;
 				}
 				intr = read_reg(c, ONENAND_REG_INTERRUPT);
 				if ((intr & ONENAND_INT_MASTER) == 0)
-					wait_warn("timeout2", state, ctrl, intr);
+					wait_warn("timeout", state, ctrl, intr);
 			}
 		}
 	} else {
@@ -258,7 +256,7 @@ retry:
 			}
 		}
 	} else if (state == FL_READING) {
-		wait_err("timeout3", state, ctrl, intr);
+		wait_err("timeout", state, ctrl, intr);
 		return -EIO;
 	}
 
@@ -590,7 +588,6 @@ static int omap2_onenand_enable(struct mtd_info *mtd)
 {
 	int ret;
 	struct omap2_onenand *c = container_of(mtd, struct omap2_onenand, mtd);
-printk("omap2_onenand_enable\n");
 
 	ret = regulator_enable(c->regulator);
 	if (ret != 0)
@@ -618,8 +615,6 @@ static int omap2_onenand_probe(struct platform_device *pdev)
 	struct onenand_chip *this;
 	int r;
 	struct resource *res;
-
-printk("omap2_onenand_probe\n");
 
 	pdata = dev_get_platdata(&pdev->dev);
 	if (pdata == NULL) {
