@@ -150,8 +150,6 @@ int driver_register(struct device_driver *drv)
 	int ret;
 	struct device_driver *other;
 
-	printk(KERN_ERR "driver_register '%s'\n", drv->name);
-
 	BUG_ON(!drv->bus->p);
 
 	if ((drv->bus->probe && drv->probe) ||
@@ -164,7 +162,6 @@ int driver_register(struct device_driver *drv)
 	if (other) {
 		printk(KERN_ERR "Error: Driver '%s' is already registered, "
 			"aborting...\n", drv->name);
-dump_stack();
 		return -EBUSY;
 	}
 
