@@ -58,7 +58,7 @@ struct wwan_on_off {
 static bool is_powered_on(struct wwan_on_off *wwan)
 { /* check with physical interfaces if possible */
 	if (gpio_is_valid(wwan->feedback_gpio))
-		return gpio_get_value(wwan->feedback_gpio) != wwan->feedback_gpio_inverted;	/* read gpio */
+		return gpio_get_value_cansleep(wwan->feedback_gpio) != wwan->feedback_gpio_inverted;	/* read gpio */
 	if (wwan->usb_phy != NULL && !IS_ERR(wwan->usb_phy))
 		printk("USB phy event %d\n", wwan->usb_phy->last_event);
 	/* check with PHY if available */
