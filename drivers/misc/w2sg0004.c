@@ -36,7 +36,7 @@
 #include <linux/w2sg0004.h>
 #include <linux/workqueue.h>
 #include <linux/rfkill.h>
-#include <linux/serial_core.h>
+#include <linux/serdev.h>
 
 #ifdef CONFIG_W2SG0004_DEBUG
 #undef pr_debug
@@ -70,7 +70,7 @@ struct w2sg_data {
 	unsigned long	last_toggle;
 	unsigned long	backoff;	/* time to wait since last_toggle */
 	int		on_off_gpio;	/* the on-off gpio number */
-	struct uart_port *uart;		/* the drvdata of the uart or tty */
+	struct serdev	*uart;		/* the uart */
 	enum w2sg_state	state;
 	int		requested;	/* requested state (0/1) */
 	int		suspended;
@@ -105,6 +105,8 @@ static void w2sg_set_power(void *pdata, int val)
 
 	pr_debug("%s to %d (%d)\n", __func__, val, data->requested);
 
+// CHECKME: do we need the spinlock any more?
+
 	spin_lock_irqsave(&data->lock, flags);
 
 	if (val && !data->requested) {
@@ -125,14 +127,15 @@ unlock:
 
 /* called each time data is received by the host (i.e. sent by the w2sg0004) */
 
-static bool rx_notification(void *pdata, unsigned int *c)
+static int rx_notification(struct serdev_device *serdev, const unsigned char *rxdata,
+				size_t count)
 {
-	struct w2sg_data *data = (struct w2sg_data *) pdata;
-	unsigned long flags;
+	struct w2sg_data *data = (struct w2sg_data *) serdev_device_get_drvdata(serdev);
+//	unsigned long flags;
 
 	if (!data->requested && !data->is_on) {
-		/* we have received a RX signal while GPS should be off */
-		pr_debug("%02x!", *c);
+		/* we have received charcters while the w2sg should be turned off */
+		pr_debug("w2sg did send %d unexpected characters!\n", count);
 
 		if ((data->state == W2SG_IDLE) &&
 		    time_after(jiffies,
@@ -141,15 +144,16 @@ static bool rx_notification(void *pdata, unsigned int *c)
 			pr_debug("w2sg has sent data although it should be off!\n");
 			data->is_on = true;
 			data->backoff *= 2;
-			spin_lock_irqsave(&data->lock, flags);
+//			spin_lock_irqsave(&data->lock, flags);
 			if (!data->suspended)
 				schedule_delayed_work(&data->work, 0);
-			spin_unlock_irqrestore(&data->lock, flags);
+//			spin_unlock_irqrestore(&data->lock, flags);
 		}
 	}
-	return false;	/* forward to tty */
+	return count;	/* forward to tty */
 }
 
+#if 0	// no idea how to implement by serdev
 /* called by uart modem control line changes (DTR) */
 
 static void w2sg_mctrl(void *pdata, int val)
@@ -158,6 +162,7 @@ static void w2sg_mctrl(void *pdata, int val)
 	val = (val & TIOCM_DTR) != 0;	/* DTR controls power on/off */
 	w2sg_set_power((struct w2sg_data *) pdata, val);
 }
+#endif
 
 /* try to toggle the power state by sending a pulse to the on-off GPIO */
 
@@ -220,6 +225,11 @@ static struct rfkill_ops w2sg0004_rfkill_ops = {
 	.set_block = w2sg_rfkill_set_block,
 };
 
+static struct serdev_device_ops serdev_ops = {
+       .receive_buf = rx_notification,
+//       .write_wakeup = st_tty_wakeup,
+};
+
 static int w2sg_probe(struct platform_device *pdev)
 {
 	struct w2sg_pdata *pdata = dev_get_platdata(&pdev->dev);
@@ -238,13 +248,14 @@ static int w2sg_probe(struct platform_device *pdev)
 			return -ENOMEM;
 
 		pdata->on_off_gpio = of_get_named_gpio_flags(dev->of_node,
-							     "on-off-gpio", 0,
+							     "on-off-gpios", 0,
 							     &flags);
 
 		if (pdata->on_off_gpio == -EPROBE_DEFER)
 			return -EPROBE_DEFER;	/* defer until we have all gpios */
 
 		pdata->lna_regulator = devm_regulator_get_optional(dev, "lna");
+// shouldn't we defer probing as well???
 
 		pr_debug("%s() lna_regulator = %p\n", __func__, pdata->lna_regulator);
 
@@ -267,14 +278,8 @@ static int w2sg_probe(struct platform_device *pdev)
 	data->last_toggle = jiffies;
 	data->backoff = HZ;
 
-#ifdef CONFIG_OF
-	data->uart = devm_serial_get_uart_by_phandle(&pdev->dev, "uart", 0);
-	if (IS_ERR(data->uart)) {
-		if (PTR_ERR(data->uart) == -EPROBE_DEFER)
-			return -EPROBE_DEFER;	/* we can't probe yet */
-		data->uart = NULL;	/* no UART */
-		}
-#endif
+// FIXME:
+	data->uart = NULL;
 
 	INIT_DELAYED_WORK(&data->work, toggle_work);
 	spin_lock_init(&data->lock);
@@ -285,21 +290,11 @@ static int w2sg_probe(struct platform_device *pdev)
 
 	gpio_direction_output(data->on_off_gpio, false);
 
-	if (data->uart) {
-		struct ktermios termios = {
-			.c_iflag = IGNBRK,
-			.c_oflag = 0,
-			.c_cflag = B9600 | CS8,
-			.c_lflag = 0,
-			.c_line = 0,
-			.c_ispeed = 9600,
-			.c_ospeed = 9600
-		};
-		uart_register_slave(data->uart, data);
-		uart_register_mctrl_notification(data->uart, w2sg_mctrl);
-		uart_register_rx_notification(data->uart, rx_notification,
-					      &termios);
-	}
+	serdev_device_set_client_ops(data->uart, &serdev_ops);
+	serdev_device_open(data->uart);
+
+	serdev_device_set_baudrate(data->uart, 9600);
+	serdev_device_set_flow_control(data->uart, false);
 
 	rf_kill = rfkill_alloc("GPS", &pdev->dev, RFKILL_TYPE_GPS,
 				&w2sg0004_rfkill_ops, data);
@@ -340,6 +335,7 @@ static int w2sg_probe(struct platform_device *pdev)
 
 err_rfkill:
 	rfkill_destroy(rf_kill);
+	serdev_device_close(data->uart);
 out:
 	return err;
 }
@@ -350,10 +346,7 @@ static int w2sg_remove(struct platform_device *pdev)
 
 	cancel_delayed_work_sync(&data->work);
 
-	if (data->uart) {
-		uart_register_rx_notification(data->uart, NULL, NULL);
-		uart_register_slave(data->uart, NULL);
-	}
+	serdev_device_close(data->uart);
 	return 0;
 }
 
