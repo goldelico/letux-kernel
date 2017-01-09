@@ -70,8 +70,8 @@ struct w2sg_data {
 	unsigned long	last_toggle;
 	unsigned long	backoff;	/* time to wait since last_toggle */
 	int		on_off_gpio;	/* the on-off gpio number */
-	struct serdev	*uart;		/* the uart */
-	enum w2sg_state	state;
+	struct		serdev_device *uart;		/* the uart */
+	enum		w2sg_state state;
 	int		requested;	/* requested state (0/1) */
 	int		suspended;
 	spinlock_t	lock;
@@ -107,7 +107,7 @@ static void w2sg_set_power(void *pdata, int val)
 
 // CHECKME: do we need the spinlock any more?
 
-	spin_lock_irqsave(&data->lock, flags);
+//	spin_lock_irqsave(&data->lock, flags);
 
 	if (val && !data->requested) {
 		data->requested = true;
@@ -122,7 +122,8 @@ static void w2sg_set_power(void *pdata, int val)
 	if (!data->suspended)
 		schedule_delayed_work(&data->work, 0);
 unlock:
-	spin_unlock_irqrestore(&data->lock, flags);
+//	spin_unlock_irqrestore(&data->lock, flags);
+;
 }
 
 /* called each time data is received by the host (i.e. sent by the w2sg0004) */
@@ -133,9 +134,11 @@ static int rx_notification(struct serdev_device *serdev, const unsigned char *rx
 	struct w2sg_data *data = (struct w2sg_data *) serdev_device_get_drvdata(serdev);
 //	unsigned long flags;
 
+//	pr_debug("w2sg: %d characters\n", count);
+
 	if (!data->requested && !data->is_on) {
 		/* we have received charcters while the w2sg should be turned off */
-		pr_debug("w2sg did send %d unexpected characters!\n", count);
+		pr_debug("w2sg: did send %d unexpected characters!\n", count);
 
 		if ((data->state == W2SG_IDLE) &&
 		    time_after(jiffies,
@@ -173,12 +176,12 @@ static void toggle_work(struct work_struct *work)
 
 	switch (data->state) {
 	case W2SG_IDLE:
-		spin_lock_irq(&data->lock);
+//		spin_lock_irq(&data->lock);
 		if (data->requested == data->is_on) {
 			spin_unlock_irq(&data->lock);
 			return;
 		}
-		spin_unlock_irq(&data->lock);
+//		spin_unlock_irq(&data->lock);
 		w2sg_set_lna_power(data);	/* update LNA power state */
 		gpio_set_value_cansleep(data->on_off_gpio, 0);
 		data->state = W2SG_PULSE;
@@ -230,17 +233,19 @@ static struct serdev_device_ops serdev_ops = {
 //       .write_wakeup = st_tty_wakeup,
 };
 
-static int w2sg_probe(struct platform_device *pdev)
+static int w2sg_probe(struct serdev_device *serdev)
 {
-	struct w2sg_pdata *pdata = dev_get_platdata(&pdev->dev);
+	struct w2sg_pdata *pdata = NULL;
 	struct w2sg_data *data;
 	struct rfkill *rf_kill;
 	int err;
 
 	pr_debug("%s()\n", __func__);
 
-	if (pdev->dev.of_node) {
-		struct device *dev = &pdev->dev;
+// can be simplified
+
+	if (serdev->dev.of_node) {
+		struct device *dev = &serdev->dev;
 		enum of_gpio_flags flags;
 
 		pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
@@ -259,12 +264,14 @@ static int w2sg_probe(struct platform_device *pdev)
 
 		pr_debug("%s() lna_regulator = %p\n", __func__, pdata->lna_regulator);
 
-		pdev->dev.platform_data = pdata;
+		serdev->dev.platform_data = pdata;
 	}
 
-	data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
+	data = devm_kzalloc(&serdev->dev, sizeof(*data), GFP_KERNEL);
 	if (data == NULL)
 		return -ENOMEM;
+
+	serdev_device_set_drvdata(serdev, data);
 
 	data->lna_regulator = pdata->lna_regulator;
 	data->lna_blocked = true;
@@ -278,13 +285,12 @@ static int w2sg_probe(struct platform_device *pdev)
 	data->last_toggle = jiffies;
 	data->backoff = HZ;
 
-// FIXME:
-	data->uart = NULL;
+	data->uart = serdev;
 
 	INIT_DELAYED_WORK(&data->work, toggle_work);
-	spin_lock_init(&data->lock);
+//	spin_lock_init(&data->lock);
 
-	err = devm_gpio_request(&pdev->dev, data->on_off_gpio, "w2sg0004-on-off");
+	err = devm_gpio_request(&serdev->dev, data->on_off_gpio, "w2sg0004-on-off");
 	if (err < 0)
 		goto out;
 
@@ -296,7 +302,7 @@ static int w2sg_probe(struct platform_device *pdev)
 	serdev_device_set_baudrate(data->uart, 9600);
 	serdev_device_set_flow_control(data->uart, false);
 
-	rf_kill = rfkill_alloc("GPS", &pdev->dev, RFKILL_TYPE_GPS,
+	rf_kill = rfkill_alloc("GPS", &serdev->dev, RFKILL_TYPE_GPS,
 				&w2sg0004_rfkill_ops, data);
 	if (rf_kill == NULL) {
 		err = -ENOMEM;
@@ -305,13 +311,11 @@ static int w2sg_probe(struct platform_device *pdev)
 
 	err = rfkill_register(rf_kill);
 	if (err) {
-		dev_err(&pdev->dev, "Cannot register rfkill device\n");
+		dev_err(&serdev->dev, "Cannot register rfkill device\n");
 		goto err_rfkill;
 	}
 
 	data->rf_kill = rf_kill;
-
-	platform_set_drvdata(pdev, data);
 
 	pr_debug("w2sg0004 probed\n");
 
@@ -325,11 +329,13 @@ static int w2sg_probe(struct platform_device *pdev)
 	mdelay(300);
 #endif
 
-	/* if we won't receive mctrl notifications, turn on.
-	 * otherwise keep off until DTR is asserted through mctrl.
-	 */
+	/* keep off until DTR is asserted through mctrl. */
 
-	w2sg_set_power(data, !data->uart);
+	w2sg_set_power(data, false);
+
+#if 1	// more debugging
+	w2sg_set_power(data, true);
+#endif
 
 	return 0;
 
@@ -340,23 +346,22 @@ out:
 	return err;
 }
 
-static int w2sg_remove(struct platform_device *pdev)
+static void w2sg_remove(struct serdev_device *serdev)
 {
-	struct w2sg_data *data = platform_get_drvdata(pdev);
+	struct w2sg_data *data = serdev_device_get_drvdata(serdev);
 
 	cancel_delayed_work_sync(&data->work);
 
 	serdev_device_close(data->uart);
-	return 0;
 }
 
 static int w2sg_suspend(struct device *dev)
 {
 	struct w2sg_data *data = dev_get_drvdata(dev);
 
-	spin_lock_irq(&data->lock);
+//	spin_lock_irq(&data->lock);
 	data->suspended = true;
-	spin_unlock_irq(&data->lock);
+//	spin_unlock_irq(&data->lock);
 
 	cancel_delayed_work_sync(&data->work);
 
@@ -392,9 +397,9 @@ static int w2sg_resume(struct device *dev)
 {
 	struct w2sg_data *data = dev_get_drvdata(dev);
 
-	spin_lock_irq(&data->lock);
+//	spin_lock_irq(&data->lock);
 	data->suspended = false;
-	spin_unlock_irq(&data->lock);
+//	spin_unlock_irq(&data->lock);
 
 	pr_info("GPS resuming %d %d %d\n", data->requested,
 		data->is_on, data->lna_is_off);
@@ -415,7 +420,7 @@ MODULE_DEVICE_TABLE(of, w2sg0004_of_match);
 
 SIMPLE_DEV_PM_OPS(w2sg_pm_ops, w2sg_suspend, w2sg_resume);
 
-static struct platform_driver w2sg_driver = {
+static struct serdev_device_driver w2sg_driver = {
 	.probe		= w2sg_probe,
 	.remove		= w2sg_remove,
 	.driver = {
@@ -426,7 +431,7 @@ static struct platform_driver w2sg_driver = {
 	},
 };
 
-module_platform_driver(w2sg_driver);
+module_serdev_device_driver(w2sg_driver);
 
 MODULE_ALIAS("w2sg0004");
 
