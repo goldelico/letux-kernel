@@ -1656,6 +1656,10 @@ CONFIG_SENSORS_LIS3_I2C=m
 # CONFIG_ECHO is not set
 # CONFIG_CXL_BASE is not set
 # CONFIG_CXL_AFU_DRIVER_OPS is not set
+CONFIG_W2SG0004=m
+CONFIG_W2SG0004_DEBUG=y
+CONFIG_W2CBW003=m
+# CONFIG_TRS3386 is not set
 
 #
 # SCSI device support
@@ -2919,7 +2923,7 @@ CONFIG_RADIO_WL1273=m
 #
 # Texas Instruments WL128x FM driver (ST based)
 #
-CONFIG_RADIO_WL128X=m
+# CONFIG_RADIO_WL128X is not set
 # CONFIG_CYPRESS_FIRMWARE is not set
 
 #
