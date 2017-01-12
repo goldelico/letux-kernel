@@ -23,7 +23,7 @@
 	};
 
 	sound {
-		ti,jack-det-gpio = <&twl_gpio 2 GPIO_ACTIVE_HIGH>;    /* GTA04A5 only */
+//		ti,jack-det-gpio = <&twl_gpio 2 GPIO_ACTIVE_HIGH>;    /* GTA04A5 only */
 	};
 
 	modem_en: modem { /* control modem power through rfkill */
@@ -58,8 +58,6 @@
 		enable-active-high;
 	};
 
-	/delete-node/ sound_bluetooth;	// FIXME: adjust for WL183x bluetooth audio
-//	/delete-node/ headset_codec; -- still used by sound_bluetooth
 };
 
 &gpio5 {
