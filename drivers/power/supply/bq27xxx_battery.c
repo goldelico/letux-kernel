@@ -895,26 +895,42 @@ static int bq27xxx_battery_read_dcap(struct bq27xxx_device_info *di)
 // FIXME: use this only for programmable chips
 
 	if (di->charge_design_full_expected > 0 &&
+	    di->bus.write &&
 	    dcap != di->charge_design_full_expected) {
+		unsigned long timeout;
+		int csum;
+		int err;
+
+#define SLEEPTIME 20
+
 		dev_warn(di->dev, "mismatch in battery capacity: %u instead of %u\n",
 			 dcap, di->charge_design_full_expected);
-#if 0
+
 		/* try to update BQ27XXX_REG_DCAP register and set dcap to new value */
 		/* see page 12 of: http://www.ti.com/lit/ug/sluuad4c/sluuad4c.pdf */
 
-		di->bus.write(di, di->regs[BQ27XXX_REG_CTRL], false, 0x8000);
+		err = di->bus.write(di, di->regs[BQ27XXX_REG_CTRL], false, 0x8000);
+		if (err < 0) {
+			dev_err(di->dev, "unable to switch to programming mode (%d)\n", err);
+			return dcap;
+		}
+		/* assume that further writes do not fail */
+
 		di->bus.write(di, di->regs[BQ27XXX_REG_CTRL], false, 0x8000);
 		di->bus.write(di, di->regs[BQ27XXX_REG_CTRL], false, 0x0013);
 
-		timeout = 1000 / 20;	/* may take up to 1 second */
+		timeout = jiffies + msecs_to_jiffies(1000);	/* may take up to 1 second */
 		do {
-			val = bq27xxx_read(di, BQ27XXX_REG_FLAGS, true);
+			int val = bq27xxx_read(di, BQ27XXX_REG_FLAGS, true);
+dev_err(di->dev, "flags = %02x\n", val);
+			if (val < 0)
+				return val;
 			if (val & BIT(4))
 				break;
-			msleep(20);
-		} while(--timeout > 0);
-		if (timeout == 0) {
-			dev_err(di->dev, "unable to switch to programming mode\n");
+			msleep(SLEEPTIME);
+		} while(!time_after(jiffies, timeout));
+		if (time_after(jiffies, timeout)) {
+			dev_err(di->dev, "unable to switch to programming mode (timeout)\n");
 			return dcap;
 		}
 
@@ -935,22 +951,25 @@ static int bq27xxx_battery_read_dcap(struct bq27xxx_device_info *di)
 
 		di->bus.write(di, di->regs[BQ27XXX_REG_CTRL], false, 0x0042);
 
-		timeout = 1000 / 20;
+		timeout = jiffies + msecs_to_jiffies(1000);	/* may take up to 1 second */
 		do {
-			val = bq27xxx_read(di, BQ27XXX_REG_FLAGS, true);
+			int val = bq27xxx_read(di, BQ27XXX_REG_FLAGS, true);
+			if (val < 0)
+				return val;
 			if (!(val & BIT(4)))
 				break;
-			msleep(20);
-		} while(--timeout > 0);
-		if (timeout == 0) {
+			msleep(SLEEPTIME);
+		} while(!time_after(jiffies, timeout));
+		if (time_after(jiffies, timeout)) {
 			dev_err(di->dev, "programming failed\n");
 			return dcap;
 		}
 
 		di->bus.write(di, di->regs[BQ27XXX_REG_CTRL], false, 0x0020);
 
+		dev_warn(di->dev, "reprogrammed\n");
+
 		return di->charge_design_full_expected;
-#endif
 	}
 
 	return dcap;
