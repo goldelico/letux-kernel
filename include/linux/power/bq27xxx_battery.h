@@ -30,16 +30,24 @@ enum bq27xxx_chip {
  *	The first parameter is a pointer to the battery device, the second the
  *	register to be read. The return value should either be the content of
  *	the passed register or an error value.
+ * @write: HDQ write callback.
+ *	This function should provide access to the HDQ bus the battery is
+ *	connected to.
+ *	The first parameter is a pointer to the battery device, the second the
+ *	register to be written. The thrid is the byte value. The return value
+ *	is an error value.
  */
 struct bq27xxx_platform_data {
 	const char *name;
 	enum bq27xxx_chip chip;
 	int (*read)(struct device *dev, unsigned int);
+	int (*write)(struct device *dev, unsigned int, int val);
 };
 
 struct bq27xxx_device_info;
 struct bq27xxx_access_methods {
 	int (*read)(struct bq27xxx_device_info *di, u8 reg, bool single);
+	int (*write)(struct bq27xxx_device_info *di, u8 reg, bool single, int val);
 };
 
 struct bq27xxx_reg_cache {
