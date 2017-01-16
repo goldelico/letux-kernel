@@ -893,6 +893,12 @@
 		>;
 	};
 
+	headset_pins: headset_pins_pimnux {
+		pinctrl-single,pins = <
+			OMAP3_CORE1_IOPAD(0x20b4, PIN_INPUT_PULLUP | MUX_MODE4)	/* gpio55 */
+		>;
+	};
+
 };
 
 &twl_madc {
