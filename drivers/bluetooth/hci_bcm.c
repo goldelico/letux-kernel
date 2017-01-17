@@ -28,8 +28,10 @@
 #include <linux/module.h>
 #include <linux/acpi.h>
 #include <linux/platform_device.h>
+#include <linux/serdev.h>
 #include <linux/clk.h>
 #include <linux/gpio/consumer.h>
+#include <linux/of_irq.h>
 #include <linux/tty.h>
 #include <linux/interrupt.h>
 #include <linux/dmi.h>
@@ -738,7 +740,7 @@ static int bcm_acpi_probe(struct bcm_device *dev)
 	}
 
 	/* Retrieve UART ACPI info */
-	ret = acpi_dev_get_resources(ACPI_COMPANION(&dev->pdev->dev),
+	ret = acpi_dev_get_resources(ACPI_COMPANION(dev->dev),
 				     &resources, bcm_resource, dev);
 	if (ret < 0)
 		return ret;
@@ -804,6 +806,67 @@ static int bcm_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int bcm_serdev_probe(struct serdev_device *sdev)
+{
+	struct bcm_device *dev;
+
+	dev = devm_kzalloc(&sdev->dev, sizeof(*dev), GFP_KERNEL);
+	if (!dev)
+		return -ENOMEM;
+
+	dev->name = dev_name(&sdev->dev);
+	dev->dev = &sdev->dev;
+
+	dev->clk = devm_clk_get(&sdev->dev, NULL);
+
+	dev->device_wakeup = devm_gpiod_get_optional(&sdev->dev,
+						     "device-wakeup",
+						     GPIOD_OUT_LOW);
+	if (IS_ERR(dev->device_wakeup))
+		return PTR_ERR(dev->device_wakeup);
+
+	dev->shutdown = devm_gpiod_get_optional(&sdev->dev, "shutdown",
+						GPIOD_OUT_LOW);
+	if (IS_ERR(dev->shutdown))
+		return PTR_ERR(dev->shutdown);
+
+	dev->irq = of_irq_get(sdev->dev.of_node, 0);
+	if (dev->irq == -EPROBE_DEFER)
+		return dev->irq;
+
+	dev_info(&sdev->dev, "BCM irq: %d\n", dev->irq);
+
+	/* Make sure at-least one of the GPIO is defined and that
+	 * a name is specified for this instance
+	 */
+	if ((!dev->device_wakeup && !dev->shutdown) || !dev->name) {
+		dev_err(&sdev->dev, "invalid platform data\n");
+		return -EINVAL;
+	}
+
+	serdev_device_set_drvdata(sdev, dev);
+
+	dev_info(&sdev->dev, "%s device registered.\n", dev->name);
+
+	/* Place this instance on the device list */
+	mutex_lock(&bcm_device_lock);
+	list_add_tail(&dev->list, &bcm_device_list);
+	mutex_unlock(&bcm_device_lock);
+
+	bcm_gpio_set_power(dev, false);
+
+	return 0;
+}
+
+static void bcm_serdev_remove(struct serdev_device *sdev)
+{
+	struct bcm_device *dev = serdev_device_get_drvdata(sdev);
+
+	mutex_lock(&bcm_device_lock);
+	list_del(&dev->list);
+	mutex_unlock(&bcm_device_lock);
+}
+
 static const struct hci_uart_proto bcm_proto = {
 	.id		= HCI_UART_BCM,
 	.name		= "Broadcom",
@@ -841,6 +904,14 @@ static const struct acpi_device_id bcm_acpi_match[] = {
 MODULE_DEVICE_TABLE(acpi, bcm_acpi_match);
 #endif
 
+#ifdef CONFIG_OF
+static const struct of_device_id bcm_of_match[] = {
+	{ .compatible = "brcm,bcm43340-bt" },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, bcm_of_match);
+#endif
+
 /* Platform suspend and resume callbacks */
 static const struct dev_pm_ops bcm_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(bcm_suspend, bcm_resume)
@@ -857,9 +928,20 @@ static struct platform_driver bcm_driver = {
 	},
 };
 
+static struct serdev_device_driver bcm_serdev_driver = {
+	.probe = bcm_serdev_probe,
+	.remove = bcm_serdev_remove,
+	.driver = {
+		.name = "serdev_bcm",
+		.of_match_table = of_match_ptr(bcm_of_match),
+		.pm = &bcm_pm_ops,
+	},
+};
+
 int __init bcm_init(void)
 {
 	platform_driver_register(&bcm_driver);
+	serdev_device_driver_register(&bcm_serdev_driver);
 
 	return hci_uart_register_proto(&bcm_proto);
 }
@@ -867,6 +949,7 @@ int __init bcm_init(void)
 int __exit bcm_deinit(void)
 {
 	platform_driver_unregister(&bcm_driver);
+	serdev_device_driver_unregister(&bcm_serdev_driver);
 
 	return hci_uart_unregister_proto(&bcm_proto);
 }
