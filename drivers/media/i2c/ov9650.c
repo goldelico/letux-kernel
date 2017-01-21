@@ -59,13 +59,18 @@ MODULE_PARM_DESC(debug, "Debug level (0-2)");
 #define REG_PID			0x0a	/* Product ID MSB */
 #define REG_VER			0x0b	/* Product ID LSB */
 #define REG_COM3		0x0c
+#define  OV9655_COLORBAR	0x80
 #define  COM3_SWAP		0x40
+#define  OV9655_RESETB		0x08
 #define  COM3_VARIOPIXEL1	0x04
+#define  OV9655_SINGLEFRAME	0x01
 #define REG_COM4		0x0d	/* Vario Pixels  */
 #define  COM4_VARIOPIXEL2	0x80
+#define  OV9655_TRISTATE		/* seems to have a different function */
 #define REG_COM5		0x0e	/* System clock options */
 #define  COM5_SLAVE_MODE	0x10
-#define  COM5_SYSTEMCLOCK48MHZ	0x80
+#define  COM5_SYSTEMCLOCK48MHZ	0x80	/* not on OV9655 */
+#define  OV9655_EXPOSURESTEP	0x01
 #define REG_COM6		0x0f	/* HREF & ADBLC options */
 #define REG_AECH		0x10	/* Exposure value, AEC[9:2] */
 #define REG_CLKRC		0x11	/* Clock control */
@@ -78,10 +83,15 @@ MODULE_PARM_DESC(debug, "Debug level (0-2)");
 #define	 COM7_FMT_CIF		0x20
 #define  COM7_FMT_QVGA		0x10
 #define  COM7_FMT_QCIF		0x08
+#define  OV9655_COM7_VGA	0x60
 #define	 COM7_RGB		0x04
 #define	 COM7_YUV		0x00
 #define	 COM7_BAYER		0x01
 #define	 COM7_PBAYER		0x05
+#define OV9655_COM7_RAWRGB	0x00	/* different format encoding */
+#define OV9655_COM7_RAWRGBINT	0x01
+#define OV9655_COM7_YUV	0x02
+#define OV9655_COM7_RGB	0x03
 #define REG_COM8		0x13	/* AGC/AEC options */
 #define  COM8_FASTAEC		0x80	/* Enable fast AGC/AEC */
 #define  COM8_AECSTEP		0x40	/* Unlimited AEC step size */
@@ -91,13 +101,20 @@ MODULE_PARM_DESC(debug, "Debug level (0-2)");
 #define  COM8_AEC		0x01	/* Auto exposure enable */
 #define REG_COM9		0x14	/* Gain ceiling */
 #define  COM9_GAIN_CEIL_MASK	0x70	/* */
+#define  OV9655_EXPTIMING	0x08
+#define  OV9655_VSYNCDROP	0x04
+#define  OV9655_AECDROP	0x02
 #define REG_COM10		0x15	/* PCLK, HREF, HSYNC signals polarity */
+#define  OV9655_SLAVE_PIN	0x80	/* SLHS and SLVS instead of RESETB and PWDN */
 #define  COM10_HSYNC		0x40	/* HSYNC instead of HREF */
 #define  COM10_PCLK_HB		0x20	/* Suppress PCLK on horiz blank */
-#define  COM10_HREF_REV		0x08	/* Reverse HREF */
+#define  OV9655_COM10_PCLK_REV		0x10	/* PCLK reverse */
+#define  COM10_HREF_REV	0x08	/* Reverse HREF */
 #define  COM10_VS_LEAD		0x04	/* VSYNC on clock leading edge */
+#define  OV9655_COM10_RESET_OPTION	0x04	/* Reset signal end point option */
 #define  COM10_VS_NEG		0x02	/* VSYNC negative */
 #define  COM10_HS_NEG		0x01	/* HSYNC negative */
+#define OV9655_REG16		0x16	/* dummy frame and blanking */
 #define REG_HSTART		0x17	/* Horiz start high bits */
 #define REG_HSTOP		0x18	/* Horiz stop high bits */
 #define REG_VSTART		0x19	/* Vert start high bits */
@@ -118,6 +135,7 @@ MODULE_PARM_DESC(debug, "Debug level (0-2)");
 #define REG_BBIAS		0x27	/* B channel output bias */
 #define REG_GBBIAS		0x28	/* Gb channel output bias */
 #define REG_GRCOM		0x29	/* Analog BLC & regulator */
+#define OV9655_PREGAIN		0x29
 #define REG_EXHCH		0x2a	/* Dummy pixel insert MSB */
 #define REG_EXHCL		0x2b	/* Dummy pixel insert LSB */
 #define REG_RBIAS		0x2c	/* R channel output bias */
@@ -128,12 +146,28 @@ MODULE_PARM_DESC(debug, "Debug level (0-2)");
 #define REG_HSYEN		0x31	/* HSYNC falling edge delay LSB*/
 #define REG_HREF		0x32	/* HREF pieces */
 #define REG_CHLF		0x33	/* reserved */
+#define OV9655_CLKF		0x33	/* Array current control */
+#define OV9655_AREF1		0x34	/* Array reference control */
+#define OV9655_AREF2		0x35	/* Array reference control */
+#define OV9655_AREF3		0x36	/* Array reference control */
 #define REG_ADC			0x37	/* reserved */
+#define OV9655_ADC		0x37	/* ADC Control 1 (Range adjustment) */
 #define REG_ACOM		0x38	/* reserved */
-#define REG_OFON		0x39	/* Power down register */
+#define OV9655_ACOM		0x38	/* Array reference control */
+#define REG_OFON		0x39	/* Power down register (ov9650 only) */
 #define  OFON_PWRDN		0x08	/* Power down bit */
+#define OV9655_AREF4		0x39	/* Array reference control */
 #define REG_TSLB		0x3a	/* YUVU format */
+#define  OV9655_PCLKDELAY2NS	0x40
+#define  OV9655_PCLKDELAY4NS	0x80
+#define  OV9655_PCLKDELAY6NS	0xc0
+#define  OV9655_OUTREVERSE	0x20
+#define  OV9655_FIXEDUV	0x10
 #define  TSLB_YUYV_MASK		0x0c	/* UYVY or VYUY - see com13 */
+#define  OV9655_BANDINGAUTO	0x02
+
+///
+
 #define REG_COM11		0x3b	/* Night mode, banding filter enable */
 #define  COM11_NIGHT		0x80	/* Night mode enable */
 #define  COM11_NMFR		0x60	/* Two bit NM frame rate */
@@ -171,6 +205,13 @@ MODULE_PARM_DESC(debug, "Debug level (0-2)");
 #define REG_HV			0x69	/* Manual banding filter MSB */
 #define REG_MBD			0x6a	/* Manual banding filter value */
 #define REG_DBLV		0x6b	/* reserved */
+#define OV9655_REG_DBLV	REG_DBLV	/* PLL, DVDD regulator bypass, bandgap */
+#define OV9655_DBLV_BANDGAP	0x0a    /* default value */
+#define OV9655_DBLV_LDO_BYPASS	0x10
+#define OV9655_DBLV_PLL_BYPASS	0x00
+#define OV9655_DBLV_PLL_4X	0x40
+#define OV9655_DBLV_PLL_6X	0x80
+#define OV9655_DBLV_PLL_8X	0xc0
 #define REG_GSP			0x6c	/* Gamma curve */
 #define  GSP_LEN		15
 #define REG_GST			0x7c	/* Gamma curve */
@@ -181,7 +222,9 @@ MODULE_PARM_DESC(debug, "Debug level (0-2)");
 #define  COM22_WHTPCOROPT	0x01	/* White pixel correction option */
 #define  COM22_DENOISE		0x10	/* White pixel correction option */
 #define REG_COM23		0x8d	/* Color bar test, color gain */
+#define OV9655_COM20		REG_COM23
 #define  COM23_TEST_MODE	0x10
+#define  OV9655_COM20_TEST_MODE	COM23_TEST_MODE
 #define REG_DBLC1		0x8f	/* Digital BLC */
 #define REG_DBLC_B		0x90	/* Digital BLC B channel offset */
 #define REG_DBLC_R		0x91	/* Digital BLC R channel offset */
