@@ -3386,11 +3386,11 @@ static IMG_BOOL CPUVAddrToPFN(struct vm_area_struct *psVMArea, IMG_UINT32 ulCPUV
         return bRet;
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(4,12,0))
-    psP4D = p4d_offset(psPGD, uCPUVAddr);
+    psP4D = p4d_offset(psPGD, ulCPUVAddr);
     if (p4d_none(*psP4D))
         return bRet;
-    psPUD = pud_offset(psP4D, uCPUVAddr);
-+#else
+    psPUD = pud_offset(psP4D, ulCPUVAddr);
+#else
     psPUD = pud_offset(psPGD, ulCPUVAddr);
 #endif
     if (pud_none(*psPUD) || pud_bad(*psPUD))
@@ -3478,7 +3478,7 @@ PVRSRV_ERROR OSReleasePhysPageAddr(IMG_HANDLE hOSWrapMem)
                         SetPageDirty(psPage);
                     }
 	        }
-                page_cache_release(psPage);
+                put_page(psPage);
 	    }
             break;
         }
