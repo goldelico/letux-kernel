@@ -712,9 +712,11 @@
 
 / {
 
+	/*
 	aliases {
 		display1 = &tv0;
 	};
+	*/
 
 	/* pinmux for devconf1 */
 	control_devconf1: pinmux@480022d8 {
