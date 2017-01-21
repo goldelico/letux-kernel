@@ -227,6 +227,7 @@ struct ov965x_ctrls {
 	struct v4l2_ctrl *saturation;
 	struct v4l2_ctrl *sharpness;
 	struct v4l2_ctrl *light_freq;
+	struct v4l2_ctrl *pixel_rate;
 	u8 update;
 };
 
@@ -964,6 +965,11 @@ static int ov965x_s_ctrl(struct v4l2_ctrl *ctrl)
 	}
 
 	switch (ctrl->id) {
+	case V4L2_CID_PIXEL_RATE:
+		printk("ov965x_s_ctrl V4L2_CID_PIXEL_RATE %d\n", ctrl->val);
+		ret = 0;
+		break;
+
 	case V4L2_CID_AUTO_WHITE_BALANCE:
 		ret = ov965x_set_white_balance(ov965x, ctrl->val);
 		break;
@@ -1058,6 +1064,15 @@ static int ov965x_initialize_controls(struct ov965x *ov965x)
 
 	ctrls->hflip = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_HFLIP, 0, 1, 1, 0);
 	ctrls->vflip = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_VFLIP, 0, 1, 1, 0);
+
+#define CAMERA_TARGET_FREQ      48000000        /* pixel clock frequency for 15 fps SXGA (2 clocks per pixel for byte multiplexing) */
+/* should come from DT setting */
+
+	ctrls->pixel_rate = v4l2_ctrl_new_std(hdl, ops,
+				V4L2_CID_PIXEL_RATE,
+				CAMERA_TARGET_FREQ,
+				CAMERA_TARGET_FREQ,
+				1, CAMERA_TARGET_FREQ);
 
 	ctrls->light_freq = v4l2_ctrl_new_std_menu(hdl, ops,
 				V4L2_CID_POWER_LINE_FREQUENCY,
