@@ -949,10 +949,11 @@
 		port {
 			ov9655: endpoint {
 				bus-width = <8>;
+				data-shift = <2>;	/* Lines 9:2 are used */
 				remote-endpoint = <&parallel_ep>;
-				hsync-active = <1>;
-				vsync-active = <1>;
-				data-active = <1>;	/* Active High */
+				hsync-active = <1>;	/* Active high */
+				vsync-active = <1>;	/* Active high */
+				data-active = <1>;	/* Active high */
 				pclk-sample = <1>;	/* Rising */
 			};
 		};
