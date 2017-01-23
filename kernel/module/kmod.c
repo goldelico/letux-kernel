@@ -101,7 +101,21 @@ static int call_modprobe(char *orig_module_name, int wait)
 		goto free_module_name;
 
 	ret = call_usermodehelper_exec(info, wait | UMH_KILLABLE);
+	if (ret < 0) { /* try again with different path */
+		printk("Switch modprobe_path for Android\n");
+		kfree(info);	/* don't call the cleanup method free_modprobe_argv */
+		strcpy(modprobe_path, "/system/xbin/modprobe");	/* substitute path */
+
+		info = call_usermodehelper_setup(modprobe_path, argv, envp, GFP_KERNEL,
+						 NULL, free_modprobe_argv, NULL);
+		if (!info)
+			goto free_module_name;
+
+		ret = call_usermodehelper_exec(info, wait | UMH_KILLABLE);
+	}
+
 	kmod_dup_request_announce(orig_module_name, ret);
+
 	return ret;
 
 free_module_name:
