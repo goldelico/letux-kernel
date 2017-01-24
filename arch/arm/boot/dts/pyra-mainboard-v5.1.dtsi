@@ -74,8 +74,8 @@
 	ts3a227@3b {
 		compatible = "ti,ts3a227e";
 		reg = <0x3b>;
-		interrupt-parent = <&gpio99>;
-		interrupts = <14 IRQ_TYPE_NONE>;
+//		interrupt-parent = <&gpio99>;
+//		interrupts = <14 IRQ_TYPE_EDGE_RISING>;
 		ti,micbias = <0>;	/* 2.1V */
  	};
 
