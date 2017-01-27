@@ -145,3 +145,12 @@
 		};
 	};
 };
+
+/* motor has been moved from L to R */
+
+&twl6040 {
+	vibra {
+		ti,viblmotor-res = <999999>;	/* no motor */
+		ti,vibrmotor-res = <32>;
+	};
+};
