@@ -229,7 +229,7 @@
 			reg = <0x280000 0x600000>;
 		};
 
-		filesystem@680000 {
+		filesystem@880000 {
 			label = "File System";
 			reg = <0x880000 0>;	/* 0 = MTDPART_SIZ_FULL */
 		};
