@@ -414,9 +414,8 @@ static int restore_fbdev_mode(struct drm_fb_helper *fb_helper)
 
 		if (plane->rotation_property)
 			drm_mode_plane_set_obj_prop(plane,
-						    dev->mode_config.rotation_property,
+						    /*dev->mode_config.*/plane->rotation_property,
 						    drm_fbdev_rotation);
-		}
 	}
 
 	for (i = 0; i < fb_helper->crtc_count; i++) {
