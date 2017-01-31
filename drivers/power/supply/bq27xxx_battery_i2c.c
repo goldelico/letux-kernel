@@ -68,6 +68,37 @@ static int bq27xxx_battery_i2c_read(struct bq27xxx_device_info *di, u8 reg,
 	return ret;
 }
 
+static int bq27xxx_battery_i2c_write(struct bq27xxx_device_info *di, u8 reg,
+				    bool single, int val)
+{
+	struct i2c_client *client = to_i2c_client(di->dev);
+	struct i2c_msg msg[2];
+	unsigned char data[2];
+
+	if (!client->adapter)
+		return -ENODEV;
+
+	msg[0].addr = client->addr;
+	msg[0].flags = 0;
+	msg[0].buf = &reg;
+	msg[0].len = sizeof(reg);
+	msg[1].addr = client->addr;
+	msg[1].flags = 0 /* I2C_M_WR */;
+	msg[1].buf = data;
+	if (single) {
+		msg[1].len = 1;
+		data[0] = val;
+	}
+	else {
+		msg[1].len = 2;
+		put_unaligned_le16(val, data);
+	}
+
+printk("bq27xxx_battery_i2c_write %02x %04x => wr 0x%02x 0x%02x 0x%02x [%d]\n", reg, val, reg, data[0], data[1], msg[1].len);
+
+	return i2c_transfer(client->adapter, msg, ARRAY_SIZE(msg));
+}
+
 static int bq27xxx_battery_i2c_probe(struct i2c_client *client,
 				     const struct i2c_device_id *id)
 {
@@ -96,6 +127,7 @@ static int bq27xxx_battery_i2c_probe(struct i2c_client *client,
 	di->chip = id->driver_data;
 	di->name = name;
 	di->bus.read = bq27xxx_battery_i2c_read;
+	di->bus.write = bq27xxx_battery_i2c_write;
 
 	ret = bq27xxx_battery_setup(di);
 	if (ret)
