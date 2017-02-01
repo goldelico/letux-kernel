@@ -264,8 +264,8 @@ void hci_uart_set_flow_control(struct hci_uart *hu, bool enable)
 	struct tty_struct *tty = hu->tty;
 	struct ktermios ktermios;
 	int status;
-	unsigned int set = 0;
-	unsigned int clear = 0;
+	unsigned int set;
+	unsigned int clear = TIOCM_DTR | TIOCM_OUT1 | TIOCM_LOOP;
 
 	if (enable) {
 		/* Disable hardware flow control */
@@ -280,25 +280,15 @@ void hci_uart_set_flow_control(struct hci_uart *hu, bool enable)
 		status = tty->driver->ops->tiocmget(tty);
 		BT_DBG("Current tiocm 0x%x", status);
 
-		set &= ~(TIOCM_OUT2 | TIOCM_RTS);
-		clear = ~set;
-		set &= TIOCM_DTR | TIOCM_RTS | TIOCM_OUT1 |
-		       TIOCM_OUT2 | TIOCM_LOOP;
-		clear &= TIOCM_DTR | TIOCM_RTS | TIOCM_OUT1 |
-			 TIOCM_OUT2 | TIOCM_LOOP;
-		status = tty->driver->ops->tiocmset(tty, set, clear);
+		clear |= TIOCM_RTS | TIOCM_OUT2;
+		status = tty->driver->ops->tiocmset(tty, 0, clear);
 		BT_DBG("Clearing RTS: %s", status ? "failed" : "success");
 	} else {
 		/* Set RTS to allow the device to send again */
 		status = tty->driver->ops->tiocmget(tty);
 		BT_DBG("Current tiocm 0x%x", status);
 
-		set |= (TIOCM_OUT2 | TIOCM_RTS);
-		clear = ~set;
-		set &= TIOCM_DTR | TIOCM_RTS | TIOCM_OUT1 |
-		       TIOCM_OUT2 | TIOCM_LOOP;
-		clear &= TIOCM_DTR | TIOCM_RTS | TIOCM_OUT1 |
-			 TIOCM_OUT2 | TIOCM_LOOP;
+		set = TIOCM_OUT2 | TIOCM_RTS;
 		status = tty->driver->ops->tiocmset(tty, set, clear);
 		BT_DBG("Setting RTS: %s", status ? "failed" : "success");
 
