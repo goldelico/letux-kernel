@@ -1035,9 +1035,14 @@
 &mcbsp4 { /* GSM voice PCM */
 	status = "ok";
 	#sound-dai-cells = <0>;
-	pinctrl-names = "default", "tristate";
-	pinctrl-0 = <&mcbsp4_pins>;
-	pinctrl-1 = <&mcbsp4_tristate_pins>;
+};
+
+&twl_audio {
+	codec {
+		pinctrl-names = "default", "inactive";
+		pinctrl-0 = <&mcbsp4_tristate_pins>;
+		pinctrl-1 = <&mcbsp4_pins>;
+	};
 };
 
 /* Needed to power the DPI pins */
