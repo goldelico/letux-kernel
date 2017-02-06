@@ -69,6 +69,8 @@ struct twl4030_priv {
 	u8 earpiece_enabled;
 	u8 predrivel_enabled, predriver_enabled;
 	u8 carkitl_enabled, carkitr_enabled;
+	u8 ctl_cache[TWL4030_REG_PRECKR_CTL - TWL4030_REG_EAR_CTL + 1];
+
 	u8 voice_enabled;
 	struct twl4030_codec_data *pdata;
 };
@@ -77,11 +79,19 @@ static int twl4030_voice_set_tristate(struct snd_soc_dai *dai, int tristate);
 
 static void twl4030_voice_enable(struct snd_soc_codec *codec, int direction,
 				int enable);
-/*
- * read twl4030 register cache
- */
-static inline unsigned int twl4030_read_reg_cache(struct snd_soc_codec *codec,
-	unsigned int reg)
+
+static void tw4030_init_ctl_cache(struct twl4030_priv *twl4030)
+{
+	int i;
+	u8 byte;
+
+	for (i = TWL4030_REG_EAR_CTL; i <= TWL4030_REG_PRECKR_CTL; i++) {
+		twl_i2c_read_u8(TWL4030_MODULE_AUDIO_VOICE, &byte, i);
+		twl4030->ctl_cache[i - TWL4030_REG_EAR_CTL] = byte;
+	}
+}
+
+static unsigned int twl4030_read(struct snd_soc_codec *codec, unsigned int reg)
 {
 	struct twl4030_priv *twl4030 = snd_soc_codec_get_drvdata(codec);
 	u8 value = 0;
@@ -150,44 +160,19 @@ static int twl4030_write(struct snd_soc_codec *codec, unsigned int reg,
 			 unsigned int value)
 {
 	struct twl4030_priv *twl4030 = snd_soc_codec_get_drvdata(codec);
-	int write_to_reg = 0;
-	twl4030_write_reg_cache(codec, reg, value);
-	dev_dbg(codec->dev, "Set %02x = %02x", reg, value);
-	if (likely(reg < TWL4030_REG_SW_SHADOW)) {
-		/* Decide if the given register can be written */
-		switch (reg) {
-		case TWL4030_REG_EAR_CTL:
-			if (twl4030->earpiece_enabled)
-				write_to_reg = 1;
-			break;
-		case TWL4030_REG_PREDL_CTL:
-			if (twl4030->predrivel_enabled)
-				write_to_reg = 1;
-			break;
-		case TWL4030_REG_PREDR_CTL:
-			if (twl4030->predriver_enabled)
-				write_to_reg = 1;
-			break;
-		case TWL4030_REG_PRECKL_CTL:
-			if (twl4030->carkitl_enabled)
-				write_to_reg = 1;
-			break;
-		case TWL4030_REG_PRECKR_CTL:
-			if (twl4030->carkitr_enabled)
-				write_to_reg = 1;
-			break;
-		case TWL4030_REG_HS_GAIN_SET:
-			if (twl4030->hsl_enabled || twl4030->hsr_enabled)
-				write_to_reg = 1;
-			break;
-		default:
-			/* All other register can be written */
-			write_to_reg = 1;
-			break;
-		}
-		if (write_to_reg)
-			return twl_i2c_write_u8(TWL4030_MODULE_AUDIO_VOICE,
-						    value, reg);
+
+	/* Update the ctl cache */
+	switch (reg) {
+	case TWL4030_REG_EAR_CTL:
+	case TWL4030_REG_PREDL_CTL:
+	case TWL4030_REG_PREDR_CTL:
+	case TWL4030_REG_PRECKL_CTL:
+	case TWL4030_REG_PRECKR_CTL:
+	case TWL4030_REG_HS_GAIN_SET:
+		twl4030->ctl_cache[reg - TWL4030_REG_EAR_CTL] = value;
+		break;
+	default:
+		break;
 	}
 
 	if (twl4030_can_write_to_chip(twl4030, reg))
@@ -358,9 +343,6 @@ static void twl4030_init_chip(struct snd_soc_codec *codec)
 	} while ((i++ < 100) &&
 		 ((byte & TWL4030_CNCL_OFFSET_START) ==
 		  TWL4030_CNCL_OFFSET_START));
-
-	/* Make sure that the reg_cache has the same value as the HW */
-	twl4030_write_reg_cache(codec, TWL4030_REG_ANAMICL, byte);
 
 	twl4030_codec_enable(codec, 0);
 	{
@@ -1115,13 +1097,13 @@ static int twl4030_voice_route_put(struct snd_kcontrol *kcontrol,
 			// identify McBSP4 peer DAI
 			dai->ops.set_tristate(dai, 1);
 #endif
-			/* TWL4030_VIF_SLAVE_EN can be done through twl4030_voice_set_dai_fmt()
+			/* TWL4030_VIF_SLAVE_EN can be done through
 			 * twl4030_voice_set_dai_fmt(&dai, SND_SOC_DAIFMT_CBS_CFS)
 			 * but who sets TWL4030_VIF_DIN_EN | TWL4030_VIF_DOUT_EN | TWL4030_VIF_EN?
 			 * FIXME: if we move this setting to a different driver, we must
 			 * have an API to set these values
 			 */
-			reg = twl4030_read_reg_cache(codec, TWL4030_REG_VOICE_IF);
+			reg = twl4030_read(codec, TWL4030_REG_VOICE_IF);
 			reg |= TWL4030_VIF_SLAVE_EN | TWL4030_VIF_DIN_EN |
 					TWL4030_VIF_DOUT_EN | TWL4030_VIF_EN;
 			twl4030_write(codec, TWL4030_REG_VOICE_IF, reg);
@@ -1129,7 +1111,7 @@ static int twl4030_voice_route_put(struct snd_kcontrol *kcontrol,
 		} else {
 			// TWL4030_VIF_SLAVE_EN can be done through twl4030_voice_set_dai_fmt((&dai, ~SND_SOC_DAIFMT_CBS_CFS))
 			twl4030_voice_set_tristate(&dai, 1);
-			reg = twl4030_read_reg_cache(codec, TWL4030_REG_VOICE_IF);
+			reg = twl4030_read(codec, TWL4030_REG_VOICE_IF);
 			reg &= ~(TWL4030_VIF_SLAVE_EN | TWL4030_VIF_DIN_EN |
 					 TWL4030_VIF_DOUT_EN | TWL4030_VIF_EN);
 			twl4030_write(codec, TWL4030_REG_VOICE_IF, reg);
@@ -2221,7 +2203,7 @@ static int twl4030_voice_set_dai_fmt(struct snd_soc_dai *codec_dai,
 static int twl4030_voice_set_tristate(struct snd_soc_dai *dai, int tristate)
 {
 	struct snd_soc_codec *codec = dai->codec;
-	u8 reg = twl4030_read_reg_cache(codec, TWL4030_REG_VOICE_IF);
+	u8 reg = twl4030_read(codec, TWL4030_REG_VOICE_IF);
 	printk("twl4030_voice_set_tristate codec=%p %d\n", codec, tristate);
 
 	if (tristate)
