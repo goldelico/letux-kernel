@@ -241,6 +241,8 @@ static struct twl4030_codec_data *twl4030_get_pdata(struct snd_soc_codec *codec)
 	twl4030_codec_node = of_get_child_by_name(codec->dev->parent->of_node,
 						  "codec");
 
+	codec->dev->of_node = twl4030_codec_node;
+
 	if (!pdata && twl4030_codec_node) {
 		pdata = devm_kzalloc(codec->dev,
 				     sizeof(struct twl4030_codec_data),
