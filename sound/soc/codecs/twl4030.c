@@ -37,6 +37,7 @@
 #include <sound/soc.h>
 #include <sound/initval.h>
 #include <sound/tlv.h>
+
 /* Register descriptions are here */
 #include <linux/mfd/twl4030-audio.h>
 
@@ -71,14 +72,8 @@ struct twl4030_priv {
 	u8 carkitl_enabled, carkitr_enabled;
 	u8 ctl_cache[TWL4030_REG_PRECKR_CTL - TWL4030_REG_EAR_CTL + 1];
 
-	u8 voice_enabled;
 	struct twl4030_codec_data *pdata;
 };
-
-static int twl4030_voice_set_tristate(struct snd_soc_dai *dai, int tristate);
-
-static void twl4030_voice_enable(struct snd_soc_codec *codec, int direction,
-				int enable);
 
 static void tw4030_init_ctl_cache(struct twl4030_priv *twl4030)
 {
@@ -344,17 +339,6 @@ static void twl4030_init_chip(struct snd_soc_codec *codec)
 		  TWL4030_CNCL_OFFSET_START));
 
 	twl4030_codec_enable(codec, 0);
-	{
-		struct snd_soc_dai dai = {
-		.codec = codec
-		};
-		twl4030_voice_set_tristate(&dai, 1);
-	}
-	twl4030_voice_enable(codec, SNDRV_PCM_STREAM_PLAYBACK, 1);
-	twl4030_voice_enable(codec, SNDRV_PCM_STREAM_CAPTURE, 1);
-	printk("TPS Voice IF is tristated\n");
-
-	twl4030_codec_enable(codec, 1);
 }
 
 static void twl4030_apll_enable(struct snd_soc_codec *codec, int enable)
@@ -1044,88 +1028,6 @@ static DECLARE_TLV_DB_SCALE(digital_capture_tlv, 0, 100, 0);
  */
 static DECLARE_TLV_DB_SCALE(input_gain_tlv, 0, 600, 0);
 
-/*
- * switch GSM audio signal between SoC"
- * and twl4030 voice input
- *
- * FIXME: this should be moved to the platform
- * driver since here we should *not* know what else exists
- * externally to the twl4030
- *
- * and only the platform driver knows the McBSPs and DAI links
- */
-static const char *twl4030_voice_route_texts[] = {
-	"Voice to SoC", "Voice to twl4030"
-};
-
-static const struct soc_enum twl4030_voice_route_enum =
-	SOC_ENUM_SINGLE(0xff,0,
-			ARRAY_SIZE(twl4030_voice_route_texts),
-			twl4030_voice_route_texts);
-
-static int twl4030_voice_route_get(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-	struct twl4030_priv *twl4030 = snd_soc_codec_get_drvdata(codec);
-	ucontrol->value.enumerated.item[0] = twl4030->voice_enabled;
-	return 0;
-}
-
-static int twl4030_voice_route_put(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-	struct twl4030_priv *twl4030 = snd_soc_codec_get_drvdata(codec);
-	dev_dbg(codec->dev, "voice ctl route: %u\n",
-		ucontrol->value.enumerated.item[0]);
-	printk("voice ctl route: %u\n", ucontrol->value.enumerated.item[0]);
-	if (ucontrol->value.enumerated.item[0] != twl4030->voice_enabled) {
-		int powered = twl4030->codec_powered;
-		struct snd_soc_dai dai = {
-			.codec = codec
-		};
-		u8 reg;
-		twl4030->voice_enabled = ucontrol->value.enumerated.item[0];
-		if (powered)
-			twl4030_codec_enable(codec, 0);
-
-		if (twl4030->voice_enabled) {
-			/* set McBSP4-DX to tristate (safe mode) */
-#if FIXME
-			// identify McBSP4 peer DAI
-			dai->ops.set_tristate(dai, 1);
-#endif
-			/* TWL4030_VIF_SLAVE_EN can be done through
-			 * twl4030_voice_set_dai_fmt(&dai, SND_SOC_DAIFMT_CBS_CFS)
-			 * but who sets TWL4030_VIF_DIN_EN | TWL4030_VIF_DOUT_EN | TWL4030_VIF_EN?
-			 * FIXME: if we move this setting to a different driver, we must
-			 * have an API to set these values
-			 */
-			reg = twl4030_read(codec, TWL4030_REG_VOICE_IF);
-			reg |= TWL4030_VIF_SLAVE_EN | TWL4030_VIF_DIN_EN |
-					TWL4030_VIF_DOUT_EN | TWL4030_VIF_EN;
-			twl4030_write(codec, TWL4030_REG_VOICE_IF, reg);
-			twl4030_voice_set_tristate(&dai, 0);
-		} else {
-			// TWL4030_VIF_SLAVE_EN can be done through twl4030_voice_set_dai_fmt((&dai, ~SND_SOC_DAIFMT_CBS_CFS))
-			twl4030_voice_set_tristate(&dai, 1);
-			reg = twl4030_read(codec, TWL4030_REG_VOICE_IF);
-			reg &= ~(TWL4030_VIF_SLAVE_EN | TWL4030_VIF_DIN_EN |
-					 TWL4030_VIF_DOUT_EN | TWL4030_VIF_EN);
-			twl4030_write(codec, TWL4030_REG_VOICE_IF, reg);
-#if FIXME
-			// identify McBSP4 peer DAI
-			dai->ops.set_tristate(dai, 0);
-#endif
-		}
-		if (powered)
-			twl4030_codec_enable(codec, 1);
-		return 1;
-        }
-	return 0;
-}
-
 /* AVADC clock priority */
 static const char *twl4030_avadc_clk_priority_texts[] = {
 	"Voice high priority", "HiFi high priority"
@@ -1248,10 +1150,6 @@ static const struct snd_kcontrol_new twl4030_snd_controls[] = {
 
 	SOC_ENUM("AVADC Clock Priority", twl4030_avadc_clk_priority_enum),
 
-	SOC_ENUM_EXT("Voice route", twl4030_voice_route_enum,
-		twl4030_voice_route_get,
-		twl4030_voice_route_put),
-
 	SOC_ENUM("HS ramp delay", twl4030_rampdelay_enum),
 
 	SOC_ENUM("Vibra H-bridge mode", twl4030_vibradirmode_enum),
@@ -1272,7 +1170,6 @@ static const struct snd_soc_dapm_widget twl4030_dapm_widgets[] = {
 	/* Digital microphones (Stereo) */
 	SND_SOC_DAPM_INPUT("DIGIMIC0"),
 	SND_SOC_DAPM_INPUT("DIGIMIC1"),
-	SND_SOC_DAPM_INPUT("GSMIN"),
 
 	/* Outputs */
 	SND_SOC_DAPM_OUTPUT("EARPIECE"),
@@ -1285,7 +1182,6 @@ static const struct snd_soc_dapm_widget twl4030_dapm_widgets[] = {
 	SND_SOC_DAPM_OUTPUT("HFL"),
 	SND_SOC_DAPM_OUTPUT("HFR"),
 	SND_SOC_DAPM_OUTPUT("VIBRA"),
-	SND_SOC_DAPM_OUTPUT("GSMOUT"),
 
 	/* AIF and APLL clocks for running DAIs (including loopback) */
 	SND_SOC_DAPM_OUTPUT("Virtual HiFi OUT"),
@@ -1484,8 +1380,6 @@ static const struct snd_soc_dapm_widget twl4030_dapm_widgets[] = {
 };
 
 static const struct snd_soc_dapm_route intercon[] = {
-	{"Voice DigiInput",NULL,"GSMIN"},
-	{"Voice DigiOutput",NULL,"GSMOUT"},
 	/* Stream -> DAC mapping */
 	{"DAC Right1", NULL, "HiFi Playback"},
 	{"DAC Left1", NULL, "HiFi Playback"},
@@ -1510,7 +1404,6 @@ static const struct snd_soc_dapm_route intercon[] = {
 
 	/* Supply for the digital part (APLL) */
 	{"Digital Voice Playback Mixer", NULL, "APLL Enable"},
-	{"Digital Voice Playback Mixer", NULL, "Voice DigiInput"},
 
 	{"DAC Left1", NULL, "AIF Enable"},
 	{"DAC Right1", NULL, "AIF Enable"},
@@ -2203,7 +2096,6 @@ static int twl4030_voice_set_tristate(struct snd_soc_dai *dai, int tristate)
 {
 	struct snd_soc_codec *codec = dai->codec;
 	u8 reg = twl4030_read(codec, TWL4030_REG_VOICE_IF);
-	printk("twl4030_voice_set_tristate codec=%p %d\n", codec, tristate);
 
 	if (tristate)
 		reg |= TWL4030_VIF_TRI_EN;
