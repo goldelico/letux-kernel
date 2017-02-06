@@ -34,6 +34,7 @@
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
+#include <linux/pinctrl/pinmux.h>
 #include <sound/soc.h>
 #include <sound/initval.h>
 #include <sound/tlv.h>
@@ -1046,17 +1047,11 @@ static DECLARE_TLV_DB_SCALE(digital_capture_tlv, 0, 100, 0);
 static DECLARE_TLV_DB_SCALE(input_gain_tlv, 0, 600, 0);
 
 /*
- * switch GSM audio signal between SoC"
+ * switch GSM audio signal between SoC
  * and twl4030 voice input
- *
- * FIXME: this should be moved to the platform
- * driver since here we should *not* know what else exists
- * externally to the twl4030
- *
- * and only the platform driver knows the McBSPs and DAI links
  */
 static const char *twl4030_voice_route_texts[] = {
-	"Voice to SoC", "Voice to twl4030"
+	"inactive", "active"
 };
 
 static const struct soc_enum twl4030_voice_route_enum =
@@ -1087,21 +1082,33 @@ static int twl4030_voice_route_put(struct snd_kcontrol *kcontrol,
 			.codec = codec
 		};
 		u8 reg;
+/* FIXME: this should only been done once during probe or we leak memory! */
+		struct pinctrl *pinctrl = devm_pinctrl_get(codec->dev);
+		struct pinctrl_state *pins_state;
 		twl4030->voice_enabled = ucontrol->value.enumerated.item[0];
 		if (powered)
 			twl4030_codec_enable(codec, 0);
 
+printk("devm_pinctrl_get %p\n", pinctrl);
+printk("dev->of_node = %p\n", codec->dev->of_node);
+// FIXME: this dev->of_node is NULL, hence we have no access to the DT properties!
+if(codec->dev->of_node)
+	printk("dev->of_node->name = %p\n", codec->dev->of_node->name);
+if(codec->dev->of_node && codec->dev->of_node->name)
+	printk("dev->of_node->name = %s\n", codec->dev->of_node->name);	// that is where we likely have to define the pinmux states...
+
 		if (twl4030->voice_enabled) {
-			/* set McBSP4-DX to tristate (safe mode) */
-#if FIXME
-			// identify McBSP4 peer DAI
-			dai->ops.set_tristate(dai, 1);
-#endif
-			/* TWL4030_VIF_SLAVE_EN can be done through
+			/* enable the other end of the DAI link */
+			pins_state = pinctrl_lookup_state(pinctrl, "default");
+			if(!IS_ERR(pins_state)) {
+printk("pinctrl_select_state tristate\n");
+				pinctrl_select_state(pinctrl, pins_state);
+			} else
+printk("pinctrl_lookup_state tristate error %ld\n", PTR_ERR(pins_state));
+
+			/* TWL4030_VIF_SLAVE_EN could be done through
 			 * twl4030_voice_set_dai_fmt(&dai, SND_SOC_DAIFMT_CBS_CFS)
-			 * but who sets TWL4030_VIF_DIN_EN | TWL4030_VIF_DOUT_EN | TWL4030_VIF_EN?
-			 * FIXME: if we move this setting to a different driver, we must
-			 * have an API to set these values
+			 * but who would set TWL4030_VIF_DIN_EN | TWL4030_VIF_DOUT_EN | TWL4030_VIF_EN?
 			 */
 			reg = twl4030_read(codec, TWL4030_REG_VOICE_IF);
 			reg |= TWL4030_VIF_SLAVE_EN | TWL4030_VIF_DIN_EN |
@@ -1109,16 +1116,20 @@ static int twl4030_voice_route_put(struct snd_kcontrol *kcontrol,
 			twl4030_write(codec, TWL4030_REG_VOICE_IF, reg);
 			twl4030_voice_set_tristate(&dai, 0);
 		} else {
-			// TWL4030_VIF_SLAVE_EN can be done through twl4030_voice_set_dai_fmt((&dai, ~SND_SOC_DAIFMT_CBS_CFS))
+			// TWL4030_VIF_SLAVE_EN could be done through twl4030_voice_set_dai_fmt((&dai, ~SND_SOC_DAIFMT_CBS_CFS))
 			twl4030_voice_set_tristate(&dai, 1);
 			reg = twl4030_read(codec, TWL4030_REG_VOICE_IF);
 			reg &= ~(TWL4030_VIF_SLAVE_EN | TWL4030_VIF_DIN_EN |
 					 TWL4030_VIF_DOUT_EN | TWL4030_VIF_EN);
 			twl4030_write(codec, TWL4030_REG_VOICE_IF, reg);
-#if FIXME
-			// identify McBSP4 peer DAI
-			dai->ops.set_tristate(dai, 0);
-#endif
+
+			/* inactivate the other end of the DAI link */
+			pins_state = pinctrl_lookup_state(pinctrl, "inactive");
+			if(!IS_ERR(pins_state)) {
+printk("pinctrl_select_state default\n");
+				pinctrl_select_state(pinctrl, pins_state);
+			} else
+printk("pinctrl_lookup_state default error %ld\n", PTR_ERR(pins_state));
 		}
 		if (powered)
 			twl4030_codec_enable(codec, 1);
