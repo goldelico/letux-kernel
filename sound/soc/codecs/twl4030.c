@@ -429,6 +429,9 @@ static const struct snd_kcontrol_new twl4030_dapm_carkitr_controls[] = {
 	SOC_DAPM_SINGLE("AudioR2", TWL4030_REG_PRECKR_CTL, 2, 1, 0),
 };
 
+/* global voice switch */
+static const struct snd_kcontrol_new twl4030_dapm_voiceroute_out_control =
+	SOC_DAPM_SINGLE_VIRT("Switch", 1);
 /* Handsfree Left */
 static const char *twl4030_handsfreel_texts[] =
 		{"Voice", "AudioL1", "AudioL2", "AudioR2"};
@@ -1315,6 +1318,9 @@ static const struct snd_soc_dapm_widget twl4030_dapm_widgets[] = {
 	SND_SOC_DAPM_AIF_IN("VAIFIN", "Voice Playback", 0,
 			    TWL4030_REG_VOICE_IF, 6, 0),
 
+	/* Voice non-cpu-dai routing */
+	SND_SOC_DAPM_SWITCH("Voice Route out", SND_SOC_NOPM, 0, 0,
+			&twl4030_dapm_voiceroute_out_control),
 	/* Analog bypasses */
 	SND_SOC_DAPM_SWITCH("Right1 Analog Loopback", SND_SOC_NOPM, 0, 0,
 			&twl4030_dapm_abypassr1_control),
@@ -1497,8 +1503,6 @@ static const struct snd_soc_dapm_widget twl4030_dapm_widgets[] = {
 };
 
 static const struct snd_soc_dapm_route intercon[] = {
-	{"Voice DigiInput",NULL,"GSMIN"},
-	{"Voice DigiOutput",NULL,"GSMOUT"},
 	/* Stream -> DAC mapping */
 	{"DAC Right1", NULL, "HiFi Playback"},
 	{"DAC Left1", NULL, "HiFi Playback"},
@@ -1506,6 +1510,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"DAC Left2", NULL, "HiFi Playback"},
 	{"DAC Voice", NULL, "VAIFIN"},
 
+	{"GSMOUT", NULL, "Voice Route out"},
 	/* ADC -> Stream mapping */
 	{"HiFi Capture", NULL, "ADC Virtual Left1"},
 	{"HiFi Capture", NULL, "ADC Virtual Right1"},
@@ -1514,6 +1519,8 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"VAIFOUT", NULL, "ADC Virtual Left2"},
 	{"VAIFOUT", NULL, "ADC Virtual Right2"},
 	{"VAIFOUT", NULL, "VIF Enable"},
+	{"Voice Route out", "Switch", "ADC Virtual Left2"},
+	{"Voice Route out", "Switch", "ADC Virtual Right2"},
 
 	{"Digital L1 Playback Mixer", NULL, "DAC Left1"},
 	{"Digital R1 Playback Mixer", NULL, "DAC Right1"},
@@ -1523,7 +1530,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 
 	/* Supply for the digital part (APLL) */
 	{"Digital Voice Playback Mixer", NULL, "APLL Enable"},
-	{"Digital Voice Playback Mixer", NULL, "Voice DigiInput"},
+	{"Digital Voice Playback Mixer", NULL, "GSMIN"},
 
 	{"DAC Left1", NULL, "AIF Enable"},
 	{"DAC Right1", NULL, "AIF Enable"},
