@@ -1265,7 +1265,7 @@ static const struct snd_kcontrol_new twl4030_snd_controls[] = {
 
 	SOC_ENUM("AVADC Clock Priority", twl4030_avadc_clk_priority_enum),
 
-	SOC_ENUM_EXT("Voice route", twl4030_voice_route_enum,
+	SOC_ENUM_EXT("Voice PCM Interface", twl4030_voice_route_enum,
 		twl4030_voice_route_get,
 		twl4030_voice_route_put),
 
