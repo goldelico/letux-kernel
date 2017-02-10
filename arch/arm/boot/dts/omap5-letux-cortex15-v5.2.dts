@@ -1,0 +1,30 @@
+/*
+ * Copyright (C) 2016 Golden Delicous Computers - http://www.goldelico.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/* this version is for the Letux Cortex 15 CPU board (V5.2) */
+
+#include "omap5-letux-cortex15-v5.1.dts"
+
+/ {
+	model = "Letux Cortex 15 V5.2";
+};
+
+&cpu0 {
+	operating-points = <
+		/* kHz    uV */
+		250000 750000
+		500000 850000
+		750000 950000
+		1000000 1050000
+		1250000 1100000
+		1500000 1250000
+#if 0	/* potentially overclocking */
+		1700000 1250000
+#endif
+	>;
+};
