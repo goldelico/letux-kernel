@@ -22,21 +22,23 @@
  *
  */
 
-#include <linux/module.h>
-#include <linux/interrupt.h>
-#include <linux/sched.h>
-#include <linux/irq.h>
-#include <linux/slab.h>
-#include <linux/err.h>
 #include <linux/delay.h>
+#include <linux/err.h>
+#include <linux/interrupt.h>
+#include <linux/irq.h>
+#include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/of_gpio.h>
 #include <linux/platform_device.h>
-#include <linux/w2sg0004.h>
-#include <linux/workqueue.h>
 #include <linux/rfkill.h>
 #include <linux/serdev.h>
+#include <linux/sched.h>
+#include <linux/slab.h>
+#include <linux/tty.h>
+#include <linux/tty_flip.h>
+#include <linux/w2sg0004.h>
+#include <linux/workqueue.h>
 
 #ifdef CONFIG_W2SG0004_DEBUG
 #undef pr_debug
@@ -70,13 +72,19 @@ struct w2sg_data {
 	unsigned long	last_toggle;
 	unsigned long	backoff;	/* time to wait since last_toggle */
 	int		on_off_gpio;	/* the on-off gpio number */
-	struct		serdev_device *uart;		/* the uart */
+	struct		serdev_device *uart;	/* the uart connected to the chip */
+	struct		tty_driver *tty_drv;	/* this is the user space tty */
+	struct		device *dev;	/* returned by tty_port_register_device() */
+	struct		tty_port port;
+	int		open_count;	/* how often we were opened */
 	enum		w2sg_state state;
 	int		requested;	/* requested state (0/1) */
 	int		suspended;
 	spinlock_t	lock;
 	struct delayed_work work;
 };
+
+static struct w2sg_data *w2sg_by_minor[1];
 
 static int w2sg_set_lna_power(struct w2sg_data *data)
 {
@@ -101,9 +109,9 @@ static int w2sg_set_lna_power(struct w2sg_data *data)
 static void w2sg_set_power(void *pdata, int val)
 {
 	struct w2sg_data *data = (struct w2sg_data *) pdata;
-	unsigned long flags;
+//	unsigned long flags;
 
-	pr_debug("%s to %d (%d)\n", __func__, val, data->requested);
+	pr_debug("%s to state=%d (requested=%d)\n", __func__, val, data->requested);
 
 // CHECKME: do we need the spinlock any more?
 
@@ -126,9 +134,9 @@ unlock:
 ;
 }
 
-/* called each time data is received by the host (i.e. sent by the w2sg0004) */
+/* called each time data is received by the UART (i.e. sent by the w2sg0004) */
 
-static int rx_notification(struct serdev_device *serdev, const unsigned char *rxdata,
+static int w2sg_uart_receive_buf(struct serdev_device *serdev, const unsigned char *rxdata,
 				size_t count)
 {
 	struct w2sg_data *data = (struct w2sg_data *) serdev_device_get_drvdata(serdev);
@@ -152,20 +160,12 @@ static int rx_notification(struct serdev_device *serdev, const unsigned char *rx
 				schedule_delayed_work(&data->work, 0);
 //			spin_unlock_irqrestore(&data->lock, flags);
 		}
-	}
-	return count;	/* forward to tty */
-}
+	} else if (data->open_count > 0)
+		return tty_insert_flip_string(&data->port, rxdata, count);	/* pass to user-space */
 
-#if 0	// no idea how to implement by serdev
-/* called by uart modem control line changes (DTR) */
-
-static void w2sg_mctrl(void *pdata, int val)
-{
-	pr_debug("%s(...,%x)\n", __func__, val);
-	val = (val & TIOCM_DTR) != 0;	/* DTR controls power on/off */
-	w2sg_set_power((struct w2sg_data *) pdata, val);
+	/* assume we have processed everything */
+	return count;
 }
-#endif
 
 /* try to toggle the power state by sending a pulse to the on-off GPIO */
 
@@ -229,8 +229,112 @@ static struct rfkill_ops w2sg0004_rfkill_ops = {
 };
 
 static struct serdev_device_ops serdev_ops = {
-       .receive_buf = rx_notification,
-//       .write_wakeup = st_tty_wakeup,
+       .receive_buf = w2sg_uart_receive_buf,
+//       .write_wakeup = w2sg_uart_wakeup,
+};
+
+/*
+ * we are a man-in the middle between the user-space visible tty port
+ * and the serdev tty where the chip is connected.
+ * This allows us to recognise when the device should be powered on
+ * or off and handle the "false" state that data arrives while no
+ * users-space tty client exists.
+ */
+
+static struct w2sg_data *w2sg_get_by_minor(unsigned int minor)
+{
+	return w2sg_by_minor[minor];
+}
+
+static int w2sg_tty_install(struct tty_driver *driver, struct tty_struct *tty)
+{
+	struct w2sg_data *data;
+	int retval;
+
+	pr_debug("%s() tty = %p\n", __func__, tty);
+
+	data = w2sg_get_by_minor(tty->index);
+	pr_debug("%s() data = %p\n", __func__, data);
+
+	if (!data)
+		return -ENODEV;
+
+	retval = tty_standard_install(driver, tty);
+	if (retval)
+		goto error_init_termios;
+
+	tty->driver_data = data;
+
+	return 0;
+
+error_init_termios:
+	tty_port_put(&data->port);
+	return retval;
+}
+
+static int w2sg_tty_open(struct tty_struct *tty, struct file *file)
+{
+	struct w2sg_data *data = tty->driver_data;
+
+	pr_debug("%s() data = %p open_count = ++%d\n", __func__, data, data->open_count);
+//	val = (val & TIOCM_DTR) != 0;	/* DTR controls power on/off */
+
+	w2sg_set_power(data, ++data->open_count > 0);
+
+// we could/should return -Esomething if already open...
+
+	return tty_port_open(&data->port, tty, file);
+}
+
+static void w2sg_tty_close(struct tty_struct *tty, struct file *file)
+{
+	struct w2sg_data *data = tty->driver_data;
+
+	pr_debug("%s()\n", __func__);
+//	val = (val & TIOCM_DTR) != 0;	/* DTR controls power on/off */
+	w2sg_set_power(data, --data->open_count > 0);
+
+	tty_port_close(&data->port, tty, file);
+}
+
+static int w2sg_tty_write(struct tty_struct *tty,
+		const unsigned char *buffer, int count)
+{
+	struct w2sg_data *data = tty->driver_data;
+
+	return serdev_device_write_buf(data->uart, buffer, count);	/* simply pass down to UART */
+}
+
+/* handle forwarding,  write_flush write_room, DTR controls */
+
+#if 0
+/* called by uart modem control line changes (DTR) */
+
+static void w2sg_mctrl(void *pdata, int val)
+{
+	pr_debug("%s(...,%x)\n", __func__, val);
+	val = (val & TIOCM_DTR) != 0;	/* DTR controls power on/off */
+	w2sg_set_power((struct w2sg_data *) pdata, val);
+}
+#endif
+
+
+static const struct tty_operations w2sg_serial_ops = {
+	.install = w2sg_tty_install,
+	.open = w2sg_tty_open,
+	.close = w2sg_tty_close,
+	.write = w2sg_tty_write,
+/*
+	.write_room = w2sg_tty_write_room,
+	.cleanup = w2sg_tty_cleanup,
+	.ioctl = w2sg_tty_ioctl,
+	.set_termios = w2sg_tty_set_termios,
+	.chars_in_buffer = w2sg_tty_chars_in_buffer,
+	.tiocmget = w2sg_tty_tiocmget,
+	.tiocmset = w2sg_tty_tiocmset,
+	.get_icount = w2sg_tty_get_count,
+	.unthrottle = w2sg_tty_unthrottle
+*/
 };
 
 static int w2sg_probe(struct serdev_device *serdev)
@@ -239,10 +343,17 @@ static int w2sg_probe(struct serdev_device *serdev)
 	struct w2sg_data *data;
 	struct rfkill *rf_kill;
 	int err;
+	int minor;
 
 	pr_debug("%s()\n", __func__);
 
-// can be simplified
+	minor = 0;
+	if (w2sg_by_minor[minor]) {
+		pr_err("w2sg minor is already in use!\n");
+		return -ENODEV;
+	}
+
+// can be simplified if we require OF
 
 	if (serdev->dev.of_node) {
 		struct device *dev = &serdev->dev;
@@ -271,6 +382,11 @@ static int w2sg_probe(struct serdev_device *serdev)
 	if (data == NULL)
 		return -ENOMEM;
 
+	w2sg_by_minor[minor] = data;
+
+#if 1
+	pr_debug("w2sg serdev_device_set_drvdata\n");
+#endif
 	serdev_device_set_drvdata(serdev, data);
 
 	data->lna_regulator = pdata->lna_regulator;
@@ -290,6 +406,9 @@ static int w2sg_probe(struct serdev_device *serdev)
 	INIT_DELAYED_WORK(&data->work, toggle_work);
 //	spin_lock_init(&data->lock);
 
+#if 1
+	pr_debug("w2sg devm_gpio_request\n");
+#endif
 	err = devm_gpio_request(&serdev->dev, data->on_off_gpio, "w2sg0004-on-off");
 	if (err < 0)
 		goto out;
@@ -302,6 +421,9 @@ static int w2sg_probe(struct serdev_device *serdev)
 	serdev_device_set_baudrate(data->uart, 9600);
 	serdev_device_set_flow_control(data->uart, false);
 
+#if 1
+	pr_debug("w2sg rfkill_alloc\n");
+#endif
 	rf_kill = rfkill_alloc("GPS", &serdev->dev, RFKILL_TYPE_GPS,
 				&w2sg0004_rfkill_ops, data);
 	if (rf_kill == NULL) {
@@ -309,6 +431,9 @@ static int w2sg_probe(struct serdev_device *serdev)
 		goto err_rfkill;
 	}
 
+#if 1
+	pr_debug("w2sg register rfkill\n");
+#endif
 	err = rfkill_register(rf_kill);
 	if (err) {
 		dev_err(&serdev->dev, "Cannot register rfkill device\n");
@@ -317,7 +442,66 @@ static int w2sg_probe(struct serdev_device *serdev)
 
 	data->rf_kill = rf_kill;
 
-	pr_debug("w2sg0004 probed\n");
+#if 1
+	pr_debug("w2sg alloc_tty_driver\n");
+#endif
+	/* allocate the tty driver */
+	data->tty_drv = alloc_tty_driver(1);
+	if (!data->tty_drv)
+		return -ENOMEM;
+
+	/* initialize the tty driver */
+	data->tty_drv->owner = THIS_MODULE;
+	data->tty_drv->driver_name = "w2sg0004";
+	data->tty_drv->name = "ttyGPS";
+	data->tty_drv->major = 0;
+	data->tty_drv->minor_start = 0;
+	data->tty_drv->type = TTY_DRIVER_TYPE_SERIAL;
+	data->tty_drv->subtype = SERIAL_TYPE_NORMAL;
+	data->tty_drv->flags = TTY_DRIVER_REAL_RAW | TTY_DRIVER_DYNAMIC_DEV;
+	data->tty_drv->init_termios = tty_std_termios;
+	data->tty_drv->init_termios.c_cflag = B9600 | CS8 | CREAD | HUPCL | CLOCAL;
+	/*
+	 * tty_termios_encode_baud_rate(&data->tty_drv->init_termios, 115200, 115200);
+	 * w2sg_tty_termios(&data->tty_drv->init_termios);
+	 */
+	tty_set_operations(data->tty_drv, &w2sg_serial_ops);
+
+#if 1
+	pr_debug("w2sg tty_register_driver\n");
+#endif
+	/* register the tty driver */
+	err = tty_register_driver(data->tty_drv);
+	if (err) {
+		pr_err("%s - tty_register_driver failed(%d)\n",
+			__func__, err);
+		put_tty_driver(data->tty_drv);
+		goto err_rfkill;
+	}
+
+#if 1
+	pr_debug("w2sg call tty_port_init\n");
+#endif
+	tty_port_init(&data->port);
+
+#if 1
+	pr_debug("w2sg call tty_port_register_device\n");
+#endif
+/*
+ * FIXME: this appears to reenter this probe() function a second time
+ * which only fails because the gpio is already assigned
+ */
+
+	data->dev = tty_port_register_device(&data->port,
+			data->tty_drv, minor, &serdev->dev);
+
+#if 1
+	pr_debug("w2sg tty_port_register_device -> %p\n", data->dev);
+	pr_debug("w2sg port.tty = %p\n", data->port.tty);
+#endif
+//	data->port.tty->driver_data = data;	/* make us known in tty_struct */
+
+	pr_debug("w2sg probed\n");
 
 #ifdef CONFIG_W2SG0004_DEBUG
 	/* turn on for debugging rx notifications */
@@ -329,8 +513,7 @@ static int w2sg_probe(struct serdev_device *serdev)
 	mdelay(300);
 #endif
 
-	/* keep off until DTR is asserted through mctrl. */
-
+	/* keep off until user space requests the device */
 	w2sg_set_power(data, false);
 
 #if 1	// more debugging
@@ -343,16 +526,31 @@ err_rfkill:
 	rfkill_destroy(rf_kill);
 	serdev_device_close(data->uart);
 out:
+#if 0
+	if (err == -EBUSY)
+		err = -EPROBE_DEFER;
+#endif
+#if 1
+	pr_debug("w2sg error %d\n", err);
+#endif
 	return err;
 }
 
 static void w2sg_remove(struct serdev_device *serdev)
 {
 	struct w2sg_data *data = serdev_device_get_drvdata(serdev);
+	int minor;
 
 	cancel_delayed_work_sync(&data->work);
 
+	/* what is the right sequence to avoid problems? */
 	serdev_device_close(data->uart);
+
+	// get minor from searching for data == w2sg_by_minor[minor]
+	minor = 0;
+	tty_unregister_device(data->tty_drv, minor);
+
+	tty_unregister_driver(data->tty_drv);
 }
 
 static int w2sg_suspend(struct device *dev)
