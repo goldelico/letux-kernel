@@ -1,0 +1,19 @@
+# find hwmon device by name
+
+LIST=false
+if [ "$1" = "-a" ]
+then
+	LIST=true
+	shift
+fi
+
+for dev in /sys/class/hwmon/hwmon*/name /sys/class/hwmon/hwmon*/device/name
+do
+	[ -r $dev ] || continue
+	$LIST && cat $dev
+	if [ "$(cat $dev)" = "$1" ]
+		then echo $(dirname $dev)/
+		exit 0
+	fi
+done
+$LIST || exit 1

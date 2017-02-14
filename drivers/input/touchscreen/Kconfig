@@ -1035,6 +1035,16 @@ config TOUCHSCREEN_TSC2007
 	  To compile this driver as a module, choose M here: the
 	  module will be called tsc2007.
 
+config TOUCHSCREEN_TSC2007_IIO
+	bool "IIO interface for external ADC input and temperature"
+	depends on TOUCHSCREEN_TSC2007
+	depends on IIO=y || IIO=TOUCHSCREEN_TSC2007
+	help
+	  Saying Y here adds an iio interface to the tsc2007 which
+	  provides values for the AUX input (used for e.g. battery
+	  or ambient light monitoring), temperature and raw input
+	  values.
+
 config TOUCHSCREEN_W90X900
 	tristate "W90P910 touchscreen driver"
 	depends on ARCH_W90X900
@@ -1214,4 +1224,10 @@ config TOUCHSCREEN_ROHM_BU21023
 	  To compile this driver as a module, choose M here: the
 	  module will be called bu21023_ts.
 
+config TOUCHSCREEN_CRTOUCH_MT
+	tristate "Freescale CRTouch multitouch driver"
+	depends on I2C
+	help
+	  Say Y here if you have a Freescale CRTouch-based
+	  touchscreen connected via I2C.
 endif

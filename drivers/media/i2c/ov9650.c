@@ -1,5 +1,5 @@
 /*
- * Omnivision OV9650/OV9652 CMOS Image Sensor driver
+ * Omnivision OV9650/OV9652/OV9655 CMOS Image Sensor driver
  *
  * Copyright (C) 2013, Sylwester Nawrocki <sylvester.nawrocki@gmail.com>
  *
@@ -11,13 +11,16 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
 #include <linux/i2c.h>
 #include <linux/kernel.h>
 #include <linux/media.h>
 #include <linux/module.h>
+#include <linux/of_gpio.h>
 #include <linux/ratelimit.h>
+#include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/videodev2.h>
@@ -36,7 +39,7 @@ static int debug;
 module_param(debug, int, 0644);
 MODULE_PARM_DESC(debug, "Debug level (0-2)");
 
-#define DRIVER_NAME "OV9650"
+#define DRIVER_NAME "ov9650"
 
 /*
  * OV9650/OV9652 register definitions
@@ -56,13 +59,18 @@ MODULE_PARM_DESC(debug, "Debug level (0-2)");
 #define REG_PID			0x0a	/* Product ID MSB */
 #define REG_VER			0x0b	/* Product ID LSB */
 #define REG_COM3		0x0c
+#define  OV9655_COLORBAR	0x80
 #define  COM3_SWAP		0x40
+#define  OV9655_RESETB		0x08
 #define  COM3_VARIOPIXEL1	0x04
+#define  OV9655_SINGLEFRAME	0x01
 #define REG_COM4		0x0d	/* Vario Pixels  */
 #define  COM4_VARIOPIXEL2	0x80
+#define  OV9655_TRISTATE		/* seems to have a different function */
 #define REG_COM5		0x0e	/* System clock options */
 #define  COM5_SLAVE_MODE	0x10
-#define  COM5_SYSTEMCLOCK48MHZ	0x80
+#define  COM5_SYSTEMCLOCK48MHZ	0x80	/* not on OV9655 */
+#define  OV9655_EXPOSURESTEP	0x01
 #define REG_COM6		0x0f	/* HREF & ADBLC options */
 #define REG_AECH		0x10	/* Exposure value, AEC[9:2] */
 #define REG_CLKRC		0x11	/* Clock control */
@@ -75,10 +83,15 @@ MODULE_PARM_DESC(debug, "Debug level (0-2)");
 #define	 COM7_FMT_CIF		0x20
 #define  COM7_FMT_QVGA		0x10
 #define  COM7_FMT_QCIF		0x08
+#define  OV9655_COM7_VGA	0x60
 #define	 COM7_RGB		0x04
 #define	 COM7_YUV		0x00
 #define	 COM7_BAYER		0x01
 #define	 COM7_PBAYER		0x05
+#define OV9655_COM7_RAWRGB	0x00	/* different format encoding */
+#define OV9655_COM7_RAWRGBINT	0x01
+#define OV9655_COM7_YUV	0x02
+#define OV9655_COM7_RGB	0x03
 #define REG_COM8		0x13	/* AGC/AEC options */
 #define  COM8_FASTAEC		0x80	/* Enable fast AGC/AEC */
 #define  COM8_AECSTEP		0x40	/* Unlimited AEC step size */
@@ -88,13 +101,20 @@ MODULE_PARM_DESC(debug, "Debug level (0-2)");
 #define  COM8_AEC		0x01	/* Auto exposure enable */
 #define REG_COM9		0x14	/* Gain ceiling */
 #define  COM9_GAIN_CEIL_MASK	0x70	/* */
+#define  OV9655_EXPTIMING	0x08
+#define  OV9655_VSYNCDROP	0x04
+#define  OV9655_AECDROP	0x02
 #define REG_COM10		0x15	/* PCLK, HREF, HSYNC signals polarity */
+#define  OV9655_SLAVE_PIN	0x80	/* SLHS and SLVS instead of RESETB and PWDN */
 #define  COM10_HSYNC		0x40	/* HSYNC instead of HREF */
 #define  COM10_PCLK_HB		0x20	/* Suppress PCLK on horiz blank */
-#define  COM10_HREF_REV		0x08	/* Reverse HREF */
+#define  OV9655_COM10_PCLK_REV		0x10	/* PCLK reverse */
+#define  COM10_HREF_REV	0x08	/* Reverse HREF */
 #define  COM10_VS_LEAD		0x04	/* VSYNC on clock leading edge */
+#define  OV9655_COM10_RESET_OPTION	0x04	/* Reset signal end point option */
 #define  COM10_VS_NEG		0x02	/* VSYNC negative */
 #define  COM10_HS_NEG		0x01	/* HSYNC negative */
+#define OV9655_REG16		0x16	/* dummy frame and blanking */
 #define REG_HSTART		0x17	/* Horiz start high bits */
 #define REG_HSTOP		0x18	/* Horiz stop high bits */
 #define REG_VSTART		0x19	/* Vert start high bits */
@@ -115,6 +135,7 @@ MODULE_PARM_DESC(debug, "Debug level (0-2)");
 #define REG_BBIAS		0x27	/* B channel output bias */
 #define REG_GBBIAS		0x28	/* Gb channel output bias */
 #define REG_GRCOM		0x29	/* Analog BLC & regulator */
+#define OV9655_PREGAIN		0x29
 #define REG_EXHCH		0x2a	/* Dummy pixel insert MSB */
 #define REG_EXHCL		0x2b	/* Dummy pixel insert LSB */
 #define REG_RBIAS		0x2c	/* R channel output bias */
@@ -125,12 +146,28 @@ MODULE_PARM_DESC(debug, "Debug level (0-2)");
 #define REG_HSYEN		0x31	/* HSYNC falling edge delay LSB*/
 #define REG_HREF		0x32	/* HREF pieces */
 #define REG_CHLF		0x33	/* reserved */
+#define OV9655_CLKF		0x33	/* Array current control */
+#define OV9655_AREF1		0x34	/* Array reference control */
+#define OV9655_AREF2		0x35	/* Array reference control */
+#define OV9655_AREF3		0x36	/* Array reference control */
 #define REG_ADC			0x37	/* reserved */
+#define OV9655_ADC		0x37	/* ADC Control 1 (Range adjustment) */
 #define REG_ACOM		0x38	/* reserved */
-#define REG_OFON		0x39	/* Power down register */
+#define OV9655_ACOM		0x38	/* Array reference control */
+#define REG_OFON		0x39	/* Power down register (ov9650 only) */
 #define  OFON_PWRDN		0x08	/* Power down bit */
+#define OV9655_AREF4		0x39	/* Array reference control */
 #define REG_TSLB		0x3a	/* YUVU format */
+#define  OV9655_PCLKDELAY2NS	0x40
+#define  OV9655_PCLKDELAY4NS	0x80
+#define  OV9655_PCLKDELAY6NS	0xc0
+#define  OV9655_OUTREVERSE	0x20
+#define  OV9655_FIXEDUV	0x10
 #define  TSLB_YUYV_MASK		0x0c	/* UYVY or VYUY - see com13 */
+#define  OV9655_BANDINGAUTO	0x02
+
+///
+
 #define REG_COM11		0x3b	/* Night mode, banding filter enable */
 #define  COM11_NIGHT		0x80	/* Night mode enable */
 #define  COM11_NMFR		0x60	/* Two bit NM frame rate */
@@ -168,6 +205,13 @@ MODULE_PARM_DESC(debug, "Debug level (0-2)");
 #define REG_HV			0x69	/* Manual banding filter MSB */
 #define REG_MBD			0x6a	/* Manual banding filter value */
 #define REG_DBLV		0x6b	/* reserved */
+#define OV9655_REG_DBLV	REG_DBLV	/* PLL, DVDD regulator bypass, bandgap */
+#define OV9655_DBLV_BANDGAP	0x0a    /* default value */
+#define OV9655_DBLV_LDO_BYPASS	0x10
+#define OV9655_DBLV_PLL_BYPASS	0x00
+#define OV9655_DBLV_PLL_4X	0x40
+#define OV9655_DBLV_PLL_6X	0x80
+#define OV9655_DBLV_PLL_8X	0xc0
 #define REG_GSP			0x6c	/* Gamma curve */
 #define  GSP_LEN		15
 #define REG_GST			0x7c	/* Gamma curve */
@@ -178,7 +222,9 @@ MODULE_PARM_DESC(debug, "Debug level (0-2)");
 #define  COM22_WHTPCOROPT	0x01	/* White pixel correction option */
 #define  COM22_DENOISE		0x10	/* White pixel correction option */
 #define REG_COM23		0x8d	/* Color bar test, color gain */
+#define OV9655_COM20		REG_COM23
 #define  COM23_TEST_MODE	0x10
+#define  OV9655_COM20_TEST_MODE	COM23_TEST_MODE
 #define REG_DBLC1		0x8f	/* Digital BLC */
 #define REG_DBLC_B		0x90	/* Digital BLC B channel offset */
 #define REG_DBLC_R		0x91	/* Digital BLC R channel offset */
@@ -198,6 +244,8 @@ MODULE_PARM_DESC(debug, "Debug level (0-2)");
 #define OV965X_ID(_msb, _lsb)	((_msb) << 8 | (_lsb))
 #define OV9650_ID		0x9650
 #define OV9652_ID		0x9652
+#define OV9655V4_ID		0x9656
+#define OV9655V5_ID		0x9657
 
 struct ov965x_ctrls {
 	struct v4l2_ctrl_handler handler;
@@ -222,6 +270,7 @@ struct ov965x_ctrls {
 	struct v4l2_ctrl *saturation;
 	struct v4l2_ctrl *sharpness;
 	struct v4l2_ctrl *light_freq;
+	struct v4l2_ctrl *pixel_rate;
 	u8 update;
 };
 
@@ -252,6 +301,8 @@ struct ov965x {
 	int gpios[NUM_GPIOS];
 	/* External master clock frequency */
 	unsigned long mclk_frequency;
+	struct clk *clk;
+	struct regulator *vana;
 
 	/* Protects the struct fields below */
 	struct mutex lock;
@@ -280,6 +331,23 @@ struct ov965x {
 struct i2c_rv {
 	u8 addr;
 	u8 value;
+};
+
+#define OV9655 1
+
+#if !OV9655
+#warning OV9650 only
+
+#define NUM_FMT_REGS 14
+/*
+ * COM7,  COM3,  COM4, HSTART, HSTOP, HREF, VSTART, VSTOP, VREF,
+ * EXHCH, EXHCL, ADC,  OCOM,   OFON
+ */
+
+// we need to find a mechanism to switch these tables between ov9650 and ov9655
+static const u8 frame_size_reg_addr[NUM_FMT_REGS] = {
+	0x12, 0x0c, 0x0d, 0x17, 0x18, 0x32, 0x19, 0x1a, 0x03,
+	0x2a, 0x2b, 0x37, 0x38, 0x39,
 };
 
 static const struct i2c_rv ov965x_init_regs[] = {
@@ -339,14 +407,123 @@ static const struct i2c_rv ov965x_init_regs[] = {
 	{ REG_NULL, 0 }
 };
 
-#define NUM_FMT_REGS 14
-/*
- * COM7,  COM3,  COM4, HSTART, HSTOP, HREF, VSTART, VSTOP, VREF,
- * EXHCH, EXHCL, ADC,  OCOM,   OFON
- */
+static const u8 ov965x_sxga_regs[NUM_FMT_REGS] = {
+	0x00, 0x00, 0x00, 0x1e, 0xbe, 0xbf, 0x01, 0x81, 0x12,
+	0x10, 0x34, 0x81, 0x93, 0x51,
+};
+
+static const u8 ov965x_vga_regs[NUM_FMT_REGS] = {
+	0x40, 0x04, 0x80, 0x26, 0xc6, 0xed, 0x01, 0x3d, 0x00,
+	0x10, 0x40, 0x91, 0x12, 0x43,
+};
+
+/* Determined empirically. */
+static const u8 ov965x_qvga_regs[NUM_FMT_REGS] = {
+	0x10, 0x04, 0x80, 0x25, 0xc5, 0xbf, 0x00, 0x80, 0x12,
+	0x10, 0x40, 0x91, 0x12, 0x43,
+};
+
+static const struct ov965x_framesize ov965x_framesizes[] = {
+	{
+		.width		= SXGA_WIDTH,
+		.height		= SXGA_HEIGHT,
+		.regs		= ov965x_sxga_regs,
+		.max_exp_lines	= 1048,
+	}, {
+		.width		= VGA_WIDTH,
+		.height		= VGA_HEIGHT,
+		.regs		= ov965x_vga_regs,
+		.max_exp_lines	= 498,
+	}, {
+		.width		= QVGA_WIDTH,
+		.height		= QVGA_HEIGHT,
+		.regs		= ov965x_qvga_regs,
+		.max_exp_lines	= 248,
+	},
+};
+
+#else
+#warning OV9655 only
+
+#undef DEF_CLKRC
+#define DEF_CLKRC		0x00
+
+#define NUM_FMT_REGS 0
+
 static const u8 frame_size_reg_addr[NUM_FMT_REGS] = {
 	0x12, 0x0c, 0x0d, 0x17, 0x18, 0x32, 0x19, 0x1a, 0x03,
 	0x2a, 0x2b, 0x37, 0x38, 0x39,
+};
+
+static const struct i2c_rv ov965x_init_regs[] = {
+#if OLD
+	{ REG_COM2, 0x10 },	/* Set soft sleep mode */
+	{ REG_COM5, 0x00 },	/* System clock options */
+	{ REG_COM2, 0x01 },	/* Output drive, soft sleep mode */
+	{ REG_COM10, 0x00 },	/* Slave mode, HREF vs HSYNC, signals negate */
+	{ REG_EDGE, 0xa6 },	/* Edge enhancement treshhold and factor */
+	{ REG_COM16, 0x02 },	/* Color matrix coeff double option */
+	{ REG_COM17, 0x08 },	/* Single frame out, banding filter */
+	{ 0x16, 0x06 },
+	{ REG_CHLF, 0xc0 },	/* Reserved  */
+	{ 0x34, 0xbf },
+	{ 0xa8, 0x80 },
+	{ 0x96, 0x04 },
+	{ 0x8e, 0x00 },
+	{ REG_COM12, 0x77 },	/* HREF option, UV average  */
+	{ 0x8b, 0x06 },
+	{ 0x35, 0x91 },
+	{ 0x94, 0x88 },
+	{ 0x95, 0x88 },
+	{ REG_COM15, 0xc1 },	/* Output range, RGB 555/565 */
+	{ REG_GRCOM, 0x2f },	/* Analog BLC & regulator */
+	{ REG_COM6, 0x43 },	/* HREF & ADBLC options */
+	{ REG_COM8, 0xe5 },	/* AGC/AEC options */
+	{ REG_COM13, 0x90 },	/* Gamma selection, colour matrix, UV delay */
+	{ REG_HV, 0x80 },	/* Manual banding filter MSB  */
+	{ 0x5c, 0x96 },		/* Reserved up to 0xa5 */
+	{ 0x5d, 0x96 },
+	{ 0x5e, 0x10 },
+	{ 0x59, 0xeb },
+	{ 0x5a, 0x9c },
+	{ 0x5b, 0x55 },
+	{ 0x43, 0xf0 },
+	{ 0x44, 0x10 },
+	{ 0x45, 0x55 },
+	{ 0x46, 0x86 },
+	{ 0x47, 0x64 },
+	{ 0x48, 0x86 },
+	{ 0x5f, 0xe0 },
+	{ 0x60, 0x8c },
+	{ 0x61, 0x20 },
+	{ 0xa5, 0xd9 },
+	{ 0xa4, 0x74 },		/* reserved */
+	{ REG_COM23, 0x02 },	/* Color gain analog/_digital_ */
+	{ REG_COM8, 0xe7 },	/* Enable AEC, AWB, AEC */
+	{ REG_COM22, 0x23 },	/* Edge enhancement, denoising */
+	{ 0xa9, 0xb8 },
+	{ 0xaa, 0x92 },
+	{ 0xab, 0x0a },
+	{ REG_DBLC1, 0xdf },	/* Digital BLC */
+	{ REG_DBLC_B, 0x00 },	/* Digital BLC B chan offset */
+	{ REG_DBLC_R, 0x00 },	/* Digital BLC R chan offset */
+	{ REG_DBLC_GB, 0x00 },	/* Digital BLC GB chan offset */
+	{ REG_DBLC_GR, 0x00 },
+	{ REG_COM9, 0x3a },	/* Gain ceiling 16x */
+#endif
+	{ REG_COM2, 0x01 },	/* drive outputs at 2x; disable soft sleep */
+	{ REG_COM10, 0x40 },	/* define VSYNC, HSYNC as positive pulses */
+	{ REG_CLKRC, 0x00 },	/* prescale : 2 */
+	{ OV9655_REG_DBLV, OV9655_DBLV_PLL_4X | OV9655_DBLV_BANDGAP },	/* PLL x4 */
+
+	/* SXGA */
+	{ REG_COM6, 0x40 },
+	{ REG_COM11, 0x05 },
+	{ REG_COM15, 0xc0 },
+//	{ REG_COM7, 0x07 },	/* full resolution */
+	{ REG_HSYEN, 0x50 },	/* adjust sync */
+	{ REG_TSLB, 0x88 },
+	{ REG_NULL, 0 }
 };
 
 static const u8 ov965x_sxga_regs[NUM_FMT_REGS] = {
@@ -382,7 +559,17 @@ static const struct ov965x_framesize ov965x_framesizes[] = {
 		.regs		= ov965x_qvga_regs,
 		.max_exp_lines	= 248,
 	},
+#if 0	// add me
+	}, {
+		.width		= CIF_WIDTH,
+		.height		= CIF_HEIGHT,
+		.regs		= ov965x_cif_regs,
+		.max_exp_lines	= 200,
+	},
+#endif
 };
+
+#endif
 
 struct ov965x_pixfmt {
 	u32 code;
@@ -450,8 +637,10 @@ static int ov965x_read(struct i2c_client *client, u8 addr, u8 *val)
 static int ov965x_write(struct i2c_client *client, u8 addr, u8 val)
 {
 	u8 buf[2] = { addr, val };
-
 	int ret = i2c_master_send(client, buf, 2);
+
+	printk("%s: 0x%02x @ 0x%02X (%d)\n",
+		 __func__, val, addr, ret);
 
 	v4l2_dbg(2, debug, client, "%s: 0x%02x @ 0x%02X (%d)\n",
 		 __func__, val, addr, ret);
@@ -482,6 +671,8 @@ static int ov965x_set_default_gamma_curve(struct ov965x *ov965x)
 	u8 addr = REG_GSP;
 	unsigned int i;
 
+printk("ov965x_set_default_gamma_curve\n");
+
 	for (i = 0; i < ARRAY_SIZE(gamma_curve); i++) {
 		int ret = ov965x_write(ov965x->client, addr, gamma_curve[i]);
 		if (ret < 0)
@@ -500,6 +691,8 @@ static int ov965x_set_color_matrix(struct ov965x *ov965x)
 	};
 	u8 addr = REG_MTX(1);
 	unsigned int i;
+
+printk("ov965x_set_color_matrix\n");
 
 	for (i = 0; i < ARRAY_SIZE(mtx); i++) {
 		int ret = ov965x_write(ov965x->client, addr, mtx[i]);
@@ -520,12 +713,28 @@ static void ov965x_gpio_set(int gpio, int val)
 static void __ov965x_set_power(struct ov965x *ov965x, int on)
 {
 	if (on) {
+		/* Bring up the supplies */
+		int ret = regulator_enable(ov965x->vana);
+		if (ret < 0)
+			dev_info(&ov965x->client->dev, "regulator_enable failed err=%d\n", ret);
+
+		usleep_range(25000, 26000);
+
+		/* Enable clock */
+		if (ov965x->clk)
+			clk_prepare_enable(ov965x->clk);
+		usleep_range(25000, 26000);
+
 		ov965x_gpio_set(ov965x->gpios[GPIO_PWDN], 0);
-		ov965x_gpio_set(ov965x->gpios[GPIO_RST], 0);
+		ov965x_gpio_set(ov965x->gpios[GPIO_RST], ov965x->id == OV9655V4_ID ? 1 : 0);
 		usleep_range(25000, 26000);
 	} else {
-		ov965x_gpio_set(ov965x->gpios[GPIO_RST], 1);
+		ov965x_gpio_set(ov965x->gpios[GPIO_RST], ov965x->id == OV9655V4_ID ? 0 : 1);
 		ov965x_gpio_set(ov965x->gpios[GPIO_PWDN], 1);
+
+		if (ov965x->clk)
+			clk_disable_unprepare(ov965x->clk);
+		regulator_disable(ov965x->vana);
 	}
 
 	ov965x->streaming = 0;
@@ -537,6 +746,7 @@ static int ov965x_s_power(struct v4l2_subdev *sd, int on)
 	struct i2c_client *client = ov965x->client;
 	int ret = 0;
 
+	printk("%s: on: %d\n", __func__, on);
 	v4l2_dbg(1, debug, client, "%s: on: %d\n", __func__, on);
 
 	mutex_lock(&ov965x->lock);
@@ -554,6 +764,7 @@ static int ov965x_s_power(struct v4l2_subdev *sd, int on)
 
 	WARN_ON(ov965x->power < 0);
 	mutex_unlock(&ov965x->lock);
+	printk("%s: on => %d\n", __func__, ret);
 	return ret;
 }
 
@@ -583,6 +794,8 @@ static void ov965x_update_exposure_ctrl(struct ov965x *ov965x)
 	ov965x->exp_row_interval = trow;
 	mutex_unlock(&ov965x->lock);
 
+	printk("ov965x_update_exposure_ctrl clkrc: %#x, fi: %lu, tr: %lu, %d\n",
+		 clkrc, fint, trow, max);
 	v4l2_dbg(1, debug, &ov965x->sd, "clkrc: %#x, fi: %lu, tr: %lu, %d\n",
 		 clkrc, fint, trow, max);
 
@@ -600,6 +813,13 @@ static int ov965x_set_banding_filter(struct ov965x *ov965x, int value)
 	unsigned long mbd, light_freq;
 	int ret;
 	u8 reg;
+
+	printk("ov965x_set_banding_filter(%d)\n", value);
+
+#if OV9655
+	// has slightly different register definitions
+	return 0;
+#endif
 
 	ret = ov965x_read(ov965x->client, REG_COM8, &reg);
 	if (!ret) {
@@ -630,6 +850,13 @@ static int ov965x_set_white_balance(struct ov965x *ov965x, int awb)
 {
 	int ret;
 	u8 reg;
+
+	printk("ov965x_set_white_balance(%d)\n", awb);
+
+#if OV9655
+	// has slightly different register definitions
+	return 0;
+#endif
 
 	ret = ov965x_read(ov965x->client, REG_COM8, &reg);
 	if (!ret) {
@@ -664,6 +891,13 @@ static int ov965x_set_brightness(struct ov965x *ov965x, int val)
 	};
 	int i, ret = 0;
 
+	printk("ov965x_set_brightness(%d)\n", val);
+
+#if OV9655
+	// has slightly different register definitions
+	return 0;
+#endif
+
 	val += (NUM_BR_LEVELS / 2 + 1);
 	if (val > NUM_BR_LEVELS)
 		return -EINVAL;
@@ -680,6 +914,14 @@ static int ov965x_set_gain(struct ov965x *ov965x, int auto_gain)
 	struct ov965x_ctrls *ctrls = &ov965x->ctrls;
 	int ret = 0;
 	u8 reg;
+
+	printk("ov965x_set_gain(%d)\n", auto_gain);
+
+#if OV9655
+	// has slightly different register definitions
+	return 0;
+#endif
+
 	/*
 	 * For manual mode we need to disable AGC first, so
 	 * gain value in REG_VREF, REG_GAIN is not overwritten.
@@ -734,6 +976,13 @@ static int ov965x_set_sharpness(struct ov965x *ov965x, unsigned int value)
 	u8 com14, edge;
 	int ret;
 
+	printk("ov965x_set_sharpness(%u)\n", value);
+
+#if OV9655
+	// has slightly different register definitions
+	return 0;
+#endif
+
 	ret = ov965x_read(ov965x->client, REG_COM14, &com14);
 	if (ret < 0)
 		return ret;
@@ -765,6 +1014,13 @@ static int ov965x_set_exposure(struct ov965x *ov965x, int exp)
 	bool auto_exposure = (exp == V4L2_EXPOSURE_AUTO);
 	int ret;
 	u8 reg;
+
+	printk("ov965x_set_exposure(%d)\n", exp);
+
+#if OV9655
+	// has slightly different register definitions
+	return 0;
+#endif
 
 	if (ctrls->auto_exp->is_new) {
 		ret = ov965x_read(client, REG_COM8, &reg);
@@ -833,6 +1089,13 @@ static int ov965x_set_saturation(struct ov965x *ov965x, int val)
 	u8 addr = REG_MTX(1);
 	int i, ret = 0;
 
+	printk("ov965x_set_saturation(%d)\n", val);
+
+#if OV9655
+	// has slightly different register definitions
+	return 0;
+#endif
+
 	val += (NUM_SAT_LEVELS / 2);
 	if (val >= NUM_SAT_LEVELS)
 		return -EINVAL;
@@ -847,6 +1110,13 @@ static int ov965x_set_test_pattern(struct ov965x *ov965x, int value)
 {
 	int ret;
 	u8 reg;
+
+	printk("ov965x_set_test_pattern(%d)\n", value);
+
+#if OV9655
+	// has slightly different register definitions
+	return 0;
+#endif
 
 	ret = ov965x_read(ov965x->client, REG_COM23, &reg);
 	if (ret < 0)
@@ -934,6 +1204,11 @@ static int ov965x_s_ctrl(struct v4l2_ctrl *ctrl)
 	}
 
 	switch (ctrl->id) {
+	case V4L2_CID_PIXEL_RATE:
+		printk("ov965x_s_ctrl V4L2_CID_PIXEL_RATE %d\n", ctrl->val);
+		ret = 0;
+		break;
+
 	case V4L2_CID_AUTO_WHITE_BALANCE:
 		ret = ov965x_set_white_balance(ov965x, ctrl->val);
 		break;
@@ -969,6 +1244,8 @@ static int ov965x_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_TEST_PATTERN:
 		ret = ov965x_set_test_pattern(ov965x, ctrl->val);
 		break;
+default:
+		printk("ov965x_s_ctrl unknown CID %d %d\n", ctrl->id, ctrl->val);
 	}
 
 	mutex_unlock(&ov965x->lock);
@@ -1028,6 +1305,15 @@ static int ov965x_initialize_controls(struct ov965x *ov965x)
 
 	ctrls->hflip = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_HFLIP, 0, 1, 1, 0);
 	ctrls->vflip = v4l2_ctrl_new_std(hdl, ops, V4L2_CID_VFLIP, 0, 1, 1, 0);
+
+#define CAMERA_TARGET_FREQ      48000000        /* pixel clock frequency for 15 fps SXGA (2 clocks per pixel for byte multiplexing) */
+/* should come from DT setting */
+
+	ctrls->pixel_rate = v4l2_ctrl_new_std(hdl, ops,
+				V4L2_CID_PIXEL_RATE,
+				CAMERA_TARGET_FREQ,
+				CAMERA_TARGET_FREQ,
+				1, CAMERA_TARGET_FREQ);
 
 	ctrls->light_freq = v4l2_ctrl_new_std_menu(hdl, ops,
 				V4L2_CID_POWER_LINE_FREQUENCY,
@@ -1171,6 +1457,8 @@ static int ov965x_get_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_pad_config 
 	struct ov965x *ov965x = to_ov965x(sd);
 	struct v4l2_mbus_framefmt *mf;
 
+	printk("ov965x_get_fmt(fmt->which=%d)\n", fmt->which);
+
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
 		mf = v4l2_subdev_get_try_format(sd, cfg, 0);
 		fmt->format = *mf;
@@ -1191,6 +1479,8 @@ static void __ov965x_try_frame_size(struct v4l2_mbus_framefmt *mf,
 		*match = NULL;
 	int i = ARRAY_SIZE(ov965x_framesizes);
 	unsigned int min_err = UINT_MAX;
+
+	printk("__ov965x_try_frame_size()\n");
 
 	while (i--) {
 		int err = abs(fsize->width - mf->width)
@@ -1218,6 +1508,7 @@ static int ov965x_set_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_pad_config 
 	const struct ov965x_framesize *size = NULL;
 	int ret = 0;
 
+	printk("ov965x_set_fmt(fmt->which=%d)\n", fmt->which);
 	__ov965x_try_frame_size(mf, &size);
 
 	while (--index)
@@ -1265,6 +1556,12 @@ static int ov965x_set_frame_size(struct ov965x *ov965x)
 {
 	int i, ret = 0;
 
+	printk("ov965x_set_frame_size()\n");
+
+#if OV9655
+	// has slightly different register definitions
+	return 0;
+#endif
 	for (i = 0; ret == 0 && i < NUM_FMT_REGS; i++)
 		ret = ov965x_write(ov965x->client, frame_size_reg_addr[i],
 				   ov965x->frame_size->regs[i]);
@@ -1278,11 +1575,18 @@ static int __ov965x_set_params(struct ov965x *ov965x)
 	int ret = 0;
 	u8 reg;
 
+	printk("__ov965x_set_params()\n");
+
 	if (ov965x->apply_frame_fmt) {
 		reg = DEF_CLKRC + ov965x->fiv->clkrc_div;
 		ret = ov965x_write(client, REG_CLKRC, reg);
 		if (ret < 0)
 			return ret;
+#if OV9655
+	// has slightly different register definitions
+	return 0;
+#endif
+
 		ret = ov965x_set_frame_size(ov965x);
 		if (ret < 0)
 			return ret;
@@ -1295,6 +1599,12 @@ static int __ov965x_set_params(struct ov965x *ov965x)
 		if (ret < 0)
 			return ret;
 	}
+
+#if OV9655
+	// has slightly different register definitions
+	return 0;
+#endif
+
 	ret = ov965x_set_default_gamma_curve(ov965x);
 	if (ret < 0)
 		return ret;
@@ -1325,6 +1635,7 @@ static int ov965x_s_stream(struct v4l2_subdev *sd, int on)
 	struct ov965x_ctrls *ctrls = &ov965x->ctrls;
 	int ret = 0;
 
+	printk("ov965x_s_stream(%d)\n", on);
 	v4l2_dbg(1, debug, client, "%s: on: %d\n", __func__, on);
 
 	mutex_lock(&ov965x->lock);
@@ -1344,9 +1655,11 @@ static int ov965x_s_stream(struct v4l2_subdev *sd, int on)
 			if (!ret)
 				ctrls->update = 0;
 		}
+#if !OV9655
 		if (!ret)
 			ret = ov965x_write(client, REG_COM2,
 					   on ? 0x01 : 0x11);
+#endif
 	}
 	if (!ret)
 		ov965x->streaming += on ? 1 : -1;
@@ -1363,9 +1676,18 @@ static int ov965x_s_stream(struct v4l2_subdev *sd, int on)
 static int ov965x_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	struct v4l2_mbus_framefmt *mf = v4l2_subdev_get_try_format(sd, fh->pad, 0);
-
+printk("ov965x_open\n");
 	ov965x_get_default_format(mf);
-	return 0;
+// new...
+// or redundant if core.s_power is used
+	return ov965x_s_power(sd, 1);
+}
+
+// new...
+static int ov965x_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+{
+printk("ov965x_close\n");
+	return ov965x_s_power(sd, 0);
 }
 
 static const struct v4l2_subdev_pad_ops ov965x_pad_ops = {
@@ -1384,6 +1706,7 @@ static const struct v4l2_subdev_video_ops ov965x_video_ops = {
 
 static const struct v4l2_subdev_internal_ops ov965x_sd_internal_ops = {
 	.open = ov965x_open,
+	.close = ov965x_close,
 };
 
 static const struct v4l2_subdev_core_ops ov965x_core_ops = {
@@ -1437,6 +1760,8 @@ static int ov965x_detect_sensor(struct v4l2_subdev *sd)
 	int ret;
 
 	mutex_lock(&ov965x->lock);
+
+	/* FIXME: does not work for OV9655V4_ID because ov965x->id isn't set here */
 	__ov965x_set_power(ov965x, 1);
 	usleep_range(25000, 26000);
 
@@ -1449,12 +1774,20 @@ static int ov965x_detect_sensor(struct v4l2_subdev *sd)
 
 	if (!ret) {
 		ov965x->id = OV965X_ID(pid, ver);
-		if (ov965x->id == OV9650_ID || ov965x->id == OV9652_ID) {
-			v4l2_info(sd, "Found OV%04X sensor\n", ov965x->id);
-		} else {
-			v4l2_err(sd, "Sensor detection failed (%04X, %d)\n",
-				 ov965x->id, ret);
-			ret = -ENODEV;
+		switch (ov965x->id) {
+			case OV9650_ID:
+			case OV9652_ID:
+				v4l2_info(sd, "Found OV%04X sensor\n", ov965x->id);
+				break;
+			case OV9655V4_ID:
+			case OV9655V5_ID:
+				v4l2_info(sd, "Found OV9655V%d sensor\n", ov965x->id
+								  - OV9655V4_ID + 4);
+				break;
+			default:
+				v4l2_err(sd, "Sensor detection failed (%04X, %d)\n",
+					 ov965x->id, ret);
+				ret = -ENODEV;
 		}
 	}
 	mutex_unlock(&ov965x->lock);
@@ -1470,9 +1803,30 @@ static int ov965x_probe(struct i2c_client *client,
 	struct ov965x *ov965x;
 	int ret;
 
+printk("id = %p\n", id);
+if(id) printk("id = %lu\n", id->driver_data);
+
 	if (pdata == NULL) {
-		dev_err(&client->dev, "platform data not specified\n");
-		return -EINVAL;
+		struct device_node *np = client->dev.of_node;
+		u32 val32;
+
+		if (!np) {
+			dev_err(&client->dev, "missing platform and device tree data\n");
+			return -EINVAL;
+		}
+
+		pdata = devm_kzalloc(&client->dev, sizeof(*pdata), GFP_KERNEL);
+		if (!pdata)
+			return -ENOMEM;
+
+		// get clock("clocks", 0)
+
+		((struct ov9650_platform_data *) pdata)->gpio_reset = of_get_named_gpio(np, "gpios", 0);
+		((struct ov9650_platform_data *) pdata)->gpio_pwdn = of_get_named_gpio(np, "gpios", 1);
+
+		if (!of_property_read_u32(np, "clock-frequency", &val32))
+			((struct ov9650_platform_data *) pdata)->mclk_frequency = val32;
+
 	}
 
 	if (pdata->mclk_frequency == 0) {
@@ -1487,6 +1841,29 @@ static int ov965x_probe(struct i2c_client *client,
 	mutex_init(&ov965x->lock);
 	ov965x->client = client;
 	ov965x->mclk_frequency = pdata->mclk_frequency;
+
+	if (client->dev.of_node) {
+		int rval;
+
+		ov965x->vana = devm_regulator_get_optional(&client->dev, "vana");
+		if (IS_ERR(ov965x->vana)) {
+			dev_err(&client->dev, "could not get regulator for vana\n");
+			return PTR_ERR(ov965x->vana);
+		}
+		ov965x->clk = devm_clk_get(&client->dev, NULL);
+		if (IS_ERR(ov965x->clk)) {
+			dev_err(&client->dev, "could not get clock\n");
+			return PTR_ERR(ov965x->clk);
+		}
+		rval = clk_set_rate(ov965x->clk,
+				    pdata->mclk_frequency);
+		if (rval < 0) {
+			dev_err(&client->dev,
+				"unable to set clock freq to %lu\n",
+				pdata->mclk_frequency);
+			return rval;
+		}
+	}
 
 	sd = &ov965x->sd;
 	v4l2_i2c_subdev_init(sd, client, &ov965x_subdev_ops);
@@ -1545,15 +1922,25 @@ static int ov965x_remove(struct i2c_client *client)
 }
 
 static const struct i2c_device_id ov965x_id[] = {
-	{ "OV9650", 0 },
-	{ "OV9652", 0 },
+	{ "ov9650", 0x9650 },
+	{ "ov9652", 0x9652 },
+	{ "ov9655", 0x9655 },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(i2c, ov965x_id);
 
+static const struct of_device_id of_ov965x_match[] = {
+	{ .compatible = "ovti,ov9650", .data = (void *) 0x9650 },
+	{ .compatible = "ovti,ov9652", .data = (void *) 0x9652 },
+	{ .compatible = "ovti,ov9655", .data = (void *) 0x9655 },
+	{ /* sentinel */ }
+};
+MODULE_DEVICE_TABLE(of, of_ov965x_match);
+
 static struct i2c_driver ov965x_i2c_driver = {
 	.driver = {
 		.name	= DRIVER_NAME,
+		.of_match_table = of_match_ptr(of_ov965x_match),
 	},
 	.probe		= ov965x_probe,
 	.remove		= ov965x_remove,
