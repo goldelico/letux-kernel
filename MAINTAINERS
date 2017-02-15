@@ -9273,6 +9273,17 @@ S:	Supported
 F:	fs/orangefs/
 F:	Documentation/filesystems/orangefs.txt
 
+PYRA HANDHELD PC
+M:	H. Nikolaus Schaller <hns@goldelico.com>
+M:	Michael Mrozek <EvilDragon@openpandora.org>
+M:	Andrey Utkin <andrey_utkin@fastmail.com>
+L:	kernel@pyra-handheld.com
+L:	letux-kernel@openphoenux.org
+W:	https://pyra-handheld.com
+T:	git://git.openpandora.org/pyra-kernel.git
+S:	Maintained
+F:	drivers/input/joystick/as5013.c
+
 P54 WIRELESS DRIVER
 M:	Christian Lamparter <chunkeey@googlemail.com>
 L:	linux-wireless@vger.kernel.org
@@ -10845,6 +10856,14 @@ L:	linux-serial@vger.kernel.org
 S:	Maintained
 F:	Documentation/devicetree/bindings/serial/
 F:	drivers/tty/serial/
+
+SERIAL DEVICE BUS
+M:	Rob Herring <robh@kernel.org>
+L:	linux-serial@vger.kernel.org
+S:	Maintained
+F:	Documentation/devicetree/bindings/serial/slave-device.txt
+F:	drivers/tty/serdev/
+F:	include/linux/serdev.h
 
 SERIAL IR RECEIVER
 M:	Sean Young <sean@mess.org>

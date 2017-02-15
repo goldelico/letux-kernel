@@ -74,3 +74,11 @@
 		interrupts = <8 IRQ_TYPE_LEVEL_HIGH>; /* gpio 136 */
 	};
 };
+
+&uart2 {
+	bluetooth {
+		compatible = "ti,wl1835-bt";
+		shutdown-gpios = <&gpio5 9>;
+		max-speed = <300000>;
+	};
+};
