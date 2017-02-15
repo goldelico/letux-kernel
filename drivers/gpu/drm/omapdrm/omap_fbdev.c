@@ -143,6 +143,30 @@ static int omap_fbdev_create(struct drm_fb_helper *helper,
 	mode_cmd.pitches[0] = PAGE_ALIGN(
 			DIV_ROUND_UP(gsize.tiled.width * sizes->surface_bpp, 8));
 #endif
+
+	if (!fbdev->bo) {
+		mode_cmd.pitches[0] =
+			DIV_ROUND_UP(mode_cmd.width * sizes->surface_bpp, 8);
+
+		fbdev->ywrap_enabled = priv->has_dmm && ywrap_enabled;
+		if (fbdev->ywrap_enabled) {
+			/* need to align pitch to page size
+			 * if using DMM scrolling
+			 */
+			mode_cmd.pitches[0] = PAGE_ALIGN(mode_cmd.pitches[0]);
+		}
+
+		/* allocate backing bo */
+		gsize = (union omap_gem_size){
+			.bytes = PAGE_ALIGN(mode_cmd.pitches[0] *
+				mode_cmd.height),
+		};
+		DBG("allocating %d bytes for fb %d", gsize.bytes,
+			dev->primary->index);
+		fbdev->bo = omap_gem_new(dev, gsize, OMAP_BO_SCANOUT |
+			OMAP_BO_WC);
+	}
+
 	if (!fbdev->bo) {
 		dev_err(dev->dev, "failed to allocate buffer object\n");
 		ret = -ENOMEM;
