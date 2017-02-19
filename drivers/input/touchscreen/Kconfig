@@ -1045,6 +1045,17 @@ config TOUCHSCREEN_TSC2007_IIO
 	  or ambient light monitoring), temperature and raw input
 	  values.
 
+config TSC2007_REPORT_RAW_RESISTANCE_AS_PRESSURE
+	bool "TSC2007: report resistance as ABS_PRESSURE channel"
+	depends on TOUCHSCREEN_TSC2007
+	help
+	  Say Y here if you need to restore the old (wrong) setting
+	  where the driver reports calculated touch resistance
+	  in the ABS_PRESSURE channel. This is not monotonic for
+	  increasing pressure.
+
+	  Usually you should say N.
+
 config TOUCHSCREEN_W90X900
 	tristate "W90P910 touchscreen driver"
 	depends on ARCH_W90X900
