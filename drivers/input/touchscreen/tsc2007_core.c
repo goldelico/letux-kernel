@@ -141,7 +141,8 @@ static irqreturn_t tsc2007_soft_irq(int irq, void *handle)
 				"DOWN point(%4d,%4d), resistance (%4u)\n",
 				tc.x, tc.y, rt);
 
-			rt = ts->max_rt;
+			if (!ts->report_resistance)
+				rt = ts->max_rt;
 
 			input_report_key(input, BTN_TOUCH, 1);
 			input_report_abs(input, ABS_X, tc.x);
@@ -247,6 +248,9 @@ static int tsc2007_probe_dt(struct i2c_client *client, struct tsc2007 *ts)
 		ts->max_rt = val32;
 	else
 		ts->max_rt = MAX_12BIT;
+
+	ts->report_resistance =
+		of_property_read_bool(np, "ti,report-resistance");
 
 	if (!of_property_read_u32(np, "ti,fuzzx", &val32))
 		ts->fuzzx = val32;
