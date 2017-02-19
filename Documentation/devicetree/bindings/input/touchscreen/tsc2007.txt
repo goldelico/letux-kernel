@@ -14,6 +14,8 @@ Optional properties:
 - interrupts: (gpio) interrupt to which the chip is connected
   (see interrupt binding[0]).
 - ti,max-rt: maximum pressure.
+- ti,report-resistance: report resistance (no pressure = max_rt) instead
+  of pressure (no pressure = 0).
 - ti,fuzzx: specifies the absolute input fuzz x value.
   If set, it will permit noise in the data up to +- the value given to the fuzz
   parameter, that is used to filter noise from the event stream.
