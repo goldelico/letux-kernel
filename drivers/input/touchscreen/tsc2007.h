@@ -66,6 +66,7 @@ struct tsc2007 {
 
 	u16			model;
 	u16			x_plate_ohms;
+	bool			report_resistance;
 	u16			max_rt;
 	unsigned long		poll_period; /* in jiffies */
 	int			fuzzx;
