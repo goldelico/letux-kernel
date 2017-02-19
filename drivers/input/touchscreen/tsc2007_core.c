@@ -141,7 +141,9 @@ static irqreturn_t tsc2007_soft_irq(int irq, void *handle)
 				"DOWN point(%4d,%4d), resistance (%4u)\n",
 				tc.x, tc.y, rt);
 
+#if !IS_ENABLED(CONFIG_TSC2007_REPORT_RAW_RESISTANCE_AS_PRESSURE)
 			rt = ts->max_rt - rt;
+#endif
 
 			input_report_key(input, BTN_TOUCH, 1);
 			input_report_abs(input, ABS_X, tc.x);
