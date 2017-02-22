@@ -145,8 +145,8 @@ static int w2sg_uart_receive_buf(struct serdev_device *serdev, const unsigned ch
 //	pr_debug("w2sg: %d characters\n", count);
 
 	if (!data->requested && !data->is_on) {
-		/* we have received charcters while the w2sg should be turned off */
-		pr_debug("w2sg: did send %d unexpected characters!\n", count);
+		/* we have received characters while the w2sg should be turned off */
+		pr_debug("w2sg00x4: chip should be powered off but did send %d unexpected characters!\n", count);
 
 		if ((data->state == W2SG_IDLE) &&
 		    time_after(jiffies,
@@ -160,8 +160,10 @@ static int w2sg_uart_receive_buf(struct serdev_device *serdev, const unsigned ch
 				schedule_delayed_work(&data->work, 0);
 //			spin_unlock_irqrestore(&data->lock, flags);
 		}
-	} else if (data->open_count > 0)
+	} else if (data->open_count > 0) {
+		pr_debug("w2sg: pass %d characters to tty port\n", count);
 		return tty_insert_flip_string(&data->port, rxdata, count);	/* pass to user-space */
+	}
 
 	/* assume we have processed everything */
 	return count;
@@ -337,6 +339,9 @@ static const struct tty_operations w2sg_serial_ops = {
 */
 };
 
+static const struct tty_port_operations w2sg_port_ops = {
+};
+
 static int w2sg_probe(struct serdev_device *serdev)
 {
 	struct w2sg_pdata *pdata = NULL;
@@ -483,6 +488,7 @@ static int w2sg_probe(struct serdev_device *serdev)
 	pr_debug("w2sg call tty_port_init\n");
 #endif
 	tty_port_init(&data->port);
+	data->port.ops = &w2sg_port_ops;
 
 #if 1
 	pr_debug("w2sg call tty_port_register_device\n");
