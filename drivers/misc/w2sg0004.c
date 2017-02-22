@@ -40,7 +40,7 @@
 #include <linux/w2sg0004.h>
 #include <linux/workqueue.h>
 
-#ifdef CONFIG_W2SG0004_DEBUG
+#ifdef CONFIG_W2SG0004_DEBUG	// not for upstreaming
 #undef pr_debug
 #define pr_debug printk
 #endif
@@ -145,14 +145,15 @@ static int w2sg_uart_receive_buf(struct serdev_device *serdev, const unsigned ch
 //	pr_debug("w2sg: %d characters\n", count);
 
 	if (!data->requested && !data->is_on) {
-		/* we have received characters while the w2sg should be turned off */
-		pr_debug("w2sg00x4: chip should be powered off but did send %d unexpected characters!\n", count);
+		/* we have received characters while the w2sg should have been be turned off */
+		if(data->state == W2SG_IDLE)
+			pr_debug("w2sg00x4: chip should be powered off but did send %d unexpected chars!\n", count);
 
 		if ((data->state == W2SG_IDLE) &&
 		    time_after(jiffies,
 		    data->last_toggle + data->backoff)) {
 			/* Should be off by now, time to toggle again */
-			pr_debug("w2sg has sent data although it should be off!\n");
+			pr_debug("w2sg00x4 has sent data although it should be off!\n");
 			data->is_on = true;
 			data->backoff *= 2;
 //			spin_lock_irqsave(&data->lock, flags);
@@ -161,8 +162,14 @@ static int w2sg_uart_receive_buf(struct serdev_device *serdev, const unsigned ch
 //			spin_unlock_irqrestore(&data->lock, flags);
 		}
 	} else if (data->open_count > 0) {
-		pr_debug("w2sg: pass %d characters to tty port\n", count);
-		return tty_insert_flip_string(&data->port, rxdata, count);	/* pass to user-space */
+		int n;
+
+//		pr_debug("w2sg00x4: push %d chars to tty port\n", count);
+		n = tty_insert_flip_string(&data->port, rxdata, count);	/* pass to user-space */
+		if (n != count)
+			pr_debug("w2sg00x4: did loose %d characters\n", count - n);
+		tty_flip_buffer_push(&data->port);
+		return n;
 	}
 
 	/* assume we have processed everything */
@@ -522,7 +529,7 @@ static int w2sg_probe(struct serdev_device *serdev)
 	/* keep off until user space requests the device */
 	w2sg_set_power(data, false);
 
-#if 1	// more debugging
+#if 0	// more debugging - not for upstreaming
 	w2sg_set_power(data, true);
 #endif
 
