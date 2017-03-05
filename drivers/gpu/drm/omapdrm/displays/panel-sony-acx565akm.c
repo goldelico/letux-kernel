@@ -897,8 +897,6 @@ static const struct of_device_id acx565akm_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, acx565akm_of_match);
 
-MODULE_DEVICE_TABLE(of, acx565akm_of_match);
-
 static struct spi_driver acx565akm_driver = {
 	.driver = {
 		.name	= "acx565akm",
@@ -911,6 +909,7 @@ static struct spi_driver acx565akm_driver = {
 
 module_spi_driver(acx565akm_driver);
 
+MODULE_ALIAS("spi:sony,acx565akm");
 MODULE_AUTHOR("Nokia Corporation");
 MODULE_DESCRIPTION("acx565akm LCD Driver");
 MODULE_LICENSE("GPL");
