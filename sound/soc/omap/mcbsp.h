@@ -323,12 +323,11 @@ struct omap_mcbsp {
 
 	unsigned int fmt;
 	unsigned int in_freq;
+	unsigned int latency[2];
 	int clk_div;
 	int wlen;
 
-	struct pinctrl *p;
-	struct pinctrl_state *default_state;	/* should be dx active mode */
-	struct pinctrl_state *tristate_state;	/* should be dx as gpio or disabled */
+	struct pm_qos_request pm_qos_req;
 };
 
 void omap_mcbsp_config(struct omap_mcbsp *mcbsp,
