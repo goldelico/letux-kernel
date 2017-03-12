@@ -28,3 +28,23 @@
 #endif
 	>;
 };
+
+/* there is a hardware bug which required that external pull-up
+ * for gpio8_228 and gpio8_229 to be not installed.
+ * This means we need to use omap pull-ups which may draw more
+ * current if no card is inserted or wp is active.
+ */
+
+&mmc1_pins {
+	pinctrl-single,pins = <
+		OMAP5_IOPAD(0x174, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x174:[15:0] sdcard_cd/gpio8_228 */
+		OMAP5_IOPAD(0x176, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x175:[31:16] sdcard_wp/gpio8_229 */
+	>;
+};
+
+&mmc1 { /* first SD slot */
+	pinctrl-names = "default";
+	pinctrl-0 = <&mmc1_pins>;
+	cd-gpios = <&gpio8 4 0>;	/* gpio8_228 */
+	wp-gpios = <&gpio8 5 0>;	/* gpio8_229 */
+};
