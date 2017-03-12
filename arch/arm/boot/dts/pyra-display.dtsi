@@ -86,17 +86,12 @@
 		interrupt-parent = <&gpio6>;
 		interrupts = <13 IRQ_TYPE_EDGE_FALLING>;	/* gpio6_173 falling edge */
 		gpios = <&gpio6 13 GPIO_ACTIVE_LOW>;	/* gpio6_173 active low */
-#if (PANEL == 1)
-		touchscreen-size-x = <720>;
-		touchscreen-size-y = <1280>;
-#else
 		/* rotated screen */
 		touchscreen-size-x = <1280>;
 		touchscreen-size-y = <720>;
 		touchscreen-swapped-x-y;
 		touchscreen-inverted-x;
 		touchscreen-inverted-y;
-#endif
 		touchscreen-fuzz-x = <5>;
 		touchscreen-fuzz-y = <5>;
 		touchscreen-fuzz-pressure = <50>;
