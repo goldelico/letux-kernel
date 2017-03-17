@@ -7,9 +7,9 @@
 # usage: hw-test [-t] [testname]
 #
 
-TESTER_VERSION="6.1"
+TESTER_VERSION="6.2"
 TESTER_RECOMMENDED_KERNEL="4.10"
-TESTER_DATE="12 Mar 2017"
+TESTER_DATE="17 Mar 2017"
 
 MODEL=$(cat /proc/device-tree/model 2>/dev/null)
 
@@ -118,6 +118,7 @@ function report { # $1: result $2: test-name $3: values $4: message
 			| test_power_twl4030*-*Pyra* \
 			| test_wlan_libertas-*Pyra* \
 			| test_wlan_libertas-*GTA04A5* \
+			| test_wwan_off_option-*GTA04A3* \
 			) # known to be never available on these models
 				: no message about failure
 				return 0
