@@ -429,13 +429,22 @@
 #endif
 };
 
+#define MMCMUX 1
+
 &mmc2 { /* eMMC / uSD-card */
 	bus-width = <8>;
-	/* ti,non-removable; */
+	/delete-property/ ti,non-removable;
+	broken-cd;	/* must poll for cards */
+
+	/* more possible settings: http://lxr.free-electrons.com/source/Documentation/devicetree/bindings/mmc/mmc.txt
+	max-frequency = <50000000>;
+	mmc-hs400-1_8v;
+	*/
 
 	#address-cells = <1>;
 	#size-cells = <0>;
 
+#if MMCMUX == 0
 	mmcmux: txs02612@0 {
 		reg = <0>;
 
@@ -457,9 +466,20 @@
 			reg = <1>;
 			bus-width = <4>;
 		};
+	};
+#endif
+};
 
+#if MMCMUX == 1
+/* as long as the mmc slave driver does not work */
+
+/ {
+	mmcmux: txs02612 {
+		compatible = "ti,txs02612";
+		select-gpio = <&gpio2 0 0>;	/* gpio2_32 soft-select */
 	};
 };
+#endif
 
 &mmc3 { /* WiFi-SDIO */
 	/* has been predefined for a wl1271 in ompa5-common.dtsi */
