@@ -234,30 +234,23 @@ do
 
 			UIMAGE="/boot/uImage"	# the uImage on the SD card
 			# we do not use /sys/firmware/fdt because that is "cooked" by booting
-			DTB="$(fw_printenv -n devicetree)"	# hardware dependent device tree blob (if it exists)
-
-if false
-then
-			if [ "$DTB" ] && (which mkimage >/dev/null)
-			then # merge uImage and device tree BLOB for NAND partition
-				echo unpacking "$UIMAGE"
-				VERSION=$(mkimage -l "$UIMAGE" | fgrep "Image Name:" | sed 's/Image Name: *//')
-				LOADADDRESS=0x$(mkimage -l "$UIMAGE" | fgrep "Load Address:" | sed 's/Load Address: *//')
-				ENTRYPOINT=0x$(mkimage -l "$UIMAGE" | fgrep "Entry Point:" | sed 's/Entry Point: *//')
-				ZIMAGE="/tmp/$$-zImage"
-				dd if="$UIMAGE" ibs=64 skip=1 | dd of="$ZIMAGE" ibs=8 skip=1 || exit 1
-				echo appending "/boot/${DTB}.dtb"
-				cat "/boot/${DTB}.dtb" >>"$ZIMAGE" || exit 1
-				UIMAGE="/tmp/$$-uImage" # new UIMAGE file
-				echo repacking into "$UIMAGE"
-				mkimage -A arm -O linux -T kernel -C none -a "$LOADADDRESS" -e "$ENTRYPOINT" -n "$VERSION" -d "$ZIMAGE" "$UIMAGE" || exit 1
-			fi
-fi
+			DTB="$(fw_printenv -n fdtfile)"	# hardware dependent device tree blob (if it exists)
+			# in some special cases we must fix the DTB file we install
+			case "$DTB+$(fw_printenv -n nand_cmd)" in
+				omap3-gta04a5.dtb+onenand )
+					DTB=omap3-gta04a5one.dtb
+					;;
+				omap3-gta04a5one.dtb+nand )
+					DTB=omap3-gta04a5.dtb
+					;;
+			esac
+			echo "  flashing $UIMAGE"
 			flash_erase /dev/mtd3 0 0 &&
 			nandwrite -p /dev/mtd3 "$UIMAGE" || exit 1
 			if [ "$DTB" ]
 			then
-				nandwrite -p /dev/mtd3 -s 0x5c0000 "/boot/${DTB}.dtb" || exit 1
+				echo "  flashing /boot/$DTB"
+				nandwrite -p /dev/mtd3 -s 0x5c0000 "/boot/${DTB}" || exit 1
 			fi
 			;;
 
