@@ -1920,6 +1920,12 @@
 				dmas = <&sdma 61>, <&sdma 62>;
 				dma-names = "tx", "rx";
 				pbias-supply = <&pbias_mmc_reg>;
+				sd-uhs-sdr12;
+				sd-uhs-sdr25;
+				sd-uhs-ddr50; mmc-ddr-1_8v;
+				sd-uhs-sdr50;
+				sd-uhs-sdr104; mmc-hs200-1_8v;
+				max-frequency = <192000000>;
 			};
 		};
 
@@ -2007,6 +2013,8 @@
 				ti,needs-special-reset;
 				dmas = <&sdma 77>, <&sdma 78>;
 				dma-names = "tx", "rx";
+				sd-uhs-sdr12;
+				sd-uhs-sdr25;
 			};
 		};
 
@@ -2047,6 +2055,12 @@
 				ti,needs-special-reset;
 				dmas = <&sdma 47>, <&sdma 48>;
 				dma-names = "tx", "rx";
+				sd-uhs-sdr12;
+				sd-uhs-sdr25;
+				sd-uhs-ddr50; mmc-ddr-1_8v;
+				sd-uhs-sdr50;
+				sd-uhs-sdr104; mmc-hs200-1_8v;
+				max-frequency = <192000000>;
 			};
 		};
 
@@ -2139,6 +2153,8 @@
 				ti,needs-special-reset;
 				dmas = <&sdma 57>, <&sdma 58>;
 				dma-names = "tx", "rx";
+				sd-uhs-sdr12;
+				sd-uhs-sdr25;
 			};
 		};
 
@@ -2171,6 +2187,9 @@
 				ti,needs-special-reset;
 				dmas = <&sdma 59>, <&sdma 60>;
 				dma-names = "tx", "rx";
+				sd-uhs-sdr12;
+				sd-uhs-sdr25;
+				sd-uhs-sdr50;
 			};
 		};
 	};
