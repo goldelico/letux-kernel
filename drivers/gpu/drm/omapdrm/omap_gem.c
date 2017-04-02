@@ -600,19 +600,11 @@ int omap_gem_mmap_obj(struct drm_gem_object *obj,
 	vma->vm_flags &= ~VM_PFNMAP;
 	vma->vm_flags |= VM_MIXEDMAP;
 
-	vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
-
-	switch (omap_obj->flags & OMAP_BO_CACHE_MASK) {
-	case OMAP_BO_WC:
-		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
-		break;
-	case OMAP_BO_UNCACHED:
-		vma->vm_page_prot = pgprot_device(vma->vm_page_prot);
-		break;
-	case OMAP_BO_SYNC:
-		vma->vm_page_prot = pgprot_stronglyordered(vma->vm_page_prot);
-		break;
-	default:
+	if (omap_obj->flags & OMAP_BO_WC) {
+		vma->vm_page_prot = pgprot_writecombine(vm_get_page_prot(vma->vm_flags));
+	} else if (omap_obj->flags & OMAP_BO_UNCACHED) {
+		vma->vm_page_prot = pgprot_noncached(vm_get_page_prot(vma->vm_flags));
+	} else {
 		/*
 		 * We do have some private objects, at least for scanout buffers
 		 * on hardware without DMM/TILER.  But these are allocated write-
@@ -629,6 +621,8 @@ int omap_gem_mmap_obj(struct drm_gem_object *obj,
 		fput(vma->vm_file);
 		vma->vm_pgoff = 0;
 		vma->vm_file  = get_file(obj->filp);
+
+		vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
 	}
 
 	return 0;
@@ -1377,13 +1371,11 @@ struct drm_gem_object *omap_gem_new(struct drm_device *dev,
 		flags |= OMAP_BO_MEM_SHMEM;
 
 		/*
-		 * Unless caller knows what he's doing replace cacheable and
-		 * normal uncacheable memory types by default type for cpu.
+		 * Currently don't allow cached buffers. There is some caching
+		 * stuff that needs to be handled better.
 		 */
-		if (!(flags & (OMAP_BO_UNCACHED | OMAP_BO_FORCE))) {
-			flags &= ~OMAP_BO_CACHE_MASK;
-			flags |= tiler_get_cpu_cache_flags();
-		}
+		flags &= ~(OMAP_BO_CACHED|OMAP_BO_WC|OMAP_BO_UNCACHED);
+		flags |= tiler_get_cpu_cache_flags();
 	} else if ((flags & OMAP_BO_SCANOUT) && !priv->has_dmm) {
 		/*
 		 * OMAP_BO_SCANOUT hints that the buffer doesn't need to be
