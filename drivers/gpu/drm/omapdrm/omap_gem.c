@@ -1048,24 +1048,16 @@ int omap_gem_put_pages(struct drm_gem_object *obj)
 void *omap_gem_vaddr(struct drm_gem_object *obj)
 {
 	struct omap_gem_object *omap_obj = to_omap_bo(obj);
-	void *va = omap_obj->vaddr;
 	WARN_ON(!mutex_is_locked(&obj->dev->struct_mutex));
-	if (va)
-		return va;
-	if (omap_obj->flags & OMAP_BO_TILED) {
-		// FIXME to avoid contiguous mapping?
-		va = ioremap(omap_obj->paddr, obj->size);
-	} else {
+	if (!omap_obj->vaddr) {
 		struct page **pages;
 		int ret = get_pages(obj, &pages);
 		if (ret)
 			return ERR_PTR(ret);
-		va = vmap(pages, obj->size >> PAGE_SHIFT,
+		omap_obj->vaddr = vmap(pages, obj->size >> PAGE_SHIFT,
 				VM_MAP, pgprot_writecombine(PAGE_KERNEL));
 	}
-	if (!IS_ERR(va))
-		omap_obj->vaddr = va;
-	return va;
+	return omap_obj->vaddr;
 }
 #endif
 
@@ -1389,8 +1381,6 @@ void omap_gem_free_object(struct drm_gem_object *obj)
 	if (omap_obj->flags & OMAP_BO_MEM_DMA_API) {
 		dma_free_wc(dev->dev, obj->size, omap_obj->vaddr,
 			    omap_obj->paddr);
-	} else if (omap_obj->flags & OMAP_BO_TILED) {
-		iounmap(omap_obj->vaddr);
 	} else if (omap_obj->vaddr) {
 		vunmap(omap_obj->vaddr);
 	} else if (obj->import_attach) {
