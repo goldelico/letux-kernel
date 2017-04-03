@@ -2107,10 +2107,24 @@ static int hso_start_net_device(struct hso_device *hso_dev)
 	if (!hso_net)
 		return -ENODEV;
 
+#if 1
+		msleep(20);
+#endif
+
 	/* send URBs for all read buffers */
 	for (i = 0; i < MUX_BULK_RX_BUF_COUNT; i++) {
 
 		/* Prep a receive URB */
+#if 0
+printk("hso_net = %p\n", hso_net);
+printk("hso_net->mux_bulk_rx_urb_pool = %p\n", hso_net->mux_bulk_rx_urb_pool);
+printk("hso_net->in_endp = %p\n", hso_net->in_endp);
+printk("hso_net->in_endp->bEndpointAddress = %p\n", hso_net->in_endp->bEndpointAddress);
+printk("hso_net->mux_bulk_rx_buf_pool = %p\n", hso_net->mux_bulk_rx_buf_pool);
+printk("hso_dev = %p\n", hso_dev);
+printk("hso_dev->usb = %p\n", hso_dev->usb);
+printk("hso_dev->usb->dev = %p\n", hso_dev->usb->dev);
+#endif
 		usb_fill_bulk_urb(hso_net->mux_bulk_rx_urb_pool[i],
 				  hso_dev->usb,
 				  usb_rcvbulkpipe(hso_dev->usb,
