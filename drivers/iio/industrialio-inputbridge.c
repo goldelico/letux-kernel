@@ -160,6 +160,7 @@ static int iio_input_register_accel_channel(struct iio_dev *indio_dev, const str
 
 		input_set_drvdata(idev, indio_dev);
 
+		input_alloc_absinfo(idev);
 		error = input_register_device(idev);
 
 #if 0
