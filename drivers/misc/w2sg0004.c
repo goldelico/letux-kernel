@@ -517,6 +517,7 @@ static int w2sg_probe(struct serdev_device *serdev)
 	pr_debug("w2sg probed\n");
 
 #ifdef CONFIG_W2SG0004_DEBUG
+	pr_debug("w2sg DEBUGGING MODE enabled\n");
 	/* turn on for debugging rx notifications */
 	pr_debug("w2sg power gpio ON\n");
 	gpio_set_value_cansleep(data->on_off_gpio, 1);
