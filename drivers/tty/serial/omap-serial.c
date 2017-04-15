@@ -163,11 +163,6 @@ struct uart_omap_port {
 	u32			errata;
 	u32			features;
 
-	int			DTR_gpio;
-	int			DTR_inverted;
-	int			DTR_active;
-
-	struct serial_rs485	rs485;
 	int			rts_gpio;
 
 	struct pm_qos_request	pm_qos_request;
@@ -674,17 +669,6 @@ static void serial_omap_set_mctrl(struct uart_port *port, unsigned int mctrl)
 	unsigned char mcr = 0, old_mcr, lcr;
 
 	dev_dbg(up->port.dev, "serial_omap_set_mctrl+%d\n", up->port.line);
-#ifdef DEBUG
-	if(up->port.line == 0 || up->port.line == 1)
-		{
-		printk("serial_omap_set_mctrl %x %d\n", mctrl, up->port.line);
-		printk("  DTR_gpio=%d\n", up->DTR_gpio);
-		printk("    is_valid: %d\n", gpio_is_valid(up->DTR_gpio));
-		if(gpio_is_valid(up->DTR_gpio))
-			printk("    cansleep %d\n", gpio_cansleep(up->DTR_gpio));
-		}
-#endif
-
 	if (mctrl & TIOCM_RTS)
 		mcr |= UART_MCR_RTS;
 	if (mctrl & TIOCM_DTR)
@@ -715,16 +699,6 @@ static void serial_omap_set_mctrl(struct uart_port *port, unsigned int mctrl)
 
 	pm_runtime_mark_last_busy(up->dev);
 	pm_runtime_put_autosuspend(up->dev);
-
-	if (gpio_is_valid(up->DTR_gpio) &&
-	    !!(mctrl & TIOCM_DTR) != up->DTR_active) {
-		up->DTR_active = !up->DTR_active;
-		if (gpio_cansleep(up->DTR_gpio))
-			schedule_work(&up->qos_work);
-		else
-			gpio_set_value(up->DTR_gpio,
-				       up->DTR_active != up->DTR_inverted);
-	}
 }
 
 static void serial_omap_break_ctl(struct uart_port *port, int break_state)
@@ -820,7 +794,6 @@ static int serial_omap_startup(struct uart_port *port)
 	return 0;
 }
 
-static struct uart_driver serial_omap_reg;
 static void serial_omap_shutdown(struct uart_port *port)
 {
 	struct uart_omap_port *up = to_uart_omap_port(port);
@@ -835,15 +808,10 @@ static void serial_omap_shutdown(struct uart_port *port)
 	up->ier = 0;
 	serial_out(up, UART_IER, 0);
 
-	{
-		struct uart_state *state = serial_omap_reg.state + port->line;
-	if (!test_bit(ASYNCB_SUSPENDED, &state->port.flags)) {
-		spin_lock_irqsave(&up->port.lock, flags);
-		up->port.mctrl &= ~TIOCM_OUT2;
-		serial_omap_set_mctrl(&up->port, up->port.mctrl);
-		spin_unlock_irqrestore(&up->port.lock, flags);
-	}
-	}
+	spin_lock_irqsave(&up->port.lock, flags);
+	up->port.mctrl &= ~TIOCM_OUT2;
+	serial_omap_set_mctrl(&up->port, up->port.mctrl);
+	spin_unlock_irqrestore(&up->port.lock, flags);
 
 	/*
 	 * Disable break condition and FIFOs
@@ -869,9 +837,6 @@ static void serial_omap_uart_qos_work(struct work_struct *work)
 						qos_work);
 
 	pm_qos_update_request(&up->pm_qos_request, up->latency);
-	if (gpio_is_valid(up->DTR_gpio))
-		gpio_set_value_cansleep(up->DTR_gpio,
-					up->DTR_active != up->DTR_inverted);
 }
 
 static void
@@ -881,37 +846,28 @@ serial_omap_set_termios(struct uart_port *port, struct ktermios *termios,
 	struct uart_omap_port *up = to_uart_omap_port(port);
 	unsigned char cval = 0;
 	unsigned long flags = 0;
-	unsigned int baud, quot, bits;
+	unsigned int baud, quot;
 
 	switch (termios->c_cflag & CSIZE) {
 	case CS5:
 		cval = UART_LCR_WLEN5;
-		bits = 5;
 		break;
 	case CS6:
 		cval = UART_LCR_WLEN6;
-		bits = 6;
 		break;
 	case CS7:
 		cval = UART_LCR_WLEN7;
-		bits = 7;
 		break;
 	default:
 	case CS8:
 		cval = UART_LCR_WLEN8;
-		bits = 8;
 		break;
 	}
 
-	bits += 2; /* start bit plus stop bit */
-	if (termios->c_cflag & CSTOPB) {
+	if (termios->c_cflag & CSTOPB)
 		cval |= UART_LCR_STOP;
-		bits++;
-	}
-	if (termios->c_cflag & PARENB) {
+	if (termios->c_cflag & PARENB)
 		cval |= UART_LCR_PARITY;
-		bits++;
-	}
 	if (!(termios->c_cflag & PARODD))
 		cval |= UART_LCR_EPAR;
 	if (termios->c_cflag & CMSPAR)
@@ -925,10 +881,7 @@ serial_omap_set_termios(struct uart_port *port, struct ktermios *termios,
 	quot = serial_omap_get_divisor(port, baud);
 
 	/* calculate wakeup latency constraint */
-	if (termios->c_cflag & CRTSCTS)
-		up->calc_latency = PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE;
-	else
-		up->calc_latency = (USEC_PER_SEC * up->port.fifosize) / (baud / bits);
+	up->calc_latency = (USEC_PER_SEC * up->port.fifosize) / (baud / 8);
 	up->latency = up->calc_latency;
 	schedule_work(&up->qos_work);
 
@@ -1338,6 +1291,7 @@ OF_EARLYCON_DECLARE(omapserial, "ti,omap4-uart", early_omap_serial_setup);
 
 static struct uart_omap_port *serial_omap_console_ports[OMAP_MAX_HSUART_PORTS];
 
+static struct uart_driver serial_omap_reg;
 
 static void serial_omap_console_putchar(struct uart_port *port, int ch)
 {
@@ -1636,7 +1590,6 @@ static void omap_serial_fill_features_erratas(struct uart_omap_port *up)
 static struct omap_uart_port_info *of_get_uart_port_info(struct device *dev)
 {
 	struct omap_uart_port_info *omap_up_info;
-	enum of_gpio_flags flags;
 
 	omap_up_info = devm_kzalloc(dev, sizeof(*omap_up_info), GFP_KERNEL);
 	if (!omap_up_info)
@@ -1644,11 +1597,6 @@ static struct omap_uart_port_info *of_get_uart_port_info(struct device *dev)
 
 	of_property_read_u32(dev->of_node, "clock-frequency",
 					 &omap_up_info->uartclk);
-
-	omap_up_info->DTR_gpio = of_get_named_gpio_flags(dev->of_node, "dtr-gpio", 0, &flags);
-	omap_up_info->DTR_present = true;	/* default assumption */
-	omap_up_info->DTR_inverted = (flags & OF_GPIO_ACTIVE_LOW) != 0;
-
 	return omap_up_info;
 }
 
@@ -1719,8 +1667,6 @@ static int serial_omap_probe(struct platform_device *pdev)
 			return -EPROBE_DEFER;
 		wakeirq = irq_of_parse_and_map(pdev->dev.of_node, 1);
 		omap_up_info = of_get_uart_port_info(&pdev->dev);
-		if (omap_up_info->DTR_gpio == -EPROBE_DEFER)
-			return -EPROBE_DEFER;
 		pdev->dev.platform_data = omap_up_info;
 	} else {
 		uartirq = platform_get_irq(pdev, 0);
@@ -1736,30 +1682,6 @@ static int serial_omap_probe(struct platform_device *pdev)
 	base = devm_ioremap_resource(&pdev->dev, mem);
 	if (IS_ERR(base))
 		return PTR_ERR(base);
-
-	printk("DTR_gpio %d inverted %d\n", omap_up_info->DTR_gpio, omap_up_info->DTR_inverted);
-
-	if (gpio_is_valid(omap_up_info->DTR_gpio) &&
-	    omap_up_info->DTR_present) {
-		ret = devm_gpio_request(&pdev->dev, omap_up_info->DTR_gpio,
-				"omap-serial");
-		if (ret < 0)
-			return ret;
-		ret = gpio_direction_output(omap_up_info->DTR_gpio,
-					    omap_up_info->DTR_inverted);
-		if (ret < 0)
-			return ret;
-		up->DTR_gpio = omap_up_info->DTR_gpio;
-		up->DTR_inverted = omap_up_info->DTR_inverted;
-	} else if (omap_up_info->DTR_gpio == -EPROBE_DEFER) {
-		return -EPROBE_DEFER;
-	} else {
-		up->DTR_gpio = -EINVAL;
-	}
-
-	printk("DTR_gpio %d inverted %d\n", up->DTR_gpio, up->DTR_inverted);
-
-	up->DTR_active = 0;
 
 	up->dev = &pdev->dev;
 	up->port.dev = &pdev->dev;
