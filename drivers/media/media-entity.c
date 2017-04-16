@@ -399,8 +399,10 @@ __must_check int __media_pipeline_start(struct media_entity *entity,
 	struct media_link *link;
 	int ret;
 
+	printk("%s()\n", __func__);
 	if (!pipe->streaming_count++) {
 		ret = media_graph_walk_init(&pipe->graph, mdev);
+		printk("%s() 1\n", __func__, ret);
 		if (ret)
 			goto error_graph_walk_start;
 	}
@@ -415,6 +417,7 @@ __must_check int __media_pipeline_start(struct media_entity *entity,
 
 		if (WARN_ON(entity->pipe && entity->pipe != pipe)) {
 			ret = -EBUSY;
+			printk("%s() 2 %d\n", __func__, ret);
 			goto error;
 		}
 
@@ -456,6 +459,11 @@ __must_check int __media_pipeline_start(struct media_entity *entity,
 
 			ret = entity->ops->link_validate(link);
 			if (ret < 0 && ret != -ENOIOCTLCMD) {
+				printk("%s() 3 %d\n", __func__, ret);
+				printk("%s() link validation failed for '%s':%u -> '%s':%u, error %d\n",
+					__func__, link->source->entity->name,
+					link->source->index,
+					entity->name, link->sink->index, ret);
 				dev_dbg(entity->graph_obj.mdev->dev,
 					"link validation failed for '%s':%u -> '%s':%u, error %d\n",
 					link->source->entity->name,
@@ -470,6 +478,7 @@ __must_check int __media_pipeline_start(struct media_entity *entity,
 
 		if (!bitmap_full(active, entity->num_pads)) {
 			ret = -ENOLINK;
+			printk("%s() 4 %d\n", __func__, ret);
 			dev_dbg(entity->graph_obj.mdev->dev,
 				"'%s':%u must be connected by an enabled link\n",
 				entity->name,
@@ -505,6 +514,7 @@ error:
 	}
 
 error_graph_walk_start:
+	printk("%s() 5 %d\n", __func__, ret);
 	if (!--pipe->streaming_count)
 		media_graph_walk_cleanup(graph);
 
@@ -518,9 +528,11 @@ __must_check int media_pipeline_start(struct media_entity *entity,
 	struct media_device *mdev = entity->graph_obj.mdev;
 	int ret;
 
+	printk("%s()\n", __func__);
 	mutex_lock(&mdev->graph_mutex);
 	ret = __media_pipeline_start(entity, pipe);
 	mutex_unlock(&mdev->graph_mutex);
+	printk("%s() 1 %d\n", __func__, ret);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(media_pipeline_start);
