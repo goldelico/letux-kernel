@@ -502,6 +502,7 @@ int v4l2_subdev_link_validate_default(struct v4l2_subdev *sd,
 				      struct v4l2_subdev_format *source_fmt,
 				      struct v4l2_subdev_format *sink_fmt)
 {
+	printk("%s()\n", __func__);
 	/* The width, height and code must match. */
 	if (source_fmt->format.width != sink_fmt->format.width
 	    || source_fmt->format.height != sink_fmt->format.height
@@ -546,6 +547,7 @@ int v4l2_subdev_link_validate(struct media_link *link)
 	struct v4l2_subdev_format sink_fmt, source_fmt;
 	int rval;
 
+	printk("%s()\n", __func__);
 	rval = v4l2_subdev_link_validate_get_format(
 		link->source, &source_fmt);
 	if (rval < 0)

@@ -2388,17 +2388,24 @@ static bool ccdc_is_shiftable(u32 in, u32 out, unsigned int additional_shift)
 {
 	const struct isp_format_info *in_info, *out_info;
 
+	printk("%s() %lu %lu %u\n", __func__, in, out, additional_shift);
+
 	if (in == out)
 		return true;
+	printk("%s() 1\n", __func__);
 
 	in_info = omap3isp_video_format_info(in);
 	out_info = omap3isp_video_format_info(out);
+	printk("%s() 2 %d %d\n", __func__, in_info->flavor, out_info->flavor);
 
 	if ((in_info->flavor == 0) || (out_info->flavor == 0))
 		return false;
+	printk("%s() 3\n", __func__);
 
 	if (in_info->flavor != out_info->flavor)
 		return false;
+
+	printk("%s() 4\n", __func__);
 
 	return in_info->width - out_info->width + additional_shift <= 6;
 }
@@ -2411,10 +2418,13 @@ static int ccdc_link_validate(struct v4l2_subdev *sd,
 	struct isp_ccdc_device *ccdc = v4l2_get_subdevdata(sd);
 	unsigned long parallel_shift;
 
+	printk("%s()\n", __func__);
 	/* Check if the two ends match */
 	if (source_fmt->format.width != sink_fmt->format.width ||
-	    source_fmt->format.height != sink_fmt->format.height)
+	    source_fmt->format.height != sink_fmt->format.height) {
+	printk("%s() 1 %dx%d <-> %dx%d\n", __func__, source_fmt->format.width, source_fmt->format.height, sink_fmt->format.width, sink_fmt->format.height);
 		return -EPIPE;
+}
 
 	/* We've got a parallel sensor here. */
 	if (ccdc->input == CCDC_INPUT_PARALLEL) {
@@ -2429,9 +2439,10 @@ static int ccdc_link_validate(struct v4l2_subdev *sd,
 
 	/* Lane shifter may be used to drop bits on CCDC sink pad */
 	if (!ccdc_is_shiftable(source_fmt->format.code,
-			       sink_fmt->format.code, parallel_shift))
+			       sink_fmt->format.code, parallel_shift)) {
+		printk("%s() 2\n", __func__);
 		return -EPIPE;
-
+}
 	return 0;
 }
 
