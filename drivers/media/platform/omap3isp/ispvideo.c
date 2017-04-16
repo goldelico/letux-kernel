@@ -1093,6 +1093,7 @@ isp_video_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 	unsigned long flags;
 	int ret;
 
+	printk("%s()\n", __func__);
 	if (type != video->type)
 		return -EINVAL;
 
@@ -1105,6 +1106,7 @@ isp_video_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 	     ? to_isp_pipeline(&video->video.entity) : &video->pipe;
 
 	ret = media_entity_enum_init(&pipe->ent_enum, &video->isp->media_dev);
+	printk("%s() 1 %d\n", __func__, ret);
 	if (ret)
 		goto err_enum_init;
 
@@ -1113,6 +1115,7 @@ isp_video_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 	pipe->max_rate = pipe->l3_ick;
 
 	ret = media_pipeline_start(&video->video.entity, &pipe->pipe);
+	printk("%s() 2 %d\n", __func__, ret);
 	if (ret < 0)
 		goto err_pipeline_start;
 
@@ -1120,6 +1123,7 @@ isp_video_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 	 * the connected subdev.
 	 */
 	ret = isp_video_check_format(video, vfh);
+	printk("%s() 3 %d\n", __func__, ret);
 	if (ret < 0)
 		goto err_check_format;
 
@@ -1127,6 +1131,7 @@ isp_video_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 	video->bpl_value = vfh->format.fmt.pix.bytesperline;
 
 	ret = isp_video_get_graph_data(video, pipe);
+	printk("%s() 4 %d\n", __func__, ret);
 	if (ret < 0)
 		goto err_check_format;
 
@@ -1136,6 +1141,7 @@ isp_video_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 		state = ISP_PIPELINE_STREAM_INPUT | ISP_PIPELINE_IDLE_INPUT;
 
 	ret = isp_video_check_external_subdevs(video, pipe);
+	printk("%s() 5 %d\n", __func__, ret);
 	if (ret < 0)
 		goto err_check_format;
 
@@ -1161,10 +1167,12 @@ isp_video_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 	mutex_lock(&video->queue_lock);
 	ret = vb2_streamon(&vfh->queue, type);
 	mutex_unlock(&video->queue_lock);
+	printk("%s() 6 %d\n", __func__, ret);
 	if (ret < 0)
 		goto err_check_format;
 
 	mutex_unlock(&video->stream_lock);
+	printk("%s() done\n", __func__);
 
 	return 0;
 
@@ -1186,6 +1194,7 @@ err_pipeline_start:
 
 err_enum_init:
 	mutex_unlock(&video->stream_lock);
+	printk("%s() 7 %d\n", __func__, ret);
 
 	return ret;
 }
@@ -1200,6 +1209,7 @@ isp_video_streamoff(struct file *file, void *fh, enum v4l2_buf_type type)
 	unsigned int streaming;
 	unsigned long flags;
 
+	printk("%s()\n", __func__);
 	if (type != video->type)
 		return -EINVAL;
 
@@ -1305,6 +1315,7 @@ static int isp_video_open(struct file *file)
 	struct vb2_queue *queue;
 	int ret = 0;
 
+	printk("%s()\n", __func__);
 	handle = kzalloc(sizeof(*handle), GFP_KERNEL);
 	if (handle == NULL)
 		return -ENOMEM;
@@ -1363,6 +1374,7 @@ static int isp_video_release(struct file *file)
 	struct v4l2_fh *vfh = file->private_data;
 	struct isp_video_fh *handle = to_isp_video_fh(vfh);
 
+	printk("%s()\n", __func__);
 	/* Disable streaming and free the buffers queue resources. */
 	isp_video_streamoff(file, vfh, video->type);
 
@@ -1389,6 +1401,7 @@ static unsigned int isp_video_poll(struct file *file, poll_table *wait)
 	struct isp_video *video = video_drvdata(file);
 	int ret;
 
+	printk("%s()\n", __func__);
 	mutex_lock(&video->queue_lock);
 	ret = vb2_poll(&vfh->queue, file, wait);
 	mutex_unlock(&video->queue_lock);
@@ -1399,6 +1412,7 @@ static unsigned int isp_video_poll(struct file *file, poll_table *wait)
 static int isp_video_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	struct isp_video_fh *vfh = to_isp_video_fh(file->private_data);
+	printk("%s()\n", __func__);
 
 	return vb2_mmap(&vfh->queue, vma);
 }
@@ -1424,6 +1438,7 @@ int omap3isp_video_init(struct isp_video *video, const char *name)
 	const char *direction;
 	int ret;
 
+	printk("%s()\n", __func__);
 	switch (video->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
 		direction = "output";
@@ -1472,6 +1487,7 @@ int omap3isp_video_init(struct isp_video *video, const char *name)
 
 void omap3isp_video_cleanup(struct isp_video *video)
 {
+	printk("%s()\n", __func__);
 	media_entity_cleanup(&video->video.entity);
 	mutex_destroy(&video->queue_lock);
 	mutex_destroy(&video->stream_lock);
@@ -1482,6 +1498,7 @@ int omap3isp_video_register(struct isp_video *video, struct v4l2_device *vdev)
 {
 	int ret;
 
+	printk("%s()\n", __func__);
 	video->video.v4l2_dev = vdev;
 
 	ret = video_register_device(&video->video, VFL_TYPE_GRABBER, -1);
@@ -1495,6 +1512,7 @@ int omap3isp_video_register(struct isp_video *video, struct v4l2_device *vdev)
 
 void omap3isp_video_unregister(struct isp_video *video)
 {
+	printk("%s()\n", __func__);
 	if (video_is_registered(&video->video))
 		video_unregister_device(&video->video);
 }
