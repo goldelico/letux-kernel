@@ -1547,6 +1547,7 @@ static int resizer_link_validate(struct v4l2_subdev *sd,
 	struct isp_res_device *res = v4l2_get_subdevdata(sd);
 	struct isp_pipeline *pipe = to_isp_pipeline(&sd->entity);
 
+	printk("%s()\n", __func__);
 	omap3isp_resizer_max_rate(res, &pipe->max_rate);
 
 	return v4l2_subdev_link_validate_default(sd, link,
