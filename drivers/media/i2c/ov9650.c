@@ -671,7 +671,7 @@ static int ov965x_set_default_gamma_curve(struct ov965x *ov965x)
 	u8 addr = REG_GSP;
 	unsigned int i;
 
-printk("ov965x_set_default_gamma_curve\n");
+printk("%s()\n", __func__);
 
 	for (i = 0; i < ARRAY_SIZE(gamma_curve); i++) {
 		int ret = ov965x_write(ov965x->client, addr, gamma_curve[i]);
@@ -692,7 +692,7 @@ static int ov965x_set_color_matrix(struct ov965x *ov965x)
 	u8 addr = REG_MTX(1);
 	unsigned int i;
 
-printk("ov965x_set_color_matrix\n");
+printk("%s()\n", __func__);
 
 	for (i = 0; i < ARRAY_SIZE(mtx); i++) {
 		int ret = ov965x_write(ov965x->client, addr, mtx[i]);
@@ -712,6 +712,9 @@ static void ov965x_gpio_set(int gpio, int val)
 
 static void __ov965x_set_power(struct ov965x *ov965x, int on)
 {
+
+printk("%s(): %s\n", __func__, on?"on":"off");
+
 	if (on) {
 		/* Bring up the supplies */
 		int ret = regulator_enable(ov965x->vana);
@@ -746,8 +749,8 @@ static int ov965x_s_power(struct v4l2_subdev *sd, int on)
 	struct i2c_client *client = ov965x->client;
 	int ret = 0;
 
-	printk("%s: on: %d\n", __func__, on);
-	v4l2_dbg(1, debug, client, "%s: on: %d\n", __func__, on);
+	printk("%s: on: %s\n", __func__, on?"on":"off");
+	v4l2_dbg(1, debug, client, "%s: on: %s\n", __func__, on?"on":"off");
 
 	mutex_lock(&ov965x->lock);
 	if (ov965x->power == !on) {
@@ -764,7 +767,7 @@ static int ov965x_s_power(struct v4l2_subdev *sd, int on)
 
 	WARN_ON(ov965x->power < 0);
 	mutex_unlock(&ov965x->lock);
-	printk("%s: on => %d\n", __func__, ret);
+	printk("%s: on ret = %d\n", __func__, ret);
 	return ret;
 }
 
@@ -778,6 +781,8 @@ static void ov965x_update_exposure_ctrl(struct ov965x *ov965x)
 	unsigned long fint, trow;
 	int min, max, def;
 	u8 clkrc;
+
+	printk("%s()\n", __func__);
 
 	mutex_lock(&ov965x->lock);
 	if (WARN_ON(!ctrl || !ov965x->frame_size)) {
@@ -814,7 +819,7 @@ static int ov965x_set_banding_filter(struct ov965x *ov965x, int value)
 	int ret;
 	u8 reg;
 
-	printk("ov965x_set_banding_filter(%d)\n", value);
+	printk("%s(%d)\n", __func__, value);
 
 #if OV9655
 	// has slightly different register definitions
@@ -851,7 +856,7 @@ static int ov965x_set_white_balance(struct ov965x *ov965x, int awb)
 	int ret;
 	u8 reg;
 
-	printk("ov965x_set_white_balance(%d)\n", awb);
+	printk("%s(%d)\n", __func__, awb);
 
 #if OV9655
 	// has slightly different register definitions
@@ -891,7 +896,7 @@ static int ov965x_set_brightness(struct ov965x *ov965x, int val)
 	};
 	int i, ret = 0;
 
-	printk("ov965x_set_brightness(%d)\n", val);
+	printk("%s(%d)\n", __func__, val);
 
 #if OV9655
 	// has slightly different register definitions
@@ -915,7 +920,7 @@ static int ov965x_set_gain(struct ov965x *ov965x, int auto_gain)
 	int ret = 0;
 	u8 reg;
 
-	printk("ov965x_set_gain(%d)\n", auto_gain);
+	printk("%s(%d)\n", __func__, auto_gain);
 
 #if OV9655
 	// has slightly different register definitions
@@ -976,7 +981,7 @@ static int ov965x_set_sharpness(struct ov965x *ov965x, unsigned int value)
 	u8 com14, edge;
 	int ret;
 
-	printk("ov965x_set_sharpness(%u)\n", value);
+	printk("%s(%d)\n", __func__, value);
 
 #if OV9655
 	// has slightly different register definitions
@@ -1015,7 +1020,7 @@ static int ov965x_set_exposure(struct ov965x *ov965x, int exp)
 	int ret;
 	u8 reg;
 
-	printk("ov965x_set_exposure(%d)\n", exp);
+	printk("%s(%d)\n", __func__, exp);
 
 #if OV9655
 	// has slightly different register definitions
@@ -1064,6 +1069,8 @@ static int ov965x_set_flip(struct ov965x *ov965x)
 {
 	u8 mvfp = 0;
 
+	printk("%s()\n", __func__);
+
 	if (ov965x->ctrls.hflip->val)
 		mvfp |= MVFP_MIRROR;
 
@@ -1089,7 +1096,7 @@ static int ov965x_set_saturation(struct ov965x *ov965x, int val)
 	u8 addr = REG_MTX(1);
 	int i, ret = 0;
 
-	printk("ov965x_set_saturation(%d)\n", val);
+	printk("%s(%d)\n", __func__, val);
 
 #if OV9655
 	// has slightly different register definitions
@@ -1111,7 +1118,7 @@ static int ov965x_set_test_pattern(struct ov965x *ov965x, int value)
 	int ret;
 	u8 reg;
 
-	printk("ov965x_set_test_pattern(%d)\n", value);
+	printk("%s(%d)\n", __func__, value);
 
 #if OV9655
 	// has slightly different register definitions
@@ -1131,6 +1138,8 @@ static int __g_volatile_ctrl(struct ov965x *ov965x, struct v4l2_ctrl *ctrl)
 	unsigned int exposure, gain, m;
 	u8 reg0, reg1, reg2;
 	int ret;
+
+	printk("%s()\n", __func__);
 
 	if (!ov965x->power)
 		return 0;
@@ -1176,6 +1185,7 @@ static int ov965x_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
 	struct ov965x *ov965x = to_ov965x(sd);
 	int ret;
 
+	printk("%s(%s)\n", __func__, ctrl->name);
 	v4l2_dbg(1, debug, sd, "g_ctrl: %s\n", ctrl->name);
 
 	mutex_lock(&ov965x->lock);
@@ -1190,6 +1200,7 @@ static int ov965x_s_ctrl(struct v4l2_ctrl *ctrl)
 	struct ov965x *ov965x = to_ov965x(sd);
 	int ret = -EINVAL;
 
+	printk("%s(%s: %d)\n", __func__, ctrl->name, ctrl->val);
 	v4l2_dbg(1, debug, sd, "s_ctrl: %s, value: %d. power: %d\n",
 		 ctrl->name, ctrl->val, ov965x->power);
 
@@ -1346,6 +1357,7 @@ static int ov965x_initialize_controls(struct ov965x *ov965x)
  */
 static void ov965x_get_default_format(struct v4l2_mbus_framefmt *mf)
 {
+	printk("%s()\n", __func__);
 	mf->width = ov965x_framesizes[0].width;
 	mf->height = ov965x_framesizes[0].height;
 	mf->colorspace = ov965x_formats[0].colorspace;
@@ -1357,6 +1369,7 @@ static int ov965x_enum_mbus_code(struct v4l2_subdev *sd,
 				 struct v4l2_subdev_pad_config *cfg,
 				 struct v4l2_subdev_mbus_code_enum *code)
 {
+	printk("%s()\n", __func__);
 	if (code->index >= ARRAY_SIZE(ov965x_formats))
 		return -EINVAL;
 
@@ -1370,6 +1383,7 @@ static int ov965x_enum_frame_sizes(struct v4l2_subdev *sd,
 {
 	int i = ARRAY_SIZE(ov965x_formats);
 
+	printk("%s()\n", __func__);
 	if (fse->index >= ARRAY_SIZE(ov965x_framesizes))
 		return -EINVAL;
 
@@ -1392,6 +1406,8 @@ static int ov965x_g_frame_interval(struct v4l2_subdev *sd,
 {
 	struct ov965x *ov965x = to_ov965x(sd);
 
+	printk("%s()\n", __func__);
+
 	mutex_lock(&ov965x->lock);
 	fi->interval = ov965x->fiv->interval;
 	mutex_unlock(&ov965x->lock);
@@ -1407,6 +1423,7 @@ static int __ov965x_set_frame_interval(struct ov965x *ov965x,
 	u64 req_int, err, min_err = ~0ULL;
 	unsigned int i;
 
+	printk("%s()\n", __func__);
 
 	if (fi->interval.denominator == 0)
 		return -EINVAL;
@@ -1441,6 +1458,7 @@ static int ov965x_s_frame_interval(struct v4l2_subdev *sd,
 	struct ov965x *ov965x = to_ov965x(sd);
 	int ret;
 
+	printk("%s()\n", __func__);
 	v4l2_dbg(1, debug, sd, "Setting %d/%d frame interval\n",
 		 fi->interval.numerator, fi->interval.denominator);
 
@@ -1457,7 +1475,7 @@ static int ov965x_get_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_pad_config 
 	struct ov965x *ov965x = to_ov965x(sd);
 	struct v4l2_mbus_framefmt *mf;
 
-	printk("ov965x_get_fmt(fmt->which=%d)\n", fmt->which);
+	printk("%s(which=%d)\n", __func__, fmt->which);
 
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
 		mf = v4l2_subdev_get_try_format(sd, cfg, 0);
@@ -1480,7 +1498,7 @@ static void __ov965x_try_frame_size(struct v4l2_mbus_framefmt *mf,
 	int i = ARRAY_SIZE(ov965x_framesizes);
 	unsigned int min_err = UINT_MAX;
 
-	printk("__ov965x_try_frame_size()\n");
+	printk("%s()\n", __func__);
 
 	while (i--) {
 		int err = abs(fsize->width - mf->width)
@@ -1508,7 +1526,7 @@ static int ov965x_set_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_pad_config 
 	const struct ov965x_framesize *size = NULL;
 	int ret = 0;
 
-	printk("ov965x_set_fmt(fmt->which=%d)\n", fmt->which);
+	printk("%s(which:%d)\n", __func__, fmt->which);
 	__ov965x_try_frame_size(mf, &size);
 
 	while (--index)
@@ -1556,7 +1574,7 @@ static int ov965x_set_frame_size(struct ov965x *ov965x)
 {
 	int i, ret = 0;
 
-	printk("ov965x_set_frame_size()\n");
+	printk("%s()\n", __func__);
 
 #if OV9655
 	// has slightly different register definitions
@@ -1575,7 +1593,7 @@ static int __ov965x_set_params(struct ov965x *ov965x)
 	int ret = 0;
 	u8 reg;
 
-	printk("__ov965x_set_params()\n");
+	printk("%s()\n", __func__);
 
 	if (ov965x->apply_frame_fmt) {
 		reg = DEF_CLKRC + ov965x->fiv->clkrc_div;
@@ -1635,7 +1653,7 @@ static int ov965x_s_stream(struct v4l2_subdev *sd, int on)
 	struct ov965x_ctrls *ctrls = &ov965x->ctrls;
 	int ret = 0;
 
-	printk("ov965x_s_stream(%d)\n", on);
+	printk("%s(%s)\n", __func__, on?"on":"off");
 	v4l2_dbg(1, debug, client, "%s: on: %d\n", __func__, on);
 
 	mutex_lock(&ov965x->lock);
@@ -1655,6 +1673,7 @@ static int ov965x_s_stream(struct v4l2_subdev *sd, int on)
 			if (!ret)
 				ctrls->update = 0;
 		}
+// switches soft sleep mode off/on
 #if !OV9655
 		if (!ret)
 			ret = ov965x_write(client, REG_COM2,
@@ -1676,7 +1695,7 @@ static int ov965x_s_stream(struct v4l2_subdev *sd, int on)
 static int ov965x_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	struct v4l2_mbus_framefmt *mf = v4l2_subdev_get_try_format(sd, fh->pad, 0);
-printk("ov965x_open\n");
+	printk("%s()\n", __func__);
 	ov965x_get_default_format(mf);
 // new...
 // or redundant if core.s_power is used
@@ -1686,7 +1705,7 @@ printk("ov965x_open\n");
 // new...
 static int ov965x_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
-printk("ov965x_close\n");
+	printk("%s()\n", __func__);
 	return ov965x_s_power(sd, 0);
 }
 
