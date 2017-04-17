@@ -952,13 +952,15 @@
 
 		port {
 			ov9655: endpoint {
+				remote-endpoint = <&parallel_ep>;
+#if 0	// not used by camera driver - define &parellel_ep for isp
 				bus-width = <8>;
 				data-shift = <2>;	/* Lines 9:2 are used */
-				remote-endpoint = <&parallel_ep>;
 				hsync-active = <1>;	/* Active high */
 				vsync-active = <1>;	/* Active high */
 				data-active = <1>;	/* Active high */
 				pclk-sample = <1>;	/* Rising */
+#endif
 			};
 		};
 	};
@@ -1008,7 +1010,7 @@
 	bus-width = <8>;/* Used data lines */
 	data-shift = <2>; /* Lines 9:2 are used */
 	hsync-active = <0>; /* Active low */
-	vsync-active = <0>; /* Active low */
+	vsync-active = <1>; /* Active high */
 	data-active = <1>;/* Active high */
 	pclk-sample = <1>;/* Rising */
 };
