@@ -1,5 +1,5 @@
 #
-# Linux/arm 4.11.0-rc6 Kernel Configuration
+# Linux/arm 4.11.0-rc7 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_ARM_HAS_SG_CHAIN=y
@@ -2224,7 +2224,8 @@ CONFIG_SERIAL_OMAP_CONSOLE=y
 # CONFIG_SERIAL_FSL_LPUART is not set
 # CONFIG_SERIAL_CONEXANT_DIGICOLOR is not set
 # CONFIG_SERIAL_ST_ASC is not set
-# CONFIG_SERIAL_DEV_BUS is not set
+CONFIG_SERIAL_DEV_BUS=y
+CONFIG_SERIAL_DEV_CTRL_TTYPORT=y
 # CONFIG_TTY_PRINTK is not set
 # CONFIG_HVC_DCC is not set
 # CONFIG_IPMI_HANDLER is not set
