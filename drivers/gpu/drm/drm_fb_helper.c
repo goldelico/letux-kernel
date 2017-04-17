@@ -48,6 +48,9 @@ module_param_named(fbdev_emulation, drm_fbdev_emulation, bool, 0600);
 MODULE_PARM_DESC(fbdev_emulation,
 		 "Enable legacy fbdev emulation [default=true]");
 
+static uint drm_fbdev_rotation = DRM_ROTATE_0;
+module_param_named(fbdev_rotation, drm_fbdev_rotation, uint, 0644);
+
 static LIST_HEAD(kernel_fb_helper_list);
 static DEFINE_MUTEX(kernel_fb_helper_lock);
 
@@ -357,7 +360,7 @@ retry:
 			goto fail;
 		}
 
-		plane_state->rotation = DRM_ROTATE_0;
+		plane_state->rotation = drm_fbdev_rotation;
 
 		plane->old_fb = plane->fb;
 		plane_mask |= 1 << drm_plane_index(plane);
@@ -415,7 +418,7 @@ static int restore_fbdev_mode(struct drm_fb_helper *fb_helper)
 		if (plane->rotation_property)
 			drm_mode_plane_set_obj_prop(plane,
 						    plane->rotation_property,
-						    DRM_ROTATE_0);
+						    drm_fbdev_rotation);
 	}
 
 	for (i = 0; i < fb_helper->crtc_count; i++) {
@@ -1255,14 +1258,11 @@ int drm_fb_helper_check_var(struct fb_var_screeninfo *var,
 	if (var->pixclock != 0 || in_dbg_master())
 		return -EINVAL;
 
-	/*
-	 * Changes struct fb_var_screeninfo are currently not pushed back
-	 * to KMS, hence fail if different settings are requested.
-	 */
-	if (var->bits_per_pixel != fb->format->cpp[0] * 8 ||
+	/* Need to resize the fb object !!! */
+	if (var->bits_per_pixel > fb->format->cpp[0] * 8 ||
 	    var->xres > fb->width || var->yres > fb->height ||
 	    var->xres_virtual > fb->width || var->yres_virtual > fb->height) {
-		DRM_DEBUG("fb requested width/height/bpp can't fit in current fb "
+		DRM_DEBUG("fb userspace requested width/height/bpp is greater than current fb "
 			  "request %dx%d-%d (virtual %dx%d) > %dx%d-%d\n",
 			  var->xres, var->yres, var->bits_per_pixel,
 			  var->xres_virtual, var->yres_virtual,
@@ -1532,7 +1532,7 @@ static int drm_fb_helper_single_fb_probe(struct drm_fb_helper *fb_helper,
 	for (i = 0; i < fb_helper->crtc_count; i++) {
 		struct drm_display_mode *desired_mode;
 		struct drm_mode_set *mode_set;
-		int x, y, j;
+		int width, height, x, y, j;
 		/* in case of tile group, are we the last tile vert or horiz?
 		 * If no tile group you are always the last one both vertically
 		 * and horizontally
@@ -1545,6 +1545,14 @@ static int drm_fb_helper_single_fb_probe(struct drm_fb_helper *fb_helper,
 		if (!desired_mode)
 			continue;
 
+		if (drm_rotation_90_or_270(drm_fbdev_rotation)) {
+			height = desired_mode->hdisplay;
+			width = desired_mode->vdisplay;
+		} else {
+			width = desired_mode->hdisplay;
+			height = desired_mode->vdisplay;
+		}
+
 		crtc_count++;
 
 		x = fb_helper->crtc_info[i].x;
@@ -1553,8 +1561,8 @@ static int drm_fb_helper_single_fb_probe(struct drm_fb_helper *fb_helper,
 		if (gamma_size == 0)
 			gamma_size = fb_helper->crtc_info[i].mode_set.crtc->gamma_size;
 
-		sizes.surface_width  = max_t(u32, desired_mode->hdisplay + x, sizes.surface_width);
-		sizes.surface_height = max_t(u32, desired_mode->vdisplay + y, sizes.surface_height);
+		sizes.surface_width  = max_t(u32, width + x, sizes.surface_width);
+		sizes.surface_height = max_t(u32, height + y, sizes.surface_height);
 
 		for (j = 0; j < mode_set->num_connectors; j++) {
 			struct drm_connector *connector = mode_set->connectors[j];
@@ -1567,9 +1575,9 @@ static int drm_fb_helper_single_fb_probe(struct drm_fb_helper *fb_helper,
 		}
 
 		if (lasth)
-			sizes.fb_width  = min_t(u32, desired_mode->hdisplay + x, sizes.fb_width);
+			sizes.fb_width  = min_t(u32, width + x, sizes.fb_width);
 		if (lastv)
-			sizes.fb_height = min_t(u32, desired_mode->vdisplay + y, sizes.fb_height);
+			sizes.fb_height = min_t(u32, height + y, sizes.fb_height);
 	}
 
 	if (crtc_count == 0 || sizes.fb_width == -1 || sizes.fb_height == -1) {
@@ -2302,6 +2310,7 @@ EXPORT_SYMBOL(drm_fb_helper_initial_config);
 int drm_fb_helper_hotplug_event(struct drm_fb_helper *fb_helper)
 {
 	struct drm_device *dev = fb_helper->dev;
+	unsigned width, height;
 
 	if (!drm_fbdev_emulation)
 		return 0;
@@ -2314,7 +2323,14 @@ int drm_fb_helper_hotplug_event(struct drm_fb_helper *fb_helper)
 	}
 	DRM_DEBUG_KMS("\n");
 
-	drm_setup_crtcs(fb_helper, fb_helper->fb->width, fb_helper->fb->height);
+	if (drm_rotation_90_or_270(drm_fbdev_rotation)) {
+		width = fb_helper->fb->height;
+		height = fb_helper->fb->width;
+	} else {
+		width = fb_helper->fb->width;
+		height = fb_helper->fb->height;
+	}
+	drm_setup_crtcs(fb_helper, width, height);
 
 	mutex_unlock(&dev->mode_config.mutex);
 
