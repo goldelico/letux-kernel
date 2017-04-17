@@ -37,12 +37,14 @@ Example:
 
 		port {
 			ov9655: endpoint {
-				bus-width = <8>;
 				remote-endpoint = <&parallel_ep>;
+#if 0 // not used - the driver could change some registers to make the chip provide polarity etc. as specified here
+				bus-width = <8>;
 				hsync-active = <1>;
 				vsync-active = <1>;
 				data-active = <1>;	/* Active High */
 				pclk-sample = <1>;	/* Rising */
+#endif
 			};
 		};
 	};
