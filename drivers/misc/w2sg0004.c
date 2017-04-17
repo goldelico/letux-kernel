@@ -82,6 +82,7 @@ struct w2sg_data {
 	int		suspended;
 	spinlock_t	lock;
 	struct delayed_work work;
+	int		discard_count;
 };
 
 static struct w2sg_data *w2sg_by_minor[1];
@@ -146,14 +147,14 @@ static int w2sg_uart_receive_buf(struct serdev_device *serdev, const unsigned ch
 
 	if (!data->requested && !data->is_on) {
 		/* we have received characters while the w2sg should have been be turned off */
-		if(data->state == W2SG_IDLE)
-			pr_debug("w2sg00x4: chip should be powered off but did send %d unexpected chars!\n", count);
-
+		data->discard_count += count;
 		if ((data->state == W2SG_IDLE) &&
 		    time_after(jiffies,
 		    data->last_toggle + data->backoff)) {
 			/* Should be off by now, time to toggle again */
-			pr_debug("w2sg00x4 has sent data although it should be off!\n");
+			pr_debug("w2sg00x4 has sent %d characters data although it should be off!\n", data->discard_count);
+			data->discard_count = 0;
+
 			data->is_on = true;
 			data->backoff *= 2;
 //			spin_lock_irqsave(&data->lock, flags);
