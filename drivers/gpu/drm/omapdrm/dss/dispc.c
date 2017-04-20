@@ -4280,6 +4280,7 @@ static const struct dispc_features omap24xx_dispc_feats = {
 	.no_framedone_tv	=	true,
 	.set_max_preload	=	false,
 	.last_pixel_inc_missing	=	true,
+	.has_gamma_i734_bug	=	true,
 };
 
 static const struct dispc_features omap34xx_rev1_0_dispc_feats = {
@@ -4314,6 +4315,7 @@ static const struct dispc_features omap34xx_rev1_0_dispc_feats = {
 	.no_framedone_tv	=	true,
 	.set_max_preload	=	false,
 	.last_pixel_inc_missing	=	true,
+	.has_gamma_i734_bug	=	true,
 };
 
 static const struct dispc_features omap34xx_rev3_0_dispc_feats = {
@@ -4416,6 +4418,7 @@ static const struct dispc_features am43xx_dispc_feats = {
 	.no_framedone_tv	=	true,
 	.set_max_preload	=	false,
 	.last_pixel_inc_missing	=	true,
+	.has_gamma_i734_bug	=	true,
 };
 
 static const struct dispc_features omap44xx_dispc_feats = {
