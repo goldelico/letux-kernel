@@ -1,4 +1,5 @@
 #!/bin/dash
+# based on https://raw.githubusercontent.com/cdsteinkuehler/beaglebone-universal-io/master/config-pin
 
 # Some important directories for use later
 OCPDIR=/sys/devices/ocp.*
@@ -633,7 +634,7 @@ usage () {
 	    up/down resistor set to it's reset value, and the pin receive buffer
 	    enabled.  To setup gpio, the following <mode> strings are all valid:
 
-	        gpio : 
+	        gpio :
 	            Set pinmux to gpio, existing direction and value unchanged
 	        in | input:
 	            Set pinmux to gpio and set gpio direction to input
@@ -675,7 +676,7 @@ usage () {
 	    With no file, or when file is -, read standard input.
 	$NAME -h
 	    Display this help text
-	
+
 	EOF
 }
 
@@ -695,7 +696,7 @@ fixup_pin () {
 		exit 1
 		;;
 	# Missing separator, single digit pin number
-	[89][1-9])  
+	[89][1-9])
 		PIN=P${X%?}_0${X#?}
 		;;
 	# Missing separator, two digit pin number
@@ -703,7 +704,7 @@ fixup_pin () {
 		PIN=P${X%??}_${X#?}
 		;;
 	# Single digit pin number
-	[89][!0-9][1-9])	
+	[89][!0-9][1-9])
 		PIN=P${X%??}_0${X#??}
 		;;
 	# Two digit pin number
@@ -856,7 +857,7 @@ show_pin () {
 	INFO="$(listinfo $PIN)"
 	GPIOID="$(listgpio $PIN)"
 	PRUID="$(listpru $PIN)"
-	
+
 	echo Pin name: $PIN
 	echo Function if no cape loaded: $MODE
 	echo Function if cape loaded: $MODES
@@ -1001,7 +1002,7 @@ config_pin () {
 				fi
 				shift
 			done
-			
+
 			if [ $FOUND != 1 ] ; then
 				echo_err "Invalid mode: $MODE"
 				exit 1
@@ -1053,12 +1054,12 @@ readfile () {
 	esac
 
 	while read PIN MODE JUNK ; do
-		case $PIN in 
+		case $PIN in
 		""|\#*) continue ;;
 		*) config_pin $PIN $MODE ;;
 		esac
 	done <&3
-	
+
 }
 
 # main ()
@@ -1069,7 +1070,7 @@ CMDARG=""
 AUTOLOAD=0
 
 while getopts adfhl:q:i: opt ; do
-	case $opt in 
+	case $opt in
 	d)  [ "$DEBUG" = 1 ] && set -x
 		DEBUG=1
 		;;
