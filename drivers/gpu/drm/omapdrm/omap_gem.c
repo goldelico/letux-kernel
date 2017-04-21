@@ -935,7 +935,7 @@ void omap_gem_put_paddr(struct drm_gem_object *obj)
 
 	mutex_lock(&obj->dev->struct_mutex);
 
-	if (!WARN_ON(omap_obj->paddr_cnt == 0)) {
+	if (!(omap_obj->paddr_cnt == 0)) {
 		omap_obj->paddr_cnt--;
 		if (omap_obj->paddr_cnt == 0)
 			omap_gem_unpin(omap_obj);
