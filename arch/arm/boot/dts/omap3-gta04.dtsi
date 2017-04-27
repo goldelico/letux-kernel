@@ -162,6 +162,7 @@
 		compatible = "mmc-pwrseq-simple";
 		reset-gpios = <&tca6507 0 GPIO_ACTIVE_LOW>;	/* W2CBW003 reset through tca6507 */
 	};
+
 };
 
 &omap3_pmx_core {
