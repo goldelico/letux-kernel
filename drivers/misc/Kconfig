@@ -5,7 +5,7 @@
 menu "Misc devices"
 
 config SENSORS_LIS3LV02D
-	tristate
+	tristate "LIS3LV02D"
 	depends on INPUT
 	select INPUT_POLLDEV
 	default n
