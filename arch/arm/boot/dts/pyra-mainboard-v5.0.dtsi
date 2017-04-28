@@ -774,11 +774,12 @@
 		startup-delay-us = <70000>;
 		vin-supply = <&vsys_reg>;
 	};
+};
 
+&uart2 {
 	bluetooth: tiwi {
-		/* we can (mis)use the same driver */
+		/* we can (mis)use the w2cbw power control driver */
 		compatible = "wi2wi,w2cbw003-bluetooth";
-		uart = <&uart2>;
 		vdd-supply = <&bluetooth_power>;
 	};
 };
