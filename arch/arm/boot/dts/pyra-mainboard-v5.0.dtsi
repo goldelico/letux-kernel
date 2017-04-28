@@ -298,7 +298,7 @@
 		compatible = "ti,tca8418";
 		reg = <0x34>;
 		interrupt-parent = <&gpio6>;
-		interrupts = <17 IRQ_TYPE_EDGE_RISING>;	/* gpio6_177 low-to-high edge */
+		interrupts = <17 IRQ_TYPE_EDGE_FALLING>;	/* gpio6_177 high-to-low edge */
 		keypad,num-rows = <8>;
 		keypad,num-columns = <10>;
 		linux,keymap = <
@@ -774,11 +774,12 @@
 		startup-delay-us = <70000>;
 		vin-supply = <&vsys_reg>;
 	};
+};
 
+&uart2 {
 	bluetooth: tiwi {
-		/* we can (mis)use the same driver */
+		/* we can (mis)use the w2cbw power control driver */
 		compatible = "wi2wi,w2cbw003-bluetooth";
-		uart = <&uart2>;
 		vdd-supply = <&bluetooth_power>;
 	};
 };
