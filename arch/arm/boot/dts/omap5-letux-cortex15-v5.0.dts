@@ -248,11 +248,8 @@
 			OMAP5_IOPAD(0x01b0, PIN_INPUT_PULLUP | MUX_MODE4) /* sdio4_data1 */
 			OMAP5_IOPAD(0x01b2, PIN_INPUT_PULLUP | MUX_MODE4) /* sdio4_data2 */
 			OMAP5_IOPAD(0x01b6, PIN_INPUT_PULLUP | MUX_MODE4) /* sdio4_data3 */
-// the two following pins make pinmux problems
-// kernel says they are already requested. but by whom?
-// There is no duplicate reference in the device tree.
-//			OMAP5_IOPAD(0x00aa, PIN_INPUT_PULLUP | MUX_MODE6) /* gpio3_77 = cd */
-//			OMAP5_IOPAD(0x00ae, PIN_INPUT_PULLUP | MUX_MODE6) /* gpio3_79 = wp */
+			OMAP5_IOPAD(0x00aa, PIN_INPUT_PULLUP | MUX_MODE6) /* gpio3_77 = cd */
+			OMAP5_IOPAD(0x00ae, PIN_INPUT_PULLUP | MUX_MODE6) /* gpio3_79 = wp */
 		>;
 	};
 
@@ -429,13 +426,22 @@
 #endif
 };
 
+#define MMCMUX 1
+
 &mmc2 { /* eMMC / uSD-card */
 	bus-width = <8>;
-	/* ti,non-removable; */
+	/delete-property/ ti,non-removable;
+	broken-cd;	/* must poll for cards */
+
+	/* more possible settings: http://lxr.free-electrons.com/source/Documentation/devicetree/bindings/mmc/mmc.txt
+	max-frequency = <50000000>;
+	mmc-hs400-1_8v;
+	*/
 
 	#address-cells = <1>;
 	#size-cells = <0>;
 
+#if MMCMUX == 0
 	mmcmux: txs02612@0 {
 		reg = <0>;
 
@@ -457,9 +463,20 @@
 			reg = <1>;
 			bus-width = <4>;
 		};
+	};
+#endif
+};
 
+#if MMCMUX == 1
+/* as long as the mmc slave driver does not work */
+
+/ {
+	mmcmux: txs02612 {
+		compatible = "ti,txs02612";
+		select-gpio = <&gpio2 0 0>;	/* gpio2_32 soft-select */
 	};
 };
+#endif
 
 &mmc3 { /* WiFi-SDIO */
 	/* has been predefined for a wl1271 in ompa5-common.dtsi */
@@ -472,11 +489,7 @@
 	pinctrl-0 = <&mmc4_pins>;
 	bus-width = <4>;
 	cd-gpios = <&gpio3 13 GPIO_ACTIVE_LOW>;	/* gpio3_77 */
-	wp-gpios = <&gpio3 15 GPIO_ACTIVE_LOW>;	/* gpio3_79 */
-	/* if your card has no CD/WP then define
-	broken-cd;
-	disable-wp;
-	*/
+	wp-gpios = <&gpio3 15 GPIO_ACTIVE_HIGH>;	/* gpio3_79 */
 };
 
 &mcspi1 {
