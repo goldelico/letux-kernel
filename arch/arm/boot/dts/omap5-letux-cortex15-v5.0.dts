@@ -489,11 +489,7 @@
 	pinctrl-0 = <&mmc4_pins>;
 	bus-width = <4>;
 	cd-gpios = <&gpio3 13 GPIO_ACTIVE_LOW>;	/* gpio3_77 */
-	wp-gpios = <&gpio3 15 GPIO_ACTIVE_LOW>;	/* gpio3_79 */
-	/* if your card has no CD/WP then define
-	broken-cd;
-	disable-wp;
-	*/
+	wp-gpios = <&gpio3 15 GPIO_ACTIVE_HIGH>;	/* gpio3_79 */
 };
 
 &mcspi1 {
