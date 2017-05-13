@@ -1,5 +1,4 @@
 /*
- * linux/drivers/i2c/chips/twl4030-power.c
  *
  * Handle TWL4030 Power initialization
  *
@@ -68,13 +67,6 @@ static u8 twl4030_start_script_address = 0x2b;
 #define R_CFG_P1_TRANSITION	PHY_TO_OFF_PM_MASTER(0x36)
 #define R_CFG_P2_TRANSITION	PHY_TO_OFF_PM_MASTER(0x37)
 #define R_CFG_P3_TRANSITION	PHY_TO_OFF_PM_MASTER(0x38)
-
-#define	STARTON_PWON	BIT(0)	/* power-on button */
-#define	STARTON_CHG	BIT(1)	/* charger inserted */
-#define	STARTON_USB	BIT(2)	/* USB plug-in */
-#define	STARTON_RTC	BIT(3)	/* RTC alarm */
-#define	STARTON_VBAT	BIT(4)	/* Battery plugged in */
-#define	STARTON_VBUS	BIT(5)	/* voltage detection */
 
 #define END_OF_SCRIPT		0x3f
 
@@ -309,7 +301,7 @@ twl4030_config_wakeup12_sequence(const struct twl4030_power_data *pdata,
 				      R_CFG_P1_TRANSITION);
 		if (err)
 			goto out;
-		data &= ~(STARTON_CHG|STARTON_VBUS|STARTON_VBAT|STARTON_USB);
+		data &= ~STARTON_CHG;
 		err = twl_i2c_write_u8(TWL_MODULE_PM_MASTER, data,
 				       R_CFG_P1_TRANSITION);
 		if (err)
@@ -510,9 +502,7 @@ static int load_twl4030_script(const struct twl4030_power_data *pdata,
 	}
 	if (tscript->flags & TWL4030_SLEEP_SCRIPT) {
 		if (!order)
-			pr_warning("TWL4030: Bad order of scripts (sleep "\
-					"script before wakeup) Leads to boot"\
-					"failure on some boards\n");
+			pr_warn("TWL4030: Bad order of scripts (sleep script before wakeup) Leads to boot failure on some boards\n");
 		err = twl4030_config_sleep_sequence(address);
 	}
 out:
@@ -709,6 +699,7 @@ static struct twl4030_ins omap3_wrst_seq[] = {
 	TWL_RESOURCE_RESET(RES_MAIN_REF),
 	TWL_RESOURCE_GROUP_RESET(RES_GRP_ALL, RES_TYPE_R0, RES_TYPE2_R2),
 	TWL_RESOURCE_RESET(RES_VUSB_3V1),
+	TWL_RESOURCE_RESET(RES_VMMC1),
 	TWL_RESOURCE_GROUP_RESET(RES_GRP_ALL, RES_TYPE_R0, RES_TYPE2_R1),
 	TWL_RESOURCE_GROUP_RESET(RES_GRP_RC, RES_TYPE_ALL, RES_TYPE2_R0),
 	TWL_RESOURCE_ON(RES_RESET),
@@ -937,8 +928,7 @@ static int twl4030_power_probe(struct platform_device *pdev)
 		err = twl_i2c_read_u8(TWL_MODULE_PM_MASTER, &val,
 				      TWL4030_PM_MASTER_CFG_P123_TRANSITION);
 		if (err) {
-			pr_warning("TWL4030 Unable to read registers\n");
-
+			pr_warn("TWL4030 Unable to read registers\n");
 		} else if (!(val & SEQ_OFFSYNC)) {
 			val |= SEQ_OFFSYNC;
 			err = twl_i2c_write_u8(TWL_MODULE_PM_MASTER, val,
