@@ -170,7 +170,6 @@ static bool twl4030_audio_has_codec(struct twl4030_audio_data *pdata,
 	if (node) {
 		of_node_put(node);
 		return true;
-	}
 
 	return false;
 }
