@@ -416,6 +416,9 @@
  * the effect that the cd and wp gipos are not really useable.
  * Hence we should neither configure different pinmux nor make
  * use of the gpios unless they are fixed in later versions.
+ *
+ * And for card insertion/removal to be still detected, we
+ * need broken-cd.
  */
 
 #ifdef NEVER_ENABLE
@@ -423,6 +426,8 @@
 	pinctrl-0 = <&mmc1_pins>;
 	cd-gpios = <&gpio8 4 0>;	/* gpio8_228 */
 	wp-gpios = <&gpio8 5 0>;	/* gpio8_229 */
+#else
+	broken-cd;	/* must poll for cards */
 #endif
 };
 
@@ -446,7 +451,6 @@
 		reg = <0>;
 
 		compatible = "ti,txs02612";
-		mmc = <&mmc2>;
 		select-gpio = <&gpio2 0 0>;	/* gpio2_32 soft-select */
 
 		#address-cells = <1>;
@@ -468,7 +472,7 @@
 };
 
 #if MMCMUX == 1
-/* as long as the mmc slave driver does not work */
+/* as long as the mmc slave driver does not exist/work */
 
 / {
 	mmcmux: txs02612 {
