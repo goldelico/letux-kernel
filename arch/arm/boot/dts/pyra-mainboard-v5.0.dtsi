@@ -71,9 +71,7 @@
 	};
 
 	modem_en: modem { /* control modem power through rfkill */
-		compatible = "gemalto,phs8-power";
-		gpio-controller;
-		#gpio-cells = <2>;
+		compatible = "gemalto,pls8-power";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pyra_modem_pins>;
 		NIMP-usb-port = <&hsusb2_phy>; 	/* USB phy where we can check the modem status */
