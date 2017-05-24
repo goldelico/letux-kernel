@@ -71,9 +71,7 @@
 	};
 
 	modem_en: modem { /* control modem power through rfkill */
-		compatible = "gemalto,phs8-power";
-		gpio-controller;
-		#gpio-cells = <2>;
+		compatible = "gemalto,pls8-power";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pyra_modem_pins>;
 		NIMP-usb-port = <&hsusb2_phy>; 	/* USB phy where we can check the modem status */
@@ -198,8 +196,6 @@
 
 	pyra_other_pins: pinmux_other_gpio_pins {
 		pinctrl-single,pins = <
-			OMAP5_IOPAD(0x0aa, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0A8:[31:16] gpio3_77 - mmc3-cd */
-			OMAP5_IOPAD(0x0ae, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0AC:[31:16] gpio3_79 - mmc3-wp */
 /* gpio 3_84-87 = BT HCI uart2 */
 /* gpio 4_97-100 = GSM PCM mcbsp3 */
 /* gpio 4_101-104 = BT PCM mcbsp1 */
