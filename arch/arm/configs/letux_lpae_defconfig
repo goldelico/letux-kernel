@@ -1,5 +1,5 @@
 #
-# Linux/arm 4.11.2 Kernel Configuration
+# Linux/arm 4.11.3 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_ARM_HAS_SG_CHAIN=y
@@ -1574,7 +1574,7 @@ CONFIG_SENSORS_TSL2550=m
 # CONFIG_TI_DAC7512 is not set
 # CONFIG_USB_SWITCH_FSA9480 is not set
 # CONFIG_LATTICE_ECP3_CONFIG is not set
-CONFIG_TXS02612=m
+CONFIG_TXS02612=y
 # CONFIG_SRAM is not set
 CONFIG_WWAN_ON_OFF=m
 # CONFIG_C2PORT is not set
