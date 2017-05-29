@@ -1,0 +1,20 @@
+Wi2Wi GPS module connected through UART
+
+Should be a subnode of the SoC UART it is connected to (serdev).
+
+Required properties:
+- compatible:	wi2wi,w2sg0004 or wi2wi,w2sg0084
+- on-off-gpio:	the GPIO that controls the module's on-off toggle input
+
+Optional properties:
+- lna-suppy:	an (optional) LNA regulator that is enabled together with the GPS receiver
+
+Example:
+
+&uart2 {
+	gps: w2sg0004 {
+		compatible = "wi2wi,w2sg0004";
+		lna-supply = <&vsim>;   /* LNA regulator */
+		on-off-gpios = <&gpio5 17 GPIO_ACTIVE_HIGH>;    /* GPIO_145: trigger for turning on/off w2sg0004 */
+        };
+};
