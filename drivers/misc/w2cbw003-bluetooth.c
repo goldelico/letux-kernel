@@ -21,10 +21,13 @@
 struct w2cbw_data {
 	struct		regulator *vdd_regulator;
 	struct		serdev_device *uart;	/* the uart connected to the chip */
+#if CONFIG_W2CBW003_HCI
+#else
 	struct		tty_driver *tty_drv;	/* this is the user space tty */
 	struct		device *dev;	/* returned by tty_port_register_device() */
 	struct		tty_port port;
 	int		open_count;	/* how often we were opened */
+#endif
 };
 
 static struct w2cbw_data *w2cbw_by_minor[1];
@@ -50,6 +53,9 @@ static int w2cbw_uart_receive_buf(struct serdev_device *serdev, const unsigned c
 
 //	pr_debug("%s() characters\n", __func__, count);
 
+#if CONFIG_W2CBW003_HCI
+	// pass to hci port
+#else
 	if (data->open_count > 0) {
 		int n;
 
@@ -63,6 +69,7 @@ static int w2cbw_uart_receive_buf(struct serdev_device *serdev, const unsigned c
 
 	/* nobody is listenig - ignore incoming data */
 	return count;
+#endif
 }
 
 static struct serdev_device_ops serdev_ops = {
@@ -71,6 +78,8 @@ static struct serdev_device_ops serdev_ops = {
 	.write_wakeup = w2cbw_uart_wakeup,
 #endif
 };
+
+#if !CONFIG_W2CBW003_HCI
 
 static struct w2cbw_data *w2cbw_get_by_minor(unsigned int minor)
 {
@@ -220,6 +229,7 @@ static const struct tty_operations w2cbw_serial_ops = {
 
 static const struct tty_port_operations w2cbw_port_ops = {
 };
+#endif
 
 static int w2cbw_probe(struct serdev_device *serdev)
 {
@@ -268,6 +278,14 @@ static int w2cbw_probe(struct serdev_device *serdev)
 
 	serdev_device_set_baudrate(data->uart, 9600);
 	serdev_device_set_flow_control(data->uart, false);
+
+#if CONFIG_W2CBW003_HCI
+
+	hci_uart_register_device();
+
+#else // CONFIG_W2CBW003_HCI
+	// register a ttyBT0 device
+
 #if 1
 	pr_debug("w2cbw alloc_tty_driver\n");
 #endif
@@ -328,6 +346,8 @@ static int w2cbw_probe(struct serdev_device *serdev)
 #endif
 //	data->port.tty->driver_data = data;	/* make us known in tty_struct */
 
+#endif // CONFIG_W2CBW003_HCI
+
 	/* keep off until user space requests the device */
 	if (regulator_is_enabled(data->vdd_regulator))
 		w2cbw_set_power(data, false);
@@ -356,11 +376,13 @@ static void w2cbw_remove(struct serdev_device *serdev)
 	/* what is the right sequence to avoid problems? */
 	serdev_device_close(data->uart);
 
+#if !CONFIG_W2CBW003_HCI
 	// should get minor from searching for data == w2cbw_by_minor[minor]
 	minor = 0;
 	tty_unregister_device(data->tty_drv, minor);
 
 	tty_unregister_driver(data->tty_drv);
+#endif
 }
 
 // suspend/resume? handle by regulator
