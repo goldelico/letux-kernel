@@ -474,7 +474,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart1_pins>;
 
-	w2cbw003: bluetooth {
+	bluetooth: bluetooth {
 		compatible = "wi2wi,w2cbw003-bluetooth";
 		vdd-supply = <&vaux4>;
 	};
@@ -484,7 +484,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart2_pins>;
 
-	w2sg0004: gps {
+	gps: gps {
 		compatible = "wi2wi,w2sg0004";
 		lna-supply = <&vsim>;   /* LNA regulator */
 		enable-gpios = <&gpio5 17 GPIO_ACTIVE_HIGH>;    /* GPIO_145: trigger for turning on/off w2sg0004 */
@@ -495,7 +495,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart3_pins>;
 
-	trs3386: rs232 {
+	rs232: rs232 {
 		status = "disabled";
 		compatible = "ti,trs3386-mctrl";
 		gpios = <0>,		/* ... */
