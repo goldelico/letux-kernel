@@ -998,7 +998,7 @@ static int twl4030_bci_probe(struct platform_device *pdev)
 		}
 	}
 
-	bci->channel_vac = iio_channel_get(&pdev->dev, "vac");
+	bci->channel_vac = devm_iio_channel_get(&pdev->dev, "vac");
 	if (IS_ERR(bci->channel_vac)) {
 		if (PTR_ERR(bci->channel_vac) == -EPROBE_DEFER)
 			return -EPROBE_DEFER;	/* iio not ready */
@@ -1051,7 +1051,7 @@ static int twl4030_bci_probe(struct platform_device *pdev)
 			       TWL4030_INTERRUPTS_BCIIMR1A);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "failed to unmask interrupts: %d\n", ret);
-		goto fail;
+		return ret;
 	}
 
 	reg = ~(u32)(TWL4030_VBATOV | TWL4030_VBUSOV | TWL4030_ACCHGOV);
@@ -1080,10 +1080,6 @@ static int twl4030_bci_probe(struct platform_device *pdev)
 		twl4030_charger_enable_backup(0, 0);
 
 	return 0;
-fail:
-	iio_channel_release(bci->channel_vac);
-
-	return ret;
 }
 
 static int twl4030_bci_remove(struct platform_device *pdev)
@@ -1093,8 +1089,6 @@ static int twl4030_bci_remove(struct platform_device *pdev)
 	twl4030_charger_enable_ac(bci, false);
 	twl4030_charger_enable_usb(bci, false);
 	twl4030_charger_enable_backup(0, 0);
-
-	iio_channel_release(bci->channel_vac);
 
 	device_remove_file(&bci->usb->dev, &dev_attr_mode);
 	device_remove_file(&bci->ac->dev, &dev_attr_mode);
