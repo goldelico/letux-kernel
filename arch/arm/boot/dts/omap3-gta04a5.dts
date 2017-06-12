@@ -105,14 +105,6 @@
  * http://lxr.free-electrons.com/source/Documentation/devicetree/bindings/net/wireless/ti,wlcore.txt
  */
 
-&uart1 {
-	bluetooth {
-		compatible = "ti,wl1837-bt";
-		shutdown-gpios = <&gpio5 9 GPIO_ACTIVE_HIGH>;	/* GPIO_137 */
-		max-speed = <300000>;
-	};
-};
-
 &wifi_pwrseq {
 	/delete-property/ reset-gpios;
 };
