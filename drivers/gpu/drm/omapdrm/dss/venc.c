@@ -263,13 +263,6 @@ static const struct venc_config venc_config_pal_bdghi = {
 	.fid_ext_start_y__fid_ext_offset_y	= 0x01380005,
 };
 
-enum venc_videomode
-{
-	VENC_MODE_UNKNOWN,
-	VENC_MODE_PAL,
-	VENC_MODE_NTSC,
-};
-
 static const struct videomode omap_dss_pal_vm = {
 	.hactive	= 720,
 	.vactive	= 574,
@@ -303,24 +296,6 @@ static const struct videomode omap_dss_ntsc_vm = {
 			  DISPLAY_FLAGS_PIXDATA_POSEDGE |
 			  DISPLAY_FLAGS_SYNC_NEGEDGE,
 };
-
-static enum venc_videomode venc_get_videomode(const struct videomode *vm)
-{
-	if (!(vm->flags & DISPLAY_FLAGS_INTERLACED))
-		return VENC_MODE_UNKNOWN;
-
-	if (vm->pixelclock == omap_dss_pal_vm.pixelclock &&
-	    vm->hactive == omap_dss_pal_vm.hactive &&
-	    vm->vactive == omap_dss_pal_vm.vactive)
-		return VENC_MODE_PAL;
-
-	if (vm->pixelclock == omap_dss_ntsc_vm.pixelclock &&
-	    vm->hactive == omap_dss_ntsc_vm.hactive &&
-	    vm->vactive == omap_dss_ntsc_vm.vactive)
-		return VENC_MODE_NTSC;
-
-	return VENC_MODE_UNKNOWN;
-}
 
 static struct {
 	struct platform_device *pdev;
@@ -447,14 +422,14 @@ static void venc_runtime_put(void)
 
 static const struct venc_config *venc_timings_to_config(struct videomode *vm)
 {
-	switch (venc_get_videomode(vm)) {
-	default:
-		WARN_ON_ONCE(1);
-	case VENC_MODE_PAL:
+	if (memcmp(&omap_dss_pal_vm, vm, sizeof(*vm)) == 0)
 		return &venc_config_pal_trm;
-	case VENC_MODE_NTSC:
+
+	if (memcmp(&omap_dss_ntsc_vm, vm, sizeof(*vm)) == 0)
 		return &venc_config_ntsc_trm;
-	}
+
+	BUG();
+	return NULL;
 }
 
 static int venc_power_on(struct omap_dss_device *dssdev)
@@ -565,28 +540,15 @@ static void venc_display_disable(struct omap_dss_device *dssdev)
 static void venc_set_timings(struct omap_dss_device *dssdev,
 			     struct videomode *vm)
 {
-	struct videomode actual_vm;
-
 	DSSDBG("venc_set_timings\n");
 
 	mutex_lock(&venc.venc_lock);
 
-	switch (venc_get_videomode(vm)) {
-	default:
-		WARN_ON_ONCE(1);
-	case VENC_MODE_PAL:
-		actual_vm = omap_dss_pal_vm;
-		break;
-	case VENC_MODE_NTSC:
-		actual_vm = omap_dss_ntsc_vm;
-		break;
-	}
-
 	/* Reset WSS data when the TV standard changes. */
-	if (memcmp(&venc.vm, &actual_vm, sizeof(actual_vm)))
+	if (memcmp(&venc.vm, vm, sizeof(*vm)))
 		venc.wss_data = 0;
 
-	venc.vm = actual_vm;
+	venc.vm = *vm;
 
 	dispc_set_tv_pclk(13500000);
 
@@ -598,13 +560,13 @@ static int venc_check_timings(struct omap_dss_device *dssdev,
 {
 	DSSDBG("venc_check_timings\n");
 
-	switch (venc_get_videomode(vm)) {
-	case VENC_MODE_PAL:
-	case VENC_MODE_NTSC:
+	if (memcmp(&omap_dss_pal_vm, vm, sizeof(*vm)) == 0)
 		return 0;
-	default:
-		return -EINVAL;
-	}
+
+	if (memcmp(&omap_dss_ntsc_vm, vm, sizeof(*vm)) == 0)
+		return 0;
+
+	return -EINVAL;
 }
 
 static void venc_get_timings(struct omap_dss_device *dssdev,
