@@ -6,6 +6,8 @@
  * published by the Free Software Foundation.
  */
 
+// #define USE_TI_ST
+
 #include "omap3-gta04.dtsi"
 
 / {
@@ -45,6 +47,7 @@
 		enable-active-high;
 	};
 
+#if !defined(USE_TI_ST)
 	bluetooth_en: bt_en_regulator {
 		compatible = "regulator-fixed";
 		pinctrl-names = "default";
@@ -58,6 +61,7 @@
 		startup-delay-us = <70000>;
 		enable-active-high;
 	};
+#endif
 
 };
 
@@ -134,7 +138,12 @@
 };
 
 &bluetooth {
+#if defined(USE_TI_ST)
+	compatible = "ti,wl1837-st";
+	enable-gpios = <&gpio5 9 GPIO_ACTIVE_HIGH>;	/* GPIO_137 */
+#else
 	vdd-supply = <&bluetooth_en>;	/* use same driver as A4 board, but different enable */
+#endif
 };
 
 &i2c2 {
