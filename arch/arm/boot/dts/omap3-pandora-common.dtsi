@@ -287,7 +287,6 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <
 		&hsusb2_pins
-		&control_pins
 	>;
 
 	mmc1_pins: pinmux_mmc1_pins {
