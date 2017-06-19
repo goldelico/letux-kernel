@@ -1124,6 +1124,9 @@ __setup_irq(unsigned int irq, struct irq_desc *desc, struct irqaction *new)
 	int ret, nested, shared = 0;
 	cpumask_var_t mask;
 
+if(strcmp(new->name, "TS3A227E") == 0)
+	printk("__setup_irq() 1\n");
+
 	if (!desc)
 		return -EINVAL;
 
@@ -1131,6 +1134,9 @@ __setup_irq(unsigned int irq, struct irq_desc *desc, struct irqaction *new)
 		return -ENOSYS;
 	if (!try_module_get(desc->owner))
 		return -ENODEV;
+
+if(strcmp(new->name, "TS3A227E") == 0)
+	printk("__setup_irq() 2\n");
 
 	new->irq = irq;
 
@@ -1165,6 +1171,9 @@ __setup_irq(unsigned int irq, struct irq_desc *desc, struct irqaction *new)
 		}
 	}
 
+if(strcmp(new->name, "TS3A227E") == 0)
+	printk("__setup_irq() 3\n");
+
 	/*
 	 * Create a handler thread when a thread function is supplied
 	 * and the interrupt does not nest into another interrupt
@@ -1180,6 +1189,9 @@ __setup_irq(unsigned int irq, struct irq_desc *desc, struct irqaction *new)
 				goto out_thread;
 		}
 	}
+
+if(strcmp(new->name, "TS3A227E") == 0)
+	printk("__setup_irq() 4\n");
 
 	if (!alloc_cpumask_var(&mask, GFP_KERNEL)) {
 		ret = -ENOMEM;
@@ -1201,6 +1213,9 @@ __setup_irq(unsigned int irq, struct irq_desc *desc, struct irqaction *new)
 	/*
 	 * The following block of code has to be executed atomically
 	 */
+if(strcmp(new->name, "TS3A227E") == 0)
+	printk("__setup_irq() 5\n");
+
 	raw_spin_lock_irqsave(&desc->lock, flags);
 	old_ptr = &desc->action;
 	old = *old_ptr;
@@ -1369,10 +1384,16 @@ __setup_irq(unsigned int irq, struct irq_desc *desc, struct irqaction *new)
 	 */
 	if (shared && (desc->istate & IRQS_SPURIOUS_DISABLED)) {
 		desc->istate &= ~IRQS_SPURIOUS_DISABLED;
+if(strcmp(new->name, "TS3A227E") == 0)
+	printk("__setup_irq() __enable_irq\n");
+
 		__enable_irq(desc);
 	}
 
 	raw_spin_unlock_irqrestore(&desc->lock, flags);
+
+if(strcmp(new->name, "TS3A227E") == 0)
+	printk("__setup_irq() 6\n");
 
 	/*
 	 * Strictly no need to wake it up, but hung_task complains
@@ -1388,9 +1409,15 @@ __setup_irq(unsigned int irq, struct irq_desc *desc, struct irqaction *new)
 	register_handler_proc(irq, new);
 	free_cpumask_var(mask);
 
+if(strcmp(new->name, "TS3A227E") == 0)
+	printk("__setup_irq() 8\n");
+
 	return 0;
 
 mismatch:
+if(strcmp(new->name, "TS3A227E") == 0)
+	printk("__setup_irq() 9\n");
+
 	if (!(new->flags & IRQF_PROBE_SHARED)) {
 		pr_err("Flags mismatch irq %d. %08x (%s) vs. %08x (%s)\n",
 		       irq, new->flags, new->name, old->flags, old->name);
@@ -1405,6 +1432,9 @@ out_mask:
 	free_cpumask_var(mask);
 
 out_thread:
+if(strcmp(new->name, "TS3A227E") == 0)
+	printk("__setup_irq() 10\n");
+
 	if (new->thread) {
 		struct task_struct *t = new->thread;
 
@@ -1421,6 +1451,9 @@ out_thread:
 	}
 out_mput:
 	module_put(desc->owner);
+if(strcmp(new->name, "TS3A227E") == 0)
+	printk("__setup_irq() 11\n");
+
 	return ret;
 }
 
@@ -1652,8 +1685,15 @@ int request_threaded_irq(unsigned int irq, irq_handler_t handler,
 	struct irq_desc *desc;
 	int retval;
 
+if(strcmp(devname, "TS3A227E") == 0)
+	printk("request_threaded_irq(%d, %lx, %s)\n", irq, irqflags, devname);
+
 	if (irq == IRQ_NOTCONNECTED)
+{
+if(strcmp(devname, "TS3A227E") == 0)
+	printk("-ENOTCONN\n");
 		return -ENOTCONN;
+}
 
 	/*
 	 * Sanity-check: shared interrupts must pass in a real dev-ID,
@@ -1667,19 +1707,34 @@ int request_threaded_irq(unsigned int irq, irq_handler_t handler,
 	if (((irqflags & IRQF_SHARED) && !dev_id) ||
 	    (!(irqflags & IRQF_SHARED) && (irqflags & IRQF_COND_SUSPEND)) ||
 	    ((irqflags & IRQF_NO_SUSPEND) && (irqflags & IRQF_COND_SUSPEND)))
+{
+if(strcmp(devname, "TS3A227E") == 0)
+	printk("-EINVAL irqflags %lx\n", irqflags);
 		return -EINVAL;
-
+}
 	desc = irq_to_desc(irq);
 	if (!desc)
+{
+if(strcmp(devname, "TS3A227E") == 0)
+	printk("desc is NULL\n");
 		return -EINVAL;
+}
 
 	if (!irq_settings_can_request(desc) ||
 	    WARN_ON(irq_settings_is_per_cpu_devid(desc)))
+{
+if(strcmp(devname, "TS3A227E") == 0)
+	printk("irq_settings_can_request error\n");
 		return -EINVAL;
+}
 
 	if (!handler) {
 		if (!thread_fn)
-			return -EINVAL;
+{
+if(strcmp(devname, "TS3A227E") == 0)
+	printk("neither handler nor thread_fn\n");
+		return -EINVAL;
+}
 		handler = irq_default_primary_handler;
 	}
 
@@ -1696,11 +1751,21 @@ int request_threaded_irq(unsigned int irq, irq_handler_t handler,
 	retval = irq_chip_pm_get(&desc->irq_data);
 	if (retval < 0) {
 		kfree(action);
+{
+if(strcmp(devname, "TS3A227E") == 0)
+	printk("irq_chip_pm_get returns %d\n", retval);
 		return retval;
+}
 	}
 
+if(strcmp(devname, "TS3A227E") == 0)
+	printk("chip_bus_lock()\n");
 	chip_bus_lock(desc);
+if(strcmp(devname, "TS3A227E") == 0)
+	printk("__setup_irq()\n");
 	retval = __setup_irq(irq, desc, action);
+if(strcmp(devname, "TS3A227E") == 0)
+	printk("__setup_irq() -> %d\n", retval);
 	chip_bus_sync_unlock(desc);
 
 	if (retval) {
@@ -1728,6 +1793,8 @@ int request_threaded_irq(unsigned int irq, irq_handler_t handler,
 		enable_irq(irq);
 	}
 #endif
+if(strcmp(devname, "TS3A227E") == 0)
+	printk("request_threaded_irq() -> %d\n", retval);
 	return retval;
 }
 EXPORT_SYMBOL(request_threaded_irq);
