@@ -1196,9 +1196,11 @@ static void __ov965x_try_frame_size(struct v4l2_mbus_framefmt *mf,
 	unsigned int min_err = UINT_MAX;
 
 	while (i--) {
-		int err = abs(fsize->width - mf->width)
-				+ abs(fsize->height - mf->height);
-		if (err < min_err) {
+		int w_err = (fsize->width - mf->width);
+		int h_err = (fsize->height - mf->height);
+		int err = w_err + h_err;
+
+		if ((w_err >= 0) && (h_err >= 0) && (err < min_err)) {
 			min_err = err;
 			match = fsize;
 		}
