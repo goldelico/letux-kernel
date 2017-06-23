@@ -1982,6 +1982,8 @@ static int ov965x_probe(struct i2c_client *client,
 
 	if (np) {
 		/* Device tree */
+		u32 val32;
+
 		ov965x->gpios[GPIO_RST] =
 			devm_gpiod_get_optional(&client->dev, "resetb",
 						GPIOD_OUT_LOW);
@@ -1999,7 +2001,18 @@ static int ov965x_probe(struct i2c_client *client,
 			dev_err(&client->dev, "Could not get clock\n");
 			return PTR_ERR(ov965x->clk);
 		}
-		ov965x->mclk_frequency = clk_get_rate(ov965x->clk);
+		if (!of_property_read_u32(np, "clock-frequency", &val32)) {
+			ret = clk_set_rate(ov965x->clk, val32);
+			if (ret < 0) {
+				dev_err(&client->dev,
+					"unable to set clock freq to %lu\n",
+					(unsigned long) val32);
+				return ret;
+			}
+			ov965x->mclk_frequency = val32;
+		}
+		else
+			ov965x->mclk_frequency = clk_get_rate(ov965x->clk);
 	} else {
 		/* Platform data */
 		ret = ov965x_configure_gpios(ov965x, pdata);
