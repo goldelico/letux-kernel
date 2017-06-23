@@ -80,7 +80,6 @@ struct w2sg_data {
 	enum		w2sg_state state;
 	int		requested;	/* requested state (0/1) */
 	int		suspended;
-	spinlock_t	lock;
 	struct delayed_work work;
 	int		discard_count;
 };
@@ -133,9 +132,6 @@ static int w2sg_uart_receive_buf(struct serdev_device *serdev, const unsigned ch
 				size_t count)
 {
 	struct w2sg_data *data = (struct w2sg_data *) serdev_device_get_drvdata(serdev);
-//	unsigned long flags;
-
-//	pr_debug("w2sg: %d characters\n", count);
 
 	if (!data->requested && !data->is_on) {
 		/* we have received characters while the w2sg should have been be turned off */
@@ -149,18 +145,16 @@ static int w2sg_uart_receive_buf(struct serdev_device *serdev, const unsigned ch
 
 			data->is_on = true;
 			data->backoff *= 2;
-//			spin_lock_irqsave(&data->lock, flags);
 			if (!data->suspended)
 				schedule_delayed_work(&data->work, 0);
-//			spin_unlock_irqrestore(&data->lock, flags);
 		}
 	} else if (data->open_count > 0) {
 		int n;
 
-//		pr_debug("w2sg00x4: push %d chars to tty port\n", count);
+		pr_debug("w2sg00x4: push %d chars to tty port\n", count);
 		n = tty_insert_flip_string(&data->port, rxdata, count);	/* pass to user-space */
 		if (n != count)
-			pr_debug("w2sg00x4: did loose %d characters\n", count - n);
+			pr_err("w2sg00x4: did loose %d characters\n", count - n);
 		tty_flip_buffer_push(&data->port);
 		return n;
 	}
@@ -178,12 +172,9 @@ static void toggle_work(struct work_struct *work)
 
 	switch (data->state) {
 	case W2SG_IDLE:
-//		spin_lock_irq(&data->lock);
-		if (data->requested == data->is_on) {
-			spin_unlock_irq(&data->lock);
+		if (data->requested == data->is_on)
 			return;
-		}
-//		spin_unlock_irq(&data->lock);
+
 		w2sg_set_lna_power(data);	/* update LNA power state */
 		gpio_set_value_cansleep(data->on_off_gpio, 0);
 		data->state = W2SG_PULSE;
@@ -281,11 +272,8 @@ static int w2sg_tty_open(struct tty_struct *tty, struct file *file)
 	struct w2sg_data *data = tty->driver_data;
 
 	pr_debug("%s() data = %p open_count = ++%d\n", __func__, data, data->open_count);
-//	val = (val & TIOCM_DTR) != 0;	/* DTR controls power on/off */
 
 	w2sg_set_power(data, ++data->open_count > 0);
-
-// we could/should return -Esomething if already open...
 
 	return tty_port_open(&data->port, tty, file);
 }
@@ -295,7 +283,7 @@ static void w2sg_tty_close(struct tty_struct *tty, struct file *file)
 	struct w2sg_data *data = tty->driver_data;
 
 	pr_debug("%s()\n", __func__);
-//	val = (val & TIOCM_DTR) != 0;	/* DTR controls power on/off */
+
 	w2sg_set_power(data, --data->open_count > 0);
 
 	tty_port_close(&data->port, tty, file);
@@ -310,34 +298,12 @@ static int w2sg_tty_write(struct tty_struct *tty,
 	return serdev_device_write_buf(data->uart, buffer, count);
 }
 
-#if 0
-static void w2sg_tty_tiocmget(...)
-{
-	int val;
-
-	pr_debug("%s(...,%x)\n", __func__, val);
-	val = (val & TIOCM_DTR) != 0;	/* DTR controls power on/off */
-	w2sg_set_power((struct w2sg_data *) pdata, val);
-}
-#endif
-
 
 static const struct tty_operations w2sg_serial_ops = {
 	.install = w2sg_tty_install,
 	.open = w2sg_tty_open,
 	.close = w2sg_tty_close,
 	.write = w2sg_tty_write,
-#if 0
-	.write_room = w2sg_tty_write_room,
-	.cleanup = w2sg_tty_cleanup,
-	.ioctl = w2sg_tty_ioctl,
-	.set_termios = w2sg_tty_set_termios,
-	.chars_in_buffer = w2sg_tty_chars_in_buffer,
-	.tiocmget = w2sg_tty_tiocmget,
-	.tiocmset = w2sg_tty_tiocmset,
-	.get_icount = w2sg_tty_get_count,
-	.unthrottle = w2sg_tty_unthrottle
-#endif
 };
 
 static const struct tty_port_operations w2sg_port_ops = {
@@ -377,7 +343,12 @@ static int w2sg_probe(struct serdev_device *serdev)
 			return -EPROBE_DEFER;	/* defer until we have all gpios */
 
 		pdata->lna_regulator = devm_regulator_get_optional(dev, "lna");
-// shouldn't we defer probing as well???
+		if (IS_ERR(pdata->lna_regulator)) {
+			if (PTR_ERR(pdata-> lna_regulator) == -EPROBE_DEFER)
+				return -EPROBE_DEFER;	/* defer until we can get the regulator */
+
+			pdata->lna_regulator = NULL;
+		}
 
 		pr_debug("%s() lna_regulator = %p\n", __func__, pdata->lna_regulator);
 
@@ -390,9 +361,8 @@ static int w2sg_probe(struct serdev_device *serdev)
 
 	w2sg_by_minor[minor] = data;
 
-#if 1
 	pr_debug("w2sg serdev_device_set_drvdata\n");
-#endif
+
 	serdev_device_set_drvdata(serdev, data);
 
 	data->lna_regulator = pdata->lna_regulator;
@@ -410,7 +380,6 @@ static int w2sg_probe(struct serdev_device *serdev)
 	data->uart = serdev;
 
 	INIT_DELAYED_WORK(&data->work, toggle_work);
-//	spin_lock_init(&data->lock);
 
 #if 1
 	pr_debug("w2sg devm_gpio_request\n");
@@ -506,7 +475,6 @@ static int w2sg_probe(struct serdev_device *serdev)
 	pr_debug("w2sg tty_port_register_device -> %p\n", data->dev);
 	pr_debug("w2sg port.tty = %p\n", data->port.tty);
 #endif
-//	data->port.tty->driver_data = data;	/* make us known in tty_struct */
 
 	pr_debug("w2sg probed\n");
 
@@ -523,10 +491,6 @@ static int w2sg_probe(struct serdev_device *serdev)
 
 	/* keep off until user space requests the device */
 	w2sg_set_power(data, false);
-
-#if 0	// more debugging - not for upstreaming
-	w2sg_set_power(data, true);
-#endif
 
 	return 0;
 
@@ -565,9 +529,7 @@ static int w2sg_suspend(struct device *dev)
 {
 	struct w2sg_data *data = dev_get_drvdata(dev);
 
-//	spin_lock_irq(&data->lock);
 	data->suspended = true;
-//	spin_unlock_irq(&data->lock);
 
 	cancel_delayed_work_sync(&data->work);
 
@@ -603,9 +565,7 @@ static int w2sg_resume(struct device *dev)
 {
 	struct w2sg_data *data = dev_get_drvdata(dev);
 
-//	spin_lock_irq(&data->lock);
 	data->suspended = false;
-//	spin_unlock_irq(&data->lock);
 
 	pr_info("GPS resuming %d %d %d\n", data->requested,
 		data->is_on, data->lna_is_off);
