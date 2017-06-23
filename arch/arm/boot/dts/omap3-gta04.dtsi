@@ -725,6 +725,8 @@
 		pinctrl-0 = <&gps_pins>;
 		sirf,onoff-gpios = <&gpio5 17 GPIO_ACTIVE_HIGH>;
 		lna-supply = <&vsim>;
+		/* GPIO_145: trigger for on/off-impulse for w2sg0004 */
+		enable-gpios = <&gpio5 17 GPIO_ACTIVE_HIGH>;
 	};
 };
 
