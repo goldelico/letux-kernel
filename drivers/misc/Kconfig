@@ -552,4 +552,11 @@ config W2CBW003_HCI
 	  Don't present a TTY device for using hciattach in user
 	  space but register a new hci node.
 
+config TRS3386
+	tristate "TRS3386 modem control"
+	help
+	  Enable the driver to forward modem control lines
+	  through gpio(s) to the physical RS232 level shifter
+	  chip TRS3386.
+
 endmenu
