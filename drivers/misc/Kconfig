@@ -533,4 +533,11 @@ config W2CBW003
 	  Enable on/off power control of W2CBW003 if the /dev/tty$n for
 	  Bluetooth is opened.
 
+config W2CBW003_HCI
+	bool "W2CBW003 kernel HCI driver"
+	depends on W2CBW003
+	help
+	  Don't present a TTY device for using hciattach in user
+	  space but register a new hci node.
+
 endmenu
