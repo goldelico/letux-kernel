@@ -2394,6 +2394,9 @@ static bool ccdc_is_shiftable(u32 in, u32 out, unsigned int additional_shift)
 	in_info = omap3isp_video_format_info(in);
 	out_info = omap3isp_video_format_info(out);
 
+	if (!in_info || !out_info)
+		return false;
+
 	if ((in_info->flavor == 0) || (out_info->flavor == 0))
 		return false;
 
