@@ -1,0 +1,37 @@
+* Omnivision OV9650/9652/9655 CMOS sensor
+
+The Omnivision OV965x sensor support multiple resolutions output, such as
+CIF, SVGA, UXGA. It also can support YUV422/420, RGB565/555 or raw RGB
+output format.
+
+Required Properties:
+- compatible: should be one of
+	"ovti,ov9650"
+	"ovti,ov9652"
+	"ovti,ov9655"
+- clocks: reference to the mclk input clock.
+
+Optional Properties:
+- resetb-gpios: reference to the GPIO connected to the resetb pin, if any.
+- pwdn-gpios: reference to the GPIO connected to the pwdn pin, if any.
+
+The device node must contain one 'port' child node for its digital output
+video port, in accordance with the video interface bindings defined in
+Documentation/devicetree/bindings/media/video-interfaces.txt.
+
+Example:
+
+&i2c2 {
+	ov9655: camera@30 {
+		compatible = "ovti,ov9655";
+		reg = <0x30>;
+		pwdn-gpios = <&gpioh 13 GPIO_ACTIVE_HIGH>;
+		clocks = <&clk_ext_camera>;
+
+		port {
+			ov9655: endpoint {
+				remote-endpoint = <&dcmi_0>;
+			};
+		};
+	};
+};
