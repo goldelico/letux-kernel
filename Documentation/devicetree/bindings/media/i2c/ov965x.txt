@@ -14,6 +14,9 @@ Required Properties:
 Optional Properties:
 - resetb-gpios: reference to the GPIO connected to the resetb pin, if any.
 - pwdn-gpios: reference to the GPIO connected to the pwdn pin, if any.
+- vana-supply: a regulator to power the analog part of the camera module.
+- vdd-supply: a regulator to power the digital part of the camera module.
+- vio-supply: a regulator to power the i/o of the camera module.
 
 The device node must contain one 'port' child node for its digital output
 video port, in accordance with the video interface bindings defined in
