@@ -29,6 +29,7 @@
 #include <linux/module.h>
 #include <linux/of_gpio.h>
 #include <linux/ratelimit.h>
+#include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/videodev2.h>
@@ -374,6 +375,7 @@ struct ov965x {
 	/* External master clock frequency */
 	unsigned long mclk_frequency;
 	struct clk *clk;
+	struct regulator *avdd;
 
 	/* Protects the struct fields below */
 	struct mutex lock;
@@ -944,13 +946,31 @@ static void ov965x_gpio_set(struct gpio_desc *gpio, int val)
 
 static void __ov965x_set_power(struct ov965x *ov965x, int on)
 {
+	int ret;
+
 	if (on) {
+		/* Bring up the power supply */
+		ret = regulator_enable(ov965x->avdd);
+		if (ret)
+			dev_warn(&ov965x->client->dev,
+				 "Failed to enable analog power (%d)\n", ret);
+		msleep(25);
+		/* Enable clock */
+		ret = clk_prepare_enable(ov965x->clk);
+		if (ret)
+			dev_warn(&ov965x->client->dev,
+				 "Failed to enable clock (%d)\n", ret);
+		msleep(25);
+
 		ov965x_gpio_set(ov965x->gpios[GPIO_PWDN], 0);
 		ov965x_gpio_set(ov965x->gpios[GPIO_RST], 0);
 		msleep(25);
 	} else {
 		ov965x_gpio_set(ov965x->gpios[GPIO_RST], 1);
 		ov965x_gpio_set(ov965x->gpios[GPIO_PWDN], 1);
+
+		clk_disable_unprepare(ov965x->clk);
+		regulator_disable(ov965x->avdd);
 	}
 
 	ov965x->streaming = 0;
@@ -1969,6 +1989,12 @@ static int ov965x_probe(struct i2c_client *client,
 		ov965x->gpios[GPIO_PWDN] =
 			devm_gpiod_get_optional(&client->dev, "pwdn",
 						GPIOD_OUT_HIGH);
+
+		ov965x->avdd = devm_regulator_get(&client->dev, "avdd");
+		if (IS_ERR(ov965x->avdd)) {
+			dev_err(&client->dev, "Could not get analog regulator\n");
+			return PTR_ERR(ov965x->avdd);
+		}
 
 		ov965x->clk = devm_clk_get(&client->dev, NULL);
 		if (IS_ERR(ov965x->clk)) {
