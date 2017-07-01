@@ -814,13 +814,40 @@ static const struct i2c_rv ov9655_vga_regs[] = {
 	{ REG_NULL, 0}
 };
 
+static const struct i2c_rv ov9655_sxga_regs[] = {
+	{ REG_COM7, OV9655_COM7_YUV },
+	{ OV9655_REG_PCKDV, 0x00 },	// needed?
+	{ OV9655_REG_COM24, 0x80 },	// needed?
+
+// better clock setup for SXGA
+// when should we set or clear OV9655_DBLV_LDO_BYPASS?
+
+	{ REG_CLKRC, 0x00 },/* F(internal clk) = F(input clk) / 4 */
+	{ OV9655_REG_DBLV, OV9655_DBLV_PLL_4X | /* OV9655_DBLV_LDO_BYPASS | */
+			OV9655_DBLV_BANDGAP },
+
+// the following setup should go to the right places of general init and system setup and has not much to do with SXGA
+
+	{ REG_COM10, COM10_HSYNC /* | COM10_HS_NEG */ },	/* Slave mode, HREF vs HSYNC, signals negate */
+	{ REG_COM6, COM6_BLC_OPTICAL },
+	{ REG_COM15, COM15_R00FF },/* Full range output */
+	{ REG_NULL, 0}
+};
+
 static const struct ov965x_framesize ov9655_framesizes[] = {
+	{
+		.width		= SXGA_WIDTH,
+		.height		= SXGA_HEIGHT,
+		.regs		= ov9655_sxga_regs,
+		.max_exp_lines	= 1048,
+	},
 	{
 		.width		= VGA_WIDTH,
 		.height		= VGA_HEIGHT,
 		.regs		= ov9655_vga_regs,
 		.max_exp_lines	= 498,
-	}, {
+	},
+	{
 		.width		= QVGA_WIDTH,
 		.height		= QVGA_HEIGHT,
 		.regs		= ov9655_qvga_regs,
@@ -836,6 +863,10 @@ static const struct ov965x_framesize ov9655_framesizes[] = {
 
 static const struct ov965x_pixfmt ov9655_formats[] = {
 	{ MEDIA_BUS_FMT_RGB565_2X8_LE, V4L2_COLORSPACE_SRGB, 0x08},
+	{ MEDIA_BUS_FMT_YUYV8_2X8, V4L2_COLORSPACE_SRGB, 0x00},
+	{ MEDIA_BUS_FMT_YVYU8_2X8, V4L2_COLORSPACE_SRGB, 0x04},
+	{ MEDIA_BUS_FMT_UYVY8_2X8, V4L2_COLORSPACE_SRGB, 0x0c},
+	{ MEDIA_BUS_FMT_VYUY8_2X8, V4L2_COLORSPACE_SRGB, 0x08},
 };
 
 static inline struct v4l2_subdev *ctrl_to_sd(struct v4l2_ctrl *ctrl)
