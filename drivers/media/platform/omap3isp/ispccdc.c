@@ -1186,7 +1186,8 @@ static void ccdc_configure(struct isp_ccdc_device *ccdc)
 	/* Use the raw, unprocessed data when writing to memory. The H3A and
 	 * histogram modules are still fed with lens shading corrected data.
 	 */
-	syn_mode &= ~ISPCCDC_SYN_MODE_VP2SDR;
+//	syn_mode &= ~ISPCCDC_SYN_MODE_VP2SDR;
+	syn_mode |= ISPCCDC_SYN_MODE_VP2SDR;
 
 	if (ccdc->output & CCDC_OUTPUT_MEMORY)
 		syn_mode |= ISPCCDC_SYN_MODE_WEN;
@@ -1252,6 +1253,8 @@ static void ccdc_configure(struct isp_ccdc_device *ccdc)
 	isp_reg_writel(isp, (crop->height - 1)
 			<< ISPCCDC_VERT_LINES_NLV_SHIFT,
 		       OMAP3_ISP_IOMEM_CCDC, ISPCCDC_VERT_LINES);
+
+	printk("configuring for %d(%d)x%d\n", crop->width, ccdc->video_out.bpl_value, crop->height);
 
 	ccdc_config_outlineoffset(ccdc, ccdc->video_out.bpl_value,
 				  format->field);
@@ -2393,6 +2396,9 @@ static bool ccdc_is_shiftable(u32 in, u32 out, unsigned int additional_shift)
 
 	in_info = omap3isp_video_format_info(in);
 	out_info = omap3isp_video_format_info(out);
+
+	if (!in_info || !out_info)
+		return false;
 
 	if ((in_info->flavor == 0) || (out_info->flavor == 0))
 		return false;
