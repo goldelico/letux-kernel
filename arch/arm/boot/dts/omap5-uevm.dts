@@ -134,7 +134,19 @@
 		reg = <0x22>;
 		gpio-controller;
 		#gpio-cells = <2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&tca6424_pins>;
+		interrupt-parent = <&gpio3>;
+//		interrupts = <12 IRQ_TYPE_LEVEL_LOW>;  /* gpio3_76 */
+		interrupts = <12 IRQ_TYPE_EDGE_FALLING>;  /* gpio3_76 */
 	};
+};
+
+&mmc1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mmc1_pins>;
+
+	cd-gpios = <&gpio5 24 GPIO_ACTIVE_LOW>;	/* gpio5_152 */
 };
 
 &omap5_pmx_core {
@@ -153,7 +165,13 @@
 
 	tca6424_pins: pinmux_tca6424_pins {
 		pinctrl-single,pins = <
-			0x06c (PIN_INPUT_PULLUP | MUX_MODE6)	/* hsi2_cawake.gpio3_78 */
+			OMAP5_IOPAD(0x0a8, PIN_INPUT_PULLUP | MUX_MODE6)	/* gpio3_76 */
+		>;
+	};
+
+	mmc1_pins: pinmux_mmc1_pins {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x1d4, PIN_INPUT_PULLUP | MUX_MODE6)	/* gpio5_152 */
 		>;
 	};
 };
