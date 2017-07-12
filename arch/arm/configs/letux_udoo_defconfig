@@ -776,7 +776,7 @@ CONFIG_ATAGS=y
 CONFIG_ZBOOT_ROM_TEXT=0x0
 CONFIG_ZBOOT_ROM_BSS=0x0
 # CONFIG_ARM_APPENDED_DTB is not set
-CONFIG_CMDLINE="noinitrd console=ttymxc0,115200 console=ttyO2,115200n8 vram=12M omapfb.vram=0:8M,1:4M omapfb.rotate_type=0 omapdss.def_disp=lcd rootwait twl4030_charger.allow_usb=1 musb_hdrc.preserve_vbus=1 log_buf_len=8M ignore_loglevel earlyprintk"
+CONFIG_CMDLINE="console=ttyO2,115200n8 vram=12M omapfb.vram=0:8M,1:4M omapfb.rotate_type=0 omapdss.def_disp=lcd rootwait twl4030_charger.allow_usb=1 musb_hdrc.preserve_vbus=1 log_buf_len=8M ignore_loglevel noinitrd earlyprintk"
 # CONFIG_CMDLINE_FROM_BOOTLOADER is not set
 CONFIG_CMDLINE_EXTEND=y
 # CONFIG_CMDLINE_FORCE is not set
@@ -4704,15 +4704,15 @@ CONFIG_SDIO_UART=y
 #
 # MMC/SD/SDIO Host Controller Drivers
 #
-CONFIG_MMC_SDHCI=m
+CONFIG_MMC_SDHCI=y
 CONFIG_MMC_SDHCI_IO_ACCESSORS=y
 # CONFIG_MMC_SDHCI_PCI is not set
-CONFIG_MMC_SDHCI_PLTFM=m
+CONFIG_MMC_SDHCI_PLTFM=y
 # CONFIG_MMC_SDHCI_OF_ARASAN is not set
 # CONFIG_MMC_SDHCI_OF_AT91 is not set
 # CONFIG_MMC_SDHCI_OF_ESDHC is not set
 # CONFIG_MMC_SDHCI_CADENCE is not set
-CONFIG_MMC_SDHCI_ESDHC_IMX=m
+CONFIG_MMC_SDHCI_ESDHC_IMX=y
 # CONFIG_MMC_SDHCI_F_SDH30 is not set
 CONFIG_MMC_OMAP=y
 CONFIG_MMC_OMAP_HS=y
