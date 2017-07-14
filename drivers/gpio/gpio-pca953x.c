@@ -895,12 +895,14 @@ static int pca953x_probe(struct i2c_client *client,
 			dev_warn(&client->dev, "setup failed, %d\n", ret);
 	}
 
+#ifdef CONFIG_GPIO_PCA953X_IRQ
 {
 	int i;
 	for (i = 0; i < NBANK(chip); i++) {
 		printk("pca953x_probe mask=%02x\n", chip->irq_mask[i]);
 	}
 }
+#endif
 	i2c_set_clientdata(client, chip);
 	return 0;
 
