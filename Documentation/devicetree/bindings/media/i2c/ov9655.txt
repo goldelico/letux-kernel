@@ -1,0 +1,48 @@
+* Omnivision OV9655 CMOS sensor
+
+The Omnivision OV9655 sensor support multiple resolutions output, such as
+CIF, SVGA, UXGA. It also can support YUV422/420, RGB565/555 or raw RGB
+output format.
+
+Required Properties:
+- compatible: should be one of
+	"ovti,ov9655"
+- clocks: reference to the xclk input clock.
+
+Optional Properties:
+- resetb-gpios: reference to the GPIO connected to the RESETB pin, if any,
+		polarity is active low.
+- pwdn-gpios: reference to the GPIO connected to the PWDN pin, if any,
+		polarity is active high.
+- avdd-supply: reference to the analog power supply regulator connected
+		to the AVDD pin, if any.
+- dvdd-supply: reference to the digital power supply regulator connected
+		to the DVDD pin, if any.
+- dovdd-supply: reference to the digital I/O power supply regulator
+		connected to the DOVDD pin, if any.
+
+
+The device node must contain one 'port' child node for its digital output
+video port, in accordance with the video interface bindings defined in
+Documentation/devicetree/bindings/media/video-interfaces.txt.
+
+Example:
+
+&i2c2 {
+	ov9655@30 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&camera_pins>;
+		compatible = "ovti,ov9655";
+		reg = <0x30>;
+		reset-gpios = <&gpio3 2 0>,	/* reset cam_fld = GPIO_98 */
+		pwdn-gpios = <&gpio6 7 0>;	/* pwdn cam_wen = GPIO_167 */
+		avdd-supply = <&vaux3>;
+		clocks = <&isp 0>;	/* cam_clka */
+
+		port {
+			ov9655: endpoint {
+				remote-endpoint = <&parallel_ep>;
+			};
+		};
+	};
+};
