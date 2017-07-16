@@ -1,0 +1,60 @@
+* Omnivision OV9655 CMOS sensor
+
+The Omnivision OV9655 sensor support multiple resolutions output, such as
+CIF, SVGA, UXGA. It also can support YUV422/420, RGB565/555 or raw RGB
+output format.
+
+Required Properties:
+- compatible: should be one of
+	"ovti,ov9655"
+- clocks: reference to the mclk input clock.
+
+Optional Properties:
+- resetb-gpios: reference to the GPIO connected to the RESETB pin, if any,
+		polarity is active low.
+- pwdn-gpios: reference to the GPIO connected to the PWDN pin, if any,
+		polarity is active high.
+- avdd-supply: reference to the analog power supply regulator connected
+		to the AVDD pin, if any.
+- dvdd-supply: reference to the digital power supply regulator connected
+		to the DVDD pin, if any.
+- dovdd-supply: reference to the digital I/O power supply regulator
+		connected to the DOVDD pin, if any.
+
+
+The device node must contain one 'port' child node for its digital output
+video port, in accordance with the video interface bindings defined in
+Documentation/devicetree/bindings/media/video-interfaces.txt.
+
+Optional Properties (see data sheet for definition of values):
+- bus-width:	bus width of the camera output. Default is 10.
+- hsync-active:	HSYNC polarity. Default is 0.
+- vsync-active:	VSYNC polarity. Default is 0.
+- data-active:	data active polarity. Default is 1.
+- pclk-sample:	clock sampling edge. Default is 0.
+- pclk-delay:	clock delay. Default is 0.
+- output-drive:	driver strength. Default is 1.
+
+&i2c2 {
+	ov9655@30 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&camera_pins>;
+		compatible = "ovti,ov9655";
+		reg = <0x30>;
+		reset-gpios = <&gpio3 2 0>,	/* reset cam_fld = GPIO_98 */
+		pwdn-gpios = <&gpio6 7 0>;	/* pwdn cam_wen = GPIO_167 */
+		avdd-supply = <&vaux3>;
+		clocks = <&isp 0>;	/* cam_clka */
+
+		port {
+			ov9655: endpoint {
+				bus-width = <8>;
+				remote-endpoint = <&parallel_ep>;
+				hsync-active = <1>;
+				vsync-active = <1>;
+				data-active = <1>;	/* Active High */
+				pclk-sample = <1>;	/* Rising */
+			};
+		};
+	};
+};
