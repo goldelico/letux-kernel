@@ -237,6 +237,13 @@
 		compatible = "ti,twl4030-madc-hwmon";
 	};
 
+	bat: battery {
+		compatible = "simple-battery", "openpandora-battery";
+		voltage-min-design-microvolt = <3200000>;
+		energy-full-design-microwatt-hours = <14800000>;
+		charge-full-design-microamp-hours = <4000000>;
+	};
+
 	battery: battery {
 		compatible = "ti,twl4030-madc-battery";
 		capacity = <4000000>;
@@ -545,6 +552,7 @@
 	bq27500@55 {
 		compatible = "ti,bq27500";
 		reg = <0x55>;
+		monitored-battery = <&bat>;
 	};
 
 	mma7455@1d {
