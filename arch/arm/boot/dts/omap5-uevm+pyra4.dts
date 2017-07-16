@@ -159,6 +159,13 @@
 		#pwm-cells = <3>;
 	};
 
+	bat: battery {
+		compatible = "simple-battery", "pyra-battery";
+		voltage-min-design-microvolt = <3200000>;
+		energy-full-design-microwatt-hours = <22200000>;
+		charge-full-design-microamp-hours = <6000000>;
+	};
+
 };
 
 &palmas_power_button {
@@ -703,12 +710,14 @@
 	bq27200@55 {
 		compatible = "ti,bq27200";
 		reg = <0x55>;
+		monitored-battery = <&bat>;
 	}; */
 
 	/* fuel gauge variant 2 */
 	bq27421@55 {
 		compatible = "ti,bq27421";
 		reg = <0x55>;
+		monitored-battery = <&bat>;
 	};
 
 	/* charger */
@@ -716,6 +725,7 @@
 		/* FIXME: driver is quite broken because it is a hack */
 		compatible = "ti,bq24297";
 		reg = <0x6b>;
+		monitored-battery = <&bat>;
 		ti,chg_current = <1000 500 2000>;	// chg_current (max for the battery), usb_input_current, adp_input_current
 		gpios = <&gpio99 11 0>,		// chg_irq_pin
 			<0>;			// dc_det_pin - if 0, charger is switched by driver to 2048mA, otherwise 512mA
