@@ -114,6 +114,13 @@
 		#pwm-cells = <3>;
 	};
 
+	bat: battery {
+		compatible = "simple-battery", "pyra-battery";
+		voltage-min-design-microvolt = <3200000>;
+		energy-full-design-microwatt-hours = <22200000>;
+		charge-full-design-microamp-hours = <6000000>;
+	};
+
 };
 
 /* add overlay pimmux for pyra on 5432evm */
@@ -380,6 +387,7 @@
 	bq27621@55 {
 		compatible = "ti,bq27621";
 		reg = <0x55>;
+		monitored-battery = <&bat>;
 	};
 
 	/* charger */
@@ -387,6 +395,7 @@
 		/* FIXME: driver is quite broken because it is a hack */
 		compatible = "ti,bq24297";
 		reg = <0x6b>;
+		monitored-battery = <&bat>;
 		ti,chg_current = <1000 2000 2000>;	// chg_current (max for the battery), usb_input_current, adp_input_current
 		gpios = <&gpio99 11 0>,		// chg_irq_pin - ignored by driver
 			<0>;			// dc_det_pin - if 0, charger is switched by driver to 2048mA, otherwise 512mA
