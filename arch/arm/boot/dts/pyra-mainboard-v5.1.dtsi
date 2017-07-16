@@ -62,6 +62,7 @@
 	bq27421@55 {
 		compatible = "ti,bq27421";
 		reg = <0x55>;
+		monitored-battery = <&bat>;
 	};
 };
 
