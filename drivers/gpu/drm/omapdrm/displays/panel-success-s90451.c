@@ -469,12 +469,14 @@ static int w677l_check_timings(struct omap_dss_device *dssdev,
 	return 0;
 }
 
+#if 0
 static void w677l_get_resolution(struct omap_dss_device *dssdev,
 		u16 *xres, u16 *yres)
 {
 	*xres = dssdev->panel.vm.hactive;
 	*yres = dssdev->panel.vm.vactive;
 }
+#endif
 
 static int w677l_reset(struct omap_dss_device *dssdev, int state)
 {
@@ -942,9 +944,10 @@ static struct omap_dss_driver w677l_ops = {
 	
 	.enable		= w677l_enable,
 	.disable	= w677l_disable,
-	
+
+#if 0
 	.get_resolution	= w677l_get_resolution,
-	
+#endif
 	.check_timings	= w677l_check_timings,
 	.set_timings	= w677l_set_timings,
 	.get_timings	= w677l_get_timings,

@@ -325,12 +325,14 @@ static int mipi_debug_check_timings(struct omap_dss_device *dssdev,
 	return 0;
 }
 
+#if 0
 static void mipi_debug_get_resolution(struct omap_dss_device *dssdev,
 		u16 *xres, u16 *yres)
 {
 	*xres = dssdev->panel.vm.hactive;
 	*yres = dssdev->panel.vm.vactive;
 }
+#endif
 
 static int mipi_debug_reset(struct omap_dss_device *dssdev, bool activate)
 {
@@ -874,9 +876,11 @@ static struct omap_dss_driver mipi_debugops = {
 	
 	.enable		= mipi_debug_enable,
 	.disable	= mipi_debug_disable,
-	
+
+#if 0
 	.get_resolution	= mipi_debug_get_resolution,
-	
+#endif
+
 	.check_timings	= mipi_debug_check_timings,
 	.set_timings	= mipi_debug_set_timings,
 	.get_timings	= mipi_debug_get_timings,
