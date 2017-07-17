@@ -530,12 +530,14 @@ static int r63311_check_timings(struct omap_dss_device *dssdev,
 	return 0;
 }
 
+#if 0
 static void r63311_get_resolution(struct omap_dss_device *dssdev,
 				  u16 *xres, u16 *yres)
 {
 	*xres = dssdev->panel.vm.hactive;
 	*yres = dssdev->panel.vm.vactive;
 }
+#endif
 
 static int r63311_reset(struct omap_dss_device *dssdev, int state)
 {
@@ -1006,7 +1008,9 @@ static struct omap_dss_driver r63311_ops = {
 	.enable		= r63311_enable,
 	.disable	= r63311_disable,
 
+#if 0
 	.get_resolution	= r63311_get_resolution,
+#endif
 
 	.check_timings	= r63311_check_timings,
 	.set_timings	= r63311_set_timings,
