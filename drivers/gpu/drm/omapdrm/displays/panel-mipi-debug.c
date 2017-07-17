@@ -325,12 +325,14 @@ static int mipi_debug_check_timings(struct omap_dss_device *dssdev,
 	return 0;
 }
 
+#if 0
 static void mipi_debug_get_resolution(struct omap_dss_device *dssdev,
 		u16 *xres, u16 *yres)
 {
 	*xres = dssdev->panel.vm.hactive;
 	*yres = dssdev->panel.vm.vactive;
 }
+#endif
 
 static int mipi_debug_reset(struct omap_dss_device *dssdev, bool activate)
 {
@@ -495,24 +497,24 @@ static ssize_t set_dcs(struct device *dev,
 					}
 					p++;
 				}
-				/* let's hope that the.vm are really changed... */
-				if(len == 5 && strncmp(arg, "hactive", len) == 0)
+				/* let's hope that the video modes are really changed... */
+				if(len == 5 && strncmp(arg, "x_res", len) == 0)
 					dssdev->panel.vm.hactive=val;
-				else if(len == 5 && strncmp(arg, "vactive", len) == 0)
+				else if(len == 5 && strncmp(arg, "y_res", len) == 0)
 					dssdev->panel.vm.vactive=val;
 				else if(len == 10 && strncmp(arg, "pixelclock", len) == 0)
 					dssdev->panel.vm.pixelclock=val;
-				else if(len == 3 && strncmp(arg, "hfront_porch", len) == 0)
+				else if(len == 3 && strncmp(arg, "hfp", len) == 0)
 					dssdev->panel.vm.hfront_porch=val;
-				else if(len == 3 && strncmp(arg, "hsync_len", len) == 0)
+				else if(len == 3 && strncmp(arg, "hsw", len) == 0)
 					dssdev->panel.vm.hsync_len=val;
-				else if(len == 3 && strncmp(arg, "hback_porch", len) == 0)
+				else if(len == 3 && strncmp(arg, "hbp", len) == 0)
 					dssdev->panel.vm.hback_porch=val;
-				else if(len == 3 && strncmp(arg, "vfront_porch", len) == 0)
+				else if(len == 3 && strncmp(arg, "vfp", len) == 0)
 					dssdev->panel.vm.vfront_porch=val;
-				else if(len == 3 && strncmp(arg, "vsync_len", len) == 0)
+				else if(len == 3 && strncmp(arg, "vsw", len) == 0)
 					dssdev->panel.vm.vsync_len=val;
-				else if(len == 3 && strncmp(arg, "vback_porch", len) == 0)
+				else if(len == 3 && strncmp(arg, "vbp", len) == 0)
 					dssdev->panel.vm.vback_porch=val;
 				/* mipi_dsi_config evaluated during mipi_debug_start() */
 				else if(len == 7 && strncmp(arg, "lpclock", len) == 0)
@@ -677,7 +679,7 @@ static ssize_t show_dcs(struct device *dev,
 		ddata->response[0]=0;	/* but return exactly once */
 		return l;
 		}
-	return sprintf(buf, "usage: [g]aa dd dd ... | [g]aa r ... | status | start [ hactive=# | vactive=# | pixelclock=# | lpclock=# ] | stop | reset | noreset | power | nopower | stream | nostream\n");
+	return sprintf(buf, "usage: [g]aa dd dd ... | [g]aa r ... | status | start [ x_res=# | y_res=# | pixelclock=# | lpclock=# ] | stop | reset | noreset | power | nopower | stream | nostream\n");
 }
 
 static DEVICE_ATTR(dcs, S_IWUSR | S_IRUGO,
@@ -785,11 +787,11 @@ static int mipi_debug_start(struct omap_dss_device *dssdev)
 
 	printk("dsi: mipi_debug_start()\n");
 
-	printk("  Dimensions: {%ux%u} in {%ux%u}\n", dssdev->panel.timings.x_res,
-		/* FIXME: */  dssdev->panel.timings.x_res, 0, 0);
-	printk("  Pixel CLK: %u\n", dssdev->panel.timings.pixelclock);
-	printk("  HSYNC: %u %u %u\n", dssdev->panel.timings.hfp, dssdev->panel.timings.hsw, dssdev->panel.timings.hbp);
-	printk("  VSYNC: %u %u %u\n", dssdev->panel.timings.vfp, dssdev->panel.timings.vsw, dssdev->panel.timings.vbp);
+	printk("  Dimensions: {%ux%u} in {%ux%u}\n", dssdev->panel.vm.vactive,
+		/* FIXME: */  dssdev->panel.vm.hactive, 0, 0);
+	printk("  Pixel CLK: %lu\n", dssdev->panel.vm.pixelclock);
+	printk("  HSYNC: %u %u %u\n", dssdev->panel.vm.hfront_porch, dssdev->panel.vm.hsync_len, dssdev->panel.vm.hback_porch);
+	printk("  VSYNC: %u %u %u\n", dssdev->panel.vm.vfront_porch, dssdev->panel.vm.vsync_len, dssdev->panel.vm.vback_porch);
 	printk("  DDR CLK: %lu..%lu\n", mipi_dsi_config.hs_clk_min, mipi_dsi_config.hs_clk_max);
 	printk("  LPCLK out: %lu..%lu\n", mipi_dsi_config.lp_clk_min, mipi_dsi_config.lp_clk_max);
 	printk("  MODE: %u\n", mipi_dsi_config.mode);
@@ -875,7 +877,9 @@ static struct omap_dss_driver mipi_debugops = {
 	.enable		= mipi_debug_enable,
 	.disable	= mipi_debug_disable,
 
+#if 0
 	.get_resolution	= mipi_debug_get_resolution,
+#endif
 
 	.check_timings	= mipi_debug_check_timings,
 	.set_timings	= mipi_debug_set_timings,
@@ -956,7 +960,7 @@ static int mipi_debug_probe(struct platform_device *pdev)
 
 	dssdev->panel.dsi_pix_fmt = mipi_debugPIXELFORMAT;
 
-// can we postpone this so that user space can modify the mipi.vm before registration?
+// can we postpone this so that user space can modify the mipi timings before registration?
 
 	r = omapdss_register_display(dssdev);
 	if (r) {
