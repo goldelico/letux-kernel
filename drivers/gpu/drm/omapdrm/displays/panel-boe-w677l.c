@@ -26,7 +26,6 @@
 #define LOG 0
 #define OPTIONAL 0
 
-#include <linux/backlight.h>
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/fb.h>
@@ -111,7 +110,6 @@ struct panel_drv_data {
 
 	struct mutex lock;
 
-	struct backlight_device *bldev;
 	int bl;
 
 	int reset_gpio;
@@ -365,7 +363,6 @@ static int w677l_read(struct omap_dss_device *dssdev, u8 dcs_cmd, u8 *buf, int l
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
 	int r;
-	int i;
 
 	r = in->ops.dsi->set_max_rx_packet_size(in, ddata->config_channel, len);	// tell panel how much we expect
 	if (r) {
@@ -387,8 +384,11 @@ static int w677l_read(struct omap_dss_device *dssdev, u8 dcs_cmd, u8 *buf, int l
 				dcs_cmd, len, r);
 
 #if LOG
+	{
+	int i;
 	printk("dsi: w677l_read(%02x,", dcs_cmd); for(i=0; i<len; i++) printk(" %02x", buf[i]);
 	printk(") -> %d\n", r);
+	}
 #endif
 
 	return r;
@@ -618,7 +618,7 @@ static void w677l_disconnect(struct omap_dss_device *dssdev)
 }
 
 static void w677l_get_timings(struct omap_dss_device *dssdev,
-		struct omap_video_timings *timings)
+		struct videomode *timings)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
@@ -635,11 +635,11 @@ static void w677l_get_timings(struct omap_dss_device *dssdev,
 #endif
 		in->driver->get_timings(in, timings);
 	} else
-		*timings = ddata->videomode;
+		*timings = ddata->vm;
 }
 
 static int w677l_check_timings(struct omap_dss_device *dssdev,
-		struct omap_video_timings *timings)
+		struct videomode *timings)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
@@ -919,7 +919,6 @@ static int w677l_probe_of(struct platform_device *pdev)
 static int w677l_probe(struct platform_device *pdev)
 {
 	struct backlight_properties props;
-	struct backlight_device *bldev = NULL;
 	struct panel_drv_data *ddata;
 	struct device *dev = &pdev->dev;
 	struct omap_dss_device *dssdev;
@@ -954,11 +953,11 @@ static int w677l_probe(struct platform_device *pdev)
 	dssdev->dev = dev;
 	dssdev->driver = &w677l_ops;
 
-#if OLD	// checkme if we need the timings here
+#ifdef OLD	// checkme if we need the timings here
 	// NO: if this is missing we see: Modeline 36:"0x0" 0 0 0 0 0 0 0 0 0 0 0x48 0xa
 	dssdev->panel.vm = w677l_timings;
 #endif
-	dssdev->panel.timings = ddata->videomode;
+	dssdev->panel.vm = ddata->vm;
 	dssdev->type = OMAP_DISPLAY_TYPE_DSI;
 	dssdev->owner = THIS_MODULE;
 
@@ -1003,7 +1002,6 @@ static int __exit w677l_remove(struct platform_device *pdev)
 {
 	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
 	struct omap_dss_device *dssdev = &ddata->dssdev;
-	struct backlight_device *bldev;
 
 #if LOG
 	printk("dsi: w677l_remove()\n");
