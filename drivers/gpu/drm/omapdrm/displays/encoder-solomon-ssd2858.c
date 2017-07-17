@@ -1667,6 +1667,7 @@ static int driver_ssd2858_check_timings(struct omap_dss_device *dssdev,
 	return 0;
 }
 
+#if 0
 static void driver_ssd2858_get_resolution(struct omap_dss_device *dssdev,
 		u16 *xres, u16 *yres)
 {
@@ -1677,6 +1678,7 @@ static void driver_ssd2858_get_resolution(struct omap_dss_device *dssdev,
 	*yres = dssdev->panel.vm.vactive;
 	// FIXME: forward to panel driver?
 }
+#endif
 
 static void driver_ssd2858_disable(struct omap_dss_device *dssdev)
 {
@@ -1737,8 +1739,9 @@ static struct omap_dss_driver ssd2858_driver_ops = {
 	.disable		= driver_ssd2858_disable,
 
 	.set_rotate		= driver_ssd2858_set_rotate,
+#if 0
 	.get_resolution		= driver_ssd2858_get_resolution,
-
+#endif
 	.set_timings		= driver_ssd2858_set_timings,
 	.get_timings		= driver_ssd2858_get_timings,
 	.check_timings		= driver_ssd2858_check_timings,
