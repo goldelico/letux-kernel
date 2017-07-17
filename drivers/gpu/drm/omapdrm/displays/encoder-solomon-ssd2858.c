@@ -262,7 +262,7 @@ struct panel_drv_data {
 	int config_channel;
 	int pixel_channel;
 
-	struct omap_video_timings panel_timings;
+	struct videomode panel_timings;
 	struct omap_dss_dsi_config panel_dsi_config;
 
 	/* derived panel parameters */
@@ -557,33 +557,33 @@ static int ssd2858_get_panel_timings(struct omap_dss_device *dssdev)
 #if LOG
 		printk("ssd2858_get_panel_timings() use hard coded panel setup\n");
 #endif
-		ddata->panel_timings.x_res = 720;
-		ddata->panel_timings.y_res = 1280;
+		ddata->panel_timings.hactive = 720;
+		ddata->panel_timings.vactive = 1280;
 		ddata->PANEL_FPS = 60;	// frames per second
 		ddata->PANEL_BPP = 24;	// bits per lane
 		ddata->PANEL_LANES = 4;	// lanes
-		ddata->panel_timings.hfp = 10;	// front porch
-		ddata->panel_timings.hsw = 10;	// sync active
-		ddata->panel_timings.hbp = 100;	// back porch
+		ddata->panel_timings.hfront_porch = 10;	// front porch
+		ddata->panel_timings.hsync_len = 10;	// sync active
+		ddata->panel_timings.hback_porch = 100;	// back porch
 		// NOTE: we must set this so the sum of V* is < ~70 to get a slightly higher pixel and DDR rate or the panel wouldn't sync properly
-		// warning: some VBP values are causing horizontal misalignemt:
+		// warning: some vback_porch values are causing horizontal misalignemt:
 		// 12..15, 18..23, 26..?, 34..40, ...?
-		ddata->panel_timings.vfp = 10;	// top porch
-		ddata->panel_timings.vsw = 2;	// sync active
-		ddata->panel_timings.vbp = 48;	// bottom porch
+		ddata->panel_timings.vfront_porch = 10;	// top porch
+		ddata->panel_timings.vsync_len = 2;	// sync active
+		ddata->panel_timings.vback_porch = 48;	// bottom porch
 		ddata->panel_dsi_config.lp_clk_min = (7*9200000)/10;	/* ignored */
 		ddata->panel_dsi_config.lp_clk_max = 9200000;	/* defined by panel driver */
 		ddata->panel_dsi_config.lp_clk_max = 8000000;	/* defined by ssd2858 script */
 	}
 
-	ddata->PANEL_FRAME_WIDTH = ddata->panel_timings.x_res
-					+ ddata->panel_timings.hfp
-					+ ddata->panel_timings.hsw
-					+ ddata->panel_timings.hbp;	// some margin for sync and retrace
-	ddata->PANEL_FRAME_HEIGHT = ddata->panel_timings.y_res
-					+ ddata->panel_timings.vfp
-					+ ddata->panel_timings.vsw
-					+ ddata->panel_timings.vbp;	// some margin for sync and retrace
+	ddata->PANEL_FRAME_WIDTH = ddata->panel_timings.hactive
+					+ ddata->panel_timings.hfront_porch
+					+ ddata->panel_timings.hsync_len
+					+ ddata->panel_timings.hback_porch;	// some margin for sync and retrace
+	ddata->PANEL_FRAME_HEIGHT = ddata->panel_timings.vactive
+					+ ddata->panel_timings.vfront_porch
+					+ ddata->panel_timings.vsync_len
+					+ ddata->panel_timings.vback_porch;	// some margin for sync and retrace
 	ddata->PANEL_PCLK = ddata->PANEL_FRAME_WIDTH
 					* ddata->PANEL_FRAME_HEIGHT
 					* ddata->PANEL_FPS;	// required pixel clock
@@ -602,10 +602,10 @@ static int ssd2858_calculate_timings(struct omap_dss_device *dssdev)
 	/* OMAP timings */
 
 	ddata->dsi_config.mode = OMAP_DSS_DSI_VIDEO_MODE;
-	ddata->dsi_config.pixel_format = SSD2858_PIXELFORMAT,
-	ddata->dsi_config.timings = &ddata->videomode,
-	ddata->dsi_config.ddr_clk_always_on = true,
-	ddata->dsi_config.trans_mode = OMAP_DSS_DSI_BURST_MODE,
+	ddata->dsi_config.pixel_format = SSD2858_PIXELFORMAT;
+	ddata->dsi_config.vm = &ddata->videomode;
+	ddata->dsi_config.ddr_clk_always_on = true;
+	ddata->dsi_config.trans_mode = OMAP_DSS_DSI_BURST_MODE;
 	ddata->dsi_config.lp_clk_max = ddata->xtal / 2;	// we must drive SSD with this LP clock frequency
 	ddata->dsi_config.lp_clk_min = 7000000;
 
@@ -621,19 +621,19 @@ static int ssd2858_calculate_timings(struct omap_dss_device *dssdev)
 	/* this is experimental and no idea why it works better than taking ddata->panel_timings ... */
 	// FIXME: should fit to pixel clocks and frames and FPS
 #if 0	// defaults like panel-mipi-debug -> Schwarzer Screen
-	ddata->videomode.hfp = 5;	// front porch
-	ddata->videomode.hsw = 5;	// sync active
-	ddata->videomode.hbp = 158;	// back porch
-	ddata->videomode.vfp = 50;	// top porch
-	ddata->videomode.vsw = 60;	// sync active
-	ddata->videomode.vbp = 50;	// bottom porch
+	ddata->videomode.hfront_porch = 5;	// front porch
+	ddata->videomode.hsync_len = 5;	// sync active
+	ddata->videomode.hback_porch = 158;	// back porch
+	ddata->videomode.vfront_porch = 50;	// top porch
+	ddata->videomode.vsync_len = 60;	// sync active
+	ddata->videomode.vback_porch = 50;	// bottom porch
 #else	// values as defined by ssd2858 script -> Streifenmuster
-	ddata->videomode.hfp = 10;	// front porch
-	ddata->videomode.hsw = 10;	// sync active
-	ddata->videomode.hbp = 100;	// back porch
-	ddata->videomode.vfp = 10;	// top porch
-	ddata->videomode.vsw = 2;	// sync active
-	ddata->videomode.vbp = 48;	// bottom porch
+	ddata->videomode.hfront_porch = 10;	// front porch
+	ddata->videomode.hsync_len = 10;	// sync active
+	ddata->videomode.hback_porch = 100;	// back porch
+	ddata->videomode.vfront_porch = 10;	// top porch
+	ddata->videomode.vsync_len = 2;	// sync active
+	ddata->videomode.vback_porch = 48;	// bottom porch
 #endif
 	/* calculate timings */
 
@@ -715,7 +715,7 @@ static int ssd2858_calculate_timings(struct omap_dss_device *dssdev)
 
 #if LOG
 		printk("Panel MIPI:\n");
-		printk("  Dimensions: {%ux%u} in {%ux%u}\n", ddata->panel_timings.x_res, ddata->panel_timings.y_res, ddata->PANEL_FRAME_WIDTH, ddata->PANEL_FRAME_HEIGHT);
+		printk("  Dimensions: {%ux%u} in {%ux%u}\n", ddata->panel_timings.hactive, ddata->panel_timings.vactive, ddata->PANEL_FRAME_WIDTH, ddata->PANEL_FRAME_HEIGHT);
 		printk("  Pixel CLK: %u\n", ddata->PANEL_PCLK);
 		printk("  DDR CLK: %u\n", ddata->PANEL_MIN_DDR);
 		printk("  LPCLK target: %lu..%lu\n", ddata->panel_dsi_config.lp_clk_min, ddata->panel_dsi_config.lp_clk_max);
@@ -745,9 +745,9 @@ static int ssd2858_calculate_timings(struct omap_dss_device *dssdev)
 		printk("OMAP MIPI:\n");
 		printk("  Dimensions: {%ux%u} in {%ux%u}\n", ddata->videomode.hactive,
 			/* FIXME: */ ddata->videomode.vactive, ddata->PANEL_FRAME_WIDTH, ddata->PANEL_FRAME_HEIGHT);
-		printk("  Pixel CLK: %u\n", ddata->videomode.pixelclock);
-		printk("  HSYNC: %u %u %u\n", ddata->videomode.hfp, ddata->videomode.hsw, ddata->videomode.hbp);
-		printk("  VSYNC: %u %u %u\n", ddata->videomode.vfp, ddata->videomode.vsw, ddata->videomode.vbp);
+		printk("  Pixel CLK: %lu\n", ddata->videomode.pixelclock);
+		printk("  HSYNC: %u %u %u\n", ddata->videomode.hfront_porch, ddata->videomode.hsync_len, ddata->videomode.hback_porch);
+		printk("  VSYNC: %u %u %u\n", ddata->videomode.vfront_porch, ddata->videomode.vsync_len, ddata->videomode.vback_porch);
 		printk("  DDR CLK: %lu..%lu\n", ddata->dsi_config.hs_clk_min, ddata->dsi_config.hs_clk_max);
 		printk("  LPCLK out: %lu..%lu\n", ddata->dsi_config.lp_clk_min, ddata->dsi_config.lp_clk_max);
 		printk("  MODE: %u\n", ddata->dsi_config.mode);
@@ -997,8 +997,8 @@ static int ssd2858_program(struct omap_dss_device *dssdev)
 	ssd2858_write_cmd0(dssdev, MIPI_DCS_EXIT_SLEEP_MODE);
 	mdelay(10);
 
-	ssd2858_write_cmd4(dssdev, MIPI_DCS_SET_COLUMN_ADDRESS, ddata->videomode.x_res-1);
-	ssd2858_write_cmd4(dssdev, MIPI_DCS_SET_PAGE_ADDRESS, ddata->videomode.y_res-1);
+	ssd2858_write_cmd4(dssdev, MIPI_DCS_SET_COLUMN_ADDRESS, ddata->videomode.hactive-1);
+	ssd2858_write_cmd4(dssdev, MIPI_DCS_SET_PAGE_ADDRESS, ddata->videomode.vactive-1);
 
 	/* MIPIRX */
 
@@ -1007,14 +1007,14 @@ static int ssd2858_program(struct omap_dss_device *dssdev)
 	/* VCTM */
 	ssd2858_write_reg(dssdev, 0x200c, (ddata->SPLIT_MEM << 9) | (ddata->rotate << 8) | (ddata->VBP << 2) | (ddata->TE_SEL << 1));// VCTM_CFGR (00000000)
 	ssd2858_write_reg(dssdev, 0x2010, (ddata->PCLK_DEN << 16) | (ddata->PCLK_NUM << 0));	// VCTM_PCFRR (00010001)
-	ssd2858_write_reg(dssdev, 0x2014, (ddata->PANEL_FRAME_WIDTH << 16) | ddata->panel_timings.hbp);	// HDCFGR
-	ssd2858_write_reg(dssdev, 0x2018, (ddata->PANEL_FRAME_HEIGHT << 16) | ddata->panel_timings.vbp);	// VDCFGR
-	ssd2858_write_reg(dssdev, 0x201c, (ddata->videomode.y_res << 16) | ddata->videomode.x_res);	// MSZR
-	ssd2858_write_reg(dssdev, 0x2020, (ddata->panel_timings.y_res << 16) | ddata->panel_timings.x_res);	// DSZR
-	ssd2858_write_reg(dssdev, 0x2024, (ddata->panel_timings.y_res << 16) | ddata->panel_timings.x_res);	// PSZR
-	ssd2858_write_reg(dssdev, 0x203c, (ddata->panel_timings.y_res << 16) | ddata->panel_timings.x_res);	// ISZR
+	ssd2858_write_reg(dssdev, 0x2014, (ddata->PANEL_FRAME_WIDTH << 16) | ddata->panel_timings.hback_porch);	// HDCFGR
+	ssd2858_write_reg(dssdev, 0x2018, (ddata->PANEL_FRAME_HEIGHT << 16) | ddata->panel_timings.vback_porch);	// VDCFGR
+	ssd2858_write_reg(dssdev, 0x201c, (ddata->videomode.vactive << 16) | ddata->videomode.hactive);	// MSZR
+	ssd2858_write_reg(dssdev, 0x2020, (ddata->panel_timings.vactive << 16) | ddata->panel_timings.hactive);	// DSZR
+	ssd2858_write_reg(dssdev, 0x2024, (ddata->panel_timings.vactive << 16) | ddata->panel_timings.hactive);	// PSZR
+	ssd2858_write_reg(dssdev, 0x203c, (ddata->panel_timings.vactive << 16) | ddata->panel_timings.hactive);	// ISZR
 	ssd2858_write_reg(dssdev, 0x2034, 0x00000000);	// VCTM_POSR (00000000)
-	ssd2858_write_reg(dssdev, 0x2038, ((ddata->panel_timings.y_res - 1) << 16) | (ddata->panel_timings.x_res - 1));	// POER
+	ssd2858_write_reg(dssdev, 0x2038, ((ddata->panel_timings.vactive - 1) << 16) | (ddata->panel_timings.hactive - 1));	// POER
 	ssd2858_write_reg(dssdev, 0x2030, 0x00000015);	// URAM refresh period
 	ssd2858_write_reg(dssdev, 0x20a0, 0x00000050);	// VTCM_QFBCCTRLR (00004151) - no padding, no pixswap, no fbc
 
@@ -1034,11 +1034,11 @@ static int ssd2858_program(struct omap_dss_device *dssdev)
 		ssd2858_write_cmd1(dssdev, MIPI_DCS_SET_ADDRESS_MODE, ddata->flip);
 
 	ssd2858_write_reg(dssdev, 0x6008, 0x00000008 | ((ddata->PANEL_LANES - 1) << 22) | ((ddata->LP_CLK_DIV-1) << 16) | (ddata->CKE << 0));	// MIPITX_CTLR (00030008)
-	ssd2858_write_reg(dssdev, 0x600c, (ddata->panel_timings.vbp << 24) | (ddata->panel_timings.hbp << 16) | (ddata->panel_timings.vsw << 8) | (ddata->panel_timings.hsw << 0));	// MIPITX_VTC1R (0214020A)
-	ssd2858_write_reg(dssdev, 0x6010, (ddata->panel_timings.y_res << 16) | (ddata->panel_timings.vfp << 8) | (ddata->panel_timings.hfp << 0));	// MIPITX_VTC2R (0438020A)
+	ssd2858_write_reg(dssdev, 0x600c, (ddata->panel_timings.vback_porch << 24) | (ddata->panel_timings.hback_porch << 16) | (ddata->panel_timings.vsync_len << 8) | (ddata->panel_timings.hsync_len << 0));	// MIPITX_VTC1R (0214020A)
+	ssd2858_write_reg(dssdev, 0x6010, (ddata->panel_timings.vactive << 16) | (ddata->panel_timings.vfront_porch << 8) | (ddata->panel_timings.hfront_porch << 0));	// MIPITX_VTC2R (0438020A)
 	ssd2858_write_reg(dssdev, 0x6014, 0x01000102 | (ddata->VB_MODE << 13) | (ddata->VBE_VBS << 30));	// MIPITX_VCFR (01000101): VM=burst mode
 	// ssd2858_write_reg(dssdev, 0x6840, 0x0000000f | (virtual_channel_id << 5));
-	ssd2858_write_reg(dssdev, 0x6084, ddata->panel_timings.x_res << 0);	// MIPITX_DSI0VR (00000400)
+	ssd2858_write_reg(dssdev, 0x6084, ddata->panel_timings.hactive << 0);	// MIPITX_DSI0VR (00000400)
 
 #if LOG
 	ssd2858_read_reg(dssdev, 0x6010, NULL);
@@ -1617,7 +1617,7 @@ static void driver_ssd2858_disconnect(struct omap_dss_device *dssdev)
 }
 
 static void driver_ssd2858_get_timings(struct omap_dss_device *dssdev,
-		struct omap_video_timings *timings)
+		struct videomode *timings)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 #if LOG
@@ -1627,7 +1627,7 @@ static void driver_ssd2858_get_timings(struct omap_dss_device *dssdev,
 	 * pass potentially rotated x_res and y_res
 	 */
 	*timings = ddata->videomode;
-	printk("dsi: driver_ssd2858_get_timings x_res = %u y_res = %u\n", timings->x_res, timings->y_res);
+	printk("dsi: driver_ssd2858_get_timings x_res = %u y_res = %u\n", timings->hactive, timings->vactive);
 }
 
 static int driver_ssd2858_set_rotate(struct omap_dss_device *dssdev,
@@ -1640,25 +1640,25 @@ static int driver_ssd2858_set_rotate(struct omap_dss_device *dssdev,
 }
 
 static void driver_ssd2858_set_timings(struct omap_dss_device *dssdev,
-		struct omap_video_timings *timings)
+		struct videomode *timings)
 {
 #if LOG
 	printk("dsi: driver_ssd2858_set_timings\n");
 #endif
-	dssdev->panel.timings.x_res = timings->x_res;
-	dssdev->panel.timings.y_res = timings->y_res;
-	dssdev->panel.timings.pixelclock = timings->pixelclock;
-	dssdev->panel.timings.hsw = timings->hsw;
-	dssdev->panel.timings.hfp = timings->hfp;
-	dssdev->panel.timings.hbp = timings->hbp;
-	dssdev->panel.timings.vsw = timings->vsw;
-	dssdev->panel.timings.vfp = timings->vfp;
-	dssdev->panel.timings.vbp = timings->vbp;
+	dssdev->panel.vm.hactive = timings->hactive;
+	dssdev->panel.vm.vactive = timings->vactive;
+	dssdev->panel.vm.pixelclock = timings->pixelclock;
+	dssdev->panel.vm.hsync_len = timings->hsync_len;
+	dssdev->panel.vm.hfront_porch = timings->hfront_porch;
+	dssdev->panel.vm.hback_porch = timings->hback_porch;
+	dssdev->panel.vm.vsync_len = timings->vsync_len;
+	dssdev->panel.vm.vfront_porch = timings->vfront_porch;
+	dssdev->panel.vm.vback_porch = timings->vback_porch;
 	// FIXME: forward to panel driver?
 }
 
 static int driver_ssd2858_check_timings(struct omap_dss_device *dssdev,
-		struct omap_video_timings *timings)
+		struct videomode *timings)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 #if LOG
@@ -1667,16 +1667,18 @@ static int driver_ssd2858_check_timings(struct omap_dss_device *dssdev,
 	return 0;
 }
 
+#if 0
 static void driver_ssd2858_get_resolution(struct omap_dss_device *dssdev,
 		u16 *xres, u16 *yres)
 {
 #if LOG
 	printk("dsi: driver_ssd2858_get_resolution\n");
 #endif
-	*xres = dssdev->panel.timings.x_res;
-	*yres = dssdev->panel.timings.y_res;
+	*xres = dssdev->panel.vm.hactive;
+	*yres = dssdev->panel.vm.vactive;
 	// FIXME: forward to panel driver?
 }
+#endif
 
 static void driver_ssd2858_disable(struct omap_dss_device *dssdev)
 {
@@ -1737,8 +1739,9 @@ static struct omap_dss_driver ssd2858_driver_ops = {
 	.disable		= driver_ssd2858_disable,
 
 	.set_rotate		= driver_ssd2858_set_rotate,
+#if 0
 	.get_resolution		= driver_ssd2858_get_resolution,
-
+#endif
 	.set_timings		= driver_ssd2858_set_timings,
 	.get_timings		= driver_ssd2858_get_timings,
 	.check_timings		= driver_ssd2858_check_timings,
@@ -1970,7 +1973,7 @@ static int ssd2858_probe(struct platform_device *pdev)
 
 // CHECKME: which of these to we really have to define?
 
-	dssdev->panel.timings = ddata->videomode;
+	dssdev->panel.vm = ddata->videomode;
 	dssdev->type = OMAP_DISPLAY_TYPE_DSI;
 	dssdev->output_type = OMAP_DISPLAY_TYPE_DSI;
 	dssdev->owner = THIS_MODULE;
