@@ -20,7 +20,7 @@
 
 [ "$(which media-ctl)" ] || apt-get install -y v4l-utils
 
-CAM=ov965x		# driver name not camera model! use media-ctl -p to find out
+CAM="ov9655 1-0030"		# driver name not camera model! use media-ctl -p to find out
 CAMERA='"'$CAM'"'	# sometimes we need quotes in the variable value
 
 CPATH="$(media-ctl -e "$CAM")"
