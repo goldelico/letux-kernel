@@ -9730,6 +9730,15 @@ S:	Maintained
 F:	drivers/media/i2c/ov7670.c
 F:	Documentation/devicetree/bindings/media/i2c/ov7670.txt
 
+OMNIVISION OV9655 SENSOR DRIVER
+M:	Hugues Fruchet <hugues.fruchet@st.com>
+M:	H. Nikolaus Schaller <hns@goldelico.com>
+L:	linux-media@vger.kernel.org
+T:	git git://linuxtv.org/media_tree.git
+S:	Maintained
+F:	drivers/media/i2c/ov9655.c
+F:	Documentation/devicetree/bindings/media/i2c/ov9655.txt
+
 OMNIVISION OV13858 SENSOR DRIVER
 M:	Sakari Ailus <sakari.ailus@linux.intel.com>
 L:	linux-media@vger.kernel.org
