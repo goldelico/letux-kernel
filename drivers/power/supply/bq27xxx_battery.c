@@ -969,6 +969,8 @@ static int bq27xxx_battery_seal(struct bq27xxx_device_info *di)
 {
 	int ret;
 
+pr_info("%s\n", __func__);
+
 	ret = bq27xxx_write(di, BQ27XXX_REG_CTRL, BQ27XXX_SEALED, false);
 	if (ret < 0) {
 		dev_err(di->dev, "bus error on seal: %d\n", ret);
@@ -981,6 +983,8 @@ static int bq27xxx_battery_seal(struct bq27xxx_device_info *di)
 static int bq27xxx_battery_unseal(struct bq27xxx_device_info *di)
 {
 	int ret;
+
+pr_info("%s\n", __func__);
 
 	if (di->unseal_key == 0) {
 		dev_err(di->dev, "unseal failed due to missing key\n");
@@ -1220,6 +1224,8 @@ static void bq27xxx_battery_set_config(struct bq27xxx_device_info *di,
 	struct bq27xxx_dm_buf bt = BQ27XXX_DM_BUF(di, BQ27XXX_DM_TERMINATE_VOLTAGE);
 	bool updated;
 
+pr_info("%s\n", __func__);
+
 	if (bq27xxx_battery_unseal(di) < 0)
 		return;
 
@@ -1262,6 +1268,8 @@ static void bq27xxx_battery_settings(struct bq27xxx_device_info *di)
 {
 	struct power_supply_battery_info info = {};
 	unsigned int min, max;
+
+pr_info("%s\n", __func__);
 
 	if (power_supply_get_battery_info(di->bat, &info) < 0)
 		return;
