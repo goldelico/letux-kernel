@@ -714,10 +714,18 @@
 
 #include <dt-bindings/power/power.h>
 
-	battery: battery {
+	bat: battery {
+		compatible = "simple-battery", "gta04-battery";
+		voltage-min-design-microvolt = <3200000>;
+		energy-full-design-microwatt-hours = <4440000>;
+		charge-full-design-microamp-hours = <1250000>;
+	};
+
+	battery: battery-monitor {
 		compatible = "linux,generic-adc-battery";
 		io-channels = <&twl_madc 12>, <&twl_madc 10>, <&twl_madc 0>;
 		io-channel-names = "voltage", "current", "temperature";
+		monitored-battery = <&bat>;
 		technology = <POWER_SUPPLY_TECHNOLOGY_LION>;
 		battery-name = "gta04-battery";
 		charge_full_design = <4000>;
@@ -725,18 +733,6 @@
 		voltage_min_design = <100>;
 		voltage_max_design = <4300>;
 	};
-
-/*
-	battery: battery {
-		compatible = "ti,twl4030-madc-battery";
-		io-channels = <&twl_madc 0>, <&twl_madc 10>, <&twl_madc 12>;
-		io-channel-names = "temp", "ichg", "vbat";
-
-		capacity = <1200000>;
-		charging-calibration-data = <4200 100 4100 75 4000 55 3900 25 3800 5 3700 2 3600 1 3300 0>;
-		discharging-calibration-data = <4200 100 4100 95 4000 70 3800 50 3700 10 3600 5 3300 0>;
-	};
-*/
 
 	/* Bluetooth audio */
 	sound_bluetooth {
@@ -877,7 +873,7 @@
 			OMAP3_CORE1_IOPAD(0x210c, PIN_INPUT_PULLDOWN | MUX_MODE0) /* cam_hs */
 			OMAP3_CORE1_IOPAD(0x210e, PIN_INPUT_PULLDOWN | MUX_MODE0) /* cam_vs */
 			OMAP3_CORE1_IOPAD(0x2110, PIN_OUTPUT | MUX_MODE0) /* cam_xclka */
-			OMAP3_CORE1_IOPAD(0x2112, PIN_INPUT_PULLDOWN | MUX_MODE7) /* cam_pclk */
+			OMAP3_CORE1_IOPAD(0x2112, PIN_INPUT_PULLDOWN | MUX_MODE0) /* cam_pclk */
 			OMAP3_CORE1_IOPAD(0x2114, PIN_OUTPUT | MUX_MODE4) /* cam_fld = gpio_98 */
 			OMAP3_CORE1_IOPAD(0x2116, PIN_INPUT_PULLDOWN | MUX_MODE0) /* cam_d0 */
 			OMAP3_CORE1_IOPAD(0x2118, PIN_INPUT_PULLDOWN | MUX_MODE0) /* cam_d1 */
@@ -944,11 +940,18 @@
 		pinctrl-0 = <&camera_pins>;
 		compatible = "ovti,ov9655";
 		reg = <0x30>;
+#if 1	/* support for old driver */
 		gpios = <&gpio3 2 0>,	/* reset cam_fld = GPIO_98 */
 			<&gpio6 7 0>;	/* pwdn cam_wen = GPIO_167 */
 		vana-supply = <&vaux3>;
-		clocks = <&isp 0>;	/* cam_clka */
 		clock-frequency = <24000000>;
+#endif
+		resetb-gpios = <&gpio3 2 GPIO_ACTIVE_HIGH>;	/* reset cam_fld = GPIO_98 */
+		pwdn-gpios = <&gpio6 7 GPIO_ACTIVE_HIGH>;	/* pwdn cam_wen = GPIO_167 */
+		avdd-supply = <&vaux3>;
+		clocks = <&isp 0>;	/* cam_clka */
+		assigned-clocks = <&isp 0>;
+		assigned-clock-rates = <24000000>;
 
 		port {
 			ov9655: endpoint {
