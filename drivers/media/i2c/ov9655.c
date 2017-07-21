@@ -209,12 +209,14 @@ struct ov9655 {
 #define OV9655_MANV			0x68
 #define OV9655_BD50MAX			0x6A
 #define OV9655_DBLV			0x6B
-#define   OV9655_DBLV_BANDGAP		0x0a	/* default value */
+#define   OV9655_DBLV_BANDGAP_MASK	0x0F
+#define     OV9655_DBLV_BANDGAP	0x0a	/* default value */
 #define   OV9655_DBLV_LDO_BYPASS	0x10
-#define   OV9655_DBLV_PLL_BYPASS	0x00
-#define   OV9655_DBLV_PLL_4X		0x40
-#define   OV9655_DBLV_PLL_6X		0x80
-#define   OV9655_DBLV_PLL_8X		0xc0
+#define   OV9655_DBLV_PLL_MASK		0xC0
+#define     OV9655_DBLV_PLL_BYPASS	0x00
+#define     OV9655_DBLV_PLL_4X		0x40
+#define     OV9655_DBLV_PLL_6X		0x80
+#define     OV9655_DBLV_PLL_8X		0xc0
 #define OV9655_DNSTH			0x70
 #define OV9655_POIDX			0x72
 #define   OV9655_POIDX_VDROP		0x40
@@ -342,19 +344,22 @@ static int ov9655_write(struct i2c_client *client, u8 reg, u8 data)
 	return i2c_smbus_write_byte_data(client, reg, data);
 }
 
-static int ov9655_update_bits(struct i2c_client *client, u8 reg, unsigned int clear, unsigned int val)
+static int ov9655_update_bits(struct i2c_client *client, u8 reg, unsigned int mask, unsigned int val)
 {
-	int ret;
-	if (clear != 0xff)	/* modify all bits */
-		return ov9655_write(client, reg, val);
+	if (mask != 0xff) { /* modify not all bits */
+		int ret;
 
-	ret = ov9655_read(client, reg);
-	if (ret < 0)
-		return ret;
+		ret = ov9655_read(client, reg);
+		if (ret < 0)
+			return ret;
 
-	val |= (ret & clear);
-	if (val == (u8) ret)
-		return 0;	/* no need to write */
+		ret &= ~mask;
+		ret |= val & mask;
+
+		if (val == (u8) ret)
+			return 0;	/* no need to change */
+		val = ret;
+	}
 
 	return ov9655_write(client, reg, val);
 }
@@ -375,15 +380,17 @@ static int ov9655_reset(struct ov9655 *ov9655)
 #endif
 	usleep_range(1000, 2000);
 
-	ret = ov9655_write(client, OV9655_COM2, 0x01);
+	ret = ov9655_update_bits(client, OV9655_COM2, OV9655_COM2_SLEEP, 0x00);
 	if (ret < 0) {
 		dev_err(&client->dev, "%s: write failed err=%d\n", __func__, ret);
 		return ret;
 		}
 
-	ret = ov9655_write(client, OV9655_COM10, OV9655_COM10_HREF2HSYNC);
+	ret = ov9655_update_bits(client, OV9655_COM10, OV9655_COM10_HREF2HSYNC, OV9655_COM10_HREF2HSYNC);	/* configure for HSYNC and not HREF */
+
+	/* should go to format/clock setup */
 	ret = ov9655_write(client, OV9655_CLKRC, 0);	/* compensate for PLL_4X (note this means: PCLK = XCLK x 4) */
-	ret = ov9655_write(client, OV9655_DBLV, OV9655_DBLV_PLL_4X | OV9655_DBLV_BANDGAP);
+	ret = ov9655_update_bits(client, OV9655_DBLV, OV9655_DBLV_PLL_MASK, OV9655_DBLV_PLL_4X);
 
 	ret = ov9655_update_bits(client, OV9655_COM2, OV9655_COM2_STRENGTH,
 		ov9655->output_drive&OV9655_COM2_STRENGTH);
