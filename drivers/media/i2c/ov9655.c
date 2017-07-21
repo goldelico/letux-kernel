@@ -322,283 +322,6 @@ struct ov9655 {
 #define	OV9655_COLUMN_START_MAX	OV9655_MAX_WIDTH
 #define	OV9655_COLUMN_START_DEF	0
 
-#define OV9655_DEFAULT_FORMAT	MEDIA_BUS_FMT_UYVY8_2X8
-
-/* to bulk program camera registers */
-
-struct ov9655_reg {
-	u8 addr;
-	u8 value;
-	/* mask for bit to be changed
-	 * note: 0x00 is treated as 0xff
-	 */
-	u8 mask;
-};
-
-/* if we can define all relevant properties by DT or format
- * we can get rid of these tables and replace by stuffing bits into individual
- * registers
- */
-
-static const struct ov9655_reg ov9655_init_hardware[] = {
-	/* here we write only registers for the hardware interface - must be matched by the hardware interface in the board file */
-	{ OV9655_COM2, 0x01 },	/* drive outputs at 2x; disable soft sleep */
-	// FIXME: make this depend on the hsync-active setting in the DT subnode
-	{ OV9655_COM10, OV9655_COM10_HREF2HSYNC /* | OV9655_COM10_HSYNC_NEG */ },	/* define pin polarity and functions as default (VSYNC, HSYNC as positive pulses) */
-	{ OV9655_CLKRC, 0 },	/* compensate for PLL_4X (note this means: PCLK = XCLK x 4) */
-	{ OV9655_DBLV, OV9655_DBLV_PLL_4X | OV9655_DBLV_BANDGAP },
-};
-
-static const struct ov9655_reg ov9655_init_regs[] = {
-	/* here we do some common settings (bias, gain, agc etc.) */
-	// make depend on BE/LE format
-	{ OV9655_COM3, 0x00, OV9655_COM3_SWAP },	// don't swap MSB and LSB
-	{ OV9655_COM6, 0x40 },	/* manually update window size and timing and use optical BLC */
-	// FIXME: not really needed to initialize if we explicitly set the format later on
-	{ OV9655_COM7, OV9655_COM7_YUV, OV9655_COM7_FMT_MASK },	/* choose YUV */
-	{ OV9655_COM11, 0x05 },	// no night mode
-	{ OV9655_COM15, 0xc0 },	// full scale output range and RGB555
-
-#if 0	// no need to setup
-	{ OV9655_COM19, 0x0c },	// UV
-
-	{ OV9655_COM1, 0x03 },	// AEC low bits
-	{ OV9655_COM5, 0x61 },	// slam mode & exposure
-	{ OV9655_COM8, 0xe0 | OV9655_COM8_AGC | OV9655_COM8_AWB | OV9655_COM8_AEC },
-	{ OV9655_COM9, 0x2a },	// agc
-	{ OV9655_REG16, 0x24 },
-	{ OV9655_MVFP, 0 },	// mirror&flip
-	{ OV9655_AEW, 0x3c },
-	{ OV9655_AEB, 0x36 },
-	{ OV9655_VPT, 0x72 },
-	{ OV9655_BBIAS, 0x08 },
-	{ OV9655_GBBIAS, 0x08 },
-	{ OV9655_PREGAIN, 0x15 },
-	{ OV9655_EXHCH, 0x00 },
-	{ OV9655_EXHCL, 0x00 },
-	{ OV9655_RBIAS, 0x08 },
-	{ OV9655_CHLF, 0x00 },
-	{ OV9655_AREF2, 0x00 },
-	{ OV9655_ADC2, 0x72 },
-	{ OV9655_AREF4, 0x57 },
-	{ OV9655_COM13, 0x99 },
-	{ OV9655_EDGE, 0x02 },	// edge enhancement factor
-
-	{ OV9655_COM17, 0xc1 },	// denoise, edge enhancement, 50 Hz banding filter
-
-	{ OV9655_DNSTH, 0x21 },	// denoise threshold
-#endif
-
-#if 0
-	{ OV9655_SLOP, 0x12 },
-	{ OV9655_GAM1, 0x08 },
-	{ OV9655_GAM2, 0x16 },
-	{ OV9655_GAM3, 0x30 },
-	{ OV9655_GAM4, 0x5e },
-	{ OV9655_GAM5, 0x72 },
-	{ OV9655_GAM6, 0x82 },
-	{ OV9655_GAM7, 0x8e },
-	{ OV9655_GAM8, 0x9a },
-	{ OV9655_GAM9, 0xa4 },
-	{ OV9655_GAM10, 0xac },
-	{ OV9655_GAM11, 0xb8 },
-	{ OV9655_GAM12, 0xc3 },
-	{ OV9655_GAM13, 0xd6 },
-	{ OV9655_GAM14, 0xe6 },
-	{ OV9655_GAM15, 0xf2 },
-
-	{ OV9655_AWBOP1, 0x85 },
-	{ OV9655_AWBOP2, 0xa9 },
-	{ OV9655_AWBOP3, 0x64 },
-	{ OV9655_AWBOP4, 0x84 },
-	{ OV9655_AWBOP5, 0x53 },
-	{ OV9655_AWBOP6, 0x0e },
-	{ OV9655_BLMT, 0xf0 },
-	{ OV9655_RLMT, 0xf0 },
-	{ OV9655_GLMT, 0xf0 },
-	{ OV9655_LCC1, 0x00 },
-	{ OV9655_LCC2, 0x00 },
-	{ OV9655_LCC3, 0x02 },
-	{ OV9655_LCC6, 0x03 },
-
-	{ OV9655_AECH, 0x40 },
-
-#endif
-
-#if 0
-	{ OV9655_COM21, 0x50 },	// digital gain
-#endif
-
-#if 0	// other values that can be changed
-	{ OV9655_GREEN, 0x4a },
-	{ OV9655_REFA8, 0xc1 },
-	{ OV9655_REFA9, 0xef },
-	{ OV9655_BLC1, 0x80 },
-	{ OV9655_BLC2, 0x80 },
-	{ OV9655_BLC3, 0x80 },
-	{ OV9655_BLC4, 0x80 },
-	{ OV9655_BLC7, 0xf2 },
-	{ OV9655_BLC8, 0x20 },
-	{ OV9655_CTRLB4, 0x20 },
-	{ OV9655_ADBOFF, 0x7f },
-	{ OV9655_ADROFF, 0x7f },
-	{ OV9655_ADGBOFF, 0x7f },
-	{ OV9655_ADGROFF, 0x7f },
-	{ OV9655_AREF1, 0x3d },
-	{ OV9655_AREF3, 0x34 },
-	{ OV9655_LCC4, 0x16 },
-	{ OV9655_LCC5, 0x01 },
-	{ OV9655_LCC7, 0x04 },
-	{ OV9655_BD50MAX, 0x05 },
-	{ OV9655_BD50, 0x9d },
-	{ OV9655_BD60, 0x83 },
-	{ OV9655_BD60MAX, 0x07 },
-#endif
-};
-
-#if 0	// replaced by code
-
-/* Register values for SXGA format */
-static const struct ov9655_reg ov9655_sxga[] = {
-	/* COM7 is set through code since it is shared with color encoding format */
-	{ OV9655_COM7, OV9655_COM7_SXGA, OV9655_COM7_RES_MASK },
-	{ OV9655_HSYEN, 0x50 }	/* adjust sync */
-
-#if 0	// stuff from other driver without knowing if that is good or bad
-	// fixme: define macros that split a 11 bit row/col position into higher bytes and HREF/VREF
-	{ OV9655_HSTART, 0x1d },
-	{ OV9655_HSTOP, 0xbd },
-	{ OV9655_HREF, 0xff },
-	{ OV9655_VSTART, 0x01 },
-	{ OV9655_VSTOP, 0x81 },
-	{ OV9655_VREF, 0x1b },	// vertical frame control
-	{ OV9655_COM14, 0x0c },	// zoom
-	{ OV9655_COM16, 0x00 },	// scaling
-	{ OV9655_POIDX, 0x00 },	// skip lines
-	{ OV9655_PCKDV, 0x00 },	// pixel clock divisor (48 MHz)
-	{ OV9655_XINDX, 0x3a },	// scale down
-	{ OV9655_YINDX, 0x35 },	// scale down
-	{ OV9655_COM24, 0x80 },	// pixel clock frequency
-#endif
-};
-
-/* Register values for VGA format */
-static const struct ov9655_reg ov9655_vga[] = {
-	{ OV9655_COM7, OV9655_COM7_VGA, OV9655_COM7_RES_MASK },
-
-#if 0	// stuff from other driver without knowing if that is good or bad
-	{ OV9655_HSTART, 0x16 },
-	{ OV9655_HSTOP, 0x02 },
-	{ OV9655_HREF, 0xff },
-	{ OV9655_VSTART, 0x01 },
-	{ OV9655_VSTOP, 0x3d },
-	{ OV9655_VREF, 0x12 },	// vertical frame control - mixed with AGC
-	{ OV9655_COM14, 0x0c },	// pixel correction and zoom
-	{ OV9655_COM16, 0x00 },	// no scaling
-	{ OV9655_POIDX, 0x00 },	// normal output
-	{ OV9655_PCKDV, 0x00 },	// pixel clock divisor (48 MHz / (2^(1)) -> 24 MHz)
-	{ OV9655_XINDX, 0x3a },	// scale down
-	{ OV9655_YINDX, 0x35 },	// scale down
-	{ OV9655_COM24, 0x80 },	// pixel clock frequency
-#endif
-};
-
-/* Register values for QVGA format */
-static const struct ov9655_reg ov9655_qvga[] = {
-	{ OV9655_COM7, OV9655_COM7_VGA, OV9655_COM7_RES_MASK },
-
-#if 0	// stuff from other driver without knowing if that is good or bad
-	{ OV9655_HSTART, 0x18 },
-	{ OV9655_HSTOP, 0x04 },
-	{ OV9655_HREF, 0x2a },	// lower bits of hstart/stop
-	{ OV9655_VSTART, 0x01 },
-	{ OV9655_VSTOP, 0x81 },
-	{ OV9655_VREF, 0x02 },	// vertical frame control - mixed with AGC
-	{ OV9655_COM14, 0x0e },	// pixel correction and zoom
-	{ OV9655_COM16, 0x01 },	// enable scaling
-	{ OV9655_POIDX, 0x11 },	// 1 line every 2 px
-	{ OV9655_PCKDV, 0x02 },	// pixel clock divisor
-	{ OV9655_XINDX, 0x10 },	// scale down
-	{ OV9655_YINDX, 0x10 },	// scale down
-	{ OV9655_COM24, 0x81 },	// pixel clock frequency
-#endif
-};
-
-/* Register values for CIF format */
-static const struct ov9655_reg ov9655_cif[] = {
-	/* fixme: this is QQVGA and not CIF */
-	{ OV9655_COM7, OV9655_COM7_VGA, OV9655_COM7_RES_MASK },
-
-#if 0	// stuff from other driver without knowing if that is good or bad
-	{ OV9655_HSTART, 0x18 },
-	{ OV9655_HSTOP, 0x04 },
-	{ OV9655_HREF, 0xa4 },
-	{ OV9655_VSTART, 0x01 },
-	{ OV9655_VSTOP, 0x81 },
-	{ OV9655_VREF, 0x02 },	// vertical frame control - mixed with AGC
-	{ OV9655_COM14, 0x0e },	// pixel correction and zoom
-	{ OV9655_COM16, 0x01 },	// enable scaling
-	{ OV9655_POIDX, 0x22 },	// 1 line every 4 px
-	{ OV9655_PCKDV, 0x03 },	// pixel clock divisor
-	{ OV9655_XINDX, 0x10 },	// scale down
-	{ OV9655_YINDX, 0x10 },	// scale down
-	{ OV9655_COM24, 0x82 },	// pixel clock frequency
-#endif
-};
-
-/* Register values for YUV format */
-static const struct ov9655_reg ov9655_uyvy_regs[] = {
-	/* merge value with VGA/SXGA setting! */
-	{ OV9655_COM7, OV9655_COM7_YUV, OV9655_COM7_FMT_MASK },	/* choose YUV */
-	{ OV9655_TSLB, OV9655_TSLB_VYUY, OV9655_TSLB_YUV_MASK },	/* VYUY byte order */
-
-#if 0	// stuff from other driver without knowing if that is good or bad
-	{ OV9655_MTX1, 0x80 },
-	{ OV9655_MTX2, 0x80 },
-	{ OV9655_MTX3, 0x00 },
-	{ OV9655_MTX4, 0x22 },
-	{ OV9655_MTX5, 0x5e },
-	{ OV9655_MTX6, 0x80 },
-	{ OV9655_MTXS, 0x1e },
-#endif
-};
-
-/* Register values for RGB format */
-static const struct ov9655_reg ov9655_rgb_regs[] = {
-	{ OV9655_COM7, OV9655_COM7_RGB, OV9655_COM7_FMT_MASK },	/* choose RGB */
-	{ OV9655_COM15, OV9655_COM15_RGB555, OV9655_COM15_RGB_MASK },	// full scale output range and RGB555
-
-#if 0	// stuff from other driver without knowing if that is good or bad
-	//	{ OV9655_MTX1, 0x98 },
-	{ OV9655_MTX2, 0x98 },
-	{ OV9655_MTX3, 0x00 },
-	{ OV9655_MTX4, 0x28,},
-	{ OV9655_MTX5, 0x70 },
-	{ OV9655_MTX6, 0x98 },
-	{ OV9655_MTXS, 0x1a },
-#endif
-};
-
-/* Register values for RGB-RAW format */
-static const struct ov9655_reg ov9655_raw_regs[] = {
-	{ OV9655_COM7, OV9655_COM7_RAW, OV9655_COM7_FMT_MASK },	/* choose raw RGB */
-	{ OV9655_COM15, OV9655_COM15_RGB555, OV9655_COM15_RGB_MASK },	// full scale output range and RGB555
-
-#if 0	// stuff from other driver without knowing if that is good or bad
-	//	{ OV9655_MTX1, 0x98 },
-	{ OV9655_MTX2, 0x98 },
-	{ OV9655_MTX3, 0x00 },
-	{ OV9655_MTX4, 0x28,},
-	{ OV9655_MTX5, 0x70 },
-	{ OV9655_MTX6, 0x98 },
-	{ OV9655_MTXS, 0x1a },
-#endif
-};
-
-// add more for RGB565
-
-#endif	// OLD
-
 static struct ov9655 *to_ov9655(struct v4l2_subdev *sd)
 {
 	return container_of(sd, struct ov9655, subdev);
@@ -636,19 +359,6 @@ static int ov9655_update_bits(struct i2c_client *client, u8 reg, unsigned int cl
 	return ov9655_write(client, reg, val);
 }
 
-static int ov9655_write_regs(struct i2c_client *client,
-				const struct ov9655_reg *regs, const int n)
-{
-	int i, ret;
-
-	for (i = 0; i < n; i++) {
-		ret = ov9655_update_bits(client, regs[i].addr, regs[i].mask ? regs[i].mask : 0xff, regs[i].value);
-		if (ret < 0)
-			return ret;
-	}
-	return 0;
-}
-
 static int ov9655_reset(struct ov9655 *ov9655)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&ov9655->subdev);
@@ -665,11 +375,15 @@ static int ov9655_reset(struct ov9655 *ov9655)
 #endif
 	usleep_range(1000, 2000);
 
-	ret = ov9655_write_regs(client, ov9655_init_hardware, ARRAY_SIZE(ov9655_init_hardware));
+	ret = ov9655_write(client, OV9655_COM2, 0x01);
 	if (ret < 0) {
 		dev_err(&client->dev, "%s: write failed err=%d\n", __func__, ret);
 		return ret;
 		}
+
+	ret = ov9655_write(client, OV9655_COM10, OV9655_COM10_HREF2HSYNC);
+	ret = ov9655_write(client, OV9655_CLKRC, 0);	/* compensate for PLL_4X (note this means: PCLK = XCLK x 4) */
+	ret = ov9655_write(client, OV9655_DBLV, OV9655_DBLV_PLL_4X | OV9655_DBLV_BANDGAP);
 
 	ret = ov9655_update_bits(client, OV9655_COM2, OV9655_COM2_STRENGTH,
 		ov9655->output_drive&OV9655_COM2_STRENGTH);
@@ -814,6 +528,7 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 	struct i2c_client *client = v4l2_get_subdevdata(&ov9655->subdev);
 	struct v4l2_mbus_framefmt *format = &ov9655->format;
 	const struct v4l2_rect *crop = &ov9655->crop;
+	int ret = 0;
 
 #if 0
 	unsigned int hblank;
@@ -824,14 +539,109 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 	unsigned int ybin;
 #endif
 
-	int ret = 0;
-
 	dev_info(&client->dev, "%s\n", __func__);
 
 	printmbusfmt(client, format);
 
-	/* generic initialization */
-	ov9655_write_regs(client, ov9655_init_regs, ARRAY_SIZE(ov9655_init_regs));
+	/* general initialization */
+
+	ret = ov9655_update_bits(client, OV9655_COM6, 0xff, 0x40);	/* manually update window size and timing and use optical BLC */
+	if (ret < 0)
+		return ret;
+	ret = ov9655_update_bits(client, OV9655_COM11, 0xff, 0x05);	// no night mode
+	if (ret < 0)
+		return ret;
+	ret = ov9655_update_bits(client, OV9655_COM15, 0xff, 0xc0);	// full scale output range and RGB555
+	if (ret < 0)
+		return ret;
+
+#if 0	// other values that can be changed from reset state
+
+	{ OV9655_COM19, 0x0c },	// UV
+	{ OV9655_COM1, 0x03 },	// AEC low bits
+	{ OV9655_COM5, 0x61 },	// slam mode & exposure
+	{ OV9655_COM8, 0xe0 | OV9655_COM8_AGC | OV9655_COM8_AWB | OV9655_COM8_AEC },
+	{ OV9655_COM9, 0x2a },	// agc
+	{ OV9655_REG16, 0x24 },
+	{ OV9655_MVFP, 0 },	// mirror&flip
+	{ OV9655_AEW, 0x3c },
+	{ OV9655_AEB, 0x36 },
+	{ OV9655_VPT, 0x72 },
+	{ OV9655_BBIAS, 0x08 },
+	{ OV9655_GBBIAS, 0x08 },
+	{ OV9655_PREGAIN, 0x15 },
+	{ OV9655_EXHCH, 0x00 },
+	{ OV9655_EXHCL, 0x00 },
+	{ OV9655_RBIAS, 0x08 },
+	{ OV9655_CHLF, 0x00 },
+	{ OV9655_AREF2, 0x00 },
+	{ OV9655_ADC2, 0x72 },
+	{ OV9655_AREF4, 0x57 },
+	{ OV9655_COM13, 0x99 },
+	{ OV9655_EDGE, 0x02 },	// edge enhancement factor
+
+	{ OV9655_COM17, 0xc1 },	// denoise, edge enhancement, 50 Hz banding filter
+	{ OV9655_DNSTH, 0x21 },	// denoise threshold
+
+	{ OV9655_SLOP, 0x12 },
+	{ OV9655_GAM1, 0x08 },
+	{ OV9655_GAM2, 0x16 },
+	{ OV9655_GAM3, 0x30 },
+	{ OV9655_GAM4, 0x5e },
+	{ OV9655_GAM5, 0x72 },
+	{ OV9655_GAM6, 0x82 },
+	{ OV9655_GAM7, 0x8e },
+	{ OV9655_GAM8, 0x9a },
+	{ OV9655_GAM9, 0xa4 },
+	{ OV9655_GAM10, 0xac },
+	{ OV9655_GAM11, 0xb8 },
+	{ OV9655_GAM12, 0xc3 },
+	{ OV9655_GAM13, 0xd6 },
+	{ OV9655_GAM14, 0xe6 },
+	{ OV9655_GAM15, 0xf2 },
+
+	{ OV9655_AWBOP1, 0x85 },
+	{ OV9655_AWBOP2, 0xa9 },
+	{ OV9655_AWBOP3, 0x64 },
+	{ OV9655_AWBOP4, 0x84 },
+	{ OV9655_AWBOP5, 0x53 },
+	{ OV9655_AWBOP6, 0x0e },
+	{ OV9655_BLMT, 0xf0 },
+	{ OV9655_RLMT, 0xf0 },
+	{ OV9655_GLMT, 0xf0 },
+	{ OV9655_LCC1, 0x00 },
+	{ OV9655_LCC2, 0x00 },
+	{ OV9655_LCC3, 0x02 },
+	{ OV9655_LCC6, 0x03 },
+
+	{ OV9655_AECH, 0x40 },
+
+	{ OV9655_COM21, 0x50 },	// digital gain
+
+	{ OV9655_GREEN, 0x4a },
+	{ OV9655_REFA8, 0xc1 },
+	{ OV9655_REFA9, 0xef },
+	{ OV9655_BLC1, 0x80 },
+	{ OV9655_BLC2, 0x80 },
+	{ OV9655_BLC3, 0x80 },
+	{ OV9655_BLC4, 0x80 },
+	{ OV9655_BLC7, 0xf2 },
+	{ OV9655_BLC8, 0x20 },
+	{ OV9655_CTRLB4, 0x20 },
+	{ OV9655_ADBOFF, 0x7f },
+	{ OV9655_ADROFF, 0x7f },
+	{ OV9655_ADGBOFF, 0x7f },
+	{ OV9655_ADGROFF, 0x7f },
+	{ OV9655_AREF1, 0x3d },
+	{ OV9655_AREF3, 0x34 },
+	{ OV9655_LCC4, 0x16 },
+	{ OV9655_LCC5, 0x01 },
+	{ OV9655_LCC7, 0x04 },
+	{ OV9655_BD50MAX, 0x05 },
+	{ OV9655_BD50, 0x9d },
+	{ OV9655_BD60, 0x83 },
+	{ OV9655_BD60MAX, 0x07 },
+#endif
 
 	/* format specific initializations */
 
@@ -844,20 +654,81 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_RES_MASK, OV9655_COM7_SXGA);
 		ov9655_write(client, OV9655_HSYST, 0x08);	/* adjust sync */
 		ov9655_write(client, OV9655_HSYEN, 0x48);	/* adjust sync */
+#if 0	// stuff from other driver without knowing if that is good or bad
+	// fixme: define macros that split a 11 bit row/col position into higher bytes and HREF/VREF
+	{ OV9655_HSTART, 0x1d },
+	{ OV9655_HSTOP, 0xbd },
+	{ OV9655_HREF, 0xff },
+	{ OV9655_VSTART, 0x01 },
+	{ OV9655_VSTOP, 0x81 },
+	{ OV9655_VREF, 0x1b },	// vertical frame control
+	{ OV9655_COM14, 0x0c },	// zoom
+	{ OV9655_COM16, 0x00 },	// scaling
+	{ OV9655_POIDX, 0x00 },	// skip lines
+	{ OV9655_PCKDV, 0x00 },	// pixel clock divisor (48 MHz)
+	{ OV9655_XINDX, 0x3a },	// scale down
+	{ OV9655_YINDX, 0x35 },	// scale down
+	{ OV9655_COM24, 0x80 },	// pixel clock frequency
+#endif
 		break;
 	case VGA:
 		dev_info(&client->dev, "VGA\n");
 		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_RES_MASK, OV9655_COM7_VGA);
+#if 0	// stuff from other driver without knowing if that is good or bad
+	{ OV9655_HSTART, 0x16 },
+	{ OV9655_HSTOP, 0x02 },
+	{ OV9655_HREF, 0xff },
+	{ OV9655_VSTART, 0x01 },
+	{ OV9655_VSTOP, 0x3d },
+	{ OV9655_VREF, 0x12 },	// vertical frame control - mixed with AGC
+	{ OV9655_COM14, 0x0c },	// pixel correction and zoom
+	{ OV9655_COM16, 0x00 },	// no scaling
+	{ OV9655_POIDX, 0x00 },	// normal output
+	{ OV9655_PCKDV, 0x00 },	// pixel clock divisor (48 MHz / (2^(1)) -> 24 MHz)
+	{ OV9655_XINDX, 0x3a },	// scale down
+	{ OV9655_YINDX, 0x35 },	// scale down
+	{ OV9655_COM24, 0x80 },	// pixel clock frequency
+#endif
 		break;
 	case QVGA:
 		dev_info(&client->dev, "QVGA\n");
 		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_RES_MASK, OV9655_COM7_VGA);
 		// we need more settings
+#if 0	// stuff from other driver without knowing if that is good or bad
+	{ OV9655_HSTART, 0x18 },
+	{ OV9655_HSTOP, 0x04 },
+	{ OV9655_HREF, 0x2a },	// lower bits of hstart/stop
+	{ OV9655_VSTART, 0x01 },
+	{ OV9655_VSTOP, 0x81 },
+	{ OV9655_VREF, 0x02 },	// vertical frame control - mixed with AGC
+	{ OV9655_COM14, 0x0e },	// pixel correction and zoom
+	{ OV9655_COM16, 0x01 },	// enable scaling
+	{ OV9655_POIDX, 0x11 },	// 1 line every 2 px
+	{ OV9655_PCKDV, 0x02 },	// pixel clock divisor
+	{ OV9655_XINDX, 0x10 },	// scale down
+	{ OV9655_YINDX, 0x10 },	// scale down
+	{ OV9655_COM24, 0x81 },	// pixel clock frequency
+#endif
 		break;
 	case CIF:
 		dev_info(&client->dev, "CIF\n");
 		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_RES_MASK, OV9655_COM7_VGA);
 		// we need more settings
+#if 0	// stuff from other driver without knowing if that is good or bad
+	{ OV9655_HSTART, 0x18 },
+	{ OV9655_HSTOP, 0x04 },
+	{ OV9655_HREF, 0xa4 },
+	{ OV9655_VSTART, 0x01 },
+	{ OV9655_VSTOP, 0x81 },
+	{ OV9655_VREF, 0x02 },	// vertical frame control - mixed with AGC
+	{ OV9655_COM14, 0x0e },	// pixel correction and zoom
+	{ OV9655_COM16, 0x01 },	// enable scaling
+	{ OV9655_POIDX, 0x22 },	// 1 line every 4 px
+	{ OV9655_PCKDV, 0x03 },	// pixel clock divisor
+	{ OV9655_XINDX, 0x10 },	// scale down
+	{ OV9655_YINDX, 0x10 },	// scale down
+	{ OV9655_COM24, 0x82 },	// pixel clock frequency
+#endif
 		break;
 	}
 
@@ -868,6 +739,15 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 		ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, 0x00);	/* no swap */
 		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_FMT_MASK, OV9655_COM7_YUV);	/* choose YUV */
 		ov9655_update_bits(client, OV9655_TSLB, OV9655_TSLB_YUV_MASK, OV9655_TSLB_VYUY);	/* UYVY8 byte order */
+#if 0	// stuff from other driver without knowing if that is good or bad
+	{ OV9655_MTX1, 0x80 },
+	{ OV9655_MTX2, 0x80 },
+	{ OV9655_MTX3, 0x00 },
+	{ OV9655_MTX4, 0x22 },
+	{ OV9655_MTX5, 0x5e },
+	{ OV9655_MTX6, 0x80 },
+	{ OV9655_MTXS, 0x1e },
+#endif
 		break;
 	case MEDIA_BUS_FMT_VYUY8_2X8:
 		ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, 0x00);	/* no swap */
@@ -888,6 +768,15 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 		ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, 0x00);	/* no swap */
 		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_FMT_MASK, OV9655_COM7_RGB);	/* choose RGB */
 		ov9655_update_bits(client, OV9655_COM15, OV9655_COM15_RGB_MASK, OV9655_COM15_RGB565);	// RGB565
+#if 0	// stuff from other driver without knowing if that is good or bad
+	//	{ OV9655_MTX1, 0x98 },
+	{ OV9655_MTX2, 0x98 },
+	{ OV9655_MTX3, 0x00 },
+	{ OV9655_MTX4, 0x28,},
+	{ OV9655_MTX5, 0x70 },
+	{ OV9655_MTX6, 0x98 },
+	{ OV9655_MTXS, 0x1a },
+#endif
 		break;
 	case MEDIA_BUS_FMT_RGB565_2X8_LE:
 		ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, OV9655_COM3_SWAP);	/* swap */
@@ -1529,7 +1418,7 @@ static int ov9655_open(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh)
 
 	format = v4l2_subdev_get_try_format(subdev, fh->pad, 0);
 
-	format->code = OV9655_DEFAULT_FORMAT;
+	format->code = MEDIA_BUS_FMT_UYVY8_2X8;
 
 	format->width = OV9655_WINDOW_WIDTH_DEF;
 	format->height = OV9655_WINDOW_HEIGHT_DEF;
@@ -1694,7 +1583,7 @@ static int ov9655_probe(struct i2c_client *client,
 	ov9655->crop.left = OV9655_COLUMN_START_DEF;
 	ov9655->crop.top = OV9655_ROW_START_DEF;
 
-	ov9655->format.code = OV9655_DEFAULT_FORMAT;
+	ov9655->format.code = MEDIA_BUS_FMT_UYVY8_2X8;
 
 	ov9655->format.width = OV9655_WINDOW_WIDTH_DEF;
 	ov9655->format.height = OV9655_WINDOW_HEIGHT_DEF;
