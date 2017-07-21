@@ -76,50 +76,50 @@ struct ov9655 {
 #define OV9655_GRAVE			0x07
 #define OV9655_RAVE			0x08
 #define OV9655_COM2			0x09
-#define OV9655_COM2_STRENGTH		0x03
-#define OV9655_COM2_SLEEP		0x10
+#define   OV9655_COM2_STRENGTH		0x03
+#define   OV9655_COM2_SLEEP		0x10
 #define OV9655_PID			0x0A
-#define OV9655_CHIP_PID		0x96
+#define   OV9655_CHIP_PID		0x96
 #define OV9655_VER			0x0B
-#define OV9655_CHIP_VER4		0x56
-#define OV9655_CHIP_VER5		0x57
+#define   OV9655_CHIP_VER4		0x56
+#define   OV9655_CHIP_VER5		0x57
 #define OV9655_COM3			0x0C
-#define OV9655_COM3_RGB565		0x04
-#define OV9655_COM3_SWAP		0x40
-#define OV9655_COM3_CBAR		0x80
+#define   OV9655_COM3_RGB565		0x04
+#define   OV9655_COM3_SWAP		0x40
+#define   OV9655_COM3_CBAR		0x80
 #define OV9655_COM4			0x0D
 #define OV9655_COM5			0x0E
 #define OV9655_COM6			0x0F
-#define OV9655_COM6_TIMING		0x02
-#define OV9655_COM6_WINDOW		0x04
+#define   OV9655_COM6_TIMING		0x02
+#define   OV9655_COM6_WINDOW		0x04
 #define OV9655_AEC			0x10
 #define OV9655_CLKRC			0x11
-#define OV9655_CLKRC_EXT		0x40
-#define OV9655_CLKRC_SCALAR		0x3f
+#define   OV9655_CLKRC_EXT		0x40
+#define   OV9655_CLKRC_SCALAR		0x3f
 #define OV9655_COM7			0x12
-#define OV9655_COM7_FMT_MASK		0x07
-#define OV9655_COM7_RAW		0x00
-#define OV9655_COM7_RAW_INT		0x01
-#define OV9655_COM7_YUV		0x02
-#define OV9655_COM7_RGB		0x03
-#define OV9655_COM7_RGB5X5		0x07
-#define OV9655_COM7_RES_MASK		0x70
-#define OV9655_COM7_SXGA		0x00
-#define OV9655_COM7_VGA		0x60
+#define   OV9655_COM7_FMT_MASK		0x07
+#define     OV9655_COM7_RAW		0x00
+#define     OV9655_COM7_RAW_INT	0x01
+#define     OV9655_COM7_YUV		0x02
+#define     OV9655_COM7_RGB		0x03
+#define     OV9655_COM7_RGB5X5		0x07
+#define   OV9655_COM7_RES_MASK		0x70
+#define     OV9655_COM7_SXGA		0x00
+#define     OV9655_COM7_VGA		0x60
 #define OV9655_COM8			0x13
-#define OV9655_COM8_AGC		0x04
-#define OV9655_COM8_AWB		0x02
-#define OV9655_COM8_AEC		0x01
+#define   OV9655_COM8_AGC		0x04
+#define   OV9655_COM8_AWB		0x02
+#define   OV9655_COM8_AEC		0x01
 #define OV9655_COM9			0x14
 #define OV9655_COM10			0x15
-#define OV9655_COM10_HSYNC_NEG		0x01
-#define OV9655_COM10_VSYNC_NEG		0x02
-#define OV9655_COM10_RESET_END		0x04
-#define OV9655_COM10_HREF_REV		0x08
-#define OV9655_COM10_PCLK_REV		0x10
-#define OV9655_COM10_PCLK_GATE		0x20
-#define OV9655_COM10_HREF2HSYNC	0x40
-#define OV9655_COM10_SLAVE_MODE	0x80
+#define   OV9655_COM10_HSYNC_NEG	0x01
+#define   OV9655_COM10_VSYNC_NEG	0x02
+#define   OV9655_COM10_RESET_END	0x04
+#define   OV9655_COM10_HREF_REV	0x08
+#define   OV9655_COM10_PCLK_REV	0x10
+#define   OV9655_COM10_PCLK_GATE	0x20
+#define   OV9655_COM10_HREF2HSYNC	0x40
+#define   OV9655_COM10_SLAVE_MODE	0x80
 #define OV9655_REG16			0x16
 #define OV9655_HSTART			0x17
 #define OV9655_HSTOP			0x18
@@ -128,10 +128,10 @@ struct ov9655 {
 #define OV9655_PSHFT			0x1B
 #define OV9655_MIDH			0x1C
 #define OV9655_MIDL			0x1D
-#define OV9655_CHIP_MID		0x7fa2
+#define   OV9655_CHIP_MID		0x7fa2
 #define OV9655_MVFP			0x1E
-#define OV9655_MVFP_VFLIP		0x10
-#define OV9655_MVFP_MIRROR		0x20
+#define   OV9655_MVFP_VFLIP		0x10
+#define   OV9655_MVFP_MIRROR		0x20
 #define OV9655_LAEC			0x1F
 #define OV9655_BOS			0x20
 #define OV9655_GBOS			0x21
@@ -160,26 +160,26 @@ struct ov9655 {
 #define OV9655_ADC2			0x38
 #define OV9655_AREF4			0x39
 #define OV9655_TSLB			0x3A
-#define OV9655_TSLB_PCLK_MASK		0xC0
-#define OV9655_TSLB_PCLK_OFFSET	6
-#define OV9655_TSLB_YUV_MASK		0x0C
-#define OV9655_TSLB_YUYV		0x00
-#define OV9655_TSLB_YVYU		0x04
-#define OV9655_TSLB_VYUY		0x08
-#define OV9655_TSLB_UYVY		0x0C
+#define   OV9655_TSLB_PCLK_MASK	0xC0
+#define   OV9655_TSLB_PCLK_OFFSET	6
+#define   OV9655_TSLB_YUV_MASK		0x0C
+#define   OV9655_TSLB_YUYV		0x00
+#define   OV9655_TSLB_YVYU		0x04
+#define   OV9655_TSLB_VYUY		0x08
+#define   OV9655_TSLB_UYVY		0x0C
 #define OV9655_COM11			0x3B
 #define OV9655_COM12			0x3C
 #define OV9655_COM13			0x3D
 #define OV9655_COM14			0x3E
-#define OV9655_COM14_ZOOM		0x02
+#define   OV9655_COM14_ZOOM		0x02
 #define OV9655_EDGE			0x3F
 #define OV9655_COM15			0x40
-#define OV9655_COM15_RGB_MASK		0x30
-#define OV9655_COM15_RGB		0x00
-#define OV9655_COM15_RGB565		0x10
-#define OV9655_COM15_RGB555		0x30
+#define   OV9655_COM15_RGB_MASK	0x30
+#define     OV9655_COM15_RGB		0x00
+#define     OV9655_COM15_RGB565	0x10
+#define     OV9655_COM15_RGB555	0x30
 #define OV9655_COM16			0x41
-#define OV9655_COM16_SCALING		0x01
+#define   OV9655_COM16_SCALING		0x01
 #define OV9655_COM17			0x42
 #define OV9655_MTX1			0x4F
 #define OV9655_MTX2			0x50
@@ -209,15 +209,15 @@ struct ov9655 {
 #define OV9655_MANV			0x68
 #define OV9655_BD50MAX			0x6A
 #define OV9655_DBLV			0x6B
-#define OV9655_DBLV_BANDGAP		0x0a	/* default value */
-#define OV9655_DBLV_LDO_BYPASS		0x10
-#define OV9655_DBLV_PLL_BYPASS		0x00
-#define OV9655_DBLV_PLL_4X		0x40
-#define OV9655_DBLV_PLL_6X		0x80
-#define OV9655_DBLV_PLL_8X		0xc0
+#define   OV9655_DBLV_BANDGAP		0x0a	/* default value */
+#define   OV9655_DBLV_LDO_BYPASS	0x10
+#define   OV9655_DBLV_PLL_BYPASS	0x00
+#define   OV9655_DBLV_PLL_4X		0x40
+#define   OV9655_DBLV_PLL_6X		0x80
+#define   OV9655_DBLV_PLL_8X		0xc0
 #define OV9655_DNSTH			0x70
 #define OV9655_POIDX			0x72
-#define OV9655_POIDX_VDROP		0x40
+#define   OV9655_POIDX_VDROP		0x40
 #define OV9655_PCKDV			0x73
 #define OV9655_XINDX			0x74
 #define OV9655_YINDX			0x75
@@ -240,7 +240,7 @@ struct ov9655 {
 #define OV9655_COM18			0x8B
 #define OV9655_COM19			0x8C
 #define OV9655_COM20			0x8D
-#define OV9655_COM20_CBAR		0x10
+#define   OV9655_COM20_CBAR		0x10
 #define OV9655_DMLNL			0x92
 #define OV9655_DMNLH			0x93
 #define OV9655_LCC6			0x9D
@@ -764,7 +764,7 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_FMT_MASK, OV9655_COM7_YUV);	/* choose YUV */
 		ov9655_update_bits(client, OV9655_TSLB, OV9655_TSLB_YUV_MASK, OV9655_TSLB_YVYU);	/* YVYU byte order */
 		break;
-	case MEDIA_BUS_FMT_RGB565_2X8_BE:
+	case MEDIA_BUS_FMT_RGB565_2X8_LE:
 		ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, 0x00);	/* no swap */
 		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_FMT_MASK, OV9655_COM7_RGB);	/* choose RGB */
 		ov9655_update_bits(client, OV9655_COM15, OV9655_COM15_RGB_MASK, OV9655_COM15_RGB565);	// RGB565
@@ -778,7 +778,7 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 	{ OV9655_MTXS, 0x1a },
 #endif
 		break;
-	case MEDIA_BUS_FMT_RGB565_2X8_LE:
+	case MEDIA_BUS_FMT_RGB565_2X8_BE:
 		ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, OV9655_COM3_SWAP);	/* swap */
 		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_FMT_MASK, OV9655_COM7_RGB);	/* choose RGB */
 		ov9655_update_bits(client, OV9655_COM15, OV9655_COM15_RGB_MASK, OV9655_COM15_RGB565);	// RGB565
@@ -1265,7 +1265,7 @@ static const struct v4l2_ctrl_ops ov9655_ctrl_ops = {
 
 static const char * const ov9655_test_pattern_menu[] = {
 	"Disabled",
-	"Enabled",
+	"Color bars",
 };
 
 /* private extensions */
