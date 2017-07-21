@@ -35,6 +35,7 @@
 #include <media/v4l2-async.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
+#include <media/v4l2-event.h>
 #include <media/v4l2-subdev.h>
 
 struct ov9655 {
@@ -48,7 +49,7 @@ struct ov9655 {
 	struct gpio_desc *reset;	/* reset GPIO */
 	struct gpio_desc *powerdown;	/* powerdown GPIO */
 
-	unsigned long mclk_frequency;
+	unsigned long xclk_frequency;
 	struct clk *clk;
 	struct regulator_bulk_data regulators[3];
 
@@ -56,13 +57,15 @@ struct ov9655 {
 	struct v4l2_ctrl *blc_auto;
 	struct v4l2_ctrl *blc_offset;
 
-	u8 bus_width;
-	u8 hsync_active;
-	u8 vsync_active;
-	u8 data_active;
-	u8 pclk_sample;
-	u8 pclk_delay;
-	u8 output_drive;
+	u32 bus_width;
+	u32 hsync_active;
+	u32 vsync_active;
+	u32 data_active;
+	u32 pclk_sample;
+	u32 pclk_delay;
+	u32 output_drive;
+	bool clock_noncontinuous;
+	bool slave_mode;
 };
 
 /* ov9655 register addresses */
@@ -71,55 +74,56 @@ struct ov9655 {
 #define OV9655_RED			0x02
 #define OV9655_VREF			0x03
 #define OV9655_COM1			0x04
+#define   OV9655_COM1_AEC		0x03
 #define OV9655_BAVE			0x05
 #define OV9655_GBAVE			0x06
 #define OV9655_GRAVE			0x07
 #define OV9655_RAVE			0x08
 #define OV9655_COM2			0x09
-#define OV9655_COM2_STRENGTH		0x03
-#define OV9655_COM2_SLEEP		0x10
+#define   OV9655_COM2_STRENGTH		0x03
+#define   OV9655_COM2_SLEEP		0x10
 #define OV9655_PID			0x0A
-#define OV9655_CHIP_PID		0x96
-#define OV9655_VER			0x0B
-#define OV9655_CHIP_VER4		0x56
-#define OV9655_CHIP_VER5		0x57
+#define   OV9655_CHIP_PID		0x96
+#define OV9655_REV			0x0B
+#define   OV9655_CHIP_REV4		0x56
+#define   OV9655_CHIP_REV5		0x57
 #define OV9655_COM3			0x0C
-#define OV9655_COM3_RGB565		0x04
-#define OV9655_COM3_SWAP		0x40
-#define OV9655_COM3_CBAR		0x80
+#define   OV9655_COM3_RGB565		0x04
+#define   OV9655_COM3_SWAP		0x40
+#define   OV9655_COM3_CBAR		0x80
 #define OV9655_COM4			0x0D
 #define OV9655_COM5			0x0E
 #define OV9655_COM6			0x0F
-#define OV9655_COM6_TIMING		0x02
-#define OV9655_COM6_WINDOW		0x04
+#define   OV9655_COM6_TIMING		0x02
+#define   OV9655_COM6_WINDOW		0x04
 #define OV9655_AEC			0x10
 #define OV9655_CLKRC			0x11
-#define OV9655_CLKRC_EXT		0x40
-#define OV9655_CLKRC_SCALAR		0x3f
+#define   OV9655_CLKRC_EXT		0x40
+#define   OV9655_CLKRC_SCALAR		0x3f
 #define OV9655_COM7			0x12
-#define OV9655_COM7_FMT_MASK		0x07
-#define OV9655_COM7_RAW		0x00
-#define OV9655_COM7_RAW_INT		0x01
-#define OV9655_COM7_YUV		0x02
-#define OV9655_COM7_RGB		0x03
-#define OV9655_COM7_RGB5X5		0x07
-#define OV9655_COM7_RES_MASK		0x70
-#define OV9655_COM7_SXGA		0x00
-#define OV9655_COM7_VGA		0x60
+#define   OV9655_COM7_FMT_MASK		0x07
+#define     OV9655_COM7_RAW		0x00
+#define     OV9655_COM7_RAW_INT	0x01
+#define     OV9655_COM7_YUV		0x02
+#define     OV9655_COM7_RGB		0x03
+#define     OV9655_COM7_RGB5X5		0x07
+#define   OV9655_COM7_RES_MASK		0x70
+#define     OV9655_COM7_SXGA		0x00
+#define     OV9655_COM7_VGA		0x60
 #define OV9655_COM8			0x13
-#define OV9655_COM8_AGC		0x04
-#define OV9655_COM8_AWB		0x02
-#define OV9655_COM8_AEC		0x01
+#define   OV9655_COM8_AGC		0x04
+#define   OV9655_COM8_AWB		0x02
+#define   OV9655_COM8_AEC		0x01
 #define OV9655_COM9			0x14
 #define OV9655_COM10			0x15
-#define OV9655_COM10_HSYNC_NEG		0x01
-#define OV9655_COM10_VSYNC_NEG		0x02
-#define OV9655_COM10_RESET_END		0x04
-#define OV9655_COM10_HREF_REV		0x08
-#define OV9655_COM10_PCLK_REV		0x10
-#define OV9655_COM10_PCLK_GATE		0x20
-#define OV9655_COM10_HREF2HSYNC	0x40
-#define OV9655_COM10_SLAVE_MODE	0x80
+#define   OV9655_COM10_HSYNC_NEG	0x01
+#define   OV9655_COM10_VSYNC_NEG	0x02
+#define   OV9655_COM10_RESET_END	0x04
+#define   OV9655_COM10_HREF_REV	0x08
+#define   OV9655_COM10_PCLK_REV	0x10
+#define   OV9655_COM10_PCLK_GATE	0x20
+#define   OV9655_COM10_HREF2HSYNC	0x40
+#define   OV9655_COM10_SLAVE_MODE	0x80
 #define OV9655_REG16			0x16
 #define OV9655_HSTART			0x17
 #define OV9655_HSTOP			0x18
@@ -128,10 +132,10 @@ struct ov9655 {
 #define OV9655_PSHFT			0x1B
 #define OV9655_MIDH			0x1C
 #define OV9655_MIDL			0x1D
-#define OV9655_CHIP_MID		0x7fa2
+#define   OV9655_CHIP_MID		0x7fa2
 #define OV9655_MVFP			0x1E
-#define OV9655_MVFP_VFLIP		0x10
-#define OV9655_MVFP_MIRROR		0x20
+#define   OV9655_MVFP_VFLIP		0x10
+#define   OV9655_MVFP_MIRROR		0x20
 #define OV9655_LAEC			0x1F
 #define OV9655_BOS			0x20
 #define OV9655_GBOS			0x21
@@ -160,26 +164,26 @@ struct ov9655 {
 #define OV9655_ADC2			0x38
 #define OV9655_AREF4			0x39
 #define OV9655_TSLB			0x3A
-#define OV9655_TSLB_PCLK_MASK		0xC0
-#define OV9655_TSLB_PCLK_OFFSET	6
-#define OV9655_TSLB_YUV_MASK		0x0C
-#define OV9655_TSLB_YUYV		0x00
-#define OV9655_TSLB_YVYU		0x04
-#define OV9655_TSLB_VYUY		0x08
-#define OV9655_TSLB_UYVY		0x0C
+#define   OV9655_TSLB_PCLK_MASK	0xC0
+#define   OV9655_TSLB_PCLK_OFFSET	6
+#define   OV9655_TSLB_YUV_MASK		0x0C
+#define   OV9655_TSLB_YUYV		0x00
+#define   OV9655_TSLB_YVYU		0x04
+#define   OV9655_TSLB_VYUY		0x08
+#define   OV9655_TSLB_UYVY		0x0C
 #define OV9655_COM11			0x3B
 #define OV9655_COM12			0x3C
 #define OV9655_COM13			0x3D
 #define OV9655_COM14			0x3E
-#define OV9655_COM14_ZOOM		0x02
+#define   OV9655_COM14_ZOOM		0x02
 #define OV9655_EDGE			0x3F
 #define OV9655_COM15			0x40
-#define OV9655_COM15_RGB_MASK		0x30
-#define OV9655_COM15_RGB		0x00
-#define OV9655_COM15_RGB565		0x10
-#define OV9655_COM15_RGB555		0x30
+#define   OV9655_COM15_RGB_MASK	0x30
+#define     OV9655_COM15_RGB		0x00
+#define     OV9655_COM15_RGB565	0x10
+#define     OV9655_COM15_RGB555	0x30
 #define OV9655_COM16			0x41
-#define OV9655_COM16_SCALING		0x01
+#define   OV9655_COM16_SCALING		0x01
 #define OV9655_COM17			0x42
 #define OV9655_MTX1			0x4F
 #define OV9655_MTX2			0x50
@@ -209,15 +213,17 @@ struct ov9655 {
 #define OV9655_MANV			0x68
 #define OV9655_BD50MAX			0x6A
 #define OV9655_DBLV			0x6B
-#define OV9655_DBLV_BANDGAP		0x0a	/* default value */
-#define OV9655_DBLV_LDO_BYPASS		0x10
-#define OV9655_DBLV_PLL_BYPASS		0x00
-#define OV9655_DBLV_PLL_4X		0x40
-#define OV9655_DBLV_PLL_6X		0x80
-#define OV9655_DBLV_PLL_8X		0xc0
+#define   OV9655_DBLV_BANDGAP_MASK	0x0F
+#define     OV9655_DBLV_BANDGAP	0x0a	/* default value */
+#define   OV9655_DBLV_LDO_BYPASS	0x10
+#define   OV9655_DBLV_PLL_MASK		0xC0
+#define     OV9655_DBLV_PLL_BYPASS	0x00
+#define     OV9655_DBLV_PLL_4X		0x40
+#define     OV9655_DBLV_PLL_6X		0x80
+#define     OV9655_DBLV_PLL_8X		0xc0
 #define OV9655_DNSTH			0x70
 #define OV9655_POIDX			0x72
-#define OV9655_POIDX_VDROP		0x40
+#define   OV9655_POIDX_VDROP		0x40
 #define OV9655_PCKDV			0x73
 #define OV9655_XINDX			0x74
 #define OV9655_YINDX			0x75
@@ -240,12 +246,13 @@ struct ov9655 {
 #define OV9655_COM18			0x8B
 #define OV9655_COM19			0x8C
 #define OV9655_COM20			0x8D
-#define OV9655_COM20_CBAR		0x10
+#define   OV9655_COM20_CBAR		0x10
 #define OV9655_DMLNL			0x92
 #define OV9655_DMNLH			0x93
 #define OV9655_LCC6			0x9D
 #define OV9655_LCC7			0x9E
 #define OV9655_AECH			0xA1
+#define   OV9655_AECH_AEC		0x3f
 #define OV9655_BD50			0xA2
 #define OV9655_BD60			0xA3
 #define OV9655_COM21			0xA4
@@ -272,8 +279,12 @@ struct ov9655 {
 #define OV9655_BD60MAX			0xC5
 #define OV9655_COM24			0xC7
 
-/* pixel clock frequency for 15 fps SXGA (2 clocks per pixel for byte multiplexing) */
+/* dummy value for V4L2_CID_PIXEL_RATE */
 #define CAMERA_TARGET_FREQ	48000000
+
+#define OV9655_SHUTTER_WIDTH_MIN	0
+#define OV9655_SHUTTER_WIDTH_MAX	65535
+#define OV9655_SHUTTER_WIDTH_DEF	(OV9655_SHUTTER_WIDTH_MAX / 2 + 1)
 
 /* do we need these constants? */
 #define OV9655_MAX_WIDTH		1280
@@ -285,323 +296,90 @@ struct ov9655 {
 #define OV9655_LEFT_SKIP		3
 #define OV9655_TOP_SKIP		1
 
+/* total sensor dimensions */
 #define OV9655_COLUMS			1520
 #define OV9655_ROWS			1050
 
 /* Number of pixels and number of lines per frame for different standards */
-#define VGA_NUM_ACTIVE_PIXELS           (4*160) /* 4:3 */
-#define VGA_NUM_ACTIVE_LINES            (3*160)
-#define QVGA_NUM_ACTIVE_PIXELS          (VGA_NUM_ACTIVE_PIXELS/2)       /* 4:3 */
-#define QVGA_NUM_ACTIVE_LINES           (VGA_NUM_ACTIVE_LINES/2)
-#define SXGA_NUM_ACTIVE_PIXELS          (5*256) /* 5:4 */
-#define SXGA_NUM_ACTIVE_LINES           (4*256)
-#define CIF_NUM_ACTIVE_PIXELS           (11*32) /* 11:9 ~ 5:4 */
-#define CIF_NUM_ACTIVE_LINES            (9*32)
+#define SXGA_NUM_ACTIVE_PIXELS          (5 * 256) /* 5:4 */
+#define SXGA_NUM_ACTIVE_LINES           (4 * 256)
+#define VGA_NUM_ACTIVE_PIXELS           (4 * 160) /* 4:3 */
+#define VGA_NUM_ACTIVE_LINES            (3 * 160)
+#define QVGA_NUM_ACTIVE_PIXELS          (VGA_NUM_ACTIVE_PIXELS / 2)       /* 4:3 */
+#define QVGA_NUM_ACTIVE_LINES           (VGA_NUM_ACTIVE_LINES / 2)
+#define CIF_NUM_ACTIVE_PIXELS           (11 * 32) /* 11:9 ~ 5:4 */
+#define CIF_NUM_ACTIVE_LINES            (9 * 32)
 
-#define WH(WIDTH, HEIGHT) ((((u32) HEIGHT)<<16)+((u32) WIDTH))
+#define WH(WIDTH, HEIGHT) ((((u32) HEIGHT) << 16) + ((u32) WIDTH))
 
+#define SXGA	WH(SXGA_NUM_ACTIVE_PIXELS, SXGA_NUM_ACTIVE_LINES)
 #define VGA	WH(VGA_NUM_ACTIVE_PIXELS, VGA_NUM_ACTIVE_LINES)
 #define QVGA	WH(QVGA_NUM_ACTIVE_PIXELS, QVGA_NUM_ACTIVE_LINES)
-#define SXGA	WH(SXGA_NUM_ACTIVE_PIXELS, SXGA_NUM_ACTIVE_LINES)
 #define CIF	WH(CIF_NUM_ACTIVE_PIXELS, CIF_NUM_ACTIVE_LINES)
 
-/* this is to compile the code to handle crop */
+/* this is to compile the code to handle crop and probably needs to be FIXED */
 
 #define OV9655_PIXEL_ARRAY_WIDTH	OV9655_MAX_WIDTH
 #define OV9655_PIXEL_ARRAY_HEIGHT	OV9655_MAX_HEIGHT
-#define	OV9655_WINDOW_HEIGHT_MIN	2
-#define	OV9655_WINDOW_HEIGHT_MAX	OV9655_MAX_HEIGHT
-#define	OV9655_WINDOW_HEIGHT_DEF	OV9655_MAX_HEIGHT
-#define	OV9655_WINDOW_WIDTH_MIN	2
-#define	OV9655_WINDOW_WIDTH_MAX	OV9655_MAX_WIDTH
-#define	OV9655_WINDOW_WIDTH_DEF	OV9655_MAX_WIDTH
-#define	OV9655_ROW_START_MIN		0
-#define	OV9655_ROW_START_MAX		OV9655_MAX_HEIGHT
-#define	OV9655_ROW_START_DEF		0
-#define	OV9655_COLUMN_START_MIN	0
-#define	OV9655_COLUMN_START_MAX	OV9655_MAX_WIDTH
-#define	OV9655_COLUMN_START_DEF	0
+#define OV9655_WINDOW_HEIGHT_MIN	2
+#define OV9655_WINDOW_HEIGHT_MAX	OV9655_MAX_HEIGHT
+#define OV9655_WINDOW_HEIGHT_DEF	OV9655_MAX_HEIGHT
+#define OV9655_WINDOW_WIDTH_MIN	2
+#define OV9655_WINDOW_WIDTH_MAX	OV9655_MAX_WIDTH
+#define OV9655_WINDOW_WIDTH_DEF	OV9655_MAX_WIDTH
+#define OV9655_ROW_START_MIN		0
+#define OV9655_ROW_START_MAX		OV9655_MAX_HEIGHT
+#define OV9655_ROW_START_DEF		0
+#define OV9655_COLUMN_START_MIN	0
+#define OV9655_COLUMN_START_MAX	OV9655_MAX_WIDTH
+#define OV9655_COLUMN_START_DEF	0
+
+struct ov9655_framesize {
+	u16 width;
+	u16 height;
+	u16 fps;
+};
+
+struct ov9655_pixfmt {
+	u32 code;
+	u32 colorspace;
+};
+
+static const struct ov9655_framesize ov9655_framesizes[] = {
+	{
+		.width		= SXGA_NUM_ACTIVE_PIXELS,
+		.height		= SXGA_NUM_ACTIVE_LINES,
+		.fps		= 15,
+	}, {
+		.width		= VGA_NUM_ACTIVE_PIXELS,
+		.height		= VGA_NUM_ACTIVE_LINES,
+		.fps		= 30,
+	}, {
+		.width		= QVGA_NUM_ACTIVE_PIXELS,
+		.height		= QVGA_NUM_ACTIVE_LINES,
+		.fps		= 30,
+	}, {
+		.width		= CIF_NUM_ACTIVE_PIXELS,
+		.height		= CIF_NUM_ACTIVE_LINES,
+		.fps		= 30,
+	},
+};
 
 /*
- * choose a default format that is handled by media-ctl
+ * choose formats that are handled by media-ctl
  *  see http://lxr.free-electrons.com/source/include/uapi/linux/media-bus-format.h#L37
  *  and https://git.linuxtv.org/v4l-utils.git/tree/utils/media-ctl/libv4l2subdev.c#n853
  */
 
-#define OV9655_DEFAULT_FORMAT	MEDIA_BUS_FMT_UYVY8_2X8
-
-/* to bulk program camera registers */
-
-struct ov9655_reg {
-	u8 addr;
-	u8 value;
-	u8 clear;	/* mask all bits with this value
-			 * before setting the (new) value:
-			 * newbit = (oldbit & clear) | value
-			 * if clear != 0 this is a read-modify-write command,
-			 * otherwise (i.e. not explicitly initialized) a direct write
-			 */
+static const struct ov9655_pixfmt ov9655_formats[] = {
+	{ MEDIA_BUS_FMT_UYVY8_2X8, V4L2_COLORSPACE_SRGB, },
+	{ MEDIA_BUS_FMT_VYUY8_2X8, V4L2_COLORSPACE_SRGB, },
+	{ MEDIA_BUS_FMT_YUYV8_2X8, V4L2_COLORSPACE_SRGB, },
+	{ MEDIA_BUS_FMT_YVYU8_2X8, V4L2_COLORSPACE_SRGB, },
+	{ MEDIA_BUS_FMT_RGB565_2X8_LE, V4L2_COLORSPACE_SRGB, },
+	{ MEDIA_BUS_FMT_RGB565_2X8_BE, V4L2_COLORSPACE_SRGB, },
+//	{ MEDIA_BUS_FMT_SGRBG12_1X12, V4L2_COLORSPACE_SRGB, },
 };
-
-/* if we can define all relevant properties by DT or format
- * we can get rid of these tables and replace by stuffing bits into individual
- * registers
- */
-
-static const struct ov9655_reg ov9655_init_hardware[] = {
-	/* here we write only registers for the hardware interface - must be matched by the hardware interface in the board file */
-	{ OV9655_COM2, 0x01 },	/* drive outputs at 2x; disable soft sleep */
-	// FIXME: make this depend on the hsync-active setting in the DT subnode
-	{ OV9655_COM10, OV9655_COM10_HREF2HSYNC /* | OV9655_COM10_HSYNC_NEG */ },	/* define pin polarity and functions as default (VSYNC, HSYNC as positive pulses) */
-	{ OV9655_CLKRC, 0 },	/* compensate for PLL_4X (note this means: PCLK = XCLK x 4) */
-	{ OV9655_DBLV, OV9655_DBLV_PLL_4X | OV9655_DBLV_BANDGAP },
-};
-
-static const struct ov9655_reg ov9655_init_regs[] = {
-	/* here we do some common settings (bias, gain, agc etc.) */
-	// make depend on BE/LE format
-	{ OV9655_COM3, 0x00, ~OV9655_COM3_SWAP },	// don't swap MSB and LSB
-	{ OV9655_COM6, 0x40 },	/* manually update window size and timing and use optical BLC */
-	// FIXME: not really needed to initialize if we explicitly set the format later on
-	{ OV9655_COM7, OV9655_COM7_YUV, ~OV9655_COM7_FMT_MASK },	/* choose YUV */
-	{ OV9655_COM11, 0x05 },	// no night mode
-	{ OV9655_COM15, 0xc0 },	// full scale output range and RGB555
-
-#if 0	// no need to setup
-	{ OV9655_COM19, 0x0c },	// UV
-
-	{ OV9655_COM1, 0x03 },	// AEC low bits
-	{ OV9655_COM5, 0x61 },	// slam mode & exposure
-	{ OV9655_COM8, 0xe0 | OV9655_COM8_AGC | OV9655_COM8_AWB | OV9655_COM8_AEC },
-	{ OV9655_COM9, 0x2a },	// agc
-	{ OV9655_REG16, 0x24 },
-	{ OV9655_MVFP, 0 },	// mirror&flip
-	{ OV9655_AEW, 0x3c },
-	{ OV9655_AEB, 0x36 },
-	{ OV9655_VPT, 0x72 },
-	{ OV9655_BBIAS, 0x08 },
-	{ OV9655_GBBIAS, 0x08 },
-	{ OV9655_PREGAIN, 0x15 },
-	{ OV9655_EXHCH, 0x00 },
-	{ OV9655_EXHCL, 0x00 },
-	{ OV9655_RBIAS, 0x08 },
-	{ OV9655_CHLF, 0x00 },
-	{ OV9655_AREF2, 0x00 },
-	{ OV9655_ADC2, 0x72 },
-	{ OV9655_AREF4, 0x57 },
-	{ OV9655_COM13, 0x99 },
-	{ OV9655_EDGE, 0x02 },	// edge enhancement factor
-
-	{ OV9655_COM17, 0xc1 },	// denoise, edge enhancement, 50 Hz banding filter
-
-	{ OV9655_DNSTH, 0x21 },	// denoise threshold
-#endif
-
-#if 0
-	{ OV9655_SLOP, 0x12 },
-	{ OV9655_GAM1, 0x08 },
-	{ OV9655_GAM2, 0x16 },
-	{ OV9655_GAM3, 0x30 },
-	{ OV9655_GAM4, 0x5e },
-	{ OV9655_GAM5, 0x72 },
-	{ OV9655_GAM6, 0x82 },
-	{ OV9655_GAM7, 0x8e },
-	{ OV9655_GAM8, 0x9a },
-	{ OV9655_GAM9, 0xa4 },
-	{ OV9655_GAM10, 0xac },
-	{ OV9655_GAM11, 0xb8 },
-	{ OV9655_GAM12, 0xc3 },
-	{ OV9655_GAM13, 0xd6 },
-	{ OV9655_GAM14, 0xe6 },
-	{ OV9655_GAM15, 0xf2 },
-
-	{ OV9655_AWBOP1, 0x85 },
-	{ OV9655_AWBOP2, 0xa9 },
-	{ OV9655_AWBOP3, 0x64 },
-	{ OV9655_AWBOP4, 0x84 },
-	{ OV9655_AWBOP5, 0x53 },
-	{ OV9655_AWBOP6, 0x0e },
-	{ OV9655_BLMT, 0xf0 },
-	{ OV9655_RLMT, 0xf0 },
-	{ OV9655_GLMT, 0xf0 },
-	{ OV9655_LCC1, 0x00 },
-	{ OV9655_LCC2, 0x00 },
-	{ OV9655_LCC3, 0x02 },
-	{ OV9655_LCC6, 0x03 },
-
-	{ OV9655_AECH, 0x40 },
-
-#endif
-
-#if 0
-	{ OV9655_COM21, 0x50 },	// digital gain
-#endif
-
-#if 0	// other values that can be changed
-	{ OV9655_GREEN, 0x4a },
-	{ OV9655_REFA8, 0xc1 },
-	{ OV9655_REFA9, 0xef },
-	{ OV9655_BLC1, 0x80 },
-	{ OV9655_BLC2, 0x80 },
-	{ OV9655_BLC3, 0x80 },
-	{ OV9655_BLC4, 0x80 },
-	{ OV9655_BLC7, 0xf2 },
-	{ OV9655_BLC8, 0x20 },
-	{ OV9655_CTRLB4, 0x20 },
-	{ OV9655_ADBOFF, 0x7f },
-	{ OV9655_ADROFF, 0x7f },
-	{ OV9655_ADGBOFF, 0x7f },
-	{ OV9655_ADGROFF, 0x7f },
-	{ OV9655_AREF1, 0x3d },
-	{ OV9655_AREF3, 0x34 },
-	{ OV9655_LCC4, 0x16 },
-	{ OV9655_LCC5, 0x01 },
-	{ OV9655_LCC7, 0x04 },
-	{ OV9655_BD50MAX, 0x05 },
-	{ OV9655_BD50, 0x9d },
-	{ OV9655_BD60, 0x83 },
-	{ OV9655_BD60MAX, 0x07 },
-#endif
-};
-
-/* Register values for SXGA format */
-static const struct ov9655_reg ov9655_sxga[] = {
-	/* COM7 is set through code since it is shared with color encoding format */
-	{ OV9655_COM7, OV9655_COM7_SXGA, ~OV9655_COM7_RES_MASK },
-	{ OV9655_HSYEN, 0x50 }	/* adjust sync */
-
-#if 0	// stuff from other driver without knowing if that is good or bad
-	// fixme: define macros that split a 11 bit row/col position into higher bytes and HREF/VREF
-	{ OV9655_HSTART, 0x1d },
-	{ OV9655_HSTOP, 0xbd },
-	{ OV9655_HREF, 0xff },
-	{ OV9655_VSTART, 0x01 },
-	{ OV9655_VSTOP, 0x81 },
-	{ OV9655_VREF, 0x1b },	// vertical frame control
-	{ OV9655_COM14, 0x0c },	// zoom
-	{ OV9655_COM16, 0x00 },	// scaling
-	{ OV9655_POIDX, 0x00 },	// skip lines
-	{ OV9655_PCKDV, 0x00 },	// pixel clock divisor (48 MHz)
-	{ OV9655_XINDX, 0x3a },	// scale down
-	{ OV9655_YINDX, 0x35 },	// scale down
-	{ OV9655_COM24, 0x80 },	// pixel clock frequency
-#endif
-};
-
-/* Register values for VGA format */
-static const struct ov9655_reg ov9655_vga[] = {
-	{ OV9655_COM7, OV9655_COM7_VGA, ~OV9655_COM7_RES_MASK },
-
-#if 0	// stuff from other driver without knowing if that is good or bad
-	{ OV9655_HSTART, 0x16 },
-	{ OV9655_HSTOP, 0x02 },
-	{ OV9655_HREF, 0xff },
-	{ OV9655_VSTART, 0x01 },
-	{ OV9655_VSTOP, 0x3d },
-	{ OV9655_VREF, 0x12 },	// vertical frame control - mixed with AGC
-	{ OV9655_COM14, 0x0c },	// pixel correction and zoom
-	{ OV9655_COM16, 0x00 },	// no scaling
-	{ OV9655_POIDX, 0x00 },	// normal output
-	{ OV9655_PCKDV, 0x00 },	// pixel clock divisor (48 MHz / (2^(1)) -> 24 MHz)
-	{ OV9655_XINDX, 0x3a },	// scale down
-	{ OV9655_YINDX, 0x35 },	// scale down
-	{ OV9655_COM24, 0x80 },	// pixel clock frequency
-#endif
-};
-
-/* Register values for QVGA format */
-static const struct ov9655_reg ov9655_qvga[] = {
-	{ OV9655_COM7, OV9655_COM7_VGA, ~OV9655_COM7_RES_MASK },
-
-#if 0	// stuff from other driver without knowing if that is good or bad
-	{ OV9655_HSTART, 0x18 },
-	{ OV9655_HSTOP, 0x04 },
-	{ OV9655_HREF, 0x2a },	// lower bits of hstart/stop
-	{ OV9655_VSTART, 0x01 },
-	{ OV9655_VSTOP, 0x81 },
-	{ OV9655_VREF, 0x02 },	// vertical frame control - mixed with AGC
-	{ OV9655_COM14, 0x0e },	// pixel correction and zoom
-	{ OV9655_COM16, 0x01 },	// enable scaling
-	{ OV9655_POIDX, 0x11 },	// 1 line every 2 px
-	{ OV9655_PCKDV, 0x02 },	// pixel clock divisor
-	{ OV9655_XINDX, 0x10 },	// scale down
-	{ OV9655_YINDX, 0x10 },	// scale down
-	{ OV9655_COM24, 0x81 },	// pixel clock frequency
-#endif
-};
-
-/* Register values for CIF format */
-static const struct ov9655_reg ov9655_cif[] = {
-	/* fixme: this is QQVGA and not CIF */
-	{ OV9655_COM7, OV9655_COM7_VGA, ~OV9655_COM7_RES_MASK },
-
-#if 0	// stuff from other driver without knowing if that is good or bad
-	{ OV9655_HSTART, 0x18 },
-	{ OV9655_HSTOP, 0x04 },
-	{ OV9655_HREF, 0xa4 },
-	{ OV9655_VSTART, 0x01 },
-	{ OV9655_VSTOP, 0x81 },
-	{ OV9655_VREF, 0x02 },	// vertical frame control - mixed with AGC
-	{ OV9655_COM14, 0x0e },	// pixel correction and zoom
-	{ OV9655_COM16, 0x01 },	// enable scaling
-	{ OV9655_POIDX, 0x22 },	// 1 line every 4 px
-	{ OV9655_PCKDV, 0x03 },	// pixel clock divisor
-	{ OV9655_XINDX, 0x10 },	// scale down
-	{ OV9655_YINDX, 0x10 },	// scale down
-	{ OV9655_COM24, 0x82 },	// pixel clock frequency
-#endif
-};
-
-/* Register values for YUV format */
-static const struct ov9655_reg ov9655_uyvy_regs[] = {
-	/* merge value with VGA/SXGA setting! */
-	{ OV9655_COM7, OV9655_COM7_YUV, ~OV9655_COM7_FMT_MASK },	/* choose YUV */
-	{ OV9655_TSLB, OV9655_TSLB_VYUY, ~OV9655_TSLB_YUV_MASK },	/* VYUY byte order */
-
-#if 0	// stuff from other driver without knowing if that is good or bad
-	{ OV9655_MTX1, 0x80 },
-	{ OV9655_MTX2, 0x80 },
-	{ OV9655_MTX3, 0x00 },
-	{ OV9655_MTX4, 0x22 },
-	{ OV9655_MTX5, 0x5e },
-	{ OV9655_MTX6, 0x80 },
-	{ OV9655_MTXS, 0x1e },
-#endif
-};
-
-/* Register values for RGB format */
-static const struct ov9655_reg ov9655_rgb_regs[] = {
-	{ OV9655_COM7, OV9655_COM7_RGB, ~OV9655_COM7_FMT_MASK },	/* choose RGB */
-	{ OV9655_COM15, OV9655_COM15_RGB555, ~OV9655_COM15_RGB_MASK },	// full scale output range and RGB555
-
-#if 0	// stuff from other driver without knowing if that is good or bad
-	//	{ OV9655_MTX1, 0x98 },
-	{ OV9655_MTX2, 0x98 },
-	{ OV9655_MTX3, 0x00 },
-	{ OV9655_MTX4, 0x28,},
-	{ OV9655_MTX5, 0x70 },
-	{ OV9655_MTX6, 0x98 },
-	{ OV9655_MTXS, 0x1a },
-#endif
-};
-
-/* Register values for RGB-RAW format */
-static const struct ov9655_reg ov9655_raw_regs[] = {
-	{ OV9655_COM7, OV9655_COM7_RAW, ~OV9655_COM7_FMT_MASK },	/* choose raw RGB */
-	{ OV9655_COM15, OV9655_COM15_RGB555, ~OV9655_COM15_RGB_MASK },	// full scale output range and RGB555
-
-#if 0	// stuff from other driver without knowing if that is good or bad
-	//	{ OV9655_MTX1, 0x98 },
-	{ OV9655_MTX2, 0x98 },
-	{ OV9655_MTX3, 0x00 },
-	{ OV9655_MTX4, 0x28,},
-	{ OV9655_MTX5, 0x70 },
-	{ OV9655_MTX6, 0x98 },
-	{ OV9655_MTXS, 0x1a },
-#endif
-};
-
-// add more for RGB565
 
 static struct ov9655 *to_ov9655(struct v4l2_subdev *sd)
 {
@@ -623,33 +401,24 @@ static int ov9655_write(struct i2c_client *client, u8 reg, u8 data)
 	return i2c_smbus_write_byte_data(client, reg, data);
 }
 
-static int ov9655_clear_set(struct i2c_client *client, u8 reg, unsigned int clear, unsigned int val)
+static int ov9655_update_bits(struct i2c_client *client, u8 reg, unsigned int mask, unsigned int val)
 {
-	if (clear != 0) { /* modify only some bits */
-		int ret;
+	if (mask != 0xff) { /* modify not all bits */
+		int ret, tmp;
 
 		ret = ov9655_read(client, reg);
 		if (ret < 0)
 			return ret;
 
-		val |= (ret & clear);
-		if (val == (u8) ret)
-			return 0;	/* no need to write */
-		}
-	return ov9655_write(client, reg, val);
-}
+		tmp = ret & ~mask;
+		tmp |= val & mask;
 
-static int ov9655_write_regs(struct i2c_client *client,
-				const struct ov9655_reg *regs, const int n)
-{
-	int i, ret;
-
-	for (i = 0; i < n; i++) {
-		ret = ov9655_clear_set(client, regs[i].addr, regs[i].clear, regs[i].value);
-		if (ret < 0)
-			return ret;
+		if (tmp == ret)
+			return 0;	/* no need to change */
+		val = tmp;
 	}
-	return 0;
+
+	return ov9655_write(client, reg, val);
 }
 
 static int ov9655_reset(struct ov9655 *ov9655)
@@ -665,125 +434,86 @@ static int ov9655_reset(struct ov9655 *ov9655)
 		dev_err(&client->dev, "%s: write failed err=%d\n", __func__, ret);
 		return ret;
 		}
-#endif
 	usleep_range(1000, 2000);
+#endif
 
-	ret = ov9655_write_regs(client, ov9655_init_hardware, ARRAY_SIZE(ov9655_init_hardware));
+	ret = ov9655_update_bits(client, OV9655_COM10, OV9655_COM10_HREF2HSYNC, OV9655_COM10_HREF2HSYNC);
 	if (ret < 0) {
 		dev_err(&client->dev, "%s: write failed err=%d\n", __func__, ret);
 		return ret;
 		}
 
-	ret = ov9655_clear_set(client, OV9655_COM2, ~OV9655_COM2_STRENGTH,
+	dev_info(&client->dev, "%s: output_drive %d\n", __func__, ov9655->output_drive);
+	ret = ov9655_update_bits(client, OV9655_COM2, OV9655_COM2_STRENGTH,
 		ov9655->output_drive&OV9655_COM2_STRENGTH);
-	ret = ov9655_clear_set(client, OV9655_COM10, ~OV9655_COM10_PCLK_REV,
+	dev_info(&client->dev, "%s: pclk_sample %d\n", __func__, ov9655->pclk_sample);
+	ret = ov9655_update_bits(client, OV9655_COM10, OV9655_COM10_PCLK_REV,
 		ov9655->pclk_sample ? OV9655_COM10_PCLK_REV : 0);
-	ret = ov9655_clear_set(client, OV9655_COM10, ~OV9655_COM10_VSYNC_NEG,
+	dev_info(&client->dev, "%s: vsync_active %d\n", __func__, ov9655->vsync_active);
+	ret = ov9655_update_bits(client, OV9655_COM10, OV9655_COM10_VSYNC_NEG,
 		ov9655->vsync_active ? OV9655_COM10_VSYNC_NEG : 0);
-	ret = ov9655_clear_set(client, OV9655_COM10, ~OV9655_COM10_HSYNC_NEG,
+	dev_info(&client->dev, "%s: hsync_active %d\n", __func__, ov9655->hsync_active);
+	ret = ov9655_update_bits(client, OV9655_COM10, OV9655_COM10_HSYNC_NEG,
 		ov9655->hsync_active ? OV9655_COM10_HSYNC_NEG : 0);
-	ret = ov9655_clear_set(client, OV9655_TSLB, ~OV9655_TSLB_PCLK_MASK,
+	dev_info(&client->dev, "%s: pclk_delay %d\n", __func__, ov9655->pclk_delay);
+	ret = ov9655_update_bits(client, OV9655_TSLB, OV9655_TSLB_PCLK_MASK,
 		(ov9655->pclk_delay << OV9655_TSLB_PCLK_OFFSET & OV9655_TSLB_PCLK_MASK));
 
-	// handle data_active amd bus_width;
+	dev_info(&client->dev, "%s: clock_noncontinuous %d\n", __func__, ov9655->clock_noncontinuous);
+	ret = ov9655_update_bits(client, OV9655_COM10, OV9655_COM10_PCLK_GATE,
+		ov9655->clock_noncontinuous ? OV9655_COM10_PCLK_GATE : 0);
+	dev_info(&client->dev, "%s: slave_mode %d\n", __func__, ov9655->slave_mode);
+	ret = ov9655_update_bits(client, OV9655_TSLB, OV9655_COM10_SLAVE_MODE,
+		ov9655->slave_mode ? OV9655_COM10_SLAVE_MODE : 0);
+
+	dev_info(&client->dev, "%s: data_active %d\n", __func__, ov9655->data_active);
+	dev_info(&client->dev, "%s: bus_width %d\n", __func__, ov9655->bus_width);
 
 	return ret;
 }
 
-// FIXME: adjust timing to OV9655 recommendations
-
 // we maybe should insert code like static int mt9p031_clk_setup(struct mt9p031 *mt9p031)
 
-static int ov9655_power_on(struct ov9655 *ov9655)
+static int __ov9655_set_power(struct ov9655 *ov9655, int on)
 {
-	int ret;
 	struct i2c_client *client = v4l2_get_subdevdata(&ov9655->subdev);
+	int ret;
 
-	dev_info(&client->dev, "OV9655 power on\n");
-	/* Ensure RESET_BAR is low */
-	if (ov9655->reset) {
-		gpiod_set_value(ov9655->reset, 0);
-		usleep_range(1000, 2000);
-	}
+	dev_info(&client->dev, "%s on=%d\n", __func__, on);
 
-	/* Ensure PWDN is high */
-	if (ov9655->powerdown) {
-		gpiod_set_value(ov9655->powerdown, 0);
-		usleep_range(1000, 2000);
-	}
-
-	/* Bring up the supplies */
-	ret = regulator_bulk_enable(ARRAY_SIZE(ov9655->regulators),
-				   ov9655->regulators);
-	if (ret < 0) {
-		dev_err(&client->dev, "regulator_enable failed err=%d\n", ret);
-		return ret;
-	}
-
-	msleep(20);
-
-	/* Enable clock */
-
-	if (ov9655->clk) {
-		clk_prepare_enable(ov9655->clk);
-		if (ret) {
-			regulator_bulk_disable(ARRAY_SIZE(ov9655->regulators),
-					       ov9655->regulators);
+	if (on) {
+		/* Bring up the power supply */
+		ret = regulator_bulk_enable(ARRAY_SIZE(ov9655->regulators),
+					   ov9655->regulators);
+		if (ret < 0) {
+			dev_err(&client->dev, "regulator_enable failed err=%d\n", ret);
 			return ret;
 		}
-	}
+		msleep(25);
 
-	/* Now RESET_BAR must be high */
-	if (ov9655->reset) {
-		gpiod_set_value(ov9655->reset, 1);
-		usleep_range(1000, 2000);
-	}
+		/* Enable clock */
+		ret = clk_prepare_enable(ov9655->clk);
+		if (ret)
+			dev_warn(&client->dev,
+				 "Failed to enable clock (%d)\n", ret);
+		msleep(1);
 
-	return 0;
-}
+		gpiod_set_value_cansleep(ov9655->powerdown, 0);
+		gpiod_set_value_cansleep(ov9655->reset, 0);
 
-static void ov9655_power_off(struct ov9655 *ov9655)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(&ov9655->subdev);
+		msleep(1);
 
-	/* Ensure PWDN and reset are low before turning of power */
-	dev_info(&client->dev, "OV9655 power off\n");
-	if (ov9655->reset) {
-		gpiod_set_value(ov9655->reset, 1);
-		gpiod_set_value(ov9655->powerdown, 1);
-		usleep_range(1000, 2000);
-	}
+	} else {
+		gpiod_set_value_cansleep(ov9655->reset, 1);
+		/* FIXME: if we have a dedicated DOVDD regulator we should not keep powerdown asserted */
+		gpiod_set_value_cansleep(ov9655->powerdown, 1);
 
-	regulator_bulk_disable(ARRAY_SIZE(ov9655->regulators),
+		clk_disable_unprepare(ov9655->clk);
+		regulator_bulk_disable(ARRAY_SIZE(ov9655->regulators),
 			       ov9655->regulators);
 
-	if (ov9655->clk)
-		clk_disable_unprepare(ov9655->clk);
-}
-
-static int __ov9655_set_power(struct ov9655 *ov9655, bool on)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(&ov9655->subdev);
-	int ret;
-
-	dev_dbg(&client->dev, "%s: on = %d\n", __func__, on);
-
-	if (!on) {
-		ov9655_power_off(ov9655);
-		return 0;
 	}
-
-	ret = ov9655_power_on(ov9655);
-	if (ret < 0)
-		return ret;
-
-	ret = ov9655_reset(ov9655);
-	if (ret < 0) {
-		dev_err(&client->dev, "Failed to reset the camera\n");
-		return ret;
-	}
-
-	return v4l2_ctrl_handler_setup(&ov9655->ctrls);
+	return 0;
 }
 
 /* -----------------------------------------------------------------------------
@@ -813,10 +543,11 @@ void printmbusfmt(struct i2c_client *client, struct v4l2_mbus_framefmt *format)
 #endif
 
 static int ov9655_set_params(struct ov9655 *ov9655)
-{
+{ /* called by ov9655_s_stream() */
 	struct i2c_client *client = v4l2_get_subdevdata(&ov9655->subdev);
 	struct v4l2_mbus_framefmt *format = &ov9655->format;
 	const struct v4l2_rect *crop = &ov9655->crop;
+	int ret = 0;
 
 #if 0
 	unsigned int hblank;
@@ -827,16 +558,47 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 	unsigned int ybin;
 #endif
 
-	int ret = 0;
-
 	dev_info(&client->dev, "%s\n", __func__);
+
+	/* general settings */
+
+	ret = ov9655_update_bits(client, OV9655_COM6, 0xff, 0x40);	/* manually update window size and timing and use optical BLC */
+	if (ret < 0)
+		return ret;
+	ret = ov9655_update_bits(client, OV9655_COM11, 0xff, 0x05);	// no night mode
+	if (ret < 0)
+		return ret;
+	ret = ov9655_update_bits(client, OV9655_COM15, 0xff, 0xc0);	// full scale output range and RGB555
+	if (ret < 0)
+		return ret;
 
 	printmbusfmt(client, format);
 
-	/* generic initialization */
-	ov9655_write_regs(client, ov9655_init_regs, ARRAY_SIZE(ov9655_init_regs));
+	/* set clock PLL */
 
-	/* format specific initializations */
+	// FIXME: should depend on format and desired FPS
+
+	/* basically we should calculate:
+	 * check if bit 6 of CKRC is set -> then external clock: pclk = xclk
+	 *
+	 * target-pixel-clock = fps * (horiz-res + sync) * (vert-res + sync)
+	 * pll-clock = xclk * DBLV (x1, x4, x6, x8)
+	 * CLKRC divisor = (pll-clock / target-pixel-clock) - 1
+	 * note: somewhere there is a :2 not described in the data sheet (or this is controlled by bit4-6 of COM7?)
+	 *
+	 * example: xclk = 24 MHz
+	 * PLL_4X gives pll-clock = 48 MHz
+	 * SXGA @ 15fps needs 48 MHz
+	 * CLKRC = 0 gives :1
+	 *
+	 * example: xclk = 24 MHz
+	 * PLL_4X gives pll-clock = 48 MHz
+	 * VGA @ 30fps needs 24 MHz
+	 * CLKRC = 1 gives :2
+	 * probably we can also run with external clock
+	 */
+
+	/* set resolution */
 
 	switch (WH(format->width, format->height)) {
 
@@ -844,39 +606,157 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 
 	case SXGA:
 		dev_info(&client->dev, "SXGA\n");
-		ov9655_write_regs(client, ov9655_sxga, ARRAY_SIZE(ov9655_sxga));
+		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_RES_MASK, OV9655_COM7_SXGA);
+		ov9655_write(client, OV9655_HSYST, 0x08);	/* adjust sync */
+		ov9655_write(client, OV9655_HSYEN, 0x48);	/* adjust sync */
+		ret = ov9655_write(client, OV9655_CLKRC, 0);	/* compensate for PLL_4X (note this means: PCLK = XCLK x 4) */
+		ret = ov9655_update_bits(client, OV9655_DBLV, OV9655_DBLV_PLL_MASK, OV9655_DBLV_PLL_4X);
+#if 0	// stuff from other driver without knowing if that is good or bad
+	// fixme: define macros that split a 11 bit row/col position into higher bytes and HREF/VREF
+	{ OV9655_HSTART, 0x1d },
+	{ OV9655_HSTOP, 0xbd },
+	{ OV9655_HREF, 0xff },
+	{ OV9655_VSTART, 0x01 },
+	{ OV9655_VSTOP, 0x81 },
+	{ OV9655_VREF, 0x1b },	// vertical frame control
+	{ OV9655_COM14, 0x0c },	// zoom
+	{ OV9655_COM16, 0x00 },	// scaling
+	{ OV9655_POIDX, 0x00 },	// skip lines
+	{ OV9655_PCKDV, 0x00 },	// pixel clock divisor (48 MHz)
+	{ OV9655_XINDX, 0x3a },	// scale down
+	{ OV9655_YINDX, 0x35 },	// scale down
+	{ OV9655_COM24, 0x80 },	// pixel clock frequency
+#endif
 		break;
 	case VGA:
 		dev_info(&client->dev, "VGA\n");
-		ov9655_write_regs(client, ov9655_vga, ARRAY_SIZE(ov9655_vga));
+		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_RES_MASK, OV9655_COM7_VGA);
+		ret = ov9655_write(client, OV9655_CLKRC, 0x01);	/* VGA needs 1/4 of of SGXA pixel rate but has 30fps */
+		ret = ov9655_update_bits(client, OV9655_DBLV, OV9655_DBLV_PLL_MASK, OV9655_DBLV_PLL_4X);
+#if 0	// stuff from other driver without knowing if that is good or bad
+	{ OV9655_HSTART, 0x16 },
+	{ OV9655_HSTOP, 0x02 },
+	{ OV9655_HREF, 0xff },
+	{ OV9655_VSTART, 0x01 },
+	{ OV9655_VSTOP, 0x3d },
+	{ OV9655_VREF, 0x12 },	// vertical frame control - mixed with AGC
+	{ OV9655_COM14, 0x0c },	// pixel correction and zoom
+	{ OV9655_COM16, 0x00 },	// no scaling
+	{ OV9655_POIDX, 0x00 },	// normal output
+	{ OV9655_PCKDV, 0x00 },	// pixel clock divisor (48 MHz / (2^(1)) -> 24 MHz)
+	{ OV9655_XINDX, 0x3a },	// scale down
+	{ OV9655_YINDX, 0x35 },	// scale down
+	{ OV9655_COM24, 0x80 },	// pixel clock frequency
+#endif
 		break;
 	case QVGA:
 		dev_info(&client->dev, "QVGA\n");
-		ov9655_write_regs(client, ov9655_qvga, ARRAY_SIZE(ov9655_qvga));
+		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_RES_MASK, OV9655_COM7_VGA);
+		ret = ov9655_write(client, OV9655_CLKRC, 0x03);	/* QVGA needs 1/4 of of VGA pixel rate */
+		ret = ov9655_update_bits(client, OV9655_DBLV, OV9655_DBLV_PLL_MASK, OV9655_DBLV_PLL_4X);
+		// we need more settings - COM14 ZOOM + COM18 ZOOM
+#if 0	// stuff from other driver without knowing if that is good or bad
+	{ OV9655_HSTART, 0x18 },
+	{ OV9655_HSTOP, 0x04 },
+	{ OV9655_HREF, 0x2a },	// lower bits of hstart/stop
+	{ OV9655_VSTART, 0x01 },
+	{ OV9655_VSTOP, 0x81 },
+	{ OV9655_VREF, 0x02 },	// vertical frame control - mixed with AGC
+	{ OV9655_COM14, 0x0e },	// pixel correction and zoom
+	{ OV9655_COM16, 0x01 },	// enable scaling
+	{ OV9655_POIDX, 0x11 },	// 1 line every 2 px
+	{ OV9655_PCKDV, 0x02 },	// pixel clock divisor
+	{ OV9655_XINDX, 0x10 },	// scale down
+	{ OV9655_YINDX, 0x10 },	// scale down
+	{ OV9655_COM24, 0x81 },	// pixel clock frequency
+#endif
 		break;
 	case CIF:
 		dev_info(&client->dev, "CIF\n");
-		ov9655_write_regs(client, ov9655_cif, ARRAY_SIZE(ov9655_cif));
+		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_RES_MASK, OV9655_COM7_VGA);
+		ret = ov9655_write(client, OV9655_CLKRC, 0x03);	/* QVGA needs 1/4 of of VGA pixel rate */
+		ret = ov9655_update_bits(client, OV9655_DBLV, OV9655_DBLV_PLL_MASK, OV9655_DBLV_PLL_4X);
+		// we need more settings
+#if 0	// stuff from other driver without knowing if that is good or bad
+	{ OV9655_HSTART, 0x18 },
+	{ OV9655_HSTOP, 0x04 },
+	{ OV9655_HREF, 0xa4 },
+	{ OV9655_VSTART, 0x01 },
+	{ OV9655_VSTOP, 0x81 },
+	{ OV9655_VREF, 0x02 },	// vertical frame control - mixed with AGC
+	{ OV9655_COM14, 0x0e },	// pixel correction and zoom
+	{ OV9655_COM16, 0x01 },	// enable scaling
+	{ OV9655_POIDX, 0x22 },	// 1 line every 4 px
+	{ OV9655_PCKDV, 0x03 },	// pixel clock divisor
+	{ OV9655_XINDX, 0x10 },	// scale down
+	{ OV9655_YINDX, 0x10 },	// scale down
+	{ OV9655_COM24, 0x82 },	// pixel clock frequency
+#endif
 		break;
 	}
+
+	/* set data format */
 
 	dev_info(&client->dev, "format->code=%08x\n", format->code);
 
 	switch (format->code) {
-	// handle format->code == MEDIA_BUS_FMT_BGR565_2X8_BE etc.
-	// to set COM3[2], COM7[1:0], TSLB[4:2], COM15[5:4],
-	// should also support MEDIA_BUS_FMT_RGB565_2X8_LE
 	case MEDIA_BUS_FMT_UYVY8_2X8:
-		ov9655_write_regs(client, ov9655_uyvy_regs, ARRAY_SIZE(ov9655_uyvy_regs));
+		ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, 0x00);	/* no swap */
+		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_FMT_MASK, OV9655_COM7_YUV);	/* choose YUV */
+		ov9655_update_bits(client, OV9655_TSLB, OV9655_TSLB_YUV_MASK, OV9655_TSLB_VYUY);	/* UYVY8 byte order */
+#if 0	// stuff from other driver without knowing if that is good or bad
+	{ OV9655_MTX1, 0x80 },
+	{ OV9655_MTX2, 0x80 },
+	{ OV9655_MTX3, 0x00 },
+	{ OV9655_MTX4, 0x22 },
+	{ OV9655_MTX5, 0x5e },
+	{ OV9655_MTX6, 0x80 },
+	{ OV9655_MTXS, 0x1e },
+#endif
+		break;
+	case MEDIA_BUS_FMT_VYUY8_2X8:
+		ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, 0x00);	/* no swap */
+		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_FMT_MASK, OV9655_COM7_YUV);	/* choose YUV */
+		ov9655_update_bits(client, OV9655_TSLB, OV9655_TSLB_YUV_MASK, OV9655_TSLB_VYUY);	/* VYUY byte order */
+		break;
+	case MEDIA_BUS_FMT_YUYV8_2X8:
+		ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, 0x00);	/* no swap */
+		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_FMT_MASK, OV9655_COM7_YUV);	/* choose YUV */
+		ov9655_update_bits(client, OV9655_TSLB, OV9655_TSLB_YUV_MASK, OV9655_TSLB_YUYV);	/* YUYV byte order */
+		break;
+	case MEDIA_BUS_FMT_YVYU8_2X8:
+		ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, 0x00);	/* no swap */
+		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_FMT_MASK, OV9655_COM7_YUV);	/* choose YUV */
+		ov9655_update_bits(client, OV9655_TSLB, OV9655_TSLB_YUV_MASK, OV9655_TSLB_YVYU);	/* YVYU byte order */
+		break;
+	case MEDIA_BUS_FMT_RGB565_2X8_LE:
+		ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, 0x00);	/* no swap */
+		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_FMT_MASK, OV9655_COM7_RGB);	/* choose RGB */
+		ov9655_update_bits(client, OV9655_COM15, OV9655_COM15_RGB_MASK, OV9655_COM15_RGB565);	// RGB565
+#if 0	// stuff from other driver without knowing if that is good or bad
+	//	{ OV9655_MTX1, 0x98 },
+	{ OV9655_MTX2, 0x98 },
+	{ OV9655_MTX3, 0x00 },
+	{ OV9655_MTX4, 0x28,},
+	{ OV9655_MTX5, 0x70 },
+	{ OV9655_MTX6, 0x98 },
+	{ OV9655_MTXS, 0x1a },
+#endif
 		break;
 	case MEDIA_BUS_FMT_RGB565_2X8_BE:
-		ov9655_write_regs(client, ov9655_rgb_regs, ARRAY_SIZE(ov9655_rgb_regs));
+		ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, OV9655_COM3_SWAP);	/* swap */
+		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_FMT_MASK, OV9655_COM7_RGB);	/* choose RGB */
+		ov9655_update_bits(client, OV9655_COM15, OV9655_COM15_RGB_MASK, OV9655_COM15_RGB565);	// RGB565
 		break;
+#if 0
 	case MEDIA_BUS_FMT_SGRBG12_1X12:
-		ov9655_write_regs(client, ov9655_raw_regs, ARRAY_SIZE(ov9655_raw_regs));
+		ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, 0x00);	/* no swap */
+		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_FMT_MASK, OV9655_COM7_RAW);	/* choose raw RGB */
+		ov9655_update_bits(client, OV9655_COM15, OV9655_COM15_RGB_MASK, OV9655_COM15_RGB555);	// RGB555
 		break;
+#endif
 	default:
-		// should have been rejected in ov9655_set_format()
+		// no update. Should have been rejected in ov9655_set_format()
 		break;
 	}
 
@@ -884,7 +764,7 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 
 	// format->field could ask for some interlacing
 
-	// we should also handle the crop rect
+	/* set crop */
 
 #if 0
 	/* Windows position and size.
@@ -936,6 +816,95 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 	if (ret < 0)
 		return ret;
 #endif
+
+#if 0	// other values that can be changed from reset state
+
+	{ OV9655_COM19, 0x0c },	// UV
+	{ OV9655_COM1, 0x03 },	// AEC low bits
+	{ OV9655_COM5, 0x61 },	// slam mode & exposure
+	{ OV9655_COM8, 0xe0 | OV9655_COM8_AGC | OV9655_COM8_AWB | OV9655_COM8_AEC },
+	{ OV9655_COM9, 0x2a },	// agc
+	{ OV9655_REG16, 0x24 },
+	{ OV9655_MVFP, 0 },	// mirror&flip
+	{ OV9655_AEW, 0x3c },
+	{ OV9655_AEB, 0x36 },
+	{ OV9655_VPT, 0x72 },
+	{ OV9655_BBIAS, 0x08 },
+	{ OV9655_GBBIAS, 0x08 },
+	{ OV9655_PREGAIN, 0x15 },
+	{ OV9655_EXHCH, 0x00 },
+	{ OV9655_EXHCL, 0x00 },
+	{ OV9655_RBIAS, 0x08 },
+	{ OV9655_CHLF, 0x00 },
+	{ OV9655_AREF2, 0x00 },
+	{ OV9655_ADC2, 0x72 },
+	{ OV9655_AREF4, 0x57 },
+	{ OV9655_COM13, 0x99 },
+	{ OV9655_EDGE, 0x02 },	// edge enhancement factor
+
+	{ OV9655_COM17, 0xc1 },	// denoise, edge enhancement, 50 Hz banding filter
+	{ OV9655_DNSTH, 0x21 },	// denoise threshold
+
+	{ OV9655_SLOP, 0x12 },
+	{ OV9655_GAM1, 0x08 },
+	{ OV9655_GAM2, 0x16 },
+	{ OV9655_GAM3, 0x30 },
+	{ OV9655_GAM4, 0x5e },
+	{ OV9655_GAM5, 0x72 },
+	{ OV9655_GAM6, 0x82 },
+	{ OV9655_GAM7, 0x8e },
+	{ OV9655_GAM8, 0x9a },
+	{ OV9655_GAM9, 0xa4 },
+	{ OV9655_GAM10, 0xac },
+	{ OV9655_GAM11, 0xb8 },
+	{ OV9655_GAM12, 0xc3 },
+	{ OV9655_GAM13, 0xd6 },
+	{ OV9655_GAM14, 0xe6 },
+	{ OV9655_GAM15, 0xf2 },
+
+	{ OV9655_AWBOP1, 0x85 },
+	{ OV9655_AWBOP2, 0xa9 },
+	{ OV9655_AWBOP3, 0x64 },
+	{ OV9655_AWBOP4, 0x84 },
+	{ OV9655_AWBOP5, 0x53 },
+	{ OV9655_AWBOP6, 0x0e },
+	{ OV9655_BLMT, 0xf0 },
+	{ OV9655_RLMT, 0xf0 },
+	{ OV9655_GLMT, 0xf0 },
+	{ OV9655_LCC1, 0x00 },
+	{ OV9655_LCC2, 0x00 },
+	{ OV9655_LCC3, 0x02 },
+	{ OV9655_LCC6, 0x03 },
+
+	{ OV9655_AECH, 0x40 },
+
+	{ OV9655_COM21, 0x50 },	// digital gain
+
+	{ OV9655_GREEN, 0x4a },
+	{ OV9655_REFA8, 0xc1 },
+	{ OV9655_REFA9, 0xef },
+	{ OV9655_BLC1, 0x80 },
+	{ OV9655_BLC2, 0x80 },
+	{ OV9655_BLC3, 0x80 },
+	{ OV9655_BLC4, 0x80 },
+	{ OV9655_BLC7, 0xf2 },
+	{ OV9655_BLC8, 0x20 },
+	{ OV9655_CTRLB4, 0x20 },
+	{ OV9655_ADBOFF, 0x7f },
+	{ OV9655_ADROFF, 0x7f },
+	{ OV9655_ADGBOFF, 0x7f },
+	{ OV9655_ADGROFF, 0x7f },
+	{ OV9655_AREF1, 0x3d },
+	{ OV9655_AREF3, 0x34 },
+	{ OV9655_LCC4, 0x16 },
+	{ OV9655_LCC5, 0x01 },
+	{ OV9655_LCC7, 0x04 },
+	{ OV9655_BD50MAX, 0x05 },
+	{ OV9655_BD50, 0x9d },
+	{ OV9655_BD60, 0x83 },
+	{ OV9655_BD60MAX, 0x07 },
+#endif
+
 	return ret;
 }
 
@@ -947,41 +916,28 @@ static int ov9655_s_stream(struct v4l2_subdev *subdev, int enable)
 
 	dev_info(&client->dev, "%s(%d)\n", __func__, enable);
 
-	if (!enable) {
-		/* Stop sensor readout */
-#if 0
-		ret = ov9655_set_output_control(ov9655,
-						 MT9P031_OUTPUT_CONTROL_CEN, 0);
-		if (ret < 0)
-			return ret;
-#endif
-		return 0;
-	}
+	if (!enable)
+		/* stop sensor readout */
+		return ov9655_update_bits(client, OV9655_COM2,
+			OV9655_COM2_SLEEP, OV9655_COM2_SLEEP);
 
 	ret = ov9655_set_params(ov9655);
 	if (ret < 0)
 		return ret;
 
-#if 0
-	/* Switch to master "normal" mode */
-	ret = ov9655_set_output_control(ov9655, 0,
-					 MT9P031_OUTPUT_CONTROL_CEN);
-	if (ret < 0)
-		return ret;
-#endif
-	return 0;
+	/* take out of soft sleep */
+	return ov9655_update_bits(client, OV9655_COM2,
+				OV9655_COM2_SLEEP, 0x00);
 }
 
 static int ov9655_enum_mbus_code(struct v4l2_subdev *subdev,
-				  struct v4l2_subdev_pad_config *cfg,
-				  struct v4l2_subdev_mbus_code_enum *code)
+				 struct v4l2_subdev_pad_config *cfg,
+				 struct v4l2_subdev_mbus_code_enum *code)
 {
-	struct ov9655 *ov9655 = to_ov9655(subdev);
-
-	if (code->pad || code->index)
+	if (code->index >= ARRAY_SIZE(ov9655_formats))
 		return -EINVAL;
 
-	code->code = ov9655->format.code;
+	code->code = ov9655_formats[code->index].code;
 	return 0;
 }
 
@@ -989,16 +945,21 @@ static int ov9655_enum_frame_size(struct v4l2_subdev *subdev,
 				   struct v4l2_subdev_pad_config *cfg,
 				   struct v4l2_subdev_frame_size_enum *fse)
 {
-	struct ov9655 *ov9655 = to_ov9655(subdev);
+	int i = ARRAY_SIZE(ov9655_formats);
 
-	if (fse->index >= 8 || fse->code != ov9655->format.code)
+	if (fse->index >= ARRAY_SIZE(ov9655_framesizes))
 		return -EINVAL;
 
-	fse->min_width = OV9655_WINDOW_WIDTH_DEF
-		       / min_t(unsigned int, 7, fse->index + 1);
-	fse->max_width = fse->min_width;
-	fse->min_height = OV9655_WINDOW_HEIGHT_DEF / (fse->index + 1);
-	fse->max_height = fse->min_height;
+	while (--i)
+		if (fse->code == ov9655_formats[i].code)
+			break;
+
+	fse->code = ov9655_formats[i].code;
+
+	fse->min_width  = ov9655_framesizes[fse->index].width;
+	fse->max_width  = fse->min_width;
+	fse->max_height = ov9655_framesizes[fse->index].height;
+	fse->min_height = fse->max_height;
 
 	return 0;
 }
@@ -1043,6 +1004,15 @@ __ov9655_get_pad_crop(struct ov9655 *ov9655, struct v4l2_subdev_pad_config *cfg,
 	}
 }
 
+static void ov9655_get_default_format(struct v4l2_mbus_framefmt *mf)
+{
+	mf->width = ov9655_framesizes[0].width;
+	mf->height = ov9655_framesizes[0].height;
+	mf->colorspace = ov9655_formats[0].colorspace;
+	mf->code = ov9655_formats[0].code;
+	mf->field = V4L2_FIELD_NONE;
+}
+
 static int ov9655_get_format(struct v4l2_subdev *subdev,
 			      struct v4l2_subdev_pad_config *cfg,
 			      struct v4l2_subdev_format *fmt)
@@ -1055,76 +1025,40 @@ static int ov9655_get_format(struct v4l2_subdev *subdev,
 	fmt->format = *__ov9655_get_pad_format(ov9655, cfg, fmt->pad,
 						fmt->which);
 	printmbusfmt(client, &fmt->format);
+
 	return 0;
 }
 
 static int ov9655_set_format(struct v4l2_subdev *subdev,
-			      struct v4l2_subdev_pad_config *cfg,
-			      struct v4l2_subdev_format *format)
+				struct v4l2_subdev_pad_config *cfg,
+				struct v4l2_subdev_format *fmt)
 {
+	unsigned int index = ARRAY_SIZE(ov9655_formats);
+	struct v4l2_mbus_framefmt *mf = &fmt->format;
 	struct ov9655 *ov9655 = to_ov9655(subdev);
 	struct i2c_client *client = v4l2_get_subdevdata(&ov9655->subdev);
-	struct v4l2_mbus_framefmt *__format;
-	struct v4l2_rect *__crop;
-	unsigned int width;
-	unsigned int height;
-	unsigned int hratio;
-	unsigned int vratio;
 
-	dev_info(&client->dev, "%s\n", __func__);
-	printmbusfmt(client, &format->format);
+	while (--index)
+		if (ov9655_formats[index].code == mf->code)
+			break;
+	// FIXME: error handling if format not found
 
-	__crop = __ov9655_get_pad_crop(ov9655, cfg, format->pad,
-					format->which);
+	dev_info(&client->dev, "%s %d\n", __func__, index);
 
-	/* Clamp the width and height to avoid dividing by zero. */
-	width = clamp_t(unsigned int, ALIGN(format->format.width, 2),
-			max_t(unsigned int, __crop->width / 7,
-				OV9655_WINDOW_WIDTH_MIN),
-			__crop->width);
-	height = clamp_t(unsigned int, ALIGN(format->format.height, 2),
-			max_t(unsigned int, __crop->height / 8,
-				OV9655_WINDOW_HEIGHT_MIN),
-			__crop->height);
+	mf->colorspace	= ov9655_formats[index].colorspace;
+	mf->code	= ov9655_formats[index].code;
+	mf->field	= V4L2_FIELD_NONE;
 
-	hratio = DIV_ROUND_CLOSEST(__crop->width, width);
-	vratio = DIV_ROUND_CLOSEST(__crop->height, height);
+	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
+		if (!cfg) {
+			mf = v4l2_subdev_get_try_format(subdev, cfg, fmt->pad);
+			*mf = fmt->format;
+		}
+	} else
+		ov9655->format = fmt->format;
 
-	/* take what has been defined for the pad
-	 * by user space command e.g.
-	 *    media-ctl -V '"ov9655 2-0030":0 [UYVY2x8 1024x1024]'
-	 */
-
-	__format = __ov9655_get_pad_format(ov9655, cfg, format->pad,
-					    format->which);
-	printmbusfmt(client, __format);
-	__format->width = __crop->width / hratio;
-	__format->height = __crop->height / vratio;
-	printmbusfmt(client, __format);
-
-	format->format = *__format;
-	printmbusfmt(client, &format->format);
-
-	switch (WH(__format->width, __format->height)) {
-	case SXGA:
-	case VGA:
-	case QVGA:
-	case CIF:
-		break;	/* ok */
-	default:
-		pr_info("%s unknown format width=%u height=%u\n", __func__, __format->width, __format->height);
-		return -EINVAL;	// unknown format
-	}
-
-	switch (__format->code) {
-	case MEDIA_BUS_FMT_UYVY8_2X8:
-	case MEDIA_BUS_FMT_RGB565_2X8_BE:
-	case MEDIA_BUS_FMT_SGRBG12_1X12:
-		break;
-	default:
-		pr_info("%s unknown format code=%08x\n", __func__, __format->code);
-		return -EINVAL;	// unknown format
-	}
+	printmbusfmt(client, &ov9655->format);
+	printmbusfmt(client, mf);
 
 	return 0;
 }
@@ -1208,6 +1142,22 @@ static int ov9655_set_selection(struct v4l2_subdev *subdev,
 #define V4L2_CID_BLC_ANALOG_OFFSET	(V4L2_CID_USER_BASE | 0x1004)
 #define V4L2_CID_BLC_DIGITAL_OFFSET	(V4L2_CID_USER_BASE | 0x1005)
 
+/* NOTE:
+ * interesting features of ov9655 for controls:
+ *
+ * night mode (bit7 of COM11) + Exposure
+ * 50/60 Hz filter
+ * gamma curve adjustment
+ * AGC automatic / manual gain (separate for RGB channels?)
+ * AEC automatic / manual exposure
+ * BLC automatic / manual black
+ * AWB automatic / manual white balance
+ * RGB bias?
+ * denoise, edge enhancement (COM17)
+ * brightness adjust (BRTN)
+ * lens correction - may depend not on sensor chip but module (?)
+ */
+
 static int ov9655_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct ov9655 *ov9655 =
@@ -1221,19 +1171,24 @@ static int ov9655_s_ctrl(struct v4l2_ctrl *ctrl)
 	if (ctrl->flags & V4L2_CTRL_FLAG_INACTIVE)
 		return 0;
 
+	/* NOTEs:
+	 * AEC has a slow and a fast mode (see OV9655_COM5 bit 0) and COM8
+	 * AGC has a ceiling register (COM9)
+	 * registers 0x20 .. 0x29 control gain, agc, awb etc.
+	 * registers 27, 28, 2c are bias values (default 0x80)
+	 */
+
 	switch (ctrl->id) {
 	case V4L2_CID_EXPOSURE:
 		dev_info(&client->dev, "%s: V4L2_CID_EXPOSURE %08x\n", __func__, ctrl->val);
-#if 0
-		ret =  mt9p031_write(client, MT9P031_SHUTTER_WIDTH_UPPER,
-				    (ctrl->val >> 16) & 0xffff);
+
+		ret = ov9655_update_bits(client, OV9655_AECH, OV9655_AECH_AEC, ctrl->val >> 10);	// upper 6 bits
 		if (ret < 0)
 			return ret;
-
-		return  mt9p031_write(client, MT9P031_SHUTTER_WIDTH_LOWER,
-				     ctrl->val & 0xffff);
-#endif
-		return -EINVAL;
+		ret = ov9655_write(client, OV9655_COM6, ctrl->val >> 2);	// middle 8 bits
+		if (ret < 0)
+			return ret;
+		return ov9655_update_bits(client, OV9655_COM1, OV9655_COM1_AEC, ctrl->val);	// lower 2 bits
 
 	case V4L2_CID_GAIN:
 		dev_info(&client->dev, "%s: V4L2_CID_GAIN %u\n", __func__, ctrl->val);
@@ -1264,6 +1219,18 @@ static int ov9655_s_ctrl(struct v4l2_ctrl *ctrl)
 		}
 
 		return  mt9p031_write(client, MT9P031_GLOBAL_GAIN, data);
+
+		/* for ov9655 it is  similar
+		 * OV9655_GAIN + 2 bits in OV9655_VREF
+		 * OV9655_BLUE
+		 * OV9655_RED
+		 * OV9655_GREEN
+		 * OV9655_PREGAIN
+		 * OV9655_ADC1		analog range adjustment
+		 * OV9655_COM15		data output full range
+		 * OV9655_COM21		digital gain value
+		 */
+
 #endif
 
 		return -EINVAL;
@@ -1271,21 +1238,21 @@ static int ov9655_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_HFLIP:
 		dev_info(&client->dev, "%s: V4L2_CID_HFLIP %u\n", __func__, ctrl->val);
 
-		return ov9655_clear_set(client, OV9655_MVFP, ~OV9655_MVFP_MIRROR, ctrl->val?OV9655_MVFP_MIRROR:0);
+		return ov9655_update_bits(client, OV9655_MVFP, OV9655_MVFP_MIRROR, ctrl->val?OV9655_MVFP_MIRROR:0);
 
 	case V4L2_CID_VFLIP:
 		dev_info(&client->dev, "%s: V4L2_CID_VFLIP %u\n", __func__, ctrl->val);
 
-		return ov9655_clear_set(client, OV9655_MVFP, ~OV9655_MVFP_MIRROR, ctrl->val?OV9655_MVFP_VFLIP:0);
+		return ov9655_update_bits(client, OV9655_MVFP, OV9655_MVFP_MIRROR, ctrl->val?OV9655_MVFP_VFLIP:0);
 
 	case V4L2_CID_TEST_PATTERN:
 		dev_info(&client->dev, "%s: V4L2_CID_TEST_PATTERN %u\n", __func__, ctrl->val);
 
-		ret = ov9655_clear_set(client, OV9655_COM3, ~OV9655_COM3_CBAR, ctrl->val?OV9655_COM3_CBAR:0);
+		ret = ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_CBAR, ctrl->val?OV9655_COM3_CBAR:0);
 		if (ret < 0)
 			return ret;
 
-		return ov9655_clear_set(client, OV9655_COM20, ~OV9655_COM20_CBAR, ctrl->val?OV9655_COM20_CBAR:0);
+		return ov9655_update_bits(client, OV9655_COM20, OV9655_COM20_CBAR, ctrl->val?OV9655_COM20_CBAR:0);
 
 /* private extensions to the MT9P031 driver? */
 
@@ -1330,6 +1297,12 @@ static int ov9655_s_ctrl(struct v4l2_ctrl *ctrl)
 		return  mt9p031_write(client, MT9P031_ROW_BLACK_DEF_OFFSET,
 				     ctrl->val & ((1 << 12) - 1));
 #endif
+
+#if 0	// more interesting controls
+	case V4L2_CID_AUTO_WHITE_BALANCE:
+	case V4L2_CID_AUTOGAIN:
+	case V4L2_CID_GAMMA:
+#endif
 	}
 
 	return 0;
@@ -1341,7 +1314,7 @@ static const struct v4l2_ctrl_ops ov9655_ctrl_ops = {
 
 static const char * const ov9655_test_pattern_menu[] = {
 	"Disabled",
-	"Enabled",
+	"Color bars",
 };
 
 /* private extensions */
@@ -1397,7 +1370,10 @@ static const struct v4l2_ctrl_config ov9655_ctrls[] = {
 static int ov9655_set_power(struct v4l2_subdev *subdev, int on)
 {
 	struct ov9655 *ov9655 = to_ov9655(subdev);
+	struct i2c_client *client = v4l2_get_subdevdata(subdev);
 	int ret = 0;
+
+	dev_info(&client->dev, "%s on=%d\n", __func__, on);
 
 	mutex_lock(&ov9655->power_lock);
 
@@ -1408,6 +1384,18 @@ static int ov9655_set_power(struct v4l2_subdev *subdev, int on)
 		ret = __ov9655_set_power(ov9655, !!on);
 		if (ret < 0)
 			goto out;
+		if (on) {
+			ret = ov9655_reset(ov9655);
+			if (ret < 0) {
+				dev_err(&client->dev, "Failed to reset the camera\n");
+				goto out;
+				}
+			ret = v4l2_ctrl_handler_setup(&ov9655->ctrls);
+			if (ret < 0) {
+				dev_err(&client->dev, "Failed to choose defaults\n");
+				goto out;
+				}
+		}
 	}
 
 	/* Update the power count. */
@@ -1430,7 +1418,7 @@ static int ov9655_registered(struct v4l2_subdev *subdev)
 	s32 data;
 	int ret;
 
-	ret = ov9655_power_on(ov9655);
+	ret = __ov9655_set_power(ov9655, 1);
 	if (ret < 0) {
 		dev_err(&client->dev, "OV9655 power up failed\n");
 		return ret;
@@ -1460,17 +1448,18 @@ static int ov9655_registered(struct v4l2_subdev *subdev)
 		return -ENODEV;
 	}
 
-	data =  ov9655_read(client, OV9655_VER);
-	if (data != OV9655_CHIP_VER4 && data != OV9655_CHIP_VER5) {
+	data =  ov9655_read(client, OV9655_REV);
+	if (data != OV9655_CHIP_REV4 && data != OV9655_CHIP_REV5) {
 		dev_err(&client->dev,
 			"OV9655 not detected, wrong version 0x%02x\n",
 			(unsigned int) data);
 		return -ENODEV;
 	}
 
-	ov9655_power_off(ov9655);
+	__ov9655_set_power(ov9655, 0);
 
-	dev_info(&client->dev, "OV9655 detected at address 0x%02x\n",
+	dev_info(&client->dev, "OV9655 %s detected at address 0x%02x\n",
+		 (data == OV9655_CHIP_REV5) ? "REV5" : "REV4",
 		 client->addr);
 
 	return ret;
@@ -1492,29 +1481,19 @@ static int ov9655_open(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh)
 	crop->width = OV9655_WINDOW_WIDTH_DEF;
 	crop->height = OV9655_WINDOW_HEIGHT_DEF;
 
+	// is this overwritten by ov9655_get_default_format ?)
 	format = v4l2_subdev_get_try_format(subdev, fh->pad, 0);
 
-	format->code = OV9655_DEFAULT_FORMAT;
+	ov9655_get_default_format(format);
 
-	format->width = OV9655_WINDOW_WIDTH_DEF;
-	format->height = OV9655_WINDOW_HEIGHT_DEF;
-	format->field = V4L2_FIELD_NONE;
-	format->colorspace = V4L2_COLORSPACE_SRGB;
-
-	return ov9655_set_power(subdev, 1);
-}
-
-static int ov9655_close(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(subdev);
-
-	dev_info(&client->dev, "%s\n", __func__);
-
-	return ov9655_set_power(subdev, 0);
+	return 0;
 }
 
 static struct v4l2_subdev_core_ops ov9655_subdev_core_ops = {
-	.s_power        = ov9655_set_power,
+	.s_power		= ov9655_set_power,
+	.log_status		= v4l2_ctrl_subdev_log_status,
+	.subscribe_event	= v4l2_ctrl_subdev_subscribe_event,
+	.unsubscribe_event	= v4l2_event_subdev_unsubscribe,
 };
 
 static struct v4l2_subdev_video_ops ov9655_subdev_video_ops = {
@@ -1522,12 +1501,12 @@ static struct v4l2_subdev_video_ops ov9655_subdev_video_ops = {
 };
 
 static struct v4l2_subdev_pad_ops ov9655_subdev_pad_ops = {
-	.enum_mbus_code = ov9655_enum_mbus_code,
-	.enum_frame_size = ov9655_enum_frame_size,
-	.get_fmt = ov9655_get_format,
-	.set_fmt = ov9655_set_format,
-	.get_selection = ov9655_get_selection,
-	.set_selection = ov9655_set_selection,
+	.enum_mbus_code		= ov9655_enum_mbus_code,
+	.enum_frame_size	= ov9655_enum_frame_size,
+	.get_fmt		= ov9655_get_format,
+	.set_fmt		= ov9655_set_format,
+	.get_selection		= ov9655_get_selection,
+	.set_selection		= ov9655_set_selection,
 };
 
 static struct v4l2_subdev_ops ov9655_subdev_ops = {
@@ -1537,9 +1516,8 @@ static struct v4l2_subdev_ops ov9655_subdev_ops = {
 };
 
 static const struct v4l2_subdev_internal_ops ov9655_subdev_internal_ops = {
-	.registered = ov9655_registered,
-	.open = ov9655_open,
-	.close = ov9655_close,
+	.registered	= ov9655_registered,
+	.open		= ov9655_open,
 };
 
 /* -----------------------------------------------------------------------------
@@ -1564,27 +1542,33 @@ static int ov9655_probe(struct i2c_client *client,
 	}
 
 	ov9655 = devm_kzalloc(&client->dev, sizeof(*ov9655), GFP_KERNEL);
-	if (ov9655 == NULL)
+	if (!ov9655)
 		return -ENOMEM;
 
 	np = of_graph_get_next_endpoint(client->dev.of_node, NULL);
 	if (!np)
 		return -EINVAL;
 
-	if (of_property_read_u8(np, "bus-width", &ov9655->bus_width))
+	/* CHECKME: does not appear to find endpoint properties */
+
+	if (of_property_read_u32(np, "bus-width", &ov9655->bus_width))
 		ov9655->bus_width = 10;
-	if (of_property_read_u8(np, "hsync-active", &ov9655->hsync_active))
-		ov9655->hsync_active = 1;
-	if (of_property_read_u8(np, "vsync-active", &ov9655->vsync_active))
-		ov9655->hsync_active = 1;
-	if (of_property_read_u8(np, "data-active", &ov9655->data_active))
+	if (of_property_read_u32(np, "hsync-active", &ov9655->hsync_active))
+		ov9655->hsync_active = 0;
+	if (of_property_read_u32(np, "vsync-active", &ov9655->vsync_active))
+		ov9655->hsync_active = 0;
+	if (of_property_read_u32(np, "data-active", &ov9655->data_active))
 		ov9655->data_active = 1;
-	if (of_property_read_u8(np, "pclk-sample", &ov9655->pclk_sample))
-		ov9655->pclk_sample = 1;
-	if (of_property_read_u8(np, "pclk-delay", &ov9655->pclk_delay))
-		ov9655->pclk_delay = 0;
-	if (of_property_read_u8(np, "output-drive", &ov9655->output_drive))
-		ov9655->output_drive = 0;
+	if (of_property_read_u32(np, "pclk-sample", &ov9655->pclk_sample))
+		ov9655->pclk_sample = 0;
+	if (of_property_read_u32(np, "pclk-delay", &ov9655->pclk_delay))
+		ov9655->pclk_delay = 2;
+	if (of_property_read_u32(np, "output-drive", &ov9655->output_drive))
+		ov9655->output_drive = 1;
+
+	ov9655->clock_noncontinuous = of_property_read_bool(np, "clock-noncontinuous");
+	/* FIXME: allow slave_mode only for REV5 */
+	ov9655->slave_mode = of_property_read_bool(np, "slave-mode");
 
 	of_node_put(np);
 
@@ -1594,7 +1578,8 @@ static int ov9655_probe(struct i2c_client *client,
 	ov9655->regulators[1].supply = "dovdd";
 	ov9655->regulators[2].supply = "avdd";
 
-	ret = devm_regulator_bulk_get(&client->dev, 3, ov9655->regulators);
+	ret = devm_regulator_bulk_get(&client->dev, ARRAY_SIZE(ov9655->regulators),
+					ov9655->regulators);
 	if (ret < 0) {
 		dev_err(&client->dev, "Unable to get regulators\n");
 		return ret;
@@ -1605,11 +1590,13 @@ static int ov9655_probe(struct i2c_client *client,
 	v4l2_ctrl_handler_init(&ov9655->ctrls, ARRAY_SIZE(ov9655_ctrls) + 6);
 
 	/* register custom controls */
-#if 0
+
 	v4l2_ctrl_new_std(&ov9655->ctrls, &ov9655_ctrl_ops,
-			  V4L2_CID_EXPOSURE, MT9P031_SHUTTER_WIDTH_MIN,
-			  MT9P031_SHUTTER_WIDTH_MAX, 1,
-			  MT9P031_SHUTTER_WIDTH_DEF);
+			  V4L2_CID_EXPOSURE,
+			  OV9655_SHUTTER_WIDTH_MIN,
+			  OV9655_SHUTTER_WIDTH_MAX, 1,
+			  OV9655_SHUTTER_WIDTH_DEF);
+#if 0
 	v4l2_ctrl_new_std(&ov9655->ctrls, &ov9655_ctrl_ops,
 			  V4L2_CID_GAIN, MT9P031_GLOBAL_GAIN_MIN,
 			  MT9P031_GLOBAL_GAIN_MAX, 1, MT9P031_GLOBAL_GAIN_DEF);
@@ -1636,7 +1623,7 @@ static int ov9655_probe(struct i2c_client *client,
 		dev_err(&client->dev, "%s: control initialization error %d\n",
 		       __func__, ov9655->ctrls.error);
 		ret = ov9655->ctrls.error;
-		goto done;
+		goto err_1;
 	}
 
 	ov9655->blc_auto = v4l2_ctrl_find(&ov9655->ctrls, V4L2_CID_BLC_AUTO);
@@ -1650,7 +1637,7 @@ static int ov9655_probe(struct i2c_client *client,
 	ov9655->subdev.entity.function = MEDIA_ENT_F_CAM_SENSOR;
 	ret = media_entity_pads_init(&ov9655->subdev.entity, 1, &ov9655->pad);
 	if (ret < 0)
-		goto done;
+		goto err_2;
 
 	ov9655->subdev.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 
@@ -1659,42 +1646,36 @@ static int ov9655_probe(struct i2c_client *client,
 	ov9655->crop.left = OV9655_COLUMN_START_DEF;
 	ov9655->crop.top = OV9655_ROW_START_DEF;
 
-	ov9655->format.code = OV9655_DEFAULT_FORMAT;
-
-	ov9655->format.width = OV9655_WINDOW_WIDTH_DEF;
-	ov9655->format.height = OV9655_WINDOW_HEIGHT_DEF;
-	ov9655->format.field = V4L2_FIELD_NONE;
-	ov9655->format.colorspace = V4L2_COLORSPACE_SRGB;
-
-	ov9655->reset = devm_gpiod_get_optional(&client->dev, "resetb",
-						 GPIOD_OUT_LOW);
-	ov9655->powerdown = devm_gpiod_get_optional(&client->dev, "pwdn",
+	ov9655->reset = devm_gpiod_get_optional(&client->dev, "reset",
 						 GPIOD_OUT_HIGH);
+	ov9655->powerdown = devm_gpiod_get_optional(&client->dev, "powerdown",
+						 GPIOD_OUT_LOW);
 
 	ov9655->clk = devm_clk_get(&client->dev, NULL);
 	if (IS_ERR(ov9655->clk)) {
 		dev_err(&client->dev, "Could not get clock\n");
 		ret = PTR_ERR(ov9655->clk);
-		goto done;
+		goto err_3;
 	}
-	ov9655->mclk_frequency = clk_get_rate(ov9655->clk);
-	if (ov9655->mclk_frequency < 10000000 || ov9655->mclk_frequency > 48000000) {
+	ov9655->xclk_frequency = clk_get_rate(ov9655->clk);
+	if (ov9655->xclk_frequency < 10000000 || ov9655->xclk_frequency > 48000000) {
 		dev_err(&client->dev, "Clock frequency %lu Hz not in valid range\n",
-					ov9655->mclk_frequency);
+					ov9655->xclk_frequency);
 		ret = -EINVAL;
-		goto done;
+		goto err_3;
 	}
-
-	clk_set_rate(ov9655->clk, ov9655->mclk_frequency);
 
 	ret = v4l2_async_register_subdev(&ov9655->subdev);
 
-done:
-	if (ret < 0) {
-		v4l2_ctrl_handler_free(&ov9655->ctrls);
-		media_entity_cleanup(&ov9655->subdev.entity);
-		mutex_destroy(&ov9655->power_lock);
-	}
+	if (!ret)
+		return 0;
+
+err_3:
+	media_entity_cleanup(&ov9655->subdev.entity);
+err_2:
+	v4l2_ctrl_handler_free(&ov9655->ctrls);
+err_1:
+	mutex_destroy(&ov9655->power_lock);
 
 	return ret;
 }
@@ -1704,9 +1685,9 @@ static int ov9655_remove(struct i2c_client *client)
 	struct v4l2_subdev *subdev = i2c_get_clientdata(client);
 	struct ov9655 *ov9655 = to_ov9655(subdev);
 
-	v4l2_ctrl_handler_free(&ov9655->ctrls);
-	v4l2_device_unregister_subdev(subdev);
+	v4l2_async_unregister_subdev(subdev);
 	media_entity_cleanup(&subdev->entity);
+	v4l2_ctrl_handler_free(&ov9655->ctrls);
 	mutex_destroy(&ov9655->power_lock);
 
 	return 0;
@@ -1719,6 +1700,7 @@ static const struct i2c_device_id ov9655_id[] = {
 MODULE_DEVICE_TABLE(i2c, ov9655_id);
 
 static const struct of_device_id of_ov9655_match_tbl[] = {
+	{ .compatible = "ovti,ov9155", },	/* B&W variant - could define different colorspace */
 	{ .compatible = "ovti,ov9655", },
 	{ /* end */ }
 };
