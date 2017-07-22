@@ -790,6 +790,10 @@ static int ov9655_initialize_controls(struct ov9655 *ov9655)
 	if (ret < 0)
 		return ret;
 
+	v4l2_ctrl_new_std(hdl, ops, V4L2_CID_PIXEL_RATE,
+			ov965x->mclk_frequency, ov965x->mclk_frequency,
+				1,ov965x->mclk_frequency);
+
 	v4l2_ctrl_new_std_menu_items(hdl, ops, V4L2_CID_TEST_PATTERN,
 				     ARRAY_SIZE(test_pattern_menu) - 1, 0, 0,
 				     test_pattern_menu);
