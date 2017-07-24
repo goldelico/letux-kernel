@@ -63,6 +63,14 @@
 	};
 #endif
 
+	pps {
+		compatible = "pps-gpio";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pps_pins>;
+
+		gpios = <&gpio4 18 GPIO_ACTIVE_HIGH>; /* GPIN_114 */
+	};
+
 };
 
 &gpio5 {
@@ -96,9 +104,15 @@
 		>;
 	};
 
-	irda_pins: pinmix_irda {
+	irda_pins: pinmux_irda {
 		pinctrl-single,pins = <
 			OMAP3_CORE1_IOPAD(0x21d0, PIN_OUTPUT_PULLUP | MUX_MODE4)	/* mcspi1_cs1 = gpio175 */
+		>;
+	};
+
+	pps_pins: pinmux_pps_pins {
+		pinctrl-single,pins = <
+			OMAP3_CORE1_IOPAD(0x2138, PIN_INPUT | MUX_MODE4) /* gpin114 */
 		>;
 	};
 
