@@ -1,0 +1,43 @@
+/dts-v1/;
+
+#include "jz4730.dtsi"
+
+/ {
+	compatible = "letux,400";
+	model = "jz4730 based Mini PC (minibook)";
+
+	chosen {
+		stdout-path = &uart0;
+		bootargs = "console=ttyS0,57600";
+
+	};
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x2000000>;
+	};
+
+	// backlight
+	// lcd
+	// mouse
+	// ethernet
+	// gpios
+
+	// gpio keyboard driver and matrix
+};
+
+&ext {
+	clock-frequency = <12000000>;
+};
+
+&i2c {
+	power@28 {
+		compatible = "minipc,mcu";
+		reg = <0x28>;
+	};
+
+	rtc@51 {
+		compatible = "nxp,pcf8563";
+		reg = <0x51>;
+	};
+};
