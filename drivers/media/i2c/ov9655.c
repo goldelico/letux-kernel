@@ -522,7 +522,8 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 
 	// FIXME: should depend on format and desired FPS
 
-	/* basically we should calculate:
+	/*
+	 * basically we should calculate:
 	 * check if bit 6 of CKRC is set -> then external clock: pclk = xclk
 	 *
 	 * target-pixel-clock = fps * (horiz-res + sync) * (vert-res + sync)
@@ -934,7 +935,7 @@ static int ov9655_set_format(struct v4l2_subdev *subdev,
 	return 0;
 }
 
-/* -----------------------------------------------------------------------------
+/*
  * V4L2 subdev control operations
  */
 
@@ -945,7 +946,8 @@ static int ov9655_set_format(struct v4l2_subdev *subdev,
 #define V4L2_CID_BLC_ANALOG_OFFSET	(V4L2_CID_USER_BASE | 0x1004)
 #define V4L2_CID_BLC_DIGITAL_OFFSET	(V4L2_CID_USER_BASE | 0x1005)
 
-/* NOTE:
+/*
+ * NOTE:
  * interesting features of ov9655 for controls:
  *
  * night mode (bit7 of COM11) + Exposure
@@ -974,7 +976,8 @@ static int ov9655_s_ctrl(struct v4l2_ctrl *ctrl)
 	if (ctrl->flags & V4L2_CTRL_FLAG_INACTIVE)
 		return 0;
 
-	/* NOTEs:
+	/*
+	 * NOTEs:
 	 * AEC has a slow and a fast mode (see OV9655_COM5 bit 0) and COM8
 	 * AGC has a ceiling register (COM9)
 	 * registers 0x20 .. 0x29 control gain, agc, awb etc.
@@ -997,7 +1000,8 @@ static int ov9655_s_ctrl(struct v4l2_ctrl *ctrl)
 		dev_info(&client->dev, "%s: V4L2_CID_GAIN %u\n", __func__, ctrl->val);
 
 #if 0
-		/* Gain is controlled by 2 analog stages and a digital stage.
+		/*
+		 * Gain is controlled by 2 analog stages and a digital stage.
 		 * Valid values for the 3 stages are
 		 *
 		 * Stage                Min     Max     Step
@@ -1023,7 +1027,8 @@ static int ov9655_s_ctrl(struct v4l2_ctrl *ctrl)
 
 		return  mt9p031_write(client, MT9P031_GLOBAL_GAIN, data);
 
-		/* for ov9655 it is  similar
+		/*
+		 * for ov9655 it is  similar
 		 * OV9655_GAIN + 2 bits in OV9655_VREF
 		 * OV9655_BLUE
 		 * OV9655_RED
@@ -1166,7 +1171,7 @@ static const struct v4l2_ctrl_config ov9655_ctrls[] = {
 	}
 };
 
-/* -----------------------------------------------------------------------------
+/*
  * V4L2 subdev core operations
  */
 
@@ -1180,7 +1185,8 @@ static int ov9655_set_power(struct v4l2_subdev *subdev, int on)
 
 	mutex_lock(&ov9655->power_lock);
 
-	/* If the power count is modified from 0 to != 0 or from != 0 to 0,
+	/*
+	 * If the power count is modified from 0 to 1 or from 1 to 0,
 	 * update the power state.
 	 */
 	if (ov9655->power_count == !on) {
@@ -1210,7 +1216,7 @@ out:
 	return ret;
 }
 
-/* -----------------------------------------------------------------------------
+/*
  * V4L2 subdev internal operations
  */
 
@@ -1313,7 +1319,7 @@ static const struct v4l2_subdev_internal_ops ov9655_subdev_internal_ops = {
 	.open		= ov9655_open,
 };
 
-/* -----------------------------------------------------------------------------
+/*
  * Driver initialization and probing
  */
 
