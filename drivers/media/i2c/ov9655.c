@@ -24,6 +24,7 @@
 #include <linux/log2.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_graph.h>
 #include <linux/pm.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
@@ -53,6 +54,16 @@ struct ov9655 {
 	struct v4l2_ctrl_handler ctrls;
 	struct v4l2_ctrl *blc_auto;
 	struct v4l2_ctrl *blc_offset;
+
+	u32 bus_width;
+	u32 hsync_active;
+	u32 vsync_active;
+	u32 data_active;
+	u32 pclk_sample;
+	u32 pclk_delay;
+	u32 output_drive;
+	bool clock_noncontinuous;
+	bool slave_mode;
 };
 
 /* ov9655 register addresses */
@@ -489,6 +500,32 @@ static int ov9655_reset(struct ov9655 *ov9655)
 
 	/* assume next writes succeed */
 	ret = ov9655_update_bits(client, OV9655_COM12, 0x80, 0x80);	/* set "always has href" */
+
+	dev_info(&client->dev, "%s: output_drive %d\n", __func__, ov9655->output_drive);
+	ret = ov9655_update_bits(client, OV9655_COM2, OV9655_COM2_STRENGTH,
+		ov9655->output_drive&OV9655_COM2_STRENGTH);
+	dev_info(&client->dev, "%s: pclk_sample %d\n", __func__, ov9655->pclk_sample);
+	ret = ov9655_update_bits(client, OV9655_COM10, OV9655_COM10_PCLK_REV,
+		ov9655->pclk_sample ? 0: OV9655_COM10_PCLK_REV);
+	dev_info(&client->dev, "%s: vsync_active %d\n", __func__, ov9655->vsync_active);
+	ret = ov9655_update_bits(client, OV9655_COM10, OV9655_COM10_VSYNC_NEG,
+		ov9655->vsync_active ? 0 : OV9655_COM10_VSYNC_NEG);
+	dev_info(&client->dev, "%s: hsync_active %d\n", __func__, ov9655->hsync_active);
+	ret = ov9655_update_bits(client, OV9655_COM10, OV9655_COM10_HSYNC_NEG,
+		ov9655->hsync_active ? OV9655_COM10_HSYNC_NEG : 0);
+	dev_info(&client->dev, "%s: pclk_delay %d\n", __func__, ov9655->pclk_delay);
+	ret = ov9655_update_bits(client, OV9655_TSLB, OV9655_TSLB_PCLK_MASK,
+		ov9655->pclk_delay << OV9655_TSLB_PCLK_OFFSET);
+
+	dev_info(&client->dev, "%s: clock_noncontinuous %d\n", __func__, ov9655->clock_noncontinuous);
+	ret = ov9655_update_bits(client, OV9655_COM10, OV9655_COM10_PCLK_GATE,
+		ov9655->clock_noncontinuous ? OV9655_COM10_PCLK_GATE : 0);
+	dev_info(&client->dev, "%s: slave_mode %d\n", __func__, ov9655->slave_mode);
+	ret = ov9655_update_bits(client, OV9655_COM10, OV9655_COM10_SLAVE_MODE,
+		ov9655->slave_mode ? OV9655_COM10_SLAVE_MODE : 0);
+
+	dev_info(&client->dev, "%s: data_active %d\n", __func__, ov9655->data_active);
+	dev_info(&client->dev, "%s: bus_width %d\n", __func__, ov9655->bus_width);
 
 	return ret;
 }
@@ -1476,6 +1513,7 @@ static const struct v4l2_subdev_internal_ops ov9655_subdev_internal_ops = {
 static int ov9655_probe(struct i2c_client *client,
 			 const struct i2c_device_id *did)
 {
+	struct device_node *np;
 	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
 	struct ov9655 *ov9655;
 	unsigned int i;
@@ -1492,6 +1530,33 @@ static int ov9655_probe(struct i2c_client *client,
 	ov9655 = devm_kzalloc(&client->dev, sizeof(*ov9655), GFP_KERNEL);
 	if (!ov9655)
 		return -ENOMEM;
+
+	np = of_graph_get_next_endpoint(client->dev.of_node, NULL);
+	if (!np)
+		return -EINVAL;
+
+	/* CHECKME: does not appear to find endpoint properties */
+
+	if (of_property_read_u32(np, "bus-width", &ov9655->bus_width))
+		ov9655->bus_width = 10;
+	if (of_property_read_u32(np, "hsync-active", &ov9655->hsync_active))
+		ov9655->hsync_active = 0;
+	if (of_property_read_u32(np, "vsync-active", &ov9655->vsync_active))
+		ov9655->hsync_active = 0;
+	if (of_property_read_u32(np, "data-active", &ov9655->data_active))
+		ov9655->data_active = 1;
+	if (of_property_read_u32(np, "pclk-sample", &ov9655->pclk_sample))
+		ov9655->pclk_sample = 0;
+	if (of_property_read_u32(np, "pclk-delay", &ov9655->pclk_delay))
+		ov9655->pclk_delay = 2;
+	if (of_property_read_u32(np, "output-drive", &ov9655->output_drive))
+		ov9655->output_drive = 1;
+
+	ov9655->clock_noncontinuous = of_property_read_bool(np, "clock-noncontinuous");
+	/* FIXME: allow slave_mode only for REV5 */
+	ov9655->slave_mode = of_property_read_bool(np, "slave-mode");
+
+	of_node_put(np);
 
 //	ov9655->model = did->driver_data;	// second parameter from ov9655_id[]
 
