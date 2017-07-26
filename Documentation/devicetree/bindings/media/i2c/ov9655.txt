@@ -27,6 +27,21 @@ The device node must contain one 'port' child node for its digital output
 video port, in accordance with the video interface bindings defined in
 Documentation/devicetree/bindings/media/video-interfaces.txt.
 
+Optional General Properties:
+- bus-width:		bus width of the camera output. Default is 10.
+- hsync-active:		HSYNC polarity. Default is 0.
+- vsync-active:		VSYNC polarity. Default is 0.
+- data-active:		data active polarity. Default is 1.
+- pclk-sample:		clock sampling edge. Default is 0.
+- clock-noncontinuous	boolean property for pclk output option. Default is 0.
+- slave-mode		switch to slave mode.
+
+Optional Properties for OV9655 only:
+- pclk-delay:		clock delay in 2ns steps. Default is 2.
+- output-drive:		driver strength. Default is 1.
+
+See data sheet for definition of constants.
+
 Example:
 
 &i2c2 {
@@ -42,7 +57,11 @@ Example:
 
 		port {
 			ov9655: endpoint {
+				bus-width = <8>;
 				remote-endpoint = <&parallel_ep>;
+				hsync-active = <0>;	/* Active low */
+				vsync-active = <1>;	/* Active high */
+				pclk-sample = <1>;	/* Rising */
 			};
 		};
 	};
