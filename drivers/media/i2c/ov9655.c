@@ -388,11 +388,16 @@ static struct ov9655 *to_ov9655(struct v4l2_subdev *sd)
 
 static int ov9655_read(struct i2c_client *client, u8 reg)
 {
-	return i2c_smbus_read_byte_data(client, reg);
+	int val;
+
+	val = i2c_smbus_read_byte_data(client, reg);
+	dev_info(&client->dev, "OV9655 read register %02x : %02x\n", reg, val);
+	return val;
 }
 
 static int ov9655_write(struct i2c_client *client, u8 reg, u8 data)
 {
+	dev_info(&client->dev, "OV9655 write register %02x : %02x\n", reg, data);
 	return i2c_smbus_write_byte_data(client, reg, data);
 }
 
@@ -420,6 +425,8 @@ static int ov9655_reset(struct ov9655 *ov9655)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&ov9655->subdev);
 	int ret;
+
+	dev_info(&client->dev, "%s\n", __func__);
 
 #if 0
 	ret =  ov9655_write(client, OV9655_COM7, 0x82);	/* reset to chip defaults */
@@ -472,6 +479,8 @@ static int __ov9655_set_power(struct ov9655 *ov9655, int on)
 	struct i2c_client *client = v4l2_get_subdevdata(&ov9655->subdev);
 	int ret;
 
+	dev_info(&client->dev, "%s on=%d\n", __func__, on);
+
 	if (on) {
 		/* Bring up the power supply */
 		ret = regulator_bulk_enable(ARRAY_SIZE(ov9655->regulators),
@@ -511,6 +520,28 @@ static int __ov9655_set_power(struct ov9655 *ov9655, int on)
  * V4L2 subdev video operations
  */
 
+#if 1	// our private development testing code because dev_info can't be controlled that easily
+
+void printfmt(struct i2c_client *client, struct v4l2_format *format)
+{
+	dev_info(&client->dev, "fmt: pix=%d h=%u w=%u bpl=%u size=%u\n", format->fmt.pix.pixelformat,
+		   format->fmt.pix.height,
+		   format->fmt.pix.width,
+		   format->fmt.pix.bytesperline,
+		   format->fmt.pix.sizeimage);
+}
+
+void printmbusfmt(struct i2c_client *client, struct v4l2_mbus_framefmt *format)
+{
+	dev_info(&client->dev, "busfmt: h=%u w=%u code=%u field=%u csp=%u\n", format->height,
+		   format->width,
+		   format->code,
+		   format->field,
+		   format->colorspace);
+}
+
+#endif
+
 static int ov9655_set_params(struct ov9655 *ov9655)
 { /* called by ov9655_s_stream() */
 	struct i2c_client *client = v4l2_get_subdevdata(&ov9655->subdev);
@@ -527,6 +558,8 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 	unsigned int ybin;
 #endif
 
+	dev_info(&client->dev, "%s\n", __func__);
+
 	/* general settings */
 
 	ret = ov9655_update_bits(client, OV9655_COM6, 0xff, 0x40);	/* manually update window size and timing and use optical BLC */
@@ -538,6 +571,8 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 	ret = ov9655_update_bits(client, OV9655_COM15, 0xff, 0xc0);	// full scale output range and RGB555
 	if (ret < 0)
 		return ret;
+
+	printmbusfmt(client, format);
 
 	/* set clock PLL */
 
@@ -571,6 +606,7 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 	// FIXME: should we also set/change the pixel clock here?
 
 	case SXGA:
+		dev_info(&client->dev, "SXGA\n");
 		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_RES_MASK, OV9655_COM7_SXGA);
 		ov9655_write(client, OV9655_HSYST, 0x08);	/* adjust sync */
 		ov9655_write(client, OV9655_HSYEN, 0x48);	/* adjust sync */
@@ -594,6 +630,7 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 #endif
 		break;
 	case VGA:
+		dev_info(&client->dev, "VGA\n");
 		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_RES_MASK, OV9655_COM7_VGA);
 		ret = ov9655_write(client, OV9655_CLKRC, 0x01);	/* VGA needs 1/4 of of SGXA pixel rate but has 30fps */
 		ret = ov9655_update_bits(client, OV9655_DBLV, OV9655_DBLV_PLL_MASK, OV9655_DBLV_PLL_4X);
@@ -614,6 +651,7 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 #endif
 		break;
 	case QVGA:
+		dev_info(&client->dev, "QVGA\n");
 		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_RES_MASK, OV9655_COM7_VGA);
 		ret = ov9655_write(client, OV9655_CLKRC, 0x03);	/* QVGA needs 1/4 of of VGA pixel rate */
 		ret = ov9655_update_bits(client, OV9655_DBLV, OV9655_DBLV_PLL_MASK, OV9655_DBLV_PLL_4X);
@@ -635,6 +673,7 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 #endif
 		break;
 	case CIF:
+		dev_info(&client->dev, "CIF\n");
 		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_RES_MASK, OV9655_COM7_VGA);
 		ret = ov9655_write(client, OV9655_CLKRC, 0x03);	/* QVGA needs 1/4 of of VGA pixel rate */
 		ret = ov9655_update_bits(client, OV9655_DBLV, OV9655_DBLV_PLL_MASK, OV9655_DBLV_PLL_4X);
@@ -658,6 +697,8 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 	}
 
 	/* set data format */
+
+	dev_info(&client->dev, "format->code=%08x\n", format->code);
 
 	switch (format->code) {
 	case MEDIA_BUS_FMT_UYVY8_2X8:
@@ -719,6 +760,8 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 		// no update. Should have been rejected in ov9655_set_format()
 		break;
 	}
+
+	dev_info(&client->dev, "format->field=%08x\n", format->field);
 
 	// format->field could ask for some interlacing
 
@@ -872,6 +915,8 @@ static int ov9655_s_stream(struct v4l2_subdev *subdev, int enable)
 	struct i2c_client *client = v4l2_get_subdevdata(&ov9655->subdev);
 	int ret;
 
+	dev_info(&client->dev, "%s(%d)\n", __func__, enable);
+
 	if (!enable)
 		/* stop sensor readout */
 		return ov9655_update_bits(client, OV9655_COM2,
@@ -926,6 +971,10 @@ __ov9655_get_pad_format(struct ov9655 *ov9655, struct v4l2_subdev_pad_config *cf
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&ov9655->subdev);
 
+	dev_info(&client->dev, "%s: pad=%u which=%u %s\n", __func__, pad, which,
+		which == V4L2_SUBDEV_FORMAT_TRY ?
+			"V4L2_SUBDEV_FORMAT_TRY" : "V4L2_SUBDEV_FORMAT_ACTIVE");
+
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
 		return v4l2_subdev_get_try_format(&ov9655->subdev, cfg, pad);
@@ -972,8 +1021,12 @@ static int ov9655_get_format(struct v4l2_subdev *subdev,
 	struct ov9655 *ov9655 = to_ov9655(subdev);
 	struct i2c_client *client = v4l2_get_subdevdata(&ov9655->subdev);
 
+	dev_info(&client->dev, "%s\n", __func__);
+
 	fmt->format = *__ov9655_get_pad_format(ov9655, cfg, fmt->pad,
 						fmt->which);
+	printmbusfmt(client, &fmt->format);
+
 	return 0;
 }
 
@@ -991,6 +1044,8 @@ static int ov9655_set_format(struct v4l2_subdev *subdev,
 			break;
 	// FIXME: error handling if format not found
 
+	dev_info(&client->dev, "%s %d\n", __func__, index);
+
 	mf->colorspace	= ov9655_formats[index].colorspace;
 	mf->code	= ov9655_formats[index].code;
 	mf->field	= V4L2_FIELD_NONE;
@@ -1002,6 +1057,9 @@ static int ov9655_set_format(struct v4l2_subdev *subdev,
 		}
 	} else
 		ov9655->format = fmt->format;
+
+	printmbusfmt(client, &ov9655->format);
+	printmbusfmt(client, mf);
 
 	return 0;
 }
@@ -1103,6 +1161,8 @@ static int ov9655_s_ctrl(struct v4l2_ctrl *ctrl)
 	u16 data;
 	int ret;
 
+	dev_info(&client->dev, "%s %08x\n", __func__, ctrl->id);
+
 	if (ctrl->flags & V4L2_CTRL_FLAG_INACTIVE)
 		return 0;
 
@@ -1116,6 +1176,8 @@ static int ov9655_s_ctrl(struct v4l2_ctrl *ctrl)
 
 	switch (ctrl->id) {
 	case V4L2_CID_EXPOSURE:
+		dev_info(&client->dev, "%s: V4L2_CID_EXPOSURE %08x\n", __func__, ctrl->val);
+
 		ret = ov9655_update_bits(client, OV9655_AECH, OV9655_AECH_AEC, ctrl->val >> 10);	// upper 6 bits
 		if (ret < 0)
 			return ret;
@@ -1125,6 +1187,7 @@ static int ov9655_s_ctrl(struct v4l2_ctrl *ctrl)
 		return ov9655_update_bits(client, OV9655_COM1, OV9655_COM1_AEC, ctrl->val);	// lower 2 bits
 
 	case V4L2_CID_GAIN:
+		dev_info(&client->dev, "%s: V4L2_CID_GAIN %u\n", __func__, ctrl->val);
 
 #if 0
 		/*
@@ -1171,12 +1234,18 @@ static int ov9655_s_ctrl(struct v4l2_ctrl *ctrl)
 		return -EINVAL;
 
 	case V4L2_CID_HFLIP:
+		dev_info(&client->dev, "%s: V4L2_CID_HFLIP %u\n", __func__, ctrl->val);
+
 		return ov9655_update_bits(client, OV9655_MVFP, OV9655_MVFP_MIRROR, ctrl->val?OV9655_MVFP_MIRROR:0);
 
 	case V4L2_CID_VFLIP:
+		dev_info(&client->dev, "%s: V4L2_CID_VFLIP %u\n", __func__, ctrl->val);
+
 		return ov9655_update_bits(client, OV9655_MVFP, OV9655_MVFP_MIRROR, ctrl->val?OV9655_MVFP_VFLIP:0);
 
 	case V4L2_CID_TEST_PATTERN:
+		dev_info(&client->dev, "%s: V4L2_CID_TEST_PATTERN %u\n", __func__, ctrl->val);
+
 		ret = ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_CBAR, ctrl->val?OV9655_COM3_CBAR:0);
 		if (ret < 0)
 			return ret;
@@ -1211,6 +1280,8 @@ static int ov9655_set_power(struct v4l2_subdev *subdev, int on)
 	struct ov9655 *ov9655 = to_ov9655(subdev);
 	struct i2c_client *client = v4l2_get_subdevdata(subdev);
 	int ret = 0;
+
+	dev_info(&client->dev, "%s on=%d\n", __func__, on);
 
 	mutex_lock(&ov9655->power_lock);
 
@@ -1365,6 +1436,8 @@ static int ov9655_probe(struct i2c_client *client,
 	struct ov9655 *ov9655;
 	unsigned int i;
 	int ret;
+
+	dev_info(&client->dev, "%s\n", __func__);
 
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_WORD_DATA)) {
 		dev_warn(&client->dev,
