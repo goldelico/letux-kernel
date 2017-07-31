@@ -73,6 +73,8 @@ struct ov9655 {
 #define OV9655_GAIN			0x00
 #define OV9655_BLUE			0x01
 #define OV9655_RED			0x02
+#define   OV9655_VREF_END		0x38
+#define   OV9655_VREF_START		0x03
 #define OV9655_VREF			0x03
 #define OV9655_COM1			0x04
 #define   OV9655_COM1_AEC		0x03
@@ -157,6 +159,8 @@ struct ov9655 {
 #define OV9655_HSYST			0x30
 #define OV9655_HSYEN			0x31
 #define OV9655_HREF			0x32
+#define   OV9655_HREF_END		0x38
+#define   OV9655_HREF_START		0x03
 #define OV9655_CHLF			0x33
 #define OV9655_AREF1			0x34
 #define OV9655_AREF2			0x35
@@ -585,7 +589,7 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 	struct i2c_client *client = v4l2_get_subdevdata(&ov9655->subdev);
 	struct v4l2_mbus_framefmt *format = &ov9655->format;
 	const struct v4l2_rect *crop = &ov9655->crop;
-	int ret = 0;
+	int val, ret = 0;
 
 #if 0
 	unsigned int hblank;
@@ -623,7 +627,8 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 	 * target-pixel-clock = fps * (horiz-res + sync) * (vert-res + sync)
 	 * pll-clock = xclk * DBLV (x1, x4, x6, x8)
 	 * CLKRC divisor = (pll-clock / target-pixel-clock) - 1
-	 * note: somewhere there is a :2 not described in the data sheet (or this is controlled by bit4-6 of COM7?)
+	 *
+	 * note: we need twice the pixel clock because we have 2 pclk per pixel (2x8 bit)
 	 *
 	 * example: xclk = 24 MHz
 	 * PLL_4X gives pll-clock = 48 MHz
@@ -670,8 +675,22 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 	case VGA:
 		dev_info(&client->dev, "VGA\n");
 		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_RES_MASK, OV9655_COM7_VGA);
-		ret = ov9655_write(client, OV9655_CLKRC, 0x01);	/* VGA needs 1/4 of of SGXA pixel rate but has 30fps */
+		ov9655_update_bits(client, OV9655_COM14, OV9655_COM14_ZOOM, 0);	/* no zoom */
 		ret = ov9655_update_bits(client, OV9655_DBLV, OV9655_DBLV_PLL_MASK, OV9655_DBLV_PLL_4X);
+		/* FIXME: get these from ov9655_framesize[] */
+		val = 154;
+		ov9655_write(client, OV9655_HSTART, val >> 3);	/* image size upper 8 bit */
+		ov9655_update_bits(client, OV9655_HREF, OV9655_VREF_START, val);	/* image size lower 3 bit */
+		val = 750;
+		ov9655_write(client, OV9655_HSTOP, val >> 3);	/* image size upper 8 bit */
+		ov9655_update_bits(client, OV9655_HREF, OV9655_VREF_END, val << 3);		/* image size lower 3 bit */
+		val = 10;
+		ov9655_write(client, OV9655_VSTART, val >> 3);	/* image size upper 8 bit */
+		ov9655_update_bits(client, OV9655_VREF, OV9655_VREF_START, val);	/* image size lower 3 bit */
+		val = 550;
+		ov9655_write(client, OV9655_VSTOP, val >> 3);	/* image size upper 8 bit */
+		ov9655_update_bits(client, OV9655_VREF, OV9655_VREF_END, val << 3);		/* image size lower 3 bit */
+		ret = ov9655_write(client, OV9655_CLKRC, 0x01);	/* VGA needs 1/4 of of SGXA pixel rate but has 30fps */
 #if 0	// stuff from other driver without knowing if that is good or bad
 	{ OV9655_HSTART, 0x16 },
 	{ OV9655_HSTOP, 0x02 },
