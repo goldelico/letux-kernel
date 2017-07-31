@@ -16,6 +16,9 @@
  * published by the Free Software Foundation.
  */
 
+#define DEBUG 1
+#define USEI2C 0
+
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/device.h>
@@ -443,17 +446,55 @@ static struct ov9655 *to_ov9655(struct v4l2_subdev *sd)
 
 static int ov9655_read(struct i2c_client *client, u8 reg)
 {
+#if !USEI2C	// SMBUS
 	int val;
 
 	val = i2c_smbus_read_byte_data(client, reg);
 	dev_info(&client->dev, "OV9655 read register %02x : %02x\n", reg, val);
 	return val;
+#else
+	u8 buf = reg;
+	u8 val;
+	struct i2c_msg msg = {
+		.addr = client->addr,
+		.flags = 0,
+		.len = 1,
+		.buf = &buf
+	};
+	int ret;
+
+	ret = i2c_transfer(client->adapter, &msg, 1);
+	if (ret == 1) {
+		msg.flags = I2C_M_RD;
+		ret = i2c_transfer(client->adapter, &msg, 1);
+
+		if (ret == 1)
+			val = buf;
+	}
+
+	v4l2_dbg(2, true, client, "%s: 0x%02x @ 0x%02x. (%d)\n",
+		__func__, val, reg, ret);
+
+	return ret == 1 ? val : -EIO;
+#endif
 }
 
 static int ov9655_write(struct i2c_client *client, u8 reg, u8 data)
 {
+#if !USEI2C
 	dev_info(&client->dev, "OV9655 write register %02x : %02x\n", reg, data);
 	return i2c_smbus_write_byte_data(client, reg, data);
+#else
+	u8 buf[2] = { reg, data };
+
+	int ret = i2c_master_send(client, buf, 2);
+
+	dev_info(&client->dev, "OV9655 write register %02x : %02x\n", reg, data);
+	v4l2_dbg(2, true, client, "%s: 0x%02x @ 0x%02X (%d)\n",
+		__func__, reg, data, ret);
+
+	return ret == 2 ? 0 : ret;
+#endif
 }
 
 static int ov9655_update_bits(struct i2c_client *client, u8 reg, unsigned int mask, unsigned int val)
@@ -1521,11 +1562,13 @@ static int ov9655_probe(struct i2c_client *client,
 
 	dev_info(&client->dev, "%s\n", __func__);
 
+#if !USEI2C	// SMBUS
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_WORD_DATA)) {
 		dev_warn(&client->dev,
 			"I2C-Adapter doesn't support I2C_FUNC_SMBUS_WORD\n");
 		return -EIO;
 	}
+#endif
 
 	ov9655 = devm_kzalloc(&client->dev, sizeof(*ov9655), GFP_KERNEL);
 	if (!ov9655)
