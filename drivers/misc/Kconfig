@@ -524,4 +524,12 @@ config W2SG0004
 	  is opened/closed.
 	  It also provides a rfkill gps name to control the LNA power.
 
+config W2SG0004_DEBUG
+	bool "W2SG0004 on/off debugging"
+	depends on W2SG0004
+	help
+	  Enable driver debugging mode of W2SG0004 GPS. If you say y here
+	  this will turn on the module and you can check if it is turned
+	  off by the driver.
+
 endmenu
