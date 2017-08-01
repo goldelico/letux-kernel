@@ -26,6 +26,10 @@
  *
  */
 
+#ifdef CONFIG_W2SG0004_DEBUG
+#define DEBUG 1
+#endif
+
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/interrupt.h>
@@ -256,6 +260,7 @@ static int w2sg_tty_install(struct tty_driver *driver, struct tty_struct *tty)
 	pr_debug("%s() tty = %p\n", __func__, tty);
 
 	data = w2sg_get_by_minor(tty->index);
+	pr_debug("%s() data = %p\n", __func__, data);
 
 	if (!data)
 		return -ENODEV;
@@ -342,6 +347,8 @@ static int w2sg_probe(struct serdev_device *serdev)
 	if (data == NULL)
 		return -ENOMEM;
 
+	pr_debug("w2sg serdev_device_set_drvdata\n");
+
 	serdev_device_set_drvdata(serdev, data);
 
 	data->on_off_gpio = of_get_named_gpio_flags(serdev->dev.of_node,
@@ -375,6 +382,8 @@ static int w2sg_probe(struct serdev_device *serdev)
 
 	INIT_DELAYED_WORK(&data->work, toggle_work);
 
+	pr_debug("w2sg devm_gpio_request\n");
+
 	err = devm_gpio_request(&serdev->dev, data->on_off_gpio,
 				"w2sg0004-on-off");
 	if (err < 0)
@@ -388,12 +397,16 @@ static int w2sg_probe(struct serdev_device *serdev)
 	serdev_device_set_baudrate(data->uart, 9600);
 	serdev_device_set_flow_control(data->uart, false);
 
+	pr_debug("w2sg rfkill_alloc\n");
+
 	rf_kill = rfkill_alloc("GPS", &serdev->dev, RFKILL_TYPE_GPS,
 				&w2sg0004_rfkill_ops, data);
 	if (rf_kill == NULL) {
 		err = -ENOMEM;
 		goto err_rfkill;
 	}
+
+	pr_debug("w2sg register rfkill\n");
 
 	err = rfkill_register(rf_kill);
 	if (err) {
@@ -402,6 +415,8 @@ static int w2sg_probe(struct serdev_device *serdev)
 	}
 
 	data->rf_kill = rf_kill;
+
+	pr_debug("w2sg alloc_tty_driver\n");
 
 	/* allocate the tty driver */
 	data->tty_drv = alloc_tty_driver(1);
@@ -428,6 +443,8 @@ static int w2sg_probe(struct serdev_device *serdev)
 	 */
 	tty_set_operations(data->tty_drv, &w2sg_serial_ops);
 
+	pr_debug("w2sg tty_register_driver\n");
+
 	/* register the tty driver */
 	err = tty_register_driver(data->tty_drv);
 	if (err) {
@@ -443,8 +460,26 @@ static int w2sg_probe(struct serdev_device *serdev)
 	tty_port_init(&data->port);
 	data->port.ops = &w2sg_port_ops;
 
+	pr_debug("w2sg call tty_port_register_device\n");
+
 	data->dev = tty_port_register_device(&data->port,
 			data->tty_drv, minor, &serdev->dev);
+
+	pr_debug("w2sg tty_port_register_device -> %p\n", data->dev);
+	pr_debug("w2sg port.tty = %p\n", data->port.tty);
+
+	pr_debug("w2sg probed\n");
+
+#ifdef CONFIG_W2SG0004_DEBUG
+	pr_debug("w2sg DEBUGGING MODE enabled\n");
+	/* turn on for debugging rx notifications */
+	pr_debug("w2sg power gpio ON\n");
+	gpio_set_value_cansleep(data->on_off_gpio, 1);
+	mdelay(100);
+	pr_debug("w2sg power gpio OFF\n");
+	gpio_set_value_cansleep(data->on_off_gpio, 0);
+	mdelay(300);
+#endif
 
 	/* keep off until user space requests the device */
 	w2sg_set_power(data, false);
@@ -455,6 +490,8 @@ err_rfkill:
 	rfkill_destroy(rf_kill);
 	serdev_device_close(data->uart);
 out:
+	pr_debug("w2sg error %d\n", err);
+
 	return err;
 }
 
