@@ -25,6 +25,10 @@
 		device_type = "memory";
 		reg = <0 0x80000000 0 0x7f000000>; /* 2032 MB */
 	};
+
+	chosen {
+		stdout-path = &uart3;
+	};
 };
 
 &cpu0 {
