@@ -30,7 +30,9 @@
 		display0 = &lcd;
 	};
 
-	gpu@5000000 {
+	// should go to omap36xx.dtsi
+
+	gpu@50000000 {
 		compatible = "ti,sgx530_125";
 	};
 
