@@ -33,6 +33,7 @@
 #define PRID_COMP_TOSHIBA	0x070000
 #define PRID_COMP_LSI		0x080000
 #define PRID_COMP_LEXRA		0x0b0000
+#define PRID_COMP_INGENIC	0xd00000
 
 
 /*
@@ -111,6 +112,12 @@
 
 #define PRID_IMP_BCM4710	0x4000
 #define PRID_IMP_BCM3302	0x9000
+
+/*
+ * These are the PRID's for when 23:16 == PRID_COMP_INGENIC
+ */
+
+#define PRID_IMP_JZRISC        0x0200
 
 /*
  * Definitions for 7:0 on legacy processors
@@ -202,6 +209,11 @@ enum cpu_type_enum {
 	 * MIPS64 class processors
 	 */
 	CPU_5KC, CPU_20KC, CPU_25KF, CPU_SB1, CPU_SB1A, CPU_LOONGSON2,
+
+	/*
+	 * Ingenic class processors
+	 */
+	CPU_JZRISC, CPU_XBURST,
 
 	CPU_LAST
 };

@@ -6,7 +6,7 @@
  *
  *  Copyright (C) 2004 Thomas Gleixner (tglx@linutronix.de)
  *
- * $Id: nand_bbt.c,v 1.36 2005/11/07 11:14:30 gleixner Exp $
+ * $Id: nand_bbt.c,v 1.1.1.1 2008/03/28 04:29:21 jlwei Exp $
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -403,7 +403,7 @@ static int create_bbt(struct mtd_info *mtd, uint8_t *buf,
 		 * below as it makes shifting and masking less painful */
 		numblocks = mtd->size >> (this->bbt_erase_shift - 1);
 		startblock = 0;
-		from = 0;
+		from = (CONFIG_MTD_BADBLOCK_FLAG_PAGE << this->page_shift); //from = 0;
 	} else {
 		if (chip >= this->numchips) {
 			printk(KERN_WARNING "create_bbt(): chipnr (%d) > available chips (%d)\n",
@@ -413,7 +413,7 @@ static int create_bbt(struct mtd_info *mtd, uint8_t *buf,
 		numblocks = this->chipsize >> (this->bbt_erase_shift - 1);
 		startblock = chip * numblocks;
 		numblocks += startblock;
-		from = startblock << (this->bbt_erase_shift - 1);
+		from = (startblock << (this->bbt_erase_shift - 1)) + (CONFIG_MTD_BADBLOCK_FLAG_PAGE << this->page_shift); //from = startblock << (this->bbt_erase_shift - 1);
 	}
 
 	for (i = startblock; i < numblocks;) {

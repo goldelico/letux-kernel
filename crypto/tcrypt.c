@@ -1584,6 +1584,11 @@ static void do_test(void)
 			  AES_CCM_DEC_TEST_VECTORS);
 		break;
 
+	case 33:
+		test_comp("lzo", lzo_comp_tv_template, lzo_decomp_tv_template,
+			  LZO_COMP_TEST_VECTORS, LZO_DECOMP_TEST_VECTORS);
+		break;
+
 	case 100:
 		test_hash("hmac(md5)", hmac_md5_tv_template,
 			  HMAC_MD5_TEST_VECTORS);
