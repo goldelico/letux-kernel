@@ -28,6 +28,8 @@ obj-$(CONFIG_FB_DDC)           += fb_ddc.o
 obj-$(CONFIG_FB_DEFERRED_IO)   += fb_defio.o
 
 # Hardware specific drivers go first
+obj-$(CONFIG_FB_JZ)               += jzlcd.o
+obj-$(CONFIG_FB_JZ_SLCD)          += jzslcd.o
 obj-$(CONFIG_FB_AMIGA)            += amifb.o c2p.o
 obj-$(CONFIG_FB_ARC)              += arcfb.o
 obj-$(CONFIG_FB_CLPS711X)         += clps711xfb.o

@@ -1,11 +1,16 @@
 /*
- * $Id: mtd-abi.h,v 1.13 2005/11/07 11:14:56 gleixner Exp $
+ * $Id: mtd-abi.h,v 1.1.1.1 2008/03/28 04:29:21 jlwei Exp $
  *
  * Portions of MTD ABI definition which are shared by kernel and user space
  */
 
 #ifndef __MTD_ABI_H__
 #define __MTD_ABI_H__
+
+#ifndef __KERNEL__ /* Urgh. The whole point of splitting this out into
+		    separate files was to avoid #ifdef __KERNEL__ */
+#define __user
+#endif
 
 struct erase_info_user {
 	uint32_t start;
@@ -16,6 +21,14 @@ struct mtd_oob_buf {
 	uint32_t start;
 	uint32_t length;
 	unsigned char __user *ptr;
+};
+
+struct mtd_page_buf {
+	uint32_t start;      //page start address
+	uint32_t ooblength;  
+	uint32_t datlength;
+	unsigned char __user *oobptr;
+	unsigned char __user *datptr;
 };
 
 #define MTD_ABSENT		0
@@ -95,6 +108,7 @@ struct otp_info {
 #define ECCGETLAYOUT		_IOR('M', 17, struct nand_ecclayout)
 #define ECCGETSTATS		_IOR('M', 18, struct mtd_ecc_stats)
 #define MTDFILEMODE		_IO('M', 19)
+#define MEMWRITEPAGE		_IOWR('M', 20, struct mtd_page_buf)
 
 /*
  * Obsolete legacy interface. Keep it in order not to break userspace
@@ -104,7 +118,7 @@ struct nand_oobinfo {
 	uint32_t useecc;
 	uint32_t eccbytes;
 	uint32_t oobfree[8][2];
-	uint32_t eccpos[32];
+	uint32_t eccpos[36];	/* more fields are required for RS ECC */
 };
 
 struct nand_oobfree {

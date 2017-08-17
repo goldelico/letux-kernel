@@ -5,7 +5,7 @@
  *
  * This code is GPL
  *
- * $Id: mtdpart.c,v 1.55 2005/11/07 11:14:20 gleixner Exp $
+ * $Id: mtdpart.c,v 1.1.1.1 2008/03/28 04:29:21 jlwei Exp $
  *
  * 	02-21-2002	Thomas Gleixner <gleixner@autronix.de>
  *			added support for read_oob, write_oob
@@ -351,6 +351,7 @@ int add_mtd_partitions(struct mtd_info *master,
 
 		slave->mtd.read = part_read;
 		slave->mtd.write = part_write;
+		slave->mtd.priv = master->priv; //add by Nancy
 
 		if(master->point && master->unpoint){
 			slave->mtd.point = part_point;
@@ -560,3 +561,7 @@ int parse_mtd_partitions(struct mtd_info *master, const char **types,
 EXPORT_SYMBOL_GPL(parse_mtd_partitions);
 EXPORT_SYMBOL_GPL(register_mtd_parser);
 EXPORT_SYMBOL_GPL(deregister_mtd_parser);
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Nicolas Pitre <nico@cam.org>");
+MODULE_DESCRIPTION("Generic support for partitioning of MTD devices");

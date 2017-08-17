@@ -575,6 +575,73 @@ static int mtd_ioctl(struct inode *inode, struct file *file,
 		break;
 	}
 
+	case MEMWRITEPAGE:
+	{
+		struct mtd_page_buf buf;
+		struct mtd_oob_ops ops;
+
+		memset(&ops, 0, sizeof(ops));	
+#if 1
+		if(!(file->f_mode & 2))
+			return -EPERM;
+#endif
+
+		if (copy_from_user(&buf, argp, sizeof(struct mtd_page_buf)))
+			return -EFAULT;
+
+		if (buf.ooblength > mtd->oobsize)
+			return -EINVAL;
+
+		if (!mtd->write_oob)
+			ret = -EOPNOTSUPP;
+		else
+			ret = access_ok(VERIFY_READ, buf.oobptr,
+					buf.ooblength) ? 0 : EFAULT;
+
+		if (ret)
+			return ret;
+		
+		ops.len = mtd->writesize;
+		ops.ooblen = buf.ooblength;
+		ops.ooboffs = buf.start & (mtd->oobsize - 1);
+		ops.mode = MTD_OOB_PLACE;
+
+		if (ops.ooboffs && ops.ooblen > (mtd->oobsize - ops.ooboffs))
+			return -EINVAL;
+
+		/* alloc memory and copy oob data from user mode to kernel mode */
+		ops.oobbuf = kmalloc(buf.ooblength, GFP_KERNEL);
+		if (!ops.oobbuf)
+			return -ENOMEM;
+
+		if (copy_from_user(ops.oobbuf, buf.oobptr, buf.ooblength)) {
+			kfree(ops.oobbuf);
+			return -EFAULT;
+		}
+
+		/* alloc memory and copy page data from user mode to kernel mode */
+		ops.datbuf = kmalloc(mtd->writesize, GFP_KERNEL);
+		if (!ops.datbuf)
+			return -ENOMEM;
+
+		if (copy_from_user(ops.datbuf, buf.datptr, mtd->writesize)) {
+			kfree(ops.datbuf);
+			return -EFAULT;
+		}
+
+		buf.start &= ~(mtd->oobsize - 1);
+		ret = mtd->write_oob(mtd, buf.start, &ops);
+
+		if (copy_to_user(argp + 2*sizeof(uint32_t), &ops.retlen,
+				 sizeof(uint32_t)))
+			ret = -EFAULT;
+
+		kfree(ops.oobbuf);
+		kfree(ops.datbuf);
+		break;
+	}
+
+
 	case MEMLOCK:
 	{
 		struct erase_info_user info;

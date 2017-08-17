@@ -2484,10 +2484,34 @@ static void hub_port_connect_change(struct usb_hub *hub, int port1,
 	struct device *hub_dev = hub->intfdev;
 	u16 wHubCharacteristics = le16_to_cpu(hub->descriptor->wHubCharacteristics);
 	int status, i;
- 
+#ifdef CONFIG_JZSOC
+	static char jzhub = 1; /* the hub first to be initialized is jzsoc on-chip hub */
+#endif
+
 	dev_dbg (hub_dev,
 		"port %d, status %04x, change %04x, %s\n",
 		port1, portstatus, portchange, portspeed (portstatus));
+
+#ifdef CONFIG_SOC_JZ4730
+	/*
+	 * On Jz4730, we assume that the first USB port was used as device.
+	 * If not, please comment next lines.
+	 */
+	if ((port1 == 1) && (jzhub)) {
+		jzhub = 0;
+		return;
+	}
+#endif
+
+#ifdef CONFIG_SOC_JZ4740
+	/*
+	 * On Jz4740, the second USB port was used as device.
+	 */
+	if ((port1 == 2) && (jzhub)) {
+		jzhub = 0;
+		return;
+	}
+#endif
 
 	if (hub->has_indicators) {
 		set_port_led(hub, port1, HUB_LED_AUTO);

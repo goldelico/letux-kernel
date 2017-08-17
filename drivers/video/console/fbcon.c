@@ -399,6 +399,7 @@ static void fbcon_update_softback(struct vc_data *vc)
 
 static void fb_flashcursor(struct work_struct *work)
 {
+#ifdef CONFIG_FRAMEBUFFER_CONSOLE_CURSOR_FLASH
 	struct fb_info *info = container_of(work, struct fb_info, queue);
 	struct fbcon_ops *ops = info->fbcon_par;
 	struct display *p;
@@ -424,6 +425,7 @@ static void fb_flashcursor(struct work_struct *work)
 	ops->cursor(vc, info, mode, softback_lines, get_color(vc, info, c, 1),
 		    get_color(vc, info, c, 0));
 	release_console_sem();
+#endif
 }
 
 #if defined(CONFIG_ATARI) || defined(CONFIG_MAC)
