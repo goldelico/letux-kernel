@@ -24,7 +24,10 @@
 #include <linux/err.h>
 #include <asm/div64.h>
 #include "ubi.h"
+#include "ubiblk.h"
 
+extern int ubiblk_eba_atomic_leb_change(struct ubi_device *ubi, struct ubi_volume *vol,
+					int lnum, void *buf, int len, int dtype, struct ubiblk_dev *ubiblk);
 /**
  * ubi_get_device_info - get information about UBI device.
  * @ubi_num: UBI device number
@@ -632,3 +635,138 @@ int ubi_is_mapped(struct ubi_volume_desc *desc, int lnum)
 	return vol->eba_tbl[lnum] >= 0;
 }
 EXPORT_SYMBOL_GPL(ubi_is_mapped);
+
+/* add by Nancy start */
+
+int ubiblk_leb_change(struct ubiblk_dev *ubiblk)
+{
+	struct ubi_volume *vol = ubiblk->uv->vol;
+	struct ubi_device *ubi = vol->ubi;
+	int vol_id = vol->vol_id;
+
+	struct ubi_volume_desc *desc = ubiblk->uv;
+	int lnum = ubiblk->vbw;
+	int len = ubi->leb_size;
+	int dtype = UBI_UNKNOWN;
+	void *buf = ubiblk->write_cache;
+	
+	dbg_msg("atomically write %d bytes to LEB %d:%d", len, vol_id, lnum);
+
+	if (vol_id < 0 || vol_id >= ubi->vtbl_slots)
+		return -EINVAL;
+
+	if (desc->mode == UBI_READONLY || vol->vol_type == UBI_STATIC_VOLUME)
+		return -EROFS;
+
+	if (lnum < 0 || lnum >= vol->reserved_pebs || len < 0 ||
+	    len > vol->usable_leb_size || len % ubi->min_io_size)
+		return -EINVAL;
+
+	if (vol->upd_marker)
+		return -EBADF;
+
+	if (len == 0)
+		return 0;
+
+	return ubiblk_eba_atomic_leb_change(ubi, vol, lnum, buf, len, dtype, ubiblk);
+}
+EXPORT_SYMBOL_GPL(ubiblk_leb_change);
+
+
+void ubi_open_blkdev(int ubi_num, int vol_id, int mode)
+{
+	int err;
+	struct ubi_device *ubi;
+	struct ubi_volume *vol;
+
+	dbg_msg("open device %d volume %d, mode %d", ubi_num, vol_id, mode);
+
+	if (ubi_num < 0 || ubi_num >= UBI_MAX_DEVICES)
+		return;
+
+	if (mode != UBI_READONLY && mode != UBI_READWRITE &&
+	    mode != UBI_EXCLUSIVE)
+		return;
+	/*
+	 * First of all, we have to get the UBI device to prevent its removal.
+	 */
+	ubi = ubi_get_device(ubi_num);
+	if (!ubi)
+		return;
+
+	if (vol_id < 0 || vol_id >= ubi->vtbl_slots) {
+		err = -EINVAL;
+		goto out_put_ubi;
+	}
+
+	err = -ENODEV;
+	if (!try_module_get(THIS_MODULE))
+		goto out_put_ubi;
+
+	spin_lock(&ubi->volumes_lock);
+	vol = ubi->volumes[vol_id];
+	if (!vol)
+		goto out_unlock;
+
+	err = -EBUSY;
+	switch (mode) {
+	case UBI_READONLY:
+		if (vol->exclusive)
+			goto out_unlock;
+		vol->readers += 1;
+		break;
+
+	case UBI_READWRITE:
+		if (vol->exclusive || vol->writers > 0)
+			goto out_unlock;
+		vol->writers += 1;
+		break;
+
+	case UBI_EXCLUSIVE:
+		if (vol->exclusive || vol->writers || vol->readers)
+			goto out_unlock;
+		vol->exclusive = 1;
+		break;
+	}
+	get_device(&vol->dev);
+	vol->ref_count += 1;
+	spin_unlock(&ubi->volumes_lock);
+	return;
+
+out_unlock:
+	spin_unlock(&ubi->volumes_lock);
+	module_put(THIS_MODULE);
+out_put_ubi:
+	ubi_put_device(ubi);
+	return;
+}
+EXPORT_SYMBOL_GPL(ubi_open_blkdev);
+
+
+void ubi_close_blkdev(struct ubi_volume_desc *desc)
+{
+	struct ubi_volume *vol = desc->vol;
+	struct ubi_device *ubi = vol->ubi;
+
+	dbg_msg("close volume %d, mode %d", vol->vol_id, desc->mode);
+
+	spin_lock(&ubi->volumes_lock);
+	switch (desc->mode) {
+	case UBI_READONLY:
+		vol->readers -= 1;
+		break;
+	case UBI_READWRITE:
+		vol->writers -= 1;
+		break;
+	case UBI_EXCLUSIVE:
+		vol->exclusive = 0;
+	}
+	vol->ref_count -= 1;
+	spin_unlock(&ubi->volumes_lock);
+	put_device(&vol->dev);
+	ubi_put_device(ubi);
+	module_put(THIS_MODULE);
+}
+EXPORT_SYMBOL_GPL(ubi_close_blkdev);
+/* add by Nancy end */
+

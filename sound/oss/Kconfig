@@ -5,6 +5,69 @@
 #
 # Prompt user for primary drivers.
 
+config OSS_OBSOLETE
+	bool "Obsolete OSS drivers"
+	depends on SOUND_PRIME
+	help
+	  This option enables support for obsolete OSS drivers that
+	  are scheduled for removal in the near future.
+
+	  Please contact Adrian Bunk <bunk@stusta.de> if you had to
+	  say Y here because your hardware is not properly supported
+	  by ALSA.
+
+	  If unsure, say N.
+
+config SOUND_JZ_AC97
+	bool "Jz On-Chip AC97 driver"
+	depends on OSS_OBSOLETE
+	help
+	  Say Y here if you have want to select the on-chip AC97 driver
+	  on Jz4730/Jz4740/Jz5730.
+
+config SOUND_JZ_I2S
+	bool "Jz On-Chip I2S driver"
+	depends on OSS_OBSOLETE
+	help
+	  Say Y here if you have want to select the on-chip I2S driver
+	  on Jz4730/Jz4740/Jz5730.
+
+config SOUND_JZ_PCM
+	bool "Jz On-Chip PCM driver"
+	depends on OSS_OBSOLETE
+	help
+	  Say Y here if you have want to select the on-chip PCM driver
+	  on Jz4750.
+
+choice
+	prompt "I2S codec type"
+	depends on SOUND_JZ_I2S
+
+config I2S_AK4642EN
+	bool "AK4642EN"
+	depends on SOC_JZ4730
+	help
+	  Answer Y if you have an external AK4642EN codec.
+
+config I2S_ICODEC
+	bool "Internal On-Chip codec"
+	depends on SOC_JZ4740
+	help
+	  Answer Y if you have an internal I2S codec.
+
+endchoice
+
+choice
+	prompt "PCM codec type"
+	depends on SOUND_JZ_PCM
+
+config PCM_TLV320AIC1106
+	bool "TLV320AIC1106"
+	help
+	  Answer Y if you have an TI tlv320aic 1106 codec.
+	
+endchoice
+
 config SOUND_BCM_CS4297A
 	tristate "Crystal Sound CS4297a (for Swarm)"
 	depends on SOUND_PRIME && SIBYTE_SWARM

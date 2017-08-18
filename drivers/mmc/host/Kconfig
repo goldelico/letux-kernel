@@ -4,6 +4,34 @@
 
 comment "MMC/SD Host Controller Drivers"
 
+config MMC_JZ
+	tristate "JZ SD/Multimedia Card Interface support"
+	depends on SOC_JZ4730 || SOC_JZ4740
+	help
+	  This selects the Ingenic JZ4730/JZ4740 SD/Multimedia card Interface.
+	  If you have a Ingenic platform with a Multimedia Card slot,
+	  say Y or M here.
+
+	  If unsure, say N.
+choice
+	depends on MMC_JZ
+	prompt "MMC BUS Width"
+	default JZ_MMC_BUS_4
+	help
+	This defines the BUS Width of the Ingenic JZ4730/JZ4740 SD/Multimedia card Interface.
+
+config JZ_MMC_BUS_4
+	bool "4 Bit Bus"
+	help
+	 4 Bit SD/Multimedia Card Bus
+
+config JZ_MMC_BUS_1
+	bool "1 Bit Bus"
+	help
+	 1 Bit SD/Multimedia Card Bus
+
+endchoice
+
 config MMC_ARMMMCI
 	tristate "ARM AMBA Multimedia Card Interface support"
 	depends on ARM_AMBA

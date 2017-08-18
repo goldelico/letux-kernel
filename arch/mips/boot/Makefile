@@ -7,6 +7,9 @@
 # Copyright (C) 2004  Maciej W. Rozycki
 #
 
+# This one must match the LOADADDR in arch/mips/Makefile!
+LOADADDR=0x80010000
+
 #
 # Some DECstations need all possible sections of an ECOFF executable
 #
@@ -25,7 +28,7 @@ strip-flags	= $(addprefix --remove-section=,$(drop-sections))
 
 VMLINUX = vmlinux
 
-all: vmlinux.ecoff vmlinux.srec addinitrd
+all: vmlinux.ecoff vmlinux.srec addinitrd uImage zImage
 
 vmlinux.ecoff: $(obj)/elf2ecoff $(VMLINUX)
 	$(obj)/elf2ecoff $(VMLINUX) vmlinux.ecoff $(E2EFLAGS)
@@ -42,8 +45,24 @@ vmlinux.srec: $(VMLINUX)
 $(obj)/addinitrd: $(obj)/addinitrd.c
 	$(HOSTCC) -o $@ $^
 
+uImage: $(VMLINUX) vmlinux.bin
+	rm -f $(obj)/vmlinux.bin.gz
+	gzip -9 $(obj)/vmlinux.bin
+	mkimage -A mips -O linux -T kernel -C gzip \
+		-a $(LOADADDR) -e $(shell sh ./$(obj)/tools/entry $(NM) $(VMLINUX) ) \
+		-n 'Linux-$(KERNELRELEASE)' \
+		-d $(obj)/vmlinux.bin.gz $(obj)/uImage
+	@echo '  Kernel: arch/mips/boot/$@ is ready'
+
+zImage:
+	$(Q)$(MAKE) $(build)=$(obj)/compressed loadaddr=$(LOADADDR) $@
+	@echo '  Kernel: arch/mips/boot/compressed/$@ is ready'
+
 clean-files += addinitrd \
 	       elf2ecoff \
 	       vmlinux.bin \
 	       vmlinux.ecoff \
-	       vmlinux.srec
+	       vmlinux.srec \
+	       vmlinux.bin.gz \
+	       uImage \
+	       zImage

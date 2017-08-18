@@ -18,6 +18,7 @@
  *
  * Author: Artem Bityutskiy (Битюцкий Артём),
  *         Frank Haverkamp
+ *         Yurong tan(Nancy)
  */
 
 /*
@@ -45,6 +46,113 @@
 
 /* Maximum length of the 'mtd=' parameter */
 #define MTD_PARAM_LEN_MAX 64
+
+/* add by Nancy begin */
+DEFINE_MUTEX(vol_table_mutex);
+struct ubi_volume *vol_table[UBI_MAX_VOLUMES];
+
+EXPORT_SYMBOL_GPL(vol_table_mutex);
+EXPORT_SYMBOL_GPL(vol_table);
+
+static LIST_HEAD(vol_notifiers);
+
+int add_vol_device(struct ubi_volume *vol)
+{
+	mutex_lock(&vol_table_mutex);
+	if (!vol_table[vol->vol_id]) {
+
+		struct list_head *this;
+		vol_table[vol->vol_id] = vol;			
+		/* No need to get a refcount on the module containing
+		   the notifier, since we hold the vol_table_mutex */
+		list_for_each(this, &vol_notifiers) {
+			struct vol_notifier *not = list_entry(this, struct vol_notifier, list);
+			not->add(vol);
+		}
+		mutex_unlock(&vol_table_mutex);
+		/* We _know_ we aren't being removed, because
+		   our caller is still holding us here. So none
+		   of this try_ nonsense, and no bitching about it
+		   either. :) */
+		return 0;
+	}
+	mutex_unlock(&vol_table_mutex);
+	return 1;
+}
+
+int del_vol_device (struct ubi_volume *vol)
+{
+	int ret;
+	struct list_head *this;
+
+	mutex_lock(&vol_table_mutex);
+	if (vol_table[vol->vol_id] != vol) {
+		ret = -ENODEV;
+	} else if (vol->readers ||vol->writers || vol->exclusive) {
+		printk(KERN_NOTICE "Removing MTD device #%d (%s) with use count 0\n",
+		       vol->vol_id, vol->name);
+		ret = -EBUSY;
+	} else {
+		/* No need to get a refcount on the module containing
+		   the notifier, since we hold the vol_table_mutex */
+		list_for_each(this, &vol_notifiers) {
+			struct vol_notifier *not = list_entry(this, struct vol_notifier, list);
+			not->remove(vol);
+		}
+
+		vol_table[vol->vol_id] = NULL;
+		module_put(THIS_MODULE);
+		ret = 0;
+	}
+	mutex_unlock(&vol_table_mutex);
+	return ret;
+}
+
+void register_vol_user(struct vol_notifier *new)
+{
+	int i;
+
+	mutex_lock(&vol_table_mutex);
+	list_add(&new->list, &vol_notifiers);
+ 	__module_get(THIS_MODULE);
+
+	for (i=0; i< UBI_MAX_VOLUMES;  i++)
+		if (vol_table[i])
+			new->add(vol_table[i]);
+
+	mutex_unlock(&vol_table_mutex);
+}
+
+int unregister_vol_user(struct vol_notifier *old)
+{
+	int i;
+
+	mutex_lock(&vol_table_mutex);
+	module_put(THIS_MODULE);
+
+	for (i=0; i< UBI_MAX_VOLUMES; i++)
+		if (vol_table[i])
+			old->remove(vol_table[i]);
+
+	list_del(&old->list);
+	mutex_unlock(&vol_table_mutex);
+	return 0;
+}
+
+static int bdev_init(struct ubi_device *ubi){
+	int i;
+	for(i=0; i<ubi->vtbl_slots; i++)
+		if(ubi->volumes[i])
+			add_vol_device(ubi->volumes[i]);
+	return 0;
+}
+
+EXPORT_SYMBOL_GPL(add_vol_device);
+EXPORT_SYMBOL_GPL(del_vol_device);
+EXPORT_SYMBOL_GPL(register_vol_user);
+EXPORT_SYMBOL_GPL(unregister_vol_user);
+/* add by Nancy end*/
+
 
 /**
  * struct mtd_dev_param - MTD device parameter description data structure.
@@ -84,6 +192,7 @@ DEFINE_MUTEX(ubi_devices_mutex);
 
 /* Protects @ubi_devices and @ubi->ref_count */
 static DEFINE_SPINLOCK(ubi_devices_lock);
+EXPORT_SYMBOL_GPL(ubi_devices_lock);
 
 /* "Show" method for files in '/<sysfs>/class/ubi/' */
 static ssize_t ubi_version_show(struct class *class, char *buf)
@@ -213,6 +322,7 @@ int ubi_major2num(int major)
 
 	return ubi_num;
 }
+EXPORT_SYMBOL_GPL(ubi_major2num);
 
 /* "Show" method for files in '/<sysfs>/class/ubi/ubiX/' */
 static ssize_t dev_attribute_show(struct device *dev,

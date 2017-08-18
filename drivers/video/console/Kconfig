@@ -134,6 +134,14 @@ config FRAMEBUFFER_CONSOLE_DETECT_PRIMARY
 
 	 If unsure, select n.
 
+config FRAMEBUFFER_CONSOLE_CURSOR_FLASH
+       bool "Framebuffer Console Cursor flash"
+       depends on FRAMEBUFFER_CONSOLE
+       help
+         Enable cursor flush for the framebuffer console.  This is done
+         in software and may be significantly slower than a normally oriented
+         display.
+
 config FRAMEBUFFER_CONSOLE_ROTATION
        bool "Framebuffer Console Rotation"
        depends on FRAMEBUFFER_CONSOLE
