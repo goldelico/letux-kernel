@@ -401,7 +401,7 @@ static int create_bbt(struct mtd_info *mtd, uint8_t *buf,
 		 * below as it makes shifting and masking less painful */
 		numblocks = mtd->size >> (this->bbt_erase_shift - 1);
 		startblock = 0;
-		from = 0;
+		from = (CONFIG_MTD_BADBLOCK_FLAG_PAGE << this->page_shift); //from = 0;
 	} else {
 		if (chip >= this->numchips) {
 			printk(KERN_WARNING "create_bbt(): chipnr (%d) > available chips (%d)\n",
@@ -411,7 +411,7 @@ static int create_bbt(struct mtd_info *mtd, uint8_t *buf,
 		numblocks = this->chipsize >> (this->bbt_erase_shift - 1);
 		startblock = chip * numblocks;
 		numblocks += startblock;
-		from = startblock << (this->bbt_erase_shift - 1);
+		from = (startblock << (this->bbt_erase_shift - 1)) + (CONFIG_MTD_BADBLOCK_FLAG_PAGE << this->page_shift); //from = startblock << (this->bbt_erase_shift - 1);
 	}
 
 	for (i = startblock; i < numblocks;) {

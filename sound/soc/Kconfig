@@ -33,6 +33,7 @@ source "sound/soc/fsl/Kconfig"
 source "sound/soc/davinci/Kconfig"
 source "sound/soc/omap/Kconfig"
 source "sound/soc/blackfin/Kconfig"
+source "sound/soc/jz4740/Kconfig"
 
 # Supported codecs
 source "sound/soc/codecs/Kconfig"

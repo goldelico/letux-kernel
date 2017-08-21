@@ -45,7 +45,7 @@
 #include <linux/crc32.h>
 #include <linux/err.h>
 #include "ubi.h"
-
+#include "ubiblk.h"
 /* Number of physical eraseblocks reserved for atomic LEB change operation */
 #define EBA_RESERVED_PEBS 1
 
@@ -1217,3 +1217,157 @@ out_free:
 	}
 	return err;
 }
+
+/**
+ * ubi_eba_close - close EBA unit.
+ * @ubi: UBI device description object
+ */
+void ubi_eba_close(const struct ubi_device *ubi)
+{
+	int i, num_volumes = ubi->vtbl_slots + UBI_INT_VOL_COUNT;
+
+	dbg_eba("close EBA unit");
+
+	for (i = 0; i < num_volumes; i++) {
+		if (!ubi->volumes[i])
+			continue;
+		kfree(ubi->volumes[i]->eba_tbl);
+	}
+}
+
+/* add by Nancy  begin */
+
+static int ubiblk_fill_writecache(struct ubiblk_dev *ubiblk)
+{
+	struct ubi_volume_desc *uv = ubiblk->uv;
+	struct ubi_device *ubi = uv->vol->ubi;
+	int ppb = ubi->leb_size / ubi->min_io_size;
+	unsigned short subpage_shift = 9;
+	unsigned short spp = ubi->min_io_size >> subpage_shift;
+	unsigned short page_shift =  ffs(ubi->min_io_size) - 1;
+	unsigned short sectors_in_page_shift = ffs(ubi->min_io_size / 512) - 1;
+	unsigned short page, sector;
+	char page_buf[ubi->min_io_size];
+
+	if (!page_buf)
+		return -ENOMEM;
+
+	for (page = 0; page < ppb; page++) {
+		if ( !ubiblk->page_sts[page]) {
+			ubi_leb_read(uv, ubiblk->vbw, 
+					&ubiblk->write_cache[page<<page_shift],
+					page<<page_shift, ubi->min_io_size, 0);
+		}else{
+			for(sector = 0; sector < spp; sector++)
+				if( !ubiblk->subpage_sts[(page<<sectors_in_page_shift)+sector] )
+					break;
+			if(sector != spp){				
+				ubi_leb_read(uv, ubiblk->vbw, 
+						page_buf,
+						page<<page_shift, ubi->min_io_size, 0);
+				for(sector = 0; sector < spp; sector++)
+					if(!ubiblk->subpage_sts[(page<<sectors_in_page_shift) + sector])
+						memcpy(&ubiblk->write_cache[ \
+							       (page<<page_shift)+(sector<<subpage_shift)],
+						       &page_buf[sector<<subpage_shift], 
+						       512);
+			}
+		}
+	} 
+	return 0;
+}
+
+int ubiblk_eba_atomic_leb_change(struct ubi_device *ubi, struct ubi_volume *vol,
+			      int lnum, void *buf, int len, int dtype, struct ubiblk_dev *ubiblk)
+{
+	int err, pnum, tries = 0, vol_id = vol->vol_id;
+	struct ubi_vid_hdr *vid_hdr;
+	uint32_t crc;
+
+	if (ubi->ro_mode)
+		return -EROFS;
+
+	vid_hdr = ubi_zalloc_vid_hdr(ubi, GFP_NOFS);
+	if (!vid_hdr)
+		return -ENOMEM;
+
+	ubiblk_fill_writecache(ubiblk);
+	mutex_lock(&ubi->alc_mutex);
+	err = leb_write_lock(ubi, vol_id, lnum);
+	if (err)
+		goto out_mutex;
+
+	vid_hdr->sqnum = cpu_to_be64(next_sqnum(ubi));
+	vid_hdr->vol_id = cpu_to_be32(vol_id);
+	vid_hdr->lnum = cpu_to_be32(lnum);
+	vid_hdr->compat = ubi_get_compat(ubi, vol_id);
+	vid_hdr->data_pad = cpu_to_be32(vol->data_pad);
+
+	crc = crc32(UBI_CRC32_INIT, buf, len);
+	vid_hdr->vol_type = UBI_VID_DYNAMIC;
+	vid_hdr->data_size = cpu_to_be32(len);
+	vid_hdr->copy_flag = 1;
+	vid_hdr->data_crc = cpu_to_be32(crc);
+
+retry:
+	pnum = ubi_wl_get_peb(ubi, dtype);
+	if (pnum < 0) {
+		err = pnum;
+		goto out_leb_unlock;
+	}
+
+	dbg_eba("change LEB %d:%d, PEB %d, write VID hdr to PEB %d",
+		vol_id, lnum, vol->eba_tbl[lnum], pnum);
+
+	err = ubi_io_write_vid_hdr(ubi, pnum, vid_hdr);
+	if (err) {
+		ubi_warn("failed to write VID header to LEB %d:%d, PEB %d",
+			 vol_id, lnum, pnum);
+		goto write_error;
+	}
+
+	err = ubi_io_write_data(ubi, buf, pnum, 0, len);
+	if (err) {
+		ubi_warn("failed to write %d bytes of data to PEB %d",
+			 len, pnum);
+		goto write_error;
+	}
+	if (vol->eba_tbl[lnum] >= 0) {
+		err = ubi_wl_put_peb(ubi, vol->eba_tbl[lnum], 0);
+		if (err)
+			goto out_leb_unlock;
+	}
+
+	vol->eba_tbl[lnum] = pnum;
+
+out_leb_unlock:
+	leb_write_unlock(ubi, vol_id, lnum);
+out_mutex:
+	mutex_unlock(&ubi->alc_mutex);
+	ubi_free_vid_hdr(ubi, vid_hdr);
+	return err;
+
+write_error:
+	if (err != -EIO || !ubi->bad_allowed) {
+		/*
+		 * This flash device does not admit of bad eraseblocks or
+		 * something nasty and unexpected happened. Switch to read-only
+		 * mode just in case.
+		 */
+		ubi_ro_mode(ubi);
+		goto out_leb_unlock;
+	}
+
+	err = ubi_wl_put_peb(ubi, pnum, 1);
+	if (err || ++tries > UBI_IO_RETRIES) {
+		ubi_ro_mode(ubi);
+		goto out_leb_unlock;
+	}
+
+	vid_hdr->sqnum = cpu_to_be64(next_sqnum(ubi));
+	ubi_msg("try another PEB");
+	goto retry;
+}
+
+/* add by Nancy end*/
+

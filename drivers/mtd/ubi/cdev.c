@@ -412,6 +412,47 @@ static int vol_cdev_ioctl(struct inode *inode, struct file *file,
 	void __user *argp = (void __user *)arg;
 
 	switch (cmd) {
+	/* Volume dump command */
+	case UBI_IOCLEBDP:
+	{
+		struct ubi_leb_dump dp;
+		int pnum;
+		char *lebbuf;
+
+		if (copy_from_user(&dp, argp, sizeof(struct ubi_leb_dump))){
+			err = -EFAULT;
+			break;
+		}
+		
+		pnum = vol->eba_tbl[dp.lnum];
+		if (pnum < 0) {
+			//the LEB is clean, no need dump
+			err = 1;
+			break;
+		}
+				
+		lebbuf = kmalloc(vol->ubi->leb_size, GFP_KERNEL);
+		if (!lebbuf){
+			err = -ENOMEM;
+			break;
+		}
+				
+		err= ubi_eba_read_leb(ubi, vol, dp.lnum, lebbuf, 0, vol->ubi->leb_size, 0);
+		if (err){
+			kfree(lebbuf);
+			break;	
+		}
+		
+		err = copy_to_user(dp.lebbuf, lebbuf, vol->ubi->leb_size);
+		if (err) {
+			kfree(lebbuf);
+			err = -EFAULT;
+			break;
+		}
+		kfree(lebbuf);
+		break;
+	}
+
 	/* Volume update command */
 	case UBI_IOCVOLUP:
 	{

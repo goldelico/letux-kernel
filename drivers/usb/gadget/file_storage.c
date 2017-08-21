@@ -357,8 +357,8 @@ static struct {
 } mod_data = {					// Default values
 	.transport_parm		= "BBB",
 	.protocol_parm		= "SCSI",
-	.removable		= 0,
-	.can_stall		= 1,
+	.removable		= 1,
+	.can_stall		= 0,
 	.vendor			= DRIVER_VENDOR_ID,
 	.product		= DRIVER_PRODUCT_ID,
 	.release		= 0xffff,	// Use controller chip type
@@ -818,6 +818,7 @@ static void put_be32(u8 *buf, u32 val)
 #define STRING_SERIAL		3
 #define STRING_CONFIG		4
 #define STRING_INTERFACE	5
+#define STRING_MS_OS		0xee
 
 /* There is only one configuration. */
 #define	CONFIG_VALUE		1
@@ -1005,6 +1006,7 @@ static struct usb_string		strings[] = {
 	{STRING_SERIAL,		serial},
 	{STRING_CONFIG,		"Self-powered"},
 	{STRING_INTERFACE,	"Mass Storage"},
+	{STRING_MS_OS,		"Microsoft"},
 	{}
 };
 

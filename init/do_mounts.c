@@ -375,10 +375,19 @@ void __init prepare_namespace(void)
 
 	md_run_setup();
 
+#if CONFIG_JZ4730_MINIPC
+	{
+	// give board specific driver a chance to overwrite if special keys are pressed
+		extern void overwrite_root_name(char *root_name, char **root_fs_names);
+		overwrite_root_name(saved_root_name, &root_fs_names);
+	}
+#endif
+
 	if (saved_root_name[0]) {
 		root_device_name = saved_root_name;
 		if (!strncmp(root_device_name, "mtd", 3) ||
-		    !strncmp(root_device_name, "ubi", 3)) {
+		    !strncmp(root_device_name, "ubi", 3) ||
+		    !strncmp(root_device_name, "mmc", 3)) {
 			mount_block_root(root_device_name, root_mountflags);
 			goto out;
 		}
