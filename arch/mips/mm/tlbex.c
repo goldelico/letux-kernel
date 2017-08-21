@@ -232,6 +232,9 @@ static void __cpuinit __maybe_unused build_tlb_probe_entry(u32 **p)
 	case CPU_NEVADA:
 		uasm_i_nop(p);
 		uasm_i_tlbp(p);
+	case CPU_JZRISC:
+		uasm_i_nop(p);
+		uasm_i_tlbp(p);
 		break;
 
 	default:
@@ -379,6 +382,15 @@ static void __cpuinit build_tlb_write_entry(u32 **p, struct uasm_label **l,
 		uasm_i_nop(p);
 		uasm_i_nop(p);
 		tlbw(p);
+		break;
+
+	case CPU_JZRISC:
+		uasm_i_nop(p);
+		uasm_i_nop(p);
+		uasm_i_nop(p);
+		uasm_i_nop(p);
+		tlbw(p);
+		uasm_i_nop(p);
 		break;
 
 	default:

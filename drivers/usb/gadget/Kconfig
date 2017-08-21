@@ -122,6 +122,33 @@ choice
 # Integrated controllers
 #
 
+config USB_GADGET_JZ4740
+	boolean "JZ4740 UDC"
+	depends on SOC_JZ4740
+	select USB_GADGET_DUALSPEED
+	help
+    	   Select this to support the Ingenic JZ4740 processor 
+           high speed USB device controller.
+
+config USB_JZ4740
+	tristate
+	depends on USB_GADGET_JZ4740
+	default USB_GADGET
+	select USB_GADGET_SELECTED
+
+config USB_GADGET_JZ4730
+	boolean "JZ4730 UDC"
+	depends on SOC_JZ4730
+	help
+    	   Select this to support the Ingenic JZ4730 processor 
+           full speed USB device controller.
+
+config USB_JZ4730
+	tristate
+	depends on USB_GADGET_JZ4730
+	default USB_GADGET
+	select USB_GADGET_SELECTED
+
 config USB_GADGET_AT91
 	boolean "Atmel AT91 USB Device Port"
 	depends on ARCH_AT91 && !ARCH_AT91SAM9RL && !ARCH_AT91CAP9

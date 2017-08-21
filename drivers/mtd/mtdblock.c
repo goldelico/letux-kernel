@@ -13,7 +13,7 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/vmalloc.h>
-
+#include <linux/hdreg.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/blktrans.h>
 #include <linux/mutex.h>
@@ -359,12 +359,27 @@ static void mtdblock_remove_dev(struct mtd_blktrans_dev *dev)
 	kfree(dev);
 }
 
+       
+static int mtdblock_getgeo(struct mtd_blktrans_dev *dev, struct hd_geometry *geo)
+{
+	struct gendisk *gd = dev->blkcore_priv;
+	memset(geo, 0, sizeof(*geo));
+	geo->heads     = 4;
+	geo->sectors   = 16;
+	geo->cylinders = dev->size/(4*16); 
+
+	printk("cylinders: %x \n", geo->cylinders);
+	printk("sects: %x\n", dev->size);
+	return 0;
+}
+
 static struct mtd_blktrans_ops mtdblock_tr = {
 	.name		= "mtdblock",
 	.major		= 31,
 	.part_bits	= 0,
 	.blksize 	= 512,
 	.open		= mtdblock_open,
+	.getgeo         = mtdblock_getgeo,
 	.flush		= mtdblock_flush,
 	.release	= mtdblock_release,
 	.readsect	= mtdblock_readsect,

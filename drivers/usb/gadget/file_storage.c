@@ -838,6 +838,7 @@ static void put_be32(u8 *buf, u32 val)
 #define STRING_SERIAL		3
 #define STRING_CONFIG		4
 #define STRING_INTERFACE	5
+#define STRING_MS_OS		0xee
 
 /* There is only one configuration. */
 #define	CONFIG_VALUE		1
@@ -1025,6 +1026,7 @@ static struct usb_string		strings[] = {
 	{STRING_SERIAL,		serial},
 	{STRING_CONFIG,		"Self-powered"},
 	{STRING_INTERFACE,	"Mass Storage"},
+	{STRING_MS_OS,		"Microsoft"},
 	{}
 };
 

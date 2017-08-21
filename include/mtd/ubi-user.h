@@ -21,6 +21,10 @@
 #ifndef __UBI_USER_H__
 #define __UBI_USER_H__
 
+#ifndef __KERNEL__ /* Urgh. The whole point of splitting this out into
+		    separate files was to avoid #ifdef __KERNEL__ */
+#define __user
+#endif
 /*
  * UBI device creation (the same as MTD device attachment)
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -185,6 +189,8 @@
 #define UBI_IOCEBISMAP _IOR(UBI_VOL_IOC_MAGIC, 5, int32_t)
 /* Set an UBI volume property */
 #define UBI_IOCSETPROP _IOW(UBI_VOL_IOC_MAGIC, 6, struct ubi_set_prop_req)
+/* Start UBI volume dump */
+#define UBI_IOCLEBDP _IOWR(UBI_VOL_IOC_MAGIC, 3, struct ubi_leb_dump)
 
 /* Maximum MTD device name length supported by UBI */
 #define MAX_UBI_MTD_NAME_LEN 127
@@ -406,5 +412,15 @@ struct ubi_set_prop_req {
        uint8_t  padding[7];
        uint64_t value;
 }  __attribute__ ((packed));
+
+/*
+ * struct ubi_leb_dump - a data structure used in volume dump request.
+ * @lnum: logical eraseblock number to dump
+ * @lebbuf: LEB data buffer
+ */
+struct ubi_leb_dump{
+	int32_t lnum;
+	char __user *lebbuf;
+};
 
 #endif /* __UBI_USER_H__ */

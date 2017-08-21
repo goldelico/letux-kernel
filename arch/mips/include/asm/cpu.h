@@ -34,6 +34,7 @@
 #define PRID_COMP_LSI		0x080000
 #define PRID_COMP_LEXRA		0x0b0000
 #define PRID_COMP_CAVIUM	0x0d0000
+#define PRID_COMP_INGENIC	0xd00000
 
 
 /*
@@ -127,6 +128,12 @@
 #define PRID_IMP_CAVIUM_CN52XX 0x0700
 
 /*
+ * These are the PRID's for when 23:16 == PRID_COMP_INGENIC
+ */
+
+#define PRID_IMP_JZRISC        0x0200
+
+/*
  * Definitions for 7:0 on legacy processors
  */
 
@@ -217,6 +224,11 @@ enum cpu_type_enum {
 	 */
 	CPU_5KC, CPU_20KC, CPU_25KF, CPU_SB1, CPU_SB1A, CPU_LOONGSON2,
 	CPU_CAVIUM_OCTEON,
+
+	/*
+	 * Ingenic class processors
+	 */
+	CPU_JZRISC, CPU_XBURST,
 
 	CPU_LAST
 };
