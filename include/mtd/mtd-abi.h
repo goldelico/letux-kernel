@@ -18,6 +18,14 @@ struct mtd_oob_buf {
 	unsigned char __user *ptr;
 };
 
+struct mtd_page_buf {
+	uint32_t start;      //page start address
+	uint32_t ooblength;  
+	uint32_t datlength;
+	unsigned char __user *oobptr;
+	unsigned char __user *datptr;
+};
+
 #define MTD_ABSENT		0
 #define MTD_RAM			1
 #define MTD_ROM			2
@@ -95,6 +103,7 @@ struct otp_info {
 #define ECCGETLAYOUT		_IOR('M', 17, struct nand_ecclayout)
 #define ECCGETSTATS		_IOR('M', 18, struct mtd_ecc_stats)
 #define MTDFILEMODE		_IO('M', 19)
+#define MEMWRITEPAGE		_IOWR('M', 20, struct mtd_page_buf)
 
 /*
  * Obsolete legacy interface. Keep it in order not to break userspace

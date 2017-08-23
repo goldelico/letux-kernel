@@ -266,7 +266,15 @@ struct ubi_volume {
 	int gluebi_refcount;
 	struct mtd_info gluebi_mtd;
 #endif
+	int  bdev_mode;  //add by Nancy
 };
+
+struct vol_notifier {
+	void (*add)(struct ubi_volume *vol);
+	void (*remove)(struct ubi_volume *vol);
+	struct list_head list;
+};
+
 
 /**
  * struct ubi_volume_desc - UBI volume descriptor returned when it is opened.
@@ -372,6 +380,7 @@ struct ubi_wl_entry;
  */
 struct ubi_device {
 	struct cdev cdev;
+	int bdev_major;  //add by Nancy
 	struct device dev;
 	int ubi_num;
 	char ubi_name[sizeof(UBI_NAME_STR)+5];
@@ -541,6 +550,14 @@ int ubi_io_read_vid_hdr(struct ubi_device *ubi, int pnum,
 			struct ubi_vid_hdr *vid_hdr, int verbose);
 int ubi_io_write_vid_hdr(struct ubi_device *ubi, int pnum,
 			 struct ubi_vid_hdr *vid_hdr);
+ 
+/* build.c */
+int ubi_attach_mtd_dev(struct mtd_info *mtd, int ubi_num, int vid_hdr_offset);
+int ubi_detach_mtd_dev(int ubi_num, int anyway);
+struct ubi_device *ubi_get_device(int ubi_num);
+void ubi_put_device(struct ubi_device *ubi);
+struct ubi_device *ubi_get_by_major(int major);
+int ubi_major2num(int major);
 
 /* build.c */
 int ubi_attach_mtd_dev(struct mtd_info *mtd, int ubi_num, int vid_hdr_offset);

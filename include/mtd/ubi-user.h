@@ -187,6 +187,8 @@
 #define UBI_IOCEBISMAP _IOR(UBI_VOL_IOC_MAGIC, 5, __s32)
 /* Set an UBI volume property */
 #define UBI_IOCSETPROP _IOW(UBI_VOL_IOC_MAGIC, 6, struct ubi_set_prop_req)
+/* Start UBI volume dump */
+#define UBI_IOCLEBDP _IOWR(UBI_VOL_IOC_MAGIC, 3, struct ubi_leb_dump)
 
 /* Maximum MTD device name length supported by UBI */
 #define MAX_UBI_MTD_NAME_LEN 127
@@ -408,5 +410,15 @@ struct ubi_set_prop_req {
        __u8  padding[7];
        __u64 value;
 }  __attribute__ ((packed));
+
+/*
+ * struct ubi_leb_dump - a data structure used in volume dump request.
+ * @lnum: logical eraseblock number to dump
+ * @lebbuf: LEB data buffer
+ */
+struct ubi_leb_dump{
+	int32_t lnum;
+	char __user *lebbuf;
+};
 
 #endif /* __UBI_USER_H__ */

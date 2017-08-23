@@ -56,6 +56,20 @@
  */
 #define	MACH_MIKROTIK_RB532	0	/* Mikrotik RouterBoard 532 	*/
 #define MACH_MIKROTIK_RB532A	1	/* Mikrotik RouterBoard 532A 	*/
+#define MACH_WRPPMC             1
+
+/*
+ * Valid machtype for group Broadcom
+ */
+#define MACH_GROUP_BRCM		23	/* Broadcom			*/
+#define  MACH_BCM47XX		1	/* Broadcom BCM47XX		*/
+
+/*
+ * Valid machtype for group INGENIC
+ */
+#define  MACH_INGENIC_JZ4730	0	/* JZ4730 SOC		*/
+#define  MACH_INGENIC_JZ4740	1	/* JZ4740 SOC		*/
+#define  MACH_INGENIC_JZ4750	2	/* JZ4750 SOC		*/
 
 #define CL_SIZE			COMMAND_LINE_SIZE
 

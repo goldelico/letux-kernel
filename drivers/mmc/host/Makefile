@@ -6,6 +6,7 @@ ifeq ($(CONFIG_MMC_DEBUG),y)
 	EXTRA_CFLAGS		+= -DDEBUG
 endif
 
+obj-$(CONFIG_MMC_JZ)		+= jz_mmc.o
 obj-$(CONFIG_MMC_ARMMMCI)	+= mmci.o
 obj-$(CONFIG_MMC_PXA)		+= pxamci.o
 obj-$(CONFIG_MMC_IMX)		+= imxmmc.o

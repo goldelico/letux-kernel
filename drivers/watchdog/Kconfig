@@ -45,6 +45,15 @@ comment "Watchdog Device Drivers"
 
 # Architecture Independent
 
+config JZ_WDT
+	bool 'JzSoC On-Chip watchdog'
+	help
+	  Watchdog timer embedded into JZSOC chips. This will reboot your
+	  system when the timeout is reached.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called jz_wdt.
+
 config SOFT_WATCHDOG
 	tristate "Software watchdog"
 	help
