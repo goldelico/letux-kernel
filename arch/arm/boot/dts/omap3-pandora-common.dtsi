@@ -550,6 +550,10 @@
 		monitored-battery = <&bat>;
 	};
 
+	/*
+	 * 2 nubs
+	 * mma7455
+	 */
 };
 
 &usb_otg_hs {
