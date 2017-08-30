@@ -134,6 +134,9 @@ static int read_channel(struct gab *adc_bat, enum power_supply_property psp,
 	chan_index = gab_prop_to_chan(psp);
 	ret = iio_read_channel_processed(adc_bat->channel[chan_index],
 			result);
+
+	dev_info(&adc_bat->psy->dev,"iio_read_channel:%d, value:%d", psp, *result);
+
 	if (ret == -EINVAL && chan_index == GAB_TEMPERATURE) {
 		/* Palmas gpadc1 does not return processed values */
 		*result=20000;
