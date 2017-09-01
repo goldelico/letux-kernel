@@ -314,3 +314,25 @@
 		bias-disable;
 	};
 };
+
+&i2c {
+	power_controller@11 {
+		compatible = "minipc,mcu";
+		reg = <11>;
+	};
+
+	ak4642: codec@12 {
+		compatible = "asahi-kasei,ak4642";
+		reg = <0x12>;
+		#clock-cells = <0>;
+		clock-frequency = <12000000>;
+		clock-output-names = "ak4643_mcko";
+	};
+
+	rtc@51 {
+		compatible = "nxp,pcf8563";
+		reg = <0x51>;
+		#clock-cells = <0>;
+	};
+
+};
