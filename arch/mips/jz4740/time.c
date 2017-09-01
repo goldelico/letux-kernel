@@ -1,6 +1,8 @@
 /*
  *  Copyright (C) 2010, Lars-Peter Clausen <lars@metafoo.de>
  *  JZ4740 platform time support
+ *  Copyright (C) 2017 Paul Boddie <paul@boddie.org.uk>
+ *  JZ4730 customisations
  *
  *  This program is free software; you can redistribute it and/or modify it
  *  under  the terms of the GNU General	 Public License as published by the
@@ -24,7 +26,13 @@
 
 #include <asm/mach-jz4740/clock.h>
 #include <asm/mach-jz4740/irq.h>
+
+#ifdef CONFIG_MACH_JZ4730
+#include <asm/mach-jz4740/jz4730_timer.h>
+#else
 #include <asm/mach-jz4740/timer.h>
+#endif
+
 #include <asm/time.h>
 
 #include "clock.h"
@@ -110,6 +118,9 @@ static struct clock_event_device jz4740_clockevent = {
 	.set_state_oneshot = jz4740_clockevent_shutdown,
 	.tick_resume = jz4740_clockevent_resume,
 	.rating = 200,
+#ifdef CONFIG_MACH_JZ4730
+	.irq = JZ4730_IRQ_OST0,
+#endif
 #ifdef CONFIG_MACH_JZ4740
 	.irq = JZ4740_IRQ_TCU0,
 #endif
@@ -129,7 +140,6 @@ void __init plat_time_init(void)
 {
 	int ret;
 	uint32_t clk_rate;
-	uint16_t ctrl;
 	struct clk *ext_clk;
 
 	of_clk_init(NULL);
@@ -138,7 +148,7 @@ void __init plat_time_init(void)
 	ext_clk = clk_get(NULL, "ext");
 	if (IS_ERR(ext_clk))
 		panic("unable to get ext clock");
-	clk_rate = clk_get_rate(ext_clk) >> 4;
+	clk_rate = clk_get_rate(ext_clk) >> JZ_TIMER_CLK_DIVSHIFT;
 	clk_put(ext_clk);
 
 	jz4740_jiffies_per_tick = DIV_ROUND_CLOSEST(clk_rate, HZ);
@@ -146,8 +156,8 @@ void __init plat_time_init(void)
 	clockevent_set_clock(&jz4740_clockevent, clk_rate);
 	jz4740_clockevent.min_delta_ns = clockevent_delta2ns(100, &jz4740_clockevent);
 	jz4740_clockevent.min_delta_ticks = 100;
-	jz4740_clockevent.max_delta_ns = clockevent_delta2ns(0xffff, &jz4740_clockevent);
-	jz4740_clockevent.max_delta_ticks = 0xffff;
+	jz4740_clockevent.max_delta_ns = clockevent_delta2ns(JZ_TIMER_CLK_FULL_LEVEL, &jz4740_clockevent);
+	jz4740_clockevent.max_delta_ticks = JZ_TIMER_CLK_FULL_LEVEL;
 	jz4740_clockevent.cpumask = cpumask_of(0);
 
 	clockevents_register_device(&jz4740_clockevent);
@@ -161,15 +171,13 @@ void __init plat_time_init(void)
 
 	setup_irq(jz4740_clockevent.irq, &timer_irqaction);
 
-	ctrl = JZ_TIMER_CTRL_PRESCALE_16 | JZ_TIMER_CTRL_SRC_EXT;
-
-	jz4740_timer_set_ctrl(TIMER_CLOCKEVENT, ctrl);
-	jz4740_timer_set_ctrl(TIMER_CLOCKSOURCE, ctrl);
+	jz4740_timer_set_ctrl(TIMER_CLOCKEVENT, JZ_TIMER_CLK_SRC);
+	jz4740_timer_set_ctrl(TIMER_CLOCKSOURCE, JZ_TIMER_CLK_SRC);
 
 	jz4740_timer_set_period(TIMER_CLOCKEVENT, jz4740_jiffies_per_tick);
 	jz4740_timer_irq_full_enable(TIMER_CLOCKEVENT);
 
-	jz4740_timer_set_period(TIMER_CLOCKSOURCE, 0xffff);
+	jz4740_timer_set_period(TIMER_CLOCKSOURCE, JZ_TIMER_CLK_FULL_LEVEL);
 
 	jz4740_timer_enable(TIMER_CLOCKEVENT);
 	jz4740_timer_enable(TIMER_CLOCKSOURCE);
