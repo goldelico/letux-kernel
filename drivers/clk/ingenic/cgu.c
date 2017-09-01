@@ -4,6 +4,8 @@
  * Copyright (c) 2013-2015 Imagination Technologies
  * Author: Paul Burton <paul.burton@mips.com>
  *
+ * Copyright (c) 2017 Paul Boddie <paul@boddie.org.uk>
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation; either version 2 of
@@ -375,17 +377,25 @@ ingenic_clk_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 	struct ingenic_clk *ingenic_clk = to_ingenic_clk(hw);
 	struct ingenic_cgu *cgu = ingenic_clk->cgu;
 	const struct ingenic_cgu_clk_info *clk_info;
+	const struct ingenic_cgu_div_info *div_info;
 	unsigned long rate = parent_rate;
 	u32 div_reg, div;
 
 	clk_info = &cgu->clock_info[ingenic_clk->idx];
 
-	if (clk_info->type & CGU_CLK_DIV) {
-		div_reg = readl(cgu->base + clk_info->div.reg);
-		div = (div_reg >> clk_info->div.shift) &
-		      GENMASK(clk_info->div.bits - 1, 0);
+	if ((clk_info->type & CGU_CLK_DIV) || (clk_info->type & CGU_CLK_STEPDIV)) {
+
+		/* access info in a generic way */
+		if (clk_info->type & CGU_CLK_STEPDIV)
+			div_info = (struct ingenic_cgu_div_info *) &clk_info->stepdiv;
+		else
+			div_info = &clk_info->div;
+
+		div_reg = readl(cgu->base + div_info->reg);
+		div = (div_reg >> div_info->shift) &
+		      GENMASK(div_info->bits - 1, 0);
 		div += 1;
-		div *= clk_info->div.div;
+		div *= div_info->div;
 
 		rate /= div;
 	} else if (clk_info->type & CGU_CLK_FIXDIV) {
@@ -430,7 +440,7 @@ ingenic_clk_round_rate(struct clk_hw *hw, unsigned long req_rate,
 
 	clk_info = &cgu->clock_info[ingenic_clk->idx];
 
-	if (clk_info->type & CGU_CLK_DIV)
+	if ((clk_info->type & CGU_CLK_DIV) || (clk_info->type & CGU_CLK_STEPDIV))
 		rate /= ingenic_clk_calc_div(clk_info, *parent_rate, req_rate);
 	else if (clk_info->type & CGU_CLK_FIXDIV)
 		rate /= clk_info->fixdiv.div;
@@ -445,6 +455,7 @@ ingenic_clk_set_rate(struct clk_hw *hw, unsigned long req_rate,
 	struct ingenic_clk *ingenic_clk = to_ingenic_clk(hw);
 	struct ingenic_cgu *cgu = ingenic_clk->cgu;
 	const struct ingenic_cgu_clk_info *clk_info;
+	const struct ingenic_cgu_div_info *div_info;
 	const unsigned timeout = 100;
 	unsigned long rate, flags;
 	unsigned div, i;
@@ -453,7 +464,14 @@ ingenic_clk_set_rate(struct clk_hw *hw, unsigned long req_rate,
 
 	clk_info = &cgu->clock_info[ingenic_clk->idx];
 
-	if (clk_info->type & CGU_CLK_DIV) {
+	if ((clk_info->type & CGU_CLK_DIV) || (clk_info->type & CGU_CLK_STEPDIV)) {
+
+		/* access info in a generic way */
+		if (clk_info->type & CGU_CLK_STEPDIV)
+			div_info = (struct ingenic_cgu_div_info *) &clk_info->stepdiv;
+		else
+			div_info = &clk_info->div;
+
 		div = ingenic_clk_calc_div(clk_info, parent_rate, req_rate);
 		rate = parent_rate / div;
 
@@ -461,29 +479,35 @@ ingenic_clk_set_rate(struct clk_hw *hw, unsigned long req_rate,
 			return -EINVAL;
 
 		spin_lock_irqsave(&cgu->lock, flags);
-		reg = readl(cgu->base + clk_info->div.reg);
+		reg = readl(cgu->base + div_info->reg);
 
 		/* update the divide */
-		mask = GENMASK(clk_info->div.bits - 1, 0);
-		reg &= ~(mask << clk_info->div.shift);
-		reg |= ((div / clk_info->div.div) - 1) << clk_info->div.shift;
+		mask = GENMASK(div_info->bits - 1, 0);
+		reg &= ~(mask << div_info->shift);
+		div /= div_info->div;
+
+		/* apply any special encoding */
+		if (clk_info->type & CGU_CLK_STEPDIV)
+			reg |= clk_info->stepdiv.step_encoding[div - 1] << div_info->shift;
+		else
+			reg |= (div - 1) << div_info->shift;
 
 		/* clear the stop bit */
-		if (clk_info->div.stop_bit != -1)
-			reg &= ~BIT(clk_info->div.stop_bit);
+		if (div_info->stop_bit != -1)
+			reg &= ~BIT(div_info->stop_bit);
 
 		/* set the change enable bit */
-		if (clk_info->div.ce_bit != -1)
-			reg |= BIT(clk_info->div.ce_bit);
+		if (div_info->ce_bit != -1)
+			reg |= BIT(div_info->ce_bit);
 
 		/* update the hardware */
-		writel(reg, cgu->base + clk_info->div.reg);
+		writel(reg, cgu->base + div_info->reg);
 
 		/* wait for the change to take effect */
-		if (clk_info->div.busy_bit != -1) {
+		if (div_info->busy_bit != -1) {
 			for (i = 0; i < timeout; i++) {
-				reg = readl(cgu->base + clk_info->div.reg);
-				if (!(reg & BIT(clk_info->div.busy_bit)))
+				reg = readl(cgu->base + div_info->reg);
+				if (!(reg & BIT(div_info->busy_bit)))
 					break;
 				mdelay(1);
 			}
@@ -688,6 +712,8 @@ static int ingenic_register_clock(struct ingenic_cgu *cgu, unsigned idx)
 
 	if (caps & CGU_CLK_DIV) {
 		caps &= ~CGU_CLK_DIV;
+	} else if (caps & CGU_CLK_STEPDIV) {
+		caps &= ~CGU_CLK_STEPDIV;
 	} else {
 		/* pass rate changes to the parent clock */
 		clk_init.flags |= CLK_SET_RATE_PARENT;
