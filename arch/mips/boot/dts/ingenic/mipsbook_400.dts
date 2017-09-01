@@ -242,6 +242,32 @@
 		};
 	};
 
+	leds {
+		compatible = "gpio-leds";
+		/* pinmux */
+
+		scroll_lock {
+			label = "scroll_lock";
+			gpios = <&gpa 9 GPIO_ACTIVE_LOW>;
+			linux,default-trigger = "scroll_lock";
+			default-state = "off";
+		};
+
+		caps_lock {
+			label = "caps_lock";
+			gpios = <&gpa 27 GPIO_ACTIVE_LOW>;
+			linux,default-trigger = "caps_lock";
+			default-state = "off";
+		};
+
+		num_lock {
+			label = "num_lock";
+			gpios = <&gpc 22 GPIO_ACTIVE_LOW>;
+			linux,default-trigger = "num_lock";
+			default-state = "off";
+		};
+	};
+
 };
 
 &ext {
