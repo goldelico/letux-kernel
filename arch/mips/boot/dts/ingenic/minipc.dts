@@ -1,0 +1,32 @@
+/dts-v1/;
+
+#include "jz4730.dtsi"
+
+/ {
+	compatible = "letux400,minipc", "ingenic,jz4730";
+
+	chosen {
+		stdout-path = &uart0;
+	};
+};
+
+&ext {
+	clock-frequency = <3686400>;
+};
+
+&rtc_dev {
+	system-power-controller;
+};
+
+&uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_uart0>;
+};
+
+&pinctrl {
+	pins_uart0: uart0 {
+		function = "uart0";
+		groups = "uart0-data";
+		bias-disable;
+	};
+};
