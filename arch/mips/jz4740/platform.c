@@ -234,10 +234,18 @@ struct platform_device jz4740_adc_device = {
 };
 
 /* PWM */
+
+#ifdef CONFIG_MACH_JZ4730
+struct platform_device jz4730_pwm_device = {
+	.name = "jz4730-pwm",
+	.id   = -1,
+};
+#else
 struct platform_device jz4740_pwm_device = {
 	.name = "jz4740-pwm",
 	.id   = -1,
 };
+#endif
 
 /* DMA */
 static struct resource jz4740_dma_resources[] = {
