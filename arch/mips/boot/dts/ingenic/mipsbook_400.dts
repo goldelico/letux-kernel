@@ -336,3 +336,12 @@
 	};
 
 };
+
+/*
+ * TODO:
+ * add LCD
+ * add proper Pinmux
+ * finalize sound / codec setup
+ * add i2c and i2s drivers to the SoC
+ * add special driver to probe two gpios to detect battery charging and AC present
+ */
