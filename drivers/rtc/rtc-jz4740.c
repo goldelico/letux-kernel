@@ -2,6 +2,8 @@
  *  Copyright (C) 2009-2010, Lars-Peter Clausen <lars@metafoo.de>
  *  Copyright (C) 2010, Paul Cercueil <paul@crapouillou.net>
  *	 JZ4740 SoC RTC driver
+ *  Copyright (C) 2017 Paul Boddie <paul@boddie.org.uk>
+ *       JZ4730 customisations
  *
  *  This program is free software; you can redistribute it and/or modify it
  *  under  the terms of  the GNU General Public License as published by the
@@ -38,6 +40,12 @@
 #define JZ_REG_RTC_WENR	0x3C
 #define JZ_RTC_WENR_WEN	BIT(31)
 
+/* The following are used on the jz4730 instead */
+#define JZ_REG_CPM_WER		0x30
+#define JZ_REG_CPM_WRER		0x28
+#define JZ_REG_CPM_WFER		0x2C
+#define JZ_CPM_WxER_RTC_ALARM	BIT(0)
+
 #define JZ_RTC_CTRL_WRDY	BIT(7)
 #define JZ_RTC_CTRL_1HZ		BIT(6)
 #define JZ_RTC_CTRL_1HZ_IRQ	BIT(5)
@@ -53,12 +61,14 @@
 #define JZ_RTC_RESET_COUNTER_MASK	0x00000FE0
 
 enum jz4740_rtc_type {
+	ID_JZ4730,
 	ID_JZ4740,
 	ID_JZ4780,
 };
 
 struct jz4740_rtc {
 	void __iomem *base;
+	void __iomem *cgu_base;		/* JZ4730 only */
 	enum jz4740_rtc_type type;
 
 	struct rtc_device *rtc;
@@ -73,6 +83,19 @@ struct jz4740_rtc {
 };
 
 static struct device *dev_for_power_off;
+
+static void jz4730_cpm_update(struct jz4740_rtc *rtc, size_t reg,
+	uint32_t affected, uint32_t value)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&rtc->lock, flags);
+
+	writel((readl(rtc->cgu_base + reg) & ~affected) | value,
+		rtc->cgu_base + reg);
+
+	spin_unlock_irqrestore(&rtc->lock, flags);
+}
 
 static inline uint32_t jz4740_rtc_reg_read(struct jz4740_rtc *rtc, size_t reg)
 {
@@ -265,6 +288,19 @@ static void jz4740_rtc_power_off(void)
 	unsigned long wakeup_filter_ticks;
 	unsigned long reset_counter_ticks;
 
+	/* Set RTC alarm on the CPM register for the JZ4730. */
+
+	if (rtc->type == ID_JZ4730) {
+		jz4730_cpm_update(rtc, JZ_REG_CPM_WER,
+			JZ_CPM_WxER_RTC_ALARM, JZ_CPM_WxER_RTC_ALARM);
+		jz4730_cpm_update(rtc, JZ_REG_CPM_WRER,
+			JZ_CPM_WxER_RTC_ALARM, JZ_CPM_WxER_RTC_ALARM);
+		jz4730_cpm_update(rtc, JZ_REG_CPM_WFER,
+			JZ_CPM_WxER_RTC_ALARM, JZ_CPM_WxER_RTC_ALARM);
+		kernel_halt();
+		return;
+	}
+
 	clk_prepare_enable(rtc->clk);
 
 	rtc_rate = clk_get_rate(rtc->clk);
@@ -298,7 +334,40 @@ static void jz4740_rtc_power_off(void)
 	kernel_halt();
 }
 
+static int jz4730_rtc_init_cgu(struct platform_device *pdev, struct jz4740_rtc *rtc)
+{
+	struct platform_device *cgu_pdev;
+	struct device_node *np;
+	struct resource *mem;
+
+	/* Find the CGU in the device tree. */
+
+	np = of_find_compatible_node(NULL, NULL, "ingenic,jz4730-cgu");
+	if (!np) {
+		dev_err(&pdev->dev, "Could not locate CGU for JZ4730 support.\n");
+		return -ENOENT;
+	}
+
+	/* Obtain the CGU device. */
+
+	cgu_pdev = of_find_device_by_node(np);
+	if (!cgu_pdev) {
+		dev_err(&pdev->dev, "Could not obtain CGU device for JZ4730 support.\n");
+		return -ENOENT;
+	}
+
+	/* Obtain the memory resource. */
+
+	mem = platform_get_resource(cgu_pdev, IORESOURCE_MEM, 0);
+	rtc->cgu_base = devm_ioremap_resource(&cgu_pdev->dev, mem);
+	if (IS_ERR(rtc->cgu_base))
+		return PTR_ERR(rtc->cgu_base);
+
+	return 0;
+}
+
 static const struct of_device_id jz4740_rtc_of_match[] = {
+	{ .compatible = "ingenic,jz4730-rtc", .data = (void *)ID_JZ4730 },
 	{ .compatible = "ingenic,jz4740-rtc", .data = (void *)ID_JZ4740 },
 	{ .compatible = "ingenic,jz4780-rtc", .data = (void *)ID_JZ4780 },
 	{},
@@ -362,6 +431,12 @@ static int jz4740_rtc_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to request rtc irq: %d\n", ret);
 		return ret;
 	}
+
+	/* RTC hibernation and associated functionality is not supported in the
+	   same way on the JZ4730. */
+
+	if (rtc->type == ID_JZ4730)
+		return jz4730_rtc_init_cgu(pdev, rtc);
 
 	scratchpad = jz4740_rtc_reg_read(rtc, JZ_REG_RTC_SCRATCHPAD);
 	if (scratchpad != 0x12345678) {
@@ -427,6 +502,7 @@ static const struct dev_pm_ops jz4740_pm_ops = {
 #endif  /* CONFIG_PM */
 
 static const struct platform_device_id jz4740_rtc_ids[] = {
+	{ "jz4730-rtc", ID_JZ4730 },
 	{ "jz4740-rtc", ID_JZ4740 },
 	{ "jz4780-rtc", ID_JZ4780 },
 	{}
