@@ -208,4 +208,18 @@
 
 		status = "disabled";
 	};
+
+	i2c: i2c@0 {
+		compatible = "ingenic,jz4730-i2c";
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
+	i2s: dai@0 {
+		compatible = "ingenic,jt4730-dai";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
 };
