@@ -221,6 +221,27 @@
 			>;
 	};
 
+	buttons {
+		compatible = "gpio-keys";
+
+		#address-cells = <7>;
+		#size-cells = <0>;
+
+		left_touchpad {
+			label = "Touchpad Left";
+			linux,code = <0x110>;	/* BTN_LEFT */
+			gpios = <&gpa 16 GPIO_ACTIVE_LOW>;
+			gpio-key,wakeup;
+		};
+
+		right_touchpad {
+			label = "Touchpad Right";
+			linux,code = <0x111>;	/* BTN_RIGHT */
+			gpios = <&gpa 9 GPIO_ACTIVE_LOW>;
+			gpio-key,wakeup;
+		};
+	};
+
 };
 
 &ext {
