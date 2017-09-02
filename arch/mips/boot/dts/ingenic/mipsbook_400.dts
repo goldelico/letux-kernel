@@ -1,6 +1,8 @@
 /dts-v1/;
 
 #include "jz4730.dtsi"
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/gpio/gpio.h>
 
 / {
 	compatible = "letux400,minipc", "ingenic,jz4730";
