@@ -187,6 +187,12 @@ static const struct ingenic_cgu_clk_info jz4730_cgu_clocks[] = {
 
 	/* Gate-only clocks */
 
+	[JZ4730_CLK_DMA] = {
+		"dma", CGU_CLK_GATE,
+		.parents = { JZ4730_CLK_PCLK, -1, -1, -1 },
+		.gate = { CGU_REG_CFCR, 5 },
+	},
+
 	[JZ4730_CLK_MMC] = {
 		"mmc", CGU_CLK_GATE,
 		.parents = { JZ4730_CLK_MSC16M, JZ4730_CLK_MSC24M, -1, -1 },
