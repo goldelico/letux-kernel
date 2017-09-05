@@ -286,21 +286,6 @@ static struct platform_device minipc_backlight_device = {
         },
 };
 
-/* audio */
-static struct platform_device minipc_audio_device = {
-	.name = "minipc-audio",
-	.id = -1,
-};
-
-static struct gpiod_lookup_table minipc_audio_gpio_table = {
-	.dev_id = "minipc-audio",
-	.table = {
-		GPIO_LOOKUP("GPIOB", 29, "snd", 0),
-		GPIO_LOOKUP("GPIOD", 4, "amp", 0),
-		{ },
-	},
-};
-
 static struct platform_device *jz_platform_devices[] __initdata = {
 	&jz4740_udc_device,
 	&jz4740_udc_xceiv_device,
@@ -312,7 +297,6 @@ static struct platform_device *jz_platform_devices[] __initdata = {
 	&jz4740_codec_device,
 	&jz4740_dma_device,
 	&jz4730_pwm_device,
-	&minipc_audio_device,
 	&minipc_backlight_device,
 	&minipc_keypad_device,
 	&minipc_touchpad_device,
@@ -342,15 +326,16 @@ static struct pinctrl_map pin_map[] __initdata = {
 			"10010000.jz4730-pinctrl", "mmc", "mmc-1bit"),
 	PIN_MAP_MUX_GROUP_DEFAULT("jz4740-mmc.0",
 			"10010000.jz4730-pinctrl", "mmc", "mmc-4bit"),
+	/* MMC detect and power */
 	PIN_MAP_CONFIGS_PIN_DEFAULT("jz4740-mmc.0",
-			"10010000.jz4740-pinctrl", "PD0", pin_cfg_bias_disable),
+			"10010000.jz4740-pinctrl", "PC6", pin_cfg_bias_disable),
 	PIN_MAP_CONFIGS_PIN_DEFAULT("jz4740-mmc.0",
-			"10010000.jz4740-pinctrl", "PD2", pin_cfg_bias_disable),
+			"10010000.jz4740-pinctrl", "PC7", pin_cfg_bias_disable),
 
 	/* PWM pin configuration */
-	PIN_MAP_MUX_GROUP_DEFAULT("jz4740-pwm",
+	PIN_MAP_MUX_GROUP_DEFAULT("jz4730-pwm",
 			"10010000.jz4730-pinctrl", "pwm0", "pwm0"),
-	PIN_MAP_MUX_GROUP_DEFAULT("jz4740-pwm",
+	PIN_MAP_MUX_GROUP_DEFAULT("jz4730-pwm",
 			"10010000.jz4730-pinctrl", "pwm1", "pwm1"),
 };
 
@@ -361,7 +346,6 @@ static int __init minipc_init_platform_devices(void)
 	/* jz4740_nand_device.dev.platform_data = &minipc_nand_pdata; */
 	jz4740_mmc_device.dev.platform_data = &minipc_mmc_pdata;
 
-	gpiod_add_lookup_table(&minipc_audio_gpio_table);
 	/* gpiod_add_lookup_table(&minipc_nand_gpio_table); */
 
 	pinctrl_register_mappings(pin_map, ARRAY_SIZE(pin_map));
