@@ -62,6 +62,42 @@
 		#clock-cells = <1>;
 	};
 
+	dma: dma@10020000 {
+		compatible = "ingenic,jz4730-dma";
+		reg = <0x10020000 0x100>;
+
+		interrupt-parent = <&intc>;
+		interrupts = <21>;
+
+		clocks = <&cgu JZ4730_CLK_DMA>;
+		clock-names = "dma";
+
+		#dma-cells = <1>;
+		dma-channels = <6>;
+	};
+
+	lcd: lcd@10050000 {
+		compatible = "ingenic,jz4730-lcd";
+		reg = <0x10050000 0x100>;
+
+		interrupt-parent = <&intc>;
+		interrupts = <30>;
+
+		clocks = <&cgu JZ4730_CLK_LCD>, <&cgu JZ4730_CLK_LCD_PCLK>;
+		clock-names = "lcd", "lcd_pclk";
+	};
+
+	mmc: mmc@10021000 {
+		compatible = "ingenic,jz4740-mmc";
+		reg = <0x10021000 0x100>;
+
+		interrupt-parent = <&intc>;
+		interrupts = <14>;
+
+		clocks = <&cgu JZ4730_CLK_MMC>;
+		clock-names = "mmc";
+	};
+
 	rtc_dev: rtc@10003000 {
 		compatible = "ingenic,jz4730-rtc";
 		reg = <0x10003000 0x10>;
@@ -207,5 +243,10 @@
 		interrupts = <13>;
 
 		status = "disabled";
+	};
+
+	watchdog: watchdog@0x10004000 {
+		compatible = "ingenic,jz4730-watchdog";
+		reg = <0x10004000 0x100>;
 	};
 };
