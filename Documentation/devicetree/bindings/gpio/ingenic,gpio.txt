@@ -7,6 +7,7 @@ Required properties:
 --------------------
 
  - compatible: Must contain one of:
+    - "ingenic,jz4730-gpio"
     - "ingenic,jz4740-gpio"
     - "ingenic,jz4770-gpio"
     - "ingenic,jz4780-gpio"
