@@ -19,6 +19,7 @@ Required properties:
 --------------------
 
  - compatible: One of:
+    - "ingenic,jz4730-pinctrl"
     - "ingenic,jz4740-pinctrl"
     - "ingenic,jz4725b-pinctrl"
     - "ingenic,jz4770-pinctrl"
