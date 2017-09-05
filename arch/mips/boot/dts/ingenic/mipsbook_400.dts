@@ -292,6 +292,34 @@
 		};
 	};
 
+	backlight: backlight {
+		compatible = "pwm-backlight";
+
+		pwms = <&pwm 0 5000000>;
+
+		brightness-levels = <150 200 250 300>;
+		default-brightness-level = <2>;
+	};
+
+	panel: panel {
+		compatible = "chunghwa,claa070vc01";
+		backlight = <&backlight>;
+
+		display-timings {
+			timing0: 800x480 {
+				clock-frequency = <26400000>;
+				hactive = <800>;
+				vactive = <480>;
+				hfront-porch = <0>;
+				hback-porch = <0>;
+				hsync-len = <80>;
+				vfront-porch = <0>;
+				vback-porch = <0>;
+				vsync-len = <20>;
+				pixelclk-active = <0>;
+			};
+		};
+	};
 };
 
 &ext {
@@ -302,12 +330,83 @@
 	system-power-controller;
 };
 
+&lcd {
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pins_lcd0>;
+	pinctrl-1 = <&pins_lcd1>;
+};
+
+&mmc {
+	pinctrl-names = "mmc";
+	pinctrl-0 = <&pins_mmc &pins_mmc_ctrl>;
+
+	cd-gpios = <&gpc 26 GPIO_ACTIVE_LOW>;
+	wp-gpios = <&gpc 18 GPIO_ACTIVE_LOW>;
+	vmmc-supply = <&gpc 27 GPIO_ACTIVE_LOW>;
+};
+
+/*
+&nand {
+	pinctrl-names = "nand";
+	pinctrl-0 = <&pins_nand>;
+};
+*/
+
+&pwm {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_pwm0 &pins_pwm1_gpio>;
+};
+
 &uart0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_uart0>;
 };
 
 &pinctrl {
+	pins_lcd0: lcd0 {
+		function = "lcd";
+		groups = "lcd-8bit", "lcd-16bit", "lcd-16bit-tft";
+	};
+
+	pins_lcd1: lcd1 {
+		function = "sleep";
+		groups = "lcd-no-pins";
+	};
+
+	pins_mmc: mmc {
+		function = "mmc";
+		groups = "mmc-1bit", "mmc-4bit";
+	};
+
+	pins_mmc_ctrl: mmc_ctrl {
+		function = "mmc";
+		pins = "PC7", "PC8";
+		bias-disable;
+	};
+
+	/*
+	pins_nand {
+		function = "nand";
+		groups = "nand-cs3";
+	};
+	*/
+
+	pins_pwm0: pwm0 {
+		function = "pwm0";
+		groups = "pwm0";
+	};
+
+	pins_pwm1: pwm1 {
+		function = "pwm1";
+		groups = "pwm1";
+	};
+
+	pins_pwm1_gpio: pwm1_gpio {
+		function = "gpio";
+		groups = "pwm1";
+		output-low;
+	};
+
 	pins_uart0: uart0 {
 		function = "uart0";
 		groups = "uart0-data";
