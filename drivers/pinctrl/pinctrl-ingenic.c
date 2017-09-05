@@ -1411,6 +1411,8 @@ static int __init ingenic_pinctrl_probe(struct platform_device *pdev)
 	if (!jzpc->pdesc)
 		return -ENOMEM;
 
+	/* name pins using the form "PXn" where "X" is "A", "B", "C", "D" and
+	   "n" is a number */
 	for (i = 0; i < pctl_desc->npins; i++) {
 		jzpc->pdesc[i].number = i;
 		jzpc->pdesc[i].name = kasprintf(GFP_KERNEL, "P%c%d",
