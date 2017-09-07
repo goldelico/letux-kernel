@@ -70,52 +70,6 @@ struct platform_device jz4740_udc_device = {
 	.resource      = jz4740_udc_resources,
 };
 
-/* MMC/SD controller */
-static struct resource jz4740_mmc_resources[] = {
-	{
-		.start	= JZ4740_MSC_BASE_ADDR,
-		.end	= JZ4740_MSC_BASE_ADDR + 0x1000 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.start	= JZ4740_IRQ_MSC,
-		.end	= JZ4740_IRQ_MSC,
-		.flags	= IORESOURCE_IRQ,
-	}
-};
-
-struct platform_device jz4740_mmc_device = {
-	.name		= "jz4740-mmc",
-	.id		= 0,
-	.dev = {
-		.dma_mask = &jz4740_mmc_device.dev.coherent_dma_mask,
-		.coherent_dma_mask = DMA_BIT_MASK(32),
-	},
-	.num_resources	= ARRAY_SIZE(jz4740_mmc_resources),
-	.resource	= jz4740_mmc_resources,
-};
-
-/* I2C controller */
-static struct resource jz4740_i2c_resources[] = {
-	{
-		.start	= JZ4740_I2C_BASE_ADDR,
-		.end	= JZ4740_I2C_BASE_ADDR + 0x1000 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.start	= JZ4740_IRQ_I2C,
-		.end	= JZ4740_IRQ_I2C,
-		.flags	= IORESOURCE_IRQ,
-	}
-};
-
-struct platform_device jz4740_i2c_device = {
-	.name		= "jz4740-i2c",
-	.id		= 0,
-	.num_resources	= ARRAY_SIZE(jz4740_i2c_resources),
-	.resource	= jz4740_i2c_resources,
-};
-
 /* NAND controller */
 #ifdef CONFIG_MACH_JZ4730
 static struct resource jz4740_nand_resources[] = {
