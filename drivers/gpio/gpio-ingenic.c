@@ -122,7 +122,7 @@ static void irq_set_type(struct ingenic_gpio_chip *jzgc,
 	u8 reg1, reg2;
 
 	if (jzgc->version == ID_JZ4730) {
-		ingenic_gpio_direction_input(jzgc, offset);
+		pinctrl_gpio_direction_input(jzgc->gc.base + offset);
 		gpio_ingenic_ctrl_set_pins(jzgc,
 			JZ4730_GPIO_GPIDUR, JZ4730_GPIO_GPIDLR,
 			offset,
