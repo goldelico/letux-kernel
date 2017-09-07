@@ -76,6 +76,29 @@
 		dma-channels = <6>;
 	};
 
+	i2c: i2c@10042000 {
+		compatible = "ingenic,jz4730-i2c";
+		reg = <0x10042000 0x10>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		interrupt-parent = <&intc>;
+		interrupts = <1>;
+
+		clocks = <&cgu JZ4730_CLK_PLL>;
+		clock-names = "i2c";
+
+		clock-frequency = <100000>;
+	};
+
+	i2s: i2s {
+		compatible = "ingenic,jt4730-dai";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
 	lcd: lcd@10050000 {
 		compatible = "ingenic,jz4730-lcd";
 		reg = <0x10050000 0x100>;
@@ -248,19 +271,8 @@
 	watchdog: watchdog@0x10004000 {
 		compatible = "ingenic,jz4730-watchdog";
 		reg = <0x10004000 0x100>;
+
+		clocks = <&cgu JZ4730_CLK_RTC>;
+		clock_names = "rtc";
 	};
-
-	i2c: i2c@0 {
-		compatible = "ingenic,jz4730-i2c";
-		#address-cells = <1>;
-		#size-cells = <0>;
-	};
-
-	i2s: dai@0 {
-		compatible = "ingenic,jt4730-dai";
-
-		#address-cells = <1>;
-		#size-cells = <0>;
-	};
-
 };
