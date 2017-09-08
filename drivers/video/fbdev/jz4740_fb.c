@@ -32,6 +32,10 @@
 
 #include <asm/mach-jz4740/jz4740_fb.h>
 
+#include <video/display_timing.h>
+#include <video/of_display_timing.h>
+#include <video/videomode.h>
+
 #define JZ_REG_LCD_CFG		0x00
 #define JZ_REG_LCD_VSYNC	0x04
 #define JZ_REG_LCD_HSYNC	0x08
@@ -553,7 +557,86 @@ static const struct of_device_id jzfb_of_matches[] = {
 	{ .compatible = "ingenic,jz4740-lcd", .data = (void *) ID_JZ4740},
 	{ /* sentinel */ }
 };
-MODULE_DEVICE_TABLE(of, jz4740_wdt_of_matches);
+MODULE_DEVICE_TABLE(of, jzfb_of_matches);
+
+static void jzfb_convert_timing(struct display_timing *timing,
+				struct jz4740_fb_platform_data *pdata,
+				struct fb_videomode *fbmode)
+{
+	struct videomode mode;
+
+	videomode_from_timing(timing, &mode);
+
+	/* Information from a panel-timing node. */
+
+	fbmode->xres = mode.hactive;
+	fbmode->yres = mode.vactive;
+	fbmode->left_margin = mode.hback_porch;
+	fbmode->right_margin = mode.hfront_porch;
+	fbmode->upper_margin = mode.vback_porch;
+	fbmode->lower_margin = mode.vfront_porch;
+	fbmode->hsync_len = mode.hsync_len;
+	fbmode->vsync_len = mode.vsync_len;
+	fbmode->pixclock = mode.pixelclock;
+	fbmode->sync = 0;
+	fbmode->vmode = 0;
+
+	if (mode.flags & DISPLAY_FLAGS_INTERLACED)
+		fbmode->vmode |= FB_VMODE_INTERLACED;
+	else
+		fbmode->vmode |= FB_VMODE_NONINTERLACED;
+
+	if (mode.flags & DISPLAY_FLAGS_DOUBLESCAN)
+		fbmode->vmode |= FB_VMODE_DOUBLE;
+
+        pdata->num_modes = 1;
+        pdata->modes = fbmode;
+        pdata->pixclk_falling_edge = (mode.flags & DISPLAY_FLAGS_PIXDATA_NEGEDGE) ? 1 : 0;
+}
+
+static int jzfb_find_panel(struct platform_device *pdev, struct jz4740_fb_platform_data **pdaddr)
+{
+	int ret;
+	struct device_node *panel;
+	struct display_timing timing;
+	struct jz4740_fb_platform_data *pdata;
+	struct fb_videomode *fbmode;
+	struct device_node *np = pdev->dev.of_node;
+
+	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata)
+		return -ENOMEM;
+
+	*pdaddr = pdata;
+
+	fbmode = devm_kzalloc(&pdev->dev, sizeof(*fbmode), GFP_KERNEL);
+	if (!fbmode)
+		return -ENOMEM;
+
+	panel = of_parse_phandle(np, "panel", 0);
+
+	if (panel) {
+		ret = of_get_display_timing(np, "panel-timing", &timing);
+		if (ret) {
+			dev_err(&pdev->dev, "Missing platform data\n");
+			return ret;
+		}
+
+		jzfb_convert_timing(&timing, pdata, fbmode);
+
+		/* Additional panel- and driver-related information. */
+
+		ret = of_property_read_u32(np, "width", &pdata->width) ||
+		      of_property_read_u32(np, "height", &pdata->height) ||
+		      of_property_read_u32(np, "bpp", &pdata->bpp) ||
+		      of_property_read_u32(np, "lcd-type", &pdata->lcd_type);
+
+		of_node_put(panel);
+		return ret;
+	}
+
+	return -ENXIO;
+}
 
 static int jzfb_probe(struct platform_device *pdev)
 {
@@ -566,9 +649,14 @@ static int jzfb_probe(struct platform_device *pdev)
 			jzfb_of_matches, &pdev->dev);
 	struct resource *mem;
 
+	/* Attempt to populate platform data using panel device information. */
+
 	if (!pdata) {
-		dev_err(&pdev->dev, "Missing platform data\n");
-		return -ENXIO;
+		ret = jzfb_find_panel(pdev, &pdata);
+		if (ret) {
+			dev_err(&pdev->dev, "Missing platform data\n");
+			return ret;
+		}
 	}
 
 	fb = framebuffer_alloc(sizeof(struct jzfb), &pdev->dev);
