@@ -37,38 +37,9 @@
 
 #include "clock.h"
 
-/* display */
-static struct fb_videomode minipc_video_modes[] = {
-	{
-		.name = "800x480",
-		.xres = 800,
-		.yres = 480,
-		.refresh = 60,
-		.left_margin = 0,
-		.right_margin = 0,
-		.upper_margin = 0,
-		.lower_margin = 0,
-		.hsync_len = 80,
-		.vsync_len = 20,
-		.sync = 0,
-		.vmode = FB_VMODE_NONINTERLACED,
-	},
-};
-
-static struct jz4740_fb_platform_data minipc_fb_pdata = {
-	.width		= 60,
-	.height		= 45,
-	.num_modes	= ARRAY_SIZE(minipc_video_modes),
-	.modes		= minipc_video_modes,
-	.bpp		= 16,
-	.lcd_type	= JZ_LCD_TYPE_GENERIC_16_BIT,
-	.pixclk_falling_edge = 1,
-};
-
 static struct platform_device *jz_platform_devices[] __initdata = {
 	&jz4740_udc_device,
 	&jz4740_udc_xceiv_device,
-	&jz4740_framebuffer_device,
 	&jz4740_pcm_device,
 	&jz4740_i2s_device,
 	&jz4740_codec_device,
@@ -76,8 +47,6 @@ static struct platform_device *jz_platform_devices[] __initdata = {
 
 static int __init minipc_init_platform_devices(void)
 {
-	jz4740_framebuffer_device.dev.platform_data = &minipc_fb_pdata;
-
 	return platform_add_devices(jz_platform_devices,
 					ARRAY_SIZE(jz_platform_devices));
 
