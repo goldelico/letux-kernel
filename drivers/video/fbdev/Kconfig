@@ -2221,6 +2221,7 @@ config FB_JZ4740
 	select FB_SYS_FILLRECT
 	select FB_SYS_COPYAREA
 	select FB_SYS_IMAGEBLIT
+	select VIDEOMODE_HELPERS
 	help
 	  Framebuffer support for the JZ4740 SoC.
 
