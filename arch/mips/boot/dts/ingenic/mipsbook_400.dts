@@ -301,23 +301,26 @@
 		default-brightness-level = <2>;
 	};
 
-	panel: panel {
+	panel: claa070vc01 {
 		compatible = "chunghwa,claa070vc01";
-		backlight = <&backlight>;
 
-		display-timings {
-			timing0: 800x480 {
-				clock-frequency = <26400000>;
-				hactive = <800>;
-				vactive = <480>;
-				hfront-porch = <0>;
-				hback-porch = <0>;
-				hsync-len = <80>;
-				vfront-porch = <0>;
-				vback-porch = <0>;
-				vsync-len = <20>;
-				pixelclk-active = <0>;
-			};
+		width = <60>;
+		height = <45>;
+		bpp = <16>;
+		lcd-type = <0>; /* JZ_LCD_TYPE_GENERIC_16_BIT from jz4740_fb.h */
+
+		panel-timing {
+			clock-frequency = <26400000>;
+			hactive = <800>;
+			vactive = <480>;
+			hfront-porch = <0>;
+			hback-porch = <0>;
+			hsync-len = <80>;
+			vfront-porch = <0>;
+			vback-porch = <0>;
+			vsync-len = <20>;
+			de-active = <1>;
+			pixelclk-active = <0>;
 		};
 	};
 };
@@ -331,6 +334,8 @@
 };
 
 &lcd {
+	panel = <&panel>;
+
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pins_lcd0>;
 	pinctrl-1 = <&pins_lcd1>;
