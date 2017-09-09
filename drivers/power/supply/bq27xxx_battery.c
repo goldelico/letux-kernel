@@ -1095,7 +1095,7 @@ pr_info("%s\n", __func__);
 		return;
 	}
 
-	dev_info(di->dev, "update %s to %u\n", str, val);
+	dev_info(di->dev, "update %s from %u to %u\n", str, be16_to_cpup(prev), val);
 
 	*prev = cpu_to_be16(val);
 	buf->dirty = true;
