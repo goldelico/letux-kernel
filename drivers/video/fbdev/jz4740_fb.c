@@ -577,7 +577,10 @@ static void jzfb_convert_timing(struct display_timing *timing,
 	fbmode->lower_margin = mode.vfront_porch;
 	fbmode->hsync_len = mode.hsync_len;
 	fbmode->vsync_len = mode.vsync_len;
-	fbmode->pixclock = mode.pixelclock;
+
+	/* Convert frequency to picosecond period. */
+
+	fbmode->pixclock = KHZ2PICOS(mode.pixelclock / 1000);
 	fbmode->sync = 0;
 	fbmode->vmode = 0;
 
