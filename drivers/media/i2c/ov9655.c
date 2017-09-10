@@ -780,7 +780,7 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 	case MEDIA_BUS_FMT_UYVY8_2X8:
 		ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, 0x00);	/* no swap */
 		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_FMT_MASK, OV9655_COM7_YUV);	/* choose YUV */
-		ov9655_update_bits(client, OV9655_TSLB, OV9655_TSLB_YUV_MASK, OV9655_TSLB_UYVY);	/* UYVY byte order */
+		ov9655_update_bits(client, OV9655_TSLB, OV9655_TSLB_YUV_MASK, OV9655_TSLB_VYUY);	/* UYVY8 byte order */
 #if 0	// stuff from other driver without knowing if that is good or bad
 	{ OV9655_MTX1, 0x80 },
 	{ OV9655_MTX2, 0x80 },
