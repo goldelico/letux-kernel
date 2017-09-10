@@ -963,6 +963,7 @@
 				data-active = <1>;	/* Active high */
 				pclk-sample = <0>;	/* No pclk reverse */
 				pclk-delay = <2>;	/* 4 ns */
+				output-drive = <3>;	/* 4x */
 #endif
 			};
 		};
@@ -1015,7 +1016,7 @@
 	hsync-active = <0>; /* Active low */
 	vsync-active = <1>; /* Active high */
 	data-active = <1>;/* Active high */
-	pclk-sample = <1>;/* Rising */
+	pclk-sample = <0>;/* Falling */
 };
 
 &uart3 { /* Console and IrDA /dev/ttyO2 */
