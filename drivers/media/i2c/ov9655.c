@@ -343,6 +343,10 @@ struct ov9655_framesize {
 	u16 width;
 	u16 height;
 	u16 fps;
+	u16 hstart;
+	u16 hend;
+	u16 vstart;
+	u16 vend;
 };
 
 struct ov9655_pixfmt {
@@ -351,22 +355,40 @@ struct ov9655_pixfmt {
 };
 
 static const struct ov9655_framesize ov9655_framesizes[] = {
-	{
+	{ /* SXGA */
 		.width		= SXGA_NUM_ACTIVE_PIXELS,
 		.height		= SXGA_NUM_ACTIVE_LINES,
 		.fps		= 15,
-	}, {
+		.hstart		= 200,
+		.hend		= 200+SXGA_NUM_ACTIVE_PIXELS,
+		.vstart		= 0,
+		.vend		= 0+SXGA_NUM_ACTIVE_LINES,
+	}, { /* VGA */
 		.width		= VGA_NUM_ACTIVE_PIXELS,
 		.height		= VGA_NUM_ACTIVE_LINES,
 		.fps		= 30,
-	}, {
+		.hstart		= 130,
+		.hend		= 130+VGA_NUM_ACTIVE_PIXELS,
+		.vstart		= 0,
+		.vend		= 0+VGA_NUM_ACTIVE_LINES,
+	}, { /* QVGA */
 		.width		= QVGA_NUM_ACTIVE_PIXELS,
 		.height		= QVGA_NUM_ACTIVE_LINES,
 		.fps		= 30,
-	}, {
+		/* TODO: fix me */
+		.hstart		= 154,
+		.hend		= 750,
+		.vstart		= 10,
+		.vend		= 550,
+	}, { /* CIF */
 		.width		= CIF_NUM_ACTIVE_PIXELS,
 		.height		= CIF_NUM_ACTIVE_LINES,
 		.fps		= 30,
+		/* TODO: fix me */
+		.hstart		= 154,
+		.hend		= 750,
+		.vstart		= 10,
+		.vend		= 550,
 	},
 };
 
@@ -591,15 +613,6 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 	const struct v4l2_rect *crop = &ov9655->crop;
 	int val, ret = 0;
 
-#if 0
-	unsigned int hblank;
-	unsigned int vblank;
-	unsigned int xskip;
-	unsigned int yskip;
-	unsigned int xbin;
-	unsigned int ybin;
-#endif
-
 	dev_info(&client->dev, "%s\n", __func__);
 
 	/* general settings */
@@ -675,21 +688,7 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 	case VGA:
 		dev_info(&client->dev, "VGA\n");
 		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_RES_MASK, OV9655_COM7_VGA);
-		ov9655_update_bits(client, OV9655_COM14, OV9655_COM14_ZOOM, 0);	/* no zoom */
 		ret = ov9655_update_bits(client, OV9655_DBLV, OV9655_DBLV_PLL_MASK, OV9655_DBLV_PLL_4X);
-		/* FIXME: get these from ov9655_framesize[] */
-		val = 154;
-		ov9655_write(client, OV9655_HSTART, val >> 3);	/* image size upper 8 bit */
-		ov9655_update_bits(client, OV9655_HREF, OV9655_VREF_START, val);	/* image size lower 3 bit */
-		val = 750;
-		ov9655_write(client, OV9655_HSTOP, val >> 3);	/* image size upper 8 bit */
-		ov9655_update_bits(client, OV9655_HREF, OV9655_VREF_END, val << 3);		/* image size lower 3 bit */
-		val = 10;
-		ov9655_write(client, OV9655_VSTART, val >> 3);	/* image size upper 8 bit */
-		ov9655_update_bits(client, OV9655_VREF, OV9655_VREF_START, val);	/* image size lower 3 bit */
-		val = 550;
-		ov9655_write(client, OV9655_VSTOP, val >> 3);	/* image size upper 8 bit */
-		ov9655_update_bits(client, OV9655_VREF, OV9655_VREF_END, val << 3);		/* image size lower 3 bit */
 		ret = ov9655_write(client, OV9655_CLKRC, 0x01);	/* VGA needs 1/4 of of SGXA pixel rate but has 30fps */
 #if 0	// stuff from other driver without knowing if that is good or bad
 	{ OV9655_HSTART, 0x16 },
@@ -752,6 +751,26 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 #endif
 		break;
 	}
+
+	int i = ARRAY_SIZE(ov9655_framesizes);
+
+	while (--i)
+		/* width is unique enough */
+		if (format->width == ov9655_framesizes[i].width)
+			break;
+
+	val = ov9655_framesizes[i].hstart;
+	ov9655_write(client, OV9655_HSTART, val >> 3);	/* image size upper 8 bit */
+	ov9655_update_bits(client, OV9655_HREF, OV9655_VREF_START, val);	/* image size lower 3 bit */
+	val = ov9655_framesizes[i].hend;
+	ov9655_write(client, OV9655_HSTOP, val >> 3);	/* image size upper 8 bit */
+	ov9655_update_bits(client, OV9655_HREF, OV9655_VREF_END, val << 3);		/* image size lower 3 bit */
+	val = ov9655_framesizes[i].vstart;
+	ov9655_write(client, OV9655_VSTART, val >> 3);	/* image size upper 8 bit */
+	ov9655_update_bits(client, OV9655_VREF, OV9655_VREF_START, val);	/* image size lower 3 bit */
+	val = ov9655_framesizes[i].vend;
+	ov9655_write(client, OV9655_VSTOP, val >> 3);	/* image size upper 8 bit */
+	ov9655_update_bits(client, OV9655_VREF, OV9655_VREF_END, val << 3);		/* image size lower 3 bit */
 
 	/* set data format */
 
