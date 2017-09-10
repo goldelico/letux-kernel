@@ -512,16 +512,16 @@ static int ov9655_reset(struct ov9655 *ov9655)
 		ov9655->output_drive&OV9655_COM2_STRENGTH);
 	dev_info(&client->dev, "%s: pclk_sample %d\n", __func__, ov9655->pclk_sample);
 	ret = ov9655_update_bits(client, OV9655_COM10, OV9655_COM10_PCLK_REV,
-		ov9655->pclk_sample ? OV9655_COM10_PCLK_REV : 0);
+		ov9655->pclk_sample ? 0: OV9655_COM10_PCLK_REV);
 	dev_info(&client->dev, "%s: vsync_active %d\n", __func__, ov9655->vsync_active);
 	ret = ov9655_update_bits(client, OV9655_COM10, OV9655_COM10_VSYNC_NEG,
-		ov9655->vsync_active ? OV9655_COM10_VSYNC_NEG : 0);
+		ov9655->vsync_active ? 0 : OV9655_COM10_VSYNC_NEG);
 	dev_info(&client->dev, "%s: hsync_active %d\n", __func__, ov9655->hsync_active);
 	ret = ov9655_update_bits(client, OV9655_COM10, OV9655_COM10_HSYNC_NEG,
 		ov9655->hsync_active ? OV9655_COM10_HSYNC_NEG : 0);
 	dev_info(&client->dev, "%s: pclk_delay %d\n", __func__, ov9655->pclk_delay);
 	ret = ov9655_update_bits(client, OV9655_TSLB, OV9655_TSLB_PCLK_MASK,
-		(ov9655->pclk_delay << OV9655_TSLB_PCLK_OFFSET & OV9655_TSLB_PCLK_MASK));
+		((ov9655->pclk_delay << OV9655_TSLB_PCLK_OFFSET) & OV9655_TSLB_PCLK_MASK));
 
 	dev_info(&client->dev, "%s: clock_noncontinuous %d\n", __func__, ov9655->clock_noncontinuous);
 	ret = ov9655_update_bits(client, OV9655_COM10, OV9655_COM10_PCLK_GATE,
