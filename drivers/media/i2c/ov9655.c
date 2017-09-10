@@ -676,7 +676,7 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 	{ OV9655_VSTART, 0x01 },
 	{ OV9655_VSTOP, 0x81 },
 	{ OV9655_VREF, 0x1b },	// vertical frame control
-	{ OV9655_COM14, 0x0c },	// zoom
+	{ OV9655_COM14, 0x0c },	// zoom and üoxeö correction
 	{ OV9655_COM16, 0x00 },	// scaling
 	{ OV9655_POIDX, 0x00 },	// skip lines
 	{ OV9655_PCKDV, 0x00 },	// pixel clock divisor (48 MHz)
@@ -830,6 +830,7 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 		ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, 0x00);	/* no swap */
 		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_FMT_MASK, OV9655_COM7_RAW);	/* choose raw RGB */
 		ov9655_update_bits(client, OV9655_COM15, OV9655_COM15_RGB_MASK, OV9655_COM15_RGB555);	// RGB555
+		// FIXME: wemust probably adjust pixel clock by factor 2
 		break;
 #endif
 	default:
