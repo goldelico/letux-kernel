@@ -946,7 +946,7 @@
 		vana-supply = <&vaux3>;
 		clock-frequency = <24000000>;
 #endif
-		resetb-gpios = <&gpio3 2 GPIO_ACTIVE_HIGH>;	/* reset cam_fld = GPIO_98 */
+		resetb-gpios = <&gpio3 2 GPIO_ACTIVE_LOW>;	/* reset cam_fld = GPIO_98 */
 		pwdn-gpios = <&gpio6 7 GPIO_ACTIVE_HIGH>;	/* pwdn cam_wen = GPIO_167 */
 		avdd-supply = <&vaux3>;
 		clocks = <&isp 0>;	/* cam_clka */
@@ -956,13 +956,15 @@
 		port {
 			ov9655: endpoint {
 				remote-endpoint = <&parallel_ep>;
-#if 0	// not used by camera driver - define &parellel_ep for isp
+#if 1
 				bus-width = <8>;
-				data-shift = <2>;	/* Lines 9:2 are used */
-				hsync-active = <1>;	/* Active high */
+			//	data-shift = <2>;	/* Lines 9:2 are used */
+				hsync-active = <0>;	/* Active low */
 				vsync-active = <1>;	/* Active high */
 				data-active = <1>;	/* Active high */
-				pclk-sample = <1>;	/* Rising */
+				pclk-sample = <1>;	/* No pclk reverse */
+				pclk-delay = <2>;	/* 4 ns */
+				output-drive = <3>;	/* 4x */
 #endif
 			};
 		};
@@ -1015,7 +1017,7 @@
 	hsync-active = <0>; /* Active low */
 	vsync-active = <1>; /* Active high */
 	data-active = <1>;/* Active high */
-	pclk-sample = <1>;/* Rising */
+	pclk-sample = <1>;/* Falling */
 };
 
 &uart3 { /* Console and IrDA /dev/ttyO2 */
