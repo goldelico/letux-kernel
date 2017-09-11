@@ -595,6 +595,7 @@ static void jzfb_convert_timing(struct display_timing *timing,
         pdata->num_modes = 1;
         pdata->modes = fbmode;
         pdata->pixclk_falling_edge = (mode.flags & DISPLAY_FLAGS_PIXDATA_NEGEDGE) ? 1 : 0;
+	pdata->date_enable_active_low = (mode.flags & DISPLAY_FLAGS_DE_LOW) ? 1 : 0;
 }
 
 static int jzfb_find_panel(struct platform_device *pdev, struct jz4740_fb_platform_data **pdaddr)
