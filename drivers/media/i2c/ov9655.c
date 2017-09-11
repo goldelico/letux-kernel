@@ -524,13 +524,13 @@ static int ov9655_reset(struct ov9655 *ov9655)
 		ov9655->hsync_active ? OV9655_COM10_HSYNC_NEG : 0);
 	dev_info(&client->dev, "%s: pclk_delay %d\n", __func__, ov9655->pclk_delay);
 	ret = ov9655_update_bits(client, OV9655_TSLB, OV9655_TSLB_PCLK_MASK,
-		((ov9655->pclk_delay << OV9655_TSLB_PCLK_OFFSET) & OV9655_TSLB_PCLK_MASK));
+		ov9655->pclk_delay << OV9655_TSLB_PCLK_OFFSET);
 
 	dev_info(&client->dev, "%s: clock_noncontinuous %d\n", __func__, ov9655->clock_noncontinuous);
 	ret = ov9655_update_bits(client, OV9655_COM10, OV9655_COM10_PCLK_GATE,
 		ov9655->clock_noncontinuous ? OV9655_COM10_PCLK_GATE : 0);
 	dev_info(&client->dev, "%s: slave_mode %d\n", __func__, ov9655->slave_mode);
-	ret = ov9655_update_bits(client, OV9655_TSLB, OV9655_COM10_SLAVE_MODE,
+	ret = ov9655_update_bits(client, OV9655_COM10, OV9655_COM10_SLAVE_MODE,
 		ov9655->slave_mode ? OV9655_COM10_SLAVE_MODE : 0);
 
 	dev_info(&client->dev, "%s: data_active %d\n", __func__, ov9655->data_active);
