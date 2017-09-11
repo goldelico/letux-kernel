@@ -507,6 +507,9 @@ static int ov9655_reset(struct ov9655 *ov9655)
 		return ret;
 		}
 
+	/* assume next writes succeed */
+	ret = ov9655_update_bits(client, OV9655_COM12, 0x80, 0x80);	/* set "always has href" */
+
 	dev_info(&client->dev, "%s: output_drive %d\n", __func__, ov9655->output_drive);
 	ret = ov9655_update_bits(client, OV9655_COM2, OV9655_COM2_STRENGTH,
 		ov9655->output_drive&OV9655_COM2_STRENGTH);
