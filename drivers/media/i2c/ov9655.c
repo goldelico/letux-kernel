@@ -1,7 +1,7 @@
 /*
  * Driver for OV9655 CMOS Image Sensor from OmniVision
- *
- * H. N. Schaller <hns@goldelico.com>
+ * 
+ * Copyright (C) 2017,H. N. Schaller <hns@goldelico.com>
  *
  * Based on Driver for MT9P031 CMOS Image Sensor from Aptina
  *
@@ -17,7 +17,7 @@
  */
 
 #define DEBUG 1
-#define USEI2C 1
+#define USEI2C 0
 
 #include <linux/clk.h>
 #include <linux/delay.h>
@@ -216,6 +216,9 @@ struct ov9655 {
 #define OV9655_LCC5			0x66
 #define OV9655_MANU			0x67
 #define OV9655_MANV			0x68
+#define OV9655_69			0x69	/* undocumented but must be changed for VGA */
+#define   OV9655_69_SXGA		0x02
+#define   OV9655_69_VGA		0x0a
 #define OV9655_BD50MAX			0x6A
 #define OV9655_DBLV			0x6B
 #define   OV9655_DBLV_BANDGAP_MASK	0x0F
@@ -320,6 +323,7 @@ struct ov9655 {
 #define SXGA	WH(SXGA_NUM_ACTIVE_PIXELS, SXGA_NUM_ACTIVE_LINES)
 #define VGA	WH(VGA_NUM_ACTIVE_PIXELS, VGA_NUM_ACTIVE_LINES)
 #define QVGA	WH(QVGA_NUM_ACTIVE_PIXELS, QVGA_NUM_ACTIVE_LINES)
+#define QQVGA	WH(VGA_NUM_ACTIVE_PIXELS/4, VGA_NUM_ACTIVE_LINES/4)
 #define CIF	WH(CIF_NUM_ACTIVE_PIXELS, CIF_NUM_ACTIVE_LINES)
 
 /* this is to compile the code to handle crop and probably needs to be FIXED */
@@ -339,6 +343,11 @@ struct ov9655 {
 #define OV9655_COLUMN_START_MAX	OV9655_MAX_WIDTH
 #define OV9655_COLUMN_START_DEF	0
 
+struct ov9655_pixfmt {
+	u32 code;
+	u32 colorspace;
+};
+
 struct ov9655_framesize {
 	u16 width;
 	u16 height;
@@ -347,11 +356,14 @@ struct ov9655_framesize {
 	u16 hend;
 	u16 vstart;
 	u16 vend;
-};
-
-struct ov9655_pixfmt {
-	u32 code;
-	u32 colorspace;
+	u8 resolution;
+	u8 pll;
+	u8 clkrc;
+	u8 aref3;
+	u8 r69;
+	u8 com19;
+	u8 scaling;
+	u8 refa9;
 };
 
 static const struct ov9655_framesize ov9655_framesizes[] = {
@@ -363,14 +375,30 @@ static const struct ov9655_framesize ov9655_framesizes[] = {
 		.hend		= 200+SXGA_NUM_ACTIVE_PIXELS,
 		.vstart		= 0,
 		.vend		= 0+SXGA_NUM_ACTIVE_LINES,
+		.resolution	= OV9655_COM7_SXGA,
+		.pll		= OV9655_DBLV_PLL_4X,
+		.clkrc		= 0,	/* compensate for PLL_4X (note this means: PCLK = XCLK x 4) */
+		.aref3		= 0xf9,
+		.r69		= OV9655_69_SXGA,
+		.com19		= 0,	/* seems as if we must reset the "reserved bit" for SXGA */
+		.scaling	= 0,	/* disable scaling */
+		.refa9		= 0x8d,
 	}, { /* VGA */
 		.width		= VGA_NUM_ACTIVE_PIXELS,
 		.height		= VGA_NUM_ACTIVE_LINES,
 		.fps		= 30,
-		.hstart		= 130,
-		.hend		= 130+VGA_NUM_ACTIVE_PIXELS,
-		.vstart		= 0,
-		.vend		= 0+VGA_NUM_ACTIVE_LINES,
+		.hstart		= 160,
+		.hend		= 160+VGA_NUM_ACTIVE_PIXELS,
+		.vstart		= 8,
+		.vend		= 8+VGA_NUM_ACTIVE_LINES,
+		.resolution	= OV9655_COM7_VGA,
+		.pll		= OV9655_DBLV_PLL_4X,
+		.clkrc		= 1,	/* VGA needs 1/4 of of SGXA pixel rate but has 30fps */
+		.aref3		= 0xfa,
+		.r69		= OV9655_69_VGA,
+		.com19		= 0x80,	/* seems as if we must set the "reserved bit" for VGA */
+		.scaling	= 0,	/* disable scaling */
+		.refa9		= 0xef,
 	}, { /* QVGA */
 		.width		= QVGA_NUM_ACTIVE_PIXELS,
 		.height		= QVGA_NUM_ACTIVE_LINES,
@@ -380,6 +408,31 @@ static const struct ov9655_framesize ov9655_framesizes[] = {
 		.hend		= 750,
 		.vstart		= 10,
 		.vend		= 550,
+		.resolution	= OV9655_COM7_VGA,
+		.pll		= OV9655_DBLV_PLL_4X,
+		.clkrc		= 3,	/* VGA needs 1/4 of of SGXA pixel rate but has 30fps */
+		.aref3		= 0xfa,
+		.r69		= OV9655_69_VGA,
+		.com19		= 0x80,	/* seems as if we must set the "reserved bit" for VGA */
+		.scaling	= 0,	/* disable scaling */
+		.refa9		= 0xef,
+	}, { /* QQVGA */
+		.width		= QVGA_NUM_ACTIVE_PIXELS/2,
+		.height		= QVGA_NUM_ACTIVE_PIXELS/2,
+		.fps		= 30,
+		/* TODO: fix me */
+		.hstart		= 154,
+		.hend		= 750,
+		.vstart		= 10,
+		.vend		= 550,
+		.resolution	= OV9655_COM7_VGA,
+		.pll		= OV9655_DBLV_PLL_4X,
+		.clkrc		= 7,	/* VGA needs 1/4 of of SGXA pixel rate but has 30fps */
+		.aref3		= 0xfa,
+		.r69		= OV9655_69_VGA,
+		.com19		= 0x80,	/* seems as if we must set the "reserved bit" for VGA */
+		.scaling	= 0,	/* disable scaling */
+		.refa9		= 0xef,
 	}, { /* CIF */
 		.width		= CIF_NUM_ACTIVE_PIXELS,
 		.height		= CIF_NUM_ACTIVE_LINES,
@@ -389,6 +442,14 @@ static const struct ov9655_framesize ov9655_framesizes[] = {
 		.hend		= 750,
 		.vstart		= 10,
 		.vend		= 550,
+		.resolution	= OV9655_COM7_VGA,
+		.pll		= OV9655_DBLV_PLL_4X,
+		.clkrc		= 3,	/* VGA needs 1/4 of of SGXA pixel rate but has 30fps */
+		.aref3		= 0xfa,
+		.r69		= OV9655_69_VGA,
+		.com19		= 0x80,	/* seems as if we must set the "reserved bit" for VGA */
+		.scaling	= 0,	/* disable scaling */
+		.refa9		= 0xef,
 	},
 };
 
@@ -458,6 +519,7 @@ static int ov9655_write(struct i2c_client *client, u8 reg, u8 data)
 
 	int ret = i2c_master_send(client, buf, 2);
 
+	dev_info(&client->dev, "OV9655 write register %02x : %02x\n", reg, data);
 	v4l2_dbg(2, true, client, "%s: 0x%02x @ 0x%02X (%d)\n",
 		__func__, reg, data, ret);
 
@@ -614,6 +676,7 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 	struct i2c_client *client = v4l2_get_subdevdata(&ov9655->subdev);
 	struct v4l2_mbus_framefmt *format = &ov9655->format;
 	const struct v4l2_rect *crop = &ov9655->crop;
+	int i;
 	int val, ret = 0;
 
 	dev_info(&client->dev, "%s\n", __func__);
@@ -660,120 +723,42 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 
 	/* set resolution */
 
-	switch (WH(format->width, format->height)) {
-
-	// FIXME: should we also set/change the pixel clock here?
-
-	case SXGA:
-		dev_info(&client->dev, "SXGA\n");
-		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_RES_MASK, OV9655_COM7_SXGA);
-		ov9655_write(client, OV9655_HSYST, 0x08);	/* adjust sync */
-		ov9655_write(client, OV9655_HSYEN, 0x48);	/* adjust sync */
-		ret = ov9655_write(client, OV9655_CLKRC, 0);	/* compensate for PLL_4X (note this means: PCLK = XCLK x 4) */
-		ret = ov9655_update_bits(client, OV9655_DBLV, OV9655_DBLV_PLL_MASK, OV9655_DBLV_PLL_4X);
-#if 0	// stuff from other driver without knowing if that is good or bad
-	// fixme: define macros that split a 11 bit row/col position into higher bytes and HREF/VREF
-	{ OV9655_HSTART, 0x1d },
-	{ OV9655_HSTOP, 0xbd },
-	{ OV9655_HREF, 0xff },
-	{ OV9655_VSTART, 0x01 },
-	{ OV9655_VSTOP, 0x81 },
-	{ OV9655_VREF, 0x1b },	// vertical frame control
-	{ OV9655_COM14, 0x0c },	// zoom and üoxeö correction
-	{ OV9655_COM16, 0x00 },	// scaling
-	{ OV9655_POIDX, 0x00 },	// skip lines
-	{ OV9655_PCKDV, 0x00 },	// pixel clock divisor (48 MHz)
-	{ OV9655_XINDX, 0x3a },	// scale down
-	{ OV9655_YINDX, 0x35 },	// scale down
-	{ OV9655_COM24, 0x80 },	// pixel clock frequency
-#endif
-		break;
-	case VGA:
-		dev_info(&client->dev, "VGA\n");
-		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_RES_MASK, OV9655_COM7_VGA);
-		ret = ov9655_update_bits(client, OV9655_DBLV, OV9655_DBLV_PLL_MASK, OV9655_DBLV_PLL_4X);
-		ret = ov9655_write(client, OV9655_CLKRC, 0x01);	/* VGA needs 1/4 of of SGXA pixel rate but has 30fps */
-#if 0	// stuff from other driver without knowing if that is good or bad
-	{ OV9655_HSTART, 0x16 },
-	{ OV9655_HSTOP, 0x02 },
-	{ OV9655_HREF, 0xff },
-	{ OV9655_VSTART, 0x01 },
-	{ OV9655_VSTOP, 0x3d },
-	{ OV9655_VREF, 0x12 },	// vertical frame control - mixed with AGC
-	{ OV9655_COM14, 0x0c },	// pixel correction and zoom
-	{ OV9655_COM16, 0x00 },	// no scaling
-	{ OV9655_POIDX, 0x00 },	// normal output
-	{ OV9655_PCKDV, 0x00 },	// pixel clock divisor (48 MHz / (2^(1)) -> 24 MHz)
-	{ OV9655_XINDX, 0x3a },	// scale down
-	{ OV9655_YINDX, 0x35 },	// scale down
-	{ OV9655_COM24, 0x80 },	// pixel clock frequency
-#endif
-		break;
-	case QVGA:
-		dev_info(&client->dev, "QVGA\n");
-		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_RES_MASK, OV9655_COM7_VGA);
-		ret = ov9655_write(client, OV9655_CLKRC, 0x03);	/* QVGA needs 1/4 of of VGA pixel rate */
-		ret = ov9655_update_bits(client, OV9655_DBLV, OV9655_DBLV_PLL_MASK, OV9655_DBLV_PLL_4X);
-		// we need more settings - COM14 ZOOM + COM18 ZOOM
-#if 0	// stuff from other driver without knowing if that is good or bad
-	{ OV9655_HSTART, 0x18 },
-	{ OV9655_HSTOP, 0x04 },
-	{ OV9655_HREF, 0x2a },	// lower bits of hstart/stop
-	{ OV9655_VSTART, 0x01 },
-	{ OV9655_VSTOP, 0x81 },
-	{ OV9655_VREF, 0x02 },	// vertical frame control - mixed with AGC
-	{ OV9655_COM14, 0x0e },	// pixel correction and zoom
-	{ OV9655_COM16, 0x01 },	// enable scaling
-	{ OV9655_POIDX, 0x11 },	// 1 line every 2 px
-	{ OV9655_PCKDV, 0x02 },	// pixel clock divisor
-	{ OV9655_XINDX, 0x10 },	// scale down
-	{ OV9655_YINDX, 0x10 },	// scale down
-	{ OV9655_COM24, 0x81 },	// pixel clock frequency
-#endif
-		break;
-	case CIF:
-		dev_info(&client->dev, "CIF\n");
-		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_RES_MASK, OV9655_COM7_VGA);
-		ret = ov9655_write(client, OV9655_CLKRC, 0x03);	/* QVGA needs 1/4 of of VGA pixel rate */
-		ret = ov9655_update_bits(client, OV9655_DBLV, OV9655_DBLV_PLL_MASK, OV9655_DBLV_PLL_4X);
-		// we need more settings
-#if 0	// stuff from other driver without knowing if that is good or bad
-	{ OV9655_HSTART, 0x18 },
-	{ OV9655_HSTOP, 0x04 },
-	{ OV9655_HREF, 0xa4 },
-	{ OV9655_VSTART, 0x01 },
-	{ OV9655_VSTOP, 0x81 },
-	{ OV9655_VREF, 0x02 },	// vertical frame control - mixed with AGC
-	{ OV9655_COM14, 0x0e },	// pixel correction and zoom
-	{ OV9655_COM16, 0x01 },	// enable scaling
-	{ OV9655_POIDX, 0x22 },	// 1 line every 4 px
-	{ OV9655_PCKDV, 0x03 },	// pixel clock divisor
-	{ OV9655_XINDX, 0x10 },	// scale down
-	{ OV9655_YINDX, 0x10 },	// scale down
-	{ OV9655_COM24, 0x82 },	// pixel clock frequency
-#endif
-		break;
-	}
-
-	int i = ARRAY_SIZE(ov9655_framesizes);
+	i = ARRAY_SIZE(ov9655_framesizes);
 
 	while (--i)
 		/* width is unique enough */
 		if (format->width == ov9655_framesizes[i].width)
 			break;
 
+	ret = ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_RES_MASK, ov9655_framesizes[i].resolution);
+
+	if (format->code == MEDIA_BUS_FMT_SGRBG12_1X12)
+		;	/* adjust pixel clock for 12 bit wide (raw rgb) interface
+
+	ret = ov9655_write(client, OV9655_CLKRC, ov9655_framesizes[i].clkrc);
+	ret = ov9655_update_bits(client, OV9655_DBLV, OV9655_DBLV_PLL_MASK, ov9655_framesizes[i].pll);
+	ret = ov9655_write(client, OV9655_AREF3, ov9655_framesizes[i].aref3);
+	ret = ov9655_write(client, OV9655_69, ov9655_framesizes[i].r69);
+	ret = ov9655_update_bits(client, OV9655_COM19, 0x80, ov9655_framesizes[i].com19);
+	ret = ov9655_update_bits(client, OV9655_COM16, OV9655_COM16_SCALING, ov9655_framesizes[i].scaling);
+	if (ov9655_framesizes[i].scaling) {
+		// FIXME: set scaling factors and clock dividers like 
+		// POIDX, XINDX, YINDX and increase PCKDV and COM24
+	}
+	ret = ov9655_write(client, OV9655_REFA9, ov9655_framesizes[i].refa9);
 	val = ov9655_framesizes[i].hstart;
-	ov9655_write(client, OV9655_HSTART, val >> 3);	/* image size upper 8 bit */
-	ov9655_update_bits(client, OV9655_HREF, OV9655_VREF_START, val);	/* image size lower 3 bit */
+	ret = ov9655_write(client, OV9655_HSTART, val >> 3);	/* image size upper 8 bit */
+	ret = ov9655_update_bits(client, OV9655_HREF, OV9655_VREF_START, val);	/* image size lower 3 bit */
+// CHECKME: isn't this always hstart + width?
 	val = ov9655_framesizes[i].hend;
-	ov9655_write(client, OV9655_HSTOP, val >> 3);	/* image size upper 8 bit */
-	ov9655_update_bits(client, OV9655_HREF, OV9655_VREF_END, val << 3);		/* image size lower 3 bit */
+	ret = ov9655_write(client, OV9655_HSTOP, val >> 3);	/* image size upper 8 bit */
+	ret = ov9655_update_bits(client, OV9655_HREF, OV9655_VREF_END, val << 3);		/* image size lower 3 bit */
 	val = ov9655_framesizes[i].vstart;
-	ov9655_write(client, OV9655_VSTART, val >> 3);	/* image size upper 8 bit */
-	ov9655_update_bits(client, OV9655_VREF, OV9655_VREF_START, val);	/* image size lower 3 bit */
+	ret = ov9655_write(client, OV9655_VSTART, val >> 3);	/* image size upper 8 bit */
+	ret = ov9655_update_bits(client, OV9655_VREF, OV9655_VREF_START, val);	/* image size lower 3 bit */
 	val = ov9655_framesizes[i].vend;
-	ov9655_write(client, OV9655_VSTOP, val >> 3);	/* image size upper 8 bit */
-	ov9655_update_bits(client, OV9655_VREF, OV9655_VREF_END, val << 3);		/* image size lower 3 bit */
+	ret = ov9655_write(client, OV9655_VSTOP, val >> 3);	/* image size upper 8 bit */
+	ret = ov9655_update_bits(client, OV9655_VREF, OV9655_VREF_END, val << 3);		/* image size lower 3 bit */
 
 	/* set data format */
 
@@ -781,59 +766,41 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 
 	switch (format->code) {
 	case MEDIA_BUS_FMT_UYVY8_2X8:
-		ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, 0x00);	/* no swap */
-		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_FMT_MASK, OV9655_COM7_YUV);	/* choose YUV */
-		ov9655_update_bits(client, OV9655_TSLB, OV9655_TSLB_YUV_MASK, OV9655_TSLB_VYUY);	/* UYVY8 byte order */
-#if 0	// stuff from other driver without knowing if that is good or bad
-	{ OV9655_MTX1, 0x80 },
-	{ OV9655_MTX2, 0x80 },
-	{ OV9655_MTX3, 0x00 },
-	{ OV9655_MTX4, 0x22 },
-	{ OV9655_MTX5, 0x5e },
-	{ OV9655_MTX6, 0x80 },
-	{ OV9655_MTXS, 0x1e },
-#endif
+		ret = ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, 0x00);	/* no swap */
+		ret = ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_FMT_MASK, OV9655_COM7_YUV);	/* choose YUV */
+		ret = ov9655_update_bits(client, OV9655_TSLB, OV9655_TSLB_YUV_MASK, OV9655_TSLB_UYVY);	/* UYV8 byte order */
 		break;
 	case MEDIA_BUS_FMT_VYUY8_2X8:
-		ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, 0x00);	/* no swap */
-		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_FMT_MASK, OV9655_COM7_YUV);	/* choose YUV */
-		ov9655_update_bits(client, OV9655_TSLB, OV9655_TSLB_YUV_MASK, OV9655_TSLB_VYUY);	/* VYUY byte order */
+		ret = ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, 0x00);	/* no swap */
+		ret = ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_FMT_MASK, OV9655_COM7_YUV);	/* choose YUV */
+		ret = ov9655_update_bits(client, OV9655_TSLB, OV9655_TSLB_YUV_MASK, OV9655_TSLB_VYUY);	/* VYUY byte order */
 		break;
 	case MEDIA_BUS_FMT_YUYV8_2X8:
-		ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, 0x00);	/* no swap */
-		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_FMT_MASK, OV9655_COM7_YUV);	/* choose YUV */
-		ov9655_update_bits(client, OV9655_TSLB, OV9655_TSLB_YUV_MASK, OV9655_TSLB_YUYV);	/* YUYV byte order */
+		ret = ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, 0x00);	/* no swap */
+		ret = ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_FMT_MASK, OV9655_COM7_YUV);	/* choose YUV */
+		ret = ov9655_update_bits(client, OV9655_TSLB, OV9655_TSLB_YUV_MASK, OV9655_TSLB_YUYV);	/* YUYV byte order */
 		break;
 	case MEDIA_BUS_FMT_YVYU8_2X8:
-		ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, 0x00);	/* no swap */
-		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_FMT_MASK, OV9655_COM7_YUV);	/* choose YUV */
-		ov9655_update_bits(client, OV9655_TSLB, OV9655_TSLB_YUV_MASK, OV9655_TSLB_YVYU);	/* YVYU byte order */
+		ret = ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, 0x00);	/* no swap */
+		ret = ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_FMT_MASK, OV9655_COM7_YUV);	/* choose YUV */
+		ret = ov9655_update_bits(client, OV9655_TSLB, OV9655_TSLB_YUV_MASK, OV9655_TSLB_YVYU);	/* YVYU byte order */
 		break;
 	case MEDIA_BUS_FMT_RGB565_2X8_LE:
-		ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, 0x00);	/* no swap */
-		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_FMT_MASK, OV9655_COM7_RGB);	/* choose RGB */
-		ov9655_update_bits(client, OV9655_COM15, OV9655_COM15_RGB_MASK, OV9655_COM15_RGB565);	// RGB565
-#if 0	// stuff from other driver without knowing if that is good or bad
-	//	{ OV9655_MTX1, 0x98 },
-	{ OV9655_MTX2, 0x98 },
-	{ OV9655_MTX3, 0x00 },
-	{ OV9655_MTX4, 0x28,},
-	{ OV9655_MTX5, 0x70 },
-	{ OV9655_MTX6, 0x98 },
-	{ OV9655_MTXS, 0x1a },
-#endif
+		ret = ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, 0x00);	/* no swap */
+		ret = ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_FMT_MASK, OV9655_COM7_RGB);	/* choose RGB */
+		ret = ov9655_update_bits(client, OV9655_COM15, OV9655_COM15_RGB_MASK, OV9655_COM15_RGB565);	// RGB565
 		break;
 	case MEDIA_BUS_FMT_RGB565_2X8_BE:
-		ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, OV9655_COM3_SWAP);	/* swap */
-		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_FMT_MASK, OV9655_COM7_RGB);	/* choose RGB */
-		ov9655_update_bits(client, OV9655_COM15, OV9655_COM15_RGB_MASK, OV9655_COM15_RGB565);	// RGB565
+		ret = ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, OV9655_COM3_SWAP);	/* swap */
+		ret = ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_FMT_MASK, OV9655_COM7_RGB);	/* choose RGB */
+		ret = ov9655_update_bits(client, OV9655_COM15, OV9655_COM15_RGB_MASK, OV9655_COM15_RGB565);	// RGB565
 		break;
 #if 0
 	case MEDIA_BUS_FMT_SGRBG12_1X12:
-		ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, 0x00);	/* no swap */
-		ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_FMT_MASK, OV9655_COM7_RAW);	/* choose raw RGB */
-		ov9655_update_bits(client, OV9655_COM15, OV9655_COM15_RGB_MASK, OV9655_COM15_RGB555);	// RGB555
-		// FIXME: wemust probably adjust pixel clock by factor 2
+		ret = ov9655_update_bits(client, OV9655_COM3, OV9655_COM3_SWAP, 0x00);	/* no swap */
+		ret = ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_FMT_MASK, OV9655_COM7_RAW);	/* choose raw RGB */
+		ret = ov9655_update_bits(client, OV9655_COM15, OV9655_COM15_RGB_MASK, OV9655_COM15_RGB555);	// RGB555
+		// FIXME: we must probably adjust pixel clock by factor 2
 		break;
 #endif
 	default:
