@@ -357,13 +357,8 @@ struct ov9655_framesize {
 	u16 vstart;
 	u16 vend;
 	u8 resolution;
-	u8 pll;
 	u8 clkrc;
-	u8 aref3;
-	u8 r69;
-	u8 com19;
 	u8 scaling;
-	u8 refa9;
 };
 
 static const struct ov9655_framesize ov9655_framesizes[] = {
@@ -376,13 +371,8 @@ static const struct ov9655_framesize ov9655_framesizes[] = {
 		.vstart		= 0,
 		.vend		= 0+SXGA_NUM_ACTIVE_LINES,
 		.resolution	= OV9655_COM7_SXGA,
-		.pll		= OV9655_DBLV_PLL_4X,
 		.clkrc		= 0,	/* compensate for PLL_4X (note this means: PCLK = XCLK x 4) */
-		.aref3		= 0xf9,
-		.r69		= OV9655_69_SXGA,
-		.com19		= 0,	/* seems as if we must reset the "reserved bit" for SXGA */
 		.scaling	= 0,	/* disable scaling */
-		.refa9		= 0x8d,
 	}, { /* VGA */
 		.width		= VGA_NUM_ACTIVE_PIXELS,
 		.height		= VGA_NUM_ACTIVE_LINES,
@@ -392,13 +382,8 @@ static const struct ov9655_framesize ov9655_framesizes[] = {
 		.vstart		= 8,
 		.vend		= 8+VGA_NUM_ACTIVE_LINES,
 		.resolution	= OV9655_COM7_VGA,
-		.pll		= OV9655_DBLV_PLL_4X,
 		.clkrc		= 1,	/* VGA needs 1/4 of of SGXA pixel rate but has 30fps */
-		.aref3		= 0xfa,
-		.r69		= OV9655_69_VGA,
-		.com19		= 0x80,	/* seems as if we must set the "reserved bit" for VGA */
 		.scaling	= 0,	/* disable scaling */
-		.refa9		= 0xef,
 	}, { /* QVGA */
 		.width		= QVGA_NUM_ACTIVE_PIXELS,
 		.height		= QVGA_NUM_ACTIVE_LINES,
@@ -409,13 +394,8 @@ static const struct ov9655_framesize ov9655_framesizes[] = {
 		.vstart		= 10,
 		.vend		= 550,
 		.resolution	= OV9655_COM7_VGA,
-		.pll		= OV9655_DBLV_PLL_4X,
 		.clkrc		= 3,	/* VGA needs 1/4 of of SGXA pixel rate but has 30fps */
-		.aref3		= 0xfa,
-		.r69		= OV9655_69_VGA,
-		.com19		= 0x80,	/* seems as if we must set the "reserved bit" for VGA */
-		.scaling	= 0,	/* disable scaling */
-		.refa9		= 0xef,
+		.scaling	= 1,	/* enable scaling */
 	}, { /* QQVGA */
 		.width		= QVGA_NUM_ACTIVE_PIXELS/2,
 		.height		= QVGA_NUM_ACTIVE_PIXELS/2,
@@ -426,13 +406,8 @@ static const struct ov9655_framesize ov9655_framesizes[] = {
 		.vstart		= 10,
 		.vend		= 550,
 		.resolution	= OV9655_COM7_VGA,
-		.pll		= OV9655_DBLV_PLL_4X,
 		.clkrc		= 7,	/* VGA needs 1/4 of of SGXA pixel rate but has 30fps */
-		.aref3		= 0xfa,
-		.r69		= OV9655_69_VGA,
-		.com19		= 0x80,	/* seems as if we must set the "reserved bit" for VGA */
-		.scaling	= 0,	/* disable scaling */
-		.refa9		= 0xef,
+		.scaling	= 1,	/* enable scaling */
 	}, { /* CIF */
 		.width		= CIF_NUM_ACTIVE_PIXELS,
 		.height		= CIF_NUM_ACTIVE_LINES,
@@ -443,13 +418,8 @@ static const struct ov9655_framesize ov9655_framesizes[] = {
 		.vstart		= 10,
 		.vend		= 550,
 		.resolution	= OV9655_COM7_VGA,
-		.pll		= OV9655_DBLV_PLL_4X,
 		.clkrc		= 3,	/* VGA needs 1/4 of of SGXA pixel rate but has 30fps */
-		.aref3		= 0xfa,
-		.r69		= OV9655_69_VGA,
-		.com19		= 0x80,	/* seems as if we must set the "reserved bit" for VGA */
-		.scaling	= 0,	/* disable scaling */
-		.refa9		= 0xef,
+		.scaling	= 1,	/* enable scaling */
 	},
 };
 
@@ -678,6 +648,7 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 	const struct v4l2_rect *crop = &ov9655->crop;
 	int i;
 	int val, ret = 0;
+	int is_sxga;
 
 	dev_info(&client->dev, "%s\n", __func__);
 
@@ -732,20 +703,23 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 
 	ret = ov9655_update_bits(client, OV9655_COM7, OV9655_COM7_RES_MASK, ov9655_framesizes[i].resolution);
 
+	is_sxga = (ov9655_framesizes[i].resolution == OV9655_COM7_SXGA);
+
 	if (format->code == MEDIA_BUS_FMT_SGRBG12_1X12)
 		;	/* adjust pixel clock for 12 bit wide (raw rgb) interface
 
+	ret = ov9655_update_bits(client, OV9655_DBLV, OV9655_DBLV_PLL_MASK, OV9655_DBLV_PLL_4X);
+
 	ret = ov9655_write(client, OV9655_CLKRC, ov9655_framesizes[i].clkrc);
-	ret = ov9655_update_bits(client, OV9655_DBLV, OV9655_DBLV_PLL_MASK, ov9655_framesizes[i].pll);
-	ret = ov9655_write(client, OV9655_AREF3, ov9655_framesizes[i].aref3);
-	ret = ov9655_write(client, OV9655_69, ov9655_framesizes[i].r69);
-	ret = ov9655_update_bits(client, OV9655_COM19, 0x80, ov9655_framesizes[i].com19);
+	ret = ov9655_write(client, OV9655_AREF3, is_sxga ? 0xf9 : 0xfa);
+	ret = ov9655_write(client, OV9655_69, is_sxga ? OV9655_69_SXGA : OV9655_69_VGA);
+	ret = ov9655_update_bits(client, OV9655_COM19, 0x80, is_sxga ? 0 : 0x80);
+	ret = ov9655_write(client, OV9655_REFA9, is_sxga ? 0x8d : 0xef);
 	ret = ov9655_update_bits(client, OV9655_COM16, OV9655_COM16_SCALING, ov9655_framesizes[i].scaling);
 	if (ov9655_framesizes[i].scaling) {
 		// FIXME: set scaling factors and clock dividers like 
 		// POIDX, XINDX, YINDX and increase PCKDV and COM24
 	}
-	ret = ov9655_write(client, OV9655_REFA9, ov9655_framesizes[i].refa9);
 	val = ov9655_framesizes[i].hstart;
 	ret = ov9655_write(client, OV9655_HSTART, val >> 3);	/* image size upper 8 bit */
 	ret = ov9655_update_bits(client, OV9655_HREF, OV9655_VREF_START, val);	/* image size lower 3 bit */
