@@ -29,7 +29,7 @@
 	};
 
 	tv: connector {
-		compatible = "connector-analog-tv";
+		compatible = "svideo-connector";
 		label = "tv";
 
 		port {
@@ -237,13 +237,6 @@
 		compatible = "ti,twl4030-madc-hwmon";
 	};
 
-	battery: battery {
-		compatible = "ti,twl4030-madc-battery";
-		capacity = <4000000>;
-		charging-calibration-data = <4200 100 4100 75 4000 55 3900 25 3800 5 3700 2 3600 1 3300 0>;
-		discharging-calibration-data = <4200 100 4100 95 4000 70 3800 50 3700 10 3600 5 3300 0>;
-	};
-
 	control: control@48002270 {
 		compatible = "ti,omap3-devconf1-syscon", "syscon";
 		reg = <0x48002270 0x74>;
@@ -280,6 +273,14 @@
 		enable-active-high;
 		gpio = <&twl_gpio 13 GPIO_ACTIVE_HIGH>;
 	};
+
+	/* standard OpenPandora battery (PB-4000-001) */
+	bat: battery {
+		compatible = "simple-battery", "openpandora-battery";
+		voltage-min-design-microvolt = <3200000>;
+		energy-full-design-microwatt-hours = <14800000>;
+		charge-full-design-microamp-hours = <4000000>;
+	};
 };
 
 &omap3_pmx_core {
@@ -287,7 +288,6 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <
 		&hsusb2_pins
-		&control_pins
 	>;
 
 	mmc1_pins: pinmux_mmc1_pins {
@@ -522,7 +522,7 @@
 	regulator-max-microvolt = <2800000>;
 };
 
-/* ADS7846 and nubs */
+/* ADS7846 and nubs and mma7455 */
 &vaux4 {
 	regulator-min-microvolt = <2800000>;
 	regulator-max-microvolt = <2800000>;
@@ -544,14 +544,36 @@
 	clock-frequency = <100000>;
 
 	bq27500@55 {
-		compatible = "ti,bq27500";
+		compatible = "ti,bq27500-1";
 		reg = <0x55>;
+		monitored-battery = <&bat>;
 	};
 
-	/*
-	 * 2 nubs
-	 * mma7455
-	 */
+	mma7455@1d {
+		compatible = "fsl,mma7455";
+		reg = <0x1d>;
+	};
+
+	vsense-left@66 {
+		compatible = "pandora,pandora-nub";
+		vcc-supply = <&vaux4>;
+		reg = <0x66>;
+		gpios = <&gpio6 1 GPIO_ACTIVE_LOW>,	/* GPIO_161 */
+			<&gpio5 28 GPIO_ACTIVE_LOW>;	/* GPIO_156 */
+		interrupt-parent = <&gpio6>;
+		interrupts = <1 IRQ_TYPE_EDGE_RISING>;	/* GPIO_161 low-to-high edge */
+	};
+
+	vsense-right@67 {
+		compatible = "pandora,pandora-nub";
+		vcc-supply = <&vaux4>;
+		reg = <0x67>;
+		gpios = <&gpio6 2 GPIO_ACTIVE_LOW>,	/* GPIO_162 */
+			<&gpio5 28 GPIO_ACTIVE_LOW>;	/* GPIO_156 */
+		interrupt-parent = <&gpio6>;
+		interrupts = <2 IRQ_TYPE_EDGE_RISING>;	/* GPIO_162 low-to-high edge */
+	};
+
 };
 
 &usb_otg_hs {
@@ -700,10 +722,19 @@
 		pendown-gpio = <&gpio3 30 GPIO_ACTIVE_HIGH>;
 		vcc-supply = <&vaux4>;
 
-		ti,x-min = /bits/ 16 <0>;
-		ti,x-max = /bits/ 16 <8000>;
-		ti,y-min = /bits/ 16 <0>;
-		ti,y-max = /bits/ 16 <4800>;
+		touchscreen-size-x = <800>;
+		touchscreen-size-y = <480>;
+		touchscreen-max-pressure = <1000>;
+		touchscreen-fuzz-x = <16>;
+		touchscreen-fuzz-y = <16>;
+		touchscreen-fuzz-pressure = <10>;
+		touchscreen-inverted-x;
+		touchscreen-inverted-y;
+
+		ti,x-min = /bits/ 16 <160>;
+		ti,x-max = /bits/ 16 <3900>;
+		ti,y-min = /bits/ 16 <220>;
+		ti,y-max = /bits/ 16 <3750>;
 		ti,x-plate-ohms = /bits/ 16 <40>;
 		ti,pressure-max = /bits/ 16 <255>;
 
