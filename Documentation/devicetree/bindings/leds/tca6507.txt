@@ -8,20 +8,22 @@ Required properties:
 
 Optional properties:
 - gpio-controller: allows lines to be used as output-only GPIOs.
+    The gpios are numbered 0, 1, É - but not directly related to the
+    led line (reg property).
 - #gpio-cells: if present, must not be 0.
 
 Each led is represented as a sub-node of the ti,tca6507 device.
 
 LED sub-node properties:
 - label : (optional) see Documentation/devicetree/bindings/leds/common.txt
-- reg : number of LED line (could be from 0 to 6)
+- reg : number of LED line (could be from 0 to 6, use a 7 to make the entry ignored)
 - linux,default-trigger : (optional)
    see Documentation/devicetree/bindings/leds/common.txt
 - compatible: either "led" (the default) or "gpio".
 
 Examples:
 
-tca6507@45 {
+tca_gpios: tca6507@45 {
 	compatible = "ti,tca6507";
 	#address-cells = <1>;
 	#size-cells = <0>;
@@ -37,8 +39,13 @@ tca6507@45 {
 
 	led1: green-aux@1 {
 		label = "green:aux";
+		compatible = "led";
 		reg = <0x5>;
 		linux,default-trigger = "default-on";
+	};
+
+	led3: red-power@1 {
+		reg = <0x7>;
 	};
 
 	wifi-reset@6 {
@@ -47,3 +54,6 @@ tca6507@45 {
 	};
 };
 
+&mmc2 {
+	reset-gpios = <&tca_gpios 0 GPIO_ACTIVE_LOW>;	/* gpio 0 is tca6507 line 6 */
+};
