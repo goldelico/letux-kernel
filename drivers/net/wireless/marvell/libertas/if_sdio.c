@@ -125,6 +125,7 @@ struct if_sdio_card {
 	struct work_struct	packet_worker;
 
 	u8			rx_unit;
+	int			restore_on_resume;
 };
 
 static void if_sdio_finish_power_on(struct if_sdio_card *card);
@@ -814,7 +815,8 @@ static void if_sdio_finish_power_on(struct if_sdio_card *card)
 			card->started = true;
 			/* Tell PM core that we don't need the card to be
 			 * powered now */
-			pm_runtime_put(&func->dev);
+			if (func->card->host->caps & MMC_CAP_POWER_OFF_CARD)
+				pm_runtime_put(&func->dev);
 		}
 	}
 
@@ -1070,7 +1072,8 @@ static int if_sdio_power_save(struct lbs_private *priv)
 	ret = if_sdio_power_off(card);
 
 	/* Let runtime PM know the card is powered off */
-	pm_runtime_put_sync(&card->func->dev);
+	if (card->func->card->host->caps & MMC_CAP_POWER_OFF_CARD)
+		pm_runtime_put_sync(&card->func->dev);
 
 	return ret;
 }
@@ -1081,7 +1084,8 @@ static int if_sdio_power_restore(struct lbs_private *priv)
 	int r;
 
 	/* Make sure the card will not be powered off by runtime PM */
-	pm_runtime_get_sync(&card->func->dev);
+	if (card->func->card->host->caps & MMC_CAP_POWER_OFF_CARD)
+		pm_runtime_get_sync(&card->func->dev);
 
 	r = if_sdio_power_on(card);
 	if (r)
@@ -1249,7 +1253,8 @@ static void if_sdio_remove(struct sdio_func *func)
 	card = sdio_get_drvdata(func);
 
 	/* Undo decrement done above in if_sdio_probe */
-	pm_runtime_get_noresume(&func->dev);
+	if (func->card->host->caps & MMC_CAP_POWER_OFF_CARD)
+		pm_runtime_get_noresume(&func->dev);
 
 	if (user_rmmod && (card->model == MODEL_8688)) {
 		/*
@@ -1327,7 +1332,7 @@ static int if_sdio_suspend(struct device *dev)
 	if (!(flags & MMC_PM_KEEP_POWER)) {
 		dev_err(dev, "%s: cannot remain alive while host is suspended\n",
 			sdio_func_id(func));
-		return -ENOSYS;
+		return 0/*-ENOSYS*/;
 	}
 
 	ret = sdio_set_host_pm_flags(func, MMC_PM_KEEP_POWER);
@@ -1346,7 +1351,9 @@ static int if_sdio_resume(struct device *dev)
 	struct sdio_func *func = dev_to_sdio_func(dev);
 	struct if_sdio_card *card = sdio_get_drvdata(func);
 	int ret;
-
+	if (card->restore_on_resume)
+		if_sdio_power_on(card);
+	return 0;
 	dev_info(dev, "%s: resume: we're back\n", sdio_func_id(func));
 
 	if (card->priv->power_up_on_resume) {
