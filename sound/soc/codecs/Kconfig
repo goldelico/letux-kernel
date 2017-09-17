@@ -1345,6 +1345,12 @@ config SND_SOC_TPA6130A2
 	tristate "Texas Instruments TPA6130A2 headphone amplifier"
 	depends on I2C
 
+config SND_SOC_WM2000
+	tristate
+
+config SND_SOC_WM9090
+	tristate
+
 config SND_SOC_GTM601
 	tristate
 	help
@@ -1359,4 +1365,5 @@ config SND_SOC_W2CBW003
 	tristate
 	help
 	  PCM interface to Bluetooth part of W2CBW003. Does not control the bluetooth headset link.
+
 endmenu
