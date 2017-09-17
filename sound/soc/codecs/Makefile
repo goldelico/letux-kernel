@@ -144,6 +144,8 @@ snd-soc-es9356-y := es9356.o
 snd-soc-framer-y := framer-codec.o
 snd-soc-fs-amp-lib-y := fs-amp-lib.o
 snd-soc-fs210x-y := fs210x.o
+
+# GTA04
 snd-soc-gtm601-y := gtm601.o
 snd-soc-hdac-hdmi-y := hdac_hdmi.o
 snd-soc-hdac-hda-y := hdac_hda.o
