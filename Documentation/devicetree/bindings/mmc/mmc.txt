@@ -21,6 +21,9 @@ Optional properties:
   below for the case, when a GPIO is used for the CD line
 - wp-inverted: when present, polarity on the WP line is inverted. See the note
   below for the case, when a GPIO is used for the WP line
+- reset-gpios: Specify a GPIO to be asserted during power-up. This is
+  useful is power is not actually removed (e.g. due to shared
+  regulator) but a reset is needed before reconfiguration.
 - disable-wp: When set no physical WP line is present. This property should
   only be specified when the controller has a dedicated write-protect
   detection logic. If a GPIO is always used for the write-protect detection
