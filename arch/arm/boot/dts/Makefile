@@ -576,6 +576,7 @@ dtb-$(CONFIG_ARCH_OMAP3) += \
 	omap3-gta04a3.dtb \
 	omap3-gta04a4.dtb \
 	omap3-gta04a5.dtb \
+	omap3-gta04a5one.dtb \
 	omap3-gta04a3+b2.dtb \
 	omap3-gta04a4+b2.dtb \
 	omap3-gta04a4+b3.dtb \
@@ -632,6 +633,7 @@ dtb-$(CONFIG_SOC_AM33XX) += \
 	am335x-boneblack.dtb \
 	am335x-boneblack-wireless.dtb \
 	am335x-boneblue.dtb \
+	am335x-boneblack+letux.dtb \
 	am335x-bonegreen.dtb \
 	am335x-bonegreen-wireless.dtb \
 	am335x-chiliboard.dtb \
@@ -639,6 +641,7 @@ dtb-$(CONFIG_SOC_AM33XX) += \
 	am335x-evm.dtb \
 	am335x-evmsk.dtb \
 	am335x-icev2.dtb \
+	am335x-letux-cortex8.dtb \
 	am335x-lxm.dtb \
 	am335x-moxa-uc-8100-me-t.dtb \
 	am335x-nano.dtb \
@@ -671,10 +674,14 @@ dtb-$(CONFIG_SOC_OMAP5) += \
 	omap5-cm-t54.dtb \
 	omap5-igep0050.dtb \
 	omap5-sbc-t54.dtb \
-	omap5-pyra.dtb omap5-pyra+lg.dtb omap5-pyra+boe.dtb omap5-pyra+succ.dtb omap5-pyra+ssd+boe.dtb omap5-pyra+ssd+succ.dtb \
-	omap5-pyra-brokenevm.dtb \
-	omap5-letux-cortex15-v4.9.dtb omap5-letux-cortex15-v4.9+pyra.dtb \
-	omap5-letux-cortex15.dtb omap5-letux-cortex15+pyra.dtb \
+	omap5-uevm+pyra4.dtb omap5-uevm+pyra4+lg.dtb omap5-uevm+pyra4+boe.dtb omap5-uevm+pyra4+succ.dtb omap5-uevm+pyra4+ssd+boe.dtb omap5-uevm+pyra4+ssd+succ.dtb \
+	omap5-uevm-broken+pyra4.dtb \
+	omap5-letux-cortex15-v4.9.dtb omap5-letux-cortex15-v4.9+pyra-v5.0.dtb \
+	omap5-letux-cortex15-v5.0.dtb omap5-letux-cortex15-v5.0+pyra-v5.0.dtb \
+	omap5-letux-cortex15-v5.1+pyra-v5.0.dtb \
+	omap5-letux-cortex15-v5.1.dtb omap5-letux-cortex15-v5.1+pyra-v5.1.dtb \
+	omap5-letux-cortex15-v5.2.dtb omap5-letux-cortex15-v5.2+pyra-v5.2.dtb \
+	omap5-letux-cortex15-v5.1+pyra-v5.2.dtb omap5-letux-cortex15-v5.2+pyra-v5.1.dtb \
 	omap5-uevm.dtb
 dtb-$(CONFIG_SOC_DRA7XX) += \
 	am57xx-beagle-x15.dtb \
