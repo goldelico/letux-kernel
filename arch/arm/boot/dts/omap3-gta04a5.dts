@@ -9,9 +9,18 @@
 #include "omap3-gta04.dtsi"
 
 / {
-	model = "Goldelico GTA04A5";
+	model = "Goldelico GTA04A5/Letux 2804";
 
 	sound {
 		ti,jack-det-gpio = <&twl_gpio 2 GPIO_ACTIVE_HIGH>;    /* GTA04A5 only */
 	};
+
+	modem_en: modem { /* control modem power through rfkill */
+		on-indicator-gpio = <&twl_gpio 15 0>;	/* GTA04A5 only: reset_out feedback from modem */
+	};
+
+};
+
+&twl_power {
+	compatible = "ti,twl4030-power-idle-osc-off";
 };
