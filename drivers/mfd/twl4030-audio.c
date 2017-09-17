@@ -161,11 +161,14 @@ EXPORT_SYMBOL_GPL(twl4030_audio_get_mclk);
 static bool twl4030_audio_has_codec(struct twl4030_audio_data *pdata,
 			      struct device_node *node)
 {
+	struct device_node *tmp_node = of_node_get(node);
 	if (pdata && pdata->codec)
 		return true;
-
-	if (of_find_node_by_name(node, "codec"))
+	tmp_node = of_find_node_by_name(tmp_node, "codec");
+	if (tmp_node) {
+		of_node_put(tmp_node);
 		return true;
+	}
 
 	return false;
 }
