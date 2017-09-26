@@ -11,6 +11,10 @@ config SND_SDMA_SOC
 config SND_OMAP_SOC_DMIC
 	tristate
 
+config SND_OMAP_SOC_MCASP
+	tristate
+	select SND_SOC_SPDIF
+
 config SND_OMAP_SOC_MCBSP
 	tristate
 
@@ -112,6 +116,12 @@ config SND_OMAP_SOC_OMAP_ABE_TWL6040
 	select SND_SOC_DMIC
 	select COMMON_CLK_PALMAS if (SOC_OMAP5 && MFD_PALMAS)
 	select CLK_TWL6040
+	select SND_OMAP_SOC_MCASP
+	select SND_OMAP_SOC_MCBSP
+	select SND_OMAP_SOC_AESS
+	select SND_DYNAMIC_MINORS
+	select FW_LOADER
+
 	help
 	  Say Y if you want to add support for SoC audio on OMAP boards using
 	  ABE and twl6040 codec. This driver currently supports:
