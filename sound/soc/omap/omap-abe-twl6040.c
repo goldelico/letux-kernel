@@ -361,7 +361,7 @@ static int omap_abe_stream_event(struct snd_soc_dapm_context *dapm, int event)
 static int omap_abe_twl6040_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_codec *codec = rtd->codec;
-	struct snd_soc_card *card = codec->card;
+	struct snd_soc_card *card = rtd->card;
 	struct omap_abe_data *card_data = snd_soc_card_get_drvdata(card);
 	u32 hsotrim, left_offset, right_offset, step_mV;
 	int ret = 0;
@@ -476,7 +476,7 @@ static int omap_abe_dmic_init(struct snd_soc_pcm_runtime *rtd)
 static int omap_abe_twl6040_dl2_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_codec *codec = rtd->codec;
-	struct snd_soc_card *card = codec->card;
+	struct snd_soc_card *card = rtd->card;
 	struct omap_abe_data *card_data = snd_soc_card_get_drvdata(card);
 	u32 hfotrim, left_offset, right_offset;
 
