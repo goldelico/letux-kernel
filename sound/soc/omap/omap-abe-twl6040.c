@@ -371,8 +371,8 @@ static int omap_abe_twl6040_init(struct snd_soc_pcm_runtime *rtd)
 
 	/* allow audio paths from the audio modem to run during suspend */
 	snd_soc_dapm_ignore_suspend(&card->dapm, "Ext Spk");
-	snd_soc_dapm_ignore_suspend(&codec->dapm, "AFML");
-	snd_soc_dapm_ignore_suspend(&codec->dapm, "AFMR");
+	snd_soc_dapm_ignore_suspend(&card->dapm, "AFML");
+	snd_soc_dapm_ignore_suspend(&card->dapm, "AFMR");
 	snd_soc_dapm_ignore_suspend(&card->dapm, "Headset Mic");
 	snd_soc_dapm_ignore_suspend(&card->dapm, "Headset Stereophone");
 
