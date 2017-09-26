@@ -143,7 +143,7 @@ static int omap_abe_mcbsp_hw_params(struct snd_pcm_substream *substream,
 	int ret;
 	unsigned int be_id, channels;
 
-	be_id = rtd->dai_link->be_id;
+	be_id = rtd->dai_link->id;
 
 	/* FM + MODEM + Bluetooth all use I2S config */
 	ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_I2S |
@@ -209,7 +209,7 @@ static int mcbsp_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 {
 	struct snd_interval *channels = hw_param_interval(params,
 						SNDRV_PCM_HW_PARAM_CHANNELS);
-	unsigned int be_id = rtd->dai_link->be_id;
+	unsigned int be_id = rtd->dai_link->id;
 
 	if (be_id == OMAP_AESS_BE_ID_MM_FM || be_id == OMAP_AESS_BE_ID_BT_VX)
 		channels->min = 2;
