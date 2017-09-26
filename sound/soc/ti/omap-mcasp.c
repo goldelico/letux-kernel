@@ -618,7 +618,7 @@ static int asoc_mcasp_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	mcasp->base = devm_request_and_ioremap(&pdev->dev, res);
+	mcasp->base = devm_ioremap_resource(&pdev->dev, res);
 	if (!mcasp->base) {
 		dev_err(&pdev->dev, "cannot remap\n");
 		return -ENOMEM;
