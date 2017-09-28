@@ -69,213 +69,223 @@ struct ov9655 {
 	bool slave_mode;
 };
 
-/*
- * OV9655 register definitions
- * contibuted by Hugues Fruchet <hugues.fruchet@st.com>
- */
-#define REG_GAIN		0x00	/* Gain control, AGC[7:0] */
-#define REG_BLUE		0x01	/* AWB - Blue chanel gain */
-#define REG_RED			0x02	/* AWB - Red chanel gain */
-#define REG_VREF		0x03	/* [7:6] - AGC[9:8], [5:3]/[2:0] */
-#define  VREF_GAIN_MASK		0xc0	/* - VREF end/start low 3 bits */
-#define REG_COM1		0x04
-#define  COM1_CCIR656		0x40
-#define REG_B_AVE		0x05
-#define REG_GB_AVE		0x06
-#define REG_GR_AVE		0x07
-#define REG_R_AVE		0x08
-#define REG_COM2		0x09
-#define REG_PID			0x0a	/* Product ID MSB */
-#define REG_VER			0x0b	/* Product ID LSB */
-#define REG_COM3		0x0c
-#define  COM3_COLORBAR		0x80
-#define  COM3_SWAP		0x40	/* Doesn't work in RGB */
-#define  COM3_RESETB		0x08
-#define  COM3_VARIOPIXEL1	0x04
-#define  COM3_RGB565		0x00
-#define  COM3_SINGLEFRAME	0x01
-#define REG_COM5		0x0e	/* System clock options */
-#define  COM5_SLAVE_MODE	0x10
-#define  COM5_EXPOSURESTEP	0x01
-#define REG_COM6		0x0f	/* HREF & ADBLC options */
-#define  COM6_BLC_OPTICAL	0x40	/* Optical black */
-#define REG_AECH		0x10	/* Exposure value, AEC[9:2] */
-#define REG_CLKRC		0x11	/* Clock control */
-#define  CLK_EXT		0x40	/* Use external clock directly */
-#define  CLK_SCALE		0x3f	/* Mask for internal clock scale */
-#define REG_COM7		0x12	/* SCCB reset, output format */
-#define  COM7_RESET		0x80
-#define  COM7_VGA		0x60
-#define  COM7_RAWRGB		0x00	/* different format encoding */
-#define  COM7_RAWRGBINT		0x01
-#define  COM7_YUV		0x02
-#define  COM7_RGB		0x03
-#define REG_COM8		0x13	/* AGC/AEC options */
-#define  COM8_FASTAEC		0x80	/* Enable fast AGC/AEC */
-#define  COM8_AECSTEP		0x40	/* Unlimited AEC step size */
-#define  COM8_BFILT		0x20	/* Band filter enable */
-#define  COM8_AGC		0x04	/* Auto gain enable */
-#define  COM8_AWB		0x02	/* White balance enable */
-#define  COM8_AEC		0x01	/* Auto exposure enable */
-#define REG_COM9		0x14	/* Gain ceiling */
-#define  COM9_GAIN_CEIL_MASK	0x70
-#define  COM9_GAIN_CEIL_16X	0x30
-#define  COM9_EXPTIMING		0x08
-#define  COM9_VSYNCDROP		0x04
-#define  COM9_AECDROP		0x02
-#define REG_COM10		0x15	/* PCLK, HREF, HSYNC signals polarity */
-#define  COM10_SLAVE_PIN	0x80	/* SLHS/SLVS instead of RESETB/PWDN */
-#define  COM10_HSYNC		0x40	/* HSYNC instead of HREF */
-#define  COM10_PCLK_HB		0x20	/* Suppress PCLK on horiz blank */
-#define  COM10_PCLK_REV		0x10	/* PCLK reverse */
-#define  COM10_HREF_REV		0x08	/* Reverse HREF */
-#define  COM10_RESET_OPTION	0x04	/* Reset signal end point */
-#define  COM10_VS_NEG		0x02	/* VSYNC negative */
-#define  COM10_HS_NEG		0x01	/* HSYNC negative */
-#define REG16			0x16	/* dummy frame and blanking */
-#define   REG16_DUMMY_8		0x20	/* dummy frame when gain > 8 */
-#define REG_HSTART		0x17	/* Horiz start high bits */
-#define REG_HSTOP		0x18	/* Horiz stop high bits */
-#define REG_VSTART		0x19	/* Vert start high bits */
-#define REG_VSTOP		0x1a	/* Vert stop high bits */
-#define REG_PSHFT		0x1b	/* Pixel delay after HREF */
-#define REG_MIDH		0x1c	/* Manufacturer ID MSB */
-#define REG_MIDL		0x1d	/* Manufufacturer ID LSB */
-#define REG_MVFP		0x1e	/* Image mirror/flip */
-#define  MVFP_MIRROR		0x20	/* Mirror image */
-#define  MVFP_FLIP		0x10	/* Vertical flip */
-#define REG_BOS			0x20	/* B channel Offset */
-#define REG_GBOS		0x21	/* Gb channel Offset */
-#define REG_GROS		0x22	/* Gr channel Offset */
-#define REG_ROS			0x23	/* R channel Offset */
-#define REG_AEW			0x24	/* AGC upper limit */
-#define REG_AEB			0x25	/* AGC lower limit */
-#define REG_VPT			0x26	/* AGC/AEC fast mode op region */
-#define REG_BBIAS		0x27	/* B channel output bias */
-#define REG_GBBIAS		0x28	/* Gb channel output bias */
-#define REG_PREGAIN		0x29
-#define REG_EXHCH		0x2a	/* Dummy pixel insert MSB */
-#define REG_EXHCL		0x2b	/* Dummy pixel insert LSB */
-#define REG_RBIAS		0x2c	/* R channel output bias */
-#define REG_ADVFL		0x2d	/* LSB of dummy line insert */
-#define REG_ADVFH		0x2e	/* MSB of dummy line insert */
-#define REG_YAVE		0x2f	/* Y/G channel average value */
-#define REG_HSYST		0x30	/* HSYNC rising edge delay LSB*/
-#define REG_HSYEN		0x31	/* HSYNC falling edge delay LSB*/
-#define REG_HREF		0x32	/* HREF pieces */
-#define REG_CHLF		0x33	/* Array current control */
-#define REG_AREF1		0x34	/* Array reference control */
-#define REG_AREF2		0x35	/* Array reference control */
-#define REG_AREF3		0x36	/* Array reference control */
-#define REG_ADC1		0x37	/* ADC Control 1 (Range adjustment) */
-#define REG_ADC2		0x38	/* ADC Control 2 (Range adjustment) */
-#define REG_AREF4		0x39	/* Array reference control */
-#define REG_TSLB		0x3a	/* YUVU format */
-#define  TSLB_PCLKDELAY2NS	0x40
-#define  TSLB_PCLKDELAY4NS	0x80
-#define  TSLB_PCLKDELAY6NS	0xc0
-#define  TSLB_OUTREVERSE	0x20
-#define  TSLB_FIXEDUV		0x10
-#define  TSLB_YUYV_MASK		0x0c	/* UYVY or VYUY - see com13 */
-#define  TSLB_YUYV		0x00
-#define  TSLB_YVYU		0x04
-#define  TSLB_VYUY		0x08
-#define  TSLB_UYVY		0x0c
-#define  TSLB_BANDINGAUTO	0x02
-#define REG_COM11		0x3b	/* Night mode, banding filter enable */
-#define  COM11_NIGHT		0x80	/* Night mode enable */
-#define  COM11_NMFR		0x60	/* Two bit NM frame rate */
-#define  COM11_BANDING		0x01	/* Banding filter */
-#define  COM11_AEC_REF_MASK	0x18	/* AEC reference area selection */
-#define REG_COM12		0x3c	/* HREF option, UV average */
-#define  COM12_HREF		0x80	/* HREF always */
-#define REG_COM13		0x3d	/* Gamma selection, Color matrix en. */
-#define  COM13_GAMMA		0x80	/* Gamma enable */
-#define  COM13_UVSAT		0x40	/* UV saturation auto adjustment */
-#define  COM13_Y_DELAY		0x08	/* Delay Y channel */
-#define  COM13_UVSWAP		0x01	/* V before U - w/TSLB */
-#define REG_COM14		0x3e	/* pixel correction/zoom ON/OFF sel. */
-#define  COM14_BLACK_PIX	0x08	/* Black pixel correction */
-#define  COM14_WHITE_PIX	0x04	/* White pixel correction */
-#define  COM14_ZOOM		0x02	/* Zoom function ON */
-#define REG_EDGE		0x3f	/* Edge enhancement factor */
-#define  EDGE_FACTOR_MASK	0x0f
-#define REG_COM15		0x40	/* Output range, RGB 555/565 */
-#define  COM15_R10F0		0x00	/* Data range 10 to F0 */
-#define  COM15_R01FE		0x80	/* 01 to FE */
-#define  COM15_R00FF		0xc0	/* 00 to FF */
-#define  COM15_RGB565		0x10	/* RGB565 output */
-#define  COM15_RGB555		0x30	/* RGB555 output */
-#define  COM15_SWAPRB		0x04	/* Swap R&B */
-#define REG_COM16		0x41	/* Color matrix coeff options */
-#define REG_COM17		0x42	/* Denoise, edge, auto gain, ... */
-#define   COM17_EDGE_AUTO	0x40	/* Edge auto */
-#define   COM17_DENOISE_AUTO	0x80	/* Denoise auto */
-#define REG_RSVD(__n)	(0x43 + (__n) - 1) /* reserved but used... */
-/* n = 1...9, 0x4f..0x57 */
-#define REG_MTX(__n)		(0x4f + (__n) - 1)
-#define REG_MTXS		0x58
-#define REG_AWBOP(__n)		(0x59 + (__n) - 1) /* AWB control options */
-#define REG_BLMT		0x5F	/* AWB Blue Component Gain Limit */
-#define REG_RLMT		0x60	/* AWB Red Component Gain Limit */
-#define REG_GLMT		0x61	/* AWB Green Component Gain Limit */
-/* Lens Correction Option 1...5, __n = 0...5 */
-#define REG_LCC(__n)		(0x62 + (__n) - 1)
-#define  LCC5_LCC_ENABLE	0x01	/* LCC5, enable lens correction */
-#define  LCC5_LCC_COLOR		0x04
-#define REG_MANU		0x67	/* Manual U value */
-#define REG_MANV		0x68	/* Manual V value */
-#define REG_HV			0x69	/* Manual banding filter MSB */
-#define REG_MBD			0x6a	/* Manual banding filter value */
-#define REG_DBLV		0x6b	/* PLL, DVDD regu bypass, bandgap */
-#define  DBLV_BANDGAP		0x0a	/* default value */
-#define  DBLV_LDO_BYPASS	0x10
-#define  DBLV_PLL_BYPASS	0x00
-#define  DBLV_PLL_4X		0x40
-#define  DBLV_PLL_6X		0x80
-#define  DBLV_PLL_8X		0xc0
-#define REG_GSP			0x6c	/* Gamma curve */
-#define  GSP_LEN		15
-#define REG_DNSTH		0x70	/* De-noise Function Threshold Adj. */
-#define REG_POIDX		0x72	/* Pixel output index */
-#define REG_PCKDV		0x73	/* Pixel Clock Output Selection */
-#define REG_XINDX		0x74	/* Horizontal Scaling Down Coeff. */
-#define REG_YINDX		0x75	/* Vertical Scaling Down Coeff. */
-#define REG_SLOP		0x7A	/* Gamma Curve Highest Segment Slope */
-#define REG_GAM(__n)	(0x7B + (__n) - 1)	/* Gamma curve */
-#define REG_GST			0x7c	/* Gamma curve */
-#define  GST_LEN		15
-#define REG_COM18		0x8b	/* Zoom mode in VGA */
-#define REG_COM19		0x8c	/* UV adjustment */
-#define REG_COM20		0x8d
-#define  COM20_TEST_MODE	0x10
-#define REG_DM_LNL		0x92	/* Dummy line low 8 bits */
-#define REG_DM_LNH		0x93	/* Dummy line high 8 bits */
-#define REG_LCCFB		0x9d	/* Lens Correction B channel */
-#define REG_LCCFR		0x9e	/* Lens Correction R channel */
-#define REG_DBLC_GB		0x9f	/* Digital BLC GB chan offset */
-#define REG_DBLC_GR		0xa0	/* Digital BLC GR chan offset */
-#define REG_AECHM		0xa1	/* Exposure value - bits AEC[15:10] */
-#define REG_BD50ST		0xa2	/* Banding filter value for 50Hz */
-#define REG_BD60ST		0xa3	/* Banding filter value for 60Hz */
-#define REG_COM21		0xa4	/* Digital gain */
-#define REG_AWB_GREEN		0xa6	/* AWB green */
-#define REG_REF_A8		0xa8	/* Analog Reference Control */
-#define REG_REF_A9		0xa9	/* Analog Reference Control */
-#define REG_BLC(__n)	(0xac + (__n) - 1) /* Black Level Control */
-#define REG_CTRLB4		0xb4	/* UV adjustment */
-#define REG_ADBOFF		0xbc	/* ADC B channel offset setting */
-#define REG_ADROFF		0xbd	/* ADC R channel offset setting */
-#define REG_ADGBOFF		0xbe	/* ADC Gb channel offset setting */
-#define REG_ADGEOFF		0xbf	/* ADC Gr channel offset setting */
-#define REG_COM24		0xc7	/* Pixel clock frequency selection */
-#define REG_NULL		0xff	/* Array end token */
-
-#define DEF_CLKRC		0x80
-
-#define OV9655_ID(_msb, _lsb)	((_msb) << 8 | (_lsb))
-#define OV9655V4_ID		0x9656
-#define OV9655V5_ID		0x9657
+/* ov9655 register addresses */
+#define OV9655_GAIN			0x00
+#define OV9655_BLUE			0x01
+#define OV9655_RED			0x02
+#define   OV9655_VREF_END		0x38
+#define   OV9655_VREF_START		0x03
+#define OV9655_VREF			0x03
+#define OV9655_COM1			0x04
+#define   OV9655_COM1_AEC		0x03
+#define OV9655_BAVE			0x05
+#define OV9655_GBAVE			0x06
+#define OV9655_GRAVE			0x07
+#define OV9655_RAVE			0x08
+#define OV9655_COM2			0x09
+#define   OV9655_COM2_STRENGTH		0x03
+#define   OV9655_COM2_SLEEP		0x10
+#define OV9655_PID			0x0A
+#define   OV9655_CHIP_PID		0x96
+#define OV9655_REV			0x0B
+#define   OV9655_CHIP_REV4		0x56
+#define   OV9655_CHIP_REV5		0x57
+#define OV9655_COM3			0x0C
+#define   OV9655_COM3_RGB565		0x04
+#define   OV9655_COM3_SWAP		0x40
+#define   OV9655_COM3_CBAR		0x80
+#define OV9655_COM4			0x0D
+#define OV9655_COM5			0x0E
+#define OV9655_COM6			0x0F
+#define   OV9655_COM6_TIMING		0x02
+#define   OV9655_COM6_WINDOW		0x04
+#define OV9655_AEC			0x10
+#define OV9655_CLKRC			0x11
+#define   OV9655_CLKRC_EXT		0x40
+#define   OV9655_CLKRC_SCALAR		0x3f
+#define OV9655_COM7			0x12
+#define   OV9655_COM7_FMT_MASK		0x07
+#define     OV9655_COM7_RAW		0x00
+#define     OV9655_COM7_RAW_INT	0x01
+#define     OV9655_COM7_YUV		0x02
+#define     OV9655_COM7_RGB		0x03
+#define     OV9655_COM7_RGB5X5		0x07
+#define   OV9655_COM7_RES_MASK		0x70
+#define     OV9655_COM7_SXGA		0x00
+#define     OV9655_COM7_VGA		0x60
+#define OV9655_COM8			0x13
+#define   OV9655_COM8_AGC		0x04
+#define   OV9655_COM8_AWB		0x02
+#define   OV9655_COM8_AEC		0x01
+#define OV9655_COM9			0x14
+#define OV9655_COM10			0x15
+#define   OV9655_COM10_HSYNC_NEG	0x01
+#define   OV9655_COM10_VSYNC_NEG	0x02
+#define   OV9655_COM10_RESET_END	0x04
+#define   OV9655_COM10_HREF_REV	0x08
+#define   OV9655_COM10_PCLK_REV	0x10
+#define   OV9655_COM10_PCLK_GATE	0x20
+#define   OV9655_COM10_HREF2HSYNC	0x40
+#define   OV9655_COM10_SLAVE_MODE	0x80
+#define OV9655_REG16			0x16
+#define OV9655_HSTART			0x17
+#define OV9655_HSTOP			0x18
+#define OV9655_VSTART			0x19
+#define OV9655_VSTOP			0x1A
+#define OV9655_PSHFT			0x1B
+#define OV9655_MIDH			0x1C
+#define OV9655_MIDL			0x1D
+#define   OV9655_CHIP_MID		0x7fa2
+#define OV9655_MVFP			0x1E
+#define   OV9655_MVFP_VFLIP		0x10
+#define   OV9655_MVFP_MIRROR		0x20
+#define OV9655_LAEC			0x1F
+#define OV9655_BOS			0x20
+#define OV9655_GBOS			0x21
+#define OV9655_GROS			0x22
+#define OV9655_ROS			0x23
+#define OV9655_AEW			0x24
+#define OV9655_AEB			0x25
+#define OV9655_VPT			0x26
+#define OV9655_BBIAS			0x27
+#define OV9655_GBBIAS			0x28
+#define OV9655_PREGAIN			0x29
+#define OV9655_EXHCH			0x2A
+#define OV9655_EXHCL			0x2B
+#define OV9655_RBIAS			0x2C
+#define OV9655_ADVFL			0x2D
+#define OV9655_ADVFH			0x2E
+#define OV9655_YAVE			0x2F
+#define OV9655_HSYST			0x30
+#define OV9655_HSYEN			0x31
+#define OV9655_HREF			0x32
+#define   OV9655_HREF_END		0x38
+#define   OV9655_HREF_START		0x03
+#define OV9655_CHLF			0x33
+#define OV9655_AREF1			0x34
+#define OV9655_AREF2			0x35
+#define OV9655_AREF3			0x36
+#define OV9655_ADC1			0x37
+#define OV9655_ADC2			0x38
+#define OV9655_AREF4			0x39
+#define OV9655_TSLB			0x3A
+#define   OV9655_TSLB_PCLK_MASK	0xC0
+#define   OV9655_TSLB_PCLK_OFFSET	6
+#define   OV9655_TSLB_YUV_MASK		0x0C
+#define   OV9655_TSLB_YUYV		0x00
+#define   OV9655_TSLB_YVYU		0x04
+#define   OV9655_TSLB_VYUY		0x08
+#define   OV9655_TSLB_UYVY		0x0C
+#define OV9655_COM11			0x3B
+#define OV9655_COM12			0x3C
+#define OV9655_COM13			0x3D
+#define OV9655_COM14			0x3E
+#define   OV9655_COM14_ZOOM		0x02
+#define OV9655_EDGE			0x3F
+#define OV9655_COM15			0x40
+#define   OV9655_COM15_RGB_MASK	0x30
+#define     OV9655_COM15_RGB		0x00
+#define     OV9655_COM15_RGB565	0x10
+#define     OV9655_COM15_RGB555	0x30
+#define OV9655_COM16			0x41
+#define   OV9655_COM16_SCALING		0x01
+#define OV9655_COM17			0x42
+#define OV9655_MTX1			0x4F
+#define OV9655_MTX2			0x50
+#define OV9655_MTX3			0x51
+#define OV9655_MTX4			0x52
+#define OV9655_MTX5			0x53
+#define OV9655_MTX6			0x54
+#define OV9655_BRTN			0x55
+#define OV9655_CNST1			0x56
+#define OV9655_CNST2			0x57
+#define OV9655_MTXS			0x58
+#define OV9655_AWBOP1			0x59
+#define OV9655_AWBOP2			0x5A
+#define OV9655_AWBOP3			0x5B
+#define OV9655_AWBOP4			0x5C
+#define OV9655_AWBOP5			0x5D
+#define OV9655_AWBOP6			0x5E
+#define OV9655_BLMT			0x5F
+#define OV9655_RLMT			0x60
+#define OV9655_GLMT			0x61
+#define OV9655_LCC1			0x62
+#define OV9655_LCC2			0x63
+#define OV9655_LCC3			0x64
+#define OV9655_LCC4			0x65
+#define OV9655_LCC5			0x66
+#define OV9655_MANU			0x67
+#define OV9655_MANV			0x68
+#define OV9655_69			0x69	/* undocumented but must be changed for VGA */
+#define   OV9655_69_SXGA		0x02
+#define   OV9655_69_VGA		0x0a
+#define OV9655_BD50MAX			0x6A
+#define OV9655_DBLV			0x6B
+#define   OV9655_DBLV_BANDGAP_MASK	0x0F
+#define     OV9655_DBLV_BANDGAP	0x0a	/* default value */
+#define   OV9655_DBLV_LDO_BYPASS	0x10
+#define   OV9655_DBLV_PLL_MASK		0xC0
+#define     OV9655_DBLV_PLL_BYPASS	0x00
+#define     OV9655_DBLV_PLL_4X		0x40
+#define     OV9655_DBLV_PLL_6X		0x80
+#define     OV9655_DBLV_PLL_8X		0xc0
+#define OV9655_DNSTH			0x70
+#define OV9655_POIDX			0x72
+#define   OV9655_POIDX_VDROP		0x40
+#define OV9655_PCKDV			0x73
+#define OV9655_XINDX			0x74
+#define OV9655_YINDX			0x75
+#define OV9655_SLOP			0x7A
+#define OV9655_GAM1			0x7B
+#define OV9655_GAM2			0x7C
+#define OV9655_GAM3			0x7D
+#define OV9655_GAM4			0x7E
+#define OV9655_GAM5			0x7F
+#define OV9655_GAM6			0x80
+#define OV9655_GAM7			0x81
+#define OV9655_GAM8			0x82
+#define OV9655_GAM9			0x83
+#define OV9655_GAM10			0x84
+#define OV9655_GAM11			0x85
+#define OV9655_GAM12			0x86
+#define OV9655_GAM13			0x87
+#define OV9655_GAM14			0x88
+#define OV9655_GAM15			0x89
+#define OV9655_COM18			0x8B
+#define OV9655_COM19			0x8C
+#define OV9655_COM20			0x8D
+#define   OV9655_COM20_CBAR		0x10
+#define OV9655_DMLNL			0x92
+#define OV9655_DMNLH			0x93
+#define OV9655_LCC6			0x9D
+#define OV9655_LCC7			0x9E
+#define OV9655_AECH			0xA1
+#define   OV9655_AECH_AEC		0x3f
+#define OV9655_BD50			0xA2
+#define OV9655_BD60			0xA3
+#define OV9655_COM21			0xA4
+#define OV9655_GREEN			0xA6
+#define OV9655_VZST			0xA7
+#define OV9655_REFA8			0xA8
+#define OV9655_REFA9			0xA9
+#define OV9655_BLC1			0xAC
+#define OV9655_BLC2			0xAD
+#define OV9655_BLC3			0xAE
+#define OV9655_BLC4			0xAF
+#define OV9655_BLC5			0xB0
+#define OV9655_BLC6			0xB1
+#define OV9655_BLC7			0xB2
+#define OV9655_BLC8			0xB3
+#define OV9655_CTRLB4			0xB4
+#define OV9655_FRSTL			0xB7
+#define OV9655_FRSTH			0xB8
+#define OV9655_ADBOFF			0xBC
+#define OV9655_ADROFF			0xBD
+#define OV9655_ADGBOFF			0xBE
+#define OV9655_ADGROFF			0xBF
+#define OV9655_COM23			0xC4
+#define OV9655_BD60MAX			0xC5
+#define OV9655_COM24			0xC7
 
 /* dummy value for V4L2_CID_PIXEL_RATE */
 #define CAMERA_TARGET_FREQ	48000000
