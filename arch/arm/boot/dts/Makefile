@@ -1002,6 +1002,10 @@ dtb-$(CONFIG_SOC_OMAP5) += \
 	omap5-cm-t54.dtb \
 	omap5-igep0050.dtb \
 	omap5-sbc-t54.dtb \
+	omap5-letux-cortex15-v5.0.dtb omap5-letux-cortex15-v5.0+pyra-v5.0.dtb omap5-letux-cortex15-v5.1+pyra-v5.0.dtb \
+	omap5-letux-cortex15-v5.1.dtb omap5-letux-cortex15-v5.1+pyra-v5.1.0.dtb omap5-letux-cortex15-v5.1+pyra-v5.1.2.dtb \
+	omap5-letux-cortex15-v5.2.dtb omap5-letux-cortex15-v5.2+pyra-v5.1.2.dtb omap5-letux-cortex15-v5.2+pyra-v5.2.dtb \
+	omap5-letux-cortex15-v5.3.dtb omap5-letux-cortex15-v5.3+pyra-v5.1.2.dtb omap5-letux-cortex15-v5.3+pyra-v5.2.dtb \
 	omap5-uevm.dtb
 am57xx-evm-dtbs := am57xx-beagle-x15.dtb am57xx-evm.dtbo
 am57xx-evm-reva3-dtbs := am57xx-beagle-x15-revc.dtb am57xx-evm.dtbo
