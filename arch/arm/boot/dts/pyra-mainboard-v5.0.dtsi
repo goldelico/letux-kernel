@@ -798,6 +798,11 @@
 	>;
 };
 
+&uart3 {
+	interrupts-extended = <&wakeupgen GIC_SPI 74 IRQ_TYPE_LEVEL_HIGH>,
+			      <&omap5_pmx_core 0xe0>;
+};
+
 &mmc4 { /* enable second (µ)SD slot (SDIO capable) */
 	status = "okay";
 };
