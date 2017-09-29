@@ -798,6 +798,11 @@
 	>;
 };
 
+&uart3 {
+	interrupts-extended = <&wakeupgen GIC_SPI 74 IRQ_TYPE_LEVEL_HIGH>,
+			      <&omap5_pmx_core 0xe0>;
+};
+
 &mmc4 { /* enable second (µ)SD slot (SDIO capable) */
 	status = "okay";
 };
@@ -828,10 +833,11 @@
 #include <dt-bindings/power/power.h>
 
 / {
-	battery: battery {
+	battery: battery-monitor {
 		compatible = "linux,generic-adc-battery";
 		io-channels = <&gpadc 6>, <&gpadc 11>, <&gpadc 1>;
 		io-channel-names = "voltage", "current", "temperature";
+		monitored-battery = <&bat>;
 		technology = <POWER_SUPPLY_TECHNOLOGY_LION>;
 		battery-name = "pyra-battery";
 		charge_full_design = <6000>;
