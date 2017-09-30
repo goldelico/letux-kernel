@@ -38,6 +38,7 @@ config SND_OMAP_SOC_HDMI_AUDIO
 
 config SND_OMAP_SOC_AESS
 	tristate
+	select SND_SOC_TOPOLOGY
 
 config SND_OMAP_SOC_N810
 	tristate "SoC Audio support for Nokia N810"
