@@ -10,7 +10,7 @@ rfkill unblock wwan
 
 make femtocom 2>/dev/null >&2
 
-case $(cat /proc/device-tree/model) in
+case $(tr -d '\0' </proc/device-tree/model) in
 *GTA04b7* | *Neo900* | *Pyra-Handheld* ) # device with Cinterion Module
 	for wait in 1 2 3
 	do
@@ -48,7 +48,7 @@ case $(cat /proc/device-tree/model) in
 	do
 		for i in $(cd /sys/class/tty/ && echo ttyHS* 2>/dev/null)
 			do
-			if [ "$(cat /sys/class/tty/$i/hsotype 2>/dev/null)" == "Application" ]
+			if [ "$(cat /sys/class/tty/$i/hsotype 2>/dev/null)" == "Modem" ]
 				then
 				IF="/dev/$i"
 			fi
@@ -61,7 +61,7 @@ case $(cat /proc/device-tree/model) in
 	;;
 
 *)
-	echo "unknown device model:" $(cat /proc/device-tree/model)
+	echo "unknown device model:" $(tr -d '\0' </proc/device-tree/model)
 esac
 
 if [ -r "$IF" ]
