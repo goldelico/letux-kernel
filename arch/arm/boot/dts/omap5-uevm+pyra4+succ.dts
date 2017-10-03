@@ -8,10 +8,10 @@
 
 /* we atart with the omap5-pyra tree */
 
-#include "omap5-pyra.dts"
+#include "omap5-uevm+pyra4.dts"
 
 &lcd {
-	compatible = "lg,lh500wf1";
+	compatible = "success,s90451-di050hd";
 
 /* there is no ldo2_reg!	vdds_foo-supply = <&ldo2_reg>; */
 /* does not work as expected:	vdds_foo-supply = <&dsi1_panel_power>; */
