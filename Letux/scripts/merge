@@ -1,0 +1,343 @@
+#!/bin/bash
+#
+# Letux/scripts/merge [ -s -p -r -u -w -nmf ] [ -b base ] { [-]branches... }
+#
+# merge Letux feature branches on top of the base branch
+#
+# the current Linux branch is the highest numbered one starting
+# with at least two digits separated by a .
+# i.e. 3.18, 4,4-rc4, 4.7 qualify while v3.18, 3.x don't
+#
+# if a file 'mergefile' exists in the current directory
+# it will also be included before the branches specified
+# on the command line
+#
+# if a branch is versioned (suffix -v[0-9]), the highest one
+# will be taken
+#
+# default base commit is "letux-base"
+#
+# result is new branch "letux-$version"
+#
+# options:
+#  -s		sequential merge
+#  -p		push --force all branches to 'origin'
+#  -r		rebase branches before merge (implies -s)
+#  -u		upload result
+#  -nmf		no mergefile (ignore)
+#  -w		fix whitespace on rebase (implies -s -r)
+#
+# Author: <hns@goldelico.com>
+# License: GPL V2
+
+PUSH=false
+SEQUENTIAL=false
+BASE=letux-base
+HARD=false
+REBASE=false
+MF=true
+WHITESPACE=
+
+OUTPUT=""
+LASTBASE=""
+
+function usage {
+	echo "usage: $0 [ -s ] [ -p ] { branches...}"
+	echo "  -s	sequential merge"
+	echo "  -p	push --force all branches to 'origin'"
+	echo "  -nmf	ignore mergefile"
+	echo "  --hard	hard update to remote version"
+	echo "  -b base	specify base commit"
+	echo "  --	separate options from branches"
+	echo "	branch	branch to merge in addition to mergefile; if starting with - remove from mergefile"
+	exit 1
+}
+
+while [ "$1" ]
+do
+	case "$1" in
+		-p ) PUSH=true; shift ;;
+		-r ) REBASE=true; SEQUENTIAL=true; shift ;;
+		-s ) SEQUENTIAL=true; shift ;;
+		-w ) WHITESPACE=--whitespace=fix; REBASE=true; SEQUENTIAL=true; shift ;;
+		-b ) shift; BASE="$1"; shift ;;
+		-nmf ) shift; MF=false; shift ;;
+		--hard ) HARD=true; shift ;;
+		-- ) shift; break ;;
+		-* ) echo "unknown option $1"; usage; exit 1 ;;
+		* ) break;
+	esac
+done
+
+if [ "$(git status -s -uno)" ]
+then
+	echo there are uncommitted changes!
+	echo refusing to overwrite
+	exit 1
+fi
+
+if false
+then
+VERSION=$(git log -1 -E --grep="^Merge tag 'v[0-9].[0-9]" --format=oneline "$BASE" | sed "s|.*Merge tag 'v\(.*\)' into .*|\1|g")
+
+if ! [ "$VERSION" ]
+then
+	echo could not determine Linux version of "$BASE"
+	exit 1
+fi
+
+try to switch to base
+echo "*** checkout "$BASE" ($VERSION) ***"
+git checkout "$BASE" || exit
+$PUSH && { git push origin "$BASE"; }	# update on public server (if possible)
+
+# echo merging features on top of "$BASE" for $VERSION
+
+OUTPUT="letux-$VERSION"
+
+# append all additionally merged branches
+for FEATURE
+do
+	F=$(basename -- "$FEATURE")
+	case "$FEATURE" in
+		-* ) # will be ignored
+			OUTPUT="$OUTPUT-$F"
+			;;
+		* )
+			OUTPUT="$OUTPUT+$F"
+			;;
+	esac
+done
+
+OUTPUT="${OUTPUT:0:120}"	# truncate to limit file name length
+
+echo "*** make a fresh working copy: $OUTPUT ***"
+git branch -D $OUTPUT 2>/dev/null
+git checkout -b $OUTPUT HEAD || exit
+fi
+
+BRANCHES=""
+
+function latestforbranch {
+	# get latest version for branch $1 (optionally passing $2 to git branch)
+	git branch $2 | cut -c 3- | grep "^$1-v[0-9]*" | perl -e 'print sort{length($a)<=>length($b) or $a cmp $b} <>' | tail -1
+}
+
+function linuxversion {
+# echo linuxversion $1 >&2
+	# extract Linux version from given branch $1
+	git log -1 -E --grep="^Linux [0-9].[0-9]+[-.0-9rc]*" "$1" | grep "Linux [0-9].[0-9]*" | sed "s|.*Linux ||g"
+}
+
+function process {
+	FEATURE=$1
+	case "$FEATURE" in
+		'-'* )	# ignore
+			return
+			;;
+		'>>'* )	# create file name from current branch
+			VERSION=$(linuxversion $LASTBASE)
+#echo LASTBASE $LASTBASE
+#echo OUTPUT $OUTPUT
+#echo VERSION $VERSION
+			if [ ! "$VERSION" ]
+			then
+				echo "*** Fatal - can't detect Linux version of letux base ***"
+				exit 1
+			fi
+			NEWOUTPUT=${FEATURE:2}-$VERSION
+			if [ "$OUTPUT" ]
+			then
+				if ! $SEQUENTIAL && [ "$BRANCHES" ]
+				then
+					echo "*** Octopus Merge into $OUTPUT ***"
+					git checkout $OUTPUT || exit
+					git merge --no-ff --no-edit $BRANCHES || exit	# try to merge all
+					BRANCHES=""
+				fi
+				if $PUSH
+				then
+					echo "*** pushing $OUTPUT to origin ***"
+					git push --force origin $OUTPUT:$OUTPUT || exit	# update branch on public server
+				fi
+				echo "*** creating $NEWOUTPUT from $OUTPUT ***"
+				git checkout -B "$NEWOUTPUT" "$OUTPUT"	# make a copy
+			fi
+			LASTBASE="$OUTPUT"	# remember current "base" for next rebase
+			OUTPUT="$NEWOUTPUT"
+			return
+			;;			
+		'>'* )	# switch to new "base"
+			NEWOUTPUT=${FEATURE:1}
+			if [ "$OUTPUT" ]
+			then
+				if ! $SEQUENTIAL && [ "$BRANCHES" ]
+				then
+					echo "*** Octopus Merge into $OUTPUT ***"
+					git checkout $OUTPUT || exit
+					git merge --no-ff --no-edit $BRANCHES || exit	# try to merge all
+					BRANCHES=""
+				fi
+				if $PUSH
+				then
+					echo "*** pushing $OUTPUT to origin ***"
+					git push --force origin $OUTPUT:$OUTPUT || exit	# update branch on public server
+				fi
+				echo "*** creating $NEWOUTPUT from $OUTPUT ***"
+				git checkout -B "$NEWOUTPUT" "$OUTPUT"	# make a copy
+			fi
+			LASTBASE="$OUTPUT"	# remember current "base" for next rebase
+			OUTPUT="$NEWOUTPUT"
+			return
+			;;
+		'<'* )	# checkout some branch
+			if [ "$OUTPUT" ]
+			then
+				echo "*** creating $OUTPUT from ${FEATURE:1} ***"
+				git checkout -B "$OUTPUT" "${FEATURE:1}"
+			else
+				echo "*** switching to ${FEATURE:1} ***"
+				git checkout "${FEATURE:1}"
+			fi
+			LASTBASE="${FEATURE:1}"	# remember current "base" for next rebase
+			if $PUSH
+			then
+				echo "*** pushing $LASTBASE to origin ***"
+				git push --force origin $LASTBASE:$LASTBASE || exit	# update branch on public server
+			fi
+			return
+			;;
+		work/letux-base/* )
+			;;
+		* )
+			;;
+	esac
+	echo "*** process $FEATURE ***"
+#	LATEST=$(echo $(git branch | cut -c 3- | grep "^${FEATURE}-v[0-9]*" | perl -e 'print sort{length($a)<=>length($b) or $a cmp $b} <>' | tail -1))
+	LATEST=$(latestforbranch "$FEATURE")
+	if [ "$LATEST" != "$(latestforbranch "$FEATURE")" ]
+	then
+		echo latestforbranch error
+	fi
+	if [ "$LATEST" ]
+	then # there is a latest with -v
+		echo "*** taking $FEATURE -> $LATEST ***"
+		FEATURE="$LATEST"	# take latest instead
+	elif git show-ref --verify --quiet "refs/heads/${FEATURE}" >/dev/null
+	then # a local version w/o -v exists
+		echo "*** taking $FEATURE ***"
+	else # nothing exists locally - check with remote
+#		LATEST=$(echo $(git branch -r | cut -c 3- | grep "^${FEATURE}-v[0-9]*" | sed 's|origin/||' | perl -e 'print sort{length($a)<=>length($b) or $a cmp $b} <>' | tail -1))
+		LATEST=$(latestforbranch "$FEATURE" -r)
+		if [ "$LATEST" != "$(latestforbranch "$FEATURE" -r)" ]
+		then
+			echo latestforbranch error
+		fi
+		if [ "$LATEST" ]
+		then # there is a remote latest with -v
+			echo "*** checking out and taking $FEATURE -> $LATEST ***"
+			git checkout --track origin/$LATEST
+			FEATURE="$LATEST"	# take new one instead
+		elif git ls-remote --heads --quiet origin "${FEATURE}" >/dev/null
+		then # a remote version w/o -v exists
+			echo "*** checking out and taking $FEATURE ***"
+			git checkout --track origin/$FEATURE
+		else
+			echo "*** $FEATURE nowhere found ***"
+			exit 1
+		fi
+	fi
+	if $HARD
+	then
+		echo "*** resetting $FEATURE to origin/$FEATURE ***"
+		# this throws away local commits!
+		git checkout --force $FEATURE || exit
+		git reset --hard origin/$FEATURE || exit
+	fi
+	if $REBASE
+	then
+		if [ ! "$LASTBASE" ]
+		then
+			echo "*** don't know on what to rebase ***"
+			exit
+		fi
+		git checkout "$FEATURE" || exit
+		# now rebase
+		echo "*** rebasing $FEATURE onto $LASTBASE ***"
+# strategy recursive macht Probleme und macht quasi cherry-pick für jeden einzelnen...
+#		git rebase --strategy=recursive -X theirs --whitespace=fix "$LASTBASE" || exit
+		git rebase $WHITESPACE "$LASTBASE" || exit
+	fi
+	if $PUSH
+	then
+		echo "*** pushing $FEATURE to origin ***"
+		git push --force origin $FEATURE:$FEATURE || exit	# update branch on public server
+	fi
+	BRANCHES="$BRANCHES $FEATURE"	# collect for octopus
+	if $SEQUENTIAL
+	then
+		if [ ! "$OUTPUT" ]
+		then
+			echo "*** don't know where to collect results ***"
+			exit
+		fi
+		git checkout $OUTPUT || exit
+		echo "*** merging $FEATURE into $OUTPUT ***"
+		git merge --no-ff --no-edit "$FEATURE" || exit	# try to merge one after the other
+	fi
+}
+
+if $MF
+then
+# feature branches provided in mergefile
+while read FEATURE IGNORE
+do
+	case "$FEATURE" in
+		'###' )	# can be used to bisect the mergefile (this and all further lines are ignored)
+			break
+			;;
+		'' | '#'* )
+			;;	# ignore empty lines and comments
+		* )
+			# check if there is a matching -branch ignore pattern on the command line
+			for IGNORE
+			do
+				if [ "$IGNORE" = "-$FEATURE" ]
+				then
+					continue 2;	# found in ignore list
+				fi
+			done
+			process "$FEATURE"
+			;;
+	esac
+done <Letux/scripts/mergefile
+fi
+
+# more feature branches provided on command line
+for FEATURE
+do
+	case "$FEATURE" in
+		-* ) # ignore
+			;;
+		* )
+			process "$FEATURE"
+			;;
+	esac
+done
+
+if ! $SEQUENTIAL && [ "$BRANCHES" ]
+then # octopus
+	if [ ! "$OUTPUT" ]
+	then
+		echo "*** don't know where to collect results ***"
+		exit
+	fi
+	echo "*** Octopus Merge into $OUTPUT ***"
+	git checkout $OUTPUT || exit
+	git merge --no-ff --no-edit $BRANCHES || exit	# try to merge all
+fi
+
+$PUSH && echo "*** pushing $OUTPUT to remote ***"
+$PUSH && { git push --force origin $OUTPUT || exit; }	# update letux-$VERSION on public server
+
+echo "*** switched to $(git branch | fgrep '* ' | cut -c 3-) ***"
