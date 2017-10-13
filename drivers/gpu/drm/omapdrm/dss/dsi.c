@@ -4434,7 +4434,7 @@ static int dsi_enable_te(struct omap_dss_device *dssdev, bool enable)
 	dsi->te_enabled = enable;
 	return 0;
 }
-
+#define PRINT_VERBOSE_VM_TIMINGS
 #ifdef PRINT_VERBOSE_VM_TIMINGS
 static void print_dsi_vm(const char *str,
 		const struct omap_dss_dsi_videomode_timings *t)
@@ -5535,6 +5535,14 @@ static int dsi_bind(struct device *dev, struct device *master, void *data)
 	r = dsi_runtime_get(dsidev);
 	if (r)
 		goto err_runtime_get;
+
+	{
+		dsi_write_reg(dsidev, DSI_SYSCONFIG, 1<<1);
+		mdelay(100);
+		REG_FLD_MOD(dsidev, DSI_SYSCONFIG, 1, 2, 2);
+		REG_FLD_MOD(dsidev, DSI_SYSCONFIG, 1, 4, 3);
+		REG_FLD_MOD(dsidev, DSI_SYSCONFIG, 3, 9, 8);
+	}
 
 	rev = dsi_read_reg(dsidev, DSI_REVISION);
 	dev_dbg(&dsidev->dev, "OMAP DSI rev %d.%d\n",
