@@ -1,0 +1,6 @@
+#
+# turn off UMTS modem
+#
+
+rfkill block wwan
+echo modem is off
