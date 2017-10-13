@@ -236,6 +236,11 @@ snd-soc-max98504-objs := max98504.o
 snd-soc-tpa6130a2-objs := tpa6130a2.o
 snd-soc-tas2552-objs := tas2552.o
 
+# GTA04
+snd-soc-gtm601-objs := gtm601.o
+snd-soc-si47xx-objs := si47xx.o
+snd-soc-w2cbw003-bt-objs := w2cbw003-bt.o
+
 obj-$(CONFIG_SND_SOC_88PM860X)	+= snd-soc-88pm860x.o
 obj-$(CONFIG_SND_SOC_AB8500_CODEC)	+= snd-soc-ab8500-codec.o
 obj-$(CONFIG_SND_SOC_AC97_CODEC)	+= snd-soc-ac97.o
@@ -473,3 +478,8 @@ obj-$(CONFIG_SND_SOC_DIO2125)	+= snd-soc-dio2125.o
 obj-$(CONFIG_SND_SOC_MAX9877)	+= snd-soc-max9877.o
 obj-$(CONFIG_SND_SOC_MAX98504)	+= snd-soc-max98504.o
 obj-$(CONFIG_SND_SOC_TPA6130A2)	+= snd-soc-tpa6130a2.o
+obj-$(CONFIG_SND_SOC_WM2000)	+= snd-soc-wm2000.o
+obj-$(CONFIG_SND_SOC_WM9090)	+= snd-soc-wm9090.o
+obj-$(CONFIG_SND_SOC_GTM601)    += snd-soc-gtm601.o
+obj-$(CONFIG_SND_SOC_SI47XX)    += snd-soc-si47xx.o
+obj-$(CONFIG_SND_SOC_W2CBW003)  += snd-soc-w2cbw003-bt.o
