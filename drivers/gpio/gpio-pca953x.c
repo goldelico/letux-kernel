@@ -760,6 +760,8 @@ static int pca953x_probe(struct i2c_client *client,
 	u32 invert = 0;
 	struct regulator *reg;
 
+	dev_info(&client->dev, "i2c_device_id: %s [%p]\n", i2c_id->name, i2c_id->driver_data);
+
 	chip = devm_kzalloc(&client->dev,
 			sizeof(struct pca953x_chip), GFP_KERNEL);
 	if (chip == NULL)
