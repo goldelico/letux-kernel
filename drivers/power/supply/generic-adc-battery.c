@@ -99,11 +99,13 @@ static const enum power_supply_property gab_dyn_props[] = {
 static bool gab_charge_finished(struct gab *adc_bat)
 {
 	struct gab_platform_data *pdata = adc_bat->pdata;
-	bool ret = gpio_get_value(pdata->gpio_charge_finished);
+	bool ret;
 	bool inv = pdata->gpio_inverted;
 
 	if (!gpio_is_valid(pdata->gpio_charge_finished))
 		return false;
+
+	ret = gpio_get_value(pdata->gpio_charge_finished);
 	return ret ^ inv;
 }
 
