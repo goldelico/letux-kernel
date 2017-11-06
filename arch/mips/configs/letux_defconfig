@@ -1,5 +1,5 @@
 #
-# Linux/mips 4.13.3 Kernel Configuration
+# Linux/mips 4.13.11 Kernel Configuration
 #
 CONFIG_MIPS=y
 
@@ -4219,6 +4219,7 @@ CONFIG_HAVE_ARCH_KGDB=y
 #
 CONFIG_KEYS=y
 # CONFIG_PERSISTENT_KEYRINGS is not set
+# CONFIG_BIG_KEYS is not set
 # CONFIG_ENCRYPTED_KEYS is not set
 # CONFIG_KEY_DH_OPERATIONS is not set
 # CONFIG_SECURITY_DMESG_RESTRICT is not set
