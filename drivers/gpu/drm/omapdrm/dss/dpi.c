@@ -576,10 +576,13 @@ static int dpi_init_regulator(struct dpi_data *dpi)
 	 * DM37xx only.
 	 */
 	if (!soc_device_match(dpi_soc_devices))
+{
+printk("dpi_init_regulator() no match\n");
 		return 0;
-
+}
 	if (dpi->vdds_dsi_reg)
 		return 0;
+printk("dpi_init_regulator() match\n");
 
 	vdds_dsi = devm_regulator_get(&dpi->pdev->dev, "vdds_dsi");
 	if (IS_ERR(vdds_dsi)) {
