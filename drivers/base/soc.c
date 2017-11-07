@@ -180,9 +180,21 @@ static int __init soc_bus_register(void)
 }
 core_initcall(soc_bus_register);
 
+static void p(char *title, struct soc_device_attribute *attr)
+{
+	printk("%s\n", title);
+	printk("  machine = %s\n", attr->machine?attr->machine:"null");
+	printk("  family = %s\n", attr->family?attr->family:"null");
+	printk("  revision = %s\n", attr->revision?attr->revision:"null");
+	printk("  soc_id = %s\n", attr->soc_id?attr->soc_id:"null");
+}
+
 static int soc_device_match_attr(const struct soc_device_attribute *attr,
 				 const struct soc_device_attribute *match)
 {
+printk("soc_device_match_attr()\n");
+p("attr", attr);
+p("match", match);
 	if (match->machine &&
 	    (!attr->machine || !glob_match(match->machine, attr->machine)))
 		return 0;
@@ -231,6 +243,7 @@ const struct soc_device_attribute *soc_device_match(
 	const struct soc_device_attribute *matches)
 {
 	int ret = 0;
+printk("soc_device_match()\n");
 
 	if (!matches)
 		return NULL;
