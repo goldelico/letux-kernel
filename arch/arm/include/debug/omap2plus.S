@@ -12,6 +12,10 @@
 
 #include <linux/serial_reg.h>
 
+#if defined(CONFIG_DEBUG_LL)
+#warning Please disable CONFIG_DEBUG_LL and enable CONFIG_SERIAL_EARLYCON or OMAP5 devices will not boot
+#endif
+
 /* External port on Zoom2/3 */
 #define ZOOM_UART_BASE		0x10000000
 #define ZOOM_UART_VIRT		0xfa400000
