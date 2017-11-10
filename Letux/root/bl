@@ -1,0 +1,62 @@
+#
+# /root/bl: turn on/off backlight power
+# -g: use gpio mode
+# 1: turn on
+# 0: turn off
+#
+# intensity can be controlled in non-gpio mode through
+#    /sys/class/backlight/backlight/brightness
+#
+
+BL=/sys/class/backlight/backlight/bl_power	# just turn completely on/off instead of writing backlight intensity
+ON=0
+OFF=1
+
+[ "$(which devmem2)" ] || apt-get install -y --force-yes devmem2
+
+if [ "$1" = -g ]
+then
+	USEGPIO=true
+	shift
+fi
+
+case $(tr -d '\0' </proc/device-tree/model) in
+	Pyra-Handheld* )
+		PADCONF=0x4a0028f6	# OMAP5
+		GPIOMODE=0x011e
+		PWMMODE=0x0118
+		GPIO=190
+		;;
+	*GTA04* )
+		PADCONF=0x480020b8	# OMAP3
+		GPIOMODE=0x011c
+		PWMMODE=0x011b
+		GPIO=57
+		;;
+	* )
+		USEGPIO=""	# ignore -g
+		GPIO=none	# there is no /sys/class/gpio/gpionone
+		;;
+esac
+
+if [ "$USEGPIO" ]
+then
+	devmem2 $PADCONF h $GPIOMODE >/dev/null	# switch to gpio mode
+	echo $GPIO > /sys/class/gpio/export 2>/dev/null
+	echo out > /sys/class/gpio/gpio$GPIO/direction
+	BL=/sys/class/gpio/gpio$GPIO/value
+	ON=1
+	OFF=0
+elif [ -r /sys/class/gpio/gpio$GPIO ]
+then
+	echo in > /sys/class/gpio/gpio$GPIO/direction
+	echo $GPIO > /sys/class/gpio/unexport 2>/dev/null
+	devmem2 $PADCONF h $PWMMODE >/dev/null	# switch to pwm mode
+fi
+
+if [ "$1" = 1 ]
+then
+	echo $ON >$BL
+else
+	echo $OFF >$BL
+fi
