@@ -43,6 +43,7 @@ static void jz4740_halt(void)
 
 static void jz4740_restart(char *command)
 {
+#ifndef CONFIG_MACH_JZ4730
 	void __iomem *wdt_base = ioremap(JZ4740_WDT_BASE_ADDR, 0x0f);
 
 	jz4740_timer_enable_watchdog();
@@ -55,6 +56,7 @@ static void jz4740_restart(char *command)
 
 	writeb(1, wdt_base + JZ_REG_WDT_COUNTER_ENABLE);
 	jz4740_halt();
+#endif
 }
 
 void jz4740_reset_init(void)
