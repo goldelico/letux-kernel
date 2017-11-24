@@ -216,7 +216,10 @@ static int gab_get_property(struct power_supply *psy,
 		ret = read_channel(adc_bat, psp, &result);
 		if (ret < 0)
 			goto err;
-		val->intval = result;
+		if ((psp == POWER_SUPPLY_PROP_POWER_NOW) || (psp == POWER_SUPPLY_PROP_TEMP))
+			val->intval = result;
+		else
+			val->intval = result * 1000;
 		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
 		val->intval = bat_info->technology;
