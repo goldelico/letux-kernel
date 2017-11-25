@@ -840,9 +840,9 @@
 		monitored-battery = <&bat>;
 		technology = <POWER_SUPPLY_TECHNOLOGY_LION>;
 		battery-name = "pyra-battery";
-		charge_full_design = <6000>;
+		charge_full_design = <6000000>;
 		charge_empty_design = <00>;
-		voltage_min_design = <3200>;
-		voltage_max_design = <4200>;
+		voltage_min_design = <3200000>;
+		voltage_max_design = <4200000>;
 	};
 };
