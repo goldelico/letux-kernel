@@ -715,6 +715,7 @@
 #include <dt-bindings/power/power.h>
 
 	bat: battery {
+		battery-name = "FIC-HF08-battery";
 		compatible = "simple-battery", "gta04-battery";
 		voltage-min-design-microvolt = <3200000>;
 		energy-full-design-microwatt-hours = <4440000>;
