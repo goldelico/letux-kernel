@@ -181,6 +181,12 @@ static void smp_callin(void)
 	smp_store_cpu_info(cpuid);
 
 	/*
+	 * The topology information must be up to date before
+	 * calibrate_delay() and notify_cpu_starting().
+	 */
+	set_cpu_sibling_map(raw_smp_processor_id());
+
+	/*
 	 * Get our bogomips.
 	 * Update loops_per_jiffy in cpu_data. Previous call to
 	 * smp_store_cpu_info() stored a value that is close but not as
@@ -190,11 +196,6 @@ static void smp_callin(void)
 	cpu_data(cpuid).loops_per_jiffy = loops_per_jiffy;
 	pr_debug("Stack at about %p\n", &cpuid);
 
-	/*
-	 * This must be done before setting cpu_online_mask
-	 * or calling notify_cpu_starting.
-	 */
-	set_cpu_sibling_map(raw_smp_processor_id());
 	wmb();
 
 	notify_cpu_starting(cpuid);
@@ -423,9 +424,15 @@ static bool match_smt(struct cpuinfo_x86 *c, struct cpuinfo_x86 *o)
 		int cpu1 = c->cpu_index, cpu2 = o->cpu_index;
 
 		if (c->phys_proc_id == o->phys_proc_id &&
-		    per_cpu(cpu_llc_id, cpu1) == per_cpu(cpu_llc_id, cpu2) &&
-		    c->cpu_core_id == o->cpu_core_id)
-			return topology_sane(c, o, "smt");
+		    per_cpu(cpu_llc_id, cpu1) == per_cpu(cpu_llc_id, cpu2)) {
+			if (c->cpu_core_id == o->cpu_core_id)
+				return topology_sane(c, o, "smt");
+
+			if ((c->cu_id != 0xff) &&
+			    (o->cu_id != 0xff) &&
+			    (c->cu_id == o->cu_id))
+				return topology_sane(c, o, "smt");
+		}
 
 	} else if (c->phys_proc_id == o->phys_proc_id &&
 		   c->cpu_core_id == o->cpu_core_id) {

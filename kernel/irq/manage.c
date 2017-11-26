@@ -1323,8 +1323,10 @@ if(strcmp(new->name, "TS3A227E") == 0)
 			ret = __irq_set_trigger(desc,
 						new->flags & IRQF_TRIGGER_MASK);
 
-			if (ret)
+			if (ret) {
+				irq_release_resources(desc);
 				goto out_mask;
+			}
 		}
 
 		desc->istate &= ~(IRQS_AUTODETECT | IRQS_SPURIOUS_DISABLED | \

@@ -703,23 +703,23 @@ static irqreturn_t lineevent_irq_thread(int irq, void *p)
 {
 	struct lineevent_state *le = p;
 	struct gpioevent_data ge;
-	int ret;
+	int ret, level;
 
 	ge.timestamp = ktime_get_real_ns();
+	level = gpiod_get_value_cansleep(le->desc);
 
-	if (le->eflags & GPIOEVENT_REQUEST_BOTH_EDGES) {
-		int level = gpiod_get_value_cansleep(le->desc);
-
+	if (le->eflags & GPIOEVENT_REQUEST_RISING_EDGE
+	    && le->eflags & GPIOEVENT_REQUEST_FALLING_EDGE) {
 		if (level)
 			/* Emit low-to-high event */
 			ge.id = GPIOEVENT_EVENT_RISING_EDGE;
 		else
 			/* Emit high-to-low event */
 			ge.id = GPIOEVENT_EVENT_FALLING_EDGE;
-	} else if (le->eflags & GPIOEVENT_REQUEST_RISING_EDGE) {
+	} else if (le->eflags & GPIOEVENT_REQUEST_RISING_EDGE && level) {
 		/* Emit low-to-high event */
 		ge.id = GPIOEVENT_EVENT_RISING_EDGE;
-	} else if (le->eflags & GPIOEVENT_REQUEST_FALLING_EDGE) {
+	} else if (le->eflags & GPIOEVENT_REQUEST_FALLING_EDGE && !level) {
 		/* Emit high-to-low event */
 		ge.id = GPIOEVENT_EVENT_FALLING_EDGE;
 	} else {
@@ -1317,12 +1317,12 @@ void gpiochip_remove(struct gpio_chip *chip)
 
 	/* FIXME: should the legacy sysfs handling be moved to gpio_device? */
 	gpiochip_sysfs_unregister(gdev);
+	gpiochip_free_hogs(chip);
 	/* Numb the device, cancelling all outstanding operations */
 	gdev->chip = NULL;
 	gpiochip_irqchip_remove(chip);
 	acpi_gpiochip_remove(chip);
 	gpiochip_remove_pin_ranges(chip);
-	gpiochip_free_hogs(chip);
 	of_gpiochip_remove(chip);
 	/*
 	 * We accept no more calls into the driver from this point, so

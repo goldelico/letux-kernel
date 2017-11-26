@@ -110,6 +110,9 @@ struct xfs_extent_free_item
 /* Map something in the CoW fork. */
 #define XFS_BMAPI_COWFORK	0x200
 
+/* Only convert delalloc space, don't allocate entirely new extents */
+#define XFS_BMAPI_DELALLOC	0x400
+
 #define XFS_BMAPI_FLAGS \
 	{ XFS_BMAPI_ENTIRE,	"ENTIRE" }, \
 	{ XFS_BMAPI_METADATA,	"METADATA" }, \
@@ -120,7 +123,8 @@ struct xfs_extent_free_item
 	{ XFS_BMAPI_CONVERT,	"CONVERT" }, \
 	{ XFS_BMAPI_ZERO,	"ZERO" }, \
 	{ XFS_BMAPI_REMAP,	"REMAP" }, \
-	{ XFS_BMAPI_COWFORK,	"COWFORK" }
+	{ XFS_BMAPI_COWFORK,	"COWFORK" }, \
+	{ XFS_BMAPI_DELALLOC,	"DELALLOC" }
 
 
 static inline int xfs_bmapi_aflag(int w)
@@ -192,6 +196,7 @@ void	xfs_bmap_trace_exlist(struct xfs_inode *ip, xfs_extnum_t cnt,
 
 void	xfs_trim_extent(struct xfs_bmbt_irec *irec, xfs_fileoff_t bno,
 		xfs_filblks_t len);
+void	xfs_trim_extent_eof(struct xfs_bmbt_irec *, struct xfs_inode *);
 int	xfs_bmap_add_attrfork(struct xfs_inode *ip, int size, int rsvd);
 void	xfs_bmap_local_to_extents_empty(struct xfs_inode *ip, int whichfork);
 void	xfs_bmap_add_free(struct xfs_mount *mp, struct xfs_defer_ops *dfops,
@@ -261,7 +266,7 @@ struct xfs_bmap_intent {
 int	xfs_bmap_finish_one(struct xfs_trans *tp, struct xfs_defer_ops *dfops,
 		struct xfs_inode *ip, enum xfs_bmap_intent_type type,
 		int whichfork, xfs_fileoff_t startoff, xfs_fsblock_t startblock,
-		xfs_filblks_t blockcount, xfs_exntst_t state);
+		xfs_filblks_t *blockcount, xfs_exntst_t state);
 int	xfs_bmap_map_extent(struct xfs_mount *mp, struct xfs_defer_ops *dfops,
 		struct xfs_inode *ip, struct xfs_bmbt_irec *imap);
 int	xfs_bmap_unmap_extent(struct xfs_mount *mp, struct xfs_defer_ops *dfops,
