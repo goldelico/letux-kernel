@@ -145,7 +145,7 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return ret;
 
-	/* Allocate the memory of extcon devie and register extcon device */
+	/* Allocate the memory of extcon device and register extcon device */
 	data->edev = devm_extcon_dev_allocate(&pdev->dev, &pdata->extcon_id);
 	if (IS_ERR(data->edev)) {
 		dev_err(&pdev->dev, "failed to allocate extcon device\n");
