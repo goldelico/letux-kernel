@@ -109,41 +109,30 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 #endif
 	if (node && !pdata) {
 /* CHECKME: this does not persist until gpio_extcon_resume! */
-		struct gpio_extcon_platform_data of_pdata;
+		struct gpio_extcon_pdata of_pdata;
 		enum of_gpio_flags flags;
 		u32 value;
 		pdata = &of_pdata;
 
-		pdata->name = "unnamed";
-		pdata->state_on = NULL;
-		pdata->state_off = NULL;
 		pdata->debounce = 0;
 		pdata->irq_flags = 0;
 
-		of_property_read_string(node, "label", &pdata->name);
-#ifdef DEBUG
-		printk("  name=%s\n", pdata->name);
-#endif
 		pdata->gpio = of_get_gpio_flags(node, 0, &flags);
 		pdata->gpio_active_low = (flags&OF_GPIO_ACTIVE_LOW) != 0;
+		pdata->check_on_resume=of_property_read_bool(node, "check-on-resume");
 		if(!of_property_read_u32(node, "debounce-delay-ms", &value))
 			pdata->debounce=value;
 		if(!of_property_read_u32(node, "irq-flags", &value))
 			pdata->irq_flags=value;
-		of_property_read_string(node, "state-on", &pdata->state_on);
-		of_property_read_string(node, "state-off", &pdata->state_off);
 #ifdef DEBUG
-		printk("extcon gpio %d\n", data->gpio);
+		printk("extcon gpio %d actlow = %d\n", pdata->gpio, pdata->gpio_active_low);
 		printk("extcon debounce %lu\n", pdata->debounce);
 #endif
-		pdata->check_on_resume=of_property_read_bool(node, "check-on-resume");
 	}
 	if (!pdata)
 		return -EBUSY;
-	if (!pdata->irq_flags || pdata->extcon_id > EXTCON_NONE) {
-		dev_err(&pdev->dev, "IRQ flag is not specified.\n");
+	if (!pdata->irq_flags || pdata->extcon_id > EXTCON_NONE)
 		return -EINVAL;
-	}
 
 	data = devm_kzalloc(&pdev->dev, sizeof(struct gpio_extcon_data),
 				   GFP_KERNEL);
@@ -153,15 +142,6 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 
 	/* Initialize the gpio */
 	ret = gpio_extcon_init(&pdev->dev, data);
-#ifdef DEBUG
-	printk("extcon gpio %d\n", data->gpio);
-	printk("extcon gpio_active_low %d\n", data->gpio_active_low);
-	printk("extcon name %s\n", data->edev->name);
-	printk("extcon on %s\n", data->state_on?data->state_on:"NULL");
-	printk("extcon off %s\n", data->state_off?data->state_off:"NULL");
-	printk("extcon check_on_resume %d\n", data->check_on_resume);
-	printk("extcon debounce %lu\n", pdata->debounce);
-#endif
 	if (ret < 0)
 		return ret;
 
@@ -177,16 +157,6 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 		return ret;
 
 	INIT_DELAYED_WORK(&data->work, gpio_extcon_work);
-
-	if(node) /* try device tree */
-		data->irq = irq_of_parse_and_map(node, 0);
-	else
-		data->irq = gpio_to_irq(data->gpio);
-#ifdef DEBUG
-	printk("extcon irq %d\n", data->irq);
-#endif
-	if (data->irq < 0)
-		return data->irq;
 
 	/*
 	 * Request the interrupt of gpio to detect whether external connector
