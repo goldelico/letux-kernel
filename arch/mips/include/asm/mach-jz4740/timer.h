@@ -55,6 +55,12 @@
 #define JZ_TIMER_CTRL_SRC_RTC		BIT(1)
 #define JZ_TIMER_CTRL_SRC_PCLK		BIT(0)
 
+/* Indicate that EXTAL/16 is used with a 16-bit full period. */
+
+#define JZ_TIMER_CLK_SRC		JZ_TIMER_CTRL_SRC_EXT | JZ_TIMER_CTRL_PRESCALE_16
+#define JZ_TIMER_CLK_DIVSHIFT		4
+#define JZ_TIMER_CLK_FULL_LEVEL         0xffff
+
 extern void __iomem *jz4740_timer_base;
 void __init jz4740_timer_init(void);
 
