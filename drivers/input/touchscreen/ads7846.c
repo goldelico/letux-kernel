@@ -34,6 +34,7 @@
 #include <linux/spi/ads7846.h>
 #include <linux/regulator/consumer.h>
 #include <linux/module.h>
+#include <linux/input/touchscreen.h>
 #include <asm/irq.h>
 
 /*
@@ -109,8 +110,13 @@ struct ads7846 {
 	u16			vref_delay_usecs;
 	u16			x_plate_ohms;
 	u16			pressure_max;
+	u16			x_min;
+	u16			x_max;
+	u16			y_min;
+	u16			y_max;
 
-	bool			swap_xy;
+	struct touchscreen_properties prop;
+
 	bool			use_internal;
 
 	struct ads7846_packet	*packet;
@@ -825,22 +831,36 @@ static void ads7846_report_state(struct ads7846 *ts)
 	 */
 	if (Rt) {
 		struct input_dev *input = ts->input;
+		int sx, sy;
 
-		if (ts->swap_xy)
-			swap(x, y);
+		dev_dbg(&ts->spi->dev,
+			"Raw point(%4d,%4d), pressure (%4u)\n",
+				x, y, Rt);
 
+		/* scale ADC values to desired output range */
+		sx = (ts->prop.max_x * (x - ts->x_min))
+			/ (ts->x_max - ts->x_min);
+		sy = (ts->prop.max_y * (y - ts->y_min))
+			/ (ts->y_max - ts->y_min);
+
+		dev_dbg(&ts->spi->dev,
+			"Scaled point(%4d,%4d), pressure (%4u)\n",
+				sx, sy, Rt);
+
+		/* report event */
 		if (!ts->pendown) {
 			input_report_key(input, BTN_TOUCH, 1);
 			ts->pendown = true;
 			dev_vdbg(&ts->spi->dev, "DOWN\n");
 		}
 
-		input_report_abs(input, ABS_X, x);
-		input_report_abs(input, ABS_Y, y);
+		touchscreen_report_pos(ts->input, &ts->prop,
+				       (unsigned int) sx, (unsigned int) sy,
+				       false);
 		input_report_abs(input, ABS_PRESSURE, ts->pressure_max - Rt);
 
 		input_sync(input);
-		dev_vdbg(&ts->spi->dev, "%4d/%4d/%4d\n", x, y, Rt);
+		dev_vdbg(&ts->spi->dev, "%4d/%4d/%4d\n", sx, sy, Rt);
 	}
 }
 
@@ -1212,6 +1232,8 @@ static const struct ads7846_platform_data *ads7846_probe_dt(struct device *dev)
 	pdata->keep_vref_on = of_property_read_bool(node, "ti,keep-vref-on");
 
 	pdata->swap_xy = of_property_read_bool(node, "ti,swap-xy");
+	if (pdata->swap_xy)
+		dev_notice(dev, "please update device tree to use touchscreen-swapped-x-y");
 
 	of_property_read_u16(node, "ti,settle-delay-usec",
 			     &pdata->settle_delay_usecs);
@@ -1315,7 +1337,6 @@ static int ads7846_probe(struct spi_device *spi)
 	ts->pressure_max = pdata->pressure_max ? : ~0;
 
 	ts->vref_mv = pdata->vref_mv;
-	ts->swap_xy = pdata->swap_xy;
 
 	if (pdata->filter != NULL) {
 		if (pdata->filter_init != NULL) {
@@ -1355,17 +1376,34 @@ static int ads7846_probe(struct spi_device *spi)
 	input_dev->dev.parent = &spi->dev;
 
 	input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
+	input_dev->absbit[0] = BIT_MASK(ABS_X) | BIT_MASK(ABS_Y) |
+				BIT_MASK(ABS_PRESSURE);
 	input_dev->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
+
+	ts->x_min = pdata->x_min ? : 0;
+	ts->x_max = pdata->x_max ? : MAX_12BIT;
+	ts->y_min = pdata->y_min ? : 0;
+	ts->y_max = pdata->y_max ? : MAX_12BIT;
+
 	input_set_abs_params(input_dev, ABS_X,
-			pdata->x_min ? : 0,
-			pdata->x_max ? : MAX_12BIT,
+			ts->x_min,
+			ts->x_max,
 			0, 0);
 	input_set_abs_params(input_dev, ABS_Y,
-			pdata->y_min ? : 0,
-			pdata->y_max ? : MAX_12BIT,
+			ts->y_min,
+			ts->y_max,
 			0, 0);
 	input_set_abs_params(input_dev, ABS_PRESSURE,
 			pdata->pressure_min, pdata->pressure_max, 0, 0);
+
+	if (spi->dev.of_node) {
+		input_abs_set_min(input_dev, ABS_X, 0);
+		input_abs_set_min(input_dev, ABS_Y, 0);
+
+		touchscreen_parse_properties(ts->input, false, &ts->prop);
+	}
+
+	ts->prop.swap_x_y |= pdata->swap_xy;
 
 	ads7846_setup_spi_msg(ts, pdata);
 
@@ -1492,6 +1530,16 @@ static int ads7846_remove(struct spi_device *spi)
 	return 0;
 }
 
+static const struct spi_device_id ads7846_idtable[] = {
+	{ "tsc2046", 0 },
+	{ "ads7843", 0 },
+	{ "ads7845", 0 },
+	{ "ads7846", 0 },
+	{ "ads7873", 0 },
+	{ }
+};
+MODULE_DEVICE_TABLE(spi, ads7846_idtable);
+
 static struct spi_driver ads7846_driver = {
 	.driver = {
 		.name	= "ads7846",
@@ -1506,4 +1554,3 @@ module_spi_driver(ads7846_driver);
 
 MODULE_DESCRIPTION("ADS7846 TouchScreen Driver");
 MODULE_LICENSE("GPL");
-MODULE_ALIAS("spi:ads7846");
