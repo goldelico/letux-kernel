@@ -417,7 +417,6 @@ static void pca953x_setup_gpio(struct pca953x_chip *chip, int gpios)
 {
 	struct gpio_chip *gc;
 
-printk("pca953x_setup_gpio\n");
 	gc = &chip->gpio_chip;
 
 	gc->direction_input  = pca953x_gpio_direction_input;
@@ -441,7 +440,7 @@ static void pca953x_irq_mask(struct irq_data *d)
 {
 	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
 	struct pca953x_chip *chip = gpiochip_get_data(gc);
-printk("pca953x_irq_mask %lu\n", d->hwirq);
+
 	chip->irq_mask[d->hwirq / BANK_SZ] &= ~(1 << (d->hwirq % BANK_SZ));
 }
 
@@ -450,7 +449,6 @@ static void pca953x_irq_unmask(struct irq_data *d)
 	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
 	struct pca953x_chip *chip = gpiochip_get_data(gc);
 
-printk("pca953x_irq_unmask %lu\n", d->hwirq);
 	chip->irq_mask[d->hwirq / BANK_SZ] |= 1 << (d->hwirq % BANK_SZ);
 }
 
@@ -459,7 +457,6 @@ static void pca953x_irq_bus_lock(struct irq_data *d)
 	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
 	struct pca953x_chip *chip = gpiochip_get_data(gc);
 
-printk("pca953x_irq_bus_lock\n");
 	mutex_lock(&chip->irq_lock);
 }
 
@@ -471,7 +468,6 @@ static void pca953x_irq_bus_sync_unlock(struct irq_data *d)
 	int level, i;
 	u8 invert_irq_mask[MAX_BANK];
 
-printk("pca953x_irq_bus_sync_unlock\n");
 	if (chip->driver_data & PCA_PCAL) {
 		/* Enable latch on interrupt-enabled inputs */
 		pca953x_write_regs(chip, PCAL953X_IN_LATCH, chip->irq_mask);
@@ -512,7 +508,6 @@ static int pca953x_irq_set_type(struct irq_data *d, unsigned int type)
 		return -EINVAL;
 	}
 
-printk("pca953x_irq_set_type %lu: %d\n", d->hwirq, type);
 	if (type & IRQ_TYPE_EDGE_FALLING)
 		chip->irq_trig_fall[bank_nb] |= mask;
 	else
@@ -583,14 +578,10 @@ static bool pca953x_irq_pending(struct pca953x_chip *chip, u8 *pending)
 			trigger_seen = true;
 	}
 
-	memcpy(chip->irq_stat, cur_stat, NBANK(chip));
-
-	if (!trigger_seen) {
-// printk("pca953x_irq_pending !trigger_seen\n");
-
+	if (!trigger_seen)
 		return false;
-}
-printk("pca953x_irq_pending trigger_seen %02x %02x %02x\n", trigger[0], trigger[1], trigger[2]);
+
+	memcpy(chip->irq_stat, cur_stat, NBANK(chip));
 
 	for (i = 0; i < NBANK(chip); i++) {
 		pending[i] = (old_stat[i] & chip->irq_trig_fall[i]) |
@@ -600,7 +591,6 @@ printk("pca953x_irq_pending trigger_seen %02x %02x %02x\n", trigger[0], trigger[
 			pending_seen = true;
 	}
 
-printk("pca953x_irq_pending pending_seen = %d\n", pending_seen);
 	return pending_seen;
 }
 
@@ -672,7 +662,6 @@ if(of_find_node_by_path("/ocp/i2c@4807c000/ts3a227@3b")) {
 			return ret;
 		}
 
-printk("pca953x_irq_setup 2\n");
 		ret =  gpiochip_irqchip_add_nested(&chip->gpio_chip,
 						   &pca953x_irq_chip,
 						   irq_base,
