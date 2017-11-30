@@ -15,6 +15,9 @@
  * so we should probably convert to use sdio_register_driver()
  * maybe this is a hint: http://www.varsanofiev.com/inside/WritingLinuxSDIODrivers.htm
  * and of course http://lxr.free-electrons.com/source/drivers/mmc/core/
+ *
+ * base structure like drivers/net/wireless/ti/wlcore/sdio.c i.e. mmc subnode
+ * create Host ports like drivers/mmc/host/omap_hsmmc.c i.e. mmc interfaces
  */
 
 #include <linux/delay.h>
@@ -152,7 +155,6 @@ static struct mmc_host_ops mmc_ops = {
 	.enable_sdio_irq = NULL,
 };
 
-// static int txs_probe(struct platform_device *dev)
 static int txs_probe(struct sdio_func *dev,
 				  const struct sdio_device_id *id)
 {
@@ -201,13 +203,12 @@ static int txs_probe(struct sdio_func *dev,
 
 	pr_debug("%s() probed\n", __func__);
 
-	/* new variant */
+	np = of_get_child_by_name(np, "port");
 
-// base structure like drivers/net/wireless/ti/wlcore/sdio.c i.e. mmc subnode
-// create Host ports like drivers/mmc/host/omap_hsmmc.c i.e. mmc interfaces
-
-	// here stuff from wlcore/sdio.c
-	// to make us a nice subnode of the omap mmc interface
+	if (!np) {
+		dev_err(&dev->dev, "needs a port definition\n");
+		return -EINVAL;
+	}
 
 	if (of_get_child_count(np) != 2) {
 		dev_err(&dev->dev, "needs exactly two child nodes but found %d\n",
@@ -216,9 +217,12 @@ static int txs_probe(struct sdio_func *dev,
 	}
 
 	for_each_child_of_node(np, child) {
-		struct platform_device *subdev;
+		struct platform_device *subdev = NULL;
 		struct mmc_host *mmc;
-		// get subnode subdev
+
+		pr_debug("%s() child %d\n", __func__, childindex);
+
+		// get subnode subdev - will crash...
 
 		mmc = mmc_alloc_host(sizeof(struct tsx0612_mmc_host), &subdev->dev);
 		if (!mmc) {
@@ -360,9 +364,17 @@ static const struct of_device_id txs_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, txs_of_match);
 
+static const struct sdio_device_id txs_devices[] = {
+	{ SDIO_DEVICE(SDIO_ANY_ID, SDIO_ANY_ID) },
+	{}
+};
+MODULE_DEVICE_TABLE(sdio, txs_devices);
+
 SIMPLE_DEV_PM_OPS(txs_pm_ops, txs_suspend, txs_resume);
 
 static struct sdio_driver txs_driver = {
+	.name		= "txs02612",
+	.id_table	= txs_devices,
 	.probe		= txs_probe,
 	.remove		= txs_remove,
 	.drv = {
@@ -373,13 +385,11 @@ static struct sdio_driver txs_driver = {
 	},
 };
 
-#define module_sdio_driver(NAME) static int __init NAME##_init(void) { return sdio_register_driver(&NAME); } \
-	static void __exit NAME##_exit(void) { sdio_unregister_driver(&txs_driver); } \
-	module_init(NAME##_init); module_exit(NAME##_exit);
+#define module_sdio_driver(__sdio_driver) \
+	module_driver(__sdio_driver, sdio_register_driver, \
+			sdio_unregister_driver)
 
 module_sdio_driver(txs_driver);
-
-// MODULE_ALIAS("platform:txs02612");
 
 MODULE_AUTHOR("Nikolaus Schaller <hns@goldelico.com>");
 MODULE_DESCRIPTION("txs02612 SD level shifter and switch");
