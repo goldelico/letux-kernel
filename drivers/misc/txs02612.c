@@ -2,22 +2,24 @@
  * txs02612.c
  * Driver for controlling the txs02612 sd level shifter and switch.
  *
- * currently, this is a very simple switch - it just provides a /sysfs node
+ * Copyright (C) 2016-2017 H. Nikolaus Schaller <hns@goldelico.com>,
+ *						Golden Delicious Computers
+ *
+ * Currently, this is a very simple switch - it just provides a /sysfs node
  * to throw the switch.
  *
- * in the future this should become a MMC card driver (similar to e.g. WLAN
+ * In the future this should become a MMC card driver (similar to e.g. WLAN
  * chips) and register as two new MMC ports to the system.
  *
- * switching should be done on the fly, i.e. block by block request, so that
- * both cards can be read or written in parallel and simply appear as two
+ * Switching should be done on the fly, i.e. block by block request, so that
+ * both cards can be read or written alternatingly and simply appear as two
  * separate drives (mmcblk) in user space.
  *
- * so we should probably convert to use sdio_register_driver()
- * maybe this is a hint: http://www.varsanofiev.com/inside/WritingLinuxSDIODrivers.htm
- * and of course http://lxr.free-electrons.com/source/drivers/mmc/core/
- *
- * base structure like drivers/net/wireless/ti/wlcore/sdio.c i.e. mmc subnode
- * create Host ports like drivers/mmc/host/omap_hsmmc.c i.e. mmc interfaces
+ * Some relevant resources:
+ * http://www.varsanofiev.com/inside/WritingLinuxSDIODrivers.htm
+ * http://lxr.free-electrons.com/source/drivers/mmc/core/
+ * http://lxr.free-electrons.com/source/drivers/net/wireless/ti/wlcore/sdio.c to be a subnode
+ * http://lxr.free-electrons.com/source/drivers/mmc/host/omap_hsmmc.c to create host ports
  */
 
 #include <linux/delay.h>
