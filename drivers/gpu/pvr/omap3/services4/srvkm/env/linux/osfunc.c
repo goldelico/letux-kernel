@@ -2792,13 +2792,17 @@ IMG_HANDLE OSAddTimer(PFN_TIMER_FUNC pfnTimerFunc, IMG_VOID *pvData, IMG_UINT32 
                                 ?	1
                                 :	((HZ * ui32MsTimeout) / 1000);
     /* initialise object */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,15,0))
+    timer_setup(&psTimerCBData->sTimer, (IMG_VOID *)OSTimerCallbackWrapper, (IMG_UINTPTR_T)psTimerCBData);
+#else
     init_timer(&psTimerCBData->sTimer);
-    
+
     /* setup timer object */
     /* PRQA S 0307,0563 1 */ /* ignore warning about inconpartible ptr casting */
-    psTimerCBData->sTimer.function = (IMG_VOID *)OSTimerCallbackWrapper;
-    psTimerCBData->sTimer.data = (IMG_UINTPTR_T)psTimerCBData;
-    
+     psTimerCBData->sTimer.function = (IMG_VOID *)OSTimerCallbackWrapper;
+     psTimerCBData->sTimer.data = (IMG_UINTPTR_T)psTimerCBData;
+#endif
+
     return (IMG_HANDLE)(ui + 1);
 }
 
