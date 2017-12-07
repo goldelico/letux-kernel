@@ -39,6 +39,7 @@ ccflags-y += \
 	-DPVR_BUILD_DIR="\"omap_sgx\"" \
 	-DPVR_BUILD_DATE="\"$(DATE)\"" \
 	-DPVRSRV_MODNAME="\"pvrsrvkm"\" \
+	-DPVR_USE_PRE_REGISTERED_PLATFORM_DEV \
 	-DPM_RUNTIME_SUPPORT \
 	-DSERVICES4 \
 	-D_XOPEN_SOURCE=600 \
