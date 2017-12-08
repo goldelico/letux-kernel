@@ -1003,6 +1003,13 @@
 			dma-names = "tx", "rx";
 		};
 
+		gfx: gpu@0x56000000 {
+			compatible = "ti,am33xx-gpu", "img,sgx530_125";
+			ti,hwmods = "gfx";
+			reg = <0x56000000 0x1000000>;
+			interrupts = <37>;
+		};
+
 		rng: rng@48310000 {
 			compatible = "ti,omap4-rng";
 			ti,hwmods = "rng";

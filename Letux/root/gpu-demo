@@ -1,0 +1,56 @@
+#
+# start PVR SGX GPU
+# and run some demo
+#
+# usage: gpu-demo
+#
+# WARNING: this loads and installs packages with NON-FREE
+# firmware for the SGX libraries and runtime support
+#
+# it needs a kernel where the GPL'ed SGX kernel driver is
+# configured.
+#
+
+# should load the 121 or 125 or whatever package
+# currently it reports: System Version String: None"
+#
+# a problem seems to be that it is not available before
+# we run pvrsrvctl!
+# after: System Version String: SGX revision = 125
+#
+
+VERSION=$(fgrep "System Version String: " /proc/pvr/version | cut -f 7)
+
+# better mechanism: try to extract from DT
+
+# VERSION=$(cat /proc/device-tree/ocp/gpu@0x56000000/compatible | extract img,\(sgx[0-9]*_[0-9]*\))
+
+VERSION=gta04	# version detection does not work and we don't have pvrsgx-121 / pvrsgx-125 packages
+PACKAGE=omap3-pvrsgx530-$VERSION	# from /e/a/s/gta04.list
+DIR=/usr/local/bin
+
+case "$(cat /sys/firmware/devicetree/base/model)" in
+	*GTA04* | *Pandora* | *BeagleBoard* | *BeagleBone* | *'Letux Cortex 8'* )
+		;;
+	*Panda* )
+		PACKAGE=omap3-pvrsgx540-$VERSION	# from /e/a/s/gta04.list
+		;;
+	*Pyra* | *omap5* | *'Letux Cortex 15'* )
+		PACKAGE=omap5-sgx-ddk-um-linux	# from /e/a/s/pyra.list
+		DIR=/opt/$PACKAGE/bin
+		;;
+	* )
+		echo "unsupported device; $(cat /sys/firmware/devicetree/base/model)"
+		exit 1
+		;;
+esac
+
+cd $DIR || exit
+
+[ -x pvrsrvctl ] || apt-get install -y --force-yes $PACKAGE
+
+./pvrsrvctl --start --no-module &&
+
+./sgx_clipblit_test &&
+
+./pvrsrvctl --stop
