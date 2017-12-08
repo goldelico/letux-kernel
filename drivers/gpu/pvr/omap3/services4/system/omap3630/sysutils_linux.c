@@ -696,8 +696,8 @@ static void ReleaseGPTimer(SYS_SPECIFIC_DATA *psSysSpecData)
 PVRSRV_ERROR EnableSystemClocks(SYS_DATA *psSysData)
 {
 	SYS_SPECIFIC_DATA *psSysSpecData = (SYS_SPECIFIC_DATA *) psSysData->pvSysSpecificData;
-#if !defined(PM_RUNTIME_SUPPORT)
         struct clk *psCLK;
+#if !defined(PM_RUNTIME_SUPPORT)
 	IMG_INT res;
 #endif
 
@@ -708,13 +708,15 @@ PVRSRV_ERROR EnableSystemClocks(SYS_DATA *psSysData)
 		mutex_init(&psSysSpecData->sPowerLock);
 
 		atomic_set(&psSysSpecData->sSGXClocksEnabled, 0);
-		
+
 		psCLK = clk_get(NULL, SGX_PARENT_CLOCK);
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,13,0))
                 if (IS_ERR(psCLK))
                 {
                         PVR_DPF((PVR_DBG_ERROR, "EnableSsystemClocks: Couldn't get Core Clock"));
                         return PVRSRV_ERROR_UNABLE_TO_GET_PARENT_CLOCK;
                 }
+#endif
                 psSysSpecData->psCORE_CK = psCLK;
 
 
