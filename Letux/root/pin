@@ -1,0 +1,20 @@
+#
+# enable pin
+#
+# usage: pin number
+
+IF="$(/root/wwan-on)"
+
+case "$IF" in
+	"" )
+		echo Modem Application interface not found >&2
+		exit 1
+		;;
+
+	* )
+		(
+		echo "AT+CPIN=$1"; sleep 3
+		) | ./femtocom $IF
+		;;
+
+esac
