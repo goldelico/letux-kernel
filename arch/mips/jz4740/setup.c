@@ -2,6 +2,8 @@
  *  Copyright (C) 2009-2010, Lars-Peter Clausen <lars@metafoo.de>
  *  Copyright (C) 2011, Maarten ter Huurne <maarten@treewalker.org>
  *  JZ4740 setup code
+ *  Copyright (C) 2017 Paul Boddie <paul@boddie.org.uk>
+ *  JZ4730 customisations
  *
  *  This program is free software; you can redistribute it and/or modify it
  *  under  the terms of the GNU General	 Public License as published by the
@@ -77,6 +79,8 @@ const char *get_system_type(void)
 {
 	if (IS_ENABLED(CONFIG_MACH_JZ4780))
 		return "JZ4780";
+	else if (IS_ENABLED(CONFIG_MACH_JZ4730))
+		return "JZ4730";
 
 	return "JZ4740";
 }
