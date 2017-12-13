@@ -6,11 +6,11 @@
  * published by the Free Software Foundation.
  */
 
-/* this version is for Pyra V5.1 with Letux Cortex 15 CPU board V5.1 */
+/* this version is for Pyra V5.2 with Letux Cortex 15 CPU board V5.1 */
 
 #include "omap5-letux-cortex15-v5.1.dts"
 
-#include "pyra-mainboard-v5.1.dtsi"
+#include "pyra-mainboard-v5.2.dtsi"
 
 #define PANEL 1		/* use w677 panel and non-rotating display board */
 #include "pyra-display.dtsi"
