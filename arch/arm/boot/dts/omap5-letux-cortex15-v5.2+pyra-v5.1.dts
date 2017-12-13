@@ -6,9 +6,9 @@
  * published by the Free Software Foundation.
  */
 
-/* this version is for Pyra V5.1 with Letux Cortex 15 CPU board V5.1 */
+/* this version is for Pyra V5.1 with Letux Cortex 15 CPU board V5.2 */
 
-#include "omap5-letux-cortex15-v5.1.dts"
+#include "omap5-letux-cortex15-v5.2.dts"
 
 #include "pyra-mainboard-v5.1.dtsi"
 
