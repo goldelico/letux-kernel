@@ -12,4 +12,11 @@
 
 / {
 	model = "Pyra-Handheld-V5.2";
+
+	pyra_leds {
+		/* no longer connected */
+		/delete-node/ led@5;
+		/delete-node/ led@6;
+	};
+
 };
