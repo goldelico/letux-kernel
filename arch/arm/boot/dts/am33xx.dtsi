@@ -1010,6 +1010,7 @@
 			ti,hwmods = "gfx";
 			reg = <0x56000000 0x1000000>;
 			interrupts = <37>;
+			timer = <&timer7>;
 		};
 
 		rng: rng@48310000 {
