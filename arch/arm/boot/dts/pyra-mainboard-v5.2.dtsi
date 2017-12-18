@@ -1,0 +1,22 @@
+/*
+ * Copyright (C) 2017 OpenPandora - http://www.pyra-handheld.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include "pyra-mainboard-v5.1.dtsi"
+
+/* overwrite device model */
+
+/ {
+	model = "Pyra-Handheld-V5.2";
+
+	pyra_leds {
+		/* no longer connected */
+		/delete-node/ led@5;
+		/delete-node/ led@6;
+	};
+
+};
