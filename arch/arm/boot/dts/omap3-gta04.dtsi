@@ -941,14 +941,8 @@
 		pinctrl-0 = <&camera_pins>;
 		compatible = "ovti,ov9655";
 		reg = <0x30>;
-#if 1	/* support for old driver */
-		gpios = <&gpio3 2 0>,	/* reset cam_fld = GPIO_98 */
-			<&gpio6 7 0>;	/* pwdn cam_wen = GPIO_167 */
-		vana-supply = <&vaux3>;
-		clock-frequency = <24000000>;
-#endif
-		resetb-gpios = <&gpio3 2 GPIO_ACTIVE_LOW>;	/* reset cam_fld = GPIO_98 */
-		pwdn-gpios = <&gpio6 7 GPIO_ACTIVE_HIGH>;	/* pwdn cam_wen = GPIO_167 */
+		reset-gpios = <&gpio3 2 GPIO_ACTIVE_LOW>;	/* reset cam_fld = GPIO_98 */
+		powerdown-gpios = <&gpio6 7 GPIO_ACTIVE_HIGH>;	/* pwdn cam_wen = GPIO_167 */
 		avdd-supply = <&vaux3>;
 		clocks = <&isp 0>;	/* cam_clka */
 		assigned-clocks = <&isp 0>;
@@ -957,16 +951,14 @@
 		port {
 			ov9655: endpoint {
 				remote-endpoint = <&parallel_ep>;
-#if 1
-				bus-width = <8>;
-			//	data-shift = <2>;	/* Lines 9:2 are used */
+				bus-width = <10>;	/* camera has 10 data lines */
+				data-shift = <2>;	/* Lines 9:2 are used */
 				hsync-active = <0>;	/* Active low */
 				vsync-active = <1>;	/* Active high */
 				data-active = <1>;	/* Active high */
-				pclk-sample = <1>;	/* No pclk reverse */
+				pclk-sample = <1>;	/* No pclk reverse (rising edge) */
 				pclk-delay = <2>;	/* 4 ns */
 				output-drive = <3>;	/* 4x */
-#endif
 			};
 		};
 	};
