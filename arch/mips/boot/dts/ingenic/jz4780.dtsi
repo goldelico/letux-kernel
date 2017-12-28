@@ -358,7 +358,7 @@
 
 	nemc: nemc@13410000 {
 		compatible = "ingenic,jz4780-nemc";
-		reg = <0x13410000 0x10000>;
+		reg = <0x13410000 0x4c>;
 		#address-cells = <2>;
 		#size-cells = <1>;
 		ranges = <1 0 0x1b000000 0x1000000
@@ -371,6 +371,21 @@
 		clocks = <&cgu JZ4780_CLK_NEMC>;
 
 		status = "disabled";
+	};
+
+	efuse: efuse@134100d0 {
+		compatible = "ingenic,jz4780-efuse";
+		reg = <0x134100d0 0x2c>;
+
+		clocks = <&cgu JZ4780_CLK_AHB2>;
+		clock-names = "ahb2";
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		eth0_addr: eth-mac-addr@0x22 {
+			reg = <0x22 0x6>;
+		};
 	};
 
 	dma: dma@13420000 {
