@@ -4180,7 +4180,7 @@ CONFIG_TI_EDMA=y
 # DMABUF options
 #
 CONFIG_SYNC_FILE=y
-# CONFIG_SW_SYNC is not set
+CONFIG_SW_SYNC=y
 # CONFIG_AUXDISPLAY is not set
 # CONFIG_UIO is not set
 # CONFIG_VFIO is not set
