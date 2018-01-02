@@ -1202,6 +1202,10 @@ static void omap_gem_free_object(struct drm_gem_object *obj)
 	omap_gem_evict(obj);
 
 	mutex_lock(&priv->list_lock);
+
+	if (omap_obj->flags & OMAP_BO_TILED_MASK)
+		omap_gem_unpin_tiler(obj);
+
 	list_del(&omap_obj->mm_list);
 	mutex_unlock(&priv->list_lock);
 
@@ -1379,6 +1383,13 @@ struct drm_gem_object *omap_gem_new(struct drm_device *dev,
 	}
 
 	mutex_lock(&priv->list_lock);
+
+	if (flags & OMAP_BO_TILED_MASK) {
+		ret = omap_gem_pin_tiler(obj);
+		if (ret)
+			goto err_release;
+	}
+
 	list_add(&omap_obj->mm_list, &priv->obj_list);
 	mutex_unlock(&priv->list_lock);
 
