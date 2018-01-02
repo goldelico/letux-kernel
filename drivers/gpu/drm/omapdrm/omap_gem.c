@@ -758,6 +758,66 @@ void omap_gem_dma_sync_buffer(struct drm_gem_object *obj,
 	}
 }
 
+static int _omap_gem_pin(struct drm_gem_object *obj)
+{
+	struct omap_drm_private *priv = obj->dev->dev_private;
+	struct omap_gem_object *omap_obj = to_omap_bo(obj);
+	u32 npages = obj->size >> PAGE_SHIFT;
+	enum tiler_fmt fmt = gem2fmt(omap_obj->flags);
+	struct tiler_block *block;
+	int ret;
+
+	if (omap_gem_is_contiguous(omap_obj))
+		return 0;
+	if (!priv->has_dmm)
+		return -EINVAL;
+
+	if (refcount_read(&omap_obj->dma_addr_cnt) == 0) {
+		refcount_inc(&omap_obj->dma_addr_cnt);
+		return 0;
+	}
+
+	BUG_ON(omap_obj->block);
+
+	ret = omap_gem_attach_pages(obj);
+
+	if (ret)
+		return ret;
+
+	if (omap_obj->flags & OMAP_BO_TILED_MASK) {
+		block = tiler_reserve_2d(fmt,
+				omap_obj->width,
+				omap_obj->height, 0);
+	} else {
+		block = tiler_reserve_1d(obj->size);
+	}
+
+	if (IS_ERR(block)) {
+		ret = PTR_ERR(block);
+		dev_err(obj->dev->dev,
+			"could not remap: %d (%d)\n", ret, fmt);
+		return ret;
+	}
+
+	/* TODO: enable async refill.. */
+	ret = tiler_pin(block, omap_obj->pages, npages,
+			omap_obj->roll, true);
+	if (ret) {
+		tiler_release(block);
+		dev_err(obj->dev->dev,
+				"could not pin: %d\n", ret);
+		return ret;
+	}
+
+	refcount_set(&omap_obj->dma_addr_cnt, 1);
+	omap_obj->dma_addr = tiler_ssptr(block);
+	omap_obj->block = block;
+
+	DBG("got dma address: %pad", &omap_obj->dma_addr);
+
+	return 0;
+}
+
 /**
  * omap_gem_pin() - Pin a GEM object in memory
  * @obj: the GEM object
@@ -774,70 +834,16 @@ void omap_gem_dma_sync_buffer(struct drm_gem_object *obj,
  */
 int omap_gem_pin(struct drm_gem_object *obj, dma_addr_t *dma_addr)
 {
-	struct omap_drm_private *priv = obj->dev->dev_private;
 	struct omap_gem_object *omap_obj = to_omap_bo(obj);
-	int ret = 0;
+	int ret;
 
 	mutex_lock(&omap_obj->lock);
 
-	if (!omap_gem_is_contiguous(omap_obj) && priv->has_dmm) {
-		if (refcount_read(&omap_obj->dma_addr_cnt) == 0) {
-			u32 npages = obj->size >> PAGE_SHIFT;
-			enum tiler_fmt fmt = gem2fmt(omap_obj->flags);
-			struct tiler_block *block;
+	ret = _omap_gem_pin(obj);
 
-			BUG_ON(omap_obj->block);
+	if (ret == 0 && dma_addr)
+		*dma_addr = to_omap_bo(obj)->dma_addr;
 
-			refcount_set(&omap_obj->dma_addr_cnt, 1);
-
-			ret = omap_gem_attach_pages(obj);
-			if (ret)
-				goto fail;
-
-			if (omap_obj->flags & OMAP_BO_TILED_MASK) {
-				block = tiler_reserve_2d(fmt,
-						omap_obj->width,
-						omap_obj->height, 0);
-			} else {
-				block = tiler_reserve_1d(obj->size);
-			}
-
-			if (IS_ERR(block)) {
-				ret = PTR_ERR(block);
-				dev_err(obj->dev->dev,
-					"could not remap: %d (%d)\n", ret, fmt);
-				goto fail;
-			}
-
-			/* TODO: enable async refill.. */
-			ret = tiler_pin(block, omap_obj->pages, npages,
-					omap_obj->roll, true);
-			if (ret) {
-				tiler_release(block);
-				dev_err(obj->dev->dev,
-						"could not pin: %d\n", ret);
-				goto fail;
-			}
-
-			omap_obj->dma_addr = tiler_ssptr(block);
-			omap_obj->block = block;
-
-			DBG("got dma address: %pad", &omap_obj->dma_addr);
-		} else {
-			refcount_inc(&omap_obj->dma_addr_cnt);
-		}
-
-		if (dma_addr)
-			*dma_addr = omap_obj->dma_addr;
-	} else if (omap_gem_is_contiguous(omap_obj)) {
-		if (dma_addr)
-			*dma_addr = omap_obj->dma_addr;
-	} else {
-		ret = -EINVAL;
-		goto fail;
-	}
-
-fail:
 	mutex_unlock(&omap_obj->lock);
 
 	return ret;
@@ -872,6 +878,12 @@ static void omap_gem_unpin_locked(struct drm_gem_object *obj)
 		omap_obj->dma_addr = 0;
 		omap_obj->block = NULL;
 	}
+}
+
+/* alternate name used somewhere else */
+static void _omap_gem_unpin(struct drm_gem_object *obj)
+{
+	omap_gem_unpin_locked(obj);
 }
 
 /**
