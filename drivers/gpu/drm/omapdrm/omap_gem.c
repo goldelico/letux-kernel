@@ -795,7 +795,7 @@ static int _omap_gem_pin(struct drm_gem_object *obj)
 	if (omap_obj->flags & OMAP_BO_TILED) {
 		block = tiler_reserve_2d(fmt,
 				omap_obj->width,
-				omap_obj->height, 0);
+				omap_obj->height, PAGE_SIZE);
 	} else {
 		block = tiler_reserve_1d(obj->size);
 	}
@@ -1113,6 +1113,9 @@ void omap_gem_free_object(struct drm_gem_object *obj)
 
 	omap_gem_evict(obj);
 
+	if (omap_obj->flags & OMAP_BO_TILED)
+		_omap_gem_unpin(obj);
+
 	mutex_lock(&priv->list_lock);
 	list_del(&omap_obj->mm_list);
 	mutex_unlock(&priv->list_lock);
@@ -1244,6 +1247,12 @@ struct drm_gem_object *omap_gem_new(struct drm_device *dev,
 					       &omap_obj->dma_addr,
 					       GFP_KERNEL);
 		if (!omap_obj->vaddr)
+			goto err_release;
+	}
+
+	if (flags & OMAP_BO_TILED) {
+		ret = _omap_gem_pin(obj);
+		if (ret)
 			goto err_release;
 	}
 
