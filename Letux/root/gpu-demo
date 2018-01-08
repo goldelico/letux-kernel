@@ -1,0 +1,81 @@
+#
+# start PVR SGX GPU
+# and run some demo
+#
+# usage: gpu-demo
+#
+# WARNING: this loads and installs packages with NON-FREE
+# firmware for the SGX libraries and runtime support from
+#
+# http://download.goldelico.com/letux-debian-rootfs/debian/dists/jessie/main/binary-armhf/omap3-pvrsgx530-gta04_0.20130811195126_armhf.deb
+#
+# It needs a kernel where the GPL'ed SGX kernel driver is
+# properly configured.
+#
+
+# should load the 121 or 125 or whatever package
+# currently it reports: System Version String: None"
+#
+# a problem seems to be that it is not available before
+# we run pvrsrvctl!
+# after: System Version String: SGX revision = 125
+#
+
+# autodetect package to load
+PACKAGE=$(egrep -ao '[a-z0-9]*-sgx[0-9]*-[0-9]*' </proc/device-tree/ocp*/gfx@*/compatible)
+COMPATIBLE=$(echo "$PACKAGE" | tr '-' '_')
+echo autodetected driver package: $PACKAGE
+
+PACKAGE=omap3-pvrsgx530-gta04	# version detection does not work and we don't have separate pvrsgx-121 / pvrsgx-125 packages
+DIR=/usr/local/bin
+
+# board sepcific fixes
+case "$(cat /sys/firmware/devicetree/base/model)" in
+	*GTA04* | *Pandora* | *BeagleBoard* | *BeagleBone* | *'Letux Cortex 8'* )
+		;;
+	*Panda* )
+		PACKAGE=omap4-pvrsgx540-120
+		;;
+	*Pyra* | *omap5* | *'Letux Cortex 15'* )
+		PACKAGE=omap5-sgx-ddk-um-linux		# from /e/a/s/pyra.list
+		;;
+	* )
+		echo "unsupported device; $(cat /sys/firmware/devicetree/base/model)"
+		exit 1
+		;;
+esac
+
+# make us locate
+case $PACKAGE in
+	omap5-* )	PATH=$PATH:/opt/$PACKAGE/bin;;
+esac
+
+# fetch the driver and libraries - if needed
+[ "$(which pvrsrvctl)" ] || apt-get install -y --force-yes $PACKAGE
+
+# hack for debugging
+if [ -r /etc/modprobe.d/blacklist.conf ] && fgrep -q pvr_ </etc/modprobe.d/blacklist.conf
+then # automatic kernel module loading was blocked
+	modprobe pvr_$COMPATIBLE
+       # fix clock setup (not yet properly handled by kernel)
+	if fgrep -q AM33XX </proc/cpuinfo
+	then
+		# wake up all modules
+		devmem2 0x44E00900 w 0x02
+		devmem2 0x44E00904 w 0x02
+		devmem2 0x44E0090c w 0x02
+		devmem2 0x44E00910 w 0x02
+		devmem2 0x44E00914 w 0x02
+	else
+		: no fix
+	fi
+fi
+
+# start pvr
+fgrep -q 'System Version String: None' /proc/pvr/version && pvrsrvctl --start --no-module
+
+fgrep "System Version String: " /proc/pvr/version
+
+sgx_clipblit_test
+
+# pvrsrvctl --stop
