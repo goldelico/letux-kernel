@@ -3,5 +3,4 @@
 # to ensure this currently.
 obj-$(CONFIG_TEGRA_HOST1X)	+= host1x/
 obj-y			+= drm/ vga/
-obj-y			+= pvr/
 obj-$(CONFIG_IMX_IPUV3_CORE)	+= ipu-v3/
