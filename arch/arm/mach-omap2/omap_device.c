@@ -96,6 +96,7 @@ static void _add_clkdev(struct omap_device *od, const char *clk_alias,
  * and main clock
  * @od: struct omap_device *od
  * @oh: struct omap_hwmod *oh
+ * @sub: this is a subordinate device, so don't try to register fck
  *
  * For the main clock and every optional clock present per hwmod per
  * omap_device, this function adds an entry in the clkdev table of the
@@ -111,11 +112,12 @@ static void _add_clkdev(struct omap_device *od, const char *clk_alias,
  * No return value.
  */
 static void _add_hwmod_clocks_clkdev(struct omap_device *od,
-				     struct omap_hwmod *oh)
+				     struct omap_hwmod *oh, int sub)
 {
 	int i;
 
-	_add_clkdev(od, "fck", oh->main_clk);
+	if (!sub)
+		_add_clkdev(od, "fck", oh->main_clk);
 
 	for (i = 0; i < oh->opt_clks_cnt; i++)
 		_add_clkdev(od, oh->opt_clks[i].role, oh->opt_clks[i].clk);
@@ -347,7 +349,7 @@ struct omap_device *omap_device_alloc(struct platform_device *pdev,
 
 	for (i = 0; i < oh_cnt; i++) {
 		hwmods[i]->od = od;
-		_add_hwmod_clocks_clkdev(od, hwmods[i]);
+		_add_hwmod_clocks_clkdev(od, hwmods[i], i);
 	}
 
 	return od;
