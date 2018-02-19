@@ -749,9 +749,15 @@ static irqreturn_t musb_stage0_irq(struct musb *musb, u8 int_usb,
 			if (musb->is_active) {
 				musb->xceiv->otg->state = OTG_STATE_B_WAIT_ACON;
 				musb_dbg(musb, "HNP: Setting timer for b_ase0_brst");
+			/* If trying to switch to b_host without a real
+			 * hnp reset (y-cables and such) the timer might
+			 * be disturbing
+			 */
+#if 0
 				mod_timer(&musb->otg_timer, jiffies
 					+ msecs_to_jiffies(
 							OTG_TIME_B_ASE0_BRST));
+#endif
 			}
 			break;
 		case OTG_STATE_A_WAIT_BCON:
@@ -2708,7 +2714,8 @@ static int musb_resume(struct device *dev)
 	if ((devctl & mask) != (musb->context.devctl & mask))
 		musb->port1_status = 0;
 
-	musb_start(musb);
+	musb_enable_interrupts(musb);
+	musb_platform_enable(musb);
 
 	spin_lock_irqsave(&musb->lock, flags);
 	error = musb_run_resume_work(musb);
