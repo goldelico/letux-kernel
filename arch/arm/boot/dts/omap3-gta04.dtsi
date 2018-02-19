@@ -165,6 +165,7 @@
 		compatible = "mmc-pwrseq-simple";
 		reset-gpios = <&tca6507 0 GPIO_ACTIVE_LOW>;	/* W2CBW003 reset through tca6507 */
 	};
+
 };
 
 &omap3_pmx_core {
@@ -502,16 +503,35 @@
 &uart1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart1_pins>;
+
+	bluetooth: bluetooth {
+		compatible = "wi2wi,w2cbw003-bluetooth";
+		vdd-supply = <&vaux4>;
+	};
 };
 
 &uart2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart2_pins>;
+
+	gps: gps {
+		compatible = "wi2wi,w2sg0004";
+		lna-supply = <&vsim>;   /* LNA regulator */
+		/* GPIO_145: trigger for on/off-impulse for w2sg0004 */
+		enable-gpios = <&gpio5 17 GPIO_ACTIVE_HIGH>;
+	};
 };
 
 &uart3 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart3_pins>;
+
+	rs232: rs232 {
+		status = "disabled";
+		compatible = "ti,trs3386-mctrl";
+		gpios = <0>,		/* ... */
+			<&gpio1 21 0>;	/* DTR: GPIO_21 */
+	};
 };
 
 &charger {
