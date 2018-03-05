@@ -679,6 +679,7 @@ dtb-$(CONFIG_SOC_AM33XX) += \
 	am335x-boneblack-wireless.dtb \
 	am335x-boneblack+letux.dtb \
 	am335x-boneblue.dtb \
+	am335x-boneblack+letux.dtb \
 	am335x-bonegreen.dtb \
 	am335x-bonegreen-wireless.dtb \
 	am335x-chiliboard.dtb \
@@ -686,6 +687,7 @@ dtb-$(CONFIG_SOC_AM33XX) += \
 	am335x-evm.dtb \
 	am335x-evmsk.dtb \
 	am335x-icev2.dtb \
+	am335x-letux-cortex8.dtb \
 	am335x-lxm.dtb \
 	am335x-moxa-uc-8100-me-t.dtb \
 	am335x-nano.dtb \
