@@ -489,6 +489,7 @@ int __init omap3_pm_init(void)
 		goto err3;
 	}
 
+	omap3_pm_off_mode_enable(1);
 	(void) clkdm_for_each(omap_pm_clkdms_setup, NULL);
 
 	mpu_pwrdm = pwrdm_lookup("mpu_pwrdm");
