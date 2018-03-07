@@ -48,8 +48,14 @@ static ssize_t set_switch(struct device *dev,
 
 	pr_debug("%s() to %ld\n", __func__, val);
 
-	if (err)
-		return err;
+	if (err) {
+		if (*buf == 'e')
+			val = 0;
+		else if (*buf == 'u')
+			val = 1;
+		else
+			return err;
+	}
 	if (val > 1)
 		return -EINVAL;
 
