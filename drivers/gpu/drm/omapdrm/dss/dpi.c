@@ -563,7 +563,6 @@ static int dpi_verify_pll(struct dss_pll *pll)
 
 static const struct soc_device_attribute dpi_soc_devices[] = {
 	{ .machine = "OMAP3[456]*" },
-	{ .machine = "[AD]M37*" },
 	{ /* sentinel */ }
 };
 
