@@ -25,6 +25,10 @@
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/of.h>
+#include <linux/of_platform.h>
+#include <linux/of_gpio.h>
+#include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
@@ -57,6 +61,9 @@ static irqreturn_t gpio_irq_handler(int irq, void *dev_id)
 {
 	struct gpio_extcon_data *data = dev_id;
 
+#ifdef DEBUG
+	printk("extcon gpio_irq_handler\n");
+#endif
 	queue_delayed_work(system_power_efficient_wq, &data->work,
 			      data->debounce_jiffies);
 	return IRQ_HANDLED;
@@ -95,8 +102,33 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 {
 	struct gpio_extcon_pdata *pdata = dev_get_platdata(&pdev->dev);
 	struct gpio_extcon_data *data;
+	struct device_node *node = pdev->dev.of_node;
 	int ret;
+#ifdef DEBUG
+	printk("gpio_extcon_probe\n");
+#endif
+	if (node && !pdata) {
+/* CHECKME: this does not persist until gpio_extcon_resume! */
+		struct gpio_extcon_pdata of_pdata;
+		enum of_gpio_flags flags;
+		u32 value;
+		pdata = &of_pdata;
 
+		pdata->debounce = 0;
+		pdata->irq_flags = 0;
+
+		pdata->gpio = of_get_gpio_flags(node, 0, &flags);
+		pdata->gpio_active_low = (flags&OF_GPIO_ACTIVE_LOW) != 0;
+		pdata->check_on_resume=of_property_read_bool(node, "check-on-resume");
+		if(!of_property_read_u32(node, "debounce-delay-ms", &value))
+			pdata->debounce=value;
+		if(!of_property_read_u32(node, "irq-flags", &value))
+			pdata->irq_flags=value;
+#ifdef DEBUG
+		printk("extcon gpio %d actlow = %d\n", pdata->gpio, pdata->gpio_active_low);
+		printk("extcon debounce %lu\n", pdata->debounce);
+#endif
+	}
 	if (!pdata)
 		return -EBUSY;
 	if (!pdata->irq_flags || pdata->extcon_id > EXTCON_NONE)
@@ -113,7 +145,7 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return ret;
 
-	/* Allocate the memory of extcon devie and register extcon device */
+	/* Allocate the memory of extcon device and register extcon device */
 	data->edev = devm_extcon_dev_allocate(&pdev->dev, &pdata->extcon_id);
 	if (IS_ERR(data->edev)) {
 		dev_err(&pdev->dev, "failed to allocate extcon device\n");
@@ -168,12 +200,20 @@ static int gpio_extcon_resume(struct device *dev)
 
 static SIMPLE_DEV_PM_OPS(gpio_extcon_pm_ops, NULL, gpio_extcon_resume);
 
+static const struct of_device_id of_extcon_match_tbl[] = {
+	{ .compatible = "extcon-gpio", },
+	{ /* end */ }
+};
+
+MODULE_DEVICE_TABLE(of, of_extcon_match_tbl);
+
 static struct platform_driver gpio_extcon_driver = {
 	.probe		= gpio_extcon_probe,
 	.remove		= gpio_extcon_remove,
 	.driver		= {
 		.name	= "extcon-gpio",
 		.pm	= &gpio_extcon_pm_ops,
+		.of_match_table = of_match_ptr(of_extcon_match_tbl),
 	},
 };
 
@@ -182,3 +222,4 @@ module_platform_driver(gpio_extcon_driver);
 MODULE_AUTHOR("Mike Lockwood <lockwood@android.com>");
 MODULE_DESCRIPTION("GPIO extcon driver");
 MODULE_LICENSE("GPL");
+MODULE_ALIAS("platform:extcon-gpio");
