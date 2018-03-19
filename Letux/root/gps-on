@@ -1,0 +1,73 @@
+#
+# start GPS NMEA receiver
+# and return the serial port
+#
+# usage: gps-on
+#
+
+rfkill unblock gps	# turn on LNA etc.
+
+case "$(cat /sys/firmware/devicetree/base/model)" in
+	*GTA04*/Letux* )
+		[ -r /sys/class/gpio/gpio144/value ] || echo 144 >/sys/class/gpio/export # 2>/dev/null
+		if [ -r /dev/ttyGPS0 ]
+		then	echo /dev/ttyGPS0
+		else 	echo /dev/ttyO1
+		fi
+		exit
+		;;
+esac
+
+IF="$(/root/wwan-on)"
+
+case "$IF" in
+	"" )
+		echo Modem Application interface not found >&2
+		# FIXME: on Pyra with PHS8 we can try the rescue procedure
+		# 1. turn off Bluetooth (will switch the UART interface)
+		# 2. access the command port through /dev/ttyO2
+		# 3. AT^SDPORT=* --- replace * by a mode where USB is active
+		# 4. start over
+		exit 1
+		;;
+
+	/dev/ttyHS* ) # GTA04 with OPTION GTM601W
+		echo /dev/ttyO1
+		;;
+
+	/dev/ttyACM0 )
+		# verify that we are a PHS8 and only then switch
+		echo PHS8 in wrong mode >&2
+		echo unknown
+		exit 1
+		(
+		echo "AT^SDPORT=4"; sleep1	# switch to multiplexed data mode
+		) | /root/femtocom $IF >&2
+		echo should now make modem re-enumerate and restart this script
+		;;
+
+	/dev/ttyACM1 )	# PLS8
+		(
+		# note: * commands report "+CME ERROR: operation failed" if the setting is already done
+		echo 'AT^SGPSC="Engine","0"'; sleep 0.2		# must turn off before enabling GLONASS
+		echo 'AT^SGPSC="Nmea/Glonass","on"'; sleep 0.2	# * enable GLONASS
+		echo 'AT^SGPSC="Engine","1"'; sleep 0.2		# enable GPS
+		echo 'AT^SGPSC="Nmea/Freq",1'; sleep 0.2		# once a second
+		echo 'AT^SGPSC="Nmea/Output","on"'; sleep 0.2		# enable data stream
+		echo 'AT^SGPSC="Nmea/Urc","on"'; sleep 0.2		# unsolicited reports
+		echo 'AT^SGPSC="Power/Antenna","auto"'; sleep 0.2	# * switch LNA to auto mode
+		) | /root/femtocom $IF >&2 &
+		echo /dev/ttyACM2
+		;;
+
+	/dev/ttyUSB[0-4] )	# PHS8 in mutiplexed mode
+		(
+		echo 'AT^SGPSC="Engine","1"'; sleep 0.2		# enable GPS
+		echo 'AT^SGPSC="Nmea/Output","on"'; sleep 0.2		# normal output
+		echo 'AT^SGPSC="Power/Antenna","on"'; sleep 0.2	# turn on LNA
+		echo 'AT^SGPSC="Power/Antenna","auto"'; sleep 0.2	# switch to auto mode
+		) | /root/femtocom $IF >&2  &
+		echo /dev/ttyUSB1
+		;;
+
+esac
