@@ -86,8 +86,8 @@
 		compatible = "pwm-backlight";
 		pwms = <&pwm9 0 12000000 0>;
 		pwm-names = "backlight";
-		brightness-levels = <0 11 20 30 40 50 60 70 80 90 100>;
-		default-brightness-level = <10>;	/* => 90 */
+		brightness-levels = <0 5 7 10 12 14 17 20 25 30 35 40 50 65 80 100>;
+		default-brightness-level = <14>;	/* 80% */
 		pinctrl-names = "default";
 		pinctrl-0 = <&backlight_pins>;
 	};
@@ -102,8 +102,8 @@
 		compatible = "pwm-backlight";
 		pwms = <&pwm8 0 12000000 0>;
 		pwm-names = "keyboard";
-		brightness-levels = <0 10 20 30 40 50 60 70 80 90 100>;
-		default-brightness-level = <5>;
+		brightness-levels = <0 1 2 5 10 20 40 60 100>;
+		default-brightness-level = <5>;	/* 20% */
 		pinctrl-names = "default";
 		pinctrl-0 = <&keyboard_backlight_pins>;
 	};
