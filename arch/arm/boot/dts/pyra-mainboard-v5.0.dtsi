@@ -485,6 +485,7 @@
 		interrupt-parent = <&gpio6>;
 //		interrupts = <1 IRQ_TYPE_LEVEL_LOW>;	/* gpio6_161 */
 		interrupts = <1 IRQ_TYPE_EDGE_FALLING>;	/* gpio6_161 */
+		vcc-supply = <&vdds_1v8_main>;
 
 		reg = <0x22>;
 		gpio-controller;
