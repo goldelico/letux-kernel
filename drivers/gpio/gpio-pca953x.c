@@ -41,9 +41,19 @@
 #define PCA957X_MSK		6
 #define PCA957X_INTS		7
 
-#define PCAL953X_IN_LATCH	34
-#define PCAL953X_INT_MASK	37
-#define PCAL953X_INT_STAT	38
+#define PCAL953X_OUT_STRENGTH	0x20
+#define PCAL953X_IN_LATCH	0x22
+#define PCAL953X_PULL_EN	0x23
+#define PCAL953X_PULL_SEL	0x24
+#define PCAL953X_INT_MASK	0x25
+#define PCAL953X_INT_STAT	0x26
+#define PCAL953X_OUT_CONF	0x27
+
+#define PCAL6524_INT_EDGE	0x28
+#define PCAL6524_INT_CLR	0x2a
+#define PCAL6524_IN_STATUS	0x2b
+#define PCAL6524_OUT_INDCONF	0x2c
+#define PCAL6524_DEBOUNCE	0x2d
 
 #define PCA_GPIO_MASK		0x00FF
 #define PCA_INT			0x0100
@@ -208,6 +218,10 @@ static int pca953x_write_regs_24(struct pca953x_chip *chip, int reg, u8 *val)
 {
 	int bank_shift = fls((chip->gpio_chip.ngpio - 1) / BANK_SZ);
 
+	/* adjust register address for pcal6524 */
+	if (reg >= PCAL953X_OUT_STRENGTH)
+		reg -= PCAL953X_OUT_STRENGTH >> 1;
+
 	return i2c_smbus_write_i2c_block_data(chip->client,
 					      (reg << bank_shift) | REG_ADDR_AI,
 					      NBANK(chip), val);
@@ -249,6 +263,10 @@ static int pca953x_read_regs_16(struct pca953x_chip *chip, int reg, u8 *val)
 static int pca953x_read_regs_24(struct pca953x_chip *chip, int reg, u8 *val)
 {
 	int bank_shift = fls((chip->gpio_chip.ngpio - 1) / BANK_SZ);
+
+	/* adjust register address for pcal6524 */
+	if (reg >= PCAL953X_OUT_STRENGTH)
+		reg -= PCAL953X_OUT_STRENGTH >> 1;
 
 	return i2c_smbus_read_i2c_block_data(chip->client,
 					     (reg << bank_shift) | REG_ADDR_AI,
