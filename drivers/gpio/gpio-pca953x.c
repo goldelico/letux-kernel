@@ -522,6 +522,11 @@ static int pca953x_irq_set_type(struct irq_data *d, unsigned int type)
 	int bank_nb = d->hwirq / BANK_SZ;
 	u8 mask = 1 << (d->hwirq % BANK_SZ);
 
+	if (type & IRQ_TYPE_LEVEL_LOW)
+		type |= IRQ_TYPE_EDGE_FALLING;
+	if (type & IRQ_TYPE_LEVEL_HIGH)
+		type |= IRQ_TYPE_EDGE_RISING;
+
 	if (!(type & IRQ_TYPE_EDGE_BOTH)) {
 		dev_err(&chip->client->dev, "irq %d: unsupported type %d\n",
 			d->irq, type);
