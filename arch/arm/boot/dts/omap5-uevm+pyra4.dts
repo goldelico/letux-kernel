@@ -801,9 +801,16 @@
 		compatible = "ti,tca6424";
 		interrupt-parent = <&gpio6>;
 		interrupts = <0 IRQ_TYPE_LEVEL_LOW>;	/* gpio6_160 */
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		vcc-supply = <&vdds_1v8_main>;
 		reg = <0x22>;
 		gpio-controller;
 		#gpio-cells = <2>;
+		gpio-line-names =
+			"hdmi-ct-hpd", "hdmi.ls-oe", "p02", "p03", "vibra", "fault2", "p06", "p07",
+			"en-usb", "en-host1", "en-host2", "chg-int", "p14", "p15", "mic-int", "en-modem",
+			"shdn-hs-amp", "chg-status+red", "green", "blue", "en-esata", "fault1", "p26", "p27";
 		open-drain-pins = <2 3 5 6 7 12 13 17 18 19 21 22 23>;
 	};
 };
