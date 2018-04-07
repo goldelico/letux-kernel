@@ -44,9 +44,10 @@
 #include <linux/serdev.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
-#include <linux/tty.h>
-#include <linux/tty_flip.h>
 #include <linux/workqueue.h>
+
+#include "gps-core.h"
+
 
 /*
  * There seems to be restrictions on how quickly we can toggle the
@@ -76,19 +77,13 @@ struct w2sg_data {
 	unsigned long	backoff;	/* time to wait since last_toggle */
 	int		on_off_gpio;	/* the on-off gpio number */
 	struct		serdev_device *uart;	/* uart connected to the chip */
-	struct		tty_driver *tty_drv;	/* this is the user space tty */
-	struct		device *dev;	/* from tty_port_register_device() */
-	struct		tty_port port;
-	int		open_count;	/* how often we were opened */
 	enum		w2sg_state state;
 	int		requested;	/* requested state (0/1) */
 	int		suspended;
 	struct delayed_work work;
 	int		discard_count;
+	struct gps_dev	gpsdev;
 };
-
-/* should become w2sg_by_minor[n] if we want to support multiple devices */
-static struct w2sg_data *w2sg_by_minor;
 
 static int w2sg_set_lna_power(struct w2sg_data *data)
 {
@@ -157,19 +152,14 @@ static int w2sg_uart_receive_buf(struct serdev_device *serdev,
 			if (!data->suspended)
 				schedule_delayed_work(&data->work, 0);
 		}
-	} else if (data->open_count > 0) {
-		int n;
-
-		pr_debug("w2sg00x4: push %lu chars to tty port\n",
+	} else if (data->gpsdev.open_count > 0) {
+		/*
+		 * pass to user-space
+		 */
+		pr_debug("w2sg00x4: push %lu chars to user space\n",
 			(unsigned long) count);
 
-		/* pass to user-space */
-		n = tty_insert_flip_string(&data->port, rxdata, count);
-		if (n != count)
-			pr_err("w2sg00x4: did loose %lu characters\n",
-				(unsigned long) (count - n));
-		tty_flip_buffer_push(&data->port);
-		return n;
+		return gps_recv_nmea_chars(&data->gpsdev, rxdata, count);
 	}
 
 	/* assume we have processed everything */
@@ -241,110 +231,45 @@ static struct serdev_device_ops serdev_ops = {
 #endif
 };
 
-/*
- * we are a man-in the middle between the user-space visible tty port
- * and the serdev tty where the chip is connected.
- * This allows us to recognise when the device should be powered on
- * or off and handle the "false" state that data arrives while no
- * users-space tty client exists.
- */
-
-static struct w2sg_data *w2sg_get_by_minor(unsigned int minor)
-{
-	BUG_ON(minor >= 1);
-	return w2sg_by_minor;
-}
-
-static int w2sg_tty_install(struct tty_driver *driver, struct tty_struct *tty)
-{
-	struct w2sg_data *data;
-	int retval;
-
-	pr_debug("%s() tty = %p\n", __func__, tty);
-
-	data = w2sg_get_by_minor(tty->index);
-	pr_debug("%s() data = %p\n", __func__, data);
-
-	if (!data)
-		return -ENODEV;
-
-	retval = tty_standard_install(driver, tty);
-	if (retval)
-		goto error_init_termios;
-
-	tty->driver_data = data;
-
-	return 0;
-
-error_init_termios:
-	tty_port_put(&data->port);
-	return retval;
-}
-
-static int w2sg_tty_open(struct tty_struct *tty, struct file *file)
-{
-	struct w2sg_data *data = tty->driver_data;
-
-	pr_debug("%s() data = %p open_count = ++%d\n", __func__,
-		 data, data->open_count);
-
-	w2sg_set_power(data, ++data->open_count > 0);
-
-	return tty_port_open(&data->port, tty, file);
-}
-
-static void w2sg_tty_close(struct tty_struct *tty, struct file *file)
-{
-	struct w2sg_data *data = tty->driver_data;
+static int w2sg_gps_open(struct gps_dev *gdev)
+{ /* user-space has opened our interface */
+	struct w2sg_data *data = container_of(gdev, struct w2sg_data, gpsdev);
 
 	pr_debug("%s()\n", __func__);
 
-	w2sg_set_power(data, --data->open_count > 0);
+	w2sg_set_power(data, true);
 
-	tty_port_close(&data->port, tty, file);
+	return 0;
 }
 
-static int w2sg_tty_write(struct tty_struct *tty,
-		const unsigned char *buffer, int count)
-{
-	struct w2sg_data *data = tty->driver_data;
+static int w2sg_gps_close(struct gps_dev *gdev)
+{ /* user-space has finally closed our interface */
+	struct w2sg_data *data = container_of(gdev, struct w2sg_data, gpsdev);
+
+	pr_debug("%s()\n", __func__);
+
+	w2sg_set_power(data, false);
+
+	return 0;
+}
+
+static int w2sg_gps_send(struct gps_dev *gdev,
+		const char *buffer, int count)
+{ /* raw data coming from user space */
+	struct w2sg_data *data = container_of(gdev, struct w2sg_data, gpsdev);
 
 	/* simply pass down to UART */
 	return serdev_device_write_buf(data->uart, buffer, count);
 }
-
-static const struct tty_operations w2sg_serial_ops = {
-	.install = w2sg_tty_install,
-	.open = w2sg_tty_open,
-	.close = w2sg_tty_close,
-	.write = w2sg_tty_write,
-};
-
-static const struct tty_port_operations w2sg_port_ops = {
-	/* none defined, but we need the struct */
-};
 
 static int w2sg_probe(struct serdev_device *serdev)
 {
 	struct w2sg_data *data;
 	struct rfkill *rf_kill;
 	int err;
-	int minor;
 	enum of_gpio_flags flags;
 
 	pr_debug("%s()\n", __func__);
-
-	/*
-	 * For future consideration:
-	 * for multiple such GPS receivers in one system
-	 * we need a mechanism to define distinct minor values
-	 * and search for an unused one.
-	 */
-	minor = 0;
-	if (w2sg_get_by_minor(minor)) {
-		pr_err("w2sg minor is already in use!\n");
-		return -ENODEV;
-	}
 
 	data = devm_kzalloc(&serdev->dev, sizeof(*data), GFP_KERNEL);
 	if (data == NULL)
@@ -419,57 +344,19 @@ static int w2sg_probe(struct serdev_device *serdev)
 
 	data->rf_kill = rf_kill;
 
-	pr_debug("w2sg alloc_tty_driver\n");
+	pr_debug("w2sg prepare for gps_register_dev\n");
 
-	/* allocate the tty driver */
-	data->tty_drv = alloc_tty_driver(1);
-	if (!data->tty_drv)
-		return -ENOMEM;
+	data->gpsdev.open = w2sg_gps_open;
+	data->gpsdev.close = w2sg_gps_close;
+	data->gpsdev.send = w2sg_gps_send;
 
-	/* initialize the tty driver */
-	data->tty_drv->owner = THIS_MODULE;
-	data->tty_drv->driver_name = "w2sg0004";
-	data->tty_drv->name = "ttyGPS";
-	data->tty_drv->major = 0;
-	data->tty_drv->minor_start = 0;
-	data->tty_drv->type = TTY_DRIVER_TYPE_SERIAL;
-	data->tty_drv->subtype = SERIAL_TYPE_NORMAL;
-	data->tty_drv->flags = TTY_DRIVER_REAL_RAW | TTY_DRIVER_DYNAMIC_DEV;
-	data->tty_drv->init_termios = tty_std_termios;
-	data->tty_drv->init_termios.c_cflag = B9600 | CS8 | CREAD |
-					      HUPCL | CLOCAL;
-	/*
-	 * optional:
-	 * tty_termios_encode_baud_rate(&data->tty_drv->init_termios,
-					115200, 115200);
-	 * w2sg_tty_termios(&data->tty_drv->init_termios);
-	 */
-	tty_set_operations(data->tty_drv, &w2sg_serial_ops);
+	err = gps_register_dev(&data->gpsdev, "w2sg0004");
 
-	pr_debug("w2sg tty_register_driver\n");
-
-	/* register the tty driver */
-	err = tty_register_driver(data->tty_drv);
 	if (err) {
-		pr_err("%s - tty_register_driver failed(%d)\n",
+		pr_err("%s - gps_register_dev failed(%d)\n",
 			__func__, err);
-		put_tty_driver(data->tty_drv);
 		goto err_rfkill;
 	}
-
-	/* minor (0) is now in use */
-	w2sg_by_minor = data;
-
-	tty_port_init(&data->port);
-	data->port.ops = &w2sg_port_ops;
-
-	pr_debug("w2sg call tty_port_register_device\n");
-
-	data->dev = tty_port_register_device(&data->port,
-			data->tty_drv, minor, &serdev->dev);
-
-	pr_debug("w2sg tty_port_register_device -> %p\n", data->dev);
-	pr_debug("w2sg port.tty = %p\n", data->port.tty);
 
 	pr_debug("w2sg probed\n");
 
@@ -501,18 +388,13 @@ out:
 static void w2sg_remove(struct serdev_device *serdev)
 {
 	struct w2sg_data *data = serdev_device_get_drvdata(serdev);
-	int minor;
 
 	cancel_delayed_work_sync(&data->work);
 
 	/* what is the right sequence to avoid problems? */
 	serdev_device_close(data->uart);
 
-	/* we should lookup in w2sg_by_minor */
-	minor = 0;
-	tty_unregister_device(data->tty_drv, minor);
-
-	tty_unregister_driver(data->tty_drv);
+	gps_unregister_dev(&data->gpsdev);
 }
 
 static int __maybe_unused w2sg_suspend(struct device *dev)
