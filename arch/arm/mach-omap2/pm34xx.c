@@ -362,6 +362,8 @@ void omap3_pm_off_mode_enable(int enable)
 	struct power_state *pwrst;
 	u32 state;
 
+printk("%s(%d)\n", __func__, enable);
+
 	if (enable)
 		state = PWRDM_POWER_OFF;
 	else
