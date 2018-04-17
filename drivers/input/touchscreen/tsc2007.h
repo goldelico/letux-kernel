@@ -1,4 +1,3 @@
-
 /*
  * Copyright (c) 2008 MtekVision Co., Ltd.
  *	Kwangwoo Lee <kwlee@mtekvision.com>
@@ -21,6 +20,8 @@
 
 #ifndef _TSC2007_H
 #define _TSC2007_H
+
+#include <linux/input/touchscreen.h>
 
 #define TSC2007_MEASURE_TEMP0		(0x0 << 4)
 #define TSC2007_MEASURE_AUX		(0x2 << 4)
@@ -66,6 +67,13 @@ struct tsc2007 {
 
 	u16			model;
 	u16			x_plate_ohms;
+
+	struct touchscreen_properties prop;
+
+	u16			min_x;
+	u16			min_y;
+	u16			max_x;
+	u16			max_y;
 	u16			max_rt;
 	unsigned long		poll_period; /* in jiffies */
 	int			fuzzx;
