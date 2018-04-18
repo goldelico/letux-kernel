@@ -1656,7 +1656,7 @@ void run_local_timers(void)
 	hrtimer_run_queues();
 	/* Raise the softirq only if required. */
 	if (time_before(jiffies, base->clk)) {
-		if (!IS_ENABLED(CONFIG_NO_HZ_COMMON) || !base->nohz_active)
+		if (!IS_ENABLED(CONFIG_NO_HZ_COMMON))
 			return;
 		/* CPU is awake, so check the deferrable base. */
 		base++;
@@ -1833,6 +1833,12 @@ int timers_dead_cpu(unsigned int cpu)
 		 */
 		raw_spin_lock_irq(&new_base->lock);
 		raw_spin_lock_nested(&old_base->lock, SINGLE_DEPTH_NESTING);
+
+		/*
+		 * The current CPUs base clock might be stale. Update it
+		 * before moving the timers over.
+		 */
+		forward_timer_base(new_base);
 
 		BUG_ON(old_base->running_timer);
 

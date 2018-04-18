@@ -1,5 +1,5 @@
 #
-# Linux/mips 4.14.12 Kernel Configuration
+# Linux/mips 4.14.34 Kernel Configuration
 #
 CONFIG_MIPS=y
 
@@ -4220,6 +4220,7 @@ CONFIG_CRYPTO_RNG2=y
 CONFIG_CRYPTO_RNG_DEFAULT=m
 CONFIG_CRYPTO_AKCIPHER2=y
 CONFIG_CRYPTO_KPP2=y
+CONFIG_CRYPTO_KPP=m
 CONFIG_CRYPTO_ACOMP2=y
 # CONFIG_CRYPTO_RSA is not set
 # CONFIG_CRYPTO_DH is not set

@@ -3458,6 +3458,10 @@ fec_probe(struct platform_device *pdev)
 			goto failed_regulator;
 		}
 	} else {
+		if (PTR_ERR(fep->reg_phy) == -EPROBE_DEFER) {
+			ret = -EPROBE_DEFER;
+			goto failed_regulator;
+		}
 		fep->reg_phy = NULL;
 	}
 
@@ -3539,8 +3543,9 @@ failed_clk_ipg:
 failed_clk:
 	if (of_phy_is_fixed_link(np))
 		of_phy_deregister_fixed_link(np);
-failed_phy:
 	of_node_put(phy_node);
+failed_phy:
+	dev_id--;
 failed_ioremap:
 	free_netdev(ndev);
 
@@ -3560,6 +3565,8 @@ fec_drv_remove(struct platform_device *pdev)
 	fec_enet_mii_remove(fep);
 	if (fep->reg_phy)
 		regulator_disable(fep->reg_phy);
+	pm_runtime_put(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
 	if (of_phy_is_fixed_link(np))
 		of_phy_deregister_fixed_link(np);
 	of_node_put(fep->phy_node);

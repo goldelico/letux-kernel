@@ -93,8 +93,7 @@ __ref void *alloc_low_pages(unsigned int num)
 		unsigned int order;
 
 		order = get_order((unsigned long)num << PAGE_SHIFT);
-		return (void *)__get_free_pages(GFP_ATOMIC | __GFP_NOTRACK |
-						__GFP_ZERO, order);
+		return (void *)__get_free_pages(GFP_ATOMIC | __GFP_ZERO, order);
 	}
 
 	if ((pgt_buf_end + num) > pgt_buf_top || !can_use_brk_pgt) {
@@ -171,12 +170,11 @@ static void enable_global_pages(void)
 static void __init probe_page_size_mask(void)
 {
 	/*
-	 * For CONFIG_KMEMCHECK or pagealloc debugging, identity mapping will
-	 * use small pages.
+	 * For pagealloc debugging, identity mapping will use small pages.
 	 * This will simplify cpa(), which otherwise needs to support splitting
 	 * large pages into small in interrupt context, etc.
 	 */
-	if (boot_cpu_has(X86_FEATURE_PSE) && !debug_pagealloc_enabled() && !IS_ENABLED(CONFIG_KMEMCHECK))
+	if (boot_cpu_has(X86_FEATURE_PSE) && !debug_pagealloc_enabled())
 		page_size_mask |= 1 << PG_LEVEL_2M;
 	else
 		direct_gbpages = 0;
@@ -870,7 +868,7 @@ __visible DEFINE_PER_CPU_SHARED_ALIGNED(struct tlb_state, cpu_tlbstate) = {
 	.next_asid = 1,
 	.cr4 = ~0UL,	/* fail hard if we screw up cr4 shadow initialization */
 };
-EXPORT_SYMBOL_GPL(cpu_tlbstate);
+EXPORT_PER_CPU_SYMBOL(cpu_tlbstate);
 
 void update_cache_mode_entry(unsigned entry, enum page_cache_mode cache)
 {
