@@ -26,6 +26,7 @@
 #include <linux/platform_data/iommu-omap.h>
 #include <linux/platform_data/ti-sysc.h>
 #include <linux/platform_data/wkup_m3.h>
+#include <linux/platform_data/sgx-omap.h>
 #include <linux/platform_data/media/ir-rx51.h>
 #include <linux/platform_data/asoc-ti-mcbsp.h>
 
@@ -47,6 +48,14 @@ struct pdata_init {
 
 static struct of_dev_auxdata omap_auxdata_lookup[];
 static struct twl4030_gpio_platform_data twl_gpio_auxdata;
+
+#if defined(CONFIG_SOC_AM33XX) || defined(CONFIG_SOC_AM43XX) || defined(CONFIG_ARCH_OMAP3)
+static struct gfx_sgx_platform_data sgx_pdata = {
+	.reset_name = "gfx",
+	.assert_reset = omap_device_assert_hardreset,
+	.deassert_reset = omap_device_deassert_hardreset,
+};
+#endif
 
 #ifdef CONFIG_MACH_NOKIA_N8X0
 static void __init omap2420_n8x0_legacy_init(void)
@@ -569,6 +578,8 @@ static struct of_dev_auxdata omap_auxdata_lookup[] = {
 		       "480c9000.smartreflex", &omap_sr_pdata[OMAP_SR_MPU]),
 	OF_DEV_AUXDATA("ti,omap3-hsmmc", 0x4809c000, "4809c000.mmc", &mmc_pdata[0]),
 	OF_DEV_AUXDATA("ti,omap3-hsmmc", 0x480b4000, "480b4000.mmc", &mmc_pdata[1]),
+	OF_DEV_AUXDATA("ti,omap3-gpu", 0x50000000, "50000000.sgx",
+		       &sgx_pdata),
 	OF_DEV_AUXDATA("nokia,n900-ir", 0, "n900-ir", &rx51_ir_data),
 	/* Only on am3517 */
 	OF_DEV_AUXDATA("ti,davinci_mdio", 0x5c030000, "davinci_mdio.0", NULL),
@@ -587,6 +598,10 @@ static struct of_dev_auxdata omap_auxdata_lookup[] = {
 #ifdef CONFIG_SOC_AM43XX
 	OF_DEV_AUXDATA("ti,am4372-wkup-m3", 0x44d00000, "44d00000.wkup_m3",
 		       &wkup_m3_data),
+#endif
+#if defined(CONFIG_SOC_AM33XX) || defined(CONFIG_SOC_AM43XX)
+	OF_DEV_AUXDATA("ti,am33xx-gpu", 0x56000000, "56000000.sgx",
+		       &sgx_pdata),
 #endif
 #if defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_SOC_OMAP5)
 	OF_DEV_AUXDATA("ti,omap4-iommu", 0x4a066000, "4a066000.mmu",
