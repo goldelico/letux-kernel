@@ -26,7 +26,7 @@
 #include "omap_device.h"
 #include "omap-pm.h"
 
-static bool off_mode_enabled;
+static bool off_mode_enabled = true;
 static int dummy_context_loss_counter;
 
 /*
