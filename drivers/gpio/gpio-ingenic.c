@@ -2,6 +2,7 @@
  * Ingenic JZ47xx GPIO driver
  *
  * Copyright (c) 2017 Paul Cercueil <paul@crapouillou.net>
+ * Copyright (c) 2017 Paul Boddie <paul@boddie.org.uk>
  *
  * License terms: GNU General Public License (GPL) version 2
  */
@@ -19,6 +20,11 @@
 #define GPIO_PIN	0x00
 #define GPIO_MSK	0x20
 
+#define JZ4730_GPIO_DATA	0x00
+#define JZ4730_GPIO_GPIDLR	0x18
+#define JZ4730_GPIO_GPIDUR	0x1c
+#define JZ4730_GPIO_FLAG	0x28
+
 #define JZ4740_GPIO_DATA	0x10
 #define JZ4740_GPIO_SELECT	0x50
 #define JZ4740_GPIO_DIR		0x60
@@ -34,6 +40,7 @@
 #define REG_CLEAR(x) ((x) + 0x8)
 
 enum jz_version {
+	ID_JZ4730,
 	ID_JZ4740,
 	ID_JZ4770,
 	ID_JZ4780,
@@ -56,15 +63,40 @@ static u32 gpio_ingenic_read_reg(struct ingenic_gpio_chip *jzgc, u8 reg)
 	return (u32) val;
 }
 
+/* Update the register by loading, updating and storing the register value. */
+
+static void gpio_ingenic_update_reg(struct ingenic_gpio_chip *jzgc,
+		u32 reg, u32 affected, u32 value)
+{
+	regmap_update_bits(jzgc->map, jzgc->reg_base + reg, affected, value);
+}
+
+/* Clear and set the given value in the pin bits of the appropriate register. */
+
+static void gpio_ingenic_ctrl_set_pins(struct ingenic_gpio_chip *jzgc,
+		u32 reg_upper, u32 reg_lower, u8 pin, u8 value)
+{
+        u32 reg;
+
+	if (pin < 16) { reg = reg_lower; }
+	else { reg = reg_upper; pin -= 16; }
+
+        gpio_ingenic_update_reg(jzgc, reg, 3 << (pin << 1),
+				(value & 3) << (pin << 1));
+}
+
 static void gpio_ingenic_set_bit(struct ingenic_gpio_chip *jzgc,
 		u8 reg, u8 offset, bool set)
 {
-	if (set)
-		reg = REG_SET(reg);
-	else
-		reg = REG_CLEAR(reg);
+	if (jzgc->version >= ID_JZ4740) {
+		if (set)
+			reg = REG_SET(reg);
+		else
+			reg = REG_CLEAR(reg);
 
-	regmap_write(jzgc->map, jzgc->reg_base + reg, BIT(offset));
+		regmap_write(jzgc->map, jzgc->reg_base + reg, BIT(offset));
+	} else
+		gpio_ingenic_update_reg(jzgc, reg, BIT(offset), set ? BIT(offset) : 0);
 }
 
 static inline bool gpio_get_value(struct ingenic_gpio_chip *jzgc, u8 offset)
@@ -78,6 +110,8 @@ static void gpio_set_value(struct ingenic_gpio_chip *jzgc, u8 offset, int value)
 {
 	if (jzgc->version >= ID_JZ4770)
 		gpio_ingenic_set_bit(jzgc, JZ4770_GPIO_PAT0, offset, !!value);
+	else if (jzgc->version == ID_JZ4730)
+		gpio_ingenic_set_bit(jzgc, JZ4740_GPIO_DATA, offset, !!value);
 	else
 		gpio_ingenic_set_bit(jzgc, JZ4740_GPIO_DATA, offset, !!value);
 }
@@ -87,7 +121,16 @@ static void irq_set_type(struct ingenic_gpio_chip *jzgc,
 {
 	u8 reg1, reg2;
 
-	if (jzgc->version >= ID_JZ4770) {
+	if (jzgc->version == ID_JZ4730) {
+		pinctrl_gpio_direction_input(jzgc->gc.base + offset);
+		gpio_ingenic_ctrl_set_pins(jzgc,
+			JZ4730_GPIO_GPIDUR, JZ4730_GPIO_GPIDLR,
+			offset,
+			IRQ_TYPE_EDGE_RISING ? 3 : IRQ_TYPE_EDGE_FALLING ? 2 :
+			IRQ_TYPE_LEVEL_HIGH ? 1 : 0);
+		return;
+
+	} else if (jzgc->version >= ID_JZ4770) {
 		reg1 = JZ4770_GPIO_PAT1;
 		reg2 = JZ4770_GPIO_PAT0;
 	} else {
@@ -140,7 +183,7 @@ static void ingenic_gpio_irq_enable(struct irq_data *irqd)
 
 	if (jzgc->version >= ID_JZ4770)
 		gpio_ingenic_set_bit(jzgc, JZ4770_GPIO_INT, irq, true);
-	else
+	else if (jzgc->version != ID_JZ4730)
 		gpio_ingenic_set_bit(jzgc, JZ4740_GPIO_SELECT, irq, true);
 
 	ingenic_gpio_irq_unmask(irqd);
@@ -156,7 +199,7 @@ static void ingenic_gpio_irq_disable(struct irq_data *irqd)
 
 	if (jzgc->version >= ID_JZ4770)
 		gpio_ingenic_set_bit(jzgc, JZ4770_GPIO_INT, irq, false);
-	else
+	else if (jzgc->version != ID_JZ4730)
 		gpio_ingenic_set_bit(jzgc, JZ4740_GPIO_SELECT, irq, false);
 }
 
@@ -181,6 +224,8 @@ static void ingenic_gpio_irq_ack(struct irq_data *irqd)
 
 	if (jzgc->version >= ID_JZ4770)
 		gpio_ingenic_set_bit(jzgc, JZ4770_GPIO_FLAG, irq, false);
+	else if (jzgc->version == ID_JZ4730)
+		gpio_ingenic_set_bit(jzgc, JZ4730_GPIO_FLAG, irq, true);
 	else
 		gpio_ingenic_set_bit(jzgc, JZ4740_GPIO_DATA, irq, true);
 }
@@ -238,6 +283,8 @@ static void ingenic_gpio_irq_handler(struct irq_desc *desc)
 
 	if (jzgc->version >= ID_JZ4770)
 		flag = gpio_ingenic_read_reg(jzgc, JZ4770_GPIO_FLAG);
+	else if (jzgc->version == ID_JZ4730)
+		flag = gpio_ingenic_read_reg(jzgc, JZ4730_GPIO_FLAG);
 	else
 		flag = gpio_ingenic_read_reg(jzgc, JZ4740_GPIO_FLAG);
 
@@ -275,6 +322,7 @@ static int ingenic_gpio_direction_output(struct gpio_chip *gc,
 }
 
 static const struct of_device_id ingenic_gpio_of_match[] = {
+	{ .compatible = "ingenic,jz4730-gpio", .data = (void *)ID_JZ4730 },
 	{ .compatible = "ingenic,jz4740-gpio", .data = (void *)ID_JZ4740 },
 	{ .compatible = "ingenic,jz4770-gpio", .data = (void *)ID_JZ4770 },
 	{ .compatible = "ingenic,jz4780-gpio", .data = (void *)ID_JZ4780 },
