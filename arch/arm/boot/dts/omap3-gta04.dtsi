@@ -704,7 +704,7 @@
 		compatible = "extcon-gpio";
 		label = "gps_antenna";
 		// FIXME: pinmux
-		gpios = <&gpio5 16 GPIO_ACTIVE_HIGH>; /* GPIO144 */
+		extcon-gpio = <&gpio5 16 GPIO_ACTIVE_HIGH>; /* GPIO144 */
 		debounce-delay-ms = <10>;
 		interrupt-parent = <&gpio5>;
 		interrupts = <16 IRQ_TYPE_EDGE_BOTH>;
