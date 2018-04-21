@@ -106,6 +106,12 @@ static int sun6i_msgbox_send_data(struct mbox_chan *chan, void *data)
 	if (WARN_ON_ONCE(!(readl(mbox->regs + CTRL_REG(n)) & CTRL_TX(n))))
 		return 0;
 
+	/* We cannot post a new message if the FIFO is full. */
+	if (readl(mbox->regs + FIFO_STAT_REG(n)) & FIFO_STAT_MASK) {
+		mbox_dbg(mbox, "Channel %d busy sending 0x%08x\n", n, msg);
+		return -EBUSY;
+	}
+
 	writel(msg, mbox->regs + MSG_DATA_REG(n));
 	mbox_dbg(mbox, "Channel %d sent 0x%08x\n", n, msg);
 
