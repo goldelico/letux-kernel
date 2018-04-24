@@ -1,0 +1,31 @@
+u-blox GNSS Receiver DT binding
+
+The u-blox GNSS receivers can use UART, DDC (I2C), SPI and USB interfaces.
+
+Please see Documentation/devicetree/bindings/gnss/gnss.txt for generic
+properties.
+
+Required Properties:
+
+- compatible 	: Must be one of
+
+			"u-blox,neo-8"
+			"u-blox,neo-m8"
+
+- vcc-supply	: Main voltage regulator (VCC)
+
+Optional Properties:
+
+- timepulse-gpios	: Timepulse (e.g. 1PPS) GPIO (TIMEPULSE)
+
+Example:
+
+serial@1234 {
+	compatible = "ns16550a";
+
+	gnss {
+		compatible = "u-blox,neo-8";
+
+		vcc-supply = <&gnss_reg>;
+	};
+};
