@@ -1,0 +1,42 @@
+#
+# start gps demo
+# see also http://projects.goldelico.com/p/gta04-kernel/page/GPS/
+#
+
+SERIAL=$(/root/gps-on)
+
+echo "### starting gpsd $SERIAL ###"
+killall gpsd	# kill any existing
+gpsd $SERIAL
+
+function findextcon {
+	for i in /sys/class/extcon/*
+	do
+		if [ "$(cat "$i"/name 2>/dev/null)" = $1 ]
+		then
+			echo "$i"
+			return
+		fi
+	done
+}
+
+function antennastate { # check for external antenna status
+	ANTENNA_STATE=$(findextcon antenna-detect)/state
+	(
+	sleep 0.1
+	cat "$ANTENNA_STATE" 2>/dev/null	# no output if there is no extcon
+	) <$SERIAL	# GTA04: VSIM is only enabled if we open the GPS port
+}
+
+case "$(antennastate 2>/dev/null)" in
+        0* )
+                echo "### internal antenna ###"
+                ;;
+        1* )
+                echo "### external antenna ###"
+                ;;
+esac
+
+echo "### starting foxtrot gps ###"
+. /root/x
+dbus-launch foxtrotgps
