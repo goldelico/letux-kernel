@@ -1,6 +1,8 @@
 /*
  *  Copyright (C) 2009-2010, Lars-Peter Clausen <lars@metafoo.de>
  *	JZ4740 SoC LCD framebuffer driver
+ *  Copyright (C) 2017 Paul Boddie <paul@boddie.org.uk>
+ *      JZ4730 customisations
  *
  *  This program is free software; you can redistribute it and/or modify it
  *  under  the terms of  the GNU General Public License as published by the
@@ -16,6 +18,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
+#include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/pinctrl/consumer.h>
 
@@ -28,6 +31,10 @@
 #include <linux/dma-mapping.h>
 
 #include <asm/mach-jz4740/jz4740_fb.h>
+
+#include <video/display_timing.h>
+#include <video/of_display_timing.h>
+#include <video/videomode.h>
 
 #define JZ_REG_LCD_CFG		0x00
 #define JZ_REG_LCD_VSYNC	0x04
@@ -107,6 +114,11 @@
 
 #define JZ_LCD_STATE_DISABLED BIT(0)
 
+enum jzfb_sys_type {
+	ID_JZ4730,
+	ID_JZ4740,
+};
+
 struct jzfb_framedesc {
 	uint32_t next;
 	uint32_t addr;
@@ -120,6 +132,7 @@ struct jzfb {
 	void __iomem *base;
 	struct resource *mem;
 	struct jz4740_fb_platform_data *pdata;
+	enum jzfb_sys_type type;
 
 	size_t vidmem_size;
 	void *vidmem;
@@ -306,14 +319,17 @@ static int jzfb_set_par(struct fb_info *info)
 		ctrl |= JZ_LCD_CTRL_BPP_8;
 	break;
 	case 15:
-		ctrl |= JZ_LCD_CTRL_RGB555; /* Falltrough */
+		ctrl |= JZ_LCD_CTRL_RGB555; /* Fallthrough */
 	case 16:
 		ctrl |= JZ_LCD_CTRL_BPP_15_16;
 		break;
 	case 18:
 	case 24:
 	case 32:
-		ctrl |= JZ_LCD_CTRL_BPP_18_24;
+		if (jzfb->type == ID_JZ4730)
+			ctrl |= JZ_LCD_CTRL_BPP_15_16;
+		else
+			ctrl |= JZ_LCD_CTRL_BPP_18_24;
 		break;
 	default:
 		break;
@@ -389,7 +405,13 @@ static int jzfb_set_par(struct fb_info *info)
 	mutex_unlock(&jzfb->lock);
 
 	clk_set_rate(jzfb->lpclk, rate);
-	clk_set_rate(jzfb->ldclk, rate * 3);
+
+	/* Set a different rate for the JZ4730? */
+
+	if (jzfb->type == ID_JZ4730)
+		clk_set_rate(jzfb->ldclk, rate * 4);
+	else
+		clk_set_rate(jzfb->ldclk, rate * 3);
 
 	return 0;
 }
@@ -530,17 +552,115 @@ static struct  fb_ops jzfb_ops = {
 	.fb_setcolreg = jzfb_setcolreg,
 };
 
+static const struct of_device_id jzfb_of_matches[] = {
+	{ .compatible = "ingenic,jz4730-lcd", .data = (void *) ID_JZ4730},
+	{ .compatible = "ingenic,jz4740-lcd", .data = (void *) ID_JZ4740},
+	{ /* sentinel */ }
+};
+MODULE_DEVICE_TABLE(of, jzfb_of_matches);
+
+static void jzfb_convert_timing(struct display_timing *timing,
+				struct jz4740_fb_platform_data *pdata,
+				struct fb_videomode *fbmode)
+{
+	struct videomode mode;
+
+	videomode_from_timing(timing, &mode);
+
+	/* Information from a panel-timing node. */
+
+	fbmode->xres = mode.hactive;
+	fbmode->yres = mode.vactive;
+	fbmode->left_margin = mode.hback_porch;
+	fbmode->right_margin = mode.hfront_porch;
+	fbmode->upper_margin = mode.vback_porch;
+	fbmode->lower_margin = mode.vfront_porch;
+	fbmode->hsync_len = mode.hsync_len;
+	fbmode->vsync_len = mode.vsync_len;
+
+	/* Convert frequency to picosecond period. */
+
+	fbmode->pixclock = KHZ2PICOS(mode.pixelclock / 1000);
+	fbmode->sync = 0;
+	fbmode->vmode = 0;
+
+	if (mode.flags & DISPLAY_FLAGS_INTERLACED)
+		fbmode->vmode |= FB_VMODE_INTERLACED;
+	else
+		fbmode->vmode |= FB_VMODE_NONINTERLACED;
+
+	if (mode.flags & DISPLAY_FLAGS_DOUBLESCAN)
+		fbmode->vmode |= FB_VMODE_DOUBLE;
+
+        pdata->num_modes = 1;
+        pdata->modes = fbmode;
+        pdata->pixclk_falling_edge = (mode.flags & DISPLAY_FLAGS_PIXDATA_NEGEDGE) ? 1 : 0;
+	pdata->date_enable_active_low = (mode.flags & DISPLAY_FLAGS_DE_LOW) ? 1 : 0;
+}
+
+static int jzfb_find_panel(struct platform_device *pdev, struct jz4740_fb_platform_data **pdaddr)
+{
+	int ret;
+	struct device_node *panel;
+	struct display_timing timing;
+	struct jz4740_fb_platform_data *pdata;
+	struct fb_videomode *fbmode;
+	struct device_node *np = pdev->dev.of_node;
+
+	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata)
+		return -ENOMEM;
+
+	*pdaddr = pdata;
+
+	fbmode = devm_kzalloc(&pdev->dev, sizeof(*fbmode), GFP_KERNEL);
+	if (!fbmode)
+		return -ENOMEM;
+
+	panel = of_parse_phandle(np, "panel", 0);
+
+	if (panel) {
+		ret = of_get_display_timing(np, "panel-timing", &timing);
+		if (ret) {
+			dev_err(&pdev->dev, "Missing platform data\n");
+			return ret;
+		}
+
+		jzfb_convert_timing(&timing, pdata, fbmode);
+
+		/* Additional panel- and driver-related information. */
+
+		ret = of_property_read_u32(np, "width", &pdata->width) ||
+		      of_property_read_u32(np, "height", &pdata->height) ||
+		      of_property_read_u32(np, "bpp", &pdata->bpp) ||
+		      of_property_read_u32(np, "lcd-type", &pdata->lcd_type);
+
+		of_node_put(panel);
+		return ret;
+	}
+
+	return -ENXIO;
+}
+
 static int jzfb_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct jzfb *jzfb;
 	struct fb_info *fb;
 	struct jz4740_fb_platform_data *pdata = pdev->dev.platform_data;
+	const struct platform_device_id *id = platform_get_device_id(pdev);
+	const struct of_device_id *of_id = of_match_device(
+			jzfb_of_matches, &pdev->dev);
 	struct resource *mem;
 
+	/* Attempt to populate platform data using panel device information. */
+
 	if (!pdata) {
-		dev_err(&pdev->dev, "Missing platform data\n");
-		return -ENXIO;
+		ret = jzfb_find_panel(pdev, &pdata);
+		if (ret) {
+			dev_err(&pdev->dev, "Missing platform data\n");
+			return ret;
+		}
 	}
 
 	fb = framebuffer_alloc(sizeof(struct jzfb), &pdev->dev);
@@ -576,6 +696,11 @@ static int jzfb_probe(struct platform_device *pdev)
 		ret = PTR_ERR(jzfb->base);
 		goto err_framebuffer_release;
 	}
+
+	if (of_id)
+		jzfb->type = (enum jzfb_sys_type)of_id->data;
+	else
+		jzfb->type = id->driver_data;
 
 	platform_set_drvdata(pdev, jzfb);
 
