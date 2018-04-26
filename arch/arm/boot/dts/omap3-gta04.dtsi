@@ -671,6 +671,8 @@
  * as soon as it arrives upstream, we can remove it here
  */
 
+#include <dt-bindings/input/input.h>
+
 / {
 
 	aliases {
@@ -694,7 +696,7 @@
 
 		wwan_wakeup_button: wwan-wakeup-button {
 			label = "3G_WOE";
-			linux,code = <240>;
+			linux,code = <KEY_UNKNOWN>;
 			gpios = <&gpio1 10 GPIO_ACTIVE_HIGH>;
 			gpio-key,wakeup;
 		};
