@@ -703,16 +703,19 @@
 	};
 
 	antenna-detect {
-		compatible = "extcon-gpio";
-		label = "gps_antenna";
+		compatible = "gpio-keys";
 		// FIXME: pinmux
-		extcon-gpio = <&gpio5 16 GPIO_ACTIVE_HIGH>; /* GPIO144 */
-		debounce-delay-ms = <10>;
-		interrupt-parent = <&gpio5>;
-		interrupts = <16 IRQ_TYPE_EDGE_BOTH>;
-		irq-flags = <IRQ_TYPE_EDGE_BOTH>;
-		state-on = "external";
-		state-off = "internal";
+
+		gps_antenna_button: gps-antenna-button {
+			label = "GPS_EXT_ANT";
+			linux,input-type = <EV_SW>;
+			linux,code = <SW_LINEIN_INSERT>;
+			gpios = <&gpio5 16 GPIO_ACTIVE_HIGH>; /* GPIO144 */
+			interrupt-parent = <&gpio5>;
+			interrupts = <16 IRQ_TYPE_EDGE_BOTH>;
+			debounce-interval = <10>;
+			wakeup-source;
+		};
 	};
 
 	w2cbw003_codec: headset_codec {
