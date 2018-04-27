@@ -232,7 +232,7 @@
 		>;
 	};
 
-	pyra_modem_pins: pinmux_moden_gpio_pins {
+	pyra_modem_pins: pinmux_modem_gpio_pins {
 		pinctrl-single,pins = <
 			OMAP5_IOPAD(0x118, PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* 0x118:[15:0]  gpio6_171 - modem ignite */
 			OMAP5_IOPAD(0x116, PIN_INPUT | MUX_MODE6)	/* 0x114:[31:16]  gpio6_172 - modem power indication */
