@@ -105,10 +105,8 @@ static int w2sg_set_lna_power(struct w2sg_data *data)
 	return ret;
 }
 
-static void w2sg_set_power(void *pdata, int val)
+static void w2sg_set_power(struct w2sg_data *data, int val)
 {
-	struct w2sg_data *data = (struct w2sg_data *) pdata;
-
 	pr_debug("%s to state=%d (requested=%d)\n", __func__, val,
 		 data->requested);
 
