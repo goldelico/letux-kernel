@@ -82,6 +82,7 @@ static int gps_tty_install(struct tty_driver *driver, struct tty_struct *tty)
 	return 0;
 
 error_init_termios:
+// has no use - seems to be copy&paste from https://elixir.bootlin.com/linux/v4.12.14/source/drivers/usb/class/cdc-acm.c#L583
 	tty_port_put(&data->port);
 	return retval;
 }
@@ -89,6 +90,7 @@ error_init_termios:
 static int gps_tty_open(struct tty_struct *tty, struct file *file)
 {
 	struct gps_dev *data = tty->driver_data;
+	int ret;
 
 	pr_debug("%s() data = %p open_count = ++%d\n", __func__,
 		 data, data->open_count);
@@ -96,9 +98,11 @@ static int gps_tty_open(struct tty_struct *tty, struct file *file)
 	if (data->open_count == 0 && data->open)
 		(void) data->open(data);	/* notify first open */
 
-	data->open_count++;
+	ret = tty_port_open(&data->port, tty, file);
+	if(ret >= 0)
+		data->open_count++;	/* successfull */
 
-	return tty_port_open(&data->port, tty, file);
+	return ret;
 }
 
 static void gps_tty_close(struct tty_struct *tty, struct file *file)
@@ -158,6 +162,9 @@ int gps_register_dev(struct gps_dev *gdev, const char *name)
 	}
 
 	pr_debug("gps alloc_tty_driver\n");
+
+// FIXME: only once and not every call to gps_register_dev
+// maybe in module_init
 
 	/* allocate the tty driver */
 	gdev->tty_drv = alloc_tty_driver(1);
