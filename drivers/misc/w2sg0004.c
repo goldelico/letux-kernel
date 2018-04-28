@@ -172,12 +172,13 @@ static void toggle_work(struct work_struct *work)
 	struct w2sg_data *data = container_of(work, struct w2sg_data,
 					      work.work);
 
+	w2sg_set_lna_power(data);	/* update LNA power state */
+
 	switch (data->state) {
 	case W2SG_IDLE:
 		if (data->requested == data->is_on)
 			return;
 
-		w2sg_set_lna_power(data);	/* update LNA power state */
 		gpio_set_value_cansleep(data->on_off_gpio, 0);
 		data->state = W2SG_PULSE;
 
@@ -217,7 +218,10 @@ static int w2sg_rfkill_set_block(void *pdata, bool blocked)
 
 	data->lna_blocked = blocked;
 
-	return w2sg_set_lna_power(data);
+	if (!data->suspended)
+		schedule_delayed_work(&data->work, 0);
+
+	return 0;
 }
 
 static struct rfkill_ops w2sg0004_rfkill_ops = {
