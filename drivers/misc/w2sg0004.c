@@ -7,19 +7,18 @@
  *						Golden Delicious Computers
  *
  * This receiver has an ON/OFF pin which must be toggled to
- * turn the device 'on' of 'off'.  A high->low->high toggle
+ * turn the device 'on' or 'off'.  A high->low->high toggle
  * will switch the device on if it is off, and off if it is on.
  *
- * To enable receiving on/off requests we register with the
- * UART power management notifications.
+ * It is not possible to directly detect the state of the w2sg0004
+ * and for some hardware configurations of the w2sg0084.
  *
- * It is not possible to directly detect the state of the device.
- * However when it is on it will send characters on a UART line
+ * However, when it is on it will send characters on a UART line
  * regularly.
  *
  * To detect that the power state is out of sync (e.g. if GPS
- * was enabled before a reboot), we register for UART data received
- * notifications.
+ * was enabled before a reboot), we monitor the serdev data stream
+ * and compare with what the driver thinks about the state.
  *
  * In addition we register as a rfkill client so that we can
  * control the LNA power.
@@ -322,9 +321,14 @@ static int w2sg_probe(struct serdev_device *serdev)
 	gpio_direction_output(data->on_off_gpio, false);
 
 	serdev_device_set_client_ops(data->uart, &serdev_ops);
-	serdev_device_open(data->uart);
+	err = serdev_device_open(data->uart);
+	if (err < 0)
+		goto out;
 
-	serdev_device_set_baudrate(data->uart, 9600);
+	err = serdev_device_set_baudrate(data->uart, 9600);
+	if (err < 0)
+		goto out;
+
 	serdev_device_set_flow_control(data->uart, false);
 
 	pr_debug("w2sg rfkill_alloc\n");
@@ -333,7 +337,7 @@ static int w2sg_probe(struct serdev_device *serdev)
 				&w2sg0004_rfkill_ops, data);
 	if (rf_kill == NULL) {
 		err = -ENOMEM;
-		goto err_rfkill;
+		goto err_close_serdev;
 	}
 
 	pr_debug("w2sg register rfkill\n");
@@ -341,7 +345,7 @@ static int w2sg_probe(struct serdev_device *serdev)
 	err = rfkill_register(rf_kill);
 	if (err) {
 		dev_err(&serdev->dev, "Cannot register rfkill device\n");
-		goto err_rfkill;
+		goto err_destroy_rfkill;
 	}
 
 	data->rf_kill = rf_kill;
@@ -357,7 +361,7 @@ static int w2sg_probe(struct serdev_device *serdev)
 	if (err) {
 		pr_err("%s - gps_register_dev failed(%d)\n",
 			__func__, err);
-		goto err_rfkill;
+		goto err_unregistery_rfkill;
 	}
 
 	pr_debug("w2sg probed\n");
@@ -378,8 +382,11 @@ static int w2sg_probe(struct serdev_device *serdev)
 
 	return 0;
 
-err_rfkill:
+err_unregistery_rfkill:
+	rfkill_unregister(rf_kill);
+err_destroy_rfkill:
 	rfkill_destroy(rf_kill);
+err_close_serdev:
 	serdev_device_close(data->uart);
 out:
 	pr_debug("w2sg error %d\n", err);
