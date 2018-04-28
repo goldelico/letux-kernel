@@ -527,16 +527,16 @@ config WWAN_ON_OFF
 	  are OPTION GTM601, Gemalto PHS8.
 
 config W2SG0004
-	tristate "W2SG00x4 on/off control"
+	tristate "W2SG00x4 power on/off driver"
 	depends on GPIOLIB && SERIAL_DEV_BUS
 	help
-          Enable on/off control of W2SG00x4 GPS moduled connected
+	  Enable on/off control of W2SG00x4 GPS module connected
 	  to some SoC UART to allow powering up/down if the /dev/ttyGPSn
 	  is opened/closed.
 	  It also provides a rfkill gps name to control the LNA power.
 
 config W2SG0004_DEBUG
-	bool "W2SG0004 on/off debugging"
+	bool "W2SG00x4 power on/off driver debugging mode"
 	depends on W2SG0004
 	help
 	  Enable driver debugging mode of W2SG0004 GPS. If you say y here
