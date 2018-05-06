@@ -1,12 +1,12 @@
 /*
- * Copyright (C) 2017 Golden Delicous Computers - http://www.goldelico.com/
+ * Copyright (C) 2018 Golden Delicous Computers - http://www.goldelico.com/
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
 
-/* this version is for the Letux Cortex 15 CPU board (V5.3 - planned) */
+/* this version is for the Letux Cortex 15 CPU board (V5.3) */
 
 #include "omap5-letux-cortex15-v5.2.dts"
 
@@ -19,7 +19,7 @@
  * Hence we can disable pullup/down.
  */
 
-&mmc1_pins:{
+&mmc1_pins {
 	pinctrl-single,pins = <
 		OMAP5_IOPAD(0x174, PIN_INPUT | MUX_MODE6)	/* 0x174:[15:0] sdcard_cd/gpio8_228 */
 		OMAP5_IOPAD(0x176, PIN_INPUT | MUX_MODE6)	/* 0x175:[31:16] sdcard_wp/gpio8_229 */
