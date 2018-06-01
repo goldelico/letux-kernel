@@ -679,17 +679,6 @@
 		display1 = &tv0;
 	};
 
-	/* pinmux for devconf1 */
-	control_devconf1: pinmux@480022d8 {
-		compatible = "pinctrl-single";
-		reg = <0x480022d8 4>;	/* CONTROL_DEVCONF1 */
-		#address-cells = <1>;
-		#size-cells = <0>;
-		pinctrl-single,bit-per-mux;
-		pinctrl-single,register-width = <32>;
-		pinctrl-single,function-mask = <0x81>;	/* TV control */
-	};
-
 	gpio-keys-wwan-wakeup {
 		compatible = "gpio-keys";
 		// FIXME: pinmux
@@ -1073,17 +1062,6 @@
 	regulator-always-on;
 };
 
-&control_devconf1 {
-	pinctrl-name = "default";
-	pinctrl-0 = < &tv_acbias_pins>;
-
-	tv_acbias_pins: pinmux_tv_acbias_pins {
-		pinctrl-single,bits = <
-			0 0x40800 0x40800
-		>;
-	};
-};
-
 &gpmc {
 	nand@0,0 {
 		ti,nand-ecc-opt = "ham1"; /* stay compatible with our old u-boot (does not support bch8) */
@@ -1111,12 +1089,21 @@
 	};
 };
 
-&control_devconf0 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&mcbsp1_defconf0>;
-
-	mcbsp1_defconf0: pinmux_mcbsp1_defconf0 {
-		/*                   offset bits mask */
-		pinctrl-single,bits = <0x00 0x08 0x5f>;	/* set MCBSP1_CLKR_MASK */
+	/* devconf1 setup for tvout pins */
+	pinmux_tv_out@480022d8 {
+		compatible = "pinctrl-single";
+		reg = <0x480022d8 4>;	/* CONTROL_DEVCONF1 */
+		#address-cells = <1>;
+		#size-cells = <0>;
+		pinctrl-single,bit-per-mux;
+		pinctrl-single,register-width = <32>;
+		pinctrl-single,function-mask = <0x81>;	/* TV out pin control */
+		#pinctrl-cells = <2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&tv_acbias_devconf1_pins>;
+		tv_acbias_devconf1_pins: pinmux_tv_acbias_devconf1_pins {
+			/*		 	offset	bits	mask */
+			pinctrl-single,bits = <0x00 0x40800 0x40800>;	/* set TVOUTBYPASS and TVOUTACEN */
+		};
 	};
 };
