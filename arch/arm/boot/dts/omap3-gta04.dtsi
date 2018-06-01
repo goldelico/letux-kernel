@@ -133,8 +133,7 @@
 	};
 
 	tv0: connector {
-//		compatible = "composite-svideo-connector";
-		compatible = "svideo-connector";
+		compatible = "composite-video-connector";
 		label = "tv";
 
 		port {
