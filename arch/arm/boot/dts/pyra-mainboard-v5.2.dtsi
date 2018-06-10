@@ -6,19 +6,19 @@
  * published by the Free Software Foundation.
  */
 
+#define VERSION_5_1_2_AND_LATER
 #include "pyra-mainboard-v5.1.dtsi"
 
 /* overwrite device model */
 
 / {
 	model = "Pyra-Handheld-V5.2";
+};
 
-	pyra_leds {
-		/* no longer connected */
-		/delete-node/ led@5;
-		/delete-node/ led@6;
+&i2c2 {
+	bq24297@6b {
+		otg-gpios = <&gpio99 (3+16) (GPIO_ACTIVE_HIGH)>;
 	};
-
 };
 
 &gpio99 {
