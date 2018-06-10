@@ -6,6 +6,14 @@
  * published by the Free Software Foundation.
  */
 
+/*
+ * V5.1/5.1.1 and V5.1.2ff should have been separate .dtsi files
+ * but we have no distinguising hardware version encoding
+ * So comment out this #define to build for V5.1 and V5.1.1
+ */
+
+#define VERSION_5_1_2_AND_LATER
+
 #include "pyra-mainboard-v5.0.dtsi"
 
 /* overwrite device model */
@@ -52,6 +60,21 @@
 
 	};
 };
+
+
+#ifdef VERSION_5_1_2_AND_LATER
+
+/ {
+	model = "Pyra-Handheld-V5.1.2ff";
+
+	pyra_leds {
+		/* no longer connected */
+		/delete-node/ led@5;
+		/delete-node/ led@6;
+	};
+};
+
+#endif
 
 /* register devices connected to Peripheral-I2C */
 &i2c2 {
