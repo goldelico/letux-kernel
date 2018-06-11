@@ -657,7 +657,8 @@ static void usb_detect_work_func(struct work_struct *work)
 
 	previous_r8 = r8;
 
-//	DBG("%s,line=%d\n", __func__,__LINE__);
+//	printk("%s, line=%d\n", __func__,__LINE__);
+
 	ret = bq24296_read(bq24296_di->client, SYSTEM_STATS_REGISTER, &r8, 1);
 	if (ret < 0) {
 		dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
@@ -754,12 +755,13 @@ static void usb_detect_work_func(struct work_struct *work)
 				DBG("bq24296: detect no usb\n");
 				break;
 #else
+
 /* FIXME/CHECKME:
    do we really have to actively switch to charging or does the charger start automatically?
    Then, we might not even need this scheduled worker function
 */
 
-		/* detect VBUS being available */
+		/* detect VBUS availability changes */
 		if(ret && bq24296_input_present && !(previous_r8 & PG_STAT)) { /* VBUS became available */
 			DBG("bq24296: VBUS became available\n");
 			printk("bq24296: VBUS became available\n");
@@ -768,6 +770,10 @@ static void usb_detect_work_func(struct work_struct *work)
 		/* could trigger another DPDM detection... */
 		/* start charging here */
 //			bq24296_update_charge_mode(CHARGE_MODE_CONFIG_CHARGE_BATTERY);
+		}
+		else if(ret && !bq24296_input_present && (previous_r8 & PG_STAT)) { /* VBUS became unavailable */
+			DBG("bq24296: VBUS became unavailable\n");
+			printk("bq24296: VBUS became unavailable\n");
 		}
 #endif
 	}
