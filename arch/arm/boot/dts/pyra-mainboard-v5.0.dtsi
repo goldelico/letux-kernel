@@ -397,8 +397,6 @@
 		reg = <0x6b>;
 		monitored-battery = <&bat>;
 		ti,chg_current = <1000 2000 2000>;	// chg_current (max for the battery), usb_input_current, adp_input_current
-		gpios = <&gpio99 11 0>,		// chg_irq_pin - ignored by driver
-			<0>;			// dc_det_pin - if 0, charger is switched by driver to 2048mA, otherwise 512mA
 		interrupt-parent = <&gpio99>;
 		interrupts = <11 IRQ_TYPE_EDGE_FALLING>;
 		ti,watchdog = <40>;		// 40 seconds watchdog timer
