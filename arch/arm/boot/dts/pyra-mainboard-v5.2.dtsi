@@ -15,12 +15,6 @@
 	model = "Pyra-Handheld-V5.2";
 };
 
-&i2c2 {
-	bq24297@6b {
-		otg-gpios = <&gpio99 (3+16) (GPIO_ACTIVE_HIGH)>;
-	};
-};
-
 &gpio99 {
 	/* was a ti,tca6424 in older revisions */
 	compatible = "nxp,pcal6524";
