@@ -74,6 +74,16 @@
 	};
 };
 
+#if 0	// disable for testing with the ./otg script
+&i2c2 {
+	bq24297@6b {
+		otg-gpios = <&gpio99 (3+16) (GPIO_ACTIVE_HIGH)>;
+//		interrupt-parent = <&gpio99>;
+//		interrupts = <14 IRQ_TYPE_EDGE_RISING>;
+	};
+};
+#endif
+
 #endif
 
 /* register devices connected to Peripheral-I2C */
