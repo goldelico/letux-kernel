@@ -27,14 +27,11 @@
 #include <linux/idr.h>
 #include <linux/i2c.h>
 #include <linux/slab.h>
-#include <asm/unaligned.h>
-#include <linux/proc_fs.h>
-#include <asm/uaccess.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
+#include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/of_gpio.h>
-#include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
@@ -190,11 +187,9 @@
 /* FIXME: consolidate and use pointers instead of global variables */
 
 struct bq24296_board {
-	unsigned int otg_usb_pin;
-	unsigned int chg_irq_pin;
-	unsigned int chg_irq;
-	unsigned int dc_det_pin;
-	unsigned int psel_pin;
+	struct gpio_desc *otg_usb_pin;
+	struct gpio_desc *dc_det_pin;
+	struct gpio_desc *psel_pin;
 	unsigned int chg_current[3];
 };
 
@@ -715,14 +710,9 @@ static void usb_detect_work_func(struct work_struct *work)
 
 	mutex_lock(&pi->var_lock);
 
-	if (gpio_is_valid(bq24296_pdata->dc_det_pin)){
+	if (bq24296_pdata->dc_det_pin){
 		/* detect charging request */
-		ret = gpio_request(bq24296_pdata->dc_det_pin, "bq24296_dc_det");
-		if (ret < 0) {
-			DBG("Failed to request gpio %d with ret:""%d\n",bq24296_pdata->dc_det_pin, ret);
-		}
-		gpio_direction_input(bq24296_pdata->dc_det_pin);
-		ret = gpio_get_value(bq24296_pdata->dc_det_pin);
+		ret = gpiod_get_value(bq24296_pdata->dc_det_pin);
 		if (ret ==0){
 			bq24296_update_input_current_limit(bq24296_di->adp_input_current);
 			bq24296_set_charge_current(CHARGE_CURRENT_2048MA);
@@ -732,7 +722,6 @@ static void usb_detect_work_func(struct work_struct *work)
 			bq24296_update_input_current_limit(IINLIM_500MA);
 			bq24296_set_charge_current(CHARGE_CURRENT_512MA);
 		}
-		gpio_free(bq24296_pdata->dc_det_pin);
 		DBG("%s: bq24296_di->dc_det_pin=%x\n", __func__, ret);
 	}
 	else {
@@ -945,7 +934,7 @@ static int bq24296_set_otg_current_limit(struct regulator_dev *dev,
 }
 
 static int bq24296_otg_enable(struct regulator_dev *dev)
-{ /* enable OTG step up converter */
+{ /* enable OTG step up converter and optional external switches */
 	struct bq24296_device_info *di = rdev_get_drvdata(dev);
 	int idx = dev->desc->id;
 
@@ -955,14 +944,7 @@ static int bq24296_otg_enable(struct regulator_dev *dev)
 	if (!bq24296_battery_present)
 		return -EBUSY;
 
-	if (gpio_is_valid(bq24296_pdata->otg_usb_pin)){
-		int ret = gpio_request(bq24296_pdata->otg_usb_pin, "bq24296_otg");
-		if (ret < 0) {
-			DBG("Failed to request gpio %d with ret:""%d\n",bq24296_pdata->otg_usb_pin, ret);
-		}
-		gpio_direction_output(bq24296_pdata->otg_usb_pin, 1);
-		gpio_free(bq24296_pdata->otg_usb_pin);
-	}
+	gpiod_set_value_cansleep(bq24296_pdata->otg_usb_pin, 1);
 
 	/* enable bit 5 of POWER_ON_CONFIGURATION_REGISTER */
 
@@ -970,20 +952,13 @@ static int bq24296_otg_enable(struct regulator_dev *dev)
 }
 
 static int bq24296_otg_disable(struct regulator_dev *dev)
-{ /* disable OTG step up converter and enable charger */
+{ /* disable OTG step up converter and optional external switches and enable charger */
 	struct bq24296_device_info *di = rdev_get_drvdata(dev);
 	int idx = dev->desc->id;
 
 	printk("%s(%d)\n", __func__, idx);
 
-	if (gpio_is_valid(bq24296_pdata->otg_usb_pin)){
-		int ret = gpio_request(bq24296_pdata->otg_usb_pin, "bq24296_otg");
-		if (ret < 0) {
-			DBG("Failed to request gpio %d with ret:""%d\n",bq24296_pdata->otg_usb_pin, ret);
-		}
-		gpio_direction_output(bq24296_pdata->otg_usb_pin, 0);
-		gpio_free(bq24296_pdata->otg_usb_pin);
-	}
+	gpiod_set_value_cansleep(bq24296_pdata->otg_usb_pin, 0);
 
 	/* disable bit 5 of POWER_ON_CONFIGURATION_REGISTER */
 
@@ -1037,22 +1012,24 @@ static struct bq24296_board *bq24296_parse_dt(struct bq24296_device_info *di)
 		return NULL;
 	}
 
-	pdata->chg_irq_pin = of_get_named_gpio(bq24296_np,"gpios", 0);
-	if (!gpio_is_valid(pdata->chg_irq_pin)) {
-		dev_err(&di->client->dev, "invalid irq gpio: %d\n", pdata->chg_irq_pin);
-	}
-
-	pdata->dc_det_pin = of_get_named_gpio(bq24296_np,"gpios", 1);
+	// dc_det_pin - if 0, charger is switched by driver to 2048mA, otherwise 512mA
+	pdata->dc_det_pin = devm_gpiod_get_index(&di->client->dev, "dc-det", 0, GPIOD_IN);
 
 // FIXME: check for bq24296 (297 has no det gpio)
 
-	if (!gpio_is_valid(pdata->dc_det_pin)) {
-		dev_err(&di->client->dev, "invalid det gpio: %d\n", pdata->dc_det_pin);
+	if (IS_ERR(pdata->dc_det_pin)) {
+		if (PTR_ERR(pdata->dc_det_pin) == -EPROBE_DEFER)
+			return NULL;
+		dev_err(&di->client->dev, "invalid det gpio: %ld\n", PTR_ERR(pdata->dc_det_pin));
+		pdata->dc_det_pin = NULL;
 	}
 
-	pdata->otg_usb_pin = of_get_named_gpio(bq24296_np,"otg-gpios", 0);
-	if (!gpio_is_valid(pdata->otg_usb_pin)) {
-		dev_err(&di->client->dev, "invalid otg gpio: %d\n", pdata->otg_usb_pin);
+	pdata->otg_usb_pin = devm_gpiod_get_index(&di->client->dev, "otg", 0, GPIOD_OUT_HIGH);
+	if (IS_ERR(pdata->otg_usb_pin)) {
+		if (PTR_ERR(pdata->otg_usb_pin) == -EPROBE_DEFER)
+			return NULL;
+		dev_err(&di->client->dev, "invalid otg gpio: %ld\n", PTR_ERR(pdata->otg_usb_pin));
+		pdata->otg_usb_pin = NULL;
 	}
 
 	of_node_get(bq24296_np);
@@ -1591,7 +1568,7 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 		goto fail_probe;
 	}
 
-	ret = devm_request_threaded_irq(&client->dev, pdev->chg_irq,
+	ret = devm_request_threaded_irq(&client->dev, client->irq,
 				NULL, chg_irq_func,
 				IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
 				client->name,
