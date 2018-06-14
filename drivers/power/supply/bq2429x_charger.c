@@ -858,7 +858,7 @@ static int bq24296_set_vsys_voltage(struct regulator_dev *dev, int min_uV, int m
 	int idx = dev->desc->id;
 
 	printk("bq24296_set_vsys_voltage(%d, %d, %d, %u)\n", idx, min_uV, max_uV, *selector);
-// The driver should select the voltage closest to min_uV
+// The driver should select the voltage closest to min_uV by scanning vsys_VSEL_table
 
 	return 0;
 
@@ -895,7 +895,7 @@ static int bq24296_set_otg_voltage(struct regulator_dev *dev, int min_uV, int ma
 	int idx = dev->desc->id;
 
 	printk("bq24296_set_otg_voltage(%d, %d, %d, %u)\n", idx, min_uV, max_uV, *selector);
-// The driver should select the voltage closest to min_uV
+// The driver should select the voltage closest to min_uV by scanning otg_VSEL_table
 
 	return 0;
 
@@ -934,13 +934,13 @@ static int bq24296_set_otg_current_limit(struct regulator_dev *dev,
 	/* set OTG current limit in bit 0 of POWER_ON_CONFIGURATION_REGISTER */
 
 	if(max_uA < 1250000)
-		return bq24296_update_reg(bq24296_di->client,POWER_ON_CONFIGURATION_REGISTER, OTG_MODE_CURRENT_CONFIG_500MA,0x01);	// enable 1A
+		return bq24296_update_reg(bq24296_di->client,POWER_ON_CONFIGURATION_REGISTER, OTG_MODE_CURRENT_CONFIG_500MA,0x01);	// choose 1A
 	else
-		return bq24296_update_reg(bq24296_di->client,POWER_ON_CONFIGURATION_REGISTER, OTG_MODE_CURRENT_CONFIG_1300MA,0x01);	// enable 1.5A
+		return bq24296_update_reg(bq24296_di->client,POWER_ON_CONFIGURATION_REGISTER, OTG_MODE_CURRENT_CONFIG_1300MA,0x01);	// choose 1.5A
 }
 
 static int bq24296_otg_enable(struct regulator_dev *dev)
-{ /* enable OTG step up converter and optional external switches */
+{ /* enable OTG step up converter */
 	struct bq24296_device_info *di = rdev_get_drvdata(dev);
 	int idx = dev->desc->id;
 
@@ -950,25 +950,25 @@ static int bq24296_otg_enable(struct regulator_dev *dev)
 	if (!bq24296_battery_present)
 		return -EBUSY;
 
-	gpiod_set_value_cansleep(bq24296_pdata->otg_usb_pin, 1);
+	gpiod_set_value_cansleep(bq24296_pdata->otg_usb_pin, 1);	// enable OTG pin
 
 	/* enable bit 5 of POWER_ON_CONFIGURATION_REGISTER */
 
-	return bq24296_update_reg(bq24296_di->client,POWER_ON_CONFIGURATION_REGISTER,0x01 << 5,0x01 << 5);	// enable OTG
+	return bq24296_update_reg(bq24296_di->client, POWER_ON_CONFIGURATION_REGISTER, 0x01 << 5, 0x01 << 5);	// enable OTG
 }
 
 static int bq24296_otg_disable(struct regulator_dev *dev)
-{ /* disable OTG step up converter and optional external switches and enable charger */
+{ /* disable OTG step up converter */
 	struct bq24296_device_info *di = rdev_get_drvdata(dev);
 	int idx = dev->desc->id;
 
 	printk("%s(%d)\n", __func__, idx);
 
-	gpiod_set_value_cansleep(bq24296_pdata->otg_usb_pin, 0);
+	gpiod_set_value_cansleep(bq24296_pdata->otg_usb_pin, 0);	// disable OTG pin
 
 	/* disable bit 5 of POWER_ON_CONFIGURATION_REGISTER */
 
-	return bq24296_update_reg(bq24296_di->client,POWER_ON_CONFIGURATION_REGISTER,0 << 5,0x01 << 5);	// disable OTG
+	return bq24296_update_reg(bq24296_di->client, POWER_ON_CONFIGURATION_REGISTER, 0 << 5, 0x01 << 5);	// disable OTG
 }
 
 static struct regulator_ops vsys_ops = {
