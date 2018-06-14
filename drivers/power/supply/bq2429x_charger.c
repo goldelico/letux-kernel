@@ -947,8 +947,10 @@ static int bq24296_otg_enable(struct regulator_dev *dev)
 	printk("%s(%d)\n", __func__, idx);
 
 	/* check if battery is present and reject if no battery */
-	if (!bq24296_battery_present)
+	if (!bq24296_battery_present) {
+		dev_warn(&di->client->dev, "can enable otg only with installed battery\n");
 		return -EBUSY;
+	}
 
 	gpiod_set_value_cansleep(bq24296_pdata->otg_usb_pin, 1);	// enable OTG pin
 
