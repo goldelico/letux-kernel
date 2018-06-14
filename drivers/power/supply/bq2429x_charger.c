@@ -973,6 +973,23 @@ static int bq24296_otg_disable(struct regulator_dev *dev)
 	return bq24296_update_reg(bq24296_di->client, POWER_ON_CONFIGURATION_REGISTER, 0 << 5, 0x01 << 5);	// disable OTG
 }
 
+static int bq24296_otg_is_enabled(struct regulator_dev *dev)
+{ /* check if OTG converter is enabled */
+	struct bq24296_device_info *di = rdev_get_drvdata(dev);
+	int idx = dev->desc->id;
+	int ret;
+	u8 retval;
+
+	printk("%s(%d)\n", __func__, idx);
+
+	ret = bq24296_read(bq24296_di->client, POWER_ON_CONFIGURATION_REGISTER, &retval, 1);
+	if (ret < 0)
+		return 0;	/* assume disabled */
+
+	/* is bit 5 of POWER_ON_CONFIGURATION_REGISTER set? */
+	return (retval & (0x01 << 5)) != 0;
+}
+
 static struct regulator_ops vsys_ops = {
 	.get_voltage = bq24296_get_vsys_voltage,
 	.set_voltage = bq24296_set_vsys_voltage,	/* change vsys voltage */
@@ -986,6 +1003,7 @@ static struct regulator_ops otg_ops = {
 	.set_current_limit = bq24296_set_otg_current_limit,	/* set OTG current limit */
 	.enable = bq24296_otg_enable,	/* turn on OTG mode */
 	.disable = bq24296_otg_disable,	/* turn off OTG mode */
+	.is_enabled = bq24296_otg_is_enabled,
 };
 
 static struct of_regulator_match bq24296_regulator_matches[] = {
