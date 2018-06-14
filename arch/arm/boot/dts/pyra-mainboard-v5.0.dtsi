@@ -398,7 +398,7 @@
 		monitored-battery = <&bat>;
 		ti,chg_current = <1000 2000 2000>;	// chg_current (max for the battery), usb_input_current, adp_input_current
 		interrupt-parent = <&gpio99>;
-		interrupts = <11 IRQ_TYPE_EDGE_FALLING>;
+		interrupts = <(1*8+3) IRQ_TYPE_EDGE_FALLING>;	// P13
 		ti,watchdog = <40>;		// 40 seconds watchdog timer
 		regulators {
 			vsys_reg: vsys_regulator {
