@@ -631,6 +631,7 @@ int pinctrl_generic_add_group(struct pinctrl_dev *pctldev, const char *name,
 			      int *pins, int num_pins, void *data)
 {
 	struct group_desc *group;
+	int selector = pctldev->num_groups;
 
 	group = devm_kzalloc(pctldev->dev, sizeof(*group), GFP_KERNEL);
 	if (!group)
@@ -641,12 +642,12 @@ int pinctrl_generic_add_group(struct pinctrl_dev *pctldev, const char *name,
 	group->num_pins = num_pins;
 	group->data = data;
 
-	radix_tree_insert(&pctldev->pin_group_tree, pctldev->num_groups,
+	radix_tree_insert(&pctldev->pin_group_tree, selector,
 			  group);
 
 	pctldev->num_groups++;
 
-	return 0;
+	return selector;
 }
 EXPORT_SYMBOL_GPL(pinctrl_generic_add_group);
 
