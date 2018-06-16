@@ -1647,13 +1647,13 @@ MODULE_DEVICE_TABLE(i2c, bq24296_id);
 static struct i2c_driver bq24296_battery_driver = {
 	.probe = bq24296_battery_probe,
 	.remove = bq24296_battery_remove,
-	.suspend = bq24296_battery_suspend,
-	.resume = bq24296_battery_resume,
 	.id_table = bq24296_id,
 	.driver = {
 		.name = "bq2429x_charger",
 	//	.pm = &bq2429x_pm_ops,
 		.of_match_table =of_match_ptr(bq24296_battery_of_match),
+		.suspend = bq24296_battery_suspend,
+		.resume = bq24296_battery_resume,
 	},
 };
 
