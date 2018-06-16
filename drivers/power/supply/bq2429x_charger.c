@@ -1655,7 +1655,6 @@ static struct i2c_driver bq24296_battery_driver = {
 	//	.pm = &bq2429x_pm_ops,
 		.of_match_table =of_match_ptr(bq24296_battery_of_match),
 	},
-	.id_table = bq24296_id,
 };
 
 module_i2c_driver(bq24296_battery_driver);
