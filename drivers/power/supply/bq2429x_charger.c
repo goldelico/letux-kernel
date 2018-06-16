@@ -1470,7 +1470,7 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 	if (di == NULL) {
 		dev_err(&client->dev, "failed to allocate device info data\n");
 		ret = -ENOMEM;
-		goto batt_failed_2;
+		goto fail_probe;
 	}
 
 	di->dev = &client->dev;
@@ -1544,7 +1544,7 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 	if (IS_ERR(bq24296_di->usb)) {
 		ret = PTR_ERR(bq24296_di->usb);
 		dev_err(&client->dev, "failed to register as USB power_supply: %d\n", ret);
-		goto batt_failed_2;
+		goto fail_probe;
 	}
 
 	for (i = 0; i < NUM_REGULATORS; i++, init_data++) {
