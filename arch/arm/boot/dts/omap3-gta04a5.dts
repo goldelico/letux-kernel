@@ -6,6 +6,8 @@
  * published by the Free Software Foundation.
  */
 
+// #define USE_TI_ST
+
 #include "omap3-gta04.dtsi"
 
 / {
