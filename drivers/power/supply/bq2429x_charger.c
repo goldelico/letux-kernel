@@ -1132,6 +1132,13 @@ static int bq24296_charger_resume(struct i2c_client *client)
 	return 0;
 }
 
+static void bq24296_charger_shutdown(struct i2c_client *client)
+{ /* make sure we turn off OTG mode on power down */
+	struct bq24296_device_info *di = i2c_get_clientdata(client);
+
+	bq24296_otg_disable(di->rdev[1]);	/* turn off otg regulator */
+}
+
 /* SYSFS interface */
 
 /*
@@ -1648,6 +1655,7 @@ MODULE_DEVICE_TABLE(i2c, bq24296_charger_id);
 static struct i2c_driver bq24296_charger_driver = {
 	.probe = bq24296_charger_probe,
 	.remove = bq24296_charger_remove,
+	.shutdown = bq24296_charger_shutdown,
 	.id_table = bq24296_charger_id,
 	.driver = {
 		.name = "bq2429x_charger",
