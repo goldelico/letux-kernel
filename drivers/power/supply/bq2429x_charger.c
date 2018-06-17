@@ -1111,21 +1111,22 @@ static struct bq24296_board *bq24296_parse_dt(struct bq24296_device_info *di)
 #endif
 
 #ifdef CONFIG_OF
-static struct of_device_id bq24296_battery_of_match[] = {
+static struct of_device_id bq24296_charger_of_match[] = {
 	{ .compatible = "ti,bq24296"},
 	{ .compatible = "ti,bq24297"},
 	{ },
 };
-MODULE_DEVICE_TABLE(of, bq24296_battery_of_match);
+MODULE_DEVICE_TABLE(of, bq24296_charger_of_match);
 #endif
 
-static int bq24296_battery_suspend(struct i2c_client *client, pm_message_t mesg)
+static int bq24296_charger_suspend(struct i2c_client *client, pm_message_t mesg)
 {
+	// turn off otg?
 	cancel_delayed_work_sync(&bq24296_di->usb_detect_work);
 	return 0;
 }
 
-static int bq24296_battery_resume(struct i2c_client *client)
+static int bq24296_charger_resume(struct i2c_client *client)
 {
 	schedule_delayed_work(&bq24296_di->usb_detect_work, msecs_to_jiffies(50));
 	return 0;
@@ -1446,7 +1447,7 @@ static const struct power_supply_desc bq24296_power_supply_desc[] = {
 
 /* PROBE */
 
-static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_device_id *id)
+static int bq24296_charger_probe(struct i2c_client *client,const struct i2c_device_id *id)
 {
 	struct bq24296_device_info *di;
 	u8 retval = 0;
@@ -1602,7 +1603,7 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 	if (ret < 0) {
 		dev_warn(&client->dev, "failed to request chg_irq: %d\n", ret);
 		// run with polling
-//		goto err_chgirq_failed;
+//		goto fail_probe;
 	}
 
 	if (device_create_file(&client->dev, &dev_attr_max_current))
@@ -1616,16 +1617,16 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 
 	schedule_delayed_work(&di->usb_detect_work, 0);
 
-	DBG("bq24296_battery_probe ok");
+	DBG("%s ok", __func__);
 
 	return 0;
 
-err_chgirq_failed:
 fail_probe:
+	DBG("%s failed %d", __func__, ret);
 	return ret;
 }
 
-static int bq24296_battery_remove(struct i2c_client *client)
+static int bq24296_charger_remove(struct i2c_client *client)
 {
 	struct bq24296_device_info *di = i2c_get_clientdata(client);
 
@@ -1636,29 +1637,29 @@ static int bq24296_battery_remove(struct i2c_client *client)
 	return 0;
 }
 
-static const struct i2c_device_id bq24296_id[] = {
+static const struct i2c_device_id bq24296_charger_id[] = {
 	{ "bq24296", 0 },
 	{ "bq24297", 1 },
 	{ },
 };
 
-MODULE_DEVICE_TABLE(i2c, bq24296_id);
+MODULE_DEVICE_TABLE(i2c, bq24296_charger_id);
 
-static struct i2c_driver bq24296_battery_driver = {
-	.probe = bq24296_battery_probe,
-	.remove = bq24296_battery_remove,
-	.id_table = bq24296_id,
+static struct i2c_driver bq24296_charger_driver = {
+	.probe = bq24296_charger_probe,
+	.remove = bq24296_charger_remove,
+	.id_table = bq24296_charger_id,
 	.driver = {
 		.name = "bq2429x_charger",
 	//	.pm = &bq2429x_pm_ops,
-		.of_match_table =of_match_ptr(bq24296_battery_of_match),
-		.suspend = bq24296_battery_suspend,
-		.resume = bq24296_battery_resume,
+		.of_match_table =of_match_ptr(bq24296_charger_of_match),
+		.suspend = bq24296_charger_suspend,
+		.resume = bq24296_charger_resume,
 	},
 };
 
-module_i2c_driver(bq24296_battery_driver);
+module_i2c_driver(bq24296_charger_driver);
 
 MODULE_AUTHOR("Rockchip");
-MODULE_DESCRIPTION("TI BQ24296/7 battery monitor driver");
+MODULE_DESCRIPTION("TI BQ24296/7 charger driver");
 MODULE_LICENSE("GPL");
