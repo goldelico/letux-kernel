@@ -1119,14 +1119,14 @@ static struct of_device_id bq24296_charger_of_match[] = {
 MODULE_DEVICE_TABLE(of, bq24296_charger_of_match);
 #endif
 
-static int bq24296_charger_suspend(struct i2c_client *client, pm_message_t mesg)
+static int bq24296_charger_suspend(struct device *device, pm_message_t state)
 {
 	// turn off otg?
 	cancel_delayed_work_sync(&bq24296_di->usb_detect_work);
 	return 0;
 }
 
-static int bq24296_charger_resume(struct i2c_client *client)
+static int bq24296_charger_resume(struct device *device)
 {
 	schedule_delayed_work(&bq24296_di->usb_detect_work, msecs_to_jiffies(50));
 	return 0;
