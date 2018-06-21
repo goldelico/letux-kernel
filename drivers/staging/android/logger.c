@@ -19,7 +19,7 @@
 
 #define pr_fmt(fmt) "logger: " fmt
 
-#include <linux/sched.h>
+#include <linux/sched/signal.h>
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/miscdevice.h>
