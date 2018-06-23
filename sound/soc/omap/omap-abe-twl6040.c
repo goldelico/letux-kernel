@@ -116,7 +116,7 @@ static int omap_abe_mcpdm_hw_params(struct snd_pcm_substream *substream,
 	clk_id = twl6040_get_clk_id(codec_dai->component);
 	if (clk_id == TWL6040_SYSCLK_SEL_HPPLL)
 		freq = card_data->mclk_freq;
-	else if (clk_id == TWL6040_SYSCLK_SEL_LPPLL)
+	else if (clk_id == TWL6040_SYSCLK_SEL_LPPLL) {
 		freq = 32768;
 	} else {
 		dev_err(card->dev, "invalid clock\n");
