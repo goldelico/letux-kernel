@@ -344,6 +344,7 @@ static int omap_abe_stream_event(struct snd_soc_dapm_context *dapm, int event)
 {
 	struct snd_soc_card *card = dapm->card;
 	struct omap_abe_data *card_data = snd_soc_card_get_drvdata(card);
+
 	int gain;
 
 	/*
@@ -351,7 +352,7 @@ static int omap_abe_stream_event(struct snd_soc_dapm_context *dapm, int event)
 	 * (Headset, Earpiece) and HSDAC power mode
 	 */
 
-	gain = twl6040_get_dl1_gain(card_data->twl_codec) * 100;
+	gain = twl6040_get_dl1_gain(dapm->component) * 100;
 
 	omap_aess_set_dl1_gains(card_data->aess, gain, gain);
 
@@ -378,11 +379,11 @@ static int omap_abe_twl6040_init(struct snd_soc_pcm_runtime *rtd)
 
 	/* DC offset cancellation computation only if ABE is enabled */
 	if (card_data->has_abe) {
-		hsotrim = twl6040_get_trim_value(codec, TWL6040_TRIM_HSOTRIM);
+		hsotrim = twl6040_get_trim_value(&codec->component, TWL6040_TRIM_HSOTRIM);
 		right_offset = TWL6040_HSF_TRIM_RIGHT(hsotrim);
 		left_offset = TWL6040_HSF_TRIM_LEFT(hsotrim);
 
-		step_mV = twl6040_get_hs_step_size(codec);
+		step_mV = twl6040_get_hs_step_size(&codec->component);
 		omap_aess_dc_set_hs_offset(card_data->aess, left_offset,
 					   right_offset, step_mV);
 
@@ -402,7 +403,7 @@ static int omap_abe_twl6040_init(struct snd_soc_pcm_runtime *rtd)
 		if (ret)
 			return ret;
 
-		twl6040_hs_jack_detect(codec, &hs_jack, SND_JACK_HEADSET);
+		twl6040_hs_jack_detect(&codec->component, &hs_jack, SND_JACK_HEADSET);
 	}
 
 	if (of_machine_is_compatible("ti,omap4-sdp")) {
@@ -483,7 +484,7 @@ static int omap_abe_twl6040_dl2_init(struct snd_soc_pcm_runtime *rtd)
 	/* DC offset cancellation computation only if ABE is enabled */
 	if (card_data->has_abe) {
 		/* DC offset cancellation computation */
-		hfotrim = twl6040_get_trim_value(codec, TWL6040_TRIM_HFOTRIM);
+		hfotrim = twl6040_get_trim_value(&codec->component, TWL6040_TRIM_HFOTRIM);
 		right_offset = TWL6040_HSF_TRIM_RIGHT(hfotrim);
 		left_offset = TWL6040_HSF_TRIM_LEFT(hfotrim);
 

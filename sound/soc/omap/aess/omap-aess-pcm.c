@@ -633,8 +633,8 @@ struct snd_soc_platform_driver omap_aess_platform = {
 	.ops		= &omap_aess_pcm_ops,
 	.probe		= omap_aess_pcm_probe,
 	.remove		= omap_aess_pcm_remove,
-	.read		= omap_aess_oppwidget_read,
-	.write		= omap_aess_oppwidget_write,
+	//.read		= omap_aess_oppwidget_read,
+	//.write		= omap_aess_oppwidget_write,
 	.component_driver = {
 		.stream_event	= omap_aess_pcm_stream_event,
 	},
