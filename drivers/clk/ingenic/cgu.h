@@ -108,6 +108,34 @@ struct ingenic_cgu_fixdiv_info {
 };
 
 /**
+ * struct ingenic_cgu_stepdiv_info - information about a stepped divider
+ * @reg: offset of the divider control register within the CGU
+ * @shift: number of bits to left shift the divide value by (ie. the index of
+ *         the lowest bit of the divide value within its control register)
+ * @div: number of bits to divide the divider value by (i.e. if the
+ *	 effective divider value is the value written to the register
+ *	 multiplied by some constant)
+ * @bits: the size of the divide value in bits
+ * @ce_bit: the index of the change enable bit within reg, or -1 if there
+ *          isn't one
+ * @busy_bit: the index of the busy bit within reg, or -1 if there isn't one
+ * @stop_bit: the index of the stop bit within reg, or -1 if there isn't one
+ * @step_encoding: a pointer to an array mapping divider values to their
+ *                 encoded values in the clock control register, or -1 for
+ *                 unsupported values
+ */
+struct ingenic_cgu_stepdiv_info {
+	unsigned reg;
+	u8 shift;
+	u8 div;
+	u8 bits;
+	s8 ce_bit;
+	s8 busy_bit;
+	s8 stop_bit;
+	const s8 *step_encoding;
+};
+
+/**
  * struct ingenic_cgu_gate_info - information about a clock gate
  * @reg: offset of the gate control register within the CGU
  * @bit: offset of the bit in the register that controls the gate
@@ -156,6 +184,7 @@ struct ingenic_cgu_clk_info {
 		CGU_CLK_DIV		= BIT(5),
 		CGU_CLK_FIXDIV		= BIT(6),
 		CGU_CLK_CUSTOM		= BIT(7),
+		CGU_CLK_STEPDIV		= BIT(8),
 	} type;
 
 	int parents[4];
@@ -168,6 +197,7 @@ struct ingenic_cgu_clk_info {
 			struct ingenic_cgu_mux_info mux;
 			struct ingenic_cgu_div_info div;
 			struct ingenic_cgu_fixdiv_info fixdiv;
+			struct ingenic_cgu_stepdiv_info stepdiv;
 		};
 
 		struct ingenic_cgu_custom_info custom;
