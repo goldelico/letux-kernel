@@ -1,0 +1,22 @@
+config SGX
+	bool "PowerVR SGX"
+	---help---
+	  Support for the PowerVR SGX 3D core.
+
+config SGX_DEBUG
+	bool "PowerVR SGX build with DEBUG enabled"
+	depends on SGX
+	---help---
+	  Build for DEBUG.
+
+config SGX_DRM
+	bool "PowerVR SGX build with DRM support"
+	depends on SGX
+	---help---
+	  Build for using DRM infrastructure.
+
+config SGX_OMAP
+	tristate "PowerVR SGX inside OMAP SoC"
+	depends on SGX  && (ARCH_OMAP3 || ARCH_OMAP4 || ARCH_OMAP5)
+	---help---
+	  Support for the PowerVR SGX 3D core inside OMAP SoC.
