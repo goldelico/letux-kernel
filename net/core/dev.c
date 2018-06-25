@@ -2058,7 +2058,7 @@ static bool remove_xps_queue_cpu(struct net_device *dev,
 		int i, j;
 
 		for (i = count, j = offset; i--; j++) {
-			if (!remove_xps_queue(dev_maps, cpu, j))
+			if (!remove_xps_queue(dev_maps, tci, j))
 				break;
 		}
 
@@ -2903,7 +2903,7 @@ netdev_features_t passthru_features_check(struct sk_buff *skb,
 }
 EXPORT_SYMBOL(passthru_features_check);
 
-static netdev_features_t dflt_features_check(const struct sk_buff *skb,
+static netdev_features_t dflt_features_check(struct sk_buff *skb,
 					     struct net_device *dev,
 					     netdev_features_t features)
 {
