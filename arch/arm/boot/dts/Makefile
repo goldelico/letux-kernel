@@ -771,10 +771,10 @@ dtb-$(CONFIG_SOC_OMAP5) += \
 	omap5-letux-cortex15-v5.1+pyra-v5.2.dtb omap5-letux-cortex15-v5.2+pyra-v5.1.dtb \
 	omap5-letux-cortex15-v5.2.dtb omap5-letux-cortex15-v5.2+pyra-v5.2.dtb \
 	omap5-letux-cortex15-v5.3.dtb omap5-letux-cortex15-v5.3+pyra-v5.1.dtb omap5-letux-cortex15-v5.3+pyra-v5.2.dtb \
-	omap5-letux-cortex15-v5.1+evm-v0.1.dtb \
-	omap5-letux-cortex15-v5.2+evm-v0.1.dtb \
-	omap5-letux-cortex15-v5.3+evm-v0.1.dtb \
-	omap5-letux-cortex15-v5.3+gta15-v0.1.dtb \
+	omap5-letux-cortex15-v5.1+evm-v1.0.dtb \
+	omap5-letux-cortex15-v5.2+evm-v1.0.dtb \
+	omap5-letux-cortex15-v5.3+evm-v1.0.dtb \
+	omap5-letux-cortex15-v5.3+gta15-v1.0.dtb \
 	omap5-uevm.dtb
 dtb-$(CONFIG_SOC_DRA7XX) += \
 	am57xx-beagle-x15.dtb \
