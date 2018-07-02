@@ -1,0 +1,62 @@
+#
+# GNSS receiver configuration
+#
+
+menuconfig GNSS
+	tristate "GNSS receiver support"
+	---help---
+	  Say Y here if you have a GNSS receiver (e.g. a GPS receiver).
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called gnss.
+
+if GNSS
+
+config GNSS_SERIAL
+	tristate
+
+config GNSS_SIRF_SERIAL
+	tristate "SiRFstar GNSS receiver support"
+	depends on SERIAL_DEV_BUS
+	---help---
+	  Say Y here if you have a SiRFstar-based GNSS receiver which uses a
+	  serial interface.
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called gnss-sirf.
+
+	  If unsure, say N.
+
+config GNSS_UBX_SERIAL
+	tristate "u-blox GNSS receiver support"
+	depends on SERIAL_DEV_BUS
+	select GNSS_SERIAL
+	---help---
+	  Say Y here if you have a u-blox GNSS receiver which uses a serial
+	  interface.
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called gnss-ubx.
+
+	  If unsure, say N.
+
+config GNSS_W2SG0004
+	tristate "W2SG00x4 power on/off driver"
+	depends on GPIOLIB && SERIAL_DEV_BUS
+	help
+	  Enable on/off control of W2SG00x4 GPS module connected
+	  to some SoC UART to allow powering up/down if the /dev/gnss
+	  is opened/closed.
+
+	  It also provides a "rfkill gps" name to control the LNA power.
+
+config W2SG0004_DEBUG
+	bool "W2SG0004 on/off debugging"
+	depends on GNSS_W2SG0004
+	help
+	  Enable driver debugging mode of W2SG0004 GPS. If you say y here
+	  this will turn on the W2SG0004 module and you can check if it is
+	  correctly turned off by the driver by inspecting the system log.
+
+
+endif # GNSS
