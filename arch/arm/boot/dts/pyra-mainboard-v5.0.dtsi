@@ -55,7 +55,7 @@
 		regulator-always-on;
 	};
 
-	/* this is the modem power switch (similar to a LDO) */
+	/* this is the modem power switch (similar to an unregulated LDO) */
 	modem_power: modem_power_reg {
 		compatible = "regulator-fixed";
 		regulator-name = "modem_vbus_power";
@@ -65,21 +65,20 @@
 		enable-active-high;
 		startup-delay-us = <100000>;
 		/* the real input is vsys but it makes no sense
-		   to power the modem without requesting vbus */
+		   to power the modem without requesting vbus_hdmi */
 		vin-supply = <&modem_vbus_hdmi_power>;
-		regulator-always-on;
 	};
 
 	modem_en: modem { /* control modem power through rfkill */
 		compatible = "gemalto,pls8-power";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pyra_modem_pins>;
-		NIMP-usb-port = <&hsusb2_phy>; 	/* USB phy where we can check the modem status */
 		on-off-gpio = <&gpio6 11 GPIO_ACTIVE_HIGH>;	/* gpio6_171: trigger to power on modem */
 		on-indicator-gpio = <&gpio6 12 GPIO_ACTIVE_LOW>;	/* gpio6_172: modem power indication feedback GPIO */
-		NIMP-modem-supply = <&modem_power>;		/* enable some external power regulator */
+		modem-supply = <&modem_power>;		/* enable some external power regulator */
 		/* VBUS supply should probably be controlled through the USB PHY driver for the modem port */
-		NIMP-vbus-supply = <&modem_vbus_hdmi_power>;	/* apply VBUS to the modem */
+		usb-port = <&hsusb2_phy>; 	/* USB phy where we can check the modem status */
+		vbus-supply = <&modem_vbus_hdmi_power>;	/* apply VBUS to the modem */
 	};
 
 	backlight {
