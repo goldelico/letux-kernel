@@ -476,8 +476,25 @@
 
 / {
 	mmcmux: txs02612 {
+		mmc = <&mmc2>;	/* the mmc port that is multiplexed */
+
 		compatible = "ti,txs02612";
 		select-gpio = <&gpio2 0 0>;	/* gpio2_32 soft-select */
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		eMMC: port@0 {
+			reg = <0>;
+			compatible = "any,emmc";
+			bus-width = <8>;
+			ti,non-removable;
+		};
+
+		uSD: port@1 {
+			reg = <1>;
+			bus-width = <4>;
+		};
 	};
 };
 #endif
