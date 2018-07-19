@@ -783,7 +783,7 @@ static void usb_detect_work_func(struct work_struct *work)
 	schedule_delayed_work(&pi->usb_detect_work, 1*HZ);
 }
 
-static void irq_work_func(struct work_struct *work)
+static void bq2729x_irq_work_func(struct work_struct *work)
 {
 //	struct bq24296_device_info *info= container_of(work, struct bq24296_device_info, irq_work);
 	printk("%s\n", __func__);
@@ -792,7 +792,7 @@ static void irq_work_func(struct work_struct *work)
 
 }
 
-static irqreturn_t chg_irq_func(int irq, void *dev_id)
+static irqreturn_t bq2729x_chg_irq_func(int irq, void *dev_id)
 {
 	struct bq24296_device_info *info = dev_id;
 	DBG("%s\n", __func__);
@@ -1540,7 +1540,7 @@ static int bq24296_charger_probe(struct i2c_client *client,const struct i2c_devi
 
 	mutex_init(&di->var_lock);
 	di->workqueue = create_singlethread_workqueue("bq24296_irq");
-	INIT_WORK(&di->irq_work, irq_work_func);
+	INIT_WORK(&di->irq_work, bq2729x_irq_work_func);
 	INIT_DELAYED_WORK(&di->usb_detect_work, usb_detect_work_func);
 
 	// di->usb_nb.notifier_call = bq24296_bci_usb_ncb;
@@ -1603,7 +1603,7 @@ static int bq24296_charger_probe(struct i2c_client *client,const struct i2c_devi
 	}
 
 	ret = devm_request_threaded_irq(&client->dev, client->irq,
-				NULL, chg_irq_func,
+				NULL, bq2729x_chg_irq_func,
 				IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
 				client->name,
 				di);
