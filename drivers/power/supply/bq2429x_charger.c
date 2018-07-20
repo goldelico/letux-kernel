@@ -786,10 +786,12 @@ static void usb_detect_work_func(struct work_struct *work)
 static void bq2729x_irq_work_func(struct work_struct *work)
 {
 //	struct bq24296_device_info *info= container_of(work, struct bq24296_device_info, irq_work);
-	printk("%s\n", __func__);
+//	printk("%s\n", __func__);
 
-	// should find out what has happened
+	bq24296_read(bq24296_di->client, SYSTEM_STATS_REGISTER, &r8, 1);
+	bq24296_read(bq24296_di->client, FAULT_STATS_REGISTER, &r9, 1);
 
+	printk("%s r8=%02x r9=%02x\n", __func__, r8, r9);
 }
 
 static irqreturn_t bq2729x_chg_irq_func(int irq, void *dev_id)
