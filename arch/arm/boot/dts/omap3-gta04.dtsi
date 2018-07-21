@@ -1062,12 +1062,6 @@
 	};
 };
 
-/* Needed to power the DPI pins */
-
-&vpll2 {
-	regulator-always-on;
-};
-
 &gpmc {
 	nand@0,0 {
 		ti,nand-ecc-opt = "ham1"; /* stay compatible with our old u-boot (does not support bch8) */
