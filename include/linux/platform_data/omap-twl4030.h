@@ -29,7 +29,7 @@
 #define OMAP_TWL4030_LEFT	(1 << 0)
 #define OMAP_TWL4030_RIGHT	(1 << 1)
 
-struct snd_soc_codec;
+struct snd_soc_card;
 struct omap_tw4030_pdata {
 	const char *card_name;
 	/* Voice port is connected to McBSP3 */
@@ -56,8 +56,8 @@ struct omap_tw4030_pdata {
 	int jack_detect;
 
 	/* Entry points for separate jack driver */
-	int (*jack_init)(struct snd_soc_codec *codec);
-	void (*jack_remove)(struct snd_soc_codec *codec);
+	int (*jack_init)(struct snd_soc_card *codec);
+	void (*jack_remove)(struct snd_soc_card *codec);
 };
 
 #endif /* _OMAP_TWL4030_H_ */
