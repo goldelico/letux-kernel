@@ -2149,9 +2149,6 @@ static void __ip6_rt_update_pmtu(struct dst_entry *dst, const struct sock *sk,
 	const struct in6_addr *daddr, *saddr;
 	struct rt6_info *rt6 = (struct rt6_info *)dst;
 
-	if (rt6->rt6i_flags & RTF_LOCAL)
-		return;
-
 	if (dst_metric_locked(dst, RTAX_MTU))
 		return;
 
@@ -4276,6 +4273,13 @@ static int ip6_route_multipath_add(struct fib6_config *cfg,
 				ip6_print_replace_route_err(&rt6_nh_list);
 			err_nh = nh;
 			goto add_errout;
+		}
+		if (!rt6_qualify_for_ecmp(rt)) {
+			err = -EINVAL;
+			NL_SET_ERR_MSG(extack,
+				       "Device only routes can not be added for IPv6 using the multipath API.");
+			dst_release_immediate(&rt->dst);
+			goto cleanup;
 		}
 
 		/* Because each route is added like a single route we remove

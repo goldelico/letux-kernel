@@ -2020,6 +2020,7 @@ static void write_current_sum_page(struct f2fs_sb_info *sbi,
 	struct f2fs_summary_block *dst;
 
 	dst = (struct f2fs_summary_block *)page_address(page);
+	memset(dst, 0, PAGE_SIZE);
 
 	mutex_lock(&curseg->curseg_mutex);
 
@@ -3116,6 +3117,7 @@ static void write_compacted_summaries(struct f2fs_sb_info *sbi, block_t blkaddr)
 
 	page = grab_meta_page(sbi, blkaddr++);
 	kaddr = (unsigned char *)page_address(page);
+	memset(kaddr, 0, PAGE_SIZE);
 
 	/* Step 1: write nat cache */
 	seg_i = CURSEG_I(sbi, CURSEG_HOT_DATA);
@@ -3140,6 +3142,7 @@ static void write_compacted_summaries(struct f2fs_sb_info *sbi, block_t blkaddr)
 			if (!page) {
 				page = grab_meta_page(sbi, blkaddr++);
 				kaddr = (unsigned char *)page_address(page);
+				memset(kaddr, 0, PAGE_SIZE);
 				written_size = 0;
 			}
 			summary = (struct f2fs_summary *)(kaddr + written_size);
@@ -3597,6 +3600,7 @@ static int build_sit_entries(struct f2fs_sb_info *sbi)
 	unsigned int i, start, end;
 	unsigned int readed, start_blk = 0;
 	int err = 0;
+	block_t total_node_blocks = 0;
 
 	do {
 		readed = ra_meta_pages(sbi, start_blk, BIO_MAX_PAGES,
@@ -3619,6 +3623,8 @@ static int build_sit_entries(struct f2fs_sb_info *sbi)
 			if (err)
 				return err;
 			seg_info_from_raw_sit(se, &sit);
+			if (IS_NODESEG(se->type))
+				total_node_blocks += se->valid_blocks;
 
 			/* build discard map only one time */
 			if (f2fs_discard_en(sbi)) {
@@ -3647,15 +3653,28 @@ static int build_sit_entries(struct f2fs_sb_info *sbi)
 		unsigned int old_valid_blocks;
 
 		start = le32_to_cpu(segno_in_journal(journal, i));
+		if (start >= MAIN_SEGS(sbi)) {
+			f2fs_msg(sbi->sb, KERN_ERR,
+					"Wrong journal entry on segno %u",
+					start);
+			set_sbi_flag(sbi, SBI_NEED_FSCK);
+			err = -EINVAL;
+			break;
+		}
+
 		se = &sit_i->sentries[start];
 		sit = sit_in_journal(journal, i);
 
 		old_valid_blocks = se->valid_blocks;
+		if (IS_NODESEG(se->type))
+			total_node_blocks -= old_valid_blocks;
 
 		err = check_block_count(sbi, start, &sit);
 		if (err)
 			break;
 		seg_info_from_raw_sit(se, &sit);
+		if (IS_NODESEG(se->type))
+			total_node_blocks += se->valid_blocks;
 
 		if (f2fs_discard_en(sbi)) {
 			if (is_set_ckpt_flags(sbi, CP_TRIMMED_FLAG)) {
@@ -3674,6 +3693,15 @@ static int build_sit_entries(struct f2fs_sb_info *sbi)
 				se->valid_blocks - old_valid_blocks;
 	}
 	up_read(&curseg->journal_rwsem);
+
+	if (!err && total_node_blocks != valid_node_count(sbi)) {
+		f2fs_msg(sbi->sb, KERN_ERR,
+			"SIT is corrupted node# %u vs %u",
+			total_node_blocks, valid_node_count(sbi));
+		set_sbi_flag(sbi, SBI_NEED_FSCK);
+		err = -EINVAL;
+	}
+
 	return err;
 }
 
