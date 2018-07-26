@@ -159,7 +159,7 @@
 			};
 
 			port@1 {
-				reg = <0>;
+				reg = <1>;
 				opa_out: endpoint {
 					remote-endpoint = <&tv_connector_in>;
 				};
