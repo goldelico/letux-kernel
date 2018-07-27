@@ -14,6 +14,7 @@ static int channel = 0;
 
 #if POLLING
 static struct delayed_work input_work;
+static int open_count = 0;
 #endif
 
 #define ABSMAX_ACC_VAL		((1<<9)-1) /* 10 bit */
@@ -97,8 +98,9 @@ printk("accel_open()\n");
 	// make us start the iio_dev
 
 #if POLLING
-	schedule_delayed_work(&input_work,
-		msecs_to_jiffies(0));	// start now
+	if (open_count++ == 0)
+		schedule_delayed_work(&input_work,
+			msecs_to_jiffies(0));	// start now on first open
 #else
 	int iio_channel_start_all_cb(struct iio_cb_buffer *cb_buff);
 #endif
@@ -115,7 +117,10 @@ static void accel_close(struct input_dev *input)
 #endif
 
 #if POLLING
-	cancel_delayed_work(&input_work);
+	if (open_count > 0) {
+		cancel_delayed_work(&input_work);
+		open_count--;
+	}
 #else
 	int iio_channel_stop_all_cb(struct iio_cb_buffer *cb_buff);
 #endif
