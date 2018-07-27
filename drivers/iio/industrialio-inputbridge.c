@@ -158,6 +158,17 @@ static int iio_input_register_accel_channel(struct iio_dev *indio_dev, const str
 		idev->open = accel_open;
 		idev->close = accel_close;
 
+#if POLLING
+		INIT_DELAYED_WORK(&input_work, inputbridge_work);
+#else
+		struct iio_cb_buffer *iio_channel_get_all_cb(struct device *dev,
+				int (*cb)(const void *data,
+					void *private),
+					void *private);
+#endif
+
+//		indio_dev->input = idev;
+
 		input_set_drvdata(idev, indio_dev);
 
 		input_alloc_absinfo(idev);
@@ -172,16 +183,6 @@ static int iio_input_register_accel_channel(struct iio_dev *indio_dev, const str
 			return error;
 		}
 
-//		indio_dev->input = idev;
-
-#if POLLING
-		INIT_DELAYED_WORK(&input_work, inputbridge_work);
-#else
-		struct iio_cb_buffer *iio_channel_get_all_cb(struct device *dev,
-				int (*cb)(const void *data,
-					void *private),
-					void *private);
-#endif
 	}
 
 #if 0
