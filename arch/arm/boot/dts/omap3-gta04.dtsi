@@ -677,14 +677,14 @@
 	pinctrl-0 = <&mmc1_pins>;
 	vmmc-supply = <&vmmc1>;
 	bus-width = <4>;
-	non-removable;
+	ti,non-removable;
 	broken-cd;	/* hardware has no CD */
 };
 
 &mmc2 {
 	vmmc-supply = <&vaux4>;
 	bus-width = <4>;
-	non-removable;
+	ti,non-removable;
 	cap-power-off-card;
 	mmc-pwrseq = <&wifi_pwrseq>;
 };
