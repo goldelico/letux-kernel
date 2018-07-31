@@ -134,7 +134,7 @@ static int iio_input_register_accel_channel(struct iio_dev *indio_dev, const str
 	printk("iio_device_register_inputbridge(): found an accelerometer\n");
 #endif
 
-	if (channel >= 3)
+	if (channel >= ARRAY_SIZE(channels))
 		return 0;	// we already have collected 3 channels
 
 	if (!idev) { // first call
@@ -249,6 +249,10 @@ int iio_device_register_inputbridge(struct iio_dev *indio_dev)
 
 void iio_device_unregister_inputbridge(struct iio_dev *indio_dev)
 {
-	if (channels[0].data)
+	if (channel > 0)
 		input_unregister_device((struct input_dev *) channels[0].data);
+	channel = 0;
+	channels[0].indio_dev = NULL;
+	channels[1].indio_dev = NULL;
+	channels[2].indio_dev = NULL;
 }
