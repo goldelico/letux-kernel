@@ -202,6 +202,10 @@ static int iio_input_register_accel_channel(struct iio_dev *indio_dev, const str
 		}
 
 	}
+	else if (channels[0].data != (void *) idev) {
+		mutex_unlock(&inputbridge_channel_mutex);
+		return 0;	// ignore if different device
+	}
 
 #if 0
 	printk("iio_device_register_inputbridge(): process channel %d\n", channel);
