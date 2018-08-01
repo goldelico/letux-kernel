@@ -11,10 +11,12 @@
 struct input_dev *idev = NULL;
 static struct iio_channel channels[3];
 static int channel = 0;
+static DEFINE_MUTEX(inputbridge_channel_mutex);	// we must protect the channel counter
 
 #if POLLING
 static struct delayed_work input_work;
 static int open_count = 0;
+static DEFINE_MUTEX(inputbridge_open_mutex);	// we must protect the open counter
 #endif
 
 #define ABSMAX_ACC_VAL		((1<<9)-1) /* 10 bit */
@@ -98,9 +100,11 @@ printk("accel_open()\n");
 	// make us start the iio_dev
 
 #if POLLING
+	mutex_lock(&inputbridge_open_mutex);
 	if (open_count++ == 0)
 		schedule_delayed_work(&input_work,
 			msecs_to_jiffies(0));	// start now on first open
+	mutex_unlock(&inputbridge_open_mutex);
 #else
 	int iio_channel_start_all_cb(struct iio_cb_buffer *cb_buff);
 #endif
@@ -117,10 +121,12 @@ static void accel_close(struct input_dev *input)
 #endif
 
 #if POLLING
+	mutex_lock(&inputbridge_open_mutex);
 	if (open_count > 0) {
 		cancel_delayed_work(&input_work);
 		open_count--;
 	}
+	mutex_unlock(&inputbridge_open_mutex);
 #else
 	int iio_channel_stop_all_cb(struct iio_cb_buffer *cb_buff);
 #endif
@@ -134,8 +140,12 @@ static int iio_input_register_accel_channel(struct iio_dev *indio_dev, const str
 	printk("iio_device_register_inputbridge(): found an accelerometer\n");
 #endif
 
-	if (channel >= ARRAY_SIZE(channels))
+	mutex_lock(&inputbridge_channel_mutex);
+
+	if (channel >= ARRAY_SIZE(channels)) {
+		mutex_unlock(&inputbridge_channel_mutex);
 		return 0;	// we already have collected 3 channels
+	}
 
 	if (!idev) { // first call
 		int error;
@@ -150,8 +160,10 @@ static int iio_input_register_accel_channel(struct iio_dev *indio_dev, const str
 	printk("iio_device_register_inputbridge(): => %p\n", idev);
 #endif
 
-		if (!idev)
+		if (!idev) {
+			mutex_unlock(&inputbridge_channel_mutex);
 			return -ENOMEM;
+		}
 
 		idev->name = "accelerometer-iio-input-bridge";
 		idev->phys = "accel/input0";
@@ -185,6 +197,7 @@ static int iio_input_register_accel_channel(struct iio_dev *indio_dev, const str
 
 		if (error) {
 			input_free_device(idev);
+			mutex_unlock(&inputbridge_channel_mutex);
 			return error;
 		}
 
@@ -209,6 +222,7 @@ static int iio_input_register_accel_channel(struct iio_dev *indio_dev, const str
 			input_set_abs_params(idev, ABS_Z, ABSMIN_ACC_VAL, ABSMAX_ACC_VAL, 0, 0);
 			break;
 	}
+	mutex_unlock(&inputbridge_channel_mutex);
 
 	return 0;
 }
