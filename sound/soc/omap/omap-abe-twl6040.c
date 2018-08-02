@@ -1,3 +1,13 @@
+/* questionable code:
+ * are omap_abe_hw_params() and omap_abe_mcpdm_hw_params() the same? then keep upstream omap_abe_hw_params() only
+ * what should we do with OMAP4_SDP and tps6130x stuff?
+ * the extension to handle more DMICs seems not to be upstream
+ * support for spdif-dit unclear
+ * error path in probe() and to err_unregister isn't sane
+ * here, we have better error messages than upstream
+ * dmic_codec_dev is duplicated
+ */
+
 /*
  * omap-abe-twl6040.c  --  SoC audio for TI OMAP based boards with ABE and
  *			   twl6040 codec
@@ -53,7 +63,7 @@
 
 #define AESS_FW_NAME	"omap_aess-adfw.bin"
 
-struct omap_abe_data {
+struct abe_twl6040 {
 	int	jack_detection;	/* board can detect jack events */
 	int	mclk_freq;	/* MCLK frequency speed for twl6040 */
 	int	has_abe;
@@ -61,88 +71,29 @@ struct omap_abe_data {
 	int	twl6040_power_mode;
 	int 	mcbsp_cfg;
 	struct omap_aess *aess;
-	struct snd_soc_codec *twl_codec;
+#ifdef CONFIG_OMAP4_SDP
 	struct i2c_client *tps6130x;
 	struct i2c_adapter *adapter;
-
+#endif
 	struct platform_device *dmic_codec_dev;
 	struct platform_device *spdif_codec_dev;
 };
 
 static struct platform_device *dmic_codec_dev;
 
-static struct i2c_board_info tps6130x_hwmon_info = {
-	I2C_BOARD_INFO("tps6130x", 0x33),
-};
-
-/* configure the TPS6130x Handsfree Boost Converter */
-static int omap_abe_tps6130x_configure(struct omap_abe_data *sdp4403)
-{
-	struct i2c_client *tps6130x = sdp4403->tps6130x;
-	u8 data[2];
-
-	data[0] = 0x01;
-	data[1] = 0x60;
-	if (i2c_master_send(tps6130x, data, 2) != 2)
-		dev_err(&tps6130x->dev, "I2C write to TPS6130x failed\n");
-
-	data[0] = 0x02;
-	if (i2c_master_send(tps6130x, data, 2) != 2)
-		dev_err(&tps6130x->dev, "I2C write to TPS6130x failed\n");
-	return 0;
-}
-
-static int mcpdm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
-				    struct snd_pcm_hw_params *params)
-{
-	struct snd_interval *rate = hw_param_interval(params,
-						      SNDRV_PCM_HW_PARAM_RATE);
-
-	rate->min = rate->max = 96000;
-
-	return 0;
-}
-
-static int omap_abe_mcpdm_hw_params(struct snd_pcm_substream *substream,
-				    struct snd_pcm_hw_params *params)
+static int omap_abe_hw_params(struct snd_pcm_substream *substream,
+	struct snd_pcm_hw_params *params)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	struct snd_soc_card *card = rtd->card;
-	struct omap_abe_data *card_data = snd_soc_card_get_drvdata(card);
+	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
 	int clk_id, freq;
 	int ret;
 
-	clk_id = twl6040_get_clk_id(codec_dai->component);
-	if (clk_id == TWL6040_SYSCLK_SEL_HPPLL)
-		freq = card_data->mclk_freq;
-	else if (clk_id == TWL6040_SYSCLK_SEL_LPPLL) {
-		freq = 32768;
-	} else {
-		dev_err(card->dev, "invalid clock\n");
-		return -EINVAL;
-	}
+#ifdef CHECKME // do we need these changes?? They seem to modify cpu_dai and not codec_dai
 
-	/* set the codec mclk */
-	ret = snd_soc_dai_set_sysclk(codec_dai, clk_id, freq,
-				     SND_SOC_CLOCK_IN);
-	if (ret)
-		dev_err(card->dev, "can't set codec system clock\n");
-
-	return ret;
-}
-
-static struct snd_soc_ops omap_abe_mcpdm_ops = {
-	.hw_params = omap_abe_mcpdm_hw_params,
-};
-
-static int omap_abe_mcbsp_hw_params(struct snd_pcm_substream *substream,
-				    struct snd_pcm_hw_params *params)
-{
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-	struct snd_soc_card *card = rtd->card;
-	int ret;
 	unsigned int be_id, channels;
 
 	be_id = rtd->dai_link->id;
@@ -167,37 +118,122 @@ static int omap_abe_mcbsp_hw_params(struct snd_pcm_substream *substream,
 			omap_mcbsp_set_rx_threshold(mcbsp, channels);
 	}
 
-	/* Set McBSP clock to external */
-	ret = snd_soc_dai_set_sysclk(cpu_dai, OMAP_MCBSP_SYSCLK_CLKS_FCLK,
-				     64 * params_rate(params), SND_SOC_CLOCK_IN);
+	clk_id = OMAP_MCBSP_SYSCLK_CLKS_FCLK;
+	freq = 64 * params_rate(params);
+
+#else	// upstream code
+
+	clk_id = twl6040_get_clk_id(codec_dai->component);
+	if (clk_id == TWL6040_SYSCLK_SEL_HPPLL)
+		freq = priv->mclk_freq;
+	else if (clk_id == TWL6040_SYSCLK_SEL_LPPLL)
+		freq = 32768;
+	else
+		return -EINVAL;
+
+
+#endif
+
+	/* set the codec mclk */
+	ret = snd_soc_dai_set_sysclk(codec_dai, clk_id, freq,
+				SND_SOC_CLOCK_IN);
 	if (ret < 0)
-		dev_err(card->dev, "can't set cpu system clock\n");
+		dev_err(card->dev, "can't set codec system clock\n");
 
 	return ret;
 }
 
-static struct snd_soc_ops omap_abe_mcbsp_ops = {
-	.hw_params = omap_abe_mcbsp_hw_params,
+static const struct snd_soc_ops omap_abe_ops = {
+	.hw_params = omap_abe_hw_params,
+};
+
+#ifdef CONFIG_OMAP4_SDP
+
+static struct i2c_board_info tps6130x_hwmon_info = {
+	I2C_BOARD_INFO("tps6130x", 0x33),
+};
+
+/* configure the TPS6130x Handsfree Boost Converter */
+static int omap_abe_tps6130x_configure(struct abe_twl6040 *sdp4403)
+{
+	struct i2c_client *tps6130x = sdp4403->tps6130x;
+	u8 data[2];
+
+	data[0] = 0x01;
+	data[1] = 0x60;
+	if (i2c_master_send(tps6130x, data, 2) != 2)
+		dev_err(&tps6130x->dev, "I2C write to TPS6130x failed\n");
+
+	data[0] = 0x02;
+	if (i2c_master_send(tps6130x, data, 2) != 2)
+		dev_err(&tps6130x->dev, "I2C write to TPS6130x failed\n");
+	return 0;
+}
+#endif
+
+static int mcpdm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+				    struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+						      SNDRV_PCM_HW_PARAM_RATE);
+
+	rate->min = rate->max = 96000;
+
+	return 0;
+}
+
+/* FIXME: what is the difference to upstream omap_abe_hw_params? */
+
+static int omap_abe_mcpdm_hw_params(struct snd_pcm_substream *substream,
+	struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_card *card = rtd->card;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
+	int clk_id, freq;
+	int ret;
+
+	clk_id = twl6040_get_clk_id(codec_dai->component);
+	if (clk_id == TWL6040_SYSCLK_SEL_HPPLL)
+		freq = priv->mclk_freq;
+	else if (clk_id == TWL6040_SYSCLK_SEL_LPPLL) {
+		freq = 32768;
+	} else {
+		dev_err(card->dev, "invalid clock\n");
+		return -EINVAL;
+	}
+
+	/* set the codec mclk */
+	ret = snd_soc_dai_set_sysclk(codec_dai, clk_id, freq,
+				     SND_SOC_CLOCK_IN);
+	if (ret)
+		dev_err(card->dev, "can't set codec system clock\n");
+
+	return ret;
+}
+
+static struct snd_soc_ops omap_abe_mcpdm_ops = {
+	.hw_params = omap_abe_mcpdm_hw_params,
 };
 
 static int omap_abe_dmic_hw_params(struct snd_pcm_substream *substream,
-				   struct snd_pcm_hw_params *params)
+	struct snd_pcm_hw_params *params)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-	struct snd_soc_card *card = rtd->card;
 	int ret = 0;
 
 	ret = snd_soc_dai_set_sysclk(cpu_dai, OMAP_DMIC_SYSCLK_PAD_CLKS,
 				     19200000, SND_SOC_CLOCK_IN);
 	if (ret < 0) {
-		dev_err(card->dev, "can't set DMIC in system clock\n");
+		dev_err(rtd->card->dev, "can't set DMIC in system clock\n");
 		return ret;
 	}
 	ret = snd_soc_dai_set_sysclk(cpu_dai, OMAP_DMIC_ABE_DMIC_CLK, 2400000,
 				     SND_SOC_CLOCK_OUT);
 	if (ret < 0)
-		dev_err(card->dev, "can't set DMIC output clock\n");
+		dev_err(rtd->card->dev, "can't set DMIC output clock\n");
 
 	return ret;
 }
@@ -255,9 +291,9 @@ static int omap_abe_get_power_mode(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_card *card = snd_kcontrol_chip(kcontrol);
-	struct omap_abe_data *card_data = snd_soc_card_get_drvdata(card);
+	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
 
-	ucontrol->value.integer.value[0] = card_data->twl6040_power_mode;
+	ucontrol->value.integer.value[0] = priv->twl6040_power_mode;
 	return 0;
 }
 
@@ -265,13 +301,13 @@ static int omap_abe_set_power_mode(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_card *card = snd_kcontrol_chip(kcontrol);
-	struct omap_abe_data *card_data = snd_soc_card_get_drvdata(card);
+	struct abe_twl6040 * priv = snd_soc_card_get_drvdata(card);
 
-	if (card_data->twl6040_power_mode == ucontrol->value.integer.value[0])
+	if (priv->twl6040_power_mode == ucontrol->value.integer.value[0])
 		return 0;
 
-	card_data->twl6040_power_mode = ucontrol->value.integer.value[0];
-	omap_aess_pm_set_mode(card_data->aess, card_data->twl6040_power_mode);
+	priv->twl6040_power_mode = ucontrol->value.integer.value[0];
+	omap_aess_pm_set_mode(priv->aess, priv->twl6040_power_mode);
 
 	return 1;
 }
@@ -294,12 +330,16 @@ static const struct snd_soc_dapm_widget twl6040_dapm_widgets[] = {
 	SND_SOC_DAPM_SPK("Earphone Spk", NULL),
 	SND_SOC_DAPM_SPK("Ext Spk", NULL),
 	SND_SOC_DAPM_LINE("Line Out", NULL),
+	SND_SOC_DAPM_SPK("Vibrator", NULL),
 
 	/* Inputs */
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
 	SND_SOC_DAPM_MIC("Main Handset Mic", NULL),
 	SND_SOC_DAPM_MIC("Sub Handset Mic", NULL),
 	SND_SOC_DAPM_LINE("Line In", NULL),
+
+	/* Digital microphones */
+	SND_SOC_DAPM_MIC("Digital Mic", NULL),
 };
 
 static const struct snd_soc_dapm_route audio_map[] = {
@@ -314,6 +354,9 @@ static const struct snd_soc_dapm_route audio_map[] = {
 
 	{"Line Out", NULL, "AUXL"},
 	{"Line Out", NULL, "AUXR"},
+
+	{"Vibrator", NULL, "VIBRAL"},
+	{"Vibrator", NULL, "VIBRAR"},
 
 	/* Routings for inputs */
 	{"HSMIC", NULL, "Headset Mic Bias"},
@@ -345,7 +388,8 @@ static const struct snd_soc_dapm_route audio_map[] = {
 static int omap_abe_stream_event(struct snd_soc_dapm_context *dapm, int event)
 {
 	struct snd_soc_card *card = dapm->card;
-	struct omap_abe_data *card_data = snd_soc_card_get_drvdata(card);
+	struct snd_soc_component *component = dapm->component;
+	struct abe_twl6040 * priv = snd_soc_card_get_drvdata(card);
 
 	int gain;
 
@@ -354,22 +398,30 @@ static int omap_abe_stream_event(struct snd_soc_dapm_context *dapm, int event)
 	 * (Headset, Earpiece) and HSDAC power mode
 	 */
 
-	gain = twl6040_get_dl1_gain(dapm->component) * 100;
+	gain = twl6040_get_dl1_gain(component) * 100;
 
-	omap_aess_set_dl1_gains(card_data->aess, gain, gain);
+	omap_aess_set_dl1_gains(priv->aess, gain, gain);
 
 	return 0;
 }
 
 static int omap_abe_twl6040_init(struct snd_soc_pcm_runtime *rtd)
 {
-	struct snd_soc_codec *codec = rtd->codec;
+	struct snd_soc_component *component = rtd->codec_dai->component;
 	struct snd_soc_card *card = rtd->card;
-	struct omap_abe_data *card_data = snd_soc_card_get_drvdata(card);
+	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
+	int hs_trim;
 	u32 hsotrim, left_offset, right_offset, step_mV;
 	int ret = 0;
 
-	card_data->twl_codec = codec;
+	/*
+	 * Configure McPDM offset cancellation based on the HSOTRIM value from
+	 * twl6040.
+	 */
+	hs_trim = twl6040_get_trim_value(component, TWL6040_TRIM_HSOTRIM);
+	omap_mcpdm_configure_dn_offsets(rtd, TWL6040_HSF_TRIM_LEFT(hs_trim),
+					TWL6040_HSF_TRIM_RIGHT(hs_trim));
+
 	card->dapm.stream_event = omap_abe_stream_event;
 
 	/* allow audio paths from the audio modem to run during suspend */
@@ -380,13 +432,13 @@ static int omap_abe_twl6040_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(&card->dapm, "Headset Stereophone");
 
 	/* DC offset cancellation computation only if ABE is enabled */
-	if (card_data->has_abe) {
-		hsotrim = twl6040_get_trim_value(&codec->component, TWL6040_TRIM_HSOTRIM);
+	if (priv->has_abe) {
+		hsotrim = twl6040_get_trim_value(component, TWL6040_TRIM_HSOTRIM);
 		right_offset = TWL6040_HSF_TRIM_RIGHT(hsotrim);
 		left_offset = TWL6040_HSF_TRIM_LEFT(hsotrim);
 
-		step_mV = twl6040_get_hs_step_size(&codec->component);
-		omap_aess_dc_set_hs_offset(card_data->aess, left_offset,
+		step_mV = twl6040_get_hs_step_size(component);
+		omap_aess_dc_set_hs_offset(priv->aess, left_offset,
 					   right_offset, step_mV);
 
 		/* ABE power control */
@@ -397,7 +449,7 @@ static int omap_abe_twl6040_init(struct snd_soc_pcm_runtime *rtd)
 	}
 
 	/* Headset jack detection only if it is supported */
-	if (card_data->jack_detection) {
+	if (priv->jack_detection) {
 		ret = snd_soc_card_jack_new(rtd->card, "Headset Jack",
 					    SND_JACK_HEADSET, &hs_jack,
 					    hs_jack_pins,
@@ -405,27 +457,28 @@ static int omap_abe_twl6040_init(struct snd_soc_pcm_runtime *rtd)
 		if (ret)
 			return ret;
 
-		twl6040_hs_jack_detect(&codec->component, &hs_jack, SND_JACK_HEADSET);
+		twl6040_hs_jack_detect(component, &hs_jack, SND_JACK_HEADSET);
 	}
 
+#ifdef CONFIG_OMAP4_SDP
 	if (of_machine_is_compatible("ti,omap4-sdp")) {
-		card_data->adapter = i2c_get_adapter(1);
-		if (!card_data->adapter) {
+		priv->adapter = i2c_get_adapter(1);
+		if (! priv->adapter) {
 			dev_err(card->dev, "can't get i2c adapter\n");
 			return -ENODEV;
 		}
 
-		card_data->tps6130x = i2c_new_device(card_data->adapter,
+		priv->tps6130x = i2c_new_device(priv->adapter,
 						     &tps6130x_hwmon_info);
-		if (!card_data->tps6130x) {
+		if (! priv->tps6130x) {
 			dev_err(card->dev, "can't add i2c device\n");
-			i2c_put_adapter(card_data->adapter);
+			i2c_put_adapter(priv->adapter);
 			return -ENODEV;
 		}
 
-		omap_abe_tps6130x_configure(card_data);
+		omap_abe_tps6130x_configure(priv);
 	}
-
+#endif
 	return ret;
 }
 
@@ -452,12 +505,12 @@ static const struct snd_soc_dapm_route dmic_audio_map[] = {
 
 static int omap_abe_dmic_init(struct snd_soc_pcm_runtime *rtd)
 {
+	struct snd_soc_dapm_context *dapm = &rtd->card->dapm;
 	struct snd_soc_card *card = rtd->card;
-	struct omap_abe_data *card_data = snd_soc_card_get_drvdata(card);
-	struct snd_soc_dapm_context *dapm = &card->dapm;
+	struct abe_twl6040 * priv = snd_soc_card_get_drvdata(card);
 	int ret;
 
-	if (!card_data->has_abe)
+	if (! priv->has_abe)
 		return 0;
 
 	ret = snd_soc_dapm_new_controls(dapm, dmic_dapm_widgets,
@@ -478,19 +531,20 @@ static int omap_abe_dmic_init(struct snd_soc_pcm_runtime *rtd)
 
 static int omap_abe_twl6040_dl2_init(struct snd_soc_pcm_runtime *rtd)
 {
-	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_card *card = rtd->card;
-	struct omap_abe_data *card_data = snd_soc_card_get_drvdata(card);
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct snd_soc_component *component = codec_dai->component;
+	struct abe_twl6040 * priv = snd_soc_card_get_drvdata(card);
 	u32 hfotrim, left_offset, right_offset;
 
 	/* DC offset cancellation computation only if ABE is enabled */
-	if (card_data->has_abe) {
+	if (priv->has_abe) {
 		/* DC offset cancellation computation */
-		hfotrim = twl6040_get_trim_value(&codec->component, TWL6040_TRIM_HFOTRIM);
+		hfotrim = twl6040_get_trim_value(component, TWL6040_TRIM_HFOTRIM);
 		right_offset = TWL6040_HSF_TRIM_RIGHT(hfotrim);
 		left_offset = TWL6040_HSF_TRIM_LEFT(hfotrim);
 
-		omap_aess_dc_set_hf_offset(card_data->aess, left_offset,
+		omap_aess_dc_set_hf_offset(priv->aess, left_offset,
 					   right_offset);
 	}
 
@@ -540,7 +594,7 @@ static struct snd_soc_dai_link legacy_mcbsp_dai = {
 	/* Legacy McBSP */
 	SND_SOC_DAI_CONNECT("Legacy McBSP", "snd-soc-dummy", "omap-pcm-audio",
 			    "snd-soc-dummy-dai", "omap-mcbsp.2"),
-	SND_SOC_DAI_OPS(&omap_abe_mcbsp_ops, NULL),
+	SND_SOC_DAI_OPS(&omap_abe_ops, NULL),
 	SND_SOC_DAI_IGNORE_SUSPEND,
 };
 
@@ -649,7 +703,7 @@ static struct snd_soc_dai_link abe_be_mcbsp1_dai = {
 	SND_SOC_DAI_CONNECT("McBSP-1", "snd-soc-dummy", "aess",
 			    "snd-soc-dummy-dai", "omap-mcbsp.1"),
 	SND_SOC_DAI_BE_LINK(OMAP_AESS_BE_ID_BT_VX, mcbsp_be_hw_params_fixup),
-	SND_SOC_DAI_OPS(&omap_abe_mcbsp_ops, NULL),
+	SND_SOC_DAI_OPS(&omap_abe_ops, NULL),
 	SND_SOC_DAI_IGNORE_SUSPEND, SND_SOC_DAI_IGNORE_PMDOWN,
 	.dpcm_playback = 1,
 	.dpcm_capture = 1,
@@ -660,7 +714,7 @@ static struct snd_soc_dai_link abe_be_mcbsp2_dai = {
 	SND_SOC_DAI_CONNECT("McBSP-2", "snd-soc-dummy", "aess",
 			    "snd-soc-dummy-dai", "omap-mcbsp.2"),
 	SND_SOC_DAI_BE_LINK(OMAP_AESS_BE_ID_MM_FM, mcbsp_be_hw_params_fixup),
-	SND_SOC_DAI_OPS(&omap_abe_mcbsp_ops, NULL),
+	SND_SOC_DAI_OPS(&omap_abe_ops, NULL),
 	SND_SOC_DAI_IGNORE_SUSPEND, SND_SOC_DAI_IGNORE_PMDOWN,
 	.dpcm_playback = 1,
 	.dpcm_capture = 1,
@@ -693,10 +747,41 @@ static struct snd_soc_dai_link abe_be_dmic_dai[] = {
 },
 };
 
+/* copied from "ASoC: core: Add convenience function to add DAI links" by Liam Girdwood <lrg@ti.com> */
+static int snd_soc_card_new_dai_links(struct snd_soc_card *card,
+	struct snd_soc_dai_link *new, int count)
+{
+	struct snd_soc_dai_link *links;
+	size_t bytes;
+
+	bytes = (count + card->num_links) * sizeof(struct snd_soc_dai_link);
+	links = devm_kzalloc(card->dev, bytes, GFP_KERNEL);
+	if (!links)
+		return -ENOMEM;
+
+	if (card->dai_link) {
+		memcpy(links, card->dai_link,
+			card->num_links * sizeof(struct snd_soc_dai_link));
+		devm_kfree(card->dev, card->dai_link);
+	}
+	memcpy(links + card->num_links, new,
+		count * sizeof(struct snd_soc_dai_link));
+	card->dai_link = links;
+	card->num_links += count;
+
+	return 0;
+}
+
+static void snd_soc_card_reset_dai_links(struct snd_soc_card *card)
+{
+	card->dai_link = NULL;
+	card->num_links = 0;
+}
+
 /* TODO: Peter - this will need some logic for DTS DAI link creation */
 static int omap_abe_add_dai_links(struct snd_soc_card *card)
 {
-	struct omap_abe_data *card_data = snd_soc_card_get_drvdata(card);
+	struct abe_twl6040 * priv = snd_soc_card_get_drvdata(card);
 	struct device_node *node = card->dev->of_node;
 	struct device_node *dai_node, *aess_node;
 	int ret, i;
@@ -771,7 +856,7 @@ static int omap_abe_add_dai_links(struct snd_soc_card *card)
 	if (ret < 0)
 		return ret;
 	/* DMIC BEs */
-	if (card_data->has_dmic) {
+	if (priv->has_dmic) {
 		ret = snd_soc_card_new_dai_links(card, abe_be_dmic_dai,
 						 ARRAY_SIZE(abe_be_dmic_dai));
 		if (ret < 0)
@@ -784,7 +869,7 @@ static int omap_abe_add_dai_links(struct snd_soc_card *card)
 /* TODO: Peter - this will need some logic for DTS DAI link creation */
 static int omap_abe_add_legacy_dai_links(struct snd_soc_card *card)
 {
-	struct omap_abe_data *card_data = snd_soc_card_get_drvdata(card);
+	struct abe_twl6040 * priv = snd_soc_card_get_drvdata(card);
 	struct device_node *node = card->dev->of_node;
 	struct device_node *dai_node;
 	int has_mcasp = 0;
@@ -829,7 +914,7 @@ static int omap_abe_add_legacy_dai_links(struct snd_soc_card *card)
 	}
 
 	/* Add the Legacy DMICs */
-	if (card_data->has_dmic) {
+	if (priv->has_dmic) {
 		ret = snd_soc_card_new_dai_links(card, &legacy_dmic_dai, 1);
 		if (ret < 0)
 			return ret;
@@ -838,45 +923,35 @@ static int omap_abe_add_legacy_dai_links(struct snd_soc_card *card)
 	return 0;
 }
 
-/* Audio machine driver */
-static struct snd_soc_card omap_abe_card = {
-	.owner = THIS_MODULE,
-
-	.dapm_widgets = twl6040_dapm_widgets,
-	.num_dapm_widgets = ARRAY_SIZE(twl6040_dapm_widgets),
-	.dapm_routes = audio_map,
-	.num_dapm_routes = ARRAY_SIZE(audio_map),
-};
-
 #if IS_BUILTIN(CONFIG_SND_OMAP_SOC_OMAP_ABE_TWL6040)
 static void omap_abe_fw_ready(const struct firmware *fw, void *context)
 {
 	struct platform_device *pdev = (struct platform_device *)context;
 	struct snd_soc_card *card = &omap_abe_card;
-	struct omap_abe_data *card_data = snd_soc_card_get_drvdata(card);
+	struct abe_twl6040 * priv = snd_soc_card_get_drvdata(card);
 	int ret;
 
 	if (unlikely(!fw))
 		dev_warn(&pdev->dev, "%s firmware is not loaded.\n",
 			 AESS_FW_NAME);
 
-	card_data->aess = omap_aess_get_handle();
-	if (!card_data->aess)
+	priv->aess = omap_aess_get_handle();
+	if (! priv->aess)
 		dev_err(&pdev->dev, "AESS is not yet available\n");
 
-	ret = omap_aess_load_firmware(card_data->aess, AESS_FW_NAME);
+	ret = omap_aess_load_firmware(priv->aess, AESS_FW_NAME);
 	if (ret) {
 		dev_err(&pdev->dev, "%s firmware was not loaded.\n",
 			AESS_FW_NAME);
-		omap_aess_put_handle(card_data->aess);
-		card_data->aess = NULL;
-		card_data->has_abe = 0;
+		omap_aess_put_handle(priv->aess);
+		priv->aess = NULL;
+		priv->has_abe = 0;
 	}
 
 	/* Release the FW here. */
 	release_firmware(fw);
 
-	if (card_data->has_abe) {
+	if (priv->has_abe) {
 		ret = omap_abe_add_dai_links(card);
 		if (ret < 0)
 			goto err_unregister;
@@ -895,11 +970,11 @@ static void omap_abe_fw_ready(const struct firmware *fw, void *context)
 	return;
 
 err_unregister:
-	if (!IS_ERR(card_data->spdif_codec_dev))
-		platform_device_unregister(card_data->spdif_codec_dev);
+	if (!IS_ERR(priv->spdif_codec_dev))
+		platform_device_unregister(priv->spdif_codec_dev);
 
-	if (!IS_ERR(card_data->dmic_codec_dev))
-		platform_device_unregister(card_data->dmic_codec_dev);
+	if (!IS_ERR(priv->dmic_codec_dev))
+		platform_device_unregister(priv->dmic_codec_dev);
 
 	snd_soc_card_reset_dai_links(card);
 	return;
@@ -908,12 +983,12 @@ err_unregister:
 #else /* IS_BUILTIN(CONFIG_SND_OMAP_SOC_OMAP_ABE_TWL6040) */
 static int omap_abe_load_fw(struct snd_soc_card *card)
 {
-	struct omap_abe_data *card_data = snd_soc_card_get_drvdata(card);
+	struct abe_twl6040 * priv = snd_soc_card_get_drvdata(card);
 	const struct firmware *fw;
 	int ret;
 
-	card_data->aess = omap_aess_get_handle();
-	if (!card_data->aess) {
+	priv->aess = omap_aess_get_handle();
+	if (! priv->aess) {
 		dev_err(card->dev, "AESS is not yet available\n");
 		return -EPROBE_DEFER;
 	}
@@ -924,17 +999,17 @@ static int omap_abe_load_fw(struct snd_soc_card *card)
 		return ret;
 	}
 
-	ret = omap_aess_load_firmware(card_data->aess, AESS_FW_NAME);
+	ret = omap_aess_load_firmware(priv->aess, AESS_FW_NAME);
 	if (ret) {
 		dev_err(card->dev, "%s firmware was not loaded.\n",
 			AESS_FW_NAME);
-		omap_aess_put_handle(card_data->aess);
-		card_data->aess = NULL;
-		card_data->has_abe = 0;
+		omap_aess_put_handle(priv->aess);
+		priv->aess = NULL;
+		priv->has_abe = 0;
 		ret = 0;
 	}
 
-	if (card_data->has_abe)
+	if (priv->has_abe)
 		ret = omap_abe_add_dai_links(card);
 
 	/* Release the FW here. */
@@ -944,13 +1019,43 @@ static int omap_abe_load_fw(struct snd_soc_card *card)
 }
 #endif /* IS_BUILTIN(CONFIG_SND_OMAP_SOC_OMAP_ABE_TWL6040) */
 
+/* Digital audio interface glue - connects codec <--> CPU */
+static struct snd_soc_dai_link abe_twl6040_dai_links[] = {
+	{
+		.name = "TWL6040",
+		.stream_name = "TWL6040",
+		.codec_dai_name = "twl6040-legacy",
+		.codec_name = "twl6040-codec",
+		.init = omap_abe_twl6040_init,
+		.ops = &omap_abe_ops,
+	},
+	{
+		.name = "DMIC",
+		.stream_name = "DMIC Capture",
+		.codec_dai_name = "dmic-hifi",
+		.codec_name = "dmic-codec",
+		.init = omap_abe_dmic_init,
+		.ops = &omap_abe_dmic_ops,
+	},
+};
+
+/* Audio machine driver */
+static struct snd_soc_card omap_abe_card = {
+	.owner = THIS_MODULE,
+
+	.dapm_widgets = twl6040_dapm_widgets,
+	.num_dapm_widgets = ARRAY_SIZE(twl6040_dapm_widgets),
+	.dapm_routes = audio_map,
+	.num_dapm_routes = ARRAY_SIZE(audio_map),
+};
+
 static int omap_abe_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
 	struct snd_soc_card *card = &omap_abe_card;
 	struct device_node *dai_node;
-	struct omap_abe_data *card_data;
-	struct platform_device *pdev_tmp;
+	struct abe_twl6040 *priv;
+	int num_links = 0;
 	int ret = 0;
 
 	if (!node) {
@@ -960,12 +1065,12 @@ static int omap_abe_probe(struct platform_device *pdev)
 
 	card->dev = &pdev->dev;
 
-	card_data = devm_kzalloc(&pdev->dev, sizeof(*card_data), GFP_KERNEL);
-	if (card_data == NULL)
+	priv = devm_kzalloc(&pdev->dev, sizeof(struct abe_twl6040), GFP_KERNEL);
+	if (priv == NULL)
 		return -ENOMEM;
 
-	card_data->dmic_codec_dev = ERR_PTR(-EINVAL);
-	card_data->spdif_codec_dev = ERR_PTR(-EINVAL);
+	priv->dmic_codec_dev = ERR_PTR(-EINVAL);
+	priv->spdif_codec_dev = ERR_PTR(-EINVAL);
 
 	if (snd_soc_of_parse_card_name(card, "ti,model")) {
 		dev_err(&pdev->dev, "Card name is not provided\n");
@@ -983,24 +1088,26 @@ static int omap_abe_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "McPDM node is not provided\n");
 		return -EINVAL;
 	}
+	abe_twl6040_dai_links[0].cpu_of_node = dai_node;
+	abe_twl6040_dai_links[0].platform_of_node = dai_node;
 
 	dai_node = of_parse_phandle(node, "ti,aess", 0);
 	if (dai_node)
-		card_data->has_abe = 1;
+		priv->has_abe = 1;
 	else
 		dev_dbg(&pdev->dev, "AESS node is missing\n");
 
 	dai_node = of_parse_phandle(node, "ti,dmic", 0);
 	if (dai_node) {
-		card_data->dmic_codec_dev = platform_device_register_simple(
-						"dmic-codec", -1, NULL, 0);
-		if (IS_ERR(card_data->dmic_codec_dev)) {
-			dev_err(&pdev->dev, "Can't instantiate dmic-codec\n");
-			return PTR_ERR(card_data->dmic_codec_dev);
-		}
-		card_data->has_dmic = 1;
+		num_links = 2;
+		abe_twl6040_dai_links[1].cpu_of_node = dai_node;
+		abe_twl6040_dai_links[1].platform_of_node = dai_node;
+		priv->has_dmic = 1;
+	} else {
+		num_links = 1;
 	}
 
+#ifdef FIXME
 	pdev_tmp = platform_device_register_simple("spdif-dit", -1,
 							NULL, 0);
 	if (IS_ERR(pdev_tmp)) {
@@ -1008,27 +1115,29 @@ static int omap_abe_probe(struct platform_device *pdev)
 		ret = PTR_ERR(pdev_tmp);
 		goto err_dmic_unregister;
 	}
-	card_data->spdif_codec_dev = pdev_tmp;
+	priv->spdif_codec_dev = pdev_tmp;
+#endif
 
-	card_data->jack_detection = of_property_read_bool(node, "ti,jack-detection");
-	of_property_read_u32(node, "ti,mclk-freq", &card_data->mclk_freq);
-	if (!card_data->mclk_freq) {
+	priv->jack_detection = of_property_read_bool(node, "ti,jack-detection");
+	of_property_read_u32(node, "ti,mclk-freq", &priv->mclk_freq);
+	if (!priv->mclk_freq) {
 		dev_err(&pdev->dev, "MCLK frequency not provided\n");
-		ret = -EINVAL;
-		goto err_unregister;
+		return -EINVAL;
 	}
 
 	card->fully_routed = 1;
 
-	if (!card_data->mclk_freq) {
+	if (!priv->mclk_freq) {
 		dev_err(&pdev->dev, "MCLK frequency missing\n");
-		ret = -EINVAL;
-		goto err_unregister;
+		return -ENODEV;
 	}
 
-	snd_soc_card_set_drvdata(card, card_data);
+	card->dai_link = abe_twl6040_dai_links;
+	card->num_links = num_links;
 
-	if (card_data->has_abe) {
+	snd_soc_card_set_drvdata(card, priv);
+
+	if (priv->has_abe) {
 #if IS_BUILTIN(CONFIG_SND_OMAP_SOC_OMAP_ABE_TWL6040)
 		/* When ABE is in use the AESS needs firmware */
 		ret = request_firmware_nowait(THIS_MODULE, 1, AESS_FW_NAME,
@@ -1061,11 +1170,11 @@ static int omap_abe_probe(struct platform_device *pdev)
 	return ret;
 
 err_unregister:
-	if (!IS_ERR(card_data->spdif_codec_dev))
-		platform_device_unregister(card_data->spdif_codec_dev);
+	if (!IS_ERR(priv->spdif_codec_dev))
+		platform_device_unregister(priv->spdif_codec_dev);
 err_dmic_unregister:
-	if (!IS_ERR(card_data->dmic_codec_dev))
-		platform_device_unregister(card_data->dmic_codec_dev);
+	if (!IS_ERR(priv->dmic_codec_dev))
+		platform_device_unregister(priv->dmic_codec_dev);
 
 	snd_soc_card_reset_dai_links(card);
 	return ret;
@@ -1074,19 +1183,20 @@ err_dmic_unregister:
 static int omap_abe_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
-	struct omap_abe_data *card_data = snd_soc_card_get_drvdata(card);
+	struct abe_twl6040 * priv = snd_soc_card_get_drvdata(card);
 
-	omap_aess_put_handle(card_data->aess);
+	omap_aess_put_handle(priv->aess);
 	snd_soc_unregister_card(card);
+#ifdef CONFIG_OMAP4_SDP
 	if (of_machine_is_compatible("ti,omap4-sdp")) {
-		i2c_unregister_device(card_data->tps6130x);
-		i2c_put_adapter(card_data->adapter);
+		i2c_unregister_device(priv->tps6130x);
+		i2c_put_adapter(priv->adapter);
 	}
-
-	if (!IS_ERR(card_data->dmic_codec_dev))
-		platform_device_unregister(card_data->dmic_codec_dev);
-	if (!IS_ERR(card_data->spdif_codec_dev))
-		platform_device_unregister(card_data->spdif_codec_dev);
+#endif
+	if (!IS_ERR(priv->dmic_codec_dev))
+		platform_device_unregister(priv->dmic_codec_dev);
+	if (!IS_ERR(priv->spdif_codec_dev))
+		platform_device_unregister(priv->spdif_codec_dev);
 	snd_soc_card_reset_dai_links(card);
 
 	return 0;
@@ -1101,7 +1211,6 @@ MODULE_DEVICE_TABLE(of, omap_abe_of_match);
 static struct platform_driver omap_abe_driver = {
 	.driver = {
 		.name = "omap-abe-twl6040",
-		.owner = THIS_MODULE,
 		.pm = &snd_soc_pm_ops,
 		.of_match_table = omap_abe_of_match,
 	},
@@ -1109,7 +1218,33 @@ static struct platform_driver omap_abe_driver = {
 	.remove = omap_abe_remove,
 };
 
-module_platform_driver(omap_abe_driver);
+static int __init omap_abe_init(void)
+{
+	int ret;
+
+	dmic_codec_dev = platform_device_register_simple("dmic-codec", -1, NULL,
+							 0);
+	if (IS_ERR(dmic_codec_dev)) {
+		pr_err("%s: dmic-codec device registration failed\n", __func__);
+		return PTR_ERR(dmic_codec_dev);
+	}
+
+	ret = platform_driver_register(&omap_abe_driver);
+	if (ret) {
+		pr_err("%s: platform driver registration failed\n", __func__);
+		platform_device_unregister(dmic_codec_dev);
+	}
+
+	return ret;
+}
+module_init(omap_abe_init);
+
+static void __exit omap_abe_exit(void)
+{
+	platform_driver_unregister(&omap_abe_driver);
+	platform_device_unregister(dmic_codec_dev);
+}
+module_exit(omap_abe_exit);
 
 MODULE_AUTHOR("Misael Lopez Cruz <misael.lopez@ti.com>");
 MODULE_DESCRIPTION("ALSA SoC for OMAP boards with ABE and twl6040 codec");
