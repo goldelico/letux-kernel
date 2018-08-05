@@ -1132,8 +1132,7 @@ static int omap_abe_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	card->dai_link = abe_twl6040_dai_links;
-	card->num_links = num_links;
+	snd_soc_card_new_dai_links(card, abe_twl6040_dai_links, num_links);
 
 	snd_soc_card_set_drvdata(card, priv);
 
