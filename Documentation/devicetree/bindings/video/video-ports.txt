@@ -1,0 +1,22 @@
+Video Ports
+===========
+
+The video port bindings used for display devices is a superset of the v4l2 video
+ports described here:
+
+Documentation/devicetree/bindings/media/video-interfaces.txt
+
+The only difference is a more compact way to describe devices with only one
+endpoint. In cases like that, the 'ports' and 'port' nodes are not needed. For
+example, a DPI panel with a single input endpoint:
+
+lcd0: display@0 {
+	compatible = "samsung,lte430wq-f0c", "panel-dpi";
+
+	lcd_in: endpoint {
+		remote-endpoint = <&dpi_out>;
+	};
+};
+
+The rest of the bindings are the same as in v4l2 video port bindings and not
+described here.
