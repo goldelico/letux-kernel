@@ -404,8 +404,8 @@
 				/* add information */
 				regulator-compatible = "bq2429x-vsys";
 				regulator-name = "vsys";
-//				regulator-min-microvolt = <3500000>;
-//				regulator-max-microvolt = <3700000>;
+				regulator-min-microvolt = <3500000>;
+				regulator-max-microvolt = <4200000>;
 				regulator-always-on;
 				regulator-boot-on;
 			};
