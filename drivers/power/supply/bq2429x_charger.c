@@ -54,7 +54,7 @@
 #define FAULT_STATS_REGISTER		0x09
 #define VENDOR_STATS_REGISTER		0x0A
 
-/* input source control register value */
+/* REG00 input source control register value */
 #define EN_HIZ_ENABLE	 1
 #define EN_HIZ_DISABLE	 0
 #define EN_HIZ_OFFSET	 7
@@ -71,7 +71,7 @@
 #define IINLIM_OFFSET		0
 #define IINLIM_MASK		7
 
-/* power-on configuration register value */
+/* REG01 power-on configuration register value */
 #define WATCHDOG_RESET	0x40
 
 #define REGISTER_RESET_ENABLE	 1
@@ -95,7 +95,7 @@
 #define OTG_MODE_CURRENT_CONFIG_OFFSET	0
 #define OTG_MODE_CURRENT_CONFIG_MASK		0x01
 
-/* charge current limit register value */
+/* REG02 charge current limit register value */
 #define CHARGE_CURRENT_64MA		0x01
 #define CHARGE_CURRENT_128MA		0x02
 #define CHARGE_CURRENT_256MA		0x04
@@ -106,7 +106,7 @@
 #define CHARGE_CURRENT_OFFSET		2
 #define CHARGE_CURRENT_MASK		0x3f
 
-/* Pre-Charge/Termination Current Control Register value */
+/* REG03 Pre-Charge/Termination Current Control Register value */
 /* Pre-Charge Current Limit */
 #define PRE_CHARGE_CURRENT_LIMIT_128MA		0x00
 #define PRE_CHARGE_CURRENT_LIMIT_256MA		0x01
@@ -118,7 +118,11 @@
 #define TERMINATION_CURRENT_LIMIT_OFFSET		0
 #define TERMINATION_CURRENT_LIMIT_MASK		0x0f
 
-/* Charge Termination/Timer control register value */
+/* REG04 Charge Voltage Register */
+#define VREG_MASK	0x3f
+#define VREG_OFFSET	2
+
+/* REG05 Charge Termination/Timer control register value */
 #define WATCHDOG_DISABLE		0
 #define WATCHDOG_40S		1
 #define WATCHDOG_80S		2
@@ -126,17 +130,17 @@
 #define WATCHDOG_OFFSET		4
 #define WATCHDOG_MASK		3
 
-/* boost voltage/thermal regulation register */
+/* REG06 boost voltage/thermal regulation register */
 #define BOOSTV_OFFSET	4
 #define BOOSTV_MASK	0xf
 
-/* misc operation control register value */
+/* REG07 misc operation control register value */
 #define DPDM_ENABLE	 1
 #define DPDM_DISABLE	 0
 #define DPDM_OFFSET	 7
 #define DPDM_MASK	 1
 
-/* system status register value */
+/* REG08 system status register value */
 #define VBUS_UNKNOWN		0
 #define VBUS_USB_HOST		1
 #define VBUS_ADAPTER_PORT		2
@@ -156,7 +160,7 @@
 #define THERM_STAT	0x02
 #define VSYS_STAT	0x01
 
-/* fault status register value */
+/* REG09 fault status register value */
 
 #define WATCHDOG_FAULT	0x80
 #define OTG_FAULT	0x40
@@ -166,7 +170,7 @@
 #define NTC_FAULT_OFFSET	0
 #define NTC_FAULT_MASK	0x3
 
-/* vendor status register value */
+/* REG0a vendor status register value */
 /* #define CHIP_BQ24190		0
 #define CHIP_BQ24191		1
 #define CHIP_BQ24192		2
@@ -175,7 +179,8 @@
 #define CHIP_BQ24192_DEBUG		5 */
 #define CHIP_BQ24296		1
 #define CHIP_BQ24297		3
-#define CHIP_OFFSET		5
+#define CHIP_MP2624		0
+#define CHIP_OFFSET		2
 #define CHIP_MASK		7
 
 #define BQ24296_CHG_COMPELET       0x03
