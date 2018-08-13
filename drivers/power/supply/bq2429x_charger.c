@@ -1121,6 +1121,7 @@ static struct bq24296_board *bq24296_parse_dt(struct bq24296_device_info *di)
 static struct of_device_id bq24296_charger_of_match[] = {
 	{ .compatible = "ti,bq24296"},
 	{ .compatible = "ti,bq24297"},
+	{ .compatible = "mps,mp2624"},	// can control VSYS-VBATT level but not OTG max power
 	{ },
 };
 MODULE_DEVICE_TABLE(of, bq24296_charger_of_match);
