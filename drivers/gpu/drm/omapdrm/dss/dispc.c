@@ -4271,11 +4271,6 @@ static const struct dispc_features omap24xx_dispc_feats = {
 	.no_framedone_tv	=	true,
 	.set_max_preload	=	false,
 	.last_pixel_inc_missing	=	true,
-	/*
-	 * HACK: see comment in omap34xx_rev1_0_dispc_feats. OMAP2 probably
-	 * has the same issue.
-	 */
-	.has_gamma_i734_bug	=	true,
 };
 
 static const struct dispc_features omap34xx_rev1_0_dispc_feats = {
@@ -4310,13 +4305,6 @@ static const struct dispc_features omap34xx_rev1_0_dispc_feats = {
 	.no_framedone_tv	=	true,
 	.set_max_preload	=	false,
 	.last_pixel_inc_missing	=	true,
-	/*
-	 * HACK: OMAP3 doesn't have i734, but enabling the lcd output without
-	 * planes causes synclost flood. This only happens on initial enable,
-	 * not after that.
-	 * Piggyback on i734 flag until we understand this better.
-	 */
-	.has_gamma_i734_bug	=	true,
 };
 
 static const struct dispc_features omap34xx_rev3_0_dispc_feats = {
@@ -4419,8 +4407,6 @@ static const struct dispc_features am43xx_dispc_feats = {
 	.no_framedone_tv	=	true,
 	.set_max_preload	=	false,
 	.last_pixel_inc_missing	=	true,
-	/* HACK: see comment in omap34xx_rev1_0_dispc_feats */
-	.has_gamma_i734_bug	=	true,
 };
 
 static const struct dispc_features omap44xx_dispc_feats = {
