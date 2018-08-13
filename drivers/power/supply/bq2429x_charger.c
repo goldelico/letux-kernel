@@ -223,6 +223,10 @@ struct bq24296_device_info {
 
 struct bq24296_device_info *bq24296_di;
 
+/* should be read from DT properties! */
+static unsigned int battery_voltage_max_design_uV = 4200000;	// default
+static unsigned int max_VSYS_uV = 5000000;	// "unlimited"
+
 #if 0
 #define DBG(x...) printk(KERN_INFO x)
 #define DEBUG 1
@@ -365,8 +369,9 @@ DEVICE_ATTR(registers, 0444, show_registers,NULL);
 static int bq24296_init_registers(void)
 {
 	int ret = 0;
+	int max_uV, bits;
 
-#if 0
+#if 0	// NO: don't do that because we are powered through this chip - u-boot must have initialized properly
 	/* reset the configuration register */
 	 ret = bq24296_update_reg(bq24296_di->client,
 				 POWER_ON_CONFIGURATION_REGISTER,
@@ -383,11 +388,17 @@ static int bq24296_init_registers(void)
 
 /*
  * FIXME: why do we disable the watchdog?
- * Yes, U-Boot has it disabled because it can't poll the chip if waiting for commands
+ *
+ * U-Boot has it already disabled because it can't poll the chip if waiting for commands
  * on the command-line and while Linux starts
  *
  * But in Linux should better re-enable it and reset the watchdog by our polling function
  * Make it a DT property!
+ *
+ * Probably U-Boot should re-enable it before launching Linux so it becomes active
+ * if Linux does not properly boot
+ *
+ * So we should only restart if every now and then
  */
 
 #if 0
@@ -409,7 +420,7 @@ static int bq24296_init_registers(void)
 				  PRE_CHARGE_CURRENT_LIMIT_128MA << PRE_CHARGE_CURRENT_LIMIT_OFFSET,
 				  PRE_CHARGE_CURRENT_LIMIT_MASK << PRE_CHARGE_CURRENT_LIMIT_OFFSET);
 	if (ret < 0) {
-		dev_err(&bq24296_di->client->dev, "%s(): Failed to set pre-charge limit 128mA \n",
+		dev_err(&bq24296_di->client->dev, "%s(): Failed to set pre-charge limit 128mA\n",
 				__func__);
 		goto final;
 	}
@@ -420,7 +431,30 @@ static int bq24296_init_registers(void)
 				  TERMINATION_CURRENT_LIMIT_128MA << TERMINATION_CURRENT_LIMIT_OFFSET,
 				  TERMINATION_CURRENT_LIMIT_MASK << TERMINATION_CURRENT_LIMIT_OFFSET);
 	if (ret < 0) {
-		dev_err(&bq24296_di->client->dev, "%s(): Failed to set termination limit 128mA \n",
+		dev_err(&bq24296_di->client->dev, "%s(): Failed to set termination limit 128mA\n",
+				__func__);
+		goto final;
+	}
+
+	// VSYS may be 150mV above fully charged battery voltage
+	// so to effectively limit VSYS we may have to lower the max. battery voltage
+	max_uV = min(max_VSYS_uV - 150000, battery_voltage_max_design_uV);
+
+	bits = (max_uV - 3504000) / 16000;
+	bits = max(bits, 0);
+	bits = min(bits, 63);
+
+	dev_info(&bq24296_di->client->dev, "%s(): translated vbatt_max=%u and VSYS_max=%u to VREG=%u (%02x)\n",
+		__func__,
+		battery_voltage_max_design_uV, max_VSYS_uV, max_uV,
+		bits);
+
+	ret = bq24296_update_reg(bq24296_di->client,
+				  CHARGE_VOLTAGE_CONTROL_REGISTER,
+				  bits << VREG_OFFSET,
+				  VREG_MASK << VREG_OFFSET);
+	if (ret < 0) {
+		dev_err(&bq24296_di->client->dev, "%s(): Failed to set max. battery voltage\n",
 				__func__);
 		goto final;
 	}
@@ -1029,6 +1063,7 @@ static struct bq24296_board *bq24296_parse_dt(struct bq24296_device_info *di)
 	struct of_regulator_match *matches;
 	static struct regulator_init_data *reg_data;
 	int idx = 0, count, ret;
+	u32 val;
 
 	DBG("%s,line=%d\n", __func__,__LINE__);
 
@@ -1088,6 +1123,12 @@ static struct bq24296_board *bq24296_parse_dt(struct bq24296_device_info *di)
 		dev_err(&di->client->dev, "Found %d of expected %d regulators\n",
 			ret, count);
 		return NULL;
+	}
+
+	regulators = of_get_next_child(regulators, NULL);	// get first regulator (vsys)
+	if (!of_property_read_u32(regulators, "regulator-max-microvolt", &val)) {
+		dev_err(&di->client->dev, "found regulator-max-microvolt = %u\n", val);
+		max_VSYS_uV = val;	// limited by device tree
 	}
 
 	reg_data = devm_kzalloc(&di->client->dev, (sizeof(struct regulator_init_data)
