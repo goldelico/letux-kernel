@@ -173,6 +173,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_TLV320DAC33 if I2C
 	select SND_SOC_TSCS42XX if I2C
 	select SND_SOC_TSCS454 if I2C
+	select SND_SOC_TS3A225E if I2C
 	select SND_SOC_TS3A227E if I2C
 	select SND_SOC_TWL4030 if TWL4030_CORE
 	select SND_SOC_TWL6040 if TWL6040_CORE
@@ -232,6 +233,9 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_WM9705 if (SND_SOC_AC97_BUS || SND_SOC_AC97_BUS_NEW)
 	select SND_SOC_WM9712 if (SND_SOC_AC97_BUS || SND_SOC_AC97_BUS_NEW)
 	select SND_SOC_WM9713 if (SND_SOC_AC97_BUS || SND_SOC_AC97_BUS_NEW)
+	select SND_SOC_GTM601
+	select SND_SOC_SI47XX if I2C
+	select SND_SOC_W2CBW003
         help
           Normally ASoC codec drivers are only built if a machine driver which
           uses them is also built since they are only usable with a machine
@@ -606,7 +610,19 @@ config SND_SOC_ES8328_SPI
 	select SND_SOC_ES8328
 
 config SND_SOC_GTM601
-	tristate 'GTM601 UMTS modem audio codec'
+	tristate "Option GTM601 3G Audio Codec"
+	help
+	  PCM interface to a GTM601 UMTS modem chip. Does not control the Modem through USB.
+
+config SND_SOC_SI47XX
+	tristate "Silicon Labs Si47xx FM Audio Codec"
+	help
+	  PCM interface to a Si47xx chip. Needs to enable some I2C or SPI driver.
+
+config SND_SOC_W2CBW003
+	tristate "Wi2Wi W2CBW003 Bluetooth Audio Codec"
+	help
+	  PCM interface to Bluetooth part of W2CBW003. Does not control the bluetooth headset link.
 
 config SND_SOC_HDAC_HDMI
 	tristate
@@ -1021,6 +1037,10 @@ config SND_SOC_TLV320AIC3X
 config SND_SOC_TLV320DAC33
 	tristate
 
+config SND_SOC_TS3A225E
+	tristate "TI Headset/Mic detect chip"
+	depends on I2C
+
 config SND_SOC_TS3A227E
 	tristate "TI Headset/Mic detect and keypress chip"
 	depends on I2C
@@ -1296,5 +1316,11 @@ config SND_SOC_NAU8825
 config SND_SOC_TPA6130A2
 	tristate "Texas Instruments TPA6130A2 headphone amplifier"
 	depends on I2C
+
+config SND_SOC_WM2000
+	tristate
+
+config SND_SOC_WM9090
+	tristate
 
 endmenu
