@@ -82,6 +82,17 @@ static int asoc_simple_set_clk_rate(struct asoc_simple_dai *simple_dai,
 	return clk_set_rate(simple_dai->clk, rate);
 }
 
+static int asoc_simple_set_clkdiv(struct snd_soc_dai *dai,
+				  struct asoc_simple_dai *simple_dai)
+{
+	if (!simple_dai->clk_div_set)
+		return 0;
+
+	return snd_soc_dai_set_clkdiv(dai,
+				      simple_dai->clk_div_id,
+				      simple_dai->clk_div);
+}
+
 static int asoc_simple_card_hw_params(struct snd_pcm_substream *substream,
 				      struct snd_pcm_hw_params *params)
 {
@@ -120,6 +131,13 @@ static int asoc_simple_card_hw_params(struct snd_pcm_substream *substream,
 		if (ret && ret != -ENOTSUPP)
 			goto err;
 	}
+	ret = asoc_simple_set_clkdiv(codec_dai, &dai_props->codec_dai);
+	if (ret < 0)
+		return ret;
+
+	ret = asoc_simple_set_clkdiv(cpu_dai, &dai_props->cpu_dai);
+	if (ret < 0)
+		return ret;
 	return 0;
 err:
 	return ret;
