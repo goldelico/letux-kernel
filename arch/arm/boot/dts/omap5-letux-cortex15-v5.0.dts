@@ -175,6 +175,15 @@
 		>;
 	};
 
+	mcbsp3_pins: pinmux_mcbsp3_pins {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x188, PIN_INPUT_PULLDOWN | MUX_MODE4)	/* abedmic_din3.abemcbsp3_dr */
+			OMAP5_IOPAD(0x186, PIN_OUTPUT_PULLDOWN | MUX_MODE4)	/* abedmic_din2.abemcbsp3_dx */
+			OMAP5_IOPAD(0x184, PIN_INPUT | MUX_MODE4)		/* abedmic_din1.abemcbsp3_fsx */
+			OMAP5_IOPAD(0x18a, PIN_INPUT | MUX_MODE4)		/* abedmic_clk1.abemcbsp3_clkx */
+		>;
+	};
+
 /* I2C pinmux (i2c1 inherited) */
 
 	i2c2_pins: pinmux_i2c2_pins {
@@ -288,6 +297,23 @@
 		OMAP5_IOPAD(0x0ac, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x0AC:[15:0]  gpio3_78 - hub interrupt */
 		OMAP5_IOPAD(0x0b0, PIN_OUTPUT | MUX_MODE6)	/* 0x0B0:[15:0]  gpio3_80 - hub nreset */
 	>;
+};
+
+&mcbsp1 {
+	#sound-dai-cells = <0>;
+	status ="okay";
+};
+
+&mcbsp2 {
+	#sound-dai-cells = <0>;
+	status ="okay";
+};
+
+&mcbsp3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcbsp3_pins>;
+	#sound-dai-cells = <0>;
+	status ="okay";
 };
 
 &i2c1 {
