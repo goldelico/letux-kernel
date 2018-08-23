@@ -59,7 +59,7 @@
 	/* GSM audio */
 	sound_telephony {
 		compatible = "simple-audio-card";
-		simple-audio-card,name = "GTA04 voice";
+		simple-audio-card,name = "Telephony";
 		simple-audio-card,bitclock-master = <&telephony_link_master>;
 		simple-audio-card,frame-master = <&telephony_link_master>;
 		simple-audio-card,format = "i2s";
@@ -70,11 +70,11 @@
 		};
 
 		telephony_link_master: simple-audio-card,codec {
-			sound-dai = <&gtm601_codec>;
+			sound-dai = <&telephony_codec>;
 		};
 	};
 
-	gtm601_codec: gsm_codec {
+	telephony_codec: gsm_codec {
 		compatible = "option,gtm601";
 		#sound-dai-cells = <0>;
 	};
@@ -713,8 +713,8 @@
 		};
 	};
 
-	w2cbw003_codec: headset_codec {
-		compatible = "w2cbw003-codec";
+	bluetooth_codec: bluetooth_codec {
+		compatible = "wi2wi,w2cbw003-codec";
 		#sound-dai-cells = <0>;
 	};
 
@@ -748,7 +748,7 @@
 	/* Bluetooth audio */
 	sound_bluetooth {
 		compatible = "simple-audio-card";
-		simple-audio-card,name = "GTA04 bluetooth";
+		simple-audio-card,name = "Bluetooth";
 		simple-audio-card,bitclock-master = <&bt_link_master>;
 		simple-audio-card,frame-master = <&bt_link_master>;
 		simple-audio-card,format = "i2s";
@@ -758,13 +758,13 @@
 		};
 
 		bt_link_master: simple-audio-card,codec {
-			sound-dai = <&w2cbw003_codec>;
+			sound-dai = <&bluetooth_codec>;
 		};
 	};
 
 	sound_fmradio {
 		compatible = "simple-audio-card";
-		simple-audio-card,name = "GTA04 fm-radio";
+		simple-audio-card,name = "Tuner";
 
 		/* FM tuner audio */
 		simple-audio-card,dai-link@0 {
@@ -773,7 +773,7 @@
 				sound-dai = <&mcbsp1>;
 			};
 			codec {
-				sound-dai = <&si4721_codec>;
+				sound-dai = <&radio_codec>;
 			};
 		};
 	};
@@ -974,7 +974,7 @@
 	};
 
 	/* FM Radio (no kernel driver exists) */
-	si4721_codec: si4721@11 {
+	radio_codec: si4721@11 {
 		compatible = "silicon-labs,si4721";
 
 		interrupt-parent = <&gpio5>;
