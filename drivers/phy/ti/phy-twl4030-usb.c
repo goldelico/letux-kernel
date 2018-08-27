@@ -552,6 +552,15 @@ static irqreturn_t twl4030_usb_irq(int irq, void *_twl)
 
 	status = twl4030_usb_linkstat(twl);
 
+	/* we might get here too early when runtime is not ready yet
+	 * and we will get an EACCESS later, so try again later
+	 */
+	if (!pm_runtime_enabled(twl->dev)) {
+		cancel_delayed_work(&twl->id_workaround_work);
+		schedule_delayed_work(&twl->id_workaround_work, HZ);
+		return IRQ_HANDLED;
+	}
+
 	mutex_lock(&twl->lock);
 	if (status >= 0 && status != twl->linkstat) {
 		status_changed =
