@@ -145,16 +145,16 @@
 	sound_fmradio {
 		compatible = "simple-audio-card";
 		simple-audio-card,name = "Tuner";
+		simple-audio-card,bitclock-master = <&tuner_link_master>;
+		simple-audio-card,frame-master = <&tuner_link_master>;
+		simple-audio-card,format = "i2s";
 
-		/* FM tuner audio */
-		simple-audio-card,dai-link@0 {
-			format = "i2s";
-			cpu {
-				sound-dai = <&mcbsp2>;
-			};
-			codec {
-				sound-dai = <&radio_codec>;
-			};
+		simple-audio-card,cpu {
+			sound-dai = <&mcbsp2>;
+		};
+
+		tuner_link_master: simple-audio-card,codec {
+			sound-dai = <&radio_codec>;
 		};
 	};
 
