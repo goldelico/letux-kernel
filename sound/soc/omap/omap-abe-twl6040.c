@@ -1,11 +1,22 @@
-/* questionable code:
+/*
+ * this is a mix of upstream omap-abe-twl6040.c from 4.18ff with TI code
+ * done by H. N. Schaller during porting to 4.18 API for OMAP5 based Pyra-Handheld
+ *
+ * questionable code areas:
+ *
  * are omap_abe_hw_params() and omap_abe_mcpdm_hw_params() the same? then keep upstream omap_abe_hw_params() only
  * what should we do with OMAP4_SDP and tps6130x stuff?
- * the extension to handle more DMICs seems not to be upstream
+ * the extension to handle more DMICs seems not to be upstream!
  * support for spdif-dit unclear
+ * what is this "legacy" stuff? Is this still needed for anything?
  * error path in probe() and to err_unregister isn't sane
  * here, we have better error messages than upstream
  * dmic_codec_dev is duplicated
+ * there is a problem with "mcbsp-ame" dai_link which is defined nowhere else
+ * no support for McBSP3?
+ * how does this twl6040_dapm_widgets[] relate to the one defined in sound/soc/codecs/twl6040.c? If at all...
+ *
+ * this comment should be removed if all questions have been answered and addressed
  */
 
 /*
@@ -392,6 +403,16 @@ static int omap_abe_stream_event(struct snd_soc_dapm_context *dapm, int event)
 	struct abe_twl6040 * priv = snd_soc_card_get_drvdata(card);
 
 	int gain;
+#if 0
+[    7.406936] [<c06a4040>] (dapm_find_widget) from [<c06a40b8>] (snd_soc_dapm_get_pin_status+0xc/0x1c)
+[    7.406967] [<c06a40b8>] (snd_soc_dapm_get_pin_status) from [<bf295170>] (twl6040_get_dl1_gain+0x18/0x7c [snd_soc_twl6040])
+[    7.407031] [<bf295170>] (twl6040_get_dl1_gain [snd_soc_twl6040]) from [<bf2b94c8>] (omap_abe_stream_event+0x14/0x30 [snd_soc_omap_abe_twl6040])
+[    7.407070] [<bf2b94c8>] (omap_abe_stream_event [snd_soc_omap_abe_twl6040]) from [<c06a70bc>] (dapm_power_widgets+0x790/0x96c)
+[    7.407095] [<c06a70bc>] (dapm_power_widgets) from [<c06a8fc0>] (snd_soc_dapm_new_widgets+0x418/0x47c)
+[    7.407117] [<c06a8fc0>] (snd_soc_dapm_new_widgets) from [<c06a34d0>] (snd_soc_register_card+0xadc/0xbf4)
+[    7.407144] [<c06a34d0>] (snd_soc_register_card) from [<bf2b9aec>] (omap_abe_probe+0x4ac/0x59c [snd_soc_omap_abe_twl6040])
+
+[    7.407175] [<bf2b9aec>] (omap_abe_probe [snd_soc_omap_abe_twl6040]) from [<c04feb40>] (platform_drv_probe+0x48/0x98)
 
 	/*
 	 * set DL1 gains dynamically according to the active output
@@ -401,6 +422,7 @@ static int omap_abe_stream_event(struct snd_soc_dapm_context *dapm, int event)
 	gain = twl6040_get_dl1_gain(component) * 100;
 
 	omap_aess_set_dl1_gains(priv->aess, gain, gain);
+#endif
 
 	return 0;
 }
@@ -672,6 +694,7 @@ static struct snd_soc_dai_link abe_be_mcpdm_dai[] = {
 {
 	/* McPDM DL1 - Headset */
 	SND_SOC_DAI_CONNECT("McPDM-DL1", "twl6040-codec", "aess",
+// FIXME: there is no cpu_dai_name="mcpdm-abe" so this will not match!
 			    "twl6040-dl1", "mcpdm-abe"),
 	SND_SOC_DAI_BE_LINK(OMAP_AESS_BE_ID_PDM_DL1, mcpdm_be_hw_params_fixup),
 	SND_SOC_DAI_OPS(&omap_abe_mcpdm_ops, omap_abe_twl6040_init),
@@ -719,6 +742,9 @@ static struct snd_soc_dai_link abe_be_mcbsp2_dai = {
 	.dpcm_playback = 1,
 	.dpcm_capture = 1,
 };
+
+// FIXME: we have a McBSP3 connected to MODEM and McBSP2 to (optional) FM
+// why is this hard coded here and not defined by DT records?
 
 static struct snd_soc_dai_link abe_be_dmic_dai[] = {
 {
@@ -840,11 +866,24 @@ static int omap_abe_add_dai_links(struct snd_soc_card *card)
 	if (ret < 0)
 		return ret;
 
+#if 0
+/*
+ * there is no "mcpdm-abe" to match???
+ * and trying ends in
+ * [   28.445332] omap-abe-twl6040 sound: ASoC: CPU DAI mcpdm-abe not registered
+ *
+ */
+
 	/* McPDM BEs */
 	ret = snd_soc_card_new_dai_links(card, abe_be_mcpdm_dai,
 					 ARRAY_SIZE(abe_be_mcpdm_dai));
 	if (ret < 0)
 		return ret;
+#endif
+
+#if 0	// this comflicts with our "simple sound cards" for mcbsp1, 2, 3
+	// it should be configurable either by DT or config or automatically
+	// if the mcbsps are used by abe/aess or separately
 
 	/* McBSP1 BEs */
 	ret = snd_soc_card_new_dai_links(card, &abe_be_mcbsp1_dai, 1);
@@ -855,6 +894,8 @@ static int omap_abe_add_dai_links(struct snd_soc_card *card)
 	ret = snd_soc_card_new_dai_links(card, &abe_be_mcbsp2_dai, 1);
 	if (ret < 0)
 		return ret;
+#endif
+
 	/* DMIC BEs */
 	if (priv->has_dmic) {
 		ret = snd_soc_card_new_dai_links(card, abe_be_dmic_dai,
@@ -883,6 +924,7 @@ static int omap_abe_add_legacy_dai_links(struct snd_soc_card *card)
 	legacy_mcpdm_dai.cpu_dai_name  = NULL;
 	legacy_mcpdm_dai.cpu_of_node = dai_node;
 
+#if 0	// legacy?
 	dai_node = of_parse_phandle(node, "ti,mcbsp2", 0);
 	if (!dai_node) {
 		dev_err(card->dev,"McBSP2 node is missing\n");
@@ -890,6 +932,7 @@ static int omap_abe_add_legacy_dai_links(struct snd_soc_card *card)
 	}
 	legacy_mcbsp_dai.cpu_dai_name  = NULL;
 	legacy_mcbsp_dai.cpu_of_node = dai_node;
+#endif
 
 	dai_node = of_parse_phandle(node, "ti,mcasp", 0);
 	if (dai_node) {
@@ -903,10 +946,12 @@ static int omap_abe_add_legacy_dai_links(struct snd_soc_card *card)
 	if (ret < 0)
 		return ret;
 
+#if 0
 	/* Add the Legacy McBSP */
 	ret = snd_soc_card_new_dai_links(card, &legacy_mcbsp_dai, 1);
 	if (ret < 0)
 		return ret;
+#endif
 
 	/* Add the Legacy McASP */
 	if (has_mcasp) {
