@@ -880,6 +880,8 @@ static int omap_abe_add_legacy_dai_links(struct snd_soc_card *card)
 			dev_err(card->dev, "McPDM node is missing\n");
 			return -EINVAL;
 	}
+	legacy_mcpdm_dai.cpu_dai_name  = NULL;
+	legacy_mcpdm_dai.cpu_of_node = dai_node;
 
 	dai_node = of_parse_phandle(node, "ti,mcbsp2", 0);
 	if (!dai_node) {
@@ -961,12 +963,10 @@ static void omap_abe_fw_ready(const struct firmware *fw, void *context)
 	if (ret < 0)
 		goto err_unregister;
 
-	ret = snd_soc_register_card(card);
-	if (ret) {
-		dev_err(&pdev->dev, "card registration failed: %d\n", ret);
-		goto err_unregister;
-	}
-
+	ret = devm_snd_soc_register_card(&pdev->dev, card);
+	if (ret)
+		dev_err(&pdev->dev, "devm_snd_soc_register_card() failed: %d\n",
+			ret);
 	return;
 
 err_unregister:
@@ -1185,7 +1185,6 @@ static int omap_abe_remove(struct platform_device *pdev)
 	struct abe_twl6040 * priv = snd_soc_card_get_drvdata(card);
 
 	omap_aess_put_handle(priv->aess);
-	snd_soc_unregister_card(card);
 #ifdef CONFIG_OMAP4_SDP
 	if (of_machine_is_compatible("ti,omap4-sdp")) {
 		i2c_unregister_device(priv->tps6130x);
