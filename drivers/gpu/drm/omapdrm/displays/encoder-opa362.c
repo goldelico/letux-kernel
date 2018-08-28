@@ -208,6 +208,7 @@ static int opa362_probe(struct platform_device *pdev)
 	dssdev->type = OMAP_DISPLAY_TYPE_VENC;
 	dssdev->output_type = OMAP_DISPLAY_TYPE_VENC;
 	dssdev->owner = THIS_MODULE;
+	dssdev->port_num = 1;	/* second port */
 
 	r = omapdss_register_output(dssdev);
 	if (r) {
