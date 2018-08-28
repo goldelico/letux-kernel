@@ -1,0 +1,137 @@
+#
+# dial a phone number
+#
+# usage: dial [ -hf ] [ -hs ] [ -hw | -sw ] number
+#   -hf:	enable handsfree
+#   -hs:	enable headset
+#   -hw:	use hardware voice routing (GTA04A4++ only)
+#   -sw:	use software routing (arecord | aplay) [default]
+#
+# to hang up: dial -
+#
+# to unlock with pin, use the /root/pin script
+#
+
+IF="$(/root/wwan-on)"
+
+MODE="-sw"	# default
+HANDSFREE=-nhf
+HEADSET=false
+
+while true
+do
+	case "$1" in
+		-hw | -sw )
+			MODE="$1"
+			shift
+			;;
+		-hf )	HANDSFREE=
+			shift
+			;;
+		-hs )	HEADSET=true
+			shift
+			;;
+		* )
+			break
+			;;
+	esac
+done
+
+NUMBER="$1"
+
+case "$IF" in
+	"" )
+		echo Modem Application interface not found >&2
+		exit 1
+		;;
+
+	/dev/ttyHS* ) # GTA04 with OPTION GTM601W
+function turnoff {
+	killall arecord
+	killall arecord aplay
+	(echo "AT+CHUP"; sleep 1) | /root/femtocom $IF
+}
+		trap "turnoff" EXIT
+		trap "exit 1" SIGHUP SIGINT SIGTERM
+
+		if $HEADSET
+		then
+			/root/tvout 0	# disable tvout
+			amixer set 'Analog Left Main Mic' nocap
+			amixer set 'Analog Left Headset Mic' cap
+		else
+			amixer set 'Analog Left Main Mic' cap
+			amixer set 'Analog Left Headset Mic' nocap
+		fi
+
+		if [ "$MODE" = "-hw" ]	# not available on GTA04A3 boards
+		then
+			amixer set 'AVADC Clock Priority' 'Voice high priority'
+			amixer set 'Voice PCM Interface' 'active'
+			amixer set 'Voice PCM Out' on
+			amixer set 'DAC Voice Analog Downlink' unmute
+			amixer set 'DAC Voice Analog Downlink' 16
+			amixer set 'DAC Voice Digital Downlink' 44
+			amixer set 'Earpiece Mixer Voice' on
+			amixer set 'HeadsetL Mixer Voice' on
+			amixer set 'HeadsetR Mixer Voice' on
+		else
+			amixer set 'Earpiece Mixer Voice' off
+			amixer set 'HeadsetL Mixer Voice' off
+			amixer set 'HeadsetR Mixer Voice' off
+		fi
+
+		(
+		if [ "$NUMBER" == "-" ]
+		then
+			echo "AT+CHUP"; sleep 3
+			amixer set 'Voice PCM Out' off
+		else
+			#echo "AT+CPIN=XXXX"; sleep 1	# use the /root/pin script to unlock the SIM card
+			echo "AT_ODO=0"; sleep 1
+			echo "AT_OPCMENABLE=1"; sleep 1
+			echo "AT_OPCMPROF=0"; sleep 1	# handset profile
+			echo "AT_OLCC=1"; sleep 1	# report connection status
+			echo "AT+VIP=0"; sleep 1	# compatible to S16_LE
+			echo "AT+COPS"; sleep 1
+			echo "AT+CLVL=4"; sleep 1
+			echo "ATD$NUMBER;"; sleep 1	# make voice call (the ; is important)
+			if [ "$MODE" = "-sw" ]
+			then
+				arecord -fS16_LE -r8000 | aplay -Ddefault:CARD=Telephony &	# microphone -> modem
+				arecord -Ddefault:CARD=Telephony -fS16_LE -r8000 | /root/twl $HANDSFREE -stdin	# modem -> earpiece, speaker, headset
+			else
+				echo "please ctl-C to end the call" >&2
+				arecord -fS16_LE -r8000 >/dev/null	# enable micbias
+				# sleep 99999	# we can't easily detect end of call (without monitoring femtocom output)
+			fi
+		fi
+		) | /root/femtocom $IF
+		;;
+
+	/dev/ttyACM[0-4] | /dev/ttyUSB[0-4] )	# Neo900 / Pyra
+
+		(
+		if [ "$NUMBER" == "-" ]
+		then
+			echo "AT+CHUP"; sleep 3
+		else
+			#echo "AT+CPIN=XXXX"; sleep 1	# use the /root/pin script to unlock the SIM card
+
+			echo "AT+COPS"; sleep 1
+			echo "AT^SAIC=3,1,1,0,1,0,1,0"; sleep 1
+			echo "ATD$NUMBER;"; sleep 1	# make voice call (the ; is important)
+			if [ "$MODE" = "-sw" ]
+			then
+				arecord -fS16_LE -r8000 | aplay -Ddefault:CARD=Telephony &	# microphone -> modem
+				arecord -Ddefault:CARD=Telephony -fS16_LE -r8000 | /root/twl $HANDSFREE -stdin	# modem -> earpiece, speaker, headset
+			else
+				echo "please ctl-C to end the call" >&2
+				arecord -fS16_LE -r8000 >/dev/null	# enable micbias
+				amixer set 'Voice PCM Out' on
+				sleep 99999
+			fi
+		fi
+		) | /root/femtocom $IF
+
+esac
