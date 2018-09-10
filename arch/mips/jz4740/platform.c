@@ -1,6 +1,8 @@
 /*
  *  Copyright (C) 2009-2010, Lars-Peter Clausen <lars@metafoo.de>
  *  JZ4740 platform devices
+ *  Copyright (C) 2017 Paul Boddie <paul@boddie.org.uk>
+ *  JZ4730 customisations
  *
  *  This program is free software; you can redistribute it and/or modify it
  *  under  the terms of the GNU General	 Public License as published by the
@@ -45,8 +47,13 @@ static struct resource jz4740_udc_resources[] = {
 		.flags = IORESOURCE_MEM,
 	},
 	[1] = {
+#ifdef CONFIG_MACH_JZ4730
+		.start = JZ4730_IRQ_UDC,
+		.end   = JZ4730_IRQ_UDC,
+#else
 		.start = JZ4740_IRQ_UDC,
 		.end   = JZ4740_IRQ_UDC,
+#endif
 		.flags = IORESOURCE_IRQ,
 		.name  = "mc",
 	},
@@ -63,53 +70,8 @@ struct platform_device jz4740_udc_device = {
 	.resource      = jz4740_udc_resources,
 };
 
-/* MMC/SD controller */
-static struct resource jz4740_mmc_resources[] = {
-	{
-		.start	= JZ4740_MSC_BASE_ADDR,
-		.end	= JZ4740_MSC_BASE_ADDR + 0x1000 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.start	= JZ4740_IRQ_MSC,
-		.end	= JZ4740_IRQ_MSC,
-		.flags	= IORESOURCE_IRQ,
-	}
-};
-
-struct platform_device jz4740_mmc_device = {
-	.name		= "jz4740-mmc",
-	.id		= 0,
-	.dev = {
-		.dma_mask = &jz4740_mmc_device.dev.coherent_dma_mask,
-		.coherent_dma_mask = DMA_BIT_MASK(32),
-	},
-	.num_resources	= ARRAY_SIZE(jz4740_mmc_resources),
-	.resource	= jz4740_mmc_resources,
-};
-
-/* I2C controller */
-static struct resource jz4740_i2c_resources[] = {
-	{
-		.start	= JZ4740_I2C_BASE_ADDR,
-		.end	= JZ4740_I2C_BASE_ADDR + 0x1000 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.start	= JZ4740_IRQ_I2C,
-		.end	= JZ4740_IRQ_I2C,
-		.flags	= IORESOURCE_IRQ,
-	}
-};
-
-struct platform_device jz4740_i2c_device = {
-	.name		= "jz4740-i2c",
-	.id		= 0,
-	.num_resources	= ARRAY_SIZE(jz4740_i2c_resources),
-	.resource	= jz4740_i2c_resources,
-};
-
 /* NAND controller */
+#ifdef CONFIG_MACH_JZ4730
 static struct resource jz4740_nand_resources[] = {
 	{
 		.name	= "mmio",
@@ -148,6 +110,7 @@ struct platform_device jz4740_nand_device = {
 	.num_resources = ARRAY_SIZE(jz4740_nand_resources),
 	.resource = jz4740_nand_resources,
 };
+#endif
 
 /* LCD controller */
 static struct resource jz4740_framebuffer_resources[] = {
@@ -208,6 +171,7 @@ struct platform_device jz4740_codec_device = {
 };
 
 /* ADC controller */
+#ifndef CONFIG_MACH_JZ4730
 static struct resource jz4740_adc_resources[] = {
 	{
 		.start	= JZ4740_SADC_BASE_ADDR,
@@ -232,10 +196,16 @@ struct platform_device jz4740_adc_device = {
 	.num_resources	= ARRAY_SIZE(jz4740_adc_resources),
 	.resource	= jz4740_adc_resources,
 };
+#endif
 
 /* PWM */
+#ifdef CONFIG_MACH_JZ4730
+struct platform_device jz4730_pwm_device = {
+	.name = "jz4730-pwm",
+#else
 struct platform_device jz4740_pwm_device = {
 	.name = "jz4740-pwm",
+#endif
 	.id   = -1,
 };
 
@@ -247,8 +217,13 @@ static struct resource jz4740_dma_resources[] = {
 		.flags	= IORESOURCE_MEM,
 	},
 	{
+#ifdef CONFIG_MACH_JZ4730
+		.start	= JZ4730_IRQ_DMAC,
+		.end	= JZ4730_IRQ_DMAC,
+#else
 		.start	= JZ4740_IRQ_DMAC,
 		.end	= JZ4740_IRQ_DMAC,
+#endif
 		.flags	= IORESOURCE_IRQ,
 	},
 };
