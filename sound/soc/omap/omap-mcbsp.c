@@ -511,16 +511,6 @@ static int omap_mcbsp_dai_set_dai_fmt(struct snd_soc_dai *cpu_dai,
 	if (inv_fs == true)
 		regs->pcr0 ^= FSXP | FSRP;
 
-#define IN_FREQUENCY (96000000)
-#define CLOCK_DIVISOR (IN_FREQUENCY / 2594000)  /* 37 */
-	printk("omap phys base %x\n", mcbsp->phys_base);
-	if ((uint32_t)mcbsp->phys_base == 0x48074000) {
-		printk("McBSP1 hack in action\n");
-//		snd_soc_dai_set_sysclk(cpu_dai, OMAP_MCBSP_SYSCLK_CLKS_FCLK, IN_FREQUENCY,
- //                                                                SND_SOC_CLOCK_IN);
-	        snd_soc_dai_set_clkdiv(cpu_dai, OMAP_MCBSP_CLKGDV, CLOCK_DIVISOR);
-
-	}
 	return 0;
 }
 
