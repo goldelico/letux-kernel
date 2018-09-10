@@ -55,10 +55,14 @@
 #define VENDOR_STATS_REGISTER		0x0A
 
 /* REG00 input source control register value */
+
 #define EN_HIZ_ENABLE	 1
 #define EN_HIZ_DISABLE	 0
 #define EN_HIZ_OFFSET	 7
 #define EN_HIZ_MASK	 1
+
+#define VINDPM_OFFSET		3
+#define VINDPM_MASK		0xf
 
 #define IINLIM_100MA		0
 #define IINLIM_150MA		1
@@ -523,6 +527,20 @@ static int bq24296_chg_current_mA_to_bits(int mA)
 }
 
 /* getter and setter functions - review critically which ones we still need */
+
+static int bq24296_get_vindpm(void)
+{
+	int ret;
+	u8 retval = 0;
+
+	ret = bq24296_read(bq24296_di->client, INPUT_SOURCE_CONTROL_REGISTER, &retval, 1);
+	if (ret < 0) {
+		dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
+		return ret;
+	}
+
+	return 3880 + 80*((retval >> VINDPM_OFFSET) & VINDPM_MASK);
+}
 
 static const unsigned int iinlim_table[] = {
 	100000,
@@ -1349,8 +1367,12 @@ static int bq24296_get_property(struct power_supply *psy,
 		if (ret < 0) {
 			dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
 		}
-		if(retval & PG_STAT)
-			val->intval = 5000000;	/* power good: assume VBUS 5V - we could also report VINDPM */
+		if(retval & PG_STAT) {
+			if(retval & DPM_STAT)
+				val->intval = bq24296_get_vindpm();
+			else
+				val->intval = 5000000;	/* power good: assume VBUS 5V */
+		}
 		else
 			val->intval = 0;	/* power not good: assume 0V */
 		break;
