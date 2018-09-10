@@ -129,7 +129,6 @@ struct if_sdio_card {
 	struct work_struct	packet_worker;
 
 	u8			rx_unit;
-	int			restore_on_resume;
 };
 
 static void if_sdio_finish_power_on(struct if_sdio_card *card);
@@ -819,8 +818,7 @@ static void if_sdio_finish_power_on(struct if_sdio_card *card)
 			card->started = true;
 			/* Tell PM core that we don't need the card to be
 			 * powered now */
-			if (func->card->host->caps & MMC_CAP_POWER_OFF_CARD)
-				pm_runtime_put(&func->dev);
+			pm_runtime_put(&func->dev);
 		}
 	}
 
@@ -1076,8 +1074,7 @@ static int if_sdio_power_save(struct lbs_private *priv)
 	ret = if_sdio_power_off(card);
 
 	/* Let runtime PM know the card is powered off */
-	if (card->func->card->host->caps & MMC_CAP_POWER_OFF_CARD)
-		pm_runtime_put_sync(&card->func->dev);
+	pm_runtime_put_sync(&card->func->dev);
 
 	return ret;
 }
@@ -1088,8 +1085,7 @@ static int if_sdio_power_restore(struct lbs_private *priv)
 	int r;
 
 	/* Make sure the card will not be powered off by runtime PM */
-	if (card->func->card->host->caps & MMC_CAP_POWER_OFF_CARD)
-		pm_runtime_get_sync(&card->func->dev);
+	pm_runtime_get_sync(&card->func->dev);
 
 	r = if_sdio_power_on(card);
 	if (r)
@@ -1257,8 +1253,7 @@ static void if_sdio_remove(struct sdio_func *func)
 	card = sdio_get_drvdata(func);
 
 	/* Undo decrement done above in if_sdio_probe */
-	if (func->card->host->caps & MMC_CAP_POWER_OFF_CARD)
-		pm_runtime_get_noresume(&func->dev);
+	pm_runtime_get_noresume(&func->dev);
 
 	if (user_rmmod && (card->model == MODEL_8688)) {
 		/*
@@ -1295,22 +1290,23 @@ static void if_sdio_remove(struct sdio_func *func)
 static int if_sdio_suspend(struct device *dev)
 {
 	struct sdio_func *func = dev_to_sdio_func(dev);
-	int ret;
 	struct if_sdio_card *card = sdio_get_drvdata(func);
+	struct lbs_private *priv = card->priv;
+	int ret;
 
 	mmc_pm_flag_t flags = sdio_get_host_pm_caps(func);
-	if (card->priv->fw_ready) {
-		/* hard is on... */
-		card->restore_on_resume = 1;
-		if_sdio_power_off(card);
-	} else
-		card->restore_on_resume = 0;
-	return 0;
+	priv->power_up_on_resume = false;
 
 	/* If we're powered off anyway, just let the mmc layer remove the
 	 * card. */
-	if (!lbs_iface_active(card->priv))
-		return 0/*-ENOSYS*/;
+	if (!lbs_iface_active(priv)) {
+		if (priv->fw_ready) {
+			priv->power_up_on_resume = true;
+			if_sdio_power_off(card);
+		}
+
+		return 0;
+	}
 
 	dev_info(dev, "%s: suspend: PM flags = 0x%x\n",
 		 sdio_func_id(func), flags);
@@ -1318,22 +1314,27 @@ static int if_sdio_suspend(struct device *dev)
 	/* If we aren't being asked to wake on anything, we should bail out
 	 * and let the SD stack power down the card.
 	 */
-	if (card->priv->wol_criteria == EHS_REMOVE_WAKEUP) {
+	if (priv->wol_criteria == EHS_REMOVE_WAKEUP) {
 		dev_info(dev, "Suspend without wake params -- powering down card\n");
-		return 0/*-ENOSYS*/;
+		if (priv->fw_ready) {
+			priv->power_up_on_resume = true;
+			if_sdio_power_off(card);
+		}
+
+		return 0;
 	}
 
 	if (!(flags & MMC_PM_KEEP_POWER)) {
 		dev_err(dev, "%s: cannot remain alive while host is suspended\n",
 			sdio_func_id(func));
-		return 0/*-ENOSYS*/;
+		return -ENOSYS;
 	}
 
 	ret = sdio_set_host_pm_flags(func, MMC_PM_KEEP_POWER);
 	if (ret)
 		return ret;
 
-	ret = lbs_suspend(card->priv);
+	ret = lbs_suspend(priv);
 	if (ret)
 		return ret;
 
@@ -1345,10 +1346,13 @@ static int if_sdio_resume(struct device *dev)
 	struct sdio_func *func = dev_to_sdio_func(dev);
 	struct if_sdio_card *card = sdio_get_drvdata(func);
 	int ret;
-	if (card->restore_on_resume)
-		if_sdio_power_on(card);
-	return 0;
+
 	dev_info(dev, "%s: resume: we're back\n", sdio_func_id(func));
+
+	if (card->priv->power_up_on_resume) {
+		if_sdio_power_on(card);
+		wait_event(card->pwron_waitq, card->priv->fw_ready);
+	}
 
 	ret = lbs_resume(card->priv);
 
@@ -1356,8 +1360,8 @@ static int if_sdio_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops if_sdio_pm_ops = {
-	.suspend	= NULL /*if_sdio_suspend*/,
-	.resume		= NULL /*if_sdio_resume*/,
+	.suspend	= if_sdio_suspend,
+	.resume		= if_sdio_resume,
 };
 
 static struct sdio_driver if_sdio_driver = {
