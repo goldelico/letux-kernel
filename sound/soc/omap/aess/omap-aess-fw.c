@@ -639,6 +639,7 @@ static int aess_load_config(struct snd_soc_component *component,
 
 /* callback to handle vendor data */
 static int aess_vendor_load(struct snd_soc_component *component,
+			    int index,
 			    struct snd_soc_tplg_hdr *hdr)
 {
 	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
