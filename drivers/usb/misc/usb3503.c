@@ -5,8 +5,6 @@
  * Copyright (c) 2012-2013 Dongjin Kim (tobetter@gmail.com)
  */
 
-#define dev_info dev_err
-
 #include <linux/clk.h>
 #include <linux/i2c.h>
 #include <linux/gpio.h>
@@ -17,6 +15,9 @@
 #include <linux/platform_device.h>
 #include <linux/platform_data/usb3503.h>
 #include <linux/regmap.h>
+
+#undef dev_info
+#define dev_info dev_err
 
 #define USB3503_VIDL		0x00
 #define USB3503_VIDM		0x01
