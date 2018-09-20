@@ -339,3 +339,15 @@
 		ti,adc-channels = <0 1 2>;
 	};
 };
+
+/* application */
+
+&i2c1 {
+	clock-frequency = <100000>;
+
+	bq27421@55 {
+		compatible = "ti,bq27421";
+		reg = <0x55>;
+	};
+
+};
