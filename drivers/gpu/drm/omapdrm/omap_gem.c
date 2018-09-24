@@ -792,7 +792,6 @@ static int _omap_gem_pin(struct drm_gem_object *obj)
 {
 	struct omap_drm_private *priv = obj->dev->dev_private;
 	struct omap_gem_object *omap_obj = to_omap_bo(obj);
-	struct page **pages;
 	u32 npages = obj->size >> PAGE_SHIFT;
 	enum tiler_fmt fmt = gem2fmt(omap_obj->flags);
 	struct tiler_block *block;
@@ -831,7 +830,7 @@ static int _omap_gem_pin(struct drm_gem_object *obj)
 	}
 
 	/* TODO: enable async refill.. */
-	ret = tiler_pin(block, pages, npages,
+	ret = tiler_pin(block, omap_obj->pages, npages,
 			omap_obj->roll, true);
 	if (ret) {
 		tiler_release(block);
