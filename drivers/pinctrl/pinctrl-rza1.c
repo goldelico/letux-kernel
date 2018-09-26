@@ -1005,7 +1005,8 @@ static int rza1_dt_node_to_map(struct pinctrl_dev *pctldev,
 	struct device_node *child;
 	const char *grpname;
 	const char **fngrps;
-	int ret, npins, gsel, fsel;
+	int ret, npins;
+	int gsel, fsel;
 
 	npins = rza1_dt_node_pin_count(np);
 	if (npins < 0) {
