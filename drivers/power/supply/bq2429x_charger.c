@@ -1135,7 +1135,7 @@ static struct bq24296_board *bq24296_parse_dt(struct bq24296_device_info *di)
 		pdata->dc_det_pin = NULL;
 	}
 
-	pdata->otg_usb_pin = devm_gpiod_get_index(&di->client->dev, "otg", 0, GPIOD_OUT_HIGH);
+	pdata->otg_usb_pin = devm_gpiod_get_index(&di->client->dev, "otg", 0, GPIOD_OUT_LOW);
 	if (IS_ERR(pdata->otg_usb_pin)) {
 		if (PTR_ERR(pdata->otg_usb_pin) == -EPROBE_DEFER)
 			return NULL;
