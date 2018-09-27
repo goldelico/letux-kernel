@@ -396,11 +396,11 @@ static int bq24296_init_registers(void)
  * U-Boot has it already disabled because it can't poll the chip if waiting for commands
  * on the command-line and while Linux starts
  *
- * But in Linux should better re-enable it and reset the watchdog by our polling function
+ * But in Linux we should better re-enable it and reset the watchdog by our polling function
  * Make it a DT property!
  *
  * Probably U-Boot should re-enable it before launching Linux so it becomes active
- * if Linux does not properly boot
+ * even if Linux does not properly boot
  *
  * So we should only restart if every now and then
  */
