@@ -698,62 +698,73 @@ static int bq24296_charge_otg_en(int chg_en,int otg_en)
 
 /* this polls the bq2429x to handle VBUS events -- should become interrupt driven */
 
-u8 r8;	// should be read in interrupt handler
-u8 r9;	// should be read in interrupt handler because it autoresets
+// FIXME: move this to bq24296_device_info!!!
 
-u8 previous_r8 = 0xff;
+static u8 r8;	// should be read in interrupt handler
+static u8 r9;	// should be read in interrupt handler because it autoresets
 
-bool bq24296_battery_present;
-bool bq24296_input_present;	// VBUS available
+bool adapter_plugged;
 
-static void usb_detect_work_func(struct work_struct *work)
+static inline bool bq24296_battery_present(struct bq24296_device_info *pi)
 {
-	struct delayed_work *delayed_work = (struct delayed_work *)container_of(work, struct delayed_work, work);
-	struct bq24296_device_info *pi = (struct bq24296_device_info *)container_of(delayed_work, struct bq24296_device_info, usb_detect_work);
-	int ret ;
+	return ((r9 >> NTC_FAULT_OFFSET) & NTC_FAULT_MASK) == 0;	/* if no fault */
+}
 
-	previous_r8 = r8;
+static inline bool bq24296_input_present(struct bq24296_device_info *pi)
+{ /* VBUS is available */
+	return (r8 & PG_STAT) != 0;
+}
+
+static void bq2429x_input_available(struct bq24296_device_info *pi, bool state)
+{ /* track external power input state and trigger actions on change */
+	if (state && !adapter_plugged) {
+		adapter_plugged = true;
+
+		DBG("bq24296: VBUS became available\n");
+		printk("bq24296: VBUS became available\n");
+
+		// this should have been queried/provided by the USB stack...
+		bq24296_update_input_current_limit(bq24296_di->usb_input_current);
+
+		/* start charging */
+		bq24296_update_charge_mode(CHARGE_MODE_CONFIG_CHARGE_BATTERY);
+		}
+	else if (!state && adapter_plugged) {
+		adapter_plugged = false;
+
+		DBG("bq24296: VBUS became unavailable\n");
+		printk("bq24296: VBUS became unavailable\n");
+		}
+}
+
+static int bq24296_usb_detect(struct bq24296_device_info *pi)
+{
+	int ret;
 
 //	printk("%s, line=%d\n", __func__,__LINE__);
 
 	ret = bq24296_read(bq24296_di->client, SYSTEM_STATS_REGISTER, &r8, 1);
 	if (ret < 0) {
 		dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
-		return;	/* don't schedule again */
+		return ret;
 	}
 
 	ret = bq24296_read(bq24296_di->client, FAULT_STATS_REGISTER, &r9, 1);
 	if (ret < 0) {
 		dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
-		return;	/* don't schedule again */
+		return ret;
 	}
 
-	bq24296_battery_present = ((r9 >> NTC_FAULT_OFFSET) & NTC_FAULT_MASK) == 0;	/* if no fault */
-	bq24296_input_present = (r8 & PG_STAT) != 0;
+#if 1
+	{ // print changes to last state
+		static u8 prev_r8=0xff, prev_r9=0xff;
 
-	if (r8 != previous_r8 || bq24296_input_present != ((previous_r8 & PG_STAT) != 0))
-		DBG("%s: r8 = %02x bq24296_input_present = %d\n", __func__,r8,bq24296_input_present);
-
-#if FIXME
-
-/*
- * we should apply the same logic as U-Boot
- * if no battery available, increase the IINLIM to 2A if below
- * this makes it possible to run from a sufficiently strong USB power supply
- * in all other cases, leave the IINLIM untouched and updated only by udev events
- * or user contro writing to /sys/class/power/bq24297/
- * There is some issue even with this approach:
- * if battery is inserted and system connected to a 2A power supply
- * and then the battery is removed (might happen even during suspend)
- * it may take too long until IINLIM is increased to 2A by code so
- * that the Host stops before it can do anything good. It will then
- * probably reboot and then increase to 2A by U-Boot.
- */
-
-	if (!bq24296_battery_present && bq24296_input_current_limit_uA() < 2000000)
-		bq24296_update_input_current_limit(bq24296_limit_current_mA_to_bits(2000000));
-
+		if(r8 != prev_r8 || r9 != prev_r9)
+			printk("%s: r8=%02x r9=%02x\n", __func__, r8, r9);
+		prev_r8 = r8, prev_r9 = r9;
+	}
 #endif
+
 
 #if FIXME
 
@@ -816,28 +827,38 @@ static void usb_detect_work_func(struct work_struct *work)
 /* FIXME/CHECKME:
    do we really have to actively switch to charging or does the charger start automatically?
    Then, we might not even need this scheduled worker function
+
+   We should send an udev event like other chargers do
+
 */
 
-		/* detect VBUS availability changes */
-		if(ret && bq24296_input_present && !(previous_r8 & PG_STAT)) { /* VBUS became available */
-			DBG("bq24296: VBUS became available\n");
-			printk("bq24296: VBUS became available\n");
-			// this should have been queried/provided by the USB stack...
-			bq24296_update_input_current_limit(bq24296_di->usb_input_current);
-		/* could trigger another DPDM detection... */
-		/* start charging here */
-//			bq24296_update_charge_mode(CHARGE_MODE_CONFIG_CHARGE_BATTERY);
-		}
-		else if(ret && !bq24296_input_present && (previous_r8 & PG_STAT)) { /* VBUS became unavailable */
-			DBG("bq24296: VBUS became unavailable\n");
-			printk("bq24296: VBUS became unavailable\n");
-		}
+		/* handle (momentarily) disconnect of VBUS */
+		if ((r9 >> CHRG_FAULT_OFFSET) & CHRG_FAULT_MASK)
+			bq2429x_input_available(pi, false);
+
+		/* since we are polling slowly VBUS may already be back again */
+		bq2429x_input_available(pi, bq24296_input_present(pi));
+
 #endif
 	}
 
 	mutex_unlock(&pi->var_lock);
 
-	schedule_delayed_work(&pi->usb_detect_work, 1*HZ);
+	return 0;
+}
+
+// should better use either one and not both...
+
+static void usb_detect_work_func(struct work_struct *work)
+{
+	struct delayed_work *delayed_work = (struct delayed_work *)container_of(work, struct delayed_work, work);
+	struct bq24296_device_info *pi = (struct bq24296_device_info *)container_of(delayed_work, struct bq24296_device_info, usb_detect_work);
+	int ret;
+
+	ret = bq24296_usb_detect(pi);
+
+	if (ret == 0)
+		schedule_delayed_work(&pi->usb_detect_work, 1*HZ);
 }
 
 static void bq2729x_irq_work_func(struct work_struct *work)
@@ -845,10 +866,9 @@ static void bq2729x_irq_work_func(struct work_struct *work)
 //	struct bq24296_device_info *info= container_of(work, struct bq24296_device_info, irq_work);
 //	printk("%s\n", __func__);
 
-	bq24296_read(bq24296_di->client, SYSTEM_STATS_REGISTER, &r8, 1);
-	bq24296_read(bq24296_di->client, FAULT_STATS_REGISTER, &r9, 1);
+	bq24296_usb_detect(NULL);	// should pass correct pointer...
 
-	printk("%s r8=%02x r9=%02x\n", __func__, r8, r9);
+	printk("%s: r8=%02x r9=%02x\n", __func__, r8, r9);
 }
 
 static irqreturn_t bq2729x_chg_irq_func(int irq, void *dev_id)
@@ -1006,7 +1026,7 @@ static int bq24296_otg_enable(struct regulator_dev *dev)
 	printk("%s(%d)\n", __func__, idx);
 
 	/* check if battery is present and reject if no battery */
-	if (!bq24296_battery_present) {
+	if (!bq24296_battery_present(di)) {
 		dev_warn(&di->client->dev, "can enable otg only with installed battery\n");
 		return -EBUSY;
 	}
@@ -1326,11 +1346,7 @@ static int bq24296_get_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
-		ret = bq24296_read(bq24296_di->client, SYSTEM_STATS_REGISTER, &retval, 1);
-		if (ret < 0) {
-			dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
-		}
-		switch((retval >> CHRG_OFFSET) & CHRG_MASK) {
+		switch((r8 >> CHRG_OFFSET) & CHRG_MASK) {
 			case CHRG_NO_CHARGING:	val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING; break;
 			case CHRG_PRE_CHARGE:	val->intval = POWER_SUPPLY_STATUS_CHARGING; break;
 			case CHRG_FAST_CHARGE:	val->intval = POWER_SUPPLY_STATUS_CHARGING; break;
@@ -1338,11 +1354,7 @@ static int bq24296_get_property(struct power_supply *psy,
 		}
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_TYPE:
-		ret = bq24296_read(bq24296_di->client, SYSTEM_STATS_REGISTER, &retval, 1);
-		if (ret < 0) {
-			dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
-		}
-		switch((retval >> CHRG_OFFSET) & CHRG_MASK) {
+		switch((r8 >> CHRG_OFFSET) & CHRG_MASK) {
 			case CHRG_NO_CHARGING:	val->intval = POWER_SUPPLY_CHARGE_TYPE_NONE; break;
 			case CHRG_PRE_CHARGE:	val->intval = POWER_SUPPLY_CHARGE_TYPE_TRICKLE; break;
 			case CHRG_FAST_CHARGE:	val->intval = POWER_SUPPLY_CHARGE_TYPE_FAST; break;
@@ -1378,11 +1390,7 @@ static int bq24296_get_property(struct power_supply *psy,
 //		printk("bq24296 CURRENT_MAX: %u mA\n", val->intval);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
-		ret = bq24296_read(bq24296_di->client, SYSTEM_STATS_REGISTER, &retval, 1);
-		if (ret < 0) {
-			dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
-		}
-		switch((retval >> CHRG_OFFSET) & CHRG_MASK) {
+		switch((r8 >> CHRG_OFFSET) & CHRG_MASK) {
 			case CHRG_NO_CHARGING:
 			case CHRG_CHRGE_DONE:
 				val->intval = 0;	// assume not charging current
@@ -1414,18 +1422,9 @@ static int bq24296_get_property(struct power_supply *psy,
 		}
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
-		/* read twice to clear any flag */
-		ret = bq24296_read(bq24296_di->client, FAULT_STATS_REGISTER, &retval, 1);
-		if (ret < 0) {
-			dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
-		}
-		ret = bq24296_read(bq24296_di->client, FAULT_STATS_REGISTER, &retval, 1);
-		if (ret < 0) {
-			dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
-		}
 		// FIXME: deduce values from BHOT and BCOLD settings if boost mode is active
 		// otherwise we report the defaults from the chip spec
-		if (retval & 0x02)
+		if (r9 & 0x02)
 			val->intval = -100;	// too cold (-10C)
 		else if (retval & 0x01)
 			val->intval = 600;	// too hot (60C)
@@ -1433,21 +1432,13 @@ static int bq24296_get_property(struct power_supply *psy,
 			val->intval = 225;	// ok (22.5C)
 		break;
 	case POWER_SUPPLY_PROP_ONLINE:	/* charger online, i.e. VBUS */
-		ret = bq24296_read(bq24296_di->client, SYSTEM_STATS_REGISTER, &retval, 1);
-		if (ret < 0) {
-			dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
-		}
-		val->intval = (retval & PG_STAT) != 0;	/* power is good */
+		val->intval = bq24296_input_present(bq24296_di);	/* power is good */
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
 #if 0	/* this would indicate a low battery! */
-		ret = bq24296_read(bq24296_di->client, SYSTEM_STATS_REGISTER, &retval, 1);
-		if (ret < 0) {
-			dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
-		}
-		val->intval = !(retval & 0x1);	// VBAT > VSYSMIN
+		val->intval = !(r8 & VSYS_STAT);	// VBAT > VSYSMIN
 #else
-		val->intval = bq24296_battery_present;
+		val->intval = bq24296_battery_present(bq24296_di);
 #endif
 		break;
 	default:
