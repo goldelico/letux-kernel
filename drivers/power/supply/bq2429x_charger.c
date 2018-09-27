@@ -528,7 +528,7 @@ static int bq24296_chg_current_mA_to_bits(int mA)
 
 /* getter and setter functions - review critically which ones we still need */
 
-static int bq24296_get_vindpm(void)
+static int bq24296_get_vindpm_uV(void)
 {
 	int ret;
 	u8 retval = 0;
@@ -539,7 +539,7 @@ static int bq24296_get_vindpm(void)
 		return ret;
 	}
 
-	return 3880 + 80*((retval >> VINDPM_OFFSET) & VINDPM_MASK);
+	return 3880000 + 80000*((retval >> VINDPM_OFFSET) & VINDPM_MASK);
 }
 
 static const unsigned int iinlim_table[] = {
@@ -1363,13 +1363,9 @@ static int bq24296_get_property(struct power_supply *psy,
 		break;
 #endif
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		ret = bq24296_read(bq24296_di->client, SYSTEM_STATS_REGISTER, &retval, 1);
-		if (ret < 0) {
-			dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
-		}
-		if(retval & PG_STAT) {
-			if(retval & DPM_STAT)
-				val->intval = bq24296_get_vindpm();
+		if(bq24296_input_present(bq24296_di)) {
+			if ((r8 & DPM_STAT) != 0)
+				val->intval = bq24296_get_vindpm_uV();
 			else
 				val->intval = 5000000;	/* power good: assume VBUS 5V */
 		}
