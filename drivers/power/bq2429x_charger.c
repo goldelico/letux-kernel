@@ -27,15 +27,11 @@
 #include <linux/idr.h>
 #include <linux/i2c.h>
 #include <linux/slab.h>
-#include <asm/unaligned.h>
-#include <linux/proc_fs.h>
-#include <asm/uaccess.h>
-#include <linux/power/bq2429x_charger.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
+#include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/of_gpio.h>
-#include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
@@ -45,29 +41,199 @@
 #define OTG_REGULATOR	1
 #define NUM_REGULATORS	2
 
+/* I2C register define */
+#define INPUT_SOURCE_CONTROL_REGISTER		0x00
+#define POWER_ON_CONFIGURATION_REGISTER		0x01
+#define CHARGE_CURRENT_CONTROL_REGISTER		0x02
+#define PRE_CHARGE_TERMINATION_CURRENT_CONTROL_REGISTER		0x03
+#define CHARGE_VOLTAGE_CONTROL_REGISTER		0x04
+#define TERMINATION_TIMER_CONTROL_REGISTER		0x05
+#define THERMAL_REGULATION_CONTROL_REGISTER		0x06
+#define MISC_OPERATION_CONTROL_REGISTER		0x07
+#define SYSTEM_STATS_REGISTER		0x08
+#define FAULT_STATS_REGISTER		0x09
+#define VENDOR_STATS_REGISTER		0x0A
+
+/* REG00 input source control register value */
+
+#define EN_HIZ_ENABLE	 1
+#define EN_HIZ_DISABLE	 0
+#define EN_HIZ_OFFSET	 7
+#define EN_HIZ_MASK	 1
+
+#define VINDPM_OFFSET		3
+#define VINDPM_MASK		0xf
+
+#define IINLIM_100MA		0
+#define IINLIM_150MA		1
+#define IINLIM_500MA		2
+#define IINLIM_900MA		3
+#define IINLIM_1200MA		4
+#define IINLIM_1500MA		5
+#define IINLIM_2000MA		6
+#define IINLIM_3000MA		7
+#define IINLIM_OFFSET		0
+#define IINLIM_MASK		7
+
+/* REG01 power-on configuration register value */
+#define WATCHDOG_RESET	0x40
+
+#define REGISTER_RESET_ENABLE	 1
+#define REGISTER_RESET_DISABLE	 0
+#define REGISTER_RESET_OFFSET	 7
+#define REGISTER_RESET_MASK	 1
+
+/* Charge Mode Config */
+#define CHARGE_MODE_CONFIG_CHARGE_DISABLE	0x00
+#define CHARGE_MODE_CONFIG_CHARGE_BATTERY	0x01
+#define CHARGE_MODE_CONFIG_OTG_OUTPUT		0x02
+#define CHARGE_MODE_CONFIG_OFFSET		4
+#define CHARGE_MODE_CONFIG_MASK		0x03
+
+#define SYS_MIN_OFFSET		1
+#define SYS_MIN_MASK		0x7
+
+/* OTG Mode Current Config */
+#define OTG_MODE_CURRENT_CONFIG_500MA		0x00
+#define OTG_MODE_CURRENT_CONFIG_1300MA	0x01
+#define OTG_MODE_CURRENT_CONFIG_OFFSET	0
+#define OTG_MODE_CURRENT_CONFIG_MASK		0x01
+
+/* REG02 charge current limit register value */
+#define CHARGE_CURRENT_64MA		0x01
+#define CHARGE_CURRENT_128MA		0x02
+#define CHARGE_CURRENT_256MA		0x04
+#define CHARGE_CURRENT_512MA		0x08
+#define CHARGE_CURRENT_1024MA		0x10
+#define CHARGE_CURRENT_1536MA		0x18
+#define CHARGE_CURRENT_2048MA		0x20
+#define CHARGE_CURRENT_OFFSET		2
+#define CHARGE_CURRENT_MASK		0x3f
+
+/* REG03 Pre-Charge/Termination Current Control Register value */
+/* Pre-Charge Current Limit */
+#define PRE_CHARGE_CURRENT_LIMIT_128MA		0x00
+#define PRE_CHARGE_CURRENT_LIMIT_256MA		0x01
+#define PRE_CHARGE_CURRENT_LIMIT_OFFSET		4
+#define PRE_CHARGE_CURRENT_LIMIT_MASK		0x0f
+/* Termination Current Limit */
+#define TERMINATION_CURRENT_LIMIT_128MA		0x00
+#define TERMINATION_CURRENT_LIMIT_256MA		0x01
+#define TERMINATION_CURRENT_LIMIT_OFFSET		0
+#define TERMINATION_CURRENT_LIMIT_MASK		0x0f
+
+/* REG04 Charge Voltage Register */
+#define VREG_MASK	0x3f
+#define VREG_OFFSET	2
+
+/* REG05 Charge Termination/Timer control register value */
+#define WATCHDOG_DISABLE		0
+#define WATCHDOG_40S		1
+#define WATCHDOG_80S		2
+#define WATCHDOG_160S		3
+#define WATCHDOG_OFFSET		4
+#define WATCHDOG_MASK		3
+
+/* REG06 boost voltage/thermal regulation register */
+#define BOOSTV_OFFSET	4
+#define BOOSTV_MASK	0xf
+
+/* REG07 misc operation control register value */
+#define DPDM_ENABLE	 1
+#define DPDM_DISABLE	 0
+#define DPDM_OFFSET	 7
+#define DPDM_MASK	 1
+
+/* REG08 system status register value */
+#define VBUS_UNKNOWN		0
+#define VBUS_USB_HOST		1
+#define VBUS_ADAPTER_PORT		2
+#define VBUS_OTG		3
+#define VBUS_OFFSET		6
+#define VBUS_MASK		3
+
+#define CHRG_NO_CHARGING		0
+#define CHRG_PRE_CHARGE		1
+#define CHRG_FAST_CHARGE		2
+#define CHRG_CHRGE_DONE		3
+#define CHRG_OFFSET		4
+#define CHRG_MASK		3
+
+#define DPM_STAT	0x08
+#define PG_STAT		0x04
+#define THERM_STAT	0x02
+#define VSYS_STAT	0x01
+
+/* REG09 fault status register value */
+
+#define WATCHDOG_FAULT	0x80
+#define OTG_FAULT	0x40
+#define CHRG_FAULT_OFFSET	4
+#define CHRG_FAULT_MASK	0x3
+#define BAT_FAULT	0x08
+#define NTC_FAULT_OFFSET	0
+#define NTC_FAULT_MASK	0x3
+
+/* REG0a vendor status register value */
+/* #define CHIP_BQ24190		0
+#define CHIP_BQ24191		1
+#define CHIP_BQ24192		2
+#define CHIP_BQ24192I		3
+#define CHIP_BQ24190_DEBUG		4
+#define CHIP_BQ24192_DEBUG		5 */
+#define CHIP_BQ24296		1
+#define CHIP_BQ24297		3
+#define CHIP_MP2624		0
+#define CHIP_OFFSET		2
+#define CHIP_MASK		7
+
+#define BQ24296_CHG_COMPELET       0x03
+#define BQ24296_NO_CHG             0x00
+
+#define BQ24296_DC_CHG             0x02
+#define BQ24296_USB_CHG            0x01
+
+struct bq24296_board {
+	struct gpio_desc *otg_usb_pin;
+	struct gpio_desc *dc_det_pin;
+	struct gpio_desc *psel_pin;
+	unsigned int chg_current[3];
+};
+
 struct bq24296_device_info {
 	struct device 		*dev;
-	struct delayed_work usb_detect_work;
 	struct i2c_client	*client;
-	unsigned int interval;
+	const struct i2c_device_id *id;
+
 	struct mutex	var_lock;
-	struct workqueue_struct	*freezable_work;
-	struct work_struct	irq_work;	/* for Charging & VUSB/VADP */
+
+	struct delayed_work	usb_detect_work;
+	struct work_struct	irq_work;
+	struct workqueue_struct *workqueue;
+
 	struct regulator_desc desc[NUM_REGULATORS];
 	struct device_node *of_node[NUM_REGULATORS];
 	struct regulator_dev *rdev[NUM_REGULATORS];
 	struct regulator_init_data *pmic_init_data;
 
-	struct workqueue_struct *workqueue;
+	struct gpio_desc *otg_usb_pin;
+	struct gpio_desc *dc_det_pin;
+	struct gpio_desc *psel_pin;
+
+	u8 r8, r9;	/* status register values from last read */
+	u8 prev_r8, prev_r9;
+	bool adapter_plugged;	/* is power adapter plugged in */
+
 	u8 chg_current;
 	u8 usb_input_current;
 	u8 adp_input_current;
-	//struct timer_list timer;
+
 	struct power_supply *usb;
 };
 
-struct bq24296_device_info *bq24296_di;
-struct bq24296_board *bq24296_pdata;
+/* should be read from DT properties! */
+static unsigned int battery_voltage_max_design_uV = 4200000;	// default
+static unsigned int max_VSYS_uV = 5000000;	// "unlimited"
 
 #if 0
 #define DBG(x...) printk(KERN_INFO x)
@@ -174,7 +340,7 @@ static int bq24296_update_reg(struct i2c_client *client, int reg, u8 value, u8 m
 	u8 buffer;
 	for(i=0;i<11;i++)
 		{
-		bq24296_read(bq24296_di->client, i, &buffer, 1);
+		bq24296_read(client, i, &buffer, 1);
 		printk("  reg %02x value %02x\n", i, buffer);
 		}
 }
@@ -189,7 +355,8 @@ static ssize_t show_registers(struct device *dev, struct device_attribute *attr,
 {
 	int i;
 	u8 buffer;
-	struct bq24296_device_info *di=bq24296_di;
+	struct i2c_client *client = to_i2c_client(dev);
+	struct bq24296_device_info *di = i2c_get_clientdata(client);
 	int len = 0;
 
 	for(i=0;i<11;i++)
@@ -208,18 +375,19 @@ DEVICE_ATTR(registers, 0444, show_registers,NULL);
 // FIXME: review very critical what we need to initialize
 // and why it is constant and not defined by device tree properties!
 
-static int bq24296_init_registers(void)
+static int bq24296_init_registers(struct bq24296_device_info *di)
 {
 	int ret = 0;
+	int max_uV, bits;
 
-#if 0
+#if 0	// NO: don't do that because we are powered through this chip - u-boot must have initialized properly
 	/* reset the configuration register */
-	ret = bq24296_update_reg(bq24296_di->client,
-	POWER_ON_CONFIGURATION_REGISTER,
-	REGISTER_RESET_ENABLE << REGISTER_RESET_OFFSET,
-	REGISTER_RESET_MASK << REGISTER_RESET_OFFSET);
+	 ret = bq24296_update_reg(di->client,
+				 POWER_ON_CONFIGURATION_REGISTER,
+				 REGISTER_RESET_ENABLE << REGISTER_RESET_OFFSET,
+				 REGISTER_RESET_MASK << REGISTER_RESET_OFFSET);
 	if (ret < 0) {
-		dev_err(&bq24296_di->client->dev, "%s(): Failed to reset the register \n",
+		dev_err(&di->client->dev, "%s(): Failed to reset the register \n",
 		__func__);
 	goto final;
 	}
@@ -228,57 +396,89 @@ static int bq24296_init_registers(void)
 #endif
 
 /*
- * FIXME: why do we disable the watchdog?
- * Yes, U-Boot has it disabled because it can't poll the chip if waiting for commands
+ * FIXME: why do we want to disable the watchdog?
+ *
+ * U-Boot has it already disabled because it can't poll the chip if waiting for commands
  * on the command-line and while Linux starts
  *
- * But in Linux should better re-enable it and reset the watchdog by our polling function
- * Make it a DT property!
+ * But in Linux we should better re-enable it and reset the watchdog by our polling function
+ * Make it a DT property "ti,enable-watchdog"! - there should be the option to leave it as defined by U-Boot
+ *
+ * Probably U-Boot should re-enable it before launching Linux so it becomes active
+ * even if Linux does not properly boot
+ *
+ * So we should only restart if every now and then
  */
 
 #if 0
 	/* Disable the watchdog */
-	ret = bq24296_update_reg(bq24296_di->client,
+	ret = bq24296_update_reg(di->client,
 				  TERMINATION_TIMER_CONTROL_REGISTER,
 				  WATCHDOG_DISABLE << WATCHDOG_OFFSET,
 				  WATCHDOG_MASK << WATCHDOG_OFFSET);
 	if (ret < 0) {
-		dev_err(&bq24296_di->client->dev, "%s(): Failed to disable the watchdog \n",
+		dev_err(&di->client->dev, "%s(): Failed to disable the watchdog \n",
 				__func__);
 		goto final;
 	}
 #endif
 
 	/* Set Pre-Charge Current Limit as 128mA */
-	ret = bq24296_update_reg(bq24296_di->client,
+	ret = bq24296_update_reg(di->client,
 				  PRE_CHARGE_TERMINATION_CURRENT_CONTROL_REGISTER,
 				  PRE_CHARGE_CURRENT_LIMIT_128MA << PRE_CHARGE_CURRENT_LIMIT_OFFSET,
 				  PRE_CHARGE_CURRENT_LIMIT_MASK << PRE_CHARGE_CURRENT_LIMIT_OFFSET);
 	if (ret < 0) {
-		dev_err(&bq24296_di->client->dev, "%s(): Failed to set pre-charge limit 128mA \n",
+		dev_err(&di->client->dev, "%s(): Failed to set pre-charge limit 128mA\n",
 				__func__);
 		goto final;
 	}
 
 	/* Set Termination Current Limit as 128mA */
-	ret = bq24296_update_reg(bq24296_di->client,
+	ret = bq24296_update_reg(di->client,
 				  PRE_CHARGE_TERMINATION_CURRENT_CONTROL_REGISTER,
 				  TERMINATION_CURRENT_LIMIT_128MA << TERMINATION_CURRENT_LIMIT_OFFSET,
 				  TERMINATION_CURRENT_LIMIT_MASK << TERMINATION_CURRENT_LIMIT_OFFSET);
 	if (ret < 0) {
-		dev_err(&bq24296_di->client->dev, "%s(): Failed to set termination limit 128mA \n",
+		dev_err(&di->client->dev, "%s(): Failed to set termination limit 128mA\n",
+				__func__);
+		goto final;
+	}
+
+	// VSYS may be 150mV above fully charged battery voltage
+	// so to effectively limit VSYS we may have to lower the max. battery voltage
+	// this may be switched to 100mV for the mps,mp2624
+
+	max_uV = min(max_VSYS_uV - 150000, battery_voltage_max_design_uV);
+
+	bits = (max_uV - 3504000) / 16000;
+	bits = max(bits, 0);
+	bits = min(bits, 63);
+
+	dev_info(&di->client->dev, "%s(): translated vbatt_max=%u and VSYS_max=%u to VREG=%u (%02x)\n",
+		__func__,
+		battery_voltage_max_design_uV, max_VSYS_uV, max_uV,
+		bits);
+
+	ret = bq24296_update_reg(di->client,
+				  CHARGE_VOLTAGE_CONTROL_REGISTER,
+				  bits << VREG_OFFSET,
+				  VREG_MASK << VREG_OFFSET);
+	if (ret < 0) {
+		dev_err(&di->client->dev, "%s(): Failed to set max. battery voltage\n",
 				__func__);
 		goto final;
 	}
 
 #if 0
 	/* Set System Voltage Limit as 3.2V */
-	ret = bq24296_update_reg(bq24296_di->client,
+	/* FIXME: read from DT */
+	ret = bq24296_update_reg(di->client,
 				  POWER_ON_CONFIGURATION_REGISTER,
 				  0x04,	/* 3.0V + 0.2V */
 				  SYS_MIN_MASK << SYS_MIN_OFFSET);
 	if (ret < 0) {
-		dev_err(&bq24296_di->client->dev, "%s(): Failed to set voltage limit 3.2V \n",
+		dev_err(&di->client->dev, "%s(): Failed to set voltage limit 3.2V \n",
 				__func__);
 		goto final;
 	}
@@ -286,12 +486,12 @@ static int bq24296_init_registers(void)
 
 #if 0
 	/* disable boost temperature protection (for debugging) */
-	ret = bq24296_update_reg(bq24296_di->client,
-							 THERMAL_REGULATION_CONTROL_REGISTER,
-							 0x0c,	/* BHOT[1:0]=11 */
-							 0x0c);
+	ret = bq24296_update_reg(di->client,
+				 THERMAL_REGULATION_CONTROL_REGISTER,
+				 0x0c,	/* BHOT[1:0]=11 */
+				 0x0c);
 	if (ret < 0) {
-		dev_err(&bq24296_di->client->dev, "%s(): Failed to disable boost temperature monitor \n",
+		dev_err(&di->client->dev, "%s(): Failed to disable boost temperature monitor \n",
 				__func__);
 		goto final;
 	}
@@ -334,7 +534,21 @@ static int bq24296_chg_current_mA_to_bits(int mA)
 	return data;
 }
 
-/* getter and setter functions - review critically which ones we still need */
+/* getter and setter functions */
+
+static int bq24296_get_vindpm_uV(struct bq24296_device_info *di)
+{
+	int ret;
+	u8 retval = 0;
+
+	ret = bq24296_read(di->client, INPUT_SOURCE_CONTROL_REGISTER, &retval, 1);
+	if (ret < 0) {
+		dev_err(&di->client->dev, "%s: err %d\n", __func__, ret);
+		return ret;
+	}
+
+	return 3880000 + 80000*((retval >> VINDPM_OFFSET) & VINDPM_MASK);
+}
 
 static const unsigned int iinlim_table[] = {
 	100000,
@@ -347,15 +561,14 @@ static const unsigned int iinlim_table[] = {
 	3000000,
 };
 
-static int bq24296_input_current_limit_uA(void)
+static int bq24296_input_current_limit_uA(struct bq24296_device_info *di)
 {
-	int cur;	/* in uA */
 	int ret;
 	u8 retval = 0;
 
-	ret = bq24296_read(bq24296_di->client, INPUT_SOURCE_CONTROL_REGISTER, &retval, 1);
+	ret = bq24296_read(di->client, INPUT_SOURCE_CONTROL_REGISTER, &retval, 1);
 	if (ret < 0) {
-		dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
+		dev_err(&di->client->dev, "%s: err %d\n", __func__, ret);
 		return ret;
 	}
 
@@ -365,108 +578,104 @@ static int bq24296_input_current_limit_uA(void)
 	return iinlim_table[(retval >> IINLIM_OFFSET) & IINLIM_MASK];
 }
 
-static int bq24296_update_input_current_limit(int value)
+static int bq24296_update_input_current_limit(struct bq24296_device_info *di, int value)
 {
 	int ret = 0;
 	u8 hiz = (value < 0 ? EN_HIZ_ENABLE : EN_HIZ_DISABLE);
 
 printk("bq24296_update_input_current_limit(%d)\n", value);
 
-	ret = bq24296_update_reg(bq24296_di->client,
+	ret = bq24296_update_reg(di->client,
 				  INPUT_SOURCE_CONTROL_REGISTER,
 				  (((value & IINLIM_MASK) << IINLIM_OFFSET) | (hiz << EN_HIZ_OFFSET)),
 				  ((IINLIM_MASK << IINLIM_OFFSET) | (EN_HIZ_MASK << EN_HIZ_OFFSET)));
 	if (ret < 0) {
-		dev_err(&bq24296_di->client->dev, "%s(): Failed to set input current limit (0x%x) \n",
+		dev_err(&di->client->dev, "%s(): Failed to set input current limit (0x%x) \n",
 				__func__, value);
 	}
 
 	return ret;
 }
 
-static int bq24296_set_charge_current(u8 value)
+static int bq24296_set_charge_current(struct bq24296_device_info *di, u8 value)
 {
 	int ret = 0;
 
-	ret = bq24296_update_reg(bq24296_di->client,
+	ret = bq24296_update_reg(di->client,
 				  CHARGE_CURRENT_CONTROL_REGISTER,
 				  (value << CHARGE_CURRENT_OFFSET) ,(CHARGE_CURRENT_MASK <<CHARGE_CURRENT_OFFSET ));
 	if (ret < 0) {
-		dev_err(&bq24296_di->client->dev, "%s(): Failed to set charge current limit (0x%x) \n",
+		dev_err(&di->client->dev, "%s(): Failed to set charge current limit (0x%x) \n",
 				__func__, value);
 	}
 	return ret;
 }
 
-static int bq24296_update_en_hiz_disable(void)
+static int bq24296_update_en_hiz_disable(struct bq24296_device_info *di)
 {
 	int ret = 0;
 
-	ret = bq24296_update_reg(bq24296_di->client,
+	ret = bq24296_update_reg(di->client,
 				  INPUT_SOURCE_CONTROL_REGISTER,
 				  EN_HIZ_DISABLE << EN_HIZ_OFFSET,
 				  EN_HIZ_MASK << EN_HIZ_OFFSET);
 	if (ret < 0) {
-		dev_err(&bq24296_di->client->dev, "%s(): Failed to set en_hiz_disable\n",
+		dev_err(&di->client->dev, "%s(): Failed to set en_hiz_disable\n",
 				__func__);
 	}
 	return ret;
 }
 
-int bq24296_set_input_current(int on)
+int bq24296_set_input_current(struct bq24296_device_info *di, int on)
 {
-	if(on) {
-		bq24296_update_input_current_limit(IINLIM_3000MA);
-	} else {
-		bq24296_update_input_current_limit(IINLIM_500MA);
-	}
+	bq24296_update_input_current_limit(di, on ? IINLIM_3000MA : IINLIM_500MA);
 	DBG("bq24296_set_input_current %s\n", on ? "3000mA" : "500mA");
 
 	return 0;
 }
 
-static int bq24296_update_charge_mode(u8 value)
+static int bq24296_update_charge_mode(struct bq24296_device_info *di, u8 value)
 {
 	int ret = 0;
 
-	ret = bq24296_update_reg(bq24296_di->client,
+	ret = bq24296_update_reg(di->client,
 				  POWER_ON_CONFIGURATION_REGISTER,
 				  value << CHARGE_MODE_CONFIG_OFFSET,
 				  CHARGE_MODE_CONFIG_MASK << CHARGE_MODE_CONFIG_OFFSET);
 	if (ret < 0) {
-		dev_err(&bq24296_di->client->dev, "%s(): Failed to set charge mode(0x%x) \n",
+		dev_err(&di->client->dev, "%s(): Failed to set charge mode(0x%x) \n",
 				__func__, value);
 	}
 
 	return ret;
 }
 
-static int bq24296_update_otg_mode_current(u8 value)
+static int bq24296_update_otg_mode_current(struct bq24296_device_info *di, u8 value)
 {
 	int ret = 0;
 
-	ret = bq24296_update_reg(bq24296_di->client,
+	ret = bq24296_update_reg(di->client,
 				  POWER_ON_CONFIGURATION_REGISTER,
 				  value << OTG_MODE_CURRENT_CONFIG_OFFSET,
 				  OTG_MODE_CURRENT_CONFIG_MASK << OTG_MODE_CURRENT_CONFIG_OFFSET);
 	if (ret < 0) {
-		dev_err(&bq24296_di->client->dev, "%s(): Failed to set otg current mode(0x%x) \n",
+		dev_err(&di->client->dev, "%s(): Failed to set otg current mode(0x%x) \n",
 				__func__, value);
 	}
 	return ret;
 }
 
-static int bq24296_charge_mode_config(int on)
+static int bq24296_charge_mode_config(struct bq24296_device_info *di, bool on)
 {
 	if (on) {
-		bq24296_update_en_hiz_disable();
+		bq24296_update_en_hiz_disable(di);
 		mdelay(5);
-		bq24296_update_charge_mode(CHARGE_MODE_CONFIG_OTG_OUTPUT);
+		bq24296_update_charge_mode(di, CHARGE_MODE_CONFIG_OTG_OUTPUT);
 		mdelay(10);
-		bq24296_update_otg_mode_current(OTG_MODE_CURRENT_CONFIG_1300MA);
+		bq24296_update_otg_mode_current(di, OTG_MODE_CURRENT_CONFIG_1300MA);
 	}
 	else {
-		bq24296_update_charge_mode(CHARGE_MODE_CONFIG_CHARGE_BATTERY);
+		bq24296_update_charge_mode(di, CHARGE_MODE_CONFIG_CHARGE_BATTERY);
 	}
 
 	DBG("bq24296_charge_mode_config is %s\n", on ? "OTG Mode" : "Charge Mode");
@@ -475,78 +684,92 @@ static int bq24296_charge_mode_config(int on)
 }
 
 #if UNUSED
-static int bq24296_charge_otg_en(int chg_en,int otg_en)
+static int bq24296_charge_otg_en(struct bq24296_device_info *di, int chg_en, int otg_en)
 { /* control charge/otg mode */
 	int ret = 0;
 
 	if ((chg_en ==0) && (otg_en ==0)){
-		ret = bq24296_update_reg(bq24296_di->client,POWER_ON_CONFIGURATION_REGISTER,0x00 << 4,0x03 << 4);
+		ret = bq24296_update_reg(di->client, POWER_ON_CONFIGURATION_REGISTER, 0x00 << 4, 0x03 << 4);
 	}
 	else if ((chg_en ==0) && (otg_en ==1))
-		bq24296_charge_mode_config(1);
+		bq24296_charge_mode_config(di, true);
 	else
-		bq24296_charge_mode_config(0);
+		bq24296_charge_mode_config(di, false);
 	return ret;
 }
 #endif
 
-/* this polls the bq2429x to handle VBUS events -- should become interrupt driven */
+static inline bool bq24296_battery_present(struct bq24296_device_info *di)
+{ /* assume there is no battery if there is an NTC fault */
+	return ((di->r9 >> NTC_FAULT_OFFSET) & NTC_FAULT_MASK) == 0;	/* if no fault */
+}
 
-u8 r8;	// should be read in interrupt handler
-u8 r9;	// should be read in interrupt handler because it autoresets
+static inline bool bq24296_input_present(struct bq24296_device_info *di)
+{ /* VBUS is available */
+	return (di->r8 & PG_STAT) != 0;
+}
 
-u8 previous_r8 = 0xff;
+static void bq2429x_input_available(struct bq24296_device_info *di, bool state)
+{ /* track external power input state and trigger actions on change */
+	if (state && !di->adapter_plugged) {
+		di->adapter_plugged = true;
 
-bool bq24296_battery_present;
-bool bq24296_input_present;	// VBUS available
+		DBG("bq24296: VBUS became available\n");
+		printk("bq24296: VBUS became available\n");
 
-static void usb_detect_work_func(struct work_struct *work)
+// FIXME: send power status changed notifier
+
+		// this should have been queried/provided by the USB stack...
+		bq24296_update_input_current_limit(di, di->usb_input_current);
+
+		/* start charging */
+		if (bq24296_battery_present(di))
+			bq24296_update_charge_mode(di, CHARGE_MODE_CONFIG_CHARGE_BATTERY);
+		}
+	else if (!state && di->adapter_plugged) {
+		di->adapter_plugged = false;
+
+// FIXME: send power status changed notifier
+
+		DBG("bq24296: VBUS became unavailable\n");
+		printk("bq24296: VBUS became unavailable\n");
+		}
+}
+
+static int bq24296_usb_detect(struct bq24296_device_info *di)
 {
-	struct delayed_work *delayed_work = (struct delayed_work *)container_of(work, struct delayed_work, work);
-	struct bq24296_device_info *pi = (struct bq24296_device_info *)container_of(delayed_work, struct bq24296_device_info, usb_detect_work);
-	int ret ;
+	int ret;
 
-	previous_r8 = r8;
+	mutex_lock(&di->var_lock);	/* if interrupt and polling occur at the same time */
 
-//	DBG("%s,line=%d\n", __func__,__LINE__);
-	ret = bq24296_read(bq24296_di->client, SYSTEM_STATS_REGISTER, &r8, 1);
-	if (ret < 0) {
-		dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
-		return;	/* don't schedule again */
+//	printk("%s, line=%d\n", __func__,__LINE__);
+
+	ret = bq24296_read(di->client, SYSTEM_STATS_REGISTER, &di->r8, 1);
+	if (ret != 1) {
+		mutex_unlock(&di->var_lock);
+
+		dev_err(&di->client->dev, "%s: err %d\n", __func__, ret);
+
+		return ret;
 	}
 
-	ret = bq24296_read(bq24296_di->client, FAULT_STATS_REGISTER, &r9, 1);
-	if (ret < 0) {
-		dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
-		return;	/* don't schedule again */
+	ret = bq24296_read(di->client, FAULT_STATS_REGISTER, &di->r9, 1);
+	if (ret != 1) {
+		mutex_unlock(&di->var_lock);
+
+		dev_err(&di->client->dev, "%s: err %d\n", __func__, ret);
+
+		return ret;
 	}
 
-	bq24296_battery_present = ((r9 >> NTC_FAULT_OFFSET) & NTC_FAULT_MASK) == 0;	/* if no fault */
-	bq24296_input_present = (r8 & PG_STAT) != 0;
-
-	if (r8 != previous_r8 || bq24296_input_present != ((previous_r8 & PG_STAT) != 0))
-		DBG("%s: r8 = %02x bq24296_input_present = %d\n", __func__,r8,bq24296_input_present);
-
-#if FIXME
-
-/*
- * we should apply the same logic as U-Boot
- * if no battery available, increase the IINLIM to 2A if below
- * this makes it possible to run from a sufficiently strong USB power supply
- * in all other cases, leave the IINLIM untouched and updated only by udev events
- * or user contro writing to /sys/class/power/bq24297/
- * There is some issue even with this approach:
- * if battery is inserted and system connected to a 2A power supply
- * and then the battery is removed (might happen even during suspend)
- * it may take too long until IINLIM is increased to 2A by code so
- * that the Host stops before it can do anything good. It will then
- * probably reboot and then increase to 2A by U-Boot.
- */
-
-	if (!bq24296_battery_present && bq24296_input_current_limit_uA() < 2000000)
-		bq24296_update_input_current_limit(bq24296_limit_current_mA_to_bits(2000000));
-
+#if 1
+	{ // print changes to last state
+		if(di->r8 != di->prev_r8 || di->r9 != di->prev_r9)
+			printk("%s: r8=%02x r9=%02x\n", __func__, di->r8, di->r9);
+		di->prev_r8 = di->r8, di->prev_r9 = di->r9;
+	}
 #endif
+
 
 #if FIXME
 
@@ -559,47 +782,39 @@ static void usb_detect_work_func(struct work_struct *work)
 
 #endif
 
-	mutex_lock(&pi->var_lock);
-
-	if (gpio_is_valid(bq24296_pdata->dc_det_pin)){
+	if (di->dc_det_pin){
 		/* detect charging request */
-		ret = gpio_request(bq24296_pdata->dc_det_pin, "bq24296_dc_det");
-		if (ret < 0) {
-			DBG("Failed to request gpio %d with ret:""%d\n",bq24296_pdata->dc_det_pin, ret);
-		}
-		gpio_direction_input(bq24296_pdata->dc_det_pin);
-		ret = gpio_get_value(bq24296_pdata->dc_det_pin);
-		if (ret ==0){
-			bq24296_update_input_current_limit(bq24296_di->adp_input_current);
-			bq24296_set_charge_current(CHARGE_CURRENT_2048MA);
-			bq24296_charge_mode_config(0);
+		ret = gpiod_get_value(di->dc_det_pin);
+		if (ret == 0) {
+			bq24296_update_input_current_limit(di, di->adp_input_current);
+			bq24296_set_charge_current(di, CHARGE_CURRENT_2048MA);
+			bq24296_charge_mode_config(di, 0);
 		}
 		else {
-			bq24296_update_input_current_limit(IINLIM_500MA);
-			bq24296_set_charge_current(CHARGE_CURRENT_512MA);
+			bq24296_update_input_current_limit(di, IINLIM_500MA);
+			bq24296_set_charge_current(di, CHARGE_CURRENT_512MA);
 		}
-		gpio_free(bq24296_pdata->dc_det_pin);
-		DBG("%s: bq24296_di->dc_det_pin=%x\n", __func__, ret);
+		DBG("%s: di->dc_det_pin=%x\n", __func__, ret);
 	}
 	else {
 #ifdef OLD
 		DBG("%s: dwc_otg_check_dpdm %d\n", __func__, dwc_otg_check_dpdm(0));
 		switch(dwc_otg_check_dpdm(0)) {
 			case 2: // USB Wall charger
-				bq24296_update_input_current_limit(bq24296_di->usb_input_current);
+				bq24296_update_input_current_limit(di->usb_input_current);
 				bq24296_set_charge_current(CHARGE_CURRENT_2048MA);
 				bq24296_charge_mode_config(0);
 				DBG("bq24296: detect usb wall charger\n");
 				break;
 			case 1: //normal USB
 				if (0 == get_gadget_connect_flag()){  // non-standard AC charger
-					bq24296_update_input_current_limit(bq24296_di->usb_input_current);
+					bq24296_update_input_current_limit(di->usb_input_current);
 					bq24296_set_charge_current(CHARGE_CURRENT_2048MA);
 					bq24296_charge_mode_config(0);;
 				}else
 					{
 					// connect to pc
-					bq24296_update_input_current_limit(bq24296_di->usb_input_current);
+					bq24296_update_input_current_limit(di->usb_input_current);
 					bq24296_set_charge_current(CHARGE_CURRENT_512MA);
 					bq24296_charge_mode_config(0);
 					DBG("bq24296: detect normal usb charger\n");
@@ -611,39 +826,58 @@ static void usb_detect_work_func(struct work_struct *work)
 				DBG("bq24296: detect no usb\n");
 				break;
 #else
+
 /* FIXME/CHECKME:
    do we really have to actively switch to charging or does the charger start automatically?
    Then, we might not even need this scheduled worker function
+
+   We should send an udev event like other chargers do
+
 */
 
-		/* detect VBUS being available */
-		if(ret && bq24296_input_present && !(previous_r8 & PG_STAT)) { /* VBUS became available */
-			DBG("bq24296: VBUS became available\n");
-			printk("bq24296: VBUS became available\n");
-			// this should have been queried/provided by the USB stack...
-			bq24296_update_input_current_limit(bq24296_di->usb_input_current);
-		/* could trigger another DPDM detection... */
-		/* start charging here */
-//			bq24296_update_charge_mode(CHARGE_MODE_CONFIG_CHARGE_BATTERY);
-		}
+		/* handle (momentarily) disconnect of VBUS */
+		if ((di->r9 >> CHRG_FAULT_OFFSET) & CHRG_FAULT_MASK)
+			bq2429x_input_available(di, false);
+
+		/* since we are polling slowly VBUS may already be back again */
+		bq2429x_input_available(di, bq24296_input_present(di));
+
 #endif
 	}
 
-	mutex_unlock(&pi->var_lock);
+	mutex_unlock(&di->var_lock);
 
-	schedule_delayed_work(&pi->usb_detect_work, 1*HZ);
+	return 0;
 }
 
-static void irq_work_func(struct work_struct *work)
+/* polling */
+
+static void usb_detect_work_func(struct work_struct *wp)
 {
-	//	struct bq24296_device_info *info= container_of(work, struct bq24296_device_info, irq_work);
-	printk("%s\n", __func__);
+	struct delayed_work *dwp = (struct delayed_work *)container_of(wp, struct delayed_work, work);
+	struct bq24296_device_info *di = (struct bq24296_device_info *)container_of(dwp, struct bq24296_device_info, usb_detect_work);
+	int ret;
 
-	// should find out what has happened
+	ret = bq24296_usb_detect(di);
 
+	if (ret == 0)
+		schedule_delayed_work(&di->usb_detect_work, 1*HZ);
 }
 
-static irqreturn_t chg_irq_func(int irq, void *dev_id)
+/* interrupt */
+
+static void bq2729x_irq_work_func(struct work_struct *wp)
+{
+	struct bq24296_device_info *di = (struct bq24296_device_info *)container_of(wp, struct bq24296_device_info, irq_work);
+
+	printk("%s: di = %px\n", __func__, di);
+
+	bq24296_usb_detect(di);
+
+	printk("%s: r8=%02x r9=%02x\n", __func__, di->r8, di->r9);
+}
+
+static irqreturn_t bq2729x_chg_irq_func(int irq, void *dev_id)
 {
 	struct bq24296_device_info *info = dev_id;
 	DBG("%s\n", __func__);
@@ -695,7 +929,7 @@ static int bq24296_get_vsys_voltage(struct regulator_dev *dev)
 
 	printk("bq24296_get_vsys_voltage(%d)\n", idx);
 
-	ret = bq24296_read(bq24296_di->client, POWER_ON_CONFIGURATION_REGISTER, &retval, 1);
+	ret = bq24296_read(di->client, POWER_ON_CONFIGURATION_REGISTER, &retval, 1);
 	if (ret < 0)
 		return ret;
 	printk(" => %d uV\n", vsys_VSEL_table[(retval >> SYS_MIN_OFFSET) & SYS_MIN_MASK]);
@@ -709,19 +943,18 @@ static int bq24296_set_vsys_voltage(struct regulator_dev *dev, int min_uV, int m
 	int idx = dev->desc->id;
 
 	printk("bq24296_set_vsys_voltage(%d, %d, %d, %u)\n", idx, min_uV, max_uV, *selector);
-// The driver should select the voltage closest to min_uV
+// The driver should select the voltage closest to min_uV by scanning vsys_VSEL_table
 
+// disabled/untested
 	return 0;
 
 	/* set system voltage */
 
-	return bq24296_update_reg(bq24296_di->client,
+	return bq24296_update_reg(di->client,
 				  POWER_ON_CONFIGURATION_REGISTER,
 				  *selector,	/* 3.0V + 0.2V */
 				  SYS_MIN_MASK << SYS_MIN_OFFSET);
 }
-
-// should we be able to get/set the input current limit - which is the USB input current?
 
 static int bq24296_get_otg_voltage(struct regulator_dev *dev)
 {
@@ -732,7 +965,7 @@ static int bq24296_get_otg_voltage(struct regulator_dev *dev)
 
 	printk("bq24296_get_otg_voltage(%d)\n", idx);
 
-	ret = bq24296_read(bq24296_di->client, THERMAL_REGULATION_CONTROL_REGISTER, &retval, 1);
+	ret = bq24296_read(di->client, THERMAL_REGULATION_CONTROL_REGISTER, &retval, 1);
 	if (ret < 0)
 		return ret;
 	printk(" => %d uV\n", otg_VSEL_table[(retval >> BOOSTV_OFFSET) & BOOSTV_MASK]);
@@ -746,13 +979,14 @@ static int bq24296_set_otg_voltage(struct regulator_dev *dev, int min_uV, int ma
 	int idx = dev->desc->id;
 
 	printk("bq24296_set_otg_voltage(%d, %d, %d, %u)\n", idx, min_uV, max_uV, *selector);
-// The driver should select the voltage closest to min_uV
+// The driver should select the voltage closest to min_uV by scanning otg_VSEL_table
 
+// disabled/untested
 	return 0;
 
 	/* set OTG step up converter voltage */
 
-	return bq24296_update_reg(bq24296_di->client,
+	return bq24296_update_reg(di->client,
 				  THERMAL_REGULATION_CONTROL_REGISTER,
 				  *selector,
 				  BOOSTV_MASK << BOOSTV_OFFSET);
@@ -767,7 +1001,7 @@ static int bq24296_get_otg_current_limit(struct regulator_dev *dev)
 
 	printk("bq24296_get_otg_current_limit(%d)\n", idx);
 
-	ret = bq24296_read(bq24296_di->client, POWER_ON_CONFIGURATION_REGISTER, &retval, 1);
+	ret = bq24296_read(di->client, POWER_ON_CONFIGURATION_REGISTER, &retval, 1);
 	if (ret < 0)
 		return ret;
 
@@ -785,9 +1019,9 @@ static int bq24296_set_otg_current_limit(struct regulator_dev *dev,
 	/* set OTG current limit in bit 0 of POWER_ON_CONFIGURATION_REGISTER */
 
 	if(max_uA < 1250000)
-		return bq24296_update_reg(bq24296_di->client,POWER_ON_CONFIGURATION_REGISTER, OTG_MODE_CURRENT_CONFIG_500MA,0x01);	// enable 1A
+		return bq24296_update_reg(di->client,POWER_ON_CONFIGURATION_REGISTER, OTG_MODE_CURRENT_CONFIG_500MA,0x01);	// choose 1A
 	else
-		return bq24296_update_reg(bq24296_di->client,POWER_ON_CONFIGURATION_REGISTER, OTG_MODE_CURRENT_CONFIG_1300MA,0x01);	// enable 1.5A
+		return bq24296_update_reg(di->client,POWER_ON_CONFIGURATION_REGISTER, OTG_MODE_CURRENT_CONFIG_1300MA,0x01);	// choose 1.5A
 }
 
 static int bq24296_otg_enable(struct regulator_dev *dev)
@@ -795,27 +1029,50 @@ static int bq24296_otg_enable(struct regulator_dev *dev)
 	struct bq24296_device_info *di = rdev_get_drvdata(dev);
 	int idx = dev->desc->id;
 
-	printk("bq24296_otg_enable(%d)\n", idx);
+	printk("%s(%d)\n", __func__, idx);
 
 	/* check if battery is present and reject if no battery */
-	if (!bq24296_battery_present)
+	if (!bq24296_battery_present(di)) {
+		dev_warn(&di->client->dev, "can enable otg only with installed battery and no overtemperature\n");
 		return -EBUSY;
+	}
+
+	gpiod_set_value_cansleep(di->otg_usb_pin, 1);	// enable OTG pin
 
 	/* enable bit 5 of POWER_ON_CONFIGURATION_REGISTER */
 
-	return bq24296_update_reg(bq24296_di->client,POWER_ON_CONFIGURATION_REGISTER,0x01 << 5,0x01 << 5);	// enable OTG
+	return bq24296_update_reg(di->client, POWER_ON_CONFIGURATION_REGISTER, 0x01 << 5, 0x01 << 5);	// enable OTG
 }
 
 static int bq24296_otg_disable(struct regulator_dev *dev)
-{ /* disable OTG step up converter and enable charger */
+{ /* disable OTG step up converter */
 	struct bq24296_device_info *di = rdev_get_drvdata(dev);
 	int idx = dev->desc->id;
 
-	printk("bq24296_otg_disable(%d)\n", idx);
+	printk("%s(%d)\n", __func__, idx);
+
+	gpiod_set_value_cansleep(di->otg_usb_pin, 0);	// disable OTG pin
 
 	/* disable bit 5 of POWER_ON_CONFIGURATION_REGISTER */
 
-	return bq24296_update_reg(bq24296_di->client,POWER_ON_CONFIGURATION_REGISTER,0 << 5,0x01 << 5);	// disable OTG
+	return bq24296_update_reg(di->client, POWER_ON_CONFIGURATION_REGISTER, 0 << 5, 0x01 << 5);	// disable OTG
+}
+
+static int bq24296_otg_is_enabled(struct regulator_dev *dev)
+{ /* check if OTG converter is enabled */
+	struct bq24296_device_info *di = rdev_get_drvdata(dev);
+	int idx = dev->desc->id;
+	int ret;
+	u8 retval;
+
+	printk("%s(%d)\n", __func__, idx);
+
+	ret = bq24296_read(di->client, POWER_ON_CONFIGURATION_REGISTER, &retval, 1);
+	if (ret < 0)
+		return 0;	/* assume disabled */
+
+	/* is bit 5 of POWER_ON_CONFIGURATION_REGISTER set? */
+	return (retval & (0x01 << 5)) != 0;
 }
 
 static struct regulator_ops vsys_ops = {
@@ -824,13 +1081,13 @@ static struct regulator_ops vsys_ops = {
 };
 
 static struct regulator_ops otg_ops = {
-	// .get_voltage
 	.get_voltage = bq24296_get_otg_voltage,
 	.set_voltage = bq24296_set_otg_voltage,	/* change OTG voltage */
 	.get_current_limit = bq24296_get_otg_current_limit,	/* get OTG current limit */
 	.set_current_limit = bq24296_set_otg_current_limit,	/* set OTG current limit */
 	.enable = bq24296_otg_enable,	/* turn on OTG mode */
 	.disable = bq24296_otg_disable,	/* turn off OTG mode */
+	.is_enabled = bq24296_otg_is_enabled,
 };
 
 static struct of_regulator_match bq24296_regulator_matches[] = {
@@ -844,42 +1101,50 @@ static struct of_regulator_match bq24296_regulator_matches[] = {
 static struct bq24296_board *bq24296_parse_dt(struct bq24296_device_info *di)
 {
 	struct bq24296_board *pdata;
-	struct device_node *bq24296_np;
+	struct device_node *np;
 	struct device_node *regulators;
 	struct of_regulator_match *matches;
 	static struct regulator_init_data *reg_data;
 	int idx = 0, count, ret;
+	u32 val;
 
 	DBG("%s,line=%d\n", __func__,__LINE__);
 
-	bq24296_np = of_node_get(di->dev->of_node);
-	if (!bq24296_np) {
+	np = of_node_get(di->dev->of_node);
+	if (!np) {
 		dev_err(&di->client->dev, "could not find bq2429x DT node\n");
 		return NULL;
 	}
 	pdata = devm_kzalloc(di->dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)
 		return NULL;
-	if (of_property_read_u32_array(bq24296_np, "ti,chg_current", pdata->chg_current, 3)) {
+	if (of_property_read_u32_array(np, "ti,chg_current", pdata->chg_current, 3)) {
 		dev_err(&di->client->dev, "charge current not specified\n");
 		return NULL;
 	}
 
-	pdata->chg_irq_pin = of_get_named_gpio(bq24296_np,"gpios", 0);
-	if (!gpio_is_valid(pdata->chg_irq_pin)) {
-		dev_err(&di->client->dev, "invalid irq gpio: %d\n", pdata->chg_irq_pin);
-	}
-
-	pdata->dc_det_pin = of_get_named_gpio(bq24296_np,"gpios", 1);
+	// dc_det_pin - if 0, charger is switched by driver to 2048mA, otherwise 512mA
+	pdata->dc_det_pin = devm_gpiod_get_index(&di->client->dev, "dc-det", 0, GPIOD_IN);
 
 // FIXME: check for bq24296 (297 has no det gpio)
 
-	if (!gpio_is_valid(pdata->dc_det_pin)) {
-		dev_err(&di->client->dev, "invalid det gpio: %d\n", pdata->dc_det_pin);
+	if (IS_ERR(pdata->dc_det_pin)) {
+		if (PTR_ERR(pdata->dc_det_pin) == -EPROBE_DEFER)
+			return NULL;
+		dev_err(&di->client->dev, "invalid det gpio: %ld\n", PTR_ERR(pdata->dc_det_pin));
+		pdata->dc_det_pin = NULL;
 	}
 
-	of_node_get(bq24296_np);
-	regulators = of_get_child_by_name(bq24296_np, "regulators");
+	pdata->otg_usb_pin = devm_gpiod_get_index(&di->client->dev, "otg", 0, GPIOD_OUT_LOW);
+	if (IS_ERR(pdata->otg_usb_pin)) {
+		if (PTR_ERR(pdata->otg_usb_pin) == -EPROBE_DEFER)
+			return NULL;
+		dev_err(&di->client->dev, "invalid otg gpio: %ld\n", PTR_ERR(pdata->otg_usb_pin));
+		pdata->otg_usb_pin = NULL;
+	}
+
+	of_node_get(np);
+	regulators = of_get_child_by_name(np, "regulators");
 	if (!regulators) {
 		dev_err(&di->client->dev, "regulator node not found\n");
 		return NULL;
@@ -901,6 +1166,12 @@ static struct bq24296_board *bq24296_parse_dt(struct bq24296_device_info *di)
 		dev_err(&di->client->dev, "Found %d of expected %d regulators\n",
 			ret, count);
 		return NULL;
+	}
+
+	regulators = of_get_next_child(regulators, NULL);	// get first regulator (vsys)
+	if (!of_property_read_u32(regulators, "regulator-max-microvolt", &val)) {
+		dev_err(&di->client->dev, "found regulator-max-microvolt = %u\n", val);
+		max_VSYS_uV = val;	// limited by device tree
 	}
 
 	reg_data = devm_kzalloc(&di->client->dev, (sizeof(struct regulator_init_data)
@@ -931,13 +1202,40 @@ static struct bq24296_board *bq24296_parse_dt(struct bq24296_device_info *di)
 #endif
 
 #ifdef CONFIG_OF
-static struct of_device_id bq24296_battery_of_match[] = {
-	{ .compatible = "ti,bq24296"},
-	{ .compatible = "ti,bq24297"},
+static struct of_device_id bq24296_charger_of_match[] = {
+	{ .compatible = "ti,bq24296", .data = (void *) 0 },
+	{ .compatible = "ti,bq24297", .data = (void *) 1 },
+	{ .compatible = "mps,mp2624", .data = (void *) 2 },	// can control VSYS-VBATT level but not OTG max power
 	{ },
 };
-MODULE_DEVICE_TABLE(of, bq24296_battery_of_match);
+MODULE_DEVICE_TABLE(of, bq24296_charger_of_match);
 #endif
+
+static int bq24296_charger_suspend(struct device *dev, pm_message_t state)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct bq24296_device_info *di = i2c_get_clientdata(client);
+
+	// turn off otg?
+	cancel_delayed_work_sync(&di->usb_detect_work);
+	return 0;
+}
+
+static int bq24296_charger_resume(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct bq24296_device_info *di = i2c_get_clientdata(client);
+
+	schedule_delayed_work(&di->usb_detect_work, msecs_to_jiffies(50));
+	return 0;
+}
+
+static void bq24296_charger_shutdown(struct i2c_client *client)
+{ /* make sure we turn off OTG mode on power down */
+	struct bq24296_device_info *di = i2c_get_clientdata(client);
+
+	bq24296_otg_disable(di->rdev[1]);	/* turn off otg regulator */
+}
 
 /* SYSFS interface */
 
@@ -945,22 +1243,28 @@ MODULE_DEVICE_TABLE(of, bq24296_battery_of_match);
  * sysfs max_current store
  * set the max current drawn from USB
  */
+
 static ssize_t
 bq24296_input_current_limit_uA_store(struct device *dev, struct device_attribute *attr,
 	const char *buf, size_t n)
 {
+	struct i2c_client *client = to_i2c_client(dev);
+	struct bq24296_device_info *di = i2c_get_clientdata(client);
 	int cur = 0;
 	int status = 0;
+
 	status = kstrtoint(buf, 10, &cur);
 	if (status)
 		return status;
 	if (cur < 0)
 		return -EINVAL;
+
 	printk("bq24296_input_current_limit_uA_store: set input max current to %u uA -> %02x\n", cur, bq24296_limit_current_mA_to_bits(cur/1000));
 	if (cur < 80000)
-		status = bq24296_update_input_current_limit(-1);	/* High-Z */
+		status = bq24296_update_input_current_limit(di, -1);	/* High-Z */
 	else
-		status = bq24296_update_input_current_limit(bq24296_limit_current_mA_to_bits(cur/1000));
+		status = bq24296_update_input_current_limit(di, bq24296_limit_current_mA_to_bits(cur/1000));
+
 	return (status == 0) ? n : status;
 }
 
@@ -973,7 +1277,10 @@ bq24296_input_current_limit_uA_store(struct device *dev, struct device_attribute
 static ssize_t bq24296_input_current_limit_uA_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	int cur = bq24296_input_current_limit_uA();
+	struct i2c_client *client = to_i2c_client(dev);
+	struct bq24296_device_info *di = i2c_get_clientdata(client);
+	int cur = bq24296_input_current_limit_uA(di);
+
 	if (cur < 0)
 		return cur;
 
@@ -989,26 +1296,29 @@ static ssize_t
 bq24296_otg_store(struct device *dev, struct device_attribute *attr,
 	const char *buf, size_t n)
 {
+	struct i2c_client *client = to_i2c_client(dev);
+	struct bq24296_device_info *di = i2c_get_clientdata(client);
 	int cur = 0;
 	int status = 0;
+
 	status = kstrtoint(buf, 10, &cur);
 	if (status)
 		return status;
 	if (cur < 0)
 		return -EINVAL;
 	printk("bq24296_otg_store: set OTG max current %u uA\n", cur);
-	bq24296_update_en_hiz_disable();
+	bq24296_update_en_hiz_disable(di);
 	mdelay(5);
 	if(cur < 500000)
-		status = bq24296_update_reg(bq24296_di->client,POWER_ON_CONFIGURATION_REGISTER,0 << 5,0x01 << 5);	// disable OTG
+		status = bq24296_update_reg(di->client,POWER_ON_CONFIGURATION_REGISTER,0 << 5,0x01 << 5);	// disable OTG
 	else if(cur < 1250000)
-		status = bq24296_update_reg(bq24296_di->client,POWER_ON_CONFIGURATION_REGISTER,((1 << 5)|OTG_MODE_CURRENT_CONFIG_500MA),((0x01 << 5)|0x01));	// enable 1A
+		status = bq24296_update_reg(di->client,POWER_ON_CONFIGURATION_REGISTER,((1 << 5)|OTG_MODE_CURRENT_CONFIG_500MA),((0x01 << 5)|0x01));	// enable 1A
 	else
-		status = bq24296_update_reg(bq24296_di->client,POWER_ON_CONFIGURATION_REGISTER,((1 << 5)|OTG_MODE_CURRENT_CONFIG_1300MA),((0x01 << 5)|0x01));	// enable 1.5A
+		status = bq24296_update_reg(di->client,POWER_ON_CONFIGURATION_REGISTER,((1 << 5)|OTG_MODE_CURRENT_CONFIG_1300MA),((0x01 << 5)|0x01));	// enable 1.5A
 #if 1
 	{
 	u8 retval = 0xff;
-	bq24296_read(bq24296_di->client, POWER_ON_CONFIGURATION_REGISTER, &retval, 1);
+	bq24296_read(di->client, POWER_ON_CONFIGURATION_REGISTER, &retval, 1);
 	printk("bq24296_otg_store: POWER_ON_CONFIGURATION_REGISTER = %02x\n", retval);
 	}
 #endif
@@ -1021,12 +1331,15 @@ bq24296_otg_store(struct device *dev, struct device_attribute *attr,
 static ssize_t bq24296_otg_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
+	struct i2c_client *client = to_i2c_client(dev);
+	struct bq24296_device_info *di = i2c_get_clientdata(client);
 	int ret;
 	u8 retval = 0;
 	int cur = 0;
-	ret = bq24296_read(bq24296_di->client, POWER_ON_CONFIGURATION_REGISTER, &retval, 1);
+
+	ret = bq24296_read(di->client, POWER_ON_CONFIGURATION_REGISTER, &retval, 1);
 	if (ret < 0) {
-		dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
+		dev_err(&di->client->dev, "%s: err %d\n", __func__, ret);
 	}
 	// check status register if it is really on: REG08[7:6] is set to 11
 	if(retval & 0x20)	// OTG CONFIG
@@ -1052,6 +1365,7 @@ static int bq24296_get_property(struct power_supply *psy,
 				    enum power_supply_property psp,
 				    union power_supply_propval *val)
 {
+	struct bq24296_device_info *di = power_supply_get_drvdata(psy);
 	int ret;
 	u8 retval = 0;
 
@@ -1059,133 +1373,118 @@ static int bq24296_get_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
-		ret = bq24296_read(bq24296_di->client, SYSTEM_STATS_REGISTER, &retval, 1);
-		if (ret < 0) {
-			dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
-		}
-		switch((retval >> CHRG_OFFSET) & CHRG_MASK) {
+		switch((di->r8 >> CHRG_OFFSET) & CHRG_MASK) {
 			case CHRG_NO_CHARGING:	val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING; break;
 			case CHRG_PRE_CHARGE:	val->intval = POWER_SUPPLY_STATUS_CHARGING; break;
 			case CHRG_FAST_CHARGE:	val->intval = POWER_SUPPLY_STATUS_CHARGING; break;
 			case CHRG_CHRGE_DONE:	val->intval = POWER_SUPPLY_STATUS_FULL; break;
 		}
 		break;
+
 	case POWER_SUPPLY_PROP_CHARGE_TYPE:
-		ret = bq24296_read(bq24296_di->client, SYSTEM_STATS_REGISTER, &retval, 1);
-		if (ret < 0) {
-			dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
-		}
-		switch((retval >> CHRG_OFFSET) & CHRG_MASK) {
+		switch((di->r8 >> CHRG_OFFSET) & CHRG_MASK) {
 			case CHRG_NO_CHARGING:	val->intval = POWER_SUPPLY_CHARGE_TYPE_NONE; break;
 			case CHRG_PRE_CHARGE:	val->intval = POWER_SUPPLY_CHARGE_TYPE_TRICKLE; break;
 			case CHRG_FAST_CHARGE:	val->intval = POWER_SUPPLY_CHARGE_TYPE_FAST; break;
 			case CHRG_CHRGE_DONE:	val->intval = POWER_SUPPLY_CHARGE_TYPE_FAST; break;
 		}
 		break;
+
 #if FIXME
 	case POWER_SUPPLY_PROP_HEALTH:
-		// to get this information we must read the interrupt register
-		// but it reports the interrupt situation only once (auto-reset)
-		// so it is only available through an interrupt handler
-		switch((retval >> CHRG_OFFSET) & CHRG_MASK) {
-			case CHRG_NO_CHARGING:	val->intval = POWER_SUPPLY_HEALTH_GOOD; break;
-			case CHRG_PRE_CHARGE:	val->intval = POWER_SUPPLY_HEALTH_OVERHEAT; break;
-			case CHRG_FAST_CHARGE:	val->intval = POWER_SUPPLY_HEALTH_SAFETY_TIMER_EXPIRE; break;
-			case CHRG_CHRGE_DONE:	val->intval = POWER_SUPPLY_HEALTH_WATCHDOG_TIMER_EXPIRE; break;
+		switch((di->r9 >> CHRG_FAULT_OFFSET) & CHRG_FAULT_MASK) {
+			case 0:	val->intval = POWER_SUPPLY_HEALTH_GOOD; break;
+			case 1:	val->intval = POWER_SUPPLY_HEALTH_OVERHEAT; break;
+			case 2:	val->intval = POWER_SUPPLY_HEALTH_SAFETY_TIMER_EXPIRE; break;
+			case 3:	val->intval = POWER_SUPPLY_HEALTH_WATCHDOG_TIMER_EXPIRE; break;
 		}
 		break;
 #endif
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		ret = bq24296_read(bq24296_di->client, SYSTEM_STATS_REGISTER, &retval, 1);
-		if (ret < 0) {
-			dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
+		if(bq24296_input_present(di)) {
+			if ((di->r8 & DPM_STAT) != 0)
+				val->intval = bq24296_get_vindpm_uV(di);
+			else
+				val->intval = 5000000;	/* power good: assume VBUS 5V */
 		}
-		if(retval & PG_STAT)
-			val->intval = 5000000;	/* power good: assume VBUS 5V - we could also report VINDPM */
 		else
 			val->intval = 0;	/* power not good: assume 0V */
 		break;
+
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		val->intval = bq24296_input_current_limit_uA();
+		val->intval = bq24296_input_current_limit_uA(di);
 //		printk("bq24296 CURRENT_MAX: %u mA\n", val->intval);
 		break;
+
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
-		ret = bq24296_read(bq24296_di->client, SYSTEM_STATS_REGISTER, &retval, 1);
-		if (ret < 0) {
-			dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
-		}
-		switch((retval >> CHRG_OFFSET) & CHRG_MASK) {
+		switch((di->r8 >> CHRG_OFFSET) & CHRG_MASK) {
 			case CHRG_NO_CHARGING:
 			case CHRG_CHRGE_DONE:
 				val->intval = 0;	// assume not charging current
 //				printk("bq24296 CURRENT_NOW: %u mA\n", val->intval = ret);
 				break;
+
 			case CHRG_PRE_CHARGE:
-				ret = bq24296_read(bq24296_di->client, PRE_CHARGE_TERMINATION_CURRENT_CONTROL_REGISTER, &retval, 1);
+				ret = bq24296_read(di->client, PRE_CHARGE_TERMINATION_CURRENT_CONTROL_REGISTER, &retval, 1);
 //				printk("bq24296: PRE_CHARGE_TERMINATION_CURRENT_CONTROL_REGISTER %02x\n", retval);
 				if (ret < 0) {
-					dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
+					dev_err(&di->client->dev, "%s: err %d\n", __func__, ret);
 				}
 				ret = 128000 * ((retval >> PRE_CHARGE_CURRENT_LIMIT_OFFSET) & PRE_CHARGE_CURRENT_LIMIT_MASK) + 128000;	// return precharge limit
-				val->intval = bq24296_input_current_limit_uA();
+				val->intval = bq24296_input_current_limit_uA(di);
+				/* return lower of both */
 				if (ret < val->intval)
 					val->intval = ret;
 //				printk("bq24296 CURRENT_NOW: %u mA\n", val->intval);
 				break;
+
 			case CHRG_FAST_CHARGE:
-				ret = bq24296_read(bq24296_di->client, CHARGE_CURRENT_CONTROL_REGISTER, &retval, 1);
+				ret = bq24296_read(di->client, CHARGE_CURRENT_CONTROL_REGISTER, &retval, 1);
 //				printk("bq24296: FAST_CHARGE CHARGE_CURRENT_CONTROL_REGISTER %02x\n", retval);
 				if (ret < 0) {
-					dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
+					dev_err(&di->client->dev, "%s: err %d\n", __func__, ret);
 				}
-				ret = 64000 * ((retval >> CHARGE_CURRENT_OFFSET) & CHARGE_CURRENT_MASK) + 512000;											val->intval = bq24296_input_current_limit_uA();
+				ret = 64000 * ((retval >> CHARGE_CURRENT_OFFSET) & CHARGE_CURRENT_MASK) + 512000;
+				val->intval = bq24296_input_current_limit_uA(di);
+				/* return lower of both */
 				if (ret < val->intval)
 					val->intval = ret;
 //				printk("bq24296 CURRENT_NOW: %u mA\n", val->intval);
 				break;
 		}
 		break;
+
 	case POWER_SUPPLY_PROP_TEMP:
-		/* read twice to clear any flag */
-		ret = bq24296_read(bq24296_di->client, FAULT_STATS_REGISTER, &retval, 1);
-		if (ret < 0) {
-			dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
-		}
-		ret = bq24296_read(bq24296_di->client, FAULT_STATS_REGISTER, &retval, 1);
-		if (ret < 0) {
-			dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
-		}
 		// FIXME: deduce values from BHOT and BCOLD settings if boost mode is active
 		// otherwise we report the defaults from the chip spec
-		if (retval & 0x02)
+		if (di->r9 & 0x02)
 			val->intval = -100;	// too cold (-10C)
-		else if (retval & 0x01)
+		else if (di->r9 & 0x01)
 			val->intval = 600;	// too hot (60C)
 		else
 			val->intval = 225;	// ok (22.5C)
 		break;
+
 	case POWER_SUPPLY_PROP_ONLINE:	/* charger online, i.e. VBUS */
-		ret = bq24296_read(bq24296_di->client, SYSTEM_STATS_REGISTER, &retval, 1);
-		if (ret < 0) {
-			dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
-		}
-		val->intval = (retval & PG_STAT) != 0;	/* power is good */
+		val->intval = bq24296_input_present(di);	/* power is good */
 		break;
+
 	case POWER_SUPPLY_PROP_PRESENT:
-#if 0	/* this would indicate a low battery! */
-		ret = bq24296_read(bq24296_di->client, SYSTEM_STATS_REGISTER, &retval, 1);
-		if (ret < 0) {
-			dev_err(&bq24296_di->client->dev, "%s: err %d\n", __func__, ret);
-		}
-		val->intval = !(retval & 0x1);	// VBAT > VSYSMIN
-#else
-		val->intval = bq24296_battery_present;
-#endif
+		val->intval = bq24296_battery_present(di);
 		break;
+
+#if 0	/* this would indicate a low battery! */
+	case POWER_SUPPLY_PROP_???:
+		val->intval = !(r8 & VSYS_STAT);	// VBAT > VSYSMIN
+		val->intval = bq24296_battery_present(di);
+		break;
+#endif
+
 	default:
 		return -EINVAL;
 	}
+
 	return 0;
 }
 
@@ -1193,17 +1492,19 @@ static int bq24296_set_property(struct power_supply *psy,
 				enum power_supply_property psp,
 				const union power_supply_propval *val)
 {
-	int ret;
-	u8 retval = 0;
+	struct bq24296_device_info *di = power_supply_get_drvdata(psy);
+
 	DBG("%s,line=%d prop=%d\n", __func__,__LINE__, psp);
+
 	switch (psp) {
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
 		if (val->intval < 80000)
-			return bq24296_update_input_current_limit(-1);	/* High-Z mode */
-		return bq24296_update_input_current_limit(bq24296_limit_current_mA_to_bits(val->intval/1000));
+			return bq24296_update_input_current_limit(di, -1);	/* High-Z mode */
+		return bq24296_update_input_current_limit(di, bq24296_limit_current_mA_to_bits(val->intval/1000));
 	default:
 		return -EPERM;
 	}
+
 	return 0;
 }
 
@@ -1216,6 +1517,7 @@ static int bq24296_writeable_property(struct power_supply *psy,
 	default:
 		break;
 	}
+
 	return 0;
 }
 
@@ -1250,11 +1552,20 @@ static const struct power_supply_desc bq24296_power_supply_desc[] = {
 	.set_property		= bq24296_set_property,
 	.property_is_writeable	= bq24296_writeable_property,
 	},
+	{
+	.name			= "mp2624",
+	.type			= POWER_SUPPLY_TYPE_USB,
+	.properties		= bq24296_charger_props,
+	.num_properties		= ARRAY_SIZE(bq24296_charger_props),
+	.get_property		= bq24296_get_property,
+	.set_property		= bq24296_set_property,
+	.property_is_writeable	= bq24296_writeable_property,
+	},
 };
 
 /* PROBE */
 
-static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_device_id *id)
+static int bq24296_charger_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct bq24296_device_info *di;
 	u8 retval = 0;
@@ -1271,10 +1582,15 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 
 	bq24296_node = of_node_get(client->dev.of_node);
 	if (!bq24296_node) {
-		dev_err(&client->dev, "could not find bq24296 DT node\n");
+		dev_warn(&client->dev, "could not find bq24296 DT node\n");
 	}
 
 	di = devm_kzalloc(&client->dev, sizeof(*di), GFP_KERNEL);
+
+#if 0
+	printk("%s: di = %px\n", __func__, di);
+#endif
+
 	if (di == NULL) {
 		dev_err(&client->dev, "failed to allocate device info data\n");
 		ret = -ENOMEM;
@@ -1282,7 +1598,6 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 	}
 
 	di->dev = &client->dev;
-	bq24296_di = di;
 	i2c_set_clientdata(client, di);
 	di->client = client;
 
@@ -1296,7 +1611,6 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 		ret = -EPROBE_DEFER;
 		goto fail_probe;
 	}
-	bq24296_pdata = pdev;
 
 	DBG("%s,line=%d chg_current =%d usb_input_current = %d adp_input_current =%d \n", __func__,__LINE__,
 		pdev->chg_current[0],pdev->chg_current[1],pdev->chg_current[2]);
@@ -1332,6 +1646,11 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 		goto fail_probe;
 	}
 
+	di->id = id;
+	di->otg_usb_pin = pdev->otg_usb_pin;
+	di->dc_det_pin = pdev->dc_det_pin;
+	di->psel_pin = pdev->psel_pin;
+
 /* we can also read and save the IINLIM value inherited from the boot process here! */
 
 	init_data = di->pmic_init_data;
@@ -1340,17 +1659,17 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 
 	mutex_init(&di->var_lock);
 	di->workqueue = create_singlethread_workqueue("bq24296_irq");
-	INIT_WORK(&di->irq_work, irq_work_func);
+	INIT_WORK(&di->irq_work, bq2729x_irq_work_func);
 	INIT_DELAYED_WORK(&di->usb_detect_work, usb_detect_work_func);
 
 	// di->usb_nb.notifier_call = bq24296_bci_usb_ncb;
 
-	psy_cfg.drv_data = bq24296_di;
-	bq24296_di->usb = devm_power_supply_register(&client->dev,
+	psy_cfg.drv_data = di;
+	di->usb = devm_power_supply_register(&client->dev,
 						&bq24296_power_supply_desc[id->driver_data],
 						&psy_cfg);
-	if (IS_ERR(bq24296_di->usb)) {
-		ret = PTR_ERR(bq24296_di->usb);
+	if (IS_ERR(di->usb)) {
+		ret = PTR_ERR(di->usb);
 		dev_err(&client->dev, "failed to register as USB power_supply: %d\n", ret);
 		goto fail_probe;
 	}
@@ -1396,21 +1715,25 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 		di->rdev[i] = rdev;
 	}
 
-	ret = bq24296_init_registers();
+	ret = bq24296_init_registers(di);
 	if (ret < 0) {
 		dev_err(&client->dev, "failed to initialize registers: %d\n", ret);
 		goto fail_probe;
 	}
 
-	ret = devm_request_threaded_irq(&client->dev, pdev->chg_irq,
-				NULL, chg_irq_func,
+#if 1
+	di->prev_r8 = 0xff;
+	di->prev_r9 = 0xff;
+#endif
+	ret = devm_request_threaded_irq(&client->dev, client->irq,
+				NULL, bq2729x_chg_irq_func,
 				IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
 				client->name,
 				di);
 	if (ret < 0) {
 		dev_warn(&client->dev, "failed to request chg_irq: %d\n", ret);
 		// run with polling
-//		goto err_chgirq_failed;
+//		goto fail_probe;
 	}
 
 	if (device_create_file(&client->dev, &dev_attr_max_current))
@@ -1424,16 +1747,16 @@ static int bq24296_battery_probe(struct i2c_client *client,const struct i2c_devi
 
 	schedule_delayed_work(&di->usb_detect_work, 0);
 
-	DBG("bq24296_battery_probe ok");
+	DBG("%s ok", __func__);
 
 	return 0;
 
-err_chgirq_failed:
 fail_probe:
+	DBG("%s failed %d", __func__, ret);
 	return ret;
 }
 
-static int bq24296_battery_remove(struct i2c_client *client)
+static int bq24296_charger_remove(struct i2c_client *client)
 {
 	struct bq24296_device_info *di = i2c_get_clientdata(client);
 
@@ -1444,27 +1767,31 @@ static int bq24296_battery_remove(struct i2c_client *client)
 	return 0;
 }
 
-static const struct i2c_device_id bq24296_id[] = {
+static const struct i2c_device_id bq24296_charger_id[] = {
 	{ "bq24296", 0 },
 	{ "bq24297", 1 },
+	{ "mp2624", 2 },
 	{ },
 };
 
-MODULE_DEVICE_TABLE(i2c, bq24296_id);
+MODULE_DEVICE_TABLE(i2c, bq24296_charger_id);
 
-static struct i2c_driver bq24296_battery_driver = {
-	.probe = bq24296_battery_probe,
-	.remove = bq24296_battery_remove,
-	.id_table = bq24296_id,
+static struct i2c_driver bq24296_charger_driver = {
+	.probe = bq24296_charger_probe,
+	.remove = bq24296_charger_remove,
+	.shutdown = bq24296_charger_shutdown,
+	.id_table = bq24296_charger_id,
 	.driver = {
 		.name = "bq2429x_charger",
 	//	.pm = &bq2429x_pm_ops,
-		.of_match_table =of_match_ptr(bq24296_battery_of_match),
+		.of_match_table =of_match_ptr(bq24296_charger_of_match),
+		.suspend = bq24296_charger_suspend,
+		.resume = bq24296_charger_resume,
 	},
 };
 
-module_i2c_driver(bq24296_battery_driver);
+module_i2c_driver(bq24296_charger_driver);
 
 MODULE_AUTHOR("Rockchip");
-MODULE_DESCRIPTION("TI BQ24296/7 battery monitor driver");
+MODULE_DESCRIPTION("TI BQ24296/7 charger driver");
 MODULE_LICENSE("GPL");
