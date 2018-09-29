@@ -1420,7 +1420,7 @@ struct drm_gem_object *omap_gem_new(struct drm_device *dev,
 	if (flags & OMAP_BO_TILED) {
 		ret = _omap_gem_pin(obj);
 		if (ret)
-			goto err_release;
+			goto err_unlock;
 	}
 
 	list_add(&omap_obj->mm_list, &priv->obj_list);
@@ -1429,6 +1429,8 @@ struct drm_gem_object *omap_gem_new(struct drm_device *dev,
 
 	return obj;
 
+err_unlock:
+	mutex_unlock(&priv->list_lock);
 err_release:
 	drm_gem_object_release(obj);
 err_free:
