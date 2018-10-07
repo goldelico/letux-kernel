@@ -194,7 +194,6 @@
 #define BQ24296_USB_CHG            0x01
 
 struct bq24296_board {
-	struct gpio_desc *otg_usb_pin;
 	struct gpio_desc *dc_det_pin;
 	struct gpio_desc *psel_pin;
 	unsigned int chg_current[3];
@@ -216,7 +215,6 @@ struct bq24296_device_info {
 	struct regulator_dev *rdev[NUM_REGULATORS];
 	struct regulator_init_data *pmic_init_data;
 
-	struct gpio_desc *otg_usb_pin;
 	struct gpio_desc *dc_det_pin;
 	struct gpio_desc *psel_pin;
 
@@ -1037,8 +1035,6 @@ static int bq24296_otg_enable(struct regulator_dev *dev)
 		return -EBUSY;
 	}
 
-	gpiod_set_value_cansleep(di->otg_usb_pin, 1);	// enable OTG pin
-
 	/* enable bit 5 of POWER_ON_CONFIGURATION_REGISTER */
 
 	return bq24296_update_reg(di->client, POWER_ON_CONFIGURATION_REGISTER, 0x01 << 5, 0x01 << 5);	// enable OTG
@@ -1050,8 +1046,6 @@ static int bq24296_otg_disable(struct regulator_dev *dev)
 	int idx = dev->desc->id;
 
 	printk("%s(%d)\n", __func__, idx);
-
-	gpiod_set_value_cansleep(di->otg_usb_pin, 0);	// disable OTG pin
 
 	/* disable bit 5 of POWER_ON_CONFIGURATION_REGISTER */
 
@@ -1133,14 +1127,6 @@ static struct bq24296_board *bq24296_parse_dt(struct bq24296_device_info *di)
 			return NULL;
 		dev_err(&di->client->dev, "invalid det gpio: %ld\n", PTR_ERR(pdata->dc_det_pin));
 		pdata->dc_det_pin = NULL;
-	}
-
-	pdata->otg_usb_pin = devm_gpiod_get_index(&di->client->dev, "otg", 0, GPIOD_OUT_LOW);
-	if (IS_ERR(pdata->otg_usb_pin)) {
-		if (PTR_ERR(pdata->otg_usb_pin) == -EPROBE_DEFER)
-			return NULL;
-		dev_err(&di->client->dev, "invalid otg gpio: %ld\n", PTR_ERR(pdata->otg_usb_pin));
-		pdata->otg_usb_pin = NULL;
 	}
 
 	of_node_get(np);
@@ -1647,7 +1633,6 @@ static int bq24296_charger_probe(struct i2c_client *client, const struct i2c_dev
 	}
 
 	di->id = id;
-	di->otg_usb_pin = pdev->otg_usb_pin;
 	di->dc_det_pin = pdev->dc_det_pin;
 	di->psel_pin = pdev->psel_pin;
 
