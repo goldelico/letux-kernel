@@ -9,7 +9,7 @@
 /*
  * V5.1/5.1.1 and V5.1.2ff should have been separate .dtsi files
  * but we have no distinguising hardware version encoding
- * So comment out this #define to build for V5.1 and V5.1.1
+ * So comment out this #define to build for (rare) V5.1 and V5.1.1 boards
  */
 
 #define VERSION_5_1_2_AND_LATER
@@ -74,11 +74,31 @@
 	};
 };
 
+/ {
+	/* this is a power switch that connects otg power from bq2429x to the usb socket */
+	otg_path: otg_path {
+		compatible = "regulator-fixed";
+		regulator-name = "otg_path";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		/* does not handle "gpios" property! */
+		gpio = <&gpio99 (3+2*8) (GPIO_ACTIVE_HIGH)>;	/* P23 of pcal6524 */
+		enable-active-high;
+		vin-supply = <&otg_reg>;	/* request otg booster of bq24297 */
+	};
+};
+
+&usb3 {
+	vbus-supply = <&otg_path>;
+};
+
+/* no longer needed - we can then remove the otg-gpios feature from bq2429x driver
 &i2c2 {
 	bq24297@6b {
 		otg-gpios = <&gpio99 (3+2*8) (GPIO_ACTIVE_HIGH)>;	// P23
 	};
 };
+*/
 
 #endif
 
