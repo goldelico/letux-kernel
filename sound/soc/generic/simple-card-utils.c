@@ -177,6 +177,7 @@ int asoc_simple_card_parse_clk(struct device *dev,
 {
 	struct clk *clk;
 	u32 val;
+	u32 divider[2];
 
 	/*
 	 * Parse dai->sysclk come from "clocks = <&xxx>"
@@ -203,6 +204,13 @@ int asoc_simple_card_parse_clk(struct device *dev,
 	dev_dbg(dev, "%s : sysclk = %d, direction %d\n", name,
 		simple_dai->sysclk, simple_dai->clk_direction);
 
+	if (!of_property_read_u32_array(node, "clkdiv", divider, 2)) {
+		simple_dai->clk_div_id = divider[0];
+		simple_dai->clk_div = divider[1];
+		simple_dai->clk_div_set = true;
+	} else {
+		simple_dai->clk_div_set = false;
+	}
 	return 0;
 }
 EXPORT_SYMBOL_GPL(asoc_simple_card_parse_clk);
