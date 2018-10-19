@@ -5418,19 +5418,21 @@ static int dsi_probe(struct platform_device *pdev)
 		dsi->num_lanes_supported = 3;
 	}
 
+	r = of_platform_populate(dev->of_node, NULL, NULL, dev);
+	if (r) {
+		DSSERR("Failed to populate DSI child devices: %d\n", r);
+		goto err_pm_disable;
+	}
+
 	r = dsi_init_output(dsi);
 	if (r)
-		goto err_pm_disable;
+		goto err_depopulate;
 
 	r = dsi_probe_of(dsi);
 	if (r) {
 		DSSERR("Invalid DSI DT data\n");
 		goto err_uninit_output;
 	}
-
-	r = of_platform_populate(dev->of_node, NULL, NULL, dev);
-	if (r)
-		DSSERR("Failed to populate DSI child devices: %d\n", r);
 
 	r = component_add(&pdev->dev, &dsi_component_ops);
 	if (r)
@@ -5440,6 +5442,8 @@ static int dsi_probe(struct platform_device *pdev)
 
 err_uninit_output:
 	dsi_uninit_output(dsi);
+err_depopulate:
+	of_platform_depopulate(dev);
 err_pm_disable:
 	pm_runtime_disable(dev);
 	return r;
