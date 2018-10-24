@@ -648,6 +648,9 @@
 		#address-cells = <7>;
 		#size-cells = <0>;
 
+		pinctrl-names = "default";
+// reports a conflict:		pinctrl-0 = <&pyra_button_pins>;
+
 		left_shoulder_bottom {
 			label = "Left-Shoulder-Bottom";
 			linux,code = <KEY_RIGHTSHIFT>;
@@ -750,14 +753,15 @@
 	pyra-lid-wakeup {
 		compatible = "gpio-keys";
 
+		pinctrl-names = "default";
+		pinctrl-0 = <&lid_pin &wwan_pins>;
+
 		#address-cells = <2>;
 		#size-cells = <0>;
 
 		wwan_wakeup {
 			label = "WWAN Wakeup";
 			linux,code = <KEY_UNKNOWN>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&wwan_pins>;
 			gpios = <&gpio1 15 GPIO_ACTIVE_HIGH>;	/* gpio1_wk15 */
 			gpio-key,wakeup;
 			/* debounce-interval */
@@ -765,11 +769,9 @@
 
 		display_lid {
 			label = "Display Lid";
-			pinctrl-names = "default";
-			pinctrl-0 = <&lid_pin>;
 			linux,input-type = <EV_SW>;
 			linux,code = <SW_LID>;
-			gpios = <&gpio1 6 GPIO_ACTIVE_LOW>;	/* gpio1_wk6 */
+			gpios = <&gpio1 6 GPIO_ACTIVE_HIGH>;	/* gpio1_wk6 */
 			gpio-key,wakeup;
 		};
 
