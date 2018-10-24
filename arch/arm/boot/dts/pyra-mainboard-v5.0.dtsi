@@ -642,7 +642,7 @@
 		/delete-node/ BOOTSEL;
 	};
 
-	pyra-gpio-keys@1 {
+	pyra-game-buttons {
 		compatible = "gpio-keys";
 
 		#address-cells = <7>;
@@ -747,7 +747,7 @@
 		};
 	};
 
-	pyra-gpio-keys@2 {
+	pyra-lid-wakeup {
 		compatible = "gpio-keys";
 
 		#address-cells = <2>;
