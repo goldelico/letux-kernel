@@ -834,26 +834,12 @@
 
 };
 
-/ {
-	bluetooth_power: bt_en {
-		compatible = "regulator-fixed";
-		pinctrl-names = "default";
-		pinctrl-0 = <&bt_pins>;
-		regulator-name = "bt_power";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
-		gpio = <&gpio6 4 GPIO_ACTIVE_HIGH>;	/* GPIO6_164 */
-		enable-active-high;
-		startup-delay-us = <70000>;
-		vin-supply = <&vsys_reg>;
-	};
-};
-
 &uart2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart2_pins &bt_pins>;
 	bluetooth: tiwi {
-		/* we can (mis)use the w2cbw power control driver */
-		compatible = "wi2wi,w2cbw003-bluetooth";
-		vdd-supply = <&bluetooth_power>;
+		compatible = "ti,wl1835-st";
+		enable-gpios = <&gpio6 4 GPIO_ACTIVE_HIGH>;	/* GPIO6_164 */
 	};
 };
 
