@@ -762,8 +762,38 @@ static int bq24296_usb_detect(struct bq24296_device_info *di)
 
 #if 1
 	{ // print changes to last state
-		if(di->r8 != di->prev_r8 || di->r9 != di->prev_r9)
-			printk("%s: r8=%02x r9=%02x\n", __func__, di->r8, di->r9);
+		if (di->r8 != di->prev_r8 || di->r9 != di->prev_r9)
+			{
+			char string[200];
+			sprintf(string, "r8=%02x", di->r8);
+			switch ((di->r8>>6)&3) {
+				case 1: strcat(string, " HOST"); break;
+				case 2: strcat(string, " ADAP"); break;
+				case 3: strcat(string, " OTG"); break;
+			};
+			switch ((di->r8>>4)&3) {
+				case 1: strcat(string, " PRECHG"); break;
+				case 2: strcat(string, " FCHG"); break;
+				case 3: strcat(string, " CHGTERM"); break;
+			};
+			if ((di->r8>>3)&1) strcat(string, " INDPM");
+			if ((di->r8>>2)&1) strcat(string, " PWRGOOD");
+			if ((di->r8>>1)&1) strcat(string, " THERMREG");
+			if ((di->r8>>0)&1) strcat(string, " VSYSMIN");
+			sprintf(string+strlen(string), " r9=%02x", di->r9);
+			if ((di->r9>>7)&1) strcat(string, " WDOG");
+			if ((di->r9>>6)&1) strcat(string, " OTGFAULT");
+			switch ((di->r9>>4)&3) {
+				case 1: strcat(string, " UNPLUG"); break;
+				case 2: strcat(string, " THERMAL"); break;
+				case 3: strcat(string, " CHGTIME"); break;
+			};
+			if ((di->r9>>3)&1) strcat(string, " BATFAULT");
+			if ((di->r9>>2)&1) strcat(string, " RESERVED");
+			if ((di->r9>>1)&1) strcat(string, " COLD");
+			if ((di->r9>>0)&1) strcat(string, " HOT");
+			printk("%s: %s\n", __func__, string);
+			}
 		di->prev_r8 = di->r8, di->prev_r9 = di->r9;
 	}
 #endif
