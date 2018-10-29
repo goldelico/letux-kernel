@@ -1,0 +1,13 @@
+* Bosch BMG160 triaxial rotation sensor (gyroscope)
+
+Required properties:
+
+  - compatible : should be "bosch,bmg160" or "bosch,bmi055_gyro"
+  - reg : the I2C address of the sensor (0x69)
+
+Example:
+
+bmg160@69 {
+	compatible = "bosch,bmg160";
+	reg = <0x69>;
+};
