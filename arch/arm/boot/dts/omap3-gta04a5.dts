@@ -93,6 +93,29 @@
 		>;
 	};
 
+	bmc150_pins: pinmux_bmc150_pins {
+		pinctrl-single,pins = <
+			OMAP3_CORE1_IOPAD(0x213a, PIN_INPUT | MUX_MODE4) /* gpin115 */
+		>;
+	};
+
+	bmc150_magn_pins: pinmux_bmc150_magn_pins {
+		pinctrl-single,pins = <
+			OMAP3_CORE1_IOPAD(0x2134, PIN_INPUT | MUX_MODE4) /* gpin112 */
+		>;
+	};
+
+	bmg160_pins: pinmux_bmg160_pins {
+		pinctrl-single,pins = <
+			OMAP3_CORE1_IOPAD(0x20b8, PIN_INPUT | MUX_MODE4) /* gpio56 */
+		>;
+	};
+
+	bno050_pins: pinmux_bno050_pins {
+		pinctrl-single,pins = <
+			OMAP3_CORE1_IOPAD(0x2136, PIN_INPUT | MUX_MODE4) /* gpin113 */
+		>;
+	};
 };
 
 /*
@@ -151,23 +174,28 @@
 	bmg160@69 {
 		compatible = "bosch,bmg160";
 		reg = <0x69>;
-// irq
+		pinctrl-names = "default";
+		pinctrl-0 = <&bmg160_pins>;
+		interrupt-parent = <&gpio2>;
+		interrupts = <24 (IRQ_TYPE_LEVEL_HIGH | IRQ_TYPE_EDGE_RISING)>;	/* gpio_56 */
 	};
 
 	bmc150@10 {
 		compatible = "bosch,bmc150_accel";
 		reg = <0x10>;
-/*		pinctrl-names = "default";
+		pinctrl-names = "default";
 		pinctrl-0 = <&bmc150_pins>;
-		interrupt-parent = <&gpio6>;
-		interrupts = <9 (IRQ_TYPE_LEVEL_HIGH | IRQ_TYPE_EDGE_RISING)>;	/* gpio6_169 * /
-*/
+		interrupt-parent = <&gpio4>;
+		interrupts = <19 (IRQ_TYPE_LEVEL_HIGH | IRQ_TYPE_EDGE_RISING)>;	/* gpin_115 */
 	};
 
 	bmc150@12 {
 		compatible = "bosch,bmc150_magn";
 		reg = <0x12>;
-// irq
+		pinctrl-names = "default";
+		pinctrl-0 = <&bmc150_magn_pins>;
+		interrupt-parent = <&gpio4>;
+		interrupts = <16 (IRQ_TYPE_LEVEL_HIGH | IRQ_TYPE_EDGE_RISING)>;	/* gpin_112 */
 	};
 
 	bme280@76 {
@@ -181,6 +209,9 @@
 		compatible = "bosch,bno055";
 		reg = <0x29>;
 		bosch,operation-mode = <7>;	/* BNO055_MODE_AMG */
-// irq
+		pinctrl-names = "default";
+		pinctrl-0 = <&bno050_pins>;
+		interrupt-parent = <&gpio4>;
+		interrupts = <17 (IRQ_TYPE_LEVEL_HIGH | IRQ_TYPE_EDGE_RISING)>;	/* gpin_113 */
 	};
 };
