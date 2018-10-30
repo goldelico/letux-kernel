@@ -79,6 +79,9 @@ MODULE_PARM_DESC(drm_leak_fbdev_smem,
 		 "Allow unsafe leaking fbdev physical smem address [default=false]");
 #endif
 
+static uint drm_fbdev_rotation = 0;
+module_param_named(fbdev_rotation, drm_fbdev_rotation, uint, 0644);
+
 static LIST_HEAD(kernel_fb_helper_list);
 static DEFINE_MUTEX(kernel_fb_helper_lock);
 
@@ -1612,7 +1615,7 @@ static int drm_fb_helper_single_fb_probe(struct drm_fb_helper *fb_helper,
 	crtc_count = 0;
 	drm_client_for_each_modeset(mode_set, client) {
 		struct drm_display_mode *desired_mode;
-		int x, y, j;
+		int width, height, x, y, j;
 		/* in case of tile group, are we the last tile vert or horiz?
 		 * If no tile group you are always the last one both vertically
 		 * and horizontally
@@ -1623,6 +1626,14 @@ static int drm_fb_helper_single_fb_probe(struct drm_fb_helper *fb_helper,
 
 		if (!desired_mode)
 			continue;
+
+		if (drm_rotation_90_or_270(drm_fbdev_rotation)) {
+			height = desired_mode->hdisplay;
+			width = desired_mode->vdisplay;
+		} else {
+			width = desired_mode->hdisplay;
+			height = desired_mode->vdisplay;
+		}
 
 		crtc_count++;
 
@@ -1646,9 +1657,9 @@ static int drm_fb_helper_single_fb_probe(struct drm_fb_helper *fb_helper,
 		}
 
 		if (lasth)
-			sizes.fb_width  = min_t(u32, desired_mode->hdisplay + x, sizes.fb_width);
+			sizes.fb_width  = min_t(u32, width + x, sizes.fb_width);
 		if (lastv)
-			sizes.fb_height = min_t(u32, desired_mode->vdisplay + y, sizes.fb_height);
+			sizes.fb_height = min_t(u32, height + y, sizes.fb_height);
 	}
 	mutex_unlock(&client->modeset_mutex);
 
@@ -1791,6 +1802,7 @@ static void drm_setup_crtcs_fb(struct drm_fb_helper *fb_helper)
 
 		/* use first connected connector for the physical dimensions */
 		if (connector->status == connector_status_connected) {
+			/* FIXME for rotation */
 			info->var.width = connector->display_info.width_mm;
 			info->var.height = connector->display_info.height_mm;
 			break;
@@ -1960,6 +1972,7 @@ EXPORT_SYMBOL(drm_fb_helper_initial_config);
 int drm_fb_helper_hotplug_event(struct drm_fb_helper *fb_helper)
 {
 	int err = 0;
+	unsigned width, height;
 
 	if (!drm_fbdev_emulation || !fb_helper)
 		return 0;
@@ -1981,7 +1994,15 @@ int drm_fb_helper_hotplug_event(struct drm_fb_helper *fb_helper)
 
 	drm_dbg_kms(fb_helper->dev, "\n");
 
-	drm_client_modeset_probe(&fb_helper->client, fb_helper->fb->width, fb_helper->fb->height);
+	/* XXX FIXME */
+	if (drm_rotation_90_or_270(drm_fbdev_rotation)) {
+		width = fb_helper->fb->height;
+		height = fb_helper->fb->width;
+	} else {
+		width = fb_helper->fb->width;
+		height = fb_helper->fb->height;
+	}
+	drm_client_modeset_probe(&fb_helper->client, width, height);
 	drm_setup_crtcs_fb(fb_helper);
 	mutex_unlock(&fb_helper->lock);
 
