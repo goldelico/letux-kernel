@@ -2430,6 +2430,10 @@ static int drm_pick_crtcs(struct drm_fb_helper *fb_helper,
  * one bit is set and then we set fb_info.fbcon_rotate_hint to make fbcon do
  * the unsupported rotation.
  */
+
+static uint drm_fbdev_rotation = 0;
+module_param_named(fbdev_rotation, drm_fbdev_rotation, uint, 0644);
+
 static void drm_setup_crtc_rotation(struct drm_fb_helper *fb_helper,
 				    struct drm_fb_helper_crtc *fb_crtc,
 				    struct drm_connector *connector)
@@ -2453,6 +2457,10 @@ static void drm_setup_crtc_rotation(struct drm_fb_helper *fb_helper,
 	default:
 		rotation = DRM_MODE_ROTATE_0;
 	}
+
+	/* this overwrites by module param 'fbdev_rotation' */
+	if (drm_fbdev_rotation)
+		rotation = drm_fbdev_rotation;
 
 	/*
 	 * TODO: support 90 / 270 degree hardware rotation,
