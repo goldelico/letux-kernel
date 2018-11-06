@@ -38,18 +38,17 @@
 #include <linux/jiffies.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
-#include <linux/sched.h>
+#include <linux/regulator/consumer.h>
+#include <linux/sched/signal.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
 #include <linux/of_device.h>
 #include <linux/of_gpio.h>
 
-#include "../dss/omapdss.h"
-#include <video/omap-panel-data.h>
 #include <video/mipi_display.h>
+#include <video/of_display_timing.h>
 
-#include <linux/err.h>
-#include <linux/regulator/consumer.h>
+#include "../dss/omapdss.h"
 
 /* extended DCS commands (not defined in mipi_display.h) */
 #define DCS_READ_DDB_START		0x02
@@ -121,9 +120,8 @@ static struct videomode r63311_timings = {
 
 struct panel_drv_data {
 	struct omap_dss_device dssdev;
-	struct omap_dss_device *in;
 
-	struct videomode timings;
+	struct videomode vm;
 
 	struct platform_device *pdev;
 
@@ -436,10 +434,9 @@ static int r63311_write_sequence(struct omap_dss_device *dssdev,
 	return 0;
 }
 
-static int r63311_connect(struct omap_dss_device *dssdev)
+static int r63311_connect(struct omap_dss_device *in, struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
 	struct device *dev = &ddata->pdev->dev;
 	int r;
 
@@ -490,28 +487,27 @@ err_req_vc0:
 	return r;
 }
 
-static void r63311_disconnect(struct omap_dss_device *dssdev)
+static void r63311_disconnect(struct omap_dss_device *in, struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
 
 	if (!omapdss_device_is_connected(dssdev))
 		return;
 
 	in->ops->dsi.release_vc(in, ddata->pixel_channel);
 	in->ops->dsi.release_vc(in, ddata->config_channel);
-	in->ops->disconnect(in, dssdev);
 }
 
 
 static void r63311_get_timings(struct omap_dss_device *dssdev,
 			       struct videomode *timings)
 {
-	*timings = dssdev->panel.vm;
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+	*timings = ddata->vm;
 }
 
 static void r63311_set_timings(struct omap_dss_device *dssdev,
-			       struct videomode *timings)
+			       const struct videomode *timings)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	ddata->vm.hactive = timings->hactive;
@@ -528,17 +524,16 @@ static void r63311_set_timings(struct omap_dss_device *dssdev,
 static int r63311_check_timings(struct omap_dss_device *dssdev,
 				struct videomode *timings)
 {
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	return 0;
 }
 
-#if 0
-static void r63311_get_resolution(struct omap_dss_device *dssdev,
-				  u16 *xres, u16 *yres)
+static void r63311_get_size(struct omap_dss_device *dssdev,
+		unsigned int *width, unsigned int *height)
 {
-	*xres = dssdev->panel.vm.hactive;
-	*yres = dssdev->panel.vm.vactive;
+	*width = 63;
+	*height = 112;
 }
-#endif
 
 static int r63311_reset(struct omap_dss_device *dssdev, int state)
 {
@@ -1002,27 +997,26 @@ static int r63311_enable(struct omap_dss_device *dssdev)
 	return r63311_start(dssdev);
 }
 
-static struct omap_dss_driver r63311_ops = {
+static struct omap_dss_device_ops r63311_dss_ops = {
 	.connect	= r63311_connect,
 	.disconnect	= r63311_disconnect,
 
 	.enable		= r63311_enable,
 	.disable	= r63311_disable,
 
-#if 0
-	.get_resolution	= r63311_get_resolution,
-#endif
-
 	.check_timings	= r63311_check_timings,
 	.set_timings	= r63311_set_timings,
 	.get_timings	= r63311_get_timings,
+};
+
+static struct  omap_dss_driver r63311_dss_driver = {
+	.get_size	= r63311_get_size,
 };
 
 static int r63311_probe_of(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
 	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
-	struct omap_dss_device *in;
 	int gpio;
 
 	printk("dsi: r63311_probe_of()\n");
@@ -1040,14 +1034,6 @@ static int r63311_probe_of(struct platform_device *pdev)
 		return gpio;
 	}
 	ddata->regulator_gpio = gpio;
-
-	in = omapdss_of_find_source_for_first_ep(node);
-	if (IS_ERR(in)) {
-		dev_err(&pdev->dev, "failed to find video source (err=%ld)\n", PTR_ERR(in));
-		return PTR_ERR(in);
-	}
-
-	ddata->in = in;
 
 	return 0;
 }
@@ -1083,22 +1069,17 @@ static int r63311_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	ddata->timings = r63311_timings;
-
 	dssdev = &ddata->dssdev;
 	dssdev->dev = dev;
-	dssdev->driver = &r63311_ops;
-	dssdev->panel.vm = r63311_timings;
+	dssdev->ops = &r63311_dss_ops;
+	dssdev->driver = &r63311_dss_driver;
 	dssdev->type = OMAP_DISPLAY_TYPE_DSI;
 	dssdev->owner = THIS_MODULE;
 
-	dssdev->panel.dsi_pix_fmt = R63311_PIXELFORMAT;
+	ddata->vm = r63311_timings;
 
-	r = omapdss_register_display(dssdev);
-	if (r) {
-		dev_err(dev, "Failed to register panel\n");
-		goto err_reg;
-	}
+	omapdss_display_init(dssdev);
+	omapdss_device_register(dssdev);
 
 	mutex_init(&ddata->lock);
 
@@ -1148,14 +1129,12 @@ static int __exit r63311_remove(struct platform_device *pdev)
 
 	printk("dsi: r63311_remove()\n");
 
-	omapdss_unregister_display(dssdev);
+	omapdss_device_unregister(dssdev);
 
 	r63311_disable(dssdev);
-	r63311_disconnect(dssdev);
+	omapdss_device_disconnect(dssdev->src, dssdev);
 
 	sysfs_remove_group(&pdev->dev.kobj, &r63311_attr_group);
-
-	omap_dss_put_device(ddata->in);
 
 	mutex_destroy(&ddata->lock);
 
