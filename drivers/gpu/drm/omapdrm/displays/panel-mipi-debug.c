@@ -138,7 +138,7 @@ struct mipi_debug_reg {
 static int mipi_debug_write(struct omap_dss_device *dssdev, u8 *buf, int len, int generic)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	int r;
 	int i;
 
@@ -163,7 +163,7 @@ static int mipi_debug_write(struct omap_dss_device *dssdev, u8 *buf, int len, in
 static int mipi_debug_read(struct omap_dss_device *dssdev, u8 *dcs_cmd, int cmdlen, u8 *buf, int len, int generic)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	int r;
 	int i;
 
@@ -208,7 +208,7 @@ static int mipi_debug_read_dcs(struct omap_dss_device *dssdev, u8 dcs_cmd, u8 *b
 static int mipi_debug_connect(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	struct device *dev = &ddata->pdev->dev;
 	int r;
 
@@ -224,26 +224,26 @@ static int mipi_debug_connect(struct omap_dss_device *dssdev)
 	}
 
 	/* channel0 used for video packets */
-	r = in->ops->dsi.request_vc(ddata->in, &ddata->pixel_channel);
+	r = in->ops->dsi.request_vc(ddata->dssdev.src, &ddata->pixel_channel);
 	if (r) {
 		dev_err(dev, "failed to get virtual channel\n");
 		goto err_req_vc0;
 	}
 
-	r = in->ops->dsi.set_vc_id(ddata->in, ddata->pixel_channel, 0);
+	r = in->ops->dsi.set_vc_id(ddata->dssdev.src, ddata->pixel_channel, 0);
 	if (r) {
 		dev_err(dev, "failed to set VC_ID\n");
 		goto err_vc_id0;
 	}
 
 	/* channel1 used for registers access in LP mode */
-	r = in->ops->dsi.request_vc(ddata->in, &ddata->config_channel);
+	r = in->ops->dsi.request_vc(ddata->dssdev.src, &ddata->config_channel);
 	if (r) {
 		dev_err(dev, "failed to get virtual channel\n");
 		goto err_req_vc1;
 	}
 
-	r = in->ops->dsi.set_vc_id(ddata->in, ddata->config_channel, 0);
+	r = in->ops->dsi.set_vc_id(ddata->dssdev.src, ddata->config_channel, 0);
 	if (r) {
 		dev_err(dev, "failed to set VC_ID\n");
 		goto err_vc_id1;
@@ -254,10 +254,10 @@ static int mipi_debug_connect(struct omap_dss_device *dssdev)
 	return 0;
 
 err_vc_id1:
-	in->ops->dsi.release_vc(ddata->in, ddata->config_channel);
+	in->ops->dsi.release_vc(ddata->dssdev.src, ddata->config_channel);
 err_req_vc1:
 err_vc_id0:
-	in->ops->dsi.release_vc(ddata->in, ddata->pixel_channel);
+	in->ops->dsi.release_vc(ddata->dssdev.src, ddata->pixel_channel);
 err_req_vc0:
 	in->ops->disconnect(in, dssdev);
 	return r;
@@ -266,7 +266,7 @@ err_req_vc0:
 static void mipi_debug_disconnect(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 
 	printk("dsi: mipi_debug_disconnect()\n");
 
@@ -285,7 +285,7 @@ static void mipi_debug_get_timings(struct omap_dss_device *dssdev,
 		struct videomode *timings)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 
 	/* if we are connected to the ssd2858 driver in->driver provides get_timings() */
 
@@ -293,28 +293,28 @@ static void mipi_debug_get_timings(struct omap_dss_device *dssdev,
 		printk("dsi: mipi_debug_get_timings() get from source\n");
 		in->driver->get_timings(in, timings);
 	} else
-		*timings = dssdev->panel.vm;
+		*timings = ddata->vm;
 }
 
 static void mipi_debug_set_timings(struct omap_dss_device *dssdev,
 		struct videomode *timings)
 {
-	dssdev->panel.vm.hactive = timings->hactive;
-	dssdev->panel.vm.vactive = timings->vactive;
-	dssdev->panel.vm.pixelclock = timings->pixelclock;
-	dssdev->panel.vm.hsync_len = timings->hsync_len;
-	dssdev->panel.vm.hfront_porch = timings->hfront_porch;
-	dssdev->panel.vm.hback_porch = timings->hback_porch;
-	dssdev->panel.vm.vsync_len = timings->vsync_len;
-	dssdev->panel.vm.vfront_porch = timings->vfront_porch;
-	dssdev->panel.vm.vback_porch = timings->vback_porch;
+	ddata->vm.hactive = timings->hactive;
+	ddata->vm.vactive = timings->vactive;
+	ddata->vm.pixelclock = timings->pixelclock;
+	ddata->vm.hsync_len = timings->hsync_len;
+	ddata->vm.hfront_porch = timings->hfront_porch;
+	ddata->vm.hback_porch = timings->hback_porch;
+	ddata->vm.vsync_len = timings->vsync_len;
+	ddata->vm.vfront_porch = timings->vfront_porch;
+	ddata->vm.vback_porch = timings->vback_porch;
 }
 
 static int mipi_debug_check_timings(struct omap_dss_device *dssdev,
 		struct videomode *timings)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 
 	/* if we are connected to the ssd2858 driver in->driver provides check_timings() */
 
@@ -329,8 +329,8 @@ static int mipi_debug_check_timings(struct omap_dss_device *dssdev,
 static void mipi_debug_get_resolution(struct omap_dss_device *dssdev,
 		u16 *xres, u16 *yres)
 {
-	*xres = dssdev->panel.vm.hactive;
-	*yres = dssdev->panel.vm.vactive;
+	*xres = ddata->vm.hactive;
+	*yres = ddata->vm.vactive;
 }
 #endif
 
@@ -377,7 +377,7 @@ static int mipi_debug_set_brightness(struct backlight_device *bd)
 {
 	struct omap_dss_device *dssdev = dev_get_drvdata(&bd->dev);
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-//	struct omap_dss_device *in = ddata->in;
+//	struct omap_dss_device *in = ddata->dssdev.src;
 	int bl = bd->props.brightness;
 	int r = 0;
 	printk("dsi: mipi_debug_set_brightness(%d)\n", bl);
@@ -408,7 +408,7 @@ static int mipi_debug_get_brightness(struct backlight_device *bd)
 {
 	struct omap_dss_device *dssdev = dev_get_drvdata(&bd->dev);
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	u8 data[16];
 	u16 brightness = 0;
 	int r = 0;
@@ -463,7 +463,7 @@ static ssize_t set_dcs(struct device *dev,
 	struct platform_device *pdev = to_platform_device(dev);
 	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
 	struct omap_dss_device *dssdev = &ddata->dssdev;
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	const char *p;
 
 	if(strncmp(buf, "start", 5) == 0) {
@@ -499,23 +499,23 @@ static ssize_t set_dcs(struct device *dev,
 				}
 				/* let's hope that the video modes are really changed... */
 				if(len == 5 && strncmp(arg, "x_res", len) == 0)
-					dssdev->panel.vm.hactive=val;
+					ddata->vm.hactive=val;
 				else if(len == 5 && strncmp(arg, "y_res", len) == 0)
-					dssdev->panel.vm.vactive=val;
+					ddata->vm.vactive=val;
 				else if(len == 10 && strncmp(arg, "pixelclock", len) == 0)
-					dssdev->panel.vm.pixelclock=val;
+					ddata->vm.pixelclock=val;
 				else if(len == 3 && strncmp(arg, "hfp", len) == 0)
-					dssdev->panel.vm.hfront_porch=val;
+					ddata->vm.hfront_porch=val;
 				else if(len == 3 && strncmp(arg, "hsw", len) == 0)
-					dssdev->panel.vm.hsync_len=val;
+					ddata->vm.hsync_len=val;
 				else if(len == 3 && strncmp(arg, "hbp", len) == 0)
-					dssdev->panel.vm.hback_porch=val;
+					ddata->vm.hback_porch=val;
 				else if(len == 3 && strncmp(arg, "vfp", len) == 0)
-					dssdev->panel.vm.vfront_porch=val;
+					ddata->vm.vfront_porch=val;
 				else if(len == 3 && strncmp(arg, "vsw", len) == 0)
-					dssdev->panel.vm.vsync_len=val;
+					ddata->vm.vsync_len=val;
 				else if(len == 3 && strncmp(arg, "vbp", len) == 0)
-					dssdev->panel.vm.vback_porch=val;
+					ddata->vm.vback_porch=val;
 				/* mipi_dsi_config evaluated during mipi_debug_start() */
 				else if(len == 7 && strncmp(arg, "lpclock", len) == 0)
 					mipi_dsi_config.lp_clk_max=val;
@@ -541,7 +541,7 @@ static ssize_t set_dcs(struct device *dev,
 		if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE)
 			{
 			in->ops->dsi.bus_lock(in);
-			in->ops->enable_video_output(in, ddata->pixel_channel);
+			in->ops->dsi.enable_video_output(in, ddata->pixel_channel);
 			in->ops->dsi.bus_unlock(in);
 			}
 		return count;
@@ -699,7 +699,7 @@ static int mipi_debug_power_on(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct device *dev = &ddata->pdev->dev;
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	int r;
 	printk("dsi: mipi_debug_power_on()\n");
 //	printk("hs_clk_min=%lu\n", mipi_dsi_config.hs_clk_min);
@@ -721,7 +721,7 @@ static int mipi_debug_power_on(struct omap_dss_device *dssdev)
 	}
 #endif
 
-	mipi_dsi_config.vm = &dssdev->panel.vm;
+	mipi_dsi_config.vm = &ddata->vm;
 
 	r = in->ops->dsi.set_config(in, &mipi_dsi_config);
 	if (r) {
@@ -743,7 +743,7 @@ static int mipi_debug_power_on(struct omap_dss_device *dssdev)
 	msleep(10);
 #endif
 
-	in->ops->enable_hs(in, ddata->pixel_channel, true);
+	in->ops->dsi.enable_hs(in, ddata->pixel_channel, true);
 
 	/* don't initialize the panel here - user space has to do */
 
@@ -760,7 +760,7 @@ static int mipi_debug_power_on(struct omap_dss_device *dssdev)
 static void mipi_debug_power_off(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 
 	printk("dsi: mipi_debug_power_off()\n");
 	if(!ddata->enabled)
@@ -780,18 +780,18 @@ static void mipi_debug_power_off(struct omap_dss_device *dssdev)
 static int mipi_debug_start(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	int r = 0;
 
 	ddata->max_rx_packet_size = -1;
 
 	printk("dsi: mipi_debug_start()\n");
 
-	printk("  Dimensions: {%ux%u} in {%ux%u}\n", dssdev->panel.vm.vactive,
-		/* FIXME: */  dssdev->panel.vm.hactive, 0, 0);
-	printk("  Pixel CLK: %lu\n", dssdev->panel.vm.pixelclock);
-	printk("  HSYNC: %u %u %u\n", dssdev->panel.vm.hfront_porch, dssdev->panel.vm.hsync_len, dssdev->panel.vm.hback_porch);
-	printk("  VSYNC: %u %u %u\n", dssdev->panel.vm.vfront_porch, dssdev->panel.vm.vsync_len, dssdev->panel.vm.vback_porch);
+	printk("  Dimensions: {%ux%u} in {%ux%u}\n", ddata->vm.vactive,
+		/* FIXME: */  ddata->vm.hactive, 0, 0);
+	printk("  Pixel CLK: %lu\n", ddata->vm.pixelclock);
+	printk("  HSYNC: %u %u %u\n", ddata->vm.hfront_porch, ddata->vm.hsync_len, ddata->vm.hback_porch);
+	printk("  VSYNC: %u %u %u\n", ddata->vm.vfront_porch, ddata->vm.vsync_len, ddata->vm.vback_porch);
 	printk("  DDR CLK: %lu..%lu\n", mipi_dsi_config.hs_clk_min, mipi_dsi_config.hs_clk_max);
 	printk("  LPCLK out: %lu..%lu\n", mipi_dsi_config.lp_clk_min, mipi_dsi_config.lp_clk_max);
 	printk("  MODE: %u\n", mipi_dsi_config.mode);
@@ -823,7 +823,7 @@ static int mipi_debug_start(struct omap_dss_device *dssdev)
 static void mipi_debug_stop(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 
 	printk("dsi: mipi_debug_stop()\n");
 	if (dssdev->state != OMAP_DSS_DISPLAY_ACTIVE)
@@ -915,7 +915,7 @@ static int mipi_debug_probe_of(struct platform_device *pdev)
 		return PTR_ERR(ep);
 	}
 
-	ddata->in = ep;
+	ddata->dssdev.src = ep;
 
 	return 0;
 }
@@ -954,11 +954,11 @@ static int mipi_debug_probe(struct platform_device *pdev)
 	dssdev = &ddata->dssdev;
 	dssdev->dev = dev;
 	dssdev->driver = &mipi_debugops;
-	dssdev->panel.vm = mipi_default_timings;
+	ddata->vm = mipi_default_timings;
 	dssdev->type = OMAP_DISPLAY_TYPE_DSI;
 	dssdev->owner = THIS_MODULE;
 
-	dssdev->panel.dsi_pix_fmt = mipi_debugPIXELFORMAT;
+	ddata->dsi_pix_fmt = mipi_debugPIXELFORMAT;
 
 // can we postpone this so that user space can modify the mipi timings before registration?
 
@@ -1021,9 +1021,9 @@ static int __exit mipi_debug_remove(struct platform_device *pdev)
 
 	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE)
 		{
-		ddata->in->ops->dsi.bus_lock(ddata->in);
-		ddata->in->ops->disable_video_output(ddata->in, ddata->pixel_channel);
-		ddata->in->ops->dsi.bus_unlock(ddata->in);
+		ddata->dssdev.src->ops->dsi.bus_lock(ddata->dssdev.src);
+		ddata->dssdev.src->ops->disable_video_output(ddata->dssdev.src, ddata->pixel_channel);
+		ddata->dssdev.src->ops->dsi.bus_unlock(ddata->dssdev.src);
 		}
 
 	mipi_debug_stop(dssdev);
@@ -1035,7 +1035,7 @@ static int __exit mipi_debug_remove(struct platform_device *pdev)
 	mipi_debug_disable(dssdev);
 	mipi_debug_disconnect(dssdev);
 
-	omap_dss_put_device(ddata->in);
+	omap_dss_put_device(ddata->dssdev.src);
 
 	mutex_destroy(&ddata->lock);
 
