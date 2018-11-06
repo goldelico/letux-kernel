@@ -102,7 +102,7 @@ struct panel_drv_data {
 
 // do we need the timings here if they are also stored in a static struct???
 // do we need the static struct if they are also stored here?
-// do we need any of both if they are also stored in dssdev->panel.timings???
+// do we need any of both if they are also stored in ddata->vm???
 
 	struct videomode vm;
 
@@ -334,7 +334,7 @@ static struct w677l_reg display_on[] = {
 static int w677l_write(struct omap_dss_device *dssdev, u8 *buf, int len)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	int r;
 
 #if LOG
@@ -361,7 +361,7 @@ static int w677l_write(struct omap_dss_device *dssdev, u8 *buf, int len)
 static int w677l_read(struct omap_dss_device *dssdev, u8 dcs_cmd, u8 *buf, int len)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	int r;
 
 	r = in->ops->dsi.set_max_rx_packet_size(in, ddata->config_channel, len);	// tell panel how much we expect
@@ -460,7 +460,7 @@ static int w677l_set_brightness(struct backlight_device *bd)
 {
 	struct omap_dss_device *dssdev = dev_get_drvdata(&bd->dev);
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-//	struct omap_dss_device *in = ddata->in;
+//	struct omap_dss_device *in = ddata->dssdev.src;
 	int bl = bd->props.brightness;
 	int r = 0;
 
@@ -495,7 +495,7 @@ static int w677l_get_brightness(struct backlight_device *bd)
 {
 	struct omap_dss_device *dssdev = dev_get_drvdata(&bd->dev);
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	u8 data[16];
 	u16 brightness = 0;
 	int r = 0;
@@ -541,7 +541,7 @@ static const struct backlight_ops w677l_backlight_ops  = {
 static int w677l_connect(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	struct device *dev = &ddata->pdev->dev;
 	int r;
 
@@ -559,26 +559,26 @@ static int w677l_connect(struct omap_dss_device *dssdev)
 	}
 
 	/* channel0 used for video packets */
-	r = in->ops->dsi.request_vc(ddata->in, &ddata->pixel_channel);
+	r = in->ops->dsi.request_vc(ddata->dssdev.src, &ddata->pixel_channel);
 	if (r) {
 		dev_err(dev, "failed to get virtual channel\n");
 		goto err_req_vc0;
 	}
 
-	r = in->ops->dsi.set_vc_id(ddata->in, ddata->pixel_channel, 0);
+	r = in->ops->dsi.set_vc_id(ddata->dssdev.src, ddata->pixel_channel, 0);
 	if (r) {
 		dev_err(dev, "failed to set VC_ID\n");
 		goto err_vc_id0;
 	}
 
 	/* channel1 used for registers access in LP mode */
-	r = in->ops->dsi.request_vc(ddata->in, &ddata->config_channel);
+	r = in->ops->dsi.request_vc(ddata->dssdev.src, &ddata->config_channel);
 	if (r) {
 		dev_err(dev, "failed to get virtual channel\n");
 		goto err_req_vc1;
 	}
 
-	r = in->ops->dsi.set_vc_id(ddata->in, ddata->config_channel, 0);
+	r = in->ops->dsi.set_vc_id(ddata->dssdev.src, ddata->config_channel, 0);
 	if (r) {
 		dev_err(dev, "failed to set VC_ID\n");
 		goto err_vc_id1;
@@ -591,10 +591,10 @@ static int w677l_connect(struct omap_dss_device *dssdev)
 	return 0;
 
 err_vc_id1:
-	in->ops->dsi.release_vc(ddata->in, ddata->config_channel);
+	in->ops->dsi.release_vc(ddata->dssdev.src, ddata->config_channel);
 err_req_vc1:
 err_vc_id0:
-	in->ops->dsi.release_vc(ddata->in, ddata->pixel_channel);
+	in->ops->dsi.release_vc(ddata->dssdev.src, ddata->pixel_channel);
 err_req_vc0:
 	in->ops->disconnect(in, dssdev);
 	return r;
@@ -603,7 +603,7 @@ err_req_vc0:
 static void w677l_disconnect(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 
 #if LOG
 	printk("dsi: w677l_disconnect()\n");
@@ -621,7 +621,7 @@ static void w677l_get_timings(struct omap_dss_device *dssdev,
 		struct videomode *timings)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 
 #if LOG
 	printk("dsi: w677l_get_timings()  in = %s %s %s %p\n", in->name, in->driver_name, in->alias, in->driver);
@@ -642,7 +642,7 @@ static int w677l_check_timings(struct omap_dss_device *dssdev,
 		struct videomode *timings)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 
 #if LOG
 	printk("dsi: w677l_check_timings() in = %s %s %s %p\n", in->name, in->driver_name, in->alias, in->driver);
@@ -663,7 +663,7 @@ static int w677l_enable(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct device *dev = &ddata->pdev->dev;
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	struct omap_dss_dsi_config w677l_dsi_config = {
 		.mode = OMAP_DSS_DSI_VIDEO_MODE,
 		.pixel_format = w677l_PIXELFORMAT,
@@ -738,7 +738,7 @@ static int w677l_enable(struct omap_dss_device *dssdev)
 	w677l_reset(dssdev, false);	// release reset
 	msleep(10);
 
-	in->ops->enable_hs(in, ddata->pixel_channel, true);
+	in->ops->dsi.enable_hs(in, ddata->pixel_channel, true);
 
 	r = w677l_write_sequence(dssdev, sleep_out, ARRAY_SIZE(sleep_out));
 	if (r)
@@ -771,7 +771,7 @@ static int w677l_enable(struct omap_dss_device *dssdev)
 		r = w677l_read(dssdev, 0x45, ret, 2);  // get scanline
 	}
 #endif
-	r = in->ops->enable_video_output(in, ddata->pixel_channel);
+	r = in->ops->dsi.enable_video_output(in, ddata->pixel_channel);
 	if (r)
 		goto cleanup;
 
@@ -821,7 +821,7 @@ ok:
 static void w677l_disable(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 
 #if LOG
 	printk("dsi: w677l_disable()\n");
@@ -911,7 +911,7 @@ static int w677l_probe_of(struct platform_device *pdev)
 		return PTR_ERR(ep);
 	}
 
-	ddata->in = ep;
+	ddata->dssdev.src = ep;
 
 	return 0;
 }
@@ -955,13 +955,13 @@ static int w677l_probe(struct platform_device *pdev)
 
 #ifdef OLD	// checkme if we need the timings here
 	// NO: if this is missing we see: Modeline 36:"0x0" 0 0 0 0 0 0 0 0 0 0 0x48 0xa
-	dssdev->panel.vm = w677l_timings;
+	ddata->vm = w677l_timings;
 #endif
-	dssdev->panel.vm = ddata->vm;
+	ddata->vm = ddata->vm;
 	dssdev->type = OMAP_DISPLAY_TYPE_DSI;
 	dssdev->owner = THIS_MODULE;
 
-	dssdev->panel.dsi_pix_fmt = w677l_PIXELFORMAT;
+	ddata->dsi_pix_fmt = w677l_PIXELFORMAT;
 
 	r = omapdss_register_display(dssdev);
 	if (r) {
@@ -1012,7 +1012,7 @@ static int __exit w677l_remove(struct platform_device *pdev)
 	w677l_disable(dssdev);
 	w677l_disconnect(dssdev);
 
-	omap_dss_put_device(ddata->in);
+	omap_dss_put_device(ddata->dssdev.src);
 
 	mutex_destroy(&ddata->lock);
 
