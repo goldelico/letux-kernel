@@ -344,11 +344,11 @@ static int w677l_write(struct omap_dss_device *dssdev, u8 *buf, int len)
 
 	if(IS_MCS(buf[0], len))
 		{ // this is a "manufacturer command" that must be sent as a "generic write command"
-			r = in->ops.dsi->gen_write(in, ddata->config_channel, buf, len);
+			r = in->ops->dsi.gen_write(in, ddata->config_channel, buf, len);
 		}
 	else
 		{ // this is a "user command" that must be sent as "DCS command"
-			r = in->ops.dsi->dcs_write_nosync(in, ddata->config_channel, buf, len);
+			r = in->ops->dsi.dcs_write_nosync(in, ddata->config_channel, buf, len);
 		}
 
 	if (r)
@@ -364,7 +364,7 @@ static int w677l_read(struct omap_dss_device *dssdev, u8 dcs_cmd, u8 *buf, int l
 	struct omap_dss_device *in = ddata->in;
 	int r;
 
-	r = in->ops.dsi->set_max_rx_packet_size(in, ddata->config_channel, len);	// tell panel how much we expect
+	r = in->ops->dsi.set_max_rx_packet_size(in, ddata->config_channel, len);	// tell panel how much we expect
 	if (r) {
 		dev_err(&ddata->pdev->dev, "can't set max rx packet size\n");
 		return -EIO;
@@ -372,11 +372,11 @@ static int w677l_read(struct omap_dss_device *dssdev, u8 dcs_cmd, u8 *buf, int l
 
 	if(IS_MCS(dcs_cmd, len))
 		{ // this is a "manufacturer command" that must be sent as a "generic read command"
-			r = in->ops.dsi->gen_read(in, ddata->config_channel, &dcs_cmd, 1, buf, len);
+			r = in->ops->dsi.gen_read(in, ddata->config_channel, &dcs_cmd, 1, buf, len);
 		}
 	else
 		{ // this is a "user command" that must be sent as "DCS command"
-			r = in->ops.dsi->dcs_read(in, ddata->config_channel, dcs_cmd, buf, len);
+			r = in->ops->dsi.dcs_read(in, ddata->config_channel, dcs_cmd, buf, len);
 		}
 
 	if (r)
@@ -476,13 +476,13 @@ static int w677l_set_brightness(struct backlight_device *bd)
 	mutex_lock(&ddata->lock);
 
 	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE) {
-		in->ops.dsi->bus_lock(in);
+		in->ops->dsi.bus_lock(in);
 
 		r = w677l_update_brightness(dssdev, bl);
 		if (!r)
 			ddata->bl = bl;
 
-		in->ops.dsi->bus_unlock(in);
+		in->ops->dsi.bus_unlock(in);
 	}
 
 	mutex_unlock(&ddata->lock);
@@ -512,11 +512,11 @@ static int w677l_get_brightness(struct backlight_device *bd)
 	mutex_lock(&ddata->lock);
 
 	if (ddata->enabled) {
-		in->ops.dsi->bus_lock(in);
+		in->ops->dsi.bus_lock(in);
 		r = w677l_read(dssdev, DCS_READ_BRIGHTNESS, data, 2);
 		brightness = (data[0]<<4) + (data[1]>>4);
 
-		in->ops.dsi->bus_unlock(in);
+		in->ops->dsi.bus_unlock(in);
 	}
 
 	mutex_unlock(&ddata->lock);
@@ -552,33 +552,33 @@ static int w677l_connect(struct omap_dss_device *dssdev)
 	if (omapdss_device_is_connected(dssdev))
 		return 0;
 
-	r = in->ops.dsi->connect(in, dssdev);
+	r = in->ops->connect(in, dssdev);
 	if (r) {
 		dev_err(dev, "Failed to connect to video source\n");
 		return r;
 	}
 
 	/* channel0 used for video packets */
-	r = in->ops.dsi->request_vc(ddata->in, &ddata->pixel_channel);
+	r = in->ops->dsi.request_vc(ddata->in, &ddata->pixel_channel);
 	if (r) {
 		dev_err(dev, "failed to get virtual channel\n");
 		goto err_req_vc0;
 	}
 
-	r = in->ops.dsi->set_vc_id(ddata->in, ddata->pixel_channel, 0);
+	r = in->ops->dsi.set_vc_id(ddata->in, ddata->pixel_channel, 0);
 	if (r) {
 		dev_err(dev, "failed to set VC_ID\n");
 		goto err_vc_id0;
 	}
 
 	/* channel1 used for registers access in LP mode */
-	r = in->ops.dsi->request_vc(ddata->in, &ddata->config_channel);
+	r = in->ops->dsi.request_vc(ddata->in, &ddata->config_channel);
 	if (r) {
 		dev_err(dev, "failed to get virtual channel\n");
 		goto err_req_vc1;
 	}
 
-	r = in->ops.dsi->set_vc_id(ddata->in, ddata->config_channel, 0);
+	r = in->ops->dsi.set_vc_id(ddata->in, ddata->config_channel, 0);
 	if (r) {
 		dev_err(dev, "failed to set VC_ID\n");
 		goto err_vc_id1;
@@ -591,12 +591,12 @@ static int w677l_connect(struct omap_dss_device *dssdev)
 	return 0;
 
 err_vc_id1:
-	in->ops.dsi->release_vc(ddata->in, ddata->config_channel);
+	in->ops->dsi.release_vc(ddata->in, ddata->config_channel);
 err_req_vc1:
 err_vc_id0:
-	in->ops.dsi->release_vc(ddata->in, ddata->pixel_channel);
+	in->ops->dsi.release_vc(ddata->in, ddata->pixel_channel);
 err_req_vc0:
-	in->ops.dsi->disconnect(in, dssdev);
+	in->ops->disconnect(in, dssdev);
 	return r;
 }
 
@@ -612,9 +612,9 @@ static void w677l_disconnect(struct omap_dss_device *dssdev)
 	if (!omapdss_device_is_connected(dssdev))
 		return;
 
-	in->ops.dsi->release_vc(in, ddata->pixel_channel);
-	in->ops.dsi->release_vc(in, ddata->config_channel);
-	in->ops.dsi->disconnect(in, dssdev);
+	in->ops->dsi.release_vc(in, ddata->pixel_channel);
+	in->ops->dsi.release_vc(in, ddata->config_channel);
+	in->ops->disconnect(in, dssdev);
 }
 
 static void w677l_get_timings(struct omap_dss_device *dssdev,
@@ -697,7 +697,7 @@ static int w677l_enable(struct omap_dss_device *dssdev)
 #endif
 	mutex_lock(&ddata->lock);
 
-	in->ops.dsi->bus_lock(in);
+	in->ops->dsi.bus_lock(in);
 
 #if LOG
 	printk("hs_clk_min=%lu\n", w677l_dsi_config.hs_clk_min);
@@ -708,7 +708,7 @@ static int w677l_enable(struct omap_dss_device *dssdev)
 
 #if 0
 	if (ddata->pin_config.num_pins > 0) {
-		r = in->ops.dsi->configure_pins(in, &ddata->pin_config);
+		r = in->ops->dsi.configure_pins(in, &ddata->pin_config);
 		if (r) {
 			dev_err(&ddata->pdev->dev,
 					"failed to configure DSI pins\n");
@@ -720,13 +720,13 @@ static int w677l_enable(struct omap_dss_device *dssdev)
 	// CHECKME: this might be the first place where timings are really important
 	// or is this too late?
 
-	r = in->ops.dsi->set_config(in, &w677l_dsi_config);
+	r = in->ops->dsi.set_config(in, &w677l_dsi_config);
 	if (r) {
 		dev_err(dev, "failed to configure DSI\n");
 		goto err;
 	}
 
-	r = in->ops.dsi->enable(in);
+	r = in->ops->enable(in);
 	if (r) {
 		dev_err(dev, "failed to enable DSI\n");
 		goto err;
@@ -738,7 +738,7 @@ static int w677l_enable(struct omap_dss_device *dssdev)
 	w677l_reset(dssdev, false);	// release reset
 	msleep(10);
 
-	in->ops.dsi->enable_hs(in, ddata->pixel_channel, true);
+	in->ops->enable_hs(in, ddata->pixel_channel, true);
 
 	r = w677l_write_sequence(dssdev, sleep_out, ARRAY_SIZE(sleep_out));
 	if (r)
@@ -771,7 +771,7 @@ static int w677l_enable(struct omap_dss_device *dssdev)
 		r = w677l_read(dssdev, 0x45, ret, 2);  // get scanline
 	}
 #endif
-	r = in->ops.dsi->enable_video_output(in, ddata->pixel_channel);
+	r = in->ops->enable_video_output(in, ddata->pixel_channel);
 	if (r)
 		goto cleanup;
 
@@ -797,7 +797,7 @@ cleanup:
 #endif
 	dev_err(dev, "error while enabling panel, issuing HW reset\n");
 
-	in->ops.dsi->disable(in, false, false);
+	in->ops->disable(in, false, false);
 	mdelay(10);
 //	w677l_reset(dssdev, true);	// activate reset
 	w677l_regulator(dssdev, 0);	// switch power off
@@ -806,7 +806,7 @@ cleanup:
 err:
 ok:
 
-	in->ops.dsi->bus_unlock(in);
+	in->ops->dsi.bus_unlock(in);
 
 	if (r)
 		dev_err(&ddata->pdev->dev, "enable failed\n");
@@ -837,22 +837,22 @@ static void w677l_disable(struct omap_dss_device *dssdev)
 
 	mutex_lock(&ddata->lock);
 
-	in->ops.dsi->bus_lock(in);
+	in->ops->dsi.bus_lock(in);
 
 #if LOG
 	printk("dsi: w677l_power_off()\n");
 #endif
 
 	ddata->enabled = 0;
-	in->ops.dsi->disable_video_output(in, ddata->pixel_channel);
-	in->ops.dsi->disable(in, false, false);
+	in->ops->disable_video_output(in, ddata->pixel_channel);
+	in->ops->disable(in, false, false);
 	mdelay(10);
 	w677l_reset(dssdev, true);	// activate reset
 	w677l_regulator(dssdev, 0);	// switch power off - after stopping video stream
 	mdelay(20);
 	/* here we can also power off IOVCC */
 
-	in->ops.dsi->bus_unlock(in);
+	in->ops->dsi.bus_unlock(in);
 
 	mutex_unlock(&ddata->lock);
 
