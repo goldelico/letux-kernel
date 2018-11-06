@@ -338,7 +338,7 @@ static int ssd2858_regulator(struct omap_dss_device *dssdev, int activate)
 static int ssd2858_write(struct omap_dss_device *dssdev, u8 *buf, int len)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	int r;
 	int i;
 
@@ -418,7 +418,7 @@ static inline int ssd2858_write_cmd0(struct omap_dss_device *dssdev,
 static int ssd2858_read(struct omap_dss_device *dssdev, u8 dcs_cmd, u8 *buf, int len)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	int r;
 	int i;
 
@@ -483,7 +483,7 @@ static int ssd2858_write_reg(struct omap_dss_device *dssdev, u16 address, u32 da
 {
 	int r;
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	u8 buf[6];
 	buf[0] = address >> 8;
 	buf[1] = address >> 0;
@@ -507,7 +507,7 @@ static int ssd2858_write_reg(struct omap_dss_device *dssdev, u16 address, u32 da
 static int ssd2858_read_reg(struct omap_dss_device *dssdev, u16 address, u32 *data)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	int r;
 	u8 buf[6];
 	u32 val;
@@ -881,7 +881,7 @@ static int ssd2858_calculate_timings(struct omap_dss_device *dssdev)
 static int ssd2858_power_on(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	int r;
 
 #if LOG
@@ -934,7 +934,7 @@ static int ssd2858_power_on(struct omap_dss_device *dssdev)
 static int ssd2858_program(struct omap_dss_device *dssdev)
 	{
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	int r;
 
 #if LOG
@@ -1107,7 +1107,7 @@ err0:
 static void ssd2858_power_off(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 #if LOG
 	printk("dsi: ssd2858_power_off()\n");
 #endif
@@ -1146,7 +1146,7 @@ static void ssd2858_power_off(struct omap_dss_device *dssdev)
 static int ssd2858_gen_write(struct omap_dss_device *dssdev, int channel, u8 *buf, int len)
 { /* panel driver wants us to send a generic packet to the panel through the SSD/bypass */
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	int r;
 
 #if LOG
@@ -1184,7 +1184,7 @@ static int ssd2858_gen_write(struct omap_dss_device *dssdev, int channel, u8 *bu
 static int ssd2858_dcs_write_nosync(struct omap_dss_device *dssdev, int channel, u8 *buf, int len)
 { /* panel driver wants us to send a DCS packet to the panel through the SSD/bypass */
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	int r;
 
 #if LOG
@@ -1212,7 +1212,7 @@ static int ssd2858_gen_read(struct omap_dss_device *dssdev, int channel,
 				u8 *data, int len)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 
 #if LOG
 	printk("dsi: ssd2858_gen_read\n");
@@ -1228,7 +1228,7 @@ static int ssd2858_dcs_read(struct omap_dss_device *dssdev, int channel, u8 dcs_
 				u8 *data, int len)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 
 #if LOG
 	printk("dsi: ssd2858_dcs_read\n");
@@ -1243,7 +1243,7 @@ static int ssd2858_dcs_read(struct omap_dss_device *dssdev, int channel, u8 dcs_
 static int ssd2858_set_max_rx_packet_size(struct omap_dss_device *dssdev, int channel, u16 plen)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 
 #if LOG
 	printk("dsi: ssd2858_set_max_rx_packet_size\n");
@@ -1259,7 +1259,7 @@ static int ssd2858_set_max_rx_packet_size(struct omap_dss_device *dssdev, int ch
 static int ssd2858_connect(struct omap_dss_device *dssdev, struct omap_dss_device *dst)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	int r;
 
 #if LOG
@@ -1284,26 +1284,26 @@ static int ssd2858_connect(struct omap_dss_device *dssdev, struct omap_dss_devic
 	dssdev->dst = dst;
 
 	/* channel0 used for video packets */
-	r = in->ops->dsi.request_vc(ddata->in, &ddata->pixel_channel);
+	r = in->ops->dsi.request_vc(ddata->dssdev.src, &ddata->pixel_channel);
 	if (r) {
 		dev_err(dssdev->dev, "failed to get virtual channel\n");
 		goto err_req_vc0;
 	}
 
-	r = in->ops->dsi.set_vc_id(ddata->in, ddata->pixel_channel, 0);
+	r = in->ops->dsi.set_vc_id(ddata->dssdev.src, ddata->pixel_channel, 0);
 	if (r) {
 		dev_err(dssdev->dev, "failed to set VC_ID\n");
 		goto err_vc_id0;
 	}
 
 	/* channel1 used for registers access in LP mode */
-	r = in->ops->dsi.request_vc(ddata->in, &ddata->config_channel);
+	r = in->ops->dsi.request_vc(ddata->dssdev.src, &ddata->config_channel);
 	if (r) {
 		dev_err(dssdev->dev, "failed to get virtual channel\n");
 		goto err_req_vc1;
 	}
 
-	r = in->ops->dsi.set_vc_id(ddata->in, ddata->config_channel, 0);
+	r = in->ops->dsi.set_vc_id(ddata->dssdev.src, ddata->config_channel, 0);
 	if (r) {
 		dev_err(dssdev->dev, "failed to set VC_ID\n");
 		goto err_vc_id1;
@@ -1312,10 +1312,10 @@ static int ssd2858_connect(struct omap_dss_device *dssdev, struct omap_dss_devic
 	return 0;
 
 err_vc_id1:
-	in->ops->dsi.release_vc(ddata->in, ddata->config_channel);
+	in->ops->dsi.release_vc(ddata->dssdev.src, ddata->config_channel);
 err_req_vc1:
 err_vc_id0:
-	in->ops->dsi.release_vc(ddata->in, ddata->pixel_channel);
+	in->ops->dsi.release_vc(ddata->dssdev.src, ddata->pixel_channel);
 err_req_vc0:
 #if LOG
 	printk("dsi: ssd2858_connect error %d\n", r);
@@ -1327,7 +1327,7 @@ err_req_vc0:
 static void ssd2858_disconnect(struct omap_dss_device *dssdev, struct omap_dss_device *dst)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 
 #if LOG
 	printk("dsi: ssd2858_disconnect\n");
@@ -1353,7 +1353,7 @@ static void ssd2858_disconnect(struct omap_dss_device *dssdev, struct omap_dss_d
 static int ssd2858_enable(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	int r;
 
 #if LOG
@@ -1384,7 +1384,7 @@ static int ssd2858_enable(struct omap_dss_device *dssdev)
 static void ssd2858_disable(struct omap_dss_device *dssdev, bool disconnect_lanes, bool enter_ulps)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 
 #if LOG
 	printk("dsi: ssd2858_disable\n");
@@ -1404,7 +1404,7 @@ static void ssd2858_disable(struct omap_dss_device *dssdev, bool disconnect_lane
 static int ssd2858_set_config(struct omap_dss_device *dssdev, const struct omap_dss_dsi_config *cfg)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 
 #if LOG
 	printk("dsi: ssd2858_set_config\n");
@@ -1457,7 +1457,7 @@ static int ssd2858_set_vc_id(struct omap_dss_device *dssdev, int channel, int vc
 static void ssd2858_enable_hs(struct omap_dss_device *dssdev, int channel, bool enable)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	int r;
 
 #if LOG
@@ -1475,7 +1475,7 @@ static void ssd2858_enable_hs(struct omap_dss_device *dssdev, int channel, bool 
 	if (r)
 		dev_err(dssdev->dev, "failed to power on\n");
 
-	in->ops->enable_hs(in, channel, enable);
+	in->ops->dsi.enable_hs(in, channel, enable);
 
 	mdelay(500);
 
@@ -1486,14 +1486,14 @@ static void ssd2858_enable_hs(struct omap_dss_device *dssdev, int channel, bool 
 
 	return;
 #endif
-	in->ops->enable_hs(in, channel, enable);
+	in->ops->dsi.enable_hs(in, channel, enable);
 
 }
 
 static int ssd2858_enable_video_output(struct omap_dss_device *dssdev, int channel)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	int r;
 
 #if LOG
@@ -1507,7 +1507,7 @@ static int ssd2858_enable_video_output(struct omap_dss_device *dssdev, int chann
 	 */
 
 #if NO_SSD
-	return in->ops->enable_video_output(in, channel);
+	return in->ops->dsi.enable_video_output(in, channel);
 #endif
 
 #if HARDWARE_BYPASS
@@ -1530,7 +1530,7 @@ static int ssd2858_enable_video_output(struct omap_dss_device *dssdev, int chann
 
 	ssd2858_pass_to_panel(dssdev, false);	/* communicate with the SSD */
 
-	r = in->ops->enable_video_output(in, channel);
+	r = in->ops->dsi.enable_video_output(in, channel);
 	if (r) {
 		dev_err(dssdev->dev, "failed to enable video output\n");
 		return r;
@@ -1552,7 +1552,7 @@ static int ssd2858_enable_video_output(struct omap_dss_device *dssdev, int chann
 static void ssd2858_disable_video_output(struct omap_dss_device *dssdev, int channel)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 
 #if LOG
 	printk("dsi: ssd2858_disable_video_output\n");
@@ -1594,7 +1594,7 @@ static void ssd2858_bus_unlock(struct omap_dss_device *dssdev)
 static int driver_ssd2858_connect(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	int r;
 
 #if LOG
@@ -1607,7 +1607,7 @@ static int driver_ssd2858_connect(struct omap_dss_device *dssdev)
 static void driver_ssd2858_disconnect(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 
 #if LOG
 	printk("dsi: driver_ssd2858_disconnect\n");
@@ -1645,15 +1645,15 @@ static void driver_ssd2858_set_timings(struct omap_dss_device *dssdev,
 #if LOG
 	printk("dsi: driver_ssd2858_set_timings\n");
 #endif
-	dssdev->panel.vm.hactive = timings->hactive;
-	dssdev->panel.vm.vactive = timings->vactive;
-	dssdev->panel.vm.pixelclock = timings->pixelclock;
-	dssdev->panel.vm.hsync_len = timings->hsync_len;
-	dssdev->panel.vm.hfront_porch = timings->hfront_porch;
-	dssdev->panel.vm.hback_porch = timings->hback_porch;
-	dssdev->panel.vm.vsync_len = timings->vsync_len;
-	dssdev->panel.vm.vfront_porch = timings->vfront_porch;
-	dssdev->panel.vm.vback_porch = timings->vback_porch;
+	ddata->vm.hactive = timings->hactive;
+	ddata->vm.vactive = timings->vactive;
+	ddata->vm.pixelclock = timings->pixelclock;
+	ddata->vm.hsync_len = timings->hsync_len;
+	ddata->vm.hfront_porch = timings->hfront_porch;
+	ddata->vm.hback_porch = timings->hback_porch;
+	ddata->vm.vsync_len = timings->vsync_len;
+	ddata->vm.vfront_porch = timings->vfront_porch;
+	ddata->vm.vback_porch = timings->vback_porch;
 	// FIXME: forward to panel driver?
 }
 
@@ -1674,8 +1674,8 @@ static void driver_ssd2858_get_resolution(struct omap_dss_device *dssdev,
 #if LOG
 	printk("dsi: driver_ssd2858_get_resolution\n");
 #endif
-	*xres = dssdev->panel.vm.hactive;
-	*yres = dssdev->panel.vm.vactive;
+	*xres = ddata->vm.hactive;
+	*yres = ddata->vm.vactive;
 	// FIXME: forward to panel driver?
 }
 #endif
@@ -1697,7 +1697,7 @@ static void driver_ssd2858_disable(struct omap_dss_device *dssdev)
 static int driver_ssd2858_enable(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	int r = 0;
 
 #if LOG
@@ -1882,7 +1882,7 @@ static int ssd2858_probe_of(struct platform_device *pdev)
 		return PTR_ERR(ep);
 	}
 
-	ddata->in = ep;
+	ddata->dssdev.src = ep;
 
 	/*
 	 * Room for enhancement:
@@ -1973,12 +1973,12 @@ static int ssd2858_probe(struct platform_device *pdev)
 
 // CHECKME: which of these to we really have to define?
 
-	dssdev->panel.vm = ddata->videomode;
+	ddata->vm = ddata->videomode;
 	dssdev->type = OMAP_DISPLAY_TYPE_DSI;
 	dssdev->output_type = OMAP_DISPLAY_TYPE_DSI;
 	dssdev->owner = THIS_MODULE;
 
-	dssdev->panel.dsi_pix_fmt = SSD2858_PIXELFORMAT;
+	ddata->dsi_pix_fmt = SSD2858_PIXELFORMAT;
 	dssdev->id = 1 << 7 /* OMAP_DSS_OUTPUT_DSI1 */;
 	dssdev->name = "mipitx.0";
 	dssdev->dispc_channel = 0;
@@ -2000,7 +2000,7 @@ static int ssd2858_probe(struct platform_device *pdev)
 	return 0;
 
 err_reg:
-	omap_dss_put_device(ddata->in);
+	omap_dss_put_device(ddata->dssdev.src);
 	return r;
 }
 
@@ -2009,7 +2009,7 @@ static int __exit ssd2858_remove(struct platform_device *pdev)
 {
 	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
 	struct omap_dss_device *dssdev = &ddata->dssdev;
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 
 #if LOG
 	printk("dsi: ssd2858_remove()\n");
@@ -2024,7 +2024,7 @@ static int __exit ssd2858_remove(struct platform_device *pdev)
 	if (omapdss_device_is_connected(dssdev))
 		ssd2858_disconnect(dssdev, 0);	// check parameters!
 
-	omap_dss_put_device(ddata->in);
+	omap_dss_put_device(ddata->dssdev.src);
 
 	mutex_destroy(&ddata->lock);
 
