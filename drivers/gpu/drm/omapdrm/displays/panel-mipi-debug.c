@@ -146,11 +146,11 @@ static int mipi_debug_write(struct omap_dss_device *dssdev, u8 *buf, int len, in
 
 	if(generic)
 		{ // this is a "manufacturer command" that must be sent as a "generic write command"
-			r = in->ops.dsi->gen_write(in, ddata->config_channel, buf, len);
+			r = in->ops->dsi.gen_write(in, ddata->config_channel, buf, len);
 		}
 	else
 		{ // this is a "user command" that must be sent as "DCS command"
-			r = in->ops.dsi->dcs_write_nosync(in, ddata->config_channel, buf, len);
+			r = in->ops->dsi.dcs_write_nosync(in, ddata->config_channel, buf, len);
 		}
 
 	if (r)
@@ -168,7 +168,7 @@ static int mipi_debug_read(struct omap_dss_device *dssdev, u8 *dcs_cmd, int cmdl
 	int i;
 
 	if(len != ddata->max_rx_packet_size) { /* has changed */
-		r = in->ops.dsi->set_max_rx_packet_size(in, ddata->config_channel, len);	// tell panel how much we expect
+		r = in->ops->dsi.set_max_rx_packet_size(in, ddata->config_channel, len);	// tell panel how much we expect
 		if (r) {
 			dev_err(&ddata->pdev->dev, "can't set max rx packet size\n");
 			return -EIO;
@@ -178,7 +178,7 @@ static int mipi_debug_read(struct omap_dss_device *dssdev, u8 *dcs_cmd, int cmdl
 	}
 	if(generic)
 		{ // this is a "manufacturer command" that must be sent as a "generic read command"
-			r = in->ops.dsi->gen_read(in, ddata->config_channel, dcs_cmd, cmdlen, buf, len);
+			r = in->ops->dsi.gen_read(in, ddata->config_channel, dcs_cmd, cmdlen, buf, len);
 		}
 	else
 		{ // this is a "user command" that must be sent as "DCS command"
@@ -187,7 +187,7 @@ static int mipi_debug_read(struct omap_dss_device *dssdev, u8 *dcs_cmd, int cmdl
 				printk("dsi: mipi_debug_read() must specify 1 byte for DCS read commands!");
 				return -EIO;
 				}
-			r = in->ops.dsi->dcs_read(in, ddata->config_channel, dcs_cmd[0], buf, len);
+			r = in->ops->dsi.dcs_read(in, ddata->config_channel, dcs_cmd[0], buf, len);
 		}
 
 	printk("dsi: mipi_debug_read(%s", generic?"g,":"");
@@ -217,33 +217,33 @@ static int mipi_debug_connect(struct omap_dss_device *dssdev)
 	if (omapdss_device_is_connected(dssdev))
 		return 0;
 
-	r = in->ops.dsi->connect(in, dssdev);
+	r = in->ops->connect(in, dssdev);
 	if (r) {
 		dev_err(dev, "Failed to connect to video source\n");
 		return r;
 	}
 
 	/* channel0 used for video packets */
-	r = in->ops.dsi->request_vc(ddata->in, &ddata->pixel_channel);
+	r = in->ops->dsi.request_vc(ddata->in, &ddata->pixel_channel);
 	if (r) {
 		dev_err(dev, "failed to get virtual channel\n");
 		goto err_req_vc0;
 	}
 
-	r = in->ops.dsi->set_vc_id(ddata->in, ddata->pixel_channel, 0);
+	r = in->ops->dsi.set_vc_id(ddata->in, ddata->pixel_channel, 0);
 	if (r) {
 		dev_err(dev, "failed to set VC_ID\n");
 		goto err_vc_id0;
 	}
 
 	/* channel1 used for registers access in LP mode */
-	r = in->ops.dsi->request_vc(ddata->in, &ddata->config_channel);
+	r = in->ops->dsi.request_vc(ddata->in, &ddata->config_channel);
 	if (r) {
 		dev_err(dev, "failed to get virtual channel\n");
 		goto err_req_vc1;
 	}
 
-	r = in->ops.dsi->set_vc_id(ddata->in, ddata->config_channel, 0);
+	r = in->ops->dsi.set_vc_id(ddata->in, ddata->config_channel, 0);
 	if (r) {
 		dev_err(dev, "failed to set VC_ID\n");
 		goto err_vc_id1;
@@ -254,12 +254,12 @@ static int mipi_debug_connect(struct omap_dss_device *dssdev)
 	return 0;
 
 err_vc_id1:
-	in->ops.dsi->release_vc(ddata->in, ddata->config_channel);
+	in->ops->dsi.release_vc(ddata->in, ddata->config_channel);
 err_req_vc1:
 err_vc_id0:
-	in->ops.dsi->release_vc(ddata->in, ddata->pixel_channel);
+	in->ops->dsi.release_vc(ddata->in, ddata->pixel_channel);
 err_req_vc0:
-	in->ops.dsi->disconnect(in, dssdev);
+	in->ops->disconnect(in, dssdev);
 	return r;
 }
 
@@ -273,9 +273,9 @@ static void mipi_debug_disconnect(struct omap_dss_device *dssdev)
 	if (!omapdss_device_is_connected(dssdev))
 		return;
 
-	in->ops.dsi->release_vc(in, ddata->pixel_channel);
-	in->ops.dsi->release_vc(in, ddata->config_channel);
-	in->ops.dsi->disconnect(in, dssdev);
+	in->ops->dsi.release_vc(in, ddata->pixel_channel);
+	in->ops->dsi.release_vc(in, ddata->config_channel);
+	in->ops->disconnect(in, dssdev);
 
 	printk("dsi: mipi_debug_disconnect() disconnected\n");
 }
@@ -389,13 +389,13 @@ static int mipi_debug_set_brightness(struct backlight_device *bd)
 	mutex_lock(&ddata->lock);
 
 	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE) {
-		in->ops.dsi->bus_lock(in);
+		in->ops->dsi.bus_lock(in);
 
 		r = mipi_debug_update_brightness(dssdev, bl);
 		if (!r)
 			ddata->bl = bl;
 
-		in->ops.dsi->bus_unlock(in);
+		in->ops->dsi.bus_unlock(in);
 	}
 
 	mutex_unlock(&ddata->lock);
@@ -421,11 +421,11 @@ static int mipi_debug_get_brightness(struct backlight_device *bd)
 	mutex_lock(&ddata->lock);
 
 	if (ddata->enabled) {
-		in->ops.dsi->bus_lock(in);
+		in->ops->dsi.bus_lock(in);
 		r = mipi_debug_read_dcs(dssdev, DCS_READ_BRIGHTNESS, data, 2);
 		brightness = (data[0]<<4) + (data[1]>>4);
 
-		in->ops.dsi->bus_unlock(in);
+		in->ops->dsi.bus_unlock(in);
 	}
 
 	mutex_unlock(&ddata->lock);
@@ -540,9 +540,9 @@ static ssize_t set_dcs(struct device *dev,
 		{
 		if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE)
 			{
-			in->ops.dsi->bus_lock(in);
-			in->ops.dsi->enable_video_output(in, ddata->pixel_channel);
-			in->ops.dsi->bus_unlock(in);
+			in->ops->dsi.bus_lock(in);
+			in->ops->enable_video_output(in, ddata->pixel_channel);
+			in->ops->dsi.bus_unlock(in);
 			}
 		return count;
 		}
@@ -550,9 +550,9 @@ static ssize_t set_dcs(struct device *dev,
 		{
 		if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE)
 			{
-			in->ops.dsi->bus_lock(in);
-			in->ops.dsi->disable_video_output(in, ddata->pixel_channel);
-			in->ops.dsi->bus_unlock(in);
+			in->ops->dsi.bus_lock(in);
+			in->ops->disable_video_output(in, ddata->pixel_channel);
+			in->ops->dsi.bus_unlock(in);
 			}
 		return count;
 		}
@@ -579,7 +579,7 @@ static ssize_t set_dcs(struct device *dev,
 	if(strncmp(buf, "status", 6) == 0) {
 		mutex_lock(&ddata->lock);
 		if (ddata->enabled) {
-			in->ops.dsi->bus_lock(in);
+			in->ops->dsi.bus_lock(in);
 			/* read some registers through DCS commands */
 			r = mipi_debug_read_dcs(dssdev, 0x05, ret, 1);
 			r = mipi_debug_read_dcs(dssdev, 0x0a, ret, 1);	// power mode 0x10=sleep off; 0x04=display on
@@ -589,7 +589,7 @@ static ssize_t set_dcs(struct device *dev,
 			r = mipi_debug_read_dcs(dssdev, 0x0e, ret, 1);	// signal mode
 			r = mipi_debug_read_dcs(dssdev, MIPI_DCS_GET_DIAGNOSTIC_RESULT, ret, 1);	// diagnostic 0x40 = functional
 			r = mipi_debug_read_dcs(dssdev, 0x45, ret, 2);	// get scanline
-			in->ops.dsi->bus_unlock(in);
+			in->ops->dsi.bus_unlock(in);
 		}
 		mutex_unlock(&ddata->lock);
 		return r < 0 ? r : count;
@@ -641,7 +641,7 @@ static ssize_t set_dcs(struct device *dev,
 
 	mutex_lock(&ddata->lock);
 	if (ddata->enabled) {
-		in->ops.dsi->bus_lock(in);
+		in->ops->dsi.bus_lock(in);
 
 		// handle DCS vs. Generic
 		if(read)
@@ -660,7 +660,7 @@ static ssize_t set_dcs(struct device *dev,
 		else
 			r = mipi_debug_write(dssdev, data, argc, generic);
 
-		in->ops.dsi->bus_unlock(in);
+		in->ops->dsi.bus_unlock(in);
 	} else
 		r=-EIO;	// not enabled
 	mutex_unlock(&ddata->lock);
@@ -712,7 +712,7 @@ static int mipi_debug_power_on(struct omap_dss_device *dssdev)
 
 #if 0
 	if (ddata->pin_config.num_pins > 0) {
-		r = in->ops.dsi->configure_pins(in, &ddata->pin_config);
+		r = in->ops->dsi.configure_pins(in, &ddata->pin_config);
 		if (r) {
 			dev_err(&ddata->pdev->dev,
 					"failed to configure DSI pins\n");
@@ -723,13 +723,13 @@ static int mipi_debug_power_on(struct omap_dss_device *dssdev)
 
 	mipi_dsi_config.vm = &dssdev->panel.vm;
 
-	r = in->ops.dsi->set_config(in, &mipi_dsi_config);
+	r = in->ops->dsi.set_config(in, &mipi_dsi_config);
 	if (r) {
 		dev_err(dev, "failed to configure DSI\n");
 		return r;
 	}
 
-	r = in->ops.dsi->enable(in);
+	r = in->ops->enable(in);
 	if (r) {
 		dev_err(dev, "failed to enable DSI\n");
 		return r;
@@ -743,7 +743,7 @@ static int mipi_debug_power_on(struct omap_dss_device *dssdev)
 	msleep(10);
 #endif
 
-	in->ops.dsi->enable_hs(in, ddata->pixel_channel, true);
+	in->ops->enable_hs(in, ddata->pixel_channel, true);
 
 	/* don't initialize the panel here - user space has to do */
 
@@ -766,8 +766,8 @@ static void mipi_debug_power_off(struct omap_dss_device *dssdev)
 	if(!ddata->enabled)
 		return;	// already disabled
 	ddata->enabled = 0;
-	in->ops.dsi->disable_video_output(in, ddata->pixel_channel);
-	in->ops.dsi->disable(in, false, false);
+	in->ops->disable_video_output(in, ddata->pixel_channel);
+	in->ops->disable(in, false, false);
 #if 0
 	mdelay(10);
 	mipi_debug_reset(dssdev, true);	// activate reset
@@ -804,11 +804,11 @@ static int mipi_debug_start(struct omap_dss_device *dssdev)
 
 	mutex_lock(&ddata->lock);
 
-	in->ops.dsi->bus_lock(in);
+	in->ops->dsi.bus_lock(in);
 
 	r = mipi_debug_power_on(dssdev);
 
-	in->ops.dsi->bus_unlock(in);
+	in->ops->dsi.bus_unlock(in);
 
 	if (r)
 		dev_err(&ddata->pdev->dev, "enable failed\n");
@@ -831,11 +831,11 @@ static void mipi_debug_stop(struct omap_dss_device *dssdev)
 
 	mutex_lock(&ddata->lock);
 
-	in->ops.dsi->bus_lock(in);
+	in->ops->dsi.bus_lock(in);
 
 	mipi_debug_power_off(dssdev);
 
-	in->ops.dsi->bus_unlock(in);
+	in->ops->dsi.bus_unlock(in);
 	dssdev->state = OMAP_DSS_DISPLAY_DISABLED;
 
 	mutex_unlock(&ddata->lock);
@@ -1021,9 +1021,9 @@ static int __exit mipi_debug_remove(struct platform_device *pdev)
 
 	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE)
 		{
-		ddata->in->ops.dsi->bus_lock(ddata->in);
-		ddata->in->ops.dsi->disable_video_output(ddata->in, ddata->pixel_channel);
-		ddata->in->ops.dsi->bus_unlock(ddata->in);
+		ddata->in->ops->dsi.bus_lock(ddata->in);
+		ddata->in->ops->disable_video_output(ddata->in, ddata->pixel_channel);
+		ddata->in->ops->dsi.bus_unlock(ddata->in);
 		}
 
 	mipi_debug_stop(dssdev);
