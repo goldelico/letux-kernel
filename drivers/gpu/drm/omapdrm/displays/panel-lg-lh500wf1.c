@@ -366,7 +366,7 @@ static struct r63311_reg sleep_in[] = {
 static int r63311_write(struct omap_dss_device *dssdev, u8 *buf, int len)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	int r;
 	int i;
 
@@ -390,7 +390,7 @@ static int r63311_write(struct omap_dss_device *dssdev, u8 *buf, int len)
 static int r63311_read(struct omap_dss_device *dssdev, u8 dcs_cmd, u8 *buf, int len)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	int r;
 	int i;
 
@@ -453,26 +453,26 @@ static int r63311_connect(struct omap_dss_device *dssdev)
 	}
 
 	/* channel0 used for video packets */
-	r = in->ops->dsi.request_vc(ddata->in, &ddata->pixel_channel);
+	r = in->ops->dsi.request_vc(ddata->dssdev.src, &ddata->pixel_channel);
 	if (r) {
 		dev_err(dev, "failed to get virtual channel\n");
 		goto err_req_vc0;
 	}
 
-	r = in->ops->dsi.set_vc_id(ddata->in, ddata->pixel_channel, 0);
+	r = in->ops->dsi.set_vc_id(ddata->dssdev.src, ddata->pixel_channel, 0);
 	if (r) {
 		dev_err(dev, "failed to set VC_ID\n");
 		goto err_vc_id0;
 	}
 
 	/* channel1 used for registers access in LP mode */
-	r = in->ops->dsi.request_vc(ddata->in, &ddata->config_channel);
+	r = in->ops->dsi.request_vc(ddata->dssdev.src, &ddata->config_channel);
 	if (r) {
 		dev_err(dev, "failed to get virtual channel\n");
 		goto err_req_vc1;
 	}
 
-	r = in->ops->dsi.set_vc_id(ddata->in, ddata->config_channel, 0);
+	r = in->ops->dsi.set_vc_id(ddata->dssdev.src, ddata->config_channel, 0);
 	if (r) {
 		dev_err(dev, "failed to set VC_ID\n");
 		goto err_vc_id1;
@@ -481,10 +481,10 @@ static int r63311_connect(struct omap_dss_device *dssdev)
 	return 0;
 
 err_vc_id1:
-	in->ops->dsi.release_vc(ddata->in, ddata->config_channel);
+	in->ops->dsi.release_vc(ddata->dssdev.src, ddata->config_channel);
 err_req_vc1:
 err_vc_id0:
-	in->ops->dsi.release_vc(ddata->in, ddata->pixel_channel);
+	in->ops->dsi.release_vc(ddata->dssdev.src, ddata->pixel_channel);
 err_req_vc0:
 	in->ops->disconnect(in, dssdev);
 	return r;
@@ -513,15 +513,16 @@ static void r63311_get_timings(struct omap_dss_device *dssdev,
 static void r63311_set_timings(struct omap_dss_device *dssdev,
 			       struct videomode *timings)
 {
-	dssdev->panel.vm.hactive = timings->hactive;
-	dssdev->panel.vm.vactive = timings->vactive;
-	dssdev->panel.vm.pixelclock = timings->pixelclock;
-	dssdev->panel.vm.hsync_len = timings->hsync_len;
-	dssdev->panel.vm.hfront_porch = timings->hfront_porch;
-	dssdev->panel.vm.hback_porch = timings->hback_porch;
-	dssdev->panel.vm.vsync_len = timings->vsync_len;
-	dssdev->panel.vm.vfront_porch = timings->vfront_porch;
-	dssdev->panel.vm.vback_porch = timings->vback_porch;
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+	ddata->vm.hactive = timings->hactive;
+	ddata->vm.vactive = timings->vactive;
+	ddata->vm.pixelclock = timings->pixelclock;
+	ddata->vm.hsync_len = timings->hsync_len;
+	ddata->vm.hfront_porch = timings->hfront_porch;
+	ddata->vm.hback_porch = timings->hback_porch;
+	ddata->vm.vsync_len = timings->vsync_len;
+	ddata->vm.vfront_porch = timings->vfront_porch;
+	ddata->vm.vback_porch = timings->vback_porch;
 }
 
 static int r63311_check_timings(struct omap_dss_device *dssdev,
@@ -590,7 +591,7 @@ static int r63311_set_brightness(struct backlight_device *bd)
 	mutex_lock(&ddata->lock);
 
 	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE) {
-		struct omap_dss_device *in = ddata->in;
+		struct omap_dss_device *in = ddata->dssdev.src;
 		in->ops->dsi.bus_lock(in);
 
 		r = r63311_update_brightness(dssdev, bl);
@@ -621,7 +622,7 @@ static int r63311_get_brightness(struct backlight_device *bd)
 	mutex_lock(&ddata->lock);
 
 	if (ddata->enabled) {
-		struct omap_dss_device *in = ddata->in;
+		struct omap_dss_device *in = ddata->dssdev.src;
 		in->ops->dsi.bus_lock(in);
 		r = r63311_read(dssdev, DCS_READ_BRIGHTNESS, data, 2);
 		brightness = (data[0]<<4) + (data[1]>>4);
@@ -698,7 +699,7 @@ static ssize_t set_dcs(struct device *dev,
 	if(strncmp(buf, "status", 6) == 0) {
 		mutex_lock(&ddata->lock);
 		if (ddata->enabled) {
-			struct omap_dss_device *in = ddata->in;
+			struct omap_dss_device *in = ddata->dssdev.src;
 			in->ops->dsi.bus_lock(in);
 			r = r63311_read(dssdev, 0xbf, data, 5);	// R63311 chip ID
 			r = r63311_read(dssdev, 0xb0, data, 1);	// MCS access protection
@@ -732,7 +733,7 @@ static ssize_t set_dcs(struct device *dev,
 		{
 		mutex_lock(&ddata->lock);
 		if (ddata->enabled) {
-			struct omap_dss_device *in = ddata->in;
+			struct omap_dss_device *in = ddata->dssdev.src;
 			in->ops->dsi.bus_lock(in);
 			r = r63311_write_sequence(dssdev, test_image, ARRAY_SIZE(test_image));
 			in->ops->dsi.bus_unlock(in);
@@ -779,7 +780,7 @@ static ssize_t set_dcs(struct device *dev,
 
 	mutex_lock(&ddata->lock);
 	if (ddata->enabled) {
-		struct omap_dss_device *in = ddata->in;
+		struct omap_dss_device *in = ddata->dssdev.src;
 		in->ops->dsi.bus_lock(in);
 
 		if(read)
@@ -817,12 +818,12 @@ static int r63311_power_on(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct device *dev = &ddata->pdev->dev;
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	int r;
 	struct omap_dss_dsi_config r63311_dsi_config = {
 		.mode = OMAP_DSS_DSI_VIDEO_MODE,
 		.pixel_format = R63311_PIXELFORMAT,
-		.vm = &ddata->timings,
+		.vm = &ddata->vm,
 		.hs_clk_min = 125000000 /*R63311_HS_CLOCK*/,
 		.hs_clk_max = 450000000 /*(12*R63311_HS_CLOCK)/10*/,
 		.lp_clk_min = (7*R63311_LP_CLOCK)/10,
@@ -866,7 +867,7 @@ static int r63311_power_on(struct omap_dss_device *dssdev)
 	msleep(10);
 
 
-	in->ops->enable_hs(in, ddata->pixel_channel, true);
+	in->ops->dsi.enable_hs(in, ddata->pixel_channel, true);
 
 	r = r63311_write_sequence(dssdev, init_seq, ARRAY_SIZE(init_seq));
 	if (r) {
@@ -885,7 +886,7 @@ static int r63311_power_on(struct omap_dss_device *dssdev)
 		goto err;
 
 
-	r = in->ops->enable_video_output(in, ddata->pixel_channel);
+	r = in->ops->dsi.enable_video_output(in, ddata->pixel_channel);
 	if (r)
 		goto err;
 
@@ -921,7 +922,7 @@ err0:
 static void r63311_power_off(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 
 	printk("dsi: r63311_power_off()\n");
 
@@ -938,7 +939,7 @@ static void r63311_power_off(struct omap_dss_device *dssdev)
 static int r63311_start(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 	int r = 0;
 
 	printk("dsi: r63311_start()\n");
@@ -963,7 +964,7 @@ static int r63311_start(struct omap_dss_device *dssdev)
 static void r63311_stop(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
+	struct omap_dss_device *in = ddata->dssdev.src;
 
 	printk("dsi: r63311_stop()\n");
 	mutex_lock(&ddata->lock);
