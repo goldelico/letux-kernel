@@ -946,7 +946,12 @@ static int venc_runtime_suspend(struct device *dev)
 	if (venc->tv_dac_clk)
 		clk_disable_unprepare(venc->tv_dac_clk);
 
-	dispc_runtime_put(venc->dss->dispc);
+	/*
+	 * FIXME: DISPC runtime PM handling should be controlled from omapdrm,
+	 * see dsi_runtime_resume().
+	 */
+	if (venc->dss && venc->dss->dispc)
+		dispc_runtime_put(venc->dss->dispc);
 
 	return 0;
 }
@@ -956,9 +961,15 @@ static int venc_runtime_resume(struct device *dev)
 	struct venc_device *venc = dev_get_drvdata(dev);
 	int r;
 
-	r = dispc_runtime_get(venc->dss->dispc);
-	if (r < 0)
-		return r;
+	/*
+	 * FIXME: DISPC runtime PM handling should be controlled from omapdrm,
+	 * see dsi_runtime_resume().
+	 */
+	if (venc->dss && venc->dss->dispc) {
+		r = dispc_runtime_get(venc->dss->dispc);
+		if (r < 0)
+			return r;
+	}
 
 	if (venc->tv_dac_clk)
 		clk_prepare_enable(venc->tv_dac_clk);

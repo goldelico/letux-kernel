@@ -829,7 +829,12 @@ static int hdmi_runtime_suspend(struct device *dev)
 {
 	struct omap_hdmi *hdmi = dev_get_drvdata(dev);
 
-	dispc_runtime_put(hdmi->dss->dispc);
+	/*
+	 * FIXME: DISPC runtime PM handling should be controlled from omapdrm,
+	 * see dsi_runtime_resume().
+	 */
+	if (hdmi->dss && hdmi->dss->dispc)
+		dispc_runtime_put(hdmi->dss->dispc);
 
 	return 0;
 }
@@ -839,9 +844,15 @@ static int hdmi_runtime_resume(struct device *dev)
 	struct omap_hdmi *hdmi = dev_get_drvdata(dev);
 	int r;
 
-	r = dispc_runtime_get(hdmi->dss->dispc);
-	if (r < 0)
-		return r;
+	/*
+	 * FIXME: DISPC runtime PM handling should be controlled from omapdrm,
+	 * see dsi_runtime_resume().
+	 */
+	if (hdmi->dss && hdmi->dss->dispc) {
+		r = dispc_runtime_get(hdmi->dss->dispc);
+		if (r < 0)
+			return r;
+	}
 
 	return 0;
 }
