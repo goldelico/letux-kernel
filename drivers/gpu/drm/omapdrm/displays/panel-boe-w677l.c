@@ -23,7 +23,7 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define LOG 0
+#define LOG 1
 #define OPTIONAL 0
 
 #include <linux/backlight.h>
@@ -45,6 +45,9 @@
 #include <video/of_display_timing.h>
 
 #include "../dss/omapdss.h"
+
+#undef dev_dbg
+#define dev_dbg dev_err
 
 /* extended DCS commands (not defined in mipi_display.h) */
 #define DCS_READ_DDB_START		0x02
@@ -122,6 +125,7 @@ struct panel_drv_data {
 #define to_panel_data(p) container_of(p, struct panel_drv_data, dssdev)
 
 struct w677l_reg {
+// simplify: use data[0] as len since we have no sequence longer than 49 bytes...
 	int len;
 	u8 data[50];
 };
@@ -396,6 +400,7 @@ static int w677l_write_sequence(struct omap_dss_device *dssdev,
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 
 	for (i = 0; i < len; i++) {
+		// fixme: use &seq[i].data[1], seq[i].data[0]
 		r = w677l_write(dssdev, seq[i].data, seq[i].len);
 		if (r) {
 			dev_err(&ddata->pdev->dev, "sequence failed: %d\n", i);
@@ -543,36 +548,35 @@ static int w677l_connect(struct omap_dss_device *in, struct omap_dss_device *dss
 	printk("dsi: w677l_connect()\n");
 #endif
 
-	if (omapdss_device_is_connected(dssdev))
-		return 0;
-
-	r = in->ops->connect(in, dssdev);
-	if (r) {
-		dev_err(dev, "Failed to connect to video source\n");
-		return r;
-	}
+	printk("dsi: w677l_connect() 1\n");
 
 	/* channel0 used for video packets */
-	r = in->ops->dsi.request_vc(ddata->dssdev.src, &ddata->pixel_channel);
+	r = in->ops->dsi.request_vc(in, &ddata->pixel_channel);
 	if (r) {
 		dev_err(dev, "failed to get virtual channel\n");
 		goto err_req_vc0;
 	}
 
-	r = in->ops->dsi.set_vc_id(ddata->dssdev.src, ddata->pixel_channel, 0);
+	printk("dsi: w677l_connect() 3\n");
+
+	r = in->ops->dsi.set_vc_id(in, ddata->pixel_channel, 0);
 	if (r) {
 		dev_err(dev, "failed to set VC_ID\n");
 		goto err_vc_id0;
 	}
 
+	printk("dsi: w677l_connect() 4\n");
+
 	/* channel1 used for registers access in LP mode */
-	r = in->ops->dsi.request_vc(ddata->dssdev.src, &ddata->config_channel);
+	r = in->ops->dsi.request_vc(in, &ddata->config_channel);
 	if (r) {
 		dev_err(dev, "failed to get virtual channel\n");
 		goto err_req_vc1;
 	}
 
-	r = in->ops->dsi.set_vc_id(ddata->dssdev.src, ddata->config_channel, 0);
+	printk("dsi: w677l_connect() 5\n");
+
+	r = in->ops->dsi.set_vc_id(in, ddata->config_channel, 0);
 	if (r) {
 		dev_err(dev, "failed to set VC_ID\n");
 		goto err_vc_id1;
@@ -585,10 +589,10 @@ static int w677l_connect(struct omap_dss_device *in, struct omap_dss_device *dss
 	return 0;
 
 err_vc_id1:
-	in->ops->dsi.release_vc(ddata->dssdev.src, ddata->config_channel);
+	in->ops->dsi.release_vc(in, ddata->config_channel);
 err_req_vc1:
 err_vc_id0:
-	in->ops->dsi.release_vc(ddata->dssdev.src, ddata->pixel_channel);
+	in->ops->dsi.release_vc(in, ddata->pixel_channel);
 err_req_vc0:
 	in->ops->disconnect(in, dssdev);
 	return r;
@@ -616,7 +620,7 @@ static void w677l_get_timings(struct omap_dss_device *dssdev,
 	struct omap_dss_device *in = ddata->dssdev.src;
 
 #if LOG
-	printk("dsi: w677l_get_timings()  in = %s %s %s %p\n", in->name, in->driver_name, in->alias, in->driver);
+	printk("dsi: w677l_get_timings()  in = %s %u %p\n", in->name, in->alias_id, in->driver);
 #endif
 
 	/* if we are connected to the ssd2858 driver in->driver provides get_timings() */
@@ -631,13 +635,13 @@ static void w677l_get_timings(struct omap_dss_device *dssdev,
 }
 
 static int w677l_check_timings(struct omap_dss_device *dssdev,
-		const struct videomode *timings)
+		struct videomode *timings)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->dssdev.src;
 
 #if LOG
-	printk("dsi: w677l_check_timings() in = %s %s %s %p\n", in->name, in->driver_name, in->alias, in->driver);
+	printk("dsi: w677l_check_timings() in = %s %u %p\n", in->name, in->alias_id, in->driver);
 #endif
 
 	/* if we are connected to the ssd2858 driver in->driver provides check_timings() */
@@ -818,9 +822,6 @@ static void w677l_disable(struct omap_dss_device *dssdev)
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->dssdev.src;
 
-#if LOG
-	printk("dsi: w677l_disable()\n");
-#endif
 	dev_dbg(&ddata->pdev->dev, "disable\n");
 
 	if (!omapdss_device_is_enabled(dssdev))
@@ -908,17 +909,14 @@ static int w677l_probe_of(struct platform_device *pdev)
 
 static int w677l_probe(struct platform_device *pdev)
 {
-	struct backlight_properties props;
 	struct panel_drv_data *ddata;
 	struct device *dev = &pdev->dev;
 	struct omap_dss_device *dssdev;
 	int r;
 
-#if LOG
-	printk("dsi: w677l_probe()\n");
-#endif
+	printk("dsi: probe()\n");
 
-	dev_dbg(dev, "w677l_probe\n");
+	dev_dbg(dev, "%s\n", __func__);
 
 	ddata = devm_kzalloc(dev, sizeof(*ddata), GFP_KERNEL);
 	if (!ddata)
@@ -926,6 +924,8 @@ static int w677l_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, ddata);
 	ddata->pdev = pdev;
+
+	ddata->vm = w677l_timings;
 
 	r = w677l_probe_of(pdev);
 	if (r) {
@@ -939,8 +939,12 @@ static int w677l_probe(struct platform_device *pdev)
 	dssdev->driver = &w677l_dss_driver;
 	dssdev->type = OMAP_DISPLAY_TYPE_DSI;
 	dssdev->owner = THIS_MODULE;
+	dssdev->of_ports = BIT(0);
 
-	ddata->vm = w677l_timings;
+#if 0
+	dssdev->caps = OMAP_DSS_DISPLAY_CAP_MANUAL_UPDATE |
+		OMAP_DSS_DISPLAY_CAP_TEAR_ELIM;
+#endif
 
 	omapdss_display_init(dssdev);
 	omapdss_device_register(dssdev);
@@ -967,9 +971,8 @@ static int w677l_probe(struct platform_device *pdev)
 	}
 #endif
 
-#if LOG
-	printk("dsi: w677l_probe ok\n");
-#endif
+	dev_dbg(dev, "probe ok\n");
+
 	return 0;
 }
 
@@ -979,9 +982,7 @@ static int __exit w677l_remove(struct platform_device *pdev)
 	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
 	struct omap_dss_device *dssdev = &ddata->dssdev;
 
-#if LOG
-	printk("dsi: w677l_remove()\n");
-#endif
+	dev_dbg(&pdev->dev, "%s\n", __func__);
 
 	omapdss_device_unregister(dssdev);
 
@@ -995,6 +996,7 @@ static int __exit w677l_remove(struct platform_device *pdev)
 
 static const struct of_device_id w677l_of_match[] = {
 	{ .compatible = "omapdss,boe,btl507212-w677l", },
+	{ .compatible = "boe,btl507212-w677l", },
 	{},
 };
 
@@ -1002,11 +1004,11 @@ MODULE_DEVICE_TABLE(of, w677l_of_match);
 
 static struct platform_driver w677l_driver = {
 	.probe = w677l_probe,
-	.remove = w677l_remove,
+	.remove = __exit_p(w677l_remove),
 	.driver = {
-		.name = "btl507212-w677l",
-		.owner = THIS_MODULE,
+		.name = "panel-btl507212-w677l",
 		.of_match_table = w677l_of_match,
+		.suppress_bind_attrs = true,
 	},
 };
 
