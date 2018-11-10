@@ -54,8 +54,12 @@ static DEFINE_SPINLOCK(autoidle_spinlock);
 int omap2_clk_deny_idle(struct clk *clk)
 {
 	struct clk_hw_omap *c;
+	struct clk_hw *hw = __clk_get_hw(clk);
 
-	c = to_clk_hw_omap(__clk_get_hw(clk));
+	if (clk_hw_get_flags(hw) & CLK_IS_BASIC)
+		return -EINVAL;
+
+	c = to_clk_hw_omap(hw);
 	if (c->ops && c->ops->deny_idle) {
 		unsigned long irqflags;
 
@@ -77,8 +81,12 @@ int omap2_clk_deny_idle(struct clk *clk)
 int omap2_clk_allow_idle(struct clk *clk)
 {
 	struct clk_hw_omap *c;
+	struct clk_hw *hw = __clk_get_hw(clk);
 
-	c = to_clk_hw_omap(__clk_get_hw(clk));
+	if (clk_hw_get_flags(hw) & CLK_IS_BASIC)
+		return -EINVAL;
+
+	c = to_clk_hw_omap(hw);
 	if (c->ops && c->ops->allow_idle) {
 		unsigned long irqflags;
 
