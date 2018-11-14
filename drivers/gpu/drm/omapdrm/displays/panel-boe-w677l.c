@@ -548,36 +548,35 @@ static int w677l_connect(struct omap_dss_device *in, struct omap_dss_device *dss
 	printk("dsi: w677l_connect()\n");
 #endif
 
-	if (omapdss_device_is_connected(dssdev))
-		return 0;
-
-	r = in->ops->connect(in, dssdev);
-	if (r) {
-		dev_err(dev, "Failed to connect to video source\n");
-		return r;
-	}
+	printk("dsi: w677l_connect() 1\n");
 
 	/* channel0 used for video packets */
-	r = in->ops->dsi.request_vc(ddata->dssdev.src, &ddata->pixel_channel);
+	r = in->ops->dsi.request_vc(in, &ddata->pixel_channel);
 	if (r) {
 		dev_err(dev, "failed to get virtual channel\n");
 		goto err_req_vc0;
 	}
 
-	r = in->ops->dsi.set_vc_id(ddata->dssdev.src, ddata->pixel_channel, 0);
+	printk("dsi: w677l_connect() 3\n");
+
+	r = in->ops->dsi.set_vc_id(in, ddata->pixel_channel, 0);
 	if (r) {
 		dev_err(dev, "failed to set VC_ID\n");
 		goto err_vc_id0;
 	}
 
+	printk("dsi: w677l_connect() 4\n");
+
 	/* channel1 used for registers access in LP mode */
-	r = in->ops->dsi.request_vc(ddata->dssdev.src, &ddata->config_channel);
+	r = in->ops->dsi.request_vc(in, &ddata->config_channel);
 	if (r) {
 		dev_err(dev, "failed to get virtual channel\n");
 		goto err_req_vc1;
 	}
 
-	r = in->ops->dsi.set_vc_id(ddata->dssdev.src, ddata->config_channel, 0);
+	printk("dsi: w677l_connect() 5\n");
+
+	r = in->ops->dsi.set_vc_id(in, ddata->config_channel, 0);
 	if (r) {
 		dev_err(dev, "failed to set VC_ID\n");
 		goto err_vc_id1;
@@ -590,10 +589,10 @@ static int w677l_connect(struct omap_dss_device *in, struct omap_dss_device *dss
 	return 0;
 
 err_vc_id1:
-	in->ops->dsi.release_vc(ddata->dssdev.src, ddata->config_channel);
+	in->ops->dsi.release_vc(in, ddata->config_channel);
 err_req_vc1:
 err_vc_id0:
-	in->ops->dsi.release_vc(ddata->dssdev.src, ddata->pixel_channel);
+	in->ops->dsi.release_vc(in, ddata->pixel_channel);
 err_req_vc0:
 	in->ops->disconnect(in, dssdev);
 	return r;
@@ -998,8 +997,6 @@ static int __exit w677l_remove(struct platform_device *pdev)
 static const struct of_device_id w677l_of_match[] = {
 	{ .compatible = "omapdss,boe,btl507212-w677l", },
 	{ .compatible = "boe,btl507212-w677l", },
-	{ .compatible = "omapdss,boe,btl507212_w677l", },
-	{ .compatible = "boe,btl507212_w677l", },
 	{},
 };
 
