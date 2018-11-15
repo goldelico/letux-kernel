@@ -4,6 +4,16 @@ menu "Ingenic JZ47xx CGU drivers"
 config INGENIC_CGU_COMMON
 	bool
 
+config INGENIC_CGU_JZ4730
+	bool "Ingenic JZ4730 CGU driver"
+	default MACH_JZ4730
+	select INGENIC_CGU_COMMON
+	help
+	  Support the clocks provided by the CGU hardware on Ingenic JZ4730
+	  and compatible SoCs.
+
+	  If building for a JZ4730 SoC, you want to say Y here.
+
 config INGENIC_CGU_JZ4740
 	bool "Ingenic JZ4740 CGU driver"
 	default MACH_JZ4740
