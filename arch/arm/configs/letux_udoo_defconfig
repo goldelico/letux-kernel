@@ -1,5 +1,5 @@
 #
-# Linux/arm 4.18.18 Kernel Configuration
+# Linux/arm 4.18.19 Kernel Configuration
 #
 
 #
@@ -6039,7 +6039,6 @@ CONFIG_CRYPTO_DES=m
 # CONFIG_CRYPTO_SEED is not set
 # CONFIG_CRYPTO_SERPENT is not set
 # CONFIG_CRYPTO_SM4 is not set
-# CONFIG_CRYPTO_SPECK is not set
 # CONFIG_CRYPTO_TEA is not set
 # CONFIG_CRYPTO_TWOFISH is not set
 
