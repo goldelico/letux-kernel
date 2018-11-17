@@ -5409,25 +5409,30 @@ static int dsi_probe(struct platform_device *pdev)
 
 	/* DSI on OMAP3 doesn't have register DSI_GNQ, set number
 	 * of data to 3 by default */
-	if (dsi->data->quirks & DSI_QUIRK_GNQ)
+	if (dsi->data->quirks & DSI_QUIRK_GNQ) {
+		dsi_runtime_get(dsi);
 		/* NB_DATA_LANES */
 		dsi->num_lanes_supported = 1 + REG_GET(dsi, DSI_GNQ, 11, 9);
-	else
+		dsi_runtime_put(dsi);
+	} else {
 		dsi->num_lanes_supported = 3;
+	}
+
+	r = of_platform_populate(dev->of_node, NULL, NULL, dev);
+	if (r) {
+		DSSERR("Failed to populate DSI child devices: %d\n", r);
+		goto err_pm_disable;
+	}
 
 	r = dsi_init_output(dsi);
 	if (r)
-		goto err_pm_disable;
+		goto err_depopulate;
 
 	r = dsi_probe_of(dsi);
 	if (r) {
 		DSSERR("Invalid DSI DT data\n");
 		goto err_uninit_output;
 	}
-
-	r = of_platform_populate(dev->of_node, NULL, NULL, dev);
-	if (r)
-		DSSERR("Failed to populate DSI child devices: %d\n", r);
 
 	r = component_add(&pdev->dev, &dsi_component_ops);
 	if (r)
@@ -5437,6 +5442,8 @@ static int dsi_probe(struct platform_device *pdev)
 
 err_uninit_output:
 	dsi_uninit_output(dsi);
+err_depopulate:
+	of_platform_depopulate(dev);
 err_pm_disable:
 	pm_runtime_disable(dev);
 	return r;
@@ -5470,7 +5477,12 @@ static int dsi_runtime_suspend(struct device *dev)
 	/* wait for current handler to finish before turning the DSI off */
 	synchronize_irq(dsi->irq);
 
-	dispc_runtime_put(dsi->dss->dispc);
+	/*
+	 * FIXME: DISPC runtime PM handling should be controlled from omapdrm,
+	 * see dsi_runtime_resume().
+	 */
+	if (dsi->dss && dsi->dss->dispc)
+		dispc_runtime_put(dsi->dss->dispc);
 
 	return 0;
 }
@@ -5480,9 +5492,18 @@ static int dsi_runtime_resume(struct device *dev)
 	struct dsi_data *dsi = dev_get_drvdata(dev);
 	int r;
 
-	r = dispc_runtime_get(dsi->dss->dispc);
-	if (r)
-		return r;
+	/*
+	 * FIXME: The device is resumed from the probe function before the dss
+	 * is available, in order to read a hardware configuration register.
+	 * This doesn't require resuming the DISPC, so make it conditional. The
+	 * DISPC runtime PM handling should instead be controlled from omapdrm,
+	 * which is already partly the case, but needs additional testing.
+	 */
+	if (dsi->dss && dsi->dss->dispc) {
+		r = dispc_runtime_get(dsi->dss->dispc);
+		if (r)
+			return r;
+	}
 
 	dsi->is_enabled = true;
 	/* ensure the irq handler sees the is_enabled value */
