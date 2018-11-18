@@ -440,36 +440,27 @@ static int r63311_connect(struct omap_dss_device *in, struct omap_dss_device *ds
 	struct device *dev = &ddata->pdev->dev;
 	int r;
 
-	if (omapdss_device_is_connected(dssdev))
-		return 0;
-
-	r = in->ops->connect(in, dssdev);
-	if (r) {
-		dev_err(dev, "Failed to connect to video source\n");
-		return r;
-	}
-
 	/* channel0 used for video packets */
-	r = in->ops->dsi.request_vc(ddata->dssdev.src, &ddata->pixel_channel);
+	r = in->ops->dsi.request_vc(in, &ddata->pixel_channel);
 	if (r) {
 		dev_err(dev, "failed to get virtual channel\n");
 		goto err_req_vc0;
 	}
 
-	r = in->ops->dsi.set_vc_id(ddata->dssdev.src, ddata->pixel_channel, 0);
+	r = in->ops->dsi.set_vc_id(in, ddata->pixel_channel, 0);
 	if (r) {
 		dev_err(dev, "failed to set VC_ID\n");
 		goto err_vc_id0;
 	}
 
 	/* channel1 used for registers access in LP mode */
-	r = in->ops->dsi.request_vc(ddata->dssdev.src, &ddata->config_channel);
+	r = in->ops->dsi.request_vc(in, &ddata->config_channel);
 	if (r) {
 		dev_err(dev, "failed to get virtual channel\n");
 		goto err_req_vc1;
 	}
 
-	r = in->ops->dsi.set_vc_id(ddata->dssdev.src, ddata->config_channel, 0);
+	r = in->ops->dsi.set_vc_id(in, ddata->config_channel, 0);
 	if (r) {
 		dev_err(dev, "failed to set VC_ID\n");
 		goto err_vc_id1;
@@ -478,21 +469,17 @@ static int r63311_connect(struct omap_dss_device *in, struct omap_dss_device *ds
 	return 0;
 
 err_vc_id1:
-	in->ops->dsi.release_vc(ddata->dssdev.src, ddata->config_channel);
+	in->ops->dsi.release_vc(in, ddata->config_channel);
 err_req_vc1:
 err_vc_id0:
-	in->ops->dsi.release_vc(ddata->dssdev.src, ddata->pixel_channel);
+	in->ops->dsi.release_vc(in, ddata->pixel_channel);
 err_req_vc0:
-	in->ops->disconnect(in, dssdev);
 	return r;
 }
 
 static void r63311_disconnect(struct omap_dss_device *in, struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-
-	if (!omapdss_device_is_connected(dssdev))
-		return;
 
 	in->ops->dsi.release_vc(in, ddata->pixel_channel);
 	in->ops->dsi.release_vc(in, ddata->config_channel);
@@ -1144,6 +1131,7 @@ static int __exit r63311_remove(struct platform_device *pdev)
 static const struct of_device_id r63311_of_match[] = {
 	{
 		.compatible = "omapdss,lg,lh500wf1",
+		.compatible = "lg,lh500wf1",
 	},
 	{},
 };
@@ -1154,9 +1142,10 @@ static struct platform_driver r63311_driver = {
 	.probe = r63311_probe,
 	.remove = __exit_p(r63311_remove),
 	.driver = {
-		.name = "r63311",
+		.name = "panel-r63311",
 		.owner = THIS_MODULE,
 		.of_match_table = r63311_of_match,
+		.suppress_bind_attrs = true,
 	},
 };
 
