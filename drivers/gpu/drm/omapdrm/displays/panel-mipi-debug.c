@@ -213,36 +213,27 @@ static int mipi_debug_connect(struct omap_dss_device *in, struct omap_dss_device
 
 	printk("dsi: mipi_debug_connect()\n");
 
-	if (omapdss_device_is_connected(dssdev))
-		return 0;
-
-	r = in->ops->connect(in, dssdev);
-	if (r) {
-		dev_err(dev, "Failed to connect to video source\n");
-		return r;
-	}
-
 	/* channel0 used for video packets */
-	r = in->ops->dsi.request_vc(ddata->dssdev.src, &ddata->pixel_channel);
+	r = in->ops->dsi.request_vc(in, &ddata->pixel_channel);
 	if (r) {
 		dev_err(dev, "failed to get virtual channel\n");
 		goto err_req_vc0;
 	}
 
-	r = in->ops->dsi.set_vc_id(ddata->dssdev.src, ddata->pixel_channel, 0);
+	r = in->ops->dsi.set_vc_id(in, ddata->pixel_channel, 0);
 	if (r) {
 		dev_err(dev, "failed to set VC_ID\n");
 		goto err_vc_id0;
 	}
 
 	/* channel1 used for registers access in LP mode */
-	r = in->ops->dsi.request_vc(ddata->dssdev.src, &ddata->config_channel);
+	r = in->ops->dsi.request_vc(in, &ddata->config_channel);
 	if (r) {
 		dev_err(dev, "failed to get virtual channel\n");
 		goto err_req_vc1;
 	}
 
-	r = in->ops->dsi.set_vc_id(ddata->dssdev.src, ddata->config_channel, 0);
+	r = in->ops->dsi.set_vc_id(in, ddata->config_channel, 0);
 	if (r) {
 		dev_err(dev, "failed to set VC_ID\n");
 		goto err_vc_id1;
@@ -253,10 +244,10 @@ static int mipi_debug_connect(struct omap_dss_device *in, struct omap_dss_device
 	return 0;
 
 err_vc_id1:
-	in->ops->dsi.release_vc(ddata->dssdev.src, ddata->config_channel);
+	in->ops->dsi.release_vc(in, ddata->config_channel);
 err_req_vc1:
 err_vc_id0:
-	in->ops->dsi.release_vc(ddata->dssdev.src, ddata->pixel_channel);
+	in->ops->dsi.release_vc(in, ddata->pixel_channel);
 err_req_vc0:
 	return r;
 }
@@ -266,9 +257,6 @@ static void mipi_debug_disconnect(struct omap_dss_device *in, struct omap_dss_de
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 
 	printk("dsi: mipi_debug_disconnect()\n");
-
-	if (!omapdss_device_is_connected(dssdev))
-		return;
 
 	in->ops->dsi.release_vc(in, ddata->pixel_channel);
 	in->ops->dsi.release_vc(in, ddata->config_channel);
@@ -1032,6 +1020,7 @@ static int __exit mipi_debug_remove(struct platform_device *pdev)
 
 static const struct of_device_id mipi_debug_of_match[] = {
 	{ .compatible = "omapdss,mipi,debug", },
+	{ .compatible = "mipi,debug", },
 	{},
 };
 
@@ -1039,11 +1028,11 @@ MODULE_DEVICE_TABLE(of, mipi_debug_of_match);
 
 static struct platform_driver mipi_debug_driver = {
 	.probe = mipi_debug_probe,
-	.remove = mipi_debug_remove,
+	.remove = __exit_p(mipi_debug_remove),
 	.driver = {
-		.name = "mipi-debug",
-		.owner = THIS_MODULE,
+		.name = "panel-mipi-debug",
 		.of_match_table = mipi_debug_of_match,
+		.suppress_bind_attrs = true,
 	},
 };
 
