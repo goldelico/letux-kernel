@@ -35,6 +35,12 @@ struct sirf_data {
 	struct gpio_desc *wakeup;
 	int irq;
 	bool active;
+	/*
+	 * There might be races between returning data and closing the gnss
+	 * device.
+	 */
+	struct mutex gdev_mutex;
+	bool opened;
 	wait_queue_head_t power_wait;
 };
 
@@ -44,6 +50,7 @@ static int sirf_open(struct gnss_device *gdev)
 	struct serdev_device *serdev = data->serdev;
 	int ret;
 
+	data->opened = true;
 	ret = serdev_device_open(serdev);
 	if (ret)
 		return ret;
@@ -55,6 +62,7 @@ static int sirf_open(struct gnss_device *gdev)
 	if (ret < 0) {
 		dev_err(&gdev->dev, "failed to runtime resume: %d\n", ret);
 		pm_runtime_put_noidle(&serdev->dev);
+		data->opened = false;
 		goto err_close;
 	}
 
@@ -74,6 +82,9 @@ static void sirf_close(struct gnss_device *gdev)
 	serdev_device_close(serdev);
 
 	pm_runtime_put(&serdev->dev);
+	mutex_lock(&data->gdev_mutex);
+	data->opened = false;
+	mutex_unlock(&data->gdev_mutex);
 }
 
 static int sirf_write_raw(struct gnss_device *gdev, const unsigned char *buf,
@@ -105,8 +116,22 @@ static int sirf_receive_buf(struct serdev_device *serdev,
 {
 	struct sirf_data *data = serdev_device_get_drvdata(serdev);
 	struct gnss_device *gdev = data->gdev;
+	int ret = 0;
 
-	return gnss_insert_raw(gdev, buf, count);
+	/*
+	 * we might come here everytime when runtime is resumed
+	 * and data is received. Two cases are possible
+	 * 1. device is opened during initialisation
+	 * 2. kernel is compiled without runtime pm
+	 *    and device is opened all the time
+	 */
+	mutex_lock(&data->gdev_mutex);
+	if (data->opened)
+		ret = gnss_insert_raw(gdev, buf, count);
+
+	mutex_unlock(&data->gdev_mutex);
+
+	return ret;
 }
 
 static const struct serdev_device_ops sirf_serdev_ops = {
@@ -275,6 +300,7 @@ static int sirf_probe(struct serdev_device *serdev)
 	data->serdev = serdev;
 	data->gdev = gdev;
 
+	mutex_init(&data->gdev_mutex);
 	init_waitqueue_head(&data->power_wait);
 
 	serdev_device_set_drvdata(serdev, data);
