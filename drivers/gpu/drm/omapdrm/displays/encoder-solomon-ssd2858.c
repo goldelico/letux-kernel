@@ -1266,43 +1266,30 @@ static int ssd2858_connect(struct omap_dss_device *dssdev, struct omap_dss_devic
 #endif
 	dev_dbg(dssdev->dev, "connect\n");
 
-	if (omapdss_device_is_connected(dssdev)) {
-#if LOG
-	printk("dsi: ssd2858 already connected\n");
-#endif
-		return -EBUSY;
-	}
-
-	r = in->ops->connect(in, dssdev);
-	if (r) {
-		dev_err(dssdev->dev, "Failed to connect to video source\n");
-		return r;
-	}
-
 	dst->src = dssdev;
 	dssdev->dst = dst;
 
 	/* channel0 used for video packets */
-	r = in->ops->dsi.request_vc(ddata->dssdev.src, &ddata->pixel_channel);
+	r = in->ops->dsi.request_vc(in, &ddata->pixel_channel);
 	if (r) {
 		dev_err(dssdev->dev, "failed to get virtual channel\n");
 		goto err_req_vc0;
 	}
 
-	r = in->ops->dsi.set_vc_id(ddata->dssdev.src, ddata->pixel_channel, 0);
+	r = in->ops->dsi.set_vc_id(in, ddata->pixel_channel, 0);
 	if (r) {
 		dev_err(dssdev->dev, "failed to set VC_ID\n");
 		goto err_vc_id0;
 	}
 
 	/* channel1 used for registers access in LP mode */
-	r = in->ops->dsi.request_vc(ddata->dssdev.src, &ddata->config_channel);
+	r = in->ops->dsi.request_vc(in, &ddata->config_channel);
 	if (r) {
 		dev_err(dssdev->dev, "failed to get virtual channel\n");
 		goto err_req_vc1;
 	}
 
-	r = in->ops->dsi.set_vc_id(ddata->dssdev.src, ddata->config_channel, 0);
+	r = in->ops->dsi.set_vc_id(in, ddata->config_channel, 0);
 	if (r) {
 		dev_err(dssdev->dev, "failed to set VC_ID\n");
 		goto err_vc_id1;
@@ -1311,15 +1298,14 @@ static int ssd2858_connect(struct omap_dss_device *dssdev, struct omap_dss_devic
 	return 0;
 
 err_vc_id1:
-	in->ops->dsi.release_vc(ddata->dssdev.src, ddata->config_channel);
+	in->ops->dsi.release_vc(in, ddata->config_channel);
 err_req_vc1:
 err_vc_id0:
-	in->ops->dsi.release_vc(ddata->dssdev.src, ddata->pixel_channel);
+	in->ops->dsi.release_vc(in, ddata->pixel_channel);
 err_req_vc0:
 #if LOG
 	printk("dsi: ssd2858_connect error %d\n", r);
 #endif
-	in->ops->disconnect(in, dssdev);
 	return r;
 }
 
@@ -1333,10 +1319,6 @@ static void ssd2858_disconnect(struct omap_dss_device *dssdev, struct omap_dss_d
 #endif
 	dev_dbg(dssdev->dev, "disconnect\n");
 
-	WARN_ON(!omapdss_device_is_connected(dssdev));
-	if (!omapdss_device_is_connected(dssdev))
-		return;
-
 	WARN_ON(dst != dssdev->dst);
 	if (dst != dssdev->dst)
 		return;
@@ -1346,7 +1328,6 @@ static void ssd2858_disconnect(struct omap_dss_device *dssdev, struct omap_dss_d
 
 	in->ops->dsi.release_vc(in, ddata->pixel_channel);
 	in->ops->dsi.release_vc(in, ddata->config_channel);
-	in->ops->disconnect(in, &ddata->dssdev);
 }
 
 static int ssd2858_enable(struct omap_dss_device *dssdev)
@@ -2033,11 +2014,11 @@ MODULE_DEVICE_TABLE(of, ssd2858_of_match);
 
 static struct platform_driver ssd2858_driver = {
 	.probe = ssd2858_probe,
-	.remove = ssd2858_remove,
+	.remove = __exit_p(ssd2858_remove),
 	.driver = {
-		.name = "ssd2858",
-		.owner = THIS_MODULE,
+		.name = "encoder-solomon-ssd2858",
 		.of_match_table = ssd2858_of_match,
+		.suppress_bind_attrs = true,
 	},
 };
 
