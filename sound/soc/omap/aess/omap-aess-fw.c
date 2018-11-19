@@ -82,8 +82,8 @@ static int aess_put_mixer(struct snd_kcontrol *kcontrol,
 			  struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dapm_context *dapm = snd_soc_dapm_kcontrol_dapm(kcontrol);
-	struct snd_soc_component *component = dapm->component;
-	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
+	struct snd_soc_platform *platform = snd_soc_dapm_kcontrol_platform(kcontrol);
+	struct omap_aess *aess = snd_soc_platform_get_drvdata(platform);
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 	struct snd_soc_dapm_update update;
@@ -110,11 +110,10 @@ static int aess_put_mixer(struct snd_kcontrol *kcontrol,
 static int aess_get_mixer(struct snd_kcontrol *kcontrol,
 			  struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_context *dapm = snd_soc_dapm_kcontrol_dapm(kcontrol);
-	struct snd_soc_component *component = dapm->component;
-	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
+	struct snd_soc_platform *platform = snd_soc_dapm_kcontrol_platform(kcontrol);
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
+	struct omap_aess *aess = snd_soc_platform_get_drvdata(platform);
 
 	ucontrol->value.integer.value[0] =
 				(aess->opp.widget[mc->reg] >> mc->shift) & 0x1;
@@ -148,9 +147,8 @@ int aess_mixer_enable_mono(struct omap_aess *aess, int id, int enable)
 static int aess_put_mono_mixer(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_context *dapm = snd_soc_dapm_kcontrol_dapm(kcontrol);
-	struct snd_soc_component *component = dapm->component;
-	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct omap_aess *aess = snd_soc_platform_get_drvdata(platform);
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 	int id = mc->shift - OMAP_AESS_MIX_DL1_MONO;
@@ -164,9 +162,8 @@ static int aess_put_mono_mixer(struct snd_kcontrol *kcontrol,
 static int aess_get_mono_mixer(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_context *dapm = snd_soc_dapm_kcontrol_dapm(kcontrol);
-	struct snd_soc_component *component = dapm->component;
-	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct omap_aess *aess = snd_soc_platform_get_drvdata(platform);
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 	int id = mc->shift - OMAP_AESS_MIX_DL1_MONO;
@@ -198,8 +195,8 @@ static int aess_ul_mux_put_route(struct snd_kcontrol *kcontrol,
 				 struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dapm_context *dapm = snd_soc_dapm_kcontrol_dapm(kcontrol);
-	struct snd_soc_component *component = dapm->component;
-	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
+	struct snd_soc_platform *platform = snd_soc_dapm_kcontrol_platform(kcontrol);
+	struct omap_aess *aess = snd_soc_platform_get_drvdata(platform);
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
 	struct snd_soc_dapm_update update;
 	int mux = ucontrol->value.enumerated.item[0];
@@ -242,9 +239,8 @@ static int aess_ul_mux_put_route(struct snd_kcontrol *kcontrol,
 static int aess_ul_mux_get_route(struct snd_kcontrol *kcontrol,
 				 struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_context *dapm = snd_soc_dapm_kcontrol_dapm(kcontrol);
-	struct snd_soc_component *component = dapm->component;
-	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
+	struct snd_soc_platform *platform = snd_soc_dapm_kcontrol_platform(kcontrol);
+	struct omap_aess *aess = snd_soc_platform_get_drvdata(platform);
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
 	int reg = e->reg - OMAP_AESS_MUX(0), i, rval = 0;
 
@@ -272,8 +268,8 @@ static int aess_put_switch(struct snd_kcontrol *kcontrol,
 			   struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dapm_context *dapm = snd_soc_dapm_kcontrol_dapm(kcontrol);
-	struct snd_soc_component *component = dapm->component;
-	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
+	struct snd_soc_platform *platform = snd_soc_dapm_kcontrol_platform(kcontrol);
+	struct omap_aess *aess = snd_soc_platform_get_drvdata(platform);
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 	struct snd_soc_dapm_update update;
@@ -298,9 +294,8 @@ static int aess_put_switch(struct snd_kcontrol *kcontrol,
 static int aess_vol_put_mixer(struct snd_kcontrol *kcontrol,
 			      struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_context *dapm = snd_soc_dapm_kcontrol_dapm(kcontrol);
-	struct snd_soc_component *component = dapm->component;
-	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct omap_aess *aess = snd_soc_platform_get_drvdata(platform);
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 	long value = ucontrol->value.integer.value[0];
@@ -313,9 +308,8 @@ static int aess_vol_put_mixer(struct snd_kcontrol *kcontrol,
 static int aess_vol_put_gain(struct snd_kcontrol *kcontrol,
 			     struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_context *dapm = snd_soc_dapm_kcontrol_dapm(kcontrol);
-	struct snd_soc_component *component = dapm->component;
-	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct omap_aess *aess = snd_soc_platform_get_drvdata(platform);
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 
@@ -330,9 +324,8 @@ static int aess_vol_put_gain(struct snd_kcontrol *kcontrol,
 static int aess_vol_get_mixer(struct snd_kcontrol *kcontrol,
 			      struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_context *dapm = snd_soc_dapm_kcontrol_dapm(kcontrol);
-	struct snd_soc_component *component = dapm->component;
-	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct omap_aess *aess = snd_soc_platform_get_drvdata(platform);
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 	u32 val;
@@ -346,9 +339,8 @@ static int aess_vol_get_mixer(struct snd_kcontrol *kcontrol,
 static int aess_vol_get_gain(struct snd_kcontrol *kcontrol,
 			     struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_context *dapm = snd_soc_dapm_kcontrol_dapm(kcontrol);
-	struct snd_soc_component *component = dapm->component;
-	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct omap_aess *aess = snd_soc_platform_get_drvdata(platform);
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 	u32 val;
@@ -472,9 +464,8 @@ int aess_mixer_set_equ_profile(struct omap_aess *aess, unsigned int id,
 static int aess_get_equalizer(struct snd_kcontrol *kcontrol,
 			      struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_context *dapm = snd_soc_dapm_kcontrol_dapm(kcontrol);
-	struct snd_soc_component *component = dapm->component;
-	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct omap_aess *aess = snd_soc_platform_get_drvdata(platform);
 	struct soc_enum *eqc = (struct soc_enum *)kcontrol->private_value;
 
 	switch (eqc->reg) {
@@ -506,9 +497,8 @@ static int aess_get_equalizer(struct snd_kcontrol *kcontrol,
 static int aess_put_equalizer(struct snd_kcontrol *kcontrol,
 			      struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_context *dapm = snd_soc_dapm_kcontrol_dapm(kcontrol);
-	struct snd_soc_component *component = dapm->component;
-	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct omap_aess *aess = snd_soc_platform_get_drvdata(platform);
 	struct soc_enum *eqc = (struct soc_enum *)kcontrol->private_value;
 	u16 val = ucontrol->value.enumerated.item[0];
 	int ret;
@@ -530,14 +520,14 @@ static const struct snd_soc_tplg_kcontrol_ops omap_aess_fw_ops[] = {
 {OMAP_CONTROL_SWITCH,	NULL, aess_put_switch, NULL},
 };
 
-static int aess_load_coeffs(struct snd_soc_component *component,
+static int aess_load_coeffs(struct snd_soc_platform *platform,
 			    struct snd_soc_tplg_hdr *hdr)
 {
-	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
+	struct omap_aess *aess = snd_soc_platform_get_drvdata(platform);
 	const struct snd_soc_file_coeff_data *cd = snd_soc_tplg_get_data(hdr);
 	const void *coeff_data = cd + 1;
 
-	dev_dbg(component->dev,"coeff %d size 0x%x with %d elems\n",
+	dev_dbg(platform->dev,"coeff %d size 0x%x with %d elems\n",
 		cd->id, cd->size, cd->count);
 
 	switch (cd->id) {
@@ -590,17 +580,17 @@ static int aess_load_coeffs(struct snd_soc_component *component,
 		memcpy(aess->equ.dmic.coeff_data, coeff_data, cd->size);
 		break;
 	default:
-		dev_err(component->dev, "invalid coefficient ID %d\n", cd->id);
+		dev_err(platform->dev, "invalid coefficient ID %d\n", cd->id);
 		return -EINVAL;
 	}
 
 	return 0;
 }
 
-static int aess_load_fw(struct snd_soc_component *component,
+static int aess_load_fw(struct snd_soc_platform *platform,
 			struct snd_soc_tplg_hdr *hdr)
 {
-	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
+	struct omap_aess *aess = snd_soc_platform_get_drvdata(platform);
 	const void *fw_data = snd_soc_tplg_get_data(hdr);
 
 	/* get firmware and coefficients header info */
@@ -623,10 +613,10 @@ static int aess_load_fw(struct snd_soc_component *component,
 	return 0;
 }
 
-static int aess_load_config(struct snd_soc_component *component,
+static int aess_load_config(struct snd_soc_platform *platform,
 			    struct snd_soc_tplg_hdr *hdr)
 {
-	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
+	struct omap_aess *aess = snd_soc_platform_get_drvdata(platform);
 	const void *fw_data = snd_soc_tplg_get_data(hdr);
 
 	/* store AESS config for later context restore */
@@ -641,17 +631,17 @@ static int aess_load_config(struct snd_soc_component *component,
 static int aess_vendor_load(struct snd_soc_component *component,
 			    struct snd_soc_tplg_hdr *hdr)
 {
-	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
+	struct snd_soc_platform *platform = snd_soc_component_to_platform(component);
 	switch (hdr->type) {
 	case SND_SOC_TPLG_TYPE_VENDOR_FW:
-		return aess_load_fw(component, hdr);
+		return aess_load_fw(platform, hdr);
 	case SND_SOC_TPLG_TYPE_VENDOR_CONFIG:
-		return aess_load_config(component, hdr);
+		return aess_load_config(platform, hdr);
 	case SND_SOC_TPLG_TYPE_VENDOR_COEFF:
-		return aess_load_coeffs(component, hdr);
+		return aess_load_coeffs(platform, hdr);
 	case SND_SOC_TPLG_TYPEVENDOR_CODEC:
 	default:
-		dev_err(component->dev, "vendor type %d:%d not supported\n",
+		dev_err(platform->dev, "vendor type %d:%d not supported\n",
 			hdr->type, hdr->vendor_type);
 		return 0;
 	}
