@@ -35,7 +35,7 @@
 #ifdef __KERNEL__
 
 #include <sound/soc.h>
-#include <sound/soc-topology.h>
+#include <sound/soc-fw.h>
 
 /* AESS registers */
 #define OMAP_AESS_REVISION			0x00
@@ -162,20 +162,6 @@ enum omap_aess_dai_id {
 #define OMAP_AESS_MIXER_GAIN	133
 #define OMAP_AESS_MIXER_VOLUME	134
 
-#define SOC_CONTROL_ID_PUT(p)	((p & 0xff) << 16)
-#define SOC_CONTROL_ID_GET(g)	((g & 0xff) << 8)
-#define SOC_CONTROL_ID_INFO(i)	((i & 0xff) << 0)
-#define SOC_CONTROL_ID(g, p, i)	\
-(SOC_CONTROL_ID_PUT(p) | SOC_CONTROL_ID_GET(g) |\
-SOC_CONTROL_ID_INFO(i))
-
-#define SOC_CONTROL_GET_ID_PUT(id)	((id & 0xff0000) >> 16)
-#define SOC_CONTROL_GET_ID_GET(id)	((id & 0x00ff00) >> 8)
-#define SOC_CONTROL_GET_ID_INFO(id)	((id & 0x0000ff) >> 0)
-
-/* individual kcontrol info types - can be mixed with other types */
-#define SOC_CONTROL_TYPE_EXT		0	/* driver defined */
-
 #define OMAP_CONTROL_DEFAULT \
 	SOC_CONTROL_ID(OMAP_AESS_MIXER_DEFAULT, \
 		OMAP_AESS_MIXER_DEFAULT, \
@@ -183,27 +169,27 @@ SOC_CONTROL_ID_INFO(i))
 #define OMAP_CONTROL_MONO \
 	SOC_CONTROL_ID(OMAP_AESS_MIXER_MONO, \
 		OMAP_AESS_MIXER_MONO, \
-		SND_SOC_TPLG_CTL_VOLSW)
+		SOC_CONTROL_TYPE_VOLSW)
 #define OMAP_CONTROL_ROUTER \
 	SOC_CONTROL_ID(OMAP_AESS_MIXER_ROUTER, \
 		OMAP_AESS_MIXER_ROUTER, \
-		SND_SOC_TPLG_CTL_ENUM)
+		SOC_CONTROL_TYPE_ENUM)
 #define OMAP_CONTROL_EQU \
 	SOC_CONTROL_ID(OMAP_AESS_MIXER_EQU, \
 		OMAP_AESS_MIXER_EQU, \
-		SND_SOC_TPLG_CTL_ENUM)
+		SOC_CONTROL_TYPE_ENUM)
 #define OMAP_CONTROL_SWITCH \
 	SOC_CONTROL_ID(OMAP_AESS_MIXER_DEFAULT, \
 		OMAP_AESS_MIXER_SWITCH, \
-		SND_SOC_TPLG_CTL_VOLSW)
+		SOC_CONTROL_TYPE_VOLSW)
 #define OMAP_CONTROL_GAIN \
 	SOC_CONTROL_ID(OMAP_AESS_MIXER_GAIN, \
 		OMAP_AESS_MIXER_GAIN, \
-		SND_SOC_TPLG_CTL_VOLSW)
+		SOC_CONTROL_TYPE_VOLSW)
 #define OMAP_CONTROL_VOLUME \
 	SOC_CONTROL_ID(OMAP_AESS_MIXER_VOLUME, \
 		OMAP_AESS_MIXER_VOLUME, \
-		SND_SOC_TPLG_CTL_VOLSW)
+		SOC_CONTROL_TYPE_VOLSW)
 
 enum opp_level {
 	OMAP_AESS_OPP_25 = 0,
@@ -260,16 +246,6 @@ struct omap_aess_coeff {
 	int profile_size;
 	void *coeff_data;
 };
-
-/*
- * Coeffcient File Data.
- */
-struct snd_soc_file_coeff_data {
-	__le32 count; /* in elems */
-	__le32 size;	/* total data size */
-	__le32 id; /* associated mixer ID */
-	/* data here */
-} __attribute__((packed));
 
 struct omap_aess_equ {
 	struct omap_aess_coeff dl1;
@@ -388,7 +364,7 @@ struct omap_aess {
 };
 
 /* Extern variables, structures, functions */
-extern struct snd_soc_tplg_ops soc_tplg_ops;
+extern struct snd_soc_fw_platform_ops soc_fw_ops;
 extern struct snd_soc_platform_driver omap_aess_platform;
 extern struct snd_soc_dai_driver omap_aess_dai[6];
 
