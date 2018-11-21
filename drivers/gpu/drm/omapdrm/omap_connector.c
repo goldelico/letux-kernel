@@ -281,6 +281,11 @@ static enum drm_mode_status omap_connector_mode_valid(struct drm_connector *conn
 					   &new_mode);
 	if (status != MODE_OK)
 		goto done;
+	if (omap_connector->display->type != OMAP_DISPLAY_TYPE_DSI) {
+		r = priv->dispc_ops->mgr_check_timings(priv->dispc, channel, &vm);
+		if (r)
+			goto done;
+	}
 
 	/* Check if vrefresh is still valid. */
 	if (drm_mode_vrefresh(mode) != drm_mode_vrefresh(&new_mode))
