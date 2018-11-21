@@ -69,6 +69,10 @@ static void omap_encoder_hdmi_mode_set(struct drm_encoder *encoder,
 		}
 	}
 
+	/* safe-guard for accessing dssdev->ops->hdmi union */
+	if (dssdev->output_type != OMAP_DISPLAY_TYPE_HDMI)
+		return;
+
 	if (dssdev->ops->hdmi.set_hdmi_mode)
 		dssdev->ops->hdmi.set_hdmi_mode(dssdev, hdmi_mode);
 
