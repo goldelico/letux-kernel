@@ -1,5 +1,5 @@
 #
-# Linux/mips 4.14.77 Kernel Configuration
+# Linux/mips 4.14.82 Kernel Configuration
 #
 CONFIG_MIPS=y
 
@@ -385,6 +385,7 @@ CONFIG_CLONE_BACKWARDS=y
 # CONFIG_ARCH_HAS_STRICT_KERNEL_RWX is not set
 # CONFIG_ARCH_HAS_STRICT_MODULE_RWX is not set
 # CONFIG_REFCOUNT_FULL is not set
+CONFIG_HAVE_ARCH_COMPILER_H=y
 
 #
 # GCOV-based kernel profiling
