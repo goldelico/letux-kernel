@@ -178,9 +178,11 @@ static int omap_encoder_atomic_check(struct drm_encoder *encoder,
 
 	drm_display_mode_to_videomode(&crtc_state->mode, &vm);
 
-	ret = priv->dispc_ops->mgr_check_timings(priv->dispc, channel, &vm);
-	if (ret)
-		goto done;
+	if (omap_encoder->display->type != OMAP_DISPLAY_TYPE_DSI) {
+		ret = priv->dispc_ops->mgr_check_timings(priv->dispc, channel, &vm);
+		if (ret)
+			goto done;
+	}
 
 	for (dssdev = omap_encoder->output; dssdev; dssdev = dssdev->next) {
 		if (!dssdev->ops->check_timings)
