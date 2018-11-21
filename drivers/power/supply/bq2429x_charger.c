@@ -55,7 +55,6 @@
 #define VENDOR_STATS_REGISTER		0x0A
 
 /* REG00 input source control register value */
-
 #define EN_HIZ_ENABLE	 1
 #define EN_HIZ_DISABLE	 0
 #define EN_HIZ_OFFSET	 7
@@ -76,12 +75,15 @@
 #define IINLIM_MASK		7
 
 /* REG01 power-on configuration register value */
-#define WATCHDOG_RESET	0x40
+/* OTG Mode Current Config */
+#define OTG_MODE_CURRENT_CONFIG_500MA		0x00
+#define OTG_MODE_CURRENT_CONFIG_1300MA	0x01
+#define OTG_MODE_CURRENT_CONFIG_OFFSET	0
+#define OTG_MODE_CURRENT_CONFIG_MASK		0x01
 
-#define REGISTER_RESET_ENABLE	 1
-#define REGISTER_RESET_DISABLE	 0
-#define REGISTER_RESET_OFFSET	 7
-#define REGISTER_RESET_MASK	 1
+/* VSYS Minimum */
+#define SYS_MIN_OFFSET		1
+#define SYS_MIN_MASK		0x7
 
 /* Charge Mode Config */
 #define CHARGE_MODE_CONFIG_CHARGE_DISABLE	0x00
@@ -90,14 +92,14 @@
 #define CHARGE_MODE_CONFIG_OFFSET		4
 #define CHARGE_MODE_CONFIG_MASK		0x03
 
-#define SYS_MIN_OFFSET		1
-#define SYS_MIN_MASK		0x7
+/* Watchdog */
+#define WATCHDOG_RESET	0x40
 
-/* OTG Mode Current Config */
-#define OTG_MODE_CURRENT_CONFIG_500MA		0x00
-#define OTG_MODE_CURRENT_CONFIG_1300MA	0x01
-#define OTG_MODE_CURRENT_CONFIG_OFFSET	0
-#define OTG_MODE_CURRENT_CONFIG_MASK		0x01
+/* Reset */
+#define REGISTER_RESET_ENABLE	 1
+#define REGISTER_RESET_DISABLE	 0
+#define REGISTER_RESET_OFFSET	 7
+#define REGISTER_RESET_MASK	 1
 
 /* REG02 charge current limit register value */
 #define CHARGE_CURRENT_64MA		0x01
@@ -663,6 +665,7 @@ static int bq24296_update_otg_mode_current(struct bq24296_device_info *di, u8 va
 	return ret;
 }
 
+#ifdef UNUSED
 static int bq24296_charge_mode_config(struct bq24296_device_info *di, bool on)
 {
 	if (on) {
@@ -679,21 +682,6 @@ static int bq24296_charge_mode_config(struct bq24296_device_info *di, bool on)
 	DBG("bq24296_charge_mode_config is %s\n", on ? "OTG Mode" : "Charge Mode");
 
 	return 0;
-}
-
-#if UNUSED
-static int bq24296_charge_otg_en(struct bq24296_device_info *di, int chg_en, int otg_en)
-{ /* control charge/otg mode */
-	int ret = 0;
-
-	if ((chg_en ==0) && (otg_en ==0)){
-		ret = bq24296_update_reg(di->client, POWER_ON_CONFIGURATION_REGISTER, 0x00 << 4, 0x03 << 4);
-	}
-	else if ((chg_en ==0) && (otg_en ==1))
-		bq24296_charge_mode_config(di, true);
-	else
-		bq24296_charge_mode_config(di, false);
-	return ret;
 }
 #endif
 
@@ -811,7 +799,8 @@ static int bq24296_usb_detect(struct bq24296_device_info *di)
 #endif
 
 	if (di->dc_det_pin){
-		/* detect charging request */
+#ifdef UNUSED
+		/* detect extermal charging request */
 		ret = gpiod_get_value(di->dc_det_pin);
 		if (ret == 0) {
 			bq24296_update_input_current_limit(di, di->adp_input_current);
@@ -823,6 +812,7 @@ static int bq24296_usb_detect(struct bq24296_device_info *di)
 			bq24296_set_charge_current(di, CHARGE_CURRENT_512MA);
 		}
 		DBG("%s: di->dc_det_pin=%x\n", __func__, ret);
+#endif
 	}
 	else {
 #ifdef OLD
@@ -1047,9 +1037,9 @@ static int bq24296_set_otg_current_limit(struct regulator_dev *dev,
 	/* set OTG current limit in bit 0 of POWER_ON_CONFIGURATION_REGISTER */
 
 	if(max_uA < 1250000)
-		return bq24296_update_reg(di->client,POWER_ON_CONFIGURATION_REGISTER, OTG_MODE_CURRENT_CONFIG_500MA,0x01);	// choose 1A
+		return bq24296_update_reg(di->client,POWER_ON_CONFIGURATION_REGISTER, OTG_MODE_CURRENT_CONFIG_500MA << OTG_MODE_CURRENT_CONFIG_OFFSET,OTG_MODE_CURRENT_CONFIG_MASK << OTG_MODE_CURRENT_CONFIG_OFFSET);	// choose 1A
 	else
-		return bq24296_update_reg(di->client,POWER_ON_CONFIGURATION_REGISTER, OTG_MODE_CURRENT_CONFIG_1300MA,0x01);	// choose 1.5A
+		return bq24296_update_reg(di->client,POWER_ON_CONFIGURATION_REGISTER, OTG_MODE_CURRENT_CONFIG_1300MA << OTG_MODE_CURRENT_CONFIG_OFFSET,OTG_MODE_CURRENT_CONFIG_MASK << OTG_MODE_CURRENT_CONFIG_OFFSET);	// choose 1.5A
 }
 
 static int bq24296_otg_enable(struct regulator_dev *dev)
@@ -1065,9 +1055,10 @@ static int bq24296_otg_enable(struct regulator_dev *dev)
 		return -EBUSY;
 	}
 
-	/* enable bit 5 of POWER_ON_CONFIGURATION_REGISTER */
-
-	return bq24296_update_reg(di->client, POWER_ON_CONFIGURATION_REGISTER, 0x01 << 5, 0x01 << 5);	// enable OTG
+	bq24296_update_en_hiz_disable(di);
+	mdelay(5);
+	return bq24296_update_charge_mode(di, CHARGE_MODE_CONFIG_OTG_OUTPUT);
+	// could check/wait with timeout that r8 indicates OTG mode
 }
 
 static int bq24296_otg_disable(struct regulator_dev *dev)
@@ -1077,9 +1068,8 @@ static int bq24296_otg_disable(struct regulator_dev *dev)
 
 	printk("%s(%d)\n", __func__, idx);
 
-	/* disable bit 5 of POWER_ON_CONFIGURATION_REGISTER */
-
-	return bq24296_update_reg(di->client, POWER_ON_CONFIGURATION_REGISTER, 0 << 5, 0x01 << 5);	// disable OTG
+	return bq24296_update_charge_mode(di, CHARGE_MODE_CONFIG_CHARGE_DISABLE);
+	// could check/wait with timeout that r8 indicates non-OTG mode
 }
 
 static int bq24296_otg_is_enabled(struct regulator_dev *dev)
@@ -1095,8 +1085,12 @@ static int bq24296_otg_is_enabled(struct regulator_dev *dev)
 	if (ret < 0)
 		return 0;	/* assume disabled */
 
+	// we could also check r8 for OTG mode
+	// return ((di->r8 >> VBUS_OFFSET) && VBUS_MASK) == VBUS_OTG;
+	// which one is better?
+
 	/* is bit 5 of POWER_ON_CONFIGURATION_REGISTER set? */
-	return (retval & (0x01 << 5)) != 0;
+	return ((retval >> CHARGE_MODE_CONFIG_OFFSET) & CHARGE_MODE_CONFIG_MASK) == CHARGE_MODE_CONFIG_OTG_OUTPUT;
 }
 
 static struct regulator_ops vsys_ops = {
