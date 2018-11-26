@@ -37,6 +37,14 @@ struct clk_ti_autoidle {
 static LIST_HEAD(autoidle_clks);
 static LIST_HEAD(clk_hw_omap_clocks);
 
+/*
+ * we have some non-atomic read/write
+ * operations behind it, so lets
+ * take one lock for handling autoidle
+ * of all clocks
+ */
+static DEFINE_SPINLOCK(autoidle_spinlock);
+
 /**
  * omap2_clk_deny_idle - disable autoidle on an OMAP clock
  * @clk: struct clk * to disable autoidle for
@@ -46,10 +54,21 @@ static LIST_HEAD(clk_hw_omap_clocks);
 int omap2_clk_deny_idle(struct clk *clk)
 {
 	struct clk_hw_omap *c;
+	struct clk_hw *hw = __clk_get_hw(clk);
 
-	c = to_clk_hw_omap(__clk_get_hw(clk));
-	if (c->ops && c->ops->deny_idle)
-		c->ops->deny_idle(c);
+	if (clk_hw_get_flags(hw) & CLK_IS_BASIC)
+		return -EINVAL;
+
+	c = to_clk_hw_omap(hw);
+	if (c->ops && c->ops->deny_idle) {
+		unsigned long irqflags;
+
+		spin_lock_irqsave(&autoidle_spinlock, irqflags);
+		c->autoidle_count++;
+		if (c->autoidle_count == 1)
+			c->ops->deny_idle(c);
+		spin_unlock_irqrestore(&autoidle_spinlock, irqflags);
+	}
 	return 0;
 }
 
@@ -62,10 +81,21 @@ int omap2_clk_deny_idle(struct clk *clk)
 int omap2_clk_allow_idle(struct clk *clk)
 {
 	struct clk_hw_omap *c;
+	struct clk_hw *hw = __clk_get_hw(clk);
 
-	c = to_clk_hw_omap(__clk_get_hw(clk));
-	if (c->ops && c->ops->allow_idle)
-		c->ops->allow_idle(c);
+	if (clk_hw_get_flags(hw) & CLK_IS_BASIC)
+		return -EINVAL;
+
+	c = to_clk_hw_omap(hw);
+	if (c->ops && c->ops->allow_idle) {
+		unsigned long irqflags;
+
+		spin_lock_irqsave(&autoidle_spinlock, irqflags);
+		c->autoidle_count--;
+		if (c->autoidle_count == 0)
+			c->ops->allow_idle(c);
+		spin_unlock_irqrestore(&autoidle_spinlock, irqflags);
+	}
 	return 0;
 }
 
@@ -201,8 +231,7 @@ int omap2_clk_enable_autoidle_all(void)
 	struct clk_hw_omap *c;
 
 	list_for_each_entry(c, &clk_hw_omap_clocks, node)
-		if (c->ops && c->ops->allow_idle)
-			c->ops->allow_idle(c);
+		omap2_clk_allow_idle(c->hw.clk);
 
 	_clk_generic_allow_autoidle_all();
 
@@ -223,8 +252,7 @@ int omap2_clk_disable_autoidle_all(void)
 	struct clk_hw_omap *c;
 
 	list_for_each_entry(c, &clk_hw_omap_clocks, node)
-		if (c->ops && c->ops->deny_idle)
-			c->ops->deny_idle(c);
+		omap2_clk_deny_idle(c->hw.clk);
 
 	_clk_generic_deny_autoidle_all();
 
