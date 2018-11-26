@@ -11012,6 +11012,15 @@ S:	Maintained
 F:	drivers/media/i2c/ov9650.c
 F:	Documentation/devicetree/bindings/media/i2c/ov9650.txt
 
+OMNIVISION OV9655 SENSOR DRIVER
+M:	Hugues Fruchet <hugues.fruchet@st.com>
+M:	H. Nikolaus Schaller <hns@goldelico.com>
+L:	linux-media@vger.kernel.org
+T:	git git://linuxtv.org/media_tree.git
+S:	Maintained
+F:	drivers/media/i2c/ov9655.c
+F:	Documentation/devicetree/bindings/media/i2c/ov9655.txt
+
 ONENAND FLASH DRIVER
 M:	Kyungmin Park <kyungmin.park@samsung.com>
 L:	linux-mtd@lists.infradead.org
