@@ -1428,7 +1428,11 @@ fb_mmap(struct file *file, struct vm_area_struct * vma)
 	 * SME protection is removed
 	 */
 	vma->vm_page_prot = pgprot_decrypted(vma->vm_page_prot);
+#if 0	// OMAP5 TILER may need it (or not?) but it breaks on OMAP3
+	vma->vm_page_prot = pgprot_device(vma->vm_page_prot);
+#else	// all others incl. OMAP3 w/o TILER
 	fb_pgprotect(file, vma, start);
+#endif
 
 	return vm_iomap_memory(vma, start, len);
 }
