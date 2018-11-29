@@ -95,6 +95,15 @@ static const struct i2c_device_id vcnl4000_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, vcnl4000_id);
 
+static const struct of_device_id vcnl4000_of_match[] = {
+	{ .compatible = "vishay,vcnl4000", .data = (void *)VCNL4000 },
+	{ .compatible = "vishay,vcnl4010", .data = (void *)VCNL4010 },
+	{ .compatible = "vishay,vcnl4020", .data = (void *)VCNL4010 },
+	{ .compatible = "vishay,vcnl4200", .data = (void *)VCNL4200 },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, vcnl4000_of_match);
+
 static int vcnl4000_init(struct vcnl4000_data *data)
 {
 	int ret, prod_id;
@@ -366,6 +375,7 @@ static int vcnl4000_probe(struct i2c_client *client,
 static struct i2c_driver vcnl4000_driver = {
 	.driver = {
 		.name   = VCNL4000_DRV_NAME,
+		.of_match_table = vcnl4000_of_match,
 	},
 	.probe  = vcnl4000_probe,
 	.id_table = vcnl4000_id,
