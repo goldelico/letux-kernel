@@ -74,6 +74,11 @@
 		interrupt-parent = <&gpio99>;
 		interrupts = <(1*8+3) IRQ_TYPE_EDGE_FALLING>;	/* P13 */
 	};
+	/* proximity and ambient light sensor */
+	vcnl4010@13 {
+		compatible = "vishay,vcnl4010";
+		reg = <0x13>;
+	};
 };
 
 &i2c5 {
