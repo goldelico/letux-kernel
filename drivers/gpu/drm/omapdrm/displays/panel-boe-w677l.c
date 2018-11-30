@@ -786,16 +786,24 @@ static void w677l_disable(struct omap_dss_device *dssdev)
 
 	ddata->enabled = 0;
 	in->ops->dsi.disable_video_output(in, ddata->pixel_channel);
-	in->ops->disable(in);
+	dev_dbg(&ddata->pdev->dev, "disabled video()\n");
+	if (in->ops->disable) {
+		in->ops->disable(in);
+	} else {
+		dev_dbg(&ddata->pdev->dev, "no disable op??\n");
+	}
+	dev_dbg(&ddata->pdev->dev, "disabled in()\n");
 	mdelay(10);
 	w677l_reset(dssdev, true);	/* activate reset */
 	w677l_regulator(dssdev, false);	/* switch power off - after stopping video stream */
 	mdelay(20);
 	/* here we can also power off IOVCC */
 
+	dev_dbg(&ddata->pdev->dev, "unlock bus()\n");
 	in->ops->dsi.bus_unlock(in);
 
 	mutex_unlock(&ddata->lock);
+	dev_dbg(&ddata->pdev->dev, "disable finished)\n");
 
 	dssdev->state = OMAP_DSS_DISPLAY_DISABLED;
 }
