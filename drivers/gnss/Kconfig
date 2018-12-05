@@ -40,4 +40,23 @@ config GNSS_UBX_SERIAL
 
 	  If unsure, say N.
 
+config GNSS_W2SG0004
+	tristate "W2SG00x4 power on/off driver"
+	depends on GPIOLIB && SERIAL_DEV_BUS
+	help
+	  Enable on/off control of W2SG00x4 GPS module connected
+	  to some SoC UART to allow powering up/down if the /dev/gnss
+	  is opened/closed.
+
+	  It also provides a "rfkill gps" name to control the LNA power.
+
+config W2SG0004_DEBUG
+	bool "W2SG0004 on/off debugging"
+	depends on GNSS_W2SG0004
+	help
+	  Enable driver debugging mode of W2SG0004 GPS. If you say y here
+	  this will turn on the W2SG0004 module and you can check if it is
+	  correctly turned off by the driver by inspecting the system log.
+
+
 endif # GNSS
