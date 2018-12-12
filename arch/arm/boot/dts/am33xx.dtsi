@@ -1040,6 +1040,11 @@
 			reg = <0x48310000 0x2000>;
 			interrupts = <111>;
 		};
+
+		bandgap@44e10448 {
+			compatible = "ti,am335x-bandgap";
+			reg = <0x44e10448 0x8>;
+		};
 	};
 };
 
