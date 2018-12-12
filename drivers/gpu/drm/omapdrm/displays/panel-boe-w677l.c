@@ -24,7 +24,7 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define LOG 1
+#define LOG 0
 #define OPTIONAL 0
 
 #include <linux/backlight.h>
@@ -47,8 +47,10 @@
 
 #include "../dss/omapdss.h"
 
+#if LOG
 #undef dev_dbg
 #define dev_dbg dev_err
+#endif
 
 /* extended DCS commands (not defined in mipi_display.h) */
 #define DCS_READ_DDB_START		0x02
