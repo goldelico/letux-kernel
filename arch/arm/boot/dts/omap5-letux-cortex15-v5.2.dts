@@ -45,6 +45,6 @@
 &mmc1 { /* first SD slot */
 	pinctrl-names = "default";
 	pinctrl-0 = <&mmc1_pins>;
-	cd-gpios = <&gpio8 4 0>;	/* gpio8_228 */
-	wp-gpios = <&gpio8 5 0>;	/* gpio8_229 */
+	cd-gpios = <&gpio8 4 GPIO_ACTIVE_LOW>;	/* gpio8_228 */
+	wp-gpios = <&gpio8 5 GPIO_ACTIVE_HIGH>;	/* gpio8_229 */
 };
