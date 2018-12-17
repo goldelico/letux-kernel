@@ -337,7 +337,9 @@ static int w677l_write(struct omap_dss_device *dssdev, u8 *buf, int len)
 
 #if LOG
 	int i;
-	printk("dsi: w677l_write(%s", IS_MCS(buf[0], len)?"g":""); for(i=0; i<len; i++) printk("%02x%s", buf[i], i+1 == len?")\n":" ");
+	static char logbuf[256];
+	sprintf(logbuf, "%s", IS_MCS(buf[0], len)?"gen":"dcs"); for(i=0; i<len; i++) sprintf(logbuf+strlen(logbuf), " %02x", buf[i]);
+	printk("dsi: %s(%s)", __func__, logbuf);
 #endif
 
 	if(IS_MCS(buf[0], len))
@@ -384,8 +386,9 @@ static int w677l_read(struct omap_dss_device *dssdev, u8 dcs_cmd, u8 *buf, int l
 #if LOG
 	{
 	int i;
-	printk("dsi: w677l_read(%02x,", dcs_cmd); for(i=0; i<len; i++) printk(" %02x", buf[i]);
-	printk(") -> %d\n", r);
+	static char logbuf[256];
+	sprintf(logbuf, "%02x:", dcs_cmd); for(i=0; i<len; i++) sprintf(logbuf+strlen(logbuf), " %02x", buf[i]);
+	printk("dsi: %s(%s) -> %d\n", __func__, logbuf, r);
 	}
 #endif
 
@@ -629,18 +632,18 @@ static int w677l_enable(struct omap_dss_device *dssdev)
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct device *dev = &ddata->pdev->dev;
 	struct omap_dss_device *in = ddata->dssdev.src;
+	int r = 0;
 	struct omap_dss_dsi_config w677l_dsi_config = {
 		.mode = OMAP_DSS_DSI_VIDEO_MODE,
 		.pixel_format = w677l_PIXELFORMAT,
-		.vm = &w677l_timings,
+		.vm = &ddata->vm,
 		.hs_clk_min = 125000000 /*w677l_HS_CLOCK*/,
 		.hs_clk_max = 450000000 /*(12*w677l_HS_CLOCK)/10*/,
-		.lp_clk_min = (7*w677l_LP_CLOCK)/10,
+		.lp_clk_min = (7*w677l_LP_CLOCK)/10,	/* 70% */
 		.lp_clk_max = w677l_LP_CLOCK,
 		.ddr_clk_always_on = true,
 		.trans_mode = OMAP_DSS_DSI_BURST_MODE,
 	};
-	int r = 0;
 
 	dev_dbg(&ddata->pdev->dev, "enable\n");
 
@@ -738,6 +741,7 @@ static int w677l_enable(struct omap_dss_device *dssdev)
 		goto cleanup;
 #endif
 
+	// not really used...
 	ddata->enabled = true;
 
 	dev_dbg(&ddata->pdev->dev, "enable() powered on()\n");
