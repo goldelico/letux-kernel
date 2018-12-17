@@ -68,6 +68,12 @@ config IIO_TRIGGERED_EVENT
 	help
 	  Provides helper functions for setting up triggered events.
 
+config IIO_INPUT_BRIDGE
+	bool "Enable accelerometer bridge to input driver"
+	help
+	  Provides a /dev/input device for accelerometers to use as
+	  a 3D input device.
+
 source "drivers/iio/accel/Kconfig"
 source "drivers/iio/adc/Kconfig"
 source "drivers/iio/afe/Kconfig"
