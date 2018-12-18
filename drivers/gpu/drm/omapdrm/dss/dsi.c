@@ -4751,6 +4751,12 @@ static int dsi_set_config(struct omap_dss_device *dssdev,
 	dsi->vm.flags |= DISPLAY_FLAGS_HSYNC_HIGH;
 	dsi->vm.flags &= ~DISPLAY_FLAGS_VSYNC_LOW;
 	dsi->vm.flags |= DISPLAY_FLAGS_VSYNC_HIGH;
+	dsi->vm.flags &= ~DISPLAY_FLAGS_PIXDATA_NEGEDGE;
+	dsi->vm.flags |= DISPLAY_FLAGS_PIXDATA_POSEDGE;
+	dsi->vm.flags &= ~DISPLAY_FLAGS_DE_LOW;
+	dsi->vm.flags |= DISPLAY_FLAGS_DE_HIGH;
+	dsi->vm.flags &= ~DISPLAY_FLAGS_SYNC_POSEDGE;
+	dsi->vm.flags |= DISPLAY_FLAGS_SYNC_NEGEDGE;
 
 	dss_mgr_set_timings(&dsi->output, &dsi->vm);
 
