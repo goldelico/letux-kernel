@@ -592,11 +592,11 @@ static void w677l_get_timings(struct omap_dss_device *dssdev,
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->dssdev.src;
 
-	dev_dbg(&ddata->pdev->dev, "get_timings()  in = %s %u %p\n", in->name, in->alias_id, in->driver);
+	dev_dbg(&ddata->pdev->dev, "get_timings()  in = %s %u %p\n", in->name, in->alias_id, in->ops);
 
-	/* if we are connected to the ssd2858 driver in->driver provides get_timings() */
+	/* if we are connected to the ssd2858 driver in->ops provides get_timings() */
 
-	if (in->driver && in->ops->get_timings) {
+	if (in->ops && in->ops->get_timings) {
 		dev_dbg(&ddata->pdev->dev, "get_timings() from source\n");
 		in->ops->get_timings(in, timings);
 	} else
@@ -609,11 +609,11 @@ static int w677l_check_timings(struct omap_dss_device *dssdev,
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->dssdev.src;
 
-	dev_dbg(&ddata->pdev->dev, "check_timings() in = %s %u %p\n", in->name, in->alias_id, in->driver);
+	dev_dbg(&ddata->pdev->dev, "check_timings() in = %s %u %p\n", in->name, in->alias_id, in->ops);
 
-	/* if we are connected to the ssd2858 driver in->driver provides check_timings() */
+	/* if we are connected to the ssd2858 driver in->ops provides check_timings() */
 
-	if (in->driver && in->ops->check_timings) {
+	if (in->ops && in->ops->check_timings) {
 		dev_dbg(&ddata->pdev->dev, "check_timings with source\n");
 		return in->ops->check_timings(in, (struct videomode *) timings);
 	}
@@ -942,7 +942,6 @@ static int __exit w677l_remove(struct platform_device *pdev)
 	omapdss_device_unregister(dssdev);
 
 	w677l_disable(dssdev);
-	omapdss_device_disconnect(dssdev->src, dssdev);
 
 	mutex_destroy(&ddata->lock);
 
