@@ -529,9 +529,9 @@ static const struct backlight_ops w677l_backlight_ops  = {
 	.update_status = w677l_set_brightness,
 };
 
-static int w677l_connect(struct omap_dss_device *in, struct omap_dss_device *dssdev)
+static int w677l_connect(struct omap_dss_device *in, struct omap_dss_device *dst)
 {
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
+	struct panel_drv_data *ddata = to_panel_data(dst);
 	struct device *dev = &ddata->pdev->dev;
 	int r;
 
@@ -576,9 +576,9 @@ err_req_vc0:
 	return r;
 }
 
-static void w677l_disconnect(struct omap_dss_device *in, struct omap_dss_device *dssdev)
+static void w677l_disconnect(struct omap_dss_device *in, struct omap_dss_device *dst)
 {
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
+	struct panel_drv_data *ddata = to_panel_data(dst);
 
 	dev_dbg(&ddata->pdev->dev, "disconnect()\n");
 
