@@ -17,7 +17,7 @@ config DRM_OMAP_ENCODER_TPD12S015
 	  Driver for TPD12S015, which offers HDMI ESD protection and level
 	  shifting.
 
-config DISPLAY_ENCODER_SOLOMON_SSD2858
+config DRM_OMAP_ENCODER_SOLOMON_SSD2858
 	tristate "SSD2858 MIPI to MIPI Video Re-Encoder (with scaling and rotation)"
 	help
 	  This is for Solomon SSD2858 controlled LCD panels.
@@ -82,31 +82,31 @@ config DRM_OMAP_PANEL_NEC_NL8048HL11
 		This NEC NL8048HL11 panel is TFT LCD used in the
 		Zoom2/3/3630 sdp boards.
 
-config DISPLAY_PANEL_LG_LH500WF1
+config DRM_OMAP_PANEL_LG_LH500WF1
 	tristate "Renesas R63311 based Panels"
 	help
 		This is for Renesas R63311 LCD based panels.
 		* LG LH500WF1 used in the Pyra.
 
-config DISPLAY_PANEL_SHARP_LS052K3SY54S
+config DRM_OMAP_PANEL_SHARP_LS052K3SY54S
 	tristate "Samsung S6D2AA0X01 based Panels"
 	help
 		This is for Samsung S6D2AA0X01 LCD based panels.
 		* Sharp LS052K3SY54S used in the Pyra.
 
-config DISPLAY_PANEL_BOE_W677L
+config DRM_OMAP_PANEL_BOE_W677L
 	tristate "BOE W677L LCD Panel"
 	help
 		This is for OTM1283A based panels.
 		* BOE W677L used in the Pyra.
 
-config DISPLAY_PANEL_SUCCESS_S90451
+config DRM_OMAP_PANEL_SUCCESS_S90451
 	tristate "SUCCESS S90451 LCD Panel"
 	help
 		This is for NT35590 based panels.
 		* SUCCESS S90451 used in the Pyra.
 
-config DISPLAY_PANEL_MIPI_DEBUG
+config DRM_OMAP_PANEL_MIPI_DEBUG
 	tristate "MIPI Panel Debug Driver"
 	help
 		This is a driver that does not initialize
