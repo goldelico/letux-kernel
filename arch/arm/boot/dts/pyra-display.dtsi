@@ -245,3 +245,24 @@
 	};
 };
 #endif
+
+/* set to e.g. 8300 if display uses a TPS6116x instead of TPS61040 (which is limited to 500 Hz PWM) */
+#define BACKLIGHT_FREQ_HZ	83
+
+/ {
+	backlight: backlight {
+		compatible = "pwm-backlight";
+		pwms = <&pwm9 0 (1000000000 / BACKLIGHT_FREQ_HZ) 0>;
+		pwm-names = "backlight";
+		brightness-levels = <0 5 7 10 12 14 17 20 25 30 35 40 50 65 80 100>;
+		default-brightness-level = <14>;	/* 80% */
+		pinctrl-names = "default";
+		pinctrl-0 = <&backlight_pins>;
+	};
+
+	pwm9: dmtimer-pwm@9 {
+		compatible = "ti,omap-dmtimer-pwm";
+		ti,timers = <&timer9>;
+		#pwm-cells = <3>;
+	};
+};
