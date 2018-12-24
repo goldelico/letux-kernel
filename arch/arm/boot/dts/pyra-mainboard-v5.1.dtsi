@@ -1,0 +1,206 @@
+/*
+ * Copyright (C) 2015 OpenPandora - http://www.pyra-handheld.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/*
+ * V5.1/5.1.1 and V5.1.2ff should have been separate .dtsi files
+ * but we have no distinguising hardware version encoding
+ * So comment out this #define to build for (rare) V5.1 and V5.1.1 boards
+ */
+
+#define VERSION_5_1_2_AND_LATER
+
+#include "pyra-mainboard-v5.0.dtsi"
+
+/* overwrite device model */
+
+/ {
+	model = "Pyra-Handheld-V5.1";
+
+	pyra_leds { /* alternate LED driver (parallel to is31fl31) */
+		compatible = "gpio-leds";
+		led@1 {
+			label = "pyra-old:red:left";
+			gpios = <&gpio99 5 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+			linux,default-trigger = "none";
+			default-state = "off";
+		};
+
+		led@4 {
+			label = "pyra-old:red:mid";
+			gpios = <&gpio99 (1+16) (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+			linux,default-trigger = "none";
+			default-state = "off";
+		};
+
+		led@5 { /* connection to LED no longer available in V5.1.2ff */
+			label = "pyra-old:green:mid";
+			gpios = <&gpio99 (2+16) (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+			linux,default-trigger = "none";
+			default-state = "off";
+		};
+
+		led@6 { /* connection to LED no longer available in V5.1.2ff */
+			label = "pyra-old:blue:mid";
+			gpios = <&gpio99 (3+16) (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+			linux,default-trigger = "none";
+			default-state = "off";
+		};
+
+		led@7 {
+			label = "pyra-old:red:right";
+			gpios = <&gpio99 (5+16) (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+			linux,default-trigger = "none";
+			default-state = "off";
+		};
+
+	};
+};
+
+
+#ifdef VERSION_5_1_2_AND_LATER
+
+/ {
+	model = "Pyra-Handheld-V5.1.2ff";
+
+	pyra_leds {
+		/* no longer connected */
+		/delete-node/ led@5;
+		/delete-node/ led@6;
+	};
+};
+
+/ {
+	/* this is a power switch that connects otg power from bq2429x to the usb socket */
+	otg_path: otg_path {
+		compatible = "regulator-fixed";
+		regulator-name = "otg_path";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		/* does not handle "gpios" property! */
+		gpio = <&gpio99 (3+2*8) (GPIO_ACTIVE_HIGH)>;	/* P23 of pcal6524 */
+		enable-active-high;
+		vin-supply = <&otg_reg>;	/* request otg booster of bq24297 */
+	};
+};
+
+&usb3 {
+	vbus-supply = <&otg_path>;
+};
+
+/* no longer needed - we can then remove the otg-gpios feature from bq2429x driver
+&i2c2 {
+	bq24297@6b {
+		otg-gpios = <&gpio99 (3+2*8) (GPIO_ACTIVE_HIGH)>;	// P23
+	};
+};
+*/
+
+#endif
+
+/* register devices connected to Peripheral-I2C */
+&i2c2 {
+	/* different fuel gauge */
+
+	/delete-node/ bq27621@55;
+
+	bq27421@55 {
+		compatible = "ti,bq27421";
+		reg = <0x55>;
+		monitored-battery = <&bat>;
+	};
+};
+
+/* register devices connected to System-I2C */
+&i2c5 {
+	/* different microphone detect */
+
+	/delete-node/ ts3a225@3b;
+
+	ts3a227@3b {
+		compatible = "ti,ts3a227e";
+		reg = <0x3b>;
+//		interrupt-parent = <&gpio99>;
+//		interrupts = <14 IRQ_TYPE_EDGE_RISING>;
+		ti,micbias = <0>;	/* 2.1V */
+	};
+
+	/* different led controller */
+
+	/delete-node/ leds-left-mid@64;
+	/delete-node/ leds-right@67;
+
+	leds-left-mid-right@64 {
+		compatible = "issi,is31fl3199";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x64>;
+
+		left_led1: red_left@1 {
+			label = "pyra:red:left";
+			reg = <1>;
+			linux,default-trigger = "heartbeat";
+		};
+
+		left_led2: green_left@2 {
+			label = "pyra:green:left";
+			reg = <2>;
+			linux,default-trigger = "heartbeat";
+		};
+
+		left_led3: blue_left@3 {
+			label = "pyra:blue:left";
+			reg = <3>;
+			linux,default-trigger = "timer";
+		};
+
+		mid_led4: red_mid@4 {
+			label = "pyra:red:mid";
+			reg = <4>;
+			linux,default-trigger = "default-on";
+		};
+
+		mid_led5: green_mid@5 {
+			label = "pyra:green:mid";
+			reg = <5>;
+			linux,default-trigger = "timer";
+		};
+
+		mid_led6: blue_mid@6 {
+			label = "pyra:blue:mid";
+			reg = <6>;
+			linux,default-trigger = "heartbeat";
+		};
+
+		right_led7: red_right@7 {
+			label = "pyra:red:right";
+			reg = <7>;
+			linux,default-trigger = "heartbeat";
+		};
+
+		right_led8: green_right@8 {
+			label = "pyra:green:right";
+			reg = <8>;
+			linux,default-trigger = "heartbeat";
+		};
+
+		right_led9: blue_right@9 {
+			label = "pyra:blue:right";
+			reg = <9>;
+			linux,default-trigger = "timer";
+		};
+	};
+};
+
+/* motor has been moved from L to R */
+
+&twl6040 {
+	vibra {
+		ti,viblmotor-res = <999999>;	/* no motor */
+		ti,vibrmotor-res = <32>;
+	};
+};
