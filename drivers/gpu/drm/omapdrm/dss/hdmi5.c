@@ -825,6 +825,43 @@ static int hdmi5_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int hdmi_runtime_suspend(struct device *dev)
+{
+	struct omap_hdmi *hdmi = dev_get_drvdata(dev);
+
+	/*
+	 * FIXME: DISPC runtime PM handling should be controlled from omapdrm,
+	 * see dsi_runtime_resume().
+	 */
+	if (hdmi->dss && hdmi->dss->dispc)
+		dispc_runtime_put(hdmi->dss->dispc);
+
+	return 0;
+}
+
+static int hdmi_runtime_resume(struct device *dev)
+{
+	struct omap_hdmi *hdmi = dev_get_drvdata(dev);
+	int r;
+
+	/*
+	 * FIXME: DISPC runtime PM handling should be controlled from omapdrm,
+	 * see dsi_runtime_resume().
+	 */
+	if (hdmi->dss && hdmi->dss->dispc) {
+		r = dispc_runtime_get(hdmi->dss->dispc);
+		if (r < 0)
+			return r;
+	}
+
+	return 0;
+}
+
+static const struct dev_pm_ops hdmi_pm_ops = {
+	.runtime_suspend = hdmi_runtime_suspend,
+	.runtime_resume = hdmi_runtime_resume,
+};
+
 static const struct of_device_id hdmi_of_match[] = {
 	{ .compatible = "ti,omap5-hdmi", },
 	{ .compatible = "ti,dra7-hdmi", },
