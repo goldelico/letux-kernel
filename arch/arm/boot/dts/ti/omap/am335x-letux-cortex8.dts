@@ -250,6 +250,12 @@
 			AM33XX_PADCONF(AM335X_PIN_GPMC_A10, PIN_OUTPUT_PULLUP, MUX_MODE7)	/* gpmc_a10.gpio1_26 */
 		>;
 	};
+
+	hdq_pins: pinmux_hdq_pins {
+		pinctrl-single,pins = <
+			0x10c	(PIN_INPUT_PULLUP | MUX_MODE3)	// I2C1 SDA -> FIXME: gpio 1_18
+		>;
+	};
 };
 
 &i2c1 {
@@ -349,5 +355,18 @@
 		compatible = "ti,bq27421";
 		reg = <0x55>;
 	};
+};
 
+/ {
+	hdq: onewire {
+		pinctrl-names = "default";
+		pinctrl-0 = <&hdq_pins>;
+		compatible = "w1-gpio";
+		gpios = <&gpio1 18 GPIO_ACTIVE_HIGH>;
+		linux,open-drain;
+
+		battery {
+			// ...
+		};
+	};
 };
