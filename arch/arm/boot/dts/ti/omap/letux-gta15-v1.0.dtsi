@@ -62,6 +62,21 @@
 	interrupts = <1 IRQ_TYPE_EDGE_FALLING>;	/* gpio6_161 */
 };
 
+&omap5_pmx_core {
+	hdq_pins: pinmux_hdq_pins {
+		pinctrl-single,pins = <
+			OMAP5_IOPAD(0x138, PIN_INPUT_PULLUP | MUX_MODE6)	/* 0x138:[15:0]  gpio6_186 - Gyroscope interrupt */
+		>;
+	};
+};
+
+hdq: onewire {
+	pinctrl-names = "default";
+	pinctrl-0 = <&hdq_pins>;
+	compatible = "w1-gpio";
+	gpios = <&gpio6 (186-160) GPIO_ACTIVE_HIGH>;
+	linux,open-drain;
+};
 &i2c2 {
 
 	/* no nubs, no keyboard matrix controller */
