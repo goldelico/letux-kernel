@@ -42,7 +42,6 @@
 #include <linux/mfd/twl6040.h>
 #include <linux/firmware.h>
 #include <linux/module.h>
-#include <linux/i2c.h>
 #include <linux/of.h>
 
 #include <sound/core.h>
@@ -52,11 +51,12 @@
 #include <sound/pcm_params.h>
 #include <sound/soc-dapm.h>
 #include <sound/soc-dpcm.h>
+#include <sound/dmaengine_pcm.h>
 
 #include "omap-dmic.h"
 #include "omap-mcpdm.h"
 #include "aess/omap-aess.h"
-#include "mcbsp.h"
+#include "omap-mcbsp-priv.h"
 #include "omap-mcbsp.h"
 #include "omap-dmic.h"
 #include "../codecs/twl6040.h"
