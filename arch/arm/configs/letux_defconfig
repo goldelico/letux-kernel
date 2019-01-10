@@ -1,5 +1,5 @@
 #
-# Linux/arm 4.19.12 Kernel Configuration
+# Linux/arm 4.19.14 Kernel Configuration
 #
 
 #
@@ -4672,6 +4672,7 @@ CONFIG_USB_G_HID=m
 # CONFIG_USB_G_DBGP is not set
 # CONFIG_USB_G_WEBCAM is not set
 # CONFIG_TYPEC is not set
+# CONFIG_USB_ROLE_SWITCH is not set
 # CONFIG_USB_LED_TRIG is not set
 CONFIG_USB_ULPI_BUS=m
 # CONFIG_UWB is not set
