@@ -19,6 +19,21 @@
 		};
 	};
 
+	leds {
+		compatible = "gpio-leds";
+
+		led-act {
+			label = "ACT";
+			default-state = "keep";
+			linux,default-trigger = "mmc0";
+		};
+
+		pwr {
+			label = "PWR";
+			linux,default-trigger = "heartbeat";
+		};
+	};
+
 	soc {
 		vchiq: mailbox@7e00b840 {
 			compatible = "brcm,bcm2835-vchiq";
