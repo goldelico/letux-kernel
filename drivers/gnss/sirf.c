@@ -23,20 +23,67 @@
 
 #define SIRF_BOOT_DELAY			500
 #define SIRF_ON_OFF_PULSE_TIME		100
+/* activate till reaction of wakeup pin */
 #define SIRF_ACTIVATE_TIMEOUT		200
+/* activate till reception of data */
+#define SIRF_ACTIVATE_TILL_OUTPUT_TIMEOUT	1000
 #define SIRF_HIBERNATE_TIMEOUT		200
+/* If no data arrives for this time, we expect the chip to be off. */
+#define SIRF_MIN_SILENCE	1000
 
 struct sirf_data {
 	struct gnss_device *gdev;
 	struct serdev_device *serdev;
 	speed_t	speed;
 	struct regulator *vcc;
+	struct regulator *lna;
 	struct gpio_desc *on_off;
 	struct gpio_desc *wakeup;
 	int irq;
 	bool active;
+	/*
+	 * There might be races between returning data and closing the gnss
+	 * device.
+	 */
+	struct mutex gdev_mutex;
+	bool opened;
+	int serdev_usecount;
+	/*
+	 * serdev will be opened for power state changing and when userspace
+	 * needs it, so we have a usecount and need locking.
+	 */
+	struct mutex serdev_mutex;
 	wait_queue_head_t power_wait;
 };
+
+static int sirf_dev_get(struct sirf_data *data)
+{
+	int ret = 0;
+
+	mutex_lock(&data->serdev_mutex);
+	data->serdev_usecount++;
+	if (data->serdev_usecount == 1) {
+		ret = serdev_device_open(data->serdev);
+		if (ret)
+			data->serdev_usecount--;
+
+		serdev_device_set_baudrate(data->serdev, data->speed);
+		serdev_device_set_flow_control(data->serdev, false);
+	}
+
+	mutex_unlock(&data->serdev_mutex);
+	return ret;
+}
+
+static void sirf_dev_put(struct sirf_data *data)
+{
+	mutex_lock(&data->serdev_mutex);
+	data->serdev_usecount--;
+	if (data->serdev_usecount == 0)
+		serdev_device_close(data->serdev);
+
+	mutex_unlock(&data->serdev_mutex);
+}
 
 static int sirf_open(struct gnss_device *gdev)
 {
@@ -44,24 +91,23 @@ static int sirf_open(struct gnss_device *gdev)
 	struct serdev_device *serdev = data->serdev;
 	int ret;
 
-	ret = serdev_device_open(serdev);
+	data->opened = true;
+	ret = sirf_dev_get(data);
 	if (ret)
 		return ret;
-
-	serdev_device_set_baudrate(serdev, data->speed);
-	serdev_device_set_flow_control(serdev, false);
 
 	ret = pm_runtime_get_sync(&serdev->dev);
 	if (ret < 0) {
 		dev_err(&gdev->dev, "failed to runtime resume: %d\n", ret);
 		pm_runtime_put_noidle(&serdev->dev);
+		data->opened = false;
 		goto err_close;
 	}
 
 	return 0;
 
 err_close:
-	serdev_device_close(serdev);
+	sirf_dev_put(data);
 
 	return ret;
 }
@@ -70,10 +116,11 @@ static void sirf_close(struct gnss_device *gdev)
 {
 	struct sirf_data *data = gnss_get_drvdata(gdev);
 	struct serdev_device *serdev = data->serdev;
-
-	serdev_device_close(serdev);
-
+	sirf_dev_put(data);
 	pm_runtime_put(&serdev->dev);
+	mutex_lock(&data->gdev_mutex);
+	data->opened = false;
+	mutex_unlock(&data->gdev_mutex);
 }
 
 static int sirf_write_raw(struct gnss_device *gdev, const unsigned char *buf,
@@ -105,8 +152,26 @@ static int sirf_receive_buf(struct serdev_device *serdev,
 {
 	struct sirf_data *data = serdev_device_get_drvdata(serdev);
 	struct gnss_device *gdev = data->gdev;
+	int ret = 0;
 
-	return gnss_insert_raw(gdev, buf, count);
+	if (!data->wakeup && !data->active) {
+		data->active = true;
+		wake_up_interruptible(&data->power_wait);
+	}
+
+	/*
+	 * We might come here everytime when runtime is resumed
+	 * and data is received. Two cases are possible:
+	 * 1. during power state change
+	 * 2. userspace has opened the gnss device
+	 */
+	mutex_lock(&data->gdev_mutex);
+	if (data->opened)
+		ret = gnss_insert_raw(gdev, buf, count);
+
+	mutex_unlock(&data->gdev_mutex);
+
+	return ret;
 }
 
 static const struct serdev_device_ops sirf_serdev_ops = {
@@ -136,6 +201,24 @@ static int sirf_wait_for_power_state(struct sirf_data *data, bool active,
 {
 	int ret;
 
+	if (!data->wakeup && !active && data->active) {
+		/* Wait for the chip to turn off. */
+		msleep(timeout);
+		data->active = false;
+		/* Now check if it is really off. */
+		ret = wait_event_interruptible_timeout(data->power_wait,
+			data->active,
+			msecs_to_jiffies(SIRF_MIN_SILENCE));
+
+		if (ret < 0)
+			return ret;
+
+		/* We are still getting data. -> state change timeout */
+		if (ret > 0)
+			return -ETIMEDOUT;
+		return 0;
+	}
+
 	ret = wait_event_interruptible_timeout(data->power_wait,
 			data->active == active, msecs_to_jiffies(timeout));
 	if (ret < 0)
@@ -164,13 +247,23 @@ static int sirf_set_active(struct sirf_data *data, bool active)
 	int ret;
 
 	if (active)
-		timeout = SIRF_ACTIVATE_TIMEOUT;
+		timeout = data->wakeup ?
+			SIRF_ACTIVATE_TIMEOUT :
+			SIRF_ACTIVATE_TILL_OUTPUT_TIMEOUT;
 	else
 		timeout = SIRF_HIBERNATE_TIMEOUT;
 
 	do {
+		/* Open the serdev of wakeup-less devices to check for input. */
+		if (!data->wakeup) {
+			ret = sirf_dev_get(data);
+			if (ret)
+				return ret;
+		}
 		sirf_pulse_on_off(data);
 		ret = sirf_wait_for_power_state(data, active, timeout);
+		if (!data->wakeup)
+			sirf_dev_put(data);
 		if (ret < 0) {
 			if (ret == -ETIMEDOUT)
 				continue;
@@ -190,21 +283,32 @@ static int sirf_set_active(struct sirf_data *data, bool active)
 static int sirf_runtime_suspend(struct device *dev)
 {
 	struct sirf_data *data = dev_get_drvdata(dev);
+	int ret = 0;
 
 	if (!data->on_off)
-		return regulator_disable(data->vcc);
+		ret = regulator_disable(data->vcc);
+	else
+		ret = sirf_set_active(data, false);
 
-	return sirf_set_active(data, false);
+	if (ret)
+		return ret;
+
+	return regulator_disable(data->lna);
 }
 
 static int sirf_runtime_resume(struct device *dev)
 {
 	struct sirf_data *data = dev_get_drvdata(dev);
+	int ret;
+
+	ret = regulator_enable(data->lna);
+	if (ret)
+		return ret;
 
 	if (!data->on_off)
 		return regulator_enable(data->vcc);
-
-	return sirf_set_active(data, true);
+	else
+		return sirf_set_active(data, true);
 }
 
 static int __maybe_unused sirf_suspend(struct device *dev)
@@ -275,6 +379,8 @@ static int sirf_probe(struct serdev_device *serdev)
 	data->serdev = serdev;
 	data->gdev = gdev;
 
+	mutex_init(&data->gdev_mutex);
+	mutex_init(&data->serdev_mutex);
 	init_waitqueue_head(&data->power_wait);
 
 	serdev_device_set_drvdata(serdev, data);
@@ -290,6 +396,12 @@ static int sirf_probe(struct serdev_device *serdev)
 		goto err_put_device;
 	}
 
+	data->lna = devm_regulator_get(dev, "lna");
+	if (IS_ERR(data->lna)) {
+		ret = PTR_ERR(data->lna);
+		goto err_put_device;
+	}
+
 	data->on_off = devm_gpiod_get_optional(dev, "sirf,onoff",
 			GPIOD_OUT_LOW);
 	if (IS_ERR(data->on_off))
@@ -301,15 +413,6 @@ static int sirf_probe(struct serdev_device *serdev)
 		if (IS_ERR(data->wakeup))
 			goto err_put_device;
 
-		/*
-		 * Configurations where WAKEUP has been left not connected,
-		 * are currently not supported.
-		 */
-		if (!data->wakeup) {
-			dev_err(dev, "no wakeup gpio specified\n");
-			ret = -ENODEV;
-			goto err_put_device;
-		}
 	}
 
 	if (data->wakeup) {
@@ -339,6 +442,14 @@ static int sirf_probe(struct serdev_device *serdev)
 	if (IS_ENABLED(CONFIG_PM)) {
 		pm_runtime_set_suspended(dev);	/* clear runtime_error flag */
 		pm_runtime_enable(dev);
+		/*
+		 * Device might be enabled at boot, so lets first enable it,
+		 * then disable it to bring it into a clear state.
+		 */
+		ret = pm_runtime_get_sync(dev);
+		if (ret)
+			goto err_disable_rpm;
+		pm_runtime_put(dev);
 	} else {
 		ret = sirf_runtime_resume(dev);
 		if (ret < 0)
@@ -386,6 +497,7 @@ static void sirf_remove(struct serdev_device *serdev)
 static const struct of_device_id sirf_of_match[] = {
 	{ .compatible = "fastrax,uc430" },
 	{ .compatible = "linx,r4" },
+	{ .compatible = "wi2wi,w2sg0004" },
 	{ .compatible = "wi2wi,w2sg0008i" },
 	{ .compatible = "wi2wi,w2sg0084i" },
 	{},

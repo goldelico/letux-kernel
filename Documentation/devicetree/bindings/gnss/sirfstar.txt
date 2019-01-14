@@ -12,6 +12,7 @@ Required properties:
 
 			"fastrax,uc430"
 			"linx,r4"
+			"wi2wi,w2sg0004"
 			"wi2wi,w2sg0008i"
 			"wi2wi,w2sg0084i"
 
@@ -25,6 +26,7 @@ Required properties (SPI):
 
 Optional properties:
 
+- lna-supply		: Separate supply for a LNA
 - sirf,onoff-gpios	: GPIO used to power on and off device (pin name: ON_OFF)
 - sirf,wakeup-gpios	: GPIO used to determine device power state
 			  (pin name: RFPWRUP, WAKEUP)
