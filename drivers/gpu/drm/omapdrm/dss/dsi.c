@@ -1406,7 +1406,7 @@ static void dsi_pll_disable(struct dss_pll *pll)
 
 static int dsi_dump_dsi_clocks(struct seq_file *s, void *p)
 {
-	struct dsi_data *dsi = p;
+	struct dsi_data *dsi = s->private;
 	struct dss_pll_clock_info *cinfo = &dsi->pll.cinfo;
 	enum dss_clk_source dispc_clk_src, dsi_clk_src;
 	int dsi_module = dsi->module_id;
@@ -1467,7 +1467,7 @@ static int dsi_dump_dsi_clocks(struct seq_file *s, void *p)
 #ifdef CONFIG_OMAP2_DSS_COLLECT_IRQ_STATS
 static int dsi_dump_dsi_irqs(struct seq_file *s, void *p)
 {
-	struct dsi_data *dsi = p;
+	struct dsi_data *dsi = s->private;
 	unsigned long flags;
 	struct dsi_irq_stats stats;
 
@@ -1558,7 +1558,7 @@ static int dsi_dump_dsi_irqs(struct seq_file *s, void *p)
 
 static int dsi_dump_dsi_regs(struct seq_file *s, void *p)
 {
-	struct dsi_data *dsi = p;
+	struct dsi_data *dsi = s->private;
 
 	if (dsi_runtime_get(dsi))
 		return 0;
@@ -4751,6 +4751,12 @@ static int dsi_set_config(struct omap_dss_device *dssdev,
 	dsi->vm.flags |= DISPLAY_FLAGS_HSYNC_HIGH;
 	dsi->vm.flags &= ~DISPLAY_FLAGS_VSYNC_LOW;
 	dsi->vm.flags |= DISPLAY_FLAGS_VSYNC_HIGH;
+	dsi->vm.flags &= ~DISPLAY_FLAGS_PIXDATA_NEGEDGE;
+	dsi->vm.flags |= DISPLAY_FLAGS_PIXDATA_POSEDGE;
+	dsi->vm.flags &= ~DISPLAY_FLAGS_DE_LOW;
+	dsi->vm.flags |= DISPLAY_FLAGS_DE_HIGH;
+	dsi->vm.flags &= ~DISPLAY_FLAGS_SYNC_POSEDGE;
+	dsi->vm.flags |= DISPLAY_FLAGS_SYNC_NEGEDGE;
 
 	dss_mgr_set_timings(&dsi->output, &dsi->vm);
 
@@ -5083,15 +5089,15 @@ static int dsi_bind(struct device *dev, struct device *master, void *data)
 
 	snprintf(name, sizeof(name), "dsi%u_regs", dsi->module_id + 1);
 	dsi->debugfs.regs = dss_debugfs_create_file(dss, name,
-						    dsi_dump_dsi_regs, &dsi);
+						    dsi_dump_dsi_regs, dsi);
 #ifdef CONFIG_OMAP2_DSS_COLLECT_IRQ_STATS
 	snprintf(name, sizeof(name), "dsi%u_irqs", dsi->module_id + 1);
 	dsi->debugfs.irqs = dss_debugfs_create_file(dss, name,
-						    dsi_dump_dsi_irqs, &dsi);
+						    dsi_dump_dsi_irqs, dsi);
 #endif
 	snprintf(name, sizeof(name), "dsi%u_clks", dsi->module_id + 1);
 	dsi->debugfs.clks = dss_debugfs_create_file(dss, name,
-						    dsi_dump_dsi_clocks, &dsi);
+						    dsi_dump_dsi_clocks, dsi);
 
 	return 0;
 }
@@ -5103,8 +5109,6 @@ static void dsi_unbind(struct device *dev, struct device *master, void *data)
 	dss_debugfs_remove_file(dsi->debugfs.clks);
 	dss_debugfs_remove_file(dsi->debugfs.irqs);
 	dss_debugfs_remove_file(dsi->debugfs.regs);
-
-	of_platform_depopulate(dev);
 
 	WARN_ON(dsi->scp_clk_refcount > 0);
 
@@ -5457,6 +5461,8 @@ static int dsi_remove(struct platform_device *pdev)
 
 	dsi_uninit_output(dsi);
 
+	of_platform_depopulate(&pdev->dev);
+
 	pm_runtime_disable(&pdev->dev);
 
 	if (dsi->vdds_dsi_reg != NULL && dsi->vdds_dsi_enabled) {
@@ -5477,12 +5483,33 @@ static int dsi_runtime_suspend(struct device *dev)
 	/* wait for current handler to finish before turning the DSI off */
 	synchronize_irq(dsi->irq);
 
+	/*
+	 * FIXME: DISPC runtime PM handling should be controlled from omapdrm,
+	 * see dsi_runtime_resume().
+	 */
+	if (dsi->dss && dsi->dss->dispc)
+		dispc_runtime_put(dsi->dss->dispc);
+
 	return 0;
 }
 
 static int dsi_runtime_resume(struct device *dev)
 {
 	struct dsi_data *dsi = dev_get_drvdata(dev);
+	int r;
+
+	/*
+	 * FIXME: The device is resumed from the probe function before the dss
+	 * is available, in order to read a hardware configuration register.
+	 * This doesn't require resuming the DISPC, so make it conditional. The
+	 * DISPC runtime PM handling should instead be controlled from omapdrm,
+	 * which is already partly the case, but needs additional testing.
+	 */
+	if (dsi->dss && dsi->dss->dispc) {
+		r = dispc_runtime_get(dsi->dss->dispc);
+		if (r)
+			return r;
+	}
 
 	dsi->is_enabled = true;
 	/* ensure the irq handler sees the is_enabled value */
