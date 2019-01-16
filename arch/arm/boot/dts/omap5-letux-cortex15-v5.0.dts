@@ -322,7 +322,7 @@
 
 &i2c1 {
 	/* usb bridge */
-	usb3503@08 {
+	usb3503@8 {
 		/* should be compatible = "smsc,usb3503a" but then driver is not loaded */
 		compatible = "smsc,usb3503";
 		reg = <0x08>;
