@@ -35,6 +35,8 @@ struct panel_drv_data {
 
 	struct videomode vm;
 
+	struct backlight_device *backlight;
+
 	struct spi_device *spi_dev;
 };
 
@@ -268,6 +270,8 @@ static int td028ttec1_panel_enable(struct omap_dss_device *dssdev)
 
 	r |= jbt_ret_write_0(ddata, JBT_REG_DISPLAY_ON);
 
+	backlight_enable(ddata->backlight);
+
 	dssdev->state = OMAP_DSS_DISPLAY_ACTIVE;
 
 transfer_err:
@@ -282,6 +286,8 @@ static void td028ttec1_panel_disable(struct omap_dss_device *dssdev)
 
 	if (!omapdss_device_is_enabled(dssdev))
 		return;
+
+	backlight_disable(ddata->backlight);
 
 	dev_dbg(dssdev->dev, "td028ttec1_panel_disable()\n");
 
@@ -321,6 +327,15 @@ static int td028ttec1_panel_probe(struct spi_device *spi)
 
 	dev_dbg(&spi->dev, "%s\n", __func__);
 
+	ddata = devm_kzalloc(&spi->dev, sizeof(*ddata), GFP_KERNEL);
+	if (ddata == NULL)
+		return -ENOMEM;
+
+	ddata->backlight = devm_of_find_backlight(&spi->dev);
+
+	if (IS_ERR(ddata->backlight))
+		return PTR_ERR(ddata->backlight);
+
 	spi->bits_per_word = 9;
 	spi->mode = SPI_MODE_3;
 
@@ -330,9 +345,6 @@ static int td028ttec1_panel_probe(struct spi_device *spi)
 		return r;
 	}
 
-	ddata = devm_kzalloc(&spi->dev, sizeof(*ddata), GFP_KERNEL);
-	if (ddata == NULL)
-		return -ENOMEM;
 
 	dev_set_drvdata(&spi->dev, ddata);
 
