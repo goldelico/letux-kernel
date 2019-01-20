@@ -146,6 +146,7 @@
 			spi-cpol;
 			spi-cpha;
 
+			backlight= <&backlight>;
 			label = "lcd";
 			port {
 				lcd_in: endpoint {
@@ -155,7 +156,7 @@
 		};
 	};
 
-	backlight {
+	backlight: backlight {
 		compatible = "pwm-backlight";
 		pwms = <&pwm11 0 12000000 0>;
 		pwm-names = "backlight";
