@@ -199,22 +199,6 @@
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&pyra_dsi_a>;
-
-	port {
-		dsi_out: endpoint {
-			remote-endpoint = <&dsi1>;
-		};
-	};
-
-	dispc@58001000 {
-		pinctrl-names = "default";
-		pinctrl-0 = <&ssd2858_vsync_pins>;
-		/delete-property/ interrupts;
-		interrupts-extended = <&wakeupgen GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>,
-			     <&gpio6 29 0>; 	/* gpio6_189 */
-		desired-scanline = <360>;
-	};
-
 };
 
 &dsi1 {
