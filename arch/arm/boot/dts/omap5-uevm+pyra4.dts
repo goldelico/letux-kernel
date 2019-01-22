@@ -818,7 +818,7 @@
 &i2c5 { // should have been defined in omap5-uevm.dts! - but the bus is not connected on the EVM!
 
 	/* usb bridge */
-	usb3503@08 {
+	usb3503@8 {
 		compatible = "smsc,usb3503a";
 		reg = <0x08>;
 /*
