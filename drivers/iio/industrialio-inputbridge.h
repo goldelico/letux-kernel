@@ -12,6 +12,7 @@ static inline int iio_device_register_inputbridge(struct iio_dev *indio_dev)
 
 static inline void iio_device_unregister_inputbridge(struct iio_dev *indio_dev)
 {
+	return;
 }
 
 #endif
