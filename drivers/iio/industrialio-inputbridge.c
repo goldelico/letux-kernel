@@ -8,10 +8,16 @@
 /* only polling is implemented*/
 #define POLLING 1
 
-struct input_dev *idev = NULL;
-static struct iio_channel channels[3];
-static int channel = 0;
-static DEFINE_MUTEX(inputbridge_channel_mutex);	// we must protect the channel counter
+// we need a better mapping for more than 3 channels
+// in fact we must group the channels by sharing the same iio device and input device...
+// which means that we could simply create a list of all channels
+// and report them all
+// a simple solution would be to reserve 3*n slots and process all those where an indio_dev is != NULL
+// and synchronize after processing index == 2
+
+#define DEVICES		5	/* handle up to this number of input devices */
+static struct iio_channel channels[DEVICES][3];	// 3 channels per device
+static DEFINE_MUTEX(inputbridge_channel_mutex);	// we must protect the channel allocation
 
 #if POLLING
 static struct delayed_work input_work;
@@ -25,48 +31,65 @@ static DEFINE_MUTEX(inputbridge_open_mutex);	// we must protect the open counter
 /* scale processed values so that 1g maps to ABSMAX_ACC_VAL / 2 */
 #define SCALE			(100 * ABSMAX_ACC_VAL) / (2 * 981)
 
-static void accel_report_channel(struct input_dev *input, int cindex, int iindex)
+static void accel_report_channels(void)
 {
 	int val;
 	int ret;
 
-	if (!channels[cindex].indio_dev)
-		return;
+	int dindex, cindex;
 
-	ret = iio_read_channel_raw(&channels[cindex], &val);
+	for (dindex = 0; dindex < ARRAY_SIZE(channels); dindex++) {
+		struct input_dev *input = NULL;
+
+	for (cindex = 0; cindex < ARRAY_SIZE(channels[0]); cindex++) {
+		struct iio_channel *channel = &channels[cindex][dindex];
+
+		mutex_lock(&inputbridge_channel_mutex);
+
+		if (channel->indio_dev) {
+			ret = iio_read_channel_raw(channel, &val);
 
 #if 0
 printk("accel_report_channel %d -> %d ret=%d\n", cindex, val, ret);
 #endif
 
-	if (ret < 0) {
-		pr_err("accel channel read error\n");
-		return;
+			if (ret < 0) {
+				pr_err("accel channel read error %d\n", cindex);
+				return;
+			}
+
+			/*
+			 * NOTE: SCALE is ignored by iio_convert_raw_to_processed()
+			 * for IIO_VAL_INT so we get wrong values.
+			 */
+
+			ret = iio_convert_raw_to_processed(channel, val, &val, SCALE);
+
+			if (ret < 0) {
+				pr_err("accel channel processing error\n");
+				return;
+			}
+
+			input = channel->data;
+			switch (dindex) {
+				case 0:
+					input_report_abs(input, ABS_X, val);
+					break;
+				case 1:
+					input_report_abs(input, ABS_Y, val);
+					break;
+				case 2:
+					input_report_abs(input, ABS_Z, val);
+					break;
+			}
+		}
+		mutex_unlock(&inputbridge_channel_mutex);
 	}
 
-	/*
-	 * NOTE: SCALE is ignored by iio_convert_raw_to_processed()
-	 * for IIO_VAL_INT so we get wrong values.
-	 */
+		if (input)
+			input_sync(input);
 
-	ret = iio_convert_raw_to_processed(&channels[cindex], val, &val, SCALE);
-
-	if (ret < 0) {
-		pr_err("accel channel processing error\n");
-		return;
 	}
-
-	input_report_abs(input, iindex, val);
-}
-
-static void accel_report_xyz(struct input_dev *input)
-{
-	if (!input)
-		return;
-	accel_report_channel(input, 0, ABS_X);
-	accel_report_channel(input, 1, ABS_Y);
-	accel_report_channel(input, 2, ABS_Z);
-	input_sync(input);
 }
 
 #if POLLING
@@ -79,9 +102,9 @@ static void inputbridge_work(struct work_struct *work)
 #endif
 
 	delayed_work = to_delayed_work(work);
-//	adc_bat = container_of(delayed_work, struct gab, bat_work);
+//	something = container_of(delayed_work, struct something, something_work);
 
-	accel_report_xyz((struct input_dev *) channels[0].data);
+	accel_report_channels();
 
 	schedule_delayed_work(&input_work,
 		msecs_to_jiffies(100));	// poll with 10 Hz
@@ -96,8 +119,8 @@ static int accel_open(struct input_dev *input)
 printk("accel_open()\n");
 #endif
 
-	// someone has opened the input device
-	// make us start the iio_dev
+	// someone has opened an input device
+	// make us start the associated iio_dev
 
 #if POLLING
 	mutex_lock(&inputbridge_open_mutex);
@@ -133,22 +156,40 @@ static void accel_close(struct input_dev *input)
 }
 
 static int iio_input_register_accel_channel(struct iio_dev *indio_dev, const struct iio_chan_spec *chan)
-{
-	// we found some accelerometer channel!
+{ // we found some accelerometer channel!
+	int error;
+	struct input_dev *idev = NULL;
 
+	int dindex, cindex;
+
+		struct iio_channel *channel = &channels[cindex][dindex];
 #if 0
 	printk("iio_device_register_inputbridge(): found an accelerometer\n");
 #endif
 
 	mutex_lock(&inputbridge_channel_mutex);
 
-	if (channel >= ARRAY_SIZE(channels)) {
-		mutex_unlock(&inputbridge_channel_mutex);
-		return 0;	// we already have collected 3 channels
+	/* look for existing input device */
+
+	for (dindex = 0; dindex < ARRAY_SIZE(channels); dindex++) {
+		if (channels[dindex][0].indio_dev == indio_dev) {
+			idev = channels[dindex][0].data;
+			break;
+		}
 	}
 
-	if (!idev) { // first call
-		int error;
+	if (!idev) {
+		/* look for a free slot for a new input device */
+
+		for (dindex = 0; dindex < ARRAY_SIZE(channels); dindex ++) {
+			if (channels[dindex][0].indio_dev == NULL)
+				break;
+		}
+
+		if (dindex == ARRAY_SIZE(channels)) {
+			mutex_unlock(&inputbridge_channel_mutex);
+			return -ENOMEM;
+		}
 
 #if 0
 	printk("iio_device_register_inputbridge(): allocate the input dev\n");
@@ -166,7 +207,8 @@ static int iio_input_register_accel_channel(struct iio_dev *indio_dev, const str
 		}
 
 		idev->name = "accelerometer-iio-input-bridge";
-		idev->phys = "accel/input0";
+		// FIXME: when does this need kfree?
+		idev->phys = kasprintf(GFP_KERNEL, "accel/input%d", dindex);
 //		idev->id.bustype = BUS_I2C;
 
 //		idev->dev.parent = &indio_dev->client->dev;
@@ -175,14 +217,17 @@ static int iio_input_register_accel_channel(struct iio_dev *indio_dev, const str
 		idev->open = accel_open;
 		idev->close = accel_close;
 
+		// FIXME: what happens if we unregister the first device?
+		if (dindex == 0 ) { // first input
 #if POLLING
-		INIT_DELAYED_WORK(&input_work, inputbridge_work);
+			INIT_DELAYED_WORK(&input_work, inputbridge_work);
 #else
-		struct iio_cb_buffer *iio_channel_get_all_cb(struct device *dev,
-				int (*cb)(const void *data,
-					void *private),
-					void *private);
+			struct iio_cb_buffer *iio_channel_get_all_cb(struct device *dev,
+					int (*cb)(const void *data,
+						void *private),
+						void *private);
 #endif
+		}
 
 //		indio_dev->input = idev;
 
@@ -195,27 +240,35 @@ static int iio_input_register_accel_channel(struct iio_dev *indio_dev, const str
 	printk("iio_device_register_inputbridge(): input_register_device => %d\n", error);
 #endif
 
-		if (error) {
+		if (error < 0) {
 			input_free_device(idev);
 			mutex_unlock(&inputbridge_channel_mutex);
 			return error;
 		}
 
 	}
-	else if (channels[0].data != (void *) idev) {
+
+	/* find free channel within this device block */
+	for (cindex = 0;  cindex < ARRAY_SIZE(channels[0]); cindex++) {
+		if (!channels[dindex][cindex].indio_dev) {
+			break;
+		}
+	}
+
+	if (cindex == ARRAY_SIZE(channels[0])) { /* we already have collected 3 channels */
 		mutex_unlock(&inputbridge_channel_mutex);
-		return 0;	// ignore if different device
+		return 0;	/* silently ignore */
 	}
 
 #if 0
-	printk("iio_device_register_inputbridge(): process channel %d\n", channel);
+	printk("iio_device_register_inputbridge(): process channel %d of device %d\n", cindex, dindex);
 #endif
 
-	channels[channel].indio_dev = indio_dev;
-	channels[channel].channel = chan;
-	channels[channel].data = (void *) idev;
+	channels[dindex][cindex].indio_dev = indio_dev;
+	channels[dindex][cindex].channel = chan;
+	channels[dindex][cindex].data = (void *) idev;
 
-	switch (channel++) {
+	switch (cindex) {
 		case 0:
 			input_set_abs_params(idev, ABS_X, ABSMIN_ACC_VAL, ABSMAX_ACC_VAL, 0, 0);
 			break;
@@ -234,15 +287,10 @@ static int iio_input_register_accel_channel(struct iio_dev *indio_dev, const str
 int iio_device_register_inputbridge(struct iio_dev *indio_dev)
 {
 	int i;
-// check if we have any ACCEL channels
-// then assign/connect to input device
 
 #if 0
 	printk("iio_device_register_inputbridge()\n");
 #endif
-
-	if (!indio_dev->channels)
-		return 0;
 
 	for (i = 0; i < indio_dev->num_channels; i++) {
 		const struct iio_chan_spec *chan =
@@ -267,10 +315,21 @@ int iio_device_register_inputbridge(struct iio_dev *indio_dev)
 
 void iio_device_unregister_inputbridge(struct iio_dev *indio_dev)
 {
-	if (channel > 0)
-		input_unregister_device((struct input_dev *) channels[0].data);
-	channel = 0;
-	channels[0].indio_dev = NULL;
-	channels[1].indio_dev = NULL;
-	channels[2].indio_dev = NULL;
+	struct input_dev *input = NULL;
+
+	int dindex, cindex;
+
+	for (dindex = 0; dindex < ARRAY_SIZE(channels); dindex++) {
+		for (cindex = 0; cindex < ARRAY_SIZE(channels[0]); cindex++) {
+			struct iio_channel *channel = &channels[cindex][dindex];
+
+			if (channel->indio_dev == indio_dev) {
+				channel->indio_dev = NULL;	/* mark as empty */
+				input = channel->data;
+			}
+		}
+	}
+
+	if (input)
+		input_unregister_device(input);
 }
