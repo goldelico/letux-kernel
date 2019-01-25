@@ -1,35 +1,51 @@
-#include <linux/iio/iio.h>
-#include <linux/input.h>
+/*
+ * The Industrial I/O core, bridge to input devices
+ *
+ * Copyright (c) 2018 Golden Delicious Computers GmbH&Co. KG
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 as published by
+ * the Free Software Foundation.
+ */
+
 #include <linux/iio/consumer.h>
+#include <linux/iio/iio.h>
 #include <linux/iio/types.h>
+#include <linux/input.h>
+#include <linux/module.h>
+#include <linux/slab.h>
 
 #include "industrialio-inputbridge.h"
 
-/* only polling is implemented*/
+/* currently, only polling is implemented */
 #define POLLING 1
 
-// we need a better mapping for more than 3 channels
-// in fact we must group the channels by sharing the same iio device and input device...
-// which means that we could simply create a list of all channels
-// and report them all
-// a simple solution would be to reserve 3*n slots and process all those where an indio_dev is != NULL
-// and synchronize after processing index == 2
+/* handle up to this number of input devices */
+#define DEVICES		5
 
-#define DEVICES		5	/* handle up to this number of input devices */
-static struct iio_channel channels[DEVICES][3];	// 3 channels per device
-static DEFINE_MUTEX(inputbridge_channel_mutex);	// we must protect the channel allocation
+/* up to 3 channeld per devices (X, Y, Z) */
+static struct iio_channel channels[DEVICES][3];
+
+/* we must protect against races in channel allocation */
+
+static DEFINE_MUTEX(inputbridge_channel_mutex);
 
 #if POLLING
 static struct delayed_work input_work;
+
+/* we can start/stop the worker by open("/dev/input/event") */
 static int open_count = 0;
-static DEFINE_MUTEX(inputbridge_open_mutex);	// we must protect the open counter
+
+/* we must protect the open counter */
+static DEFINE_MUTEX(inputbridge_open_mutex);
 #endif
 
-#define ABSMAX_ACC_VAL		((1<<9)-1) /* 10 bit */
+/* minimum and maximum range we want to report */
+#define ABSMAX_ACC_VAL		(512 - 1)
 #define ABSMIN_ACC_VAL		-(ABSMAX_ACC_VAL)
 
-/* scale processed values so that 1g maps to ABSMAX_ACC_VAL / 2 */
-#define SCALE			(100 * ABSMAX_ACC_VAL) / (2 * 981)
+/* scale processed iio values so that 1g maps to ABSMAX_ACC_VAL / 2 */
+#define SCALE			((100 * ABSMAX_ACC_VAL) / (2 * 981))
 
 static void accel_report_channels(void)
 {
@@ -57,11 +73,6 @@ printk("accel_report_channel %d -> %d ret=%d\n", cindex, val, ret);
 				pr_err("accel channel read error %d\n", cindex);
 				return;
 			}
-
-			/*
-			 * NOTE: SCALE is ignored by iio_convert_raw_to_processed()
-			 * for IIO_VAL_INT so we get wrong values.
-			 */
 
 			ret = iio_convert_raw_to_processed(channel, val, &val, SCALE);
 
@@ -158,11 +169,10 @@ static void accel_close(struct input_dev *input)
 static int iio_input_register_accel_channel(struct iio_dev *indio_dev, const struct iio_chan_spec *chan)
 { // we found some accelerometer channel!
 	int error;
-	struct input_dev *idev = NULL;
+	struct input_dev *input = NULL;
 
 	int dindex, cindex;
 
-		struct iio_channel *channel = &channels[cindex][dindex];
 #if 0
 	printk("iio_device_register_inputbridge(): found an accelerometer\n");
 #endif
@@ -173,12 +183,12 @@ static int iio_input_register_accel_channel(struct iio_dev *indio_dev, const str
 
 	for (dindex = 0; dindex < ARRAY_SIZE(channels); dindex++) {
 		if (channels[dindex][0].indio_dev == indio_dev) {
-			idev = channels[dindex][0].data;
+			input = channels[dindex][0].data;
 			break;
 		}
 	}
 
-	if (!idev) {
+	if (!input) {
 		/* look for a free slot for a new input device */
 
 		for (dindex = 0; dindex < ARRAY_SIZE(channels); dindex ++) {
@@ -195,27 +205,28 @@ static int iio_input_register_accel_channel(struct iio_dev *indio_dev, const str
 	printk("iio_device_register_inputbridge(): allocate the input dev\n");
 #endif
 
-		idev = input_allocate_device();
+		input = input_allocate_device();
 
 #if 0
-	printk("iio_device_register_inputbridge(): => %p\n", idev);
+	printk("iio_device_register_inputbridge(): => %p\n", input);
 #endif
 
-		if (!idev) {
+		if (!input) {
 			mutex_unlock(&inputbridge_channel_mutex);
 			return -ENOMEM;
 		}
 
-		idev->name = "accelerometer-iio-input-bridge";
-		// FIXME: when does this need kfree?
-		idev->phys = kasprintf(GFP_KERNEL, "accel/input%d", dindex);
-//		idev->id.bustype = BUS_I2C;
+// FIXME: ask some DT aliases for mapping?
 
-//		idev->dev.parent = &indio_dev->client->dev;
+		input->name = kasprintf(GFP_KERNEL, "iio-bridge: %s", indio_dev->name);
+		input->phys = kasprintf(GFP_KERNEL, "accel/input%d", dindex);
+//		input->id.bustype = BUS_I2C;
 
-		idev->evbit[0] = BIT_MASK(EV_ABS);
-		idev->open = accel_open;
-		idev->close = accel_close;
+//		input->dev.parent = &indio_dev->client->dev;
+
+		input->evbit[0] = BIT_MASK(EV_ABS);
+		input->open = accel_open;
+		input->close = accel_close;
 
 		// FIXME: what happens if we unregister the first device?
 		if (dindex == 0 ) { // first input
@@ -229,19 +240,21 @@ static int iio_input_register_accel_channel(struct iio_dev *indio_dev, const str
 #endif
 		}
 
-//		indio_dev->input = idev;
+//		indio_dev->input = input;
 
-		input_set_drvdata(idev, indio_dev);
+		input_set_drvdata(input, indio_dev);
 
-		input_alloc_absinfo(idev);
-		error = input_register_device(idev);
+		input_alloc_absinfo(input);
+		error = input_register_device(input);
 
 #if 0
 	printk("iio_device_register_inputbridge(): input_register_device => %d\n", error);
 #endif
 
 		if (error < 0) {
-			input_free_device(idev);
+			kfree(input->name);
+			kfree(input->phys);
+			input_free_device(input);
 			mutex_unlock(&inputbridge_channel_mutex);
 			return error;
 		}
@@ -266,17 +279,17 @@ static int iio_input_register_accel_channel(struct iio_dev *indio_dev, const str
 
 	channels[dindex][cindex].indio_dev = indio_dev;
 	channels[dindex][cindex].channel = chan;
-	channels[dindex][cindex].data = (void *) idev;
+	channels[dindex][cindex].data = (void *) input;
 
 	switch (cindex) {
 		case 0:
-			input_set_abs_params(idev, ABS_X, ABSMIN_ACC_VAL, ABSMAX_ACC_VAL, 0, 0);
+			input_set_abs_params(input, ABS_X, ABSMIN_ACC_VAL, ABSMAX_ACC_VAL, 0, 0);
 			break;
 		case 1:
-			input_set_abs_params(idev, ABS_Y, ABSMIN_ACC_VAL, ABSMAX_ACC_VAL, 0, 0);
+			input_set_abs_params(input, ABS_Y, ABSMIN_ACC_VAL, ABSMAX_ACC_VAL, 0, 0);
 			break;
 		case 2:
-			input_set_abs_params(idev, ABS_Z, ABSMIN_ACC_VAL, ABSMAX_ACC_VAL, 0, 0);
+			input_set_abs_params(input, ABS_Z, ABSMIN_ACC_VAL, ABSMAX_ACC_VAL, 0, 0);
 			break;
 	}
 	mutex_unlock(&inputbridge_channel_mutex);
@@ -319,17 +332,30 @@ void iio_device_unregister_inputbridge(struct iio_dev *indio_dev)
 
 	int dindex, cindex;
 
+	mutex_lock(&inputbridge_channel_mutex);
+
 	for (dindex = 0; dindex < ARRAY_SIZE(channels); dindex++) {
 		for (cindex = 0; cindex < ARRAY_SIZE(channels[0]); cindex++) {
 			struct iio_channel *channel = &channels[cindex][dindex];
 
 			if (channel->indio_dev == indio_dev) {
-				channel->indio_dev = NULL;	/* mark as empty */
+				channel->indio_dev = NULL;	/* mark slot as empty */
 				input = channel->data;
 			}
 		}
 	}
 
 	if (input)
+		{
 		input_unregister_device(input);
+		kfree(input->name);
+		kfree(input->phys);
+		input_free_device(input);
+		}
+
+	mutex_unlock(&inputbridge_channel_mutex);
 }
+
+MODULE_AUTHOR("H. Nikolaus Schaller <hns@goldelico.com>");
+MODULE_DESCRIPTION("Bridge to offer Industrial I/O accelerometers as Input devices");
+MODULE_LICENSE("GPL v2");
