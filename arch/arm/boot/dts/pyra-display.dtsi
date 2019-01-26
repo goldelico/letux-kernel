@@ -20,6 +20,7 @@
 };
 
 &lcd {
+	backlight = <&backlight>;
 #if (PANEL == 0 || PANEL == 3)
 	compatible = "mipi,debug";
 	gpios = <&gpio6 16 0>,	/* goip6_176 = panel reset */
