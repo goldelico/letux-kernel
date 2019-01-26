@@ -107,6 +107,8 @@ struct panel_drv_data {
 
 	struct videomode vm;
 
+	struct backlight_device *backlight;
+
 	struct platform_device *pdev;
 
 	struct mutex lock;
@@ -769,6 +771,8 @@ ok:
 
 	mutex_unlock(&ddata->lock);
 
+	backlight_enable(ddata->backlight);
+
 	return r;
 }
 
@@ -781,6 +785,8 @@ static void w677l_disable(struct omap_dss_device *dssdev)
 
 	if (!omapdss_device_is_enabled(dssdev))
 		return;
+
+	backlight_disable(ddata->backlight);
 
 	dev_dbg(&ddata->pdev->dev, "stop()\n");
 
@@ -860,6 +866,10 @@ static int w677l_probe_of(struct platform_device *pdev)
 		return -EPROBE_DEFER;
 	ddata->regulator_gpio = gpio;
 #endif
+
+	ddata->backlight = devm_of_find_backlight(&pdev->dev);
+	if (IS_ERR(ddata->backlight))
+		return PTR_ERR(ddata->backlight);
 
 	return 0;
 }
