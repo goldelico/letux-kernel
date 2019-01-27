@@ -23,6 +23,8 @@ For a screen you probably want (x) coordinates to go from negative on the left
 to positive on the right and (z) depth to be negative under the screen and
 positive in front of it, toward the face of the user.
 
+>> whatabout y-axis orientation - bottop-up or top-down?
+
 A sensor can be mounted in any angle along the axes relative to the frame of
 reference. This means that the sensor may be flipped upside-down, left-right,
 or tilted at any angle relative to the frame of reference.
@@ -80,6 +82,9 @@ The mounting matrix has the layout:
  (x1, y1, z1)
  (x2, y2, z3)
 
+>> typo for z3
+>> should describe the multiplication input/output vector
+
 And it is represented as an array of strings containing the real values for
 producing the transformation matrix. The real values use a decimal point and
 a minus (-) to indicate a negative value.
@@ -106,3 +111,5 @@ upside-down:
 mount-matrix = "0.998", "0.054", "0",
                "-0.054", "0.998", "0",
                "0", "0", "1";
+
+>> does not match "180 degrees" - factors indicate ca. 3 degrees compensation
