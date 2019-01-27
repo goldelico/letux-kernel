@@ -23,7 +23,7 @@
 /* handle up to this number of input devices */
 #define DEVICES		5
 
-/* up to 3 channeld per devices (X, Y, Z) */
+/* up to 3 channels per devices (X, Y, Z) */
 static struct iio_channel channels[DEVICES][3];
 
 /* we must protect against races in channel allocation */
@@ -47,6 +47,43 @@ static DEFINE_MUTEX(inputbridge_open_mutex);
 /* scale processed iio values so that 1g maps to ABSMAX_ACC_VAL / 2 */
 #define SCALE			((100 * ABSMAX_ACC_VAL) / (2 * 981))
 
+static void iio_apply_matrix(struct iio_channel *channel, int *in, int *out)
+{
+	/* assume all channels of a device share the same matrix */
+#if 0
+	// should allocate buf somewhere else...
+	char buf[PAGE_SIZE];
+	int n = iio_read_channel_ext_info(channel], "mount_matrix", &buf);
+	/* translate strings to factors m11, m12 etc. */
+	/* should be done only once and stored somewhere! */
+
+	/* alternatively: if we do know the device and channel */
+	const struct iio_mount_matrix *mtx = ((iio_get_mount_matrix_t *)
+					      priv)(indio_dev, chan);
+
+	if (IS_ERR(mtx))
+		return PTR_ERR(mtx);
+
+	if (!mtx)
+		mtx = &iio_mount_idmatrix;
+
+	return snprintf(buf, PAGE_SIZE, "%s, %s, %s; %s, %s, %s; %s, %s, %s\n",
+			mtx->rotation[0], mtx->rotation[1], mtx->rotation[2],
+			mtx->rotation[3], mtx->rotation[4], mtx->rotation[5],
+			mtx->rotation[6], mtx->rotation[7], mtx->rotation[8]);
+
+	/* apply mount matrix */
+	out[0] = (m11 * in[0] + m12 * in[1] + m13 * in[2]) / 1000;
+	out[1] = (m21 * in[0] + m22 * in[1] + m23 * in[2]) / 1000;
+	out[2] = (m31 * in[0] + m32 * in[1] + m33 * in[2]) / 1000;
+#else
+	/* if no matrix found, apply identity */
+	out[0] = in[0];
+	out[1] = in[1];
+	out[2] = in[2];
+#endif
+}
+
 static void accel_report_channels(void)
 {
 	int val;
@@ -56,51 +93,50 @@ static void accel_report_channels(void)
 
 	for (dindex = 0; dindex < ARRAY_SIZE(channels); dindex++) {
 		struct input_dev *input = NULL;
+		int values[3];
+		int oriented_values[3];
 
-	for (cindex = 0; cindex < ARRAY_SIZE(channels[0]); cindex++) {
-		struct iio_channel *channel = &channels[cindex][dindex];
-
+		/* device might be closed while we are still processing */
 		mutex_lock(&inputbridge_channel_mutex);
 
-		if (channel->indio_dev) {
-			ret = iio_read_channel_raw(channel, &val);
+		for (cindex = 0; cindex < ARRAY_SIZE(channels[0]); cindex++) {
+			struct iio_channel *channel = &channels[dindex][cindex];
+
+			if (channel->indio_dev) {
+				ret = iio_read_channel_raw(channel, &val);
 
 #if 0
 printk("accel_report_channel %d -> %d ret=%d\n", cindex, val, ret);
 #endif
 
-			if (ret < 0) {
-				pr_err("accel channel read error %d\n", cindex);
-				return;
-			}
+				if (ret < 0) {
+					pr_err("accel channel read error %d\n", cindex);
+					return;
+				}
 
-			ret = iio_convert_raw_to_processed(channel, val, &val, SCALE);
+				ret = iio_convert_raw_to_processed(channel, val, &values[cindex], SCALE);
 
-			if (ret < 0) {
-				pr_err("accel channel processing error\n");
-				return;
-			}
+				if (ret < 0) {
+					pr_err("accel channel processing error\n");
+					return;
+				}
+				input = channel->data;
+			} else
+				values[cindex] = 0;	/* missing value */
 
-			input = channel->data;
-			switch (dindex) {
-				case 0:
-					input_report_abs(input, ABS_X, val);
-					break;
-				case 1:
-					input_report_abs(input, ABS_Y, val);
-					break;
-				case 2:
-					input_report_abs(input, ABS_Z, val);
-					break;
-			}
 		}
+
+		if (input) {
+			iio_apply_matrix(&channels[dindex][0], values, oriented_values);
+			input_report_abs(input, ABS_X, oriented_values[0]);
+			input_report_abs(input, ABS_Y, oriented_values[1]);
+			input_report_abs(input, ABS_Z, oriented_values[2]);
+			input_sync(input);
+		}
+
 		mutex_unlock(&inputbridge_channel_mutex);
 	}
 
-		if (input)
-			input_sync(input);
-
-	}
 }
 
 #if POLLING
@@ -336,7 +372,7 @@ void iio_device_unregister_inputbridge(struct iio_dev *indio_dev)
 
 	for (dindex = 0; dindex < ARRAY_SIZE(channels); dindex++) {
 		for (cindex = 0; cindex < ARRAY_SIZE(channels[0]); cindex++) {
-			struct iio_channel *channel = &channels[cindex][dindex];
+			struct iio_channel *channel = &channels[dindex][cindex];
 
 			if (channel->indio_dev == indio_dev) {
 				channel->indio_dev = NULL;	/* mark slot as empty */
