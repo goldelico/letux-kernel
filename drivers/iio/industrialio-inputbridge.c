@@ -49,39 +49,58 @@ static DEFINE_MUTEX(inputbridge_open_mutex);
 
 static void iio_apply_matrix(struct iio_channel *channel, int *in, int *out)
 {
+// FIXME: search and conversion from string-float to int should be done only once!
+
 	/* assume all channels of a device share the same matrix */
-#if 0
-	// should allocate buf somewhere else...
-	char buf[PAGE_SIZE];
-	int n = iio_read_channel_ext_info(channel], "mount_matrix", &buf);
-	/* translate strings to factors m11, m12 etc. */
-	/* should be done only once and stored somewhere! */
 
-	/* alternatively: if we do know the device and channel */
-	const struct iio_mount_matrix *mtx = ((iio_get_mount_matrix_t *)
-					      priv)(indio_dev, chan);
+	const struct iio_chan_spec_ext_info *ext_info;
 
-	if (IS_ERR(mtx))
-		return PTR_ERR(mtx);
+#if FIXME
+	for (ext_info = channel->ext_info; ext_info->name; ext_info++)
+		if (strcmp(ext_info->name, "mount-matrix") == 0)
+			break;
 
-	if (!mtx)
-		mtx = &iio_mount_idmatrix;
+	if (ext_info->name) {
+#else
+	if (0) {
+#endif
+		void *priv = ext_info->private;
+		const struct iio_mount_matrix *mtx;
+#if FIXME
+		mtx = ((iio_get_mount_matrix_t *) priv)
+			(channel->indio_dev, channel);
+#endif
 
-	return snprintf(buf, PAGE_SIZE, "%s, %s, %s; %s, %s, %s; %s, %s, %s\n",
+		int m11 = 1000, m12 = 0, m13 = 0;
+		int m21 = 0, m22 = 1000, m23 = 0;
+		int m31 = 0, m32 = 0, m33 = 1000;
+
+		printk("%s, %s, %s; %s, %s, %s; %s, %s, %s\n",
 			mtx->rotation[0], mtx->rotation[1], mtx->rotation[2],
 			mtx->rotation[3], mtx->rotation[4], mtx->rotation[5],
 			mtx->rotation[6], mtx->rotation[7], mtx->rotation[8]);
 
-	/* apply mount matrix */
-	out[0] = (m11 * in[0] + m12 * in[1] + m13 * in[2]) / 1000;
-	out[1] = (m21 * in[0] + m22 * in[1] + m23 * in[2]) / 1000;
-	out[2] = (m31 * in[0] + m32 * in[1] + m33 * in[2]) / 1000;
-#else
-	/* if no matrix found, apply identity */
-	out[0] = in[0];
-	out[1] = in[1];
-	out[2] = in[2];
-#endif
+		/* m11 = (int) (1000 * atof(mtx->rotation[0])) etc. */
+
+		printk("%d, %d, %d; %d, %d, %d; %d, %d, %d\n",
+			m11, m12, m13,
+			m21, m22, m23,
+			m31, m32, m33);
+
+
+		/* apply mount matrix */
+		out[0] = (m11 * in[0] + m12 * in[1] + m13 * in[2]) / 1000;
+		out[1] = (m21 * in[0] + m22 * in[1] + m23 * in[2]) / 1000;
+		out[2] = (m31 * in[0] + m32 * in[1] + m33 * in[2]) / 1000;
+
+	} else {
+
+		/* if no matrix found, apply identity */
+		out[0] = in[0];
+		out[1] = in[1];
+		out[2] = in[2];
+
+	}
 }
 
 static void accel_report_channels(void)
