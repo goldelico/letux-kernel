@@ -70,7 +70,7 @@ static void iio_apply_matrix(struct iio_channel *channel, int *in, int *out)
 
 	for (ext_info = channel->channel->ext_info; ext_info->name; ext_info++) {
 		printk("ext_info: %s\n", ext_info->name);
-		if (strcmp(ext_info->name, "mount-matrix") == 0)
+		if (strcmp(ext_info->name, "mount_matrix") == 0)
 			break;
 	}
 
