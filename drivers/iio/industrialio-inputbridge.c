@@ -18,10 +18,10 @@
 #include "industrialio-inputbridge.h"
 
 /* currently, only polling is implemented */
-#define POLLING 1
+#define CONFIG_POLLING 1
 
 /* handle up to this number of input devices */
-#define DEVICES		5
+#define MAX_INPUT_DEVICES	5
 
 /* up to 3 channels per devices (X, Y, Z) */
 static struct iio_channel channels[DEVICES][3];
@@ -30,7 +30,7 @@ static struct iio_channel channels[DEVICES][3];
 
 static DEFINE_MUTEX(inputbridge_channel_mutex);
 
-#if POLLING
+#if CONFIG_POLLING
 static struct delayed_work input_work;
 
 /* we can start/stop the worker by open("/dev/input/event") */
@@ -55,25 +55,22 @@ static void iio_apply_matrix(struct iio_channel *channel, int *in, int *out)
 
 	const struct iio_chan_spec_ext_info *ext_info;
 
-#if FIXME
-	for (ext_info = channel->ext_info; ext_info->name; ext_info++)
+	for (ext_info = channel->channel->ext_info; ext_info->name; ext_info++) {
+		printk("ext_info: %s\n", ext_info->name);
 		if (strcmp(ext_info->name, "mount-matrix") == 0)
 			break;
+	}
 
 	if (ext_info->name) {
-#else
-	if (0) {
-#endif
-		void *priv = ext_info->private;
+		uintptr_t priv = ext_info->private;
 		const struct iio_mount_matrix *mtx;
-#if FIXME
-		mtx = ((iio_get_mount_matrix_t *) priv)
-			(channel->indio_dev, channel);
-#endif
 
 		int m11 = 1000, m12 = 0, m13 = 0;
 		int m21 = 0, m22 = 1000, m23 = 0;
 		int m31 = 0, m32 = 0, m33 = 1000;
+
+		mtx = ((iio_get_mount_matrix_t *) priv)
+			(channel->indio_dev, channel->channel);
 
 		printk("%s, %s, %s; %s, %s, %s; %s, %s, %s\n",
 			mtx->rotation[0], mtx->rotation[1], mtx->rotation[2],
@@ -105,15 +102,13 @@ static void iio_apply_matrix(struct iio_channel *channel, int *in, int *out)
 
 static void accel_report_channels(void)
 {
-	int val;
-	int ret;
-
-	int dindex, cindex;
+	int dindex;
 
 	for (dindex = 0; dindex < ARRAY_SIZE(channels); dindex++) {
 		struct input_dev *input = NULL;
 		int values[3];
 		int oriented_values[3];
+		int cindex;
 
 		/* device might be closed while we are still processing */
 		mutex_lock(&inputbridge_channel_mutex);
@@ -122,6 +117,9 @@ static void accel_report_channels(void)
 			struct iio_channel *channel = &channels[dindex][cindex];
 
 			if (channel->indio_dev) {
+				int val;
+				int ret;
+
 				ret = iio_read_channel_raw(channel, &val);
 
 #if 0
@@ -158,7 +156,7 @@ printk("accel_report_channel %d -> %d ret=%d\n", cindex, val, ret);
 
 }
 
-#if POLLING
+#if CONFIG_POLLING
 static void inputbridge_work(struct work_struct *work)
 {
 	struct delayed_work *delayed_work;
@@ -188,7 +186,7 @@ printk("accel_open()\n");
 	// someone has opened an input device
 	// make us start the associated iio_dev
 
-#if POLLING
+#if CONFIG_POLLING
 	mutex_lock(&inputbridge_open_mutex);
 	if (open_count++ == 0)
 		schedule_delayed_work(&input_work,
@@ -209,7 +207,7 @@ static void accel_close(struct input_dev *input)
 	printk("accel_close()\n");
 #endif
 
-#if POLLING
+#if CONFIG_POLLING
 	mutex_lock(&inputbridge_open_mutex);
 	if (open_count > 0) {
 		cancel_delayed_work(&input_work);
@@ -285,7 +283,7 @@ static int iio_input_register_accel_channel(struct iio_dev *indio_dev, const str
 
 		// FIXME: what happens if we unregister the first device?
 		if (dindex == 0 ) { // first input
-#if POLLING
+#if CONFIG_POLLING
 			INIT_DELAYED_WORK(&input_work, inputbridge_work);
 #else
 			struct iio_cb_buffer *iio_channel_get_all_cb(struct device *dev,
@@ -412,5 +410,5 @@ void iio_device_unregister_inputbridge(struct iio_dev *indio_dev)
 }
 
 MODULE_AUTHOR("H. Nikolaus Schaller <hns@goldelico.com>");
-MODULE_DESCRIPTION("Bridge to offer Industrial I/O accelerometers as Input devices");
+MODULE_DESCRIPTION("Bridge to present Industrial I/O accelerometers as properly oriented Input devices");
 MODULE_LICENSE("GPL v2");
