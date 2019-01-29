@@ -24,7 +24,20 @@
 #define MAX_INPUT_DEVICES	5
 
 /* up to 3 channels per devices (X, Y, Z) */
-static struct iio_channel channels[DEVICES][3];
+
+#if BETTER_DEF
+static struct iio_input_map {
+	struct iio_dev *indio_dev;	/* the iio device */
+	struct input_dev *input;	/* the input device */
+	struct iio_channel channels[3];	/* x, y, z channels */
+	int values[3];		/* values while processing */
+	int m11, m12, m13;	/* translated and scaled mount-matrix */
+	int m21, m22, m23;
+	int m31, m32, m33;
+} channels[MAX_INPUT_DEVICES];
+#endif
+
+static struct iio_channel channels[MAX_INPUT_DEVICES][3];
 
 /* we must protect against races in channel allocation */
 
