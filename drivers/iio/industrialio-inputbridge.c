@@ -29,12 +29,18 @@
 static struct iio_input_map {
 	struct iio_dev *indio_dev;	/* the iio device */
 	struct input_dev *input;	/* the input device */
-	struct iio_channel channels[3];	/* x, y, z channels */
+	struct iio_channel channels[3];	/* x, y, z channels */		// Hinweis: data-Backpointer drinlassen, aber direkt auf dieses struct
 	int values[3];		/* values while processing */
 	int m11, m12, m13;	/* translated and scaled mount-matrix */
 	int m21, m22, m23;
 	int m31, m32, m33;
 } channels[MAX_INPUT_DEVICES];
+
+static inline struct iio_input_map *to_iio_input_map(struct iio_channel *channel)
+{
+	return (struct iio_input_map *) channel->data;
+}
+
 #endif
 
 static struct iio_channel channels[MAX_INPUT_DEVICES][3];
@@ -60,6 +66,32 @@ static DEFINE_MUTEX(inputbridge_open_mutex);
 /* scale processed iio values so that 1g maps to ABSMAX_ACC_VAL / 2 */
 #define SCALE			((100 * ABSMAX_ACC_VAL) / (2 * 981))
 
+static int32_t aofixed(const char *str)
+{ /* convert float string to scaled fixed point format */
+	int32_t mant = 0;
+	bool sign = false;
+	bool decimal = false;
+	int32_t divisor = 1;
+
+	if (*str == '-')
+		sign = true, str++;
+	while (*str) {
+		if (*str >= '0' && *str <= '9') {
+			mant = 10 * mant + (*str - '0');
+			if (decimal)
+				divisor *= 10;
+		} else if(*str == '.')
+			decimal = true;
+		else
+			return 0;	/* error */
+		str++;
+	}
+
+	mant = (1000 * mant) / divisor;
+
+	return (sign ? -mant : mant);
+}
+
 static void iio_apply_matrix(struct iio_channel *channel, int *in, int *out)
 {
 // FIXME: search and conversion from string-float to int should be done only once!
@@ -67,6 +99,8 @@ static void iio_apply_matrix(struct iio_channel *channel, int *in, int *out)
 	/* assume all channels of a device share the same matrix */
 
 	const struct iio_chan_spec_ext_info *ext_info;
+
+//	printk("in: %d, %d, %d\n", in[0], in[1], in[2]);
 
 	for (ext_info = channel->channel->ext_info; ext_info->name; ext_info++) {
 		printk("ext_info: %s\n", ext_info->name);
@@ -85,18 +119,29 @@ static void iio_apply_matrix(struct iio_channel *channel, int *in, int *out)
 		mtx = ((iio_get_mount_matrix_t *) priv)
 			(channel->indio_dev, channel->channel);
 
+/*
 		printk("%s, %s, %s; %s, %s, %s; %s, %s, %s\n",
 			mtx->rotation[0], mtx->rotation[1], mtx->rotation[2],
 			mtx->rotation[3], mtx->rotation[4], mtx->rotation[5],
 			mtx->rotation[6], mtx->rotation[7], mtx->rotation[8]);
+*/
 
-		/* m11 = (int) (1000 * atof(mtx->rotation[0])) etc. */
+		m11 = aofixed(mtx->rotation[0]);
+		m12 = aofixed(mtx->rotation[1]);
+		m13 = aofixed(mtx->rotation[2]);
+		m21 = aofixed(mtx->rotation[3]);
+		m22 = aofixed(mtx->rotation[4]);
+		m23 = aofixed(mtx->rotation[5]);
+		m31 = aofixed(mtx->rotation[6]);
+		m32 = aofixed(mtx->rotation[7]);
+		m33 = aofixed(mtx->rotation[8]);
 
+/*
 		printk("%d, %d, %d; %d, %d, %d; %d, %d, %d\n",
 			m11, m12, m13,
 			m21, m22, m23,
 			m31, m32, m33);
-
+*/
 
 		/* apply mount matrix */
 		out[0] = (m11 * in[0] + m12 * in[1] + m13 * in[2]) / 1000;
@@ -111,6 +156,8 @@ static void iio_apply_matrix(struct iio_channel *channel, int *in, int *out)
 		out[2] = in[2];
 
 	}
+
+//	printk("out: %d, %d, %d\n", out[0], out[1], out[2]);
 }
 
 static void accel_report_channels(void)
