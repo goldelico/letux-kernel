@@ -23,27 +23,20 @@
 /* handle up to this number of input devices */
 #define MAX_INPUT_DEVICES	5
 
-/* up to 3 channels per devices (X, Y, Z) */
-
-#if BETTER_DEF
 static struct iio_input_map {
 	struct iio_dev *indio_dev;	/* the iio device */
 	struct input_dev *input;	/* the input device */
-	struct iio_channel channels[3];	/* x, y, z channels */		// Hinweis: data-Backpointer drinlassen, aber direkt auf dieses struct
+	struct iio_channel channels[3];	/* x, y, z channels */
 	int values[3];		/* values while processing */
 	int m11, m12, m13;	/* translated and scaled mount-matrix */
 	int m21, m22, m23;
 	int m31, m32, m33;
-} channels[MAX_INPUT_DEVICES];
+} devices[MAX_INPUT_DEVICES];
 
 static inline struct iio_input_map *to_iio_input_map(struct iio_channel *channel)
 {
 	return (struct iio_input_map *) channel->data;
 }
-
-#endif
-
-static struct iio_channel channels[MAX_INPUT_DEVICES][3];
 
 /* we must protect against races in channel allocation */
 
@@ -66,8 +59,8 @@ static DEFINE_MUTEX(inputbridge_open_mutex);
 /* scale processed iio values so that 1g maps to ABSMAX_ACC_VAL / 2 */
 #define SCALE			((100 * ABSMAX_ACC_VAL) / (2 * 981))
 
-static int32_t aofixed(const char *str)
-{ /* convert float string to scaled fixed point format */
+static int32_t atofix(const char *str)
+{ /* convert float string to scaled fixed point format, e.g. 1.23 -> 1230; 0.1234 -> 123 */
 	int32_t mant = 0;
 	bool sign = false;
 	bool decimal = false;
@@ -75,7 +68,7 @@ static int32_t aofixed(const char *str)
 
 	if (*str == '-')
 		sign = true, str++;
-	while (*str) {
+	while (*str && divisor < 1000) {
 		if (*str >= '0' && *str <= '9') {
 			mant = 10 * mant + (*str - '0');
 			if (decimal)
@@ -100,7 +93,7 @@ static void iio_apply_matrix(struct iio_channel *channel, int *in, int *out)
 
 	const struct iio_chan_spec_ext_info *ext_info;
 
-//	printk("in: %d, %d, %d\n", in[0], in[1], in[2]);
+	printk("in: %d, %d, %d\n", in[0], in[1], in[2]);
 
 	for (ext_info = channel->channel->ext_info; ext_info->name; ext_info++) {
 		printk("ext_info: %s\n", ext_info->name);
@@ -126,15 +119,15 @@ static void iio_apply_matrix(struct iio_channel *channel, int *in, int *out)
 			mtx->rotation[6], mtx->rotation[7], mtx->rotation[8]);
 */
 
-		m11 = aofixed(mtx->rotation[0]);
-		m12 = aofixed(mtx->rotation[1]);
-		m13 = aofixed(mtx->rotation[2]);
-		m21 = aofixed(mtx->rotation[3]);
-		m22 = aofixed(mtx->rotation[4]);
-		m23 = aofixed(mtx->rotation[5]);
-		m31 = aofixed(mtx->rotation[6]);
-		m32 = aofixed(mtx->rotation[7]);
-		m33 = aofixed(mtx->rotation[8]);
+		m11 = atofix(mtx->rotation[0]);
+		m12 = atofix(mtx->rotation[1]);
+		m13 = atofix(mtx->rotation[2]);
+		m21 = atofix(mtx->rotation[3]);
+		m22 = atofix(mtx->rotation[4]);
+		m23 = atofix(mtx->rotation[5]);
+		m31 = atofix(mtx->rotation[6]);
+		m32 = atofix(mtx->rotation[7]);
+		m33 = atofix(mtx->rotation[8]);
 
 /*
 		printk("%d, %d, %d; %d, %d, %d; %d, %d, %d\n",
@@ -157,28 +150,30 @@ static void iio_apply_matrix(struct iio_channel *channel, int *in, int *out)
 
 	}
 
-//	printk("out: %d, %d, %d\n", out[0], out[1], out[2]);
+	printk("out: %d, %d, %d\n", out[0], out[1], out[2]);
 }
 
 static void accel_report_channels(void)
 {
 	int dindex;
 
-	for (dindex = 0; dindex < ARRAY_SIZE(channels); dindex++) {
-		struct input_dev *input = NULL;
-		int values[3];
-		int oriented_values[3];
-		int cindex;
+	for (dindex = 0; dindex < ARRAY_SIZE(devices); dindex++) {
+		struct iio_input_map *map = &devices[dindex];
 
-		/* device might be closed while we are still processing */
+		/* device might become closed while we are still processing */
 		mutex_lock(&inputbridge_channel_mutex);
 
-		for (cindex = 0; cindex < ARRAY_SIZE(channels[0]); cindex++) {
-			struct iio_channel *channel = &channels[dindex][cindex];
+		if (map->input) {
+			int oriented_values[3];
+			int cindex;
 
-			if (channel->indio_dev) {
+			for (cindex = 0; cindex < ARRAY_SIZE(map->channels); cindex++) {
+				struct iio_channel *channel = &map->channels[cindex];
 				int val;
 				int ret;
+
+				if (!channel->indio_dev)
+					continue;
 
 				ret = iio_read_channel_raw(channel, &val);
 
@@ -191,27 +186,23 @@ printk("accel_report_channel %d -> %d ret=%d\n", cindex, val, ret);
 					return;
 				}
 
-				ret = iio_convert_raw_to_processed(channel, val, &values[cindex], SCALE);
+				ret = iio_convert_raw_to_processed(channel, val, &map->values[cindex], SCALE);
 
 				if (ret < 0) {
 					pr_err("accel channel processing error\n");
 					return;
 				}
-				input = channel->data;
-			} else
-				values[cindex] = 0;	/* missing value */
+			}
 
+			iio_apply_matrix(&map->channels[0], map->values, oriented_values);
+
+			input_report_abs(map->input, ABS_X, oriented_values[0]);
+			input_report_abs(map->input, ABS_Y, oriented_values[1]);
+			input_report_abs(map->input, ABS_Z, oriented_values[2]);
+			input_sync(map->input);
+
+			mutex_unlock(&inputbridge_channel_mutex);
 		}
-
-		if (input) {
-			iio_apply_matrix(&channels[dindex][0], values, oriented_values);
-			input_report_abs(input, ABS_X, oriented_values[0]);
-			input_report_abs(input, ABS_Y, oriented_values[1]);
-			input_report_abs(input, ABS_Z, oriented_values[2]);
-			input_sync(input);
-		}
-
-		mutex_unlock(&inputbridge_channel_mutex);
 	}
 
 }
@@ -294,22 +285,21 @@ static int iio_input_register_accel_channel(struct iio_dev *indio_dev, const str
 
 	/* look for existing input device */
 
-	for (dindex = 0; dindex < ARRAY_SIZE(channels); dindex++) {
-		if (channels[dindex][0].indio_dev == indio_dev) {
-			input = channels[dindex][0].data;
+	for (dindex = 0; dindex < ARRAY_SIZE(devices); dindex++) {
+		if (devices[dindex].indio_dev == indio_dev) {
 			break;
 		}
 	}
 
-	if (!input) {
-		/* look for a free slot for a new input device */
+	if (dindex == ARRAY_SIZE(devices)) {
+		/* not found, look for a free slot for a new input device */
 
-		for (dindex = 0; dindex < ARRAY_SIZE(channels); dindex ++) {
-			if (channels[dindex][0].indio_dev == NULL)
+		for (dindex = 0; dindex < ARRAY_SIZE(devices); dindex ++) {
+			if (devices[dindex].indio_dev == NULL)
 				break;
 		}
 
-		if (dindex == ARRAY_SIZE(channels)) {
+		if (dindex == ARRAY_SIZE(devices)) {
 			mutex_unlock(&inputbridge_channel_mutex);
 			return -ENOMEM;
 		}
@@ -372,16 +362,18 @@ static int iio_input_register_accel_channel(struct iio_dev *indio_dev, const str
 			return error;
 		}
 
+		devices[dindex].input = input;
+		devices[dindex].indio_dev = indio_dev;
 	}
 
 	/* find free channel within this device block */
-	for (cindex = 0;  cindex < ARRAY_SIZE(channels[0]); cindex++) {
-		if (!channels[dindex][cindex].indio_dev) {
+	for (cindex = 0; cindex < ARRAY_SIZE(devices[dindex].channels); cindex++) {
+		if (!devices[dindex].channels[cindex].indio_dev) {
 			break;
 		}
 	}
 
-	if (cindex == ARRAY_SIZE(channels[0])) { /* we already have collected 3 channels */
+	if (cindex == ARRAY_SIZE(devices[dindex].channels)) { /* we already have collected 3 channels */
 		mutex_unlock(&inputbridge_channel_mutex);
 		return 0;	/* silently ignore */
 	}
@@ -390,9 +382,9 @@ static int iio_input_register_accel_channel(struct iio_dev *indio_dev, const str
 	printk("iio_device_register_inputbridge(): process channel %d of device %d\n", cindex, dindex);
 #endif
 
-	channels[dindex][cindex].indio_dev = indio_dev;
-	channels[dindex][cindex].channel = chan;
-	channels[dindex][cindex].data = (void *) input;
+	devices[dindex].channels[cindex].indio_dev = indio_dev;
+	devices[dindex].channels[cindex].channel = chan;
+	devices[dindex].channels[cindex].data = (void *) &devices[dindex];
 
 	switch (cindex) {
 		case 0:
@@ -447,24 +439,22 @@ void iio_device_unregister_inputbridge(struct iio_dev *indio_dev)
 
 	mutex_lock(&inputbridge_channel_mutex);
 
-	for (dindex = 0; dindex < ARRAY_SIZE(channels); dindex++) {
-		for (cindex = 0; cindex < ARRAY_SIZE(channels[0]); cindex++) {
-			struct iio_channel *channel = &channels[dindex][cindex];
+	for (dindex = 0; dindex < ARRAY_SIZE(devices); dindex++) {
+		for (cindex = 0; cindex < ARRAY_SIZE(devices[dindex].channels); cindex++) {
+			struct iio_channel *channel = &devices[dindex].channels[cindex];
 
 			if (channel->indio_dev == indio_dev) {
 				channel->indio_dev = NULL;	/* mark slot as empty */
-				input = channel->data;
 			}
 		}
-	}
-
-	if (input)
-		{
 		input_unregister_device(input);
 		kfree(input->name);
 		kfree(input->phys);
 		input_free_device(input);
-		}
+
+		devices[dindex].indio_dev = NULL;
+		devices[dindex].input = NULL;
+	}
 
 	mutex_unlock(&inputbridge_channel_mutex);
 }
