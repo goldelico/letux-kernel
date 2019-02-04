@@ -339,7 +339,7 @@ static int iio_input_register_accel_channel(struct iio_dev *indio_dev, const str
 
 		/* assume all channels of a device share the same matrix */
 
-		for (ext_info = chan->ext_info; ext_info->name; ext_info++) {
+		for (ext_info = chan->ext_info; ext_info && ext_info->name; ext_info++) {
 #if 1
 			printk("%s(): ext_info: %s\n", __func__, ext_info->name);
 #endif
@@ -347,7 +347,7 @@ static int iio_input_register_accel_channel(struct iio_dev *indio_dev, const str
 				break;
 		}
 
-		if (ext_info->name) {
+		if (ext_info && ext_info->name) {
 			/* matrix found */
 			uintptr_t priv = ext_info->private;
 			const struct iio_mount_matrix *mtx;
