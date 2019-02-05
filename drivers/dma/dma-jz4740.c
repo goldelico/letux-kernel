@@ -1,6 +1,8 @@
 /*
  *  Copyright (C) 2013, Lars-Peter Clausen <lars@metafoo.de>
  *  JZ4740 DMAC support
+ *  Copyright (C) 2017 Paul Boddie <paul@boddie.org.uk>
+ *  JZ4730 customisations
  *
  *  This program is free software; you can redistribute it and/or modify it
  *  under  the terms of the GNU General	 Public License as published by the
@@ -15,6 +17,7 @@
 #include <linux/init.h>
 #include <linux/list.h>
 #include <linux/module.h>
+#include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
@@ -71,6 +74,20 @@
 #define JZ_DMA_CTRL_ADDRESS_ERROR		BIT(2)
 #define JZ_DMA_CTRL_ENABLE			BIT(0)
 
+/* JZ4730 relocates general control and interrupt registers and combines
+   status/control and command registers. Bits 4...2 in the JZ4740 command
+   register are not present. Bit 0 combines link enable with channel enable.
+   Meanwhile, bit 1 in the JZ4740 status/control register is not present. */
+
+#define JZ4730_REG_DMA_CTRL			0x0FC
+#define JZ4730_REG_DMA_IRQ			0x0F8
+#define JZ4730_REG_DMA_CMD(x)			JZ_REG_DMA_STATUS_CTRL(x)
+
+enum jz4740_dma_type {
+	ID_JZ4730,
+	ID_JZ4740,
+};
+
 enum jz4740_dma_width {
 	JZ4740_DMA_WIDTH_32BIT	= 0,
 	JZ4740_DMA_WIDTH_8BIT	= 1,
@@ -126,6 +143,7 @@ struct jz4740_dma_dev {
 	struct dma_device ddev;
 	void __iomem *base;
 	struct clk *clk;
+	enum jz4740_dma_type type;
 
 	struct jz4740_dmaengine_chan chan[JZ_DMA_NR_CHANS];
 };
@@ -168,6 +186,15 @@ static inline void jz4740_dma_write_mask(struct jz4740_dma_dev *dmadev,
 	tmp &= ~mask;
 	tmp |= val;
 	jz4740_dma_write(dmadev, reg, tmp);
+}
+
+static unsigned int jz4740_dma_cmd_reg(unsigned int id,
+				       struct jz4740_dma_dev *dmadev)
+{
+	if (dmadev->type == ID_JZ4730)
+		return JZ4730_REG_DMA_CMD(id);
+	else
+		return JZ_REG_DMA_CMD(id);
 }
 
 static struct jz4740_dma_desc *jz4740_dma_alloc_desc(unsigned int num_sgs)
@@ -259,7 +286,7 @@ static int jz4740_dma_slave_config_write(struct dma_chan *c,
 	cmd |= JZ4740_DMA_MODE_SINGLE << JZ_DMA_CMD_MODE_OFFSET;
 	cmd |= JZ_DMA_CMD_TRANSFER_IRQ_ENABLE;
 
-	jz4740_dma_write(dmadev, JZ_REG_DMA_CMD(chan->id), cmd);
+	jz4740_dma_write(dmadev, jz4740_dma_cmd_reg(chan->id, dmadev), cmd);
 	jz4740_dma_write(dmadev, JZ_REG_DMA_STATUS_CTRL(chan->id), 0);
 	jz4740_dma_write(dmadev, JZ_REG_DMA_REQ_TYPE(chan->id),
 		config->slave_id);
@@ -515,6 +542,13 @@ static void jz4740_dma_desc_free(struct virt_dma_desc *vdesc)
 	kfree(container_of(vdesc, struct jz4740_dma_desc, vdesc));
 }
 
+static const struct of_device_id jz4740_dma_of_match[] = {
+	{ .compatible = "ingenic,jz4730-dma", .data = (void *)ID_JZ4730 },
+	{ .compatible = "ingenic,jz4740-dma", .data = (void *)ID_JZ4740 },
+	{},
+};
+MODULE_DEVICE_TABLE(of, jz4740_dma_of_match);
+
 #define JZ4740_DMA_BUSWIDTHS (BIT(DMA_SLAVE_BUSWIDTH_1_BYTE) | \
 	BIT(DMA_SLAVE_BUSWIDTH_2_BYTES) | BIT(DMA_SLAVE_BUSWIDTH_4_BYTES))
 
@@ -525,6 +559,9 @@ static int jz4740_dma_probe(struct platform_device *pdev)
 	struct dma_device *dd;
 	unsigned int i;
 	struct resource *res;
+	const struct platform_device_id *id = platform_get_device_id(pdev);
+	const struct of_device_id *of_id = of_match_device(
+			jz4740_dma_of_match, &pdev->dev);
 	int ret;
 	int irq;
 
@@ -544,6 +581,11 @@ static int jz4740_dma_probe(struct platform_device *pdev)
 		return PTR_ERR(dmadev->clk);
 
 	clk_prepare_enable(dmadev->clk);
+
+	if (of_id)
+		dmadev->type = (enum jz4740_dma_type)of_id->data;
+	else
+		dmadev->type = id->driver_data;
 
 	dma_cap_set(DMA_SLAVE, dd->cap_mask);
 	dma_cap_set(DMA_CYCLIC, dd->cap_mask);
