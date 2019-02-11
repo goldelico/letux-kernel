@@ -151,6 +151,7 @@ static int panel_dpi_probe_of(struct platform_device *pdev)
 	}
 
 	videomode_from_timing(&timing, &ddata->vm);
+	drm_bus_flags_from_videomode(&ddata->vm, &ddata->dssdev.bus_flags);
 
 	return 0;
 }
