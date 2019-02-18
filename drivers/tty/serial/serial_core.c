@@ -143,6 +143,9 @@ static void uart_start(struct tty_struct *tty)
 	struct uart_port *port;
 	unsigned long flags;
 
+	if (!state)
+		return;
+
 	port = uart_port_lock(state, flags);
 	__uart_start(tty);
 	uart_port_unlock(port, flags);
@@ -563,10 +566,12 @@ static int uart_put_char(struct tty_struct *tty, unsigned char c)
 	int ret = 0;
 
 	circ = &state->xmit;
-	if (!circ->buf)
-		return 0;
-
 	port = uart_port_lock(state, flags);
+	if (!circ->buf) {
+		uart_port_unlock(port, flags);
+		return 0;
+	}
+
 	if (port && uart_circ_chars_free(circ) != 0) {
 		circ->buf[circ->head] = c;
 		circ->head = (circ->head + 1) & (UART_XMIT_SIZE - 1);
@@ -599,11 +604,13 @@ static int uart_write(struct tty_struct *tty,
 		return -EL3HLT;
 	}
 
-	circ = &state->xmit;
-	if (!circ->buf)
-		return 0;
-
 	port = uart_port_lock(state, flags);
+	circ = &state->xmit;
+	if (!circ->buf) {
+		uart_port_unlock(port, flags);
+		return 0;
+	}
+
 	while (port) {
 		c = CIRC_SPACE_TO_END(circ->head, circ->tail, UART_XMIT_SIZE);
 		if (count < c)
@@ -2410,6 +2417,9 @@ static void uart_poll_put_char(struct tty_driver *driver, int line, char ch)
 	struct uart_driver *drv = driver->driver_state;
 	struct uart_state *state = drv->state + line;
 	struct uart_port *port;
+
+	if (!state)
+		return;
 
 	port = uart_port_ref(state);
 	if (!port)
