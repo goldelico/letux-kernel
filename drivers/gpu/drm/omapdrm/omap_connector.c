@@ -280,9 +280,11 @@ static int omap_connector_mode_valid(struct drm_connector *connector,
 	drm_display_mode_to_videomode(mode, &vm);
 	mode->vrefresh = drm_mode_vrefresh(mode);
 
-	r = priv->dispc_ops->mgr_check_timings(priv->dispc, channel, &vm);
-	if (r)
-		goto done;
+	if (omap_connector->display->type != OMAP_DISPLAY_TYPE_DSI) {
+		r = priv->dispc_ops->mgr_check_timings(priv->dispc, channel, &vm);
+		if (r)
+			goto done;
+	}
 
 	for (dssdev = omap_connector->output; dssdev; dssdev = dssdev->next) {
 		if (!dssdev->ops->check_timings)
