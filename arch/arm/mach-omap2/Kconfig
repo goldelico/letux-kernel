@@ -231,6 +231,14 @@ config OMAP3_SDRC_AC_TIMING
 	  wish to say no.  Selecting yes without understanding what is
 	  going on could result in system crashes;
 
+config OMAP3_PM_OFFMODE
+	bool "Enable Off-Mode"
+	depends on ARCH_OMAP3
+	help
+	  Enables deeper power-saving states of the SOC, so that hwmods
+	  do not only go to RET state but to OFF state. This option
+	  is overridable via debugfs.
+
 endmenu
 
 endif
