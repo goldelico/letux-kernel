@@ -116,6 +116,7 @@ struct bma180_data {
 	struct i2c_client *client;
 	struct iio_trigger *trig;
 	const struct bma180_part_info *part_info;
+	struct iio_mount_matrix orientation;
 	struct mutex mutex;
 	bool sleep_state;
 	int scale;
@@ -561,6 +562,15 @@ static int bma180_set_power_mode(struct iio_dev *indio_dev,
 	return ret;
 }
 
+static const struct iio_mount_matrix *
+bma180_accel_get_mount_matrix(const struct iio_dev *indio_dev,
+				const struct iio_chan_spec *chan)
+{
+	struct bma180_data *data = iio_priv(indio_dev);
+
+	return &data->orientation;
+}
+
 static const struct iio_enum bma180_power_mode_enum = {
 	.items = bma180_power_modes,
 	.num_items = ARRAY_SIZE(bma180_power_modes),
@@ -571,7 +581,8 @@ static const struct iio_enum bma180_power_mode_enum = {
 static const struct iio_chan_spec_ext_info bma180_ext_info[] = {
 	IIO_ENUM("power_mode", true, &bma180_power_mode_enum),
 	IIO_ENUM_AVAILABLE("power_mode", &bma180_power_mode_enum),
-	{ },
+	IIO_MOUNT_MATRIX(IIO_SHARED_BY_DIR, bma180_accel_get_mount_matrix),
+	{ }
 };
 
 #define BMA180_ACC_CHANNEL(_axis, _bits) {				\
@@ -722,6 +733,11 @@ static int bma180_probe(struct i2c_client *client,
 		chip = id->driver_data;
 	data->part_info = &bma180_part_info[chip];
 
+	ret = iio_read_mount_matrix(&client->dev, "mount-matrix",
+				&data->orientation);
+	if (ret)
+		return ret;
+
 	ret = data->part_info->chip_config(data);
 	if (ret < 0)
 		goto err_chip_disable;
@@ -734,9 +750,22 @@ static int bma180_probe(struct i2c_client *client,
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &bma180_info;
 
+	ret = devm_iio_triggered_buffer_setup(&client->dev, indio_dev, NULL,
+			bma180_trigger_handler, NULL);
+	if (ret < 0) {
+		dev_err(&client->dev, "unable to setup iio triggered buffer\n");
+		goto err_chip_disable;
+	}
+
+	ret = devm_iio_device_register(&client->dev, indio_dev);
+	if (ret < 0) {
+		dev_err(&client->dev, "unable to register iio device\n");
+		goto err_chip_disable;
+	}
+
 	if (client->irq > 0) {
-		data->trig = iio_trigger_alloc("%s-dev%d", indio_dev->name,
-			indio_dev->id);
+		data->trig = devm_iio_trigger_alloc(&client->dev, "%s-dev%d",
+			indio_dev->name, indio_dev->id);
 		if (!data->trig) {
 			ret = -ENOMEM;
 			goto err_chip_disable;
@@ -747,7 +776,7 @@ static int bma180_probe(struct i2c_client *client,
 			"bma180_event", data->trig);
 		if (ret) {
 			dev_err(&client->dev, "unable to request IRQ\n");
-			goto err_trigger_free;
+			goto err_chip_disable;
 		}
 
 		data->trig->dev.parent = &client->dev;
@@ -755,33 +784,13 @@ static int bma180_probe(struct i2c_client *client,
 		iio_trigger_set_drvdata(data->trig, indio_dev);
 		indio_dev->trig = iio_trigger_get(data->trig);
 
-		ret = iio_trigger_register(data->trig);
+		ret = devm_iio_trigger_register(&client->dev, data->trig);
 		if (ret)
-			goto err_trigger_free;
-	}
-
-	ret = iio_triggered_buffer_setup(indio_dev, NULL,
-			bma180_trigger_handler, NULL);
-	if (ret < 0) {
-		dev_err(&client->dev, "unable to setup iio triggered buffer\n");
-		goto err_trigger_unregister;
-	}
-
-	ret = iio_device_register(indio_dev);
-	if (ret < 0) {
-		dev_err(&client->dev, "unable to register iio device\n");
-		goto err_buffer_cleanup;
+			goto err_chip_disable;
 	}
 
 	return 0;
 
-err_buffer_cleanup:
-	iio_triggered_buffer_cleanup(indio_dev);
-err_trigger_unregister:
-	if (data->trig)
-		iio_trigger_unregister(data->trig);
-err_trigger_free:
-	iio_trigger_free(data->trig);
 err_chip_disable:
 	data->part_info->chip_disable(data);
 
@@ -792,13 +801,6 @@ static int bma180_remove(struct i2c_client *client)
 {
 	struct iio_dev *indio_dev = i2c_get_clientdata(client);
 	struct bma180_data *data = iio_priv(indio_dev);
-
-	iio_device_unregister(indio_dev);
-	iio_triggered_buffer_cleanup(indio_dev);
-	if (data->trig) {
-		iio_trigger_unregister(data->trig);
-		iio_trigger_free(data->trig);
-	}
 
 	mutex_lock(&data->mutex);
 	data->part_info->chip_disable(data);
