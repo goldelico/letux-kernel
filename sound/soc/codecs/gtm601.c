@@ -69,7 +69,9 @@ static int gtm601_platform_probe(struct platform_device *pdev)
 
 #if defined(CONFIG_OF)
 static const struct of_device_id gtm601_codec_of_match[] = {
-	{ .compatible = "option,gtm601", },
+	{ .compatible = "option,gtm601", },	/* AT_OPCMENABLE=1; AT_OPCMPROF=0; AT+VIP=0 */
+	{ .compatible = "gemalto,phs8", },
+	{ .compatible = "gemalto,pls8", },	/* AT^SAIC=3,1,1,0,1,0,1,0 (tbc.) */
 	{},
 };
 MODULE_DEVICE_TABLE(of, gtm601_codec_of_match);
