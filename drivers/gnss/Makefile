@@ -17,6 +17,3 @@ gnss-sirf-y := sirf.o
 
 obj-$(CONFIG_GNSS_UBX_SERIAL)		+= gnss-ubx.o
 gnss-ubx-y := ubx.o
-
-obj-$(CONFIG_GNSS_W2SG0004)		+= gnss-w2sg0004.o
-gnss-w2sg0004-y := w2sg0004.o
