@@ -413,30 +413,35 @@ static int sirf_probe(struct serdev_device *serdev)
 		if (IS_ERR(data->wakeup))
 			goto err_put_device;
 
+		/*
+		 * Configurations where WAKEUP has been left not connected,
+		 * are currently not supported.
+		 */
+		if (!data->wakeup) {
+			dev_err(dev, "no wakeup gpio specified\n");
+			ret = -ENODEV;
+			goto err_put_device;
+		}
+
+		ret = regulator_enable(data->vcc);
+		if (ret)
+			goto err_put_device;
+
+		/* Wait for chip to boot into hibernate mode. */
+		msleep(SIRF_BOOT_DELAY);
 	}
 
 	if (data->wakeup) {
 		ret = gpiod_to_irq(data->wakeup);
 		if (ret < 0)
-			goto err_put_device;
-
+			goto err_disable_vcc;
 		data->irq = ret;
 
-		ret = devm_request_threaded_irq(dev, data->irq, NULL,
-				sirf_wakeup_handler,
+		ret = request_threaded_irq(data->irq, NULL, sirf_wakeup_handler,
 				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
 				"wakeup", data);
 		if (ret)
-			goto err_put_device;
-	}
-
-	if (data->on_off) {
-		ret = regulator_enable(data->vcc);
-		if (ret)
-			goto err_put_device;
-
-		/* Wait for chip to boot into hibernate mode */
-		msleep(SIRF_BOOT_DELAY);
+			goto err_disable_vcc;
 	}
 
 	if (IS_ENABLED(CONFIG_PM)) {
@@ -453,7 +458,7 @@ static int sirf_probe(struct serdev_device *serdev)
 	} else {
 		ret = sirf_runtime_resume(dev);
 		if (ret < 0)
-			goto err_disable_vcc;
+			goto err_free_irq;
 	}
 
 	ret = gnss_register_device(gdev);
@@ -467,6 +472,9 @@ err_disable_rpm:
 		pm_runtime_disable(dev);
 	else
 		sirf_runtime_suspend(dev);
+err_free_irq:
+	if (data->wakeup)
+		free_irq(data->irq, data);
 err_disable_vcc:
 	if (data->on_off)
 		regulator_disable(data->vcc);
@@ -486,6 +494,9 @@ static void sirf_remove(struct serdev_device *serdev)
 		pm_runtime_disable(&serdev->dev);
 	else
 		sirf_runtime_suspend(&serdev->dev);
+
+	if (data->wakeup)
+		free_irq(data->irq, data);
 
 	if (data->on_off)
 		regulator_disable(data->vcc);
