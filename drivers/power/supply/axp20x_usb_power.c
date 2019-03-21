@@ -261,7 +261,25 @@ static int axp20x_usb_power_set_current_max(struct axp20x_usb_power *power, int 
 	const unsigned int max = GENMASK(power->axp_data->curr_lim_fld.msb,
 					 power->axp_data->curr_lim_fld.lsb);
 
-	if (intval == -1)
+	switch (intval) {
+	case 900000:
+		return regmap_update_bits(power->regmap,
+					  AXP20X_VBUS_IPSOUT_MGMT,
+					  AXP20X_VBUS_CLIMIT_MASK,
+					  AXP813_VBUS_CLIMIT_900mA);
+	case 1500000:
+	case 2000000:
+	case 2500000:
+		val = (intval - 1000000) / 500000;
+		return regmap_update_bits(power->regmap,
+					  AXP20X_VBUS_IPSOUT_MGMT,
+					  AXP20X_VBUS_CLIMIT_MASK, val);
+	case -1:
+		return regmap_update_bits(power->regmap,
+					  AXP20X_VBUS_IPSOUT_MGMT,
+					  AXP20X_VBUS_CLIMIT_MASK,
+					  AXP20X_VBUS_CLIMIT_NONE);
+	default:
 		return -EINVAL;
 
 	for (unsigned int i = 0; i <= max; ++i)
