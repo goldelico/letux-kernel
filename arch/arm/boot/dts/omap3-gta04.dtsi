@@ -114,6 +114,7 @@
 		gpio-miso = <&gpio1 18 GPIO_ACTIVE_HIGH>;
 		gpio-mosi = <&gpio1 20 GPIO_ACTIVE_HIGH>;
 		cs-gpios = <&gpio1 19 GPIO_ACTIVE_HIGH>;
+		spi-cs-high;	/* make the legacy handler in gpiolib not intervene */
 		num-chipselects = <1>;
 
 		/* lcd panel */
@@ -123,6 +124,7 @@
 			spi-max-frequency = <100000>;
 			spi-cpol;
 			spi-cpha;
+			spi-cs-high;	/* here is where it should be but this is ignored by a bug in the gpiolib handler */
 
 			backlight= <&backlight>;
 			label = "lcd";
