@@ -144,6 +144,7 @@
 		gpio-miso = <&gpio1 18 GPIO_ACTIVE_HIGH>;
 		gpio-mosi = <&gpio1 20 GPIO_ACTIVE_HIGH>;
 		cs-gpios = <&gpio1 19 GPIO_ACTIVE_HIGH>;
+		spi-cs-high;	/* make the legacy handler not intervene */
 		num-chipselects = <1>;
 
 		/* lcd panel */
