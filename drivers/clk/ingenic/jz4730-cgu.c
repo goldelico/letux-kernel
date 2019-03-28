@@ -241,7 +241,7 @@ static void __init jz4730_cgu_init(struct device_node *np)
 }
 CLK_OF_DECLARE(jz4730_cgu, "ingenic,jz4730-cgu", jz4730_cgu_init);
 
-void jz4740_clock_set_wait_mode(enum jz4740_wait_mode mode)
+void jz4730_clock_set_wait_mode(enum jz4740_wait_mode mode)
 {
 	uint32_t lcr = readl(cgu->base + CGU_REG_LPCR);
 
@@ -258,29 +258,29 @@ void jz4740_clock_set_wait_mode(enum jz4740_wait_mode mode)
 	writel(lcr, cgu->base + CGU_REG_LPCR);
 }
 
-void jz4740_clock_udc_disable_auto_suspend(void)
+void jz4730_clock_udc_disable_auto_suspend(void)
 {
 	uint32_t clkgr = readl(cgu->base + CGU_REG_MSCR);
 
 	clkgr &= ~MSCR_UDC;
 	writel(clkgr, cgu->base + CGU_REG_MSCR);
 }
-EXPORT_SYMBOL_GPL(jz4740_clock_udc_disable_auto_suspend);
+EXPORT_SYMBOL_GPL(jz4730_clock_udc_disable_auto_suspend);
 
-void jz4740_clock_udc_enable_auto_suspend(void)
+void jz4730_clock_udc_enable_auto_suspend(void)
 {
 	uint32_t clkgr = readl(cgu->base + CGU_REG_MSCR);
 
 	clkgr |= MSCR_UDC;
 	writel(clkgr, cgu->base + CGU_REG_MSCR);
 }
-EXPORT_SYMBOL_GPL(jz4740_clock_udc_enable_auto_suspend);
+EXPORT_SYMBOL_GPL(jz4730_clock_udc_enable_auto_suspend);
 
 #define JZ_CLOCK_GATE_UART0	BIT(0)
 #define JZ_CLOCK_GATE_OST	BIT(3)
 #define JZ_CLOCK_GATE_DMAC	BIT(5)
 
-void jz4740_clock_suspend(void)
+void jz4730_clock_suspend(void)
 {
 	uint32_t clkgr, cppcr;
 
@@ -293,7 +293,7 @@ void jz4740_clock_suspend(void)
 	writel(cppcr, cgu->base + CGU_REG_PLCR1);
 }
 
-void jz4740_clock_resume(void)
+void jz4730_clock_resume(void)
 {
 	uint32_t clkgr, cppcr, stable;
 
