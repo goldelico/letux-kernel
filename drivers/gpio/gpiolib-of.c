@@ -114,7 +114,6 @@ static void of_gpio_flags_quirks(struct device_node *np,
 			of_node_full_name(np));
 	}
 
-#if defined(CONFIG_SPI_CS_HIGH_LEGACY_HANDLING)
 	/*
 	 * Legacy handling of SPI active high chip select. If we have a
 	 * property named "cs-gpios" we need to inspect the child node
@@ -160,7 +159,6 @@ static void of_gpio_flags_quirks(struct device_node *np,
 			}
 		}
 	}
-#endif
 }
 
 /**

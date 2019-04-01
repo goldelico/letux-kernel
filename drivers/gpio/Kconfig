@@ -39,14 +39,6 @@ config OF_GPIO
 	depends on OF
 	depends on HAS_IOMEM
 
-config SPI_CS_HIGH_LEGACY_HANDLING
-	def_bool n
-	depends on OF_GPIO
-	help
-	   This enables a legacy handler which decodes the boolean spi-cs-high
-	   property found in some DTS/DTB to correctly work with cs-gpios
-	   with GPIO_ACTIVE_HIGH.
-
 config GPIO_ACPI
 	def_bool y
 	depends on ACPI
