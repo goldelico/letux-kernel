@@ -744,6 +744,7 @@
 		#size-cells = <0>;
 
 		wwan_wakeup {
+			status = "disabled";	/* WAKEUP pin of PHS8 has been renamed to GPIO4 on PLS8 and is not able to be used as an URC trigger */
 			label = "WWAN Wakeup";
 			linux,code = <KEY_UNKNOWN>;
 			gpios = <&gpio1 15 GPIO_ACTIVE_HIGH>;	/* gpio1_wk15 */
