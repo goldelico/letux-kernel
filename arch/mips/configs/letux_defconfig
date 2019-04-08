@@ -1,5 +1,5 @@
 #
-# Linux/mips 5.0.5 Kernel Configuration
+# Linux/mips 5.0.7 Kernel Configuration
 #
 
 #
@@ -1096,6 +1096,7 @@ CONFIG_NET_CORE=y
 # CONFIG_IPVLAN is not set
 # CONFIG_VXLAN is not set
 # CONFIG_GENEVE is not set
+# CONFIG_GTP is not set
 # CONFIG_MACSEC is not set
 # CONFIG_NETCONSOLE is not set
 # CONFIG_TUN is not set
