@@ -88,6 +88,10 @@ static void isp_save_ctx(struct isp_device *isp);
 
 static void isp_restore_ctx(struct isp_device *isp);
 
+static int isp_attach_iommu(struct isp_device *isp);
+
+static void isp_detach_iommu(struct isp_device *isp);
+
 static const struct isp_res_mapping isp_res_maps[] = {
 	{
 		.isp_rev = ISP_REVISION_2_0,
@@ -1407,6 +1411,14 @@ static struct isp_device *__omap3isp_get(struct isp_device *isp, bool irq)
 		__isp = NULL;
 		goto out;
 	}
+	/* IOMMU */
+	if (isp_attach_iommu(isp) < 0) {
+		dev_err(isp->dev, "unable to attach to IOMMU\n");
+		isp_disable_clocks(isp);
+		__isp = NULL;
+		goto out;
+	}
+
 
 	/* We don't want to restore context before saving it! */
 	if (isp->has_context)
@@ -1453,6 +1465,7 @@ static void __omap3isp_put(struct isp_device *isp, bool save_ctx)
 		if (!media_entity_enum_empty(&isp->crashed) ||
 		    isp->stop_failure)
 			isp_reset(isp);
+		isp_detach_iommu(isp);
 		isp_disable_clocks(isp);
 	}
 	mutex_unlock(&isp->isp_mutex);
@@ -1999,10 +2012,6 @@ static int isp_remove(struct platform_device *pdev)
 	isp_cleanup_modules(isp);
 	isp_xclk_cleanup(isp);
 
-	__omap3isp_get(isp, false);
-	isp_detach_iommu(isp);
-	__omap3isp_put(isp, false);
-
 	media_entity_enum_cleanup(&isp->crashed);
 	v4l2_async_notifier_cleanup(&isp->notifier);
 
@@ -2313,19 +2322,12 @@ static int isp_probe(struct platform_device *pdev)
 	isp->mmio_hist_base_phys =
 		mem->start + isp_res_maps[m].offset[OMAP3_ISP_IOMEM_HIST];
 
-	/* IOMMU */
-	ret = isp_attach_iommu(isp);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "unable to attach to IOMMU\n");
-		goto error_isp;
-	}
-
 	/* Interrupt */
 	ret = platform_get_irq(pdev, 0);
 	if (ret <= 0) {
 		dev_err(isp->dev, "No IRQ resource\n");
 		ret = -ENODEV;
-		goto error_iommu;
+		goto error_isp;
 	}
 	isp->irq_num = ret;
 
@@ -2339,7 +2341,7 @@ static int isp_probe(struct platform_device *pdev)
 	/* Entities */
 	ret = isp_initialize_modules(isp);
 	if (ret < 0)
-		goto error_iommu;
+		goto error_isp;
 
 	ret = isp_register_entities(isp);
 	if (ret < 0)
