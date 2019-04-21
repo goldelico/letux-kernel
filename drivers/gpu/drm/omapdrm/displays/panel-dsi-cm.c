@@ -16,7 +16,6 @@
 #include <linux/module.h>
 #include <linux/sched/signal.h>
 #include <linux/slab.h>
-#include <linux/workqueue.h>
 #include <linux/of_device.h>
 #include <linux/regulator/consumer.h>
 
@@ -66,21 +65,11 @@ struct panel_drv_data {
 	bool enabled;
 
 	bool intro_printed;
-
-	struct workqueue_struct *workqueue;
-
-	bool ulps_enabled;
-	unsigned int ulps_timeout;
-	struct delayed_work ulps_work;
 };
 
 #define to_panel_data(p) container_of(p, struct panel_drv_data, dssdev)
 
 static int _dsicm_enable_te(struct panel_drv_data *ddata, bool enable);
-
-static int dsicm_panel_reset(struct panel_drv_data *ddata);
-
-static void dsicm_ulps_work(struct work_struct *work);
 
 static void dsicm_bl_power(struct panel_drv_data *ddata, bool enable)
 {
@@ -205,94 +194,6 @@ static int dsicm_set_update_window(struct panel_drv_data *ddata,
 	return 0;
 }
 
-static void dsicm_queue_ulps_work(struct panel_drv_data *ddata)
-{
-	if (ddata->ulps_timeout > 0)
-		queue_delayed_work(ddata->workqueue, &ddata->ulps_work,
-				msecs_to_jiffies(ddata->ulps_timeout));
-}
-
-static void dsicm_cancel_ulps_work(struct panel_drv_data *ddata)
-{
-	cancel_delayed_work(&ddata->ulps_work);
-}
-
-static int dsicm_enter_ulps(struct panel_drv_data *ddata)
-{
-	struct omap_dss_device *src = ddata->src;
-	int r;
-
-	if (ddata->ulps_enabled)
-		return 0;
-
-	dsicm_cancel_ulps_work(ddata);
-
-	r = _dsicm_enable_te(ddata, false);
-	if (r)
-		goto err;
-
-	src->ops->dsi.ulps(src, true);
-
-	ddata->ulps_enabled = true;
-
-	return 0;
-
-err:
-	dev_err(&ddata->dsi->dev, "enter ULPS failed");
-	dsicm_panel_reset(ddata);
-
-	ddata->ulps_enabled = false;
-
-	dsicm_queue_ulps_work(ddata);
-
-	return r;
-}
-
-static int dsicm_exit_ulps(struct panel_drv_data *ddata)
-{
-	struct omap_dss_device *src = ddata->src;
-	int r;
-
-	if (!ddata->ulps_enabled)
-		return 0;
-
-	src->ops->dsi.ulps(src, false);
-	ddata->dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
-
-	r = _dsicm_enable_te(ddata, true);
-	if (r) {
-		dev_err(&ddata->dsi->dev, "failed to re-enable TE");
-		goto err2;
-	}
-
-	dsicm_queue_ulps_work(ddata);
-
-	ddata->ulps_enabled = false;
-
-	return 0;
-
-err2:
-	dev_err(&ddata->dsi->dev, "failed to exit ULPS");
-
-	r = dsicm_panel_reset(ddata);
-	if (!r)
-		ddata->ulps_enabled = false;
-
-	dsicm_queue_ulps_work(ddata);
-
-	return r;
-}
-
-static int dsicm_wake_up(struct panel_drv_data *ddata)
-{
-	if (ddata->ulps_enabled)
-		return dsicm_exit_ulps(ddata);
-
-	dsicm_cancel_ulps_work(ddata);
-	dsicm_queue_ulps_work(ddata);
-	return 0;
-}
-
 static int dsicm_bl_update_status(struct backlight_device *dev)
 {
 	struct panel_drv_data *ddata = dev_get_drvdata(&dev->dev);
@@ -310,7 +211,6 @@ static int dsicm_bl_update_status(struct backlight_device *dev)
 	mutex_lock(&ddata->lock);
 
 	if (ddata->enabled) {
-		r = dsicm_wake_up(ddata);
 		if (!r)
 			r = dsicm_dcs_write_1(
 				ddata, MIPI_DCS_SET_DISPLAY_BRIGHTNESS, level);
@@ -340,18 +240,12 @@ static ssize_t dsicm_num_errors_show(struct device *dev,
 {
 	struct panel_drv_data *ddata = dev_get_drvdata(dev);
 	u8 errors = 0;
-	int r;
+	int r = -ENODEV;
 
 	mutex_lock(&ddata->lock);
 
-	if (ddata->enabled) {
-		r = dsicm_wake_up(ddata);
-		if (!r)
-			r = dsicm_dcs_read_1(ddata, DCS_READ_NUM_ERRORS,
-					&errors);
-	} else {
-		r = -ENODEV;
-	}
+	if (ddata->enabled)
+		r = dsicm_dcs_read_1(ddata, DCS_READ_NUM_ERRORS, &errors);
 
 	mutex_unlock(&ddata->lock);
 
@@ -366,17 +260,12 @@ static ssize_t dsicm_hw_revision_show(struct device *dev,
 {
 	struct panel_drv_data *ddata = dev_get_drvdata(dev);
 	u8 id1, id2, id3;
-	int r;
+	int r = -ENODEV;
 
 	mutex_lock(&ddata->lock);
 
-	if (ddata->enabled) {
-		r = dsicm_wake_up(ddata);
-		if (!r)
-			r = dsicm_get_id(ddata, &id1, &id2, &id3);
-	} else {
-		r = -ENODEV;
-	}
+	if (ddata->enabled)
+		r = dsicm_get_id(ddata, &id1, &id2, &id3);
 
 	mutex_unlock(&ddata->lock);
 
@@ -386,103 +275,12 @@ static ssize_t dsicm_hw_revision_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%02x.%02x.%02x\n", id1, id2, id3);
 }
 
-static ssize_t dsicm_store_ulps(struct device *dev,
-		struct device_attribute *attr,
-		const char *buf, size_t count)
-{
-	struct panel_drv_data *ddata = dev_get_drvdata(dev);
-	unsigned long t;
-	int r;
-
-	r = kstrtoul(buf, 0, &t);
-	if (r)
-		return r;
-
-	mutex_lock(&ddata->lock);
-
-	if (ddata->enabled) {
-		if (t)
-			r = dsicm_enter_ulps(ddata);
-		else
-			r = dsicm_wake_up(ddata);
-	}
-
-	mutex_unlock(&ddata->lock);
-
-	if (r)
-		return r;
-
-	return count;
-}
-
-static ssize_t dsicm_show_ulps(struct device *dev,
-		struct device_attribute *attr,
-		char *buf)
-{
-	struct panel_drv_data *ddata = dev_get_drvdata(dev);
-	unsigned int t;
-
-	mutex_lock(&ddata->lock);
-	t = ddata->ulps_enabled;
-	mutex_unlock(&ddata->lock);
-
-	return snprintf(buf, PAGE_SIZE, "%u\n", t);
-}
-
-static ssize_t dsicm_store_ulps_timeout(struct device *dev,
-		struct device_attribute *attr,
-		const char *buf, size_t count)
-{
-	struct panel_drv_data *ddata = dev_get_drvdata(dev);
-	unsigned long t;
-	int r;
-
-	r = kstrtoul(buf, 0, &t);
-	if (r)
-		return r;
-
-	mutex_lock(&ddata->lock);
-	ddata->ulps_timeout = t;
-
-	if (ddata->enabled) {
-		/* dsicm_wake_up will restart the timer */
-		r = dsicm_wake_up(ddata);
-	}
-
-	mutex_unlock(&ddata->lock);
-
-	if (r)
-		return r;
-
-	return count;
-}
-
-static ssize_t dsicm_show_ulps_timeout(struct device *dev,
-		struct device_attribute *attr,
-		char *buf)
-{
-	struct panel_drv_data *ddata = dev_get_drvdata(dev);
-	unsigned int t;
-
-	mutex_lock(&ddata->lock);
-	t = ddata->ulps_timeout;
-	mutex_unlock(&ddata->lock);
-
-	return snprintf(buf, PAGE_SIZE, "%u\n", t);
-}
-
 static DEVICE_ATTR(num_dsi_errors, S_IRUGO, dsicm_num_errors_show, NULL);
 static DEVICE_ATTR(hw_revision, S_IRUGO, dsicm_hw_revision_show, NULL);
-static DEVICE_ATTR(ulps, S_IRUGO | S_IWUSR,
-		dsicm_show_ulps, dsicm_store_ulps);
-static DEVICE_ATTR(ulps_timeout, S_IRUGO | S_IWUSR,
-		dsicm_show_ulps_timeout, dsicm_store_ulps_timeout);
 
 static struct attribute *dsicm_attrs[] = {
 	&dev_attr_num_dsi_errors.attr,
 	&dev_attr_hw_revision.attr,
-	&dev_attr_ulps.attr,
-	&dev_attr_ulps_timeout.attr,
 	NULL,
 };
 
@@ -618,15 +416,6 @@ static void dsicm_power_off(struct panel_drv_data *ddata)
 	ddata->enabled = false;
 }
 
-static int dsicm_panel_reset(struct panel_drv_data *ddata)
-{
-	dev_err(&ddata->dsi->dev, "performing LCD reset\n");
-
-	dsicm_power_off(ddata);
-	dsicm_hw_reset(ddata);
-	return dsicm_power_on(ddata);
-}
-
 static int dsicm_connect(struct omap_dss_device *src,
 			 struct omap_dss_device *dst)
 {
@@ -668,17 +457,12 @@ err:
 static void dsicm_disable(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	int r;
 
 	dsicm_bl_power(ddata, false);
 
 	mutex_lock(&ddata->lock);
 
-	dsicm_cancel_ulps_work(ddata);
-
-	r = dsicm_wake_up(ddata);
-	if (!r)
-		dsicm_power_off(ddata);
+	dsicm_power_off(ddata);
 
 	mutex_unlock(&ddata->lock);
 }
@@ -700,10 +484,6 @@ static int dsicm_update(struct omap_dss_device *dssdev,
 	dev_dbg(&ddata->dsi->dev, "update %d, %d, %d x %d\n", x, y, w, h);
 
 	mutex_lock(&ddata->lock);
-
-	r = dsicm_wake_up(ddata);
-	if (r)
-		goto err;
 
 	if (!ddata->enabled) {
 		r = 0;
@@ -743,24 +523,6 @@ static int _dsicm_enable_te(struct panel_drv_data *ddata, bool enable)
 	msleep(100);
 
 	return r;
-}
-
-static void dsicm_ulps_work(struct work_struct *work)
-{
-	struct panel_drv_data *ddata = container_of(work, struct panel_drv_data,
-			ulps_work.work);
-	struct omap_dss_device *dssdev = &ddata->dssdev;
-
-	mutex_lock(&ddata->lock);
-
-	if (dssdev->state != OMAP_DSS_DISPLAY_ACTIVE || !ddata->enabled) {
-		mutex_unlock(&ddata->lock);
-		return;
-	}
-
-	dsicm_enter_ulps(ddata);
-
-	mutex_unlock(&ddata->lock);
 }
 
 static int dsicm_get_modes(struct omap_dss_device *dssdev,
@@ -860,8 +622,6 @@ static int dsicm_probe_of(struct mipi_dsi_device *dsi)
 	else
 		ddata->use_dsi_backlight = true;
 
-	/* TODO: ulps */
-
 	return 0;
 }
 
@@ -908,13 +668,6 @@ static int dsicm_probe(struct mipi_dsi_device *dsi)
 
 	mutex_init(&ddata->lock);
 
-	ddata->workqueue = create_singlethread_workqueue("dsicm_wq");
-	if (!ddata->workqueue) {
-		r = -ENOMEM;
-		goto err_reg;
-	}
-	INIT_DELAYED_WORK(&ddata->ulps_work, dsicm_ulps_work);
-
 	dsicm_hw_reset(ddata);
 
 	if (ddata->use_dsi_backlight) {
@@ -954,8 +707,6 @@ static int dsicm_probe(struct mipi_dsi_device *dsi)
 err_dsi_attach:
 	sysfs_remove_group(&dsi->dev.kobj, &dsicm_attr_group);
 err_bl:
-	destroy_workqueue(ddata->workqueue);
-err_reg:
 	if (ddata->extbldev)
 		put_device(&ddata->extbldev->dev);
 
@@ -981,9 +732,6 @@ static int __exit dsicm_remove(struct mipi_dsi_device *dsi)
 
 	if (ddata->extbldev)
 		put_device(&ddata->extbldev->dev);
-
-	dsicm_cancel_ulps_work(ddata);
-	destroy_workqueue(ddata->workqueue);
 
 	/* reset, to be sure that the panel is in a valid state */
 	dsicm_hw_reset(ddata);
