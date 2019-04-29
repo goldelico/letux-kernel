@@ -1,5 +1,5 @@
 #
-# Linux/arm 5.0.7 Kernel Configuration
+# Linux/arm 5.0.10 Kernel Configuration
 #
 
 #
@@ -2663,6 +2663,7 @@ CONFIG_UNIX98_PTYS=y
 # CONFIG_NOZOMI is not set
 # CONFIG_N_GSM is not set
 # CONFIG_TRACE_SINK is not set
+CONFIG_LDISC_AUTOLOAD=y
 CONFIG_DEVMEM=y
 CONFIG_DEVKMEM=y
 
@@ -2734,7 +2735,6 @@ CONFIG_HW_RANDOM_BCM2835=y
 CONFIG_HW_RANDOM_OMAP=y
 CONFIG_HW_RANDOM_OMAP3_ROM=y
 CONFIG_HW_RANDOM_IMX_RNGC=y
-# CONFIG_R3964 is not set
 # CONFIG_APPLICOM is not set
 # CONFIG_RAW_DRIVER is not set
 # CONFIG_TCG_TPM is not set

@@ -1,5 +1,5 @@
 #
-# Linux/mips 5.0.7 Kernel Configuration
+# Linux/mips 5.0.10 Kernel Configuration
 #
 
 #
@@ -1495,6 +1495,7 @@ CONFIG_UNIX98_PTYS=y
 # CONFIG_SERIAL_NONSTANDARD is not set
 # CONFIG_N_GSM is not set
 # CONFIG_TRACE_SINK is not set
+CONFIG_LDISC_AUTOLOAD=y
 CONFIG_DEVMEM=y
 CONFIG_DEVKMEM=y
 
@@ -1523,7 +1524,6 @@ CONFIG_DEVKMEM=y
 # CONFIG_IPMI_HANDLER is not set
 CONFIG_HW_RANDOM=y
 # CONFIG_HW_RANDOM_TIMERIOMEM is not set
-# CONFIG_R3964 is not set
 # CONFIG_RAW_DRIVER is not set
 # CONFIG_TCG_TPM is not set
 # CONFIG_XILLYBUS is not set
