@@ -7,7 +7,6 @@ typedef _Bool bool; // get typedef for bool
 #endif
 
 #include <linux/capability.h>
-#include <linux/socket.h>
 
 #define COMMON_FILE_SOCK_PERMS "ioctl", "read", "write", "create", \
     "getattr", "setattr", "lock", "relabelfrom", "relabelto", "append", "map"
