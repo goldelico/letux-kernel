@@ -1169,6 +1169,8 @@
 				reg = <0x0 0x80>;
 				clocks = <&l4per_clkctrl OMAP5_TIMER9_CLKCTRL 24>;
 				clock-names = "fck";
+				assigned-clocks = <&l4per_clkctrl OMAP5_TIMER9_CLKCTRL 24>;
+				assigned-clock-parents = <&sys_clkin>;
 				interrupts = <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>;
 				ti,timer-pwm;
 			};
