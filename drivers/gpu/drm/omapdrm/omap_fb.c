@@ -66,8 +66,49 @@ struct omap_framebuffer {
 	struct mutex lock;
 };
 
+/* Iterator for framebuffer's CRTCs */
+static struct drm_crtc *omap_framebuffer_get_next_crtc(
+		struct drm_framebuffer *fb, struct drm_crtc *from)
+{
+	struct drm_device *dev = fb->dev;
+	struct list_head *crtc_list = &dev->mode_config.crtc_list;
+	struct drm_crtc *crtc = from;
+
+	if (!from)
+		return list_first_entry_or_null(crtc_list, typeof(*from), head);
+
+	list_for_each_entry_from(crtc, crtc_list, head) {
+		if (crtc == from)
+			continue;
+
+		if (crtc && crtc->primary->fb == fb)
+			return crtc;
+	}
+
+	return NULL;
+}
+
+static int omap_framebuffer_dirty(struct drm_framebuffer *fb,
+				  struct drm_file *file_priv,
+				  unsigned flags, unsigned color,
+				  struct drm_clip_rect *clips,
+				  unsigned num_clips)
+{
+	struct drm_crtc *crtc = NULL;
+
+	drm_modeset_lock_all(fb->dev);
+
+	while ((crtc = omap_framebuffer_get_next_crtc(fb, crtc)))
+		omap_crtc_flush(crtc);
+
+	drm_modeset_unlock_all(fb->dev);
+
+	return 0;
+}
+
 static const struct drm_framebuffer_funcs omap_framebuffer_funcs = {
 	.create_handle = drm_gem_fb_create_handle,
+	.dirty = omap_framebuffer_dirty,
 	.destroy = drm_gem_fb_destroy,
 };
 
