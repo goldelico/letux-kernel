@@ -37,7 +37,11 @@
 #include "prm2xxx_3xxx.h"
 #include "pm.h"
 
+#ifdef CONFIG_OMAP3_PM_OFFMODE
+u32 enable_off_mode = 1;
+#else
 u32 enable_off_mode;
+#endif
 
 #ifdef CONFIG_DEBUG_FS
 #include <linux/debugfs.h>
