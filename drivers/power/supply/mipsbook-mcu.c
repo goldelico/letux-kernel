@@ -12,7 +12,7 @@
 #include <linux/power_supply.h>
 #include <linux/pm.h>
 
-#define DRV_VERSION "1.0"
+#define DRV_VERSION "2.0"
 
 static struct i2c_client *mcu;
 
@@ -54,7 +54,7 @@ static enum power_supply_property minipc_battery_properties[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 };
 
-static struct power_supply minipc_battery = {
+static struct power_supply_desc minipc_battery = {
 	.name = "battery",
 	.type = POWER_SUPPLY_TYPE_BATTERY,
 	.properties = minipc_battery_properties,
@@ -83,7 +83,7 @@ static enum power_supply_property minipc_psu_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 };
 
-static struct power_supply minipc_psu = {
+static struct power_supply_desc minipc_psu = {
 	.name = "psu",
 	.type = POWER_SUPPLY_TYPE_MAINS,
 	.properties = minipc_psu_properties,
@@ -99,6 +99,8 @@ static void minipc_mcu_power_off(void)
 static int minipc_mcu_probe(struct i2c_client *client,
 			    const struct i2c_device_id *id)
 {
+	struct power_supply_config psy_cfg = {};
+
 	dev_dbg(&client->dev, "%s\n", __func__);
 
 	if (mcu)
@@ -109,10 +111,13 @@ static int minipc_mcu_probe(struct i2c_client *client,
 
 	dev_info(&client->dev, "chip found, driver version " DRV_VERSION "\n");
 
-	minipc_battery.use_for_apm = power_supply_register(&client->dev,
-							   &minipc_battery);
-	minipc_psu.use_for_apm = power_supply_register(&client->dev,
-						       &minipc_psu);
+// FIXME:
+	minipc_battery.use_for_apm = !!power_supply_register(&client->dev,
+							   &minipc_battery,
+							   &psy_cfg);
+	minipc_psu.use_for_apm = !!power_supply_register(&client->dev,
+						         &minipc_psu,
+							 &psy_cfg);
 
 	mcu = client;
 	pm_power_off = minipc_mcu_power_off;
@@ -149,20 +154,9 @@ static struct i2c_driver minipc_mcu_driver = {
 	.id_table	= minipc_mcu_id,
 };
 
-static int __init minipc_mcu_init(void)
-{
-	return i2c_add_driver(&minipc_mcu_driver);
-}
-
-static void __exit minipc_mcu_exit(void)
-{
-	i2c_del_driver(&minipc_mcu_driver);
-}
-
 MODULE_AUTHOR("Daniel Gloeckner <daniel-gl@gmx.net>");
 MODULE_DESCRIPTION("Letux 400 LPC915 MCU driver");
 MODULE_LICENSE("GPL");
 MODULE_VERSION(DRV_VERSION);
 
-module_init(minipc_mcu_init);
-module_exit(minipc_mcu_exit);
+module_i2c_driver(minipc_mcu_driver);
