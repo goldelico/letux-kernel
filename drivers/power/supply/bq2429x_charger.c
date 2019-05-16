@@ -1244,7 +1244,8 @@ static void bq24296_charger_shutdown(struct i2c_client *client)
 { /* make sure we turn off OTG mode on power down */
 	struct bq24296_device_info *di = i2c_get_clientdata(client);
 
-	bq24296_otg_disable(di->rdev[1]);	/* turn off otg regulator */
+	if (bq24296_otg_is_enabled(di->rdev[1]))
+		bq24296_otg_disable(di->rdev[1]);	/* turn off otg regulator */
 }
 
 /* SYSFS interface */
