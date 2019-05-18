@@ -14,7 +14,7 @@
 
 / {
 	model = "Letux Cortex 15";
-	compatible = "ti,omap5-uevm", "ti,omap5";
+	compatible = "goldelico,lc15", "ti,omap5-uevm", "ti,omap5";
 
 	aliases {
 		display0 = &lcd;
