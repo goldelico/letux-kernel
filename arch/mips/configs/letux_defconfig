@@ -1,5 +1,5 @@
 #
-# Linux/mips 4.14.116 Kernel Configuration
+# Linux/mips 4.14.120 Kernel Configuration
 #
 CONFIG_MIPS=y
 
@@ -1123,6 +1123,7 @@ CONFIG_NET_CORE=y
 # CONFIG_NET_TEAM is not set
 # CONFIG_MACVLAN is not set
 # CONFIG_VXLAN is not set
+# CONFIG_GTP is not set
 # CONFIG_MACSEC is not set
 # CONFIG_NETCONSOLE is not set
 # CONFIG_NETPOLL is not set
