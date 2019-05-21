@@ -524,6 +524,7 @@ struct iio_buffer_setup_ops {
  * @flags:		[INTERN] file ops related flags including busy flag.
  * @debugfs_dentry:	[INTERN] device specific debugfs dentry.
  * @cached_reg_addr:	[INTERN] cached register address for debugfs reads.
+ * @input_mapping:	[INTERN] mapping for input device
  */
 struct iio_dev {
 	int				id;
@@ -569,6 +570,9 @@ struct iio_dev {
 #if defined(CONFIG_DEBUG_FS)
 	struct dentry			*debugfs_dentry;
 	unsigned			cached_reg_addr;
+#endif
+#if defined(CONFIG_IIO_INPUT_BRIDGE)
+	void				*input_mapping;
 #endif
 };
 
