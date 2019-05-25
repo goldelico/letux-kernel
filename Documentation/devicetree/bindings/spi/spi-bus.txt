@@ -47,6 +47,10 @@ cs1 : native
 cs2 : &gpio1 1 0
 cs3 : &gpio1 2 0
 
+WARNING: the polarity of cs-gpios may be inverted in some cases compared
+to what is specified in the third parameter. In that case the spi-cs-high
+property must be defined for slave nodes.
+
 
 SPI slave nodes must be children of the SPI controller node.
 
@@ -69,6 +73,8 @@ All slave nodes can contain the following optional properties:
 		    phase (CPHA) mode.
 - spi-cs-high     - Empty property indicating device requires chip select
 		    active high.
+                   WARNING: this is especially required even if the cs-gpios
+		    define the gpio as GPIO_ACTIVE_HIGH
 - spi-3wire       - Empty property indicating device requires 3-wire mode.
 - spi-lsb-first   - Empty property indicating device requires LSB first mode.
 - spi-tx-bus-width - The bus width (number of data wires) that is used for MOSI.
