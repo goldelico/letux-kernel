@@ -7,9 +7,10 @@
  *
  * based on d2l panel driver by Jerry Alexander <x0135174@ti.com>
  *
- * Copyright (C) 2014-2018 Golden Delicious Computers
+ * Copyright (C) 2014-2019 Golden Delicious Computers
  * by H. Nikolaus Schaller <hns@goldelico.com>
  * based on lg4591 panel driver
+ * harmonized with latest panel-dsi-cm.c
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -24,7 +25,7 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define LOG 0
+#define LOG 1
 #define OPTIONAL 0
 
 #include <linux/backlight.h>
@@ -35,12 +36,14 @@
 #include <linux/jiffies.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
-#include <linux/regulator/consumer.h>
 #include <linux/sched/signal.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
 #include <linux/of_device.h>
 #include <linux/of_gpio.h>
+#include <linux/regulator/consumer.h>
+
+#include <drm/drm_connector.h>
 
 #include <video/mipi_display.h>
 #include <video/of_display_timing.h>
@@ -113,8 +116,6 @@ struct panel_drv_data {
 	struct platform_device *pdev;
 
 	struct mutex lock;
-
-	int bl;
 
 	int reset_gpio;
 	int regulator_gpio;
@@ -466,22 +467,15 @@ static int w677l_set_brightness(struct backlight_device *bd)
 
 	dev_dbg(&ddata->pdev->dev, "set_brightness(%d)\n", bl);
 
-	if (bl == ddata->bl)
-		return 0;
-
 #if 0
 
 	mutex_lock(&ddata->lock);
 
-	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE) {
-		src->ops->dsi.bus_lock(src);
+	src->ops->dsi.bus_lock(src);
 
-		r = w677l_update_brightness(dssdev, bl);
-		if (!r)
-			ddata->bl = bl;
+	r = w677l_update_brightness(dssdev, bl);
 
-		src->ops->dsi.bus_unlock(src);
-	}
+	src->ops->dsi.bus_unlock(src);
 
 	mutex_unlock(&ddata->lock);
 #endif
@@ -499,11 +493,6 @@ static int w677l_get_brightness(struct backlight_device *bd)
 	int r = 0;
 
 	dev_dbg(&ddata->pdev->dev, "get_brightness()\n");
-
-	if (dssdev->state != OMAP_DSS_DISPLAY_ACTIVE) {
-		dev_err(&ddata->pdev->dev, "get_brightness: display is not active\n");
-		return 0;
-	}
 
 	mutex_lock(&ddata->lock);
 
@@ -593,25 +582,6 @@ static void w677l_disconnect(struct omap_dss_device *src, struct omap_dss_device
 	ddata->src = NULL;
 }
 
-#if 0
-static void w677l_get_timings(struct omap_dss_device *dssdev,
-		struct videomode *timings)
-{
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *src = ddata->src;
-
-	dev_dbg(&ddata->pdev->dev, "get_timings()  in = %s %u %p\n", src->name, src->alias_id, src->ops);
-
-	/* if we are connected to the ssd2858 driver src->ops provides get_timings() */
-
-	if (src->ops && src->ops->get_timings) {
-		dev_dbg(&ddata->pdev->dev, "get_timings() from source\n");
-		src->ops->get_timings(src, timings);
-	} else
-		*timings = ddata->vm;
-}
-#endif
-
 static int w677l_check_timings(struct omap_dss_device *dssdev,
 		struct drm_display_mode *timings)
 {
@@ -631,15 +601,6 @@ static int w677l_check_timings(struct omap_dss_device *dssdev,
 
 	return 0;
 }
-
-#if 0
-static void w677l_get_size(struct omap_dss_device *dssdev,
-		unsigned int *width, unsigned int *height)
-{
-	*width = 63;
-	*height = 112;
-}
-#endif
 
 static void w677l_enable(struct omap_dss_device *dssdev)
 {
@@ -779,8 +740,6 @@ ok:
 
 	if (r)
 		dev_err(&ddata->pdev->dev, "enable failed\n");
-	else
-		dssdev->state = OMAP_DSS_DISPLAY_ACTIVE;
 
 	mutex_unlock(&ddata->lock);
 
@@ -829,8 +788,17 @@ static void w677l_disable(struct omap_dss_device *dssdev)
 
 	mutex_unlock(&ddata->lock);
 	dev_dbg(&ddata->pdev->dev, "disable finished)\n");
+}
 
-	dssdev->state = OMAP_DSS_DISPLAY_DISABLED;
+static int w677l__panel_get_modes(struct omap_dss_device *dssdev,
+				      struct drm_connector *connector)
+{
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+
+	connector->display_info.width_mm = 63;
+	connector->display_info.height_mm = 112;
+
+	return omapdss_display_get_modes(connector, &ddata->vm);
 }
 
 static struct omap_dss_device_ops w677l_dss_ops = {
@@ -840,12 +808,13 @@ static struct omap_dss_device_ops w677l_dss_ops = {
 	.enable		= w677l_enable,
 	.disable	= w677l_disable,
 
-//	.get_timings	= w677l_get_timings,
 	.check_timings	= w677l_check_timings,
+
+	.get_modes	= w677l__panel_get_modes,
+
 };
 
 static struct omap_dss_driver w677l_dss_driver = {
-//	.get_size	= w677l_get_size,
 };
 
 static int w677l_probe_of(struct platform_device *pdev)
@@ -916,8 +885,10 @@ static int w677l_probe(struct platform_device *pdev)
 	dssdev->ops = &w677l_dss_ops;
 	dssdev->driver = &w677l_dss_driver;
 	dssdev->type = OMAP_DISPLAY_TYPE_DSI;
+	dssdev->display = true;
 	dssdev->owner = THIS_MODULE;
 	dssdev->of_ports = BIT(0);
+	dssdev->ops_flags = OMAP_DSS_DEVICE_OP_MODES;
 
 #if 0
 	dssdev->caps = OMAP_DSS_DISPLAY_CAP_MANUAL_UPDATE |
