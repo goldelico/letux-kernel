@@ -606,7 +606,11 @@ static int really_probe(struct device *dev, const struct device_driver *drv)
 			   !drv->suppress_bind_attrs;
 	int ret, link_ret;
 
-printk("%s\n", __func__);
+	printk("%s: driver %s\n", __func__, drv->name);
+#undef pr_debug
+#undef dev_dbg
+#define pr_debug pr_info
+#define dev_dbg dev_info
 
 	if (defer_all_probes) {
 		/*
