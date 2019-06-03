@@ -24,6 +24,7 @@ struct gab_platform_data {
 	int	gpio_charge_finished;
 	bool	gpio_inverted;
 	int     jitter_delay;
+	bool charger_detected;
 };
 
 #endif /* GENERIC_ADC_BATTERY_H */
