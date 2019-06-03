@@ -3,6 +3,8 @@
  *  Copyright (C) 2009-2010, Lars-Peter Clausen <lars@metafoo.de>
  *  Copyright (C) 2011, Maarten ter Huurne <maarten@treewalker.org>
  *  JZ4740 setup code
+ *  Copyright (C) 2017 Paul Boddie <paul@boddie.org.uk>
+ *  JZ4730 customisations
  */
 
 #include <linux/init.h>
@@ -49,6 +51,8 @@ static unsigned long __init get_board_mach_type(const void *fdt)
 		return MACH_INGENIC_JZ4780;
 	if (!fdt_node_check_compatible(fdt, 0, "ingenic,jz4770"))
 		return MACH_INGENIC_JZ4770;
+	if (!fdt_node_check_compatible(fdt, 0, "ingenic,jz4730"))
+		return MACH_INGENIC_JZ4730;
 
 	return MACH_INGENIC_JZ4740;
 }
@@ -89,6 +93,8 @@ const char *get_system_type(void)
 		return "JZ4780";
 	case MACH_INGENIC_JZ4770:
 		return "JZ4770";
+	case MACH_INGENIC_JZ4730:
+		return "JZ4730";
 	default:
 		return "JZ4740";
 	}
