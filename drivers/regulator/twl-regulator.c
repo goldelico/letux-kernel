@@ -478,6 +478,7 @@ static const struct twlreg_info TWL4030_INFO_##label = { \
 		.type = REGULATOR_VOLTAGE, \
 		.owner = THIS_MODULE, \
 		.enable_time = turnon_delay, \
+		.continuous_voltage_range = true, \
 		.of_map_mode = twl4030reg_map_mode, \
 		}, \
 	}
