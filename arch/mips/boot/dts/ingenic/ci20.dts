@@ -115,11 +115,11 @@
 		};
 		led1 {
 			gpios = <&gpc 2 0>;
-			linux,default-trigger = "nand-disk";
+			linux,default-trigger = "mmc0";
 		};
 		led0 {
 			gpios = <&gpc 3 0>;
-			linux,default-trigger = "none";
+			linux,default-trigger = "heartbeat";
 		};
 	};
 };
