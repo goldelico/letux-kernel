@@ -1,16 +1,14 @@
 #!/system/bin/sh
 #Debian/4.5 uses this extra modules, which are unused in Replicant, up to now:
-#autofs4                25916  1 
-#usb_f_ecm               7039  1 
-#g_ether                 4993  0 
+#autofs4                25916  1
+#usb_f_ecm               7039  1
+#g_ether                 4993  0
 #usb_f_rndis            16962  2 g_ether
 #u_ether                13270  3 usb_f_ecm,usb_f_rndis,g_ether
-#ipv6                  410330  20 
+#ipv6                  410330  20
 #hso                    30144  0 #(this is built-in the Replicant kernel)
-#encoder_opa362          3378  1 
-#twl4030_madc_hwmon      3361  0 
-#connector_analog_tv     3566  1 
-#twl4030_madc_battery     3998  0 
+#twl4030_madc_hwmon      3361  0
+#twl4030_madc_battery     3998  0
 
 #This scipt loads some modules, which are not loaded automatically (for some reason)
 DEVICE=$(cat /sys/firmware/devicetree/base/model)
@@ -20,6 +18,9 @@ echo "Detected model:" $DEVICE
 modprobe panel_tpo_td028ttec1 #Letux 2804
 modprobe panel_dpi #Letux 3704/7004
 modprobe omapdrm
+modprobe omapdss
+modprobe connector-analog-tv
+modprobe encoder-opa362
 
 #Audio
 modprobe snd-soc-twl4030
@@ -39,9 +40,9 @@ modprobe tsc2007
 #Battery/Charger
 modprobe phy-twl4030-usb
 modprobe twl4030_madc
-modprobe twl4030_charger
+modprobe twl4030_charger allow_usb=1
 modprobe omap_hdq
-modprobe w1_bq27000
+#modprobe w1_bq27000
 case "$DEVICE" in
     "Goldelico GTA04A3/Letux 2804" | "Goldelico GTA04A4/Letux 2804" | "Goldelico GTA04A5/Letux 2804" )
         #GTA04 a3/a4/a5 (Letux 2804)
@@ -94,13 +95,13 @@ modprobe wwan-on-off
 chmod 777 /dev/rfkill
 
 #Sensors
-modprobe bmp085-i2c
+modprobe bmp280-i2c
 modprobe itg3200
 modprobe hmc5843_i2c
 modprobe lis3lv02d_i2c
-modprobe bma150
+modprobe bma180
 chmod 666 /dev/input/*
-chmod 666 /sys/class/input/*/poll
+#chmod 666 /sys/class/input/*/poll
 chmod 666 /dev/iio:device*
 #chmod 666 /sys/bus/iio/devices/iio:device*/*
 chmod 666 /sys/bus/iio/devices/iio:device*/scan_elements/*
@@ -114,7 +115,7 @@ modprobe extcon-gpio
 
 #Misc
 modprobe gpio_twl4030
-modprobe rtc_twl
+#modprobe rtc_twl
 modprobe at24 #I2C-EEPROM
 sleep 6
 kill `pidof mediaserver`
