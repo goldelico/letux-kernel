@@ -88,6 +88,8 @@ modprobe hci_uart
 modprobe leds-tca6507 #needed for MMC reset/power (the WiFi chip is connected via MMC)
 modprobe libertas #autoloads the cfg80211 dependency
 #libertas_sdio is loaded by the Android framework, once WiFi is enabled
+modprobe wl18xx
+modprobe wlcore_sdio
 
 #WWAN
 modprobe ehci-omap
