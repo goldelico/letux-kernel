@@ -1,0 +1,63 @@
+#!/bin/bash
+# process replicant modules
+
+# for MacOS X tar
+export COPY_EXTENDED_ATTRIBUTES_DISABLED=true
+# for 10.5
+export COPYFILE_DISABLE=true
+
+## mangle modules.tbz into correct shape needed by replicant's busybox
+##
+## see https://android.googlesource.com/device/asus/fugu/+/b01b7fd/AndroidKernel.mk#102
+## 1. flatten all modules
+## 2. prepare for depmod
+## 3. depmod
+## 4. convert depmod to busybox-depmod format
+## 5. (re)pack so that they are patched to rootfs/system/lib/modules
+##
+
+[ "$1" = "-v" ] && VERBOSE=-v
+
+KERNEL_FILES=/tmp/kernel-$$
+DEST=arch/arm/boot/modules.tgz
+RELEASE=$(cat include/config/kernel.release)
+
+mkdir -p $KERNEL_FILES/modules
+echo unpack to $KERNEL_FILES/modules
+tar xzf $DEST -C $KERNEL_FILES/modules || exit
+
+echo flatten to $KERNEL_FILES/system/lib/modules
+mkdir -p $KERNEL_FILES/system/lib/modules
+find $KERNEL_FILES/modules/lib/modules -name *.ko -exec cp {} $KERNEL_FILES/system/lib/modules \;
+rm -rf $KERNEL_FILES/modules
+
+echo depmod
+
+mkdir -p $KERNEL_FILES/depmod/lib/modules
+ln -sf $KERNEL_FILES/system/lib/modules $KERNEL_FILES/depmod/lib/modules/$RELEASE
+depmod -b $KERNEL_FILES/depmod $RELEASE || exit
+ls -l $KERNEL_FILES/system/lib/modules/modules.dep
+rm -rf $KERNEL_FILES/depmod
+
+echo translate modules.dep into modules.dep.bb
+while read LINE
+do
+	MODULE=$(echo $LINE | sed 's/\([^:]*\).ko:.*/\1/g')
+	MOREINFO=""	# usb: symbol: platform: of: etc.
+	MOREINFO+=$(grep "alias .* $MODULE" <$KERNEL_FILES/system/lib/modules/modules.alias | sed "s/alias \([^ ]*\) $MODULE/\1/g")
+	DEPENDS=$(echo $LINE | sed 's/[^:]*://g' | sed 's/\.ko//g')
+	echo $MODULE.ko $MOREINFO
+	[ "$DEPENDS" ] && echo $DEPENDS
+	echo ""
+done <$KERNEL_FILES/system/lib/modules/modules.dep >$KERNEL_FILES/system/lib/modules/modules.dep.bb
+ls -l $KERNEL_FILES/system/lib/modules/modules.dep.bb
+
+if [ -d Letux/replicant ]
+then
+	echo copy additional tree Letux/replicant
+	# --dereference to expand symlink for tiwi firmware
+	(cd Letux/replicant && tar cf - --dereference --exclude .DS_Store .) | (cd $KERNEL_FILES && tar xf - $VERBOSE)
+fi
+
+echo repack into $DEST.bb
+tar czf $DEST.bb --exclude .DS_Store -C $KERNEL_FILES .
