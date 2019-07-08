@@ -148,4 +148,11 @@
 		vdda-supply = <&vio>;
 		vddd-supply = <&vio>;
 	};
+
+	bno055@29 {
+		compatible = "bosch,bno055";
+		reg = <0x29>;
+		bosch,operation-mode = <7>;	/* BNO055_MODE_AMG */
+// irq
+	};
 };
