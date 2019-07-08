@@ -1,0 +1,17 @@
+Texas Instruments TWL family (twl4030) analog signal conversion monitor module
+
+Required properties:
+- compatible : must be "ti,twl4030-madc"
+- interrupts : interrupt number
+
+Example:
+twl: twl@48 {
+	reg = <0x48>;
+	interrupts = <7>; /* SYS_NIRQ cascaded to intc */
+	interrupt-parent = <&intc>;
+
+	twl_madc: madc {
+		compatible = "ti,twl4030-madc";
+		interrupts = <1>;
+	};
+};

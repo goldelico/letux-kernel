@@ -136,6 +136,7 @@ static struct omap_hwmod omap54xx_l4_abe_hwmod = {
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = OMAP54XX_CM_ABE_L4_ABE_CLKCTRL_OFFSET,
+			.context_offs = OMAP54XX_RM_ABE_AESS_CONTEXT_OFFSET,
 			.flags = HWMOD_OMAP4_NO_CONTEXT_LOSS_BIT,
 		},
 	},
@@ -196,6 +197,42 @@ static struct omap_hwmod omap54xx_mpu_private_hwmod = {
 	.prcm = {
 		.omap4 = {
 			.flags = HWMOD_OMAP4_NO_CONTEXT_LOSS_BIT,
+		},
+	},
+};
+
+/*
+ * 'aess' class
+ * audio engine sub system
+ */
+
+static struct omap_hwmod_class_sysconfig omap54xx_aess_sysc = {
+	.rev_offs	= 0x0000,
+	.sysc_offs	= 0x0010,
+	.sysc_flags	= (SYSC_HAS_MIDLEMODE | SYSC_HAS_SIDLEMODE),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
+			   MSTANDBY_FORCE | MSTANDBY_NO | MSTANDBY_SMART |
+			   MSTANDBY_SMART_WKUP),
+	.sysc_fields	= &omap_hwmod_sysc_type2,
+};
+
+static struct omap_hwmod_class omap54xx_aess_hwmod_class = {
+	.name	= "aess",
+	.sysc	= &omap54xx_aess_sysc,
+	.enable_preprogram = omap_hwmod_aess_preprogram,
+};
+
+/* aess */
+static struct omap_hwmod omap54xx_aess_hwmod = {
+	.name		= "aess",
+	.class		= &omap54xx_aess_hwmod_class,
+	.clkdm_name	= "abe_clkdm",
+	.main_clk	= "aess_fclk",
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs = OMAP54XX_CM_ABE_AESS_CLKCTRL_OFFSET,
+			.context_offs = OMAP54XX_RM_ABE_AESS_CONTEXT_OFFSET,
+			.modulemode   = MODULEMODE_SWCTRL,
 		},
 	},
 };
@@ -590,6 +627,40 @@ static struct omap_hwmod omap54xx_emif2_hwmod = {
 			.clkctrl_offs = OMAP54XX_CM_EMIF_EMIF2_CLKCTRL_OFFSET,
 			.context_offs = OMAP54XX_RM_EMIF_EMIF2_CONTEXT_OFFSET,
 			.modulemode   = MODULEMODE_HWCTRL,
+		},
+	},
+};
+
+/*
+ * 'gpu' class
+ * 3d graphics accelerator
+ */
+
+static struct omap_hwmod_class_sysconfig omap54xx_gpu_sysc = {
+	.rev_offs       = 0x0000,
+	.sysc_offs      = 0x0010,
+	.sysc_flags     = (SYSC_HAS_MIDLEMODE | SYSC_HAS_SIDLEMODE),
+	.idlemodes      = (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
+			   SIDLE_SMART_WKUP | MSTANDBY_FORCE | MSTANDBY_NO |
+			   MSTANDBY_SMART | MSTANDBY_SMART_WKUP),
+	.sysc_fields    = &omap_hwmod_sysc_type2,
+};
+
+static struct omap_hwmod_class omap54xx_gpu_hwmod_class = {
+	.name   = "gpu",
+	.sysc   = &omap54xx_gpu_sysc,
+};
+
+static struct omap_hwmod omap54xx_gpu_hwmod = {
+	.name           = "gpu",
+	.class          = &omap54xx_gpu_hwmod_class,
+	.clkdm_name     = "gpu_clkdm",
+	.main_clk       = "gpu_core_gclk_mux",
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs = OMAP54XX_CM_GPU_GPU_CLKCTRL_OFFSET,
+			.context_offs = OMAP54XX_RM_GPU_GPU_CONTEXT_OFFSET,
+			.modulemode   = MODULEMODE_SWCTRL,
 		},
 	},
 };
@@ -1603,6 +1674,14 @@ static struct omap_hwmod_ocp_if omap54xx_l4_cfg__l3_main_3 = {
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
+/* aess -> l4_abe */
+static struct omap_hwmod_ocp_if __maybe_unused omap54xx_aess__l4_abe = {
+	.master		= &omap54xx_aess_hwmod,
+	.slave		= &omap54xx_l4_abe_hwmod,
+	.clk		= "abe_iclk",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
 /* l3_main_1 -> l4_abe */
 static struct omap_hwmod_ocp_if omap54xx_l3_main_1__l4_abe = {
 	.master		= &omap54xx_l3_main_1_hwmod,
@@ -1665,6 +1744,22 @@ static struct omap_hwmod_ocp_if omap54xx_l4_cfg__dma_system = {
 	.slave		= &omap54xx_dma_system_hwmod,
 	.clk		= "l4_root_clk_div",
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
+/* l4_abe -> aess */
+static struct omap_hwmod_ocp_if __maybe_unused omap54xx_l4_abe__aess = {
+	.master		= &omap54xx_l4_abe_hwmod,
+	.slave		= &omap54xx_aess_hwmod,
+	.clk		= "abe_iclk",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
+/* l4_abe -> aess (dma) */
+static struct omap_hwmod_ocp_if __maybe_unused omap54xx_l4_abe__aess_dma = {
+	.master		= &omap54xx_l4_abe_hwmod,
+	.slave		= &omap54xx_aess_hwmod,
+	.clk		= "abe_iclk",
+	.user		= OCP_USER_SDMA,
 };
 
 /* l4_abe -> dmic */
@@ -1739,6 +1834,14 @@ static struct omap_hwmod_ocp_if omap54xx_mpu__emif2 = {
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
+/* l3_main_1 -> gpu */
+static struct omap_hwmod_ocp_if omap54xx_l3_main_1__gpu = {
+	.master         = &omap54xx_l3_main_1_hwmod,
+	.slave          = &omap54xx_gpu_hwmod,
+	.clk            = "l3_iclk_div",
+	.user           = OCP_USER_MPU | OCP_USER_SDMA,
+};
+
 /* l4_wkup -> kbd */
 static struct omap_hwmod_ocp_if omap54xx_l4_wkup__kbd = {
 	.master		= &omap54xx_l4_wkup_hwmod,
@@ -1784,7 +1887,7 @@ static struct omap_hwmod_ocp_if omap54xx_l4_abe__mcpdm = {
 	.master		= &omap54xx_l4_abe_hwmod,
 	.slave		= &omap54xx_mcpdm_hwmod,
 	.clk		= "abe_iclk",
-	.user		= OCP_USER_MPU,
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
 /* l4_per -> mcspi1 */
@@ -1974,6 +2077,8 @@ static struct omap_hwmod_ocp_if *omap54xx_hwmod_ocp_ifs[] __initdata = {
 	&omap54xx_l3_main_1__l3_main_3,
 	&omap54xx_l3_main_2__l3_main_3,
 	&omap54xx_l4_cfg__l3_main_3,
+	&omap54xx_l4_abe__aess,
+	&omap54xx_aess__l4_abe,
 	&omap54xx_l3_main_1__l4_abe,
 	&omap54xx_mpu__l4_abe,
 	&omap54xx_l3_main_1__l4_cfg,
@@ -1992,6 +2097,7 @@ static struct omap_hwmod_ocp_if *omap54xx_hwmod_ocp_ifs[] __initdata = {
 	&omap54xx_l3_main_2__dss_rfbi,
 	&omap54xx_mpu__emif1,
 	&omap54xx_mpu__emif2,
+	&omap54xx_l3_main_1__gpu,
 	&omap54xx_l3_main_2__mmu_ipu,
 	&omap54xx_l4_wkup__kbd,
 	&omap54xx_l4_cfg__mailbox,
