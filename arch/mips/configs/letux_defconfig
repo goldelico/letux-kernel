@@ -1,5 +1,5 @@
 #
-# Linux/mips 4.19.57 Kernel Configuration
+# Linux/mips 4.19.58 Kernel Configuration
 #
 
 #
@@ -2126,7 +2126,6 @@ CONFIG_IR_SHARP_DECODER=y
 CONFIG_IR_MCE_KBD_DECODER=y
 CONFIG_IR_XMP_DECODER=y
 # CONFIG_IR_IMON_DECODER is not set
-# CONFIG_IR_RCMM_DECODER is not set
 CONFIG_RC_DEVICES=y
 # CONFIG_RC_ATI_REMOTE is not set
 # CONFIG_IR_HIX5HD2 is not set
@@ -2146,218 +2145,7 @@ CONFIG_IR_GPIO_TX=m
 # CONFIG_IR_PWM_TX is not set
 # CONFIG_IR_SERIAL is not set
 # CONFIG_IR_SIR is not set
-# CONFIG_RC_XBOX_DVD is not set
-
-#
-# Multimedia core support
-#
-CONFIG_MEDIA_CAMERA_SUPPORT=y
-# CONFIG_MEDIA_ANALOG_TV_SUPPORT is not set
-# CONFIG_MEDIA_DIGITAL_TV_SUPPORT is not set
-# CONFIG_MEDIA_RADIO_SUPPORT is not set
-# CONFIG_MEDIA_SDR_SUPPORT is not set
-# CONFIG_MEDIA_CEC_SUPPORT is not set
-CONFIG_MEDIA_CONTROLLER=y
-CONFIG_VIDEO_DEV=m
-CONFIG_VIDEO_V4L2_SUBDEV_API=y
-CONFIG_VIDEO_V4L2=m
-# CONFIG_VIDEO_ADV_DEBUG is not set
-# CONFIG_VIDEO_FIXED_MINOR_RANGES is not set
-
-#
-# Media drivers
-#
-# CONFIG_MEDIA_USB_SUPPORT is not set
-CONFIG_V4L_PLATFORM_DRIVERS=y
-# CONFIG_VIDEO_CADENCE is not set
-# CONFIG_VIDEO_MUX is not set
-# CONFIG_SOC_CAMERA is not set
-# CONFIG_VIDEO_XILINX is not set
-# CONFIG_V4L_MEM2MEM_DRIVERS is not set
-# CONFIG_V4L_TEST_DRIVERS is not set
-
-#
-# Supported MMC/SDIO adapters
-#
-# CONFIG_CYPRESS_FIRMWARE is not set
-
-#
-# Media ancillary drivers (tuners, sensors, i2c, spi, frontends)
-#
-# CONFIG_MEDIA_SUBDRV_AUTOSELECT is not set
-CONFIG_VIDEO_IR_I2C=m
-
-#
-# I2C Encoders, decoders, sensors and other helper chips
-#
-
-#
-# Audio decoders, processors and mixers
-#
-# CONFIG_VIDEO_TVAUDIO is not set
-# CONFIG_VIDEO_TDA7432 is not set
-# CONFIG_VIDEO_TDA9840 is not set
-# CONFIG_VIDEO_TDA1997X is not set
-# CONFIG_VIDEO_TEA6415C is not set
-# CONFIG_VIDEO_TEA6420 is not set
-# CONFIG_VIDEO_MSP3400 is not set
-# CONFIG_VIDEO_CS3308 is not set
-# CONFIG_VIDEO_CS5345 is not set
-# CONFIG_VIDEO_CS53L32A is not set
-# CONFIG_VIDEO_TLV320AIC23B is not set
-# CONFIG_VIDEO_UDA1342 is not set
-# CONFIG_VIDEO_WM8775 is not set
-# CONFIG_VIDEO_WM8739 is not set
-# CONFIG_VIDEO_VP27SMPX is not set
-# CONFIG_VIDEO_SONY_BTF_MPX is not set
-
-#
-# RDS decoders
-#
-# CONFIG_VIDEO_SAA6588 is not set
-
-#
-# Video decoders
-#
-# CONFIG_VIDEO_ADV7180 is not set
-# CONFIG_VIDEO_ADV7183 is not set
-# CONFIG_VIDEO_ADV748X is not set
-# CONFIG_VIDEO_ADV7604 is not set
-# CONFIG_VIDEO_ADV7842 is not set
-# CONFIG_VIDEO_BT819 is not set
-# CONFIG_VIDEO_BT856 is not set
-# CONFIG_VIDEO_BT866 is not set
-# CONFIG_VIDEO_KS0127 is not set
-# CONFIG_VIDEO_ML86V7667 is not set
-# CONFIG_VIDEO_AD5820 is not set
-# CONFIG_VIDEO_AK7375 is not set
-# CONFIG_VIDEO_DW9714 is not set
-# CONFIG_VIDEO_DW9807_VCM is not set
-# CONFIG_VIDEO_SAA7110 is not set
-# CONFIG_VIDEO_SAA711X is not set
-# CONFIG_VIDEO_TC358743 is not set
-# CONFIG_VIDEO_TVP514X is not set
-# CONFIG_VIDEO_TVP5150 is not set
-# CONFIG_VIDEO_TVP7002 is not set
-# CONFIG_VIDEO_TW2804 is not set
-# CONFIG_VIDEO_TW9903 is not set
-# CONFIG_VIDEO_TW9906 is not set
-# CONFIG_VIDEO_TW9910 is not set
-# CONFIG_VIDEO_VPX3220 is not set
-
-#
-# Video and audio decoders
-#
-# CONFIG_VIDEO_SAA717X is not set
-# CONFIG_VIDEO_CX25840 is not set
-
-#
-# Video encoders
-#
-# CONFIG_VIDEO_SAA7127 is not set
-# CONFIG_VIDEO_SAA7185 is not set
-# CONFIG_VIDEO_ADV7170 is not set
-# CONFIG_VIDEO_ADV7175 is not set
-# CONFIG_VIDEO_ADV7343 is not set
-# CONFIG_VIDEO_ADV7393 is not set
-# CONFIG_VIDEO_ADV7511 is not set
-# CONFIG_VIDEO_AD9389B is not set
-# CONFIG_VIDEO_AK881X is not set
-# CONFIG_VIDEO_THS8200 is not set
-
-#
-# Camera sensor devices
-#
-# CONFIG_VIDEO_IMX258 is not set
-# CONFIG_VIDEO_IMX274 is not set
-# CONFIG_VIDEO_OV2640 is not set
-# CONFIG_VIDEO_OV2659 is not set
-# CONFIG_VIDEO_OV2680 is not set
-# CONFIG_VIDEO_OV2685 is not set
-# CONFIG_VIDEO_OV5640 is not set
-# CONFIG_VIDEO_OV5645 is not set
-# CONFIG_VIDEO_OV5647 is not set
-# CONFIG_VIDEO_OV6650 is not set
-# CONFIG_VIDEO_OV5670 is not set
-# CONFIG_VIDEO_OV5695 is not set
-# CONFIG_VIDEO_OV7251 is not set
-# CONFIG_VIDEO_OV772X is not set
-# CONFIG_VIDEO_OV7640 is not set
-# CONFIG_VIDEO_OV7670 is not set
-# CONFIG_VIDEO_OV7740 is not set
-# CONFIG_VIDEO_OV9650 is not set
-# CONFIG_VIDEO_OV9655 is not set
-# CONFIG_VIDEO_OV13858 is not set
-# CONFIG_VIDEO_VS6624 is not set
-# CONFIG_VIDEO_MT9M032 is not set
-# CONFIG_VIDEO_MT9M111 is not set
-# CONFIG_VIDEO_MT9P031 is not set
-# CONFIG_VIDEO_MT9T001 is not set
-# CONFIG_VIDEO_MT9T112 is not set
-# CONFIG_VIDEO_MT9V011 is not set
-# CONFIG_VIDEO_MT9V032 is not set
-# CONFIG_VIDEO_MT9V111 is not set
-# CONFIG_VIDEO_SR030PC30 is not set
-# CONFIG_VIDEO_NOON010PC30 is not set
-# CONFIG_VIDEO_M5MOLS is not set
-# CONFIG_VIDEO_RJ54N1 is not set
-# CONFIG_VIDEO_S5K6AA is not set
-# CONFIG_VIDEO_S5K6A3 is not set
-# CONFIG_VIDEO_S5K4ECGX is not set
-# CONFIG_VIDEO_S5K5BAF is not set
-# CONFIG_VIDEO_SMIAPP is not set
-# CONFIG_VIDEO_ET8EK8 is not set
-# CONFIG_VIDEO_S5C73M3 is not set
-
-#
-# Flash devices
-#
-# CONFIG_VIDEO_ADP1653 is not set
-# CONFIG_VIDEO_LM3560 is not set
-# CONFIG_VIDEO_LM3646 is not set
-
-#
-# Video improvement chips
-#
-# CONFIG_VIDEO_UPD64031A is not set
-# CONFIG_VIDEO_UPD64083 is not set
-
-#
-# Audio/Video compression chips
-#
-# CONFIG_VIDEO_SAA6752HS is not set
-
-#
-# SDR tuner chips
-#
-
-#
-# Miscellaneous helper chips
-#
-# CONFIG_VIDEO_THS7303 is not set
-# CONFIG_VIDEO_M52790 is not set
-# CONFIG_VIDEO_I2C is not set
-
-#
-# Sensors used on soc_camera driver
-#
-
-#
-# SPI helper chips
-#
-# CONFIG_VIDEO_GS1662 is not set
-
-#
-# Media SPI Adapters
-#
-
-#
-# Customise DVB Frontends
-#
-
-#
-# Tools to develop new frontends
-#
+# CONFIG_MEDIA_SUPPORT is not set
 
 #
 # Graphics support
@@ -3062,7 +2850,6 @@ CONFIG_USB_CONFIGFS_MASS_STORAGE=y
 # CONFIG_USB_CONFIGFS_F_UAC2 is not set
 # CONFIG_USB_CONFIGFS_F_MIDI is not set
 # CONFIG_USB_CONFIGFS_F_HID is not set
-# CONFIG_USB_CONFIGFS_F_UVC is not set
 # CONFIG_USB_CONFIGFS_F_PRINTER is not set
 CONFIG_USB_ZERO=m
 CONFIG_USB_AUDIO=m
@@ -3082,7 +2869,6 @@ CONFIG_USB_CDC_COMPOSITE=m
 # CONFIG_USB_G_MULTI is not set
 CONFIG_USB_G_HID=m
 # CONFIG_USB_G_DBGP is not set
-# CONFIG_USB_G_WEBCAM is not set
 # CONFIG_TYPEC is not set
 # CONFIG_USB_ROLE_SWITCH is not set
 # CONFIG_USB_LED_TRIG is not set
