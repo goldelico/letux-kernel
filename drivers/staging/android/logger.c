@@ -89,6 +89,15 @@ static size_t logger_offset(struct logger_log *log, size_t n)
 	return n & (log->size - 1);
 }
 
+static inline struct timespec current_kernel_time(void)
+{
+	struct timespec64 ts64;
+
+	ktime_get_coarse_real_ts64(&ts64);
+
+	return timespec64_to_timespec(ts64);
+}
+
 /*
  * file_get_log - Given a file structure, return the associated log
  *
