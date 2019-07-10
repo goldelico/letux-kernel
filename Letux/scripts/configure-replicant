@@ -1,0 +1,15 @@
+#!/bin/bash
+# configure kernel (letux_defconfig) for Replicant
+# run from root of source tree
+
+[ "$PLATFORM" ] || export PLATFORM=letux
+[ "$ARCH" ] || export ARCH=arm;
+
+CONF="arch/${ARCH}/configs/${PLATFORM}_defconfig"
+
+fgrep -q androidboot.hardware=gta04 $CONF || sed -i.bak 's/CONFIG_CMDLINE="\(.*\)"/CONFIG_CMDLINE="\1 g_ffs.idVendor=0x18d1 g_ffs.idProduct=0x4e26 androidboot.hardware=gta04 vt.global_cursor_default=0"/g' $CONF
+sed -i.bak 's/CONFIG_USB_HSO=m/CONFIG_USB_HSO=y/g' $CONF
+sed -i.bak 's/# CONFIG_SW_SYNC is not set/CONFIG_SW_SYNC=y/g' $CONF
+fgrep -q CONFIG_ANDROID_LOGGER $CONF && sed -i.bak 's/# CONFIG_ANDROID_LOGGER is not set/CONFIG_ANDROID_LOGGER=y/g' $CONF || echo CONFIG_ANDROID_LOGGER=y >>$CONF
+fgrep -q CONFIG_ANDROID_TIMED_OUTPUT $CONF && sed -i.bak 's/# CONFIG_ANDROID_TIMED_OUTPUT is not set/CONFIG_ANDROID_TIMED_OUTPUT=y/g' $CONF || echo CONFIG_ANDROID_TIMED_OUTPUT=y >>$CONF
+fgrep -q CONFIG_ANDROID_LOW_MEMORY_KILLER $CONF && sed -i.bak 's/# CONFIG_ANDROID_LOW_MEMORY_KILLER is not set/CONFIG_ANDROID_LOW_MEMORY_KILLER=y/g' $CONF || echo CONFIG_ANDROID_LOW_MEMORY_KILLER=y >>$CONF
