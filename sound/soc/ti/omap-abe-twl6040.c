@@ -598,6 +598,31 @@ static int omap_abe_twl6040_fe_init(struct snd_soc_pcm_runtime *rtd)
 .trigger = {xplay, xcapture}
 //#define SND_SOC_DAI_LINK_NO_HOST	.no_host_mode = 1
 
+/*
+FIXME: must store infos in:
+
+struct snd_soc_dai_link_component {
+	const char *name;
+	struct device_node *of_node;
+	const char *dai_name;
+};
+
+and add to "modern style" indirect pointers
+	struct snd_soc_dai_link_component *cpus;
+	unsigned int num_cpus;
+	struct snd_soc_dai_link_component *codecs;
+	unsigned int num_codecs;
+	struct snd_soc_dai_link_component *platforms;
+	unsigned int num_platforms;
+
+At the moment I have no better idea than redefining the macros - which breaks initialization
+*/
+
+#define SND_SOC_DAI_CONNECT(xname, xcodec, xplatform, xcodec_dai, xcpu_dai) \
+.name = xname
+#define SND_SOC_DAI_FE_LINK(xname, xplatform, xcpu_dai) \
+.name = xname
+
 /* Digital audio interface glue - connects codec <--> CPU */
 static struct snd_soc_dai_link legacy_dmic_dai = {
 	/* Legacy DMIC */
@@ -820,10 +845,12 @@ static int omap_abe_add_dai_links(struct snd_soc_card *card)
 		return -EINVAL;
 	}
 
+#if 0 // BROKEN
 	for (i = 4; i < ARRAY_SIZE(abe_fe_dai); i++) {
 		abe_fe_dai[i].platform_name  = NULL;
 		abe_fe_dai[i].platform_of_node = aess_node;
 	}
+#endif
 
 	dai_node = of_parse_phandle(node, "ti,mcpdm", 0);
 	if (!dai_node) {
@@ -831,6 +858,7 @@ static int omap_abe_add_dai_links(struct snd_soc_card *card)
 		return -EINVAL;
 	}
 
+#if 0 // BROKEN
 	for (i = 0; i < ARRAY_SIZE(abe_be_mcpdm_dai); i++) {
 		abe_be_mcpdm_dai[i].platform_name  = NULL;
 		abe_be_mcpdm_dai[i].platform_of_node = aess_node;
@@ -840,26 +868,33 @@ static int omap_abe_add_dai_links(struct snd_soc_card *card)
 		abe_be_dmic_dai[i].platform_name  = NULL;
 		abe_be_dmic_dai[i].platform_of_node = aess_node;
 	}
+#endif
 
 	dai_node = of_parse_phandle(node, "ti,mcbsp1", 0);
 	if (!dai_node) {
 		dev_err(card->dev,"McBSP1 node is missing\n");
 		return -EINVAL;
 	}
+
+#if 0 // BROKEN
 	abe_be_mcbsp1_dai.cpu_dai_name  = NULL;
 	abe_be_mcbsp1_dai.cpu_of_node = dai_node;
 	abe_be_mcbsp1_dai.platform_name  = NULL;
 	abe_be_mcbsp1_dai.platform_of_node = aess_node;
+#endif
 
 	dai_node = of_parse_phandle(node, "ti,mcbsp2", 0);
 	if (!dai_node) {
 		dev_err(card->dev,"McBSP2 node is missing\n");
 		return -EINVAL;
 	}
+
+#if 0 // BROKEN
 	abe_be_mcbsp2_dai.cpu_dai_name  = NULL;
 	abe_be_mcbsp2_dai.cpu_of_node = dai_node;
 	abe_be_mcbsp2_dai.platform_name  = NULL;
 	abe_be_mcbsp2_dai.platform_of_node = aess_node;
+#endif
 
 	/* Add the ABE FEs */
 	ret = snd_soc_card_new_dai_links(card, abe_fe_dai,
@@ -922,8 +957,11 @@ static int omap_abe_add_legacy_dai_links(struct snd_soc_card *card)
 			dev_err(card->dev, "McPDM node is missing\n");
 			return -EINVAL;
 	}
+#if 0 // BROKEN
 	legacy_mcpdm_dai.cpu_dai_name  = NULL;
 	legacy_mcpdm_dai.cpu_of_node = dai_node;
+#endif
+
 
 #if 0	// legacy?
 	dai_node = of_parse_phandle(node, "ti,mcbsp2", 0);
@@ -937,8 +975,10 @@ static int omap_abe_add_legacy_dai_links(struct snd_soc_card *card)
 
 	dai_node = of_parse_phandle(node, "ti,mcasp", 0);
 	if (dai_node) {
+#if 0 // BROKEN
 		legacy_mcasp_dai.cpu_dai_name  = NULL;
 		legacy_mcasp_dai.cpu_of_node = dai_node;
+#endif
 		has_mcasp = 1;
 	}
 
@@ -1070,16 +1110,20 @@ static struct snd_soc_dai_link abe_twl6040_dai_links[] = {
 	{
 		.name = "TWL6040",
 		.stream_name = "TWL6040",
+#if 0 // BROKEN
 		.codec_dai_name = "twl6040-legacy",
 		.codec_name = "twl6040-codec",
+#endif
 		.init = omap_abe_twl6040_init,
 		.ops = &omap_abe_ops,
 	},
 	{
 		.name = "DMIC",
 		.stream_name = "DMIC Capture",
+#if 0 // BROKEN
 		.codec_dai_name = "dmic-hifi",
 		.codec_name = "dmic-codec",
+#endif
 		.init = omap_abe_dmic_init,
 		.ops = &omap_abe_dmic_ops,
 	},
@@ -1134,6 +1178,8 @@ static int omap_abe_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "McPDM node is not provided\n");
 		return -EINVAL;
 	}
+
+#if 0 // BROKEN
 	abe_twl6040_dai_links[0].cpu_of_node = dai_node;
 	abe_twl6040_dai_links[0].platform_of_node = dai_node;
 
@@ -1152,10 +1198,12 @@ static int omap_abe_probe(struct platform_device *pdev)
 
 	abe_twl6040_dai_links[0].cpu_of_node = dai_node;
 	abe_twl6040_dai_links[0].platform_of_node = dai_node;
+#endif
 
 	dai_node = of_parse_phandle(node, "ti,dmic", 0);
 	if (dai_node) {
 		num_links = 2;
+#if 0 // BROKEN
 		priv->dai_links[1].name = "TWL6040";
 		priv->dai_links[1].stream_name = "DMIC Capture";
 		priv->dai_links[1].cpus = link1_cpus;
@@ -1171,6 +1219,7 @@ static int omap_abe_probe(struct platform_device *pdev)
 
 		abe_twl6040_dai_links[1].cpu_of_node = dai_node;
 		abe_twl6040_dai_links[1].platform_of_node = dai_node;
+#endif
 	} else {
 		num_links = 1;
 	}
@@ -1183,8 +1232,10 @@ static int omap_abe_probe(struct platform_device *pdev)
 	dai_node = of_parse_phandle(node, "ti,dmic", 0);
 	if (dai_node) {
 		num_links = 2;
+#if 0 // BROKEN
 		abe_twl6040_dai_links[1].cpu_of_node = dai_node;
 		abe_twl6040_dai_links[1].platform_of_node = dai_node;
+#endif
 		priv->has_dmic = 1;
 	} else {
 		num_links = 1;
