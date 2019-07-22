@@ -21,7 +21,6 @@
 #include <linux/delay.h>
 #include <linux/of.h>
 #include <dt-bindings/clock/jz4730-cgu.h>
-#include <asm/mach-jz4740/clock.h>
 #include "cgu.h"
 
 /* CGU register offsets */
@@ -241,6 +240,7 @@ static void __init jz4730_cgu_init(struct device_node *np)
 }
 CLK_OF_DECLARE(jz4730_cgu, "ingenic,jz4730-cgu", jz4730_cgu_init);
 
+#if 0	// unused and does no longer compile
 void jz4730_clock_set_wait_mode(enum jz4740_wait_mode mode)
 {
 	uint32_t lcr = readl(cgu->base + CGU_REG_LPCR);
@@ -257,6 +257,7 @@ void jz4730_clock_set_wait_mode(enum jz4740_wait_mode mode)
 
 	writel(lcr, cgu->base + CGU_REG_LPCR);
 }
+#endif
 
 void jz4730_clock_udc_disable_auto_suspend(void)
 {
