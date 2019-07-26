@@ -13,6 +13,16 @@
  *    http://www.glyn.com/Products/Displays
  */
 
+#include <linux/module.h>
+#include <linux/ratelimit.h>
+#include <linux/irq.h>
+#include <linux/interrupt.h>
+#include <linux/regulator/consumer.h>
+#include <linux/input.h>
+#include <linux/i2c.h>
+#include <linux/kernel.h>
+#include <linux/uaccess.h>
+#include <linux/delay.h>
 #include <linux/debugfs.h>
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
@@ -104,6 +114,7 @@ struct edt_ft5x06_ts_data {
 
 	struct gpio_desc *reset_gpio;
 	struct gpio_desc *wake_gpio;
+	struct regulator *vdd;
 
 #if defined(CONFIG_DEBUG_FS)
 	struct dentry *debug_dir;
@@ -1128,6 +1139,22 @@ static int edt_ft5x06_ts_probe(struct i2c_client *client,
 		return error;
 	}
 
+	tsdata->vdd = devm_regulator_get(&client->dev, "vdd");
+	if (IS_ERR(tsdata->vdd)) {
+		error = PTR_ERR(tsdata->vdd);
+		if (error != -EPROBE_DEFER)
+			dev_err(&client->dev,
+				"Failed to get vdd regulator: %d\n", error);
+		return error;
+	}
+
+	/* power the controller */
+	error = regulator_enable(tsdata->vdd);
+	if (error) {
+		dev_err(&client->dev, "Controller fail to enable vdd\n");
+		return error;
+	}
+
 	tsdata->wake_gpio = devm_gpiod_get_optional(&client->dev,
 						    "wake", GPIOD_OUT_LOW);
 	if (IS_ERR(tsdata->wake_gpio)) {
@@ -1258,6 +1285,7 @@ static int edt_ft5x06_ts_remove(struct i2c_client *client)
 {
 	struct edt_ft5x06_ts_data *tsdata = i2c_get_clientdata(client);
 
+	regulator_disable(tsdata->vdd);
 	edt_ft5x06_ts_teardown_debugfs(tsdata);
 
 	return 0;
