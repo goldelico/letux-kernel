@@ -1,0 +1,51 @@
+Binding for TI bq24296/24297 Li-Ion Charger
+
+This driver will support the bq24297. It was derived
+from a bq2426 driver but is tested with bq24297 only.
+There are other ICs in the same family but those have
+not been tested.
+
+Required properties:
+- compatible: Should contain one of the following:
+    * "ti,bq24296"
+    * "ti,bq24297"
+- reg: integer, i2c address of the device (should be 0x6b).
+- ti,chg_current: 3 integers, maximum charging current (in uA):
+	1. max current for the battery
+	2. max. usb input current
+	3. max. adp input current (unused)
+- regulators: child node defining two regulators for
+	1. vsys (battery or usb -> system output) and
+	2. otg (battery -> usb).
+
+Optional properties:
+- monitored-battery: phandle of the battery;
+- dc-det: gpio for dc detect (bq24296)
+
+Example:
+
+bq24297@6b {
+	compatible = "ti,bq24297";
+	reg = <0x6b>;
+	monitored-battery = <&bat>;	// provides max-voltage-by-design
+	ti,chg_current = <1000 2000 2000>;      // chg_current (max for the battery), usb_input_current, adp_input_current
+	interrupt-parent = <&gpio99>;
+	interrupts = <(1*8+3) IRQ_TYPE_EDGE_FALLING>;   // P13
+	ti,watchdog = <40>;             // 40 seconds watchdog timer
+	regulators {
+		vsys_reg: vsys_regulator {
+			regulator-compatible = "bq2429x-vsys";
+			regulator-name = "vsys";
+			regulator-min-microvolt = <3500000>;
+			regulator-max-microvolt = <4200000>;
+			regulator-always-on;
+			regulator-boot-on;
+		};
+		otg_reg: otg_regulator {
+			regulator-compatible = "bq2429x-otg";
+			regulator-name = "otg";
+			regulator-min-microvolt = <4900000>;
+			regulator-max-microvolt = <5100000>;
+		};
+	};
+};
