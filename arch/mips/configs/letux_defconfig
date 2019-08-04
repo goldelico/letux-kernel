@@ -1,5 +1,5 @@
 #
-# Linux/mips 4.19.63 Kernel Configuration
+# Linux/mips 4.19.64 Kernel Configuration
 #
 
 #
@@ -3850,6 +3850,7 @@ CONFIG_SQUASHFS_FRAGMENT_CACHE_SIZE=3
 # CONFIG_PSTORE is not set
 # CONFIG_SYSV_FS is not set
 # CONFIG_UFS_FS is not set
+# CONFIG_AUFS_FS is not set
 CONFIG_NETWORK_FILESYSTEMS=y
 CONFIG_NFS_FS=y
 CONFIG_NFS_V2=y
