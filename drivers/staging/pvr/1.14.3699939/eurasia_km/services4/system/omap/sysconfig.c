@@ -984,6 +984,7 @@ IMG_VOID SysClearInterrupts(SYS_DATA* psSysData, IMG_UINT32 ui32ClearBits)
 {
 	PVR_UNREFERENCED_PARAMETER(ui32ClearBits);
 	PVR_UNREFERENCED_PARAMETER(psSysData);
+#if defined(SYS_USING_INTERRUPTS)
 	if (gpvOCPRegsLinAddr == IMG_NULL)
 	{
 		PVR_DPF((PVR_DBG_ERROR,"SysClearInterrupts: SGX registers not mapped"));
@@ -996,6 +997,7 @@ IMG_VOID SysClearInterrupts(SYS_DATA* psSysData, IMG_UINT32 ui32ClearBits)
 	/* Flush posted writes */
 	OSReadHWReg(((PVRSRV_SGXDEV_INFO *)gpsSGXDevNode->pvDevice)->pvRegsBaseKM, EUR_CR_EVENT_HOST_CLEAR);
 #endif	/* defined(NO_HARDWARE) */
+#endif
 }
 
 #if defined(SGX_OCP_NO_INT_BYPASS)
@@ -1015,6 +1017,11 @@ IMG_VOID SysEnableSGXInterrupts(SYS_DATA *psSysData)
 	SYS_SPECIFIC_DATA *psSysSpecData = (SYS_SPECIFIC_DATA *)psSysData->pvSysSpecificData;
 	if (SYS_SPECIFIC_DATA_TEST(psSysSpecData, SYS_SPECIFIC_DATA_ENABLE_LISR) && !SYS_SPECIFIC_DATA_TEST(psSysSpecData, SYS_SPECIFIC_DATA_IRQ_ENABLED))
 	{
+		if (gpvOCPRegsLinAddr == IMG_NULL)
+		{
+			PVR_DPF((PVR_DBG_ERROR,"SysEnableSGXInterrupts: SGX registers not mapped"));
+			return;
+		}
 		OSWriteHWReg(gpvOCPRegsLinAddr, EUR_CR_OCP_IRQSTATUS_2, 0x1);
 		OSWriteHWReg(gpvOCPRegsLinAddr, EUR_CR_OCP_IRQENABLE_SET_2, 0x1);
 		SYS_SPECIFIC_DATA_SET(psSysSpecData, SYS_SPECIFIC_DATA_IRQ_ENABLED);
@@ -1038,6 +1045,11 @@ IMG_VOID SysDisableSGXInterrupts(SYS_DATA *psSysData)
 
 	if (SYS_SPECIFIC_DATA_TEST(psSysSpecData, SYS_SPECIFIC_DATA_IRQ_ENABLED))
 	{
+		if (gpvOCPRegsLinAddr == IMG_NULL)
+		{
+			PVR_DPF((PVR_DBG_ERROR,"SysDisableSGXInterrupts: SGX registers not mapped"));
+			return;
+		}
 		OSWriteHWReg(gpvOCPRegsLinAddr, EUR_CR_OCP_IRQENABLE_CLR_2, 0x1);
 		SYS_SPECIFIC_DATA_CLEAR(psSysSpecData, SYS_SPECIFIC_DATA_IRQ_ENABLED);
 	}
