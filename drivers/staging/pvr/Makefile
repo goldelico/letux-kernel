@@ -3,7 +3,7 @@
 # representing different SGX variants and flavours
 #
 # We currently need this since there are different compiler
-# options and -D definitions needed for omap3430,omap3630,am33xx etc.
+# options and -D definitions needed for e.g. omap3430,omap3630,am33xx etc.
 # so that we have to build multiple kernel modules from the
 # same source code tree.
 #
@@ -14,16 +14,27 @@
 #
 # 1. add something to copy the sources into different subdirectories
 #    before calling make to keept the .cmd and .o separate.
-#    Can we set $(obj) to something different from$(src) for each
+#    Can we set $(obj) to something different from$(srctree) for each
 #    sub-make?
 #    Most likely not since Makefile.build says: src := $(obj) and
 #    KBUILD_OUTPUT (O= parameter to make) has a different meaning.
 #
 # 2. reduce to a single .ko that handles all architectures and variants
 #    This means making the SoC glue code of the pvr generic (i.e.
-#    get rid of e.g. SGX_CORE_REV or -DSGX530) and replace the
+#    get rid of e.g. SGX_CORE_REV or -DSGX530) and replace all the
 #    #ifdef SGX530 etc. in SGX errata and wherelse by dynamic decisions
+#    based on DT information.
 #
+
+ifneq ($(CONFIG_SGX_114),)
+SUBPATH=1.14.3699939/eurasia_km
+else
+SUBPATH=omap3
+endif
+
+SOURCE=$(obj)/$(SUBPATH)
+
+# FIXME: should somehow keep the compiled .o separate...
 
 $(obj)/pvr:
 ifneq ($(CONFIG_SGX_CEDARVIEW),)
@@ -91,7 +102,7 @@ else # CONFIG_SGX_114
 	$(Q)TI_PLATFORM=ti335x $(MAKE) $(build)=$(SOURCE)
 	$(Q)if [ -r $(SOURCE)/modules.order ]; then cat $(SOURCE)/modules.order >>$(obj)/modules.order; fi
 # may add more SOC variants here, e.g.
-# $(Q)CONFIG_SOC=generic $(MAKE) $(build)=$(obj)/omap3
+# $(Q)CONFIG_SOC=generic $(MAKE) $(build)=$(SOURCE)
 # $(Q)CONFIG_SOC=omap5 $(MAKE) $(build)=$(obj)/omap5
 endif # CONFIG_SGX_114
 endif # CONFIG_SGX_OMAP
@@ -124,7 +135,7 @@ ifneq ($(CONFIG_SGX_GENERIC),)
 	$(Q)if [ -r $(SOURCE)/modules.order ]; then cat $(SOURCE)/modules.order >>$(obj)/modules.order; fi
 endif # CONFIG_SGX_GENERIC
 
-ifneq ($(CONFIG_SGX_OMAP),)
+ifneq ($(CONFIG_SGX),)
 always += pvr
-clean-dirs := $(objtree)/omap3 $(objtree)/omap5
+clean-dirs := $(obj)/$(SUBPATH)
 endif
