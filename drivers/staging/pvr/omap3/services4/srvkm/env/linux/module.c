@@ -859,7 +859,9 @@ static int PVRSRVOpen(struct inode unref__ * pInode, struct file *pFile)
 
 	LinuxLockMutexNested(&gPVRSRVLock, PVRSRV_LOCK_CLASS_BRIDGE);
 
+#if !defined(SUPPORT_DRI_DRM)
 	pFile->f_mode |= FMODE_UNSIGNED_OFFSET;
+#endif
 
 	ui32PID = OSGetCurrentProcessIDKM();
 
