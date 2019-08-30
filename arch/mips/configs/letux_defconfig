@@ -1,5 +1,5 @@
 #
-# Linux/mips 4.19.66 Kernel Configuration
+# Linux/mips 4.19.69 Kernel Configuration
 #
 
 #
@@ -3206,6 +3206,7 @@ CONFIG_STAGING=y
 # CONFIG_XIL_AXIS_FIFO is not set
 # CONFIG_EROFS_FS is not set
 CONFIG_SGX=y
+# CONFIG_SGX_114 is not set
 # CONFIG_SGX_DEBUG is not set
 # CONFIG_SGX_DRM is not set
 CONFIG_MIPS_PLATFORM_DEVICES=y
