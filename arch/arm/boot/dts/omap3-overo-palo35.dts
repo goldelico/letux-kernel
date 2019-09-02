@@ -14,7 +14,7 @@
 
 / {
 	model = "OMAP35xx Gumstix Overo on Palo35";
-	compatible = "gumstix,omap3-overo-palo35", "gumstix,omap3-overo", "ti,omap3430", "ti,omap3";
+	compatible = "gumstix,omap3-overo-palo35", "gumstix,omap3-overo", "ti,omap34xx", "ti,omap3";
 };
 
 &omap3_pmx_core2 {

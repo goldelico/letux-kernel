@@ -14,6 +14,6 @@
 
 / {
 	model = "OMAP35xx Gumstix Overo on Alto35";
-	compatible = "gumstix,omap3-overo-alto35", "gumstix,omap3-overo", "ti,omap3430", "ti,omap3";
+	compatible = "gumstix,omap3-overo-alto35", "gumstix,omap3-overo", "ti,omap34xx", "ti,omap3";
 };
 

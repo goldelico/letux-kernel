@@ -14,7 +14,7 @@
 
 / {
 	model = "OMAP35xx Gumstix Overo on Chestnut43";
-	compatible = "gumstix,omap3-overo-chestnut43", "gumstix,omap3-overo", "ti,omap3430", "ti,omap3";
+	compatible = "gumstix,omap3-overo-chestnut43", "gumstix,omap3-overo", "ti,omap34xx", "ti,omap3";
 };
 
 &omap3_pmx_core2 {

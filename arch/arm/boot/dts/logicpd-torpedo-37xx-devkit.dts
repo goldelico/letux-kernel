@@ -9,7 +9,7 @@
 
 / {
 	model = "LogicPD Zoom DM3730 Torpedo + Wireless Development Kit";
-	compatible = "logicpd,dm3730-torpedo-devkit", "ti,omap3630", "ti,omap3";
+	compatible = "logicpd,dm3730-torpedo-devkit", "ti,omap36xx", "ti,omap3";
 
 	wl12xx_vmmc: wl12xx_vmmc {
 		compatible = "regulator-fixed";

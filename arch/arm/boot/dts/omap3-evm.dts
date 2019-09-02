@@ -10,7 +10,7 @@
 
 / {
 	model = "TI OMAP35XX EVM (TMDSEVM3530)";
-	compatible = "ti,omap3-evm", "ti,omap3430", "ti,omap3";
+	compatible = "ti,omap3-evm", "ti,omap34xx", "ti,omap3";
 };
 
 &omap3_pmx_core2 {
