@@ -756,7 +756,7 @@
 			label = "Display Lid";
 			linux,input-type = <EV_SW>;
 			linux,code = <SW_LID>;
-			gpios = <&gpio1 6 GPIO_ACTIVE_HIGH>;	/* gpio1_wk6 */
+			gpios = <&gpio1 6 GPIO_ACTIVE_LOW>;	/* gpio1_wk6 */
 			gpio-key,wakeup;
 		};
 
