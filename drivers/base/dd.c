@@ -606,6 +606,8 @@ static int really_probe(struct device *dev, const struct device_driver *drv)
 			   !drv->suppress_bind_attrs;
 	int ret, link_ret;
 
+printk("%s\n", __func__);
+
 	if (defer_all_probes) {
 		/*
 		 * Value of defer_all_probes can be set only by
@@ -780,6 +782,8 @@ static int __driver_probe_device(const struct device_driver *drv, struct device 
 {
 	int ret = 0;
 
+printk("%s\n", __func__);
+
 	if (dev->p->dead || !device_is_registered(dev))
 		return -ENODEV;
 	if (dev->driver)
@@ -788,6 +792,9 @@ static int __driver_probe_device(const struct device_driver *drv, struct device 
 	dev->can_match = true;
 	dev_dbg(dev, "bus: '%s': %s: matched device with driver %s\n",
 		drv->bus->name, __func__, drv->name);
+
+	pr_info("bus: '%s': %s: matched device %s with driver %s\n",
+		 drv->bus->name, __func__, dev_name(dev), drv->name);
 
 	pm_runtime_get_suppliers(dev);
 	if (dev->parent)
@@ -1123,6 +1130,8 @@ int device_driver_attach(const struct device_driver *drv, struct device *dev)
 {
 	int ret;
 
+printk("%s: drv= %s, dev= %s\n", __func__, drv->name, dev->init_name);
+
 	__device_driver_lock(dev, dev->parent);
 	ret = __driver_probe_device(drv, dev);
 	__device_driver_unlock(dev, dev->parent);
@@ -1169,11 +1178,15 @@ static int __driver_attach(struct device *dev, void *data)
 	 * is an error.
 	 */
 
+//printk("%s: %s %s\n", __func__, dev->init_name, ((struct device_driver *)data)->name);
+
 	ret = driver_match_device(drv, dev);
 	if (ret == 0) {
+//printk("%s: no match\n", __func__);
 		/* no match */
 		return 0;
 	} else if (ret == -EPROBE_DEFER) {
+//printk("%s: request probe deferral\n", __func__);
 		dev_dbg(dev, "Device match requests probe deferral\n");
 		dev->can_match = true;
 		driver_deferred_probe_add(dev);
@@ -1191,7 +1204,10 @@ static int __driver_attach(struct device *dev, void *data)
 		return 0;
 	} /* ret > 0 means positive match */
 
+//printk("%s: match\n", __func__);
+
 	if (driver_allows_async_probing(drv)) {
+printk("%s: driver_allows_async_probing\n", __func__);
 		/*
 		 * Instead of probing the device synchronously we will
 		 * probe it asynchronously to allow for more parallelism.
@@ -1213,6 +1229,7 @@ static int __driver_attach(struct device *dev, void *data)
 	}
 
 	__device_driver_lock(dev, dev->parent);
+printk("%s: -> driver_probe_device\n", __func__);
 	driver_probe_device(drv, dev);
 	__device_driver_unlock(dev, dev->parent);
 
