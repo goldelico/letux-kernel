@@ -48,6 +48,7 @@
 #define AXP813_TS_GPIO0_ADC_RATE_HZ(x)		AXP20X_ADC_RATE_HZ(x)
 #define AXP813_V_I_ADC_RATE_HZ(x)		((ilog2((x) / 100) << 4) & AXP813_V_I_ADC_RATE_MASK)
 #define AXP813_ADC_RATE_HZ(x)			(AXP20X_ADC_RATE_HZ(x) | AXP813_V_I_ADC_RATE_HZ(x))
+#define AXP20X_TS_FUNCTION_GPADC		BIT(2)
 
 #define AXP20X_ADC_CHANNEL(_channel, _name, _type, _reg)	\
 	{							\
@@ -993,6 +994,11 @@ static int axp20x_probe(struct platform_device *pdev)
 	if (info->data->adc_en2_mask)
 		regmap_set_bits(info->regmap, AXP20X_ADC_EN2,
 				info->data->adc_en2_mask);
+
+	if (of_property_read_bool(pdev->dev.of_node, "x-powers,ts-as-gpadc"))
+		regmap_update_bits(info->regmap, AXP20X_ADC_RATE,
+				   AXP20X_TS_FUNCTION_GPADC,
+				   AXP20X_TS_FUNCTION_GPADC);
 
 	/* Configure ADCs rate */
 	info->data->adc_rate(info, 100);
