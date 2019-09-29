@@ -201,6 +201,13 @@ config TOUCHSCREEN_CHIPONE_ICN8505
 	  To compile this driver as a module, choose M here: the
 	  module will be called chipone_icn8505.
 
+config TOUCHSCREEN_CRTOUCH_MT
+	tristate "Freescale CRTouch multitouch driver"
+	depends on I2C
+	help
+	  Say Y here if you have a Freescale CRTouch-based
+	  touchscreen connected via I2C.
+
 config TOUCHSCREEN_CY8CTMG110
 	tristate "cy8ctmg110 touchscreen"
 	depends on I2C
@@ -1310,10 +1317,4 @@ config TOUCHSCREEN_IQS5XX
 	  To compile this driver as a module, choose M here: the
 	  module will be called iqs5xx.
 
-config TOUCHSCREEN_CRTOUCH_MT
-	tristate "Freescale CRTouch multitouch driver"
-	depends on I2C
-	help
-	  Say Y here if you have a Freescale CRTouch-based
-	  touchscreen connected via I2C.
 endif
