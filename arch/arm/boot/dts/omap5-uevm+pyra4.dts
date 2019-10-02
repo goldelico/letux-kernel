@@ -111,7 +111,6 @@
 		label = "mic_presence";
 		interrupt-parent = <&gpio99>;
 		interrupts = <14 IRQ_TYPE_EDGE_BOTH>;
-		irq-flags = <IRQ_TYPE_EDGE_BOTH>;
 		gpios = <&gpio99 14 GPIO_ACTIVE_LOW>;
 		// debounce-delay-ms = <10>; -- not available at tca6424
 		state-on = "present";
@@ -124,7 +123,6 @@
 		label = "mic_presence_evm";
 		interrupt-parent = <&gpio9>;
 		interrupts = <14 IRQ_TYPE_EDGE_BOTH>;
-		irq-flags = <IRQ_TYPE_EDGE_BOTH>;
 		gpios = <&gpio9 14 GPIO_ACTIVE_LOW>;
 		// debounce-delay-ms = <10>; -- not available at tca6424
 		state-on = "present";
@@ -136,7 +134,6 @@
 		label = "user_button";
 		interrupt-parent = <&gpio3>;
 		interrupts = <19 2>;
-		irq-flags = <IRQ_TYPE_EDGE_BOTH>;
 		gpios = <&gpio3 19 1>;	/* gpio3_83 is BTN1 */
 /*		debounce-delay-ms = <50>;
 		state-on = "status-on";
