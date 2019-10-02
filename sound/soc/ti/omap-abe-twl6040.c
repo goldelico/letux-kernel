@@ -445,7 +445,7 @@ static int omap_abe_twl6040_init(struct snd_soc_pcm_runtime *rtd)
 	omap_mcpdm_configure_dn_offsets(rtd, TWL6040_HSF_TRIM_LEFT(hs_trim),
 					TWL6040_HSF_TRIM_RIGHT(hs_trim));
 
-	card->dapm.stream_event = omap_abe_stream_event;
+//FIXME:	card->dapm.stream_event = omap_abe_stream_event;
 
 	/* allow audio paths from the audio modem to run during suspend */
 	snd_soc_dapm_ignore_suspend(&card->dapm, "Ext Spk");
