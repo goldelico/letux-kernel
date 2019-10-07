@@ -1672,21 +1672,6 @@ static int omap_hsmmc_get_cd(struct mmc_host *mmc)
 	return host->card_detect(host->dev);
 }
 
-#if 1	// pre 4.18
-static struct device_node *of_get_compatible_child(const struct device_node *parent,
-				const char *compatible)
-{
-	struct device_node *child;
-
-	for_each_child_of_node(parent, child) {
-		if (of_device_is_compatible(child, compatible))
-			break;
-	}
-
-	return child;
-}
-#endif
-
 static void omap_hsmmc_init_card(struct mmc_host *mmc, struct mmc_card *card)
 {
 	struct omap_hsmmc_host *host = mmc_priv(mmc);
