@@ -3756,7 +3756,7 @@ static void rbd_watch_cb(void *arg, u64 notify_id, u64 cookie,
 	struct rbd_device *rbd_dev = arg;
 	void *p = data;
 	void *const end = p + data_len;
-	u8 struct_v;
+	u8 struct_v = 0;
 	u32 len;
 	u32 notify_op;
 	int ret;
@@ -3900,7 +3900,6 @@ static void cancel_tasks_sync(struct rbd_device *rbd_dev)
 {
 	dout("%s rbd_dev %p\n", __func__, rbd_dev);
 
-	cancel_delayed_work_sync(&rbd_dev->watch_dwork);
 	cancel_work_sync(&rbd_dev->acquired_lock_work);
 	cancel_work_sync(&rbd_dev->released_lock_work);
 	cancel_delayed_work_sync(&rbd_dev->lock_dwork);
@@ -3918,6 +3917,7 @@ static void rbd_unregister_watch(struct rbd_device *rbd_dev)
 	rbd_dev->watch_state = RBD_WATCH_STATE_UNREGISTERED;
 	mutex_unlock(&rbd_dev->watch_mutex);
 
+	cancel_delayed_work_sync(&rbd_dev->watch_dwork);
 	ceph_osdc_flush_notifies(&rbd_dev->rbd_client->client->osdc);
 }
 
@@ -4511,7 +4511,7 @@ static int rbd_init_disk(struct rbd_device *rbd_dev)
 	segment_size = rbd_obj_bytes(&rbd_dev->header);
 	blk_queue_max_hw_sectors(q, segment_size / SECTOR_SIZE);
 	q->limits.max_sectors = queue_max_hw_sectors(q);
-	blk_queue_max_segments(q, segment_size / SECTOR_SIZE);
+	blk_queue_max_segments(q, USHRT_MAX);
 	blk_queue_max_segment_size(q, segment_size);
 	blk_queue_io_min(q, segment_size);
 	blk_queue_io_opt(q, segment_size);
@@ -6346,7 +6346,6 @@ static ssize_t do_rbd_remove(struct bus_type *bus,
 	struct list_head *tmp;
 	int dev_id;
 	char opt_buf[6];
-	bool already = false;
 	bool force = false;
 	int ret;
 
@@ -6379,13 +6378,13 @@ static ssize_t do_rbd_remove(struct bus_type *bus,
 		spin_lock_irq(&rbd_dev->lock);
 		if (rbd_dev->open_count && !force)
 			ret = -EBUSY;
-		else
-			already = test_and_set_bit(RBD_DEV_FLAG_REMOVING,
-							&rbd_dev->flags);
+		else if (test_and_set_bit(RBD_DEV_FLAG_REMOVING,
+					  &rbd_dev->flags))
+			ret = -EINPROGRESS;
 		spin_unlock_irq(&rbd_dev->lock);
 	}
 	spin_unlock(&rbd_dev_list_lock);
-	if (ret < 0 || already)
+	if (ret)
 		return ret;
 
 	if (force) {

@@ -472,7 +472,7 @@ static int tsc2007_probe(struct i2c_client *client,
 	if (err < 0) {
 		dev_err(&client->dev,
 			"Failed to setup chip: %d\n", err);
-		return err;	/* chip does not respond */
+		return err;	/* usually, chip does not respond */
 	}
 
 	err = input_register_device(input_dev);
