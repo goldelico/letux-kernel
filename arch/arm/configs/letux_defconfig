@@ -1,5 +1,5 @@
 #
-# Linux/arm 5.3.4 Kernel Configuration
+# Linux/arm 5.3.5 Kernel Configuration
 #
 
 #
@@ -5181,7 +5181,6 @@ CONFIG_RTC_INTF_DEV=y
 # CONFIG_RTC_DRV_PCF8563 is not set
 # CONFIG_RTC_DRV_PCF8583 is not set
 # CONFIG_RTC_DRV_M41T80 is not set
-# CONFIG_RTC_DRV_BD70528 is not set
 # CONFIG_RTC_DRV_BQ32K is not set
 CONFIG_RTC_DRV_TWL4030=y
 CONFIG_RTC_DRV_PALMAS=y
