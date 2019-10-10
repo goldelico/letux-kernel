@@ -1362,7 +1362,7 @@ static int if_sdio_suspend(struct device *dev)
 	priv->power_up_on_resume = false;
 	/* If we're powered off anyway, just let the mmc layer remove the
 	 * card. */
-	if (!lbs_iface_active(card->priv))
+	if (!lbs_iface_active(card->priv)) {
 		if (priv->fw_ready) {
 			priv->power_up_on_resume = true;
 			if_sdio_power_off(card);
