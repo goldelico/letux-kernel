@@ -54,7 +54,7 @@ static enum power_supply_property minipc_battery_properties[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 };
 
-static struct power_supply minipc_battery = {
+static struct power_supply_desc minipc_battery = {
 	.name = "battery",
 	.type = POWER_SUPPLY_TYPE_BATTERY,
 	.properties = minipc_battery_properties,
@@ -83,7 +83,7 @@ static enum power_supply_property minipc_psu_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 };
 
-static struct power_supply minipc_psu = {
+static struct power_supply_desc minipc_psu = {
 	.name = "psu",
 	.type = POWER_SUPPLY_TYPE_MAINS,
 	.properties = minipc_psu_properties,
@@ -110,9 +110,9 @@ static int minipc_mcu_probe(struct i2c_client *client,
 	dev_info(&client->dev, "chip found, driver version " DRV_VERSION "\n");
 
 	minipc_battery.use_for_apm = power_supply_register(&client->dev,
-							   &minipc_battery);
+							   &minipc_battery, NULL);
 	minipc_psu.use_for_apm = power_supply_register(&client->dev,
-						       &minipc_psu);
+						       &minipc_psu, NULL);
 
 	mcu = client;
 	pm_power_off = minipc_mcu_power_off;
