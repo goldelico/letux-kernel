@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 2010, Lars-Peter Clausen <lars@metafoo.de>
- *  Copyright (C) 2017 Paul Boddie <paul@boddie.org.uk>
+ *  Copyright (C) 2017, 2019 Paul Boddie <paul@boddie.org.uk>
  *  JZ4730 platform PWM support
  *
  *  This program is free software; you can redistribute it and/or modify it
@@ -19,6 +19,7 @@
 #include <linux/gpio.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/pwm.h>
 #include <linux/regmap.h>
@@ -227,9 +228,16 @@ static int jz4730_pwm_remove(struct platform_device *pdev)
 	return pwmchip_remove(&jzpc->chip);
 }
 
+static const struct of_device_id jz4730_pwm_dt_ids[] = {
+	{ .compatible = "ingenic,jz4730-pwm", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, jz4730_pwm_dt_ids);
+
 static struct platform_driver jz4730_pwm_driver = {
 	.driver = {
 		.name = "jz4730-pwm",
+		.of_match_table = of_match_ptr(jz4730_pwm_dt_ids),
 	},
 	.probe = jz4730_pwm_probe,
 	.remove = jz4730_pwm_remove,
