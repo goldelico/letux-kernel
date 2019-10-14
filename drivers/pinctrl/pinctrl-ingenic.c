@@ -66,6 +66,7 @@
 #define GPIO_PULL_DOWN	2
 
 #define PINS_PER_GPIO_CHIP 32
+#define JZ4730_PINS_PER_FUNC_REG 16
 
 #define INGENIC_PIN_GROUP(name, id)			\
 	{						\
@@ -266,7 +267,7 @@ static const struct function_desc jz4730_functions[] = {
 
 static const struct ingenic_chip_info jz4730_chip_info = {
 	.num_chips = 4,
-	.reg_offset = 0x100,
+	.reg_offset = 0x30,
 	.version = ID_JZ4730,
 	.groups = jz4730_groups,
 	.num_groups = ARRAY_SIZE(jz4730_groups),
@@ -2056,6 +2057,21 @@ static inline void ingenic_config_pin(struct ingenic_pinctrl *jzpc,
 			(set ? REG_SET(reg) : REG_CLEAR(reg)), BIT(idx));
 }
 
+static void ingenic_config_pin_function(struct ingenic_pinctrl *jzpc,
+		u32 reg_upper, u32 reg_lower, u8 pin, u8 value)
+{
+	/*
+	 * JZ4730 function registers support two-bits-per-pin definitions, split
+	 * into two groups of 16. Banks of port registers are at 0x30 intervals.
+	 */
+	u32 reg = pin < JZ4730_PINS_PER_FUNC_REG ? reg_lower : reg_upper;
+	unsigned int idx = pin % JZ4730_PINS_PER_FUNC_REG;
+	unsigned int offt = pin / JZ4730_PINS_PER_FUNC_REG;
+
+	regmap_update_bits(jzpc->map, offt * 0x30 + reg,
+		3 << (idx << 1), value << (idx << 1));
+}
+
 static inline void ingenic_shadow_config_pin(struct ingenic_pinctrl *jzpc,
 		unsigned int pin, u8 reg, bool set)
 {
@@ -2106,19 +2122,6 @@ static const struct pinctrl_ops ingenic_pctlops = {
 	.dt_node_to_map = pinconf_generic_dt_node_to_map_all,
 	.dt_free_map = pinconf_generic_dt_free_map,
 };
-
-/* Clear and set the given value in the pin bits of the appropriate register. */
-
-static void ingenic_ctrl_set_pins(struct ingenic_pinctrl *jzpc,
-		u32 reg_upper, u32 reg_lower, u8 pin, u8 value)
-{
-	u32 reg;
-
-	if (pin < 16) { reg = reg_lower; }
-	else { reg = reg_upper; pin -= 16; }
-
-	ingenic_config_pin(jzpc, reg, 3 << (pin << 1), value << (pin << 1));
-}
 
 static int ingenic_pinmux_set_pin_fn(struct ingenic_pinctrl *jzpc,
 		int pin, int func)
@@ -2203,7 +2206,7 @@ static int ingenic_pinmux_gpio_set_direction(struct pinctrl_dev *pctldev,
 	} else if (jzpc->info->version == ID_JZ4730) {
 		ingenic_config_pin(jzpc, pin, JZ4730_GPIO_GPIER, false);
 		ingenic_config_pin(jzpc, pin, JZ4730_GPIO_GPDIR, input);
-		ingenic_ctrl_set_pins(jzpc, JZ4730_GPIO_GPAUR,
+		ingenic_config_pin_function(jzpc, JZ4730_GPIO_GPAUR,
 			JZ4730_GPIO_GPALR, pin, 0);
 	} else {
 		ingenic_config_pin(jzpc, pin, JZ4740_GPIO_SELECT, false);
