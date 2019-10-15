@@ -1,7 +1,7 @@
 /*
- * BQ24296/7 battery charger and OTG regulator
+ * BQ24296/7 battery charger and VSYS+OTG regulator
  *
- * found in some Android driver and hacked by <hns@goldelico.com>
+ * found code in some Android driver and hacked by <hns@goldelico.com>
  * to become useable for the Pyra
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,34 +14,32 @@
  *
  */
 
-#define UNUSED 0
 #define FIXME 0
 
-#include <linux/module.h>
-#include <linux/param.h>
-#include <linux/jiffies.h>
-#include <linux/workqueue.h>
 #include <linux/delay.h>
-#include <linux/platform_device.h>
-#include <linux/power_supply.h>
-#include <linux/idr.h>
 #include <linux/i2c.h>
-#include <linux/slab.h>
+#include <linux/idr.h>
 #include <linux/interrupt.h>
+#include <linux/jiffies.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/of_gpio.h>
 #include <linux/of_device.h>
+#include <linux/param.h>
+#include <linux/platform_device.h>
+#include <linux/power_supply.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
+#include <linux/slab.h>
+#include <linux/workqueue.h>
 
 #define VSYS_REGULATOR	0
 #define OTG_REGULATOR	1
 #define NUM_REGULATORS	2
 
-/* I2C register define */
+/* I2C register defines */
 #define INPUT_SOURCE_CONTROL_REGISTER		0x00
 #define POWER_ON_CONFIGURATION_REGISTER		0x01
 #define CHARGE_CURRENT_CONTROL_REGISTER		0x02
@@ -189,12 +187,6 @@
 #define CHIP_OFFSET		2
 #define CHIP_MASK		7
 
-#define BQ24296_CHG_COMPELET       0x03
-#define BQ24296_NO_CHG             0x00
-
-#define BQ24296_DC_CHG             0x02
-#define BQ24296_USB_CHG            0x01
-
 struct bq2429x_board {
 	struct gpio_desc *dc_det_pin;
 	struct gpio_desc *psel_pin;
@@ -206,16 +198,18 @@ struct bq2429x_device_info {
 	struct i2c_client	*client;
 	const struct i2c_device_id *id;
 
-	struct mutex	var_lock;
-
-	struct delayed_work	usb_detect_work;
-	struct work_struct	irq_work;
-	struct workqueue_struct *workqueue;
+	struct power_supply *usb;
 
 	struct regulator_desc desc[NUM_REGULATORS];
 	struct device_node *of_node[NUM_REGULATORS];
 	struct regulator_dev *rdev[NUM_REGULATORS];
 	struct regulator_init_data *pmic_init_data;
+
+	struct mutex	var_lock;
+
+	struct delayed_work	usb_detect_work;
+	struct work_struct	irq_work;
+	struct workqueue_struct *workqueue;
 
 	struct gpio_desc *dc_det_pin;
 	struct gpio_desc *psel_pin;
@@ -227,20 +221,11 @@ struct bq2429x_device_info {
 	u8 chg_current;
 	u8 usb_input_current;
 	u8 adp_input_current;
-
-	struct power_supply *usb;
 };
 
 /* should be read from DT properties! */
 static unsigned int battery_voltage_max_design_uV = 4200000;	// default
 static unsigned int max_VSYS_uV = 5000000;	// "unlimited"
-
-#if 0
-#define DBG(x...) printk(KERN_INFO x)
-#define DEBUG 1
-#else
-#define DBG(x...) do { } while (0)
-#endif
 
 /*
  * Common code for BQ24296 devices read
@@ -301,10 +286,6 @@ static inline int bq2429x_write(struct i2c_client *client, u8 reg, u8 const buf[
 {
 	int ret;
 
-#if 0	// debug and disable write commands
-	printk("bq2429x_write %02x: %02x\n", reg, *buf);
-	return 0;
-#endif
 	ret = bq2429x_i2c_reg8_write(client, reg, buf, (int)len);
 	return ret;
 }
@@ -334,8 +315,8 @@ static int bq2429x_update_reg(struct i2c_client *client, int reg, u8 value, u8 m
 		}
 		ret = 0;
 	}
-#if 0	// DEBUG
-{
+#ifdef CONFIG_BQ2429X_DEBUG
+	{
 	int i;
 	u8 buffer;
 	for(i=0;i<11;i++)
@@ -343,11 +324,13 @@ static int bq2429x_update_reg(struct i2c_client *client, int reg, u8 value, u8 m
 		bq2429x_read(client, i, &buffer, 1);
 		printk("  reg %02x value %02x\n", i, buffer);
 		}
-}
+	}
 #endif
 
 	return ret;
 }
+
+#ifdef CONFIG_BQ2429X_DEBUG
 
 /* sysfs tool to show all register values */
 
@@ -371,6 +354,7 @@ static ssize_t show_registers(struct device *dev, struct device_attribute *attr,
 }
 
 DEVICE_ATTR(registers, 0444, show_registers,NULL);
+#endif
 
 // FIXME: review very critical what we need to initialize
 // and why it is constant and not defined by device tree properties!
@@ -629,7 +613,7 @@ static int bq2429x_update_en_hiz_disable(struct bq2429x_device_info *di)
 int bq2429x_set_input_current(struct bq2429x_device_info *di, int on)
 {
 	bq2429x_update_input_current_limit(di, on ? IINLIM_3000MA : IINLIM_500MA);
-	DBG("%s %s\n", __func__, on ? "3000mA" : "500mA");
+	printk("%s %s\n", __func__, on ? "3000mA" : "500mA");
 
 	return 0;
 }
@@ -665,26 +649,6 @@ static int bq2429x_update_otg_mode_current(struct bq2429x_device_info *di, u8 va
 	return ret;
 }
 
-#ifdef UNUSED
-static int bq2429x_charge_mode_config(struct bq2429x_device_info *di, bool on)
-{
-	if (on) {
-		bq2429x_update_en_hiz_disable(di);
-		mdelay(5);
-		bq2429x_update_charge_mode(di, CHARGE_MODE_CONFIG_OTG_OUTPUT);
-		mdelay(10);
-		bq2429x_update_otg_mode_current(di, OTG_MODE_CURRENT_CONFIG_1300MA);
-	}
-	else {
-		bq2429x_update_charge_mode(di, CHARGE_MODE_CONFIG_CHARGE_BATTERY);
-	}
-
-	DBG("%s is %s\n", __func__, on ? "OTG Mode" : "Charge Mode");
-
-	return 0;
-}
-#endif
-
 static inline bool bq2429x_battery_present(struct bq2429x_device_info *di)
 { /* assume there is no battery if there is an NTC fault */
 	return ((di->r9 >> NTC_FAULT_OFFSET) & NTC_FAULT_MASK) == 0;	/* if no fault */
@@ -700,7 +664,6 @@ static void bq2429x_input_available(struct bq2429x_device_info *di, bool state)
 	if (state && !di->adapter_plugged) {
 		di->adapter_plugged = true;
 
-		DBG("bq2429x: VBUS became available\n");
 		printk("bq2429x: VBUS became available\n");
 
 		power_supply_changed(di->usb);
@@ -717,7 +680,6 @@ static void bq2429x_input_available(struct bq2429x_device_info *di, bool state)
 
 		power_supply_changed(di->usb);
 
-		DBG("bq2429x: VBUS became unavailable\n");
 		printk("bq2429x: VBUS became unavailable\n");
 		}
 }
@@ -786,18 +748,6 @@ static int bq2429x_usb_detect(struct bq2429x_device_info *di)
 	}
 #endif
 
-
-#if FIXME
-
-/*
- * we should also reset the watchdog every now and then
- * at least if we run from battery
- * If watchdog operation is with battery only, we should
- * enable/disable it on demand
- */
-
-#endif
-
 	if (di->dc_det_pin){
 #ifdef UNUSED
 		/* detect extermal charging request */
@@ -811,18 +761,18 @@ static int bq2429x_usb_detect(struct bq2429x_device_info *di)
 			bq2429x_update_input_current_limit(di, IINLIM_500MA);
 			bq2429x_set_charge_current(di, CHARGE_CURRENT_512MA);
 		}
-		DBG("%s: di->dc_det_pin=%x\n", __func__, ret);
+		printk("%s: di->dc_det_pin=%x\n", __func__, ret);
 #endif
 	}
 	else {
 #ifdef OLD
-		DBG("%s: dwc_otg_check_dpdm %d\n", __func__, dwc_otg_check_dpdm(0));
+		printk("%s: dwc_otg_check_dpdm %d\n", __func__, dwc_otg_check_dpdm(0));
 		switch(dwc_otg_check_dpdm(0)) {
 			case 2: // USB Wall charger
 				bq2429x_update_input_current_limit(di->usb_input_current);
 				bq2429x_set_charge_current(CHARGE_CURRENT_2048MA);
 				bq2429x_charge_mode_config(0);
-				DBG("bq2429x: detect usb wall charger\n");
+				printk("bq2429x: detect usb wall charger\n");
 				break;
 			case 1: //normal USB
 				if (0 == get_gadget_connect_flag()){  // non-standard AC charger
@@ -835,13 +785,13 @@ static int bq2429x_usb_detect(struct bq2429x_device_info *di)
 					bq2429x_update_input_current_limit(di->usb_input_current);
 					bq2429x_set_charge_current(CHARGE_CURRENT_512MA);
 					bq2429x_charge_mode_config(0);
-					DBG("bq2429x: detect normal usb charger\n");
+					printk("bq2429x: detect normal usb charger\n");
 					}
 				break;
 			default:
 				bq2429x_update_input_current_limit(IINLIM_500MA);
 				bq2429x_set_charge_current(CHARGE_CURRENT_512MA);
-				DBG("bq2429x: detect no usb\n");
+				printk("bq2429x: detect no usb\n");
 				break;
 #else
 
@@ -898,7 +848,6 @@ static void bq2729x_irq_work_func(struct work_struct *wp)
 static irqreturn_t bq2729x_chg_irq_func(int irq, void *dev_id)
 {
 	struct bq2429x_device_info *info = dev_id;
-	DBG("%s\n", __func__);
 	printk("%s\n", __func__);
 
 	queue_work(info->workqueue, &info->irq_work);
@@ -1126,7 +1075,7 @@ static struct bq2429x_board *bq2429x_parse_dt(struct bq2429x_device_info *di)
 	int idx = 0, count, ret;
 	u32 val;
 
-	DBG("%s,line=%d\n", __func__,__LINE__);
+	printk("%s,line=%d\n", __func__,__LINE__);
 
 	np = of_node_get(di->dev->of_node);
 	if (!np) {
@@ -1380,7 +1329,7 @@ static int bq2429x_get_property(struct power_supply *psy,
 	int ret;
 	u8 retval = 0;
 
-	DBG("%s,line=%d prop=%d\n", __func__,__LINE__, psp);
+	printk("%s,line=%d prop=%d\n", __func__,__LINE__, psp);
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
@@ -1505,7 +1454,7 @@ static int bq2429x_set_property(struct power_supply *psy,
 {
 	struct bq2429x_device_info *di = power_supply_get_drvdata(psy);
 
-	DBG("%s,line=%d prop=%d\n", __func__,__LINE__, psp);
+	printk("%s,line=%d prop=%d\n", __func__,__LINE__, psp);
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
@@ -1589,7 +1538,7 @@ static int bq2429x_charger_probe(struct i2c_client *client, const struct i2c_dev
 	int i;
 	int ret = -EINVAL;
 
-	DBG("%s,line=%d\n", __func__,__LINE__);
+	printk("%s,line=%d\n", __func__,__LINE__);
 
 	bq2429x_node = of_node_get(client->dev.of_node);
 	if (!bq2429x_node) {
@@ -1623,7 +1572,7 @@ static int bq2429x_charger_probe(struct i2c_client *client, const struct i2c_dev
 		goto fail_probe;
 	}
 
-	DBG("%s,line=%d chg_current =%d usb_input_current = %d adp_input_current =%d \n", __func__,__LINE__,
+	printk("%s,line=%d chg_current =%d usb_input_current = %d adp_input_current =%d \n", __func__,__LINE__,
 		pdev->chg_current[0],pdev->chg_current[1],pdev->chg_current[2]);
 
 	/******************get set current******/
@@ -1638,7 +1587,7 @@ static int bq2429x_charger_probe(struct i2c_client *client, const struct i2c_dev
 		di->adp_input_current  = bq2429x_limit_current_mA_to_bits(2000);
 	}
 
-	DBG("%s,line=%d chg_current =%d usb_input_current = %d adp_input_current =%d \n", __func__,__LINE__,
+	printk("%s,line=%d chg_current =%d usb_input_current = %d adp_input_current =%d \n", __func__,__LINE__,
 		di->chg_current,di->usb_input_current,di->adp_input_current);
 
 	/****************************************/
@@ -1731,10 +1680,9 @@ static int bq2429x_charger_probe(struct i2c_client *client, const struct i2c_dev
 		goto fail_probe;
 	}
 
-#if 1
 	di->prev_r8 = 0xff;
 	di->prev_r9 = 0xff;
-#endif
+
 	ret = devm_request_threaded_irq(&client->dev, client->irq,
 				NULL, bq2729x_chg_irq_func,
 				IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
@@ -1752,17 +1700,19 @@ static int bq2429x_charger_probe(struct i2c_client *client, const struct i2c_dev
 	if (device_create_file(&client->dev, &dev_attr_otg))
 		dev_warn(&client->dev, "could not create sysfs file otg\n");
 
+#ifdef CONFIG_BQ2429X_DEBUG
 	if (device_create_file(&client->dev, &dev_attr_registers))
 		dev_warn(&client->dev, "could not create sysfs file registers\n");
+#endif
 
 	schedule_delayed_work(&di->usb_detect_work, 0);
 
-	DBG("%s ok", __func__);
+	printk("%s ok", __func__);
 
 	return 0;
 
 fail_probe:
-	DBG("%s failed %d", __func__, ret);
+	printk("%s failed %d", __func__, ret);
 	return ret;
 }
 
@@ -1772,8 +1722,9 @@ static int bq2429x_charger_remove(struct i2c_client *client)
 
 	device_remove_file(di->dev, &dev_attr_max_current);
 	device_remove_file(di->dev, &dev_attr_otg);
+#ifdef CONFIG_BQ2429X_DEBUG
 	device_remove_file(di->dev, &dev_attr_registers);
-
+#endif
 	return 0;
 }
 
@@ -1793,7 +1744,6 @@ static struct i2c_driver bq2429x_charger_driver = {
 	.id_table = bq2429x_charger_id,
 	.driver = {
 		.name = "bq2429x_charger",
-	//	.pm = &bq2429x_pm_ops,
 		.of_match_table =of_match_ptr(bq2429x_charger_of_match),
 		.suspend = bq2429x_charger_suspend,
 		.resume = bq2429x_charger_resume,
