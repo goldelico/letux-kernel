@@ -2,6 +2,8 @@
 /*
  * JZ47xx SoCs TCU clocks driver
  * Copyright (C) 2019 Paul Cercueil <paul@crapouillou.net>
+ * JZ4730 OST driver (corresponding to TCU in other products)
+ * Copyright (C) 2019 Paul Boddie <paul@boddie.org.uk>
  */
 
 #include <linux/clk.h>
@@ -15,17 +17,33 @@
 
 #include <dt-bindings/clock/ingenic,tcu.h>
 
+#ifdef CONFIG_MACH_JZ4730
+/* 3 OST channels max (ignoring separate watchdog) */
+#define TCU_CLK_COUNT	3
+#else
 /* 8 channels max + watchdog + OST */
 #define TCU_CLK_COUNT	10
+#endif
 
 #undef pr_fmt
 #define pr_fmt(fmt) "ingenic-tcu-clk: " fmt
 
+#ifdef CONFIG_MACH_JZ4730
+enum tcu_clk_parent {
+	TCU_PARENT_PCLK_DIV_4,
+	TCU_PARENT_PCLK_DIV_16,
+	TCU_PARENT_PCLK_DIV_64,
+	TCU_PARENT_PCLK_DIV_256,
+	TCU_PARENT_RTC,
+	TCU_PARENT_EXT,
+};
+#else
 enum tcu_clk_parent {
 	TCU_PARENT_PCLK,
 	TCU_PARENT_RTC,
 	TCU_PARENT_EXT,
 };
+#endif
 
 struct ingenic_soc_info {
 	unsigned int num_channels;
@@ -67,7 +85,11 @@ static int ingenic_tcu_enable(struct clk_hw *hw)
 	const struct ingenic_tcu_clk_info *info = tcu_clk->info;
 	struct ingenic_tcu *tcu = tcu_clk->tcu;
 
+#ifdef CONFIG_MACH_JZ4730
+	regmap_update_bits(tcu->map, TCU_REG_TER, BIT(info->gate_bit), true);
+#else
 	regmap_write(tcu->map, TCU_REG_TSCR, BIT(info->gate_bit));
+#endif
 
 	return 0;
 }
@@ -78,7 +100,11 @@ static void ingenic_tcu_disable(struct clk_hw *hw)
 	const struct ingenic_tcu_clk_info *info = tcu_clk->info;
 	struct ingenic_tcu *tcu = tcu_clk->tcu;
 
+#ifdef CONFIG_MACH_JZ4730
+	regmap_update_bits(tcu->map, TCU_REG_TER, BIT(info->gate_bit), false);
+#else
 	regmap_write(tcu->map, TCU_REG_TSSR, BIT(info->gate_bit));
+#endif
 }
 
 static int ingenic_tcu_is_enabled(struct clk_hw *hw)
@@ -87,7 +113,11 @@ static int ingenic_tcu_is_enabled(struct clk_hw *hw)
 	const struct ingenic_tcu_clk_info *info = tcu_clk->info;
 	unsigned int value;
 
+#ifdef CONFIG_MACH_JZ4730
+	regmap_read(tcu_clk->tcu->map, TCU_REG_TER, &value);
+#else
 	regmap_read(tcu_clk->tcu->map, TCU_REG_TSR, &value);
+#endif
 
 	return !(value & BIT(info->gate_bit));
 }
@@ -95,7 +125,6 @@ static int ingenic_tcu_is_enabled(struct clk_hw *hw)
 static bool ingenic_tcu_enable_regs(struct clk_hw *hw)
 {
 	struct ingenic_tcu_clk *tcu_clk = to_tcu_clk(hw);
-	const struct ingenic_tcu_clk_info *info = tcu_clk->info;
 	struct ingenic_tcu *tcu = tcu_clk->tcu;
 	bool enabled = false;
 
@@ -107,7 +136,7 @@ static bool ingenic_tcu_enable_regs(struct clk_hw *hw)
 	 */
 	if (!tcu->clk) {
 		enabled = !!ingenic_tcu_is_enabled(hw);
-		regmap_write(tcu->map, TCU_REG_TSCR, BIT(info->gate_bit));
+		ingenic_tcu_enable(hw);
 	}
 
 	return enabled;
@@ -116,11 +145,10 @@ static bool ingenic_tcu_enable_regs(struct clk_hw *hw)
 static void ingenic_tcu_disable_regs(struct clk_hw *hw)
 {
 	struct ingenic_tcu_clk *tcu_clk = to_tcu_clk(hw);
-	const struct ingenic_tcu_clk_info *info = tcu_clk->info;
 	struct ingenic_tcu *tcu = tcu_clk->tcu;
 
 	if (!tcu->clk)
-		regmap_write(tcu->map, TCU_REG_TSSR, BIT(info->gate_bit));
+		ingenic_tcu_disable(hw);
 }
 
 static u8 ingenic_tcu_get_parent(struct clk_hw *hw)
@@ -231,11 +259,22 @@ static const struct clk_ops ingenic_tcu_clk_ops = {
 	.is_enabled	= ingenic_tcu_is_enabled,
 };
 
+#ifdef CONFIG_MACH_JZ4730
+static const char * const ingenic_tcu_timer_parents[] = {
+	[TCU_PARENT_PCLK_DIV_4] = "pclk/4",
+	[TCU_PARENT_PCLK_DIV_16] = "pclk/16",
+	[TCU_PARENT_PCLK_DIV_64] = "pclk/64",
+	[TCU_PARENT_PCLK_DIV_256] = "pclk/256",
+	[TCU_PARENT_RTC]  = "rtc",
+	[TCU_PARENT_EXT]  = "ext",
+};
+#else
 static const char * const ingenic_tcu_timer_parents[] = {
 	[TCU_PARENT_PCLK] = "pclk",
 	[TCU_PARENT_RTC]  = "rtc",
 	[TCU_PARENT_EXT]  = "ext",
 };
+#endif
 
 #define DEF_TIMER(_name, _gate_bit, _tcsr)				\
 	{								\
@@ -253,17 +292,26 @@ static const struct ingenic_tcu_clk_info ingenic_tcu_clk_info[] = {
 	[TCU_CLK_TIMER0] = DEF_TIMER("timer0", 0, TCU_REG_TCSRc(0)),
 	[TCU_CLK_TIMER1] = DEF_TIMER("timer1", 1, TCU_REG_TCSRc(1)),
 	[TCU_CLK_TIMER2] = DEF_TIMER("timer2", 2, TCU_REG_TCSRc(2)),
+#ifdef CONFIG_MACH_JZ4730
+	/* No more timers in the JZ4730. */
+#else
 	[TCU_CLK_TIMER3] = DEF_TIMER("timer3", 3, TCU_REG_TCSRc(3)),
 	[TCU_CLK_TIMER4] = DEF_TIMER("timer4", 4, TCU_REG_TCSRc(4)),
 	[TCU_CLK_TIMER5] = DEF_TIMER("timer5", 5, TCU_REG_TCSRc(5)),
 	[TCU_CLK_TIMER6] = DEF_TIMER("timer6", 6, TCU_REG_TCSRc(6)),
 	[TCU_CLK_TIMER7] = DEF_TIMER("timer7", 7, TCU_REG_TCSRc(7)),
+#endif
 };
 
+#ifdef CONFIG_MACH_JZ4730
+/* The watchdog is handled separately from the timers in the JZ4730. */
+#else
 static const struct ingenic_tcu_clk_info ingenic_tcu_watchdog_clk_info =
 					 DEF_TIMER("wdt", 16, TCU_REG_WDT_TCSR);
 static const struct ingenic_tcu_clk_info ingenic_tcu_ost_clk_info =
 					 DEF_TIMER("ost", 15, TCU_REG_OST_TCSR);
+#endif
+
 #undef DEF_TIMER
 
 static int __init ingenic_tcu_register_clock(struct ingenic_tcu *tcu,
@@ -285,7 +333,11 @@ static int __init ingenic_tcu_register_clock(struct ingenic_tcu *tcu,
 
 	/* Reset channel and clock divider, set default parent */
 	ingenic_tcu_enable_regs(&tcu_clk->hw);
+#ifdef CONFIG_MACH_JZ4730
+	regmap_update_bits(tcu->map, info->tcsr_reg, TCU_TCSR_PARENT_CLOCK_MASK, BIT(parent));
+#else
 	regmap_update_bits(tcu->map, info->tcsr_reg, 0xffff, BIT(parent));
+#endif
 	ingenic_tcu_disable_regs(&tcu_clk->hw);
 
 	err = clk_hw_register(NULL, &tcu_clk->hw);
@@ -298,6 +350,12 @@ static int __init ingenic_tcu_register_clock(struct ingenic_tcu *tcu,
 
 	return 0;
 }
+
+static const struct ingenic_soc_info jz4730_soc_info = {
+	.num_channels = 3,
+	.has_ost = false,
+	.has_tcu_clk = true,
+};
 
 static const struct ingenic_soc_info jz4740_soc_info = {
 	.num_channels = 8,
@@ -318,6 +376,7 @@ static const struct ingenic_soc_info jz4770_soc_info = {
 };
 
 static const struct of_device_id ingenic_tcu_of_match[] __initconst = {
+	{ .compatible = "ingenic,jz4730-tcu", .data = &jz4730_soc_info, },
 	{ .compatible = "ingenic,jz4740-tcu", .data = &jz4740_soc_info, },
 	{ .compatible = "ingenic,jz4725b-tcu", .data = &jz4725b_soc_info, },
 	{ .compatible = "ingenic,jz4770-tcu", .data = &jz4770_soc_info, },
@@ -377,6 +436,12 @@ static int __init ingenic_tcu_probe(struct device_node *np)
 		}
 	}
 
+#ifdef CONFIG_MACH_JZ4730
+	/*
+	 * The watchdog is handled separately from the TCU in the JZ4730.
+	 * Meanwhile, all timers are operating system timers.
+	 */
+#else
 	/*
 	 * We set EXT as the default parent clock for all the TCU clocks
 	 * except for the watchdog one, where we set the RTC clock as the
@@ -402,6 +467,7 @@ static int __init ingenic_tcu_probe(struct device_node *np)
 			goto err_unregister_watchdog_clock;
 		}
 	}
+#endif
 
 	ret = of_clk_add_hw_provider(np, of_clk_hw_onecell_get, tcu->clocks);
 	if (ret) {
@@ -416,8 +482,12 @@ static int __init ingenic_tcu_probe(struct device_node *np)
 err_unregister_ost_clock:
 	if (tcu->soc_info->has_ost)
 		clk_hw_unregister(tcu->clocks->hws[i + 1]);
+#ifdef CONFIG_MACH_JZ4730
+	/* No watchdog to unregister for the JZ4730. */
+#else
 err_unregister_watchdog_clock:
 	clk_hw_unregister(tcu->clocks->hws[i]);
+#endif
 err_unregister_timer_clocks:
 	for (i = 0; i < tcu->clocks->num; i++)
 		if (tcu->clocks->hws[i])
@@ -468,6 +538,7 @@ static void __init ingenic_tcu_init(struct device_node *np)
 		register_syscore_ops(&tcu_pm_ops);
 }
 
+CLK_OF_DECLARE_DRIVER(jz4730_cgu, "ingenic,jz4730-tcu", ingenic_tcu_init);
 CLK_OF_DECLARE_DRIVER(jz4740_cgu, "ingenic,jz4740-tcu", ingenic_tcu_init);
 CLK_OF_DECLARE_DRIVER(jz4725b_cgu, "ingenic,jz4725b-tcu", ingenic_tcu_init);
 CLK_OF_DECLARE_DRIVER(jz4770_cgu, "ingenic,jz4770-tcu", ingenic_tcu_init);
