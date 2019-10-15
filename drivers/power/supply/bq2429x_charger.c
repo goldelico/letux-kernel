@@ -703,7 +703,7 @@ static void bq2429x_input_available(struct bq2429x_device_info *di, bool state)
 		DBG("bq2429x: VBUS became available\n");
 		printk("bq2429x: VBUS became available\n");
 
-// FIXME: send power status changed notifier
+		power_supply_changed(di->usb);
 
 		// this should have been queried/provided by the USB stack...
 		bq2429x_update_input_current_limit(di, di->usb_input_current);
@@ -715,7 +715,7 @@ static void bq2429x_input_available(struct bq2429x_device_info *di, bool state)
 	else if (!state && di->adapter_plugged) {
 		di->adapter_plugged = false;
 
-// FIXME: send power status changed notifier
+		power_supply_changed(di->usb);
 
 		DBG("bq2429x: VBUS became unavailable\n");
 		printk("bq2429x: VBUS became unavailable\n");
