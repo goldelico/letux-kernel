@@ -187,12 +187,6 @@
 #define CHIP_OFFSET		2
 #define CHIP_MASK		7
 
-struct bq2429x_board {
-	struct gpio_desc *dc_det_pin;
-	struct gpio_desc *psel_pin;
-	unsigned int chg_current[3];
-};
-
 struct bq2429x_device_info {
 	struct device 		*dev;
 	struct i2c_client	*client;
@@ -1062,114 +1056,6 @@ static struct of_regulator_match bq2429x_regulator_matches[] = {
 	[OTG_REGULATOR] ={  .name = "bq2429x-otg"},
 };
 
-/* device tree support */
-
-#ifdef CONFIG_OF
-static struct bq2429x_board *bq2429x_parse_dt(struct bq2429x_device_info *di)
-{
-	struct bq2429x_board *pdata;
-	struct device_node *np;
-	struct device_node *regulators;
-	struct of_regulator_match *matches;
-	static struct regulator_init_data *reg_data;
-	int idx = 0, count, ret;
-	u32 val;
-
-	printk("%s,line=%d\n", __func__,__LINE__);
-
-	np = of_node_get(di->dev->of_node);
-	if (!np) {
-		dev_err(&di->client->dev, "could not find bq2429x DT node\n");
-		return NULL;
-	}
-	pdata = devm_kzalloc(di->dev, sizeof(*pdata), GFP_KERNEL);
-	if (!pdata)
-		return NULL;
-	if (of_property_read_u32_array(np, "ti,chg_current", pdata->chg_current, 3)) {
-		dev_err(&di->client->dev, "charge current not specified\n");
-		return NULL;
-	}
-
-	// dc_det_pin - if 0, charger is switched by driver to 2048mA, otherwise 512mA
-	pdata->dc_det_pin = devm_gpiod_get_index(&di->client->dev, "dc-det", 0, GPIOD_IN);
-
-// FIXME: check for bq24296 (297 has no det gpio)
-
-	if (IS_ERR(pdata->dc_det_pin)) {
-		if (PTR_ERR(pdata->dc_det_pin) == -EPROBE_DEFER)
-			return NULL;
-		dev_err(&di->client->dev, "invalid det gpio: %ld\n", PTR_ERR(pdata->dc_det_pin));
-		pdata->dc_det_pin = NULL;
-	}
-
-	of_node_get(np);
-	regulators = of_get_child_by_name(np, "regulators");
-	if (!regulators) {
-		dev_err(&di->client->dev, "regulator node not found\n");
-		return NULL;
-	}
-
-	count = ARRAY_SIZE(bq2429x_regulator_matches);
-	matches = bq2429x_regulator_matches;
-
-	ret = of_regulator_match(&di->client->dev, regulators, matches, count);
-// printk("%d matches\n", ret);
-	of_node_put(regulators);
-	if (ret < 0) {
-		dev_err(&di->client->dev, "Error parsing regulator init data: %d\n",
-			ret);
-		return NULL;
-	}
-
-	if (ret != count) {
-		dev_err(&di->client->dev, "Found %d of expected %d regulators\n",
-			ret, count);
-		return NULL;
-	}
-
-	regulators = of_get_next_child(regulators, NULL);	// get first regulator (vsys)
-	if (!of_property_read_u32(regulators, "regulator-max-microvolt", &val)) {
-		dev_err(&di->client->dev, "found regulator-max-microvolt = %u\n", val);
-		max_VSYS_uV = val;	// limited by device tree
-	}
-
-	reg_data = devm_kzalloc(&di->client->dev, (sizeof(struct regulator_init_data)
-					* NUM_REGULATORS), GFP_KERNEL);
-	if (!reg_data)
-		return NULL;
-
-	di->pmic_init_data = reg_data;
-
-	for (idx = 0; idx < ret; idx++) {
-// printk("matches[%d].of_node = %p\n", idx, matches[idx].of_node);
-		if (!matches[idx].init_data || !matches[idx].of_node)
-			continue;
-
-		memcpy(&reg_data[idx], matches[idx].init_data,
-				sizeof(struct regulator_init_data));
-
-	}
-
-	return pdata;
-}
-
-#else
-static struct bq2429x_board *bq2429x_parse_dt(struct bq2429x_device_info *di)
-{
-	return NULL;
-}
-#endif
-
-#ifdef CONFIG_OF
-static struct of_device_id bq2429x_charger_of_match[] = {
-	{ .compatible = "ti,bq24296", .data = (void *) 0 },
-	{ .compatible = "ti,bq24297", .data = (void *) 1 },
-	{ .compatible = "mps,mp2624", .data = (void *) 2 },	// can control VSYS-VBATT level but not OTG max power
-	{ },
-};
-MODULE_DEVICE_TABLE(of, bq2429x_charger_of_match);
-#endif
-
 static int bq2429x_charger_suspend(struct device *dev, pm_message_t state)
 {
 	struct i2c_client *client = to_i2c_client(dev);
@@ -1523,13 +1409,125 @@ static const struct power_supply_desc bq2429x_power_supply_desc[] = {
 	},
 };
 
+/* device tree support */
+
+static int bq2429x_parse_dt(struct bq2429x_device_info *di)
+{
+	struct device_node *np;
+	struct device_node *regulators;
+	struct of_regulator_match *matches;
+	static struct regulator_init_data *reg_data;
+	u32 chg_current[3];
+	int idx = 0, count, ret;
+	u32 val;
+
+	printk("%s,line=%d\n", __func__,__LINE__);
+
+	np = of_node_get(di->dev->of_node);
+	if (!np) {
+		dev_err(&di->client->dev, "could not find bq2429x DT node\n");
+		return -EINVAL;
+	}
+
+	if (of_property_read_u32_array(np, "ti,chg_current", chg_current, 3)) {
+		dev_err(&di->client->dev, "charge current not specified\n");
+		return -EINVAL;
+	}
+
+	/******************get set current******/
+	if (chg_current[0] && chg_current[1] && chg_current[2]){
+		di->chg_current = bq2429x_chg_current_mA_to_bits(chg_current[0] );
+		di->usb_input_current  = bq2429x_limit_current_mA_to_bits(chg_current[1]);
+		di->adp_input_current  = bq2429x_limit_current_mA_to_bits(chg_current[2]);
+	}
+	else {
+		di->chg_current = bq2429x_chg_current_mA_to_bits(1000);
+		di->usb_input_current  = bq2429x_limit_current_mA_to_bits(500);
+		di->adp_input_current  = bq2429x_limit_current_mA_to_bits(2000);
+	}
+
+	printk("%s,line=%d chg_current =%d usb_input_current = %d adp_input_current =%d \n", __func__,__LINE__,
+		di->chg_current,di->usb_input_current,di->adp_input_current);
+
+	/****************************************/
+
+	// dc_det_pin - if 0, charger is switched by driver to 2048mA, otherwise 512mA
+	di->dc_det_pin = devm_gpiod_get_index(&di->client->dev, "dc-det", 0, GPIOD_IN);
+
+// FIXME: check for bq24296 (297 has no det gpio)
+
+	if (IS_ERR(di->dc_det_pin)) {
+		if (PTR_ERR(di->dc_det_pin) == -EPROBE_DEFER)
+			return -EPROBE_DEFER;
+		dev_err(&di->client->dev, "invalid det gpio: %ld\n", PTR_ERR(di->dc_det_pin));
+		di->dc_det_pin = NULL;
+	}
+
+	of_node_get(np);
+	regulators = of_get_child_by_name(np, "regulators");
+	if (!regulators) {
+		dev_err(&di->client->dev, "regulator node not found\n");
+		return -EINVAL;
+	}
+
+	count = ARRAY_SIZE(bq2429x_regulator_matches);
+	matches = bq2429x_regulator_matches;
+
+	ret = of_regulator_match(&di->client->dev, regulators, matches, count);
+// printk("%d matches\n", ret);
+	of_node_put(regulators);
+	if (ret < 0) {
+		dev_err(&di->client->dev, "Error parsing regulator init data: %d\n",
+			ret);
+		return ret;
+	}
+
+	if (ret != count) {
+		dev_err(&di->client->dev, "Found %d of expected %d regulators\n",
+			ret, count);
+		return -EINVAL;
+	}
+
+	regulators = of_get_next_child(regulators, NULL);	// get first regulator (vsys)
+	if (!of_property_read_u32(regulators, "regulator-max-microvolt", &val)) {
+		dev_err(&di->client->dev, "found regulator-max-microvolt = %u\n", val);
+		max_VSYS_uV = val;	// limited by device tree
+	}
+
+	reg_data = devm_kzalloc(&di->client->dev, (sizeof(struct regulator_init_data)
+					* NUM_REGULATORS), GFP_KERNEL);
+	if (!reg_data)
+		return -EINVAL;
+
+	di->pmic_init_data = reg_data;
+
+	for (idx = 0; idx < ret; idx++) {
+// printk("matches[%d].of_node = %p\n", idx, matches[idx].of_node);
+		if (!matches[idx].init_data || !matches[idx].of_node)
+			continue;
+
+		memcpy(&reg_data[idx], matches[idx].init_data,
+				sizeof(struct regulator_init_data));
+
+	}
+
+	return 0;
+}
+
+static struct of_device_id bq2429x_charger_of_match[] = {
+	{ .compatible = "ti,bq24296", .data = (void *) 0 },
+	{ .compatible = "ti,bq24297", .data = (void *) 1 },
+	{ .compatible = "mps,mp2624", .data = (void *) 2 },	// can control VSYS-VBATT level but not OTG max power
+	{ },
+};
+MODULE_DEVICE_TABLE(of, bq2429x_charger_of_match);
+
 /* PROBE */
 
 static int bq2429x_charger_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct bq2429x_device_info *di;
 	u8 retval = 0;
-	struct bq2429x_board *pdev;
 	struct device_node *bq2429x_node;
 	struct power_supply_config psy_cfg = { };
 	struct regulator_config config = { };
@@ -1561,36 +1559,14 @@ static int bq2429x_charger_probe(struct i2c_client *client, const struct i2c_dev
 	i2c_set_clientdata(client, di);
 	di->client = client;
 
-	if (bq2429x_node)
-		pdev = bq2429x_parse_dt(di);
-	else
-		pdev = dev_get_platdata(di->dev);
+	ret = bq2429x_parse_dt(di);
 
-	if (!pdev) {
-		dev_err(&client->dev, "failed to get platform data\n");
+	if (ret) {
+		dev_err(&client->dev, "failed to parse DT\n");
 		ret = -EPROBE_DEFER;
 		goto fail_probe;
 	}
 
-	printk("%s,line=%d chg_current =%d usb_input_current = %d adp_input_current =%d \n", __func__,__LINE__,
-		pdev->chg_current[0],pdev->chg_current[1],pdev->chg_current[2]);
-
-	/******************get set current******/
-	if (pdev->chg_current[0] && pdev->chg_current[1] && pdev->chg_current[2]){
-		di->chg_current = bq2429x_chg_current_mA_to_bits(pdev->chg_current[0] );
-		di->usb_input_current  = bq2429x_limit_current_mA_to_bits(pdev->chg_current[1]);
-		di->adp_input_current  = bq2429x_limit_current_mA_to_bits(pdev->chg_current[2]);
-	}
-	else {
-		di->chg_current = bq2429x_chg_current_mA_to_bits(1000);
-		di->usb_input_current  = bq2429x_limit_current_mA_to_bits(500);
-		di->adp_input_current  = bq2429x_limit_current_mA_to_bits(2000);
-	}
-
-	printk("%s,line=%d chg_current =%d usb_input_current = %d adp_input_current =%d \n", __func__,__LINE__,
-		di->chg_current,di->usb_input_current,di->adp_input_current);
-
-	/****************************************/
 	/* get the vendor id */
 	ret = bq2429x_read(di->client, VENDOR_STATS_REGISTER, &retval, 1);
 	if (ret < 0) {
@@ -1607,8 +1583,6 @@ static int bq2429x_charger_probe(struct i2c_client *client, const struct i2c_dev
 	}
 
 	di->id = id;
-	di->dc_det_pin = pdev->dc_det_pin;
-	di->psel_pin = pdev->psel_pin;
 
 /* we can also read and save the IINLIM value inherited from the boot process here! */
 
