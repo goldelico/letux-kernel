@@ -185,10 +185,6 @@
 #define CHIP_OFFSET		2
 #define CHIP_MASK		7
 
-#define BQ24296		0
-#define BQ24297		1
-#define MP2624		2
-
 struct bq2429x_device_info {
 	struct device			*dev;
 	struct i2c_client		*client;
@@ -213,6 +209,8 @@ struct bq2429x_device_info {
 	u8 r8, r9;	/* status register values from last read */
 	u8 prev_r8, prev_r9;	/* for change detection */
 	bool adapter_plugged;	/* is power adapter plugged in */
+
+// revisit: was davon wird davon verwendet?
 
 	unsigned int	chg_current_uA;
 	unsigned int	usb_input_current_uA;
@@ -688,7 +686,7 @@ static int bq2429x_init_registers(struct bq2429x_device_info *di)
 	 * voltage. The offset can be reduced to 100mV for the mps,mp2624
 	 */
 
-	if (di->id->driver_data == MP2624)
+	if (di->id->driver_data == CHIP_MP2624)
 		max_uV = di->max_VSYS_uV - 100000;
 	else
 		max_uV = di->max_VSYS_uV - 150000;
@@ -1371,6 +1369,7 @@ static int bq2429x_parse_dt(struct bq2429x_device_info *di)
 
 	battery_np = of_parse_phandle(di->dev->of_node, "monitored-battery", 0);
 	if (battery_np) {
+printk("monitored-battery abfragen\n");
 		of_property_read_u32(battery_np, "voltage-max-design-microvolt",
 				&di->battery_voltage_max_design_uV);
 /*
@@ -1625,9 +1624,9 @@ static int bq2429x_charger_remove(struct i2c_client *client)
 }
 
 static const struct i2c_device_id bq2429x_charger_id[] = {
-	{ "bq24296", BQ24296 },
-	{ "bq24297", BQ24297 },
-	{ "mp2624", MP2624 },
+	{ "bq24296", CHIP_BQ24296 },
+	{ "bq24297", CHIP_BQ24297 },
+	{ "mp2624", CHIP_MP2624 },
 	{ },
 };
 
