@@ -210,16 +210,14 @@ struct bq2429x_device_info {
 	u8 prev_r8, prev_r9;	/* for change detection */
 	bool adapter_plugged;	/* is power adapter plugged in */
 
-// revisit: was davon wird davon verwendet?
-
-	unsigned int	chg_current_uA;
-	unsigned int	usb_input_current_uA;
+	unsigned int	chg_current_uA;		/* charging current limit */
+	unsigned int	usb_input_current_uA;	/* default current limit after plugin of USB power */
 	unsigned int	adp_input_current_uA;
 	unsigned int	battery_voltage_max_design_uV;
 	unsigned int	max_VSYS_uV;
 };
 
-/* helper tables and functions */
+/* helper tables */
 
 static const unsigned int iinlim_table[] = {
 	100000,
@@ -462,20 +460,50 @@ static int bq2429x_set_input_current_limit_uA(struct bq2429x_device_info *di, in
 	return ret;
 }
 
+static int bq2429x_get_charge_current_uA(struct bq2429x_device_info *di)
+{
+	int ret;
+	u8 retval = 0;
+
+	ret = bq2429x_read(di->client, CHARGE_CURRENT_CONTROL_REGISTER, &retval, 1);
+	dev_dbg(di->dev, "bq2429x: CHARGE_CURRENT_CONTROL_REGISTER %02x\n", retval);
+	if (ret < 0) {
+		dev_err(&di->client->dev, "%s: err %d\n", __func__, ret);
+		return ret;
+	}
+
+	return 64000 * ((retval >> CHARGE_CURRENT_OFFSET) & CHARGE_CURRENT_MASK) + 512000;
+}
+
+static int bq2429x_get_precharge_current_uA(struct bq2429x_device_info *di)
+{
+	int ret;
+	u8 retval = 0;
+
+	ret = bq2429x_read(di->client, PRE_CHARGE_TERMINATION_CURRENT_CONTROL_REGISTER, &retval, 1);
+	dev_dbg(di->dev, "bq2429x: PRE_CHARGE_TERMINATION_CURRENT_CONTROL_REGISTER %02x\n", retval);
+	if (ret < 0) {
+		dev_err(&di->client->dev, "%s: err %d\n", __func__, ret);
+		return ret;
+	}
+
+	return 128000 * ((retval >> PRE_CHARGE_CURRENT_LIMIT_OFFSET) & PRE_CHARGE_CURRENT_LIMIT_MASK) + 128000;
+}
+
 static int bq2429x_set_charge_current_uA(struct bq2429x_device_info *di, int uA)
 {
 	int ret = 0;
-	u8 data;
+	int data;
 
 	if (uA < 0)
 		return -EINVAL;
 
-	data = (uA) / 64000;
-	data &= 0xff;
+	data = (uA - 512000 + 32000) / 64000;
+	data = min(0x27, max(data, 0));	/* limit to 512 mA .. 3008 mA */
 
 	ret = bq2429x_update_reg(di->client,
 				  CHARGE_CURRENT_CONTROL_REGISTER,
-				  (data << CHARGE_CURRENT_OFFSET) ,(CHARGE_CURRENT_MASK <<CHARGE_CURRENT_OFFSET ));
+				  (data << CHARGE_CURRENT_OFFSET) ,(CHARGE_CURRENT_MASK <<CHARGE_CURRENT_OFFSET));
 	if (ret < 0) {
 		dev_err(&di->client->dev, "%s(): Failed to set charge current limit (0x%x) \n",
 				__func__, uA);
@@ -729,6 +757,18 @@ static inline bool bq2429x_input_present(struct bq2429x_device_info *di)
 	return (di->r8 & PG_STAT) != 0;
 }
 
+static int bq2429x_battery_temperature_mC(struct bq2429x_device_info *di)
+{
+	/* since there is no ADC connected to the NTC we deduce values */
+	/* FIXME: deduce values from BHOT and BCOLD settings if boost mode is active */
+
+	if (di->r9 & 0x02)
+		return -10000;	// too cold (-10C)
+	else if (di->r9 & 0x01)
+		return 60000;	// too hot (60C)
+	return 22500;	// ok (22.5C)
+}
+
 static void bq2429x_input_available(struct bq2429x_device_info *di, bool state)
 { /* track external power input state and trigger actions on change */
 	if (state && !di->adapter_plugged) {
@@ -738,20 +778,31 @@ static void bq2429x_input_available(struct bq2429x_device_info *di, bool state)
 
 		power_supply_changed(di->usb);
 
-		/* this should be provided by the USB stack to match source capabilities */
-		bq2429x_set_input_current_limit_uA(di, di->usb_input_current_uA);
-
 		/* start charging */
-		if (bq2429x_battery_present(di))
-			bq2429x_set_charge_mode(di, CHARGE_MODE_CONFIG_CHARGE_BATTERY);
-		}
+		if (!bq2429x_battery_present(di))
+			return;
+
+		if (di->dc_det_pin){
+			/* detect alternate power supply */
+			int ret = gpiod_get_value(di->dc_det_pin);
+
+			if (ret == 0)
+				bq2429x_set_input_current_limit_uA(di, di->adp_input_current_uA);
+			else
+				bq2429x_set_input_current_limit_uA(di, di->usb_input_current_uA);
+		} else
+			bq2429x_set_input_current_limit_uA(di, di->usb_input_current_uA);
+
+		bq2429x_set_charge_current_uA(di, di->chg_current_uA);
+		bq2429x_set_charge_mode(di, CHARGE_MODE_CONFIG_CHARGE_BATTERY);
+	}
 	else if (!state && di->adapter_plugged) {
 		di->adapter_plugged = false;
 
 		power_supply_changed(di->usb);
 
 		dev_notice(di->dev, "bq2429x: VBUS became unavailable\n");
-		}
+	}
 }
 
 static int bq2429x_usb_detect(struct bq2429x_device_info *di)
@@ -818,30 +869,12 @@ static int bq2429x_usb_detect(struct bq2429x_device_info *di)
 	}
 #endif
 
-	if (di->dc_det_pin){
-#ifdef UNUSED
-		/* detect external charging request */
-		ret = gpiod_get_value(di->dc_det_pin);
-		if (ret == 0) {
-			bq2429x_set_input_current_limit_uA(di, di->adp_input_current);
-			bq2429x_set_charge_current_uA(di, 2000000);
-			bq2429x_charge_mode_config(di, 0);
-		}
-		else {
-			bq2429x_set_input_current_limit_uA(di, 500000);
-			bq2429x_set_charge_current_uA(di, 512000);
-		}
-		dev_dbg(di->dev, "%s: di->dc_det_pin=%x\n", __func__, ret);
-#endif
-	}
-	else {
-		/* handle (momentarily) disconnect of VBUS */
-		if ((di->r9 >> CHRG_FAULT_OFFSET) & CHRG_FAULT_MASK)
-			bq2429x_input_available(di, false);
+	/* handle (momentarily) disconnect of VBUS */
+	if ((di->r9 >> CHRG_FAULT_OFFSET) & CHRG_FAULT_MASK)
+		bq2429x_input_available(di, false);
 
-		/* since we are polling slowly VBUS may already be back again */
-		bq2429x_input_available(di, bq2429x_input_present(di));
-	}
+	/* since we are polling slowly VBUS may already be back again */
+	bq2429x_input_available(di, bq2429x_input_present(di));
 
 	mutex_unlock(&di->var_lock);
 
@@ -1037,8 +1070,12 @@ bq2429x_input_current_limit_uA_store(struct device *dev, struct device_attribute
 		return -EINVAL;
 
 	status = bq2429x_set_input_current_limit_uA(di, cur);
+	if (status < 0)
+		return status;
 
-	return (status < 0) ? n : status;
+	di->usb_input_current_uA = cur;	/* restore after unplug/replug */
+
+	return n;
 }
 
 /*
@@ -1107,11 +1144,9 @@ static ssize_t bq2429x_otg_show(struct device *dev,
 	return scnprintf(buf, PAGE_SIZE, "%u\n", cur);
 }
 
-// can be removed if handled as charger property (input_current_limit)
 static DEVICE_ATTR(max_current, 0644, bq2429x_input_current_limit_uA_show,
 			bq2429x_input_current_limit_uA_store);
 
-// do we need that? Only if there is no mechanism to set the regulator from user-space
 static DEVICE_ATTR(otg, 0644, bq2429x_otg_show, bq2429x_otg_store);
 
 /* power_supply interface */
@@ -1122,7 +1157,6 @@ static int bq2429x_get_property(struct power_supply *psy,
 {
 	struct bq2429x_device_info *di = power_supply_get_drvdata(psy);
 	int ret;
-	u8 retval = 0;
 
 	dev_dbg(di->dev, "%s,line=%d prop=%d\n", __func__,__LINE__, psp);
 
@@ -1175,39 +1209,21 @@ static int bq2429x_get_property(struct power_supply *psy,
 		switch((di->r8 >> CHRG_OFFSET) & CHRG_MASK) {
 			case CHRG_NO_CHARGING:
 			case CHRG_CHRGE_DONE:
-				val->intval = 0;	// assume not charging current
-				dev_dbg(di->dev, "bq2429x CURRENT_NOW: %u mA\n", val->intval = ret);
+				val->intval = 0;	/* assume no charging current */
+				dev_dbg(di->dev, "bq2429x CURRENT_NOW: %u mA\n", val->intval);
 				break;
 
 			case CHRG_PRE_CHARGE:
-
-// FIXME: add getter
-
-				ret = bq2429x_read(di->client, PRE_CHARGE_TERMINATION_CURRENT_CONTROL_REGISTER, &retval, 1);
-				dev_dbg(di->dev, "bq2429x: PRE_CHARGE_TERMINATION_CURRENT_CONTROL_REGISTER %02x\n", retval);
-				if (ret < 0) {
-					dev_err(&di->client->dev, "%s: err %d\n", __func__, ret);
-				}
-				ret = 128000 * ((retval >> PRE_CHARGE_CURRENT_LIMIT_OFFSET) & PRE_CHARGE_CURRENT_LIMIT_MASK) + 128000;	// return precharge limit
 				val->intval = bq2429x_input_current_limit_uA(di);
-				/* return lower of both */
+				ret = bq2429x_get_precharge_current_uA(di);
 				if (ret < val->intval)
 					val->intval = ret;
 				dev_dbg(di->dev, "bq2429x CURRENT_NOW: %u mA\n", val->intval);
 				break;
 
 			case CHRG_FAST_CHARGE:
-
-// FIXME: add getter
-
-				ret = bq2429x_read(di->client, CHARGE_CURRENT_CONTROL_REGISTER, &retval, 1);
-				dev_dbg(di->dev, "bq2429x: FAST_CHARGE CHARGE_CURRENT_CONTROL_REGISTER %02x\n", retval);
-				if (ret < 0) {
-					dev_err(&di->client->dev, "%s: err %d\n", __func__, ret);
-				}
-				ret = 64000 * ((retval >> CHARGE_CURRENT_OFFSET) & CHARGE_CURRENT_MASK) + 512000;
 				val->intval = bq2429x_input_current_limit_uA(di);
-				/* return lower of both */
+				ret = bq2429x_get_charge_current_uA(di);
 				if (ret < val->intval)
 					val->intval = ret;
 				dev_dbg(di->dev, "bq2429x CURRENT_NOW: %u mA\n", val->intval);
@@ -1216,17 +1232,7 @@ static int bq2429x_get_property(struct power_supply *psy,
 		break;
 
 	case POWER_SUPPLY_PROP_TEMP:
-
-// FIXME: add getter
-
-		// FIXME: deduce values from BHOT and BCOLD settings if boost mode is active
-		// otherwise we report the defaults from the chip spec
-		if (di->r9 & 0x02)
-			val->intval = -100;	// too cold (-10C)
-		else if (di->r9 & 0x01)
-			val->intval = 600;	// too hot (60C)
-		else
-			val->intval = 225;	// ok (22.5C)
+		val->intval = bq2429x_battery_temperature_mC(di) / 100;
 		break;
 
 	case POWER_SUPPLY_PROP_ONLINE:	/* charger online, i.e. VBUS */
@@ -1299,7 +1305,7 @@ static enum power_supply_property bq2429x_charger_props[] = {
 };
 
 static const struct power_supply_desc bq2429x_power_supply_desc[] = {
-	{
+	[CHIP_BQ24296] = {
 	.name			= "bq24296",
 	.type			= POWER_SUPPLY_TYPE_USB,
 	.properties		= bq2429x_charger_props,
@@ -1308,7 +1314,7 @@ static const struct power_supply_desc bq2429x_power_supply_desc[] = {
 	.set_property		= bq2429x_set_property,
 	.property_is_writeable	= bq2429x_writeable_property,
 	},
-	{
+	[CHIP_BQ24297] = {
 	.name			= "bq24297",
 	.type			= POWER_SUPPLY_TYPE_USB,
 	.properties		= bq2429x_charger_props,
@@ -1317,7 +1323,7 @@ static const struct power_supply_desc bq2429x_power_supply_desc[] = {
 	.set_property		= bq2429x_set_property,
 	.property_is_writeable	= bq2429x_writeable_property,
 	},
-	{
+	[CHIP_MP2624] = {
 	.name			= "mp2624",
 	.type			= POWER_SUPPLY_TYPE_USB,
 	.properties		= bq2429x_charger_props,
@@ -1334,10 +1340,10 @@ static int bq2429x_parse_dt(struct bq2429x_device_info *di)
 {
 	struct device_node *np;
 	struct device_node *regulators;
+	struct device_node *regulator_np;
+	struct device_node *battery_np;
 	struct of_regulator_match *matches;
 	static struct regulator_init_data *reg_data;
-	struct device_node *battery_np;
-	u32 chg_current[3];
 	int idx = 0, count, ret;
 	u32 val;
 
@@ -1349,27 +1355,18 @@ static int bq2429x_parse_dt(struct bq2429x_device_info *di)
 		return -EINVAL;
 	}
 
-	if (of_property_read_u32_array(np, "ti,chg_current", chg_current, 3)) {
-		dev_err(&di->client->dev, "charge current not specified\n");
-		return -EINVAL;
-	}
+	di->battery_voltage_max_design_uV = 4200000;	/* default for LiIon */
+	di->adp_input_current_uA = 2000000;
+	/* take defaults as set by U-Boot or power-on */
+	di->chg_current_uA = bq2429x_get_charge_current_uA(di);
+	di->usb_input_current_uA = bq2429x_input_current_limit_uA(di);
 
-	di->battery_voltage_max_design_uV = 4200000;	// default for LiIon
+	of_property_read_u32(np, "ti,usb-input-current-microamp", &di->usb_input_current_uA);
+	of_property_read_u32(np, "ti,adp-input-current-microamp", &di->adp_input_current_uA);
 
-	if (chg_current[0] && chg_current[1] && chg_current[2]){
-		di->chg_current_uA = 1000 * chg_current[0];
-		di->usb_input_current_uA = 1000 * chg_current[1];
-		di->adp_input_current_uA = 1000 * chg_current[2];
-	}
-	else {
-		di->chg_current_uA = 10000000;
-		di->usb_input_current_uA = 500000;
-		di->adp_input_current_uA = 2000000;
-	}
-
-	battery_np = of_parse_phandle(di->dev->of_node, "monitored-battery", 0);
+	battery_np = of_parse_phandle(np, "monitored-battery", 0);
 	if (battery_np) {
-printk("monitored-battery abfragen\n");
+printk("%s %u\n", __func__, __LINE__);
 		of_property_read_u32(battery_np, "voltage-max-design-microvolt",
 				&di->battery_voltage_max_design_uV);
 /*
@@ -1391,8 +1388,6 @@ printk("monitored-battery abfragen\n");
 	// dc_det_pin - if 0, charger is switched by driver to 2048mA, otherwise 512mA
 	di->dc_det_pin = devm_gpiod_get_index(&di->client->dev, "dc-det", 0, GPIOD_IN);
 
-// FIXME: check for bq24296 (297 has no det gpio)
-
 	if (IS_ERR(di->dc_det_pin)) {
 		if (PTR_ERR(di->dc_det_pin) == -EPROBE_DEFER)
 			return -EPROBE_DEFER;
@@ -1400,7 +1395,6 @@ printk("monitored-battery abfragen\n");
 		di->dc_det_pin = NULL;
 	}
 
-	of_node_get(np);
 	regulators = of_get_child_by_name(np, "regulators");
 	if (!regulators) {
 		dev_err(&di->client->dev, "regulator node not found\n");
@@ -1412,7 +1406,7 @@ printk("monitored-battery abfragen\n");
 
 	ret = of_regulator_match(&di->client->dev, regulators, matches, count);
 	dev_dbg(di->dev, "%d matches\n", ret);
-	of_node_put(regulators);
+
 	if (ret < 0) {
 		dev_err(&di->client->dev, "Error parsing regulator init data: %d\n",
 			ret);
@@ -1425,11 +1419,12 @@ printk("monitored-battery abfragen\n");
 		return -EINVAL;
 	}
 
-	regulators = of_get_next_child(regulators, NULL);	// get first regulator (vsys)
-	if (!of_property_read_u32(regulators, "regulator-max-microvolt", &val)) {
+	regulator_np = of_get_next_child(regulators, NULL);	// get first regulator (vsys)
+	if (!of_property_read_u32(regulator_np, "regulator-max-microvolt", &val)) {
 		dev_err(&di->client->dev, "found regulator-max-microvolt = %u\n", val);
 		di->max_VSYS_uV = val;	// limit by device tree
 	}
+	of_node_put(regulator_np);
 	of_node_put(regulators);
 
 	reg_data = devm_kzalloc(&di->client->dev, (sizeof(struct regulator_init_data)
@@ -1492,7 +1487,7 @@ static int bq2429x_charger_probe(struct i2c_client *client, const struct i2c_dev
 	di->id = id;
 	di->prev_r8 = 0xff;
 	di->prev_r9 = 0xff;
-
+printk("%s %u\n", __func__, __LINE__);
 	ret = bq2429x_parse_dt(di);
 
 	if (ret < 0) {
@@ -1500,6 +1495,7 @@ static int bq2429x_charger_probe(struct i2c_client *client, const struct i2c_dev
 			dev_err(&client->dev, "failed to parse DT\n");
 		return ret;
 	}
+printk("%s %u\n", __func__, __LINE__);
 
 	ret = bq2429x_get_vendor_id(di);
 
@@ -1512,6 +1508,7 @@ static int bq2429x_charger_probe(struct i2c_client *client, const struct i2c_dev
 		dev_err(&client->dev, "not a bq24296/97: %02x\n", retval);
 		return -ENODEV;
 	}
+printk("%s %u\n", __func__, __LINE__);
 
 	/* revisit: we should read and save the IINLIM value inherited from the boot process here! */
 	bq2429x_input_current_limit_uA(di);
@@ -1519,6 +1516,7 @@ static int bq2429x_charger_probe(struct i2c_client *client, const struct i2c_dev
 	init_data = di->pmic_init_data;
 	if (!init_data)
 		return -EINVAL;
+printk("%s %u\n", __func__, __LINE__);
 
 	mutex_init(&di->var_lock);
 	di->workqueue = create_singlethread_workqueue("bq2429x_irq");
@@ -1529,12 +1527,14 @@ static int bq2429x_charger_probe(struct i2c_client *client, const struct i2c_dev
 	di->usb = devm_power_supply_register(&client->dev,
 						&bq2429x_power_supply_desc[id->driver_data],
 						&psy_cfg);
+printk("%s %u\n", __func__, __LINE__);
 	if (IS_ERR(di->usb)) {
 		ret = PTR_ERR(di->usb);
 		dev_err(&client->dev, "failed to register as USB power_supply: %d\n", ret);
 		return ret;
 	}
 
+printk("%s %u\n", __func__, __LINE__);
 	for (i = 0; i < NUM_REGULATORS; i++, init_data++) {
 		/* Register the regulators */
 
@@ -1573,6 +1573,7 @@ static int bq2429x_charger_probe(struct i2c_client *client, const struct i2c_dev
 		/* save regulator reference for cleanup */
 		di->rdev[i] = rdev;
 	}
+printk("%s %u\n", __func__, __LINE__);
 
 	ret = bq2429x_init_registers(di);
 	if (ret < 0) {
