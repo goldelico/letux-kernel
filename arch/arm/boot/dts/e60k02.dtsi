@@ -139,6 +139,8 @@
 		reg = <0x32>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_ricoh_gpio>;
+		interrupt-parent = <&gpio5>;
+		interrupts = <11 IRQ_TYPE_EDGE_FALLING>;
 		system-power-controller;
 
 		regulators {
