@@ -185,6 +185,10 @@
 #define CHIP_OFFSET		2
 #define CHIP_MASK		7
 
+#define BQ24296		0
+#define BQ24297		1
+#define MP2624		2
+
 struct bq2429x_device_info {
 	struct device			*dev;
 	struct i2c_client		*client;
@@ -213,7 +217,6 @@ struct bq2429x_device_info {
 	unsigned int	chg_current_uA;
 	unsigned int	usb_input_current_uA;
 	unsigned int	adp_input_current_uA;
-
 	unsigned int	battery_voltage_max_design_uV;
 	unsigned int	max_VSYS_uV;
 };
@@ -264,6 +267,7 @@ static const unsigned int otg_VSEL_table[] = {
 /*
  * Common code for BQ24296 devices read
  */
+
 static int bq2429x_i2c_reg8_read(const struct i2c_client *client, const char reg, char *buf, int count)
 {
 	struct i2c_adapter *adap=client->adapter;
@@ -512,22 +516,6 @@ static int bq2429x_set_charge_mode(struct bq2429x_device_info *di, u8 mode)
 	return ret;
 }
 
-/* revisit: unused */
-static int bq2429x_set_otg_mode_current(struct bq2429x_device_info *di, u8 mode)
-{
-	int ret = 0;
-
-	ret = bq2429x_update_reg(di->client,
-				  POWER_ON_CONFIGURATION_REGISTER,
-				  mode << OTG_MODE_CURRENT_CONFIG_OFFSET,
-				  OTG_MODE_CURRENT_CONFIG_MASK << OTG_MODE_CURRENT_CONFIG_OFFSET);
-	if (ret < 0) {
-		dev_err(&di->client->dev, "%s(): Failed to set otg current mode(0x%x) \n",
-				__func__, mode);
-	}
-	return ret;
-}
-
 static int bq2429x_get_vsys_voltage_uV(struct bq2429x_device_info *di)
 {
 	int ret;
@@ -654,6 +642,18 @@ static int bq2429x_set_otg_current_limit_uA(struct bq2429x_device_info *di,
 
 /* initialize the chip */
 
+static int bq2429x_get_vendor_id(struct bq2429x_device_info *di)
+{
+	int ret = 0;
+	u8 retval;
+
+	/* get the vendor id */
+	ret = bq2429x_read(di->client, VENDOR_STATS_REGISTER, &retval, 1);
+	if (ret < 0)
+		return ret;
+	return retval & 0xa7;
+}
+
 static int bq2429x_init_registers(struct bq2429x_device_info *di)
 {
 	int ret = 0;
@@ -685,11 +685,15 @@ static int bq2429x_init_registers(struct bq2429x_device_info *di)
 	/*
 	 * VSYS may be up to 150mV above fully charged battery voltage if operating
 	 * from VBUS. So to effectively limit VSYS we may have to lower the max. battery
-	 * voltage.
-	 * Revisit: this can be reduced to 100mV for the mps,mp2624
+	 * voltage. The offset can be reduced to 100mV for the mps,mp2624
 	 */
 
-	max_uV = min(di->max_VSYS_uV - 150000, di->battery_voltage_max_design_uV);
+	if (di->id->driver_data == MP2624)
+		max_uV = di->max_VSYS_uV - 100000;
+	else
+		max_uV = di->max_VSYS_uV - 150000;
+
+	max_uV = min(max_uV, (int) di->battery_voltage_max_design_uV);
 
 	bits = (max_uV - 3504000) / 16000;
 	bits = max(bits, 0);
@@ -699,6 +703,8 @@ static int bq2429x_init_registers(struct bq2429x_device_info *di)
 		__func__,
 		di->battery_voltage_max_design_uV, di->max_VSYS_uV, max_uV,
 		bits);
+
+	// bq2429x_set_charge_current_uA(di, ?);
 
 	ret = bq2429x_update_reg(di->client,
 				  CHARGE_VOLTAGE_CONTROL_REGISTER,
@@ -710,19 +716,6 @@ static int bq2429x_init_registers(struct bq2429x_device_info *di)
 		return ret;
 	}
 
-#if 0
-	/* Set System Voltage Limit as 3.2V */
-	/* FIXME: read from DT */
-	ret = bq2429x_update_reg(di->client,
-				  POWER_ON_CONFIGURATION_REGISTER,
-				  0x04,	/* 3.0V + 0.2V */
-				  SYS_MIN_MASK << SYS_MIN_OFFSET);
-	if (ret < 0) {
-		dev_err(&di->client->dev, "%s(): Failed to set voltage limit 3.2V \n",
-				__func__);
-		return ret;
-	}
-#endif
 	return 0;
 }
 
@@ -829,7 +822,7 @@ static int bq2429x_usb_detect(struct bq2429x_device_info *di)
 
 	if (di->dc_det_pin){
 #ifdef UNUSED
-		/* detect extermal charging request */
+		/* detect external charging request */
 		ret = gpiod_get_value(di->dc_det_pin);
 		if (ret == 0) {
 			bq2429x_set_input_current_limit_uA(di, di->adp_input_current);
@@ -1345,6 +1338,7 @@ static int bq2429x_parse_dt(struct bq2429x_device_info *di)
 	struct device_node *regulators;
 	struct of_regulator_match *matches;
 	static struct regulator_init_data *reg_data;
+	struct device_node *battery_np;
 	u32 chg_current[3];
 	int idx = 0, count, ret;
 	u32 val;
@@ -1362,6 +1356,8 @@ static int bq2429x_parse_dt(struct bq2429x_device_info *di)
 		return -EINVAL;
 	}
 
+	di->battery_voltage_max_design_uV = 4200000;	// default for LiIon
+
 	if (chg_current[0] && chg_current[1] && chg_current[2]){
 		di->chg_current_uA = 1000 * chg_current[0];
 		di->usb_input_current_uA = 1000 * chg_current[1];
@@ -1373,8 +1369,25 @@ static int bq2429x_parse_dt(struct bq2429x_device_info *di)
 		di->adp_input_current_uA = 2000000;
 	}
 
-	dev_dbg(di->dev, "%s,line=%u chg_current = %u usb_input_current = %u adp_input_current = %u \n", __func__,__LINE__,
-		di->chg_current_uA,di->usb_input_current_uA,di->adp_input_current_uA);
+	battery_np = of_parse_phandle(di->dev->of_node, "monitored-battery", 0);
+	if (battery_np) {
+		of_property_read_u32(battery_np, "voltage-max-design-microvolt",
+				&di->battery_voltage_max_design_uV);
+/*
+		of_property_read_u32(battery_np, "charge-term-current-microamp",
+				&di->charge_term_current_ua);
+*/
+		of_property_read_u32(battery_np, "constant-charge-current-max-microamp",
+				&di->chg_current_uA);
+/*
+		of_property_read_u32(battery_np, "voltage-min-design-microvolt",
+				&di->voltage_min_design_uv);
+*/
+		of_node_put(battery_np);
+	}
+
+	dev_info(di->dev, "%s,line=%u chg_current = %u usb_input_current = %u adp_input_current = %u bat_volt_max = %u\n", __func__,__LINE__,
+		di->chg_current_uA,di->usb_input_current_uA,di->adp_input_current_uA, di->battery_voltage_max_design_uV);
 
 	// dc_det_pin - if 0, charger is switched by driver to 2048mA, otherwise 512mA
 	di->dc_det_pin = devm_gpiod_get_index(&di->client->dev, "dc-det", 0, GPIOD_IN);
@@ -1413,13 +1426,10 @@ static int bq2429x_parse_dt(struct bq2429x_device_info *di)
 		return -EINVAL;
 	}
 
-	// get battery phandle and read max voltage
-	di->battery_voltage_max_design_uV = 4200000;	// default for LiIon
-
 	regulators = of_get_next_child(regulators, NULL);	// get first regulator (vsys)
 	if (!of_property_read_u32(regulators, "regulator-max-microvolt", &val)) {
 		dev_err(&di->client->dev, "found regulator-max-microvolt = %u\n", val);
-		di->max_VSYS_uV = val;	// limited by device tree
+		di->max_VSYS_uV = val;	// limit by device tree
 	}
 	of_node_put(regulators);
 
@@ -1486,28 +1496,26 @@ static int bq2429x_charger_probe(struct i2c_client *client, const struct i2c_dev
 
 	ret = bq2429x_parse_dt(di);
 
-	if (ret) {
+	if (ret < 0) {
 		if (ret != -EPROBE_DEFER)
 			dev_err(&client->dev, "failed to parse DT\n");
 		return ret;
 	}
 
-// revisit: add getter
+	ret = bq2429x_get_vendor_id(di);
 
-	/* get the vendor id */
-	ret = bq2429x_read(di->client, VENDOR_STATS_REGISTER, &retval, 1);
 	if (ret < 0) {
-		dev_err(&di->client->dev, "%s(): Failed in reading register "
-				"0x%02x\n", __func__, VENDOR_STATS_REGISTER);
+		dev_err(&di->client->dev, "%s(): Failed reading vendor register\n", __func__);
 		return -EPROBE_DEFER;	// tray again later
 	}
 
-	if ((retval & 0xa7) != 0x20) {
+	if (ret != 0x20) {
 		dev_err(&client->dev, "not a bq24296/97: %02x\n", retval);
 		return -ENODEV;
 	}
 
 	/* revisit: we should read and save the IINLIM value inherited from the boot process here! */
+	bq2429x_input_current_limit_uA(di);
 
 	init_data = di->pmic_init_data;
 	if (!init_data)
@@ -1617,9 +1625,9 @@ static int bq2429x_charger_remove(struct i2c_client *client)
 }
 
 static const struct i2c_device_id bq2429x_charger_id[] = {
-	{ "bq24296", 0 },
-	{ "bq24297", 1 },
-	{ "mp2624", 2 },
+	{ "bq24296", BQ24296 },
+	{ "bq24297", BQ24297 },
+	{ "mp2624", MP2624 },
 	{ },
 };
 
