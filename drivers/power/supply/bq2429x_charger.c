@@ -212,7 +212,7 @@ struct bq2429x_device_info {
 
 	unsigned int	chg_current_uA;		/* charging current limit */
 	unsigned int	usb_input_current_uA;	/* default current limit after plugin of USB power */
-	unsigned int	adp_input_current_uA;
+	unsigned int	adp_input_current_uA;	/* alternate power source (not USB) */
 	unsigned int	battery_voltage_max_design_uV;
 	unsigned int	max_VSYS_uV;
 };
@@ -347,38 +347,25 @@ static int bq2429x_update_reg(struct i2c_client *client, int reg, u8 value, u8 m
 		}
 		ret = 0;
 	}
-#ifdef CONFIG_BQ2429X_DEBUG
-	{
-	int i;
-	u8 buffer;
-	for(i=0;i<11;i++)
-		{
-		bq2429x_read(client, i, &buffer, 1);
-		printk("  reg %02x value %02x\n", i, buffer);
-		}
-	}
-#endif
 
 	return ret;
 }
-
-#ifdef CONFIG_BQ2429X_DEBUG
 
 /* sysfs tool to show all register values */
 
 static ssize_t show_registers(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	int i;
 	u8 buffer;
 	struct i2c_client *client = to_i2c_client(dev);
 	struct bq2429x_device_info *di = i2c_get_clientdata(client);
+	int i;
 	int len = 0;
 
-	for(i=0;i<11;i++)
+	for(i=0; i<11; i++)
 		{
 		int n;
 		bq2429x_read(di->client,i,&buffer,1);
-		n=scnprintf(buf, 256, "reg %02x value %02x\n", i, buffer);
+		n = scnprintf(buf, 256, "reg %02x value %02x\n", i, buffer);
 		buf += n;
 		len += n;
 		}
@@ -386,7 +373,6 @@ static ssize_t show_registers(struct device *dev, struct device_attribute *attr,
 }
 
 DEVICE_ATTR(registers, 0444, show_registers,NULL);
-#endif
 
 /* getter and setter functions with conversion to/from uA/uV */
 
@@ -562,7 +548,7 @@ static int bq2429x_set_vsys_voltage_uV(struct bq2429x_device_info *di, int min_u
 {
 	dev_dbg(di->dev, "%s(%d, %d)\n", __func__, min_uV, max_uV);
 
-// The driver should select the voltage closest to min_uV by scanning vsys_VSEL_table
+// revisit: the driver should select the voltage closest to min_uV by scanning vsys_VSEL_table
 
 	return 0;	// disabled/untested
 
@@ -594,7 +580,7 @@ static int bq2429x_set_otg_voltage_uV(struct bq2429x_device_info *di, int min_uV
 {
 	dev_dbg(di->dev, "%s(%d, %d)\n", __func__, min_uV, max_uV);
 
-// The driver should select the voltage closest to min_uV by scanning otg_VSEL_table
+// revisit: the driver should select the voltage closest to min_uV by scanning otg_VSEL_table
 
 	return 0;	// disabled/untested
 
@@ -617,11 +603,13 @@ static int bq2429x_is_otg_enabled(struct bq2429x_device_info *di)
 	if (ret < 0)
 		return 0;	/* assume disabled */
 
-	// we could also check r8 for OTG mode
-	// return ((di->r8 >> VBUS_OFFSET) && VBUS_MASK) == VBUS_OTG;
-	// which one is better?
+	/*
+	 * we could alternatively check r8 for OTG mode
+	 * return ((di->r8 >> VBUS_OFFSET) && VBUS_MASK) == VBUS_OTG;
+	 * which one is better?
+	 */
 
-	/* is bit 5 of POWER_ON_CONFIGURATION_REGISTER set? */
+	/* check bit 5 of POWER_ON_CONFIGURATION_REGISTER */
 	return ((retval >> CHARGE_MODE_CONFIG_OFFSET) & CHARGE_MODE_CONFIG_MASK) == CHARGE_MODE_CONFIG_OTG_OUTPUT;
 }
 
@@ -662,8 +650,7 @@ static int bq2429x_set_otg_current_limit_uA(struct bq2429x_device_info *di,
 	return bq2429x_update_reg(di->client,
 		POWER_ON_CONFIGURATION_REGISTER,
 		(enable << 5)|(val << OTG_MODE_CURRENT_CONFIG_OFFSET),
-	(0x01 << 5)|0x01);
-	// fixme		OTG_MODE_CURRENT_CONFIG_MASK << OTG_MODE_CURRENT_CONFIG_OFFSET);
+		(1 << 5)|(OTG_MODE_CURRENT_CONFIG_MASK << OTG_MODE_CURRENT_CONFIG_OFFSET));
 }
 
 /* initialize the chip */
@@ -709,9 +696,9 @@ static int bq2429x_init_registers(struct bq2429x_device_info *di)
 	}
 
 	/*
-	 * VSYS may be up to 150mV above fully charged battery voltage if operating
+	 * VSYS may be up to 150 mV above fully charged battery voltage if operating
 	 * from VBUS. So to effectively limit VSYS we may have to lower the max. battery
-	 * voltage. The offset can be reduced to 100mV for the mps,mp2624
+	 * voltage. The offset can be reduced to 100 mV for the mps,mp2624
 	 */
 
 	if (di->id->driver_data == CHIP_MP2624)
@@ -832,7 +819,7 @@ static int bq2429x_usb_detect(struct bq2429x_device_info *di)
 	}
 
 #if 1
-	{ // print changes to last state
+	{ // report changes to last state
 		if (di->r8 != di->prev_r8 || di->r9 != di->prev_r9)
 			{
 			char string[200];
@@ -873,7 +860,7 @@ static int bq2429x_usb_detect(struct bq2429x_device_info *di)
 	if ((di->r9 >> CHRG_FAULT_OFFSET) & CHRG_FAULT_MASK)
 		bq2429x_input_available(di, false);
 
-	/* since we are polling slowly VBUS may already be back again */
+	/* since we are polling slowly, VBUS may already be back again */
 	bq2429x_input_available(di, bq2429x_input_present(di));
 
 	mutex_unlock(&di->var_lock);
@@ -1356,7 +1343,7 @@ static int bq2429x_parse_dt(struct bq2429x_device_info *di)
 	}
 
 	di->battery_voltage_max_design_uV = 4200000;	/* default for LiIon */
-	di->adp_input_current_uA = 2000000;
+	di->adp_input_current_uA = 2048000;
 	/* take defaults as set by U-Boot or power-on */
 	di->chg_current_uA = bq2429x_get_charge_current_uA(di);
 	di->usb_input_current_uA = bq2429x_input_current_limit_uA(di);
@@ -1366,7 +1353,6 @@ static int bq2429x_parse_dt(struct bq2429x_device_info *di)
 
 	battery_np = of_parse_phandle(np, "monitored-battery", 0);
 	if (battery_np) {
-printk("%s %u\n", __func__, __LINE__);
 		of_property_read_u32(battery_np, "voltage-max-design-microvolt",
 				&di->battery_voltage_max_design_uV);
 /*
@@ -1385,7 +1371,7 @@ printk("%s %u\n", __func__, __LINE__);
 	dev_info(di->dev, "%s,line=%u chg_current = %u usb_input_current = %u adp_input_current = %u bat_volt_max = %u\n", __func__,__LINE__,
 		di->chg_current_uA,di->usb_input_current_uA,di->adp_input_current_uA, di->battery_voltage_max_design_uV);
 
-	// dc_det_pin - if 0, charger is switched by driver to 2048mA, otherwise 512mA
+	/* optional dc_det_pin - if 0, charger is switched by driver to 2048mA, otherwise 512mA */
 	di->dc_det_pin = devm_gpiod_get_index(&di->client->dev, "dc-det", 0, GPIOD_IN);
 
 	if (IS_ERR(di->dc_det_pin)) {
@@ -1395,6 +1381,7 @@ printk("%s %u\n", __func__, __LINE__);
 		di->dc_det_pin = NULL;
 	}
 
+	/* we provide two regulators, VSYS and VOTG */
 	regulators = of_get_child_by_name(np, "regulators");
 	if (!regulators) {
 		dev_err(&di->client->dev, "regulator node not found\n");
@@ -1487,7 +1474,7 @@ static int bq2429x_charger_probe(struct i2c_client *client, const struct i2c_dev
 	di->id = id;
 	di->prev_r8 = 0xff;
 	di->prev_r9 = 0xff;
-printk("%s %u\n", __func__, __LINE__);
+
 	ret = bq2429x_parse_dt(di);
 
 	if (ret < 0) {
@@ -1495,7 +1482,6 @@ printk("%s %u\n", __func__, __LINE__);
 			dev_err(&client->dev, "failed to parse DT\n");
 		return ret;
 	}
-printk("%s %u\n", __func__, __LINE__);
 
 	ret = bq2429x_get_vendor_id(di);
 
@@ -1508,15 +1494,10 @@ printk("%s %u\n", __func__, __LINE__);
 		dev_err(&client->dev, "not a bq24296/97: %02x\n", retval);
 		return -ENODEV;
 	}
-printk("%s %u\n", __func__, __LINE__);
-
-	/* revisit: we should read and save the IINLIM value inherited from the boot process here! */
-	bq2429x_input_current_limit_uA(di);
 
 	init_data = di->pmic_init_data;
 	if (!init_data)
 		return -EINVAL;
-printk("%s %u\n", __func__, __LINE__);
 
 	mutex_init(&di->var_lock);
 	di->workqueue = create_singlethread_workqueue("bq2429x_irq");
@@ -1527,14 +1508,12 @@ printk("%s %u\n", __func__, __LINE__);
 	di->usb = devm_power_supply_register(&client->dev,
 						&bq2429x_power_supply_desc[id->driver_data],
 						&psy_cfg);
-printk("%s %u\n", __func__, __LINE__);
 	if (IS_ERR(di->usb)) {
 		ret = PTR_ERR(di->usb);
 		dev_err(&client->dev, "failed to register as USB power_supply: %d\n", ret);
 		return ret;
 	}
 
-printk("%s %u\n", __func__, __LINE__);
 	for (i = 0; i < NUM_REGULATORS; i++, init_data++) {
 		/* Register the regulators */
 
@@ -1573,7 +1552,6 @@ printk("%s %u\n", __func__, __LINE__);
 		/* save regulator reference for cleanup */
 		di->rdev[i] = rdev;
 	}
-printk("%s %u\n", __func__, __LINE__);
 
 	ret = bq2429x_init_registers(di);
 	if (ret < 0) {
@@ -1599,10 +1577,8 @@ printk("%s %u\n", __func__, __LINE__);
 	if (device_create_file(&client->dev, &dev_attr_otg))
 		dev_warn(&client->dev, "could not create sysfs file otg\n");
 
-#ifdef CONFIG_BQ2429X_DEBUG
 	if (device_create_file(&client->dev, &dev_attr_registers))
 		dev_warn(&client->dev, "could not create sysfs file registers\n");
-#endif
 
 	if (!client->irq)
 		schedule_delayed_work(&di->usb_detect_work, 0);
@@ -1618,9 +1594,7 @@ static int bq2429x_charger_remove(struct i2c_client *client)
 
 	device_remove_file(di->dev, &dev_attr_max_current);
 	device_remove_file(di->dev, &dev_attr_otg);
-#ifdef CONFIG_BQ2429X_DEBUG
 	device_remove_file(di->dev, &dev_attr_registers);
-#endif
 	return 0;
 }
 
