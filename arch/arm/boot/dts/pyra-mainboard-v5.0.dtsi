@@ -444,14 +444,13 @@
 
 	/* charger */
 	bq24297@6b {
-		/* FIXME: driver is quite broken because it is a hack */
 		compatible = "ti,bq24297";
 		reg = <0x6b>;
 		monitored-battery = <&bat>;
-		ti,chg_current = <1000 2000 2000>;	// chg_current (max for the battery), usb_input_current, adp_input_current
 		interrupt-parent = <&gpio99>;
 		interrupts = <(1*8+3) IRQ_TYPE_EDGE_FALLING>;	// P13
-		ti,watchdog = <40>;		// 40 seconds watchdog timer
+		ti,usb-input-current-microamp = <500000>;
+		ti,adp-input-current-microamp = <2000000>;
 		regulators {
 			vsys_reg: vsys_regulator {
 				/* add information */
@@ -466,8 +465,8 @@
 				/* add information */
 				regulator-compatible = "bq2429x-otg";
 				regulator-name = "otg";
-//				regulator-min-microvolt = <4900000>;
-//				regulator-max-microvolt = <5100000>;
+				regulator-min-microvolt = <4900000>;
+				regulator-max-microvolt = <5100000>;
 			};
 		};
 	};
