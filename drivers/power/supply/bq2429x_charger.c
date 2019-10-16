@@ -1,17 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * BQ24296/7 battery charger and VSYS+OTG regulator
  *
- * found code in some Android driver and hacked by <hns@goldelico.com>
- * to become useable for the Pyra
+ * Copyright (C) 2014 Rokchip
+ * Original-author: 张晴 <zhangqing@rock-chips.com>
+ * Original-author: yj <yangjie@rock-chips.com>
+ * Original-author: Elaine Zhang <zhangqing@rock-chips.com>
  *
- * This package is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * Copyright (C) 2016-2019 Golden Delicious Computers GmbH&Co. KG
+ * Author: H. Nikolaus Schaller <hns@goldelico.com>
  *
- * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
- * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- *
+ * found Rokchip code in some Android driver and hacked it to
+ * become useable e.g. for the Pyra handheld.
  */
 
 #include <linux/delay.h>
@@ -210,9 +210,9 @@ struct bq2429x_device_info {
 	u8 prev_r8, prev_r9;	/* for change detection */
 	bool adapter_plugged;	/* is power adapter plugged in */
 
-	u8 chg_current;
-	u8 usb_input_current;
-	u8 adp_input_current;
+	unsigned int	chg_current_uA;
+	unsigned int	usb_input_current_uA;
+	unsigned int	adp_input_current_uA;
 
 	unsigned int	battery_voltage_max_design_uV;
 	unsigned int	max_VSYS_uV;
@@ -260,37 +260,6 @@ static const unsigned int otg_VSEL_table[] = {
 	5446000,
 	5510000,
 };
-
-static inline int bq2429x_limit_current_mA_to_bits(int mA)
-{
-	u8 data;
-	if (mA < 120)
-		data = 0;
-	else if(mA < 400)
-		data = 1;
-	else if(mA < 700)
-		data = 2;
-	else if(mA < 1000)
-		data = 3;
-	else if(mA < 1200)
-		data = 4;
-	else if(mA < 1800)
-		data = 5;
-	else if(mA < 2200)
-		data = 6;
-	else
-		data = 7;
-	return data;
-}
-
-static inline int bq2429x_chg_current_mA_to_bits(int mA)
-{
-	u8 data;
-
-	data = (mA)/64;
-	data &= 0xff;
-	return data;
-}
 
 /*
  * Common code for BQ24296 devices read
@@ -419,6 +388,272 @@ static ssize_t show_registers(struct device *dev, struct device_attribute *attr,
 DEVICE_ATTR(registers, 0444, show_registers,NULL);
 #endif
 
+/* getter and setter functions with conversion to/from uA/uV */
+
+static int bq2429x_get_vindpm_uV(struct bq2429x_device_info *di)
+{
+	int ret;
+	u8 retval = 0;
+
+	ret = bq2429x_read(di->client, INPUT_SOURCE_CONTROL_REGISTER, &retval, 1);
+	if (ret < 0) {
+		dev_err(&di->client->dev, "%s: err %d\n", __func__, ret);
+		return ret;
+	}
+
+	return 3880000 + 80000*((retval >> VINDPM_OFFSET) & VINDPM_MASK);
+}
+
+static int bq2429x_input_current_limit_uA(struct bq2429x_device_info *di)
+{
+	int ret;
+	u8 retval = 0;
+
+	ret = bq2429x_read(di->client, INPUT_SOURCE_CONTROL_REGISTER, &retval, 1);
+	if (ret < 0) {
+		dev_err(&di->client->dev, "%s: err %d\n", __func__, ret);
+		return ret;
+	}
+
+	if(((retval >> EN_HIZ_OFFSET) & EN_HIZ_MASK) == EN_HIZ_ENABLE)
+		return 0;	// High-Z state
+
+	return iinlim_table[(retval >> IINLIM_OFFSET) & IINLIM_MASK];
+}
+
+static int bq2429x_set_input_current_limit_uA(struct bq2429x_device_info *di, int uA)
+{
+	int ret = 0;
+	u8 hiz = EN_HIZ_DISABLE;
+	u8 data = 0;
+
+	dev_dbg(di->dev, "%s(%d)\n", __func__, uA);
+
+	if (uA < 80000)		/* includes negative current limit */
+		hiz = EN_HIZ_ENABLE;
+	else if (uA < 120000)
+		data = 0;
+	else if(uA < 400000)
+		data = 1;
+	else if(uA < 700000)
+		data = 2;
+	else if(uA < 1000000)
+		data = 3;
+	else if(uA < 1200000)
+		data = 4;
+	else if(uA < 1800000)
+		data = 5;
+	else if(uA < 2200000)
+		data = 6;
+	else
+		data = 7;
+
+	ret = bq2429x_update_reg(di->client,
+				  INPUT_SOURCE_CONTROL_REGISTER,
+				  (((data & IINLIM_MASK) << IINLIM_OFFSET) | (hiz << EN_HIZ_OFFSET)),
+				  ((IINLIM_MASK << IINLIM_OFFSET) | (EN_HIZ_MASK << EN_HIZ_OFFSET)));
+	if (ret < 0) {
+		dev_err(&di->client->dev, "%s(): Failed to set input current limit (0x%x) \n",
+				__func__, data);
+	}
+
+	return ret;
+}
+
+static int bq2429x_set_charge_current_uA(struct bq2429x_device_info *di, int uA)
+{
+	int ret = 0;
+	u8 data;
+
+	if (uA < 0)
+		return -EINVAL;
+
+	data = (uA) / 64000;
+	data &= 0xff;
+
+	ret = bq2429x_update_reg(di->client,
+				  CHARGE_CURRENT_CONTROL_REGISTER,
+				  (data << CHARGE_CURRENT_OFFSET) ,(CHARGE_CURRENT_MASK <<CHARGE_CURRENT_OFFSET ));
+	if (ret < 0) {
+		dev_err(&di->client->dev, "%s(): Failed to set charge current limit (0x%x) \n",
+				__func__, uA);
+	}
+	return ret;
+}
+
+static int bq2429x_en_hiz_disable(struct bq2429x_device_info *di)
+{
+	int ret = 0;
+
+	ret = bq2429x_update_reg(di->client,
+				  INPUT_SOURCE_CONTROL_REGISTER,
+				  EN_HIZ_DISABLE << EN_HIZ_OFFSET,
+				  EN_HIZ_MASK << EN_HIZ_OFFSET);
+	if (ret < 0) {
+		dev_err(&di->client->dev, "%s(): Failed to set en_hiz_disable\n",
+				__func__);
+	}
+	return ret;
+}
+
+static int bq2429x_set_charge_mode(struct bq2429x_device_info *di, u8 mode)
+{
+	int ret = 0;
+
+	ret = bq2429x_update_reg(di->client,
+				  POWER_ON_CONFIGURATION_REGISTER,
+				  mode << CHARGE_MODE_CONFIG_OFFSET,
+				  CHARGE_MODE_CONFIG_MASK << CHARGE_MODE_CONFIG_OFFSET);
+	if (ret < 0) {
+		dev_err(&di->client->dev, "%s(): Failed to set charge mode(0x%x) \n",
+				__func__, mode);
+	}
+
+	return ret;
+}
+
+/* revisit: unused */
+static int bq2429x_set_otg_mode_current(struct bq2429x_device_info *di, u8 mode)
+{
+	int ret = 0;
+
+	ret = bq2429x_update_reg(di->client,
+				  POWER_ON_CONFIGURATION_REGISTER,
+				  mode << OTG_MODE_CURRENT_CONFIG_OFFSET,
+				  OTG_MODE_CURRENT_CONFIG_MASK << OTG_MODE_CURRENT_CONFIG_OFFSET);
+	if (ret < 0) {
+		dev_err(&di->client->dev, "%s(): Failed to set otg current mode(0x%x) \n",
+				__func__, mode);
+	}
+	return ret;
+}
+
+static int bq2429x_get_vsys_voltage_uV(struct bq2429x_device_info *di)
+{
+	int ret;
+	u8 retval;
+
+	dev_dbg(di->dev, "%s\n", __func__);
+
+	ret = bq2429x_read(di->client, POWER_ON_CONFIGURATION_REGISTER, &retval, 1);
+	if (ret < 0)
+		return ret;
+
+	dev_dbg(di->dev, " => %d uV\n", vsys_VSEL_table[(retval >> SYS_MIN_OFFSET) & SYS_MIN_MASK]);
+
+	return vsys_VSEL_table[(retval >> SYS_MIN_OFFSET) & SYS_MIN_MASK];
+}
+
+static int bq2429x_set_vsys_voltage_uV(struct bq2429x_device_info *di, int min_uV, int max_uV)
+{
+	dev_dbg(di->dev, "%s(%d, %d)\n", __func__, min_uV, max_uV);
+
+// The driver should select the voltage closest to min_uV by scanning vsys_VSEL_table
+
+	return 0;	// disabled/untested
+
+	/* set system voltage */
+
+	return bq2429x_update_reg(di->client,
+				  POWER_ON_CONFIGURATION_REGISTER,
+				  0,	/* 3.0V + 0.2V */
+				  SYS_MIN_MASK << SYS_MIN_OFFSET);
+}
+
+static int bq2429x_get_otg_voltage_uV(struct bq2429x_device_info *di)
+{
+	int ret;
+	u8 retval;
+
+	dev_dbg(di->dev, "%s\n", __func__);
+
+	ret = bq2429x_read(di->client, THERMAL_REGULATION_CONTROL_REGISTER, &retval, 1);
+	if (ret < 0)
+		return ret;
+
+	dev_dbg(di->dev, " => %d uV\n", otg_VSEL_table[(retval >> BOOSTV_OFFSET) & BOOSTV_MASK]);
+
+	return otg_VSEL_table[(retval >> BOOSTV_OFFSET) & BOOSTV_MASK];
+}
+
+static int bq2429x_set_otg_voltage_uV(struct bq2429x_device_info *di, int min_uV, int max_uV)
+{
+	dev_dbg(di->dev, "%s(%d, %d)\n", __func__, min_uV, max_uV);
+
+// The driver should select the voltage closest to min_uV by scanning otg_VSEL_table
+
+	return 0;	// disabled/untested
+
+	/* set OTG step up converter voltage */
+
+	return bq2429x_update_reg(di->client,
+				  THERMAL_REGULATION_CONTROL_REGISTER,
+				  0,
+				  BOOSTV_MASK << BOOSTV_OFFSET);
+}
+
+static int bq2429x_is_otg_enabled(struct bq2429x_device_info *di)
+{ /* check if OTG converter is enabled */
+	int ret;
+	u8 retval;
+
+	dev_dbg(di->dev, "%s\n", __func__);
+
+	ret = bq2429x_read(di->client, POWER_ON_CONFIGURATION_REGISTER, &retval, 1);
+	if (ret < 0)
+		return 0;	/* assume disabled */
+
+	// we could also check r8 for OTG mode
+	// return ((di->r8 >> VBUS_OFFSET) && VBUS_MASK) == VBUS_OTG;
+	// which one is better?
+
+	/* is bit 5 of POWER_ON_CONFIGURATION_REGISTER set? */
+	return ((retval >> CHARGE_MODE_CONFIG_OFFSET) & CHARGE_MODE_CONFIG_MASK) == CHARGE_MODE_CONFIG_OTG_OUTPUT;
+}
+
+static int bq2429x_get_otg_current_limit_uA(struct bq2429x_device_info *di)
+{
+	int ret;
+	u8 retval;
+
+	dev_dbg(di->dev, "%s\n", __func__);
+
+	ret = bq2429x_read(di->client, POWER_ON_CONFIGURATION_REGISTER, &retval, 1);
+	if (ret < 0)
+		return ret;
+
+	return ((retval >> OTG_MODE_CURRENT_CONFIG_OFFSET) & OTG_MODE_CURRENT_CONFIG_MASK) ? 1000000 : 1500000;	/* 1.0A or 1.5A */
+}
+
+static int bq2429x_set_otg_current_limit_uA(struct bq2429x_device_info *di,
+				     int min_uA, int max_uA)
+{
+	int enable = true;
+	int val = OTG_MODE_CURRENT_CONFIG_500MA;
+
+	dev_dbg(di->dev, "%s(%d, %d)\n", __func__, min_uA, max_uA);
+
+	/*
+	 * set OTG current limit in bit 0 of POWER_ON_CONFIGURATION_REGISTER
+	 * choose 1A for values < 1.25A and 1.5A for values above
+	 */
+
+	if(max_uA < 500000)
+		enable = false;	// disable OTG
+	else if(max_uA < 1250000)
+		val = OTG_MODE_CURRENT_CONFIG_500MA;	// enable 1A
+	else
+		val = OTG_MODE_CURRENT_CONFIG_1300MA;	// enable 1.5A
+
+	return bq2429x_update_reg(di->client,
+		POWER_ON_CONFIGURATION_REGISTER,
+		(enable << 5)|(val << OTG_MODE_CURRENT_CONFIG_OFFSET),
+	(0x01 << 5)|0x01);
+	// fixme		OTG_MODE_CURRENT_CONFIG_MASK << OTG_MODE_CURRENT_CONFIG_OFFSET);
+}
+
+/* initialize the chip */
+
 static int bq2429x_init_registers(struct bq2429x_device_info *di)
 {
 	int ret = 0;
@@ -491,117 +726,7 @@ static int bq2429x_init_registers(struct bq2429x_device_info *di)
 	return 0;
 }
 
-/* getter and setter functions with conversion to/from uA/mV */
-
-static int bq2429x_get_vindpm_uV(struct bq2429x_device_info *di)
-{
-	int ret;
-	u8 retval = 0;
-
-	ret = bq2429x_read(di->client, INPUT_SOURCE_CONTROL_REGISTER, &retval, 1);
-	if (ret < 0) {
-		dev_err(&di->client->dev, "%s: err %d\n", __func__, ret);
-		return ret;
-	}
-
-	return 3880000 + 80000*((retval >> VINDPM_OFFSET) & VINDPM_MASK);
-}
-
-static int bq2429x_input_current_limit_uA(struct bq2429x_device_info *di)
-{
-	int ret;
-	u8 retval = 0;
-
-	ret = bq2429x_read(di->client, INPUT_SOURCE_CONTROL_REGISTER, &retval, 1);
-	if (ret < 0) {
-		dev_err(&di->client->dev, "%s: err %d\n", __func__, ret);
-		return ret;
-	}
-
-	if(((retval >> EN_HIZ_OFFSET) & EN_HIZ_MASK) == EN_HIZ_ENABLE)
-		return 0;	// High-Z state
-
-	return iinlim_table[(retval >> IINLIM_OFFSET) & IINLIM_MASK];
-}
-
-static int bq2429x_update_input_current_limit(struct bq2429x_device_info *di, int value)
-{
-	int ret = 0;
-	u8 hiz = (value < 0 ? EN_HIZ_ENABLE : EN_HIZ_DISABLE);
-
-	dev_dbg(di->dev, "%s(%d)\n", __func__, value);
-
-	ret = bq2429x_update_reg(di->client,
-				  INPUT_SOURCE_CONTROL_REGISTER,
-				  (((value & IINLIM_MASK) << IINLIM_OFFSET) | (hiz << EN_HIZ_OFFSET)),
-				  ((IINLIM_MASK << IINLIM_OFFSET) | (EN_HIZ_MASK << EN_HIZ_OFFSET)));
-	if (ret < 0) {
-		dev_err(&di->client->dev, "%s(): Failed to set input current limit (0x%x) \n",
-				__func__, value);
-	}
-
-	return ret;
-}
-
-static int bq2429x_set_charge_current(struct bq2429x_device_info *di, u8 value)
-{
-	int ret = 0;
-
-	ret = bq2429x_update_reg(di->client,
-				  CHARGE_CURRENT_CONTROL_REGISTER,
-				  (value << CHARGE_CURRENT_OFFSET) ,(CHARGE_CURRENT_MASK <<CHARGE_CURRENT_OFFSET ));
-	if (ret < 0) {
-		dev_err(&di->client->dev, "%s(): Failed to set charge current limit (0x%x) \n",
-				__func__, value);
-	}
-	return ret;
-}
-
-static int bq2429x_update_en_hiz_disable(struct bq2429x_device_info *di)
-{
-	int ret = 0;
-
-	ret = bq2429x_update_reg(di->client,
-				  INPUT_SOURCE_CONTROL_REGISTER,
-				  EN_HIZ_DISABLE << EN_HIZ_OFFSET,
-				  EN_HIZ_MASK << EN_HIZ_OFFSET);
-	if (ret < 0) {
-		dev_err(&di->client->dev, "%s(): Failed to set en_hiz_disable\n",
-				__func__);
-	}
-	return ret;
-}
-
-static int bq2429x_update_charge_mode(struct bq2429x_device_info *di, u8 value)
-{
-	int ret = 0;
-
-	ret = bq2429x_update_reg(di->client,
-				  POWER_ON_CONFIGURATION_REGISTER,
-				  value << CHARGE_MODE_CONFIG_OFFSET,
-				  CHARGE_MODE_CONFIG_MASK << CHARGE_MODE_CONFIG_OFFSET);
-	if (ret < 0) {
-		dev_err(&di->client->dev, "%s(): Failed to set charge mode(0x%x) \n",
-				__func__, value);
-	}
-
-	return ret;
-}
-
-static int bq2429x_update_otg_mode_current(struct bq2429x_device_info *di, u8 value)
-{
-	int ret = 0;
-
-	ret = bq2429x_update_reg(di->client,
-				  POWER_ON_CONFIGURATION_REGISTER,
-				  value << OTG_MODE_CURRENT_CONFIG_OFFSET,
-				  OTG_MODE_CURRENT_CONFIG_MASK << OTG_MODE_CURRENT_CONFIG_OFFSET);
-	if (ret < 0) {
-		dev_err(&di->client->dev, "%s(): Failed to set otg current mode(0x%x) \n",
-				__func__, value);
-	}
-	return ret;
-}
+/* handle USB detection and charging based on status registers */
 
 static inline bool bq2429x_battery_present(struct bq2429x_device_info *di)
 { /* assume if there is an NTC fault there is no battery  */
@@ -613,8 +738,6 @@ static inline bool bq2429x_input_present(struct bq2429x_device_info *di)
 	return (di->r8 & PG_STAT) != 0;
 }
 
-/* handle USB detection and charging */
-
 static void bq2429x_input_available(struct bq2429x_device_info *di, bool state)
 { /* track external power input state and trigger actions on change */
 	if (state && !di->adapter_plugged) {
@@ -625,11 +748,11 @@ static void bq2429x_input_available(struct bq2429x_device_info *di, bool state)
 		power_supply_changed(di->usb);
 
 		/* this should be provided by the USB stack to match source capabilities */
-		bq2429x_update_input_current_limit(di, di->usb_input_current);
+		bq2429x_set_input_current_limit_uA(di, di->usb_input_current_uA);
 
 		/* start charging */
 		if (bq2429x_battery_present(di))
-			bq2429x_update_charge_mode(di, CHARGE_MODE_CONFIG_CHARGE_BATTERY);
+			bq2429x_set_charge_mode(di, CHARGE_MODE_CONFIG_CHARGE_BATTERY);
 		}
 	else if (!state && di->adapter_plugged) {
 		di->adapter_plugged = false;
@@ -709,13 +832,13 @@ static int bq2429x_usb_detect(struct bq2429x_device_info *di)
 		/* detect extermal charging request */
 		ret = gpiod_get_value(di->dc_det_pin);
 		if (ret == 0) {
-			bq2429x_update_input_current_limit(di, di->adp_input_current);
-			bq2429x_set_charge_current(di, CHARGE_CURRENT_2048MA);
+			bq2429x_set_input_current_limit_uA(di, di->adp_input_current);
+			bq2429x_set_charge_current_uA(di, 2000000);
 			bq2429x_charge_mode_config(di, 0);
 		}
 		else {
-			bq2429x_update_input_current_limit(di, IINLIM_500MA);
-			bq2429x_set_charge_current(di, CHARGE_CURRENT_512MA);
+			bq2429x_set_input_current_limit_uA(di, 500000);
+			bq2429x_set_charge_current_uA(di, 512000);
 		}
 		dev_dbg(di->dev, "%s: di->dc_det_pin=%x\n", __func__, ret);
 #endif
@@ -772,113 +895,57 @@ static irqreturn_t bq2729x_chg_irq_func(int irq, void *dev_id)
 static int bq2429x_get_vsys_voltage(struct regulator_dev *dev)
 {
 	struct bq2429x_device_info *di = rdev_get_drvdata(dev);
-	int idx = dev->desc->id;
-	int ret;
-	u8 retval;
 
-	dev_dbg(di->dev, "bq2429x_get_vsys_voltage(%d)\n", idx);
-
-	ret = bq2429x_read(di->client, POWER_ON_CONFIGURATION_REGISTER, &retval, 1);
-	if (ret < 0)
-		return ret;
-	dev_dbg(di->dev, " => %d uV\n", vsys_VSEL_table[(retval >> SYS_MIN_OFFSET) & SYS_MIN_MASK]);
-	return vsys_VSEL_table[(retval >> SYS_MIN_OFFSET) & SYS_MIN_MASK];
+	return bq2429x_get_vsys_voltage_uV(di);
 }
 
 static int bq2429x_set_vsys_voltage(struct regulator_dev *dev, int min_uV, int max_uV,
 			       unsigned *selector)
 {
 	struct bq2429x_device_info *di = rdev_get_drvdata(dev);
-	int idx = dev->desc->id;
 
-	dev_dbg(di->dev, "bq2429x_set_vsys_voltage(%d, %d, %d, %u)\n", idx, min_uV, max_uV, *selector);
-// The driver should select the voltage closest to min_uV by scanning vsys_VSEL_table
+	// how to handle *selector?
 
-	return 0;	// disabled/untested
-
-	/* set system voltage */
-
-	return bq2429x_update_reg(di->client,
-				  POWER_ON_CONFIGURATION_REGISTER,
-				  *selector,	/* 3.0V + 0.2V */
-				  SYS_MIN_MASK << SYS_MIN_OFFSET);
+	return bq2429x_set_vsys_voltage_uV(di, min_uV, max_uV);
 }
 
 static int bq2429x_get_otg_voltage(struct regulator_dev *dev)
 {
 	struct bq2429x_device_info *di = rdev_get_drvdata(dev);
-	int idx = dev->desc->id;
-	int ret;
-	u8 retval;
 
-	dev_dbg(di->dev, "bq2429x_get_otg_voltage(%d)\n", idx);
-
-	ret = bq2429x_read(di->client, THERMAL_REGULATION_CONTROL_REGISTER, &retval, 1);
-	if (ret < 0)
-		return ret;
-
-	dev_dbg(di->dev, " => %d uV\n", otg_VSEL_table[(retval >> BOOSTV_OFFSET) & BOOSTV_MASK]);
-
-	return otg_VSEL_table[(retval >> BOOSTV_OFFSET) & BOOSTV_MASK];
+	return bq2429x_get_otg_voltage_uV(di);
 }
 
 static int bq2429x_set_otg_voltage(struct regulator_dev *dev, int min_uV, int max_uV,
 			       unsigned *selector)
 {
 	struct bq2429x_device_info *di = rdev_get_drvdata(dev);
-	int idx = dev->desc->id;
 
-	dev_dbg(di->dev, "bq2429x_set_otg_voltage(%d, %d, %d, %u)\n", idx, min_uV, max_uV, *selector);
-// The driver should select the voltage closest to min_uV by scanning otg_VSEL_table
+	// how to handle *selector?
 
-	return 0;	// disabled/untested
-
-	/* set OTG step up converter voltage */
-
-	return bq2429x_update_reg(di->client,
-				  THERMAL_REGULATION_CONTROL_REGISTER,
-				  *selector,
-				  BOOSTV_MASK << BOOSTV_OFFSET);
+	return bq2429x_set_otg_voltage_uV(di, min_uV, max_uV);
 }
 
 static int bq2429x_get_otg_current_limit(struct regulator_dev *dev)
 {
 	struct bq2429x_device_info *di = rdev_get_drvdata(dev);
-	int idx = dev->desc->id;
-	int ret;
-	u8 retval;
 
-	dev_dbg(di->dev, "bq2429x_get_otg_current_limit(%d)\n", idx);
-
-	ret = bq2429x_read(di->client, POWER_ON_CONFIGURATION_REGISTER, &retval, 1);
-	if (ret < 0)
-		return ret;
-
-	return ((retval >> OTG_MODE_CURRENT_CONFIG_OFFSET) & OTG_MODE_CURRENT_CONFIG_MASK) ? 1000000 : 1500000;	/* 1.0A or 1.5A */
+	return bq2429x_get_otg_current_limit_uA(di);
 }
 
 static int bq2429x_set_otg_current_limit(struct regulator_dev *dev,
 				     int min_uA, int max_uA)
 {
 	struct bq2429x_device_info *di = rdev_get_drvdata(dev);
-	int idx = dev->desc->id;
 
-	dev_dbg(di->dev, "bq2429x_set_otg_current_limit(%d, %d, %d)\n", idx, min_uA, max_uA);
+	// how to handle *selector?
 
-	/* set OTG current limit in bit 0 of POWER_ON_CONFIGURATION_REGISTER */
-
-	if(max_uA < 1250000)
-		return bq2429x_update_reg(di->client,POWER_ON_CONFIGURATION_REGISTER, OTG_MODE_CURRENT_CONFIG_500MA << OTG_MODE_CURRENT_CONFIG_OFFSET,OTG_MODE_CURRENT_CONFIG_MASK << OTG_MODE_CURRENT_CONFIG_OFFSET);	// choose 1A
-	else
-		return bq2429x_update_reg(di->client,POWER_ON_CONFIGURATION_REGISTER, OTG_MODE_CURRENT_CONFIG_1300MA << OTG_MODE_CURRENT_CONFIG_OFFSET,OTG_MODE_CURRENT_CONFIG_MASK << OTG_MODE_CURRENT_CONFIG_OFFSET);	// choose 1.5A
+	return bq2429x_set_otg_current_limit_uA(di, min_uA, max_uA);
 }
 
 static int bq2429x_otg_enable(struct regulator_dev *dev)
 { /* enable OTG step up converter */
 	struct bq2429x_device_info *di = rdev_get_drvdata(dev);
-	int idx = dev->desc->id;
-
-	dev_dbg(di->dev, "%s(%d)\n", __func__, idx);
 
 	/* check if battery is present and reject if no battery */
 	if (!bq2429x_battery_present(di)) {
@@ -886,42 +953,27 @@ static int bq2429x_otg_enable(struct regulator_dev *dev)
 		return -EBUSY;
 	}
 
-	bq2429x_update_en_hiz_disable(di);
+	bq2429x_en_hiz_disable(di);
+
 	mdelay(5);
-	return bq2429x_update_charge_mode(di, CHARGE_MODE_CONFIG_OTG_OUTPUT);
+
+	return bq2429x_set_charge_mode(di, CHARGE_MODE_CONFIG_OTG_OUTPUT);
 	// could check/wait with timeout that r8 indicates OTG mode
 }
 
 static int bq2429x_otg_disable(struct regulator_dev *dev)
 { /* disable OTG step up converter */
 	struct bq2429x_device_info *di = rdev_get_drvdata(dev);
-	int idx = dev->desc->id;
 
-	dev_dbg(di->dev, "%s(%d)\n", __func__, idx);
-
-	return bq2429x_update_charge_mode(di, CHARGE_MODE_CONFIG_CHARGE_DISABLE);
+	return bq2429x_set_charge_mode(di, CHARGE_MODE_CONFIG_CHARGE_DISABLE);
 	// could check/wait with timeout that r8 indicates non-OTG mode
 }
 
 static int bq2429x_otg_is_enabled(struct regulator_dev *dev)
 { /* check if OTG converter is enabled */
 	struct bq2429x_device_info *di = rdev_get_drvdata(dev);
-	int idx = dev->desc->id;
-	int ret;
-	u8 retval;
 
-	dev_dbg(di->dev, "%s(%d)\n", __func__, idx);
-
-	ret = bq2429x_read(di->client, POWER_ON_CONFIGURATION_REGISTER, &retval, 1);
-	if (ret < 0)
-		return 0;	/* assume disabled */
-
-	// we could also check r8 for OTG mode
-	// return ((di->r8 >> VBUS_OFFSET) && VBUS_MASK) == VBUS_OTG;
-	// which one is better?
-
-	/* is bit 5 of POWER_ON_CONFIGURATION_REGISTER set? */
-	return ((retval >> CHARGE_MODE_CONFIG_OFFSET) & CHARGE_MODE_CONFIG_MASK) == CHARGE_MODE_CONFIG_OTG_OUTPUT;
+	return bq2429x_is_otg_enabled(di);
 }
 
 static struct regulator_ops vsys_ops = {
@@ -949,7 +1001,7 @@ static int bq2429x_charger_suspend(struct device *dev, pm_message_t state)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct bq2429x_device_info *di = i2c_get_clientdata(client);
 
-	/* revisit: we may turn off otg here */
+	/* revisit: we may want to turn off otg here */
 	cancel_delayed_work_sync(&di->usb_detect_work);
 	return 0;
 }
@@ -993,13 +1045,9 @@ bq2429x_input_current_limit_uA_store(struct device *dev, struct device_attribute
 	if (cur < 0)
 		return -EINVAL;
 
-	dev_dbg(di->dev, "bq2429x_input_current_limit_uA_store: set input max current to %u uA -> %02x\n", cur, bq2429x_limit_current_mA_to_bits(cur/1000));
-	if (cur < 80000)
-		status = bq2429x_update_input_current_limit(di, -1);	/* High-Z */
-	else
-		status = bq2429x_update_input_current_limit(di, bq2429x_limit_current_mA_to_bits(cur/1000));
+	status = bq2429x_set_input_current_limit_uA(di, cur);
 
-	return (status == 0) ? n : status;
+	return (status < 0) ? n : status;
 }
 
 /*
@@ -1042,22 +1090,12 @@ bq2429x_otg_store(struct device *dev, struct device_attribute *attr,
 
 	dev_dbg(di->dev, "bq2429x_otg_store: set OTG max current %u uA\n", cur);
 
-	bq2429x_update_en_hiz_disable(di);
+	bq2429x_en_hiz_disable(di);
 
 	mdelay(5);
-	if(cur < 500000)
-		status = bq2429x_update_reg(di->client,POWER_ON_CONFIGURATION_REGISTER,0 << 5,0x01 << 5);	// disable OTG
-	else if(cur < 1250000)
-		status = bq2429x_update_reg(di->client,POWER_ON_CONFIGURATION_REGISTER,((1 << 5)|OTG_MODE_CURRENT_CONFIG_500MA),((0x01 << 5)|0x01));	// enable 1A
-	else
-		status = bq2429x_update_reg(di->client,POWER_ON_CONFIGURATION_REGISTER,((1 << 5)|OTG_MODE_CURRENT_CONFIG_1300MA),((0x01 << 5)|0x01));	// enable 1.5A
-#if 1
-	{
-	u8 retval = 0xff;
-	bq2429x_read(di->client, POWER_ON_CONFIGURATION_REGISTER, &retval, 1);
-	dev_dbg(di->dev, "bq2429x_otg_store: POWER_ON_CONFIGURATION_REGISTER = %02x\n", retval);
-	}
-#endif
+
+	status = bq2429x_set_otg_current_limit_uA(di, cur, cur);
+
 	return (status < 0) ? status : n;
 }
 
@@ -1070,26 +1108,15 @@ static ssize_t bq2429x_otg_show(struct device *dev,
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct bq2429x_device_info *di = i2c_get_clientdata(client);
-	int ret;
-	u8 retval = 0;
-	int cur = 0;
+	int cur = bq2429x_get_otg_current_limit_uA(di);
 
-	ret = bq2429x_read(di->client, POWER_ON_CONFIGURATION_REGISTER, &retval, 1);
-	if (ret < 0) {
-		dev_err(&di->client->dev, "%s: err %d\n", __func__, ret);
-	}
-	// check status register if it is really on: REG08[7:6] is set to 11
-	if(retval & 0x20)	// OTG CONFIG
-		{
-		if(retval & 0x01)
-			cur=1500000;
-		else
-			cur=1000000;
-		}
+	if (cur < 0)
+		return cur;
+
 	return scnprintf(buf, PAGE_SIZE, "%u\n", cur);
 }
 
-// can be removed if handled as property
+// can be removed if handled as charger property (input_current_limit)
 static DEVICE_ATTR(max_current, 0644, bq2429x_input_current_limit_uA_show,
 			bq2429x_input_current_limit_uA_store);
 
@@ -1162,6 +1189,9 @@ static int bq2429x_get_property(struct power_supply *psy,
 				break;
 
 			case CHRG_PRE_CHARGE:
+
+// FIXME: add getter
+
 				ret = bq2429x_read(di->client, PRE_CHARGE_TERMINATION_CURRENT_CONTROL_REGISTER, &retval, 1);
 				dev_dbg(di->dev, "bq2429x: PRE_CHARGE_TERMINATION_CURRENT_CONTROL_REGISTER %02x\n", retval);
 				if (ret < 0) {
@@ -1176,6 +1206,9 @@ static int bq2429x_get_property(struct power_supply *psy,
 				break;
 
 			case CHRG_FAST_CHARGE:
+
+// FIXME: add getter
+
 				ret = bq2429x_read(di->client, CHARGE_CURRENT_CONTROL_REGISTER, &retval, 1);
 				dev_dbg(di->dev, "bq2429x: FAST_CHARGE CHARGE_CURRENT_CONTROL_REGISTER %02x\n", retval);
 				if (ret < 0) {
@@ -1192,6 +1225,9 @@ static int bq2429x_get_property(struct power_supply *psy,
 		break;
 
 	case POWER_SUPPLY_PROP_TEMP:
+
+// FIXME: add getter
+
 		// FIXME: deduce values from BHOT and BCOLD settings if boost mode is active
 		// otherwise we report the defaults from the chip spec
 		if (di->r9 & 0x02)
@@ -1212,6 +1248,9 @@ static int bq2429x_get_property(struct power_supply *psy,
 
 #if 0	/* this would indicate a low battery! */
 	case POWER_SUPPLY_PROP_???:
+
+// FIXME: add getter
+
 		val->intval = !(r8 & VSYS_STAT);	// VBAT > VSYSMIN
 		val->intval = bq2429x_battery_present(di);
 		break;
@@ -1234,9 +1273,7 @@ static int bq2429x_set_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
-		if (val->intval < 80000)
-			return bq2429x_update_input_current_limit(di, -1);	/* High-Z mode */
-		return bq2429x_update_input_current_limit(di, bq2429x_limit_current_mA_to_bits(val->intval/1000));
+		return bq2429x_set_input_current_limit_uA(di, val->intval);
 	default:
 		return -EPERM;
 	}
@@ -1267,6 +1304,7 @@ static enum power_supply_property bq2429x_charger_props[] = {
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_PRESENT,
+// POWER_SUPPLY_PROP_HEALTH
 };
 
 static const struct power_supply_desc bq2429x_power_supply_desc[] = {
@@ -1325,18 +1363,18 @@ static int bq2429x_parse_dt(struct bq2429x_device_info *di)
 	}
 
 	if (chg_current[0] && chg_current[1] && chg_current[2]){
-		di->chg_current = bq2429x_chg_current_mA_to_bits(chg_current[0] );
-		di->usb_input_current  = bq2429x_limit_current_mA_to_bits(chg_current[1]);
-		di->adp_input_current  = bq2429x_limit_current_mA_to_bits(chg_current[2]);
+		di->chg_current_uA = 1000 * chg_current[0];
+		di->usb_input_current_uA = 1000 * chg_current[1];
+		di->adp_input_current_uA = 1000 * chg_current[2];
 	}
 	else {
-		di->chg_current = bq2429x_chg_current_mA_to_bits(1000);
-		di->usb_input_current  = bq2429x_limit_current_mA_to_bits(500);
-		di->adp_input_current  = bq2429x_limit_current_mA_to_bits(2000);
+		di->chg_current_uA = 10000000;
+		di->usb_input_current_uA = 500000;
+		di->adp_input_current_uA = 2000000;
 	}
 
-	dev_dbg(di->dev, "%s,line=%d chg_current =%d usb_input_current = %d adp_input_current =%d \n", __func__,__LINE__,
-		di->chg_current,di->usb_input_current,di->adp_input_current);
+	dev_dbg(di->dev, "%s,line=%u chg_current = %u usb_input_current = %u adp_input_current = %u \n", __func__,__LINE__,
+		di->chg_current_uA,di->usb_input_current_uA,di->adp_input_current_uA);
 
 	// dc_det_pin - if 0, charger is switched by driver to 2048mA, otherwise 512mA
 	di->dc_det_pin = devm_gpiod_get_index(&di->client->dev, "dc-det", 0, GPIOD_IN);
@@ -1453,6 +1491,8 @@ static int bq2429x_charger_probe(struct i2c_client *client, const struct i2c_dev
 			dev_err(&client->dev, "failed to parse DT\n");
 		return ret;
 	}
+
+// revisit: add getter
 
 	/* get the vendor id */
 	ret = bq2429x_read(di->client, VENDOR_STATS_REGISTER, &retval, 1);
@@ -1601,5 +1641,6 @@ static struct i2c_driver bq2429x_charger_driver = {
 module_i2c_driver(bq2429x_charger_driver);
 
 MODULE_AUTHOR("Rockchip");
+MODULE_AUTHOR("H. Nikolaus Schaller <hns@goldelico.com>");
 MODULE_DESCRIPTION("TI BQ24296/7 charger driver");
 MODULE_LICENSE("GPL");
