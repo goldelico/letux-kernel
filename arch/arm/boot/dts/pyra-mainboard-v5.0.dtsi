@@ -449,8 +449,6 @@
 		monitored-battery = <&bat>;
 		interrupt-parent = <&gpio99>;
 		interrupts = <(1*8+3) IRQ_TYPE_EDGE_FALLING>;	/* P13 */
-		ti,usb-input-current-microamp = <500000>;
-		ti,adp-input-current-microamp = <2000000>;
 		regulators {
 			vsys_reg: vsys_regulator {
 				/* add information */
