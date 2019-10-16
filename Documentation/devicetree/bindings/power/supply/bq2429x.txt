@@ -9,20 +9,32 @@ Required properties:
 - compatible: Should contain one of the following:
     * "ti,bq24296"
     * "ti,bq24297"
+    * "mps,mp2624"
 - reg: integer, i2c address of the device (should be 0x6b).
-- ti,chg_current: 3 integers, maximum charging current (in uA):
-	1. max current for the battery
-	2. max. usb input current
-	3. max. adp input current (unused)
-- regulators: child node defining two regulators for
+- regulators: child node defining exactly two regulators for
 	1. vsys (battery or usb -> system output) and
 	2. otg (battery -> usb).
 
 Optional properties:
-- monitored-battery: phandle of the battery;
-- dc-det: gpio for dc detect (bq24296)
+- monitored-battery: phandle of the battery
+  properties used if defined:
+  * voltage-max-design-microvolt (default 4.2V)
+  * constant-charge-current-max-microamp (default as defined by boot loader)
+- dc-det: gpio for detecting two different DC sources
+- ti,usb-input-current-microamp: default current for USB source
+- ti,adp-input-current-microamp: default current for other source
 
 Example:
+
+bat: battery {
+	compatible = "simple-battery", "pyra-battery";
+	voltage-min-design-microvolt = <3200000>;
+	voltage-max-design-microvolt = <4200000>;
+	energy-full-design-microwatt-hours = <22200000>;
+	charge-full-design-microamp-hours = <6000000>;
+	charge-term-current-microamp = <128000>;
+	constant-charge-current-max-microamp = <1000000>;
+};
 
 bq24297@6b {
 	compatible = "ti,bq24297";
