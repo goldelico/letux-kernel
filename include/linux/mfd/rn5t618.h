@@ -242,9 +242,25 @@ enum {
 	RC5T619,
 };
 
-struct rn5t618 {
-	struct regmap *regmap;
-	long variant;
+/* RN5T618 IRQ definitions */
+enum {
+	RN5T618_IRQ_SYS,
+	RN5T618_IRQ_DCDC,
+	RN5T618_IRQ_RTC,
+	RN5T618_IRQ_ADC,
+	RN5T618_IRQ_GPIO,
+	RN5T618_IRQ_CHG,
+	RN5T618_NR_IRQS,
 };
 
+struct rn5t618 {
+	struct regmap *regmap;
+	struct device *dev;
+	long variant;
+
+	int chip_irq;
+	struct regmap_irq_chip_data *irq_data;
+};
+
+extern int rn5t618_irq_init(struct rn5t618 *rn5t618);
 #endif /* __LINUX_MFD_RN5T618_H */
