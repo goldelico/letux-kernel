@@ -1,0 +1,53 @@
+/*
+ * Copyright (C) 2016 Golden Delicous Computers - http://www.goldelico.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/* this version is for the Letux Cortex 15 CPU board (V5.1) */
+
+#include "omap5-letux-cortex15-v5.0.dts"
+
+/ {
+	model = "Letux Cortex 15 V5.1";
+};
+
+&cpu0 {
+	operating-points = <
+		/* kHz    uV */
+		250000 750000
+		500000 850000
+		750000 950000
+		1000000 1050000
+#if 0	/* V5.1 CPU boards run instable at 1.25 GHz or above unless fixed by U-Boot setup */
+		1250000 1100000
+		1500000 1250000
+		1700000 1250000
+#endif
+	>;
+};
+
+/*
+ * 4GB RAM version may need higher voltage setting - should not harm 2GB
+ * so we just keep what U-Boot already did set
+ */
+
+&smps6_reg {
+	regulator-min-microvolt = <1350000>;
+	regulator-max-microvolt = <1500000>;
+};
+
+&letux_other_pins {
+	pinctrl-single,pins = <
+		OMAP5_IOPAD(0x08e, PIN_INPUT | MUX_MODE6)	/* 0x08C:[31:16]  gpio2_32 - board revision */
+		OMAP5_IOPAD(0x054, PIN_INPUT | MUX_MODE6)	/* 0x054:[15:0]   gpio2_33 - board revision */
+		OMAP5_IOPAD(0x0a8, PIN_INPUT | MUX_MODE6)	/* 0x0A4:[15:0]   gpio3_76 - hard(0) / soft(1) select */
+		OMAP5_IOPAD(0x0b4, PIN_INPUT | MUX_MODE6)	/* 0x0B4:[15:0]   gpio3_82 - eMMC(0) / uSD(1) soft select */
+	>;
+};
+
+&mmcmux {
+	select-gpio = <&gpio3 18 0>;	/* gpio3_82 soft-select */
+};
