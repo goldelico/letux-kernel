@@ -1,0 +1,9 @@
+TWL4030 MADC hwmon.
+
+Required properties:
+- compatible: "ti,twl4030-madc-hwmon"
+
+Example:
+madc-hwmon {
+	compatible = "ti,twl4030-madc-hwmon";
+};
