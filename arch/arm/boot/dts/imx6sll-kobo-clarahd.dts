@@ -274,6 +274,20 @@
 			>;
 		};
 
+                pinctrl_cyttsp5_gpio: cyttsp5_gpio_grp {
+                        fsl,pins = <
+                                MX6SLL_PAD_SD1_DATA3__GPIO5_IO06                0x17059 /* TP_INT */
+                                MX6SLL_PAD_SD1_DATA2__GPIO5_IO13                0x10059 /* TP_RST */
+                        >;
+                };
+
+                pinctrl_cyttsp5_gpio_sleep: cyttsp5_gpio_grp_sleep {
+                        fsl,pins = <
+                                MX6SLL_PAD_SD1_DATA3__GPIO5_IO06                0x10059 /* TP_INT */
+                                MX6SLL_PAD_SD1_DATA2__GPIO5_IO13                0x10059 /* TP_RST */
+                        >;
+                };
+
 	};
 };
 
