@@ -4,12 +4,14 @@ TI bq24296/24297 Li-Ion Charger
 This binding will support the bq24297. It was derived
 from a bq24296 driver but is tested with bq24297 only.
 There are other ICs in the same family but those have
-not been tested.
+not been tested. The Monolithic Power Systems mp2624
+is very similar to the bq24297.
 
 Required properties:
 - compatible: Should contain one of the following:
     * "ti,bq24296"
     * "ti,bq24297"
+    * "mps,mp2624"
 - reg: integer, i2c address of the device (should be 0x6b).
 
 Optional properties:
