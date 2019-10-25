@@ -4,7 +4,7 @@
 $id: http://devicetree.org/schemas/bindings/power/supply/bq2429x.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
-title: TI bq24296/24297 Li-Ion Charger
+title: TI bq24296/24297 and MPS MP2624 Li-Ion Charger
 
 maintainers:
   - H. Nikolaus Schaller <hns@goldelico.com>
@@ -13,11 +13,13 @@ description: |+
   from a bq24296 driver but is tested with bq24297 only.
   There are other ICs in the same family but those have
   not been tested.
+  The MP2624 is very similar to the bq24297.
 
 properties:
   compatible:
     oneOf:
       - item:
+        - const: "mps,mp2624"
         - const: "ti,bq24296"
         - const: "ti,bq24297"
 
