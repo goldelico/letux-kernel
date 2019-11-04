@@ -12,6 +12,7 @@ snd-soc-davinci-asp-objs := davinci-i2s.o
 snd-soc-davinci-mcasp-objs := davinci-mcasp.o
 snd-soc-davinci-vcif-objs := davinci-vcif.o
 snd-soc-omap-dmic-objs := omap-dmic.o
+snd-soc-omap-mcasp-objs := omap-mcasp.o
 snd-soc-omap-mcbsp-objs := omap-mcbsp.o omap-mcbsp-st.o
 snd-soc-omap-mcpdm-objs := omap-mcpdm.o
 
@@ -19,8 +20,10 @@ obj-$(CONFIG_SND_SOC_DAVINCI_ASP) += snd-soc-davinci-asp.o
 obj-$(CONFIG_SND_SOC_DAVINCI_MCASP) += snd-soc-davinci-mcasp.o
 obj-$(CONFIG_SND_SOC_DAVINCI_VCIF) += snd-soc-davinci-vcif.o
 obj-$(CONFIG_SND_SOC_OMAP_DMIC) += snd-soc-omap-dmic.o
+obj-$(CONFIG_SND_SOC_OMAP_MCASP) += snd-soc-omap-mcasp.o
 obj-$(CONFIG_SND_SOC_OMAP_MCBSP) += snd-soc-omap-mcbsp.o
 obj-$(CONFIG_SND_SOC_OMAP_MCPDM) += snd-soc-omap-mcpdm.o
+obj-$(CONFIG_SND_SOC_OMAP_AESS) += aess/
 
 # Machine drivers
 snd-soc-davinci-evm-objs := davinci-evm.o
