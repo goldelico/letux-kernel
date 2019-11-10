@@ -359,7 +359,6 @@
 
 			ldortc2_reg: LDORTC2 {
 				regulator-name = "LDORTC2";
-				regulator-boot-on;
 			};
 		};
 	};
