@@ -101,6 +101,29 @@ static void omap2430_musb_set_vbus(struct musb *musb, int is_on)
 		musb_readb(musb->mregs, MUSB_DEVCTL));
 }
 
+static int omap2430_musb_set_mode(struct musb *musb, u8 musb_mode)
+{
+	u8	devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
+
+	devctl |= MUSB_DEVCTL_SESSION;
+
+	/* this bit only works in the b_peripheral state
+	 * to start the transition to b_wait_aconn
+	 * and would normally be set through as a response
+	 * to a b_hnp_enable
+	 */
+
+	if (musb_mode == MUSB_HOST) {
+		devctl |= MUSB_DEVCTL_HR;
+		if (musb->g.is_otg)
+			musb->g.b_hnp_enable = 1;
+	} else if (musb_mode == MUSB_PERIPHERAL) {
+		devctl &= (~MUSB_DEVCTL_HR);
+	}
+	musb_writeb(musb->mregs, MUSB_DEVCTL, devctl);
+	return 0;
+}
+
 static inline void omap2430_low_level_exit(struct musb *musb)
 {
 	u32 l;
@@ -362,7 +385,7 @@ static const struct musb_platform_ops omap2430_ops = {
 	.exit		= omap2430_musb_exit,
 
 	.set_vbus	= omap2430_musb_set_vbus,
-
+	.set_mode	= omap2430_musb_set_mode,
 	.enable		= omap2430_musb_enable,
 	.disable	= omap2430_musb_disable,
 
