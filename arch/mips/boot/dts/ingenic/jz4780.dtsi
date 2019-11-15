@@ -467,7 +467,7 @@
 		reg = <0x13050000 0x1800>;
 
 		clocks = <&cgu JZ4780_CLK_TVE>, <&cgu JZ4780_CLK_LCD0PIXCLK>;
-		clock-names = "lcd_clk", "lcd_pclk";
+		clock-names = "lcd", "lcd_pclk";
 
 		interrupt-parent = <&intc>;
 		interrupts = <31>;
@@ -477,6 +477,5 @@
 				remote-endpoint = <&dw_hdmi_in>;
 			};
 		};
-
 	};
 };
