@@ -290,6 +290,9 @@ static int dsicm_power_on(struct panel_drv_data *ddata)
 	u8 id1, id2, id3;
 	int r;
 
+	if (ddata->enabled)
+		return 0;
+
 	r = regulator_bulk_enable(DCS_REGULATOR_SUPPLY_NUM, ddata->supplies);
 	if (r) {
 		dev_err(&ddata->dsi->dev, "failed to enable supplies: %d\n", r);
@@ -353,6 +356,9 @@ err:
 static int dsicm_power_off(struct panel_drv_data *ddata)
 {
 	int r;
+
+	if (!ddata->enabled)
+		return 0;
 
 	ddata->enabled = 0;
 
