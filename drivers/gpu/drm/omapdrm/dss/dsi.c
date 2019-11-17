@@ -3987,7 +3987,7 @@ static int dsi_update_all(struct omap_dss_device *dssdev)
 			return r;
 	}
 
-	return 0;
+	return r;
 }
 
 /* Display funcs */
