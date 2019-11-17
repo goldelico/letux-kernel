@@ -9,6 +9,7 @@
 #include <drm/drm_modeset_helper.h>
 #include <drm/drm_fourcc.h>
 #include <drm/drm_gem_framebuffer_helper.h>
+#include <drm/drm_damage_helper.h>
 
 #include "omap_dmm_tiler.h"
 #include "omap_drv.h"
@@ -55,28 +56,10 @@ struct omap_framebuffer {
 	struct mutex lock;
 };
 
-static int omap_framebuffer_dirty(struct drm_framebuffer *fb,
-				  struct drm_file *file_priv,
-				  unsigned flags, unsigned color,
-				  struct drm_clip_rect *clips,
-				  unsigned num_clips)
-{
-	struct drm_crtc *crtc;
-
-	drm_modeset_lock_all(fb->dev);
-
-	drm_for_each_crtc(crtc, fb->dev)
-		omap_crtc_flush(crtc);
-
-	drm_modeset_unlock_all(fb->dev);
-
-	return 0;
-}
-
 static const struct drm_framebuffer_funcs omap_framebuffer_funcs = {
 	.create_handle = drm_gem_fb_create_handle,
-	.dirty = omap_framebuffer_dirty,
 	.destroy = drm_gem_fb_destroy,
+	.dirty = drm_atomic_helper_dirtyfb,
 };
 
 static u32 get_linear_addr(struct drm_framebuffer *fb,

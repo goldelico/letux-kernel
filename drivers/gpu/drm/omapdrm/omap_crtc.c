@@ -346,13 +346,9 @@ void omap_crtc_framedone_irq(struct drm_crtc *crtc, uint32_t irqstatus)
 	wake_up(&omap_crtc->pending_wait);
 }
 
-void omap_crtc_flush(struct drm_crtc *crtc)
+static void omap_crtc_flush(struct drm_crtc *crtc)
 {
 	struct omap_crtc *omap_crtc = to_omap_crtc(crtc);
-	struct omap_crtc_state *omap_state = to_omap_crtc_state(crtc->state);
-
-	if (!omap_state->manually_updated)
-		return;
 
 	if (!delayed_work_pending(&omap_crtc->update_work))
 		schedule_delayed_work(&omap_crtc->update_work, 0);
