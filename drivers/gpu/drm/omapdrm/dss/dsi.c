@@ -210,6 +210,8 @@ struct dsi_reg { u16 module; u16 idx; };
 typedef void (*omap_dsi_isr_t) (void *arg, u32 mask);
 struct dsi_data;
 
+static void dsi_set_ulps_auto(struct dsi_data *dsi, bool enable);
+
 static int dsi_display_init_dispc(struct dsi_data *dsi);
 static void dsi_display_uninit_dispc(struct dsi_data *dsi);
 
@@ -380,6 +382,9 @@ struct dsi_data {
 
 	bool te_enabled;
 	bool ulps_enabled;
+	bool ulps_auto_idle;
+
+	struct delayed_work ulps_work;
 
 	void (*framedone_callback)(int, void *);
 	void *framedone_data;
@@ -3801,6 +3806,7 @@ static void dsi_handle_framedone(struct dsi_data *dsi, int error)
 		REG_FLD_MOD(dsi, DSI_TIMING2, 1, 15, 15); /* LP_RX_TO */
 	}
 
+	dsi_set_ulps_auto(dsi, true);
 	dsi_bus_unlock(dsi);
 
 	dsi->framedone_callback(error, dsi->framedone_data);
@@ -3863,6 +3869,7 @@ static int dsi_update(struct omap_dss_device *dssdev, int channel,
 	struct dsi_data *dsi = to_dsi_data(dssdev);
 
 	dsi_bus_lock(dsi);
+	dsi_set_ulps_auto(dsi, false);
 
 	dsi->update_channel = channel;
 	dsi->framedone_callback = callback;
@@ -4124,16 +4131,6 @@ static void dsi_display_disable(struct omap_dss_device *dssdev)
 	dsi_display_ulps_disable(dsi, true, false);
 }
 
-static void dsi_ulps(struct omap_dss_device *dssdev, bool enable)
-{
-	struct dsi_data *dsi = to_dsi_data(dssdev);
-	DSSDBG("dsi_ulps\n");
-	if (enable)
-		dsi_display_ulps_disable(dsi, false, true);
-	else
-		dsi_display_ulps_enable(dsi);
-}
-
 static int dsi_enable_te(struct dsi_data *dsi, bool enable)
 {
 	dsi->te_enabled = enable;
@@ -4146,6 +4143,40 @@ static int dsi_enable_te(struct dsi_data *dsi, bool enable)
 	}
 
 	return 0;
+}
+
+static void omap_dsi_ulps_work_callback(struct work_struct *work)
+{
+	struct dsi_data *dsi = container_of(work, struct dsi_data,
+					    ulps_work.work);
+
+	dsi_bus_lock(dsi);
+
+	dsi_enable_te(dsi, false);
+
+	dsi_display_ulps_disable(dsi, false, true);
+
+	dsi_bus_unlock(dsi);
+}
+
+static void dsi_set_ulps_auto(struct dsi_data *dsi, bool enable)
+{
+	WARN_ON(!dsi_bus_is_locked(dsi));
+
+	if (!dsi->ulps_auto_idle)
+		return;
+
+	if (enable) {
+		schedule_delayed_work(&dsi->ulps_work, msecs_to_jiffies(250));
+	} else {
+		cancel_delayed_work_sync(&dsi->ulps_work);
+
+		if (!dsi->ulps_enabled)
+			return;
+
+		dsi_display_ulps_enable(dsi);
+		dsi_enable_te(dsi, true);
+	}
 }
 
 #ifdef PRINT_VERBOSE_VM_TIMINGS
@@ -4798,7 +4829,9 @@ static ssize_t omap_dsi_host_transfer(struct mipi_dsi_host *host,
 	int r;
 
 	dsi_bus_lock(dsi);
+	dsi_set_ulps_auto(dsi, false);
 	r = _omap_dsi_host_transfer(dsi, msg);
+	dsi_set_ulps_auto(dsi, true);
 	dsi_bus_unlock(dsi);
 
 	return r;
@@ -4838,8 +4871,6 @@ static const struct omap_dss_device_ops dsi_ops = {
 	.disable = dsi_display_disable,
 
 	.dsi = {
-		.ulps = dsi_ulps,
-
 		.set_config = dsi_set_config,
 
 		.enable_video_output = dsi_enable_video_output,
@@ -4957,6 +4988,12 @@ int omap_dsi_host_attach(struct mipi_dsi_host *host,
 
 	dsi->vc[channel].dest = client;
 	dsi->pix_fmt = client->format;
+
+	INIT_DEFERRABLE_WORK(&dsi->ulps_work,
+			     omap_dsi_ulps_work_callback);
+
+	dsi->ulps_auto_idle = !!(client->mode_flags & MIPI_DSI_MODE_ULPS_IDLE);
+	dsi_set_ulps_auto(dsi, true);
 
 	return 0;
 }
