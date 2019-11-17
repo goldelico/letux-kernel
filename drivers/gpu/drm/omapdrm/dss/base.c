@@ -217,7 +217,7 @@ void omapdss_device_disconnect(struct omap_dss_device *src,
 		dst ? dev_name(dst->dev) : "NULL");
 
 	if (!dst) {
-		WARN_ON(!src->bridge && !src->panel);
+		WARN_ON(src->type != OMAP_DISPLAY_TYPE_DSI && !src->bridge && !src->panel);
 		return;
 	}
 
