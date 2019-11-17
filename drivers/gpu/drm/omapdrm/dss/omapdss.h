@@ -122,11 +122,6 @@ enum omap_dss_dsi_mode {
 	OMAP_DSS_DSI_VIDEO_MODE,
 };
 
-enum omap_display_caps {
-	OMAP_DSS_DISPLAY_CAP_MANUAL_UPDATE	= 1 << 0,
-	OMAP_DSS_DISPLAY_CAP_TEAR_ELIM		= 1 << 1,
-};
-
 enum omap_dss_display_state {
 	OMAP_DSS_DISPLAY_DISABLED = 0,
 	OMAP_DSS_DISPLAY_ACTIVE,
@@ -288,14 +283,7 @@ struct omapdss_hdmi_ops {
 
 struct omapdss_dsi_ops {
 	int (*update)(struct omap_dss_device *dssdev);
-
-	/* legacy API used by omapdss panels */
-	int (*set_config)(struct omap_dss_device *dssdev,
-			const struct omap_dss_dsi_config *cfg);
-
-	int (*enable_video_output)(struct omap_dss_device *dssdev, int channel);
-	void (*disable_video_output)(struct omap_dss_device *dssdev,
-			int channel);
+	bool (*is_video_mode)(struct omap_dss_device *dssdev);
 };
 
 struct omap_dss_device_ops {
@@ -374,12 +362,9 @@ struct omap_dss_device {
 
 	const char *name;
 
-	const struct omap_dss_driver *driver;
 	const struct omap_dss_device_ops *ops;
 	unsigned long ops_flags;
 	u32 bus_flags;
-
-	enum omap_display_caps caps;
 
 	enum omap_dss_display_state state;
 
@@ -393,11 +378,6 @@ struct omap_dss_device {
 
 	/* bitmask of port numbers in DT */
 	unsigned int of_ports;
-};
-
-struct omap_dss_driver {
-	int (*update)(struct omap_dss_device *dssdev,
-			       u16 x, u16 y, u16 w, u16 h);
 };
 
 struct dss_device *omapdss_get_dss(void);
