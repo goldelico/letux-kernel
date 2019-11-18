@@ -1,5 +1,5 @@
 #
-# Linux/mips 4.19.83 Kernel Configuration
+# Linux/mips 4.19.84 Kernel Configuration
 #
 
 #
@@ -3253,7 +3253,6 @@ CONFIG_IOMMU_SUPPORT=y
 # Rpmsg drivers
 #
 # CONFIG_RPMSG_VIRTIO is not set
-# CONFIG_SOUNDWIRE is not set
 
 #
 # SOC (System On Chip) specific Drivers
