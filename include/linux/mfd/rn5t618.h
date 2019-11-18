@@ -139,6 +139,17 @@
 #define RN5T618_INTPOL			0x9c
 #define RN5T618_INTEN			0x9d
 #define RN5T618_INTMON			0x9e
+
+#define RN5T618_RTC_SECONDS     0xA0
+#define RN5T618_RTC_MDAY        0xA4
+#define RN5T618_RTC_MONTH       0xA5
+#define RN5T618_RTC_YEAR        0xA6
+#define RN5T618_RTC_ADJUST      0xA7
+#define RN5T618_RTC_ALARM_Y_SEC 0xA8
+#define RN5T618_RTC_DAL_MONTH   0xAC
+#define RN5T618_RTC_CTRL1       0xAE
+#define RN5T618_RTC_CTRL2       0xAF
+
 #define RN5T618_PREVINDAC		0xb0
 #define RN5T618_BATDAC			0xb1
 #define RN5T618_CHGCTL1			0xb3
@@ -242,9 +253,25 @@ enum {
 	RC5T619,
 };
 
-struct rn5t618 {
-	struct regmap *regmap;
-	long variant;
+/* RN5T618 IRQ definitions */
+enum {
+	RN5T618_IRQ_SYS,
+	RN5T618_IRQ_DCDC,
+	RN5T618_IRQ_RTC,
+	RN5T618_IRQ_ADC,
+	RN5T618_IRQ_GPIO,
+	RN5T618_IRQ_CHG,
+	RN5T618_NR_IRQS,
 };
 
+struct rn5t618 {
+	struct regmap *regmap;
+	struct device *dev;
+	long variant;
+
+	int chip_irq;
+	struct regmap_irq_chip_data *irq_data;
+};
+
+extern int rn5t618_irq_init(struct rn5t618 *rn5t618);
 #endif /* __LINUX_MFD_RN5T618_H */
