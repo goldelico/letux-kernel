@@ -19,7 +19,7 @@ MMC	ok	ok	ok	ok	ok	ok	l4.19	ok	ok	ok	ok		ok	ok	ok		ok
 NAND/eMMC	ok	ok	ok	ok	n/a	n/a	l4.19	ok	ok	ok	n/a		nok	!#921		n/a	n/a
 SATA	n/a	n/a	n/a	n/a	n/a	n/a	l4.19	ok	n/a	n/a	n/a	n/a	n/a	n/a	n/a		n/a
 Ethernet	n/a	n/a	n/a	n/a	ok	ok	n/a	ok	n/a	ok	ok	n/a	n/a	wip	n/a	ok	n/a
-WiFi	ok	ok	ok	n/a	n/a	ok	l4.19	ok	l5.4-rc3#849	n/a	ok	n/a	n/a	?#921		ok	?
+WiFi	ok	ok	ok	n/a	n/a	ok	l4.19	ok	l5.4-rc3#849	n/a	ok	n/a	n/a	?#921		ok	l5.4#937
 Bluetooth	letux	letux	letux	n/a	n/a	ok	l4.19	?	n/a	n/a	ok	n/a	n/a	?		ok	n/a
 Bluetooth Headset	?			n/a	n/a				n/a	n/a		n/a	n/a				n/a
 Infrared	nok#525	n/a	n/a	n/a	n/a	n/a	n/a	n/a	n/a	n/a	n/a	n/a	n/a	nok		n/a	n/a
