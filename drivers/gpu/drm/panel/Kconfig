@@ -542,4 +542,11 @@ config DRM_PANEL_XINGBANGDA_XBD599
 	  Say Y here if you want to enable support for the Xingbangda XBD599
 	  MIPI DSI Video Mode panel with ST7703 controller.
 
+config DRM_PANEL_BOE_BTL507212_W677L
+	tristate "BOE W677L LCD Panel"
+	depends on DRM_MIPI_DSI
+	help
+	  Say Y here if you want to enable support for BOE BTL507212-W677L
+	  panel with OTM1283A controller.
+
 endmenu
