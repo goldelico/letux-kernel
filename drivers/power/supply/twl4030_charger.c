@@ -455,7 +455,6 @@ static int twl4030_charger_enable_usb(struct twl4030_bci *bci, bool enable)
 			bci->usb_enabled = 1;
 		}
 
-<<<<<<< HEAD
 		/* check if USB PHY is correctly enabled
 		 * can be removed after phy-twl4030-usb is fixed
 		 * and sets this bit if requested by pm_runtime_get_sync */
@@ -476,8 +475,6 @@ static int twl4030_charger_enable_usb(struct twl4030_bci *bci, bool enable)
 			}
 		}
 
-		if (bci->usb_mode == CHARGE_AUTO)
-=======
 		if (bci->usb_mode == CHARGE_AUTO) {
 			/* Enable interrupts now. */
 			reg = ~(u32)(TWL4030_ICHGLOW | TWL4030_ICHGEOC |
@@ -491,7 +488,6 @@ static int twl4030_charger_enable_usb(struct twl4030_bci *bci, bool enable)
 					ret);
 				return ret;
 			}
->>>>>>> v4.14.156
 			/* forcing the field BCIAUTOUSB (BOOT_BCI[1]) to 1 */
 			ret = twl4030_clear_set_boot_bci(0, TWL4030_BCIAUTOUSB);
 		}
