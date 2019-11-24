@@ -60,6 +60,14 @@
 		enable-active-high;
 	};
 
+	hdmi_power: fixedregulator@1 {
+		compatible = "regulator-fixed";
+		regulator-name = "hdmi_power";
+		gpio = <&gpa 25 GPIO_ACTIVE_LOW>;
+		enable-active-high;
+		regulator-always-on;
+	};
+
 	wlan0_power: fixedregulator@1 {
 		compatible = "regulator-fixed";
 		regulator-name = "wlan0_power";
