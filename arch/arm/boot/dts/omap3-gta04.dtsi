@@ -28,6 +28,7 @@
 
 	aliases {
 		display0 = &lcd;
+		display1 = &tv0;
 	};
 
 	gpio-keys {
@@ -137,8 +138,7 @@
 	};
 
 	tv0: connector {
-//		compatible = "composite-svideo-connector";
-		compatible = "svideo-connector";
+		compatible = "composite-video-connector";
 		label = "tv";
 
 		port {
@@ -457,6 +457,7 @@
 		interrupt-parent = <&gpio6>;
 		interrupts = <0 IRQ_TYPE_EDGE_FALLING>; /* GPIO_160 */
 		gpios = <&gpio6 0 GPIO_ACTIVE_LOW>;	/* GPIO_160 */
+		ti,x-plate-ohms = <600>;
 		touchscreen-size-x = <480>;
 		touchscreen-size-y = <640>;
 		touchscreen-max-pressure = <1000>;
@@ -464,12 +465,6 @@
 		touchscreen-fuzz-y = <8>;
 		touchscreen-fuzz-pressure = <10>;
 		touchscreen-inverted-y;
-		ti,min-x = <0x100>;
-		ti,max-x = <0xf00>;
-		ti,min-y = <0x100>;
-		ti,max-y = <0xf00>;
-		ti,max-rt = <4096>;
-		ti,x-plate-ohms = <550>;
 	};
 
 	/* RFID EEPROM */
@@ -594,6 +589,12 @@
 	regulator-max-microvolt = <3150000>;
 };
 
+/* Needed to power the DPI pins */
+
+&vpll2 {
+	regulator-always-on;
+};
+
 &dss {
 	pinctrl-names = "default";
 	pinctrl-0 = < &dss_dpi_pins >;
@@ -622,6 +623,7 @@
 		venc_out: endpoint {
 			remote-endpoint = <&opa_in>;
 			ti,channels = <1>;
+			ti,invert-polarity;
 		};
 	};
 };
