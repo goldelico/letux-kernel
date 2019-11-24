@@ -25,4 +25,9 @@ config DRM_INGENIC_IPU
 
 	  The Image Processing Unit (IPU) will appear as a second primary plane.
 
+config DRM_DW_HDMI_JZ4780
+	bool "HDMI Support for Ingenic JZ4780"
+	select DRM_DW_HDMI
+	help
+	  Choose this option for HDMI output from the Ingenic JZ4780.
 endif
