@@ -85,7 +85,7 @@ enum {
     TPS65180_REG_NUM,
 };
 
-#define TPS6518X_MAX_REG 0x12
+#define TPS6518x_MAX_REGISTER   0xFF
 
 /*
  * Bitfield macros that use rely on bitfield width/shift information.
@@ -250,14 +250,14 @@ enum {
  * The register fields accept voltages in the range 0V to -2.75V, but the
  * VCOM parametric performance is only guaranteed from -0.3V to -2.5V.
  */
-#define TPS65180_VCOM_MAX_uV   2750000
-#define TPS65180_VCOM_MIN_uV          0
+#define TPS65180_VCOM_MIN_uV   -2750000
+#define TPS65180_VCOM_MAX_uV          0
 #define TPS65180_VCOM_MIN_SET         0
 #define TPS65180_VCOM_MAX_SET       255
 #define TPS65180_VCOM_BASE_uV     10740
 #define TPS65180_VCOM_STEP_uV     10740
-#define TPS65185_VCOM_MAX_uV   5110000
-#define TPS65185_VCOM_MIN_uV          0
+#define TPS65185_VCOM_MIN_uV   -5110000
+#define TPS65185_VCOM_MAX_uV          0
 #define TPS65185_VCOM_MIN_SET         0
 #define TPS65185_VCOM_MAX_SET       511
 #define TPS65185_VCOM_BASE_uV     10000
@@ -284,8 +284,7 @@ struct tps6518x {
 	struct tps6518x_platform_data *pdata;
 
 	/* Platform connection */
-	struct regmap *regmap;
-	/* struct i2c_client *i2c_client; */
+	struct i2c_client *i2c_client;
 
 	/* Timings */
 	unsigned int pwr_seq0;
@@ -297,13 +296,13 @@ struct tps6518x {
 	unsigned int dwnseq1;
 
 	/* GPIOs */
-	struct gpio_desc * gpio_pmic_pwrgood;
-	struct gpio_desc * gpio_pmic_vcom_ctrl;
-	struct gpio_desc * gpio_pmic_wakeup;
-	struct gpio_desc * gpio_pmic_intr;
-	struct gpio_desc * gpio_pmic_powerup;
-	struct gpio_desc * gpio_pmic_v3p3;
-	struct gpio_desc * gpio_pmic_pwrall;
+	int gpio_pmic_pwrgood;
+	int gpio_pmic_vcom_ctrl;
+	int gpio_pmic_wakeup;
+	int gpio_pmic_intr;
+	int gpio_pmic_powerup;
+	int gpio_pmic_v3p3;
+	int gpio_pmic_pwrall;
 
 	/* TPS6518x part variables */
 	int pass_num;
@@ -360,12 +359,12 @@ struct tps6518x_platform_data {
 	unsigned int upseq1;
 	unsigned int dwnseq0;
 	unsigned int dwnseq1;
-	struct gpio_desc * gpio_pmic_pwrgood;
-	struct gpio_desc * gpio_pmic_vcom_ctrl;
-	struct gpio_desc * gpio_pmic_wakeup;
-	struct gpio_desc * gpio_pmic_intr;
-	struct gpio_desc * gpio_pmic_powerup;
-	struct gpio_desc * gpio_pmic_pwrall;
+	int gpio_pmic_pwrgood;
+	int gpio_pmic_vcom_ctrl;
+	int gpio_pmic_wakeup;
+	int gpio_pmic_intr;
+	int gpio_pmic_powerup;
+	int gpio_pmic_pwrall;
 	int pass_num;
 	int vcom_uV;
 
