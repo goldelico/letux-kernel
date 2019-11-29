@@ -442,7 +442,8 @@
 		clocks = <&cgu JZ4780_CLK_HDMI>, <&cgu JZ4780_CLK_AHB0>;
 		clock-names = "isfr" , "iahb";
 
-		clock-frequency = <27000000>;
+		assigned-clocks = <&cgu JZ4780_CLK_HDMI>;
+		assigned-clock-rates = <27000000>;
 
 		interrupt-parent = <&intc>;
 		interrupts = <3>;
