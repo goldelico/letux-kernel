@@ -24,11 +24,7 @@
  * Copyright 2008 Embedded Alley Solutions, Inc All Rights Reserved.
  */
 
-// #include <linux/busfreq-imx.h>
-#define BUS_FREQ_HIGH 1
-#define request_bus_freq(FREQ)	/*empty*/
-#define release_bus_freq(FREQ)	/*empty*/
-
+#include <linux/busfreq-imx.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/device.h>
@@ -58,18 +54,19 @@
 #include <linux/mfd/syscon.h>
 #include <linux/regmap.h>
 #include <linux/regulator/driver.h>
-// #include <linux/mfd/max17135.h>
+#include <linux/mfd/max17135.h>
 #include <linux/fsl_devices.h>
 #include <linux/bitops.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/platform_data/dma-imx.h>
 #include <asm/cacheflush.h>
-#define DISPLAY_RESOLUTION 5 /* gptHWCFG->m_val.bDisplayResolution */
-#define DISPLAY_BUS_WIDTH 0 /* gptHWCFG->m_val.bDisplayBusWidth */
 
 #include "epdc_v2_regs.h"
 
+#define EPDC_STANDARD_MODE
+
 #define USE_PS_AS_OUTPUT
+
 /*
  * Enable this define to have a default panel
  * loaded during driver initialization
@@ -104,29 +101,8 @@
 #define MERGE_FAIL	1
 #define MERGE_BLOCK	2
 
-/* #define EPD_SUSPEND_BLANK			1 */
-
-#define NTX_WFM_MODE_INIT			0
-#define NTX_WFM_MODE_DU				1
-#define NTX_WFM_MODE_GC16			2
-#define NTX_WFM_MODE_GC4			3
-#define NTX_WFM_MODE_A2				4
-#define NTX_WFM_MODE_GL16			5
-#define NTX_WFM_MODE_GLR16		6
-#define NTX_WFM_MODE_GLD16		7
-#define NTX_WFM_MODE_TOTAL		8
-static int giNTX_waveform_modeA[NTX_WFM_MODE_TOTAL];
-
-
-unsigned char gbModeVersion=0 ;
-unsigned char gbWFM_REV ;
-unsigned char gbFPL_Platform ;
-
-
 static u64 used_luts = 0x1;	/* do not use LUT0 */
 static unsigned long default_bpp = 16;
-static int vcom_nominal;
-static bool standard_mode;	/* true means driver v2, false means v1 emulation */
 
 struct update_marker_data {
 	struct list_head full_list;
@@ -189,7 +165,6 @@ struct mxc_epdc_fb_data {
 	struct regulator *display_regulator;
 	struct regulator *vcom_regulator;
 	struct regulator *v3p3_regulator;
-	struct regulator *tmst_regulator;
 	bool fw_default_load;
 	int rev;
 
@@ -211,23 +186,17 @@ struct mxc_epdc_fb_data {
 	int trt_entries;
 	int temp_index;
 	u8 *temp_range_bounds;
-
-#ifdef MXCFB_WAVEFORM_MODES_NTX //[
-	struct mxcfb_waveform_modes_ntx wv_modes;
-#else //][!MXCFB_WAVEFORM_MODES_NTX
 	struct mxcfb_waveform_modes wv_modes;
-#endif //] MXCFB_WAVEFORM_MODES_NTX
-
 	bool wv_modes_update;
 	bool waveform_is_advanced;
 	u32 *waveform_buffer_virt;
-	dma_addr_t waveform_buffer_phys;
+	u32 waveform_buffer_phys;
 	u32 waveform_buffer_size;
 	u32 *working_buffer_virt;
-	dma_addr_t working_buffer_phys;
+	u32 working_buffer_phys;
 	u32 working_buffer_size;
 	u32 *tmp_working_buffer_virt;
-	dma_addr_t tmp_working_buffer_phys;
+	u32 tmp_working_buffer_phys;
 	dma_addr_t *phys_addr_updbuf;
 	void **virt_addr_updbuf;
 	u32 upd_buffer_num;
@@ -287,18 +256,6 @@ struct mxc_epdc_fb_data {
 
 	/* qos */
 	struct regmap *qos_regmap;
-
-	/* FB elements related to gen2 waveform data */
-	u8 *waveform_vcd_buffer;
-	u8 *waveform_acd_buffer;
-	u32 waveform_magic_number;
-	u8 *waveform_xwi_buffer;
-	char *waveform_xwi_string;
-	unsigned waveform_xwi_string_length;
-	u32 waveform_mc;
-	u32 waveform_trc;
-
-	u32 dwSafeTicksEP3V3; // the safe ticks we must to wait for EP3V3 .
 };
 
 struct waveform_data_header {
@@ -316,7 +273,7 @@ struct waveform_data_header {
 	unsigned int luts:8;
 	unsigned int mc:8;
 	unsigned int trc:8;
-	unsigned int reserved0_0:8; /* awv */
+	unsigned int reserved0_0:8;
 	unsigned int eb:8;
 	unsigned int sb:8;
 	unsigned int reserved0_1:8;
@@ -334,534 +291,6 @@ struct mxcfb_waveform_data_file {
 
 #define WAVEFORM_HDR_LUT_ADVANCED_ALGO_MASK 0xc
 
-#if 1 //[
-
-#define EPD_TIMING_ED068OG1_NUMCE3	1
-
-static struct fb_videomode ed060sct_mode = {
-.name = "E60SCT",
-.refresh = 85,
-.xres = 800,
-.yres = 600,
-.pixclock = 26680000,
-.left_margin = 8,
-.right_margin = 96,
-.upper_margin = 4,
-.lower_margin = 13,
-.hsync_len = 4,
-.vsync_len = 1,
-.sync = 0,
-.vmode = FB_VMODE_NONINTERLACED,
-.flag = 0,
-};
-
-static struct fb_videomode ed060scq_mode = {
-.name = "E60SCQ",
-.refresh = 85,
-.xres = 800,
-.yres = 600,
-.pixclock = 25000000,
-.left_margin = 8,
-.right_margin = 60,
-.upper_margin = 4,
-.lower_margin = 10,
-.hsync_len = 8,
-.vsync_len = 4,
-.sync = 0,
-.vmode = FB_VMODE_NONINTERLACED,
-.flag = 0,
-};
-
-static struct fb_videomode ed060sc8_mode = {
-.name = "E60SC8",
-.refresh = 85,
-.xres = 800,
-.yres = 600,
-.pixclock = 30000000,
-.left_margin = 8,
-.right_margin = 164,
-.upper_margin = 4,
-.lower_margin = 18,
-.hsync_len = 4,
-.vsync_len = 1,
-.sync = 0,
-.vmode = FB_VMODE_NONINTERLACED,
-.flag = 0,
-};
-
-// for ED060XC5 release by Freescale Grace 20120726 .
-
-static struct fb_videomode ed060xc1_mode = {
-.name = "E60XC1",
-.refresh = 85,
-.xres = 1024,
-.yres = 768,
-.pixclock = 40000000,
-.left_margin = 12,
-.right_margin = 72,
-.upper_margin = 4,
-.lower_margin = 5,
-.hsync_len = 8,
-.vsync_len = 2,
-.sync = 0,
-.vmode = FB_VMODE_NONINTERLACED,
-.flag = 0,
-};
-
-static struct fb_videomode ed060xc5_mode = {
-.name = "E60XC5",
-.refresh = 85,
-.xres = 1024,
-.yres = 758,
-.pixclock = 40000000,
-.left_margin = 12,
-.right_margin = 76,
-.upper_margin = 4,
-.lower_margin = 5,
-.hsync_len = 12,
-.vsync_len = 2,
-.sync = 0,
-.vmode = FB_VMODE_NONINTERLACED,
-.flag = 0,
-};
-
-static struct fb_videomode e60_v110_mode = {
-.name = "E60_V110",
-.refresh = 50,
-.xres = 800,
-.yres = 600,
-.pixclock = 18604700,
-.left_margin = 8,
-.right_margin = 176,
-.upper_margin = 4,
-.lower_margin = 2,
-.hsync_len = 4,
-.vsync_len = 1,
-.sync = 0,
-.vmode = FB_VMODE_NONINTERLACED,
-.flag = 0,
-};
-
-static struct fb_videomode ed050xxx_mode = {
-	.name="ED050XXXX",
-	.refresh=85,
-	.xres=800,
-	.yres=600,
-	.pixclock=26666667,
-	.left_margin=4,
-	.right_margin=98,
-	.upper_margin=4,
-	.lower_margin=9,
-	.hsync_len=8,
-	.vsync_len=2,
-	.sync=0,
-	.vmode=FB_VMODE_NONINTERLACED,
-	.flag=0,
-};
-
-
-#ifdef EPD_TIMING_ED068TG1 //[
-static struct fb_videomode ed068tg1_mode = {
-.name = "ED068TG1",
-.refresh=85,
-.xres=1440,
-.yres=1080,
-.pixclock=96000000,
-.left_margin=24,
-.right_margin=267,
-.upper_margin=4,
-.lower_margin=5,
-.hsync_len=24,
-.vsync_len=2,
-.sync=0,
-.vmode=FB_VMODE_NONINTERLACED,
-.flag=0,
-};
-#elif defined(EPD_TIMING_ED068OG1_NUMCE3) //][
-/* i.MX508 waveform data timing data structures for ed068og1_numce3 */
-/* Created on - Monday, October 15, 2012 10:36:24
-   Warning: this pixel clock is derived from 480 MHz parent! */
-
-static struct fb_videomode ed068og1_numce3_mode = {
-.name="ED068OG1_NUMCE3",
-.refresh=85,
-.xres=1440,
-.yres=1080,
-.pixclock=96000000,
-.left_margin=24,
-.right_margin=267,
-.upper_margin=4,
-.lower_margin=5,
-.hsync_len=24,
-.vsync_len=2,
-.sync=0,
-.vmode=FB_VMODE_NONINTERLACED,
-.flag=0,
-};
-#else
-static struct fb_videomode ed068og1_mode = {
-.name = "E68OG1",
-.refresh=85,
-.xres=1440,
-.yres=1080,
-.pixclock=120000000,
-.left_margin=32,
-.right_margin=508,
-.upper_margin=4,
-.lower_margin=5,
-.hsync_len=32,
-.vsync_len=2,
-.sync=0,
-.vmode=FB_VMODE_NONINTERLACED,
-.flag=0,
-};
-#endif//]EPD_TIMING_ED068OG1_NUMCE3
-
-static struct fb_videomode peng060d_mode = {
-.name = "PENG060D",
-.refresh=85,
-.xres=1448,
-.yres=1072,
-.pixclock=80000000,
-.left_margin=16,
-.right_margin=102,
-.upper_margin=4,
-.lower_margin=4,
-.hsync_len=28,
-.vsync_len=2,
-.sync=0,
-.vmode=FB_VMODE_NONINTERLACED,
-.flag=0,
-};
-
-static struct fb_videomode ef133ut1sce_mode = {
-.name="EF133UT1SCE",
-.refresh=65,
-.xres=1600,
-.yres=1200,
-.pixclock=72222223,
-.left_margin=8,
-.right_margin=97,
-.upper_margin=4,
-.lower_margin=7,
-.hsync_len=12,
-.vsync_len=1,
-.sync=0,
-.vmode=FB_VMODE_NONINTERLACED,
-.flag=0,
-};
-
-static struct fb_videomode ed078kh1_75Hz_mode = {
-.name = "ED078KH1_75HZ",
-.refresh=75,
-.xres=1872,
-.yres=1404,
-.pixclock=120000000,
-.left_margin=52,
-.right_margin=75,
-.upper_margin=4,
-.lower_margin=14,
-.hsync_len=60,
-.vsync_len=2,
-.sync=0,
-.vmode=FB_VMODE_NONINTERLACED,
-.flag=0,
-};
-static struct fb_videomode ed078kh1_mode = {
-.name = "ED078KH1",
-.refresh=85,
-.xres=1872,
-.yres=1404,
-.pixclock=133400000,
-.left_margin=44,
-.right_margin=89,
-.upper_margin=4,
-.lower_margin=5,
-.hsync_len=44,
-.vsync_len=1,
-.sync=0,
-.vmode=FB_VMODE_NONINTERLACED,
-.flag=0,
-};
-static struct fb_videomode r031_peng078f01_mode = {
-	.name = "R031_PENG078F01",
-	.refresh = 85,
-	.xres = 1600,
-	.yres = 1200,
-	.pixclock = 96000000,
-	.left_margin = 24,
-	.right_margin = 70,
-	.upper_margin = 4,
-	.lower_margin = 4,
-	.hsync_len = 40,
-	.vsync_len = 1,
-	.sync = 0,
-	.vmode = FB_VMODE_NONINTERLACED,
-	.flag = 0,
-};
-static struct fb_videomode es080kh1_mode = {
-	.name="es080kh1",
-	.refresh=85,
-	.xres=1920,
-	.yres=1440,
-	.pixclock=160000000,
-	.left_margin=40,
-	.right_margin=257,
-	.upper_margin=4,
-	.lower_margin=5,
-	.hsync_len=40,
-	.vsync_len=1,
-	.sync=0,
-	.vmode=FB_VMODE_NONINTERLACED,
-	.flag=0,
-};
-
-
-static struct imx_epdc_fb_mode panel_modes[] = {
-////////////////////
-{ // 0 
-& ed060sc8_mode,
-4,            /* vscan_holdoff */
-10,          /* sdoed_width */
-20,          /* sdoed_delay */
-10,          /* sdoez_width */
-20,          /* sdoez_delay */
-465,        /* gdclk_hp_offs */
-250,        /* gdsp_offs changed delay to 8.3 uS */
-0,            /* gdoe_offs */
-8,            /* gdclk_offs changed delay to 4.5 SDCLK */
-1,            /* num_ce */
-},
-
-////////////////////
-{ // 1
-& e60_v110_mode,
-4,            /* vscan_holdoff */
-10,          /* sdoed_width */
-20,          /* sdoed_delay */
-10,          /* sdoez_width */
-20,          /* sdoez_delay */
-465,        /* gdclk_hp_offs */
-250,        /* gdsp_offs changed delay to 8.3 uS */
-0,            /* gdoe_offs */
-8,            /* gdclk_offs changed delay to 4.5 SDCLK */
-1,            /* num_ce */
-},
-
-////////////////////
-{ // 2
-& ed060xc5_mode,
-4,            /* vscan_holdoff */
-10,          /* sdoed_width */
-20,          /* sdoed_delay */
-10,          /* sdoez_width */
-20,          /* sdoez_delay */
-524,        /* gdclk_hp_offs */
-25,        /* gdsp_offs changed delay to 8.3 uS */
-0,            /* gdoe_offs */
-19,            /* gdclk_offs changed delay to 4.5 SDCLK */
-1,            /* num_ce */
-},
-
-////////////////////
-{ // 3
-& ed060xc1_mode,
-4,            /* vscan_holdoff */
-10,          /* sdoed_width */
-20,          /* sdoed_delay */
-10,          /* sdoez_width */
-20,          /* sdoez_delay */
-492,        /* gdclk_hp_offs */
-29,        /* gdsp_offs changed delay to 8.3 uS */
-0,            /* gdoe_offs */
-23,            /* gdclk_offs changed delay to 4.5 SDCLK */
-1,            /* num_ce */
-},
-
-////////////////////
-{// 4
-	&ed050xxx_mode, 	/* struct fb_videomode *mode */
-		4, 	/* vscan_holdoff */
-		10, 	/* sdoed_width */
-		20, 	/* sdoed_delay */
-		10, 	/* sdoez_width */
-		20, 	/* sdoez_delay */
-		420, 	/* GDCLK_HP */
-		20, 	/* GDSP_OFF */
-		0, 	/* GDOE_OFF */
-		11, 	/* gdclk_offs */
-		3, 	/* num_ce */
-},	
-
-#ifdef EPD_TIMING_ED068TG1 //[
-{ // 5
-& ed068tg1_mode,
-4,            /* vscan_holdoff */
-10,          /* sdoed_width */
-20,          /* sdoed_delay */
-10,          /* sdoez_width */
-20,          /* sdoez_delay */
-665,        /* GDCLK_HP */
-718,        /* GDSP_OFF */
-0,            /* GDOE_OFF */
-199,        /* gdclk_offs */
-1,            /* num_ce */
-},
-#elif defined(EPD_TIMING_ED068OG1_NUMCE3)//][
-{ // 5
-& ed068og1_numce3_mode,
-4,            /* vscan_holdoff */
-10,          /* sdoed_width */
-20,          /* sdoed_delay */
-10,          /* sdoez_width */
-20,          /* sdoez_delay */
-665,        /* GDCLK_HP */
-210,        /* GDSP_OFF */
-0,            /* GDOE_OFF */
-199,        /* gdclk_offs */
-3,            /* num_ce */
-},
-#else//][ !EPD_TIMING_ED068OG1_NUMCE3
-{ // 5
-& ed068og1_mode,
-4,            /* vscan_holdoff */
-10,          /* sdoed_width */
-20,          /* sdoed_delay */
-10,          /* sdoez_width */
-20,          /* sdoez_delay */
-831,        /* GDCLK_HP */
-285,        /* GDSP_OFF */
-0,            /* GDOE_OFF */
-271,        /* gdclk_offs */
-1,            /* num_ce */
-},
-#endif//] EPD_TIMING_ED068OG1_NUMCE3
-
-{ // 6
-&peng060d_mode,
-4,            /* vscan_holdoff */
-10,          /* sdoed_width */
-20,          /* sdoed_delay */
-10,          /* sdoez_width */
-20,          /* sdoez_delay */
-562,        /* GDCLK_HP */
-662,        /* GDSP_OFF */
-0,            /* GDOE_OFF */
-225,        /* gdclk_offs */
-3,            /* num_ce */
-},
-{ // 7
-&ef133ut1sce_mode,
-4,      /* vscan_holdoff */
-10,     /* sdoed_width */
-20,     /* sdoed_delay */
-10,     /* sdoez_width */
-20,     /* sdoez_delay */
-743,    /* GDCLK_HP */
-475,    /* GDSP_OFF */
-0,      /* GDOE_OFF */
-15,     /* gdclk_offs */
-1,      /* num_ce */
-},
-{ // 8
-&ed060scq_mode,
-4,      /* vscan_holdoff */
-10,     /* sdoed_width */
-20,     /* sdoed_delay */
-10,     /* sdoez_width */
-20,     /* sdoez_delay */
-438,    /* GDCLK_HP */
-263,    /* GDSP_OFF */
-0,      /* GDOE_OFF */
-23,     /* gdclk_offs */
-3,      /* num_ce */
-},
-{ // 9
-&ed078kh1_mode,
-4,      /* vscan_holdoff */
-10,     /* sdoed_width */
-20,     /* sdoed_delay */
-10,     /* sdoez_width */
-20,     /* sdoez_delay */
-772,    /* GDCLK_HP */
-757,    /* GDSP_OFF */
-0,      /* GDOE_OFF */
-199,     /* gdclk_offs */
-1,      /* num_ce */
-},
-{ // 10
-&ed060sct_mode,
-4,      /* vscan_holdoff */
-10,     /* sdoed_width */
-20,     /* sdoed_delay */
-10,     /* sdoez_width */
-20,     /* sdoez_delay */
-372,    /* GDCLK_HP */
-367,    /* GDSP_OFF */
-0,      /* GDOE_OFF */
-111,     /* gdclk_offs */
-1,      /* num_ce */
-},
-{ // 11
-	&r031_peng078f01_mode,
-	4,      /* vscan_holdoff */
-	10,     /* sdoed_width */
-	20,     /* sdoed_delay */
-	10,     /* sdoez_width */
-	20,     /* sdoez_delay */
-	691,    /* gdclk_hp_offs */
-	592,     /* gdsp_offs */
-	0,      /* gdoe_offs */
-	123,      /* gdclk_offs */
-	2,      /* num_ce */
-},
-{ // 12
-&ed078kh1_75Hz_mode,
-4,      /* vscan_holdoff */
-10,     /* sdoed_width */
-20,     /* sdoed_delay */
-10,     /* sdoez_width */
-20,     /* sdoez_delay */
-583,    /* GDCLK_HP */
-939,    /* GDSP_OFF */
-0,      /* GDOE_OFF */
-376,     /* gdclk_offs */
-3,      /* num_ce */
-},
-{ // 13
-&es080kh1_mode, 	/* struct fb_videomode *mode */
-4, 	/* vscan_holdoff */
-10, 	/* sdoed_width */
-20, 	/* sdoed_delay */
-10, 	/* sdoez_width */
-20, 	/* sdoez_delay */
-971, 	/* GDCLK_HP */
-723, 	/* GDSP_OFF */
-0, 	/* GDOE_OFF */
-73, 	/* gdclk_offs */
-1, 	/* num_ce */
-},
-};
- 
-
-#else //][!
-
-static struct fb_videomode ed078kh1_mode = {
-	.name = "ED078KH1",
-	.refresh=85,
-	.xres=1872,
-	.yres=1404,
-	.pixclock=133400000,
-	.left_margin=44,
-	.right_margin=89,
-	.upper_margin=4,
-	.lower_margin=5,
-	.hsync_len=44,
-	.vsync_len=1,
-	.sync=0,
-	.vmode=FB_VMODE_NONINTERLACED,
-	.flag=0,
-};
 static struct fb_videomode ed060xh2c1mode = {
 	.name = "ED060XH2C1",
 	.refresh = 85,
@@ -1014,7 +443,6 @@ static struct imx_epdc_fb_mode panel_modes[] = {
 		3,      /* num_ce */
 	}
 };
-#endif //]
 
 static struct imx_epdc_fb_platform_data epdc_data = {
 	.epdc_mode = panel_modes,
@@ -1067,42 +495,6 @@ static int epdc_working_buffer_update(struct mxc_epdc_fb_data *fb_data,
 				      struct update_data_list *upd_data_list,
 				      struct mxcfb_rect *update_region);
 extern void pxp_get_collision_info(struct pxp_collision_info *info);
-static int mxc_epdc_fb_set_temperature(int temperature, struct fb_info *info);
-
-static int mxc_epdc_fb_fetch_wxi_data(uint8_t *xwi_buffer, char *outbuf)
-{
-	int l = xwi_buffer[0];
-	if (outbuf) {
-		u8 chk = 0;
-		int i;
-
-		for (i = 0; i <= l; i++)
-			chk += xwi_buffer[i];
-
-		if (chk != xwi_buffer[i])
-			return -EINVAL;
-
-		memcpy(outbuf, xwi_buffer + 1, l);
-	}
-
-	return l;
-}
-
-static int mxc_epdc_fb_fetch_vc_data(u8 *vcd_buffer, u32 waveform_mode, u32 waveform_tempRange, u32 mc, u32 trc, u8 *vcd)
-{
-	u8 *vcd_src = vcd_buffer + 16 * (waveform_mode * trc + waveform_tempRange);
-	int i;
-	u8 chk = 0;
-	for(i = 0 ; i < 15; i++)
-		chk += vcd_src[i];
-
-	if (chk != vcd_src[i])
-		return -EINVAL;
-
-	memcpy(vcd, vcd_src, 16);
-	return 0;
-}
-
 
 #ifdef DEBUG
 static void dump_pxp_config(struct mxc_epdc_fb_data *fb_data,
@@ -1247,7 +639,7 @@ static void dump_collision_list(struct mxc_epdc_fb_data *fb_data)
 		dev_info(fb_data->dev, "Empty");
 	list_for_each_entry(plist, &fb_data->upd_buf_collision_list, list) {
 		dev_info(fb_data->dev, "Virt Addr = 0x%x, Phys Addr = 0x%x ",
-			(u32)plist->virt_addr, (u32)plist->phys_addr);
+			(u32)plist->virt_addr, plist->phys_addr);
 		dump_update_data(fb_data->dev, plist);
 	}
 }
@@ -1261,7 +653,7 @@ static void dump_free_list(struct mxc_epdc_fb_data *fb_data)
 		dev_info(fb_data->dev, "Empty");
 	list_for_each_entry(plist, &fb_data->upd_buf_free_list, list)
 		dev_info(fb_data->dev, "Virt Addr = 0x%x, Phys Addr = 0x%x ",
-			(u32)plist->virt_addr, (u32)plist->phys_addr);
+			(u32)plist->virt_addr, plist->phys_addr);
 }
 
 static void dump_queue(struct mxc_epdc_fb_data *fb_data)
@@ -1273,7 +665,7 @@ static void dump_queue(struct mxc_epdc_fb_data *fb_data)
 		dev_info(fb_data->dev, "Empty");
 	list_for_each_entry(plist, &fb_data->upd_buf_queue, list) {
 		dev_info(fb_data->dev, "Virt Addr = 0x%x, Phys Addr = 0x%x ",
-			(u32)plist->virt_addr, (u32)plist->phys_addr);
+			(u32)plist->virt_addr, plist->phys_addr);
 		dump_update_data(fb_data->dev, plist);
 	}
 }
@@ -1359,41 +751,6 @@ static void dump_fw_header(struct device *dev,
 
 #endif
 
-/* 
- * EPDC Voltage Control data handler
- */
-struct epd_vc_data {
-		unsigned version:16;
-		unsigned v1:16;
-		unsigned v2:16;
-		unsigned v3:16;
-		unsigned v4:16;
-		unsigned v5:16;
-		unsigned v6:16;
-		unsigned v7:8;
-		u8	cs:8;
-	};
-void fetch_epdc_pmic_voltages( struct epd_vc_data *vcd, struct mxc_epdc_fb_data *fb_data,
-	u32 waveform_mode,
-	u32 waveform_temp_range)
-{
-	/* fetch and display the voltage control data  */
-	if (fb_data->waveform_vcd_buffer) {
-
-		/* fetch the voltage control data */
-		if (mxc_epdc_fb_fetch_vc_data(fb_data->waveform_vcd_buffer,
-					      waveform_mode,
-					      waveform_temp_range,
-					      fb_data->waveform_mc,
-					      fb_data->waveform_trc,
-					      (unsigned char *) vcd) < 0)
-			dev_err(fb_data->dev, " *** Extra Waveform Data checksum error ***\n");
-		else
-			dev_dbg(fb_data->dev, " -- VC Data version 0x%04x : v1 = 0x%04x, v2 = 0x%04x, v3 = 0x%04x, v4 = 0x%04x, v5 = 0x%04x, v6 = 0x%04x, v7 = 0x%02x --\n",
-				vcd->version, vcd->v1, vcd->v2, vcd->v3, vcd->v4, vcd->v5, vcd->v6, vcd->v7 );
-
-	}
-}
 
 /********************************************************
  * Start Low-Level EPDC Functions
@@ -1459,12 +816,11 @@ static inline bool epdc_signal_eof(void)
 
 static inline void epdc_set_temp(u32 temp)
 {
+	int ret = 0;
 	/* used to store external panel temperature value */
-	unsigned int /* ext_temp, */ ext_temp_index = temp;
+	unsigned int ext_temp, ext_temp_index = temp;
 
 	if (temp == DEFAULT_TEMP_INDEX) {
-#if 0
-		int ret;
 		ret = max17135_reg_read(REG_MAX17135_EXT_TEMP, &ext_temp);
 		if (ret == 0) {
 			ext_temp = ext_temp >> 8;
@@ -1472,7 +828,6 @@ static inline void epdc_set_temp(u32 temp)
 				ext_temp);
 			ext_temp_index = mxc_epdc_fb_get_temp_index(g_fb_data, ext_temp);
 		}
-#endif
 	}
 
 	__raw_writel(ext_temp_index, EPDC_TEMP);
@@ -1486,10 +841,11 @@ static inline void epdc_set_screen_res(u32 width, u32 height)
 
 static inline void epdc_set_update_addr(u32 addr)
 {
-	if (standard_mode)
-		__raw_writel(0, EPDC_UPD_ADDR);
-	else
-		__raw_writel(addr, EPDC_UPD_ADDR);
+#ifdef	EPDC_STANDARD_MODE
+	__raw_writel(0, EPDC_UPD_ADDR);
+#else
+	__raw_writel(addr, EPDC_UPD_ADDR);
+#endif
 }
 
 static inline void epdc_set_update_coord(u32 x, u32 y)
@@ -1504,16 +860,13 @@ static inline void epdc_set_update_dimensions(u32 width, u32 height)
 	__raw_writel(val, EPDC_UPD_SIZE);
 }
 
-#ifdef MXCFB_WAVEFORM_MODES_NTX //[
-static void epdc_set_update_waveform(struct mxcfb_waveform_modes_ntx *wv_modes)
-#else //][!MXCFB_WAVEFORM_MODES_NTX
 static void epdc_set_update_waveform(struct mxcfb_waveform_modes *wv_modes)
-#endif //] MXCFB_WAVEFORM_MODES_NTX
 {
 	u32 val;
 
-	if (standard_mode)
-		return;
+#ifdef EPDC_STANDARD_MODE
+	return;
+#endif
 
 	/* Configure the auto-waveform look-up table based on waveform modes */
 
@@ -1540,23 +893,17 @@ static void epdc_set_update_waveform(struct mxcfb_waveform_modes *wv_modes)
 
 static void epdc_set_update_stride(u32 stride)
 {
-	if (standard_mode)
-		__raw_writel(0, EPDC_UPD_STRIDE);
-	else
-		__raw_writel(stride, EPDC_UPD_STRIDE);
+#ifdef EPDC_STANDARD_MODE
+	__raw_writel(0, EPDC_UPD_STRIDE);
+#else
+	__raw_writel(stride, EPDC_UPD_STRIDE);
+#endif
 }
 
 static void epdc_submit_update(u32 lut_num, u32 waveform_mode, u32 update_mode,
 			       bool use_dry_run, bool use_test_mode, u32 np_val)
 {
-	volatile static int giLast_waveform_mode = -1;
 	u32 reg_val = 0;
-
-	if(giLast_waveform_mode!=waveform_mode) {
-		if( g_fb_data->wv_modes.mode_a2==waveform_mode &&
-				g_fb_data->wv_modes.mode_du!=giLast_waveform_mode)
-			waveform_mode=g_fb_data->wv_modes.mode_du;
-	}
 
 	if (use_test_mode) {
 		reg_val |=
@@ -1585,15 +932,13 @@ static void epdc_submit_update(u32 lut_num, u32 waveform_mode, u32 update_mode,
 	     EPDC_UPD_CTRL_LUT_SEL_MASK) |
 	    update_mode;
 
-	if (standard_mode) {
-		reg_val |= 0x80000000;
-		epdc_set_used_lut(lut_num);
-	}
+#ifdef EPDC_STANDARD_MODE
+	reg_val |= 0x80000000;
 
+	epdc_set_used_lut(lut_num);
+#endif
 	dump_epdc_reg();
 	__raw_writel(reg_val, EPDC_UPD_CTRL);
-	giLast_waveform_mode = waveform_mode;
-
 }
 
 static inline bool epdc_is_lut_complete(int rev, u32 lut_num)
@@ -1664,17 +1009,17 @@ static inline bool epdc_any_luts_real_available(void)
 
 static inline bool epdc_any_luts_available(void)
 {
-	if (standard_mode) {
-		if (((u32)used_luts != ~0UL) || ((u32)(used_luts >> 32) != ~0UL))
-			return 1;
-		else
-			return 0;
-	} else {
-		bool luts_available =
-		    (__raw_readl(EPDC_STATUS_NEXTLUT) &
-		     EPDC_STATUS_NEXTLUT_NEXT_LUT_VALID) ? true : false;
-		return luts_available;
-	}
+#ifdef EPDC_STANDARD_MODE
+	if (((u32)used_luts != ~0UL) || ((u32)(used_luts >> 32) != ~0UL))
+		return 1;
+	else
+		return 0;
+#else
+	bool luts_available =
+	    (__raw_readl(EPDC_STATUS_NEXTLUT) &
+	     EPDC_STATUS_NEXTLUT_NEXT_LUT_VALID) ? true : false;
+	return luts_available;
+#endif
 }
 
 static inline int epdc_get_next_lut(void)
@@ -1695,6 +1040,7 @@ static inline void epdc_reset_used_lut(void)
 	used_luts = 0x1;
 }
 
+#ifdef EPDC_STANDARD_MODE
 /*
  * in previous flow, when all LUTs are used, the LUT cleanup operation
  * need to wait for all the LUT to finish, it will not happen util last LUT
@@ -1704,8 +1050,6 @@ static inline void epdc_reset_used_lut(void)
  */
 static int epdc_choose_next_lut(struct mxc_epdc_fb_data *fb_data, int *next_lut)
 {
-	if (standard_mode) {
-
 	while (!epdc_any_luts_available()) {
 		u64 luts_complete = fb_data->luts_complete;
 		pxp_clear_wb_work_func(fb_data);
@@ -1724,9 +1068,10 @@ static int epdc_choose_next_lut(struct mxc_epdc_fb_data *fb_data, int *next_lut)
 		*next_lut = ffz((u32)(used_luts >> 32)) + 32;
 
 	return 0;
-
-	} else {
-
+}
+#else
+static int epdc_choose_next_lut(struct mxc_epdc_fb_data *fb_data, int *next_lut)
+{
 	u64 luts_status, unprocessed_luts, used_luts;
 	/* Available LUTs are reduced to 16 in 5-bit waveform mode */
 	bool format_p5n = ((__raw_readl(EPDC_FORMAT) &
@@ -1788,8 +1133,8 @@ static int epdc_choose_next_lut(struct mxc_epdc_fb_data *fb_data, int *next_lut)
 		return 1;
 	else
 		return 0;
-	}
 }
+#endif
 
 static inline bool epdc_is_working_buffer_busy(void)
 {
@@ -1866,6 +1211,9 @@ static void epdc_init_settings(struct mxc_epdc_fb_data *fb_data)
 	struct fb_var_screeninfo *screeninfo = &fb_data->epdc_fb_var;
 	u32 reg_val;
 	int num_ce;
+#ifndef EPDC_STANDARD_MODE
+	int i;
+#endif
 	int j;
 	unsigned char *bb_p;
 
@@ -1887,25 +1235,26 @@ static void epdc_init_settings(struct mxc_epdc_fb_data *fb_data)
 	/* EPDC_CTRL */
 	reg_val = __raw_readl(EPDC_CTRL);
 	reg_val &= ~EPDC_CTRL_UPD_DATA_SWIZZLE_MASK;
-	if (standard_mode)
-		reg_val |= EPDC_CTRL_UPD_DATA_SWIZZLE_ALL_BYTES_SWAP;
-	else
-		reg_val |= EPDC_CTRL_UPD_DATA_SWIZZLE_NO_SWAP;
-
+#ifdef	EPDC_STANDARD_MODE
+	reg_val |= EPDC_CTRL_UPD_DATA_SWIZZLE_ALL_BYTES_SWAP;
+#else
+	reg_val |= EPDC_CTRL_UPD_DATA_SWIZZLE_NO_SWAP;
+#endif
 	reg_val &= ~EPDC_CTRL_LUT_DATA_SWIZZLE_MASK;
 	reg_val |= EPDC_CTRL_LUT_DATA_SWIZZLE_NO_SWAP;
 	__raw_writel(reg_val, EPDC_CTRL_SET);
 
 	/* EPDC_FORMAT - 2bit TFT and 4bit Buf pixel format */
 	reg_val = EPDC_FORMAT_TFT_PIXEL_FORMAT_2BIT
+#ifdef	EPDC_STANDARD_MODE
+	    | EPDC_FORMAT_WB_TYPE_WB_EXTERNAL16
+#endif
 	    | EPDC_FORMAT_BUF_PIXEL_FORMAT_P4N
 	    | ((0x0 << EPDC_FORMAT_DEFAULT_TFT_PIXEL_OFFSET) &
 	       EPDC_FORMAT_DEFAULT_TFT_PIXEL_MASK);
-	if (standard_mode)
-		reg_val |= EPDC_FORMAT_WB_TYPE_WB_EXTERNAL16;
 	__raw_writel(reg_val, EPDC_FORMAT);
 
-	if (standard_mode) {
+#ifdef	EPDC_STANDARD_MODE
 	reg_val = 0;
 	if (fb_data->waveform_is_advanced) {
 		reg_val =
@@ -1919,7 +1268,7 @@ static void epdc_init_settings(struct mxc_epdc_fb_data *fb_data)
 		      EPDC_WB_FIELD_LEN_MASK);
 	}
 	__raw_writel(reg_val, EPDC_WB_FIELD3);
-	}
+#endif
 
 	/* EPDC_FIFOCTRL (disabled) */
 	reg_val =
@@ -1937,14 +1286,13 @@ static void epdc_init_settings(struct mxc_epdc_fb_data *fb_data)
 	/* EPDC_RES */
 	epdc_set_screen_res(epdc_mode->vmode->xres, epdc_mode->vmode->yres);
 
-	if (!standard_mode) {
+#ifndef EPDC_STANDARD_MODE
 	/* EPDC_AUTOWV_LUT */
-		int i;
 	/* Initialize all auto-wavefrom look-up values to 2 - GC16 */
 	for (i = 0; i < 8; i++)
 		__raw_writel((2 << EPDC_AUTOWV_LUT_DATA_OFFSET) |
 			(i << EPDC_AUTOWV_LUT_ADDR_OFFSET), EPDC_AUTOWV_LUT);
-	}
+#endif
 
 	/*
 	 * EPDC_TCE_CTRL
@@ -2078,7 +1426,6 @@ static void epdc_init_settings(struct mxc_epdc_fb_data *fb_data)
 
 static void epdc_powerup(struct mxc_epdc_fb_data *fb_data)
 {
-	struct epd_vc_data vcd;
 	int ret = 0;
 	mutex_lock(&fb_data->power_mutex);
 
@@ -2117,49 +1464,6 @@ static void epdc_powerup(struct mxc_epdc_fb_data *fb_data)
 
 	__raw_writel(EPDC_CTRL_CLKGATE, EPDC_CTRL_CLEAR);
 
-	if (/* fb_data->wfm < 256 && */ fb_data->waveform_vcd_buffer) {
-		/* fetch and display the voltage control data for waveform mode 0, temp range 0 */
-		fetch_epdc_pmic_voltages(&vcd, fb_data, 0, fb_data->temp_index);
-
-
-	}
-	else
-		vcd.v5 = 0;
-
-
-	{
-		int vcom_uV, new_vcom_uV;
-		static volatile int last_vcom_uV = 0;
-		int v5_sign = 1;
-		int v5_offset = vcd.v5 & 0x7fff;
-
-		/* get vcom offset value */
-		if (vcd.v5 & 0x8000) {
-			v5_sign = -1;
-		}
-		if( 0 == last_vcom_uV ) {
-			last_vcom_uV = vcom_uV = regulator_get_voltage(fb_data->vcom_regulator);
-		}
-		else {
-			vcom_uV = last_vcom_uV;
-		}
-		dev_dbg(fb_data->dev,"current VCOM %duV\n",vcom_uV);
-		/* TODO: doule check sign here */
-		new_vcom_uV = vcom_nominal - v5_offset * 3125 * v5_sign;
-		if (new_vcom_uV!=vcom_uV) 
-		{
-			dev_info(fb_data->dev,"AWV change VCOM %d->%d uV\n",vcom_uV,new_vcom_uV);
-			if ( (new_vcom_uV <= 3050000) && (new_vcom_uV >= 500000) ) 
-			{
-				regulator_set_voltage(fb_data->vcom_regulator, new_vcom_uV, new_vcom_uV);
-				last_vcom_uV = new_vcom_uV;
-			}
-			else {
-				printk(KERN_ERR" adjusted VCOM is out of range, %d uV (offset:0x%04x)\n", new_vcom_uV, vcd.v5);
-			}
-		}
-	}
-
 	/* Enable power to the EPD panel */
 	ret = regulator_enable(fb_data->display_regulator);
 	if (IS_ERR((void *)ret)) {
@@ -2179,14 +1483,6 @@ static void epdc_powerup(struct mxc_epdc_fb_data *fb_data)
 	fb_data->power_state = POWER_STATE_ON;
 
 	mutex_unlock(&fb_data->power_mutex);
-
-	if (!IS_ERR(fb_data->tmst_regulator)) {
-		int temp = regulator_get_voltage(fb_data->tmst_regulator);
-		if (temp != 0xFF) {
-			mxc_epdc_fb_set_temperature(temp, &fb_data->info);
-		}
-	}
-
 }
 
 static void epdc_powerdown(struct mxc_epdc_fb_data *fb_data)
@@ -2778,23 +2074,15 @@ static int mxc_epdc_fb_check_var(struct fb_var_screeninfo *var,
 	return 0;
 }
 
-#ifdef MXCFB_WAVEFORM_MODES_NTX //[
-static void mxc_epdc_fb_set_waveform_modes(struct mxcfb_waveform_modes_ntx *modes,
-	struct fb_info *info)
-#else //][!MXCFB_WAVEFORM_MODES_NTX
 static void mxc_epdc_fb_set_waveform_modes(struct mxcfb_waveform_modes *modes,
 	struct fb_info *info)
-#endif //]MXCFB_WAVEFORM_MODES_NTX
 {
 	struct mxc_epdc_fb_data *fb_data = info ?
 		(struct mxc_epdc_fb_data *)info:g_fb_data;
 
 	mutex_lock(&fb_data->queue_mutex);
-#ifdef MXCFB_WAVEFORM_MODES_NTX //[
-	memcpy(&fb_data->wv_modes, modes, sizeof(struct mxcfb_waveform_modes_ntx));
-#else //][!MXCFB_WAVEFORM_MODES_NTX
+
 	memcpy(&fb_data->wv_modes, modes, sizeof(struct mxcfb_waveform_modes));
-#endif //] MXCFB_WAVEFORM_MODES_NTX
 
 	/* Set flag to ensure that new waveform modes
 	 * are programmed into EPDC before next update */
@@ -2840,9 +2128,9 @@ static int mxc_epdc_fb_set_temperature(int temperature, struct fb_info *info)
 		(struct mxc_epdc_fb_data *)info:g_fb_data;
 
 	/* Store temp index. Used later when configuring updates. */
-//	mutex_lock(&fb_data->queue_mutex);
+	mutex_lock(&fb_data->queue_mutex);
 	fb_data->temp_index = mxc_epdc_fb_get_temp_index(fb_data, temperature);
-//	mutex_unlock(&fb_data->queue_mutex);
+	mutex_unlock(&fb_data->queue_mutex);
 
 	return 0;
 }
@@ -3021,14 +2309,8 @@ static int epdc_working_buffer_update(struct mxc_epdc_fb_data *fb_data,
 	}
 
 	/* for REAGL/-D Processing */
-#ifdef MXCFB_WAVEFORM_MODES_NTX//[
-	if ( ((fb_data->wv_modes.mode_aa!=fb_data->wv_modes.mode_gl16)&&(wv_mode == fb_data->wv_modes.mode_aa)) || \
-			((fb_data->wv_modes.mode_aad!=fb_data->wv_modes.mode_gc16)&&(wv_mode == fb_data->wv_modes.mode_aad)) ) 
-#else//][! MXCFB_WAVEFORM_MODES_NTX
 	if (wv_mode == WAVEFORM_MODE_GLR16
-	 || wv_mode == WAVEFORM_MODE_GLD16)
-#endif //] MXCFB_WAVEFORM_MODES_NTX
-	{
+	 || wv_mode == WAVEFORM_MODE_GLD16) {
 		/* This is a blocking call, so upon return PxP tx should be done */
 		ret = pxp_wfe_b_process_update(fb_data, update_region);
 		if (ret) {
@@ -3323,7 +2605,6 @@ static int epdc_process_update(struct update_data_list *upd_data_list,
 		return ret;
 	}
 #endif
-	if (standard_mode) {
 	pr_debug(" upd_data.dither_mode %d  \n", upd_desc_list->upd_data.dither_mode);
 	fb_data->pxp_conf.proc_data.dither_mode = 0;
 
@@ -3358,15 +2639,10 @@ static int epdc_process_update(struct update_data_list *upd_data_list,
 
 	}
 
-#ifdef MXCFB_WAVEFORM_MODES_NTX//[
-	fb_data->pxp_conf.proc_data.reagl_d_en =
-		((fb_data->wv_modes.mode_aad!=fb_data->wv_modes.mode_gc16)&&(upd_desc_list->upd_data.waveform_mode == fb_data->wv_modes.mode_aad));
-#else //][!MXCFB_WAVEFORM_MODES_NTX
 	/* Regal D Processing */
 	fb_data->pxp_conf.proc_data.reagl_d_en =
 		(upd_desc_list->upd_data.waveform_mode == WAVEFORM_MODE_GLD16);
-#endif //] MXCFB_WAVEFORM_MODES_NTX
-	} // if (standard_mode)
+
 	mutex_unlock(&fb_data->pxp_mutex);
 
 	/* Update waveform mode from PxP histogram results */
@@ -3658,7 +2934,6 @@ static void epdc_submit_work_func(struct work_struct *work)
 	if ((fb_data->epdc_fb_var.rotate == FB_ROTATE_UR) &&
 		(fb_data->epdc_fb_var.grayscale == GRAYSCALE_8BIT) &&
 		!is_transform && (proc_data->dither_mode == 0) &&
-		(fb_data->rev > 20) &&
 		!fb_data->restrict_width) {
 
 		/* If needed, enable EPDC HW while ePxP is processing */
@@ -4051,66 +3326,6 @@ static int mxc_epdc_fb_send_single_update(struct mxcfb_update_data *upd_data,
 	INIT_LIST_HEAD(&upd_desc->upd_marker_list);
 	upd_desc->upd_data = *upd_data;
 	upd_desc->update_order = fb_data->order_cnt++;
-
-#if 1 //[ auto select mode 
-	{ 
-
-
-		if(WAVEFORM_MODE_AUTO!=upd_desc->upd_data.waveform_mode) {
-
-#ifdef NTX_WFM_MODE_OPTIMIZED //[
-			{
-
-				if(NTX_WFM_MODE_GC16==upd_desc->upd_data.waveform_mode) {
-					if(upd_desc->upd_data.update_mode == UPDATE_MODE_FULL) {
-						#ifdef NTX_WFM_MODE_OPTIMIZED_REAGL//[
-						if(giNTX_waveform_modeA[NTX_WFM_MODE_GLD16]!=giNTX_waveform_modeA[NTX_WFM_MODE_GC16]) {
-							// has GLD16 mode .
-							DBG_MSG("WF Mode version=0x%02x,chg W.F Mode GC16(%d)->GLD16(%d) @ full\n",
-								gbModeVersion,NTX_WFM_MODE_GC16,NTX_WFM_MODE_GLD16);
-							upd_desc->upd_data.waveform_mode = NTX_WFM_MODE_GLD16;
-						}
-						#endif //]NTX_WFM_MODE_OPTIMIZED_REAGL
-					}
-					else if(upd_desc->upd_data.update_mode == UPDATE_MODE_PARTIAL){
-						#ifdef NTX_WFM_MODE_OPTIMIZED_REAGL//[
-						if(giNTX_waveform_modeA[NTX_WFM_MODE_GLR16]!=giNTX_waveform_modeA[NTX_WFM_MODE_GC16]) {
-							DBG_MSG("WF Mode version=0x%02x,chg W.F Mode GC16(%d)->GLR16(%d) @ partial\n",
-								gbModeVersion,NTX_WFM_MODE_GC16,NTX_WFM_MODE_GLR16);
-							upd_desc->upd_data.waveform_mode = NTX_WFM_MODE_GLR16;
-						}
-						else
-						#endif //]NTX_WFM_MODE_OPTIMIZED_REAGL
-						if (giNTX_waveform_modeA[NTX_WFM_MODE_GL16]!=giNTX_waveform_modeA[NTX_WFM_MODE_GC16]) {
-							DBG_MSG("chg W.F Mode GC16(%d)->GL16(%d) @ partial\n",
-								NTX_WFM_MODE_GC16,NTX_WFM_MODE_GL16);
-							upd_desc->upd_data.waveform_mode = NTX_WFM_MODE_GL16;
-						}
-					}	
-				}
-
-			}
-#endif //] NTX_WFM_MODE_OPTIMIZED
-
-#ifdef WFM_ENABLE_AAD //[
-			if( NTX_WFM_MODE_GLD16==upd_desc->upd_data.waveform_mode && 
-					giNTX_waveform_modeA[NTX_WFM_MODE_GLD16]!=giNTX_waveform_modeA[NTX_WFM_MODE_GC16]) 
-			{
-				//upd_desc->upd_data.flags |= EPDC_FLAG_USE_AAD;
-			}
-			/*
-			else {
-				upd_desc->upd_data.flags &= ~EPDC_FLAG_USE_AAD;
-			}
-			*/
-#endif //]WFM_ENABLE_AAD
-
-			upd_desc->upd_data.waveform_mode = giNTX_waveform_modeA[upd_desc->upd_data.waveform_mode];
-
-		}
-	}
-#endif //]
-
 	list_add_tail(&upd_desc->list, &fb_data->upd_pending_list);
 
 	/* If marker specified, associate it with a completion */
@@ -4422,37 +3637,6 @@ static int mxc_epdc_fb_ioctl(struct fb_info *info, unsigned int cmd,
 	int ret = -EINVAL;
 
 	switch (cmd) {
-#ifdef MXCFB_WAVEFORM_MODES_NTX //[
-	case MXCFB_SET_WAVEFORM_MODES_NTX:
-		{
-			struct mxcfb_waveform_modes_ntx modes;
-			if (!copy_from_user(&modes, argp, sizeof(modes))) {
-				mxc_epdc_fb_set_waveform_modes(&modes, info);
-				ret = 0;
-			}
-			break;
-		}
-	case MXCFB_SET_WAVEFORM_MODES:
-		{
-			struct mxc_epdc_fb_data *fb_data = info ?
-				(struct mxc_epdc_fb_data *)info:g_fb_data;
-			struct mxcfb_waveform_modes modes;
-			struct mxcfb_waveform_modes_ntx modes_ntx;
-			if (!copy_from_user(&modes, argp, sizeof(modes))) {
-				memcpy(&modes_ntx,&fb_data->wv_modes,sizeof(struct mxcfb_waveform_modes_ntx));
-				modes_ntx.mode_init = modes.mode_init;
-				modes_ntx.mode_du = modes.mode_du;
-				modes_ntx.mode_gc4 = modes.mode_gc4;
-				modes_ntx.mode_gc8 = modes.mode_gc8;
-				modes_ntx.mode_gc16 = modes.mode_gc16;
-				modes_ntx.mode_gc32 = modes.mode_gc32;
-
-				mxc_epdc_fb_set_waveform_modes(&modes_ntx, info);
-				ret = 0;
-			}
-			break;
-		}
-#else //][!MXCFB_WAVEFORM_MODES_NTX
 	case MXCFB_SET_WAVEFORM_MODES:
 		{
 			struct mxcfb_waveform_modes modes;
@@ -4462,7 +3646,6 @@ static int mxc_epdc_fb_ioctl(struct fb_info *info, unsigned int cmd,
 			}
 			break;
 		}
-#endif //] MXCFB_WAVEFORM_MODES_NTX
 	case MXCFB_SET_TEMPERATURE:
 		{
 			int temperature;
@@ -4961,7 +4144,6 @@ static void epdc_intr_work_func(struct work_struct *work)
 		epdc_clear_lut_complete_irq(fb_data->rev, i);
 
 		fb_data->luts_complete_wb |= 1ULL << i;
-
 		if (i != 0)
 			fb_data->luts_complete |= 1ULL << i;
 
@@ -5539,150 +4721,6 @@ static void mxc_epdc_fb_fw_handler(const struct firmware *fw,
 
 		return;
 	}
-	gbModeVersion = *(fw->data+0x10);
-	gbWFM_REV = *(fw->data+0x16);
-	gbFPL_Platform=*(fw->data+0x0d);
-
-
-	if((0x20==gbModeVersion)||(0x19==gbModeVersion)||(0x18==gbModeVersion)||(0x43==gbModeVersion))
-	{
-		if(0x18==gbModeVersion) {
-			fb_data->wv_modes.mode_gc4 = 2; /* GC4 mode */
-		}
-		else {
-			fb_data->wv_modes.mode_gc4 = 7; /* GC4 mode */
-		}
-		fb_data->wv_modes.mode_du = 1; /* DU mode */
-#ifdef MXCFB_WAVEFORM_MODES_NTX//[
-		fb_data->wv_modes.mode_gl16 = 3; /* GL16 mode */
-		fb_data->wv_modes.mode_a2 = 6; /* A2 mode */
-
-#ifdef WFM_ENABLE_AA//[
-		fb_data->wv_modes.mode_aa = 4; /* REAGL mode */
-#endif //]WFM_ENABLE_AA
-
-#ifdef WFM_ENABLE_AAD//[
-		fb_data->wv_modes.mode_aad = 5; /*REAGL-D mode */
-#endif //]WFM_ENABLE_AAD
-
-#endif //]MXCFB_WAVEFORM_MODES_NTX
-
-	}
-	else if(0x13==gbModeVersion) {
-		fb_data->wv_modes.mode_du = 1; /* DU mode */
-#ifdef MXCFB_WAVEFORM_MODES_NTX//[
-
-		fb_data->wv_modes.mode_gl16 = 3; /* GL16 mode as GLR16*/
-		fb_data->wv_modes.mode_a2 = 4; /* A2 mode */
-
-#ifdef WFM_ENABLE_AA//[
-		fb_data->wv_modes.mode_aa = 3; /* REAGL mode as GLR16*/
-#endif //]WFM_ENABLE_AA
-#ifdef WFM_ENABLE_AAD//[
-		fb_data->wv_modes.mode_aad = fb_data->wv_modes.mode_gc16; /*REAGL-D mode as GC16*/
-#endif //]WFM_ENABLE_AAD
-#endif //]MXCFB_WAVEFORM_MODES_NTX
-	}
-	else if(0x23==gbModeVersion) {
-		// AD type non regal waveform .
-		fb_data->wv_modes.mode_du = 1; /* DU mode */
-#ifdef MXCFB_WAVEFORM_MODES_NTX//[
-		fb_data->wv_modes.mode_gl16 = 3; /* GL16 mode */
-		fb_data->wv_modes.mode_a2 = 4; /* A2 mode */
-
-#ifdef WFM_ENABLE_AA//[
-		fb_data->wv_modes.mode_aa = fb_data->wv_modes.mode_gl16; /* REAGL mode as GLR16*/
-#endif //]WFM_ENABLE_AA
-
-#ifdef WFM_ENABLE_AAD//[
-		fb_data->wv_modes.mode_aad = fb_data->wv_modes.mode_gc16; /*REAGL-D mode as GC16*/
-#endif //]WFM_ENABLE_AAD
-#endif //]MXCFB_WAVEFORM_MODES_NTX
-	}
-	else if(0x4==gbModeVersion) {
-#ifdef MXCFB_WAVEFORM_MODES_NTX//[
-		fb_data->wv_modes.mode_gl16 = 5; /* GL16 mode */
-		fb_data->wv_modes.mode_a2 = 4; /* A2 mode */
-#ifdef WFM_ENABLE_AA//[
-		fb_data->wv_modes.mode_aa = 5; /* REAGL mode */
-#endif //]WFM_ENABLE_AA
-#ifdef WFM_ENABLE_AAD//[
-		fb_data->wv_modes.mode_aad = 5; /* REAGL-D mode */
-#endif //]WFM_ENABLE_AAD
-#endif //]MXCFB_WAVEFORM_MODES_NTX
-	}
-	else if(0x15==gbModeVersion||0x9==gbModeVersion) {
-		// WY type .
-#ifdef MXCFB_WAVEFORM_MODES_NTX//[
-		fb_data->wv_modes.mode_gl16 = 3; /* GL16 mode */
-		fb_data->wv_modes.mode_a2 = 4; /* A2 mode */
-
-#ifdef WFM_ENABLE_AA//[
-		fb_data->wv_modes.mode_aa = fb_data->wv_modes.mode_gl16; /* REAGL mode */
-#endif //]WFM_ENABLE_AA
-
-#ifdef WFM_ENABLE_AAD//[
-		fb_data->wv_modes.mode_aad = fb_data->wv_modes.mode_gc16; /* REAGL-D mode */
-#endif //]WFM_ENABLE_AAD
-
-#endif //]MXCFB_WAVEFORM_MODES_NTX
-		// when mode version is 0x15
-		//  GC4=5 
-		//  GL4=6 
-		  
-	}
-	else {
-		// no a2/aa/aad/gl16 .
-#ifdef MXCFB_WAVEFORM_MODES_NTX//[
-		fb_data->wv_modes.mode_gl16 = fb_data->wv_modes.mode_gc16; /* GL16 mode */
-		fb_data->wv_modes.mode_a2 = fb_data->wv_modes.mode_du; /* A2 mode as DU */
-
-#ifdef WFM_ENABLE_AA//[
-		fb_data->wv_modes.mode_aa = fb_data->wv_modes.mode_gc16; /* REAGL mode */
-#endif //]WFM_ENABLE_AA
-
-#ifdef WFM_ENABLE_AAD//[
-		fb_data->wv_modes.mode_aad = fb_data->wv_modes.mode_gc16; /* REAGL-D mode */
-#endif //]WFM_ENABLE_AAD
-#endif //]MXCFB_WAVEFORM_MODES_NTX
-	}
-
-	
-#if defined(NO_CUS_REAGL_MODE) && defined(MXCFB_WAVEFORM_MODES_NTX) //[
-
-#ifdef WFM_ENABLE_AA//[
-	fb_data->wv_modes.mode_aa = fb_data->wv_modes.mode_gc16; /* REAGL mode */
-#endif //]WFM_ENABLE_AA
-#ifdef WFM_ENABLE_AAD//[
-	fb_data->wv_modes.mode_aad = fb_data->wv_modes.mode_gc16; /* REAGL-D mode */
-#endif //]WFM_ENABLE_AAD
-#endif //]NO_CUS_REAGL_MODE && MXCFB_WAVEFORM_MODES_NTX
-
-
-	fb_data->wv_modes_update = true;
-
-	giNTX_waveform_modeA[NTX_WFM_MODE_INIT] = fb_data->wv_modes.mode_init;
-	giNTX_waveform_modeA[NTX_WFM_MODE_DU] = fb_data->wv_modes.mode_du;
-	giNTX_waveform_modeA[NTX_WFM_MODE_GC16] = fb_data->wv_modes.mode_gc16;
-	giNTX_waveform_modeA[NTX_WFM_MODE_GC4] = fb_data->wv_modes.mode_gc4;
-
-
-
-#ifdef MXCFB_WAVEFORM_MODES_NTX//[
-	giNTX_waveform_modeA[NTX_WFM_MODE_A2] = fb_data->wv_modes.mode_a2;
-	giNTX_waveform_modeA[NTX_WFM_MODE_GL16] = fb_data->wv_modes.mode_gl16;
-
-#ifdef WFM_ENABLE_AA//[
-	giNTX_waveform_modeA[NTX_WFM_MODE_GLR16] = fb_data->wv_modes.mode_aa;
-#else //][!WFM_ENABLE_AA
-	giNTX_waveform_modeA[NTX_WFM_MODE_GLR16] = fb_data->wv_modes.mode_gl16;
-#endif //]WFM_ENABLE_AA
-#ifdef WFM_ENABLE_AAD//[
-	giNTX_waveform_modeA[NTX_WFM_MODE_GLD16] = fb_data->wv_modes.mode_aad;
-#else //][!WFM_ENABLE_AAD
-	giNTX_waveform_modeA[NTX_WFM_MODE_GLD16] = fb_data->wv_modes.mode_gc16;
-#endif //]WFM_ENABLE_AAD
-#endif //] MXCFB_WAVEFORM_MODES_NTX
 
 	wv_file = (struct mxcfb_waveform_data_file *)fw->data;
 
@@ -5704,148 +4742,6 @@ static void mxc_epdc_fb_fw_handler(const struct firmware *fw,
 	/* Get offset and size for waveform data */
 	wv_data_offs = sizeof(wv_file->wdh) + fb_data->trt_entries + 1;
 	fb_data->waveform_buffer_size = fw->size - wv_data_offs;
-
-	/* process 2nd generation waveform data which may contain 
-	 * the voltage control data, advance waveform data,
-	 * and extra waveform  data
-	 */
-
-	{
-		int awv, wmc, wtrc, xwia;
-		u64 longOffset;
-		u32 bufferSize;
-		u8 *fwDataBuffer = (u8 *)(fw->data) + wv_data_offs;
-
-		wtrc = wv_file->wdh.trc + 1;
-		wmc = wv_file->wdh.mc + 1;
-		awv = wv_file->wdh.reserved0_0;
-		xwia = wv_file->wdh.xwia;
-		memcpy (&longOffset,fwDataBuffer,8);
-		if ((unsigned) longOffset > (8*wmc))
-		{
-			u64 avcOffset, acdOffset, acdMagic, xwiOffset;
-			avcOffset = acdOffset = acdMagic = xwiOffset = 0l;
-			/* look at the advance waveform flags */
-			switch ( awv ) {
-				case 0 : /* voltage control flag is set */
-					if (xwia > 0) {
-						/* extra waveform information */
-						memcpy (&xwiOffset,fwDataBuffer + (8*wmc),8);
-						bufferSize = (unsigned)(fb_data->waveform_buffer_size - xwiOffset);
-						fb_data->waveform_xwi_buffer = kmalloc(bufferSize, GFP_KERNEL);
-						memcpy(fb_data->waveform_xwi_buffer, fwDataBuffer+xwiOffset, bufferSize );
-						fb_data->waveform_buffer_size = xwiOffset;
-					}
-					break;
-				case 1 : /* voltage control flag is set */
-					memcpy (&avcOffset,fwDataBuffer + (8*wmc),8);
-					if (xwia > 0) {
-						/* extra waveform information */
-						memcpy (&xwiOffset,fwDataBuffer + (8*wmc) +8,8);
-						bufferSize = (unsigned)(fb_data->waveform_buffer_size - xwiOffset);
-						fb_data->waveform_xwi_buffer = devm_kmalloc(fb_data->dev, bufferSize, GFP_KERNEL);
-						/* voltage control data */
-						memcpy(fb_data->waveform_xwi_buffer, fwDataBuffer+xwiOffset, bufferSize );
-						bufferSize = (unsigned)(xwiOffset - avcOffset);
-						fb_data->waveform_vcd_buffer = devm_kmalloc(fb_data->dev, bufferSize, GFP_KERNEL);
-						memcpy(fb_data->waveform_vcd_buffer, fwDataBuffer+avcOffset, bufferSize );
-					}
-					else {
-						/* voltage control data */
-						bufferSize = (unsigned)(fb_data->waveform_buffer_size - avcOffset);
-						fb_data->waveform_vcd_buffer = devm_kmalloc(fb_data->dev, bufferSize, GFP_KERNEL);
-						memcpy(fb_data->waveform_vcd_buffer, fwDataBuffer+avcOffset, bufferSize );
-					}
-					fb_data->waveform_buffer_size = avcOffset;
-					break;
-				case 2 : /* voltage control flag is set */
-					memcpy (&acdOffset,fwDataBuffer + (8*wmc),8);
-					memcpy (&acdMagic,fwDataBuffer + (8*wmc) + 8,8);
-					if (xwia > 0) {
-						/* extra waveform information */
-						memcpy (&xwiOffset,fwDataBuffer + (8*wmc) + 16,8);
-						bufferSize = (unsigned)(fb_data->waveform_buffer_size - xwiOffset);
-						fb_data->waveform_xwi_buffer = devm_kmalloc(fb_data->dev, bufferSize, GFP_KERNEL);
-						memcpy(fb_data->waveform_xwi_buffer, fwDataBuffer+xwiOffset, bufferSize );
-						/* algorithm control data */
-						bufferSize = (unsigned)(xwiOffset - acdOffset);
-						fb_data->waveform_acd_buffer = devm_kmalloc(fb_data->dev, bufferSize, GFP_KERNEL);
-						memcpy(fb_data->waveform_acd_buffer, fwDataBuffer+acdOffset, bufferSize );
-					}
-					else {
-						/* algorithm control data */
-						bufferSize = (unsigned)(fb_data->waveform_buffer_size - acdOffset);
-						fb_data->waveform_acd_buffer = devm_kmalloc(fb_data->dev, bufferSize, GFP_KERNEL);
-						memcpy(fb_data->waveform_acd_buffer, fwDataBuffer+acdOffset, bufferSize );
-					}
-					fb_data->waveform_buffer_size = acdOffset;
-					break;
-				case 3 : /* voltage control flag is set */
-					memcpy (&avcOffset,fwDataBuffer + (8*wmc),8);
-					memcpy (&acdOffset,fwDataBuffer + (8*wmc) + 8,8);
-					memcpy (&acdMagic,fwDataBuffer + (8*wmc) + 16,8);
-					if (xwia > 0) {
-						/* extra waveform information */
-						memcpy (&xwiOffset,fwDataBuffer + (8*wmc) + 24,8);
-						bufferSize = (unsigned)(fb_data->waveform_buffer_size - xwiOffset);
-						fb_data->waveform_xwi_buffer = kmalloc(bufferSize, GFP_KERNEL);
-						memcpy(fb_data->waveform_xwi_buffer, fwDataBuffer+xwiOffset, bufferSize );
-						/* algorithm control data */
-						bufferSize = (unsigned)(xwiOffset - acdOffset);
-						fb_data->waveform_acd_buffer = kmalloc(bufferSize, GFP_KERNEL);
-						memcpy(fb_data->waveform_acd_buffer, fwDataBuffer+acdOffset, bufferSize );
-						/* voltage control data */
-						bufferSize = (unsigned)(acdOffset - avcOffset);
-						fb_data->waveform_vcd_buffer = kmalloc(bufferSize, GFP_KERNEL);
-						memcpy(fb_data->waveform_vcd_buffer, fwDataBuffer+avcOffset, bufferSize );
-					}
-					else {
-						/* algorithm control data */
-						bufferSize = (unsigned)(fb_data->waveform_buffer_size - acdOffset);
-						fb_data->waveform_acd_buffer = kmalloc(bufferSize, GFP_KERNEL);
-						memcpy(fb_data->waveform_acd_buffer, fwDataBuffer+avcOffset, bufferSize );
-						/* voltage control data */
-						bufferSize = (unsigned)(acdOffset - avcOffset);
-						fb_data->waveform_vcd_buffer = kmalloc(bufferSize, GFP_KERNEL);
-						memcpy(fb_data->waveform_vcd_buffer, fwDataBuffer+avcOffset, bufferSize );
-					}
-					fb_data->waveform_buffer_size = avcOffset;
-					break;
-				}
-			if (acdMagic) fb_data->waveform_magic_number = acdMagic;
-			/* store the waveform mode count and waveform temperature range count
-			 */
-			fb_data->waveform_mc = wmc;
-			fb_data->waveform_trc =wtrc;
-		}
-	}
-
-	/* get the extra waveform info and display it - This can be removed! It is here for illustration only */
-	if (fb_data->waveform_xwi_buffer) {
-		int l = mxc_epdc_fb_fetch_wxi_data(fb_data->waveform_xwi_buffer, NULL);
-		if (l <= 0)
-		   dev_info(fb_data->dev, " --- Invalid Extra Waveform\n");
-		else {
-			dev_info(fb_data->dev, " --- Extra Waveform Data length: %d bytes---\n", l);
-			fb_data->waveform_xwi_string = (char *) devm_kzalloc(fb_data->dev, l + 1, GFP_KERNEL);
-			if (mxc_epdc_fb_fetch_wxi_data(fb_data->waveform_xwi_buffer, fb_data->waveform_xwi_string) > 0) {
-				fb_data->waveform_xwi_string[l] = '\0' ;
-				fb_data->waveform_xwi_string_length = l ;
-				dev_info(fb_data->dev, "     Extra Waveform Data: %s\n",fb_data->waveform_xwi_string);
-			} else
-				dev_err(fb_data->dev, " *** Extra Waveform Data checksum error ***\n");
-
-		}	
-	}
-
-	/* show the vcd */
-	if (fb_data->waveform_vcd_buffer) {
-		{
-			struct epd_vc_data vcd;
-			/* fetch and display the voltage control data for waveform mode 0, temp range 0 */
-			fetch_epdc_pmic_voltages(&vcd, fb_data, 0, 0);
-		}
-	}
 
 	/* Allocate memory for waveform data */
 	fb_data->waveform_buffer_virt = dma_alloc_coherent(fb_data->dev,
@@ -5958,7 +4854,7 @@ static int mxc_epdc_fb_init_hw(struct fb_info *info)
 	 * Format is "imx/epdc/epdc_[panel string].fw"
 	 */
 	if (fb_data->cur_mode) {
-		strcpy(fb_data->fw_str, "imx/epdc/epdc_");
+		strcat(fb_data->fw_str, "imx/epdc/epdc_");
 		strcat(fb_data->fw_str, fb_data->cur_mode->vmode->name);
 		strcat(fb_data->fw_str, ".fw");
 	}
@@ -6010,10 +4906,7 @@ static struct device_attribute fb_attrs[] = {
 };
 
 static const struct of_device_id imx_epdc_dt_ids[] = {
-	{ .compatible = "fsl,imx6sl-epdc", .data = (void *) false },
-	{ .compatible = "fsl,imx6sll-epdc", .data = (void *) true },
-	{ .compatible = "fsl,imx6dl-epdc", .data = (void *) false },
-	{ .compatible = "fsl,imx7d-epdc", .data = (void *) true },
+	{ .compatible = "fsl,imx7d-epdc", },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, imx_epdc_dt_ids);
@@ -6026,7 +4919,7 @@ static int mxc_epdc_fb_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct fb_info *info;
 	char *options, *opt;
-	const char *panel_str = NULL;
+	char *panel_str = NULL;
 	char name[] = "mxcepdcfb";
 	struct fb_videomode *vmode;
 	int xres_virt, yres_virt, buf_size;
@@ -6049,8 +4942,6 @@ static int mxc_epdc_fb_probe(struct platform_device *pdev)
 	int enable_gpio;
 	enum of_gpio_flags flag;
 	unsigned short *wk_p;
-//	unsigned int dwSafeTicksTurnoffEP3V3;
-
 
 	if (!np)
 		return -EINVAL;
@@ -6061,10 +4952,6 @@ static int mxc_epdc_fb_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto out;
 	}
-
-	standard_mode = (bool) of_match_node(imx_epdc_dt_ids, np)->data;
-
-printk("%s: %d\n", __func__, standard_mode);
 
 	ret = of_property_read_u32_array(np, "epdc-ram", out_val, 3);
 	if (ret) {
@@ -6136,51 +5023,7 @@ printk("%s: %d\n", __func__, standard_mode);
 		goto out_fbdata;
 	}
 
-	/* get pmic regulators */
-	fb_data->display_regulator = devm_regulator_get(&pdev->dev, "DISPLAY");
-	if (IS_ERR(fb_data->display_regulator)) {
-		if (PTR_ERR(fb_data->display_regulator) == -EPROBE_DEFER) {
-			ret = -EPROBE_DEFER;
-			goto out_fbdata;
-		}
-
-		dev_err(&pdev->dev, "Unable to get display PMIC regulator."
-			"err = 0x%x\n", (int)fb_data->display_regulator);
-		ret = -ENODEV;
-		goto out_fbdata;
-	}
-	fb_data->vcom_regulator = devm_regulator_get(&pdev->dev, "VCOM");
-	if (IS_ERR(fb_data->vcom_regulator)) {
-		if (PTR_ERR(fb_data->vcom_regulator) == -EPROBE_DEFER) {
-			ret = -EPROBE_DEFER;
-			goto out_fbdata;
-		}
-
-		dev_err(&pdev->dev, "Unable to get VCOM regulator."
-			"err = 0x%x\n", (int)fb_data->vcom_regulator);
-		ret = -ENODEV;
-		goto out_fbdata;
-	}
-	fb_data->v3p3_regulator = devm_regulator_get(&pdev->dev, "V3P3");
-	if (IS_ERR(fb_data->v3p3_regulator)) {
-		if (PTR_ERR(fb_data->v3p3_regulator) == -EPROBE_DEFER) {
-			ret = -EPROBE_DEFER;
-			goto out_fbdata;
-		}
-
-		dev_err(&pdev->dev, "Unable to get V3P3 regulator."
-			"err = 0x%x\n", (int)fb_data->vcom_regulator);
-		ret = -ENODEV;
-		goto out_fbdata;
-	}
-	fb_data->tmst_regulator = devm_regulator_get(&pdev->dev, "TMST");
-	if (IS_ERR(fb_data->tmst_regulator)) {
-		dev_info(&pdev->dev, "Unable to get TMST regulator."
-			"err = 0x%x\n", (int)fb_data->tmst_regulator);
-	}
-
-	if (standard_mode)
-		fb_data->epdc_wb_mode = 1;
+	fb_data->epdc_wb_mode = 1;
 	fb_data->tce_prevent = 0;
 
 	if (options)
@@ -6198,9 +5041,6 @@ printk("%s: %d\n", __func__, standard_mode);
 			else
 				panel_str = opt;
 		}
-
-	if (!panel_str && np)
-		of_property_read_string(np, "panel-name", &panel_str);
 
 	fb_data->dev = &pdev->dev;
 
@@ -6229,7 +5069,7 @@ printk("%s: %d\n", __func__, standard_mode);
 	if (ret)
 		goto out_fbdata;
 
-	dev_info(&pdev->dev, "resolution %dx%d, bpp %d\n",
+	dev_dbg(&pdev->dev, "resolution %dx%d, bpp %d\n",
 		vmode->xres, vmode->yres, fb_data->default_bpp);
 
 	/*
@@ -6280,7 +5120,7 @@ printk("%s: %d\n", __func__, standard_mode);
 	}
 
 	/* Allocate FB memory */
-	info->screen_base = dma_alloc_wc(&pdev->dev,
+	info->screen_base = dma_alloc_writecombine(&pdev->dev,
 						  fb_data->map_size,
 						  &fb_data->phys_start,
 						  GFP_DMA | GFP_KERNEL);
@@ -6411,7 +5251,7 @@ printk("%s: %d\n", __func__, standard_mode);
 				EPDC_VERSION_MAJOR_OFFSET) * 10
 			+ ((val & EPDC_VERSION_MINOR_MASK) >>
 				EPDC_VERSION_MINOR_OFFSET);
-	dev_info(&pdev->dev, "EPDC version = %d\n", fb_data->rev);
+	dev_dbg(&pdev->dev, "EPDC version = %d\n", fb_data->rev);
 
 	if (fb_data->rev < 20) {
 		fb_data->num_luts = EPDC_V1_NUM_LUTS;
@@ -6608,13 +5448,33 @@ printk("%s: %d\n", __func__, standard_mode);
 		goto out_dma_work_buf;
 	}
 
-#ifdef CONFIG_FB_MXC_EINK_AUTO_UPDATE_MODE
 	info->fbdefio = &mxc_epdc_fb_defio;
+#ifdef CONFIG_FB_MXC_EINK_AUTO_UPDATE_MODE
 	fb_deferred_io_init(info);
 #endif
 
-
-	vcom_nominal = regulator_get_voltage(fb_data->vcom_regulator); /* save the vcom_nominal value in uV */
+	/* get pmic regulators */
+	fb_data->display_regulator = devm_regulator_get(&pdev->dev, "DISPLAY");
+	if (IS_ERR(fb_data->display_regulator)) {
+		dev_err(&pdev->dev, "Unable to get display PMIC regulator."
+			"err = 0x%x\n", (int)fb_data->display_regulator);
+		ret = -ENODEV;
+		goto out_dma_work_buf;
+	}
+	fb_data->vcom_regulator = devm_regulator_get(&pdev->dev, "VCOM");
+	if (IS_ERR(fb_data->vcom_regulator)) {
+		dev_err(&pdev->dev, "Unable to get VCOM regulator."
+			"err = 0x%x\n", (int)fb_data->vcom_regulator);
+		ret = -ENODEV;
+		goto out_dma_work_buf;
+	}
+	fb_data->v3p3_regulator = devm_regulator_get(&pdev->dev, "V3P3");
+	if (IS_ERR(fb_data->v3p3_regulator)) {
+		dev_err(&pdev->dev, "Unable to get V3P3 regulator."
+			"err = 0x%x\n", (int)fb_data->vcom_regulator);
+		ret = -ENODEV;
+		goto out_dma_work_buf;
+	}
 
 	if (device_create_file(info->dev, &fb_attrs[0]))
 		dev_err(&pdev->dev, "Unable to create file from fb_attrs\n");
@@ -6753,10 +5613,10 @@ printk("%s: %d\n", __func__, standard_mode);
 out_lutmap:
 	kfree(fb_data->pxp_conf.proc_data.lut_map);
 out_dma_work_buf:
-	dma_free_wc(&pdev->dev, fb_data->working_buffer_size,
+	dma_free_writecombine(&pdev->dev, fb_data->working_buffer_size,
 		fb_data->working_buffer_virt, fb_data->working_buffer_phys);
 out_copybuffer:
-	dma_free_wc(&pdev->dev, fb_data->max_pix_size*2,
+	dma_free_writecombine(&pdev->dev, fb_data->max_pix_size*2,
 			      fb_data->virt_addr_copybuf,
 			      fb_data->phys_addr_copybuf);
 out_upd_buffers:
@@ -6774,7 +5634,7 @@ out_upd_lists:
 		kfree(plist);
 	}
 out_dma_fb:
-	dma_free_wc(&pdev->dev, fb_data->map_size, info->screen_base,
+	dma_free_writecombine(&pdev->dev, fb_data->map_size, info->screen_base,
 			      fb_data->phys_start);
 
 out_cmap:
@@ -6791,9 +5651,6 @@ static int mxc_epdc_fb_remove(struct platform_device *pdev)
 	struct mxc_epdc_fb_data *fb_data = platform_get_drvdata(pdev);
 	int i;
 
-	/* restore the vcom_nominal value */
-	regulator_set_voltage(fb_data->vcom_regulator, vcom_nominal, vcom_nominal);
-
 	mxc_epdc_fb_blank(FB_BLANK_POWERDOWN, &fb_data->info);
 
 	flush_workqueue(fb_data->epdc_submit_workqueue);
@@ -6809,18 +5666,17 @@ static int mxc_epdc_fb_remove(struct platform_device *pdev)
 	if (fb_data->phys_addr_updbuf != NULL)
 		kfree(fb_data->phys_addr_updbuf);
 
-	dma_free_wc(&pdev->dev, fb_data->working_buffer_size,
+	dma_free_writecombine(&pdev->dev, fb_data->working_buffer_size,
 				fb_data->working_buffer_virt,
 				fb_data->working_buffer_phys);
 	if (fb_data->waveform_buffer_virt != NULL)
-		dma_free_wc(&pdev->dev, fb_data->waveform_buffer_size,
+		dma_free_writecombine(&pdev->dev, fb_data->waveform_buffer_size,
 				fb_data->waveform_buffer_virt,
 				fb_data->waveform_buffer_phys);
 	if (fb_data->virt_addr_copybuf != NULL)
-		dma_free_wc(&pdev->dev, fb_data->max_pix_size*2,
+		dma_free_writecombine(&pdev->dev, fb_data->max_pix_size*2,
 				fb_data->virt_addr_copybuf,
 				fb_data->phys_addr_copybuf);
-
 	list_for_each_entry_safe(plist, temp_list, &fb_data->upd_buf_free_list,
 			list) {
 		list_del(&plist->list);
@@ -6830,7 +5686,7 @@ static int mxc_epdc_fb_remove(struct platform_device *pdev)
 	fb_deferred_io_cleanup(&fb_data->info);
 #endif
 
-	dma_free_wc(&pdev->dev, fb_data->map_size, fb_data->info.screen_base,
+	dma_free_writecombine(&pdev->dev, fb_data->map_size, fb_data->info.screen_base,
 			      fb_data->phys_start);
 
 	/* Release PxP-related resources */
@@ -6851,23 +5707,17 @@ static int mxc_epdc_fb_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM_SLEEP
 static int mxc_epdc_fb_suspend(struct device *dev)
 {
-#ifdef EPD_SUSPEND_BLANK
 	struct mxc_epdc_fb_data *data = dev_get_drvdata(dev);
-#endif
-	int ret = 0;
+	int ret;
 
-#ifdef EPD_SUSPEND_BLANK
-	
 	data->pwrdown_delay = FB_POWERDOWN_DISABLE;
 	ret = mxc_epdc_fb_blank(FB_BLANK_POWERDOWN, &data->info);
 
 	if (ret)
 		goto out;
-#endif
-	pinctrl_pm_select_sleep_state(dev);
-#ifdef EPD_SUSPEND_BLANK
+
 out:
-#endif
+	pinctrl_pm_select_sleep_state(dev);
 
 	return ret;
 }
@@ -6910,11 +5760,10 @@ static int mxc_epdc_fb_resume(struct device *dev)
 	struct mxc_epdc_fb_data *data = dev_get_drvdata(dev);
 
 	pinctrl_pm_select_default_state(dev);
-	if (standard_mode)
-		mxc_epdc_restore_qos(data);
-#ifdef EPD_SUSPEND_BLANK
+
+	mxc_epdc_restore_qos(data);
+
 	mxc_epdc_fb_blank(FB_BLANK_UNBLANK, &data->info);
-#endif
 	epdc_init_settings(data);
 	data->updates_active = false;
 
@@ -6999,7 +5848,7 @@ static void pxp_dma_done(void *arg)
 	 * after a wfe_a process finishes.
 	 */
 	if (fb_data->epdc_wb_mode && (tx_desc->proc_data.engine_enable & PXP_ENABLE_WFE_A)) {
-// FIXME:		pxp_get_collision_info(&fb_data->col_info);
+		pxp_get_collision_info(&fb_data->col_info);
 		queue_work(fb_data->epdc_intr_workqueue,
 			   &fb_data->epdc_intr_work);
 	}
@@ -7578,13 +6427,8 @@ static int pxp_wfe_a_process(struct mxc_epdc_fb_data *fb_data,
 	} else
 		proc_data->detection_only = 0;
 
-#ifdef MXCFB_WAVEFORM_MODES_NTX//[
-	if (((fb_data->wv_modes.mode_aa!=fb_data->wv_modes.mode_gl16)&&(wv_mode == fb_data->wv_modes.mode_aa)) || \
-			((fb_data->wv_modes.mode_aad!=fb_data->wv_modes.mode_gc16)&&(wv_mode == fb_data->wv_modes.mode_aad)))
-#else //][!MXCFB_WAVEFORM_MODES_NTX
 	if (wv_mode == WAVEFORM_MODE_GLR16
 	 || wv_mode == WAVEFORM_MODE_GLD16)
-#endif //] MXCFB_WAVEFORM_MODES_NTX
 		proc_data->reagl_en = 1;
 
 	if (upd_data_list->update_desc->upd_data.update_mode == UPDATE_MODE_PARTIAL)
@@ -7648,13 +6492,8 @@ static int pxp_wfe_a_process(struct mxc_epdc_fb_data *fb_data,
 	pxp_conf->wfe_a_store_param[1].stride = fb_data->cur_mode->vmode->xres;
 	pxp_conf->wfe_a_store_param[1].width = update_region->width;
 	pxp_conf->wfe_a_store_param[1].height = update_region->height;
-#ifdef MXCFB_WAVEFORM_MODES_NTX//[
-	if (((fb_data->wv_modes.mode_aa!=fb_data->wv_modes.mode_gl16)&&(wv_mode == fb_data->wv_modes.mode_aa)) || \
-			((fb_data->wv_modes.mode_aad!=fb_data->wv_modes.mode_gc16)&&(wv_mode == fb_data->wv_modes.mode_aad)))
-#else//][! MXCFB_WAVEFORM_MODES_NTX
 	if (wv_mode == WAVEFORM_MODE_GLR16
 	 || wv_mode == WAVEFORM_MODE_GLD16)
-#endif //] MXCFB_WAVEFORM_MODES_NTX
 		pxp_conf->wfe_a_store_param[1].paddr = fb_data->tmp_working_buffer_phys;
 	else
 		pxp_conf->wfe_a_store_param[1].paddr = fb_data->working_buffer_phys;
