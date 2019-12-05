@@ -1,5 +1,5 @@
 #
-# Linux/mips 4.19.86 Kernel Configuration
+# Linux/mips 4.19.88 Kernel Configuration
 #
 
 #
@@ -1125,6 +1125,7 @@ CONFIG_NET_CORE=y
 # CONFIG_MACVLAN is not set
 # CONFIG_IPVLAN is not set
 # CONFIG_VXLAN is not set
+# CONFIG_GENEVE is not set
 # CONFIG_GTP is not set
 # CONFIG_MACSEC is not set
 # CONFIG_NETCONSOLE is not set

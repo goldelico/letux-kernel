@@ -1,5 +1,5 @@
 #
-# Linux/arm 4.19.86 Kernel Configuration
+# Linux/arm 4.19.88 Kernel Configuration
 #
 
 #
@@ -1986,6 +1986,7 @@ CONFIG_NET_CORE=y
 # CONFIG_MACVLAN is not set
 # CONFIG_IPVLAN is not set
 # CONFIG_VXLAN is not set
+# CONFIG_GENEVE is not set
 # CONFIG_GTP is not set
 # CONFIG_MACSEC is not set
 # CONFIG_NETCONSOLE is not set
@@ -2016,6 +2017,7 @@ CONFIG_NET_VENDOR_ALTEON=y
 # CONFIG_ACENIC is not set
 # CONFIG_ALTERA_TSE is not set
 CONFIG_NET_VENDOR_AMAZON=y
+# CONFIG_ENA_ETHERNET is not set
 CONFIG_NET_VENDOR_AMD=y
 # CONFIG_AMD8111_ETH is not set
 # CONFIG_PCNET32 is not set
@@ -6430,7 +6432,6 @@ CONFIG_STRICT_DEVMEM=y
 # CONFIG_DEBUG_WX is not set
 CONFIG_ARM_UNWIND=y
 # CONFIG_DEBUG_USER is not set
-CONFIG_DEBUG_IMX_UART_PORT=1
 CONFIG_DEBUG_LL_INCLUDE="mach/debug-macro.S"
 CONFIG_UNCOMPRESS_INCLUDE="debug/uncompress.h"
 # CONFIG_ARM_KPROBES_TEST is not set
