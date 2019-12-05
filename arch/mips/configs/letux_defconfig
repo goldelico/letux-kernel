@@ -1,5 +1,5 @@
 #
-# Linux/mips 4.9.202 Kernel Configuration
+# Linux/mips 4.9.205 Kernel Configuration
 #
 CONFIG_MIPS=y
 
@@ -3259,6 +3259,7 @@ CONFIG_DMADEVICES=y
 CONFIG_DMA_ENGINE=y
 CONFIG_DMA_OF=y
 # CONFIG_DMA_JZ4740 is not set
+# CONFIG_DMA_JZ4780 is not set
 # CONFIG_FSL_EDMA is not set
 # CONFIG_IMG_MDC_DMA is not set
 # CONFIG_INTEL_IDMA64 is not set
