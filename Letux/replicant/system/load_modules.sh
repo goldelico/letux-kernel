@@ -57,7 +57,7 @@ case "$DEVICE" in
         ;;
     * ) #Fallback
         echo "Could not detect device variant."
-        echo "Check your device-tree model (/sys/firmware/devicetree/base/model)."
+        echo "Check your device-tree model (/sys/firmware/devicetree/base/model = $DEVICE)."
         echo "Falling back to bq27xxx_battery"
         modprobe bq27xxx_battery
         echo 5 > /sys/module/bq27xxx_battery/parameters/poll_interval
