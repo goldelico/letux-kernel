@@ -579,7 +579,7 @@ int omap_gem_mmap_obj(struct drm_gem_object *obj,
 		vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
 	}
 
-	if (omap_obj->flags & OMAP_BO_TILED) {
+	if (omap_obj->flags & OMAP_BO_TILED_MASK) {
 		const enum tiler_fmt fmt = gem2fmt(omap_obj->flags);
 		const uint vstride = tiler_vsize(fmt, omap_obj->width, 1);
 		const uint pstride = tiler_stride(fmt, 0) >> PAGE_SHIFT;
@@ -1110,7 +1110,7 @@ void *omap_gem_vaddr(struct drm_gem_object *obj)
 	mutex_lock(&omap_obj->lock);
 
 	if (!omap_obj->vaddr) {
-		if (omap_obj->flags & OMAP_BO_TILED) {
+		if (omap_obj->flags & OMAP_BO_TILED_MASK) {
 			// FIXME to avoid contiguous mapping?
 			vaddr = omap_obj->vaddr = ioremap(omap_obj->dma_addr, obj->size);
 			goto unlock;
@@ -1237,7 +1237,7 @@ static void omap_gem_free_object(struct drm_gem_object *obj)
 
 	mutex_lock(&priv->list_lock);
 
-	if (omap_obj->flags & OMAP_BO_TILED)
+	if (omap_obj->flags & OMAP_BO_TILED_MASK)
 		_omap_gem_unpin(obj);
 
 	list_del(&omap_obj->mm_list);
@@ -1265,7 +1265,7 @@ static void omap_gem_free_object(struct drm_gem_object *obj)
 	if (omap_obj->flags & OMAP_BO_MEM_DMA_API) {
 		dma_free_wc(dev->dev, obj->size, omap_obj->vaddr,
 			    omap_obj->dma_addr);
-	} else if (omap_obj->flags & OMAP_BO_TILED) {
+	} else if (omap_obj->flags & OMAP_BO_TILED_MASK) {
 		iounmap(omap_obj->vaddr);
 	} else if (omap_obj->vaddr) {
 		vunmap(omap_obj->vaddr);
@@ -1420,7 +1420,7 @@ struct drm_gem_object *omap_gem_new(struct drm_device *dev,
 
 	mutex_lock(&priv->list_lock);
 
-	if (flags & OMAP_BO_TILED) {
+	if (flags & OMAP_BO_TILED_MASK) {
 		ret = _omap_gem_pin(obj);
 		if (ret)
 			goto err_unlock;
