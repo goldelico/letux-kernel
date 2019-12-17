@@ -781,7 +781,14 @@ void omap_gem_dma_sync_buffer(struct drm_gem_object *obj,
 	}
 }
 
-static int _omap_gem_pin(struct drm_gem_object *obj)
+/**
+ * omap_gem_pin() - Pin a GEM object in memory
+ * @obj: the GEM object
+ * @dma_addr: the DMA address
+ *
+ * omap_gem_pin() without locking.
+ */
+static int omap_gem_pin_locked(struct drm_gem_object *obj)
 {
 	struct omap_drm_private *priv = obj->dev->dev_private;
 	struct omap_gem_object *omap_obj = to_omap_bo(obj);
@@ -795,12 +802,14 @@ static int _omap_gem_pin(struct drm_gem_object *obj)
 	if (!priv->has_dmm)
 		return -EINVAL;
 
-	if (refcount_read(&omap_obj->dma_addr_cnt) == 0) {
+	if (refcount_read(&omap_obj->dma_addr_cnt)) {
 		refcount_inc(&omap_obj->dma_addr_cnt);
 		return 0;
 	}
 
 	BUG_ON(omap_obj->block);
+
+	refcount_set(&omap_obj->dma_addr_cnt, 1);
 
 	ret = omap_gem_attach_pages(obj);
 
@@ -832,7 +841,6 @@ static int _omap_gem_pin(struct drm_gem_object *obj)
 		return ret;
 	}
 
-	refcount_set(&omap_obj->dma_addr_cnt, 1);
 	omap_obj->dma_addr = tiler_ssptr(block);
 	omap_obj->block = block;
 
@@ -862,7 +870,7 @@ int omap_gem_pin(struct drm_gem_object *obj, dma_addr_t *dma_addr)
 
 	mutex_lock(&omap_obj->lock);
 
-	ret = _omap_gem_pin(obj);
+	ret = omap_gem_pin_locked(obj);
 
 	if (ret == 0 && dma_addr)
 		*dma_addr = to_omap_bo(obj)->dma_addr;
@@ -901,12 +909,6 @@ static void omap_gem_unpin_locked(struct drm_gem_object *obj)
 		omap_obj->dma_addr = 0;
 		omap_obj->block = NULL;
 	}
-}
-
-/* alternate name used somewhere else */
-static void _omap_gem_unpin(struct drm_gem_object *obj)
-{
-	omap_gem_unpin_locked(obj);
 }
 
 /**
@@ -1148,7 +1150,7 @@ static void omap_gem_free_object(struct drm_gem_object *obj)
 	mutex_lock(&priv->list_lock);
 
 	if (omap_obj->flags & OMAP_BO_TILED_MASK)
-		_omap_gem_unpin(obj);
+		omap_gem_unpin_locked(obj);
 
 	list_del(&omap_obj->mm_list);
 
@@ -1331,7 +1333,7 @@ struct drm_gem_object *omap_gem_new(struct drm_device *dev,
 	mutex_lock(&priv->list_lock);
 
 	if (flags & OMAP_BO_TILED_MASK) {
-		ret = _omap_gem_pin(obj);
+		ret = omap_gem_pin_locked(obj);
 		if (ret)
 			goto err_unlock;
 	}
