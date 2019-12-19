@@ -263,4 +263,3 @@ module_platform_driver(rn5t618_adc_driver);
 MODULE_ALIAS("platform:rn5t618-adc");
 MODULE_DESCRIPTION("RICOH RN5T618 ADC driver");
 MODULE_LICENSE("GPL");
-
