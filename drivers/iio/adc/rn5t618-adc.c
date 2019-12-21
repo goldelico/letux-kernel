@@ -78,10 +78,7 @@ static int rn5t618_adc_read(struct iio_dev *iio_dev,
 	*val = raw;
 	if (mask == IIO_CHAN_INFO_PROCESSED) {
 		*val = *val * REFERENCE_VOLT * rn5t618_ratios[chan->channel].numerator / rn5t618_ratios[chan->channel].denominator / 4095; 
-		/* uV/uA */
-		*val *= 1000;
 	}
-
 
 	return IIO_VAL_INT;
 }
