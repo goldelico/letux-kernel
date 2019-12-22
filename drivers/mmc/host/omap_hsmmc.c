@@ -1512,14 +1512,23 @@ static void omap_hsmmc_init_card(struct mmc_host *mmc, struct mmc_card *card)
 
 	if (mmc_pdata(host)->init_card)
 		mmc_pdata(host)->init_card(card);
-	else if (card->type == MMC_TYPE_SDIO || card->type == MMC_TYPE_SD_COMBO) {
+	else if (card->type == MMC_TYPE_SDIO ||
+		 card->type == MMC_TYPE_SD_COMBO) {
 		struct device_node *np = mmc_dev(mmc)->of_node;
+
+		/*
+		 * REVISIT: should be moved to sdio core and made more
+		 * general e.g. by expanding the DT bindings of child nodes
+		 * to provide a mechanism to provide this information:
+		 * Documentation/devicetree/bindings/mmc/mmc-card.txt
+		 */
 
 		np = of_get_compatible_child(np, "ti,wl1251");
 		if (np) {
 			/*
-			 * We have TI wl1251 attached to MMC3. Pass this information to
-			 * SDIO core because it can't be probed by normal methods.
+			 * We have TI wl1251 attached to MMC3. Pass this
+			 * information to the SDIO core because it can't be
+			 * probed by normal methods.
 			 */
 
 			dev_info(host->dev, "found wl1251\n");
