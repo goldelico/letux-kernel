@@ -952,6 +952,8 @@ static int omap_abe_add_legacy_dai_links(struct snd_soc_card *card)
 	int has_mcasp = 0;
 	int ret;
 
+return 0;	// completely broken...
+
 	dai_node = of_parse_phandle(node, "ti,mcpdm", 0);
 	if (!dai_node) {
 			dev_err(card->dev, "McPDM node is missing\n");
