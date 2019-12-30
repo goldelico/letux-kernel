@@ -2,6 +2,8 @@
 #include <dt-bindings/clock/ingenic,jz4780-cgu.h>
 #include <dt-bindings/clock/ingenic,tcu.h>
 #include <dt-bindings/dma/jz4780-dma.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
 
 / {
 	#address-cells = <1>;
@@ -107,8 +109,10 @@
 			 <&cgu JZ4780_CLK_PCLK>;
 		clock-names = "rtc", "ext", "pclk";
 
-		// this is nonsense
-		// but for some reason the ingenic-timer.c driver fails without
+		/* this is nonsense
+		 * but for some reason the ingenic-timer.c driver fails without
+		 * being an interrupt-controller.
+		 */
 		interrupt-controller;
 		#interrupt-cells = <1>;
 
