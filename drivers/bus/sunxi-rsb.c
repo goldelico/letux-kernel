@@ -45,6 +45,7 @@
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
+#include <linux/pm.h>
 #include <linux/regmap.h>
 #include <linux/reset.h>
 #include <linux/slab.h>
@@ -661,6 +662,26 @@ static int sunxi_rsb_exit_controller(struct sunxi_rsb *rsb)
 	return 0;
 }
 
+#if CONFIG_PM_SLEEP
+static int sunxi_rsb_suspend(struct device *dev)
+{
+	struct sunxi_rsb *rsb = dev_get_drvdata(dev);
+
+	return sunxi_rsb_exit_controller(rsb);
+}
+
+static int sunxi_rsb_resume(struct device *dev)
+{
+	struct sunxi_rsb *rsb = dev_get_drvdata(dev);
+
+	return sunxi_rsb_init_controller(rsb);
+}
+#endif
+
+static const struct dev_pm_ops sunxi_rsb_dev_pm_ops = {
+	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(sunxi_rsb_suspend, sunxi_rsb_resume)
+};
+
 static int sunxi_rsb_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -751,8 +772,9 @@ static struct platform_driver sunxi_rsb_driver = {
 	.probe = sunxi_rsb_probe,
 	.remove	= sunxi_rsb_remove,
 	.driver	= {
-		.name = RSB_CTRL_NAME,
+		.name		= RSB_CTRL_NAME,
 		.of_match_table = sunxi_rsb_of_match_table,
+		.pm		= &sunxi_rsb_dev_pm_ops,
 	},
 };
 
