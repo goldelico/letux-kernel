@@ -276,8 +276,6 @@ static int _sunxi_rsb_run_xfer(struct sunxi_rsb *rsb)
 
 	reinit_completion(&rsb->complete);
 
-	writel(RSB_INTS_LOAD_BSY | RSB_INTS_TRANS_ERR | RSB_INTS_TRANS_OVER,
-	       rsb->regs + RSB_INTE);
 	writel(RSB_CTRL_START_TRANS | RSB_CTRL_GLOBAL_INT_ENB,
 	       rsb->regs + RSB_CTRL);
 
@@ -285,7 +283,7 @@ static int _sunxi_rsb_run_xfer(struct sunxi_rsb *rsb)
 					    msecs_to_jiffies(100))) {
 		dev_dbg(rsb->dev, "RSB timeout\n");
 
-		/* abort the transfer */
+		/* abort the transfer and disable interrupts */
 		writel(RSB_CTRL_ABORT_TRANS, rsb->regs + RSB_CTRL);
 
 		/* clear any interrupt flags */
@@ -473,7 +471,8 @@ static irqreturn_t sunxi_rsb_irq(int irq, void *dev_id)
 	status = readl(rsb->regs + RSB_INTS);
 	rsb->status = status;
 
-	/* Clear interrupts */
+	/* Disable and clear interrupts */
+	writel(0, rsb->regs + RSB_CTRL);
 	status &= (RSB_INTS_LOAD_BSY | RSB_INTS_TRANS_ERR |
 		   RSB_INTS_TRANS_OVER);
 	writel(status, rsb->regs + RSB_INTS);
@@ -652,6 +651,13 @@ static int sunxi_rsb_init_controller(struct sunxi_rsb *rsb)
 	dev_info(dev, "RSB running at %lu Hz\n", p_clk_freq / clk_div / 2);
 	writel(RSB_CCR_SDA_OUT_DELAY(clk_delay) | RSB_CCR_CLK_DIV(clk_div - 1),
 	       rsb->regs + RSB_CCR);
+
+	/*
+	 * Select the interrupts we care about. They will not actually fire
+	 * until the RSB_CTRL_GLOBAL_INT_ENB bit is set.
+	 */
+	writel(RSB_INTS_LOAD_BSY | RSB_INTS_TRANS_ERR | RSB_INTS_TRANS_OVER,
+	       rsb->regs + RSB_INTE);
 
 	return 0;
 
