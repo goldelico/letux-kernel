@@ -46,6 +46,7 @@
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/pm.h>
+#include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 #include <linux/reset.h>
 #include <linux/slab.h>
@@ -321,6 +322,7 @@ static int sunxi_rsb_read(struct sunxi_rsb *rsb, u8 cmd, u8 rtaddr, u8 addr,
 	if (!buf)
 		return -EINVAL;
 
+	pm_runtime_get_sync(rsb->dev);
 	mutex_lock(&rsb->lock);
 
 	writel(addr, rsb->regs + RSB_ADDR);
@@ -335,6 +337,8 @@ static int sunxi_rsb_read(struct sunxi_rsb *rsb, u8 cmd, u8 rtaddr, u8 addr,
 
 unlock:
 	mutex_unlock(&rsb->lock);
+	pm_runtime_mark_last_busy(rsb->dev);
+	pm_runtime_put_autosuspend(rsb->dev);
 
 	return ret;
 }
@@ -347,6 +351,7 @@ static int sunxi_rsb_write(struct sunxi_rsb *rsb, u8 cmd, u8 rtaddr, u8 addr,
 	if (!buf)
 		return -EINVAL;
 
+	pm_runtime_get_sync(rsb->dev);
 	mutex_lock(&rsb->lock);
 
 	writel(addr, rsb->regs + RSB_ADDR);
@@ -356,6 +361,8 @@ static int sunxi_rsb_write(struct sunxi_rsb *rsb, u8 cmd, u8 rtaddr, u8 addr,
 	ret = _sunxi_rsb_run_xfer(rsb);
 
 	mutex_unlock(&rsb->lock);
+	pm_runtime_mark_last_busy(rsb->dev);
+	pm_runtime_put_autosuspend(rsb->dev);
 
 	return ret;
 }
@@ -662,10 +669,32 @@ static int sunxi_rsb_exit_controller(struct sunxi_rsb *rsb)
 	return 0;
 }
 
+#if CONFIG_PM
+static int sunxi_rsb_runtime_suspend(struct device *dev)
+{
+	struct sunxi_rsb *rsb = dev_get_drvdata(dev);
+
+	clk_disable_unprepare(rsb->clk);
+
+	return 0;
+}
+
+static int sunxi_rsb_runtime_resume(struct device *dev)
+{
+	struct sunxi_rsb *rsb = dev_get_drvdata(dev);
+
+	return clk_prepare_enable(rsb->clk);
+}
+#endif
+
 #if CONFIG_PM_SLEEP
 static int sunxi_rsb_suspend(struct device *dev)
 {
 	struct sunxi_rsb *rsb = dev_get_drvdata(dev);
+
+	/* Ensure the clock is running before asserting reset. */
+	if (pm_runtime_status_suspended(dev))
+		pm_runtime_resume(dev);
 
 	return sunxi_rsb_exit_controller(rsb);
 }
@@ -679,6 +708,8 @@ static int sunxi_rsb_resume(struct device *dev)
 #endif
 
 static const struct dev_pm_ops sunxi_rsb_dev_pm_ops = {
+	SET_RUNTIME_PM_OPS(sunxi_rsb_runtime_suspend,
+			   sunxi_rsb_runtime_resume, NULL)
 	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(sunxi_rsb_suspend, sunxi_rsb_resume)
 };
 
@@ -749,6 +780,12 @@ static int sunxi_rsb_probe(struct platform_device *pdev)
 
 	of_rsb_register_devices(rsb);
 
+	pm_suspend_ignore_children(dev, true);
+	pm_runtime_set_autosuspend_delay(dev, 50);
+	pm_runtime_use_autosuspend(dev);
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
+
 	return 0;
 }
 
@@ -756,8 +793,13 @@ static int sunxi_rsb_remove(struct platform_device *pdev)
 {
 	struct sunxi_rsb *rsb = platform_get_drvdata(pdev);
 
+	pm_runtime_get_sync(&pdev->dev);
+
 	device_for_each_child(rsb->dev, NULL, sunxi_rsb_remove_devices);
 	sunxi_rsb_exit_controller(rsb);
+
+	pm_runtime_disable(&pdev->dev);
+	pm_runtime_put_noidle(&pdev->dev);
 
 	return 0;
 }
