@@ -175,6 +175,8 @@
 	pinctrl-0 = <&pins_uart4>;
 };
 
+#include <dt-bindings/regulator/active-semi,8865-regulator.h>
+
 &i2c0 {
 	status = "okay";
 
@@ -187,6 +189,16 @@
 		compatible = "active-semi,act8600";
 		reg = <0x5a>;
 		status = "okay";
+
+/*
+Optional input supply properties:
+- for act8600:
+  - vp1-supply: The input supply for DCDC_REG1
+  - vp2-supply: The input supply for DCDC_REG2
+  - vp3-supply: The input supply for DCDC_REG3
+  - inl-supply: The input supply for LDO_REG5, LDO_REG6, LDO_REG7 and LDO_REG8
+  SUDCDC_REG4, LDO_REG9 and LDO_REG10 do not have separate supplies.
+*/
 
 		regulators {
 			vddcore: SUDCDC1 {
