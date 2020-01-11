@@ -31,13 +31,13 @@
 		led0 {
 			label = "ci20:red:led0";
 			gpios = <&gpc 3 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "heartbeat";
+			linux,default-trigger = "none";
 		};
 
 		led1 {
 			label = "ci20:red:led1";
 			gpios = <&gpc 2 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "mmc0";
+			linux,default-trigger = "nand-disk";
 		};
 
 		led2 {
@@ -65,6 +65,26 @@
 		regulator-name = "wlan0_power";
 		gpio = <&gpb 19 GPIO_ACTIVE_LOW>;
 		enable-active-high;
+	};
+
+	leds {
+		compatible = "gpio-leds";
+		led3 {
+			gpios = <&gpc 0 0>;
+			linux,default-trigger = "cpu0";
+		};
+		led2 {
+			gpios = <&gpc 1 0>;
+			linux,default-trigger = "cpu1";
+		};
+		led1 {
+			gpios = <&gpc 2 0>;
+			linux,default-trigger = "mmc0";
+		};
+		led0 {
+			gpios = <&gpc 3 0>;
+			linux,default-trigger = "heartbeat";
+		};
 	};
 
 	ir: ir-receiver {
@@ -267,43 +287,6 @@ Optional input supply properties:
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_i2c2>;
 
-	camera: ov5640@3c {
-		compatible = "omnivision,ov5640";
-		reg = <0x3c>;
-
-		core-supply = <&vcc_15>;
-		analog-supply = <&vcc_28>;
-
-		gpio-enable = <&gpb 18 0>;
-		gpio-reset = <&gpb 26 0>;
-
-		remote = <&cim>;
-		port {
-			ov5640_1: endpoint {
-				bus-width = <8>;
-				remote-endpoint = <&camera_ep>;
-			};
-		};
-	};
-
-};
-
-&cim {
-	clock-frequency = <24000000>;
-
-	port {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		/* Parallel bus endpoint */
-		camera_ep: endpoint@0 {
-			reg = <0>;		/* Local endpoint # */
-			remote-endpoint = <&ov5640_1>;
-			hsync-active = <1>;	/* Active high */
-			vsync-active = <1>;	/* Active high */
-			pclk-sample = <0>;	/* Falling */
-		};
-	};
 };
 
 &i2c3 {
@@ -325,9 +308,7 @@ Optional input supply properties:
 		rtc@51 {
 			compatible = "nxp,pcf8563";
 			reg = <0x51>;
-
-			interrupt-parent = <&gpf>;
-			interrupts = <30 IRQ_TYPE_LEVEL_LOW>;
+			interrupts = <110>;
 		};
 };
 
@@ -516,13 +497,6 @@ Optional input supply properties:
 	pins_mmc1: mmc1 {
 		function = "mmc1";
 		groups = "mmc1-1bit-d", "mmc1-4bit-d";
-		bias-disable;
-	};
-
-	pins_cim: cim-pb {
-	/* see https://github.com/freebsd/freebsd/blob/master/sys/gnu/dts/mips/ingenic/jz4780.dtsi */
-		function = "cim";
-		// groups = "cim-???", "cim-???";
 		bias-disable;
 	};
 };
