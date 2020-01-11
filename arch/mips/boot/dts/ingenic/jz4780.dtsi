@@ -448,19 +448,9 @@
 		interrupt-parent = <&intc>;
 		interrupts = <3>;
 
-		ddc-i2c-bus = <&i2c4>;
+		/* ddc-i2c-bus = <&i2c4>; */
 
-		ports {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			port@0 {
-				reg = <0>;
-				dw_hdmi_in: endpoint {
-					remote-endpoint = <&lcd_out>;
-				};
-			};
-		};
+		status = "disabled";
 	};
 
 	lcd: lcd@13050000 {
@@ -473,10 +463,6 @@
 		interrupt-parent = <&intc>;
 		interrupts = <31>;
 
-		port {
-			lcd_out: endpoint {
-				remote-endpoint = <&dw_hdmi_in>;
-			};
-		};
+		status = "disabled";
 	};
 };
