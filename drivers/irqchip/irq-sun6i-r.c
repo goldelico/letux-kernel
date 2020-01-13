@@ -3,12 +3,14 @@
 // Allwinner A31 and newer SoCs R_INTC driver
 //
 
+#include <linux/atomic.h>
 #include <linux/irq.h>
 #include <linux/irqchip.h>
 #include <linux/irqdomain.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/syscore_ops.h>
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
@@ -31,6 +33,9 @@ enum {
 static void __iomem *base;
 static irq_hw_number_t parent_offset;
 static u32 parent_type;
+#ifdef CONFIG_PM_SLEEP
+static atomic_t wake_mask;
+#endif
 
 static void sun6i_r_intc_irq_enable(struct irq_data *data)
 {
@@ -108,6 +113,21 @@ static int sun6i_r_intc_irq_set_type(struct irq_data *data, unsigned int type)
 	return irq_chip_set_type_parent(data, type);
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int sun6i_r_intc_irq_set_wake(struct irq_data *data, unsigned int on)
+{
+	if (on)
+		atomic_or(BIT(data->hwirq), &wake_mask);
+	else
+		atomic_andnot(BIT(data->hwirq), &wake_mask);
+
+	/* GIC cannot wake, so there is no need to call the parent hook. */
+	return 0;
+}
+#else
+#define sun6i_r_intc_irq_set_wake NULL
+#endif
+
 static struct irq_chip sun6i_r_intc_chip = {
 	.name			= "sun6i-r-intc",
 	.irq_enable		= sun6i_r_intc_irq_enable,
@@ -118,6 +138,7 @@ static struct irq_chip sun6i_r_intc_chip = {
 	.irq_set_affinity	= irq_chip_set_affinity_parent,
 	.irq_retrigger		= irq_chip_retrigger_hierarchy,
 	.irq_set_type		= sun6i_r_intc_irq_set_type,
+	.irq_set_wake		= sun6i_r_intc_irq_set_wake,
 	.irq_set_vcpu_affinity	= irq_chip_set_vcpu_affinity_parent,
 };
 
@@ -171,6 +192,36 @@ static const struct irq_domain_ops sun6i_r_intc_domain_ops = {
 	.free		= irq_domain_free_irqs_common,
 };
 
+#ifdef CONFIG_PM_SLEEP
+static int sun6i_r_intc_suspend(void)
+{
+	/* All wake IRQs are enabled during suspend. */
+	writel(atomic_read(&wake_mask), base + SUN6I_R_INTC_ENABLE);
+
+	return 0;
+}
+
+static void sun6i_r_intc_resume(void)
+{
+	u32 mask = atomic_read(&wake_mask) & BIT(NMI_HWIRQ);
+
+	/* Only the NMI is relevant during normal operation. */
+	writel(mask, base + SUN6I_R_INTC_ENABLE);
+}
+
+static struct syscore_ops sun6i_r_intc_syscore_ops = {
+	.suspend	= sun6i_r_intc_suspend,
+	.resume		= sun6i_r_intc_resume,
+};
+
+static void sun6i_r_intc_syscore_init(void)
+{
+	register_syscore_ops(&sun6i_r_intc_syscore_ops);
+}
+#else
+static inline void sun6i_r_intc_syscore_init(void) {}
+#endif
+
 static int __init sun6i_r_intc_init(struct device_node *node,
 				    struct device_node *parent)
 {
@@ -214,6 +265,8 @@ static int __init sun6i_r_intc_init(struct device_node *node,
 
 	/* Clear any pending interrupts. */
 	writel(~0, base + SUN6I_R_INTC_PENDING);
+
+	sun6i_r_intc_syscore_init();
 
 	return 0;
 }
