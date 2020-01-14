@@ -4,7 +4,7 @@
  *
  * Copyright (c) 2017 Paul Cercueil <paul@crapouillou.net>
  * Copyright (c) 2019 Zhou Yanjie <zhouyanjie@zoho.com>
- * Copyright (c) 2017 Paul Boddie <paul@boddie.org.uk>
+ * Copyright (c) 2017, 2019 Paul Boddie <paul@boddie.org.uk>
  */
 
 #include <linux/compiler.h>
