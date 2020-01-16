@@ -58,6 +58,24 @@ static const struct regmap_config rn5t618_regmap_config = {
 	.cache_type	= REGCACHE_RBTREE,
 };
 
+static const struct regmap_irq rn5t618_irqs[] = {
+	REGMAP_IRQ_REG(RN5T618_IRQ_SYS, 0, BIT(0)),
+	REGMAP_IRQ_REG(RN5T618_IRQ_DCDC, 0, BIT(1)),
+	REGMAP_IRQ_REG(RN5T618_IRQ_ADC, 0, BIT(3)),
+	REGMAP_IRQ_REG(RN5T618_IRQ_GPIO, 0, BIT(4)),
+	REGMAP_IRQ_REG(RN5T618_IRQ_CHG, 0, BIT(6)),
+};
+
+static const struct regmap_irq_chip rn5t618_irq_chip = {
+	.name = "rn5t618",
+	.irqs = rn5t618_irqs,
+	.num_irqs = ARRAY_SIZE(rn5t618_irqs),
+	.num_regs = 1,
+	.status_base = RN5T618_INTMON,
+	.mask_base = RN5T618_INTEN,
+	.mask_invert = true,
+};
+
 static const struct regmap_irq rc5t619_irqs[] = {
 	REGMAP_IRQ_REG(RN5T618_IRQ_SYS, 0, BIT(0)),
 	REGMAP_IRQ_REG(RN5T618_IRQ_DCDC, 0, BIT(1)),
@@ -91,6 +109,9 @@ static int rn5t618_irq_init(struct rn5t618 *rn5t618)
 	switch (rn5t618->variant) {
 	case RC5T619:
 		irq_chip = &rc5t619_irq_chip;
+		break;
+	case RN5T618:
+		irq_chip = &rn5t618_irq_chip;
 		break;
 	default:
 		irq_chip = NULL;
