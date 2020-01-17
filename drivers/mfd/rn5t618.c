@@ -21,12 +21,18 @@
 static const struct mfd_cell rn5t618_cells[] = {
 	{ .name = "rn5t618-regulator" },
 	{ .name = "rn5t618-wdt" },
+	{ .name = "rn5t618-adc" },
 };
 
 static const struct mfd_cell rc5t619_cells[] = {
 	{ .name = "rn5t618-adc" },
 	{ .name = "rn5t618-regulator" },
 	{ .name = "rc5t619-rtc" },
+	{ .name = "rn5t618-wdt" },
+};
+
+static const struct mfd_cell rn5t567_cells[] = {
+	{ .name = "rn5t618-regulator" },
 	{ .name = "rn5t618-wdt" },
 };
 
@@ -203,16 +209,32 @@ static int rn5t618_i2c_probe(struct i2c_client *i2c,
 		return ret;
 	}
 
-	if (priv->variant == RC5T619)
+	switch (priv->variant) {
+	case RC5T619:
 		ret = devm_mfd_add_devices(&i2c->dev, PLATFORM_DEVID_NONE,
 					   rc5t619_cells,
 					   ARRAY_SIZE(rc5t619_cells),
 					   NULL, 0, NULL);
-	else
+		break;
+	case RN5T618:
 		ret = devm_mfd_add_devices(&i2c->dev, PLATFORM_DEVID_NONE,
 					   rn5t618_cells,
 					   ARRAY_SIZE(rn5t618_cells),
 					   NULL, 0, NULL);
+		break;
+	case RN5T567:
+		ret = devm_mfd_add_devices(&i2c->dev, PLATFORM_DEVID_NONE,
+					   rn5t567_cells,
+					   ARRAY_SIZE(rn5t567_cells),
+					   NULL, 0, NULL);
+		break;
+	/*
+	 * Should not happen because we come here only with a valid device
+	 * tree match, so variant contains any of the above.
+	 */
+	default:
+		return -ENOENT;
+	}
 	if (ret) {
 		dev_err(&i2c->dev, "failed to add sub-devices: %d\n", ret);
 		return ret;
