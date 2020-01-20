@@ -108,6 +108,9 @@
 };
 
 &rtc_dev {
+	clocks = <&extrtc 0>;
+	clock-names = "rtc";
+
 	system-power-controller;
 };
 
@@ -327,19 +330,16 @@ Optional input supply properties:
 			compatible = "pericom,pt7c4338";
 			/* FIXME: clock out untested */
 			#clock-cells = <1>;
+			clock-output-names = "square", "clkout";
 #else
 			compatible = "nxp,pcf8563";
-
-			#clock-cells = <0>;
+			#clock-cells = <1>;
+			clock-output-names = "rtc";
 #endif
 			reg = <0x51>;
 
 			interrupt-parent = <&gpf>;
 			interrupts = <30 IRQ_TYPE_LEVEL_LOW>;
-
-			/* make it enabled by the jz4780 32khz fixed-clock so that CLKOUT is always on */
-			assigned-clocks = <&rtc>;
-			assigned-clock-rates = <32768>;
 		};
 };
 
