@@ -51,7 +51,7 @@ static SUNXI_CCU_M(mixer1_div_a83_clk, "mixer1-div", "pll-de", 0x0c, 4, 4,
 static SUNXI_CCU_M(wb_div_a83_clk, "wb-div", "pll-de", 0x0c, 8, 4,
 		   CLK_SET_RATE_PARENT);
 
-static struct ccu_common *sun50i_h6_de3_clks[] = {
+static struct ccu_common *sun50i_a64_de2_clks[] = {
 	&mixer0_clk.common,
 	&mixer1_clk.common,
 	&wb_clk.common,
@@ -156,7 +156,7 @@ static struct clk_hw_onecell_data sun8i_v3s_de2_hw_clks = {
 	.num	= CLK_NUMBER_WITHOUT_ROT,
 };
 
-static struct clk_hw_onecell_data sun50i_h6_de3_hw_clks = {
+static struct clk_hw_onecell_data sun50i_a64_de2_hw_clks = {
 	.hws	= {
 		[CLK_MIXER0]		= &mixer0_clk.common.hw,
 		[CLK_MIXER1]		= &mixer1_clk.common.hw,
@@ -190,13 +190,13 @@ static struct ccu_reset_map sun50i_a64_de2_resets[] = {
 	[RST_MIXER0]	= { 0x08, BIT(0) },
 	[RST_MIXER1]	= { 0x08, BIT(1) },
 	[RST_WB]	= { 0x08, BIT(2) },
+	[RST_ROT]	= { 0x08, BIT(3) },
 };
 
 static struct ccu_reset_map sun50i_h6_de3_resets[] = {
 	[RST_MIXER0]	= { 0x08, BIT(0) },
 	[RST_MIXER1]	= { 0x08, BIT(1) },
 	[RST_WB]	= { 0x08, BIT(2) },
-	[RST_ROT]	= { 0x08, BIT(3) },
 };
 
 static const struct sunxi_ccu_desc sun8i_a83t_de2_clk_desc = {
@@ -220,20 +220,20 @@ static const struct sunxi_ccu_desc sun8i_h3_de2_clk_desc = {
 };
 
 static const struct sunxi_ccu_desc sun50i_a64_de2_clk_desc = {
-	.ccu_clks	= sun8i_h3_de2_clks,
-	.num_ccu_clks	= ARRAY_SIZE(sun8i_h3_de2_clks),
+	.ccu_clks	= sun50i_a64_de2_clks,
+	.num_ccu_clks	= ARRAY_SIZE(sun50i_a64_de2_clks),
 
-	.hw_clks	= &sun8i_h3_de2_hw_clks,
+	.hw_clks	= &sun50i_a64_de2_hw_clks,
 
 	.resets		= sun50i_a64_de2_resets,
 	.num_resets	= ARRAY_SIZE(sun50i_a64_de2_resets),
 };
 
 static const struct sunxi_ccu_desc sun50i_h6_de3_clk_desc = {
-	.ccu_clks	= sun50i_h6_de3_clks,
-	.num_ccu_clks	= ARRAY_SIZE(sun50i_h6_de3_clks),
+	.ccu_clks	= sun8i_h3_de2_clks,
+	.num_ccu_clks	= ARRAY_SIZE(sun8i_h3_de2_clks),
 
-	.hw_clks	= &sun50i_h6_de3_hw_clks,
+	.hw_clks	= &sun8i_h3_de2_hw_clks,
 
 	.resets		= sun50i_h6_de3_resets,
 	.num_resets	= ARRAY_SIZE(sun50i_h6_de3_resets),
