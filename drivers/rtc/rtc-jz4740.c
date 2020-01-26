@@ -376,7 +376,6 @@ static int jz4740_rtc_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct jz4740_rtc *rtc;
-	uint32_t scratchpad;
 	struct resource *mem;
 	const struct platform_device_id *id = platform_get_device_id(pdev);
 	const struct of_device_id *of_id = of_match_device(
@@ -437,22 +436,6 @@ static int jz4740_rtc_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to request rtc irq: %d\n", ret);
 		return ret;
-	}
-
-	/* RTC hibernation and associated functionality is not supported in the
-	   same way on the JZ4730. */
-
-	if (rtc->type == ID_JZ4730)
-		return jz4730_rtc_init_cgu(pdev, rtc);
-
-	scratchpad = jz4740_rtc_reg_read(rtc, JZ_REG_RTC_SCRATCHPAD);
-	if (scratchpad != 0x12345678) {
-		ret = jz4740_rtc_reg_write(rtc, JZ_REG_RTC_SCRATCHPAD, 0x12345678);
-		ret = jz4740_rtc_reg_write(rtc, JZ_REG_RTC_SEC, 0);
-		if (ret) {
-			dev_err(&pdev->dev, "Could not write to RTC registers\n");
-			return ret;
-		}
 	}
 
 	if (np && of_device_is_system_power_controller(np)) {
