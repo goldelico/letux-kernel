@@ -92,7 +92,6 @@
 			     SNDRV_PCM_RATE_KNOT)
 
 struct sun8i_codec {
-	struct device	*dev;
 	struct regmap	*regmap;
 	struct clk	*clk_module;
 	struct clk	*clk_bus;
@@ -569,8 +568,6 @@ static int sun8i_codec_probe(struct platform_device *pdev)
 	scodec = devm_kzalloc(&pdev->dev, sizeof(*scodec), GFP_KERNEL);
 	if (!scodec)
 		return -ENOMEM;
-
-	scodec->dev = &pdev->dev;
 
 	scodec->clk_module = devm_clk_get(&pdev->dev, "mod");
 	if (IS_ERR(scodec->clk_module)) {
