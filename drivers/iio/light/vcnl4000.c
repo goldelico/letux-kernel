@@ -56,6 +56,9 @@
 #define VCNL4000_PS_RDY		BIT(5) /* proximity data ready? */
 #define VCNL4000_AL_OD		BIT(4) /* start on-demand ALS measurement */
 #define VCNL4000_PS_OD		BIT(3) /* start on-demand proximity measurement */
+#define VCNL4010_AL_EN		BIT(2) /* enable periodic ALS measurement */
+#define VCNL4010_PS_EN		BIT(1) /* enable periodic proximity measurement */
+#define VCNL4010_SELFTIMED_EN	BIT(0) /* enable state machine and oscillator */
 
 enum vcnl4000_device_ids {
 	VCNL4000,
@@ -118,6 +121,11 @@ static int vcnl4000_init(struct vcnl4000_data *data)
 		if (data->id != VCNL4010)
 			dev_warn(&data->client->dev,
 					"wrong device id, use vcnl4010/4020");
+		ret = i2c_smbus_write_byte_data(data->client, VCNL4000_COMMAND,
+					VCNL4010_SELFTIMED_EN);
+		if (ret < 0)
+			return ret;
+
 		break;
 	default:
 		return -ENODEV;
@@ -198,7 +206,7 @@ static int vcnl4000_measure(struct vcnl4000_data *data, u8 req_mask,
 	mutex_lock(&data->vcnl4000_lock);
 
 	ret = i2c_smbus_write_byte_data(data->client, VCNL4000_COMMAND,
-					req_mask);
+					req_mask | VCNL4010_SELFTIMED_EN);
 	if (ret < 0)
 		goto fail;
 
