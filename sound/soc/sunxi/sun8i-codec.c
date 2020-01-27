@@ -47,6 +47,7 @@
 #define SUN8I_AIF1CLK_CTRL_AIF1_WORD_SIZ		4
 #define SUN8I_AIF1CLK_CTRL_AIF1_WORD_SIZ_16		(1 << 4)
 #define SUN8I_AIF1CLK_CTRL_AIF1_DATA_FMT		2
+#define SUN8I_AIF1CLK_CTRL_AIF1_MONO_PCM		1
 #define SUN8I_AIF1_ADCDAT_CTRL				0x044
 #define SUN8I_AIF1_ADCDAT_CTRL_AIF1_AD0L_ENA		15
 #define SUN8I_AIF1_ADCDAT_CTRL_AIF1_AD0R_ENA		14
@@ -280,10 +281,11 @@ static const struct sun8i_codec_clk_div sun8i_codec_bclk_div[] = {
 
 static u8 sun8i_codec_get_bclk_div(struct sun8i_codec *scodec,
 				   unsigned int rate,
+				   unsigned int channels,
 				   unsigned int word_size)
 {
 	unsigned long clk_rate = clk_get_rate(scodec->clk_module);
-	unsigned int div = clk_rate / rate / word_size / 2;
+	unsigned int div = clk_rate / rate / word_size / channels;
 	unsigned int best_val = 0, best_diff = ~0;
 	int i;
 
@@ -316,8 +318,10 @@ static int sun8i_codec_hw_params(struct snd_pcm_substream *substream,
 				 struct snd_soc_dai *dai)
 {
 	struct sun8i_codec *scodec = snd_soc_component_get_drvdata(dai->component);
+	unsigned int channels = params_channels(params);
 	int sample_rate, lrck_div;
 	u8 bclk_div;
+	u32 value;
 
 	/*
 	 * The CPU DAI handles only a sample of 16 bits. Configure the
@@ -327,12 +331,13 @@ static int sun8i_codec_hw_params(struct snd_pcm_substream *substream,
 			   SUN8I_AIF1CLK_CTRL_AIF1_WORD_SIZ_MASK,
 			   SUN8I_AIF1CLK_CTRL_AIF1_WORD_SIZ_16);
 
-	bclk_div = sun8i_codec_get_bclk_div(scodec, params_rate(params), 16);
+	bclk_div = sun8i_codec_get_bclk_div(scodec, params_rate(params),
+					    channels, 16);
 	regmap_update_bits(scodec->regmap, SUN8I_AIF1CLK_CTRL,
 			   SUN8I_AIF1CLK_CTRL_AIF1_BCLK_DIV_MASK,
 			   bclk_div << SUN8I_AIF1CLK_CTRL_AIF1_BCLK_DIV);
 
-	lrck_div = sun8i_codec_get_lrck_div(params_channels(params),
+	lrck_div = sun8i_codec_get_lrck_div(channels,
 					    params_physical_width(params));
 	if (lrck_div < 0)
 		return lrck_div;
@@ -340,6 +345,11 @@ static int sun8i_codec_hw_params(struct snd_pcm_substream *substream,
 	regmap_update_bits(scodec->regmap, SUN8I_AIF1CLK_CTRL,
 			   SUN8I_AIF1CLK_CTRL_AIF1_LRCK_DIV_MASK,
 			   lrck_div << SUN8I_AIF1CLK_CTRL_AIF1_LRCK_DIV);
+
+	value = channels == 1;
+	regmap_update_bits(scodec->regmap, SUN8I_AIF1CLK_CTRL,
+			   BIT(SUN8I_AIF1CLK_CTRL_AIF1_MONO_PCM),
+			   value << SUN8I_AIF1CLK_CTRL_AIF1_MONO_PCM);
 
 	sample_rate = sun8i_codec_get_hw_rate(params);
 	if (sample_rate < 0)
