@@ -45,7 +45,6 @@
 #define SUN8I_AIF1CLK_CTRL_AIF1_BCLK_DIV		9
 #define SUN8I_AIF1CLK_CTRL_AIF1_LRCK_DIV		6
 #define SUN8I_AIF1CLK_CTRL_AIF1_WORD_SIZ		4
-#define SUN8I_AIF1CLK_CTRL_AIF1_WORD_SIZ_16		(1 << 4)
 #define SUN8I_AIF1CLK_CTRL_AIF1_DATA_FMT		2
 #define SUN8I_AIF1CLK_CTRL_AIF1_MONO_PCM		1
 #define SUN8I_AIF1_ADCDAT_CTRL				0x044
@@ -87,6 +86,10 @@
 #define SUN8I_AIF1CLK_CTRL_AIF1_WORD_SIZ_MASK	GENMASK(5, 4)
 #define SUN8I_AIF1CLK_CTRL_AIF1_DATA_FMT_MASK	GENMASK(3, 2)
 
+#define SUN8I_AIF_PCM_FMTS  (SNDRV_PCM_FMTBIT_S8|\
+			     SNDRV_PCM_FMTBIT_S16_LE|\
+			     SNDRV_PCM_FMTBIT_S20_LE|\
+			     SNDRV_PCM_FMTBIT_S24_LE)
 #define SUN8I_AIF_PCM_RATES (SNDRV_PCM_RATE_8000_48000|\
 			     SNDRV_PCM_RATE_96000|\
 			     SNDRV_PCM_RATE_192000|\
@@ -307,7 +310,9 @@ static int sun8i_codec_get_lrck_div(unsigned int channels,
 {
 	unsigned int div = word_size * channels;
 
-	if (div < 16 || div > 256)
+	if (div < 16)
+		div = 16;
+	if (div > 256)
 		return -EINVAL;
 
 	return ilog2(div) - 4;
@@ -318,33 +323,45 @@ static int sun8i_codec_hw_params(struct snd_pcm_substream *substream,
 				 struct snd_soc_dai *dai)
 {
 	struct sun8i_codec *scodec = snd_soc_component_get_drvdata(dai->component);
+	unsigned int slot_width = params_physical_width(params);
 	unsigned int channels = params_channels(params);
 	int sample_rate, lrck_div;
 	u8 bclk_div;
 	u32 value;
 
-	/*
-	 * The CPU DAI handles only a sample of 16 bits. Configure the
-	 * codec to handle this type of sample resolution.
-	 */
-	regmap_update_bits(scodec->regmap, SUN8I_AIF1CLK_CTRL,
-			   SUN8I_AIF1CLK_CTRL_AIF1_WORD_SIZ_MASK,
-			   SUN8I_AIF1CLK_CTRL_AIF1_WORD_SIZ_16);
-
 	bclk_div = sun8i_codec_get_bclk_div(scodec, params_rate(params),
-					    channels, 16);
+					    channels, slot_width);
 	regmap_update_bits(scodec->regmap, SUN8I_AIF1CLK_CTRL,
 			   SUN8I_AIF1CLK_CTRL_AIF1_BCLK_DIV_MASK,
 			   bclk_div << SUN8I_AIF1CLK_CTRL_AIF1_BCLK_DIV);
 
-	lrck_div = sun8i_codec_get_lrck_div(channels,
-					    params_physical_width(params));
+	lrck_div = sun8i_codec_get_lrck_div(channels, slot_width);
 	if (lrck_div < 0)
 		return lrck_div;
 
 	regmap_update_bits(scodec->regmap, SUN8I_AIF1CLK_CTRL,
 			   SUN8I_AIF1CLK_CTRL_AIF1_LRCK_DIV_MASK,
 			   lrck_div << SUN8I_AIF1CLK_CTRL_AIF1_LRCK_DIV);
+
+	switch (params_width(params)) {
+	case 8:
+		value = 0x0;
+		break;
+	case 16:
+		value = 0x1;
+		break;
+	case 20:
+		value = 0x2;
+		break;
+	case 24:
+		value = 0x3;
+		break;
+	default:
+		return -EINVAL;
+	}
+	regmap_update_bits(scodec->regmap, SUN8I_AIF1CLK_CTRL,
+			   SUN8I_AIF1CLK_CTRL_AIF1_WORD_SIZ_MASK,
+			   value << SUN8I_AIF1CLK_CTRL_AIF1_WORD_SIZ);
 
 	value = channels == 1;
 	regmap_update_bits(scodec->regmap, SUN8I_AIF1CLK_CTRL,
@@ -533,7 +550,7 @@ static struct snd_soc_dai_driver sun8i_codec_dai = {
 		.channels_min = 1,
 		.channels_max = 2,
 		.rates = SUN8I_AIF_PCM_RATES,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		.formats = SUN8I_AIF_PCM_FMTS,
 	},
 	/* capture capabilities */
 	.capture = {
@@ -541,7 +558,7 @@ static struct snd_soc_dai_driver sun8i_codec_dai = {
 		.channels_min = 1,
 		.channels_max = 2,
 		.rates = SUN8I_AIF_PCM_RATES,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		.formats = SUN8I_AIF_PCM_FMTS,
 		.sig_bits = 24,
 	},
 	/* pcm operations */
