@@ -470,7 +470,7 @@ static void soc_pcm_init_runtime_hw(struct snd_pcm_substream *substream)
 		hw->formats = formats & cpu_stream->formats;
 	hw->rates = snd_pcm_rate_mask_intersect(rates, cpu_stream->rates);
 
-	snd_pcm_limit_hw_rates(runtime);
+	snd_pcm_limit_hw_rates(hw);
 
 	hw->rate_min = max(hw->rate_min, cpu_stream->rate_min);
 	hw->rate_min = max(hw->rate_min, rate_min);
@@ -1931,7 +1931,7 @@ static int dpcm_fe_dai_startup(struct snd_pcm_substream *fe_substream)
 	fe->dpcm[stream].state = SND_SOC_DPCM_STATE_OPEN;
 
 	dpcm_set_fe_runtime(fe_substream);
-	snd_pcm_limit_hw_rates(runtime);
+	snd_pcm_limit_hw_rates(&runtime->hw);
 
 	ret = dpcm_apply_symmetry(fe_substream, stream);
 	if (ret < 0) {
