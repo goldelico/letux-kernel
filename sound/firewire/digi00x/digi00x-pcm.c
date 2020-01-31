@@ -78,7 +78,7 @@ static int pcm_init_hw_params(struct snd_dg00x *dg00x,
 		    SNDRV_PCM_RATE_48000 |
 		    SNDRV_PCM_RATE_88200 |
 		    SNDRV_PCM_RATE_96000;
-	snd_pcm_limit_hw_rates(runtime);
+	snd_pcm_limit_hw_rates(hw);
 
 	err = snd_pcm_hw_rule_add(substream->runtime, 0,
 				  SNDRV_PCM_HW_PARAM_CHANNELS,
