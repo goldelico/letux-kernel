@@ -77,6 +77,16 @@ static int asoc_simple_parse_dai(struct device_node *node,
 	return 0;
 }
 
+static void simple_parse_codec_to_codec(struct device_node *node,
+					struct simple_dai_props *props,
+					char *prefix)
+{
+	char prop[128];
+
+	snprintf(prop, sizeof(prop), "%scodec-to-codec", prefix);
+	props->codec_to_codec = of_property_read_bool(node, prop);
+}
+
 static void simple_parse_convert(struct device *dev,
 				 struct device_node *np,
 				 struct asoc_simple_data *adata)
@@ -217,6 +227,7 @@ static int simple_dai_link_of_dpcm(struct asoc_simple_priv *priv,
 					     "prefix");
 	}
 
+	simple_parse_codec_to_codec(node, dai_props, prefix);
 	simple_parse_convert(dev, np, &dai_props->adata);
 	simple_parse_mclk_fs(top, np, codec, dai_props, prefix);
 
@@ -292,6 +303,7 @@ static int simple_dai_link_of(struct asoc_simple_priv *priv,
 	if (ret < 0)
 		goto dai_link_of_err;
 
+	simple_parse_codec_to_codec(node, dai_props, prefix);
 	simple_parse_mclk_fs(top, cpu, codec, dai_props, prefix);
 
 	ret = asoc_simple_parse_cpu(cpu, dai_link, &single_cpu);
