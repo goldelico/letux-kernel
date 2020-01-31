@@ -89,7 +89,7 @@ static void limit_channels_and_rates(struct snd_motu *motu,
 		hw->channels_max = max(hw->channels_max, pcm_channels);
 	}
 
-	snd_pcm_limit_hw_rates(runtime);
+	snd_pcm_limit_hw_rates(hw);
 }
 
 static int init_hw_info(struct snd_motu *motu,
