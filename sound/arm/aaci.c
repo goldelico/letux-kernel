@@ -413,7 +413,7 @@ static int aaci_pcm_open(struct snd_pcm_substream *substream)
 	runtime->private_data = aacirun;
 	runtime->hw = aaci_hw_info;
 	runtime->hw.rates = aacirun->pcm->rates;
-	snd_pcm_limit_hw_rates(runtime);
+	snd_pcm_limit_hw_rates(&runtime->hw);
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		runtime->hw.channels_max = 6;
