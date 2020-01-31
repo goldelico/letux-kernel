@@ -35,7 +35,7 @@ static int pcm_init_hw_params(struct snd_tscm *tscm,
 		    SNDRV_PCM_RATE_48000 |
 		    SNDRV_PCM_RATE_88200 |
 		    SNDRV_PCM_RATE_96000;
-	snd_pcm_limit_hw_rates(runtime);
+	snd_pcm_limit_hw_rates(hw);
 
 	return amdtp_tscm_add_pcm_hw_constraints(stream, runtime);
 }

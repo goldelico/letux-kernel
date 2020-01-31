@@ -1116,7 +1116,7 @@ static int snd_intel8x0_pcm_open(struct snd_pcm_substream *substream, struct ich
 	ichdev->substream = substream;
 	runtime->hw = snd_intel8x0_stream;
 	runtime->hw.rates = ichdev->pcm->rates;
-	snd_pcm_limit_hw_rates(runtime);
+	snd_pcm_limit_hw_rates(&runtime->hw);
 	if (chip->device_type == DEVICE_SIS) {
 		runtime->hw.buffer_bytes_max = 64*1024;
 		runtime->hw.period_bytes_max = 64*1024;
