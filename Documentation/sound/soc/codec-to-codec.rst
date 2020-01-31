@@ -104,5 +104,10 @@ Make sure to name your corresponding cpu and codec playback and capture
 dai names ending with "Playback" and "Capture" respectively as dapm core
 will link and power those dais based on the name.
 
-Note that in current device tree there is no way to mark a dai_link
-as codec to codec. However, it may change in future.
+A dai_link in a "simple-audio-card" can be marked as codec to codec in
+the device tree by adding the "codec-to-codec" property. The dai_link
+will be initialized with the subset of stream parameters (channels,
+format, sample rate) supported by all DAIs on the link. Since there is
+no way to provide these parameters in the device tree, this is mostly
+useful for communication with simple fixed-function codecs, such as a
+Bluetooth controller or cellular modem.
