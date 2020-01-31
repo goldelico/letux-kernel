@@ -331,6 +331,41 @@ static int asoc_simple_init_dai(struct snd_soc_dai *dai,
 	return 0;
 }
 
+static int asoc_simple_init_dai_link_params(struct snd_soc_pcm_runtime *rtd,
+					    struct simple_dai_props *dai_props)
+{
+	struct snd_soc_dai_link *dai_link = rtd->dai_link;
+	struct snd_soc_pcm_stream *params;
+	struct snd_pcm_hardware hw;
+	int ret;
+
+	if (!dai_props->codec_to_codec)
+		return 0;
+
+	/* Assumes the hardware capabilities are the same in both directions */
+	ret = snd_soc_runtime_calc_hw(rtd, &hw, SNDRV_PCM_STREAM_PLAYBACK);
+	if (ret < 0) {
+		dev_err(rtd->dev, "simple-card: no valid dai_link params\n");
+		return ret;
+	}
+
+	params = devm_kzalloc(rtd->dev, sizeof(*params), GFP_KERNEL);
+	if (!params)
+		return -ENOMEM;
+
+	params->formats = hw.formats;
+	params->rates = hw.rates;
+	params->rate_min = hw.rate_min;
+	params->rate_max = hw.rate_max;
+	params->channels_min = hw.channels_min;
+	params->channels_max = hw.channels_max;
+
+	dai_link->params = params;
+	dai_link->num_params = 1;
+
+	return 0;
+}
+
 int asoc_simple_dai_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct asoc_simple_priv *priv = snd_soc_card_get_drvdata(rtd->card);
@@ -344,6 +379,10 @@ int asoc_simple_dai_init(struct snd_soc_pcm_runtime *rtd)
 
 	ret = asoc_simple_init_dai(rtd->cpu_dai,
 				   dai_props->cpu_dai);
+	if (ret < 0)
+		return ret;
+
+	ret = asoc_simple_init_dai_link_params(rtd, dai_props);
 	if (ret < 0)
 		return ret;
 
