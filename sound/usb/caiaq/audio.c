@@ -145,7 +145,7 @@ static int snd_usb_caiaq_substream_open(struct snd_pcm_substream *substream)
 
 	dev_dbg(dev, "%s(%p)\n", __func__, substream);
 	substream->runtime->hw = cdev->pcm_info;
-	snd_pcm_limit_hw_rates(substream->runtime);
+	snd_pcm_limit_hw_rates(&substream->runtime->hw);
 
 	return 0;
 }
@@ -237,7 +237,7 @@ static int snd_usb_caiaq_pcm_prepare(struct snd_pcm_substream *substream)
 		if (runtime->rate == rates[i])
 			cdev->pcm_info.rates = 1 << i;
 
-	snd_pcm_limit_hw_rates(runtime);
+	snd_pcm_limit_hw_rates(&runtime->hw);
 
 	bytes_per_sample = BYTES_PER_SAMPLE;
 	if (cdev->spec.data_alignment >= 2)
