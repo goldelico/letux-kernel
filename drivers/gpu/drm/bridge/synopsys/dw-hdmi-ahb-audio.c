@@ -328,7 +328,7 @@ static int dw_hdmi_open(struct snd_pcm_substream *substream)
 	if (ret < 0)
 		return ret;
 
-	ret = snd_pcm_limit_hw_rates(runtime);
+	ret = snd_pcm_limit_hw_rates(&runtime->hw);
 	if (ret < 0)
 		return ret;
 

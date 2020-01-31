@@ -77,7 +77,7 @@ static int pxa2xx_ac97_pcm_open(struct snd_pcm_substream *substream)
 	i = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ?
 		AC97_RATES_FRONT_DAC : AC97_RATES_ADC;
 	runtime->hw.rates = pxa2xx_ac97_ac97->rates[i];
-	snd_pcm_limit_hw_rates(runtime);
+	snd_pcm_limit_hw_rates(&runtime->hw);
 
 	platform_ops = substream->pcm->card->dev->platform_data;
 	if (platform_ops && platform_ops->startup) {
