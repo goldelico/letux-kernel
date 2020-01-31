@@ -548,7 +548,6 @@ int snd_soc_runtime_calc_hw(struct snd_soc_pcm_runtime *rtd,
 			continue;
 
 		codec_stream = snd_soc_dai_get_pcm_stream(codec_dai, stream);
-
 		chan_min = max(chan_min, codec_stream->channels_min);
 		chan_max = min(chan_max, codec_stream->channels_max);
 		rate_min = max(rate_min, codec_stream->rate_min);
