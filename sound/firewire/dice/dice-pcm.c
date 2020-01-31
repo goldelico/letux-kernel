@@ -117,7 +117,7 @@ static int limit_channels_and_rates(struct snd_dice *dice,
 		hw->channels_max = max(hw->channels_max, channels);
 	}
 
-	snd_pcm_limit_hw_rates(runtime);
+	snd_pcm_limit_hw_rates(hw);
 
 	return 0;
 }
