@@ -531,6 +531,9 @@ static void jz4780_i2c_txabrt(struct jz4780_i2c *i2c, int src)
 {
 	int i;
 
+	if(!(src & ~7))
+		return;
+
 	dev_err(&i2c->adap.dev, "txabrt: 0x%08x\n", src);
 	dev_err(&i2c->adap.dev, "device addr=%x\n",
 		jz4780_i2c_readw(i2c, JZ4780_I2C_TAR));

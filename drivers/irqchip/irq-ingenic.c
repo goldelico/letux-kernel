@@ -17,6 +17,7 @@
 #include <linux/delay.h>
 
 #include <asm/io.h>
+#include <asm/mipsregs.h>
 
 struct ingenic_intc_data {
 	void __iomem *base;
@@ -30,6 +31,26 @@ struct ingenic_intc_data {
 #define JZ_REG_INTC_CLEAR_MASK	0x0c
 #define JZ_REG_INTC_PENDING	0x10
 #define CHIP_SIZE		0x20
+
+asmlinkage void plat_irq_dispatch(void)
+{
+	uint32_t pending = read_c0_cause() & read_c0_status() & CAUSEF_IP;
+
+	if (pending & CAUSEF_IP4) {
+		/* from OS timer */
+		do_IRQ(4);
+#ifdef CONFIG_SMP
+	} else if (pending & CAUSEF_IP3) {
+		/* from a mailbox write */
+		do_IRQ(3);
+#endif
+	} else if (pending & CAUSEF_IP2) {
+		/* from interrupt controller */
+		do_IRQ(2);
+	} else {
+		spurious_interrupt();
+	}
+}
 
 static irqreturn_t intc_cascade(int irq, void *data)
 {
@@ -150,6 +171,7 @@ static int __init intc_1chip_of_init(struct device_node *node,
 {
 	return ingenic_intc_of_init(node, 1);
 }
+IRQCHIP_DECLARE(jz4730_intc, "ingenic,jz4730-intc", intc_1chip_of_init);
 IRQCHIP_DECLARE(jz4740_intc, "ingenic,jz4740-intc", intc_1chip_of_init);
 IRQCHIP_DECLARE(jz4725b_intc, "ingenic,jz4725b-intc", intc_1chip_of_init);
 
