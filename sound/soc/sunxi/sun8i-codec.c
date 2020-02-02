@@ -86,6 +86,11 @@
 #define SUN8I_AIF1CLK_CTRL_AIF1_LRCK_DIV_MASK	GENMASK(8, 6)
 #define SUN8I_AIF1CLK_CTRL_AIF1_BCLK_DIV_MASK	GENMASK(12, 9)
 
+#define SUN8I_AIF_PCM_RATES (SNDRV_PCM_RATE_8000_48000|\
+			     SNDRV_PCM_RATE_96000|\
+			     SNDRV_PCM_RATE_192000|\
+			     SNDRV_PCM_RATE_KNOT)
+
 struct sun8i_codec {
 	struct regmap	*regmap;
 	struct clk	*clk_module;
@@ -515,7 +520,7 @@ static struct snd_soc_dai_driver sun8i_codec_dai = {
 		.stream_name = "Playback",
 		.channels_min = 1,
 		.channels_max = 2,
-		.rates = SNDRV_PCM_RATE_8000_192000,
+		.rates = SUN8I_AIF_PCM_RATES,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,
 	},
 	/* capture capabilities */
@@ -523,7 +528,7 @@ static struct snd_soc_dai_driver sun8i_codec_dai = {
 		.stream_name = "Capture",
 		.channels_min = 1,
 		.channels_max = 2,
-		.rates = SNDRV_PCM_RATE_8000_192000,
+		.rates = SUN8I_AIF_PCM_RATES,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,
 		.sig_bits = 24,
 	},
