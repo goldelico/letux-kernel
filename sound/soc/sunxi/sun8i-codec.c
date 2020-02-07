@@ -35,11 +35,13 @@
 #define SUN8I_MOD_CLK_ENA				0x010
 #define SUN8I_MOD_CLK_ENA_AIF1				15
 #define SUN8I_MOD_CLK_ENA_AIF2				14
+#define SUN8I_MOD_CLK_ENA_AIF3				13
 #define SUN8I_MOD_CLK_ENA_ADC				3
 #define SUN8I_MOD_CLK_ENA_DAC				2
 #define SUN8I_MOD_RST_CTL				0x014
 #define SUN8I_MOD_RST_CTL_AIF1				15
 #define SUN8I_MOD_RST_CTL_AIF2				14
+#define SUN8I_MOD_RST_CTL_AIF3				13
 #define SUN8I_MOD_RST_CTL_ADC				3
 #define SUN8I_MOD_RST_CTL_DAC				2
 #define SUN8I_SYS_SR_CTRL				0x018
@@ -104,6 +106,15 @@
 #define SUN8I_AIF2_VOL_CTRL2				0x094
 #define SUN8I_AIF2_VOL_CTRL2_DACL_VOL			8
 #define SUN8I_AIF2_VOL_CTRL2_DACR_VOL			0
+#define SUN8I_AIF3_CLK_CTRL_AIF3_CLOCK_SRC_AIF1		(0x0 << 0)
+#define SUN8I_AIF3_CLK_CTRL_AIF3_CLOCK_SRC_AIF2		(0x1 << 0)
+#define SUN8I_AIF3_CLK_CTRL_AIF3_CLOCK_SRC_AIF1CLK	(0x2 << 0)
+#define SUN8I_AIF3_DACDAT_CTRL				0x0c8
+#define SUN8I_AIF3_DACDAT_CTRL_AIF3_LOOP_ENA		0
+#define SUN8I_AIF3_PATH_CTRL				0x0cc
+#define SUN8I_AIF3_PATH_CTRL_AIF3_ADC_SRC		10
+#define SUN8I_AIF3_PATH_CTRL_AIF2_DAC_SRC		8
+#define SUN8I_AIF3_PATH_CTRL_AIF3_PINS_TRI		7
 #define SUN8I_ADC_DIG_CTRL				0x100
 #define SUN8I_ADC_DIG_CTRL_ENAD				15
 #define SUN8I_ADC_DIG_CTRL_ADOUT_DTS			2
@@ -134,6 +145,7 @@
 #define SUN8I_AIF_CLK_CTRL_LRCK_DIV_MASK	GENMASK(8, 6)
 #define SUN8I_AIF_CLK_CTRL_WORD_SIZ_MASK	GENMASK(5, 4)
 #define SUN8I_AIF_CLK_CTRL_DATA_FMT_MASK	GENMASK(3, 2)
+#define SUN8I_AIF3_CLK_CTRL_AIF3_CLOCK_SRC_MASK	GENMASK(1, 0)
 
 #define SUN8I_AIF_PCM_FMTS  (SNDRV_PCM_FMTBIT_S8|\
 			     SNDRV_PCM_FMTBIT_S16_LE|\
@@ -239,20 +251,22 @@ static int sun8i_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	unsigned int reg = SUN8I_AIF_CLK_CTRL(dai->id);
 	u32 value;
 
-	/* clock masters */
-	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
-	case SND_SOC_DAIFMT_CBS_CFS: /* Codec slave, DAI master */
-		value = 0x1;
-		break;
-	case SND_SOC_DAIFMT_CBM_CFM: /* Codec Master, DAI slave */
-		value = 0x0;
-		break;
-	default:
-		return -EINVAL;
+	if (dai->id < 3) {
+		/* clock masters */
+		switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
+		case SND_SOC_DAIFMT_CBS_CFS: /* Codec slave, DAI master */
+			value = 0x1;
+			break;
+		case SND_SOC_DAIFMT_CBM_CFM: /* Codec Master, DAI slave */
+			value = 0x0;
+			break;
+		default:
+			return -EINVAL;
+		}
+		regmap_update_bits(scodec->regmap, reg,
+				   BIT(SUN8I_AIF_CLK_CTRL_MSTR_MOD),
+				   value << SUN8I_AIF_CLK_CTRL_MSTR_MOD);
 	}
-	regmap_update_bits(scodec->regmap, reg,
-			   BIT(SUN8I_AIF_CLK_CTRL_MSTR_MOD),
-			   value << SUN8I_AIF_CLK_CTRL_MSTR_MOD);
 
 	/* clock inversion */
 	switch (fmt & SND_SOC_DAIFMT_INV_MASK) {
@@ -286,26 +300,29 @@ static int sun8i_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 			   SUN8I_AIF_CLK_CTRL_CLK_INV_MASK,
 			   value << SUN8I_AIF_CLK_CTRL_CLK_INV);
 
-	/* DAI format */
-	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
-	case SND_SOC_DAIFMT_I2S:
-		value = 0x0;
-		break;
-	case SND_SOC_DAIFMT_LEFT_J:
-		value = 0x1;
-		break;
-	case SND_SOC_DAIFMT_RIGHT_J:
-		value = 0x2;
-		break;
-	case SND_SOC_DAIFMT_DSP_A:
-		value = 0x3;
-		break;
-	default:
+	if (dai->id < 3) {
+		/* DAI format */
+		switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
+		case SND_SOC_DAIFMT_I2S:
+			value = 0x0;
+			break;
+		case SND_SOC_DAIFMT_LEFT_J:
+			value = 0x1;
+			break;
+		case SND_SOC_DAIFMT_RIGHT_J:
+			value = 0x2;
+			break;
+		case SND_SOC_DAIFMT_DSP_A:
+			value = 0x3;
+			break;
+		default:
+			return -EINVAL;
+		}
+		regmap_update_bits(scodec->regmap, reg,
+				   SUN8I_AIF_CLK_CTRL_DATA_FMT_MASK,
+				   value << SUN8I_AIF_CLK_CTRL_DATA_FMT);
+	} else if ((fmt & SND_SOC_DAIFMT_FORMAT_MASK) != SND_SOC_DAIFMT_DSP_A)
 		return -EINVAL;
-	}
-	regmap_update_bits(scodec->regmap, reg,
-			   SUN8I_AIF_CLK_CTRL_DATA_FMT_MASK,
-			   value << SUN8I_AIF_CLK_CTRL_DATA_FMT);
 
 	return 0;
 }
@@ -387,19 +404,25 @@ static int sun8i_codec_hw_params(struct snd_pcm_substream *substream,
 	if (channels == 1)
 		slot_width *= 2;
 
-	bclk_div = sun8i_codec_get_bclk_div(scodec, params_rate(params),
-					    channels, slot_width);
-	regmap_update_bits(scodec->regmap, reg,
-			   SUN8I_AIF_CLK_CTRL_BCLK_DIV_MASK,
-			   bclk_div << SUN8I_AIF_CLK_CTRL_BCLK_DIV);
+	if (dai->id < 3) {
+		bclk_div = sun8i_codec_get_bclk_div(scodec, params_rate(params),
+						    channels, slot_width);
+		regmap_update_bits(scodec->regmap, reg,
+				   SUN8I_AIF_CLK_CTRL_BCLK_DIV_MASK,
+				   bclk_div << SUN8I_AIF_CLK_CTRL_BCLK_DIV);
 
-	lrck_div = sun8i_codec_get_lrck_div(channels, slot_width);
-	if (lrck_div < 0)
-		return lrck_div;
+		lrck_div = sun8i_codec_get_lrck_div(channels, slot_width);
+		if (lrck_div < 0)
+			return lrck_div;
 
-	regmap_update_bits(scodec->regmap, reg,
-			   SUN8I_AIF_CLK_CTRL_LRCK_DIV_MASK,
-			   lrck_div << SUN8I_AIF_CLK_CTRL_LRCK_DIV);
+		regmap_update_bits(scodec->regmap, reg,
+				   SUN8I_AIF_CLK_CTRL_LRCK_DIV_MASK,
+				   lrck_div << SUN8I_AIF_CLK_CTRL_LRCK_DIV);
+	} else {
+		regmap_update_bits(scodec->regmap, reg,
+				   SUN8I_AIF3_CLK_CTRL_AIF3_CLOCK_SRC_MASK,
+				   SUN8I_AIF3_CLK_CTRL_AIF3_CLOCK_SRC_AIF2);
+	}
 
 	switch (params_width(params)) {
 	case 8:
@@ -421,18 +444,20 @@ static int sun8i_codec_hw_params(struct snd_pcm_substream *substream,
 			   SUN8I_AIF_CLK_CTRL_WORD_SIZ_MASK,
 			   value << SUN8I_AIF_CLK_CTRL_WORD_SIZ);
 
-	value = channels == 1;
-	regmap_update_bits(scodec->regmap, reg,
-			   BIT(SUN8I_AIF_CLK_CTRL_MONO_PCM),
-			   value << SUN8I_AIF_CLK_CTRL_MONO_PCM);
+	if (dai->id < 3) {
+		value = channels == 1;
+		regmap_update_bits(scodec->regmap, reg,
+				   BIT(SUN8I_AIF_CLK_CTRL_MONO_PCM),
+				   value << SUN8I_AIF_CLK_CTRL_MONO_PCM);
 
-	sample_rate = sun8i_codec_get_hw_rate(params);
-	if (sample_rate < 0)
-		return sample_rate;
+		sample_rate = sun8i_codec_get_hw_rate(params);
+		if (sample_rate < 0)
+			return sample_rate;
 
-	regmap_update_bits(scodec->regmap, SUN8I_SYS_SR_CTRL,
-			   SUN8I_SYS_SR_CTRL_AIF_FS_MASK(dai->id),
-			   sample_rate << SUN8I_SYS_SR_CTRL_AIF_FS(dai->id));
+		regmap_update_bits(scodec->regmap, SUN8I_SYS_SR_CTRL,
+				   SUN8I_SYS_SR_CTRL_AIF_FS_MASK(dai->id),
+				   sample_rate << SUN8I_SYS_SR_CTRL_AIF_FS(dai->id));
+	}
 
 	return 0;
 }
@@ -495,6 +520,32 @@ static struct snd_soc_dai_driver sun8i_codec_dais[] = {
 		.symmetric_channels = 1,
 		.symmetric_samplebits = 1,
 	},
+	{
+		.name = "sun8i-codec-aif3",
+		.id = 3,
+		/* playback capabilities */
+		.playback = {
+			.stream_name = "AIF3 Playback",
+			.channels_min = 1,
+			.channels_max = 1,
+			.rates = SUN8I_AIF_PCM_RATES,
+			.formats = SUN8I_AIF_PCM_FMTS,
+		},
+		/* capture capabilities */
+		.capture = {
+			.stream_name = "AIF3 Capture",
+			.channels_min = 1,
+			.channels_max = 1,
+			.rates = SUN8I_AIF_PCM_RATES,
+			.formats = SUN8I_AIF_PCM_FMTS,
+			.sig_bits = 24,
+		},
+		/* pcm operations */
+		.ops = &sun8i_codec_dai_ops,
+		.symmetric_rates = 1,
+		.symmetric_channels = 1,
+		.symmetric_samplebits = 1,
+	},
 };
 
 static const DECLARE_TLV_DB_SCALE(sun8i_codec_vol_scale, -12000, 75, 1);
@@ -542,6 +593,11 @@ static const struct snd_kcontrol_new sun8i_aif2_loopback_switch =
 			SUN8I_AIF2_DACDAT_CTRL,
 			SUN8I_AIF2_DACDAT_CTRL_AIF2_LOOP_ENA, 1, 0);
 
+static const struct snd_kcontrol_new sun8i_aif3_loopback_switch =
+	SOC_DAPM_SINGLE("AIF3 Loopback Switch",
+			SUN8I_AIF3_DACDAT_CTRL,
+			SUN8I_AIF3_DACDAT_CTRL_AIF3_LOOP_ENA, 1, 0);
+
 static const char *const sun8i_aif_stereo_mux_enum_names[] = {
 	"Stereo", "Reverse Stereo", "Sum Mono", "Mix Mono"
 };
@@ -585,6 +641,28 @@ static SOC_ENUM_DOUBLE_DECL(sun8i_aif2_dac_stereo_mux_enum,
 static const struct snd_kcontrol_new sun8i_aif2_dac_stereo_mux_control =
 	SOC_DAPM_ENUM("AIF2 DAC Stereo Playback Route",
 		      sun8i_aif2_dac_stereo_mux_enum);
+
+static const char *const sun8i_aif3_mux_enum_names[] = {
+	"None", "AIF2 Left", "AIF2 Right"
+};
+
+static SOC_ENUM_SINGLE_DECL(sun8i_aif3_adc_mux_enum,
+			    SUN8I_AIF3_PATH_CTRL,
+			    SUN8I_AIF3_PATH_CTRL_AIF3_ADC_SRC,
+			    sun8i_aif3_mux_enum_names);
+
+static const struct snd_kcontrol_new sun8i_aif3_adc_mux_control =
+	SOC_DAPM_ENUM("AIF3 ADC Capture Route",
+		      sun8i_aif3_adc_mux_enum);
+
+static SOC_ENUM_SINGLE_DECL(sun8i_aif2_dac_mux_enum,
+			    SUN8I_AIF3_PATH_CTRL,
+			    SUN8I_AIF3_PATH_CTRL_AIF2_DAC_SRC,
+			    sun8i_aif3_mux_enum_names);
+
+static const struct snd_kcontrol_new sun8i_aif2_dac_mux_control =
+	SOC_DAPM_ENUM("AIF3 DAC Playback Route",
+		      sun8i_aif2_dac_mux_enum);
 
 static const struct snd_kcontrol_new sun8i_aif1_ad0_mixer_controls[] = {
 	SOC_DAPM_DOUBLE("AIF1 AD0 Mixer AIF1 DA0 Capture Switch",
@@ -655,6 +733,9 @@ static const struct snd_soc_dapm_widget sun8i_codec_dapm_widgets[] = {
 	SND_SOC_DAPM_SWITCH("AIF2 ADC Right Loopback", SND_SOC_NOPM, 0, 0,
 			    &sun8i_aif2_loopback_switch),
 
+	SND_SOC_DAPM_SWITCH("AIF3 ADC Loopback", SND_SOC_NOPM, 0, 0,
+			    &sun8i_aif3_loopback_switch),
+
 	/* AIF "ADC" Outputs */
 	SND_SOC_DAPM_AIF_OUT("AIF1 AD0 Left", "AIF1 Capture", 0,
 			     SUN8I_AIF1_ADCDAT_CTRL,
@@ -670,6 +751,9 @@ static const struct snd_soc_dapm_widget sun8i_codec_dapm_widgets[] = {
 			     SUN8I_AIF2_ADCDAT_CTRL,
 			     SUN8I_AIF2_ADCDAT_CTRL_AIF2_ADCR_ENA, 0),
 
+	SND_SOC_DAPM_AIF_OUT("AIF3 ADC", "AIF3 Capture", 0,
+			     SND_SOC_NOPM, 0, 0),
+
 	/* AIF "ADC" Mono/Stereo Muxes */
 	SND_SOC_DAPM_MUX("AIF1 AD0 Left Stereo Mux", SND_SOC_NOPM, 0, 0,
 			 &sun8i_aif1_ad0_stereo_mux_control),
@@ -681,6 +765,10 @@ static const struct snd_soc_dapm_widget sun8i_codec_dapm_widgets[] = {
 	SND_SOC_DAPM_MUX("AIF2 ADC Right Stereo Mux", SND_SOC_NOPM, 0, 0,
 			 &sun8i_aif2_adc_stereo_mux_control),
 
+	/* AIF "ADC" Muxes */
+	SND_SOC_DAPM_MUX("AIF3 ADC Mux", SND_SOC_NOPM, 0, 0,
+			 &sun8i_aif3_adc_mux_control),
+
 	/* AIF "ADC" Mixers */
 	SOC_MIXER_ARRAY("AIF1 AD0 Left Mixer", SND_SOC_NOPM, 0, 0,
 			sun8i_aif1_ad0_mixer_controls),
@@ -691,6 +779,12 @@ static const struct snd_soc_dapm_widget sun8i_codec_dapm_widgets[] = {
 			sun8i_aif2_adc_mixer_controls),
 	SOC_MIXER_ARRAY("AIF2 ADC Right Mixer", SND_SOC_NOPM, 0, 0,
 			sun8i_aif2_adc_mixer_controls),
+
+	/* AIF "DAC" Muxes */
+	SND_SOC_DAPM_MUX("AIF2 DAC Left Mux", SND_SOC_NOPM, 0, 0,
+			 &sun8i_aif2_dac_mux_control),
+	SND_SOC_DAPM_MUX("AIF2 DAC Right Mux", SND_SOC_NOPM, 0, 0,
+			 &sun8i_aif2_dac_mux_control),
 
 	/* AIF "DAC" Mono/Stereo Muxes */
 	SND_SOC_DAPM_MUX("AIF1 DA0 Left Stereo Mux", SND_SOC_NOPM, 0, 0,
@@ -718,6 +812,9 @@ static const struct snd_soc_dapm_widget sun8i_codec_dapm_widgets[] = {
 			    SUN8I_AIF2_DACDAT_CTRL,
 			    SUN8I_AIF2_DACDAT_CTRL_AIF2_DACR_ENA, 0),
 
+	SND_SOC_DAPM_AIF_IN("AIF3 DAC", "AIF3 Playback", 0,
+			    SND_SOC_NOPM, 0, 0),
+
 	/* Main DAC Outputs (connected to analog codec DAPM context) */
 	SND_SOC_DAPM_PGA("DAC Left", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_PGA("DAC Right", SND_SOC_NOPM, 0, 0, NULL, 0),
@@ -743,6 +840,8 @@ static const struct snd_soc_dapm_widget sun8i_codec_dapm_widgets[] = {
 			    SUN8I_MOD_RST_CTL_AIF1, 0, NULL, 0),
 	SND_SOC_DAPM_SUPPLY("RST AIF2", SUN8I_MOD_RST_CTL,
 			    SUN8I_MOD_RST_CTL_AIF2, 0, NULL, 0),
+	SND_SOC_DAPM_SUPPLY("RST AIF3", SUN8I_MOD_RST_CTL,
+			    SUN8I_MOD_RST_CTL_AIF3, 0, NULL, 0),
 	SND_SOC_DAPM_SUPPLY("RST ADC", SUN8I_MOD_RST_CTL,
 			    SUN8I_MOD_RST_CTL_ADC, 0, NULL, 0),
 	SND_SOC_DAPM_SUPPLY("RST DAC", SUN8I_MOD_RST_CTL,
@@ -753,6 +852,8 @@ static const struct snd_soc_dapm_widget sun8i_codec_dapm_widgets[] = {
 			    SUN8I_MOD_CLK_ENA_AIF1, 0, NULL, 0),
 	SND_SOC_DAPM_SUPPLY("MODCLK AIF2", SUN8I_MOD_CLK_ENA,
 			    SUN8I_MOD_CLK_ENA_AIF2, 0, NULL, 0),
+	SND_SOC_DAPM_SUPPLY("MODCLK AIF3", SUN8I_MOD_CLK_ENA,
+			    SUN8I_MOD_CLK_ENA_AIF3, 0, NULL, 0),
 	SND_SOC_DAPM_SUPPLY("MODCLK ADC", SUN8I_MOD_CLK_ENA,
 			    SUN8I_MOD_CLK_ENA_ADC, 0, NULL, 0),
 	SND_SOC_DAPM_SUPPLY("MODCLK DAC", SUN8I_MOD_CLK_ENA,
@@ -765,6 +866,9 @@ static const struct snd_soc_dapm_widget sun8i_codec_dapm_widgets[] = {
 			    SUN8I_SYSCLK_CTL_AIF2CLK_ENA, 0, NULL, 0),
 	SND_SOC_DAPM_SUPPLY("SYSCLK", SUN8I_SYSCLK_CTL,
 			    SUN8I_SYSCLK_CTL_SYSCLK_ENA, 0, NULL, 0),
+
+	SND_SOC_DAPM_SUPPLY("AIF3CLK", SUN8I_AIF3_PATH_CTRL,
+			    SUN8I_AIF3_PATH_CTRL_AIF3_PINS_TRI, 1, NULL, 0),
 };
 
 static const struct snd_soc_dapm_route sun8i_codec_dapm_routes[] = {
@@ -774,6 +878,8 @@ static const struct snd_soc_dapm_route sun8i_codec_dapm_routes[] = {
 
 	{ "AIF2 ADC Left Loopback", "AIF2 Loopback Switch", "AIF2 ADC Left" },
 	{ "AIF2 ADC Right Loopback", "AIF2 Loopback Switch", "AIF2 ADC Right" },
+
+	{ "AIF3 ADC Loopback", "AIF3 Loopback Switch", "AIF3 ADC" },
 
 	/* AIF "ADC" Output Routes */
 	{ "AIF1 AD0 Left", NULL, "AIF1 AD0 Left Stereo Mux" },
@@ -787,6 +893,10 @@ static const struct snd_soc_dapm_route sun8i_codec_dapm_routes[] = {
 
 	{ "AIF2 ADC Left", NULL, "AIF2CLK" },
 	{ "AIF2 ADC Right", NULL, "AIF2CLK" },
+
+	{ "AIF3 ADC", NULL, "AIF3 ADC Mux" },
+
+	{ "AIF3 ADC", NULL, "AIF3CLK" },
 
 	/* AIF "ADC" Stereo Mux Routes */
 	{ "AIF1 AD0 Left Stereo Mux", "Stereo", "AIF1 AD0 Left Mixer" },
@@ -817,24 +927,36 @@ static const struct snd_soc_dapm_route sun8i_codec_dapm_routes[] = {
 	{ "AIF2 ADC Right Stereo Mux", "Mix Mono", "AIF2 ADC Left Mixer" },
 	{ "AIF2 ADC Right Stereo Mux", "Mix Mono", "AIF2 ADC Right Mixer" },
 
+	/* AIF "ADC" Mux Routes */
+	{ "AIF3 ADC Mux", "AIF2 Left", "AIF2 ADC Left Mixer" },
+	{ "AIF3 ADC Mux", "AIF2 Right", "AIF2 ADC Right Mixer" },
+
 	/* AIF "ADC" Mixer Routes */
 	{ "AIF1 AD0 Left Mixer", "AIF1 AD0 Mixer AIF1 DA0 Capture Switch", "AIF1 DA0 Left Stereo Mux" },
-	{ "AIF1 AD0 Left Mixer", "AIF1 AD0 Mixer AIF2 DAC Capture Switch", "AIF2 DAC Left Stereo Mux" },
+	{ "AIF1 AD0 Left Mixer", "AIF1 AD0 Mixer AIF2 DAC Capture Switch", "AIF2 DAC Left Mux" },
 	{ "AIF1 AD0 Left Mixer", "AIF1 AD0 Mixer ADC Capture Switch", "ADC Left" },
-	{ "AIF1 AD0 Left Mixer", "AIF1 AD0 Mixer AIF2 DAC Rev Capture Switch", "AIF2 DAC Right Stereo Mux" },
+	{ "AIF1 AD0 Left Mixer", "AIF1 AD0 Mixer AIF2 DAC Rev Capture Switch", "AIF2 DAC Right Mux" },
 
 	{ "AIF1 AD0 Right Mixer", "AIF1 AD0 Mixer AIF1 DA0 Capture Switch", "AIF1 DA0 Right Stereo Mux" },
-	{ "AIF1 AD0 Right Mixer", "AIF1 AD0 Mixer AIF2 DAC Capture Switch", "AIF2 DAC Right Stereo Mux" },
+	{ "AIF1 AD0 Right Mixer", "AIF1 AD0 Mixer AIF2 DAC Capture Switch", "AIF2 DAC Right Mux" },
 	{ "AIF1 AD0 Right Mixer", "AIF1 AD0 Mixer ADC Capture Switch", "ADC Right" },
-	{ "AIF1 AD0 Right Mixer", "AIF1 AD0 Mixer AIF2 DAC Rev Capture Switch", "AIF2 DAC Left Stereo Mux" },
+	{ "AIF1 AD0 Right Mixer", "AIF1 AD0 Mixer AIF2 DAC Rev Capture Switch", "AIF2 DAC Left Mux" },
 
 	{ "AIF2 ADC Left Mixer", "AIF2 ADC Mixer AIF1 DA0 Capture Switch", "AIF1 DA0 Left Stereo Mux" },
-	{ "AIF2 ADC Left Mixer", "AIF2 ADC Mixer AIF2 DAC Rev Capture Switch", "AIF2 DAC Right Stereo Mux" },
+	{ "AIF2 ADC Left Mixer", "AIF2 ADC Mixer AIF2 DAC Rev Capture Switch", "AIF2 DAC Right Mux" },
 	{ "AIF2 ADC Left Mixer", "AIF2 ADC Mixer ADC Capture Switch", "ADC Left" },
 
 	{ "AIF2 ADC Right Mixer", "AIF2 ADC Mixer AIF1 DA0 Capture Switch", "AIF1 DA0 Right Stereo Mux" },
-	{ "AIF2 ADC Right Mixer", "AIF2 ADC Mixer AIF2 DAC Rev Capture Switch", "AIF2 DAC Left Stereo Mux" },
+	{ "AIF2 ADC Right Mixer", "AIF2 ADC Mixer AIF2 DAC Rev Capture Switch", "AIF2 DAC Left Mux" },
 	{ "AIF2 ADC Right Mixer", "AIF2 ADC Mixer ADC Capture Switch", "ADC Right" },
+
+	/* AIF "DAC" Mux Routes */
+	{ "AIF2 DAC Left Mux", "None", "AIF2 DAC Left Stereo Mux" },
+	{ "AIF2 DAC Left Mux", "AIF2 Left", "AIF3 DAC" },
+	{ "AIF2 DAC Left Mux", "AIF2 Right", "AIF2 DAC Left Stereo Mux" },
+	{ "AIF2 DAC Right Mux", "None", "AIF2 DAC Right Stereo Mux" },
+	{ "AIF2 DAC Right Mux", "AIF2 Left", "AIF2 DAC Right Stereo Mux" },
+	{ "AIF2 DAC Right Mux", "AIF2 Right", "AIF3 DAC" },
 
 	/* AIF "DAC" Stereo Mux Routes */
 	{ "AIF1 DA0 Left Stereo Mux", "Stereo", "AIF1 DA0 Left" },
@@ -878,6 +1000,10 @@ static const struct snd_soc_dapm_route sun8i_codec_dapm_routes[] = {
 	{ "AIF2 DAC Left", NULL, "AIF2CLK" },
 	{ "AIF2 DAC Right", NULL, "AIF2CLK" },
 
+	{ "AIF3 DAC", NULL, "AIF3 ADC Loopback" },
+
+	{ "AIF3 DAC", NULL, "AIF3CLK" },
+
 	/* Main DAC Output Routes */
 	{ "DAC Left", NULL, "DAC Left Mixer" },
 	{ "DAC Right", NULL, "DAC Right Mixer" },
@@ -887,11 +1013,11 @@ static const struct snd_soc_dapm_route sun8i_codec_dapm_routes[] = {
 
 	/* Main DAC Mixer Routes */
 	{ "DAC Left Mixer", "DAC Mixer AIF1 DA0 Playback Switch", "AIF1 DA0 Left Stereo Mux" },
-	{ "DAC Left Mixer", "DAC Mixer AIF2 DAC Playback Switch", "AIF2 DAC Left Stereo Mux" },
+	{ "DAC Left Mixer", "DAC Mixer AIF2 DAC Playback Switch", "AIF2 DAC Left Mux" },
 	{ "DAC Left Mixer", "DAC Mixer ADC Playback Switch", "ADC Left" },
 
 	{ "DAC Right Mixer", "DAC Mixer AIF1 DA0 Playback Switch", "AIF1 DA0 Right Stereo Mux" },
-	{ "DAC Right Mixer", "DAC Mixer AIF2 DAC Playback Switch", "AIF2 DAC Right Stereo Mux" },
+	{ "DAC Right Mixer", "DAC Mixer AIF2 DAC Playback Switch", "AIF2 DAC Right Mux" },
 	{ "DAC Right Mixer", "DAC Mixer ADC Playback Switch", "ADC Right" },
 
 	/* Main ADC Input Routes */
@@ -909,23 +1035,32 @@ static const struct snd_soc_dapm_route sun8i_codec_dapm_routes[] = {
 	{ "AIF2 DAC Left", NULL, "RST AIF2" },
 	{ "AIF2 DAC Right", NULL, "RST AIF2" },
 
+	{ "AIF3 ADC", NULL, "RST AIF2" },
+	{ "AIF3 ADC", NULL, "RST AIF3" },
+	{ "AIF3 DAC", NULL, "RST AIF2" },
+	{ "AIF3 DAC", NULL, "RST AIF3" },
+
 	{ "ADC", NULL, "RST ADC" },
 	{ "DAC", NULL, "RST DAC" },
 
 	/* Module Reset Routes */
 	{ "RST AIF1", NULL, "MODCLK AIF1" },
 	{ "RST AIF2", NULL, "MODCLK AIF2" },
+	{ "RST AIF3", NULL, "MODCLK AIF3" },
 	{ "RST ADC", NULL, "MODCLK ADC" },
 	{ "RST DAC", NULL, "MODCLK DAC" },
 
 	/* Module Clock Routes */
 	{ "MODCLK AIF1", NULL, "SYSCLK" },
 	{ "MODCLK AIF2", NULL, "SYSCLK" },
+	{ "MODCLK AIF3", NULL, "SYSCLK" },
 	{ "MODCLK ADC", NULL, "SYSCLK" },
 	{ "MODCLK DAC", NULL, "SYSCLK" },
 
 	/* Clock Supply Routes */
 	{ "SYSCLK", NULL, "AIF1CLK" },
+
+	{ "AIF3CLK", NULL, "AIF2CLK" },
 };
 
 static int sun8i_codec_component_probe(struct snd_soc_component *component)
