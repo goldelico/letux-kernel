@@ -1139,9 +1139,9 @@ static inline void clkoff_callback(struct work_struct *w)
 	pxp_clk_disable(pxp);
 }
 
-static void pxp_clkoff_timer(struct timer_list *t)
+static void pxp_clkoff_timer(unsigned long arg)
 {
-	struct pxps *pxp = from_timer(pxp, t, clk_timer);
+	struct pxps *pxp = (struct pxps *)arg;
 
 	if ((pxp->pxp_ongoing == 0) && list_empty(&head))
 		schedule_work(&pxp->work);
@@ -1633,7 +1633,6 @@ static DEVICE_ATTR(block_size, S_IWUSR | S_IRUGO,
 
 static const struct of_device_id imx_pxpdma_dt_ids[] = {
 	{ .compatible = "fsl,imx6dl-pxp-dma", },
-	{ .compatible = "fsl,imx6sl-pxp", },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, imx_pxpdma_dt_ids);
@@ -1725,7 +1724,7 @@ static int pxp_probe(struct platform_device *pdev)
 	pxp->clk_disp_axi = devm_clk_get(&pdev->dev, "disp-axi");
 	if (IS_ERR(pxp->clk_disp_axi))
 		pxp->clk_disp_axi = NULL;
-	pxp->clk = devm_clk_get(&pdev->dev, "axi");
+	pxp->clk = devm_clk_get(&pdev->dev, "pxp-axi");
 
 	err = devm_request_irq(&pdev->dev, pxp->irq, pxp_irq, 0,
 				"pxp-dmaengine", pxp);
@@ -1748,7 +1747,9 @@ static int pxp_probe(struct platform_device *pdev)
 	pxp_clk_disable(pxp);
 
 	INIT_WORK(&pxp->work, clkoff_callback);
-	timer_setup(&pxp->clk_timer, pxp_clkoff_timer, 0);
+	init_timer(&pxp->clk_timer);
+	pxp->clk_timer.function = pxp_clkoff_timer;
+	pxp->clk_timer.data = (unsigned long)pxp;
 
 	init_waitqueue_head(&pxp->thread_waitq);
 	/* allocate a kernel thread to dispatch pxp conf */
