@@ -426,13 +426,13 @@ static const struct drm_display_mode k101_im2ba02_default_mode = {
 	.height_mm	= 217,
 };
 
-static int k101_im2ba02_get_modes(struct drm_panel *panel)
+static int k101_im2ba02_get_modes(struct drm_panel *panel,
+				    struct drm_connector *connector)
 {
-	struct drm_connector *connector = panel->connector;
 	struct k101_im2ba02 *ctx = panel_to_k101_im2ba02(panel);
 	struct drm_display_mode *mode;
 
-	mode = drm_mode_duplicate(panel->drm, &k101_im2ba02_default_mode);
+	mode = drm_mode_duplicate(connector->dev, &k101_im2ba02_default_mode);
 	if (!mode) {
 		DRM_DEV_ERROR(&ctx->dsi->dev, "failed to add mode %ux%ux@%u\n",
 			      k101_im2ba02_default_mode.hdisplay,
@@ -444,8 +444,8 @@ static int k101_im2ba02_get_modes(struct drm_panel *panel)
 	drm_mode_set_name(mode);
 
 	drm_mode_probed_add(connector, mode);
-	panel->connector->display_info.width_mm = mode->width_mm;
-	panel->connector->display_info.height_mm = mode->height_mm;
+	connector->display_info.width_mm = mode->width_mm;
+	connector->display_info.height_mm = mode->height_mm;
 
 	return 1;
 }
