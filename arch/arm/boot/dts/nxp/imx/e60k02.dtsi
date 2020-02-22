@@ -74,6 +74,17 @@
 		enable-active-high;
 	};
 
+	thermal-zones {
+		epd-thermal {
+			polling-delay = <10000>;
+			polling-delay-passive = <10000>;
+			thermal-sensors = <&tps6518x>;
+
+			trips {
+			};
+		};
+	};
+
 	wifi_pwrseq: wifi_pwrseq {
 		compatible = "mmc-pwrseq-simple";
 		post-power-on-delay-ms = <20>;
