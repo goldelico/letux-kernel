@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 #include <dt-bindings/clock/jz4780-cgu.h>
 #include <dt-bindings/dma/jz4780-dma.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
 
 / {
 	#address-cells = <1>;
@@ -184,11 +186,11 @@
 		#size-cells = <0>;
 		num-chipselects = <2>;
 
-		gpio-miso = <&gpe 14 0>;
-		gpio-sck = <&gpe 15 0>;
-		gpio-mosi = <&gpe 17 0>;
-		cs-gpios = <&gpe 16 0
-			    &gpe 18 0>;
+		gpio-miso = <&gpe 14 GPIO_ACTIVE_HIGH>;
+		gpio-sck = <&gpe 15 GPIO_ACTIVE_HIGH>;
+		gpio-mosi = <&gpe 17 GPIO_ACTIVE_HIGH>;
+		cs-gpios = <&gpe 16 GPIO_ACTIVE_HIGH
+			    &gpe 18 GPIO_ACTIVE_HIGH>;
 
 		spidev@0 {
 			compatible = "spidev";
@@ -369,7 +371,7 @@
 
 	nemc: nemc@13410000 {
 		compatible = "ingenic,jz4780-nemc";
-		reg = <0x13410000 0x10000>;
+		reg = <0x13410000 0x4c>;
 		#address-cells = <2>;
 		#size-cells = <1>;
 		ranges = <1 0 0x1b000000 0x1000000
@@ -382,6 +384,36 @@
 		clocks = <&cgu JZ4780_CLK_NEMC>;
 
 		status = "disabled";
+	};
+
+	cim: cim@0x13060000 {
+		compatible = "ingenic,jz4780-cim";
+		reg = <0x13060000 0x68>;
+		reg-shift = <2>;
+
+		interrupt-parent = <&intc>;
+		interrupts = <30>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pins_cim>;
+
+		clocks = <&cgu JZ4780_CLK_CIM>, <&cgu JZ4780_CLK_CIMMCLK>;
+		clock-names = "cim", "module";
+	};
+
+	efuse: efuse@134100d0 {
+		compatible = "ingenic,jz4780-efuse";
+		reg = <0x134100d0 0x2c>;
+
+		clocks = <&cgu JZ4780_CLK_AHB2>;
+		clock-names = "ahb2";
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		eth0_addr: eth-mac-addr@0x22 {
+			reg = <0x22 0x6>;
+		};
 	};
 
 	dma: dma@13420000 {
