@@ -4,6 +4,7 @@
  *
  * Copyright (c) 2017 Paul Cercueil <paul@crapouillou.net>
  * Copyright (c) 2019 周琰杰 (Zhou Yanjie) <zhouyanjie@wanyeetech.com>
+ * Copyright (c) 2017, 2019 Paul Boddie <paul@boddie.org.uk>
  */
 
 #include <linux/compiler.h>
@@ -27,6 +28,15 @@
 
 #define GPIO_PIN	0x00
 #define GPIO_MSK	0x20
+
+#define JZ4730_GPIO_DATA	0x00
+#define JZ4730_GPIO_GPDIR	0x04
+#define JZ4730_GPIO_GPPUR	0x0c
+#define JZ4730_GPIO_GPALR	0x10
+#define JZ4730_GPIO_GPAUR	0x14
+#define JZ4730_GPIO_GPIDLR	0x18
+#define JZ4730_GPIO_GPIDUR	0x1c
+#define JZ4730_GPIO_GPIER	0x20
 
 #define JZ4740_GPIO_DATA	0x10
 #define JZ4740_GPIO_PULL_DIS	0x30
@@ -56,8 +66,18 @@
 #define GPIO_PULL_DOWN	2
 
 #define PINS_PER_GPIO_CHIP 32
+#define JZ4730_PINS_PER_FUNC_REG 16
+
+#define INGENIC_PIN_GROUP(name, id)			\
+	{						\
+		name,					\
+		id##_pins,				\
+		ARRAY_SIZE(id##_pins),			\
+		id##_funcs,				\
+	}
 
 enum jz_version {
+	ID_JZ4730,
 	ID_JZ4740,
 	ID_JZ4725B,
 	ID_JZ4760,
@@ -96,6 +116,165 @@ struct ingenic_gpio_chip {
 	struct gpio_chip gc;
 	struct irq_chip irq_chip;
 	unsigned int irq, reg_base;
+};
+
+static const u32 jz4730_pull_ups[4] = {
+	0x3fa3320f, 0xf200ffff, 0xffffffff, 0xffffffff,
+};
+
+static const u32 jz4730_pull_downs[4] = {
+	0x00000df0, 0x0dff0000, 0x00000000, 0x00000000,
+};
+
+/* MSC_CLK, MSC_CMD, MSC_D0 */
+
+static int jz4730_mmc_1bit_pins[] = { 0x27, 0x26, 0x22, };
+
+/* MSC_D1...MSC_D3 */
+
+static int jz4730_mmc_4bit_pins[] = { 0x23, 0x24, 0x25, };
+
+/* UART0_RXD, UART0_TXD */
+
+static int jz4730_uart0_data_pins[] = { 0x7e, 0x7f, };
+
+/* UART1_RXD, UART1_TXD */
+
+static int jz4730_uart1_data_pins[] = { 0x18, 0x19, };
+
+/* UART2_RXD, UART2_TXD */
+
+static int jz4730_uart2_data_pins[] = { 0x6f, 0x7d, };
+
+/* UART3_RXD, UART3_TXD */
+
+static int jz4730_uart3_data_pins[] = { 0x10, 0x15, };
+
+/* UART3_CTS, UART3_RTS */
+
+static int jz4730_uart3_hwflow_pins[] = { 0x11, 0x17, };
+
+/* LCD_D0...LCD_D7, LCD_PCLK, LCD_HSYNC, LCD_VSYNC */
+
+static int jz4730_lcd_8bit_pins[] = {
+	0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x3a, 0x39, 0x38,
+};
+
+/* LCD_D8...LCD_D15, LCD_DE */
+
+static int jz4730_lcd_16bit_pins[] = {
+	0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x3b,
+};
+
+/* LCD_PS, LCD_REV, LCD_CLS, LCD_SPL */
+
+static int jz4730_lcd_16bit_tft_pins[] = { 0x3e, 0x3f, 0x3d, 0x3c, };
+
+/* CS1# */
+
+static int jz4730_nand_cs1_pins[] = { 0x53, };
+
+/* CS2# */
+
+static int jz4730_nand_cs2_pins[] = { 0x54, };
+
+/* CS3# */
+
+static int jz4730_nand_cs3_pins[] = { 0x55, };
+
+/* CS4# */
+
+static int jz4730_nand_cs4_pins[] = { 0x56, };
+
+/* CS5# */
+
+static int jz4730_nand_cs5_pins[] = { 0x57, };
+
+/* PWM0 */
+
+static int jz4730_pwm_pwm0_pins[] = { 0x5e, };
+
+/* PWM1 */
+
+static int jz4730_pwm_pwm1_pins[] = { 0x5f, };
+
+/* Peripheral function numbers for each pin. */
+
+static int jz4730_mmc_1bit_funcs[] = { 1, 1, 1, };
+static int jz4730_mmc_4bit_funcs[] = { 1, 1, 1, };
+static int jz4730_uart0_data_funcs[] = { 1, 1, };
+static int jz4730_uart1_data_funcs[] = { 1, 1, };
+static int jz4730_uart2_data_funcs[] = { 1, 1, };
+static int jz4730_uart3_data_funcs[] = { 1, 1, };
+static int jz4730_uart3_hwflow_funcs[] = { 1, 1, };
+static int jz4730_lcd_8bit_funcs[] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, };
+static int jz4730_lcd_16bit_funcs[] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, };
+static int jz4730_lcd_16bit_tft_funcs[] = { 1, 1, 1, 1, };
+static int jz4730_nand_cs1_funcs[] = { 1, };
+static int jz4730_nand_cs2_funcs[] = { 1, };
+static int jz4730_nand_cs3_funcs[] = { 1, };
+static int jz4730_nand_cs4_funcs[] = { 1, };
+static int jz4730_nand_cs5_funcs[] = { 1, };
+static int jz4730_pwm_pwm0_funcs[] = { 1, };
+static int jz4730_pwm_pwm1_funcs[] = { 1, };
+
+static const struct group_desc jz4730_groups[] = {
+	INGENIC_PIN_GROUP("mmc-1bit", jz4730_mmc_1bit),
+	INGENIC_PIN_GROUP("mmc-4bit", jz4730_mmc_4bit),
+	INGENIC_PIN_GROUP("uart0-data", jz4730_uart0_data),
+	INGENIC_PIN_GROUP("uart1-data", jz4730_uart1_data),
+	INGENIC_PIN_GROUP("uart2-data", jz4730_uart2_data),
+	INGENIC_PIN_GROUP("uart3-data", jz4730_uart3_data),
+	INGENIC_PIN_GROUP("uart3-hwflow", jz4730_uart3_hwflow),
+	INGENIC_PIN_GROUP("lcd-8bit", jz4730_lcd_8bit),
+	INGENIC_PIN_GROUP("lcd-16bit", jz4730_lcd_16bit),
+	INGENIC_PIN_GROUP("lcd-16bit-tft", jz4730_lcd_16bit_tft),
+	{ "lcd-no-pins", },
+	INGENIC_PIN_GROUP("nand-cs1", jz4730_nand_cs1),
+	INGENIC_PIN_GROUP("nand-cs2", jz4730_nand_cs2),
+	INGENIC_PIN_GROUP("nand-cs3", jz4730_nand_cs3),
+	INGENIC_PIN_GROUP("nand-cs4", jz4730_nand_cs4),
+	INGENIC_PIN_GROUP("nand-cs5", jz4730_nand_cs5),
+	INGENIC_PIN_GROUP("pwm0", jz4730_pwm_pwm0),
+	INGENIC_PIN_GROUP("pwm1", jz4730_pwm_pwm1),
+};
+
+static const char *jz4730_mmc_groups[] = { "mmc-1bit", "mmc-4bit", };
+static const char *jz4730_uart0_groups[] = { "uart0-data", };
+static const char *jz4730_uart1_groups[] = { "uart1-data", };
+static const char *jz4730_uart2_groups[] = { "uart2-data", };
+static const char *jz4730_uart3_groups[] = { "uart3-data", "uart3-hwflow", };
+static const char *jz4730_lcd_groups[] = {
+	"lcd-8bit", "lcd-16bit", "lcd-16bit-tft", "lcd-no-pins",
+};
+static const char *jz4730_nand_groups[] = {
+	"nand-cs1", "nand-cs2", "nand-cs3", "nand-cs4", "nand-cs5",
+};
+static const char *jz4730_pwm0_groups[] = { "pwm0", };
+static const char *jz4730_pwm1_groups[] = { "pwm1", };
+
+static const struct function_desc jz4730_functions[] = {
+	{ "mmc", jz4730_mmc_groups, ARRAY_SIZE(jz4730_mmc_groups), },
+	{ "uart0", jz4730_uart0_groups, ARRAY_SIZE(jz4730_uart0_groups), },
+	{ "uart1", jz4730_uart1_groups, ARRAY_SIZE(jz4730_uart1_groups), },
+	{ "uart2", jz4730_uart2_groups, ARRAY_SIZE(jz4730_uart2_groups), },
+	{ "uart3", jz4730_uart3_groups, ARRAY_SIZE(jz4730_uart3_groups), },
+	{ "lcd", jz4730_lcd_groups, ARRAY_SIZE(jz4730_lcd_groups), },
+	{ "nand", jz4730_nand_groups, ARRAY_SIZE(jz4730_nand_groups), },
+	{ "pwm0", jz4730_pwm0_groups, ARRAY_SIZE(jz4730_pwm0_groups), },
+	{ "pwm1", jz4730_pwm1_groups, ARRAY_SIZE(jz4730_pwm1_groups), },
+};
+
+static const struct ingenic_chip_info jz4730_chip_info = {
+	.num_chips = 4,
+	.reg_offset = 0x30,
+	.version = ID_JZ4730,
+	.groups = jz4730_groups,
+	.num_groups = ARRAY_SIZE(jz4730_groups),
+	.functions = jz4730_functions,
+	.num_functions = ARRAY_SIZE(jz4730_functions),
+	.pull_ups = jz4730_pull_ups,
+	.pull_downs = jz4730_pull_downs,
 };
 
 static const u32 jz4740_pull_ups[4] = {
@@ -153,14 +332,6 @@ static int jz4740_pwm_pwm4_funcs[] = { 0, };
 static int jz4740_pwm_pwm5_funcs[] = { 0, };
 static int jz4740_pwm_pwm6_funcs[] = { 0, };
 static int jz4740_pwm_pwm7_funcs[] = { 0, };
-
-#define INGENIC_PIN_GROUP(name, id)			\
-	{						\
-		name,					\
-		id##_pins,				\
-		ARRAY_SIZE(id##_pins),			\
-		id##_funcs,				\
-	}
 
 static const struct group_desc jz4740_groups[] = {
 	INGENIC_PIN_GROUP("mmc-1bit", jz4740_mmc_1bit),
@@ -1878,8 +2049,27 @@ static inline void ingenic_config_pin(struct ingenic_pinctrl *jzpc,
 	unsigned int idx = pin % PINS_PER_GPIO_CHIP;
 	unsigned int offt = pin / PINS_PER_GPIO_CHIP;
 
-	regmap_write(jzpc->map, offt * jzpc->info->reg_offset +
+	if (jzpc->info->version == ID_JZ4730)
+		regmap_update_bits(jzpc->map, offt * jzpc->info->reg_offset + reg,
+			BIT(idx), set ? BIT(idx) : 0);
+	else
+		regmap_write(jzpc->map, offt * jzpc->info->reg_offset +
 			(set ? REG_SET(reg) : REG_CLEAR(reg)), BIT(idx));
+}
+
+static void ingenic_config_pin_function(struct ingenic_pinctrl *jzpc,
+		u32 reg_upper, u32 reg_lower, u8 pin, u8 value)
+{
+	/*
+	 * JZ4730 function registers support two-bits-per-pin definitions, split
+	 * into two groups of 16. Banks of port registers are at 0x30 intervals.
+	 */
+	u32 reg = pin < JZ4730_PINS_PER_FUNC_REG ? reg_lower : reg_upper;
+	unsigned int idx = pin % JZ4730_PINS_PER_FUNC_REG;
+	unsigned int offt = pin / JZ4730_PINS_PER_FUNC_REG;
+
+	regmap_update_bits(jzpc->map, offt * 0x30 + reg,
+		3 << (idx << 1), value << (idx << 1));
 }
 
 static inline void ingenic_shadow_config_pin(struct ingenic_pinctrl *jzpc,
@@ -1953,6 +2143,9 @@ static int ingenic_pinmux_set_pin_fn(struct ingenic_pinctrl *jzpc,
 		ingenic_config_pin(jzpc, pin, GPIO_MSK, false);
 		ingenic_config_pin(jzpc, pin, JZ4760_GPIO_PAT1, func & 0x2);
 		ingenic_config_pin(jzpc, pin, JZ4760_GPIO_PAT0, func & 0x1);
+	} else if (jzpc->info->version == ID_JZ4730) {
+		ingenic_config_pin_function(jzpc, JZ4730_GPIO_GPAUR,
+			JZ4730_GPIO_GPALR, pin, func);
 	} else {
 		ingenic_config_pin(jzpc, pin, JZ4740_GPIO_FUNC, true);
 		ingenic_config_pin(jzpc, pin, JZ4740_GPIO_TRIG, func & 0x2);
@@ -2010,6 +2203,11 @@ static int ingenic_pinmux_gpio_set_direction(struct pinctrl_dev *pctldev,
 		ingenic_config_pin(jzpc, pin, JZ4760_GPIO_INT, false);
 		ingenic_config_pin(jzpc, pin, GPIO_MSK, true);
 		ingenic_config_pin(jzpc, pin, JZ4760_GPIO_PAT1, input);
+	} else if (jzpc->info->version == ID_JZ4730) {
+		ingenic_config_pin(jzpc, pin, JZ4730_GPIO_GPIER, false);
+		ingenic_config_pin(jzpc, pin, JZ4730_GPIO_GPDIR, input);
+		ingenic_config_pin_function(jzpc, JZ4730_GPIO_GPAUR,
+			JZ4730_GPIO_GPALR, pin, 0);
 	} else {
 		ingenic_config_pin(jzpc, pin, JZ4740_GPIO_SELECT, false);
 		ingenic_config_pin(jzpc, pin, JZ4740_GPIO_DIR, !input);
@@ -2038,6 +2236,8 @@ static int ingenic_pinconf_get(struct pinctrl_dev *pctldev,
 
 	if (jzpc->info->version >= ID_JZ4760)
 		pull = !ingenic_get_pin_config(jzpc, pin, JZ4760_GPIO_PEN);
+	else if (jzpc->info->version == ID_JZ4730)
+		pull = ingenic_get_pin_config(jzpc, pin, JZ4730_GPIO_GPPUR);
 	else
 		pull = !ingenic_get_pin_config(jzpc, pin, JZ4740_GPIO_PULL_DIS);
 
@@ -2088,6 +2288,8 @@ static void ingenic_set_bias(struct ingenic_pinctrl *jzpc,
 
 	} else if (jzpc->info->version >= ID_JZ4760) {
 		ingenic_config_pin(jzpc, pin, JZ4760_GPIO_PEN, !bias);
+	} else if (jzpc->info->version == ID_JZ4730) {
+		ingenic_config_pin(jzpc, pin, JZ4730_GPIO_GPPUR, bias);
 	} else {
 		ingenic_config_pin(jzpc, pin, JZ4740_GPIO_PULL_DIS, !bias);
 	}
@@ -2362,6 +2564,8 @@ static int __init ingenic_pinctrl_probe(struct platform_device *pdev)
 	if (!jzpc->pdesc)
 		return -ENOMEM;
 
+	/* name pins using the form "PXn" where "X" is "A", "B", "C", "D" and
+	   "n" is a number */
 	for (i = 0; i < pctl_desc->npins; i++) {
 		jzpc->pdesc[i].number = i;
 		jzpc->pdesc[i].name = kasprintf(GFP_KERNEL, "P%c%d",
@@ -2414,6 +2618,7 @@ static int __init ingenic_pinctrl_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id ingenic_pinctrl_of_match[] = {
+	{ .compatible = "ingenic,jz4730-pinctrl", .data = &jz4730_chip_info },
 	{ .compatible = "ingenic,jz4740-pinctrl", .data = &jz4740_chip_info },
 	{ .compatible = "ingenic,jz4725b-pinctrl", .data = &jz4725b_chip_info },
 	{ .compatible = "ingenic,jz4760-pinctrl", .data = &jz4760_chip_info },
@@ -2424,7 +2629,6 @@ static const struct of_device_id ingenic_pinctrl_of_match[] = {
 	{ .compatible = "ingenic,x1000e-pinctrl", .data = &x1000_chip_info },
 	{ .compatible = "ingenic,x1500-pinctrl", .data = &x1500_chip_info },
 	{ .compatible = "ingenic,x1830-pinctrl", .data = &x1830_chip_info },
-	{},
 };
 
 static struct platform_driver ingenic_pinctrl_driver = {
