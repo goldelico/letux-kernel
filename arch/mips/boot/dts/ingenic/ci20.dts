@@ -4,6 +4,7 @@
 #include "jz4780.dtsi"
 #include <dt-bindings/clock/ingenic,tcu.h>
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
 
 / {
 	compatible = "img,ci20", "ingenic,jz4780";
@@ -25,19 +26,29 @@
 		       0x30000000 0x30000000>;
 	};
 
+	gpio-keys {
+		compatible = "gpio-keys";
+
+		sw1 {
+			label = "ci20:sw1";
+			linux,code = <KEY_ENTER>;
+			gpios = <&gpd 17 GPIO_ACTIVE_HIGH>;
+			wakeup-source;
+		};
+	};
 	leds {
 		compatible = "gpio-leds";
 
 		led0 {
 			label = "ci20:red:led0";
 			gpios = <&gpc 3 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "none";
+			linux,default-trigger = "heartbeat";
 		};
 
 		led1 {
 			label = "ci20:red:led1";
 			gpios = <&gpc 2 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "nand-disk";
+			linux,default-trigger = "mmc0";
 		};
 
 		led2 {
@@ -65,6 +76,11 @@
 		regulator-name = "wlan0_power";
 		gpio = <&gpb 19 GPIO_ACTIVE_LOW>;
 		enable-active-high;
+	};
+
+	ir: ir-receiver {
+		compatible = "gpio-ir-receiver";
+		gpios = <&gpe 3 GPIO_ACTIVE_LOW>;
 	};
 };
 
@@ -97,10 +113,16 @@
 	brcmf: wifi@1 {
 /*		reg = <4>;*/
 		compatible = "brcm,bcm4330-fmac";
-		vcc-supply = <&wlan0_power>;
 		device-wakeup-gpios = <&gpd 9 GPIO_ACTIVE_HIGH>;
 		shutdown-gpios = <&gpf 7 GPIO_ACTIVE_LOW>;
 	};
+};
+
+&rtc_dev {
+	clocks = <&extrtc 0>;
+	clock-names = "rtc";
+
+	system-power-controller;
 };
 
 &uart0 {
@@ -148,6 +170,8 @@
 	pinctrl-0 = <&pins_uart4>;
 };
 
+#include <dt-bindings/regulator/active-semi,8865-regulator.h>
+
 &i2c0 {
 	status = "okay";
 
@@ -161,65 +185,81 @@
 		reg = <0x5a>;
 		status = "okay";
 
+/*
+Optional input supply properties:
+- for act8600:
+  - vp1-supply: The input supply for DCDC_REG1
+  - vp2-supply: The input supply for DCDC_REG2
+  - vp3-supply: The input supply for DCDC_REG3
+  - inl-supply: The input supply for LDO_REG5, LDO_REG6, LDO_REG7 and LDO_REG8
+  SUDCDC_REG4, LDO_REG9 and LDO_REG10 do not have separate supplies.
+*/
+
 		regulators {
 			vddcore: SUDCDC1 {
-				regulator-name = "VDDCORE";
+				regulator-name = "DCDC_REG1";
 				regulator-min-microvolt = <1100000>;
 				regulator-max-microvolt = <1100000>;
 				regulator-always-on;
 			};
 			vddmem: SUDCDC2 {
-				regulator-name = "VDDMEM";
+				regulator-name = "DCDC_REG2";
 				regulator-min-microvolt = <1500000>;
 				regulator-max-microvolt = <1500000>;
 				regulator-always-on;
 			};
 			vcc_33: SUDCDC3 {
-				regulator-name = "VCC33";
+				regulator-name = "DCDC_REG3";
 				regulator-min-microvolt = <3300000>;
 				regulator-max-microvolt = <3300000>;
 				regulator-always-on;
 			};
 			vcc_50: SUDCDC4 {
-				regulator-name = "VCC50";
+				regulator-name = "SUDCDC_REG4";
 				regulator-min-microvolt = <5000000>;
 				regulator-max-microvolt = <5000000>;
 				regulator-always-on;
 			};
 			vcc_25: LDO_REG5 {
-				regulator-name = "VCC25";
+				regulator-name = "LDO_REG5";
 				regulator-min-microvolt = <2500000>;
 				regulator-max-microvolt = <2500000>;
 				regulator-always-on;
 			};
 			wifi_io: LDO_REG6 {
-				regulator-name = "WIFIIO";
+				regulator-name = "LDO_REG6";
 				regulator-min-microvolt = <2500000>;
 				regulator-max-microvolt = <2500000>;
 				regulator-always-on;
 			};
 			vcc_28: LDO_REG7 {
-				regulator-name = "VCC28";
+				regulator-name = "LDO_REG7";
 				regulator-min-microvolt = <2800000>;
 				regulator-max-microvolt = <2800000>;
 				regulator-always-on;
 			};
 			vcc_15: LDO_REG8 {
-				regulator-name = "VCC15";
+				regulator-name = "LDO_REG8";
 				regulator-min-microvolt = <1500000>;
 				regulator-max-microvolt = <1500000>;
 				regulator-always-on;
 			};
-			vcc_18: LDO_REG9 {
-				regulator-name = "VCC18";
-				regulator-min-microvolt = <1800000>;
-				regulator-max-microvolt = <1800000>;
+			vrtc_18: LDO_REG9 {
+				regulator-name = "LDO_REG9";
+				/* Despite the datasheet stating 3.3V for REG9 and
+				   driver expecting that, REG9 outputs 1.8V.
+				   Likely the CI20 uses a chip variant.
+				   Since it is a simple on/off LDO the exact values
+				   do not matter.
+				*/
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
 				regulator-always-on;
 			};
 			vcc_11: LDO_REG10 {
-				regulator-name = "VCC11";
-				regulator-min-microvolt = <1100000>;
-				regulator-max-microvolt = <1100000>;
+				regulator-name = "LDO_REG10";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <1200000>;
 				regulator-always-on;
 			};
 		};
@@ -240,6 +280,43 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_i2c2>;
 
+	camera: ov5640@3c {
+		compatible = "omnivision,ov5640";
+		reg = <0x3c>;
+
+		core-supply = <&vcc_15>;
+		analog-supply = <&vcc_28>;
+
+		gpio-enable = <&gpb 18 0>;
+		gpio-reset = <&gpb 26 0>;
+
+		remote = <&cim>;
+		port {
+			ov5640_1: endpoint {
+				bus-width = <8>;
+				remote-endpoint = <&camera_ep>;
+			};
+		};
+	};
+
+};
+
+&cim {
+	clock-frequency = <24000000>;
+
+	port {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* Parallel bus endpoint */
+		camera_ep: endpoint@0 {
+			reg = <0>;		/* Local endpoint # */
+			remote-endpoint = <&ov5640_1>;
+			hsync-active = <1>;	/* Active high */
+			vsync-active = <1>;	/* Active high */
+			pclk-sample = <0>;	/* Falling */
+		};
+	};
 };
 
 &i2c3 {
@@ -258,10 +335,20 @@
 
 	clock-frequency = <400000>;
 
-		rtc@51 {
+		extrtc: rtc@51 {
+#ifdef BOARD_CI20_V1
+			compatible = "pericom,pt7c4338";
+			/* FIXME: clock out untested */
+			#clock-cells = <1>;
+			clock-output-names = "square", "clkout";
+#else
 			compatible = "nxp,pcf8563";
+			#clock-cells = <1>;
+#endif
 			reg = <0x51>;
-			interrupts = <110>;
+
+			interrupt-parent = <&gpf>;
+			interrupts = <30 IRQ_TYPE_LEVEL_LOW>;
 		};
 };
 
@@ -355,6 +442,9 @@
 
 		interrupt-parent = <&gpe>;
 		interrupts = <19 4>;
+
+		nvmem-cells = <&eth0_addr>;
+		nvmem-cell-names = "mac-address";
 	};
 };
 
@@ -450,6 +540,13 @@
 	pins_mmc1: mmc1 {
 		function = "mmc1";
 		groups = "mmc1-1bit-d", "mmc1-4bit-d";
+		bias-disable;
+	};
+
+	pins_cim: cim-pb {
+	/* see https://github.com/freebsd/freebsd/blob/master/sys/gnu/dts/mips/ingenic/jz4780.dtsi */
+		function = "cim";
+		// groups = "cim-???", "cim-???";
 		bias-disable;
 	};
 };
