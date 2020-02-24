@@ -669,7 +669,7 @@ static int sis_capture_open(struct snd_pcm_substream *substream)
 	runtime->private_data = voice;
 	runtime->hw = sis_capture_hw_info;
 	runtime->hw.rates = sis->ac97[0]->rates[AC97_RATES_ADC];
-	snd_pcm_limit_hw_rates(runtime);
+	snd_pcm_limit_hw_rates(&runtime->hw);
 	snd_pcm_hw_constraint_minmax(runtime, SNDRV_PCM_HW_PARAM_PERIOD_SIZE,
 						9, 0xfff9);
 	snd_pcm_hw_constraint_minmax(runtime, SNDRV_PCM_HW_PARAM_BUFFER_SIZE,

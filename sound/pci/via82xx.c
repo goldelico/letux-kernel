@@ -1171,7 +1171,7 @@ static int snd_via82xx_pcm_open(struct via82xx *chip, struct viadev *viadev,
 	if (chip->spdif_on && viadev->reg_offset == 0x30) {
 		/* DXS#3 and spdif is on */
 		runtime->hw.rates = chip->ac97->rates[AC97_RATES_SPDIF];
-		snd_pcm_limit_hw_rates(runtime);
+		snd_pcm_limit_hw_rates(&runtime->hw);
 	} else if (chip->dxs_fixed && viadev->reg_offset < 0x40) {
 		/* fixed DXS playback rate */
 		runtime->hw.rates = SNDRV_PCM_RATE_48000;
@@ -1186,7 +1186,7 @@ static int snd_via82xx_pcm_open(struct via82xx *chip, struct viadev *viadev,
 	} else if (! ratep->rate) {
 		int idx = viadev->direction ? AC97_RATES_ADC : AC97_RATES_FRONT_DAC;
 		runtime->hw.rates = chip->ac97->rates[idx];
-		snd_pcm_limit_hw_rates(runtime);
+		snd_pcm_limit_hw_rates(&runtime->hw);
 	} else {
 		/* a fixed rate */
 		runtime->hw.rates = SNDRV_PCM_RATE_KNOT;

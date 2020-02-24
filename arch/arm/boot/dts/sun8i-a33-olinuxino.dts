@@ -194,10 +194,12 @@
 				    "Headphone", "Headphone Jack";
 	/* Board level routing. First 2 routes copied from SoC level */
 	simple-audio-card,routing =
-		"Left DAC", "AIF1 Slot 0 Left",
-		"Right DAC", "AIF1 Slot 0 Right",
 		"HP", "HPCOM",
 		"Headphone Jack", "HP",
+		"Left DAC", "DAC Left",
+		"Right DAC", "DAC Right",
+		"ADC Left", "Left ADC",
+		"ADC Right", "Right ADC",
 		"MIC1", "Microphone Jack",
 		"Microphone Jack", "MBIAS";
 	status = "okay";
