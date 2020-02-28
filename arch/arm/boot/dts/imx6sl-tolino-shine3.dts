@@ -366,12 +366,6 @@
 	pinctrl-0 = <&pinctrl_ricoh_gpio>;
 };
 
-&tps6518x {
-	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&pinctrl_tps65185_gpio>;
-	pinctrl-1 = <&pinctrl_tps65185_gpio_sleep>;
-};
-
 &uart1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart1>;
