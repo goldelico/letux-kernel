@@ -107,6 +107,10 @@
 	status = "okay";
 };
 
+&cpu0 {
+	cpu-supply = <&reg_dcdc2>;
+};
+
 &de {
 	status = "okay";
 };
@@ -297,6 +301,10 @@
 		shutdown-gpios = <&pio 7 12 GPIO_ACTIVE_HIGH>; /* PH12 */
 		max-speed = <1500000>;
 	};
+};
+
+&usb_power_supply {
+	status = "okay";
 };
 
 &usbphy {
