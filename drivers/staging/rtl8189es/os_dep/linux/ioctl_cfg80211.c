@@ -20,6 +20,7 @@
 #define  _IOCTL_CFG80211_C_
 
 #include <drv_types.h>
+#include <linux/time64.h>
 
 #ifdef CONFIG_IOCTL_CFG80211
 
@@ -347,7 +348,10 @@ rtw_cfg80211_default_mgmt_stypes[NUM_NL80211_IFTYPES] = {
 
 static u64 rtw_get_systime_us(void)
 {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,20,0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0))
+       struct timespec64 ts = ns_to_timespec64(ktime_get_boottime());
+       return (ts.tv_sec*1000000) + ts.tv_nsec / 1000;
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4,20,0))
        struct timespec ts = ktime_to_timespec(ktime_get_boottime());
        return ((u64)ts.tv_sec*1000000) + ts.tv_nsec / 1000;
 #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,39))
