@@ -79,6 +79,7 @@
 			MX6SLL_PAD_SD1_DATA3__GPIO5_IO06                0x10059 /* TP_INT */
 			MX6SLL_PAD_SD1_DATA2__GPIO5_IO13                0x10059 /* TP_RST */
 		>;
+	};
 
 	pinctrl_epdc0: epdcgrp0 {
 		fsl,pins = <
