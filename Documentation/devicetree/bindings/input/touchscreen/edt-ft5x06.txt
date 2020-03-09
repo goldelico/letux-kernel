@@ -37,6 +37,7 @@ Optional properties:
                 control gpios
 
  - wakeup-source: If present the device will act as wakeup-source
+ - vdd-supply:  The controller supply
 
  - threshold:   allows setting the "click"-threshold in the range
                 from 0 to 80.
@@ -68,6 +69,7 @@ Example:
 	polytouch: edt-ft5x06@38 {
 		compatible = "edt,edt-ft5406", "edt,edt-ft5x06";
 		reg = <0x38>;
+		vdd-supply = <&reg_ldo_io0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&edt_ft5x06_pins>;
 		interrupt-parent = <&gpio2>;
