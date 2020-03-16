@@ -113,6 +113,10 @@
 	status = "okay";
 };
 
+&cpu0 {
+	cpu-supply = <&reg_dcdc2>;
+};
+
 &de {
 	status = "okay";
 };
@@ -163,6 +167,14 @@
 };
 
 #include "axp22x.dtsi"
+
+&ac_power_supply {
+	status = "okay";
+};
+
+&battery_power_supply {
+	status = "okay";
+};
 
 &mmc0 {
 	vmmc-supply = <&reg_dcdc1>;
@@ -322,6 +334,10 @@
 		shutdown-gpios = <&pio 7 12 GPIO_ACTIVE_HIGH>; /* PH12 */
 		max-speed = <1500000>;
 	};
+};
+
+&usb_power_supply {
+	status = "okay";
 };
 
 &usbphy {

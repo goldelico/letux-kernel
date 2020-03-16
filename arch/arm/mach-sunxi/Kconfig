@@ -6,6 +6,7 @@ menuconfig ARCH_SUNXI
 	select CLKSRC_MMIO
 	select GENERIC_IRQ_CHIP
 	select GPIOLIB
+	select IRQ_DOMAIN_HIERARCHY
 	select PINCTRL
 	select PM_OPP
 	select SUN4I_TIMER
