@@ -4,7 +4,8 @@
 #include "jz4780.dtsi"
 #include <dt-bindings/clock/ingenic,tcu.h>
 #include <dt-bindings/gpio/gpio.h>
-#include <dt-bindings/input/input.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/regulator/active-semi,8865-regulator.h>
 
 / {
 	compatible = "img,ci20", "ingenic,jz4780";
@@ -194,8 +195,6 @@
 	pinctrl-0 = <&pins_uart4>;
 };
 
-#include <dt-bindings/regulator/active-semi,8865-regulator.h>
-
 &i2c0 {
 	status = "okay";
 
@@ -270,12 +269,14 @@ Optional input supply properties:
 			};
 			vrtc_18: LDO_REG9 {
 				regulator-name = "LDO_REG9";
-				/* Despite the datasheet stating 3.3V for REG9 and
-				   driver expecting that, REG9 outputs 1.8V.
-				   Likely the CI20 uses a chip variant.
-				   Since it is a simple on/off LDO the exact values
-				   do not matter.
-				*/
+				/* Despite the datasheet stating 3.3V
+				 * for REG9 and the driver expecting that,
+				 * REG9 outputs 1.8V.
+				 * Likely the CI20 uses a proprietary
+				 * factory programmed chip variant.
+				 * Since this is a simple on/off LDO the
+				 * exact values do not matter.
+				 */
 				regulator-min-microvolt = <3300000>;
 				regulator-max-microvolt = <3300000>;
 				regulator-always-on;
