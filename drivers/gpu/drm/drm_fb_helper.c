@@ -2070,6 +2070,7 @@ static int drm_fb_helper_generic_probe(struct drm_fb_helper *fb_helper,
 	u32 format;
 	void *vaddr;
 
+printk("%s: 1", __func__);
 	drm_dbg_kms(dev, "surface width(%d), height(%d) and bpp(%d)\n",
 		    sizes->surface_width, sizes->surface_height,
 		    sizes->surface_bpp);
@@ -2080,6 +2081,7 @@ static int drm_fb_helper_generic_probe(struct drm_fb_helper *fb_helper,
 	if (IS_ERR(buffer))
 		return PTR_ERR(buffer);
 
+printk("%s: 2", __func__);
 	fb_helper->buffer = buffer;
 	fb_helper->fb = buffer->fb;
 	fb = buffer->fb;
@@ -2094,7 +2096,9 @@ static int drm_fb_helper_generic_probe(struct drm_fb_helper *fb_helper,
 
 	drm_fb_helper_fill_info(fbi, fb_helper, sizes);
 
+printk("%s: 3", __func__);
 	if (drm_fbdev_use_shadow_fb(fb_helper)) {
+printk("%s: 4", __func__);
 		fbi->screen_buffer = vzalloc(fbi->screen_size);
 		if (!fbi->screen_buffer)
 			return -ENOMEM;
@@ -2103,6 +2107,7 @@ static int drm_fb_helper_generic_probe(struct drm_fb_helper *fb_helper,
 
 		fb_deferred_io_init(fbi);
 	} else {
+printk("%s: 5", __func__);
 		/* buffer is mapped for HW framebuffer */
 		vaddr = drm_client_buffer_vmap(fb_helper->buffer);
 		if (IS_ERR(vaddr))
@@ -2116,6 +2121,7 @@ static int drm_fb_helper_generic_probe(struct drm_fb_helper *fb_helper,
 				page_to_phys(virt_to_page(fbi->screen_buffer));
 #endif
 	}
+printk("%s: 6", __func__);
 
 	return 0;
 }

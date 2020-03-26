@@ -92,10 +92,16 @@ EXPORT_SYMBOL_GPL(fb_deferred_io_fsync);
 /* vm_ops->page_mkwrite handler */
 static vm_fault_t fb_deferred_io_mkwrite(struct vm_fault *vmf)
 {
+if(!vmf) printk("%s: vmf == NULL", __func__);
 	struct page *page = vmf->page;
+if(!vmf->vma) printk("%s: vmf->vma == NULL", __func__);
 	struct fb_info *info = vmf->vma->vm_private_data;
+if(!info) printk("%s: info == NULL", __func__);
 	struct fb_deferred_io *fbdefio = info->fbdefio;
+if(!fbdefio) printk("%s: fbdefio == NULL", __func__);
 	struct page *cur;
+
+printk("%s: 1 vmf=%px page=%px vma=%px info=%px fbdefio=%px", __func__, vmf, vmf->page, vmf->vma, info, fbdefio);
 
 	/* this is a callback we get when userspace first tries to
 	write to the page. we schedule a workqueue. that workqueue
@@ -103,12 +109,14 @@ static vm_fault_t fb_deferred_io_mkwrite(struct vm_fault *vmf)
 	deferred framebuffer IO. then if userspace touches a page
 	again, we repeat the same scheme */
 
+if(!vmf->vma->vm_file) printk("%s: vmf->vma->vm_file == NULL", __func__);
 	file_update_time(vmf->vma->vm_file);
 
 	/* protect against the workqueue changing the page list */
 	mutex_lock(&fbdefio->lock);
 
 	/* first write in this cycle, notify the driver */
+if(!fbdefio->first_io) printk("%s: fbdefio->first_io == NULL", __func__);
 	if (fbdefio->first_io && list_empty(&fbdefio->pagelist))
 		fbdefio->first_io(info);
 
@@ -120,11 +128,16 @@ static vm_fault_t fb_deferred_io_mkwrite(struct vm_fault *vmf)
 	 * Do this by locking the page here and informing the caller
 	 * about it with VM_FAULT_LOCKED.
 	 */
+if(!page) printk("%s: page == NULL", __func__);
+printk("%s: 2", __func__);
 	lock_page(page);
+printk("%s: 3", __func__);
 
 	/* we loop through the pagelist before adding in order
 	to keep the pagelist sorted */
 	list_for_each_entry(cur, &fbdefio->pagelist, lru) {
+printk("%s: 4 page=%px", __func__, cur);
+if(!cur) printk("%s: cur == NULL", __func__);
 		/* this check is to catch the case where a new
 		process could start writing to the same page
 		through a new pte. this new access can cause the
@@ -136,11 +149,14 @@ static vm_fault_t fb_deferred_io_mkwrite(struct vm_fault *vmf)
 			break;
 	}
 
+printk("%s: 5", __func__);
 	list_add_tail(&page->lru, &cur->lru);
 
 page_already_added:
+printk("%s: 6", __func__);
 	mutex_unlock(&fbdefio->lock);
 
+printk("%s: 7", __func__);
 	/* come back after delay to process the deferred IO */
 	schedule_delayed_work(&info->deferred_work, fbdefio->delay);
 	return VM_FAULT_LOCKED;
@@ -203,6 +219,7 @@ void fb_deferred_io_init(struct fb_info *info)
 {
 	struct fb_deferred_io *fbdefio = info->fbdefio;
 
+printk("%s: 1", __func__);
 	BUG_ON(!fbdefio);
 	mutex_init(&fbdefio->lock);
 	INIT_DELAYED_WORK(&info->deferred_work, fb_deferred_io_work);
