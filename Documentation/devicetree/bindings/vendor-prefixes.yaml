@@ -337,6 +337,8 @@ patternProperties:
     description: Fastrax Oy
   "^fcs,.*":
     description: Fairchild Semiconductor
+  "^feixin,.*":
+    description: Shenzhen Feixin Photoelectic Co., Ltd
   "^feiyang,.*":
     description: Shenzhen Fly Young Technology Co.,LTD.
   "^firefly,.*":
@@ -377,6 +379,8 @@ patternProperties:
     description: GlobalTop Technology, Inc.
   "^gmt,.*":
     description: Global Mixed-mode Technology, Inc.
+  "^goldelico,.*":
+    description: Golden Delicious Computers GmbH & Co. KG
   "^goodix,.*":
     description: Shenzhen Huiding Technology Co., Ltd.
   "^google,.*":
@@ -707,6 +711,8 @@ patternProperties:
     description: Opal Kelly Incorporated
   "^opencores,.*":
     description: OpenCores.org
+  "^openpandora,.*":
+    description: OpenPandora GmbH
   "^openrisc,.*":
     description: OpenRISC.io
   "^option,.*":

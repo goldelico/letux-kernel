@@ -22,11 +22,59 @@
 #define CELL	"#sound-dai-cells"
 #define PREFIX	"simple-audio-card,"
 
+static int simple_hw_params(struct snd_pcm_substream *substream,
+			    struct snd_pcm_hw_params *params);
+
 static const struct snd_soc_ops simple_ops = {
 	.startup	= asoc_simple_startup,
 	.shutdown	= asoc_simple_shutdown,
-	.hw_params	= asoc_simple_hw_params,
+	.hw_params	= simple_hw_params,
 };
+
+static int asoc_simple_set_clkdiv(struct snd_soc_dai *dai,
+				  struct asoc_simple_dai *simple_dai)
+{
+	if (!simple_dai->clk_div_set)
+		return 0;
+
+	return snd_soc_dai_set_clkdiv(dai,
+				      simple_dai->clk_div_id,
+				      simple_dai->clk_div);
+}
+
+static int simple_hw_params(struct snd_pcm_substream *substream,
+			    struct snd_pcm_hw_params *params)
+{
+#if 1	// code below should be fixed
+	return asoc_simple_hw_params(substream, params);
+#else
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct simple_priv *priv = snd_soc_card_get_drvdata(rtd->card);
+	struct simple_dai_props *dai_props =
+		simple_priv_to_props(priv, rtd->num);
+	unsigned int mclk, mclk_fs = 0;
+	int ret = 0;
+
+	if (dai_props->mclk_fs)
+		mclk_fs = dai_props->mclk_fs;
+
+	if (mclk_fs) {
+		mclk = params_rate(params) * mclk_fs;
+
+	ret = asoc_simple_set_clkdiv(codec_dai, dai_props->codec_dai);
+	if (ret < 0)
+		return ret;
+
+	ret = asoc_simple_set_clkdiv(cpu_dai, dai_props->cpu_dai);
+	if (ret < 0)
+		return ret;
+	return 0;
+err:
+	return ret;
+#endif
+}
 
 static int asoc_simple_parse_dai(struct device_node *node,
 				 struct snd_soc_dai_link_component *dlc,
@@ -75,6 +123,16 @@ static int asoc_simple_parse_dai(struct device_node *node,
 		*is_single_link = !args.args_count;
 
 	return 0;
+}
+
+static void simple_parse_codec_to_codec(struct device_node *node,
+					struct simple_dai_props *props,
+					char *prefix)
+{
+	char prop[128];
+
+	snprintf(prop, sizeof(prop), "%scodec-to-codec", prefix);
+	props->codec_to_codec = of_property_read_bool(node, prop);
 }
 
 static void simple_parse_convert(struct device *dev,
@@ -217,6 +275,7 @@ static int simple_dai_link_of_dpcm(struct asoc_simple_priv *priv,
 					     "prefix");
 	}
 
+	simple_parse_codec_to_codec(node, dai_props, prefix);
 	simple_parse_convert(dev, np, &dai_props->adata);
 	simple_parse_mclk_fs(top, np, codec, dai_props, prefix);
 
@@ -292,6 +351,7 @@ static int simple_dai_link_of(struct asoc_simple_priv *priv,
 	if (ret < 0)
 		goto dai_link_of_err;
 
+	simple_parse_codec_to_codec(node, dai_props, prefix);
 	simple_parse_mclk_fs(top, cpu, codec, dai_props, prefix);
 
 	ret = asoc_simple_parse_cpu(cpu, dai_link, &single_cpu);

@@ -9,6 +9,16 @@ obj-y += prom.o time.o reset.o setup.o timer.o
 
 CFLAGS_setup.o = -I$(src)/../../../scripts/dtc/libfdt
 
+# board specific support
+
+obj-$(CONFIG_JZ4730_MINIPC)	+= board-minipc.o
+obj-$(CONFIG_JZ4740_QI_LB60)	+= board-qi_lb60.o
+
 # PM support
 
 obj-$(CONFIG_PM) += pm.o
+
+# SMP support
+
+obj-$(CONFIG_SMP) += smp.o
+obj-$(CONFIG_SMP) += smp-entry.o
