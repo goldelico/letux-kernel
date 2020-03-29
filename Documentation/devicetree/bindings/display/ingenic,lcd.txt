@@ -5,10 +5,9 @@ Required properties:
   * ingenic,jz4740-lcd
   * ingenic,jz4725b-lcd
   * ingenic,jz4770-lcd
-  * ingenic,jz4780-lcd
 - reg: LCD registers location and length
 - clocks: LCD pixclock and device clock specifiers.
-	   The device clock is only required on the JZ4740 and JZ4780.
+	   The device clock is only required on the JZ4740.
 - clock-names: "lcd_pclk" and "lcd"
 - interrupts: Specifies the interrupt line the LCD controller is connected to.
 
