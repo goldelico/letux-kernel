@@ -529,8 +529,8 @@
 		};
 
 		twl_power: power {
-			compatible = "ti,twl4030-power";
-			ti,use_poweroff;
+			compatible = "ti,twl4030-power-reset";
+			ti,system-power-controller;
 		};
 	};
 };
