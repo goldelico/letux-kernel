@@ -1116,12 +1116,6 @@
 	};
 };
 
-/* ??? */
-
-&twl_power {
-	compatible = "ti,twl4030-power-reset";
-};
-
 /* spare LDO */
 
 &vmmc2 {
