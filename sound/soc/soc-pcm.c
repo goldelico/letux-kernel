@@ -623,7 +623,6 @@ int snd_soc_runtime_calc_hw(struct snd_soc_pcm_runtime *rtd,
 			continue;
 
 		codec_stream = snd_soc_dai_get_pcm_stream(codec_dai, stream);
-
 		chan_min = max(chan_min, codec_stream->channels_min);
 		chan_max = min(chan_max, codec_stream->channels_max);
 		rate_min = max(rate_min, codec_stream->rate_min);
@@ -2023,7 +2022,7 @@ static int dpcm_fe_dai_startup(struct snd_pcm_substream *fe_substream)
 	fe->dpcm[stream].state = SND_SOC_DPCM_STATE_OPEN;
 
 	dpcm_set_fe_runtime(fe_substream);
-	snd_pcm_limit_hw_rates(runtime);
+	snd_pcm_limit_hw_rates(&runtime->hw);
 
 	ret = dpcm_apply_symmetry(fe_substream, stream);
 	if (ret < 0)
