@@ -1,5 +1,5 @@
 #
-# Linux/arm 5.5.15 Kernel Configuration
+# Linux/arm 5.5.17 Kernel Configuration
 #
 
 #
@@ -484,7 +484,7 @@ CONFIG_ARM_ERRATA_798181=y
 #
 # Bus support
 #
-# CONFIG_ARM_ERRATA_814220 is not set
+CONFIG_ARM_ERRATA_814220=y
 # end of Bus support
 
 #
