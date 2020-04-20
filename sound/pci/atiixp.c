@@ -1035,7 +1035,7 @@ static int snd_atiixp_pcm_open(struct snd_pcm_substream *substream,
 	dma->ac97_pcm_type = pcm_type;
 	if (pcm_type >= 0) {
 		runtime->hw.rates = chip->pcms[pcm_type]->rates;
-		snd_pcm_limit_hw_rates(&runtime->hw);
+		snd_pcm_limit_hw_rates(runtime);
 	} else {
 		/* direct SPDIF */
 		runtime->hw.formats = SNDRV_PCM_FMTBIT_IEC958_SUBFRAME_LE;
