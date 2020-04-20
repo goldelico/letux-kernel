@@ -601,7 +601,7 @@ static int azx_pcm_open(struct snd_pcm_substream *substream)
 	runtime->hw.channels_max = hinfo->channels_max;
 	runtime->hw.formats = hinfo->formats;
 	runtime->hw.rates = hinfo->rates;
-	snd_pcm_limit_hw_rates(&runtime->hw);
+	snd_pcm_limit_hw_rates(runtime);
 	snd_pcm_hw_constraint_integer(runtime, SNDRV_PCM_HW_PARAM_PERIODS);
 
 	/* avoid wrap-around with wall-clock */
@@ -644,7 +644,7 @@ static int azx_pcm_open(struct snd_pcm_substream *substream)
 		azx_release_device(azx_dev);
 		goto powerdown;
 	}
-	snd_pcm_limit_hw_rates(&runtime->hw);
+	snd_pcm_limit_hw_rates(runtime);
 	/* sanity check */
 	if (snd_BUG_ON(!runtime->hw.channels_min) ||
 	    snd_BUG_ON(!runtime->hw.channels_max) ||
