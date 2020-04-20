@@ -430,7 +430,7 @@ static int omap_abe_stream_event(struct snd_soc_dapm_context *dapm, int event)
 static int omap_abe_twl6040_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_component *component = asoc_rtd_to_codec(rtd, 0)->component;
-	struct snd_soc_codec *codec = asoc_rtd_to_codec(rtd, 0);
+//	struct snd_soc_codec *codec = asoc_rtd_to_codec(rtd, 0);
 	struct snd_soc_card *card = rtd->card;
 	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
 	int hs_trim;
