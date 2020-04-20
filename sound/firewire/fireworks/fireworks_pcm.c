@@ -149,7 +149,7 @@ pcm_init_hw_params(struct snd_efw *efw,
 
 	/* limit rates */
 	runtime->hw.rates = efw->supported_sampling_rate,
-	snd_pcm_limit_hw_rates(&runtime->hw);
+	snd_pcm_limit_hw_rates(runtime);
 
 	limit_channels(&runtime->hw, pcm_channels);
 
