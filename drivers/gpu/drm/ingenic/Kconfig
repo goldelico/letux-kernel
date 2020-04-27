@@ -14,3 +14,11 @@ config DRM_INGENIC
 	  Choose this option for DRM support for the Ingenic SoCs.
 
 	  If M is selected the module will be called ingenic-drm.
+
+config DRM_DW_HDMI_JZ4780
+	tristate "HDMI Support for Ingenic JZ4780"
+	depends on DRM_INGENIC
+	depends on OF
+	select DRM_DW_HDMI
+	help
+	  Choose this option for HDMI output from the Ingenic JZ4780.
