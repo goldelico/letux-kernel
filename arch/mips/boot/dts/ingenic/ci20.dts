@@ -97,16 +97,16 @@
 		};
 	};
 
+	ir: ir {
+		compatible = "gpio-ir-receiver";
+		gpios = <&gpe 3 GPIO_ACTIVE_LOW>;
+	};
+
 	wlan0_power: fixedregulator@1 {
 		compatible = "regulator-fixed";
 		regulator-name = "wlan0_power";
 		gpio = <&gpb 19 GPIO_ACTIVE_LOW>;
 		enable-active-high;
-	};
-
-	ir: ir-receiver {
-		compatible = "gpio-ir-receiver";
-		gpios = <&gpe 3 GPIO_ACTIVE_LOW>;
 	};
 };
 
