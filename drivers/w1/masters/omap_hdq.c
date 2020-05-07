@@ -322,10 +322,12 @@ static int hdq_read_byte(struct hdq_data *hdq_data, u8 *val)
 		 */
 		wait_event_timeout(hdq_wait_queue,
 				   (hdq_data->hdq_irqstatus
-				    & OMAP_HDQ_INT_STATUS_RXCOMPLETE),
+				    & (OMAP_HDQ_INT_STATUS_RXCOMPLETE |
+				       OMAP_HDQ_INT_STATUS_TIMEOUT)),
 				   OMAP_HDQ_TIMEOUT);
 		status = hdq_reset_irqstatus(hdq_data,
-					     OMAP_HDQ_INT_STATUS_RXCOMPLETE);
+					     OMAP_HDQ_INT_STATUS_RXCOMPLETE |
+					     OMAP_HDQ_INT_STATUS_TIMEOUT);
 		hdq_reg_merge(hdq_data, OMAP_HDQ_CTRL_STATUS, 0,
 			OMAP_HDQ_CTRL_STATUS_DIR);
 
