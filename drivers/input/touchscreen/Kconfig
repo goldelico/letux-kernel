@@ -1408,6 +1408,14 @@ config TOUCHSCREEN_CYPRESS_CYTTSP5_I2C
           To compile this driver as a module, choose M here: the
           module will be called cyttsp5_i2c.
 
+config TOUCHSCREEN_CYPRESS_CYTTSP5_EMULATION
+	bool "Enable pointer emulation"
+	depends on TOUCHSCREEN_CYPRESS_CYTTSP5 && TOUCHSCREEN_CYPRESS_CYTTSP5_MT_B
+	help
+	  Say Y here to enable pointer emulation.
+
+	  If unsure, say N.
+
 choice
         bool "Parade TrueTouch Gen5 MultiTouch Protocol"
         depends on TOUCHSCREEN_CYPRESS_CYTTSP5
