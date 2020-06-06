@@ -69,10 +69,10 @@
 
 #include "epdc_v2_regs.h"
 
+#ifndef EPDC_V1
 #define EPDC_STANDARD_MODE
-
+#endif
 #define USE_PS_AS_OUTPUT
-
 /*
  * Enable this define to have a default panel
  * loaded during driver initialization
@@ -3331,6 +3331,7 @@ static int epdc_process_update(struct update_data_list *upd_data_list,
 		return ret;
 	}
 #endif
+#ifndef EPDC_V1
 	pr_debug(" upd_data.dither_mode %d  \n", upd_desc_list->upd_data.dither_mode);
 	fb_data->pxp_conf.proc_data.dither_mode = 0;
 
@@ -3373,7 +3374,7 @@ static int epdc_process_update(struct update_data_list *upd_data_list,
 	fb_data->pxp_conf.proc_data.reagl_d_en =
 		(upd_desc_list->upd_data.waveform_mode == WAVEFORM_MODE_GLD16);
 #endif //] MXCFB_WAVEFORM_MODES_NTX
-
+#endif
 	mutex_unlock(&fb_data->pxp_mutex);
 
 	/* Update waveform mode from PxP histogram results */
@@ -3665,6 +3666,7 @@ static void epdc_submit_work_func(struct work_struct *work)
 	if ((fb_data->epdc_fb_var.rotate == FB_ROTATE_UR) &&
 		(fb_data->epdc_fb_var.grayscale == GRAYSCALE_8BIT) &&
 		!is_transform && (proc_data->dither_mode == 0) &&
+		(fb_data->rev > 20) &&
 		!fb_data->restrict_width) {
 
 		/* If needed, enable EPDC HW while ePxP is processing */
@@ -4967,6 +4969,7 @@ static void epdc_intr_work_func(struct work_struct *work)
 		epdc_clear_lut_complete_irq(fb_data->rev, i);
 
 		fb_data->luts_complete_wb |= 1ULL << i;
+
 		if (i != 0)
 			fb_data->luts_complete |= 1ULL << i;
 
@@ -6015,6 +6018,7 @@ static struct device_attribute fb_attrs[] = {
 };
 
 static const struct of_device_id imx_epdc_dt_ids[] = {
+	{ .compatible = "fsl,imx6dl-epdc", },
 	{ .compatible = "fsl,imx7d-epdc", },
 	{ /* sentinel */ }
 };
@@ -6177,7 +6181,9 @@ static int mxc_epdc_fb_probe(struct platform_device *pdev)
 			"err = 0x%x\n", (int)fb_data->tmst_regulator);
 	}
 
+#ifndef EPDC_V1
 	fb_data->epdc_wb_mode = 1;
+#endif
 	fb_data->tce_prevent = 0;
 
 	if (options)
@@ -6903,9 +6909,9 @@ static int mxc_epdc_fb_resume(struct device *dev)
 	struct mxc_epdc_fb_data *data = dev_get_drvdata(dev);
 
 	pinctrl_pm_select_default_state(dev);
-
+#ifndef EPDC_V1
 	mxc_epdc_restore_qos(data);
-
+#endif
 #ifdef EPD_SUSPEND_BLANK
 	mxc_epdc_fb_blank(FB_BLANK_UNBLANK, &data->info);
 #endif
