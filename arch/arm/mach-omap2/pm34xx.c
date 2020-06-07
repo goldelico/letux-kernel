@@ -411,7 +411,7 @@ static int __init pwrdms_setup(struct powerdomain *pwrdm, void *unused)
 		return -ENOMEM;
 	pwrst->pwrdm = pwrdm;
 
-	if (IS_ENABLED(CONFIG_OMAP3_PM_OFFMODE))
+	if (enable_off_mode)
 		pwrst->next_state = PWRDM_POWER_OFF;
 	else
 		pwrst->next_state = PWRDM_POWER_RET;
