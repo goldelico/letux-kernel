@@ -69,9 +69,6 @@
 
 #include "epdc_v2_regs.h"
 
-#ifndef EPDC_V1
-#define EPDC_STANDARD_MODE
-#endif
 #define USE_PS_AS_OUTPUT
 /*
  * Enable this define to have a default panel
@@ -129,6 +126,7 @@ unsigned char gbFPL_Platform ;
 static u64 used_luts = 0x1;	/* do not use LUT0 */
 static unsigned long default_bpp = 16;
 static int vcom_nominal;
+static bool standard_mode;	/* true means driver v2, false means v1 emulation */
 
 struct update_marker_data {
 	struct list_head full_list;
@@ -1488,11 +1486,10 @@ static inline void epdc_set_screen_res(u32 width, u32 height)
 
 static inline void epdc_set_update_addr(u32 addr)
 {
-#ifdef	EPDC_STANDARD_MODE
-	__raw_writel(0, EPDC_UPD_ADDR);
-#else
-	__raw_writel(addr, EPDC_UPD_ADDR);
-#endif
+	if (standard_mode)
+		__raw_writel(0, EPDC_UPD_ADDR);
+	else
+		__raw_writel(addr, EPDC_UPD_ADDR);
 }
 
 static inline void epdc_set_update_coord(u32 x, u32 y)
@@ -1515,9 +1512,8 @@ static void epdc_set_update_waveform(struct mxcfb_waveform_modes *wv_modes)
 {
 	u32 val;
 
-#ifdef EPDC_STANDARD_MODE
-	return;
-#endif
+	if (standard_mode)
+		return;
 
 	/* Configure the auto-waveform look-up table based on waveform modes */
 
@@ -1544,11 +1540,10 @@ static void epdc_set_update_waveform(struct mxcfb_waveform_modes *wv_modes)
 
 static void epdc_set_update_stride(u32 stride)
 {
-#ifdef EPDC_STANDARD_MODE
-	__raw_writel(0, EPDC_UPD_STRIDE);
-#else
-	__raw_writel(stride, EPDC_UPD_STRIDE);
-#endif
+	if (standard_mode)
+		__raw_writel(0, EPDC_UPD_STRIDE);
+	else
+		__raw_writel(stride, EPDC_UPD_STRIDE);
 }
 
 static void epdc_submit_update(u32 lut_num, u32 waveform_mode, u32 update_mode,
@@ -1590,11 +1585,11 @@ static void epdc_submit_update(u32 lut_num, u32 waveform_mode, u32 update_mode,
 	     EPDC_UPD_CTRL_LUT_SEL_MASK) |
 	    update_mode;
 
-#ifdef EPDC_STANDARD_MODE
-	reg_val |= 0x80000000;
+	if (standard_mode) {
+		reg_val |= 0x80000000;
+		epdc_set_used_lut(lut_num);
+	}
 
-	epdc_set_used_lut(lut_num);
-#endif
 	dump_epdc_reg();
 	__raw_writel(reg_val, EPDC_UPD_CTRL);
 	giLast_waveform_mode = waveform_mode;
@@ -1669,17 +1664,17 @@ static inline bool epdc_any_luts_real_available(void)
 
 static inline bool epdc_any_luts_available(void)
 {
-#ifdef EPDC_STANDARD_MODE
-	if (((u32)used_luts != ~0UL) || ((u32)(used_luts >> 32) != ~0UL))
-		return 1;
-	else
-		return 0;
-#else
-	bool luts_available =
-	    (__raw_readl(EPDC_STATUS_NEXTLUT) &
-	     EPDC_STATUS_NEXTLUT_NEXT_LUT_VALID) ? true : false;
-	return luts_available;
-#endif
+	if (standard_mode) {
+		if (((u32)used_luts != ~0UL) || ((u32)(used_luts >> 32) != ~0UL))
+			return 1;
+		else
+			return 0;
+	} else {
+		bool luts_available =
+		    (__raw_readl(EPDC_STATUS_NEXTLUT) &
+		     EPDC_STATUS_NEXTLUT_NEXT_LUT_VALID) ? true : false;
+		return luts_available;
+	}
 }
 
 static inline int epdc_get_next_lut(void)
@@ -1700,7 +1695,6 @@ static inline void epdc_reset_used_lut(void)
 	used_luts = 0x1;
 }
 
-#ifdef EPDC_STANDARD_MODE
 /*
  * in previous flow, when all LUTs are used, the LUT cleanup operation
  * need to wait for all the LUT to finish, it will not happen util last LUT
@@ -1710,6 +1704,8 @@ static inline void epdc_reset_used_lut(void)
  */
 static int epdc_choose_next_lut(struct mxc_epdc_fb_data *fb_data, int *next_lut)
 {
+	if (standard_mode) {
+
 	while (!epdc_any_luts_available()) {
 		u64 luts_complete = fb_data->luts_complete;
 		pxp_clear_wb_work_func(fb_data);
@@ -1728,10 +1724,9 @@ static int epdc_choose_next_lut(struct mxc_epdc_fb_data *fb_data, int *next_lut)
 		*next_lut = ffz((u32)(used_luts >> 32)) + 32;
 
 	return 0;
-}
-#else
-static int epdc_choose_next_lut(struct mxc_epdc_fb_data *fb_data, int *next_lut)
-{
+
+	} else {
+
 	u64 luts_status, unprocessed_luts, used_luts;
 	/* Available LUTs are reduced to 16 in 5-bit waveform mode */
 	bool format_p5n = ((__raw_readl(EPDC_FORMAT) &
@@ -1793,8 +1788,8 @@ static int epdc_choose_next_lut(struct mxc_epdc_fb_data *fb_data, int *next_lut)
 		return 1;
 	else
 		return 0;
+	}
 }
-#endif
 
 static inline bool epdc_is_working_buffer_busy(void)
 {
@@ -1871,9 +1866,6 @@ static void epdc_init_settings(struct mxc_epdc_fb_data *fb_data)
 	struct fb_var_screeninfo *screeninfo = &fb_data->epdc_fb_var;
 	u32 reg_val;
 	int num_ce;
-#ifndef EPDC_STANDARD_MODE
-	int i;
-#endif
 	int j;
 	unsigned char *bb_p;
 
@@ -1895,26 +1887,25 @@ static void epdc_init_settings(struct mxc_epdc_fb_data *fb_data)
 	/* EPDC_CTRL */
 	reg_val = __raw_readl(EPDC_CTRL);
 	reg_val &= ~EPDC_CTRL_UPD_DATA_SWIZZLE_MASK;
-#ifdef	EPDC_STANDARD_MODE
-	reg_val |= EPDC_CTRL_UPD_DATA_SWIZZLE_ALL_BYTES_SWAP;
-#else
-	reg_val |= EPDC_CTRL_UPD_DATA_SWIZZLE_NO_SWAP;
-#endif
+	if (standard_mode)
+		reg_val |= EPDC_CTRL_UPD_DATA_SWIZZLE_ALL_BYTES_SWAP;
+	else
+		reg_val |= EPDC_CTRL_UPD_DATA_SWIZZLE_NO_SWAP;
+
 	reg_val &= ~EPDC_CTRL_LUT_DATA_SWIZZLE_MASK;
 	reg_val |= EPDC_CTRL_LUT_DATA_SWIZZLE_NO_SWAP;
 	__raw_writel(reg_val, EPDC_CTRL_SET);
 
 	/* EPDC_FORMAT - 2bit TFT and 4bit Buf pixel format */
 	reg_val = EPDC_FORMAT_TFT_PIXEL_FORMAT_2BIT
-#ifdef	EPDC_STANDARD_MODE
-	    | EPDC_FORMAT_WB_TYPE_WB_EXTERNAL16
-#endif
 	    | EPDC_FORMAT_BUF_PIXEL_FORMAT_P4N
 	    | ((0x0 << EPDC_FORMAT_DEFAULT_TFT_PIXEL_OFFSET) &
 	       EPDC_FORMAT_DEFAULT_TFT_PIXEL_MASK);
+	if (standard_mode)
+		reg_val |= EPDC_FORMAT_WB_TYPE_WB_EXTERNAL16;
 	__raw_writel(reg_val, EPDC_FORMAT);
 
-#ifdef	EPDC_STANDARD_MODE
+	if (standard_mode) {
 	reg_val = 0;
 	if (fb_data->waveform_is_advanced) {
 		reg_val =
@@ -1928,7 +1919,7 @@ static void epdc_init_settings(struct mxc_epdc_fb_data *fb_data)
 		      EPDC_WB_FIELD_LEN_MASK);
 	}
 	__raw_writel(reg_val, EPDC_WB_FIELD3);
-#endif
+	}
 
 	/* EPDC_FIFOCTRL (disabled) */
 	reg_val =
@@ -1946,13 +1937,14 @@ static void epdc_init_settings(struct mxc_epdc_fb_data *fb_data)
 	/* EPDC_RES */
 	epdc_set_screen_res(epdc_mode->vmode->xres, epdc_mode->vmode->yres);
 
-#ifndef EPDC_STANDARD_MODE
+	if (!standard_mode) {
 	/* EPDC_AUTOWV_LUT */
+		int i;
 	/* Initialize all auto-wavefrom look-up values to 2 - GC16 */
 	for (i = 0; i < 8; i++)
 		__raw_writel((2 << EPDC_AUTOWV_LUT_DATA_OFFSET) |
 			(i << EPDC_AUTOWV_LUT_ADDR_OFFSET), EPDC_AUTOWV_LUT);
-#endif
+	}
 
 	/*
 	 * EPDC_TCE_CTRL
@@ -3331,7 +3323,7 @@ static int epdc_process_update(struct update_data_list *upd_data_list,
 		return ret;
 	}
 #endif
-#ifndef EPDC_V1
+	if (standard_mode) {
 	pr_debug(" upd_data.dither_mode %d  \n", upd_desc_list->upd_data.dither_mode);
 	fb_data->pxp_conf.proc_data.dither_mode = 0;
 
@@ -3374,7 +3366,7 @@ static int epdc_process_update(struct update_data_list *upd_data_list,
 	fb_data->pxp_conf.proc_data.reagl_d_en =
 		(upd_desc_list->upd_data.waveform_mode == WAVEFORM_MODE_GLD16);
 #endif //] MXCFB_WAVEFORM_MODES_NTX
-#endif
+	} // if (standard_mode)
 	mutex_unlock(&fb_data->pxp_mutex);
 
 	/* Update waveform mode from PxP histogram results */
@@ -6018,8 +6010,10 @@ static struct device_attribute fb_attrs[] = {
 };
 
 static const struct of_device_id imx_epdc_dt_ids[] = {
-	{ .compatible = "fsl,imx6dl-epdc", },
-	{ .compatible = "fsl,imx7d-epdc", },
+	{ .compatible = "fsl,imx6sl-epdc", .data = (void *) false },
+	{ .compatible = "fsl,imx6sll-epdc", .data = (void *) true },
+	{ .compatible = "fsl,imx6dl-epdc", .data = (void *) false },
+	{ .compatible = "fsl,imx7d-epdc", .data = (void *) true },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, imx_epdc_dt_ids);
@@ -6067,6 +6061,10 @@ static int mxc_epdc_fb_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto out;
 	}
+
+	standard_mode = (bool) of_match_node(imx_epdc_dt_ids, np)->data;
+
+printk("%s: %d\n", __func__, standard_mode);
 
 	ret = of_property_read_u32_array(np, "epdc-ram", out_val, 3);
 	if (ret) {
@@ -6181,9 +6179,8 @@ static int mxc_epdc_fb_probe(struct platform_device *pdev)
 			"err = 0x%x\n", (int)fb_data->tmst_regulator);
 	}
 
-#ifndef EPDC_V1
-	fb_data->epdc_wb_mode = 1;
-#endif
+	if (standard_mode)
+		fb_data->epdc_wb_mode = 1;
 	fb_data->tce_prevent = 0;
 
 	if (options)
@@ -6913,9 +6910,8 @@ static int mxc_epdc_fb_resume(struct device *dev)
 	struct mxc_epdc_fb_data *data = dev_get_drvdata(dev);
 
 	pinctrl_pm_select_default_state(dev);
-#ifndef EPDC_V1
-	mxc_epdc_restore_qos(data);
-#endif
+	if (standard_mode)
+		mxc_epdc_restore_qos(data);
 #ifdef EPD_SUSPEND_BLANK
 	mxc_epdc_fb_blank(FB_BLANK_UNBLANK, &data->info);
 #endif
