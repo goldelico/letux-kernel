@@ -52,7 +52,7 @@ extern int omap3_pm_set_suspend_state(struct powerdomain *pwrdm, int state);
 #ifdef CONFIG_PM_DEBUG
 extern u32 enable_off_mode;
 #else
-#define enable_off_mode 0
+#define enable_off_mode of_machine_is_compatible("goldelico,gta04")
 #endif
 
 #if defined(CONFIG_PM_DEBUG) && defined(CONFIG_DEBUG_FS)
