@@ -1461,12 +1461,12 @@ static inline bool epdc_signal_eof(void)
 
 static inline void epdc_set_temp(u32 temp)
 {
-	int ret = 0;
 	/* used to store external panel temperature value */
-	unsigned int ext_temp, ext_temp_index = temp;
+	unsigned int /* ext_temp, */ ext_temp_index = temp;
 
 	if (temp == DEFAULT_TEMP_INDEX) {
 #if 0
+		int ret;
 		ret = max17135_reg_read(REG_MAX17135_EXT_TEMP, &ext_temp);
 		if (ret == 0) {
 			ext_temp = ext_temp >> 8;
@@ -6055,7 +6055,7 @@ static int mxc_epdc_fb_probe(struct platform_device *pdev)
 	int enable_gpio;
 	enum of_gpio_flags flag;
 	unsigned short *wk_p;
-	unsigned int dwSafeTicksTurnoffEP3V3;
+//	unsigned int dwSafeTicksTurnoffEP3V3;
 
 
 	if (!np)
@@ -6854,7 +6854,9 @@ static int mxc_epdc_fb_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM_SLEEP
 static int mxc_epdc_fb_suspend(struct device *dev)
 {
+#ifdef EPD_SUSPEND_BLANK
 	struct mxc_epdc_fb_data *data = dev_get_drvdata(dev);
+#endif
 	int ret = 0;
 
 #ifdef EPD_SUSPEND_BLANK
@@ -6866,7 +6868,9 @@ static int mxc_epdc_fb_suspend(struct device *dev)
 		goto out;
 #endif
 	pinctrl_pm_select_sleep_state(dev);
+#ifdef EPD_SUSPEND_BLANK
 out:
+#endif
 
 	return ret;
 }
