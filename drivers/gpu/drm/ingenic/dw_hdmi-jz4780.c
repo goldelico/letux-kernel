@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /* Copyright (C) 2011-2013 Freescale Semiconductor, Inc.
- * Copyright (C) 2019 Paul Boddie <paul@boddie.org.uk>
+ * Copyright (C) 2019, 2020 Paul Boddie <paul@boddie.org.uk>
  *
  * Derived from dw_hdmi-imx.c with i.MX portions removed.
  * Probe and remove operations derived from rcar_dw_hdmi.c.
@@ -14,21 +14,11 @@
 #include <drm/drm_of.h>
 
 static const struct dw_hdmi_mpll_config jz4780_mpll_cfg[] = {
-	{ 45250000,  { { 0x01e0, 0x0000 },
-		       { 0x21e1, 0x0000 },
-		       { 0x41e2, 0x0000 } } },
-	{ 92500000,  { { 0x0140, 0x0005 },
-		       { 0x2141, 0x0005 },
-		       { 0x4142, 0x0005 } } },
-	{ 148500000, { { 0x00a0, 0x000a },
-		       { 0x20a1, 0x000a },
-		       { 0x40a2, 0x000a } } },
-	{ 216000000, { { 0x00a0, 0x000a },
-		       { 0x2001, 0x000f },
-		       { 0x4002, 0x000f } } },
-	{ ~0UL,      { { 0x0000, 0x0000 },
-		       { 0x0000, 0x0000 },
-		       { 0x0000, 0x0000 } } }
+	{ 45250000,  { { 0x01e0, 0x0000 }, { 0x21e1, 0x0000 }, { 0x41e2, 0x0000 } } },
+	{ 92500000,  { { 0x0140, 0x0005 }, { 0x2141, 0x0005 }, { 0x4142, 0x0005 } } },
+	{ 148500000, { { 0x00a0, 0x000a }, { 0x20a1, 0x000a }, { 0x40a2, 0x000a } } },
+	{ 216000000, { { 0x00a0, 0x000a }, { 0x2001, 0x000f }, { 0x4002, 0x000f } } },
+	{ ~0UL,      { { 0x0000, 0x0000 }, { 0x0000, 0x0000 }, { 0x0000, 0x0000 } } }
 };
 
 static const struct dw_hdmi_curr_ctrl jz4780_cur_ctr[] = {
