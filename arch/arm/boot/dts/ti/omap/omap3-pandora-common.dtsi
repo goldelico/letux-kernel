@@ -49,6 +49,13 @@
 		status = "okay";
 	};
 
+	sound: omap3pandora-sound {
+		compatible = "openpandora,omap3pandora-sound";
+		amp-gpio = <&gpio1 14 GPIO_ACTIVE_HIGH>;
+		amp-supply = <&regen>;
+		status = "okay";
+	};
+
 	gpio-leds {
 
 		compatible = "gpio-leds";
@@ -578,9 +585,11 @@
 	};
 };
 
+#if OLD
 /* bluetooth*/
 &uart1 {
 };
+#endif
 
 /* spare (expansion connector) */
 &uart2 {
@@ -766,3 +775,70 @@
 		};
 	};
 };
+
+#if 0	// pcm1754 statt pcm1773
+&dac {
+	compatible = "ti,pcm1754";
+	mute-gpio = <&gpio4 22 GPIO_ACTIVE_LOW>; /* GPIO 118 */
+};
+#endif
+
+#if 1
+
+/ {
+	/delete-node/ pcm1773-codec;
+	/delete-node/ omap3pandora-sound;
+
+	twl_audio_clk: twl-audio-clock {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <12288000>;
+		clock-output-names = "clk256fs";
+	};
+
+	dac: pcm1773-codec {
+		compatible = "ti,pcm1773";
+		vcc-supply = <&vsim>;
+		enable-gpio = <&gpio4 22 GPIO_ACTIVE_HIGH>; /* GPIO 118 */
+		status = "okay";
+		#sound-dai-cells = <0>;
+	};
+
+	sound: sound {
+		compatible = "openpandora,omap3pandora-sound";
+		status = "okay";
+
+		label = "OpenPandora";
+
+		amp-gpios = <&gpio1 14 GPIO_ACTIVE_HIGH>;
+		amp-supply = <&regen>;
+
+		widgets =
+			"Line", "Line Out",
+			"Line", "Line In",
+			"Headphone", "Headphone Jack",
+			"Microphone", "Mic (internal)",
+			"Microphone", "Mic (external)";
+
+		routing =
+			"PCM1773 DAC", "APLL Enable",
+			"Headphone Amplifier", "PCM1773 DAC",
+			"Line Out", "PCM1773 DAC",
+			"Headphone Jack", "Headphone Amplifier",
+			"AUXL", "Line In",
+			"AUXR", "Line In",
+			"MAINMIC", "Mic (internal)",
+			"Mic (internal)", "Mic Bias 1",
+			"SUBMIC", "Mic (external)",
+			"Mic (external)", "Mic Bias 2";
+            
+		sound-dai = <&mcbsp2>, <&dac>;
+	};};
+
+&mcbsp2 {
+	status = "okay";
+	#sound-dai-cells = <0>;
+	clocks = <&mcbsp2_fck>, <&mcbsp2_ick>;
+	clock-names = "fck", "ick";
+};
+#endif
