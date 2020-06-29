@@ -11,6 +11,10 @@ config INGENIC_GENERIC_BOARD
 	select MACH_JZ4780
 	select MACH_X1000
 
+config JZ4730_MIPSBOOK_400
+	bool "JZ4730 based small Netbook (e.g. Skytone Alpha 400, Razorbook 400, Letux 400)"
+	select MACH_JZ4730
+
 config JZ4740_QI_LB60
 	bool "Qi Hardware Ben NanoNote"
 	select MACH_JZ4740
@@ -28,6 +32,10 @@ config X1000_CU1000_NEO
 	select MACH_X1000
 
 endchoice
+
+config MACH_JZ4730
+	bool
+	select SYS_HAS_CPU_MIPS32_R1
 
 config MACH_JZ4740
 	bool
