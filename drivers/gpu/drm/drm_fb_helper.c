@@ -1632,6 +1632,7 @@ static int drm_fb_helper_single_fb_probe(struct drm_fb_helper *fb_helper,
 
 	if (crtc_count == 0 || sizes.fb_width == -1 || sizes.fb_height == -1) {
 		drm_info(dev, "Cannot find any crtc or sizes\n");
+		drm_info(dev, "crtc_count = %d width=%d height=%d\n", crtc_count, sizes.fb_width, sizes.fb_height);
 
 		/* First time: disable all crtc's.. */
 		if (!fb_helper->deferred_setup)
