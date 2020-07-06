@@ -458,7 +458,7 @@ static void ingenic_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	const struct drm_format_info *finfo;
 	int num;
 
-	if (drm_atomic_crtc_needs_modeset(state)) {
+	if (drm_fb && drm_atomic_crtc_needs_modeset(state)) {
 		finfo = drm_format_info(drm_fb->format->format);
 
 		ingenic_drm_crtc_update_timings(priv, &state->mode);
