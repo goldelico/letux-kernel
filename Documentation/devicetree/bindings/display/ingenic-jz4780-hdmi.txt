@@ -1,0 +1,41 @@
+Device-Tree bindings for Ingenic JZ4780 HDMI Transmitter
+
+The HDMI Transmitter in the Ingenic JZ4780 is a Synopsys DesignWare HDMI 1.4
+TX controller IP with accompanying PHY IP.
+
+Required properties:
+ - #address-cells : should be <1>
+ - #size-cells : should be <0>
+ - compatible : should be "ingenic,jz4780-hdmi"
+ - reg-io-width: must be <4>
+ - clocks: phandle to isrf and iahb clocks
+ - clock-names : must be "isrf" and "iahb"
+ - ports: Port nodes with endpoint definitions as defined in
+   Documentation/devicetree/bindings/media/video-interfaces.txt,
+
+Optional properties:
+ - ddc-i2c-bus: phandle of an I2C controller used for DDC EDID probing
+
+example:
+
+hdmi: hdmi@10180000 {
+	compatible = "ingenic,jz4780-hdmi";
+	reg = <0x10180000 0x8000>;
+	reg-io-width = <4>;
+	ddc-i2c-bus = <&i2c4>;
+	interrupt-parent = <&intc>;
+	interrupts = <3>;
+	clocks = <&cgu JZ4780_CLK_HDMI>, <&cgu JZ4780_CLK_AHB0>;
+	clock-names = "isfr", "iahb";
+
+	ports {
+		hdmi_in: port {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			hdmi_in_lcd: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&jz4780_out_hdmi>;
+			};
+		};
+	};
+};
