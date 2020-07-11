@@ -461,9 +461,9 @@
 			ti,hwmods = "i2c1";
 		};
 
-		sgx: gpu@56000000 {
+		gpu: gpu@56000000 {
 			compatible = "ti,omap5-sgx544-116", "img,sgx544-116", "img,sgx544";
-			reg = <0x56000000 0x10000>;
+			reg = <0x5600fe00 0x200>;
 			interrupts = <GIC_SPI 21 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "gpu";
 			clocks = <&l3_iclk_div>, <&gpu_core_gclk_mux>,
