@@ -21,6 +21,7 @@
 #include <asm/prom.h>
 #include <asm/reboot.h>
 #include <asm/time.h>
+#include <asm/mach-jz4740/smp.h>
 
 #define JZ4740_EMC_BASE_ADDR 0x13010000
 
@@ -118,6 +119,9 @@ void __init plat_time_init(void)
 void __init prom_init(void)
 {
 	fw_init_cmdline();
+
+	if (IS_ENABLED(CONFIG_SMP))
+		jz4780_smp_init();
 }
 
 void __init prom_free_prom_memory(void)
