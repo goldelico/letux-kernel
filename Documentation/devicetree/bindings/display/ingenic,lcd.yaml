@@ -1,0 +1,128 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/display/ingenic,lcd.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Bindings for Ingenic JZ4780 LCD Controller
+
+maintainers:
+  - Paul Cercueil <paul@crapouillou.net>
+
+description: |
+  LCD Controller is the Display Controller for the Ingenic JZ47xx SoC
+
+properties:
+  compatible:
+    oneOf:
+     - const: ingenic,jz4725b-lcd
+     - const: ingenic,jz4740-lcd
+     - const: ingenic,jz4770-lcd
+     - const: ingenic,jz4780-lcd
+
+  reg:
+    maxItems: 1
+    description: LCD registers location and length
+
+  interrupts:
+    maxItems: 1
+    description: Specifies the interrupt provided by parent
+
+  clocks:
+    maxItems: 2
+    description: Clock specifiers for LCD pixclock and device clock.
+      The device clock is only required on the JZ4740 and JZ4780
+
+  clock-names:
+    items:
+      - const: lcd
+      - const: lcd_pclk
+
+  port:
+    type: object
+    description: |
+      A port node with endpoint definitions as defined in
+      Documentation/devicetree/bindings/media/video-interfaces.txt
+
+required:
+    - compatible
+    - reg
+    - interrupts
+    - clocks
+    - clock-names
+    - port
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/jz4725b-cgu.h>
+
+    panel {
+      compatible = "sharp,ls020b1dd01d";
+
+      backlight = <&backlight>;
+      power-supply = <&vcc>;
+
+      port {
+        panel_input: endpoint {
+          remote-endpoint = <&panel_output>;
+          };
+        };
+      };
+
+    lcd: lcd-controller@13050000 {
+      compatible = "ingenic,jz4725b-lcd";
+      reg = <0x13050000 0x1000>;
+
+      interrupt-parent = <&intc>;
+      interrupts = <31>;
+
+      clocks = <&cgu JZ4725B_CLK_LCD>;
+      clock-names = "lcd", "lcd_pclk";
+
+      port {
+        panel_output: endpoint {
+          remote-endpoint = <&panel_input>;
+          };
+        };
+      };
+
+  - |
+    #include <dt-bindings/clock/jz4780-cgu.h>
+
+    lcdc0: lcdc0@13050000 {
+        compatible = "ingenic,jz4780-lcd";
+        reg = <0x13050000 0x1800>;
+
+        clocks = <&cgu JZ4780_CLK_TVE>, <&cgu JZ4780_CLK_LCD0PIXCLK>;
+        clock-names = "lcd", "lcd_pclk";
+
+        interrupt-parent = <&intc>;
+        interrupts = <31>;
+
+        jz4780_lcd_out: port {
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            jz4780_out_hdmi: endpoint@0 {
+                reg = <0>;
+                remote-endpoint = <&hdmi_in_lcd>;
+            };
+        };
+    };
+
+    lcdc1: lcdc1@130a0000 {
+        compatible = "ingenic,jz4780-lcd";
+        reg = <0x130a0000 0x1800>;
+
+        clocks = <&cgu JZ4780_CLK_TVE>, <&cgu JZ4780_CLK_LCD1PIXCLK>;
+        clock-names = "lcd", "lcd_pclk";
+
+        interrupt-parent = <&intc>;
+        interrupts = <31>;
+
+        status = "disabled";
+    };
+
+...
