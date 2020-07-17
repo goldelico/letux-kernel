@@ -801,4 +801,10 @@ config BATTERY_ACER_A500
 	help
 	  Say Y to include support for Acer Iconia Tab A500 battery fuel gauge.
 
+config RN5T618_FUEL_GAUGE
+	tristate "RN5T618 Fuel Gauge"
+	depends on MFD_RN5T618
+	help
+	  Say yes here to have support for RN5T618 PMIC family fuel gauge
+
 endif # POWER_SUPPLY
