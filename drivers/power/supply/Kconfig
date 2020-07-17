@@ -752,4 +752,10 @@ config CHARGER_WILCO
 	  information can be found in
 	  Documentation/ABI/testing/sysfs-class-power-wilco
 
+config RN5T618_FUEL_GAUGE
+	tristate "RN5T618 Fuel Gauge"
+	depends on MFD_RN5T618
+	help
+	  Say yes here to have support for RN5T618 PMIC family fuel gauge
+
 endif # POWER_SUPPLY
