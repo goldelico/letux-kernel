@@ -20,12 +20,19 @@
 #define _RTW_BR_EXT_C_
 
 #ifdef __KERNEL__
+
+/* do not conflict with publuc sha256_state */
+#define sha256_state sha256_state_public
+
 #include <linux/if_arp.h>
 #include <net/ip.h>
 #include <net/ipx.h>
 #include <linux/atalk.h>
 #include <linux/udp.h>
 #include <linux/if_pppox.h>
+
+#undef sha256_state
+
 #endif
 
 #if 1	// rtw_wifi_driver
