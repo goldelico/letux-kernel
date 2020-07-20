@@ -5,5 +5,7 @@
 
 # Object file lists.
 obj-y += setup.o
+obj-$(CONFIG_SMP) += smp.o
+obj-$(CONFIG_SMP) += smp-entry.o
 
 CFLAGS_setup.o = -I$(src)/../../../scripts/dtc/libfdt
