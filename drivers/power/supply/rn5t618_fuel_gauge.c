@@ -9,6 +9,7 @@
 #include <linux/device.h>
 #include <linux/errno.h>
 #include <linux/init.h>
+#include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/mfd/rn5t618.h>
 #include <linux/platform_device.h>
@@ -32,10 +33,17 @@
 #define CHG_STATE_NO_BAT2	13
 #define CHG_STATE_CHG_READY_VUSB	14
 
-struct rn5t618_gauge_info {
+struct rn5t618_charger_info {
 	struct rn5t618 *rn5t618;
 	struct platform_device *pdev;
-	struct power_supply *psy;
+	struct power_supply *gauge;
+	struct power_supply *usb;
+	int irq;
+};
+
+static enum power_supply_property rn5t618_usb_props[] = {
+	POWER_SUPPLY_PROP_STATUS,
+	POWER_SUPPLY_PROP_ONLINE,
 };
 
 static enum power_supply_property rn5t618_gauge_props[] = {
@@ -52,7 +60,7 @@ static enum power_supply_property rn5t618_gauge_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_NOW,
 };
 
-static int rn5t618_gauge_read_doublereg(struct rn5t618_gauge_info *info,
+static int rn5t618_gauge_read_doublereg(struct rn5t618_charger_info *info,
 					u8 reg, u16 *result)
 {
 	int ret;
@@ -68,7 +76,28 @@ static int rn5t618_gauge_read_doublereg(struct rn5t618_gauge_info *info,
 	return 0;
 }
 
-static int rn5t618_gauge_status(struct rn5t618_gauge_info *info,
+static int rn5t618_decode_status(unsigned int status)
+{
+	switch(status & 0x1f) {
+	case CHG_STATE_CHG_OFF:
+	case CHG_STATE_SUSPEND:
+	case CHG_STATE_VCHG_OVER_VOL:
+	case CHG_STATE_DIE_SHUTDOWN:
+		return POWER_SUPPLY_STATUS_DISCHARGING;
+
+	case CHG_STATE_CHG_TRICKLE:
+	case CHG_STATE_CHG_RAPID:
+		return POWER_SUPPLY_STATUS_CHARGING;
+
+	case CHG_STATE_CHG_COMPLETE:
+		return POWER_SUPPLY_STATUS_FULL;
+
+	default:
+		return POWER_SUPPLY_STATUS_NOT_CHARGING;
+	}
+}
+
+static int rn5t618_gauge_status(struct rn5t618_charger_info *info,
 				union power_supply_propval *val)
 {
 	unsigned int v;
@@ -81,42 +110,14 @@ static int rn5t618_gauge_status(struct rn5t618_gauge_info *info,
 	val->intval = POWER_SUPPLY_STATUS_UNKNOWN;
 
 	if (v & 0xc0) { /* USB or ADP plugged */	
-		switch(v & 0x1f) {
-		case CHG_STATE_CHG_OFF:
-		case CHG_STATE_SUSPEND:
-		case CHG_STATE_VCHG_OVER_VOL:
-		case CHG_STATE_DIE_SHUTDOWN:
-			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
-			break;
-
-		case CHG_STATE_CHG_READY_VADP:
-		case CHG_STATE_CHG_READY_VUSB:
-		case CHG_STATE_BAT_ERROR:
-		case CHG_STATE_NO_BAT:
-		case CHG_STATE_NO_BAT2:
-		case CHG_STATE_BAT_OVER_VOL:
-		case CHG_STATE_BAT_TEMP_ERR:
-		case CHG_STATE_DIE_ERR:
-			val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
-			break;
-
-		case CHG_STATE_CHG_TRICKLE:
-		case CHG_STATE_CHG_RAPID:
-			val->intval = POWER_SUPPLY_STATUS_CHARGING;
-			break;
-
-		case CHG_STATE_CHG_COMPLETE:
-			val->intval = POWER_SUPPLY_STATUS_FULL;
-			break;
-
-		}
+		val->intval = rn5t618_decode_status(v);
 	} else
 		val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
 
 	return ret;
 }
 
-static int rn5t618_gauge_voltage_now(struct rn5t618_gauge_info *info,
+static int rn5t618_gauge_voltage_now(struct rn5t618_charger_info *info,
 				     union power_supply_propval *val)
 {
 	u16 res;
@@ -131,7 +132,7 @@ static int rn5t618_gauge_voltage_now(struct rn5t618_gauge_info *info,
 	return 0;
 }
 
-static int rn5t618_gauge_current_now(struct rn5t618_gauge_info *info,
+static int rn5t618_gauge_current_now(struct rn5t618_charger_info *info,
 				union power_supply_propval *val)
 {
 	u16 res;
@@ -150,7 +151,7 @@ static int rn5t618_gauge_current_now(struct rn5t618_gauge_info *info,
 	return 0;
 }
 
-static int rn5t618_gauge_capacity(struct rn5t618_gauge_info *info,
+static int rn5t618_gauge_capacity(struct rn5t618_charger_info *info,
 				  union power_supply_propval *val)
 {
 	unsigned int v;
@@ -165,7 +166,7 @@ static int rn5t618_gauge_capacity(struct rn5t618_gauge_info *info,
 	return 0;
 }
 
-static int rn5t618_gauge_temp(struct rn5t618_gauge_info *info,
+static int rn5t618_gauge_temp(struct rn5t618_charger_info *info,
 			      union power_supply_propval *val)
 {
 	u16 res;
@@ -184,7 +185,7 @@ static int rn5t618_gauge_temp(struct rn5t618_gauge_info *info,
 	return 0;
 }
 
-static int rn5t618_gauge_tte(struct rn5t618_gauge_info *info,
+static int rn5t618_gauge_tte(struct rn5t618_charger_info *info,
 			     union power_supply_propval *val)
 {
 	u16 res;
@@ -202,7 +203,7 @@ static int rn5t618_gauge_tte(struct rn5t618_gauge_info *info,
 	return 0;
 }
 
-static int rn5t618_gauge_ttf(struct rn5t618_gauge_info *info,
+static int rn5t618_gauge_ttf(struct rn5t618_charger_info *info,
 			     union power_supply_propval *val)
 {
 	u16 res;
@@ -220,7 +221,7 @@ static int rn5t618_gauge_ttf(struct rn5t618_gauge_info *info,
 	return 0;
 }
 
-static int rn5t618_gauge_charge_full(struct rn5t618_gauge_info *info,
+static int rn5t618_gauge_charge_full(struct rn5t618_charger_info *info,
 				     union power_supply_propval *val)
 {
 	u16 res;
@@ -235,7 +236,7 @@ static int rn5t618_gauge_charge_full(struct rn5t618_gauge_info *info,
 	return 0;
 }
 
-static int rn5t618_gauge_charge_now(struct rn5t618_gauge_info *info,
+static int rn5t618_gauge_charge_now(struct rn5t618_charger_info *info,
 				    union power_supply_propval *val)
 {
 	u16 res;
@@ -255,7 +256,7 @@ static int rn5t618_gauge_get_property(struct power_supply *psy,
 				      union power_supply_propval *val)
 {
 	int ret = 0;
-        struct rn5t618_gauge_info *info = power_supply_get_drvdata(psy);
+        struct rn5t618_charger_info *info = power_supply_get_drvdata(psy);
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
@@ -302,6 +303,42 @@ static void rn5t618_gauge_external_power_changed(struct power_supply *psy)
 {
 }
 
+static int rn5t618_usb_get_property(struct power_supply *psy,
+				      enum power_supply_property psp,
+				      union power_supply_propval *val)
+{
+        struct rn5t618_charger_info *info = power_supply_get_drvdata(psy);
+	unsigned int chgstate;
+	bool online;
+	int ret;
+
+	ret = regmap_read(info->rn5t618->regmap, RN5T618_CHGSTATE, &chgstate);
+	if (ret)
+		return ret;
+
+	online = !! (chgstate & 0x80);
+
+	switch(psp) {
+	case POWER_SUPPLY_PROP_ONLINE:
+		val->intval = online;
+		break;
+	case POWER_SUPPLY_PROP_STATUS:
+		if (!online) {
+			val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
+			break;
+		}
+		val->intval = rn5t618_decode_status(chgstate);
+		if (val->intval == POWER_SUPPLY_STATUS_DISCHARGING)
+			val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
+
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static const struct power_supply_desc rn5t618_gauge_desc = {
 	.name                   = "rn5t618-gauge",
         .type                   = POWER_SUPPLY_TYPE_BATTERY,
@@ -312,13 +349,46 @@ static const struct power_supply_desc rn5t618_gauge_desc = {
 
 };
 
+static const struct power_supply_desc rn5t618_usb_desc = {
+	.name                   = "rn5t618-usb",
+        .type                   = POWER_SUPPLY_TYPE_USB,
+        .properties             = rn5t618_usb_props,
+        .num_properties         = ARRAY_SIZE(rn5t618_usb_props),
+        .get_property           = rn5t618_usb_get_property,
+};
+
+static irqreturn_t rn5t618_charger_irq(int irq, void *data)
+{
+	struct device *dev = data;
+	struct rn5t618_charger_info *info = dev_get_drvdata(dev);
+	
+	unsigned int ctrl, stat1, stat2, err;
+
+	regmap_read(info->rn5t618->regmap, RN5T618_CHGERR_IRR, &err);
+	regmap_read(info->rn5t618->regmap, RN5T618_CHGCTRL_IRR, &ctrl);
+	regmap_read(info->rn5t618->regmap, RN5T618_CHGSTAT_IRR1, &stat1);
+	regmap_read(info->rn5t618->regmap, RN5T618_CHGSTAT_IRR2, &stat2);
+
+	regmap_write(info->rn5t618->regmap, RN5T618_CHGERR_IRR, 0);
+	regmap_write(info->rn5t618->regmap, RN5T618_CHGCTRL_IRR, 0);
+	regmap_write(info->rn5t618->regmap, RN5T618_CHGSTAT_IRR1, 0);
+	regmap_write(info->rn5t618->regmap, RN5T618_CHGSTAT_IRR2, 0);
+
+	dev_info(dev, "chgerr: %x chgctrl: %x chgstat: %x chgstat2: %x\n",
+		err, ctrl, stat1, stat2);
+
+	power_supply_changed(info->usb);
+	power_supply_changed(info->gauge);
+
+	return IRQ_HANDLED;
+}
+
 static int rn5t618_gauge_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	unsigned int v;
-	struct power_supply_desc *psy_desc;
 	struct power_supply_config psy_cfg = {};
-	struct rn5t618_gauge_info *info;
+	struct rn5t618_charger_info *info;
 
         info = devm_kzalloc(&pdev->dev, sizeof(*info), GFP_KERNEL);
 	if (!info)
@@ -326,6 +396,7 @@ static int rn5t618_gauge_probe(struct platform_device *pdev)
 
 	info->pdev = pdev;
 	info->rn5t618 = dev_get_drvdata(pdev->dev.parent);
+	info->irq = -1;
 
         platform_set_drvdata(pdev, info);
 
@@ -341,11 +412,37 @@ static int rn5t618_gauge_probe(struct platform_device *pdev)
 	}
 
 	psy_cfg.drv_data = info;
-	info->psy = devm_power_supply_register_no_ws(&pdev->dev, &rn5t618_gauge_desc, &psy_cfg);
-	if (IS_ERR(info->psy)) {
-		ret = PTR_ERR(info->psy);
+	info->gauge = devm_power_supply_register(&pdev->dev, &rn5t618_gauge_desc, &psy_cfg);
+	if (IS_ERR(info->gauge)) {
+		ret = PTR_ERR(info->gauge);
 		dev_err(&pdev->dev, "failed to register gauge: %d\n", ret);
 		return ret;
+	}
+
+	info->usb = devm_power_supply_register(&pdev->dev, &rn5t618_usb_desc, &psy_cfg);
+	if (IS_ERR(info->gauge)) {
+		ret = PTR_ERR(info->gauge);
+		dev_err(&pdev->dev, "failed to register gauge: %d\n", ret);
+		return ret;
+	}
+
+	if (info->rn5t618->irq_data)
+		info->irq = regmap_irq_get_virq(info->rn5t618->irq_data,
+						RN5T618_IRQ_CHG);
+
+	if (info->irq < 0)
+		info->irq = -1;
+	else {
+		ret = devm_request_threaded_irq(&pdev->dev, info->irq, NULL,
+						rn5t618_charger_irq,
+						IRQF_ONESHOT,
+                                                "rn5t618_charger",
+                                                &pdev->dev);
+
+		if (ret < 0) {
+			dev_err(&pdev->dev, "request IRQ:%d fail\n", info->irq);
+                        info->irq = -1;
+		}
 	}
 
 	return 0;
