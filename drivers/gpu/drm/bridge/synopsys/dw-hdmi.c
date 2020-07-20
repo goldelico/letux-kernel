@@ -2712,6 +2712,7 @@ static int dw_hdmi_bridge_attach(struct drm_bridge *bridge,
 	struct drm_connector *connector = &hdmi->connector;
 	struct cec_connector_info conn_info;
 	struct cec_notifier *notifier;
+	u32 bus_format[] = { MEDIA_BUS_FMT_RGB888_1X24 };
 
 	if (flags & DRM_BRIDGE_ATTACH_NO_CONNECTOR) {
 		DRM_ERROR("Fix bridge driver to make connector optional!");
@@ -2739,6 +2740,9 @@ static int dw_hdmi_bridge_attach(struct drm_bridge *bridge,
 	if (hdmi->version >= 0x200a && hdmi->plat_data->use_drm_infoframe)
 		drm_object_attach_property(&connector->base,
 			connector->dev->mode_config.hdr_output_metadata_property, 0);
+
+	drm_display_info_set_bus_formats(&connector->display_info,
+					 bus_format, ARRAY_SIZE(bus_format));
 
 	drm_connector_attach_encoder(connector, encoder);
 
@@ -2781,6 +2785,19 @@ dw_hdmi_bridge_mode_valid(struct drm_bridge *bridge,
 		mode_status = hdmi->plat_data->mode_valid(connector, mode);
 
 	return mode_status;
+}
+
+static bool
+dw_hdmi_bridge_mode_fixup(struct drm_bridge *bridge,
+		       const struct drm_display_mode *mode,
+		       struct drm_display_mode *adjusted_mode)
+{
+	struct dw_hdmi *hdmi = bridge->driver_private;
+
+	if (hdmi->plat_data->mode_fixup)
+		return hdmi->plat_data->mode_fixup(bridge, mode, adjusted_mode);
+
+	return true;
 }
 
 static void dw_hdmi_bridge_mode_set(struct drm_bridge *bridge,
@@ -2832,6 +2849,7 @@ static const struct drm_bridge_funcs dw_hdmi_bridge_funcs = {
 	.disable = dw_hdmi_bridge_disable,
 	.mode_set = dw_hdmi_bridge_mode_set,
 	.mode_valid = dw_hdmi_bridge_mode_valid,
+	.mode_fixup = dw_hdmi_bridge_mode_fixup,
 };
 
 static irqreturn_t dw_hdmi_i2c_irq(struct dw_hdmi *hdmi)
@@ -3295,6 +3313,8 @@ __dw_hdmi_probe(struct platform_device *pdev,
 #ifdef CONFIG_OF
 	hdmi->bridge.of_node = pdev->dev.of_node;
 #endif
+	if (plat_data->timings)
+		hdmi->bridge.timings = plat_data->timings;
 
 	if (hdmi->version >= 0x200a)
 		hdmi->connector.ycbcr_420_allowed =
