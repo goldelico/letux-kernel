@@ -98,7 +98,7 @@ struct abe_twl6040 {
 	struct snd_soc_dai_link dai_links[2];
 	int	jack_detection;	/* board can detect jack events */
 	int	mclk_freq;	/* MCLK frequency speed for twl6040 */
-	int	twl6040_power_mode;
+	int twl6040_power_mode;
 	struct omap_aess	*aess;
 };
 
@@ -330,6 +330,7 @@ static int omap_abe_twl6040_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_card *card = rtd->card;
 	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
 	int hs_trim;
+	u32 hsotrim, left_offset, right_offset, step_mV;
 	int ret;
 
 	/*
@@ -352,6 +353,14 @@ static int omap_abe_twl6040_init(struct snd_soc_pcm_runtime *rtd)
 
 	/* DC offset cancellation computation only if ABE is enabled */
 	if (priv->aess) {
+		hsotrim = twl6040_get_trim_value(component, TWL6040_TRIM_HSOTRIM);
+		right_offset = TWL6040_HSF_TRIM_RIGHT(hsotrim);
+		left_offset = TWL6040_HSF_TRIM_LEFT(hsotrim);
+
+		step_mV = twl6040_get_hs_step_size(component);
+		omap_aess_dc_set_hs_offset(priv->aess, left_offset,
+					   right_offset, step_mV);
+
 		/* ABE power control */
 		ret = snd_soc_add_card_controls(card, omap_abe_controls,
 						ARRAY_SIZE(omap_abe_controls));
