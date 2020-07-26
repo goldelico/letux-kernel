@@ -199,11 +199,19 @@ static int omap_aess_engine_probe(struct platform_device *pdev)
 	struct omap_aess *aess;
 	int i;
 
+printk("%s:\n", __func__);
+dump_stack();
+for (i = 0; i < pdev->num_resources; i++) {
+	struct resource *r = &pdev->resource[i];
+printk("%s: %d: %x %s\n", __func__, i, resource_type(r), r->name);
+}
+
 	aess = devm_kzalloc(&pdev->dev, sizeof(struct omap_aess), GFP_KERNEL);
 	if (aess == NULL)
 		return -ENOMEM;
 
 	for (i = 0; i < OMAP_AESS_IO_RESOURCES; i++) {
+printk("%s: %d: %s\n", __func__, i, aess_memory_bank[i]);
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						   aess_memory_bank[i]);
 		if (res == NULL) {
