@@ -816,22 +816,15 @@ static int __of_address_to_resource(struct device_node *dev,
 {
 	u64 taddr;
 
-if(strcmp(dev->name, "aess") == 0)
-printk("%s: dev=%s name=%s flags=%x addr=%px size=%llx\n", __func__, dev->name, name, flags, addrp, size);
-
 	if (flags & IORESOURCE_MEM)
 		taddr = of_translate_address(dev, addrp);
 	else if (flags & IORESOURCE_IO)
 		taddr = of_translate_ioport(dev, addrp, size);
-	else {
-printk("%s: => flags?\n", __func__);
+	else
 		return -EINVAL;
-}
+
 	if (taddr == OF_BAD_ADDR)
-{
-printk("%s: => OF_BAD_ADDR\n", __func__);
 		return -EINVAL;
-}
 	memset(r, 0, sizeof(struct resource));
 
 	r->start = taddr;
