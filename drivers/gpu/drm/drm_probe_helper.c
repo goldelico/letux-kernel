@@ -779,6 +779,8 @@ bool drm_helper_hpd_irq_event(struct drm_device *dev)
 	enum drm_connector_status old_status;
 	bool changed = false;
 
+dev->mode_config.poll_enabled = true;
+
 	if (!dev->mode_config.poll_enabled)
 		return false;
 
