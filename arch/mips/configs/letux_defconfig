@@ -1,5 +1,5 @@
 #
-# Linux/mips 4.19.133 Kernel Configuration
+# Linux/mips 4.19.135 Kernel Configuration
 #
 
 #
@@ -1056,7 +1056,6 @@ CONFIG_BLK_DEV_SD=y
 # CONFIG_CHR_DEV_ST is not set
 # CONFIG_CHR_DEV_OSST is not set
 CONFIG_BLK_DEV_SR=m
-CONFIG_BLK_DEV_SR_VENDOR=y
 CONFIG_CHR_DEV_SG=m
 CONFIG_CHR_DEV_SCH=m
 # CONFIG_SCSI_CONSTANTS is not set
