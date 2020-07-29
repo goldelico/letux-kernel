@@ -1,5 +1,5 @@
 #
-# Linux/mips 4.9.230 Kernel Configuration
+# Linux/mips 4.9.231 Kernel Configuration
 #
 CONFIG_MIPS=y
 
