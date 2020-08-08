@@ -47,6 +47,8 @@ static int minipc_battery_get_properties(struct power_supply *psy,
 	return ret;
 }
 
+static struct power_supply *minipc_battery, *minipc_psu;
+
 static enum power_supply_property minipc_battery_properties[] = {
 	POWER_SUPPLY_PROP_TECHNOLOGY,
 	POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN,
@@ -54,7 +56,7 @@ static enum power_supply_property minipc_battery_properties[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 };
 
-static struct power_supply_desc minipc_battery = {
+static struct power_supply_desc minipc_battery_desc = {
 	.name = "battery",
 	.type = POWER_SUPPLY_TYPE_BATTERY,
 	.properties = minipc_battery_properties,
@@ -83,7 +85,7 @@ static enum power_supply_property minipc_psu_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 };
 
-static struct power_supply_desc minipc_psu = {
+static struct power_supply_desc minipc_psu_desc = {
 	.name = "psu",
 	.type = POWER_SUPPLY_TYPE_MAINS,
 	.properties = minipc_psu_properties,
@@ -111,13 +113,17 @@ static int minipc_mcu_probe(struct i2c_client *client,
 
 	dev_info(&client->dev, "chip found, driver version " DRV_VERSION "\n");
 
-// FIXME:
-	minipc_battery.use_for_apm = !!power_supply_register(&client->dev,
-							   &minipc_battery,
-							   &psy_cfg);
-	minipc_psu.use_for_apm = !!power_supply_register(&client->dev,
-						         &minipc_psu,
-							 &psy_cfg);
+	minipc_battery = power_supply_register(&client->dev,
+					       &minipc_battery_desc,
+					       &psy_cfg);
+
+	minipc_battery_desc.use_for_apm = !!minipc_battery;
+
+	minipc_psu = power_supply_register(&client->dev,
+					   &minipc_psu_desc,
+					   &psy_cfg);
+
+	minipc_psu_desc.use_for_apm = !!minipc_psu;
 
 	mcu = client;
 	pm_power_off = minipc_mcu_power_off;
@@ -129,10 +135,10 @@ static int minipc_mcu_remove(struct i2c_client *client)
 {
 	if (!mcu)
 		return 0;
-	if (!minipc_battery.use_for_apm)
-		power_supply_unregister(&minipc_battery);
-	if (!minipc_psu.use_for_apm)
-		power_supply_unregister(&minipc_psu);
+	if (!minipc_battery_desc.use_for_apm)
+		power_supply_unregister(minipc_battery);
+	if (!minipc_psu_desc.use_for_apm)
+		power_supply_unregister(minipc_psu);
 	pm_power_off = NULL;
 	mcu = NULL;
 
