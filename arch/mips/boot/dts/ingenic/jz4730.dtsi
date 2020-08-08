@@ -290,7 +290,7 @@
 	};
 
 	lcd: lcd@10050000 {
-		compatible = "ingenic,jz4730-lcd";
+		compatible = "ingenic,jz4740-lcd";
 		reg = <0x10050000 0x100>;
 
 		interrupt-parent = <&intc>;
