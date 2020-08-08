@@ -22,6 +22,7 @@
 #define CGU_REG_CFCR		0x00 /* CPCCR in jz4740 */
 #define CGU_REG_LPCR		0x04 /* LCR in jz4740 */
 #define CGU_REG_PLCR1		0x10 /* CPPCR in jz4740 */
+#define CGU_REG_OCR		0x1c
 #define CGU_REG_MSCR		0x20 /* CLKGR in jz4740 */
 #define CGU_REG_CFCR2		0x60 /* LPCDR in jz4740 */
 
@@ -197,6 +198,18 @@ static const struct ingenic_cgu_clk_info jz4730_cgu_clocks[] = {
 		"uhc", CGU_CLK_MUX,
 		.parents = { JZ4730_CLK_UHC_IN, JZ4730_CLK_USB48M, -1, -1 },
 		.mux = { CGU_REG_CFCR, 28, 1 },
+	},
+
+	[JZ4730_CLK_EXT_128] = {
+		"ext/128", CGU_CLK_FIXDIV,
+		.parents = { JZ4730_CLK_EXT, -1, -1, -1 },
+		.div = { 128 },
+	},
+
+	[JZ4730_CLK_WDT] = {
+		"uhc", CGU_CLK_MUX,
+		.parents = { JZ4730_CLK_EXT_128, JZ4730_CLK_RTC, -1, -1 },
+		.mux = { CGU_REG_OCR, 8, 1 },
 	},
 
 	/* Gate-only clocks */
