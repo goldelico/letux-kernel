@@ -55,6 +55,11 @@
 
 /* JZ4730 register layout. */
 
+#define WDT_JZ4730_REG_TCSR	0x00
+#define WDT_JZ4730_REG_TCNT	0x04
+
+#define WDT_JZ4730_TCSR_EN	BIT(4)	/* Watchdog timer enable */
+
 #define TCU_JZ4730_REG_TER	0x00
 #define TCU_JZ4730_REG_TRDR0	0x10
 #define TCU_JZ4730_REG_TCNT0	0x14
