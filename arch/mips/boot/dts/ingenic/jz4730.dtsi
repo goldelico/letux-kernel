@@ -90,8 +90,8 @@
 		compatible = "ingenic,jz4730-watchdog";
 		reg = <0x10004000 0x100>;
 
-		clocks = <&cgu JZ4730_CLK_RTC>;
-		clock_names = "rtc";
+		clocks = <&cgu JZ4730_CLK_WDT>;
+		clock_names = "wdt";
 	};
 
 	pwm: pwm@10050000 {
