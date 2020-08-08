@@ -304,10 +304,8 @@
 	panel: claa070vc01 {
 		compatible = "chunghwa,claa070vc01";
 
-		width = <60>;
-		height = <45>;
-		bpp = <16>;
-		lcd-type = <0>; /* JZ_LCD_TYPE_GENERIC_16_BIT from jz4740_fb.h */
+		width-mm = <150>;
+		height-mm = <90>;
 
 		panel-timing {
 			clock-frequency = <26400000>;
@@ -319,6 +317,8 @@
 			vfront-porch = <0>;
 			vback-porch = <0>;
 			vsync-len = <20>;
+			hsync-active = <0>;
+			vsync-active = <0>;
 			de-active = <1>;
 			pixelclk-active = <0>;
 		};
