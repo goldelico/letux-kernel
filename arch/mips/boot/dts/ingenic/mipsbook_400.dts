@@ -274,12 +274,14 @@
 
 		pwms = <&pwm 0 3906250>;
 		power-supply = <&vcc>;
-		enable-gpios = <&gpc 30 GPIO_ACTIVE_HIGH>;
 
 		brightness-levels = <150 200 250 300>;
 		default-brightness-level = <2>;
 
 		default-on;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pins_pwm0>;
 	};
 
 	panel: claa070vc01 {
@@ -336,11 +338,11 @@
 
 &mmc {
 	pinctrl-names = "mmc";
-	pinctrl-0 = <&pins_mmc &pins_mmc_ctrl>;
+	pinctrl-0 = <&pins_mmc>;
 
-	cd-gpios = <&gpc 26 GPIO_ACTIVE_LOW>;
-	wp-gpios = <&gpc 18 GPIO_ACTIVE_LOW>;
-	vmmc-supply = <&gpc 27 GPIO_ACTIVE_LOW>;
+	cd-gpios = <&gpc 0 GPIO_ACTIVE_LOW>;
+	wp-gpios = <&gpc 2 GPIO_ACTIVE_LOW>;
+	vmmc-supply = <&gpa 21 GPIO_ACTIVE_LOW>;
 };
 
 /*
@@ -349,11 +351,6 @@
 	pinctrl-0 = <&pins_nand>;
 };
 */
-
-&pwm {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pins_pwm0 &pins_pwm1_gpio>;
-};
 
 &uart0 {
 	pinctrl-names = "default";
@@ -372,14 +369,16 @@
 	};
 
 	pins_mmc: mmc {
-		function = "mmc";
-		groups = "mmc-1bit", "mmc-4bit";
-	};
+		mmc {
+			function = "mmc";
+			groups = "mmc-1bit", "mmc-4bit";
+		};
 
-	pins_mmc_ctrl: mmc_ctrl {
-		function = "mmc";
-		pins = "PC7", "PC8";
-		bias-disable;
+		mmc_ctrl {
+			function = "mmc";
+			pins = "PC0", "PC2", "PA21";
+			bias-disable;
+		};
 	};
 
 	/*
@@ -397,12 +396,6 @@
 	pins_pwm1: pwm1 {
 		function = "pwm1";
 		groups = "pwm1";
-	};
-
-	pins_pwm1_gpio: pwm1_gpio {
-		function = "gpio";
-		groups = "pwm1";
-		output-low;
 	};
 
 	pins_uart0: uart0 {
