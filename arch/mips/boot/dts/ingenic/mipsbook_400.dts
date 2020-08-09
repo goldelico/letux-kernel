@@ -11,6 +11,15 @@
 		stdout-path = &uart0;
 	};
 
+	vcc: regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc";
+
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
 	matrix-keypad {
 		// pinmux...
 
@@ -295,14 +304,18 @@
 	backlight: backlight {
 		compatible = "pwm-backlight";
 
-		pwms = <&pwm 0 5000000>;
+		pwms = <&pwm 0 3906250>;
+		power-supply = <&vcc>;
+		enable-gpios = <&gpc 30 GPIO_ACTIVE_HIGH>;
 
 		brightness-levels = <150 200 250 300>;
 		default-brightness-level = <2>;
+
+		default-on;
 	};
 
 	panel: claa070vc01 {
-		compatible = "chunghwa,claa070vc01";
+		compatible = "chunghwa,claa070vc01", "panel-dpi";
 
 		width-mm = <150>;
 		height-mm = <90>;
@@ -322,6 +335,14 @@
 			de-active = <1>;
 			pixelclk-active = <0>;
 		};
+
+		port {
+			panel_input: endpoint {
+				remote-endpoint = <&lcd_output>;
+			};
+		};
+
+		backlight = <&backlight>;
 	};
 };
 
@@ -334,11 +355,15 @@
 };
 
 &lcd {
-	panel = <&panel>;
-
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pins_lcd0>;
 	pinctrl-1 = <&pins_lcd1>;
+
+	port {
+		lcd_output: endpoint {
+			remote-endpoint = <&panel_input>;
+		};
+	};
 };
 
 &mmc {
@@ -420,9 +445,9 @@
 };
 
 &i2c {
-	power_controller@11 {
+	power_controller@28 {
 		compatible = "minipc,mcu";
-		reg = <11>;
+		reg = <0x28>;
 	};
 
 	ak4642: codec@12 {
