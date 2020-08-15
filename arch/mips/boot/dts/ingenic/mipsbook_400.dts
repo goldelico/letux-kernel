@@ -20,6 +20,13 @@
 		regulator-always-on;
 	};
 
+	clk_usb: clk-usb {
+		compatible = "gpio-gate-clock";
+		clocks = <&cgu JZ4730_CLK_UHC>;
+		#clock-cells = <0>;
+		enable-gpios = <&gpa 29 GPIO_ACTIVE_HIGH>;
+	};
+
 	keyboard {
 		linux,wakeup;
 
@@ -406,6 +413,11 @@
 		groups = "uart0-data";
 		bias-disable;
 	};
+
+	pins_usb_clk: usb {
+		pins = "PA29";
+		bias-disable;
+	};
 };
 
 &i2c {
@@ -428,6 +440,13 @@
 		#clock-cells = <0>;
 	};
 
+};
+
+&uhc {
+	clocks = <&clk_usb>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_usb_clk>;
 };
 
 /*
