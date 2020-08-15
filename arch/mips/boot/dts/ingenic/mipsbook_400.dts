@@ -337,12 +337,15 @@
 };
 
 &mmc {
-	pinctrl-names = "mmc";
-	pinctrl-0 = <&pins_mmc>;
+	status = "okay";
 
+	bus-width = <4>;
 	cd-gpios = <&gpc 0 GPIO_ACTIVE_LOW>;
 	wp-gpios = <&gpc 2 GPIO_ACTIVE_LOW>;
 	vmmc-supply = <&gpa 21 GPIO_ACTIVE_LOW>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_mmc>;
 };
 
 /*
