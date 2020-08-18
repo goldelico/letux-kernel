@@ -2767,6 +2767,11 @@ static int dw_hdmi_bridge_atomic_check(struct drm_bridge *bridge,
 		bridge_state->input_bus_cfg.format,
 		bridge_state->output_bus_cfg.format);
 
+	if (hdmi->plat_data->mode_fixup)
+		if (!hdmi->plat_data->mode_fixup(bridge, &crtc_state->mode,
+						 &crtc_state->adjusted_mode))
+			return -EINVAL;
+
 	return 0;
 }
 
@@ -3416,6 +3421,8 @@ struct dw_hdmi *dw_hdmi_probe(struct platform_device *pdev,
 #ifdef CONFIG_OF
 	hdmi->bridge.of_node = pdev->dev.of_node;
 #endif
+	if (plat_data->timings)
+		hdmi->bridge.timings = plat_data->timings;
 
 	memset(&pdevinfo, 0, sizeof(pdevinfo));
 	pdevinfo.parent = dev;
