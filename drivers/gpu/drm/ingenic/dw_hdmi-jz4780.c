@@ -44,8 +44,9 @@ static const struct dw_hdmi_phy_config jz4780_phy_config[] = {
 };
 
 static enum drm_mode_status
-jz4780_dw_hdmi_mode_valid(struct drm_connector *con,
-		       const struct drm_display_mode *mode)
+jz4780_dw_hdmi_mode_valid(struct dw_hdmi *hdmi, void *data,
+			  const struct drm_display_info *info,
+			  const struct drm_display_mode *mode)
 {
 	if (mode->clock < 13500)
 		return MODE_CLOCK_LOW;
@@ -68,9 +69,7 @@ jz4780_dw_hdmi_mode_fixup(struct drm_bridge *bridge,
 }
 
 static const struct drm_bridge_timings jz4780_dw_hdmi_timings = {
-#ifdef REVISIT
-	.input_bus_flags = DRM_BUS_FLAG_PIXDATA_NEGEDGE,
-#endif
+	.input_bus_flags = DRM_BUS_FLAG_PIXDATA_DRIVE_NEGEDGE,
 };
 
 static struct dw_hdmi_plat_data jz4780_dw_hdmi_plat_data = {
