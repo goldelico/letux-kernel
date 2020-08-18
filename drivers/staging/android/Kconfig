@@ -14,7 +14,7 @@ config ANDROID_VSOC
 config ANDROID_LOGGER
 	tristate "Android log driver"
 	default n
-	---help---
+	help
 	  This adds support for system-wide logging using four log buffers.
 
 	  These are:
@@ -37,14 +37,14 @@ config ANDROID_TIMED_GPIO
 	depends on GPIOLIB || COMPILE_TEST
 	depends on ANDROID_TIMED_OUTPUT
 	default n
-        ---help---
+	help
 	  Unlike generic gpio is to allow programs to access and manipulate gpio
 	  registers from user space, timed output/gpio is a system to allow changing
 	  a gpio pin and restore it automatically after a specified timeout.
 
 config ANDROID_LOW_MEMORY_KILLER
 	bool "Android Low Memory Killer"
-	---help---
+	help
 	  Registers processes to be killed when low memory conditions, this is useful
 	  as there is no particular swap space on android.
 
@@ -56,7 +56,7 @@ config ANDROID_INTF_ALARM_DEV
 	tristate "Android alarm driver"
 	depends on RTC_CLASS
 	default n
-	---help---
+	help
 	  Provides non-wakeup and rtc backed wakeup alarms based on rtc or
 	  elapsed realtime, and a non-wakeup alarm on the monotonic clock.
 	  Also exports the alarm interface to user-space.
@@ -77,7 +77,7 @@ config SW_SYNC
 	default n
 	depends on SYNC_FILE
 	depends on DEBUG_FS
-	---help---
+	help
 	  A sync object driver that uses a 32bit counter to coordinate
 	  synchronization.  Useful when there is no hardware primitive backing
 	  the synchronization.
@@ -89,7 +89,7 @@ source "drivers/staging/android/ion/Kconfig"
 
 config ANDROID_LOW_MEMORY_KILLER
 	bool "Android Low Memory Killer"
-	---help---
+	help
 	  Registers processes to be killed when low memory conditions, this is useful
 	  as there is no particular swap space on android.
 
