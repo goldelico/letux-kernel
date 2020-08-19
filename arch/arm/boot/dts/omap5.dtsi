@@ -248,6 +248,16 @@
 			ti,hwmods = "dmm";
 		};
 
+		bb2d: bb2d@59000000 {
+			compatible = "vivante,gc";
+			reg = <0x59000000 0x0700>;
+			interrupts = <GIC_SPI 125 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&dss_clkctrl OMAP5_DSS_CORE_CLKCTRL 8>, // bus: DSS_L3_GICLK
+			         <&dss_clkctrl OMAP5_DSS_CORE_CLKCTRL 13>; // core: BB2D_GFCLK
+			clock-names = "bus", "core";
+			ti,hwmods = "bb2d";
+		};
+
 		emif1: emif@4c000000 {
 			compatible	= "ti,emif-4d5";
 			ti,hwmods	= "emif1";
@@ -381,7 +391,7 @@
 			ports-implemented = <0x1>;
 		};
 
-		target-module@56000000 {
+		sgx_module: target-module@56000000 {
 			compatible = "ti,sysc-omap4", "ti,sysc";
 			reg = <0x5600fe00 0x4>,
 			      <0x5600fe10 0x4>;
@@ -398,10 +408,11 @@
 			#size-cells = <1>;
 			ranges = <0 0x56000000 0x2000000>;
 
-			/*
-			 * Closed source PowerVR driver, no child device
-			 * binding or driver in mainline
-			 */
+			gpu: gpu@0 {
+				compatible = "ti,omap5-sgx544-116", "img,sgx544-116", "img,sgx544";
+				reg = <0x0 0x10000>;
+				interrupts = <GIC_SPI 21 IRQ_TYPE_LEVEL_HIGH>;
+			};
 		};
 
 		target-module@58000000 {
@@ -488,11 +499,11 @@
 					};
 				};
 
-				target-module@5000 {
+				target-module@4000 {
 					compatible = "ti,sysc-omap2", "ti,sysc";
-					reg = <0x5000 0x4>,
-					      <0x5010 0x4>,
-					      <0x5014 0x4>;
+					reg = <0x4000 0x4>,
+					      <0x4010 0x4>,
+					      <0x4014 0x4>;
 					reg-names = "rev", "sysc", "syss";
 					ti,sysc-sidle = <SYSC_IDLE_FORCE>,
 							<SYSC_IDLE_NO>,
@@ -504,7 +515,7 @@
 					ti,syss-mask = <1>;
 					#address-cells = <1>;
 					#size-cells = <1>;
-					ranges = <0 0x5000 0x1000>;
+					ranges = <0 0x4000 0x1000>;
 
 					dsi1: encoder@0 {
 						compatible = "ti,omap5-dsi";
@@ -514,8 +525,9 @@
 						reg-names = "proto", "phy", "pll";
 						interrupts = <GIC_SPI 53 IRQ_TYPE_LEVEL_HIGH>;
 						status = "disabled";
-						clocks = <&dss_clkctrl OMAP5_DSS_CORE_CLKCTRL 8>;
-						clock-names = "fck";
+						clocks = <&dss_clkctrl OMAP5_DSS_CORE_CLKCTRL 8>,
+							 <&dss_clkctrl OMAP5_DSS_CORE_CLKCTRL 10>;
+						clock-names = "fck", "sys_clk";
 					};
 				};
 
@@ -545,8 +557,9 @@
 						reg-names = "proto", "phy", "pll";
 						interrupts = <GIC_SPI 55 IRQ_TYPE_LEVEL_HIGH>;
 						status = "disabled";
-						clocks = <&dss_clkctrl OMAP5_DSS_CORE_CLKCTRL 8>;
-						clock-names = "fck";
+						clocks = <&dss_clkctrl OMAP5_DSS_CORE_CLKCTRL 8>,
+							 <&dss_clkctrl OMAP5_DSS_CORE_CLKCTRL 10>;
+						clock-names = "fck", "sys_clk";
 					};
 				};
 

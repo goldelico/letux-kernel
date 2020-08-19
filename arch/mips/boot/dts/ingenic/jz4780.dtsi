@@ -2,11 +2,36 @@
 #include <dt-bindings/clock/jz4780-cgu.h>
 #include <dt-bindings/clock/ingenic,tcu.h>
 #include <dt-bindings/dma/jz4780-dma.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
 
 / {
 	#address-cells = <1>;
 	#size-cells = <1>;
 	compatible = "ingenic,jz4780";
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "ingenic,xburst-fpu1.0-mxu1.1";
+			reg = <0>;
+
+			clocks = <&cgu JZ4780_CLK_CPU>;
+			clock-names = "cpu";
+		};
+
+		cpu1: cpu@1 {
+			device_type = "cpu";
+			compatible = "ingenic,xburst-fpu1.0-mxu1.1";
+			reg = <1>;
+
+			clocks = <&cgu JZ4780_CLK_CORE1>;
+			clock-names = "cpu";
+		};
+	};
 
 	cpuintc: interrupt-controller {
 		#address-cells = <0>;
@@ -217,10 +242,11 @@
 		#size-cells = <0>;
 		num-chipselects = <2>;
 
-		gpio-miso = <&gpe 14 0>;
-		gpio-sck = <&gpe 15 0>;
-		gpio-mosi = <&gpe 17 0>;
-		cs-gpios = <&gpe 16 0>, <&gpe 18 0>;
+		gpio-miso = <&gpe 14 GPIO_ACTIVE_HIGH>;
+		gpio-sck = <&gpe 15 GPIO_ACTIVE_HIGH>;
+		gpio-mosi = <&gpe 17 GPIO_ACTIVE_HIGH>;
+		cs-gpios = <&gpe 16 GPIO_ACTIVE_HIGH
+			    &gpe 18 GPIO_ACTIVE_HIGH>;
 
 		spidev@0 {
 			compatible = "spidev";
@@ -380,6 +406,32 @@
 		status = "disabled";
 	};
 
+	gpu: gpu@13040000 {
+		compatible = "ingenic,jz4780-sgx540-130", "img,sgx540-130", "img,sgx540";
+		reg = <0x13040000 0x4000>;
+
+		clocks = <&cgu JZ4780_CLK_GPU>;
+		clock-names = "gpu";
+
+		interrupt-parent = <&intc>;
+		interrupts = <63>;
+	};
+
+	cim: cim@0x13060000 {
+		compatible = "ingenic,jz4780-cim";
+		reg = <0x13060000 0x68>;
+		reg-shift = <2>;
+
+		interrupt-parent = <&intc>;
+		interrupts = <30>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pins_cim>;
+
+		clocks = <&cgu JZ4780_CLK_CIM>, <&cgu JZ4780_CLK_CIMMCLK>;
+		clock-names = "cim", "module";
+	};
+
 	nemc: nemc@13410000 {
 		compatible = "ingenic,jz4780-nemc", "simple-mfd";
 		reg = <0x13410000 0x10000>;
@@ -471,4 +523,50 @@
 
 		status = "disabled";
 	};
+
+	hdmi: hdmi@10180000 {
+		compatible = "ingenic,jz4780-dw-hdmi";
+		reg = <0x10180000 0x8000>;
+		reg-io-width = <4>;
+
+		clocks = <&cgu JZ4780_CLK_HDMI>, <&cgu JZ4780_CLK_AHB0>;
+		clock-names = "isfr" , "iahb";
+
+		assigned-clocks = <&cgu JZ4780_CLK_HDMI>;
+		assigned-clock-rates = <27000000>;
+
+		interrupt-parent = <&intc>;
+		interrupts = <3>;
+
+		/* ddc-i2c-bus = <&i2c4>; */
+
+		status = "disabled";
+	};
+
+	lcdc0: lcdc0@13050000 {
+		compatible = "ingenic,jz4780-lcd";
+		reg = <0x13050000 0x1800>;
+
+		clocks = <&cgu JZ4780_CLK_TVE>, <&cgu JZ4780_CLK_LCD0PIXCLK>;
+		clock-names = "lcd", "lcd_pclk";
+
+		interrupt-parent = <&intc>;
+		interrupts = <31>;
+
+		status = "disabled";
+	};
+
+	lcdc1: lcdc1@130a0000 {
+		compatible = "ingenic,jz4780-lcd";
+		reg = <0x130a0000 0x1800>;
+
+		clocks = <&cgu JZ4780_CLK_TVE>, <&cgu JZ4780_CLK_LCD1PIXCLK>;
+		clock-names = "lcd", "lcd_pclk";
+
+		interrupt-parent = <&intc>;
+		interrupts = <31>;
+
+		status = "disabled";
+	};
+
 };
