@@ -43,26 +43,22 @@ struct ingenic_dma_hwdesc {
 	u32 cmd;
 } __packed;
 
-struct ingenic_dma_hwdesc_extended_fields {
+struct ingenic_dma_hwdesc_ext {
+	struct ingenic_dma_hwdesc base;
 	u32 offsize;
 	u32 pagewidth;
 	u32 cpos;
 	u32 dessize;
 } __packed;
 
-struct ingenic_dma_hwdesc_extended {
-	struct ingenic_dma_hwdesc base;
-	struct ingenic_dma_hwdesc_extended_fields extra;
-} __packed;
-
 struct jz_soc_info {
 	bool needs_dev_clk;
 	bool has_osd;
+	bool has_alpha;
 	bool has_pcfg;
 	bool has_recover;
 	bool has_rgbc;
 	u32 dma_hwdesc_size;
-	int num_descriptors;
 	unsigned int max_width, max_height;
 };
 
@@ -83,9 +79,6 @@ struct ingenic_drm {
 
 	struct ingenic_dma_hwdesc *dma_hwdesc_f0, *dma_hwdesc_f1;
 	dma_addr_t dma_hwdesc_phys_f0, dma_hwdesc_phys_f1;
-
-	struct ingenic_dma_hwdesc *dma_hwdesc[2];
-	dma_addr_t dma_hwdesc_phys;
 
 	bool panel_is_sharp;
 	bool no_vblank;
@@ -232,11 +225,10 @@ static void ingenic_drm_crtc_update_timings(struct ingenic_drm *priv,
 			     JZ_LCD_RGBC_EVEN_LINE_RGB);
 
 	/* OSD settings for extended descriptor definitions. */
-	if (priv->soc_info->dma_hwdesc_size == sizeof(struct ingenic_dma_hwdesc_extended))
+	if (priv->soc_info->has_alpha)
 	{
-		regmap_write(priv->map, JZ_REG_LCD_OSDC,
-			     JZ_LCD_OSDC_ALPHAEN |
-			     JZ_LCD_OSDC_OSDEN);
+		regmap_set_bits(priv->map, JZ_REG_LCD_OSDC,
+			     JZ_LCD_OSDC_ALPHAEN);
 	}
 }
 
@@ -307,17 +299,11 @@ static void ingenic_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	struct ingenic_drm *priv = drm_crtc_get_priv(crtc);
 	struct drm_crtc_state *state = crtc->state;
 	struct drm_pending_vblank_event *event = state->event;
-	int num;
 
 	if (drm_atomic_crtc_needs_modeset(state)) {
 		ingenic_drm_crtc_update_timings(priv, &state->mode);
 
 		clk_set_rate(priv->pix_clk, state->adjusted_mode.clock * 1000);
-
-		/* Initialise up to two descriptor address registers. */
-		for (num = 0; num < priv->soc_info->num_descriptors; num++)
-			regmap_write(priv->map, !num ? JZ_REG_LCD_DA0 : JZ_REG_LCD_DA1,
-				     priv->dma_hwdesc[num]->next);
 	}
 
 	if (event) {
@@ -480,40 +466,35 @@ void ingenic_drm_plane_config(struct device *dev,
 		}
 }
 
-static void ingenic_drm_descriptor_init(struct ingenic_drm *priv, int num,
+static void ingenic_drm_descriptor_init(struct ingenic_drm *priv,
+					struct ingenic_dma_hwdesc *hwdesc,
+					bool enable,
 					unsigned int width,
 					unsigned int height,
 					unsigned int cpp,
 					u32 addr)
 {
-	struct ingenic_dma_hwdesc *hwdesc = priv->dma_hwdesc[num];
-	struct ingenic_dma_hwdesc_extended *hwdesc_ext;
+	struct ingenic_dma_hwdesc_ext *hwdesc_ext;
 
-	/* Chain the descriptor to itself. */
-	hwdesc->next = priv->dma_hwdesc_phys +
-		       num * priv->soc_info->dma_hwdesc_size;
-
-	hwdesc->id = 0xfeed0000 | num;
 	hwdesc->addr = addr;
-	hwdesc->cmd = width * height * cpp / 4;
-	hwdesc->cmd |= JZ_LCD_CMD_EOF_IRQ;
+	hwdesc->cmd = JZ_LCD_CMD_EOF_IRQ | (width * height * cpp / 4);
 
 	/* CI20 initialisation. */
-	if (priv->soc_info->dma_hwdesc_size == sizeof(struct ingenic_dma_hwdesc_extended))
+	if (priv->soc_info->dma_hwdesc_size == sizeof(struct ingenic_dma_hwdesc_ext))
 	{
-		/* Enable only the first descriptor's frame. */
-		if (!num)
+		if (enable)
 			hwdesc->cmd |= JZ_LCD_CMD_FRM_ENABLE;
 
-		hwdesc_ext = (struct ingenic_dma_hwdesc_extended *) hwdesc;
-		hwdesc_ext->extra.offsize = 0;
-		hwdesc_ext->extra.pagewidth = 0;
+		hwdesc_ext = (struct ingenic_dma_hwdesc_ext *) hwdesc;
+		hwdesc_ext->offsize = 0;
+		hwdesc_ext->pagewidth = 0;
 
-		hwdesc_ext->extra.cpos = JZ_LCD_CPOS_BPP_18_24 |
-					 JZ_LCD_CPOS_PREMULTIPLY_LCD |
-					 (3 << JZ_LCD_CPOS_COEFFICIENT_OFFSET);
+		hwdesc_ext->cpos =
+			JZ_LCD_CPOS_BPP_18_24 |
+			JZ_LCD_CPOS_PREMULTIPLY_LCD |
+			(3 << JZ_LCD_CPOS_COEFFICIENT_OFFSET);
 
-		hwdesc_ext->extra.dessize =
+		hwdesc_ext->dessize =
 			(0xff << JZ_LCD_DESSIZE_ALPHA_OFFSET) |
 			(((height - 1) & JZ_LCD_DESSIZE_HEIGHT_MASK) <<
 					 JZ_LCD_DESSIZE_HEIGHT_OFFSET) |
@@ -530,7 +511,6 @@ static void ingenic_drm_plane_atomic_update(struct drm_plane *plane,
 	struct ingenic_dma_hwdesc *hwdesc;
 	unsigned int width, height, cpp;
 	dma_addr_t addr;
-	int num;
 
 	if (state && state->fb) {
 		addr = drm_fb_cma_get_gem_addr(state->fb, state, 0);
@@ -543,15 +523,11 @@ static void ingenic_drm_plane_atomic_update(struct drm_plane *plane,
 		else
 			hwdesc = priv->dma_hwdesc_f1;
 
-		hwdesc->addr = addr;
-		hwdesc->cmd = JZ_LCD_CMD_EOF_IRQ | (width * height * cpp / 4);
+		ingenic_drm_descriptor_init(priv, hwdesc, true, width, height, cpp, addr);
 
 		if (drm_atomic_crtc_needs_modeset(state->crtc->state))
 			ingenic_drm_plane_config(priv->dev, plane,
 						 state->fb->format->format);
-
-		for (num = 0; num < priv->soc_info->num_descriptors; num++)
-			ingenic_drm_descriptor_init(priv, num, width, height, cpp, addr);
 	}
 }
 
@@ -578,7 +554,7 @@ static void ingenic_drm_encoder_atomic_mode_set(struct drm_encoder *encoder,
 		cfg |= JZ_LCD_CFG_RECOVER_FIFO_UNDERRUN;
 
 	/* CI20: set use of the 8-word descriptor and OSD foreground usage. */
-	if (priv->soc_info->dma_hwdesc_size == sizeof(struct ingenic_dma_hwdesc_extended))
+	if (priv->soc_info->dma_hwdesc_size == sizeof(struct ingenic_dma_hwdesc_ext))
 		cfg |= JZ_LCD_CFG_DESCRIPTOR_8;
 
 	if (mode->flags & DRM_MODE_FLAG_NHSYNC)
@@ -778,35 +754,6 @@ static void ingenic_drm_unbind_all(void *d)
 	component_unbind_all(priv->dev, &priv->drm);
 }
 
-static int ingenic_drm_allocate_descriptors(struct ingenic_drm *priv)
-{
-	int num;
-
-	priv->dma_hwdesc[0] = dma_alloc_coherent(priv->dev,
-						 priv->soc_info->num_descriptors
-						 * priv->soc_info->dma_hwdesc_size,
-						 &priv->dma_hwdesc_phys,
-						 GFP_KERNEL);
-	if (!priv->dma_hwdesc[0])
-		return -ENOMEM;
-
-	for (num = 1; num < priv->soc_info->num_descriptors; num++)
-		priv->dma_hwdesc[num] = (struct ingenic_dma_hwdesc *)
-					((u32) priv->dma_hwdesc[0] +
-					num * priv->soc_info->dma_hwdesc_size);
-
-	return 0;
-}
-
-static void ingenic_drm_free_descriptors(void *d)
-{
-	struct ingenic_drm *priv = d;
-
-	dma_free_coherent(priv->dev, priv->soc_info->num_descriptors
-				     * priv->soc_info->dma_hwdesc_size,
-			  priv->dma_hwdesc[0], priv->dma_hwdesc_phys);
-}
-
 static int ingenic_drm_bind(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
@@ -846,7 +793,7 @@ static int ingenic_drm_bind(struct device *dev)
 	drm->mode_config.min_width = 0;
 	drm->mode_config.min_height = 0;
 	drm->mode_config.max_width = soc_info->max_width;
-	drm->mode_config.max_height = 4095;
+	drm->mode_config.max_height = soc_info->max_height;
 	drm->mode_config.funcs = &ingenic_drm_mode_config_funcs;
 	drm->mode_config.helper_private = &ingenic_drm_mode_config_helpers;
 
@@ -881,7 +828,8 @@ static int ingenic_drm_bind(struct device *dev)
 		return PTR_ERR(priv->pix_clk);
 	}
 
-	priv->dma_hwdesc_f1 = dmam_alloc_coherent(dev, sizeof(*priv->dma_hwdesc_f1),
+	priv->dma_hwdesc_f1 = dmam_alloc_coherent(dev,
+						  priv->soc_info->dma_hwdesc_size,
 						  &priv->dma_hwdesc_phys_f1,
 						  GFP_KERNEL);
 	if (!priv->dma_hwdesc_f1)
@@ -892,7 +840,7 @@ static int ingenic_drm_bind(struct device *dev)
 
 	if (priv->soc_info->has_osd) {
 		priv->dma_hwdesc_f0 = dmam_alloc_coherent(dev,
-							  sizeof(*priv->dma_hwdesc_f0),
+							  priv->soc_info->dma_hwdesc_size,
 							  &priv->dma_hwdesc_phys_f0,
 							  GFP_KERNEL);
 		if (!priv->dma_hwdesc_f0)
@@ -906,13 +854,6 @@ static int ingenic_drm_bind(struct device *dev)
 		priv->ipu_plane = drm_plane_from_index(drm, 0);
 
 	drm_plane_helper_add(&priv->f1, &ingenic_drm_plane_helper_funcs);
-
-	if (ingenic_drm_allocate_descriptors(priv))
-		return -ENOMEM;
-
-	ret = devm_add_action_or_reset(dev, ingenic_drm_free_descriptors, priv);
-	if (ret)
-		return ret;
 
 	ret = drm_universal_plane_init(drm, &priv->f1, 1,
 				       &ingenic_drm_primary_plane_funcs,
@@ -1138,11 +1079,11 @@ static int ingenic_drm_remove(struct platform_device *pdev)
 static const struct jz_soc_info jz4740_soc_info = {
 	.needs_dev_clk = true,
 	.has_osd = false,
+	.has_alpha = false,
 	.has_pcfg = false,
 	.has_recover = false,
 	.has_rgbc = false,
 	.dma_hwdesc_size = sizeof(struct ingenic_dma_hwdesc),
-	.num_descriptors = 1,
 	.max_width = 800,
 	.max_height = 600,
 };
@@ -1150,11 +1091,11 @@ static const struct jz_soc_info jz4740_soc_info = {
 static const struct jz_soc_info jz4725b_soc_info = {
 	.needs_dev_clk = false,
 	.has_osd = true,
+	.has_alpha = false,
 	.has_pcfg = false,
 	.has_recover = false,
 	.has_rgbc = false,
 	.dma_hwdesc_size = sizeof(struct ingenic_dma_hwdesc),
-	.num_descriptors = 1,
 	.max_width = 800,
 	.max_height = 600,
 };
@@ -1162,22 +1103,23 @@ static const struct jz_soc_info jz4725b_soc_info = {
 static const struct jz_soc_info jz4770_soc_info = {
 	.needs_dev_clk = false,
 	.has_osd = true,
+	.has_alpha = false,
 	.has_pcfg = false,
 	.has_recover = false,
 	.has_rgbc = false,
 	.dma_hwdesc_size = sizeof(struct ingenic_dma_hwdesc),
-	.num_descriptors = 1,
 	.max_width = 1280,
 	.max_height = 720,
 };
 
 static const struct jz_soc_info jz4780_soc_info = {
 	.needs_dev_clk = true,
+	.has_osd = true,
+	.has_alpha = true,
 	.has_pcfg = true,
 	.has_recover = true,
 	.has_rgbc = true,
-	.dma_hwdesc_size = sizeof(struct ingenic_dma_hwdesc_extended),
-	.num_descriptors = 2,
+	.dma_hwdesc_size = sizeof(struct ingenic_dma_hwdesc_ext),
 	.max_width = 4096,
 	.max_height = 4096,
 };
