@@ -608,8 +608,11 @@ static int ingenic_drm_encoder_atomic_check(struct drm_encoder *encoder,
 	if (info->num_bus_formats != 1)
 		return -EINVAL;
 
-	if (conn_state->connector->connector_type == DRM_MODE_CONNECTOR_TV)
+	switch (conn_state->connector->connector_type) {
+	case DRM_MODE_CONNECTOR_TV:
+	case DRM_MODE_CONNECTOR_HDMIA:
 		return 0;
+	}
 
 	switch (*info->bus_formats) {
 	case MEDIA_BUS_FMT_RGB565_1X16:
