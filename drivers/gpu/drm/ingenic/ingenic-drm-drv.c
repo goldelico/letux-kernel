@@ -540,6 +540,10 @@ static void ingenic_drm_encoder_atomic_mode_set(struct drm_encoder *encoder,
 	struct drm_connector *conn = conn_state->connector;
 	struct drm_display_info *info = &conn->display_info;
 	unsigned int cfg;
+	u32 bus_format = MEDIA_BUS_FMT_RGB888_1X24;
+
+	if (info->num_bus_formats)
+		bus_format = info->bus_formats[0];
 
 	priv->panel_is_sharp = info->bus_flags & DRM_BUS_FLAG_SHARP_SIGNALS;
 
@@ -573,7 +577,7 @@ static void ingenic_drm_encoder_atomic_mode_set(struct drm_encoder *encoder,
 			else
 				cfg |= JZ_LCD_CFG_MODE_TV_OUT_P;
 		} else {
-			switch (*info->bus_formats) {
+			switch (bus_format) {
 			case MEDIA_BUS_FMT_RGB565_1X16:
 				cfg |= JZ_LCD_CFG_MODE_GENERIC_16BIT;
 				break;
