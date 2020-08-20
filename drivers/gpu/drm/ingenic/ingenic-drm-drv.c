@@ -389,26 +389,6 @@ static void ingenic_drm_crtc_update_timings(struct ingenic_drm *priv,
 	regmap_write(priv->map, JZ_REG_LCD_IPUR, JZ_LCD_IPUR_IPUREN |
 		     (ht * vpe / 3) << JZ_LCD_IPUR_IPUR_LSB);
 
-#ifdef REVISIT
-	/* NOTE: This does not have the intended effect on JZ4780 since the
-		 pixel depth of each frame is set in the descriptors. */
-	switch (finfo->format) {
-	case DRM_FORMAT_XRGB1555:
-		ctrl |= JZ_LCD_CTRL_RGB555;
-		/* fall-through */
-	case DRM_FORMAT_RGB565:
-		ctrl |= JZ_LCD_CTRL_BPP_15_16;
-		break;
-	case DRM_FORMAT_XRGB8888:
-		ctrl |= JZ_LCD_CTRL_BPP_18_24;
-		break;
-	}
-
-	regmap_update_bits(priv->map, JZ_REG_LCD_CTRL,
-			   JZ_LCD_CTRL_OFUP | JZ_LCD_CTRL_BURST_16 |
-			   JZ_LCD_CTRL_BPP_MASK, ctrl);
-#endif
-
 	/* "Magic values" from the 3.18 kernel for the priority thresholds. */
 	if (priv->soc_info->has_pcfg)
 		regmap_write(priv->map, JZ_REG_LCD_PCFG,
@@ -501,7 +481,6 @@ static void ingenic_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	struct ingenic_drm *priv = drm_crtc_get_priv(crtc);
 	struct drm_crtc_state *state = crtc->state;
 	struct drm_pending_vblank_event *event = state->event;
-	struct drm_framebuffer *drm_fb = crtc->primary->state->fb;
 	int num;
 
 	if (drm_atomic_crtc_needs_modeset(state)) {
@@ -1108,10 +1087,6 @@ static int ingenic_drm_bind(struct device *dev)
 	ret = devm_add_action_or_reset(dev, ingenic_drm_free_descriptors, priv);
 	if (ret)
 		return ret;
-
-#ifdef REVISIT
-	drm_plane_helper_add(&priv->primary, &ingenic_drm_plane_helper_funcs);
-#endif
 
 	ret = drm_universal_plane_init(drm, &priv->f1, 1,
 				       &ingenic_drm_primary_plane_funcs,
