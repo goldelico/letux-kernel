@@ -49,11 +49,15 @@ struct rn5t618_power_info {
 };
 
 static enum power_supply_property rn5t618_usb_props[] = {
+	/* input current limit is not very accurate */
+	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_ONLINE,
 };
 
 static enum power_supply_property rn5t618_adp_props[] = {
+	/* input current limit is not very accurate */
+	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_ONLINE,
 };
@@ -342,6 +346,7 @@ static int rn5t618_adp_get_property(struct power_supply *psy,
 {
 	struct rn5t618_power_info *info = power_supply_get_drvdata(psy);
 	unsigned int chgstate;
+	unsigned int regval;
 	bool online;
 	int ret;
 
@@ -365,6 +370,14 @@ static int rn5t618_adp_get_property(struct power_supply *psy,
 			val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
 
 		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
+		ret = regmap_read(info->rn5t618->regmap,
+				  RN5T618_REGISET1, &regval);
+		if (ret < 0)
+			return ret;
+
+		val->intval = 1000 * 100 * (1 + (regval & CHG_STATE_MASK));
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -378,6 +391,7 @@ static int rn5t618_usb_get_property(struct power_supply *psy,
 {
 	struct rn5t618_power_info *info = power_supply_get_drvdata(psy);
 	unsigned int chgstate;
+	unsigned int regval;
 	bool online;
 	int ret;
 
@@ -400,6 +414,14 @@ static int rn5t618_usb_get_property(struct power_supply *psy,
 		if (val->intval != POWER_SUPPLY_STATUS_CHARGING)
 			val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
 
+		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
+		ret = regmap_read(info->rn5t618->regmap, RN5T618_REGISET2,
+				  &regval);
+		if (ret < 0)
+			return ret;
+
+		val->intval = 1000 * 100 * (1 + (regval & CHG_STATE_MASK));
 		break;
 	default:
 		return -EINVAL;
