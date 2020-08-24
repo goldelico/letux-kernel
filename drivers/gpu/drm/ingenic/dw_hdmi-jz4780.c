@@ -68,9 +68,7 @@ jz4780_dw_hdmi_mode_fixup(struct drm_bridge *bridge,
 }
 
 static const struct drm_bridge_timings jz4780_dw_hdmi_timings = {
-#ifdef REVISIT
 	.input_bus_flags = DRM_BUS_FLAG_PIXDATA_NEGEDGE,
-#endif
 };
 
 static struct dw_hdmi_plat_data jz4780_dw_hdmi_plat_data = {
