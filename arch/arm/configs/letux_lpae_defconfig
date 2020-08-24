@@ -1,5 +1,5 @@
 #
-# Linux/arm 5.8.1 Kernel Configuration
+# Linux/arm 5.8.3 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabi-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
@@ -5654,6 +5654,7 @@ CONFIG_HAVE_CLK=y
 CONFIG_CLKDEV_LOOKUP=y
 CONFIG_HAVE_CLK_PREPARE=y
 CONFIG_COMMON_CLK=y
+# CONFIG_CLK_HSDK is not set
 # CONFIG_COMMON_CLK_MAX9485 is not set
 # CONFIG_COMMON_CLK_SI5341 is not set
 # CONFIG_COMMON_CLK_SI5351 is not set
