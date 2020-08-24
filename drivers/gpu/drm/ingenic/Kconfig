@@ -25,9 +25,12 @@ config DRM_INGENIC_IPU
 
 	  The Image Processing Unit (IPU) will appear as a second primary plane.
 
-config DRM_DW_HDMI_JZ4780
-	bool "HDMI Support for Ingenic JZ4780"
+config DRM_INGENIC_DW_HDMI
+	bool "Ingenic specific support for Synopsys DW HDMI"
 	select DRM_DW_HDMI
 	help
-	  Choose this option for HDMI output from the Ingenic JZ4780.
+	  Choose this option to enable Synopsys DesignWare HDMI based driver.
+	  If you want to enable HDMI on Ingenic JZ4780 based SoC, you should
+	  select this option..
+
 endif
