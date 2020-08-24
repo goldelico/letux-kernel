@@ -9,8 +9,6 @@
 #include <sound/hdmi-codec.h>
 
 struct drm_display_info;
-struct drm_bridge;
-struct drm_connector;
 struct drm_display_mode;
 struct drm_encoder;
 struct dw_hdmi;
@@ -128,13 +126,6 @@ struct dw_hdmi_phy_ops {
 struct dw_hdmi_plat_data {
 	struct regmap *regm;
 
-	enum drm_mode_status (*mode_valid)(struct drm_connector *connector,
-					   const struct drm_display_mode *mode);
-	bool (*mode_fixup)(struct drm_bridge *bridge,
-			   const struct drm_display_mode *mode,
-			   struct drm_display_mode *adjusted_mode);
-	const struct drm_bridge_timings *timings;
-	unsigned long input_bus_format;
 	unsigned long input_bus_encoding;
 	bool use_drm_infoframe;
 	bool ycbcr_420_allowed;

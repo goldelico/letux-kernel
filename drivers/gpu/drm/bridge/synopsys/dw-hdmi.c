@@ -2876,19 +2876,6 @@ dw_hdmi_bridge_mode_valid(struct drm_bridge *bridge,
 	return mode_status;
 }
 
-static bool
-dw_hdmi_bridge_mode_fixup(struct drm_bridge *bridge,
-		       const struct drm_display_mode *mode,
-		       struct drm_display_mode *adjusted_mode)
-{
-	struct dw_hdmi *hdmi = bridge->driver_private;
-
-	if (hdmi->plat_data->mode_fixup)
-		return hdmi->plat_data->mode_fixup(bridge, mode, adjusted_mode);
-
-	return true;
-}
-
 static void dw_hdmi_bridge_mode_set(struct drm_bridge *bridge,
 				    const struct drm_display_mode *orig_mode,
 				    const struct drm_display_mode *mode)
@@ -2962,12 +2949,8 @@ static const struct drm_bridge_funcs dw_hdmi_bridge_funcs = {
 	.atomic_disable = dw_hdmi_bridge_atomic_disable,
 	.mode_set = dw_hdmi_bridge_mode_set,
 	.mode_valid = dw_hdmi_bridge_mode_valid,
-<<<<<<< HEAD
 	.detect = dw_hdmi_bridge_detect,
 	.get_edid = dw_hdmi_bridge_get_edid,
-=======
-	.mode_fixup = dw_hdmi_bridge_mode_fixup,
->>>>>>> 2ecf3b9294a92f... Added mode_fixup and bridge timings support.
 };
 
 /* -----------------------------------------------------------------------------
@@ -3447,8 +3430,6 @@ struct dw_hdmi *dw_hdmi_probe(struct platform_device *pdev,
 #ifdef CONFIG_OF
 	hdmi->bridge.of_node = pdev->dev.of_node;
 #endif
-	if (plat_data->timings)
-		hdmi->bridge.timings = plat_data->timings;
 
 	memset(&pdevinfo, 0, sizeof(pdevinfo));
 	pdevinfo.parent = dev;
