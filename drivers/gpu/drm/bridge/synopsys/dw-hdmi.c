@@ -2962,9 +2962,12 @@ static const struct drm_bridge_funcs dw_hdmi_bridge_funcs = {
 	.atomic_disable = dw_hdmi_bridge_atomic_disable,
 	.mode_set = dw_hdmi_bridge_mode_set,
 	.mode_valid = dw_hdmi_bridge_mode_valid,
+<<<<<<< HEAD
 	.detect = dw_hdmi_bridge_detect,
 	.get_edid = dw_hdmi_bridge_get_edid,
+=======
 	.mode_fixup = dw_hdmi_bridge_mode_fixup,
+>>>>>>> 2ecf3b9294a92f... Added mode_fixup and bridge timings support.
 };
 
 /* -----------------------------------------------------------------------------
