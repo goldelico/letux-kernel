@@ -3,7 +3,6 @@
 // Ingenic JZ47xx KMS driver
 //
 // Copyright (C) 2019, Paul Cercueil <paul@crapouillou.net>
-// Copyright (C) 2020 Paul Boddie <paul@boddie.org.uk>
 
 #include "ingenic-drm.h"
 
@@ -36,180 +35,6 @@
 #include <drm/drm_simple_kms_helper.h>
 #include <drm/drm_vblank.h>
 
-#define JZ_REG_LCD_CFG				0x00
-#define JZ_REG_LCD_VSYNC			0x04
-#define JZ_REG_LCD_HSYNC			0x08
-#define JZ_REG_LCD_VAT				0x0C
-#define JZ_REG_LCD_DAH				0x10
-#define JZ_REG_LCD_DAV				0x14
-#define JZ_REG_LCD_PS				0x18
-#define JZ_REG_LCD_CLS				0x1C
-#define JZ_REG_LCD_SPL				0x20
-#define JZ_REG_LCD_REV				0x24
-#define JZ_REG_LCD_CTRL				0x30
-#define JZ_REG_LCD_STATE			0x34
-#define JZ_REG_LCD_IID				0x38
-#define JZ_REG_LCD_DA0				0x40
-#define JZ_REG_LCD_SA0				0x44
-#define JZ_REG_LCD_FID0				0x48
-#define JZ_REG_LCD_CMD0				0x4C
-#define JZ_REG_LCD_DA1				0x50
-#define JZ_REG_LCD_SA1				0x54
-#define JZ_REG_LCD_FID1				0x58
-#define JZ_REG_LCD_CMD1				0x5C
-#define JZ_REG_LCD_RGBC				0x90
-#define JZ_REG_LCD_OSDC				0x100
-#define JZ_REG_LCD_OSDCTRL			0x104
-#define JZ_REG_LCD_OSDS				0x108
-#define JZ_REG_LCD_PCFG				0x2c0
-
-#define JZ_LCD_CFG_SLCD				BIT(31)
-#define JZ_LCD_CFG_TV_PAL_HALFLINE_ENABLE	BIT(30)
-#define JZ_LCD_CFG_DESCRIPTOR_8			BIT(28)
-#define JZ_LCD_CFG_TV_ENABLE			BIT(26)
-#define JZ_LCD_CFG_RECOVER_FIFO_UNDERRUN	BIT(25)
-#define JZ_LCD_CFG_PS_DISABLE			BIT(23)
-#define JZ_LCD_CFG_CLS_DISABLE			BIT(22)
-#define JZ_LCD_CFG_SPL_DISABLE			BIT(21)
-#define JZ_LCD_CFG_REV_DISABLE			BIT(20)
-#define JZ_LCD_CFG_HSYNCM			BIT(19)
-#define JZ_LCD_CFG_PCLKM			BIT(18)
-#define JZ_LCD_CFG_INV				BIT(17)
-#define JZ_LCD_CFG_SYNC_DIR			BIT(16)
-#define JZ_LCD_CFG_PS_POLARITY			BIT(15)
-#define JZ_LCD_CFG_CLS_POLARITY			BIT(14)
-#define JZ_LCD_CFG_SPL_POLARITY			BIT(13)
-#define JZ_LCD_CFG_REV_POLARITY			BIT(12)
-#define JZ_LCD_CFG_HSYNC_ACTIVE_LOW		BIT(11)
-#define JZ_LCD_CFG_PCLK_FALLING_EDGE		BIT(10)
-#define JZ_LCD_CFG_DE_ACTIVE_LOW		BIT(9)
-#define JZ_LCD_CFG_VSYNC_ACTIVE_LOW		BIT(8)
-#define JZ_LCD_CFG_18_BIT			BIT(7)
-#define JZ_LCD_CFG_24_BIT			BIT(6)
-#define JZ_LCD_CFG_PDW				(BIT(5) | BIT(4))
-
-#define JZ_LCD_CFG_MODE_GENERIC_16BIT		0
-#define JZ_LCD_CFG_MODE_GENERIC_18BIT		BIT(7)
-#define JZ_LCD_CFG_MODE_GENERIC_24BIT		BIT(6)
-
-#define JZ_LCD_CFG_MODE_SPECIAL_TFT_1		1
-#define JZ_LCD_CFG_MODE_SPECIAL_TFT_2		2
-#define JZ_LCD_CFG_MODE_SPECIAL_TFT_3		3
-
-#define JZ_LCD_CFG_MODE_TV_OUT_P		4
-#define JZ_LCD_CFG_MODE_TV_OUT_I		6
-
-#define JZ_LCD_CFG_MODE_SINGLE_COLOR_STN	8
-#define JZ_LCD_CFG_MODE_SINGLE_MONOCHROME_STN	9
-#define JZ_LCD_CFG_MODE_DUAL_COLOR_STN		10
-#define JZ_LCD_CFG_MODE_DUAL_MONOCHROME_STN	11
-
-#define JZ_LCD_CFG_MODE_8BIT_SERIAL		12
-#define JZ_LCD_CFG_MODE_LCM			13
-
-#define JZ_LCD_VSYNC_VPS_OFFSET			16
-#define JZ_LCD_VSYNC_VPE_OFFSET			0
-
-#define JZ_LCD_HSYNC_HPS_OFFSET			16
-#define JZ_LCD_HSYNC_HPE_OFFSET			0
-
-#define JZ_LCD_VAT_HT_OFFSET			16
-#define JZ_LCD_VAT_VT_OFFSET			0
-
-#define JZ_LCD_DAH_HDS_OFFSET			16
-#define JZ_LCD_DAH_HDE_OFFSET			0
-
-#define JZ_LCD_DAV_VDS_OFFSET			16
-#define JZ_LCD_DAV_VDE_OFFSET			0
-
-#define JZ_LCD_CTRL_BURST_4			(0x0 << 28)
-#define JZ_LCD_CTRL_BURST_8			(0x1 << 28)
-#define JZ_LCD_CTRL_BURST_16			(0x2 << 28)
-#define JZ_LCD_CTRL_BURST_32			(0x3 << 28)
-#define JZ_LCD_CTRL_BURST_64			(0x4 << 28)
-#define JZ_LCD_CTRL_BURST_MASK			(0x7 << 28)
-#define JZ_LCD_CTRL_RGB555			BIT(27)
-#define JZ_LCD_CTRL_OFUP			BIT(26)
-#define JZ_LCD_CTRL_FRC_GRAYSCALE_16		(0x0 << 24)
-#define JZ_LCD_CTRL_FRC_GRAYSCALE_4		(0x1 << 24)
-#define JZ_LCD_CTRL_FRC_GRAYSCALE_2		(0x2 << 24)
-#define JZ_LCD_CTRL_PDD_MASK			(0xff << 16)
-#define JZ_LCD_CTRL_EOF_IRQ			BIT(13)
-#define JZ_LCD_CTRL_SOF_IRQ			BIT(12)
-#define JZ_LCD_CTRL_OFU_IRQ			BIT(11)
-#define JZ_LCD_CTRL_IFU0_IRQ			BIT(10)
-#define JZ_LCD_CTRL_IFU1_IRQ			BIT(9)
-#define JZ_LCD_CTRL_DD_IRQ			BIT(8)
-#define JZ_LCD_CTRL_QDD_IRQ			BIT(7)
-#define JZ_LCD_CTRL_REVERSE_ENDIAN		BIT(6)
-#define JZ_LCD_CTRL_LSB_FISRT			BIT(5)
-#define JZ_LCD_CTRL_DISABLE			BIT(4)
-#define JZ_LCD_CTRL_ENABLE			BIT(3)
-#define JZ_LCD_CTRL_BPP_1			0x0
-#define JZ_LCD_CTRL_BPP_2			0x1
-#define JZ_LCD_CTRL_BPP_4			0x2
-#define JZ_LCD_CTRL_BPP_8			0x3
-#define JZ_LCD_CTRL_BPP_15_16			0x4
-#define JZ_LCD_CTRL_BPP_18_24			0x5
-#define JZ_LCD_CTRL_BPP_MASK			(JZ_LCD_CTRL_RGB555 | (0x7 << 0))
-
-#define JZ_LCD_CMD_SOF_IRQ			BIT(31)
-#define JZ_LCD_CMD_EOF_IRQ			BIT(30)
-#define JZ_LCD_CMD_ENABLE_PAL			BIT(28)
-#define JZ_LCD_CMD_FRM_ENABLE			BIT(26)
-
-#define JZ_LCD_SYNC_MASK			0x3ff
-
-#define JZ_LCD_STATE_EOF_IRQ			BIT(5)
-#define JZ_LCD_STATE_SOF_IRQ			BIT(4)
-#define JZ_LCD_STATE_DISABLED			BIT(0)
-
-#define JZ_LCD_DESSIZE_ALPHA_OFFSET		24
-#define JZ_LCD_DESSIZE_HEIGHT_OFFSET		12
-#define JZ_LCD_DESSIZE_WIDTH_OFFSET		0
-#define JZ_LCD_DESSIZE_HEIGHT_MASK		0xfff
-#define JZ_LCD_DESSIZE_WIDTH_MASK		0xfff
-
-#define JZ_LCD_CPOS_BPP_15_16			(4 << 27)
-#define JZ_LCD_CPOS_BPP_18_24			(5 << 27)
-#define JZ_LCD_CPOS_BPP_30			(7 << 27)
-#define JZ_LCD_CPOS_PREMULTIPLY_LCD		BIT(26)
-#define JZ_LCD_CPOS_COEFFICIENT_OFFSET		24
-
-#define JZ_LCD_RGBC_RGB_PADDING			BIT(15)
-#define JZ_LCD_RGBC_RGB_PADDING_FIRST		BIT(14)
-#define JZ_LCD_RGBC_422				BIT(8)
-#define JZ_LCD_RGBC_RGB_FORMAT_ENABLE		BIT(7)
-#define JZ_LCD_RGBC_ODD_LINE_MASK		(0x7 << 4)
-#define JZ_LCD_RGBC_ODD_LINE_RGB		(0 << 4)
-#define JZ_LCD_RGBC_ODD_LINE_RBG		(1 << 4)
-#define JZ_LCD_RGBC_ODD_LINE_GRB		(2 << 4)
-#define JZ_LCD_RGBC_ODD_LINE_GBR		(3 << 4)
-#define JZ_LCD_RGBC_ODD_LINE_BRG		(4 << 4)
-#define JZ_LCD_RGBC_ODD_LINE_BGR		(5 << 4)
-#define JZ_LCD_RGBC_EVEN_LINE_MASK		(0x7 << 0)
-#define JZ_LCD_RGBC_EVEN_LINE_RGB		0
-#define JZ_LCD_RGBC_EVEN_LINE_RBG		1
-#define JZ_LCD_RGBC_EVEN_LINE_GRB		2
-#define JZ_LCD_RGBC_EVEN_LINE_GBR		3
-#define JZ_LCD_RGBC_EVEN_LINE_BRG		4
-#define JZ_LCD_RGBC_EVEN_LINE_BGR		5
-
-#define JZ_REG_LCD_OSDC_ALPHA_ENABLE		BIT(2)
-#define JZ_REG_LCD_OSDC_ENABLE			BIT(0)
-
-#define JZ_LCD_PCFG_PRI_MODE			BIT(31)
-#define JZ_LCD_PCFG_HP_BST_4			(0 << 28)
-#define JZ_LCD_PCFG_HP_BST_8			(1 << 28)
-#define JZ_LCD_PCFG_HP_BST_16			(2 << 28)
-#define JZ_LCD_PCFG_HP_BST_32			(3 << 28)
-#define JZ_LCD_PCFG_HP_BST_64			(4 << 28)
-#define JZ_LCD_PCFG_HP_BST_16_CONT		(5 << 28)
-#define JZ_LCD_PCFG_HP_BST_DISABLE		(7 << 28)
-#define JZ_LCD_PCFG_THRESHOLD2_OFFSET		18
-#define JZ_LCD_PCFG_THRESHOLD1_OFFSET		9
-#define JZ_LCD_PCFG_THRESHOLD0_OFFSET		0
-
 struct ingenic_dma_hwdesc {
 	u32 next;
 	u32 addr;
@@ -217,26 +42,9 @@ struct ingenic_dma_hwdesc {
 	u32 cmd;
 } __packed;
 
-struct ingenic_dma_hwdesc_extended_fields {
-	u32 offsize;
-	u32 pagewidth;
-	u32 cpos;
-	u32 dessize;
-} __packed;
-
-struct ingenic_dma_hwdesc_extended {
-	struct ingenic_dma_hwdesc base;
-	struct ingenic_dma_hwdesc_extended_fields extra;
-} __packed;
-
 struct jz_soc_info {
 	bool needs_dev_clk;
 	bool has_osd;
-	bool has_pcfg;
-	bool has_recover;
-	bool has_rgbc;
-	u32 dma_hwdesc_size;
-	int num_descriptors;
 	unsigned int max_width, max_height;
 };
 
@@ -258,9 +66,6 @@ struct ingenic_drm {
 	struct ingenic_dma_hwdesc *dma_hwdesc_f0, *dma_hwdesc_f1;
 	dma_addr_t dma_hwdesc_phys_f0, dma_hwdesc_phys_f1;
 
-	struct ingenic_dma_hwdesc *dma_hwdesc[2];
-	dma_addr_t dma_hwdesc_phys;
-
 	bool panel_is_sharp;
 	bool no_vblank;
 };
@@ -269,7 +74,6 @@ static const u32 ingenic_drm_primary_formats[] = {
 	DRM_FORMAT_XRGB1555,
 	DRM_FORMAT_RGB565,
 	DRM_FORMAT_XRGB8888,
-	DRM_FORMAT_ABGR8888,
 };
 
 static bool ingenic_drm_writeable_reg(struct device *dev, unsigned int reg)
@@ -293,7 +97,7 @@ static const struct regmap_config ingenic_drm_regmap_config = {
 	.val_bits = 32,
 	.reg_stride = 4,
 
-	.max_register = JZ_REG_LCD_PCFG,
+	.max_register = JZ_REG_LCD_SIZE1,
 	.writeable_reg = ingenic_drm_writeable_reg,
 };
 
@@ -388,49 +192,6 @@ static void ingenic_drm_crtc_update_timings(struct ingenic_drm *priv,
 	 */
 	regmap_write(priv->map, JZ_REG_LCD_IPUR, JZ_LCD_IPUR_IPUREN |
 		     (ht * vpe / 3) << JZ_LCD_IPUR_IPUR_LSB);
-
-	/* NOTE: This does not have the intended effect on JZ4780 since the
-		 pixel depth of each frame is set in the descriptors. */
-
-	switch (finfo->format) {
-	case DRM_FORMAT_XRGB1555:
-		ctrl |= JZ_LCD_CTRL_RGB555;
-		/* fall-through */
-	case DRM_FORMAT_RGB565:
-		ctrl |= JZ_LCD_CTRL_BPP_15_16;
-		break;
-	case DRM_FORMAT_XRGB8888:
-		ctrl |= JZ_LCD_CTRL_BPP_18_24;
-		break;
-	}
-
-	regmap_update_bits(priv->map, JZ_REG_LCD_CTRL,
-			   JZ_LCD_CTRL_OFUP | JZ_LCD_CTRL_BURST_16 |
-			   JZ_LCD_CTRL_BPP_MASK, ctrl);
-
-	/* "Magic values" from the 3.18 kernel for the priority thresholds. */
-	if (priv->soc_info->has_pcfg)
-		regmap_write(priv->map, JZ_REG_LCD_PCFG,
-			     JZ_LCD_PCFG_PRI_MODE |
-			     JZ_LCD_PCFG_HP_BST_16 |
-			     (511 << JZ_LCD_PCFG_THRESHOLD2_OFFSET) |
-			     (400 << JZ_LCD_PCFG_THRESHOLD1_OFFSET) |
-			     (256 << JZ_LCD_PCFG_THRESHOLD0_OFFSET));
-
-	/* RGB output control may be superfluous. */
-	if (priv->soc_info->has_rgbc)
-		regmap_write(priv->map, JZ_REG_LCD_RGBC,
-			     JZ_LCD_RGBC_RGB_FORMAT_ENABLE |
-			     JZ_LCD_RGBC_ODD_LINE_RGB |
-			     JZ_LCD_RGBC_EVEN_LINE_RGB);
-
-	/* OSD settings for extended descriptor definitions. */
-	if (priv->soc_info->dma_hwdesc_size == sizeof(struct ingenic_dma_hwdesc_extended))
-	{
-		regmap_write(priv->map, JZ_REG_LCD_OSDC,
-			     JZ_REG_LCD_OSDC_ALPHA_ENABLE |
-			     JZ_REG_LCD_OSDC_ENABLE);
-	}
 }
 
 static int ingenic_drm_crtc_atomic_check(struct drm_crtc *crtc,
@@ -500,19 +261,11 @@ static void ingenic_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	struct ingenic_drm *priv = drm_crtc_get_priv(crtc);
 	struct drm_crtc_state *state = crtc->state;
 	struct drm_pending_vblank_event *event = state->event;
-	struct drm_framebuffer *drm_fb = crtc->primary->state->fb;
-	const struct drm_format_info *finfo;
-	int num;
 
 	if (drm_atomic_crtc_needs_modeset(state)) {
 		ingenic_drm_crtc_update_timings(priv, &state->mode);
 
 		clk_set_rate(priv->pix_clk, state->adjusted_mode.clock * 1000);
-
-		/* Initialise up to two descriptor address registers. */
-		for (num = 0; num < priv->soc_info->num_descriptors; num++)
-			regmap_write(priv->map, !num ? JZ_REG_LCD_DA0 : JZ_REG_LCD_DA1,
-				     priv->dma_hwdesc[num]->next);
 	}
 
 	if (event) {
@@ -672,48 +425,6 @@ void ingenic_drm_plane_config(struct device *dev,
 		regmap_write(priv->map, size_reg,
 			     state->crtc_w << JZ_LCD_SIZE01_WIDTH_LSB |
 			     state->crtc_h << JZ_LCD_SIZE01_HEIGHT_LSB);
-		}
-}
-
-static void ingenic_drm_descriptor_init(struct ingenic_drm *priv, int num,
-					unsigned int width,
-					unsigned int height,
-					unsigned int cpp,
-					u32 addr)
-{
-	struct ingenic_dma_hwdesc *hwdesc = priv->dma_hwdesc[num];
-	struct ingenic_dma_hwdesc_extended *hwdesc_ext;
-
-	/* Chain the descriptor to itself. */
-	hwdesc->next = priv->dma_hwdesc_phys +
-		       num * priv->soc_info->dma_hwdesc_size;
-
-	hwdesc->id = 0xfeed0000 | num;
-	hwdesc->addr = addr;
-	hwdesc->cmd = width * height * cpp / 4;
-	hwdesc->cmd |= JZ_LCD_CMD_EOF_IRQ;
-
-	/* CI20 initialisation. */
-	if (priv->soc_info->dma_hwdesc_size == sizeof(struct ingenic_dma_hwdesc_extended))
-	{
-		/* Enable only the first descriptor's frame. */
-		if (!num)
-			hwdesc->cmd |= JZ_LCD_CMD_FRM_ENABLE;
-
-		hwdesc_ext = (struct ingenic_dma_hwdesc_extended *) hwdesc;
-		hwdesc_ext->extra.offsize = 0;
-		hwdesc_ext->extra.pagewidth = 0;
-
-		hwdesc_ext->extra.cpos = JZ_LCD_CPOS_BPP_18_24 |
-					 JZ_LCD_CPOS_PREMULTIPLY_LCD |
-					 (3 << JZ_LCD_CPOS_COEFFICIENT_OFFSET);
-
-		hwdesc_ext->extra.dessize =
-			(0xff << JZ_LCD_DESSIZE_ALPHA_OFFSET) |
-			(((height - 1) & JZ_LCD_DESSIZE_HEIGHT_MASK) <<
-					 JZ_LCD_DESSIZE_HEIGHT_OFFSET) |
-			(((width - 1) & JZ_LCD_DESSIZE_WIDTH_MASK) <<
-					JZ_LCD_DESSIZE_WIDTH_OFFSET);
 	}
 }
 
@@ -725,7 +436,6 @@ static void ingenic_drm_plane_atomic_update(struct drm_plane *plane,
 	struct ingenic_dma_hwdesc *hwdesc;
 	unsigned int width, height, cpp;
 	dma_addr_t addr;
-	int num;
 
 	if (state && state->fb) {
 		addr = drm_fb_cma_get_gem_addr(state->fb, state, 0);
@@ -744,9 +454,6 @@ static void ingenic_drm_plane_atomic_update(struct drm_plane *plane,
 		if (drm_atomic_crtc_needs_modeset(state->crtc->state))
 			ingenic_drm_plane_config(priv->dev, plane,
 						 state->fb->format->format);
-
-		for (num = 0; num < priv->soc_info->num_descriptors; num++)
-			ingenic_drm_descriptor_init(priv, num, width, height, cpp, addr);
 	}
 }
 
@@ -768,13 +475,6 @@ static void ingenic_drm_encoder_atomic_mode_set(struct drm_encoder *encoder,
 		cfg = JZ_LCD_CFG_PS_DISABLE | JZ_LCD_CFG_CLS_DISABLE
 		    | JZ_LCD_CFG_SPL_DISABLE | JZ_LCD_CFG_REV_DISABLE;
 	}
-
-	if (priv->soc_info->has_recover)
-		cfg |= JZ_LCD_CFG_RECOVER_FIFO_UNDERRUN;
-
-	/* CI20: set use of the 8-word descriptor and OSD foreground usage. */
-	if (priv->soc_info->dma_hwdesc_size == sizeof(struct ingenic_dma_hwdesc_extended))
-		cfg |= JZ_LCD_CFG_DESCRIPTOR_8;
 
 	if (mode->flags & DRM_MODE_FLAG_NHSYNC)
 		cfg |= JZ_LCD_CFG_HSYNC_ACTIVE_LOW;
@@ -973,35 +673,6 @@ static void ingenic_drm_unbind_all(void *d)
 	component_unbind_all(priv->dev, &priv->drm);
 }
 
-static int ingenic_drm_allocate_descriptors(struct ingenic_drm *priv)
-{
-	int num;
-
-	priv->dma_hwdesc[0] = dma_alloc_coherent(priv->dev,
-						 priv->soc_info->num_descriptors
-						 * priv->soc_info->dma_hwdesc_size,
-						 &priv->dma_hwdesc_phys,
-						 GFP_KERNEL);
-	if (!priv->dma_hwdesc[0])
-		return -ENOMEM;
-
-	for (num = 1; num < priv->soc_info->num_descriptors; num++)
-		priv->dma_hwdesc[num] = (struct ingenic_dma_hwdesc *)
-					((u32) priv->dma_hwdesc[0] +
-					num * priv->soc_info->dma_hwdesc_size);
-
-	return 0;
-}
-
-static void ingenic_drm_free_descriptors(void *d)
-{
-	struct ingenic_drm *priv = d;
-
-	dma_free_coherent(priv->dev, priv->soc_info->num_descriptors
-				     * priv->soc_info->dma_hwdesc_size,
-			  priv->dma_hwdesc[0], priv->dma_hwdesc_phys);
-}
-
 static int ingenic_drm_bind(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
@@ -1101,15 +772,6 @@ static int ingenic_drm_bind(struct device *dev)
 		priv->ipu_plane = drm_plane_from_index(drm, 0);
 
 	drm_plane_helper_add(&priv->f1, &ingenic_drm_plane_helper_funcs);
-
-	if (ingenic_drm_allocate_descriptors(priv))
-		return -ENOMEM;
-
-	ret = devm_add_action_or_reset(dev, ingenic_drm_free_descriptors, priv);
-	if (ret)
-		return ret;
-
-	drm_plane_helper_add(&priv->primary, &ingenic_drm_plane_helper_funcs);
 
 	ret = drm_universal_plane_init(drm, &priv->f1, 1,
 				       &ingenic_drm_primary_plane_funcs,
@@ -1335,11 +997,6 @@ static int ingenic_drm_remove(struct platform_device *pdev)
 static const struct jz_soc_info jz4740_soc_info = {
 	.needs_dev_clk = true,
 	.has_osd = false,
-	.has_pcfg = false,
-	.has_recover = false,
-	.has_rgbc = false,
-	.dma_hwdesc_size = sizeof(struct ingenic_dma_hwdesc),
-	.num_descriptors = 1,
 	.max_width = 800,
 	.max_height = 600,
 };
@@ -1347,11 +1004,6 @@ static const struct jz_soc_info jz4740_soc_info = {
 static const struct jz_soc_info jz4725b_soc_info = {
 	.needs_dev_clk = false,
 	.has_osd = true,
-	.has_pcfg = false,
-	.has_recover = false,
-	.has_rgbc = false,
-	.dma_hwdesc_size = sizeof(struct ingenic_dma_hwdesc),
-	.num_descriptors = 1,
 	.max_width = 800,
 	.max_height = 600,
 };
@@ -1359,24 +1011,14 @@ static const struct jz_soc_info jz4725b_soc_info = {
 static const struct jz_soc_info jz4770_soc_info = {
 	.needs_dev_clk = false,
 	.has_osd = true,
-	.has_pcfg = false,
-	.has_recover = false,
-	.has_rgbc = false,
-	.dma_hwdesc_size = sizeof(struct ingenic_dma_hwdesc),
-	.num_descriptors = 1,
 	.max_width = 1280,
 	.max_height = 720,
 };
 
 static const struct jz_soc_info jz4780_soc_info = {
 	.needs_dev_clk = true,
-	.has_pcfg = true,
-	.has_recover = true,
-	.has_rgbc = true,
-	.dma_hwdesc_size = sizeof(struct ingenic_dma_hwdesc_extended),
-	.num_descriptors = 2,
 	.max_width = 4096,
-	.max_height = 4096,
+	.max_height = 2048,
 };
 
 static const struct of_device_id ingenic_drm_of_match[] = {
@@ -1421,6 +1063,5 @@ static void ingenic_drm_exit(void)
 module_exit(ingenic_drm_exit);
 
 MODULE_AUTHOR("Paul Cercueil <paul@crapouillou.net>");
-MODULE_AUTHOR("Paul Boddie <paul@boddie.org.uk>");
 MODULE_DESCRIPTION("DRM driver for the Ingenic SoCs\n");
 MODULE_LICENSE("GPL v2");
