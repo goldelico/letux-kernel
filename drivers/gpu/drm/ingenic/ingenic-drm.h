@@ -237,5 +237,6 @@ void ingenic_drm_plane_config(struct device *dev,
 void ingenic_drm_plane_disable(struct device *dev, struct drm_plane *plane);
 
 extern struct platform_driver *ingenic_ipu_driver_ptr;
+extern struct platform_driver *ingenic_dw_hdmi_driver_ptr;
 
 #endif /* DRIVERS_GPU_DRM_INGENIC_INGENIC_DRM_H */
