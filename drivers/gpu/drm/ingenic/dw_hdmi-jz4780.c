@@ -44,7 +44,7 @@ static const struct dw_hdmi_phy_config jz4780_phy_config[] = {
 };
 
 static enum drm_mode_status
-jz4780_dw_hdmi_mode_valid(struct drm_connector *con,
+jz4780_hdmi_mode_valid(struct drm_connector *con,
 		       const struct drm_display_mode *mode)
 {
 	if (mode->clock < 13500)
@@ -53,31 +53,16 @@ jz4780_dw_hdmi_mode_valid(struct drm_connector *con,
 	if (mode->clock > 216000)
 		return MODE_CLOCK_HIGH;
 
+	/* Set up bus flags for the LCD controller. */
+	con->display_info.bus_flags |= DRM_BUS_FLAG_PIXDATA_NEGEDGE;
 	return MODE_OK;
 }
-
-static bool
-jz4780_dw_hdmi_mode_fixup(struct drm_bridge *bridge,
-                           const struct drm_display_mode *mode,
-                           struct drm_display_mode *adjusted_mode)
-{
-	adjusted_mode->flags |= (DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC);
-	adjusted_mode->flags &= ~(DRM_MODE_FLAG_NHSYNC | DRM_MODE_FLAG_NVSYNC);
-
-	return true;
-}
-
-static const struct drm_bridge_timings jz4780_dw_hdmi_timings = {
-	.input_bus_flags = DRM_BUS_FLAG_PIXDATA_NEGEDGE,
-};
 
 static struct dw_hdmi_plat_data jz4780_dw_hdmi_plat_data = {
 	.mpll_cfg   = jz4780_mpll_cfg,
 	.cur_ctr    = jz4780_cur_ctr,
 	.phy_config = jz4780_phy_config,
-	.mode_valid = jz4780_dw_hdmi_mode_valid,
-	.mode_fixup = jz4780_dw_hdmi_mode_fixup,
-	.timings    = &jz4780_dw_hdmi_timings,
+	.mode_valid = jz4780_hdmi_mode_valid,
 	.input_bus_format = MEDIA_BUS_FMT_RGB888_1X24,
 };
 
