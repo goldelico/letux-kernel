@@ -13,7 +13,7 @@
 #include <drm/bridge/dw_hdmi.h>
 #include <drm/drm_of.h>
 
-static const struct dw_hdmi_mpll_config jz4780_mpll_cfg[] = {
+static const struct dw_hdmi_mpll_config ingenic_mpll_cfg[] = {
 	{ 45250000,  { { 0x01e0, 0x0000 }, { 0x21e1, 0x0000 }, { 0x41e2, 0x0000 } } },
 	{ 92500000,  { { 0x0140, 0x0005 }, { 0x2141, 0x0005 }, { 0x4142, 0x0005 } } },
 	{ 148500000, { { 0x00a0, 0x000a }, { 0x20a1, 0x000a }, { 0x40a2, 0x000a } } },
@@ -21,7 +21,7 @@ static const struct dw_hdmi_mpll_config jz4780_mpll_cfg[] = {
 	{ ~0UL,      { { 0x0000, 0x0000 }, { 0x0000, 0x0000 }, { 0x0000, 0x0000 } } }
 };
 
-static const struct dw_hdmi_curr_ctrl jz4780_cur_ctr[] = {
+static const struct dw_hdmi_curr_ctrl ingenic_cur_ctr[] = {
 	/*pixelclk     bpp8    bpp10   bpp12 */
 	{ 54000000,  { 0x091c, 0x091c, 0x06dc } },
 	{ 58400000,  { 0x091c, 0x06dc, 0x06dc } },
@@ -37,14 +37,14 @@ static const struct dw_hdmi_curr_ctrl jz4780_cur_ctr[] = {
  * PREEMP config 0.00
  * TX/CK level 10
  */
-static const struct dw_hdmi_phy_config jz4780_phy_config[] = {
+static const struct dw_hdmi_phy_config ingenic_phy_config[] = {
 	/*pixelclk   symbol   term   vlev */
 	{ 216000000, 0x800d, 0x0005, 0x01ad},
 	{ ~0UL,      0x0000, 0x0000, 0x0000}
 };
 
 static enum drm_mode_status
-jz4780_dw_hdmi_mode_valid(struct dw_hdmi *hdmi, void *data,
+ingenic_dw_hdmi_mode_valid(struct dw_hdmi *hdmi, void *data,
 			  const struct drm_display_info *info,
 			  const struct drm_display_mode *mode)
 {
@@ -58,7 +58,7 @@ jz4780_dw_hdmi_mode_valid(struct dw_hdmi *hdmi, void *data,
 }
 
 static bool
-jz4780_dw_hdmi_mode_fixup(struct drm_bridge *bridge,
+ingenic_dw_hdmi_mode_fixup(struct drm_bridge *bridge,
                            const struct drm_display_mode *mode,
                            struct drm_display_mode *adjusted_mode)
 {
@@ -68,30 +68,30 @@ jz4780_dw_hdmi_mode_fixup(struct drm_bridge *bridge,
 	return true;
 }
 
-static const struct drm_bridge_timings jz4780_dw_hdmi_timings = {
+static const struct drm_bridge_timings ingenic_dw_hdmi_timings = {
 	.input_bus_flags = DRM_BUS_FLAG_PIXDATA_SAMPLE_NEGEDGE,
 };
 
-static struct dw_hdmi_plat_data jz4780_dw_hdmi_plat_data = {
-	.mpll_cfg   = jz4780_mpll_cfg,
-	.cur_ctr    = jz4780_cur_ctr,
-	.phy_config = jz4780_phy_config,
-	.mode_valid = jz4780_dw_hdmi_mode_valid,
-	.mode_fixup = jz4780_dw_hdmi_mode_fixup,
-	.timings    = &jz4780_dw_hdmi_timings,
+static struct dw_hdmi_plat_data ingenic_dw_hdmi_plat_data = {
+	.mpll_cfg   = ingenic_mpll_cfg,
+	.cur_ctr    = ingenic_cur_ctr,
+	.phy_config = ingenic_phy_config,
+	.mode_valid = ingenic_dw_hdmi_mode_valid,
+	.mode_fixup = ingenic_dw_hdmi_mode_fixup,
+	.timings    = &ingenic_dw_hdmi_timings,
 };
 
-static const struct of_device_id jz4780_dw_hdmi_dt_ids[] = {
+static const struct of_device_id ingenic_dw_hdmi_dt_ids[] = {
 	{ .compatible = "ingenic,jz4780-dw-hdmi" },
 	{ /* Sentinel */ },
 };
-MODULE_DEVICE_TABLE(of, jz4780_dw_hdmi_dt_ids);
+MODULE_DEVICE_TABLE(of, ingenic_dw_hdmi_dt_ids);
 
-static int jz4780_dw_hdmi_probe(struct platform_device *pdev)
+static int ingenic_dw_hdmi_probe(struct platform_device *pdev)
 {
 	struct dw_hdmi *hdmi;
 
-	hdmi = dw_hdmi_probe(pdev, &jz4780_dw_hdmi_plat_data);
+	hdmi = dw_hdmi_probe(pdev, &ingenic_dw_hdmi_plat_data);
 	if (IS_ERR(hdmi))
 		return PTR_ERR(hdmi);
 
@@ -100,7 +100,7 @@ static int jz4780_dw_hdmi_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int jz4780_dw_hdmi_remove(struct platform_device *pdev)
+static int ingenic_dw_hdmi_remove(struct platform_device *pdev)
 {
 	struct dw_hdmi *hdmi = platform_get_drvdata(pdev);
 
@@ -109,20 +109,13 @@ static int jz4780_dw_hdmi_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct platform_driver jz4780_dw_hdmi_platform_driver = {
-	.probe  = jz4780_dw_hdmi_probe,
-	.remove = jz4780_dw_hdmi_remove,
+static struct platform_driver ingenic_dw_hdmi_driver = {
+	.probe  = ingenic_dw_hdmi_probe,
+	.remove = ingenic_dw_hdmi_remove,
 	.driver = {
-		.name = "dw-hdmi-jz4780",
-		.of_match_table = jz4780_dw_hdmi_dt_ids,
+		.name = "dw-hdmi-ingenic",
+		.of_match_table = ingenic_dw_hdmi_dt_ids,
 	},
 };
 
-module_platform_driver(jz4780_dw_hdmi_platform_driver);
-
-MODULE_AUTHOR("Andy Yan <andy.yan@rock-chips.com>");
-MODULE_AUTHOR("Yakir Yang <ykk@rock-chips.com>");
-MODULE_AUTHOR("Paul Boddie <paul@boddie.org.uk>");
-MODULE_DESCRIPTION("Ingenic JZ4780 DW-HDMI Driver Extension");
-MODULE_LICENSE("GPL");
-MODULE_ALIAS("platform:dw-hdmi-jz4780");
+struct platform_driver *ingenic_dw_hdmi_driver_ptr = &ingenic_dw_hdmi_driver;
