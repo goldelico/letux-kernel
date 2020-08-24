@@ -820,8 +820,6 @@ bool drm_helper_hpd_irq_event(struct drm_device *dev)
 	bool changed = false;
 	u64 old_epoch_counter;
 
-dev->mode_config.poll_enabled = true;
-
 	if (!dev->mode_config.poll_enabled)
 		return false;
 
