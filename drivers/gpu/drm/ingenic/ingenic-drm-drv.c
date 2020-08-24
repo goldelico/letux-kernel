@@ -151,7 +151,7 @@
 #define JZ_LCD_CTRL_BPP_8			0x3
 #define JZ_LCD_CTRL_BPP_15_16			0x4
 #define JZ_LCD_CTRL_BPP_18_24			0x5
-// #define JZ_LCD_CTRL_BPP_MASK			(JZ_LCD_CTRL_RGB555 | (0x7 << 0))
+#define JZ_LCD_CTRL_BPP_MASK			(JZ_LCD_CTRL_RGB555 | (0x7 << 0))
 
 #define JZ_LCD_CMD_SOF_IRQ			BIT(31)
 #define JZ_LCD_CMD_EOF_IRQ			BIT(30)
@@ -389,9 +389,9 @@ static void ingenic_drm_crtc_update_timings(struct ingenic_drm *priv,
 	regmap_write(priv->map, JZ_REG_LCD_IPUR, JZ_LCD_IPUR_IPUREN |
 		     (ht * vpe / 3) << JZ_LCD_IPUR_IPUR_LSB);
 
-#ifdef REVISIT
 	/* NOTE: This does not have the intended effect on JZ4780 since the
 		 pixel depth of each frame is set in the descriptors. */
+
 	switch (finfo->format) {
 	case DRM_FORMAT_XRGB1555:
 		ctrl |= JZ_LCD_CTRL_RGB555;
@@ -407,7 +407,6 @@ static void ingenic_drm_crtc_update_timings(struct ingenic_drm *priv,
 	regmap_update_bits(priv->map, JZ_REG_LCD_CTRL,
 			   JZ_LCD_CTRL_OFUP | JZ_LCD_CTRL_BURST_16 |
 			   JZ_LCD_CTRL_BPP_MASK, ctrl);
-#endif
 
 	/* "Magic values" from the 3.18 kernel for the priority thresholds. */
 	if (priv->soc_info->has_pcfg)
@@ -502,6 +501,7 @@ static void ingenic_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	struct drm_crtc_state *state = crtc->state;
 	struct drm_pending_vblank_event *event = state->event;
 	struct drm_framebuffer *drm_fb = crtc->primary->state->fb;
+	const struct drm_format_info *finfo;
 	int num;
 
 	if (drm_atomic_crtc_needs_modeset(state)) {
@@ -1109,9 +1109,7 @@ static int ingenic_drm_bind(struct device *dev)
 	if (ret)
 		return ret;
 
-#ifdef REVISIT
 	drm_plane_helper_add(&priv->primary, &ingenic_drm_plane_helper_funcs);
-#endif
 
 	ret = drm_universal_plane_init(drm, &priv->f1, 1,
 				       &ingenic_drm_primary_plane_funcs,
