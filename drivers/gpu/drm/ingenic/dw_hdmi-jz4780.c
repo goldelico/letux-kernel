@@ -53,8 +53,6 @@ jz4780_hdmi_mode_valid(struct drm_connector *con,
 	if (mode->clock > 216000)
 		return MODE_CLOCK_HIGH;
 
-	/* Set up bus flags for the LCD controller. */
-	con->display_info.bus_flags |= DRM_BUS_FLAG_PIXDATA_NEGEDGE;
 	return MODE_OK;
 }
 
@@ -63,7 +61,6 @@ static struct dw_hdmi_plat_data jz4780_dw_hdmi_plat_data = {
 	.cur_ctr    = jz4780_cur_ctr,
 	.phy_config = jz4780_phy_config,
 	.mode_valid = jz4780_hdmi_mode_valid,
-	.input_bus_format = MEDIA_BUS_FMT_RGB888_1X24,
 };
 
 static const struct of_device_id jz4780_dw_hdmi_dt_ids[] = {
