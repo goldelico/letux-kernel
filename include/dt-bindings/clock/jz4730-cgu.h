@@ -42,5 +42,6 @@
 #define JZ4730_CLK_I2C		28
 #define JZ4730_CLK_TCU		29
 #define JZ4730_CLK_WDT		30
+#define JZ4730_CLK_EXT_128	31
 
 #endif /* __DT_BINDINGS_CLOCK_JZ4730_CGU_H__ */
