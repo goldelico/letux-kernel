@@ -1,9 +1,9 @@
 #
-# Linux/arm 5.7.15 Kernel Configuration
+# Linux/arm 5.7.17 Kernel Configuration
 #
 
 #
-# Compiler: arm-linux-gnueabi-gcc (GCC) 4.9.2
+# Compiler: arm-linux-gnueabihf-gcc (GCC) 4.9.2
 #
 CONFIG_CC_IS_GCC=y
 CONFIG_GCC_VERSION=40902
