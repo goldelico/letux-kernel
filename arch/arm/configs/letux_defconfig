@@ -1,9 +1,9 @@
 #
-# Linux/arm 5.4.58 Kernel Configuration
+# Linux/arm 5.4.61 Kernel Configuration
 #
 
 #
-# Compiler: arm-linux-gnueabi-gcc (GCC) 4.9.2
+# Compiler: arm-linux-gnueabihf-gcc (GCC) 4.9.2
 #
 CONFIG_CC_IS_GCC=y
 CONFIG_GCC_VERSION=40902
@@ -3037,6 +3037,7 @@ CONFIG_SPI_SPIDEV=y
 # CONFIG_SPI_LOOPBACK_TEST is not set
 # CONFIG_SPI_TLE62X0 is not set
 # CONFIG_SPI_SLAVE is not set
+CONFIG_SPI_DYNAMIC=y
 # CONFIG_SPMI is not set
 # CONFIG_HSI is not set
 CONFIG_PPS=m
