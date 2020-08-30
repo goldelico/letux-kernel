@@ -627,6 +627,8 @@ static int bq2429x_set_charge_mode(struct bq2429x_device_info *di, u8 mode)
 				__func__, mode);
 	}
 
+	dev_info(di->dev, "bq2429x: did set charge mode %d\n", mode);
+
 	return ret;
 }
 
@@ -639,6 +641,8 @@ static int bq2429x_set_otg_mode(struct bq2429x_device_info *di, u8 mode)
 		dev_err(&di->client->dev, "%s(): Failed to set charge mode(0x%x)\n",
 				__func__, mode);
 	}
+
+	dev_info(di->dev, "bq2429x: did set otg mode %d\n", mode);
 
 	return ret;
 }
@@ -705,7 +709,7 @@ static int bq2429x_is_otg_enabled(struct bq2429x_device_info *di)
 { /* check if OTG converter is enabled */
 //	int ret;
 
-	
+	dev_info(di->dev, "%s: %s\n", __func__, di->state.vbus_stat == 3 ? "yes":"no");
 
 	return di->state.vbus_stat == 3;
 }
@@ -714,7 +718,7 @@ static int bq2429x_get_otg_current_limit_uA(struct bq2429x_device_info *di)
 {
 	int ret;
 
-	dev_dbg(di->dev, "%s\n", __func__);
+	dev_info(di->dev, "%s\n", __func__);
 
 	ret = bq2429x_field_read(di, F_BOOST_LIM);
 	if (ret < 0)
@@ -733,7 +737,7 @@ static int bq2429x_set_otg_current_limit_uA(struct bq2429x_device_info *di,
 	int val = OTG_MODE_CURRENT_CONFIG_500MA;
 	int ret;
 
-	dev_dgb(di->dev, "%s(%d, %d)\n", __func__, min_uA, max_uA);
+	dev_info(di->dev, "%s(%d, %d)\n", __func__, min_uA, max_uA);
 
 /* revisit: maybe we can also use a Table here instead of magic constants? */
 
@@ -962,7 +966,7 @@ static int bq2429x_usb_detect(struct bq2429x_device_info *di)
 	if (state.ntc_fault & 1)
 		strcat(string, " HOT");
 	strcat(string, "]");
-	dev_notice(di->dev, "%s: %s\n", __func__, string);
+	dev_info(di->dev, "%s: %s\n", __func__, string);
 
 	di->state = state;
 
@@ -1075,6 +1079,8 @@ static int bq2429x_otg_enable(struct regulator_dev *dev)
 { /* enable OTG step up converter */
 	struct bq2429x_device_info *di = rdev_get_drvdata(dev);
 
+	dev_info(&di->client->dev, "bq2429x_otg_enable\n");
+
 	/* check if battery is present and reject if no battery */
 	if (!bq2429x_battery_present(di)) {
 		dev_warn(&di->client->dev, "can enable otg only with installed battery and no overtemperature\n");
@@ -1094,6 +1100,7 @@ static int bq2429x_otg_disable(struct regulator_dev *dev)
 { /* disable OTG step up converter */
 	struct bq2429x_device_info *di = rdev_get_drvdata(dev);
 
+	dev_info(&di->client->dev, "bq2429x_otg_disable\n");
 
 	return bq2429x_set_otg_mode(di, false);
 	/* could check/wait with timeout that r8 indicates non-OTG mode */
@@ -1102,6 +1109,8 @@ static int bq2429x_otg_disable(struct regulator_dev *dev)
 static int bq2429x_otg_is_enabled(struct regulator_dev *dev)
 { /* check if OTG converter is enabled */
 	struct bq2429x_device_info *di = rdev_get_drvdata(dev);
+
+	dev_info(&di->client->dev, "bq2429x_otg_is_enabled\n");
 
 	return bq2429x_is_otg_enabled(di);
 }
