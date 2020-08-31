@@ -311,6 +311,37 @@ static struct omap_hwmod_ocp_if omap54xx_l4_cfg__sata = {
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
+/* 'bb2d' class
+ * GC320 2D GPU
+ */
+
+static struct omap_hwmod_class omap54xx_bb2d_hwmod_class = {
+	.name	= "bb2d",
+};
+
+/* bb2d */
+static struct omap_hwmod omap54xx_bb2d_hwmod = {
+	.name		= "bb2d",
+	.class		= &omap54xx_bb2d_hwmod_class,
+	.clkdm_name	= "dss_clkdm",
+	.main_clk	= "dpll_core_h24x2_ck",
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs = OMAP54XX_CM_DSS_BB2D_CLKCTRL_OFFSET,
+			.context_offs = OMAP54XX_RM_DSS_BB2D_CONTEXT_OFFSET,
+			.modulemode   = MODULEMODE_SWCTRL,
+		},
+	},
+};
+
+/* l3_main_1 -> bb2d */
+static struct omap_hwmod_ocp_if omap54xx_l3_main_1__bb2d = {
+	.master		= &omap54xx_l3_main_1_hwmod,
+	.slave		= &omap54xx_bb2d_hwmod,
+	.clk		= "l3_iclk_div",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
 /*
  * Interfaces
  */
@@ -484,6 +515,7 @@ static struct omap_hwmod_ocp_if *omap54xx_hwmod_ocp_ifs[] __initdata = {
 	&omap54xx_l3_main_2__l4_per,
 	&omap54xx_l3_main_1__l4_wkup,
 	&omap54xx_mpu__mpu_private,
+	&omap54xx_l3_main_1__bb2d,
 	&omap54xx_mpu__emif1,
 	&omap54xx_mpu__emif2,
 	&omap54xx_l4_cfg__mpu,
