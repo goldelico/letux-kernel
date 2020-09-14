@@ -793,6 +793,8 @@ static void pxp_set_lut(struct pxps *pxp)
 				entry_src = use_cmap ?
 					cmap[pix_val + i] : pix_val + i;
 				entry[i] = (entry_src < 0x80) ? 0xFF : 0x00;
+				if ((lut_op & PXP_LUT_AA) != 0)
+					entry[i] &= 0xF0;
 			}
 			reg_val = (entry[3] << 24) | (entry[2] << 16) |
 				(entry[1] << 8) | entry[0];
@@ -817,6 +819,8 @@ static void pxp_set_lut(struct pxps *pxp)
 				entry_src = use_cmap ?
 					cmap[pix_val + i] : pix_val + i;
 				entry[i] = ~entry_src & 0xFF;
+				if ((lut_op & PXP_LUT_AA) != 0)
+					entry[i] &= 0xF0;
 			}
 			reg_val = (entry[3] << 24) | (entry[2] << 16) |
 				(entry[1] << 8) | entry[0];
@@ -841,6 +845,8 @@ static void pxp_set_lut(struct pxps *pxp)
 				entry_src = use_cmap ?
 					cmap[pix_val + i] : pix_val + i;
 				entry[i] = (entry_src < 0x80) ? 0x00 : 0xFF;
+				if ((lut_op & PXP_LUT_AA) != 0)
+					entry[i] &= 0xF0;
 			}
 			reg_val = (entry[3] << 24) | (entry[2] << 16) |
 				(entry[1] << 8) | entry[0];
@@ -861,8 +867,35 @@ static void pxp_set_lut(struct pxps *pxp)
 
 		/* LUT address pointer auto-increments after each data write */
 		for (pix_val = 0; pix_val < 256; pix_val += 4) {
-			for (i = 0; i < 4; i++)
+			for (i = 0; i < 4; i++) {
 				entry[i] = cmap[pix_val + i];
+				if ((lut_op & PXP_LUT_AA) != 0)
+					entry[i] &= 0xF0;
+			}
+			reg_val = (entry[3] << 24) | (entry[2] << 16) |
+				(entry[1] << 8) | entry[0];
+			__raw_writel(reg_val, pxp->base + HW_PXP_LUT_DATA);
+		}
+	} else if ((lut_op & PXP_LUT_AA) != 0) {
+		/* Fill out LUT table with 8-bit monochromized values */
+
+		/* clear bypass bit, set lookup mode & out mode */
+		__raw_writel(BF_PXP_LUT_CTRL_LOOKUP_MODE
+				(BV_PXP_LUT_CTRL_LOOKUP_MODE__DIRECT_Y8) |
+				BF_PXP_LUT_CTRL_OUT_MODE
+				(BV_PXP_LUT_CTRL_OUT_MODE__Y8),
+				pxp->base + HW_PXP_LUT_CTRL);
+
+		/* Initialize LUT address to 0 and set NUM_BYTES to 0 */
+		__raw_writel(0, pxp->base + HW_PXP_LUT_ADDR);
+
+		/* LUT address pointer auto-increments after each data write */
+		for (pix_val = 0; pix_val < 256; pix_val += 4) {
+			for (i = 0; i < 4; i++) {
+				entry_src = use_cmap ?
+					cmap[pix_val + i] : pix_val + i;
+				entry[i] = entry_src & 0xF0;
+			}
 			reg_val = (entry[3] << 24) | (entry[2] << 16) |
 				(entry[1] << 8) | entry[0];
 			__raw_writel(reg_val, pxp->base + HW_PXP_LUT_DATA);
