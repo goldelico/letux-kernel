@@ -60,6 +60,28 @@
 #include <asm/cacheflush.h>
 
 #include "epdc_regs.h"
+/*
+ * define the default parameters for the histogram registers
+ */
+#define EPDC_HIST1_P4N_PARAM	(0x00000000)
+#define EPDC_HIST2_P4N_PARAM	(0x00000f00)
+#define EPDC_HIST4_P4N_PARAM	(0x0f0a0500)
+#define EPDC_HIST8_P4N_PARAM0	(0x06040200)
+#define EPDC_HIST8_P4N_PARAM1	(0x0f0d0b09)
+#define EPDC_HIST16_P4N_PARAM0	(0x03020100)
+#define EPDC_HIST16_P4N_PARAM1	(0x07060504)
+#define EPDC_HIST16_P4N_PARAM2	(0x0b0a0908)
+#define EPDC_HIST16_P4N_PARAM3	(0x0f0e0d0c)
+
+#define EPDC_HIST1_P5N_PARAM	(EPDC_HIST1_P4N_PARAM << 1)
+#define EPDC_HIST2_P5N_PARAM	(EPDC_HIST2_P4N_PARAM << 1)
+#define EPDC_HIST4_P5N_PARAM	(EPDC_HIST4_P4N_PARAM << 1)
+#define EPDC_HIST8_P5N_PARAM0	(EPDC_HIST8_P4N_PARAM0 << 1)
+#define EPDC_HIST8_P5N_PARAM1	(EPDC_HIST8_P4N_PARAM1 << 1)
+#define EPDC_HIST16_P5N_PARAM0	(EPDC_HIST16_P4N_PARAM0 << 1)
+#define EPDC_HIST16_P5N_PARAM1	(EPDC_HIST16_P4N_PARAM1 << 1)
+#define EPDC_HIST16_P5N_PARAM2	(EPDC_HIST16_P4N_PARAM2 << 1)
+#define EPDC_HIST16_P5N_PARAM3	(EPDC_HIST16_P4N_PARAM3 << 1)
 
 /*
  * Enable this define to have a default panel
@@ -1568,6 +1590,32 @@ static void epdc_init_settings(struct mxc_epdc_fb_data *fb_data)
 	__raw_writel(fb_data->waveform_buffer_phys, EPDC_WVADDR);
 	__raw_writel(fb_data->working_buffer_phys, EPDC_WB_ADDR);
 	__raw_writel(fb_data->working_buffer_phys, EPDC_WB_ADDR_TCE);
+
+	/* 
+	 * init histogram registers according to the buffer pixel format
+	 */
+	if (fb_data->buf_pix_fmt == EPDC_FORMAT_BUF_PIXEL_FORMAT_P4N) {
+		__raw_writel(EPDC_HIST1_P4N_PARAM, EPDC_HIST1_PARAM);
+		__raw_writel(EPDC_HIST2_P4N_PARAM, EPDC_HIST2_PARAM);
+		__raw_writel(EPDC_HIST4_P4N_PARAM, EPDC_HIST4_PARAM);
+		__raw_writel(EPDC_HIST8_P4N_PARAM0, EPDC_HIST8_PARAM0);
+		__raw_writel(EPDC_HIST8_P4N_PARAM1, EPDC_HIST8_PARAM1);
+		__raw_writel(EPDC_HIST16_P4N_PARAM0, EPDC_HIST16_PARAM0);
+		__raw_writel(EPDC_HIST16_P4N_PARAM1, EPDC_HIST16_PARAM1);
+		__raw_writel(EPDC_HIST16_P4N_PARAM2, EPDC_HIST16_PARAM2);
+		__raw_writel(EPDC_HIST16_P4N_PARAM3, EPDC_HIST16_PARAM3);
+	}
+	else {
+		__raw_writel(EPDC_HIST1_P5N_PARAM, EPDC_HIST1_PARAM);
+		__raw_writel(EPDC_HIST2_P5N_PARAM, EPDC_HIST2_PARAM);
+		__raw_writel(EPDC_HIST4_P5N_PARAM, EPDC_HIST4_PARAM);
+		__raw_writel(EPDC_HIST8_P5N_PARAM0, EPDC_HIST8_PARAM0);
+		__raw_writel(EPDC_HIST8_P5N_PARAM1, EPDC_HIST8_PARAM1);
+		__raw_writel(EPDC_HIST16_P5N_PARAM0, EPDC_HIST16_PARAM0);
+		__raw_writel(EPDC_HIST16_P5N_PARAM1, EPDC_HIST16_PARAM1);
+		__raw_writel(EPDC_HIST16_P5N_PARAM2, EPDC_HIST16_PARAM2);
+		__raw_writel(EPDC_HIST16_P5N_PARAM3, EPDC_HIST16_PARAM3);
+	}
 
 	/* Disable clock */
 	clk_disable_unprepare(fb_data->epdc_clk_axi);
