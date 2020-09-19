@@ -572,8 +572,9 @@
 		clocks = <&cgu JZ4780_CLK_UHC>;
 		clock-names = "otg";
 
-		phys = <&otg_phy>;
-		phy-names = "usb2-phy";
+// disable because otherwise the dwc2 driver looks for a generic PHY driver
+//		phys = <&otg_phy>;
+//		phy-names = "usb2-phy";
 
 		g-rx-fifo-size = <768>;
 		g-np-tx-fifo-size = <256>;
