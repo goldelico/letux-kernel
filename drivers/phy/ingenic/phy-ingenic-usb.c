@@ -342,6 +342,8 @@ static int ingenic_usb_phy_probe(struct platform_device *pdev)
 	if (IS_ERR(priv))
 		return PTR_ERR(priv);
 
+	phy_set_drvdata(priv->phy, priv);
+
 	provider = devm_of_phy_provider_register(dev, of_phy_simple_xlate);
 
 	return PTR_ERR_OR_ZERO(provider);
