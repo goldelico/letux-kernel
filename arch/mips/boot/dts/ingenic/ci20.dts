@@ -83,6 +83,23 @@
 		gpios = <&gpe 3 GPIO_ACTIVE_LOW>;
 	};
 
+	usb_power: fixedregulator@3 {
+		compatible = "regulator-fixed";
+		regulator-name = "usb_power";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <&gpf 15 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+
+		/*
+		 * boot-on is required along with always-on as the
+		 * regulator framework doesn't enable the regulator
+		 * if boot-on is not there.
+		 */
+//		regulator-always-on;
+		regulator-boot-on;
+	};
+
 	wlan0_power: fixedregulator@1 {
 		compatible = "regulator-fixed";
 
@@ -102,6 +119,14 @@
 		gpio = <&gpf 14 GPIO_ACTIVE_LOW>;
 		enable-active-high;
 	};
+};
+
+&usb_phy {
+	vcc-supply = <&usb_power>;
+};
+
+&otg_phy {
+	vcc-supply = <&usb_power>;
 };
 
 &ext {
