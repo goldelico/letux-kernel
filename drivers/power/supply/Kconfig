@@ -610,6 +610,17 @@ config CHARGER_BQ24735
 	help
 	  Say Y to enable support for the TI BQ24735 battery charger.
 
+config CHARGER_BQ2429X
+	tristate "TI BQ2429x battery charger driver"
+	depends on I2C
+	depends on GPIOLIB || COMPILE_TEST
+	depends on REGMAP_I2C
+	help
+	  Say Y to enable support for the TI BQ24296/297 battery charger.
+
+	  You'll need this driver to charge batteries on e.g. Pyra
+	  Handheld.
+
 config CHARGER_BQ2515X
 	tristate "TI BQ2515X battery charger family"
 	depends on I2C
@@ -751,5 +762,13 @@ config CHARGER_WILCO
 	  by the Embedded Controller on the Chromebook named Wilco. Further
 	  information can be found in
 	  Documentation/ABI/testing/sysfs-class-power-wilco
+
+config RN5T618_POWER
+	tristate "RN5T618 charger/fuel gauge support"
+	depends on MFD_RN5T618
+	help
+	  Say Y here to have support for RN5T618 PMIC family fuel gauge and charger.
+	  This driver can also be built as a module. If so, the module will be
+	  called rn5t618_power.
 
 endif # POWER_SUPPLY
