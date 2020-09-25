@@ -2763,11 +2763,15 @@ static int hub_port_wait_reset(struct usb_hub *hub, int port1,
 	u16 portchange;
 	u32 ext_portstatus = 0;
 
+printk("%s: 1 port1=%d del=%u warm=%d\n", __func__, port1, delay, warm);
+
 	for (delay_time = 0;
 			delay_time < HUB_RESET_TIMEOUT;
 			delay_time += delay) {
 		/* wait to give the device a chance to reset */
 		msleep(delay);
+
+printk("%s: 2 %d\n", __func__, delay_time);
 
 		/* read and decode port status */
 		if (hub_is_superspeedplus(hub->hdev))
@@ -2778,6 +2782,9 @@ static int hub_port_wait_reset(struct usb_hub *hub, int port1,
 		else
 			ret = hub_port_status(hub, port1, &portstatus,
 					      &portchange);
+
+printk("%s: 3 %d %hx %hx\n", __func__, ret, portstatus, portchange);
+
 		if (ret < 0)
 			return ret;
 
@@ -2800,6 +2807,8 @@ static int hub_port_wait_reset(struct usb_hub *hub, int port1,
 				"not %sreset yet, waiting %dms\n",
 				warm ? "warm " : "", delay);
 	}
+
+printk("%s: 4 %d %hx %hx\n", __func__, ret, portstatus, portchange);
 
 	if ((portstatus & USB_PORT_STAT_RESET))
 		return -EBUSY;
@@ -2850,6 +2859,8 @@ static int hub_port_wait_reset(struct usb_hub *hub, int port1,
 		udev->speed = USB_SPEED_LOW;
 	else
 		udev->speed = USB_SPEED_FULL;
+printk("%s: 5 %d\n", __func__, ret);
+
 	return 0;
 }
 
@@ -2862,7 +2873,10 @@ static int hub_port_reset(struct usb_hub *hub, int port1,
 	struct usb_port *port_dev = hub->ports[port1 - 1];
 	int reset_recovery_time;
 
+printk("%s: p1=%d delay=%ud warm=%d\n", __func__, port1, delay, warm);
+
 	if (!hub_is_superspeed(hub->hdev)) {
+printk("%s: 1\n", __func__);
 		if (warm) {
 			dev_err(hub->intfdev, "only USB3 hub support "
 						"warm reset\n");
@@ -2873,6 +2887,7 @@ static int hub_port_reset(struct usb_hub *hub, int port1,
 		 */
 		down_read(&ehci_cf_port_reset_rwsem);
 	} else if (!warm) {
+printk("%s: 2\n", __func__);
 		/*
 		 * If the caller hasn't explicitly requested a warm reset,
 		 * double check and see if one is needed.
@@ -2884,11 +2899,14 @@ static int hub_port_reset(struct usb_hub *hub, int port1,
 	}
 	clear_bit(port1, hub->warm_reset_bits);
 
+printk("%s: 3\n", __func__);
 	/* Reset the port */
 	for (i = 0; i < PORT_RESET_TRIES; i++) {
+printk("%s: 4 %d\n", __func__, i);
 		status = set_port_feature(hub->hdev, port1, (warm ?
 					USB_PORT_FEAT_BH_PORT_RESET :
 					USB_PORT_FEAT_RESET));
+printk("%s: 5 %d\n", __func__,status);
 		if (status == -ENODEV) {
 			;	/* The hub is gone */
 		} else if (status) {
@@ -2898,19 +2916,25 @@ static int hub_port_reset(struct usb_hub *hub, int port1,
 		} else {
 			status = hub_port_wait_reset(hub, port1, udev, delay,
 								warm);
+printk("%s: 5b %d\n", __func__,status);
 			if (status && status != -ENOTCONN && status != -ENODEV)
 				dev_dbg(hub->intfdev,
 						"port_wait_reset: err = %d\n",
 						status);
 		}
+printk("%s: 6\n", __func__);
 
 		/* Check for disconnect or reset */
 		if (status == 0 || status == -ENOTCONN || status == -ENODEV) {
+printk("%s: 7\n", __func__);
+
 			usb_clear_port_feature(hub->hdev, port1,
 					USB_PORT_FEAT_C_RESET);
 
 			if (!hub_is_superspeed(hub->hdev))
 				goto done;
+
+printk("%s: 8\n", __func__);
 
 			usb_clear_port_feature(hub->hdev, port1,
 					USB_PORT_FEAT_C_BH_PORT_RESET);
@@ -2928,10 +2952,12 @@ static int hub_port_reset(struct usb_hub *hub, int port1,
 			if (hub_port_status(hub, port1,
 					&portstatus, &portchange) < 0)
 				goto done;
+printk("%s: 9\n", __func__);
 
 			if (!hub_port_warm_reset_required(hub, port1,
 					portstatus))
 				goto done;
+printk("%s: 10\n", __func__);
 
 			/*
 			 * If the port is in SS.Inactive or Compliance Mode, the
@@ -2948,11 +2974,14 @@ static int hub_port_reset(struct usb_hub *hub, int port1,
 				"not enabled, trying %sreset again...\n",
 				warm ? "warm " : "");
 		delay = HUB_LONG_RESET_TIME;
+printk("%s: 11\n", __func__);
+
 	}
 
 	dev_err(&port_dev->dev, "Cannot enable. Maybe the USB cable is bad?\n");
 
 done:
+printk("%s: 12\n", __func__);
 	if (status == 0) {
 		if (port_dev->quirks & USB_PORT_QUIRK_FAST_ENUM)
 			usleep_range(10000, 12000);
@@ -5052,8 +5081,11 @@ static void hub_port_connect(struct usb_hub *hub, int port1, u16 portstatus,
 	struct usb_device *udev = port_dev->child;
 	static int unreliable_port = -1;
 
+printk("%s: 1 %d %hx %hx\n", __func__, port1, portstatus, portchange);
+
 	/* Disconnect any existing devices under this port */
 	if (udev) {
+printk("%s: 2\n", __func__);
 		if (hcd->usb_phy && !hdev->parent)
 			usb_phy_notify_disconnect(hcd->usb_phy, udev->speed);
 		usb_disconnect(&port_dev->child);
@@ -5066,9 +5098,11 @@ static void hub_port_connect(struct usb_hub *hub, int port1, u16 portstatus,
 			(portchange & USB_PORT_STAT_C_CONNECTION))
 		clear_bit(port1, hub->removed_bits);
 
+printk("%s: 3\n", __func__);
 	if (portchange & (USB_PORT_STAT_C_CONNECTION |
 				USB_PORT_STAT_C_ENABLE)) {
 		status = hub_port_debounce_be_stable(hub, port1);
+printk("%s: 4 status=%d\n", __func__, status);
 		if (status < 0) {
 			if (status != -ENODEV &&
 				port1 != unreliable_port &&
@@ -5081,12 +5115,14 @@ static void hub_port_connect(struct usb_hub *hub, int port1, u16 portstatus,
 		}
 	}
 
+printk("%s: 5\n", __func__);
 	/* Return now if debouncing failed or nothing is connected or
 	 * the device was "removed".
 	 */
 	if (!(portstatus & USB_PORT_STAT_CONNECTION) ||
 			test_bit(port1, hub->removed_bits)) {
 
+printk("%s: 6\n", __func__);
 		/*
 		 * maybe switch power back on (e.g. root hub was reset)
 		 * but only if the port isn't owned by someone else.
@@ -5096,10 +5132,15 @@ static void hub_port_connect(struct usb_hub *hub, int port1, u16 portstatus,
 				&& !port_dev->port_owner)
 			set_port_feature(hdev, port1, USB_PORT_FEAT_POWER);
 
+printk("%s: 7\n", __func__);
+
 		if (portstatus & USB_PORT_STAT_ENABLE)
 			goto done;
+
+printk("%s: 8\n", __func__);
 		return;
 	}
+printk("%s: 9\n", __func__);
 	if (hub_is_superspeed(hub->hdev))
 		unit_load = 150;
 	else
@@ -5108,6 +5149,7 @@ static void hub_port_connect(struct usb_hub *hub, int port1, u16 portstatus,
 	status = 0;
 	for (i = 0; i < SET_CONFIG_TRIES; i++) {
 
+printk("%s: 10 %d\n", __func__, i);
 		/* reallocate for each attempt, since references
 		 * to the previous one can escape in various ways
 		 */
@@ -5226,17 +5268,22 @@ static void hub_port_connect(struct usb_hub *hub, int port1, u16 portstatus,
 		if (status)
 			dev_dbg(hub->intfdev, "%dmA power budget left\n", status);
 
+printk("%s: 12\n", __func__);
 		return;
 
 loop_disable:
+printk("%s: 13\n", __func__);
 		hub_port_disable(hub, port1, 1);
 loop:
+printk("%s: 14\n", __func__);
 		usb_ep0_reinit(udev);
 		release_devnum(udev);
 		hub_free_dev(udev);
 		usb_put_dev(udev);
 		if ((status == -ENOTCONN) || (status == -ENOTSUPP))
 			break;
+
+printk("%s: 15\n", __func__);
 
 		/* When halfway through our retry count, power-cycle the port */
 		if (i == (SET_CONFIG_TRIES / 2) - 1) {
@@ -5247,6 +5294,8 @@ loop:
 			msleep(hub_power_on_good_delay(hub));
 		}
 	}
+printk("%s: 16\n", __func__);
+
 	if (hub->hdev->parent ||
 			!hcd->driver->port_handed_over ||
 			!(hcd->driver->port_handed_over)(hcd, port1)) {
@@ -5256,11 +5305,14 @@ loop:
 	}
 
 done:
+printk("%s: 17\n", __func__);
 	hub_port_disable(hub, port1, 1);
 	if (hcd->driver->relinquish_port && !hub->hdev->parent) {
 		if (status != -ENOTCONN && status != -ENODEV)
 			hcd->driver->relinquish_port(hcd, port1);
 	}
+printk("%s: 18\n", __func__);
+
 }
 
 /* Handle physical or logical connection change events.
