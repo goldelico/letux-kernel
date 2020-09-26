@@ -590,9 +590,12 @@
 		interrupts = <20>;
 
 		clocks = <&cgu JZ4780_CLK_UHC>;
+		assigned-clocks = <&cgu JZ4780_CLK_UHC>;
+		assigned-clock-rates = <48000000>;
 
 		phys = <&usb_phy>;
-//		phy-names = "usb2-phy";
+//		phy-names = "usb-phy";
+		status = "disabled";
 	};
 
 	ohci: ohci@0x134a0000 {
@@ -604,9 +607,12 @@
 
 		clocks = <&cgu JZ4780_CLK_UHC>;
 		clock-names = "uhc";
+//		assigned-clocks = <&cgu JZ4780_CLK_UHC>;
+//		assigned-clock-rates = <48000000>;
 
 		phys = <&usb_phy>;
-//		phy-names = "usb2-phy";
+		phy-names = "usb-phy";
+
 	};
 
 	bch: bch@134d0000 {
