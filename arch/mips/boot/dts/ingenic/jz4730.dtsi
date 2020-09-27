@@ -58,8 +58,8 @@
 		compatible = "ingenic,jz4730-cgu";
 		reg = <0x10000000 0x100>;
 
-		clocks = <&ext>, <&rtc>;
-		clock-names = "ext", "rtc";
+		clocks = <&ext>, <&rtc>, <&msc16m>, <&msc24m>, <&usb48m>;
+		clock-names = "ext", "rtc", "msc16m", "msc24m", "usb48m";
 
 		#clock-cells = <1>;
 	};
