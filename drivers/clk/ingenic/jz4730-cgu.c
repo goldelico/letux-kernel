@@ -182,6 +182,13 @@ static const struct ingenic_cgu_clk_info jz4730_cgu_clocks[] = {
 		.mux = { CGU_REG_CFCR, 29, 1 },
 	},
 
+	[JZ4730_CLK_SPI] = {
+		"spi", CGU_CLK_MUX | CGU_CLK_GATE,
+		.parents = { JZ4730_CLK_PLL, JZ4730_CLK_PLL_HALF, -1, -1 },
+		.mux = { CGU_REG_CFCR, 31, 1 },
+		.gate = { CGU_REG_MSCR, 12 },
+	},
+
 	[JZ4730_CLK_MMC] = {
 		"mmc", CGU_CLK_GATE,
 		.parents = { JZ4730_CLK_MSC16M, JZ4730_CLK_MSC24M, -1, -1 },
