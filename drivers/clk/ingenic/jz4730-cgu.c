@@ -140,7 +140,7 @@ static const struct ingenic_cgu_clk_info jz4730_cgu_clocks[] = {
 	},
 
 	[JZ4730_CLK_MCLK_PLL] = {
-		"mclk", CGU_CLK_DIV,
+		"mclkdiv", CGU_CLK_DIV,
 		.parents = { JZ4730_CLK_PLL, -1, -1, -1 },
 		.div = {
 			CGU_REG_CFCR, 16, 1, 4, 20, -1, -1,
