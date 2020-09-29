@@ -1,5 +1,5 @@
 #
-# Linux/mips 4.9.236 Kernel Configuration
+# Linux/mips 4.9.237 Kernel Configuration
 #
 CONFIG_MIPS=y
 
@@ -2520,7 +2520,6 @@ CONFIG_HDMI=y
 # Console display driver support
 #
 CONFIG_VGA_CONSOLE=y
-# CONFIG_VGACON_SOFT_SCROLLBACK is not set
 CONFIG_DUMMY_CONSOLE=y
 CONFIG_DUMMY_CONSOLE_COLUMNS=80
 CONFIG_DUMMY_CONSOLE_ROWS=25
