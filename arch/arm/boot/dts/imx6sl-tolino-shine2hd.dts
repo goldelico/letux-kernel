@@ -1,17 +1,11 @@
-// SPDX-License-Identifier: (GPL-2.0)
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Device tree for the Tolino Shine 3 ebook reader
+ * Device tree for the Tolino Shine 2 HD ebook reader
  *
- * Name on mainboard is: 37NB-E60K00+4A4
- * Serials start with: E60K02 (a number also seen in
- * vendor kernel sources)
+ * Name on mainboard is: 37NB-E60QF0+4A2 or 37NB-E60QF0+4A3
+ * Serials start with: E60QF2
  *
- * This mainboard seems to be equipped with different SoCs.
- * In the Toline Shine 3 ebook reader it is a i.MX6SL
- *
- * Copyright 2019 Andreas Kemnade
- * based on works
- * Copyright 2016 Freescale Semiconductor, Inc.
+ * Copyright 2020 Andreas Kemnade
  */
 
 /dts-v1/;
@@ -19,56 +13,357 @@
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/gpio/gpio.h>
 #include "imx6sl.dtsi"
-#include "e60k02.dtsi"
 
 / {
-	model = "Tolino Shine 3";
-	compatible = "kobo,tolino-shine3", "fsl,imx6sl";
+	model = "Tolino Shine 2 HD";
+	compatible = "kobo,tolino-shine2hd", "fsl,imx6sl";
+
+	chosen {
+		stdout-path = &uart1;
+	};
+
+	gpio_keys: gpio-keys {
+		compatible = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio_keys>;
+
+		cover {
+			label = "Cover";
+			gpios = <&gpio5 12 GPIO_ACTIVE_LOW>;
+			linux,code = <SW_LID>;
+			linux,input-type = <EV_SW>;
+			wakeup-source;
+		};
+
+		fl {
+			label = "Frontlight";
+			gpios = <&gpio3 26 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_BRIGHTNESS_CYCLE>;
+		};
+
+		home {
+			label = "Home";
+			gpios = <&gpio3 25 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_HOME>;
+		};
+
+		power {
+			label = "Power";
+			gpios = <&gpio5 8 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_POWER>;
+			wakeup-source;
+		};
+	};
+
+	leds: leds {
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_led>;
+
+		on {
+			label = "tolinoshine2hd:white:on";
+			gpios = <&gpio5 13 GPIO_ACTIVE_LOW>;
+			linux,default-trigger = "timer";
+		};
+	};
+
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0x80000000 0x20000000>;
+	};
+
+	reg_wifi: regulator-wifi {
+		compatible = "regulator-fixed";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_wifi_power>;
+		regulator-name = "SD3_SPWR";
+		regulator-min-microvolt = <3000000>;
+		regulator-max-microvolt = <3000000>;
+		gpio = <&gpio4 29 GPIO_ACTIVE_LOW>;
+	};
+
+	wifi_pwrseq: wifi_pwrseq {
+		compatible = "mmc-pwrseq-simple";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_wifi_reset>;
+		post-power-on-delay-ms = <20>;
+		reset-gpios = <&gpio5 0 GPIO_ACTIVE_LOW>;
+	};
 };
 
 &epdc {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_epdc0>;
-};
-
-&gpio_keys {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_gpio_keys>;
+	safe-ticks-turnoff-ep3v3=<800>;
+	V3P3-supply = <&V3P3_reg>;      
+	VCOM-supply = <&VCOM_reg>;      
+	DISPLAY-supply = <&DISPLAY_reg>; 
+	TMST-supply = <&TMST_reg>; 
+	panel-name = "PENG060D";
+	status = "okay";
 };
 
 &i2c1 {
 	pinctrl-names = "default","sleep";
 	pinctrl-0 = <&pinctrl_i2c1>;
 	pinctrl-1 = <&pinctrl_i2c1_sleep>;
+	status = "okay";
+
+	/* TODO: embedded controller at 0x43 (driver missing) */
+
 };
 
 &i2c2 {
 	pinctrl-names = "default","sleep";
 	pinctrl-0 = <&pinctrl_i2c2>;
 	pinctrl-1 = <&pinctrl_i2c2_sleep>;
+	clock-frequency = <100000>;
+	status = "okay";
+
+	zforce: touchscreen@50 {
+		compatible = "neonode,zforce";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_zforce>;
+		reg = <0x50>;
+		interrupt-parent = <&gpio5>;
+		interrupts = <6 IRQ_TYPE_EDGE_FALLING>;
+		vdd-supply = <&ldo1_reg>;
+		reset-gpios = <&gpio5 9 GPIO_ACTIVE_LOW>;
+		x-size = <1072>;
+		y-size = <1448>;
+	};
+
+	tps6518x: epdc-pmic@68 {
+		compatible = "ti,tps6518x";
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&pinctrl_tps65185_gpio>;
+		pinctrl-1 = <&pinctrl_tps65185_gpio_sleep>;
+		reg = <0x68>;
+		/*
+		 * power sequencing for TPS65180/65181
+		 */
+		pwr_seq0 = <0xe1>; /* [Vddh-seq=3 | Vpos-seq=2 | Vee-seq=0 | Vneg-seq=1] */
+		pwr_seq1 = <0x30>; /* [Vneg-dly1=3 |Vee-dly0=0]  mSec */
+		pwr_seq2 = <0x33>; /* [Vddh-dly3=3 | Vpos-dly2=3] mSec */
+
+                /*
+                 * power sequencing for TPS65185/65186
+                 */
+                upseq0 = <0xe1>;
+                upseq1 = <0x00>;
+                dwnseq0 = <0x1e>;
+                dwnseq1 = <0xe0>;
+
+		pwrgood-gpios = <&gpio2 13 0>;
+		vcom-ctrl-gpios = <&gpio2 3 GPIO_ACTIVE_HIGH>;
+		wakeup-gpios = <&gpio2 7 0>;
+		powerup-gpios = <&gpio2 8 GPIO_ACTIVE_HIGH>;
+		intr-gpios = <&gpio2 9 0>;
+
+		/* gpio_pmic_v3p3 = <&gpio2 14 GPIO_ACTIVE_HIGH>; */
+		pwrall-gpios = <&gpio2 14 GPIO_ACTIVE_HIGH>;
+
+		regulators {
+			DISPLAY_reg: DISPLAY {
+				regulator-name = "DISPLAY";
+			};
+
+			VCOM_reg: VCOM {
+				regulator-name = "VCOM";
+				regulator-max-microvolt = <2750000>;
+				regulator-min-microvolt = <300000>;
+			};
+
+			V3P3_reg: V3P3 {
+				regulator-name = "V3P3";
+			};
+
+			TMST_reg: TMST {
+				regulator-name = "TMST";
+			};
+
+		};
+	};
 };
 
 &i2c3 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c3>;
+	clock-frequency = <400000>;
+	status = "okay";
+
+	ricoh619: pmic@32 {
+		compatible = "ricoh,rc5t619";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_ricoh_gpio>;
+		reg = <0x32>;
+		interrupt-parent = <&gpio5>;
+		interrupts = <11 IRQ_TYPE_EDGE_FALLING>;
+		system-power-controller;
+
+		regulators {
+			dcdc1_reg: DCDC1 {
+				regulator-name = "DCDC1";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1875000>;
+				regulator-always-on;
+				regulator-boot-on;
+
+				regulator-state-mem {
+					regulator-on-in-suspend;
+					regulator-suspend-max-microvolt = <900000>;
+					regulator-suspend-min-microvolt = <900000>;
+				};
+			};
+
+			/* Core3_3V3 */
+			dcdc2_reg: DCDC2 {
+				regulator-name = "DCDC2";
+				regulator-always-on;
+				regulator-boot-on;
+
+				regulator-state-mem {
+					regulator-on-in-suspend;
+					regulator-suspend-max-microvolt = <3100000>;
+					regulator-suspend-min-microvolt = <3100000>;
+				};
+			};
+
+			dcdc3_reg: DCDC3 {
+				regulator-name = "DCDC3";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1875000>;
+				regulator-always-on;
+				regulator-boot-on;
+
+				regulator-state-mem {
+					regulator-on-in-suspend;
+					regulator-suspend-max-microvolt = <1140000>;
+					regulator-suspend-min-microvolt = <1140000>;
+				};
+			};
+
+			/* Core4_1V2 */
+			dcdc4_reg: DCDC4 {
+				regulator-name = "DCDC4";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <1200000>;
+				regulator-always-on;
+				regulator-boot-on;
+
+				regulator-state-mem {
+					regulator-on-in-suspend;
+					regulator-suspend-max-microvolt = <1140000>;
+					regulator-suspend-min-microvolt = <1140000>;
+				};
+			};
+
+			/* Core4_1V8 */
+			dcdc5_reg: DCDC5 {
+				regulator-name = "DCDC5";
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
+				regulator-always-on;
+				regulator-boot-on;
+
+				regulator-state-mem {
+					regulator-on-in-suspend;
+					regulator-suspend-max-microvolt = <1700000>;
+					regulator-suspend-min-microvolt = <1700000>;
+				};
+			};
+
+			/* IR_3V3 */
+			ldo1_reg: LDO1  {
+				regulator-name = "LDO1";
+				regulator-boot-on;
+			};
+
+			/* Core1_3V3 */
+			ldo2_reg: LDO2  {
+				regulator-name = "LDO2";
+				regulator-always-on;
+				regulator-boot-on;
+
+				regulator-state-mem {
+					regulator-on-in-suspend;
+					regulator-suspend-max-microvolt = <3000000>;
+					regulator-suspend-min-microvolt = <3000000>;
+				};
+			};
+
+			/* Core5_1V2 */
+			ldo3_reg: LDO3  {
+				regulator-name = "LDO3";
+				regulator-always-on;
+				regulator-boot-on;
+			};
+
+			ldo4_reg: LDO4 {
+				regulator-name = "LDO4";
+				regulator-boot-on;
+			};
+
+			/* SPD_3V3 */
+			ldo5_reg: LDO5 {
+				regulator-name = "LDO5";
+				regulator-always-on;
+				regulator-boot-on;
+			};
+
+			/* DDR_0V6 */
+			ldo6_reg: LDO6 {
+				regulator-name = "LDO6";
+				regulator-always-on;
+				regulator-boot-on;
+			};
+
+			/* VDD_PWM */
+			ldo7_reg: LDO7 {
+				regulator-name = "LDO7";
+				regulator-always-on;
+				regulator-boot-on;
+			};
+
+			/* ldo_1v8 */
+			ldo8_reg: LDO8 {
+				regulator-name = "LDO8";
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
+				regulator-always-on;
+				regulator-boot-on;
+			};
+
+			ldo9_reg: LDO9 {
+				regulator-name = "LDO9";
+				regulator-boot-on;
+			};
+
+			ldo10_reg: LDO10 {
+				regulator-name = "LDO10";
+				regulator-boot-on;
+			};
+
+			ldortc1_reg: LDORTC1  {
+				regulator-name = "LDORTC1";
+				regulator-always-on;
+				regulator-boot-on;
+			};
+		};
+	};
 };
 
 &iomuxc {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_hog>;
 
-	pinctrl_cyttsp5_gpio: cyttsp5_gpio_grp {
+	pinctrl_gpio_keys: gpio-keysgrp {
 		fsl,pins = <
-			MX6SL_PAD_SD1_DAT3__GPIO5_IO06                0x17059 /* TP_INT */
-			MX6SL_PAD_SD1_DAT2__GPIO5_IO13                0x10059 /* TP_RST */
+			MX6SL_PAD_SD1_DAT1__GPIO5_IO08  0x17059
+			MX6SL_PAD_SD1_DAT4__GPIO5_IO12  0x17059
+			MX6SL_PAD_KEY_COL1__GPIO3_IO26  0x17059
+			MX6SL_PAD_KEY_ROW0__GPIO3_IO25  0x17059
 		>;
-	};
-
-	pinctrl_cyttsp5_gpio_sleep: cyttsp5_gpio_grp_sleep {
-		fsl,pins = <
-			MX6SL_PAD_SD1_DAT3__GPIO5_IO06                0x10059 /* TP_INT */
-			MX6SL_PAD_SD1_DAT2__GPIO5_IO13                0x10059 /* TP_RST */
-                       >;
 	};
 
 	pinctrl_epdc0: epdcgrp0 {
@@ -99,13 +394,6 @@
 			MX6SL_PAD_EPDC_GDRL__EPDC_GDRL  0x4100b1
 			MX6SL_PAD_EPDC_GDSP__EPDC_GDSP  0x4100b1
 	       >;
-	};
-
-	pinctrl_gpio_keys: gpio-keysgrp {
-		fsl,pins = <
-			MX6SL_PAD_SD1_DAT1__GPIO5_IO08	0x17059	/* PWR_SW */
-			MX6SL_PAD_SD1_DAT4__GPIO5_IO12	0x17059	/* HALL_EN */
-		>;
 	};
 
 	pinctrl_hog: hoggrp {
@@ -184,21 +472,15 @@
 
 	pinctrl_led: ledgrp {
 		fsl,pins = <
-			MX6SL_PAD_SD1_DAT6__GPIO5_IO07 0x17059
-		>;
-	};
-
-	pinctrl_lm3630a_bl_gpio: lm3630a-bl-gpiogrp {
-		fsl,pins = <
-			MX6SL_PAD_EPDC_PWRCTRL3__GPIO2_IO10		0x10059 /* HWEN */
+			MX6SL_PAD_SD1_DAT2__GPIO5_IO13 0x17059
 		>;
 	};
 
 	pinctrl_ricoh_gpio: ricoh_gpiogrp {
 		fsl,pins = <
-			MX6SL_PAD_SD1_CLK__GPIO5_IO15                  0x1b8b1 /* ricoh619 chg */
-			MX6SL_PAD_SD1_DAT0__GPIO5_IO11        0x1b8b1 /* ricoh619 irq */
-			MX6SL_PAD_KEY_COL2__GPIO3_IO28                         0x1b8b1 /* ricoh619 bat_low_int */
+			MX6SL_PAD_SD1_CLK__GPIO5_IO15	0x1b8b1 /* ricoh619 chg */
+			MX6SL_PAD_SD1_DAT0__GPIO5_IO11	0x1b8b1 /* ricoh619 irq */
+			MX6SL_PAD_KEY_COL2__GPIO3_IO28	0x1b8b1 /* ricoh619 bat_low_int */
 		>;
 	};
 
@@ -336,21 +618,13 @@
 			MX6SL_PAD_SD2_DAT7__GPIO5_IO00	0x10059	/* WIFI_RST */
 		>;
 	};
-};
 
-&leds {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_led>;
-};
-
-&lm3630a {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_lm3630a_bl_gpio>;
-};
-
-&reg_wifi {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_wifi_power>;
+	pinctrl_zforce: zforcegrp {
+		fsl,pins = <
+			MX6SL_PAD_SD1_DAT3__GPIO5_IO06		0x17059 /* TP_INT */
+			MX6SL_PAD_SD1_DAT5__GPIO5_IO09		0x10059 /* TP_RST */
+		>;
+	};
 };
 
 &reg_vdd1p1 {
@@ -361,20 +635,30 @@
 	vin-supply = <&dcdc2_reg>;
 };
 
-&ricoh619 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_ricoh_gpio>;
+&reg_arm {
+	vin-supply = <&dcdc3_reg>;
 };
 
-&tps6518x {
-	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&pinctrl_tps65185_gpio>;
-	pinctrl-1 = <&pinctrl_tps65185_gpio_sleep>;
+&reg_soc {
+	vin-supply = <&dcdc1_reg>;
+};
+
+&reg_pu {
+	vin-supply = <&dcdc1_reg>;
+};
+
+&snvs_rtc {
+	/*
+	 * We are using the RTC in the PMIC, but this one is not disabled
+	 * in imx6sl.dtsi.
+	 */
+	status = "disabled";
 };
 
 &uart1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart1>;
+	status = "okay";
 };
 
 &usdhc2 {
@@ -383,6 +667,10 @@
 	pinctrl-1 = <&pinctrl_usdhc2_100mhz>;
 	pinctrl-2 = <&pinctrl_usdhc2_200mhz>;
 	pinctrl-3 = <&pinctrl_usdhc2_sleep>;
+	non-removable;
+	status = "okay";
+
+	/* internal uSD card */
 };
 
 &usdhc3 {
@@ -391,9 +679,23 @@
 	pinctrl-1 = <&pinctrl_usdhc3_100mhz>;
 	pinctrl-2 = <&pinctrl_usdhc3_200mhz>;
 	pinctrl-3 = <&pinctrl_usdhc3_sleep>;
+	vmmc-supply = <&reg_wifi>;
+	mmc-pwrseq = <&wifi_pwrseq>;
+	cap-power-off-card;
+	non-removable;
+	status = "okay";
+
+	/*
+	 * 37NB-E60QF0+4A2: CyberTan WC121 (BCM43362) SDIO WiFi
+	 * 37NB-E60QF0+4A3: RTL8189F SDIO WiFi
+	 */
 };
 
-&wifi_pwrseq {
+&usbotg1 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_wifi_reset>;
+	disable-over-current;
+	srp-disable;
+	hnp-disable;
+	adp-disable;
+	status = "okay";
 };
