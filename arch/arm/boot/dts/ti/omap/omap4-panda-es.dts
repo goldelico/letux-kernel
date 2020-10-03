@@ -10,6 +10,28 @@
 / {
 	model = "TI OMAP4 PandaBoard-ES";
 	compatible = "ti,omap4-panda-es", "ti,omap4-panda", "ti,omap4460", "ti,omap4430", "ti,omap4";
+
+	/* Bluetooth audio */
+	sound_bluetooth {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "Bluetooth";
+		simple-audio-card,bitclock-master = <&bt_link_master>;
+		simple-audio-card,frame-master = <&bt_link_master>;
+		simple-audio-card,format = "i2s";
+
+		simple-audio-card,cpu {
+			sound-dai = <&mcbsp1>;
+		};
+
+		bt_link_master: simple-audio-card,codec {
+			sound-dai = <&bluetooth_codec>;
+		};
+	};
+
+	bluetooth_codec: bluetooth_codec {
+		compatible = "ti,wl1271-codec";
+		#sound-dai-cells = <0>;
+	};
 };
 
 /* Audio routing is differnet between PandaBoard4430 and PandaBoardES */
@@ -49,6 +71,22 @@
 			OMAP4_IOPAD(0x0fc, PIN_INPUT_PULLUP | MUX_MODE3) /* gpio_113 */
 		>;
 	};
+
+	bt_pins: bt-pins {
+		pinctrl-single,pins = <
+			OMAP4_IOPAD(0x06c, PIN_OUTPUT | MUX_MODE3)		/* gpmc_a22.gpio_46 - BTEN*/
+			OMAP4_IOPAD(0x072, PIN_OUTPUT_PULLUP | MUX_MODE3)	/* gpmc_a25.gpio_49 - BTWAKEUP */
+		>;
+	};
+
+	uart2_pins: uart2-pins {
+		pinctrl-single,pins = <
+			OMAP4_IOPAD(0x118, PIN_INPUT_PULLUP | MUX_MODE0)	/* uart2_cts.uart2_cts - HCI */
+			OMAP4_IOPAD(0x11a, PIN_OUTPUT | MUX_MODE0)		/* uart2_rts.uart2_rts */
+			OMAP4_IOPAD(0x11c, PIN_INPUT_PULLUP | MUX_MODE0)	/* uart2_rx.uart2_rx */
+			OMAP4_IOPAD(0x11e, PIN_OUTPUT | MUX_MODE0)		/* uart2_tx.uart2_tx */
+		>;
+	};
 };
 
 &led_wkgpio_pins {
@@ -79,4 +117,24 @@
 
 &gpio1_target {
 	 ti,no-reset-on-init;
+};
+
+&mcbsp1 {
+	#sound-dai-cells = <0>;
+};
+
+&wl12xx_gpio {
+	pinctrl-single,pins = <
+		OMAP4_IOPAD(0x066, PIN_OUTPUT | MUX_MODE3)		/* gpmc_a19.gpio_43 */
+		OMAP4_IOPAD(0x070, PIN_OUTPUT_PULLUP | MUX_MODE3)	/* gpmc_a24.gpio_48 */
+	>;
+};
+
+&uart2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart2_pins &bt_pins>;
+	bluetooth: tiwi {
+		compatible = "ti,wl1271-st";
+		enable-gpios = <&gpio2 14 GPIO_ACTIVE_HIGH>;	/* GPIO_46 */
+	};
 };
