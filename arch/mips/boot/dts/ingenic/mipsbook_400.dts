@@ -24,6 +24,15 @@
 		regulator-always-on;
 	};
 
+	vmmc_reg: regulator@1 {
+		compatible = "regulator-fixed";
+		regulator-name = "vmmc";
+
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpa 21 GPIO_ACTIVE_LOW>;
+	};
+
 	clk_usb: clk-usb {
 		compatible = "gpio-gate-clock";
 		clocks = <&cgu JZ4730_CLK_UHC>;
@@ -353,7 +362,7 @@
 	bus-width = <4>;
 	cd-gpios = <&gpc 0 GPIO_ACTIVE_LOW>;
 	wp-gpios = <&gpc 2 GPIO_ACTIVE_LOW>;
-	vmmc-supply = <&gpa 21 GPIO_ACTIVE_LOW>;
+	vmmc-supply = <&vmmc_reg>;
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_mmc>;
