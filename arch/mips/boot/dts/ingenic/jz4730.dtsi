@@ -290,6 +290,19 @@
 		dma-channels = <6>;
 	};
 
+	emc: memory-controller@13010000 {
+		#address-cells = <0>;
+		#size-cells = <0>;
+		compatible = "ingenic,jz4730-emc", "simple-mfd";
+		reg = <0x13010000 0xf000>;
+
+		nand: nand-controller {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "ingenic,jz4730-nand";
+		};
+	};
+
 	uhc: uhc@13030000 {
 		compatible = "ingenic,jz4740-ohci", "generic-ohci";
 		reg = <0x13030000 0x1000>;
