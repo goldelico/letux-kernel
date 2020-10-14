@@ -317,6 +317,16 @@
 		status = "disabled";
 	};
 
+	ethernet: ethernet@13100000 {
+		compatible = "ingenic,jz4730-ethernet";
+		reg = <0x13100000 0x1000>;
+
+		mdio: mdio {
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+	};
+
 	lcd: lcd@10050000 {
 		compatible = "ingenic,jz4740-lcd";
 		reg = <0x10050000 0x100>;
