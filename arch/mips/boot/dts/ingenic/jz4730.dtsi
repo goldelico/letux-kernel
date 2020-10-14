@@ -218,8 +218,12 @@
 	};
 
 	uart0: serial@10030000 {
-		compatible = "ingenic,jz4740-uart";
+		compatible = "ingenic,jz4740-uart", "ingenic,jz4780-uart";
 		reg = <0x10030000 0x100>;
+
+		reg-shift = <2>;
+		fifo-size = <16>;
+		tx-threshold = <8>;
 
 		interrupt-parent = <&intc>;
 		interrupts = <9>;
@@ -229,8 +233,12 @@
 	};
 
 	uart1: serial@10031000 {
-		compatible = "ingenic,jz4740-uart";
+		compatible = "ingenic,jz4740-uart", "ingenic,jz4780-uart";
 		reg = <0x10031000 0x100>;
+
+		reg-shift = <2>;
+		fifo-size = <16>;
+		tx-threshold = <8>;
 
 		interrupt-parent = <&intc>;
 		interrupts = <8>;
@@ -240,8 +248,12 @@
 	};
 
 	uart2: serial@10032000 {
-		compatible = "ingenic,jz4740-uart";
+		compatible = "ingenic,jz4740-uart", "ingenic,jz4780-uart";
 		reg = <0x10032000 0x100>;
+
+		reg-shift = <2>;
+		fifo-size = <16>;
+		tx-threshold = <8>;
 
 		interrupt-parent = <&intc>;
 		interrupts = <7>;
@@ -251,8 +263,12 @@
 	};
 
 	uart3: serial@10033000 {
-		compatible = "ingenic,jz4740-uart";
+		compatible = "ingenic,jz4740-uart", "ingenic,jz4780-uart";
 		reg = <0x10033000 0x100>;
+
+		reg-shift = <2>;
+		fifo-size = <16>;
+		tx-threshold = <8>;
 
 		interrupt-parent = <&intc>;
 		interrupts = <6>;
