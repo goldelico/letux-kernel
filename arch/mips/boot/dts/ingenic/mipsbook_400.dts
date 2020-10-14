@@ -7,8 +7,12 @@
 / {
 	compatible = "letux400,minipc", "ingenic,jz4730";
 
+	aliases {
+		serial0 = &uart0;
+	};
+
 	chosen {
-		stdout-path = &uart0;
+		stdout-path = "serial0:115200n8";
 	};
 
 	vcc: regulator@0 {
