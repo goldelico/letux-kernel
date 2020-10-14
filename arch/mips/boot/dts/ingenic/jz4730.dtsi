@@ -65,7 +65,7 @@
 	};
 
         tcu: timer@10002000 {
-		compatible = "ingenic,jz4730-tcu", "simple-mfd";
+		compatible = "ingenic,jz4730-tcu";
 		reg = <0x10002000 0x1000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
