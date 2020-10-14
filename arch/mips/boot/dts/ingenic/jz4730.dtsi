@@ -86,7 +86,7 @@
 		interrupts = <24 23 22>;
 	};
 
-	watchdog: watchdog@0x10004000 {
+	watchdog: watchdog@10004000 {
 		compatible = "ingenic,jz4730-watchdog";
 		reg = <0x10004000 0x100>;
 
