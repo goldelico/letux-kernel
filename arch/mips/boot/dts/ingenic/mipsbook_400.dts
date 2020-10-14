@@ -371,6 +371,49 @@
 &nand {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_nand>;
+
+	nand0: nand@0 {
+		#address-cells = <0>;
+		#size-cells = <0>;
+		reg = <0>;
+		wp-gpios = <&gpc 23 GPIO_ACTIVE_LOW>;
+
+		partitions {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "fixed-partitions";
+
+			bootloader@0 {
+				label = "bootloader";
+				reg = <0x00000000 0x00100000>;
+			};
+
+			kernel@100000 {
+				label = "kernel";
+				reg = <0x00100000 0x00300000>;
+			};
+
+			mac@400000 {
+				label = "mac";
+				reg = <0x00400000 0x00100000>;
+			};
+
+			recovery@500000 {
+				label = "mini rootfs";
+				reg = <0x00500000 0x00500000>;
+			};
+
+			root@a00000 {
+				label = "yaffs2 rootfs";
+				reg = <0x00a00000 0x3f600000>;
+			};
+
+			extend@40000000 {
+				label = "extend 1G flash";
+				reg = <0x40000000 0x40000000>;
+			};
+		};
+	};
 };
 
 
