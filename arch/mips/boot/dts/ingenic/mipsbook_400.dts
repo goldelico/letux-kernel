@@ -471,6 +471,11 @@
 		pins = "PA29";
 		bias-disable;
 	};
+
+	pins_mac: pins_mac {
+		function = "mac";
+		groups = "mac";
+	};
 };
 
 &i2c {
@@ -500,6 +505,22 @@
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_usb_clk>;
+};
+
+&ethernet {
+	phy-handle = <&ethphy>;
+	phy-mode = "mii";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_mac>;
+};
+
+&mdio {
+	ethphy: ethernet-phy@16 {
+		device_type = "ethernet-phy";
+		compatible = "realtek,rtl8201cl", "ethernet-phy-ieee802.3-c22";
+		reg = <16>;
+	};
 };
 
 /*
