@@ -1,0 +1,171 @@
+import init.gta04.usb.rc
+
+on early-init
+	#Let the Kernel (kmod.c) load its module dependencies
+	symlink /system/xbin/modprobe /sbin/modprobe
+	export EXTERNAL_STORAGE /mnt/sdcard
+	mkdir /mnt/sdcard 0000 system system
+	symlink /mnt/sdcard /sdcard
+	#TODO: who should own sdcard, what are the correct permisisons
+	#chrown ? ? /mnt/sdcard
+	chmod 777 /mnt/sdcard
+
+	mkdir /mnt/boot 0000 system system
+
+on boot
+	start modules
+
+	# Enable Wake Locks
+	chmod 777 /sys/power/wake_lock
+	chmod 777 /sys/power/wake_unlock
+
+	# Modem GPIO + RIL
+	#insmod system/lib/modules/hso.ko
+	#hso is now build into the kernel, to avoid strange problems
+	#compare: http://projects.goldelico.com/p/gta04-replicant/issues/676/
+	chown radio radio /sys/class/gpio/gpio186/value
+	chmod 660 /sys/class/gpio/gpio186/value
+
+	# Sensors #TODO: beware of unstable path names, lis302 or bma180 might not be installed on all devices, which leads to different names
+	chmod 666 /sys/devices/platform/omap_i2c.2/i2c-2/2-0077/poll_delay #bmp085
+	chmod 666 /sys/class/input/input1/poll #bma150
+	chmod 666 /sys/class/input/input2/poll #bma150 (if lis302 not installed)
+	chmod 666 /sys/class/input/input5/poll #lis302
+	write /sys/class/input/input5/poll 0 #disable lis302 as it disturbs the bma180
+
+	chmod 666 /sys/bus/i2c/devices/2-0048/values #tsc2007
+
+	#ITG3200
+	chmod 666 /dev/iio:device1
+	chmod 666 /sys/bus/iio/devices/iio:device1/buffer/enable
+	chmod 666 /sys/bus/iio/devices/iio:device1/sampling_frequency
+	chmod 666 /sys/bus/iio/devices/iio:device1/scan_elements/in_anglvel_x_en
+	chmod 666 /sys/bus/iio/devices/iio:device1/scan_elements/in_anglvel_y_en
+	chmod 666 /sys/bus/iio/devices/iio:device1/scan_elements/in_anglvel_z_en
+	chmod 666 /sys/bus/iio/devices/iio:device1/trigger/current_trigger
+
+	#HMC5883L
+	chmod 666 /dev/iio:device0
+	chmod 666 /sys/bus/iio/devices/iio:device0/buffer/enable
+	chmod 666 /sys/bus/iio/devices/iio:device0/operating_mode
+	chmod 666 /sys/bus/iio/devices/iio:device0/sampling_frequency
+	chmod 666 /sys/bus/iio/devices/iio:device0/scan_elements/in_magn_x_en
+	chmod 666 /sys/bus/iio/devices/iio:device0/scan_elements/in_magn_y_en
+	chmod 666 /sys/bus/iio/devices/iio:device0/scan_elements/in_magn_z_en
+	chmod 666 /sys/bus/iio/devices/iio:device0/trigger/current_trigger
+
+	# Lights
+	chown system system /sys/class/backlight/pwm-backlight/brightness #old
+	chown system system /sys/class/backlight/pwm-backlight/max_brightness #old
+	chown system system /sys/class/backlight/backlight/brightness
+	chown system system /sys/class/backlight/backlight/max_brightness
+	# Letux 2804
+	chown system system /sys/class/leds/gta04:red:power/brightness
+	chown system system /sys/class/leds/gta04:red:power/max_brightness
+	chown system system /sys/class/leds/gta04:green:power/brightness
+	chown system system /sys/class/leds/gta04:green:power/max_brightness
+	chown system system /sys/class/leds/gta04:red:aux/brightness
+	chown system system /sys/class/leds/gta04:red:aux/max_brightness
+	chown system system /sys/class/leds/gta04:green:aux/brightness
+	chown system system /sys/class/leds/gta04:green:aux/max_brightness
+	# Letux 3704/7004
+	chown system system /sys/class/leds/gta04:left/brightness
+	chown system system /sys/class/leds/gta04:left/max_brightness
+	chown system system /sys/class/leds/gta04:right/brightness
+	chown system system /sys/class/leds/gta04:right/max_brightness
+
+	# Audio
+	chown system audio /sys/class/gpio/gpio55/value
+	chmod 0660 /sys/class/gpio/gpio55/value
+	chown system audio /sys/class/gpio/gpio23/value
+	chmod 0660 /sys/class/gpio/gpio23/value
+
+	# GPS
+	chown gps gps /sys/class/switch/gps_antenna/state
+	chmod 0660 /sys/class/switch/gps_antenna/state
+
+	# Battery Fast Charge
+	chmod 777 /sys/devices/platform/omap_i2c.1/i2c-1/1-0048/twl4030_usb/id
+	chmod 777 /sys/devices/platform/omap_i2c.1/i2c-1/1-004a/twl4030_bci/max_current
+
+	#Bluetooth
+	#insmod /system/lib/modules/bluetooth.ko
+	#insmod /system/lib/modules/hci_uart.ko
+	chown bluetooth bluetooth /dev/ttyO0
+	chmod 0600 /dev/ttyO0
+	#rfkill1 is only available if hciattach is running
+	#start hciattach
+	#start bluetoothd
+	#wait /sys/class/rfkill/rfkill1/state
+	#chmod 0660 /sys/class/rfkill/rfkill1/state
+	#chown bluetooth bluetooth /sys/class/rfkill/rfkill1/state
+	#chown bluetooth bluetooth /sys/class/rfkill/rfkill1/type
+	#write /sys/class/rfkill/rfkill1/state 0
+
+on fs
+	#mount ext4 /dev/block/mmcblk0p2 /system wait
+	#mount ext4 /dev/block/mmcblk0p2 /system ro wait remount
+	#mount ext4 /dev/block/mmcblk0p3 /cache nosuid wait
+	#mount ext4 /dev/block/mmcblk0p4 /data nosuid wait
+	#mount vfat /dev/block/mmcblk0p1 /mnt/boot/ ro wait
+
+# Manual Module Loading
+service modules /system/bin/logwrapper /system/load_modules.sh
+	class core
+	oneshot
+
+# ALSA Voice Routing Configuration
+service voicerouting /system/voice-routing-init.sh
+	class main
+	oneshot
+
+# Battery Fast Charge
+service batteryd /system/bin/logwrapper /system/bin/batteryd.gta04
+	class main
+
+# Power Save (disabled for now)
+#service powersave /system/power-save.sh
+#	class main
+#	oneshot
+
+on post-fs-data
+	mkdir /data/media 0775 media_rw media_rw
+	chown media_rw media_rw /data/media
+
+	# Wi-Fi
+	mkdir /data/misc/wifi 0770 wifi wifi
+	mkdir /data/misc/wifi/sockets 0770 wifi wifi
+	mkdir /data/misc/dhcp 0770 dhcp dhcp
+	chown dhcp dhcp /data/misc/dhcp
+
+	#setprop vold.post_fs_data_done 1
+
+# There is no hciattach with BlueDroid
+# for bluetooth (speed=3000000, choose 115200 for GTA04A3 boards)
+#service hciattach /system/bin/logwrapper /system/bin/hciattach -s 3000000 /dev/ttyO0 any 3000000 flow
+#	class main
+#	user bluetooth
+#	group bluetooth net_bt_admin
+#	disabled
+#	oneshot
+
+# Wi-Fi
+service wpa_supplicant /system/bin/wpa_supplicant -iwlan0 -Dnl80211 -c/data/misc/wifi/wpa_supplicant.conf
+	class main
+	socket wpa_wlan0 dgram 660 wifi wifi
+	disabled
+	oneshot
+
+service dhcpcd_wlan0 /system/bin/dhcpcd -aABDKL
+	class main
+	disabled
+	oneshot
+
+service iprenew_wlan0 /system/bin/dhcpcd -n
+	class main
+	disabled
+	oneshot
+
+service sdcard /system/bin/sdcard /data/media /mnt/sdcard 1023 1023
+	class main
+	oneshot
