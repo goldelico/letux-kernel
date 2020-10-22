@@ -82,7 +82,7 @@
 		NIMP-vbus-supply = <&modem_vbus_hdmi_power>;	/* apply VBUS to the modem */
 	};
 
-	backlight {
+	backlight: backlight {
 		compatible = "pwm-backlight";
 		pwms = <&pwm9 0 12000000 0>;
 		pwm-names = "backlight";
@@ -98,7 +98,7 @@
 		#pwm-cells = <3>;
 	};
 
-	keyboard-backlight {
+	keyboard_backlight: keyboard-backlight {
 		compatible = "pwm-backlight";
 		pwms = <&pwm8 0 12000000 0>;
 		pwm-names = "keyboard";

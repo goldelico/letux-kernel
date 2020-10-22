@@ -1,0 +1,17 @@
+/*
+ * Copyright (C) 2020 OpenPandora - http://www.pyra-handheld.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include "pyra-mainboard-v5.2.dtsi"
+
+/* overwrite device model */
+
+/ {
+	model = "Pyra-Handheld-V5.3";
+};
+
+/* there is no other difference since v5.1.2 should have been named v5.2 */

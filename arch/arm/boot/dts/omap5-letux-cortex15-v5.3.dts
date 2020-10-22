@@ -19,7 +19,7 @@
  * Hence we can disable pullup/down.
  */
 
-&mmc1_pins:{
+&mmc1_pins {
 	pinctrl-single,pins = <
 		OMAP5_IOPAD(0x174, PIN_INPUT | MUX_MODE6)	/* 0x174:[15:0] sdcard_cd/gpio8_228 */
 		OMAP5_IOPAD(0x176, PIN_INPUT | MUX_MODE6)	/* 0x175:[31:16] sdcard_wp/gpio8_229 */
