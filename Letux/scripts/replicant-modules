@@ -43,8 +43,9 @@ echo translate modules.dep into modules.dep.bb
 while read LINE
 do
 	MODULE=$(echo $LINE | sed 's/\([^:]*\).ko:.*/\1/g')
-	MOREINFO=""	# usb: symbol: platform: of: etc.
-	MOREINFO+=$(grep "alias .* $MODULE" <$KERNEL_FILES/system/lib/modules/modules.alias | sed "s/alias \([^ ]*\) $MODULE/\1/g")
+	MOREINFO=""	# will collect usb: symbol: platform: of: etc.
+	ULMODULE=$(echo "$MODULE" | sed 's/-/_/g')	# aliases match on hyphen -> underline
+	MOREINFO+=$(cat $KERNEL_FILES/system/lib/modules/modules.alias $KERNEL_FILES/system/lib/modules/modules.symbols | grep "alias .* $ULMODULE" | sed "s/alias \([^ ]*\) $ULMODULE/\1/g" | sed 's/-/_/g')
 	DEPENDS=$(echo $LINE | sed 's/[^:]*://g' | sed 's/\.ko//g')
 	echo $MODULE.ko $MOREINFO
 	[ "$DEPENDS" ] && echo $DEPENDS
@@ -60,4 +61,4 @@ then
 fi
 
 echo repack into $DEST.bb
-tar czf $DEST.bb --exclude .DS_Store -C $KERNEL_FILES .
+tar czf $(dirname "$DEST")/$(basename "$DEST" .tgz).bb.tgz --exclude .DS_Store -C $KERNEL_FILES .
