@@ -89,13 +89,13 @@ static size_t logger_offset(struct logger_log *log, size_t n)
 	return n & (log->size - 1);
 }
 
-static inline struct timespec current_kernel_time(void)
+static inline struct timespec64 current_kernel_time(void)
 {
 	struct timespec64 ts64;
 
 	ktime_get_coarse_real_ts64(&ts64);
 
-	return timespec64_to_timespec(ts64);
+	return ts64;
 }
 
 /*
@@ -428,7 +428,7 @@ static ssize_t logger_write_iter(struct kiocb *iocb, struct iov_iter *from)
 {
 	struct logger_log *log = file_get_log(iocb->ki_filp);
 	struct logger_entry header;
-	struct timespec now;
+	struct timespec64 now;
 	size_t len, count, w_off;
 
 	//count = min_t(size_t, iocb->ki_nbytes, LOGGER_ENTRY_MAX_PAYLOAD); //ki_nbytes is no more
