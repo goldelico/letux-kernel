@@ -1,5 +1,5 @@
 #
-# Linux/arm64 5.9.1 Kernel Configuration
+# Linux/arm64 5.9.2 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="aarch64-linux-gnu-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
@@ -7267,6 +7267,7 @@ CONFIG_RUNTIME_TESTING_MENU=y
 # CONFIG_TEST_MEMCAT_P is not set
 # CONFIG_TEST_STACKINIT is not set
 # CONFIG_TEST_MEMINIT is not set
+# CONFIG_TEST_FREE_PAGES is not set
 CONFIG_MEMTEST=y
 # end of Kernel Testing and Coverage
 # end of Kernel hacking
