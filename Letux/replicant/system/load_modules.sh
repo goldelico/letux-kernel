@@ -16,7 +16,7 @@ echo "Detected model:" $DEVICE
 
 #Graphics
 modprobe panel_tpo_td028ttec1 #Letux 2804
-modprobe panel_dpi #Letux 3704/7004
+modprobe panel_simple #Letux 3704/7004
 modprobe omapdrm
 modprobe omapdss
 modprobe connector-analog-tv
