@@ -614,7 +614,9 @@ static int dsicm_remove(struct mipi_dsi_device *dsi)
 }
 
 static const struct of_device_id dsicm_of_match[] = {
-	{ .compatible = "panel-dsi-cm", },
+	{ .compatible = "tpo,taal", },
+	{ .compatible = "nokia,himalaya", },
+	{ .compatible = "motorola,droid4-panel", },
 	{},
 };
 
