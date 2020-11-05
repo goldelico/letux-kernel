@@ -741,7 +741,13 @@ static struct platform_driver * const drivers[] = {
 
 static int __init omap_drm_init(void)
 {
+	int r;
+
 	DBG("init");
+
+	r = omap_dss_init();
+	if (r)
+		return r;
 
 	return platform_register_drivers(drivers, ARRAY_SIZE(drivers));
 }
@@ -751,13 +757,15 @@ static void __exit omap_drm_fini(void)
 	DBG("fini");
 
 	platform_unregister_drivers(drivers, ARRAY_SIZE(drivers));
+
+	omap_dss_exit();
 }
 
-/* need late_initcall() so we load after dss_driver's are loaded */
-late_initcall(omap_drm_init);
+module_init(omap_drm_init);
 module_exit(omap_drm_fini);
 
 MODULE_AUTHOR("Rob Clark <rob@ti.com>");
+MODULE_AUTHOR("Tomi Valkeinen <tomi.valkeinen@ti.com>");
 MODULE_DESCRIPTION("OMAP DRM Display Driver");
 MODULE_ALIAS("platform:" DRIVER_NAME);
 MODULE_LICENSE("GPL v2");
