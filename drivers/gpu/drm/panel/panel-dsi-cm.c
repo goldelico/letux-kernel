@@ -533,6 +533,8 @@ static int dsicm_probe(struct mipi_dsi_device *dsi)
 	mipi_dsi_set_drvdata(dsi, ddata);
 	ddata->dsi = dsi;
 
+	ddata->use_te = true;
+
 	r = dsicm_probe_of(dsi);
 	if (r)
 		return r;
