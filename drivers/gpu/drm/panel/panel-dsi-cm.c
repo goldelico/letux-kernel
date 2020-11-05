@@ -61,7 +61,7 @@ struct panel_drv_data {
 	/* runtime variables */
 	bool enabled;
 
-	bool te_enabled;
+	bool use_te;
 
 	bool intro_printed;
 
@@ -72,8 +72,6 @@ static inline struct panel_drv_data *panel_to_ddata(struct drm_panel *panel)
 {
 	return container_of(panel, struct panel_drv_data, panel);
 }
-
-static int _dsicm_enable_te(struct panel_drv_data *ddata, bool enable);
 
 static void dsicm_bl_power(struct panel_drv_data *ddata, bool enable)
 {
@@ -318,9 +316,14 @@ static int dsicm_power_on(struct panel_drv_data *ddata)
 	if (r)
 		goto err;
 
-	r = _dsicm_enable_te(ddata, ddata->te_enabled);
-	if (r)
-		goto err;
+	if (ddata->use_te) {
+		r = mipi_dsi_dcs_set_tear_on(ddata->dsi, MIPI_DSI_DCS_TEAR_MODE_VBLANK);
+		if (r)
+			goto err;
+
+		/* possible panel bug */
+		msleep(100);
+	}
 
 	ddata->enabled = true;
 
@@ -418,22 +421,6 @@ static int dsicm_disable(struct drm_panel *panel)
 	r = dsicm_power_off(ddata);
 
 	mutex_unlock(&ddata->lock);
-
-	return r;
-}
-
-static int _dsicm_enable_te(struct panel_drv_data *ddata, bool enable)
-{
-	struct mipi_dsi_device *dsi = ddata->dsi;
-	int r;
-
-	if (enable)
-		r = mipi_dsi_dcs_set_tear_on(dsi, MIPI_DSI_DCS_TEAR_MODE_VBLANK);
-	else
-		r = mipi_dsi_dcs_set_tear_off(dsi);
-
-	/* possible panel bug */
-	msleep(100);
 
 	return r;
 }
