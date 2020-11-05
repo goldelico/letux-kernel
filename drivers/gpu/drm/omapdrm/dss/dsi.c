@@ -1141,13 +1141,12 @@ static void dsi_runtime_put(struct dsi_data *dsi)
 
 static void _dsi_print_reset_status(struct dsi_data *dsi)
 {
-	u32 l;
 	int b0, b1, b2;
 
 	/* A dummy read using the SCP interface to any DSIPHY register is
 	 * required after DSIPHY reset to complete the reset of the DSI complex
 	 * I/O. */
-	l = dsi_read_reg(dsi, DSI_DSIPHY_CFG5);
+	dsi_read_reg(dsi, DSI_DSIPHY_CFG5);
 
 	if (dsi->data->quirks & DSI_QUIRK_REVERSE_TXCLKESC) {
 		b0 = 28;
@@ -3868,15 +3867,10 @@ static void dsi_framedone_irq_callback(void *data)
 
 static int _dsi_update(struct dsi_data *dsi)
 {
-	u16 dw, dh;
-
 	dsi_perf_mark_setup(dsi);
 
-	dw = dsi->vm.hactive;
-	dh = dsi->vm.vactive;
-
 #ifdef DSI_PERF_MEASURE
-	dsi->update_bytes = dw * dh *
+	dsi->update_bytes = dsi->vm.hactive * dsi->vm.vactive *
 		mipi_dsi_pixel_format_to_bpp(dsi->pix_fmt) / 8;
 #endif
 	dsi_update_screen_dispc(dsi);
