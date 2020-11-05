@@ -216,59 +216,6 @@ static const struct backlight_ops dsicm_bl_ops = {
 	.update_status  = dsicm_bl_update_status,
 };
 
-static ssize_t num_dsi_errors_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	struct panel_drv_data *ddata = dev_get_drvdata(dev);
-	u8 errors = 0;
-	int r = -ENODEV;
-
-	mutex_lock(&ddata->lock);
-
-	if (ddata->enabled)
-		r = dsicm_dcs_read_1(ddata, MIPI_DCS_GET_ERROR_COUNT_ON_DSI, &errors);
-
-	mutex_unlock(&ddata->lock);
-
-	if (r)
-		return r;
-
-	return snprintf(buf, PAGE_SIZE, "%d\n", errors);
-}
-
-static ssize_t hw_revision_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	struct panel_drv_data *ddata = dev_get_drvdata(dev);
-	u8 id1, id2, id3;
-	int r = -ENODEV;
-
-	mutex_lock(&ddata->lock);
-
-	if (ddata->enabled)
-		r = dsicm_get_id(ddata, &id1, &id2, &id3);
-
-	mutex_unlock(&ddata->lock);
-
-	if (r)
-		return r;
-
-	return snprintf(buf, PAGE_SIZE, "%02x.%02x.%02x\n", id1, id2, id3);
-}
-
-static DEVICE_ATTR_RO(num_dsi_errors);
-static DEVICE_ATTR_RO(hw_revision);
-
-static struct attribute *dsicm_attrs[] = {
-	&dev_attr_num_dsi_errors.attr,
-	&dev_attr_hw_revision.attr,
-	NULL,
-};
-
-static const struct attribute_group dsicm_attr_group = {
-	.attrs = dsicm_attrs,
-};
-
 static void dsicm_hw_reset(struct panel_drv_data *ddata)
 {
 	gpiod_set_value(ddata->reset_gpio, 1);
@@ -561,12 +508,6 @@ static int dsicm_probe(struct mipi_dsi_device *dsi)
 		ddata->bldev = bldev;
 	}
 
-	r = sysfs_create_group(&dev->kobj, &dsicm_attr_group);
-	if (r) {
-		dev_err(dev, "failed to create sysfs files\n");
-		goto err_bl;
-	}
-
 	dsi->lanes = 2;
 	dsi->format = MIPI_DSI_FMT_RGB888;
 	dsi->mode_flags = MIPI_DSI_CLOCK_NON_CONTINUOUS |
@@ -587,7 +528,6 @@ static int dsicm_probe(struct mipi_dsi_device *dsi)
 
 err_dsi_attach:
 	drm_panel_remove(&ddata->panel);
-	sysfs_remove_group(&dsi->dev.kobj, &dsicm_attr_group);
 err_bl:
 	if (ddata->extbldev)
 		put_device(&ddata->extbldev->dev);
@@ -604,8 +544,6 @@ static int dsicm_remove(struct mipi_dsi_device *dsi)
 	mipi_dsi_detach(dsi);
 
 	drm_panel_remove(&ddata->panel);
-
-	sysfs_remove_group(&dsi->dev.kobj, &dsicm_attr_group);
 
 	if (ddata->extbldev)
 		put_device(&ddata->extbldev->dev);
