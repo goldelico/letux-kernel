@@ -599,13 +599,30 @@ static struct ti_dt_clk omap54xx_clks[] = {
 	DT_CLK(NULL, "usb_tll_hs_usb_ch2_clk", "l3init_cm:0048:10"),
 	DT_CLK(NULL, "utmi_p1_gfclk", "l3init_cm:0038:24"),
 	DT_CLK(NULL, "utmi_p2_gfclk", "l3init_cm:0038:25"),
+	DT_CLK("4ae18000.timer", "timer_sys_ck", "sys_clkin"),
+	DT_CLK("48032000.timer", "timer_sys_ck", "sys_clkin"),
+	DT_CLK("48034000.timer", "timer_sys_ck", "sys_clkin"),
+	DT_CLK("48036000.timer", "timer_sys_ck", "sys_clkin"),
+	DT_CLK("4803e000.timer", "timer_sys_ck", "sys_clkin"),
+	DT_CLK("48086000.timer", "timer_sys_ck", "sys_clkin"),
+	DT_CLK("48088000.timer", "timer_sys_ck", "sys_clkin"),
+	DT_CLK("40138000.timer", "timer_sys_ck", "dss_syc_gfclk_div"),
+	DT_CLK("4013a000.timer", "timer_sys_ck", "dss_syc_gfclk_div"),
+	DT_CLK("4013c000.timer", "timer_sys_ck", "dss_syc_gfclk_div"),
+	DT_CLK("4013e000.timer", "timer_sys_ck", "dss_syc_gfclk_div"),
+	DT_CLK(NULL, "fref_xtal_ck", "fref_xtal_ck"),
 	{ .node_name = NULL },
 };
 
 int __init omap5xxx_dt_clk_init(void)
 {
 	int rc;
-	struct clk *abe_dpll_ref, *abe_dpll, *sys_32k_ck, *usb_dpll;
+	struct clk *abe_dpll_ref, *abe_dpll, *abe_dpll_byp, *sys_32k_ck, *usb_dpll;
+
+	void *cmsel_wkupaon = ioremap(0x4AE06108, 4);
+	iowrite32(1, cmsel_wkupaon);
+	iounmap(cmsel_wkupaon);
+	pr_err("applied CM_CLKSEL_WKUPAON hack!\n");
 
 	ti_dt_clocks_register(omap54xx_clks);
 
@@ -616,6 +633,16 @@ int __init omap5xxx_dt_clk_init(void)
 	abe_dpll_ref = clk_get_sys(NULL, "abe_dpll_clk_mux");
 	sys_32k_ck = clk_get_sys(NULL, "sys_32k_ck");
 	rc = clk_set_parent(abe_dpll_ref, sys_32k_ck);
+
+	/*
+	 * This must also be set to sys_32k_ck to match or
+	 * the ABE DPLL will not lock on a warm reboot when
+	 * ABE timers are used.
+	 */
+	abe_dpll_byp = clk_get_sys(NULL, "abe_dpll_bypass_clk_mux");
+	if (!rc)
+		rc = clk_set_parent(abe_dpll_byp, sys_32k_ck);
+
 	abe_dpll = clk_get_sys(NULL, "dpll_abe_ck");
 	if (!rc)
 		rc = clk_set_rate(abe_dpll, OMAP5_DPLL_ABE_DEFFREQ);
