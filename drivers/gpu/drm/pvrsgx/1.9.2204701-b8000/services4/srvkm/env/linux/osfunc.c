@@ -4380,6 +4380,8 @@ static inline size_t pvr_dmac_range_len(const void *pvStart, const void *pvEnd)
 }
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
+
 static void pvr_dmac_inv_range(const void *pvStart, const void *pvEnd)
 {
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,34))
@@ -4397,6 +4399,43 @@ static void pvr_dmac_clean_range(const void *pvStart, const void *pvEnd)
 	dmac_map_area(pvStart, pvr_dmac_range_len(pvStart, pvEnd), DMA_TO_DEVICE);
 #endif
 }
+
+#else /* LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0) */
+
+static void pvr_flush_range(phys_addr_t pStart, phys_addr_t pEnd)
+{
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6,0,0))
+#define PVRLDMGetDevice() NULL	/* this is likely a bad replacement... */
+	struct device *dev = PVRLDMGetDevice();
+        dma_sync_single_for_device(dev, pStart, pEnd - pStart, DMA_TO_DEVICE);
+	dma_sync_single_for_cpu(dev, pStart, pEnd - pStart, DMA_FROM_DEVICE);
+#else
+	arm_dma_ops.sync_single_for_device(NULL, pStart, pEnd - pStart, DMA_TO_DEVICE);
+	arm_dma_ops.sync_single_for_cpu(NULL, pStart, pEnd - pStart, DMA_FROM_DEVICE);
+#endif
+}
+
+static void pvr_clean_range(phys_addr_t pStart, phys_addr_t pEnd)
+{
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6,0,0))
+	struct device *dev = PVRLDMGetDevice();
+        dma_sync_single_for_device(dev, pStart, pEnd - pStart, DMA_TO_DEVICE);
+#else
+	arm_dma_ops.sync_single_for_device(NULL, pStart, pEnd - pStart, DMA_TO_DEVICE);
+#endif
+}
+
+static void pvr_invalidate_range(phys_addr_t pStart, phys_addr_t pEnd)
+{
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6,0,0))
+	struct device *dev = PVRLDMGetDevice();
+	dma_sync_single_for_cpu(dev, pStart, pEnd - pStart, DMA_FROM_DEVICE);
+#else
+	arm_dma_ops.sync_single_for_cpu(NULL, pStart, pEnd - pStart, DMA_FROM_DEVICE);
+#endif
+}
+
+#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0) */
 
 IMG_BOOL OSFlushCPUCacheRangeKM(IMG_HANDLE hOSMemHandle,
 								IMG_UINT32 ui32ByteOffset,
@@ -4473,17 +4512,43 @@ static inline IMG_UINT32 pvr_dma_range_len(const void *pvStart, const void *pvEn
 
 static void pvr_dma_cache_wback_inv(const void *pvStart, const void *pvEnd)
 {
-	dma_cache_wback_inv((IMG_UINTPTR_T)pvStart, pvr_dma_range_len(pvStart, pvEnd));	
+	size_t uLength = pvr_dma_range_len(pvStart, pvEnd);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0)
+	struct device *dev = PVRLDMGetDevice();
+	dma_sync_single_for_device(dev, (dma_addr_t)pvStart, uLength, DMA_BIDIRECTIONAL);
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)
+	struct device *dev = PVRLDMGetDevice();
+	dma_cache_sync(dev, (void *)pvStart, uLength, DMA_BIDIRECTIONAL);
+#else
+	dma_cache_wback_inv((unsigned long)pvStart, uLength);
+#endif
 }
 
 static void pvr_dma_cache_wback(const void *pvStart, const void *pvEnd)
 {
-	dma_cache_wback((IMG_UINTPTR_T)pvStart, pvr_dma_range_len(pvStart, pvEnd));
+	size_t uLength = pvr_dma_range_len(pvStart, pvEnd);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0)
+	struct device *dev = PVRLDMGetDevice();
+	dma_sync_single_for_device(dev, (dma_addr_t)pvStart, uLength, DMA_TO_DEVICE);
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)
+	struct device *dev = PVRLDMGetDevice();
+	dma_cache_sync(dev, (void *)pvStart, uLength, DMA_TO_DEVICE);
+#else
+	dma_cache_wback((unsigned long)pvStart, uLength);
+#endif
 }
 
 static void pvr_dma_cache_inv(const void *pvStart, const void *pvEnd)
 {
-	dma_cache_inv((IMG_UINTPTR_T)pvStart, pvr_dma_range_len(pvStart, pvEnd));
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0)
+	struct device *dev = PVRLDMGetDevice();
+	dma_sync_single_for_device(dev, (dma_addr_t)pvStart, uLength, DMA_FROM_DEVICE);
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)
+	struct device *dev = PVRLDMGetDevice();
+	dma_cache_sync(dev, (void *)pvStart, uLength, DMA_FROM_DEVICE);
+#else
+	dma_cache_inv((unsigned long)pvStart, uLength);
+#endif
 }
 
 IMG_BOOL OSFlushCPUCacheRangeKM(IMG_HANDLE hOSMemHandle,
