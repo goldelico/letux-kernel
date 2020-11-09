@@ -3881,11 +3881,12 @@ error:
     return eError;
 }
 
-typedef void (*InnerCacheOp_t)(const void *pvStart, const void *pvEnd);
 
 #if defined(__arm__) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,39))
+typedef void (*InnerCacheOp_t)(phys_addr_t pvStart, phys_addr_t pvEnd);
 typedef void (*OuterCacheOp_t)(phys_addr_t uStart, phys_addr_t uEnd);
 #else
+typedef void (*InnerCacheOp_t)(const void *pvStart, const void *pvEnd);
 typedef void (*OuterCacheOp_t)(unsigned long ulStart, unsigned long ulEnd);
 #endif
 
@@ -4443,8 +4444,15 @@ IMG_BOOL OSFlushCPUCacheRangeKM(IMG_HANDLE hOSMemHandle,
 								IMG_UINT32 ui32Length)
 {
 	return CheckExecuteCacheOp(hOSMemHandle, ui32ByteOffset,
-							   pvRangeAddrStart, ui32Length,
-							   dmac_flush_range, outer_flush_range);
+	                           pvRangeAddrStart, ui32Length,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
+	                           pvr_flush_range, outer_flush_range
+#elif defined(CONFIG_OUTER_CACHE)
+	                           dmac_flush_range, outer_flush_range
+#else
+	                           dmac_flush_range
+#endif
+	                           );
 }
 
 IMG_BOOL OSCleanCPUCacheRangeKM(IMG_HANDLE hOSMemHandle,
@@ -4453,8 +4461,15 @@ IMG_BOOL OSCleanCPUCacheRangeKM(IMG_HANDLE hOSMemHandle,
 								IMG_UINT32 ui32Length)
 {
 	return CheckExecuteCacheOp(hOSMemHandle, ui32ByteOffset,
-							   pvRangeAddrStart, ui32Length,
-							   pvr_dmac_clean_range, outer_clean_range);
+	                           pvRangeAddrStart, ui32Length,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
+	                           pvr_clean_range, outer_flush_range
+#elif defined(CONFIG_OUTER_CACHE)
+	                           pvr_dmac_clean_range, outer_clean_range
+#else
+	                           pvr_dmac_clean_range
+#endif
+	                           );
 }
 
 IMG_BOOL OSInvalidateCPUCacheRangeKM(IMG_HANDLE hOSMemHandle,
@@ -4463,8 +4478,15 @@ IMG_BOOL OSInvalidateCPUCacheRangeKM(IMG_HANDLE hOSMemHandle,
 									 IMG_UINT32 ui32Length)
 {
 	return CheckExecuteCacheOp(hOSMemHandle, ui32ByteOffset,
-							   pvRangeAddrStart, ui32Length,
-							   pvr_dmac_inv_range, outer_inv_range);
+	                           pvRangeAddrStart, ui32Length,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
+	                           pvr_invalidate_range, outer_flush_range
+#elif defined(CONFIG_OUTER_CACHE)
+	                           pvr_dmac_inv_range, outer_inv_range
+#else
+	                           pvr_dmac_inv_range
+#endif
+	                           );
 }
 
 #else /* defined(__arm__) */
