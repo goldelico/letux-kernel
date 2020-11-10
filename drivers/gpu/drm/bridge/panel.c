@@ -36,6 +36,7 @@ static int panel_bridge_connector_get_modes(struct drm_connector *connector)
 {
 	struct panel_bridge *panel_bridge =
 		drm_connector_to_panel_bridge(connector);
+printk("%s\n", __func__);
 
 	return drm_panel_get_modes(panel_bridge->panel, connector);
 }
@@ -59,6 +60,7 @@ static int panel_bridge_attach(struct drm_bridge *bridge,
 	struct panel_bridge *panel_bridge = drm_bridge_to_panel_bridge(bridge);
 	struct drm_connector *connector = &panel_bridge->connector;
 	int ret;
+printk("%s\n", __func__);
 
 	if (flags & DRM_BRIDGE_ATTACH_NO_CONNECTOR)
 		return 0;
@@ -87,11 +89,13 @@ static int panel_bridge_attach(struct drm_bridge *bridge,
 
 static void panel_bridge_detach(struct drm_bridge *bridge)
 {
+printk("%s\n", __func__);
 }
 
 static void panel_bridge_pre_enable(struct drm_bridge *bridge)
 {
 	struct panel_bridge *panel_bridge = drm_bridge_to_panel_bridge(bridge);
+printk("%s\n", __func__);
 
 	drm_panel_prepare(panel_bridge->panel);
 }
@@ -99,6 +103,7 @@ static void panel_bridge_pre_enable(struct drm_bridge *bridge)
 static void panel_bridge_enable(struct drm_bridge *bridge)
 {
 	struct panel_bridge *panel_bridge = drm_bridge_to_panel_bridge(bridge);
+printk("%s\n", __func__);
 
 	drm_panel_enable(panel_bridge->panel);
 }
@@ -106,6 +111,7 @@ static void panel_bridge_enable(struct drm_bridge *bridge)
 static void panel_bridge_disable(struct drm_bridge *bridge)
 {
 	struct panel_bridge *panel_bridge = drm_bridge_to_panel_bridge(bridge);
+printk("%s\n", __func__);
 
 	drm_panel_disable(panel_bridge->panel);
 }
@@ -113,6 +119,7 @@ static void panel_bridge_disable(struct drm_bridge *bridge)
 static void panel_bridge_post_disable(struct drm_bridge *bridge)
 {
 	struct panel_bridge *panel_bridge = drm_bridge_to_panel_bridge(bridge);
+printk("%s\n", __func__);
 
 	drm_panel_unprepare(panel_bridge->panel);
 }
@@ -121,6 +128,7 @@ static int panel_bridge_get_modes(struct drm_bridge *bridge,
 				  struct drm_connector *connector)
 {
 	struct panel_bridge *panel_bridge = drm_bridge_to_panel_bridge(bridge);
+printk("%s\n", __func__);
 
 	return drm_panel_get_modes(panel_bridge->panel, connector);
 }
@@ -166,6 +174,7 @@ static const struct drm_bridge_funcs panel_bridge_bridge_funcs = {
  */
 struct drm_bridge *drm_panel_bridge_add(struct drm_panel *panel)
 {
+printk("%s\n", __func__);
 	if (WARN_ON(panel->connector_type == DRM_MODE_CONNECTOR_Unknown))
 		return ERR_PTR(-EINVAL);
 
@@ -191,6 +200,7 @@ struct drm_bridge *drm_panel_bridge_add_typed(struct drm_panel *panel,
 {
 	struct panel_bridge *panel_bridge;
 
+printk("%s\n", __func__);
 	if (!panel)
 		return ERR_PTR(-EINVAL);
 
@@ -225,6 +235,7 @@ void drm_panel_bridge_remove(struct drm_bridge *bridge)
 {
 	struct panel_bridge *panel_bridge;
 
+printk("%s\n", __func__);
 	if (!bridge)
 		return;
 
@@ -242,6 +253,7 @@ static void devm_drm_panel_bridge_release(struct device *dev, void *res)
 {
 	struct drm_bridge **bridge = res;
 
+printk("%s\n", __func__);
 	drm_panel_bridge_remove(*bridge);
 }
 
@@ -257,6 +269,7 @@ static void devm_drm_panel_bridge_release(struct device *dev, void *res)
 struct drm_bridge *devm_drm_panel_bridge_add(struct device *dev,
 					     struct drm_panel *panel)
 {
+printk("%s\n", __func__);
 	if (WARN_ON(panel->connector_type == DRM_MODE_CONNECTOR_Unknown))
 		return ERR_PTR(-EINVAL);
 
@@ -285,6 +298,7 @@ struct drm_bridge *devm_drm_panel_bridge_add_typed(struct device *dev,
 {
 	struct drm_bridge **ptr, *bridge;
 
+printk("%s\n", __func__);
 	ptr = devres_alloc(devm_drm_panel_bridge_release, sizeof(*ptr),
 			   GFP_KERNEL);
 	if (!ptr)
@@ -315,6 +329,7 @@ struct drm_connector *drm_panel_bridge_connector(struct drm_bridge *bridge)
 {
 	struct panel_bridge *panel_bridge;
 
+printk("%s\n", __func__);
 	panel_bridge = drm_bridge_to_panel_bridge(bridge);
 
 	return &panel_bridge->connector;
