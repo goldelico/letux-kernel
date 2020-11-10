@@ -96,15 +96,22 @@ drm_mode_validate_pipeline(struct drm_display_mode *mode,
 	struct drm_encoder *encoder;
 	int ret;
 
+printk("%s 1\n", __func__);
+
 	/* Step 1: Validate against connector */
 	ret = drm_connector_mode_valid(connector, mode, ctx, status);
+printk("%s 2 ret=%d status=%d\n", __func__, ret, *status);
 	if (ret || *status != MODE_OK)
 		return ret;
+
+printk("%s 3\n", __func__);
 
 	/* Step 2: Validate against encoders and crtcs */
 	drm_connector_for_each_possible_encoder(connector, encoder) {
 		struct drm_bridge *bridge;
 		struct drm_crtc *crtc;
+
+printk("%s 4\n", __func__);
 
 		*status = drm_encoder_mode_valid(encoder, mode);
 		if (*status != MODE_OK) {
@@ -112,25 +119,50 @@ drm_mode_validate_pipeline(struct drm_display_mode *mode,
 			 * will not accept the mode anyway. If all encoders
 			 * reject the mode then, at exit, ret will not be
 			 * MODE_OK. */
+printk("%s 5\n", __func__);
+
 			continue;
 		}
 
+printk("%s 6\n", __func__);
+
 		bridge = drm_bridge_chain_get_first_bridge(encoder);
+
+printk("%s 7\n", __func__);
+
 		*status = drm_bridge_chain_mode_valid(bridge,
 						      &connector->display_info,
 						      mode);
+
+printk("%s 8\n", __func__);
+
 		if (*status != MODE_OK) {
 			/* There is also no point in continuing for crtc check
 			 * here. */
+
+printk("%s 9\n", __func__);
+
 			continue;
 		}
 
+printk("%s 10\n", __func__);
+
 		drm_for_each_crtc(crtc, dev) {
+
+printk("%s 11\n", __func__);
+
 			if (!drm_encoder_crtc_ok(encoder, crtc))
 				continue;
 
+printk("%s 12\n", __func__);
+
 			*status = drm_crtc_mode_valid(crtc, mode);
+
+printk("%s 13\n", __func__);
+
 			if (*status == MODE_OK) {
+printk("%s 14\n", __func__);
+
 				/* If we get to this point there is at least
 				 * one combination of encoder+crtc that works
 				 * for this mode. Lets return now. */
@@ -138,6 +170,8 @@ drm_mode_validate_pipeline(struct drm_display_mode *mode,
 			}
 		}
 	}
+
+printk("%s 15\n", __func__);
 
 	return 0;
 }
@@ -426,6 +460,8 @@ int drm_helper_probe_single_connector_modes(struct drm_connector *connector,
 	enum drm_connector_status old_status;
 	struct drm_modeset_acquire_ctx ctx;
 
+printk("%s\n", __func__);
+
 	WARN_ON(!mutex_is_locked(&dev->mode_config.mutex));
 
 	drm_modeset_acquire_init(&ctx, 0);
@@ -433,17 +469,24 @@ int drm_helper_probe_single_connector_modes(struct drm_connector *connector,
 	DRM_DEBUG_KMS("[CONNECTOR:%d:%s]\n", connector->base.id,
 			connector->name);
 
+printk("%s 1\n", __func__);
+
 retry:
+printk("%s 2\n", __func__);
 	ret = drm_modeset_lock(&dev->mode_config.connection_mutex, &ctx);
 	if (ret == -EDEADLK) {
 		drm_modeset_backoff(&ctx);
+printk("%s 3\n", __func__);
 		goto retry;
 	} else
 		WARN_ON(ret < 0);
 
+printk("%s 4\n", __func__);
 	/* set all old modes to the stale state */
 	list_for_each_entry(mode, &connector->modes, head)
 		mode->status = MODE_STALE;
+
+printk("%s 5\n", __func__);
 
 	old_status = connector->status;
 
@@ -453,16 +496,30 @@ retry:
 			connector->status = connector_status_connected;
 		else
 			connector->status = connector_status_disconnected;
+
+printk("%s 5\n", __func__);
+
 		if (connector->funcs->force)
+{
+printk("%s 6\n", __func__);
+
 			connector->funcs->force(connector);
+}
 	} else {
+printk("%s 7\n", __func__);
 		ret = drm_helper_probe_detect(connector, &ctx, true);
+
+printk("%s 8\n", __func__);
 
 		if (ret == -EDEADLK) {
 			drm_modeset_backoff(&ctx);
+printk("%s 9\n", __func__);
+
 			goto retry;
 		} else if (WARN(ret < 0, "Invalid return value %i for connector detection\n", ret))
 			ret = connector_status_unknown;
+
+printk("%s 10\n", __func__);
 
 		connector->status = ret;
 	}
@@ -474,6 +531,8 @@ retry:
 	 * check here, and if anything changed start the hotplug code.
 	 */
 	if (old_status != connector->status) {
+printk("%s 11\n", __func__);
+
 		DRM_DEBUG_KMS("[CONNECTOR:%d:%s] status updated from %s to %s\n",
 			      connector->base.id,
 			      connector->name,
@@ -508,6 +567,8 @@ retry:
 
 	count = (*connector_funcs->get_modes)(connector);
 
+printk("%s 12 count=%d\n", __func__, count);
+
 	/*
 	 * Fallback for when DDC probe failed in drm_get_edid() and thus skipped
 	 * override/firmware EDID.
@@ -515,11 +576,15 @@ retry:
 	if (count == 0 && connector->status == connector_status_connected)
 		count = drm_add_override_edid_modes(connector);
 
+printk("%s 13\n", __func__);
+
 	if (count == 0 && connector->status == connector_status_connected)
 		count = drm_add_modes_noedid(connector, 1024, 768);
 	count += drm_helper_probe_add_cmdline_mode(connector);
 	if (count == 0)
 		goto prune;
+
+printk("%s 14\n", __func__);
 
 	drm_connector_list_update(connector);
 
@@ -531,6 +596,9 @@ retry:
 		mode_flags |= DRM_MODE_FLAG_3D_MASK;
 
 	list_for_each_entry(mode, &connector->modes, head) {
+
+printk("%s 15\n", __func__);
+
 		if (mode->status != MODE_OK)
 			continue;
 
@@ -546,8 +614,12 @@ retry:
 		if (mode->status != MODE_OK)
 			continue;
 
+printk("%s 16\n", __func__);
+
 		ret = drm_mode_validate_pipeline(mode, connector, &ctx,
 						 &mode->status);
+
+printk("%s 16b\n", __func__);
 		if (ret) {
 			drm_dbg_kms(dev,
 				    "drm_mode_validate_pipeline failed: %d\n",
@@ -561,28 +633,38 @@ retry:
 			}
 		}
 
+printk("%s 17\n", __func__);
+
 		if (mode->status != MODE_OK)
 			continue;
 		mode->status = drm_mode_validate_ycbcr420(mode, connector);
 	}
 
 prune:
+printk("%s 18\n", __func__);
 	drm_mode_prune_invalid(dev, &connector->modes, verbose_prune);
 
 	drm_modeset_drop_locks(&ctx);
 	drm_modeset_acquire_fini(&ctx);
 
+printk("%s 19\n", __func__);
 	if (list_empty(&connector->modes))
 		return 0;
+
+printk("%s 20\n", __func__);
 
 	drm_mode_sort(&connector->modes);
 
 	DRM_DEBUG_KMS("[CONNECTOR:%d:%s] probed modes :\n", connector->base.id,
 			connector->name);
 	list_for_each_entry(mode, &connector->modes, head) {
+printk("%s 21\n", __func__);
+
 		drm_mode_set_crtcinfo(mode, CRTC_INTERLACE_HALVE_V);
 		drm_mode_debug_printmodeline(mode);
 	}
+
+printk("%s 22 count=%d\n", __func__, count);
 
 	return count;
 }

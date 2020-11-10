@@ -779,6 +779,8 @@ int drm_client_modeset_probe(struct drm_client_dev *client, unsigned int width, 
 	int i, ret = 0;
 	bool *enabled;
 
+printk("%s\n", __func__);
+
 	DRM_DEBUG_KMS("\n");
 
 	if (!width)
@@ -787,8 +789,13 @@ int drm_client_modeset_probe(struct drm_client_dev *client, unsigned int width, 
 		height = dev->mode_config.max_height;
 
 	drm_connector_list_iter_begin(dev, &conn_iter);
+
+printk("%s 2\n", __func__);
+
 	drm_client_for_each_connector_iter(connector, &conn_iter) {
 		struct drm_connector **tmp;
+
+printk("%s 3\n", __func__);
 
 		tmp = krealloc(connectors, (connector_count + 1) * sizeof(*connectors), GFP_KERNEL);
 		if (!tmp) {
@@ -800,10 +807,17 @@ int drm_client_modeset_probe(struct drm_client_dev *client, unsigned int width, 
 		drm_connector_get(connector);
 		connectors[connector_count++] = connector;
 	}
+
+printk("%s 4\n", __func__);
+
 	drm_connector_list_iter_end(&conn_iter);
+
+printk("%s 5\n", __func__);
 
 	if (!connector_count)
 		return 0;
+
+printk("%s 6\n", __func__);
 
 	crtcs = kcalloc(connector_count, sizeof(*crtcs), GFP_KERNEL);
 	modes = kcalloc(connector_count, sizeof(*modes), GFP_KERNEL);
@@ -815,17 +829,35 @@ int drm_client_modeset_probe(struct drm_client_dev *client, unsigned int width, 
 		goto out;
 	}
 
+printk("%s 7\n", __func__);
+
 	mutex_lock(&client->modeset_mutex);
 
 	mutex_lock(&dev->mode_config.mutex);
-	for (i = 0; i < connector_count; i++)
+
+printk("%s 8 count=%d\n", __func__, connector_count);
+
+	for (i = 0; i < connector_count; i++) {
+
+printk("%s 8 i=%d funcs=%px fill_modes=%pS\n", __func__, i, connectors[i]->funcs, connectors[i]->funcs->fill_modes);
+
 		total_modes_count += connectors[i]->funcs->fill_modes(connectors[i], width, height);
+}
+
+printk("%s 9\n", __func__);
+
 	if (!total_modes_count)
 		DRM_DEBUG_KMS("No connectors reported connected with modes\n");
+
+printk("%s 10\n", __func__);
+
 	drm_client_connectors_enabled(connectors, connector_count, enabled);
+
+printk("%s 11\n", __func__);
 
 	if (!drm_client_firmware_config(client, connectors, connector_count, crtcs,
 					modes, offsets, enabled, width, height)) {
+printk("%s 12\n", __func__);
 		memset(modes, 0, connector_count * sizeof(*modes));
 		memset(crtcs, 0, connector_count * sizeof(*crtcs));
 		memset(offsets, 0, connector_count * sizeof(*offsets));
@@ -838,22 +870,34 @@ int drm_client_modeset_probe(struct drm_client_dev *client, unsigned int width, 
 
 		DRM_DEBUG_KMS("picking CRTCs for %dx%d config\n",
 			      width, height);
+printk("%s 13\n", __func__);
 
 		drm_client_pick_crtcs(client, connectors, connector_count,
 				      crtcs, modes, 0, width, height);
 	}
+
+printk("%s 14\n", __func__);
+
 	mutex_unlock(&dev->mode_config.mutex);
 
+printk("%s 15\n", __func__);
+
 	drm_client_modeset_release(client);
+
+printk("%s 16\n", __func__);
 
 	for (i = 0; i < connector_count; i++) {
 		struct drm_display_mode *mode = modes[i];
 		struct drm_crtc *crtc = crtcs[i];
 		struct drm_client_offset *offset = &offsets[i];
 
+printk("%s 17\n", __func__);
+
 		if (mode && crtc) {
 			struct drm_mode_set *modeset = drm_client_find_modeset(client, crtc);
 			struct drm_connector *connector = connectors[i];
+
+printk("%s 18\n", __func__);
 
 			DRM_DEBUG_KMS("desired mode %s set on crtc %d (%d,%d)\n",
 				      mode->name, crtc->base.id, offset->x, offset->y);
@@ -864,6 +908,8 @@ int drm_client_modeset_probe(struct drm_client_dev *client, unsigned int width, 
 				break;
 			}
 
+printk("%s 19\n", __func__);
+
 			modeset->mode = drm_mode_duplicate(dev, mode);
 			drm_connector_get(connector);
 			modeset->connectors[modeset->num_connectors++] = connector;
@@ -872,16 +918,29 @@ int drm_client_modeset_probe(struct drm_client_dev *client, unsigned int width, 
 		}
 	}
 
+printk("%s 20\n", __func__);
+
 	mutex_unlock(&client->modeset_mutex);
 out:
+
+printk("%s 21\n", __func__);
+
 	kfree(crtcs);
 	kfree(modes);
 	kfree(offsets);
 	kfree(enabled);
 free_connectors:
+
+printk("%s 22\n", __func__);
+
 	for (i = 0; i < connector_count; i++)
 		drm_connector_put(connectors[i]);
+
+printk("%s 23\n", __func__);
+
 	kfree(connectors);
+
+printk("%s 24\n", __func__);
 
 	return ret;
 }

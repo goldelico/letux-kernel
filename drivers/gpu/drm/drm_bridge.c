@@ -396,20 +396,31 @@ drm_bridge_chain_mode_valid(struct drm_bridge *bridge,
 {
 	struct drm_encoder *encoder;
 
+printk("%s:\n", __func__);
+
 	if (!bridge)
 		return MODE_OK;
 
 	encoder = bridge->encoder;
+
+printk("%s:\n", __func__);
+
 	list_for_each_entry_from(bridge, &encoder->bridge_chain, chain_node) {
 		enum drm_mode_status ret;
 
+printk("%s:\n", __func__);
+
 		if (!bridge->funcs->mode_valid)
 			continue;
+
+printk("%s: func=%pS\n", __func__, bridge->funcs->mode_valid);
 
 		ret = bridge->funcs->mode_valid(bridge, info, mode);
 		if (ret != MODE_OK)
 			return ret;
 	}
+
+printk("%s:\n", __func__);
 
 	return MODE_OK;
 }
