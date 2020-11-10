@@ -4408,6 +4408,8 @@ static bool dsi_cm_calc(struct dsi_data *dsi,
 	unsigned long pll_min, pll_max;
 	unsigned long pck, txbyteclk;
 
+printk("%s\n", __func__);
+
 	clkin = clk_get_rate(dsi->pll.clkin);
 	bitspp = mipi_dsi_pixel_format_to_bpp(cfg->pixel_format);
 	ndl = dsi->num_lanes_used - 1;
@@ -4432,6 +4434,8 @@ static bool dsi_cm_calc(struct dsi_data *dsi,
 
 	pll_min = max(cfg->hs_clk_min * 4, txbyteclk * 4 * 4);
 	pll_max = cfg->hs_clk_max * 4;
+
+printk("%s 1\n", __func__);
 
 	return dss_pll_calc_a(ctx->pll, clkin,
 			pll_min, pll_max,
@@ -4712,7 +4716,11 @@ static bool dsi_vm_calc(struct dsi_data *dsi,
 	int bitspp = mipi_dsi_pixel_format_to_bpp(cfg->pixel_format);
 	unsigned long byteclk_min;
 
+printk("%s\n", __func__);
+
 	clkin = clk_get_rate(dsi->pll.clkin);
+
+printk("%s 1\n", __func__);
 
 	memset(ctx, 0, sizeof(*ctx));
 	ctx->dsi = dsi;
@@ -4724,18 +4732,28 @@ static bool dsi_vm_calc(struct dsi_data *dsi,
 	ctx->req_pck_nom = vm->pixelclock;
 	ctx->req_pck_max = vm->pixelclock + 1000;
 
+printk("%s\n", __func__);
+
 	byteclk_min = div64_u64((u64)ctx->req_pck_min * bitspp, ndl * 8);
+
+printk("%s\n", __func__);
+
 	pll_min = max(cfg->hs_clk_min * 4, byteclk_min * 4 * 4);
 
 	if (cfg->trans_mode == OMAP_DSS_DSI_BURST_MODE) {
 		pll_max = cfg->hs_clk_max * 4;
 	} else {
 		unsigned long byteclk_max;
+
+printk("%s\n", __func__);
+
 		byteclk_max = div64_u64((u64)ctx->req_pck_max * bitspp,
 				ndl * 8);
 
 		pll_max = byteclk_max * 4 * 4;
 	}
+
+printk("%s\n", __func__);
 
 	return dss_pll_calc_a(ctx->pll, clkin,
 			pll_min, pll_max,
@@ -4758,11 +4776,15 @@ static int __dsi_calc_config(struct dsi_data *dsi,
 	bool ok;
 	int r;
 
+printk("%s\n", __func__);
+
 	drm_display_mode_to_videomode(mode, &vm);
 
 	cfg.vm = &vm;
 	cfg.mode = dsi->mode;
 	cfg.pixel_format = dsi->pix_fmt;
+
+printk("%s 1\n", __func__);
 
 	if (dsi->mode == OMAP_DSS_DSI_VIDEO_MODE)
 		ok = dsi_vm_calc(dsi, &cfg, ctx);
@@ -4772,12 +4794,21 @@ static int __dsi_calc_config(struct dsi_data *dsi,
 	if (!ok)
 		return -EINVAL;
 
+printk("%s 2\n", __func__);
+
 	dsi_pll_calc_dsi_fck(dsi, &ctx->dsi_cinfo);
+
+printk("%s 3\n", __func__);
 
 	r = dsi_lp_clock_calc(ctx->dsi_cinfo.clkout[HSDIV_DSI],
 		cfg.lp_clk_min, cfg.lp_clk_max, &ctx->lp_cinfo);
+
+printk("%s 4 r=%d\n", __func__, r);
+
 	if (r)
 		return r;
+
+printk("%s 5\n", __func__);
 
 	return 0;
 }
@@ -5318,9 +5349,13 @@ dsi_bridge_mode_valid(struct drm_bridge *bridge,
 	struct dsi_clk_calc_ctx ctx;
 	int r;
 
+printk("%s\n", __func__);
+
 	mutex_lock(&dsi->lock);
 	r = __dsi_calc_config(dsi, mode, &ctx);
 	mutex_unlock(&dsi->lock);
+
+printk("%s r=%d\n", __func__, r);
 
 	return r ? MODE_CLOCK_RANGE : MODE_OK;
 }

@@ -213,10 +213,14 @@ bool dss_pll_calc_a(const struct dss_pll *pll, unsigned long clkin,
 	unsigned long pll_hw_max;
 	unsigned long fint_hw_min, fint_hw_max;
 
+printk("%s clkin=%lu pll_min=%lu pll_max=%lu func=%pS\n", __func__, clkin, pll_min, pll_max, func);
+
 	pll_hw_max = hw->clkdco_max;
 
 	fint_hw_min = hw->fint_min;
 	fint_hw_max = hw->fint_max;
+
+printk("%s pll_hw_max=%lu fint_hw_min=%lu fint_hw_max=%lu\n", __func__, pll_hw_max, fint_hw_min, fint_hw_max);
 
 	n_start = max(DIV_ROUND_UP(clkin, fint_hw_max), 1ul);
 	n_stop = min((unsigned)(clkin / fint_hw_min), hw->n_max);
@@ -229,8 +233,13 @@ bool dss_pll_calc_a(const struct dss_pll *pll, unsigned long clkin,
 
 	pll_max = pll_max ? pll_max : ULONG_MAX;
 
+printk("%s n_start=%d n_inc=%d n_stop=%d pll_max'=%u\n", __func__, n_start, n_inc, n_stop, pll_max);
+
 	for (n = n_start; n != n_stop; n += n_inc) {
+
 		fint = clkin / n;
+
+printk("%s n=%d clkin=%lu fint=%lu\n", __func__, n, clkin, fint);
 
 		m_start = max(DIV_ROUND_UP(DIV_ROUND_UP(pll_min, fint), 2),
 				1ul);
@@ -244,6 +253,8 @@ bool dss_pll_calc_a(const struct dss_pll *pll, unsigned long clkin,
 			m_inc = -1;
 		}
 
+printk("%s m_start=%d m_inc=%d m_stop=%d\n", __func__, m_start, m_inc, m_stop);
+
 		for (m = m_start; m != m_stop; m += m_inc) {
 			clkdco = 2 * m * fint;
 
@@ -251,6 +262,8 @@ bool dss_pll_calc_a(const struct dss_pll *pll, unsigned long clkin,
 				return true;
 		}
 	}
+
+printk("%s 2\n", __func__);
 
 	return false;
 }
@@ -271,6 +284,8 @@ bool dss_pll_calc_b(const struct dss_pll *pll, unsigned long clkin,
 	unsigned long min_dco;
 	unsigned int n, m, mf, m2, sd;
 	const struct dss_pll_hw *hw = pll->hw;
+
+printk("%s clkin %lu, target clkout %lu\n", __func__, clkin, target_clkout);
 
 	DSSDBG("clkin %lu, target clkout %lu\n", clkin, target_clkout);
 
@@ -303,6 +318,10 @@ bool dss_pll_calc_b(const struct dss_pll *pll, unsigned long clkin,
 	/* sigma-delta */
 	sd = DIV_ROUND_UP(fint * m, 250000000);
 
+printk("%s N = %u, M = %u, M.f = %u, M2 = %u, SD = %u\n", __func__,
+		n, m, mf, m2, sd);
+printk("%s Fint %lu, clkdco %lu, clkout %lu\n", __func__, fint, clkdco, clkout);
+
 	DSSDBG("N = %u, M = %u, M.f = %u, M2 = %u, SD = %u\n",
 		n, m, mf, m2, sd);
 	DSSDBG("Fint %lu, clkdco %lu, clkout %lu\n", fint, clkdco, clkout);
@@ -316,6 +335,8 @@ bool dss_pll_calc_b(const struct dss_pll *pll, unsigned long clkin,
 	cinfo->fint = fint;
 	cinfo->clkdco = clkdco;
 	cinfo->clkout[0] = clkout;
+
+printk("%s 2\n", __func__);
 
 	return true;
 }

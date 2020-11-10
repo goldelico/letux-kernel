@@ -569,10 +569,14 @@ static int omapdrm_init(struct omap_drm_private *priv, struct device *dev)
 
 	DBG("%s", dev_name(dev));
 
+printk("%s\n", __func__);
+
 	/* Allocate and initialize the DRM device. */
 	ddev = drm_dev_alloc(&omap_drm_driver, dev);
 	if (IS_ERR(ddev))
 		return PTR_ERR(ddev);
+
+printk("%s 1\n", __func__);
 
 	priv->ddev = ddev;
 	ddev->dev_private = priv;
@@ -583,23 +587,35 @@ static int omapdrm_init(struct omap_drm_private *priv, struct device *dev)
 
 	priv->dss->mgr_ops_priv = priv;
 
+printk("%s 2\n", __func__);
+
 	soc = soc_device_match(omapdrm_soc_devices);
 	priv->omaprev = soc ? (unsigned int)soc->data : 0;
 	priv->wq = alloc_ordered_workqueue("omapdrm", 0);
 
+printk("%s 3\n", __func__);
+
 	mutex_init(&priv->list_lock);
 	INIT_LIST_HEAD(&priv->obj_list);
+
+printk("%s 4\n", __func__);
 
 	/* Get memory bandwidth limits */
 	priv->max_bandwidth = dispc_get_memory_bandwidth_limit(priv->dispc);
 
+printk("%s 5\n", __func__);
+
 	omap_gem_init(ddev);
+
+printk("%s 6\n", __func__);
 
 	ret = omap_modeset_init(ddev);
 	if (ret) {
 		dev_err(priv->dev, "omap_modeset_init failed: ret=%d\n", ret);
 		goto err_gem_deinit;
 	}
+
+printk("%s 7\n", __func__);
 
 	/* Initialize vblank handling, start with all CRTCs disabled. */
 	ret = drm_vblank_init(ddev, priv->num_pipes);
@@ -608,18 +624,32 @@ static int omapdrm_init(struct omap_drm_private *priv, struct device *dev)
 		goto err_cleanup_modeset;
 	}
 
+printk("%s 8\n", __func__);
+
 	omap_fbdev_init(ddev);
 
+printk("%s 9\n", __func__);
+
 	drm_kms_helper_poll_init(ddev);
+
+printk("%s 10\n", __func__);
+
 	omap_modeset_enable_external_hpd(ddev);
+
+printk("%s 11\n", __func__);
 
 	/*
 	 * Register the DRM device with the core and the connectors with
 	 * sysfs.
 	 */
 	ret = drm_dev_register(ddev, 0);
+
+printk("%s 12\n", __func__);
+
 	if (ret)
 		goto err_cleanup_helpers;
+
+printk("%s 13\n", __func__);
 
 	return 0;
 
@@ -635,6 +665,9 @@ err_gem_deinit:
 	destroy_workqueue(priv->wq);
 	omap_disconnect_pipelines(ddev);
 	drm_dev_put(ddev);
+
+printk("%s 14 ret=%d\n", __func__, ret);
+
 	return ret;
 }
 
@@ -669,22 +702,31 @@ static int pdev_probe(struct platform_device *pdev)
 	int ret;
 
 printk("omap_drv dss: %s\n", __func__);
+
 	ret = dma_coerce_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to set the DMA mask\n");
 		return ret;
 	}
 
+printk("omap_drv dss: %s 1\n", __func__);
+
 	/* Allocate and initialize the driver private structure. */
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
 
+printk("omap_drv dss: %s 2\n", __func__);
+
 	platform_set_drvdata(pdev, priv);
+
+printk("omap_drv dss: %s 3\n", __func__);
 
 	ret = omapdrm_init(priv, &pdev->dev);
 	if (ret < 0)
 		kfree(priv);
+
+printk("omap_drv dss: %s 4\n", __func__);
 
 	return ret;
 }

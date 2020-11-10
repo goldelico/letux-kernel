@@ -1310,21 +1310,32 @@ static int dss_bind(struct device *dev)
 	struct dss_pdata pdata;
 	int r;
 
+printk("%s 1\n", __func__);
+
 	r = component_bind_all(dev, NULL);
 	if (r)
 		return r;
 
+printk("%s 2\n", __func__);
+
 	pm_set_vt_switch(0);
+
+printk("%s 3\n", __func__);
 
 	pdata.dss = dss;
 	drm_pdev = platform_device_register_data(NULL, "omapdrm", 0,
 						 &pdata, sizeof(pdata));
+
+printk("%s 4\n", __func__);
+
 	if (IS_ERR(drm_pdev)) {
 		component_unbind_all(dev, NULL);
 		return PTR_ERR(drm_pdev);
 	}
 
 	dss->drm_pdev = drm_pdev;
+
+printk("%s 5\n", __func__);
 
 	return 0;
 }
