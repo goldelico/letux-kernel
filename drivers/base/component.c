@@ -236,30 +236,43 @@ static int try_to_bring_up_master(struct master *master,
 {
 	int ret;
 
-	dev_dbg(master->dev, "trying to bring up master\n");
+	dev_info(master->dev, "trying to bring up master\n");
+
+printk("%s 1\n", __func__);
 
 	if (find_components(master)) {
-		dev_dbg(master->dev, "master has incomplete components\n");
+		dev_info(master->dev, "master has incomplete components\n");
 		return 0;
 	}
 
+printk("%s 2\n", __func__);
+
 	if (component && component->master != master) {
-		dev_dbg(master->dev, "master is not for this component (%s)\n",
+		dev_info(master->dev, "master is not for this component (%s)\n",
 			dev_name(component->dev));
 		return 0;
 	}
 
+printk("%s 3\n", __func__);
+
 	if (!devres_open_group(master->dev, NULL, GFP_KERNEL))
 		return -ENOMEM;
 
+dev_info("%s 4\n", __func__);
+
 	/* Found all components */
 	ret = master->ops->bind(master->dev);
+
+printk("%s 5 ret=%d\n", __func__, ret);
+
 	if (ret < 0) {
 		devres_release_group(master->dev, NULL);
 		if (ret != -EPROBE_DEFER)
 			dev_info(master->dev, "master bind failed: %d\n", ret);
 		return ret;
 	}
+
+printk("%s done\n", __func__);
 
 	master->bound = true;
 	return 1;
@@ -669,15 +682,19 @@ static int __component_add(struct device *dev, const struct component_ops *ops,
 	struct component *component;
 	int ret;
 
+printk("%s 1\n", __func__);
+
 	component = kzalloc(sizeof(*component), GFP_KERNEL);
 	if (!component)
 		return -ENOMEM;
+
+printk("%s 2\n", __func__);
 
 	component->ops = ops;
 	component->dev = dev;
 	component->subcomponent = subcomponent;
 
-	dev_dbg(dev, "adding component (ops %ps)\n", ops);
+	dev_info(dev, "adding component (ops %ps)\n", ops);
 
 	mutex_lock(&component_mutex);
 	list_add_tail(&component->node, &component_list);
@@ -691,6 +708,8 @@ static int __component_add(struct device *dev, const struct component_ops *ops,
 		kfree(component);
 	}
 	mutex_unlock(&component_mutex);
+
+printk("%s ret=%d\n", __func__, ret);
 
 	return ret < 0 ? ret : 0;
 }
