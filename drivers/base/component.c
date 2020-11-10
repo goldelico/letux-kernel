@@ -258,7 +258,7 @@ printk("%s 3\n", __func__);
 	if (!devres_open_group(master->dev, NULL, GFP_KERNEL))
 		return -ENOMEM;
 
-dev_info("%s 4\n", __func__);
+dev_info(master->dev, "%s 4\n", __func__);
 
 	/* Found all components */
 	ret = master->ops->bind(master->dev);
