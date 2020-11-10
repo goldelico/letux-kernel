@@ -4816,6 +4816,7 @@ static const struct component_ops dispc_component_ops = {
 
 static int dispc_probe(struct platform_device *pdev)
 {
+printk("%s\n", __func__);
 	return component_add(&pdev->dev, &dispc_component_ops);
 }
 

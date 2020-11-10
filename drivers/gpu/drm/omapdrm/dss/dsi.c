@@ -5358,6 +5358,8 @@ static const struct drm_bridge_funcs dsi_bridge_funcs = {
 
 static void dsi_bridge_init(struct dsi_data *dsi)
 {
+printk("%s\n", __func__);
+
 	dsi->bridge.funcs = &dsi_bridge_funcs;
 	dsi->bridge.of_node = dsi->host.dev->of_node;
 	dsi->bridge.type = DRM_MODE_CONNECTOR_DSI;
@@ -5379,7 +5381,11 @@ static int dsi_init_output(struct dsi_data *dsi)
 	struct omap_dss_device *out = &dsi->output;
 	int r;
 
+printk("%s\n", __func__);
+
 	dsi_bridge_init(dsi);
+
+printk("%s 1\n", __func__);
 
 	out->dev = dsi->dev;
 	out->id = dsi->module_id == 0 ?
@@ -5394,13 +5400,19 @@ static int dsi_init_output(struct dsi_data *dsi)
 		       | DRM_BUS_FLAG_DE_HIGH
 		       | DRM_BUS_FLAG_SYNC_DRIVE_NEGEDGE;
 
+printk("%s 2\n", __func__);
+
 	r = omapdss_device_init_output(out, &dsi->bridge);
 	if (r < 0) {
 		dsi_bridge_cleanup(dsi);
 		return r;
 	}
 
+printk("%s 3\n", __func__);
+
 	omapdss_device_register(out);
+
+printk("%s done\n", __func__);
 
 	return 0;
 }
@@ -5422,6 +5434,8 @@ static int dsi_probe_of(struct dsi_data *dsi)
 	int len, num_pins;
 	int r;
 	struct device_node *ep;
+
+printk("%s\n", __func__);
 
 	ep = of_graph_get_endpoint_by_regs(node, 0, 0);
 	if (!ep)
@@ -5457,10 +5471,15 @@ static int dsi_probe_of(struct dsi_data *dsi)
 
 	of_node_put(ep);
 
+printk("%s done\n", __func__);
+
 	return 0;
 
 err:
 	of_node_put(ep);
+
+printk("%s fail %d\n", __func__, r);
+
 	return r;
 }
 
@@ -5540,6 +5559,8 @@ static int dsi_probe(struct platform_device *pdev)
 	unsigned int i;
 	int r;
 
+printk("%s\n", __func__);
+
 	dsi = devm_kzalloc(dev, sizeof(*dsi), GFP_KERNEL);
 	if (!dsi)
 		return -ENOMEM;
@@ -5566,6 +5587,8 @@ static int dsi_probe(struct platform_device *pdev)
 	timer_setup(&dsi->te_timer, dsi_te_timeout, 0);
 #endif
 
+printk("%s 1\n", __func__);
+
 	dsi_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM, "proto");
 	dsi->proto_base = devm_ioremap_resource(dev, dsi_mem);
 	if (IS_ERR(dsi->proto_base))
@@ -5586,6 +5609,8 @@ static int dsi_probe(struct platform_device *pdev)
 		DSSERR("platform_get_irq failed\n");
 		return -ENODEV;
 	}
+
+printk("%s 2\n", __func__);
 
 	r = devm_request_irq(dev, dsi->irq, omap_dsi_irq_handler,
 			     IRQF_SHARED, dev_name(dev), dsi);
@@ -5611,12 +5636,16 @@ static int dsi_probe(struct platform_device *pdev)
 	while (d->address != 0 && d->address != dsi_mem->start)
 		d++;
 
+printk("%s 3\n", __func__);
+
 	if (d->address == 0) {
 		DSSERR("unsupported DSI module\n");
 		return -ENODEV;
 	}
 
 	dsi->module_id = d->id;
+
+printk("%s 4\n", __func__);
 
 	if (dsi->data->model == DSI_MODEL_OMAP4 ||
 	    dsi->data->model == DSI_MODEL_OMAP5) {
@@ -5636,6 +5665,8 @@ static int dsi_probe(struct platform_device *pdev)
 		of_node_put(np);
 	}
 
+printk("%s 5\n", __func__);
+
 	/* DSI VCs initialization */
 	for (i = 0; i < ARRAY_SIZE(dsi->vc); i++)
 		dsi->vc[i].source = DSI_VC_SOURCE_L4;
@@ -5643,6 +5674,8 @@ static int dsi_probe(struct platform_device *pdev)
 	r = dsi_get_clocks(dsi);
 	if (r)
 		return r;
+
+printk("%s 6\n", __func__);
 
 	pm_runtime_enable(dev);
 
@@ -5660,11 +5693,15 @@ static int dsi_probe(struct platform_device *pdev)
 	dsi->host.ops = &omap_dsi_host_ops;
 	dsi->host.dev = &pdev->dev;
 
+printk("%s 7\n", __func__);
+
 	r = dsi_probe_of(dsi);
 	if (r) {
 		DSSERR("Invalid DSI DT data\n");
 		goto err_pm_disable;
 	}
+
+printk("%s 7b\n", __func__);
 
 	r = mipi_dsi_host_register(&dsi->host);
 	if (r < 0) {
@@ -5672,28 +5709,42 @@ static int dsi_probe(struct platform_device *pdev)
 		goto err_pm_disable;
 	}
 
+printk("%s 8\n", __func__);
+
 	r = dsi_init_output(dsi);
 	if (r)
 		goto err_dsi_host_unregister;
+
+printk("%s 9\n", __func__);
 
 	r = component_add(&pdev->dev, &dsi_component_ops);
 	if (r)
 		goto err_uninit_output;
 
+printk("%s done\n", __func__);
+
 	return 0;
 
 err_uninit_output:
+printk("%s err_uninit_output\n", __func__);
 	dsi_uninit_output(dsi);
 err_dsi_host_unregister:
+printk("%s err_dsi_host_unregister\n", __func__);
 	mipi_dsi_host_unregister(&dsi->host);
 err_pm_disable:
+printk("%s err_pm_disable\n", __func__);
 	pm_runtime_disable(dev);
+
+printk("%s err %d\n", __func__, r);
+
 	return r;
 }
 
 static int dsi_remove(struct platform_device *pdev)
 {
 	struct dsi_data *dsi = platform_get_drvdata(pdev);
+
+printk("%s\n", __func__);
 
 	component_del(&pdev->dev, &dsi_component_ops);
 
@@ -5715,6 +5766,8 @@ static int dsi_runtime_suspend(struct device *dev)
 {
 	struct dsi_data *dsi = dev_get_drvdata(dev);
 
+printk("%s\n", __func__);
+
 	dsi->is_enabled = false;
 	/* ensure the irq handler sees the is_enabled value */
 	smp_wmb();
@@ -5727,6 +5780,8 @@ static int dsi_runtime_suspend(struct device *dev)
 static int dsi_runtime_resume(struct device *dev)
 {
 	struct dsi_data *dsi = dev_get_drvdata(dev);
+
+printk("%s\n", __func__);
 
 	dsi->is_enabled = true;
 	/* ensure the irq handler sees the is_enabled value */

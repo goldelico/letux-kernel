@@ -1226,6 +1226,8 @@ static int dss_video_pll_probe(struct dss_device *dss)
 	struct regulator *pll_regulator;
 	int r;
 
+printk("%s\n", __func__);
+
 	if (!np)
 		return 0;
 
@@ -1386,6 +1388,8 @@ static int dss_probe_hardware(struct dss_device *dss)
 	u32 rev;
 	int r;
 
+printk("%s\n", __func__);
+
 	r = dss_runtime_get(dss);
 	if (r)
 		return r;
@@ -1424,6 +1428,8 @@ static int dss_probe(struct platform_device *pdev)
 	struct resource *dss_mem;
 	struct dss_device *dss;
 	int r;
+
+printk("%s\n", __func__);
 
 	dss = kzalloc(sizeof(*dss), GFP_KERNEL);
 	if (!dss)
