@@ -643,6 +643,8 @@ static int w677l_get_modes(struct drm_panel *panel, struct drm_connector *connec
 
 	dev_dbg(panel->dev, "%s done\n", __func__);
 
+dump_stack();
+
 	return 1;
 }
 
