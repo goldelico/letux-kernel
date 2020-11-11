@@ -95,9 +95,6 @@ static void otm8009a_dcs_write_buf(struct otm8009a *ctx, const void *data,
 {
 	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
 
-	printk("%s: len=%d\n", len);
-	return;
-
 	if (mipi_dsi_dcs_write_buffer(dsi, data, len) < 0)
 		dev_warn(ctx->dev, "mipi dsi dcs write buffer failed\n");
 }
