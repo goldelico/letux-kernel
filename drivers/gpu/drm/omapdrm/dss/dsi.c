@@ -4780,6 +4780,9 @@ printk("%s\n", __func__);
 
 	drm_display_mode_to_videomode(mode, &vm);
 
+	if (vm.pixelclock > 200000000)
+		return -EINVAL;
+
 	cfg.vm = &vm;
 	cfg.mode = dsi->mode;
 	cfg.pixel_format = dsi->pix_fmt;
