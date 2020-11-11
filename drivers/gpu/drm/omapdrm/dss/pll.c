@@ -226,6 +226,9 @@ printk("%s pll_hw_max=%lu fint_hw_min=%lu fint_hw_max=%lu\n", __func__, pll_hw_m
 	n_stop = min((unsigned)(clkin / fint_hw_min), hw->n_max);
 	n_inc = 1;
 
+	if (n_start > n_stop)
+		return false;
+
 	if (hw->errata_i886) {
 		swap(n_start, n_stop);
 		n_inc = -1;
@@ -247,6 +250,9 @@ printk("%s n=%d clkin=%lu fint=%lu\n", __func__, n, clkin, fint);
 				(unsigned)(pll_hw_max / fint / 2),
 				hw->m_max);
 		m_inc = 1;
+
+		if (m_start > m_stop)
+			continue;
 
 		if (hw->errata_i886) {
 			swap(m_start, m_stop);
