@@ -39,7 +39,7 @@
 
 &lcd {
 	reg = <0>;
-	compatible = "boe,btl507212-w677l";
+	compatible = "orisetech,otm8009a";
 	rotation = <90>;
 	reset-gpios = <&gpio6 16 0>;	/* goip6_176 = panel reset */
 	backlight = <&backlight>;
