@@ -2405,7 +2405,7 @@ static int dsi_vc_config_source(struct dsi_data *dsi, int vc,
 	if (dsi->vc[vc].source == source)
 		return 0;
 
-	DSSDBG("Source config of VC %d", vc);
+	DSSDBG("Source config of VC %d: %d", vc, source);
 
 	dsi_sync_vc(dsi, vc);
 
