@@ -264,12 +264,14 @@ printk("%s m_start=%d m_inc=%d m_stop=%d\n", __func__, m_start, m_inc, m_stop);
 		for (m = m_start; m != m_stop; m += m_inc) {
 			clkdco = 2 * m * fint;
 
-			if (func(n, m, fint, clkdco, data))
+			if (func(n, m, fint, clkdco, data)) {
+printk("%s success\n", __func__);
 				return true;
+}
 		}
 	}
 
-printk("%s 2\n", __func__);
+printk("%s fail\n", __func__);
 
 	return false;
 }

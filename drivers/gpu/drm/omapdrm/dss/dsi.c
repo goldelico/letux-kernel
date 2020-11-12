@@ -4794,8 +4794,10 @@ printk("%s 1\n", __func__);
 	else
 		ok = dsi_cm_calc(dsi, &cfg, ctx);
 
-	if (!ok)
+	if (!ok) {
+printk("%s 1\n", __func__);
 		return -EINVAL;
+}
 
 printk("%s 2\n", __func__);
 
