@@ -678,7 +678,7 @@
 };
 
 &dsi2 {
-	status = "okay";
+	status = "disabled";
 	vdd-supply = <&vcxio>;
 
 	port {
@@ -689,6 +689,7 @@
 	};
 
 	lcd1: panel@0 {
+		status = "disabled";
 		compatible = "tpo,taal", "panel-dsi-cm";
 		reg = <0>;
 		label = "lcd1";
