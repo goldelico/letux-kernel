@@ -194,7 +194,7 @@ static int dsicm_set_update_window(struct panel_drv_data *ddata)
 static int dsicm_bl_update_status(struct backlight_device *dev)
 {
 	struct panel_drv_data *ddata = dev_get_drvdata(&dev->dev);
-	int r = 0;
+	int r;
 	int level;
 
 	if (dev->props.fb_blank == FB_BLANK_UNBLANK &&
@@ -207,11 +207,9 @@ static int dsicm_bl_update_status(struct backlight_device *dev)
 
 	mutex_lock(&ddata->lock);
 
-	if (ddata->enabled) {
-		if (!r)
-			r = dsicm_dcs_write_1(
-				ddata, MIPI_DCS_SET_DISPLAY_BRIGHTNESS, level);
-	}
+	if (ddata->enabled)
+		r = dsicm_dcs_write_1(ddata, MIPI_DCS_SET_DISPLAY_BRIGHTNESS,
+				      level);
 
 	mutex_unlock(&ddata->lock);
 
