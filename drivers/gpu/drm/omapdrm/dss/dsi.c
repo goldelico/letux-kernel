@@ -6,6 +6,10 @@
 
 #define DSS_SUBSYS_NAME "DSI"
 
+#define DEBUG 1
+#undef pr_debug
+#define pr_debug pr_info
+
 #include <linux/kernel.h>
 #include <linux/mfd/syscon.h>
 #include <linux/regmap.h>
@@ -2438,7 +2442,7 @@ static void dsi_vc_enable_hs(struct omap_dss_device *dssdev, int vc,
 {
 	struct dsi_data *dsi = to_dsi_data(dssdev);
 
-	DSSDBG("dsi_vc_enable_hs(%d, %d)\n", vc, enable);
+	printk("dsi_vc_enable_hs(%d, %d)\n", vc, enable);
 
 	if (REG_GET(dsi, DSI_VC_CTRL(vc), 9, 9) == enable)
 		return;
@@ -5614,6 +5618,8 @@ printk("%s\n", __func__);
 
 	dsi->dev = dev;
 	dev_set_drvdata(dev, dsi);
+
+	dsi->debug_write = dsi->debug_read = true;
 
 	spin_lock_init(&dsi->irq_lock);
 	spin_lock_init(&dsi->errors_lock);
