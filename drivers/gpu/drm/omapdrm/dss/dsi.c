@@ -3671,6 +3671,8 @@ static void dsi_enable_video_output(struct omap_dss_device *dssdev, int vc)
 		dsi_if_enable(dsi, false);
 		dsi_vc_enable(dsi, vc, false);
 
+		dsi_vc_enable_hs(dssdev, 1, true);
+
 		/* MODE, 1 = video mode */
 		REG_FLD_MOD(dsi, DSI_VC_CTRL(vc), 1, 4, 4);
 
@@ -4178,7 +4180,13 @@ static void dsi_enable_video_outputs(struct omap_dss_device *dssdev)
 
 	dsi_display_enable(dssdev);
 
+	printk("NOP1\n");
+	_dsi_send_nop(dsi, 0, 0);
+
 	dsi_enable_video_output(dssdev, VC_VIDEO);
+
+	printk("NOP2\n");
+	_dsi_send_nop(dsi, 0, 0);
 
 	dsi->video_enabled = true;
 
