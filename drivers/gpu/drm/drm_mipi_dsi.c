@@ -326,6 +326,8 @@ int mipi_dsi_attach(struct mipi_dsi_device *dsi)
 	if (!ops || !ops->attach)
 		return -ENOSYS;
 
+	dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
+
 	return ops->attach(dsi->host, dsi);
 }
 EXPORT_SYMBOL(mipi_dsi_attach);
