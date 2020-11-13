@@ -317,6 +317,12 @@ static w677l_reg display_on[] = {
 //	{ 1, MIPI_DCS_EXIT_SLEEP_MODE, },
 };
 
+#if 0
+static w677l_reg nop[] = {
+	{ 1, 0x00, },
+};
+#endif
+
 static int w677l_write(struct otm1283a *ctx, u8 *buf, int len)
 {
 	int r;
