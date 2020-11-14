@@ -745,7 +745,7 @@ static int w677l_probe(struct mipi_dsi_device *dsi)
 
 	dsi->hs_rate = W677L_HS_CLOCK;
 	dsi->hs_rate = 105 * (W677L_HS_CLOCK / 100);	/* allow for 5% overclocking */
-	dsi->hs_rate = 450000000;
+//	dsi->hs_rate = 450000000;
 	dsi->lp_rate = W677L_LP_CLOCK;
 
 	drm_panel_init(&ctx->panel, dev, &w677l_panel_funcs, DRM_MODE_CONNECTOR_DSI);
