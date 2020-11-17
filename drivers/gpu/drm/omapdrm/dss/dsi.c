@@ -7,8 +7,6 @@
 #define DSS_SUBSYS_NAME "DSI"
 
 #define DEBUG 1
-#undef pr_debug
-#define pr_debug pr_info
 
 #include <linux/kernel.h>
 #include <linux/mfd/syscon.h>
@@ -46,6 +44,9 @@
 
 #include "omapdss.h"
 #include "dss.h"
+
+#undef pr_debug
+#define pr_debug pr_info
 
 #define DSI_CATCH_MISSING_TE
 
@@ -484,6 +485,12 @@ static inline void dsi_write_reg(struct dsi_data *dsi,
 		default: return;
 	}
 
+	if (base + idx.idx == dsi->phy_base + 8)
+	{
+		printk("%s: %08x: %08x -> %08x\n", __func__, (u32)base + idx.idx, __raw_readl(base + idx.idx), val);
+		dump_stack();
+	}
+
 	__raw_writel(val, base + idx.idx);
 }
 
@@ -497,6 +504,9 @@ static inline u32 dsi_read_reg(struct dsi_data *dsi, const struct dsi_reg idx)
 		case DSI_PLL: base = dsi->pll_base; break;
 		default: return 0;
 	}
+
+	if (base + idx.idx == dsi->phy_base + 8)
+		printk("%s: %08x: %08x\n", __func__, (u32)base + idx.idx, __raw_readl(base + idx.idx));
 
 	return __raw_readl(base + idx.idx);
 }
@@ -1765,6 +1775,8 @@ static void dsi_cio_timings(struct dsi_data *dsi)
 	u32 ths_prepare, ths_prepare_ths_zero, ths_trail, ths_exit;
 	u32 tlpx_half, tclk_trail, tclk_zero;
 	u32 tclk_prepare;
+
+// dsi_read_reg(dsi, DSI_DSIPHY_CFG2);
 
 	/* calculate timings */
 
@@ -3476,6 +3488,8 @@ static void dsi_proto_timings(struct dsi_data *dsi)
 	int ndl = dsi->num_lanes_used - 1;
 	u32 r;
 
+// dsi_read_reg(dsi, DSI_DSIPHY_CFG2);
+
 	r = dsi_read_reg(dsi, DSI_DSIPHY_CFG0);
 	ths_prepare = FLD_GET(r, 31, 24);
 	ths_prepare_ths_zero = FLD_GET(r, 23, 16);
@@ -4145,11 +4159,17 @@ static void _dsi_display_enable(struct dsi_data *dsi)
 	if (r)
 		goto err_get_dsi;
 
+printk("%s: 1\n", __func__);
+//dsi_read_reg(dsi, DSI_DSIPHY_CFG2);
+
 	_dsi_initialize_irq(dsi);
 
 	r = dsi_display_init_dsi(dsi);
 	if (r)
 		goto err_init_dsi;
+
+printk("%s: 2\n", __func__);
+//dsi_read_reg(dsi, DSI_DSIPHY_CFG2);
 
 	mutex_unlock(&dsi->lock);
 
