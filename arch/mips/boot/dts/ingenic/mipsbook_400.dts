@@ -368,12 +368,11 @@
 	pinctrl-0 = <&pins_mmc>;
 };
 
-/*
 &nand {
-	pinctrl-names = "nand";
+	pinctrl-names = "default";
 	pinctrl-0 = <&pins_nand>;
 };
-*/
+
 
 &uart0 {
 	pinctrl-names = "default";
@@ -404,12 +403,10 @@
 		};
 	};
 
-	/*
-	pins_nand {
+	pins_nand: pins_nand {
 		function = "nand";
 		groups = "nand-cs3";
 	};
-	*/
 
 	pins_pwm0: pwm0 {
 		function = "pwm0";
