@@ -801,9 +801,11 @@ static int w677l__panel_get_modes(struct omap_dss_device *dssdev,
 
 	connector->display_info.width_mm = 63;
 	connector->display_info.height_mm = 112;
+#if 0
 	if (of_drm_get_panel_orientation(dssdev->dev->of_node,
 		&connector->display_info.panel_orientation) < 0)
 		connector->display_info.panel_orientation = DRM_MODE_PANEL_ORIENTATION_RIGHT_UP;
+#endif
 
 	return omapdss_display_get_modes(connector, &ddata->vm);
 }
