@@ -97,17 +97,16 @@ static const struct drm_display_mode default_mode = {
 	.height_mm		= 112,
 };
 
-#define DCS_REGULATOR_SUPPLY_NUM 1
 struct otm1283a {
 	struct device *dev;
 	struct backlight_device *bl_dev;
 	struct drm_panel panel;
 	struct gpio_desc *reset_gpio;
-//	struct regulator_bulk_data supplies[DCS_REGULATOR_SUPPLY_NUM];
 	bool prepared;
 	bool enabled;
 
 	struct gpio_desc *regulator_gpio;
+	enum drm_panel_orientation orientation;
 };
 
 static inline struct otm1283a *panel_to_otm1283a(struct drm_panel *panel)
@@ -622,6 +621,7 @@ static int w677l_enable(struct drm_panel *panel)
 static int w677l_get_modes(struct drm_panel *panel, struct drm_connector *connector)
 {
 	struct drm_display_mode *mode;
+	struct otm1283a *ctx = panel_to_otm1283a(panel);
 
 	dev_dbg(panel->dev, "%s\n", __func__);
 
@@ -640,6 +640,7 @@ static int w677l_get_modes(struct drm_panel *panel, struct drm_connector *connec
 
 	connector->display_info.width_mm = mode->width_mm;
 	connector->display_info.height_mm = mode->height_mm;
+	drm_connector_set_panel_orientation(connector, ctx->orientation);
 
 	dev_dbg(panel->dev, "%s done\n", __func__);
 
@@ -738,6 +739,8 @@ static int w677l_probe(struct mipi_dsi_device *dsi)
 	dsi->hs_rate = W677L_HS_CLOCK;
 	dsi->hs_rate = 105 * (W677L_HS_CLOCK / 100);	/* allow for 5% overclocking */
 	dsi->lp_rate = W677L_LP_CLOCK;
+
+	of_drm_get_panel_orientation(dev->of_node, &ctx->orientation);
 
 	drm_panel_init(&ctx->panel, dev, &w677l_panel_funcs, DRM_MODE_CONNECTOR_DSI);
 
