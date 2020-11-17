@@ -79,6 +79,9 @@ MODULE_PARM_DESC(drm_leak_fbdev_smem,
 		 "Allow unsafe leaking fbdev physical smem address [default=false]");
 #endif
 
+static uint drm_fbdev_rotation = 0;
+module_param_named(fbdev_rotation, drm_fbdev_rotation, uint, 0644);
+
 static LIST_HEAD(kernel_fb_helper_list);
 static DEFINE_MUTEX(kernel_fb_helper_lock);
 
@@ -1480,7 +1483,6 @@ static int drm_fb_helper_single_fb_probe(struct drm_fb_helper *fb_helper,
 	struct drm_connector *connector;
 	struct drm_mode_set *mode_set;
 	int best_depth = 0;
-	int rotation = 0;
 
 	memset(&sizes, 0, sizeof(struct drm_fb_helper_surface_size));
 	sizes.surface_depth = 24;
@@ -1591,10 +1593,7 @@ static int drm_fb_helper_single_fb_probe(struct drm_fb_helper *fb_helper,
 		if (!desired_mode)
 			continue;
 
-		rotation = 0;
-
-		if (drm_client_rotation(mode_set, &rotation) &&
-			drm_rotation_90_or_270(rotation)) {
+		if (drm_rotation_90_or_270(drm_fbdev_rotation)) {
 			height = desired_mode->hdisplay;
 			width = desired_mode->vdisplay;
 		} else {
@@ -1607,8 +1606,8 @@ static int drm_fb_helper_single_fb_probe(struct drm_fb_helper *fb_helper,
 		x = mode_set->x;
 		y = mode_set->y;
 
-		sizes.surface_width  = max_t(u32, width + x, sizes.surface_width);
-		sizes.surface_height = max_t(u32, height + y, sizes.surface_height);
+		sizes.surface_width  = max_t(u32, desired_mode->hdisplay + x, sizes.surface_width);
+		sizes.surface_height = max_t(u32, desired_mode->vdisplay + y, sizes.surface_height);
 
 		for (j = 0; j < mode_set->num_connectors; j++) {
 			struct drm_connector *connector = mode_set->connectors[j];
@@ -1746,6 +1745,10 @@ static void drm_setup_crtcs_fb(struct drm_fb_helper *fb_helper)
 
 		modeset->fb = fb_helper->fb;
 
+		if (drm_fbdev_rotation)
+			/* Override orientation declared by panel XXX FIXME */
+			sw_rotations |= DRM_MODE_ROTATE_0;
+		else
 		if (drm_client_rotation(modeset, &rotation))
 			/* Rotating in hardware, fbcon should not rotate */
 			sw_rotations |= DRM_MODE_ROTATE_0;
@@ -1932,7 +1935,6 @@ int drm_fb_helper_hotplug_event(struct drm_fb_helper *fb_helper)
 {
 	int err = 0;
 	unsigned width, height;
-	int rotation = 0;
 
 	if (!drm_fbdev_emulation || !fb_helper)
 		return 0;
@@ -1955,8 +1957,7 @@ int drm_fb_helper_hotplug_event(struct drm_fb_helper *fb_helper)
 	drm_dbg_kms(fb_helper->dev, "\n");
 
 	/* XXX FIXME */
-	if (drm_client_rotation(fb_helper->client.modesets, &rotation) &&
-		drm_rotation_90_or_270(rotation)) {
+	if (drm_rotation_90_or_270(drm_fbdev_rotation)) {
 		width = fb_helper->fb->height;
 		height = fb_helper->fb->width;
 	} else {
