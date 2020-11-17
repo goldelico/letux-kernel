@@ -200,20 +200,17 @@ static const struct ingenic_cgu_clk_info jz4730_cgu_clocks[] = {
 		.mux = { CGU_REG_CFCR, 28, 1 },
 	},
 
-#if FIXME
-// JZ4730_CLK_EXT_128 is not defined in jz4730-cgu.h
 	[JZ4730_CLK_EXT_128] = {
 		"ext/128", CGU_CLK_FIXDIV,
 		.parents = { JZ4730_CLK_EXT, -1, -1, -1 },
 		.div = { 128 },
 	},
+
 	[JZ4730_CLK_WDT] = {
 		"uhc", CGU_CLK_MUX,
 		.parents = { JZ4730_CLK_EXT_128, JZ4730_CLK_RTC, -1, -1 },
 		.mux = { CGU_REG_OCR, 8, 1 },
 	},
-
-#endif
 
 	/* Gate-only clocks */
 
