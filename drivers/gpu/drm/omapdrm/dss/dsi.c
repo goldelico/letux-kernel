@@ -456,8 +456,8 @@ static bool dsi_perf;
 module_param(dsi_perf, bool, 0644);
 #endif
 
-#define VC_CMD		0
-#define VC_VIDEO	1
+#define VC_CMD		1
+#define VC_VIDEO	0
 
 #define drm_bridge_to_dsi(bridge) \
 	container_of(bridge, struct dsi_data, bridge)
@@ -5147,6 +5147,8 @@ static int omap_dsi_host_attach(struct mipi_dsi_host *host,
 		dsi->config.trans_mode = OMAP_DSS_DSI_EVENT_MODE;
 
 	dsi->ulps_auto_idle = !!(client->mode_flags & MIPI_DSI_MODE_ULPS_IDLE);
+
+	dsi->config.ddr_clk_always_on = true;
 
 	return 0;
 }
