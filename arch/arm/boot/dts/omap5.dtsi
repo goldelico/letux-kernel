@@ -246,6 +246,7 @@
 			reg = <0x4e000000 0x800>;
 			interrupts = <0 113 0x4>;
 			ti,hwmods = "dmm";
+			status = "disabled";
 		};
 
 		bb2d: bb2d@59000000 {

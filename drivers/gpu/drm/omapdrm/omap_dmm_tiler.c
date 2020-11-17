@@ -781,6 +781,8 @@ static int omap_dmm_probe(struct platform_device *dev)
 	u32 hwinfo, pat_geom;
 	struct resource *mem;
 
+return -EINVAL;
+
 	omap_dmm = kzalloc(sizeof(*omap_dmm), GFP_KERNEL);
 	if (!omap_dmm)
 		goto fail;
