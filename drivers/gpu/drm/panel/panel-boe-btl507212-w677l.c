@@ -86,7 +86,7 @@ static const struct drm_display_mode default_mode = {
 	.clock			= W677L_PIXELCLOCK / 1000,	/* kHz */
 	.hdisplay		= W677L_W,
 	.hsync_start		= W677L_W + 5,
-	.hsync_end		= W677L_WIDTH - 5,
+	.hsync_end		= W677L_W + 5 + 5,
 	.htotal			= W677L_WIDTH,
 	.vdisplay		= W677L_H,
 	.vsync_start		= W677L_H + 50,
@@ -487,27 +487,27 @@ static void w677l_query_registers(struct otm1283a *ctx)
 	int r;
 
 	r = w677l_read(ctx, 0x05, ret, 1);
-	printk("%s: [0x05] = %02x\n", __func__, ret[0]);
+	printk("%s: [RDNUMED] = %02x\n", __func__, ret[0]);
 	r = w677l_read(ctx, 0x0a, ret, 1);  // power mode 0x10=sleep off; 0x04=display on
-	printk("%s: [0x0a] = %02x\n", __func__, ret[0]);
+	printk("%s: [RDDPM] = %02x\n", __func__, ret[0]);
 	r = w677l_read(ctx, 0x0b, ret, 1);  // address mode
-	printk("%s: [0x0b] = %02x\n", __func__, ret[0]);
+	printk("%s: [RDDMADCTL] = %02x\n", __func__, ret[0]);
 	r = w677l_read(ctx, MIPI_DCS_GET_PIXEL_FORMAT, ret, 1);     // pixel format 0x70 = RGB888
-	printk("%s: [0x0c] = %0x02x\n", __func__, ret[0]);
+	printk("%s: [PIXFMT] = %02x\n", __func__, ret[0]);
 	r = w677l_read(ctx, 0x0d, ret, 1);  // display mode 0x80 = command 0x34/0x35
-	printk("%s: [0x0d] = %02x\n", __func__, ret[0]);
+	printk("%s: [RDDIM] = %02x\n", __func__, ret[0]);
 	r = w677l_read(ctx, 0x0e, ret, 1);  // signal mode
-	printk("%s: [0x0e] = %02x\n", __func__, ret[0]);
+	printk("%s: [RDDIM] = %02x\n", __func__, ret[0]);
 	r = w677l_read(ctx, MIPI_DCS_GET_DIAGNOSTIC_RESULT, ret, 1);        // diagnostic 0x40 = functional
-	printk("%s: [0x0f] = %02x\n", __func__, ret[0]);
+	printk("%s: [RDDSDR] = %02x\n", __func__, ret[0]);
 	r = w677l_read(ctx, 0x45, ret, 2);  // get scanline
-	printk("%s: [0x45] = %02x%02x\n", __func__, ret[0], ret[1]);
+	printk("%s: [RDSCNL] = %02x%02x\n", __func__, ret[0], ret[1]);
 	r = w677l_read(ctx, MCS_READID1, ret, 1);
-	printk("%s: [0xda] = %02x\n", __func__, ret[0]);
+	printk("%s: [RDID1] = %02x\n", __func__, ret[0]);
 	r = w677l_read(ctx, MCS_READID2, ret, 1);
-	printk("%s: [0xdb] = %02x\n", __func__, ret[0]);
+	printk("%s: [RDID2] = %02x\n", __func__, ret[0]);
 	r = w677l_read(ctx, MCS_READID3, ret, 1);
-	printk("%s: [0xdc] = %02x\n", __func__, ret[0]);
+	printk("%s: [RDID3] = %02x\n", __func__, ret[0]);
 }
 
 static int w677l_disable(struct drm_panel *panel)
