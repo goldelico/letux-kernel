@@ -10,6 +10,11 @@
 
 #include <linux/mm_types.h>
 #include <linux/err.h>
+
+#ifdef CONFIG_ANDROID_BINDER_IPC_32BIT
+#define BINDER_IPC_32BIT 1
+#endif
+
 #include "binder_alloc.h"
 
 #define BUFFER_NUM 5
