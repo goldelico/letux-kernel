@@ -27,6 +27,7 @@ config DRM_INGENIC_IPU
 
 config DRM_INGENIC_DW_HDMI
 	bool "Ingenic specific support for Synopsys DW HDMI"
+	depends on MACH_JZ4780
 	select DRM_DW_HDMI
 	help
 	  Choose this option to enable Synopsys DesignWare HDMI based driver.
