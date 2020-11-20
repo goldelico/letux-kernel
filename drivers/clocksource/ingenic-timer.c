@@ -240,6 +240,8 @@ static int ingenic_tcu_setup_cevt(unsigned int cpu)
 	timer->cevt.set_state_shutdown = ingenic_tcu_cevt_set_state_shutdown;
 	timer->cevt.set_next_event = ingenic_tcu_cevt_set_next;
 
+printk("%s: %d vs. %d\n", __func__, tcu->soc_info->max_count, 0xffff);
+
 	clockevents_config_and_register(&timer->cevt, rate, 10, tcu->soc_info->max_count);
 
 	if (!tcu->soc_info->jz4740_regs) {
@@ -289,6 +291,8 @@ static int __init ingenic_tcu_clocksource_init(struct device_node *np,
 				   0xffff & ~TCU_TCSR_RESERVED_BITS, 0);
 
 		/* Reset counter */
+printk("%s: %d vs. %d\n", __func__, tcu->soc_info->max_count, 0xffff);
+
 		regmap_write(tcu->map, TCU_REG_TDFRc(channel), tcu->soc_info->max_count);
 		regmap_write(tcu->map, TCU_REG_TCNTc(channel), 0);
 
@@ -313,6 +317,8 @@ static int __init ingenic_tcu_clocksource_init(struct device_node *np,
 	cs->name = "ingenic-timer";
 	cs->rating = 200;
 	cs->flags = CLOCK_SOURCE_IS_CONTINUOUS;
+
+printk("%s: %d vs. %llu\n", __func__, tcu->soc_info->max_count, CLOCKSOURCE_MASK(16));
 
 	cs->mask = tcu->soc_info->max_count;
 	cs->read = ingenic_tcu_timer_cs_read;
@@ -465,6 +471,8 @@ static int __init ingenic_tcu_init(struct device_node *np)
 
 	/* Register the sched_clock at the end as there's no way to undo it */
 	rate = clk_get_rate(tcu->cs_clk);
+
+printk("%s: %d vs. %d\n", __func__, soc_info->counter_width, 16);
 
 	sched_clock_register(ingenic_tcu_timer_read, soc_info->counter_width, rate);
 
