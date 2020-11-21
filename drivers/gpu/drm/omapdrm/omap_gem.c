@@ -883,7 +883,6 @@ static void _omap_gem_unpin(struct drm_gem_object *obj)
 	if (WARN_ON(!omap_obj->block))
 		return;
 
-	if (refcount_dec_and_test(&omap_obj->dma_addr_cnt)) {
 
 		if (omap_obj->sgt) {
 			sg_free_table(omap_obj->sgt);
@@ -903,14 +902,6 @@ static void _omap_gem_unpin(struct drm_gem_object *obj)
 		}
 		omap_obj->dma_addr = 0;
 		omap_obj->block = NULL;
-	}
-	ret = tiler_release(omap_obj->block);
-	if (ret) {
-		dev_err(obj->dev->dev,
-			"could not release unmap: %d\n", ret);
-	}
-	omap_obj->dma_addr = 0;
-	omap_obj->block = NULL;
 }
 
 /**
