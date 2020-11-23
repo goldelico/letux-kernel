@@ -1,6 +1,7 @@
 /dts-v1/;
 
 #include "jz4730.dtsi"
+#include <dt-bindings/clock/ingenic,tcu.h>
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/gpio/gpio.h>
 
@@ -339,6 +340,11 @@
 			};
 		};
 	};
+};
+
+&tcu {
+	assigned-clocks = <&tcu TCU_CLK_TIMER0>, <&tcu TCU_CLK_TIMER1>, <&tcu TCU_CLK_TIMER2>;
+	assigned-clock-parents = <&cgu JZ4730_CLK_EXT>, <&cgu JZ4730_CLK_EXT>, <&cgu JZ4730_CLK_EXT>;
 };
 
 &ext {
