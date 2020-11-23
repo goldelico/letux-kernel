@@ -1,5 +1,5 @@
 #
-# Linux/mips 5.4.77 Kernel Configuration
+# Linux/mips 5.4.79 Kernel Configuration
 #
 
 #
@@ -19,7 +19,7 @@ CONFIG_BUILDTIME_EXTABLE_SORT=y
 CONFIG_BROKEN_ON_SMP=y
 CONFIG_INIT_ENV_ARG_LIMIT=32
 # CONFIG_COMPILE_TEST is not set
-CONFIG_LOCALVERSION="-letux-mips"
+CONFIG_LOCALVERSION="-letux-ci20"
 # CONFIG_LOCALVERSION_AUTO is not set
 CONFIG_BUILD_SALT=""
 CONFIG_HAVE_KERNEL_GZIP=y
