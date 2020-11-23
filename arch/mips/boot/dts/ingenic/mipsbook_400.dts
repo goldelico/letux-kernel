@@ -629,6 +629,11 @@
 	assigned-clock-parents = <&cgu JZ4730_CLK_EXT>, <&cgu JZ4730_CLK_EXT>, <&cgu JZ4730_CLK_EXT>;
 };
 
+&tcu {
+	assigned-clocks = <&tcu TCU_CLK_TIMER0>, <&tcu TCU_CLK_TIMER1>, <&tcu TCU_CLK_TIMER2>;
+	assigned-clock-parents = <&cgu JZ4730_CLK_EXT>, <&cgu JZ4730_CLK_EXT>, <&cgu JZ4730_CLK_EXT>;
+};
+
 &ext {
 	clock-frequency = <3686400>;
 };
