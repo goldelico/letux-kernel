@@ -26,12 +26,12 @@ static void ingenic_tcu_intc_cascade(struct irq_desc *desc)
 	struct irq_chip *irq_chip = irq_data_get_irq_chip(&desc->irq_data);
 	struct irq_domain *domain = irq_desc_get_handler_data(desc);
 	struct irq_chip_generic *gc = irq_get_domain_generic_chip(domain, 0);
-	struct regmap *map = gc->private;
+	struct ingenic_tcu *tcu = gc->private;
 	uint32_t irq_reg, irq_mask;
 	unsigned int i;
 
-	regmap_read(map, TCU_REG_TFR, &irq_reg);
-	regmap_read(map, TCU_REG_TMR, &irq_mask);
+	regmap_read(tcu->map, TCU_REG_TFR, &irq_reg);
+	regmap_read(tcu->map, TCU_REG_TMR, &irq_mask);
 
 	chained_irq_enter(irq_chip, desc);
 
@@ -47,12 +47,12 @@ static void ingenic_tcu_gc_unmask_enable_reg(struct irq_data *d)
 {
 	struct irq_chip_generic *gc = irq_data_get_irq_chip_data(d);
 	struct irq_chip_type *ct = irq_data_get_chip_type(d);
-	struct regmap *map = gc->private;
+	struct ingenic_tcu *tcu = gc->private;
 	u32 mask = d->mask;
 
 	irq_gc_lock(gc);
-	regmap_write(map, ct->regs.ack, mask);
-	regmap_write(map, ct->regs.enable, mask);
+	regmap_write(tcu->map, ct->regs.ack, mask);
+	regmap_write(tcu->map, ct->regs.enable, mask);
 	*ct->mask_cache |= mask;
 	irq_gc_unlock(gc);
 }
@@ -61,11 +61,11 @@ static void ingenic_tcu_gc_mask_disable_reg(struct irq_data *d)
 {
 	struct irq_chip_generic *gc = irq_data_get_irq_chip_data(d);
 	struct irq_chip_type *ct = irq_data_get_chip_type(d);
-	struct regmap *map = gc->private;
+	struct ingenic_tcu *tcu = gc->private;
 	u32 mask = d->mask;
 
 	irq_gc_lock(gc);
-	regmap_write(map, ct->regs.disable, mask);
+	regmap_write(tcu->map, ct->regs.disable, mask);
 	*ct->mask_cache &= ~mask;
 	irq_gc_unlock(gc);
 }
@@ -74,12 +74,12 @@ static void ingenic_tcu_gc_mask_disable_reg_and_ack(struct irq_data *d)
 {
 	struct irq_chip_generic *gc = irq_data_get_irq_chip_data(d);
 	struct irq_chip_type *ct = irq_data_get_chip_type(d);
-	struct regmap *map = gc->private;
+	struct ingenic_tcu *tcu = gc->private;
 	u32 mask = d->mask;
 
 	irq_gc_lock(gc);
-	regmap_write(map, ct->regs.ack, mask);
-	regmap_write(map, ct->regs.disable, mask);
+	regmap_write(tcu->map, ct->regs.ack, mask);
+	regmap_write(tcu->map, ct->regs.disable, mask);
 	irq_gc_unlock(gc);
 }
 
@@ -131,7 +131,7 @@ static int __init ingenic_tcu_irq_init(struct device_node *np,
 	ct = gc->chip_types;
 
 	gc->wake_enabled = IRQ_MSK(32);
-	gc->private = tcu->map;
+	gc->private = tcu;
 
 	ct->regs.disable = TCU_REG_TMSR;
 	ct->regs.enable = TCU_REG_TMCR;
