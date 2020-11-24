@@ -166,6 +166,6 @@ ifneq ($(CONFIG_SGX_GENERIC),)
 endif # CONFIG_SGX_GENERIC
 
 ifneq ($(CONFIG_SGX),)
-always-y += pvr
+always += pvr
 clean-dirs := $(obj)/$(SUBPATH)
 endif
