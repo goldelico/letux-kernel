@@ -261,6 +261,7 @@ struct drm_bridge_funcs {
 	 * The @enable callback is optional.
 	 */
 	void (*enable)(struct drm_bridge *bridge);
+	void (*post_enable)(struct drm_bridge *bridge);
 
 	/**
 	 * @atomic_pre_enable:
