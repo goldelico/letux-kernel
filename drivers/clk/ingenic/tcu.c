@@ -89,7 +89,7 @@ static int ingenic_tcu_enable(struct clk_hw *hw)
 	if (tcu->soc_info->jz4740_regs)
 		regmap_write(tcu->map, TCU_REG_TSCR, BIT(info->gate_bit));
 	else
-		regmap_update_bits(tcu->map, TCU_JZ4730_REG_TER, BIT(info->gate_bit), true);
+		regmap_set_bits(tcu->map, TCU_JZ4730_REG_TER, BIT(info->gate_bit));
 
 	return 0;
 }
@@ -103,7 +103,7 @@ static void ingenic_tcu_disable(struct clk_hw *hw)
 	if (tcu->soc_info->jz4740_regs)
 		regmap_write(tcu->map, TCU_REG_TSSR, BIT(info->gate_bit));
 	else
-		regmap_update_bits(tcu->map, TCU_JZ4730_REG_TER, BIT(info->gate_bit), false);
+		regmap_clear_bits(tcu->map, TCU_JZ4730_REG_TER, BIT(info->gate_bit));
 }
 
 static int ingenic_tcu_is_enabled(struct clk_hw *hw)
@@ -135,7 +135,11 @@ static bool ingenic_tcu_enable_regs(struct clk_hw *hw)
 	 */
 	if (!tcu->clk) {
 		enabled = !!ingenic_tcu_is_enabled(hw);
-		regmap_write(tcu->map, TCU_REG_TSCR, BIT(info->gate_bit));
+		if (tcu->soc_info->jz4740_regs) {
+			regmap_write(tcu->map, TCU_REG_TER, BIT(info->gate_bit));
+		} else {
+			regmap_set_bits(tcu->map, TCU_JZ4730_REG_TER, BIT(info->gate_bit));
+		}
 	}
 
 	return enabled;
@@ -147,34 +151,49 @@ static void ingenic_tcu_disable_regs(struct clk_hw *hw)
 	const struct ingenic_tcu_clk_info *info = tcu_clk->info;
 	struct ingenic_tcu *tcu = tcu_clk->tcu;
 
-	if (!tcu->clk)
-		regmap_write(tcu->map, TCU_REG_TSSR, BIT(info->gate_bit));
+	if (!tcu->clk) {
+		if (tcu->soc_info->jz4740_regs) {
+			regmap_write(tcu->map, TCU_REG_TSSR, BIT(info->gate_bit));
+		} else {
+			regmap_clear_bits(tcu->map, TCU_JZ4730_REG_TER, BIT(info->gate_bit));
+		}
+	}
 }
 
 static u8 ingenic_tcu_get_parent(struct clk_hw *hw)
 {
 	struct ingenic_tcu_clk *tcu_clk = to_tcu_clk(hw);
 	const struct ingenic_tcu_clk_info *info = tcu_clk->info;
+	struct ingenic_tcu *tcu = tcu_clk->tcu;
 	unsigned int val = 0;
 	int ret;
 
 	ret = regmap_read(tcu_clk->tcu->map, info->tcsr_reg, &val);
 	WARN_ONCE(ret < 0, "Unable to read TCSR %d", tcu_clk->idx);
 
-	return ffs(val & TCU_TCSR_PARENT_CLOCK_MASK) - 1;
+	if (tcu->soc_info->jz4740_regs)
+		return ffs(val & TCU_TCSR_PARENT_CLOCK_MASK) - 1;
+	else
+		return val & TCU_JZ4730_TCSR_PARENT_CLOCK_MASK;
 }
 
 static int ingenic_tcu_set_parent(struct clk_hw *hw, u8 idx)
 {
 	struct ingenic_tcu_clk *tcu_clk = to_tcu_clk(hw);
 	const struct ingenic_tcu_clk_info *info = tcu_clk->info;
+	struct ingenic_tcu *tcu = tcu_clk->tcu;
 	bool was_enabled;
 	int ret;
 
 	was_enabled = ingenic_tcu_enable_regs(hw);
 
-	ret = regmap_update_bits(tcu_clk->tcu->map, info->tcsr_reg,
-				 TCU_TCSR_PARENT_CLOCK_MASK, BIT(idx));
+	if (tcu->soc_info->jz4740_regs) {
+		ret = regmap_update_bits(tcu_clk->tcu->map, info->tcsr_reg,
+					 TCU_TCSR_PARENT_CLOCK_MASK, BIT(idx));
+	} else {
+		ret = regmap_update_bits(tcu_clk->tcu->map, info->tcsr_reg,
+					 TCU_JZ4730_TCSR_PARENT_CLOCK_MASK, idx);
+	}
 	WARN_ONCE(ret < 0, "Unable to update TCSR %d", tcu_clk->idx);
 
 	if (!was_enabled)
@@ -348,7 +367,12 @@ static int __init ingenic_tcu_register_clock(struct ingenic_tcu *tcu,
 
 	/* Reset channel and clock divider, set default parent */
 	ingenic_tcu_enable_regs(&tcu_clk->hw);
-	regmap_update_bits(tcu->map, info->tcsr_reg, 0xffff, BIT(parent));
+	if (tcu->soc_info->jz4740_regs) {
+		regmap_update_bits(tcu->map, info->tcsr_reg, 0xffff, BIT(parent));
+	} else {
+		regmap_update_bits(tcu->map, info->tcsr_reg,
+				   0xffff & ~TCU_JZ4730_TCSR_EN, parent);
+	}
 	ingenic_tcu_disable_regs(&tcu_clk->hw);
 
 	err = clk_hw_register(NULL, &tcu_clk->hw);
