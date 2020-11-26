@@ -1,7 +1,7 @@
 VERSION = 2
 PATCHLEVEL = 6
 SUBLEVEL = 24
-EXTRAVERSION = .3
+EXTRAVERSION = .7
 NAME = Err Metey! A Heury Beelge-a Ret!
 
 # *DOCUMENTATION*
@@ -189,9 +189,9 @@ SUBARCH := $(shell uname -m | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ \
 # Alternatively CROSS_COMPILE can be set in the environment.
 # Default value for CROSS_COMPILE is not to prefix executables
 # Note: Some architectures assign CROSS_COMPILE in their arch/*/Makefile
-
-ARCH		?= mips
-CROSS_COMPILE	?= mipsel-linux-
+export KBUILD_BUILDHOST := $(SUBARCH)
+ARCH		?= $(SUBARCH)
+CROSS_COMPILE	?=
 
 # Architecture as present in compile.h
 UTS_MACHINE 	:= $(ARCH)
