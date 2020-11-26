@@ -41,7 +41,16 @@
 
 static unsigned int clear_page_array[0x130 / 4];
 
-void clear_page(void * page) __attribute__((alias("clear_page_array")));
+void clear_page(void * page)
+#if 0
+__attribute__((alias("clear_page_array")))
+#else
+{
+	void (*fp)(void *) = (void *)&clear_page_array;
+	fp(page);
+}
+#endif
+;
 
 EXPORT_SYMBOL(clear_page);
 
@@ -55,7 +64,16 @@ EXPORT_SYMBOL(clear_page);
  */
 static unsigned int copy_page_array[0x148 / 4];
 
-void copy_page(void *to, void *from) __attribute__((alias("copy_page_array")));
+void copy_page(void *to, void *from)
+#if 0
+__attribute__((alias("copy_page_array")))
+#else
+{
+	void (*fp)(void *, void *) = (void *)&copy_page_array;
+	fp(to, from);
+}
+#endif
+;
 
 EXPORT_SYMBOL(copy_page);
 
