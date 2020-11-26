@@ -245,7 +245,7 @@ static inline int fault_in_pages_writeable(char __user *uaddr, int size)
 
 static inline int fault_in_pages_readable(const char __user *uaddr, int size)
 {
-	volatile char c;
+	volatile char c __maybe_unused;
 	int ret;
 
 	if (unlikely(size == 0))

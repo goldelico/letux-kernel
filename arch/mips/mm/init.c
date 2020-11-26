@@ -348,7 +348,7 @@ static int __init page_is_ram(unsigned long pagenr)
 void __init paging_init(void)
 {
 	unsigned long max_zone_pfns[MAX_NR_ZONES];
-	unsigned long lastpfn;
+	unsigned long lastpfn __maybe_unused;
 
 	pagetable_init();
 
