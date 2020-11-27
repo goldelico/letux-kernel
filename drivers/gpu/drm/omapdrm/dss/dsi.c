@@ -3248,10 +3248,10 @@ static int dsi_update_channel(struct omap_dss_device *dssdev, int vc)
 
 	dsi_bus_lock(dsi);
 
-	//if (!dsi->video_enabled) {
-	//	r = -EIO;
-	//	goto err;
-	//}
+	if (!dsi->video_enabled) {
+		r = -EIO;
+		goto err;
+	}
 
 	if (dsi->vm.hactive == 0 || dsi->vm.vactive == 0) {
 		r = -EINVAL;
@@ -4221,7 +4221,7 @@ static ssize_t omap_dsi_host_transfer(struct mipi_dsi_host *host,
 
 	dsi_bus_lock(dsi);
 
-	if (true || dsi->video_enabled)
+	if (dsi->video_enabled)
 		r = _omap_dsi_host_transfer(dsi, vc, msg);
 	else
 		r = -EIO;
@@ -4619,25 +4619,14 @@ static void dsi_bridge_mode_set(struct drm_bridge *bridge,
 	dsi_set_config(&dsi->output, adjusted_mode);
 }
 
-static void dsi_pre_enable(struct drm_bridge *bridge)
-{
-	struct dsi_data *dsi = drm_bridge_to_dsi(bridge);
-
-	dsi_bus_lock(dsi);
-	dsi_enable(dsi);
-	dsi_bus_unlock(dsi);
-}
-
 static void dsi_bridge_enable(struct drm_bridge *bridge)
-{
-}
-
-static void dsi_bridge_post_enable(struct drm_bridge *bridge)
 {
 	struct dsi_data *dsi = drm_bridge_to_dsi(bridge);
 	struct omap_dss_device *dssdev = &dsi->output;
 
 	dsi_bus_lock(dsi);
+
+	dsi_enable(dsi);
 
 	dsi_enable_video_output(dssdev, VC_VIDEO);
 
@@ -4657,15 +4646,8 @@ static void dsi_bridge_disable(struct drm_bridge *bridge)
 
 	dsi_disable_video_output(dssdev, VC_VIDEO);
 
-	dsi_bus_unlock(dsi);
-}
-
-static void dsi_post_disable(struct drm_bridge *bridge)
-{
-	struct dsi_data *dsi = drm_bridge_to_dsi(bridge);
-
-	dsi_bus_lock(dsi);
 	dsi_disable(dsi);
+
 	dsi_bus_unlock(dsi);
 }
 
@@ -4673,11 +4655,8 @@ static const struct drm_bridge_funcs dsi_bridge_funcs = {
 	.attach = dsi_bridge_attach,
 	.mode_valid = dsi_bridge_mode_valid,
 	.mode_set = dsi_bridge_mode_set,
-	.pre_enable = dsi_pre_enable,
 	.enable = dsi_bridge_enable,
-	.post_enable = dsi_bridge_post_enable,
 	.disable = dsi_bridge_disable,
-	.post_disable = dsi_post_disable,
 };
 
 static void dsi_bridge_init(struct dsi_data *dsi)
