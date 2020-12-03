@@ -508,14 +508,13 @@ static int omap_dm_timer_start(struct omap_dm_timer *timer)
 
 	if (unlikely(!timer))
 		return -EINVAL;
-printk("dmtimer posted=%d\n", timer->posted);
+
 	omap_dm_timer_enable(timer);
 
 	l = omap_dm_timer_read_reg(timer, OMAP_TIMER_CTRL_REG);
 	if (!(l & OMAP_TIMER_CTRL_ST)) {
 		l |= OMAP_TIMER_CTRL_ST;
 		omap_dm_timer_write_reg(timer, OMAP_TIMER_CTRL_REG, l);
-		__omap_dm_timer_read(timer, OMAP_TIMER_CTRL_REG, 1);
 	}
 
 	return 0;
@@ -546,8 +545,6 @@ static int omap_dm_timer_set_load(struct omap_dm_timer *timer,
 	omap_dm_timer_enable(timer);
 	omap_dm_timer_write_reg(timer, OMAP_TIMER_LOAD_REG, load);
 
-	__omap_dm_timer_read(timer, OMAP_TIMER_CTRL_REG, 1);
-
 	omap_dm_timer_disable(timer);
 	return 0;
 }
@@ -568,7 +565,6 @@ static int omap_dm_timer_set_match(struct omap_dm_timer *timer, int enable,
 		l &= ~OMAP_TIMER_CTRL_CE;
 	omap_dm_timer_write_reg(timer, OMAP_TIMER_MATCH_REG, match);
 	omap_dm_timer_write_reg(timer, OMAP_TIMER_CTRL_REG, l);
-	__omap_dm_timer_read(timer, OMAP_TIMER_CTRL_REG, 1);
 
 	omap_dm_timer_disable(timer);
 	return 0;
@@ -594,7 +590,6 @@ static int omap_dm_timer_set_pwm(struct omap_dm_timer *timer, int def_on,
 	if (autoreload)
 		l |= OMAP_TIMER_CTRL_AR;
 	omap_dm_timer_write_reg(timer, OMAP_TIMER_CTRL_REG, l);
-	__omap_dm_timer_read(timer, OMAP_TIMER_CTRL_REG, 1);
 
 	omap_dm_timer_disable(timer);
 	return 0;
@@ -717,7 +712,6 @@ static int omap_dm_timer_write_counter(struct omap_dm_timer *timer, unsigned int
 	}
 
 	omap_dm_timer_write_reg(timer, OMAP_TIMER_COUNTER_REG, value);
-	__omap_dm_timer_read(timer, OMAP_TIMER_CTRL_REG, 1);
 
 	/* Save the context */
 	timer->context.tcrr = value;
