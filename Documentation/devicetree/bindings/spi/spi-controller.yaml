@@ -42,6 +42,31 @@ properties:
         cs2 : &gpio1 1 0
         cs3 : &gpio1 2 0
 
+      The second flag can be GPIO_ACTIVE_HIGH/0 or GPIO_ACTIVE_LOW/1.
+
+      There is special rule set for combining the second flag of an
+      cs-gpio with the optional spi-cs-high flag for SPI slaves.
+
+      Each table entry defines how the CS pin is physically driven
+      (not considering gpio inversions by pinmux):
+
+      device node     | cs-gpio       | CS pin state active | Note
+      ================+===============+=====================+=====
+      spi-cs-high     | -             | H                   |
+      -               | -             | L                   |
+      spi-cs-high     | ACTIVE_HIGH   | H                   |
+      -               | ACTIVE_HIGH   | L (or H???)         | 1
+      spi-cs-high     | ACTIVE_LOW    | H (or L???)         | 2
+      -               | ACTIVE_LOW    | L                   |
+
+      Notes:
+      1) should print a warning about polarity inversion
+         because here it would be wise to define the gpio as ACTIVE_LOW
+      2) could print a warning about polarity inversion
+         because ACTIVE_LOW is overridden by spi-cs-high
+      3) Effectively this rule defines that the ACTIVE level of the
+         gpio has to be ignored (but the table could have been different)
+
   num-cs:
     $ref: /schemas/types.yaml#/definitions/uint32
     description:
