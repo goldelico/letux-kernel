@@ -225,13 +225,13 @@ static int jz4740_mmc_acquire_dma_channels(struct jz4740_mmc_host *host)
 {
 	host->dma_tx = dma_request_chan(mmc_dev(host->mmc), "tx");
 	if (IS_ERR(host->dma_tx)) {
-		dev_err(mmc_dev(host->mmc), "Failed to get dma_tx channel\n");
+		dev_err(mmc_dev(host->mmc), "Failed to get dma_tx channel (%d)\n", PTR_ERR(host->dma_tx));
 		return PTR_ERR(host->dma_tx);
 	}
 
 	host->dma_rx = dma_request_chan(mmc_dev(host->mmc), "rx");
 	if (IS_ERR(host->dma_rx)) {
-		dev_err(mmc_dev(host->mmc), "Failed to get dma_rx channel\n");
+		dev_err(mmc_dev(host->mmc), "Failed to get dma_rx channel (%d)\n", PTR_ERR(host->dma_rx));
 		dma_release_channel(host->dma_tx);
 		return PTR_ERR(host->dma_rx);
 	}
