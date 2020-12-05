@@ -374,6 +374,7 @@
 	cd-gpios = <&gpc 0 GPIO_ACTIVE_LOW>;
 	wp-gpios = <&gpc 2 GPIO_ACTIVE_LOW>;
 	vmmc-supply = <&vmmc_reg>;
+	vqmmc-supply = <&vmmc_reg>;
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_mmc>;
