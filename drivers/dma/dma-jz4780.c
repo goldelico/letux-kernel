@@ -19,6 +19,7 @@
 #include <linux/of_dma.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
+#include <linux/delay.h>
 
 #include "dmaengine.h"
 #include "virt-dma.h"
@@ -845,6 +846,9 @@ static int jz4780_dma_probe(struct platform_device *pdev)
 	struct resource *res;
 	int i, ret;
 
+printk("%s\n", __func__);
+msleep(20);
+
 	if (!dev->of_node) {
 		dev_err(dev, "This driver must be probed from devicetree\n");
 		return -EINVAL;
@@ -867,6 +871,7 @@ static int jz4780_dma_probe(struct platform_device *pdev)
 		return PTR_ERR(jzdma->chn_base);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+printk("%s 1 res=%px\n", __func__, res);
 	if (res) {
 		jzdma->ctrl_base = devm_ioremap_resource(dev, res);
 		if (IS_ERR(jzdma->ctrl_base))
@@ -883,6 +888,11 @@ static int jz4780_dma_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+printk("%s 1b chn_base=%px\n", __func__, jzdma->chn_base);
+printk("%s 1c ctrl_base=%px\n", __func__, jzdma->ctrl_base);
+
+printk("%s 2\n", __func__);
+
 	jzdma->clk = devm_clk_get(dev, NULL);
 	if (IS_ERR(jzdma->clk)) {
 		dev_err(dev, "failed to get clock\n");
@@ -890,7 +900,11 @@ static int jz4780_dma_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+printk("%s 3\n", __func__);
+
 	clk_prepare_enable(jzdma->clk);
+
+printk("%s 4\n", __func__);
 
 	/* Property is optional, if it doesn't exist the value will remain 0. */
 	of_property_read_u32_index(dev->of_node, "ingenic,reserved-channels",
@@ -901,6 +915,8 @@ static int jz4780_dma_probe(struct platform_device *pdev)
 	dma_cap_set(DMA_MEMCPY, dd->cap_mask);
 	dma_cap_set(DMA_SLAVE, dd->cap_mask);
 	dma_cap_set(DMA_CYCLIC, dd->cap_mask);
+
+printk("%s 5\n", __func__);
 
 	dd->dev = dev;
 	dd->copy_align = DMAENGINE_ALIGN_4_BYTES;
@@ -924,11 +940,16 @@ static int jz4780_dma_probe(struct platform_device *pdev)
 	 * Also set the FMSC bit - it increases MSC performance, so it makes
 	 * little sense not to enable it.
 	 */
+
+printk("%s 6\n", __func__);
+
 	jz4780_dma_ctrl_writel(jzdma, JZ_DMA_REG_DMAC, JZ_DMA_DMAC_DMAE |
 			       JZ_DMA_DMAC_FAIC | JZ_DMA_DMAC_FMSC);
 
 	if (soc_data->flags & JZ_SOC_DATA_PROGRAMMABLE_DMA)
 		jz4780_dma_ctrl_writel(jzdma, JZ_DMA_REG_DMACP, 0);
+
+printk("%s 7\n", __func__);
 
 	INIT_LIST_HEAD(&dd->channels);
 
@@ -940,11 +961,15 @@ static int jz4780_dma_probe(struct platform_device *pdev)
 		jzchan->vchan.desc_free = jz4780_dma_desc_free;
 	}
 
+printk("%s 8\n", __func__);
+
 	ret = platform_get_irq(pdev, 0);
 	if (ret < 0)
 		goto err_disable_clk;
 
 	jzdma->irq = ret;
+
+printk("%s 9\n", __func__);
 
 	ret = request_irq(jzdma->irq, jz4780_dma_irq_handler, 0, dev_name(dev),
 			  jzdma);
@@ -952,6 +977,8 @@ static int jz4780_dma_probe(struct platform_device *pdev)
 		dev_err(dev, "failed to request IRQ %u!\n", jzdma->irq);
 		goto err_disable_clk;
 	}
+
+printk("%s 10\n", __func__);
 
 	ret = dmaenginem_async_device_register(dd);
 	if (ret) {
@@ -966,6 +993,8 @@ static int jz4780_dma_probe(struct platform_device *pdev)
 		dev_err(dev, "failed to register OF DMA controller\n");
 		goto err_free_irq;
 	}
+
+printk("%s 11\n", __func__);
 
 	dev_info(dev, "JZ4780 DMA controller initialised\n");
 	return 0;
