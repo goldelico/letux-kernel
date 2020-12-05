@@ -278,7 +278,7 @@
 
 	dma: dma@10020000 {
 		compatible = "ingenic,jz4730-dma";
-		reg = <0x10020000 0x100>;
+		reg = <0x10020000 0xc0>, <0x100200f8 0x08>;
 
 		interrupt-parent = <&intc>;
 		interrupts = <21>;
