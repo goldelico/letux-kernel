@@ -810,11 +810,15 @@ static struct dma_chan *jz4780_of_dma_xlate(struct of_phandle_args *dma_spec,
 	dma_cap_mask_t mask = jzdma->dma_device.cap_mask;
 	struct jz4780_dma_filter_data data;
 
+printk("%s\n", __func__);
+
 	if (dma_spec->args_count != 2)
 		return NULL;
 
 	data.transfer_type = dma_spec->args[0];
 	data.channel = dma_spec->args[1];
+
+printk("%s 1\n", __func__);
 
 	if (data.channel > -1) {
 		if (data.channel >= jzdma->soc_data->nb_channels) {
@@ -823,6 +827,7 @@ static struct dma_chan *jz4780_of_dma_xlate(struct of_phandle_args *dma_spec,
 				data.channel);
 			return NULL;
 		}
+printk("%s 2\n", __func__);
 
 		/* Can only select a channel marked as reserved. */
 		if (!(jzdma->chan_reserved & BIT(data.channel))) {
@@ -834,9 +839,14 @@ static struct dma_chan *jz4780_of_dma_xlate(struct of_phandle_args *dma_spec,
 
 		jzdma->chan[data.channel].transfer_type = data.transfer_type;
 
+printk("%s 3\n", __func__);
+
 		return dma_get_slave_channel(
 			&jzdma->chan[data.channel].vchan.chan);
 	} else {
+
+printk("%s 4\n", __func__);
+
 		return __dma_request_channel(&mask, jz4780_dma_filter_fn, &data,
 					     ofdma->of_node);
 	}
