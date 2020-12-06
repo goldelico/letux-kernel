@@ -214,6 +214,13 @@
 
 		clocks = <&cgu JZ4730_CLK_MMC>;
 		clock-names = "mmc";
+
+		dmas = <&dmac 27 0xffffffff>, <&dmac 26 0xffffffff>;
+		dma-names = "rx", "tx";
+
+		cap-sd-highspeed;
+		cap-mmc-highspeed;
+		cap-sdio-irq;
 	};
 
 	uart0: serial@10030000 {
@@ -276,7 +283,7 @@
 		clock-names = "baud", "module";
 	};
 
-	dma: dma@10020000 {
+	dmac: dma@10020000 {
 		compatible = "ingenic,jz4730-dma";
 		reg = <0x10020000 0xc0>, <0x100200f8 0x08>;
 
@@ -286,7 +293,7 @@
 		clocks = <&cgu JZ4730_CLK_DMA>;
 		clock-names = "dma";
 
-		#dma-cells = <1>;
+		#dma-cells = <2>;
 		dma-channels = <6>;
 	};
 
