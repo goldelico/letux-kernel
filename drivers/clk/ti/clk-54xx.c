@@ -607,10 +607,6 @@ int __init omap5xxx_dt_clk_init(void)
 	int rc;
 	struct clk *abe_dpll_ref, *abe_dpll, *sys_32k_ck, *usb_dpll;
 
-	void *cmsel_wkupaon = ioremap(0x4AE06108, 4);
-	iowrite32(1, cmsel_wkupaon);
-	iounmap(cmsel_wkupaon);
-
 	ti_dt_clocks_register(omap54xx_clks);
 
 	omap2_clk_disable_autoidle_all();
