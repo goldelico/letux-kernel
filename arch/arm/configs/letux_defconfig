@@ -1,5 +1,5 @@
 #
-# Linux/arm 5.4.79 Kernel Configuration
+# Linux/arm 5.4.81 Kernel Configuration
 #
 
 #
@@ -4190,6 +4190,7 @@ CONFIG_DRM_MXSFB=m
 # CONFIG_DRM_PANFROST is not set
 # CONFIG_DRM_MCDE is not set
 CONFIG_SGX=y
+# CONFIG_PVRSGX_1_9_2188537 is not set
 # CONFIG_PVRSGX_1_9_2253347 is not set
 # CONFIG_PVRSGX_1_10_2359475 is not set
 # CONFIG_PVRSGX_1_13_3341330 is not set

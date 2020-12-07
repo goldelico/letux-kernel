@@ -1,5 +1,5 @@
 #
-# Linux/mips 5.4.79 Kernel Configuration
+# Linux/mips 5.4.81 Kernel Configuration
 #
 
 #
@@ -401,7 +401,6 @@ CONFIG_PM_CLK=y
 #
 # CONFIG_FIRMWARE_MEMMAP is not set
 # CONFIG_GOOGLE_FIRMWARE is not set
-CONFIG_EFI_EARLYCON=y
 
 #
 # Tegra firmware driver
@@ -463,7 +462,6 @@ CONFIG_64BIT_TIME=y
 CONFIG_COMPAT_32BIT_TIME=y
 # CONFIG_REFCOUNT_FULL is not set
 CONFIG_HAVE_ARCH_COMPILER_H=y
-CONFIG_ARCH_USE_MEMREMAP_PROT=y
 # CONFIG_LOCK_EVENT_COUNTS is not set
 
 #
@@ -2623,6 +2621,7 @@ CONFIG_DRM_INGENIC=m
 # CONFIG_TINYDRM_ST7586 is not set
 # CONFIG_TINYDRM_ST7735R is not set
 CONFIG_SGX=y
+# CONFIG_PVRSGX_1_9_2188537 is not set
 # CONFIG_PVRSGX_1_9_2253347 is not set
 # CONFIG_PVRSGX_1_10_2359475 is not set
 # CONFIG_PVRSGX_1_13_3341330 is not set
