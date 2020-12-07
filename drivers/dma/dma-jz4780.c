@@ -4,6 +4,9 @@
  *
  * Copyright (c) 2015 Imagination Technologies
  * Author: Alex Smith <alex@alex-smith.me.uk>
+ *
+ * Copyright (C) 2020 Paul Boddie <paul@boddie.org.uk>
+ * JZ4730 customisations
  */
 
 #include <linux/clk.h>
@@ -34,6 +37,9 @@
 #define JZ_DMA_REG_DCIRQP	0x28
 #define JZ_DMA_REG_DCIRQM	0x2c
 
+#define JZ4730_DMA_REG_DIRQP	0x00
+#define JZ4730_DMA_REG_DMAC	0x04
+
 /* Per-channel registers. */
 #define JZ_DMA_REG_CHAN(n)	(n * 0x20)
 #define JZ_DMA_REG_DSA		0x00
@@ -44,6 +50,8 @@
 #define JZ_DMA_REG_DCM		0x14
 #define JZ_DMA_REG_DDA		0x18
 #define JZ_DMA_REG_DSD		0x1c
+
+#define JZ4730_DMA_REG_DDA	0x04
 
 #define JZ_DMA_DMAC_DMAE	BIT(0)
 #define JZ_DMA_DMAC_AR		BIT(2)
@@ -142,6 +150,7 @@ struct jz4780_dma_soc_data {
 	unsigned int nb_channels;
 	unsigned int transfer_ord_max;
 	unsigned long flags;
+	unsigned long control, pending, descaddr;
 };
 
 struct jz4780_dma_dev {
@@ -542,7 +551,7 @@ static void jz4780_dma_begin(struct jz4780_dma_chan *jzchan)
 	/* Write descriptor address and initiate descriptor fetch. */
 	desc_phys = jzchan->desc->desc_phys +
 		    (jzchan->curr_hwdesc * sizeof(*jzchan->desc->desc));
-	jz4780_dma_chn_writel(jzdma, jzchan->id, JZ_DMA_REG_DDA, desc_phys);
+	jz4780_dma_chn_writel(jzdma, jzchan->id, jzdma->soc_data->descaddr, desc_phys);
 	jz4780_dma_ctrl_writel(jzdma, JZ_DMA_REG_DDRS, BIT(jzchan->id));
 
 	/* Enable the channel. */
@@ -730,7 +739,7 @@ static irqreturn_t jz4780_dma_irq_handler(int irq, void *data)
 	uint32_t dmac;
 	int i;
 
-	pending = jz4780_dma_ctrl_readl(jzdma, JZ_DMA_REG_DIRQP);
+	pending = jz4780_dma_ctrl_readl(jzdma, jzdma->soc_data->pending);
 
 	for_each_set_bit(i, &pending, nb_channels) {
 		if (jz4780_dma_chan_irq(jzdma, &jzdma->chan[i]))
@@ -738,12 +747,12 @@ static irqreturn_t jz4780_dma_irq_handler(int irq, void *data)
 	}
 
 	/* Clear halt and address error status of all channels. */
-	dmac = jz4780_dma_ctrl_readl(jzdma, JZ_DMA_REG_DMAC);
+	dmac = jz4780_dma_ctrl_readl(jzdma, jzdma->soc_data->control);
 	dmac &= ~(JZ_DMA_DMAC_HLT | JZ_DMA_DMAC_AR);
-	jz4780_dma_ctrl_writel(jzdma, JZ_DMA_REG_DMAC, dmac);
+	jz4780_dma_ctrl_writel(jzdma, jzdma->soc_data->control, dmac);
 
 	/* Clear interrupt pending status. */
-	jz4780_dma_ctrl_writel(jzdma, JZ_DMA_REG_DIRQP, pending);
+	jz4780_dma_ctrl_writel(jzdma, jzdma->soc_data->pending, pending);
 
 	return IRQ_HANDLED;
 }
@@ -921,7 +930,7 @@ static int jz4780_dma_probe(struct platform_device *pdev)
 	 * Also set the FMSC bit - it increases MSC performance, so it makes
 	 * little sense not to enable it.
 	 */
-	jz4780_dma_ctrl_writel(jzdma, JZ_DMA_REG_DMAC, JZ_DMA_DMAC_DMAE |
+	jz4780_dma_ctrl_writel(jzdma, soc_data->control, JZ_DMA_DMAC_DMAE |
 			       JZ_DMA_DMAC_FAIC | JZ_DMA_DMAC_FMSC);
 
 	if (soc_data->flags & JZ_SOC_DATA_PROGRAMMABLE_DMA)
@@ -995,6 +1004,9 @@ static const struct jz4780_dma_soc_data jz4740_dma_soc_data = {
 	.nb_channels = 6,
 	.transfer_ord_max = 5,
 	.flags = JZ_SOC_DATA_BREAK_LINKS,
+	.control = JZ_DMA_REG_DMAC,
+	.pending = JZ_DMA_REG_DIRQP,
+	.descaddr = JZ_DMA_REG_DDA,
 };
 
 static const struct jz4780_dma_soc_data jz4725b_dma_soc_data = {
@@ -1002,35 +1014,60 @@ static const struct jz4780_dma_soc_data jz4725b_dma_soc_data = {
 	.transfer_ord_max = 5,
 	.flags = JZ_SOC_DATA_PER_CHAN_PM | JZ_SOC_DATA_NO_DCKES_DCKEC |
 		 JZ_SOC_DATA_BREAK_LINKS,
+	.control = JZ_DMA_REG_DMAC,
+	.pending = JZ_DMA_REG_DIRQP,
+	.descaddr = JZ_DMA_REG_DDA,
+};
+
+static const struct jz4780_dma_soc_data jz4730_dma_soc_data = {
+	.nb_channels = 6,
+	.transfer_ord_max = 5,
+	.flags = JZ_SOC_DATA_BREAK_LINKS,
+	.control = JZ4730_DMA_REG_DMAC,
+	.pending = JZ4730_DMA_REG_DIRQP,
+	.descaddr = JZ4730_DMA_REG_DDA,
 };
 
 static const struct jz4780_dma_soc_data jz4770_dma_soc_data = {
 	.nb_channels = 6,
 	.transfer_ord_max = 6,
 	.flags = JZ_SOC_DATA_PER_CHAN_PM,
+	.control = JZ_DMA_REG_DMAC,
+	.pending = JZ_DMA_REG_DIRQP,
+	.descaddr = JZ_DMA_REG_DDA,
 };
 
 static const struct jz4780_dma_soc_data jz4780_dma_soc_data = {
 	.nb_channels = 32,
 	.transfer_ord_max = 7,
 	.flags = JZ_SOC_DATA_ALLOW_LEGACY_DT | JZ_SOC_DATA_PROGRAMMABLE_DMA,
+	.control = JZ_DMA_REG_DMAC,
+	.pending = JZ_DMA_REG_DIRQP,
+	.descaddr = JZ_DMA_REG_DDA,
 };
 
 static const struct jz4780_dma_soc_data x1000_dma_soc_data = {
 	.nb_channels = 8,
 	.transfer_ord_max = 7,
 	.flags = JZ_SOC_DATA_PROGRAMMABLE_DMA,
+	.control = JZ_DMA_REG_DMAC,
+	.pending = JZ_DMA_REG_DIRQP,
+	.descaddr = JZ_DMA_REG_DDA,
 };
 
 static const struct jz4780_dma_soc_data x1830_dma_soc_data = {
 	.nb_channels = 32,
 	.transfer_ord_max = 7,
 	.flags = JZ_SOC_DATA_PROGRAMMABLE_DMA,
+	.control = JZ_DMA_REG_DMAC,
+	.pending = JZ_DMA_REG_DIRQP,
+	.descaddr = JZ_DMA_REG_DDA,
 };
 
 static const struct of_device_id jz4780_dma_dt_match[] = {
 	{ .compatible = "ingenic,jz4740-dma", .data = &jz4740_dma_soc_data },
 	{ .compatible = "ingenic,jz4725b-dma", .data = &jz4725b_dma_soc_data },
+	{ .compatible = "ingenic,jz4730-dma", .data = &jz4730_dma_soc_data },
 	{ .compatible = "ingenic,jz4770-dma", .data = &jz4770_dma_soc_data },
 	{ .compatible = "ingenic,jz4780-dma", .data = &jz4780_dma_soc_data },
 	{ .compatible = "ingenic,x1000-dma", .data = &x1000_dma_soc_data },
