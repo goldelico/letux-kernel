@@ -1055,6 +1055,7 @@ static int jz4740_mmc_probe(struct platform_device* pdev)
 	if (ret == -EPROBE_DEFER)
 		goto err_free_irq;
 	host->use_dma = !ret;
+	host->use_dma = false;
 
 	platform_set_drvdata(pdev, host);
 	ret = mmc_add_host(mmc);
