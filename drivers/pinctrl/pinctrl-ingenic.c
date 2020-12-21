@@ -2179,7 +2179,7 @@ static int ingenic_pinmux_set_pin_fn(struct ingenic_pinctrl *jzpc,
 		ingenic_config_pin(jzpc, pin, JZ4760_GPIO_PAT0, func & 0x1);
 	} else if (jzpc->info->version == ID_JZ4730) {
 		ingenic_config_pin(jzpc, pin, JZ4730_GPIO_GPIER, false);
-		ingenic_config_pin(jzpc, pin, JZ4730_GPIO_GPDIR, false);
+//		ingenic_config_pin(jzpc, pin, JZ4730_GPIO_GPDIR, false);
 		ingenic_config_pin_function(jzpc, pin, JZ4730_GPIO_GPAUR,
 						JZ4730_GPIO_GPALR, func & 0x3);
 	} else {
