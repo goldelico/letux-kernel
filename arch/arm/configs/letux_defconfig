@@ -1,5 +1,5 @@
 #
-# Linux/arm 5.10.1 Kernel Configuration
+# Linux/arm 5.10.2 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabihf-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
@@ -5149,7 +5149,6 @@ CONFIG_USB_FTDI_ELAN=m
 # CONFIG_USB_APPLEDISPLAY is not set
 # CONFIG_APPLE_MFI_FASTCHARGE is not set
 CONFIG_USB_SISUSBVGA=m
-CONFIG_USB_SISUSBVGA_CON=y
 CONFIG_USB_LD=m
 CONFIG_USB_TRANCEVIBRATOR=m
 # CONFIG_USB_IOWARRIOR is not set
