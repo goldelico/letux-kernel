@@ -1862,9 +1862,9 @@ static void irq_set_type(struct ingenic_gpio_chip *jzgc,
 		reg1 = JZ4760_GPIO_PAT1;
 		reg2 = JZ4760_GPIO_PAT0;
 	} else if (jzgc->jzpc->info->version == ID_JZ4730) {
-		ingenic_gpio_set_bit(jzgc, offset, JZ4730_GPIO_GPDIR, false);
-		ingenic_gpio_set_bits(jzgc, offset,
-					JZ4730_GPIO_GPIDUR, JZ4730_GPIO_GPIDLR,
+		ingenic_gpio_set_bit(jzgc, JZ4730_GPIO_GPDIR, offset, false);
+		ingenic_gpio_set_bits(jzgc, JZ4730_GPIO_GPIDUR,
+					JZ4730_GPIO_GPIDLR, offset,
 					(val2 ? 2 : 0) | (val1 ? 1 : 0));
 		return;
 	} else {
