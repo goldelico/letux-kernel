@@ -372,7 +372,7 @@
 
 	bus-width = <4>;
 	cd-gpios = <&gpc 0 GPIO_ACTIVE_LOW>;
-	wp-gpios = <&gpc 2 GPIO_ACTIVE_LOW>;
+	wp-gpios = <&gpc 2 GPIO_ACTIVE_HIGH>;
 	vmmc-supply = <&vmmc_reg>;
 	vqmmc-supply = <&vmmc_reg>;
 
