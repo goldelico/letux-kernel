@@ -452,7 +452,6 @@
 		};
 
 		mmc_ctrl {
-			function = "mmc";
 			pins = "PC0", "PC2", "PA21";
 			bias-disable;
 		};
