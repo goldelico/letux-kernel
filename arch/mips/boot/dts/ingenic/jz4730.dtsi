@@ -187,6 +187,8 @@
 
 		#address-cells = <1>;
 		#size-cells = <0>;
+
+		#sound-dai-cells = <0>;
 	};
 
 	i2c: i2c@10042000 {
