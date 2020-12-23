@@ -123,7 +123,7 @@ static int jz4740_wdt_start(struct watchdog_device *wdt_dev)
 
 	regmap_read(drvdata->map, soc_info->enable, &tcer);
 
-	jz4740_wdt_set_timeout(wdt_dev, wdt_dev->timeout);
+	soc_info->ops->set_timeout(wdt_dev, wdt_dev->timeout);
 
 	/* Start watchdog if it wasn't started already */
 	if (!(tcer & soc_info->enable_start))
