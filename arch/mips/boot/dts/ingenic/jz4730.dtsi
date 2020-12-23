@@ -201,7 +201,7 @@
 		interrupt-parent = <&intc>;
 		interrupts = <1>;
 
-		clocks = <&cgu JZ4730_CLK_PLL>;
+		clocks = <&cgu JZ4730_CLK_I2C>;
 		clock-names = "i2c";
 
 		clock-frequency = <100000>;
