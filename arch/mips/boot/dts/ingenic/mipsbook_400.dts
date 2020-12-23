@@ -241,7 +241,7 @@
 		right_touchpad {
 			label = "Touchpad Right";
 			linux,code = <0x111>;	/* BTN_RIGHT */
-			gpios = <&gpa 9 GPIO_ACTIVE_LOW>;
+			gpios = <&gpa 13 GPIO_ACTIVE_LOW>;
 			gpio-key,wakeup;
 		};
 	};
