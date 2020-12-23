@@ -501,6 +501,7 @@
 		#clock-cells = <0>;
 		clock-frequency = <12000000>;
 		clock-output-names = "ak4643_mcko";
+		#sound-dai-cells = <0>;
 	};
 
 	rtc@51 {
