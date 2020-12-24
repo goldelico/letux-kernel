@@ -491,7 +491,7 @@
 
 &i2c {
 	power_controller@28 {
-		compatible = "minipc,mcu";
+		compatible = "skytone,minipc-mcu";
 		reg = <0x28>;
 	};
 
