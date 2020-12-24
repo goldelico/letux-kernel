@@ -151,9 +151,16 @@ static const struct i2c_device_id minipc_mcu_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, minipc_mcu_id);
 
+static const struct of_device_id jz4730_i2c_of_matches[] = {
+	{ .compatible = "skytone,minipc-mcu", },
+	{ /* sentinel */ }
+};
+MODULE_DEVICE_TABLE(of, jz4730_i2c_of_matches);
+
 static struct i2c_driver minipc_mcu_driver = {
 	.driver		= {
 		.name	= "minipc-mcu",
+		.of_match_table = of_match_ptr(minipc_mcu_of_matches),
 	},
 	.probe		= minipc_mcu_probe,
 	.remove		= minipc_mcu_remove,
