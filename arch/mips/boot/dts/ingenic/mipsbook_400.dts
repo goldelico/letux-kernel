@@ -441,7 +441,7 @@
 	};
 
 	pins_lcd1: lcd1 {
-		function = "sleep";
+		function = "lcd";
 		groups = "lcd-no-pins";
 	};
 
