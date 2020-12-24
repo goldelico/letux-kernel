@@ -161,8 +161,8 @@ static int jz4730_i2c_send(struct jz4730_i2c *i2c, unsigned char data)
 
 	if (!timeout)
 		return -ETIMEDOUT;
-	else
-		return 0;
+
+	return 0;
 }
 
 static int jz4730_i2c_wait_ack(struct jz4730_i2c *i2c, struct i2c_msg *msg)
@@ -178,6 +178,7 @@ static int jz4730_i2c_wait_ack(struct jz4730_i2c *i2c, struct i2c_msg *msg)
 	/* Test for negative acknowledgement condition. */
 
 	if (!(msg->flags & I2C_M_IGNORE_NAK) &&
+// CHECKME: negation?
 	    (jz4730_i2c_readb(i2c, JZ4730_REG_I2C_SR) & JZ4730_I2C_SR_ACKF))
 		return -EIO;
 
@@ -228,10 +229,10 @@ static void jz4730_i2c_stop(struct jz4730_i2c *i2c)
 
 static int jz4730_i2c_cleanup(struct jz4730_i2c *i2c)
 {
-	/* Disable interrupt and device. */
+	/* Disable interrupt */
 
 	jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR, JZ4730_I2C_CR_IEN, 0);
-	return jz4730_i2c_disable(i2c);
+	return 0;
 }
 
 static void jz4730_i2c_trans_done(struct jz4730_i2c *i2c)
@@ -263,7 +264,8 @@ static irqreturn_t jz4730_i2c_irq(int irqno, void *dev_id)
 
 	/* Test for incoming read. */
 
-	if (!(i2c->msg->flags & I2C_M_RD) &&
+
+	if ((i2c->msg->flags & I2C_M_RD) &&
 	    (jz4730_i2c_readb(i2c, JZ4730_REG_I2C_SR) & JZ4730_I2C_SR_DRF)) {
 
 		/* Read data and check status. */
@@ -310,6 +312,7 @@ static int jz4730_i2c_xfer_read(struct jz4730_i2c *i2c,
 	int wait_time = JZ4730_I2C_TIMEOUT * (len + 5);
 	long timeout;
 
+// CHECKME: do we need this?
 	memset(buf, 0, len);
 
 	/* Initialise transfer state. */
@@ -323,10 +326,19 @@ static int jz4730_i2c_xfer_read(struct jz4730_i2c *i2c,
 
 	spin_unlock_irqrestore(&i2c->lock, flags);
 
+	/* Enable interrupt handling. */
+
+	jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR, JZ4730_I2C_CR_IEN,
+			   JZ4730_I2C_CR_IEN);
+
 	/* Wait for the transfer to occur in the background. */
 
 	timeout = wait_for_completion_timeout(&i2c->trans_waitq,
 					      msecs_to_jiffies(wait_time));
+
+	/* Disable interrupt handling. */
+
+	jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR, JZ4730_I2C_CR_IEN, 0);
 
 	if (!timeout) {
 		dev_err(&i2c->adap.dev, "irq read timeout\n");
@@ -358,6 +370,7 @@ static int jz4730_i2c_xfer_write(struct jz4730_i2c *i2c,
 
 		if (jz4730_i2c_readb(i2c, JZ4730_REG_I2C_SR) & JZ4730_I2C_SR_ACKF) {
 			jz4730_i2c_stop(i2c);
+// return -EIO so that i2cdetect can find non-responding address?
 			return 0;
 		}
 	}
@@ -378,9 +391,6 @@ static int jz4730_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msg,
 	int i;
 	int ret = 0;
 
-	/* Enable interrupt handling. */
-
-	jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR, JZ4730_I2C_CR_IEN,
 			   JZ4730_I2C_CR_IEN);
 
 	/* Send messages. */
@@ -391,7 +401,7 @@ static int jz4730_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msg,
 
 		if (!(msg->flags & I2C_M_NOSTART))
 			jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR,
-					JZ4730_I2C_CR_STO, JZ4730_I2C_CR_STO);
+					JZ4730_I2C_CR_STA, JZ4730_I2C_CR_STA);
 
 		/* Set acknowledge level. */
 
@@ -495,8 +505,8 @@ static int jz4730_i2c_probe(struct platform_device *pdev)
 	jz4730_i2c_enable(i2c);
 
 	i2c->irq = platform_get_irq(pdev, 0);
-	ret = devm_request_irq(&pdev->dev, i2c->irq, jz4730_i2c_irq, 0,
-			       dev_name(&pdev->dev), i2c);
+	ret = devm_request_irq(&pdev->dev, i2c->irq, jz4730_i2c_irq,
+			       IRQF_TRIGGER_NONE, dev_name(&pdev->dev), i2c);
 	if (ret)
 		goto err;
 
