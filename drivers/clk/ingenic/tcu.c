@@ -30,7 +30,7 @@ enum tcu_clk_parent {
 	TCU_PARENT_RTC	= 1,
 	TCU_PARENT_EXT	= 2,
 
-	/* OST_TCSRx bit values. */
+	/* OST_TCSRx field values. */
 
 	TCU_JZ4730_PARENT_PCLK_DIV_4	= 0,
 	TCU_JZ4730_PARENT_PCLK_DIV_16	= 1,
@@ -181,13 +181,12 @@ static int ingenic_tcu_set_parent(struct clk_hw *hw, u8 idx)
 {
 	struct ingenic_tcu_clk *tcu_clk = to_tcu_clk(hw);
 	const struct ingenic_tcu_clk_info *info = tcu_clk->info;
-	struct ingenic_tcu *tcu = tcu_clk->tcu;
 	bool was_enabled;
 	int ret;
 
 	was_enabled = ingenic_tcu_enable_regs(hw);
 
-	if (tcu->soc_info->jz4740_regs) {
+	if (tcu_clk->tcu->soc_info->jz4740_regs) {
 		ret = regmap_update_bits(tcu_clk->tcu->map, info->tcsr_reg,
 					 TCU_TCSR_PARENT_CLOCK_MASK, BIT(idx));
 	} else {
@@ -202,8 +201,14 @@ static int ingenic_tcu_set_parent(struct clk_hw *hw, u8 idx)
 	return 0;
 }
 
-static unsigned long ingenic_tcu_recalc_rate(struct clk_hw *hw,
-		unsigned long parent_rate)
+/* Prescale values associated with input clocks. Since some selected parent
+   clocks are divided, these values provide the log4(division) values for the
+   parent clocks. See JZ4730 definitions in tcu_clk_parent for the divided
+   input clock associated with each position in this array. */
+
+static u8 jz4730_clock_prescale[] = {1, 2, 3, 4, 0, 0, 0, 0};
+
+static u8 ingenic_tcu_read_prescale(struct clk_hw *hw)
 {
 	struct ingenic_tcu_clk *tcu_clk = to_tcu_clk(hw);
 	const struct ingenic_tcu_clk_info *info = tcu_clk->info;
@@ -213,20 +218,59 @@ static unsigned long ingenic_tcu_recalc_rate(struct clk_hw *hw,
 	ret = regmap_read(tcu_clk->tcu->map, info->tcsr_reg, &prescale);
 	WARN_ONCE(ret < 0, "Unable to read TCSR %d", tcu_clk->idx);
 
-	prescale = (prescale & TCU_TCSR_PRESCALE_MASK) >> TCU_TCSR_PRESCALE_LSB;
-
-	return parent_rate >> (prescale * 2);
+	if (to_tcu_clk(hw)->tcu->soc_info->has_prescale)
+		return (prescale & TCU_TCSR_PRESCALE_MASK) >> TCU_TCSR_PRESCALE_LSB;
+	else
+		return jz4730_clock_prescale[prescale & TCU_JZ4730_TCSR_PARENT_CLOCK_MASK];
 }
 
-static u8 ingenic_tcu_get_prescale(unsigned long rate, unsigned long req_rate)
+static void ingenic_tcu_write_prescale(struct clk_hw *hw, u8 prescale)
+{
+	struct ingenic_tcu_clk *tcu_clk = to_tcu_clk(hw);
+	const struct ingenic_tcu_clk_info *info = tcu_clk->info;
+	int ret;
+
+	if (tcu_clk->tcu->soc_info->has_prescale)
+		ret = regmap_update_bits(tcu_clk->tcu->map, info->tcsr_reg,
+					 TCU_TCSR_PRESCALE_MASK,
+					 prescale << TCU_TCSR_PRESCALE_LSB);
+	else
+		ret = regmap_update_bits(tcu_clk->tcu->map, info->tcsr_reg,
+					 TCU_JZ4730_TCSR_PARENT_CLOCK_MASK,
+					 prescale);
+
+	WARN_ONCE(ret < 0, "Unable to update TCSR %d", tcu_clk->idx);
+}
+
+static unsigned long ingenic_tcu_recalc_rate(struct clk_hw *hw,
+		unsigned long parent_rate)
+{
+	return parent_rate >> (ingenic_tcu_read_prescale(hw) * 2);
+}
+
+static u8 ingenic_tcu_get_prescale(struct clk_hw *hw, unsigned long rate,
+				   unsigned long req_rate)
 {
 	u8 prescale;
+	int min_prescale = 0, max_prescale = 5;
 
-	for (prescale = 0; prescale < 5; prescale++)
+	/*
+	 * JZ4730: restrict prescaler values to PCLK only.
+	 * Clocks other than PCLK have zero prescale only.
+	 */
+	if (!to_tcu_clk(hw)->tcu->soc_info->has_prescale)
+	{
+		if (!ingenic_tcu_read_prescale(hw))
+			return 0;
+
+		min_prescale = 1; max_prescale = 4;
+	}
+
+	for (prescale = min_prescale; prescale < max_prescale; prescale++)
 		if ((rate >> (prescale * 2)) <= req_rate)
 			return prescale;
 
-	return 5; /* /1024 divider */
+	return max_prescale; /* /1024 divider (for prescale of 5) */
 }
 
 static long ingenic_tcu_round_rate(struct clk_hw *hw, unsigned long req_rate,
@@ -238,10 +282,7 @@ static long ingenic_tcu_round_rate(struct clk_hw *hw, unsigned long req_rate,
 	if (req_rate > rate)
 		return rate;
 
-	if (!to_tcu_clk(hw)->tcu->soc_info->has_prescale)
-		return rate;
-
-	prescale = ingenic_tcu_get_prescale(rate, req_rate);
+	prescale = ingenic_tcu_get_prescale(hw, rate, req_rate);
 
 	return rate >> (prescale * 2);
 }
@@ -249,22 +290,10 @@ static long ingenic_tcu_round_rate(struct clk_hw *hw, unsigned long req_rate,
 static int ingenic_tcu_set_rate(struct clk_hw *hw, unsigned long req_rate,
 		unsigned long parent_rate)
 {
-	struct ingenic_tcu_clk *tcu_clk = to_tcu_clk(hw);
-	const struct ingenic_tcu_clk_info *info = tcu_clk->info;
-	u8 prescale;
-	bool was_enabled;
-	int ret;
+	u8 prescale = ingenic_tcu_get_prescale(hw, parent_rate, req_rate);
+	bool was_enabled = ingenic_tcu_enable_regs(hw);
 
-	if (!tcu_clk->tcu->soc_info->has_prescale)
-		return 0;
-
-	prescale = ingenic_tcu_get_prescale(parent_rate, req_rate);
-	was_enabled = ingenic_tcu_enable_regs(hw);
-
-	ret = regmap_update_bits(tcu_clk->tcu->map, info->tcsr_reg,
-				 TCU_TCSR_PRESCALE_MASK,
-				 prescale << TCU_TCSR_PRESCALE_LSB);
-	WARN_ONCE(ret < 0, "Unable to update TCSR %d", tcu_clk->idx);
+	ingenic_tcu_write_prescale(hw, prescale);
 
 	if (!was_enabled)
 		ingenic_tcu_disable_regs(hw);
@@ -291,15 +320,6 @@ static const char * const ingenic_tcu_timer_parents[] = {
 	[TCU_PARENT_EXT]  = "ext",
 };
 
-static const char * const ingenic_tcu_timer_jz4730_parents[] = {
-	[TCU_JZ4730_PARENT_PCLK_DIV_4] = "pclk_div_4",
-	[TCU_JZ4730_PARENT_PCLK_DIV_16] = "pclk_div_16",
-	[TCU_JZ4730_PARENT_PCLK_DIV_64] = "pclk_div_64",
-	[TCU_JZ4730_PARENT_PCLK_DIV_256] = "pclk_div_256",
-	[TCU_JZ4730_PARENT_RTC]  = "rtc",
-	[TCU_JZ4730_PARENT_EXT]  = "ext",
-};
-
 #define DEF_TIMER(_name, _gate_bit, _tcsr)				\
 	{								\
 		.init_data = {						\
@@ -323,22 +343,10 @@ static const struct ingenic_tcu_clk_info ingenic_tcu_clk_info[] = {
 	[TCU_CLK_TIMER7] = DEF_TIMER("timer7", 7, TCU_REG_TCSRc(7)),
 };
 
-#define DEF_TIMER_JZ4730(_name, _gate_bit, _tcsr)				\
-	{								\
-		.init_data = {						\
-			.name = _name,					\
-			.parent_names = ingenic_tcu_timer_jz4730_parents,\
-			.num_parents = ARRAY_SIZE(ingenic_tcu_timer_jz4730_parents),\
-			.ops = &ingenic_tcu_clk_ops,			\
-			.flags = CLK_SET_RATE_UNGATE,			\
-		},							\
-		.gate_bit = _gate_bit,					\
-		.tcsr_reg = _tcsr,					\
-	}
 static const struct ingenic_tcu_clk_info ingenic_tcu_jz4730_clk_info[] = {
-	[TCU_CLK_TIMER0] = DEF_TIMER_JZ4730("timer0", 0, TCU_JZ4730_REG_TCSRc(0)),
-	[TCU_CLK_TIMER1] = DEF_TIMER_JZ4730("timer1", 1, TCU_JZ4730_REG_TCSRc(1)),
-	[TCU_CLK_TIMER2] = DEF_TIMER_JZ4730("timer2", 2, TCU_JZ4730_REG_TCSRc(2)),
+	[TCU_CLK_TIMER0] = DEF_TIMER("timer0", 0, TCU_JZ4730_REG_TCSRc(0)),
+	[TCU_CLK_TIMER1] = DEF_TIMER("timer1", 1, TCU_JZ4730_REG_TCSRc(1)),
+	[TCU_CLK_TIMER2] = DEF_TIMER("timer2", 2, TCU_JZ4730_REG_TCSRc(2)),
 };
 
 static const struct ingenic_tcu_clk_info ingenic_tcu_watchdog_clk_info =
@@ -346,7 +354,6 @@ static const struct ingenic_tcu_clk_info ingenic_tcu_watchdog_clk_info =
 static const struct ingenic_tcu_clk_info ingenic_tcu_ost_clk_info =
 					 DEF_TIMER("ost", 15, TCU_REG_OST_TCSR);
 #undef DEF_TIMER
-#undef DEF_TIMER_JZ4730
 
 static int __init ingenic_tcu_register_clock(struct ingenic_tcu *tcu,
 			unsigned int idx, enum tcu_clk_parent parent,
@@ -415,7 +422,7 @@ static const struct ingenic_soc_info jz4730_soc_info = {
 	.has_ost = false,	/* JZ4730 uses OST channels as TCU channels */
 	.has_wdt = false,	/* JZ4730 has a separate watchdog timer */
 	.has_tcu_clk = true,
-	.has_prescale = false,	/* JZ4730 TCSR has no apparent prescale field */
+	.has_prescale = false,	/* JZ4730 TCSR has prescaled parent clocks */
 	.jz4740_regs = false,	/* JZ4730 uses different register layout */
 	.clk_info = ingenic_tcu_jz4730_clk_info,
 	.parent_rtc = TCU_JZ4730_PARENT_RTC,
