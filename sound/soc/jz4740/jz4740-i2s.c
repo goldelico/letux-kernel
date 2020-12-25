@@ -82,6 +82,7 @@
 #define I2SDIV_IDV_MASK (0xf << I2SDIV_IDV_SHIFT)
 
 enum jz47xx_i2s_version {
+	JZ_I2S_JZ4730,
 	JZ_I2S_JZ4740,
 	JZ_I2S_JZ4760,
 	JZ_I2S_JZ4770,
@@ -459,6 +460,11 @@ static struct snd_soc_dai_driver jz4740_i2s_dai = {
 	.ops = &jz4740_i2s_dai_ops,
 };
 
+static const struct i2s_soc_info jz4730_i2s_soc_info = {
+	.version = JZ_I2S_JZ4730,
+	.dai = &jz4740_i2s_dai,
+};
+
 static const struct i2s_soc_info jz4740_i2s_soc_info = {
 	.version = JZ_I2S_JZ4740,
 	.dai = &jz4740_i2s_dai,
@@ -504,6 +510,7 @@ static const struct snd_soc_component_driver jz4740_i2s_component = {
 };
 
 static const struct of_device_id jz4740_of_matches[] = {
+	{ .compatible = "ingenic,jz4730-i2s", .data = &jz4730_i2s_soc_info },
 	{ .compatible = "ingenic,jz4740-i2s", .data = &jz4740_i2s_soc_info },
 	{ .compatible = "ingenic,jz4760-i2s", .data = &jz4760_i2s_soc_info },
 	{ .compatible = "ingenic,jz4770-i2s", .data = &jz4770_i2s_soc_info },
