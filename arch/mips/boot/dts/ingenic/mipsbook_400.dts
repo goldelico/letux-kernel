@@ -512,6 +512,11 @@
 
 };
 
+&rtc_dev {
+	/* we have the pcf8563 on i2c */
+	status = "disabled";
+};
+
 &uhc {
 	status = "okay";
 
