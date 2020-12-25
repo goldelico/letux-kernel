@@ -183,7 +183,7 @@
 	};
 
 	i2s: i2s {
-		compatible = "ingenic,jt4730-dai";
+		compatible = "ingenic,jz4730-dai";
 
 		#address-cells = <1>;
 		#size-cells = <0>;
