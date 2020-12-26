@@ -7,6 +7,7 @@
 
 / {
 	compatible = "letux400,minipc", "ingenic,jz4730";
+	model = "Skytone Mipsbook 400";
 
 	aliases {
 		serial0 = &uart0;
@@ -47,11 +48,11 @@
 	};
 
 	keyboard {
-		linux,wakeup;
-
 		compatible = "gpio-matrix-keypad";
-		debounce-delay-ms = <10>;
+
 		col-scan-delay-us = <10>;
+		debounce-delay-ms = <10>;
+		wakeup-source;
 
 		row-gpios = <&gpa 0 0 &gpa 1 0 &gpa 2 0 &gpa 3 0
 			     &gpa 4 0 &gpa 5 0 &gpa 6 0 &gpa 7 0>;
@@ -233,16 +234,16 @@
 
 		left_touchpad {
 			label = "Touchpad Left";
+			wakeup-source;
 			linux,code = <0x110>;	/* BTN_LEFT */
 			gpios = <&gpa 16 GPIO_ACTIVE_LOW>;
-			gpio-key,wakeup;
 		};
 
 		right_touchpad {
 			label = "Touchpad Right";
+			wakeup-source;
 			linux,code = <0x111>;	/* BTN_RIGHT */
 			gpios = <&gpa 13 GPIO_ACTIVE_LOW>;
-			gpio-key,wakeup;
 		};
 	};
 
@@ -353,6 +354,8 @@
 
 &rtc_dev {
 	system-power-controller;
+	/* we have the pcf8563 on i2c */
+	status = "disabled";
 };
 
 &lcd {
@@ -510,11 +513,6 @@
 		#clock-cells = <0>;
 	};
 
-};
-
-&rtc_dev {
-	/* we have the pcf8563 on i2c */
-	status = "disabled";
 };
 
 &uhc {
