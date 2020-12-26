@@ -61,9 +61,8 @@ enum {
 
 struct jz4730_i2c {
 	void __iomem		*iomem;
-	int			 irq;
 	struct clk		*clk;
-	struct i2c_adapter	 adap;
+	struct i2c_adapter	adap;
 	int			speed;
 
 	struct completion	trans_waitq;
@@ -114,7 +113,7 @@ static int jz4730_i2c_set_speed(struct jz4730_i2c *i2c)
 
 	/* Set the I2C clock divider. */
 
-	// FIXME: check for overflows?
+	// FIXME: check for overflow - we only have 16 bit divider resolution?
 	jz4730_i2c_writew(i2c, JZ4730_REG_I2C_GR, dev_clk_khz / (16 * i2c_clk) - 1);
 
 	return 0;
@@ -136,10 +135,8 @@ static irqreturn_t jz4730_i2c_irq(int irqno, void *dev_id)
 	switch (i2c->state) {
 		case STATE_IDLE:
 			dev_err(&i2c->adap.dev, "spurious interrupt during idle state\n");
-#if 1
-			/* it appears as if SR stays with BUSY + TEND set after successful write */
+			/* stop interrupt flooding */
 			jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR, JZ4730_I2C_CR_IEN, 0);
-#endif
 			break;
 
 		case STATE_DONE:
@@ -147,20 +144,28 @@ static irqreturn_t jz4730_i2c_irq(int irqno, void *dev_id)
 			if (status & JZ4730_I2C_SR_ACKF)
 				i2c->ret = -EIO;	/* there was no positive ACK */
 
+			/* clear data ready status if we received an extra byte */
+			jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_SR, JZ4730_I2C_SR_DRF, 0);
+
 			i2c->state = STATE_IDLE;
 
 			complete(&i2c->trans_waitq);
+
 			break;
 
 		case STATE_SEND_ADDR:
 			if (msg->flags & I2C_M_TEN) {
 				/* 11110aad where aa = address[9:8] abd d = direction */
-				jz4730_i2c_writeb(i2c, JZ4730_REG_I2C_DR, (msg->flags & I2C_M_RD ? BIT(0) : 0) | ((msg->addr >> 7) & 0x06) | 0xf0);
+				jz4730_i2c_writeb(i2c, JZ4730_REG_I2C_DR,
+					(msg->flags & I2C_M_RD ? BIT(0) : 0) |
+					((msg->addr >> 7) & 0x06) | 0xf0);
 				i2c->state = STATE_SEND_ADDR10;
 			}
 			else {
 				/* aaaaaaad */
-				jz4730_i2c_writeb(i2c, JZ4730_REG_I2C_DR, (msg->flags & I2C_M_RD ? BIT(0) : 0) | (msg->addr << 1));
+				jz4730_i2c_writeb(i2c, JZ4730_REG_I2C_DR,
+					(msg->flags & I2C_M_RD ? BIT(0) : 0) |
+					(msg->addr << 1));
 				if (msg->flags & I2C_M_RD)
 					i2c->state = STATE_READ;
 				else
@@ -208,7 +213,6 @@ static irqreturn_t jz4730_i2c_irq(int irqno, void *dev_id)
 				jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_SR, JZ4730_I2C_SR_DRF, 0);
 			}
 			else {
-				// send stop bit unless we have another message???
 				i2c->state = STATE_DONE;
 			}
 			break;
@@ -223,18 +227,10 @@ static int jz4730_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msg,
 {
 	struct jz4730_i2c *i2c = adap->algo_data;
 	int i;
-	int ret;
 
 	/* first message must request a START */
 	if (count > 0 && msg->flags & I2C_M_NOSTART)
 		return -EINVAL;
-
-// CHECKME: can we leave irqs permanently enabled?
-
-	/* Enable interrupt handling. */
-
-	jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR, JZ4730_I2C_CR_IEN,
-			   JZ4730_I2C_CR_IEN);
 
 	/* Send/Receive messages. */
 
@@ -261,44 +257,21 @@ static int jz4730_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msg,
 			jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR,
 					JZ4730_I2C_CR_STA, JZ4730_I2C_CR_STA);
 
-#if 1
-	/* Enable interrupt handling. irq during STATE_IDLE may have disabled! */
-	jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR, JZ4730_I2C_CR_IEN,
-			   JZ4730_I2C_CR_IEN);
-#endif
-
 		/* Wait for the transfer to occur in the background. */
 
 		timeout = wait_for_completion_timeout(&i2c->trans_waitq,
 					      msecs_to_jiffies(wait_time));
 
-#if 1
-	/* Disable interrupt handling. */
-	jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR, JZ4730_I2C_CR_IEN, 0);
-#endif
-
 		if (!timeout) {
 			dev_err(&i2c->adap.dev, "irq timeout %ld\n", timeout);
-			ret = -ETIMEDOUT;
-			goto out;
+			return -ETIMEDOUT;
 		}
 
-		ret = i2c->ret;
-
-		if (ret)
-			goto out;
+		if (i2c->ret)
+			return i2c->ret;
 	}
 
-	/* Set the number of transferred messages. */
-
-	ret = i;
-
-out:
-// CHECKME: can we leave irqs permanently enabled?
-	/* disable interrupts */
-	jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR, JZ4730_I2C_CR_IEN, 0);
-
-	return ret;
+	return i;
 }
 
 static u32 jz4730_i2c_functionality(struct i2c_adapter *adap)
@@ -313,6 +286,7 @@ static const struct i2c_algorithm jz4730_i2c_algorithm = {
 
 static const struct of_device_id jz4730_i2c_of_matches[] = {
 	{ .compatible = "ingenic,jz4730-i2c", },
+	/* JZ4740 has the same I2C controller so we do not need to differentiate */
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, jz4730_i2c_of_matches);
@@ -320,6 +294,7 @@ MODULE_DEVICE_TABLE(of, jz4730_i2c_of_matches);
 static int jz4730_i2c_probe(struct platform_device *pdev)
 {
 	int ret;
+	int irq;
 	unsigned int clk_freq;
 	struct resource *r;
 	struct jz4730_i2c *i2c;
@@ -373,8 +348,8 @@ static int jz4730_i2c_probe(struct platform_device *pdev)
 
 	jz4730_i2c_set_speed(i2c);
 
-	i2c->irq = platform_get_irq(pdev, 0);
-	ret = devm_request_irq(&pdev->dev, i2c->irq, jz4730_i2c_irq,
+	irq = platform_get_irq(pdev, 0);
+	ret = devm_request_irq(&pdev->dev, irq, jz4730_i2c_irq,
 			       IRQF_TRIGGER_NONE, dev_name(&pdev->dev), i2c);
 	if (ret)
 		goto err;
@@ -383,7 +358,8 @@ static int jz4730_i2c_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto err;
 
-	jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR, JZ4730_I2C_CR_I2CE, JZ4730_I2C_CR_I2CE);
+	jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR, JZ4730_I2C_CR_IEN | JZ4730_I2C_CR_I2CE,
+			    JZ4730_I2C_CR_IEN | JZ4730_I2C_CR_I2CE);
 
 	return 0;
 
