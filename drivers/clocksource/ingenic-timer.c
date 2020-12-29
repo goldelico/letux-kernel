@@ -62,7 +62,7 @@ static u64 notrace ingenic_tcu_timer_read(void)
 	} else {
 		regmap_read(tcu->map, TCU_JZ4730_REG_TCNTc(tcu->cs_channel), &count);
 		regmap_read(tcu->map, TCU_JZ4730_REG_TRDRc(tcu->cs_channel), &reload);
-		count = (u16)reload - (u16)count;
+		count = reload - count;
 	}
 
 	return count;
