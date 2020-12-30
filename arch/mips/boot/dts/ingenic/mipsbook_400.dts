@@ -236,14 +236,14 @@
 			label = "Touchpad Left";
 			wakeup-source;
 			linux,code = <0x110>;	/* BTN_LEFT */
-			gpios = <&gpa 16 GPIO_ACTIVE_LOW>;
+			gpios = <&gpa 16 GPIO_ACTIVE_HIGH>;
 		};
 
 		right_touchpad {
 			label = "Touchpad Right";
 			wakeup-source;
 			linux,code = <0x111>;	/* BTN_RIGHT */
-			gpios = <&gpa 13 GPIO_ACTIVE_LOW>;
+			gpios = <&gpa 13 GPIO_ACTIVE_HIGH>;
 		};
 	};
 
