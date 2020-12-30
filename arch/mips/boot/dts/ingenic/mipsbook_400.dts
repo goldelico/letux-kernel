@@ -305,8 +305,6 @@
 		brightness-levels = <150 200 250 300>;
 		default-brightness-level = <2>;
 
-		default-on;
-
 		pinctrl-names = "default";
 		pinctrl-0 = <&pins_pwm0>;
 	};
