@@ -37,6 +37,7 @@
 #define JZ4730_GPIO_GPIDLR	0x18
 #define JZ4730_GPIO_GPIDUR	0x1c
 #define JZ4730_GPIO_GPIER	0x20
+#define JZ4730_GPIO_GPIMR	0x24
 #define JZ4730_GPIO_GPFR	0x28
 
 #define JZ4740_GPIO_DATA	0x10
@@ -1789,7 +1790,7 @@ static void ingenic_gpio_set_bits(struct ingenic_gpio_chip *jzgc,
 	/* JZ4730 function and IRQ registers support two-bits-per-pin
 	 * definitions, split into two groups of 16. */
 
-	u32 reg = offset < JZ4730_PINS_PER_PAIRED_REG ? reg_lower : reg_upper;
+	u8 reg = offset < JZ4730_PINS_PER_PAIRED_REG ? reg_lower : reg_upper;
 	unsigned int idx = offset % JZ4730_PINS_PER_PAIRED_REG;
 
 	regmap_update_bits(jzgc->jzpc->map, jzgc->reg_base + reg,
@@ -1886,16 +1887,28 @@ static void ingenic_gpio_irq_mask(struct irq_data *irqd)
 {
 	struct gpio_chip *gc = irq_data_get_irq_chip_data(irqd);
 	struct ingenic_gpio_chip *jzgc = gpiochip_get_data(gc);
+	int irq = irqd->hwirq;
 
-	ingenic_gpio_set_bit(jzgc, GPIO_MSK, irqd->hwirq, true);
+//printk("%s: %d\n", __func__, irq);
+
+	if (jzgc->jzpc->info->version == ID_JZ4730)
+		ingenic_gpio_set_bit(jzgc, JZ4730_GPIO_GPIMR, irq, true);
+	else
+		ingenic_gpio_set_bit(jzgc, GPIO_MSK, irq, true);
 }
 
 static void ingenic_gpio_irq_unmask(struct irq_data *irqd)
 {
 	struct gpio_chip *gc = irq_data_get_irq_chip_data(irqd);
 	struct ingenic_gpio_chip *jzgc = gpiochip_get_data(gc);
+	int irq = irqd->hwirq;
 
-	ingenic_gpio_set_bit(jzgc, GPIO_MSK, irqd->hwirq, false);
+//printk("%s: %d\n", __func__, irq);
+
+	if (jzgc->jzpc->info->version == ID_JZ4730)
+		ingenic_gpio_set_bit(jzgc, JZ4730_GPIO_GPIMR, irq, false);
+	else
+		ingenic_gpio_set_bit(jzgc, GPIO_MSK, irq, false);
 }
 
 static void ingenic_gpio_irq_enable(struct irq_data *irqd)
