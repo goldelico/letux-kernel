@@ -9,10 +9,12 @@
 #include <linux/device.h>
 #include <linux/bitops.h>
 #include <linux/errno.h>
+#include <linux/iio/consumer.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/mfd/rn5t618.h>
+#include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
 #include <linux/regmap.h>
@@ -45,15 +47,23 @@ struct rn5t618_power_info {
 	struct power_supply *battery;
 	struct power_supply *usb;
 	struct power_supply *adp;
+	struct iio_channel *channel_vusb;
+	struct iio_channel *channel_vadp;
 	int irq;
 };
 
 static enum power_supply_property rn5t618_usb_props[] = {
+	/* input current limit is not very accurate */
+	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
+	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_ONLINE,
 };
 
 static enum power_supply_property rn5t618_adp_props[] = {
+	/* input current limit is not very accurate */
+	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
+	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_ONLINE,
 };
@@ -342,6 +352,7 @@ static int rn5t618_adp_get_property(struct power_supply *psy,
 {
 	struct rn5t618_power_info *info = power_supply_get_drvdata(psy);
 	unsigned int chgstate;
+	unsigned int regval;
 	bool online;
 	int ret;
 
@@ -365,6 +376,24 @@ static int rn5t618_adp_get_property(struct power_supply *psy,
 			val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
 
 		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
+		ret = regmap_read(info->rn5t618->regmap,
+				  RN5T618_REGISET1, &regval);
+		if (ret < 0)
+			return ret;
+
+		val->intval = 1000 * 100 * (1 + (regval & CHG_STATE_MASK));
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+		if (!info->channel_vadp)
+			return -ENODATA;
+
+		ret = iio_read_channel_processed(info->channel_vadp, &val->intval);
+		if (ret < 0)
+			return ret;
+
+		val->intval *= 1000;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -378,6 +407,7 @@ static int rn5t618_usb_get_property(struct power_supply *psy,
 {
 	struct rn5t618_power_info *info = power_supply_get_drvdata(psy);
 	unsigned int chgstate;
+	unsigned int regval;
 	bool online;
 	int ret;
 
@@ -400,6 +430,24 @@ static int rn5t618_usb_get_property(struct power_supply *psy,
 		if (val->intval != POWER_SUPPLY_STATUS_CHARGING)
 			val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
 
+		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
+		ret = regmap_read(info->rn5t618->regmap, RN5T618_REGISET2,
+				  &regval);
+		if (ret < 0)
+			return ret;
+
+		val->intval = 1000 * 100 * (1 + (regval & CHG_STATE_MASK));
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+		if (!info->channel_vusb)
+			return -ENODATA;
+
+		ret = iio_read_channel_processed(info->channel_vusb, &val->intval);
+		if (ret < 0)
+			return ret;
+
+		val->intval *= 1000;
 		break;
 	default:
 		return -EINVAL;
@@ -476,6 +524,28 @@ static int rn5t618_power_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, info);
 
+	info->channel_vusb = devm_iio_channel_get(&pdev->dev, "vusb");
+	if (IS_ERR(info->channel_vusb)) {
+		ret = PTR_ERR(info->channel_vusb);
+		if (ret == -EPROBE_DEFER)
+			return ret;
+
+		dev_warn(&pdev->dev, "could not request vusb iio channel (%d)",
+			 ret);
+		info->channel_vusb = NULL;
+	}
+
+	info->channel_vadp = devm_iio_channel_get(&pdev->dev, "vadp");
+	if (IS_ERR(info->channel_vadp)) {
+		ret = PTR_ERR(info->channel_vadp);
+		if (ret == -EPROBE_DEFER)
+			return ret;
+
+		dev_warn(&pdev->dev, "could not request vadp iio channel (%d)",
+			 ret);
+		info->channel_vadp = NULL;
+	}
+
 	ret = regmap_read(info->rn5t618->regmap, RN5T618_CONTROL, &v);
 	if (ret)
 		return ret;
@@ -543,9 +613,16 @@ static int rn5t618_power_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id rn5t618_power_of_match[] = {
+	{.compatible = "ricoh,rn5t618-power", },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, rn5t618_power_of_match);
+
 static struct platform_driver rn5t618_power_driver = {
 	.driver = {
 		.name   = "rn5t618-power",
+		.of_match_table = of_match_ptr(rn5t618_power_of_match),
 	},
 	.probe = rn5t618_power_probe,
 };
