@@ -2081,9 +2081,9 @@ static inline void ingenic_config_pin_function(struct ingenic_pinctrl *jzpc,
 	/* JZ4730 function and IRQ registers support two-bits-per-pin
 	 * definitions, split into two groups of 16. */
 
-	u32 reg = pin < JZ4730_PINS_PER_PAIRED_REG ? reg_lower : reg_upper;
 	unsigned int idx = pin % JZ4730_PINS_PER_PAIRED_REG;
-	unsigned int offt = pin / JZ4730_PINS_PER_PAIRED_REG;
+	unsigned int offt = pin / PINS_PER_GPIO_CHIP;
+	u8 reg = (pin % PINS_PER_GPIO_CHIP) < JZ4730_PINS_PER_PAIRED_REG ? reg_lower : reg_upper;
 
 	regmap_update_bits(jzpc->map, offt * jzpc->info->reg_offset + reg,
 				3 << (idx * 2), value << (idx * 2));
