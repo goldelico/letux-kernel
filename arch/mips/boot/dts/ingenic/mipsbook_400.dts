@@ -253,21 +253,24 @@
 		scroll_lock {
 			label = "scroll_lock";
 			gpios = <&gpa 9 GPIO_ACTIVE_LOW>;
-			linux,default-trigger = "kbd-scrolllock";
+//			linux,default-trigger = "kbd-scrolllock";
+			linux,default-trigger = "heartbeat";
 			default-state = "off";
 		};
 
 		caps_lock {
 			label = "caps_lock";
 			gpios = <&gpa 27 GPIO_ACTIVE_LOW>;
-			linux,default-trigger = "kbd-capslock";
+//			linux,default-trigger = "kbd-capslock";
+			linux,default-trigger = "cpu";
 			default-state = "off";
 		};
 
 		num_lock {
 			label = "num_lock";
 			gpios = <&gpc 22 GPIO_ACTIVE_LOW>;
-			linux,default-trigger = "kbd-numlock";
+//			linux,default-trigger = "kbd-numlock";
+			linux,default-trigger = "mmc0";
 			default-state = "off";
 		};
 	};
