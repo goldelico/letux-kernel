@@ -236,14 +236,14 @@
 			label = "Touchpad Left";
 			wakeup-source;
 			linux,code = <0x110>;	/* BTN_LEFT */
-			gpios = <&gpa 16 GPIO_ACTIVE_LOW>;
+			gpios = <&gpa 16 GPIO_ACTIVE_HIGH>;
 		};
 
 		right_touchpad {
 			label = "Touchpad Right";
 			wakeup-source;
 			linux,code = <0x111>;	/* BTN_RIGHT */
-			gpios = <&gpa 13 GPIO_ACTIVE_LOW>;
+			gpios = <&gpa 13 GPIO_ACTIVE_HIGH>;
 		};
 	};
 
@@ -253,21 +253,24 @@
 		scroll_lock {
 			label = "scroll_lock";
 			gpios = <&gpa 9 GPIO_ACTIVE_LOW>;
-			linux,default-trigger = "scroll_lock";
+//			linux,default-trigger = "kbd-scrolllock";
+			linux,default-trigger = "heartbeat";
 			default-state = "off";
 		};
 
 		caps_lock {
 			label = "caps_lock";
 			gpios = <&gpa 27 GPIO_ACTIVE_LOW>;
-			linux,default-trigger = "caps_lock";
+//			linux,default-trigger = "kbd-capslock";
+			linux,default-trigger = "cpu";
 			default-state = "off";
 		};
 
 		num_lock {
 			label = "num_lock";
 			gpios = <&gpc 22 GPIO_ACTIVE_LOW>;
-			linux,default-trigger = "num_lock";
+//			linux,default-trigger = "kbd-numlock";
+			linux,default-trigger = "mmc0";
 			default-state = "off";
 		};
 	};
@@ -304,8 +307,6 @@
 
 		brightness-levels = <150 200 250 300>;
 		default-brightness-level = <2>;
-
-		default-on;
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&pins_pwm0>;
