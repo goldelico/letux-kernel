@@ -981,26 +981,11 @@ static int ingenic_drm_bind(struct device *dev, bool has_components)
 	if (!priv->dma_hwdescs)
 		return -ENOMEM;
 
-	priv->dma_hwdesc_f1 = dmam_alloc_coherent(dev, soc_info->hwdesc_size,
-						  &priv->dma_hwdesc_phys_f1,
-						  GFP_KERNEL);
-	if (!priv->dma_hwdesc_f1)
-		return -ENOMEM;
-
-
 	/* Configure DMA hwdesc for foreground0 plane */
 	dma_hwdesc_phys_f0 = priv->dma_hwdescs_phys
 		+ offsetof(struct ingenic_dma_hwdescs, hwdesc_f0);
 	priv->dma_hwdescs->hwdesc_f0.next = dma_hwdesc_phys_f0;
 	priv->dma_hwdescs->hwdesc_f0.id = 0xf0;
-
-	if (priv->soc_info->has_osd) {
-		priv->dma_hwdesc_f0 = dmam_alloc_coherent(dev,
-							  soc_info->hwdesc_size,
-							  &priv->dma_hwdesc_phys_f0,
-							  GFP_KERNEL);
-		if (!priv->dma_hwdesc_f0)
-			return -ENOMEM;
 
 	/* Configure DMA hwdesc for foreground1 plane */
 	dma_hwdesc_phys_f1 = priv->dma_hwdescs_phys
