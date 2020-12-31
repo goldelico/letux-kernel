@@ -1,0 +1,22 @@
+#!/bin/bash
+# configure kernel (letux_defconfig) for Kernel Debugger
+# run from root of source tree
+
+[ "$PLATFORM" ] || export PLATFORM=letux
+[ "$ARCH" ] || export ARCH=arm
+
+# update defconfig
+CONF="arch/${ARCH}/configs/${PLATFORM}_defconfig"
+
+# enable KDB
+sed -i.bak 's/# CONFIG_DEBUG_KERNEL is not set/CONFIG_DEBUG_KERNEL=y/g' $CONF
+sed -i.bak 's/# CONFIG_DEBUG_RODATA is not set/CONFIG_DEBUG_RODATA=y/g' $CONF
+sed -i.bak 's/# CONFIG_KALLSYMS is not set/CONFIG_KALLSYMS=y/g' $CONF
+fgrep -q CONFIG_KGDB=y $CONF || 
+(
+echo CONFIG_KGDB=y
+echo CONFIG_KGDB_SERIAL_CONSOLE=y
+echo CONFIG_KGDB_KDB=y
+echo CONFIG_FRAME_POINTER=y
+echo CONFIG_DEBUG_INFO=y
+) >>$CONF
