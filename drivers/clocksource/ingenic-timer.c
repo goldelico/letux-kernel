@@ -27,6 +27,7 @@ static DEFINE_PER_CPU(call_single_data_t, ingenic_cevt_csd);
 
 struct ingenic_soc_info {
 	unsigned int num_channels;
+	bool jz4740_regs;
 };
 
 struct ingenic_tcu_timer {
@@ -38,6 +39,7 @@ struct ingenic_tcu_timer {
 };
 
 struct ingenic_tcu {
+	const struct ingenic_soc_info *soc_info;
 	struct regmap *map;
 	struct device_node *np;
 	struct clk *cs_clk;
@@ -52,9 +54,16 @@ static struct ingenic_tcu *ingenic_tcu;
 static u64 notrace ingenic_tcu_timer_read(void)
 {
 	struct ingenic_tcu *tcu = ingenic_tcu;
+	unsigned int reload;
 	unsigned int count;
 
-	regmap_read(tcu->map, TCU_REG_TCNTc(tcu->cs_channel), &count);
+	if (tcu->soc_info->jz4740_regs) {
+		regmap_read(tcu->map, TCU_REG_TCNTc(tcu->cs_channel), &count);
+	} else {
+		regmap_read(tcu->map, TCU_JZ4730_REG_TCNTc(tcu->cs_channel), &count);
+		regmap_read(tcu->map, TCU_JZ4730_REG_TRDRc(tcu->cs_channel), &reload);
+		count = reload - count;
+	}
 
 	return count;
 }
@@ -81,7 +90,11 @@ static int ingenic_tcu_cevt_set_state_shutdown(struct clock_event_device *evt)
 	struct ingenic_tcu_timer *timer = to_ingenic_tcu_timer(evt);
 	struct ingenic_tcu *tcu = to_ingenic_tcu(timer);
 
-	regmap_write(tcu->map, TCU_REG_TECR, BIT(timer->channel));
+	if (tcu->soc_info->jz4740_regs) {
+		regmap_write(tcu->map, TCU_REG_TECR, BIT(timer->channel));
+	} else {
+		regmap_clear_bits(tcu->map, TCU_JZ4730_REG_TER, BIT(timer->channel));
+	}
 
 	return 0;
 }
@@ -95,9 +108,15 @@ static int ingenic_tcu_cevt_set_next(unsigned long next,
 	if (next > 0xffff)
 		return -EINVAL;
 
-	regmap_write(tcu->map, TCU_REG_TDFRc(timer->channel), next);
-	regmap_write(tcu->map, TCU_REG_TCNTc(timer->channel), 0);
-	regmap_write(tcu->map, TCU_REG_TESR, BIT(timer->channel));
+	if (tcu->soc_info->jz4740_regs) {
+		regmap_write(tcu->map, TCU_REG_TDFRc(timer->channel), next);
+		regmap_write(tcu->map, TCU_REG_TCNTc(timer->channel), 0);
+		regmap_write(tcu->map, TCU_REG_TESR, BIT(timer->channel));
+	} else {
+		regmap_write(tcu->map, TCU_JZ4730_REG_TRDRc(timer->channel), next);
+		regmap_write(tcu->map, TCU_JZ4730_REG_TCNTc(timer->channel), 0xffff);
+		regmap_set_bits(tcu->map, TCU_JZ4730_REG_TER, BIT(timer->channel));
+	}
 
 	return 0;
 }
@@ -115,7 +134,11 @@ static irqreturn_t ingenic_tcu_cevt_cb(int irq, void *dev_id)
 	struct ingenic_tcu *tcu = to_ingenic_tcu(timer);
 	call_single_data_t *csd;
 
-	regmap_write(tcu->map, TCU_REG_TECR, BIT(timer->channel));
+	if (tcu->soc_info->jz4740_regs) {
+		regmap_write(tcu->map, TCU_REG_TECR, BIT(timer->channel));
+	} else {
+		regmap_clear_bits(tcu->map, TCU_JZ4730_REG_TER, BIT(timer->channel));
+	}
 
 	if (timer->cevt.event_handler) {
 		csd = &per_cpu(ingenic_cevt_csd, timer->cpu);
@@ -223,16 +246,30 @@ static int __init ingenic_tcu_clocksource_init(struct device_node *np,
 		goto err_clk_disable;
 	}
 
-	/* Reset channel */
-	regmap_update_bits(tcu->map, TCU_REG_TCSRc(channel),
-			   0xffff & ~TCU_TCSR_RESERVED_BITS, 0);
 
-	/* Reset counter */
-	regmap_write(tcu->map, TCU_REG_TDFRc(channel), 0xffff);
-	regmap_write(tcu->map, TCU_REG_TCNTc(channel), 0);
+	if (tcu->soc_info->jz4740_regs) {
+		/* Reset channel */
+		regmap_update_bits(tcu->map, TCU_REG_TCSRc(channel),
+				   0xffff & ~TCU_TCSR_RESERVED_BITS, 0);
 
-	/* Enable channel */
-	regmap_write(tcu->map, TCU_REG_TESR, BIT(channel));
+		/* Reset counter */
+		regmap_write(tcu->map, TCU_REG_TDFRc(channel), 0xffff);
+		regmap_write(tcu->map, TCU_REG_TCNTc(channel), 0);
+
+		/* Enable channel */
+		regmap_write(tcu->map, TCU_REG_TESR, BIT(channel));
+	} else {
+		/* Reset channel */
+		regmap_update_bits(tcu->map, TCU_JZ4730_REG_TCSRc(channel),
+				   0xffff & ~TCU_JZ4730_TCSR_PARENT_CLOCK_MASK, 0);
+
+		/* Reset counter */
+		regmap_write(tcu->map, TCU_JZ4730_REG_TRDRc(channel), 0xffff);
+		regmap_write(tcu->map, TCU_JZ4730_REG_TCNTc(channel), 0);
+
+		/* Enable channel */
+		regmap_set_bits(tcu->map, TCU_JZ4730_REG_TER, BIT(channel));
+	}
 
 	cs->name = "ingenic-timer";
 	cs->rating = 200;
@@ -255,15 +292,23 @@ err_clk_put:
 
 static const struct ingenic_soc_info jz4740_soc_info = {
 	.num_channels = 8,
+	.jz4740_regs = true,
 };
 
 static const struct ingenic_soc_info jz4725b_soc_info = {
 	.num_channels = 6,
+	.jz4740_regs = true,
+};
+
+static const struct ingenic_soc_info jz4730_soc_info = {
+	.num_channels = 3,
+	.jz4740_regs = false,
 };
 
 static const struct of_device_id ingenic_tcu_of_match[] = {
 	{ .compatible = "ingenic,jz4740-tcu", .data = &jz4740_soc_info, },
 	{ .compatible = "ingenic,jz4725b-tcu", .data = &jz4725b_soc_info, },
+	{ .compatible = "ingenic,jz4730-tcu", .data = &jz4730_soc_info, },
 	{ .compatible = "ingenic,jz4770-tcu", .data = &jz4740_soc_info, },
 	{ .compatible = "ingenic,x1000-tcu", .data = &jz4740_soc_info, },
 	{ /* sentinel */ }
@@ -309,6 +354,7 @@ static int __init ingenic_tcu_init(struct device_node *np)
 		goto err_free_ingenic_tcu;
 	}
 
+	tcu->soc_info = soc_info;
 	tcu->map = map;
 	tcu->np = np;
 	ingenic_tcu = tcu;
@@ -358,6 +404,7 @@ err_free_ingenic_tcu:
 
 TIMER_OF_DECLARE(jz4740_tcu_intc,  "ingenic,jz4740-tcu",  ingenic_tcu_init);
 TIMER_OF_DECLARE(jz4725b_tcu_intc, "ingenic,jz4725b-tcu", ingenic_tcu_init);
+TIMER_OF_DECLARE(jz4730_tcu_intc, "ingenic,jz4730-tcu", ingenic_tcu_init);
 TIMER_OF_DECLARE(jz4770_tcu_intc,  "ingenic,jz4770-tcu",  ingenic_tcu_init);
 TIMER_OF_DECLARE(x1000_tcu_intc,  "ingenic,x1000-tcu",  ingenic_tcu_init);
 
