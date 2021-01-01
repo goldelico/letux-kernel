@@ -3,6 +3,7 @@ TARGETS += acct
 TARGETS += alloc_tag
 TARGETS += alsa
 TARGETS += amd-pstate
+TARGETS += android
 TARGETS += arm64
 TARGETS += bpf
 TARGETS += breakpoints
