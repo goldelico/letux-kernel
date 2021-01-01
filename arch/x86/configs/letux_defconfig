@@ -1,5 +1,5 @@
 #
-# Linux/x86 5.10.2 Kernel Configuration
+# Linux/x86 5.10.4 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="i486-linux-gnu-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
@@ -4839,7 +4839,6 @@ CONFIG_MFD_VIPERBOARD=m
 # CONFIG_MFD_RC5T583 is not set
 # CONFIG_MFD_SEC_CORE is not set
 # CONFIG_MFD_SI476X_CORE is not set
-# CONFIG_MFD_SL28CPLD is not set
 # CONFIG_MFD_SM501 is not set
 # CONFIG_MFD_SKY81452 is not set
 # CONFIG_ABX500_CORE is not set
