@@ -1,5 +1,5 @@
 #
-# Linux/mips 4.9.248 Kernel Configuration
+# Linux/mips 4.9.249 Kernel Configuration
 #
 CONFIG_MIPS=y
 
@@ -1573,6 +1573,7 @@ CONFIG_SPI_GPIO=y
 CONFIG_SPI_SPIDEV=y
 # CONFIG_SPI_LOOPBACK_TEST is not set
 # CONFIG_SPI_TLE62X0 is not set
+# CONFIG_SPI_DYNAMIC is not set
 # CONFIG_SPMI is not set
 # CONFIG_HSI is not set
 
