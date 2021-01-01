@@ -97,8 +97,6 @@ config ANDROID_LOW_MEMORY_KILLER
 	  scripts (/init.rc), and it defines priority values with minimum free memory size
 	  for each priority.
 
-source "drivers/staging/android/ion/Kconfig"
-
 endif # if ANDROID
 
 endmenu
