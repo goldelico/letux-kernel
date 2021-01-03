@@ -14,6 +14,12 @@
 #include <dt-bindings/input/input.h>
 
 / {
+	aliases {
+		mmc0 = &usdhc2;
+		mmc1 = &usdhc3;
+		/delete-property/ mmc2;
+		/delete-property/ mmc3;
+	};
 
 	chosen {
 		stdout-path = &uart1;
