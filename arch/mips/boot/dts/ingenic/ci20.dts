@@ -96,7 +96,7 @@
 		 * regulator framework doesn't enable the regulator
 		 * if boot-on is not there.
 		 */
-//		regulator-always-on;
+		regulator-always-on;
 		regulator-boot-on;
 	};
 
@@ -118,6 +118,9 @@
 
 		gpio = <&gpf 14 GPIO_ACTIVE_LOW>;
 		enable-active-high;
+
+//		regulator-always-on;
+		regulator-boot-on;
 	};
 };
 
@@ -126,7 +129,7 @@
 };
 
 &otg_phy {
-	vcc-supply = <&usb_power>;
+	vcc-supply = <&otg_power>;
 };
 
 &ext {
