@@ -1376,6 +1376,11 @@ static const struct jz_soc_info jz4780_soc_info = {
 	.hwdesc_size = sizeof(struct ingenic_dma_hwdesc_ext),
 	.max_width = 4096,
 	.max_height = 4096,
+	/* REVISIT: do we support formats different from jz4770? */
+	.formats_f1 = jz4770_formats_f1,
+	.num_formats_f1 = ARRAY_SIZE(jz4770_formats_f1),
+	.formats_f0 = jz4770_formats_f0,
+	.num_formats_f0 = ARRAY_SIZE(jz4770_formats_f0),
 	.max_reg = JZ_REG_LCD_PCFG,
 };
 
