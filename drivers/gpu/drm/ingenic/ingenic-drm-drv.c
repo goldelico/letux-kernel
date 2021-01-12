@@ -574,7 +574,6 @@ static void ingenic_drm_plane_atomic_update(struct drm_plane *plane,
 	struct drm_plane_state *oldstate = drm_atomic_get_old_plane_state(state, plane);
 	struct drm_crtc_state *crtc_state;
 	struct ingenic_dma_hwdesc *hwdesc;
-	struct ingenic_dma_hwdesc_ext *hwdesc_ext;
 	unsigned int width, height, cpp, offset;
 	dma_addr_t addr;
 	u32 fourcc;
@@ -599,32 +598,36 @@ static void ingenic_drm_plane_atomic_update(struct drm_plane *plane,
 		hwdesc->cmd = JZ_LCD_CMD_FRM_ENABLE | JZ_LCD_CMD_EOF_IRQ |
 			      (width * height * cpp / 4);
 
-		/* Extended 8-byte descriptor */
-		hwdesc_ext = (struct ingenic_dma_hwdesc_ext *) hwdesc;
-		hwdesc_ext->cpos = 0;
-		hwdesc_ext->offsize = 0;
-		hwdesc_ext->pagewidth = 0;
+		if (priv->soc_info->hwdesc_size == sizeof(struct ingenic_dma_hwdesc_ext)) {
+			struct ingenic_dma_hwdesc_ext *hwdesc_ext;
 
-		switch (state->fb->format->format) {
-		case DRM_FORMAT_XRGB1555:
-			hwdesc_ext->cpos |= JZ_LCD_CPOS_RGB555;
-			fallthrough;
-		case DRM_FORMAT_RGB565:
-			hwdesc_ext->cpos |= JZ_LCD_CPOS_BPP_15_16;
-			break;
-		case DRM_FORMAT_XRGB8888:
-			hwdesc_ext->cpos |= JZ_LCD_CPOS_BPP_18_24;
-			break;
+			/* Extended 8-byte descriptor */
+			hwdesc_ext = (struct ingenic_dma_hwdesc_ext *) hwdesc;
+			hwdesc_ext->cpos = 0;
+			hwdesc_ext->offsize = 0;
+			hwdesc_ext->pagewidth = 0;
+
+			switch (state->fb->format->format) {
+			case DRM_FORMAT_XRGB1555:
+				hwdesc_ext->cpos |= JZ_LCD_CPOS_RGB555;
+				fallthrough;
+			case DRM_FORMAT_RGB565:
+				hwdesc_ext->cpos |= JZ_LCD_CPOS_BPP_15_16;
+				break;
+			case DRM_FORMAT_XRGB8888:
+				hwdesc_ext->cpos |= JZ_LCD_CPOS_BPP_18_24;
+				break;
+			}
+			hwdesc_ext->cpos |= JZ_LCD_CPOS_PREMULTIPLY_LCD |
+					    (3 << JZ_LCD_CPOS_COEFFICIENT_OFFSET);
+
+			hwdesc_ext->dessize =
+				(0xff << JZ_LCD_DESSIZE_ALPHA_OFFSET) |
+				(((height - 1) & JZ_LCD_DESSIZE_HEIGHT_MASK) <<
+						 JZ_LCD_DESSIZE_HEIGHT_OFFSET) |
+				(((width - 1) & JZ_LCD_DESSIZE_WIDTH_MASK) <<
+						JZ_LCD_DESSIZE_WIDTH_OFFSET);
 		}
-		hwdesc_ext->cpos |= JZ_LCD_CPOS_PREMULTIPLY_LCD |
-				    (3 << JZ_LCD_CPOS_COEFFICIENT_OFFSET);
-
-		hwdesc_ext->dessize =
-			(0xff << JZ_LCD_DESSIZE_ALPHA_OFFSET) |
-			(((height - 1) & JZ_LCD_DESSIZE_HEIGHT_MASK) <<
-					 JZ_LCD_DESSIZE_HEIGHT_OFFSET) |
-			(((width - 1) & JZ_LCD_DESSIZE_WIDTH_MASK) <<
-					JZ_LCD_DESSIZE_WIDTH_OFFSET);
 
 		if (drm_atomic_crtc_needs_modeset(crtc_state)) {
 			fourcc = newstate->fb->format->format;
