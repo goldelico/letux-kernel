@@ -1258,6 +1258,11 @@ static int __maybe_unused ingenic_drm_resume(struct device *dev)
 
 static SIMPLE_DEV_PM_OPS(ingenic_drm_pm_ops, ingenic_drm_suspend, ingenic_drm_resume);
 
+static const u32 jz4730_formats[] = {
+	DRM_FORMAT_XRGB1555,
+	DRM_FORMAT_RGB565,
+};
+
 static const u32 jz4740_formats[] = {
 	DRM_FORMAT_XRGB1555,
 	DRM_FORMAT_RGB565,
@@ -1292,6 +1297,21 @@ static const u32 jz4770_formats_f0[] = {
 	DRM_FORMAT_RGB888,
 	DRM_FORMAT_XRGB8888,
 	DRM_FORMAT_XRGB2101010,
+};
+
+static const struct jz_soc_info jz4730_soc_info = {
+	.needs_dev_clk = true,
+	.has_osd = false,
+	.has_pcfg = false,
+	.has_recover = false,
+	.has_rgbc = false,
+	.hwdesc_size = sizeof(struct ingenic_dma_hwdesc),
+	.max_width = 800,
+	.max_height = 600,
+	.formats_f1 = jz4730_formats,
+	.num_formats_f1 = ARRAY_SIZE(jz4730_formats),
+	/* JZ4730 has only one plane */
+	.max_reg = JZ_REG_LCD_CMD1 + 1,
 };
 
 static const struct jz_soc_info jz4740_soc_info = {
@@ -1330,6 +1350,7 @@ static const struct jz_soc_info jz4770_soc_info = {
 };
 
 static const struct of_device_id ingenic_drm_of_match[] = {
+	{ .compatible = "ingenic,jz4730-lcd", .data = &jz4730_soc_info },
 	{ .compatible = "ingenic,jz4740-lcd", .data = &jz4740_soc_info },
 	{ .compatible = "ingenic,jz4725b-lcd", .data = &jz4725b_soc_info },
 	{ .compatible = "ingenic,jz4770-lcd", .data = &jz4770_soc_info },
