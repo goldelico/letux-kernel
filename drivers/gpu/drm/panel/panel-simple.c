@@ -448,6 +448,9 @@ static int panel_dpi_probe(struct device *dev,
 	/* We do not know the connector for the DT node, so guess it */
 	desc->connector_type = DRM_MODE_CONNECTOR_DPI;
 
+printk("%s: %08x\n", __func__, desc->bus_format);
+	desc->bus_format=MEDIA_BUS_FMT_RGB565_1X16;
+
 	panel->desc = desc;
 
 	return 0;
