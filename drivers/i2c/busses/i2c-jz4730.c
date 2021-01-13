@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2006 - 2009 Ingenic Semiconductor Inc.
  * Copyright (C) 2015 Imagination Technologies
- * Copyright (C) 2017 Paul Boddie <paul@boddie.org.uk>
+ * Copyright (C) 2017, 2021 Paul Boddie <paul@boddie.org.uk>
  * Copyright (C) 2020 H. Nikolaus Schaller <hns@goldelico.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -55,6 +55,7 @@ enum {
 	STATE_SEND_ADDR,
 	STATE_SEND_ADDR10,
 	STATE_WRITE,
+	STATE_READ_INIT,
 	STATE_READ,
 	STATE_DONE
 };
@@ -135,19 +136,13 @@ static irqreturn_t jz4730_i2c_irq(int irqno, void *dev_id)
 	switch (i2c->state) {
 		case STATE_IDLE:
 			dev_err(&i2c->adap.dev, "spurious interrupt during idle state\n");
-#if 1	// HACK
-			/* it appears as if SR stays with BUSY + TEND set after successful write */
-			jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR, JZ4730_I2C_CR_IEN, 0);
-#endif
 			break;
 
 		case STATE_DONE:
-
-			if (status & JZ4730_I2C_SR_ACKF)
-				i2c->ret = -EIO;	/* there was no positive ACK */
-
-			/* clear data ready status if we received an extra byte */
-			jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_SR, JZ4730_I2C_SR_DRF, 0);
+			/* For writes, wait for the transfer end flag to be set. */
+			if (!(msg->flags & I2C_M_RD))
+				if (!(status & JZ4730_I2C_SR_TEND))
+					break;
 
 			i2c->state = STATE_IDLE;
 
@@ -162,14 +157,13 @@ static irqreturn_t jz4730_i2c_irq(int irqno, void *dev_id)
 					(msg->flags & I2C_M_RD ? BIT(0) : 0) |
 					((msg->addr >> 7) & 0x06) | 0xf0);
 				i2c->state = STATE_SEND_ADDR10;
-			}
-			else {
+			} else {
 				/* aaaaaaad */
 				jz4730_i2c_writeb(i2c, JZ4730_REG_I2C_DR,
 					(msg->flags & I2C_M_RD ? BIT(0) : 0) |
 					(msg->addr << 1));
 				if (msg->flags & I2C_M_RD)
-					i2c->state = STATE_READ;
+					i2c->state = STATE_READ_INIT;
 				else
 					i2c->state = STATE_WRITE;
 			}
@@ -190,33 +184,70 @@ static irqreturn_t jz4730_i2c_irq(int irqno, void *dev_id)
 			break;
 
 		case STATE_WRITE:
+			/* Handle NACK by setting an error condition. */
+			if (status & JZ4730_I2C_SR_ACKF) {
+				i2c->ret = -EIO;
+				break;
+			}
+
+			/* Wait until a byte can be written. */
+			if (status & JZ4730_I2C_SR_DRF)
+				break;
+
+			/* Write a byte and set the valid data flag. */
 			if (i2c->pos < msg->len) {
 				jz4730_i2c_writeb(i2c, JZ4730_REG_I2C_DR, msg->buf[i2c->pos++]);
 				jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_SR, JZ4730_I2C_SR_DRF,
 				   JZ4730_I2C_SR_DRF);
 			}
-			else {
-				// send stop bit unless we have another message
+
+			/* Stop and set the state to done when all bytes have been written. */
+			if (i2c->pos == msg->len) {
 				jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR,
 					JZ4730_I2C_CR_STO, JZ4730_I2C_CR_STO);
-				/* FIXME: how can we make SR: BUSY + TEND go away? */
 				i2c->state = STATE_DONE;
 			}
+
+			break;
+
+		case STATE_READ_INIT:
+			/* Wait until read initiation has completed. */
+			if ((status & JZ4730_I2C_SR_STX) ||
+				(!(status & JZ4730_I2C_SR_DRF) && !(status & JZ4730_I2C_SR_ACKF)))
+				break;
+
+			i2c->state = STATE_READ;
 			break;
 
 		case STATE_READ:
-			if (i2c->pos == msg->len - 1) {
-				/* Assert non-acknowledgement condition before final byte. */
+			/* Handle NACK by setting an error condition. */
+			if (status & JZ4730_I2C_SR_ACKF) {
+				i2c->ret = -EIO;
+				break;
+			}
+
+			/* Wait until a valid byte can be read. */
+			if (!(status & JZ4730_I2C_SR_DRF))
+				break;
+
+			/* Assert non-acknowledgement condition before final byte. */
+			if (i2c->pos >= msg->len - 2)
 				jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR,
 						JZ4730_I2C_CR_AC, JZ4730_I2C_CR_AC);
-			}
+
+			/* Read a byte and clear the valid data flag. */
 			if (i2c->pos < msg->len) {
 				msg->buf[i2c->pos++] = jz4730_i2c_readb(i2c, JZ4730_REG_I2C_DR);
 				jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_SR, JZ4730_I2C_SR_DRF, 0);
 			}
-			else {
+
+			/* Stop and set state to done when all bytes have been read. */
+			if (i2c->pos == msg->len) {
+				jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR,
+					JZ4730_I2C_CR_STO, JZ4730_I2C_CR_STO);
 				i2c->state = STATE_DONE;
 			}
+
 			break;
 	}
 
@@ -232,7 +263,7 @@ static int jz4730_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msg,
 	int ret;
 
 	/* first message must request a START */
-	if (count > 0 && msg->flags & I2C_M_NOSTART)
+	if ((count > 0) && (msg->flags & I2C_M_NOSTART))
 		return -EINVAL;
 
 	/* Send/Receive messages. */
@@ -259,12 +290,6 @@ static int jz4730_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msg,
 		if (!(msg->flags & I2C_M_NOSTART))
 			jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR,
 					JZ4730_I2C_CR_STA, JZ4730_I2C_CR_STA);
-
-#if 1	// HACK
-	/* Enable interrupt handling. irq during STATE_IDLE may have disabled! */
-	jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR, JZ4730_I2C_CR_IEN,
-			   JZ4730_I2C_CR_IEN);
-#endif
 
 		/* Wait for the transfer to occur in the background. */
 
