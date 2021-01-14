@@ -555,10 +555,10 @@ static void ingenic_drm_plane_atomic_update(struct drm_plane *plane,
 		height = state->src_h >> 16;
 		cpp = state->fb->format->cpp[0];
 
-		if (priv->soc_info->has_osd && plane->type == DRM_PLANE_TYPE_OVERLAY)
-			hwdesc = &priv->dma_hwdescs->hwdesc_f0;
-		else
+		if (priv->soc_info->has_osd && plane->type != DRM_PLANE_TYPE_OVERLAY)
 			hwdesc = &priv->dma_hwdescs->hwdesc_f1;
+		else
+			hwdesc = &priv->dma_hwdescs->hwdesc_f0;
 
 		hwdesc->addr = addr;
 		hwdesc->cmd = JZ_LCD_CMD_EOF_IRQ | (width * height * cpp / 4);
