@@ -1222,7 +1222,7 @@ static const struct jz_soc_info jz4730_soc_info = {
 	.formats_f1 = jz4730_formats,
 	.num_formats_f1 = ARRAY_SIZE(jz4730_formats),
 	/* JZ4730 has only one plane */
-	.max_reg = JZ_REG_LCD_SIZE1,
+	.max_reg = JZ_REG_LCD_CMD1+1,
 };
 
 static const struct jz_soc_info jz4740_soc_info = {
