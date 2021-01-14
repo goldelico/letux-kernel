@@ -164,6 +164,7 @@ struct jz4780_dma_soc_data {
 	unsigned int transfer_ord_max;
 	unsigned long flags;
 	unsigned long control, pending, descaddr;
+	int pending_start, pending_polarity;
 };
 
 struct jz4780_dma_dev {
@@ -776,12 +777,19 @@ static irqreturn_t jz4780_dma_irq_handler(int irq, void *data)
 	unsigned int nb_channels = jzdma->soc_data->nb_channels;
 	unsigned long pending;
 	uint32_t dmac;
-	int i;
+	int i, ch;
 
 	pending = jz4780_dma_ctrl_readl(jzdma, jzdma->soc_data->pending);
 
 	for_each_set_bit(i, &pending, nb_channels) {
-		if (jz4780_dma_chan_irq(jzdma, &jzdma->chan[i]))
+
+		/* Calculate the channel number from the start of the flags
+		   region with the given polarity indicating whether the flags
+		   correspond to the bit order (1) or are reversed (-1). */
+		ch = i - jzdma->soc_data->pending_start *
+			 jzdma->soc_data->pending_polarity;
+
+		if (jz4780_dma_chan_irq(jzdma, &jzdma->chan[ch]))
 			pending &= ~BIT(i);
 	}
 
@@ -1083,6 +1091,8 @@ static const struct jz4780_dma_soc_data jz4740_dma_soc_data = {
 	.flags = JZ_SOC_DATA_BREAK_LINKS,
 	.control = JZ_DMA_REG_DMAC,
 	.pending = JZ_DMA_REG_DIRQP,
+	.pending_start = 0,
+	.pending_polarity = 1,
 	.descaddr = JZ_DMA_REG_DDA,
 };
 
@@ -1093,6 +1103,8 @@ static const struct jz4780_dma_soc_data jz4725b_dma_soc_data = {
 		 JZ_SOC_DATA_BREAK_LINKS,
 	.control = JZ_DMA_REG_DMAC,
 	.pending = JZ_DMA_REG_DIRQP,
+	.pending_start = 0,
+	.pending_polarity = 1,
 	.descaddr = JZ_DMA_REG_DDA,
 };
 
@@ -1102,6 +1114,8 @@ static const struct jz4780_dma_soc_data jz4730_dma_soc_data = {
 	.flags = JZ_SOC_DATA_BREAK_LINKS,
 	.control = JZ4730_DMA_REG_DMAC,
 	.pending = JZ4730_DMA_REG_DIRQP,
+	.pending_start = 15,
+	.pending_polarity = -1,
 	.descaddr = 0,
 };
 
@@ -1111,6 +1125,8 @@ static const struct jz4780_dma_soc_data jz4770_dma_soc_data = {
 	.flags = JZ_SOC_DATA_PER_CHAN_PM,
 	.control = JZ_DMA_REG_DMAC,
 	.pending = JZ_DMA_REG_DIRQP,
+	.pending_start = 0,
+	.pending_polarity = 1,
 	.descaddr = JZ_DMA_REG_DDA,
 };
 
@@ -1120,6 +1136,8 @@ static const struct jz4780_dma_soc_data jz4780_dma_soc_data = {
 	.flags = JZ_SOC_DATA_ALLOW_LEGACY_DT | JZ_SOC_DATA_PROGRAMMABLE_DMA,
 	.control = JZ_DMA_REG_DMAC,
 	.pending = JZ_DMA_REG_DIRQP,
+	.pending_start = 0,
+	.pending_polarity = 1,
 	.descaddr = JZ_DMA_REG_DDA,
 };
 
@@ -1129,6 +1147,8 @@ static const struct jz4780_dma_soc_data x1000_dma_soc_data = {
 	.flags = JZ_SOC_DATA_PROGRAMMABLE_DMA,
 	.control = JZ_DMA_REG_DMAC,
 	.pending = JZ_DMA_REG_DIRQP,
+	.pending_start = 0,
+	.pending_polarity = 1,
 	.descaddr = JZ_DMA_REG_DDA,
 };
 
@@ -1138,6 +1158,8 @@ static const struct jz4780_dma_soc_data x1830_dma_soc_data = {
 	.flags = JZ_SOC_DATA_PROGRAMMABLE_DMA,
 	.control = JZ_DMA_REG_DMAC,
 	.pending = JZ_DMA_REG_DIRQP,
+	.pending_start = 0,
+	.pending_polarity = 1,
 	.descaddr = JZ_DMA_REG_DDA,
 };
 
