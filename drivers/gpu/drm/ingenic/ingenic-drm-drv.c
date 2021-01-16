@@ -849,6 +849,15 @@ static int ingenic_drm_bind(struct device *dev, bool has_components)
 
 	drm_plane_helper_add(&priv->f1, &ingenic_drm_plane_helper_funcs);
 
+	if (priv->soc_info->max_reg == JZ_REG_LCD_CMD1+1) {
+	/* jz4730 */
+	ret = drm_universal_plane_init(drm, &priv->f1, 1,
+				       &ingenic_drm_primary_plane_funcs,
+				       ingenic_drm_primary_formats,
+					/* leave out last format */
+				       ARRAY_SIZE(ingenic_drm_primary_formats)-1,
+				       NULL, DRM_PLANE_TYPE_PRIMARY, NULL);
+	} else
 	ret = drm_universal_plane_init(drm, &priv->f1, 1,
 				       &ingenic_drm_primary_plane_funcs,
 				       ingenic_drm_primary_formats,
