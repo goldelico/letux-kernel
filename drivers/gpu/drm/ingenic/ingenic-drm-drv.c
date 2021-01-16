@@ -1090,6 +1090,18 @@ static int ingenic_drm_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct jz_soc_info jz4730_soc_info = {
+	.needs_dev_clk = true,
+	.has_osd = false,
+	.has_pcfg = false,
+	.has_recover = false,
+	.has_rgbc = false,
+	.hwdesc_size = sizeof(struct ingenic_dma_hwdesc),
+	.max_width = 800,
+	.max_height = 600,
+	.max_reg = JZ_REG_LCD_CMD1+1,
+};
+
 static const struct jz_soc_info jz4740_soc_info = {
 	.needs_dev_clk = true,
 	.has_osd = false,
@@ -1140,6 +1152,7 @@ static const struct jz_soc_info jz4780_soc_info = {
 };
 
 static const struct of_device_id ingenic_drm_of_match[] = {
+	{ .compatible = "ingenic,jz4730-lcd", .data = &jz4730_soc_info },
 	{ .compatible = "ingenic,jz4740-lcd", .data = &jz4740_soc_info },
 	{ .compatible = "ingenic,jz4725b-lcd", .data = &jz4725b_soc_info },
 	{ .compatible = "ingenic,jz4770-lcd", .data = &jz4770_soc_info },
