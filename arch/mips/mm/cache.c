@@ -218,7 +218,6 @@ void cpu_cache_init(void)
 
 		r8k_cache_init();
 	}
-
 	if (cpu_has_tx39_cache) {
 		extern void __weak tx39_cache_init(void);
 
@@ -229,12 +228,6 @@ void cpu_cache_init(void)
 		extern void __weak octeon_cache_init(void);
 
 		octeon_cache_init();
-	}
-
-	if (cpu_has_ingenic_cache) {
-		extern void __weak ingenic_cache_init(void);
-
-		ingenic_cache_init();
 	}
 
 	setup_protection_map();
