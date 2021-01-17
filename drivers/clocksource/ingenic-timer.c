@@ -3,6 +3,7 @@
  * Ingenic SoCs TCU IRQ driver
  * Copyright (C) 2019 Paul Cercueil <paul@crapouillou.net>
  * Copyright (C) 2020 周琰杰 (Zhou Yanjie) <zhouyanjie@wanyeetech.com>
+ * Copyright (C) 2021 Paul Boddie <paul@boddie.org.uk>
  */
 
 #include <linux/bitops.h>
@@ -62,7 +63,7 @@ static u64 notrace ingenic_tcu_timer_read(void)
 	} else {
 		regmap_read(tcu->map, TCU_JZ4730_REG_TCNTc(tcu->cs_channel), &count);
 		regmap_read(tcu->map, TCU_JZ4730_REG_TRDRc(tcu->cs_channel), &reload);
-		count = (u16)reload - (u16)count;
+		count = reload - count;
 	}
 
 	return count;
@@ -105,16 +106,17 @@ static int ingenic_tcu_cevt_set_next(unsigned long next,
 	struct ingenic_tcu_timer *timer = to_ingenic_tcu_timer(evt);
 	struct ingenic_tcu *tcu = to_ingenic_tcu(timer);
 
-	if (next > 0xffff)
-		return -EINVAL;
-
 	if (tcu->soc_info->jz4740_regs) {
+		if (next > 0xffff)
+			return -EINVAL;
+
 		regmap_write(tcu->map, TCU_REG_TDFRc(timer->channel), next);
 		regmap_write(tcu->map, TCU_REG_TCNTc(timer->channel), 0);
 		regmap_write(tcu->map, TCU_REG_TESR, BIT(timer->channel));
 	} else {
+		/* JZ4730 TCU using 32-bit OST units counting down, not up. */
 		regmap_write(tcu->map, TCU_JZ4730_REG_TRDRc(timer->channel), next);
-		regmap_write(tcu->map, TCU_JZ4730_REG_TCNTc(timer->channel), 0xffff);
+		regmap_write(tcu->map, TCU_JZ4730_REG_TCNTc(timer->channel), next);
 		regmap_set_bits(tcu->map, TCU_JZ4730_REG_TER, BIT(timer->channel));
 	}
 
@@ -263,9 +265,9 @@ static int __init ingenic_tcu_clocksource_init(struct device_node *np,
 		regmap_update_bits(tcu->map, TCU_JZ4730_REG_TCSRc(channel),
 				   0xffff & ~TCU_JZ4730_TCSR_PARENT_CLOCK_MASK, 0);
 
-		/* Reset counter */
-		regmap_write(tcu->map, TCU_JZ4730_REG_TRDRc(channel), 0xffff);
-		regmap_write(tcu->map, TCU_JZ4730_REG_TCNTc(channel), 0);
+		/* Reset counter, counting down */
+		regmap_write(tcu->map, TCU_JZ4730_REG_TRDRc(channel), 0xffffffff);
+		regmap_write(tcu->map, TCU_JZ4730_REG_TCNTc(channel), 0xffffffff);
 
 		/* Enable channel */
 		regmap_set_bits(tcu->map, TCU_JZ4730_REG_TER, BIT(channel));
