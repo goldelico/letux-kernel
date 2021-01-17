@@ -5,7 +5,7 @@
  * Copyright (c) 2015 Imagination Technologies
  * Author: Paul Burton <paul.burton@mips.com>
  *
- * Copyright (c) 2017, 2019, 2020 Paul Boddie <paul@boddie.org.uk>
+ * Copyright (c) 2017, 2019, 2020, 2021 Paul Boddie <paul@boddie.org.uk>
  */
 
 #include <linux/clk-provider.h>
@@ -25,23 +25,6 @@
 #define CGU_REG_OCR		0x1c
 #define CGU_REG_MSCR		0x20 /* CLKGR in jz4740 */
 #define CGU_REG_CFCR2		0x60 /* LPCDR in jz4740 */
-
-/* bits within a PLL control register */
-#define PLLCTL_M_SHIFT		23
-#define PLLCTL_M_MASK		(0x1ff << PLLCTL_M_SHIFT)
-#define PLLCTL_N_SHIFT		18
-#define PLLCTL_N_MASK		(0x1f << PLLCTL_N_SHIFT)
-#define PLLCTL_OD_SHIFT		16
-#define PLLCTL_OD_MASK		(0x3 << PLLCTL_OD_SHIFT)
-#define PLLCTL_STABLE		(1 << 10)
-#define PLLCTL_BYPASS		(1 << 9)
-#define PLLCTL_ENABLE		(1 << 8)
-
-/* bits within the LPCR register */
-#define LPCR_SLEEP		(1 << 0)
-
-/* bits within the MSCR register */
-#define MSCR_UDC		(1 << 24)
 
 static struct ingenic_cgu *cgu;
 
@@ -199,7 +182,7 @@ static const struct ingenic_cgu_clk_info jz4730_cgu_clocks[] = {
 	[JZ4730_CLK_UHC_IN] = {
 		"uhcdiv", CGU_CLK_DIV,
 		.parents = { JZ4730_CLK_PLL, -1, -1, -1 },
-		.div = { CGU_REG_CFCR, 25, 1, 3, -1, -1, -1 },
+		.div = { CGU_REG_CFCR, 25, 1, 3, 20, -1, -1 },
 	},
 
 	[JZ4730_CLK_UHC] = {
