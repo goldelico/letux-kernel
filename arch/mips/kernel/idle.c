@@ -18,7 +18,6 @@
 #include <asm/cpu-type.h>
 #include <asm/idle.h>
 #include <asm/mipsregs.h>
-#include <asm/r4kcache.h>
 
 /*
  * Not all of the MIPS CPUs have the "wait" instruction available. Moreover,
@@ -86,34 +85,6 @@ static void __cpuidle rm7k_wait_irqoff(void)
 		"	mtc0	$1, $12		# stalls until W stage	\n"
 		"	.set	pop					\n");
 	raw_local_irq_enable();
-}
-
-/*
- * The Ingenic jz4780 SMP variant has to write back dirty cache lines before
- * executing wait. The CPU & cache clock will be gated until we return from
- * the wait, and if another core attempts to access data from our data cache
- * during this time then it will lock up.
- */
-void jz4780_smp_wait_irqoff(void)
-{
-	unsigned long pending = read_c0_cause() & read_c0_status() & CAUSEF_IP;
-
-	/*
-	 * Going to idle has a significant overhead due to the cache flush so
-	 * try to avoid it if we'll immediately be woken again due to an IRQ.
-	 */
-	if (!need_resched() && !pending) {
-		r4k_blast_dcache();
-
-		__asm__(
-		"	.set push	\n"
-		"	.set mips3	\n"
-		"	sync		\n"
-		"	wait		\n"
-		"	.set pop	\n");
-	}
-
-	local_irq_enable();
 }
 
 /*
@@ -201,6 +172,7 @@ void __init check_wait(void)
 	case CPU_CAVIUM_OCTEON_PLUS:
 	case CPU_CAVIUM_OCTEON2:
 	case CPU_CAVIUM_OCTEON3:
+	case CPU_XBURST:
 	case CPU_LOONGSON32:
 	case CPU_XLR:
 	case CPU_XLP:
@@ -275,11 +247,6 @@ void __init check_wait(void)
 		   cpu_wait = r4k_wait;
 		 */
 		break;
-	case CPU_XBURST:
-		if (IS_ENABLED(CONFIG_SMP))
-			cpu_wait = jz4780_smp_wait_irqoff;
-		else
-			cpu_wait = r4k_wait;
 	default:
 		break;
 	}
