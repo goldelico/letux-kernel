@@ -1,5 +1,5 @@
 #
-# Linux/x86 5.10.7 Kernel Configuration
+# Linux/x86 5.10.8 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="i486-linux-gnu-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
@@ -818,6 +818,7 @@ CONFIG_ARCH_USE_MEMREMAP_PROT=y
 CONFIG_ARCH_HAS_MEM_ENCRYPT=y
 CONFIG_HAVE_STATIC_CALL=y
 CONFIG_ARCH_WANT_LD_ORPHAN_WARN=y
+CONFIG_ARCH_SPLIT_ARG64=y
 
 #
 # GCOV-based kernel profiling

@@ -1,5 +1,5 @@
 #
-# Linux/mips 5.10.7 Kernel Configuration
+# Linux/mips 5.10.8 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
@@ -5554,8 +5554,3 @@ CONFIG_ARCH_HAS_KCOV=y
 # CONFIG_MEMTEST is not set
 # end of Kernel Testing and Coverage
 # end of Kernel hacking
-
-CONFIG_SMP=y
-CONFIG_HOTPLUG_CPU=y
-CONFIG_NR_CPUS=2
-CONFIG_CPU_IDLE=y
