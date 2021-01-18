@@ -197,13 +197,12 @@ void cpu_cache_init(void)
 
 		r4k_cache_init();
 	}
-#if 0
 	if (cpu_has_8k_cache) {
 		extern void __weak r8k_cache_init(void);
 
 		r8k_cache_init();
 	}
-#endif
+
 	if (cpu_has_tx39_cache) {
 		extern void __weak tx39_cache_init(void);
 
