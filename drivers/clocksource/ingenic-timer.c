@@ -114,7 +114,7 @@ static int ingenic_tcu_cevt_set_next(unsigned long next,
 		regmap_write(tcu->map, TCU_REG_TESR, BIT(timer->channel));
 	} else {
 		regmap_write(tcu->map, TCU_JZ4730_REG_TRDRc(timer->channel), next);
-		regmap_write(tcu->map, TCU_JZ4730_REG_TCNTc(timer->channel), 0xffff);
+		regmap_write(tcu->map, TCU_JZ4730_REG_TCNTc(timer->channel), next);
 		regmap_set_bits(tcu->map, TCU_JZ4730_REG_TER, BIT(timer->channel));
 	}
 
