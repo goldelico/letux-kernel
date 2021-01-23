@@ -378,7 +378,6 @@ static const struct group_desc jz4730_groups[] = {
 	INGENIC_PIN_GROUP_FUNCS("lcd-8bit", jz4730_lcd_8bit, jz4730_lcd_8bit_funcs),
 	INGENIC_PIN_GROUP("lcd-16bit", jz4730_lcd_16bit, 1),
 	INGENIC_PIN_GROUP("lcd-16bit-tft", jz4730_lcd_16bit_tft, 1),
-	{ "lcd-no-pins", },
 	INGENIC_PIN_GROUP("nand-cs1", jz4730_nand_cs1, 1),
 	INGENIC_PIN_GROUP("nand-cs2", jz4730_nand_cs2, 1),
 	INGENIC_PIN_GROUP("nand-cs3", jz4730_nand_cs3, 1),
@@ -394,7 +393,7 @@ static const char *jz4730_uart1_groups[] = { "uart1-data", };
 static const char *jz4730_uart2_groups[] = { "uart2-data", };
 static const char *jz4730_uart3_groups[] = { "uart3-data", "uart3-hwflow", };
 static const char *jz4730_lcd_groups[] = {
-	"lcd-8bit", "lcd-16bit", "lcd-16bit-tft", "lcd-no-pins",
+	"lcd-8bit", "lcd-16bit", "lcd-16bit-tft",
 };
 static const char *jz4730_nand_groups[] = {
 	"nand-cs1", "nand-cs2", "nand-cs3", "nand-cs4", "nand-cs5",
