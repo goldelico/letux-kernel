@@ -145,10 +145,12 @@ patternProperties:
       compatible:
         oneOf:
           - enum:
+              - ingenic,jz4730-pwm
               - ingenic,jz4740-pwm
               - ingenic,jz4725b-pwm
           - items:
               - enum:
+                  - ingenic,jz4730-pwm
                   - ingenic,jz4770-pwm
                   - ingenic,jz4780-pwm
               - const: ingenic,jz4740-pwm
