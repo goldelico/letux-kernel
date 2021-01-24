@@ -159,9 +159,10 @@ static const struct ingenic_cgu_clk_info jz4730_cgu_clocks[] = {
 	},
 
 	[JZ4730_CLK_I2S] = {
-		"i2s", CGU_CLK_MUX,
+		"i2s", CGU_CLK_MUX | CGU_CLK_GATE,
 		.parents = { JZ4730_CLK_PLL, JZ4730_CLK_PLL_HALF, -1, -1 },
 		.mux = { CGU_REG_CFCR, 29, 1 },
+		.gate = { CGU_REG_MSCR, 9 },
 	},
 
 	[JZ4730_CLK_SPI] = {
@@ -244,6 +245,12 @@ static const struct ingenic_cgu_clk_info jz4730_cgu_clocks[] = {
 		"tcu", CGU_CLK_GATE,
 		.parents = { JZ4730_CLK_EXT, -1, -1, -1 },
 		.gate = { CGU_REG_MSCR, 3 },
+	},
+
+	[JZ4730_CLK_AIC] = {
+		"aic", CGU_CLK_GATE,
+		.parents = { JZ4730_CLK_EXT, -1, -1, -1 },
+		.gate = { CGU_REG_MSCR, 18 },
 	},
 };
 
