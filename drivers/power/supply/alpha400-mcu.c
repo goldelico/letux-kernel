@@ -168,7 +168,7 @@ static struct i2c_driver minipc_mcu_driver = {
 };
 
 MODULE_AUTHOR("Daniel Gloeckner <daniel-gl@gmx.net>");
-MODULE_DESCRIPTION("Letux 400 LPC915 MCU driver");
+MODULE_DESCRIPTION("Skytone Alpha 400 LPC915 MCU driver");
 MODULE_LICENSE("GPL");
 MODULE_VERSION(DRV_VERSION);
 
