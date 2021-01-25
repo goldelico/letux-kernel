@@ -563,7 +563,8 @@ static inline unsigned int decode_config4(struct cpuinfo_mips *c)
 	config4 = read_c0_config4();
 
 	if (cpu_has_tlb) {
-		if (((config4 & MIPS_CONF4_IE) >> 29) == 2)
+		if (((config4 & MIPS_CONF4_IE) >> 29) == 2 ||
+				((config4 & MIPS_CONF4_IE) >> 29) == 3)
 			c->options |= MIPS_CPU_TLBINV;
 
 		/*
@@ -1805,9 +1806,6 @@ static inline void cpu_probe_ingenic(struct cpuinfo_mips *c, unsigned int cpu)
 	c->options &= ~MIPS_CPU_COUNTER;
 	BUG_ON(__builtin_constant_p(cpu_has_counter) && cpu_has_counter);
 
-	/* XBurst has virtually tagged icache */
-	c->icache.flags |= MIPS_CACHE_VTAG;
-
 	switch (c->processor_id & PRID_IMP_MASK) {
 
 	/* XBurst®1 with MXU1.0/MXU1.1 SIMD ISA */
@@ -1819,7 +1817,7 @@ static inline void cpu_probe_ingenic(struct cpuinfo_mips *c, unsigned int cpu)
 		 * feature will cause BogoMIPS and lpj calculate in error.
 		 * Set cp0 config7 bit 4 to disable this feature.
 		 */
-		set_c0_config7(MIPS_CONF7_BTB_LOOP_EN);
+		set_c0_config7(XBURST_CONF7_BTB_LOOP_EN);
 
 		switch (c->processor_id & PRID_COMP_MASK) {
 
@@ -1842,7 +1840,7 @@ static inline void cpu_probe_ingenic(struct cpuinfo_mips *c, unsigned int cpu)
 		 * switch back to VTLB mode to prevent getting stuck.
 		 */
 		case PRID_COMP_INGENIC_D1:
-			write_c0_page_ctrl(XBURST_PAGECTRL_HPTLB_DIS);
+			write_c0_ingenic_pagectl(XBURST_PAGECTL_HPTLB_DIS);
 			break;
 
 		default:
@@ -1860,7 +1858,7 @@ static inline void cpu_probe_ingenic(struct cpuinfo_mips *c, unsigned int cpu)
 
 	/* XBurst®2 with MXU2.1 SIMD ISA */
 	case PRID_IMP_XBURST2:
-		c->cputype = CPU_XBURST;
+		c->cputype = CPU_XBURST2;
 		__cpu_name[cpu] = "Ingenic XBurst II";
 		break;
 
