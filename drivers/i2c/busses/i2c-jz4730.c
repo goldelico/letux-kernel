@@ -71,11 +71,11 @@ struct jz4730_i2c {
 	spinlock_t		lock;
 
 	/* locked members */
-	struct i2c_msg		*msg;
+	struct i2c_msg		*msg;	/* all messages */
 	int			msg_count;	/* also used as error return */
-	int			msg_num;
-	int			state;
-	int			pos;
+	int			msg_num;	/* current message */
+	int			state;	/* state machine */
+	int			pos;	/* byte position inside message */
 };
 
 static inline unsigned char jz4730_i2c_readb(struct jz4730_i2c *i2c,
@@ -133,138 +133,150 @@ static irqreturn_t jz4730_i2c_irq(int irqno, void *dev_id)
 	msg = &i2c->msg[i2c->msg_num];	/* may point outside the msg array! */
 
 	switch (i2c->state) {
-		default:
-			if(i2c->msg_num < i2c->msg_count) {
+	default:
 
-				/* send next message of sequence */
-				if (!(msg->flags & I2C_M_NOSTART)) {
-					jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR,
-						JZ4730_I2C_CR_STA, JZ4730_I2C_CR_STA);
-					jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR, JZ4730_I2C_CR_AC, 0);
-					i2c->state = STATE_SEND_ADDR;
-				} else
-					i2c->state = STATE_DATA;	/* directly start with data */
-				i2c->pos = 0;
-			} else {
-				if (completion_done(&i2c->trans_waitq))
-					dev_err(&i2c->adap.dev,
-						"spurious interrupt during state %d CR=0x%02x SR=0x%02x\n",
-						i2c->state, control, status);
-				else
-					complete(&i2c->trans_waitq);
-			}
-			break;
+		if(i2c->msg_num < i2c->msg_count) {
 
-		case STATE_SEND_ADDR: {
-			u8 addr;
-
-			if (msg->flags & I2C_M_TEN) {
-				/* 11110aad where aa = address[9:8] and d = direction */
-				addr = ((msg->addr >> 7) & 0x06) | 0xf0;
-				i2c->state = STATE_SEND_ADDR10;
-			}
-			else {
-				/* aaaaaaad where aa = address[6:0] and d = direction */
-				addr = msg->addr << 1;
-				i2c->state = STATE_DATA;
-			}
-
-			if (msg->flags & I2C_M_REV_DIR_ADDR)
-				addr |= (msg->flags & I2C_M_RD ? 0 : BIT(0));	// warning: this may make this state engine hang!
-			else
-				addr |= (msg->flags & I2C_M_RD ? BIT(0) : 0);
-
-			jz4730_i2c_writeb(i2c, JZ4730_REG_I2C_DR, addr);
-			jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_SR, JZ4730_I2C_SR_DRF,
-					    JZ4730_I2C_SR_DRF);
+			/* send next message of sequence */
+			if (!(msg->flags & I2C_M_NOSTART)) {
+				jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR,
+					JZ4730_I2C_CR_STA, JZ4730_I2C_CR_STA);
+				jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR, JZ4730_I2C_CR_AC, 0);
+				i2c->state = STATE_SEND_ADDR;
+			} else
+				i2c->state = STATE_DATA;	/* directly start with data */
+			i2c->pos = 0;
 			break;
 		}
 
-		case STATE_SEND_ADDR10:
+		if (completion_done(&i2c->trans_waitq))
+			dev_err(&i2c->adap.dev,
+				"spurious interrupt during state %d CR=0x%02x SR=0x%02x\n",
+				i2c->state, control, status);
+		else
+			complete(&i2c->trans_waitq);
 
-			if ((status & JZ4730_I2C_SR_ACKF) && !(msg->flags & I2C_M_IGNORE_NAK))
-				i2c->state = STATE_DONE;
-			else {
+		break;
 
-				/* aaaaaaaa where aa = address[7:0] */
-				jz4730_i2c_writeb(i2c, JZ4730_REG_I2C_DR, msg->addr & 0xff);
-				jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_SR, JZ4730_I2C_SR_DRF,
-						    JZ4730_I2C_SR_DRF);
+	case STATE_SEND_ADDR: {
+		u8 addr;
 
-				i2c->state = STATE_DATA;
-			}
+		if (msg->flags & I2C_M_TEN) {
+			/* 11110aad where aa = address[9:8] and d = direction */
+			addr = ((msg->addr >> 7) & 0x06) | 0xf0;
+			i2c->state = STATE_SEND_ADDR10;
+		}
+		else {
+			/* aaaaaaad where aa = address[6:0] and d = direction */
+			addr = msg->addr << 1;
+			i2c->state = STATE_DATA;
+		}
+
+		if (msg->flags & I2C_M_REV_DIR_ADDR)
+			addr |= (msg->flags & I2C_M_RD ? 0 : BIT(0));
+		else
+			addr |= (msg->flags & I2C_M_RD ? BIT(0) : 0);
+
+		jz4730_i2c_writeb(i2c, JZ4730_REG_I2C_DR, addr);
+		jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_SR, JZ4730_I2C_SR_DRF,
+				    JZ4730_I2C_SR_DRF);
+		break;
+	}
+
+	case STATE_SEND_ADDR10:
+
+		if ((status & JZ4730_I2C_SR_ACKF) && !(msg->flags & I2C_M_IGNORE_NAK)) {
+			i2c->state = STATE_DONE;
 			break;
+		}
 
-		case STATE_DATA:
+		/* aaaaaaaa where aa = address[7:0] */
+		jz4730_i2c_writeb(i2c, JZ4730_REG_I2C_DR, msg->addr & 0xff);
+		jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_SR, JZ4730_I2C_SR_DRF,
+				    JZ4730_I2C_SR_DRF);
 
-			if ((status & JZ4730_I2C_SR_ACKF) && !(msg->flags & I2C_M_IGNORE_NAK))
-				i2c->state = STATE_DONE;
-			else if (msg->flags & I2C_M_RD) {
-				if (i2c->pos >= msg->len - 1) {
-					/* Assert non-acknowledgement condition before final byte. */
-					jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR,
-							JZ4730_I2C_CR_AC, JZ4730_I2C_CR_AC);
-					i2c->state = STATE_DONE;
-				}
-				if (i2c->pos < msg->len) {
-					msg->buf[i2c->pos++] = jz4730_i2c_readb(i2c, JZ4730_REG_I2C_DR);
-					jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_SR, JZ4730_I2C_SR_DRF, 0);
-				}
-				// REVISIT: should never happen now - remove this?
-				else {
-					/* clear data ready status if we received the extra byte for checking ACKF */
-					jz4730_i2c_readb(i2c, JZ4730_REG_I2C_DR);
-					jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_SR, JZ4730_I2C_SR_DRF, 0);
-					i2c->state = STATE_DONE;
-				}
-			} else {
-				if (i2c->pos < msg->len) {
-					jz4730_i2c_writeb(i2c, JZ4730_REG_I2C_DR, msg->buf[i2c->pos++]);
-					jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_SR, JZ4730_I2C_SR_DRF,
-							 JZ4730_I2C_SR_DRF);
-				}
-				else {
-					/* there will be another irq */
-					i2c->state = STATE_DONE;
-				}
-			}
+		i2c->state = STATE_DATA;
+
+		break;
+
+	case STATE_DATA:
+
+		if ((status & JZ4730_I2C_SR_ACKF) && !(msg->flags & I2C_M_IGNORE_NAK)) {
+			i2c->state = STATE_DONE;
 			break;
+		}
 
-		case STATE_DONE:
-
-			if (status & JZ4730_I2C_SR_ACKF) {
-				/* end transaction on NACK */
-				if (i2c->msg_num >= i2c->msg_count - 1 || !(msg->flags & I2C_M_IGNORE_NAK))
-					i2c->msg_count = -EIO;
-			}
-
-			/* read any extra data e.g. from NACK */
-			jz4730_i2c_readb(i2c, JZ4730_REG_I2C_DR);
-			jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_SR, JZ4730_I2C_SR_DRF, 0);
-
-			/* prepare for next message */
-			i2c->msg_num++;
-
-			/* send stop condition on error (NACK), after last message or if explicitly requested */
-			if (i2c->msg_count < 0 || i2c->msg_num >= i2c->msg_count || (msg->flags & I2C_M_STOP)) {
-
+		/* read */
+		if (msg->flags & I2C_M_RD) {
+			if (i2c->pos >= msg->len - 1) {
+				/* Assert non-acknowledgement condition before final byte. */
 				jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR,
-					JZ4730_I2C_CR_STO, JZ4730_I2C_CR_STO);
-
-				/* (successful) write must wait for STO irq */
-				if (i2c->msg_count >= 0 && !(msg->flags & I2C_M_RD)) {
-					i2c->state = STATE_WAIT_STO;
-					break;
-				}
+						JZ4730_I2C_CR_AC, JZ4730_I2C_CR_AC);
+				i2c->state = STATE_DONE;
 			}
-			fallthrough;
+			if (i2c->pos < msg->len) {
+				msg->buf[i2c->pos++] = jz4730_i2c_readb(i2c, JZ4730_REG_I2C_DR);
+				jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_SR, JZ4730_I2C_SR_DRF, 0);
+			}
+			// REVISIT: should never happen now - remove this?
+			else {
+				/* clear data ready status if we received the extra byte for checking ACKF */
+				jz4730_i2c_readb(i2c, JZ4730_REG_I2C_DR);
+				jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_SR, JZ4730_I2C_SR_DRF, 0);
+				i2c->state = STATE_DONE;
+			}
+			break;
+		}
 
-		case STATE_WAIT_STO:
+		/* else write */
+		if (i2c->pos < msg->len) {
+			jz4730_i2c_writeb(i2c, JZ4730_REG_I2C_DR, msg->buf[i2c->pos++]);
+			jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_SR, JZ4730_I2C_SR_DRF,
+						 JZ4730_I2C_SR_DRF);
+			}
+		else {
+			/* there will be another irq after writing the last byte */
+			i2c->state = STATE_DONE;
+		}
 
-			if (i2c->msg_count < 0 || i2c->msg_num >= i2c->msg_count)
-				complete(&i2c->trans_waitq);	/* notify xfer() */
+		break;
 
-			i2c->state = STATE_IDLE;
+	case STATE_DONE:
+
+		/* end transaction on NACK */
+		if (status & JZ4730_I2C_SR_ACKF) {
+			if (i2c->msg_num >= i2c->msg_count - 1 || !(msg->flags & I2C_M_IGNORE_NAK))
+				i2c->msg_count = -EIO;
+		}
+
+		/* read any extra data e.g. from NACK */
+		jz4730_i2c_readb(i2c, JZ4730_REG_I2C_DR);
+		jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_SR, JZ4730_I2C_SR_DRF, 0);
+
+		/* prepare for next message */
+		i2c->msg_num++;
+
+		/* send stop condition on error (NACK), after last message or if explicitly requested */
+		if (i2c->msg_count < 0 || i2c->msg_num >= i2c->msg_count || (msg->flags & I2C_M_STOP)) {
+
+			jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR,
+				JZ4730_I2C_CR_STO, JZ4730_I2C_CR_STO);
+
+			/* (successful) write must wait for STO irq */
+			if (i2c->msg_count >= 0 && !(msg->flags & I2C_M_RD)) {
+				i2c->state = STATE_WAIT_STO;
+				break;
+			}
+		}
+		fallthrough;
+
+	case STATE_WAIT_STO:
+
+		/* notify xfer() */
+		if (i2c->msg_count < 0 || i2c->msg_num >= i2c->msg_count)
+			complete(&i2c->trans_waitq);
+
+		i2c->state = STATE_IDLE;
 	}
 
 	spin_unlock_irqrestore(&i2c->lock, flags);
@@ -276,14 +288,16 @@ static int jz4730_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msg,
 {
 	struct jz4730_i2c *i2c = adap->algo_data;
 	int i;
-	int wait_time = 0;	/* in msec */
+	int wait_time = 5000;	/* in usec */
 	long timeout;
 	unsigned long flags;
 
 	/* Send/Receive a block of messages. */
 
 	for (i = 0; i < count; i++)
-		wait_time += 10 * (msg[i].len + 10) / i2c->speed + 1;
+		wait_time += 10000 * (10 + msg[i].len) / i2c->speed;
+
+	dev_dbg(&i2c->adap.dev, "%s count=%d wait_time=%d\n", __func__, count, wait_time);
 
 	spin_lock_irqsave(&i2c->lock, flags);
 
@@ -301,7 +315,7 @@ static int jz4730_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msg,
 	/* Wait for the transfer to occur in the background. */
 
 	timeout = wait_for_completion_timeout(&i2c->trans_waitq,
-				      msecs_to_jiffies(wait_time));
+				      msecs_to_jiffies(wait_time / 1000));
 
 	if (!timeout) {
 		/* reset the irq sequencer */
@@ -317,6 +331,8 @@ static int jz4730_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msg,
 
 		dev_err(&i2c->adap.dev, "irq timeout\n");
 	}
+
+	dev_dbg(&i2c->adap.dev, "%s done ret=%d timeout=%ld\n", __func__, i2c->msg_count, timeout);
 
 	return i2c->msg_count;
 }
