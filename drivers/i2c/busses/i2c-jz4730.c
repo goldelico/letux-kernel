@@ -5,7 +5,8 @@
  * Copyright (C) 2006 - 2009 Ingenic Semiconductor Inc.
  * Copyright (C) 2015 Imagination Technologies
  * Copyright (C) 2017 Paul Boddie <paul@boddie.org.uk>
- * Copyright (C) 2020 H. Nikolaus Schaller <hns@goldelico.com>
+ * Copyright (C) 2020 - 2021 H. Nikolaus Schaller <hns@goldelico.com>
+ *                           rewrite to be fully interrupt driven
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -56,7 +57,8 @@ enum {
 	STATE_SEND_ADDR,
 	STATE_SEND_ADDR10,
 	STATE_DATA,
-	STATE_DONE
+	STATE_DONE,
+	STATE_WAIT_STO
 };
 
 struct jz4730_i2c {
@@ -70,11 +72,10 @@ struct jz4730_i2c {
 
 	/* locked members */
 	struct i2c_msg		*msg;
-	int			msg_count;
+	int			msg_count;	/* also used as error return */
 	int			msg_num;
 	int			state;
 	int			pos;
-	int			ret;
 };
 
 static inline unsigned char jz4730_i2c_readb(struct jz4730_i2c *i2c,
@@ -126,14 +127,13 @@ static irqreturn_t jz4730_i2c_irq(int irqno, void *dev_id)
 
 	spin_lock_irqsave(&i2c->lock, flags);
 
-	msg = &i2c->msg[i2c->msg_num];	/* may point outside the msg array! */
-
 	status = jz4730_i2c_readb(i2c, JZ4730_REG_I2C_SR);
 	control = jz4730_i2c_readb(i2c, JZ4730_REG_I2C_CR);
 
+	msg = &i2c->msg[i2c->msg_num];	/* may point outside the msg array! */
+
 	switch (i2c->state) {
 		default:
-
 			if(i2c->msg_num < i2c->msg_count) {
 
 				/* send next message of sequence */
@@ -147,7 +147,9 @@ static irqreturn_t jz4730_i2c_irq(int irqno, void *dev_id)
 				i2c->pos = 0;
 			} else {
 				if (completion_done(&i2c->trans_waitq))
-					dev_err(&i2c->adap.dev, "spurious interrupt during state %d CR=0x%02x SR=0x%02x\n", i2c->state, control, status);
+					dev_err(&i2c->adap.dev,
+						"spurious interrupt during state %d CR=0x%02x SR=0x%02x\n",
+						i2c->state, control, status);
 				else
 					complete(&i2c->trans_waitq);
 			}
@@ -222,6 +224,7 @@ static irqreturn_t jz4730_i2c_irq(int irqno, void *dev_id)
 							 JZ4730_I2C_SR_DRF);
 				}
 				else {
+					/* there will be another irq */
 					i2c->state = STATE_DONE;
 				}
 			}
@@ -232,29 +235,36 @@ static irqreturn_t jz4730_i2c_irq(int irqno, void *dev_id)
 			if (status & JZ4730_I2C_SR_ACKF) {
 				/* end transaction on NACK */
 				if (i2c->msg_num >= i2c->msg_count - 1 || !(msg->flags & I2C_M_IGNORE_NAK))
-					i2c->ret = -EIO;
+					i2c->msg_count = -EIO;
 			}
 
 			/* read any extra data e.g. from NACK */
 			jz4730_i2c_readb(i2c, JZ4730_REG_I2C_DR);
 			jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_SR, JZ4730_I2C_SR_DRF, 0);
 
-			/* send stop bit after last message or if explicitly requested or on NACK */
-			if (i2c->ret || i2c->msg_num >= i2c->msg_count - 1 || (msg->flags & I2C_M_STOP)) {
-				jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR,
-					JZ4730_I2C_CR_STO, JZ4730_I2C_CR_STO);
-				/* there will be no more interrupts after STO */
-				complete(&i2c->trans_waitq);
-
-			}
-
 			/* prepare for next message */
 			i2c->msg_num++;
 
+			/* send stop condition on error (NACK), after last message or if explicitly requested */
+			if (i2c->msg_count < 0 || i2c->msg_num >= i2c->msg_count || (msg->flags & I2C_M_STOP)) {
+
+				jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR,
+					JZ4730_I2C_CR_STO, JZ4730_I2C_CR_STO);
+
+				/* (successful) write must wait for STO irq */
+				if (i2c->msg_count >= 0 && !(msg->flags & I2C_M_RD)) {
+					i2c->state = STATE_WAIT_STO;
+					break;
+				}
+			}
+			fallthrough;
+
+		case STATE_WAIT_STO:
+
+			if (i2c->msg_count < 0 || i2c->msg_num >= i2c->msg_count)
+				complete(&i2c->trans_waitq);	/* notify xfer() */
+
 			i2c->state = STATE_IDLE;
-
-			break;
-
 	}
 
 	spin_unlock_irqrestore(&i2c->lock, flags);
@@ -266,14 +276,14 @@ static int jz4730_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msg,
 {
 	struct jz4730_i2c *i2c = adap->algo_data;
 	int i;
-	int wait_time = 0;
+	int wait_time = 0;	/* in msec */
 	long timeout;
 	unsigned long flags;
 
 	/* Send/Receive a block of messages. */
 
 	for (i = 0; i < count; i++)
-		wait_time += 10 * (msg[i].len + 5) / i2c->speed + 5;
+		wait_time += 10 * (msg[i].len + 10) / i2c->speed + 1;
 
 	spin_lock_irqsave(&i2c->lock, flags);
 
@@ -282,7 +292,6 @@ static int jz4730_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msg,
 	i2c->msg = msg;
 	i2c->msg_num = 0;
 	i2c->msg_count = count;
-	i2c->ret = 0;
 
 	spin_unlock_irqrestore(&i2c->lock, flags);
 
@@ -295,14 +304,19 @@ static int jz4730_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msg,
 				      msecs_to_jiffies(wait_time));
 
 	if (!timeout) {
-		/* tell irq handler that msg is invalid */
-		i2c->ret = -EINVAL;
-		dev_err(&i2c->adap.dev, "irq timeout %ld\n", timeout);
-		return -ETIMEDOUT;
-	}
+		/* reset the irq sequencer */
+		spin_lock_irqsave(&i2c->lock, flags);
 
-	if (i2c->ret)	/* NACK */
-		return i2c->ret;
+		jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR,
+			JZ4730_I2C_CR_STO, JZ4730_I2C_CR_STO);
+
+		i2c->msg_count = -ETIMEDOUT;
+		i2c->state = STATE_IDLE;
+
+		spin_unlock_irqrestore(&i2c->lock, flags);
+
+		dev_err(&i2c->adap.dev, "irq timeout\n");
+	}
 
 	return i2c->msg_count;
 }
@@ -310,7 +324,7 @@ static int jz4730_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msg,
 static u32 jz4730_i2c_functionality(struct i2c_adapter *adap)
 {
 	/* see https://www.kernel.org/doc/Documentation/i2c/i2c-protocol */
-	/* REVIST: protocol mangling and NOSTART is untested */
+	/* REVIST: NOSTART and PROTOCOL_MANGLING is untested */
 	return I2C_FUNC_I2C | I2C_FUNC_SMBUS_EMUL | I2C_FUNC_10BIT_ADDR /* | I2C_FUNC_NOSTART | I2C_FUNC_PROTOCOL_MANGLING */;
 }
 
