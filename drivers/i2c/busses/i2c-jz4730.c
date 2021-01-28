@@ -35,6 +35,9 @@
 #include <linux/slab.h>
 #include <linux/time.h>
 
+#undef dev_dbg
+#define dev_dbg dev_info
+
 #define JZ4730_REG_I2C_DR	0x00
 #define JZ4730_REG_I2C_CR	0x04
 #define JZ4730_REG_I2C_SR	0x08
