@@ -51,6 +51,8 @@ struct ingenic_tcu {
 
 static struct ingenic_tcu *ingenic_tcu;
 
+#define MAX_COUNT 0xffff
+
 static u64 notrace ingenic_tcu_timer_read(void)
 {
 	struct ingenic_tcu *tcu = ingenic_tcu;
@@ -58,11 +60,31 @@ static u64 notrace ingenic_tcu_timer_read(void)
 	unsigned int count;
 
 	if (tcu->soc_info->jz4740_regs) {
+// FIXME: should bypass regmap
 		regmap_read(tcu->map, TCU_REG_TCNTc(tcu->cs_channel), &count);
 	} else {
+#if 0	// OLD
 		regmap_read(tcu->map, TCU_JZ4730_REG_TCNTc(tcu->cs_channel), &count);
 		regmap_read(tcu->map, TCU_JZ4730_REG_TRDRc(tcu->cs_channel), &reload);
-		count = reload - count;
+#else
+// should use code similar to https://elixir.bootlin.com/linux/latest/source/drivers/clocksource/ingenic-ost.c#L86
+// to ioremap during probe or init
+		static void *ost_base;
+		int timeout = 100;
+		if(!ost_base)
+			ost_base = ioremap(0x10002000, 8);	// only once
+#endif
+
+		count = readl(ost_base + TCU_JZ4730_REG_TCNTc(tcu->cs_channel));
+#if 1
+		/* poll for the SF bit and then read OTCRD instead of OTCNT */
+		while (!timeout && (readw(ost_base + TCU_JZ4730_REG_TCSRc(tcu->cs_channel)) & TCU_JZ4730_TCSR_BUSY))
+			timeout--;
+		count = readl(ost_base + TCU_JZ4730_REG_TRDRc(tcu->cs_channel) + 0xc);
+#endif
+//		reload = readl(ost_base + TCU_JZ4730_REG_TRDRc(tcu->cs_channel));
+//		count = reload - count;
+		count = MAX_COUNT - count;
 	}
 
 	return count;
@@ -104,7 +126,7 @@ static int ingenic_tcu_cevt_set_next(unsigned long next,
 	struct ingenic_tcu_timer *timer = to_ingenic_tcu_timer(evt);
 	struct ingenic_tcu *tcu = to_ingenic_tcu(timer);
 
-	if (next > 0xffff)
+	if (next > MAX_COUNT)
 		return -EINVAL;
 
 	if (tcu->soc_info->jz4740_regs) {
@@ -112,7 +134,6 @@ static int ingenic_tcu_cevt_set_next(unsigned long next,
 		regmap_write(tcu->map, TCU_REG_TCNTc(timer->channel), 0);
 		regmap_write(tcu->map, TCU_REG_TESR, BIT(timer->channel));
 	} else {
-		regmap_write(tcu->map, TCU_JZ4730_REG_TRDRc(timer->channel), next);
 		regmap_write(tcu->map, TCU_JZ4730_REG_TCNTc(timer->channel), next);
 		regmap_set_bits(tcu->map, TCU_JZ4730_REG_TER, BIT(timer->channel));
 	}
@@ -209,7 +230,7 @@ static int ingenic_tcu_setup_cevt(unsigned int cpu)
 	timer->cevt.set_state_shutdown = ingenic_tcu_cevt_set_state_shutdown;
 	timer->cevt.set_next_event = ingenic_tcu_cevt_set_next;
 
-	clockevents_config_and_register(&timer->cevt, rate, 10, 0xffff);
+	clockevents_config_and_register(&timer->cevt, rate, 10, MAX_COUNT);
 
 	return 0;
 
@@ -251,7 +272,7 @@ static int __init ingenic_tcu_clocksource_init(struct device_node *np,
 				   0xffff & ~TCU_TCSR_RESERVED_BITS, 0);
 
 		/* Reset counter */
-		regmap_write(tcu->map, TCU_REG_TDFRc(channel), 0xffff);
+		regmap_write(tcu->map, TCU_REG_TDFRc(channel), MAX_COUNT);
 		regmap_write(tcu->map, TCU_REG_TCNTc(channel), 0);
 
 		/* Enable channel */
@@ -262,8 +283,8 @@ static int __init ingenic_tcu_clocksource_init(struct device_node *np,
 				   0xffff & ~TCU_JZ4730_TCSR_PARENT_CLOCK_MASK, 0);
 
 		/* Reset counter */
-		regmap_write(tcu->map, TCU_JZ4730_REG_TRDRc(channel), 0xffff);
-		regmap_write(tcu->map, TCU_JZ4730_REG_TCNTc(channel), 0);
+		regmap_write(tcu->map, TCU_JZ4730_REG_TRDRc(channel), MAX_COUNT);
+		regmap_write(tcu->map, TCU_JZ4730_REG_TCNTc(channel), MAX_COUNT);
 
 		/* Enable channel */
 		regmap_set_bits(tcu->map, TCU_JZ4730_REG_TER, BIT(channel));
