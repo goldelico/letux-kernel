@@ -51,40 +51,33 @@ struct ingenic_tcu {
 
 static struct ingenic_tcu *ingenic_tcu;
 
-#define MAX_COUNT 0xffff
+#define COUNTER_WIDTH 16
+#define MAX_COUNT CLOCKSOURCE_MASK(COUNTER_WIDTH)
 
 static u64 notrace ingenic_tcu_timer_read(void)
 {
 	struct ingenic_tcu *tcu = ingenic_tcu;
-	unsigned int reload;
 	unsigned int count;
 
 	if (tcu->soc_info->jz4740_regs) {
-// FIXME: should bypass regmap
+// FIXME: should also bypass regmap
 		regmap_read(tcu->map, TCU_REG_TCNTc(tcu->cs_channel), &count);
 	} else {
-#if 0	// OLD
-		regmap_read(tcu->map, TCU_JZ4730_REG_TCNTc(tcu->cs_channel), &count);
-		regmap_read(tcu->map, TCU_JZ4730_REG_TRDRc(tcu->cs_channel), &reload);
-#else
+
 // should use code similar to https://elixir.bootlin.com/linux/latest/source/drivers/clocksource/ingenic-ost.c#L86
 // to ioremap during probe or init
+
 		static void *ost_base;
 		int timeout = 100;
 		if(!ost_base)
 			ost_base = ioremap(0x10002000, 8);	// only once
-#endif
 
-		count = readl(ost_base + TCU_JZ4730_REG_TCNTc(tcu->cs_channel));
-#if 1
+		readl(ost_base + TCU_JZ4730_REG_TCNTc(tcu->cs_channel));
+
 		/* poll for the SF bit and then read OTCRD instead of OTCNT */
 		while (!timeout && (readw(ost_base + TCU_JZ4730_REG_TCSRc(tcu->cs_channel)) & TCU_JZ4730_TCSR_BUSY))
 			timeout--;
-		count = readl(ost_base + TCU_JZ4730_REG_TRDRc(tcu->cs_channel) + 0xc);
-#endif
-//		reload = readl(ost_base + TCU_JZ4730_REG_TRDRc(tcu->cs_channel));
-//		count = reload - count;
-		count = MAX_COUNT - count;
+		count = MAX_COUNT - readl(ost_base + TCU_JZ4730_REG_TRDRc(tcu->cs_channel) + 0xc);
 	}
 
 	return count;
@@ -293,7 +286,7 @@ static int __init ingenic_tcu_clocksource_init(struct device_node *np,
 	cs->name = "ingenic-timer";
 	cs->rating = 200;
 	cs->flags = CLOCK_SOURCE_IS_CONTINUOUS;
-	cs->mask = CLOCKSOURCE_MASK(16);
+	cs->mask = MAX_COUNT;
 	cs->read = ingenic_tcu_timer_cs_read;
 
 	err = clocksource_register_hz(cs, rate);
@@ -408,7 +401,7 @@ static int __init ingenic_tcu_init(struct device_node *np)
 
 	/* Register the sched_clock at the end as there's no way to undo it */
 	rate = clk_get_rate(tcu->cs_clk);
-	sched_clock_register(ingenic_tcu_timer_read, 16, rate);
+	sched_clock_register(ingenic_tcu_timer_read, COUNTER_WIDTH, rate);
 
 	return 0;
 
