@@ -785,12 +785,13 @@ enum drm_bridge_ops {
 	 * drivers.
 	 */
 	DRM_BRIDGE_OP_HDMI = BIT(4),
+	/**
 	 * @DRM_BRIDGE_OP_CEC: The bridge supports a CEC adapter.
 	 * Bridges that set this flag shall implement the
 	 * &drm_bridge_funcs->cec_init and &drm_bridge_funcs->cec_exit
 	 * callbacks.
 	 */
-	DRM_BRIDGE_OP_CEC = BIT(4),
+	DRM_BRIDGE_OP_CEC = BIT(5),
 };
 
 /**
