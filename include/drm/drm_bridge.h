@@ -649,6 +649,30 @@ struct drm_bridge_funcs {
 	 * the DRM_BRIDGE_OP_HPD flag in their &drm_bridge->ops.
 	 */
 	void (*hpd_disable)(struct drm_bridge *bridge);
+
+	/**
+	 * @cec_init:
+	 *
+	 * Initialize the CEC adapter.
+	 *
+	 * This callback is optional and shall only be implemented by bridges
+	 * that support a CEC adapter. Bridges that implement it shall also
+	 * implement the @cec_exit callback and set the DRM_BRIDGE_OP_CEC flag
+	 * in their &drm_bridge->ops.
+	 */
+	int (*cec_init)(struct drm_bridge *bridge, struct drm_connector *conn);
+
+	/**
+	 * @cec_exit:
+	 *
+	 * Terminate the CEC adapter.
+	 *
+	 * This callback is optional and shall only be implemented by bridges
+	 * that support a CEC adapter. Bridges that implement it shall also
+	 * implement the @cec_init callback and set the DRM_BRIDGE_OP_CEC flag
+	 * in their &drm_bridge->ops.
+	 */
+	void (*cec_exit)(struct drm_bridge *bridge);
 };
 
 /**
@@ -718,6 +742,13 @@ enum drm_bridge_ops {
 	 * this flag shall implement the &drm_bridge_funcs->get_modes callback.
 	 */
 	DRM_BRIDGE_OP_MODES = BIT(3),
+	/**
+	 * @DRM_BRIDGE_OP_CEC: The bridge supports a CEC adapter.
+	 * Bridges that set this flag shall implement the
+	 * &drm_bridge_funcs->cec_init and &drm_bridge_funcs->cec_exit
+	 * callbacks.
+	 */
+	DRM_BRIDGE_OP_CEC = BIT(4),
 };
 
 /**
