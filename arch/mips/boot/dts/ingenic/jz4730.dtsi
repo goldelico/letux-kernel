@@ -350,9 +350,9 @@
 		status = "disabled";
 	};
 
-	ethernet: ethernet@13100000 {
+	ethernet: ethernet@13101000 {
 		compatible = "ingenic,jz4730-ethernet";
-		reg = <0x13100000 0x1000>;
+		reg = <0x13101000 0x1000>;
 
 		mdio: mdio {
 			#address-cells = <1>;
