@@ -54,6 +54,8 @@ static struct ingenic_tcu *ingenic_tcu;
 #define COUNTER_WIDTH 16
 #define MAX_COUNT CLOCKSOURCE_MASK(COUNTER_WIDTH)
 
+static void *ost_base;
+
 static u64 notrace ingenic_tcu_timer_read(void)
 {
 	struct ingenic_tcu *tcu = ingenic_tcu;
@@ -67,10 +69,7 @@ static u64 notrace ingenic_tcu_timer_read(void)
 // should use code similar to https://elixir.bootlin.com/linux/latest/source/drivers/clocksource/ingenic-ost.c#L86
 // to ioremap during probe or init
 
-		static void *ost_base;
 		int timeout = 100;
-		if(!ost_base)
-			ost_base = ioremap(0x10002000, 8);	// only once
 
 		readl(ost_base + TCU_JZ4730_REG_TCNTc(tcu->cs_channel));
 
@@ -108,7 +107,10 @@ static int ingenic_tcu_cevt_set_state_shutdown(struct clock_event_device *evt)
 	if (tcu->soc_info->jz4740_regs)
 		regmap_write(tcu->map, TCU_REG_TECR, BIT(timer->channel));
 	else
+#if 0
 		regmap_clear_bits(tcu->map, TCU_JZ4730_REG_TER, BIT(timer->channel));
+#endif
+		writel((readl(ost_base + TCU_JZ4730_REG_TER) & ~BIT(timer->channel)), ost_base + TCU_JZ4730_REG_TER);
 
 	return 0;
 }
@@ -127,8 +129,13 @@ static int ingenic_tcu_cevt_set_next(unsigned long next,
 		regmap_write(tcu->map, TCU_REG_TCNTc(timer->channel), 0);
 		regmap_write(tcu->map, TCU_REG_TESR, BIT(timer->channel));
 	} else {
+#if 0
 		regmap_write(tcu->map, TCU_JZ4730_REG_TCNTc(timer->channel), next);
 		regmap_set_bits(tcu->map, TCU_JZ4730_REG_TER, BIT(timer->channel));
+#else
+		writel(next, ost_base + TCU_JZ4730_REG_TCNTc(timer->channel));
+		writel((readl(ost_base + TCU_JZ4730_REG_TER) | BIT(timer->channel)), ost_base + TCU_JZ4730_REG_TER);
+#endif
 	}
 
 	return 0;
@@ -150,7 +157,11 @@ static irqreturn_t ingenic_tcu_cevt_cb(int irq, void *dev_id)
 	if (tcu->soc_info->jz4740_regs)
 		regmap_write(tcu->map, TCU_REG_TECR, BIT(timer->channel));
 	else
+#if 0
 		regmap_clear_bits(tcu->map, TCU_JZ4730_REG_TER, BIT(timer->channel));
+#else
+		writel((readl(ost_base + TCU_JZ4730_REG_TER) & ~BIT(timer->channel)), ost_base + TCU_JZ4730_REG_TER);
+#endif
 
 	if (timer->cevt.event_handler) {
 		csd = &per_cpu(ingenic_cevt_csd, timer->cpu);
@@ -342,6 +353,8 @@ static int __init ingenic_tcu_init(struct device_node *np)
 	map = device_node_to_regmap(np);
 	if (IS_ERR(map))
 		return PTR_ERR(map);
+
+	ost_base = ioremap(0x10002000, 8);	// only once
 
 	tcu = kzalloc(struct_size(tcu, timers, num_possible_cpus()),
 		      GFP_KERNEL);
