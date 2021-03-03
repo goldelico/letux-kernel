@@ -222,6 +222,12 @@ static int ingenic_tcu_setup_cevt(unsigned int cpu)
 
 	clockevents_config_and_register(&timer->cevt, rate, 10, MAX_COUNT);
 
+	if (!tcu->soc_info->jz4740_regs) {
+		/* enable underflow interrupt */
+		updatew(tcu->base + TCU_JZ4730_REG_TCSRc(timer->channel),
+			TCU_JZ4730_TCSR_EN, TCU_JZ4730_TCSR_EN);
+	}
+
 	return 0;
 
 err_irq_dispose_mapping:
@@ -268,13 +274,9 @@ static int __init ingenic_tcu_clocksource_init(struct device_node *np,
 		/* Enable channel */
 		regmap_write(tcu->map, TCU_REG_TESR, BIT(channel));
 	} else {
-		/* Reset channel */
-#if 0
-		regmap_update_bits(tcu->map, TCU_JZ4730_REG_TCSRc(channel),
-				   0xffff & ~TCU_JZ4730_TCSR_PARENT_CLOCK_MASK, 0);
-#endif
-		/* reset all bits except parent clock mask */
-		updatew(tcu->base + TCU_JZ4730_REG_TCSRc(channel), ~TCU_JZ4730_TCSR_PARENT_CLOCK_MASK, TCU_JZ4730_TCSR_EN);
+		/* Reset all bits except parent clock mask and enable underflow interrupt */
+		updatew(tcu->base + TCU_JZ4730_REG_TCSRc(channel),
+			~TCU_JZ4730_TCSR_PARENT_CLOCK_MASK, TCU_JZ4730_TCSR_EN);
 
 		/* Reset counter */
 		writel(MAX_COUNT, tcu->base + TCU_JZ4730_REG_TCNTc(channel));
@@ -341,7 +343,7 @@ static int __init ingenic_tcu_init(struct device_node *np)
 
 	of_node_clear_flag(np, OF_POPULATED);
 
-	if (tcu->soc_info->jz4740_regs) {
+	if (soc_info->jz4740_regs) {
 		map = device_node_to_regmap(np);
 		if (IS_ERR(map))
 			return PTR_ERR(map);
@@ -352,7 +354,7 @@ static int __init ingenic_tcu_init(struct device_node *np)
 	if (!tcu)
 		return -ENOMEM;
 
-	if (!tcu->soc_info->jz4740_regs) {
+	if (!soc_info->jz4740_regs) {
 		if (of_address_to_resource(np, 0, &res)) {
 			ret = -ENOMEM;
 			goto err_free_ingenic_tcu;
