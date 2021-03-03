@@ -154,7 +154,11 @@ static irqreturn_t ingenic_tcu_cevt_cb(int irq, void *dev_id)
 	if (tcu->soc_info->jz4740_regs)
 		regmap_write(tcu->map, TCU_REG_TECR, BIT(timer->channel));
 	else
+		{
 		updateb(tcu->base + TCU_JZ4730_REG_TER, BIT(timer->channel), 0);
+		/* reset underflow and IRQ */
+		updateb(tcu->base + TCU_JZ4730_REG_TCSRc(timer->channel), TCU_JZ4730_TCSR_FLAG, 0);
+		}
 
 	if (timer->cevt.event_handler) {
 		csd = &per_cpu(ingenic_cevt_csd, timer->cpu);
