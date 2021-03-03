@@ -92,9 +92,6 @@
 			 <&cgu JZ4730_CLK_TCU>;
 		clock-names = "rtc", "ext", "pclk", "tcu";
 
-		interrupt-controller;
-		#interrupt-cells = <1>;
-
 		interrupt-parent = <&intc>;
 		interrupts = <24 23 22>;
 	};
