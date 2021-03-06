@@ -56,7 +56,8 @@ struct ingenic_tcu {
 
 static struct ingenic_tcu *ingenic_tcu;
 
-#define COUNTER_WIDTH 16
+// #define COUNTER_WIDTH 16
+#define COUNTER_WIDTH 26
 #define MAX_COUNT CLOCKSOURCE_MASK(COUNTER_WIDTH)
 
 static u64 notrace ingenic_tcu_timer_read(void)
