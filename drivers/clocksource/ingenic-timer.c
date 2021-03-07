@@ -32,6 +32,8 @@ static DEFINE_PER_CPU(call_single_data_t, ingenic_cevt_csd);
 struct ingenic_soc_info {
 	unsigned int num_channels;
 	bool jz4740_regs;
+	int counter_width;
+	u32 max_count;
 };
 
 struct ingenic_tcu_timer {
@@ -56,10 +58,6 @@ struct ingenic_tcu {
 
 static struct ingenic_tcu *ingenic_tcu;
 
-// #define COUNTER_WIDTH 16
-#define COUNTER_WIDTH 26
-#define MAX_COUNT CLOCKSOURCE_MASK(COUNTER_WIDTH)
-
 static u64 notrace ingenic_tcu_timer_read(void)
 {
 	struct ingenic_tcu *tcu = ingenic_tcu;
@@ -75,13 +73,13 @@ static u64 notrace ingenic_tcu_timer_read(void)
 
 		int timeout = 100;
 
-		count = MAX_COUNT - readl(tcu->base + TCU_JZ4730_REG_TCNTc(tcu->cs_channel));
+		count = tcu->soc_info->max_count - readl(tcu->base + TCU_JZ4730_REG_TCNTc(tcu->cs_channel));
 
 #if 0
 		/* poll for the SF bit and then read OTCRD instead of OTCNT */
 		while (!timeout && (readw(tcu->base + TCU_JZ4730_REG_TCSRc(tcu->cs_channel)) & TCU_JZ4730_TCSR_BUSY))
 			timeout--;
-		count = MAX_COUNT - readl(tcu->base + TCU_JZ4730_REG_TCRDc(tcu->cs_channel) + 0xc);
+		count = tcu->soc_info->max_count - readl(tcu->base + TCU_JZ4730_REG_TCRDc(tcu->cs_channel) + 0xc);
 #endif
 	}
 
@@ -124,7 +122,7 @@ static int ingenic_tcu_cevt_set_next(unsigned long next,
 	struct ingenic_tcu_timer *timer = to_ingenic_tcu_timer(evt);
 	struct ingenic_tcu *tcu = to_ingenic_tcu(timer);
 
-	if (next > MAX_COUNT)
+	if (next > tcu->soc_info->max_count)
 		return -EINVAL;
 
 	if (tcu->soc_info->jz4740_regs) {
@@ -204,10 +202,20 @@ static int ingenic_tcu_setup_cevt(unsigned int cpu)
 		goto err_clk_disable;
 	}
 
-	timer_virq = of_irq_get(tcu->np, timer->channel);
-	if (!timer_virq) {
-		err = -EINVAL;
-		goto err_clk_disable;
+	if (tcu->soc_info->jz4740_regs) {
+		struct irq_domain *domain = irq_find_host(tcu->np);
+		if (!domain) {
+			err = -ENODEV;
+			goto err_clk_disable;
+		}
+
+		timer_virq = irq_create_mapping(domain, timer->channel);
+	} else {
+		timer_virq = of_irq_get(tcu->np, timer->channel);
+		if (!timer_virq) {
+			err = -EINVAL;
+			goto err_clk_disable;
+		}
 	}
 
 	snprintf(timer->name, sizeof(timer->name), "TCU%u", timer->channel);
@@ -225,7 +233,9 @@ static int ingenic_tcu_setup_cevt(unsigned int cpu)
 	timer->cevt.set_state_shutdown = ingenic_tcu_cevt_set_state_shutdown;
 	timer->cevt.set_next_event = ingenic_tcu_cevt_set_next;
 
-	clockevents_config_and_register(&timer->cevt, rate, 10, MAX_COUNT);
+printk("%s: %d vs. %d\n", __func__, tcu->soc_info->max_count, 0xffff);
+
+	clockevents_config_and_register(&timer->cevt, rate, 10, tcu->soc_info->max_count);
 
 	if (!tcu->soc_info->jz4740_regs) {
 		/* enable underflow interrupt */
@@ -273,7 +283,9 @@ static int __init ingenic_tcu_clocksource_init(struct device_node *np,
 				   0xffff & ~TCU_TCSR_RESERVED_BITS, 0);
 
 		/* Reset counter */
-		regmap_write(tcu->map, TCU_REG_TDFRc(channel), MAX_COUNT);
+printk("%s: %d vs. %d\n", __func__, tcu->soc_info->max_count, 0xffff);
+
+		regmap_write(tcu->map, TCU_REG_TDFRc(channel), tcu->soc_info->max_count);
 		regmap_write(tcu->map, TCU_REG_TCNTc(channel), 0);
 
 		/* Enable channel */
@@ -284,8 +296,8 @@ static int __init ingenic_tcu_clocksource_init(struct device_node *np,
 			~TCU_JZ4730_TCSR_PARENT_CLOCK_MASK, TCU_JZ4730_TCSR_EN);
 
 		/* Reset counter */
-		writel(MAX_COUNT, tcu->base + TCU_JZ4730_REG_TCNTc(channel));
-		writel(MAX_COUNT, tcu->base + TCU_JZ4730_REG_TRDRc(channel));
+		writel(tcu->soc_info->max_count, tcu->base + TCU_JZ4730_REG_TCNTc(channel));
+		writel(tcu->soc_info->max_count, tcu->base + TCU_JZ4730_REG_TRDRc(channel));
 
 		/* Enable channel */
 		updateb(tcu->base + TCU_JZ4730_REG_TER, BIT(channel), BIT(channel));
@@ -294,7 +306,10 @@ static int __init ingenic_tcu_clocksource_init(struct device_node *np,
 	cs->name = "ingenic-timer";
 	cs->rating = 200;
 	cs->flags = CLOCK_SOURCE_IS_CONTINUOUS;
-	cs->mask = MAX_COUNT;
+
+printk("%s: %d vs. %llu\n", __func__, tcu->soc_info->max_count, CLOCKSOURCE_MASK(16));
+
+	cs->mask = tcu->soc_info->max_count;
 	cs->read = ingenic_tcu_timer_cs_read;
 
 	err = clocksource_register_hz(cs, rate);
@@ -313,16 +328,22 @@ err_clk_put:
 static const struct ingenic_soc_info jz4740_soc_info = {
 	.num_channels = 8,
 	.jz4740_regs = true,
+	.counter_width = 16,
+	.max_count = CLOCKSOURCE_MASK(16),
 };
 
 static const struct ingenic_soc_info jz4725b_soc_info = {
 	.num_channels = 6,
 	.jz4740_regs = true,
+	.counter_width = 16,
+	.max_count = CLOCKSOURCE_MASK(16),
 };
 
 static const struct ingenic_soc_info jz4730_soc_info = {
 	.num_channels = 3,
 	.jz4740_regs = false,
+	.counter_width = 26,
+	.max_count = CLOCKSOURCE_MASK(26),
 };
 
 static const struct of_device_id ingenic_tcu_of_match[] = {
@@ -425,7 +446,10 @@ static int __init ingenic_tcu_init(struct device_node *np)
 
 	/* Register the sched_clock at the end as there's no way to undo it */
 	rate = clk_get_rate(tcu->cs_clk);
-	sched_clock_register(ingenic_tcu_timer_read, COUNTER_WIDTH, rate);
+
+printk("%s: %d vs. %d\n", __func__, soc_info->counter_width, 16);
+
+	sched_clock_register(ingenic_tcu_timer_read, soc_info->counter_width, rate);
 
 	return 0;
 
