@@ -3,4 +3,4 @@
 # Makefile for the Ingenic network device drivers.
 #
 
-obj-$(CONFIG_INGENIC_ETH_JZ4730) += jz4730.o
+obj-$(CONFIG_INGENIC_ETH_JZ4730) += eth-jz4730.o
