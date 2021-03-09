@@ -1,14 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  *  linux/drivers/net/ethernet/ingenic/jz4730.c
  *
  *  Jz4730/Jz5730 On-Chip ethernet driver.
  *
  *  Copyright (C) 2005 - 2007  Ingenic Semiconductor Inc.
+ *  Copyright (C) 2021 H. Nikolaus Schaller <hns@goldelico.com> - adaptation to v5.12
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
  */
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -24,9 +22,7 @@
 #include <linux/pm.h>
 #include <linux/platform_device.h>
 
-// get from device tree (io_resource)
-
-#define	ETH_BASE	(void *) 0xB3100000
+#define	ETH_BASE	(void *) 0x13100000 // get from device tree (io_resource) - there we seem to have 0x13101000
 
 /*************************************************************************
  * ETH
@@ -748,7 +744,8 @@ extern int i2c_read(unsigned char device, unsigned char *buf,
 #endif
 
 #if CONFIG_JZ4730_ALPHA400
-extern int get_ethernet_addr(char *ethernet_addr);
+// FIXME: did read from PROM
+// extern int get_ethernet_addr(char *ethernet_addr);
 #endif
 
 static inline unsigned char str2hexnum(unsigned char c)
@@ -818,7 +815,7 @@ static int get_mac_address(struct net_device *dev)
 		i2c_close();
 	}
 #endif
-#if CONFIG_JZ4730_ALPHA400
+#if FIXME && CONFIG_JZ4730_ALPHA400
 	else {
 		if (get_ethernet_addr(dev->dev_addr) != 0)
 			dev->dev_addr[0] = 0xff;
@@ -878,8 +875,8 @@ static void start_check(struct net_device *dev)
 	np->thread_die = 0;
 	init_waitqueue_head(&np->thr_wait);
 	init_completion (&np->thr_exited);
-	np->thr_pid = kernel_thread (link_check_thread,(void *)dev, 
-				     CLONE_FS | CLONE_FILES);
+// FIXME:	np->thr_pid = kernel_thread (link_check_thread,(void *)dev,
+//				     CLONE_FS | CLONE_FILES);
 	if (np->thr_pid < 0)
 		errprintk("%s: unable to start kernel thread\n",dev->name);
 }
@@ -1747,7 +1744,7 @@ static int jz_eth_send_packet(struct sk_buff *skb, struct net_device *dev)
 	}
 	udelay(500);	/* FIXME: can we remove this delay ? */
 	length = (skb->len < ETH_ZLEN) ? ETH_ZLEN : skb->len;
-	dma_cache_wback((unsigned long)skb->data, length);
+// FIXME:	dma_cache_wback((unsigned long)skb->data, length);
 	load_tx_packet(dev, (char *)skb->data, TD_IC | TD_LS | TD_FS | length, skb);
 	spin_lock_irq(&np->lock);
 	np->tx_head ++;
@@ -1938,7 +1935,7 @@ static int jz4730_eth_probe(struct platform_device *pdev)
 
 	memset(np, 0, sizeof(struct jz_eth_private));
 
-	np->vaddr_rx_buf = (u32)dma_alloc_noncoherent(NULL, NUM_RX_DESCS*RX_BUF_SIZE, 
+	np->vaddr_rx_buf = (u32)dma_alloc_noncoherent(&pdev->dev, NUM_RX_DESCS*RX_BUF_SIZE,
 						      &np->dma_rx_buf, DMA_BIDIRECTIONAL, GFP_KERNEL);
 
 	if (!np->vaddr_rx_buf) {
@@ -2001,6 +1998,8 @@ static const struct of_device_id jz4730_eth_match[] = {
 	{}
 };
 
+MODULE_DEVICE_TABLE(of, jz4730_eth_match);
+
 static struct platform_driver jz4730_eth_driver = {
 	.probe		= jz4730_eth_probe,
 	.remove		= jz4730_eth_remove,
@@ -2010,4 +2009,6 @@ static struct platform_driver jz4730_eth_driver = {
 	}
 };
 
+MODULE_DESCRIPTION("Ingetnic jz4730 mii network driver");
+MODULE_LICENSE("GPL");
 module_platform_driver(jz4730_eth_driver);
