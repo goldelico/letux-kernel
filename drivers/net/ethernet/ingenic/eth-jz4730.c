@@ -21,8 +21,9 @@
 #include <linux/delay.h>
 #include <linux/pm.h>
 #include <linux/platform_device.h>
-
-#define	ETH_BASE	(void *) 0x13100000 // get from device tree (io_resource) - there we seem to have 0x13101000
+#include <linux/of_address.h>
+#include <linux/of_irq.h>
+#include <linux/of_platform.h>
 
 /*************************************************************************
  * ETH
@@ -647,10 +648,16 @@ typedef struct {
 	unsigned int next_addr;
 } jz_desc_t;
 
+static void *base;
+#define	ETH_BASE (base)
+
 struct jz_eth_private {
 	struct device		*dev;
 	struct platform_device	*pdev;
 	struct net_device	*ndev;
+
+	void *base;
+// #define	ETH_BASE (np->base)
 
 	jz_desc_t tx_ring[NUM_TX_DESCS];	/* transmit descriptors */
 	jz_desc_t rx_ring[NUM_RX_DESCS];	/* receive descriptors */
@@ -1918,6 +1925,7 @@ static int jz4730_eth_probe(struct platform_device *pdev)
 	struct device_node *of = pdev->dev.of_node;
 	struct net_device *dev;
 	struct jz_eth_private *np;
+	struct resource res;
 	int err;
 
 	dev = alloc_etherdev(sizeof(struct jz_eth_private));
@@ -1934,6 +1942,20 @@ static int jz4730_eth_probe(struct platform_device *pdev)
 	np->pdev = pdev;
 
 	memset(np, 0, sizeof(struct jz_eth_private));
+
+	if (of_address_to_resource(of, 0, &res)) {
+		free_netdev(dev);
+		return -ENOMEM;
+	}
+
+	np->base = ioremap(res.start, resource_size(&res));
+	if (!np->base) {
+		free_netdev(dev);
+		return -ENOMEM;
+	}
+
+// temporary until we have reworked all register accessors to know np
+	base = np->base;
 
 	np->vaddr_rx_buf = (u32)dma_alloc_noncoherent(&pdev->dev, NUM_RX_DESCS*RX_BUF_SIZE,
 						      &np->dma_rx_buf, DMA_BIDIRECTIONAL, GFP_KERNEL);
@@ -1954,8 +1976,12 @@ static int jz4730_eth_probe(struct platform_device *pdev)
 
 	ether_setup(dev);
 
-#define IRQ_ETH 19	// should get from device tree
-	dev->irq = IRQ_ETH;
+	dev->irq = of_irq_get(of, 0);
+	if (!dev->irq) {
+		free_netdev(dev);
+		return -EINVAL;
+	}
+
 	dev->netdev_ops = &jz4730_eth_ops;
 // dev-> ethtool_ops = ?
 	dev->watchdog_timeo = ETH_TX_TIMEOUT;
