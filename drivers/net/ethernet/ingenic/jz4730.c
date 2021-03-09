@@ -652,6 +652,10 @@ typedef struct {
 } jz_desc_t;
 
 struct jz_eth_private {
+	struct device		*dev;
+	struct platform_device	*pdev;
+	struct net_device	*ndev;
+
 	jz_desc_t tx_ring[NUM_TX_DESCS];	/* transmit descriptors */
 	jz_desc_t rx_ring[NUM_RX_DESCS];	/* receive descriptors */
 	dma_addr_t dma_tx_ring;                 /* bus address of tx ring */
@@ -713,7 +717,6 @@ MODULE_LICENSE("GPL");
 /*
  * Local variables
  */
-static struct net_device *netdev;
 static char * hwaddr = NULL;
 static int debug = -1;
 static struct mii_if_info mii_info;
@@ -866,7 +869,7 @@ static u32 jz_eth_curr_mode(struct net_device *dev);
  */
 static void start_check(struct net_device *dev)
 {
-	struct jz_eth_private *np = (struct jz_eth_private *)dev->priv;
+	struct jz_eth_private *np = netdev_priv(dev);
 
 	np->thread_die = 0;
 	init_waitqueue_head(&np->thr_wait);
@@ -879,7 +882,7 @@ static void start_check(struct net_device *dev)
 
 static int close_check(struct net_device *dev)
 {
-	struct jz_eth_private *np = (struct jz_eth_private *)dev->priv;
+	struct jz_eth_private *np = netdev_priv(dev);
 	int ret = 0;
 
 	if (np->thr_pid >= 0) {
@@ -898,7 +901,7 @@ static int close_check(struct net_device *dev)
 static int link_check_thread(void *data)
 {
 	struct net_device *dev=(struct net_device *)data;
-	struct jz_eth_private *np = (struct jz_eth_private *)netdev->priv;
+	struct jz_eth_private *np = netdev_priv(dev);
 	unsigned char current_link;
 	unsigned long timeout;
 
@@ -1041,7 +1044,7 @@ static void mdio_write(struct net_device *dev,int phy_id, int location, int data
 static int jz_search_mii_phy(struct net_device *dev)
 {
 	
-	struct jz_eth_private *np = (struct jz_eth_private *)dev->priv;
+	struct jz_eth_private *np = netdev_priv(dev);
 	int phy, phy_idx = 0;
 
 	np->valid_phy = 0xff;
@@ -1179,7 +1182,7 @@ static void jz_set_multicast_list(struct net_device *dev)
 
 static inline int jz_phy_reset(struct net_device *dev)
 {
-	struct jz_eth_private *np = (struct jz_eth_private *)dev->priv;
+	struct jz_eth_private *np = netdev_priv(dev);
 	unsigned int mii_reg0;
 	unsigned int count;
 	
@@ -1203,7 +1206,7 @@ static inline int jz_phy_reset(struct net_device *dev)
 #ifdef DEBUG
 static void mii_db_out(struct net_device *dev) 
 {
-	struct jz_eth_private *np = (struct jz_eth_private *)dev->priv;
+	struct jz_eth_private *np = netdev_priv(dev);
 	unsigned int mii_test;
 
 	mii_test = mdio_read(dev,np->valid_phy,MII_BMCR);
@@ -1236,7 +1239,7 @@ static void mii_db_out(struct net_device *dev)
  */
 static int jz_autonet_complete(struct net_device *dev)
 {
-	struct jz_eth_private *np = (struct jz_eth_private *)dev->priv;
+	struct jz_eth_private *np = netdev_priv(dev);
 	int count;
 	u32 mii_reg1, timeout = 3000;
 
@@ -1257,7 +1260,7 @@ static int jz_autonet_complete(struct net_device *dev)
  */
 static u32 jz_eth_curr_mode(struct net_device *dev)
 {
-	struct jz_eth_private *np = (struct jz_eth_private *)dev->priv;
+	struct jz_eth_private *np = netdev_priv(dev);
 	unsigned int mii_reg17;
 	u32 flag = 0;
 
@@ -1293,7 +1296,7 @@ static u32 jz_eth_curr_mode(struct net_device *dev)
  */
 static int jz_init_hw(struct net_device *dev)
 {
-	struct jz_eth_private *np = (struct jz_eth_private *)dev->priv;
+	struct jz_eth_private *np = netdev_priv(dev);
 	struct ethtool_cmd ecmd;
 	u32 mcr, omr;
 	u32 sts, flag = 0;
@@ -1392,7 +1395,7 @@ static int jz_init_hw(struct net_device *dev)
 
 static int jz_eth_open(struct net_device *dev)
 {
-	struct jz_eth_private *np = (struct jz_eth_private *)dev->priv;
+	struct jz_eth_private *np = netdev_priv(dev);
 	int retval, i;
 
 	retval = request_irq(dev->irq, jz_eth_interrupt, 0, dev->name, dev);
@@ -1444,7 +1447,7 @@ static int jz_eth_close(struct net_device *dev)
  */
 static struct net_device_stats * jz_eth_get_stats(struct net_device *dev)
 {
-	struct jz_eth_private *np = (struct jz_eth_private *)dev->priv;
+	struct jz_eth_private *np = netdev_priv(dev);
 	int tmp;
 	
 	tmp = readl(DMA_MFC); // After read clear to zero
@@ -1458,7 +1461,7 @@ static struct net_device_stats * jz_eth_get_stats(struct net_device *dev)
  */
 static int jz_ethtool_ioctl(struct net_device *dev, void *useraddr)
 {
-	struct jz_eth_private *np = dev->priv;
+	struct jz_eth_private *np = netdev_priv(dev);
 	u32 ethcmd;
 
 	/* dev_ioctl() in ../../net/core/dev.c has already checked
@@ -1544,7 +1547,7 @@ static int jz_ethtool_ioctl(struct net_device *dev, void *useraddr)
  */
 static int jz_eth_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 {
-	struct jz_eth_private *np =(struct jz_eth_private *)dev->priv;
+	struct jz_eth_private *np =netdev_priv(dev);
 	struct mii_ioctl_data *data, rdata;
 
 	switch (cmd) {
@@ -1606,7 +1609,7 @@ static int jz_eth_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
  */
 static void eth_rxready(struct net_device *dev)
 {
-	struct jz_eth_private *np = (struct jz_eth_private*)dev->priv;
+	struct jz_eth_private *np = netdev_priv(dev);
 	struct sk_buff *skb;
 	unsigned char *pkt_ptr;
 	u32 pkt_len;
@@ -1662,7 +1665,7 @@ static void eth_rxready(struct net_device *dev)
  */
 static void jz_eth_tx_timeout(struct net_device *dev)
 {
-	struct jz_eth_private *np = (struct jz_eth_private *)dev->priv;
+	struct jz_eth_private *np = netdev_priv(dev);
 
 	jz_init_hw(dev);
 	np->stats.tx_errors ++;
@@ -1674,7 +1677,7 @@ static void jz_eth_tx_timeout(struct net_device *dev)
  */
 static void eth_txdone(struct net_device *dev)
 {
-	struct jz_eth_private *np = (struct jz_eth_private*)dev->priv;
+	struct jz_eth_private *np = netdev_priv(dev);
 	int tx_tail = np->tx_tail;
 
 	while (tx_tail != np->tx_head) {
@@ -1713,7 +1716,7 @@ static void eth_txdone(struct net_device *dev)
  */
 static void load_tx_packet(struct net_device *dev, char *buf, u32 flags, struct sk_buff *skb)
 {
-	struct jz_eth_private *np = (struct jz_eth_private *)dev->priv;
+	struct jz_eth_private *np = netdev_priv(dev);
 	int entry = np->tx_head % NUM_TX_DESCS;
 	
 	np->tx_ring[entry].buf1_addr = cpu_to_le32(virt_to_bus(buf));
@@ -1728,7 +1731,7 @@ static void load_tx_packet(struct net_device *dev, char *buf, u32 flags, struct 
  */
 static int jz_eth_send_packet(struct sk_buff *skb, struct net_device *dev)
 {
-	struct jz_eth_private *np = (struct jz_eth_private *)dev->priv;
+	struct jz_eth_private *np = netdev_priv(dev);
 	u32 length;
 
 	if (np->tx_full) {
@@ -1761,7 +1764,7 @@ static int jz_eth_send_packet(struct sk_buff *skb, struct net_device *dev)
 static irqreturn_t jz_eth_interrupt(int irq, void *dev_id)
 {
 	struct net_device *dev = (struct net_device *)dev_id;
-	struct jz_eth_private *np = dev->priv;
+	struct jz_eth_private *np = netdev_priv(dev);
 	u32 sts;
 	int i;
 
@@ -1817,7 +1820,7 @@ static irqreturn_t jz_eth_interrupt(int irq, void *dev_id)
  */
 static int jz_eth_suspend(struct net_device *dev, int state)
 {
-	struct jz_eth_private *jep = (struct jz_eth_private *)dev->priv;
+	struct jz_eth_private *jep =netdev_priv(dev);
 	unsigned long flags, tmp;
 
 	printk("ETH suspend.\n");
@@ -1890,6 +1893,21 @@ static int jz_eth_pm_callback(struct pm_dev *dev, pm_request_t rqst, void *data)
 
 #endif /* CONFIG_PM */
 
+static const struct net_device_ops jz4730_eth_ops = {
+	.ndo_open		= jz_eth_open,
+	.ndo_stop		= jz_eth_close,
+	.ndo_start_xmit		= jz_eth_send_packet,
+	.ndo_tx_timeout		= jz_eth_tx_timeout,
+	.ndo_set_rx_mode	= NULL,
+	.ndo_do_ioctl		= jz_eth_ioctl,
+	.ndo_validate_addr	= NULL,
+	.ndo_set_mac_address	= NULL,
+/*
+	.? = jz_eth_get_stats,
+	.? = jz_set_multicast_list,
+*/
+};
+
 static int jz4730_eth_probe(struct platform_device *pdev)
 {
 	struct device_node *of = pdev->dev.of_node;
@@ -1897,20 +1915,23 @@ static int jz4730_eth_probe(struct platform_device *pdev)
 	struct jz_eth_private *np;
 	int err;
 
-// devm_alloc_etherdev()
 	dev = alloc_etherdev(sizeof(struct jz_eth_private));
 	if (!dev) {
 		printk(KERN_ERR "%s: alloc_etherdev failed\n", DRV_NAME);
 		return -ENOMEM;
 	}
-	netdev = dev;
+	platform_set_drvdata(pdev, dev);
+	SET_NETDEV_DEV(dev, &pdev->dev);
 
-	np = (struct jz_eth_private *)P2ADDR(dev->priv);
-	dev->priv = np;
+	np = netdev_priv(dev);
+	np->dev = &pdev->dev;
+	np->ndev = dev;
+	np->pdev = pdev;
+
 	memset(np, 0, sizeof(struct jz_eth_private));
 
 	np->vaddr_rx_buf = (u32)dma_alloc_noncoherent(NULL, NUM_RX_DESCS*RX_BUF_SIZE, 
-						      &np->dma_rx_buf, 0);
+						      &np->dma_rx_buf, DMA_BIDIRECTIONAL, GFP_KERNEL);
 
 	if (!np->vaddr_rx_buf) {
 		printk(KERN_ERR "%s: Cannot alloc dma buffers\n", DRV_NAME);
@@ -1927,21 +1948,18 @@ static int jz4730_eth_probe(struct platform_device *pdev)
 	spin_lock_init(&np->lock);
 
 	ether_setup(dev);
-// get from device tree
+
+#define IRQ_ETH 19	// should get from device tree
 	dev->irq = IRQ_ETH;
-	dev->open = jz_eth_open;
-	dev->stop = jz_eth_close;
-	dev->hard_start_xmit = jz_eth_send_packet;
-	dev->get_stats = jz_eth_get_stats;
-	dev->set_multicast_list = jz_set_multicast_list;
-	dev->do_ioctl = jz_eth_ioctl;
-	dev->tx_timeout = jz_eth_tx_timeout;
+	dev->netdev_ops = &jz4730_eth_ops;
+// dev-> ethtool_ops = ?
 	dev->watchdog_timeo = ETH_TX_TIMEOUT;
 
 	/* configure MAC address */
 	get_mac_address(dev);
 
-	if ((err = register_netdev(dev)) != 0) {
+	err = register_netdev(dev);
+	if (err) {
 		printk(KERN_ERR "%s: Cannot register net device, error %d\n",
 				DRV_NAME, err);
 		free_netdev(dev);
@@ -1959,11 +1977,13 @@ static int jz4730_eth_probe(struct platform_device *pdev)
 
 static int jz4730_eth_remove(struct platform_device *pdev)
 {
-	struct net_device *dev = platform_get_drvdata(pdev);	struct jz_eth_private *np = dev->priv;
+	struct net_device *dev = platform_get_drvdata(pdev);
+	struct jz_eth_private *np = netdev_priv(dev);
 
 	unregister_netdev(dev);
 	dma_free_noncoherent(NULL, NUM_RX_DESCS * RX_BUF_SIZE,
-			     (void *)np->vaddr_rx_buf, np->dma_rx_buf);
+			     (void *)np->vaddr_rx_buf, np->dma_rx_buf,
+			     DMA_BIDIRECTIONAL);
 	free_netdev(dev);
 	return 0;
 }
