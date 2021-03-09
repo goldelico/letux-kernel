@@ -246,7 +246,8 @@ printk("%s: %d vs. %d\n", __func__, tcu->soc_info->max_count, 0xffff);
 	return 0;
 
 err_irq_dispose_mapping:
-	irq_dispose_mapping(timer_virq);
+	if (tcu->soc_info->jz4740_regs)
+		irq_dispose_mapping(timer_virq);
 err_clk_disable:
 	clk_disable_unprepare(timer->clk);
 err_clk_put:
