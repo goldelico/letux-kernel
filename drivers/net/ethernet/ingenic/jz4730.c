@@ -864,6 +864,10 @@ static u32 jz_eth_curr_mode(struct net_device *dev);
     writel(val, DMA_OMR);  		\
 }
 
+// FIXME: is this link check needed in modern kernels
+// at least kernel threads are done very differently
+// should become a (delayed) worker
+
 /*
  * Link check routines
  */
@@ -888,7 +892,7 @@ static int close_check(struct net_device *dev)
 	if (np->thr_pid >= 0) {
 		np->thread_die = 1;
 		wmb();
-		ret = kill_proc (np->thr_pid, SIGTERM, 1);
+// FIXME: 		ret = kill_proc (np->thr_pid, SIGTERM, 1);
 		if (ret) {
 			errprintk("%s: unable to signal thread\n", dev->name);
 			return 1;
@@ -905,7 +909,7 @@ static int link_check_thread(void *data)
 	unsigned char current_link;
 	unsigned long timeout;
 
-	daemonize("%s", dev->name);
+// FIXME:	daemonize("%s", dev->name);
 	spin_lock_irq(&current->sighand->siglock);
 	sigemptyset(&current->blocked);
 	recalc_sigpending();
@@ -917,7 +921,7 @@ static int link_check_thread(void *data)
 	while (1) {
 		timeout = 3*HZ;
 		do {
-			timeout = interruptible_sleep_on_timeout (&np->thr_wait, timeout);
+// FIXME:			timeout = interruptible_sleep_on_timeout (&np->thr_wait, timeout);
 			/* make swsusp happy with our thread */
 //			if (current->flags & PF_FREEZE)
 //				refrigerator(PF_FREEZE);
@@ -1123,10 +1127,12 @@ static void jz_set_multicast_list(struct net_device *dev)
 {
 	int i, hash_index;
 	u32 mcr, hash_h, hash_l, hash_bit;
+	struct netdev_hw_addr_list *mcptr = &dev->mc;
 #ifdef DEBUG
 	int j;
 #endif
-	
+
+// spinlock like in drivers/net/ethernet/nxp/lpc_eth.c ?
 	mcr = readl(MAC_MCR);
 	mcr &= ~(MCR_PR | MCR_PM | MCR_HP);
 	
@@ -1137,23 +1143,22 @@ static void jz_set_multicast_list(struct net_device *dev)
 		hash_l = 0xffffffff;
 		DBPRINTK("%s: enter promisc mode!\n",dev->name);
 	}
-	else  if ((dev->flags & IFF_ALLMULTI) || (dev->mc_count > MULTICAST_FILTER_LIMIT)){
+// FIXME: count # of entries on mc list
+	else  if ((dev->flags & IFF_ALLMULTI) /* || (dev->mc_count > MULTICAST_FILTER_LIMIT) */){
 		/* Accept all multicast packets */
 		mcr |= MCR_PM;
 		hash_h = 0xffffffff;
 		hash_l = 0xffffffff;
-		DBPRINTK("%s: enter allmulticast mode!   %d \n",dev->name,dev->mc_count);
+	//	DBPRINTK("%s: enter allmulticast mode!   %d \n",dev->name,dev->mc_count);
 	}
 	else if (dev->flags & IFF_MULTICAST)
 	{
 		/* Update multicast hash table */
-		struct dev_mc_list *mclist;
+		struct netdev_hw_addr *ha;
 		hash_h = readl(MAC_HTH);
 		hash_l = readl(MAC_HTL);
-		for (i = 0, mclist = dev->mc_list; mclist && i < dev->mc_count;
-		     i++, mclist = mclist->next)
-		{
-			hash_index = jz_hashtable_index(mclist->dmi_addr);
+		netdev_hw_addr_list_for_each(ha, mcptr) {
+			hash_index = jz_hashtable_index(ha->addr);
 			hash_bit=0x00000001;
 			hash_bit <<= (hash_index & 0x1f);
 			if (hash_index > 0x1f) 
@@ -1162,13 +1167,13 @@ static void jz_set_multicast_list(struct net_device *dev)
 				hash_l |= hash_bit;
 			DBPRINTK("----------------------------\n");
 #ifdef DEBUG
-			for (j=0;j<mclist->dmi_addrlen;j++)
-				printk(KERN_DEBUG "%2.2x:",mclist->dmi_addr[j]);
+			for (j=0;j<ha->addrlen;j++)
+				printk(KERN_DEBUG "%2.2x:",ha->addr[j]);
 			printk("\n");
-#endif
 			DBPRINTK("dmi.addrlen => %d\n",mclist->dmi_addrlen);
 			DBPRINTK("dmi.users   => %d\n",mclist->dmi_users);
 			DBPRINTK("dmi.gusers  => %d\n",mclist->dmi_users);
+#endif
 		}
 		writel(hash_h,MAC_HTH);
 		writel(hash_l,MAC_HTL);
@@ -1178,6 +1183,7 @@ static void jz_set_multicast_list(struct net_device *dev)
 		DBPRINTK("%s: enter multicast mode!\n",dev->name);
 	}
 	writel(mcr,MAC_MCR);
+// spinunlock?
 }
 
 static inline int jz_phy_reset(struct net_device *dev)
@@ -1404,6 +1410,7 @@ static int jz_eth_open(struct net_device *dev)
 		return -EAGAIN;
 	}
 
+#if FIXME
 	for (i = 0; i < NUM_RX_DESCS; i++) {
 		np->rx_ring[i].status = cpu_to_le32(R_OWN);
 		np->rx_ring[i].desc1 = cpu_to_le32(RX_BUF_SIZE | RD_RCH);
@@ -1420,12 +1427,13 @@ static int jz_eth_open(struct net_device *dev)
 	}
 	np->tx_ring[NUM_TX_DESCS - 1].next_addr = cpu_to_le32(np->dma_tx_ring);
 
+#endif
 	np->rx_head = 0;
 	np->tx_head = np->tx_tail = 0;
 
 	jz_init_hw(dev);
 
-	dev->trans_start = jiffies;
+// FIXME	dev->trans_start = jiffies;
 	netif_start_queue(dev);
 	start_check(dev);
 
@@ -1647,7 +1655,7 @@ static void eth_rxready(struct net_device *dev)
 			//eth_dbg_rx(skb, pkt_len);
 			skb->protocol = eth_type_trans(skb,dev);
 			netif_rx(skb);	/* pass the packet to upper layers */
-			dev->last_rx = jiffies;
+// FIXME:			dev->last_rx = jiffies;
 			np->stats.rx_packets++;
 			np->stats.rx_bytes += pkt_len;
 		}
@@ -1663,7 +1671,7 @@ static void eth_rxready(struct net_device *dev)
 /*
  * Tx timeout routine 
  */
-static void jz_eth_tx_timeout(struct net_device *dev)
+static void jz_eth_tx_timeout(struct net_device *dev, unsigned int txqueue)
 {
 	struct jz_eth_private *np = netdev_priv(dev);
 
@@ -1745,7 +1753,8 @@ static int jz_eth_send_packet(struct sk_buff *skb, struct net_device *dev)
 	np->tx_head ++;
 	np->stats.tx_bytes += length;
 	writel(1, DMA_TPD);		/* Start the TX */
-	dev->trans_start = jiffies;	/* for timeout */
+
+// FIXME:	dev->trans_start = jiffies;	/* for timeout */
 	if (np->tx_tail + NUM_TX_DESCS > np->tx_head + 1) {
 		np->tx_full = 0;
 	}
@@ -1898,13 +1907,12 @@ static const struct net_device_ops jz4730_eth_ops = {
 	.ndo_stop		= jz_eth_close,
 	.ndo_start_xmit		= jz_eth_send_packet,
 	.ndo_tx_timeout		= jz_eth_tx_timeout,
-	.ndo_set_rx_mode	= NULL,
+	.ndo_set_rx_mode	= jz_set_multicast_list,
 	.ndo_do_ioctl		= jz_eth_ioctl,
-	.ndo_validate_addr	= NULL,
+	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_set_mac_address	= NULL,
 /*
 	.? = jz_eth_get_stats,
-	.? = jz_set_multicast_list,
 */
 };
 
