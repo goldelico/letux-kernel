@@ -12,6 +12,7 @@
 #define DEBUG
 
 #include <linux/module.h>
+#include <linux/moduleparam.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/init.h>
@@ -652,30 +653,28 @@ typedef struct {
 	unsigned int next_addr;
 } jz_desc_t;
 
-static void *base;
-#define	ETH_BASE (base)
-
 struct jz_eth_private {
 	struct device		*dev;
 	struct platform_device	*pdev;
 	struct net_device	*ndev;
 
 	void *base;
-// #define	ETH_BASE (np->base)
+#define ETH_BASE (np->base)
 
 	jz_desc_t tx_ring[NUM_TX_DESCS];	/* transmit descriptors */
 	jz_desc_t rx_ring[NUM_RX_DESCS];	/* receive descriptors */
-	dma_addr_t dma_tx_ring;                 /* bus address of tx ring */
-	dma_addr_t dma_rx_ring;                 /* bus address of rx ring */
+	dma_addr_t dma_tx_ring;		/* bus address of tx ring */
+	dma_addr_t dma_rx_ring;		/* bus address of rx ring */
 	dma_addr_t dma_rx_buf;			/* DMA address of rx buffer  */
 	unsigned int vaddr_rx_buf;		/* virtual address of rx buffer  */
 
 	unsigned int rx_head;			/* first rx descriptor */
 	unsigned int tx_head;			/* first tx descriptor */
-	unsigned int tx_tail;  			/* last unacked transmit packet */
+	unsigned int tx_tail;  		/* last unacked transmit packet */
 	unsigned int tx_full;			/* transmit buffers are full */
 	struct sk_buff *tx_skb[NUM_TX_DESCS];	/* skbuffs for packets to transmit */
 
+// looks as if np->stats should not be private data but ndev->stats
 	struct net_device_stats stats;
 	spinlock_t lock;
 
@@ -740,7 +739,7 @@ extern int i2c_read(unsigned char device, unsigned char *buf,
 #endif
 
 #if CONFIG_JZ4730_ALPHA400
-// FIXME: did read from PROM
+// FIXME: did this read from PROM?
 // extern int get_ethernet_addr(char *ethernet_addr);
 #endif
 
@@ -755,7 +754,7 @@ static inline unsigned char str2hexnum(unsigned char c)
 	return 0; /* foo */
 }
 
-static inline void str2eaddr(unsigned char *ea, unsigned char *str)
+static inline void str2eaddr(unsigned char *ea, const char *str)
 {
 	int i;
 
@@ -773,7 +772,7 @@ static inline void str2eaddr(unsigned char *ea, unsigned char *str)
 static int ethaddr_cmd = 0;
 static unsigned char ethaddr_hex[6];
 
-static int __init ethernet_addr_setup(char *str)
+static int __init ethernet_addr_setup(const char *str, const struct kernel_param *kp)
 {
 	if (!str) {
 	        pr_err("ethaddr not set in command line\n");
@@ -785,7 +784,12 @@ static int __init ethernet_addr_setup(char *str)
 	return 0;
 }
 
-__setup("ethaddr=", ethernet_addr_setup);
+static const struct kernel_param_ops ethaddr_ops = {
+	.set = ethernet_addr_setup,
+};
+
+module_param_cb(ethaddr, &ethaddr_ops, NULL, S_IWUSR);
+MODULE_PARM_DESC(ethaddr, "ethernet address (hex)");
 
 static int get_mac_address(struct net_device *dev)
 {
@@ -825,7 +829,7 @@ static int get_mac_address(struct net_device *dev)
 		flag1 &= dev->dev_addr[i];
 	}
 	if ((dev->dev_addr[0] & 0xC0) || (flag0 == 0) || (flag1 == 0xff)) {
-		dev_warn(np->dev, "There is not MAC address, use default ..\n");
+		dev_warn(np->dev, "There is no MAC address, use default ..\n");
 		dev->dev_addr[0] = 0x00;
 		dev->dev_addr[1] = 0xef;
 		dev->dev_addr[2] = 0xa3;
@@ -944,7 +948,9 @@ static void eth_dbg_rx(struct sk_buff *skb, int len)
  */
 static inline void jz_eth_reset(struct net_device *dev)
 {				
-	u32 i;					
+	struct jz_eth_private *np = netdev_priv(dev);
+	u32 i;
+// use iopoll.h for this
 	i = readl(DMA_BMR);
 	writel(i | BMR_SWR, DMA_BMR);			
 	for(i = 0; i < 1000; i++) {			
@@ -1006,7 +1012,7 @@ static int jz_search_mii_phy(struct net_device *dev)
 	np->valid_phy = 0xff;
 	for (phy = 0; phy < 32; phy++) {
 		int mii_status = mdio_read(dev,phy, 1);
-		if (mii_status != 0xffff  &&  mii_status != 0x0000) {
+		if (mii_status != 0xffff && mii_status != 0x0000) {
 			np->phys[phy_idx] = phy;
 			np->ecmds[phy_idx].speed=SPEED_100;
 			np->ecmds[phy_idx].duplex=DUPLEX_FULL;
@@ -1077,11 +1083,11 @@ static u16 jz_hashtable_index(u8 *addr)
 
 static void jz_set_multicast_list(struct net_device *dev)
 {
-	int i, hash_index;
+	int hash_index;
 	u32 mcr, hash_h, hash_l, hash_bit;
 	struct netdev_hw_addr_list *mcptr = &dev->mc;
 	struct jz_eth_private *np = netdev_priv(dev);
-#ifdef DEBUG
+#ifdef FIXME_DEBUG
 	int j;
 #endif
 
@@ -1389,6 +1395,8 @@ static int jz_eth_open(struct net_device *dev)
 
 static int jz_eth_close(struct net_device *dev)
 {
+	struct jz_eth_private *np = netdev_priv(dev);
+
 	netif_stop_queue(dev);
 	close_check(dev);
 	STOP_ETH;
@@ -1403,6 +1411,10 @@ static int jz_eth_close(struct net_device *dev)
 static struct net_device_stats * jz_eth_get_stats(struct net_device *dev)
 {
 	struct jz_eth_private *np = netdev_priv(dev);
+// looks as if np->stats should not be private data
+// and if this call should be done by the scheduled worker
+	struct net_device_stats *ns = &dev->stats;
+
 	int tmp;
 	
 	tmp = readl(DMA_MFC); // After read clear to zero
@@ -1571,9 +1583,9 @@ static void eth_rxready(struct net_device *dev)
 	u32 status;
 
 	status = le32_to_cpu(np->rx_ring[np->rx_head].status);
-	while (!(status & R_OWN)) {               /* owner bit = 0 */
-		if (status & RD_ES) {              /* error summary */
-			np->stats.rx_errors++;    /* Update the error stats. */
+	while (!(status & R_OWN)) {			/* owner bit = 0 */
+		if (status & RD_ES) {			/* error summary */
+			np->stats.rx_errors++;		/* Update the error stats. */
 			if (status & (RD_RF | RD_TL))
 				np->stats.rx_frame_errors++;
 			if (status & RD_CE)
@@ -1598,7 +1610,9 @@ static void eth_rxready(struct net_device *dev)
 			memcpy(skb->data, pkt_ptr, pkt_len);
 			skb_put(skb, pkt_len);
 
-			//eth_dbg_rx(skb, pkt_len);
+#ifdef DEBUG
+			eth_dbg_rx(skb, pkt_len);
+#endif
 			skb->protocol = eth_type_trans(skb,dev);
 			netif_rx(skb);	/* pass the packet to upper layers */
 // FIXME:			dev->last_rx = jiffies;
@@ -1895,9 +1909,6 @@ static int jz4730_eth_probe(struct platform_device *pdev)
 		free_netdev(dev);
 		return -ENOMEM;
 	}
-
-// temporary until we have reworked all register accessors to know np
-	base = np->base;
 
 	np->vaddr_rx_buf = (u32)dma_alloc_noncoherent(&pdev->dev, NUM_RX_DESCS*RX_BUF_SIZE,
 						      &np->dma_rx_buf, DMA_BIDIRECTIONAL, GFP_KERNEL);
