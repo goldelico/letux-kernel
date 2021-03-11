@@ -674,8 +674,6 @@ struct jz_eth_private {
 	unsigned int tx_full;			/* transmit buffers are full */
 	struct sk_buff *tx_skb[NUM_TX_DESCS];	/* skbuffs for packets to transmit */
 
-// looks as if np->stats should not be private data but ndev->stats
-	struct net_device_stats stats;
 	spinlock_t lock;
 
 	int media;				/* Media (eg TP), mode (eg 100B)*/
@@ -848,6 +846,9 @@ static u32 jz_eth_curr_mode(struct net_device *dev);
 /*
  * Ethernet START/STOP routines
  */
+
+// FIXME: make these static inline functions
+
 #define START_ETH {			\
     s32 val;				\
     val = readl(DMA_OMR);		\
@@ -1410,17 +1411,15 @@ static int jz_eth_close(struct net_device *dev)
  */
 static struct net_device_stats * jz_eth_get_stats(struct net_device *dev)
 {
-	struct jz_eth_private *np = netdev_priv(dev);
-// looks as if np->stats should not be private data
-// and if this call should be done by the scheduled worker
-	struct net_device_stats *ns = &dev->stats;
+// this call should be repeated by the scheduled worker?
 
+	struct jz_eth_private *np = netdev_priv(dev);
 	int tmp;
 	
 	tmp = readl(DMA_MFC); // After read clear to zero
-	np->stats.rx_missed_errors += (tmp & MFC_CNT2) + ((tmp & MFC_CNT1) >> 16);
+	np->ndev->stats.rx_missed_errors += (tmp & MFC_CNT2) + ((tmp & MFC_CNT1) >> 16);
 	
-	return &np->stats;
+	return &np->ndev->stats;
 }
 
 /*
@@ -1585,13 +1584,13 @@ static void eth_rxready(struct net_device *dev)
 	status = le32_to_cpu(np->rx_ring[np->rx_head].status);
 	while (!(status & R_OWN)) {			/* owner bit = 0 */
 		if (status & RD_ES) {			/* error summary */
-			np->stats.rx_errors++;		/* Update the error stats. */
+			np->ndev->stats.rx_errors++;		/* Update the error stats. */
 			if (status & (RD_RF | RD_TL))
-				np->stats.rx_frame_errors++;
+				np->ndev->stats.rx_frame_errors++;
 			if (status & RD_CE)
-				np->stats.rx_crc_errors++;
+				np->ndev->stats.rx_crc_errors++;
 			if (status & RD_TL)
-				np->stats.rx_length_errors++;
+				np->ndev->stats.rx_length_errors++;
 		} else {
 			pkt_ptr = bus_to_virt(le32_to_cpu(np->rx_ring[np->rx_head].buf1_addr));
 			pkt_len = ((status & RD_FL) >> 16) - 4;
@@ -1599,7 +1598,7 @@ static void eth_rxready(struct net_device *dev)
 			skb = dev_alloc_skb(pkt_len + 2);
 			if (skb == NULL) {
 				dev_warn(np->dev, "Memory squeeze, dropping.\n");
-				np->stats.rx_dropped++;
+				np->ndev->stats.rx_dropped++;
 				break;
 			}
 			skb->dev = dev;
@@ -1616,8 +1615,8 @@ static void eth_rxready(struct net_device *dev)
 			skb->protocol = eth_type_trans(skb,dev);
 			netif_rx(skb);	/* pass the packet to upper layers */
 // FIXME:			dev->last_rx = jiffies;
-			np->stats.rx_packets++;
-			np->stats.rx_bytes += pkt_len;
+			np->ndev->stats.rx_packets++;
+			np->ndev->stats.rx_bytes += pkt_len;
 		}
 		np->rx_ring[np->rx_head].status = cpu_to_le32(R_OWN);
 
@@ -1636,7 +1635,7 @@ static void jz_eth_tx_timeout(struct net_device *dev, unsigned int txqueue)
 	struct jz_eth_private *np = netdev_priv(dev);
 
 	jz_init_hw(dev);
-	np->stats.tx_errors ++;
+	np->ndev->stats.tx_errors ++;
 	netif_wake_queue(dev);
 }
 
@@ -1653,17 +1652,17 @@ static void eth_txdone(struct net_device *dev)
 		s32 status = le32_to_cpu(np->tx_ring[entry].status);
 		if(status < 0) break;
 		if (status & TD_ES ) {       /* Error summary */
-			np->stats.tx_errors++;
-			if (status & TD_NC) np->stats.tx_carrier_errors++;
-			if (status & TD_LC) np->stats.tx_window_errors++;
-			if (status & TD_UF) np->stats.tx_fifo_errors++;
-			if (status & TD_DE) np->stats.tx_aborted_errors++;
+			np->ndev->stats.tx_errors++;
+			if (status & TD_NC) np->ndev->stats.tx_carrier_errors++;
+			if (status & TD_LC) np->ndev->stats.tx_window_errors++;
+			if (status & TD_UF) np->ndev->stats.tx_fifo_errors++;
+			if (status & TD_DE) np->ndev->stats.tx_aborted_errors++;
 			if (np->tx_head != np->tx_tail)
 				writel(1, DMA_TPD);  /* Restart a stalled TX */
 		} else
-			np->stats.tx_packets++;
+			np->ndev->stats.tx_packets++;
 		/* Update the collision counter */
-		np->stats.collisions += ((status & TD_EC) ? 16 : ((status & TD_CC) >> 3));
+		np->ndev->stats.collisions += ((status & TD_EC) ? 16 : ((status & TD_CC) >> 3));
 		/* Free the original skb */
 		if (np->tx_skb[entry]) {
 			dev_kfree_skb_irq(np->tx_skb[entry]);
@@ -1711,7 +1710,7 @@ static int jz_eth_send_packet(struct sk_buff *skb, struct net_device *dev)
 	load_tx_packet(dev, (char *)skb->data, TD_IC | TD_LS | TD_FS | length, skb);
 	spin_lock_irq(&np->lock);
 	np->tx_head ++;
-	np->stats.tx_bytes += length;
+	np->ndev->stats.tx_bytes += length;
 	writel(1, DMA_TPD);		/* Start the TX */
 
 // FIXME:	dev->trans_start = jiffies;	/* for timeout */
