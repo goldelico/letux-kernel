@@ -24,6 +24,7 @@
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
+#include <linux/workqueue.h>
 
 /*************************************************************************
  * ETH
@@ -685,10 +686,7 @@ struct jz_eth_private {
 	struct ethtool_cmd ecmds[32];
 	u16 advertising;			/* NWay media advertisement */
 
-	pid_t thr_pid;				/* Link cheak thread ID   */
-	int thread_die;
-	struct completion thr_exited;
-	wait_queue_head_t thr_wait;
+	struct delayed_work check_work;
 
 	struct pm_dev *pmdev;
 };
@@ -734,7 +732,7 @@ MODULE_PARM_DESC(hwaddr,"hardware MAC address");
  */
 static irqreturn_t jz_eth_interrupt(int irq, void *dev_id);
 
-static int link_check_thread (void *data); 
+static void link_check_worker(struct work_struct *work);
 
 /*
  * Get MAC address
@@ -868,10 +866,6 @@ static u32 jz_eth_curr_mode(struct net_device *dev);
     writel(val, DMA_OMR);  		\
 }
 
-// FIXME: is this link check needed in modern kernels
-// at least kernel threads are done very differently
-// should become a (delayed) worker
-
 /*
  * Link check routines
  */
@@ -879,83 +873,41 @@ static void start_check(struct net_device *dev)
 {
 	struct jz_eth_private *np = netdev_priv(dev);
 
-	np->thread_die = 0;
-	init_waitqueue_head(&np->thr_wait);
-	init_completion (&np->thr_exited);
-// FIXME:	np->thr_pid = kernel_thread (link_check_thread,(void *)dev,
-//				     CLONE_FS | CLONE_FILES);
-	if (np->thr_pid < 0)
+	if (!schedule_delayed_work(&np->check_work, 0))
 		errprintk("%s: unable to start kernel thread\n",dev->name);
 }
 
 static int close_check(struct net_device *dev)
 {
 	struct jz_eth_private *np = netdev_priv(dev);
-	int ret = 0;
 
-	if (np->thr_pid >= 0) {
-		np->thread_die = 1;
-		wmb();
-// FIXME: 		ret = kill_proc (np->thr_pid, SIGTERM, 1);
-		if (ret) {
-			errprintk("%s: unable to signal thread\n", dev->name);
-			return 1;
-		}
-		wait_for_completion (&np->thr_exited);
-	}
+	if (!cancel_delayed_work(&np->check_work))
+		errprintk("%s: unable to cancel thread\n", dev->name);
+
 	return 0;
 }
 
-static int link_check_thread(void *data)
+static void link_check_worker(struct work_struct *work)
 {
-	struct net_device *dev=(struct net_device *)data;
-	struct jz_eth_private *np = netdev_priv(dev);
+	struct jz_eth_private *np = container_of(work, struct jz_eth_private, check_work.work);
+	struct net_device *dev= np->ndev;
 	unsigned char current_link;
-	unsigned long timeout;
-
-// FIXME:	daemonize("%s", dev->name);
-	spin_lock_irq(&current->sighand->siglock);
-	sigemptyset(&current->blocked);
-	recalc_sigpending();
-	spin_unlock_irq(&current->sighand->siglock);
-
-	strncpy (current->comm, dev->name, sizeof(current->comm) - 1);
-	current->comm[sizeof(current->comm) - 1] = '\0';
-
-	while (1) {
-		timeout = 3*HZ;
-		do {
-// FIXME:			timeout = interruptible_sleep_on_timeout (&np->thr_wait, timeout);
-			/* make swsusp happy with our thread */
-//			if (current->flags & PF_FREEZE)
-//				refrigerator(PF_FREEZE);
-		} while (!signal_pending (current) && (timeout > 0));
-
-		if (signal_pending (current)) {
-			spin_lock_irq(&current->sighand->siglock);
-			flush_signals(current);
-			spin_unlock_irq(&current->sighand->siglock);
-		}
-
-		if (np->thread_die)
-			break;
 		
-		current_link=mii_link_ok(&mii_info);
-		if (np->link_state!=current_link) {
-			if (current_link) {
-				infoprintk("%s: Ethernet Link OK!\n",dev->name);
-				jz_eth_curr_mode(dev);
-				netif_carrier_on(dev);
-			}
-			else {
-				errprintk("%s: Ethernet Link offline!\n",dev->name);
-				netif_carrier_off(dev);
-			}
+	current_link = mii_link_ok(&mii_info);
+	if (np->link_state != current_link) {
+		if (current_link) {
+			infoprintk("%s: Ethernet Link OK!\n",dev->name);
+			jz_eth_curr_mode(dev);
+			netif_carrier_on(dev);
 		}
-		np->link_state=current_link;
-
+		else {
+			errprintk("%s: Ethernet Link offline!\n",dev->name);
+			netif_carrier_off(dev);
+		}
 	}
-	complete_and_exit (&np->thr_exited, 0);	
+	np->link_state = current_link;
+
+	schedule_delayed_work(&np->check_work, msecs_to_jiffies(3000));
 }
 
 #ifdef DEBUG
@@ -1014,6 +966,7 @@ static inline void jz_eth_reset(void)
  */
 static inline void mii_wait(void)
 {
+// use iopoll.h for this
 	int i;
 	for(i = 0; i < 10000; i++) {
 		if(!(readl(MAC_MIIA) & 0x1)) 
@@ -1971,6 +1924,7 @@ static int jz4730_eth_probe(struct platform_device *pdev)
 	np->dma_tx_ring = virt_to_bus(np->tx_ring);
 	np->full_duplex = 1;
 	np->link_state = 1;
+	INIT_DELAYED_WORK(&np->check_work, link_check_worker);
 
 	spin_lock_init(&np->lock);
 
