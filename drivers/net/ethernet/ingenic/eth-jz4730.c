@@ -8,6 +8,9 @@
  *  Copyright (C) 2021 H. Nikolaus Schaller <hns@goldelico.com> - adaptation to v5.12
  *
  */
+
+#define DEBUG
+
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
@@ -694,26 +697,14 @@ struct jz_eth_private {
 #define P2ADDR(a)	(((unsigned long)(a) & 0x1fffffff) | 0xa0000000)
 #define P1ADDR(a)	(((unsigned long)(a) & 0x1fffffff) | 0x80000000)
 
-//#define DEBUG
-
 #ifdef DEBUG
-#     define DBPRINTK(fmt,args...) printk(KERN_DEBUG fmt,##args)
-	static void mii_db_out(struct net_device *dev);
-#else
-#     define DBPRINTK(fmt,args...) do {} while(0)
+static void mii_db_out(struct net_device *dev);
 #endif
-
-#define errprintk(fmt,args...)  printk(KERN_ERR fmt,##args);
-#define infoprintk(fmt,args...) printk(KERN_INFO fmt,##args);
 
 #define DRV_NAME	"jz_eth"
 #define DRV_VERSION	"1.2"
 #define DRV_AUTHOR	"Peter Wei <jlwei@ingenic.cn>"
 #define DRV_DESC	"JzSOC On-chip Ethernet driver"
-
-MODULE_AUTHOR(DRV_AUTHOR);
-MODULE_DESCRIPTION(DRV_DESC);
-MODULE_LICENSE("GPL");
 
 /*
  * Local variables
@@ -785,7 +776,7 @@ static unsigned char ethaddr_hex[6];
 static int __init ethernet_addr_setup(char *str)
 {
 	if (!str) {
-	        printk("ethaddr not set in command line\n");
+	        pr_err("ethaddr not set in command line\n");
 		return -1;
 	}
 	ethaddr_cmd = 1;
@@ -801,11 +792,12 @@ static int get_mac_address(struct net_device *dev)
 	int i;
 	unsigned char flag0=0;
 	unsigned char flag1=0xff;
+	struct jz_eth_private *np = netdev_priv(dev);
 	
 	dev->dev_addr[0] = 0xff;
 	if (hwaddr != NULL) {
 		/* insmod jz-ethc.o hwaddr=00:ef:a3:c1:00:10 */
-		printk(KERN_ERR "jz_eth: found '%s' in cmdline\n", hwaddr);
+		dev_info(np->dev, "found '%s' in cmdline\n", hwaddr);
 		str2eaddr(dev->dev_addr, hwaddr);
 	} else if (ethaddr_cmd) {
 		/* linux command line: ethaddr=00:ef:a3:c1:00:10 */
@@ -833,7 +825,7 @@ static int get_mac_address(struct net_device *dev)
 		flag1 &= dev->dev_addr[i];
 	}
 	if ((dev->dev_addr[0] & 0xC0) || (flag0 == 0) || (flag1 == 0xff)) {
-		printk(KERN_ERR "WARNING: There is not MAC address, use default ..\n");
+		dev_warn(np->dev, "There is not MAC address, use default ..\n");
 		dev->dev_addr[0] = 0x00;
 		dev->dev_addr[1] = 0xef;
 		dev->dev_addr[2] = 0xa3;
@@ -874,7 +866,7 @@ static void start_check(struct net_device *dev)
 	struct jz_eth_private *np = netdev_priv(dev);
 
 	if (!schedule_delayed_work(&np->check_work, 0))
-		errprintk("%s: unable to start kernel thread\n",dev->name);
+		dev_err(np->dev, "unable to start kernel thread\n");
 }
 
 static int close_check(struct net_device *dev)
@@ -882,7 +874,7 @@ static int close_check(struct net_device *dev)
 	struct jz_eth_private *np = netdev_priv(dev);
 
 	if (!cancel_delayed_work(&np->check_work))
-		errprintk("%s: unable to cancel thread\n", dev->name);
+		dev_err(np->dev, "unable to cancel thread\n");
 
 	return 0;
 }
@@ -896,18 +888,18 @@ static void link_check_worker(struct work_struct *work)
 	current_link = mii_link_ok(&mii_info);
 	if (np->link_state != current_link) {
 		if (current_link) {
-			infoprintk("%s: Ethernet Link OK!\n",dev->name);
+			dev_info(np->dev, "Ethernet Link OK!\n");
 			jz_eth_curr_mode(dev);
 			netif_carrier_on(dev);
 		}
 		else {
-			errprintk("%s: Ethernet Link offline!\n",dev->name);
+			dev_err(np->dev, "Ethernet Link offline!\n");
 			netif_carrier_off(dev);
 		}
 	}
 	np->link_state = current_link;
 
-	schedule_delayed_work(&np->check_work, msecs_to_jiffies(3000));
+	schedule_delayed_work(&np->check_work, msecs_to_jiffies(200));
 }
 
 #ifdef DEBUG
@@ -950,7 +942,7 @@ static void eth_dbg_rx(struct sk_buff *skb, int len)
 /*
  * Reset ethernet device
  */
-static inline void jz_eth_reset(void)
+static inline void jz_eth_reset(struct net_device *dev)
 {				
 	u32 i;					
 	i = readl(DMA_BMR);
@@ -964,8 +956,9 @@ static inline void jz_eth_reset(void)
 /*
  * MII operation routines 
  */
-static inline void mii_wait(void)
+static inline void mii_wait(struct net_device *dev)
 {
+	struct jz_eth_private *np = netdev_priv(dev);
 // use iopoll.h for this
 	int i;
 	for(i = 0; i < 10000; i++) {
@@ -974,16 +967,17 @@ static inline void mii_wait(void)
 		mdelay(1);
 	}
 	if (i >= 10000)
-		printk("MII wait timeout : %d.\n", i);
+		dev_err(np->dev, "MII wait timeout : %d.\n", i);
 }
 
-static int mdio_read(struct net_device *dev,int phy_id, int location)
+static int mdio_read(struct net_device *dev, int phy_id, int location)
 {
+	struct jz_eth_private *np = netdev_priv(dev);
 	u32 mii_cmd = (phy_id << 11) | (location << 6) | 1;
 	int retval = 0;
 	
 	writel(mii_cmd, MAC_MIIA);
-	mii_wait();
+	mii_wait(dev);
 	retval = readl(MAC_MIID) & 0x0000ffff;
 	
 	return retval;
@@ -992,11 +986,12 @@ static int mdio_read(struct net_device *dev,int phy_id, int location)
 
 static void mdio_write(struct net_device *dev,int phy_id, int location, int data)
 {
+	struct jz_eth_private *np = netdev_priv(dev);
 	u32 mii_cmd = (phy_id << 11) | (location << 6) | 0x2 | 1;
 	
 	writel(mii_cmd, MAC_MIIA);
 	writel(data & 0x0000ffff, MAC_MIID);
-	mii_wait();
+	mii_wait(dev);
 }
 
 /*
@@ -1023,7 +1018,7 @@ static int jz_search_mii_phy(struct net_device *dev)
 							ADVERTISED_10baseT_Full |
 							ADVERTISED_100baseT_Half |
 							ADVERTISED_100baseT_Full);
-			DBPRINTK("found PHY idx %d at %d\n", phy_idx, phy);
+			dev_dbg(np->dev, "found PHY idx %d at %d\n", phy_idx, phy);
 			phy_idx++;
 		}
 	}
@@ -1085,6 +1080,7 @@ static void jz_set_multicast_list(struct net_device *dev)
 	int i, hash_index;
 	u32 mcr, hash_h, hash_l, hash_bit;
 	struct netdev_hw_addr_list *mcptr = &dev->mc;
+	struct jz_eth_private *np = netdev_priv(dev);
 #ifdef DEBUG
 	int j;
 #endif
@@ -1098,7 +1094,7 @@ static void jz_set_multicast_list(struct net_device *dev)
 		mcr |= MCR_PR;
 		hash_h = 0xffffffff;
 		hash_l = 0xffffffff;
-		DBPRINTK("%s: enter promisc mode!\n",dev->name);
+		dev_dbg(np->dev, "enter promisc mode!\n");
 	}
 // FIXME: count # of entries on mc list
 	else  if ((dev->flags & IFF_ALLMULTI) /* || (dev->mc_count > MULTICAST_FILTER_LIMIT) */){
@@ -1106,7 +1102,7 @@ static void jz_set_multicast_list(struct net_device *dev)
 		mcr |= MCR_PM;
 		hash_h = 0xffffffff;
 		hash_l = 0xffffffff;
-	//	DBPRINTK("%s: enter allmulticast mode!   %d \n",dev->name,dev->mc_count);
+	//	dev_dbg(np->dev, "enter allmulticast mode! %d \n", dev->mc_count);
 	}
 	else if (dev->flags & IFF_MULTICAST)
 	{
@@ -1122,22 +1118,22 @@ static void jz_set_multicast_list(struct net_device *dev)
 				hash_h |= hash_bit;
 			else
 				hash_l |= hash_bit;
-			DBPRINTK("----------------------------\n");
-#ifdef DEBUG
+			dev_dbg(np->dev, "----------------------------\n");
+#ifdef FIXME_DEBUG
 			for (j=0;j<ha->addrlen;j++)
-				printk(KERN_DEBUG "%2.2x:",ha->addr[j]);
+				dev_dbg(np->dev, "%2.2x:",ha->addr[j]);
 			printk("\n");
-			DBPRINTK("dmi.addrlen => %d\n",mclist->dmi_addrlen);
-			DBPRINTK("dmi.users   => %d\n",mclist->dmi_users);
-			DBPRINTK("dmi.gusers  => %d\n",mclist->dmi_users);
+			dev_dbg(np->dev, "dmi.addrlen => %d\n",mclist->dmi_addrlen);
+			dev_dbg(np->dev, "dmi.users   => %d\n",mclist->dmi_users);
+			dev_dbg(np->dev, "dmi.gusers  => %d\n",mclist->dmi_users);
 #endif
 		}
 		writel(hash_h,MAC_HTH);
 		writel(hash_l,MAC_HTL);
 		mcr |= MCR_HP;
-		DBPRINTK("This is multicast hash table high bits [%4.4x]\n",readl(MAC_HTH));
-		DBPRINTK("This is multicast hash table low  bits [%4.4x]\n",readl(MAC_HTL));
-		DBPRINTK("%s: enter multicast mode!\n",dev->name);
+		dev_dbg(np->dev, "This is multicast hash table high bits [%4.4x]\n",readl(MAC_HTH));
+		dev_dbg(np->dev, "This is multicast hash table low  bits [%4.4x]\n",readl(MAC_HTL));
+		dev_dbg(np->dev, "enter multicast mode!\n");
 	}
 	writel(mcr,MAC_MCR);
 // spinunlock?
@@ -1173,27 +1169,27 @@ static void mii_db_out(struct net_device *dev)
 	unsigned int mii_test;
 
 	mii_test = mdio_read(dev,np->valid_phy,MII_BMCR);
-	DBPRINTK("BMCR ====> 0x%4.4x \n",mii_test);
+	dev_dbg(np->dev, "BMCR ====> 0x%4.4x \n",mii_test);
 	
 	mii_test = mdio_read(dev,np->valid_phy,MII_BMSR);
-	DBPRINTK("BMSR ====> 0x%4.4x \n",mii_test);
+	dev_dbg(np->dev, "BMSR ====> 0x%4.4x \n",mii_test);
 	
 	mii_test = mdio_read(dev,np->valid_phy,MII_ANAR);
-	DBPRINTK("ANAR ====> 0x%4.4x \n",mii_test);
+	dev_dbg(np->dev, "ANAR ====> 0x%4.4x \n",mii_test);
 	
 	mii_test = mdio_read(dev,np->valid_phy,MII_ANLPAR);
-	DBPRINTK("ANLPAR ====> 0x%4.4x \n",mii_test);
+	dev_dbg(np->dev, "ANLPAR ====> 0x%4.4x \n",mii_test);
 	
 	mii_test = mdio_read(dev,np->valid_phy,16);
-	DBPRINTK("REG16 ====> 0x%4.4x \n",mii_test);
+	dev_dbg(np->dev, "REG16 ====> 0x%4.4x \n",mii_test);
 	
 	mii_test = mdio_read(dev,np->valid_phy,17);
-	DBPRINTK("REG17 ====> 0x%4.4x \n",mii_test);
+	dev_dbg(np->dev, "REG17 ====> 0x%4.4x \n",mii_test);
 
 	mii_test = mdio_read(dev,np->valid_phy, 2);
-	DBPRINTK("ID2 ====> 0x%4.4x \n",mii_test);
+	dev_dbg(np->dev, "ID2 ====> 0x%4.4x \n",mii_test);
 	mii_test = mdio_read(dev,np->valid_phy, 3);
-	DBPRINTK("ID3 ====> 0x%4.4x \n",mii_test);
+	dev_dbg(np->dev, "ID3 ====> 0x%4.4x \n",mii_test);
 }
 #endif
 
@@ -1230,26 +1226,25 @@ static u32 jz_eth_curr_mode(struct net_device *dev)
 	mii_reg17 = mdio_read(dev,np->valid_phy,MII_DSCSR); 
 	np->media = mii_reg17>>12;
 	if (np->media==8) {
-		infoprintk("%s: Current Operation Mode is [100M Full Duplex]",dev->name);
+		dev_info(np->dev, "Current Operation Mode is [100M Full Duplex]\n");
 		flag = 0;
 		np->full_duplex=1;
 	}
 	if (np->media==4) {
-		infoprintk("%s: Current Operation Mode is [100M Half Duplex]",dev->name);
+		dev_info(np->dev, "Current Operation Mode is [100M Half Duplex]\n");
 		flag = 0;
 		np->full_duplex=0;
 	}
 	if (np->media==2) {
-		infoprintk("%s: Current Operation Mode is [10M Full Duplex]",dev->name);
+		dev_info(np->dev, "Current Operation Mode is [10M Full Duplex]\n");
 		flag = OMR_TTM;
 		np->full_duplex=1;
 	}
 	if (np->media==1) {
-		infoprintk("%s: Current Operation Mode is [10M Half Duplex]",dev->name);
+		dev_info(np->dev, "Current Operation Mode is [10M Half Duplex]\n");
 		flag = OMR_TTM;
 		np->full_duplex=0;
 	}
-	printk("\n");
 	return flag;
 }
 
@@ -1265,27 +1260,26 @@ static int jz_init_hw(struct net_device *dev)
 	u32 sts, flag = 0;
 	int i;
 
-	jz_eth_reset();
+	jz_eth_reset(dev);
 	STOP_ETH;
 /* XXX testwise enabled */
 #if 0
 	/* mii operation */
 	if (jz_phy_reset(dev)) {
-		errprintk("PHY device do not reset!\n");
+		dev_err(np->dev, "PHY device do not reset!\n");
 		return -EPERM;          // return operation not permitted 
 	}
 #endif
 	/* Set MAC address */
 	writel(le32_to_cpu(*(unsigned long *)&dev->dev_addr[0]), MAC_MAL);
 	writel(le32_to_cpu(*(unsigned long *)&dev->dev_addr[4]), MAC_MAH);
-	printk("%s: JZ On-Chip ethernet (MAC ", dev->name);
-	for (i = 0; i < 5; i++) {
-		printk("%2.2x:", dev->dev_addr[i]);
-	}
-	printk("%2.2x, IRQ %d)\n", dev->dev_addr[i], dev->irq);
+	dev_info(np->dev, "JZ On-Chip ethernet (MAC %2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x, IRQ %d)\n",
+			dev->dev_addr[0], dev->dev_addr[1], dev->dev_addr[2],
+			dev->dev_addr[3], dev->dev_addr[4], dev->dev_addr[5],
+			dev->irq);
 
 	np->mii_phy_cnt = jz_search_mii_phy(dev);
-	printk("%s: Found %d PHY on JZ MAC\n", dev->name, np->mii_phy_cnt);
+	dev_info(np->dev, "Found %d PHY on JZ MAC\n", np->mii_phy_cnt);
 #ifdef DEBUG
 	mii_db_out(dev);
 #endif
@@ -1304,14 +1298,12 @@ static int jz_init_hw(struct net_device *dev)
         
 	//mii_ethtool_sset(&mii_info, &ecmd);
 	if (jz_autonet_complete(dev)) 
-		errprintk("%s: Ethernet Module AutoNegotiation failed\n",dev->name);
+		dev_err(np->dev, "Ethernet Module AutoNegotiation failed\n");
 	mii_ethtool_gset(&mii_info,&ecmd);
 	
-	infoprintk("%s: Provide Modes: ",dev->name);
 	for (i = 0; i < 5;i++) 
 		if (ecmd.advertising & (1<<i))
-			printk("(%d)%s", i+1, media_types[i]);
-	printk("\n");  
+			dev_info(np->dev, "Provide Mode: (%d)%s\n", i+1, media_types[i]);
 
 	flag = jz_eth_curr_mode(dev);
 
@@ -1361,13 +1353,12 @@ static int jz_eth_open(struct net_device *dev)
 	struct jz_eth_private *np = netdev_priv(dev);
 	int retval, i;
 
-	retval = request_irq(dev->irq, jz_eth_interrupt, 0, dev->name, dev);
+	retval = request_irq(dev->irq, jz_eth_interrupt, IRQF_SHARED, dev->name, dev);
 	if (retval) {
-		errprintk("%s: unable to get IRQ %d .\n", dev->name, dev->irq);
+		dev_err(np->dev, "unable to get IRQ %d -> %d.\n", dev->irq, retval);
 		return -EAGAIN;
 	}
 
-#if FIXME
 	for (i = 0; i < NUM_RX_DESCS; i++) {
 		np->rx_ring[i].status = cpu_to_le32(R_OWN);
 		np->rx_ring[i].desc1 = cpu_to_le32(RX_BUF_SIZE | RD_RCH);
@@ -1384,7 +1375,6 @@ static int jz_eth_open(struct net_device *dev)
 	}
 	np->tx_ring[NUM_TX_DESCS - 1].next_addr = cpu_to_le32(np->dma_tx_ring);
 
-#endif
 	np->rx_head = 0;
 	np->tx_head = np->tx_tail = 0;
 
@@ -1596,8 +1586,7 @@ static void eth_rxready(struct net_device *dev)
 
 			skb = dev_alloc_skb(pkt_len + 2);
 			if (skb == NULL) {
-				printk("%s: Memory squeeze, dropping.\n",
-				       dev->name);
+				dev_warn(np->dev, "Memory squeeze, dropping.\n");
 				np->stats.rx_dropped++;
 				break;
 			}
@@ -1752,7 +1741,7 @@ static irqreturn_t jz_eth_interrupt(int irq, void *dev_id)
 		/* check error conditions */
 		if (sts & DMA_INT_FB){      /* fatal bus error */
 			STOP_ETH;
-			errprintk("%s: Fatal bus error occurred, sts=%#8x, device stopped.\n",dev->name, sts);
+			dev_err(np->dev, "Fatal bus error occurred, sts=%#8x, device stopped.\n", sts);
 			break;
 		}
 
@@ -1789,7 +1778,7 @@ static int jz_eth_suspend(struct net_device *dev, int state)
 	struct jz_eth_private *jep =netdev_priv(dev);
 	unsigned long flags, tmp;
 
-	printk("ETH suspend.\n");
+	dev_info(np->dev, "ETH suspend.\n");
 
 	if (!netif_running(dev)) {
 		return 0;
@@ -1818,7 +1807,7 @@ static int jz_eth_suspend(struct net_device *dev, int state)
  */
 static int jz_eth_resume(struct net_device *dev)
 {
-	printk("ETH resume.\n");
+	dev_info(np->dev, "ETH resume.\n");
 
 	if (!netif_running(dev))
 		return 0;
@@ -1883,18 +1872,18 @@ static int jz4730_eth_probe(struct platform_device *pdev)
 
 	dev = alloc_etherdev(sizeof(struct jz_eth_private));
 	if (!dev) {
-		printk(KERN_ERR "%s: alloc_etherdev failed\n", DRV_NAME);
+		dev_err(&pdev->dev, "alloc_etherdev failed\n");
 		return -ENOMEM;
 	}
 	platform_set_drvdata(pdev, dev);
 	SET_NETDEV_DEV(dev, &pdev->dev);
 
 	np = netdev_priv(dev);
+	memset(np, 0, sizeof(struct jz_eth_private));
+
 	np->dev = &pdev->dev;
 	np->ndev = dev;
 	np->pdev = pdev;
-
-	memset(np, 0, sizeof(struct jz_eth_private));
 
 	if (of_address_to_resource(of, 0, &res)) {
 		free_netdev(dev);
@@ -1914,7 +1903,7 @@ static int jz4730_eth_probe(struct platform_device *pdev)
 						      &np->dma_rx_buf, DMA_BIDIRECTIONAL, GFP_KERNEL);
 
 	if (!np->vaddr_rx_buf) {
-		printk(KERN_ERR "%s: Cannot alloc dma buffers\n", DRV_NAME);
+		dev_err(&pdev->dev, "Cannot alloc dma buffers\n");
 		unregister_netdev(dev);
 		free_netdev(dev);
 		return -ENOMEM;
@@ -1930,8 +1919,8 @@ static int jz4730_eth_probe(struct platform_device *pdev)
 
 	ether_setup(dev);
 
-	dev->irq = of_irq_get(of, 0);
-	if (!dev->irq) {
+	dev->irq = irq_of_parse_and_map(of, 0);
+	if (dev->irq == -ENXIO) {
 		free_netdev(dev);
 		return -EINVAL;
 	}
@@ -1945,8 +1934,7 @@ static int jz4730_eth_probe(struct platform_device *pdev)
 
 	err = register_netdev(dev);
 	if (err) {
-		printk(KERN_ERR "%s: Cannot register net device, error %d\n",
-				DRV_NAME, err);
+		dev_err(&pdev->dev, "Cannot register net device, error %d\n", err);
 		free_netdev(dev);
 		return -ENOMEM;
 	}
@@ -1984,11 +1972,13 @@ static struct platform_driver jz4730_eth_driver = {
 	.probe		= jz4730_eth_probe,
 	.remove		= jz4730_eth_remove,
 	.driver = {
-		.name	= "jz4730_eth",
+		.name	= "jz4730-eth",
 		.of_match_table = jz4730_eth_match,
 	}
 };
 
-MODULE_DESCRIPTION("Ingetnic jz4730 mii network driver");
+MODULE_AUTHOR(DRV_AUTHOR);
+MODULE_DESCRIPTION(DRV_DESC);
 MODULE_LICENSE("GPL");
+
 module_platform_driver(jz4730_eth_driver);
