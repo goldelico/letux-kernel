@@ -625,6 +625,17 @@ config CHARGER_BQ24735
 	help
 	  Say Y to enable support for the TI BQ24735 battery charger.
 
+config CHARGER_BQ2429X
+	tristate "TI BQ2429x battery charger driver"
+	depends on I2C
+	depends on GPIOLIB || COMPILE_TEST
+	depends on REGMAP_I2C
+	help
+	  Say Y to enable support for the TI BQ24296/297 battery charger.
+
+	  You'll need this driver to charge batteries on e.g. Pyra
+	  Handheld.
+
 config CHARGER_BQ2515X
 	tristate "TI BQ2515X battery charger family"
 	depends on I2C
@@ -800,5 +811,11 @@ config BATTERY_ACER_A500
 	depends on MFD_ACER_A500_EC
 	help
 	  Say Y to include support for Acer Iconia Tab A500 battery fuel gauge.
+
+config RN5T618_FUEL_GAUGE
+	tristate "RN5T618 Fuel Gauge"
+	depends on MFD_RN5T618
+	help
+	  Say yes here to have support for RN5T618 PMIC family fuel gauge
 
 endif # POWER_SUPPLY
