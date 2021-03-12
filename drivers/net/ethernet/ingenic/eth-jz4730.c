@@ -57,6 +57,7 @@
 #define ETH_WKFR	(ETH_BASE + 0x0028)
 #define ETH_PMTR	(ETH_BASE + 0x002C)
 
+#if 0 // there is no REG32 macro
 #define REG_ETH_BMR	REG32(ETH_BMR)
 #define REG_ETH_TPDR	REG32(ETH_TPDR)
 #define REG_ETH_RPDR	REG32(ETH_RPDR)
@@ -80,6 +81,7 @@
 #define REG_ETH_VTR2	REG32(ETH_VTR2)
 #define REG_ETH_WKFR	REG32(ETH_WKFR)
 #define REG_ETH_PMTR	REG32(ETH_PMTR)
+#endif
 
 /* Bus Mode Register (ETH_BMR) */
 
@@ -719,7 +721,7 @@ MODULE_PARM_DESC(hwaddr,"hardware MAC address");
  * Local routines
  */
 static irqreturn_t jz_eth_interrupt(int irq, void *dev_id);
-
+static struct net_device_stats * jz_eth_get_stats(struct net_device *dev);
 static void link_check_worker(struct work_struct *work);
 
 /*
@@ -847,20 +849,28 @@ static u32 jz_eth_curr_mode(struct net_device *dev);
  * Ethernet START/STOP routines
  */
 
-// FIXME: make these static inline functions
+static void start_eth(struct net_device *dev)
+{
+	struct jz_eth_private *np = netdev_priv(dev);
+	s32 val;
 
-#define START_ETH {			\
-    s32 val;				\
-    val = readl(DMA_OMR);		\
-    val |= OMR_ST | OMR_SR;		\
-    writel(val, DMA_OMR); 		\
+printk("%s\n", __func__);
+
+	val = readl(DMA_OMR);
+	val |= OMR_ST | OMR_SR;
+	writel(val, DMA_OMR);
 }
 
-#define STOP_ETH {			\
-    s32 val;				\
-    val = readl(DMA_OMR);		\
-    val &= ~(OMR_ST|OMR_SR);		\
-    writel(val, DMA_OMR);  		\
+static void stop_eth(struct net_device *dev)
+{
+	struct jz_eth_private *np = netdev_priv(dev);
+	s32 val;
+
+printk("%s\n", __func__);
+
+	val = readl(DMA_OMR);
+	val &= ~(OMR_ST|OMR_SR);
+	writel(val, DMA_OMR);
 }
 
 /*
@@ -904,6 +914,8 @@ static void link_check_worker(struct work_struct *work)
 	}
 	np->link_state = current_link;
 
+	jz_eth_get_stats(dev);
+
 	schedule_delayed_work(&np->check_work, msecs_to_jiffies(200));
 }
 
@@ -914,7 +926,6 @@ static void link_check_worker(struct work_struct *work)
  */
 static void eth_dbg_rx(struct sk_buff *skb, int len) 
 {
-
   	int i, j; 
     
   	printk("R: %02x:%02x:%02x:%02x:%02x:%02x <- %02x:%02x:%02x:%02x:%02x:%02x len/SAP:%02x%02x [%d]\n",
@@ -951,7 +962,9 @@ static inline void jz_eth_reset(struct net_device *dev)
 {				
 	struct jz_eth_private *np = netdev_priv(dev);
 	u32 i;
+
 // use iopoll.h for this
+
 	i = readl(DMA_BMR);
 	writel(i | BMR_SWR, DMA_BMR);			
 	for(i = 0; i < 1000; i++) {			
@@ -966,8 +979,10 @@ static inline void jz_eth_reset(struct net_device *dev)
 static inline void mii_wait(struct net_device *dev)
 {
 	struct jz_eth_private *np = netdev_priv(dev);
-// use iopoll.h for this
 	int i;
+
+// use iopoll.h for this
+
 	for(i = 0; i < 10000; i++) {
 		if(!(readl(MAC_MIIA) & 0x1)) 
 			break;
@@ -1086,11 +1101,12 @@ static void jz_set_multicast_list(struct net_device *dev)
 {
 	int hash_index;
 	u32 mcr, hash_h, hash_l, hash_bit;
-	struct netdev_hw_addr_list *mcptr = &dev->mc;
 	struct jz_eth_private *np = netdev_priv(dev);
 #ifdef FIXME_DEBUG
 	int j;
 #endif
+
+printk("%s\n", __func__);
 
 // spinlock like in drivers/net/ethernet/nxp/lpc_eth.c ?
 	mcr = readl(MAC_MCR);
@@ -1103,13 +1119,12 @@ static void jz_set_multicast_list(struct net_device *dev)
 		hash_l = 0xffffffff;
 		dev_dbg(np->dev, "enter promisc mode!\n");
 	}
-// FIXME: count # of entries on mc list
-	else  if ((dev->flags & IFF_ALLMULTI) /* || (dev->mc_count > MULTICAST_FILTER_LIMIT) */){
+	else if ((dev->flags & IFF_ALLMULTI) || netdev_mc_count(dev) > MULTICAST_FILTER_LIMIT) {
 		/* Accept all multicast packets */
 		mcr |= MCR_PM;
 		hash_h = 0xffffffff;
 		hash_l = 0xffffffff;
-	//	dev_dbg(np->dev, "enter allmulticast mode! %d \n", dev->mc_count);
+		dev_dbg(np->dev, "enter allmulticast mode! %d entries\n", netdev_mc_count(dev));
 	}
 	else if (dev->flags & IFF_MULTICAST)
 	{
@@ -1117,33 +1132,36 @@ static void jz_set_multicast_list(struct net_device *dev)
 		struct netdev_hw_addr *ha;
 		hash_h = readl(MAC_HTH);
 		hash_l = readl(MAC_HTL);
-		netdev_hw_addr_list_for_each(ha, mcptr) {
+		netdev_for_each_mc_addr(ha, dev) {
 			hash_index = jz_hashtable_index(ha->addr);
-			hash_bit=0x00000001;
-			hash_bit <<= (hash_index & 0x1f);
+			hash_bit = BIT(hash_index & 0x1f);
 			if (hash_index > 0x1f) 
 				hash_h |= hash_bit;
 			else
 				hash_l |= hash_bit;
 			dev_dbg(np->dev, "----------------------------\n");
 #ifdef FIXME_DEBUG
+// these fields do not exists in netdev_hw_addr
 			for (j=0;j<ha->addrlen;j++)
-				dev_dbg(np->dev, "%2.2x:",ha->addr[j]);
+				dev_dbg(np->dev, "%2.2x:", ha->addr[j]);
 			printk("\n");
-			dev_dbg(np->dev, "dmi.addrlen => %d\n",mclist->dmi_addrlen);
-			dev_dbg(np->dev, "dmi.users   => %d\n",mclist->dmi_users);
-			dev_dbg(np->dev, "dmi.gusers  => %d\n",mclist->dmi_users);
+			dev_dbg(np->dev, "dmi.addrlen => %d\n", mclist->dmi_addrlen);
+			dev_dbg(np->dev, "dmi.users   => %d\n", mclist->dmi_users);
+			dev_dbg(np->dev, "dmi.gusers  => %d\n", mclist->dmi_users);
 #endif
 		}
-		writel(hash_h,MAC_HTH);
-		writel(hash_l,MAC_HTL);
 		mcr |= MCR_HP;
-		dev_dbg(np->dev, "This is multicast hash table high bits [%4.4x]\n",readl(MAC_HTH));
-		dev_dbg(np->dev, "This is multicast hash table low  bits [%4.4x]\n",readl(MAC_HTL));
+		dev_dbg(np->dev, "This is multicast hash table high bits [%4.4x]\n", readl(MAC_HTH));
+		dev_dbg(np->dev, "This is multicast hash table low  bits [%4.4x]\n", readl(MAC_HTL));
 		dev_dbg(np->dev, "enter multicast mode!\n");
 	}
-	writel(mcr,MAC_MCR);
+	writel(hash_h, MAC_HTH);
+	writel(hash_l, MAC_HTL);
+	writel(mcr, MAC_MCR);
 // spinunlock?
+
+printk("%s ok\n", __func__);
+
 }
 
 static inline int jz_phy_reset(struct net_device *dev)
@@ -1151,19 +1169,21 @@ static inline int jz_phy_reset(struct net_device *dev)
 	struct jz_eth_private *np = netdev_priv(dev);
 	unsigned int mii_reg0;
 	unsigned int count;
-	
-	mii_reg0 = mdio_read(dev,np->valid_phy,MII_BMCR);
-	mii_reg0 |=MII_CR_RST;   
-	mdio_write(dev,np->valid_phy,MII_BMCR,mii_reg0);  //reset phy
-	for ( count = 0; count < 1000; count++) {
+
+printk("%s\n", __func__);
+
+	mii_reg0 = mdio_read(dev,np->valid_phy, MII_BMCR);
+	mii_reg0 |= MII_CR_RST;
+	mdio_write(dev,np->valid_phy, MII_BMCR, mii_reg0);  /* reset phy */
+
+// can we use iopoll.h?
+	for (count = 0; count < 1000; count++) {
 		mdelay(1);
-		mii_reg0 = mdio_read(dev,np->valid_phy,MII_BMCR);
-		if (!(mii_reg0 & MII_CR_RST)) break;  //reset completed
+		mii_reg0 = mdio_read(dev,np->valid_phy, MII_BMCR);
+		if (!(mii_reg0 & MII_CR_RST))
+			break;  /* reset completed */
 	}
-	if (count>=100) 
-		return 1;     //phy error
-	else
-		return 0;
+	return (count >= 100);	/* phy error */
 }
 
 /*
@@ -1175,28 +1195,28 @@ static void mii_db_out(struct net_device *dev)
 	struct jz_eth_private *np = netdev_priv(dev);
 	unsigned int mii_test;
 
-	mii_test = mdio_read(dev,np->valid_phy,MII_BMCR);
-	dev_dbg(np->dev, "BMCR ====> 0x%4.4x \n",mii_test);
+	mii_test = mdio_read(dev, np->valid_phy, MII_BMCR);
+	dev_dbg(np->dev, "BMCR ====> 0x%4.4x \n", mii_test);
 	
-	mii_test = mdio_read(dev,np->valid_phy,MII_BMSR);
-	dev_dbg(np->dev, "BMSR ====> 0x%4.4x \n",mii_test);
+	mii_test = mdio_read(dev, np->valid_phy ,MII_BMSR);
+	dev_dbg(np->dev, "BMSR ====> 0x%4.4x \n", mii_test);
 	
-	mii_test = mdio_read(dev,np->valid_phy,MII_ANAR);
-	dev_dbg(np->dev, "ANAR ====> 0x%4.4x \n",mii_test);
+	mii_test = mdio_read(dev, np->valid_phy, MII_ANAR);
+	dev_dbg(np->dev, "ANAR ====> 0x%4.4x \n", mii_test);
 	
-	mii_test = mdio_read(dev,np->valid_phy,MII_ANLPAR);
-	dev_dbg(np->dev, "ANLPAR ====> 0x%4.4x \n",mii_test);
+	mii_test = mdio_read(dev, np->valid_phy, MII_ANLPAR);
+	dev_dbg(np->dev, "ANLPAR ====> 0x%4.4x \n", mii_test);
 	
-	mii_test = mdio_read(dev,np->valid_phy,16);
-	dev_dbg(np->dev, "REG16 ====> 0x%4.4x \n",mii_test);
+	mii_test = mdio_read(dev, np->valid_phy, 16);
+	dev_dbg(np->dev, "REG16 ====> 0x%4.4x \n", mii_test);
 	
-	mii_test = mdio_read(dev,np->valid_phy,17);
-	dev_dbg(np->dev, "REG17 ====> 0x%4.4x \n",mii_test);
+	mii_test = mdio_read(dev, np->valid_phy, 17);
+	dev_dbg(np->dev, "REG17 ====> 0x%4.4x \n", mii_test);
 
-	mii_test = mdio_read(dev,np->valid_phy, 2);
-	dev_dbg(np->dev, "ID2 ====> 0x%4.4x \n",mii_test);
-	mii_test = mdio_read(dev,np->valid_phy, 3);
-	dev_dbg(np->dev, "ID3 ====> 0x%4.4x \n",mii_test);
+	mii_test = mdio_read(dev, np->valid_phy, 2);
+	dev_dbg(np->dev, "ID2 ====> 0x%4.4x \n", mii_test);
+	mii_test = mdio_read(dev, np->valid_phy, 3);
+	dev_dbg(np->dev, "ID3 ====> 0x%4.4x \n", mii_test);
 }
 #endif
 
@@ -1209,16 +1229,14 @@ static int jz_autonet_complete(struct net_device *dev)
 	int count;
 	u32 mii_reg1, timeout = 3000;
 
+// can we use iopoll.h???
 	for (count = 0; count < timeout; count++) {
 		mdelay(1);
-		mii_reg1 = mdio_read(dev,np->valid_phy,MII_BMSR);
+		mii_reg1 = mdio_read(dev, np->valid_phy, MII_BMSR);
 		if (mii_reg1 & 0x0020) break;
 	}
-	//mii_db_out(dev);  //for debug to display all register of MII
-	if (count >= timeout) 
-		return 1;     //auto negotiation  error
-	else
-		return 0;
+	//mii_db_out(dev);  /* for debug to display all register of MII */
+	return (count >= timeout);	/* auto negotiation error */
 }  
 
 /*
@@ -1230,27 +1248,32 @@ static u32 jz_eth_curr_mode(struct net_device *dev)
 	unsigned int mii_reg17;
 	u32 flag = 0;
 
-	mii_reg17 = mdio_read(dev,np->valid_phy,MII_DSCSR); 
-	np->media = mii_reg17>>12;
-	if (np->media==8) {
+printk("%s\n", __func__);
+
+	mii_reg17 = mdio_read(dev, np->valid_phy, MII_DSCSR);
+	np->media = mii_reg17 >> 12;
+
+	switch (np->media) {
+	case 8:
 		dev_info(np->dev, "Current Operation Mode is [100M Full Duplex]\n");
 		flag = 0;
 		np->full_duplex=1;
-	}
-	if (np->media==4) {
+		break;
+	case 4:
 		dev_info(np->dev, "Current Operation Mode is [100M Half Duplex]\n");
 		flag = 0;
 		np->full_duplex=0;
-	}
-	if (np->media==2) {
+		break;
+	case 2:
 		dev_info(np->dev, "Current Operation Mode is [10M Full Duplex]\n");
 		flag = OMR_TTM;
 		np->full_duplex=1;
-	}
-	if (np->media==1) {
+		break;
+	case 1:
 		dev_info(np->dev, "Current Operation Mode is [10M Half Duplex]\n");
 		flag = OMR_TTM;
 		np->full_duplex=0;
+		break;
 	}
 	return flag;
 }
@@ -1267,8 +1290,11 @@ static int jz_init_hw(struct net_device *dev)
 	u32 sts, flag = 0;
 	int i;
 
+printk("%s\n", __func__);
+
 	jz_eth_reset(dev);
-	STOP_ETH;
+	stop_eth(dev);
+
 /* XXX testwise enabled */
 #if 0
 	/* mii operation */
@@ -1321,7 +1347,7 @@ static int jz_init_hw(struct net_device *dev)
 	omr |= OMR_SF;
 	writel(omr, DMA_OMR);
 
-	readl(DMA_MFC); //through read operation to clear the register for 0x0000000
+	readl(DMA_MFC); /* through read operation to clear the register for 0x0000000 */
 	/* Set the programmable burst length (value 1 or 4 is validate)*/
 #if 0 /* __BIG_ENDIAN__ */
 	writel(PBL_4 | DSL_0 | 0x100080, DMA_BMR);  /* DSL_0: see DESC_SKIP_LEN and DESC_ALIGN */
@@ -1343,7 +1369,7 @@ static int jz_init_hw(struct net_device *dev)
 	writel(np->dma_rx_ring, DMA_RRBA);
 	writel(np->dma_tx_ring, DMA_TRBA);
 
-	START_ETH;
+	start_eth(dev);
 
 	/* set interrupt mask */
 	writel(IMR_DEFAULT | IMR_ENABLE, DMA_IMR);
@@ -1351,6 +1377,8 @@ static int jz_init_hw(struct net_device *dev)
 	/* Reset any pending (stale) interrupts */
 	sts = readl(DMA_STS);
 	writel(sts, DMA_STS);
+
+printk("%s ok\n", __func__);
 
 	return 0;
 }
@@ -1360,11 +1388,20 @@ static int jz_eth_open(struct net_device *dev)
 	struct jz_eth_private *np = netdev_priv(dev);
 	int retval, i;
 
+printk("%s\n", __func__);
+
 	retval = request_irq(dev->irq, jz_eth_interrupt, IRQF_SHARED, dev->name, dev);
 	if (retval) {
 		dev_err(np->dev, "unable to get IRQ %d -> %d.\n", dev->irq, retval);
 		return -EAGAIN;
 	}
+
+{ // this should be done by irq-ingenic but isn't?
+	void *addr = ioremap(0x10001004, 4);	// ICMR
+	u32 val = readl(addr);
+	val &= ~BIT(19);	// ETH - note: IMR is a Mask Register (0 = IRQ enabled)
+	writel(val, addr);
+}
 
 	for (i = 0; i < NUM_RX_DESCS; i++) {
 		np->rx_ring[i].status = cpu_to_le32(R_OWN);
@@ -1391,17 +1428,29 @@ static int jz_eth_open(struct net_device *dev)
 	netif_start_queue(dev);
 	start_check(dev);
 
+printk("%s ok\n", __func__);
+
 	return 0;
 }
 
 static int jz_eth_close(struct net_device *dev)
 {
-	struct jz_eth_private *np = netdev_priv(dev);
+
+printk("%s\n", __func__);
 
 	netif_stop_queue(dev);
 	close_check(dev);
-	STOP_ETH;
+	stop_eth(dev);
+{ // this should be done by irq-ingenic but isn't?
+	void *addr = ioremap(0x10001004, 4);	// ICMR
+	u32 val = readl(addr);
+	val |= BIT(19);	// ETH - note: IMR is a Mask Register (0 = IRQ enabled)
+	writel(val, addr);
+}
 	free_irq(dev->irq, dev);
+
+printk("%s ok\n", __func__);
+
 	return 0;
 }
 
@@ -1411,12 +1460,11 @@ static int jz_eth_close(struct net_device *dev)
  */
 static struct net_device_stats * jz_eth_get_stats(struct net_device *dev)
 {
-// this call should be repeated by the scheduled worker?
 
 	struct jz_eth_private *np = netdev_priv(dev);
 	int tmp;
 	
-	tmp = readl(DMA_MFC); // After read clear to zero
+	tmp = readl(DMA_MFC); /* After read clear to zero */
 	np->ndev->stats.rx_missed_errors += (tmp & MFC_CNT2) + ((tmp & MFC_CNT1) >> 16);
 	
 	return &np->ndev->stats;
@@ -1429,6 +1477,8 @@ static int jz_ethtool_ioctl(struct net_device *dev, void *useraddr)
 {
 	struct jz_eth_private *np = netdev_priv(dev);
 	u32 ethcmd;
+
+printk("%s\n", __func__);
 
 	/* dev_ioctl() in ../../net/core/dev.c has already checked
 	   capable(CAP_NET_ADMIN), so don't bother with that here.  */
@@ -1499,7 +1549,6 @@ static int jz_ethtool_ioctl(struct net_device *dev, void *useraddr)
 		return 0;
 	}
 
-
 	default:
 		break;
 	}
@@ -1515,6 +1564,8 @@ static int jz_eth_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 {
 	struct jz_eth_private *np =netdev_priv(dev);
 	struct mii_ioctl_data *data, rdata;
+
+printk("%s\n", __func__);
 
 	switch (cmd) {
 	case SIOCETHTOOL:
@@ -1581,6 +1632,8 @@ static void eth_rxready(struct net_device *dev)
 	u32 pkt_len;
 	u32 status;
 
+// printk("%s\n", __func__);
+
 	status = le32_to_cpu(np->rx_ring[np->rx_head].status);
 	while (!(status & R_OWN)) {			/* owner bit = 0 */
 		if (status & RD_ES) {			/* error summary */
@@ -1610,7 +1663,9 @@ static void eth_rxready(struct net_device *dev)
 			skb_put(skb, pkt_len);
 
 #ifdef DEBUG
+#if 0
 			eth_dbg_rx(skb, pkt_len);
+#endif
 #endif
 			skb->protocol = eth_type_trans(skb,dev);
 			netif_rx(skb);	/* pass the packet to upper layers */
@@ -1620,11 +1675,14 @@ static void eth_rxready(struct net_device *dev)
 		}
 		np->rx_ring[np->rx_head].status = cpu_to_le32(R_OWN);
 
-		np->rx_head ++;
+		np->rx_head++;
 		if (np->rx_head >= NUM_RX_DESCS)
 			np->rx_head = 0;
 		status = le32_to_cpu(np->rx_ring[np->rx_head].status);
 	}
+
+// printk("%s ok\n", __func__);
+
 }
 
 /*
@@ -1634,9 +1692,16 @@ static void jz_eth_tx_timeout(struct net_device *dev, unsigned int txqueue)
 {
 	struct jz_eth_private *np = netdev_priv(dev);
 
+printk("%s\n", __func__);
+
+// spinlock?
+
 	jz_init_hw(dev);
 	np->ndev->stats.tx_errors ++;
 	netif_wake_queue(dev);
+
+printk("%s ok\n", __func__);
+
 }
 
 /*
@@ -1646,6 +1711,8 @@ static void eth_txdone(struct net_device *dev)
 {
 	struct jz_eth_private *np = netdev_priv(dev);
 	int tx_tail = np->tx_tail;
+
+// printk("%s\n", __func__);
 
 	while (tx_tail != np->tx_head) {
 		int entry = tx_tail % NUM_TX_DESCS;
@@ -1676,21 +1743,29 @@ static void eth_txdone(struct net_device *dev)
 		netif_start_queue(dev);
 	}
 	np->tx_tail = tx_tail;
+
+// printk("%s ok\n", __func__);
+
 }
 
 /*
  * Update the tx descriptor
  */
-static void load_tx_packet(struct net_device *dev, char *buf, u32 flags, struct sk_buff *skb)
+static void load_tx_packet(struct net_device *dev, unsigned char *buf, u32 flags, struct sk_buff *skb)
 {
 	struct jz_eth_private *np = netdev_priv(dev);
 	int entry = np->tx_head % NUM_TX_DESCS;
 	
-	np->tx_ring[entry].buf1_addr = cpu_to_le32(virt_to_bus(buf));
+// printk("%s\n", __func__);
+
+	np->tx_ring[entry].buf1_addr = cpu_to_le32(virt_to_phys(buf));
 	np->tx_ring[entry].desc1 &= cpu_to_le32((TD_TER | TD_TCH));
 	np->tx_ring[entry].desc1 |= cpu_to_le32(flags);
 	np->tx_ring[entry].status = cpu_to_le32(T_OWN);
 	np->tx_skb[entry] = skb;
+
+// printk("%s ok\n", __func__);
+
 }
 
 /*
@@ -1701,19 +1776,21 @@ static int jz_eth_send_packet(struct sk_buff *skb, struct net_device *dev)
 	struct jz_eth_private *np = netdev_priv(dev);
 	u32 length;
 
+// printk("%s\n", __func__);
+
 	if (np->tx_full) {
 		return 0;
 	}
 	udelay(500);	/* FIXME: can we remove this delay ? */
 	length = (skb->len < ETH_ZLEN) ? ETH_ZLEN : skb->len;
-// FIXME:	dma_cache_wback((unsigned long)skb->data, length);
-	load_tx_packet(dev, (char *)skb->data, TD_IC | TD_LS | TD_FS | length, skb);
+// FIXME:	dma_sync_single_for_device(np->dev, (dma_addr_t) skb->data, length, DMA_BIDIRECTIONAL);	// 1. kernel panics, 2. DMA_TO_DEVICE?
+	load_tx_packet(dev, skb->data, TD_IC | TD_LS | TD_FS | length, skb);
 	spin_lock_irq(&np->lock);
 	np->tx_head ++;
 	np->ndev->stats.tx_bytes += length;
 	writel(1, DMA_TPD);		/* Start the TX */
 
-// FIXME:	dev->trans_start = jiffies;	/* for timeout */
+	netif_trans_update(dev);
 	if (np->tx_tail + NUM_TX_DESCS > np->tx_head + 1) {
 		np->tx_full = 0;
 	}
@@ -1723,7 +1800,9 @@ static int jz_eth_send_packet(struct sk_buff *skb, struct net_device *dev)
 	}
 	spin_unlock_irq(&np->lock);
 
-	return 0;
+// printk("%s ok\n", __func__);
+
+	return NETDEV_TX_OK;
 }
 
 /*
@@ -1735,6 +1814,8 @@ static irqreturn_t jz_eth_interrupt(int irq, void *dev_id)
 	struct jz_eth_private *np = netdev_priv(dev);
 	u32 sts;
 	int i;
+
+// printk("%s\n", __func__);
 
 	spin_lock(&np->lock);
 
@@ -1753,7 +1834,7 @@ static irqreturn_t jz_eth_interrupt(int irq, void *dev_id)
 
 		/* check error conditions */
 		if (sts & DMA_INT_FB){      /* fatal bus error */
-			STOP_ETH;
+			stop_eth(dev);
 			dev_err(np->dev, "Fatal bus error occurred, sts=%#8x, device stopped.\n", sts);
 			break;
 		}
@@ -1779,6 +1860,8 @@ static irqreturn_t jz_eth_interrupt(int irq, void *dev_id)
 
 	spin_unlock(&np->lock);
 
+// printk("%s ok\n", __func__);
+
 	return IRQ_HANDLED;
 }
 
@@ -1802,10 +1885,12 @@ static int jz_eth_suspend(struct net_device *dev, int state)
 	spin_lock_irqsave(&jep->lock, flags);
 
 	/* Disable interrupts, stop Tx and Rx. */
+// FIXME:
 	REG32(DMA_IMR) = 0;
-	STOP_ETH;
+	stop_eth(dev);
 
 	/* Update the error counts. */
+// FIXME:
 	tmp = REG32(DMA_MFC);
 	jep->stats.rx_missed_errors += (tmp & 0x1ffff);
 	jep->stats.rx_fifo_errors += ((tmp >> 17) & 0x7ff);
@@ -1870,9 +1955,6 @@ static const struct net_device_ops jz4730_eth_ops = {
 	.ndo_do_ioctl		= jz_eth_ioctl,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_set_mac_address	= NULL,
-/*
-	.? = jz_eth_get_stats,
-*/
 };
 
 static int jz4730_eth_probe(struct platform_device *pdev)
@@ -1936,7 +2018,7 @@ static int jz4730_eth_probe(struct platform_device *pdev)
 	}
 
 	dev->netdev_ops = &jz4730_eth_ops;
-// dev-> ethtool_ops = ?
+// dev->ethtool_ops = ?
 	dev->watchdog_timeo = ETH_TX_TIMEOUT;
 
 	/* configure MAC address */
