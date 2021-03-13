@@ -4,7 +4,7 @@
 # Kernel parameter script for Beagle Hybrid / Panda Hybrid / GTA04
 #
 # Author: H. Nikolaus Schaller
-# Copyright Golden Delicious Computers 2010-2014
+# Copyright Golden Delicious Computers 2010-2021
 # licensed under GPL 2.0
 #
 # This script will be run by boot.scr if the kernel is detected
@@ -48,9 +48,13 @@ fi
 setenv vram 12M
 setenv omapfbvram 0:8M,1:4M
 
-# compile boot args
-
+# compile boot args (default for GTA04 but usually doesn't harm other boards)
 setenv bootargs "console=${console} mtdoops.mtddev=omap2.nand ubi.mtd=${nand} root=${mmcroot} rootfstype=${mmcrootfstype}"
+
+if test "$board_name" = "alpha400"
+then
+	setenv bootargs "console=${console} ethaddr=$ethaddr root=${mmcroot} rootfstype=${mmcrootfstype}"
+fi
 
 # echo after: $bootargs
 # echo root: $mmcroot
