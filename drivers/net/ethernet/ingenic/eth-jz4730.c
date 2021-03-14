@@ -728,21 +728,6 @@ static void link_check_worker(struct work_struct *work);
  * Get MAC address
  */
 
-#if 0
-#define I2C_DEVICE  0x57
-#define MAC_OFFSET  64
-
-extern void i2c_open(void);
-extern void i2c_close(void);
-extern int i2c_read(unsigned char device, unsigned char *buf,
-		    unsigned char address, int count);
-#endif
-
-#if CONFIG_JZ4730_ALPHA400
-// FIXME: did this read from PROM?
-// extern int get_ethernet_addr(char *ethernet_addr);
-#endif
-
 static inline unsigned char str2hexnum(unsigned char c)
 {
 	if (c >= '0' && c <= '9')
@@ -754,41 +739,26 @@ static inline unsigned char str2hexnum(unsigned char c)
 	return 0; /* foo */
 }
 
-static inline void str2eaddr(unsigned char *ea, const char *str)
+static bool str2eaddr(unsigned char *ea, const char *str)
 {
 	int i;
 
 	for (i = 0; i < 6; i++) {
 		unsigned char num;
 
-		if((*str == '.') || (*str == ':'))
+		if ((*str == '.') || (*str == ':'))
 			str++;
+		if (!str[0] || !str[1])
+			return false;	/* early end */
 		num = str2hexnum(*str++) << 4;
 		num |= (str2hexnum(*str++));
 		ea[i] = num;
 	}
+	return true;
 }
 
-static int ethaddr_cmd = 0;
-static unsigned char ethaddr_hex[6];
-
-static int __init ethernet_addr_setup(const char *str, const struct kernel_param *kp)
-{
-	if (!str) {
-	        pr_err("ethaddr not set in command line\n");
-		return -1;
-	}
-	ethaddr_cmd = 1;
-	str2eaddr(ethaddr_hex, str);
-
-	return 0;
-}
-
-static const struct kernel_param_ops ethaddr_ops = {
-	.set = ethernet_addr_setup,
-};
-
-module_param_cb(ethaddr, &ethaddr_ops, NULL, S_IWUSR);
+static char *ethaddr = "";
+module_param(ethaddr, charp, 0);
 MODULE_PARM_DESC(ethaddr, "ethernet address (hex)");
 
 static int get_mac_address(struct net_device *dev)
@@ -798,44 +768,21 @@ static int get_mac_address(struct net_device *dev)
 	unsigned char flag1=0xff;
 	struct jz_eth_private *np = netdev_priv(dev);
 	
-	dev->dev_addr[0] = 0xff;
-	if (hwaddr != NULL) {
-		/* insmod jz-ethc.o hwaddr=00:ef:a3:c1:00:10 */
-		dev_info(np->dev, "found '%s' in cmdline\n", hwaddr);
-		str2eaddr(dev->dev_addr, hwaddr);
-	} else if (ethaddr_cmd) {
-		/* linux command line: ethaddr=00:ef:a3:c1:00:10 */
-		for (i=0; i<6; i++)
-			dev->dev_addr[i] = ethaddr_hex[i];
+	if (strlen(ethaddr) > 0 && str2eaddr(dev->dev_addr, ethaddr)) {
+		/* check whether valid MAC address */
+		for (i=0; i<6; i++) {
+			flag0 |= dev->dev_addr[i];
+			flag1 &= dev->dev_addr[i];
+		}
 	}
-#if 0
-	else {
-		/* mac address in eeprom:  byte 0x40-0x45 */
-		i2c_open();
-		i2c_read(I2C_DEVICE, dev->dev_addr, MAC_OFFSET, 6);
-		i2c_close();
-	}
-#endif
-#if FIXME && CONFIG_JZ4730_ALPHA400
-	else {
-		if (get_ethernet_addr(dev->dev_addr) != 0)
-			dev->dev_addr[0] = 0xff;
-	}
-#endif
 
-	/* check whether valid MAC address */
-	for (i=0; i<6; i++) {
-		flag0 |= dev->dev_addr[i];
-		flag1 &= dev->dev_addr[i];
-	}
-	if ((dev->dev_addr[0] & 0xC0) || (flag0 == 0) || (flag1 == 0xff)) {
-		dev_warn(np->dev, "There is no MAC address, use default ..\n");
+	if ((dev->dev_addr[0] & 0xc0) || (flag0 == 0) || (flag1 == 0xff)) {
+		dev_warn(np->dev, "There is no MAC valid address, use default ..\n");
 		dev->dev_addr[0] = 0x00;
 		dev->dev_addr[1] = 0xef;
 		dev->dev_addr[2] = 0xa3;
 		dev->dev_addr[3] = 0xc1;
 		dev->dev_addr[4] = 0x00;
-		// dev->dev_addr[5] = 0x10;
 		dev->dev_addr[5] = 0x03;
 	}
 	return 0;
@@ -1248,7 +1195,7 @@ static u32 jz_eth_curr_mode(struct net_device *dev)
 	unsigned int mii_reg17;
 	u32 flag = 0;
 
-printk("%s\n", __func__);
+// printk("%s\n", __func__);
 
 	mii_reg17 = mdio_read(dev, np->valid_phy, MII_DSCSR);
 	np->media = mii_reg17 >> 12;
@@ -1290,7 +1237,7 @@ static int jz_init_hw(struct net_device *dev)
 	u32 sts, flag = 0;
 	int i;
 
-printk("%s\n", __func__);
+// printk("%s\n", __func__);
 
 	jz_eth_reset(dev);
 	stop_eth(dev);
@@ -1378,7 +1325,7 @@ printk("%s\n", __func__);
 	sts = readl(DMA_STS);
 	writel(sts, DMA_STS);
 
-printk("%s ok\n", __func__);
+// printk("%s ok\n", __func__);
 
 	return 0;
 }
@@ -1395,13 +1342,6 @@ printk("%s\n", __func__);
 		dev_err(np->dev, "unable to get IRQ %d -> %d.\n", dev->irq, retval);
 		return -EAGAIN;
 	}
-
-{ // this should be done by irq-ingenic but isn't?
-	void *addr = ioremap(0x10001004, 4);	// ICMR
-	u32 val = readl(addr);
-	val &= ~BIT(19);	// ETH - note: IMR is a Mask Register (0 = IRQ enabled)
-	writel(val, addr);
-}
 
 	for (i = 0; i < NUM_RX_DESCS; i++) {
 		np->rx_ring[i].status = cpu_to_le32(R_OWN);
@@ -1428,6 +1368,8 @@ printk("%s\n", __func__);
 	netif_start_queue(dev);
 	start_check(dev);
 
+	enable_irq(dev->irq);
+
 printk("%s ok\n", __func__);
 
 	return 0;
@@ -1441,12 +1383,7 @@ printk("%s\n", __func__);
 	netif_stop_queue(dev);
 	close_check(dev);
 	stop_eth(dev);
-{ // this should be done by irq-ingenic but isn't?
-	void *addr = ioremap(0x10001004, 4);	// ICMR
-	u32 val = readl(addr);
-	val |= BIT(19);	// ETH - note: IMR is a Mask Register (0 = IRQ enabled)
-	writel(val, addr);
-}
+	disable_irq(dev->irq);
 	free_irq(dev->irq, dev);
 
 printk("%s ok\n", __func__);
