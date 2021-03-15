@@ -230,13 +230,15 @@ static void ingenic_drm_crtc_update_timings(struct ingenic_drm *priv,
 	regmap_set_bits(priv->map, JZ_REG_LCD_CTRL,
 			JZ_LCD_CTRL_OFUP | JZ_LCD_CTRL_BURST_16);
 
+	if (IS_ENABLED(CONFIG_DRM_INGENIC_IPU) && priv->ipu_plane) {
 	/*
 	 * IPU restart - specify how much time the LCDC will wait before
 	 * transferring a new frame from the IPU. The value is the one
 	 * suggested in the programming manual.
 	 */
-	regmap_write(priv->map, JZ_REG_LCD_IPUR, JZ_LCD_IPUR_IPUREN |
-		     (ht * vpe / 3) << JZ_LCD_IPUR_IPUR_LSB);
+		regmap_write(priv->map, JZ_REG_LCD_IPUR, JZ_LCD_IPUR_IPUREN |
+			     (ht * vpe / 3) << JZ_LCD_IPUR_IPUR_LSB);
+	}
 }
 
 static int ingenic_drm_crtc_atomic_check(struct drm_crtc *crtc,
@@ -554,7 +556,7 @@ static void ingenic_drm_plane_atomic_update(struct drm_plane *plane,
 		height = state->src_h >> 16;
 		cpp = state->fb->format->cpp[0];
 
-		if (priv->soc_info->has_osd && plane->type == DRM_PLANE_TYPE_OVERLAY)
+		if (!priv->soc_info->has_osd || plane->type == DRM_PLANE_TYPE_OVERLAY)
 			hwdesc = &priv->dma_hwdescs->hwdesc_f0;
 		else
 			hwdesc = &priv->dma_hwdescs->hwdesc_f1;
@@ -826,6 +828,7 @@ static int ingenic_drm_bind(struct device *dev, bool has_components)
 	const struct jz_soc_info *soc_info;
 	struct ingenic_drm *priv;
 	struct clk *parent_clk;
+	struct drm_plane *primary;
 	struct drm_bridge *bridge;
 	struct drm_panel *panel;
 	struct drm_encoder *encoder;
@@ -940,9 +943,11 @@ static int ingenic_drm_bind(struct device *dev, bool has_components)
 	if (soc_info->has_osd)
 		priv->ipu_plane = drm_plane_from_index(drm, 0);
 
-	drm_plane_helper_add(&priv->f1, &ingenic_drm_plane_helper_funcs);
+	primary = priv->soc_info->has_osd ? &priv->f1 : &priv->f0;
 
-	ret = drm_universal_plane_init(drm, &priv->f1, 1,
+	drm_plane_helper_add(primary, &ingenic_drm_plane_helper_funcs);
+
+	ret = drm_universal_plane_init(drm, primary, 1,
 				       &ingenic_drm_primary_plane_funcs,
 				       priv->soc_info->formats_f1,
 				       priv->soc_info->num_formats_f1,
@@ -954,7 +959,7 @@ static int ingenic_drm_bind(struct device *dev, bool has_components)
 
 	drm_crtc_helper_add(&priv->crtc, &ingenic_drm_crtc_helper_funcs);
 
-	ret = drm_crtc_init_with_planes(drm, &priv->crtc, &priv->f1,
+	ret = drm_crtc_init_with_planes(drm, &priv->crtc, primary,
 					NULL, &ingenic_drm_crtc_funcs, NULL);
 	if (ret) {
 		dev_err(dev, "Failed to init CRTC: %i\n", ret);
@@ -1200,6 +1205,11 @@ static int __maybe_unused ingenic_drm_resume(struct device *dev)
 
 static SIMPLE_DEV_PM_OPS(ingenic_drm_pm_ops, ingenic_drm_suspend, ingenic_drm_resume);
 
+static const u32 jz4730_formats[] = {
+	DRM_FORMAT_XRGB1555,
+	DRM_FORMAT_RGB565,
+};
+
 static const u32 jz4740_formats[] = {
 	DRM_FORMAT_XRGB1555,
 	DRM_FORMAT_RGB565,
@@ -1236,6 +1246,21 @@ static const u32 jz4770_formats_f0[] = {
 	DRM_FORMAT_XRGB2101010,
 };
 
+static const struct jz_soc_info jz4730_soc_info = {
+	.needs_dev_clk = true,
+	.has_osd = false,
+	.has_pcfg = false,
+	.has_recover = false,
+	.has_rgbc = false,
+	.hwdesc_size = sizeof(struct ingenic_dma_hwdesc),
+	.max_width = 800,
+	.max_height = 600,
+	.formats_f1 = jz4730_formats,
+	.num_formats_f1 = ARRAY_SIZE(jz4730_formats),
+	/* JZ4730 has only one plane */
+	.max_reg = JZ_REG_LCD_CMD1 + 1,
+};
+
 static const struct jz_soc_info jz4740_soc_info = {
 	.needs_dev_clk = true,
 	.has_osd = false,
@@ -1269,6 +1294,7 @@ static const struct jz_soc_info jz4770_soc_info = {
 };
 
 static const struct of_device_id ingenic_drm_of_match[] = {
+	{ .compatible = "ingenic,jz4730-lcd", .data = &jz4730_soc_info },
 	{ .compatible = "ingenic,jz4740-lcd", .data = &jz4740_soc_info },
 	{ .compatible = "ingenic,jz4725b-lcd", .data = &jz4725b_soc_info },
 	{ .compatible = "ingenic,jz4770-lcd", .data = &jz4770_soc_info },
