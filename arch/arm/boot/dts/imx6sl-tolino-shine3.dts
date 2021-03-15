@@ -24,6 +24,14 @@
 / {
 	model = "Tolino Shine 3";
 	compatible = "kobo,tolino-shine3", "fsl,imx6sl";
+
+	aliases {
+		mmc0 = &usdhc2;
+		mmc1 = &usdhc3;
+		/delete-property/ mmc2;
+		/delete-property/ mmc3;
+	};
+
 };
 
 &epdc {
