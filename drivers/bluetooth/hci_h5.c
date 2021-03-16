@@ -917,6 +917,11 @@ static int h5_btrtl_setup(struct h5 *h5)
 
 	btrtl_apply_quirks(h5->hu->hdev, btrtl_dev);
 
+	/* Enable controller to do both LE scan and BR/EDR inquiry
+	 * simultaneously.
+	 */
+	set_bit(HCI_QUIRK_SIMULTANEOUS_DISCOVERY, &h5->hu->hdev->quirks);
+
 out_free:
 	btrtl_free(btrtl_dev);
 
