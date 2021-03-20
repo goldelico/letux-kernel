@@ -1446,6 +1446,7 @@ int __irq_domain_alloc_irqs(struct irq_domain *domain, int irq_base,
 {
 	int i, ret, virq;
 
+printk("%s\n", __func__);
 	if (domain == NULL) {
 		domain = irq_default_domain;
 		if (WARN(!domain, "domain is NULL; cannot allocate IRQ\n"))
@@ -1747,6 +1748,8 @@ static int __irq_domain_activate_irq(struct irq_data *irqd, bool reserve)
 {
 	int ret = 0;
 
+printk("%s\n", __func__);
+
 	if (irqd && irqd->domain) {
 		struct irq_domain *domain = irqd->domain;
 
@@ -1775,6 +1778,8 @@ static int __irq_domain_activate_irq(struct irq_data *irqd, bool reserve)
 int irq_domain_activate_irq(struct irq_data *irq_data, bool reserve)
 {
 	int ret = 0;
+
+printk("%s reserve=%d\n", __func__, reserve);
 
 	if (!irqd_is_activated(irq_data))
 		ret = __irq_domain_activate_irq(irq_data, reserve);
