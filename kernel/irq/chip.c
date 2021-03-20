@@ -287,11 +287,8 @@ int irq_activate(struct irq_desc *desc)
 {
 	struct irq_data *d = irq_desc_get_irq_data(desc);
 
-printk("%s a\n", __func__);
-
 	if (!irqd_affinity_is_managed(d))
 		return irq_domain_activate_irq(d, false);
-printk("%s b not managed\n", __func__);
 	return 0;
 }
 

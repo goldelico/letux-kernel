@@ -643,10 +643,6 @@ EXPORT_SYMBOL_GPL(irq_set_vcpu_affinity);
 
 void __disable_irq(struct irq_desc *desc)
 {
-if(desc->irq_data.irq == 19 || desc->irq_data.irq == 30) {
-	printk("%s irq=%d\n", __func__, desc->irq_data.irq);
-	dump_stack();
-}
 	if (!desc->depth++)
 		irq_disable(desc);
 }
@@ -742,10 +738,6 @@ void disable_nmi_nosync(unsigned int irq)
 
 void __enable_irq(struct irq_desc *desc)
 {
-if(desc->irq_data.irq == 19 || desc->irq_data.irq == 30) {
-	printk("%s irq=%d\n", __func__, desc->irq_data.irq);
-	dump_stack();
-}
 	switch (desc->depth) {
 	case 0:
  err_out:
@@ -1444,8 +1436,6 @@ __setup_irq(unsigned int irq, struct irq_desc *desc, struct irqaction *new)
 	unsigned long flags, thread_mask = 0;
 	int ret, nested, shared = 0;
 
-printk("%s\n", __func__);
-
 	if (!desc)
 		return -EINVAL;
 
@@ -1685,8 +1675,6 @@ printk("%s\n", __func__);
 		 * fails. Interrupts which are in managed shutdown mode
 		 * will simply ignore that activation request.
 		 */
-printk("%s irq_activate\n", __func__);
-
 		ret = irq_activate(desc);
 		if (ret)
 			goto out_unlock;
@@ -1746,7 +1734,6 @@ printk("%s irq_activate\n", __func__);
 	 * before. Reenable it and give it another chance.
 	 */
 	if (shared && (desc->istate & IRQS_SPURIOUS_DISABLED)) {
-printk("%s reactivate\n", __func__);
 		desc->istate &= ~IRQS_SPURIOUS_DISABLED;
 		__enable_irq(desc);
 	}
@@ -2093,7 +2080,7 @@ int request_threaded_irq(unsigned int irq, irq_handler_t handler,
 	struct irqaction *action;
 	struct irq_desc *desc;
 	int retval;
-printk("%s\n", __func__);
+
 	if (irq == IRQ_NOTCONNECTED)
 		return -ENOTCONN;
 
@@ -2140,8 +2127,6 @@ printk("%s\n", __func__);
 		kfree(action);
 		return retval;
 	}
-
-printk("%s 2\n", __func__);
 
 	retval = __setup_irq(irq, desc, action);
 

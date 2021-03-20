@@ -39,11 +39,6 @@ void irq_gc_mask_disable_reg(struct irq_data *d)
 	struct irq_chip_type *ct = irq_data_get_chip_type(d);
 	u32 mask = d->mask;
 
-if(d->irq == 19 || d->irq == 30) {
-	printk("%s, irq=%d\n", __func__, d->irq);
-//	dump_stack();
-}
-
 	irq_gc_lock(gc);
 	irq_reg_writel(gc, mask, ct->regs.disable);
 	*ct->mask_cache &= ~mask;
@@ -62,11 +57,6 @@ void irq_gc_mask_set_bit(struct irq_data *d)
 	struct irq_chip_generic *gc = irq_data_get_irq_chip_data(d);
 	struct irq_chip_type *ct = irq_data_get_chip_type(d);
 	u32 mask = d->mask;
-
-if(d->irq == 19 || d->irq == 30) {
-	printk("%s, irq=%d\n", __func__, d->irq);
-//	dump_stack();
-}
 
 	irq_gc_lock(gc);
 	*ct->mask_cache |= mask;
@@ -88,11 +78,6 @@ void irq_gc_mask_clr_bit(struct irq_data *d)
 	struct irq_chip_type *ct = irq_data_get_chip_type(d);
 	u32 mask = d->mask;
 
-if(d->irq == 19 || d->irq == 30) {
-	printk("%s, irq=%d\n", __func__, d->irq);
-//	dump_stack();
-}
-
 	irq_gc_lock(gc);
 	*ct->mask_cache &= ~mask;
 	irq_reg_writel(gc, *ct->mask_cache, ct->regs.mask);
@@ -113,11 +98,6 @@ void irq_gc_unmask_enable_reg(struct irq_data *d)
 	struct irq_chip_type *ct = irq_data_get_chip_type(d);
 	u32 mask = d->mask;
 
-if(d->irq == 19 || d->irq == 30) {
-	printk("%s, irq=%d\n", __func__, d->irq);
-//	dump_stack();
-}
-
 	irq_gc_lock(gc);
 	irq_reg_writel(gc, mask, ct->regs.enable);
 	*ct->mask_cache |= mask;
@@ -134,11 +114,6 @@ void irq_gc_ack_set_bit(struct irq_data *d)
 	struct irq_chip_type *ct = irq_data_get_chip_type(d);
 	u32 mask = d->mask;
 
-if(d->irq == 19 || d->irq == 30) {
-	printk("%s, irq=%d\n", __func__, d->irq);
-//	dump_stack();
-}
-
 	irq_gc_lock(gc);
 	irq_reg_writel(gc, mask, ct->regs.ack);
 	irq_gc_unlock(gc);
@@ -154,11 +129,6 @@ void irq_gc_ack_clr_bit(struct irq_data *d)
 	struct irq_chip_generic *gc = irq_data_get_irq_chip_data(d);
 	struct irq_chip_type *ct = irq_data_get_chip_type(d);
 	u32 mask = ~d->mask;
-
-if(d->irq == 19 || d->irq == 30) {
-	printk("%s, irq=%d\n", __func__, d->irq);
-//	dump_stack();
-}
 
 	irq_gc_lock(gc);
 	irq_reg_writel(gc, mask, ct->regs.ack);
@@ -182,11 +152,6 @@ void irq_gc_mask_disable_and_ack_set(struct irq_data *d)
 	struct irq_chip_generic *gc = irq_data_get_irq_chip_data(d);
 	struct irq_chip_type *ct = irq_data_get_chip_type(d);
 	u32 mask = d->mask;
-
-if(d->irq == 19 || d->irq == 30) {
-	printk("%s, irq=%d\n", __func__, d->irq);
-//	dump_stack();
-}
 
 	irq_gc_lock(gc);
 	irq_reg_writel(gc, mask, ct->regs.disable);
