@@ -127,6 +127,8 @@ static int jz4740_i2s_startup(struct snd_pcm_substream *substream,
 	uint32_t conf, ctrl;
 	int ret;
 
+printk("%s\n", __func__);
+
 	if (snd_soc_dai_active(dai))
 		return 0;
 
@@ -151,6 +153,8 @@ static void jz4740_i2s_shutdown(struct snd_pcm_substream *substream,
 	struct jz4740_i2s *i2s = snd_soc_dai_get_drvdata(dai);
 	uint32_t conf;
 
+printk("%s\n", __func__);
+
 	if (snd_soc_dai_active(dai))
 		return;
 
@@ -168,6 +172,8 @@ static int jz4740_i2s_trigger(struct snd_pcm_substream *substream, int cmd,
 
 	uint32_t ctrl;
 	uint32_t mask;
+
+printk("%s\n", __func__);
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		mask = JZ_AIC_CTRL_ENABLE_PLAYBACK | JZ_AIC_CTRL_ENABLE_TX_DMA;
@@ -202,6 +208,8 @@ static int jz4740_i2s_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 
 	uint32_t format = 0;
 	uint32_t conf;
+
+printk("%s\n", __func__);
 
 	conf = jz4740_i2s_read(i2s, JZ_REG_AIC_CONF);
 
@@ -255,6 +263,8 @@ static int jz4740_i2s_hw_params(struct snd_pcm_substream *substream,
 	uint32_t ctrl, div_reg;
 	int div;
 
+printk("%s\n", __func__);
+
 	ctrl = jz4740_i2s_read(i2s, JZ_REG_AIC_CTRL);
 
 	div_reg = jz4740_i2s_read(i2s, JZ_REG_AIC_CLK_DIV);
@@ -307,6 +317,8 @@ static int jz4740_i2s_set_sysclk(struct snd_soc_dai *dai, int clk_id,
 	struct clk *parent;
 	int ret = 0;
 
+printk("%s\n", __func__);
+
 	switch (clk_id) {
 	case JZ4740_I2S_CLKSRC_EXT:
 		parent = clk_get(NULL, "ext");
@@ -334,6 +346,8 @@ static int jz4740_i2s_suspend(struct snd_soc_component *component)
 	struct jz4740_i2s *i2s = snd_soc_component_get_drvdata(component);
 	uint32_t conf;
 
+printk("%s\n", __func__);
+
 	if (snd_soc_component_active(component)) {
 		conf = jz4740_i2s_read(i2s, JZ_REG_AIC_CONF);
 		conf &= ~JZ_AIC_CONF_ENABLE;
@@ -352,6 +366,8 @@ static int jz4740_i2s_resume(struct snd_soc_component *component)
 	struct jz4740_i2s *i2s = snd_soc_component_get_drvdata(component);
 	uint32_t conf;
 	int ret;
+
+printk("%s\n", __func__);
 
 	ret = clk_prepare_enable(i2s->clk_aic);
 	if (ret)
@@ -376,6 +392,8 @@ static void jz4740_i2c_init_pcm_config(struct jz4740_i2s *i2s)
 {
 	struct snd_dmaengine_dai_dma_data *dma_data;
 
+printk("%s\n", __func__);
+
 	/* Playback */
 	dma_data = &i2s->playback_dma_data;
 	dma_data->maxburst = 16;
@@ -392,6 +410,8 @@ static int jz4740_i2s_dai_probe(struct snd_soc_dai *dai)
 	struct jz4740_i2s *i2s = snd_soc_dai_get_drvdata(dai);
 	uint32_t conf;
 	int ret;
+
+printk("%s\n", __func__);
 
 	ret = clk_prepare_enable(i2s->clk_aic);
 	if (ret)
@@ -525,6 +545,8 @@ static int jz4740_i2s_dev_probe(struct platform_device *pdev)
 	struct jz4740_i2s *i2s;
 	struct resource *mem;
 	int ret;
+
+printk("%s\n", __func__);
 
 	i2s = devm_kzalloc(dev, sizeof(*i2s), GFP_KERNEL);
 	if (!i2s)
