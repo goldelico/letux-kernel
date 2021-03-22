@@ -27,9 +27,13 @@ HOST_EXTRACFLAGS += -DNO_YAML
 else
 dtc-objs	+= yamltree.o
 # To include <yaml.h> installed in a non-default path
-HOSTCFLAGS_yamltree.o := $(shell pkg-config --cflags yaml-0.1)
+ifeq ($(HOSTCFLAGS_yamltree.o),)
+HOSTCFLAGS_yamltree.o := $(shell sh -c '[ "`which pgk-config`" ] && pkg-config --cflags yaml-0.1' )
+endif
 # To link libyaml installed in a non-default path
-HOSTLDLIBS_dtc	:= $(shell pkg-config yaml-0.1 --libs)
+ifeq ($(HOSTLDLIBS_dtc),)
+HOSTLDLIBS_dtc	:= $(shell sh -c '[ "`which pgk-config`" ] && pkg-config --cflags yaml-0.1 --libs || echo ${HOSTCFLAGS}' )
+endif
 endif
 
 # Generated files need one more search path to include headers in source tree
