@@ -1,5 +1,5 @@
 #
-# Linux/x86 5.10.23 Kernel Configuration
+# Linux/x86 5.10.25 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="i486-linux-gnu-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
@@ -2007,7 +2007,6 @@ CONFIG_PCIEASPM_DEFAULT=y
 CONFIG_PCIE_PME=y
 CONFIG_PCIE_DPC=y
 CONFIG_PCIE_PTM=y
-# CONFIG_PCIE_BW is not set
 # CONFIG_PCIE_EDR is not set
 CONFIG_PCI_MSI=y
 CONFIG_PCI_MSI_IRQ_DOMAIN=y
