@@ -1,5 +1,5 @@
 #
-# Linux/mips 5.11.8 Kernel Configuration
+# Linux/mips 5.11.10 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
@@ -4020,6 +4020,7 @@ CONFIG_SYNC_FILE=y
 
 # CONFIG_AUXDISPLAY is not set
 # CONFIG_UIO is not set
+# CONFIG_VFIO is not set
 # CONFIG_VIRT_DRIVERS is not set
 CONFIG_VIRTIO_MENU=y
 # CONFIG_VIRTIO_MMIO is not set
