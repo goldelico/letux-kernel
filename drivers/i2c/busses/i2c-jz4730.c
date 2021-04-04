@@ -269,6 +269,13 @@ static int jz4730_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msg,
 
 		/* CHECKME: should we wait here for BUSY = 0 - the next STA may fail or be ignored? */
 		dev_warn(&i2c->adap.dev, "%s %d/%d error ret=%d status=0x%02x\n", __func__, i, count, ret, jz4730_i2c_readb(i2c, JZ4730_REG_I2C_SR));
+
+		mdelay(100);
+		dev_warn(&i2c->adap.dev, "disabling controller\n");
+		jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR, JZ4730_I2C_CR_I2CE, 0);
+		mdelay(100);
+		dev_warn(&i2c->adap.dev, "enabling controller\n");
+		jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR, JZ4730_I2C_CR_I2CE, 1);
 	} else {
 		ret = count;	/* all sent */
 	}
