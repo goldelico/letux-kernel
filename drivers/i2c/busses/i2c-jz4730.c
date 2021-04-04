@@ -119,7 +119,7 @@ static /*inline*/ int wait_done(struct jz4730_i2c *i2c, struct i2c_msg *msg, boo
 				 (tend && (status & JZ4730_I2C_SR_TEND)) ||
 				 (drf == !!(status & JZ4730_I2C_SR_DRF))
 				),
-				1, 10000);
+				1, 1500000);
 	if (ackf && ret >= 0 && (status & JZ4730_I2C_SR_ACKF))
 		return -EIO;
 	if (ret < 0)
