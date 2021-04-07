@@ -176,6 +176,8 @@ static int ak4642_lout_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_component *component = snd_soc_dapm_to_component(w->dapm);
 
+printk("%s\n", __func__);
+
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMD:
 	case SND_SOC_DAPM_PRE_PMU:
@@ -280,6 +282,8 @@ static int ak4642_dai_startup(struct snd_pcm_substream *substream,
 	int is_play = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 	struct snd_soc_component *component = dai->component;
 
+printk("%s: play=%d\n", __func__, is_play);
+
 	if (is_play) {
 		/*
 		 * start headphone output
@@ -323,6 +327,8 @@ static void ak4642_dai_shutdown(struct snd_pcm_substream *substream,
 	int is_play = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 	struct snd_soc_component *component = dai->component;
 
+printk("%s: play=%d\n", __func__, is_play);
+
 	if (is_play) {
 	} else {
 		/* stop stereo input */
@@ -339,6 +345,8 @@ static int ak4642_dai_set_sysclk(struct snd_soc_dai *codec_dai,
 	struct ak4642_priv *priv = snd_soc_component_get_drvdata(component);
 	u8 pll;
 	int extended_freq = 0;
+
+printk("%s: freq=%u dir=%d\n", __func__, freq, dir);
 
 	switch (freq) {
 	case 11289600:
@@ -378,6 +386,8 @@ static int ak4642_dai_set_sysclk(struct snd_soc_dai *codec_dai,
 	if (extended_freq && !priv->drvdata->extended_frequencies)
 		return -EINVAL;
 
+printk("%s: pll=0x%x\n", __func__, pll);
+
 	snd_soc_component_update_bits(component, MD_CTL1, PLL_MASK, pll);
 
 	return 0;
@@ -388,6 +398,8 @@ static int ak4642_dai_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	struct snd_soc_component *component = dai->component;
 	u8 data;
 	u8 bcko;
+
+printk("%s: fmt=0x%x\n", __func__, fmt);
 
 	data = MCKO | PMPLL; /* use MCKO */
 	bcko = 0;
@@ -403,7 +415,9 @@ static int ak4642_dai_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	default:
 		return -EINVAL;
 	}
+printk("%s: ms/mcko/pmpll=0x%x\n", __func__, data);
 	snd_soc_component_update_bits(component, PW_MGMT2, MS | MCKO | PMPLL, data);
+printk("%s: bcko=0x%x\n", __func__, bcko);
 	snd_soc_component_update_bits(component, MD_CTL1, BCKO_MASK, bcko);
 
 	/* format type */
@@ -421,6 +435,7 @@ static int ak4642_dai_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	default:
 		return -EINVAL;
 	}
+printk("%s: dif=0x%x\n", __func__, data);
 	snd_soc_component_update_bits(component, MD_CTL1, DIF_MASK, data);
 
 	return 0;
@@ -451,9 +466,12 @@ static int ak4642_set_mcko(struct snd_soc_component *component,
 	};
 	int ps, fs;
 
+printk("%s: freq=%u\n", __func__, frequency);
+
 	for (ps = 0; ps < ARRAY_SIZE(ps_list); ps++) {
 		for (fs = 0; fs < ARRAY_SIZE(fs_list); fs++) {
 			if (frequency == ps_list[ps] * fs_list[fs]) {
+printk("%s: ctl2=0x%x\n", __func__, PSs(ps) | FSs(fs));
 				snd_soc_component_write(component, MD_CTL2,
 					      PSs(ps) | FSs(fs));
 				return 0;
@@ -472,6 +490,8 @@ static int ak4642_dai_hw_params(struct snd_pcm_substream *substream,
 	struct ak4642_priv *priv = snd_soc_component_get_drvdata(component);
 	u32 rate = clk_get_rate(priv->mcko);
 
+printk("%s mcko=%u\n", __func__, rate);
+
 	if (!rate)
 		rate = params_rate(params) * 256;
 
@@ -481,6 +501,9 @@ static int ak4642_dai_hw_params(struct snd_pcm_substream *substream,
 static int ak4642_set_bias_level(struct snd_soc_component *component,
 				 enum snd_soc_bias_level level)
 {
+
+printk("%s: level=%d\n", __func__, level);
+
 	switch (level) {
 	case SND_SOC_BIAS_OFF:
 		snd_soc_component_write(component, PW_MGMT1, 0x00);
@@ -523,6 +546,8 @@ static int ak4642_suspend(struct snd_soc_component *component)
 {
 	struct regmap *regmap = dev_get_regmap(component->dev, NULL);
 
+printk("%s\n", __func__);
+
 	regcache_cache_only(regmap, true);
 	regcache_mark_dirty(regmap);
 	return 0;
@@ -532,6 +557,8 @@ static int ak4642_resume(struct snd_soc_component *component)
 {
 	struct regmap *regmap = dev_get_regmap(component->dev, NULL);
 
+printk("%s\n", __func__);
+
 	regcache_cache_only(regmap, false);
 	regcache_sync(regmap);
 	return 0;
@@ -539,6 +566,8 @@ static int ak4642_resume(struct snd_soc_component *component)
 static int ak4642_probe(struct snd_soc_component *component)
 {
 	struct ak4642_priv *priv = snd_soc_component_get_drvdata(component);
+
+printk("%s\n", __func__);
 
 	if (priv->mcko)
 		ak4642_set_mcko(component, clk_get_rate(priv->mcko));
@@ -611,6 +640,8 @@ static struct clk *ak4642_of_parse_mcko(struct device *dev)
 	const char *parent_clk_name = NULL;
 	u32 rate;
 
+printk("%s\n", __func__);
+
 	if (of_property_read_u32(np, "clock-frequency", &rate))
 		return NULL;
 
@@ -639,6 +670,8 @@ static int ak4642_i2c_probe(struct i2c_client *i2c,
 	struct regmap *regmap;
 	struct ak4642_priv *priv;
 	struct clk *mcko = NULL;
+
+printk("%s\n", __func__);
 
 	if (np) {
 		const struct of_device_id *of_id;
