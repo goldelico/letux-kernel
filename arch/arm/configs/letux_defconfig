@@ -1,5 +1,5 @@
 #
-# Linux/arm 4.19.186 Kernel Configuration
+# Linux/arm 4.19.188 Kernel Configuration
 #
 
 #
@@ -5225,7 +5225,6 @@ CONFIG_BCM2835_VCHIQ=y
 CONFIG_SND_BCM2835=m
 CONFIG_VIDEO_BCM2835=m
 # CONFIG_PI433 is not set
-# CONFIG_MTK_MMC is not set
 
 #
 # Gasket devices

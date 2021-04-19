@@ -1,5 +1,5 @@
 #
-# Linux/mips 4.19.186 Kernel Configuration
+# Linux/mips 4.19.188 Kernel Configuration
 #
 
 #
@@ -3209,7 +3209,6 @@ CONFIG_STAGING=y
 # CONFIG_KS7010 is not set
 # CONFIG_GREYBUS is not set
 # CONFIG_PI433 is not set
-# CONFIG_MTK_MMC is not set
 
 #
 # Gasket devices
