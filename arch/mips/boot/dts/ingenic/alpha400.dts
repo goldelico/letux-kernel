@@ -278,9 +278,6 @@
 	sound: sound {
 		compatible = "simple-audio-card";
 
-		hp-en-gpio = <&gpa 24 GPIO_ACTIVE_LOW>;
-		jack-det-gpio = <&gpa 25 GPIO_ACTIVE_LOW>;
-
 		simple-audio-card,name = "Alpha 400";
 		simple-audio-card,format = "i2s";
 
@@ -288,6 +285,9 @@
 		simple-audio-card,frame-master = <&sndcodec>;
 
 		simple-audio-card,convert-rate = <48000>;
+
+		simple-audio-card,hp-det-gpio = <&gpa 25 GPIO_ACTIVE_LOW>;
+		// hp-en-gpio = <&gpa 24 GPIO_ACTIVE_LOW>;
 
 		simple-audio-card,prefix = "ak4642";
 		simple-audio-card,widgets =
