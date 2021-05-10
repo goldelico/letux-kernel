@@ -607,7 +607,7 @@ static void ingenic_drm_plane_atomic_update(struct drm_plane *plane,
 			hwdesc_ext->offsize = 0;
 			hwdesc_ext->pagewidth = 0;
 
-			switch (state->fb->format->format) {
+			switch (newstate->fb->format->format) {
 			case DRM_FORMAT_XRGB1555:
 				hwdesc_ext->cpos |= JZ_LCD_CPOS_RGB555;
 				fallthrough;
