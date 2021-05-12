@@ -3255,37 +3255,11 @@ static int ingenic_pinconf_get(struct pinctrl_dev *pctldev,
 	unsigned int idx = pin % PINS_PER_GPIO_CHIP;
 	unsigned int offt = pin / PINS_PER_GPIO_CHIP;
 	unsigned int bias;
-	bool pull;
+	bool pull, pullup, pulldown;
 
-	if (jzpc->info->version >= ID_X2000) {
-		bool pull_up, pull_down;
-
-		pull_up = ingenic_get_pin_config(jzpc, pin, X2000_GPIO_PEPU);
-		pull_down = ingenic_get_pin_config(jzpc, pin, X2000_GPIO_PEPD);
-
-		switch (param) {
-		case PIN_CONFIG_BIAS_DISABLE:
-			if (pull_up || pull_down)
-				return -EINVAL;
-			break;
-
-		case PIN_CONFIG_BIAS_PULL_UP:
-			if (!pull_up || pull_down || !(jzpc->info->pull_ups[offt] & BIT(idx)))
-				return -EINVAL;
-			break;
-
-		case PIN_CONFIG_BIAS_PULL_DOWN:
-			if (pull_up || !pull_down || !(jzpc->info->pull_downs[offt] & BIT(idx)))
-				return -EINVAL;
-			break;
-
-		default:
-			return -EOPNOTSUPP;
-		}
-
-	} else if (jzpc->info->version >= ID_X1830) {
+	if (jzpc->info->version >= ID_X1830) {
 		unsigned int half = PINS_PER_GPIO_CHIP / 2;
-		unsigned int idxh = pin % half * 2;
+		unsigned int idxh = (pin % half) * 2;
 
 		if (idx < half)
 			regmap_read(jzpc->map, offt * jzpc->info->reg_offset +
@@ -3294,57 +3268,38 @@ static int ingenic_pinconf_get(struct pinctrl_dev *pctldev,
 			regmap_read(jzpc->map, offt * jzpc->info->reg_offset +
 					X1830_GPIO_PEH, &bias);
 
-		bias = (bias >> idxh) & 3;
+		bias = (bias >> idxh) & (GPIO_PULL_UP | GPIO_PULL_DOWN);
 
-		switch (param) {
-		case PIN_CONFIG_BIAS_DISABLE:
-			if (bias)
-				return -EINVAL;
-			break;
-
-		case PIN_CONFIG_BIAS_PULL_UP:
-			if ((bias != PIN_CONFIG_BIAS_PULL_UP) ||
-					!(jzpc->info->pull_ups[offt] & BIT(idx)))
-				return -EINVAL;
-			break;
-
-		case PIN_CONFIG_BIAS_PULL_DOWN:
-			if ((bias != PIN_CONFIG_BIAS_PULL_DOWN) ||
-					!(jzpc->info->pull_downs[offt] & BIT(idx)))
-				return -EINVAL;
-			break;
-
-		default:
-			return -EOPNOTSUPP;
-		}
+		pullup = (bias == GPIO_PULL_UP) && (jzpc->info->pull_ups[offt] & BIT(idx));
+		pulldown = (bias == GPIO_PULL_DOWN) && (jzpc->info->pull_downs[offt] & BIT(idx));
 
 	} else {
 		if (jzpc->info->version >= ID_JZ4770)
 			pull = !ingenic_get_pin_config(jzpc, pin, JZ4770_GPIO_PEN);
-		else if (jzpc->info->version >= ID_JZ4740)
-			pull = !ingenic_get_pin_config(jzpc, pin, JZ4740_GPIO_PULL_DIS);
 		else
-			pull = ingenic_get_pin_config(jzpc, pin, JZ4730_GPIO_GPPUR);
+			pull = !ingenic_get_pin_config(jzpc, pin, JZ4740_GPIO_PULL_DIS);
 
-		switch (param) {
-		case PIN_CONFIG_BIAS_DISABLE:
-			if (pull)
-				return -EINVAL;
-			break;
+		pullup = pull && (jzpc->info->pull_ups[offt] & BIT(idx));
+		pulldown = pull && (jzpc->info->pull_downs[offt] & BIT(idx));
+	}
 
-		case PIN_CONFIG_BIAS_PULL_UP:
-			if (!pull || !(jzpc->info->pull_ups[offt] & BIT(idx)))
-				return -EINVAL;
-			break;
+	switch (param) {
+	case PIN_CONFIG_BIAS_DISABLE:
+		if (pullup || pulldown)
+			return -EINVAL;
+		break;
 
-		case PIN_CONFIG_BIAS_PULL_DOWN:
-			if (!pull || !(jzpc->info->pull_downs[offt] & BIT(idx)))
-				return -EINVAL;
-			break;
+	case PIN_CONFIG_BIAS_PULL_UP:
+		if (!pullup)
+			return -EINVAL;
+		break;
 
-		default:
-			return -EOPNOTSUPP;
-		}
+	case PIN_CONFIG_BIAS_PULL_DOWN:
+		if (!pulldown)
+			return -EINVAL;
+		break;
+	default:
+		return -EOPNOTSUPP;
 	}
 
 	*config = pinconf_to_config_packed(param, 1);
@@ -3375,7 +3330,7 @@ static void ingenic_set_bias(struct ingenic_pinctrl *jzpc,
 	} else if (jzpc->info->version >= ID_X1830) {
 		unsigned int idx = pin % PINS_PER_GPIO_CHIP;
 		unsigned int half = PINS_PER_GPIO_CHIP / 2;
-		unsigned int idxh = pin % half * 2;
+		unsigned int idxh = (pin % half) * 2;
 		unsigned int offt = pin / PINS_PER_GPIO_CHIP;
 
 		if (idx < half) {
