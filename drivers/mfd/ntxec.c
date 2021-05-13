@@ -188,6 +188,16 @@ static int ntxec_probe(struct i2c_client *client)
 		if (IS_ERR(ec->regmap))
 			return PTR_ERR(ec->regmap);
 		break;
+	case NTXEC_VERSION_TOLINO_SHINE2:
+		subdevs = ntxec_subdev_no_rtc;
+		n_subdevs = ARRAY_SIZE(ntxec_subdev_no_rtc);
+		/* Another regmap stacked on top of the other */
+		ec->regmap = devm_regmap_init(ec->dev, NULL,
+					      ec->regmap,
+					      &regmap_config_noack);
+		if (IS_ERR(ec->regmap))
+			return PTR_ERR(ec->regmap);
+		break;
 	default:
 		dev_err(ec->dev,
 			"Netronix embedded controller version %04x is not supported.\n",
