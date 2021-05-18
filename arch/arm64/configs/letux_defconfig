@@ -1,5 +1,5 @@
 #
-# Linux/arm64 5.10.36 Kernel Configuration
+# Linux/arm64 5.10.37 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="aarch64-linux-gnu-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
@@ -5947,7 +5947,6 @@ CONFIG_IIO_INPUT_BRIDGE=y
 # CONFIG_AD7923 is not set
 # CONFIG_AD7949 is not set
 # CONFIG_AD799X is not set
-# CONFIG_AD9467 is not set
 # CONFIG_ADI_AXI_ADC is not set
 CONFIG_AXP20X_ADC=y
 # CONFIG_AXP288_ADC is not set
