@@ -61,6 +61,25 @@ struct ingenic_intc {
 
 struct ingenic_intc *ingenic_intc;
 
+asmlinkage void plat_irq_dispatch(void)
+{
+	unsigned long pending = read_c0_cause() & read_c0_status() & ST0_IM;
+
+	if (!pending) {
+		spurious_interrupt();
+		return;
+	}
+
+	if (pending & CAUSEF_IP3)
+		do_IRQ(MIPS_CPU_IRQ_BASE + 3);
+	else if (pending & CAUSEF_IP4)
+		do_IRQ(MIPS_CPU_IRQ_BASE + 4);
+	else if (pending & CAUSEF_IP2)
+		do_IRQ(MIPS_CPU_IRQ_BASE + 2);
+	else
+		do_IRQ(MIPS_CPU_IRQ_BASE + __ffs(pending));
+}
+
 static irqreturn_t ingenic_intc_cascade(int irq, void *data)
 {
 	struct ingenic_intc *intc = ingenic_intc;
@@ -106,34 +125,6 @@ static int __init ingenic_intc_setup_irqchip(unsigned int cpu)
 		irqchip->gc[i]->wake_enabled = IRQ_MSK(32);
 		irqchip->gc[i]->reg_base = irqchip->base + (i * CHIP_SIZE);
 
-	intc->num_chips = num_chips;
-	intc->base = of_iomap(node, 0);
-	if (!intc->base) {
-		err = -ENODEV;
-		goto out_unmap_irq;
-	}
-
-	domain = irq_domain_create_linear(of_fwnode_handle(node), num_chips * 32,
-					  &irq_generic_chip_ops, NULL);
-	if (!domain) {
-		err = -ENOMEM;
-		goto out_unmap_base;
-	}
-
-	intc->domain = domain;
-
-	err = irq_alloc_domain_generic_chips(domain, 32, 1, "INTC",
-					     handle_level_irq, 0,
-					     IRQ_NOPROBE | IRQ_LEVEL, 0);
-	if (err)
-		goto out_domain_remove;
-
-	for (i = 0; i < num_chips; i++) {
-		irqchip->gc[i] = irq_get_domain_generic_chip(domain, i * 32);
-
-		irqchip->gc[i]->wake_enabled = IRQ_MSK(32);
-		irqchip->gc[i]->reg_base = intc->base + (i * CHIP_SIZE);
-
 		ct = irqchip->gc[i]->chip_types;
 		ct->regs.enable = JZ_REG_INTC_CLEAR_MASK;
 		ct->regs.disable = JZ_REG_INTC_SET_MASK;
@@ -155,14 +146,17 @@ static int __init ingenic_intc_setup_irqchip(unsigned int cpu)
 
 static const struct of_device_id __maybe_unused ingenic_intc_of_matches[] __initconst = {
 	{ .compatible = "ingenic,jz4730-intc", .data = (void *) ID_JZ4730 },
-	{ .compatible = "ingenic,jz4740-intc", .data = (void *) ID_JZ4740 },
-	{ .compatible = "ingenic,jz4725b-intc", .data = (void *) ID_JZ4725B },
-	{ .compatible = "ingenic,jz4760-intc", .data = (void *) ID_JZ4760 },
-	{ .compatible = "ingenic,jz4770-intc", .data = (void *) ID_JZ4770 },
-	{ .compatible = "ingenic,jz4775-intc", .data = (void *) ID_JZ4775 },
-	{ .compatible = "ingenic,jz4780-intc", .data = (void *) ID_JZ4780 },
-	{ .compatible = "ingenic,x1600-intc", .data = (void *) ID_X1600 },
+	{ .compatible = "ingenic,jz4740-intc", .data = (void *) ID_JZ4730 },
+	{ .compatible = "ingenic,jz4725b-intc", .data = (void *) ID_JZ4730 },
+	{ .compatible = "ingenic,jz4760-intc", .data = (void *) ID_JZ4730 },
+	{ .compatible = "ingenic,jz4770-intc", .data = (void *) ID_JZ4730 },
+	{ .compatible = "ingenic,jz4775-intc", .data = (void *) ID_JZ4730 },
+	{ .compatible = "ingenic,jz4780-intc", .data = (void *) ID_JZ4730 },
+	{ .compatible = "ingenic,x1000-intc", .data = (void *) ID_JZ4730 },
+	{ .compatible = "ingenic,x1600-intc", .data = (void *) ID_JZ4730 },
+	{ .compatible = "ingenic,x1830-intc", .data = (void *) ID_JZ4730 },
 	{ .compatible = "ingenic,x2000-intc", .data = (void *) ID_X2000 },
+	{ .compatible = "ingenic,x2500-intc", .data = (void *) ID_X2000 },
 	{ /* sentinel */ }
 };
 
@@ -320,5 +314,8 @@ IRQCHIP_DECLARE(jz4760_intc, "ingenic,jz4760-intc", intc_2chip_of_init);
 IRQCHIP_DECLARE(jz4770_intc, "ingenic,jz4770-intc", intc_2chip_of_init);
 IRQCHIP_DECLARE(jz4775_intc, "ingenic,jz4775-intc", intc_2chip_of_init);
 IRQCHIP_DECLARE(jz4780_intc, "ingenic,jz4780-intc", intc_2chip_of_init);
+IRQCHIP_DECLARE(x1000_intc, "ingenic,x1000-intc", intc_2chip_of_init);
 IRQCHIP_DECLARE(x1600_intc, "ingenic,x1600-intc", intc_2chip_of_init);
+IRQCHIP_DECLARE(x1830_intc, "ingenic,x1830-intc", intc_2chip_of_init);
 IRQCHIP_DECLARE(x2000_intc, "ingenic,x2000-intc", intc_2chip_of_init);
+IRQCHIP_DECLARE(x2500_intc, "ingenic,x2500-intc", intc_2chip_of_init);
