@@ -77,8 +77,10 @@ static irqreturn_t ingenic_intc_cascade(int irq, void *data)
 		}
 	}
 
+#if IS_ENABLED(CONFIG_SMP)
 	if (intc->version >= ID_JZ4780)
 		jz4780_smp_switch_irqcpu(smp_processor_id());
+#endif
 
 	return IRQ_HANDLED;
 }
