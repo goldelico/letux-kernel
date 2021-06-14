@@ -837,7 +837,7 @@ static void serial_omap_shutdown(struct uart_port *port)
 
 	{
 		struct uart_state *state = serial_omap_reg.state + port->line;
-	if (!test_bit(ASYNCB_SUSPENDED, &state->port.flags)) {
+	if (!test_bit(TTY_PORT_SUSPENDED, &state->port.iflags)) {
 		spin_lock_irqsave(&up->port.lock, flags);
 		up->port.mctrl &= ~TIOCM_OUT2;
 		serial_omap_set_mctrl(&up->port, up->port.mctrl);
