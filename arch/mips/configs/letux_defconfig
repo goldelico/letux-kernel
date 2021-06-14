@@ -1,5 +1,5 @@
 #
-# Linux/mips 5.10.37 Kernel Configuration
+# Linux/mips 5.10.43 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
@@ -493,7 +493,6 @@ CONFIG_HAVE_SPARSE_SYSCALL_NR=y
 # end of GCOV-based kernel profiling
 
 CONFIG_HAVE_GCC_PLUGINS=y
-# CONFIG_GCC_PLUGINS is not set
 # end of General architecture-dependent options
 
 CONFIG_RT_MUTEXES=y

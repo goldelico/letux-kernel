@@ -1,5 +1,5 @@
 #
-# Linux/arm64 5.10.37 Kernel Configuration
+# Linux/arm64 5.10.43 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="aarch64-linux-gnu-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
@@ -749,7 +749,6 @@ CONFIG_ARCH_HAS_GCOV_PROFILE_ALL=y
 # end of GCOV-based kernel profiling
 
 CONFIG_HAVE_GCC_PLUGINS=y
-# CONFIG_GCC_PLUGINS is not set
 # end of General architecture-dependent options
 
 CONFIG_RT_MUTEXES=y
