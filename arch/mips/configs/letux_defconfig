@@ -1,5 +1,5 @@
 #
-# Linux/mips 4.19.190 Kernel Configuration
+# Linux/mips 4.19.194 Kernel Configuration
 #
 
 #
@@ -417,7 +417,7 @@ CONFIG_HAVE_ARCH_COMPILER_H=y
 # GCOV-based kernel profiling
 #
 # CONFIG_GCOV_KERNEL is not set
-CONFIG_PLUGIN_HOSTCC="g++"
+CONFIG_PLUGIN_HOSTCC=""
 CONFIG_RT_MUTEXES=y
 CONFIG_BASE_SMALL=0
 CONFIG_MODULES=y
