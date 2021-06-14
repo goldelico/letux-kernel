@@ -1,5 +1,5 @@
 #
-# Linux/arm 5.4.119 Kernel Configuration
+# Linux/arm 5.4.125 Kernel Configuration
 #
 
 #
@@ -740,9 +740,8 @@ CONFIG_REFCOUNT_FULL=y
 CONFIG_ARCH_HAS_GCOV_PROFILE_ALL=y
 # end of GCOV-based kernel profiling
 
-CONFIG_PLUGIN_HOSTCC="g++"
+CONFIG_PLUGIN_HOSTCC=""
 CONFIG_HAVE_GCC_PLUGINS=y
-# CONFIG_GCC_PLUGINS is not set
 # end of General architecture-dependent options
 
 CONFIG_RT_MUTEXES=y
