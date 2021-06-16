@@ -1,5 +1,5 @@
 #
-# Linux/arm 5.10.43 Kernel Configuration
+# Linux/arm 5.10.44 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabihf-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
@@ -1796,6 +1796,7 @@ CONFIG_BLK_DEV_RAM_SIZE=16384
 #
 # CONFIG_BLK_DEV_NVME is not set
 # CONFIG_NVME_FC is not set
+# CONFIG_NVME_TCP is not set
 # CONFIG_NVME_TARGET is not set
 # end of NVME Support
 
