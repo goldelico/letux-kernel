@@ -1,5 +1,5 @@
 #
-# Linux/arm 5.4.125 Kernel Configuration
+# Linux/arm 5.4.126 Kernel Configuration
 #
 
 #
@@ -1755,6 +1755,7 @@ CONFIG_BLK_DEV_RAM_SIZE=16384
 #
 # CONFIG_BLK_DEV_NVME is not set
 # CONFIG_NVME_FC is not set
+# CONFIG_NVME_TCP is not set
 # CONFIG_NVME_TARGET is not set
 # end of NVME Support
 
