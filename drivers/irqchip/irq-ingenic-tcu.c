@@ -23,6 +23,8 @@ struct ingenic_tcu {
 	bool jz4780_affinity;
 };
 
+unsigned int *ingenic_tcu_intc_affinity;
+
 static void ingenic_tcu_intc_cascade(struct irq_desc *desc)
 {
 	struct irq_chip *irq_chip = irq_data_get_irq_chip(&desc->irq_data);
