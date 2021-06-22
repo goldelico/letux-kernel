@@ -15,6 +15,7 @@
 #include <asm/fw/fw.h>
 #include <asm/irq_cpu.h>
 #include <asm/machine.h>
+#include <asm/mach-ingenic/smp.h>
 #include <asm/mips-cps.h>
 #include <asm/prom.h>
 #include <asm/smp-ops.h>

@@ -18,6 +18,7 @@
 #include <asm/cpu-type.h>
 #include <asm/idle.h>
 #include <asm/mipsregs.h>
+#include <asm/mach-ingenic/smp.h>
 
 /*
  * Not all of the MIPS CPUs have the "wait" instruction available. Moreover,
@@ -156,9 +157,8 @@ void __init check_wait(void)
 	case CPU_CAVIUM_OCTEON_PLUS:
 	case CPU_CAVIUM_OCTEON2:
 	case CPU_CAVIUM_OCTEON3:
-	case CPU_XBURST:
-	case CPU_XBURST2:
 	case CPU_LOONGSON32:
+	case CPU_XBURST2:
 		cpu_wait = r4k_wait;
 		break;
 	case CPU_LOONGSON64:
