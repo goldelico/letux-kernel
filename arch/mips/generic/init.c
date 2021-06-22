@@ -21,6 +21,8 @@
 #include <asm/smp-ops.h>
 #include <asm/time.h>
 
+#define IF_ENABLED(cfg, ptr)	PTR_IF(IS_ENABLED(cfg), (ptr))
+
 static __initconst const void *fdt;
 static __initconst const struct mips_machine *mach;
 static __initconst const void *mach_match_data;
@@ -107,6 +109,9 @@ void __init plat_mem_setup(void)
 
 	fw_init_cmdline();
 	__dt_setup_arch((void *)fdt);
+
+	if (IS_ENABLED(CONFIG_MACH_INGENIC) && IS_ENABLED(CONFIG_SMP))
+		ingenic_smp_init();
 }
 
 void __init device_tree_init(void)
@@ -195,10 +200,11 @@ void __init arch_init_irq(void)
 {
 	struct device_node *intc_node;
 
-	intc_node = of_find_compatible_node(NULL, NULL,
-					    "mti,cpu-interrupt-controller");
+	intc_node = of_find_compatible_node(NULL, NULL, "mti,cpu-interrupt-controller");
+
 	if (!cpu_has_veic && !intc_node)
-		mips_cpu_irq_init();
+		IF_ENABLED(CONFIG_IRQ_MIPS_CPU, mips_cpu_irq_init());
+
 	of_node_put(intc_node);
 
 	irqchip_init();
