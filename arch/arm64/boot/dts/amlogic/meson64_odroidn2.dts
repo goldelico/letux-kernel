@@ -11,8 +11,10 @@
 #include <dt-bindings/sound/meson-g12a-toacodec.h>
 #include <dt-bindings/reset/amlogic,meson-axg-audio-arb.h>
 #include <dt-bindings/reset/amlogic,meson-g12a-audio-reset.h>
+#include <dt-bindings/pwm/pwm.h>
 
 #include "meson-g12b-odroid-n2.dts"
+#include "meson64_odroidn2.dtsi"
 
 / {
 	model = "Hardkernel ODROID-N2";
