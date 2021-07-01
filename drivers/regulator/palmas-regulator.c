@@ -975,6 +975,7 @@ static int palmas_ldo_registration(struct palmas_pmic *pmic,
 		else
 			config.init_data = NULL;
 
+		desc->supply_name = rinfo->sname;
 		config.of_node = ddata->palmas_matches[id].of_node;
 
 		rdev = devm_regulator_register(pmic->dev, desc, &config);
@@ -985,7 +986,6 @@ static int palmas_ldo_registration(struct palmas_pmic *pmic,
 			return PTR_ERR(rdev);
 		}
 
-		desc->supply_name = rinfo->sname;
 		/* Initialise sleep/init values from platform data */
 		if (pdata) {
 			reg_init = pdata->reg_init[id];
