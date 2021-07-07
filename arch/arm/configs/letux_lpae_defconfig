@@ -1,5 +1,5 @@
 #
-# Linux/arm 5.13.0 Kernel Configuration
+# Linux/arm 5.13.1 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabihf-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
@@ -4689,14 +4689,15 @@ CONFIG_SND_IMX_SOC=m
 #
 # Audio support for Texas Instruments SoCs
 #
+CONFIG_SND_SOC_TI_EDMA_PCM=m
 CONFIG_SND_SOC_TI_SDMA_PCM=m
+CONFIG_SND_SOC_TI_UDMA_PCM=m
 
 #
 # Texas Instruments DAI support for:
 #
-# CONFIG_SND_SOC_DAVINCI_MCASP is not set
+CONFIG_SND_SOC_DAVINCI_MCASP=m
 CONFIG_SND_SOC_OMAP_DMIC=m
-CONFIG_SND_SOC_OMAP_MCASP=m
 CONFIG_SND_SOC_OMAP_MCBSP=m
 CONFIG_SND_SOC_OMAP_MCPDM=m
 CONFIG_SND_SOC_OMAP_AESS=m
