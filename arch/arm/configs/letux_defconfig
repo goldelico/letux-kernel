@@ -1,5 +1,5 @@
 #
-# Linux/arm 5.13.1 Kernel Configuration
+# Linux/arm 5.13.2 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabihf-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
@@ -2601,7 +2601,13 @@ CONFIG_WLAN_VENDOR_QUANTENNA=y
 # CONFIG_USB_NET_RNDIS_WLAN is not set
 # CONFIG_VIRT_WIFI is not set
 # CONFIG_WAN is not set
+
+#
+# Wireless WAN
+#
 # CONFIG_WWAN is not set
+# end of Wireless WAN
+
 # CONFIG_VMXNET3 is not set
 # CONFIG_NETDEVSIM is not set
 # CONFIG_NET_FAILOVER is not set
