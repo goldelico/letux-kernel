@@ -6,6 +6,7 @@
  * Probe and remove operations derived from rcar_dw_hdmi.c.
  */
 
+#include <linux/component.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
@@ -87,6 +88,23 @@ static const struct of_device_id ingenic_dw_hdmi_dt_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, ingenic_dw_hdmi_dt_ids);
 
+static int ingenic_dw_dhmi_bind(struct device *dev, struct device *master,
+			        void *data)
+{
+	return 0;
+}
+
+static void ingenic_dw_dhmi_unbind(struct device *dev, struct device *master,
+				   void *data)
+{
+	return;
+}
+
+static const struct component_ops ingenic_dw_dhmi_ops = {
+	.bind	= ingenic_dw_dhmi_bind,
+	.unbind	= ingenic_dw_dhmi_unbind,
+};
+
 static int ingenic_dw_hdmi_probe(struct platform_device *pdev)
 {
 	struct dw_hdmi *hdmi;
@@ -97,13 +115,14 @@ static int ingenic_dw_hdmi_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, hdmi);
 
-	return 0;
+	return component_add(&pdev->dev, &ingenic_dw_dhmi_ops);
 }
 
 static int ingenic_dw_hdmi_remove(struct platform_device *pdev)
 {
 	struct dw_hdmi *hdmi = platform_get_drvdata(pdev);
 
+	component_del(&pdev->dev, &ingenic_dw_dhmi_ops);
 	dw_hdmi_remove(hdmi);
 
 	return 0;
