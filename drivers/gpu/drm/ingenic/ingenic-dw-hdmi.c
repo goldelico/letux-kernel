@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /* Copyright (C) 2011-2013 Freescale Semiconductor, Inc.
- * Copyright (C) 2019, 2020 Paul Boddie <paul@boddie.org.uk>
+ * Copyright (C) 2019, 2020, 2021 Paul Boddie <paul@boddie.org.uk>
  *
  * Derived from dw_hdmi-imx.c with i.MX portions removed.
- * Probe and remove operations derived from rcar_dw_hdmi.c.
  */
 
 #include <linux/component.h>
@@ -13,6 +12,11 @@
 
 #include <drm/bridge/dw_hdmi.h>
 #include <drm/drm_of.h>
+
+struct ingenic_dw_hdmi_encoder {
+	struct drm_encoder encoder;
+	struct dw_hdmi *hdmi;
+};
 
 static const struct dw_hdmi_mpll_config ingenic_mpll_cfg[] = {
 	{ 45250000,  { { 0x01e0, 0x0000 }, { 0x21e1, 0x0000 }, { 0x41e2, 0x0000 } } },
@@ -88,42 +92,50 @@ static const struct of_device_id ingenic_dw_hdmi_dt_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, ingenic_dw_hdmi_dt_ids);
 
-static int ingenic_dw_dhmi_bind(struct device *dev, struct device *master,
-			        void *data)
+static int ingenic_dw_hdmi_bind(struct device *dev, struct device *master,
+				void *data)
 {
-	return 0;
-}
+	struct platform_device *pdev = to_platform_device(dev);
+	struct drm_device *drm = data;
+	struct drm_encoder *enc;
+	struct ingenic_dw_hdmi_encoder *hdmi_encoder;
 
-static void ingenic_dw_dhmi_unbind(struct device *dev, struct device *master,
-				   void *data)
-{
-	return;
-}
+	hdmi_encoder = drmm_simple_encoder_alloc(drm, struct ingenic_dw_hdmi_encoder,
+						 encoder, DRM_MODE_ENCODER_TMDS);
+	if (IS_ERR(hdmi_encoder))
+		return PTR_ERR(hdmi_encoder);
 
-static const struct component_ops ingenic_dw_dhmi_ops = {
-	.bind	= ingenic_dw_dhmi_bind,
-	.unbind	= ingenic_dw_dhmi_unbind,
-};
+	enc = &hdmi_encoder->encoder;
+	drm_encoder_helper_add(enc, NULL);
+	hdmi_encoder->hdmi = dw_hdmi_bind(pdev, enc, &ingenic_dw_hdmi_plat_data);
 
-static int ingenic_dw_hdmi_probe(struct platform_device *pdev)
-{
-	struct dw_hdmi *hdmi;
-
-	hdmi = dw_hdmi_probe(pdev, &ingenic_dw_hdmi_plat_data);
-	if (IS_ERR(hdmi))
-		return PTR_ERR(hdmi);
-
-	platform_set_drvdata(pdev, hdmi);
+	if (IS_ERR(hdmi_encoder->hdmi))
+		return PTR_ERR(hdmi_encoder->hdmi);
 
 	return component_add(&pdev->dev, &ingenic_dw_dhmi_ops);
 }
 
+static void ingenic_dw_hdmi_unbind(struct device *dev, struct device *master,
+				   void *data)
+{
+	struct dw_hdmi *hdmi = drv_get_drvdata(dev);
+
+	dw_hdmi_unbind(hdmi);
+}
+
+static const struct component_ops ingenic_dw_hdmi_ops = {
+	.bind	= ingenic_dw_hdmi_bind,
+	.unbind	= ingenic_dw_hdmi_unbind,
+};
+
+static int ingenic_dw_hdmi_probe(struct platform_device *pdev)
+{
+	return component_add(&pdev->dev, &ingenic_dw_hdmi_ops);
+}
+
 static int ingenic_dw_hdmi_remove(struct platform_device *pdev)
 {
-	struct dw_hdmi *hdmi = platform_get_drvdata(pdev);
-
-	component_del(&pdev->dev, &ingenic_dw_dhmi_ops);
-	dw_hdmi_remove(hdmi);
+	component_del(&pdev->dev, &ingenic_dw_hdmi_ops);
 
 	return 0;
 }
