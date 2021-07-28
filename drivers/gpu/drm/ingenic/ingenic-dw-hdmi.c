@@ -12,6 +12,8 @@
 
 #include <drm/bridge/dw_hdmi.h>
 #include <drm/drm_of.h>
+#include <drm/drm_modeset_helper_vtables.h>
+#include <drm/drm_simple_kms_helper.h>
 
 struct ingenic_dw_hdmi_encoder {
 	struct drm_encoder encoder;
@@ -93,6 +95,16 @@ static const struct of_device_id ingenic_dw_hdmi_dt_ids[] = {
 MODULE_DEVICE_TABLE(of, ingenic_dw_hdmi_dt_ids);
 
 static int ingenic_dw_hdmi_bind(struct device *dev, struct device *master,
+				void *data);
+static void ingenic_dw_hdmi_unbind(struct device *dev, struct device *master,
+				   void *data);
+
+static const struct component_ops ingenic_dw_hdmi_ops = {
+	.bind	= ingenic_dw_hdmi_bind,
+	.unbind	= ingenic_dw_hdmi_unbind,
+};
+
+static int ingenic_dw_hdmi_bind(struct device *dev, struct device *master,
 				void *data)
 {
 	struct platform_device *pdev = to_platform_device(dev);
@@ -112,21 +124,16 @@ static int ingenic_dw_hdmi_bind(struct device *dev, struct device *master,
 	if (IS_ERR(hdmi_encoder->hdmi))
 		return PTR_ERR(hdmi_encoder->hdmi);
 
-	return component_add(&pdev->dev, &ingenic_dw_dhmi_ops);
+	return component_add(&pdev->dev, &ingenic_dw_hdmi_ops);
 }
 
 static void ingenic_dw_hdmi_unbind(struct device *dev, struct device *master,
 				   void *data)
 {
-	struct dw_hdmi *hdmi = drv_get_drvdata(dev);
+	struct dw_hdmi *hdmi = dev_get_drvdata(dev);
 
 	dw_hdmi_unbind(hdmi);
 }
-
-static const struct component_ops ingenic_dw_hdmi_ops = {
-	.bind	= ingenic_dw_hdmi_bind,
-	.unbind	= ingenic_dw_hdmi_unbind,
-};
 
 static int ingenic_dw_hdmi_probe(struct platform_device *pdev)
 {
