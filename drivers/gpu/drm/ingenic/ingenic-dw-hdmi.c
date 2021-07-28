@@ -102,6 +102,8 @@ static int ingenic_dw_hdmi_bind(struct device *dev, struct device *master,
 	struct drm_encoder *enc;
 	struct ingenic_dw_hdmi_encoder *hdmi_encoder;
 
+printk("%s\n", __func__);
+
 	hdmi_encoder = drmm_simple_encoder_alloc(drm, struct ingenic_dw_hdmi_encoder,
 						 encoder, DRM_MODE_ENCODER_TMDS);
 	if (IS_ERR(hdmi_encoder))
@@ -124,6 +126,8 @@ static void ingenic_dw_hdmi_unbind(struct device *dev, struct device *master,
 {
 	struct dw_hdmi *hdmi = dev_get_drvdata(dev);
 
+printk("%s\n", __func__);
+
 	dw_hdmi_unbind(hdmi);
 }
 
@@ -134,11 +138,15 @@ static const struct component_ops ingenic_dw_hdmi_ops = {
 
 static int ingenic_dw_hdmi_probe(struct platform_device *pdev)
 {
+printk("%s\n", __func__);
+
 	return component_add(&pdev->dev, &ingenic_dw_hdmi_ops);
 }
 
 static int ingenic_dw_hdmi_remove(struct platform_device *pdev)
 {
+printk("%s\n", __func__);
+
 	component_del(&pdev->dev, &ingenic_dw_hdmi_ops);
 
 	return 0;
