@@ -95,16 +95,6 @@ static const struct of_device_id ingenic_dw_hdmi_dt_ids[] = {
 MODULE_DEVICE_TABLE(of, ingenic_dw_hdmi_dt_ids);
 
 static int ingenic_dw_hdmi_bind(struct device *dev, struct device *master,
-				void *data);
-static void ingenic_dw_hdmi_unbind(struct device *dev, struct device *master,
-				   void *data);
-
-static const struct component_ops ingenic_dw_hdmi_ops = {
-	.bind	= ingenic_dw_hdmi_bind,
-	.unbind	= ingenic_dw_hdmi_unbind,
-};
-
-static int ingenic_dw_hdmi_bind(struct device *dev, struct device *master,
 				void *data)
 {
 	struct platform_device *pdev = to_platform_device(dev);
@@ -124,7 +114,9 @@ static int ingenic_dw_hdmi_bind(struct device *dev, struct device *master,
 	if (IS_ERR(hdmi_encoder->hdmi))
 		return PTR_ERR(hdmi_encoder->hdmi);
 
-	return component_add(&pdev->dev, &ingenic_dw_hdmi_ops);
+	dev_set_drvdata(dev, hdmi_encoder->hdmi);
+
+	return 0;
 }
 
 static void ingenic_dw_hdmi_unbind(struct device *dev, struct device *master,
@@ -134,6 +126,11 @@ static void ingenic_dw_hdmi_unbind(struct device *dev, struct device *master,
 
 	dw_hdmi_unbind(hdmi);
 }
+
+static const struct component_ops ingenic_dw_hdmi_ops = {
+	.bind	= ingenic_dw_hdmi_bind,
+	.unbind	= ingenic_dw_hdmi_unbind,
+};
 
 static int ingenic_dw_hdmi_probe(struct platform_device *pdev)
 {
