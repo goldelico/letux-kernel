@@ -722,7 +722,7 @@ static int ingenic_drm_enable_vblank(struct drm_crtc *crtc)
 	struct ingenic_drm *priv = drm_crtc_get_priv(crtc);
 
 	if (priv->no_vblank)
-		return -EINVAL;
+		return -EWOULDBLOCK;
 
 	regmap_update_bits(priv->map, JZ_REG_LCD_CTRL,
 			   JZ_LCD_CTRL_EOF_IRQ, JZ_LCD_CTRL_EOF_IRQ);
