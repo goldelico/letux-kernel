@@ -110,6 +110,8 @@ static int display_connector_probe(struct platform_device *pdev)
 	const char *label;
 	int ret;
 
+printk("%s %d\n", __func__, __LINE__);
+
 	conn = devm_kzalloc(&pdev->dev, sizeof(*conn), GFP_KERNEL);
 	if (!conn)
 		return -ENOMEM;
@@ -279,6 +281,8 @@ static int display_connector_probe(struct platform_device *pdev)
 		conn->bridge.ops);
 
 	drm_bridge_add(&conn->bridge);
+
+printk("%s %d\n", __func__, __LINE__);
 
 	return 0;
 }

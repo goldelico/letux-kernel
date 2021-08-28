@@ -179,6 +179,8 @@ int drm_bridge_attach(struct drm_encoder *encoder, struct drm_bridge *bridge,
 {
 	int ret;
 
+printk("%s %d: enc=%px bri=%px prev=%px flags=%d\n", __func__, __LINE__, encoder, bridge, previous, flags);
+
 	if (!encoder || !bridge)
 		return -EINVAL;
 
@@ -215,6 +217,9 @@ int drm_bridge_attach(struct drm_encoder *encoder, struct drm_bridge *bridge,
 					    &state->base,
 					    &drm_bridge_priv_state_funcs);
 	}
+
+DRM_ERROR("attached bridge %pOF to encoder %s\n",
+		  bridge->of_node, encoder->name);
 
 	return 0;
 
@@ -1220,9 +1225,15 @@ struct drm_bridge *of_drm_find_bridge(struct device_node *np)
 {
 	struct drm_bridge *bridge;
 
+printk("%s %d\n", __func__, __LINE__);
+
 	mutex_lock(&bridge_lock);
 
 	list_for_each_entry(bridge, &bridge_list, list) {
+
+printk("%s %d: %px ?? %px\n", __func__, __LINE__, bridge->of_node, np);
+//dev_info(bridge->dev->dev, "%s %d: %px ?? %px", __func__, __LINE__, bridge->of_node, np);
+
 		if (bridge->of_node == np) {
 			mutex_unlock(&bridge_lock);
 			return bridge;

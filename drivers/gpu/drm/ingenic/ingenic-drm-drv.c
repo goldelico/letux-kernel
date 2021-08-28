@@ -1267,7 +1267,7 @@ static int ingenic_drm_bind(struct device *dev, bool has_components)
 #if 0
 		connector = drm_bridge_connector_init(drm, encoder);
 		if (IS_ERR(connector)) {
-			dev_err(dev, "Unable to init connector\n");
+			dev_err(dev, "Unable to init connector: err = %d\n", PTR_ERR(connector));
 			return PTR_ERR(connector);
 		}
 
