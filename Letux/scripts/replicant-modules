@@ -19,12 +19,13 @@ export COPYFILE_DISABLE=true
 [ "$1" = "-v" ] && VERBOSE=-v
 
 KERNEL_FILES=/tmp/kernel-$$
-DEST=arch/arm/boot/modules.tgz
+SOURCE=arch/arm/boot/modules.tgz
+DEST="$(dirname "$SOURCE")/$(basename "$SOURCE" .tgz).bb.tgz"
 RELEASE=$(cat include/config/kernel.release)
 
 mkdir -p $KERNEL_FILES/modules
 echo unpack to $KERNEL_FILES/modules
-tar xzf $DEST -C $KERNEL_FILES/modules || exit
+tar xzf $SOURCE -C $KERNEL_FILES/modules || exit
 
 echo flatten to $KERNEL_FILES/system/lib/modules
 mkdir -p $KERNEL_FILES/system/lib/modules
@@ -40,12 +41,13 @@ ls -l $KERNEL_FILES/system/lib/modules/modules.dep
 rm -rf $KERNEL_FILES/depmod
 
 echo translate modules.dep into modules.dep.bb
+# https://git.busybox.net/busybox/tree/modutils/modprobe.c
 while read LINE
 do
 	MODULE=$(echo $LINE | sed 's/\([^:]*\).ko:.*/\1/g')
 	MOREINFO=""	# will collect usb: symbol: platform: of: etc.
 	ULMODULE=$(echo "$MODULE" | sed 's/-/_/g')	# aliases match on hyphen -> underline
-	MOREINFO+=$(cat $KERNEL_FILES/system/lib/modules/modules.alias $KERNEL_FILES/system/lib/modules/modules.symbols | grep "alias .* $ULMODULE" | sed "s/alias \([^ ]*\) $ULMODULE/\1/g" | sed 's/-/_/g')
+	MOREINFO+=$(cat $KERNEL_FILES/system/lib/modules/modules.alias $KERNEL_FILES/system/lib/modules/modules.symbols | grep "alias .* $ULMODULE" | sed "s/alias \([^ ]*\) $ULMODULE/\1/g" | sed "s/-/_/g")
 	DEPENDS=$(echo $LINE | sed 's/[^:]*://g' | sed 's/\.ko//g')
 	echo $MODULE.ko $MOREINFO
 	[ "$DEPENDS" ] && echo $DEPENDS
@@ -60,5 +62,5 @@ then
 	(cd Letux/replicant && tar cf - --dereference --exclude .DS_Store .) | (cd $KERNEL_FILES && tar xf - $VERBOSE)
 fi
 
-echo repack into $DEST.bb
-tar czf $(dirname "$DEST")/$(basename "$DEST" .tgz).bb.tgz --exclude .DS_Store -C $KERNEL_FILES .
+echo repack into $DEST
+tar czf $DEST --exclude .DS_Store -C $KERNEL_FILES .
