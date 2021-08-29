@@ -143,7 +143,6 @@ struct dw_hdmi_phy_data {
 struct dw_hdmi {
 	struct drm_connector connector;
 	struct drm_bridge bridge;
-//	struct drm_bridge *next_bridge;
 
 	unsigned int version;
 
@@ -2374,8 +2373,6 @@ dw_hdmi_connector_detect(struct drm_connector *connector, bool force)
 {
 	struct dw_hdmi *hdmi = container_of(connector, struct dw_hdmi,
 					     connector);
-printk("%s\n", __func__);
-
 	return dw_hdmi_detect(hdmi);
 }
 
@@ -2454,8 +2451,6 @@ static int dw_hdmi_connector_create(struct dw_hdmi *hdmi)
 	struct drm_connector *connector = &hdmi->connector;
 	struct cec_connector_info conn_info;
 	struct cec_notifier *notifier;
-
-printk("%s %d:\n", __func__, __LINE__);
 
 	if (hdmi->version >= 0x200a)
 		connector->ycbcr_420_allowed =
@@ -2783,29 +2778,10 @@ static int dw_hdmi_bridge_attach(struct drm_bridge *bridge,
 				 enum drm_bridge_attach_flags flags)
 {
 	struct dw_hdmi *hdmi = bridge->driver_private;
-	int ret;
-
-// printk("%s %d: next=%px\n", __func__, __LINE__, hdmi->next_bridge);
-//printk("%s %d: %pOF flags=%d\n", __func__, __LINE__, hdmi->next_bridge->of_node, flags);
-// dev_info(hdmi->next_bridge->dev->dev, "%s %d", __func__, __LINE__);
-printk("%s %d: bridge=%px flags=%d\n", __func__, __LINE__, bridge, flags);
-dump_stack();
-
-//	hdmi->bridge.type = DRM_MODE_CONNECTOR_HDMIA;
 
 	if (flags & DRM_BRIDGE_ATTACH_NO_CONNECTOR)
 		return 0;
 
-#if 0
-printk("%s %d: %pOF\n", __func__, __LINE__, hdmi->next_bridge->of_node);
-	ret = drm_bridge_attach(bridge->encoder, hdmi->next_bridge, bridge, flags);
-	if (ret)
-		return ret;
-#endif
-
-//	hdmi->bridge.type = DRM_MODE_CONNECTOR_HDMIA;
-
-// printk("%s %d: %pOF\n", __func__, __LINE__, hdmi->next_bridge->of_node);
 	return dw_hdmi_connector_create(hdmi);
 }
 
@@ -3199,7 +3175,6 @@ struct dw_hdmi *dw_hdmi_probe(struct platform_device *pdev,
 	struct device_node *np = dev->of_node;
 	struct platform_device_info pdevinfo;
 	struct device_node *ddc_node;
-//	struct device_node *ep;
 	struct dw_hdmi_cec_data cec;
 	struct dw_hdmi *hdmi;
 	struct resource *iores = NULL;
@@ -3210,8 +3185,6 @@ struct dw_hdmi *dw_hdmi_probe(struct platform_device *pdev,
 	u8 prod_id1;
 	u8 config0;
 	u8 config3;
-
-printk("%s %d\n", __func__, __LINE__);
 
 	hdmi = devm_kzalloc(dev, sizeof(*hdmi), GFP_KERNEL);
 	if (!hdmi)
@@ -3225,7 +3198,6 @@ printk("%s %d\n", __func__, __LINE__);
 	hdmi->phy_mask = (u8)~(HDMI_PHY_HPD | HDMI_PHY_RX_SENSE);
 	hdmi->mc_clkdis = 0x7f;
 	hdmi->last_connector_result = connector_status_disconnected;
-//	hdmi->bridge.type = DRM_MODE_CONNECTOR_HDMIA;
 
 	mutex_init(&hdmi->mutex);
 	mutex_init(&hdmi->audio_mutex);
@@ -3244,21 +3216,6 @@ printk("%s %d\n", __func__, __LINE__);
 	} else {
 		dev_dbg(hdmi->dev, "no ddc property found\n");
 	}
-
-#if 0
-	ep = of_graph_get_remote_node(dev->of_node, 1, -1);
-	if (!ep) {
-printk("%s %d: no EP found\n", __func__, __LINE__);
-			return ERR_PTR(-EPROBE_DEFER);
-}
-
-printk("%s %d: %px %pOF\n", __func__, __LINE__, ep, ep);
-	hdmi->next_bridge = of_drm_find_bridge(ep);
-	hdmi->next_bridge->of_node = ep;
-	of_node_put(ep);
-
-printk("%s %d: %px\n", __func__, __LINE__, hdmi->next_bridge);
-#endif
 
 	if (!plat_data->regm) {
 		const struct regmap_config *reg_config;

@@ -319,8 +319,6 @@ struct drm_connector *drm_bridge_connector_init(struct drm_device *drm,
 	struct drm_bridge *bridge;
 	int connector_type;
 
-printk("%s %d\n", __func__, __LINE__);
-
 	bridge_connector = kzalloc(sizeof(*bridge_connector), GFP_KERNEL);
 	if (!bridge_connector)
 		return ERR_PTR(-ENOMEM);
@@ -343,9 +341,6 @@ printk("%s %d\n", __func__, __LINE__);
 	 */
 	connector_type = DRM_MODE_CONNECTOR_Unknown;
 	drm_for_each_bridge_in_chain(encoder, bridge) {
-printk("%s %d: %s\n", __func__, __LINE__, bridge->dev->dev->init_name);
-dev_info(bridge->dev->dev, "%s %d", __func__, __LINE__);
-
 		if (!bridge->interlace_allowed)
 			connector->interlace_allowed = false;
 
@@ -358,21 +353,15 @@ dev_info(bridge->dev->dev, "%s %d", __func__, __LINE__);
 		if (bridge->ops & DRM_BRIDGE_OP_MODES)
 			bridge_connector->bridge_modes = bridge;
 
-		if (!drm_bridge_get_next_bridge(bridge)) {
+		if (!drm_bridge_get_next_bridge(bridge))
 			connector_type = bridge->type;
-printk("%s %d: %d\n", __func__, __LINE__, connector_type);
-}
 
 		if (bridge->ddc)
 			ddc = bridge->ddc;
 	}
 
-printk("%s %d\n", __func__, __LINE__);
-
-//	connector_type = DRM_MODE_CONNECTOR_HDMIA;
 	if (connector_type == DRM_MODE_CONNECTOR_Unknown) {
 		kfree(bridge_connector);
-printk("%s %d\n", __func__, __LINE__);
 		return ERR_PTR(-EINVAL);
 	}
 
@@ -385,8 +374,6 @@ printk("%s %d\n", __func__, __LINE__);
 	else if (bridge_connector->bridge_detect)
 		connector->polled = DRM_CONNECTOR_POLL_CONNECT
 				  | DRM_CONNECTOR_POLL_DISCONNECT;
-
-printk("%s %d\n", __func__, __LINE__);
 
 	return connector;
 }
