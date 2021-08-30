@@ -2441,12 +2441,12 @@ int iwl_mvm_rm_mcast_sta(struct iwl_mvm *mvm, struct ieee80211_vif *vif)
 
 static void iwl_mvm_sync_rxq_del_ba(struct iwl_mvm *mvm, u8 baid)
 {
-	struct iwl_mvm_rss_sync_notif notif = {
-		.metadata.type = IWL_MVM_RXQ_NOTIF_DEL_BA,
-		.metadata.sync = 1,
-		.delba.baid = baid,
+	struct iwl_mvm_delba_data notif = {
+		.baid = baid,
 	};
-	iwl_mvm_sync_rx_queues_internal(mvm, (void *)&notif, sizeof(notif));
+
+	iwl_mvm_sync_rx_queues_internal(mvm, IWL_MVM_RXQ_NOTIF_DEL_BA, true,
+					&notif, sizeof(notif));
 };
 
 static void iwl_mvm_free_reorder(struct iwl_mvm *mvm,
@@ -3794,8 +3794,12 @@ void iwl_mvm_sta_modify_disable_tx_ap(struct iwl_mvm *mvm,
 
 	mvm_sta->disable_tx = disable;
 
-	/* Tell mac80211 to start/stop queuing tx for this station */
-	ieee80211_sta_block_awake(mvm->hw, sta, disable);
+	/*
+	 * If sta PS state is handled by mac80211, tell it to start/stop
+	 * queuing tx for this station.
+	 */
+	if (!ieee80211_hw_check(mvm->hw, AP_LINK_PS))
+		ieee80211_sta_block_awake(mvm->hw, sta, disable);
 
 	iwl_mvm_sta_modify_disable_tx(mvm, mvm_sta, disable);
 

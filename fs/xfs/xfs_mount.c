@@ -32,6 +32,7 @@
 #include "xfs_extent_busy.h"
 #include "xfs_health.h"
 #include "xfs_trace.h"
+#include "xfs_ag.h"
 
 static DEFINE_MUTEX(xfs_uuid_table_mutex);
 static int xfs_uuid_table_size;
@@ -119,41 +120,6 @@ xfs_uuid_unmount(
 	mutex_unlock(&xfs_uuid_table_mutex);
 }
 
-
-STATIC void
-__xfs_free_perag(
-	struct rcu_head	*head)
-{
-	struct xfs_perag *pag = container_of(head, struct xfs_perag, rcu_head);
-
-	ASSERT(!delayed_work_pending(&pag->pag_blockgc_work));
-	ASSERT(atomic_read(&pag->pag_ref) == 0);
-	kmem_free(pag);
-}
-
-/*
- * Free up the per-ag resources associated with the mount structure.
- */
-STATIC void
-xfs_free_perag(
-	xfs_mount_t	*mp)
-{
-	xfs_agnumber_t	agno;
-	struct xfs_perag *pag;
-
-	for (agno = 0; agno < mp->m_sb.sb_agcount; agno++) {
-		spin_lock(&mp->m_perag_lock);
-		pag = radix_tree_delete(&mp->m_perag_tree, agno);
-		spin_unlock(&mp->m_perag_lock);
-		ASSERT(pag);
-		ASSERT(atomic_read(&pag->pag_ref) == 0);
-		cancel_delayed_work_sync(&pag->pag_blockgc_work);
-		xfs_iunlink_destroy(pag);
-		xfs_buf_hash_destroy(pag);
-		call_rcu(&pag->rcu_head, __xfs_free_perag);
-	}
-}
-
 /*
  * Check size of device based on the (data/realtime) block count.
  * Note: this check is used by the growfs code as well as mount.
@@ -170,96 +136,6 @@ xfs_sb_validate_fsb_count(
 	if (nblocks >> (PAGE_SHIFT - sbp->sb_blocklog) > ULONG_MAX)
 		return -EFBIG;
 	return 0;
-}
-
-int
-xfs_initialize_perag(
-	xfs_mount_t	*mp,
-	xfs_agnumber_t	agcount,
-	xfs_agnumber_t	*maxagi)
-{
-	xfs_agnumber_t	index;
-	xfs_agnumber_t	first_initialised = NULLAGNUMBER;
-	xfs_perag_t	*pag;
-	int		error = -ENOMEM;
-
-	/*
-	 * Walk the current per-ag tree so we don't try to initialise AGs
-	 * that already exist (growfs case). Allocate and insert all the
-	 * AGs we don't find ready for initialisation.
-	 */
-	for (index = 0; index < agcount; index++) {
-		pag = xfs_perag_get(mp, index);
-		if (pag) {
-			xfs_perag_put(pag);
-			continue;
-		}
-
-		pag = kmem_zalloc(sizeof(*pag), KM_MAYFAIL);
-		if (!pag) {
-			error = -ENOMEM;
-			goto out_unwind_new_pags;
-		}
-		pag->pag_agno = index;
-		pag->pag_mount = mp;
-		spin_lock_init(&pag->pag_ici_lock);
-		INIT_DELAYED_WORK(&pag->pag_blockgc_work, xfs_blockgc_worker);
-		INIT_RADIX_TREE(&pag->pag_ici_root, GFP_ATOMIC);
-
-		error = xfs_buf_hash_init(pag);
-		if (error)
-			goto out_free_pag;
-		init_waitqueue_head(&pag->pagb_wait);
-		spin_lock_init(&pag->pagb_lock);
-		pag->pagb_count = 0;
-		pag->pagb_tree = RB_ROOT;
-
-		error = radix_tree_preload(GFP_NOFS);
-		if (error)
-			goto out_hash_destroy;
-
-		spin_lock(&mp->m_perag_lock);
-		if (radix_tree_insert(&mp->m_perag_tree, index, pag)) {
-			WARN_ON_ONCE(1);
-			spin_unlock(&mp->m_perag_lock);
-			radix_tree_preload_end();
-			error = -EEXIST;
-			goto out_hash_destroy;
-		}
-		spin_unlock(&mp->m_perag_lock);
-		radix_tree_preload_end();
-		/* first new pag is fully initialized */
-		if (first_initialised == NULLAGNUMBER)
-			first_initialised = index;
-		error = xfs_iunlink_init(pag);
-		if (error)
-			goto out_hash_destroy;
-		spin_lock_init(&pag->pag_state_lock);
-	}
-
-	index = xfs_set_inode_alloc(mp, agcount);
-
-	if (maxagi)
-		*maxagi = index;
-
-	mp->m_ag_prealloc_blocks = xfs_prealloc_blocks(mp);
-	return 0;
-
-out_hash_destroy:
-	xfs_buf_hash_destroy(pag);
-out_free_pag:
-	kmem_free(pag);
-out_unwind_new_pags:
-	/* unwind any prior newly initialized pags */
-	for (index = first_initialised; index < agcount; index++) {
-		pag = radix_tree_delete(&mp->m_perag_tree, index);
-		if (!pag)
-			break;
-		xfs_buf_hash_destroy(pag);
-		xfs_iunlink_destroy(pag);
-		kmem_free(pag);
-	}
-	return error;
 }
 
 /*
@@ -675,6 +551,18 @@ xfs_unmount_flush_inodes(
 	xfs_health_unmount(mp);
 }
 
+static void
+xfs_mount_setup_inode_geom(
+	struct xfs_mount	*mp)
+{
+	struct xfs_ino_geometry *igeo = M_IGEO(mp);
+
+	igeo->attr_fork_offset = xfs_bmap_compute_attr_offset(mp);
+	ASSERT(igeo->attr_fork_offset < XFS_LITINO(mp));
+
+	xfs_ialloc_setup_geometry(mp);
+}
+
 /*
  * This function does the following on an initial mount of a file system:
  *	- reads the superblock from disk and init the mount struct
@@ -758,7 +646,7 @@ xfs_mountfs(
 	xfs_alloc_compute_maxlevels(mp);
 	xfs_bmap_compute_maxlevels(mp, XFS_DATA_FORK);
 	xfs_bmap_compute_maxlevels(mp, XFS_ATTR_FORK);
-	xfs_ialloc_setup_geometry(mp);
+	xfs_mount_setup_inode_geom(mp);
 	xfs_rmapbt_compute_maxlevels(mp);
 	xfs_refcountbt_compute_maxlevels(mp);
 
@@ -971,9 +859,17 @@ xfs_mountfs(
 	/*
 	 * Finish recovering the file system.  This part needed to be delayed
 	 * until after the root and real-time bitmap inodes were consistently
-	 * read in.
+	 * read in.  Temporarily create per-AG space reservations for metadata
+	 * btree shape changes because space freeing transactions (for inode
+	 * inactivation) require the per-AG reservation in lieu of reserving
+	 * blocks.
 	 */
+	error = xfs_fs_reserve_ag_blocks(mp);
+	if (error && error == -ENOSPC)
+		xfs_warn(mp,
+	"ENOSPC reserving per-AG metadata pool, log recovery may fail.");
 	error = xfs_log_mount_finish(mp);
+	xfs_fs_unreserve_ag_blocks(mp);
 	if (error) {
 		xfs_warn(mp, "log mount finish failed");
 		goto out_rtunmount;
@@ -1176,6 +1072,7 @@ xfs_mod_fdblocks(
 	int64_t			lcounter;
 	long long		res_used;
 	s32			batch;
+	uint64_t		set_aside;
 
 	if (delta > 0) {
 		/*
@@ -1215,8 +1112,20 @@ xfs_mod_fdblocks(
 	else
 		batch = XFS_FDBLOCKS_BATCH;
 
+	/*
+	 * Set aside allocbt blocks because these blocks are tracked as free
+	 * space but not available for allocation. Technically this means that a
+	 * single reservation cannot consume all remaining free space, but the
+	 * ratio of allocbt blocks to usable free blocks should be rather small.
+	 * The tradeoff without this is that filesystems that maintain high
+	 * perag block reservations can over reserve physical block availability
+	 * and fail physical allocation, which leads to much more serious
+	 * problems (i.e. transaction abort, pagecache discards, etc.) than
+	 * slightly premature -ENOSPC.
+	 */
+	set_aside = mp->m_alloc_set_aside + atomic64_read(&mp->m_allocbt_blks);
 	percpu_counter_add_batch(&mp->m_fdblocks, delta, batch);
-	if (__percpu_counter_compare(&mp->m_fdblocks, mp->m_alloc_set_aside,
+	if (__percpu_counter_compare(&mp->m_fdblocks, set_aside,
 				     XFS_FDBLOCKS_BATCH) >= 0) {
 		/* we had space! */
 		return 0;

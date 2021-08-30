@@ -515,7 +515,7 @@ static void fn_hold(struct vc_data *vc)
 	 * these routines are also activated by ^S/^Q.
 	 * (And SCROLLOCK can also be set by the ioctl KDSKBLED.)
 	 */
-	if (tty->stopped)
+	if (tty->flow.stopped)
 		start_tty(tty);
 	else
 		stop_tty(tty);
@@ -2186,7 +2186,7 @@ void vt_reset_unicode(int console)
 }
 
 /**
- *	vt_get_shiftstate	-	shift bit state
+ *	vt_get_shift_state	-	shift bit state
  *
  *	Report the shift bits from the keyboard state. We have to export
  *	this to support some oddities in the vt layer.

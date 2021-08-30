@@ -7041,11 +7041,11 @@ static int ca0132_build_controls(struct hda_codec *codec)
 					spec->tlv);
 		snd_hda_add_vmaster(codec, "Master Playback Volume",
 					spec->tlv, ca0132_alt_follower_pfxs,
-					"Playback Volume");
+					"Playback Volume", 0);
 		err = __snd_hda_add_vmaster(codec, "Master Playback Switch",
 					    NULL, ca0132_alt_follower_pfxs,
 					    "Playback Switch",
-					    true, &spec->vmaster_mute.sw_kctl);
+					    true, 0, &spec->vmaster_mute.sw_kctl);
 		if (err < 0)
 			return err;
 	}
@@ -7598,7 +7598,7 @@ static void ca0132_alt_free_active_dma_channels(struct hda_codec *codec)
  */
 static void ca0132_alt_start_dsp_audio_streams(struct hda_codec *codec)
 {
-	const unsigned int dsp_dma_stream_ids[] = { 0x0c, 0x03, 0x04 };
+	static const unsigned int dsp_dma_stream_ids[] = { 0x0c, 0x03, 0x04 };
 	struct ca0132_spec *spec = codec->spec;
 	unsigned int i, tmp;
 

@@ -630,7 +630,7 @@ static int mlxsw_emad_transmit(struct mlxsw_core *mlxsw_core,
 	struct sk_buff *skb;
 	int err;
 
-	skb = skb_copy(trans->tx_skb, GFP_KERNEL);
+	skb = skb_clone(trans->tx_skb, GFP_KERNEL);
 	if (!skb)
 		return -ENOMEM;
 
@@ -1444,7 +1444,9 @@ mlxsw_devlink_info_get(struct devlink *devlink, struct devlink_info_req *req,
 	if (err)
 		return err;
 
-	err = devlink_info_version_fixed_put(req, "fw.psid", fw_info_psid);
+	err = devlink_info_version_fixed_put(req,
+					     DEVLINK_INFO_VERSION_GENERIC_FW_PSID,
+					     fw_info_psid);
 	if (err)
 		return err;
 
@@ -1453,7 +1455,9 @@ mlxsw_devlink_info_get(struct devlink *devlink, struct devlink_info_req *req,
 	if (err)
 		return err;
 
-	return 0;
+	return devlink_info_version_running_put(req,
+						DEVLINK_INFO_VERSION_GENERIC_FW,
+						buf);
 }
 
 static int
@@ -1728,7 +1732,7 @@ static int mlxsw_core_health_fw_fatal_dump(struct devlink_health_reporter *repor
 		return err;
 
 	event_id = mlxsw_reg_mfde_event_id_get(mfde_pl);
-	err = devlink_fmsg_u8_pair_put(fmsg, "id", event_id);
+	err = devlink_fmsg_u32_pair_put(fmsg, "id", event_id);
 	if (err)
 		return err;
 	switch (event_id) {
@@ -1804,6 +1808,10 @@ static int mlxsw_core_health_fw_fatal_dump(struct devlink_health_reporter *repor
 			return err;
 		val = mlxsw_reg_mfde_log_id_get(mfde_pl);
 		err = devlink_fmsg_u8_pair_put(fmsg, "log_irisc_id", val);
+		if (err)
+			return err;
+		val = mlxsw_reg_mfde_log_ip_get(mfde_pl);
+		err = devlink_fmsg_u64_pair_put(fmsg, "log_ip", val);
 		if (err)
 			return err;
 	} else if (event_id == MLXSW_REG_MFDE_EVENT_ID_KVD_IM_STOP) {

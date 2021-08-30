@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause
 /*
  * Copyright (C) 2017 Intel Deutschland GmbH
- * Copyright (C) 2018-2020 Intel Corporation
+ * Copyright (C) 2018-2021 Intel Corporation
  */
 #include "iwl-trans.h"
 #include "iwl-prph.h"
@@ -108,8 +108,8 @@ static void iwl_trans_pcie_fw_reset_handshake(struct iwl_trans *trans)
 	ret = wait_event_timeout(trans_pcie->fw_reset_waitq,
 				 trans_pcie->fw_reset_done, FW_RESET_TIMEOUT);
 	if (!ret)
-		IWL_ERR(trans,
-			"firmware didn't ACK the reset - continue anyway\n");
+		IWL_INFO(trans,
+			 "firmware didn't ACK the reset - continue anyway\n");
 }
 
 void _iwl_trans_pcie_gen2_stop_device(struct iwl_trans *trans)
@@ -143,13 +143,13 @@ void _iwl_trans_pcie_gen2_stop_device(struct iwl_trans *trans)
 	if (test_and_clear_bit(STATUS_DEVICE_ENABLED, &trans->status)) {
 		IWL_DEBUG_INFO(trans,
 			       "DEVICE_ENABLED bit was set and is now cleared\n");
-		iwl_txq_gen2_tx_stop(trans);
+		iwl_txq_gen2_tx_free(trans);
 		iwl_pcie_rx_stop(trans);
 	}
 
 	iwl_pcie_ctxt_info_free_paging(trans);
 	if (trans->trans_cfg->device_family >= IWL_DEVICE_FAMILY_AX210)
-		iwl_pcie_ctxt_info_gen3_free(trans);
+		iwl_pcie_ctxt_info_gen3_free(trans, false);
 	else
 		iwl_pcie_ctxt_info_free(trans);
 
@@ -240,6 +240,75 @@ static int iwl_pcie_gen2_nic_init(struct iwl_trans *trans)
 	return 0;
 }
 
+static void iwl_pcie_get_rf_name(struct iwl_trans *trans)
+{
+	struct iwl_trans_pcie *trans_pcie = IWL_TRANS_GET_PCIE_TRANS(trans);
+	char *buf = trans_pcie->rf_name;
+	size_t buflen = sizeof(trans_pcie->rf_name);
+	size_t pos;
+	u32 version;
+
+	if (buf[0])
+		return;
+
+	switch (CSR_HW_RFID_TYPE(trans->hw_rf_id)) {
+	case CSR_HW_RFID_TYPE(CSR_HW_RF_ID_TYPE_JF):
+		pos = scnprintf(buf, buflen, "JF");
+		break;
+	case CSR_HW_RFID_TYPE(CSR_HW_RF_ID_TYPE_GF):
+		pos = scnprintf(buf, buflen, "GF");
+		break;
+	case CSR_HW_RFID_TYPE(CSR_HW_RF_ID_TYPE_GF4):
+		pos = scnprintf(buf, buflen, "GF4");
+		break;
+	case CSR_HW_RFID_TYPE(CSR_HW_RF_ID_TYPE_HR):
+		pos = scnprintf(buf, buflen, "HR");
+		break;
+	case CSR_HW_RFID_TYPE(CSR_HW_RF_ID_TYPE_HR1):
+		pos = scnprintf(buf, buflen, "HR1");
+		break;
+	case CSR_HW_RFID_TYPE(CSR_HW_RF_ID_TYPE_HRCDB):
+		pos = scnprintf(buf, buflen, "HRCDB");
+		break;
+	default:
+		return;
+	}
+
+	switch (CSR_HW_RFID_TYPE(trans->hw_rf_id)) {
+	case CSR_HW_RFID_TYPE(CSR_HW_RF_ID_TYPE_HR):
+	case CSR_HW_RFID_TYPE(CSR_HW_RF_ID_TYPE_HR1):
+	case CSR_HW_RFID_TYPE(CSR_HW_RF_ID_TYPE_HRCDB):
+		version = iwl_read_prph(trans, CNVI_MBOX_C);
+		switch (version) {
+		case 0x20000:
+			pos += scnprintf(buf + pos, buflen - pos, " B3");
+			break;
+		case 0x120000:
+			pos += scnprintf(buf + pos, buflen - pos, " B5");
+			break;
+		default:
+			pos += scnprintf(buf + pos, buflen - pos,
+					 " (0x%x)", version);
+			break;
+		}
+		break;
+	default:
+		break;
+	}
+
+	pos += scnprintf(buf + pos, buflen - pos, ", rfid=0x%x",
+			 trans->hw_rf_id);
+
+	IWL_INFO(trans, "Detected RF %s\n", buf);
+
+	/*
+	 * also add a \n for debugfs - need to do it after printing
+	 * since our IWL_INFO machinery wants to see a static \n at
+	 * the end of the string
+	 */
+	pos += scnprintf(buf + pos, buflen - pos, "\n");
+}
+
 void iwl_trans_pcie_gen2_fw_alive(struct iwl_trans *trans, u32 scd_addr)
 {
 	struct iwl_trans_pcie *trans_pcie = IWL_TRANS_GET_PCIE_TRANS(trans);
@@ -254,7 +323,10 @@ void iwl_trans_pcie_gen2_fw_alive(struct iwl_trans *trans, u32 scd_addr)
 	/* now that we got alive we can free the fw image & the context info.
 	 * paging memory cannot be freed included since FW will still use it
 	 */
-	iwl_pcie_ctxt_info_free(trans);
+	if (trans->trans_cfg->device_family >= IWL_DEVICE_FAMILY_AX210)
+		iwl_pcie_ctxt_info_gen3_free(trans, true);
+	else
+		iwl_pcie_ctxt_info_free(trans);
 
 	/*
 	 * Re-enable all the interrupts, including the RF-Kill one, now that
@@ -263,6 +335,8 @@ void iwl_trans_pcie_gen2_fw_alive(struct iwl_trans *trans, u32 scd_addr)
 	iwl_enable_interrupts(trans);
 	mutex_lock(&trans_pcie->mutex);
 	iwl_pcie_check_hw_rf_kill(trans);
+
+	iwl_pcie_get_rf_name(trans);
 	mutex_unlock(&trans_pcie->mutex);
 }
 

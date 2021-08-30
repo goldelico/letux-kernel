@@ -148,8 +148,6 @@ static int vic_boot(struct vic *vic)
 	hdr = vic->falcon.firmware.virt;
 	fce_bin_data_offset = *(u32 *)(hdr + VIC_UCODE_FCE_DATA_OFFSET);
 
-	falcon_execute_method(&vic->falcon, VIC_SET_APPLICATION_ID, 1);
-
 	/* Old VIC firmware needs kernel help with setting up FCE microcode. */
 	if (fce_bin_data_offset != 0x0 && fce_bin_data_offset != 0xa5a5a5a5) {
 		hdr = vic->falcon.firmware.virt +
@@ -214,7 +212,7 @@ static int vic_init(struct host1x_client *client)
 	return 0;
 
 free_syncpt:
-	host1x_syncpt_free(client->syncpts[0]);
+	host1x_syncpt_put(client->syncpts[0]);
 free_channel:
 	host1x_channel_put(vic->channel);
 detach:
@@ -238,7 +236,7 @@ static int vic_exit(struct host1x_client *client)
 	if (err < 0)
 		return err;
 
-	host1x_syncpt_free(client->syncpts[0]);
+	host1x_syncpt_put(client->syncpts[0]);
 	host1x_channel_put(vic->channel);
 	host1x_client_iommu_detach(client);
 

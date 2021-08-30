@@ -66,7 +66,7 @@ wait_fence:
 	 * may be not up-to-date. Wait for the exporter to finish
 	 * the migration.
 	 */
-	fence = dma_resv_get_excl(umem_dmabuf->attach->dmabuf->resv);
+	fence = dma_resv_excl_fence(umem_dmabuf->attach->dmabuf->resv);
 	if (fence)
 		return dma_fence_wait(fence, false);
 
@@ -167,6 +167,10 @@ EXPORT_SYMBOL(ib_umem_dmabuf_get);
 void ib_umem_dmabuf_release(struct ib_umem_dmabuf *umem_dmabuf)
 {
 	struct dma_buf *dmabuf = umem_dmabuf->attach->dmabuf;
+
+	dma_resv_lock(dmabuf->resv, NULL);
+	ib_umem_dmabuf_unmap_pages(umem_dmabuf);
+	dma_resv_unlock(dmabuf->resv);
 
 	dma_buf_detach(dmabuf, umem_dmabuf->attach);
 	dma_buf_put(dmabuf);

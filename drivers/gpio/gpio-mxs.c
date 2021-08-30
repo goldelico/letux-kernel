@@ -60,11 +60,6 @@ static inline int is_imx23_gpio(struct mxs_gpio_port *port)
 	return port->devid == IMX23_GPIO;
 }
 
-static inline int is_imx28_gpio(struct mxs_gpio_port *port)
-{
-	return port->devid == IMX28_GPIO;
-}
-
 /* Note: This driver assumes 32 GPIOs are handled in one register */
 
 static int mxs_gpio_set_irq_type(struct irq_data *d, unsigned int type)
@@ -234,14 +229,14 @@ static int mxs_gpio_init_gc(struct mxs_gpio_port *port, int irq_base)
 	return rv;
 }
 
-static int mxs_gpio_to_irq(struct gpio_chip *gc, unsigned offset)
+static int mxs_gpio_to_irq(struct gpio_chip *gc, unsigned int offset)
 {
 	struct mxs_gpio_port *port = gpiochip_get_data(gc);
 
 	return irq_find_mapping(port->domain, offset);
 }
 
-static int mxs_gpio_get_direction(struct gpio_chip *gc, unsigned offset)
+static int mxs_gpio_get_direction(struct gpio_chip *gc, unsigned int offset)
 {
 	struct mxs_gpio_port *port = gpiochip_get_data(gc);
 	u32 mask = 1 << offset;

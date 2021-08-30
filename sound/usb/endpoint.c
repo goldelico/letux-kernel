@@ -275,6 +275,7 @@ static void prepare_silent_urb(struct snd_usb_endpoint *ep,
 
 	urb->number_of_packets = ctx->packets;
 	urb->transfer_buffer_length = offs * ep->stride + ctx->packets * extra;
+	ctx->queued = 0;
 }
 
 /*
@@ -644,7 +645,7 @@ static bool endpoint_compatible(struct snd_usb_endpoint *ep,
 }
 
 /*
- * Check whether the given fp and hw params are compatbile with the current
+ * Check whether the given fp and hw params are compatible with the current
  * setup of the target EP for implicit feedback sync
  */
 bool snd_usb_endpoint_compatible(struct snd_usb_audio *chip,
@@ -1244,7 +1245,7 @@ static int snd_usb_endpoint_set_params(struct snd_usb_audio *chip,
  *
  * This function sets up the EP to be fully usable state.
  * It's called either from hw_params or prepare callback.
- * The function checks need_setup flag, and perfoms nothing unless needed,
+ * The function checks need_setup flag, and performs nothing unless needed,
  * so it's safe to call this multiple times.
  *
  * This returns zero if unchanged, 1 if the configuration has changed,
@@ -1375,7 +1376,8 @@ int snd_usb_endpoint_start(struct snd_usb_endpoint *ep)
 	if (!ep_state_update(ep, EP_STATE_STOPPED, EP_STATE_RUNNING))
 		goto __error;
 
-	if (snd_usb_endpoint_implicit_feedback_sink(ep)) {
+	if (snd_usb_endpoint_implicit_feedback_sink(ep) &&
+	    !ep->chip->playback_first) {
 		for (i = 0; i < ep->nurbs; i++) {
 			struct snd_urb_ctx *ctx = ep->urb + i;
 			list_add_tail(&ctx->ready_list, &ep->ready_playback_urbs);
@@ -1442,11 +1444,11 @@ void snd_usb_endpoint_stop(struct snd_usb_endpoint *ep)
 	if (snd_BUG_ON(!atomic_read(&ep->running)))
 		return;
 
-	if (ep->sync_source)
-		WRITE_ONCE(ep->sync_source->sync_sink, NULL);
-
-	if (!atomic_dec_return(&ep->running))
+	if (!atomic_dec_return(&ep->running)) {
+		if (ep->sync_source)
+			WRITE_ONCE(ep->sync_source->sync_sink, NULL);
 		stop_urbs(ep, false);
+	}
 }
 
 /**

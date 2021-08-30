@@ -51,14 +51,6 @@
 #define PEH_AXUSER_CFG			0x401001
 #define PEH_AXUSER_CFG_ENABLE		0xffffffff
 
-#define QM_DFX_MB_CNT_VF		0x104010
-#define QM_DFX_DB_CNT_VF		0x104020
-#define QM_DFX_SQE_CNT_VF_SQN		0x104030
-#define QM_DFX_CQE_CNT_VF_CQN		0x104040
-#define QM_DFX_QN_SHIFT			16
-#define CURRENT_FUN_MASK		GENMASK(5, 0)
-#define CURRENT_Q_MASK			GENMASK(31, 16)
-
 #define QM_AXI_RRESP			BIT(0)
 #define QM_AXI_BRESP			BIT(1)
 #define QM_ECC_MBIT			BIT(2)
@@ -72,15 +64,21 @@
 #define QM_DB_TIMEOUT			BIT(10)
 #define QM_OF_FIFO_OF			BIT(11)
 #define QM_DB_RANDOM_INVALID		BIT(12)
+#define QM_MAILBOX_TIMEOUT		BIT(13)
+#define QM_FLR_TIMEOUT			BIT(14)
 
 #define QM_BASE_NFE	(QM_AXI_RRESP | QM_AXI_BRESP | QM_ECC_MBIT | \
 			 QM_ACC_GET_TASK_TIMEOUT | QM_DB_TIMEOUT | \
-			 QM_OF_FIFO_OF | QM_DB_RANDOM_INVALID)
+			 QM_OF_FIFO_OF | QM_DB_RANDOM_INVALID | \
+			 QM_MAILBOX_TIMEOUT | QM_FLR_TIMEOUT)
 #define QM_BASE_CE			QM_ECC_1BIT
 
 #define QM_Q_DEPTH			1024
 #define QM_MIN_QNUM                     2
 #define HISI_ACC_SGL_SGE_NR_MAX		255
+#define QM_SHAPER_CFG			0x100164
+#define QM_SHAPER_ENABLE		BIT(30)
+#define QM_SHAPER_TYPE1_OFFSET		10
 
 /* page number for queue file region */
 #define QM_DOORBELL_PAGE_NR		1
@@ -123,6 +121,7 @@ enum qm_fun_type {
 };
 
 enum qm_debug_file {
+	CURRENT_QM,
 	CURRENT_Q,
 	CLEAR_ENABLE,
 	DEBUG_FILE_NUM,
@@ -150,6 +149,14 @@ struct qm_debug {
 	struct dentry *debug_root;
 	struct dentry *qm_d;
 	struct debugfs_file files[DEBUG_FILE_NUM];
+};
+
+struct qm_shaper_factor {
+	u32 func_qos;
+	u64 cir_b;
+	u64 cir_u;
+	u64 cir_s;
+	u64 cbs_s;
 };
 
 struct qm_dma {
@@ -192,15 +199,17 @@ struct hisi_qm_err_ini {
 	void (*clear_dev_hw_err_status)(struct hisi_qm *qm, u32 err_sts);
 	void (*open_axi_master_ooo)(struct hisi_qm *qm);
 	void (*close_axi_master_ooo)(struct hisi_qm *qm);
+	void (*open_sva_prefetch)(struct hisi_qm *qm);
+	void (*close_sva_prefetch)(struct hisi_qm *qm);
 	void (*log_dev_hw_err)(struct hisi_qm *qm, u32 err_sts);
-	struct hisi_qm_err_info err_info;
+	void (*err_info_init)(struct hisi_qm *qm);
 };
 
 struct hisi_qm_list {
 	struct mutex lock;
 	struct list_head list;
-	int (*register_to_crypto)(void);
-	void (*unregister_from_crypto)(void);
+	int (*register_to_crypto)(struct hisi_qm *qm);
+	void (*unregister_from_crypto)(struct hisi_qm *qm);
 };
 
 struct hisi_qm {
@@ -209,12 +218,15 @@ struct hisi_qm {
 	const char *dev_name;
 	struct pci_dev *pdev;
 	void __iomem *io_base;
+	void __iomem *db_io_base;
 	u32 sqe_size;
 	u32 qp_base;
 	u32 qp_num;
 	u32 qp_in_used;
 	u32 ctrl_qp_num;
+	u32 max_qp_num;
 	u32 vfs_num;
+	u32 db_interval;
 	struct list_head list;
 	struct hisi_qm_list *qm_list;
 
@@ -230,6 +242,7 @@ struct hisi_qm {
 
 	struct hisi_qm_status status;
 	const struct hisi_qm_err_ini *err_ini;
+	struct hisi_qm_err_info err_info;
 	struct hisi_qm_err_status err_status;
 	unsigned long misc_ctl; /* driver removing and reset sched */
 
@@ -248,14 +261,21 @@ struct hisi_qm {
 	struct workqueue_struct *wq;
 	struct work_struct work;
 	struct work_struct rst_work;
+	struct work_struct cmd_process;
 
 	const char *algs;
 	bool use_sva;
 	bool is_frozen;
+
+	/* doorbell isolation enable */
+	bool use_db_isolation;
 	resource_size_t phys_base;
-	resource_size_t phys_size;
+	resource_size_t db_phys_base;
 	struct uacce_device *uacce;
 	int mode;
+	struct qm_shaper_factor *factor;
+	u32 mb_qos;
+	u32 type_rate;
 };
 
 struct hisi_qp_status {

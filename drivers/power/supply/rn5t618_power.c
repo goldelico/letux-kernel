@@ -39,11 +39,26 @@
 #define CHG_STATE_NO_BAT2	13
 #define CHG_STATE_CHG_READY_VUSB	14
 
+#define GCHGDET_TYPE_MASK 0x30
+#define GCHGDET_TYPE_SDP 0x00
+#define GCHGDET_TYPE_CDP 0x10
+#define GCHGDET_TYPE_DCP 0x20
+
 #define FG_ENABLE 1
 
+/*
+ * Formula seems accurate for battery current, but for USB current around 70mA
+ * per step was seen on Kobo Clara HD but all sources show the same formula
+ * also fur USB current. To avoid accidentially unwanted high currents we stick
+ * to that formula
+ */
 #define TO_CUR_REG(x) ((x) / 100000 - 1)
 #define FROM_CUR_REG(x) ((((x) & 0x1f) + 1) * 100000)
 #define CHG_MIN_CUR 100000
+#define CHG_MAX_CUR 1800000
+#define ADP_MAX_CUR 2500000
+#define USB_MAX_CUR 1400000
+
 
 struct rn5t618_power_info {
 	struct rn5t618 *rn5t618;
@@ -57,16 +72,15 @@ struct rn5t618_power_info {
 };
 
 static enum power_supply_usb_type rn5t618_usb_types[] = {
-        POWER_SUPPLY_USB_TYPE_SDP,
-        POWER_SUPPLY_USB_TYPE_DCP,
-        POWER_SUPPLY_USB_TYPE_CDP,
-        POWER_SUPPLY_USB_TYPE_UNKNOWN
+	POWER_SUPPLY_USB_TYPE_SDP,
+	POWER_SUPPLY_USB_TYPE_DCP,
+	POWER_SUPPLY_USB_TYPE_CDP,
+	POWER_SUPPLY_USB_TYPE_UNKNOWN
 };
 
 static enum power_supply_property rn5t618_usb_props[] = {
 	/* input current limit is not very accurate */
 	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
-	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_USB_TYPE,
 	POWER_SUPPLY_PROP_ONLINE,
@@ -75,7 +89,6 @@ static enum power_supply_property rn5t618_usb_props[] = {
 static enum power_supply_property rn5t618_adp_props[] = {
 	/* input current limit is not very accurate */
 	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
-	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_ONLINE,
 };
@@ -92,7 +105,6 @@ static enum power_supply_property rn5t618_battery_props[] = {
 	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
 	POWER_SUPPLY_PROP_TECHNOLOGY,
 	POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT,
-//	POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_CHARGE_NOW,
 };
@@ -288,7 +300,7 @@ static int rn5t618_battery_set_current_limit(struct rn5t618_power_info *info,
 	if (val->intval < CHG_MIN_CUR)
 		return -EINVAL;
 
-	if (val->intval >= 1600000)
+	if (val->intval >= CHG_MAX_CUR)
 		return -EINVAL;
 
 	return regmap_update_bits(info->rn5t618->regmap,
@@ -297,7 +309,7 @@ static int rn5t618_battery_set_current_limit(struct rn5t618_power_info *info,
 }
 
 static int rn5t618_battery_get_current_limit(struct rn5t618_power_info *info,
-				             union power_supply_propval *val)
+					     union power_supply_propval *val)
 {
 	unsigned int regval;
 	int ret;
@@ -449,30 +461,12 @@ static int rn5t618_adp_get_property(struct power_supply *psy,
 
 		break;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
-		ret = regmap_read(info->rn5t618->regmap, RN5T618_CHGCTL1,
-				  &regval);
+		ret = regmap_read(info->rn5t618->regmap,
+				  RN5T618_REGISET1, &regval);
 		if (ret < 0)
 			return ret;
 
-		val->intval = 0;
-		if (regval & 1) {
-			ret = regmap_read(info->rn5t618->regmap,
-					  RN5T618_REGISET1, &regval);
-			if (ret < 0)
-				return ret;
-
-			val->intval = FROM_CUR_REG(regval);
-		}
-		break;
-	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		if (!info->channel_vadp)
-			return -ENODATA;
-
-		ret = iio_read_channel_processed(info->channel_vadp, &val->intval);
-		if (ret < 0)
-			return ret;
-
-		val->intval *= 1000;
+		val->intval = FROM_CUR_REG(regval);
 		break;
 	default:
 		return -EINVAL;
@@ -490,37 +484,58 @@ static int rn5t618_adp_set_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
-		if (val->intval > 1500000)
+		if (val->intval > ADP_MAX_CUR)
 			return -EINVAL;
 
-		if (val->intval < CHG_MIN_CUR) {
-			return regmap_update_bits(info->rn5t618->regmap,
-						  RN5T618_CHGCTL1,
-						  0x1, 0x0);
-		}
+		if (val->intval < CHG_MIN_CUR)
+			return -EINVAL;
 
-		ret = regmap_update_bits(info->rn5t618->regmap,
-					 RN5T618_CHGCTL1,
-					 0x1, 0x1);
-		if (ret < 0)
-			return ret;
-
-		/* input limit */
 		ret = regmap_write(info->rn5t618->regmap, RN5T618_REGISET1,
 				   TO_CUR_REG(val->intval));
-		if (ret < 0)
-			return ret;
-
-		/* charge limit */
-		ret = regmap_update_bits(info->rn5t618->regmap,
-					 RN5T618_CHGISET,
-					 0x1F, ((val->intval - 1) / 100000));
 		if (ret < 0)
 			return ret;
 
 		break;
 	default:
 		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int rn5t618_adp_property_is_writeable(struct power_supply *psy,
+					     enum power_supply_property psp)
+{
+	switch (psp) {
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static int rc5t619_usb_get_type(struct rn5t618_power_info *info,
+				union power_supply_propval *val)
+{
+	unsigned int regval;
+	int ret;
+
+	ret = regmap_read(info->rn5t618->regmap, RN5T618_GCHGDET, &regval);
+	if (ret < 0)
+		return ret;
+
+	switch (regval & GCHGDET_TYPE_MASK) {
+	case GCHGDET_TYPE_SDP:
+		val->intval = POWER_SUPPLY_USB_TYPE_SDP;
+		break;
+	case GCHGDET_TYPE_CDP:
+		val->intval = POWER_SUPPLY_USB_TYPE_CDP;
+		break;
+	case GCHGDET_TYPE_DCP:
+		val->intval = POWER_SUPPLY_USB_TYPE_DCP;
+		break;
+	default:
+		val->intval = POWER_SUPPLY_USB_TYPE_UNKNOWN;
 	}
 
 	return 0;
@@ -556,6 +571,11 @@ static int rn5t618_usb_get_property(struct power_supply *psy,
 			val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
 
 		break;
+	case POWER_SUPPLY_PROP_USB_TYPE:
+		if (!online || (info->rn5t618->variant != RC5T619))
+			return -ENODATA;
+
+		return rc5t619_usb_get_type(info, val);
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
 		ret = regmap_read(info->rn5t618->regmap, RN5T618_CHGCTL1,
 				  &regval);
@@ -573,43 +593,6 @@ static int rn5t618_usb_get_property(struct power_supply *psy,
 			val->intval = FROM_CUR_REG(regval);
 		}
 		break;
-	case POWER_SUPPLY_PROP_USB_TYPE:
-		if (!online)
-			return -ENODATA;
-
-		ret = regmap_read(info->rn5t618->regmap, RN5T618_GCHGDET, &regval);
-		if (ret < 0)
-			return ret;
-
-		dev_info(&psy->dev,"GCHGDET: %x\n", regval);
-		if ((regval & 0x0C) != 0x08)
-			return -ENODATA;
-
-		switch (regval & 0x30) {
-			case 0x00:
-				val->intval = POWER_SUPPLY_USB_TYPE_SDP;
-				break;
-			case 0x10:
-				val->intval = POWER_SUPPLY_USB_TYPE_CDP;
-				break;
-			case 0x20:
-				val->intval = POWER_SUPPLY_USB_TYPE_DCP;
-				break;
-			default:
-				val->intval = POWER_SUPPLY_USB_TYPE_UNKNOWN;
-
-		}
-		break;
-	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		if (!info->channel_vusb)
-			return -ENODATA;
-
-		ret = iio_read_channel_processed(info->channel_vusb, &val->intval);
-		if (ret < 0)
-			return ret;
-
-		val->intval *= 1000;
-		break;
 	default:
 		return -EINVAL;
 	}
@@ -626,31 +609,14 @@ static int rn5t618_usb_set_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
-		if (val->intval > 1500000)
+		if (val->intval > USB_MAX_CUR)
 			return -EINVAL;
 
-		if (val->intval < CHG_MIN_CUR) {
-			return regmap_update_bits(info->rn5t618->regmap,
-						  RN5T618_CHGCTL1,
-						  0x2, 0x0);
-		}
+		if (val->intval < CHG_MIN_CUR)
+			return -EINVAL;
 
-		ret = regmap_update_bits(info->rn5t618->regmap,
-					 RN5T618_CHGCTL1,
-					 0x2, 0x2);
-		if (ret < 0)
-			return ret;
-
-		/* input limit */
 		ret = regmap_write(info->rn5t618->regmap, RN5T618_REGISET2,
 				   0xE0 | TO_CUR_REG(val->intval));
-		if (ret < 0)
-			return ret;
-
-		/* charge limit */
-		ret = regmap_update_bits(info->rn5t618->regmap,
-					 RN5T618_CHGISET,
-					 0x1F, ((val->intval - 1) / 100000));
 		if (ret < 0)
 			return ret;
 
@@ -690,14 +656,14 @@ static const struct power_supply_desc rn5t618_adp_desc = {
 	.num_properties         = ARRAY_SIZE(rn5t618_adp_props),
 	.get_property           = rn5t618_adp_get_property,
 	.set_property           = rn5t618_adp_set_property,
-	.property_is_writeable  = rn5t618_usb_property_is_writeable,
+	.property_is_writeable  = rn5t618_adp_property_is_writeable,
 };
 
 static const struct power_supply_desc rn5t618_usb_desc = {
 	.name                   = "rn5t618-usb",
 	.type                   = POWER_SUPPLY_TYPE_USB,
 	.usb_types		= rn5t618_usb_types,
-        .num_usb_types		= ARRAY_SIZE(rn5t618_usb_types),
+	.num_usb_types		= ARRAY_SIZE(rn5t618_usb_types),
 	.properties             = rn5t618_usb_props,
 	.num_properties         = ARRAY_SIZE(rn5t618_usb_props),
 	.get_property           = rn5t618_usb_get_property,

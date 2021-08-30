@@ -125,26 +125,6 @@ void __iomem *devm_platform_ioremap_resource(struct platform_device *pdev,
 EXPORT_SYMBOL_GPL(devm_platform_ioremap_resource);
 
 /**
- * devm_platform_ioremap_resource_wc - write-combined variant of
- *                                     devm_platform_ioremap_resource()
- *
- * @pdev: platform device to use both for memory resource lookup as well as
- *        resource management
- * @index: resource index
- *
- * Return: a pointer to the remapped memory or an ERR_PTR() encoded error code
- * on failure.
- */
-void __iomem *devm_platform_ioremap_resource_wc(struct platform_device *pdev,
-						unsigned int index)
-{
-	struct resource *res;
-
-	res = platform_get_resource(pdev, IORESOURCE_MEM, index);
-	return devm_ioremap_resource_wc(&pdev->dev, res);
-}
-
-/**
  * devm_platform_ioremap_resource_byname - call devm_ioremap_resource for
  *					   a platform device, retrieve the
  *					   resource by name
@@ -192,7 +172,7 @@ int platform_get_irq_optional(struct platform_device *dev, unsigned int num)
 #ifdef CONFIG_SPARC
 	/* sparc does not have irqs represented as IORESOURCE_IRQ resources */
 	if (!dev || num >= dev->archdata.num_irqs)
-		return -ENXIO;
+		goto out_not_found;
 	ret = dev->archdata.irqs[num];
 	goto out;
 #else
@@ -223,10 +203,8 @@ int platform_get_irq_optional(struct platform_device *dev, unsigned int num)
 		struct irq_data *irqd;
 
 		irqd = irq_get_irq_data(r->start);
-		if (!irqd) {
-			ret = -ENXIO;
-			goto out;
-		}
+		if (!irqd)
+			goto out_not_found;
 		irqd_set_trigger_type(irqd, r->flags & IORESOURCE_BITS);
 	}
 
@@ -249,8 +227,9 @@ int platform_get_irq_optional(struct platform_device *dev, unsigned int num)
 			goto out;
 	}
 
-	ret = -ENXIO;
 #endif
+out_not_found:
+	ret = -ENXIO;
 out:
 	WARN(ret == 0, "0 is an invalid IRQ number\n");
 	return ret;
@@ -1356,7 +1335,7 @@ static umode_t platform_dev_attrs_visible(struct kobject *kobj, struct attribute
 	return a->mode;
 }
 
-static struct attribute_group platform_dev_group = {
+static const struct attribute_group platform_dev_group = {
 	.attrs = platform_dev_attrs,
 	.is_visible = platform_dev_attrs_visible,
 };

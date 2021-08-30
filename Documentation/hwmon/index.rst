@@ -39,12 +39,12 @@ Hardware Monitoring Kernel Drivers
    adt7475
    aht10
    amc6821
-   amd_energy
    asb100
    asc7621
    aspeed-pwm-tacho
    bcm54140
    bel-pfe
+   bpa-rs600
    bt1-pvt
    coretemp
    corsair-cpro
@@ -53,6 +53,7 @@ Hardware Monitoring Kernel Drivers
    da9055
    dell-smm-hwmon
    dme1737
+   dps920ab
    drivetemp
    ds1621
    ds620
@@ -62,6 +63,7 @@ Hardware Monitoring Kernel Drivers
    f71805f
    f71882fg
    fam15h_power
+   fsp-3y
    ftsteutates
    g760a
    g762
@@ -77,6 +79,7 @@ Hardware Monitoring Kernel Drivers
    intel-m10-bmc-hwmon
    ir35221
    ir38064
+   ir36021
    isl68137
    it87
    jc42
@@ -112,6 +115,7 @@ Hardware Monitoring Kernel Drivers
    ltc4260
    ltc4261
    max127
+   max15301
    max16064
    max16065
    max1619
@@ -134,6 +138,7 @@ Hardware Monitoring Kernel Drivers
    mcp3021
    menf21bmc
    mlxreg-fan
+   mp2888
    mp2975
    nct6683
    nct6775
@@ -142,10 +147,12 @@ Hardware Monitoring Kernel Drivers
    npcm750-pwm-fan
    nsa320
    ntc_thermistor
+   nzxt-kraken2
    occ
    pc87360
    pc87427
    pcf8591
+   pim4328
    pm6764tr
    pmbus
    powr1220
@@ -160,6 +167,7 @@ Hardware Monitoring Kernel Drivers
    sht15
    sht21
    sht3x
+   sht4x
    shtc1
    sis5595
    sl28cpld
@@ -168,6 +176,7 @@ Hardware Monitoring Kernel Drivers
    smsc47m192
    smsc47m1
    sparx5-temp
+   stpddc60
    tc654
    tc74
    thmc50

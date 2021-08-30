@@ -1506,11 +1506,11 @@ static void am65_cpsw_nuss_free_tx_chns(void *data)
 	for (i = 0; i < common->tx_ch_num; i++) {
 		struct am65_cpsw_tx_chn *tx_chn = &common->tx_chns[i];
 
-		if (!IS_ERR_OR_NULL(tx_chn->tx_chn))
-			k3_udma_glue_release_tx_chn(tx_chn->tx_chn);
-
 		if (!IS_ERR_OR_NULL(tx_chn->desc_pool))
 			k3_cppi_desc_pool_destroy(tx_chn->desc_pool);
+
+		if (!IS_ERR_OR_NULL(tx_chn->tx_chn))
+			k3_udma_glue_release_tx_chn(tx_chn->tx_chn);
 
 		memset(tx_chn, 0, sizeof(*tx_chn));
 	}
@@ -1531,11 +1531,11 @@ void am65_cpsw_nuss_remove_tx_chns(struct am65_cpsw_common *common)
 
 		netif_napi_del(&tx_chn->napi_tx);
 
-		if (!IS_ERR_OR_NULL(tx_chn->tx_chn))
-			k3_udma_glue_release_tx_chn(tx_chn->tx_chn);
-
 		if (!IS_ERR_OR_NULL(tx_chn->desc_pool))
 			k3_cppi_desc_pool_destroy(tx_chn->desc_pool);
+
+		if (!IS_ERR_OR_NULL(tx_chn->tx_chn))
+			k3_udma_glue_release_tx_chn(tx_chn->tx_chn);
 
 		memset(tx_chn, 0, sizeof(*tx_chn));
 	}
@@ -1624,11 +1624,11 @@ static void am65_cpsw_nuss_free_rx_chns(void *data)
 
 	rx_chn = &common->rx_chns;
 
-	if (!IS_ERR_OR_NULL(rx_chn->rx_chn))
-		k3_udma_glue_release_rx_chn(rx_chn->rx_chn);
-
 	if (!IS_ERR_OR_NULL(rx_chn->desc_pool))
 		k3_cppi_desc_pool_destroy(rx_chn->desc_pool);
+
+	if (!IS_ERR_OR_NULL(rx_chn->rx_chn))
+		k3_udma_glue_release_rx_chn(rx_chn->rx_chn);
 }
 
 static int am65_cpsw_nuss_init_rx_chns(struct am65_cpsw_common *common)
@@ -1824,7 +1824,6 @@ static int am65_cpsw_nuss_init_slave_ports(struct am65_cpsw_common *common)
 
 	for_each_child_of_node(node, port_np) {
 		struct am65_cpsw_port *port;
-		const void *mac_addr;
 		u32 port_id;
 
 		/* it is not a slave port node, continue */
@@ -1903,15 +1902,15 @@ static int am65_cpsw_nuss_init_slave_ports(struct am65_cpsw_common *common)
 			return ret;
 		}
 
-		mac_addr = of_get_mac_address(port_np);
-		if (!IS_ERR(mac_addr)) {
-			ether_addr_copy(port->slave.mac_addr, mac_addr);
-		} else if (am65_cpsw_am654_get_efuse_macid(port_np,
-							   port->port_id,
-							   port->slave.mac_addr) ||
-			   !is_valid_ether_addr(port->slave.mac_addr)) {
-			random_ether_addr(port->slave.mac_addr);
-			dev_err(dev, "Use random MAC address\n");
+		ret = of_get_mac_address(port_np, port->slave.mac_addr);
+		if (ret) {
+			am65_cpsw_am654_get_efuse_macid(port_np,
+							port->port_id,
+							port->slave.mac_addr);
+			if (!is_valid_ether_addr(port->slave.mac_addr)) {
+				random_ether_addr(port->slave.mac_addr);
+				dev_err(dev, "Use random MAC address\n");
+			}
 		}
 	}
 	of_node_put(node);
@@ -2061,8 +2060,12 @@ static void am65_cpsw_port_offload_fwd_mark_update(struct am65_cpsw_common *comm
 
 	for (i = 1; i <= common->port_num; i++) {
 		struct am65_cpsw_port *port = am65_common_get_port(common, i);
-		struct am65_cpsw_ndev_priv *priv = am65_ndev_to_priv(port->ndev);
+		struct am65_cpsw_ndev_priv *priv;
 
+		if (!port->ndev)
+			continue;
+
+		priv = am65_ndev_to_priv(port->ndev);
 		priv->offload_fwd_mark = set_val;
 	}
 }

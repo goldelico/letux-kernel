@@ -63,8 +63,8 @@ static u16 bulk_read_device_counter; /* =0 as per C standard */
 #define EEPROM_CMD_READ     "restore"	/* cmd for read eeprom sysfs */
 #define BULK_TRIGGER_CMD    "trigger"	/* cmd to trigger a bulk read */
 
-#define MIN_TEMP	-55	/* min temperature that can be mesured */
-#define MAX_TEMP	125	/* max temperature that can be mesured */
+#define MIN_TEMP	-55	/* min temperature that can be measured */
+#define MAX_TEMP	125	/* max temperature that can be measured */
 
 /* Allowed values for sysfs conv_time attribute */
 #define CONV_TIME_DEFAULT 0
@@ -834,7 +834,7 @@ static int check_family_data(struct w1_slave *sl)
 }
 
 /**
- * support_bulk_read() - check if slave support bulk read
+ * bulk_read_support() - check if slave support bulk read
  * @sl: device to check the ability
  *
  * Return: true if bulk read is supported, false if not or error
@@ -906,8 +906,7 @@ static inline int temperature_from_RAM(struct w1_slave *sl, u8 rom[9])
 static inline s8 int_to_short(int i)
 {
 	/* Prepare to cast to short by eliminating out of range values */
-	i = i > MAX_TEMP ? MAX_TEMP : i;
-	i = i < MIN_TEMP ? MIN_TEMP : i;
+	i = clamp(i, MIN_TEMP, MAX_TEMP);
 	return (s8) i;
 }
 
@@ -2057,7 +2056,6 @@ static ssize_t w1_seq_show(struct device *device,
 {
 	struct w1_slave *sl = dev_to_w1_slave(device);
 	ssize_t c = PAGE_SIZE;
-	int rv;
 	int i;
 	u8 ack;
 	u64 rn;
@@ -2085,7 +2083,7 @@ static ssize_t w1_seq_show(struct device *device,
 			goto error;
 
 		w1_write_8(sl->master, W1_42_COND_READ);
-		rv = w1_read_block(sl->master, (u8 *)&rn, 8);
+		w1_read_block(sl->master, (u8 *)&rn, 8);
 		reg_num = (struct w1_reg_num *) &rn;
 		if (reg_num->family == W1_42_FINISHED_BYTE)
 			break;

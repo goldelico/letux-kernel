@@ -84,7 +84,7 @@ unsigned int resctrl_cqm_threshold;
 static const struct mbm_correction_factor_table {
 	u32 rmidthreshold;
 	u64 cf;
-} mbm_cf_table[] __initdata = {
+} mbm_cf_table[] __initconst = {
 	{7,	CF(1.000000)},
 	{15,	CF(1.000000)},
 	{15,	CF(0.969650)},
@@ -285,15 +285,14 @@ static u64 mbm_overflow_count(u64 prev_msr, u64 cur_msr, unsigned int width)
 	return chunks >>= shift;
 }
 
-static int __mon_event_count(u32 rmid, struct rmid_read *rr)
+static u64 __mon_event_count(u32 rmid, struct rmid_read *rr)
 {
 	struct mbm_state *m;
 	u64 chunks, tval;
 
 	tval = __rmid_read(rmid, rr->evtid);
 	if (tval & (RMID_VAL_ERROR | RMID_VAL_UNAVAIL)) {
-		rr->val = tval;
-		return -EINVAL;
+		return tval;
 	}
 	switch (rr->evtid) {
 	case QOS_L3_OCCUP_EVENT_ID:
@@ -307,10 +306,10 @@ static int __mon_event_count(u32 rmid, struct rmid_read *rr)
 		break;
 	default:
 		/*
-		 * Code would never reach here because
-		 * an invalid event id would fail the __rmid_read.
+		 * Code would never reach here because an invalid
+		 * event id would fail the __rmid_read.
 		 */
-		return -EINVAL;
+		return RMID_VAL_ERROR;
 	}
 
 	if (rr->first) {
@@ -361,23 +360,29 @@ void mon_event_count(void *info)
 	struct rdtgroup *rdtgrp, *entry;
 	struct rmid_read *rr = info;
 	struct list_head *head;
+	u64 ret_val;
 
 	rdtgrp = rr->rgrp;
 
-	if (__mon_event_count(rdtgrp->mon.rmid, rr))
-		return;
+	ret_val = __mon_event_count(rdtgrp->mon.rmid, rr);
 
 	/*
-	 * For Ctrl groups read data from child monitor groups.
+	 * For Ctrl groups read data from child monitor groups and
+	 * add them together. Count events which are read successfully.
+	 * Discard the rmid_read's reporting errors.
 	 */
 	head = &rdtgrp->mon.crdtgrp_list;
 
 	if (rdtgrp->type == RDTCTRL_GROUP) {
 		list_for_each_entry(entry, head, mon.crdtgrp_list) {
-			if (__mon_event_count(entry->mon.rmid, rr))
-				return;
+			if (__mon_event_count(entry->mon.rmid, rr) == 0)
+				ret_val = 0;
 		}
 	}
+
+	/* Report error if none of rmid_reads are successful */
+	if (ret_val)
+		rr->val = ret_val;
 }
 
 /*
@@ -387,7 +392,7 @@ void mon_event_count(void *info)
  * adjust the bandwidth percentage values via the IA32_MBA_THRTL_MSRs so
  * that:
  *
- *   current bandwdith(cur_bw) < user specified bandwidth(user_bw)
+ *   current bandwidth(cur_bw) < user specified bandwidth(user_bw)
  *
  * This uses the MBM counters to measure the bandwidth and MBA throttle
  * MSRs to control the bandwidth for a particular rdtgrp. It builds on the
@@ -397,7 +402,7 @@ void mon_event_count(void *info)
  * timer. Having 1s interval makes the calculation of bandwidth simpler.
  *
  * Although MBA's goal is to restrict the bandwidth to a maximum, there may
- * be a need to increase the bandwidth to avoid uncecessarily restricting
+ * be a need to increase the bandwidth to avoid unnecessarily restricting
  * the L2 <-> L3 traffic.
  *
  * Since MBA controls the L2 external bandwidth where as MBM measures the
@@ -480,7 +485,7 @@ static void update_mba_bw(struct rdtgroup *rgrp, struct rdt_domain *dom_mbm)
 
 	/*
 	 * Delta values are updated dynamically package wise for each
-	 * rdtgrp everytime the throttle MSR changes value.
+	 * rdtgrp every time the throttle MSR changes value.
 	 *
 	 * This is because (1)the increase in bandwidth is not perfectly
 	 * linear and only "approximately" linear even when the hardware

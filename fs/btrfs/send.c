@@ -2078,16 +2078,6 @@ static struct name_cache_entry *name_cache_search(struct send_ctx *sctx,
 }
 
 /*
- * Removes the entry from the list and adds it back to the end. This marks the
- * entry as recently used so that name_cache_clean_unused does not remove it.
- */
-static void name_cache_used(struct send_ctx *sctx, struct name_cache_entry *nce)
-{
-	list_del(&nce->list);
-	list_add_tail(&nce->list, &sctx->name_cache_list);
-}
-
-/*
  * Remove some entries from the beginning of name_cache_list.
  */
 static void name_cache_clean_unused(struct send_ctx *sctx)
@@ -2147,7 +2137,13 @@ static int __get_cur_name_and_parent(struct send_ctx *sctx,
 			kfree(nce);
 			nce = NULL;
 		} else {
-			name_cache_used(sctx, nce);
+			/*
+			 * Removes the entry from the list and adds it back to
+			 * the end.  This marks the entry as recently used so
+			 * that name_cache_clean_unused does not remove it.
+			 */
+			list_move_tail(&nce->list, &sctx->name_cache_list);
+
 			*parent_ino = nce->parent_ino;
 			*parent_gen = nce->parent_gen;
 			ret = fs_path_add(dest, nce->name, nce->name_len);
@@ -4064,6 +4060,17 @@ static int process_recorded_refs(struct send_ctx *sctx, int *pending_move)
 				if (ret < 0)
 					goto out;
 			} else {
+				/*
+				 * If we previously orphanized a directory that
+				 * collided with a new reference that we already
+				 * processed, recompute the current path because
+				 * that directory may be part of the path.
+				 */
+				if (orphanized_dir) {
+					ret = refresh_ref_path(sctx, cur);
+					if (ret < 0)
+						goto out;
+				}
 				ret = send_unlink(sctx, cur->full_path);
 				if (ret < 0)
 					goto out;
@@ -6507,7 +6514,7 @@ static int changed_extent(struct send_ctx *sctx,
 	 * updates the inode item, but it only changes the iversion (sequence
 	 * field in the inode item) of the inode, so if a file is deduplicated
 	 * the same amount of times in both the parent and send snapshots, its
-	 * iversion becames the same in both snapshots, whence the inode item is
+	 * iversion becomes the same in both snapshots, whence the inode item is
 	 * the same on both snapshots.
 	 */
 	if (sctx->cur_ino != sctx->cmp_key->objectid)
@@ -6650,6 +6657,7 @@ static int full_send_tree(struct send_ctx *sctx)
 	path = alloc_path_for_send();
 	if (!path)
 		return -ENOMEM;
+	path->reada = READA_FORWARD_ALWAYS;
 
 	key.objectid = BTRFS_FIRST_FREE_OBJECTID;
 	key.type = BTRFS_INODE_ITEM_KEY;
@@ -6688,14 +6696,34 @@ out:
 	return ret;
 }
 
-static int tree_move_down(struct btrfs_path *path, int *level)
+static int tree_move_down(struct btrfs_path *path, int *level, u64 reada_min_gen)
 {
 	struct extent_buffer *eb;
+	struct extent_buffer *parent = path->nodes[*level];
+	int slot = path->slots[*level];
+	const int nritems = btrfs_header_nritems(parent);
+	u64 reada_max;
+	u64 reada_done = 0;
 
 	BUG_ON(*level == 0);
-	eb = btrfs_read_node_slot(path->nodes[*level], path->slots[*level]);
+	eb = btrfs_read_node_slot(parent, slot);
 	if (IS_ERR(eb))
 		return PTR_ERR(eb);
+
+	/*
+	 * Trigger readahead for the next leaves we will process, so that it is
+	 * very likely that when we need them they are already in memory and we
+	 * will not block on disk IO. For nodes we only do readahead for one,
+	 * since the time window between processing nodes is typically larger.
+	 */
+	reada_max = (*level == 1 ? SZ_128K : eb->fs_info->nodesize);
+
+	for (slot++; slot < nritems && reada_done < reada_max; slot++) {
+		if (btrfs_node_ptr_generation(parent, slot) > reada_min_gen) {
+			btrfs_readahead_node_child(parent, slot);
+			reada_done += eb->fs_info->nodesize;
+		}
+	}
 
 	path->nodes[*level - 1] = eb;
 	path->slots[*level - 1] = 0;
@@ -6736,14 +6764,15 @@ static int tree_move_next_or_upnext(struct btrfs_path *path,
 static int tree_advance(struct btrfs_path *path,
 			int *level, int root_level,
 			int allow_down,
-			struct btrfs_key *key)
+			struct btrfs_key *key,
+			u64 reada_min_gen)
 {
 	int ret;
 
 	if (*level == 0 || !allow_down) {
 		ret = tree_move_next_or_upnext(path, level, root_level);
 	} else {
-		ret = tree_move_down(path, level);
+		ret = tree_move_down(path, level, reada_min_gen);
 	}
 	if (ret >= 0) {
 		if (*level == 0)
@@ -6817,6 +6846,7 @@ static int btrfs_compare_trees(struct btrfs_root *left_root,
 	u64 right_blockptr;
 	u64 left_gen;
 	u64 right_gen;
+	u64 reada_min_gen;
 
 	left_path = btrfs_alloc_path();
 	if (!left_path) {
@@ -6896,6 +6926,14 @@ static int btrfs_compare_trees(struct btrfs_root *left_root,
 		ret = -ENOMEM;
 		goto out;
 	}
+	/*
+	 * Our right root is the parent root, while the left root is the "send"
+	 * root. We know that all new nodes/leaves in the left root must have
+	 * a generation greater than the right root's generation, so we trigger
+	 * readahead for those nodes and leaves of the left root, as we know we
+	 * will need to read them at some point.
+	 */
+	reada_min_gen = btrfs_header_generation(right_root->commit_root);
 	up_read(&fs_info->commit_root_sem);
 
 	if (left_level == 0)
@@ -6920,7 +6958,7 @@ static int btrfs_compare_trees(struct btrfs_root *left_root,
 			ret = tree_advance(left_path, &left_level,
 					left_root_level,
 					advance_left != ADVANCE_ONLY_NEXT,
-					&left_key);
+					&left_key, reada_min_gen);
 			if (ret == -1)
 				left_end_reached = ADVANCE;
 			else if (ret < 0)
@@ -6931,7 +6969,7 @@ static int btrfs_compare_trees(struct btrfs_root *left_root,
 			ret = tree_advance(right_path, &right_level,
 					right_root_level,
 					advance_right != ADVANCE_ONLY_NEXT,
-					&right_key);
+					&right_key, reada_min_gen);
 			if (ret == -1)
 				right_end_reached = ADVANCE;
 			else if (ret < 0)
@@ -7139,7 +7177,7 @@ static int flush_delalloc_roots(struct send_ctx *sctx)
 	int i;
 
 	if (root) {
-		ret = btrfs_start_delalloc_snapshot(root);
+		ret = btrfs_start_delalloc_snapshot(root, false);
 		if (ret)
 			return ret;
 		btrfs_wait_ordered_extents(root, U64_MAX, 0, U64_MAX);
@@ -7147,7 +7185,7 @@ static int flush_delalloc_roots(struct send_ctx *sctx)
 
 	for (i = 0; i < sctx->clone_roots_cnt; i++) {
 		root = sctx->clone_roots[i].root;
-		ret = btrfs_start_delalloc_snapshot(root);
+		ret = btrfs_start_delalloc_snapshot(root, false);
 		if (ret)
 			return ret;
 		btrfs_wait_ordered_extents(root, U64_MAX, 0, U64_MAX);
@@ -7378,23 +7416,21 @@ long btrfs_ioctl_send(struct file *mnt_file, struct btrfs_ioctl_send_args *arg)
 	if (ret)
 		goto out;
 
-	mutex_lock(&fs_info->balance_mutex);
-	if (test_bit(BTRFS_FS_BALANCE_RUNNING, &fs_info->flags)) {
-		mutex_unlock(&fs_info->balance_mutex);
+	spin_lock(&fs_info->send_reloc_lock);
+	if (test_bit(BTRFS_FS_RELOC_RUNNING, &fs_info->flags)) {
+		spin_unlock(&fs_info->send_reloc_lock);
 		btrfs_warn_rl(fs_info,
-		"cannot run send because a balance operation is in progress");
+		"cannot run send because a relocation operation is in progress");
 		ret = -EAGAIN;
 		goto out;
 	}
 	fs_info->send_in_progress++;
-	mutex_unlock(&fs_info->balance_mutex);
+	spin_unlock(&fs_info->send_reloc_lock);
 
-	current->journal_info = BTRFS_SEND_TRANS_STUB;
 	ret = send_subvol(sctx);
-	current->journal_info = NULL;
-	mutex_lock(&fs_info->balance_mutex);
+	spin_lock(&fs_info->send_reloc_lock);
 	fs_info->send_in_progress--;
-	mutex_unlock(&fs_info->balance_mutex);
+	spin_unlock(&fs_info->send_reloc_lock);
 	if (ret < 0)
 		goto out;
 

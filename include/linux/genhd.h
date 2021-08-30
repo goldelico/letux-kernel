@@ -153,6 +153,11 @@ struct gendisk {
 	unsigned long state;
 #define GD_NEED_PART_SCAN		0
 #define GD_READ_ONLY			1
+#define GD_QUEUE_REF			2
+
+	struct mutex open_mutex;	/* open/close mutex */
+	unsigned open_partitions;	/* number of open partitions */
+
 	struct kobject *slave_dir;
 
 	struct timer_rand_state *random;
@@ -204,25 +209,6 @@ static inline dev_t disk_devt(struct gendisk *disk)
 
 void disk_uevent(struct gendisk *disk, enum kobject_action action);
 
-/*
- * Smarter partition iterator without context limits.
- */
-#define DISK_PITER_INCL_EMPTY	(1 << 1) /* include 0-sized parts */
-#define DISK_PITER_INCL_PART0	(1 << 2) /* include partition 0 */
-#define DISK_PITER_INCL_EMPTY_PART0 (1 << 3) /* include empty partition 0 */
-
-struct disk_part_iter {
-	struct gendisk		*disk;
-	struct block_device	*part;
-	unsigned long		idx;
-	unsigned int		flags;
-};
-
-extern void disk_part_iter_init(struct disk_part_iter *piter,
-				 struct gendisk *disk, unsigned int flags);
-struct block_device *disk_part_iter_next(struct disk_part_iter *piter);
-extern void disk_part_iter_exit(struct disk_part_iter *piter);
-
 /* block/genhd.c */
 extern void device_add_disk(struct device *parent, struct gendisk *disk,
 			    const struct attribute_group **groups);
@@ -237,7 +223,6 @@ static inline void add_disk_no_queue_reg(struct gendisk *disk)
 }
 
 extern void del_gendisk(struct gendisk *gp);
-extern struct block_device *bdget_disk(struct gendisk *disk, int partno);
 
 void set_disk_ro(struct gendisk *disk, bool read_only);
 
@@ -271,9 +256,8 @@ static inline sector_t get_capacity(struct gendisk *disk)
 	return bdev_nr_sectors(disk->part0);
 }
 
-int bdev_disk_changed(struct block_device *bdev, bool invalidate);
-int blk_add_partitions(struct gendisk *disk, struct block_device *bdev);
-int blk_drop_partitions(struct block_device *bdev);
+int bdev_disk_changed(struct gendisk *disk, bool invalidate);
+void blk_drop_partitions(struct gendisk *disk);
 
 extern struct gendisk *__alloc_disk_node(int minors, int node_id);
 extern void put_disk(struct gendisk *disk);
@@ -295,6 +279,28 @@ extern void put_disk(struct gendisk *disk);
 })
 
 #define alloc_disk(minors) alloc_disk_node(minors, NUMA_NO_NODE)
+
+/**
+ * blk_alloc_disk - allocate a gendisk structure
+ * @node_id: numa node to allocate on
+ *
+ * Allocate and pre-initialize a gendisk structure for use with BIO based
+ * drivers.
+ *
+ * Context: can sleep
+ */
+#define blk_alloc_disk(node_id)						\
+({									\
+	struct gendisk *__disk = __blk_alloc_disk(node_id);		\
+	static struct lock_class_key __key;				\
+									\
+	if (__disk)							\
+		lockdep_init_map(&__disk->lockdep_map,			\
+			"(bio completion)", &__key, 0);			\
+	__disk;								\
+})
+struct gendisk *__blk_alloc_disk(int node);
+void blk_cleanup_disk(struct gendisk *disk);
 
 int __register_blkdev(unsigned int major, const char *name,
 		void (*probe)(dev_t devt));
@@ -325,8 +331,7 @@ static inline void bd_unlink_disk_holder(struct block_device *bdev,
 }
 #endif /* CONFIG_SYSFS */
 
-extern struct rw_semaphore bdev_lookup_sem;
-
+dev_t part_devt(struct gendisk *disk, u8 partno);
 dev_t blk_lookup_devt(const char *name, int partno);
 void blk_request_module(dev_t devt);
 #ifdef CONFIG_BLOCK

@@ -115,8 +115,6 @@ struct btrfs_transaction {
 
 #define TRANS_EXTWRITERS	(__TRANS_START | __TRANS_ATTACH)
 
-#define BTRFS_SEND_TRANS_STUB	((void *)1)
-
 struct btrfs_trans_handle {
 	u64 transid;
 	u64 bytes_reserved;
@@ -134,9 +132,8 @@ struct btrfs_trans_handle {
 	short aborted;
 	bool adding_csums;
 	bool allocating_chunk;
-	bool can_flush_pending_bgs;
+	bool removing_chunk;
 	bool reloc_reserved;
-	bool dirty;
 	bool in_fsync;
 	struct btrfs_root *root;
 	struct btrfs_fs_info *fs_info;
@@ -175,7 +172,7 @@ static inline void btrfs_set_inode_last_trans(struct btrfs_trans_handle *trans,
 	spin_lock(&inode->lock);
 	inode->last_trans = trans->transaction->transid;
 	inode->last_sub_trans = inode->root->log_transid;
-	inode->last_log_commit = inode->root->last_log_commit;
+	inode->last_log_commit = inode->last_sub_trans - 1;
 	spin_unlock(&inode->lock);
 }
 
@@ -220,8 +217,7 @@ void btrfs_add_dead_root(struct btrfs_root *root);
 int btrfs_defrag_root(struct btrfs_root *root);
 int btrfs_clean_one_deleted_snapshot(struct btrfs_root *root);
 int btrfs_commit_transaction(struct btrfs_trans_handle *trans);
-int btrfs_commit_transaction_async(struct btrfs_trans_handle *trans,
-				   int wait_for_unblock);
+int btrfs_commit_transaction_async(struct btrfs_trans_handle *trans);
 int btrfs_end_transaction_throttle(struct btrfs_trans_handle *trans);
 bool btrfs_should_end_transaction(struct btrfs_trans_handle *trans);
 void btrfs_throttle(struct btrfs_fs_info *fs_info);

@@ -116,7 +116,8 @@ enum ipa_uc_event {
 
 static struct ipa_uc_mem_area *ipa_uc_shared(struct ipa *ipa)
 {
-	u32 offset = ipa->mem_offset + ipa->mem[IPA_MEM_UC_SHARED].offset;
+	const struct ipa_mem *mem = ipa_mem_find(ipa, IPA_MEM_UC_SHARED);
+	u32 offset = ipa->mem_offset + mem->offset;
 
 	return ipa->mem_virt + offset;
 }
@@ -192,6 +193,7 @@ void ipa_uc_teardown(struct ipa *ipa)
 static void send_uc_command(struct ipa *ipa, u32 command, u32 command_param)
 {
 	struct ipa_uc_mem_area *shared = ipa_uc_shared(ipa);
+	u32 offset;
 	u32 val;
 
 	/* Fill in the command data */
@@ -203,8 +205,8 @@ static void send_uc_command(struct ipa *ipa, u32 command, u32 command_param)
 
 	/* Use an interrupt to tell the microcontroller the command is ready */
 	val = u32_encode_bits(1, UC_INTR_FMASK);
-
-	iowrite32(val, ipa->reg_virt + IPA_REG_IRQ_UC_OFFSET);
+	offset = ipa_reg_irq_uc_offset(ipa->version);
+	iowrite32(val, ipa->reg_virt + offset);
 }
 
 /* Tell the microcontroller the AP is shutting down */

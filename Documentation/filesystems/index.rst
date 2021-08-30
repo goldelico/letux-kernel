@@ -53,6 +53,7 @@ filesystem implementations.
    journalling
    fscrypt
    fsverity
+   netfs_library
 
 Filesystems
 ===========
@@ -76,6 +77,7 @@ Documentation for filesystem implementations.
    coda
    configfs
    cramfs
+   dax
    debugfs
    dlmfs
    ecryptfs

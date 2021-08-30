@@ -359,8 +359,11 @@ _config_request(struct MPT3SAS_ADAPTER *ioc, Mpi2ConfigRequest_t
 	}
 
 	r = mpt3sas_wait_for_ioc(ioc, MPT3_CONFIG_PAGE_DEFAULT_TIMEOUT);
-	if (r)
+	if (r) {
+		if (r == -ETIME)
+			issue_host_reset = 1;
 		goto free_mem;
+	}
 
 	smid = mpt3sas_base_get_smid(ioc, ioc->config_cb_idx);
 	if (!smid) {
@@ -395,7 +398,6 @@ _config_request(struct MPT3SAS_ADAPTER *ioc, Mpi2ConfigRequest_t
 		    MPT3_CMD_RESET) || ioc->pci_error_recovery)
 			goto retry_config;
 		issue_host_reset = 1;
-		r = -EFAULT;
 		goto free_mem;
 	}
 
@@ -486,8 +488,16 @@ _config_request(struct MPT3SAS_ADAPTER *ioc, Mpi2ConfigRequest_t
 	ioc->config_cmds.status = MPT3_CMD_NOT_USED;
 	mutex_unlock(&ioc->config_cmds.mutex);
 
-	if (issue_host_reset)
-		mpt3sas_base_hard_reset_handler(ioc, FORCE_BIG_HAMMER);
+	if (issue_host_reset) {
+		if (ioc->drv_internal_flags & MPT_DRV_INTERNAL_FIRST_PE_ISSUED) {
+			mpt3sas_base_hard_reset_handler(ioc, FORCE_BIG_HAMMER);
+			r = -EFAULT;
+		} else {
+			if (mpt3sas_base_check_for_fault_and_issue_reset(ioc))
+				return -EFAULT;
+			r = -EAGAIN;
+		}
+	}
 	return r;
 }
 
@@ -1781,7 +1791,7 @@ mpt3sas_config_get_driver_trigger_pg0(struct MPT3SAS_ADAPTER *ioc,
 }
 
 /**
- * mpt3sas_config_set_driver_trigger_pg0 - write driver trigger page 0
+ * _config_set_driver_trigger_pg0 - write driver trigger page 0
  * @ioc: per adapter object
  * @mpi_reply: reply mf payload returned from firmware
  * @config_page: contents of the config page
@@ -1915,7 +1925,7 @@ mpt3sas_config_get_driver_trigger_pg1(struct MPT3SAS_ADAPTER *ioc,
 }
 
 /**
- * mpt3sas_config_set_driver_trigger_pg1 - write driver trigger page 1
+ * _config_set_driver_trigger_pg1 - write driver trigger page 1
  * @ioc: per adapter object
  * @mpi_reply: reply mf payload returned from firmware
  * @config_page: contents of the config page
@@ -2066,7 +2076,7 @@ mpt3sas_config_get_driver_trigger_pg2(struct MPT3SAS_ADAPTER *ioc,
 }
 
 /**
- * mpt3sas_config_set_driver_trigger_pg2 - write driver trigger page 2
+ * _config_set_driver_trigger_pg2 - write driver trigger page 2
  * @ioc: per adapter object
  * @mpi_reply: reply mf payload returned from firmware
  * @config_page: contents of the config page
@@ -2226,7 +2236,7 @@ mpt3sas_config_get_driver_trigger_pg3(struct MPT3SAS_ADAPTER *ioc,
 }
 
 /**
- * mpt3sas_config_set_driver_trigger_pg3 - write driver trigger page 3
+ * _config_set_driver_trigger_pg3 - write driver trigger page 3
  * @ioc: per adapter object
  * @mpi_reply: reply mf payload returned from firmware
  * @config_page: contents of the config page
@@ -2383,7 +2393,7 @@ mpt3sas_config_get_driver_trigger_pg4(struct MPT3SAS_ADAPTER *ioc,
 }
 
 /**
- * mpt3sas_config_set_driver_trigger_pg4 - write driver trigger page 4
+ * _config_set_driver_trigger_pg4 - write driver trigger page 4
  * @ioc: per adapter object
  * @mpi_reply: reply mf payload returned from firmware
  * @config_page: contents of the config page

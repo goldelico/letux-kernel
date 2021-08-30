@@ -31,38 +31,41 @@ MODULE_DESCRIPTION("QDIO base support");
 MODULE_LICENSE("GPL");
 
 static inline int do_siga_sync(unsigned long schid,
-			       unsigned int out_mask, unsigned int in_mask,
+			       unsigned long out_mask, unsigned long in_mask,
 			       unsigned int fc)
 {
-	register unsigned long __fc asm ("0") = fc;
-	register unsigned long __schid asm ("1") = schid;
-	register unsigned long out asm ("2") = out_mask;
-	register unsigned long in asm ("3") = in_mask;
 	int cc;
 
 	asm volatile(
+		"	lgr	0,%[fc]\n"
+		"	lgr	1,%[schid]\n"
+		"	lgr	2,%[out]\n"
+		"	lgr	3,%[in]\n"
 		"	siga	0\n"
-		"	ipm	%0\n"
-		"	srl	%0,28\n"
-		: "=d" (cc)
-		: "d" (__fc), "d" (__schid), "d" (out), "d" (in) : "cc");
+		"	ipm	%[cc]\n"
+		"	srl	%[cc],28\n"
+		: [cc] "=&d" (cc)
+		: [fc] "d" (fc), [schid] "d" (schid),
+		  [out] "d" (out_mask), [in] "d" (in_mask)
+		: "cc", "0", "1", "2", "3");
 	return cc;
 }
 
-static inline int do_siga_input(unsigned long schid, unsigned int mask,
-				unsigned int fc)
+static inline int do_siga_input(unsigned long schid, unsigned long mask,
+				unsigned long fc)
 {
-	register unsigned long __fc asm ("0") = fc;
-	register unsigned long __schid asm ("1") = schid;
-	register unsigned long __mask asm ("2") = mask;
 	int cc;
 
 	asm volatile(
+		"	lgr	0,%[fc]\n"
+		"	lgr	1,%[schid]\n"
+		"	lgr	2,%[mask]\n"
 		"	siga	0\n"
-		"	ipm	%0\n"
-		"	srl	%0,28\n"
-		: "=d" (cc)
-		: "d" (__fc), "d" (__schid), "d" (__mask) : "cc");
+		"	ipm	%[cc]\n"
+		"	srl	%[cc],28\n"
+		: [cc] "=&d" (cc)
+		: [fc] "d" (fc), [schid] "d" (schid), [mask] "d" (mask)
+		: "cc", "0", "1", "2");
 	return cc;
 }
 
@@ -78,23 +81,24 @@ static inline int do_siga_input(unsigned long schid, unsigned int mask,
  * Note: For IQDC unicast queues only the highest priority queue is processed.
  */
 static inline int do_siga_output(unsigned long schid, unsigned long mask,
-				 unsigned int *bb, unsigned int fc,
+				 unsigned int *bb, unsigned long fc,
 				 unsigned long aob)
 {
-	register unsigned long __fc asm("0") = fc;
-	register unsigned long __schid asm("1") = schid;
-	register unsigned long __mask asm("2") = mask;
-	register unsigned long __aob asm("3") = aob;
 	int cc;
 
 	asm volatile(
+		"	lgr	0,%[fc]\n"
+		"	lgr	1,%[schid]\n"
+		"	lgr	2,%[mask]\n"
+		"	lgr	3,%[aob]\n"
 		"	siga	0\n"
-		"	ipm	%0\n"
-		"	srl	%0,28\n"
-		: "=d" (cc), "+d" (__fc), "+d" (__aob)
-		: "d" (__schid), "d" (__mask)
-		: "cc");
-	*bb = __fc >> 31;
+		"	lgr	%[fc],0\n"
+		"	ipm	%[cc]\n"
+		"	srl	%[cc],28\n"
+		: [cc] "=&d" (cc), [fc] "+&d" (fc)
+		: [schid] "d" (schid), [mask] "d" (mask), [aob] "d" (aob)
+		: "cc", "0", "1", "2", "3");
+	*bb = fc >> 31;
 	return cc;
 }
 
@@ -517,24 +521,6 @@ static inline int qdio_inbound_q_done(struct qdio_q *q, unsigned int start)
 	return 1;
 }
 
-static inline unsigned long qdio_aob_for_buffer(struct qdio_output_q *q,
-					int bufnr)
-{
-	unsigned long phys_aob = 0;
-
-	if (!q->aobs[bufnr]) {
-		struct qaob *aob = qdio_allocate_aob();
-		q->aobs[bufnr] = aob;
-	}
-	if (q->aobs[bufnr]) {
-		q->aobs[bufnr]->user1 = (u64) q->sbal_state[bufnr].user;
-		phys_aob = virt_to_phys(q->aobs[bufnr]);
-		WARN_ON_ONCE(phys_aob & 0xFF);
-	}
-
-	return phys_aob;
-}
-
 static inline int qdio_tasklet_schedule(struct qdio_q *q)
 {
 	if (likely(q->irq_ptr->state == QDIO_IRQ_STATE_ACTIVE)) {
@@ -548,7 +534,6 @@ static int get_outbound_buffer_frontier(struct qdio_q *q, unsigned int start,
 					unsigned int *error)
 {
 	unsigned char state = 0;
-	unsigned int i;
 	int count;
 
 	q->timestamp = get_tod_clock_fast();
@@ -570,10 +555,6 @@ static int get_outbound_buffer_frontier(struct qdio_q *q, unsigned int start,
 
 	switch (state) {
 	case SLSB_P_OUTPUT_PENDING:
-		/* detach the utilized QAOBs: */
-		for (i = 0; i < count; i++)
-			q->u.out.aobs[QDIO_BUFNR(start + i)] = NULL;
-
 		*error = QDIO_ERROR_SLSB_PENDING;
 		fallthrough;
 	case SLSB_P_OUTPUT_EMPTY:
@@ -999,7 +980,6 @@ int qdio_free(struct ccw_device *cdev)
 	cdev->private->qdio_data = NULL;
 	mutex_unlock(&irq_ptr->setup_mutex);
 
-	qdio_free_async_data(irq_ptr);
 	qdio_free_queues(irq_ptr);
 	free_page((unsigned long) irq_ptr->qdr);
 	free_page(irq_ptr->chsc_page);
@@ -1074,28 +1054,6 @@ err_dbf:
 	return rc;
 }
 EXPORT_SYMBOL_GPL(qdio_allocate);
-
-static void qdio_detect_hsicq(struct qdio_irq *irq_ptr)
-{
-	struct qdio_q *q = irq_ptr->input_qs[0];
-	int i, use_cq = 0;
-
-	if (irq_ptr->nr_input_qs > 1 && queue_type(q) == QDIO_IQDIO_QFMT)
-		use_cq = 1;
-
-	for_each_output_queue(irq_ptr, q, i) {
-		if (use_cq) {
-			if (multicast_outbound(q))
-				continue;
-			if (qdio_enable_async_operation(&q->u.out) < 0) {
-				use_cq = 0;
-				continue;
-			}
-		} else
-			qdio_disable_async_operation(&q->u.out);
-	}
-	DBF_EVENT("use_cq:%d", use_cq);
-}
 
 static void qdio_trace_init_data(struct qdio_irq *irq,
 				 struct qdio_initialize *data)
@@ -1190,8 +1148,6 @@ int qdio_establish(struct ccw_device *cdev,
 	}
 
 	qdio_setup_ssqd_info(irq_ptr);
-
-	qdio_detect_hsicq(irq_ptr);
 
 	/* qebsm is now setup if available, initialize buffer states */
 	qdio_init_buf_states(irq_ptr);
@@ -1297,9 +1253,11 @@ static int handle_inbound(struct qdio_q *q, unsigned int callflags,
  * @callflags: flags
  * @bufnr: first buffer to process
  * @count: how many buffers are filled
+ * @aob: asynchronous operation block
  */
 static int handle_outbound(struct qdio_q *q, unsigned int callflags,
-			   unsigned int bufnr, unsigned int count)
+			   unsigned int bufnr, unsigned int count,
+			   struct qaob *aob)
 {
 	const unsigned int scan_threshold = q->irq_ptr->scan_threshold;
 	unsigned char state = 0;
@@ -1320,11 +1278,9 @@ static int handle_outbound(struct qdio_q *q, unsigned int callflags,
 		q->u.out.pci_out_enabled = 0;
 
 	if (queue_type(q) == QDIO_IQDIO_QFMT) {
-		unsigned long phys_aob = 0;
+		unsigned long phys_aob = aob ? virt_to_phys(aob) : 0;
 
-		if (q->u.out.use_cq && count == 1)
-			phys_aob = qdio_aob_for_buffer(&q->u.out, bufnr);
-
+		WARN_ON_ONCE(!IS_ALIGNED(phys_aob, 256));
 		rc = qdio_kick_outbound_q(q, count, phys_aob);
 	} else if (need_siga_sync(q)) {
 		rc = qdio_siga_sync_q(q);
@@ -1359,9 +1315,10 @@ static int handle_outbound(struct qdio_q *q, unsigned int callflags,
  * @q_nr: queue number
  * @bufnr: buffer number
  * @count: how many buffers to process
+ * @aob: asynchronous operation block (outbound only)
  */
 int do_QDIO(struct ccw_device *cdev, unsigned int callflags,
-	    int q_nr, unsigned int bufnr, unsigned int count)
+	    int q_nr, unsigned int bufnr, unsigned int count, struct qaob *aob)
 {
 	struct qdio_irq *irq_ptr = cdev->private->qdio_data;
 
@@ -1383,7 +1340,7 @@ int do_QDIO(struct ccw_device *cdev, unsigned int callflags,
 				      callflags, bufnr, count);
 	else if (callflags & QDIO_FLAG_SYNC_OUTPUT)
 		return handle_outbound(irq_ptr->output_qs[q_nr],
-				       callflags, bufnr, count);
+				       callflags, bufnr, count, aob);
 	return -EINVAL;
 }
 EXPORT_SYMBOL_GPL(do_QDIO);

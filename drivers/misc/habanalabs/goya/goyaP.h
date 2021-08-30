@@ -49,6 +49,8 @@
 
 #define MAX_POWER_DEFAULT		200000		/* 200W */
 
+#define DC_POWER_DEFAULT		20000		/* 20W */
+
 #define DRAM_PHYS_DEFAULT_SIZE		0x100000000ull	/* 4GB */
 
 #define GOYA_DEFAULT_CARD_NAME		"HL1000"
@@ -166,7 +168,7 @@ struct goya_device {
 	u8		device_cpu_mmu_mappings_done;
 };
 
-int goya_get_fixed_properties(struct hl_device *hdev);
+int goya_set_fixed_properties(struct hl_device *hdev);
 int goya_mmu_init(struct hl_device *hdev);
 void goya_init_dma_qmans(struct hl_device *hdev);
 void goya_init_mme_qmans(struct hl_device *hdev);

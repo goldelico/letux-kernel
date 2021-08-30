@@ -1448,7 +1448,7 @@ static void gaudi_init_dma_protection_bits(struct hl_device *hdev)
 	u32 pb_addr, mask;
 	u8 word_offset;
 
-	if (hdev->asic_prop.fw_security_disabled) {
+	if (!hdev->asic_prop.fw_security_enabled) {
 		gaudi_pb_set_block(hdev, mmDMA_IF_E_S_BASE);
 		gaudi_pb_set_block(hdev, mmDMA_IF_E_S_DOWN_CH0_BASE);
 		gaudi_pb_set_block(hdev, mmDMA_IF_E_S_DOWN_CH1_BASE);
@@ -9135,7 +9135,7 @@ static void gaudi_init_tpc_protection_bits(struct hl_device *hdev)
 	u32 pb_addr, mask;
 	u8 word_offset;
 
-	if (hdev->asic_prop.fw_security_disabled) {
+	if (!hdev->asic_prop.fw_security_enabled) {
 		gaudi_pb_set_block(hdev, mmTPC0_E2E_CRED_BASE);
 		gaudi_pb_set_block(hdev, mmTPC1_E2E_CRED_BASE);
 		gaudi_pb_set_block(hdev, mmTPC2_E2E_CRED_BASE);
@@ -9556,7 +9556,6 @@ static void gaudi_init_tpc_protection_bits(struct hl_device *hdev)
 	mask = 1U << ((mmTPC0_CFG_PROT & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC0_CFG_VFLAGS & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC0_CFG_SFLAGS & 0x7F) >> 2);
-	mask |= 1U << ((mmTPC0_CFG_STATUS & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC0_CFG_CFG_BASE_ADDRESS_HIGH & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC0_CFG_CFG_SUBTRACT_VALUE & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC0_CFG_TPC_STALL & 0x7F) >> 2);
@@ -10011,7 +10010,6 @@ static void gaudi_init_tpc_protection_bits(struct hl_device *hdev)
 	mask = 1U << ((mmTPC1_CFG_PROT & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC1_CFG_VFLAGS & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC1_CFG_SFLAGS & 0x7F) >> 2);
-	mask |= 1U << ((mmTPC1_CFG_STATUS & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC1_CFG_CFG_BASE_ADDRESS_HIGH & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC1_CFG_CFG_SUBTRACT_VALUE & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC1_CFG_TPC_STALL & 0x7F) >> 2);
@@ -10465,7 +10463,6 @@ static void gaudi_init_tpc_protection_bits(struct hl_device *hdev)
 	mask = 1U << ((mmTPC2_CFG_PROT & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC2_CFG_VFLAGS & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC2_CFG_SFLAGS & 0x7F) >> 2);
-	mask |= 1U << ((mmTPC2_CFG_STATUS & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC2_CFG_CFG_BASE_ADDRESS_HIGH & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC2_CFG_CFG_SUBTRACT_VALUE & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC2_CFG_TPC_STALL & 0x7F) >> 2);
@@ -10919,7 +10916,6 @@ static void gaudi_init_tpc_protection_bits(struct hl_device *hdev)
 	mask = 1U << ((mmTPC3_CFG_PROT & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC3_CFG_VFLAGS & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC3_CFG_SFLAGS & 0x7F) >> 2);
-	mask |= 1U << ((mmTPC3_CFG_STATUS & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC3_CFG_CFG_BASE_ADDRESS_HIGH & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC3_CFG_CFG_SUBTRACT_VALUE & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC3_CFG_TPC_STALL & 0x7F) >> 2);
@@ -11373,7 +11369,6 @@ static void gaudi_init_tpc_protection_bits(struct hl_device *hdev)
 	mask = 1U << ((mmTPC4_CFG_PROT & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC4_CFG_VFLAGS & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC4_CFG_SFLAGS & 0x7F) >> 2);
-	mask |= 1U << ((mmTPC4_CFG_STATUS & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC4_CFG_CFG_BASE_ADDRESS_HIGH & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC4_CFG_CFG_SUBTRACT_VALUE & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC4_CFG_TPC_STALL & 0x7F) >> 2);
@@ -11827,7 +11822,6 @@ static void gaudi_init_tpc_protection_bits(struct hl_device *hdev)
 	mask = 1U << ((mmTPC5_CFG_PROT & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC5_CFG_VFLAGS & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC5_CFG_SFLAGS & 0x7F) >> 2);
-	mask |= 1U << ((mmTPC5_CFG_STATUS & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC5_CFG_CFG_BASE_ADDRESS_HIGH & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC5_CFG_CFG_SUBTRACT_VALUE & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC5_CFG_TPC_STALL & 0x7F) >> 2);
@@ -12283,7 +12277,6 @@ static void gaudi_init_tpc_protection_bits(struct hl_device *hdev)
 	mask = 1U << ((mmTPC6_CFG_PROT & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC6_CFG_VFLAGS & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC6_CFG_SFLAGS & 0x7F) >> 2);
-	mask |= 1U << ((mmTPC6_CFG_STATUS & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC6_CFG_CFG_BASE_ADDRESS_HIGH & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC6_CFG_CFG_SUBTRACT_VALUE & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC6_CFG_TPC_STALL & 0x7F) >> 2);
@@ -12739,7 +12732,6 @@ static void gaudi_init_tpc_protection_bits(struct hl_device *hdev)
 	mask = 1U << ((mmTPC7_CFG_PROT & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC7_CFG_VFLAGS & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC7_CFG_SFLAGS & 0x7F) >> 2);
-	mask |= 1U << ((mmTPC7_CFG_STATUS & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC7_CFG_CFG_BASE_ADDRESS_HIGH & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC7_CFG_CFG_SUBTRACT_VALUE & 0x7F) >> 2);
 	mask |= 1U << ((mmTPC7_CFG_TPC_STALL & 0x7F) >> 2);
@@ -12826,7 +12818,7 @@ static void gaudi_init_protection_bits(struct hl_device *hdev)
 	 * secured
 	 */
 
-	if (hdev->asic_prop.fw_security_disabled) {
+	if (!hdev->asic_prop.fw_security_enabled) {
 		gaudi_pb_set_block(hdev, mmIF_E_PLL_BASE);
 		gaudi_pb_set_block(hdev, mmMESH_W_PLL_BASE);
 		gaudi_pb_set_block(hdev, mmSRAM_W_PLL_BASE);
@@ -13031,7 +13023,7 @@ void gaudi_init_security(struct hl_device *hdev)
 	 * property configuration of MME SBAB and ACC to be non-privileged and
 	 * non-secured
 	 */
-	if (hdev->asic_prop.fw_security_disabled) {
+	if (!hdev->asic_prop.fw_security_enabled) {
 		WREG32(mmMME0_SBAB_PROT, 0x2);
 		WREG32(mmMME0_ACC_PROT, 0x2);
 		WREG32(mmMME1_SBAB_PROT, 0x2);
@@ -13040,11 +13032,12 @@ void gaudi_init_security(struct hl_device *hdev)
 		WREG32(mmMME2_ACC_PROT, 0x2);
 		WREG32(mmMME3_SBAB_PROT, 0x2);
 		WREG32(mmMME3_ACC_PROT, 0x2);
-	}
 
-	/* On RAZWI, 0 will be returned from RR and 0xBABA0BAD from PB */
-	if (hdev->asic_prop.fw_security_disabled)
+		/*
+		 * On RAZWI, 0 will be returned from RR and 0xBABA0BAD from PB
+		 */
 		WREG32(0xC01B28, 0x1);
+	}
 
 	gaudi_init_range_registers_lbw(hdev);
 

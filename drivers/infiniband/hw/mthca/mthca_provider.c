@@ -127,7 +127,7 @@ static int mthca_query_device(struct ib_device *ibdev, struct ib_device_attr *pr
 }
 
 static int mthca_query_port(struct ib_device *ibdev,
-			    u8 port, struct ib_port_attr *props)
+			    u32 port, struct ib_port_attr *props)
 {
 	struct ib_smp *in_mad  = NULL;
 	struct ib_smp *out_mad = NULL;
@@ -194,7 +194,7 @@ static int mthca_modify_device(struct ib_device *ibdev,
 }
 
 static int mthca_modify_port(struct ib_device *ibdev,
-			     u8 port, int port_modify_mask,
+			     u32 port, int port_modify_mask,
 			     struct ib_port_modify *props)
 {
 	struct mthca_set_ib_param set_ib;
@@ -223,7 +223,7 @@ out:
 }
 
 static int mthca_query_pkey(struct ib_device *ibdev,
-			    u8 port, u16 index, u16 *pkey)
+			    u32 port, u16 index, u16 *pkey)
 {
 	struct ib_smp *in_mad  = NULL;
 	struct ib_smp *out_mad = NULL;
@@ -251,7 +251,7 @@ static int mthca_query_pkey(struct ib_device *ibdev,
 	return err;
 }
 
-static int mthca_query_gid(struct ib_device *ibdev, u8 port,
+static int mthca_query_gid(struct ib_device *ibdev, u32 port,
 			   int index, union ib_gid *gid)
 {
 	struct ib_smp *in_mad  = NULL;
@@ -1051,7 +1051,7 @@ out:
 	return err;
 }
 
-static int mthca_port_immutable(struct ib_device *ibdev, u8 port_num,
+static int mthca_port_immutable(struct ib_device *ibdev, u32 port_num,
 			        struct ib_port_immutable *immutable)
 {
 	struct ib_port_attr attr;
@@ -1099,6 +1099,7 @@ static const struct ib_device_ops mthca_dev_ops = {
 	.destroy_cq = mthca_destroy_cq,
 	.destroy_qp = mthca_destroy_qp,
 	.detach_mcast = mthca_multicast_detach,
+	.device_group = &mthca_attr_group,
 	.get_dev_fw_str = get_dev_fw_str,
 	.get_dma_mr = mthca_get_dma_mr,
 	.get_port_immutable = mthca_port_immutable,
@@ -1186,7 +1187,6 @@ int mthca_register_device(struct mthca_dev *dev)
 
 	mutex_init(&dev->cap_mask_mutex);
 
-	rdma_set_device_sysfs_group(&dev->ib_dev, &mthca_attr_group);
 	ret = ib_register_device(&dev->ib_dev, "mthca%d", &dev->pdev->dev);
 	if (ret)
 		return ret;
