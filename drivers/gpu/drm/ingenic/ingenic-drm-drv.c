@@ -661,7 +661,11 @@ static void ingenic_drm_encoder_atomic_mode_set(struct drm_encoder *encoder,
 	struct drm_display_mode *mode = &crtc_state->adjusted_mode;
 	struct drm_connector *conn = conn_state->connector;
 	struct drm_display_info *info = &conn->display_info;
+	u32 bus_format = MEDIA_BUS_FMT_RGB888_1X24;
 	unsigned int cfg, rgbcfg = 0;
+
+	if (info->num_bus_formats)
+		bus_format = info->bus_formats[0];
 
 	priv->panel_is_sharp = info->bus_flags & DRM_BUS_FLAG_SHARP_SIGNALS;
 
@@ -695,7 +699,7 @@ static void ingenic_drm_encoder_atomic_mode_set(struct drm_encoder *encoder,
 			else
 				cfg |= JZ_LCD_CFG_MODE_TV_OUT_P;
 		} else {
-			switch (*info->bus_formats) {
+			switch (bus_format) {
 			case MEDIA_BUS_FMT_RGB565_1X16:
 				cfg |= JZ_LCD_CFG_MODE_GENERIC_16BIT;
 				break;
@@ -728,14 +732,14 @@ static int ingenic_drm_encoder_atomic_check(struct drm_encoder *encoder,
 	struct drm_display_info *info = &conn_state->connector->display_info;
 	struct drm_display_mode *mode = &crtc_state->adjusted_mode;
 
-	if (info->num_bus_formats != 1)
-		return -EINVAL;
-
 	switch (conn_state->connector->connector_type) {
 	case DRM_MODE_CONNECTOR_TV:
 	case DRM_MODE_CONNECTOR_HDMIA:
 		return 0;
 	}
+
+	if (info->num_bus_formats != 1)
+		return -EINVAL;
 
 	switch (*info->bus_formats) {
 	case MEDIA_BUS_FMT_RGB888_3X8:
