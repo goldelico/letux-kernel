@@ -72,6 +72,27 @@
 		reg = <0x80000000 0x20000000>;
 	};
 
+	panel: panel {
+                compatible = "panel-dpi";
+		panel-timing {
+			clock-frequency = <80000000>;
+			hactive = <1448>;
+			hback-porch = <16>;
+			hfront-porch = <102>;
+			hsync-len = <28>;
+			vactive = <1072>;
+			vback-porch = <4>;
+			vfront-porch = <4>;
+			vsync-len = <2>;
+		};
+
+                port {
+                        panel_in: endpoint {
+                                remote-endpoint = <&epdc_out>;
+                        };
+                };
+        };
+
 	reg_wifi: regulator-wifi {
 		compatible = "regulator-fixed";
 		pinctrl-names = "default";
@@ -80,6 +101,17 @@
 		regulator-min-microvolt = <3000000>;
 		regulator-max-microvolt = <3000000>;
 		gpio = <&gpio4 29 GPIO_ACTIVE_LOW>;
+	};
+
+	thermal-zones {
+		epd-thermal {
+			polling-delay = <10000>;
+			polling-delay-passive = <10000>;
+			thermal-sensors = <&tps6518x>;
+
+			trips {
+			};
+		};
 	};
 
 	wifi_pwrseq: wifi_pwrseq {
@@ -100,7 +132,26 @@
 	DISPLAY-supply = <&DISPLAY_reg>; 
 	TMST-supply = <&TMST_reg>; 
 	panel-name = "PENG060D";
+
+	epd-thermal-zone = "epd-thermal";
+
+	vscan_holdoff = <4>;
+	sdoed_width = <10>;
+	sdoed_delay = <20>;
+	sdoez_width = <10>;
+	sdoez_delay = <20>;
+	gdclk_hp_offs = <562>;
+	gdsp_offs = <662>;
+	gdoe_offs = <0>;
+	gdclk_offs = <225>;
+	num_ce = <3>;
 	status = "okay";
+
+	port {
+		epdc_out: endpoint {
+			remote-endpoint = <&panel_in>;
+		};
+	};
 };
 
 &i2c1 {
@@ -165,6 +216,8 @@
 
 		/* gpio_pmic_v3p3 = <&gpio2 14 GPIO_ACTIVE_HIGH>; */
 		pwrall-gpios = <&gpio2 14 GPIO_ACTIVE_HIGH>;
+
+		#thermal-sensor-cells = <0>;
 
 		regulators {
 			DISPLAY_reg: DISPLAY {
