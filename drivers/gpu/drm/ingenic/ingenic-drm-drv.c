@@ -598,7 +598,8 @@ static void ingenic_drm_plane_atomic_update(struct drm_plane *plane,
 
 		hwdesc->addr = addr;
 
-		hwdesc->cmd = JZ_LCD_CMD_EOF_IRQ | (width * height * cpp / 4);
+		hwdesc->cmd = JZ_LCD_CMD_FRM_ENABLE | JZ_LCD_CMD_EOF_IRQ |
+			      (width * height * cpp / 4);
 
 		if (priv->soc_info->use_extended_hwdesc) {
 			struct ingenic_dma_hwdesc_ext *hwdesc_ext;
