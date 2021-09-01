@@ -735,8 +735,6 @@ static void ingenic_drm_encoder_atomic_mode_set(struct drm_encoder *encoder,
 	struct ingenic_drm_bridge *bridge = to_ingenic_drm_bridge(encoder);
 	unsigned int cfg, rgbcfg = 0;
 
-	priv->panel_is_sharp = bridge->bus_cfg.flags & DRM_BUS_FLAG_SHARP_SIGNALS;
-
 	if (priv->panel_is_sharp) {
 		cfg = JZ_LCD_CFG_MODE_SPECIAL_TFT_1 | JZ_LCD_CFG_REV_POLARITY;
 	} else {
@@ -767,6 +765,10 @@ static void ingenic_drm_encoder_atomic_mode_set(struct drm_encoder *encoder,
 			else
 				cfg |= JZ_LCD_CFG_MODE_TV_OUT_P;
 		} else {
+
+printk("%s%d: fmt.before=%08x\n", __func__, __LINE__, bridge->bus_cfg.format);
+bridge->bus_cfg.format = MEDIA_BUS_FMT_RGB888_1X24;
+
 			switch (bridge->bus_cfg.format) {
 			case MEDIA_BUS_FMT_RGB565_1X16:
 				cfg |= JZ_LCD_CFG_MODE_GENERIC_16BIT;
@@ -1263,12 +1265,15 @@ static int ingenic_drm_bind(struct device *dev, bool has_components)
 		ib->next_bridge = bridge;
 
 		ret = drm_bridge_attach(encoder, &ib->bridge, NULL,
-					DRM_BRIDGE_ATTACH_NO_CONNECTOR);
+					0 /*DRM_BRIDGE_ATTACH_NO_CONNECTOR*/);
 		if (ret) {
 			dev_err(dev, "Unable to attach bridge\n");
 			return ret;
 		}
 
+printk("%s%d: next=%px\n", __func__, __LINE__, drm_bridge_get_next_bridge(encoder));
+
+#if 0
 		connector = drm_bridge_connector_init(drm, encoder);
 		if (IS_ERR(connector)) {
 			dev_err(dev, "Unable to init connector\n");
@@ -1276,6 +1281,7 @@ static int ingenic_drm_bind(struct device *dev, bool has_components)
 		}
 
 		drm_connector_attach_encoder(connector, encoder);
+#endif
 	}
 
 	drm_for_each_encoder(encoder, drm) {
