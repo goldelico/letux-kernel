@@ -16,6 +16,8 @@
 #include <linux/completion.h>
 #include <linux/regmap.h>
 #include <linux/iio/iio.h>
+#include <linux/iio/driver.h>
+#include <linux/iio/machine.h>
 #include <linux/slab.h>
 
 #define RN5T618_ADC_CONVERSION_TIMEOUT   (msecs_to_jiffies(500))
@@ -159,6 +161,15 @@ static int rn5t618_adc_read(struct iio_dev *iio_dev,
 	if (ret < 0)
 		return ret;
 
+	if (mask & IIO_CHAN_INFO_PROCESSED) {
+		int scale, scale_val2;
+		s64 raw64 = raw;
+
+		rn5t618_adc_read(iio_dev, chan, &scale, &scale_val2, IIO_CHAN_INFO_SCALE);
+
+		raw = div_s64(raw64 * (s64)scale, scale_val2);
+	}
+
 	*val = raw;
 
 	return IIO_VAL_INT;
@@ -173,7 +184,8 @@ static const struct iio_info rn5t618_adc_iio_info = {
 	.channel = _channel, \
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | \
 			      BIT(IIO_CHAN_INFO_AVERAGE_RAW) | \
-			      BIT(IIO_CHAN_INFO_SCALE), \
+			      BIT(IIO_CHAN_INFO_SCALE) | \
+			      BIT(IIO_CHAN_INFO_PROCESSED), \
 	.datasheet_name = _name, \
 	.indexed = 1. \
 }
@@ -188,6 +200,19 @@ static const struct iio_chan_spec rn5t618_adc_iio_channels[] = {
 	RN5T618_ADC_CHANNEL(AIN1, IIO_VOLTAGE, "AIN1"),
 	RN5T618_ADC_CHANNEL(AIN0, IIO_VOLTAGE, "AIN0")
 };
+
+static struct iio_map rn5t618_maps[] = {
+	IIO_MAP("VADP", "rn5t618-power", "vadp"),
+	IIO_MAP("VUSB", "rn5t618-power", "vusb"),
+	{ /* sentinel */ }
+};
+
+static void unregister_map(void *data)
+{
+	struct iio_dev *iio_dev = (struct iio_dev *) data;
+
+	iio_map_array_unregister(iio_dev);
+}
 
 static int rn5t618_adc_probe(struct platform_device *pdev)
 {
@@ -238,6 +263,14 @@ static int rn5t618_adc_probe(struct platform_device *pdev)
 		dev_err(adc->dev, "request irq %d failed: %d\n", adc->irq, ret);
 		return ret;
 	}
+
+	ret = iio_map_array_register(iio_dev, rn5t618_maps);
+	if (ret < 0)
+		return ret;
+
+	ret = devm_add_action_or_reset(adc->dev, unregister_map, iio_dev);
+	if (ret < 0)
+		return ret;
 
 	return devm_iio_device_register(adc->dev, iio_dev);
 }
