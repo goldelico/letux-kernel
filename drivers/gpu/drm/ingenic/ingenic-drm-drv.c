@@ -50,6 +50,11 @@ struct ingenic_dma_hwdesc {
 	u32 addr;
 	u32 id;
 	u32 cmd;
+	/* extended hw descriptor for jz4780 */
+	u32 offsize;
+	u32 pagewidth;
+	u32 cpos;
+	u32 dessize;
 } __aligned(16);
 
 struct ingenic_dma_hwdescs {
@@ -57,20 +62,11 @@ struct ingenic_dma_hwdescs {
 	u16 palette[256] __aligned(16);
 };
 
-struct ingenic_dma_hwdesc_ext {
-	struct ingenic_dma_hwdesc base;
-	u32 offsize;
-	u32 pagewidth;
-	u32 cpos;
-	u32 dessize;
-} __packed;
-
 struct jz_soc_info {
 	bool needs_dev_clk;
 	bool has_osd;
 	bool map_noncoherent;
 	bool use_extended_hwdesc;
-	unsigned int hwdesc_size;
 	unsigned int max_width, max_height;
 	const u32 *formats_f0, *formats_f1;
 	unsigned int num_formats_f0, num_formats_f1;
@@ -671,35 +667,33 @@ static void ingenic_drm_plane_atomic_update(struct drm_plane *plane,
 
 		hwdesc = &priv->dma_hwdescs->hwdesc[plane_id];
 		hwdesc->addr = addr;
-		hwdesc->cmd = JZ_LCD_CMD_FRM_ENABLE | JZ_LCD_CMD_EOF_IRQ |
-			      (width * height * cpp / 4);
+		hwdesc->cmd = JZ_LCD_CMD_EOF_IRQ | (width * height * cpp / 4);
 		hwdesc->next = dma_hwdesc_addr(priv, next_id);
 
 		if (priv->soc_info->use_extended_hwdesc) {
-			struct ingenic_dma_hwdesc_ext *hwdesc_ext;
+			hwdesc->cmd |= JZ_LCD_CMD_FRM_ENABLE;
 
 			/* Extended 8-byte descriptor */
-			hwdesc_ext = (struct ingenic_dma_hwdesc_ext *) hwdesc;
-			hwdesc_ext->cpos = 0;
-			hwdesc_ext->offsize = 0;
-			hwdesc_ext->pagewidth = 0;
+			hwdesc->cpos = 0;
+			hwdesc->offsize = 0;
+			hwdesc->pagewidth = 0;
 
 			switch (newstate->fb->format->format) {
 			case DRM_FORMAT_XRGB1555:
-				hwdesc_ext->cpos |= JZ_LCD_CPOS_RGB555;
+				hwdesc->cpos |= JZ_LCD_CPOS_RGB555;
 				fallthrough;
 			case DRM_FORMAT_RGB565:
-				hwdesc_ext->cpos |= JZ_LCD_CPOS_BPP_15_16;
+				hwdesc->cpos |= JZ_LCD_CPOS_BPP_15_16;
 				break;
 			case DRM_FORMAT_XRGB8888:
-				hwdesc_ext->cpos |= JZ_LCD_CPOS_BPP_18_24;
+				hwdesc->cpos |= JZ_LCD_CPOS_BPP_18_24;
 				break;
 			}
-			hwdesc_ext->cpos |= JZ_LCD_CPOS_PREMULTIPLY_LCD |
+			hwdesc->cpos |= JZ_LCD_CPOS_PREMULTIPLY_LCD |
 					    (JZ_LCD_CPOS_COEFFICIENT_1_ALPHA1 <<
 					     JZ_LCD_CPOS_COEFFICIENT_OFFSET);
 
-			hwdesc_ext->dessize =
+			hwdesc->dessize =
 				(0xff << JZ_LCD_DESSIZE_ALPHA_OFFSET) |
 				FIELD_PREP(JZ_LCD_DESSIZE_HEIGHT_MASK <<
 					   JZ_LCD_DESSIZE_HEIGHT_OFFSET, height - 1) |
@@ -1492,7 +1486,6 @@ static const struct jz_soc_info jz4740_soc_info = {
 	.needs_dev_clk = true,
 	.has_osd = false,
 	.map_noncoherent = false,
-	.hwdesc_size = sizeof(struct ingenic_dma_hwdesc),
 	.max_width = 800,
 	.max_height = 600,
 	.formats_f1 = jz4740_formats,
@@ -1505,7 +1498,6 @@ static const struct jz_soc_info jz4725b_soc_info = {
 	.needs_dev_clk = false,
 	.has_osd = true,
 	.map_noncoherent = false,
-	.hwdesc_size = sizeof(struct ingenic_dma_hwdesc),
 	.max_width = 800,
 	.max_height = 600,
 	.formats_f1 = jz4725b_formats_f1,
@@ -1519,7 +1511,6 @@ static const struct jz_soc_info jz4770_soc_info = {
 	.needs_dev_clk = false,
 	.has_osd = true,
 	.map_noncoherent = true,
-	.hwdesc_size = sizeof(struct ingenic_dma_hwdesc),
 	.max_width = 1280,
 	.max_height = 720,
 	.formats_f1 = jz4770_formats_f1,
@@ -1533,7 +1524,6 @@ static const struct jz_soc_info jz4780_soc_info = {
 	.needs_dev_clk = true,
 	.has_osd = true,
 	.use_extended_hwdesc = true,
-	.hwdesc_size = sizeof(struct ingenic_dma_hwdesc_ext),
 	.max_width = 4096,
 	.max_height = 2048,
 	/* REVISIT: do we support formats different from jz4770? */
