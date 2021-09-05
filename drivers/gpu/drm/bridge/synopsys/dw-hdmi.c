@@ -3018,6 +3018,9 @@ static irqreturn_t dw_hdmi_irq(int irq, void *dev_id)
 		if (hdmi->bridge.dev) {
 			drm_helper_hpd_irq_event(hdmi->bridge.dev);
 			drm_bridge_hpd_notify(&hdmi->bridge, status);
+
+			/* FIXME: callbacks for drm_bridge_hpd_notify should have been set up to call this */
+			drm_kms_helper_hotplug_event(hdmi->bridge.dev);
 		}
 	}
 
