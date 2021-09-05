@@ -370,7 +370,7 @@ static int dw_hdmi_i2c_read(struct dw_hdmi *hdmi,
 	int ret;
 
 	if (!i2c->is_regaddr) {
-		dev_dbg(hdmi->dev, "set read register address to 0\n");
+		dev_info(hdmi->dev, "set read register address to 0\n");
 		i2c->slave_reg = 0x00;
 		i2c->is_regaddr = true;
 	}
@@ -444,7 +444,7 @@ static int dw_hdmi_i2c_xfer(struct i2c_adapter *adap,
 		 */
 		return -EOPNOTSUPP;
 
-	dev_dbg(hdmi->dev, "xfer: num: %d, addr: %#x\n", num, addr);
+	dev_info(hdmi->dev, "xfer: num: %d, addr: %#x\n", num, addr);
 
 	for (i = 0; i < num; i++) {
 		if (msgs[i].len == 0) {
@@ -671,7 +671,7 @@ static void hdmi_set_clk_regenerator(struct dw_hdmi *hdmi,
 		do_div(tmp, 128 * sample_rate);
 		cts = tmp;
 
-		dev_dbg(hdmi->dev, "%s: fs=%uHz ftdms=%lu.%03luMHz N=%d cts=%d\n",
+		dev_info(hdmi->dev, "%s: fs=%uHz ftdms=%lu.%03luMHz N=%d cts=%d\n",
 			__func__, sample_rate,
 			ftdms / 1000000, (ftdms / 1000) % 1000,
 			n, cts);
@@ -1393,7 +1393,7 @@ static void dw_hdmi_phy_power_off(struct dw_hdmi *hdmi)
 	if (val & HDMI_PHY_TX_PHY_LOCK)
 		dev_warn(hdmi->dev, "PHY failed to power down\n");
 	else
-		dev_dbg(hdmi->dev, "PHY powered down in %u iterations\n", i);
+		dev_info(hdmi->dev, "PHY powered down in %u iterations\n", i);
 
 	dw_hdmi_phy_gen2_pddq(hdmi, 1);
 }
@@ -1430,7 +1430,7 @@ static int dw_hdmi_phy_power_on(struct dw_hdmi *hdmi)
 		return -ETIMEDOUT;
 	}
 
-	dev_dbg(hdmi->dev, "PHY PLL locked %u iterations\n", i);
+	dev_info(hdmi->dev, "PHY PLL locked %u iterations\n", i);
 	return 0;
 }
 
@@ -1860,7 +1860,7 @@ static void hdmi_av_composer(struct dw_hdmi *hdmi,
 
 	vmode->mpixelclock = mode->clock * 1000;
 
-	dev_dbg(hdmi->dev, "final pixclk = %d\n", vmode->mpixelclock);
+	dev_info(hdmi->dev, "final pixclk = %d\n", vmode->mpixelclock);
 
 	vmode->mtmdsclock = vmode->mpixelclock;
 
@@ -1882,7 +1882,7 @@ static void hdmi_av_composer(struct dw_hdmi *hdmi,
 	if (hdmi_bus_fmt_is_yuv420(hdmi->hdmi_data.enc_out_bus_format))
 		vmode->mtmdsclock /= 2;
 
-	dev_dbg(hdmi->dev, "final tmdsclock = %d\n", vmode->mtmdsclock);
+	dev_info(hdmi->dev, "final tmdsclock = %d\n", vmode->mtmdsclock);
 
 	/* Set up HDMI_FC_INVIDCONF */
 	inv_val = (hdmi->hdmi_data.hdcp_enable ||
@@ -2128,9 +2128,9 @@ static int dw_hdmi_setup(struct dw_hdmi *hdmi,
 	hdmi->vic = drm_match_cea_mode(mode);
 
 	if (!hdmi->vic) {
-		dev_dbg(hdmi->dev, "Non-CEA mode used in HDMI\n");
+		dev_info(hdmi->dev, "Non-CEA mode used in HDMI\n");
 	} else {
-		dev_dbg(hdmi->dev, "CEA mode used vic=%d\n", hdmi->vic);
+		dev_info(hdmi->dev, "CEA mode used vic=%d\n", hdmi->vic);
 	}
 
 	if ((hdmi->vic == 6) || (hdmi->vic == 7) ||
@@ -2180,7 +2180,7 @@ static int dw_hdmi_setup(struct dw_hdmi *hdmi,
 	dw_hdmi_enable_video_path(hdmi);
 
 	if (hdmi->sink_has_audio) {
-		dev_dbg(hdmi->dev, "sink has audio support\n");
+		dev_info(hdmi->dev, "sink has audio support\n");
 
 		/* HDMI Initialization Step E - Configure audio */
 		hdmi_clk_regenerator_update_pixel_clock(hdmi);
@@ -2189,14 +2189,14 @@ static int dw_hdmi_setup(struct dw_hdmi *hdmi,
 
 	/* not for DVI mode */
 	if (hdmi->sink_is_hdmi) {
-		dev_dbg(hdmi->dev, "%s HDMI mode\n", __func__);
+		dev_info(hdmi->dev, "%s HDMI mode\n", __func__);
 
 		/* HDMI Initialization Step F - Configure AVI InfoFrame */
 		hdmi_config_AVI(hdmi, connector, mode);
 		hdmi_config_vendor_specific_infoframe(hdmi, connector, mode);
 		hdmi_config_drm_infoframe(hdmi, connector);
 	} else {
-		dev_dbg(hdmi->dev, "%s DVI mode\n", __func__);
+		dev_info(hdmi->dev, "%s DVI mode\n", __func__);
 	}
 
 	hdmi_video_packetize(hdmi);
@@ -2331,7 +2331,7 @@ static enum drm_connector_status dw_hdmi_detect(struct dw_hdmi *hdmi)
 
 	mutex_lock(&hdmi->mutex);
 	if (result != hdmi->last_connector_result) {
-		dev_dbg(hdmi->dev, "read_hpd result: %d", result);
+		dev_info(hdmi->dev, "read_hpd result: %d", result);
 		handle_plugged_change(hdmi,
 				      result == connector_status_connected);
 		hdmi->last_connector_result = result;
@@ -2351,11 +2351,11 @@ static struct edid *dw_hdmi_get_edid(struct dw_hdmi *hdmi,
 
 	edid = drm_get_edid(connector, hdmi->ddc);
 	if (!edid) {
-		dev_dbg(hdmi->dev, "failed to get edid\n");
+		dev_info(hdmi->dev, "failed to get edid\n");
 		return NULL;
 	}
 
-	dev_dbg(hdmi->dev, "got edid: width[%d] x height[%d]\n",
+	dev_info(hdmi->dev, "got edid: width[%d] x height[%d]\n",
 		edid->width_cm, edid->height_cm);
 
 	hdmi->sink_is_hdmi = drm_detect_hdmi_monitor(edid);
@@ -2762,7 +2762,7 @@ static int dw_hdmi_bridge_atomic_check(struct drm_bridge *bridge,
 	hdmi->hdmi_data.enc_in_bus_format =
 			bridge_state->input_bus_cfg.format;
 
-	dev_dbg(hdmi->dev, "input format 0x%04x, output format 0x%04x\n",
+	dev_info(hdmi->dev, "input format 0x%04x, output format 0x%04x\n",
 		bridge_state->input_bus_cfg.format,
 		bridge_state->output_bus_cfg.format);
 
@@ -3009,9 +3009,11 @@ static irqreturn_t dw_hdmi_irq(int irq, void *dev_id)
 						 ? connector_status_connected
 						 : connector_status_disconnected;
 
-		dev_dbg(hdmi->dev, "EVENT=%s\n",
+		dev_info(hdmi->dev, "EVENT=%s\n",
 			status == connector_status_connected ?
 			"plugin" : "plugout");
+
+printk("%s %d: %px\n", __func__, __LINE__, hdmi->bridge.dev);
 
 		if (hdmi->bridge.dev) {
 			drm_helper_hpd_irq_event(hdmi->bridge.dev);
@@ -3209,12 +3211,12 @@ struct dw_hdmi *dw_hdmi_probe(struct platform_device *pdev,
 		hdmi->ddc = of_get_i2c_adapter_by_node(ddc_node);
 		of_node_put(ddc_node);
 		if (!hdmi->ddc) {
-			dev_dbg(hdmi->dev, "failed to read ddc node\n");
+			dev_info(hdmi->dev, "failed to read ddc node\n");
 			return ERR_PTR(-EPROBE_DEFER);
 		}
 
 	} else {
-		dev_dbg(hdmi->dev, "no ddc property found\n");
+		dev_info(hdmi->dev, "no ddc property found\n");
 	}
 
 	if (!plat_data->regm) {
