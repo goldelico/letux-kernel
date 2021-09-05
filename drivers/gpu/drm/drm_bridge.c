@@ -1139,6 +1139,7 @@ void drm_bridge_hpd_enable(struct drm_bridge *bridge,
 				      enum drm_connector_status status),
 			   void *data)
 {
+printk("%s %d: %px\n", __func__, __LINE__, cb);
 	if (!(bridge->ops & DRM_BRIDGE_OP_HPD))
 		return;
 
@@ -1199,6 +1200,7 @@ EXPORT_SYMBOL_GPL(drm_bridge_hpd_disable);
 void drm_bridge_hpd_notify(struct drm_bridge *bridge,
 			   enum drm_connector_status status)
 {
+printk("%s %d: %px\n", __func__, __LINE__, bridge->hpd_cb);
 	mutex_lock(&bridge->hpd_mutex);
 	if (bridge->hpd_cb)
 		bridge->hpd_cb(bridge->hpd_data, status);
