@@ -899,6 +899,8 @@ static void hdmi_video_sample(struct dw_hdmi *hdmi)
 	int color_format = 0;
 	u8 val;
 
+printk("%s %d: bus_format = %08x\n", __func__, __LINE__, hdmi->hdmi_data.enc_in_bus_format);
+
 	switch (hdmi->hdmi_data.enc_in_bus_format) {
 	case MEDIA_BUS_FMT_RGB888_1X24:
 		color_format = 0x01;
@@ -947,6 +949,7 @@ static void hdmi_video_sample(struct dw_hdmi *hdmi)
 	val = HDMI_TX_INVID0_INTERNAL_DE_GENERATOR_DISABLE |
 		((color_format << HDMI_TX_INVID0_VIDEO_MAPPING_OFFSET) &
 		HDMI_TX_INVID0_VIDEO_MAPPING_MASK);
+printk("%s %d: HDMI_TX_INVID0 = %08x\n", __func__, __LINE__, val);
 	hdmi_writeb(hdmi, val, HDMI_TX_INVID0);
 
 	/* Enable TX stuffing: When DE is inactive, fix the output data to 0 */
@@ -1100,6 +1103,8 @@ static void hdmi_video_packetize(struct dw_hdmi *hdmi)
 	struct hdmi_data_info *hdmi_data = &hdmi->hdmi_data;
 	u8 val, vp_conf;
 
+printk("%s %d: format=%08x\n", __func__, __LINE__, hdmi->hdmi_data.enc_out_bus_format);
+
 	if (hdmi_bus_fmt_is_rgb(hdmi->hdmi_data.enc_out_bus_format) ||
 	    hdmi_bus_fmt_is_yuv444(hdmi->hdmi_data.enc_out_bus_format) ||
 	    hdmi_bus_fmt_is_yuv420(hdmi->hdmi_data.enc_out_bus_format)) {
@@ -1149,6 +1154,7 @@ static void hdmi_video_packetize(struct dw_hdmi *hdmi)
 		((hdmi_data->pix_repet_factor <<
 		HDMI_VP_PR_CD_DESIRED_PR_FACTOR_OFFSET) &
 		HDMI_VP_PR_CD_DESIRED_PR_FACTOR_MASK);
+printk("%s %d: HDMI_VP_PR_CD=%08x\n", __func__, __LINE__, val);
 	hdmi_writeb(hdmi, val, HDMI_VP_PR_CD);
 
 	hdmi_modb(hdmi, HDMI_VP_STUFF_PR_STUFFING_STUFFING_MODE,
@@ -1710,12 +1716,14 @@ static void hdmi_config_AVI(struct dw_hdmi *hdmi,
 		val |= HDMI_FC_AVICONF0_BAR_DATA_HORIZ_BAR;
 	if (frame.left_bar || frame.right_bar)
 		val |= HDMI_FC_AVICONF0_BAR_DATA_VERT_BAR;
+printk("%s %d: HDMI_FC_AVICONF0=%08x\n", __func__, __LINE__, val);
 	hdmi_writeb(hdmi, val, HDMI_FC_AVICONF0);
 
 	/* AVI data byte 2 differences: none */
 	val = ((frame.colorimetry & 0x3) << 6) |
 	      ((frame.picture_aspect & 0x3) << 4) |
 	      (frame.active_aspect & 0xf);
+printk("%s %d: HDMI_FC_AVICONF1=%08x\n", __func__, __LINE__, val);
 	hdmi_writeb(hdmi, val, HDMI_FC_AVICONF1);
 
 	/* AVI data byte 3 differences: none */
@@ -1724,6 +1732,7 @@ static void hdmi_config_AVI(struct dw_hdmi *hdmi,
 	      (frame.nups & 0x3);
 	if (frame.itc)
 		val |= HDMI_FC_AVICONF2_IT_CONTENT_VALID;
+printk("%s %d: HDMI_FC_AVICONF2=%08x\n", __func__, __LINE__, val);
 	hdmi_writeb(hdmi, val, HDMI_FC_AVICONF2);
 
 	/* AVI data byte 4 differences: none */
@@ -2144,6 +2153,8 @@ static int dw_hdmi_setup(struct dw_hdmi *hdmi,
 	hdmi->hdmi_data.video_mode.mpixelrepetitionoutput = 0;
 	hdmi->hdmi_data.video_mode.mpixelrepetitioninput = 0;
 
+printk("%s %d: enc_in_bus_format=%08x\n", __func__, __LINE__, hdmi->hdmi_data.enc_out_bus_format);
+
 	if (hdmi->hdmi_data.enc_in_bus_format == MEDIA_BUS_FMT_FIXED)
 		hdmi->hdmi_data.enc_in_bus_format = MEDIA_BUS_FMT_RGB888_1X24;
 
@@ -2153,6 +2164,8 @@ static int dw_hdmi_setup(struct dw_hdmi *hdmi,
 			hdmi->plat_data->input_bus_encoding;
 	else
 		hdmi->hdmi_data.enc_in_encoding = V4L2_YCBCR_ENC_DEFAULT;
+
+printk("%s %d: enc_out_bus_format=%08x\n", __func__, __LINE__, hdmi->hdmi_data.enc_out_bus_format);
 
 	if (hdmi->hdmi_data.enc_out_bus_format == MEDIA_BUS_FMT_FIXED)
 		hdmi->hdmi_data.enc_out_bus_format = MEDIA_BUS_FMT_RGB888_1X24;
@@ -2663,6 +2676,9 @@ static u32 *dw_hdmi_bridge_atomic_get_input_bus_fmts(struct drm_bridge *bridge,
 			     GFP_KERNEL);
 	if (!input_fmts)
 		return NULL;
+
+printk("%s %d: %08x\n", __func__, __LINE__, output_fmt);
+dump_stack();
 
 	switch (output_fmt) {
 	/* If MEDIA_BUS_FMT_FIXED is tested, return default bus format */
