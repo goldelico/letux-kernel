@@ -760,7 +760,7 @@ static void ingenic_drm_encoder_atomic_mode_set(struct drm_encoder *encoder,
 				cfg |= JZ_LCD_CFG_MODE_TV_OUT_P;
 		} else {
 
-bridge->bus_cfg.format = MEDIA_BUS_FMT_RGB888_1X24;
+printk("%s %d: use format %08x\n", __func__, __LINE__, bridge->bus_cfg.format);
 
 			switch (bridge->bus_cfg.format) {
 			case MEDIA_BUS_FMT_RGB565_1X16:
