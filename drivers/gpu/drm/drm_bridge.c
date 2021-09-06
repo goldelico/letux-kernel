@@ -769,6 +769,8 @@ static int select_bus_fmt_recursive(struct drm_bridge *first_bridge,
 	u32 *in_bus_fmts;
 	int ret;
 
+printk("%s %d: out_bus_fmt=%08x\n", __func__, __LINE__, out_bus_fmt);
+
 	prev_bridge = drm_bridge_get_prev_bridge(cur_bridge);
 	cur_state = drm_atomic_get_new_bridge_state(crtc_state->state,
 						    cur_bridge);
@@ -780,6 +782,7 @@ static int select_bus_fmt_recursive(struct drm_bridge *first_bridge,
 	 * appropriate default values).
 	 */
 	if (!cur_bridge->funcs->atomic_get_input_bus_fmts) {
+printk("%s %d: !atomic_get_input_bus_fmts\n", __func__, __LINE__);
 		if (cur_bridge != first_bridge) {
 			ret = select_bus_fmt_recursive(first_bridge,
 						       prev_bridge, crtc_state,
@@ -814,12 +817,14 @@ static int select_bus_fmt_recursive(struct drm_bridge *first_bridge,
 							conn_state,
 							out_bus_fmt,
 							&num_in_bus_fmts);
+printk("%s %d: num_in_bus_fmts=%d\n", __func__, __LINE__, num_in_bus_fmts);
 	if (!num_in_bus_fmts)
 		return -ENOTSUPP;
 	else if (!in_bus_fmts)
 		return -ENOMEM;
 
 	if (first_bridge == cur_bridge) {
+printk("%s %d: first_bridge\n", __func__, __LINE__);
 		cur_state->input_bus_cfg.format = in_bus_fmts[0];
 		cur_state->output_bus_cfg.format = out_bus_fmt;
 		kfree(in_bus_fmts);
@@ -835,11 +840,13 @@ static int select_bus_fmt_recursive(struct drm_bridge *first_bridge,
 	}
 
 	if (!ret) {
+printk("%s %d: !ret\n", __func__, __LINE__);
 		cur_state->input_bus_cfg.format = in_bus_fmts[i];
 		cur_state->output_bus_cfg.format = out_bus_fmt;
 	}
 
 	kfree(in_bus_fmts);
+printk("%s %d: ret=%d\n", __func__, __LINE__, ret);
 	return ret;
 }
 
@@ -890,6 +897,8 @@ drm_atomic_bridge_chain_select_bus_fmts(struct drm_bridge *bridge,
 	u32 *out_bus_fmts;
 	int ret = 0;
 
+printk("%s %d\n", __func__, __LINE__);
+
 	last_bridge = list_last_entry(&encoder->bridge_chain,
 				      struct drm_bridge, chain_node);
 	last_bridge_state = drm_atomic_get_new_bridge_state(crtc_state->state,
@@ -935,6 +944,8 @@ drm_atomic_bridge_chain_select_bus_fmts(struct drm_bridge *bridge,
 	}
 
 	kfree(out_bus_fmts);
+
+printk("%s %d\n", __func__, __LINE__);
 
 	return ret;
 }

@@ -1814,15 +1814,18 @@ drm_do_probe_ddc_edid(void *data, u8 *buf, unsigned int block, size_t len)
 			}
 		};
 
+printk("%s %d: retry=%d\n", __func__, __LINE__, retries);
 		/*
 		 * Avoid sending the segment addr to not upset non-compliant
 		 * DDC monitors.
 		 */
 		ret = i2c_transfer(adapter, &msgs[3 - xfers], xfers);
+printk("%s %d: ret=%d\n", __func__, __LINE__, ret);
 
 		if (ret == -ENXIO) {
 			DRM_DEBUG_KMS("drm: skipping non-existent adapter %s\n",
 					adapter->name);
+printk("%s %d: r-ENXIO\n", __func__, __LINE__);
 			break;
 		}
 	} while (ret != xfers && --retries);
@@ -2011,8 +2014,10 @@ struct edid *drm_do_get_edid(struct drm_connector *connector,
 	return (struct edid *)edid;
 
 carp:
+printk("%s %d: carp\n", __func__, __LINE__);
 	connector_bad_edid(connector, edid, 1);
 out:
+printk("%s %d: out\n", __func__, __LINE__);
 	kfree(edid);
 	return NULL;
 }
@@ -2048,11 +2053,15 @@ struct edid *drm_get_edid(struct drm_connector *connector,
 {
 	struct edid *edid;
 
-	if (connector->force == DRM_FORCE_OFF)
+	if (connector->force == DRM_FORCE_OFF) {
+printk("%s %d: DRM_FORCE_OFF\n", __func__, __LINE__);
 		return NULL;
+}
 
-	if (connector->force == DRM_FORCE_UNSPECIFIED && !drm_probe_ddc(adapter))
+	if (connector->force == DRM_FORCE_UNSPECIFIED && !drm_probe_ddc(adapter)) {
+printk("%s %d: !drm_probe_ddc\n", __func__, __LINE__);
 		return NULL;
+}
 
 	edid = drm_do_get_edid(connector, drm_do_probe_ddc_edid, adapter);
 	drm_connector_update_edid_property(connector, edid);

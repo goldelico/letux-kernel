@@ -727,6 +727,8 @@ static void ingenic_drm_encoder_atomic_mode_set(struct drm_encoder *encoder,
 	struct ingenic_drm_bridge *bridge = to_ingenic_drm_bridge(encoder);
 	unsigned int cfg, rgbcfg = 0;
 
+printk("%s %d\n", __func__, __LINE__);
+
 	priv->panel_is_sharp = bridge->bus_cfg.flags & DRM_BUS_FLAG_SHARP_SIGNALS;
 
 	if (priv->panel_is_sharp) {
@@ -804,6 +806,8 @@ static int ingenic_drm_bridge_atomic_check(struct drm_bridge *bridge,
 {
 	struct drm_display_mode *mode = &crtc_state->adjusted_mode;
 	struct ingenic_drm_bridge *ib = to_ingenic_drm_bridge(bridge->encoder);
+
+printk("%s %d: copy format %08x := %08x\n", __func__, __LINE__, ib->bus_cfg.format, bridge_state->output_bus_cfg.format);
 
 	ib->bus_cfg = bridge_state->output_bus_cfg;
 

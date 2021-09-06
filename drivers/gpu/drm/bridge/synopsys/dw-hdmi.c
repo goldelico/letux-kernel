@@ -497,6 +497,8 @@ static int dw_hdmi_i2c_xfer(struct i2c_adapter *adap,
 
 	mutex_unlock(&i2c->lock);
 
+printk("%s %d: ret=%d i=%d\n", __func__, __LINE__, ret, i);
+
 	return ret;
 }
 
@@ -2548,7 +2550,7 @@ static u32 *dw_hdmi_bridge_atomic_get_output_bus_fmts(struct drm_bridge *bridge,
 	u32 *output_fmts;
 	unsigned int i = 0;
 
-printk("%s %d: %08x\n", __func__ , __LINE__, info->color_formats);
+printk("%s %d: color_formats=%08x\n", __func__ , __LINE__, info->color_formats);
 
 	*num_output_fmts = 0;
 
@@ -2561,7 +2563,7 @@ printk("%s %d: %08x\n", __func__ , __LINE__, info->color_formats);
 	if (list_is_singular(&bridge->encoder->bridge_chain)) {
 		*num_output_fmts = 1;
 		output_fmts[0] = MEDIA_BUS_FMT_FIXED;
-printk("%s %d: single format\n", __func__ , __LINE__);
+printk("%s %d: single format A\n", __func__ , __LINE__);
 
 		return output_fmts;
 	}
@@ -2592,7 +2594,7 @@ printk("%s %d: single format\n", __func__ , __LINE__);
 
 		*num_output_fmts = i;
 
-printk("%s %d: single format\n", __func__ , __LINE__);
+printk("%s %d: single format B\n", __func__ , __LINE__);
 
 		return output_fmts;
 	}
@@ -2640,7 +2642,7 @@ printk("%s %d: single format\n", __func__ , __LINE__);
 
 	*num_output_fmts = i;
 
-printk("%s %d: %d output formats\n", __func__ , __LINE__, i);
+printk("%s %d: %d output formats C\n", __func__ , __LINE__, i);
 printk("%s %d: output_fmts[0]=%08x\n", __func__ , __LINE__, output_fmts[0]);
 
 	return output_fmts;
