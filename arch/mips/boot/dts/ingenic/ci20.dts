@@ -540,6 +540,13 @@
 		bias-disable;
 	};
 
+	/* switch to PF25 as gpio driving DDC_SDA low */
+	pins_hdmi_ddc_unwedge: hdmi_ddc {
+		function = "hdmi-ddc";
+		groups = "hdmi-ddc";
+		bias-disable;
+	};
+
 	pins_nemc: nemc {
 		function = "nemc";
 		groups = "nemc-data", "nemc-cle-ale", "nemc-rd-we", "nemc-frd-fwe";
@@ -574,8 +581,9 @@
 &hdmi {
 	status = "okay";
 
-	pinctrl-names = "default";
+	pinctrl-names = "default", "unwedge";
 	pinctrl-0 = <&pins_hdmi_ddc>;
+	pinctrl-1 = <&pins_hdmi_ddc_unwedge>;
 
 	hdmi-5v-supply = <&hdmi_power>;
 
