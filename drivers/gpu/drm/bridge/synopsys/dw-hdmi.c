@@ -2548,6 +2548,8 @@ static u32 *dw_hdmi_bridge_atomic_get_output_bus_fmts(struct drm_bridge *bridge,
 	u32 *output_fmts;
 	unsigned int i = 0;
 
+printk("%s %d: %08x\n", __func__ , __LINE__, info->color_formats);
+
 	*num_output_fmts = 0;
 
 	output_fmts = kcalloc(MAX_OUTPUT_SEL_FORMATS, sizeof(*output_fmts),
@@ -2559,6 +2561,7 @@ static u32 *dw_hdmi_bridge_atomic_get_output_bus_fmts(struct drm_bridge *bridge,
 	if (list_is_singular(&bridge->encoder->bridge_chain)) {
 		*num_output_fmts = 1;
 		output_fmts[0] = MEDIA_BUS_FMT_FIXED;
+printk("%s %d: single format\n", __func__ , __LINE__);
 
 		return output_fmts;
 	}
@@ -2588,6 +2591,8 @@ static u32 *dw_hdmi_bridge_atomic_get_output_bus_fmts(struct drm_bridge *bridge,
 		output_fmts[i++] = MEDIA_BUS_FMT_UYYVYY8_0_5X24;
 
 		*num_output_fmts = i;
+
+printk("%s %d: single format\n", __func__ , __LINE__);
 
 		return output_fmts;
 	}
@@ -2634,6 +2639,9 @@ static u32 *dw_hdmi_bridge_atomic_get_output_bus_fmts(struct drm_bridge *bridge,
 	output_fmts[i++] = MEDIA_BUS_FMT_RGB888_1X24;
 
 	*num_output_fmts = i;
+
+printk("%s %d: %d output formats\n", __func__ , __LINE__, i);
+printk("%s %d: output_fmts[0]=%08x\n", __func__ , __LINE__, output_fmts[0]);
 
 	return output_fmts;
 }
