@@ -78,16 +78,6 @@
 		enable-active-high;
 	};
 
-	hdmi_power: fixedregulator@2 {
-		compatible = "regulator-fixed";
-		regulator-name = "hdmi_power";
-		regulator-min-microvolt = <5000000>;
-		regulator-max-microvolt = <5000000>;
-		gpio = <&gpa 25 GPIO_ACTIVE_LOW>;
-		enable-active-high;
-		regulator-always-on;
-	};
-
 	ir: ir {
 		compatible = "gpio-ir-receiver";
 		gpios = <&gpe 3 GPIO_ACTIVE_LOW>;
@@ -110,6 +100,17 @@
 		regulator-max-microvolt = <5000000>;
 
 		gpio = <&gpf 14 GPIO_ACTIVE_LOW>;
+		enable-active-high;
+	};
+
+	hdmi_power: fixedregulator@3 {
+		compatible = "regulator-fixed";
+
+		regulator-name = "hdmi_power";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+
+		gpio = <&gpa 25 GPIO_ACTIVE_LOW>;
 		enable-active-high;
 	};
 };
@@ -566,6 +567,8 @@
 	pinctrl-names = "default", "unwedge";
 	pinctrl-0 = <&pins_hdmi_ddc>;
 	pinctrl-1 = <&pins_hdmi_ddc_unwedge>;
+
+	hdmi-5v-supply = <&hdmi_power>;
 
 	ports {
 		#address-cells = <1>;
