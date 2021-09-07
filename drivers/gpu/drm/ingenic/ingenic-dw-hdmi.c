@@ -12,6 +12,7 @@
 
 #include <drm/bridge/dw_hdmi.h>
 #include <drm/drm_of.h>
+#include <drm/drm_print.h>
 
 static const struct dw_hdmi_mpll_config ingenic_mpll_cfg[] = {
 	{ 45250000,  { { 0x01e0, 0x0000 }, { 0x21e1, 0x0000 }, { 0x41e2, 0x0000 } } },
@@ -90,12 +91,34 @@ MODULE_DEVICE_TABLE(of, ingenic_dw_hdmi_dt_ids);
 static int ingenic_dw_hdmi_probe(struct platform_device *pdev)
 {
 	struct dw_hdmi *hdmi;
+	struct regulator *regulator;
+	int ret;
 
 	hdmi = dw_hdmi_probe(pdev, &ingenic_dw_hdmi_plat_data);
 	if (IS_ERR(hdmi))
 		return PTR_ERR(hdmi);
 
 	platform_set_drvdata(pdev, hdmi);
+
+// FIXME: allow optional regulator?
+	regulator = devm_regulator_get(&pdev->dev, "hdmi-5v");
+
+printk("%s %d: %px\n", __func__, __LINE__, regulator);
+
+	if (IS_ERR(regulator)) {
+		ret = PTR_ERR(regulator);
+
+		DRM_DEV_ERROR(&pdev->dev, "failed to get hpd regulator: %s (%d)\n",
+				"hdmi-5v", ret);
+		return ret;
+	}
+
+	ret = regulator_enable(regulator);
+	if (ret) {
+		DRM_DEV_ERROR(&pdev->dev, "Failed to enable hpd regulator: %d\n",
+			  ret);
+		return ret;
+	}
 
 	return 0;
 }
