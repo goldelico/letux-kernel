@@ -11,13 +11,19 @@ CONF="arch/${ARCH}/configs/${PLATFORM}_defconfig"
 # ./mkernel will overwrite $CONF from .config and the # auto-generated will be lost!
 (echo "# auto-generated from letux_defconfig"; cat arch/${ARCH}/configs/letux_defconfig) >$CONF
 
-# enable LPAE
-sed -i.bak 's/# CONFIG_ARM_LPAE is not set/CONFIG_ARM_LPAE=y/g' $CONF
+# ARMv6 has no LPAE
+scripts/config --file arch/arm/configs/letux_lpae_defconfig -d ARCH_MULTI_V6
 
 # OMAP3&4 have no LPAE
-sed -i.bak 's/CONFIG_ARCH_OMAP3=y/# CONFIG_ARCH_OMAP3 is not set/g' $CONF
-sed -i.bak 's/CONFIG_ARCH_OMAP4=y/# CONFIG_ARCH_OMAP4 is not set/g' $CONF
-# sed -i.bak 's/CONFIG_ARCH_MXC=y/# CONFIG_ARCH_MXC is not set/g' $CONF
+scripts/config --file arch/arm/configs/letux_lpae_defconfig -d ARCH_OMAP3
+scripts/config --file arch/arm/configs/letux_lpae_defconfig -d ARCH_OMAP4
+# scripts/config --file arch/arm/configs/letux_lpae_defconfig -d ARCH_MXC
+
+# enable LPAE
+scripts/config --file arch/arm/configs/letux_lpae_defconfig -e ARM_LPAE
 
 # configure for 4GB RAM
+# read current and modify
 # sed -i.bak 's/CONFIG_CMDLINE="/CONFIG_CMDLINE="mem=2032M@0x80000000 mem=2048M@0x200000000 /g' $CONF
+NEWVAL=$(scripts/config --file arch/arm/configs/letux_lpae_defconfig -s CMDLINE | sed 's/CONFIG_CMDLINE="/CONFIG_CMDLINE="mem=2032M@0x80000000 mem=2048M@0x200000000 /g')
+# scripts/config --file arch/arm/configs/letux_lpae_defconfig --set-str CMDLINE "$NEWVAL"
