@@ -610,10 +610,6 @@ static int omap_abe_probe(struct platform_device *pdev)
 
 	card->fully_routed = 1;
 
-	card->dai_link = priv->dai_links;
-	card->num_links = num_links;
-
-
 	dai_node = of_parse_phandle(node, "ti,aess", 0);
 
 	if (dai_node) {
