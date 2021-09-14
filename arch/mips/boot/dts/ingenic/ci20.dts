@@ -133,6 +133,17 @@
 		gpio = <&gpa 25 GPIO_ACTIVE_LOW>;
 		enable-active-high;
 	};
+
+	hdmi_power: fixedregulator@3 {
+		compatible = "regulator-fixed";
+
+		regulator-name = "hdmi_power";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+
+		gpio = <&gpa 25 GPIO_ACTIVE_LOW>;
+		enable-active-high;
+	};
 };
 
 &usb_phy {
@@ -647,6 +658,38 @@
 		function = "cim";
 		// groups = "cim-???", "cim-???";
 		bias-disable;
+	};
+};
+
+&hdmi {
+	status = "okay";
+
+	pinctrl-names = "default", "unwedge";
+	pinctrl-0 = <&pins_hdmi_ddc>;
+	pinctrl-1 = <&pins_hdmi_ddc_unwedge>;
+
+	hdmi-5v-supply = <&hdmi_power>;
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			dw_hdmi_in: endpoint {
+				remote-endpoint = <&lcd_out>;
+			};
+		};
+	};
+};
+
+&lcdc0 {
+	status = "okay";
+
+	port {
+		lcd_out: endpoint {
+			remote-endpoint = <&dw_hdmi_in>;
+		};
 	};
 };
 
