@@ -1,5 +1,5 @@
 #
-# Linux/mips 5.10.61 Kernel Configuration
+# Linux/mips 5.10.66 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
@@ -4098,6 +4098,7 @@ CONFIG_STAGING=y
 # CONFIG_LTE_GDM724X is not set
 # CONFIG_GS_FPGABOOT is not set
 # CONFIG_UNISYSSPAR is not set
+# CONFIG_COMMON_CLK_XLNX_CLKWZRD is not set
 # CONFIG_FB_TFT is not set
 # CONFIG_KS7010 is not set
 # CONFIG_PI433 is not set
