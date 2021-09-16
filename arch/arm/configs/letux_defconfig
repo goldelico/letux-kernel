@@ -1,5 +1,5 @@
 #
-# Linux/arm 5.13.13 Kernel Configuration
+# Linux/arm 5.13.18 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabihf-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
@@ -5788,6 +5788,7 @@ CONFIG_ASHMEM=y
 # CONFIG_LTE_GDM724X is not set
 # CONFIG_GS_FPGABOOT is not set
 # CONFIG_UNISYSSPAR is not set
+# CONFIG_COMMON_CLK_XLNX_CLKWZRD is not set
 # CONFIG_FB_TFT is not set
 # CONFIG_KS7010 is not set
 CONFIG_BCM_VIDEOCORE=y
