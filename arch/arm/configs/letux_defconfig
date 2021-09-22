@@ -1,5 +1,5 @@
 #
-# Linux/arm 5.14.6 Kernel Configuration
+# Linux/arm 5.14.7 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabihf-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
@@ -1575,7 +1575,6 @@ CONFIG_PCI_QUIRKS=y
 # PCI controller drivers
 #
 # CONFIG_PCI_FTPCI100 is not set
-# CONFIG_PCI_IXP4XX is not set
 # CONFIG_PCI_HOST_GENERIC is not set
 # CONFIG_PCIE_XILINX is not set
 # CONFIG_PCI_V3_SEMI is not set
