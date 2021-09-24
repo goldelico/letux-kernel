@@ -1255,13 +1255,12 @@ static int ingenic_drm_bind(struct device *dev, bool has_components)
 		ib->next_bridge = bridge;
 
 		ret = drm_bridge_attach(encoder, &ib->bridge, NULL,
-					0);
+					DRM_BRIDGE_ATTACH_NO_CONNECTOR);
 		if (ret) {
 			dev_err(dev, "Unable to attach bridge\n");
 			return ret;
 		}
 
-#if 0
 		connector = drm_bridge_connector_init(drm, encoder);
 		if (IS_ERR(connector)) {
 			dev_err(dev, "Unable to init connector\n");
@@ -1269,7 +1268,6 @@ static int ingenic_drm_bind(struct device *dev, bool has_components)
 		}
 
 		drm_connector_attach_encoder(connector, encoder);
-#endif
 	}
 
 	drm_for_each_encoder(encoder, drm) {
