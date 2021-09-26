@@ -80,6 +80,7 @@ static struct dw_hdmi_plat_data ingenic_dw_hdmi_plat_data = {
 	.mode_valid = ingenic_dw_hdmi_mode_valid,
 	.mode_fixup = ingenic_dw_hdmi_mode_fixup,
 	.timings    = &ingenic_dw_hdmi_timings,
+	.output_port	= 1,
 };
 
 static const struct of_device_id ingenic_dw_hdmi_dt_ids[] = {
