@@ -1555,11 +1555,11 @@ static int ingenic_drm_init(void)
 {
 	int err;
 
-//	if (IS_ENABLED(CONFIG_DRM_INGENIC_DW_HDMI)) {
-//		err = platform_driver_register(ingenic_dw_hdmi_driver_ptr);
-//		if (err)
-//			return err;
-//	}
+	if (IS_ENABLED(CONFIG_DRM_INGENIC_DW_HDMI)) {
+		err = platform_driver_register(ingenic_dw_hdmi_driver_ptr);
+		if (err)
+			return err;
+	}
 
 	if (IS_ENABLED(CONFIG_DRM_INGENIC_IPU)) {
 		err = platform_driver_register(ingenic_ipu_driver_ptr);
@@ -1577,8 +1577,8 @@ err_ipu_unreg:
 	if (IS_ENABLED(CONFIG_DRM_INGENIC_IPU))
 		platform_driver_unregister(ingenic_ipu_driver_ptr);
 err_hdmi_unreg:
-//	if (IS_ENABLED(CONFIG_DRM_INGENIC_DW_HDMI))
-//		platform_driver_unregister(ingenic_dw_hdmi_driver_ptr);
+	if (IS_ENABLED(CONFIG_DRM_INGENIC_DW_HDMI))
+		platform_driver_unregister(ingenic_dw_hdmi_driver_ptr);
 
 	return err;
 }
@@ -1588,8 +1588,8 @@ static void ingenic_drm_exit(void)
 {
 	platform_driver_unregister(&ingenic_drm_driver);
 
-//	if (IS_ENABLED(CONFIG_DRM_INGENIC_DW_HDMI))
-//		platform_driver_unregister(ingenic_dw_hdmi_driver_ptr);
+	if (IS_ENABLED(CONFIG_DRM_INGENIC_DW_HDMI))
+		platform_driver_unregister(ingenic_dw_hdmi_driver_ptr);
 	if (IS_ENABLED(CONFIG_DRM_INGENIC_IPU))
 		platform_driver_unregister(ingenic_ipu_driver_ptr);
 }
