@@ -29,12 +29,14 @@
 #include <linux/of.h>
 #include <linux/of_graph.h>
 #include <sound/omap-hdmi-audio.h>
+#include <media/cec.h>
 
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_state_helper.h>
 
 #include "omapdss.h"
 #include "hdmi5_core.h"
+#include "hdmi5_cec.h"
 #include "dss.h"
 
 static int hdmi_runtime_get(struct omap_hdmi *hdmi)
@@ -104,6 +106,10 @@ static irqreturn_t hdmi_irq_handler(int irq, void *data)
 	} else if (irqstatus & HDMI_IRQ_LINK_DISCONNECT) {
 		hdmi_wp_set_phy_pwr(wp, HDMI_PHYPWRCMD_LDOON);
 	}
+	if (irqstatus & HDMI_IRQ_CORE) {
+		hdmi5_cec_irq(&hdmi->core);
+		hdmi5_core_handle_irqs(&hdmi->core);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -112,9 +118,12 @@ static int hdmi_power_on_core(struct omap_hdmi *hdmi)
 {
 	int r;
 
+	if (hdmi->core.core_pwr_cnt++)
+		return 0;
+
 	r = regulator_enable(hdmi->vdda_reg);
 	if (r)
-		return r;
+		goto err_reg_enable;
 
 	r = hdmi_runtime_get(hdmi);
 	if (r)
@@ -129,12 +138,17 @@ static int hdmi_power_on_core(struct omap_hdmi *hdmi)
 
 err_runtime_get:
 	regulator_disable(hdmi->vdda_reg);
+err_reg_enable:
+	hdmi->core.core_pwr_cnt--;
 
 	return r;
 }
 
 static void hdmi_power_off_core(struct omap_hdmi *hdmi)
 {
+	if (--hdmi->core.core_pwr_cnt)
+		return;
+
 	hdmi->core_enabled = false;
 
 	hdmi_runtime_put(hdmi);
@@ -168,7 +182,7 @@ static int hdmi_power_on_full(struct omap_hdmi *hdmi)
 		pc, &hdmi_cinfo);
 
 	/* disable and clear irqs */
-	hdmi_wp_clear_irqenable(&hdmi->wp, 0xffffffff);
+	hdmi_wp_clear_irqenable(&hdmi->wp, ~HDMI_IRQ_CORE);
 	hdmi_wp_set_irqstatus(&hdmi->wp,
 			hdmi_wp_get_irqstatus(&hdmi->wp));
 
@@ -225,7 +239,7 @@ err_pll_enable:
 
 static void hdmi_power_off_full(struct omap_hdmi *hdmi)
 {
-	hdmi_wp_clear_irqenable(&hdmi->wp, 0xffffffff);
+	hdmi_wp_clear_irqenable(&hdmi->wp, ~HDMI_IRQ_CORE);
 
 	hdmi_wp_video_stop(&hdmi->wp);
 
@@ -273,11 +287,11 @@ static void hdmi_stop_audio_stream(struct omap_hdmi *hd)
 	REG_FLD_MOD(hd->wp.base, HDMI_WP_SYSCONFIG, hd->wp_idlemode, 3, 2);
 }
 
-static int hdmi_core_enable(struct omap_hdmi *hdmi)
+int hdmi5_core_enable(struct omap_hdmi *hdmi)
 {
 	int r = 0;
 
-	DSSDBG("ENTER omapdss_hdmi_core_enable\n");
+	DSSDBG("ENTER %s\n", __func__);
 
 	mutex_lock(&hdmi->lock);
 
@@ -295,9 +309,9 @@ err0:
 	return r;
 }
 
-static void hdmi_core_disable(struct omap_hdmi *hdmi)
+void hdmi5_core_disable(struct omap_hdmi *hdmi)
 {
-	DSSDBG("Enter omapdss_hdmi_core_disable\n");
+	DSSDBG("ENTER %s\n", __func__);
 
 	mutex_lock(&hdmi->lock);
 
@@ -424,6 +438,15 @@ static void hdmi5_bridge_disable(struct drm_bridge *bridge,
 	mutex_unlock(&hdmi->lock);
 }
 
+static void hdmi5_bridge_hpd_notify(struct drm_bridge *bridge,
+				    enum drm_connector_status status)
+{
+	struct omap_hdmi *hdmi = drm_bridge_to_hdmi(bridge);
+
+	if (status == connector_status_disconnected)
+		hdmi5_cec_set_phys_addr(&hdmi->core, NULL);
+}
+
 static struct edid *hdmi5_bridge_get_edid(struct drm_bridge *bridge,
 					  struct drm_connector *connector)
 {
@@ -436,7 +459,7 @@ static struct edid *hdmi5_bridge_get_edid(struct drm_bridge *bridge,
 	need_enable = hdmi->core_enabled == false;
 
 	if (need_enable) {
-		r = hdmi_core_enable(hdmi);
+		r = hdmi5_core_enable(hdmi);
 		if (r)
 			return NULL;
 	}
@@ -460,10 +483,27 @@ static struct edid *hdmi5_bridge_get_edid(struct drm_bridge *bridge,
 	hdmi_runtime_put(hdmi);
 	mutex_unlock(&hdmi->lock);
 
+	hdmi5_cec_set_phys_addr(&hdmi->core, edid);
+
 	if (need_enable)
-		hdmi_core_disable(hdmi);
+		hdmi5_core_disable(hdmi);
 
 	return (struct edid *)edid;
+}
+
+static int hdmi5_bridge_cec_init(struct drm_bridge *bridge,
+				 struct drm_connector *conn)
+{
+	struct omap_hdmi *hdmi = drm_bridge_to_hdmi(bridge);
+
+	return hdmi5_cec_init(hdmi->pdev, &hdmi->core, &hdmi->wp, conn);
+}
+
+static void hdmi5_bridge_cec_exit(struct drm_bridge *bridge)
+{
+	struct omap_hdmi *hdmi = drm_bridge_to_hdmi(bridge);
+
+	hdmi5_cec_uninit(&hdmi->core);
 }
 
 static const struct drm_bridge_funcs hdmi5_bridge_funcs = {
@@ -474,14 +514,17 @@ static const struct drm_bridge_funcs hdmi5_bridge_funcs = {
 	.atomic_reset = drm_atomic_helper_bridge_reset,
 	.atomic_enable = hdmi5_bridge_enable,
 	.atomic_disable = hdmi5_bridge_disable,
+	.hpd_notify = hdmi5_bridge_hpd_notify,
 	.get_edid = hdmi5_bridge_get_edid,
+	.cec_init = hdmi5_bridge_cec_init,
+	.cec_exit = hdmi5_bridge_cec_exit,
 };
 
 static void hdmi5_bridge_init(struct omap_hdmi *hdmi)
 {
 	hdmi->bridge.funcs = &hdmi5_bridge_funcs;
 	hdmi->bridge.of_node = hdmi->pdev->dev.of_node;
-	hdmi->bridge.ops = DRM_BRIDGE_OP_EDID;
+	hdmi->bridge.ops = DRM_BRIDGE_OP_EDID | DRM_BRIDGE_OP_CEC;
 	hdmi->bridge.type = DRM_MODE_CONNECTOR_HDMIA;
 
 	drm_bridge_add(&hdmi->bridge);
