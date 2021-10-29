@@ -856,9 +856,9 @@ static void ads7846_report_state(struct ads7846 *ts)
 				x, y, Rt);
 
 		/* scale ADC values to desired output range */
-		sx = (ts->prop.max_x * (x - ts->x_min))
+		sx = ((int)ts->prop.max_x * (x - ts->x_min))
 			/ (ts->x_max - ts->x_min);
-		sy = (ts->prop.max_y * (y - ts->y_min))
+		sy = ((int)ts->prop.max_y * (y - ts->y_min))
 			/ (ts->y_max - ts->y_min);
 
 		dev_dbg(&ts->spi->dev,
