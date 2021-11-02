@@ -1,5 +1,5 @@
 #
-# Linux/arm 4.9.287 Kernel Configuration
+# Linux/arm 4.9.288 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_ARM_HAS_SG_CHAIN=y
@@ -167,6 +167,7 @@ CONFIG_BUG=y
 # CONFIG_ELF_CORE is not set
 CONFIG_BASE_FULL=y
 CONFIG_FUTEX=y
+CONFIG_HAVE_FUTEX_CMPXCHG=y
 CONFIG_EPOLL=y
 CONFIG_SIGNALFD=y
 CONFIG_TIMERFD=y
