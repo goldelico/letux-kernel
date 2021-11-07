@@ -179,7 +179,7 @@ static bool ingenic_drm_writeable_reg(struct device *dev, unsigned int reg)
 	}
 }
 
-static const struct regmap_config ingenic_drm_regmap_config = {
+static struct regmap_config ingenic_drm_regmap_config = {
 	.reg_bits = 32,
 	.val_bits = 32,
 	.reg_stride = 4,
@@ -695,8 +695,10 @@ static void ingenic_drm_plane_atomic_update(struct drm_plane *plane,
 				hwdesc->cpos |= JZ_LCD_CPOS_BPP_18_24;
 				break;
 			}
-			hwdesc->cpos |= (JZ_LCD_CPOS_COEFFICIENT_1 <<
-					 JZ_LCD_CPOS_COEFFICIENT_OFFSET);
+			hwdesc->cpos |= JZ_LCD_CPOS_PREMULTIPLY_LCD |
+					    (JZ_LCD_CPOS_COEFFICIENT_1_ALPHA1 <<
+					     JZ_LCD_CPOS_COEFFICIENT_OFFSET);
+
 			hwdesc->dessize =
 				(0xff << JZ_LCD_DESSIZE_ALPHA_OFFSET) |
 				FIELD_PREP(JZ_LCD_DESSIZE_HEIGHT_MASK, height - 1) |
@@ -1581,7 +1583,6 @@ static struct platform_driver ingenic_drm_driver = {
 static int ingenic_drm_init(void)
 {
 	int err;
-
 	if (IS_ENABLED(CONFIG_DRM_INGENIC_IPU)) {
 		err = platform_driver_register(ingenic_ipu_driver_ptr);
 		if (err)
