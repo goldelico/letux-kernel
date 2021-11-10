@@ -691,10 +691,8 @@ static void ingenic_drm_plane_atomic_update(struct drm_plane *plane,
 				hwdesc->cpos |= JZ_LCD_CPOS_BPP_18_24;
 				break;
 			}
-			hwdesc->cpos |= JZ_LCD_CPOS_PREMULTIPLY_LCD |
-					    (JZ_LCD_CPOS_COEFFICIENT_1_ALPHA1 <<
-					     JZ_LCD_CPOS_COEFFICIENT_OFFSET);
-
+			hwdesc->cpos |= (JZ_LCD_CPOS_COEFFICIENT_1 <<
+					 JZ_LCD_CPOS_COEFFICIENT_OFFSET);
 			hwdesc->dessize =
 				(0xff << JZ_LCD_DESSIZE_ALPHA_OFFSET) |
 				FIELD_PREP(JZ_LCD_DESSIZE_HEIGHT_MASK, height - 1) |
