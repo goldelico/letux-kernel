@@ -59,11 +59,15 @@ extern "C" {
 */
 #define	ALIGNSIZE(size, alignshift)	(((size) + ((1UL << (alignshift))-1)) & ~((1UL << (alignshift))-1))
 
+#include <linux/version.h>
+
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,5,0))
 #ifndef MAX
 #define MAX(a,b) 					(((a) > (b)) ? (a) : (b))
 #endif
 #ifndef MIN
 #define MIN(a,b) 					(((a) < (b)) ? (a) : (b))
+#endif
 #endif
 
 /*
