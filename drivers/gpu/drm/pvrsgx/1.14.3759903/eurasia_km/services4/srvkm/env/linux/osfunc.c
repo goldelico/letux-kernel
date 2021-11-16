@@ -4194,8 +4194,6 @@ IMG_BOOL CheckExecuteCacheOp(IMG_HANDLE hOSMemHandle,
 	IMG_VOID *pvPhysRangeStart = pvVirtRangeStart;
 #endif
 
-printk("%s\n", __func__);
-
 	PVR_ASSERT(psLinuxMemArea != IMG_NULL);
 
 	LinuxLockMutexNested(&g_sMMapMutex, PVRSRV_LOCK_CLASS_MMAP);
@@ -4220,14 +4218,10 @@ printk("%s\n", __func__);
 	/* Recursion surely isn't possible? */
 	PVR_ASSERT(psLinuxMemArea->eAreaType != LINUX_MEM_AREA_SUB_ALLOC);
 
-printk("%s 1\n", __func__);
-
 	switch(psLinuxMemArea->eAreaType)
 	{
 		case LINUX_MEM_AREA_VMALLOC:
 		{
-printk("%s 2\n", __func__);
-
 			if(is_vmalloc_addr(pvVirtRangeStart))
 			{
 				pvMinVAddr = psLinuxMemArea->uData.sVmalloc.pvVmallocAddress + uiAreaOffset;
@@ -4266,8 +4260,6 @@ printk("%s 2\n", __func__);
 
 		case LINUX_MEM_AREA_EXTERNAL_KV:
 		{
-printk("%s 3\n", __func__);
-
 			/* We'll only see bPhysContig for frame buffers, and we shouldn't
 			 * be flushing those (they're write combined or uncached).
 			 */
@@ -4296,8 +4288,6 @@ printk("%s 3\n", __func__);
 
 		case LINUX_MEM_AREA_ALLOC_PAGES:
 		{
-printk("%s 4\n", __func__);
-
 			pvMinVAddr = FindMMapBaseVAddr(psMMapOffsetStructList,
 			                               pvVirtRangeStart, uiLength);
 			if(!pvMinVAddr)
@@ -4307,34 +4297,21 @@ printk("%s 4\n", __func__);
 		}
 
 		default:
-printk("%s 5\n", __func__);
-
 			PVR_DBG_BREAK;
 			goto err_blocked;
 	}
 
-printk("%s 6\n", __func__);
-
 #if defined(USE_PHYSICAL_CACHE_OP)
-
-printk("%s 7\n", __func__);
-
 	switch(psLinuxMemArea->eAreaType)
 	{
 		case LINUX_MEM_AREA_VMALLOC:
 		{
-
-printk("%s 8\n", __func__);
-
 			pfnMemAreaToPhys = VMallocAreaToPhys;
 			break;
 		}
 
 		case LINUX_MEM_AREA_EXTERNAL_KV:
 		{
-
-printk("%s 9\n", __func__);
-
 			uPageNumOffset = ((uiAreaOffset & PAGE_MASK) + (pvPhysRangeStart - pvMinVAddr)) >> PAGE_SHIFT;
 			pfnMemAreaToPhys = ExternalKVAreaToPhys;
 			break;
@@ -4342,9 +4319,6 @@ printk("%s 9\n", __func__);
 
 		case LINUX_MEM_AREA_ALLOC_PAGES:
 		{
-
-printk("%s 10\n", __func__);
-
 			uPageNumOffset = ((uiAreaOffset & PAGE_MASK) + (pvPhysRangeStart - pvMinVAddr)) >> PAGE_SHIFT;
 
 			if (psLinuxMemArea->hBMHandle)
@@ -4356,17 +4330,11 @@ printk("%s 10\n", __func__);
 		}
 
 		default:
-
-printk("%s 11\n", __func__);
-
 			PVR_DBG_BREAK;
 	}
 #endif
 
 #if defined(USE_VIRTUAL_CACHE_OP)
-
-printk("%s 12\n", __func__);
-
 	DoVirtualCacheOp(hOSMemHandle,
 	                 ui32ByteOffset,
 	                 pvVirtRangeStart,
@@ -4376,12 +4344,7 @@ printk("%s 12\n", __func__);
 
 	LinuxUnLockMutex(&g_sMMapMutex);
 
-printk("%s 13\n", __func__);
-
 #if defined(USE_PHYSICAL_CACHE_OP)
-
-printk("%s 14\n", __func__);
-
 	PVR_ASSERT(pfnMemAreaToPhys != IMG_NULL);
 
 	DoPhysicalCacheOp(psLinuxMemArea,
@@ -4392,22 +4355,14 @@ printk("%s 14\n", __func__);
 	                  pfnPhysicalCacheOp);
 #endif
 
-printk("%s 15\n", __func__);
-
 	return IMG_TRUE;
 
 err_blocked:
-
-printk("%s 16\n", __func__);
-
 	PVR_DPF((PVR_DBG_WARNING, "%s: Blocked cache op on virtual range "
 							  "%p-%p (type %d)", __func__,
 			 pvVirtRangeStart, pvVirtRangeStart + uiLength,
 			 psLinuxMemArea->eAreaType));
 	LinuxUnLockMutex(&g_sMMapMutex);
-
-printk("%s 17\n", __func__);
-
 	return IMG_FALSE;
 }
 
