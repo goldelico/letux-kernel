@@ -717,7 +717,7 @@ struct btrtl_device_info *btrtl_initialize(struct hci_dev *hdev,
 	lmp_subver = le16_to_cpu(resp->lmp_subver);
 
 	btrtl_dev->ic_info = btrtl_match_ic(lmp_subver, hci_rev, hci_ver,
-					    hdev->bus);
+					    hdev->bus, 0 /* chip type? */);
 
 	if (!btrtl_dev->ic_info)
 		btrtl_dev->drop_fw = true;
@@ -760,7 +760,7 @@ struct btrtl_device_info *btrtl_initialize(struct hci_dev *hdev,
 		lmp_subver = le16_to_cpu(resp->lmp_subver);
 
 		btrtl_dev->ic_info = btrtl_match_ic(lmp_subver, hci_rev, hci_ver,
-						    hdev->bus);
+						    hdev->bus, 0 /* chip type? */);
 	}
 out_free:
 	kfree_skb(skb);
