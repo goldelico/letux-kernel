@@ -863,15 +863,6 @@ static int h5_serdev_probe(struct serdev_device *serdev)
 	if (IS_ERR(h5->device_wake_gpio))
 		return PTR_ERR(h5->device_wake_gpio);
 
-	err = hci_uart_register_device(&h5->serdev_hu, &h5p);
-	if (err)
-		return err;
-
-	if (data->driver_info & H5_INFO_WAKEUP_DISABLE)
-		set_bit(H5_WAKEUP_DISABLE, &h5->flags);
-
-	return 0;
-
 	h5->reset_gpio = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(h5->reset_gpio))
 		return PTR_ERR(h5->reset_gpio);
