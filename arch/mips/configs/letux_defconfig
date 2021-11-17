@@ -1,5 +1,5 @@
 #
-# Linux/mips 5.14.0-rc3 Kernel Configuration
+# Linux/mips 5.15.0 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -21,7 +21,8 @@ CONFIG_BUILDTIME_TABLE_SORT=y
 CONFIG_BROKEN_ON_SMP=y
 CONFIG_INIT_ENV_ARG_LIMIT=32
 # CONFIG_COMPILE_TEST is not set
-CONFIG_LOCALVERSION="-letux-mips"
+# CONFIG_WERROR is not set
+CONFIG_LOCALVERSION="-letux-ci20"
 # CONFIG_LOCALVERSION_AUTO is not set
 CONFIG_BUILD_SALT=""
 CONFIG_HAVE_KERNEL_GZIP=y
@@ -423,24 +424,6 @@ CONFIG_MIPS_EXTERNAL_TIMER=y
 # CONFIG_CPU_IDLE is not set
 # end of CPU Idle
 # end of CPU Power Management
-
-#
-# Firmware Drivers
-#
-
-#
-# ARM System Control and Management Interface Protocol
-#
-# end of ARM System Control and Management Interface Protocol
-
-# CONFIG_FIRMWARE_MEMMAP is not set
-# CONFIG_GOOGLE_FIRMWARE is not set
-
-#
-# Tegra firmware driver
-#
-# end of Tegra firmware driver
-# end of Firmware Drivers
 
 CONFIG_HAVE_KVM=y
 # CONFIG_VIRTUALIZATION is not set
@@ -944,12 +927,30 @@ CONFIG_DMA_SHARED_BUFFER=y
 # CONFIG_BRCMSTB_GISB_ARB is not set
 # CONFIG_MOXTET is not set
 # CONFIG_MIPS_CDMM is not set
-# CONFIG_SIMPLE_PM_BUS is not set
 # CONFIG_MHI_BUS is not set
 # end of Bus devices
 
 CONFIG_CONNECTOR=y
 CONFIG_PROC_EVENTS=y
+
+#
+# Firmware Drivers
+#
+
+#
+# ARM System Control and Management Interface Protocol
+#
+# end of ARM System Control and Management Interface Protocol
+
+# CONFIG_FIRMWARE_MEMMAP is not set
+# CONFIG_GOOGLE_FIRMWARE is not set
+
+#
+# Tegra firmware driver
+#
+# end of Tegra firmware driver
+# end of Firmware Drivers
+
 # CONFIG_GNSS is not set
 CONFIG_MTD=y
 # CONFIG_MTD_TESTS is not set
@@ -3014,8 +3015,8 @@ CONFIG_DRM_PANEL_SIMPLE=m
 # CONFIG_DRM_PANEL_TPO_TD028TTEC1 is not set
 # CONFIG_DRM_PANEL_TPO_TD043MTEA1 is not set
 # CONFIG_DRM_PANEL_TPO_TPG110 is not set
-# CONFIG_DRM_PANEL_XINPENG_XPP055C272 is not set
 # CONFIG_DRM_PANEL_WIDECHIPS_WS2401 is not set
+# CONFIG_DRM_PANEL_XINPENG_XPP055C272 is not set
 # end of Display Panels
 
 CONFIG_DRM_BRIDGE=y
@@ -3130,7 +3131,6 @@ CONFIG_FB_TILEBLITTING=y
 # CONFIG_FB_METRONOME is not set
 # CONFIG_FB_SIMPLE is not set
 # CONFIG_FB_SSD1307 is not set
-# CONFIG_FB_MXC is not set
 # end of Frame buffer Devices
 
 #
@@ -4872,7 +4872,7 @@ CONFIG_INGENIC_TCU_IRQ=y
 
 # CONFIG_IPACK_BUS is not set
 CONFIG_RESET_CONTROLLER=y
-# CONFIG_RESET_MCHP_SPARX5 is not set
+# CONFIG_RESET_PISTACHIO is not set
 # CONFIG_RESET_TI_SYSCON is not set
 
 #
@@ -4918,7 +4918,6 @@ CONFIG_ANDROID=y
 CONFIG_NVMEM=y
 CONFIG_NVMEM_SYSFS=y
 CONFIG_JZ4780_EFUSE=m
-# CONFIG_NVMEM_NINTENDO_OTP is not set
 # CONFIG_NVMEM_RMEM is not set
 
 #
@@ -5497,7 +5496,6 @@ CONFIG_FONT_8x16=y
 # CONFIG_FONT_6x8 is not set
 CONFIG_SG_POOL=y
 CONFIG_SBITMAP=y
-# CONFIG_STRING_SELFTEST is not set
 # end of Library routines
 
 CONFIG_GENERIC_LIB_ASHLDI3=y
